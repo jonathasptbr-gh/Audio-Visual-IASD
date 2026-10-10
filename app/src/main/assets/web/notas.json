@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.12.24",
+    "itens": [
+      "Editor de mídia: o fade de entrada e o de saída agora duram o dobro do fade comum."
+    ]
+  },
+  {
     "versao": "1.12.23",
     "itens": [
       "Item editado: o fim do corte não aparece mais no Registro como pausa inesperada do telão.",

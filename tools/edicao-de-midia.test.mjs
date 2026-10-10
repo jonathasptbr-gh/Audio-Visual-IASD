@@ -5,8 +5,8 @@
 //       é SEGURADO enquanto o item existir (e só então coletado), e o que não
 //       tem como ser editado é recusado;
 //   B · o PALCO: o recorte começa em `inicio`, acaba em `fim` com o `ended`
-//       (que avança a fila), o tempo reportado é o do TRECHO, e os fades de
-//       entrada e saída são marcas do item sobre a duração que a tela já tem;
+//       (que avança a fila), o tempo reportado é o do TRECHO, e as marcas de
+//       fade de entrada e saída DOBRAM o fade da tela na ponta que nomeiam (v1.12.24);
 //   C · a JANELA (v1.12.1): seletor em grupos, faixa de duas pontas, rascunho que
 //       PERSISTE (inclusive depois de criar), importar arquivo só para o editor, e o
 //       tile também no Modo Fácil. v1.12.6: o fecho é "Confirmar" + os quadrados dos
@@ -176,7 +176,8 @@ checar(Math.abs(sk.c - 1.5) < 0.1 && Math.abs(sk.t - 0.5) < 0.1,
   'B · `seek(t)` é em tempo do TRECHO (0,5 → 1,5 s do arquivo)', JSON.stringify(sk));
 
 // B3 · os fades do item, com os fades da tela DESLIGADOS: a marca basta, e a
-// duração é a que a tela já tem (1 s).
+// duração é o DOBRO da que a tela tem (0,5 s → 1 s; v1.12.24).
+await pg.evaluate(() => window.__stage.setFade({ fadeIn: false, fadeOut: false, time: 0.5 }));
 const idFade = await criar({ inicio: 0, fim: 4, fadeEntrada: true, fadeSaida: true });
 await pg.evaluate((id) => {
   window.__vol = [];
@@ -195,6 +196,7 @@ checar(meio.length && meio.every((v) => v > 0.95),
   'B · e no meio do trecho o volume está cheio', JSON.stringify(meio.slice(0, 6)));
 checar(saida.length && Math.min(...saida) < 0.7,
   'B · fade de SAÍDA do item: o som desce antes do corte (acaba mudo, não cortado no talo)', JSON.stringify(saida.slice(0, 8)));
+await pg.evaluate(() => window.__stage.setFade({ fadeIn: false, fadeOut: false, time: 1 }));
 
 // B4 · sem a marca e sem fade na tela, nada esmaece (o item não vaza para os outros).
 // O item anterior ainda está acabando (a rampa de saída dele): esperar o fim, ou
@@ -224,6 +226,115 @@ const finsReal = await pg.evaluate(() => ({ n: window.__fins.length, em: window.
 checar(parou === true && finsReal.n === 1,
   'B · com os fades reais da tela (0,6 s) e sem a marca de saída, o corte dá UM `ended` só — não um por `timeupdate` durante o fade',
   porque(parou) || JSON.stringify(finsReal));
+
+// B6 · AS MARCAS DOBRAM O FADE (v1.12.24), medidas com o `FADE` REAL do app (entrada e saída
+// ligadas, 0,6 s). Pedido do operador: *"o fade de entrada quanto o de saída do editor, serem o
+// dobro do tempo do fade comum"*. Mede-se a RAMPA ao longo do tempo — volume e opacidade do
+// `<video>` — com e sem a marca, nas duas pontas: a entrada dura 1,2 s em vez de 0,6, e a saída
+// marcada dura 1,2 s e TERMINA no corte (começa em `fim − 1,2`), enquanto a comum começa NO corte.
+const FADE_REAL = await pg.evaluate(() => {
+  const F = window.createStage.FADE;
+  window.__stage.setFade({ fadeIn: F.in, fadeOut: F.out, time: F.time });
+  return F;
+});
+checar(FADE_REAL.in === true && FADE_REAL.out === true && FADE_REAL.time === 0.6,
+  'B6 · premissa: o `FADE` fixo do app é entrada e saída ligadas, 0,6 s', JSON.stringify(FADE_REAL));
+// Toca o item e amostra [relógio s, currentTime, volume, opacidade] a cada 15 ms até o palco parar
+// (e 300 ms depois, para o último degrau da rampa).
+const amostrar = (id, extra) => pg.evaluate(async ([id, extra]) => {
+  const v = window.__v;
+  const st = window.__stage;
+  if (!st.hasEnded()) {
+    await new Promise((r) => { const t = setInterval(() => { if (st.hasEnded() || !st.getCurrent()) { clearInterval(t); r(); } }, 20); setTimeout(() => { clearInterval(t); r(); }, 12000); });
+  }
+  v.volume = 0;
+  window.__vs = [];
+  if (!window.__wrapped) { window.__wrapped = 1;
+    const d = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'volume');
+    Object.defineProperty(v, 'volume', { get() { return d.get.call(this); }, set(x) {
+      window.__vs.push([performance.now().toFixed(0), x, (new Error().stack || '').split('\n').slice(2, 4).join(' | ')]); d.set.call(this, x); } });
+  }
+  const am = [];
+  const t0 = performance.now();
+  const timer = setInterval(() => am.push([(performance.now() - t0) / 1000, v.currentTime,
+    // Escondido, o `<video>` não é visto e a opacidade dele não diz nada (um `clearFadeStyle` sobre o
+    // elemento oculto lê 1): fica de fora da conta.
+    v.volume, v.hidden ? NaN : parseFloat(getComputedStyle(v).opacity)]), 15);
+  // O `load` resolve depois da entrada (o `ended` do item anterior só cai DENTRO dele).
+  await st.handle(Object.assign({ type: 'load', mediaId: id, view: 'visual', muted: false, volume: 1 }, extra || {}));
+  await new Promise((r) => {
+    const fim = setTimeout(r, 14000);
+    const t = setInterval(() => {
+      if (st.hasEnded() && v.paused) { clearInterval(t); clearTimeout(fim); setTimeout(r, 300); }
+    }, 20);
+  });
+  clearInterval(timer);
+  return am;
+}, [id, extra || null]);
+// A SUBIDA: do último quadro ainda no zero ao primeiro já cheio (relógio, s).
+const subida = (am, col) => {
+  const k = am.findIndex((a) => a[col] >= 0.98);
+  if (k < 0) return null;
+  let j = -1;
+  for (let i = 0; i < k; i++) if (am[i][col] <= 0.02) j = i;
+  return j < 0 ? null : +(am[k][0] - am[j][0]).toFixed(3);
+};
+// A DESCIDA: depois de cheio, o primeiro quadro abaixo de 0,97 e o primeiro em ≤ 0,1 (o último
+// degrau da rampa: no fim natural o `applyMedia` devolve o volume ao alvo com o `<video>` já parado,
+// e esse 0 final pode nunca ser amostrado).
+const descida = (am, col) => {
+  const k = am.findIndex((a) => a[col] >= 0.98);
+  const a = am.findIndex((x, i) => i > k && x[col] < 0.97);
+  const b = am.findIndex((x, i) => i > a && x[col] <= 0.1);
+  if (k < 0 || a < 0 || b < 0) return null;
+  // `acaba` é a posição MAIS ALTA até o zero: o fim natural rebobina o `<video>` para o `inicio`.
+  const acaba = Math.max(...am.slice(0, b + 1).map((x) => x[1]));
+  return { dur: +(am[b][0] - am[a][0]).toFixed(3), comeca: +am[a][1].toFixed(3), acaba: +acaba.toFixed(3) };
+};
+const idDobro = await pg.evaluate(async (s) => (await window.AVDB.addEdicao(
+  { origem: s.vid, inicio: 0, fim: 5, fadeEntrada: true, fadeSaida: true }, 'avulsos')).id, semeado);
+const idComum = await pg.evaluate(async (s) => (await window.AVDB.addEdicao(
+  { origem: s.vid, inicio: 0, fim: 5 }, 'avulsos')).id, semeado);
+const amD = await amostrar(idDobro);
+const amC = await amostrar(idComum);
+const sobeD = subida(amD, 2), sobeC = subida(amC, 2);
+const opD = subida(amD, 3), opC = subida(amC, 3);
+const desceD = descida(amD, 2), desceC = descida(amC, 2);
+const opDesceD = descida(amD, 3);
+checar(sobeC != null && sobeC >= 0.45 && sobeC <= 0.85,
+  'B6 · SEM marca, a entrada do som é o fade comum (~0,6 s)', JSON.stringify({ sobeC }));
+checar(sobeD != null && sobeD >= 1.0 && sobeD <= 1.5,
+  'B6 · COM a marca "Fade de entrada", o som sobe no DOBRO (~1,2 s)', JSON.stringify({ sobeD, sobeC }));
+checar(opC != null && opC <= 0.75 && opD != null && opD >= 0.85 && opD <= 1.5,
+  'B6 · e a imagem também: a opacidade entra no comum sem a marca e no dobro com ela', JSON.stringify({ opC, opD }));
+checar(desceC != null && desceC.comeca >= 4.85 && desceC.dur >= 0.4 && desceC.dur <= 0.85,
+  'B6 · SEM marca, a saída é o fade comum (~0,6 s) e começa NO corte (5 s)', JSON.stringify(desceC));
+checar(desceD != null && desceD.dur >= 1.0 && desceD.dur <= 1.45,
+  'B6 · COM a marca "Fade de saída", o som desce no DOBRO (~1,2 s)', JSON.stringify(desceD));
+checar(desceD != null && desceD.comeca >= 3.65 && desceD.comeca <= 3.95 && desceD.acaba >= 4.85 && desceD.acaba <= 5.15,
+  'B6 · e a saída marcada TERMINA no corte: começa em fim − 1,2 s (3,8) e chega ao zero no fim (5 s)', JSON.stringify(desceD));
+checar(opDesceD != null && opDesceD.comeca >= 3.65 && opDesceD.comeca <= 3.95 && opDesceD.acaba <= 5.15,
+  'B6 · a imagem desce junto, na mesma janela', JSON.stringify(opDesceD));
+
+// B7 · TRECHO CURTO (1,6 s com as duas marcas): cada ponta fica na METADE do trecho (0,8 s), e o
+// som chega CHEIO antes de começar a descer — sem o limite, a entrada de 1,2 s e a saída de 1,2 s
+// se encavalariam e o item nunca tocaria no volume dele.
+const idCurto = await pg.evaluate(async (s) => (await window.AVDB.addEdicao(
+  { origem: s.vid, inicio: 0, fim: 1.6, fadeEntrada: true, fadeSaida: true }, 'avulsos')).id, semeado);
+const amK = await amostrar(idCurto);
+const sobeK = subida(amK, 2), desceK = descida(amK, 2);
+checar(sobeK != null && sobeK >= 0.65 && sobeK <= 1.0 && desceK != null && desceK.comeca >= 0.7,
+  'B7 · trecho curto: a entrada dura a metade do trecho (~0,8 s), chega ao volume cheio, e só então a saída começa',
+  JSON.stringify({ sobeK, desceK }));
+
+// B8 · RETOMADA NO MEIO (a reconexão do telão: `load` com `time`): a entrada é o fade COMUM, como a
+// de qualquer mídia retomada — o dobro ali seria uma subida lenta no meio de um louvor no ar.
+const amR = await amostrar(idDobro, { time: 2 });
+const sobeR = subida(amR, 2);
+const posR = amR.length ? +amR[amR.length - 1][1].toFixed(2) : null;
+checar(sobeR != null && sobeR >= 0.45 && sobeR <= 0.85,
+  'B8 · item com "Fade de entrada" retomado no meio (time: 2): a subida é o fade comum (~0,6 s), não o dobro',
+  JSON.stringify({ sobeR, posR }));
 await pg.evaluate(() => window.__stage.setFade({ fadeIn: false, fadeOut: false, time: 1 }));
 
 // =========================================================================
