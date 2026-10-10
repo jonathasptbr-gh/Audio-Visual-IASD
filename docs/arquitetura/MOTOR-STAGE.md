@@ -178,8 +178,33 @@ elemento `display:none` continua tocando áudio normalmente.
 escrevia o volume direto no alvo e a mídia entrava no talo enquanto o visual
 ainda esmaecia — a saída tinha rampa, a entrada não, e a assimetria era audível
 a cada troca de hino. Agora, com `fadeIn` ligado, `rampVolume(0, volume,
-fadeTime)` roda **depois** de `play()` (que restaura o volume alvo e limpa o
-`rampTimer`, e por isso não pode vir depois da rampa).
+fadeTime)` roda **depois** de `play()` **e do `applyMedia()`** — os dois
+escrevem o volume alvo (e o `play()` limpa o `rampTimer`). Antes da v1.12.25 ela
+vinha antes do `applyMedia()`, que atropelava o primeiro passo: MEDIDO, volume
+1 por ~50 ms no início de toda entrada.
+
+**As marcas do ITEM EDITADO dobram o fade (v1.12.25).** O `FADE` da tela já
+liga entrada e saída em todo item; `edicao.fadeEntrada`/`fadeSaida` ALONGAM a
+ponta que nomeiam para `fadeDaMarca()` = 2 × `fadeTime`, limitado à METADE do
+trecho (`duracaoDoTrecho`: `fim − inicio`, ou a duração do arquivo, ou o
+`seconds` resolvido) e nunca abaixo do `fadeTime` — a marca só alonga, e num
+trecho curto as duas pontas não se encavalam. Sem duração conhecida, o dobro.
+
+- **Entrada** (`tEntrada` no `load`): a rampa de volume, o `runFadeIn(alvo,
+  dur)` e o `coverOut(dur)` do caminho com cortina. **Só quando o item entra do
+  começo**: com `startAt > 0` (a reconexão do telão) a entrada é o fade comum,
+  como a de qualquer mídia retomada. `coverOut` sem argumento (view do
+  operador, cartão de texto) segue no `fadeTime`.
+- **Saída** (`vigiarCorte`): começa em `fim − fadeDaMarca()` e TERMINA no `fim`
+  (rampa e opacidade sobre o `resta` real). O `timeupdate` (~4 Hz) chegaria até
+  0,25 s atrasado, então `saidaTimer` marca o começo; atraso ou retomada já
+  dentro da janela ENCURTAM a rampa, nunca a empurram para depois do corte.
+  Sem a marca, o fade comum começa NO corte (`marcarFimNatural` →
+  `runFadeOut`). A troca de item pedida pelo operador no meio do trecho é o fade
+  comum — a marca descreve o fim do item, não a interrupção dele.
+- Telão, preview e telas da rede usam o MESMO `stage.js` com o mesmo `FADE`; a
+  tela recebe `edicao` e `seconds` no registro saneado (`telaSanearRec`).
+  Oráculo: B6–B8 do `edicao-de-midia`.
 
 - **Fade de CONTEÚDO** (`runFadeOut(rampAudio)` + `mediaReady`/fade-in): troca
   de item enquanto já visível (ex: vídeo A → vídeo B com a cortina já aberta),

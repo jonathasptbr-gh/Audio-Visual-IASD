@@ -213,8 +213,8 @@
     // palco com `setFade` — não há comando de barramento para ela).
     // `fadeIn`/`fadeOut` são os EFETIVOS da mídia em cena: a configuração do
     // operador (`fadeInCfg`/`fadeOutCfg`) OU a marca do item editado
-    // (`edicao.fadeEntrada`/`fadeSaida`). A duração é sempre a `fadeTime` da
-    // tela — o item só liga ou desliga. Ver `recalcFades`.
+    // (`edicao.fadeEntrada`/`fadeSaida`). A DURAÇÃO é a `fadeTime` da tela, e a
+    // marca a DOBRA na ponta que ela nomeia (v1.12.25) — ver `fadeDaMarca`.
     let fadeIn = false;
     let fadeOut = false;
     let fadeInCfg = false;
@@ -224,6 +224,7 @@
     // em cena, ou null. Ler SEMPRE daqui — ele acompanha `current` sozinho.
     const edAtual = () => (current && current.edicao) || null;
     let corteTimer = null;   // o encerramento preciso no `fim` do recorte
+    let saidaTimer = null;   // o começo preciso da rampa de saída (`fim − fadeDaMarca`)
     let saidaItem = false;   // a rampa de saída do item já começou
     // O FIM ESTÁ EM CURSO: `marcarFimNatural` esperando o fade de saída, antes de `ended`. Sem ela,
     // no corte de um item editado o `<video>` segue tocando durante o fade, cada `timeupdate` acha
@@ -255,6 +256,29 @@
       fadeOut = fadeOutCfg || !!(e && e.fadeSaida);
       saidaItem = false;
       clearTimeout(corteTimer); corteTimer = null;
+      clearTimeout(saidaTimer); saidaTimer = null;
+    }
+
+    // A MARCA DO ITEM EDITADO DOBRA O FADE (v1.12.25). Pedido do operador: *"o
+    // fade de entrada quanto o de saída do editor, serem o dobro do tempo do
+    // fade comum"*. O `FADE` da tela já liga entrada e saída em todo item, então
+    // a marca não LIGA nada — ela ALONGA a ponta que nomeia para 2 × `fadeTime`
+    // (lido do `setFade`, nunca um número próprio).
+    //
+    // TRECHO CURTO: cada ponta marcada fica limitada à METADE do trecho, para a
+    // entrada e a saída não se encavalarem — e nunca abaixo do fade comum (a
+    // marca só alonga). Duração desconhecida: o dobro, sem limite.
+    function duracaoDoTrecho() {
+      const e = edAtual();
+      if (!e) return null;
+      if (e.fim != null) return e.fim - e.inicio;
+      if (isFinite(video.duration) && video.duration > 0) return video.duration - e.inicio;
+      return current && current.seconds > 0 ? current.seconds : null;
+    }
+    function fadeDaMarca() {
+      const d = duracaoDoTrecho();
+      const dobro = 2 * fadeTime;
+      return d != null && d > 0 ? Math.min(dobro, Math.max(fadeTime, d / 2)) : dobro;
     }
 
     // Cortina (wallpaper) — instantânea ou com fade. Não mexe em current/
@@ -304,12 +328,15 @@
       });
     }
 
-    function coverOut() {
+    // `dur`: só o `load` a passa (a entrada do item editado, `fadeDaMarca`); o
+    // resto — a view do operador, o cartão de texto — usa o fade comum.
+    function coverOut(dur) {
       if (!coveredNow) return Promise.resolve();
       const seq = ++coverSeq;
+      const t = dur > 0 ? dur : fadeTime;
       return new Promise((resolve) => {
         if (!fadeIn) { instantCover(false); resolve(); return; }
-        wallpaper.style.transition = 'opacity ' + fadeTime + 's ease';
+        wallpaper.style.transition = 'opacity ' + t + 's ease';
         wallpaper.style.opacity = '0';
         setTimeout(() => {
           if (seq !== coverSeq) { resolve(); return; }
@@ -318,7 +345,7 @@
           wallpaper.style.opacity = '';
           wallpaper.style.display = 'none';
           resolve();
-        }, fadeTime * 1000);
+        }, t * 1000);
       });
     }
 
@@ -420,16 +447,22 @@
     // Quem chama espera o [mediaReady] ANTES: sem isso o fade correria sobre a
     // camada ainda vazia e o conteúdo pipocaria no meio dela — o mesmo motivo
     // pelo qual a cortina já esperava.
-    function runFadeIn(el) {
+    function runFadeIn(el, dur) {
+      const t = dur > 0 ? dur : fadeTime;
       return new Promise((resolve) => {
         if (!fadeIn || !el) { resolve(); return; }
         // O 0 já está escrito desde antes de o elemento ser revelado (ver o
         // `applyMedia` lá embaixo): escrevê-lo só agora daria um quadro em
         // opacidade cheia antes da transição começar, que é exatamente o
         // estouro que se quer evitar.
-        el.style.transition = 'opacity ' + fadeTime + 's ease';
+        // O REFLOW registra esse 0 como o estilo de PARTIDA. O elemento acabou de
+        // sair do `hidden` (display: none), e sem um cálculo de estilo entre o
+        // revelar e o 1 não há "antes" para a transição: MEDIDO, a mídia entrava
+        // no talo quando o `loadeddata` chegava antes do quadro seguinte (v1.12.25).
+        void el.offsetWidth;
+        el.style.transition = 'opacity ' + t + 's ease';
         el.style.opacity = '1';
-        setTimeout(() => { clearFadeStyle(el); resolve(); }, fadeTime * 1000);
+        setTimeout(() => { clearFadeStyle(el); resolve(); }, t * 1000);
       });
     }
 
@@ -543,6 +576,7 @@
           if (!forceMuted) video.volume = volume;
         }
         clearTimeout(corteTimer); corteTimer = null;
+        clearTimeout(saidaTimer); saidaTimer = null;
       }
       fimEmCurso = false;
       video.currentTime = t + (e ? e.inicio : 0);
@@ -907,6 +941,11 @@
       if (!rec) { clear(); return; }
       current = rec;
       recalcFades();
+      // A ENTRADA DO ITEM: dobrada pela marca, e SÓ quando ele entra do começo do
+      // trecho. Retomado no meio (`startAt`, a reconexão do telão), a entrada é o
+      // fade comum, como a de qualquer mídia retomada — dobrá-la ali seria uma
+      // subida lenta no meio de um louvor que já estava no ar.
+      const tEntrada = (rec.edicao && rec.edicao.fadeEntrada && !(startAt > 0)) ? fadeDaMarca() : fadeTime;
 
       _revokeUrl();
 
@@ -986,15 +1025,15 @@
         // chamador precisou mudar. Sem `play()` aqui, quem revela a mídia é o
         // `applyMedia()` + a cortina no fim deste mesmo load.
         if (autoplay !== false) play();
-        // ENTRADA COM RAMPA, espelhando a saída. Não existia: o volume era
-        // escrito direto no alvo e a mídia entrava no talo enquanto o visual
-        // ainda esmaecia — audível a cada troca de hino. `play()` restaura o
-        // volume alvo (e limpa o rampTimer), então a rampa vem DEPOIS dele; ela
-        // mesma escreve o 0 inicial.
-        if (fadeIn && !forceMuted && !video.muted && volume > 0) {
-          rampVolume(0, volume, fadeTime);
-        }
       }
+      // ENTRADA COM RAMPA, espelhando a saída: sem ela a mídia entrava no talo
+      // enquanto o visual ainda esmaecia. `play()` restaura o volume alvo (e
+      // limpa o rampTimer), e o `applyMedia()` logo abaixo TAMBÉM o escreve — por
+      // isso a rampa vem DEPOIS dos dois. Antes dele, o primeiro passo dela era
+      // atropelado: MEDIDO, o volume ficava em 1 por ~50 ms no início de cada
+      // entrada (v1.12.25). Ela mesma escreve o 0 inicial.
+      const rampaEntrada = (rec.kind === 'video' || rec.kind === 'audio')
+        && fadeIn && !forceMuted && !video.muted && volume > 0;
       // A OPACIDADE ZERO É ESCRITA ANTES DE REVELAR. `applyMedia()` tira o
       // `hidden`, e um elemento revelado em opacidade cheia pinta um quadro
       // antes de qualquer transição começar — o estouro que o fade existe para
@@ -1008,6 +1047,7 @@
         alvo.style.opacity = '0';
       }
       applyMedia();
+      if (rampaEntrada) rampVolume(0, volume, tEntrada);
       // Revela (esconde a cortina) se a view pedir e ainda estiver coberto —
       // primeiro conteúdo depois do wallpaper, ou depois de ended/stop/clear.
       // Se nada estava cobrindo (já em cena, só trocando de item), coverOut()
@@ -1028,7 +1068,7 @@
           await mediaReady(alvo);
           if (seq !== loadSeq) return;
         }
-        await coverOut();
+        await coverOut(tEntrada);
         if (seq !== loadSeq) return;
       } else if (entrada) {
         // A ENTRADA DO CONTEÚDO, quando não há cortina para abrir. Espera o
@@ -1036,7 +1076,7 @@
         // entram juntos (ver `runFadeIn`).
         await mediaReady(alvo);
         if (seq !== loadSeq) return;
-        await runFadeIn(alvo);
+        await runFadeIn(alvo, tEntrada);
         if (seq !== loadSeq) return;
       }
       // E o caminho inverso: uma IMAGEM em cena, seguida de um áudio sem letra.
@@ -1259,8 +1299,19 @@
       const fim = e.fim != null ? e.fim : fimArq;
       if (fim == null) return;
       const resta = fim - video.currentTime;
-      if (e.fadeSaida && !saidaItem && resta > 0 && resta <= fadeTime) {
+      // A SAÍDA MARCADA dura `fadeDaMarca()` e TERMINA no `fim`: começa em
+      // `fim − tSaida`. O `timeupdate` (~4 Hz) chegaria até 0,25 s atrasado, e
+      // por isso um temporizador marca o começo; a rampa usa o `resta` real, então
+      // um atraso (ou uma retomada já dentro da janela) a ENCURTA, nunca a empurra
+      // para depois do corte.
+      const tSaida = e.fadeSaida ? fadeDaMarca() : 0;
+      if (e.fadeSaida && !saidaItem && resta > tSaida && resta <= tSaida + 0.5 && !saidaTimer) {
+        saidaTimer = setTimeout(() => { saidaTimer = null; vigiarCorte(); },
+          Math.max(0, (resta - tSaida) * 1000));
+      }
+      if (e.fadeSaida && !saidaItem && resta > 0 && resta <= tSaida + 0.03) {
         saidaItem = true;
+        clearTimeout(saidaTimer); saidaTimer = null;
         if (!forceMuted && !video.muted) rampVolume(video.volume, 0, resta);
         if (visibleEl() === video) {
           video.style.transition = 'opacity ' + resta + 's ease';

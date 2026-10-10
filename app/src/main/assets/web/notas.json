@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.12.25",
+    "itens": [
+      "Editor de mídia: o fade de entrada e o de saída agora duram o dobro do fade comum."
+    ]
+  },
+  {
     "versao": "1.12.24",
     "itens": [
       "Modo Fácil: ao tocar um vídeo, ele abre em tela cheia no celular e sai sozinho quando o vídeo acaba.",
