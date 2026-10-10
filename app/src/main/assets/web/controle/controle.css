@@ -11972,7 +11972,10 @@ body.mode-simple .bottombar:has(.preview:fullscreen) { display: flex; }
    "Nada tocando" embaixo dela é ruído. `display: none` e não `visibility`: ele não pode
    reservar altura nem o vão do `gap`. */
 .simple-nowplaying {
-  flex: none; display: flex; flex-direction: column; gap: var(--sp-2);
+  /* GRADE e não flex em coluna (v1.12.26): a porta da tela cheia é uma coluna ao lado das duas
+     linhas — ver `#simpleFsBtn` abaixo. Sem ela é UMA coluna, e o `row-gap` é o `gap` de antes. */
+  flex: none; display: grid; grid-template-columns: minmax(0, 1fr);
+  row-gap: var(--sp-2); column-gap: var(--sp-4);
   padding: .5rem .8rem;
   background: var(--panel); border-radius: var(--radius-card);
 }
@@ -11991,16 +11994,19 @@ body.mode-simple .bottombar:has(.preview:fullscreen) { display: flex; }
 /* Nome ainda vazio (a troca de mídia escreve o texto depois): uma div vazia tem altura ZERO e o
    card encolhia uma linha inteira (18 px) até o nome chegar. O espaço de largura zero dá a linha. */
 .simple-np:empty::before { content: "\200b"; }
-/* A PORTA DA TELA CHEIA DO VÍDEO (v1.12.24): no canto direito da linha do nome, FORA do fluxo
-   (o card tem uma altura só — regra acima), e o nome cede a largura dela dos dois lados para
-   continuar centrado. Só existe com um vídeo no ar (`renderSimpleFsBtn`). */
-.simple-nowplaying { position: relative; }
+/* A PORTA DA TELA CHEIA DO VÍDEO (v1.12.24 → v1.12.26): uma COLUNA à DIREITA das DUAS linhas
+   (nome e barra), e não ao lado do nome — pedido do operador. O card é grade de UMA coluna; o
+   botão pede a segunda, que nasce IMPLÍCITA (`auto`, a largura dele) só enquanto ele existe —
+   escondido (`display: none`) ele não gera coluna nenhuma, e nome e barra voltam à largura toda.
+   Ele ocupa as duas linhas e se centra nelas. A ALTURA do card não muda (a regra da v1.12.11):
+   o `row-gap` é o `gap` de antes, e o quadrado (`--hit`) é menor que as duas linhas somadas. Só
+   existe sem destino de projeção — com TV ou tela da rede, a tela conectada é o visor. */
+.simple-nowplaying > .simple-np, .simple-nowplaying > .simple-time { grid-column: 1; }
 .simple-nowplaying #simpleFsBtn {
-  position: absolute; top: .1rem; right: .2rem;
+  grid-column: 2; grid-row: 1 / 3; align-self: center;
   width: var(--hit); height: var(--hit); color: var(--accent);
 }
 .simple-nowplaying #simpleFsBtn[hidden] { display: none; }
-.simple-nowplaying:has(#simpleFsBtn:not([hidden])) .simple-np { padding-inline: var(--hit); }
 /* Linha do tempo: fina, sem alça e sem alvo de toque — é um indicador, não um
    controle (ver o comentário no index.html). Os números flanqueiam a barra
    para não roubarem altura da letra. */

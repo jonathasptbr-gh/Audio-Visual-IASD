@@ -20,6 +20,10 @@
 //     passam), o Parar e a troca por mídia que não é vídeo FECHAM a tela cheia.
 //  D. Pedido recusado (sem toque recente — o vídeo que baixa antes de tocar): o botão do card do
 //     nome aparece e é a porta para a tela cheia.
+//  F. (v1.12.26) COM TELA CONECTADA NÃO HÁ TELA CHEIA: o vídeo não a abre, o botão não existe, e
+//     uma tela que ENTRA com ela aberta a fecha.
+//  G. (v1.12.26) O BOTÃO É UMA COLUNA À DIREITA DAS DUAS LINHAS do card, quadrado, e o card tem a
+//     mesma altura com e sem ele.
 //  E. A BARRA DE VOLUME: em tela cheia, nos dois modos, uma mudança de volume a mostra com o
 //     número e o nível, e ela some sozinha; fora da tela cheia ela não existe.
 //
@@ -82,8 +86,9 @@ try {
   pg.on('pageerror', (e) => erros.push('pageerror: ' + e.message));
   await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
   await esperarCortina(pg);
-  // Uma tela "conectada" (a janela do Display no navegador): o Modo Fácil sai do bloqueio.
-  await pg.evaluate(() => { webDisplayWin = { closed: false }; renderSimpleCast(); });
+  // SEM tela conectada (v1.12.26: a tela cheia do vídeo só existe sem destino de projeção), e o
+  // Modo Fácil destravado pelo "Tocar neste celular".
+  await pg.evaluate(() => { setTocarNoCelular(true); });
   const ids = await plantar(pg);
   const premissa = await pg.evaluate(() => appMode);
   checar(premissa === 'simple', 'premissa · o app abre no Modo Fácil', premissa);
@@ -158,6 +163,30 @@ try {
   });
   checar(d1.fs === false && d1.hidden === false && d1.alcanca === true,
     'D1 · recusado o pedido, o card do nome ganha o botão de tela cheia, à vista e tocável', JSON.stringify(d1));
+  // G · A PORTA É UMA COLUNA À DIREITA DAS DUAS LINHAS (v1.12.26), e o card não muda de altura
+  const g = await pg.evaluate(() => {
+    const r = (el) => el.getBoundingClientRect();
+    const card = document.querySelector('.simple-nowplaying');
+    const b = r(document.getElementById('simpleFsBtn'));
+    const np = r(document.getElementById('simpleNpName'));
+    const tm = r(document.getElementById('simpleTime'));
+    const comBotao = r(card).height;
+    const btn = document.getElementById('simpleFsBtn');
+    btn.hidden = true;
+    const semBotao = card.getBoundingClientRect().height;
+    renderSimpleFsBtn();
+    return { b: [b.left, b.top, b.right, b.bottom, b.width, b.height], npDir: np.right, tmDir: tm.right,
+      npTopo: np.top, tmBase: tm.bottom, npCentro: (np.top + np.bottom) / 2, tmCentro: (tm.top + tm.bottom) / 2,
+      comBotao, semBotao, voltou: !btn.hidden };
+  });
+  const [bl, bt, , bb, bw, bh] = g.b;
+  const bc = (bt + bb) / 2;
+  checar(bl >= Math.max(g.npDir, g.tmDir) - 0.5,
+    'G1 · o botão fica À DIREITA das DUAS linhas (nome e barra), não ao lado do nome só', JSON.stringify(g));
+  checar(bc > g.npCentro && bc < g.tmCentro && bt >= g.npTopo - 0.5 && bb <= g.tmBase + 0.5,
+    'G2 · e ocupa a coluna das duas linhas: centrado entre elas, dentro da faixa que elas formam', JSON.stringify(g));
+  checar(Math.abs(bw - bh) < 0.5 && Math.abs(g.comBotao - g.semBotao) < 0.5 && g.voltou,
+    'G3 · é QUADRADO e o card tem a MESMA altura com e sem ele (a regra da v1.12.11)', JSON.stringify(g));
   await pg.evaluate(() => { delete document.getElementById('preview').requestFullscreen; });
   if (d1.alcanca) await pg.click('#simpleFsBtn');
   else await pg.evaluate(() => document.getElementById('simpleFsBtn').click());
@@ -166,6 +195,25 @@ try {
   await pg.evaluate(() => { autoAdvance(); });
   const d3 = await esperar(pg, fora, null, 5000);
   checar(d3 === true, 'D3 · e a tela cheia aberta pelo botão também sai sozinha no fim', porque(d3));
+
+  // F · COM TELA CONECTADA NÃO HÁ TELA CHEIA (v1.12.26): a tela conectada é o visor
+  await pg.evaluate(() => { webDisplayWin = { closed: false }; renderSimpleCast(); });
+  await pg.evaluate((id) => send(id), ids.video);
+  await pg.waitForTimeout(500);   // AUSÊNCIA: nada deve abrir a tela cheia
+  const f1 = await pg.evaluate(() => ({ fs: !!document.fullscreenElement,
+    botao: document.getElementById('simpleFsBtn').hidden, midia: midiaNoAr }));
+  checar(f1.midia === true && f1.fs === false && f1.botao === true,
+    'F1 · com uma tela conectada o vídeo NÃO abre a tela cheia, e o botão do card não existe', JSON.stringify(f1));
+  // a tela sai: sem destino, o vídeo seguinte volta a abrir a tela cheia…
+  await pg.evaluate(() => { webDisplayWin = null; renderSimpleCast(); setTocarNoCelular(true); });
+  await pg.evaluate((id) => send(id), ids.video);
+  const f2 = await esperar(pg, naTelaCheia, null, 5000);
+  checar(f2 === true, 'F2 · sem tela de novo, o vídeo volta a abrir a tela cheia', porque(f2));
+  // …e uma tela que ENTRA com ela aberta a fecha
+  await pg.evaluate(() => { webDisplayWin = { closed: false }; renderSimpleCast(); });
+  const f3 = await esperar(pg, fora, null, 5000);
+  checar(f3 === true, 'F3 · uma tela que ENTRA com a tela cheia do vídeo aberta a FECHA (a tela conectada é o visor)',
+    porque(f3));
   await ctx.close();
 
   // ======================= AVANÇADO =======================
