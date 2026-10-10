@@ -1630,6 +1630,45 @@ body {
    encostar um botão no outro. */
 .pv-fsctl .pv-fab { width: 40px; height: 40px; }
 .pv-fsctl .pv-fab svg { width: 28px; height: 28px; }
+/* NO MODO FÁCIL A COLUNA TEM DOIS BOTÕES (v1.12.24): sair e play/pause. A cortina e o par ⏮/⏭
+   saem a pedido do operador — lá a tela cheia é a do VÍDEO (`acertarTelaCheiaDoVideo`), e o
+   `space-between` acima leva os dois que ficam às pontas. */
+body.mode-simple .pv-fsctl :is(#fsView, #fsPrev, #fsNext) { display: none; }
+
+/* ===== A BARRA DE VOLUME DA TELA CHEIA (v1.12.24) =====
+   Ela só existe em tela cheia e só aparece por `.visivel`, que `mostrarVolumeDaTelaCheia` escreve a
+   cada mudança de volume e tira 2 s depois. No TOPO, ao centro: a lateral direita é da coluna de
+   controles, e sem TV esta tela É a projeção — por isso pequena e passageira.
+   É DO PALCO, e o palco não tem tema: `--scrim` sob `--stage-text`, o nível em `--stage-accent`
+   (9,75:1 sobre o preto). O trilho é o mesmo branco do palco com `opacity`, e não um token com
+   alfa a mais. `pointer-events: none`: um toque nela é um toque na projeção. */
+.pv-volume {
+  position: absolute; top: 14px; left: 50%; z-index: 7;
+  display: none; align-items: center; gap: var(--sp-4);
+  width: min(320px, 60%); padding: .45rem .9rem;
+  transform: translateX(-50%);
+  background: var(--scrim); color: var(--stage-text); border-radius: var(--radius-pill);
+  opacity: 0; pointer-events: none; transition: opacity var(--dur-media) ease;
+}
+.preview:fullscreen .pv-volume,
+.preview:-webkit-full-screen .pv-volume { display: flex; }
+.pv-volume.visivel { opacity: 1; }
+.pv-volume svg { display: block; flex: none; width: 22px; height: 22px; }
+.pv-volume .ico-alt { display: none; }
+.pv-volume.mudo .ico-base { display: none; }
+.pv-volume.mudo .ico-alt { display: block; }
+.pv-volume-trilho { position: relative; flex: 1; height: 6px; border-radius: var(--radius-pill); overflow: hidden; }
+.pv-volume-trilho::before {
+  content: ""; position: absolute; inset: 0; background: var(--stage-text); opacity: .3;
+}
+.pv-volume-nivel { position: relative; height: 100%; width: 0; background: var(--stage-accent); border-radius: inherit; }
+.pv-volume-num {
+  flex: none; min-width: 2.2em; text-align: right;
+  font-size: var(--fs-sm); font-weight: var(--fw-forte); font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pv-volume { transition: none; }
+}
 /* Os dois botões de ESTADO (cortina, play/pause) carregam os dois desenhos e a
    classe escolhe — trocar `innerHTML` a cada quadro reconstruiria o SVG por
    baixo do dedo, e o `.msym` dos irmãos da barra não serve aqui (ver o
@@ -11728,6 +11767,10 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    mão só — mirar um slider fino ali é o pior alvo possível. */
 body.mode-simple main,
 body.mode-simple .bottombar { display: none; }
+/* A TELA CHEIA DO VÍDEO NO MODO FÁCIL (v1.12.24) pede a caixa de volta: a `.preview` mora nela, e
+   um elemento em tela cheia com ancestral `display: none` não tem caixa — MEDIDO, o top layer sai
+   0×0. Atrás da tela cheia ela fica coberta pelo `.simple` (fixo); sai junto com a tela cheia. */
+body.mode-simple .bottombar:has(.preview:fullscreen) { display: flex; }
 .simple {
   position: fixed; inset: 0; z-index: 90;
   display: none; flex-direction: column; gap: var(--sp-5);
@@ -11948,6 +11991,16 @@ body.mode-simple .bottombar { display: none; }
 /* Nome ainda vazio (a troca de mídia escreve o texto depois): uma div vazia tem altura ZERO e o
    card encolhia uma linha inteira (18 px) até o nome chegar. O espaço de largura zero dá a linha. */
 .simple-np:empty::before { content: "\200b"; }
+/* A PORTA DA TELA CHEIA DO VÍDEO (v1.12.24): no canto direito da linha do nome, FORA do fluxo
+   (o card tem uma altura só — regra acima), e o nome cede a largura dela dos dois lados para
+   continuar centrado. Só existe com um vídeo no ar (`renderSimpleFsBtn`). */
+.simple-nowplaying { position: relative; }
+.simple-nowplaying #simpleFsBtn {
+  position: absolute; top: .1rem; right: .2rem;
+  width: var(--hit); height: var(--hit); color: var(--accent);
+}
+.simple-nowplaying #simpleFsBtn[hidden] { display: none; }
+.simple-nowplaying:has(#simpleFsBtn:not([hidden])) .simple-np { padding-inline: var(--hit); }
 /* Linha do tempo: fina, sem alça e sem alvo de toque — é um indicador, não um
    controle (ver o comentário no index.html). Os números flanqueiam a barra
    para não roubarem altura da letra. */

@@ -9828,6 +9828,16 @@ do `CLAUDE.md`.
 
 ---
 
+## O vídeo do Modo Fácil em tela cheia, e a barra de volume da tela cheia (v1.12.24)
+
+- **ENTRADA:** `send` → `acertarTelaCheiaDoVideo(true)`; a régua é `videoDoModoFacil()` = Modo Fácil + `midiaNoAr` + `currentItem.kind === 'video'` + `simplesSemLeitura()`. Com ou sem tela conectada (o som segue `acertarSaidaDeAudio`). É a MESMA tela cheia do ⛶ do avançado (`entrarTelaCheiaDaPrevia`, que devolve se entrou).
+- **SAÍDA:** `resetAfterEnd` (fim natural, fila vazia) e `pararMidia` chamam `acertarTelaCheiaDoVideo(false)`; um `send` de mídia que não é vídeo também fecha. Só fecha o que `fsDoVideo` marca (esta regra ou o `#simpleFsBtn`): o ⛶ do avançado não é tocado. O avanço da fila passa direto por `send`, e o vídeo seguinte herda a tela cheia.
+- **A `.bottombar` volta a ter caixa** enquanto a prévia está em tela cheia (`body.mode-simple .bottombar:has(.preview:fullscreen)`): ancestral `display: none` deixa o top layer 0×0, MEDIDO.
+- **A COLUNA DO MODO FÁCIL** é sair + play/pause (`body.mode-simple .pv-fsctl :is(#fsView, #fsPrev, #fsNext) { display: none }`).
+- **O PEDIDO EXIGE ATIVAÇÃO DO USUÁRIO** (~5 s, também no WebView). O vídeo que baixa antes de projetar chega tarde e é recusado (vai ao Registro); a porta é o `#simpleFsBtn`, absoluto no canto do card do nome (não muda a altura do card — v1.12.11), só com vídeo no ar (`renderSimpleFsBtn`, chamado pelo `renderSimple`).
+- **A BARRA DE VOLUME** (`#pvVolume`, dentro da `.preview`, nos dois modos): `mostrarVolumeDaTelaCheia` em `applyVolume` e `peekVolume` (a tecla que vai ao sistema no teto/zero também acende), 2 s (`PV_VOLUME_MS`), número do APP. Tokens do palco. `fullscreenchange` de saída apaga a barra, zera `fsDoVideo` e remede o corpo do Modo Fácil.
+- Oráculo: `video-tela-cheia.test.mjs`. O `evaluate` do Playwright carrega ativação, então a recusa é SIMULADA (stub do `requestFullscreen`).
+
 ## A tampa das coleções acompanha a altura da lista (v1.12.14)
 
 `medirTampa` (`--tampa-h`, a altura de cada bloco de raiz do acervo, de `--bar-raiz-max` até a barra) lê `lista.clientHeight`. Além do fim de cada render (`acertarTampa`), um `ResizeObserver` em `#hymnResults` a refaz quando a altura da lista muda com a janela da Biblioteca ABERTA — no Modo Fácil o render do Parar roda com a janela fechada (lista ~10 px) e a janela cresce depois. Fechada, não mede (a lista encolhida encolheria os blocos na saída). Oráculo: `modo-simples-corpo` bloco Q.

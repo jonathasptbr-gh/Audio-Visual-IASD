@@ -902,6 +902,18 @@
          Biblioteca é só ruído. -->
     <div class="simple-nowplaying">
       <div class="simple-np" id="simpleNpName">Nada tocando</div>
+      <!-- A PORTA DA TELA CHEIA DO VÍDEO (v1.12.24). O vídeo entra em tela cheia sozinho quando
+           o toque que o escolheu ainda vale (`acertarTelaCheiaDoVideo`); um vídeo que BAIXA antes
+           de tocar chega tarde demais para o navegador aceitar, e o voltar fecha a tela cheia.
+           Este botão é o caminho nos dois casos — e só existe com um VÍDEO no ar. -->
+      <button type="button" id="simpleFsBtn" class="settings-btn" title="Ver o vídeo em tela cheia" aria-label="Ver o vídeo em tela cheia" hidden>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9"/>
+          <path d="M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9"/>
+          <path d="M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15"/>
+          <path d="M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15"/>
+        </svg>
+      </button>
       <!-- Linha do tempo da música: decorrido, barra e duração. É só LEITURA —
            neste modo não se arrasta nada (o volume também virou tecla); quem
            precisa saltar no tempo usa o modo avançado. Some quando o que está
@@ -1748,6 +1760,17 @@
           <button type="button" id="fsNext" class="pv-fab" title="Próxima estrofe (segurar: próxima mídia)">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6v12"/><path d="M5 6.6 14.4 12 5 17.4z"/></svg>
           </button>
+        </div>
+        <!-- A BARRA DE VOLUME DA TELA CHEIA (v1.12.24). Só existe em tela cheia e só enquanto
+             `.visivel` (`mostrarVolumeDaTelaCheia`, 2 s): fora dela o retorno do volume é o fader
+             que a tecla acende, e dentro dela não havia nenhum. Mora DENTRO da `.preview` porque
+             só o elemento em tela cheia e os filhos dele são pintados. É do PALCO: tokens sem tema. -->
+        <div class="pv-volume" id="pvVolume" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <use class="ico-base" href="#icoSom"/><use class="ico-alt" href="#icoSomOff"/>
+          </svg>
+          <div class="pv-volume-trilho"><div class="pv-volume-nivel" id="pvVolumeNivel"></div></div>
+          <span class="pv-volume-num" id="pvVolumeNum">100</span>
         </div>
         </div>
       </div>
@@ -2679,7 +2702,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.12.23</span>
+            <span id="appVersion" class="app-version">v1.12.24</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar
