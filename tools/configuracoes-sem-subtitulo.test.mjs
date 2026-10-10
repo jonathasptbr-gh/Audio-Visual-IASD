@@ -235,12 +235,11 @@ try {
   // =========================================================================
   const rodape = await a.pg.evaluate(async () => {
     const z = (ms) => new Promise((f) => setTimeout(f, ms));
-    // OS DOIS IRMÃOS SÓ EXISTEM NO APP (`hidden` fora dele, e a razão é que
-    // gravar arquivo e abrir o WhatsApp são a ponte). Sem revelá-los a faixa
-    // teria UM filho, e toda asserção de distribuição abaixo mediria um botão
+    // O IRMÃO SÓ EXISTE NO APP (`hidden` fora dele: abrir o WhatsApp é a
+    // ponte). Sem revelá-lo a faixa teria UM filho, e toda asserção de distribuição abaixo mediria um botão
     // sozinho ocupando a linha — verde, e sobre nada.
     window.__NATIVE__ = true;
-    for (const id of ['diagSave', 'contatoBtn']) {
+    for (const id of ['contatoBtn']) {
       const e = document.getElementById(id); if (e) e.hidden = false;
     }
     await z(120);
@@ -307,9 +306,12 @@ try {
   // *"remova o fundo cinza desse rodapé"* e *"coloque os ícones... à direita de
   // seus respectivos textos"*. Cada uma tem asserção, porque cada uma quebra
   // sozinha — e três delas quebram SEM SINTOMA numa captura de layout.
-  checar(rodape.n === 3 && rodape.ids.join(',') === 'versaoBtn,diagSave,contatoBtn',
-    'D2 · a faixa são TRÊS botões, nesta ordem — a versão deixou de ser texto '
-    + 'nu e virou o primeiro deles', JSON.stringify(rodape.ids));
+  // DOIS desde a v1.12.29: o Registro saiu desta faixa a pedido do operador
+  // (*"agora vamos usar expressamente o método via verificador"*), e o
+  // `#diagSave` não existe mais no documento.
+  checar(rodape.n === 2 && rodape.ids.join(',') === 'versaoBtn,contatoBtn',
+    'D2 · a faixa são DOIS botões, nesta ordem — a versão e o pedir ajuda; o '
+    + 'Registro saiu para a Verificação (v1.12.29)', JSON.stringify(rodape.ids));
   checar(/^rgba\(0, 0, 0, 0\)$|^transparent$/.test(rodape.faixaBg || ''),
     'D2 · e a faixa NÃO pinta nada: o cinza saiu, e com ele a pastilha que '
     + 'cobrava recuo, raio e altura mínima', rodape.faixaBg);
@@ -355,7 +357,7 @@ try {
     const z = (ms) => new Promise((f) => setTimeout(f, ms));
     document.documentElement.style.fontSize = '20px';
     window.__NATIVE__ = true;
-    for (const id of ['diagSave', 'contatoBtn']) {
+    for (const id of ['contatoBtn']) {
       const e = document.getElementById(id); if (e) e.hidden = false;
     }
     await z(150);
@@ -376,7 +378,7 @@ try {
     };
   });
   checar(ap.linhas === 1,
-    'D3 · a 360px×1,25× os três cabem numa LINHA só — é o que o recuo a '
+    'D3 · a 360px×1,25× os botões cabem numa LINHA só — é o que o recuo a '
     + '`--sp-3` compra; com `--sp-5` a faixa quebra em duas aqui e a 430px×1,5×',
     JSON.stringify(ap));
   await estreito.ctx.close();

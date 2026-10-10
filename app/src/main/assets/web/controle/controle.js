@@ -392,7 +392,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.28';
+const WEB_VERSION = '1.12.29';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -620,7 +620,6 @@ const dadosMoveisTileEl = document.getElementById('dadosMoveisTile');
 const pvRecolherEl = document.getElementById('pvRecolherBtn');
 const wallFileEl = document.getElementById('wallFile');
 const wallTileEl = document.getElementById('wallTile');
-const diagSaveEl = document.getElementById('diagSave');
 // "Conectar uma tela": a linha em Configurações e a folha que ela abre.
 const castPopupEl = document.getElementById('castPopup');
 const castConnEl = document.getElementById('castConn');
@@ -30362,10 +30361,15 @@ function blocoDownloadDeTeste(m) {
   l.push('    pedido: teto ' + m.teto + 'p (o padrão do operador, como o "Tocar agora")'
     + ' · veio: ' + (m.r ? (m.r.height ? m.r.height + 'p' : '?') + ' ' + (m.r.type || '') : 'nada')
     + (m.meta ? ' · arquivo ' + m.meta.largura + '×' + m.meta.altura : ''));
+  // A LINHA DA EXTRAÇÃO VAI INTEIRA (v1.12.29). Ela era cortada em `.slice(-160)`,
+  // e o corte pegava o MEIO de um `{…}` — MEDIDO num Registro: "—  dublado 5,
+  // pt-BR 5} · vídeo-só 12 …", sem o "áudio 10 [m4a 4, webm 6] {en-US" que dava
+  // sentido ao resto. O Registro é ARQUIVO, e comprimento não custa tela; o que
+  // sai é só o prefixo do diário ("download: "), que aqui repetiria o rótulo.
   const linhaDiag = String(m.diag || '').split('\n').find((x) => x.includes('→')) || '';
   l.push('    caminho: ' + (m.caminho === 'juntou' ? 'vídeo e áudio separados, juntados no aparelho'
     : m.caminho === 'veio' ? 'arquivo único (progressivo)' : 'não identificado')
-    + (linhaDiag ? ' — ' + linhaDiag.trim().slice(-160) : ''));
+    + (linhaDiag ? ' — ' + linhaDiag.trim().replace(/^download:\s*/, '') : ''));
   l.push('    tamanho: ' + fmtBytes(m.bytes || 0) + (c.bytesDaRede ? ' · da rede ' + fmtBytes(c.bytesDaRede) : ''));
   const seg = (m.meta && m.meta.segundos) || 0;
   l.push('    duração do vídeo: ' + (seg ? fmtDur(Math.round(seg)) : '?')
@@ -30550,8 +30554,14 @@ function blocoAutoteste() {
   const r = testeResultado;
   if (!r) return '';
   const linhas = [];
-  linhas.push('  ' + (r.completa ? 'COMPLETA' : 'leve') + ', rodada em ' + new Date(r.em).toLocaleString()
-    + ' · ' + (r.ms / 1000).toFixed(1) + ' s');
+  // A COMPLETA SOMA UMA LINHA À LEVE, e o carimbo diz as DUAS horas (v1.12.29):
+  // `r.em` é o da leve, e sozinho ele datava a completa com a hora da leve —
+  // MEDIDO num Registro, "COMPLETA, rodada em 12:40:17" sobre um download de
+  // teste que a linha do tempo põe às 12:44:53.
+  linhas.push('  ' + (r.completa ? 'COMPLETA — leve rodada em ' : 'leve, rodada em ')
+    + new Date(r.em).toLocaleString() + ' · ' + (r.ms / 1000).toFixed(1) + ' s'
+    + (r.completa && r.emCompleta
+      ? ' · download de teste terminado em ' + new Date(r.emCompleta).toLocaleString() : ''));
   linhas.push('  ' + r.ok + ' ok · ' + r.falhou + ' com falha · ' + r.mudo
     + ' sem resposta · ' + r.na + ' não se aplica');
   let area = '';
@@ -31038,13 +31048,10 @@ if (castUrlCopyEl) {
  * qual é qual uma semana depois.
  *
  * Só no app: gravar arquivo é `AVNative.salvarTexto` (SAF), e no navegador não
- * há ponte — o botão nasce `hidden` e quem o revela é o `renderVersionLabel`.
+ * há ponte — o botão nasce `hidden` e quem o revela é a seção da Verificação.
  */
-// O NOME DO ARQUIVO, e ele é UM SÓ para as DUAS portas (v1.10.3). O Registro
-// tem dois botões que o gravam — o de Configurações e o da folha da Verificação
-// —, e os dois salvam o MESMO texto: dois padrões de nome fariam a mesma coisa
-// chegar com duas caras na conversa em que o operador o manda, que é a pergunta
-// "qual dos dois é o de verdade?" que a v1.10.0 queria evitar.
+// O NOME DO ARQUIVO. Desde a v1.12.29 a porta é UMA só — o `#testeSalvar` da
+// folha da Verificação (o botão do rodapé de Configurações saiu a pedido).
 //
 // A DATA está no nome porque o valor de um Registro é comparar dois: dois
 // arquivos de mesmo nome viram "registro (1).txt" na pasta e ninguém sabe qual
@@ -31053,30 +31060,6 @@ function nomeDoRegistro(d) {
   const p2 = (n) => String(n).padStart(2, '0');
   return 'registro-av-' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate())
     + '-' + p2(d.getHours()) + p2(d.getMinutes()) + '.txt';
-}
-
-if (diagSaveEl) {
-  // SÓ NO APP: gravar arquivo é a ponte (SAF), e no navegador um botão que só
-  // sabe não funcionar é pior que botão nenhum.
-  //
-  // Revelado AQUI, e não no `renderVersionLabel` — que seria o lugar natural,
-  // e é uma ZONA MORTA TEMPORAL: aquela função roda no topo do arquivo e este
-  // `const` só existe centenas de linhas abaixo. O `ReferenceError` aborta o
-  // `controle.js` inteiro, e o watchdog do OTA rejeita o bundle sem que nada
-  // na tela diga por quê. Medido: o app não subiu.
-  diagSaveEl.hidden = !window.__NATIVE__;
-  // (O `#diagRot` saiu na v1.8.51: a palavra "Registro" era o rótulo DESTE
-  //  botão, escrito fora dele, e voltar para dentro resolveu de uma vez o
-  //  rótulo, o alvo — de 34px para 93,9px — e um filho a menos na faixa.)
-  diagSaveEl.addEventListener('click', async () => {
-    if (!window.__NATIVE__) return;
-    const nome = nomeDoRegistro(new Date());
-    let salvo = '';
-    try { salvo = await AVNative.salvarTexto(nome, diagTexto); } catch (_) { salvo = ''; }
-    // VAZIO É "desistiu OU não deu", e a diferença não existe para quem opera:
-    // nos dois casos não há arquivo, e o botão continua ali para tentar de novo.
-    responder(diagSaveEl, salvo ? 'ok' : 'erro', salvo ? null : 'Não foi salvo');
-  });
 }
 
 // ===== O QUE MUDOU: o toque na VERSÃO (v1.8.65) =====
@@ -31176,9 +31159,11 @@ if (versaoBtnEl) {
 // que ela importa, e é a primeira coisa que se pergunta de volta. Ela é um
 // rascunho — o WhatsApp abre com o texto no campo, e quem escreve é o operador.
 //
-// Revelado AQUI pelo motivo do `diagSave` logo acima (a zona morta temporal do
-// `renderVersionLabel`), e `hidden` fora do app pelo mesmo argumento: quem abre
-// a porta é a ponte, e um botão que só sabe não funcionar é pior que nenhum.
+// Revelado AQUI, e não no `renderVersionLabel`: aquela função roda no topo do
+// arquivo e este `const` só existe centenas de linhas abaixo (zona morta
+// temporal — o `ReferenceError` aborta o `controle.js` inteiro e o watchdog do
+// OTA rejeita o bundle). `hidden` fora do app: quem abre a porta é a ponte, e
+// um botão que só sabe não funcionar é pior que nenhum.
 const AV_CONTATO_TEL = '5551997572650';
 const contatoBtnEl = document.getElementById('contatoBtn');
 if (contatoBtnEl) {
@@ -39127,7 +39112,6 @@ async function salvarRegistroDaVerificacao() {
     try { salvo = await AVNative.salvarTexto(nomeDoRegistro(new Date()), diagTexto); } catch (_) { salvo = ''; }
     // VAZIO É "desistiu OU não deu", e a diferença não existe para quem opera:
     // nos dois casos não há arquivo, e o botão continua ali para tentar de novo.
-    // Mesma regra do `#diagSave`.
     responder(testeSalvarEl, salvo ? 'ok' : 'erro');
   } finally {
     // QUEM MANDA NO `disabled` É O DESENHO, e não este `finally`: a trava certa
@@ -39520,10 +39504,8 @@ if (testeCompletaEl) testeCompletaEl.addEventListener('click', () => {
   else dispararTesteCompleto();
 });
 if (testeSalvarEl) {
-  // REVELADO AQUI, e não no `renderVersionLabel` — a mesma armadilha do
-  // `#diagSave`: aquela função roda no topo do arquivo e este `const` só existe
-  // centenas de linhas acima, mas o BOTÃO só passa a existir com a folha, e
-  // quem sabe disso é esta seção. Sem ponte não há como gravar arquivo, e um
+  // REVELADO AQUI, e não no `renderVersionLabel` (a zona morta temporal do
+  // `#contatoBtn`): quem sabe deste botão é esta seção. Sem ponte não há como gravar arquivo, e um
   // botão que só sabe não funcionar é pior que botão nenhum.
   testeSalvarEl.hidden = !window.__NATIVE__;
   testeSalvarEl.addEventListener('click', salvarRegistroDaVerificacao);
@@ -40801,18 +40783,71 @@ function openWebDisplay() {
 // A engrenagem do Modo Fácil (v5.250) — o MESMO destino do gearbox do
 // avançado, e desde a v5.247 o único caminho para a troca de modo nos dois.
 simpleSettingsBtnEl.addEventListener('click', openFadePopup);
-// A FOLHA FICA ABERTA E PARADA (v1.4.43), a pedido do operador: *"verifique
-// para que a aba de configurações permaneça na tela imóvel ao alternar entre
-// fácil e avançado, para não se perder a localização atual na visão do
-// usuário"*. Ela fechava — a justificativa era "a escolha já mudou a tela
-// inteira atrás do popup", e é justamente esse o problema: quem trocou de modo
-// perdia a folha, o lugar dela e o caminho de volta, e reabri-la é achar de
-// novo a engrenagem, que no outro modo mora em outro canto. Com o interruptor
-// que desliza, o que responde ao toque está DENTRO da folha, à vista.
+// ===== A TROCA DE MODO FECHA A FOLHA, DEPOIS DO POLEGAR (v1.12.29) =====
+//
+// Pedido do operador, revogando a v1.4.43 (a folha que FICAVA aberta): *"Ao
+// trocar entre o modo simples e o modo avançado, feche a janela de
+// configurações. Mas tome cuidado para que o fechamento da janela só aconteça
+// depois da animação de movimento do botão e etc... Para que a tela não pisque
+// de repente para mudar, mas que seja fluído."*
+//
+// A ORDEM É O RECURSO, em três tempos:
+//   1. o toque desliza o POLEGAR para o lado novo — só a aparência do trilho
+//      (`data-modo` + `.active`), o modo ainda é o antigo;
+//   2. acabada a transição do polegar, o modo troca (`setAppMode`) e a folha
+//      começa a SUBIR no mesmo quadro (`closeFadePopup`): a tela muda por baixo
+//      do véu, que esmaece junto com a folha — nunca à vista, de repente;
+//   3. a folha sai pela transição dela, a de sempre.
+// Trocar o modo DEPOIS de a folha sair mostraria a tela velha por um instante e
+// a trocaria seca — o piscar do pedido.
+//
+// O PRAZO É LIDO DO CSS (`transition-duration` + `delay` do `::before`), nunca
+// escrito aqui: um número copiado envelhece no primeiro ajuste do token. Com
+// `prefers-reduced-motion` a folha já zera a transição do polegar, então a
+// conta dá 0 e a troca é imediata.
+//
+// UM SEGUNDO TOQUE dentro da janela re-mira: de volta ao modo em vigor, nada
+// troca e a folha fica (o operador desistiu antes de a troca acontecer).
+let modoTrocaTimer = 0;
+function msDaTransicao(el, pseudo) {
+  try {
+    const cs = getComputedStyle(el, pseudo || null);
+    const seg = (v) => String(v || '0s').split(',').map((t) => {
+      const n = parseFloat(t);
+      if (!Number.isFinite(n)) return 0;
+      return /ms\s*$/.test(t) ? n : n * 1000;
+    });
+    const dur = seg(cs.transitionDuration);
+    const atr = seg(cs.transitionDelay);
+    let max = 0;
+    dur.forEach((d, i) => { max = Math.max(max, d + (atr[i % atr.length] || 0)); });
+    return max;
+  } catch (_) { return 0; }
+}
+function trocarModoPelaFolha(alvo) {
+  alvo = alvo === 'simple' ? 'simple' : 'full';
+  if (modoTrocaTimer) { clearTimeout(modoTrocaTimer); modoTrocaTimer = 0; }
+  // 1. o polegar anda (só a aparência; `renderAppModeSeg` é quem a escreve
+  //    a partir do estado, e aqui ela antecipa o estado que vem).
+  appModeSegEl.dataset.modo = alvo;
+  appModeSegEl.querySelectorAll('.fit-opt').forEach((b) => {
+    b.classList.toggle('active', b.dataset.mode === alvo);
+  });
+  if (alvo === appMode) return;   // re-mira de volta: nada a trocar
+  const espera = semMovimento() ? 0 : msDaTransicao(appModeSegEl, '::before');
+  const trocar = () => {
+    modoTrocaTimer = 0;
+    // 2. o modo troca por baixo do véu, e a folha sobe no mesmo quadro.
+    setAppMode(alvo);
+    closeFadePopup();
+  };
+  if (espera > 0) modoTrocaTimer = setTimeout(trocar, espera);
+  else trocar();
+}
 appModeSegEl.addEventListener('click', (e) => {
   const btn = e.target.closest('.fit-opt');
   if (!btn) return;
-  setAppMode(btn.dataset.mode);
+  trocarModoPelaFolha(btn.dataset.mode);
 });
 // O TEMA ALTERNA (v1.4.38): o par escuro/claro é um tile, e um tile de dois
 // estados não escolhe — ele vai para o outro. Todo toque muda a cor, que é o
