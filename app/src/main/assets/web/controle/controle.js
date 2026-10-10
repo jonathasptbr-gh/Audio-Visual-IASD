@@ -392,7 +392,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.25';
+const WEB_VERSION = '1.12.26';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -39794,6 +39794,8 @@ function renderSimpleGate() {
     acertarSaidaDeAudio();
   }
   const semTela = appMode === 'simple' && !temTela && !tocarNoCelular;
+  // Uma tela que entra fecha a tela cheia do vídeo (v1.12.26) — ver `videoDoModoFacil`.
+  acertarTelaCheiaDoVideo(false);
   // ===== O BOTÃO DE TOCAR AQUI SE DESENHA DAQUI, e não do `renderCast` =====
   //
   // MEDIDO nas duas pontas. `renderCast` abre com `if (!castConnVisivel())
@@ -40580,8 +40582,14 @@ async function entrarTelaCheiaDaPrevia() {
 // Pedido do operador: *"no modo simples, quando tocar um vídeo … ligue o modo tela cheia, já que
 // não temos o auxiliar de leitura (não tem texto) e não temos o preview no modo simples"*. A tela
 // cheia é a MESMA do avançado (a `.preview` no top layer, paisagem nativa pelo `onShowCustomView`),
-// e vale COM ou SEM tela conectada: com TV o operador também quer ver o vídeo, e sem TV ela é a
-// projeção — o som segue a regra de sempre (`acertarSaidaDeAudio`), nada muda aqui.
+// e vale SÓ SEM DESTINO DE PROJEÇÃO (v1.12.26, pedido do operador): a tela cheia existe porque
+// não há visor, e com uma TV ou uma tela da rede a tela conectada É o visor. A pergunta é
+// `haDestinoDeProjecao()` (a tela LISTADA ou uma sessão da rede), e não `algumaTelaConectada()`
+// (a `Presentation` no ar): com esta, cada oscilação do dongle abriria a tela cheia no celular e
+// a fecharia na volta. Sem destino, a tela cheia é a projeção e o som segue `acertarSaidaDeAudio`.
+// UMA TELA QUE ENTRA com ela aberta a FECHA (`renderSimpleGate` → `acertarTelaCheiaDoVideo(false)`),
+// só a que esta regra abriu (`fsDoVideo`): o visor passou a ser a tela, e o celular volta ao Modo
+// Fácil com o card e as teclas à mão.
 //
 // QUAL MÍDIA: `kind === 'video'` (o episódio da série e o download do YouTube entram assim; o
 // "só áudio" de um item editado já chega como `audio`) e SEM leitura — a régua da placa
@@ -40594,16 +40602,19 @@ function videoDoModoFacil() {
 // o vídeo — um vídeo que BAIXA antes de projetar (o "tocar agora" do YouTube, o episódio que
 // ainda não desceu) chega minutos depois, e o Chromium recusa. Sem esta porta, a recusa seria um
 // recurso que não acontece, sem nada na tela; ela também é o caminho de volta depois do voltar.
+function telaCheiaDoVideoCabe() {
+  return videoDoModoFacil() && !haDestinoDeProjecao();
+}
 function renderSimpleFsBtn() {
   if (!simpleFsBtnEl) return;
-  simpleFsBtnEl.hidden = !(videoDoModoFacil() && (previewEl.requestFullscreen || previewEl.webkitRequestFullscreen));
+  simpleFsBtnEl.hidden = !(telaCheiaDoVideoCabe() && (previewEl.requestFullscreen || previewEl.webkitRequestFullscreen));
 }
 /** [entrar] só no `send` — a cena NOVA. Os outros chamadores (fim, parar) só podem SAIR: uma
  *  tela cheia que o operador fechou não volta sozinha por um redesenho. */
 function acertarTelaCheiaDoVideo(entrar) {
   renderSimpleFsBtn();
   const nela = document.fullscreenElement === previewEl;
-  if (videoDoModoFacil()) {
+  if (telaCheiaDoVideoCabe()) {
     if (entrar && !document.fullscreenElement) {
       fsDoVideo = true;
       entrarTelaCheiaDaPrevia().then((ok) => {
@@ -40622,7 +40633,7 @@ function acertarTelaCheiaDoVideo(entrar) {
 }
 if (simpleFsBtnEl) {
   simpleFsBtnEl.addEventListener('click', () => {
-    if (!videoDoModoFacil()) return;
+    if (!telaCheiaDoVideoCabe()) return;
     fsDoVideo = true;
     entrarTelaCheiaDaPrevia().then((ok) => { if (!ok && document.fullscreenElement !== previewEl) fsDoVideo = false; });
   });
