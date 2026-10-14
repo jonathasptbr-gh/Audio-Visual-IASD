@@ -38,10 +38,10 @@ Nenhum dos dois aparece num teste de comportamento. Por isso existe o
    NativeBridge.kt                     shared/native.js
    ───────────────                     ────────────────
    @JavascriptInterface  ──injetado──►  window.__AVBridge
-   (73 métodos)          addJavascript      │
+   (74 métodos)          addJavascript      │
                           Interface         │ remonta
                                             ▼
-                                       window.AVNative  (62 métodos)
+                                       window.AVNative  (63 métodos)
                                        + 4 globais lidas direto
 ```
 
@@ -609,9 +609,9 @@ de terceiro ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
 
 ---
 
-## O CATÁLOGO COMPLETO — os 62 métodos, um a um
+## O CATÁLOGO COMPLETO — os 63 métodos, um a um
 
-> **O SHELL SERVE 73.** Os CINCO de diferença foram encolhidos pelo LADO WEB,
+> **O SHELL SERVE 74.** Os CINCO de diferença foram encolhidos pelo LADO WEB,
 > que é o lado seguro: o `@JavascriptInterface` de cada um continua em
 > `NativeBridge.kt`, então nenhum dos dois lotes pediu Release.
 > `ytStream`, `otaPending` e `apkProcurar` perderam o consumidor em duas fusões
@@ -741,6 +741,12 @@ window.AVNative = {
                        //    achado da última `apkProcurar`)
   ytDiag(),            // → string: o que o extrator recebeu na última extração
                        //   (diagnóstico do rodapé de Configurações)
+  ytMedida(),          // → objeto|null: a MEDIDA do último download (shell 79) —
+                       //   `extracaoMs`, `faixas[]` (papel, etiqueta, modo,
+                       //   pedaços, conexões, 1º byte, refeitos, retentativas),
+                       //   `juncao`, `audioEVideoJuntos`, `desfecho`,
+                       //   `sobraNoCache`. Vale também para a FALHA. Só a
+                       //   Verificação completa a lê
   // ytStream()        // só no SHELL desde a v1.8.71: sem consumidor no web (a transmissão direta saiu na v1.7.7)
                        //   `{ video, videos, audio, seconds, height }`.
                        //   `videos` é a ESCADA (shell 60): as faixas mp4

@@ -528,7 +528,10 @@ class MainActivity : ComponentActivity(), BridgeHost {
         SyncService.onGone = {
             val gen = backgroundWorkGen
             runOnUiThread {
-                if (gen == backgroundWorkGen) backgroundWork = false
+                if (gen == backgroundWorkGen) {
+                    backgroundWork = false
+                    aplicarProjecaoLocal()
+                }
             }
         }
 
@@ -1674,6 +1677,9 @@ class MainActivity : ComponentActivity(), BridgeHost {
                 Log.w(TAG, "serviço de sincronização indisponível", e)
                 backgroundWork = false
             }
+            // O RENDERER DO CONTROLE NÃO É REBAIXADO enquanto há trabalho em
+            // curso (v1.12.31) — ver [aplicarProjecaoLocal].
+            aplicarProjecaoLocal()
         }
     }
 
@@ -2345,10 +2351,19 @@ class MainActivity : ComponentActivity(), BridgeHost {
         fullscreenContainer.manterVisivel = projecaoLocal
         val w = web ?: return
         (w as? WebViewFactory.KeepVisibleWebView)?.manterVisivel = projecaoLocal
+        // A PRIORIDADE tem um segundo dono, o TRABALHO EM SEGUNDO PLANO
+        // (v1.12.31): um download do YouTube termina com a cópia do arquivo
+        // para a biblioteca, e essa cópia roda NESTE renderer. MEDIDO num teste
+        // do operador com o app minimizado: 78 MB em 1 min 29 s, contra 0,1 s
+        // para 16 MB com ele na frente. Só a prioridade — a VISIBILIDADE fica
+        // com a projeção: mentir sobre ela faria a preview tocar no fundo (ver
+        // `preverPodeMexer`) e apagaria a medida de "app no fundo" da
+        // Verificação completa, que é o que confirma esta causa.
+        val prioritario = projecaoLocal || backgroundWork
         try {
             w.setRendererPriorityPolicy(
-                if (projecaoLocal) WebView.RENDERER_PRIORITY_IMPORTANT else WebView.RENDERER_PRIORITY_BOUND,
-                !projecaoLocal,
+                if (prioritario) WebView.RENDERER_PRIORITY_IMPORTANT else WebView.RENDERER_PRIORITY_BOUND,
+                !prioritario,
             )
         } catch (e: Exception) {
             Log.w(TAG, "prioridade do renderer do Controle não mudou", e)
