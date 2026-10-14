@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.12.33",
+    "itens": [
+      "Modo simples: arrastar a barra do tempo não muda mais a altura do quadro do nome."
+    ]
+  },
+  {
     "versao": "1.12.32",
     "itens": [
       "Modo simples: ao tocar um vídeo do YouTube, a Biblioteca só muda quando o vídeo já vai entrar.",

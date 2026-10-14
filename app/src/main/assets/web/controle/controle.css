@@ -12022,8 +12022,14 @@ body.mode-simple .bottombar:has(.preview:fullscreen) { display: flex; }
 .simple-time-bar { height: 4px; border-radius: var(--radius-pill); background: var(--surface); overflow: hidden; }
 .simple-time-fill { height: 100%; width: 0; background: var(--accent); border-radius: inherit; }
 /* Durante o arraste o traço ENGROSSA: é o único retorno de que o dedo pegou a
-   barra, já que não há alça para acompanhar. */
-.simple-time-hit.seeking .simple-time-bar { height: 7px; }
+   barra, já que não há alça para acompanhar. Por `transform` e NUNCA por `height`
+   (v1.12.33): a altura do traço é a altura da faixa, e a da faixa é a do card — com
+   `height: 7px` cada toque crescia o card 3 px, e o topo dele, a zona de leitura e a
+   caixa da Biblioteca andavam junto. A escala pinta o mesmo traço de 7 px sem mover
+   o layout um pixel. */
+.simple-time-bar { transition: transform var(--dur-rapida) ease; }
+.simple-time-hit.seeking .simple-time-bar { transform: scaleY(1.75); }
+@media (prefers-reduced-motion: reduce) { .simple-time-bar { transition: none; } }
 .simple-lyrics {
   position: relative;            /* offsetParent das linhas (ver lvScroll) */
   flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
