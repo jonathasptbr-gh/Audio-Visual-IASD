@@ -10886,11 +10886,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    Pedido do operador: *"dois botões FAB dentro da caixa do auxiliar de leitura, os dois no
    canto inferior direito, um acima do outro, em uma coluna. Sem molduras, apenas os botões"*.
 
-   Antes eram um par pendurado na linha do nome (`.simple-np-linha`, v1.1.6): `absolute`, e por
-   isso uma linha que RESERVAVA a altura dele (`min-height: var(--hit)`, v1.5.19) e folgas dos
-   dois lados para o nome continuar centrado. Tudo isso saiu junto com a linha — o nome é o
-   `.simple-np` solto, e a zona de leitura ganhou de volta os 16px.
-
    O GRUPO NÃO PINTA NADA: é só a coluna (`.lv-fonte-ctl` é flex, e aqui vira coluna). Cada botão
    é a própria superfície — a mesma das portas flutuantes do Cronograma (`--surface-porta`, o azul
    de "ativado", opaco, com o traço `--accent` que é o par declarado dele e a sombra de cada
@@ -11819,10 +11814,6 @@ body.mode-simple .bottombar:has(.preview:fullscreen) { display: flex; }
 }
 .simple-key svg { display: block; color: var(--accent); }
 .simple-key-label { font-size: var(--fs-lg); font-weight: var(--fw-forte); }
-/* (`.simple-key-sub` saiu na v5.206.) O subtítulo dos botões grandes deste modo
-   foi removido na v5.195 — "Hinários e álbuns" embaixo de "Buscar música"
-   nomeava onde a busca procura, e não há segunda busca aqui para escolher entre
-   elas —, e a regra ficou para trás sem nenhum elemento para vestir. */
 /* A SEÇÃO DE CONEXÃO (v1.11.11) é a única coisa que sobrou desta faixa: a prévia
    e o "Buscar música" saíram do Modo Fácil. Com tela ela não existe (`display:
    none`); sem tela ela é içada para o CENTRO da tela (ver `.simple.sem-tela`). */
