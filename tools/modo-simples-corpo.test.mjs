@@ -737,6 +737,138 @@ try {
     'I4 · o botão de PLAYLIST AUTOMÁTICA não é desenhado no Modo Fácil — a barra fica com o campo',
     cab1.sorteio);
 
+  // S · O VIGIA, OS TEMPOS DA ESCOLHA E O CUSTO POR PULSO (v1.12.30)
+  // S1 · o vigia não apaga o que o operador está digitando: com o campo MUDADO desde a escolha
+  // (ele já busca a próxima música enquanto a anterior baixa), a marca sai e o campo fica.
+  await quadros();
+  await plantar();
+  await pg.evaluate(() => { document.getElementById('hymnSearchInput').value = 'amor'; });
+  await pg.evaluate(() => {
+    simpleSelecionarLinha(window.__li); closeHymnSearch(); simpleSel.em -= 6000;
+    document.getElementById('hymnSearchInput').value = 'graca';
+  });
+  const s1 = await esperar(pg, () => !document.querySelector('.hymn-result.selecionando'), null, 15000);
+  const s1campo = await pg.evaluate(() => document.getElementById('hymnSearchInput').value);
+  checar(s1 === true && s1campo === 'graca',
+    'S1 · o vigia desfaz a marca mas NÃO apaga a busca que o operador começou a digitar depois da escolha',
+    s1 === true ? s1campo : porque(s1));
+  await pg.evaluate(() => { document.getElementById('hymnSearchInput').value = ''; closeHymnSearch(); });
+  await quadros();
+
+  // S2 · trocar de modo encerra a escolha: no avançado o vigia não fecha a Biblioteca de lá
+  await plantar();
+  const s2a = await pg.evaluate(() => {
+    simpleSelecionarLinha(window.__li); closeHymnSearch(); simpleSel.em -= 6000;
+    setAppMode('full');
+    return { em: simpleSel.em, vigia: simpleVigiaTimer };
+  });
+  checar(s2a.em === 0 && s2a.vigia === null,
+    'S2 · trocar para o avançado encerra a escolha do Modo Fácil (marca e vigia) no ato', JSON.stringify(s2a));
+  await pg.evaluate(() => { openHymnSearch(false); });
+  await pg.evaluate(() => new Promise((r) => setTimeout(r, 1800)));
+  const s2b = await pg.evaluate(() => document.getElementById('hymnSearchPopup').classList.contains('open'));
+  checar(s2b === true,
+    'S2b · e a Biblioteca aberta no avançado segue aberta depois do tique do vigia', String(s2b));
+  await pg.evaluate(() => { closeHymnSearch(); setAppMode('simple'); });
+  await quadros();
+
+  // S3 · com LEITURA no ar e sem a saída acontecer, o vigia desfaz a marca e PARA (não fica de pé)
+  await plantar();
+  await pg.evaluate((it) => {
+    simpleSelecionarLinha(window.__li); closeHymnSearch(); simpleSel.em -= 6000;
+    currentItem = it; midiaNoAr = true;   // sem pulso: a saída de `renderSimpleCorpo` não acontece
+  }, LETRA);
+  const s3 = await esperar(pg, () => simpleVigiaTimer === null && !simpleSel.em, null, 6000);
+  checar(s3 === true,
+    'S3 · com mídia de letra no ar o vigia não fica vivo para sempre: desfaz a marca e para', porque(s3));
+  await pg.evaluate(() => { midiaNoAr = false; currentItem = null; renderSimple(); renderTransporteHabilitado(); });
+  await quadros();
+
+  // S4 · uma escolha nova logo depois da saída de outra: o timer da anterior não apaga a marca nova
+  await noAr(LETRA);
+  await quadros();
+  await pg.click('#hymnSearchInput');
+  await esperar(pg, () => document.getElementById('hymnSearchPopup').classList.contains('open'), null, 10000);
+  await plantar();
+  const s4 = await pg.evaluate(async () => {
+    const pop = document.getElementById('hymnSearchPopup');
+    simpleSelecionarLinha(window.__li); closeHymnSearch();
+    const t0 = performance.now();
+    while (pop.classList.contains('open') && performance.now() - t0 < 5000) await new Promise((r) => setTimeout(r, 10));
+    openHymnSearch(false);
+    const li = document.createElement('li'); li.className = 'lib-item hymn-result'; li.dataset.song = 'x:2';
+    li.innerHTML = '<div class="row hymn-row"><div class="hymn-info"><span class="row-name hymn-name">002 — Outro</span></div></div>';
+    document.getElementById('hymnResults').prepend(li);
+    simpleSelecionarLinha(li);
+    await new Promise((r) => setTimeout(r, 600));
+    return { marcada: li.classList.contains('selecionando'), em: !!simpleSel.em, chave: simpleSel.chave };
+  });
+  checar(s4.marcada && s4.em && s4.chave === 'x:2',
+    'S4 · a segunda escolha, feita durante a saída da primeira, continua marcada — o timer velho não a apaga',
+    JSON.stringify(s4));
+  await pg.evaluate(() => { simpleLimparSelecao(); closeHymnSearch(); });
+  await quadros();
+
+  // S5 · o pulso de `display-status` (renderSlideNav → renderTransporteHabilitado) NÃO remede o
+  // corpo quando nada mudou; uma mudança de FORMA (mídia que sai) remede.
+  const s5 = await pg.evaluate(async () => {
+    const dois = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const conta = { troca: 0, medir: 0, conferir: 0 };
+    const m0 = medirCorpoSimples, c0 = conferirCaixaDaBiblioteca;
+    window.medirCorpoSimples = (o) => { conta.medir++; if (o && o.troca) conta.troca++; return m0(o); };
+    window.conferirCaixaDaBiblioteca = () => { conta.conferir++; return c0(); };
+    await dois();
+    for (let i = 0; i < 8; i++) { renderSlideNav(); await new Promise((r) => setTimeout(r, 30)); }
+    await dois(); await dois();
+    const pulsos = { ...conta };
+    midiaNoAr = false; currentItem = null; renderSimple(); renderTransporteHabilitado();
+    await dois(); await dois();
+    const forma = { troca: conta.troca - pulsos.troca, conferir: conta.conferir - pulsos.conferir };
+    window.medirCorpoSimples = m0; window.conferirCaixaDaBiblioteca = c0;
+    return { pulsos, forma };
+  });
+  checar(s5.pulsos.troca === 0 && s5.pulsos.conferir === 0 && s5.pulsos.medir === 0,
+    'S5 · oito pulsos de status com a mesma cena: nenhuma medição do corpo e nenhuma conferência da caixa',
+    JSON.stringify(s5));
+  checar(s5.forma.troca >= 1 && s5.forma.conferir >= 1,
+    'S5b · e a mudança de forma (a mídia saiu) remede e reconfere a caixa', JSON.stringify(s5));
+  await quadros();
+  // S6 · o cartão de "Baixando…" aparece SEM pulso nenhum e a camada acompanha a leitura
+  await pg.evaluate(() => { pvBusyEl.classList.add('on'); });
+  await quadros();
+  const s6 = await ler();
+  checar(s6.principal && Math.abs(s6.camada[3] - s6.song[3]) <= 2,
+    'S6 · com o cartão de "Baixando…" à vista a caixa da Biblioteca termina onde a leitura termina, sem pulso',
+    JSON.stringify({ camada: s6.camada, song: s6.song }));
+  await pg.evaluate(() => { pvBusyEl.classList.remove('on'); });
+  await quadros();
+
+  // S7 · a tampa das coleções não é remedida a cada quadro da janela andando, e é ao fim dela
+  await noAr(LETRA);
+  await quadros();
+  const s7 = await pg.evaluate(async () => {
+    const pop = document.getElementById('hymnSearchPopup');
+    const andando = () => pop.getAnimations().some((a) => a.playState === 'running');
+    const reg = [];
+    const t0f = medirTampa;
+    window.medirTampa = (l) => { reg.push(andando()); return t0f(l); };
+    document.getElementById('hymnSearchInput').focus();
+    openHymnSearch(false);
+    const t0 = performance.now();
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    while (andando() && performance.now() - t0 < 3000) await new Promise((r) => requestAnimationFrame(r));
+    const viuAndar = performance.now() - t0 > 100;
+    await new Promise((r) => setTimeout(r, 200));
+    window.medirTampa = t0f;
+    return { viuAndar, durante: reg.filter(Boolean).length, depois: reg.filter((x) => !x).length };
+  });
+  checar(s7.viuAndar && s7.durante <= 3 && s7.depois >= 1,   // as do render da abertura (`acertarTampa`) ficam; o laço por quadro dava 17
+    'S7 · durante a abertura animada a tampa das coleções não é medida a cada quadro; a medida vem no fim',
+    JSON.stringify(s7));
+  await pg.evaluate(() => { document.getElementById('hymnSearchInput').blur(); closeHymnSearch();
+    midiaNoAr = false; currentItem = null; renderSimple(); renderTransporteHabilitado(); });
+  await quadros();
+
   // G · avançado desencaixa; a caixa acompanha o layout; a tela cai
   await pg.setViewportSize({ width: 360, height: 640 });
   await esperar(pg, () => window.innerHeight === 640, null, 5000);

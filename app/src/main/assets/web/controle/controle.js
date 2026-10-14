@@ -392,7 +392,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.30';
+const WEB_VERSION = '1.12.31';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1717,9 +1717,17 @@ const SIMPLE_FEEDBACK_MS = 420;   // quanto a linha escolhida FICA marcada antes
 const SIMPLE_SAIDA_MS = 320;      // a Biblioteca recolhe (o `--pop-anim` da janela, com folga)
 const SIMPLE_ENTRADA_MS = 520;    // a leitura entra (atraso + duração da animação)
 const SIMPLE_SEL_JANELA_MS = 3000;
-let simpleSel = { em: 0, chave: '' };
+let simpleSel = { em: 0, chave: '', termo: '' };
 let simpleSaidaTimer = null;
 let simpleVigiaTimer = null;
+// Os dois tempos do FIM da coreografia (`simpleSairDaBiblioteca`): guardados para que uma
+// escolha NOVA os cancele — sem isso, o timer da escolha anterior apagava a marca e o vigia
+// da nova (v1.12.30).
+let simpleEntradaTimer = null;
+let simpleMarcaTimer = null;
+// A ÚLTIMA forma do corpo que `renderSimpleCorpo` mediu (barra · principal · com-mídia): ela roda
+// a cada `display-status` e só REMEDE quando a forma muda (v1.12.30).
+let corpoSimplesForma = '';
 // A CAIXA DA BIBLIOTECA NO MODO FÁCIL é MEDIDA (v1.11.13) — o estado da remedição mora aqui
 // pelo mesmo motivo dos de cima (o `renderSimpleCorpo` roda na carga do módulo).
 let corpoSimplesRaf = 0;
@@ -13032,20 +13040,39 @@ function acertarTampa(lista) {
 // toque (um render novo) remedir. Agora a medida segue a altura da lista (teclado, rotação e a
 // janela crescendo). Só com a janela ABERTA: fechando, a lista encolhe e a medida de uma lista
 // que ninguém vê encolheria os blocos na saída.
+// COM A JANELA ANDANDO (a transição do `bottom`, ~0,3 s) a lista muda de altura a cada quadro, e
+// medir a cada um é trabalho jogado fora: a medida ESPERA o fim da transição (v1.12.30).
 let tampaAlturaVista = 0;
 let tampaRaf = 0;
+let tampaPendente = false;
+const janelaDaBibliotecaAndando = () => typeof hymnSearchPopupEl.getAnimations === 'function'
+  && hymnSearchPopupEl.getAnimations().some((a) => a.playState === 'running');
+function remedirTampa() {
+  tampaPendente = false;
+  if (!hymnSearchPopupEl.classList.contains('open')) return;
+  cancelAnimationFrame(tampaRaf);
+  tampaRaf = requestAnimationFrame(() => {
+    tampaRaf = 0;
+    if (hymnResultsEl.isConnected && hymnResultsEl.classList.contains('acervo')) medirTampa(hymnResultsEl);
+  });
+}
 if (typeof ResizeObserver === 'function' && hymnResultsEl) {
   new ResizeObserver(() => {
     const h = hymnResultsEl.clientHeight;
     if (h === tampaAlturaVista) return;
     tampaAlturaVista = h;
     if (!hymnSearchPopupEl.classList.contains('open')) return;
-    cancelAnimationFrame(tampaRaf);
-    tampaRaf = requestAnimationFrame(() => {
-      tampaRaf = 0;
-      if (hymnResultsEl.isConnected && hymnResultsEl.classList.contains('acervo')) medirTampa(hymnResultsEl);
-    });
+    if (janelaDaBibliotecaAndando()) { tampaPendente = true; return; }
+    remedirTampa();
   }).observe(hymnResultsEl);
+  // O FIM (ou o cancelamento) de QUALQUER transição da própria janela entrega a medida adiada,
+  // assim que nenhuma outra estiver correndo — não só a do `bottom`, para nunca ficar presa.
+  const entregarTampa = (e) => {
+    if (e.target !== hymnSearchPopupEl || !tampaPendente || janelaDaBibliotecaAndando()) return;
+    remedirTampa();
+  };
+  hymnSearchPopupEl.addEventListener('transitionend', entregarTampa);
+  hymnSearchPopupEl.addEventListener('transitioncancel', entregarTampa);
 }
 
 // O botão de estrela de uma linha. `.on` = favoritado (a cor faz o estado, como
@@ -22356,7 +22383,7 @@ function closeHymnSearch(opts) {
   clearTimeout(hymnFocoTimer);
   hymnFocoTimer = null;
   // ===== ENCAIXADA, "FECHAR" É REINICIAR (v1.11.11) =====
-  // No Modo Fácil sem mídia no ar a Biblioteca É a tela (`simplesBibliotecaDocada`),
+  // No Modo Fácil sem mídia no ar, ou com mídia sem leitura, a Biblioteca É a tela (`simplesBibliotecaDocada`),
   // e quem fecha o acervo na pressa do toque — `ytAcao`, `projectSongLyricsOnly`,
   // `montarFilaSorteada` — o faz ANTES de a mídia existir: fechar de verdade
   // deixaria o corpo VAZIO (a leitura está escondida por baixo) durante o download,
@@ -30429,7 +30456,7 @@ function blocoDownloadDeTeste(m) {
     + ' · paradas (vão ≥ ' + TESTE_DL_PARADA_X + '× o mediano e ≥ 5 s): ' + (c.paradas == null ? '?' : c.paradas)
     + ' · ' + c.amostras + ' amostras, uma por MB (vão mediano ' + fmtSeg(c.vaoMediano) + ')');
   if (c.razao) l.push('    razão: baixou ' + c.razao.toFixed(1).replace('.', ',') + '× mais rápido que a duração do vídeo');
-  // ===== O QUE SÓ O SHELL VÊ (v1.12.30 · shell 79) =====
+  // ===== O QUE SÓ O SHELL VÊ (v1.12.31 · shell 79) =====
   const sh = m.shell;
   if (sh) {
     l.push('    até o 1º byte, por partes: extração ' + fmtSeg(c.extracao) + ' · conexão ' + fmtSeg(c.conexao));
@@ -30464,7 +30491,7 @@ function blocoDownloadDeTeste(m) {
   } else {
     // O QUE ESTA MEDIDA NÃO ALCANÇA sem a medida do shell — escrito, para
     // ninguém ler o silêncio como "não acontece".
-    l.push('    medida do shell: não veio (APK anterior à v1.12.30, ou outro download passou por cima) —'
+    l.push('    medida do shell: não veio (APK anterior à v1.12.31, ou outro download passou por cima) —'
       + ' sem ela não há extração separada da conexão, faixas e pedaços, junção isolada nem sobra no cache');
   }
   if (c.copia != null && m.bytes) {
@@ -35175,7 +35202,7 @@ async function ytBaixarNativo(link, nome, opts) {
   const medida = (opts && opts.medida) || null;
   const semResgate = !!(opts && opts.semResgate);
   if (medida) { medida.tInicio = Date.now(); medida.amostras = medida.amostras || []; }
-  // A VISIBILIDADE DO APP durante a medida (v1.12.30): o WebView do Controle é
+  // A VISIBILIDADE DO APP durante a medida (v1.12.31): o WebView do Controle é
   // estrangulado minimizado, e a cópia para a biblioteca roda NELE — sem esta
   // linha do tempo, uma cópia lenta com o app no fundo seria indistinguível de
   // uma cópia lenta com o app na frente, e as duas pedem consertos diferentes.
@@ -40001,6 +40028,9 @@ function volumeProximo(atual, dir) {
 function setAppMode(mode) {
   const eraAvancado = appMode === 'full';
   appMode = mode === 'simple' ? 'simple' : 'full';
+  // A ESCOLHA EM CURSO É DO MODO FÁCIL (v1.12.30): trocar de modo a encerra — marca, vigia e saída.
+  // Sem isto o vigia, que nasceu no simples, fechava a Biblioteca do AVANÇADO quatro segundos depois.
+  simpleLimparSelecao();
   // O "tocar neste celular" VALE O USO ATUAL, e uma ida ao avançado encerra
   // esse uso: voltar ao Modo Fácil devolve a tela de bloqueio. É por isto que
   // não há botão de desfazer — este é um dos três caminhos de volta, e o único
@@ -40615,15 +40645,25 @@ function renderSimpleCorpo() {
   simpleModeEl.classList.toggle('corpo-biblioteca', principal);
   // O card do nome e da barra só existe com algo no ar (`.simple:not(.com-midia)`), e a pergunta é
   // a do Parar — a mesma que decide a tela principal. Escrita aqui para andar no MESMO pulso.
-  simpleModeEl.classList.toggle('com-midia', haOQueParar());
+  const comMidia = haOQueParar();
+  simpleModeEl.classList.toggle('com-midia', comMidia);
+  // ===== SÓ REMEDE QUANDO A FORMA MUDA (v1.12.30) =====
+  // Esta função roda a cada `display-status` (~4 Hz com TV, via `renderTransporteHabilitado`), e
+  // cada passada medindo era layout forçado + dois rAF + a conferência, o culto inteiro. O que
+  // muda a geometria SEM mudar a forma tem vigia próprio: o `ResizeObserver` da leitura, da barra
+  // e do cabeçalho (o cartão de "Baixando…" e o card do nome mexem na leitura), o `resize` e o
+  // `visualViewport` (rotação, teclado) e o `focusout`.
+  const forma = barra + '|' + principal + '|' + comMidia;
+  const formaMudou = forma !== corpoSimplesForma;
+  corpoSimplesForma = forma;
   // `--kb` ALTO SEM TECLADO é o "espaço sobrando abaixo": `bottom` da janela é `max(base, kb)`.
   // Ela é recalculada por eventos (foco, viewport); aqui, na ENTRADA da tela principal, ela é
   // reconferida contra o que de fato há — uma conta idempotente, e que não deixa o erro de um
   // evento perdido sobreviver até a próxima interação.
-  if (barra && principal && aplicarTeclado) aplicarTeclado();
+  if (formaMudou && barra && principal && aplicarTeclado) aplicarTeclado();
   // `troca: true` — a medida muda PORQUE a tela está trocando (o card do nome aparece ou some), e a
   // troca da Biblioteca TEM de animar: ver `medirCorpoSimples`.
-  if (barra) { medirCorpoSimples({ troca: true }); medirCorpoSimplesDepois(); }
+  if (formaMudou && barra) { medirCorpoSimples({ troca: true }); medirCorpoSimplesDepois(); }
   const aberta = hymnSearchPopupEl.classList.contains('open');
   if (principal) {
     // A janela abre SEM foco: é a tela, não uma busca iniciada (o teclado
@@ -40652,7 +40692,15 @@ function simpleSelecionarLinha(li) {
   hymnResultsEl.querySelectorAll('.hymn-result.selecionando').forEach((el) => {
     if (el !== li) el.classList.remove('selecionando');
   });
-  simpleSel = { em: performance.now(), chave: li.dataset.song || (li.dataset.yt ? 'yt:' + li.dataset.yt : '') };
+  // UMA ESCOLHA NOVA CANCELA O FIM DA ANTERIOR (v1.12.30): o timer velho apagaria esta marca.
+  clearTimeout(simpleMarcaTimer); simpleMarcaTimer = null;
+  clearTimeout(simpleEntradaTimer); simpleEntradaTimer = null;
+  simpleSel = {
+    em: performance.now(),
+    chave: li.dataset.song || (li.dataset.yt ? 'yt:' + li.dataset.yt : ''),
+    // O TERMO DA ESCOLHA: o vigia só reinicia a Biblioteca se o campo ainda é este (ver lá).
+    termo: hymnSearchInputEl.value,
+  };
   li.classList.add('selecionando');
 }
 
@@ -40669,7 +40717,7 @@ function simpleLinhaSelecionada(chave) {
 }
 
 function simpleLimparSelecao() {
-  simpleSel = { em: 0, chave: '' };
+  simpleSel = { em: 0, chave: '', termo: '' };
   clearTimeout(simpleSaidaTimer); simpleSaidaTimer = null;
   clearInterval(simpleVigiaTimer); simpleVigiaTimer = null;
   hymnResultsEl.querySelectorAll('.hymn-result.selecionando').forEach((el) => el.classList.remove('selecionando'));
@@ -40683,16 +40731,22 @@ function simpleAguardarSaida() {
   if (simplesBibliotecaDocada()) {
     clearInterval(simpleVigiaTimer);
     simpleVigiaTimer = setInterval(() => {
-      if (!simpleSel.em) { clearInterval(simpleVigiaTimer); simpleVigiaTimer = null; return; }
+      // SAIU DO MODO FÁCIL (ou a tela caiu): a escolha não tem mais tela onde terminar.
+      if (!simpleSel.em || !simplesComBarra()) { simpleLimparSelecao(); return; }
       if (pvBusyEl.classList.contains('on')) return;
-      // COM LEITURA NO AR a saída está a caminho (`renderSimpleCorpo` a faz) e o vigia espera.
+      if (performance.now() - simpleSel.em < 4000) return;   // dá tempo ao download começar
+      // COM LEITURA NO AR a saída é de `renderSimpleCorpo`; passados os 4 s sem ela, ela não vem
+      // mais — o vigia só desfaz a marca e PARA (v1.12.30: ele ficava de pé o culto inteiro).
       // SEM LEITURA (nada no ar, ou uma mídia que não usa o auxiliar — v1.11.21) a Biblioteca
       // CONTINUA sendo a tela depois da escolha, e o vigia é quem a reinicia: a linha marcada
       // não pode ficar marcada para sempre sobre uma tela que nunca vai sair.
-      if (haOQueParar() && !simplesSemLeitura()) return;
-      if (performance.now() - simpleSel.em < 4000) return;   // dá tempo ao download começar
+      const reiniciar = !(haOQueParar() && !simplesSemLeitura())
+        // O CAMPO É DO OPERADOR (v1.12.30): só se reinicia o que ainda é o termo da escolha (ou
+        // nada), e sem foco — durante um download longo ele já está digitando a próxima busca.
+        && (hymnSearchInputEl.value === '' || hymnSearchInputEl.value === simpleSel.termo)
+        && document.activeElement !== hymnSearchInputEl;
       simpleLimparSelecao();
-      closeHymnSearch();   // principal: REINICIA (campo limpo, acervo no padrão)
+      if (reiniciar) closeHymnSearch();   // principal: REINICIA (campo limpo, acervo no padrão)
     }, 1000);
     return;
   }
@@ -40705,11 +40759,15 @@ function simpleSairDaBiblioteca() {
   simpleLimparSelecaoTimers();
   if (simpleSongEl) {
     simpleSongEl.classList.add('entrando');
-    setTimeout(() => simpleSongEl.classList.remove('entrando'), SIMPLE_ENTRADA_MS);
+    clearTimeout(simpleEntradaTimer);
+    simpleEntradaTimer = setTimeout(() => { simpleEntradaTimer = null; simpleSongEl.classList.remove('entrando'); }, SIMPLE_ENTRADA_MS);
   }
   closeHymnSearch({ calma: true });
-  // A marca sai com a janela já recolhida — a linha é a última coisa que se vê dela.
-  setTimeout(() => simpleLimparSelecao(), SIMPLE_SAIDA_MS);
+  // A marca sai com a janela já recolhida — a linha é a última coisa que se vê dela. Só a DESTA
+  // escolha: uma nova, feita nesse meio-tempo, é de outro fim (e cancela este timer).
+  const em = simpleSel.em;
+  clearTimeout(simpleMarcaTimer);
+  simpleMarcaTimer = setTimeout(() => { simpleMarcaTimer = null; if (simpleSel.em === em) simpleLimparSelecao(); }, SIMPLE_SAIDA_MS);
 }
 
 function simpleLimparSelecaoTimers() {

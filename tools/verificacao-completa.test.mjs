@@ -370,7 +370,7 @@ try {
       && /limpeza: registro apagado · arquivo do shell apagado/.test(d.registro),
       'B6 · o Registro (o MESMO texto que o "Salvar" grava) traz a medida inteira e a limpeza',
       d.registro.split('\n').filter((l) => /Download|duração|limpeza|tempos/.test(l)).join(' | '));
-    // B6d · A MEDIDA DO SHELL (v1.12.30): é ela que separa extração de conexão,
+    // B6d · A MEDIDA DO SHELL (v1.12.31): é ela que separa extração de conexão,
     // diz como cada faixa baixou (pedaços, conexões, refeitos), se áudio e
     // vídeo correram juntos, a junção e o que sobrou no cache.
     const linhas = d.registro.split('\n');
@@ -388,7 +388,7 @@ try {
       linhas.filter((x) => /por partes|pedaços|faixa |áudio e vídeo|junção no|sobra no|medida do/.test(x)).join(' | '));
     checar(d.contas.extracao === 2100 && d.contas.conexao === 500 && d.contas.juncaoShell === 2100,
       'B6e · e as contas guardam as mesmas metades', JSON.stringify(d.contas));
-    // B6f · A CÓPIA E O FUNDO (v1.12.30): a velocidade da cópia para o app, e
+    // B6f · A CÓPIA E O FUNDO (v1.12.31): a velocidade da cópia para o app, e
     // QUANTO de cada fase o app passou minimizado — é o que separa "a cópia é
     // lenta" de "o Android rebaixou o app no fundo".
     const fundo = await pg.evaluate(() => {

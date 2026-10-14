@@ -386,7 +386,7 @@ object YoutubeGrab {
     }
 
     /**
-     * Acrescenta ao [diagnostico] de forma ATÔMICA: desde a v1.12.30 o áudio
+     * Acrescenta ao [diagnostico] de forma ATÔMICA: desde a v1.12.31 o áudio
      * baixa num fio próprio enquanto o vídeo baixa, e um `+=` de cada lado ao
      * mesmo tempo perderia um dos dois pedaços.
      */
@@ -1025,7 +1025,7 @@ object YoutubeGrab {
                         barra,
                     )
                 }
-                // O ÁUDIO AINDA É A SONDA (v1.12.30), mas não espera mais o fim:
+                // O ÁUDIO AINDA É A SONDA (v1.12.31), mas não espera mais o fim:
                 // o vídeo parte assim que o CDN RESPONDER ao áudio (o 403 que a
                 // sonda existe para pegar chega antes do primeiro byte), e os
                 // dois baixam juntos. Um áudio que cai DEPOIS de responder é raro
@@ -1063,7 +1063,7 @@ object YoutubeGrab {
 
     /**
      * O ÁUDIO DE UM CONTÊINER, baixando num fio próprio enquanto o vídeo baixa
-     * (v1.12.30). Antes os dois eram em FILA — o áudio inteiro, depois o vídeo —
+     * (v1.12.31). Antes os dois eram em FILA — o áudio inteiro, depois o vídeo —
      * e a espera somava os dois.
      *
      * Ele continua sendo a SONDA de [tentarJuntar]: [respondeu] bloqueia até o
@@ -2109,7 +2109,7 @@ object YoutubeGrab {
     private val ESPERAS_MS = longArrayOf(1_000, 2_000, 4_000, 8_000, 15_000, 30_000, 30_000, 30_000)
 
     /**
-     * O TAMANHO DE CADA PEDAÇO e QUANTOS VÃO AO MESMO TEMPO (v1.12.30).
+     * O TAMANHO DE CADA PEDAÇO e QUANTOS VÃO AO MESMO TEMPO (v1.12.31).
      *
      * O CDN do YouTube freia uma resposta LONGA: depois dos primeiros MB ele
      * passa a entregar na velocidade de quem assiste, com pausas. MEDIDO nos
@@ -2403,7 +2403,7 @@ object YoutubeGrab {
 
     /**
      * O caminho de UMA conexão, retomando do fim do arquivo — o de antes da
-     * v1.12.30, e o que sobra quando o servidor não aceita pedaços.
+     * v1.12.31, e o que sobra quando o servidor não aceita pedaços.
      */
     private fun baixarSequencial(
         url: String,
@@ -2541,7 +2541,7 @@ object YoutubeGrab {
     }
 
     // ------------------------------------------------------------------------
-    // A MEDIDA DA VERIFICAÇÃO COMPLETA (v1.12.30 · shell 79)
+    // A MEDIDA DA VERIFICAÇÃO COMPLETA (v1.12.31 · shell 79)
     //
     // O que só o shell vê de um download: quanto a EXTRAÇÃO levou (antes, o
     // "até o 1º byte" do lado web somava extração e conexão), cada faixa que se

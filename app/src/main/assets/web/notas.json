@@ -1,12 +1,21 @@
 [
   {
-    "versao": "1.12.30",
+    "versao": "1.12.31",
     "itens": [
       "YouTube: o vídeo baixa em vários pedaços ao mesmo tempo, o que evita o freio que o YouTube às vezes põe.",
       "YouTube: o som e a imagem do vídeo baixam juntos, em vez de um depois do outro.",
       "Com o app minimizado, o download não fica mais lento na hora de entrar na biblioteca.",
       "Verificação completa: o Registro mostra cada etapa do download do YouTube em detalhe.",
       "Esta versão chega instalando o app novo (o aviso de atualização traz o link)."
+    ]
+  },
+  {
+    "versao": "1.12.30",
+    "itens": [
+      "Modo simples: o que você digita na busca durante um download não é mais apagado sozinho.",
+      "Trocar para o modo avançado logo depois de escolher uma música não fecha mais a Biblioteca de lá.",
+      "Escolher duas músicas seguidas, bem rápido, mantém a segunda marcada.",
+      "Modo simples com TV: menos trabalho por segundo enquanto a mídia toca, e a Biblioteca abre mais leve."
     ]
   },
   {
