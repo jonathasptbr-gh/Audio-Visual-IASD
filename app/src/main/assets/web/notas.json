@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.12.32",
+    "itens": [
+      "Modo simples: ao tocar um vídeo do YouTube, a Biblioteca só muda quando o vídeo já vai entrar.",
+      "O download mostra no máximo 99% até o vídeo estar pronto para tocar."
+    ]
+  },
+  {
     "versao": "1.12.31",
     "itens": [
       "YouTube: o vídeo baixa em vários pedaços ao mesmo tempo, o que evita o freio que o YouTube às vezes põe.",
