@@ -129,7 +129,13 @@ da barra** (`#simpleBarra`) · **zona de leitura** (`.simple-song`) · cartão d
   especificidade da regra nova, vindo depois — por isso a regra do estado fechado
   leva `.mode-simple` na conta.
 - **`renderSimpleCorpo` roda em três pulsos:** `renderSimpleGate` (tela entrou ou
-  saiu, troca de modo), `renderTransporteHabilitado` (cena mudou) e `setAppMode`.
+  saiu, troca de modo), `renderTransporteHabilitado` (cena mudou — e também a CADA
+  `display-status`, ~4 Hz com TV) e `setAppMode`. **Só REMEDE quando a FORMA muda**
+  (`corpoSimplesForma` = barra · principal · com-mídia, v1.12.30): o resto da
+  geometria tem vigia próprio (`ResizeObserver` da leitura/barra/cabeçalho,
+  `resize`, `visualViewport`, `focusout`). Medida nova que dependa de outra coisa
+  ganha o vigia dela, nunca o pulso. E a tampa das coleções (`#hymnResults`) não
+  mede com a janela andando: adia até o `transitionend` dela.
 - **A ESCOLHA DE UMA MÚSICA É UMA COREOGRAFIA (v1.11.12)** — relato: *"a tela muda
   rápido demais, sem nem sequer o feedback tátil … a tela está simplesmente
   piscando"*. Três tempos: (1) `simpleSelecionarLinha` (no toque da linha, na
@@ -143,7 +149,12 @@ da barra** (`#simpleBarra`) · **zona de leitura** (`.simple-song`) · cartão d
   atraso). Só depois o campo é limpo e o acervo volta ao padrão
   (`closeHymnSearch({ calma: true })` adia a limpeza por `SIMPLE_SAIDA_MS`). Se a
   escolha não vira mídia, um vigia de 1 s desfaz a marca e REINICIA a Biblioteca
-  (cartão de espera cancelado, falha). A marca sobrevive aos redesenhos do acervo
+  (cartão de espera cancelado, falha). **O vigia sempre termina** (v1.12.30):
+  passados 4 s sem cartão de espera ele desfaz a marca e para, e só reinicia sem
+  leitura no ar, sem foco no campo e com o campo vazio ou ainda no TERMO da
+  escolha (`simpleSel.termo`) — o que o operador digitou depois é dele. Trocar de
+  modo encerra a escolha (`setAppMode` → `simpleLimparSelecao`), e os timers do fim
+  (`simpleEntradaTimer`, `simpleMarcaTimer`) são cancelados por uma escolha nova. A marca sobrevive aos redesenhos do acervo
   (`simpleLinhaSelecionada`, por chave da música ou `yt:<id>`) — um download longo
   refaz a lista muitas vezes. **O estado mora no TOPO do arquivo:** `let` depois do
   `closeHymnSearch` seria zona morta, porque ele roda na carga via

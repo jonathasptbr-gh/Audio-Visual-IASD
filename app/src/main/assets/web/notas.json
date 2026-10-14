@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.12.30",
+    "itens": [
+      "Modo simples: o que você digita na busca durante um download não é mais apagado sozinho.",
+      "Trocar para o modo avançado logo depois de escolher uma música não fecha mais a Biblioteca de lá.",
+      "Escolher duas músicas seguidas, bem rápido, mantém a segunda marcada.",
+      "Modo simples com TV: menos trabalho por segundo enquanto a mídia toca, e a Biblioteca abre mais leve."
+    ]
+  },
+  {
     "versao": "1.12.29",
     "itens": [
       "Trocar entre modo simples e avançado fecha as Configurações, depois que o botão termina de deslizar.",
