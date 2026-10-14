@@ -69,7 +69,8 @@ const servidor = servirEstatico(RAIZ_WEB, (req, res) => {
 // que o app pediu, em ordem. SEM CRASE NEM DOLAR-CHAVE NESTES COMENTARIOS.
 const PONTE = `(function () {
   window.__chamadas = [];
-  window.__yt = { passos: 6, intervalo: 60, falhar: false, descartaApaga: true, tamanho: ${ARQUIVO.length} };
+  window.__yt = { passos: 6, intervalo: 60, falhar: false, descartaApaga: true, semMedida: false, tamanho: ${ARQUIVO.length} };
+  window.__ultimoLink = '';
   let seq = 0;
   let cancelados = new Set();
   const vazio = { displays: [], listFolder: [], otaPending: '', otaDiag: '',
@@ -84,6 +85,7 @@ const PONTE = `(function () {
     'espelhoCertApagar','pacoteConsumirOrigem','pacoteEspaco','pacoteProntoEstado','pacoteDiag']);
   function baixar(nome, id, url, teto) {
     window.__chamadas.push({ n: nome, url: url, teto: teto });
+    window.__ultimoLink = url;
     const cfg = window.__yt;
     const total = cfg.tamanho;
     let i = 0;
@@ -119,6 +121,26 @@ const PONTE = `(function () {
     // A LINHA DE EXTRAÇÃO É A DE UM REGISTRO REAL, longa e com chaves no meio: o
     // slice(-160) que a cortava no meio de um par de chaves (v1.12.29) só
     // aparece com uma linha maior que o corte.
+    // A MEDIDA DO SHELL (shell 79), na forma do YoutubeGrab: duas faixas em
+    // pedaços que correram juntas, a junção e o cache limpo. semMedida simula
+    // o APK antigo, que não tem o método.
+    ytMedida: (id) => {
+      if (window.__yt.semMedida) throw new Error('metodo ausente');
+      setTimeout(() => window.__avResolve(id, { v: 1, link: window.__ultimoLink, somenteAudio: false, teto: 720,
+        conexoes: 4, blocoBytes: 3145728, extracaoMs: 2100,
+        faixas: [
+          { papel: 'audio', etiqueta: '140@VISIONOS', cliente: 'VISIONOS', perfil: 'V', modo: 'pedaços',
+            conexoes: 4, blocoBytes: 3145728, blocos: 2, inicio: 2150, primeiroByte: 2600, fim: 3900,
+            bytes: 5000000, ok: true, erro: '', retentativas: 0, pedacosRefeitos: 0,
+            pedacos: { n: 2, msMin: 900, msMediano: 900, msMax: 1300, bytes: 5000000 } },
+          { papel: 'video', etiqueta: '136@VISIONOS', cliente: 'VISIONOS', perfil: 'V', modo: 'pedaços',
+            conexoes: 4, blocoBytes: 3145728, blocos: 5, inicio: 2650, primeiroByte: 3000, fim: 7400,
+            bytes: 15000000, ok: true, erro: '', retentativas: 1, pedacosRefeitos: 1,
+            pedacos: { n: 6, msMin: 700, msMediano: 1100, msMax: 2600, bytes: 15000000 } }],
+        juncao: { inicio: 7400, fim: 9500, ok: true }, audioEVideoJuntos: true, desfecho: 'juntou',
+        totalMs: 9600, sobraNoCache: [] }), 0);
+      return undefined;
+    },
     ytDiag: (id) => setTimeout(() => window.__avResolve(id,
       'download: áudio 10 [m4a 4, webm 6] {en-US dublado 5, pt-BR 5} · vídeo-só 12 [mp4 6 (1080p), '
       + 'webm 6 (1080p)] · prog 1 [mp4 1 (360p)] · clientes VISIONOS 22, ANDROID 1 → juntou 720p '
@@ -345,10 +367,40 @@ try {
       JSON.stringify({ rede: d.rede, amostras: d.amostras, c }));
     checar(/Download de teste — detalhe/.test(d.registro) && /duração do vídeo: 0:20/.test(d.registro)
       && /tempos: até o 1º byte/.test(d.registro) && /velocidade: média/.test(d.registro)
-      && /limpeza: registro apagado · arquivo do shell apagado/.test(d.registro)
-      && /não medido \(só com APK novo\)/.test(d.registro),
-      'B6 · o Registro (o MESMO texto que o "Salvar" grava) traz a medida inteira, a limpeza e o que '
-      + 'não se mede sem APK', d.registro.split('\n').filter((l) => /Download|duração|limpeza|tempos/.test(l)).join(' | '));
+      && /limpeza: registro apagado · arquivo do shell apagado/.test(d.registro),
+      'B6 · o Registro (o MESMO texto que o "Salvar" grava) traz a medida inteira e a limpeza',
+      d.registro.split('\n').filter((l) => /Download|duração|limpeza|tempos/.test(l)).join(' | '));
+    // B6d · A MEDIDA DO SHELL (v1.12.30): é ela que separa extração de conexão,
+    // diz como cada faixa baixou (pedaços, conexões, refeitos), se áudio e
+    // vídeo correram juntos, a junção e o que sobrou no cache.
+    const linhas = d.registro.split('\n');
+    const tem = (re) => linhas.some((x) => re.test(x));
+    checar(tem(/^\s+até o 1º byte, por partes: extração 2\.1 s · conexão 0\.5 s$/)
+      && tem(/^\s+pedaços: 3(\.0|,0)? MB cada, até 4 conexões por faixa$/)
+      && tem(/^\s+faixa áudio 140@VISIONOS \(VISIONOS\/V\): .* em 1\.8 s .* · pedaços \(2, 4 conexões\) · 1º byte aos 2\.6 s · cada pedaço: mín 0\.9 s, mediano 0\.9 s, máx 1\.3 s · refeitos 0 · retentativas 0$/)
+      && tem(/^\s+faixa vídeo 136@VISIONOS .* · refeitos 1 · retentativas 1$/)
+      && tem(/^\s+áudio e vídeo: baixaram AO MESMO TEMPO$/)
+      && tem(/^\s+junção no shell: 2\.1 s$/)
+      && tem(/^\s+sobra no cache do shell: nada$/)
+      && !tem(/medida do shell: não veio/) && !tem(/não medido/),
+      'B6d · o Registro traz a medida do shell: extração × conexão, cada faixa com pedaços e conexões, '
+      + 'áudio e vídeo juntos, a junção e a sobra no cache',
+      linhas.filter((x) => /por partes|pedaços|faixa |áudio e vídeo|junção no|sobra no|medida do/.test(x)).join(' | '));
+    checar(d.contas.extracao === 2100 && d.contas.conexao === 500 && d.contas.juncaoShell === 2100,
+      'B6e · e as contas guardam as mesmas metades', JSON.stringify(d.contas));
+    // B6f · A CÓPIA E O FUNDO (v1.12.30): a velocidade da cópia para o app, e
+    // QUANTO de cada fase o app passou minimizado — é o que separa "a cópia é
+    // lenta" de "o Android rebaixou o app no fundo".
+    const fundo = await pg.evaluate(() => {
+      const c = testeDlContas({ tInicio: 1000, amostras: [[2000, 1e6, 4e6], [6000, 4e6, 4e6]],
+        tNativo: 7000, tCopia: 9000, tMiniatura: 9100, tGravado: 9500,
+        visibilidade: [[1000, true], [3000, false], [8000, true]] });
+      return c.noFundo;
+    });
+    checar(tem(/^\s+cópia para o app: .* em .* \(.*\/s\)$/) && tem(/^\s+app: na frente o tempo todo$/)
+      && fundo && fundo.baixando === 3000 && fundo.copia === 1000 && fundo.gravacao === 0 && fundo.total === 5000,
+      'B6f · o Registro diz a velocidade da cópia e se o app esteve no fundo; a conta reparte o tempo '
+      + 'escondido pelas fases', JSON.stringify(fundo));
     // B6b · O CAMINHO VAI INTEIRO (v1.12.29): o corte de 160 caracteres pegava o
     // MEIO de um `{…}` e o Registro saía com "—  dublado 5, pt-BR 5} · …".
     const caminho = d.registro.split('\n').find((l) => /^\s+caminho: /.test(l)) || '';

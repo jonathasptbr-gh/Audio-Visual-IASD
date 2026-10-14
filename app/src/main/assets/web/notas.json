@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.12.30",
+    "itens": [
+      "YouTube: o vídeo baixa em vários pedaços ao mesmo tempo, o que evita o freio que o YouTube às vezes põe.",
+      "YouTube: o som e a imagem do vídeo baixam juntos, em vez de um depois do outro.",
+      "Com o app minimizado, o download não fica mais lento na hora de entrar na biblioteca.",
+      "Verificação completa: o Registro mostra cada etapa do download do YouTube em detalhe.",
+      "Esta versão chega instalando o app novo (o aviso de atualização traz o link)."
+    ]
+  },
+  {
     "versao": "1.12.29",
     "itens": [
       "Trocar entre modo simples e avançado fecha as Configurações, depois que o botão termina de deslizar.",

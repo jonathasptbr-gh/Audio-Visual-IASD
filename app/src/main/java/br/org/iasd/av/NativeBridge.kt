@@ -352,7 +352,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 78
+        const val SHELL_VERSION = 79
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -1573,6 +1573,22 @@ class NativeBridge(
             }
         }
         resolve(callId, JSONObject.quote(texto))
+    }
+
+    /**
+     * A MEDIDA do último download do YouTube, em JSON (shell 79) — o que só o
+     * shell vê: a extração separada da conexão, cada faixa tentada (pedaços,
+     * conexões, pedaços refeitos, retentativas), se áudio e vídeo correram
+     * juntos, a junção isolada e o que sobrou no cache. Ver
+     * `YoutubeGrab.ultimaMedida`. Vale também para a FALHA, que no `ytFetch`
+     * resolve `null` e levaria a medida junto.
+     *
+     * Quem monta a frase é a Verificação completa (`controle.js`); aqui é dado.
+     * `null` antes do primeiro download desta execução.
+     */
+    @JavascriptInterface
+    fun ytMedida(callId: String) {
+        resolve(callId, if (host == null) "null" else (YoutubeGrab.ultimaMedida?.toString() ?: "null"))
     }
 
     /**

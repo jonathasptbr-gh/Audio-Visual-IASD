@@ -385,6 +385,14 @@ object YoutubeGrab {
         return e.javaClass.simpleName.ifEmpty { "erro" }
     }
 
+    /**
+     * Acrescenta ao [diagnostico] de forma ATÔMICA: desde a v1.12.30 o áudio
+     * baixa num fio próprio enquanto o vídeo baixa, e um `+=` de cada lado ao
+     * mesmo tempo perderia um dos dois pedaços.
+     */
+    @Synchronized
+    private fun anotar(t: String) { diagnostico += t }
+
     /** `NewPipe.init` é global e só pode acontecer uma vez por processo. */
     @Volatile
     private var pronto = false
@@ -472,6 +480,9 @@ object YoutubeGrab {
         // e os ~300 MB baixavam assim mesmo. Preservar o pedido que nomeia ESTE
         // link honra as duas coisas: o resto continua sendo descartado.
         if (cancelarLink != link) cancelarLink = null
+        val med = Medida(link, somenteAudio, teto)
+        medidaAtual = med
+        var entregue: String? = null
         return try {
             garantirInit()
             // Pelo EXTRATOR, e não pelo atalho `getInfo(service, url)`: é o
@@ -479,6 +490,7 @@ object YoutubeGrab {
             val ex = ServiceList.YouTube.getStreamExtractor(link)
             aportuguesar(ex)
             val info = StreamInfo.getInfo(ex)
+            med.extracaoMs = agoraNaMedida()
             val nome = tituloLimpo(info.name, info.uploaderName)
             val id = info.id ?: "video"
 
@@ -499,7 +511,11 @@ object YoutubeGrab {
             // Falhando qualquer etapa, a fila abaixo continua valendo.
             if (!somenteAudio) {
                 val juntado = tentarJuntar(ctx, info, id, teto, onProgresso)
-                if (juntado != null) return juntado
+                if (juntado != null) {
+                    entregue = caminhoDe(juntado.optString("url"))
+                    med.desfecho = "juntou"
+                    return juntado
+                }
             }
 
             // A FILA DE TENTATIVAS, EM ORDEM. Pedindo só o áudio, as faixas de
@@ -537,7 +553,10 @@ object YoutubeGrab {
                 if (cancelado()) return null
                 val destino = arquivoDestino(ctx, id, alvo.faixa.ext, alvo.soAudio)
                 try {
-                    baixarTentando(alvo.faixa.url, destino, onProgresso)
+                    baixarTentando(
+                        alvo.faixa.url, destino,
+                        if (alvo.soAudio) "audio" else "unico", alvo.faixa.etiqueta, onProgresso,
+                    )
                 } catch (e: Exception) {
                     Log.w(TAG, "falhou baixando ${alvo.faixa.etiqueta} de $link", e)
                     diagnostico += " · ${alvo.faixa.etiqueta} " + motivo(e)
@@ -550,6 +569,8 @@ object YoutubeGrab {
                 }
                 diagnostico += " → veio ${alvo.faixa.ext} ${alvo.faixa.etiqueta}" +
                     (if (alvo.faixa.altura > 0) " (${alvo.faixa.altura}p)" else "")
+                entregue = destino.path
+                med.desfecho = "veio"
                 return JSONObject()
                     .put("url", SafRegistry.urlFor(Uri.fromFile(destino)))
                     .put("name", nome)
@@ -576,6 +597,7 @@ object YoutubeGrab {
                     .put("seconds", info.duration)
             }
             diagnostico += " → NADA baixou"
+            med.desfecho = if (cancelado()) "cancelado" else "nada baixou"
             Log.w(TAG, "nenhum stream utilizável para $link ($diagnostico)")
             null
         } catch (e: Exception) {
@@ -586,8 +608,14 @@ object YoutubeGrab {
             // instrumento cuja razão de existir é "olhar o que chegou", mostrar
             // a de ontem para a falha de hoje é o pior modo de falhar.
             diagnostico = "extração falhou: " + motivo(e) + " · " + link
+            med.desfecho = if (med.extracaoMs < 0) "extração falhou: " + motivo(e) else "falhou: " + motivo(e)
             null
         } finally {
+            if (med.desfecho.isEmpty()) med.desfecho = if (cancelado()) "cancelado" else "?"
+            med.fim = agoraNaMedida()
+            med.sobraNoCache = sobrasDoCache(ctx, entregue)
+            ultimaMedida = med.json()
+            medidaAtual = null
             baixandoLink = null
             // O pedido de cancelamento morre com o download que ele cancelou.
             // Sem isto, um "cancelar" chegando tarde (o download já tinha
@@ -954,11 +982,12 @@ object YoutubeGrab {
         val nome = tituloLimpo(info.name, info.uploaderName)
         val segundos = info.duration
 
-        // O áudio JÁ BAIXADO de cada contêiner. Um `null` guardado é memória de
-        // que aquele contêiner não tem áudio utilizável: insistir nele com outro
-        // candidato de vídeo seria baixar centenas de MB para esbarrar no mesmo
-        // lado que falhou.
-        val audioDe = mutableMapOf<String, File?>()
+        // O áudio de cada contêiner, EM VOO OU PRONTO. Um `null` guardado é
+        // memória de que aquele contêiner não tem áudio utilizável: insistir
+        // nele com outro candidato de vídeo seria baixar centenas de MB para
+        // esbarrar no mesmo lado que falhou.
+        val audioDe = mutableMapOf<String, AudioEmVoo?>()
+        val barra = BarraDoPar(onProgresso)
         var tentados = 0
         var recusas403 = 0
         var montagens = 0
@@ -986,27 +1015,40 @@ object YoutubeGrab {
                 // esta memória existe para lembrar — seriam downloads repetidos
                 // de um áudio que já se provou ausente.
                 if (!audioDe.containsKey(extAudio)) {
-                    audioDe[extAudio] = baixarAudio(
+                    audioDe[extAudio] = AudioEmVoo(
                         ctx, id, extAudio,
-                        candidatosAudio(info, extAudio, TETO_AUDIO) { diagnostico += it },
-                        // O TAMANHO DO VÍDEO QUE VEM A SEGUIR, para a fase do
-                        // áudio já contar a conta inteira — ver [baixarAudio].
-                        // Pode ser -1 (o YouTube nem sempre informa), e lá isso
-                        // é tratado como "não sei".
+                        candidatosAudio(info, extAudio, TETO_AUDIO) { anotar(it) },
+                        // O TAMANHO DO VÍDEO QUE VEM A SEGUIR, para a barra já
+                        // contar a conta inteira desde o primeiro byte. Pode ser
+                        // -1 (o YouTube nem sempre informa), e aí "não sei".
                         v.tamanho,
-                        onProgresso,
+                        barra,
                     )
                 }
-                val parteAudio = audioDe[extAudio] ?: continue
+                // O ÁUDIO AINDA É A SONDA (v1.12.30), mas não espera mais o fim:
+                // o vídeo parte assim que o CDN RESPONDER ao áudio (o 403 que a
+                // sonda existe para pegar chega antes do primeiro byte), e os
+                // dois baixam juntos. Um áudio que cai DEPOIS de responder é raro
+                // e custa o vídeo desta tentativa — a montagem sai Recusada.
+                val emVoo = audioDe[extAudio] ?: continue
+                if (!emVoo.respondeu()) {
+                    audioDe[extAudio] = null
+                    continue
+                }
                 tentados++
-                when (val d = montar(ctx, id, nome, v, segundos, parteAudio, onProgresso)) {
+                when (val d = montar(ctx, id, nome, v, segundos, emVoo, barra)) {
                     is Desfecho.Pronto -> return d.json
-                    is Desfecho.Recusado -> if (d.motivo == "403") recusas403++
+                    is Desfecho.Recusado -> {
+                        if (d.motivo == "403") recusas403++
+                        if (emVoo.arquivoSeHouver() == null) audioDe[extAudio] = null
+                    }
                     Desfecho.NaoMontou -> montagens++
                 }
             }
         } finally {
-            audioDe.values.forEach { it?.delete() }
+            // TODO áudio em voo termina ANTES de o arquivo sair: um fio ainda
+            // escrevendo recriaria o que se acabou de apagar.
+            audioDe.values.forEach { it?.esperar(); it?.destino?.delete() }
         }
 
         // A QUARENTENA EXIGE UNANIMIDADE — ver [adaptativoBloqueadoEm]. Com o
@@ -1020,57 +1062,129 @@ object YoutubeGrab {
     }
 
     /**
-     * Baixa a primeira faixa de [candidatos] que de fato vier e devolve o
-     * arquivo; `null` quando nenhuma veio — e aí o contêiner inteiro está fora,
-     * porque sem áudio não há o que montar.
+     * O ÁUDIO DE UM CONTÊINER, baixando num fio próprio enquanto o vídeo baixa
+     * (v1.12.30). Antes os dois eram em FILA — o áudio inteiro, depois o vídeo —
+     * e a espera somava os dois.
      *
-     * Ela é a SONDA de [tentarJuntar], e vem antes do vídeo justamente por ser
-     * pequena. Quem apaga o arquivo é quem chamou: ele é reaproveitado entre os
+     * Ele continua sendo a SONDA de [tentarJuntar]: [respondeu] bloqueia até o
+     * CDN aceitar um candidato de áudio (o primeiro pedaço voltou 206) ou até
+     * todos falharem, e só então o vídeo parte. Um 403 falha antes do primeiro
+     * byte, então a pergunta "este contêiner serve?" continua respondida antes
+     * de o vídeo custar alguma coisa.
+     *
+     * Quem apaga o arquivo é quem chamou: ele é reaproveitado entre os
      * candidatos de vídeo do mesmo contêiner.
      */
-    private fun baixarAudio(
+    private class AudioEmVoo(
         ctx: Context,
+        id: String,
+        private val ext: String,
+        private val candidatos: List<Faixa>,
+        private val previsaoVideo: Long,
+        private val barra: BarraDoPar,
+    ) {
+        val destino = File(pasta(ctx), "$id-a.$ext")
+        private val respondeuSinal = java.util.concurrent.CountDownLatch(1)
+        @Volatile private var aceito = false
+        @Volatile private var pronto: File? = null
+        private val fio = Thread({ rodar(id) }, "yt-audio").apply { isDaemon = true; start() }
+
+        private fun rodar(id: String) {
+            try {
+                pronto = baixarAudio(id, ext, candidatos, destino, previsaoVideo, barra) {
+                    aceito = true
+                    respondeuSinal.countDown()
+                }
+            } finally {
+                respondeuSinal.countDown()
+            }
+        }
+
+        /** O CDN aceitou um áudio deste contêiner (ou ele já está pronto)? */
+        fun respondeu(): Boolean {
+            respondeuSinal.await()
+            return aceito || pronto != null
+        }
+
+        /** O arquivo, esperando o fim; `null` quando nenhum candidato veio. */
+        fun arquivo(): File? { esperar(); return pronto }
+
+        /** O arquivo se o fio já terminou, sem esperar. */
+        fun arquivoSeHouver(): File? = if (fio.isAlive) destino else pronto
+
+        fun esperar() { fio.join() }
+    }
+
+    /**
+     * A barra das DUAS faixas baixando juntas: a soma do que cada uma já leu,
+     * contra a soma dos totais (com a PREVISÃO do vídeo enquanto ele não
+     * responde). Nunca anda para trás: um candidato de vídeo trocado no meio
+     * recomeça a conta dele, e a barra espera ela passar do ponto.
+     */
+    private class BarraDoPar(private val onProgresso: (Long, Long) -> Unit) {
+        private var aLidos = 0L
+        private var aTotal = 0L
+        private var vLidos = 0L
+        private var vTotal = 0L
+        private var vPrevisao = 0L
+        private var maior = 0L
+
+        @Synchronized fun audio(lidos: Long, total: Long, previsaoVideo: Long) {
+            aLidos = lidos; aTotal = total
+            if (previsaoVideo > 0) vPrevisao = previsaoVideo
+            emitir()
+        }
+        @Synchronized fun video(lidos: Long, total: Long) {
+            vLidos = lidos; vTotal = total
+            emitir()
+        }
+        @Synchronized fun fechar(bytes: Long) { onProgresso(bytes, bytes) }
+
+        private fun emitir() {
+            val lidos = aLidos + vLidos
+            val tv = if (vTotal > 0) vTotal else vPrevisao
+            val total = if (aTotal > 0 && tv > 0) aTotal + tv else 0L
+            val mostrar = maxOf(lidos, maior)
+            maior = mostrar
+            onProgresso(mostrar, if (total > 0) maxOf(total, mostrar) else 0L)
+        }
+    }
+
+    /**
+     * Baixa a primeira faixa de [candidatos] que de fato vier e devolve o
+     * arquivo; `null` quando nenhuma veio — e aí o contêiner inteiro está fora,
+     * porque sem áudio não há o que montar. [onRespondeu] avisa no primeiro
+     * byte aceito: é o sinal que solta o vídeo (ver [AudioEmVoo]).
+     */
+    private fun baixarAudio(
         id: String,
         ext: String,
         candidatos: List<Faixa>,
+        destino: File,
         previsaoVideo: Long,
-        onProgresso: (Long, Long) -> Unit,
+        barra: BarraDoPar,
+        onRespondeu: () -> Unit,
     ): File? {
         if (candidatos.isEmpty()) {
-            diagnostico += " · $ext sem áudio"
+            anotar(" · $ext sem áudio")
             return null
         }
-        val destino = File(pasta(ctx), "$id-a.$ext")
         var tentadas = 0
         var recusas403 = 0
         for (a in candidatos) {
             try {
-                // BYTES DE VERDADE, e não uma escala de 0 a 100 (v1.58).
-                // Este caminho reportava porcentagem enquanto o lado web trata
-                // os dois números como BYTES: a notificação — única janela do
-                // download com o app minimizado — anunciava "0 de 100" para um
-                // vídeo de 380 MB, que se lê como CEM ITENS.
-                //
-                // E O TOTAL JÁ É O DAS DUAS FAIXAS (v1.62). A fase do áudio
-                // reportava o tamanho DELE e o total só crescia quando o vídeo
-                // entrava: os números eram verdadeiros e a tela mentia — o áudio
-                // baixa em segundos, então todo download começava marcando 100%
-                // para só então recomeçar do zero.
-                //
-                // A previsão vem do `contentLength` da faixa de vídeo, que o
-                // extrator entrega antes do primeiro byte. Faltando (o YouTube
-                // manda -1 ou 0), nada muda; havendo, a barra sobe de 0 a 100
-                // uma vez só.
-                baixarTentando(a.url, destino) { lidos, total ->
-                    onProgresso(
-                        lidos,
-                        if (total > 0 && previsaoVideo > 0) total + previsaoVideo else total,
-                    )
-                }
+                // BYTES DE VERDADE, e não uma escala de 0 a 100 (v1.58): o lado
+                // web trata os dois números como BYTES, e a notificação — única
+                // janela do download com o app minimizado — anunciava "0 de
+                // 100" para um vídeo de 380 MB. E O TOTAL JÁ É O DAS DUAS FAIXAS
+                // (v1.62), pela [BarraDoPar].
+                baixarTentando(a.url, destino, "audio", a.etiqueta, { lidos, total ->
+                    barra.audio(lidos, total, previsaoVideo)
+                }, onRespondeu)
                 return destino
             } catch (e: Exception) {
                 Log.w(TAG, "falhou o áudio ${a.etiqueta} de $id", e)
-                diagnostico += " · a:${a.etiqueta} " + motivo(e)
+                anotar(" · a:${a.etiqueta} " + motivo(e))
                 // CANCELAMENTO ABORTA A FILA: cada candidato seguinte abriria
                 // conexão real depois do pedido de parar. O registro acima já
                 // disse "cancelado".
@@ -1106,36 +1220,47 @@ object YoutubeGrab {
         nome: String,
         v: Faixa,
         segundos: Long,
-        parteAudio: File,
-        onProgresso: (Long, Long) -> Unit,
+        audio: AudioEmVoo,
+        barra: BarraDoPar,
     ): Desfecho {
         val parteVideo = File(pasta(ctx), "$id-v.${v.ext}")
         val saida = arquivoDestino(ctx, id, v.ext, false)
         try {
-            // O ÁUDIO JÁ BAIXADO é a base da conta: daqui para a frente os dois
-            // números são a soma real das duas faixas (ver `baixarAudio`).
-            val base = parteAudio.length()
-            val perfil = baixarTentando(v.url, parteVideo) { lidos, total ->
-                onProgresso(base + lidos, if (total > 0) base + total else 0L)
+            val perfil = baixarTentando(v.url, parteVideo, "video", v.etiqueta, { lidos, total ->
+                barra.video(lidos, total)
+            })
+            // O ÁUDIO TERMINA AQUI, se ainda não terminou: ele correu junto com
+            // o vídeo. Falhando depois de ter respondido, esta montagem não tem
+            // o que juntar — sai como Recusada, e a fila segue.
+            val parteAudio = audio.arquivo() ?: run {
+                anotar(" · v:${v.etiqueta} áudio caiu no meio")
+                return Desfecho.Recusado("áudio")
+            }
+            medidaAtual?.let { m ->
+                val fa = synchronized(m.faixas) { m.faixas.lastOrNull { it.papel == "audio" && it.ok } }
+                val fv = synchronized(m.faixas) { m.faixas.lastOrNull { it.papel == "video" && it.ok } }
+                if (fa != null && fv != null && fa.fim > fv.inicio && fv.fim > fa.inicio) m.audioEVideoJuntos = true
             }
             // BAIXOU TUDO: os dois números se encontram. A junção (MuxMp4) que
             // vem a seguir é cópia de amostras, rápida e sem rede — não há
             // progresso honesto a reportar nela, e inventar um seria voltar ao
             // que esta versão está consertando.
-            val baixado = base + parteVideo.length()
-            onProgresso(baixado, baixado)
-            if (!MuxMp4.juntar(parteVideo, parteAudio, saida, v.webm)) {
-                diagnostico += " · v:${v.etiqueta} muxer falhou"
+            barra.fechar(parteAudio.length() + parteVideo.length())
+            medidaAtual?.juncaoIni = agoraNaMedida()
+            val juntou = MuxMp4.juntar(parteVideo, parteAudio, saida, v.webm)
+            medidaAtual?.let { it.juncaoFim = agoraNaMedida(); it.juncaoOk = juntou }
+            if (!juntou) {
+                anotar(" · v:${v.etiqueta} muxer falhou")
                 return Desfecho.NaoMontou
             }
             if (saida.length() <= 0L) {
-                diagnostico += " · v:${v.etiqueta} saída vazia"
+                anotar(" · v:${v.etiqueta} saída vazia")
                 return Desfecho.NaoMontou
             }
             // Fim: o arquivo montado é o que o operador vai ter no aparelho, e
             // ele é o número honesto para fechar a barra.
-            onProgresso(saida.length(), saida.length())
-            diagnostico += " → juntou ${v.altura}p (${v.ext}, ${v.etiqueta}/$perfil)"
+            barra.fechar(saida.length())
+            anotar(" → juntou ${v.altura}p (${v.ext}, ${v.etiqueta}/$perfil)")
             return Desfecho.Pronto(
                 JSONObject()
                     .put("url", SafRegistry.urlFor(Uri.fromFile(saida)))
@@ -1149,7 +1274,7 @@ object YoutubeGrab {
         } catch (e: Exception) {
             Log.w(TAG, "não deu para juntar ${v.etiqueta} de $id", e)
             val porque = motivo(e)
-            diagnostico += " · v:${v.etiqueta} " + porque
+            anotar(" · v:${v.etiqueta} " + porque)
             saida.delete()
             return Desfecho.Recusado(porque)
         } finally {
@@ -1913,40 +2038,57 @@ object YoutubeGrab {
     private fun baixarTentando(
         url: String,
         destino: File,
+        papel: String,
+        etiqueta: String,
         onProgresso: (Long, Long) -> Unit,
+        onRespondeu: (() -> Unit)? = null,
     ): String {
         val combina = if (clienteDe(url) == "VISIONOS") "V" else "A"
+        val reg = RegFaixa(papel, etiqueta, clienteDe(url))
+        medidaAtual?.faixas?.add(reg)
+        reg.inicio = agoraNaMedida()
 
         // `sortedBy` é estável, então os perfis que não combinam mantêm a ordem
         // em que estão escritos aqui.
         val perfis = listOf("V" to UA_VISIONOS, "A" to UA)
             .sortedBy { if (it.first == combina) 0 else 1 }
         var erro: Exception? = null
-        for ((rotulo, ua) in perfis) {
-            try {
-                baixar(url, destino, ua, onProgresso)
-                // SÓ volta com arquivo NÃO VAZIO — vazio cai fora do laço e sai
-                // como exceção. Por isso nenhum chamador re-testa o tamanho.
-                if (destino.length() > 0L) return rotulo
-            } catch (e: Exception) {
-                erro = e
-                // O PARCIAL FICA para o próximo perfil: trocar o UA muda o
-                // CABEÇALHO, não a URL — mesma URL ⇒ mesmos bytes, a premissa
-                // da retomada (v1.58) — e a conferência de [parciais] já
-                // garante que o que está no disco é DESTA URL. Apagar aqui
-                // jogava fora os MB que a tentativa seguinte retomaria.
-                //
-                // CANCELAR não é "este perfil de UA não deu": tentar o outro em
-                // seguida faria o operador esperar mais DEPOIS de pedir para
-                // parar. Só aqui o parcial sai: sem download à vista, ele é
-                // lixo no cache.
-                if (cancelado()) {
-                    destino.delete()
-                    break
+        try {
+            for ((rotulo, ua) in perfis) {
+                try {
+                    reg.perfil = rotulo
+                    baixar(url, destino, ua, onProgresso, reg, onRespondeu)
+                    // SÓ VOLTA com arquivo NÃO VAZIO — vazio cai fora do laço e
+                    // sai como exceção. Por isso nenhum chamador re-testa o
+                    // tamanho.
+                    if (destino.length() > 0L) {
+                        reg.ok = true
+                        reg.bytes = destino.length()
+                        return rotulo
+                    }
+                } catch (e: Exception) {
+                    erro = e
+                    reg.erro = motivo(e)
+                    // O PARCIAL FICA para o próximo perfil: trocar o UA muda o
+                    // CABEÇALHO, não a URL — mesma URL ⇒ mesmos bytes, a premissa
+                    // da retomada (v1.58) — e a conferência de [parciais] já
+                    // garante que o que está no disco é DESTA URL. Apagar aqui
+                    // jogava fora os MB que a tentativa seguinte retomaria.
+                    //
+                    // CANCELAR não é "este perfil de UA não deu": tentar o outro
+                    // em seguida faria o operador esperar mais DEPOIS de pedir
+                    // para parar. Só aqui o parcial sai: sem download à vista,
+                    // ele é lixo no cache.
+                    if (cancelado()) {
+                        destino.delete()
+                        break
+                    }
                 }
             }
+            throw erro ?: IOException("download vazio")
+        } finally {
+            reg.fim = agoraNaMedida()
         }
-        throw erro ?: IOException("download vazio")
     }
 
     /**
@@ -1967,8 +2109,27 @@ object YoutubeGrab {
     private val ESPERAS_MS = longArrayOf(1_000, 2_000, 4_000, 8_000, 15_000, 30_000, 30_000, 30_000)
 
     /**
-     * Baixa [url] em [destino], **retomando de onde parou** e insistindo quando
-     * a rede oscila.
+     * O TAMANHO DE CADA PEDAÇO e QUANTOS VÃO AO MESMO TEMPO (v1.12.30).
+     *
+     * O CDN do YouTube freia uma resposta LONGA: depois dos primeiros MB ele
+     * passa a entregar na velocidade de quem assiste, com pausas. MEDIDO nos
+     * três downloads de teste do operador (mesmo aparelho, mesmo Wi-Fi de
+     * ~9–10 Mbit/s, episódios de 5 min em 720p): 0,8 Mbit/s com 12 paradas de
+     * 5 s ou mais num dia, 17,8 Mbit/s sem parada no outro — a rede não mudou,
+     * mudou o freio. Um pedido CURTO termina dentro da rajada inicial, e vários
+     * em paralelo somam a rajada de cada um. É o que os baixadores conhecidos
+     * fazem (pedaços de alguns MB por `Range`).
+     *
+     * Quatro conexões, e não mais: cada uma é um pedido ao CDN, e um app que
+     * abre dezenas é o perfil que ele recusa. Os dois números vão para a medida
+     * da Verificação completa, que é onde se descobre se estão certos.
+     */
+    private const val BLOCO_BYTES = 3L * 1024 * 1024
+    private const val CONEXOES = 4
+
+    /**
+     * Baixa [url] em [destino] EM PEDAÇOS PARALELOS, retomando os que faltam
+     * quando a rede oscila.
      *
      * ## Por que retomar, e não só repetir
      *
@@ -1976,7 +2137,14 @@ object YoutubeGrab {
      * aposta de que a rede vai aguentar a corrida inteira desta vez. Retomar
      * transforma uma queda de rede em alguns segundos perdidos — e as URLs do
      * googlevideo aceitam faixa de bytes por construção (é assim que um player
-     * de verdade as consome).
+     * de verdade as consome). Com pedaços, a retomada é "os pedaços que ainda
+     * não chegaram", e um pedaço que caiu no meio é pedido de novo inteiro.
+     *
+     * ## Quando NÃO há pedaços
+     *
+     * Um servidor que IGNORA a faixa (200 em vez de 206) ou não diz o tamanho
+     * total não pode ser cortado: aí o caminho é o de antes, uma conexão só
+     * retomando do fim do arquivo ([baixarSequencial]). O motivo vai à medida.
      *
      * ## O que NÃO é retentado
      *
@@ -1985,49 +2153,279 @@ object YoutubeGrab {
      *   nela é só perder tempo — quem decide o que fazer é a fila de candidatos
      *   de quem chamou, que tem outras URLs para tentar.
      */
-    /**
-     * De qual URL é cada arquivo parcial no disco — a trava que impede a
-     * retomada de emendar faixas DIFERENTES.
-     *
-     * O destino é nomeado por vídeo + contêiner (`arquivoDestino`), não por
-     * faixa: dois itags do mesmo contêiner (137 e 136, ambos mp4) escrevem no
-     * MESMO caminho. Sem esta conferência, um parcial do 137 deixado por um app
-     * morto seria "retomado" por um download do 136 — e o arquivo resultante
-     * teria dois vídeos emendados, sem erro nenhum, aparecendo só na hora de
-     * projetar.
-     *
-     * Em memória de propósito: ela morre com o processo, e é isso que se quer.
-     * Retomar entre execuções exigiria gravar qual faixa era, e o ganho (o
-     * parcial de um app que foi morto) não paga o risco de errar a conta.
-     */
-    private val parciais = java.util.concurrent.ConcurrentHashMap<String, String>()
-
     private fun baixar(
         url: String,
         destino: File,
         ua: String,
         onProgresso: (Long, Long) -> Unit,
+        reg: RegFaixa,
+        onRespondeu: (() -> Unit)?,
     ) {
         var tentativa = 0
         while (true) {
-            // O QUE JÁ ESTÁ NO DISCO é o ponto de retomada — e só quando ele for
-            // COMPROVADAMENTE desta mesma URL (ver [parciais]). Lido a cada
-            // volta, e não uma vez só: a tentativa anterior pode ter avançado
-            // bastante antes de cair, e é esse avanço que não se quer perder.
-            val meu = parciais[destino.path] == url
-            val jaTem = if (meu && destino.isFile) destino.length() else 0L
-            parciais[destino.path] = url
+            // QUAIS PEDAÇOS JÁ ESTÃO NO DISCO, e só quando eles forem
+            // COMPROVADAMENTE desta mesma URL (ver [parciais]): outro estado
+            // começa do zero, com o arquivo zerado junto.
+            val anterior = parciais[destino.path]
+            val est = if (anterior != null && anterior.url == url && destino.isFile) anterior
+            else Pedacos(url).also { destino.delete(); parciais[destino.path] = it }
             try {
-                baixarUmaVez(url, destino, ua, jaTem, onProgresso)
-                // COMPLETO: a marca sai. Deixá-la faria a chamada seguinte pedir
-                // `Range` a partir do fim do arquivo, e o CDN responderia 416 —
-                // um download que falha porque já tinha dado certo.
+                baixarEmBlocos(est, destino, ua, onProgresso, reg, onRespondeu)
+                // COMPLETO: o estado sai. Deixá-lo faria a chamada seguinte
+                // achar tudo pronto sobre um arquivo que já pode ser outro.
                 parciais.remove(destino.path)
+                return
+            } catch (e: SemPedacos) {
+                parciais.remove(destino.path)
+                destino.delete()
+                reg.modo = "uma conexão (" + e.message + ")"
+                baixarSequencial(url, destino, ua, onProgresso, reg, onRespondeu)
                 return
             } catch (e: IOException) {
                 if (cancelado()) throw e
                 if (e is RecusaDoCdn) throw e
                 if (++tentativa > MAX_RETENTATIVAS) throw e
+                reg.retentativas++
+                val espera = ESPERAS_MS[(tentativa - 1).coerceAtMost(ESPERAS_MS.size - 1)]
+                Log.i(TAG, "queda no download (${e.message}) — tentativa $tentativa em ${espera}ms, " +
+                    "${est.feitos.cardinality()} pedaço(s) já no disco")
+                if (!dormir(espera)) throw e   // cancelado durante a espera
+            }
+        }
+    }
+
+    /**
+     * Os PEDAÇOS de um arquivo em curso — a trava que impede a retomada de
+     * emendar faixas DIFERENTES.
+     *
+     * O destino é nomeado por vídeo + contêiner (`arquivoDestino`), não por
+     * faixa: dois itags do mesmo contêiner (137 e 136, ambos mp4) escrevem no
+     * MESMO caminho. Sem a conferência da URL, um parcial do 137 deixado por um
+     * app morto seria "retomado" por um download do 136 — e o arquivo
+     * resultante teria dois vídeos emendados, sem erro nenhum, aparecendo só na
+     * hora de projetar.
+     *
+     * Em memória de propósito: ela morre com o processo, e é isso que se quer.
+     * Retomar entre execuções exigiria gravar qual faixa era, e o ganho (o
+     * parcial de um app que foi morto) não paga o risco de errar a conta.
+     */
+    private class Pedacos(val url: String) {
+        /** O tamanho total, do `clen=` da URL ou do `Content-Range`; -1 = ainda não se sabe. */
+        @Volatile var total = clenDe(url)
+        val feitos = java.util.BitSet()
+    }
+
+    private val parciais = java.util.concurrent.ConcurrentHashMap<String, Pedacos>()
+
+    /** O servidor não aceita pedaços — volta para uma conexão só. */
+    private class SemPedacos(msg: String) : IOException(msg)
+
+    /** O tamanho que o próprio CDN carimbou na URL (`clen=`), ou -1. */
+    private fun clenDe(url: String): Long = try {
+        Uri.parse(url).getQueryParameter("clen")?.toLongOrNull()?.takeIf { it > 0 } ?: -1L
+    } catch (_: Exception) { -1L }
+
+    private fun baixarEmBlocos(
+        est: Pedacos,
+        destino: File,
+        ua: String,
+        onProgresso: (Long, Long) -> Unit,
+        reg: RegFaixa,
+        onRespondeu: (() -> Unit)?,
+    ) {
+        reg.modo = "pedaços"
+        reg.conexoes = CONEXOES
+        reg.blocoBytes = BLOCO_BYTES
+        val prog = ProgressoDePedacos(est, onProgresso)
+        // SEM O TAMANHO, o PRIMEIRO pedaço vai sozinho: é a resposta dele que diz
+        // o total (`Content-Range`), e só então dá para repartir o resto.
+        if (est.total <= 0L) {
+            baixarPedaco(est, 0, destino, ua, prog, reg, onRespondeu)
+        }
+        val total = est.total
+        if (total <= 0L) throw SemPedacos("tamanho total desconhecido")
+        val n = ((total + BLOCO_BYTES - 1) / BLOCO_BYTES).toInt()
+        val faltam = synchronized(est) { (0 until n).filter { !est.feitos.get(it) } }
+        reg.blocos = n
+        if (faltam.isEmpty()) return conferirTamanho(destino, total)
+
+        val proximo = java.util.concurrent.atomic.AtomicInteger(0)
+        val primeiroErro = java.util.concurrent.atomic.AtomicReference<Exception?>(null)
+        val trabalho = Runnable {
+            while (primeiroErro.get() == null && !cancelado()) {
+                val i = proximo.getAndIncrement()
+                if (i >= faltam.size) break
+                try {
+                    baixarPedaco(est, faltam[i], destino, ua, prog, reg, onRespondeu)
+                } catch (e: Exception) {
+                    primeiroErro.compareAndSet(null, e)
+                    break
+                }
+            }
+        }
+        val quantas = minOf(CONEXOES, faltam.size)
+        val fios = (1 until quantas).map { Thread(trabalho, "yt-pedaco-$it").apply { isDaemon = true; start() } }
+        trabalho.run()   // esta thread também trabalha: são `quantas` conexões ao todo
+        fios.forEach { it.join() }
+
+        // O SERVIDOR QUE IGNORA A FAIXA VENCE as outras falhas: ele decide o
+        // caminho inteiro, e uma queda de rede de outro fio em paralelo seria só
+        // ruído do mesmo problema.
+        primeiroErro.get()?.let { throw it }
+        if (cancelado()) throw IOException(CANCELADO)
+        conferirTamanho(destino, total)
+        prog.fechar()
+    }
+
+    private fun conferirTamanho(destino: File, total: Long) {
+        // Pedaço a pedaço, cada um já conferiu o próprio tamanho; isto pega o
+        // arquivo que um app morto deixou MAIOR (um total de outra faixa).
+        if (destino.length() != total) {
+            java.io.RandomAccessFile(destino, "rw").use { it.setLength(total) }
+        }
+    }
+
+    /**
+     * Um pedaço: `Range` exato, gravado na sua posição do arquivo. Só marca o
+     * pedaço como feito com TODOS os bytes dele na mão — um pedaço que caiu no
+     * meio é pedido de novo inteiro na próxima volta.
+     */
+    private fun baixarPedaco(
+        est: Pedacos,
+        i: Int,
+        destino: File,
+        ua: String,
+        prog: ProgressoDePedacos,
+        reg: RegFaixa,
+        onRespondeu: (() -> Unit)?,
+    ) {
+        val ini = i * BLOCO_BYTES
+        val fimPedido = if (est.total > 0) minOf(ini + BLOCO_BYTES, est.total) - 1 else ini + BLOCO_BYTES - 1
+        val t0 = SystemClock.elapsedRealtime()
+        val conn = (URL(est.url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = CONECTA_MS
+            readTimeout = LE_MS
+            instanceFollowRedirects = true
+            setRequestProperty("User-Agent", ua)
+            setRequestProperty("Range", "bytes=$ini-$fimPedido")
+        }
+        var lidos = 0L
+        try {
+            // O CÓDIGO LIDO DA CONEXÃO, e não adivinhado na mensagem da exceção
+            // (ver [baixarUmaVez] para a história do "HTTP 423" que era duração).
+            val codigo = conn.responseCode
+            if (codigo != HttpURLConnection.HTTP_PARTIAL) {
+                if (codigo in 400..499) throw RecusaDoCdn("HTTP $codigo")
+                if (codigo == HttpURLConnection.HTTP_OK) throw SemPedacos("o servidor ignorou a faixa (200)")
+                throw IOException("HTTP $codigo")
+            }
+            reg.primeiroByte(agoraNaMedida())
+            onRespondeu?.invoke()
+            // `bytes ini-fim/TOTAL`: o total é a régua de todos os pedaços.
+            val total = conn.getHeaderField("Content-Range")
+                ?.substringAfterLast('/')?.trim()?.toLongOrNull() ?: -1L
+            if (total <= 0L) throw SemPedacos("o servidor não informou o tamanho total")
+            if (est.total <= 0L) est.total = total
+            else if (est.total != total) throw SemPedacos("tamanho divergente (${est.total} × $total)")
+            val esperado = minOf(ini + BLOCO_BYTES, total) - ini
+            java.io.RandomAccessFile(destino, "rw").use { raf ->
+                val canal = raf.channel
+                conn.inputStream.use { entrada ->
+                    val buf = ByteArray(64 * 1024)
+                    var pos = ini
+                    while (true) {
+                        if (cancelado()) throw IOException(CANCELADO)
+                        val n = entrada.read(buf)
+                        if (n < 0) break
+                        if (lidos + n > esperado) throw SemPedacos("o pedaço veio maior que o pedido")
+                        // `write` posicional pode gravar MENOS que o pedido: o laço
+                        // insiste até o bloco inteiro estar no disco.
+                        val bb = java.nio.ByteBuffer.wrap(buf, 0, n)
+                        while (bb.hasRemaining()) pos += canal.write(bb, pos)
+                        lidos += n
+                        prog.somar(n.toLong())
+                    }
+                }
+            }
+            if (lidos != esperado) throw IOException("pedaço incompleto ($lidos de $esperado)")
+            synchronized(est) { est.feitos.set(i) }
+            prog.concluir(lidos)
+            reg.pedaco(SystemClock.elapsedRealtime() - t0, lidos)
+        } catch (e: Exception) {
+            // Os bytes deste pedaço saem da conta: ele vai ser pedido de novo.
+            prog.descartar(lidos)
+            if (e !is RecusaDoCdn && e !is SemPedacos && e.message != CANCELADO) reg.pedacosRefeitos++
+            throw e
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    /**
+     * A barra de UM arquivo baixado em pedaços: o que já está no disco mais o
+     * que está chegando agora, ABSOLUTO (uma retomada não pode fazer a barra
+     * voltar ao começo) e NUNCA para trás (um pedaço refeito não desconta).
+     *
+     * Um aviso por MB, como sempre: o WebView é acordado a cada um deles.
+     */
+    private class ProgressoDePedacos(
+        private val est: Pedacos,
+        private val onProgresso: (Long, Long) -> Unit,
+    ) {
+        private var noDisco: Long
+        private var emVoo = 0L
+        private var ultimo = 0L
+
+        init {
+            val t = est.total
+            noDisco = if (t > 0) {
+                synchronized(est) {
+                    var s = 0L
+                    var i = est.feitos.nextSetBit(0)
+                    while (i >= 0) {
+                        s += minOf((i + 1) * BLOCO_BYTES, t) - i * BLOCO_BYTES
+                        i = est.feitos.nextSetBit(i + 1)
+                    }
+                    s
+                }
+            } else 0L
+        }
+
+        @Synchronized fun somar(n: Long) {
+            emVoo += n
+            val agora = noDisco + emVoo
+            if (agora - ultimo >= 1024 * 1024) { ultimo = agora; onProgresso(agora, maxOf(est.total, 0L)) }
+        }
+        @Synchronized fun concluir(n: Long) { emVoo -= n; noDisco += n }
+        @Synchronized fun descartar(n: Long) { emVoo -= n }
+        @Synchronized fun fechar() { onProgresso(noDisco, maxOf(est.total, 0L)) }
+    }
+
+    /**
+     * O caminho de UMA conexão, retomando do fim do arquivo — o de antes da
+     * v1.12.30, e o que sobra quando o servidor não aceita pedaços.
+     */
+    private fun baixarSequencial(
+        url: String,
+        destino: File,
+        ua: String,
+        onProgresso: (Long, Long) -> Unit,
+        reg: RegFaixa,
+        onRespondeu: (() -> Unit)?,
+    ) {
+        var tentativa = 0
+        var meu = false
+        while (true) {
+            val jaTem = if (meu && destino.isFile) destino.length() else 0L
+            meu = true
+            try {
+                baixarUmaVez(url, destino, ua, jaTem, onProgresso, reg, onRespondeu)
+                return
+            } catch (e: IOException) {
+                if (cancelado()) throw e
+                if (e is RecusaDoCdn) throw e
+                if (++tentativa > MAX_RETENTATIVAS) throw e
+                reg.retentativas++
                 val espera = ESPERAS_MS[(tentativa - 1).coerceAtMost(ESPERAS_MS.size - 1)]
                 Log.i(TAG, "queda no download (${e.message}) — tentativa $tentativa em ${espera}ms, retomando de $jaTem")
                 if (!dormir(espera)) throw e   // cancelado durante a espera
@@ -2059,6 +2457,8 @@ object YoutubeGrab {
         ua: String,
         jaTem: Long,
         onProgresso: (Long, Long) -> Unit,
+        reg: RegFaixa,
+        onRespondeu: (() -> Unit)?,
     ) {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = CONECTA_MS
@@ -2092,6 +2492,8 @@ object YoutubeGrab {
                 if (codigo in 400..499) throw RecusaDoCdn("HTTP $codigo")
                 throw IOException("HTTP $codigo")
             }
+            reg.primeiroByte(agoraNaMedida())
+            onRespondeu?.invoke()
             // O SERVIDOR IGNOROU A FAIXA. Pedimos a partir de `jaTem` e ele
             // mandou o arquivo inteiro (200 em vez de 206): continuar
             // acrescentando produziria um arquivo com o começo repetido no meio
@@ -2136,6 +2538,112 @@ object YoutubeGrab {
         } finally {
             conn.disconnect()
         }
+    }
+
+    // ------------------------------------------------------------------------
+    // A MEDIDA DA VERIFICAÇÃO COMPLETA (v1.12.30 · shell 79)
+    //
+    // O que só o shell vê de um download: quanto a EXTRAÇÃO levou (antes, o
+    // "até o 1º byte" do lado web somava extração e conexão), cada faixa que se
+    // tentou — com os pedaços, as conexões, os pedaços refeitos e as
+    // retentativas —, se áudio e vídeo correram juntos, a JUNÇÃO isolada e o
+    // que sobrou no cache depois do fim. É JSON, e quem monta a frase é o
+    // `controle.js` (invariante 5). Vale também para a FALHA: a medida fica
+    // guardada em [ultimaMedida] e o lado web a lê por `ytMedida`, porque um
+    // download que falhou devolve `null` e levaria a medida junto.
+    // ------------------------------------------------------------------------
+
+    /** O registro de uma faixa tentada. Escrito por mais de uma thread: os campos são `@Volatile` e as contas, sincronizadas. */
+    private class RegFaixa(val papel: String, val etiqueta: String, val cliente: String) {
+        @Volatile var perfil = ""
+        @Volatile var modo = ""
+        @Volatile var conexoes = 1
+        @Volatile var blocoBytes = 0L
+        @Volatile var blocos = 0
+        @Volatile var inicio = -1L
+        @Volatile var primeiro = -1L
+        @Volatile var fim = -1L
+        @Volatile var bytes = 0L
+        @Volatile var ok = false
+        @Volatile var erro = ""
+        @Volatile var retentativas = 0
+        @Volatile var pedacosRefeitos = 0
+        private val msPedacos = mutableListOf<Long>()
+        private var bytesPedacos = 0L
+
+        @Synchronized fun primeiroByte(t: Long) { if (primeiro < 0) primeiro = t }
+        @Synchronized fun pedaco(ms: Long, n: Long) { msPedacos += ms; bytesPedacos += n }
+
+        @Synchronized fun json(): JSONObject {
+            val o = JSONObject()
+                .put("papel", papel).put("etiqueta", etiqueta).put("cliente", cliente)
+                .put("perfil", perfil).put("modo", modo).put("conexoes", conexoes)
+                .put("blocoBytes", blocoBytes).put("blocos", blocos)
+                .put("inicio", inicio).put("primeiroByte", primeiro).put("fim", fim)
+                .put("bytes", bytes).put("ok", ok).put("erro", erro)
+                .put("retentativas", retentativas).put("pedacosRefeitos", pedacosRefeitos)
+            if (msPedacos.isNotEmpty()) {
+                val ord = msPedacos.sorted()
+                o.put("pedacos", JSONObject()
+                    .put("n", ord.size)
+                    .put("msMin", ord.first())
+                    .put("msMediano", ord[(ord.size - 1) / 2])
+                    .put("msMax", ord.last())
+                    .put("bytes", bytesPedacos))
+            }
+            return o
+        }
+    }
+
+    /** A medida do download EM CURSO; `null` fora de um download. */
+    private class Medida(val link: String, val somenteAudio: Boolean, val teto: Int) {
+        val t0 = SystemClock.elapsedRealtime()
+        @Volatile var extracaoMs = -1L
+        val faixas = java.util.Collections.synchronizedList(mutableListOf<RegFaixa>())
+        @Volatile var juncaoIni = -1L
+        @Volatile var juncaoFim = -1L
+        @Volatile var juncaoOk: Boolean? = null
+        @Volatile var audioEVideoJuntos = false
+        @Volatile var desfecho = ""
+        @Volatile var fim = -1L
+        @Volatile var sobraNoCache = JSONArray()
+
+        fun json(): JSONObject = JSONObject()
+            .put("v", 1)
+            .put("link", link).put("somenteAudio", somenteAudio).put("teto", teto)
+            .put("conexoes", CONEXOES).put("blocoBytes", BLOCO_BYTES)
+            .put("extracaoMs", extracaoMs)
+            .put("faixas", JSONArray().apply { synchronized(faixas) { faixas.forEach { put(it.json()) } } })
+            .put("juncao", if (juncaoIni < 0) JSONObject.NULL else JSONObject()
+                .put("inicio", juncaoIni).put("fim", juncaoFim).put("ok", juncaoOk ?: false))
+            .put("audioEVideoJuntos", audioEVideoJuntos)
+            .put("desfecho", desfecho)
+            .put("totalMs", fim)
+            .put("sobraNoCache", sobraNoCache)
+    }
+
+    @Volatile private var medidaAtual: Medida? = null
+
+    /** A medida do ÚLTIMO download (sucesso ou falha) — lida por `ytMedida`. */
+    @Volatile var ultimaMedida: JSONObject? = null
+        private set
+
+    /** Milissegundos desde o começo do download em curso; -1 fora de um. */
+    private fun agoraNaMedida(): Long =
+        medidaAtual?.let { SystemClock.elapsedRealtime() - it.t0 } ?: -1L
+
+    /**
+     * O QUE FICOU NO CACHE depois do download, fora o arquivo entregue: é a
+     * pergunta "a falha deixa parcial para trás?", que o lado web não alcança.
+     */
+    private fun sobrasDoCache(ctx: Context, entregue: String?): JSONArray {
+        val a = JSONArray()
+        try {
+            pasta(ctx).listFiles()?.forEach { f ->
+                if (f.isFile && f.path != entregue) a.put(JSONObject().put("nome", f.name).put("bytes", f.length()))
+            }
+        } catch (_: Exception) { /* a pergunta é de diagnóstico: sem resposta, lista vazia */ }
+        return a
     }
 
     /**

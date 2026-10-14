@@ -734,6 +734,10 @@
     // antigo (o `call` resolve null) e antes da primeira extração.
     ytDiag: () => call((id) => B.ytDiag(id), CALL_TIMEOUT_MS).then((r) => r || ''),
 
+    // A MEDIDA do último download, em JSON (shell 79): extração, faixas,
+    // pedaços, junção e sobras no cache. Só a Verificação completa a lê.
+    ytMedida: () => call((id) => B.ytMedida(id), CALL_TIMEOUT_MS),
+
     // O SELETOR DE ARQUIVOS do aparelho: resolve `[{ url, name, type }]`, uma
     // entrada por arquivo escolhido (lista vazia se o operador desistir). É a
     // importação inteira do app no nativo — imagem, vídeo, áudio, PDF e PPTX

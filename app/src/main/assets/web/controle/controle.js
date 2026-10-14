@@ -392,7 +392,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.29';
+const WEB_VERSION = '1.12.30';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -30233,6 +30233,30 @@ function testeDlContas(m) {
     c.maiorVao = maior; c.paradas = paradas;
   }
   const tem = (x) => typeof x === 'number';
+  // O "ATÉ O 1º BYTE" EM DUAS METADES, quando o shell mediu: a EXTRAÇÃO (o
+  // NewPipe falando com o YouTube) e a CONEXÃO (do fim dela ao primeiro pedaço
+  // aceito pelo CDN). São consertos diferentes, e a soma não diz qual pesa.
+  const sh = m.shell;
+  if (sh && tem(sh.extracaoMs) && sh.extracaoMs >= 0) {
+    c.extracao = sh.extracaoMs;
+    const prim = (sh.faixas || []).map((f) => f.primeiroByte).filter((x) => tem(x) && x >= 0);
+    if (prim.length) c.conexao = Math.min(...prim) - sh.extracaoMs;
+  }
+  if (sh && sh.juncao && tem(sh.juncao.inicio) && tem(sh.juncao.fim) && sh.juncao.fim >= sh.juncao.inicio) {
+    c.juncaoShell = sh.juncao.fim - sh.juncao.inicio;
+  }
+  // QUANTO DE CADA FASE O APP PASSOU NO FUNDO: o WebView do Controle é
+  // estrangulado minimizado, e a cópia e a gravação rodam nele.
+  if (Array.isArray(m.visibilidade) && m.visibilidade.length) {
+    const ini = a.length ? a[0][0] : m.tInicio;
+    const fimR = fimRede ? fimRede[0] : m.tNativo;
+    c.noFundo = {
+      baixando: testeMsNoFundo(m.visibilidade, ini, fimR),
+      copia: testeMsNoFundo(m.visibilidade, m.tNativo, m.tCopia),
+      gravacao: testeMsNoFundo(m.visibilidade, m.tCopia, m.tGravado),
+      total: testeMsNoFundo(m.visibilidade, m.tInicio, m.tGravado),
+    };
+  }
   if (tem(m.tNativo) && tem(m.tCopia)) c.copia = m.tCopia - m.tNativo;
   if (tem(m.tCopia) && tem(m.tMiniatura)) c.miniatura = m.tMiniatura - m.tCopia;
   if (tem(m.tMiniatura) && tem(m.tGravado)) c.gravacao = m.tGravado - m.tMiniatura;
@@ -30240,6 +30264,19 @@ function testeDlContas(m) {
   const seg = (m.meta && m.meta.segundos) || (m.r && m.r.seconds) || 0;
   if (seg && c.total) c.razao = seg / (c.total / 1000);
   return c;
+}
+
+// Quantos ms de [a, b] o app passou ESCONDIDO, a partir da linha do tempo
+// `[[instante, visível], …]` que o `ytBaixarNativo` grava. `null` sem intervalo.
+function testeMsNoFundo(vis, a, b) {
+  if (typeof a !== 'number' || typeof b !== 'number' || b < a) return null;
+  let ms = 0;
+  for (let i = 0; i < vis.length; i++) {
+    const de = Math.max(vis[i][0], a);
+    const ate = Math.min(i + 1 < vis.length ? vis[i + 1][0] : b, b);
+    if (!vis[i][1] && ate > de) ms += ate - de;
+  }
+  return ms;
 }
 
 const fmtSeg = (ms) => (ms == null ? '?' : ms < 10000 ? (ms / 1000).toFixed(1) + ' s' : fmtDur(Math.round(ms / 1000)));
@@ -30288,6 +30325,15 @@ async function testeDownloadCompleto() {
       onPct: () => { if (testeRodando) atualizarLinhaDoTeste({ id: TESTE_DL.id }); },
     });
     try { m.diag = String((await AVNative.ytDiag()) || ''); } catch (_) { m.diag = ''; }
+    // A MEDIDA DO SHELL (shell 79): o que só ele vê — a extração separada da
+    // conexão, cada faixa com os pedaços e as conexões, áudio e vídeo juntos
+    // ou em fila, a junção isolada e o que sobrou no cache. Lida também na
+    // FALHA, que é justamente quando ela mais responde. Só vale se for DESTE
+    // download: outro que tenha passado por cima mediria outra coisa.
+    try {
+      const sh = await AVNative.ytMedida();
+      m.shell = sh && typeof sh === 'object' && sh.link === s.ytUrl ? sh : null;
+    } catch (_) { m.shell = null; }
     if (rec) {
       let cru = null;
       try { cru = await AVDB.getMediaCru(rec.id); } catch (_) { cru = null; }
@@ -30383,17 +30429,61 @@ function blocoDownloadDeTeste(m) {
     + ' · paradas (vão ≥ ' + TESTE_DL_PARADA_X + '× o mediano e ≥ 5 s): ' + (c.paradas == null ? '?' : c.paradas)
     + ' · ' + c.amostras + ' amostras, uma por MB (vão mediano ' + fmtSeg(c.vaoMediano) + ')');
   if (c.razao) l.push('    razão: baixou ' + c.razao.toFixed(1).replace('.', ',') + '× mais rápido que a duração do vídeo');
+  // ===== O QUE SÓ O SHELL VÊ (v1.12.30 · shell 79) =====
+  const sh = m.shell;
+  if (sh) {
+    l.push('    até o 1º byte, por partes: extração ' + fmtSeg(c.extracao) + ' · conexão ' + fmtSeg(c.conexao));
+    l.push('    pedaços: ' + fmtBytes(sh.blocoBytes || 0) + ' cada, até ' + (sh.conexoes | 0) + ' conexões por faixa');
+    const papel = { audio: 'áudio', video: 'vídeo', unico: 'arquivo único' };
+    const fs = sh.faixas || [];
+    if (!fs.length) l.push('    faixas: nenhuma chegou a ser pedida');
+    for (const f of fs) {
+      const dur = (f.fim >= 0 && f.inicio >= 0) ? f.fim - f.inicio : null;
+      const mbps = f.ok && dur > 0 ? (f.bytes * 8) / (dur / 1000) / 1e6 : null;
+      const pd = f.pedacos;
+      l.push('    faixa ' + (papel[f.papel] || f.papel) + ' ' + f.etiqueta + ' (' + f.cliente
+        + (f.perfil ? '/' + f.perfil : '') + '): '
+        + (f.ok ? fmtBytes(f.bytes) + ' em ' + fmtSeg(dur) + ' (' + fmtMbps(mbps) + ')'
+          : 'NÃO VEIO' + (f.erro ? ' — ' + f.erro : '') + (dur != null ? ' após ' + fmtSeg(dur) : ''))
+        + ' · de ' + fmtSeg(f.inicio) + ' a ' + fmtSeg(f.fim)
+        + ' · ' + (f.modo || '?') + (f.modo === 'pedaços' ? ' (' + (f.blocos | 0) + ', ' + (f.conexoes | 0) + ' conexões)' : '')
+        + ' · 1º byte aos ' + fmtSeg(f.primeiroByte >= 0 ? f.primeiroByte : null)
+        + (pd ? ' · cada pedaço: mín ' + fmtSeg(pd.msMin) + ', mediano ' + fmtSeg(pd.msMediano) + ', máx ' + fmtSeg(pd.msMax) : '')
+        + ' · refeitos ' + (f.pedacosRefeitos | 0) + ' · retentativas ' + (f.retentativas | 0));
+    }
+    if (fs.some((f) => f.papel === 'audio') && fs.some((f) => f.papel === 'video')) {
+      l.push('    áudio e vídeo: ' + (sh.audioEVideoJuntos ? 'baixaram AO MESMO TEMPO' : 'em FILA (um depois do outro)'));
+    }
+    if (sh.juncao) l.push('    junção no shell: ' + fmtSeg(c.juncaoShell) + (sh.juncao.ok ? '' : ' — FALHOU'));
+    l.push('    desfecho no shell: ' + (sh.desfecho || '?') + ' · ' + fmtSeg(sh.totalMs >= 0 ? sh.totalMs : null));
+    const sobra = sh.sobraNoCache || [];
+    l.push('    sobra no cache do shell: ' + (sobra.length
+      ? sobra.length + ' arquivo(s), ' + fmtBytes(sobra.reduce((x, y) => x + (y.bytes || 0), 0))
+        + ' (' + sobra.map((x) => x.nome).join(', ') + ')'
+      : 'nada'));
+  } else {
+    // O QUE ESTA MEDIDA NÃO ALCANÇA sem a medida do shell — escrito, para
+    // ninguém ler o silêncio como "não acontece".
+    l.push('    medida do shell: não veio (APK anterior à v1.12.30, ou outro download passou por cima) —'
+      + ' sem ela não há extração separada da conexão, faixas e pedaços, junção isolada nem sobra no cache');
+  }
+  if (c.copia != null && m.bytes) {
+    l.push('    cópia para o app: ' + fmtBytes(m.bytes) + ' em ' + fmtSeg(c.copia)
+      + (c.copia > 0 ? ' (' + fmtBytes(Math.round(m.bytes / (c.copia / 1000))) + '/s)' : ''));
+  }
+  const nf = c.noFundo;
+  if (nf) {
+    const algum = Object.values(nf).some((x) => x > 0);
+    l.push('    app: ' + (!algum ? 'na frente o tempo todo'
+      : 'NO FUNDO por ' + fmtSeg(nf.total) + ' — baixando ' + fmtSeg(nf.baixando) + ' · cópia ' + fmtSeg(nf.copia)
+        + ' · gravação ' + fmtSeg(nf.gravacao)));
+  }
   if (m.cancelado) l.push('    cancelado: ' + m.cancelado);
   const lp = m.limpeza || {};
   l.push('    limpeza: registro ' + (lp.registro == null ? 'não houve' : lp.registro ? 'apagado' : 'FICOU'
     + (lp.seguradoPor && lp.seguradoPor.length ? ' (segurado por ' + lp.seguradoPor.join(', ') + ')' : ''))
     + ' · arquivo do shell ' + (lp.arquivoDoShell == null ? 'não houve' : lp.arquivoDoShell ? 'apagado' : 'FICOU')
     + (lp.ms != null ? ' · ' + fmtSeg(lp.ms) : '') + (lp.erro ? ' · erro: ' + lp.erro : ''));
-  // O QUE ESTA MEDIDA NÃO ALCANÇA sem um APK novo — escrito, para ninguém ler
-  // o silêncio como "não acontece".
-  l.push('    não medido (só com APK novo): a extração separada da conexão (o "até o 1º byte" soma as duas),'
-    + ' quais candidatos o shell tentou antes do que pegou, a junção isolada da escrita do arquivo,'
-    + ' e o parcial que uma FALHA deixa no cache do shell (o cancelamento o apaga; a falha não)');
   return l;
 }
 
@@ -35085,6 +35175,17 @@ async function ytBaixarNativo(link, nome, opts) {
   const medida = (opts && opts.medida) || null;
   const semResgate = !!(opts && opts.semResgate);
   if (medida) { medida.tInicio = Date.now(); medida.amostras = medida.amostras || []; }
+  // A VISIBILIDADE DO APP durante a medida (v1.12.30): o WebView do Controle é
+  // estrangulado minimizado, e a cópia para a biblioteca roda NELE — sem esta
+  // linha do tempo, uma cópia lenta com o app no fundo seria indistinguível de
+  // uma cópia lenta com o app na frente, e as duas pedem consertos diferentes.
+  const aoMudarVisibilidade = medida
+    ? () => medida.visibilidade.push([Date.now(), document.visibilityState === 'visible'])
+    : null;
+  if (medida) {
+    medida.visibilidade = [[Date.now(), document.visibilityState === 'visible']];
+    document.addEventListener('visibilitychange', aoMudarVisibilidade);
+  }
   // A INTENÇÃO, GRAVADA ANTES DE COMEÇAR. É o que permite reclamar o download
   // se esta página morrer no meio dele (ver `resgatarDownloads`) — e por isso
   // ela precisa estar no banco ANTES do primeiro byte, não depois.
@@ -35207,6 +35308,7 @@ async function ytBaixarNativo(link, nome, opts) {
     console.warn('[yt nativo] falhou:', e && e.message);
     return null;
   } finally {
+    if (aoMudarVisibilidade) document.removeEventListener('visibilitychange', aoMudarVisibilidade);
     terminado = true;
     bgTaskEnd(notif);
     bg.soltar();
