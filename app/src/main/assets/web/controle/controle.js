@@ -392,7 +392,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.31';
+const WEB_VERSION = '1.12.32';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1717,7 +1717,7 @@ const SIMPLE_FEEDBACK_MS = 420;   // quanto a linha escolhida FICA marcada antes
 const SIMPLE_SAIDA_MS = 320;      // a Biblioteca recolhe (o `--pop-anim` da janela, com folga)
 const SIMPLE_ENTRADA_MS = 520;    // a leitura entra (atraso + duração da animação)
 const SIMPLE_SEL_JANELA_MS = 3000;
-let simpleSel = { em: 0, chave: '', termo: '' };
+let simpleSel = { em: 0, chave: '', termo: '', emVoo: false };
 let simpleSaidaTimer = null;
 let simpleVigiaTimer = null;
 // Os dois tempos do FIM da coreografia (`simpleSairDaBiblioteca`): guardados para que uma
@@ -23514,7 +23514,7 @@ function ytResultRow(r) {
     // simplificado — deixá-lo implícito (undefined) fazia o mesmo "tocar"
     // viajar ora com altura, ora sem, e a diferença só aparecia em quem lê o
     // parâmetro lá na frente.
-    if (appMode === 'simple') { simpleSelecionarLinha(li); ytAcao(r, 'tocar', null, false, ytAlturaPadrao()); return; }
+    if (appMode === 'simple') { simpleSelecionarLinha(li); simpleAcompanhar(ytAcao(r, 'tocar', null, false, ytAlturaPadrao())); return; }
     openYtMenu(r);
   });
   return li;
@@ -24123,7 +24123,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
 
   row.addEventListener('click', async () => {
     // No simplificado a linha TOCA — não abre gaveta nenhuma.
-    if (appMode === 'simple') { simpleSelecionarLinha(li); simplePlaySong(coll, s); return; }
+    if (appMode === 'simple') { simpleSelecionarLinha(li); simpleAcompanhar(simplePlaySong(coll, s)); return; }
     const aberta = li.classList.contains('expanded');
     // Acordeão: abrir uma fecha a anterior — duas linhas abertas ao mesmo
     // tempo empurrariam a lista e tirariam do lugar o que o operador mira. O
@@ -24869,7 +24869,7 @@ async function simplePlaySong(coll, s) {
   if (ehLink(coll)) { await ytAcao(serieComoYoutube(coll, s), ['tocar'], null, false, 0); return; }
   const { needsFull } = await songVariantsNeeded(coll, s);
   if (needsFull && !(await ensureDownloadConsent())) return;
-  playSongVariant(coll, s, 'full');
+  await playSongVariant(coll, s, 'full');
 }
 
 // Persistido em `state.downloadOk`: a resposta vale para as próximas sessões
@@ -35232,7 +35232,10 @@ async function ytBaixarNativo(link, nome, opts) {
     return await withBgWork(async () => {
       const r = await AVNative.ytFetch(link, (lidos, total) => {
         if (medida && medida.amostras.length < 20000) medida.amostras.push([Date.now(), lidos, total]);
-        const pct = total ? Math.floor((lidos / total) * 100) : -1;
+        // 99 NO TETO (v1.12.32): o fim da REDE não é o fim do trabalho — o shell ainda junta as
+        // faixas, e o app ainda copia e grava. Um "100%" ali dizia "pronto" segundos antes de a
+        // mídia tocar; quem marca o fim é o desfecho (`setYtEstado('pronto')`, o `send`).
+        const pct = total ? Math.min(99, Math.floor((lidos / total) * 100)) : -1;
         bg.atualizar(pct >= 0
           ? rotuloBaixando + ' · ' + pct + '%'
           : rotuloBaixando + ' · ' + fmtBytes(lidos), null, pct);
@@ -40700,8 +40703,24 @@ function simpleSelecionarLinha(li) {
     chave: li.dataset.song || (li.dataset.yt ? 'yt:' + li.dataset.yt : ''),
     // O TERMO DA ESCOLHA: o vigia só reinicia a Biblioteca se o campo ainda é este (ver lá).
     termo: hymnSearchInputEl.value,
+    emVoo: false,
   };
   li.classList.add('selecionando');
+}
+
+// A ESCOLHA AINDA ESTÁ A CAMINHO (v1.12.32): o download, a junção, a gravação e o `send`. Sem
+// tela conectada o cartão de "Baixando…" não existe neste modo (`previewBusy` devolve o stub),
+// e o vigia, que só olhava o cartão, achava que nada andava: passados os 4 s ele desfazia a
+// marca e REINICIAVA a Biblioteca no meio do download — a tela agindo como se a mídia
+// estivesse pronta, segundos antes de ela tocar. Quem diz "ainda não" é a promessa da
+// própria escolha; só a DESTA escolha (uma nova a substitui).
+function simpleAcompanhar(p) {
+  const em = simpleSel.em;
+  simpleSel.emVoo = true;
+  Promise.resolve(p).catch(() => {}).finally(() => {
+    if (simpleSel.em === em) simpleSel.emVoo = false;
+  });
+  return p;
 }
 
 function simpleSelecaoFresca() {
@@ -40717,7 +40736,7 @@ function simpleLinhaSelecionada(chave) {
 }
 
 function simpleLimparSelecao() {
-  simpleSel = { em: 0, chave: '', termo: '' };
+  simpleSel = { em: 0, chave: '', termo: '', emVoo: false };
   clearTimeout(simpleSaidaTimer); simpleSaidaTimer = null;
   clearInterval(simpleVigiaTimer); simpleVigiaTimer = null;
   hymnResultsEl.querySelectorAll('.hymn-result.selecionando').forEach((el) => el.classList.remove('selecionando'));
@@ -40733,7 +40752,7 @@ function simpleAguardarSaida() {
     simpleVigiaTimer = setInterval(() => {
       // SAIU DO MODO FÁCIL (ou a tela caiu): a escolha não tem mais tela onde terminar.
       if (!simpleSel.em || !simplesComBarra()) { simpleLimparSelecao(); return; }
-      if (pvBusyEl.classList.contains('on')) return;
+      if (pvBusyEl.classList.contains('on') || simpleSel.emVoo) return;
       if (performance.now() - simpleSel.em < 4000) return;   // dá tempo ao download começar
       // COM LEITURA NO AR a saída é de `renderSimpleCorpo`; passados os 4 s sem ela, ela não vem
       // mais — o vigia só desfaz a marca e PARA (v1.12.30: ele ficava de pé o culto inteiro).
