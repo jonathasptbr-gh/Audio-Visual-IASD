@@ -217,6 +217,12 @@ async function aparelho(viewport) {
   await esperarCortina(pg);
   await pg.waitForFunction(() => window.AVDB && typeof window.rodarAutoteste === 'function'
     && typeof window.testeDownloadCompleto === 'function', null, { timeout: 30000 });
+  // A ABERTURA TERMINA ANTES DE SEMEAR: a rotina do episódio da semana é
+  // disparada no fim do `refreshCollections` e, já em voo quando o SEMEAR a
+  // cala, lia o catálogo plantado com "Dados móveis" ligado e BAIXAVA o da
+  // semana — um `ytFetch` que nenhuma asserção pediu (A2/E4 intermitentes).
+  const aberto = await esperar(pg, () => !collectionsRefreshing && !serieAutoRodando, null, 20000);
+  checar(aberto === true, 'premissa · a abertura do app assenta antes de plantar o catálogo', porque(aberto));
   const ids = await pg.evaluate(SEMEAR);
   // O APP ASSENTADO: nenhum trabalho de abertura segurando a fila de download.
   const quieto = await esperar(pg, () => !bgWorkPedido() && !serieAutoRodando, null, 20000);
