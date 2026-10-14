@@ -174,6 +174,31 @@ try {
       checar(salto.alcanca,
         'B8 · ' + tema + ' · o trilho continua ALCANÇÁVEL (hit-test no meio dele devolve a faixa de toque): '
         + 'nenhuma camada do card ficou por cima', JSON.stringify(salto));
+
+      // B9 · ARRASTAR NÃO MEXE NA ALTURA (v1.12.33): o traço engrossa durante o arraste, mas por
+      // escala — o card, a zona de leitura e a faixa de toque ficam onde estavam.
+      const arraste = await pg.evaluate(async () => {
+        const hit = document.getElementById('simpleTimeHit');
+        const bar = document.querySelector('.simple-time-bar');
+        const card = document.querySelector('.simple-nowplaying');
+        const song = document.querySelector('.simple-song');
+        const foto = () => ({ card: card.getBoundingClientRect().height, topo: card.getBoundingClientRect().top,
+          song: song.getBoundingClientRect().height, hit: hit.getBoundingClientRect().height,
+          traco: bar.getBoundingClientRect().height });
+        bar.style.transition = 'none';
+        const antes = foto();
+        hit.classList.add('seeking');
+        const durante = foto();
+        hit.classList.remove('seeking');
+        bar.style.transition = '';
+        return { antes, durante };
+      });
+      const { antes, durante } = arraste;
+      checar(Math.abs(durante.card - antes.card) <= .5 && Math.abs(durante.topo - antes.topo) <= .5
+        && Math.abs(durante.song - antes.song) <= .5 && Math.abs(durante.hit - antes.hit) <= .5
+        && durante.traco > antes.traco + 2,
+        'B9 · ' + tema + ' · durante o arraste o traço ENGROSSA à vista, mas o card, o topo dele, a zona de '
+        + 'leitura e a faixa de toque não mudam de altura', JSON.stringify(arraste));
     } finally { await ctx.close(); }
   }
 
