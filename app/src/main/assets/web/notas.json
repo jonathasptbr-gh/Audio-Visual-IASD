@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.12.34",
+    "itens": [
+      "Modo simples: sem tela conectada, o vídeo abre em tela cheia sozinho, mesmo depois de baixar.",
+      "Esta atualização instala uma versão nova do aplicativo."
+    ]
+  },
+  {
     "versao": "1.12.33",
     "itens": [
       "Modo simples: arrastar a barra do tempo não muda mais a altura do quadro do nome."

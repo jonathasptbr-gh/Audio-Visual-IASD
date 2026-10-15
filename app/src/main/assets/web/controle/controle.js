@@ -392,7 +392,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.33';
+const WEB_VERSION = '1.12.34';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1708,6 +1708,12 @@ let midiaNoAr = false;
 // `acertarTelaCheiaDoVideo` ou pelo `#simpleFsBtn`, e por isso é ela que SAI sozinha quando o vídeo
 // acaba ou é trocado. Aqui no topo pelo motivo do bloco abaixo: `renderSimple` roda na carga.
 let fsDoVideo = false;
+// A TELA INTEIRA DA PRÉVIA SEM A API DE TELA CHEIA (v1.12.34, shell 80): a `.preview` no top layer
+// por `popover`, e o shell gira para paisagem e esconde as barras (`AVNative.telaInteira`). Só no
+// app nativo, só pelo vídeo do Modo Fácil — ver `entrarTelaInteira`. `previaCheia()` é a pergunta
+// "a prévia está ocupando a tela?", que vale para as duas.
+let pvInteira = false;
+function previaCheia() { return pvInteira || document.fullscreenElement === previewEl; }
 let pvVolumeTimer = null;
 // ===== A COREOGRAFIA DA ESCOLHA NO MODO FÁCIL (v1.11.12) — o estado mora AQUI, no topo,
 // porque `closeHymnSearch` roda durante a CARGA do módulo (via `renderSimpleGate`) e um
@@ -2476,7 +2482,7 @@ function economiaAtiva() {
   // resolveria o caso sozinha; esta existe para o caso em que HÁ destino, que é
   // o único em que as duas divergem. **Ela não é "economia desligada": é
   // suspensa** — sair da tela cheia volta a poupar, sem tocar na marcação.
-  if (document.fullscreenElement === previewEl) return false;
+  if (previaCheia()) return false;
   return haDestinoDeProjecao();
 }
 
@@ -2635,7 +2641,7 @@ function cancelarAnimacaoDaPrevia() {
 }
 function animarRecolhimentoDaPrevia(antes) {
   if (!antes || !previewEl || typeof previewEl.animate !== 'function') return;
-  if (semMovimento() || document.fullscreenElement === previewEl) return;
+  if (semMovimento() || previaCheia()) return;
   const depois = medirPrevia();
   if (!depois || Math.abs(depois.h - antes.h) < 1) return;
   const ms = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dur-lenta')) * 1000 || 300;
@@ -22240,8 +22246,9 @@ function medirBarraDaBiblioteca() {
   //
   // O QUE FECHA É NÃO ESCREVER, e não remedir depois: a medida boa que já está
   // na raiz é a resposta certa durante a tela cheia, e o `fullscreenchange` de
-  // saída (abaixo, junto dos `resize`) a reconfere quando a caixa volta.
-  if (document.fullscreenElement) return;
+  // saída (abaixo, junto dos `resize`) a reconfere quando a caixa volta. A tela inteira do vídeo
+  // (`pvInteira`) é a mesma situação sem o evento: a janela gira e o resto do app fica por baixo.
+  if (document.fullscreenElement || pvInteira) return;
   // ===== E LOGO DEPOIS DELA A CAIXA AINDA NÃO ASSENTOU (v1.11.20) =====
   //
   // O `fullscreenchange` de saída chega ANTES da rotação de volta ao retrato: o
@@ -27427,7 +27434,7 @@ function cabecalhoDiag() {
     let porQue = ' — a decodificação da imagem está parada (economia em vigor)';
     if (!haDestinoDeProjecao()) {
       porQue = ' na marcação, mas a decodificação NÃO está parada — sem destino de projeção a prévia É a projeção';
-    } else if (document.fullscreenElement === previewEl) {
+    } else if (previaCheia()) {
       porQue = ' na marcação, SUSPENSA agora — a prévia está em tela cheia, e ali ela é o que o operador está olhando';
     }
     l.push('Prévia: RECOLHIDA' + porQue);
@@ -41268,8 +41275,8 @@ window.addEventListener('orientationchange', libAoGirar);
 // VALEM NA ORIENTAÇÃO DE ANTES (v1.11.20)**: o evento chega antes da rotação de
 // volta, e a trava `libAssentando` segura a medida até o retrato voltar — quem a
 // faz é o `resize` da rotação, já com a caixa assentada.
-document.addEventListener('fullscreenchange', () => {
-  if (document.fullscreenElement) return;
+function aoSairDaTelaCheiaGeral() {
+  if (document.fullscreenElement || pvInteira) return;
   libAssentando = true;
   clearTimeout(libAssentarTimer);
   libAssentarTimer = setTimeout(() => {
@@ -41279,7 +41286,9 @@ document.addEventListener('fullscreenchange', () => {
   medirBarraDaBiblioteca();
   requestAnimationFrame(() => requestAnimationFrame(medirBarraDaBiblioteca));
   setTimeout(medirBarraDaBiblioteca, 400);
-});
+}
+document.addEventListener('fullscreenchange', aoSairDaTelaCheiaGeral);
+document.addEventListener('pvcheia', aoSairDaTelaCheiaGeral);
 // NA CARGA, e não só na abertura (v1.5.1): a barra fica à vista com a Biblioteca
 // FECHADA, e a caixa de controles reserva a altura dela desde o primeiro quadro.
 // Sem esta linha o app abria com a última fileira de botões coberta pela barra
@@ -41347,6 +41356,37 @@ async function entrarTelaCheiaDaPrevia() {
   return document.fullscreenElement === previewEl;
 }
 
+// A TELA INTEIRA SEM TOQUE (v1.12.34, shell 80). Pedido do operador: *"não pode simplesmente fazer
+// uma pseudo tela cheia? … sem exigir a interação do usuário"*. O `requestFullscreen` só vale ~5 s
+// depois de um toque, e o vídeo que BAIXA antes de tocar chega tarde. Aqui a `.preview` sobe ao TOP
+// LAYER por `popover` (que não exige ativação e, como a tela cheia, escapa de todo ancestral) e o
+// shell faz o resto — paisagem e barras do sistema escondidas, como no `onShowCustomView`. O CSS
+// trata `.preview.pv-inteira` como `.preview:fullscreen`, e quem avisa os consumidores é o evento
+// `pvcheia` (o irmão do `fullscreenchange`). Sem `showPopover` (WebView muito antigo) a classe
+// sozinha ainda cobre a tela, por `position: fixed`.
+function entrarTelaInteira() {
+  if (pvInteira || !previewEl || !window.__NATIVE__) return pvInteira;
+  pvInteira = true;
+  previewEl.classList.add('pv-inteira');
+  try {
+    previewEl.setAttribute('popover', 'manual');
+    if (previewEl.showPopover) previewEl.showPopover();
+  } catch (_) {}
+  try { AVNative.telaInteira(true); } catch (_) {}
+  diagC('tela inteira do vídeo: entrou (sem a API de tela cheia)');
+  document.dispatchEvent(new Event('pvcheia'));
+  return true;
+}
+function sairTelaInteira() {
+  if (!pvInteira) return;
+  pvInteira = false;
+  try { if (previewEl.hidePopover && previewEl.matches(':popover-open')) previewEl.hidePopover(); } catch (_) {}
+  previewEl.removeAttribute('popover');
+  previewEl.classList.remove('pv-inteira');
+  try { AVNative.telaInteira(false); } catch (_) {}
+  document.dispatchEvent(new Event('pvcheia'));
+}
+
 // ===== O VÍDEO DO MODO FÁCIL ENTRA EM TELA CHEIA (v1.12.24) =====
 // Pedido do operador: *"no modo simples, quando tocar um vídeo … ligue o modo tela cheia, já que
 // não temos o auxiliar de leitura (não tem texto) e não temos o preview no modo simples"*. A tela
@@ -41376,45 +41416,51 @@ function telaCheiaDoVideoCabe() {
 }
 function renderSimpleFsBtn() {
   if (!simpleFsBtnEl) return;
-  simpleFsBtnEl.hidden = !(telaCheiaDoVideoCabe() && (previewEl.requestFullscreen || previewEl.webkitRequestFullscreen));
+  simpleFsBtnEl.hidden = !(telaCheiaDoVideoCabe()
+    && (window.__NATIVE__ || previewEl.requestFullscreen || previewEl.webkitRequestFullscreen));
+}
+// O CAMINHO DA ENTRADA: no app, a tela inteira (sem toque); no navegador, a API de tela cheia.
+function abrirTelaCheiaDoVideo() {
+  fsDoVideo = true;
+  if (window.__NATIVE__) { entrarTelaInteira(); return; }
+  entrarTelaCheiaDaPrevia().then((ok) => {
+    if (!ok && document.fullscreenElement !== previewEl) fsDoVideo = false;
+    if (!ok) diagC('tela cheia do vídeo: o pedido foi recusado (sem toque recente) — fica o botão');
+  });
 }
 /** [entrar] só no `send` — a cena NOVA. Os outros chamadores (fim, parar) só podem SAIR: uma
  *  tela cheia que o operador fechou não volta sozinha por um redesenho. */
 function acertarTelaCheiaDoVideo(entrar) {
   renderSimpleFsBtn();
-  const nela = document.fullscreenElement === previewEl;
+  const nela = previaCheia();
   if (telaCheiaDoVideoCabe()) {
-    if (entrar && !document.fullscreenElement) {
-      fsDoVideo = true;
-      entrarTelaCheiaDaPrevia().then((ok) => {
-        if (!ok && document.fullscreenElement !== previewEl) fsDoVideo = false;
-        if (!ok) diagC('tela cheia do vídeo: o pedido foi recusado (sem toque recente) — fica o botão');
-      });
-    }
+    if (entrar && !document.fullscreenElement && !pvInteira) abrirTelaCheiaDoVideo();
     return;
   }
   // A SAÍDA AUTOMÁTICA é só da tela cheia que ESTA regra (ou o botão do Modo Fácil) abriu: a do
   // avançado, pedida pelo ⛶ da prévia, continua do operador.
   if (nela && fsDoVideo) {
     fsDoVideo = false;
-    try { document.exitFullscreen(); } catch (_) {}
+    if (pvInteira) sairTelaInteira();
+    else { try { document.exitFullscreen(); } catch (_) {} }
   }
 }
 if (simpleFsBtnEl) {
   simpleFsBtnEl.addEventListener('click', () => {
-    if (!telaCheiaDoVideoCabe()) return;
-    fsDoVideo = true;
-    entrarTelaCheiaDaPrevia().then((ok) => { if (!ok && document.fullscreenElement !== previewEl) fsDoVideo = false; });
+    if (!telaCheiaDoVideoCabe() || previaCheia()) return;
+    abrirTelaCheiaDoVideo();
   });
 }
-document.addEventListener('fullscreenchange', () => {
-  if (document.fullscreenElement === previewEl) return;
+function aoSairDaPreviaCheia() {
+  if (previaCheia()) return;
   fsDoVideo = false;
   esconderVolumeDaTelaCheia();
   // A VOLTA AO RETRATO remede o corpo do Modo Fácil: a caixa da Biblioteca se mede na zona de
   // leitura, e a rotação de volta chega depois deste evento (o `resize` dela também remede).
   if (appMode === 'simple') { medirCorpoSimplesDepois(); setTimeout(() => { if (simplesComBarra()) medirCorpoSimples(); }, 600); }
-});
+}
+document.addEventListener('fullscreenchange', aoSairDaPreviaCheia);
+document.addEventListener('pvcheia', aoSairDaPreviaCheia);
 
 // ===== A BARRA DE VOLUME DA TELA CHEIA (v1.12.24) — nos DOIS modos =====
 // Pedido do operador: *"em tela cheia, mostre uma barra momentânea quando o volume for alterado.
@@ -41425,7 +41471,7 @@ document.addEventListener('fullscreenchange', () => {
 // telas da rede. Sem TV a tela cheia É a projeção — daí ela ser PASSAGEIRA e pequena, no topo.
 const PV_VOLUME_MS = 2000;
 function mostrarVolumeDaTelaCheia() {
-  if (!pvVolumeEl || document.fullscreenElement !== previewEl) return;
+  if (!pvVolumeEl || !previaCheia()) return;
   const pct = muted ? 0 : Math.round(volume * 100);
   pvVolumeNivelEl.style.width = pct + '%';
   pvVolumeNumEl.textContent = String(pct);
@@ -41458,7 +41504,7 @@ function esconderVolumeDaTelaCheia() {
 // A trava de paisagem (Screen Orientation API) só é permitida COM o elemento já
 // em fullscreen (padrão de player de vídeo); é destravada ao sair.
 (function setupPreviewGestures() {
-  const isFs = () => document.fullscreenElement === previewEl;
+  const isFs = () => previaCheia();
 
   // ---- controles nos cantos da preview (fora do fullscreen) ----
   // Antes as ações eram gestos invisíveis sobre a preview (toque = tela cheia,
@@ -41509,7 +41555,10 @@ function esconderVolumeDaTelaCheia() {
   }
 
   function enterFullscreen() { entrarTelaCheiaDaPrevia(); }
-  function exitFullscreen() { try { if (document.exitFullscreen) document.exitFullscreen(); } catch (_) {} }
+  function exitFullscreen() {
+    if (pvInteira) { sairTelaInteira(); return; }
+    try { if (document.exitFullscreen) document.exitFullscreen(); } catch (_) {}
+  }
   document.addEventListener('fullscreenchange', () => {
     // Nada a sincronizar nos botões: dentro da tela cheia quem os esconde é o
     // CSS (nada de UI sobre a projeção), e fora dela eles são permanentes.
@@ -41520,6 +41569,7 @@ function esconderVolumeDaTelaCheia() {
     // ficaria com a prévia grande em branco.
     acertarEconomiaDaPreview();
   });
+  document.addEventListener('pvcheia', acertarEconomiaDaPreview);
 
   // ---- a coluna de controles (só em fullscreen) ----
   //
@@ -41599,10 +41649,12 @@ function esconderVolumeDaTelaCheia() {
   // correndo — e o `acenderFsCtl` de baixo é justamente quem arma o relógio
   // novo. `esconderFsCtl` primeiro, sempre, para o caso de os dois eventos
   // chegarem juntos (sair de uma e entrar em outra tela cheia).
-  document.addEventListener('fullscreenchange', () => {
+  const aoMudarCheia = () => {
     esconderFsCtl();
     if (isFs()) acenderFsCtl();
-  });
+  };
+  document.addEventListener('fullscreenchange', aoMudarCheia);
+  document.addEventListener('pvcheia', aoMudarCheia);
 })();
 
 // O ESPELHO DOS DOIS BOTÕES DE ESTADO. Ele LÊ os controles de verdade em vez de
@@ -42566,6 +42618,7 @@ window.__avBack = function () {
   //    `document.fullscreenElement` cru tem dois donos possíveis, e o terceiro
   //    consumidor herdaria a ambiguidade — aqui o preço de errar é derrubar a
   //    projeção no meio do culto.
+  if (pvInteira) { sairTelaInteira(); return true; }
   if (document.fullscreenElement === previewEl) {
     try { document.exitFullscreen(); } catch (_) {}
     return true;

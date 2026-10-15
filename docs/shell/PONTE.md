@@ -38,10 +38,10 @@ Nenhum dos dois aparece num teste de comportamento. Por isso existe o
    NativeBridge.kt                     shared/native.js
    ───────────────                     ────────────────
    @JavascriptInterface  ──injetado──►  window.__AVBridge
-   (74 métodos)          addJavascript      │
+   (75 métodos)          addJavascript      │
                           Interface         │ remonta
                                             ▼
-                                       window.AVNative  (63 métodos)
+                                       window.AVNative  (64 métodos)
                                        + 4 globais lidas direto
 ```
 
@@ -609,9 +609,9 @@ de terceiro ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
 
 ---
 
-## O CATÁLOGO COMPLETO — os 63 métodos, um a um
+## O CATÁLOGO COMPLETO — os 64 métodos, um a um
 
-> **O SHELL SERVE 74.** Os CINCO de diferença foram encolhidos pelo LADO WEB,
+> **O SHELL SERVE 75.** Os CINCO de diferença foram encolhidos pelo LADO WEB,
 > que é o lado seguro: o `@JavascriptInterface` de cada um continua em
 > `NativeBridge.kt`, então nenhum dos dois lotes pediu Release.
 > `ytStream`, `otaPending` e `apkProcurar` perderam o consumidor em duas fusões
@@ -789,6 +789,9 @@ window.AVNative = {
   deckExportUrl(link), // → URL de exportação PDF de um link do Google Apresentações
   deckDiscard(url),    //   e apaga as páginas depois da cópia
   captureVolumeKeys(bool), // botões físicos de volume vão para o app
+  telaInteira(bool),   // (shell 80) paisagem + barras do sistema escondidas, SEM a API de
+                       //   tela cheia (que exige toque recente) — a tela inteira do vídeo
+                       //   do Modo Fácil; o web cobre a tela com a `.preview` em `popover`
   projecaoLocal(bool), // A PREVIEW É A PROJEÇÃO: não há tela conectada e há
                        //   cena no ar. O shell responde impedindo que o WebView
                        //   do CONTROLE seja suspenso (o `manterVisivel` + a
