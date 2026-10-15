@@ -235,8 +235,8 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      trilha devolveria ~18px de largura à folha (~2,5% de colunas de cifra) e
      custaria essa margem.
 
-     E ela é uma FAIXA DE GRID, não um overlay: a coluna da preview
-     (`.pv-fsctl`) é absoluta e translúcida porque lá o que está por baixo é a
+     E ela é uma FAIXA DE GRID, não um overlay: os controles da tela
+     cheia da preview (`.pv-fsctl`) são absolutos e translúcidos porque lá o que está por baixo é a
      PROJEÇÃO e ela precisa da tela inteira; aqui o que está por baixo é TEXTO
      QUE ALGUÉM ESTÁ LENDO, e uma trilha própria garante que nada é coberto sem
      depender de opacidade nenhuma. */
@@ -1585,80 +1585,87 @@ body {
 .preview:-webkit-full-screen .pv-fabs,
 .preview.pv-inteira .pv-fabs { display: none !important; }
 
-/* ===== A COLUNA DA TELA CHEIA =====
-   Ela existe SÓ em tela cheia e SÓ enquanto `.visivel` — o toque a acende e
-   `FSCTL_MS` (4s sem toque) a apaga. Fora daí, `opacity: 0` E
-   `pointer-events: none`: sem o segundo, uma coluna invisível continuaria
-   comendo os toques da metade direita da projeção.
+/* ===== OS CONTROLES DA TELA CHEIA =====
+   Eles existem SÓ em tela cheia e SÓ enquanto `.visivel` — o toque os acende e
+   `FSCTL_MS` (4s sem toque) os apaga. TRANSLÚCIDOS no ar (`.72`), a pedido do
+   operador: sem TV a projeção É esta tela, e o que se pinta aqui a congregação
+   vê. A opacidade parcial baixa o destaque sem custar a legibilidade — os três
+   `drop-shadow` do `.pv-fab` continuam valendo por baixo dela.
 
-   TRANSLÚCIDA no ar (`.72`), a pedido do operador: sem TV a projeção É esta
-   tela, e o que se pinta aqui a congregação vê. A opacidade parcial baixa o
-   destaque sem custar a legibilidade — os três `drop-shadow` do `.pv-fab`
-   continuam valendo por baixo dela.
+   UM MODELO SÓ PARA OS DOIS MODOS (v1.12.42, pedido do operador: *"ajuste o
+   play/pause para que fique no meio da tela, um pouco maior … e mova o botão de
+   sair da tela cheia para o canto inferior direito"* · *"unificar o modelo do
+   modo de tela cheia do modo simples, também para o modo avançado … botões como
+   anterior e próximo vão ficar no centro da tela a esquerda e direita do botão
+   de play/pause. E deixe o botão de desativar imagem no canto superior
+   direito"*). Era uma COLUNA na lateral direita (v1.1.2–v1.12.41):
+     · CENTRO — o play/pause (`--fs-play`, 1,5× os 40px dos outros), e no
+       avançado o ⏮ e o ⏭ ao lado dele, a `--fs-vao` de distância;
+     · CANTO INFERIOR DIREITO — o sair, na linha da faixa do tempo (que reserva
+       o recuo dele: `--fs-recuo`);
+     · CANTO SUPERIOR DIREITO — a cortina (só no avançado), na linha da faixa do
+       título (que reserva o mesmo recuo);
+     · BORDA ESQUERDA — a barra de volume, vertical (abaixo).
+   A FOLGA DAS BORDAS É DE 10px (v1.1.3), mais o recorte da câmera em paisagem
+   (`safe-area-inset-*`).
 
-   ELA OCUPA A ALTURA INTEIRA (v1.1.2). Centrada, os botões eram um bloco denso
-   no meio de uma tela em PAISAGEM: ficavam colados uns nos outros (2px) e
-   sobrava metade da lateral sem uso nenhum. Distribuídos, o vão entre dois
-   vizinhos passa a ser MAIOR que o próprio botão — e num alvo que se opera sem
-   olhar (quem está em tela cheia olha a projeção, não o dedo) esse vão é a
-   única coisa que separa um controle do seguinte.
-
-   A FOLGA DAS TRÊS BORDAS É DE 10px (v1.1.3, pedido do operador: *"adicione uma
-   pequena margem no topo, na base e na lateral direita da coluna, pois os
-   botões ficaram muito colados à borda da tela"*). Ela NÃO acompanha os 2px dos
-   `.pv-fabs` dos cantos, e a diferença é o território: aqueles moram numa
-   miniatura de poucos centímetros, onde 2px a mais custam mídia visível; aqui a
-   tela INTEIRA é a projeção e o que sobra é espaço. Some-se que em tela cheia o
-   aparelho está deitado num suporte, com a moldura arredondada e — em paisagem
-   — o recorte da câmera numa das laterais: encostado na borda, o alvo divide
-   espaço com tudo isso.
-
-   São CINCO: o par de volume saiu no mesmo lote, para os botões FÍSICOS do
-   aparelho (ver o comentário do bloco no HTML).
-
-   `space-between`, e não `space-evenly`: com `top`/`bottom` fixos os dois
-   extremos da coluna são o alcance natural do polegar em paisagem, e são eles
-   que ficam parados enquanto o número de botões muda.
-
-   ERRAR O ALVO CUSTA UM TOQUE, NUNCA UMA AÇÃO ERRADA: acesa, a coluna é
-   `pointer-events: auto` inteira, então o dedo que cai num vão morre nela em
-   vez de atravessar para a projeção — e o `pointerdown` que borbulha até a
-   `.preview` ainda RENOVA os 4s (ver `acenderFsCtl`). */
+   A CAMADA NÃO RECEBE TOQUE — só os botões, e só ACESOS. Ela ocupa a tela
+   inteira, então `pointer-events: auto` nela comeria todo toque na projeção (e
+   o toque fora dos botões é o que APAGA os controles). E os botões apagados
+   precisam de `none` explícito: o `.pv-fab` declara `pointer-events: auto`, que
+   VENCE o `none` herdado — sem isto um toque no meio da tela apagada acionaria o
+   play/pause escondido ali, além de acender. Um toque que erra o alvo apaga os
+   controles (custa um toque), nunca aciona o que não se pediu. */
 .pv-fsctl {
-  position: absolute; right: 10px; top: 10px; bottom: 10px;
-  z-index: 6; display: none; flex-direction: column;
-  justify-content: space-between; gap: 2px;
+  --fs-btn: 40px; --fs-play: 60px; --fs-vao: 44px;
+  --fs-dir: max(10px, env(safe-area-inset-right));
+  position: absolute; inset: 0; z-index: 6; display: none;
   opacity: 0; pointer-events: none; transition: opacity var(--dur-media) ease;
 }
 .preview:fullscreen .pv-fsctl,
 .preview:-webkit-full-screen .pv-fsctl,
-.preview.pv-inteira .pv-fsctl { display: flex; }
-.pv-fsctl.visivel { opacity: .72; pointer-events: auto; }
-/* MAIORES QUE OS DOS CANTOS — 40px de alvo e 28px de ícone, contra os 34/24 do
-   `.pv-fab` comum. Lá o dedo mira com o aparelho na mão e a lista do culto à
-   vista; aqui a tela INTEIRA é a projeção, o aparelho está no suporte e o
-   toque é de raspão. A altura que a distribuição acima liberou paga isso sem
-   encostar um botão no outro. */
-.pv-fsctl .pv-fab { width: 40px; height: 40px; }
+.preview.pv-inteira .pv-fsctl { display: block; }
+.pv-fsctl.visivel { opacity: .72; }
+/* MAIORES QUE OS DOS CANTOS DA MINIATURA — 40px de alvo e 28px de ícone, contra
+   os 34/24 do `.pv-fab` comum: aqui a tela INTEIRA é a projeção, o aparelho está
+   no suporte e o toque é de raspão. O `(0,2,0)` vence também o
+   `.btn-eco { position: relative }` do eco de toque. */
+.pv-fsctl .pv-fab {
+  position: absolute; width: var(--fs-btn); height: var(--fs-btn);
+  pointer-events: none;
+}
+.pv-fsctl.visivel .pv-fab { pointer-events: auto; }
 .pv-fsctl .pv-fab svg { width: 28px; height: 28px; }
-/* NO MODO FÁCIL A COLUNA TEM DOIS BOTÕES (v1.12.24): sair e play/pause. A cortina e o par ⏮/⏭
-   saem a pedido do operador — lá a tela cheia é a do VÍDEO (`acertarTelaCheiaDoVideo`), e o
-   `space-between` acima leva os dois que ficam às pontas. */
+.pv-fsctl #fsPlay {
+  left: 50%; top: 50%; width: var(--fs-play); height: var(--fs-play);
+  margin: calc(var(--fs-play) / -2) 0 0 calc(var(--fs-play) / -2);
+}
+.pv-fsctl #fsPlay svg { width: 42px; height: 42px; }
+.pv-fsctl :is(#fsPrev, #fsNext) { top: 50%; margin-top: calc(var(--fs-btn) / -2); }
+.pv-fsctl #fsPrev { left: calc(50% - var(--fs-play) / 2 - var(--fs-vao) - var(--fs-btn)); }
+.pv-fsctl #fsNext { left: calc(50% + var(--fs-play) / 2 + var(--fs-vao)); }
+.pv-fsctl #fsExit { right: var(--fs-dir); bottom: max(10px, env(safe-area-inset-bottom)); }
+.pv-fsctl #fsView { right: var(--fs-dir); top: max(10px, env(safe-area-inset-top)); }
+/* NO MODO FÁCIL SÃO DOIS BOTÕES (v1.12.24): sair e play/pause. A cortina e o par ⏮/⏭
+   saem a pedido do operador — lá a tela cheia é a do VÍDEO (`acertarTelaCheiaDoVideo`). */
 body.mode-simple .pv-fsctl :is(#fsView, #fsPrev, #fsNext) { display: none; }
 
 /* ===== A BARRA DE VOLUME DA TELA CHEIA (v1.12.24) =====
    Ela só existe em tela cheia e só aparece por `.visivel`, que `mostrarVolumeDaTelaCheia` escreve a
-   cada mudança de volume e tira 2 s depois. No TOPO, ao centro (no avançado; no Modo Fácil, em pé
-   na borda esquerda — abaixo): a lateral direita é da coluna de
-   controles, e sem TV esta tela É a projeção — por isso pequena e passageira.
+   cada mudança de volume e tira 2 s depois. VERTICAL, NA BORDA ESQUERDA (v1.12.41 no Modo Fácil,
+   nos dois modos desde a v1.12.42): o topo é do título, a base da linha do tempo e o centro do
+   play/pause. Sem TV esta tela É a projeção — por isso pequena e passageira.
    É DO PALCO, e o palco não tem tema: `--scrim` sob `--stage-text`, o nível em `--stage-accent`
    (9,75:1 sobre o preto). O trilho é o mesmo branco do palco com `opacity`, e não um token com
-   alfa a mais. `pointer-events: none`: um toque nela é um toque na projeção. */
+   alfa a mais. `pointer-events: none`: um toque nela é um toque na projeção.
+   O nível cresce de BAIXO para cima (o `--nivel` que o JS escreve), o ícone embaixo e o número em
+   cima. A altura cabe entre o título e a linha do tempo em qualquer paisagem (`max-height`), e o
+   recuo esquerdo respeita o recorte da câmera (`safe-area-inset-left`). */
 .pv-volume {
-  position: absolute; top: 14px; left: 50%; z-index: 7;
-  display: none; align-items: center; gap: var(--sp-4);
-  width: min(320px, 60%); padding: .45rem .9rem;
-  transform: translateX(-50%);
+  position: absolute; top: 50%; left: max(14px, env(safe-area-inset-left)); z-index: 7;
+  display: none; flex-direction: column-reverse; align-items: center; gap: var(--sp-4);
+  height: min(220px, calc(100% - 9rem)); padding: .7rem .45rem;
+  transform: translateY(-50%);
   background: var(--scrim); color: var(--stage-text); border-radius: var(--radius-pill);
   opacity: 0; pointer-events: none; transition: opacity var(--dur-media) ease;
 }
@@ -1670,62 +1677,49 @@ body.mode-simple .pv-fsctl :is(#fsView, #fsPrev, #fsNext) { display: none; }
 .pv-volume .ico-alt { display: none; }
 .pv-volume.mudo .ico-base { display: none; }
 .pv-volume.mudo .ico-alt { display: block; }
-.pv-volume-trilho { position: relative; flex: 1; height: 6px; border-radius: var(--radius-pill); overflow: hidden; }
+.pv-volume-trilho { position: relative; flex: 1; width: 6px; border-radius: var(--radius-pill); overflow: hidden; }
 .pv-volume-trilho::before {
   content: ""; position: absolute; inset: 0; background: var(--stage-text); opacity: .3;
 }
-.pv-volume-nivel { position: relative; height: 100%; width: var(--nivel, 0%); background: var(--stage-accent); border-radius: inherit; }
+.pv-volume-nivel { position: absolute; left: 0; right: 0; bottom: 0; height: var(--nivel, 0%); background: var(--stage-accent); border-radius: inherit; }
 .pv-volume-num {
-  flex: none; min-width: 2.2em; text-align: right;
+  flex: none; text-align: center;
   font-size: var(--fs-sm); font-weight: var(--fw-forte); font-variant-numeric: tabular-nums;
 }
 @media (prefers-reduced-motion: reduce) {
   .pv-volume { transition: none; }
 }
-/* NO MODO FÁCIL ELA É VERTICAL, NA BORDA ESQUERDA (v1.12.41, pedido do operador): o topo passou a
-   ser do título da mídia e a base da linha do tempo, e a lateral direita é da coluna. O nível
-   cresce de BAIXO para cima (o mesmo `--nivel` que o JS escreve), o ícone embaixo e o número em
-   cima. A altura cabe entre o título e a linha do tempo em qualquer paisagem (`max-height`), e o
-   recuo esquerdo respeita o recorte da câmera (`safe-area-inset-left`). */
-body.mode-simple .pv-volume {
-  top: 50%; left: max(14px, env(safe-area-inset-left)); width: auto;
-  height: min(220px, calc(100% - 9rem));
-  flex-direction: column-reverse; padding: .7rem .45rem;
-  transform: translateY(-50%);
-}
-body.mode-simple .pv-volume-trilho { flex: 1; width: 6px; height: auto; }
-body.mode-simple .pv-volume-nivel { position: absolute; left: 0; right: 0; bottom: 0; width: auto; height: var(--nivel, 0%); }
-body.mode-simple .pv-volume-num { min-width: 0; text-align: center; }
 
-/* ===== O TÍTULO E A LINHA DO TEMPO DA TELA CHEIA DO MODO FÁCIL (v1.12.41) =====
+/* ===== O TÍTULO E A LINHA DO TEMPO DA TELA CHEIA (v1.12.41; nos DOIS modos desde a v1.12.42) =====
    Pedido do operador (aprovado): o NOME da mídia numa faixa no topo e a linha do tempo
-   (decorrido · faixa · duração) numa faixa na base. Os dois acendem e apagam JUNTO com a coluna
-   (`.visivel`, escrita por `acenderFsCtl`/`esconderFsCtl`) e só existem no Modo Fácil: no
-   avançado a tela cheia é a projeção de um culto inteiro, e lá ela continua como era.
+   (decorrido · faixa · duração) numa faixa na base. Os dois acendem e apagam JUNTO com os botões
+   (`.visivel`, escrita por `acenderFsCtl`/`esconderFsCtl`).
    São do PALCO — sem TV esta tela É a projeção —, então o palco não tem tema: a faixa é um
    degradê de `--scrim` até nada, o texto `--stage-text` e o preenchimento `--stage-accent`
-   (9,75:1 sobre o preto). O recuo direito (60 px) é o da coluna (40 px + 10 de folga + 10), e os
+   (9,75:1 sobre o preto). O RECUO DIREITO é o do botão do canto (`--fs-recuo`: 40 px + 10 de
+   folga + 10 de vão): na base mora o SAIR e no topo a CORTINA, cada um na linha da sua faixa; os
    recuos laterais respeitam o recorte da câmera em paisagem.
    O TÍTULO NÃO RECEBE TOQUE (`pointer-events: none` sempre): um toque nele é um toque na
    projeção, que apaga os controles. A LINHA DO TEMPO recebe, mas só acesa — apagada, um toque
    na base da tela só acende tudo, como na coluna. */
 .pv-fstopo, .pv-fsbase {
+  --fs-recuo: calc(max(10px, env(safe-area-inset-right)) + 50px);
   position: absolute; left: 0; right: 0; z-index: 5; display: none;
   color: var(--stage-text);
   opacity: 0; pointer-events: none; transition: opacity var(--dur-media) ease;
 }
-body.mode-simple .preview:fullscreen :is(.pv-fstopo, .pv-fsbase),
-body.mode-simple .preview:-webkit-full-screen :is(.pv-fstopo, .pv-fsbase),
-body.mode-simple .preview.pv-inteira :is(.pv-fstopo, .pv-fsbase) { display: block; }
-body.mode-simple .preview:fullscreen .pv-fsbase,
-body.mode-simple .preview:-webkit-full-screen .pv-fsbase,
-body.mode-simple .preview.pv-inteira .pv-fsbase { display: flex; }
+.preview:fullscreen .pv-fstopo,
+.preview:-webkit-full-screen .pv-fstopo,
+.preview.pv-inteira .pv-fstopo { display: block; }
+.preview:fullscreen .pv-fsbase,
+.preview:-webkit-full-screen .pv-fsbase,
+.preview.pv-inteira .pv-fsbase { display: flex; }
 .pv-fsbase[hidden] { display: none !important; }
 .pv-fstopo.visivel, .pv-fsbase.visivel { opacity: 1; }
 .pv-fsbase.visivel { pointer-events: auto; }
 .pv-fstopo {
   top: 0;
-  padding: max(12px, env(safe-area-inset-top)) 60px 2.2rem max(16px, env(safe-area-inset-left));
+  padding: max(12px, env(safe-area-inset-top)) var(--fs-recuo) 2.2rem max(16px, env(safe-area-inset-left));
   background: linear-gradient(to bottom, var(--scrim), transparent);
 }
 .pv-fstopo-nome {
@@ -1734,7 +1728,7 @@ body.mode-simple .preview.pv-inteira .pv-fsbase { display: flex; }
 }
 .pv-fsbase {
   bottom: 0; align-items: center; gap: var(--sp-4);
-  padding: 2rem 60px max(10px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  padding: 2rem var(--fs-recuo) max(10px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   background: linear-gradient(to top, var(--scrim), transparent);
 }
 .pv-fstempo-num { flex: none; font-size: var(--fs-md); font-variant-numeric: tabular-nums; }
@@ -2318,7 +2312,7 @@ body.mode-simple .preview.pv-inteira .pv-fsbase { display: flex; }
    daqui as duas classes que anunciavam o eixo de estrofe (`.slide-mode` e o
    `.axis-end` que a esmaecia no fim da letra) — um botão com um significado só
    não tem eixo a anunciar. O par de eixos continua vivo onde não há botão de
-   slide: a coluna da tela cheia e a notificação de mídia. */
+   slide: os controles da tela cheia e a notificação de mídia. */
 
 /* ---------- A coluna da direita: dois botões soltos (v1.3.8) ----------
    Aqui morava o `#mixer` — um `subgrid` de três fatias, com os botões dentro de
@@ -11584,8 +11578,8 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 
    A coluna é a segunda TRILHA — logo ela não pode cobrir o texto, sem depender
    de opacidade nenhuma. É a diferença para a `.pv-fsctl`: lá o que está por
-   baixo é a projeção e ela precisa da tela toda, então a coluna é absoluta,
-   translúcida e se apaga em 4s. Aqui o que está por baixo é texto que alguém
+   baixo é a projeção e ela precisa da tela toda, então os controles são
+   absolutos, translúcidos e se apagam em 4s. Aqui o que está por baixo é texto que alguém
    está lendo enquanto toca — a coluna FICA, e os argumentos daquela não
    transferem: ninguém além do operador vê esta superfície (a cifra nunca vai ao
    telão), os controles são usados DURANTE a leitura, e este app já decidiu isso

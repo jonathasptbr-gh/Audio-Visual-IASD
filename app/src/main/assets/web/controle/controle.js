@@ -400,7 +400,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.41';
+const WEB_VERSION = '1.12.42';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -40687,10 +40687,11 @@ function renderTemaTile() {
 // estado dos botões do mixer/transporte em vez de recalcular play/pause e
 // mudo por conta própria. Se a regra mudar lá, muda aqui junto.
 function renderSimple() {
+  // O título da tela cheia vale nos DOIS modos (v1.12.42): é escrito antes da guarda do modo.
+  if (pvFsNomeEl) pvFsNomeEl.textContent = npNameInnerEl.textContent || '';
   if (appMode !== 'simple') return;
   renderSimpleFsBtn();
   simpleNpNameEl.textContent = npNameInnerEl.textContent || 'Nada tocando';
-  if (pvFsNomeEl) pvFsNomeEl.textContent = npNameInnerEl.textContent || '';
   simplePlayEl.querySelector('.msym').textContent = playPauseEl.querySelector('.msym').textContent;
   // O botão espelhado deixou de ter glifo na v1.3.5 (subiu para a preview e
   // virou SVG), então o que se copia agora é a CLASSE de estado — `.alternado`
@@ -40716,13 +40717,12 @@ function renderSimple() {
 // fontes possíveis — a preview local, o `display-status` do telão e o polling
 // do YouTube — e é ela que sabe quando o item nem tem duração (imagem, texto).
 function renderSimpleTime() {
+  renderFsTempo();
   if (appMode !== 'simple') return;
   const dur = parseFloat(seekEl.max) || 0;
   const cur = parseFloat(seekEl.value) || 0;
   const timed = !seekEl.disabled && dur > 0;
   simpleTimeEl.hidden = !timed;
-  // A linha do tempo da tela cheia (v1.12.41) é a MESMA leitura, noutro lugar: some junto.
-  if (pvFsBaseEl) pvFsBaseEl.hidden = !timed;
   if (!timed) return;
   // DURANTE O ARRASTE quem escreve a barra é o dedo (ver `ligarBarraDeTempo`).
   // Sem esta guarda, o `timeupdate` da mídia — que continua tocando enquanto se
@@ -40732,16 +40732,23 @@ function renderSimpleTime() {
   simpleTimeCurEl.textContent = fmtTime(cur);
   simpleTimeDurEl.textContent = fmtTime(dur);
   simpleTimeFillEl.style.width = Math.max(0, Math.min(100, (cur / dur) * 100)) + '%';
-  for (const hit of [simpleTimeHitEl, pvFsTempoHitEl]) {
-    if (!hit) continue;
-    hit.setAttribute('aria-valuemax', String(Math.round(dur)));
-    hit.setAttribute('aria-valuenow', String(Math.round(cur)));
-  }
-  if (pvFsBaseEl) {
-    pvFsTempoCurEl.textContent = fmtTime(cur);
-    pvFsTempoDurEl.textContent = fmtTime(dur);
-    pvFsTempoFillEl.style.width = Math.max(0, Math.min(100, (cur / dur) * 100)) + '%';
-  }
+  simpleTimeHitEl.setAttribute('aria-valuemax', String(Math.round(dur)));
+  simpleTimeHitEl.setAttribute('aria-valuenow', String(Math.round(cur)));
+}
+// A LINHA DO TEMPO DA TELA CHEIA (v1.12.41 no Modo Fácil, nos DOIS modos desde a v1.12.42) é a
+// MESMA leitura do `#seek`, noutro lugar: some junto com a duração, e o dedo manda durante o arraste.
+function renderFsTempo() {
+  if (!pvFsBaseEl) return;
+  const dur = parseFloat(seekEl.max) || 0;
+  const cur = parseFloat(seekEl.value) || 0;
+  const timed = !seekEl.disabled && dur > 0;
+  pvFsBaseEl.hidden = !timed;
+  if (!timed || simpleSeeking) return;
+  pvFsTempoHitEl.setAttribute('aria-valuemax', String(Math.round(dur)));
+  pvFsTempoHitEl.setAttribute('aria-valuenow', String(Math.round(cur)));
+  pvFsTempoCurEl.textContent = fmtTime(cur);
+  pvFsTempoDurEl.textContent = fmtTime(dur);
+  pvFsTempoFillEl.style.width = Math.max(0, Math.min(100, (cur / dur) * 100)) + '%';
 }
 
 // ===== A BARRA DE TEMPO DO SIMPLIFICADO É INTERATIVA (v5.142) =====
@@ -42036,8 +42043,9 @@ function esconderVolumeDaTelaCheia() {
 // Exibição (fade/fit). A preview em tela cheia é a projeção direta pelo Controle
 // (espelha a tela cheia do celular, sem depender do Miracast de app isolado).
 //
-// DENTRO do fullscreen — uma COLUNA DE ÍCONES na lateral direita (`#pvFsCtl`),
-// que o toque acende e 4s sem toque apagam. Ela substituiu um mapa de GESTOS
+// DENTRO do fullscreen — os CONTROLES DA TELA CHEIA (`#pvFsCtl`: play/pause no
+// centro, ⏮/⏭ ao lado dele, sair no canto inferior direito, cortina no superior
+// direito — v1.12.42), que o toque acende e 4s sem toque apagam. Ela substituiu um mapa de GESTOS
 // INVISÍVEIS (toque por terço, deslizes nos quatro sentidos, arrasto de volume)
 // que não tinha como se anunciar: quem não o decorasse não tinha como
 // descobri-lo, e um toque no lugar errado fazia outra coisa em cima da
@@ -42133,8 +42141,8 @@ function esconderVolumeDaTelaCheia() {
   const FSCTL_MS = 4000;
   let fsTimer = null;
 
-  // O TÍTULO E A LINHA DO TEMPO do Modo Fácil (v1.12.41) acendem e apagam JUNTO com a coluna —
-  // fora do Modo Fácil o CSS nem os desenha. E ENQUANTO O DEDO ARRASTA a linha do tempo o relógio
+  // O TÍTULO E A LINHA DO TEMPO (v1.12.41; nos dois modos desde a v1.12.42) acendem e apagam
+  // JUNTO com os botões. E ENQUANTO O DEDO ARRASTA a linha do tempo o relógio
   // não corre: os controles sumirem debaixo do dedo seria perder o ponto que ele procura.
   const fsJunto = [pvFsTopoEl, pvFsBaseEl].filter(Boolean);
   function esconderFsCtl() {
@@ -42172,8 +42180,8 @@ function esconderVolumeDaTelaCheia() {
   // de apagar, senão comandar a projeção fecharia a coluna a cada comando. Só o
   // toque que cai FORA dela é que a esconde.
   //
-  // O vão entre os botões conta como DENTRO (a coluna acesa é `pointer-events:
-  // auto` inteira): errar o alvo por 2px renova, como sempre renovou — errar
+  // DESDE A v1.12.42 OS BOTÕES MORAM ESPALHADOS PELA TELA, e a camada deles
+  // não recebe toque (só os botões, acesos): errar o alvo APAGA os controles —
   // custa um toque, nunca uma ação que não se pediu.
   previewEl.addEventListener('pointerdown', (e) => {
     if (!isFs() || !fsCtlEl) return;

@@ -1700,9 +1700,17 @@
              uma interface que não se anuncia — quem não decorou o mapa não tem
              como descobri-lo.
 
-             A coluna resolve os dois lados: ela só aparece ao TOQUE e se apaga
-             sozinha em 4s (`FSCTL_MS`), e é translúcida enquanto está no ar. O
-             que fica sobre a projeção é passageiro e discreto, por construção.
+             Os controles resolvem os dois lados: eles só aparecem ao TOQUE e se
+             apagam sozinhos em 4s (`FSCTL_MS`), e são translúcidos enquanto estão
+             no ar. O que fica sobre a projeção é passageiro e discreto, por
+             construção.
+
+             UM MODELO SÓ PARA OS DOIS MODOS (v1.12.42, pedido do operador): o
+             play/pause GRANDE no CENTRO da tela, com ⏮ à esquerda e ⏭ à direita
+             (só no avançado); o SAIR no canto INFERIOR direito, na linha do tempo;
+             a CORTINA no canto SUPERIOR direito, na faixa do título (só no
+             avançado). Cada botão é posicionado pelo CSS (`.pv-fsctl` é uma camada
+             da tela inteira que não recebe toque — só os botões, e só acesos).
 
              CADA BOTÃO ACIONA O CONTROLE DE VERDADE — não há segunda
              implementação de nada (invariante 5). O ⏮/⏭ recebe o MESMO
@@ -1762,10 +1770,10 @@
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6v12"/><path d="M5 6.6 14.4 12 5 17.4z"/></svg>
           </button>
         </div>
-        <!-- O TÍTULO E A BARRA DE TEMPO DA TELA CHEIA DO MODO FÁCIL (v1.12.41). Pedido do operador
-             (aprovado): o nome da mídia no TOPO e a linha do tempo na BASE, e os dois aparecem e
-             somem JUNTO com a coluna (`acenderFsCtl`/`esconderFsCtl`: o toque acende, 4 s apagam).
-             Só existem no Modo Fácil — no avançado a tela cheia continua como era. A barra salta
+        <!-- O TÍTULO E A BARRA DE TEMPO DA TELA CHEIA (v1.12.41 no Modo Fácil; nos DOIS modos desde a
+             v1.12.42). Pedido do operador (aprovado): o nome da mídia no TOPO e a linha do tempo na
+             BASE, e os dois aparecem e somem JUNTO com os botões (`acenderFsCtl`/`esconderFsCtl`: o
+             toque acende, 4 s apagam). A barra salta
              e procura pelo MESMO caminho da barra do card (`ligarBarraDeTempo`, `seeking`, um
              `seek` ao soltar), e some sem duração conhecida. São do PALCO: tokens sem tema. -->
         <div class="pv-fstopo" id="pvFsTopo" aria-hidden="true"><span class="pv-fstopo-nome" id="pvFsNome"></span></div>
@@ -1781,7 +1789,8 @@
              `.visivel` (`mostrarVolumeDaTelaCheia`, 2 s): fora dela o retorno do volume é o fader
              que a tecla acende, e dentro dela não havia nenhum. Mora DENTRO da `.preview` porque
              só o elemento em tela cheia e os filhos dele são pintados. É do PALCO: tokens sem tema.
-             NO MODO FÁCIL ELA É VERTICAL, NA BORDA ESQUERDA (v1.12.41): o topo é do título. -->
+             ELA É VERTICAL, NA BORDA ESQUERDA (v1.12.41 no Modo Fácil, nos dois desde a v1.12.42):
+             o topo é do título. -->
         <div class="pv-volume" id="pvVolume" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <use class="ico-base" href="#icoSom"/><use class="ico-alt" href="#icoSomOff"/>
@@ -2718,7 +2727,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.12.41</span>
+            <span id="appVersion" class="app-version">v1.12.42</span>
           </button>
             <!-- O REGISTRO SAIU DESTA FAIXA (v1.12.29), a pedido do operador:
                  *"Remova a opção de registro que tem avulsa na base das

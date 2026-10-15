@@ -26,6 +26,11 @@
 //     mesma altura com e sem ele.
 //  E. A BARRA DE VOLUME: em tela cheia, nos dois modos, uma mudança de volume a mostra com o
 //     número e o nível, e ela some sozinha; fora da tela cheia ela não existe.
+//  I. (v1.12.42) UM MODELO SÓ PARA OS DOIS MODOS, medido em PAISAGEM (740×360 e 900×420): o
+//     play/pause GRANDE no centro (⏮/⏭ ao lado dele, só no avançado), o SAIR no canto inferior
+//     direito na linha do tempo, a CORTINA no canto superior direito na faixa do título (só no
+//     avançado), o volume vertical à esquerda — nada sobre nada. E com os controles APAGADOS um
+//     toque no meio da tela só os acende: o play/pause escondido ali não é acionado.
 //  H. (v1.12.41) NO MODO FÁCIL o NOME da mídia numa faixa no topo e a LINHA DO TEMPO na base,
 //     acendendo e apagando junto com a coluna; arrastar a linha até a metade leva a mídia à
 //     metade (um `seek` ao soltar) e segura os controles acesos durante o arraste; sem duração
@@ -324,9 +329,9 @@ try {
   checar(e5.visivel && e5.num === '35' && e5.nivel === '35%',
     'E5 · no avançado a mudança de volume em tela cheia também acende a barra', JSON.stringify(e5));
   const f5 = await lerFaixas(pa);
-  checar(e5.w > e5.h * 2 && e5.t <= 20 && f5.topo.display === 'none' && f5.base.display === 'none',
-    'H9 · e no avançado ela continua HORIZONTAL no topo, sem o título nem a linha do tempo do Modo Fácil',
-    JSON.stringify({ e5, topo: f5.topo.display, base: f5.base.display }));
+  checar(e5.h > e5.w * 2 && e5.l <= 24 && f5.topo.display !== 'none' && f5.texto === 'Provai e Vede',
+    'H9 · (v1.12.42) no avançado o MESMO modelo do Modo Fácil: a barra VERTICAL na borda esquerda e o NOME no topo',
+    JSON.stringify({ e5, topo: f5.topo.display, texto: f5.texto }));
   const opac = await esperar(pa, () => parseFloat(getComputedStyle(document.getElementById('pvVolume')).opacity) > 0.9, null, 3000);
   checar(opac === true, 'E6 · e ela é VISTA (opacidade cheia), não só marcada', porque(opac));
   // O FIM no avançado NÃO fecha a tela cheia que o operador abriu
@@ -336,6 +341,97 @@ try {
   checar(b4 === true, 'B4 · no avançado o fim da mídia NÃO fecha a tela cheia aberta pelo operador', String(b4));
   await pa.evaluate(() => document.exitFullscreen());
   await ctx2.close();
+
+  // ======================= I · O MODELO ÚNICO, EM PAISAGEM (v1.12.42) =======================
+  // A premissa da duração e o volume são escritos NO MESMO quadro da medida (sob carga um status
+  // da prévia, com a mídia de 64 bytes, zera o `#seek` e a linha do tempo some).
+  const lerGeo = (pg) => pg.evaluate(() => {
+    seekEl.disabled = false; seekEl.max = '120'; seekEl.value = '30'; renderSimpleTime();
+    mostrarVolumeDaTelaCheia();
+    const r = (id) => {
+      const el = document.getElementById(id);
+      const x = el.getBoundingClientRect();
+      return { vis: getComputedStyle(el).display !== 'none', l: x.left, t: x.top, r: x.right, b: x.bottom,
+        w: x.width, h: x.height, cx: x.left + x.width / 2, cy: x.top + x.height / 2 };
+    };
+    const exit = r('fsExit');
+    const alvo = document.elementFromPoint(exit.cx, exit.cy);
+    return { vw: innerWidth, vh: innerHeight, modo: appMode,
+      play: r('fsPlay'), prev: r('fsPrev'), next: r('fsNext'), exit, view: r('fsView'),
+      nome: r('pvFsNome'), topo: r('pvFsTopo'), base: r('pvFsBase'), hit: r('pvFsTempoHit'),
+      dur: r('pvFsTempoDur'), vol: r('pvVolume'), nomeTxt: document.getElementById('pvFsNome').textContent,
+      exitNoTopo: !!alvo && document.getElementById('fsExit').contains(alvo) };
+  });
+  const sobre = (a, b) => a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
+  for (const [vw, vh] of [[740, 360], [900, 420]]) {
+    for (const modo of ['simple', 'avancado']) {
+      const cx = await navegador.newContext({ viewport: { width: vw, height: vh }, hasTouch: true });
+      await semRedeExterna(cx);
+      await vigiarTelaCheia(cx);
+      if (modo === 'avancado') await comModoAvancado(cx);
+      const p = await cx.newPage();
+      p.on('pageerror', (e) => erros.push(`pageerror (I ${modo} ${vw}×${vh}): ` + e.message));
+      await p.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+      await esperarCortina(p);
+      const idsI = await plantar(p);
+      if (modo === 'simple') {
+        await p.evaluate(() => { setTocarNoCelular(true); });
+        await p.evaluate((id) => send(id), idsI.video);
+      } else {
+        await p.evaluate((id) => send(id), idsI.video);
+        await p.click('#pvFullBtn');
+      }
+      const ok = await esperar(p, naTelaCheia, null, 5000);
+      const rot = `${modo === 'simple' ? 'Modo Fácil' : 'avançado'} ${vw}×${vh}`;
+      checar(ok === true, `premissa · I · tela cheia (${rot})`, porque(ok));
+      const g = await lerGeo(p);
+      const j = JSON.stringify(g);
+      checar(Math.abs(g.play.cx - g.vw / 2) <= 1 && Math.abs(g.play.cy - g.vh / 2) <= 1 && g.play.w >= g.exit.w * 1.4,
+        `I1 · ${rot} · o play/pause fica no CENTRO da tela, maior que os outros botões`, j);
+      checar(g.exit.vis && g.exit.r >= g.vw - 12 && g.exit.r <= g.vw - 8 && g.exit.b >= g.vh - 12 && g.exit.b <= g.vh - 8,
+        `I2 · ${rot} · o SAIR fica no canto INFERIOR DIREITO`, j);
+      checar(g.base.vis && g.exit.cy > g.base.t && g.exit.cy < g.base.b && g.hit.r <= g.exit.l && g.dur.r <= g.exit.l && g.exitNoTopo,
+        `I3 · ${rot} · na linha do tempo, sem ser coberto por ela e sem cobrir a duração`, j);
+      checar(g.vol.vis && g.vol.h > g.vol.w * 2 && g.vol.l <= 24 && g.vol.t >= g.nome.b && g.vol.b <= g.hit.t
+        && g.nomeTxt === 'Provai e Vede' && g.nome.h > 0,
+        `I4 · ${rot} · o NOME no topo e o volume VERTICAL na borda esquerda, entre o título e a linha do tempo`, j);
+      const centro = modo === 'simple' ? [g.play] : [g.prev, g.play, g.next];
+      checar(centro.every((c) => !sobre(c, g.vol) && !sobre(c, g.base) && !sobre(c, g.nome) && c.t >= g.nome.b && c.b <= g.hit.t),
+        `I5 · ${rot} · o centro não toca o volume, o título nem a linha do tempo`, j);
+      if (modo === 'simple') {
+        checar(!g.view.vis && !g.prev.vis && !g.next.vis,
+          `I6 · ${rot} · sem cortina e sem ⏮/⏭ no Modo Fácil`, j);
+      } else {
+        checar(g.prev.vis && g.next.vis && Math.abs(g.prev.cy - g.play.cy) <= 1 && Math.abs(g.next.cy - g.play.cy) <= 1
+          && g.prev.r <= g.play.l - 10 && g.next.l >= g.play.r + 10
+          && Math.abs((g.play.cx - g.prev.cx) - (g.next.cx - g.play.cx)) <= 1,
+          `I6 · ${rot} · ⏮ à ESQUERDA e ⏭ à DIREITA do play/pause, na mesma linha e à mesma distância`, j);
+        checar(g.view.vis && g.view.r >= g.vw - 12 && g.view.t <= 12 && g.view.cy > g.topo.t && g.view.cy < g.topo.b
+          && g.nome.r <= g.view.l,
+          `I7 · ${rot} · a CORTINA no canto SUPERIOR DIREITO, na faixa do título, sem o título por baixo dela`, j);
+      }
+      // I8 · apagados os controles, um toque no MEIO da tela só os acende — o play/pause
+      // escondido ali (o `.pv-fab` declara `pointer-events: auto`) não é acionado.
+      await p.evaluate(() => {
+        window.__playToques = 0;
+        document.getElementById('fsPlay').addEventListener('click', () => { window.__playToques++; });
+        document.getElementById('pvFsCtl').classList.remove('visivel');
+      });
+      await p.mouse.click(Math.round(g.play.cx), Math.round(g.play.cy));
+      const i8 = await p.evaluate(() => ({ toques: window.__playToques,
+        acesa: document.getElementById('pvFsCtl').classList.contains('visivel') }));
+      checar(i8.toques === 0 && i8.acesa,
+        `I8 · ${rot} · com os controles apagados, tocar no meio da tela só os ACENDE (o play/pause não é acionado)`,
+        JSON.stringify(i8));
+      // I9 · e aceso, o mesmo toque aciona o play/pause
+      await p.mouse.click(Math.round(g.play.cx), Math.round(g.play.cy));
+      const i9 = await p.evaluate(() => ({ toques: window.__playToques,
+        acesa: document.getElementById('pvFsCtl').classList.contains('visivel') }));
+      checar(i9.toques === 1 && i9.acesa, `I9 · ${rot} · e com eles acesos o mesmo toque aciona o play/pause`,
+        JSON.stringify(i9));
+      await cx.close();
+    }
+  }
 
   checar(erros.length === 0, 'nenhum erro de página', erros.join(' | '));
 } finally {
