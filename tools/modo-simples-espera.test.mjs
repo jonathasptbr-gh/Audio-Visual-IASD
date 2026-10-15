@@ -14,7 +14,7 @@
 //
 //  A · durante o download e a junção, a linha continua marcada e o campo intacto;
 //  B · a tela só muda depois de a mídia entrar no ar;
-//  C · o percentual mostrado nunca chega a 100 antes do desfecho;
+//  C · o percentual mostrado nunca chega a 100 antes de a mídia estar gravada;
 //  D · o Registro guarda o que a barra fez (v1.12.37).
 //
 //   node tools/modo-simples-espera.test.mjs
@@ -50,6 +50,8 @@ await pg.waitForTimeout(1500);
 const mode = 'celular';
 const r = await pg.evaluate(async (mode) => {
   window.manterSeriesDaSemana = async () => {};
+  const addOrig = AVDB.addMedia;
+  AVDB.addMedia = async (...a) => { window.__log.push([performance.now()|0,'gravado']); return addOrig(...a); };
   if (mode === 'celular') { tocarNoCelular = true; acertarSaidaDeAudio && acertarSaidaDeAudio(); renderSimpleGate && renderSimpleGate(); }
   const est = () => ({ open: hymnSearchPopupEl.classList.contains('open'), principal: document.body.classList.contains('simples-principal'),
     barra: document.body.classList.contains('simples-barra'), semTela: simpleModeEl.classList.contains('sem-tela'),
@@ -91,11 +93,15 @@ checar(fim && fim[1].noAr && !fim[1].sel && fim[0] >= entrou, 'B · com a mídia
 // C · O PERCENTUAL É DO TOQUE À TELA (v1.12.36): ele não chega a 100 antes de a mídia estar no
 // ar, nunca volta, e CONTINUA andando depois do fim da rede (a junção e a gravação têm peso) —
 // era um 99 parado durante segundos (v1.12.32).
+// (v1.12.39) Entre a mídia GRAVADA e a revelação o fim segurado pode varrer até
+// 100 (até 500 ms, ver `revelar`): a régua é a gravação.
 const baixando = r.pcts.filter((p) => p[1] === 'baixando' && p[2] >= 0);
 const antesDoAr = baixando.filter((p) => !p[3]);
-const maxAntes = Math.max(...antesDoAr.map((p) => p[2]));
-checar(antesDoAr.length > 0 && maxAntes <= 99, 'C · o percentual não chega a 100 antes de a mídia entrar no ar',
-  JSON.stringify({ n: antesDoAr.length, maxAntes }));
+const gravadoEm = quando('gravado');
+const antesDeGravar = antesDoAr.filter((p) => p[0] < gravadoEm);
+const maxAntes = Math.max(...antesDeGravar.map((p) => p[2]));
+checar(gravadoEm > 0 && antesDeGravar.length > 0 && maxAntes <= 99, 'C · o percentual não chega a 100 antes de a mídia estar gravada',
+  JSON.stringify({ n: antesDeGravar.length, maxAntes }));
 checar(baixando.every((p, i) => i === 0 || p[2] >= baixando[i - 1][2]), 'C · e nunca volta',
   JSON.stringify(baixando.map((p) => p[2])));
 const fimRede = quando('100%');

@@ -26,7 +26,14 @@
 //      da mesma chave (vídeo × só áudio), e de onde ele veio no relatório;
 //  M · o FREIO do pouso: a inércia de uma barra rápida não a leva ao 99;
 //  N · a junção pesa o quanto ela costuma acontecer (o 360p não junta);
-//  O · num download de um segundo, o ritmo MEDIDO vale já no segundo aviso.
+//  O · num download de um segundo, o ritmo MEDIDO vale já no segundo aviso;
+//  P · (v1.12.39) os CINCO downloads de 720p do Registro de 15/10: uma amostra
+//      fora da curva (a gravação de 1,9 s) não vira a previsão do vídeo
+//      seguinte, o tamanho de UM vídeo de 3 MB não vira o do seguinte de 13 MB,
+//      e — sem a miniatura no caminho — do 2º em diante a mídia fica pronta com
+//      85+, sem parar e com o fim segurado em até 500 ms;
+//  Q · o FIM SEGURADO: `revelar()` segura proporcional ao que falta (até 500
+//      ms), varre até 100 exatamente nesse tempo, e não segura a partir do 95.
 //
 // O relógio é de mentira (`agora` injetado) — é isso que torna a fluidez
 // afirmável. Node puro, sem `continue-on-error`.
@@ -194,25 +201,29 @@ const PLATO_MAX = 3500;
   checar(JSON.stringify(vazio) === JSON.stringify(Object.assign({}, P.PADRAO)),
     'E · sem amostra valem os números padrão', vazio);
   let h = null;
-  for (const ms of [3000, 1000, 1100]) {
+  for (const ms of [1000, 9000, 1100, 1000, 1100]) {
     h = P.aprender(h, { preparoMs: ms, downloadMs: 10000, bytes: 50 * MB, juncaoMs: 5000, copiaMs: 500, gravacaoMs: 1000, aberturaMs: 700 });
   }
   const m = P.modelo(h);
-  checar(m.preparoMs === 1100, 'E · cada número é a MEDIANA das amostras (não a média, que um culto ruim arrastaria)', m.preparoMs);
+  checar(m.preparoMs === 1100, 'E · cada tempo é um QUANTIL das amostras: os 9 s de um culto ruim não arrastam a previsão (a média daria 2,6 s)', m.preparoMs);
   checar(Math.abs(m.bytesPorMs - (50 * MB) / 10000) < 1, 'E · o download vira TAXA (bytes/ms), para valer para outro tamanho', m.bytesPorMs);
   const em50 = (f) => Math.round(m[f + 'FixoMs'] + 50 * m[f + 'MsPorMB']);
   checar(em50('juncao') === 5000 && em50('copia') === 500 && em50('gravacao') === 1000,
     'E · e a junção, a cópia e a gravação viram FIXO + POR MB que devolvem o medido no mesmo tamanho', [em50('juncao'), em50('copia'), em50('gravacao')]);
   // Dois tamanhos separam o fixo do por MB; o ruído que faria a inclinação
   // negativa (um arquivo maior gravando mais rápido) vira inclinação zero.
-  const dois = P.modelo(P.aprender(P.aprender(null, { bytes: 10 * MB, gravacaoMs: 1200 }), { bytes: 50 * MB, gravacaoMs: 2000 }));
-  checar(Math.round(dois.gravacaoMsPorMB) === 20 && Math.round(dois.gravacaoFixoMs) === 1000,
-    'E · com DOIS tamanhos, o fixo e o por MB saem da reta entre eles (1 s + 20 ms/MB)', [dois.gravacaoFixoMs, dois.gravacaoMsPorMB]);
-  const neg = P.modelo(P.aprender(P.aprender(null, { bytes: 4 * MB, gravacaoMs: 1000 }), { bytes: 11 * MB, gravacaoMs: 300 }));
-  checar(neg.gravacaoMsPorMB === 0 && neg.gravacaoFixoMs === 300,
-    'E · e uma inclinação NEGATIVA (ruído) vira zero — o fixo é o recente', [neg.gravacaoFixoMs, neg.gravacaoMsPorMB]);
-  checar(P.medianaRecente([100, 900]) === 900 && P.medianaRecente([100, 100, 900]) === 100 && P.medianaRecente([NaN, 5]) === 5,
-    'E · a mediana é PONDERADA pela idade: entre duas, a mais nova; com apoio, a maioria', null);
+  const tres = P.modelo([[10, 1200], [50, 2000], [30, 1600]].reduce((hh, [mb, ms]) => P.aprender(hh, { bytes: mb * MB, gravacaoMs: ms }), null));
+  checar(Math.round(tres.gravacaoMsPorMB) === 20 && Math.round(tres.gravacaoFixoMs) === 1000,
+    'E · com TRÊS tamanhos, o fixo e o por MB saem da reta entre eles (1 s + 20 ms/MB)', [tres.gravacaoFixoMs, tres.gravacaoMsPorMB]);
+  const dois = P.modelo(P.aprender(P.aprender(null, { bytes: 3 * MB, gravacaoMs: 200 }), { bytes: 13 * MB, gravacaoMs: 1900 }));
+  checar(dois.gravacaoMsPorMB <= P.PADRAO.gravacaoMsPorMB,
+    'E · e DOIS só não fazem inclinação: a diferença de uma amostra fora da curva não vira ms por MB (v1.12.39)', dois.gravacaoMsPorMB);
+  const neg = P.modelo([[4, 1000], [11, 300], [20, 250]].reduce((hh, [mb, ms]) => P.aprender(hh, { bytes: mb * MB, gravacaoMs: ms }), null));
+  checar(neg.gravacaoMsPorMB === 0 && neg.gravacaoFixoMs > 250 && neg.gravacaoFixoMs < 1000,
+    'E · e uma inclinação NEGATIVA (ruído) vira zero — o fixo é o quantil das amostras, nunca a mais nova sozinha', [neg.gravacaoFixoMs, neg.gravacaoMsPorMB]);
+  checar(P.estimar([100, 900], 0.5) === 500 && P.estimar([100, 100, 900], 0.5) === 100 && P.estimar([NaN, 5]) === 5
+    && P.estimar([99999, 1, 1, 1, 1, 1, 1, 1, 1], 0.9) === 1,
+    'E · a estimativa é um QUANTIL sem peso de idade: entre duas, o meio; com apoio, a maioria; só as últimas ' + P.JANELA, null);
   const louco = P.modelo(P.aprender(null, { preparoMs: 99999999, aberturaMs: 1 }));
   checar(louco.preparoMs === P.LIMITES.preparoMs[1] && louco.aberturaMs === P.LIMITES.aberturaMs[0],
     'E · e um número fora do intervalo são é PRESO a ele (relógio quebrado, aba suspensa)', louco);
@@ -226,13 +237,16 @@ const PLATO_MAX = 3500;
     'E · um histórico gravado corrompido vira vazio, nunca exceção', null);
   checar(P.sanear({ v: 1, amostras: [{ preparoMs: 100 }] }).amostras.length === 0 && P.sanear({ v: 2, amostras: [{ preparoMs: 100 }] }).amostras.length === 0,
     'E · e o histórico das VERSÕES anteriores recomeça (a v2 nunca aprendeu a rede)', null);
+  const v3 = P.sanear({ v: 3, amostras: [{ preparoMs: 2000, gravacaoMs: 1900, bytes: 13 * MB }] });
+  checar(v3.v === P.VERSAO && v3.amostras.length === 1 && v3.amostras[0].preparoMs === 2000 && !('gravacaoMs' in v3.amostras[0]),
+    'E · e a v3 (v1.12.38) é LIDA sem a gravação, que incluía a miniatura — o resto do que ela aprendeu fica', v3);
   const lenta = P.modelo(P.aprender(null, { preparoMs: 2500, downloadMs: 120000, bytes: 60 * MB }));
   const em = (mod) => { let t = 0; const b = P.criar({ modelo: mod, agora: () => t, juncao: true, abertura: true });
     let v = 0; for (let i = 0; i < 20; i++) { t += 100; v = b.passo(); } return v; };
   checar(em(lenta) < em(certo), 'E · o que foi aprendido MUDA a previsão: com a rede lenta aprendida, os mesmos 2 s de preparo mostram menos',
     { lenta: em(lenta), padrao: em(certo) });
   const ap = P.apoio(h);
-  checar(ap.n === 3 && ap.download === 3 && ap.abertura === 3, 'E · e o `apoio` conta quantas amostras sustentam cada número', ap);
+  checar(ap.n === 5 && ap.download === 5 && ap.abertura === 5, 'E · e o `apoio` conta quantas amostras sustentam cada número', ap);
 }
 
 // ---- F · a amostra só ensina o que é comparável -----------------------------------
@@ -405,7 +419,10 @@ function simularAvisos(h, [mb, pre, dl, cp, gr, ab], { lat = 350, ja = 0, extrai
   checar(ap.download === 4 && ap.latencia === 4, 'K · e os quatro ENSINAM a rede (ritmo e latência)', ap);
   const erros = res.slice(1).map((x) => Math.round(100 * (x.previsto - x.real) / x.real));
   checar(erros.every((e) => Math.abs(e) <= 20), 'K · do 2º ao 4º vídeo a previsão inicial erra no máximo 20% (era +55%, +70%, +115%)', erros);
-  checar(res.slice(1).every((x) => x.ao >= 90), 'K · e eles TOCAM com a barra em 90+ (eram 58, 68 e 82)', res.map((x) => x.ao));
+  // (v1.12.39) A gravação deste Registro incluía a miniatura, e a estimativa
+  // agora é um quantil sem peso de idade (mais conservadora com uma amostra só):
+  // a régua é 85+, e o que falta até 100 o fim segurado varre (bloco Q).
+  checar(res.slice(1).every((x) => x.ao >= 85), 'K · e eles TOCAM com a barra em 85+ (eram 58, 68 e 82)', res.map((x) => x.ao));
   checar(res.every((x) => x.plato <= 1500), 'K · e nenhum fica parado 1,5 s', res.map((x) => x.plato));
   const m = P.modelo(h, 'video');
   checar(m.bytesPorMs > 5 * MB / 1000 && m.gravacaoFixoMs >= 300,
@@ -423,12 +440,20 @@ function simularAvisos(h, [mb, pre, dl, cp, gr, ab], { lat = 350, ja = 0, extrai
 // ---- L · o tamanho antes de o shell dizer ------------------------------------------
 {
   let h = null;
-  h = P.aprender(h, { bytes: 8 * MB, segundos: 240, chave: 'video', downloadMs: 1000, preparoMs: 2000 });
-  h = P.aprender(h, { bytes: 3 * MB, segundos: 240, chave: 'audio', downloadMs: 500, preparoMs: 2000 });
+  for (let i = 0; i < P.APOIO_TAMANHO; i++) {
+    h = P.aprender(h, { bytes: 8 * MB, segundos: 240, chave: 'video', downloadMs: 1000, preparoMs: 2000 });
+    h = P.aprender(h, { bytes: 3 * MB, segundos: 240, chave: 'audio', downloadMs: 500, preparoMs: 2000 });
+  }
   const mv = P.modelo(h, 'video'); const ma = P.modelo(h, 'audio');
   checar(mv.bytesTipicos === 8 * MB && ma.bytesTipicos === 3 * MB,
     'L · o tamanho típico é o da MESMA chave: um só áudio não diz quanto pesa um vídeo', [mv.bytesTipicos, ma.bytesTipicos]);
   checar(Math.round(mv.bytesPorSegundo) === Math.round(8 * MB / 240), 'L · e os bytes por segundo de vídeo são aprendidos', mv.bytesPorSegundo);
+  // (v1.12.39) Com MENOS de `APOIO_TAMANHO` amostras o típico é misturado ao
+  // padrão, e os bytes por segundo não valem: um vídeo de 3 MB fazia o seguinte,
+  // de 13 MB, ser previsto com 3,4 MB.
+  const um = P.modelo(P.aprender(null, { bytes: 3 * MB, segundos: 200, chave: 'video', downloadMs: 300 }), 'video');
+  checar(um.bytesTipicos > 3 * MB + 0.5 * (P.PADRAO.bytesTipicos - 3 * MB) && um.bytesTipicos < P.PADRAO.bytesTipicos && um.bytesPorSegundo === 0,
+    'L · com UMA amostra, o típico fica mais perto do padrão que dela, e a duração não é usada', [um.bytesTipicos / MB, um.bytesPorSegundo]);
   let t = 0;
   const b = P.criar({ modelo: mv, agora: () => t, juncao: false, abertura: false, chave: 'video' });
   const antes = b.restante();
@@ -480,6 +505,106 @@ function simularAvisos(h, [mb, pre, dl, cp, gr, ab], { lat = 350, ja = 0, extrai
   const real = ms(5);   // 5 MB a 10 MB/s
   checar(falta < 1.5 * real, 'O · no TERCEIRO aviso (0,3 s de bytes) o que falta do download já segue o ritmo medido, não o aprendido 5× mais lento',
     { estimado: Math.round(falta), real });
+}
+
+// ---- P · os cinco downloads de 720p do Registro de 15/10/2026 (v1.12.39) -----------
+// MB · preparo · bytes · junção · cópia · gravação · abertura (ms), como o bloco
+// "Barra do YouTube" os mediu. A gravação de 1,9 s e a de 1,5 s eram a MINIATURA
+// (ela saiu do caminho: `miniaturaDepois` no `controle.js`).
+const RELATO_720 = [[3.3, 1700, 600, 700, 30, 200, 200], [13, 3100, 700, 2000, 100, 1900, 200],
+  [12, 2700, 700, 900, 100, 200, 100], [12, 2400, 1000, 1000, 30, 300, 100], [14, 3600, 600, 1400, 100, 1500, 100]];
+function simular720(h, [mb, pre, dl, ju, cp, gr, ab]) {
+  let t = 1000;
+  const B = Math.round(mb * MB);
+  const b = P.criar({ modelo: P.modelo(h, 'video'), agora: () => t, juncao: true, abertura: true, chave: 'video' });
+  const serie = [];
+  const andar = (ms, cada) => {
+    for (let x = 0; x < ms; x += 10) { t += 10; if (cada) cada(x + 10); if (x % 100 === 90) serie.push([t, b.passo(), b.fase()]); }
+  };
+  andar(pre);
+  b.sinal('extraiu', { seconds: Math.round(mb * 15) });
+  let prox = MB;
+  andar(dl, (e) => {
+    const l = e <= 200 ? 0 : Math.min(B, Math.round(B * (e - 200) / (dl - 220)));
+    while (l >= prox && prox < B) { b.bytes(prox + 40000, B); prox += MB; }
+    if (l >= B && prox !== Infinity) { b.bytes(B, B); prox = Infinity; }
+  });
+  b.sinal('baixou', { bytes: B, juntar: true });
+  andar(ju, (e) => b.sinal('juntando', { feito: Math.round(B * e / ju), total: B }));
+  b.sinal('juntou', {});
+  b.sinal('copia'); andar(cp);
+  b.sinal('gravacao'); andar(gr);
+  b.sinal('abertura');
+  const pronto = b.valor();
+  const segura = b.revelar();
+  andar(Math.max(ab, segura));
+  b.concluir();
+  return { b, pronto, segura, serie, rel: b.relatorio(), real: t - 1000 };
+}
+{
+  // P1 · UMA amostra fora da curva não vira a previsão seguinte.
+  let h = null;
+  for (const v of RELATO_720.slice(0, 2)) h = P.aprender(h, simular720(h, v).b.amostra());
+  const m = P.modelo(h, 'video');
+  const gravacao12 = m.gravacaoFixoMs + 12 * m.gravacaoMsPorMB;
+  checar(gravacao12 < 1500, 'P · depois de uma gravação de 1,9 s (a outra de 0,2 s), a do vídeo seguinte NÃO é prevista em 1,9 s', Math.round(gravacao12));
+  // P2 · o tamanho de UM vídeo pequeno não vira o do seguinte.
+  const um = P.aprender(null, simular720(null, RELATO_720[0]).b.amostra());
+  const b2 = P.criar({ modelo: P.modelo(um, 'video'), agora: () => 0, chave: 'video', juncao: true, abertura: true });
+  checar(b2.relatorio().tamanhoPrevisto > 6 * MB, 'P · depois de UM vídeo de 3,3 MB, o seguinte não é previsto com 3,4 MB (era o defeito)',
+    Math.round(b2.relatorio().tamanhoPrevisto / MB * 10) / 10);
+  // P3 · o mesmo Registro SEM a miniatura no caminho (a gravação vira só o addMedia).
+  let h2 = null; const res = [];
+  for (const v of RELATO_720) {
+    const r = simular720(h2, v.map((x, i) => (i === 5 ? Math.min(x, 250) : x)));
+    const vals = r.serie.map((x) => x[1]);
+    let plato = 0; let desde = r.serie[0][0];
+    for (let i = 1; i < r.serie.length; i++) { if (vals[i] !== vals[i - 1]) desde = r.serie[i][0]; else if (vals[i] < 100) plato = Math.max(plato, r.serie[i][0] - desde); }
+    res.push({ pronto: r.pronto, segura: r.segura, plato, volta: !vals.every((x, i) => i === 0 || x >= vals[i - 1]),
+      erro: Math.round(100 * (r.rel.previstoMs - r.real) / r.real), fim: vals[vals.length - 1] });
+    h2 = P.aprender(h2, r.b.amostra());
+  }
+  checar(res.every((x) => !x.volta), 'P · os cinco: nunca volta', null);
+  checar(res.slice(1).every((x) => x.pronto >= 85), 'P · do 2º em diante a mídia fica pronta com a barra em 85+ (eram 96, 73, 92, 96 com paradas)', res.map((x) => x.pronto));
+  checar(res.every((x) => x.plato <= 1500), 'P · e nenhum para 1,5 s (eram 1,8 s e 1,1 s)', res.map((x) => x.plato));
+  checar(res.every((x) => x.segura <= P.SEGURA_MAX && (x.pronto >= P.POUSO) === (x.segura === 0)),
+    'P · e o fim segura só abaixo do 95, nunca mais de ' + P.SEGURA_MAX + ' ms', res.map((x) => x.segura));
+  checar(res.slice(1).every((x) => Math.abs(x.erro) <= 30), 'P · e do 2º em diante a previsão inicial erra no máximo 30% (o 2º era −57%)', res.map((x) => x.erro));
+}
+
+// ---- Q · o fim segurado ------------------------------------------------------------
+{
+  // Um modelo em que tudo é curto, menos a abertura: a barra pousa no fim dela.
+  const curto = Object.assign({}, certo, { preparoMs: 300, latenciaMs: 0, bytesTipicos: MB, bytesPorMs: 1e5,
+    copiaFixoMs: 0, copiaMsPorMB: 0, gravacaoFixoMs: 0, gravacaoMsPorMB: 0, aberturaMs: 2000 });
+  const caso = (preparoMs, modelo = certo) => {
+    let t = 0;
+    const b = P.criar({ modelo, agora: () => t, juncao: false, abertura: true });
+    for (let x = 0; x < preparoMs; x += 50) { t += 50; b.passo(); }
+    b.sinal('abertura');
+    const antes = b.valor();
+    const ms = b.revelar();
+    const vals = [];
+    for (let x = 0; x < ms; x += 25) { t += 25; vals.push([x + 25, b.passo()]); }
+    return { b, antes, ms, vals, t: () => t, andar: (d) => { t += d; return b.passo(); } };
+  };
+  const longe = caso(1000);
+  checar(longe.antes < 60 && longe.ms === P.SEGURA_MAX, 'Q · longe do fim, a revelação espera o teto (' + P.SEGURA_MAX + ' ms)', [longe.antes, longe.ms]);
+  checar(longe.vals.every(([x, v]) => (x < longe.ms ? v < 100 : v === 100)) && longe.vals.every((x, i, a) => i === 0 || x[1] >= a[i - 1][1]),
+    'Q · e a barra VARRE até 100 exatamente nesse tempo: abaixo antes, 100 no fim, sem voltar', longe.vals.map((x) => x[1]));
+  checar(longe.b.revelar() === 0, 'Q · e um segundo `revelar()` não segura de novo', null);
+  longe.b.concluir();
+  const fim = longe.andar(500);
+  const rel = longe.b.relatorio();
+  checar(fim === 100 && longe.b.terminou() && rel.segurouMs === P.SEGURA_MAX && rel.aoConcluir === longe.antes,
+    'Q · o concluir depois dela fica em 100, e o relatório diz quanto segurou e o número na hora de abrir', rel);
+  const perto = caso(4000, curto);
+  checar(perto.antes >= P.POUSO && perto.ms === 0 && perto.b.valor() < 100,
+    'Q · com a barra no 95 ou acima não segura nada, e ela continua abaixo de 100 até o concluir', [perto.antes, perto.ms, perto.b.valor()]);
+  // Proporcional: entre os dois, cresce com o que falta.
+  const meio = caso(1400, curto);
+  checar(meio.ms > 0 && meio.ms < P.SEGURA_MAX && meio.antes > longe.antes && meio.antes < P.POUSO,
+    'Q · e no meio a espera é proporcional ao que falta', [meio.antes, meio.ms]);
 }
 
 if (falhas.length) { console.log('\n' + falhas.length + ' falha(s).'); process.exit(1); }

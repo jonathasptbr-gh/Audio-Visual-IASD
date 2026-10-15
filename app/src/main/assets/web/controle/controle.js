@@ -392,7 +392,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.38';
+const WEB_VERSION = '1.12.39';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4432,6 +4432,11 @@ function thumbEl(item) {
     // para aparecer no elemento novo — o mesmo pisca-pisca por outro caminho.
     im.decoding = 'sync';
     t.appendChild(im);
+  } else if (item.id && miniaturasPendentes.has(item.id)) {
+    // A MINIATURA AINDA ESTÁ A CAMINHO (`miniaturaDepois`): a caixa vazia, e não
+    // o "imagem quebrada" — e quem a desenhou assim é redesenhado quando ela chega.
+    miniaturaDesenhadaPendente.add(item.id);
+    t.classList.add('thumb--icon', 'thumb--espera');
   } else {
     t.appendChild(msym(item.kind === 'audio' ? ICON.music : ICON.broken));
     t.classList.add('thumb--icon');
@@ -23396,6 +23401,10 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura, extra) {
     if (!(existente && existente.blob && await AVDB.listHas(l, existente.id))) listasNovas.push(l);
   }
   const jaNaLista = listas.length > 0 && listasNovas.length === 0;
+  // A MINIATURA ESPERA A MÍDIA TOCAR (v1.12.39, ver `miniaturaDepois`): a
+  // promessa é cumprida no fim desta função, em todo desfecho que chega lá.
+  let liberarMiniatura = () => {};
+  const miniaturaApos = tocar ? new Promise((ok) => { liberarMiniatura = ok; }) : null;
   const rec = await ytArquivo(r, {
     lista,
     somenteAudio: soAudio,
@@ -23406,12 +23415,14 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura, extra) {
     // volta a valer.
     aviso: (guardar.length === 1 && guardar[0] === 'playlist') ? 'nenhum' : (tocar ? 'preview' : 'lib'),
     barra,
+    miniaturaApos,
   });
   // FALAR QUANDO NÃO DEU. Até a v5.112 o download que falhava só apagava a
   // marca de "baixando" e sumia — nem item, nem erro, nem pista. Um download de
   // minutos que termina em nada é o pior silêncio possível do app, e ele valia
   // para todos os destinos, não só para o áudio.
   if (!rec) {
+    liberarMiniatura();
     // CANCELADO PELO OPERADOR não é falha: ele sabe o que aconteceu, porque
     // acabou de pedir. Pintar a linha de vermelho aqui seria o app discordando
     // de uma decisão dele.
@@ -23447,7 +23458,14 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura, extra) {
   // GRAVADO. Num destino que guarda, é o fim: 100 e o ✓. No "Tocar agora" o
   // trabalho segue — as listas, o `send` e o play —, e a linha continua com o
   // anel e o número até a mídia tocar (ver o fim desta função).
-  if (tocar) barra.sinal('abertura');
+  // O FIM SEGURADO (v1.12.39, aprovado pelo operador): pronta a mídia com a
+  // barra atrás, ela VARRE até 100 antes de a mídia aparecer, e o `send` espera
+  // essa varredura — no máximo `AVProgresso.SEGURA_MAX` (500 ms), proporcional
+  // ao que falta, e nada com a barra em 95 ou mais. A espera corre JUNTO com o
+  // trabalho de baixo (as listas, o `load`), e o telão espera o mesmo tanto:
+  // atrasar só a revelação local exigiria uma segunda cena.
+  let segurar = null;
+  if (tocar) { barra.sinal('abertura'); segurar = barra.revelar(); }
   else { barra.concluir('guardar'); setYtEstado(r.id, 'pronto'); }
   // O registro REAPROVEITADO pode estar em outra lista (ou só no slot avulso):
   // o download novo já nasceu na PRIMEIRA lista, mas nas outras não — e um
@@ -23497,6 +23515,7 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura, extra) {
   }
   if (listas.includes('favs')) await recarregarFavoritos();
   await load();
+  if (segurar) await segurar;
   // PERDEU A VEZ? (ver `palcoEmVoo`) A porta da BUSCA tem a mesma espera e o
   // mesmo desfecho da porta do item de link: o download leva minutos, e o
   // operador projeta outra coisa no meio. O arquivo já está guardado — o que
@@ -23510,9 +23529,10 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura, extra) {
     // pelo `finally` do `ytAcao`.
     barra.reservar();
     esperarTocando(rec.id)
-      .then((tocou) => barra.concluir('tocar', { tocou }))
+      .then((tocou) => { liberarMiniatura(); return barra.concluir('tocar', { tocou }); })
       .then(() => { if ((ytEstado.get(r.id) || {}).estado === 'baixando') setYtEstado(r.id, 'pronto'); });
   } else if (tocar) {
+    liberarMiniatura();
     barra.concluir('guardar');
     setYtEstado(r.id, 'pronto');
   }
@@ -30355,8 +30375,10 @@ function testeDlContas(m) {
     };
   }
   if (tem(m.tNativo) && tem(m.tCopia)) c.copia = m.tCopia - m.tNativo;
-  if (tem(m.tCopia) && tem(m.tMiniatura)) c.miniatura = m.tMiniatura - m.tCopia;
-  if (tem(m.tMiniatura) && tem(m.tGravado)) c.gravacao = m.tGravado - m.tMiniatura;
+  // A GRAVAÇÃO já não inclui a miniatura (v1.12.39): ela é extraída DEPOIS,
+  // fora do caminho do "Tocar agora", e é medida à parte.
+  if (tem(m.tCopia) && tem(m.tGravado)) c.gravacao = m.tGravado - m.tCopia;
+  if (tem(m.tMiniaturaIni) && tem(m.tMiniaturaFim)) c.miniatura = m.tMiniaturaFim - m.tMiniaturaIni;
   if (tem(m.tInicio) && tem(m.tGravado)) c.total = m.tGravado - m.tInicio;
   const seg = (m.meta && m.meta.segundos) || (m.r && m.r.seconds) || 0;
   if (seg && c.total) c.razao = seg / (c.total / 1000);
@@ -30421,6 +30443,10 @@ async function testeDownloadCompleto() {
       // à toa, e o resto da folha não muda enquanto o download anda.
       onPct: () => { if (testeRodando) atualizarLinhaDoTeste({ id: TESTE_DL.id }); },
     });
+    // A MINIATURA chega depois da gravação (`miniaturaDepois`): a medida e a
+    // limpeza esperam por ela, senão o registro seria apagado no meio dela.
+    if (m.esperarMiniatura) { try { await m.esperarMiniatura; } catch (_) { /* medida */ } }
+    delete m.esperarMiniatura;
     try { m.diag = String((await AVNative.ytDiag()) || ''); } catch (_) { m.diag = ''; }
     // A MEDIDA DO SHELL (shell 79): o que só ele vê — a extração separada da
     // conexão, cada faixa com os pedaços e as conexões, áudio e vídeo juntos
@@ -30519,8 +30545,8 @@ function blocoDownloadDeTeste(m) {
     + (m.r && m.r.seconds ? ' (o YouTube disse ' + fmtDur(m.r.seconds) + ')' : ''));
   l.push('    tempos: até o 1º byte ' + fmtSeg(c.ateOPrimeiroByte) + ' · baixando ' + fmtSeg(c.baixando)
     + ' · junção/fecho ' + fmtSeg(c.juncao) + ' · cópia para o app ' + fmtSeg(c.copia)
-    + ' · miniatura ' + fmtSeg(c.miniatura) + ' · gravação ' + fmtSeg(c.gravacao)
-    + ' · TOTAL ' + fmtSeg(c.total));
+    + ' · gravação ' + fmtSeg(c.gravacao) + ' · TOTAL ' + fmtSeg(c.total)
+    + ' · miniatura ' + fmtSeg(c.miniatura) + ' (depois, fora do total)');
   l.push('    velocidade: média ' + fmtMbps(c.mbpsMedia) + ' · janelas de 2 s: mín ' + fmtMbps(c.mbpsMin)
     + ' · máx ' + fmtMbps(c.mbpsMax) + ' · maior vão ' + fmtSeg(c.maiorVao)
     + ' · paradas (vão ≥ ' + TESTE_DL_PARADA_X + '× o mediano e ≥ 5 s): ' + (c.paradas == null ? '?' : c.paradas)
@@ -35250,7 +35276,8 @@ function blocoBarraYt() {
       d.soAudio ? 'só áudio' : '', r.caminho || '', d.origem || ''].filter(Boolean).join(' · '));
     linhas.push('    previsto ' + segsBarra(r.previstoMs) + ' · real ' + segsBarra(r.realMs) + ' · mostrava ' +
       (r.aoConcluir == null ? '?' : r.aoConcluir + '%') + ' no fim (salto ' + (r.saltoFinal == null ? '?' : r.saltoFinal) +
-      ') · maior parada ' + segsBarra(r.platoMs) + (r.tocou === false ? ' · o play não foi visto (prazo)' : '') +
+      ')' + (r.segurouMs ? ' · segurou ' + segsBarra(r.segurouMs) + ' até o 100 antes de abrir' : '') +
+      ' · maior parada ' + segsBarra(r.platoMs) + (r.tocou === false ? ' · o play não foi visto (prazo)' : '') +
       (r.oculto ? ' · app minimizado numa fase do app' : ''));
     const fases = r.fases || {};
     const partes = Object.keys(FASE_ROTULO).filter((f) => fases[f]).map((f) => {
@@ -35341,13 +35368,27 @@ function novaBarraYt(opcoes) {
       const rel = b.relatorio();
       ytBarraDiagGuardar(Object.assign({ t: Date.now(), origem: origem || '', rel }, meta));
       diagC('barra: previsto ' + segsBarra(rel.previstoMs) + ' · real ' + segsBarra(rel.realMs) + ' · mostrava ' +
-        rel.aoConcluir + '% ao ' + (origem === 'tocar' ? 'tocar' : 'terminar') + ' · maior parada ' + segsBarra(rel.platoMs) +
+        rel.aoConcluir + '% ao ' + (origem === 'tocar' ? 'tocar' : 'terminar') +
+        (rel.segurouMs ? ' · segurou ' + segsBarra(rel.segurouMs) : '') + ' · maior parada ' + segsBarra(rel.platoMs) +
         ' · ' + rel.caminho);
       return new Promise((fim) => {
         aoTerminar.push(fim);
         // Página no fundo estrangula o intervalo: o desfecho não espera por ele.
         setTimeout(() => { if (timer) { parar(); tique(); } fim(); }, 1000);
       });
+    },
+    /**
+     * A mídia vai APARECER: a barra varre até 100 e a promessa se cumpre
+     * quando a revelação pode acontecer (0 a `AVProgresso.SEGURA_MAX` ms; ver
+     * `revelar` no `progresso.js`). Com a página oculta não segura nada — a
+     * barra não está à vista, e o intervalo estrangulado só atrasaria a cena.
+     */
+    revelar() {
+      if (encerrada || document.visibilityState !== 'visible') return Promise.resolve(0);
+      const ms = b.revelar();
+      tique();
+      // O `tique` no fim: o 100 chega às superfícies ANTES de a mídia aparecer.
+      return ms > 0 ? new Promise((ok) => setTimeout(() => { tique(); ok(ms); }, ms)) : Promise.resolve(0);
     },
     /** O dono vai concluí-la mais tarde (o play): o `abandonar` de quem sai antes não vale. */
     reservar() { reservada = true; },
@@ -35391,6 +35432,49 @@ function esperarTocando(id) {
     };
     olhar();
   });
+}
+
+// A MINIATURA FORA DO CAMINHO (v1.12.39, aprovado pelo operador). O vídeo do
+// YouTube é gravado SEM miniatura e ela é extraída DEPOIS — `quando` é a
+// promessa de quem tem a mídia entrando em cena (o "Tocar agora" a cumpre com a
+// mídia já TOCANDO, mais `MINIATURA_FOLGA_MS`: decodificar um segundo vídeo
+// junto com o começo do primeiro disputaria o decodificador); sem ela, já. O
+// `makeThumb` usa um `<video>` PRÓPRIO, mudo e sem `play()`: não pede foco de
+// áudio nem toca no palco. A espera tem teto (`MINIATURA_ESPERA_MAX_MS`): uma
+// promessa que nunca se cumpre não pode deixar o item sem capa.
+//
+// Enquanto ela não chega, a linha desenha a caixa VAZIA (`thumbEl`), não o
+// "imagem quebrada" — e quem a desenhou assim é redesenhado no fim
+// (`miniaturaDesenhadaPendente`), inclusive quando a miniatura falhou.
+const MINIATURA_ESPERA_MAX_MS = 8000;
+const MINIATURA_FOLGA_MS = 500;
+const miniaturasPendentes = new Set();
+const miniaturaDesenhadaPendente = new Set();
+function miniaturaDepois(id, blob, quando, medida) {
+  miniaturasPendentes.add(id);
+  const espera = quando
+    ? Promise.race([Promise.resolve(quando).catch(() => {}), new Promise((r) => setTimeout(r, MINIATURA_ESPERA_MAX_MS))])
+      .then(() => new Promise((r) => setTimeout(r, MINIATURA_FOLGA_MS)))
+    : Promise.resolve();
+  return espera.then(async () => {
+    if (medida) medida.tMiniaturaIni = Date.now();
+    const thumb = await makeThumb(blob, 'video');
+    if (medida) medida.tMiniaturaFim = Date.now();
+    return thumb ? AVDB.definirMiniatura(id, thumb) : false;
+  }).catch(() => false).then(async (gravou) => {
+    miniaturasPendentes.delete(id);
+    if (miniaturaDesenhadaPendente.delete(id)) await redesenharComMiniatura(id);
+    return gravou;
+  });
+}
+// Quem mostra o item volta a lê-lo do banco: o Cronograma (`load`), a fila e os
+// Favoritos — cada um só se o item está nele.
+async function redesenharComMiniatura(id) {
+  try {
+    await load();
+    if (plItems.some((x) => x && x.id === id)) { plItems = await AVDB.listItems('playlist'); renderPlaylist(); }
+    if (favSet.has(id)) await recarregarFavoritos();
+  } catch (_) { /* a capa é ilustração; falhar aqui não derruba nada */ }
 }
 
 // ===== A via NATIVA: o aparelho extrai e baixa o vídeo sozinho =====
@@ -35579,12 +35663,6 @@ async function ytBaixarNativo(link, nome, opts) {
         if (medida) { medida.tCopia = Date.now(); medida.bytes = blob.size; }
         if (!blob.size) return null;
         barra.sinal('gravacao');
-        // SEM MINIATURA quando é só áudio, e isso não é economia: a miniatura
-        // de um áudio seria a "capa" que não pode existir. O registro entra com
-        // `kind: 'audio'`, e é o kind que faz o telão manter o wallpaper em vez
-        // de trocar de imagem (ver `semVisual` em stage.js).
-        const thumb = soAudio ? null : await makeThumb(blob, 'video');
-        if (medida) medida.tMiniatura = Date.now();
         // O AVISO MORA ONDE O RESULTADO VAI APARECER — a régua da v5.84, e ela
         // decide este `if`. `aviso === 'preview'` é o download que vai ENTRAR EM
         // CENA; nos outros destinos o resultado é uma LINHA, e ali a altura já
@@ -35607,7 +35685,12 @@ async function ytBaixarNativo(link, nome, opts) {
           name: (nome || r.name || rotulo) + (soAudio ? ' (áudio)' : ''),
           type: r.type || (soAudio ? 'audio/mp4' : 'video/mp4'),
           kind: soAudio ? 'audio' : 'video',
-          thumb,
+          // SEM MINIATURA AQUI (v1.12.39): extraí-la decodifica o vídeo, e ela
+          // segurava a gravação — 1,5 e 1,9 s no aparelho do operador, quase
+          // metade do "Tocar agora". Ela chega DEPOIS (`miniaturaDepois`, logo
+          // abaixo). Só áudio nunca tem: a "capa" de um áudio não pode existir —
+          // é o `kind` que faz o telão manter o wallpaper (`semVisual`).
+          thumb: null,
           // A ALTURA REAL do que veio, dita pelo shell. Ela vira o subtítulo da
           // linha do Cronograma ("Vídeo · 1080p"), e é a única forma honesta de
           // responder "o que eu tenho aqui?" agora que o teto é escolhido a
@@ -35630,6 +35713,10 @@ async function ytBaixarNativo(link, nome, opts) {
           list: (opts && opts.lista) || 'imports',
         });
         if (medida) medida.tGravado = Date.now();
+        if (gravado && !soAudio) {
+          const mini = miniaturaDepois(gravado.id, blob, opts && opts.miniaturaApos, medida);
+          if (medida) medida.esperarMiniatura = mini;
+        }
         if (gravado && barraPropria) barra.concluir(medida ? 'teste' : (opts && opts.origem) || 'guardar');
         return gravado;
       } finally {
