@@ -163,7 +163,9 @@ try {
     'H3 · e os dois somem JUNTO com a coluna (4 s)', JSON.stringify(h3b));
   // H4 · arrastar a linha do tempo até a METADE procura (um `seek` só, ao soltar) e mantém tudo aceso
   await pg.mouse.click(200, 300);
-  const hit = await pg.evaluate(() => { const r = document.getElementById('pvFsTempoHit').getBoundingClientRect(); return { x: r.left, w: r.width, y: r.top + r.height / 2 }; });
+  const hit = await pg.evaluate(() => {
+    seekEl.disabled = false; seekEl.max = '120'; seekEl.value = '10'; renderSimpleTime();
+    const r = document.getElementById('pvFsTempoHit').getBoundingClientRect(); return { x: r.left, w: r.width, y: r.top + r.height / 2 }; });
   await pg.mouse.move(hit.x + hit.w * 0.1, hit.y);
   await pg.mouse.down();
   await pg.mouse.move(hit.x + hit.w * 0.3, hit.y, { steps: 4 });
@@ -181,10 +183,15 @@ try {
   const h6 = await esperar(pg, () => !document.getElementById('pvFsCtl').classList.contains('visivel'), null, 6000);
   checar(h6 === true, 'H6 · e solto o dedo o relógio volta a correr: tudo apaga sozinho', porque(h6));
   // H7 · o volume VERTICAL na borda esquerda, sem tocar no título
-  await pg.mouse.click(200, 300);
-  await pg.evaluate(() => { simpleVolStep(1); });
-  const v7 = await lerBarra(pg);
-  const f7 = await lerFaixas(pg);
+  // A geometria não depende de estar aceso: a premissa da duração é reescrita NO MESMO quadro
+  // (sob carga, um status da prévia com a mídia de 64 bytes a zera e a linha do tempo some).
+  const [v7, f7] = await pg.evaluate(() => {
+    seekEl.disabled = false; seekEl.max = '120'; seekEl.value = '10'; renderSimpleTime();
+    simpleVolStep(1);
+    const r = (id) => { const x = document.getElementById(id).getBoundingClientRect(); return { t: Math.round(x.top), b: Math.round(x.bottom), l: Math.round(x.left), w: Math.round(x.width), h: Math.round(x.height) }; };
+    const v = r('pvVolume');
+    return [Object.assign(v, { visivel: document.getElementById('pvVolume').classList.contains('visivel') }), { nome: r('pvFsNome'), hit: r('pvFsTempoHit') }];
+  });
   checar(v7.visivel && v7.h > v7.w * 2 && v7.l <= 24 && v7.t >= f7.nome.b && v7.b <= f7.hit.t,
     'H7 · no Modo Fácil a barra de volume é VERTICAL, na borda ESQUERDA, entre o título e a linha do tempo',
     JSON.stringify({ v7, nome: f7.nome, hit: f7.hit }));
