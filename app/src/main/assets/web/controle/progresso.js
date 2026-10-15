@@ -1,6 +1,6 @@
 // ============================================================================
 // O PROGRESSO DO TOQUE À TELA — a regra do percentual do YouTube
-// (v1.12.36; a camada de exibição refeita na v1.12.37)
+// (v1.12.36; a exibição refeita na v1.12.37; o aprendizado na v1.12.38)
 //
 // Pedido do operador: o percentual de um "Tocar agora" mede o caminho INTEIRO,
 // do toque até a mídia estar tocando — não os bytes do arquivo. E a régua da
@@ -20,10 +20,15 @@
 // ## A ESTIMATIVA do que falta (`restante`)
 //
 // - preparo e abertura: tempo FIXO aprendido (ms);
-// - download: bytes que faltam ÷ o ritmo MEDIDO nos últimos segundos, misturado
-//   ao ritmo aprendido enquanto a medição é curta;
-// - junção, cópia, gravação: ms POR MB aprendidos × o tamanho (a junção usa a
-//   fração do `MuxMp4` quando ela chega).
+// - download: uma LATÊNCIA fixa + os bytes ÷ o ritmo da rede. Durante os bytes,
+//   o ritmo é o MEDIDO neste download desde o primeiro aviso, misturado ao
+//   aprendido só até o segundo aviso;
+// - junção, cópia, gravação: um tempo FIXO + ms POR MB (a junção usa a fração do
+//   `MuxMp4` quando ela chega). Num arquivo de 4 MB a gravação é quase só o fixo
+//   (a miniatura), e um modelo só por MB a previa em 0,1 s contra 1,0 s real.
+// - o TAMANHO antes de o shell dizer o de verdade: a duração do vídeo (que chega
+//   no `extraiu`) × os bytes por segundo de vídeo aprendidos; sem ela, o tamanho
+//   típico aprendido (de vídeo ou de só áudio, `chave`).
 // Uma fase que passa da previsão não "acaba": o que falta dela CRESCE com o
 // atraso, e a barra desacelera em vez de bater num teto.
 //
@@ -33,23 +38,34 @@
 // previsto do fim; a velocidade real persegue essa alvo com inércia (`TAU_V`),
 // então muda AOS POUCOS, e tem um PISO que nunca a deixa parar (ele decai só
 // perto do `CAP`, que nunca é alcançado: o inteiro máximo antes do fim é 99).
-// Passado o ponto de pouso (o fim atrasou), a meta vira "metade do que resta até
-// o CAP no tempo que ainda se estima" — anda devagar, mas anda. O `concluir()`
-// fecha com uma VARREDURA de poucas centenas de ms (`VARREDURA_*`) — nunca um
+// Passado o ponto de pouso (o fim atrasou), a meta vira "um terço do que resta
+// até o CAP no tempo que ainda se estima" — anda devagar, mas anda. O
+// `concluir()` fecha com uma VARREDURA de poucas centenas de ms — nunca um
 // salto, e nunca segurando a mídia: ela já está tocando quando ele é chamado.
 //
 // ## O que se APRENDE
 //
-// Cada trabalho que termina deixa uma amostra (`amostra()`), e o modelo é a
-// MEDIANA das últimas `AMOSTRAS`. Só entra o que é COMPARÁVEL: um arquivo que já
-// estava no aparelho só ensina a abertura; um download RETOMADO (parte dos bytes
-// já estava no disco) não ensina o ritmo da rede; uma fase do lado WEB (cópia,
-// gravação, abertura) vivida com o app minimizado — o WebView estrangulado — não
-// ensina nada; e a abertura que venceu o prazo sem ver o play também não.
+// Cada trabalho que termina deixa uma amostra (`amostra()`), e cada número do
+// modelo é a MEDIANA PONDERADA das últimas `AMOSTRAS` — a mais recente pesa mais
+// (`PESO_IDADE`), porque o operador faz quatro vídeos e espera que o quinto
+// acerte. Os pares fixo + por MB saem de um ajuste ROBUSTO (a mediana das
+// inclinações entre amostras de tamanhos diferentes, nunca negativa).
+//
+// Só entra o que é COMPARÁVEL: um arquivo que já estava no aparelho só ensina a
+// abertura; uma fase do lado WEB vivida com o app minimizado não ensina nada; a
+// abertura que venceu o prazo sem ver o play também não. E o RETOMADO: o ritmo da
+// rede é medido ENTRE AVISOS (`(últimos − primeiros) / (tÚltimo − tPrimeiro)`),
+// que nenhum byte que já estava no disco altera — só a latência deixa de ser
+// ensinada. A v1.12.37 jogava fora o ritmo de todo download "retomado", e o
+// critério dela (o primeiro aviso acima de 1 MB) acertava TODO download novo: o
+// shell avisa a cada 1 MB, então o primeiro aviso já traz um pouco mais que isso,
+// e a rede nunca era aprendida. Hoje retomado é o primeiro aviso trazer muito
+// mais do que o ritmo medido explica no tempo que passou (`retomado()`).
 //
 // `relatorio()` devolve o diagnóstico do trabalho (fase a fase: o previsto, o
-// real e o número mostrado no fim de cada uma; o maior platô; o salto final),
-// que o `controle.js` leva ao Registro.
+// real e o número mostrado no fim de cada uma; o maior platô; o salto final; o
+// que classificou o caminho; o tamanho previsto e de onde ele veio), que o
+// `controle.js` leva ao Registro.
 //
 // PURO: não toca em DOM, rede nem banco; o relógio chega injetado (`agora`).
 // Oráculo: `tools/progresso.test.mjs` (Node puro, sem `continue-on-error`).
@@ -61,32 +77,47 @@
   const FASES_WEB = ['copia', 'gravacao', 'abertura'];
   const MB = 1024 * 1024;
   // Os números da primeira vez, antes de haver amostra: uma rede de igreja
-  // razoável (2 MB/s) e um aparelho médio.
+  // razoável e um aparelho médio.
   const PADRAO = Object.freeze({
     preparoMs: 2500,
-    bytesPorMs: 2000,
-    juncaoMsPorMB: 40,
-    copiaMsPorMB: 25,
-    gravacaoMsPorMB: 40,
-    aberturaMs: 1200,
-    bytesTipicos: 40 * MB,
+    latenciaMs: 500,
+    bytesPorMs: 4000,
+    juncaoFixoMs: 300,
+    juncaoMsPorMB: 30,
+    juncaoChance: 1,      // a fração dos downloads de vídeo que JUNTAM (o 360p progressivo não junta)
+    copiaFixoMs: 50,
+    copiaMsPorMB: 15,
+    gravacaoFixoMs: 400,
+    gravacaoMsPorMB: 20,
+    aberturaMs: 800,
+    bytesTipicos: 25 * MB,
+    bytesPorSegundo: 0,   // 0 = não aprendido: o tamanho sai do típico
   });
-  // O que uma amostra pode ensinar, com o intervalo são de cada número: um
-  // valor fora dele é medição quebrada (relógio, aba suspensa), não aprendizado.
+  // O intervalo são de cada número: fora dele é medição quebrada (relógio, aba
+  // suspensa), não aprendizado.
   const LIMITES = Object.freeze({
     preparoMs: [200, 30000],
+    latenciaMs: [0, 10000],
     bytesPorMs: [20, 200000],
-    juncaoMsPorMB: [1, 2000],
-    copiaMsPorMB: [1, 2000],
-    gravacaoMsPorMB: [1, 2000],
+    juncaoFixoMs: [0, 20000],
+    juncaoMsPorMB: [0, 2000],
+    juncaoChance: [0, 1],
+    copiaFixoMs: [0, 20000],
+    copiaMsPorMB: [0, 2000],
+    gravacaoFixoMs: [0, 20000],
+    gravacaoMsPorMB: [0, 2000],
     aberturaMs: [100, 10000],
     bytesTipicos: [MB, 4096 * MB],
+    bytesPorSegundo: [0, 50 * MB],
   });
   const AMOSTRAS = 12;
-  // A versão do HISTÓRICO gravado. A v1 (v1.12.36) misturava amostras que a v2
-  // recusa (cópia e gravação com o app minimizado, downloads retomados, a
-  // abertura que venceu o prazo) — e não há como separá-las depois: ela recomeça.
-  const VERSAO = 2;
+  const PESO_IDADE = 0.8;  // o peso de uma amostra cai 20% a cada amostra mais nova
+  // A versão do HISTÓRICO gravado. A v2 (v1.12.37) não aprendeu a rede em
+  // download nenhum (o "retomado" falso) e media cópia/gravação só por MB — e não
+  // há como separar isso depois: ela recomeça.
+  const VERSAO = 3;
+  // O shell avisa os bytes a cada 1 MB (`ProgressoDePedacos`, `baixarUmaVez`).
+  const GRAO = MB;
 
   // A exibição. Unidades: valor em pontos (0–100), velocidade em pontos por ms.
   const POUSO = 95;          // onde o valor deve estar no instante previsto do fim
@@ -95,10 +126,12 @@
   const PISO_DESDE = 98;     // acima disto o piso decai junto com o que resta até o CAP
   const V_MAX = 60 / 1000;   // 60 pontos/s: nem o caminho instantâneo vira um salto
   const TAU_V = 800;         // ms — a inércia da velocidade
+  const FREIO = 20 / 1e6;    // pontos/ms² (20 pontos/s²) — a desaceleração do freio do pouso
   const RESTANTE_MIN = 150;  // ms — o que falta nunca é zero antes do fim
   const VARREDURA_MIN = 150; // ms — a varredura final, entre estes dois
   const VARREDURA_MAX = 450;
-  const JANELA_RITMO = 3000; // ms — o ritmo medido do download olha para trás isto
+  const MIRA_CAUDA = 0.6;   // ver `restante(t, mira)`
+  const JANELA_RITMO = 3000; // ms — num download longo, o ritmo medido olha para trás isto
 
   const num = (v) => (typeof v === 'number' && isFinite(v) ? v : NaN);
   const entre = (v, [a, b]) => Math.min(b, Math.max(a, v));
@@ -110,13 +143,39 @@
     return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
   }
 
+  /**
+   * A mediana PONDERADA pela idade: `xs` em ordem cronológica (NaN = a amostra
+   * não tem esse número, mas conta na idade das outras). A mais nova pesa 1, a
+   * anterior `PESO_IDADE`, a outra `PESO_IDADE²`… — com duas amostras vale a
+   * mais nova; com quatro, um valor de três amostras atrás só vence com apoio.
+   */
+  /** A média ponderada pela idade (os mesmos pesos da `medianaRecente`) — para uma fração 0/1. */
+  function mediaRecente(xs) {
+    const n = xs.length;
+    let soma = 0; let peso = 0;
+    xs.forEach((x, i) => { if (isFinite(x)) { const w = Math.pow(PESO_IDADE, n - 1 - i); soma += w * x; peso += w; } });
+    return peso > 0 ? soma / peso : NaN;
+  }
+
+  function medianaRecente(xs) {
+    const n = xs.length;
+    const par = [];
+    xs.forEach((x, i) => { if (isFinite(x)) par.push([x, Math.pow(PESO_IDADE, n - 1 - i)]); });
+    if (!par.length) return NaN;
+    par.sort((a, b) => a[0] - b[0]);
+    const meio = par.reduce((s, p) => s + p[1], 0) / 2;
+    let acc = 0;
+    for (const [x, w] of par) { acc += w; if (acc >= meio - 1e-9) return x; }
+    return par[par.length - 1][0];
+  }
+
   /** O histórico gravado, saneado: sempre `{ v: VERSAO, amostras: [] }`. Outra versão recomeça. */
   function sanear(hist) {
     const lista = hist && hist.v === VERSAO && Array.isArray(hist.amostras) ? hist.amostras : [];
     return { v: VERSAO, amostras: lista.filter((a) => a && typeof a === 'object').slice(-AMOSTRAS) };
   }
 
-  const CAMPOS = ['preparoMs', 'downloadMs', 'bytes', 'juncaoMs', 'copiaMs', 'gravacaoMs', 'aberturaMs'];
+  const CAMPOS = ['preparoMs', 'downloadMs', 'bytes', 'ritmo', 'segundos', 'juntou', 'juncaoMs', 'copiaMs', 'gravacaoMs', 'aberturaMs'];
 
   /** Uma amostra nova no fim, as velhas saindo pelo começo. PURA e síncrona. */
   function aprender(hist, amostra) {
@@ -125,31 +184,75 @@
     const limpa = {};
     for (const c of CAMPOS) {
       const v = num(amostra[c]);
-      if (v >= 0) limpa[c] = Math.round(v);
+      if (v >= 0) limpa[c] = c === 'ritmo' ? Math.round(v * 10) / 10 : Math.round(v);
     }
     if (!Object.keys(limpa).length) return h;
     if (amostra.origem) limpa.origem = String(amostra.origem).slice(0, 16);
+    if (amostra.chave) limpa.chave = String(amostra.chave).slice(0, 16);
     h.amostras = h.amostras.concat([limpa]).slice(-AMOSTRAS);
     return h;
   }
 
-  /** Os parâmetros que valem agora: a mediana das amostras, ou o padrão. */
-  function modelo(hist) {
+  // O ritmo de uma amostra (bytes/ms): o MEDIDO entre avisos; sem ele (um aviso
+  // só), o da fase inteira — que já embute a latência, então ela entra como 0.
+  function ritmoDa(a) {
+    if (a.ritmo > 0) return a.ritmo;
+    return a.bytes > 0 && a.downloadMs >= 200 ? a.bytes / a.downloadMs : NaN;
+  }
+  function latenciaDa(a) {
+    if (!(a.downloadMs >= 0) || !(a.bytes > 0)) return NaN;
+    if (a.ritmo > 0) return Math.max(0, a.downloadMs - a.bytes / a.ritmo);
+    return a.downloadMs >= 200 ? 0 : NaN;
+  }
+
+  /**
+   * Um tempo que é FIXO + POR MB: a inclinação é a mediana das inclinações entre
+   * pares de amostras de tamanhos bem diferentes (nunca negativa — um arquivo
+   * maior não grava mais rápido; a diferença é ruído); sem par, a do padrão (ou
+   * menos, se a amostra mesma não comporta). O fixo é a mediana recente do que
+   * sobra.
+   */
+  function ajustar(am, campo) {
+    const pts = am.map((a) => (num(a[campo]) >= 0 && a.bytes > 0 ? [a.bytes / MB, a[campo]] : null));
+    const val = pts.filter(Boolean);
+    if (!val.length) return null;
+    const maior = Math.max(...val.map((p) => p[0]));
+    const inclin = [];
+    for (let i = 0; i < val.length; i++) {
+      for (let j = i + 1; j < val.length; j++) {
+        const dx = val[j][0] - val[i][0];
+        if (Math.abs(dx) >= Math.max(2, 0.25 * maior)) inclin.push((val[j][1] - val[i][1]) / dx);
+      }
+    }
+    const padrao = PADRAO[campo.replace('Ms', 'MsPorMB')];
+    const porMB = inclin.length ? Math.max(0, mediana(inclin))
+      : Math.min(padrao, mediana(val.map((p) => p[1] / p[0])));
+    const fixo = medianaRecente(pts.map((p) => (p ? Math.max(0, p[1] - porMB * p[0]) : NaN)));
+    return { fixo, porMB };
+  }
+
+  /**
+   * Os parâmetros que valem agora: o aprendido, ou o padrão. `chave` ('video' ou
+   * 'audio') escolhe de que amostras sai o TAMANHO — um só áudio não diz quanto
+   * pesa um vídeo; sem amostra daquela chave, valem todas.
+   */
+  function modelo(hist, chave) {
     const am = sanear(hist).amostras;
-    const porMB = (campo) => mediana(am
-      .filter((a) => a[campo] > 0 && a.bytes > 0)
-      .map((a) => a[campo] / (a.bytes / MB)));
+    const daChave = chave ? am.filter((a) => a.chave === chave) : [];
+    const doTamanho = daChave.some((a) => a.bytes > 0) ? daChave : am;
     const cru = {
-      preparoMs: mediana(am.map((a) => num(a.preparoMs))),
-      bytesPorMs: mediana(am
-        .filter((a) => a.bytes > 0 && a.downloadMs >= 200)
-        .map((a) => a.bytes / a.downloadMs)),
-      juncaoMsPorMB: porMB('juncaoMs'),
-      copiaMsPorMB: porMB('copiaMs'),
-      gravacaoMsPorMB: porMB('gravacaoMs'),
-      aberturaMs: mediana(am.map((a) => num(a.aberturaMs))),
-      bytesTipicos: mediana(am.map((a) => num(a.bytes)).filter((b) => b > 0)),
+      preparoMs: medianaRecente(am.map((a) => num(a.preparoMs))),
+      latenciaMs: medianaRecente(am.map(latenciaDa)),
+      bytesPorMs: medianaRecente(am.map(ritmoDa)),
+      aberturaMs: medianaRecente(am.map((a) => num(a.aberturaMs))),
+      bytesTipicos: medianaRecente(doTamanho.map((a) => (a.bytes > 0 ? a.bytes : NaN))),
+      bytesPorSegundo: medianaRecente(doTamanho.map((a) => (a.bytes > 0 && a.segundos > 0 ? a.bytes / a.segundos : NaN))),
+      juncaoChance: mediaRecente(am.map((a) => (a.juntou === 0 || a.juntou === 1 ? a.juntou : NaN))),
     };
+    for (const f of ['juncao', 'copia', 'gravacao']) {
+      const aj = ajustar(am, f + 'Ms');
+      if (aj) { cru[f + 'FixoMs'] = aj.fixo; cru[f + 'MsPorMB'] = aj.porMB; }
+    }
     const m = {};
     for (const k of Object.keys(PADRAO)) {
       m[k] = isFinite(cru[k]) ? entre(cru[k], LIMITES[k]) : PADRAO[k];
@@ -161,18 +264,21 @@
   function apoio(hist) {
     const am = sanear(hist).amostras;
     const conta = (c) => am.filter((a) => num(a[c]) >= 0).length;
-    return { n: am.length, preparo: conta('preparoMs'), download: am.filter((a) => a.bytes > 0 && a.downloadMs >= 200).length,
+    return { n: am.length, preparo: conta('preparoMs'), download: am.filter((a) => isFinite(ritmoDa(a))).length,
+      latencia: am.filter((a) => isFinite(latenciaDa(a))).length, tamanho: am.filter((a) => a.bytes > 0).length,
       juncao: conta('juncaoMs'), copia: conta('copiaMs'), gravacao: conta('gravacaoMs'), abertura: conta('aberturaMs') };
   }
 
   /**
    * Uma barra para UM trabalho. `juncao`: espera-se a montagem de vídeo + som;
-   * `abertura`: o trabalho termina com a mídia tocando.
+   * `abertura`: o trabalho termina com a mídia tocando; `chave`: 'video' ou
+   * 'audio' (de onde sai o tamanho previsto).
    */
   function criar(opts) {
     const o = opts || {};
     const agora = typeof o.agora === 'function' ? o.agora : () => Date.now();
     let m = Object.assign({}, PADRAO, o.modelo || {});
+    const chave = o.chave ? String(o.chave) : '';
     const t0 = agora();
     const inicio = { preparo: t0 };
     const fim = {};
@@ -182,38 +288,55 @@
     const previstas = FASES.filter((f) => (f !== 'juncao' || o.juncao) && (f !== 'abertura' || o.abertura));
     let total = 0;
     let lidos = 0;
-    let primeiroLido = -1;   // o primeiro `lidos` visto: grande = download RETOMADO
+    let segundos = 0;         // a duração do vídeo (o `extraiu`)
+    let primeiroLido = -1;    // o primeiro aviso de bytes
     let tPrimeiroByte = 0;
-    let tCheio = 0;          // quando a fração da fase atual chegou a 1 sem a fase acabar
-    const ritmo = [];        // [t, lidos] da janela do ritmo medido
+    let ultimoLido = -1;      // o último aviso, e quando
+    let tUltimoByte = 0;
+    let avisos = 0;
+    let tCheio = 0;           // quando a fração da fase atual chegou a 1 sem a fase acabar
+    const ritmo = [];         // [t, lidos] dos avisos (a janela do ritmo medido)
     let muxFeito = 0;
     let muxTotal = 0;
-    let s = 0;               // o valor exibido, contínuo
-    let v = -1;              // a velocidade exibida (pontos/ms); -1 = ainda não começou
+    let s = 0;                // o valor exibido, contínuo
+    let v = -1;               // a velocidade exibida (pontos/ms); -1 = ainda não começou
     let ultimo = t0;
     let ultimoInteiro = 0;
     let tUltimaMudanca = t0;
     let plato = 0;
     let previstoInicial = 0;
+    let tamanhoInicial = 0;
+    let fonteInicial = '';
     let concluido = false;
     let tConcluir = 0;
     let sConcluir = 0;
     let varredura = 0;
     let tocou = true;
     let escondida = !!o.oculta; // a página está oculta agora
-    let oculto = false;      // a página esteve oculta durante alguma fase web
+    let oculto = false;       // a página esteve oculta durante alguma fase web
 
     const idx = (f) => FASES.indexOf(f);
-    const tamanho = () => (total > 0 ? total : m.bytesTipicos);
+    function fonteDoTamanho() {
+      if (total > 0) return 'real';
+      if (segundos > 0 && m.bytesPorSegundo > 0) return 'duracao';
+      return m.bytesTipicos === PADRAO.bytesTipicos ? 'padrao' : 'historico';
+    }
+    function tamanho() {
+      if (total > 0) return total;
+      if (segundos > 0 && m.bytesPorSegundo > 0) return entre(segundos * m.bytesPorSegundo, LIMITES.bytesTipicos);
+      return m.bytesTipicos;
+    }
 
     function duracao(f) {
       const mb = tamanho() / MB;
       switch (f) {
         case 'preparo': return m.preparoMs;
-        case 'download': return tamanho() / m.bytesPorMs;
-        case 'juncao': return mb * m.juncaoMsPorMB;
-        case 'copia': return mb * m.copiaMsPorMB;
-        case 'gravacao': return mb * m.gravacaoMsPorMB;
+        case 'download': return m.latenciaMs + tamanho() / m.bytesPorMs;
+        // Enquanto não se sabe se este download vai juntar, a junção pesa o
+        // quanto ela costuma acontecer; entrada nela, ela pesa inteira.
+        case 'juncao': return (atual === 'juncao' ? 1 : m.juncaoChance) * (m.juncaoFixoMs + mb * m.juncaoMsPorMB);
+        case 'copia': return m.copiaFixoMs + mb * m.copiaMsPorMB;
+        case 'gravacao': return m.gravacaoFixoMs + mb * m.gravacaoMsPorMB;
         case 'abertura': return m.aberturaMs;
         default: return 0;
       }
@@ -222,16 +345,29 @@
     // O que falta de uma fase SEM fração conhecida: a previsão enquanto ela vale;
     // passada (3/4 dela), o que falta CRESCE com o atraso — contínuo em 3/4.
     function peloRelogio(D, e) {
-      return Math.max(D - e, 0.25 * D + 0.3 * (e - 0.75 * D));
+      return Math.max(D - e, 0.1 * D + 0.3 * (e - 0.9 * D));
     }
 
+    // O ritmo DESTE download, entre avisos (bytes/ms), na janela; um silêncio
+    // maior que o intervalo médio dos avisos o faz cair (a rede que trava).
     function ritmoMedido(t) {
       while (ritmo.length > 2 && t - ritmo[1][0] >= JANELA_RITMO) ritmo.shift();
       if (ritmo.length < 2) return NaN;
       const [ta, la] = ritmo[0];
       const [tb, lb] = ritmo[ritmo.length - 1];
-      const dt = Math.max(t, tb) - ta;
-      return dt >= 400 ? (lb - la) / dt : NaN;
+      if (lb <= la) return NaN;
+      const intervalo = (tb - ta) / (ritmo.length - 1);
+      const dt = Math.max(tb - ta, t - ta - intervalo, 50);
+      return (lb - la) / dt;
+    }
+
+    // O ritmo do download INTEIRO entre o primeiro e o último aviso — o que vai à
+    // amostra. Nenhum byte que já estava no disco entra nesta conta.
+    function ritmoDoDownload() {
+      if (avisos < 2) return NaN;
+      const db = ultimoLido - primeiroLido;
+      const dt = tUltimoByte - tPrimeiroByte;
+      return db >= GRAO && dt >= 100 ? db / dt : NaN;
     }
 
     function restanteDaAtual(t) {
@@ -242,7 +378,10 @@
         const falta = Math.max(0, total - lidos);
         if (falta <= 0) return RESTANTE_MIN + 0.3 * Math.max(0, t - tCheio);
         const medido = ritmoMedido(t);
-        const conf = isFinite(medido) && medido > 0 ? Math.min(1, (t - tPrimeiroByte) / 2000) : 0;
+        // A confiança no medido: meia no primeiro intervalo entre avisos, inteira
+        // no segundo — um download de um segundo não tem tempo para mais.
+        const conf = isFinite(medido) && medido > 0
+          ? Math.min(1, Math.max((ritmo[ritmo.length - 1][1] - ritmo[0][1]) / (2 * GRAO), (t - tPrimeiroByte) / 1500)) : 0;
         const r = conf * (isFinite(medido) ? medido : 0) + (1 - conf) * m.bytesPorMs;
         return falta / Math.max(1e-3, r);
       }
@@ -260,9 +399,15 @@
       return peloRelogio(D, e);
     }
 
-    function restante(t) {
-      let r = restanteDaAtual(t);
-      for (const f of previstas) if (idx(f) > idx(atual)) r += Math.max(0, duracao(f));
+    // `mira`: a conta da VELOCIDADE, em que a cauda do app (cópia, gravação,
+    // abertura — fases curtas, sem fração e de duração que varia muito de um
+    // vídeo para o outro) pesa `MIRA_CAUDA` do previsto. Errar para o lado curto
+    // custa a barra andar devagar uns décimos depois do pouso; errar para o lado
+    // longo custa o vídeo abrir com a barra no meio — o que o operador relata.
+    function restante(t, mira) {
+      const k = (f) => (mira && FASES_WEB.includes(f) ? MIRA_CAUDA : 1);
+      let r = restanteDaAtual(t) * k(atual);
+      for (const f of previstas) if (idx(f) > idx(atual)) r += Math.max(0, duracao(f)) * k(f);
       return Math.max(RESTANTE_MIN, r);
     }
 
@@ -293,7 +438,7 @@
     // novo para o CAP e parar lá (era o "97 parado" da v1.12.36).
     let tPouso = 0;
     function velocidadeAlvo(t) {
-      const r = restante(t);
+      const r = restante(t, true);
       let vMeta;
       if (s < POUSO) vMeta = (POUSO - s) / r;
       else {
@@ -304,8 +449,30 @@
       return Math.min(V_MAX, Math.max(vMeta, piso));
     }
 
-    previsto.preparo = Math.round(duracao('preparo'));
-    previstoInicial = Math.round(restante(t0));
+    function semear() {
+      previsto.preparo = Math.round(duracao('preparo'));
+      previstoInicial = Math.round(restante(agora()));
+      tamanhoInicial = Math.round(tamanho());
+      fonteInicial = fonteDoTamanho();
+    }
+    semear();
+
+    // RETOMADO: o primeiro aviso trouxe muito mais do que o ritmo medido explica
+    // no tempo que passou desde o começo dos bytes — o shell conta os bytes
+    // ABSOLUTOS, e uma retomada começa pelo que já estava no disco. Um download
+    // novo começa no primeiro GRÃO (1 MB e pouco). Sem ritmo medido (um aviso
+    // só), só um primeiro aviso grande demais para ser o primeiro grão.
+    function esperadoNoPrimeiro() {
+      const r = ritmoDoDownload();
+      if (!isFinite(r) || inicio.download == null) return NaN;
+      return r * Math.max(0, tPrimeiroByte - inicio.download);
+    }
+    function retomado() {
+      if (!(total > 0) || primeiroLido < 0) return false;
+      const esp = esperadoNoPrimeiro();
+      if (isFinite(esp)) return primeiroLido > 2 * esp + 1.5 * GRAO;
+      return primeiroLido > Math.max(0.25 * total, 3 * GRAO);
+    }
 
     return {
       /** Avança a exibição até `agora()` e devolve o inteiro a mostrar. */
@@ -319,8 +486,16 @@
           return valor();
         }
         const alvo = velocidadeAlvo(t);
+        const vAntes = v;
         if (v < 0) v = alvo;
         else v += (alvo - v) * (1 - Math.exp(-dt / TAU_V));
+        // O FREIO: a inércia não pode levar a barra além do pouso. Rápida, ela
+        // chegava ao 95 a 40+ pontos/s e a velocidade, que só cai aos poucos, a
+        // carregava até o CAP — "99 parado" num vídeo que atrasou meio segundo.
+        // Desaceleração CONSTANTE (`FREIO`): a velocidade que ainda para no pouso
+        // é √(2·FREIO·distância), e ela cai no máximo FREIO·dt por quadro. Só
+        // pega quando a inércia passa da velocidade-alvo — no plano ela não age.
+        if (vAntes >= 0) v = Math.min(v, Math.max(alvo, Math.sqrt(2 * FREIO * Math.max(0, POUSO - s))));
         s = Math.min(CAP - 1e-6, s + v * dt);
         const inteiro = valor();
         if (inteiro !== ultimoInteiro) { ultimoInteiro = inteiro; tUltimaMudanca = t; }
@@ -332,11 +507,13 @@
       bruto: () => ({ s, v: Math.max(0, v) * 1000 }),
       fase: () => atual,
       terminou: () => concluido && s >= 100,
+      /** O tempo que falta, estimado agora (ms) — para o oráculo. */
+      restante: () => restante(agora()),
       trocarModelo(novo) {
         if (!novo) return;
         m = Object.assign({}, PADRAO, novo);
         if (!fim[atual]) previsto[atual] = Math.round(duracao(atual));
-        if (atual === 'preparo') previstoInicial = Math.round(restante(agora()));
+        if (atual === 'preparo') semear();
       },
       /** A página ficou oculta (ou voltou): as fases web vividas oculta não ensinam nada. */
       oculta(sim) {
@@ -347,8 +524,10 @@
       sinal(nome, info) {
         const i = info || {};
         const t = agora();
-        if (nome === 'extraiu') entrar('download');
-        else if (nome === 'baixou') {
+        if (nome === 'extraiu') {
+          if (num(i.seconds) > 0) segundos = i.seconds;
+          entrar('download');
+        } else if (nome === 'baixou') {
           if (num(i.bytes) > 0) { total = Math.max(total, i.bytes); lidos = total; }
           if (i.juntar) entrar('juncao');
         } else if (nome === 'juntando') {
@@ -371,13 +550,13 @@
           total = tot;
           // O total MUDOU (a previsão do vídeo virou o tamanho de verdade): a
           // previsão desta fase é refeita com o tamanho que vale.
-          if (antes > 0 && Math.abs(tot - antes) > 0.02 * antes) previsto.download = Math.round(tot / m.bytesPorMs);
-          else if (!(antes > 0)) previsto.download = Math.round(tot / m.bytesPorMs);
+          if (!(antes > 0) || Math.abs(tot - antes) > 0.02 * antes) previsto.download = Math.round(duracao('download'));
         }
         const lv = num(l);
         if (!(lv >= 0)) return;
         if (primeiroLido < 0) { primeiroLido = lv; tPrimeiroByte = t; }
         if (lv > lidos) lidos = lv;
+        if (lv > ultimoLido) { ultimoLido = lv; tUltimoByte = t; avisos++; }
         ritmo.push([t, lidos]);
         if (total > 0 && lidos >= total && !tCheio) tCheio = t;
       },
@@ -405,9 +584,14 @@
         const a = {};
         if (d('download') != null && total > 0) {
           a.bytes = total;
+          if (chave) a.chave = chave;
+          if (segundos > 0) a.segundos = segundos;
           a.preparoMs = d('preparo');
+          const r = ritmoDoDownload();
+          if (isFinite(r)) a.ritmo = r;
           if (!retomado()) a.downloadMs = d('download');
           if (d('juncao') != null) a.juncaoMs = d('juncao');
+          if (o.juncao && inicio.copia != null) a.juntou = inicio.juncao != null ? 1 : 0;
           if (!oculto) {
             if (d('copia') != null) a.copiaMs = d('copia');
             if (d('gravacao') != null) a.gravacaoMs = d('gravacao');
@@ -425,9 +609,18 @@
             realMs: fim[f] != null ? fim[f] - inicio[f] : null,
             mostrado: mostradoNoFim[f] != null ? mostradoNoFim[f] : null };
         }
+        const r = ritmoDoDownload();
+        const esp = esperadoNoPrimeiro();
         return {
           caminho: inicio.download == null ? 'no-aparelho' : retomado() ? 'retomado' : 'novo',
+          // O que decidiu o caminho: o primeiro aviso (bytes e ms depois do
+          // começo dos bytes) contra o que o ritmo medido explica nesse tempo.
+          primeiroAviso: primeiroLido >= 0 ? { bytes: primeiroLido, ms: Math.max(0, tPrimeiroByte - (inicio.download || tPrimeiroByte)),
+            esperado: isFinite(esp) ? Math.round(esp) : null, avisos } : null,
+          ritmoBytesPorMs: isFinite(r) ? Math.round(r) : null,
           bytes: total > 0 ? total : 0,
+          tamanhoPrevisto: tamanhoInicial,
+          tamanhoFonte: fonteInicial,
           fases,
           previstoMs: previstoInicial,
           realMs: concluido ? tConcluir - t0 : null,
@@ -439,15 +632,10 @@
         };
       },
     };
-
-    // RETOMADO: o primeiro número já trazia parte do arquivo (o shell conta os
-    // bytes ABSOLUTOS, e uma retomada começa pelo que já estava no disco). Um
-    // download novo começa com um bloco de leitura (dezenas de kB).
-    function retomado() { return total > 0 && primeiroLido > Math.max(0.05 * total, MB); }
   }
 
   global.AVProgresso = {
-    FASES, PADRAO, LIMITES, AMOSTRAS, VERSAO, POUSO, CAP, PISO_V, V_MAX,
-    sanear, aprender, modelo, apoio, criar, mediana,
+    FASES, PADRAO, LIMITES, AMOSTRAS, VERSAO, POUSO, CAP, PISO_V, V_MAX, PESO_IDADE, MIRA_CAUDA,
+    sanear, aprender, modelo, apoio, criar, mediana, medianaRecente,
   };
 })(this);
