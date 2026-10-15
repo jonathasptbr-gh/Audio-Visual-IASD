@@ -795,6 +795,8 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   .cue-save-btn, .pl-pack, .pl-clear, .yt-search-btn, .log-copy, .diag-btn, .hino-indice-chip,
   .simple-key, .simple-key--big, .simple-key--vol,
   .lib-search-limpar,
+  /* O "Tentar de novo" do aviso do servidor da biblioteca (v1.12.43). */
+  .fonte-aviso-btn,
   /* A linha de slide que PROJETA, no auxiliar de leitura (v1.4.26). */
   .lv-row--tocavel,
   /* O ✓ do renomear, na coluna do `⋮` (v1.4.27). A LIXEIRA fica de fora: ela é
@@ -12794,3 +12796,43 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
   0%, 100% { opacity: .18; transform: scaleX(.35); }
   50% { opacity: .8; transform: scaleX(1); }
 }
+
+/* ===== O SERVIDOR DA BIBLIOTECA FORA (v1.12.43) =====
+   O veredito é de `fonteVeredito` (controle.js). Os botões que dependem do
+   servidor ficam APAGADOS (`disabled` + `--op-inativo`, com o `title` dizendo
+   por quê); o aviso grande só existe onde falta a listagem. Dois avisos com
+   duas caras, porque são duas coisas: o servidor em manutenção é AVISO (a
+   família âmbar, `--btn-warn` + `--warn-text`, o par declarado); a falta de
+   internet é deste aparelho, e veste o poço neutro (`--bg`, com `--text` e
+   `--muted`): a Biblioteca e a Bíblia são `--panel`, e o aviso nele sumiria. */
+.coll-bar-dl:disabled, .coll-group-btn:disabled { opacity: var(--op-inativo); cursor: default; }
+.fonte-aviso-li { list-style: none; }
+.fonte-aviso {
+  display: flex; flex-direction: column; gap: var(--sp-3);
+  padding: var(--sp-5) var(--sp-6);
+  border-radius: var(--radius-card);
+  background: var(--btn-warn); color: var(--warn-text);
+  text-align: left;
+}
+.fonte-aviso--rede { background: var(--bg); color: var(--text); }
+.fonte-aviso-tit { font-size: var(--fs-lg); font-weight: var(--fw-forte); }
+.fonte-aviso-txt { margin: 0; font-size: var(--fs-md); line-height: 1.4; }
+.fonte-aviso--rede .fonte-aviso-txt, .fonte-aviso--rede .fonte-aviso-quando { color: var(--muted); }
+.fonte-aviso-pe { display: flex; align-items: center; gap: var(--sp-4); }
+.fonte-aviso-quando { flex: 1 1 auto; font-size: var(--fs-sm); }
+.fonte-aviso-btn {
+  flex: none; min-height: var(--hit); padding: 0 var(--sp-6);
+  border: none; appearance: none; -webkit-appearance: none;
+  border-radius: var(--radius-btn);
+  background: var(--btn-accent); color: var(--accent);
+  font: inherit; font-size: var(--fs-md); font-weight: var(--fw-forte); cursor: pointer;
+}
+.fonte-aviso-btn:disabled { opacity: var(--op-inativo); cursor: default; }
+/* Na Bíblia, o aviso ocupa o lugar da nota da metade de baixo / do topo da lista de versões. */
+.bible-half .fonte-aviso, #bibleVerList .fonte-aviso { margin: var(--sp-4) 0; }
+.bible-ver-row.sem-fonte { opacity: var(--op-inativo); cursor: default; }
+.bible-ver-row.sem-fonte:active { transform: none; filter: none; }
+/* Na Biblioteca o aviso mora FORA da lista, entre a barra e `#hymnResults` —
+   ver `acertarAvisoDaFonte`. Ele não rola e não encolhe: a lista é que fica mais
+   baixa. */
+#fonteAvisoLib { flex: none; margin: var(--sp-4) var(--sp-5) 0; }

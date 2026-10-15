@@ -6955,6 +6955,55 @@ de mídia offline, sem copiar nenhum código do app-ja (Vue/Vuex) — só o
   letra). Constantes de conveniência: `Louvorja.HYMNAL_2022_FILE`,
   `HYMNAL_1996_FILE`, `CATEGORIES_FILE`.
 
+#### O servidor da LouvorJA fora do ar: um veredito, dois avisos (v1.12.43)
+
+Pedido do operador: *"um sistema de 'o servidor está em manutenção', mas esse
+sistema não deve interferir em quem já tem as listagens ou os arquivos offline
+… deve ser diferenciado de um aviso de 'sem internet'"*. A instalação nova
+depende INTEIRA do servidor para listar e baixar, e ele não é nosso.
+
+**UM veredito** (`fonteVeredito`, a seção "O SERVIDOR DA LOUVORJA" logo depois
+de `collSongs`), três desfechos:
+
+| estado | quando |
+|---|---|
+| `ok` | o banco respondeu — inclusive um status de NÃO-recusa: **um 404 é sobre UM item, e o servidor está no ar** |
+| `servidor` | 5xx/401/403/429 (o status fica guardado); ou sem resposta/prazo (`FONTE_PRAZO_MS`, 8 s) com a internet de pé; ou o banco respondendo sem deixar ler (`Louvorja.sondarBanco`, CORS) |
+| `sem-internet` | `navigator.onLine` falso, ou nem o banco nem `sondarInternet` responderam |
+
+- **`sondarInternet` NÃO é a LouvorJA**: dois hosts que o app já usa
+  (`www.youtube.com/generate_204` e a página do app), `no-cors`, `Promise.any`.
+  É a MESMA sonda da linha "Há internet agora" da Verificação, que até a
+  v1.12.42 sondava a própria LouvorJA — perguntar ao suspeito se ele está vivo.
+- **O tráfego de sempre alimenta o veredito** (`Louvorja.observar`): lista que
+  chega → `ok`; recusa → `servidor`; sem resposta → apuração (coalescida). A
+  apuração explícita (`apurarFonte`, uma por vez) roda na abertura de quem
+  ainda não tem a listagem, no "Tentar de novo", a cada `FONTE_RECHECA_MS`
+  (60 s) com o veredito ruim e o app à vista, e ao abrir a Biblioteca, a
+  Bíblia ou voltar ao app (`reapurarFonteSePreciso`, piso de 10 s).
+- **O que ele barra** (`fonteBloqueada`): os botões de baixar/listar de card e
+  de grupo — APAGADOS, com `fonteMotivoCurto` no `title` (o cancelar de um
+  download em curso nunca) —, o download sob demanda de uma música
+  (`ensureSongDownloaded` re-apura no toque e, ainda ruim, não pede; `motivoDoCartao` nomeia o
+  servidor), a varredura da Bíblia e a escolha de versão não baixada. **Nada
+  mais**: YouTube, reprodução, importados, Cronograma, telão.
+- **O aviso GRANDE só onde falta a LISTAGEM** (`fonteDependente`: NADA listado
+  — nenhum hinário com índice E o catálogo de álbuns vazio). Quem já tem a listagem vê o que
+  tinha, com os botões de baixar apagados e mais nada. O aviso
+  (`fonteAvisoEl`, posto por `acertarAvisoDaFonte`) mora **FORA** da lista,
+  entre a barra e `#hymnResults`, e só no acervo (numa busca ele sai). Dentro
+  dela ele quebrava as contas dos blocos de raiz (a tampa, o vão dos Favoritos,
+  "as fechadas empilhadas na base" — MEDIDO em quatro oráculos); fora, a lista
+  só fica mais baixa. Na Bíblia ele entra no lugar da nota do capítulo e no topo
+  da lista de versões. Duas
+  caras: servidor = `--btn-warn` + `--warn-text`; sem internet = `--bg` +
+  `--text`/`--muted`. "Tentar de novo" está na lista do `--press`.
+- **A volta** (`fonteAoMudar`, de ruim para `ok`) redesenha e dispara a
+  primeira listagem (`autoRefreshCollections`, `garantirBibliaBase`).
+- O Registro tem o bloco "Servidor da biblioteca (LouvorJA)" logo depois da
+  linha do tempo, e cada transição entra na linha do tempo. Oráculo:
+  `servidor-indisponivel.test.mjs`.
+
 #### As SEÇÕES TEMÁTICAS do Hinário 2022 (v1.1.12)
 
 O hinário impresso tem 8 blocos e 35 seções — as 28 crenças fundamentais mais os

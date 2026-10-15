@@ -25,12 +25,35 @@
   // Busca um arquivo do "banco" do LouvorJA (lista ou registro individual,
   // ex: "pt_hymnal" ou "music_123"). Mesmo formato do Database.js do app-ja:
   // header Api-Token + query string de cache-busting diário.
+  //
+  // CADA DESFECHO É CONTADO A QUEM OBSERVA (v1.12.43): o veredito da fonte
+  // (`fonteVeredito` em controle.js) aprende de GRAÇA com o tráfego que o app já
+  // faz — uma resposta boa prova o servidor no ar, um erro HTTP é o servidor
+  // respondendo, e a falta de resposta pede a apuração (internet × servidor).
+  // O erro HTTP leva `httpStatus`, para quem o lê não ter de parsear a frase.
+  const observadores = [];
+  function observar(fn) { if (typeof fn === 'function') observadores.push(fn); }
+  function contar(ev) {
+    for (const fn of observadores) { try { fn(ev); } catch (_) { /* observador não derruba o pedido */ } }
+  }
   async function fetchList(file) {
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const res = await fetch(`${DB_URL}/${file}?${date}`, {
-      headers: { 'Api-Token': TOKEN },
-    });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    let res;
+    try {
+      res = await fetch(`${DB_URL}/${file}?${date}`, {
+        headers: { 'Api-Token': TOKEN },
+      });
+    } catch (e) {
+      contar({ semResposta: true, file });
+      throw e;
+    }
+    if (!res.ok) {
+      contar({ status: res.status, file });
+      const err = new Error('HTTP ' + res.status);
+      err.httpStatus = res.status;
+      throw err;
+    }
+    contar({ ok: true, file });
     return res.json();
   }
 
@@ -182,7 +205,7 @@
   }
 
   global.Louvorja = {
-    fetchList, sondarBanco, fileUrl, foraDoServidor, ehCdnSemCors,
+    fetchList, sondarBanco, observar, fileUrl, foraDoServidor, ehCdnSemCors,
     HYMNAL_2022_FILE, HYMNAL_1996_FILE, CATEGORIES_FILE,
   };
 })(this);

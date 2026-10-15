@@ -3008,10 +3008,17 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.12.42 · APK v1.12.36** · `SHELL_VERSION` **81** ·
+**Versão atual: base web v1.12.43 · APK v1.12.36** · `SHELL_VERSION` **81** ·
 bundle com `minShell: 81` e **sem `shellTag`** — o shell 81 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. **Este lote é só web**
 (a Release v1.12.36 já está publicada; nada em `java/`, `res/` ou no manifesto mudou).
+**A v1.12.43 DÁ AO SERVIDOR DA LOUVORJA UM VEREDITO SÓ** (`fonteVeredito`: `ok` · `sem-internet` · `servidor`; a
+falta de resposta é apurada contra `sondarInternet`, dois hosts que NÃO são da LouvorJA — a mesma sonda de "Há
+internet agora", que deixou de perguntar à própria LouvorJA; um 404 é o servidor no ar). Com ele ruim só o que DEPENDE
+do servidor é barrado (botões de baixar/listar apagados com o porquê, download sob demanda, varredura e escolha de
+versão da Bíblia), e o aviso grande — "Servidor da biblioteca indisponível" ou "Sem internet", duas caras — só aparece
+onde falta a LISTAGEM (`fonteDependente`, a instalação nova), FORA da lista do acervo (entre a barra e `#hymnResults`, `acertarAvisoDaFonte`; numa busca ele sai). Rechecagem de
+60 s e "Tentar de novo"; a volta faz a primeira listagem. Ver o capítulo do Controle e `servidor-indisponivel`.
 **A v1.12.42 DÁ À TELA CHEIA DA PRÉVIA UM MODELO SÓ NOS DOIS MODOS** (o play/pause grande no CENTRO, com ⏮/⏭
 ao lado só no avançado; sair no canto INFERIOR direito; a cortina no SUPERIOR direito, só no avançado;
 título, linha do tempo e volume vertical à esquerda também no avançado — ver a linha "Fullscreen da

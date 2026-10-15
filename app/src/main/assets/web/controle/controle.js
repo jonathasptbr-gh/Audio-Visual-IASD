@@ -400,7 +400,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.42';
+const WEB_VERSION = '1.12.43';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1011,6 +1011,298 @@ function allCollections() {
   return cols;
 }
 function collSongs(id) { return (collState[id] && collState[id].songs) || []; }
+
+// ===== O SERVIDOR DA LOUVORJA: UM VEREDITO SÓ (v1.12.43) =====
+//
+// Pedido do operador: *"Precisamos de um sistema de 'o servidor está em
+// manutenção', mas esse sistema não deve interferir em quem já tem as listagens
+// ou os arquivos offline … deve ser diferenciado de um aviso de 'sem internet',
+// pois são coisas diferentes."* Uma instalação nova depende INTEIRA do servidor
+// da LouvorJA para listar e baixar hinos, álbuns e Bíblia — e ele não é nosso.
+//
+// TRÊS desfechos, e quem os decide é esta seção e mais nada:
+//
+//  - `ok`             — o servidor respondeu (qualquer resposta HTTP que não
+//                       seja de recusa: um 404 de UM item é o servidor no ar);
+//  - `sem-internet`   — o aparelho não alcança a internet: `navigator.onLine`
+//                       falso (a direção em que ele não mente) OU nem o servidor
+//                       nem uma sonda INDEPENDENTE (`sondarInternet`, a mesma da
+//                       linha "Há internet agora" da Verificação) responderam;
+//  - `servidor`       — há internet e o servidor não respondeu, estourou o prazo,
+//                       respondeu 5xx/401/403/429, ou respondeu sem deixar o app
+//                       LER (CORS — `Louvorja.sondarBanco`, v1.12.28).
+//
+// "NÃO RESPONDEU" NÃO É "RESPONDEU COM ERRO": a falta de resposta pede a
+// apuração (pode ser a internet); um status chega como resposta e já é o
+// veredito. É a mesma separação da Verificação e do censo do acervo.
+//
+// O VEREDITO APRENDE DE GRAÇA com o tráfego que o app já faz (`Louvorja.observar`):
+// uma lista que chega o põe em `ok`; um erro de recusa o põe em `servidor`; um
+// pedido sem resposta agenda a apuração. A APURAÇÃO (`apurarFonte`) é uma ida
+// só ao banco (`config`, o menor arquivo dele), com prazo, e — sem resposta —
+// as duas sondas `no-cors` que separam "servidor mudo" de "internet muda".
+//
+// O QUE ELE GOVERNA é só o que DEPENDE do servidor (ver `fonteBloqueada`): os
+// botões de baixar/listar da Biblioteca, o download sob demanda de uma música,
+// a escolha de uma versão da Bíblia não baixada. O aviso grande
+// (`fonteAvisoEl`) só aparece onde falta a LISTAGEM (`fonteDependente`); quem já
+// tem a lista e os arquivos vê o que tinha, com os botões de baixar apagados e
+// o `title` dizendo por quê. YouTube, reprodução, arquivos importados,
+// Cronograma, telão: nada disso pergunta por ele.
+const FONTE_PRAZO_MS = 8000;        // a ida ao banco
+const FONTE_SONDA_MS = 5000;        // cada sonda `no-cors`
+const FONTE_RECHECA_MS = 60000;     // com o veredito ruim e o app à vista
+const FONTE_REAPURA_MIN_MS = 10000; // piso entre duas apurações pedidas por gesto
+// UMA SONDA DE INTERNET, e ela não pode ser a LouvorJA (seria perguntar ao
+// suspeito se ele está vivo). Dois hosts que o app já usa: o YouTube (busca,
+// miniaturas, downloads) e a página do app. Qualquer um respondendo prova saída.
+const INTERNET_SONDAS = ['https://www.youtube.com/generate_204', 'https://audiovisualiasd.com.br/'];
+const FONTE_STATUS_RECUSA = (st) => st >= 500 || st === 401 || st === 403 || st === 429;
+
+let fonteVeredito = { estado: null, causa: '', status: null, em: 0, desde: 0, motivo: '' };
+const fonteTrocas = [];     // as TRANSIÇÕES, para o Registro (as últimas 12)
+let fonteApuracao = null;   // a apuração em voo (uma por vez)
+let fonteUltimaApuracao = 0;
+let fonteRechecaTimer = null;
+
+function comPrazo(p, ms) {
+  let t;
+  return Promise.race([
+    Promise.resolve(p).finally(() => clearTimeout(t)),
+    new Promise((ok) => { t = setTimeout(() => ok(null), ms); }),
+  ]);
+}
+
+// HÁ SAÍDA PARA A INTERNET? `no-cors`: a resposta opaca resolve, só a falta de
+// resposta rejeita — e é exatamente a pergunta. Não lê nada.
+async function sondarInternet(prazo) {
+  const uma = (u) => fetch(u, { method: 'HEAD', cache: 'no-store', mode: 'no-cors' }).then(() => true);
+  try {
+    return (await comPrazo(Promise.any(INTERNET_SONDAS.map(uma)), prazo || FONTE_SONDA_MS)) === true;
+  } catch (_) { return false; }
+}
+
+function fonteBloqueada() {
+  return fonteVeredito.estado === 'servidor' || fonteVeredito.estado === 'sem-internet';
+}
+
+// FALTA A LISTAGEM? É o caso da instalação nova: NADA listado — nenhum
+// hinário com índice e o catálogo de álbuns nunca baixado. Quem já tem alguma
+// listagem vê o que tinha, sem aviso grande: o que falta se diz pelos botões
+// de baixar apagados (o `title` explica).
+function fonteDependente() {
+  return !albumCatalog.albums.length && FIXED_COLLECTIONS.every((c) => !collSongs(c.id).length);
+}
+
+// A FRASE CURTA, para o `title` de um botão apagado e para o cartão da prévia.
+function fonteMotivoCurto() {
+  if (fonteVeredito.estado === 'sem-internet') return 'Sem internet — conecte o aparelho para baixar';
+  if (fonteVeredito.estado === 'servidor') return 'Servidor da biblioteca indisponível — tente mais tarde';
+  return '';
+}
+
+// A CAUSA em palavras, para o Registro e para a linha miúda do aviso.
+function fonteCausaTexto() {
+  const v = fonteVeredito;
+  return (v.causa || '') + (v.status ? ' (HTTP ' + v.status + ')' : '');
+}
+
+function fonteDefinir(estado, causa, status, motivo) {
+  const antes = fonteVeredito.estado;
+  const agora = Date.now();
+  fonteVeredito = {
+    estado, causa: causa || '', status: status || null, em: agora,
+    desde: antes === estado ? (fonteVeredito.desde || agora) : agora, motivo: motivo || '',
+  };
+  if (antes !== estado) {
+    fonteTrocas.push({ t: agora, de: antes, para: estado, causa: fonteCausaTexto(), motivo: motivo || '' });
+    if (fonteTrocas.length > 12) fonteTrocas.shift();
+    // A LINHA DO TEMPO só ganha a transição que importa: a primeira apuração
+    // que diz "ok" numa abertura normal é ruído em toda cópia.
+    if (!(antes === null && estado === 'ok')) {
+      diagC('servidor da biblioteca (LouvorJA): ' + (estado === 'ok' ? 'respondeu'
+        : estado === 'servidor' ? 'indisponível — ' + fonteCausaTexto() : 'sem internet — ' + fonteCausaTexto()));
+    }
+    fonteAoMudar(antes);
+  }
+  acertarRechecagemDaFonte();
+  return fonteVeredito;
+}
+
+// SEM RESPOSTA DO BANCO: quem decide entre servidor e internet. É a metade que
+// a Verificação também usa (`testeFonteSemResposta`) — uma regra, dois leitores.
+async function fonteClassificarSemResposta(causaBase) {
+  const alcanca = await comPrazo(Louvorja.sondarBanco().catch(() => false), FONTE_SONDA_MS);
+  if (alcanca === true) {
+    return { estado: 'servidor', causa: 'respondeu sem deixar o app ler a resposta (CORS ou erro do servidor)', alcanca: true };
+  }
+  if (navigator.onLine === false) return { estado: 'sem-internet', causa: 'o aparelho está sem rede' };
+  if (await sondarInternet()) return { estado: 'servidor', causa: causaBase || 'não respondeu' };
+  return { estado: 'sem-internet', causa: 'nem o servidor nem a internet responderam' };
+}
+
+// A APURAÇÃO. Uma por vez: quem chega com outra em voo recebe a mesma.
+function apurarFonte(motivo) {
+  if (fonteApuracao) return fonteApuracao;
+  fonteUltimaApuracao = Date.now();
+  fonteApuracao = (async () => {
+    try {
+      if (navigator.onLine === false) return fonteDefinir('sem-internet', 'o aparelho está sem rede', null, motivo);
+      const r = await comPrazo(Louvorja.fetchList('config').then(() => ({ ok: true }), (e) => ({ e })),
+        FONTE_PRAZO_MS);
+      if (r && r.ok) return fonteDefinir('ok', 'respondeu', null, motivo);
+      const st = r && r.e && r.e.httpStatus;
+      if (st) {
+        // RESPOSTA É RESPOSTA: só a de RECUSA derruba; um 404 é o servidor no ar.
+        return FONTE_STATUS_RECUSA(st) ? fonteDefinir('servidor', 'recusou', st, motivo)
+          : fonteDefinir('ok', 'respondeu', null, motivo);
+      }
+      const base = r ? 'não respondeu' : 'não respondeu em ' + Math.round(FONTE_PRAZO_MS / 1000) + ' s';
+      const c = await fonteClassificarSemResposta(base);
+      return fonteDefinir(c.estado, c.causa, null, motivo);
+    } catch (e) {
+      return fonteVeredito;
+    } finally {
+      fonteApuracao = null;
+    }
+  })();
+  return fonteApuracao;
+}
+
+// O GESTO DE QUEM QUER SABER (abrir a Biblioteca, voltar ao app): só com o
+// veredito ruim, e com piso — não é uma rajada de idas ao banco.
+function reapurarFonteSePreciso(motivo) {
+  if (!fonteBloqueada() || fonteApuracao) return;
+  if (Date.now() - fonteUltimaApuracao < FONTE_REAPURA_MIN_MS) return;
+  apurarFonte(motivo);
+}
+
+// A RECHECAGEM SOZINHA: com o veredito ruim, a cada minuto com o app à vista.
+// É ela que faz o aviso SUMIR quando o servidor volta, sem ninguém tocar.
+function acertarRechecagemDaFonte() {
+  if (fonteBloqueada()) {
+    if (!fonteRechecaTimer) {
+      fonteRechecaTimer = setInterval(() => {
+        if (document.visibilityState === 'visible' && !fonteApuracao) apurarFonte('rechecagem');
+      }, FONTE_RECHECA_MS);
+    }
+  } else if (fonteRechecaTimer) {
+    clearInterval(fonteRechecaTimer);
+    fonteRechecaTimer = null;
+  }
+}
+
+// O TRÁFEGO DE SEMPRE ALIMENTA O VEREDITO (ver `Louvorja.observar`).
+let fonteObsTimer = null;
+Louvorja.observar((ev) => {
+  if (ev.ok) {
+    if (fonteVeredito.estado !== 'ok') fonteDefinir('ok', 'respondeu', null, 'tráfego');
+    return;
+  }
+  if (ev.status) {
+    // Um 404 é sobre UM item (a música que saiu do banco), nunca sobre o servidor.
+    if (FONTE_STATUS_RECUSA(ev.status)) fonteDefinir('servidor', 'recusou', ev.status, 'tráfego');
+    return;
+  }
+  if (ev.semResposta && !fonteApuracao && !fonteObsTimer) {
+    // Coalescido: uma varredura que falha em rajada pede UMA apuração.
+    fonteObsTimer = setTimeout(() => { fonteObsTimer = null; apurarFonte('tráfego'); }, 400);
+  }
+});
+
+// O QUE MUDA NA TELA quando o veredito muda — e, na VOLTA, o que estava
+// esperando por ele: a primeira listagem das coleções e a Bíblia base.
+function fonteAoMudar(antes) {
+  const voltou = fonteVeredito.estado === 'ok' && (antes === 'servidor' || antes === 'sem-internet');
+  // Coalescido e com a guarda de quem está mexendo na lista (o mesmo caminho
+  // de um download que termina).
+  try { refreshCollectionsIfVisible(); } catch (_) {}
+  try { if (bibleVerPopupEl.classList.contains('open')) renderBibleVerList(); } catch (_) {}
+  try { if (bibliaAberta() && bibleChapterError) renderBible(); } catch (_) {}
+  if (voltou) {
+    autoRefreshCollections();
+    garantirBibliaBase();
+    if (bibleChapterError && bibleSel && bibleSel.chapter) loadBibleChapter();
+  }
+}
+
+// O AVISO. Um elemento só, para a Biblioteca e para a Bíblia: título, o que
+// isso quer dizer, a causa miúda e o "Tentar de novo".
+function fonteAvisoEl(onde) {
+  const v = fonteVeredito;
+  const box = document.createElement('div');
+  box.className = 'fonte-aviso' + (v.estado === 'sem-internet' ? ' fonte-aviso--rede' : '');
+  box.setAttribute('role', 'status');
+  const tit = document.createElement('div');
+  tit.className = 'fonte-aviso-tit';
+  const txt = document.createElement('p');
+  txt.className = 'fonte-aviso-txt';
+  if (v.estado === 'sem-internet') {
+    tit.textContent = 'Sem internet';
+    txt.textContent = 'Este aparelho não está conectado à internet. '
+      + (onde === 'biblia' ? 'A Bíblia precisa dela para ser baixada pela primeira vez. '
+        : 'A lista de hinos e álbuns precisa dela para chegar pela primeira vez. ')
+      + 'O que já está baixado continua funcionando.';
+  } else {
+    tit.textContent = 'Servidor da biblioteca indisponível';
+    txt.textContent = 'O servidor do LouvorJA, de onde vêm os hinos, os álbuns e a Bíblia, não está '
+      + 'respondendo — pode estar em manutenção. Não é a internet deste aparelho. O YouTube, os arquivos '
+      + 'importados e tudo o que já está baixado continuam funcionando.';
+  }
+  const pe = document.createElement('div');
+  pe.className = 'fonte-aviso-pe';
+  const quando = document.createElement('span');
+  quando.className = 'fonte-aviso-quando';
+  quando.textContent = v.em ? 'Verificado às ' + new Date(v.em).toLocaleTimeString('pt-BR',
+    { hour: '2-digit', minute: '2-digit' }) : '';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'fonte-aviso-btn';
+  const ocupado = !!fonteApuracao;
+  btn.disabled = ocupado;
+  btn.textContent = ocupado ? 'Verificando…' : 'Tentar de novo';
+  btn.title = ocupado ? 'Verificando o servidor agora' : 'Perguntar ao servidor de novo';
+  btn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    btn.disabled = true;
+    btn.textContent = 'Verificando…';
+    const r = await apurarFonte('toque');
+    // Continuou ruim: nada redesenhou o aviso, e o botão tem de voltar.
+    if (r.estado !== 'ok' && btn.isConnected) {
+      btn.disabled = false;
+      btn.textContent = 'Tentar de novo';
+      quando.textContent = 'Verificado às ' + new Date(r.em).toLocaleTimeString('pt-BR',
+        { hour: '2-digit', minute: '2-digit' });
+    }
+  });
+  pe.append(quando, btn);
+  box.append(tit, txt, pe);
+  return box;
+}
+
+// O BLOCO DO REGISTRO: o veredito AGORA, a causa e as transições da sessão.
+function blocoFonte() {
+  const v = fonteVeredito;
+  if (!v.estado && !fonteTrocas.length) return '';
+  const hora = (t) => new Date(t).toLocaleTimeString('pt-BR');
+  const nome = { ok: 'respondendo', servidor: 'INDISPONÍVEL', 'sem-internet': 'sem internet no aparelho' };
+  const l = ['Servidor da biblioteca (LouvorJA)'];
+  l.push('  agora: ' + (nome[v.estado] || 'não apurado') + (v.estado && v.estado !== 'ok' ? ' — ' + fonteCausaTexto() : '')
+    + (v.em ? ' · apurado às ' + hora(v.em) + (v.motivo ? ' (' + v.motivo + ')' : '') : '')
+    + (v.desde && v.estado !== 'ok' ? ' · desde ' + hora(v.desde) : ''));
+  if (fonteBloqueada()) {
+    l.push('  bloqueia: listar e baixar hinos, álbuns e Bíblia que não estão no aparelho'
+      + (fonteDependente() ? ' — com o aviso na Biblioteca (falta a listagem)' : ' — só os botões de baixar (a listagem já está no aparelho)'));
+  }
+  if (fonteTrocas.length) {
+    l.push('  mudanças nesta sessão:');
+    for (const x of fonteTrocas) {
+      l.push('    ' + hora(x.t) + ' ' + (nome[x.de] || 'não apurado') + ' → ' + (nome[x.para] || '?')
+        + (x.para !== 'ok' && x.causa ? ' — ' + x.causa : '') + (x.motivo ? ' (' + x.motivo + ')' : ''));
+    }
+  }
+  return l.join('\n');
+}
 
 // ===== O TIPO DE UMA COLEÇÃO — quem governa a linha e as duas folhas =====
 //
@@ -4946,6 +5238,14 @@ async function apagarVersaoBiblia(v) {
 function renderBibleVerList() {
   bibleVerListEl.innerHTML = '';
   const total = bibliaTotalDeCapitulos();
+  // O SERVIDOR FORA (v1.12.43): o aviso no topo só quando falta algo que
+  // depende dele (a lista de versões, ou uma versão não completa).
+  if (fonteBloqueada() && (!bibleVersions.length || bibleVersions.some((v) => !bibleCompleteVersions.has(v.id)))) {
+    const li = document.createElement('li');
+    li.className = 'fonte-aviso-li';
+    li.appendChild(fonteAvisoEl('biblia'));
+    bibleVerListEl.appendChild(li);
+  }
   bibleVersions.forEach((v) => {
     const li = document.createElement('li');
     const row = document.createElement('div');
@@ -4988,7 +5288,16 @@ function renderBibleVerList() {
     //  existindo — é o `--sel-fill` da `.bible-ver-row.selected` —, e o que se
     //  ganha é a largura que o nome da versão perdia para um segundo sinal da
     //  mesma coisa. O ✓ do "Completa offline" FICA: aquele diz outra coisa.)
+    // A VERSÃO QUE PRECISA DO SERVIDOR, com ele fora: apagada, com o porquê.
+    // A em uso e as completas continuam escolhíveis — elas não pedem nada a ele.
+    const semFonte = fonteBloqueada() && !bibleCompleteVersions.has(v.id) && v.id !== bibleVersionId;
+    if (semFonte) {
+      row.classList.add('sem-fonte');
+      row.setAttribute('aria-disabled', 'true');
+      row.title = fonteMotivoCurto();
+    }
     row.addEventListener('click', () => {
+      if (semFonte) return;
       closeBibleVerPopup();
       // ESCOLHER É BAIXAR, inclusive a versão JÁ escolhida: `changeBibleVersion`
       // devolve cedo quando o id não muda, e era esse o único caminho em que
@@ -5047,6 +5356,7 @@ async function enterBibleTab() {
   // a Bíblia baixada (cache IDB em 'bible:<v>_<b>_<c>') sobreviva entre sessões.
   // persist() é da origin inteira (não por store) e idempotente.
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  reapurarFonteSePreciso('bíblia aberta');
   await ensureBibleMeta(false);
   if (bibleVersionId != null) ensureBibleVersionDownloaded(bibleVersionId);
 }
@@ -5187,6 +5497,10 @@ async function ensureBibleVersionDownloaded(versionId) {
     bibleCompleteVersions.add(versionId);
     return;
   }
+  // O SERVIDOR FORA (v1.12.43): a varredura nem parte — seriam 25 falhas
+  // seguidas até o freio. Quem a religa é a VOLTA do servidor
+  // (`fonteAoMudar` → `garantirBibliaBase`).
+  if (fonteBloqueada()) { reapurarFonteSePreciso('bíblia'); return; }
 
   let done = total - missing.length, failed = 0;
   // Falhas CONSECUTIVAS — o freio de quem varre 1189 capítulos sem rede.
@@ -5449,7 +5763,8 @@ function bibleVersesPane() {
   };
   if (!bibleSel.chapter) return note('Nenhum capítulo selecionado.');
   if (bibleChapterLoading) return note('Baixando versículos…');
-  if (bibleChapterError) return note(bibleChapterError, true);
+  // Com o servidor fora, o aviso inteiro (com o "Tentar de novo") no lugar da nota.
+  if (bibleChapterError) return fonteBloqueada() ? fonteAvisoEl('biblia') : note(bibleChapterError, true);
   const verses = bibleChapterData && bibleChapterData.verses ? bibleChapterData.verses : [];
   if (!verses.length) return note('Nenhum versículo neste capítulo.');
 
@@ -5478,7 +5793,11 @@ async function loadBibleChapter() {
   const vId = bibleVersionId;
   if (vId == null) {
     bibleChapterLoading = false;
-    bibleChapterError = 'Nenhuma versão da Bíblia disponível. Conecte-se à internet uma vez para baixá-la.';
+    // SEM VERSÃO NENHUMA a lista nunca chegou: o veredito diz por quê (v1.12.43).
+    if (!fonteBloqueada()) await apurarFonte('bíblia');
+    if (seq !== bibleLoadSeq) return;
+    bibleChapterError = fonteBloqueada() ? fonteMotivoCurto()
+      : 'Nenhuma versão da Bíblia disponível. Conecte-se à internet uma vez para baixá-la.';
     if (bibliaAberta()) renderBible();
     return;
   }
@@ -5491,12 +5810,17 @@ async function loadBibleChapter() {
       if (!vs.length) throw new Error('vazio');
       cached = { verses: vs, syncedAt: Date.now() };
       await AVDB.setState(key, cached);
-    } catch (_) {
+    } catch (e) {
+      if (seq !== bibleLoadSeq) return;
+      // O CAPÍTULO NÃO VEIO: sem resposta ou recusa, o veredito da fonte diz
+      // qual das ausências é (v1.12.43); um 404 é sobre ESTE capítulo.
+      if (!(e && e.httpStatus) || FONTE_STATUS_RECUSA(e.httpStatus)) await apurarFonte('bíblia');
       if (seq !== bibleLoadSeq) return;
       bibleChapterLoading = false;
-      bibleChapterError = (navigator.onLine === false)
-        ? 'Sem internet — não foi possível baixar este capítulo.'
-        : 'Não foi possível baixar este capítulo. Tente novamente.';
+      bibleChapterError = fonteBloqueada() ? fonteMotivoCurto()
+        : (navigator.onLine === false)
+          ? 'Sem internet — não foi possível baixar este capítulo.'
+          : 'Não foi possível baixar este capítulo. Tente novamente.';
       if (bibliaAberta()) renderBible();
       return;
     }
@@ -10634,6 +10958,7 @@ function montarResumoGrupo(host, key, text, colls, gOpts) {
       ? 'Cancelar o download'
       : 'Baixar a coleção completa (' + colls.length + ' álbum(ns))';
     btn.innerHTML = g.busy ? closeIconSvg() : downloadAllIconSvg();
+    if (!g.busy && fonteBloqueada()) { btn.disabled = true; btn.title = fonteMotivoCurto(); }
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       syncGroup(key, text, colls, gOpts);
@@ -11023,6 +11348,24 @@ function renderCollectionsListMiolo(alvo, redesenhar) {
     empty.textContent = 'Nenhuma coleção disponível.';
     alvo.appendChild(empty);
   }
+
+  if (alvo === hymnResultsEl) acertarAvisoDaFonte(true);
+}
+
+// O AVISO DO SERVIDOR NA BIBLIOTECA (v1.12.43) — só com o veredito ruim E
+// faltando a listagem (a instalação nova), e só no ACERVO (numa busca ele sai:
+// o YouTube continua respondendo ali). Ele mora FORA da lista, entre a barra e
+// `#hymnResults`: a lista é feita de blocos de raiz que se repartem a altura
+// (`medirTampa`, o vão dos Favoritos, "as fechadas empilhadas na base"), e um
+// filho a mais que não é bloco quebraria essas contas. Fora dela, a lista só
+// fica mais baixa — que é o que essas contas já sabem medir.
+function acertarAvisoDaFonte(noAcervo) {
+  const atual = document.getElementById('fonteAvisoLib');
+  if (atual) atual.remove();
+  if (!noAcervo || !fonteBloqueada() || !fonteDependente() || !hymnResultsEl.parentNode) return;
+  const el = fonteAvisoEl('biblioteca');
+  el.id = 'fonteAvisoLib';
+  hymnResultsEl.parentNode.insertBefore(el, hymnResultsEl);
 }
 
 // Cartão informativo de UMA coleção (hinário ou álbum) — NÃO é uma pasta: é um
@@ -11183,6 +11526,10 @@ function renderCollectionCard(coll, ctx) {
     dl.title = u.syncBusy ? 'Cancelar o download'
       : (total > 0 ? 'Baixar esta coleção' : 'Sincronizar a lista');
     dl.innerHTML = u.syncBusy ? closeIconSvg() : downloadAllIconSvg();
+    // O SERVIDOR FORA (v1.12.43): apagado, com o `title` dizendo por quê — o
+    // CANCELAR de um download em curso nunca é apagado.
+    if (!u.syncBusy && fonteBloqueada()) { dl.disabled = true; dl.title = fonteMotivoCurto(); }
+    dl.setAttribute('aria-label', dl.title);
     dl.addEventListener('click', (e) => { e.stopPropagation(); syncCollection(coll); });
     // ELE NÃO SE ESCONDE MAIS COM O CARD ABERTO (v1.1.16). O `vago` existia
     // porque o painel de dentro tinha um "Baixar" que fazia a mesma coisa dois
@@ -21227,6 +21574,8 @@ function motivoDoCartao(antes) {
   if (acervoCenso.foraDoServidor > (base.foraDoServidor || 0)) {
     return 'o endereço do arquivo mudou de servidor';
   }
+  // NADA FOI PEDIDO: o veredito da fonte diz QUAL das duas ausências é (v1.12.43).
+  if (fonteVeredito.estado === 'servidor') return 'servidor da biblioteca indisponível — não é a sua internet';
   return 'sem internet para baixar';
 }
 
@@ -22157,6 +22506,8 @@ new MutationObserver(() => pedirVeus())
 
 function openHymnSearch(comFoco) {
   hymnSearchInputEl.placeholder = 'Nome, número ou trecho da letra…';
+  // Com o servidor da biblioteca fora, abrir a Biblioteca pergunta de novo (v1.12.43).
+  reapurarFonteSePreciso('biblioteca aberta');
   // (O CAMPO É LIMPO AO FECHAR, não aqui — ver `closeHymnSearch`. Continua
   //  havendo um `renderSearchResults('')` nesta abertura porque o desenho do
   //  acervo é o que a Biblioteca mostra, e ele depende de estado que o
@@ -22506,6 +22857,7 @@ function renderSearchResults(query) {
     // que a tela já responde uma linha acima: quanto ESTE acervo pesa.)
     return;
   }
+  acertarAvisoDaFonte(false);
   const cols = allCollections();
   // A letra só é varrida com busca de verdade (ver LYRIC_MIN_Q).
   if (q.length >= LYRIC_MIN_Q) ensureLyricIndex();
@@ -24922,6 +25274,13 @@ async function songVariantsNeeded(coll, s) {
 async function ensureSongDownloaded(coll, s) {
   const { needsFull, needsPlayback } = await songVariantsNeeded(coll, s);
   if (!needsFull && !needsPlayback) return;
+  // O SERVIDOR FORA (v1.12.43): não há o que pedir — o chamador cai no
+  // desfecho de "não veio", e a frase do cartão sai do veredito
+  // (`motivoDoCartao`).
+  // O TOQUE é um gesto de quem quer agora: com o veredito ruim, ele pergunta de
+  // novo ANTES de desistir — um veredito velho não pode barrar quem já voltou.
+  if (fonteBloqueada()) await apurarFonte('toque numa música');
+  if (fonteBloqueada()) return;
 
   // A LINHA da música mostra que ela está baixando. A marca é acesa AQUI, e não
   // no chamador, porque este é o único ponto que já sabe que existe download de
@@ -28996,7 +29355,16 @@ const TESTES = [
     prazo: TESTE_PRAZO_REDE, rede: true, fonte: true,
     fn: async () => {
       if (!navigator.onLine) return tNa('o aparelho está sem internet');
-      const cat = await Louvorja.fetchList(Louvorja.CATEGORIES_FILE);
+      let cat;
+      try { cat = await Louvorja.fetchList(Louvorja.CATEGORIES_FILE); } catch (e) {
+        // A RECUSA é do servidor, e o veredito da fonte já a gravou (pelo
+        // `Louvorja.observar`): a linha diz o mesmo que o aviso da Biblioteca.
+        if (e && e.httpStatus && FONTE_STATUS_RECUSA(e.httpStatus)) {
+          return tFalhou('o servidor da LouvorJA recusou (HTTP ' + e.httpStatus + ') — a biblioteca está '
+            + 'indisponível (o aviso aparece na Biblioteca)');
+        }
+        throw e;
+      }
       const n = (cat && (cat.categories || cat).length) || 0;
       if (!n) return tFalhou('respondeu uma lista vazia');
       return tOk(null);
@@ -30105,9 +30473,14 @@ const TESTES = [
       // REJEITA em `cors` e RESOLVE (opaca) em `no-cors`; um endereço MORTO
       // rejeita nos dois. É exatamente a pergunta desta linha — *há saída?* —,
       // e ela não precisa LER a resposta para respondê-la.
-      const res = await fetch(Louvorja.fileUrl('/'), { method: 'HEAD', cache: 'no-store', mode: 'no-cors' })
-        .catch(() => null);
-      if (!res) return tFalhou('a rede está conectada e não tem saída para a internet');
+      //
+      // E A SONDA NÃO É MAIS A LOUVORJA (v1.12.43): perguntar ao servidor da
+      // biblioteca se há internet confunde as duas ausências que o aviso da
+      // Biblioteca separa. É `sondarInternet` — a MESMA do veredito da fonte —,
+      // em hosts que o app já usa e que não são da LouvorJA.
+      if (!(await sondarInternet(TESTE_PRAZO_REDE - 500))) {
+        return tFalhou('a rede está conectada e não tem saída para a internet');
+      }
       return tOk(como);
     },
   },
@@ -30643,21 +31016,24 @@ function testeDlResumo() {
 // banco — catálogo, músicas novas, Bíblia —, e chamá-la de "a internet não
 // respondeu" mandava o operador olhar o Wi-Fi. Quem decide é uma segunda ida
 // ao banco em `no-cors` (`Louvorja.sondarBanco`), com prazo próprio.
-const TESTE_FONTE_SONDA_MS = 5000;
+//
+// DESDE A v1.12.43 a decisão é a do VEREDITO DA FONTE (`fonteClassificarSemResposta`,
+// que leva a sonda e o prazo dela), e a linha o grava: a Verificação e o aviso da
+// Biblioteca dizem a mesma coisa.
 async function testeFonteSemResposta() {
-  let alcanca = null;
-  try {
-    alcanca = await Promise.race([
-      Louvorja.sondarBanco(),
-      new Promise((res) => setTimeout(() => res(null), TESTE_FONTE_SONDA_MS)),
-    ]);
-  } catch (_) { alcanca = null; }
-  if (alcanca === true) {
+  let c;
+  try { c = await fonteClassificarSemResposta('não respondeu'); } catch (_) { c = null; }
+  if (c) fonteDefinir(c.estado, c.causa, null, 'verificação');
+  if (c && c.alcanca) {
     return { v: TESTE_FALHOU, nota: 'o servidor da LouvorJA respondeu, mas o app não conseguiu ler a resposta '
       + '(veio sem permissão de acesso — CORS — ou com um erro do servidor) — enquanto durar, o catálogo, '
       + 'as músicas novas e a Bíblia não baixam' };
   }
-  return { v: TESTE_MUDO, nota: 'o servidor da LouvorJA não respondeu' };
+  if (c && c.estado === 'servidor') {
+    return { v: TESTE_MUDO, nota: 'o servidor da LouvorJA não respondeu, e a internet funciona — o servidor '
+      + 'da biblioteca está fora do ar (o aviso aparece na Biblioteca)' };
+  }
+  return { v: TESTE_MUDO, nota: 'o servidor da LouvorJA não respondeu — e o aparelho está sem internet' };
 }
 
 let testeRodando = false;
@@ -30917,6 +31293,8 @@ async function renderDiag() {
   // responde — e é por isso que o `renderDiag` roda DUAS vezes ao abrir a folha
   // (ver a guarda de sequência). A ordem dos blocos não muda entre as duas.
   blocos.push(eventosDiag());
+  // O SERVIDOR DA BIBLIOTECA (v1.12.43): o veredito e as transições da sessão.
+  { const bf = blocoFonte(); if (bf) blocos.push(bf); }
   // A BARRA DO YOUTUBE (v1.12.37) logo depois da linha do tempo: os últimos
   // downloads, fase a fase — o previsto, o real e o número que a tela mostrava.
   await Promise.all([ytBarraDiagCarregar(), ytTemposCarregar()]);
@@ -43545,6 +43923,8 @@ document.addEventListener('visibilitychange', () => {
     return;
   }
   autoRefreshCollections();
+  // O SERVIDOR DA BIBLIOTECA, com o veredito ruim: a volta ao app pergunta de novo.
+  reapurarFonteSePreciso('retomada');
   // O LINK COPIADO ENQUANTO O APP ESTAVA FORA DA FRENTE — que é o caso normal:
   // o operador sai daqui, copia no YouTube e volta. Sem carimbo novo isto não
   // chega a ler nada (ver `conferirLinkCopiado`).
@@ -43678,6 +44058,11 @@ document.addEventListener('visibilitychange', () => {
   // Índices das coleções em segundo plano (fire-and-forget): não atrasa a
   // abertura do app, só deixa a busca/os cards prontos assim que a resposta chegar.
   autoRefreshCollections();
+  // O SERVIDOR DA BIBLIOTECA (v1.12.43): numa instalação que ainda não tem a
+  // listagem, a abertura apura já — `autoRefreshCollections` cede a vez a uma
+  // mídia no ar, e o aviso não pode depender disso. Com a listagem, quem
+  // alimenta o veredito é o próprio tráfego (`Louvorja.observar`).
+  if (fonteDependente()) apurarFonte('abertura');
   // E A PASSADA DOS FUNDOS, RELIGADA com o app à vista — ver `FUNDO_RELIGA_MS`.
   setInterval(religarFundos, FUNDO_RELIGA_MS);
   // A BÍBLIA BASE, garantida sozinha (v5.242) — metadados e, atrás deles, a
