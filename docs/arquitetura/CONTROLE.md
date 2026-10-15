@@ -5556,8 +5556,19 @@ itens."*
 - **O PERCENTUAL É DO TOQUE À MÍDIA TOCANDO** (v1.12.36), não dos bytes. A regra é `progresso.js` (`AVProgresso`, puro):
   fases `preparo` · `download` · `juncao` · `copia` · `gravacao` · `abertura`, a duração de cada uma PREVISTA pelo
   histórico do aparelho (`ytTempos` no `state`: as últimas 12 amostras, mediana; as fases que dependem do tamanho como
-  taxa) e a exibição que persegue `decorrido / (decorrido + restante)`, deriva sem parar quando uma fase atrasa e nunca
-  passa de 97 antes do `concluir()`. `novaBarraYt` é o relógio (100 ms) e os ouvintes: **a barra nasce no `ytAcao`** (o
+  taxa). **A EXIBIÇÃO É UM CONTROLE DE VELOCIDADE** (v1.12.37, revogando a perseguição de posição da v1.12.36, que
+  parava em 97 com a cauda atrasada e abria o vídeo em 75 com ela adiantada): a velocidade-alvo leva o valor ao `POUSO`
+  (95) no fim previsto, a real a persegue com inércia (`TAU_V` 0,8 s), um PISO de 0,3 ponto/s (decaindo só acima de 98)
+  nunca a deixa parar, o `CAP` 99,6 nunca é alcançado (o inteiro máximo é 99) e, passado o pouso, a meta é um terço do
+  que resta no tempo estimado MAIS o atraso já vivido — uma fase nova e curta não faz a barra correr ao teto e parar lá.
+  O `concluir()` é uma VARREDURA de 150–450 ms. O download é previsto pelo ritmo MEDIDO dos últimos 3 s; uma fase sem
+  fração que passa da previsão tem o restante CRESCENDO com o atraso (`peloRelogio`). Só amostras COMPARÁVEIS ensinam:
+  download retomado não ensina a rede; cópia, gravação e abertura vividas com a página OCULTA (o WebView estrangulado —
+  é o caso da rotina do episódio da semana) não ensinam; abertura sem play (`esperarTocando` devolve se tocou) não ensina;
+  o histórico tem `VERSAO`, e outra versão recomeça. **O REGISTRO DIZ O QUE ELA FEZ:** o `relatorio()` de cada trabalho
+  (caminho, previsto, real, cada fase com o número no fim dela, o número no `concluir()`, o salto final, o maior platô)
+  entra num anel GRAVADO dos últimos 5 (`ytBarraDiag`), no bloco *"Barra do YouTube"* logo depois da linha do tempo
+  (`blocoBarraYt`, com o aprendido em uso e o `apoio` de cada número) e numa linha *"barra: …"* da linha do tempo. `novaBarraYt` é o relógio (100 ms) e os ouvintes: **a barra nasce no `ytAcao`** (o
   preparo conta desde o toque) e a linha, o cartão do palco (`cederOPalco`), o cartão do download, a linha do Cronograma
   (`libBusy`) e a notificação (`bgTaskPct` → `pct` do `bgProgress`) mostram o MESMO número, com a frase da fase
   (`legendaDoProgresso`; só a dos bytes começa por "Baixando", que acende a seta). O shell avisa as fases que só ele vê
@@ -5566,7 +5577,8 @@ itens."*
   fica `baixando` até lá; num destino que guarda, o fim é a gravação. **Nada espera a barra**: ela é concluída DEPOIS do
   `send`, reservada (`reservar`) para o `finally` do `ytAcao` não a abandonar. Toda conclusão grava uma amostra
   (`tocar`, `guardar`, `serie` — o episódio da semana e o download de álbum de série —, `teste`); falha e cancelamento
-  abandonam sem amostra. Oráculos: `progresso.test.mjs` (a regra) e `modo-simples-espera.test.mjs` C (a ligação).
+  abandonam sem amostra. Oráculos: `progresso.test.mjs` (a regra) e `modo-simples-espera.test.mjs` C e D (a ligação e o
+  diagnóstico).
 - **Ela fica ABAIXO da linha, e isso é a regra escrita**: a `.row` é
   `z-index: 1` e pinta `--linha`, então o traço SOME quando aquela faixa ganha um
   preenchimento opaco de estado — ali quem separa é o preenchimento, e duas

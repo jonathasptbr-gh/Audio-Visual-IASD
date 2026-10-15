@@ -392,7 +392,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.36';
+const WEB_VERSION = '1.12.37';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -20834,6 +20834,7 @@ async function downloadSerieItem(coll, s) {
       (nome, info) => barra.sinal(nome, info));
   } catch (_) { barra.abandonar(); return false; }
   if (!r || !r.url) { barra.abandonar(); return false; }
+  barra.anotar({ nome: s.name, altura: r.height | 0 });
   try {
     barra.sinal('copia');
     const res = await fetch(r.url);
@@ -23321,7 +23322,7 @@ async function ytAcao(r, destinos, btn, somenteAudio, altura) {
   // A BARRA DO TOQUE À TELA (v1.12.36) nasce no TOQUE — o preparo conta — e é
   // DESTA ação: o download a alimenta, e quem a fecha é o desfecho (a mídia
   // tocando, ou gravada). Falha, cancelamento ou exceção a abandonam aqui.
-  const barra = novaBarraYt({ juncao: !somenteAudio, abertura: tocar });
+  const barra = novaBarraYt({ juncao: !somenteAudio, abertura: tocar, nome: r && r.name });
   let cartao = null;
   if (tocar) {
     closeHymnSearch();
@@ -23509,7 +23510,7 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura, extra) {
     // pelo `finally` do `ytAcao`.
     barra.reservar();
     esperarTocando(rec.id)
-      .then(() => barra.concluir('tocar'))
+      .then((tocou) => barra.concluir('tocar', { tocou }))
       .then(() => { if ((ytEstado.get(r.id) || {}).estado === 'baixando') setYtEstado(r.id, 'pronto'); });
   } else if (tocar) {
     barra.concluir('guardar');
@@ -30882,6 +30883,11 @@ async function renderDiag() {
   // responde — e é por isso que o `renderDiag` roda DUAS vezes ao abrir a folha
   // (ver a guarda de sequência). A ordem dos blocos não muda entre as duas.
   blocos.push(eventosDiag());
+  // A BARRA DO YOUTUBE (v1.12.37) logo depois da linha do tempo: os últimos
+  // downloads, fase a fase — o previsto, o real e o número que a tela mostrava.
+  await Promise.all([ytBarraDiagCarregar(), ytTemposCarregar()]);
+  if (meu !== diagSeq) return;
+  { const bb = blocoBarraYt(); if (bb) blocos.push(bb); }
   // A ÚLTIMA EXTRAÇÃO DO YOUTUBE vinha numa faixa do rodapé, em espaço fixo:
   // uma extração com várias tentativas transbordava e a parte de baixo ficava
   // inalcançável. Aqui ela é só mais um bloco de uma caixa que rola.
@@ -35208,13 +35214,69 @@ function ytTemposAprender(amostra, origem) {
     .catch(() => { /* aprender é ganho; falhar nele não derruba o download */ });
 }
 
+// O DIAGNÓSTICO DA BARRA (v1.12.37): o `relatorio()` de cada trabalho que
+// terminou, num anel de `YT_BARRA_DIAG_MAX` GRAVADO (`ytBarraDiag` no `state`) —
+// um Registro copiado depois do culto ainda o traz. O texto é montado aqui
+// (`blocoBarraYt`); a regra só devolve números.
+const YT_BARRA_DIAG = 'ytBarraDiag';
+const YT_BARRA_DIAG_MAX = 5;
+let ytBarraDiag = null;
+function ytBarraDiagCarregar() {
+  return Promise.resolve()
+    .then(() => AVDB.getState(YT_BARRA_DIAG))
+    .then((h) => (ytBarraDiag = Array.isArray(h) ? h.slice(-YT_BARRA_DIAG_MAX) : []))
+    .catch(() => (ytBarraDiag = ytBarraDiag || []));
+}
+function ytBarraDiagGuardar(item) {
+  ytBarraDiag = (ytBarraDiag || []).concat([item]).slice(-YT_BARRA_DIAG_MAX);
+  AVDB.updateState(YT_BARRA_DIAG, (h) => (Array.isArray(h) ? h : []).concat([item]).slice(-YT_BARRA_DIAG_MAX))
+    .then((h) => { if (Array.isArray(h)) ytBarraDiag = h; })
+    .catch(() => { /* diagnóstico é ganho; falhar nele não derruba nada */ });
+}
+const segsBarra = (ms) => (ms == null ? '?' : (ms / 1000).toFixed(1).replace('.', ',') + ' s');
+function blocoBarraYt() {
+  const lista = ytBarraDiag || [];
+  if (!lista.length) return '';
+  const FASE_ROTULO = { preparo: 'preparo', download: 'bytes', juncao: 'junção', copia: 'cópia', gravacao: 'gravação', abertura: 'abertura' };
+  const linhas = [];
+  for (const d of lista.slice().reverse()) {
+    const r = d.rel || {};
+    const quando = new Date(d.t || 0).toLocaleTimeString('pt-BR', { hour12: false });
+    const tam = r.bytes ? (r.bytes / 1048576).toFixed(0) + ' MB' : '';
+    linhas.push(quando + '  ' + (d.nome || 'vídeo').slice(0, 40) + ' · ' + [tam, d.altura ? d.altura + 'p' : '',
+      d.soAudio ? 'só áudio' : '', r.caminho || '', d.origem || ''].filter(Boolean).join(' · '));
+    linhas.push('    previsto ' + segsBarra(r.previstoMs) + ' · real ' + segsBarra(r.realMs) + ' · mostrava ' +
+      (r.aoConcluir == null ? '?' : r.aoConcluir + '%') + ' no fim (salto ' + (r.saltoFinal == null ? '?' : r.saltoFinal) +
+      ') · maior parada ' + segsBarra(r.platoMs) + (r.tocou === false ? ' · o play não foi visto (prazo)' : '') +
+      (r.oculto ? ' · app minimizado numa fase do app' : ''));
+    const fases = r.fases || {};
+    const partes = Object.keys(FASE_ROTULO).filter((f) => fases[f]).map((f) => {
+      const x = fases[f];
+      return FASE_ROTULO[f] + ' ' + segsBarra(x.realMs) + '/' + segsBarra(x.previstoMs) + (x.mostrado == null ? '' : ' →' + x.mostrado + '%');
+    });
+    if (partes.length) linhas.push('    real/previsto: ' + partes.join(' · '));
+  }
+  const m = AVProgresso.modelo(ytTempos);
+  const ap = AVProgresso.apoio(ytTempos);
+  const mbs = (m.bytesPorMs * 1000 / 1048576).toFixed(1).replace('.', ',');
+  linhas.push('Aprendido (' + ap.n + ' amostra(s)): preparo ' + segsBarra(m.preparoMs) + ' [' + ap.preparo + '] · rede ' + mbs + ' MB/s [' +
+    ap.download + '] · junção ' + Math.round(m.juncaoMsPorMB) + ' ms/MB [' + ap.juncao + '] · cópia ' + Math.round(m.copiaMsPorMB) +
+    ' ms/MB [' + ap.copia + '] · gravação ' + Math.round(m.gravacaoMsPorMB) + ' ms/MB [' + ap.gravacao + '] · abertura ' +
+    segsBarra(m.aberturaMs) + ' [' + ap.abertura + ']');
+  return 'Barra do YouTube (últimos ' + lista.length + ')\n' + linhas.join('\n');
+}
+
 function novaBarraYt(opcoes) {
   const o = opcoes || {};
   const b = AVProgresso.criar({
     modelo: AVProgresso.modelo(ytTempos), agora: () => Date.now(),
-    juncao: !!o.juncao, abertura: !!o.abertura,
+    juncao: !!o.juncao, abertura: !!o.abertura, oculta: document.visibilityState !== 'visible',
   });
   if (!ytTempos) ytTemposCarregar().then((h) => b.trocarModelo(AVProgresso.modelo(h)));
+  // A PÁGINA OCULTA estrangula o WebView: as fases do app vividas assim não ensinam nada.
+  const aoMudarVisibilidade = () => b.oculta(document.visibilityState !== 'visible');
+  document.addEventListener('visibilitychange', aoMudarVisibilidade);
+  const meta = { nome: o.nome || '', altura: 0, soAudio: !o.juncao };
   const ouvintes = new Set();
   const aoTerminar = [];
   let ultimo = -1;
@@ -35222,7 +35284,10 @@ function novaBarraYt(opcoes) {
   let encerrada = false;
   let concluida = false;
   let reservada = false;
-  const parar = () => { clearInterval(timer); timer = 0; };
+  const parar = () => {
+    clearInterval(timer); timer = 0;
+    document.removeEventListener('visibilitychange', aoMudarVisibilidade);
+  };
   const tique = () => {
     const v = b.passo();
     if (v !== ultimo) {
@@ -35240,14 +35305,25 @@ function novaBarraYt(opcoes) {
     },
     sinal(nome, info) { if (!encerrada) { b.sinal(nome, info); tique(); } },
     bytes(lidos, total) { if (!encerrada) b.bytes(lidos, total); },
+    /** O que o Registro diz deste trabalho: o nome, a altura que veio. */
+    anotar(x) { if (x) Object.assign(meta, x); },
     fase: () => b.fase(),
     valor: () => Math.max(0, ultimo),
-    /** A mídia está pronta: 100 em fração de segundo, e a amostra entra no histórico. */
-    concluir(origem) {
+    /**
+     * A mídia está pronta: 100 numa varredura curta, a amostra entra no
+     * histórico e o diagnóstico no Registro. `opcoes.tocou === false`: o prazo
+     * do play venceu (a abertura não ensina).
+     */
+    concluir(origem, opcoes) {
       if (encerrada) return Promise.resolve();
       encerrada = true; concluida = true;
-      b.concluir();
+      b.concluir(opcoes);
       ytTemposAprender(b.amostra(), origem);
+      const rel = b.relatorio();
+      ytBarraDiagGuardar(Object.assign({ t: Date.now(), origem: origem || '', rel }, meta));
+      diagC('barra: previsto ' + segsBarra(rel.previstoMs) + ' · real ' + segsBarra(rel.realMs) + ' · mostrava ' +
+        rel.aoConcluir + '% ao ' + (origem === 'tocar' ? 'tocar' : 'terminar') + ' · maior parada ' + segsBarra(rel.platoMs) +
+        ' · ' + rel.caminho);
       return new Promise((fim) => {
         aoTerminar.push(fim);
         // Página no fundo estrangula o intervalo: o desfecho não espera por ele.
@@ -35290,7 +35366,8 @@ function esperarTocando(id) {
     const olhar = () => {
       const rec = currentItem && currentId === id ? currentItem : null;
       const parado = rec && (rec.kind === 'image' || isDeck(rec));
-      if (midiaNoArId !== id || playing || parado || Date.now() >= ate) { pronto(); return; }
+      if (midiaNoArId !== id || playing || parado) { pronto(true); return; }
+      if (Date.now() >= ate) { pronto(false); return; }
       setTimeout(olhar, 50);
     };
     olhar();
@@ -35456,6 +35533,7 @@ async function ytBaixarNativo(link, nome, opts) {
           seconds: r.seconds | 0, audioOnly: !!r.audioOnly } : null;
       }
       if (!r || !r.url) return null;
+      barra.anotar({ nome: rotulo, altura: r.height | 0, soAudio });
       // CANCELADO NO ÚLTIMO SEGUNDO. O shell para o laço de cópia, mas há uma
       // janela em que ele já terminou de baixar e está juntando as faixas
       // (`MuxMp4`) — e aí o arquivo VEM, depois de o operador ter pedido para
