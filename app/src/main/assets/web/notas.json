@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.12.42",
+    "itens": [
+      "Tela cheia: o play/pause fica grande no meio da tela; sair da tela cheia vai para o canto de baixo à direita.",
+      "No modo avançado a tela cheia ficou igual à do Modo Fácil: nome no alto, barra de tempo embaixo, volume à esquerda.",
+      "No avançado, anterior e próximo ficam ao lado do play/pause, e o botão de cobrir a imagem no canto de cima à direita.",
+      "Com os controles apagados, tocar no meio da tela só os mostra: não pausa nem toca a mídia sem querer."
+    ]
+  },
+  {
     "versao": "1.12.41",
     "itens": [
       "YouTube: vídeos pequenos abrem com a porcentagem perto de 100%, sem saltar do meio.",

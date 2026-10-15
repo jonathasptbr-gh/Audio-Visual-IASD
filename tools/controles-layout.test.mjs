@@ -912,8 +912,8 @@ try {
   checar(fs2.acesa,
     'tocar num BOTÃO da coluna não a apaga — senão cada comando cobraria um toque de reabertura', fs2);
 
-  // Um toque FORA dela apaga. O alvo é a própria projeção, longe da coluna
-  // (ela mora encostada na direita).
+  // Um toque FORA dela apaga. O alvo é a própria projeção, longe dos botões
+  // (desde a v1.12.42: o centro, os cantos da direita — 20% da largura é vão).
   const cxPreview = await pg.evaluate(() => {
     const r = document.querySelector('.preview').getBoundingClientRect();
     return { x: Math.round(r.left + r.width * 0.2), y: Math.round(r.top + r.height / 2) };

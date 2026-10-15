@@ -850,7 +850,7 @@ nenhum**, e nas duas `attachTransportStep` segue sendo o mecanismo:
 
 | Superfície | Por que o par continua lá |
 |---|---|
-| **coluna da tela cheia** (`#fsPrev`/`#fsNext`) | sem TV a preview em tela cheia É a projeção, e tudo o que se pinta ali a congregação vê — não cabe um par a mais |
+| **tela cheia da prévia** (`#fsPrev`/`#fsNext`, ao lado do ▶/⏸ desde a v1.12.42) | sem TV a preview em tela cheia É a projeção, e tudo o que se pinta ali a congregação vê — não cabe um par a mais |
 | **notificação nativa** | o eixo é dito no RÓTULO do botão (`slideMode`/`slideLabel` em `pushNowPlaying`); ali cabe rótulo, então o modo nunca precisa ser adivinhado |
 
 ### Os dois botões de slide
@@ -1729,12 +1729,13 @@ E não há terceira via: o app **não tem intent-filter de URL** (só `MAIN` e
 EXPORTADA que troca uma chave de privacidade é pior que a linha — é a classe de
 risco que o KDoc do `ShareIntake` já nomeia.
 
-#### Os controles DENTRO do fullscreen: uma coluna, não gestos (v1.0.7)
+#### Os controles DENTRO do fullscreen: botões, não gestos (v1.0.7)
 
-**Uma coluna de ícones na lateral direita** (`#pvFsCtl`). Ela **nasce acesa** ao
-entrar na tela cheia, **4 s sem toque apagam** (`FSCTL_MS`), e o toque em
-qualquer lugar da projeção é um **INTERRUPTOR** — as duas últimas coisas são da
-v1.3.10, a pedido do operador.
+**Botões sobre a projeção** (`#pvFsCtl`). Eles **nascem acesos** ao entrar na
+tela cheia, **4 s sem toque apagam** (`FSCTL_MS`), e o toque em qualquer lugar
+da projeção é um **INTERRUPTOR** — as duas últimas coisas são da v1.3.10, a
+pedido do operador. Foram uma COLUNA na lateral direita da v1.0.7 à v1.12.41;
+desde a v1.12.42 são o MODELO ÚNICO abaixo, nos dois modos.
 
 Ela substituiu um mapa de **gestos invisíveis** — toque por terço, deslizes nos
 quatro sentidos, arrasto de volume no terço direito. O motivo daquele desenho era
@@ -1746,13 +1747,24 @@ toque no lugar errado fazia outra coisa em cima do culto.
 A coluna preserva a razão e paga o preço de outro jeito: **passageira** (só ao
 toque, some sozinha) e **translúcida** (`.72`).
 
-| Botão | Ação | Como |
-|---|---|---|
-| Sair | fecha a tela cheia | `exitFullscreen()` |
-| Cortina | wallpaper on/off | `viewToggleEl.click()` |
-| ⏮ | estrofe anterior · **segurar**: mídia anterior | `attachTransportStep(btn, -1)` |
-| ▶/⏸ | play/pause | `playPauseEl.click()` |
-| ⏭ | próxima estrofe · **segurar**: próxima mídia | `attachTransportStep(btn, 1)` |
+| Botão | Onde (v1.12.42) | Ação | Como |
+|---|---|---|---|
+| ▶/⏸ | **CENTRO**, 60px (`--fs-play`, 1,5× os outros) | play/pause | `playPauseEl.click()` |
+| ⏮ | à ESQUERDA do ▶/⏸ (só avançado) | estrofe anterior · **segurar**: mídia anterior | `attachTransportStep(btn, -1)` |
+| ⏭ | à DIREITA do ▶/⏸ (só avançado) | próxima estrofe · **segurar**: próxima mídia | `attachTransportStep(btn, 1)` |
+| Sair | canto **INFERIOR direito**, na linha do tempo | fecha a tela cheia | `exitFullscreen()` |
+| Cortina | canto **SUPERIOR direito**, na faixa do título (só avançado) | wallpaper on/off | `viewToggleEl.click()` |
+
+**E O MODELO TEM TRÊS COMPANHEIRAS, nos dois modos** (v1.12.41 no Modo Fácil,
+v1.12.42 no avançado): o NOME da mídia numa faixa no topo (`#pvFsTopo`), a LINHA
+DO TEMPO numa faixa na base (`#pvFsBase`, o mesmo `ligarBarraDeTempo` da barra do
+card, escrita por `renderFsTempo`) e o VOLUME em pé na borda esquerda
+(`#pvVolume`). As duas faixas reservam à direita o recuo do botão do canto
+(`--fs-recuo`), e é por isso que o sair e a cortina moram NA LINHA delas sem
+cobrir nada. Pedido do operador: *"unificar o modelo do modo de tela cheia do
+modo simples, também para o modo avançado … botões como anterior e próximo vão
+ficar no centro da tela a esquerda e direita do botão de play/pause. E deixe o
+botão de desativar imagem no canto superior direito"*.
 
 **Nada é reimplementado** (invariante 5). O ⏮/⏭ daqui recebe
 `attachTransportStep`, que é o par de dois eixos — e desde a v1.3.5 esta coluna
@@ -1777,29 +1789,33 @@ chamado de `renderControls` e `setPlaying` — os dois únicos pontos que escrev
 esse estado). Eles LEEM os botões de lá em vez de reler o estado por conta
 própria: uma segunda leitura divergiria no primeiro caso de borda.
 
-**Apagada, ela é `pointer-events: none`** — sem isso, uma coluna invisível
-continuaria comendo os toques da metade direita da projeção.
+**A camada (`.pv-fsctl`, `inset: 0`) NUNCA recebe toque, e os botões só
+ACESOS** (`.pv-fsctl.visivel .pv-fab { pointer-events: auto }`). A regra dos
+apagados (`.pv-fsctl .pv-fab { pointer-events: none }`) é obrigatória e não
+óbvia: o `.pv-fab` declara `pointer-events: auto`, e isso VENCE o `none`
+herdado do pai — até a v1.12.41 um toque onde um botão escondido estava o
+ACIONAVA além de acender (raro na lateral; com o ▶/⏸ no centro seria todo
+toque que acende). Oráculo: `video-tela-cheia` I8.
 
-**Ela OCUPA A ALTURA INTEIRA** (v1.1.2), com os cinco botões distribuídos por
-`space-between`. Centrada, eram um bloco denso no meio de uma tela em PAISAGEM:
-os ícones a 2px um do outro e metade da lateral sem uso. Com a altura toda,
-**o vão entre dois vizinhos passa a ser MAIOR que o próprio botão** (medido em
-800×390: alvo de 40px, vão de ~42px), e num alvo que se opera sem olhar (quem
-está em tela cheia olha a projeção) esse vão é a única coisa que separa um
-controle do seguinte. O alvo sobe de `--hit` (34px) para **40px** e o ícone de
-24px para **28px**: aqui o aparelho está no suporte e o toque é de raspão, ao
-contrário dos `.pv-fab` dos cantos.
+**Os vãos são MAIORES que os botões**: o ⏮/⏭ fica a `--fs-vao` (44px) do ▶/⏸,
+e num alvo que se opera sem olhar (quem está em tela cheia olha a projeção)
+esse vão é a única coisa que separa um controle do seguinte. O alvo é **40px**
+(contra os 34px de `--hit`) e o ícone **28px** — o ▶/⏸ **60px** com ícone de
+**42px**: aqui o aparelho está no suporte e o toque é de raspão, ao contrário
+dos `.pv-fab` dos cantos da miniatura.
 
-**A folga das três bordas é de 10px** (v1.1.3), e ela **não** acompanha os 2px
+**A folga das bordas é de 10px** (v1.1.3), e ela **não** acompanha os 2px
 dos `.pv-fabs` dos cantos: aqueles moram numa miniatura de poucos centímetros,
 onde 2px a mais custam mídia visível; aqui a tela inteira é a projeção e o que
 sobra é espaço. Encostado na borda, o alvo divide lugar com a moldura
 arredondada do aparelho e — em paisagem — com o recorte da câmera numa das
 laterais.
 
-**Errar o alvo custa um toque, nunca uma ação errada:** acesa, a coluna é
-`pointer-events: auto` inteira, então o dedo que cai num vão morre nela em vez de
-atravessar para a projeção — e o `pointerdown` que borbulha até a `.preview`
+**Errar o alvo custa um toque, nunca uma ação errada:** desde a v1.12.42 o dedo
+que cai num vão atravessa para a projeção e APAGA os controles (a coluna acesa
+era `pointer-events: auto` inteira e o vão renovava; com os botões espalhados
+pela tela a camada não pode receber toque, senão comeria a projeção toda). O
+toque num BOTÃO chega ao botão, e o `pointerdown` que borbulha até a `.preview`
 apenas RENOVA os 4 s.
 
 ##### Ela NASCE ACESA, e o toque é um INTERRUPTOR (v1.3.10)
@@ -1828,8 +1844,8 @@ até o reconhecedor da `.preview`; acesa, o toque num BOTÃO chega ao botão, e 
 `pointerdown` precisa RENOVAR em vez de apagar — senão comandar a projeção
 fecharia a coluna a cada comando, e passar três estrofes exigiria um toque de
 reabertura entre cada duas. Só o toque que cai **fora** dela esconde
-(`e.target.closest('.pv-fsctl')`), e **o vão entre os botões conta como
-DENTRO**: errar o alvo por 2px renova, como sempre renovou.
+(`e.target.closest('.pv-fsctl, .pv-fsbase')`). **O vão entre os botões contava
+como DENTRO até a v1.12.41**; desde a v1.12.42 ele é fora (ver acima).
 
 Oráculo: as quatro asserções de tela cheia em `tools/controles-layout.test.mjs`.
 Elas esperam pelo **evento** `fullscreenchange`, nunca por
