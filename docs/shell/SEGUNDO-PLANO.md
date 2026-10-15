@@ -205,7 +205,11 @@ cobrem essa espera; o caminho é o `ytArquivo`, que nunca deixou de existir.
 
 Minimizado, ela é a ÚNICA janela para o download. Quem sabe o progresso é o web:
 `bgTaskStart`/`bgTaskStep` → `AVNative.bgProgress({label, done, total, etaMs,
-items, idleMs, bytes})` → `SyncService.updateProgress`.
+items, idleMs, bytes, icone, pct})` → `SyncService.updateProgress`.
+
+- **`pct` (shell 81)** é o percentual pronto do download do YouTube — o do TOQUE à
+  mídia tocando (`bgTaskPct`, alimentado pela barra `novaBarraYt`) — e vale para a
+  barra e o número; o texto continua em bytes. `-1` = a razão `done`/`total`.
 
 **Números e unidades**
 

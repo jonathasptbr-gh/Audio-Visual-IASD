@@ -167,9 +167,9 @@ Ordem dos scripts do Controle: `native.js` → `db.js` → `stage.js` →
 `controle.js`.
 
 As CINCO condições: papel `controle` · `AVDB`/`createStage` ·
-`__avBack` · o fim do `init()` (`__avSplash.terminou`) · **os dez módulos do Controle**
+`__avBack` · o fim do `init()` (`__avSplash.terminou`) · **os onze módulos do Controle**
 (`Louvorja`, `Bible`, `AVSerie`, `AVSorteio`, `AVCifra`, `AVHinario`,
-`AVColetanea`, `AVPptxZip`, `AVDeck`, `AVPacote`). Por **polling** (250 ms,
+`AVColetanea`, `AVPptxZip`, `AVDeck`, `AVPacote`, `AVProgresso`). Por **polling** (250 ms,
 desistindo em 30 s), porque o `init()` é assíncrono e termina DEPOIS do `load`.
 
 > **A LISTA CRESCE COM O DIRETÓRIO, e no MESMO lote.** Cada módulo novo do
@@ -624,7 +624,7 @@ cada uma cobrindo o que a anterior não cobre:
    `ota-confirma.test.mjs`.
 
 5. **`Louvorja` · `Bible` · `AVSerie` · `AVSorteio` · `AVCifra` · `AVHinario` ·
-   `AVDeck` · `AVColetanea` · `AVPptxZip` · `AVPacote`** — os dez
+   `AVDeck` · `AVColetanea` · `AVPptxZip` · `AVPacote` · `AVProgresso`** — os onze
    scripts do Controle, cada um publicando seu global na ÚLTIMA linha do arquivo. Eram o
    buraco declarado deste watchdog até a v5.315: todo uso de `AVSerie`/`AVSorteio`
    no `controle.js` está DENTRO de função, então um erro de topo num deles **não**

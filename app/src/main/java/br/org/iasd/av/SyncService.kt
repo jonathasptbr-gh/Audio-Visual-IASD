@@ -341,6 +341,12 @@ class SyncService : Service() {
              * esta bandeira decide.
              */
             val bytes: Boolean = false,
+            /**
+             * O PERCENTUAL já calculado pelo lado web (shell 81): o do toque à
+             * tela num download do YouTube, que inclui junção, cópia e abertura
+             * — fases que não movem byte. `-1` = deduzir de `done`/`total`.
+             */
+            val pct: Int = -1,
         )
 
         /**
@@ -436,6 +442,7 @@ class SyncService : Service() {
             idleMs: Long = 0,
             bytes: Boolean = false,
             icone: Icone = Icone.BAIXAR,
+            pct: Int = -1,
         ) {
             // POR NOME, e não por posição. A chamada era posicional, e um campo
             // acrescentado no MEIO da `data class` empurraria todos os
@@ -453,6 +460,7 @@ class SyncService : Service() {
                 idleMs = idleMs,
                 bytes = bytes,
                 icone = icone,
+                pct = pct,
             )
             val nm = ctx.getSystemService(NotificationManager::class.java) ?: return
             try {
@@ -570,7 +578,8 @@ class SyncService : Service() {
                     .build()
             }
             val feito = p.done.coerceIn(0, p.total)
-            val pct = ((feito * 100) / p.total).toInt()
+            val proprio = p.pct in 0..100
+            val pct = if (proprio) p.pct else ((feito * 100) / p.total).toInt()
             val parado = p.idleMs >= STALL_MS
 
             // Com o download parado, o tempo restante vira ficção: ele foi
@@ -612,7 +621,7 @@ class SyncService : Service() {
                 // `Int`, e um total em bytes passa de 2 GB num vídeo de 1080p —
                 // o estouro faria a barra andar para trás. A resolução de 1/1000
                 // é muito além do que uma barra de notificação distingue.
-                .setProgress(1000, ((feito * 1000) / p.total).toInt(), false)
+                .setProgress(1000, if (proprio) p.pct * 10 else ((feito * 1000) / p.total).toInt(), false)
             return b.build()
         }
 

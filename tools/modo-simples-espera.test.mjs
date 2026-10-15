@@ -63,7 +63,7 @@ const r = await pg.evaluate(async (mode) => {
   window.__log.push([performance.now()|0,'toque']);
   simpleSelecionarLinha(li);
   simpleAcompanhar(ytAcao({ id:'abcdefghijk', name:'Video teste', url:'https://www.youtube.com/watch?v=abcdefghijk' }, 'tocar', null, false, 720));
-  const espiar = setInterval(() => { const e = ytEstado.get('abcdefghijk'); if (e && typeof e.pct === 'number') window.__pcts.push(e.pct); }, 20);
+  const espiar = setInterval(() => { const e = ytEstado.get('abcdefghijk'); if (e && typeof e.pct === 'number') window.__pcts.push([(performance.now()-t0)|0, e.estado, e.pct, !!midiaNoAr]); }, 20);
   await new Promise(r => setTimeout(r, 9000));
   clearInterval(espiar);
   clearInterval(iv);
@@ -81,9 +81,26 @@ checar(antes.every((o) => o[1].sel && o[1].campo === 'arautos' && o[1].open),
 const fim = r.out[r.out.length - 1];
 checar(fim && fim[1].noAr && !fim[1].sel && fim[0] >= entrou, 'B · com a mídia no ar, a escolha se encerra',
   JSON.stringify(fim));
-const maxPct = Math.max(...r.pcts);
-checar(r.pcts.length > 0 && maxPct === 99, 'C · o percentual para em 99 até o desfecho: o fim da rede não é "pronto"',
-  JSON.stringify({ n: r.pcts.length, maxPct }));
+// C · O PERCENTUAL É DO TOQUE À TELA (v1.12.36): ele não chega a 100 antes de a mídia estar no
+// ar, nunca volta, e CONTINUA andando depois do fim da rede (a junção e a gravação têm peso) —
+// era um 99 parado durante segundos (v1.12.32).
+const baixando = r.pcts.filter((p) => p[1] === 'baixando' && p[2] >= 0);
+const antesDoAr = baixando.filter((p) => !p[3]);
+const maxAntes = Math.max(...antesDoAr.map((p) => p[2]));
+checar(antesDoAr.length > 0 && maxAntes <= 97, 'C · o percentual não chega a 100 antes de a mídia entrar no ar',
+  JSON.stringify({ n: antesDoAr.length, maxAntes }));
+checar(baixando.every((p, i) => i === 0 || p[2] >= baixando[i - 1][2]), 'C · e nunca volta',
+  JSON.stringify(baixando.map((p) => p[2])));
+const fimRede = quando('100%');
+const depoisDaRede = antesDoAr.filter((p) => p[0] > fimRede + 300);
+checar(depoisDaRede.length > 2 && depoisDaRede[depoisDaRede.length - 1][2] > depoisDaRede[0][2],
+  'C · e depois do fim da rede ele CONTINUA andando até a mídia estar pronta — nada de "99 parado"',
+  JSON.stringify(depoisDaRede.map((p) => p[2])));
+const ultimo = r.pcts.filter((p) => p[1] === 'baixando').pop();
+const pronto = r.pcts.find((p) => p[1] === 'pronto');
+checar(!!pronto && ultimo && ultimo[2] >= 97 && ultimo[3] && pronto[0] > ultimo[0],
+  'C · e o fim é a mídia no ar: a linha vira "pronto" (o 100) só DEPOIS de ela entrar, com o número no fim da barra',
+  JSON.stringify({ ultimo, pronto }));
 await nav.close(); srv.close();
 if (falhas.length) { console.log('\n' + falhas.length + ' falha(s).'); process.exit(1); }
 console.log('\nTodos passaram.');

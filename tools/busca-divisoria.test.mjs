@@ -148,19 +148,65 @@ async function passe(rotulo, { tema, avancado }) {
     const videos = d.linhas.filter((l) => l.yt);
     checar(d.modo === (avancado ? 'avancado' : 'facil'), rotulo + ' · PREMISSA: o modo é o pedido', d.modo);
 
-    // ---- A8 · NO MODO FÁCIL O VÍDEO É UM CARTÃO (v1.12.35) -------------------
-    // *"a thumbnail tem a largura disponível … e o título … abaixo do vídeo"*. No avançado a linha
-    // segue a anatomia das músicas (miniatura pequena à esquerda).
-    if (!avancado) {
-      checar(videos.every((l) => l.cartao && l.cartao.tW >= l.cartao.rowW - 24
-        && Math.abs(l.cartao.tW / l.cartao.tH - 16 / 9) < 0.05 && l.cartao.nomeTopo >= l.cartao.tBase - 0.5),
-        'A8 · ' + rotulo + ' · cada vídeo é um CARTÃO: a miniatura toma a largura da linha em 16:9 e o '
-        + 'título fica ABAIXO dela', JSON.stringify(videos.map((l) => l.cartao)));
-    } else {
-      checar(videos.every((l) => l.cartao && l.cartao.tW < l.cartao.rowW / 3),
-        'A8 · ' + rotulo + ' · no avançado o vídeo continua uma LINHA (miniatura pequena ao lado do título)',
-        JSON.stringify(videos.map((l) => l.cartao)));
-    }
+    // ---- A8 · O VÍDEO É UM CARTÃO, NOS DOIS MODOS (v1.12.35 no Fácil, v1.12.36 no avançado) ----
+    // *"a thumbnail tem a largura disponível … e o título … abaixo do vídeo"* — e *"achei mais
+    // interessante esse design de thumbnail maior"*, que o levou ao avançado.
+    checar(videos.every((l) => l.cartao && l.cartao.tW >= l.cartao.rowW - 24
+      && Math.abs(l.cartao.tW / l.cartao.tH - 16 / 9) < 0.05 && l.cartao.nomeTopo >= l.cartao.tBase - 0.5),
+      'A8 · ' + rotulo + ' · cada vídeo é um CARTÃO: a miniatura toma a largura da linha em 16:9 e o '
+      + 'título fica ABAIXO dela', JSON.stringify(videos.map((l) => l.cartao)));
+
+    // ---- A9 · O ANEL E O NÚMERO NO CENTRO; O "NO APARELHO" ESCRITO (v1.12.36) ----
+    // Pedido do operador: o percentual centrado logo ABAIXO do anel, os dois no centro da
+    // miniatura; e o "já está no aparelho" deixa de cobrir a miniatura e vira um rótulo na
+    // linha do canal e da duração, nos dois modos.
+    const a9 = await pg.evaluate(() => {
+      setYtEstado('yt-1', 'baixando', 42);
+      setYtEstado('yt-2', 'pronto');
+      const [l1, l2] = [...document.querySelectorAll('#hymnResults > .yt-result')];
+      const R = (el) => el.getBoundingClientRect();
+      const th1 = R(l1.querySelector('.yt-thumb'));
+      const anel = R(l1.querySelector('.dl-ring'));
+      const pctEl = l1.querySelector('.dl-pct');
+      const pct = R(pctEl);
+      const th2 = R(l2.querySelector('.yt-thumb'));
+      const ok = l2.querySelector('.yt-ok');
+      const rok = R(ok);
+      const cs = getComputedStyle(ok);
+      const raiz = getComputedStyle(document.documentElement);
+      const cor = (v) => { const d = document.createElement('i'); d.style.color = v; document.body.appendChild(d);
+        const c = getComputedStyle(d).color; d.remove(); return c; };
+      l2.querySelector('.yt-thumb').scrollIntoView({ block: 'center' });
+      const th2v = R(l2.querySelector('.yt-thumb'));
+      const meio = document.elementFromPoint(th2v.left + th2v.width / 2, th2v.top + th2v.height / 2);
+      const out = {
+        thCx: th1.left + th1.width / 2, thCy: th1.top + th1.height / 2,
+        anelCx: anel.left + anel.width / 2, anelBase: anel.bottom, anelTopo: anel.top,
+        pctCx: pct.left + pct.width / 2, pctTopo: pct.top, pctBase: pct.bottom, pctTxt: pctEl.textContent,
+        pctDentro: pct.top >= th1.top && pct.bottom <= th1.bottom,
+        okVisivel: cs.display !== 'none' && rok.width > 0, okNaSub: !!ok.closest('.hymn-sub'),
+        okAbaixo: rok.top >= th2.bottom - 0.5, okTxt: ok.textContent.trim(),
+        okFundo: cs.backgroundColor, okCor: cs.color,
+        fundoEsperado: cor(raiz.getPropertyValue('--btn-accent')), corEsperada: cor(raiz.getPropertyValue('--accent')),
+        meioLivre: !!meio && (meio === l2.querySelector('.yt-thumb') || meio.tagName === 'IMG'),
+        okNoBaixando: getComputedStyle(l1.querySelector('.yt-ok')).display,
+      };
+      setYtEstado('yt-1', null); setYtEstado('yt-2', null);
+      return out;
+    });
+    checar(Math.abs(a9.anelCx - a9.thCx) <= 1 && Math.abs(a9.pctCx - a9.thCx) <= 1,
+      'A9 · ' + rotulo + ' · o anel e o percentual ficam no CENTRO horizontal da miniatura', JSON.stringify(a9));
+    checar(a9.pctTopo >= a9.anelBase - 0.5 && a9.pctTopo - a9.anelBase <= 12 && a9.pctDentro,
+      'A9 · ' + rotulo + ' · e o percentual fica logo ABAIXO do anel, dentro da miniatura (não num canto)', JSON.stringify(a9));
+    checar(Math.abs((a9.anelTopo + a9.pctBase) / 2 - a9.thCy) <= 2,
+      'A9 · ' + rotulo + ' · e o conjunto anel + número é centrado na vertical', JSON.stringify(a9));
+    checar(a9.pctTxt === '42%', 'A9 · ' + rotulo + ' · o número é o percentual da linha', a9.pctTxt);
+    checar(a9.okVisivel && a9.okNaSub && a9.okAbaixo && a9.okTxt === 'No aparelho' && a9.meioLivre,
+      'A9 · ' + rotulo + ' · "No aparelho" é ESCRITO na linha do canal e da duração, abaixo da miniatura — '
+      + 'e nada cobre a miniatura', JSON.stringify(a9));
+    checar(a9.okFundo === a9.fundoEsperado && a9.okCor === a9.corEsperada,
+      'A9 · ' + rotulo + ' · no azul de CONCLUSÃO (`--btn-accent` + `--accent`), nunca verde', JSON.stringify(a9));
+    checar(a9.okNoBaixando === 'none', 'A9 · ' + rotulo + ' · e só aparece na linha PRONTA', a9.okNoBaixando);
 
     // ---- A1 · UMA POR PAR -------------------------------------------------
     const pares = d.linhas.filter((l) => l.par);
@@ -189,9 +235,9 @@ async function passe(rotulo, { tema, avancado }) {
     checar(recuos.every((x) => Math.abs(x) <= 1),
       'A5 · ' + rotulo + ' · o traço começa na BORDA ESQUERDA da linha (±1px), na música E no vídeo — '
       + 'passa por baixo do play e da miniatura, e nenhuma coluna é um número escrito aqui', JSON.stringify(recuos));
-    // No Modo Fácil o VÍDEO é um cartão (v1.12.35): o nome fica ABAIXO da miniatura, rente à borda,
+    // O VÍDEO é um cartão (v1.12.35/v1.12.36): o nome fica ABAIXO da miniatura, rente à borda,
     // e a premissa só se mede nas linhas em que o nome está ao lado de algo.
-    checar(pares.filter((l) => !(l.yt && d.modo === 'facil')).every((l) => l.nome - l.esq > 20),
+    checar(pares.filter((l) => !l.yt).every((l) => l.nome - l.esq > 20),
       'A5 · ' + rotulo + ' · PREMISSA: o nome começa bem depois da borda (há play/miniatura entre os dois), '
       + 'senão "de lado a lado" não se distinguiria do recuo antigo', JSON.stringify(pares.map((l) => +(l.nome - l.esq).toFixed(1))));
     const dirs = pares.map((l) => +(l.tracoDir - l.dir).toFixed(2));

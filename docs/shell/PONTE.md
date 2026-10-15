@@ -273,7 +273,15 @@ positionMs, durationMs, actions }`
 
 ### `bgProgress({...})` — o progresso na notificação de download
 
-`{ label, done, total, etaMs, items, idleMs, bytes }`
+`{ label, done, total, etaMs, items, idleMs, bytes, icone, pct }`
+
+- **`pct` (shell 81)** é o percentual JÁ CALCULADO pelo web — o do toque à tela
+  de um download do YouTube (`novaBarraYt`), que anda pela junção, pela cópia e
+  pela gravação, fases sem byte. Presente (0–100), ele vale para a BARRA e para
+  o número; `done`/`total` continuam sendo os BYTES do texto ("X MB de Y MB").
+  `-1` = o Kotlin deduz da razão, como sempre. O `bgTaskPct` não mexe no
+  `lastEventAt`: a barra anda sozinha, e marcar cada tique como novidade apagaria
+  o "sem resposta há X" de um download de fato parado.
 
 - **`bytes` é a bandeira de unidade**, e ela mora no REGISTRO da tarefa, não no
   envio: um lote de músicas pode rodar ao lado de um vídeo.
@@ -714,9 +722,17 @@ window.AVNative = {
                        //   `broadcast`: o diálogo do SystemUI é broadcast, e é
                        //   isso que a cadeia da v1.9.9 não sabia disparar
   openExternal(url),   // abre uma URL https FORA do app (só o Controle)
-  ytFetch(url, onProg, soAudio, altura), // → { url, name, size, type, height, seconds }
+  ytFetch(url, onProg, soAudio, altura, onFase), // → { url, name, size, type, height, seconds }
                        //   `soAudio` traz só a faixa de áudio (m4a)
                        //   `altura` é o TETO de resolução
+                       //   `onFase(nome, info)` (shell 81) — o shell avisa as
+                       //   fases que só ele vê, por `__avYtFase(id, nome, info)`:
+                       //   `extraiu` {seconds} · `baixou` {bytes, juntar} ·
+                       //   `juntando` {feito, total} (o `MuxMp4`, a cada ~1 MB) ·
+                       //   `juntou` {ok, bytes}. Alimentam o percentual do toque
+                       //   à tela (`controle/progresso.js`); sem eles a barra
+                       //   infere pelo relógio. NÃO é método a mais: é o 5º
+                       //   argumento do mesmo, e a contagem da superfície não muda
   ytDiscard(url),      //   e apaga o arquivo depois que os bytes foram copiados
   ytCancel(url),       // PARA o download em curso deste link
   // otaPending()      // só no SHELL desde a v1.8.71: sem consumidor no web (absorvido pelo `atualizacaoEstado`)
@@ -823,7 +839,7 @@ window.AVNative = {
                        //   sistema. MÉTODO e não campo do `bgProgress`: aquele
                        //   descreve trabalho EM CURSO e é chamado dezenas de
                        //   vezes por minuto; este é terminal e vale uma vez
-  bgProgress({label, done, total, etaMs, items, idleMs, bytes, icone}), // progresso
+  bgProgress({label, done, total, etaMs, items, idleMs, bytes, icone, pct}), // progresso
                        //   na notificação. `icone` é o DESENHO da barra:
                        //   `baixar` (seta para baixo animada — o padrão),
                        //   `enviar` (para cima) ou `processar` (o círculo

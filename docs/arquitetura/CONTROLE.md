@@ -5542,6 +5542,31 @@ itens."*
   `.hymn-result` `calc(var(--sp-5) / 2)` (a outra metade é o `padding-top` que a primeira linha não pinta): nos quatro
   estados (Fácil × avançado, navegando × buscando) são 9,6px da barra ao conteúdo e 15,2px do campo.
   Oráculo: `busca-divisoria.test.mjs` (A5 de lado a lado, A6 o respiro).
+- **O RESULTADO DO YOUTUBE É UM CARTÃO, NOS DOIS MODOS** (v1.12.35 no Fácil; v1.12.36 no avançado, *"achei mais
+  interessante esse design de thumbnail maior"*). `ytResultRow` é uma linha só: as regras `.yt-result …` a viram
+  coluna, com a miniatura na largura da lista em 16:9 e o título, o canal e a duração abaixo. No avançado o toque abre
+  a folha (`openYtMenu`) com TODAS as escolhas — destinos, vídeo/só-áudio, teto —, então nada na linha precisou mudar de
+  lugar. **O anel e o percentual são UM conjunto** (`.yt-dl`, coluna absoluta sobre a miniatura): o número centrado logo
+  ABAIXO do anel, os dois no centro, o número em `--scrim` + `--stage-text` para ler sobre qualquer imagem. **Armadilha:**
+  `.lib-item.baixando .thumb .dl-ring` (absoluto, 30px) tem a especificidade de `.yt-result.baixando .yt-dl .dl-ring` e
+  vem antes — sem a regra de baixo devolver o anel ao fluxo, o número cai POR CIMA dele. **"Já está no aparelho" é
+  ESCRITO** (`.yt-ok`, `✓ No aparelho`, dentro do `.hymn-sub` ao lado de `.yt-meta`): o véu `--btn-accent` que cobria a
+  miniatura inteira saiu. Conclusão é azul (`--btn-accent` + `--accent`). A falha (`.yt-err`) segue cobrindo a
+  miniatura, por 4 s. Oráculo: `busca-divisoria.test.mjs` (A8, A9).
+- **O PERCENTUAL É DO TOQUE À MÍDIA TOCANDO** (v1.12.36), não dos bytes. A regra é `progresso.js` (`AVProgresso`, puro):
+  fases `preparo` · `download` · `juncao` · `copia` · `gravacao` · `abertura`, a duração de cada uma PREVISTA pelo
+  histórico do aparelho (`ytTempos` no `state`: as últimas 12 amostras, mediana; as fases que dependem do tamanho como
+  taxa) e a exibição que persegue `decorrido / (decorrido + restante)`, deriva sem parar quando uma fase atrasa e nunca
+  passa de 97 antes do `concluir()`. `novaBarraYt` é o relógio (100 ms) e os ouvintes: **a barra nasce no `ytAcao`** (o
+  preparo conta desde o toque) e a linha, o cartão do palco (`cederOPalco`), o cartão do download, a linha do Cronograma
+  (`libBusy`) e a notificação (`bgTaskPct` → `pct` do `bgProgress`) mostram o MESMO número, com a frase da fase
+  (`legendaDoProgresso`; só a dos bytes começa por "Baixando", que acende a seta). O shell avisa as fases que só ele vê
+  (`__avYtFase`: `extraiu`, `baixou`, `juntando`, `juntou`), e sem elas a barra segue pelo relógio. **No "Tocar agora" o
+  fim é a mídia tocando** (`esperarTocando`: `playing` com ela no ar, prazo 5 s; imagem e apresentação na hora) e a linha
+  fica `baixando` até lá; num destino que guarda, o fim é a gravação. **Nada espera a barra**: ela é concluída DEPOIS do
+  `send`, reservada (`reservar`) para o `finally` do `ytAcao` não a abandonar. Toda conclusão grava uma amostra
+  (`tocar`, `guardar`, `serie` — o episódio da semana e o download de álbum de série —, `teste`); falha e cancelamento
+  abandonam sem amostra. Oráculos: `progresso.test.mjs` (a regra) e `modo-simples-espera.test.mjs` C (a ligação).
 - **Ela fica ABAIXO da linha, e isso é a regra escrita**: a `.row` é
   `z-index: 1` e pinta `--linha`, então o traço SOME quando aquela faixa ganha um
   preenchimento opaco de estado — ali quem separa é o preenchimento, e duas
