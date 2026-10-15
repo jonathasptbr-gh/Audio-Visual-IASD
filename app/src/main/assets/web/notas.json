@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.12.38",
+    "itens": [
+      "YouTube: a porcentagem chega perto de 100% quando o vídeo começa, sem saltar de 75%.",
+      "Ela aprende a velocidade da sua internet já nos primeiros vídeos baixados.",
+      "O primeiro vídeo depois desta atualização ainda pode pular um pouco: ela recomeça a aprender."
+    ]
+  },
+  {
     "versao": "1.12.37",
     "itens": [
       "YouTube: a porcentagem anda num ritmo constante, sem parar em 97% e sem pular no fim.",

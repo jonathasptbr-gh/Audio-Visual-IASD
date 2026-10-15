@@ -392,7 +392,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.37';
+const WEB_VERSION = '1.12.38';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -35234,6 +35234,9 @@ function ytBarraDiagGuardar(item) {
     .catch(() => { /* diagnóstico é ganho; falhar nele não derruba nada */ });
 }
 const segsBarra = (ms) => (ms == null ? '?' : (ms / 1000).toFixed(1).replace('.', ',') + ' s');
+const mbBarra = (b) => (b / 1048576).toFixed(1).replace('.', ',') + ' MB';
+const mbsBarra = (bpms) => (bpms * 1000 / 1048576).toFixed(1).replace('.', ',') + ' MB/s';
+const TAMANHO_FONTE = { real: 'o do shell', duracao: 'pela duração', historico: 'do histórico', padrao: 'o padrão' };
 function blocoBarraYt() {
   const lista = ytBarraDiag || [];
   if (!lista.length) return '';
@@ -35255,24 +35258,40 @@ function blocoBarraYt() {
       return FASE_ROTULO[f] + ' ' + segsBarra(x.realMs) + '/' + segsBarra(x.previstoMs) + (x.mostrado == null ? '' : ' →' + x.mostrado + '%');
     });
     if (partes.length) linhas.push('    real/previsto: ' + partes.join(' · '));
+    // O QUE DECIDIU O CAMINHO E O TAMANHO (v1.12.38): o primeiro aviso de bytes
+    // contra o que o ritmo medido explica, e de onde veio o tamanho previsto.
+    const pa = r.primeiroAviso;
+    const extra = [];
+    if (pa) {
+      extra.push('1º aviso ' + mbBarra(pa.bytes) + ' em ' + segsBarra(pa.ms) +
+        (pa.esperado == null ? ' (sem ritmo medido)' : ' (o ritmo explica ' + mbBarra(pa.esperado) + ')') + ' · ' + pa.avisos + ' aviso(s)');
+    }
+    if (r.ritmoBytesPorMs) extra.push('rede medida ' + mbsBarra(r.ritmoBytesPorMs));
+    if (r.tamanhoPrevisto) extra.push('tamanho previsto ' + mbBarra(r.tamanhoPrevisto) + ' (' + (TAMANHO_FONTE[r.tamanhoFonte] || r.tamanhoFonte || '?') + ')');
+    if (extra.length) linhas.push('    ' + extra.join(' · '));
   }
-  const m = AVProgresso.modelo(ytTempos);
+  const m = AVProgresso.modelo(ytTempos, 'video');
   const ap = AVProgresso.apoio(ytTempos);
-  const mbs = (m.bytesPorMs * 1000 / 1048576).toFixed(1).replace('.', ',');
-  linhas.push('Aprendido (' + ap.n + ' amostra(s)): preparo ' + segsBarra(m.preparoMs) + ' [' + ap.preparo + '] · rede ' + mbs + ' MB/s [' +
-    ap.download + '] · junção ' + Math.round(m.juncaoMsPorMB) + ' ms/MB [' + ap.juncao + '] · cópia ' + Math.round(m.copiaMsPorMB) +
-    ' ms/MB [' + ap.copia + '] · gravação ' + Math.round(m.gravacaoMsPorMB) + ' ms/MB [' + ap.gravacao + '] · abertura ' +
-    segsBarra(m.aberturaMs) + ' [' + ap.abertura + ']');
+  const fixoMais = (f) => segsBarra(m[f + 'FixoMs']) + ' + ' + Math.round(m[f + 'MsPorMB']) + ' ms/MB';
+  linhas.push('Aprendido (' + ap.n + ' amostra(s)): preparo ' + segsBarra(m.preparoMs) + ' [' + ap.preparo + '] · rede ' +
+    mbsBarra(m.bytesPorMs) + ' [' + ap.download + '] + ' + segsBarra(m.latenciaMs) + ' de latência [' + ap.latencia + '] · junção ' +
+    fixoMais('juncao') + ' em ' + Math.round(m.juncaoChance * 100) + '% dos vídeos [' + ap.juncao + '] · cópia ' + fixoMais('copia') +
+    ' [' + ap.copia + '] · gravação ' + fixoMais('gravacao') + ' [' + ap.gravacao + '] · abertura ' + segsBarra(m.aberturaMs) +
+    ' [' + ap.abertura + '] · vídeo típico ' + mbBarra(m.bytesTipicos) + (m.bytesPorSegundo > 0 ? ' (' + Math.round(m.bytesPorSegundo / 1024) + ' kB por segundo de vídeo)' : '') +
+    ' [' + ap.tamanho + ']');
   return 'Barra do YouTube (últimos ' + lista.length + ')\n' + linhas.join('\n');
 }
 
 function novaBarraYt(opcoes) {
   const o = opcoes || {};
+  // O TAMANHO previsto sai das amostras da mesma chave: um só áudio não diz
+  // quanto pesa um vídeo (todo chamador passa `juncao = !soAudio`).
+  const chave = o.juncao ? 'video' : 'audio';
   const b = AVProgresso.criar({
-    modelo: AVProgresso.modelo(ytTempos), agora: () => Date.now(),
+    modelo: AVProgresso.modelo(ytTempos, chave), agora: () => Date.now(), chave,
     juncao: !!o.juncao, abertura: !!o.abertura, oculta: document.visibilityState !== 'visible',
   });
-  if (!ytTempos) ytTemposCarregar().then((h) => b.trocarModelo(AVProgresso.modelo(h)));
+  if (!ytTempos) ytTemposCarregar().then((h) => b.trocarModelo(AVProgresso.modelo(h, chave)));
   // A PÁGINA OCULTA estrangula o WebView: as fases do app vividas assim não ensinam nada.
   const aoMudarVisibilidade = () => b.oculta(document.visibilityState !== 'visible');
   document.addEventListener('visibilitychange', aoMudarVisibilidade);

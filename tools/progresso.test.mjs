@@ -18,7 +18,15 @@
 //  G · o aprendizado não CONVERGIR em vídeos de tamanhos diferentes;
 //  H · a rede de ritmo VARIÁVEL (e a que trava no meio) fazer a barra pular ou parar;
 //  I · o arquivo que já estava no aparelho não fechar numa varredura curta;
-//  J · o `relatorio()` (o que vai ao Registro) não dizer o que aconteceu.
+//  J · o `relatorio()` (o que vai ao Registro) não dizer o que aconteceu;
+//  K · (v1.12.38) os QUATRO downloads do Registro do operador, com o aviso de
+//      bytes a cada 1 MB do shell: todo download novo saía "retomado" e a rede
+//      nunca era aprendida — o 2º ao 4º têm de prever ±20% e tocar com 90+;
+//  L · o TAMANHO antes de o shell dizer: duração × bytes por segundo, o típico
+//      da mesma chave (vídeo × só áudio), e de onde ele veio no relatório;
+//  M · o FREIO do pouso: a inércia de uma barra rápida não a leva ao 99;
+//  N · a junção pesa o quanto ela costuma acontecer (o 360p não junta);
+//  O · num download de um segundo, o ritmo MEDIDO vale já no segundo aviso.
 //
 // O relógio é de mentira (`agora` injetado) — é isso que torna a fluidez
 // afirmável. Node puro, sem `continue-on-error`.
@@ -74,10 +82,10 @@ function simular({ modelo, roteiro, bytes = 60 * MB, juncao = true, abertura = t
 const certo = P.modelo(null);
 const noRelogio = (mb) => ({
   preparo: certo.preparoMs,
-  download: (mb * MB) / certo.bytesPorMs,
-  juncao: mb * certo.juncaoMsPorMB,
-  copia: mb * certo.copiaMsPorMB,
-  gravacao: mb * certo.gravacaoMsPorMB,
+  download: certo.latenciaMs + (mb * MB) / certo.bytesPorMs,
+  juncao: certo.juncaoFixoMs + mb * certo.juncaoMsPorMB,
+  copia: certo.copiaFixoMs + mb * certo.copiaMsPorMB,
+  gravacao: certo.gravacaoFixoMs + mb * certo.gravacaoMsPorMB,
   abertura: certo.aberturaMs,
 });
 
@@ -163,16 +171,21 @@ const PLATO_MAX = 3500;
 
 // ---- D · previsão certa = barra linear no tempo --------------------------------
 {
-  const r = simular({ modelo: certo, roteiro: noRelogio(60) });
-  const total = r.tConcluir - r.t0;
+  // A previsão certa inclui o TAMANHO: o típico aprendido é o deste vídeo.
+  const ro = noRelogio(60);
+  const r = simular({ modelo: Object.assign({}, certo, { bytesTipicos: 60 * MB }), roteiro: ro });
+  // A reta MIRA o pouso antes do fim: a cauda do app (cópia, gravação, abertura)
+  // pesa `MIRA_CAUDA` na conta da velocidade (ver `restante(t, mira)`).
+  const total = r.tConcluir - r.t0 - (1 - P.MIRA_CAUDA) * (ro.copia + ro.gravacao + ro.abertura);
   const desvio = Math.max(...r.serie.slice(0, r.antes).map(([t, v]) => {
     const ideal = (95 * (t - r.t0)) / total;
     return ideal > 5 && ideal < 90 ? Math.abs(v - ideal) : 0;
   }));
-  checar(desvio <= 6, 'D · com a previsão certa o valor acompanha o TEMPO (±6 pontos da reta que pousa em 95 no fim)', desvio);
+  checar(desvio <= 6, 'D · com a previsão certa o valor acompanha o TEMPO (±6 pontos da reta que pousa em 95 no fim MIRADO)', desvio);
   const fimDoDownload = r.serie.filter((x) => x[2] === 'download').pop()[1];
   checar(fimDoDownload < 92, 'D · e o fim dos bytes NÃO é o fim da barra: a junção, a cópia, a gravação e a abertura têm peso', fimDoDownload);
   checar(aoConcluir(r) >= 93 && aoConcluir(r) <= 97, 'D · e no instante do fim previsto ela está no POUSO (95±2): o salto final é pequeno', aoConcluir(r));
+  checar(platoAte(r, 100) <= 1500, 'D · e entre o fim mirado e o real ela anda devagar, sem parar 1,5 s', platoAte(r, 100));
 }
 
 // ---- E · o aprendizado -----------------------------------------------------------
@@ -187,8 +200,19 @@ const PLATO_MAX = 3500;
   const m = P.modelo(h);
   checar(m.preparoMs === 1100, 'E · cada número é a MEDIANA das amostras (não a média, que um culto ruim arrastaria)', m.preparoMs);
   checar(Math.abs(m.bytesPorMs - (50 * MB) / 10000) < 1, 'E · o download vira TAXA (bytes/ms), para valer para outro tamanho', m.bytesPorMs);
-  checar(m.juncaoMsPorMB === 100 && m.copiaMsPorMB === 10 && m.gravacaoMsPorMB === 20,
-    'E · e a junção, a cópia e a gravação viram ms POR MB', [m.juncaoMsPorMB, m.copiaMsPorMB, m.gravacaoMsPorMB]);
+  const em50 = (f) => Math.round(m[f + 'FixoMs'] + 50 * m[f + 'MsPorMB']);
+  checar(em50('juncao') === 5000 && em50('copia') === 500 && em50('gravacao') === 1000,
+    'E · e a junção, a cópia e a gravação viram FIXO + POR MB que devolvem o medido no mesmo tamanho', [em50('juncao'), em50('copia'), em50('gravacao')]);
+  // Dois tamanhos separam o fixo do por MB; o ruído que faria a inclinação
+  // negativa (um arquivo maior gravando mais rápido) vira inclinação zero.
+  const dois = P.modelo(P.aprender(P.aprender(null, { bytes: 10 * MB, gravacaoMs: 1200 }), { bytes: 50 * MB, gravacaoMs: 2000 }));
+  checar(Math.round(dois.gravacaoMsPorMB) === 20 && Math.round(dois.gravacaoFixoMs) === 1000,
+    'E · com DOIS tamanhos, o fixo e o por MB saem da reta entre eles (1 s + 20 ms/MB)', [dois.gravacaoFixoMs, dois.gravacaoMsPorMB]);
+  const neg = P.modelo(P.aprender(P.aprender(null, { bytes: 4 * MB, gravacaoMs: 1000 }), { bytes: 11 * MB, gravacaoMs: 300 }));
+  checar(neg.gravacaoMsPorMB === 0 && neg.gravacaoFixoMs === 300,
+    'E · e uma inclinação NEGATIVA (ruído) vira zero — o fixo é o recente', [neg.gravacaoFixoMs, neg.gravacaoMsPorMB]);
+  checar(P.medianaRecente([100, 900]) === 900 && P.medianaRecente([100, 100, 900]) === 100 && P.medianaRecente([NaN, 5]) === 5,
+    'E · a mediana é PONDERADA pela idade: entre duas, a mais nova; com apoio, a maioria', null);
   const louco = P.modelo(P.aprender(null, { preparoMs: 99999999, aberturaMs: 1 }));
   checar(louco.preparoMs === P.LIMITES.preparoMs[1] && louco.aberturaMs === P.LIMITES.aberturaMs[0],
     'E · e um número fora do intervalo são é PRESO a ele (relógio quebrado, aba suspensa)', louco);
@@ -200,8 +224,8 @@ const PLATO_MAX = 3500;
     'E · e uma amostra sem nenhum campo conhecido não entra', null);
   checar(P.sanear({ amostras: 'x' }).amostras.length === 0 && P.sanear(42).v === P.VERSAO,
     'E · um histórico gravado corrompido vira vazio, nunca exceção', null);
-  checar(P.sanear({ v: 1, amostras: [{ preparoMs: 100 }] }).amostras.length === 0,
-    'E · e o histórico da VERSÃO anterior recomeça (misturava amostras que esta recusa)', null);
+  checar(P.sanear({ v: 1, amostras: [{ preparoMs: 100 }] }).amostras.length === 0 && P.sanear({ v: 2, amostras: [{ preparoMs: 100 }] }).amostras.length === 0,
+    'E · e o histórico das VERSÕES anteriores recomeça (a v2 nunca aprendeu a rede)', null);
   const lenta = P.modelo(P.aprender(null, { preparoMs: 2500, downloadMs: 120000, bytes: 60 * MB }));
   const em = (mod) => { let t = 0; const b = P.criar({ modelo: mod, agora: () => t, juncao: true, abertura: true });
     let v = 0; for (let i = 0; i < 20; i++) { t += 100; v = b.passo(); } return v; };
@@ -230,7 +254,10 @@ const PLATO_MAX = 3500;
   const r3 = simular({ modelo: certo, roteiro: noRelogio(20), bytes: 20 * MB, ja: 0.5 });
   const a3 = r3.b.amostra();
   checar(a3 && a3.downloadMs === undefined && a3.juncaoMs > 0 && r3.b.relatorio().caminho === 'retomado',
-    'F · um download RETOMADO (metade já no disco) não ensina o ritmo da rede — o resto ensina', a3);
+    'F · um download RETOMADO (metade já no disco) não ensina a duração dos bytes — o resto ensina', a3);
+  const ritmoReal = (10 * MB) / noRelogio(20).download;  // a metade que faltava, no tempo da fase
+  checar(a3 && Math.abs(a3.ritmo - ritmoReal) / ritmoReal < 0.1,
+    'F · mas ensina o RITMO medido entre avisos, que byte nenhum do disco altera', a3 && a3.ritmo);
   const r4 = simular({ modelo: certo, roteiro: noRelogio(20), bytes: 20 * MB,
     aoAndar: (bb) => { if (bb.fase() === 'copia') bb.oculta(true); } });
   const a4 = r4.b.amostra();
@@ -296,7 +323,9 @@ const PLATO_MAX = 3500;
   for (let i = 0; i < 5; i++) passo();
   b.sinal('gravacao');
   for (let i = 0; i < 30; i++) passo();
-  checar(maxDv <= 1.5, 'H · e a VELOCIDADE muda aos poucos: no máximo 1,5 ponto/s de um quadro de 100 ms para o seguinte', maxDv);
+  // O freio do pouso (20 pontos/s²) é a maior mudança permitida: 2 pontos/s por
+  // quadro, e um pouco mais no último quadro dele.
+  checar(maxDv <= 3.5, 'H · e a VELOCIDADE muda aos poucos: no máximo 3,5 pontos/s de um quadro de 100 ms para o seguinte (o freio do pouso)', maxDv);
 }
 
 // ---- I · o arquivo que já estava no aparelho: uma varredura curta -----------------
@@ -326,6 +355,131 @@ const PLATO_MAX = 3500;
     'J · e cada fase com o real, o previsto e o número que a tela mostrava no fim dela', rel.fases);
   checar(rel.aoConcluir === aoConcluir(r) && rel.saltoFinal === 100 - aoConcluir(r) && rel.platoMs >= 0,
     'J · e o número no fim, o salto final e a maior parada', rel);
+}
+
+// ---- K · os quatro downloads do Registro do operador (v1.12.38) -------------------
+// O shell avisa os bytes a cada 1 MB (`ProgressoDePedacos`): o primeiro aviso já
+// traz 1 MB e pouco. Uma rede de ~10 MB/s, uma latência antes dos bytes, e as
+// fases como o Registro de 15/10/2026 as mediu (MB · preparo · bytes · cópia ·
+// gravação · abertura, ms).
+const RELATO = [[6, 2100, 1100, 0, 600, 200], [11, 2600, 900, 0, 300, 100], [10, 2400, 1800, 0, 300, 100], [4, 1800, 1100, 0, 1000, 200]];
+function simularAvisos(h, [mb, pre, dl, cp, gr, ab], { lat = 350, ja = 0, extraiu = {} } = {}) {
+  let t = 1000;
+  const B = Math.round(mb * MB * 1.013);
+  const b = P.criar({ modelo: P.modelo(h, 'video'), agora: () => t, juncao: true, abertura: true, chave: 'video' });
+  const serie = [];
+  const andar = (ms, cada) => {
+    for (let x = 0; x < ms; x += 100) {
+      for (let y = 0; y < Math.min(100, ms - x); y += 10) { t += 10; if (cada) cada(x + y + 10); }
+      serie.push([t, b.passo(), b.fase()]);
+    }
+  };
+  andar(pre);
+  b.sinal('extraiu', extraiu);
+  const base = Math.round(B * ja);
+  let prox = base + MB;
+  const util = dl - lat - 60;
+  andar(dl, (e) => {
+    const lidos = e <= lat ? base : Math.min(B, base + Math.round((B - base) * (e - lat) / util));
+    while (lidos >= prox && prox < B) { b.bytes(prox + 40000, B); prox += MB; }
+    if (lidos >= B && prox !== Infinity) { b.bytes(B, B); prox = Infinity; }
+  });
+  b.sinal('baixou', { bytes: B, juntar: false });
+  b.sinal('copia'); andar(cp);
+  b.sinal('gravacao'); andar(gr);
+  b.sinal('abertura'); andar(ab);
+  const ao = serie[serie.length - 1][1];
+  b.concluir();
+  return { b, ao, rel: b.relatorio(), real: t - 1000, serie };
+}
+{
+  let h = null; const res = [];
+  for (const v of RELATO) {
+    const r = simularAvisos(h, v);
+    res.push({ mb: v[0], previsto: r.rel.previstoMs, real: r.real, ao: r.ao, caminho: r.rel.caminho, plato: r.rel.platoMs });
+    checar(r.serie.every((x, i, a) => i === 0 || x[1] >= a[i - 1][1]), 'K · ' + v[0] + ' MB: nunca volta', null);
+    h = P.aprender(h, Object.assign({ origem: 'tocar' }, r.b.amostra()));
+  }
+  checar(res.every((x) => x.caminho === 'novo'), 'K · nenhum download novo é "retomado" — o primeiro aviso de 1 MB é o primeiro grão, não o disco', res.map((x) => x.caminho));
+  const ap = P.apoio(h);
+  checar(ap.download === 4 && ap.latencia === 4, 'K · e os quatro ENSINAM a rede (ritmo e latência)', ap);
+  const erros = res.slice(1).map((x) => Math.round(100 * (x.previsto - x.real) / x.real));
+  checar(erros.every((e) => Math.abs(e) <= 20), 'K · do 2º ao 4º vídeo a previsão inicial erra no máximo 20% (era +55%, +70%, +115%)', erros);
+  checar(res.slice(1).every((x) => x.ao >= 90), 'K · e eles TOCAM com a barra em 90+ (eram 58, 68 e 82)', res.map((x) => x.ao));
+  checar(res.every((x) => x.plato <= 1500), 'K · e nenhum fica parado 1,5 s', res.map((x) => x.plato));
+  const m = P.modelo(h, 'video');
+  checar(m.bytesPorMs > 5 * MB / 1000 && m.gravacaoFixoMs >= 300,
+    'K · o aprendido é o do aparelho: a rede acima de 5 MB/s e a gravação com um FIXO (a miniatura), não 0,1 s', m);
+  // Um RETOMADO de verdade (60% no disco) no mesmo aviso de 1 MB: é retomado, e
+  // ensina o ritmo mesmo assim.
+  const rr = simularAvisos(h, [20, 2000, 1500, 0, 300, 100], { ja: 0.6 });
+  const a = rr.b.amostra();
+  checar(rr.rel.caminho === 'retomado' && a.downloadMs === undefined && a.ritmo > 0,
+    'K · e um retomado de verdade (60% no disco) continua retomado — sem a duração dos bytes, com o ritmo', { caminho: rr.rel.caminho, a });
+  checar(rr.rel.primeiroAviso && rr.rel.primeiroAviso.bytes > 12 * MB && rr.rel.primeiroAviso.esperado < 4 * MB,
+    'K · e o relatório diz o que decidiu: o primeiro aviso contra o que o ritmo explica', rr.rel.primeiroAviso);
+}
+
+// ---- L · o tamanho antes de o shell dizer ------------------------------------------
+{
+  let h = null;
+  h = P.aprender(h, { bytes: 8 * MB, segundos: 240, chave: 'video', downloadMs: 1000, preparoMs: 2000 });
+  h = P.aprender(h, { bytes: 3 * MB, segundos: 240, chave: 'audio', downloadMs: 500, preparoMs: 2000 });
+  const mv = P.modelo(h, 'video'); const ma = P.modelo(h, 'audio');
+  checar(mv.bytesTipicos === 8 * MB && ma.bytesTipicos === 3 * MB,
+    'L · o tamanho típico é o da MESMA chave: um só áudio não diz quanto pesa um vídeo', [mv.bytesTipicos, ma.bytesTipicos]);
+  checar(Math.round(mv.bytesPorSegundo) === Math.round(8 * MB / 240), 'L · e os bytes por segundo de vídeo são aprendidos', mv.bytesPorSegundo);
+  let t = 0;
+  const b = P.criar({ modelo: mv, agora: () => t, juncao: false, abertura: false, chave: 'video' });
+  const antes = b.restante();
+  checar(b.relatorio().tamanhoFonte === 'historico' && b.relatorio().tamanhoPrevisto === 8 * MB,
+    'L · antes da extração vale o típico aprendido, e o relatório diz que veio do histórico', b.relatorio());
+  t += 2000; b.sinal('extraiu', { seconds: 600 });
+  checar(b.restante() > antes, 'L · e a DURAÇÃO que chega com a extração (10 min contra 4) aumenta o que falta', [antes, b.restante()]);
+  const b2 = P.criar({ modelo: P.modelo(null), agora: () => 0, chave: 'video' });
+  checar(b2.relatorio().tamanhoFonte === 'padrao', 'L · e sem histórico o relatório diz "padrão"', b2.relatorio().tamanhoFonte);
+}
+
+// ---- M · o freio do pouso ------------------------------------------------------------
+{
+  // Uma barra RÁPIDA (o download acaba bem antes do previsto e a velocidade sobe)
+  // e uma gravação que atrasa 1,5 s: ela freia no pouso em vez de ser carregada
+  // pela inércia até o 99 e esperar lá.
+  const mod = Object.assign({}, certo, { bytesTipicos: 8 * MB, gravacaoFixoMs: 400, gravacaoMsPorMB: 0, aberturaMs: 200, preparoMs: 2000, copiaFixoMs: 0, copiaMsPorMB: 0 });
+  const rr = { preparo: 2000, download: 600, juncao: 0, copia: 0, gravacao: 1900, abertura: 200 };
+  const r = simular({ modelo: mod, roteiro: rr, bytes: 8 * MB, juncao: false });
+  const ate = r.serie.filter((x) => x[2] === 'gravacao').map((x) => x[1]);
+  checar(Math.max(...ate) <= 97, 'M · uma barra rápida que chega ao pouso com a gravação atrasada FREIA: não passa de 97 na gravação', ate);
+  checar(platoAte(r, 100) <= 1500, 'M · e não para lá: segue andando devagar', platoAte(r, 100));
+}
+
+// ---- N · a junção pesa o quanto ela costuma acontecer ----------------------------
+{
+  let h = null;
+  for (let i = 0; i < 3; i++) h = P.aprender(h, { bytes: 6 * MB, chave: 'video', juntou: 0, copiaMs: 10 });
+  checar(P.modelo(h).juncaoChance === 0, 'N · três vídeos que NÃO juntaram (360p progressivo): a junção não pesa', P.modelo(h).juncaoChance);
+  h = P.aprender(h, { bytes: 60 * MB, chave: 'video', juntou: 1, juncaoMs: 2000 });
+  const c = P.modelo(h).juncaoChance;
+  checar(c > 0.3 && c < 1, 'N · e um que juntou volta a dar peso a ela, pela recência', c);
+  const r = simular({ modelo: certo, roteiro: noRelogio(20), bytes: 20 * MB });
+  checar(r.b.amostra().juntou === 1, 'N · e a amostra diz se juntou', r.b.amostra());
+}
+
+// ---- O · o ritmo medido vale já no segundo aviso -----------------------------------
+{
+  // O aprendido diz 2 MB/s; a rede entrega 10 MB/s. Um arquivo de 8 MB: o download
+  // inteiro dura ~0,8 s, e esperar 2 s de medição seria nunca usá-la.
+  const mod = Object.assign({}, certo, { bytesPorMs: 2 * MB / 1000, latenciaMs: 0 });
+  let t = 0;
+  const b = P.criar({ modelo: mod, agora: () => t, juncao: false, abertura: false, chave: 'video' });
+  b.sinal('extraiu', {});
+  const ms = (mb) => (mb * 1000) / 10;  // 10 MB/s
+  for (const mb of [1, 2, 3]) { t = ms(mb); b.bytes(mb * MB + 40000, 8 * MB); }
+  t += 20;
+  const falta = b.restante() - (P.modelo(null).copiaFixoMs + 8 * P.modelo(null).copiaMsPorMB + P.modelo(null).gravacaoFixoMs + 8 * P.modelo(null).gravacaoMsPorMB);
+  const real = ms(5);   // 5 MB a 10 MB/s
+  checar(falta < 1.5 * real, 'O · no TERCEIRO aviso (0,3 s de bytes) o que falta do download já segue o ritmo medido, não o aprendido 5× mais lento',
+    { estimado: Math.round(falta), real });
 }
 
 if (falhas.length) { console.log('\n' + falhas.length + ' falha(s).'); process.exit(1); }

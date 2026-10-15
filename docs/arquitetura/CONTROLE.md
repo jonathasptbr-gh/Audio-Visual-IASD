@@ -5555,18 +5555,31 @@ itens."*
   miniatura, por 4 s. Oráculo: `busca-divisoria.test.mjs` (A8, A9).
 - **O PERCENTUAL É DO TOQUE À MÍDIA TOCANDO** (v1.12.36), não dos bytes. A regra é `progresso.js` (`AVProgresso`, puro):
   fases `preparo` · `download` · `juncao` · `copia` · `gravacao` · `abertura`, a duração de cada uma PREVISTA pelo
-  histórico do aparelho (`ytTempos` no `state`: as últimas 12 amostras, mediana; as fases que dependem do tamanho como
-  taxa). **A EXIBIÇÃO É UM CONTROLE DE VELOCIDADE** (v1.12.37, revogando a perseguição de posição da v1.12.36, que
+  histórico do aparelho (`ytTempos` no `state`: as últimas 12 amostras, MEDIANA PONDERADA pela idade — `medianaRecente`,
+  `PESO_IDADE` 0,8, v1.12.38; o download como `latenciaMs` + bytes ÷ ritmo, a junção, a cópia e a gravação como FIXO + POR
+  MB — `ajustar`, a inclinação nunca negativa —, a junção pesando a fração dos vídeos que juntam, `juncaoChance`; o tamanho
+  antes de o shell dizê-lo é a duração do `extraiu` × os bytes por segundo aprendidos, ou o típico da mesma `chave`, vídeo
+  ou só áudio). **A EXIBIÇÃO É UM CONTROLE DE VELOCIDADE** (v1.12.37, revogando a perseguição de posição da v1.12.36, que
   parava em 97 com a cauda atrasada e abria o vídeo em 75 com ela adiantada): a velocidade-alvo leva o valor ao `POUSO`
   (95) no fim previsto, a real a persegue com inércia (`TAU_V` 0,8 s), um PISO de 0,3 ponto/s (decaindo só acima de 98)
   nunca a deixa parar, o `CAP` 99,6 nunca é alcançado (o inteiro máximo é 99) e, passado o pouso, a meta é um terço do
   que resta no tempo estimado MAIS o atraso já vivido — uma fase nova e curta não faz a barra correr ao teto e parar lá.
-  O `concluir()` é uma VARREDURA de 150–450 ms. O download é previsto pelo ritmo MEDIDO dos últimos 3 s; uma fase sem
-  fração que passa da previsão tem o restante CRESCENDO com o atraso (`peloRelogio`). Só amostras COMPARÁVEIS ensinam:
-  download retomado não ensina a rede; cópia, gravação e abertura vividas com a página OCULTA (o WebView estrangulado —
+  O `concluir()` é uma VARREDURA de 150–450 ms. **A velocidade MIRA o pouso com a cauda do app (cópia, gravação,
+  abertura) a `MIRA_CAUDA` (60%)** e tem um **`FREIO`** de desaceleração constante (20 pontos/s²) que pega quando a
+  inércia passa da alvo (v1.12.38): errar a cauda para o lado curto custa uns décimos devagar depois do 95; para o longo,
+  o vídeo abrindo com a barra no meio — e sem o freio a inércia de uma barra rápida a carregava do 95 ao 99. O download é
+  previsto pelo ritmo MEDIDO desde o primeiro aviso (janela de 3 s), com confiança inteira já no segundo intervalo entre
+  avisos; uma fase sem fração que passa de 9/10 da previsão tem o restante CRESCENDO com o atraso (`peloRelogio`). **O
+  SHELL AVISA OS BYTES A CADA 1 MB, e isso é o GRÃO de todo critério em bytes:** o primeiro aviso de um download NOVO já
+  traz 1 MB e pouco, e a régua do "retomado" da v1.12.37 (> 1 MB) acertava TODO arquivo pequeno — a rede nunca era
+  aprendida (o Registro do operador: rede [0] depois de quatro vídeos). Hoje retomado é o primeiro aviso trazer muito mais
+  do que o ritmo medido explica no tempo desde o começo dos bytes (`retomado()`), e o ritmo da amostra é o medido ENTRE
+  avisos (`ritmoDoDownload`), que nenhum byte do disco altera — o retomado ensina a rede, só não a latência. Só amostras
+  COMPARÁVEIS ensinam: o download retomado não ensina a duração dos bytes; cópia, gravação e abertura vividas com a página OCULTA (o WebView estrangulado —
   é o caso da rotina do episódio da semana) não ensinam; abertura sem play (`esperarTocando` devolve se tocou) não ensina;
   o histórico tem `VERSAO`, e outra versão recomeça. **O REGISTRO DIZ O QUE ELA FEZ:** o `relatorio()` de cada trabalho
-  (caminho, previsto, real, cada fase com o número no fim dela, o número no `concluir()`, o salto final, o maior platô)
+  (caminho, previsto, real, cada fase com o número no fim dela, o número no `concluir()`, o salto final, o maior platô;
+  desde a v1.12.38 o primeiro aviso contra o que o ritmo explica, a rede medida e o tamanho previsto com a fonte)
   entra num anel GRAVADO dos últimos 5 (`ytBarraDiag`), no bloco *"Barra do YouTube"* logo depois da linha do tempo
   (`blocoBarraYt`, com o aprendido em uso e o `apoio` de cada número) e numa linha *"barra: …"* da linha do tempo. `novaBarraYt` é o relógio (100 ms) e os ouvintes: **a barra nasce no `ytAcao`** (o
   preparo conta desde o toque) e a linha, o cartão do palco (`cederOPalco`), o cartão do download, a linha do Cronograma

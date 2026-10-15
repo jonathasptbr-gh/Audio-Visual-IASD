@@ -118,6 +118,10 @@ checar(!!ult && ult.origem === 'tocar' && ult.rel && ult.rel.caminho === 'novo' 
 checar(/^Barra do YouTube \(últimos 1\)/.test(r.bloco || '') && /previsto .* real .* mostrava \d+% no fim/.test(r.bloco)
   && /real\/previsto: preparo/.test(r.bloco) && /^Aprendido \(\d+ amostra/m.test(r.bloco),
   'D · e o bloco do Registro diz o previsto, o real, o número no fim, fase a fase, e o aprendido em uso', r.bloco);
+// E · (v1.12.38) o que decidiu o caminho e o tamanho, e o aprendido como fixo + por MB.
+checar(/^    1º aviso .* MB em .* aviso\(s\)/m.test(r.bloco || '') && /tamanho previsto [\d,]+ MB \((o padrão|do histórico|pela duração|o do shell)\)/.test(r.bloco)
+  && /de latência/.test(r.bloco) && /gravação [\d,]+ s \+ \d+ ms\/MB/.test(r.bloco) && /vídeo típico/.test(r.bloco),
+  'E · o bloco diz o primeiro aviso de bytes contra o ritmo, o tamanho previsto e de onde veio, e o aprendido como fixo + por MB', r.bloco);
 checar(r.linha.length === 1 && /mostrava \d+% ao tocar/.test(r.linha[0]), 'D · e a linha do tempo ganha UMA linha por download', JSON.stringify(r.linha));
 await nav.close(); srv.close();
 if (falhas.length) { console.log('\n' + falhas.length + ' falha(s).'); process.exit(1); }
