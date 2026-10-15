@@ -5598,10 +5598,20 @@ itens."*
   vídeo é gravado sem ela e `miniaturaDepois` a extrai depois — no "Tocar agora" quando a mídia está TOCANDO (a promessa
   `miniaturaApos`, mais `MINIATURA_FOLGA_MS`, com teto `MINIATURA_ESPERA_MAX_MS`); nos outros caminhos, logo. Ela grava por
   `AVDB.definirMiniatura` e quem desenhou a linha com a caixa vazia (`.thumb--espera`, nunca o "imagem quebrada") é
-  redesenhado (`redesenharComMiniatura`). O `makeThumb` tem `<video>` próprio, mudo e sem `play()`. Toda conclusão grava uma amostra
+  redesenhado (`redesenharComMiniatura`). O `makeThumb` tem `<video>` próprio, mudo e sem `play()`. **PRESA AOS BYTES**
+  (v1.12.40, aprovado pelo operador): durante o download o ritmo é o VIVO (`comSilencio`: o aviso de 1 MB que atrasa
+  limita o ritmo a `GRAO / silêncio`, e o que falta cresce com o silêncio) e o valor não passa da posição dos bytes
+  recebidos dentro da FATIA do download (`posicaoDosBytes`/`fimDaFatia`: de `sDownload` até onde as fases seguintes
+  cabem, proporcional ao tempo); além dela só o `PISO_BYTES` anda, até `MARGEM_BYTES` — numa rede parada a barra para.
+  **O REGISTRO DIZ POR QUE OS BYTES DEMORARAM** (v1.12.40): depois de cada `ytBaixarNativo` (fora a Verificação
+  completa) o `ytMedida` é lido sem `await`, resumido (`resumoDaMedidaDoShell`) e esperado pelo `concluir()` até
+  `YT_MEDIDA_ESPERA_MS` (`anotarMedida`) antes de o item entrar no anel; o bloco imprime os avisos no tempo (maior vão,
+  pior janela de 2 s, a fatia), a linha do shell, uma linha por faixa (`linhasDaMedidaDoShell`) e, só num download lento
+  (bytes > 2× o previsto e > 3 s), o veredito `vereditoDaLentidao` — um pedaço preso (o mais lento ≥ 3× o mediano e ≥ 2 s)
+  ou todos lentos por igual (a rede/o servidor). Toda linha é opcional. Toda conclusão grava uma amostra
   (`tocar`, `guardar`, `serie` — o episódio da semana e o download de álbum de série —, `teste`); falha e cancelamento
   abandonam sem amostra. Oráculos: `progresso.test.mjs` (a regra), `modo-simples-espera.test.mjs` C e D (a ligação e o
-  diagnóstico) e `youtube-fim-segurado.test.mjs` (a miniatura depois do play e o fim segurado).
+  diagnóstico) e `youtube-fim-segurado.test.mjs` (a miniatura depois do play, o fim segurado e, bloco E, a medida do shell no Registro).
 - **Ela fica ABAIXO da linha, e isso é a regra escrita**: a `.row` é
   `z-index: 1` e pinta `--linha`, então o traço SOME quando aquela faixa ganha um
   preenchimento opaco de estado — ali quem separa é o preenchimento, e duas
