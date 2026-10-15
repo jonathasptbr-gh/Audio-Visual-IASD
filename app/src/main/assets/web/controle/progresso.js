@@ -1,6 +1,7 @@
 // ============================================================================
 // O PROGRESSO DO TOQUE À TELA — a regra do percentual do YouTube
-// (v1.12.36; a exibição refeita na v1.12.37; o aprendizado na v1.12.38)
+// (v1.12.36; a exibição refeita na v1.12.37; o aprendizado na v1.12.38; a
+// estimativa estável e o fim segurado na v1.12.39)
 //
 // Pedido do operador: o percentual de um "Tocar agora" mede o caminho INTEIRO,
 // do toque até a mídia estar tocando — não os bytes do arquivo. E a régua da
@@ -14,7 +15,8 @@
 //   download  os bytes (o `__avYtProgress` do shell)
 //   juncao    o `MuxMp4` juntando vídeo e som (o `__avYtFase` 'juntando')
 //   copia     o `fetch` + `blob` do arquivo do shell para o lado web
-//   gravacao  a miniatura e o `addMedia` (IndexedDB/OPFS)
+//   gravacao  o `addMedia` (IndexedDB/OPFS) — a miniatura saiu do caminho na
+//             v1.12.39 (`miniaturaDepois` no `controle.js`)
 //   abertura  o `send` até a mídia tocar (só no "Tocar agora")
 //
 // ## A ESTIMATIVA do que falta (`restante`)
@@ -41,15 +43,24 @@
 // Passado o ponto de pouso (o fim atrasou), a meta vira "um terço do que resta
 // até o CAP no tempo que ainda se estima" — anda devagar, mas anda. O
 // `concluir()` fecha com uma VARREDURA de poucas centenas de ms — nunca um
-// salto, e nunca segurando a mídia: ela já está tocando quando ele é chamado.
+// salto.
+//
+// O FIM SEGURADO (v1.12.39, aprovado pelo operador): no "Tocar agora" a mídia
+// APARECE no começo da abertura, e ali o `revelar()` varre a barra até 100 e
+// devolve quanto a revelação espera — 0 a partir do `POUSO`, senão
+// `SEGURA_MIN + SEGURA_POR_PONTO × (100 − valor)`, até `SEGURA_MAX` (500 ms).
 //
 // ## O que se APRENDE
 //
-// Cada trabalho que termina deixa uma amostra (`amostra()`), e cada número do
-// modelo é a MEDIANA PONDERADA das últimas `AMOSTRAS` — a mais recente pesa mais
-// (`PESO_IDADE`), porque o operador faz quatro vídeos e espera que o quinto
-// acerte. Os pares fixo + por MB saem de um ajuste ROBUSTO (a mediana das
-// inclinações entre amostras de tamanhos diferentes, nunca negativa).
+// Cada trabalho que termina deixa uma amostra (`amostra()`), e cada tempo do
+// modelo é um QUANTIL (`QUANTIL`, 0,6) das últimas `JANELA` amostras, sem peso
+// de idade (`estimar`); o ritmo da rede e o tamanho, a mediana. A v1.12.38
+// pesava a mais nova (a mediana ponderada), e UMA amostra fora da curva movia o
+// vídeo seguinte inteiro. Os pares fixo + por MB saem de um ajuste ROBUSTO (a
+// mediana das inclinações entre amostras de tamanhos diferentes, nunca
+// negativa). O tamanho típico só vale sozinho com `APOIO_TAMANHO` amostras —
+// antes disso ele é misturado ao padrão —, e os bytes por segundo de vídeo
+// também só valem com elas.
 //
 // Só entra o que é COMPARÁVEL: um arquivo que já estava no aparelho só ensina a
 // abertura; uma fase do lado WEB vivida com o app minimizado não ensina nada; a
@@ -90,7 +101,7 @@
     gravacaoFixoMs: 400,
     gravacaoMsPorMB: 20,
     aberturaMs: 800,
-    bytesTipicos: 25 * MB,
+    bytesTipicos: 12 * MB,  // v1.12.39: os vídeos de hino do operador, 720p, ficam entre 3 e 14 MB
     bytesPorSegundo: 0,   // 0 = não aprendido: o tamanho sai do típico
   });
   // O intervalo são de cada número: fora dele é medição quebrada (relógio, aba
@@ -111,11 +122,26 @@
     bytesPorSegundo: [0, 50 * MB],
   });
   const AMOSTRAS = 12;
-  const PESO_IDADE = 0.8;  // o peso de uma amostra cai 20% a cada amostra mais nova
+  // A ESTIMATIVA ESTÁVEL (v1.12.39): cada tempo é um QUANTIL das últimas
+  // `JANELA` amostras, sem peso de idade — com a mediana ponderada da v1.12.38
+  // (a mais nova valendo mais) UMA gravação de 1,9 s fazia o vídeo seguinte ser
+  // previsto com 1,9 s (o real foi 0,2) e a barra abria em 73. `QUANTIL` acima
+  // da mediana mira o típico-para-pessimista: errar para o lado longo custa uma
+  // varredura curta no fim (ver `revelar`), errar para o curto custa a barra
+  // parada perto do 95.
+  const JANELA = 8;
+  const QUANTIL = 0.6;
+  const PESO_IDADE = 0.8;  // só a FRAÇÃO de vídeos que juntam ainda pesa a recência
+  // O tamanho do HISTÓRICO só vale sozinho com `APOIO_TAMANHO` amostras da mesma
+  // chave; com menos ele é misturado ao padrão (um vídeo de 3 MB fazia o seguinte,
+  // de 13 MB, ser previsto com 3,4 MB). Os bytes por segundo de vídeo, sem padrão,
+  // só valem com essas amostras.
+  const APOIO_TAMANHO = 3;
   // A versão do HISTÓRICO gravado. A v2 (v1.12.37) não aprendeu a rede em
   // download nenhum (o "retomado" falso) e media cópia/gravação só por MB — e não
   // há como separar isso depois: ela recomeça.
-  const VERSAO = 3;
+  // A v3 (v1.12.38) é LIDA sem a gravação: ela incluía a miniatura.
+  const VERSAO = 4;
   // O shell avisa os bytes a cada 1 MB (`ProgressoDePedacos`, `baixarUmaVez`).
   const GRAO = MB;
 
@@ -131,6 +157,13 @@
   const VARREDURA_MIN = 150; // ms — a varredura final, entre estes dois
   const VARREDURA_MAX = 450;
   const MIRA_CAUDA = 0.6;   // ver `restante(t, mira)`
+  // O FIM SEGURADO (v1.12.39, aprovado pelo operador): pronta a mídia com a
+  // barra atrás, ela VARRE até 100 antes de o vídeo aparecer, e a revelação
+  // espera essa varredura — no máximo `SEGURA_MAX`, proporcional ao que falta, e
+  // nada a partir do `POUSO`.
+  const SEGURA_MIN = 120;
+  const SEGURA_POR_PONTO = 9;
+  const SEGURA_MAX = 500;
   const JANELA_RITMO = 3000; // ms — num download longo, o ritmo medido olha para trás isto
 
   const num = (v) => (typeof v === 'number' && isFinite(v) ? v : NaN);
@@ -144,12 +177,20 @@
   }
 
   /**
-   * A mediana PONDERADA pela idade: `xs` em ordem cronológica (NaN = a amostra
-   * não tem esse número, mas conta na idade das outras). A mais nova pesa 1, a
-   * anterior `PESO_IDADE`, a outra `PESO_IDADE²`… — com duas amostras vale a
-   * mais nova; com quatro, um valor de três amostras atrás só vence com apoio.
+   * O QUANTIL `q` das últimas `JANELA` amostras (`xs` em ordem cronológica; NaN =
+   * a amostra não tem esse número), interpolado entre as vizinhas: com duas
+   * amostras sai um valor ENTRE elas, nunca a mais nova; um valor fora da curva
+   * move a estimativa só até a vizinha dele.
    */
-  /** A média ponderada pela idade (os mesmos pesos da `medianaRecente`) — para uma fração 0/1. */
+  function estimar(xs, q) {
+    const v = xs.slice(-JANELA).filter((x) => isFinite(x)).sort((a, b) => a - b);
+    if (!v.length) return NaN;
+    const p = (v.length - 1) * (q == null ? 0.5 : q);
+    const i = Math.floor(p);
+    return i + 1 < v.length ? v[i] + (v[i + 1] - v[i]) * (p - i) : v[i];
+  }
+
+  /** A média ponderada pela idade — só para a fração 0/1 de vídeos que juntam. */
   function mediaRecente(xs) {
     const n = xs.length;
     let soma = 0; let peso = 0;
@@ -157,22 +198,15 @@
     return peso > 0 ? soma / peso : NaN;
   }
 
-  function medianaRecente(xs) {
-    const n = xs.length;
-    const par = [];
-    xs.forEach((x, i) => { if (isFinite(x)) par.push([x, Math.pow(PESO_IDADE, n - 1 - i)]); });
-    if (!par.length) return NaN;
-    par.sort((a, b) => a[0] - b[0]);
-    const meio = par.reduce((s, p) => s + p[1], 0) / 2;
-    let acc = 0;
-    for (const [x, w] of par) { acc += w; if (acc >= meio - 1e-9) return x; }
-    return par[par.length - 1][0];
-  }
-
   /** O histórico gravado, saneado: sempre `{ v: VERSAO, amostras: [] }`. Outra versão recomeça. */
   function sanear(hist) {
-    const lista = hist && hist.v === VERSAO && Array.isArray(hist.amostras) ? hist.amostras : [];
-    return { v: VERSAO, amostras: lista.filter((a) => a && typeof a === 'object').slice(-AMOSTRAS) };
+    const v3 = hist && hist.v === 3 && Array.isArray(hist.amostras);
+    const lista = v3 || (hist && hist.v === VERSAO && Array.isArray(hist.amostras)) ? hist.amostras : [];
+    let am = lista.filter((a) => a && typeof a === 'object').slice(-AMOSTRAS);
+    // A v3 media a gravação COM a miniatura (que saiu do caminho na v1.12.39):
+    // as amostras ficam, sem esse número.
+    if (v3) am = am.map((a) => { const c = Object.assign({}, a); delete c.gravacaoMs; return c; });
+    return { v: VERSAO, amostras: am };
   }
 
   const CAMPOS = ['preparoMs', 'downloadMs', 'bytes', 'ritmo', 'segundos', 'juntou', 'juncaoMs', 'copiaMs', 'gravacaoMs', 'aberturaMs'];
@@ -209,8 +243,8 @@
    * Um tempo que é FIXO + POR MB: a inclinação é a mediana das inclinações entre
    * pares de amostras de tamanhos bem diferentes (nunca negativa — um arquivo
    * maior não grava mais rápido; a diferença é ruído); sem par, a do padrão (ou
-   * menos, se a amostra mesma não comporta). O fixo é a mediana recente do que
-   * sobra.
+   * menos, se a amostra mesma não comporta). O fixo é o que
+   * sobra, no `QUANTIL`.
    */
   function ajustar(am, campo) {
     const pts = am.map((a) => (num(a[campo]) >= 0 && a.bytes > 0 ? [a.bytes / MB, a[campo]] : null));
@@ -225,9 +259,12 @@
       }
     }
     const padrao = PADRAO[campo.replace('Ms', 'MsPorMB')];
-    const porMB = inclin.length ? Math.max(0, mediana(inclin))
+    // UM par só não basta (v1.12.39): com dois tamanhos, a diferença de UMA
+    // gravação fora da curva virava inclinação (175 ms/MB, e um vídeo de 12 MB
+    // previsto em 2,1 s). A inclinação pede dois pares — três amostras.
+    const porMB = inclin.length >= 2 ? Math.max(0, mediana(inclin))
       : Math.min(padrao, mediana(val.map((p) => p[1] / p[0])));
-    const fixo = medianaRecente(pts.map((p) => (p ? Math.max(0, p[1] - porMB * p[0]) : NaN)));
+    const fixo = estimar(pts.map((p) => (p ? Math.max(0, p[1] - porMB * p[0]) : NaN)), QUANTIL);
     return { fixo, porMB };
   }
 
@@ -240,13 +277,19 @@
     const am = sanear(hist).amostras;
     const daChave = chave ? am.filter((a) => a.chave === chave) : [];
     const doTamanho = daChave.some((a) => a.bytes > 0) ? daChave : am;
+    const tamanhos = doTamanho.map((a) => (a.bytes > 0 ? a.bytes : NaN));
+    const nTam = tamanhos.slice(-JANELA).filter((x) => isFinite(x)).length;
+    const bps = doTamanho.map((a) => (a.bytes > 0 && a.segundos > 0 ? a.bytes / a.segundos : NaN));
+    const nBps = bps.slice(-JANELA).filter((x) => isFinite(x)).length;
+    // Com menos de `APOIO_TAMANHO` amostras, o típico é a mistura com o padrão.
+    const confTam = Math.min(1, nTam / APOIO_TAMANHO);
     const cru = {
-      preparoMs: medianaRecente(am.map((a) => num(a.preparoMs))),
-      latenciaMs: medianaRecente(am.map(latenciaDa)),
-      bytesPorMs: medianaRecente(am.map(ritmoDa)),
-      aberturaMs: medianaRecente(am.map((a) => num(a.aberturaMs))),
-      bytesTipicos: medianaRecente(doTamanho.map((a) => (a.bytes > 0 ? a.bytes : NaN))),
-      bytesPorSegundo: medianaRecente(doTamanho.map((a) => (a.bytes > 0 && a.segundos > 0 ? a.bytes / a.segundos : NaN))),
+      preparoMs: estimar(am.map((a) => num(a.preparoMs)), QUANTIL),
+      latenciaMs: estimar(am.map(latenciaDa), QUANTIL),
+      bytesPorMs: estimar(am.map(ritmoDa), 0.5),
+      aberturaMs: estimar(am.map((a) => num(a.aberturaMs)), QUANTIL),
+      bytesTipicos: nTam ? confTam * estimar(tamanhos, 0.5) + (1 - confTam) * PADRAO.bytesTipicos : NaN,
+      bytesPorSegundo: nBps >= APOIO_TAMANHO ? estimar(bps, 0.5) : NaN,
       juncaoChance: mediaRecente(am.map((a) => (a.juntou === 0 || a.juntou === 1 ? a.juntou : NaN))),
     };
     for (const f of ['juncao', 'copia', 'gravacao']) {
@@ -311,6 +354,9 @@
     let tConcluir = 0;
     let sConcluir = 0;
     let varredura = 0;
+    let tRevelar = 0;         // o `revelar()`: quando, de onde e por quanto tempo a varredura do fim segurado
+    let sRevelar = -1;
+    let segurou = 0;
     let tocou = true;
     let escondida = !!o.oculta; // a página está oculta agora
     let oculto = false;       // a página esteve oculta durante alguma fase web
@@ -404,6 +450,10 @@
     // vídeo para o outro) pesa `MIRA_CAUDA` do previsto. Errar para o lado curto
     // custa a barra andar devagar uns décimos depois do pouso; errar para o lado
     // longo custa o vídeo abrir com a barra no meio — o que o operador relata.
+    // A ABERTURA continua na mira, mesmo com a mídia aparecendo no começo dela
+    // (o `revelar()`): fora dela, uma gravação que atrasa deixava o que falta no
+    // piso (`RESTANTE_MIN`) e a barra corria ao pouso para frear em cima dele —
+    // a varredura curta do fim segurado custa menos que essa freada.
     function restante(t, mira) {
       const k = (f) => (mira && FASES_WEB.includes(f) ? MIRA_CAUDA : 1);
       let r = restanteDaAtual(t) * k(atual);
@@ -428,7 +478,7 @@
     }
 
     function valor() {
-      if (concluido) return s >= 100 ? 100 : Math.max(0, Math.floor(s));
+      if (concluido || segurou) return s >= 100 ? 100 : Math.max(0, Math.floor(s));
       return Math.max(0, Math.min(99, Math.floor(s)));
     }
 
@@ -483,6 +533,11 @@
         if (concluido) {
           const u = Math.min(1, (t - tConcluir) / varredura);
           s = u >= 1 ? 100 : sConcluir + (100 - sConcluir) * (1 - (1 - u) * (1 - u));
+          return valor();
+        }
+        if (segurou) {
+          const u = Math.min(1, (t - tRevelar) / segurou);
+          s = u >= 1 ? 100 : sRevelar + (100 - sRevelar) * (1 - (1 - u) * (1 - u));
           return valor();
         }
         const alvo = velocidadeAlvo(t);
@@ -561,6 +616,21 @@
         if (total > 0 && lidos >= total && !tCheio) tCheio = t;
       },
       /**
+       * A mídia PRONTA PARA APARECER (o começo da abertura do "Tocar agora"):
+       * devolve quantos ms a revelação deve esperar — 0 com a barra no `POUSO`
+       * ou acima; senão `SEGURA_MIN + SEGURA_POR_PONTO × (100 − valor)`, até
+       * `SEGURA_MAX` — e a barra VARRE até 100 nesse tempo. As fases continuam
+       * sendo medidas; `concluir()` segue sendo o fim do trabalho.
+       */
+      revelar() {
+        if (concluido || sRevelar >= 0) return 0;
+        sRevelar = s;
+        tRevelar = agora();
+        if (s >= POUSO) return 0;
+        segurou = Math.round(Math.min(SEGURA_MAX, SEGURA_MIN + SEGURA_POR_PONTO * (100 - s)));
+        return segurou;
+      },
+      /**
        * A mídia está pronta. `opcoes.tocou === false`: a abertura venceu o prazo
        * sem ver o play — o fim vale, a amostra da abertura não.
        */
@@ -570,6 +640,7 @@
         if (opcoes && opcoes.tocou === false) tocou = false;
         fim[atual] = t;
         mostradoNoFim[atual] = Math.floor(s);
+        if (segurou && s < 100) s = Math.max(s, sRevelar + (100 - sRevelar) * Math.min(1, (t - tRevelar) / segurou));
         concluido = true;
         tConcluir = t;
         sConcluir = s;
@@ -624,8 +695,12 @@
           fases,
           previstoMs: previstoInicial,
           realMs: concluido ? tConcluir - t0 : null,
-          aoConcluir: concluido ? Math.floor(sConcluir) : null,
-          saltoFinal: concluido ? Math.max(0, 100 - Math.floor(sConcluir)) : null,
+          // O número quando a mídia ficou PRONTA: no `revelar()`, se houve um;
+          // senão no `concluir()`. É o que o operador via antes do fim.
+          aoConcluir: sRevelar >= 0 ? Math.floor(sRevelar) : concluido ? Math.floor(sConcluir) : null,
+          saltoFinal: sRevelar >= 0 ? Math.max(0, 100 - Math.floor(sRevelar))
+            : concluido ? Math.max(0, 100 - Math.floor(sConcluir)) : null,
+          segurouMs: segurou,
           platoMs: Math.round(plato),
           tocou,
           oculto,
@@ -636,6 +711,7 @@
 
   global.AVProgresso = {
     FASES, PADRAO, LIMITES, AMOSTRAS, VERSAO, POUSO, CAP, PISO_V, V_MAX, PESO_IDADE, MIRA_CAUDA,
-    sanear, aprender, modelo, apoio, criar, mediana, medianaRecente,
+    JANELA, QUANTIL, APOIO_TAMANHO, SEGURA_MAX,
+    sanear, aprender, modelo, apoio, criar, mediana, estimar,
   };
 })(this);

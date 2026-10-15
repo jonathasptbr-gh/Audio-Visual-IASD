@@ -399,7 +399,7 @@ try {
     // lenta" de "o Android rebaixou o app no fundo".
     const fundo = await pg.evaluate(() => {
       const c = testeDlContas({ tInicio: 1000, amostras: [[2000, 1e6, 4e6], [6000, 4e6, 4e6]],
-        tNativo: 7000, tCopia: 9000, tMiniatura: 9100, tGravado: 9500,
+        tNativo: 7000, tCopia: 9000, tGravado: 9500,
         visibilidade: [[1000, true], [3000, false], [8000, true]] });
       return c.noFundo;
     });
@@ -581,7 +581,7 @@ try {
   {
     const { ctx, pg } = await aparelho();
     const c = await pg.evaluate(() => testeDlContas({
-      tInicio: 0, tNativo: 30000, tCopia: 31000, tMiniatura: 31500, tGravado: 32000,
+      tInicio: 0, tNativo: 30000, tCopia: 31000, tGravado: 32000, tMiniaturaIni: 32600, tMiniaturaFim: 33000,
       meta: { segundos: 640 },
       // 1 MB/s por 4 s, PARADA de 6 s, e 2 MB/s por 4 s; o fim da rede em 14 s
       amostras: [[2000, 0, 12e6], [4000, 2e6, 12e6], [6000, 4e6, 12e6], [12000, 4e6, 12e6],
@@ -593,6 +593,10 @@ try {
       'G2 · a parada de 6 s é contada e aparece como a JANELA mais lenta (0 Mbit/s); a mais rápida é 16 Mbit/s',
       JSON.stringify(c));
     checar(Math.abs(c.razao - 20) < 1e-9, 'G3 · e 640 s de vídeo em 32 s de processo é 20× a duração', c.razao);
+    // G5 · A MINIATURA SAIU DA GRAVAÇÃO (v1.12.39): a gravação é da cópia ao
+    // registro gravado, e a miniatura é medida à parte, DEPOIS, fora do total.
+    checar(c.gravacao === 1000 && c.miniatura === 400 && c.total === 32000,
+      'G5 · a gravação não inclui a miniatura, que é medida à parte e fora do total', JSON.stringify(c));
     // G4 · O COMPASSO DE 1 MB NÃO É PARADA (v1.12.28). O Registro de 10/10:
     // 16 MB em 168 s, um aviso por MB a cada ~9 s, e a régua fixa de 5 s contou
     // "12 paradas" que eram só o compasso. Aqui: 15 vãos de 9 s e UM de 30 s.

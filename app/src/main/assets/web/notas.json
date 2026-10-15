@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.12.39",
+    "itens": [
+      "YouTube: o vídeo começa mais rápido; a imagem pequena do item aparece logo depois.",
+      "A porcentagem chega a 100% antes de o vídeo aparecer, esperando no máximo meio segundo.",
+      "Ela erra menos quando um vídeo demora mais que os outros."
+    ]
+  },
+  {
     "versao": "1.12.38",
     "itens": [
       "YouTube: a porcentagem chega perto de 100% quando o vídeo começa, sem saltar de 75%.",

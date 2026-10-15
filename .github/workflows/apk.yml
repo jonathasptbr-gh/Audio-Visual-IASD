@@ -567,6 +567,7 @@ jobs:
           rodar tools/verificacao-do-sistema.test.mjs
           rodar tools/verificacao-completa.test.mjs
           rodar tools/modo-simples-espera.test.mjs
+          rodar tools/youtube-fim-segurado.test.mjs
           rodar tools/desvio-cors-fotos.test.mjs
           rodar tools/ponte.test.mjs
           rodar tools/recusa-transmissao.test.mjs

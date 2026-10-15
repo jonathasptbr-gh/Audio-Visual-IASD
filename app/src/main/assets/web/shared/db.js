@@ -877,6 +877,24 @@
     return txDone(ftx);
   }
 
+  // A MINIATURA QUE CHEGA DEPOIS (v1.12.39). O vídeo do YouTube é gravado SEM
+  // miniatura — extraí-la decodifica o vídeo, e ela segurava o "Tocar agora" por
+  // até 1,9 s no aparelho do operador —, e ela entra aqui quando fica pronta.
+  // get + put na MESMA transação (a regra do `renameMedia`). Só ESCREVE onde não
+  // há miniatura: uma que tenha chegado por outro caminho não é trocada. Devolve
+  // se gravou; registro que sumiu (o teste apagou, o operador excluiu) é `false`,
+  // e nada é recriado.
+  async function definirMiniatura(id, thumb) {
+    if (!id || !thumb) return false;
+    const [s, tx] = await storeTx(STORE_MEDIA, 'readwrite');
+    const record = await asPromise(s.get(id));
+    if (!record || record.thumb) { await txDone(tx); return false; }
+    record.thumb = thumb;
+    await asPromise(s.put(record));
+    await txDone(tx);
+    return true;
+  }
+
   // ===== O QUE O PACOTE DE TRANSFERÊNCIA PRECISA (v1.7.0) =====
   //
   // Três primitivas que nenhum caminho de culto usa e que o `controle.js` não
@@ -1563,7 +1581,7 @@
     setState, getState, updateState, updateStateLote, stateKeys, stateVarrer,
     stateApagarPrefixo,
     addMedia, addUrlMedia, addDeck, addCue,
-    getMedia, getMediaCru, addEdicao, atualizarEdicao, addBase, basesDoEditor, baseDe, adotarBases, ehCaminhoDeBase, mediaByYoutube, renameMedia,
+    getMedia, getMediaCru, addEdicao, atualizarEdicao, addBase, basesDoEditor, baseDe, adotarBases, ehCaminhoDeBase, mediaByYoutube, renameMedia, definirMiniatura,
     LISTS, listIds, listSet, listItems, listHas, listAdd, listRemove, gc, gcOrfaos, folderDrop,
     fileAdd, fileGet, fileDelete, filesByFolder, filesAll, filesChaves,
     filesPastas,

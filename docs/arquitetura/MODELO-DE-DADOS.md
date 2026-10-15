@@ -256,6 +256,8 @@ addUrlMedia(url, meta)        // item de URL externa (blob=null), idem
 addDeck(pages, meta)          // apresentação: uma imagem por página
 addCue(cue, data, meta)       // CENA DE ROTEIRO: item sem bytes (ver abaixo)
 getMedia(id), renameMedia(id, name)
+definirMiniatura(id, thumb)   // a miniatura que chega DEPOIS (v1.12.39): get + put
+                              // numa transação, só onde não há; false se sumiu
 mediaByYoutube(youtubeId, kind)  // o registro desse vídeo na FORMA pedida, ou null
 listIds, listSet, listItems, listHas, listAdd, listRemove, gc
 gcOrfaos()                    // a FAXINA: recolhe registro que nenhuma lista

@@ -5555,8 +5555,10 @@ itens."*
   miniatura, por 4 s. Oráculo: `busca-divisoria.test.mjs` (A8, A9).
 - **O PERCENTUAL É DO TOQUE À MÍDIA TOCANDO** (v1.12.36), não dos bytes. A regra é `progresso.js` (`AVProgresso`, puro):
   fases `preparo` · `download` · `juncao` · `copia` · `gravacao` · `abertura`, a duração de cada uma PREVISTA pelo
-  histórico do aparelho (`ytTempos` no `state`: as últimas 12 amostras, MEDIANA PONDERADA pela idade — `medianaRecente`,
-  `PESO_IDADE` 0,8, v1.12.38; o download como `latenciaMs` + bytes ÷ ritmo, a junção, a cópia e a gravação como FIXO + POR
+  histórico do aparelho (`ytTempos` no `state`: as últimas 12 amostras; cada tempo é o QUANTIL 0,6 das últimas 8, SEM
+  peso de idade — `estimar`, v1.12.39, revogando a mediana ponderada da v1.12.38, com a qual UMA gravação de 1,9 s virava
+  a previsão do vídeo seguinte; a inclinação por MB pede DOIS pares de tamanhos; o tamanho típico só vale sozinho com
+  `APOIO_TAMANHO` 3 amostras, antes disso misturado ao padrão de 12 MB; o download como `latenciaMs` + bytes ÷ ritmo, a junção, a cópia e a gravação como FIXO + POR
   MB — `ajustar`, a inclinação nunca negativa —, a junção pesando a fração dos vídeos que juntam, `juncaoChance`; o tamanho
   antes de o shell dizê-lo é a duração do `extraiu` × os bytes por segundo aprendidos, ou o típico da mesma `chave`, vídeo
   ou só áudio). **A EXIBIÇÃO É UM CONTROLE DE VELOCIDADE** (v1.12.37, revogando a perseguição de posição da v1.12.36, que
@@ -5587,11 +5589,19 @@ itens."*
   (`legendaDoProgresso`; só a dos bytes começa por "Baixando", que acende a seta). O shell avisa as fases que só ele vê
   (`__avYtFase`: `extraiu`, `baixou`, `juntando`, `juntou`), e sem elas a barra segue pelo relógio. **No "Tocar agora" o
   fim é a mídia tocando** (`esperarTocando`: `playing` com ela no ar, prazo 5 s; imagem e apresentação na hora) e a linha
-  fica `baixando` até lá; num destino que guarda, o fim é a gravação. **Nada espera a barra**: ela é concluída DEPOIS do
-  `send`, reservada (`reservar`) para o `finally` do `ytAcao` não a abandonar. Toda conclusão grava uma amostra
+  fica `baixando` até lá; num destino que guarda, o fim é a gravação. **O FIM SEGURADO** (v1.12.39, aprovado pelo
+  operador, revogando o "nada espera a barra"): no começo da abertura `barra.revelar()` varre até 100 e o `send` ESPERA a
+  varredura — `SEGURA_MIN` + `SEGURA_POR_PONTO` × o que falta, até `SEGURA_MAX` (500 ms), nada a partir do `POUSO` e
+  nada com a página oculta; a espera corre junto com as listas e o `load`, e o telão espera o mesmo tanto. O `relatorio()`
+  diz quanto segurou (`segurouMs`) e o número na hora de abrir (`aoConcluir`). A barra é concluída DEPOIS do `send`,
+  reservada (`reservar`) para o `finally` do `ytAcao` não a abandonar. **A MINIATURA SAIU DO CAMINHO** (v1.12.39): o
+  vídeo é gravado sem ela e `miniaturaDepois` a extrai depois — no "Tocar agora" quando a mídia está TOCANDO (a promessa
+  `miniaturaApos`, mais `MINIATURA_FOLGA_MS`, com teto `MINIATURA_ESPERA_MAX_MS`); nos outros caminhos, logo. Ela grava por
+  `AVDB.definirMiniatura` e quem desenhou a linha com a caixa vazia (`.thumb--espera`, nunca o "imagem quebrada") é
+  redesenhado (`redesenharComMiniatura`). O `makeThumb` tem `<video>` próprio, mudo e sem `play()`. Toda conclusão grava uma amostra
   (`tocar`, `guardar`, `serie` — o episódio da semana e o download de álbum de série —, `teste`); falha e cancelamento
-  abandonam sem amostra. Oráculos: `progresso.test.mjs` (a regra) e `modo-simples-espera.test.mjs` C e D (a ligação e o
-  diagnóstico).
+  abandonam sem amostra. Oráculos: `progresso.test.mjs` (a regra), `modo-simples-espera.test.mjs` C e D (a ligação e o
+  diagnóstico) e `youtube-fim-segurado.test.mjs` (a miniatura depois do play e o fim segurado).
 - **Ela fica ABAIXO da linha, e isso é a regra escrita**: a `.row` é
   `z-index: 1` e pinta `--linha`, então o traço SOME quando aquela faixa ganha um
   preenchimento opaco de estado — ali quem separa é o preenchimento, e duas
