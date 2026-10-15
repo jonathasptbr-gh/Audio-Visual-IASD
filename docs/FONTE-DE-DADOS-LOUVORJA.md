@@ -552,6 +552,21 @@ se houver `url_*`, baixe via `fileUrl(path)`.
 
 ---
 
+## 8.1 Quando o servidor não responde (v1.12.43)
+
+O app separa **três** situações, e quem decide é um veredito só
+(`fonteVeredito` em `controle/controle.js`; o capítulo do Controle tem a regra):
+
+| desfecho | como se reconhece |
+|---|---|
+| servidor no ar | qualquer resposta HTTP que não seja de recusa — **um 404 de `music_{id}` ou de um capítulo é sobre AQUELE item** |
+| servidor indisponível | 5xx, 401, 403 ou 429; ou nenhuma resposta (prazo de 8 s no `config`) com a internet de pé; ou resposta que o navegador não deixa ler (o `sondarBanco` em `no-cors` resolve) |
+| sem internet | `navigator.onLine` falso, ou nem o banco nem dois hosts independentes (YouTube e a página do app) respondem |
+
+A sonda do banco é o arquivo `config` (§5.7), o menor do `json_db`.
+`Louvorja.fetchList` conta cada desfecho a quem observa (`Louvorja.observar`)
+e o erro HTTP leva `httpStatus`.
+
 ## 9. Ressalvas e pontos não verificados
 
 - **Idiomas**: só `pt` e `es` são exercitados pelo app-ja; outros locales podem

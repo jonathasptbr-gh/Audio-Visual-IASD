@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.12.43",
+    "itens": [
+      "Biblioteca: se o servidor dos hinos e da Bíblia estiver fora do ar, um aviso diz isso na própria Biblioteca.",
+      "Esse aviso é diferente do aviso de sem internet: um é o servidor do LouvorJA, o outro é o seu aparelho.",
+      "Com o servidor fora, os botões de baixar ficam apagados; o que já está baixado continua funcionando normal.",
+      "YouTube, arquivos importados, Cronograma e o telão não são afetados.",
+      "O aviso some sozinho quando o servidor volta, ou pelo botão \"Tentar de novo\"."
+    ]
+  },
+  {
     "versao": "1.12.42",
     "itens": [
       "Tela cheia: o play/pause fica grande no meio da tela; sair da tela cheia vai para o canto de baixo à direita.",

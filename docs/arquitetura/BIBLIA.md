@@ -38,6 +38,20 @@ A leitura por capítulo (`loadBibleChapter`) continua baixando sob demanda como
 fallback se o operador abrir um capítulo antes de o download em massa chegar
 nele.
 
+#### O servidor fora do ar (v1.12.43)
+
+Com o veredito da fonte ruim (`fonteBloqueada`, ver "O servidor da LouvorJA
+fora do ar" no capítulo do Controle), a Bíblia barra só o que depende dele:
+`ensureBibleVersionDownloaded` não parte a varredura (seriam 25 falhas até o
+freio — quem a religa é a volta do servidor, por `garantirBibliaBase`), uma
+versão não completa e fora de uso fica APAGADA na lista (`.bible-ver-row.sem-fonte`,
+o porquê no `title`), e o capítulo que não veio mostra o aviso inteiro
+(`fonteAvisoEl('biblia')`, com "Tentar de novo") no lugar da nota. A lista de
+versões ganha o aviso no topo quando falta algo (nenhuma versão listada, ou
+uma não completa). Versão completa e a em uso continuam escolhíveis, e o
+capítulo guardado abre normalmente. Um 404 de um capítulo é sobre ELE: só a
+falta de resposta ou a recusa disparam a apuração.
+
 #### O ESTADO DE CADA VERSÃO, e o que ele dizia de errado (v1.8.83)
 
 São **quatro**, e o quarto é novo:
