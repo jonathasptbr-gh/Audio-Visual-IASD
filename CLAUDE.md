@@ -2229,6 +2229,16 @@ junto).
 
 **Duas regras de método que ficam:**
 
+- **LOCALMENTE SE RODA SÓ A VIZINHANÇA DO LOTE; A SUÍTE INTEIRA É DO CI**
+  (decisão do operador, 2026-10-15). Antes do commit: os oráculos de Chromium
+  que tocam o que o lote mexeu (e os vizinhos que leem o mesmo estado), TODOS
+  os de Node puro (somam ~8 s) e a *"Sanidade da base web"* (o bloco abaixo).
+  A suíte de Chromium completa NÃO roda na máquina de quem escreve: ela roda
+  no `verificar` de `main`, que já é o portão do `web-ota` — um vermelho ali
+  segura o bundle, não o publica. **Reprovou no CI, o lote não acabou:**
+  conserta, repete a vizinhança e empurra de novo, até o manifesto do canal
+  mostrar a versão. A reversão de asserção nova continua valendo inteira.
+
 - **Teste que não está no workflow é documentação, não rede de segurança** — e
   a linha do `rodar` entra no MESMO lote que o arquivo. Isto deixou de ser
   higiene e virou passo do rito: **quatro vezes em nove lotes** — a v1.8.0 com o
