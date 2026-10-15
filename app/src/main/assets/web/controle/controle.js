@@ -5497,10 +5497,11 @@ async function ensureBibleVersionDownloaded(versionId) {
     bibleCompleteVersions.add(versionId);
     return;
   }
-  // O SERVIDOR FORA (v1.12.43): a varredura nem parte — seriam 25 falhas
-  // seguidas até o freio. Quem a religa é a VOLTA do servidor
-  // (`fonteAoMudar` → `garantirBibliaBase`).
-  if (fonteBloqueada()) { reapurarFonteSePreciso('bíblia'); return; }
+  // (O VEREDITO DA FONTE NÃO SEGURA ESTA VARREDURA, v1.12.43: ele é sobre o
+  // servidor INTEIRO e pode estar velho ou oscilando entre um pedido e outro, e
+  // a varredura já tem o freio próprio — 25 falhas seguidas. Quem a religa
+  // depois de uma queda é a VOLTA do servidor, `fonteAoMudar` →
+  // `garantirBibliaBase`.)
 
   let done = total - missing.length, failed = 0;
   // Falhas CONSECUTIVAS — o freio de quem varre 1189 capítulos sem rede.

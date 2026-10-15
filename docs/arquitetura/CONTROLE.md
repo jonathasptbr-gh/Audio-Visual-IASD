@@ -6985,7 +6985,7 @@ de `collSongs`), três desfechos:
   de grupo — APAGADOS, com `fonteMotivoCurto` no `title` (o cancelar de um
   download em curso nunca) —, o download sob demanda de uma música
   (`ensureSongDownloaded` re-apura no toque e, ainda ruim, não pede; `motivoDoCartao` nomeia o
-  servidor), a varredura da Bíblia e a escolha de versão não baixada. **Nada
+  servidor) e a escolha de versão não baixada da Bíblia (a varredura dela tem o freio próprio e não é segurada). **Nada
   mais**: YouTube, reprodução, importados, Cronograma, telão.
 - **O aviso GRANDE só onde falta a LISTAGEM** (`fonteDependente`: NADA listado
   — nenhum hinário com índice E o catálogo de álbuns vazio). Quem já tem a listagem vê o que
