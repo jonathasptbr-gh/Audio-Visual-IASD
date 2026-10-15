@@ -1762,10 +1762,26 @@
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6v12"/><path d="M5 6.6 14.4 12 5 17.4z"/></svg>
           </button>
         </div>
+        <!-- O TÍTULO E A BARRA DE TEMPO DA TELA CHEIA DO MODO FÁCIL (v1.12.41). Pedido do operador
+             (aprovado): o nome da mídia no TOPO e a linha do tempo na BASE, e os dois aparecem e
+             somem JUNTO com a coluna (`acenderFsCtl`/`esconderFsCtl`: o toque acende, 4 s apagam).
+             Só existem no Modo Fácil — no avançado a tela cheia continua como era. A barra salta
+             e procura pelo MESMO caminho da barra do card (`ligarBarraDeTempo`, `seeking`, um
+             `seek` ao soltar), e some sem duração conhecida. São do PALCO: tokens sem tema. -->
+        <div class="pv-fstopo" id="pvFsTopo" aria-hidden="true"><span class="pv-fstopo-nome" id="pvFsNome"></span></div>
+        <div class="pv-fsbase" id="pvFsBase" hidden>
+          <span class="pv-fstempo-num" id="pvFsTempoCur">0:00</span>
+          <div class="pv-fstempo-hit" id="pvFsTempoHit" role="slider" tabindex="0"
+               aria-label="Posição da mídia" aria-valuemin="0" aria-valuenow="0">
+            <div class="pv-fstempo-bar"><div class="pv-fstempo-fill" id="pvFsTempoFill"></div></div>
+          </div>
+          <span class="pv-fstempo-num" id="pvFsTempoDur">0:00</span>
+        </div>
         <!-- A BARRA DE VOLUME DA TELA CHEIA (v1.12.24). Só existe em tela cheia e só enquanto
              `.visivel` (`mostrarVolumeDaTelaCheia`, 2 s): fora dela o retorno do volume é o fader
              que a tecla acende, e dentro dela não havia nenhum. Mora DENTRO da `.preview` porque
-             só o elemento em tela cheia e os filhos dele são pintados. É do PALCO: tokens sem tema. -->
+             só o elemento em tela cheia e os filhos dele são pintados. É do PALCO: tokens sem tema.
+             NO MODO FÁCIL ELA É VERTICAL, NA BORDA ESQUERDA (v1.12.41): o topo é do título. -->
         <div class="pv-volume" id="pvVolume" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <use class="ico-base" href="#icoSom"/><use class="ico-alt" href="#icoSomOff"/>
@@ -2702,7 +2718,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.12.40</span>
+            <span id="appVersion" class="app-version">v1.12.41</span>
           </button>
             <!-- O REGISTRO SAIU DESTA FAIXA (v1.12.29), a pedido do operador:
                  *"Remova a opção de registro que tem avulsa na base das

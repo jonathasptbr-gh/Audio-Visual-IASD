@@ -5603,6 +5603,13 @@ itens."*
   limita o ritmo a `GRAO / silêncio`, e o que falta cresce com o silêncio) e o valor não passa da posição dos bytes
   recebidos dentro da FATIA do download (`posicaoDosBytes`/`fimDaFatia`: de `sDownload` até onde as fases seguintes
   cabem, proporcional ao tempo); além dela só o `PISO_BYTES` anda, até `MARGEM_BYTES` — numa rede parada a barra para.
+  **SÓ O DOWNLOAD ATRASADO** (v1.12.41): o teto só prende com `downloadAtrasado(t)` — o que chegou abaixo de `LENTO`
+  (0,5) do que o ritmo aprendido traria desde o fim da latência (um grão de folga), ou os avisos parados há
+  `PARADO_MS` (400 ms e três avisos do plano). Um arquivo MAIOR que o previsto chegando no ritmo de sempre corre livre
+  (no Registro de 15/10 13h25, 25 MB a 23 MB/s abriam em 74). **A VELOCIDADE REFEITA:** quando o plano encolhe — os
+  bytes acabam (`entrar`), o tamanho de verdade chega (`bytes()` com o total mudando) — ou o teto solta (`presa` no
+  passo anterior e não mais), a velocidade vai direto à alvo se ela for maior; para baixo continuam a inércia e o freio
+  (o de 3 MB abria em 62 com a inércia do plano velho e a velocidade do teto, ~1 ponto/s). Oráculo: `progresso` S.
   **O REGISTRO DIZ POR QUE OS BYTES DEMORARAM** (v1.12.40): depois de cada `ytBaixarNativo` (fora a Verificação
   completa) o `ytMedida` é lido sem `await`, resumido (`resumoDaMedidaDoShell`) e esperado pelo `concluir()` até
   `YT_MEDIDA_ESPERA_MS` (`anotarMedida`) antes de o item entrar no anel; o bloco imprime os avisos no tempo (maior vão,
@@ -9989,8 +9996,9 @@ do `CLAUDE.md`.
 - **A `.bottombar` volta a ter caixa** enquanto a prévia está em tela cheia (`body.mode-simple .bottombar:has(.preview:fullscreen)`): ancestral `display: none` deixa o top layer 0×0, MEDIDO.
 - **A COLUNA DO MODO FÁCIL** é sair + play/pause (`body.mode-simple .pv-fsctl :is(#fsView, #fsPrev, #fsNext) { display: none }`).
 - **O PEDIDO EXIGE ATIVAÇÃO DO USUÁRIO** (~5 s, também no WebView). O vídeo que baixa antes de projetar chega tarde e é recusado (vai ao Registro); a porta é o `#simpleFsBtn` (`renderSimpleFsBtn`, chamado pelo `renderSimple`), só com vídeo no ar e sem tela. Desde a v1.12.26 o card é GRADE de uma coluna e o botão ocupa uma segunda coluna IMPLÍCITA (`grid-column: 2; grid-row: 1 / 3`), à direita do nome E da barra; escondido ele não gera coluna. A altura do card não muda (v1.12.11).
-- **A BARRA DE VOLUME** (`#pvVolume`, dentro da `.preview`, nos dois modos): `mostrarVolumeDaTelaCheia` em `applyVolume` e `peekVolume` (a tecla que vai ao sistema no teto/zero também acende), 2 s (`PV_VOLUME_MS`), número do APP. Tokens do palco. `fullscreenchange` de saída apaga a barra, zera `fsDoVideo` e remede o corpo do Modo Fácil.
-- Oráculo: `video-tela-cheia.test.mjs`. O `evaluate` do Playwright carrega ativação, então a recusa é SIMULADA (stub do `requestFullscreen`).
+- **A BARRA DE VOLUME** (`#pvVolume`, dentro da `.preview`, nos dois modos): `mostrarVolumeDaTelaCheia` em `applyVolume` e `peekVolume` (a tecla que vai ao sistema no teto/zero também acende), 2 s (`PV_VOLUME_MS`), número do APP, escrito na custom property `--nivel` do `#pvVolumeNivel`. Tokens do palco. `fullscreenchange` de saída apaga a barra, zera `fsDoVideo` e remede o corpo do Modo Fácil. No avançado ela é horizontal, no topo; **no Modo Fácil, EM PÉ NA BORDA ESQUERDA** (v1.12.41, `body.mode-simple .pv-volume`: `column-reverse`, o nível de baixo para cima por `height: var(--nivel)`, `height: min(220px, 100% − 9rem)` para caber entre o título e a linha do tempo, `safe-area-inset-left`).
+- **O TÍTULO E A LINHA DO TEMPO DO MODO FÁCIL** (v1.12.41, pedido do operador, aprovado): `#pvFsTopo` (o nome, `npNameInnerEl`, escrito pelo `renderSimple` e pelo `renderFsCtl`; degradê de `--scrim` até nada, `pointer-events: none` sempre) e `#pvFsBase` (decorrido · `#pvFsTempoHit` · duração; alvo de 32 px; `renderSimpleTime` escreve o tempo e o `hidden` — some sem duração, junto com o do card). Os dois só são desenhados no Modo Fácil em tela cheia (`:fullscreen` e `.pv-inteira`) e vestem a `.visivel` da coluna (`acenderFsCtl`/`esconderFsCtl`, o array `fsJunto`); o recuo direito de 60 px é o da coluna. **A linha do tempo é a MESMA barra do card**: o `setupSimpleSeek` virou `ligarBarraDeTempo(hit, { pintar, aoComecar, aoTerminar })` — `simpleSeeking` e `seeking` compartilhados (o `renderSimpleTime` não escreve sob o dedo), um `cmd({ type: 'seek' })` só ao soltar, o `#seek` do avançado como fonte de verdade, `pointercancel` sem salto. Na tela cheia `aoComecar` PARA o relógio dos 4 s e `aoTerminar` o rearma (o `acenderFsCtl` não arma o relógio com a faixa em `.seeking`), e o `pointerdown` da prévia conta a `.pv-fsbase` como a coluna — um toque nela acesa procura, nunca apaga.
+- Oráculo: `video-tela-cheia.test.mjs` (o título, a linha do tempo e o volume em pé: bloco H; na tela inteira do app, `tela-inteira` B3). O `evaluate` do Playwright carrega ativação, então a recusa é SIMULADA (stub do `requestFullscreen`).
 
 ## A tampa das coleções acompanha a altura da lista (v1.12.14)
 

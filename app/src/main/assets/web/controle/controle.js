@@ -42,6 +42,14 @@ const fsCtlEl = document.getElementById('pvFsCtl');
 const pvVolumeEl = document.getElementById('pvVolume');
 const pvVolumeNivelEl = document.getElementById('pvVolumeNivel');
 const pvVolumeNumEl = document.getElementById('pvVolumeNum');
+// O título e a linha do tempo da tela cheia do Modo Fácil (v1.12.41).
+const pvFsTopoEl = document.getElementById('pvFsTopo');
+const pvFsNomeEl = document.getElementById('pvFsNome');
+const pvFsBaseEl = document.getElementById('pvFsBase');
+const pvFsTempoCurEl = document.getElementById('pvFsTempoCur');
+const pvFsTempoDurEl = document.getElementById('pvFsTempoDur');
+const pvFsTempoFillEl = document.getElementById('pvFsTempoFill');
+const pvFsTempoHitEl = document.getElementById('pvFsTempoHit');
 const simpleFsBtnEl = document.getElementById('simpleFsBtn');
 const simpleNpNameEl = document.getElementById('simpleNpName');
 const simplePlayEl = document.getElementById('simplePlay');
@@ -392,7 +400,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.40';
+const WEB_VERSION = '1.12.41';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -40682,6 +40690,7 @@ function renderSimple() {
   if (appMode !== 'simple') return;
   renderSimpleFsBtn();
   simpleNpNameEl.textContent = npNameInnerEl.textContent || 'Nada tocando';
+  if (pvFsNomeEl) pvFsNomeEl.textContent = npNameInnerEl.textContent || '';
   simplePlayEl.querySelector('.msym').textContent = playPauseEl.querySelector('.msym').textContent;
   // O botão espelhado deixou de ter glifo na v1.3.5 (subiu para a preview e
   // virou SVG), então o que se copia agora é a CLASSE de estado — `.alternado`
@@ -40712,8 +40721,10 @@ function renderSimpleTime() {
   const cur = parseFloat(seekEl.value) || 0;
   const timed = !seekEl.disabled && dur > 0;
   simpleTimeEl.hidden = !timed;
+  // A linha do tempo da tela cheia (v1.12.41) é a MESMA leitura, noutro lugar: some junto.
+  if (pvFsBaseEl) pvFsBaseEl.hidden = !timed;
   if (!timed) return;
-  // DURANTE O ARRASTE quem escreve a barra é o dedo (ver `setupSimpleSeek`).
+  // DURANTE O ARRASTE quem escreve a barra é o dedo (ver `ligarBarraDeTempo`).
   // Sem esta guarda, o `timeupdate` da mídia — que continua tocando enquanto se
   // procura o ponto — puxaria o preenchimento de volta a cada quadro e o dedo
   // brigaria com ele.
@@ -40721,9 +40732,15 @@ function renderSimpleTime() {
   simpleTimeCurEl.textContent = fmtTime(cur);
   simpleTimeDurEl.textContent = fmtTime(dur);
   simpleTimeFillEl.style.width = Math.max(0, Math.min(100, (cur / dur) * 100)) + '%';
-  if (simpleTimeHitEl) {
-    simpleTimeHitEl.setAttribute('aria-valuemax', String(Math.round(dur)));
-    simpleTimeHitEl.setAttribute('aria-valuenow', String(Math.round(cur)));
+  for (const hit of [simpleTimeHitEl, pvFsTempoHitEl]) {
+    if (!hit) continue;
+    hit.setAttribute('aria-valuemax', String(Math.round(dur)));
+    hit.setAttribute('aria-valuenow', String(Math.round(cur)));
+  }
+  if (pvFsBaseEl) {
+    pvFsTempoCurEl.textContent = fmtTime(cur);
+    pvFsTempoDurEl.textContent = fmtTime(dur);
+    pvFsTempoFillEl.style.width = Math.max(0, Math.min(100, (cur / dur) * 100)) + '%';
   }
 }
 
@@ -40741,41 +40758,41 @@ function renderSimpleTime() {
 // enquanto o dedo anda é escrito na tela pelo próprio gesto (`simpleSeeking`),
 // que é como o operador enxerga para onde está indo.
 let simpleSeeking = false;
-function setupSimpleSeek() {
-  if (!simpleTimeHitEl) return;
+// UMA BARRA DE TEMPO TOCÁVEL (v1.12.41: o caminho do card, aproveitado pela linha do tempo da tela
+// cheia do Modo Fácil). `pintar(t)` escreve o que o DEDO está apontando; `aoComecar`/`aoTerminar`
+// são do dono (a tela cheia segura os controles acesos durante o arraste). O `seek` é UM, ao soltar,
+// e a fonte de verdade da posição continua sendo o `#seek` do avançado.
+function ligarBarraDeTempo(hitEl, { pintar, aoComecar, aoTerminar } = {}) {
+  if (!hitEl) return;
   const dur = () => parseFloat(seekEl.max) || 0;
   const posicao = (e) => {
-    const r = simpleTimeHitEl.getBoundingClientRect();
+    const r = hitEl.getBoundingClientRect();
     if (!r.width) return 0;
     const f = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
     return f * dur();
   };
-  const pintar = (t) => {
-    const d = dur();
-    simpleTimeCurEl.textContent = fmtTime(t);
-    simpleTimeFillEl.style.width = (d > 0 ? Math.max(0, Math.min(100, (t / d) * 100)) : 0) + '%';
-  };
-  simpleTimeHitEl.addEventListener('pointerdown', (e) => {
+  hitEl.addEventListener('pointerdown', (e) => {
     if (seekEl.disabled || dur() <= 0) return;
     simpleSeeking = true;
     // `seeking` é o MESMO sinal que a barra do modo avançado arma: é ele que
     // impede a sessão de mídia de republicar uma posição que ainda está sob o
     // dedo (ver `pushNowPlaying`). Dois estados para a mesma coisa divergiriam.
     seeking = true;
-    simpleTimeHitEl.classList.add('seeking');
-    try { simpleTimeHitEl.setPointerCapture(e.pointerId); } catch (_) {}
-    pintar(posicao(e));
+    hitEl.classList.add('seeking');
+    try { hitEl.setPointerCapture(e.pointerId); } catch (_) {}
+    if (aoComecar) aoComecar();
+    if (pintar) pintar(posicao(e), dur());
   });
-  simpleTimeHitEl.addEventListener('pointermove', (e) => {
-    if (!simpleSeeking) return;
-    pintar(posicao(e));
+  hitEl.addEventListener('pointermove', (e) => {
+    if (!simpleSeeking || !hitEl.classList.contains('seeking')) return;
+    if (pintar) pintar(posicao(e), dur());
   });
   const soltar = (e) => {
-    if (!simpleSeeking) return;
+    if (!simpleSeeking || !hitEl.classList.contains('seeking')) return;
     simpleSeeking = false;
     seeking = false;
-    simpleTimeHitEl.classList.remove('seeking');
-    try { simpleTimeHitEl.releasePointerCapture(e.pointerId); } catch (_) {}
+    hitEl.classList.remove('seeking');
+    try { hitEl.releasePointerCapture(e.pointerId); } catch (_) {}
     const t = posicao(e);
     // A barra do modo avançado é a fonte de verdade da posição em toda a tela
     // (o `renderSimpleTime` a espelha, e `pushNowPlaying` a lê): escrevê-la aqui
@@ -40785,20 +40802,28 @@ function setupSimpleSeek() {
     curTimeEl.textContent = fmtTime(t);
     cmd({ type: 'seek', time: t });
     renderSimpleTime();
+    if (aoTerminar) aoTerminar();
   };
-  simpleTimeHitEl.addEventListener('pointerup', soltar);
-  simpleTimeHitEl.addEventListener('pointercancel', (e) => {
+  hitEl.addEventListener('pointerup', soltar);
+  hitEl.addEventListener('pointercancel', (e) => {
     // Cancelado (o sistema tomou o gesto): NÃO salta. Um `seek` para onde o
     // dedo por acaso estava quando a chamada entrou seria um salto que ninguém
     // pediu; a barra volta sozinha ao valor real no próximo render.
+    if (!hitEl.classList.contains('seeking')) return;
     simpleSeeking = false;
     seeking = false;
-    simpleTimeHitEl.classList.remove('seeking');
-    try { simpleTimeHitEl.releasePointerCapture(e.pointerId); } catch (_) {}
+    hitEl.classList.remove('seeking');
+    try { hitEl.releasePointerCapture(e.pointerId); } catch (_) {}
     renderSimpleTime();
+    if (aoTerminar) aoTerminar();
   });
 }
-setupSimpleSeek();
+ligarBarraDeTempo(simpleTimeHitEl, {
+  pintar(t, d) {
+    simpleTimeCurEl.textContent = fmtTime(t);
+    simpleTimeFillEl.style.width = (d > 0 ? Math.max(0, Math.min(100, (t / d) * 100)) : 0) + '%';
+  },
+});
 
 // Volume em passos, como num controle remoto — a MESMA grade dos botões
 // físicos (`volumeProximo`), para os dois caminhos não discordarem, e a mesma
@@ -41994,7 +42019,7 @@ const PV_VOLUME_MS = 2000;
 function mostrarVolumeDaTelaCheia() {
   if (!pvVolumeEl || !previaCheia()) return;
   const pct = muted ? 0 : Math.round(volume * 100);
-  pvVolumeNivelEl.style.width = pct + '%';
+  pvVolumeNivelEl.style.setProperty('--nivel', pct + '%');
   pvVolumeNumEl.textContent = String(pct);
   pvVolumeEl.classList.toggle('mudo', !!muted);
   pvVolumeEl.classList.add('visivel');
@@ -42108,17 +42133,31 @@ function esconderVolumeDaTelaCheia() {
   const FSCTL_MS = 4000;
   let fsTimer = null;
 
+  // O TÍTULO E A LINHA DO TEMPO do Modo Fácil (v1.12.41) acendem e apagam JUNTO com a coluna —
+  // fora do Modo Fácil o CSS nem os desenha. E ENQUANTO O DEDO ARRASTA a linha do tempo o relógio
+  // não corre: os controles sumirem debaixo do dedo seria perder o ponto que ele procura.
+  const fsJunto = [pvFsTopoEl, pvFsBaseEl].filter(Boolean);
   function esconderFsCtl() {
     clearTimeout(fsTimer); fsTimer = null;
     if (fsCtlEl) fsCtlEl.classList.remove('visivel');
+    for (const el of fsJunto) el.classList.remove('visivel');
   }
   function acenderFsCtl() {
     if (!fsCtlEl || !isFs()) return;
     fsCtlEl.classList.add('visivel');
+    for (const el of fsJunto) el.classList.add('visivel');
     renderFsCtl();
-    clearTimeout(fsTimer);
-    fsTimer = setTimeout(esconderFsCtl, FSCTL_MS);
+    clearTimeout(fsTimer); fsTimer = null;
+    if (!(pvFsTempoHitEl && pvFsTempoHitEl.classList.contains('seeking'))) fsTimer = setTimeout(esconderFsCtl, FSCTL_MS);
   }
+  ligarBarraDeTempo(pvFsTempoHitEl, {
+    pintar(t, d) {
+      pvFsTempoCurEl.textContent = fmtTime(t);
+      pvFsTempoFillEl.style.width = (d > 0 ? Math.max(0, Math.min(100, (t / d) * 100)) : 0) + '%';
+    },
+    aoComecar() { clearTimeout(fsTimer); fsTimer = null; },
+    aoTerminar() { if (isFs()) acenderFsCtl(); },
+  });
 
   // O TOQUE É UM INTERRUPTOR (v1.3.10, a segunda metade do mesmo pedido: *"o
   // toque para vê-los deve ser o mesmo toque em qualquer lugar que faz eles
@@ -42138,7 +42177,8 @@ function esconderVolumeDaTelaCheia() {
   // custa um toque, nunca uma ação que não se pediu.
   previewEl.addEventListener('pointerdown', (e) => {
     if (!isFs() || !fsCtlEl) return;
-    const naColuna = e.target && e.target.closest && e.target.closest('.pv-fsctl');
+    // A linha do tempo acesa conta como a coluna: um toque nela procura, nunca apaga.
+    const naColuna = e.target && e.target.closest && e.target.closest('.pv-fsctl, .pv-fsbase');
     if (!naColuna && fsCtlEl.classList.contains('visivel')) { esconderFsCtl(); return; }
     acenderFsCtl();
   });
@@ -42186,6 +42226,7 @@ function renderFsCtl() {
   if (!fsCtlEl) return;
   const play = document.getElementById('fsPlay');
   const vis = document.getElementById('fsView');
+  if (pvFsNomeEl) pvFsNomeEl.textContent = npNameInnerEl.textContent || '';
   if (play) play.classList.toggle('alternado', playing);
   if (vis) {
     vis.classList.toggle('alternado', view === 'wallpaper');

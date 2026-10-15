@@ -26,6 +26,10 @@
 //     mesma altura com e sem ele.
 //  E. A BARRA DE VOLUME: em tela cheia, nos dois modos, uma mudança de volume a mostra com o
 //     número e o nível, e ela some sozinha; fora da tela cheia ela não existe.
+//  H. (v1.12.41) NO MODO FÁCIL o NOME da mídia numa faixa no topo e a LINHA DO TEMPO na base,
+//     acendendo e apagando junto com a coluna; arrastar a linha até a metade leva a mídia à
+//     metade (um `seek` ao soltar) e segura os controles acesos durante o arraste; sem duração
+//     ela some; o volume é VERTICAL na borda esquerda, entre os dois. No avançado nada disso.
 //
 //   node tools/video-tela-cheia.test.mjs
 // ============================================================================
@@ -73,8 +77,22 @@ const lerBarra = (pg) => pg.evaluate(() => {
   return {
     visivel: el.classList.contains('visivel'), display: cs.display, opacidade: parseFloat(cs.opacity),
     num: document.getElementById('pvVolumeNum').textContent,
-    nivel: document.getElementById('pvVolumeNivel').style.width, w: Math.round(r.width),
+    nivel: document.getElementById('pvVolumeNivel').style.getPropertyValue('--nivel'), w: Math.round(r.width),
+    h: Math.round(r.height), l: Math.round(r.left), t: Math.round(r.top), b: Math.round(r.bottom), r: Math.round(r.right),
   };
+});
+// O título e a linha do tempo da tela cheia do Modo Fácil (v1.12.41).
+const lerFaixas = (pg) => pg.evaluate(() => {
+  const ler = (id) => {
+    const el = document.getElementById(id);
+    const cs = getComputedStyle(el);
+    const r = el.getBoundingClientRect();
+    return { visivel: el.classList.contains('visivel'), display: cs.display, op: parseFloat(cs.opacity),
+      t: Math.round(r.top), b: Math.round(r.bottom), l: Math.round(r.left), r: Math.round(r.right), h: Math.round(r.height) };
+  };
+  return { coluna: document.getElementById('pvFsCtl').classList.contains('visivel'),
+    topo: ler('pvFsTopo'), nome: ler('pvFsNome'), base: ler('pvFsBase'), hit: ler('pvFsTempoHit'),
+    texto: document.getElementById('pvFsNome').textContent, vh: innerHeight };
 });
 
 try {
@@ -123,6 +141,64 @@ try {
   await pg.evaluate(() => { peekVolume(); });
   const e4 = await lerBarra(pg);
   checar(e4.visivel === true, 'E4 · a tecla física acende a barra mesmo sem mudar o número (`peekVolume`)', JSON.stringify(e4));
+
+  // H · (v1.12.41) O TÍTULO NO TOPO, A LINHA DO TEMPO NA BASE, O VOLUME NA BORDA ESQUERDA.
+  // A mídia plantada não tem duração: a premissa a escreve no `#seek`, como o `display-status`.
+  await pg.evaluate(() => {
+    seekEl.disabled = false; seekEl.max = '120'; seekEl.value = '10'; renderSimpleTime();
+    window.__seeks = [];
+    const orig = AVDB.sendCommand.bind(AVDB);
+    AVDB.sendCommand = (c) => { if (c && c.type === 'seek') window.__seeks.push(c.time); return orig(c); };
+  });
+  await pg.mouse.click(200, 300);   // acende (ou apaga e…)
+  let h0 = await lerFaixas(pg);
+  if (!h0.coluna) { await pg.mouse.click(200, 300); h0 = await lerFaixas(pg); }
+  checar(h0.coluna && h0.topo.visivel && h0.base.visivel && h0.texto === 'Provai e Vede' && h0.topo.t <= 1 && h0.nome.h > 0,
+    'H1 · com os controles acesos, o NOME da mídia aparece numa faixa no TOPO da tela cheia', JSON.stringify(h0));
+  checar(h0.base.display === 'flex' && h0.base.b >= h0.vh - 1 && h0.hit.h >= 30,
+    'H2 · e a LINHA DO TEMPO numa faixa na BASE, com alvo de toque de 30 px ou mais', JSON.stringify(h0));
+  const h3 = await esperar(pg, () => !document.getElementById('pvFsCtl').classList.contains('visivel'), null, 6000);
+  const h3b = await lerFaixas(pg);
+  checar(h3 === true && !h3b.topo.visivel && !h3b.base.visivel,
+    'H3 · e os dois somem JUNTO com a coluna (4 s)', JSON.stringify(h3b));
+  // H4 · arrastar a linha do tempo até a METADE procura (um `seek` só, ao soltar) e mantém tudo aceso
+  await pg.mouse.click(200, 300);
+  const hit = await pg.evaluate(() => {
+    seekEl.disabled = false; seekEl.max = '120'; seekEl.value = '10'; renderSimpleTime();
+    const r = document.getElementById('pvFsTempoHit').getBoundingClientRect(); return { x: r.left, w: r.width, y: r.top + r.height / 2 }; });
+  await pg.mouse.move(hit.x + hit.w * 0.1, hit.y);
+  await pg.mouse.down();
+  await pg.mouse.move(hit.x + hit.w * 0.3, hit.y, { steps: 4 });
+  await pg.mouse.move(hit.x + hit.w * 0.5, hit.y, { steps: 4 });
+  await pg.waitForTimeout(4600);   // TEMPO DE PAREDE: o relógio de 4 s tem de NÃO apagar durante o arraste
+  const h4a = await lerFaixas(pg);
+  const durante = await pg.evaluate(() => ({ seeks: window.__seeks.length, cur: document.getElementById('pvFsTempoCur').textContent }));
+  await pg.mouse.up();
+  const h4 = await pg.evaluate(() => ({ seeks: window.__seeks.slice(), valor: parseFloat(seekEl.value), seeking }));
+  checar(h4a.coluna && h4a.topo.visivel && h4a.base.visivel && durante.seeks === 0 && durante.cur === '1:00',
+    'H4 · durante o arraste os controles ficam ACESOS (passados os 4 s) e o tempo mostrado segue o dedo, sem `seek`',
+    JSON.stringify({ h4a: { coluna: h4a.coluna, topo: h4a.topo.visivel, base: h4a.base.visivel }, durante }));
+  checar(h4.seeks.length === 1 && Math.abs(h4.seeks[0] - 60) <= 3 && Math.abs(h4.valor - 60) <= 3 && h4.seeking === false,
+    'H5 · e soltar na metade leva a mídia à METADE da duração (um `seek` só, pelo caminho do card)', JSON.stringify(h4));
+  const h6 = await esperar(pg, () => !document.getElementById('pvFsCtl').classList.contains('visivel'), null, 6000);
+  checar(h6 === true, 'H6 · e solto o dedo o relógio volta a correr: tudo apaga sozinho', porque(h6));
+  // H7 · o volume VERTICAL na borda esquerda, sem tocar no título
+  // A geometria não depende de estar aceso: a premissa da duração é reescrita NO MESMO quadro
+  // (sob carga, um status da prévia com a mídia de 64 bytes a zera e a linha do tempo some).
+  const [v7, f7] = await pg.evaluate(() => {
+    seekEl.disabled = false; seekEl.max = '120'; seekEl.value = '10'; renderSimpleTime();
+    simpleVolStep(1);
+    const r = (id) => { const x = document.getElementById(id).getBoundingClientRect(); return { t: Math.round(x.top), b: Math.round(x.bottom), l: Math.round(x.left), w: Math.round(x.width), h: Math.round(x.height) }; };
+    const v = r('pvVolume');
+    return [Object.assign(v, { visivel: document.getElementById('pvVolume').classList.contains('visivel') }), { nome: r('pvFsNome'), hit: r('pvFsTempoHit') }];
+  });
+  checar(v7.visivel && v7.h > v7.w * 2 && v7.l <= 24 && v7.t >= f7.nome.b && v7.b <= f7.hit.t,
+    'H7 · no Modo Fácil a barra de volume é VERTICAL, na borda ESQUERDA, entre o título e a linha do tempo',
+    JSON.stringify({ v7, nome: f7.nome, hit: f7.hit }));
+  // H8 · sem duração conhecida, a linha do tempo some
+  await pg.evaluate(() => { seekEl.disabled = true; seekEl.max = '0'; renderSimpleTime(); });
+  const h8 = await lerFaixas(pg);
+  checar(h8.base.display === 'none', 'H8 · sem duração conhecida a linha do tempo da tela cheia NÃO existe', JSON.stringify(h8.base));
 
   // C · o fim natural do vídeo fecha a tela cheia
   await pg.evaluate(() => { autoAdvance(); });
@@ -247,6 +323,10 @@ try {
   const e5 = await lerBarra(pa);
   checar(e5.visivel && e5.num === '35' && e5.nivel === '35%',
     'E5 · no avançado a mudança de volume em tela cheia também acende a barra', JSON.stringify(e5));
+  const f5 = await lerFaixas(pa);
+  checar(e5.w > e5.h * 2 && e5.t <= 20 && f5.topo.display === 'none' && f5.base.display === 'none',
+    'H9 · e no avançado ela continua HORIZONTAL no topo, sem o título nem a linha do tempo do Modo Fácil',
+    JSON.stringify({ e5, topo: f5.topo.display, base: f5.base.display }));
   const opac = await esperar(pa, () => parseFloat(getComputedStyle(document.getElementById('pvVolume')).opacity) > 0.9, null, 3000);
   checar(opac === true, 'E6 · e ela é VISTA (opacidade cheia), não só marcada', porque(opac));
   // O FIM no avançado NÃO fecha a tela cheia que o operador abriu

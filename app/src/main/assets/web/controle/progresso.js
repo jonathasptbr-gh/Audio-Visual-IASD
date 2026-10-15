@@ -2,7 +2,7 @@
 // O PROGRESSO DO TOQUE À TELA — a regra do percentual do YouTube
 // (v1.12.36; a exibição refeita na v1.12.37; o aprendizado na v1.12.38; a
 // estimativa estável e o fim segurado na v1.12.39; a barra presa aos bytes na
-// v1.12.40)
+// v1.12.40, e só a do download atrasado na v1.12.41)
 //
 // Pedido do operador: o percentual de um "Tocar agora" mede o caminho INTEIRO,
 // do toque até a mídia estar tocando — não os bytes do arquivo. E a régua da
@@ -35,6 +35,12 @@
 // Uma fase que passa da previsão não "acaba": o que falta dela CRESCE com o
 // atraso, e a barra desacelera em vez de bater num teto.
 //
+// SÓ O DOWNLOAD ATRASADO É PRESO, E A VELOCIDADE É REFEITA (v1.12.41): o teto
+// abaixo só vale quando os bytes ficaram para trás do plano ou pararam
+// (`downloadAtrasado`); e quando o plano ENCOLHE — o fim dos bytes, o tamanho de
+// verdade chegando, o teto soltando — a velocidade vai direto à alvo, se maior.
+// No Registro de 15/10 13h25 dois vídeos pequenos abriram com a barra em 62 e 74.
+//
 // O RITMO VIVO (v1.12.40): o shell avisa a cada 1 MB (`GRAO`), então desde o
 // último aviso chegou MENOS de um grão — o aviso que ATRASA põe um teto no
 // ritmo (`GRAO / silêncio`), e o que falta cresce com o silêncio em vez de
@@ -61,7 +67,7 @@
 //
 // A velocidade-alvo é a que leva o valor mostrado a `POUSO` (95) no instante
 // previsto do fim; a velocidade real persegue essa alvo com inércia (`TAU_V`),
-// então muda AOS POUCOS, e tem um PISO que nunca a deixa parar (ele decai só
+// então muda AOS POUCOS — salvo para CIMA quando o plano encolhe (v1.12.41) —, e tem um PISO que nunca a deixa parar (ele decai só
 // perto do `CAP`, que nunca é alcançado: o inteiro máximo antes do fim é 99).
 // Passado o ponto de pouso (o fim atrasou), a meta vira "um terço do que resta
 // até o CAP no tempo que ainda se estima" — anda devagar, mas anda. O
@@ -194,6 +200,12 @@
   // intervalo) a posição dos bytes fica parada, e é este piso, dentro da margem,
   // que mantém a barra andando até o aviso seguinte.
   const PISO_BYTES = 0.8 / 1000;
+  // O teto dos bytes só prende o download ATRASADO (`downloadAtrasado`): o que
+  // chegou ficou abaixo de `LENTO` do que o ritmo aprendido traria no mesmo tempo,
+  // ou passou `PARADO_MS` (e três avisos do plano) sem aviso — a rede lenta ou
+  // parada, nunca o arquivo maior que o previsto chegando no ritmo de sempre.
+  const LENTO = 0.5;
+  const PARADO_MS = 400;
   const JANELA_PIOR = 2000;  // ms — a janela do ritmo mais lento no relatório
   const MARCAS_MAX = 2000;   // avisos guardados para o relatório (um por MB)
 
@@ -373,6 +385,8 @@
     const marcas = [];        // [t, lidos] de cada aviso novo (o relatório: vãos e pior janela)
     let sDownload = -1;       // o valor exibido quando os bytes começaram (o início da fatia)
     let fimDaFatiaFinal = null; // o fim da fatia no instante em que os bytes acabaram
+    let presa = false;        // o teto dos bytes segurou a barra no último passo
+    let recalcular = false;   // a velocidade é refeita, sem inércia, no próximo passo
     let muxFeito = 0;
     let muxTotal = 0;
     let s = 0;                // o valor exibido, contínuo
@@ -479,6 +493,20 @@
       return sDownload + Math.max(0, POUSO - sDownload) * dd / Math.max(1, dd + depois);
     }
 
+    // O DOWNLOAD ATRASADO (v1.12.41): o teto dos bytes só vale quando o que
+    // CHEGOU ficou para trás do plano (menos de `LENTO` do que o ritmo aprendido
+    // traria desde o fim da latência, com um grão de folga) ou quando os avisos
+    // PARARAM. Um download no ritmo previsto não é segurado: no Registro de 15/10
+    // 13h25 um vídeo de 25 MB a 23 MB/s — o ritmo aprendido — ficou preso a 12
+    // pontos de fatia porque o tamanho era 2,7× o previsto, e abriu em 74.
+    function downloadAtrasado(t) {
+      const plano = Math.max(0, t - inicio.download - m.latenciaMs) * m.bytesPorMs;
+      const chegou = primeiroLido >= 0 ? lidos : 0;
+      if (chegou + GRAO < LENTO * plano) return true;
+      const ref = primeiroLido >= 0 ? tUltimoByte : inicio.download + m.latenciaMs;
+      return t - ref > Math.max(PARADO_MS, 3 * GRAO / m.bytesPorMs) && !(total > 0 && lidos >= total);
+    }
+
     // A POSIÇÃO dos bytes recebidos (interpolados até um grão pelo ritmo vivo)
     // dentro da fatia, nunca além do fim dela.
     function posicaoDosBytes(t) {
@@ -543,7 +571,7 @@
     function entrar(nome, t) {
       if (concluido || idx(nome) < 0 || idx(nome) <= idx(atual)) return;
       const quando = t == null ? agora() : t;
-      if (atual === 'download' && sDownload >= 0) fimDaFatiaFinal = fimDaFatia(quando);
+      if (atual === 'download' && sDownload >= 0) { fimDaFatiaFinal = fimDaFatia(quando); recalcular = true; }
       fim[atual] = quando;
       mostradoNoFim[atual] = Math.floor(s);
       for (let i = previstas.length - 1; i >= 0; i--) {
@@ -623,8 +651,17 @@
         }
         const alvo = velocidadeAlvo(t);
         const vAntes = v;
-        if (v < 0) v = alvo;
+        const prende = atual === 'download' && sDownload >= 0 && downloadAtrasado(t);
+        // A VELOCIDADE REFEITA (v1.12.41): quando o plano ENCOLHE — os bytes
+        // acabaram, o tamanho de verdade chegou, ou o teto dos bytes soltou a
+        // barra —, a velocidade vai direto à alvo se ela for maior. A inércia
+        // guardada era a do plano velho (ou a do teto, quase zero), e com ela a
+        // barra rastejava pela junção e pela cauda de um vídeo pequeno: abria em
+        // 62 e 74. Para BAIXO continua a inércia (e o freio).
+        if (v < 0 || ((recalcular || (presa && !prende)) && alvo > v)) v = alvo;
         else v += (alvo - v) * (1 - Math.exp(-dt / TAU_V));
+        recalcular = false;
+        presa = false;
         // O FREIO: a inércia não pode levar a barra além do pouso. Rápida, ela
         // chegava ao 95 a 40+ pontos/s e a velocidade, que só cai aos poucos, a
         // carregava até o CAP — "99 parado" num vídeo que atrasou meio segundo.
@@ -634,16 +671,18 @@
         if (vAntes >= 0) v = Math.min(v, Math.max(alvo, Math.sqrt(2 * FREIO * Math.max(0, POUSO - s))));
         const sAntes = s;
         s = Math.min(CAP - 1e-6, s + v * dt);
-        // PRESA AOS BYTES (v1.12.40): durante o download, nunca além do teto; e a
-        // velocidade presa junto, senão a inércia guardada saltaria depois.
+        // PRESA AOS BYTES (v1.12.40; só o download ATRASADO desde a v1.12.41):
+        // nunca além do teto; e a velocidade presa junto — ao soltar, ela é
+        // refeita pela alvo (acima), nunca a inércia do teto.
         // A velocidade leva a barra até a posição dos bytes; além dela só o
         // PISO_BYTES anda, até `MARGEM_BYTES` e nunca além do fim da fatia.
-        if (atual === 'download' && sDownload >= 0) {
+        if (prende) {
           const { pos, fimF } = posicaoDosBytes(t);
           if (s > pos) {
             const piso = Math.min(fimF, pos + MARGEM_BYTES, sAntes + PISO_BYTES * dt);
             s = Math.max(sAntes, pos, Math.min(s, piso));
             if (dt > 0) v = Math.min(v, (s - sAntes) / dt);
+            presa = true;
           }
         }
         const inteiro = valor();
@@ -699,7 +738,7 @@
           total = tot;
           // O total MUDOU (a previsão do vídeo virou o tamanho de verdade): a
           // previsão desta fase é refeita com o tamanho que vale.
-          if (!(antes > 0) || Math.abs(tot - antes) > 0.02 * antes) previsto.download = Math.round(duracao('download'));
+          if (!(antes > 0) || Math.abs(tot - antes) > 0.02 * antes) { previsto.download = Math.round(duracao('download')); recalcular = true; }
         }
         const lv = num(l);
         if (!(lv >= 0)) return;

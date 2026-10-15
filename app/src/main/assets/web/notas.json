@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.12.41",
+    "itens": [
+      "YouTube: vídeos pequenos abrem com a porcentagem perto de 100%, sem saltar do meio.",
+      "Vídeo em tela cheia no Modo Fácil: o toque mostra o nome do vídeo no alto.",
+      "E uma barra de tempo embaixo: toque ou arraste nela para avançar ou voltar o vídeo.",
+      "O volume aparece numa barra em pé, na borda esquerda, quando você o muda."
+    ]
+  },
+  {
     "versao": "1.12.40",
     "itens": [
       "YouTube: quando a internet fica lenta no meio do download, a porcentagem anda devagar junto.",

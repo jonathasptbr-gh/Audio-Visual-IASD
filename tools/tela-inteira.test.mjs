@@ -14,6 +14,7 @@
 //  C. As saídas — o sair da coluna, o voltar do Android, o fim do vídeo — desfazem tudo e
 //     devolvem `telaInteira(false)`; o botão do card reabre sem precisar de gesto.
 //  D. Com tela conectada nada disso acontece, e uma tela que ENTRA fecha a tela inteira.
+//  B3 (v1.12.41): o título e a linha do tempo do Modo Fácil acendem junto com a coluna.
 //
 //   node tools/tela-inteira.test.mjs
 // ============================================================================
@@ -121,6 +122,17 @@ try {
   await pg.touchscreen.tap(195, 390);
   const b2 = await pg.evaluate(() => document.getElementById('pvFsCtl').classList.contains('visivel'));
   checar(b2 === true, 'B2 · um toque na tela acende a coluna', String(b2));
+  // B3 (v1.12.41) · o TÍTULO e a LINHA DO TEMPO existem também na tela inteira do app e acendem com a
+  // coluna. A mídia plantada não tem duração: a premissa a escreve, como o `display-status`.
+  await pg.evaluate(() => { seekEl.disabled = false; seekEl.max = '90'; seekEl.value = '0'; renderSimpleTime(); });
+  const b3 = await pg.evaluate(() => {
+    const est = (id) => { const el = document.getElementById(id); const cs = getComputedStyle(el);
+      return { vis: el.classList.contains('visivel'), display: cs.display, top: Math.round(el.getBoundingClientRect().top) }; };
+    return { topo: est('pvFsTopo'), base: est('pvFsBase'), nome: document.getElementById('pvFsNome').textContent, vh: innerHeight };
+  });
+  checar(b3.topo.vis && b3.topo.display !== 'none' && b3.topo.top <= 1 && b3.nome === 'Provai e Vede'
+    && b3.base.vis && b3.base.display === 'flex' && b3.base.top > b3.vh / 2,
+    'B3 · e com ela acendem o NOME da mídia no topo e a LINHA DO TEMPO na base', JSON.stringify(b3));
 
   // C · o sair da coluna
   await pg.evaluate(() => { document.getElementById('fsExit').click(); });
