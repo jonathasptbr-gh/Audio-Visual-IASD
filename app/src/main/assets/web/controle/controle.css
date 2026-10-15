@@ -1648,7 +1648,8 @@ body.mode-simple .pv-fsctl :is(#fsView, #fsPrev, #fsNext) { display: none; }
 
 /* ===== A BARRA DE VOLUME DA TELA CHEIA (v1.12.24) =====
    Ela só existe em tela cheia e só aparece por `.visivel`, que `mostrarVolumeDaTelaCheia` escreve a
-   cada mudança de volume e tira 2 s depois. No TOPO, ao centro: a lateral direita é da coluna de
+   cada mudança de volume e tira 2 s depois. No TOPO, ao centro (no avançado; no Modo Fácil, em pé
+   na borda esquerda — abaixo): a lateral direita é da coluna de
    controles, e sem TV esta tela É a projeção — por isso pequena e passageira.
    É DO PALCO, e o palco não tem tema: `--scrim` sob `--stage-text`, o nível em `--stage-accent`
    (9,75:1 sobre o preto). O trilho é o mesmo branco do palco com `opacity`, e não um token com
