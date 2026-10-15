@@ -35218,8 +35218,9 @@ function detectUrlKind(url) {
 // episódio da semana e a Verificação completa —, e é dele que sai o peso de
 // cada fase no aparelho DESTE operador.
 //
-// A barra NUNCA segura a mídia: o `concluir()` fecha o trecho final em fração de
-// segundo, ao lado do play, e nenhum passo do trabalho espera por ela.
+// A barra só segura a REVELAÇÃO, e no máximo `AVProgresso.SEGURA_MAX` (o fim
+// segurado, v1.12.39); nenhum outro passo do trabalho espera por ela. Durante os
+// bytes ela é PRESA a eles (v1.12.40, `posicaoDosBytes` no `progresso.js`).
 const YT_TEMPOS = 'ytTempos';
 const YT_BARRA_TIQUE_MS = 100;
 let ytTempos = null;
@@ -35263,6 +35264,95 @@ const segsBarra = (ms) => (ms == null ? '?' : (ms / 1000).toFixed(1).replace('.'
 const mbBarra = (b) => (b / 1048576).toFixed(1).replace('.', ',') + ' MB';
 const mbsBarra = (bpms) => (bpms * 1000 / 1048576).toFixed(1).replace('.', ',') + ' MB/s';
 const TAMANHO_FONTE = { real: 'o do shell', duracao: 'pela duração', historico: 'do histórico', padrao: 'o padrão' };
+// A MEDIDA DO SHELL de cada download (v1.12.40): o `ytMedida` (o
+// `YoutubeGrab.ultimaMedida`), RESUMIDO — o anel é gravado no banco, e só entra
+// o que responde "por que os bytes demoraram?". Todo campo é opcional.
+const YT_MEDIDA_ESPERA_MS = 1500;
+function resumoDaMedidaDoShell(sh) {
+  if (!sh || typeof sh !== 'object') return null;
+  const n = (x) => (typeof x === 'number' && isFinite(x) && x >= 0 ? x : null);
+  const faixas = (Array.isArray(sh.faixas) ? sh.faixas : []).slice(0, 8).map((f) => {
+    const p = f && f.pedacos;
+    return {
+      papel: String(f.papel || ''), etiqueta: String(f.etiqueta || '').slice(0, 40), cliente: String(f.cliente || '').slice(0, 16),
+      perfil: String(f.perfil || '').slice(0, 4), modo: String(f.modo || '').slice(0, 60),
+      conexoes: n(f.conexoes), blocos: n(f.blocos), bytes: n(f.bytes),
+      ms: n(f.inicio) != null && n(f.fim) != null && f.fim >= f.inicio ? f.fim - f.inicio : null,
+      primeiro: n(f.primeiroByte) != null && n(f.inicio) != null ? Math.max(0, f.primeiroByte - f.inicio) : null,
+      ok: !!f.ok, erro: String(f.erro || '').slice(0, 80),
+      refeitos: n(f.pedacosRefeitos) || 0, retentativas: n(f.retentativas) || 0,
+      ped: p && typeof p === 'object' ? { n: n(p.n), min: n(p.msMin), med: n(p.msMediano), max: n(p.msMax) } : null,
+    };
+  });
+  const j = sh.juncao && typeof sh.juncao === 'object' ? sh.juncao : null;
+  return {
+    extracaoMs: n(sh.extracaoMs), blocoBytes: n(sh.blocoBytes), juntos: !!sh.audioEVideoJuntos,
+    juncaoMs: j && n(j.inicio) != null && n(j.fim) != null && j.fim >= j.inicio ? j.fim - j.inicio : null,
+    desfecho: String(sh.desfecho || '').slice(0, 80), faixas,
+  };
+}
+const PAPEL_FAIXA = { audio: 'áudio', video: 'vídeo', unico: 'arquivo único' };
+// AS LINHAS da medida do shell no bloco "Barra do YouTube": uma por faixa e o
+// veredito da lentidão — só quando os bytes levaram mais que o dobro do
+// previsto e mais de 3 s.
+function linhasDaMedidaDoShell(sh, r) {
+  const l = [];
+  const cab = [];
+  if (sh) {
+    if (sh.extracaoMs != null) cab.push('extração ' + segsBarra(sh.extracaoMs));
+    if (sh.blocoBytes) cab.push('pedaços de ' + mbBarra(sh.blocoBytes));
+    const fs = sh.faixas || [];
+    if (fs.some((f) => f.papel === 'audio') && fs.some((f) => f.papel === 'video')) {
+      cab.push('áudio e vídeo ' + (sh.juntos ? 'AO MESMO TEMPO' : 'em FILA'));
+    }
+    if (sh.juncaoMs != null) cab.push('junção no shell ' + segsBarra(sh.juncaoMs));
+    if (sh.desfecho && !['ok', 'juntou', 'veio'].includes(sh.desfecho)) cab.push('desfecho: ' + sh.desfecho);
+    if (cab.length) l.push('    shell: ' + cab.join(' · '));
+    for (const f of fs) {
+      const partes = [];
+      if (f.ok && f.bytes != null) {
+        partes.push(mbBarra(f.bytes) + (f.ms != null ? ' em ' + segsBarra(f.ms) : '')
+          + (f.ms > 0 ? ' (' + mbsBarra(f.bytes / f.ms) + ')' : ''));
+      } else partes.push('NÃO VEIO' + (f.erro ? ' — ' + f.erro : ''));
+      if (f.primeiro != null) partes.push('1º byte aos ' + segsBarra(f.primeiro));
+      if (f.modo) partes.push(f.modo + (f.modo === 'pedaços' && f.blocos != null ? ' (' + f.blocos + ', ' + (f.conexoes || '?') + ' conexões)' : ''));
+      if (f.ped && f.ped.max != null) {
+        partes.push('pedaço mais lento ' + segsBarra(f.ped.max) + (f.ped.med != null ? ' (mediano ' + segsBarra(f.ped.med) + ')' : ''));
+      }
+      partes.push('refeitos ' + f.refeitos + ' · retentativas ' + f.retentativas);
+      l.push('    ' + (PAPEL_FAIXA[f.papel] || f.papel || 'faixa') + ' ' + f.etiqueta + (f.perfil ? ' (' + f.perfil + ')' : '') + ': ' + partes.join(' · '));
+    }
+  }
+  const v = vereditoDaLentidao(sh, r);
+  if (v) l.push('    lentidão nos bytes: ' + v);
+  return l;
+}
+/**
+ * POR QUE OS BYTES DEMORARAM — só quando demoraram (mais que o dobro do
+ * previsto e mais de 3 s). Pela faixa mais LENTA: um pedaço muito mais lento
+ * que o mediano é UM pedaço preso; pedaços lentos por igual são a rede (ou o
+ * servidor do YouTube) inteira. Sem medida, diz que não dá para separar.
+ */
+function vereditoDaLentidao(sh, r) {
+  const dl = r && r.fases && r.fases.download;
+  if (!dl || !(dl.realMs > 3000) || !(dl.realMs > 2 * (dl.previstoMs || 0))) return '';
+  const fs = sh ? (sh.faixas || []).filter((f) => f.ms != null) : [];
+  if (!fs.length) return 'sem a medida do shell, não dá para dizer se foi a rede ou um pedaço preso';
+  const f = fs.reduce((a, b) => (b.ms > a.ms ? b : a));
+  const qual = (PAPEL_FAIXA[f.papel] || f.papel || 'faixa');
+  const tent = f.refeitos || f.retentativas ? ' (refeitos ' + f.refeitos + ', retentativas ' + f.retentativas + ')' : '';
+  const p = f.ped;
+  if (p && p.n >= 2 && p.max != null && p.med != null && p.max >= 2000 && p.max >= 3 * Math.max(1, p.med)) {
+    return 'UM pedaço do ' + qual + ' travou — o mais lento levou ' + segsBarra(p.max) + ' contra ' + segsBarra(p.med)
+      + ' do mediano' + tent + '; não foi a rede inteira';
+  }
+  if (p && p.n >= 2) {
+    return 'os pedaços do ' + qual + ' foram lentos POR IGUAL (mediano ' + segsBarra(p.med) + ', mais lento ' + segsBarra(p.max) + ')'
+      + tent + ' — a rede ou o servidor do YouTube, não um pedaço preso';
+  }
+  return 'o ' + qual + ' veio ' + (f.modo ? 'em ' + f.modo : 'numa conexão só') + ', lento do começo ao fim' + tent
+    + ' — sem pedaços para comparar, não dá para separar a rede de uma conexão presa';
+}
 function blocoBarraYt() {
   const lista = ytBarraDiag || [];
   if (!lista.length) return '';
@@ -35296,6 +35386,16 @@ function blocoBarraYt() {
     if (r.ritmoBytesPorMs) extra.push('rede medida ' + mbsBarra(r.ritmoBytesPorMs));
     if (r.tamanhoPrevisto) extra.push('tamanho previsto ' + mbBarra(r.tamanhoPrevisto) + ' (' + (TAMANHO_FONTE[r.tamanhoFonte] || r.tamanhoFonte || '?') + ')');
     if (extra.length) linhas.push('    ' + extra.join(' · '));
+    // OS AVISOS NO TEMPO (v1.12.40): o maior vão entre dois avisos de bytes e a
+    // pior janela de 2 s — "lenta" e "parada" são coisas diferentes.
+    const av = [];
+    if (r.avisosMaiorVaoMs != null) av.push('maior vão entre avisos ' + segsBarra(r.avisosMaiorVaoMs));
+    if (r.piorJanelaBytesPorMs != null) av.push('pior janela de 2 s ' + mbsBarra(r.piorJanelaBytesPorMs));
+    if (r.fatiaDownload && r.fatiaDownload.fim != null) {
+      av.push('fatia dos bytes ' + r.fatiaDownload.inicio + '→' + Math.floor(r.fatiaDownload.fim) + '%');
+    }
+    if (av.length) linhas.push('    ' + av.join(' · '));
+    linhas.push(...linhasDaMedidaDoShell(d.shell || null, r));
   }
   const m = AVProgresso.modelo(ytTempos, 'video');
   const ap = AVProgresso.apoio(ytTempos);
@@ -35330,6 +35430,7 @@ function novaBarraYt(opcoes) {
   let encerrada = false;
   let concluida = false;
   let reservada = false;
+  let medidaShell = null;   // a promessa do resumo da medida do shell (`anotarMedida`)
   const parar = () => {
     clearInterval(timer); timer = 0;
     document.removeEventListener('visibilitychange', aoMudarVisibilidade);
@@ -35353,6 +35454,8 @@ function novaBarraYt(opcoes) {
     bytes(lidos, total) { if (!encerrada) b.bytes(lidos, total); },
     /** O que o Registro diz deste trabalho: o nome, a altura que veio. */
     anotar(x) { if (x) Object.assign(meta, x); },
+    /** A medida do shell, quando ela chegar (`resumoDaMedidaDoShell`). */
+    anotarMedida(p) { medidaShell = p; },
     fase: () => b.fase(),
     valor: () => Math.max(0, ultimo),
     /**
@@ -35366,7 +35469,13 @@ function novaBarraYt(opcoes) {
       b.concluir(opcoes);
       ytTemposAprender(b.amostra(), origem);
       const rel = b.relatorio();
-      ytBarraDiagGuardar(Object.assign({ t: Date.now(), origem: origem || '', rel }, meta));
+      const item = Object.assign({ t: Date.now(), origem: origem || '', rel }, meta);
+      // A medida do shell entra se chegar em `YT_MEDIDA_ESPERA_MS`; um APK que
+      // não responda não segura o diagnóstico (nem nada mais: ninguém espera isto).
+      if (medidaShell) {
+        Promise.race([medidaShell, new Promise((ok) => setTimeout(() => ok(null), YT_MEDIDA_ESPERA_MS))])
+          .then((sh) => { if (sh) item.shell = sh; ytBarraDiagGuardar(item); });
+      } else ytBarraDiagGuardar(item);
       diagC('barra: previsto ' + segsBarra(rel.previstoMs) + ' · real ' + segsBarra(rel.realMs) + ' · mostrava ' +
         rel.aoConcluir + '% ao ' + (origem === 'tocar' ? 'tocar' : 'terminar') +
         (rel.segurouMs ? ' · segurou ' + segsBarra(rel.segurouMs) : '') + ' · maior parada ' + segsBarra(rel.platoMs) +
@@ -35637,6 +35746,15 @@ async function ytBaixarNativo(link, nome, opts) {
       }
       if (!r || !r.url) return null;
       barra.anotar({ nome: rotulo, altura: r.height | 0, soAudio });
+      // A MEDIDA DO SHELL vai com o diagnóstico da barra (v1.12.40): POR QUE os
+      // bytes demoraram — todos os pedaços lentos (a rede) ou um preso. Sem
+      // `await`: o "Tocar agora" não espera por ela; quem espera, com prazo, é
+      // o `concluir()` da barra.
+      if (!medida) {
+        barra.anotarMedida(Promise.resolve().then(() => AVNative.ytMedida())
+          .then((sh) => (sh && typeof sh === 'object' && sh.link === link ? resumoDaMedidaDoShell(sh) : null))
+          .catch(() => null));
+      }
       // CANCELADO NO ÚLTIMO SEGUNDO. O shell para o laço de cópia, mas há uma
       // janela em que ele já terminou de baixar e está juntando as faixas
       // (`MuxMp4`) — e aí o arquivo VEM, depois de o operador ter pedido para
