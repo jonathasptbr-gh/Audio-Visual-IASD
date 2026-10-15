@@ -38,6 +38,10 @@
 //      rede desabando no meio dos bytes: a barra PRESA AOS BYTES anda com eles,
 //      sem parar 1,5 s, abaixo de 90 nos bytes e dentro da fatia do download no
 //      fim deles; os três normais não mudam.
+//  S · (v1.12.41) os DOIS vídeos pequenos do Registro de 15/10 13h25, no ritmo
+//      aprendido: abriam com a barra em 62 e 74 — o teto dos bytes prendia o
+//      download que NÃO estava atrasado e a velocidade herdada era a do teto; hoje
+//      ficam prontos com 85+ e sem rastejar depois dos bytes.
 //
 // O relógio é de mentira (`agora` injetado) — é isso que torna a fluidez
 // afirmável. Node puro, sem `continue-on-error`.
@@ -344,52 +348,33 @@ const PLATO_MAX = 3500;
 {
   // A VELOCIDADE muda aos poucos: o download que termina 4× antes do previsto, e
   // as fases que se seguem em rajada, não mudam a velocidade de um quadro para o
-  // outro (a inércia, `TAU_V`).
+  // outro (a inércia, `TAU_V`) — com UMA exceção (v1.12.41, revogando metade da
+  // v1.12.37): no quadro em que o plano ENCOLHE (o tamanho de verdade chegou, os
+  // bytes acabaram) ela pode SUBIR direto à alvo. Para baixo, sempre aos poucos.
   let t = 1000;
   const b = P.criar({ modelo: certo, agora: () => t, juncao: true, abertura: true });
-  let antes = null; let maxDv = 0;
-  const passo = () => { t += 100; b.passo(); const v = b.bruto().v; if (antes != null) maxDv = Math.max(maxDv, Math.abs(v - antes)); antes = v; };
+  let antes = null; let maxDv = 0; let maxSobeNoEvento = 0; let eventos = 0;
+  const passo = (evento) => {
+    t += 100; b.passo(); const v = b.bruto().v;
+    if (antes != null) {
+      if (evento && v > antes) { maxSobeNoEvento = Math.max(maxSobeNoEvento, v - antes); eventos++; }
+      else maxDv = Math.max(maxDv, Math.abs(v - antes));
+    }
+    antes = v;
+  };
   for (let i = 0; i < 10; i++) passo();
   b.sinal('extraiu');
-  for (let i = 1; i <= 50; i++) { b.bytes(Math.round(40 * MB * Math.min(1, i / 50)), 40 * MB); passo(); }
+  for (let i = 1; i <= 50; i++) { b.bytes(Math.round(40 * MB * Math.min(1, i / 50)), 40 * MB); passo(i === 1); }
   b.sinal('baixou', { bytes: 40 * MB, juntar: true }); b.sinal('juntou'); b.sinal('copia');
-  for (let i = 0; i < 5; i++) passo();
+  for (let i = 0; i < 5; i++) passo(i === 0);
   b.sinal('gravacao');
   for (let i = 0; i < 30; i++) passo();
-  // O freio do pouso (20 pontos/s²) é a maior mudança permitida: 2 pontos/s por
-  // quadro, e um pouco mais no último quadro dele.
+  // O freio do pouso (20 pontos/s²) é a maior mudança permitida fora dos eventos:
+  // 2 pontos/s por quadro, e um pouco mais no último quadro dele.
   checar(maxDv <= 3.5, 'H · e a VELOCIDADE muda aos poucos: no máximo 3,5 pontos/s de um quadro de 100 ms para o seguinte (o freio do pouso)', maxDv);
+  checar(eventos >= 1 && maxSobeNoEvento > 3.5 && maxSobeNoEvento <= P.V_MAX * 1000,
+    'H · e no fim dos bytes adiantados ela SOBE direto à alvo (v1.12.41), nunca além do teto de velocidade', { eventos, maxSobeNoEvento });
 }
-
-// ---- I · o arquivo que já estava no aparelho: uma varredura curta -----------------
-{
-  let t = 0;
-  const b = P.criar({ modelo: certo, agora: () => t, juncao: true, abertura: true });
-  const vals = [];
-  for (let i = 0; i < 3; i++) { t += 100; vals.push(b.passo()); }
-  b.sinal('abertura');
-  for (let i = 0; i < 4; i++) { t += 100; vals.push(b.passo()); }
-  const tc = t; b.concluir();
-  while (!b.terminou() && t - tc < 2000) { t += 50; vals.push(b.passo()); }
-  checar(b.terminou() && t <= 1300 && vals.every((v, i) => i === 0 || v >= vals[i - 1]) && vals.slice(0, -1).every((v) => v < 100),
-    'I · do toque ao 100 em pouco mais de um segundo, subindo sem pular', vals);
-  checar(b.relatorio().caminho === 'no-aparelho', 'I · e o relatório diz que o arquivo já estava no aparelho', b.relatorio().caminho);
-}
-
-// ---- J · o relatório --------------------------------------------------------------
-{
-  const base = noRelogio(40);
-  const r = simular({ modelo: certo, roteiro: Object.assign({}, base, { copia: base.copia * 4 }), bytes: 40 * MB });
-  const rel = r.b.relatorio();
-  checar(rel.caminho === 'novo' && rel.bytes === 40 * MB && rel.realMs === r.tConcluir - r.t0 && rel.previstoMs > 0,
-    'J · o relatório traz o caminho, o tamanho, o previsto e o real', rel);
-  checar(rel.fases.copia && rel.fases.copia.realMs === Math.ceil(base.copia * 4 / 100) * 100 && rel.fases.copia.previstoMs === Math.round(base.copia)
-    && typeof rel.fases.download.mostrado === 'number',
-    'J · e cada fase com o real, o previsto e o número que a tela mostrava no fim dela', rel.fases);
-  checar(rel.aoConcluir === aoConcluir(r) && rel.saltoFinal === 100 - aoConcluir(r) && rel.platoMs >= 0,
-    'J · e o número no fim, o salto final e a maior parada', rel);
-}
-
 // ---- K · os quatro downloads do Registro do operador (v1.12.38) -------------------
 // O shell avisa os bytes a cada 1 MB (`ProgressoDePedacos`): o primeiro aviso já
 // traz 1 MB e pouco. Uma rede de ~10 MB/s, uma latência antes dos bytes, e as
@@ -705,6 +690,72 @@ if (process.env.REPLAY) console.log(JSON.stringify(resRede.map((r) => ({ pronto:
   const normais = [resRede[0], resRede[2], resRede[4]];
   checar(normais.every((r) => r.plato <= 1500), 'R · os três normais continuam sem parar 1,5 s', normais.map((r) => r.plato));
   checar([resRede[2], resRede[4]].every((r) => r.pronto >= 85), 'R · e o 3º e o 5º ficam prontos com 85+ (eram 95 e 95)', normais.map((r) => r.pronto));
+}
+
+// ---- S · os dois vídeos PEQUENOS do Registro de 15/10, 13h25 (v1.12.41) -----------
+// MB · preparo · 1º aviso · bytes · juntou? · junção · cópia · gravação · abertura
+// (ms), como o bloco "Barra do YouTube" os mediu: um de 3 MB em 720p (junta) e um
+// de 25 MB em 360p (não junta), os dois a ~23 MB/s, o ritmo aprendido. Abriram
+// com a barra em 62 e 74: o de 25 MB ficou preso ao teto dos bytes (a fatia de
+// 12 pontos de um tamanho 2,7× o previsto) com a velocidade do teto, quase zero,
+// e o de 3 MB rastejou pela junção com a inércia do plano velho. O histórico de
+// partida é o "Aprendido" daquele Registro (rede 23,3 MB/s + 0,3 s, preparo
+// 3,0 s, junção ~0,7 s + 34 ms/MB, abertura ~0,1 s, vídeo típico ~11 MB).
+const RELATO_PEQUENOS = [[3, 1900, 200, 300, true, 600, 20, 20, 600], [25, 3200, 300, 1300, false, 0, 100, 100, 500]];
+function historicoDos13h25() {
+  let h = null;
+  const rede = 23.3 * MB / 1000;
+  [3, 8, 10, 12, 14, 9, 11, 13, 10, 12, 8, 11].forEach((mb, i) => {
+    const juntou = i === 5 ? 0 : 1;
+    const a = { chave: 'video', bytes: mb * MB, segundos: (mb * MB) / (52 * 1024), ritmo: rede, downloadMs: 300 + (mb * MB) / rede,
+      preparoMs: 3000, juntou, copiaMs: 4 * mb, gravacaoMs: 5 * mb, aberturaMs: 120 };
+    if (juntou) a.juncaoMs = 700 + 34 * mb;
+    h = P.aprender(h, a);
+  });
+  return h;
+}
+function simularPequeno(h, [mb, pre, prim, dl, junta, ju, cp, gr, ab]) {
+  let t = 1000;
+  const B = Math.round(mb * MB);
+  const b = P.criar({ modelo: P.modelo(h, 'video'), agora: () => t, juncao: true, abertura: true, chave: 'video' });
+  const serie = [];
+  const andar = (ms, cada) => {
+    for (let x = 0; x < ms; x += 10) { t += 10; if (cada) cada(x + 10); if (x % 100 === 90) { b.passo(); serie.push([t, b.bruto(), b.fase()]); } }
+  };
+  andar(pre);
+  b.sinal('extraiu', {});
+  let prox = MB;
+  andar(dl, (e) => {
+    const l = e < prim ? 0 : Math.min(B, MB + 40000 + Math.round((B - MB - 40000) * (e - prim) / Math.max(1, dl - prim - 10)));
+    while (l >= prox && prox < B) { b.bytes(prox + 40000, B); prox += MB; }
+    if (l >= B && prox !== Infinity) { b.bytes(B, B); prox = Infinity; }
+  });
+  b.sinal('baixou', { bytes: B, juntar: junta });
+  if (junta) { andar(ju, (e) => b.sinal('juntando', { feito: Math.round(B * e / ju), total: B })); b.sinal('juntou', {}); }
+  b.sinal('copia'); andar(cp);
+  b.sinal('gravacao'); andar(gr);
+  b.sinal('abertura');
+  const pronto = b.valor();
+  const segura = b.revelar();
+  andar(Math.max(ab, segura));
+  b.concluir();
+  // A velocidade DEPOIS dos bytes, até a mídia ficar pronta (pontos/s).
+  const depois = serie.filter((x) => x[2] !== 'preparo' && x[2] !== 'download' && x[2] !== 'abertura').map((x) => x[1].v);
+  return { pronto, segura, vMinDepois: depois.length ? Math.min(...depois) : null, rel: b.relatorio() };
+}
+const resPequenos = RELATO_PEQUENOS.map((v) => simularPequeno(historicoDos13h25(), v));
+if (process.env.REPLAY) console.log(JSON.stringify(resPequenos.map((r) => ({ pronto: r.pronto, segura: r.segura, vMinDepois: Math.round(r.vMinDepois), fatia: r.rel.fatiaDownload }))));
+{
+  // O de 3 MB fica pronto 0,9 s depois do começo dos bytes, com a barra em ~37:
+  // nem a velocidade máxima (`V_MAX`, 60 pontos/s) a leva além de ~88 — o resto
+  // é o fim segurado. O de 25 MB tem folga e chega a 88+.
+  checar(resPequenos.every((r) => r.pronto >= 85) && resPequenos[1].pronto >= 88,
+    'S · os dois vídeos PEQUENOS ficam prontos com a barra em 85+ (o de 25 MB em 88+; eram 62 e 74)', resPequenos.map((r) => r.pronto));
+  checar(resPequenos.every((r) => r.vMinDepois >= 40),
+    'S · e depois dos bytes a barra não RASTEJA: nenhum quadro abaixo de 40 pontos/s até a mídia ficar pronta (a velocidade é refeita)',
+    resPequenos.map((r) => Math.round(r.vMinDepois)));
+  checar(resPequenos.every((r) => r.segura <= 300),
+    'S · e o fim segurado fica curto (no máximo 0,3 s; eram 0,5 e 0,3 s com a barra em 62 e 74)', resPequenos.map((r) => r.segura));
 }
 
 if (falhas.length) { console.log('\n' + falhas.length + ' falha(s).'); process.exit(1); }

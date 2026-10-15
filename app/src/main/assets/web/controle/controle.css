@@ -1673,13 +1673,79 @@ body.mode-simple .pv-fsctl :is(#fsView, #fsPrev, #fsNext) { display: none; }
 .pv-volume-trilho::before {
   content: ""; position: absolute; inset: 0; background: var(--stage-text); opacity: .3;
 }
-.pv-volume-nivel { position: relative; height: 100%; width: 0; background: var(--stage-accent); border-radius: inherit; }
+.pv-volume-nivel { position: relative; height: 100%; width: var(--nivel, 0%); background: var(--stage-accent); border-radius: inherit; }
 .pv-volume-num {
   flex: none; min-width: 2.2em; text-align: right;
   font-size: var(--fs-sm); font-weight: var(--fw-forte); font-variant-numeric: tabular-nums;
 }
 @media (prefers-reduced-motion: reduce) {
   .pv-volume { transition: none; }
+}
+/* NO MODO FÁCIL ELA É VERTICAL, NA BORDA ESQUERDA (v1.12.41, pedido do operador): o topo passou a
+   ser do título da mídia e a base da linha do tempo, e a lateral direita é da coluna. O nível
+   cresce de BAIXO para cima (o mesmo `--nivel` que o JS escreve), o ícone embaixo e o número em
+   cima. A altura cabe entre o título e a linha do tempo em qualquer paisagem (`max-height`), e o
+   recuo esquerdo respeita o recorte da câmera (`safe-area-inset-left`). */
+body.mode-simple .pv-volume {
+  top: 50%; left: max(14px, env(safe-area-inset-left)); width: auto;
+  height: min(220px, calc(100% - 9rem));
+  flex-direction: column-reverse; padding: .7rem .45rem;
+  transform: translateY(-50%);
+}
+body.mode-simple .pv-volume-trilho { flex: 1; width: 6px; height: auto; }
+body.mode-simple .pv-volume-nivel { position: absolute; left: 0; right: 0; bottom: 0; width: auto; height: var(--nivel, 0%); }
+body.mode-simple .pv-volume-num { min-width: 0; text-align: center; }
+
+/* ===== O TÍTULO E A LINHA DO TEMPO DA TELA CHEIA DO MODO FÁCIL (v1.12.41) =====
+   Pedido do operador (aprovado): o NOME da mídia numa faixa no topo e a linha do tempo
+   (decorrido · faixa · duração) numa faixa na base. Os dois acendem e apagam JUNTO com a coluna
+   (`.visivel`, escrita por `acenderFsCtl`/`esconderFsCtl`) e só existem no Modo Fácil: no
+   avançado a tela cheia é a projeção de um culto inteiro, e lá ela continua como era.
+   São do PALCO — sem TV esta tela É a projeção —, então o palco não tem tema: a faixa é um
+   degradê de `--scrim` até nada, o texto `--stage-text` e o preenchimento `--stage-accent`
+   (9,75:1 sobre o preto). O recuo direito (60 px) é o da coluna (40 px + 10 de folga + 10), e os
+   recuos laterais respeitam o recorte da câmera em paisagem.
+   O TÍTULO NÃO RECEBE TOQUE (`pointer-events: none` sempre): um toque nele é um toque na
+   projeção, que apaga os controles. A LINHA DO TEMPO recebe, mas só acesa — apagada, um toque
+   na base da tela só acende tudo, como na coluna. */
+.pv-fstopo, .pv-fsbase {
+  position: absolute; left: 0; right: 0; z-index: 5; display: none;
+  color: var(--stage-text);
+  opacity: 0; pointer-events: none; transition: opacity var(--dur-media) ease;
+}
+body.mode-simple .preview:fullscreen :is(.pv-fstopo, .pv-fsbase),
+body.mode-simple .preview:-webkit-full-screen :is(.pv-fstopo, .pv-fsbase),
+body.mode-simple .preview.pv-inteira :is(.pv-fstopo, .pv-fsbase) { display: block; }
+body.mode-simple .preview:fullscreen .pv-fsbase,
+body.mode-simple .preview:-webkit-full-screen .pv-fsbase,
+body.mode-simple .preview.pv-inteira .pv-fsbase { display: flex; }
+.pv-fsbase[hidden] { display: none !important; }
+.pv-fstopo.visivel, .pv-fsbase.visivel { opacity: 1; }
+.pv-fsbase.visivel { pointer-events: auto; }
+.pv-fstopo {
+  top: 0;
+  padding: max(12px, env(safe-area-inset-top)) 60px 2.2rem max(16px, env(safe-area-inset-left));
+  background: linear-gradient(to bottom, var(--scrim), transparent);
+}
+.pv-fstopo-nome {
+  display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font-size: var(--fs-2xl); font-weight: var(--fw-forte);
+}
+.pv-fsbase {
+  bottom: 0; align-items: center; gap: var(--sp-4);
+  padding: 2rem 60px max(10px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background: linear-gradient(to top, var(--scrim), transparent);
+}
+.pv-fstempo-num { flex: none; font-size: var(--fs-md); font-variant-numeric: tabular-nums; }
+/* O ALVO DE TOQUE é a FAIXA inteira (32 px de altura), não o traço de 5 px — a mesma regra do
+   `.simple-time-hit`. `touch-action: none`: o arraste é horizontal, e nada deve rolar por baixo. */
+.pv-fstempo-hit { flex: 1; padding: 13px 0; cursor: pointer; touch-action: none; }
+.pv-fstempo-bar { position: relative; height: 5px; border-radius: var(--radius-pill); overflow: hidden; transition: transform var(--dur-rapida) ease; }
+.pv-fstempo-bar::before { content: ""; position: absolute; inset: 0; background: var(--stage-text); opacity: .3; }
+.pv-fstempo-fill { position: relative; height: 100%; width: 0; background: var(--stage-accent); border-radius: inherit; }
+.pv-fstempo-hit.seeking .pv-fstempo-bar { transform: scaleY(1.6); }
+@media (prefers-reduced-motion: reduce) {
+  .pv-fstopo, .pv-fsbase, .pv-fstempo-bar { transition: none; }
 }
 /* Os dois botões de ESTADO (cortina, play/pause) carregam os dois desenhos e a
    classe escolhe — trocar `innerHTML` a cada quadro reconstruiria o SVG por
