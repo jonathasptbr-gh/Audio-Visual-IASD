@@ -3015,7 +3015,7 @@ método da ponte existe, e não há guarda de versão no lado web. **Este lote �
 **A v1.12.43 DÁ AO SERVIDOR DA LOUVORJA UM VEREDITO SÓ** (`fonteVeredito`: `ok` · `sem-internet` · `servidor`; a
 falta de resposta é apurada contra `sondarInternet`, dois hosts que NÃO são da LouvorJA — a mesma sonda de "Há
 internet agora", que deixou de perguntar à própria LouvorJA; um 404 é o servidor no ar). Com ele ruim só o que DEPENDE
-do servidor é barrado (botões de baixar/listar apagados com o porquê, download sob demanda, varredura e escolha de
+do servidor é barrado (botões de baixar/listar apagados com o porquê, download sob demanda, escolha de
 versão da Bíblia), e o aviso grande — "Servidor da biblioteca indisponível" ou "Sem internet", duas caras — só aparece
 onde falta a LISTAGEM (`fonteDependente`, a instalação nova), FORA da lista do acervo (entre a barra e `#hymnResults`, `acertarAvisoDaFonte`; numa busca ele sai). Rechecagem de
 60 s e "Tentar de novo"; a volta faz a primeira listagem. Ver o capítulo do Controle e `servidor-indisponivel`.

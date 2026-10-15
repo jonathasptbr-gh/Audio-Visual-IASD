@@ -41,9 +41,11 @@ nele.
 #### O servidor fora do ar (v1.12.43)
 
 Com o veredito da fonte ruim (`fonteBloqueada`, ver "O servidor da LouvorJA
-fora do ar" no capítulo do Controle), a Bíblia barra só o que depende dele:
-`ensureBibleVersionDownloaded` não parte a varredura (seriam 25 falhas até o
-freio — quem a religa é a volta do servidor, por `garantirBibliaBase`), uma
+fora do ar" no capítulo do Controle), a Bíblia barra só o que depende dele.
+A VARREDURA da versão NÃO é segurada pelo veredito (ele é do servidor inteiro e
+pode estar velho ou oscilando — o `boot-nativo` sob carga pegou a versão que a
+segurava e a Bíblia base não descia): ela tem o freio próprio de 25 falhas, e a
+volta do servidor a religa (`garantirBibliaBase`). Uma
 versão não completa e fora de uso fica APAGADA na lista (`.bible-ver-row.sem-fonte`,
 o porquê no `title`), e o capítulo que não veio mostra o aviso inteiro
 (`fonteAvisoEl('biblia')`, com "Tentar de novo") no lugar da nota. A lista de
