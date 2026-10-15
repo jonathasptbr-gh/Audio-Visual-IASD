@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.12.40",
+    "itens": [
+      "YouTube: quando a internet fica lenta no meio do download, a porcentagem anda devagar junto.",
+      "Ela não corre mais até 99% para ficar parada lá esperando o resto do vídeo chegar.",
+      "O Registro passa a mostrar por que um download ficou lento: a internet ou um pedaço travado."
+    ]
+  },
+  {
     "versao": "1.12.39",
     "itens": [
       "YouTube: o vídeo começa mais rápido; a imagem pequena do item aparece logo depois.",

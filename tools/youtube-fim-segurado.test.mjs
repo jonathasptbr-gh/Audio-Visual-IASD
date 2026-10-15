@@ -16,7 +16,12 @@
 //  C · o FIM SEGURADO: com a barra atrás quando a mídia fica pronta, o `send`
 //      espera a varredura (até 500 ms), e o último número antes de a mídia
 //      entrar é 100; o Registro diz quanto segurou;
-//  D · e antes de a mídia estar gravada o número nunca chega a 100.
+//  D · e antes de a mídia estar gravada o número nunca chega a 100;
+//  E · (v1.12.40) a MEDIDA DO SHELL (`ytMedida`) vai com o diagnóstico da barra
+//      e o bloco "Barra do YouTube" a imprime: cada faixa (bytes, tempo,
+//      pedaços, conexões, o pedaço mais lento, refeitos, retentativas), áudio e
+//      vídeo juntos ou em fila, os avisos no tempo, e — num download LENTO — o
+//      veredito: UM pedaço preso ou todos lentos por igual (a rede).
 //
 //   node tools/youtube-fim-segurado.test.mjs
 // ============================================================================
@@ -40,12 +45,18 @@ const srv = servirEstatico(RAIZ_WEB, (req, res) => {
 const PONTE = `(function(){
  const comCallId=new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch','ytFetchAte','ytFetchAudio','castTarget','saidaDeAudioAlvo','espelhoEstado','espelhoDiag','espelhoCertEstado','apkProcurar','otaPending','otaApply','otaCheck','otaDiag','ytDiag','cifraDiag','farolEstado','ytCanalPlaylists','ytPlaylist','ytDetalhes','areaTransferencia','salvarTexto','cifraHtml','pacoteEspaco','pacoteProntoEstado','pacoteDiag','ytMedida','atualizacaoEstado']);
  const vazio={displays:[],listFolder:[],espelhoEstado:{ligado:false,telas:[],redes:[]},espelhoDiag:{},castTarget:{label:''},apkProcurar:{},ytDiag:'',cifraDiag:'',farolEstado:{conta:true,ultimo:0,diag:''}};
+ let ultimoLink='';
+ const MEDIDA=(link)=>({v:1,link,somenteAudio:false,teto:720,conexoes:4,blocoBytes:3145728,extracaoMs:2100,
+   faixas:[{papel:'audio',etiqueta:'140@VISIONOS pt-BR',cliente:'VISIONOS',perfil:'V',modo:'pedaços',conexoes:4,blocoBytes:3145728,blocos:1,inicio:2100,primeiroByte:2300,fim:2900,bytes:1100000,ok:true,erro:'',retentativas:0,pedacosRefeitos:0,pedacos:{n:1,msMin:600,msMediano:600,msMax:600,bytes:1100000}},
+     {papel:'video',etiqueta:'136@VISIONOS',cliente:'VISIONOS',perfil:'V',modo:'pedaços',conexoes:4,blocoBytes:3145728,blocos:3,inicio:2900,primeiroByte:3100,fim:22300,bytes:6200000,ok:true,erro:'',retentativas:2,pedacosRefeitos:1,pedacos:{n:3,msMin:800,msMediano:900,msMax:18700,bytes:6200000}}],
+   juncao:{inicio:22300,fim:23100,ok:true},audioEVideoJuntos:true,desfecho:'juntou',totalMs:23200,sobraNoCache:[]});
  function baixar(id){ let i=0; const tot=${ARQ.length};
    const passo=()=>{ if(i<10){i++; window.__avYtProgress(id,Math.round(tot*i/10),tot); setTimeout(passo,100);return;}
      setTimeout(()=>{ window.__avResolve(id,{url:location.origin+'/shell/x.wav',name:'v',size:tot,type:'video/mp4',audioOnly:false,height:720,seconds:20}); }, 200); };
    setTimeout(passo,200); }
  const B={shellVersion:()=>81,role:()=>'controle',appVersion:()=>'t',takeShare:()=>'',busPost:()=>{},otaConfirm:()=>{},bgProgress:()=>{},
-  ytFetch:(id)=>baixar(id),ytFetchAte:(id)=>baixar(id),ytFetchAudio:(id)=>baixar(id),ytCancel:()=>{},ytDiscard:()=>{}};
+  ytFetch:(id,u)=>{ultimoLink=u;baixar(id);},ytFetchAte:(id,u)=>{ultimoLink=u;baixar(id);},ytFetchAudio:(id,u)=>{ultimoLink=u;baixar(id);},ytCancel:()=>{},ytDiscard:()=>{},
+  ytMedida:(id)=>{ setTimeout(()=>window.__avResolve(id,ultimoLink?MEDIDA(ultimoLink):null),0); }};
  const nomes=['apkInstalar','apkProcurar','captureVolumeKeys','castTarget','saidaDeAudioAlvo','deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar','espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado','espelhoLigar','keepAlive','listFolder','nowPlaying','openCast','abrirSaidaDeAudio','openExternal','otaApply','otaCheck','otaDiag','otaPending','pickFolder','pickDoc','systemVolume','temaClaro','ytCanalPlaylists','ytPlaylist','ytSearch','ytStream','farolEstado','projecaoLocal','cifraHtml','cifraDiag','areaTransferencia','salvarTexto','ytDetalhes','pacoteEspaco','pacoteProntoEstado','pacoteDiag','ytMedida','ytDiag','atualizacaoEstado','sessionState','telaInteira'];
  for(const n of nomes){ if(B[n])continue; B[n]=(...a)=>{ if(!comCallId.has(n))return undefined; const id=a[0]; setTimeout(()=>window.__avResolve(id,(n in vazio)?vazio[n]:null),0); return undefined; }; }
  window.__AVBridge=B; })();`;
@@ -97,7 +108,20 @@ const r = await pg.evaluate(async () => {
   const id = currentId;
   const cru = id ? await AVDB.getMediaCru(id) : null;
   const gravado = await AVDB.getState('ytBarraDiag');
-  return { log, pcts, tocandoEm, linhas, temThumb: !!(cru && cru.thumb && cru.thumb.size >= 0 && typeof cru.thumb.type === 'string'),
+  // E · os vereditos, por um anel PLANTADO com o mesmo resumo e dois desenhos
+  // de pedaços: um preso (o da ponte) e todos lentos por igual.
+  const ult = Array.isArray(gravado) && gravado.length ? gravado[gravado.length - 1] : null;
+  const lento = { caminho: 'novo', bytes: 7 * 1048576, previstoMs: 4800, realMs: 23200, aoConcluir: 93, saltoFinal: 7, platoMs: 1200,
+    fases: { download: { previstoMs: 500, realMs: 19400, mostrado: 91 } }, avisosMaiorVaoMs: 3300, piorJanelaBytesPorMs: 300,
+    fatiaDownload: { inicio: 53, mostradoNoFim: 91, fim: 92.8 } };
+  const preso = ult && ult.shell ? JSON.parse(JSON.stringify(ult.shell)) : null;
+  const igual = preso ? JSON.parse(JSON.stringify(preso)) : null;
+  if (igual) { const v = igual.faixas.find((f) => f.papel === 'video'); v.ped = { n: 3, min: 5800, med: 6200, max: 6900 }; v.refeitos = 0; v.retentativas = 0; }
+  const salvo = ytBarraDiag;
+  ytBarraDiag = [{ t: 1, nome: 'sem', rel: lento }, { t: 2, nome: 'igual', rel: lento, shell: igual }, { t: 3, nome: 'preso', rel: lento, shell: preso }];
+  const blocoLento = blocoBarraYt();
+  ytBarraDiag = salvo;
+  return { shell: ult ? ult.shell || null : null, blocoLento, log, pcts, tocandoEm, linhas, temThumb: !!(cru && cru.thumb && cru.thumb.size >= 0 && typeof cru.thumb.type === 'string'),
     rel: Array.isArray(gravado) && gravado.length ? gravado[gravado.length - 1].rel : null,
     bloco: blocoBarraYt(), linhaTempo: diarioC.map((e) => e.ev).filter((e) => /^barra: /.test(e)) };
 });
@@ -132,6 +156,24 @@ const antesDeGravar = r.pcts.filter((p) => p[0] < tAdd);
 checar(antesDeGravar.length && Math.max(...antesDeGravar.map((p) => p[2])) <= 99,
   'D · antes de a mídia estar gravada o número nunca chega a 100', JSON.stringify(antesDeGravar.slice(-3)));
 checar(r.pcts.every((p, i, a) => i === 0 || p[2] >= a[i - 1][2] || a[i - 1][1] !== p[1]), 'D · e nunca volta', null);
+// ---- E · a medida do shell no Registro
+checar(r.shell && r.shell.faixas && r.shell.faixas.length === 2 && r.shell.juntos === true && r.shell.extracaoMs === 2100,
+  'E · a medida do shell (ytMedida) vai GRAVADA com o diagnóstico da barra, resumida', JSON.stringify(r.shell));
+checar(/shell: extração 2,1 s · pedaços de 3,0 MB · áudio e vídeo AO MESMO TEMPO · junção no shell 0,8 s/.test(r.bloco),
+  'E · o bloco imprime a extração, o tamanho do pedaço, áudio e vídeo juntos e a junção', r.bloco);
+checar(/vídeo 136@VISIONOS \(V\): 5,9 MB em 19,4 s \(0,3 MB\/s\) · 1º byte aos 0,2 s · pedaços \(3, 4 conexões\) · pedaço mais lento 18,7 s \(mediano 0,9 s\) · refeitos 1 · retentativas 2/.test(r.bloco)
+  && /áudio 140@VISIONOS pt-BR \(V\): 1,0 MB em 0,8 s/.test(r.bloco),
+  'E · e cada faixa: bytes, tempo, ritmo, 1º byte, pedaços e conexões, o pedaço mais lento, refeitos e retentativas', r.bloco);
+checar(/maior vão entre avisos [\d,]+ s/.test(r.bloco) && !/lentidão nos bytes/.test(r.bloco),
+  'E · os avisos no tempo aparecem, e num download RÁPIDO não há veredito de lentidão', r.bloco);
+const blocos = r.blocoLento.split(/\n(?=\d)/);
+const de = (nome) => blocos.find((b) => b.includes(nome)) || '';
+checar(/lentidão nos bytes: UM pedaço do vídeo travou — o mais lento levou 18,7 s contra 0,9 s do mediano \(refeitos 1, retentativas 2\); não foi a rede inteira/.test(de('preso')),
+  'E · num download lento com UM pedaço preso, o veredito diz que foi o pedaço, não a rede', de('preso'));
+checar(/lentidão nos bytes: os pedaços do vídeo foram lentos POR IGUAL .* — a rede ou o servidor do YouTube, não um pedaço preso/.test(de('igual')),
+  'E · e com todos os pedaços lentos por igual, diz que foi a rede', de('igual'));
+checar(/lentidão nos bytes: sem a medida do shell, não dá para dizer/.test(de('sem')) && /maior vão entre avisos 3,3 s · pior janela de 2 s 0,3 MB\/s · fatia dos bytes 53→92%/.test(de('sem')),
+  'E · e sem medida ele diz que não dá para separar; os avisos no tempo e a fatia aparecem', de('sem'));
 checar(!erros.length, 'sem erro de página', JSON.stringify(erros));
 
 await nav.close(); srv.close();

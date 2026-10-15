@@ -1,7 +1,8 @@
 // ============================================================================
 // O PROGRESSO DO TOQUE À TELA — a regra do percentual do YouTube
 // (v1.12.36; a exibição refeita na v1.12.37; o aprendizado na v1.12.38; a
-// estimativa estável e o fim segurado na v1.12.39)
+// estimativa estável e o fim segurado na v1.12.39; a barra presa aos bytes na
+// v1.12.40)
 //
 // Pedido do operador: o percentual de um "Tocar agora" mede o caminho INTEIRO,
 // do toque até a mídia estar tocando — não os bytes do arquivo. E a régua da
@@ -33,6 +34,28 @@
 //   típico aprendido (de vídeo ou de só áudio, `chave`).
 // Uma fase que passa da previsão não "acaba": o que falta dela CRESCE com o
 // atraso, e a barra desacelera em vez de bater num teto.
+//
+// O RITMO VIVO (v1.12.40): o shell avisa a cada 1 MB (`GRAO`), então desde o
+// último aviso chegou MENOS de um grão — o aviso que ATRASA põe um teto no
+// ritmo (`GRAO / silêncio`), e o que falta cresce com o silêncio em vez de
+// esperar o próximo aviso para descobrir que a rede caiu. No Registro de 15/10 o
+// primeiro MB chegou em 0,2 s e o resto a 0,3 MB/s: sem esse teto o ritmo era o
+// aprendido (20 MB/s) até o segundo aviso, três segundos depois, e a barra
+// corria ao 99 durante os bytes.
+//
+// ## A BARRA PRESA AOS BYTES (v1.12.40, aprovado pelo operador)
+//
+// Durante o download o valor mostrado não passa da posição que os bytes
+// RECEBIDOS correspondem dentro da FATIA do download (`posicaoDosBytes`): a fatia
+// começa no valor da entrada nos bytes (`sDownload`) e termina onde as fases
+// seguintes ainda cabem — a parte de `POUSO` proporcional ao tempo do download
+// (decorrido + o que falta, pelo ritmo vivo) contra o das fases seguintes (na
+// mesma `mira` da velocidade). Os bytes entre avisos são interpolados pelo
+// ritmo vivo, até um grão; a latência antes do primeiro byte ocupa a parte
+// dela. Além dessa posição só anda um piso (`PISO_BYTES`), até `MARGEM_BYTES`
+// acima dela e nunca além do fim da fatia: numa rede
+// LENTA a barra anda com os bytes; numa rede PARADA, ela para — o número diz o
+// que chegou.
 //
 // ## A EXIBIÇÃO é um controle de VELOCIDADE, não de posição
 //
@@ -165,6 +188,14 @@
   const SEGURA_POR_PONTO = 9;
   const SEGURA_MAX = 500;
   const JANELA_RITMO = 3000; // ms — num download longo, o ritmo medido olha para trás isto
+  const MARGEM_BYTES = 2.5;  // pontos — o quanto o piso pode andar além dos bytes recebidos
+  // O PISO além dos bytes: um inteiro a cada ~1,25 s. O shell avisa a cada 1 MB, e
+  // a 0,3 MB/s um aviso leva 3 s; entre dois avisos sem ritmo medido (o primeiro
+  // intervalo) a posição dos bytes fica parada, e é este piso, dentro da margem,
+  // que mantém a barra andando até o aviso seguinte.
+  const PISO_BYTES = 0.8 / 1000;
+  const JANELA_PIOR = 2000;  // ms — a janela do ritmo mais lento no relatório
+  const MARCAS_MAX = 2000;   // avisos guardados para o relatório (um por MB)
 
   const num = (v) => (typeof v === 'number' && isFinite(v) ? v : NaN);
   const entre = (v, [a, b]) => Math.min(b, Math.max(a, v));
@@ -339,6 +370,9 @@
     let avisos = 0;
     let tCheio = 0;           // quando a fração da fase atual chegou a 1 sem a fase acabar
     const ritmo = [];         // [t, lidos] dos avisos (a janela do ritmo medido)
+    const marcas = [];        // [t, lidos] de cada aviso novo (o relatório: vãos e pior janela)
+    let sDownload = -1;       // o valor exibido quando os bytes começaram (o início da fatia)
+    let fimDaFatiaFinal = null; // o fim da fatia no instante em que os bytes acabaram
     let muxFeito = 0;
     let muxTotal = 0;
     let s = 0;                // o valor exibido, contínuo
@@ -416,6 +450,51 @@
       return db >= GRAO && dt >= 100 ? db / dt : NaN;
     }
 
+    // O RITMO com o silêncio: desde o último aviso chegou menos de um GRÃO, então
+    // o aviso que atrasa limita o ritmo a `GRAO / silêncio`. Com os avisos em
+    // dia o teto fica acima do ritmo e não age.
+    function comSilencio(r, t) {
+      const ref = primeiroLido >= 0 ? tUltimoByte : (inicio.download || t) + m.latenciaMs;
+      const silencio = t - ref;
+      return silencio > 0 ? Math.min(r, GRAO / silencio) : r;
+    }
+
+    // O ritmo VIVO (bytes/ms): o medido na janela curta, misturado ao aprendido
+    // só no começo, com o teto do silêncio.
+    function ritmoVivo(t) {
+      const medido = ritmoMedido(t);
+      const conf = isFinite(medido) && medido > 0 && primeiroLido >= 0
+        ? Math.min(1, Math.max((ritmo[ritmo.length - 1][1] - ritmo[0][1]) / (2 * GRAO), (t - tPrimeiroByte) / 1500)) : 0;
+      return comSilencio(conf * (isFinite(medido) ? medido : 0) + (1 - conf) * m.bytesPorMs, t);
+    }
+
+    // O FIM DA FATIA do download: a parte de `POUSO` (a partir de `sDownload`)
+    // proporcional ao tempo do download contra o das fases que vêm depois dele.
+    function fimDaFatia(t) {
+      const kk = (f) => (FASES_WEB.includes(f) ? MIRA_CAUDA : 1);
+      const e = Math.max(0, t - inicio.download);
+      const dd = e + restanteDaAtual(t);
+      let depois = 0;
+      for (const f of previstas) if (idx(f) > idx('download')) depois += Math.max(0, duracao(f)) * kk(f);
+      return sDownload + Math.max(0, POUSO - sDownload) * dd / Math.max(1, dd + depois);
+    }
+
+    // A POSIÇÃO dos bytes recebidos (interpolados até um grão pelo ritmo vivo)
+    // dentro da fatia, nunca além do fim dela.
+    function posicaoDosBytes(t) {
+      const fimF = fimDaFatia(t);
+      const tot = total > 0 ? total : tamanho();
+      const e = Math.max(0, t - inicio.download);
+      const lat = Math.max(1, m.latenciaMs);
+      const ref = primeiroLido >= 0 ? tUltimoByte : inicio.download + lat;
+      const base = primeiroLido >= 0 ? lidos : 0;
+      const est = Math.min(tot, base + Math.min(GRAO, ritmoVivo(t) * Math.max(0, t - ref)));
+      const dd = e + restanteDaAtual(t);
+      const parteLat = Math.min(0.5, lat / Math.max(1, dd));
+      const p = parteLat * (primeiroLido >= 0 ? 1 : Math.min(1, e / lat)) + (1 - parteLat) * Math.min(1, est / Math.max(1, tot));
+      return { pos: sDownload + (fimF - sDownload) * p, fimF };
+    }
+
     function restanteDaAtual(t) {
       const D = Math.max(1, duracao(atual));
       const e = Math.max(0, t - inicio[atual]);
@@ -429,7 +508,7 @@
         const conf = isFinite(medido) && medido > 0
           ? Math.min(1, Math.max((ritmo[ritmo.length - 1][1] - ritmo[0][1]) / (2 * GRAO), (t - tPrimeiroByte) / 1500)) : 0;
         const r = conf * (isFinite(medido) ? medido : 0) + (1 - conf) * m.bytesPorMs;
-        return falta / Math.max(1e-3, r);
+        return falta / Math.max(1e-3, comSilencio(r, t));
       }
       if (atual === 'juncao' && muxTotal > 0) {
         const f = Math.min(1, muxFeito / muxTotal);
@@ -464,6 +543,7 @@
     function entrar(nome, t) {
       if (concluido || idx(nome) < 0 || idx(nome) <= idx(atual)) return;
       const quando = t == null ? agora() : t;
+      if (atual === 'download' && sDownload >= 0) fimDaFatiaFinal = fimDaFatia(quando);
       fim[atual] = quando;
       mostradoNoFim[atual] = Math.floor(s);
       for (let i = previstas.length - 1; i >= 0; i--) {
@@ -474,6 +554,7 @@
       inicio[nome] = quando;
       tCheio = 0;
       previsto[nome] = Math.round(duracao(nome));
+      if (nome === 'download') sDownload = s;
       if (escondida && FASES_WEB.includes(nome)) oculto = true;
     }
 
@@ -551,7 +632,20 @@
         // é √(2·FREIO·distância), e ela cai no máximo FREIO·dt por quadro. Só
         // pega quando a inércia passa da velocidade-alvo — no plano ela não age.
         if (vAntes >= 0) v = Math.min(v, Math.max(alvo, Math.sqrt(2 * FREIO * Math.max(0, POUSO - s))));
+        const sAntes = s;
         s = Math.min(CAP - 1e-6, s + v * dt);
+        // PRESA AOS BYTES (v1.12.40): durante o download, nunca além do teto; e a
+        // velocidade presa junto, senão a inércia guardada saltaria depois.
+        // A velocidade leva a barra até a posição dos bytes; além dela só o
+        // PISO_BYTES anda, até `MARGEM_BYTES` e nunca além do fim da fatia.
+        if (atual === 'download' && sDownload >= 0) {
+          const { pos, fimF } = posicaoDosBytes(t);
+          if (s > pos) {
+            const piso = Math.min(fimF, pos + MARGEM_BYTES, sAntes + PISO_BYTES * dt);
+            s = Math.max(sAntes, pos, Math.min(s, piso));
+            if (dt > 0) v = Math.min(v, (s - sAntes) / dt);
+          }
+        }
         const inteiro = valor();
         if (inteiro !== ultimoInteiro) { ultimoInteiro = inteiro; tUltimaMudanca = t; }
         else plato = Math.max(plato, t - tUltimaMudanca);
@@ -611,7 +705,10 @@
         if (!(lv >= 0)) return;
         if (primeiroLido < 0) { primeiroLido = lv; tPrimeiroByte = t; }
         if (lv > lidos) lidos = lv;
-        if (lv > ultimoLido) { ultimoLido = lv; tUltimoByte = t; avisos++; }
+        if (lv > ultimoLido) {
+          ultimoLido = lv; tUltimoByte = t; avisos++;
+          if (marcas.length < MARCAS_MAX) marcas.push([t, lv]);
+        }
         ritmo.push([t, lidos]);
         if (total > 0 && lidos >= total && !tCheio) tCheio = t;
       },
@@ -682,6 +779,20 @@
         }
         const r = ritmoDoDownload();
         const esp = esperadoNoPrimeiro();
+        // OS AVISOS NO TEMPO (v1.12.40): o maior vão entre dois avisos e o ritmo
+        // da pior janela de 2 s — o que separa "a rede ficou lenta" de "parou".
+        let maiorVao = 0; let pior = NaN;
+        for (let i = 1; i < marcas.length; i++) maiorVao = Math.max(maiorVao, marcas[i][0] - marcas[i - 1][0]);
+        for (let i = 0, j = 0; i < marcas.length; i++) {
+          if (j <= i) j = i + 1;
+          while (j < marcas.length && marcas[j][0] - marcas[i][0] < JANELA_PIOR) j++;
+          if (j >= marcas.length) break;
+          const x = (marcas[j][1] - marcas[i][1]) / (marcas[j][0] - marcas[i][0]);
+          if (!(x >= pior)) pior = x;
+        }
+        const fatia = inicio.download != null && sDownload >= 0
+          ? { inicio: Math.floor(sDownload), mostradoNoFim: mostradoNoFim.download != null ? mostradoNoFim.download : null,
+            fim: fimDaFatiaFinal != null ? Math.round(fimDaFatiaFinal * 10) / 10 : null } : null;
         return {
           caminho: inicio.download == null ? 'no-aparelho' : retomado() ? 'retomado' : 'novo',
           // O que decidiu o caminho: o primeiro aviso (bytes e ms depois do
@@ -702,6 +813,9 @@
             : concluido ? Math.max(0, 100 - Math.floor(sConcluir)) : null,
           segurouMs: segurou,
           platoMs: Math.round(plato),
+          avisosMaiorVaoMs: marcas.length > 1 ? Math.round(maiorVao) : null,
+          piorJanelaBytesPorMs: isFinite(pior) ? Math.round(pior) : null,
+          fatiaDownload: fatia,
           tocou,
           oculto,
         };
@@ -711,7 +825,7 @@
 
   global.AVProgresso = {
     FASES, PADRAO, LIMITES, AMOSTRAS, VERSAO, POUSO, CAP, PISO_V, V_MAX, PESO_IDADE, MIRA_CAUDA,
-    JANELA, QUANTIL, APOIO_TAMANHO, SEGURA_MAX,
+    JANELA, QUANTIL, APOIO_TAMANHO, SEGURA_MAX, MARGEM_BYTES, GRAO,
     sanear, aprender, modelo, apoio, criar, mediana, estimar,
   };
 })(this);

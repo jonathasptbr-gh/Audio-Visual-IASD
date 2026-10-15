@@ -33,7 +33,11 @@
 //      e — sem a miniatura no caminho — do 2º em diante a mídia fica pronta com
 //      85+, sem parar e com o fim segurado em até 500 ms;
 //  Q · o FIM SEGURADO: `revelar()` segura proporcional ao que falta (até 500
-//      ms), varre até 100 exatamente nesse tempo, e não segura a partir do 95.
+//      ms), varre até 100 exatamente nesse tempo, e não segura a partir do 95;
+//  R · (v1.12.40) os CINCO downloads do Registro de 15/10 12h37, dois deles com a
+//      rede desabando no meio dos bytes: a barra PRESA AOS BYTES anda com eles,
+//      sem parar 1,5 s, abaixo de 90 nos bytes e dentro da fatia do download no
+//      fim deles; os três normais não mudam.
 //
 // O relógio é de mentira (`agora` injetado) — é isso que torna a fluidez
 // afirmável. Node puro, sem `continue-on-error`.
@@ -309,8 +313,23 @@ const PLATO_MAX = 3500;
   // A rede trava 12 s no meio do download.
   const longo = Object.assign({}, base, { download: base.download + 12000 });
   const frac = (f) => { const tt = f * longo.download; const ini = base.download / 2; if (tt < ini) return tt / base.download; if (tt < ini + 12000) return 0.5; return (tt - 12000) / base.download; };
+  // (v1.12.40) Com a rede TRAVADA 12 s a barra é PRESA AOS BYTES: ela anda no
+  // máximo a margem além do que chegou e PARA — o número diz o que chegou —, e
+  // volta a andar com os bytes. Antes ela seguia o piso até o 99.
   const r2 = simular({ modelo: certo, roteiro: longo, bytes: 40 * MB, ritmo: frac });
-  checar(naoVolta(r2) && platoAte(r2) <= PLATO_MAX, 'H · e com a rede TRAVADA 12 s ela desacelera e segue andando (sem platô de 3,5 s)', platoAte(r2));
+  const ini = base.download / 2; const t0s = r2.t0 + longo.preparo;
+  const naTrava = r2.serie.filter(([t]) => t > t0s + ini && t <= t0s + ini + 12000).map((x) => x[1]);
+  const depois = r2.serie.filter(([t, , f]) => t > t0s + ini + 12500 && f === 'download').map((x) => x[1]);
+  // A fatia do download se ESTICA com a trava (o tempo dela cresce contra o das
+  // fases seguintes), mas a posição dos bytes é a METADE dela: a barra fica
+  // abaixo do meio do caminho entre a entrada nos bytes e o pouso.
+  const sD = r2.serie.find(([, , f]) => f === 'download')[1];
+  const meio = sD + (P.POUSO - sD) * 0.5 + P.MARGEM_BYTES + 1;
+  checar(naoVolta(r2) && Math.max(...naTrava) <= meio,
+    'H · e com a rede TRAVADA 12 s na metade dos bytes ela não passa da METADE da fatia (presa aos bytes; antes seguia o piso até o 99)',
+    { naTrava: [naTrava[0], naTrava[naTrava.length - 1]], teto: Math.round(meio) });
+  checar(depois.length > 2 && depois[depois.length - 1] > naTrava[naTrava.length - 1],
+    'H · e volta a andar quando os bytes voltam', [naTrava[naTrava.length - 1], depois[depois.length - 1]]);
 }
 
 {
@@ -605,6 +624,87 @@ function simular720(h, [mb, pre, dl, ju, cp, gr, ab]) {
   const meio = caso(1400, curto);
   checar(meio.ms > 0 && meio.ms < P.SEGURA_MAX && meio.antes > longe.antes && meio.antes < P.POUSO,
     'Q · e no meio a espera é proporcional ao que falta', [meio.antes, meio.ms]);
+}
+
+// ---- R · a rede que DESABA no meio dos bytes: o Registro de 15/10, 12h37 (v1.12.40) --
+// MB · preparo · 1º aviso · bytes · junção · cópia · gravação · abertura (ms), como o
+// bloco "Barra do YouTube" os mediu. O 2º e o 4º: o primeiro MB em 0,2 e 0,7 s e
+// o resto a 0,3–0,4 MB/s, contra ~20 MB/s aprendidos — a barra chegava ao 99
+// DURANTE os bytes e ficava lá 5,1 e 9,2 s. O histórico de partida é o "Aprendido"
+// daquele Registro (10 amostras: rede 19,8 MB/s + 0,2 s, preparo 3,0 s, junção
+// 0,4 s + 80 ms/MB, abertura 0,1 s, vídeo típico ~11 MB).
+const RELATO_REDE = [[3, 2500, 200, 300, 700, 0, 0, 500], [7, 2800, 200, 19400, 800, 0, 0, 100],
+  [10, 3500, 400, 700, 1400, 0, 100, 100], [12, 2400, 700, 25100, 1300, 100, 100, 100], [8, 3400, 400, 2000, 1600, 0, 100, 100]];
+function historicoDoRegistro() {
+  let h = null;
+  const rede = 19.8 * MB / 1000;
+  for (let i = 0; i < 10; i++) {
+    const mb = 9 + (i % 4);
+    h = P.aprender(h, { chave: 'video', bytes: mb * MB, ritmo: rede, downloadMs: 200 + (mb * MB) / rede, preparoMs: 3000,
+      juntou: 1, juncaoMs: 400 + 80 * mb, copiaMs: 3 * mb, gravacaoMs: 7 * mb, aberturaMs: 100 });
+  }
+  return h;
+}
+function simularRede(h, [mb, pre, prim, dl, ju, cp, gr, ab]) {
+  let t = 1000;
+  const B = Math.round(mb * MB);
+  const b = P.criar({ modelo: P.modelo(h, 'video'), agora: () => t, juncao: true, abertura: true, chave: 'video' });
+  const serie = [];
+  const andar = (ms, cada) => {
+    for (let x = 0; x < ms; x += 10) { t += 10; if (cada) cada(x + 10); if (x % 100 === 90) serie.push([t, b.passo(), b.fase()]); }
+  };
+  andar(pre);
+  b.sinal('extraiu', {});
+  let prox = MB;
+  let restante2s = null;
+  andar(dl, (e) => {
+    if (e === prim + 2000) restante2s = b.restante();
+    const l = e < prim ? 0 : Math.min(B, MB + 40000 + Math.round((B - MB - 40000) * (e - prim) / Math.max(1, dl - prim - 10)));
+    while (l >= prox && prox < B) { b.bytes(prox + 40000, B); prox += MB; }
+    if (l >= B && prox !== Infinity) { b.bytes(B, B); prox = Infinity; }
+  });
+  b.sinal('baixou', { bytes: B, juntar: true });
+  andar(ju, (e) => b.sinal('juntando', { feito: Math.round(B * e / ju), total: B }));
+  b.sinal('juntou', {});
+  b.sinal('copia'); andar(cp);
+  b.sinal('gravacao'); andar(gr);
+  b.sinal('abertura');
+  const pronto = b.valor();
+  const segura = b.revelar();
+  andar(Math.max(ab, segura));
+  b.concluir();
+  const rel = b.relatorio();
+  const vals = serie.map((x) => x[1]);
+  let plato = 0; let desde = serie[0][0];
+  for (let i = 1; i < serie.length; i++) { if (vals[i] !== vals[i - 1]) desde = serie[i][0]; else if (vals[i] < 100) plato = Math.max(plato, serie[i][0] - desde); }
+  const nosBytes = serie.filter((x) => x[2] === 'download').map((x) => x[1]);
+  return { b, rel, pronto, segura, plato, restante2s, volta: !vals.every((x, i) => i === 0 || x >= vals[i - 1]),
+    maxBytes: Math.max(...nosBytes), fimBytes: rel.fases.download ? rel.fases.download.mostrado : null };
+}
+const resRede = (() => {
+  let h = historicoDoRegistro(); const res = [];
+  for (const v of RELATO_REDE) { const r = simularRede(h, v); res.push(r); h = P.aprender(h, Object.assign({ origem: 'tocar' }, r.b.amostra())); }
+  return res;
+})();
+if (process.env.REPLAY) console.log(JSON.stringify(resRede.map((r) => ({ pronto: r.pronto, segura: r.segura, plato: r.plato, maxBytes: r.maxBytes, fimBytes: r.fimBytes, fatia: r.rel.fatiaDownload }))));
+{
+  const lentos = [resRede[1], resRede[3]];
+  checar(resRede.every((r) => !r.volta), 'R · os cinco: nunca volta', null);
+  checar(lentos.every((r) => r.plato <= 1500), 'R · nos dois downloads LENTOS (7 e 12 MB a 0,3–0,4 MB/s) a barra não para 1,5 s (eram 5,1 e 9,2 s no 99)', lentos.map((r) => r.plato));
+  checar(lentos.every((r) => r.maxBytes <= P.POUSO - 2), 'R · e durante os bytes ela não corre ao 99: fica abaixo do pouso, com lugar para o que vem depois', lentos.map((r) => r.maxBytes));
+  checar(lentos.every((r) => r.rel.fatiaDownload && r.rel.fatiaDownload.fim != null && r.fimBytes <= r.rel.fatiaDownload.fim && r.fimBytes <= P.POUSO - 2),
+    'R · e no fim dos bytes o valor está DENTRO da fatia do download — as fases seguintes guardam o lugar delas',
+    lentos.map((r) => [r.fimBytes, r.rel.fatiaDownload]));
+  checar(lentos.every((r) => r.rel.avisosMaiorVaoMs >= 2000 && r.rel.piorJanelaBytesPorMs < 0.6 * MB / 1000),
+    'R · e o relatório diz o maior vão entre avisos e o ritmo da pior janela de 2 s', lentos.map((r) => [r.rel.avisosMaiorVaoMs, r.rel.piorJanelaBytesPorMs]));
+  // O que falta, 2 s depois do primeiro MB, sem aviso novo: o silêncio limita o
+  // ritmo (menos de 1 MB em 2 s), e a previsão cresce — antes ela seguia o
+  // aprendido (20 MB/s) e dizia ~1 s até o aviso seguinte.
+  checar(lentos.every((r) => r.restante2s > 6000), 'R · e 2 s de silêncio depois do 1º MB já fazem o que falta passar de 6 s (o ritmo vivo, não o aprendido)',
+    lentos.map((r) => Math.round(r.restante2s)));
+  const normais = [resRede[0], resRede[2], resRede[4]];
+  checar(normais.every((r) => r.plato <= 1500), 'R · os três normais continuam sem parar 1,5 s', normais.map((r) => r.plato));
+  checar([resRede[2], resRede[4]].every((r) => r.pronto >= 85), 'R · e o 3º e o 5º ficam prontos com 85+ (eram 95 e 95)', normais.map((r) => r.pronto));
 }
 
 if (falhas.length) { console.log('\n' + falhas.length + ' falha(s).'); process.exit(1); }
