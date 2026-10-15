@@ -2986,10 +2986,15 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.12.34 · APK v1.12.34** · `SHELL_VERSION` **80** ·
-bundle com `minShell: 80` e **COM `shellTag: "v1.12.34"`** — o shell 80 é o **PISO**: todo
-método da ponte existe, e não há guarda de versão no lado web. Este lote muda `java/`
-(o método `telaInteira`), então o bundle fica SEGURO até a Release v1.12.34 sair.
+**Versão atual: base web v1.12.35 · APK v1.12.34** · `SHELL_VERSION` **80** ·
+bundle com `minShell: 80` e **SEM `shellTag`** — o shell 80 é o **PISO**: todo
+método da ponte existe, e não há guarda de versão no lado web. Nada em `java/`,
+`res/` ou no manifesto muda neste lote, e o APK v1.12.34 está publicado na frota.
+**A v1.12.35 FAZ DUAS COISAS** (no Modo Fácil o resultado do YouTube na busca é um CARTÃO —
+`body.mode-simple .yt-result`: miniatura na largura da lista em 16:9, título, canal e duração
+abaixo, percentual como selo; oráculo `busca-divisoria` A8 — e o APK entregue ao instalador não é
+perguntado de novo por trás dele — `apkEntregue`/`APK_ENTREGUE_MS` em `decidirAtualizacao`, ver
+`docs/shell/OTA.md`; oráculo `ota` 2b).
 **A v1.12.34 DÁ AO VÍDEO DO MODO FÁCIL UMA TELA INTEIRA SEM TOQUE** (no app, `acertarTelaCheiaDoVideo`
 não usa mais `requestFullscreen`, que exige ativação e era recusado depois de um download: a `.preview`
 sobe ao top layer por `popover` com a classe `pv-inteira`, que o CSS trata como `.preview:fullscreen`, e o

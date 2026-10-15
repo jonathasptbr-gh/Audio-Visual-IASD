@@ -429,6 +429,17 @@ try {
     checar(instalou === true, 'e o toque vai direto ao instalador', porque(instalou));
     checar(!(await pg.evaluate(() => window.__chamadas.includes('otaApply'))),
       'sem aplicar base nenhuma — não havia o que aplicar');
+    // E ENTREGUE AO INSTALADOR A PERGUNTA NÃO VOLTA POR TRÁS DELE (v1.12.35). O shell só esquece o
+    // APK quando a versão instalada o alcança: as etapas do instalador do Android devolvem o foco ao
+    // app (onResume → empurrão), a enquete de 10 s segue rodando, e a mesma pergunta reabria atrás
+    // da tela do sistema. Os DOIS caminhos: o empurrão do shell e a enquete (`decidirAtualizacao`).
+    const fechou = await esperar(pg, () => !document.getElementById('appDialog').classList.contains('open'),
+      null, PRAZO_CURTO_MS);
+    checar(fechou === true, 'PREMISSA: o diálogo do download fecha quando o instalador assume', porque(fechou));
+    await empurrar(pg, { web: '', shell: '1.99', shellBytes: 4567720 });
+    await pg.evaluate(() => { decidirAtualizacao(); });
+    checar(!(await dialogo(pg)),
+      'com o APK já entregue ao instalador, nem o empurrão da retomada nem a enquete reabrem a pergunta');
     await ctx.close();
   }
 

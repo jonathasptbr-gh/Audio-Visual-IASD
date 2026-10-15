@@ -131,6 +131,13 @@ async function passe(rotulo, { tema, avancado }) {
             tracoEsq: r.left + (parseFloat(b.left) || 0),
             tracoDir: r.right - (parseFloat(b.right) || 0),
             depois: getComputedStyle(li, '::after').content !== 'none',
+            cartao: (() => {
+              const th = li.querySelector('.yt-thumb');
+              if (!th) return null;
+              const t = th.getBoundingClientRect();
+              const nm = li.querySelector('.row-name').getBoundingClientRect();
+              return { tW: t.width, tH: t.height, rowW: row.width, tBase: t.bottom, nomeTopo: nm.top };
+            })(),
           };
         }),
       };
@@ -140,6 +147,20 @@ async function passe(rotulo, { tema, avancado }) {
     const musicas = d.linhas.filter((l) => !l.yt);
     const videos = d.linhas.filter((l) => l.yt);
     checar(d.modo === (avancado ? 'avancado' : 'facil'), rotulo + ' · PREMISSA: o modo é o pedido', d.modo);
+
+    // ---- A8 · NO MODO FÁCIL O VÍDEO É UM CARTÃO (v1.12.35) -------------------
+    // *"a thumbnail tem a largura disponível … e o título … abaixo do vídeo"*. No avançado a linha
+    // segue a anatomia das músicas (miniatura pequena à esquerda).
+    if (!avancado) {
+      checar(videos.every((l) => l.cartao && l.cartao.tW >= l.cartao.rowW - 24
+        && Math.abs(l.cartao.tW / l.cartao.tH - 16 / 9) < 0.05 && l.cartao.nomeTopo >= l.cartao.tBase - 0.5),
+        'A8 · ' + rotulo + ' · cada vídeo é um CARTÃO: a miniatura toma a largura da linha em 16:9 e o '
+        + 'título fica ABAIXO dela', JSON.stringify(videos.map((l) => l.cartao)));
+    } else {
+      checar(videos.every((l) => l.cartao && l.cartao.tW < l.cartao.rowW / 3),
+        'A8 · ' + rotulo + ' · no avançado o vídeo continua uma LINHA (miniatura pequena ao lado do título)',
+        JSON.stringify(videos.map((l) => l.cartao)));
+    }
 
     // ---- A1 · UMA POR PAR -------------------------------------------------
     const pares = d.linhas.filter((l) => l.par);
@@ -168,7 +189,9 @@ async function passe(rotulo, { tema, avancado }) {
     checar(recuos.every((x) => Math.abs(x) <= 1),
       'A5 · ' + rotulo + ' · o traço começa na BORDA ESQUERDA da linha (±1px), na música E no vídeo — '
       + 'passa por baixo do play e da miniatura, e nenhuma coluna é um número escrito aqui', JSON.stringify(recuos));
-    checar(pares.every((l) => l.nome - l.esq > 20),
+    // No Modo Fácil o VÍDEO é um cartão (v1.12.35): o nome fica ABAIXO da miniatura, rente à borda,
+    // e a premissa só se mede nas linhas em que o nome está ao lado de algo.
+    checar(pares.filter((l) => !(l.yt && d.modo === 'facil')).every((l) => l.nome - l.esq > 20),
       'A5 · ' + rotulo + ' · PREMISSA: o nome começa bem depois da borda (há play/miniatura entre os dois), '
       + 'senão "de lado a lado" não se distinguiria do recuo antigo', JSON.stringify(pares.map((l) => +(l.nome - l.esq).toFixed(1))));
     const dirs = pares.map((l) => +(l.tracoDir - l.dir).toFixed(2));

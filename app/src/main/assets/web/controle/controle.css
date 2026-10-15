@@ -5277,6 +5277,30 @@ main {
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   overflow: hidden; line-height: 1.25; white-space: normal;
 }
+/* ---------- NO MODO FÁCIL O RESULTADO É UM CARTÃO DE VÍDEO (v1.12.35) ----------
+   Pedido do operador: *"siga mais o padrão da busca normal do YouTube, onde a thumbnail tem a
+   largura disponível da tela/arranjo e o título de cada vídeo, juntamente o nome do canal e tempo
+   do vídeo ficam abaixo do vídeo"*. Só CSS sobre a MESMA linha (`ytResultRow`): a linha vira
+   coluna, a miniatura toma a largura da lista em 16:9 e o texto desce para baixo dela. Os três
+   estados do canto (anel, ✓, falha) continuam cobrindo a miniatura, maiores; o percentual vira um
+   selo no canto da miniatura (fora do fluxo, para a altura do cartão não mudar no download). */
+body.mode-simple .yt-result .hymn-row {
+  position: relative; flex-direction: column; align-items: stretch; gap: var(--sp-3);
+  padding: .35rem .5rem .5rem;
+}
+body.mode-simple .yt-result .yt-thumb {
+  width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: var(--radius-card);
+}
+body.mode-simple .yt-result .yt-thumb .dl-ring { --dl-ring: 52px; }
+body.mode-simple .yt-result .yt-ok svg,
+body.mode-simple .yt-result .yt-err svg { width: 44px; height: 44px; }
+body.mode-simple .yt-result .hymn-info { padding: 0 .15rem; }
+body.mode-simple .yt-result .row-name { font-size: var(--fs-md); }
+body.mode-simple .yt-result .dl-pct {
+  position: absolute; top: calc(.35rem + var(--sp-3)); right: calc(.5rem + var(--sp-3));
+  padding: .1rem .5rem; border-radius: var(--radius-pill); background: var(--panel);
+}
+body.mode-simple .yt-result .dl-pct:empty { display: none; }
 /* O termo digitado não tem tamanho previsível — corta em reticências em vez de
    esticar a linha ou quebrar em três. */
 .yt-search-txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

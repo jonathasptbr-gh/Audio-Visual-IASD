@@ -392,7 +392,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.34';
+const WEB_VERSION = '1.12.35';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -415,6 +415,14 @@ let otaDiagTexto = '';
 let farolDiag = null;
 let apkNovo = null;
 let apkBaixando = false;
+// O APK JÁ ENTREGUE AO INSTALADOR (v1.12.35): `{ versao, em }`. O shell só esquece a novidade quando a
+// versão instalada a alcança, então entre o instalador do Android abrir e o app morrer na troca a
+// pergunta continuava valendo — e a enquete de 10 s, o `onResume` de cada etapa do instalador e o
+// `visibilitychange` a reabriam POR TRÁS dele. Vale `APK_ENTREGUE_MS`: quem recusou a instalação
+// volta a ser perguntado depois disso (ou na próxima abertura); o botão de Configurações não passa
+// por aqui e segue servindo para tentar de novo na hora.
+let apkEntregue = null;
+const APK_ENTREGUE_MS = 10 * 60 * 1000;
 // O que o operador mandou deixar para depois, POR LOTE (`web|shell`): recusar
 // uma base web não pode calar o APK que chegar amanhã junto com outra.
 //
@@ -43315,6 +43323,8 @@ function decidirAtualizacao() {
   const lote = loteDaAtualizacao();
   if (!lote) return;
   if (otaPerguntando || apkBaixando) return;
+  if (lote.shell && !lote.web && apkEntregue && apkEntregue.versao === lote.shell
+    && Date.now() - apkEntregue.em < APK_ENTREGUE_MS) return;
   if (otaAdiadas.has(lote.chave)) return;
   if (lote.web && otaRecusadas.has(lote.web)) return;
   // A pergunta espera o que acaba (ver `horaRuimParaPerguntar`). Ela não se
@@ -43540,6 +43550,7 @@ async function instalarApk(versao) {
     });
     return;
   }
+  apkEntregue = { versao, em: Date.now() };
   if (appDialogResolve) closeAppDialog(true);
   falarNoOta('Confirme a instalação na tela do sistema', 8000);
 }
