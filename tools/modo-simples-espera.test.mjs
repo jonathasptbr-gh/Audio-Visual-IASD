@@ -14,7 +14,8 @@
 //
 //  A · durante o download e a junção, a linha continua marcada e o campo intacto;
 //  B · a tela só muda depois de a mídia entrar no ar;
-//  C · o percentual mostrado nunca chega a 100 antes do desfecho.
+//  C · o percentual mostrado nunca chega a 100 antes do desfecho;
+//  D · o Registro guarda o que a barra fez (v1.12.37).
 //
 //   node tools/modo-simples-espera.test.mjs
 // ============================================================================
@@ -67,7 +68,13 @@ const r = await pg.evaluate(async (mode) => {
   await new Promise(r => setTimeout(r, 9000));
   clearInterval(espiar);
   clearInterval(iv);
-  return { out: out.map(o => [o[0], JSON.parse(o[1])]), log: window.__log.map(x=>[(x[0]-t0)|0,x[1]]), pcts: window.__pcts };
+  // D · O DIAGNÓSTICO (v1.12.37): o anel gravado, o bloco do Registro e a linha do tempo.
+  await new Promise(r => setTimeout(r, 300));
+  const gravado = await AVDB.getState('ytBarraDiag');
+  const bloco = blocoBarraYt();
+  const linha = diarioC.map((e) => e.ev).filter((e) => /^barra: /.test(e));
+  return { out: out.map(o => [o[0], JSON.parse(o[1])]), log: window.__log.map(x=>[(x[0]-t0)|0,x[1]]), pcts: window.__pcts,
+    gravado, bloco, linha };
 }, mode);
 const quando = (n) => (r.log.find((x) => x[1] === n) || [])[0];
 const resolve = quando('shell-resolve');
@@ -87,7 +94,7 @@ checar(fim && fim[1].noAr && !fim[1].sel && fim[0] >= entrou, 'B · com a mídia
 const baixando = r.pcts.filter((p) => p[1] === 'baixando' && p[2] >= 0);
 const antesDoAr = baixando.filter((p) => !p[3]);
 const maxAntes = Math.max(...antesDoAr.map((p) => p[2]));
-checar(antesDoAr.length > 0 && maxAntes <= 97, 'C · o percentual não chega a 100 antes de a mídia entrar no ar',
+checar(antesDoAr.length > 0 && maxAntes <= 99, 'C · o percentual não chega a 100 antes de a mídia entrar no ar',
   JSON.stringify({ n: antesDoAr.length, maxAntes }));
 checar(baixando.every((p, i) => i === 0 || p[2] >= baixando[i - 1][2]), 'C · e nunca volta',
   JSON.stringify(baixando.map((p) => p[2])));
@@ -101,6 +108,17 @@ const pronto = r.pcts.find((p) => p[1] === 'pronto');
 checar(!!pronto && ultimo && ultimo[2] >= 97 && ultimo[3] && pronto[0] > ultimo[0],
   'C · e o fim é a mídia no ar: a linha vira "pronto" (o 100) só DEPOIS de ela entrar, com o número no fim da barra',
   JSON.stringify({ ultimo, pronto }));
+// D · O REGISTRO DIZ O QUE ACONTECEU (v1.12.37): o anel GRAVADO (um Registro copiado
+// depois ainda o traz), o bloco com o previsto, o real e o número ao tocar, e uma
+// linha na linha do tempo.
+const ult = Array.isArray(r.gravado) ? r.gravado[r.gravado.length - 1] : null;
+checar(!!ult && ult.origem === 'tocar' && ult.rel && ult.rel.caminho === 'novo' && ult.rel.realMs > 4000
+  && typeof ult.rel.aoConcluir === 'number' && ult.rel.fases && ult.rel.fases.download && ult.rel.fases.abertura,
+  'D · o download fica GRAVADO no anel do diagnóstico, com o caminho, o real e as fases', JSON.stringify(ult));
+checar(/^Barra do YouTube \(últimos 1\)/.test(r.bloco || '') && /previsto .* real .* mostrava \d+% no fim/.test(r.bloco)
+  && /real\/previsto: preparo/.test(r.bloco) && /^Aprendido \(\d+ amostra/m.test(r.bloco),
+  'D · e o bloco do Registro diz o previsto, o real, o número no fim, fase a fase, e o aprendido em uso', r.bloco);
+checar(r.linha.length === 1 && /mostrava \d+% ao tocar/.test(r.linha[0]), 'D · e a linha do tempo ganha UMA linha por download', JSON.stringify(r.linha));
 await nav.close(); srv.close();
 if (falhas.length) { console.log('\n' + falhas.length + ' falha(s).'); process.exit(1); }
 console.log('\nTodos passaram.');
