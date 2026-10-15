@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.12.35",
+    "itens": [
+      "Modo simples: os vídeos do YouTube na busca aparecem como no YouTube, com a imagem grande e o título embaixo.",
+      "Durante a instalação do app, o aviso de atualização não reaparece mais por trás."
+    ]
+  },
+  {
     "versao": "1.12.34",
     "itens": [
       "Modo simples: sem tela conectada, o vídeo abre em tela cheia sozinho, mesmo depois de baixar.",

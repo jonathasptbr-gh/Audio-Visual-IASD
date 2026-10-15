@@ -283,6 +283,16 @@ o erro** e abria um modal "A atualização do app falhou". Hoje
 pergunta é ESTRUTURAL, e não casada por substring da frase do shell: o texto do
 erro não é contrato.
 
+**O APK ENTREGUE AO INSTALADOR NÃO É PERGUNTADO DE NOVO** (v1.12.35). O `achado`
+só some quando a versão instalada o alcança, e entre o instalador do Android abrir
+e o processo morrer na troca a pergunta seguia valendo: a enquete de 10 s, o
+`onResume` de cada etapa do instalador (empurrão `__avAtualizacao`) e o
+`visibilitychange` a reabriam POR TRÁS da tela do sistema. `instalarApk` marca
+`apkEntregue = { versao, em }` no sucesso, e `decidirAtualizacao` cala o lote só
+de APK daquela versão por `APK_ENTREGUE_MS` (10 min). Fica em memória da página:
+recusada a instalação, a pergunta volta depois do prazo ou na próxima abertura, e
+o botão de Configurações (`#otaRow`) não passa por `decidirAtualizacao`.
+
 > O que já foi **corrigido** nesta auditoria (só texto): a lista de scripts
 > (faltavam `serie.js` e `sorteio.js`), o KDoc do `RONDA_MS` ("um minuto" para
 > um valor de 15 s), "a ronda de 5 min" no `catch`, "de minuto em minuto" no
