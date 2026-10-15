@@ -645,6 +645,7 @@ jobs:
           rodar tools/leitor-letra-topo.test.mjs
           rodar tools/modo-simples-corpo.test.mjs
           rodar tools/video-tela-cheia.test.mjs
+          rodar tools/tela-inteira.test.mjs
           rodar tools/pacote-importar-marcados.test.mjs
           rodar tools/busca-divisoria.test.mjs
           rodar tools/modo-facil-card.test.mjs

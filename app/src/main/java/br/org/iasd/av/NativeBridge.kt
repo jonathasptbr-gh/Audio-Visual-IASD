@@ -139,6 +139,14 @@ interface BridgeHost {
     fun setCaptureVolumeKeys(on: Boolean)
 
     /**
+     * A TELA INTEIRA SEM A API DE TELA CHEIA (shell 80): paisagem e barras do
+     * sistema escondidas, pedidas pelo web quando o vídeo do Modo Fácil entra
+     * no ar sem tela conectada. `requestFullscreen` exige um toque recente, e o
+     * vídeo que baixa antes de tocar chega tarde; isto não exige nada.
+     */
+    fun setTelaInteira(on: Boolean)
+
+    /**
      * A PROJEÇÃO É ESTE APARELHO — não há tela conectada, e há algo no ar.
      *
      * Ver [NativeBridge.projecaoLocal]: quem sabe responder isso é o lado web
@@ -352,7 +360,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 79
+        const val SHELL_VERSION = 80
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -1806,6 +1814,12 @@ class NativeBridge(
     @JavascriptInterface
     fun captureVolumeKeys(on: Boolean) {
         host?.setCaptureVolumeKeys(on)
+    }
+
+    /** Ver [BridgeHost.setTelaInteira]. Sem host (o telão) não faz nada. */
+    @JavascriptInterface
+    fun telaInteira(on: Boolean) {
+        host?.setTelaInteira(on)
     }
 
     // ---------- a preview que É a projeção ----------

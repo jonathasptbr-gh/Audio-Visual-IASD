@@ -118,6 +118,15 @@ class MainActivity : ComponentActivity(), BridgeHost {
 
     /** Fullscreen HTML5 (a preview do Controle em tela cheia). */
     private var customView: View? = null
+
+    /**
+     * A TELA INTEIRA pedida pelo web (shell 80, `AVNative.telaInteira`): a
+     * mesma paisagem e as mesmas barras escondidas de [onShowCustomView], sem
+     * a API de tela cheia — quem cobre a tela é a própria página. As duas
+     * convivem: sair de uma não devolve o retrato enquanto a outra estiver
+     * ligada.
+     */
+    private var telaInteiraWeb = false
     private var customCallback: WebChromeClient.CustomViewCallback? = null
 
     /** Callback do `AVNative.pickFolder()` em andamento. */
@@ -666,6 +675,10 @@ class MainActivity : ComponentActivity(), BridgeHost {
             // É a projeção: o renderer morre por OOM, o app remonta tudo certo
             // por dentro, e a tela fica congelada sem caminho de volta.
             sairDaTelaCheia(false)
+            // E A TELA INTEIRA do web (shell 80): a página que a pediu morreu,
+            // e a nova nasce em retrato — sem isto o app ficaria em paisagem
+            // e sem barras, sem ninguém para desfazê-lo.
+            aplicarTelaInteira(false)
             webContainer.post { buildControleWebView() }
         }
         w.webChromeClient = ControleChromeClient()
@@ -722,6 +735,9 @@ class MainActivity : ComponentActivity(), BridgeHost {
     override fun onResume() {
         super.onResume()
         syncPresentation()
+        // O IMERSIVO NÃO SOBREVIVE A IR E VOLTAR: a tela inteira do web (ou a
+        // tela cheia) volta a esconder as barras na retomada.
+        if (telaInteiraWeb || customView != null) setSystemBarsHidden(true)
         // VOLTAR AO APP É UM GATILHO. É quando o operador agiria sobre o aviso,
         // e é quando a rede costuma estar de volta (ele saiu, trocou de Wi-Fi,
         // ligou os dados). Rajadas de `onResume` — alternar entre dois apps
@@ -2301,6 +2317,21 @@ class MainActivity : ComponentActivity(), BridgeHost {
         runOnUiThread { captureVolumeKeys = on }
     }
 
+    override fun setTelaInteira(on: Boolean) {
+        runOnUiThread { aplicarTelaInteira(on) }
+    }
+
+    private fun aplicarTelaInteira(on: Boolean) {
+        telaInteiraWeb = on
+        if (on) {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            setSystemBarsHidden(true)
+        } else if (customView == null) {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            setSystemBarsHidden(false)
+        }
+    }
+
     /**
      * A PREVIEW É A PROJEÇÃO — e por isso ela não pode ser suspensa (v1.3.12).
      *
@@ -3026,6 +3057,9 @@ class MainActivity : ComponentActivity(), BridgeHost {
             }
         }
         customCallback = null
+        // A tela inteira do web continua no ar: o retrato e as barras ficam
+        // com ela (ver [aplicarTelaInteira]).
+        if (telaInteiraWeb) return
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         setSystemBarsHidden(false)
     }

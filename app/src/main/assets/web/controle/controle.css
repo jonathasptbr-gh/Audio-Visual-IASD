@@ -1230,13 +1230,22 @@ body {
 /* Preview em tela cheia (projeção direta pelo Controle): preenche a tela,
    cantos retos e sem borda; as camadas internas (pv-layers, wallpaper) já são
    inset:0 e a mídia usa object-fit, então preenchem/letterboxam sozinhas. */
-.preview:fullscreen, .preview:-webkit-full-screen {
+.preview:fullscreen, .preview:-webkit-full-screen, .preview.pv-inteira {
   width: 100%; height: 100%; max-width: none; max-height: none; aspect-ratio: auto;
   border-radius: 0; box-shadow: none; background: var(--stage-bg);
   /* superfície de gestos invisíveis: captura toques/deslizes sem o navegador
      interpretar como rolagem/zoom (ver setupPreviewGestures em controle.js) */
   touch-action: none;
 }
+/* A TELA INTEIRA SEM A API DE TELA CHEIA (v1.12.34): a `.preview` sobe ao top layer por `popover`
+   (ver `entrarTelaInteira`), e o UA dá a um popover borda, margem, padding e tamanho do conteúdo —
+   aqui ele ocupa a JANELA inteira, que o shell já girou e livrou das barras. `position: fixed` e o
+   `z-index` são o piso de um WebView sem `popover`. */
+.preview.pv-inteira {
+  position: fixed; inset: 0; z-index: 2147483000;
+  width: 100vw; height: 100vh; margin: 0; padding: 0; border: 0; overflow: hidden;
+}
+.preview.pv-inteira::backdrop { background: var(--stage-bg); }
 /* ---------- Os controles nos CANTOS da preview ----------
    Layout de player: cast no canto SUPERIOR direito, tela cheia no INFERIOR
    direito, sem moldura. Empilhados numa coluna à direita eles eram desenho de
@@ -1499,31 +1508,31 @@ body {
    instante: com o cartão no ar a prévia está expandida e a seta continua dizendo
    "expandir" — mas, no avançado, ela some enquanto o cartão está à vista (regra
    logo abaixo da grade: no centro do topo ela cobria o texto do download). */
-.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)) {
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) {
   display: grid; align-items: center; padding: 2px; height: auto; aspect-ratio: auto;
   grid-template-columns: minmax(0, 1fr) auto auto auto minmax(0, 1fr);
 }
-.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)) .pv-fabs { position: static; flex-direction: row; }
-.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)) .pv-fabs--esq {
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) .pv-fabs { position: static; flex-direction: row; }
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) .pv-fabs--esq {
   grid-column: 1; grid-row: 1; justify-self: start; flex-direction: row-reverse;
 }
-.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)) .pv-fabs--esq .pv-fab { flex: none; }
-.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)) .pv-fabs--topo { grid-column: 3; grid-row: 1; }
-.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)) .pv-fabs:not(.pv-fabs--esq):not(.pv-fabs--base):not(.pv-fabs--topo) {
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) .pv-fabs--esq .pv-fab { flex: none; }
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) .pv-fabs--topo { grid-column: 3; grid-row: 1; }
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) .pv-fabs:not(.pv-fabs--esq):not(.pv-fabs--base):not(.pv-fabs--topo) {
   grid-column: 5; grid-row: 1; justify-self: end;
 }
-.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)) .pv-fabs--base { display: contents; }
-.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)) #pvCamadaBtn { grid-column: 2; grid-row: 1; }
-.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)) #pvGiroBtn { grid-column: 4; grid-row: 1; }
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) .pv-fabs--base { display: contents; }
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) #pvCamadaBtn { grid-column: 2; grid-row: 1; }
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) #pvGiroBtn { grid-column: 4; grid-row: 1; }
 /* O FALLBACK: a linha desce, como era até a v1.11.16. */
-.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)).pv-extras-baixo { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
-.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)).pv-extras-baixo .pv-fabs--topo { grid-column: 2; }
-.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)).pv-extras-baixo .pv-fabs:not(.pv-fabs--esq):not(.pv-fabs--base):not(.pv-fabs--topo) { grid-column: 3; }
-.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)).pv-extras-baixo .pv-fabs--base {
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)).pv-extras-baixo { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)).pv-extras-baixo .pv-fabs--topo { grid-column: 2; }
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)).pv-extras-baixo .pv-fabs:not(.pv-fabs--esq):not(.pv-fabs--base):not(.pv-fabs--topo) { grid-column: 3; }
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)).pv-extras-baixo .pv-fabs--base {
   display: flex; grid-column: 1 / -1; grid-row: 2; justify-content: center;
 }
-.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)).pv-extras-baixo :is(#pvCamadaBtn, #pvGiroBtn) { grid-column: auto; grid-row: auto; }
-.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)) :is(.pv-layer, .pv-wall) {
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)).pv-extras-baixo :is(#pvCamadaBtn, #pvGiroBtn) { grid-column: auto; grid-row: auto; }
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) :is(.pv-layer, .pv-wall) {
   visibility: hidden;
 }
 /* ENQUANTO A ALTURA CORRE (`pv-animando`, escrito pelo JS — ver
@@ -1536,14 +1545,14 @@ body {
    fim, não move um pixel. As camadas ficam VISÍVEIS durante o movimento (quem as
    desvanece é a animação delas) e somem no ato só ao terminar. O fallback
    `pv-extras-baixo` fica de fora: com duas linhas não há âncora única. */
-.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)).pv-animando:not(.pv-extras-baixo) .pv-fabs--esq,
-.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)).pv-animando:not(.pv-extras-baixo) .pv-fabs:not(.pv-fabs--esq):not(.pv-fabs--base):not(.pv-fabs--topo) {
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)).pv-animando:not(.pv-extras-baixo) .pv-fabs--esq,
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)).pv-animando:not(.pv-extras-baixo) .pv-fabs:not(.pv-fabs--esq):not(.pv-fabs--base):not(.pv-fabs--topo) {
   align-self: stretch; align-items: flex-start;
 }
-.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)).pv-animando:not(.pv-extras-baixo) .pv-fabs--topo { align-self: start; }
-.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)).pv-animando:not(.pv-extras-baixo) :is(#pvCamadaBtn, #pvGiroBtn) { align-self: end; }
-.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)).pv-animando:not(.pv-extras-baixo) :is(#muteToggle, #pvFullBtn) { align-self: flex-end; }
-.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)).pv-animando :is(.pv-layer, .pv-wall) { visibility: visible; }
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)).pv-animando:not(.pv-extras-baixo) .pv-fabs--topo { align-self: start; }
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)).pv-animando:not(.pv-extras-baixo) :is(#pvCamadaBtn, #pvGiroBtn) { align-self: end; }
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)).pv-animando:not(.pv-extras-baixo) :is(#muteToggle, #pvFullBtn) { align-self: flex-end; }
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)).pv-animando :is(.pv-layer, .pv-wall) { visibility: visible; }
 /* EXPANDINDO (a classe `pv-recolhida` já saiu e o movimento ainda corre) a prévia nasce com 38px
    de altura, e as duas colunas de botões — cortina+mudo e cast+tela cheia, `top: 2px; bottom: 2px`
    — têm 34px: dois botões de 34 não cabem, e o de baixo cairia para fora da caixa nos primeiros
@@ -1558,7 +1567,7 @@ body {
    o cartão (52px) ainda estava à vista, cortado, numa tira de 38px — MEDIDO:
    opacidade 1 em t+0 e 0,13 em t+100ms. Sem transição ele some no mesmo quadro
    em que a prévia encolhe. A entrada não muda (a regra deixa de valer com `.on`). */
-.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)) .pv-busy {
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) .pv-busy {
   transition: none;
 }
 /* COM O CARTÃO NO AR A SETA SAI DA FRENTE, no avançado: ela é um quarto controle
@@ -1573,7 +1582,8 @@ body {
    PERMANENTES saem de cena, ou iriam junto para o telão. Quem os substitui lá é
    a coluna abaixo, que é passageira por construção. */
 .preview:fullscreen .pv-fabs,
-.preview:-webkit-full-screen .pv-fabs { display: none !important; }
+.preview:-webkit-full-screen .pv-fabs,
+.preview.pv-inteira .pv-fabs { display: none !important; }
 
 /* ===== A COLUNA DA TELA CHEIA =====
    Ela existe SÓ em tela cheia e SÓ enquanto `.visivel` — o toque a acende e
@@ -1621,7 +1631,8 @@ body {
   opacity: 0; pointer-events: none; transition: opacity var(--dur-media) ease;
 }
 .preview:fullscreen .pv-fsctl,
-.preview:-webkit-full-screen .pv-fsctl { display: flex; }
+.preview:-webkit-full-screen .pv-fsctl,
+.preview.pv-inteira .pv-fsctl { display: flex; }
 .pv-fsctl.visivel { opacity: .72; pointer-events: auto; }
 /* MAIORES QUE OS DOS CANTOS — 40px de alvo e 28px de ícone, contra os 34/24 do
    `.pv-fab` comum. Lá o dedo mira com o aparelho na mão e a lista do culto à
@@ -1651,7 +1662,8 @@ body.mode-simple .pv-fsctl :is(#fsView, #fsPrev, #fsNext) { display: none; }
   opacity: 0; pointer-events: none; transition: opacity var(--dur-media) ease;
 }
 .preview:fullscreen .pv-volume,
-.preview:-webkit-full-screen .pv-volume { display: flex; }
+.preview:-webkit-full-screen .pv-volume,
+.preview.pv-inteira .pv-volume { display: flex; }
 .pv-volume.visivel { opacity: 1; }
 .pv-volume svg { display: block; flex: none; width: 22px; height: 22px; }
 .pv-volume .ico-alt { display: none; }
@@ -1921,7 +1933,8 @@ body.mode-simple .pv-fsctl :is(#fsView, #fsPrev, #fsNext) { display: none; }
 /* Em tela cheia a preview É a projeção (sem TV conectada): um cartão
    "Baixando…" iria para o telão. Mesma regra dos `.pv-fabs`, logo acima. */
 .preview:fullscreen .pv-busy,
-.preview:-webkit-full-screen .pv-busy { display: none !important; }
+.preview:-webkit-full-screen .pv-busy,
+.preview.pv-inteira .pv-busy { display: none !important; }
 
 /* Mesmo modelo do Display: mídia toca por baixo (z-index menor); o wallpaper
    é a cortina que cobre por cima, ligada/desligada independente da mídia. */
@@ -11773,7 +11786,7 @@ body.mode-simple .bottombar { display: none; }
 /* A TELA CHEIA DO VÍDEO NO MODO FÁCIL (v1.12.24) pede a caixa de volta: a `.preview` mora nela, e
    um elemento em tela cheia com ancestral `display: none` não tem caixa — MEDIDO, o top layer sai
    0×0. Atrás da tela cheia ela fica coberta pelo `.simple` (fixo); sai junto com a tela cheia. */
-body.mode-simple .bottombar:has(.preview:fullscreen) { display: flex; }
+body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { display: flex; }
 .simple {
   position: fixed; inset: 0; z-index: 90;
   display: none; flex-direction: column; gap: var(--sp-5);

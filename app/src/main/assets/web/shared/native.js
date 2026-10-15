@@ -900,6 +900,9 @@
     // em `window.__avVolumeKey(±1)` — sem isso eles mexem na saída do sistema
     // (e, com espelhamento ativo, no volume da TV) em vez do fader do app.
     captureVolumeKeys(on) { try { B.captureVolumeKeys(!!on); } catch (_) { /* ponte indisponível */ } },
+    // A TELA INTEIRA sem a API de tela cheia (shell 80): paisagem e barras do sistema escondidas.
+    // Não exige toque recente — é por isso que existe (o vídeo do Modo Fácil que baixa antes de tocar).
+    telaInteira(on) { try { B.telaInteira(!!on); } catch (_) { /* ponte indisponível */ } },
     // Fader já no limite: devolve o passo ao volume do sistema.
     systemVolume(step) { try { B.systemVolume(step | 0); } catch (_) { /* ponte indisponível */ } },
     // O mesmo passo COM a leitura (shell 78): resolve { antes, depois, max } em degraus do volume
