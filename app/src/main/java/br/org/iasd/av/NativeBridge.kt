@@ -360,7 +360,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 80
+        const val SHELL_VERSION = 81
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -983,6 +983,10 @@ class NativeBridge(
             // pacote, então a conferência de IMPORT passa e o que falha é a
             // QUALIFICAÇÃO, um nível abaixo do que ele sabe olhar.
             icone = SyncService.Companion.Icone.de(o.optString("icone")),
+            // O PERCENTUAL DO TOQUE À TELA (shell 81): quando o web o manda,
+            // ele vale para a barra e para o número — `done`/`total` seguem
+            // sendo os BYTES do texto. Ausente (-1) = a razão de sempre.
+            pct = o.optInt("pct", -1),
         )
     }
 
@@ -1417,9 +1421,11 @@ class NativeBridge(
                 YoutubeGrab.resgatar(url, somenteAudio, alvo)
             } catch (_: Exception) { null }
             val r = resgatado ?: try {
-                YoutubeGrab.buscar(ctx, url, somenteAudio, alvo) { lidos, total ->
-                    ytProgresso(callId, lidos, total)
-                }
+                YoutubeGrab.buscar(
+                    ctx, url, somenteAudio, alvo,
+                    onProgresso = { lidos, total -> ytProgresso(callId, lidos, total) },
+                    onFase = { nome, info -> ytFase(callId, nome, info) },
+                )
             } catch (_: Exception) { null }
             resolve(callId, r?.toString() ?: "null")
         }
@@ -1755,6 +1761,24 @@ class NativeBridge(
         web.post {
             web.evaluateJavascript(
                 "window.__avDeckProgress && window.__avDeckProgress($id, $feitas, $total);",
+                null,
+            )
+        }
+    }
+
+    /**
+     * As FASES do download (shell 81) — `window.__avYtFase(id, nome, info)`,
+     * com o id da chamada como o [ytProgresso]. O lado web usa-as para o
+     * percentual do toque à tela; ver `YoutubeGrab.fase`.
+     */
+    private fun ytFase(callId: String, nome: String, info: JSONObject) {
+        val web = webRef() ?: return
+        val id = JSONObject.quote(callId)
+        val n = JSONObject.quote(nome)
+        val dados = info.toString()
+        web.post {
+            web.evaluateJavascript(
+                "window.__avYtFase && window.__avYtFase($id, $n, $dados);",
                 null,
             )
         }

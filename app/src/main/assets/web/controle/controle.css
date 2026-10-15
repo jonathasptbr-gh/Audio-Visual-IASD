@@ -5218,57 +5218,72 @@ main {
 .yt-search-btn svg { flex-shrink: 0; color: var(--accent); }
 .yt-search-btn .dl-ring { --dl-ring: 18px; }
 
-/* ---------- Resultados do YouTube DENTRO do acervo ----------
-   Mesma anatomia das linhas de música (miniatura, nome, subtítulo) para a lista
-   continuar sendo UMA lista, e não duas coladas. A diferença é a miniatura:
-   16:9 de verdade, porque é o quadro do vídeo — um recorte quadrado cortaria
-   justamente o que identifica o louvor. */
+/* ---------- Resultados do YouTube DENTRO do acervo: um CARTÃO DE VÍDEO ----------
+   Pedido do operador (v1.12.35, no Modo Fácil): *"siga mais o padrão da busca normal do
+   YouTube, onde a thumbnail tem a largura disponível da tela/arranjo e o título de cada vídeo,
+   juntamente o nome do canal e tempo do vídeo ficam abaixo do vídeo"*. E NOS DOIS MODOS desde a
+   v1.12.36 — *"achei mais interessante esse design de thumbnail maior"*. A linha (`ytResultRow`)
+   é a mesma: ela vira coluna, a miniatura toma a largura da lista em 16:9 (é o quadro do vídeo —
+   um recorte cortaria o que identifica o louvor) e o texto desce para baixo dela. Todas as
+   escolhas do avançado continuam na folha que o toque abre (`openYtMenu`). */
+.yt-result .hymn-row {
+  position: relative; flex-direction: column; align-items: stretch; gap: var(--sp-3);
+  padding: .35rem .5rem .5rem;
+}
 .yt-result .yt-thumb {
-  position: relative; width: 82px; height: 46px; flex-shrink: 0;
-  border-radius: var(--radius-btn); overflow: hidden; background: var(--surface);
+  position: relative; width: 100%; height: auto; aspect-ratio: 16 / 9; flex-shrink: 0;
+  border-radius: var(--radius-card); overflow: hidden; background: var(--surface);
 }
 .yt-result .yt-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.yt-result .yt-thumb .dl-ring { --dl-ring: 26px; position: absolute; inset: 0; margin: auto; display: none; }
-/* Baixando e CONCLUÍDO são os dois estados do mesmo canto da miniatura. O
-   segundo é o que faltava: a linha voltava ao estado inicial no fim do
-   download, e uma linha idêntica à de antes lê-se como "não aconteceu nada". */
-.yt-result.baixando .yt-thumb .dl-ring { display: flex; }
+.yt-result .hymn-info { padding: 0 .15rem; }
+.yt-result .row-name { font-size: var(--fs-md); }
+/* O ANEL E O PERCENTUAL, UM CONJUNTO SÓ, NO CENTRO DA MINIATURA (v1.12.36). Pedido do operador:
+   o número centrado logo ABAIXO do anel — o foco é o ícone central, não um selo de canto. O
+   número veste o par do PALCO (`--scrim` + `--stage-text`) para ler sobre qualquer imagem; ele é
+   o percentual do TOQUE À TELA (`novaBarraYt`), não o dos bytes. */
+.yt-result .yt-dl {
+  position: absolute; inset: 0; display: none;
+  flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-2);
+}
+/* `.yt-result.baixando` e não só `.yt-result`: o anel genérico da linha que baixa
+   (`.lib-item.baixando .thumb .dl-ring`, absoluto e de 30px) tem a mesma especificidade e
+   vem antes — aqui ele volta ao fluxo da coluna, para o número poder ficar ABAIXO dele. */
+.yt-result.baixando .yt-dl .dl-ring { --dl-ring: 52px; position: relative; inset: auto; margin: 0; }
+.yt-result .dl-pct {
+  padding: .1rem .5rem; border-radius: var(--radius-pill);
+  background: var(--scrim); color: var(--stage-text);
+}
+.yt-result .dl-pct:empty { visibility: hidden; }
+.yt-result.baixando .yt-dl { display: flex; }
 .yt-result.baixando .yt-thumb img { opacity: .25; }
 .yt-result.baixando .row-name { color: var(--muted); }
-/* E ELE É AZUL (v1.8.56), pelo par `--btn-accent` + `--accent` do
-   `.fav-btn.on`. Era `--btn-ok` + `--ok`, e a régua do operador é a que
-   separa as duas famílias: *"verde é para sinal de 'ligado', nesses casos
-   são mensagem de conclusão, não de atividade"*. O ✓ aqui é o DESFECHO de
-   um download que o operador pediu — irmão do pulso do botão, não do ponto
-   que diz que a TV está no ar. MEDIDO: 5,37:1 no escuro e 6,37:1 no claro,
-   acima dos 4,89 · 5,74 do par verde que saiu. */
-.yt-result .yt-ok {
-  display: none; position: absolute; inset: 0;
-  align-items: center; justify-content: center;
-  background: var(--btn-accent); color: var(--accent);
-}
-/* A FALHA, no mesmo canto (v5.119) — o terceiro estado da miniatura, ao lado do
-   anel de download e do ✓. Ela morava numa faixa flutuante no fim da tela, e
-   uma faixa que aparece e some é justamente o que este app tirou de cena na
-   v5.106: aviso pertence ao lugar onde a ação aconteceu.
-   Em `--danger-text` CONTORNADO pela regra da paleta — vermelho preenchido é
-   "está no ar agora", e não pode competir com o que está de fato no telão. */
+/* A FALHA, na miniatura (v5.119) — onde o download foi anunciado. Ela morava numa faixa
+   flutuante no fim da tela, e uma faixa que aparece e some é justamente o que este app tirou de
+   cena na v5.106: aviso pertence ao lugar onde a ação aconteceu. Em `--danger-text` sobre
+   `--btn-danger` — vermelho PREENCHIDO é "está no ar agora", e não pode competir com o telão. */
 .yt-result .yt-err {
   display: none; position: absolute; inset: 0;
   align-items: center; justify-content: center;
   background: var(--btn-danger); color: var(--danger-text);
 }
-.yt-result .yt-err svg { width: 20px; height: 20px; }
+.yt-result .yt-err svg { width: 44px; height: 44px; }
 .yt-result.erro .yt-err { display: flex; }
 .yt-result.erro .yt-thumb img { opacity: .3; }
-.yt-result .yt-ok svg { width: 22px; height: 22px; }
-.yt-result.pronto .yt-ok { display: flex; }
-.yt-result.pronto .yt-thumb img { opacity: .3; }
-/* Concluído fica APAGADO, não desabilitado: o operador pode querer o mesmo
-   vídeo de novo (uma vez na playlist, outra no Cronograma), e a linha continua
-   respondendo ao toque. */
-.yt-result.pronto .row-name { color: var(--muted); }
-.yt-result .dl-pct { align-self: center; }
+/* "JÁ ESTÁ NO APARELHO" É ESCRITO, ao lado do canal e da duração (v1.12.36), e não mais um véu
+   sobre a miniatura inteira — pedido do operador, para o vídeo continuar à vista. É CONCLUSÃO, e
+   conclusão neste app é AZUL (v1.8.56: *"verde é para sinal de 'ligado', nesses casos são
+   mensagem de conclusão, não de atividade"*): o par `--btn-accent` + `--accent` do
+   `.fav-btn.on`, 5,37:1 no escuro e 6,37:1 no claro. A linha continua respondendo ao toque —
+   o mesmo vídeo pode ir a outro destino. */
+.yt-result .hymn-sub { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+.yt-result .yt-meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.yt-result .yt-ok {
+  display: none; flex-shrink: 0; align-items: center; gap: .25rem;
+  padding: .05rem .45rem; border-radius: var(--radius-pill);
+  background: var(--btn-accent); color: var(--accent); font-weight: var(--fw-medio);
+}
+.yt-result .yt-ok svg { width: 12px; height: 12px; }
+.yt-result.pronto .yt-ok { display: inline-flex; }
 /* Título de vídeo é longo por natureza — duas linhas, e só então reticências.
    O `white-space: normal` é obrigatório: a regra base de `.row-name` é
    `nowrap` (nome de arquivo é curto), e com ela o `line-clamp` nunca chega a
@@ -5277,30 +5292,6 @@ main {
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   overflow: hidden; line-height: 1.25; white-space: normal;
 }
-/* ---------- NO MODO FÁCIL O RESULTADO É UM CARTÃO DE VÍDEO (v1.12.35) ----------
-   Pedido do operador: *"siga mais o padrão da busca normal do YouTube, onde a thumbnail tem a
-   largura disponível da tela/arranjo e o título de cada vídeo, juntamente o nome do canal e tempo
-   do vídeo ficam abaixo do vídeo"*. Só CSS sobre a MESMA linha (`ytResultRow`): a linha vira
-   coluna, a miniatura toma a largura da lista em 16:9 e o texto desce para baixo dela. Os três
-   estados do canto (anel, ✓, falha) continuam cobrindo a miniatura, maiores; o percentual vira um
-   selo no canto da miniatura (fora do fluxo, para a altura do cartão não mudar no download). */
-body.mode-simple .yt-result .hymn-row {
-  position: relative; flex-direction: column; align-items: stretch; gap: var(--sp-3);
-  padding: .35rem .5rem .5rem;
-}
-body.mode-simple .yt-result .yt-thumb {
-  width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: var(--radius-card);
-}
-body.mode-simple .yt-result .yt-thumb .dl-ring { --dl-ring: 52px; }
-body.mode-simple .yt-result .yt-ok svg,
-body.mode-simple .yt-result .yt-err svg { width: 44px; height: 44px; }
-body.mode-simple .yt-result .hymn-info { padding: 0 .15rem; }
-body.mode-simple .yt-result .row-name { font-size: var(--fs-md); }
-body.mode-simple .yt-result .dl-pct {
-  position: absolute; top: calc(.35rem + var(--sp-3)); right: calc(.5rem + var(--sp-3));
-  padding: .1rem .5rem; border-radius: var(--radius-pill); background: var(--scrim); color: var(--stage-text);
-}
-body.mode-simple .yt-result .dl-pct:empty { display: none; }
 /* O termo digitado não tem tamanho previsível — corta em reticências em vez de
    esticar a linha ou quebrar em três. */
 .yt-search-txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -448,8 +448,14 @@ object YoutubeGrab {
         somenteAudio: Boolean,
         teto: Int = TETO_ALTURA,
         onProgresso: (Long, Long) -> Unit,
+        onFase: (String, JSONObject) -> Unit = { _, _ -> },
     ): JSONObject? {
-        val r = buscarInterno(ctx, link, somenteAudio, teto, onProgresso)
+        aoFase = onFase
+        val r = try {
+            buscarInterno(ctx, link, somenteAudio, teto, onProgresso)
+        } finally {
+            aoFase = null
+        }
         // O DESFECHO FICA GUARDADO até alguém reclamá-lo (ver [resgatar]). Aqui,
         // e não em cada `return` lá dentro: o corpo tem dois caminhos de sucesso
         // (o par juntado e a fila de candidatos), e um deles ficaria de fora no
@@ -491,6 +497,7 @@ object YoutubeGrab {
             aportuguesar(ex)
             val info = StreamInfo.getInfo(ex)
             med.extracaoMs = agoraNaMedida()
+            fase("extraiu", JSONObject().put("seconds", info.duration))
             val nome = tituloLimpo(info.name, info.uploaderName)
             val id = info.id ?: "video"
 
@@ -567,6 +574,7 @@ object YoutubeGrab {
                     if (foiCancelado(e)) return null
                     continue
                 }
+                fase("baixou", JSONObject().put("bytes", destino.length()).put("juntar", false))
                 diagnostico += " → veio ${alvo.faixa.ext} ${alvo.faixa.etiqueta}" +
                     (if (alvo.faixa.altura > 0) " (${alvo.faixa.altura}p)" else "")
                 entregue = destino.path
@@ -646,6 +654,22 @@ object YoutubeGrab {
 
     /** Pede que o download deste link pare. Barato: só escreve um campo. */
     fun cancelar(link: String) { cancelarLink = link }
+
+    // ------------------------------------------------------------------------
+    // AS FASES DO DOWNLOAD (shell 81)
+    //
+    // O lado web mostra UM percentual do toque até a mídia tocar, e as fases
+    // que só o shell vê — a extração acabou, os bytes acabaram, a junção anda,
+    // a junção acabou — chegam por aqui, em vez de serem adivinhadas pelo
+    // relógio. Um campo, e não um parâmetro passado pela cadeia inteira: é um
+    // download por vez (a fila `transferencia` é de uma thread), a mesma
+    // premissa do [baixandoLink]. Falhar ao avisar nunca derruba o download.
+    // ------------------------------------------------------------------------
+    @Volatile private var aoFase: ((String, JSONObject) -> Unit)? = null
+
+    private fun fase(nome: String, info: JSONObject) {
+        try { aoFase?.invoke(nome, info) } catch (_: Exception) { }
+    }
 
     // ------------------------------------------------------------------------
     // O DOWNLOAD ÓRFÃO (v1.59)
@@ -1241,14 +1265,19 @@ object YoutubeGrab {
                 val fv = synchronized(m.faixas) { m.faixas.lastOrNull { it.papel == "video" && it.ok } }
                 if (fa != null && fv != null && fa.fim > fv.inicio && fv.fim > fa.inicio) m.audioEVideoJuntos = true
             }
-            // BAIXOU TUDO: os dois números se encontram. A junção (MuxMp4) que
-            // vem a seguir é cópia de amostras, rápida e sem rede — não há
-            // progresso honesto a reportar nela, e inventar um seria voltar ao
-            // que esta versão está consertando.
+            // BAIXOU TUDO: os dois números da barra de BYTES se encontram. A
+            // junção (MuxMp4) que vem a seguir é cópia de amostras, sem rede, e
+            // não move byte nenhum — o andamento dela vai pelas FASES (shell
+            // 81), que o percentual do toque à tela usa; a barra de bytes não
+            // inventa número para ela.
             barra.fechar(parteAudio.length() + parteVideo.length())
+            fase("baixou", JSONObject().put("bytes", parteAudio.length() + parteVideo.length()).put("juntar", true))
             medidaAtual?.juncaoIni = agoraNaMedida()
-            val juntou = MuxMp4.juntar(parteVideo, parteAudio, saida, v.webm)
+            val juntou = MuxMp4.juntar(parteVideo, parteAudio, saida, v.webm) { feito, total ->
+                fase("juntando", JSONObject().put("feito", feito).put("total", total))
+            }
             medidaAtual?.let { it.juncaoFim = agoraNaMedida(); it.juncaoOk = juntou }
+            fase("juntou", JSONObject().put("ok", juntou).put("bytes", saida.length()))
             if (!juntou) {
                 anotar(" · v:${v.etiqueta} muxer falhou")
                 return Desfecho.NaoMontou

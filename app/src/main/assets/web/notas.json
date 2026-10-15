@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.12.36",
+    "itens": [
+      "YouTube: a porcentagem vai do toque até o vídeo tocar, sem parar nem voltar.",
+      "A porcentagem aparece no centro da imagem, logo abaixo do ícone de download.",
+      "Vídeo que já está no celular mostra \"No aparelho\" ao lado do canal, sem cobrir a imagem.",
+      "Modo avançado: os vídeos do YouTube na busca também aparecem com a imagem grande.",
+      "Esta atualização instala uma versão nova do aplicativo."
+    ]
+  },
+  {
     "versao": "1.12.35",
     "itens": [
       "Modo simples: os vídeos do YouTube na busca aparecem como no YouTube, com a imagem grande e o título embaixo.",

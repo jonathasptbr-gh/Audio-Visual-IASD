@@ -66,8 +66,18 @@ object MuxMp4 {
      * Em qualquer falha devolve `false` **sem lançar**: quem chama tem um plano
      * B (o progressivo), e uma exceção subindo daqui derrubaria um download que
      * ainda tem como terminar bem.
+     *
+     * [onProgresso] (shell 81) recebe os bytes de AMOSTRA já copiados contra a
+     * soma dos dois arquivos de entrada — é o que dá à barra do lado web uma
+     * fração real da junção em vez de um palpite pelo relógio. Opcional.
      */
-    fun juntar(video: File, audio: File, saida: File, webm: Boolean = false): Boolean {
+    fun juntar(
+        video: File,
+        audio: File,
+        saida: File,
+        webm: Boolean = false,
+        onProgresso: ((Long, Long) -> Unit)? = null,
+    ): Boolean {
         val exVideo = MediaExtractor()
         val exAudio = MediaExtractor()
         var muxer: MediaMuxer? = null
@@ -104,8 +114,10 @@ object MuxMp4 {
                 muxer.start()
                 iniciado = true
 
-                copiar(exVideo, muxer, destinoVideo, balde(fmtVideo))
-                copiar(exAudio, muxer, destinoAudio, balde(fmtAudio))
+                val conta = Conta((video.length() + audio.length()).coerceAtLeast(1L), onProgresso)
+                copiar(exVideo, muxer, destinoVideo, balde(fmtVideo), conta)
+                copiar(exAudio, muxer, destinoAudio, balde(fmtAudio), conta)
+                conta.fechar()
                 ok = true
             }
         } catch (e: Exception) {
@@ -167,7 +179,7 @@ object MuxMp4 {
      * não há nada a alinhar aqui, e inventar um deslocamento seria dessincronizar
      * o que já estava sincronizado.
      */
-    private fun copiar(ex: MediaExtractor, muxer: MediaMuxer, trilha: Int, tamanhoBalde: Int) {
+    private fun copiar(ex: MediaExtractor, muxer: MediaMuxer, trilha: Int, tamanhoBalde: Int, conta: Conta) {
         val balde = ByteBuffer.allocate(tamanhoBalde)
         val info = MediaCodec.BufferInfo()
         while (true) {
@@ -184,7 +196,20 @@ object MuxMp4 {
                 MediaCodec.BUFFER_FLAG_KEY_FRAME
             } else 0
             muxer.writeSampleData(trilha, balde, info)
+            conta.somar(lidos)
             ex.advance()
         }
+    }
+
+    /** O andamento da junção, a cada ~1 MB — um evento por amostra inundaria a ponte. */
+    private class Conta(private val total: Long, private val onProgresso: ((Long, Long) -> Unit)?) {
+        private var feito = 0L
+        private var avisado = 0L
+        fun somar(n: Int) {
+            if (onProgresso == null || n <= 0) return
+            feito += n
+            if (feito - avisado >= 1024 * 1024) { avisado = feito; onProgresso?.invoke(minOf(feito, total), total) }
+        }
+        fun fechar() { onProgresso?.invoke(total, total) }
     }
 }

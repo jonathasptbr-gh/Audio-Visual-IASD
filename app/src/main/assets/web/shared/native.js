@@ -131,6 +131,10 @@
     // biblioteca para outro aparelho, descoberto por quem estava justamente
     // trocando de celular.
     if (!global.AVPacote) return false;
+    // `AVProgresso` (v1.12.36), pela mesma regra e no mesmo lote do arquivo: ele
+    // só é lido quando um download do YouTube começa, e um erro de topo ali
+    // deixaria o app de pé e o "Tocar agora" sem barra (e lançando no toque).
+    if (!global.AVProgresso) return false;
     if (typeof global.__avBack !== 'function') return false;
     // O `init()` terminou (item 5 acima). `__avSplash` nasce no `<head>` do
     // Controle, antes de qualquer script; ausente aqui é um bundle sem ele.
@@ -252,17 +256,28 @@
   rotaDeProgresso('__avYtProgress');
   rotaDeProgresso('__avDeckProgress');
 
+  // AS FASES DO DOWNLOAD (shell 81): `__avYtFase(id, nome, info)` — a extração
+  // acabou, os bytes acabaram, a junção anda, a junção acabou. Mesmo mapa por
+  // id que o andamento, pela mesma razão. `info` chega como objeto.
+  const fases = new Map();
+  global.__avYtFase = function (id, nome, info) {
+    const cb = fases.get(id);
+    if (!cb) return;
+    try { cb(String(nome || ''), info && typeof info === 'object' ? info : {}); } catch (_) { /* callback do chamador */ }
+  };
+
   // Como o `call`, mas com um callback de andamento amarrado ao id da chamada.
   // A entrada sai do mapa quando a promise resolve — e ela SEMPRE resolve
   // (`call` devolve null em qualquer falha), então não há vazamento possível.
-  function callComProgresso(invoke, onProgresso) {
+  function callComProgresso(invoke, onProgresso, onFase) {
     let meuId = null;
     return call((id) => {
       meuId = id;
       if (onProgresso) progresso.set(id, onProgresso);
+      if (onFase) fases.set(id, onFase);
       invoke(id);
     }).then((r) => {
-      if (meuId) progresso.delete(meuId);
+      if (meuId) { progresso.delete(meuId); fases.delete(meuId); }
       return r;
     });
   }
@@ -383,7 +398,10 @@
     // MENOR que o padrão do shell. Pedir 1080p continua saindo pelo `ytFetch`,
     // que existe em toda versão — quem não mexeu no seletor nunca depende de um
     // APK novo.
-    ytFetch(url, onProgresso, somenteAudio, altura) {
+    // `onFase(nome, info)` (shell 81) recebe as fases que só o shell vê —
+    // `extraiu`, `baixou`, `juntando`, `juntou` — para o percentual do toque à
+    // tela (`controle/progresso.js`). Opcional, e o percentual sobrevive sem ele.
+    ytFetch(url, onProgresso, somenteAudio, altura, onFase) {
       const teto = altura | 0;
       return callComProgresso(
         (id) => {
@@ -392,6 +410,7 @@
           return B.ytFetch(id, String(url));
         },
         onProgresso,
+        onFase,
       );
     },
 
@@ -968,6 +987,9 @@
           // objeto campo a campo, e um campo esquecido some em silêncio.
           // CAMPO NOVO AQUI = CAMPO NOVO NO OBJETO ACIMA, sempre.
           bytes: !!(p && p.bytes),
+          // O PERCENTUAL PRONTO (shell 81): o do toque à tela, que inclui fases
+          // sem byte nenhum. -1 = o Kotlin deduz de `done`/`total`, como sempre.
+          pct: (p && typeof p.pct === 'number' && p.pct >= 0) ? Math.min(100, Math.round(p.pct)) : -1,
           // O item em destaque agora (nome de música/capítulo/arquivo). Vem
           // como LISTA, mas o lado web manda UM de cada vez, consumindo uma
           // FILA — ver

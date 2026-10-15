@@ -392,7 +392,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.35';
+const WEB_VERSION = '1.12.36';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -19655,6 +19655,10 @@ async function manterSeriesDaSemana() {
           // de dentro do `ytBaixarNativo`) mais o anel da linha, pelo `onPct`.
           aviso: 'nenhum',
           onPct: (pct) => setYtEstado(r.id, 'baixando', pct),
+          // E O TEMPO DE CADA FASE ENTRA NO HISTÓRICO do percentual (v1.12.36):
+          // o download automático de toda semana ensina a barra do "Tocar agora"
+          // tanto quanto um toque — menos a abertura, que ele não tem.
+          origem: 'serie',
         })).catch(() => null);
         setYtEstado(r.id, rec ? 'pronto' : null);
         setCollStatus(coll.id, rec ? 'Episódio desta semana baixado' : '', rec ? 4000 : 0);
@@ -20821,15 +20825,22 @@ function fundosReligaFrase() {
  */
 async function downloadSerieItem(coll, s) {
   if (!s.ytUrl) return false;
+  // Sem tela que mostre um número, a barra existe só para MEDIR: o tempo de
+  // cada fase deste download entra no histórico do percentual (v1.12.36).
+  const barra = novaBarraYt({ juncao: true, abertura: false });
   let r;
-  try { r = await AVNative.ytFetch(s.ytUrl, null, false, 0); }
-  catch (_) { return false; }
-  if (!r || !r.url) return false;
   try {
+    r = await AVNative.ytFetch(s.ytUrl, (lidos, total) => barra.bytes(lidos, total), false, 0,
+      (nome, info) => barra.sinal(nome, info));
+  } catch (_) { barra.abandonar(); return false; }
+  if (!r || !r.url) { barra.abandonar(); return false; }
+  try {
+    barra.sinal('copia');
     const res = await fetch(r.url);
     if (!res.ok) return false;
     const blob = await res.blob();
     if (!blob.size) return false;
+    barra.sinal('gravacao');
     const thumb = await makeThumb(blob, 'video');
     const id = s.fileIdFull || uid();
     const path = 'folders/' + coll.id + '/' + s.id_music + '.mp4';
@@ -20853,8 +20864,10 @@ async function downloadSerieItem(coll, s) {
     s.fileIdFull = id;
     ui(coll.id).bytes += blob.size || 0;
     salvarPesos();
+    barra.concluir('serie');
     return true;
   } finally {
+    barra.abandonar();
     // No `finally`, como no caminho avulso: falhando a cópia, o arquivo do
     // cache não pode ficar para trás — ninguém mais tem o token dele.
     AVNative.ytDiscard(r.url);
@@ -23304,20 +23317,28 @@ async function resolverLinkInterno(rec) {
 // guardar um vídeo numa lista seria o oposto do que o toque pediu.
 async function ytAcao(r, destinos, btn, somenteAudio, altura) {
   const alvos = typeof destinos === 'string' ? [destinos] : (destinos || []);
-  if (!alvos.includes('tocar')) return ytAcaoInterno(r, destinos, btn, somenteAudio, altura);
-  closeHymnSearch();
-  const cartao = cederOPalco(r.name || 'o vídeo');
+  const tocar = alvos.includes('tocar');
+  // A BARRA DO TOQUE À TELA (v1.12.36) nasce no TOQUE — o preparo conta — e é
+  // DESTA ação: o download a alimenta, e quem a fecha é o desfecho (a mídia
+  // tocando, ou gravada). Falha, cancelamento ou exceção a abandonam aqui.
+  const barra = novaBarraYt({ juncao: !somenteAudio, abertura: tocar });
+  let cartao = null;
+  if (tocar) {
+    closeHymnSearch();
+    cartao = cederOPalco(r.name || 'o vídeo');
+  }
   try {
-    return await ytAcaoInterno(r, destinos, btn, somenteAudio, altura);
+    return await ytAcaoInterno(r, destinos, btn, somenteAudio, altura, { cartao, barra });
   } finally {
     // O cartão do DOWNLOAD (aberto por `ytArquivo` no meio do caminho) segura o
     // próprio contador, então soltar o meu não apaga a legenda dele — nem a
     // mensagem de falha, que `falhar()` trava sem liberar. Ver `previewBusy`.
-    cartao.soltar();
+    if (cartao) cartao.soltar();
+    barra.abandonar();   // no-op se ela já foi concluída ou reservada para o play
   }
 }
 
-async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura) {
+async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura, extra) {
   const senhaDoToque = projecaoSeq;   // ver `palcoEmVoo`
   const escolhas = [...new Set(typeof destinos === 'string' ? [destinos] : (destinos || []))];
   // Sem destino nenhum o download não teria dono e o item ficaria pendurado no
@@ -23354,7 +23375,16 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura) {
   // atravessa tudo o que vem abaixo: a pergunta "já está na lista?", o
   // reaproveitamento do arquivo e o download.
   const soAudio = !!somenteAudio;
-
+  const barra = (extra && extra.barra) || novaBarraYt({ juncao: !soAudio, abertura: tocar });
+  // A LINHA do resultado e o CARTÃO do palco ouvem a MESMA barra — e a linha
+  // continua ouvindo depois do download, pela abertura, até a mídia tocar.
+  barra.ouvir((pct) => {
+    if ((ytEstado.get(r.id) || {}).estado === 'baixando') setYtEstado(r.id, 'baixando', pct);
+  });
+  if (extra && extra.cartao) {
+    const cartao = extra.cartao;
+    barra.ouvir((pct, fase) => cartao.atualizar(legendaDoProgresso(fase, pct, soAudio)));
+  }
 
   const existente = r && r.id ? await AVDB.mediaByYoutube(r.id, soAudio ? 'audio' : 'video') : null;
   // "Já estava lá" é sobre o CONJUNTO: com mais de um destino, o que interessa
@@ -23374,7 +23404,7 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura) {
     // playlist é o único que não é. Com ela combinada ao Cronograma, o cartão
     // volta a valer.
     aviso: (guardar.length === 1 && guardar[0] === 'playlist') ? 'nenhum' : (tocar ? 'preview' : 'lib'),
-    onPct: (pct) => setYtEstado(r.id, 'baixando', pct),
+    barra,
   });
   // FALAR QUANDO NÃO DEU. Até a v5.112 o download que falhava só apagava a
   // marca de "baixando" e sumia — nem item, nem erro, nem pista. Um download de
@@ -23384,6 +23414,7 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura) {
     // CANCELADO PELO OPERADOR não é falha: ele sabe o que aconteceu, porque
     // acabou de pedir. Pintar a linha de vermelho aqui seria o app discordando
     // de uma decisão dele.
+    barra.abandonar();
     if (ytCancelados.has(r.id)) { ytCancelados.delete(r.id); setYtEstado(r.id, null); return; }
     // A FALHA FICA NA PRÓPRIA LINHA, não numa faixa flutuante (v5.119). O
     // estado `erro` pinta a miniatura do resultado — o mesmo canto que já
@@ -23412,7 +23443,11 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura) {
     if (!ytLinhaVisivel(r.id)) previewBusy('Baixando', r.name || 'o vídeo').falhar(porque);
     return;
   }
-  setYtEstado(r.id, 'pronto');
+  // GRAVADO. Num destino que guarda, é o fim: 100 e o ✓. No "Tocar agora" o
+  // trabalho segue — as listas, o `send` e o play —, e a linha continua com o
+  // anel e o número até a mídia tocar (ver o fim desta função).
+  if (tocar) barra.sinal('abertura');
+  else { barra.concluir('guardar'); setYtEstado(r.id, 'pronto'); }
   // O registro REAPROVEITADO pode estar em outra lista (ou só no slot avulso):
   // o download novo já nasceu na PRIMEIRA lista, mas nas outras não — e um
   // reaproveitado pode não estar em nenhuma. `listAdd` é idempotente, então o
@@ -23469,6 +23504,16 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura) {
     // A mídia avulsa não está em `libItems` nem em `plItems`, então quem
     // resolve o nome dela é o `send` (que cai no `getMedia`).
     await send(rec.id);
+    // O 100 É A MÍDIA TOCANDO — e a espera é só do NÚMERO: o `send` já foi, e
+    // nada aqui segura a cena. A barra fica reservada para não ser abandonada
+    // pelo `finally` do `ytAcao`.
+    barra.reservar();
+    esperarTocando(rec.id)
+      .then(() => barra.concluir('tocar'))
+      .then(() => { if ((ytEstado.get(r.id) || {}).estado === 'baixando') setYtEstado(r.id, 'pronto'); });
+  } else if (tocar) {
+    barra.concluir('guardar');
+    setYtEstado(r.id, 'pronto');
   }
 }
 
@@ -23487,17 +23532,18 @@ function ytResultRow(r) {
     const im = document.createElement('img'); im.src = r.thumb; im.alt = ''; im.loading = 'lazy';
     thumb.appendChild(im);
   }
+  // O ANEL E O PERCENTUAL SÃO UM CONJUNTO SÓ (v1.12.36): o número centrado logo
+  // ABAIXO do anel, os dois no centro da miniatura — o foco é o ícone central,
+  // não um selo de canto, e é o mesmo desenho nos dois modos.
+  const dl = document.createElement('span'); dl.className = 'yt-dl';
   const anel = document.createElement('span'); anel.className = 'dl-ring';
   anel.innerHTML = downloadArrowIconSvg();
-  thumb.appendChild(anel);
-  // O ✓ de concluído mora no mesmo lugar do anel: são os dois estados do mesmo
-  // canto da miniatura, e a classe da linha decide qual aparece.
-  const ok = document.createElement('span'); ok.className = 'yt-ok';
-  ok.innerHTML = checkIconSvg();
-  thumb.appendChild(ok);
-  // E o TERCEIRO estado do mesmo canto: a falha. Ela morava numa faixa
-  // flutuante no fim da tela, que foi para onde todo aviso deste app já não
-  // vai — e o lugar certo é o mesmo em que o download foi anunciado.
+  const pct = document.createElement('span'); pct.className = 'dl-pct';
+  dl.append(anel, pct);
+  thumb.appendChild(dl);
+  // A falha mora na miniatura, onde o download foi anunciado. Ela morava numa
+  // faixa flutuante no fim da tela, que foi para onde todo aviso deste app já
+  // não vai.
   const err = document.createElement('span'); err.className = 'yt-err';
   err.innerHTML = closeIconSvg();
   thumb.appendChild(err);
@@ -23506,11 +23552,19 @@ function ytResultRow(r) {
   const nome = document.createElement('span'); nome.className = 'row-name';
   nome.textContent = r.name || '';
   const sub = document.createElement('span'); sub.className = 'hymn-sub';
-  sub.textContent = [r.author, fmtDur(r.seconds)].filter(Boolean).join(' · ');
+  const meta = document.createElement('span'); meta.className = 'yt-meta';
+  meta.textContent = [r.author, fmtDur(r.seconds)].filter(Boolean).join(' · ');
+  // "JÁ ESTÁ NO APARELHO" É ESCRITO, na linha do canal e da duração (v1.12.36),
+  // e não mais um véu sobre a miniatura inteira: o operador continua vendo o
+  // vídeo que escolheu. Azul de CONCLUSÃO (o par `--btn-accent` + `--accent`).
+  const ok = document.createElement('span'); ok.className = 'yt-ok';
+  ok.innerHTML = checkIconSvg();
+  const okTxt = document.createElement('span'); okTxt.textContent = 'No aparelho';
+  ok.appendChild(okTxt);
+  sub.append(meta, ok);
   info.append(nome, sub);
 
-  const pct = document.createElement('span'); pct.className = 'dl-pct';
-  row.append(thumb, info, pct);
+  row.append(thumb, info);
   li.appendChild(row);
   pintarYtLinha(li, ytEstado.get(r.id));
   // O toque abre a MESMA folha de três escolhas das músicas do acervo — menos
@@ -35118,6 +35172,131 @@ function detectUrlKind(url) {
   return mime ? AVDB.kindFromType(mime) : 'url';
 }
 
+// ===== O PERCENTUAL DO TOQUE À TELA (v1.12.36) =====
+//
+// Pedido do operador: o percentual de um download do YouTube mede do TOQUE até
+// a mídia TOCAR — preparo, bytes, junção, cópia, gravação e abertura —, não os
+// bytes do arquivo. Contínuo, sem voltar e sem congelar, e 100 só com a mídia
+// pronta (no "Tocar agora", tocando; num destino que guarda, gravada).
+//
+// A REGRA mora em `progresso.js` (`AVProgresso`, puro, com oráculo em Node); aqui
+// fica só o RELÓGIO (um `setInterval`), os ouvintes e o histórico. O histórico
+// (`ytTempos` no `state`) guarda as últimas amostras de cada fase, de todo
+// download que terminou — o "Tocar agora", os destinos que guardam, a rotina do
+// episódio da semana e a Verificação completa —, e é dele que sai o peso de
+// cada fase no aparelho DESTE operador.
+//
+// A barra NUNCA segura a mídia: o `concluir()` fecha o trecho final em fração de
+// segundo, ao lado do play, e nenhum passo do trabalho espera por ela.
+const YT_TEMPOS = 'ytTempos';
+const YT_BARRA_TIQUE_MS = 100;
+let ytTempos = null;
+function ytTemposCarregar() {
+  if (ytTempos) return Promise.resolve(ytTempos);
+  return Promise.resolve()
+    .then(() => AVDB.getState(YT_TEMPOS))
+    .then((h) => (ytTempos = AVProgresso.sanear(h)))
+    .catch(() => (ytTempos = AVProgresso.sanear(null)));
+}
+function ytTemposAprender(amostra, origem) {
+  if (!amostra) return;
+  const a = Object.assign({ origem: origem || '' }, amostra);
+  // UMA transação (`updateState`), com a função SÍNCRONA: dois downloads que
+  // terminam juntos não podem levar a amostra um do outro.
+  AVDB.updateState(YT_TEMPOS, (h) => AVProgresso.aprender(h, a))
+    .then((h) => { ytTempos = AVProgresso.sanear(h); })
+    .catch(() => { /* aprender é ganho; falhar nele não derruba o download */ });
+}
+
+function novaBarraYt(opcoes) {
+  const o = opcoes || {};
+  const b = AVProgresso.criar({
+    modelo: AVProgresso.modelo(ytTempos), agora: () => Date.now(),
+    juncao: !!o.juncao, abertura: !!o.abertura,
+  });
+  if (!ytTempos) ytTemposCarregar().then((h) => b.trocarModelo(AVProgresso.modelo(h)));
+  const ouvintes = new Set();
+  const aoTerminar = [];
+  let ultimo = -1;
+  let timer = 0;
+  let encerrada = false;
+  let concluida = false;
+  let reservada = false;
+  const parar = () => { clearInterval(timer); timer = 0; };
+  const tique = () => {
+    const v = b.passo();
+    if (v !== ultimo) {
+      ultimo = v;
+      for (const fn of [...ouvintes]) { try { fn(v, b.fase()); } catch (_) { /* superfície é aviso */ } }
+    }
+    if (b.terminou()) { parar(); aoTerminar.splice(0).forEach((f) => f()); }
+  };
+  timer = setInterval(tique, YT_BARRA_TIQUE_MS);
+  return {
+    ouvir(fn) {
+      ouvintes.add(fn);
+      if (ultimo >= 0) { try { fn(ultimo, b.fase()); } catch (_) { /* idem */ } }
+      return () => ouvintes.delete(fn);
+    },
+    sinal(nome, info) { if (!encerrada) { b.sinal(nome, info); tique(); } },
+    bytes(lidos, total) { if (!encerrada) b.bytes(lidos, total); },
+    fase: () => b.fase(),
+    valor: () => Math.max(0, ultimo),
+    /** A mídia está pronta: 100 em fração de segundo, e a amostra entra no histórico. */
+    concluir(origem) {
+      if (encerrada) return Promise.resolve();
+      encerrada = true; concluida = true;
+      b.concluir();
+      ytTemposAprender(b.amostra(), origem);
+      return new Promise((fim) => {
+        aoTerminar.push(fim);
+        // Página no fundo estrangula o intervalo: o desfecho não espera por ele.
+        setTimeout(() => { if (timer) { parar(); tique(); } fim(); }, 1000);
+      });
+    },
+    /** O dono vai concluí-la mais tarde (o play): o `abandonar` de quem sai antes não vale. */
+    reservar() { reservada = true; },
+    /** Falhou ou foi cancelado: para, sem amostra. Depois de um `concluir` (ou reservada), nada. */
+    abandonar() {
+      if (concluida || reservada) return;
+      encerrada = true;
+      parar();
+      ouvintes.clear();
+    },
+  };
+}
+
+// A FRASE de cada fase, com o MESMO número em toda superfície. Só a fase dos
+// bytes começa por "Baixando" — é ela que acende a seta (`legendaEhDownload`).
+function legendaDoProgresso(fase, pct, soAudio) {
+  const n = ' · ' + Math.max(0, pct | 0) + '%';
+  switch (fase) {
+    case 'preparo': return (soAudio ? 'Preparando áudio' : 'Preparando vídeo') + n;
+    case 'download': return (soAudio ? 'Baixando áudio' : 'Baixando vídeo') + n;
+    case 'juncao': return 'Juntando vídeo e som' + n;
+    case 'copia':
+    case 'gravacao': return 'Guardando no aparelho' + n;
+    default: return 'Abrindo' + n;
+  }
+}
+
+// A MÍDIA COMEÇOU A TOCAR? — o fim do "Tocar agora" para a barra. Não segura
+// nada: quem espera é só o percentual. Desiste se outra mídia tomou a vez, e
+// tem prazo (um telão que não responde não pode deixar a barra em 97 para sempre).
+const ESPERA_TOCAR_MS = 5000;
+function esperarTocando(id) {
+  return new Promise((pronto) => {
+    const ate = Date.now() + ESPERA_TOCAR_MS;
+    const olhar = () => {
+      const rec = currentItem && currentId === id ? currentItem : null;
+      const parado = rec && (rec.kind === 'image' || isDeck(rec));
+      if (midiaNoArId !== id || playing || parado || Date.now() >= ate) { pronto(); return; }
+      setTimeout(olhar, 50);
+    };
+    olhar();
+  });
+}
+
 // ===== A via NATIVA: o aparelho extrai e baixa o vídeo sozinho =====
 //
 // É o caminho principal desde a v5.81, e o que finalmente cumpre "sem
@@ -35204,6 +35383,19 @@ async function ytBaixarNativo(link, nome, opts) {
     : aviso === 'lib' ? libBusy(LEGENDA_PREPARANDO, rotulo, opts && opts.chave, cancelar)
       : { visivel: false, atualizar() {}, soltar() {} };
   const notif = bgTaskStart(rotuloBaixando, 1);
+  // O PERCENTUAL DO TOQUE À TELA (v1.12.36): UMA barra para o trabalho inteiro
+  // (ver `novaBarraYt`). Quem chama pode trazer a dele — o "Tocar agora", que
+  // continua depois daqui até a mídia tocar —; sem ela, esta função é a dona e a
+  // fecha no fim da gravação (a rotina das séries, a Verificação completa).
+  const barraPropria = !(opts && opts.barra);
+  const barra = barraPropria ? novaBarraYt({ juncao: !soAudio, abertura: false }) : opts.barra;
+  // Um escritor para as TRÊS superfícies (cartão ou linha, notificação, linha
+  // do resultado): o mesmo número em todas, e ele sai da barra, não dos bytes.
+  const pararDeOuvir = barra.ouvir((pct, fase) => {
+    bg.atualizar(legendaDoProgresso(fase, pct, soAudio), null, pct);
+    bgTaskPct(notif, pct);
+    if (opts && opts.onPct) opts.onPct(pct);
+  });
   // O NOME DO VÍDEO na linha da notificação, pela mesma razão do lote de
   // músicas: "Baixando vídeo" sozinho não diz QUAL, e com o app minimizado esta
   // é a única tela que existe. Uma tarefa de um item só nunca chega a trocar de
@@ -35247,20 +35439,17 @@ async function ytBaixarNativo(link, nome, opts) {
     return await withBgWork(async () => {
       const r = await AVNative.ytFetch(link, (lidos, total) => {
         if (medida && medida.amostras.length < 20000) medida.amostras.push([Date.now(), lidos, total]);
-        // 99 NO TETO (v1.12.32): o fim da REDE não é o fim do trabalho — o shell ainda junta as
-        // faixas, e o app ainda copia e grava. Um "100%" ali dizia "pronto" segundos antes de a
-        // mídia tocar; quem marca o fim é o desfecho (`setYtEstado('pronto')`, o `send`).
-        const pct = total ? Math.min(99, Math.floor((lidos / total) * 100)) : -1;
-        bg.atualizar(pct >= 0
-          ? rotuloBaixando + ' · ' + pct + '%'
-          : rotuloBaixando + ' · ' + fmtBytes(lidos), null, pct);
-        // Os MESMOS bytes que a preview já mostrava vão agora para a
-        // notificação, que até a v5.117 ficava parada em "0 de 1" (ver
-        // `bgTaskBytes`). É a diferença entre uma barra que anda e uma que
-        // parece travada durante os minutos inteiros do download.
+        // OS BYTES ALIMENTAM A BARRA, não a tela: o número mostrado é o do toque
+        // à tela (v1.12.36), que segue andando pela junção, pela cópia e pela
+        // gravação — fases em que nenhum byte se move.
+        barra.bytes(lidos, total);
+        // Os MESMOS bytes vão para o TEXTO da notificação ("X MB de Y MB"); a
+        // barra e o percentual dela vêm do `bgTaskPct` acima.
         bgTaskBytes(notif, lidos, total);
-        if (opts && opts.onPct) opts.onPct(pct);
-      }, soAudio, altura);
+      }, soAudio, altura, (nome, info) => {
+        if (medida) (medida.fases = medida.fases || []).push([Date.now(), nome]);
+        barra.sinal(nome, info);
+      });
       if (medida) {
         medida.tNativo = Date.now();
         medida.r = r ? { url: r.url || '', size: r.size || 0, type: r.type || '', height: r.height | 0,
@@ -35286,11 +35475,13 @@ async function ytBaixarNativo(link, nome, opts) {
       // continua no JSON porque é o que aparece no `Log.w` de quem for
       // diagnosticar por que um vídeo específico não entregou o áudio.
       try {
+        barra.sinal('copia');
         const res = await fetch(r.url);
         if (!res.ok) return null;
         const blob = await res.blob();
         if (medida) { medida.tCopia = Date.now(); medida.bytes = blob.size; }
         if (!blob.size) return null;
+        barra.sinal('gravacao');
         // SEM MINIATURA quando é só áudio, e isso não é economia: a miniatura
         // de um áudio seria a "capa" que não pode existir. O registro entra com
         // `kind: 'audio'`, e é o kind que faz o telão manter o wallpaper em vez
@@ -35342,6 +35533,7 @@ async function ytBaixarNativo(link, nome, opts) {
           list: (opts && opts.lista) || 'imports',
         });
         if (medida) medida.tGravado = Date.now();
+        if (gravado && barraPropria) barra.concluir(medida ? 'teste' : (opts && opts.origem) || 'guardar');
         return gravado;
       } finally {
         // No `finally`: mesmo que a cópia falhe, o arquivo do cache não pode
@@ -35354,6 +35546,10 @@ async function ytBaixarNativo(link, nome, opts) {
     return null;
   } finally {
     if (aoMudarVisibilidade) document.removeEventListener('visibilitychange', aoMudarVisibilidade);
+    pararDeOuvir();
+    // Sem desfecho bom, a barra própria sai SEM amostra: uma falha não ensina
+    // quanto um download leva. (A de fora é do dono, que decide.)
+    if (barraPropria) barra.abandonar();
     terminado = true;
     bgTaskEnd(notif);
     bg.soltar();
@@ -37293,6 +37489,20 @@ function bgTaskBytes(id, lidos, total) {
   bgTaskSend(regua || t.done >= t.total);
 }
 
+// O PERCENTUAL PRONTO (v1.12.36 · shell 81): o do toque à tela num download do
+// YouTube, que segue andando pela junção, pela cópia e pela gravação — fases sem
+// byte. Ele vale para a barra e o número da notificação; o texto continua em
+// bytes (`bgTaskBytes`). Só o 100 passa `force`, como no irmão de cima.
+function bgTaskPct(id, pct) {
+  if (!window.__NATIVE__) return;
+  const t = bgTasks.get(id);
+  if (!t || !(pct >= 0)) return;
+  t.pct = Math.min(100, Math.round(pct));
+  // SEM `lastEventAt`: a barra anda sozinha por construção, e marcar cada tique
+  // como "novidade" apagaria o "sem resposta há X" de um download de fato parado.
+  bgTaskSend(t.pct >= 100);
+}
+
 // Um item concreto entrou em download: entra na FILA de exibição. É isto que
 // dá a impressão de progresso — "23 de 54" é um número abstrato, "002. Ó
 // Adorai o Senhor" é o que o operador reconhece, e ver a lista andar é o que
@@ -37440,6 +37650,7 @@ function bgTaskSend(force) {
       etaMs: Math.max(0, Math.round(etaAlvo)),
       items: item ? [item] : [],
       bytes: !!alvo.bytes,
+      pct: typeof alvo.pct === 'number' ? alvo.pct : -1,
       icone: alvo.icone || 'baixar',
       // Há quanto tempo NADA acontece nesta tarefa. É o que separa "travado" de
       // "esta faixa é grande" — sem isso os dois casos são a mesma tela parada.

@@ -203,6 +203,10 @@ app/src/main/assets/web/
 │   │                           # capacidades INJETADAS (normalizar, casar letra,
 │   │                           # "está no aparelho?") e oráculo em Node: decide
 │   │                           # o que pode ser sorteado para o telão
+│   ├── progresso.js            # O PERCENTUAL do YouTube, do TOQUE à mídia TOCANDO —
+│   │                           # PURA, com oráculo em Node (v1.12.36): as fases, o
+│   │                           # peso APRENDIDO de cada uma (mediana das últimas
+│   │                           # amostras) e a exibição que nunca volta nem congela
 │   ├── hinario.js              # As SEÇÕES do Hinário 2022 — PURA, com oráculo em
 │   │                           # Node: traduz NÚMERO em SEÇÃO (35 faixas, 8
 │   │                           # blocos). O banco NÃO tem esse campo — o que
