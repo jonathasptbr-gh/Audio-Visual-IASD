@@ -766,7 +766,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 :is(
   .ctl-btn, .t-btn, .settings-btn,
   .import-btn, .tools-btn, .lib-foot-btn, .back-btn, .sel-btn,
-  .row-btn, .popup-close, .crono-limpar,
+  .row-btn, .popup-close, .popup-acao, .versao-txt, .crono-limpar,
   /* O ⛶ da cifra (v1.6.0): ele nasce no MESMO lote em que entra aqui, que é a
      regra desta lista — um controle novo fora dela fica mudo ao toque sem nada
      na tela dizer por quê. Nenhum ancestral dele responde ao toque. */
@@ -792,7 +792,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   /* O `.pl-clear` entrou na v1.8.53, e a ausência dele era visível só depois do
      lado a lado: os dois botões do rodapé da playlist são um PAR, e um recuando
      ao toque enquanto o outro fica parado lê-se como um deles quebrado. */
-  .cue-save-btn, .pl-pack, .pl-clear, .yt-search-btn, .log-copy, .diag-btn, .hino-indice-chip,
+  .cue-save-btn, .pl-pack, .pl-clear, .yt-search-btn, .log-copy, .hino-indice-chip,
   .simple-key, .simple-key--big, .simple-key--vol,
   .lib-search-limpar,
   /* O "Tentar de novo" do aviso do servidor da biblioteca (v1.12.43). */
@@ -831,7 +831,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    `display: block` entra aqui de uma vez — sem ele o SVG é inline, ganha a
    folga de linha de base e descentraliza o ícone dentro do botão flex. */
 :is(
-  .row-btn, .row-slot, .back-btn, .sel-btn, .popup-close,
+  .row-btn, .row-slot, .back-btn, .sel-btn, .popup-close, .popup-acao,
   .coll-bar-dl, .coll-group-btn,
   /* As TRÊS portas do rodapé entraram juntas na v1.5.19: só a do meio estava
      aqui, e o ícone das laterais vivia do atributo `width="20"` que o
@@ -910,11 +910,7 @@ body {
   overflow: hidden;
 }
 
-/* (O indicador de versão perdeu a regra própria na v1.4.43. Ele tinha uma
-   pílula com corpo, raio e respiro DELE, e o rodapé de Configurações — o único
-   lugar onde ele vivia — passou a desenhar as duas pastilhas com uma régua só:
-   ver `.versao-faixa`, hoje na seção da Verificação. Uma regra base cujas declarações eram todas sobrescritas
-   a dois seletores de distância não é herança, é uma segunda opinião.) */
+/* (O indicador de versão é o `.versao-txt`, no cabeçalho de Configurações desde a v1.12.50.) */
 /* ---------- Barra de controles (base) ---------- */
 /* Desde a v5.54 ela começa na FAIXA DE ABAS e termina no transporte: um bloco
    só. A faixa era o último elemento do `<main>` e flutuava sobre o fundo do
@@ -2652,7 +2648,7 @@ main {
    o menor alvo do app inteiro, e é a única saída da gaveta de pasta e da
    navegação da Bíblia. */
 .back-btn, .sel-btn, .row-btn, .row-slot, .crono-limpar,
-.cue-save-btn, .popup-close, .log-copy, .lv-cheia-btn {
+.cue-save-btn, .popup-close, .popup-acao, .log-copy, .lv-cheia-btn {
   flex-shrink: 0; width: var(--hit); height: var(--hit); padding: 0;
   border: none; border-radius: var(--radius-btn);
   display: flex; align-items: center; justify-content: center; cursor: pointer;
@@ -8094,6 +8090,35 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    inteira some — foi o que um status de lote com o nome do álbum fazia. */
 .popup-close { background: var(--surface-2); color: var(--muted); }
 .popup-close .msym { font-size: var(--icon-sm); }
+/* ===== A VERSÃO E O PEDIR AJUDA NO TOPO DE CONFIGURAÇÕES (v1.12.50) =====
+   O título e a VERSÃO dividem uma caixa que estica (`.cfg-titulos`) e QUEBRA: sem
+   lugar para os dois numa linha — MEDIDO, 360px com a fonte do sistema a 1,25× já
+   cortava "Configurações" —, a versão desce para baixo do título, e o título fica
+   inteiro.
+
+   A VERSÃO É TEXTO, não botão: sem fundo, sem borda, `--fs-sm` e `--muted` (6,66:1
+   sobre `--panel` nos dois temas) — *"não torne ele um botão explícito, mas apenas
+   as letras, com uma fonte mais escura e discreta que o título"*. A caixa de toque
+   continua sendo a do app (`--hit` de altura).
+
+   O PEDIR AJUDA É SÓ O ÍCONE (`.popup-acao`): o esqueleto de `--hit` dos botões de
+   ícone, SEM caixa — `--muted` sobre o transparente, como o chevron das seções —,
+   para não virar um segundo ✕ ao lado do ✕. */
+.cfg-titulos {
+  flex: 1; min-width: 0;
+  display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--sp-2);
+}
+.cfg-titulos > .popup-title { flex: 0 1 auto; }
+.versao-txt {
+  flex: 0 0 auto;
+  height: var(--hit); padding: 0 var(--sp-2);
+  border: none; background: transparent; border-radius: var(--radius-btn);
+  appearance: none; -webkit-appearance: none; cursor: pointer;
+  font-family: inherit; font-size: var(--fs-sm); font-weight: var(--fw-medio);
+  color: var(--muted); white-space: nowrap;
+}
+.popup-acao { background: transparent; color: var(--muted); }
+.popup-acao[hidden] { display: none; }
 /* (O `.popup-total` — o contador de peso do acervo inteiro e o botão de baixar
    tudo, no cabeçalho — saiu na v5.258, a pedido do operador. O `flex-shrink: 0`
    do ✕ que ele justificava continua valendo: o cabeçalho é uma linha flex, e um
@@ -8308,9 +8333,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   display: flex; flex-direction: column; gap: var(--sp-4);
 }
 .teste-erros:empty { display: none; }
-/* A faixa da versão (`.versao-faixa`) é o bloco seguinte, e se separa dos
-   problemas — ou da barra, sem problemas — pelo mesmo dobro. */
-#testeSecao > .versao-faixa { margin-top: calc(2 * var(--sp-6)); }
 .teste-erro {
   display: flex; align-items: flex-start; gap: var(--sp-4);
   padding: var(--sp-4);
@@ -8601,93 +8623,9 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .display-status.connected {
   background: var(--ok-fill); color: var(--ok);
 }
-/* ===== A FAIXA DA VERSÃO: DOIS BOTÕES IGUAIS (v1.8.65 · na Verificação desde a v1.12.49) =====
-   Pedido do operador: *"coloque a versão, o registro e o pedir ajuda...
-   igualmente distribuídos horizontalmente"*, *"no mesmo estilo do botão de 'pedir
-   ajuda'"* e *"remova o fundo cinza desse rodapé"* (v1.8.65); o Registro saiu na
-   v1.12.29 e a faixa desceu para a seção da Verificação na v1.12.49 (*"é ali que
-   eles são usados"*).
-
-   UMA FILEIRA, NÃO UMA SUPERFÍCIE: a faixa não pinta, e os botões vestem o
-   preenchido (`.diag-btn--primario`). EM PARTES IGUAIS: `flex: 1 1 0` dá a mesma
-   fatia aos dois (com `auto` "Pedir ajuda" sairia sempre maior que o número). SEM
-   PISO ESCRITO: um item flex já nasce com `min-width: auto`, e com o `nowrap` do
-   `.diag-btn` isso É o rótulo inteiro — sem caber, os mínimos vencem e, apertando
-   mais, o `flex-wrap` empilha; nenhum degrau corta uma palavra.
-
-   O RECUO INTERNO É `--sp-2` (v1.8.100): o rótulo da VERSÃO é o único que CRESCE
-   ("v1.8.99" → "v1.8.100" quebrou a faixa a 360×1,25×), e `--sp-2` devolve a folga
-   do próximo dígito. */
-.versao-faixa {
-  --fs-diag: .74rem;
-  display: flex; align-items: stretch; flex-wrap: wrap;
-  gap: var(--sp-2);
-  font-size: var(--fs-diag);
-}
-.versao-faixa > .diag-btn { flex: 1 1 0; padding-inline: var(--sp-2); }
-/* O NÚMERO EM NEGRITO (v1.8.65), a pedido do operador: *"pode dar um destaque
-   em negrito para o número da versão"*. `--fw-forte` é o peso que esta folha
-   nomeia como *"nome de item, botão"*, e é o que ele virou.
-
-   A COR SAIU DAQUI, e a remoção é o lote: ela era `--text` sobre a pastilha
-   `--surface-2` que a faixa pintava, com a medição ao lado (13,08:1 no claro,
-   11,29:1 no escuro). Sem pastilha e dentro de um botão preenchido, quem
-   responde é o `--on-accent` do `.diag-btn--primario` — deixar um `color`
-   escrito aqui o venceria (esta regra é mais específica) e devolveria texto
-   escuro sobre denim.
-
-   Ela é UM número desde a v1.7.0 (ver `renderVersionLabel`), e SÓ o número desde
-   a v1.8.51. Quem ainda nomeia o app é o que SAI dele — o rascunho do WhatsApp e
-   o `compartilharTexto`. */
-.app-version { font-weight: var(--fw-forte); }
-/* ---------- O BOTÃO DA FAIXA DE DIAGNÓSTICO: ÍCONE **E** RÓTULO (v1.8.51) ----
-   Ele NÃO é o `.log-copy`, e a diferença é o rótulo: aquele é o esqueleto de
-   `--hit` QUADRADO, e um quadrado não cresce para caber uma palavra. A altura
-   continua sendo `--hit` — o piso de toque do app não muda —; o que muda é a
-   largura, que passa a ser o conteúdo.
-
-   `--sp-1` entre o ícone e a palavra porque é literalmente o que o token diz
-   (*"dentro de uma peça (ícone e rótulo)"*).
-
-   O RECUO LATERAL CAIU A `--sp-3` (v1.8.65). Ele era `--sp-5`, *"o mesmo
-   respiro de bloco que a faixa reserva à esquerda"* — e essa folga da faixa
-   saiu com a pastilha. O que o substitui é aritmética: com os três dividindo a
-   linha, o recuo sai da largura do RÓTULO. MEDIDO a 320px na fonte padrão, o
-   degrau põe os três numa linha só em vez de dois numa e um noutra, e leva
-   360×1,3× e 430×1,5× junto.
-
-   E O `flex-shrink: 0` SAIU no mesmo lote: ele impedia a divisão de agir, e o
-   que protege o rótulo é o `min-width: auto` de item flex com o `nowrap` daqui
-   (ver `.versao-faixa`). */
-.diag-btn {
-  height: var(--hit); padding: 0 var(--sp-3);
-  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1);
-  border: none; border-radius: var(--radius-btn); cursor: pointer;
-  appearance: none; -webkit-appearance: none;
-  font-family: inherit; font-size: var(--fs-diag); font-weight: var(--fw-medio);
-  white-space: nowrap;
-  background: none; color: var(--text);
-}
-/* ---------- E UM DELES É A AÇÃO PRIMÁRIA DA FAIXA ----------
-   Pedido do operador: *"faça ele um botão mais sólido visualmente, pois não está
-   claro que ele serve para comunicar ou feedback"*.
-
-   `--accent-fill` + `--on-accent` é o par que o `tokens.css` nomeia como *"FUNDO
-   preenchido (aba ativa, botão primário)"*, e o app já o escreve assim no
-   `.dialog-btn.primary`. Ele é OPACO nos dois temas (#2f557f), que é a regra dos
-   fundos de ação.
-
-   NÃO É `--btn-accent`, por DUAS razões independentes. (1) IDIOMA: aquele par
-   quer dizer LIGADO (interruptor), e este botão não tem estado. (2) MEDIDA:
-   `--btn-accent` contra esta faixa dá **1,35:1** no escuro e **1,33:1** no claro
-   — ele não leria como sólido, que é exatamente o que o pedido é. Com
-   `--accent-fill`: **1,94:1** no escuro e **4,80:1** no claro contra a faixa, e
-   `--on-accent` sobre ele dá **6,54:1** e **7,70:1** — os dois com folga sobre
-   AA para texto pequeno.
-
-   (A v1.8.51 o dava a UM só; a v1.8.65 o deu a todos os da faixa — ver a
-   `.versao-faixa` acima.) */
-.diag-btn--primario { background: var(--accent-fill); color: var(--on-accent); }
+/* (A faixa da versão — `.versao-faixa`, dois `.diag-btn` preenchidos em partes
+   iguais, v1.8.65 — saiu na v1.12.50: a versão e o pedir ajuda moram no cabeçalho
+   de Configurações, ver `.versao-txt` e `.popup-acao`.) */
 
 /* (`.folder-pick-btn` saiu na v5.254, com o popup de seleção de pasta: os
    atalhos de pasta deixaram de existir, e uma pasta do APARELHO não recebe
@@ -10522,6 +10460,41 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   background: transparent; color: var(--muted);
 }
 .cfg-sec-recolher[hidden] { display: none; }
+/* ===== COM UMA SEÇÃO ABERTA, A GRADE SOME E O CABEÇALHO GRUDA (v1.12.50) =====
+   Pedido do operador: *"faça com que a zona dos botões originais das
+   configurações seja oculta … Tome cuidado para que os títulos dessas abas, que
+   contem o botão de fechar elas, fique sempre fixo no topo, logo abaixo da barra
+   que já tem o título de configurações"*. O topo (`#cfgTopo`: o modo e a grade)
+   recebe `hidden` no fim da animação de `mudarSecao`, e `.com-secao` (na
+   `.fade-opts`, desde o começo dela) desenha o estado final da seção.
+
+   A caixa das seções desconta o `gap` da folha só enquanto o topo existe: sem
+   ele, ela é o primeiro filho e não há `gap` a descontar. */
+.cfg-topo { display: flex; flex-direction: column; gap: var(--sp-3); }
+.cfg-topo[hidden] { display: none; }
+.cfg-topo[hidden] + .cfg-secoes { margin-top: 0; }
+.fade-opts.com-secao .cfg-sec { padding-top: 0; }
+/* O CABEÇALHO GRUDA NO TOPO DO SCROLLER, de borda a borda e OPACO — a receita da
+   faixa de fecho, de cabeça para baixo: as margens negativas o levam ao PADDING BOX
+   (`--veu-topo`/`--veu-esq`/`--veu-dir`, lidos do layout por `acertarVeus`) e o
+   `padding` devolve os recuos. Ele pinta ACIMA da tira de cima do scroller (5),
+   então a SOMBRA de "há mais acima" é dele (`::after` na borda de baixo, só com
+   `.tem-acima`): com a tira, ela ficaria escondida atrás de um cabeçalho opaco. */
+.fade-opts.com-secao .cfg-sec-cab {
+  position: sticky; z-index: 7;
+  top: calc(-1 * var(--veu-topo, 0px));
+  margin: calc(-1 * var(--veu-topo, 0px)) calc(-1 * var(--veu-dir, 0px)) 0 calc(-1 * var(--veu-esq, 0px));
+  padding: calc(var(--veu-topo, 0px) + var(--sp-3)) var(--veu-dir, 0px) var(--sp-4) var(--veu-esq, 0px);
+  background: var(--panel);
+  /* A R1, como na faixa de fecho: ele é o chão da folha aparecendo. */
+  --surface: var(--surface-sunk); --surface-2: var(--surface-2-sunk);
+}
+.fade-opts.com-secao .cfg-sec-cab::after {
+  content: ''; position: absolute; left: 0; right: 0; top: 100%;
+  height: var(--veu-h); pointer-events: none;
+  background: linear-gradient(to bottom, var(--sombra-rolagem), transparent);
+}
+.fade-opts.com-secao:not(.tem-acima) .cfg-sec-cab::after { display: none; }
 /* AS LISTAS DAS SEÇÕES NÃO ROLAM: quem rola é Configurações inteira. Um scroller
    dentro de outro, numa folha de toque, faz o mesmo gesto mover coisas
    diferentes conforme onde o dedo pousa. O recuo lateral é zero porque a seção

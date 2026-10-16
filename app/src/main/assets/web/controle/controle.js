@@ -321,6 +321,8 @@ const plClearFaixaEl = document.getElementById('plClearFaixa');
 // `pacoteRenderTiles()` roda na CARGA, e uma constante lida antes da linha em que
 // nasce é uma zona morta temporal — e a tabela `SECOES` logo abaixo as lê.
 const cfgSecoesEl = document.getElementById('cfgSecoes');
+// O TOPO DA FOLHA (o modo e a grade, v1.12.50): some com uma seção aberta.
+const cfgTopoEl = document.getElementById('cfgTopo');
 // O HISTÓRICO DO CULTO (v1.2.0). Quem o ABRE mudou na v1.4.31: era a sétima
 // célula do transporte, hoje é um tile de Configurações (`#histOpenRow`).
 const histOpenRowEl = document.getElementById('histOpenRow');
@@ -400,8 +402,8 @@ const appVersionEl = document.getElementById('appVersion');
 // watchdog do OTA descarta o bundle sem nada na tela dizer por quê.
 // (AS BADGES SAÍRAM: a do cabeçalho do Cronograma na v1.8.66 (deu lugar ao botão de LIMPAR) e a
 //  do Modo Fácil na v1.11.15 (a pedido do operador, que pôs o NOME do app no topo dessa tela).
-//  O número mora no botão de versão da seção da Verificação de Configurações — era o rodapé da
-//  folha até a v1.12.49 —, escrito pelo `renderVersionLabel`.)
+//  O número mora no rótulo de versão do cabeçalho de Configurações (`#versaoBtn`, v1.12.50; foi
+//  o rodapé da folha e, na v1.12.49, a Verificação), escrito pelo `renderVersionLabel`.)
 // O botão que ficou no lugar dela é declarado AQUI pela razão do bloco acima:
 // `renderCronoLimpar` o lê milhares de linhas antes de onde o cromo é ligado, e
 // um `const` lido antes da própria declaração é `ReferenceError` — que aborta o
@@ -414,7 +416,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.49';
+const WEB_VERSION = '1.12.50';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -459,11 +461,11 @@ const APK_ENTREGUE_MS = 10 * 60 * 1000;
 // pergunta de voltar na abertura seguinte, que é o comportamento pedido.
 const otaAdiadas = new Set();
 
-// ===== UM NÚMERO SÓ, UM ESCRITOR (v1.7.0; hoje só o botão de versão da Verificação) =====
+// ===== UM NÚMERO SÓ, UM ESCRITOR (v1.7.0; hoje só o rótulo do cabeçalho de Configurações) =====
 //
 // Escrita UMA vez, na carga, e ela é o ESCRITOR ÚNICO do número da versão — que já esteve em
 // três superfícies (as badges do Modo Fácil e do avançado, e o rodapé de Configurações) e hoje
-// mora só no botão de versão, dentro da seção da Verificação (v1.12.49). Dois escritores seriam duas chances de o app afirmar duas versões
+// mora só no rótulo de versão do cabeçalho de Configurações (v1.12.50). Dois escritores seriam duas chances de o app afirmar duas versões
 // diferentes na mesma sessão.
 //
 // O ÍNDICE DO SHELL SAIU DA TELA, a pedido do operador: *"remova da ui a
@@ -31750,9 +31752,10 @@ if (versaoBtnEl) {
 
 // ===== FALAR COM QUEM MANTÉM O APP (v1.8.49) =====
 //
-// Pedido do operador: um atalho direto para a conversa, ao lado da versão e do
-// Registro — desde a v1.12.49 os três moram na seção da Verificação. As três
-// respostas juntas são o pedido de ajuda inteiro — o número, o arquivo e a porta.
+// Pedido do operador: um atalho direto para a conversa. Desde a v1.12.50 ele é um
+// botão SÓ DE ÍCONE (o balão) no cabeçalho de Configurações, ao lado do ✕ — e a
+// versão, ao lado do título. O número, o arquivo (o Registro da Verificação) e a
+// porta são o pedido de ajuda inteiro.
 //
 // `wa.me` E NÃO UM `intent://`. O primeiro é uma URL `https://` comum: o Android
 // a entrega ao WhatsApp quando ele está instalado (link de app verificado) e ao
@@ -39306,17 +39309,24 @@ async function histLimpar(inicio) {
 //
 // Pedido do operador: *"ao invés das opções de configurações abrirem em uma nova
 // janela na base da tela, faça com que seus conteúdos abram dentro da janela
-// original das configurações"*. Uma seção aberta por vez, depois da grade: o
-// tile abre a dele, outro tile TROCA, o mesmo tile RECOLHE.
+// original das configurações"*. Uma seção aberta por vez, depois da grade.
+//
+// E A GRADE SOME (v1.12.50): *"faça com que a zona dos botões originais das
+// configurações seja oculta (pode manter a animação de deslizar para cima para
+// ocultar ela)"*. Abrir uma seção tira `#cfgTopo` (o modo e a grade) do layout, e o
+// cabeçalho da seção gruda no topo da folha (`.com-secao` na `.fade-opts`); quem a
+// recolhe é o chevron dele, o voltar ou o Cancelar da Verificação, e recolher
+// devolve a grade. Trocar entre seções não a devolve (hoje não há porta para isso,
+// mas a conta está aqui: `de && para` só cruza as seções).
 //
 // A ALTURA DA CAIXA ANIMA, e a folha vai junto: Configurações tem a altura do
-// conteúdo até o teto dela (quase a tela inteira desde a v1.12.49), então quem a
-// faz crescer e encolher é esta caixa.
-// Na troca, a seção que sai fica ABSOLUTA por cima (`.saindo`) e as duas se
-// cruzam por opacidade; abrir e recolher são a mesma conta com uma das pontas
-// vazia. Sem movimento (`prefers-reduced-motion`) ou com a folha fechada, nada
-// anima. Depois de abrir, a folha ROLA o mínimo para a seção inteira caber,
-// sem nunca esconder o topo dela (`rolarAteSecao`).
+// conteúdo até o teto dela. Na ida, a grade SOBE para fora — `margin-top` dela até
+// a própria altura negativa, recortada pela borda de cima do scroller —, enquanto a
+// caixa das seções cresce; na volta, o inverso. A rolagem da folha vai a zero no
+// começo, e a margem de partida devolve o que ela era, para nada pular. Na troca, a
+// seção que sai fica ABSOLUTA por cima (`.saindo`) e as duas se cruzam por
+// opacidade. Sem movimento (`prefers-reduced-motion`) ou com a folha fechada, nada
+// anima e o estado final é o mesmo.
 let secaoAnim = null;
 let secaoAlturaAnim = null;
 // Os ganchos de abrir e recolher DESENHAM (a Verificação recolhida se redesenha),
@@ -39349,8 +39359,14 @@ function mudarSecao(para, opcoes) {
   acabarTrocaDeSecao();
   if (secaoAlturaAnim) { secaoAlturaAnim.cancel(); secaoAlturaAnim = null; }
   const box = cfgSecoesEl;
+  const sc = box.closest('.fade-opts');
   const anima = animar && fadePopupEl.classList.contains('open') && !semMovimento()
     && typeof box.animate === 'function';
+  // A GRADE: some na ida (de nada para uma seção) e volta na volta.
+  const some = !de && !!para && !!cfgTopoEl;
+  const volta = !!de && !para && !!cfgTopoEl;
+  const rolado = sc ? sc.scrollTop : 0;
+  const hTopo = some ? cfgTopoEl.getBoundingClientRect().height : 0;
   const h0 = box.getBoundingClientRect().height;
   const velha = de ? SECOES[de] : null;
   const nova = para ? SECOES[para] : null;
@@ -39364,6 +39380,10 @@ function mudarSecao(para, opcoes) {
       if (anima) velha.el.classList.add('saindo');
       else velha.el.hidden = true;
     }
+    if (some && sc) sc.classList.add('com-secao');
+    if (volta && sc) { sc.classList.remove('com-secao'); cfgTopoEl.hidden = false; }
+    if ((some || volta) && sc) sc.scrollTop = 0;
+    if (some && !anima) cfgTopoEl.hidden = true;
     if (nova) {
       nova.el.hidden = false;
       nova.el.classList.add('open');
@@ -39371,14 +39391,19 @@ function mudarSecao(para, opcoes) {
       if (nova.abrir) nova.abrir();
     }
   } finally { secaoMudando = false; }
-  if (!anima) {
-    if (nova && fadePopupEl.classList.contains('open')) rolarAteSecao(nova.el, false);
-    return;
-  }
+  if (!anima) return;
   const h1 = box.getBoundingClientRect().height;
   const D = msDaDurLenta();
   box.style.overflow = 'hidden';
   const anims = [box.animate([{ height: h0 + 'px' }, { height: h1 + 'px' }], { duration: D, easing: 'ease' })];
+  // A GRADE SOBE (ou desce) por `margin-top`: partindo de onde a rolagem a deixava.
+  if (some) {
+    anims.push(cfgTopoEl.animate([{ marginTop: -rolado + 'px' }, { marginTop: -hTopo + 'px' }],
+      { duration: D, easing: 'ease', fill: 'forwards' }));
+  } else if (volta) {
+    const h = cfgTopoEl.getBoundingClientRect().height;
+    anims.push(cfgTopoEl.animate([{ marginTop: -h + 'px' }, { marginTop: '0px' }], { duration: D, easing: 'ease' }));
+  }
   if (velha) {
     anims.push(velha.el.animate([{ opacity: 1 }, { opacity: 0 }],
       { duration: nova ? D * 0.5 : D, easing: 'ease', fill: 'forwards' }));
@@ -39394,32 +39419,16 @@ function mudarSecao(para, opcoes) {
     secaoAnim = null;
     box.style.overflow = '';
     if (velha) { velha.el.classList.remove('saindo'); velha.el.hidden = true; }
+    // A grade só sai do layout se a seção ainda está aberta: uma volta no meio da
+    // ida a quer de pé.
+    if (some && secaoAberta) cfgTopoEl.hidden = true;
     anims.forEach((a) => { try { a.cancel(); } catch (_) {} });
-    if (nova && secaoAberta === para) rolarAteSecao(nova.el, true);
   };
   secaoAnim = { fim };
   // Pela PROMESSA, e não pelo evento: quem espera a animação acabar (outra troca,
   // um oráculo) acorda na mesma fila de microtarefas, e o evento só viria numa
   // tarefa depois — com a seção que saiu ainda de pé.
   anims[0].finished.then(fim, () => {});
-}
-
-// A FOLHA ROLA O MÍNIMO para a seção caber, e nunca além do topo dela: a seção
-// é o que o operador acabou de pedir, e o topo é onde está o título dela.
-function rolarAteSecao(el, suave) {
-  const sc = el && el.closest('.fade-opts');
-  if (!sc) return;
-  const r = el.getBoundingClientRect();
-  const s = sc.getBoundingClientRect();
-  const topo = sc.scrollTop + (r.top - s.top);
-  // A BASE DA FOLHA é a margem da caixa das seções (v1.12.49, `--cfg-base`), não o
-  // `padding` do scroller — somam-se as duas para a conta não depender de qual é.
-  const base = sc.scrollTop + (r.bottom - s.bottom) + parseFloat(getComputedStyle(sc).paddingBottom || '0')
-    + parseFloat(getComputedStyle(cfgSecoesEl).marginBottom || '0');
-  const alvo = Math.min(topo, Math.max(sc.scrollTop, base));
-  if (alvo <= sc.scrollTop + 1) return;
-  try { sc.scrollTo({ top: alvo, behavior: suave && !semMovimento() ? 'smooth' : 'auto' }); }
-  catch (_) { sc.scrollTop = alvo; }
 }
 
 // UMA MUDANÇA DE ALTURA DENTRO DA SEÇÃO ABERTA também anima (a barra da
@@ -39434,10 +39443,7 @@ function animarAlturaDasSecoes(desenhar) {
   desenhar();
   const h1 = box.getBoundingClientRect().height;
   if (Math.abs(h1 - h0) < 1 || !h0) return;
-  if (semMovimento() || typeof box.animate !== 'function') {
-    if (h1 > h0) rolarAteSecao(SECOES[secaoAberta].el, false);
-    return;
-  }
+  if (semMovimento() || typeof box.animate !== 'function') return;
   box.style.overflow = 'hidden';
   const a = box.animate([{ height: h0 + 'px' }, { height: h1 + 'px' }], { duration: msDaDurLenta(), easing: 'ease' });
   secaoAlturaAnim = a;
@@ -39445,13 +39451,7 @@ function animarAlturaDasSecoes(desenhar) {
     if (secaoAlturaAnim === a) secaoAlturaAnim = null;
     if (!secaoAnim) box.style.overflow = '';
   };
-  // CRESCENDO, a folha rola o que for preciso para o que entrou caber (a lista
-  // que chegou depois do spinner, os problemas no fim da Verificação).
-  a.onfinish = () => {
-    a.oncancel();
-    const s = SECOES[secaoAberta];
-    if (h1 > h0 && s) rolarAteSecao(s.el, true);
-  };
+  a.onfinish = () => { a.oncancel(); };
 }
 
 // O HISTÓRICO: recolher CANCELA A PERGUNTA — a mesma regra da gaveta da linha e

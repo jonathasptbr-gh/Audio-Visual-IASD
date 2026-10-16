@@ -1987,7 +1987,30 @@
         <span class="popup-header-icon">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoGear"/></svg>
         </span>
+        <span class="cfg-titulos">
         <span class="popup-title">Configurações</span>
+        <!-- A VERSÃO E O PEDIR AJUDA MORAM NO TOPO (v1.12.50), pedido do operador: *"colocar
+             o botão de versão no topo, ao lado do título de configurações, mas não torne ele
+             um botão explícito, mas apenas as letras, com uma fonte mais escura e discreta
+             que o título … ao lado do botão de fechar configurações, coloque um botão de
+             apenas ícone, com ícone de mensagem"*.
+
+             A VERSÃO É TEXTO QUE SE TOCA: sem fundo e sem borda, `--muted` e menor que o
+             título; o toque mostra o que mudou (o `notas.json` do PRÓPRIO bundle, v1.8.65).
+             UM NÚMERO SÓ (v1.7.0), escrito por `renderVersionLabel` — o índice do shell fica
+             no Registro.
+
+             O PEDIR AJUDA é só o balão (`#icoContato`), sem caixa — o ✕ é a única caixa do
+             cabeçalho, e o vizinho dele não disputa com ele. Ele nasce `hidden` e é revelado
+             NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
+             `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
+        <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
+          <span id="appVersion" class="app-version">v1.12.50</span>
+        </button>
+        </span>
+        <button id="contatoBtn" class="popup-acao" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoContato"/></svg>
+        </button>
         <button id="fadePopupClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
       <!-- ===== O PAINEL RÁPIDO (v1.4.38) =====
@@ -2045,6 +2068,12 @@
            histórico", e um segundo formato de botão nesta folha é a densidade
            que o painel rápido acabou de tirar dela. -->
       <div class="fade-opts rola">
+        <!-- O TOPO DA FOLHA (`#cfgTopo`, v1.12.50): o modo e a grade. Com uma SEÇÃO aberta
+             ele SOME (`hidden`) e a seção ocupa a folha inteira — pedido do operador: *"faça
+             com que a zona dos botões originais das configurações seja oculta (pode manter a
+             animação de deslizar para cima para ocultar ela)"*. Quem o tira e o devolve, com
+             a animação, é `mudarSecao`. -->
+        <div id="cfgTopo" class="cfg-topo">
         <!-- Modo de uso, e desde a v5.250 este é o ÚNICO lugar em que ele se
              troca: os dois botões de cabeçalho que faziam a ida e a volta
              saíram (v5.247 o do avançado, v5.250 o do Fácil, substituído pela
@@ -2299,21 +2328,24 @@
             <span class="qs-titulo">Transferir</span>
           </button>
         </div>
+        </div>
         <!-- ===== AS SEÇÕES DE CONFIGURAÇÕES (v1.12.48) =====
              Pedido do operador: *"ao invés das opções de configurações abrirem em
              uma nova janela na base da tela, faça com que seus conteúdos abram
              dentro da janela original das configurações, abaixo dos botões …
              mas acima dos botões de versão e pedir ajuda"*. Tela, Transferir,
              Editar mídia, Histórico e Verificação eram cinco FOLHAS de baixo
-             abertas por cima desta; hoje são SEÇÕES desta, depois da grade. Os
-             botões de versão e pedir ajuda moram desde a v1.12.49 DENTRO da
-             Verificação (*"pois é ali que eles são usados"*), e as seções são o
-             fim da folha.
+             abertas por cima desta; hoje são SEÇÕES desta, depois da grade — e,
+             aberta uma, a grade SOME (`#cfgTopo`, v1.12.50) e o cabeçalho da seção
+             gruda no topo da folha. A versão e o pedir ajuda moram no cabeçalho da
+             folha (v1.12.50).
 
-             UMA ABERTA POR VEZ: o tile abre a dele, outro tile TROCA, o mesmo
-             tile de novo RECOLHE (`trocarSecao`). Abrir, trocar e recolher
-             animam a ALTURA desta caixa (a folha, que tem a altura do conteúdo,
-             vai junto) com o conteúdo entrando e saindo por opacidade.
+             UMA ABERTA POR VEZ: o tile abre a dele; aberta, a grade some e quem a
+             recolhe é o chevron do cabeçalho dela (ou o voltar), que devolve a
+             grade (`trocarSecao`). Abrir e recolher animam a ALTURA desta caixa
+             (a folha, que tem a altura do conteúdo, vai junto) e a grade sobe
+             para fora ou desce de volta, com o conteúdo entrando e saindo por
+             opacidade.
 
              NENHUMA TEM ✕: o único ✕ grande é o de Configurações. Cada seção
              tem no cabeçalho um chevron pequeno e sem caixa que a recolhe — e a
@@ -2321,9 +2353,9 @@
              vermelho na base dela. Fechar Configurações recolhe a seção aberta
              (e cancela a verificação); o voltar recolhe ANTES de fechar.
 
-             O TILE DA SEÇÃO ABERTA NÃO MUDA DE COR: ABERTO não é cor (a regra da
-             paleta). Quem diz que ela está aberta é o corpo à vista, com o
-             título e o desenho do tile no cabeçalho, e o `aria-expanded`. -->
+             ABERTO NÃO É COR (a regra da paleta): quem diz que ela está aberta é
+             o corpo à vista, com o título e o desenho do tile no cabeçalho; o
+             tile, escondido com a grade, guarda o `aria-expanded`. -->
         <div id="cfgSecoes" class="cfg-secoes">
           <section id="telaSecao" class="cfg-sec" data-secao="tela" hidden>
             <div class="cfg-sec-cab">
@@ -2531,30 +2563,6 @@
                 <span class="teste-barra-txt teste-barra-txt--sobre" aria-hidden="true"><span id="testePct2">0</span>%</span>
               </div>
               <ul id="testeList" class="teste-erros"></ul>
-            </div>
-            <!-- A VERSÃO E O PEDIR AJUDA MORAM AQUI (v1.12.49), e só aqui: *"Vamos colocar
-                 os botões de versão e pedir ajuda, dentro apenas da seção de verificação,
-                 pois é ali que eles são usados"*. Eram a faixa do rodapé de Configurações
-                 (v1.4.44 · v1.8.65); a pergunta é a mesma — *"que versão eu tenho, e para
-                 quem eu mando o Registro?"* —, agora ao lado do Registro.
-
-                 DOIS BOTÕES IGUAIS, preenchidos e em partes iguais (v1.8.65), sem fundo na
-                 faixa. A VERSÃO É BOTÃO (v1.8.65): o toque mostra o que mudou (o `notas.json`
-                 do PRÓPRIO bundle). UM NÚMERO SÓ (v1.7.0), em negrito, escrito por
-                 `renderVersionLabel` — o índice do shell fica no Registro.
-
-                 O PEDIR AJUDA (v1.8.49 · v1.8.51) diz a AÇÃO na tela e o DESTINO no
-                 `aria-label` — num WebView não há hover, e o `title` nunca aparece. Ele nasce
-                 `hidden` e é revelado NO PRÓPRIO HANDLER, nunca no `renderVersionLabel`, que
-                 roda no topo do arquivo, antes de o `const` do botão existir. -->
-            <div class="versao-faixa">
-              <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-                <span id="appVersion" class="app-version">v1.12.49</span>
-              </button>
-              <button id="contatoBtn" class="diag-btn diag-btn--primario" title="Falar com quem mantém o app, pelo WhatsApp" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
-                <span>Pedir ajuda</span>
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoContato"/></svg>
-              </button>
             </div>
             <!-- O FECHO TEM DOIS ESTADOS (v1.12.48). Enquanto a verificação anda, só o
                  CANCELAR — vermelho, com o ✕, na faixa da própria seção: é o que a

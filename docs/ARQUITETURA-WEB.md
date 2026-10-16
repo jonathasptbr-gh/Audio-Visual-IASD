@@ -114,8 +114,8 @@ git push origin main
      valor que o `WebUpdater` compara e que dispara (ou não) a atualização por
      OTA nos aparelhos.
   2. a constante `WEB_VERSION` em `controle/controle.js` — é ela que as TRÊS
-     casas renderizavam (`renderVersionLabel()`; hoje só o botão de versão da
-     seção da Verificação de Configurações, v1.12.49). Esquecê-la é o erro mais
+     casas renderizavam (`renderVersionLabel()`; hoje só o rótulo de versão do
+     cabeçalho de Configurações, v1.12.50). Esquecê-la é o erro mais
      traiçoeiro dos três: o OTA entrega o bundle novo e o aparelho continua
      **exibindo a versão antiga**, que é exatamente a leitura que o indicador
      existe para dar.
@@ -128,9 +128,9 @@ git push origin main
   MENOR que o já publicado — caso em que `WebUpdater.compareVersions` ignora o
   bundle em silêncio. Para saber onde a base está, leia `version.json`.
 
-  **Desde a v1.7.0 a UI mostra UM número — o da base web —, hoje só no botão de
-  versão da seção da Verificação de Configurações (v1.12.49; era o rodapé da
-  folha).** O índice do SHELL saiu da tela e
+  **Desde a v1.7.0 a UI mostra UM número — o da base web —, hoje só no rótulo de
+  versão do cabeçalho de Configurações (v1.12.50; foi o rodapé da folha e, na
+  v1.12.49, a Verificação).** O índice do SHELL saiu da tela e
   vive no REGISTRO: base web e shell atualizam por caminhos independentes (OTA ×
   instalar APK), e a distinção só responde alguma pergunta para quem está
   diagnosticando. **O rótulo do rodapé mora no popup de Configurações** desde a

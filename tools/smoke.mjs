@@ -571,103 +571,43 @@ try {
       JSON.stringify(alinhamento.rotulos));
   }
 
-  // ---- A FAIXA DA VERSÃO É UMA BARRA SÓ, E O COPIAR SAIU (v1.4.44) ----
+  // ---- A VERSÃO E O PEDIR AJUDA NO CABEÇALHO, E O COPIAR SAIU ----
   //
-  // Pedido do operador: *"ficou duas seções, a versão e o registro em grupos
-  // separados. pode deixar tudo em uma barra horizontal única"* e *"pode
-  // remover o sistema de copiar registro… fica longo demais para compartilhar
-  // via chat de texto"*.
-  //
-  // A asserção da BARRA é o número de SUPERFÍCIES pintadas dentro do rodapé, e
-  // não a contagem de filhos: a v1.4.43 já tinha dois blocos com o mesmo
-  // desenho — mesma altura, mesmo raio, mesma superfície — e o que o operador
-  // via eram duas caixas. Um teste de "mesmo tom" aprova as duas versões; o que
-  // as separa é haver UM fundo ou DOIS. Medida na cor RENDERIZADA, porque uma
-  // regra de fundo que não pegasse passaria num teste de classe.
-  // DESDE A v1.12.49 A FAIXA MORA NA SEÇÃO DA VERIFICAÇÃO (*"dentro apenas da seção de
-  // verificação, pois é ali que eles são usados"*). A seção é DESCOBERTA só para medir
-  // (`hidden` desligado e religado), sem abri-la: abrir rodaria a verificação, e este
-  // oráculo mede o desenho, não a rodada.
+  // Desde a v1.12.50 os dois moram no CABEÇALHO de Configurações — *"colocar o botão
+  // de versão no topo, ao lado do título … apenas as letras … ao lado do botão de
+  // fechar configurações, coloque um botão de apenas ícone"* —, e a faixa de dois
+  // botões preenchidos (v1.8.65) saiu. O que este bloco guarda é o que fica de pé
+  // dela: o número mora no botão de versão e não PINTA nada (é texto), o pedir ajuda
+  // não pinta caixa, e o salvar do Registro continua só na Verificação. Medido na
+  // cor RENDERIZADA: uma regra de fundo que não pegasse passaria num teste de classe.
   const rodape = await pg.evaluate(() => {
-    const faixa = document.querySelector('#testeSecao .versao-faixa');
-    if (!faixa) return null;
-    const secao = document.getElementById('testeSecao');
-    const estava = secao.hidden;
-    secao.hidden = false;
+    const cab = document.querySelector('#fadePopup .popup-header');
+    const v = document.getElementById('versaoBtn');
+    const c = document.getElementById('contatoBtn');
+    if (!cab || !v || !c) return null;
     const opaco = (el) => !/,\s*0\)$/.test(getComputedStyle(el).backgroundColor);
-    const cx = (el) => { const r = el.getBoundingClientRect(); return { l: Math.round(r.left), r: Math.round(r.right) }; };
-    const grade = document.querySelector('.qs-grade');
-    const r = {
-      faixaPinta: opaco(faixa),
-      filhosQuePintam: [...faixa.querySelectorAll('*')].filter(opaco).map((e) => e.id || e.className),
-      // A AÇÃO PRIMÁRIA é contada à parte (v1.8.51) — ver a asserção abaixo.
-      primarios: [...faixa.querySelectorAll('.diag-btn--primario')].map((e) => e.id),
+    return {
+      noCabecalho: cab.contains(v) && cab.contains(c),
+      pintam: [v, c, ...v.querySelectorAll('*')].filter(opaco).map((e) => e.id || e.className),
       copiar: !!document.getElementById('diagCopy'),
       // O `copiarTexto` FICA, e o consumidor dele também: o endereço da
       // transmissão é curto e existe para ser digitado noutro aparelho.
       copiarSobrevive: !!document.getElementById('castUrlCopy') && typeof copiarTexto === 'function',
-      versaoDentro: faixa.contains(document.getElementById('appVersion')),
-      // O REGISTRO SAIU DAQUI (v1.12.29): a porta dele é só a Verificação.
+      versaoDentro: v.contains(document.getElementById('appVersion')),
+      // O REGISTRO SAIU DO RODAPÉ (v1.12.29): a porta dele é só a Verificação.
       salvarNaFaixa: !!document.getElementById('diagSave'),
       salvarNaVerificacao: !!document.querySelector('#testeSecao #testeSalvar'),
-      // A faixa mede a mesma coisa que a grade — a seção mora no mesmo recuo.
-      faixa: cx(faixa), grade: grade ? cx(grade) : null,
-      foraDoRodape: !faixa.closest('.popup-footer') && !document.querySelector('#fadePopup .popup-footer #versaoBtn, #fadePopup .popup-footer #contatoBtn'),
+      faixaVelha: !!document.querySelector('.versao-faixa, .footer-diag, .diag-btn'),
     };
-    secao.hidden = estava;
-    return r;
   });
-  // ===== A REGRA SE INVERTEU (v1.8.65, revogando a v1.4.44 e a v1.8.51) =====
-  //
-  // ELA JÁ NASCEU DE UM PEDIDO E MORREU DE OUTRO, e as duas pontas estão ditas
-  // aqui porque a inversão é o que faz esta asserção parecer errada a quem a
-  // ler sem o histórico.
-  //
-  // A v1.4.44 proibia a faixa se ler como DUAS caixas — *"ficou duas seções, a
-  // versão e o registro em grupos separados. pode deixar tudo em uma barra
-  // horizontal única"* —, e a superfície era a FAIXA. A v1.8.51 abriu uma
-  // exceção de UM (*"faça ele um botão mais sólido visualmente"*) e guardou o
-  // teto: no máximo uma superfície pintada dentro, e ela é a primária.
-  //
-  // O pedido de agora derruba os dois: *"faça os três serem três botões
-  // separados, no mesmo estilo do botão de 'pedir ajuda'. e remova o fundo
-  // cinza desse rodapé"*. **A faixa deixou de ser superfície** — e é por isso
-  // que a asserção velha não podia só afrouxar de 1 para 3: o que ela media
-  // primeiro era a faixa PINTAR, e hoje ela não pinta. Invertem-se as duas
-  // metades: a faixa NÃO pinta, e os três filhos pintam, todos iguais.
-  //
-  // O TETO CONTINUA EXISTINDO, e é ele que impede a v1.4.44 de voltar pela
-  // porta dos fundos por outro caminho: a faixa não pode voltar a pintar (seria
-  // fundo dentro de fundo) e não pode haver um QUARTO preenchido que não seja
-  // um dos três botões — uma superfície solta ali é a "segunda caixa" que a
-  // regra original nomeava, agora sem a faixa para escondê-la.
-  //
-  // A LEITURA É POR `getComputedStyle` E VALE COM O BOTÃO ESCONDIDO: num
-  // navegador dois dos três são `hidden`, e o fundo continua sendo reportado
-  // sob `display:none` (medido). A asserção não depende do cenário revelá-los.
-  checar(rodape && !rodape.faixaPinta,
-    'o rodapé deixou de ser uma SUPERFÍCIE: a faixa não pinta nada — o cinza '
-    + 'saiu a pedido do operador, e com ele a pastilha que a v1.4.44 criou',
-    rodape && JSON.stringify({ faixaPinta: rodape.faixaPinta }));
-  checar(rodape && rodape.primarios.length === 2
-    && rodape.primarios.join(',') === 'versaoBtn,contatoBtn'
-    && rodape.filhosQuePintam.length === 2,
-    'e os DOIS botões pintam, os dois iguais (o Registro saiu na v1.12.29) — a exceção de UM da v1.8.51 caiu '
-    + 'com a faixa que a justificava. O teto continua: nada mais pinta ali, e '
-    + 'uma quarta superfície solta é a "segunda caixa" que a regra nomeava',
-    rodape && JSON.stringify({ pintam: rodape.filhosQuePintam, primarios: rodape.primarios }));
-  checar(rodape && rodape.versaoDentro && !rodape.salvarNaFaixa && rodape.salvarNaVerificacao,
-    'e a versão mora nela, e o salvar do Registro NÃO (v1.12.29: "agora vamos usar expressamente o método via '
-    + 'verificador") — a porta dele é a da folha da Verificação',
-    rodape && JSON.stringify({ naFaixa: rodape.salvarNaFaixa, naVerificacao: rodape.salvarNaVerificacao }));
-  checar(rodape && rodape.faixa.l === rodape.grade.l && rodape.faixa.r === rodape.grade.r,
-    'e ela mede a mesma coisa que a grade — a seção mora no recuo da folha, '
-    + 'não num bloco com recuo próprio',
-    rodape && JSON.stringify([rodape.faixa, rodape.grade]));
-  checar(rodape && rodape.foraDoRodape,
-    'e ela NÃO mora mais no rodapé de Configurações (v1.12.49): a versão e o pedir ajuda são da '
-    + 'seção da Verificação, e só dela',
-    rodape && JSON.stringify(rodape.foraDoRodape));
+  checar(rodape && rodape.noCabecalho && rodape.pintam.length === 0,
+    'a versão e o pedir ajuda moram no CABEÇALHO de Configurações e nenhum dos dois PINTA fundo — a '
+    + 'versão é só as letras, e o balão não é uma segunda caixa ao lado do ✕',
+    rodape && JSON.stringify(rodape.pintam));
+  checar(rodape && rodape.versaoDentro && !rodape.salvarNaFaixa && rodape.salvarNaVerificacao && !rodape.faixaVelha,
+    'o número mora no botão de versão, a faixa velha não existe mais, e o salvar do Registro só na '
+    + 'Verificação (v1.12.29: "agora vamos usar expressamente o método via verificador")',
+    rodape && JSON.stringify(rodape));
   checar(rodape && !rodape.copiar,
     'o botão de COPIAR o Registro não existe mais — a área de transferência é o '
     + 'caminho que corta o texto no meio sem avisar, e o Registro só cresce');
