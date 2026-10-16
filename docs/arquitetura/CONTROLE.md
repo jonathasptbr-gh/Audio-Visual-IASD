@@ -1251,21 +1251,40 @@ seções no corpo, como também cuidar a animação da própria janela"*.
 **Tela, Transferir, Editar mídia, Histórico e Verificação são SEÇÕES de
 `#fadePopup`**, e não folhas: cada uma é uma `<section class="cfg-sec">`
 (`#telaSecao`, `#pacoteSecao`, `#edicaoSecao`, `#histSecao`, `#testeSecao`)
-dentro de `#cfgSecoes`, no fim da `.fade-opts` — depois da `.qs-grade`, antes do
-`.popup-footer` da versão. Os ids de dentro (tiles, listas, botões) são os de
-quando eram folhas.
+dentro de `#cfgSecoes`, no fim da `.fade-opts` — depois da `.qs-grade`, e são o
+fim da folha: desde a v1.12.49 a versão e o pedir ajuda moram DENTRO da
+Verificação, e o `.popup-footer` só existe com a atualização adiada (`#otaRow`) ou
+no navegador (`#openDisplayBtn`) — vazio, ele some
+(`.popup-footer:not(:has(> :not([hidden])))`). Os ids de dentro (tiles, listas,
+botões) são os de quando eram folhas.
 
 | peça | onde | regra |
 |---|---|---|
 | a tabela | `SECOES` (bloco do topo do `controle.js`) | tile, nó, `abrir`, `recolher` de cada seção. Seção nova = uma linha + uma `<section class="cfg-sec">` |
 | a troca | `trocarSecao(nome)` | UMA aberta por vez: o tile abre a dele, outro tile TROCA, o mesmo tile RECOLHE. `abrirSecao(nome)` abre Configurações antes se preciso; `recolherSecao()` |
-| a animação | `trocarSecao` · `animarAlturaDasSecoes` | WAAPI na `height` de `#cfgSecoes` (`--dur-lenta`); a folha tem a altura do conteúdo (teto 80%) e cresce JUNTO. Na troca a seção que sai é `.saindo` (absoluta, sem toque) e as duas se cruzam por opacidade. Mudanças de DENTRO (a Verificação terminando, o editor trocando de vista) passam por `animarAlturaDasSecoes`. Sem movimento: sem animação, mesmo estado final |
+| a animação | `trocarSecao` · `animarAlturaDasSecoes` | WAAPI na `height` de `#cfgSecoes` (`--dur-lenta`); a folha tem a altura do conteúdo e cresce JUNTO. O TETO é `calc(100% - 3.5rem)` desde a v1.12.49 (`#fadePopup .popup-sheet`, era 80%): *"permita essa janela … ficar maior em altura"* — a lista de uma seção usa quase a tela, e o scrim fica à vista embaixo. Na troca a seção que sai é `.saindo` (absoluta, sem toque) e as duas se cruzam por opacidade. Mudanças de DENTRO (a Verificação terminando, o editor trocando de vista) passam por `animarAlturaDasSecoes`. Sem movimento: sem animação, mesmo estado final |
 | a rolagem | `rolarAteSecao` | depois de abrir (e quando a seção CRESCE), a folha rola o mínimo para a seção caber, nunca além do topo dela |
 | o fechar | `.cfg-sec-recolher` | NENHUMA seção tem ✕ — o único é o de Configurações. O cabeçalho (`.cfg-sec-cab`: o desenho e o título do tile) tem um chevron para cima SEM CAIXA (`--muted`, fundo transparente, `--hit` × `--hit`) |
 | a Verificação | `#testeCancelar` | enquanto anda, o chevron, o Refazer e o Registro somem e a faixa mostra o CANCELAR (✕ + "Cancelar", `--danger-strong` sobre `--btn-danger`), que recolhe a seção. Recolher CANCELA a rodada (`aoRecolherTeste`) |
 | o aberto | `aria-expanded` no tile | **ABERTO não é cor**: o tile não muda; quem diz é o corpo à vista e o cabeçalho com o desenho dele |
-| a faixa de fecho | `.cfg-sec > .popup-fecho`, `.cfg-sec > #histClearFaixa` | GRUDA na base da folha (`sticky`, `bottom: calc(-1 * var(--veu-base))`, fundo `--panel`, `z-index: 6` acima da tira de sombra, respiro `--sp-5` em padding) — a regra da v1.8.60, *"o botão de salvar … fixo na base"*, sobrevivendo à mudança de casa |
+| a faixa de fecho | `.cfg-sec > .popup-fecho`, `.cfg-sec > #histClearFaixa` | GRUDA na base da folha (`sticky`, fundo `--panel`, `z-index: 6` acima da tira de sombra) — a regra da v1.8.60, *"o botão de salvar … fixo na base"*, sobrevivendo à mudança de casa. Desde a v1.12.49: DE BORDA A BORDA (margens negativas de `--veu-esq`/`--veu-dir`, o recuo de volta em `padding`), respiro `--sp-6` acima e `--cfg-base` (`.9rem`) abaixo, e a SOMBRA de "há mais abaixo" é dela (`::before` na borda de cima, só com a `.fade-opts.tem-abaixo`) |
+| a base da folha | `.fade-opts` (`padding-bottom: 0`) · `.cfg-secoes` (`margin-bottom: --cfg-base`) | a regra da v1.8.63 (*margem do último item, nunca padding do scroller*): com uma seção de faixa aberta a margem é zero e a base é o `padding` da faixa, então ela fica no MESMO lugar grudada e no fim da rolagem |
 | as listas | `.cfg-sec .popup-list` | NÃO rolam sozinhas (sem `rola`): quem rola é a `.fade-opts`. Um scroller dentro de outro faz o mesmo gesto mover coisas diferentes |
+
+**Os três defeitos que a v1.12.49 fechou** (*"vi bugs visuais na área do histórico …
+a sombra de fronteiras de lista e o espaçamento da base antes dos botões do
+rodapé"*), MEDIDOS a 360 e 430 px, 1× e 1,5×, nos dois temas, e travados no bloco H
+do `configuracoes-janelas`:
+
+1. **A tira nas calhas.** A faixa tinha a largura do CONTENT box, e a tira de baixo
+   do scroller (`.rola::after`, de borda a borda) aparecia nos 14,4 px de cada lado
+   dela — uma sombra colada à borda da folha, ao lado de um botão opaco.
+2. **O corte sem aviso.** Grudada, a faixa cobria a tira inteira no miolo, e a
+   lista sumia atrás dela sem sombra nenhuma; a sombra passou a ser da faixa.
+3. **O pulo da base.** O `padding-bottom` de 16 px da `.fade-opts` entrava DEBAIXO
+   da faixa no fim da rolagem: grudada, 16 px sob o botão; no fim, 32 px — e mais
+   o rodapé da versão embaixo. Era também a armadilha da v1.8.63 (a tira recortada
+   nos últimos 16 px de rolagem).
 
 - **Fechar Configurações recolhe a seção** (`closeFadePopup`, sem animar) — e
   fechar no meio da Verificação a CANCELA, como fechar a folha dela fazia.
@@ -7706,6 +7725,15 @@ com as contas refeitas (`testeContar`) e `completa`/`emCompleta` marcados. O
 botão fica APAGADO até a leve terminar e, enquanto a completa anda, vira
 *"Cancelar"* (`.teste-cancelar`, o par do `.teste-resumo--ruim`). Reabrir a
 folha roda a leve de novo, e o resultado novo não traz a linha do download.
+
+**O ESTADO ACIMA DA BARRA, E A VERSÃO DENTRO** (v1.12.49). Pedido do operador:
+*"Coloque o texto 'verificando...' E 'tudo certo' acima da barra de progresso …
+estão muito amontoados verticalmente"* e *"os botões de versão e pedir ajuda,
+dentro apenas da seção de verificação, pois é ali que eles são usados"*. A ordem
+é: cabeçalho · `#testeResumo` (guarda a linha mesmo vazio, `min-height`) · barra ·
+problemas · `.versao-faixa` (`#versaoBtn` com o `#appVersion`, `#contatoBtn`) · a
+faixa de fecho. O ritmo é `--sp-6` dentro do bloco (cabeçalho→estado→barra) e
+`2 × --sp-6` entre blocos (barra→problemas→versão).
 
 **A LISTA EXISTE DESDE O COMEÇO** (v1.12.28): `montarListaDoTeste` desenha as
 linhas da tabela mais a do download ao abrir; durante a leve cada resposta

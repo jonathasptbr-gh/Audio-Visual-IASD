@@ -3005,7 +3005,7 @@ resposta mora só lá:** a tela mostra um número, e é o da base web.
 | Onde | O quê | Para quê |
 |---|---|---|
 | `assets/web/version.json` | `"version"` | **faz a atualização chegar aos aparelhos**: o OTA compara este campo (`compareVersions`) e ignora, em silêncio, um bundle cuja versão não seja maior que a instalada |
-| `controle/controle.js` | `WEB_VERSION` | **é o que a UI mostra**: `renderVersionLabel()` escreve a ÚNICA casa que sobrou, o rodapé de Configurações (a badge do cabeçalho do Cronograma saiu na v1.8.66, para o botão de limpar a lista, e a do Modo Fácil na v1.11.15, para o nome do app) |
+| `controle/controle.js` | `WEB_VERSION` | **é o que a UI mostra**: `renderVersionLabel()` escreve a ÚNICA casa que sobrou, o botão de versão (`#versaoBtn`) da seção da Verificação de Configurações — era o rodapé da folha até a v1.12.49 (a badge do cabeçalho do Cronograma saiu na v1.8.66, para o botão de limpar a lista, e a do Modo Fácil na v1.11.15, para o nome do app) |
 | `controle/index.html` | `<span id="appVersion">` | o que aparece antes do primeiro render — e a única versão visível num shell sem `appVersion()` |
 
 Esquecer o `WEB_VERSION` é o erro **silencioso** (o bundle novo chega e o
@@ -3013,12 +3013,17 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.12.48 · APK v1.12.46** · `SHELL_VERSION` **82** ·
+**Versão atual: base web v1.12.49 · APK v1.12.46** · `SHELL_VERSION` **82** ·
 bundle com `minShell: 82` e **sem `shellTag`** — o shell 82 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. **Este lote é só web**
-(a Release v1.12.46 já está publicada). **A v1.12.48 TRAZ AS JANELAS DE CONFIGURAÇÕES PARA DENTRO DELA**: Tela,
+(a Release v1.12.46 já está publicada). **A v1.12.49 ARRUMA A BASE DE CONFIGURAÇÕES**: a faixa de fecho de
+uma seção vai de borda a borda e carrega a sombra de "há mais abaixo" (a tira do scroller aparecia nas calhas
+ao lado dela), a base é margem da caixa das seções e não `padding` do scroller (a faixa pulava 16px no fim da
+rolagem), a folha sobe até `calc(100% - 3.5rem)`, e na Verificação o estado vem ACIMA da barra, com ritmo
+`--sp-6`/`2 × --sp-6`, e a versão e o pedir ajuda moram DENTRO dela (`.versao-faixa`; o rodapé da folha só
+existe com a atualização adiada) — ver o capítulo do Controle, "As seções de Configurações". **A v1.12.48 TRAZ AS JANELAS DE CONFIGURAÇÕES PARA DENTRO DELA**: Tela,
 Transferir, Editar mídia, Histórico e Verificação deixam de ser folhas de baixo e viram SEÇÕES de `#fadePopup`
-(`#cfgSecoes`, entre a grade e o rodapé da versão), uma por vez, com a altura animada (`trocarSecao`,
+(`#cfgSecoes`, depois da grade), uma por vez, com a altura animada (`trocarSecao`,
 `animarAlturaDasSecoes`), recolhidas por um chevron sem caixa (o único ✕ é o da folha), a faixa de fecho grudada na
 base (`sticky`) e, na Verificação em curso, um CANCELAR vermelho — ver o capítulo do Controle, "As seções de
 Configurações". **A v1.12.47 TROCA O ANEL DA VERIFICAÇÃO POR UMA BARRA LINEAR GROSSA**

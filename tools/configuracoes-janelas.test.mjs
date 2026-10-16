@@ -23,6 +23,11 @@
 //  5. **A LISTAGEM DO IMPORTAR e O TRABALHO SEM SINAL** (os blocos D a G): a
 //     lista do Transferir já está à vista quando a seção abre, e com ela
 //     recolhida o tile da grade é o sinal do trabalho (`pacoteSinal()`).
+//  6. **A BASE DA FOLHA** (o bloco H, v1.12.49): a faixa de fecho de borda a
+//     borda (a tira do scroller aparecia nas calhas ao lado dela), sem pular no
+//     fim da rolagem, com a sombra de "há mais abaixo" na borda dela; o estado da
+//     Verificação acima da barra e o ritmo vertical; a versão e o pedir ajuda
+//     dentro da Verificação; e o teto da folha acima dos 80%.
 //
 // E o invariante 6 do shell, que o movimento do Wallpaper pode quebrar: ele
 // continua sendo um `<label>` com o `<input type=file>` DENTRO — é a ativação
@@ -33,7 +38,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, esperar, esperarDb, esperarCortina, porque, checar, falhas } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, esperar, esperarDb, esperarCortina, porque, checar, falhas, lerPng, pixel } from './arnes.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const RAIZ = path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web');
@@ -284,8 +289,9 @@ try {
   checar(casas.naGrade.length === 0,
     'A · e NENHUM dos seis sobrou na grade', JSON.stringify(casas.naGrade));
   checar(casas.lugar.every(([, ok]) => ok) && casas.folhasVelhas.length === 0,
-    'A · as CINCO seções moram DENTRO de Configurações, depois da grade e antes do '
-    + 'rodapé da versão — e as cinco folhas de baixo de antes não existem mais',
+    'A · as CINCO seções moram DENTRO de Configurações, depois da grade (e antes do '
+    + 'rodapé, que desde a v1.12.49 só existe com a atualização adiada ou no navegador) — '
+    + 'e as cinco folhas de baixo de antes não existem mais',
     JSON.stringify(casas));
   await app.ctx.close();
 
@@ -878,6 +884,161 @@ try {
     'G · e o tile da GRADE não perde o número: a seção e a grade dizem a MESMA coisa',
     JSON.stringify(medindo));
   await repouso.ctx.close();
+
+
+  // =========================================================================
+  // H · A BASE DA FOLHA, A VERIFICAÇÃO E O TETO (v1.12.49)
+  // =========================================================================
+  //
+  // Pedido do operador: *"Coloque o texto 'verificando...' E 'tudo certo' acima da
+  // barra"*, *"muito amontoados verticalmente"*, *"os botões de versão e pedir
+  // ajuda, dentro apenas da seção de verificação"*, *"vi bugs visuais na área do
+  // histórico … a sombra de fronteiras de lista e o espaçamento da base antes dos
+  // botões do rodapé"* e *"permita essa janela de configurações ficar maior em
+  // altura"*. A CÉLULA É 360×740: é a que o operador usa, e o Histórico de trinta
+  // linhas transborda nela com folga.
+  const h = await aparelho({}, null, { width: 360, height: 740 });
+  await abrirConfiguracoes(h.pg);
+  const sonda = (pg, expr) => pg.evaluate((e) => {
+    const d = document.createElement('div');
+    d.style.cssText = 'position:absolute;visibility:hidden;height:' + e;
+    document.body.appendChild(d);
+    const v = d.getBoundingClientRect().height; d.remove(); return v;
+  }, expr);
+  const sp6 = await sonda(h.pg, 'var(--sp-6)');
+  const baseFolha = await sonda(h.pg, '.9rem');
+
+  // ---- H1 · A VERSÃO E O PEDIR AJUDA SÃO DA VERIFICAÇÃO, E O RODAPÉ SOME ----
+  const casa = await h.pg.evaluate(() => {
+    const ft = document.querySelector('#fadePopup .popup-footer');
+    return {
+      versao: !!document.querySelector('#testeSecao #versaoBtn'),
+      ajuda: !!document.querySelector('#testeSecao #contatoBtn'),
+      appVersion: !!document.querySelector('#testeSecao #versaoBtn #appVersion'),
+      noRodape: !!ft.querySelector('#versaoBtn, #contatoBtn, #appVersion'),
+      rodape: getComputedStyle(ft).display,
+      // A ATUALIZAÇÃO ADIADA FICA NO RODAPÉ, e com ela à vista ele volta a existir.
+      comOta: (() => {
+        const o = document.getElementById('otaRow'); o.hidden = false;
+        const d = getComputedStyle(ft).display; o.hidden = true; return d;
+      })(),
+    };
+  });
+  checar(casa.versao && casa.ajuda && casa.appVersion && !casa.noRodape,
+    'H1 · a versão (com o `#appVersion` dentro) e o pedir ajuda moram na seção da Verificação, '
+    + 'e NÃO no rodapé de Configurações', JSON.stringify(casa));
+  checar(casa.rodape === 'none',
+    'H1 · e sem atualização adiada o rodapé da folha NÃO EXISTE — as seções são o fim dela',
+    JSON.stringify(casa));
+  checar(casa.comOta !== 'none',
+    'H1 · mas com a atualização adiada à vista o rodapé APARECE — quem adiou a encontra sem abrir seção',
+    JSON.stringify(casa));
+
+  // ---- H2 · O ESTADO ACIMA DA BARRA, E O RITMO VERTICAL ----
+  // O resultado é ESCRITO, e não rodado: o que se mede é o desenho de um fim com
+  // problemas, e a rodada de verdade é do `verificacao-do-sistema`.
+  await abrirJanela(h.pg, '#testeTile', 'testeSecao');
+  const ritmo = await h.pg.evaluate(async () => {
+    cancelarVerificacao();
+    testeRodando = false; testeEmCurso = null;
+    testeResultado = { em: Date.now(), itens: [
+      { id: 'internet', area: 'Rede', titulo: 'Há internet agora', v: TESTE_FALHOU, nota: 'sem saída' },
+      { id: 'cores', area: 'Tela', titulo: 'As cores', v: TESTE_MUDO, nota: 'não respondeu' },
+    ] };
+    desenharTesteJa();
+    await new Promise((f) => setTimeout(f, 50));
+    const R = (sel) => document.querySelector(sel).getBoundingClientRect();
+    const cab = R('#testeSecao .cfg-sec-cab'), res = R('#testeResumo'), bar = R('#testeAnel');
+    const erros = [...document.querySelectorAll('#testeList > li')].map((n) => n.getBoundingClientRect());
+    const ver = R('#testeSecao .versao-faixa');
+    const ordem = document.getElementById('testeResumo')
+      .compareDocumentPosition(document.getElementById('testeAnel')) & Node.DOCUMENT_POSITION_FOLLOWING;
+    return {
+      texto: document.getElementById('testeResumo').textContent, n: erros.length, ordem: !!ordem,
+      cabResumo: +(res.top - cab.bottom).toFixed(2), resumoBarra: +(bar.top - res.bottom).toFixed(2),
+      barraErros: erros.length ? +(erros[0].top - bar.bottom).toFixed(2) : null,
+      entreErros: erros.length > 1 ? +(erros[1].top - erros[0].bottom).toFixed(2) : null,
+      errosVersao: erros.length ? +(ver.top - erros[erros.length - 1].bottom).toFixed(2) : null,
+    };
+  });
+  checar(ritmo.ordem && ritmo.texto && ritmo.resumoBarra >= 0 && ritmo.n === 2,
+    'H2 · o estado ("' + ritmo.texto + '") vem ACIMA da barra, no documento e na tela',
+    JSON.stringify(ritmo));
+  checar(ritmo.cabResumo >= sp6 - 0.5 && ritmo.resumoBarra >= sp6 - 0.5,
+    'H2 · e há `--sp-6` (' + sp6.toFixed(2) + 'px) do cabeçalho ao estado e do estado à barra — '
+    + 'eram 4 e 8px, *"muito amontoados"*', JSON.stringify(ritmo));
+  checar(ritmo.barraErros >= 2 * sp6 - 0.5 && ritmo.errosVersao >= 2 * sp6 - 0.5
+    && ritmo.entreErros >= sp6 / 2,
+    'H2 · e o DOBRO entre blocos de assunto diferente: da barra aos problemas e dos problemas à '
+    + 'versão', JSON.stringify(ritmo));
+
+  // ---- H3 · A FAIXA DE FECHO: DE BORDA A BORDA, SEM PULO, SEM COBRIR A LISTA ----
+  await h.pg.evaluate(() => {
+    historico = [{ inicio: Date.now() - 7200000, itens: Array.from({ length: 30 },
+      (_, i) => ({ id: 'h' + i, nome: 'Louvor ' + i, sub: '', hora: Date.now() - i * 60000, vezes: 1, rec: null })) }];
+  });
+  await abrirJanela(h.pg, '#histOpenRow', 'histSecao');
+  const medirFaixa = () => h.pg.evaluate(async () => {
+    const sc = document.querySelector('#fadePopup .fade-opts');
+    const f = document.getElementById('histClearFaixa');
+    const btn = document.getElementById('histClear');
+    const l = document.getElementById('histList');
+    const r = sc.getBoundingClientRect(), fr = f.getBoundingClientRect(), br = btn.getBoundingClientRect();
+    return {
+      scEsq: r.left, scDir: r.left + sc.clientWidth, scBase: r.bottom,
+      fEsq: fr.left, fDir: fr.right, fTopo: fr.top, fBase: fr.bottom,
+      sobBotao: +(r.bottom - br.bottom).toFixed(2), listaFim: l.getBoundingClientRect().bottom,
+      // A tira EXISTE quando o pseudo tem conteúdo E está à vista — `display` sozinho
+      // diz `block` para um pseudo sem `content`, que não pinta nada.
+      sombra: /^(none|normal)$/.test(getComputedStyle(f, '::before').content) ? 'sem conteúdo'
+        : getComputedStyle(f, '::before').display, abaixo: sc.classList.contains('tem-abaixo'),
+      folha: document.querySelector('#fadePopup .popup-sheet').getBoundingClientRect().height,
+      vh: innerHeight,
+    };
+  });
+  // NO MEIO: o topo da lista à vista, e a faixa grudada.
+  await h.pg.evaluate(() => {
+    const sc = document.querySelector('#fadePopup .fade-opts');
+    const l = document.getElementById('histList');
+    sc.scrollTop += l.getBoundingClientRect().top - sc.getBoundingClientRect().top;
+  });
+  await h.pg.waitForTimeout(150);
+  const meio = await medirFaixa();
+  // O PIXEL DA CALHA: ao lado da faixa, rente à borda da folha. Com a faixa do
+  // tamanho do content box, a tira de baixo do scroller aparecia ali (MEDIDO: 187
+  // contra 255 no tema claro); de borda a borda, a calha é o fundo da faixa.
+  const png = lerPng(await h.pg.screenshot());
+  const yCalha = Math.round(meio.scBase - 4);
+  const calha = pixel(png, Math.round(meio.scEsq + 3), yCalha);
+  const miolo = pixel(png, Math.round((meio.scEsq + meio.scDir) / 2), yCalha);
+  // NO FIM.
+  await h.pg.evaluate(() => { document.querySelector('#fadePopup .fade-opts').scrollTop = 99999; });
+  await h.pg.waitForTimeout(150);
+  const hFim = await medirFaixa();
+  checar(meio.abaixo && Math.abs(meio.fBase - meio.scBase) <= 0.5,
+    'H3 · PREMISSA: no meio a folha tem o que rolar e a faixa está GRUDADA na base', JSON.stringify(meio));
+  checar(Math.abs(meio.fEsq - meio.scEsq) <= 0.5 && Math.abs(meio.fDir - meio.scDir) <= 0.5,
+    'H3 · a faixa vai de BORDA A BORDA da folha (o padding box do scroller), e não só o recuo',
+    JSON.stringify(meio));
+  checar(calha && miolo && calha.join() === miolo.join(),
+    'H3 · e a tira de baixo do scroller NÃO aparece na calha ao lado da faixa — o pixel rente à '
+    + 'borda é o fundo da faixa', JSON.stringify({ calha, miolo }));
+  checar(meio.sombra === 'block' && hFim.sombra === 'none',
+    'H3 · a sombra de "há mais abaixo" mora na borda de CIMA da faixa grudada, e some no fim',
+    JSON.stringify([meio.sombra, hFim.sombra]));
+  checar(Math.abs(meio.sobBotao - hFim.sobBotao) <= 0.5 && Math.abs(hFim.sobBotao - baseFolha) <= 0.5,
+    'H3 · e o botão fica à MESMA distância da base (`.9rem`, ' + baseFolha.toFixed(2) + 'px) grudado e no '
+    + 'fim — o `padding` do scroller entrava debaixo da faixa no último gesto e a fazia pular 16px',
+    JSON.stringify({ meio: meio.sobBotao, fim: hFim.sobBotao }));
+  checar(!hFim.abaixo && hFim.listaFim <= hFim.fTopo + 0.5,
+    'H3 · no fim a última linha da lista fica INTEIRA acima da faixa — nada escondido atrás dela',
+    JSON.stringify(hFim));
+
+  // ---- H4 · A FOLHA PASSA DOS 80% QUANDO O CONTEÚDO PEDE ----
+  checar(hFim.folha > 0.8 * hFim.vh + 1 && hFim.folha < hFim.vh - 40,
+    'H4 · com o Histórico longo a folha passa dos 80% (' + (hFim.folha / hFim.vh * 100).toFixed(1)
+    + '%) — e ainda deixa scrim à vista embaixo, onde o toque a fecha', JSON.stringify(hFim));
+  await h.ctx.close();
 
   checar(erros.length === 0, 'nenhum erro de console', erros.join(' | '));
 } finally {

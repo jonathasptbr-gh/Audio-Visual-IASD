@@ -571,7 +571,7 @@ try {
       JSON.stringify(alinhamento.rotulos));
   }
 
-  // ---- O RODAPÉ É UMA BARRA SÓ, E O COPIAR SAIU (v1.4.44) ----
+  // ---- A FAIXA DA VERSÃO É UMA BARRA SÓ, E O COPIAR SAIU (v1.4.44) ----
   //
   // Pedido do operador: *"ficou duas seções, a versão e o registro em grupos
   // separados. pode deixar tudo em uma barra horizontal única"* e *"pode
@@ -584,13 +584,20 @@ try {
   // via eram duas caixas. Um teste de "mesmo tom" aprova as duas versões; o que
   // as separa é haver UM fundo ou DOIS. Medida na cor RENDERIZADA, porque uma
   // regra de fundo que não pegasse passaria num teste de classe.
+  // DESDE A v1.12.49 A FAIXA MORA NA SEÇÃO DA VERIFICAÇÃO (*"dentro apenas da seção de
+  // verificação, pois é ali que eles são usados"*). A seção é DESCOBERTA só para medir
+  // (`hidden` desligado e religado), sem abri-la: abrir rodaria a verificação, e este
+  // oráculo mede o desenho, não a rodada.
   const rodape = await pg.evaluate(() => {
-    const faixa = document.querySelector('.footer-diag');
+    const faixa = document.querySelector('#testeSecao .versao-faixa');
     if (!faixa) return null;
+    const secao = document.getElementById('testeSecao');
+    const estava = secao.hidden;
+    secao.hidden = false;
     const opaco = (el) => !/,\s*0\)$/.test(getComputedStyle(el).backgroundColor);
     const cx = (el) => { const r = el.getBoundingClientRect(); return { l: Math.round(r.left), r: Math.round(r.right) }; };
     const grade = document.querySelector('.qs-grade');
-    return {
+    const r = {
       faixaPinta: opaco(faixa),
       filhosQuePintam: [...faixa.querySelectorAll('*')].filter(opaco).map((e) => e.id || e.className),
       // A AÇÃO PRIMÁRIA é contada à parte (v1.8.51) — ver a asserção abaixo.
@@ -603,9 +610,12 @@ try {
       // O REGISTRO SAIU DAQUI (v1.12.29): a porta dele é só a Verificação.
       salvarNaFaixa: !!document.getElementById('diagSave'),
       salvarNaVerificacao: !!document.querySelector('#testeSecao #testeSalvar'),
-      // A faixa mede a mesma coisa que a grade — ela é a última linha da folha.
+      // A faixa mede a mesma coisa que a grade — a seção mora no mesmo recuo.
       faixa: cx(faixa), grade: grade ? cx(grade) : null,
+      foraDoRodape: !faixa.closest('.popup-footer') && !document.querySelector('#fadePopup .popup-footer #versaoBtn, #fadePopup .popup-footer #contatoBtn'),
     };
+    secao.hidden = estava;
+    return r;
   });
   // ===== A REGRA SE INVERTEU (v1.8.65, revogando a v1.4.44 e a v1.8.51) =====
   //
@@ -651,9 +661,13 @@ try {
     + 'verificador") — a porta dele é a da folha da Verificação',
     rodape && JSON.stringify({ naFaixa: rodape.salvarNaFaixa, naVerificacao: rodape.salvarNaVerificacao }));
   checar(rodape && rodape.faixa.l === rodape.grade.l && rodape.faixa.r === rodape.grade.r,
-    'e ela mede a mesma coisa que a grade — o rodapé é a última linha da folha, '
-    + 'não um bloco com recuo próprio',
+    'e ela mede a mesma coisa que a grade — a seção mora no recuo da folha, '
+    + 'não num bloco com recuo próprio',
     rodape && JSON.stringify([rodape.faixa, rodape.grade]));
+  checar(rodape && rodape.foraDoRodape,
+    'e ela NÃO mora mais no rodapé de Configurações (v1.12.49): a versão e o pedir ajuda são da '
+    + 'seção da Verificação, e só dela',
+    rodape && JSON.stringify(rodape.foraDoRodape));
   checar(rodape && !rodape.copiar,
     'o botão de COPIAR o Registro não existe mais — a área de transferência é o '
     + 'caminho que corta o texto no meio sem avisar, e o Registro só cresce');

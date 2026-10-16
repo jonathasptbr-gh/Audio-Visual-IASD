@@ -393,14 +393,15 @@ const toolsCloseEl = document.getElementById('toolsClose');
 const listTitleEl = document.getElementById('listTitle');
 const appVersionEl = document.getElementById('appVersion');
 // AS DUAS BADGES DE VERSÃO (v1.7.0) — uma por modo, e as duas escritas pelo
-// MESMO `renderVersionLabel` que escreve o rodapé de Configurações. Elas nascem
+// MESMO `renderVersionLabel` que escreve o botão de versão. Elas nascem
 // AQUI, ao lado do `appVersionEl`, porque aquela função roda na CARGA do módulo:
 // declaradas junto do resto do cromo, centenas de linhas abaixo, seriam zona
 // morta temporal — o `ReferenceError` aborta o `controle.js` inteiro e o
 // watchdog do OTA descarta o bundle sem nada na tela dizer por quê.
 // (AS BADGES SAÍRAM: a do cabeçalho do Cronograma na v1.8.66 (deu lugar ao botão de LIMPAR) e a
 //  do Modo Fácil na v1.11.15 (a pedido do operador, que pôs o NOME do app no topo dessa tela).
-//  O número mora no rodapé de Configurações, escrito pelo `renderVersionLabel`.)
+//  O número mora no botão de versão da seção da Verificação de Configurações — era o rodapé da
+//  folha até a v1.12.49 —, escrito pelo `renderVersionLabel`.)
 // O botão que ficou no lugar dela é declarado AQUI pela razão do bloco acima:
 // `renderCronoLimpar` o lê milhares de linhas antes de onde o cromo é ligado, e
 // um `const` lido antes da própria declaração é `ReferenceError` — que aborta o
@@ -413,7 +414,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.48';
+const WEB_VERSION = '1.12.49';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -458,11 +459,11 @@ const APK_ENTREGUE_MS = 10 * 60 * 1000;
 // pergunta de voltar na abertura seguinte, que é o comportamento pedido.
 const otaAdiadas = new Set();
 
-// ===== UM NÚMERO SÓ, UM ESCRITOR (v1.7.0; hoje só o rodapé de Configurações) =====
+// ===== UM NÚMERO SÓ, UM ESCRITOR (v1.7.0; hoje só o botão de versão da Verificação) =====
 //
 // Escrita UMA vez, na carga, e ela é o ESCRITOR ÚNICO do número da versão — que já esteve em
 // três superfícies (as badges do Modo Fácil e do avançado, e o rodapé de Configurações) e hoje
-// mora só no rodapé. Dois escritores seriam duas chances de o app afirmar duas versões
+// mora só no botão de versão, dentro da seção da Verificação (v1.12.49). Dois escritores seriam duas chances de o app afirmar duas versões
 // diferentes na mesma sessão.
 //
 // O ÍNDICE DO SHELL SAIU DA TELA, a pedido do operador: *"remova da ui a
@@ -522,8 +523,9 @@ renderVersionLabel();
 // ===== O BOTÃO DE ATUALIZAÇÃO, no rodapé de Configurações =====
 //
 // Ele é o caminho de volta para quem RECUSOU a pergunta de propósito — e só
-// existe nesse caso (ver `otaRowDisponivel`). Mora onde a pergunta "que versão
-// eu tenho?" já era respondida.
+// existe nesse caso (ver `otaRowDisponivel`). Ele FICA no rodapé da folha quando
+// a versão desce para a Verificação (v1.12.49): é trabalho pendente, e quem adiou
+// o encontra ao abrir Configurações, sem abrir seção nenhuma.
 //
 // A HORA RUIM DESABILITA, com o motivo escrito, e são DUAS réguas: instalar o
 // APK derruba o app inteiro (e o servidor das telas junto), então vale o
@@ -31748,9 +31750,9 @@ if (versaoBtnEl) {
 
 // ===== FALAR COM QUEM MANTÉM O APP (v1.8.49) =====
 //
-// Pedido do operador: um atalho direto para a conversa, no rodapé onde a versão
-// e o Registro já moram. As três respostas juntas são o pedido de ajuda inteiro
-// — o número, o arquivo e a porta.
+// Pedido do operador: um atalho direto para a conversa, ao lado da versão e do
+// Registro — desde a v1.12.49 os três moram na seção da Verificação. As três
+// respostas juntas são o pedido de ajuda inteiro — o número, o arquivo e a porta.
 //
 // `wa.me` E NÃO UM `intent://`. O primeiro é uma URL `https://` comum: o Android
 // a entrega ao WhatsApp quando ele está instalado (link de app verificado) e ao
@@ -39304,11 +39306,12 @@ async function histLimpar(inicio) {
 //
 // Pedido do operador: *"ao invés das opções de configurações abrirem em uma nova
 // janela na base da tela, faça com que seus conteúdos abram dentro da janela
-// original das configurações"*. Uma seção aberta por vez, entre a grade e o
-// rodapé: o tile abre a dele, outro tile TROCA, o mesmo tile RECOLHE.
+// original das configurações"*. Uma seção aberta por vez, depois da grade: o
+// tile abre a dele, outro tile TROCA, o mesmo tile RECOLHE.
 //
 // A ALTURA DA CAIXA ANIMA, e a folha vai junto: Configurações tem a altura do
-// conteúdo até o teto de 80%, então quem a faz crescer e encolher é esta caixa.
+// conteúdo até o teto dela (quase a tela inteira desde a v1.12.49), então quem a
+// faz crescer e encolher é esta caixa.
 // Na troca, a seção que sai fica ABSOLUTA por cima (`.saindo`) e as duas se
 // cruzam por opacidade; abrir e recolher são a mesma conta com uma das pontas
 // vazia. Sem movimento (`prefers-reduced-motion`) ou com a folha fechada, nada
@@ -39409,7 +39412,10 @@ function rolarAteSecao(el, suave) {
   const r = el.getBoundingClientRect();
   const s = sc.getBoundingClientRect();
   const topo = sc.scrollTop + (r.top - s.top);
-  const base = sc.scrollTop + (r.bottom - s.bottom) + parseFloat(getComputedStyle(sc).paddingBottom || '0');
+  // A BASE DA FOLHA é a margem da caixa das seções (v1.12.49, `--cfg-base`), não o
+  // `padding` do scroller — somam-se as duas para a conta não depender de qual é.
+  const base = sc.scrollTop + (r.bottom - s.bottom) + parseFloat(getComputedStyle(sc).paddingBottom || '0')
+    + parseFloat(getComputedStyle(cfgSecoesEl).marginBottom || '0');
   const alvo = Math.min(topo, Math.max(sc.scrollTop, base));
   if (alvo <= sc.scrollTop + 1) return;
   try { sc.scrollTo({ top: alvo, behavior: suave && !semMovimento() ? 'smooth' : 'auto' }); }
