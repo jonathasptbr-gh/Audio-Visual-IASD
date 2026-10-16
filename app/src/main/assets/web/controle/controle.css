@@ -8233,6 +8233,8 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   white-space: nowrap; background: var(--surface); color: var(--accent);
 }
 .teste-refazer svg { width: var(--icon-sm); height: var(--icon-sm); flex: none; }
+.song-menu-go-row.compacto > .teste-refazer { width: var(--quad-faixa); padding: 0; }
+.song-menu-go-row.compacto > .teste-refazer > span { display: none; }
 /* O CORPO: a barra, o resumo e, no fim, os cartões dos problemas. */
 .teste-corpo {
   display: flex; flex-direction: column;
