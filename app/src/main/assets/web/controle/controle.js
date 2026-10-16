@@ -346,8 +346,8 @@ const testeListEl = document.getElementById('testeList');
 const testeSalvarEl = document.getElementById('testeSalvar');
 const testeFechoEl = document.getElementById('testeFecho');
 const testeAnelEl = document.getElementById('testeAnel');
-const testeArcoEl = document.getElementById('testeArco');
 const testePctEl = document.getElementById('testePct');
+const testePct2El = document.getElementById('testePct2');
 const testeRefazerEl = document.getElementById('testeRefazer');
 
 const fileEl = document.getElementById('file');
@@ -404,7 +404,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.46';
+const WEB_VERSION = '1.12.47';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -40246,7 +40246,8 @@ function tiqueDoTeste() {
 function desenharAnelDoTeste() {
   const pct = Math.floor(testeMostrado * 100);
   testePctEl.textContent = String(pct);
-  testeArcoEl.style.strokeDashoffset = String(100 - testeMostrado * 100);
+  if (testePct2El) testePct2El.textContent = String(pct);
+  testeAnelEl.style.setProperty('--p', (testeMostrado * 100).toFixed(2) + '%');
   testeAnelEl.setAttribute('aria-valuenow', String(pct));
   testeAnelEl.setAttribute('aria-label', pct + '% verificado');
 }
@@ -40322,8 +40323,33 @@ function testeProblemas(r) {
   return r.itens.filter((x) => x.v in peso).sort((a, b) => peso[a.v] - peso[b.v]);
 }
 
+// A FOLHA TEM A ALTURA DO QUE MOSTRA, e toda mudança dela ANIMA (v1.12.47).
+// Pedido do operador: a altura fixa deixava a janela vazia na maior parte das
+// rodadas. A altura é medida antes e depois do desenho e a diferença corre por
+// WAAPI (`--dur-lenta`); sem movimento com `prefers-reduced-motion`, com a
+// folha fechada, ou quando nada mudou.
+let testeAlturaAnim = null;
+function animarAlturaDoTeste(desenhar) {
+  const folha = testePopupEl && testePopupEl.querySelector('.popup-sheet');
+  const aberta = folha && testePopupEl.classList.contains('open');
+  const h0 = aberta ? folha.getBoundingClientRect().height : 0;
+  if (testeAlturaAnim) { testeAlturaAnim.cancel(); testeAlturaAnim = null; }
+  desenhar();
+  if (!aberta || matchMedia('(prefers-reduced-motion: reduce)').matches || !folha.animate) return;
+  const h1 = folha.getBoundingClientRect().height;
+  if (Math.abs(h1 - h0) < 1 || !h0) return;
+  const v = getComputedStyle(document.documentElement).getPropertyValue('--dur-lenta').trim();
+  const dur = (parseFloat(v) || 0.3) * (/ms$/.test(v) ? 1 : 1000);
+  folha.style.overflow = 'hidden';
+  testeAlturaAnim = folha.animate([{ height: h0 + 'px' }, { height: h1 + 'px' }], { duration: dur, easing: 'ease' });
+  testeAlturaAnim.onfinish = testeAlturaAnim.oncancel = () => { folha.style.overflow = ''; testeAlturaAnim = null; };
+}
+
 function desenharTeste() {
   if (!testeResumoEl || !testeListEl) return;
+  animarAlturaDoTeste(desenharTesteJa);
+}
+function desenharTesteJa() {
   const r = testeResultado;
   const pronto = !testeRodando && !testeEmCurso && !!r;
   const problemas = pronto ? testeProblemas(r) : [];

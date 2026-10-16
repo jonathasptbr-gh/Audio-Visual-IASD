@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.12.47",
+    "itens": [
+      "Verificação: o círculo virou uma barra grossa, com a porcentagem no meio dela.",
+      "Verificação: a janela tem o tamanho do que mostra e cresce ou encolhe com uma animação suave."
+    ]
+  },
+  {
     "versao": "1.12.46",
     "itens": [
       "Verificação: o círculo mostra porcentagem, num ritmo constante que inclui o teste de download.",

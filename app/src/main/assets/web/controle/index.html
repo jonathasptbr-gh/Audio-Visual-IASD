@@ -2048,20 +2048,22 @@
            os problemas (`#testeList`). A verificação é UMA, e inclui o
            download de teste — fechar a folha a cancela (`closeTestePopup`). -->
       <div id="testeCorpo" class="teste-corpo rola">
-        <div id="testeAnel" class="teste-anel" role="progressbar" aria-valuemin="0">
-          <svg class="teste-anel-svg" viewBox="0 0 120 120" aria-hidden="true">
-            <circle class="teste-anel-trilho" cx="60" cy="60" r="52"/>
-            <circle class="teste-anel-arco" id="testeArco" cx="60" cy="60" r="52" pathLength="100"/>
-            <circle class="teste-anel-giro" cx="60" cy="60" r="52" pathLength="100"/>
-          </svg>
-          <div class="teste-anel-fracao"><span id="testePct">0</span><span class="teste-anel-total">%</span></div>
+        <!-- A BARRA (v1.12.47): linear e grossa, com o percentual no centro. O
+             número existe DUAS vezes — o de baixo na cor do trilho, o de cima
+             na cor de quem está sobre o preenchimento, recortado na largura
+             dele (`--p`) —, então cada metade do texto tem o contraste do
+             fundo em que está. -->
+        <div id="testeAnel" class="teste-barra" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+          <div class="teste-barra-fill"></div>
+          <span class="teste-barra-txt"><span id="testePct">0</span>%</span>
+          <span class="teste-barra-txt teste-barra-txt--sobre" aria-hidden="true"><span id="testePct2">0</span>%</span>
         </div>
         <p id="testeResumo" class="teste-resumo" role="status" aria-live="polite"></p>
         <ul id="testeList" class="teste-erros"></ul>
       </div>
-      <!-- A FAIXA SÓ APARECE COM A VERIFICAÇÃO TERMINADA, mas o LUGAR dela é
-           reservado sempre (`.teste-fecho--oculto` é `visibility`), e a folha
-           tem altura fixa: nada nela muda de tamanho entre os estados (v1.12.46).
+      <!-- A FAIXA SÓ APARECE COM A VERIFICAÇÃO TERMINADA (`.teste-fecho--oculto`
+           a tira do layout). A folha tem a altura do que mostra, e cada mudança
+           dela ANIMA (`animarAlturaDoTeste`, v1.12.47).
            "Verificar de novo" refaz a rodada; o Registro é COMPARTILHADO como
            arquivo (`compartilharArquivoTexto`, shell 82) — o MESMO `diagTexto`,
            com o resultado dentro (`blocoAutoteste`) — e sem ponte não existe. -->
@@ -2708,7 +2710,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.12.46</span>
+            <span id="appVersion" class="app-version">v1.12.47</span>
           </button>
             <!-- O REGISTRO SAIU DESTA FAIXA (v1.12.29), a pedido do operador:
                  *"Remova a opção de registro que tem avulsa na base das

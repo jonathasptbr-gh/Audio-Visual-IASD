@@ -803,8 +803,9 @@ try {
     const folha = () => document.querySelector('#testePopup .popup-sheet').getBoundingClientRect().height;
     const fecho = () => document.getElementById('testeFecho');
     const durante = { oculto: fecho().classList.contains('teste-fecho--oculto'),
-      visivel: getComputedStyle(fecho()).visibility === 'visible', svOff: sv.disabled, h: folha() };
+      visivel: getComputedStyle(fecho()).display !== 'none', svOff: sv.disabled, h: folha() };
     while (testeEmCurso || testeRodando || !testeResultado) await new Promise((r) => setTimeout(r, 20));
+    await Promise.all(document.querySelector('#testePopup .popup-sheet').getAnimations().map((a) => a.finished.catch(() => {})));
     window.testeDownloadCompleto = realDl;
     const a = sv.getBoundingClientRect();
     const svg = sv.querySelector('svg').getBoundingClientRect();
@@ -812,7 +813,7 @@ try {
     return {
       durante,
       depois: { svHidden: sv.hidden, oculto: fecho().classList.contains('teste-fecho--oculto'),
-        visivel: getComputedStyle(fecho()).visibility === 'visible', svOff: sv.disabled, h: folha(),
+        visivel: getComputedStyle(fecho()).display !== 'none', svOff: sv.disabled, h: folha(),
         refazer: !!document.getElementById('testeRefazer') && !document.getElementById('testeRefazer').disabled },
       largura: +a.width.toFixed(1),
       svg: +svg.width.toFixed(1),
@@ -827,8 +828,24 @@ try {
   checar(!caixa.depois.svHidden && !caixa.depois.oculto && caixa.depois.visivel && !caixa.depois.svOff
     && caixa.largura > 0 && caixa.depois.refazer,
     'M2 · e aparece quando ela termina, com "Verificar de novo" ao lado', JSON.stringify(caixa));
-  checar(Math.abs(caixa.durante.h - caixa.depois.h) < 0.5,
-    'M2 · a folha tem a MESMA altura durante e depois — nada nela anda', JSON.stringify(caixa));
+  const anima = await pg.evaluate(async () => {
+    const folha = document.querySelector('#testePopup .popup-sheet');
+    await Promise.all(folha.getAnimations().map((a) => a.finished.catch(() => {})));
+    const h0 = folha.getBoundingClientRect().height;
+    const r = testeResultado;
+    const guardados = r.itens;
+    r.itens = r.itens.filter((x) => x.v !== 'falhou' && x.v !== 'mudo');
+    desenharTeste();
+    const animou = folha.getAnimations().some((a) => a.effect && a.effect.getKeyframes().some((k) => k.height));
+    await Promise.all(folha.getAnimations().map((a) => a.finished.catch(() => {})));
+    const h1 = folha.getBoundingClientRect().height;
+    r.itens = guardados; desenharTeste();
+    return { h0, h1, animou };
+  });
+  checar(caixa.durante.h < caixa.depois.h,
+    'M2 · a folha tem a altura do que mostra: durante a rodada ela é menor que no fim', JSON.stringify(caixa));
+  checar(anima.animou && anima.h1 < anima.h0,
+    'M2 · e a mudança de altura ANIMA, em vez de saltar', JSON.stringify(anima));
   checar(caixa.rotulo === 'Compartilhar registro' && !caixa.rotuloCortado && caixa.svg > 0,
     'M2 · dizendo "Compartilhar registro", inteiro, com o ícone DESENHADO', JSON.stringify(caixa));
   checar(caixa.semCompleta && caixa.unicaPorta,

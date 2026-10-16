@@ -3009,10 +3009,13 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.12.46 · APK v1.12.44** · `SHELL_VERSION` **82** ·
-bundle com `minShell: 82` e **`shellTag: "v1.12.46"`** — o shell 82 é o **PISO**: todo
-método da ponte existe, e não há guarda de versão no lado web. **Este lote PEDE RELEASE**
-(`SyncService` mudou o texto da notificação; a ponte não mudou). **A v1.12.46 DÁ À VERIFICAÇÃO UM
+**Versão atual: base web v1.12.47 · APK v1.12.46** · `SHELL_VERSION` **82** ·
+bundle com `minShell: 82` e **sem `shellTag`** — o shell 82 é o **PISO**: todo
+método da ponte existe, e não há guarda de versão no lado web. **Este lote é só web**
+(a Release v1.12.46 já está publicada). **A v1.12.47 TROCA O ANEL DA VERIFICAÇÃO POR UMA BARRA LINEAR GROSSA**
+(`.teste-barra`, percentual no centro desenhado duas vezes — `--text` no trilho, `--bg` recortado em `--p` sobre o
+preenchimento) **e REVOGA A ALTURA FIXA da v1.12.46**: a folha tem a altura do conteúdo e toda mudança dela anima
+(`animarAlturaDoTeste`, WAAPI na `height`, `--dur-lenta`); a faixa de fecho sai do layout até o fim. **A v1.12.46 DÁ À VERIFICAÇÃO UM
 PERCENTUAL DE TEMPO** (`testeAlvo`: o tempo previsto de cada parte, `testeTempos` aprendido das rodadas — média
 meio a meio, o download só ensina com `ok` —, corrigido pelas checagens respondidas e pelos bytes; `tiqueDoTeste`
 a 100 ms suaviza e nunca volta), ALTURA FIXA (`#testePopup .popup-sheet { height: 80vh }`, faixa reservada por
