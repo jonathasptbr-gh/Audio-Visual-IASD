@@ -8308,10 +8308,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .teste-erro--falhou .teste-marca { color: var(--danger-strong); }
 .teste-erro--mudo .teste-marca { color: var(--warn); }
 .teste-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
-.teste-area {
-  color: var(--muted); font-size: var(--fs-xs); font-weight: var(--fw-forte);
-  letter-spacing: .04em; text-transform: uppercase;
-}
 .teste-titulo { color: var(--text); font-size: var(--fs-xl); font-weight: var(--fw-forte); line-height: 1.3; }
 /* A NOTA É A CAUSA, e ela QUEBRA em quantas linhas precisar: cortar a frase
    que diz o que fazer é apagar a razão de o cartão existir. */

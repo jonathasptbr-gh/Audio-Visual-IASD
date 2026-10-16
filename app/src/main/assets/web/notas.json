@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.12.45",
+    "itens": [
+      "Verificação: cada problema agora tem um título que diz o que está errado, como \"Sem internet\".",
+      "Saiu o nome da categoria acima de cada problema; ficou só o essencial."
+    ]
+  },
+  {
     "versao": "1.12.44",
     "itens": [
       "Verificação: um círculo mostra quantas etapas já foram feitas, e no fim aparecem só os problemas.",
