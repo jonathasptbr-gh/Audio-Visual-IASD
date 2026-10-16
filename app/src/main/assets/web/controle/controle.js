@@ -40535,7 +40535,21 @@ function desenharTesteJa() {
   if (testeSalvarEl) { testeSalvarEl.hidden = !pronto || !window.__NATIVE__; testeSalvarEl.disabled = !pronto; }
   const recolher = testeSecaoEl && testeSecaoEl.querySelector('.cfg-sec-recolher');
   if (recolher) recolher.hidden = anda;
+  acertarFechoDoTeste();
 }
+
+// O REFAZER CEDE A LARGURA AO REGISTRO: numa tela estreita com a fonte grande
+// os dois rótulos não cabem (MEDIDO a 320 × 1,5: zero de folga, e cortado com a
+// fonte do runner). Medido, nunca escrito: tudo ou nada, o Refazer vira só o
+// ícone (o `title` continua dizendo o que ele faz).
+function acertarFechoDoTeste() {
+  const linha = testeSalvarEl && testeSalvarEl.parentElement;
+  if (!linha) return;
+  linha.classList.remove('compacto');
+  if (testeSalvarEl.hidden || !testeSalvarEl.clientWidth) return;
+  if (testeSalvarEl.scrollWidth > testeSalvarEl.clientWidth + 1) linha.classList.add('compacto');
+}
+window.addEventListener('resize', acertarFechoDoTeste);
 
 // A rodada chama isto a cada resposta (e o download, a cada aviso de bytes).
 function atualizarLinhaDoTeste() { desenharTeste(); }

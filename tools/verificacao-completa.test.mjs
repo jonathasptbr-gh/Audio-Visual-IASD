@@ -292,6 +292,18 @@ try {
     });
     checar(f.w > 0 && !f.cortou && f.linhas === 1,
       'A5 · a 320px com a fonte a 1,5× "Compartilhar registro" cabe inteiro, numa linha, ao lado do "Refazer"', JSON.stringify(f));
+    // A fonte do runner é mais larga que a desta máquina: um espaçamento a
+    // mais no rótulo reproduz isso aqui, e o Refazer tem de ceder a largura.
+    const g = await pg.evaluate(() => {
+      const e = document.getElementById('testeSalvar');
+      e.querySelector('span').style.letterSpacing = '.06em';
+      window.dispatchEvent(new Event('resize'));
+      return { cortou: e.scrollWidth > e.clientWidth + 1,
+        compacto: e.parentElement.classList.contains('compacto'),
+        ref: document.getElementById('testeRefazer').getBoundingClientRect().width };
+    });
+    checar(!g.cortou && g.compacto && g.ref > 0,
+      'A5 · com um rótulo mais largo (a fonte do runner), o "Refazer" vira só o ícone e o Registro continua inteiro', JSON.stringify(g));
     await ctx.close();
   }
 
