@@ -8233,64 +8233,59 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    cartões do mesmo `--poco` das sessões do Histórico. O corpo rola inteiro —
    com muitos problemas, o anel sobe junto, e a resposta em uma olhada é o
    resumo logo abaixo dele. */
-/* A FOLHA TEM ALTURA FIXA (v1.12.46): o anel, o resumo e a faixa de fecho não
-   podem andar quando os problemas aparecem — a lista rola dentro do corpo, e a
-   faixa tem o lugar reservado mesmo antes do fim (`visibility`, não `hidden`). */
-#testePopup .popup-sheet { height: 80vh; }
-.teste-fecho--oculto { visibility: hidden; }
+.teste-fecho--oculto { display: none; }
 .song-menu-go-row > .teste-refazer {
   flex: 0 0 auto; width: auto; padding: 0 var(--sp-5);
   display: flex; align-items: center; justify-content: center; gap: var(--sp-3);
   white-space: nowrap; background: var(--surface); color: var(--accent);
 }
 .teste-refazer svg { width: var(--icon-sm); height: var(--icon-sm); flex: none; }
+/* O CORPO: a barra, o resumo e, no fim, os cartões dos problemas. Ele rola só
+   quando a lista passa da altura máxima da folha. */
 .teste-corpo {
-  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
-  display: flex; flex-direction: column; align-items: center;
-  padding: var(--sp-5) .7rem var(--sp-5);
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column;
+  padding: var(--sp-4) .7rem var(--sp-5);
 }
-.teste-anel {
-  position: relative; flex-shrink: 0;
-  width: 10.5rem; height: 10.5rem;
-  --anel-cor: var(--accent);
+/* A BARRA (v1.12.47): grossa, no trilho do `--poco`, preenchida no `--accent`
+   (o da linha do tempo do Modo Fácil). O número é desenhado duas vezes: o de
+   baixo em `--text` sobre o trilho, o de cima em `--bg` recortado na largura
+   do preenchimento — o mesmo par de contraste dos dois temas. */
+.teste-barra {
+  position: relative; flex-shrink: 0; overflow: hidden;
+  height: 2.75rem; border-radius: var(--radius-card);
+  background: var(--poco);
+  --p: 0%;
+  --barra-cor: var(--accent);
 }
-.teste-anel.ruim { --anel-cor: var(--danger-strong); }
-.teste-anel.aviso { --anel-cor: var(--warn); }
-.teste-anel-svg { display: block; width: 100%; height: 100%; transform: rotate(-90deg); }
-.teste-anel-svg circle { fill: none; stroke-width: 9; }
-.teste-anel-trilho { stroke: var(--poco); }
-.teste-anel-arco {
-  stroke: var(--anel-cor); stroke-linecap: round;
-  stroke-dasharray: 100; stroke-dashoffset: 100;
-  transition: stroke-dashoffset .15s linear, stroke var(--dur-lenta) ease;
+.teste-barra.ruim { --barra-cor: var(--danger-strong); }
+.teste-barra.aviso { --barra-cor: var(--warn); }
+.teste-barra-fill {
+  position: absolute; inset: 0 auto 0 0; width: var(--p);
+  background: var(--barra-cor);
+  transition: width .15s linear, background-color var(--dur-lenta) ease;
 }
-/* A ATIVIDADE: um cometa curto girando por cima do trilho enquanto a
-   verificação anda — a fração pode ficar parada segundos numa checagem lenta,
-   e o giro diz que o app não travou. Some no fim. */
-.teste-anel-giro {
-  stroke: var(--anel-cor); stroke-linecap: round; opacity: 0;
-  stroke-dasharray: 8 92;
-  transform-origin: 60px 60px;
-  transition: opacity var(--dur-lenta) ease;
+/* A ATIVIDADE: um brilho que corre sobre o preenchimento enquanto a rodada
+   anda — uma checagem lenta segura o número, e o brilho diz que o app não
+   travou. Some no fim e com `prefers-reduced-motion`. */
+.teste-barra.rodando .teste-barra-fill::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--bg) 30%, transparent), transparent);
+  background-size: 50% 100%; background-repeat: no-repeat;
+  animation: teste-brilho 1.4s linear infinite;
 }
-.teste-anel.rodando .teste-anel-giro { opacity: .35; animation: teste-gira 1.2s linear infinite; }
-.teste-anel.rodando .teste-anel-fracao { animation: teste-pulsa 1.6s ease-in-out infinite; }
-@keyframes teste-gira { to { transform: rotate(360deg); } }
-@keyframes teste-pulsa { 50% { opacity: .6; } }
+@keyframes teste-brilho { from { background-position: -50% 0; } to { background-position: 150% 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .teste-anel.rodando .teste-anel-giro,
-  .teste-anel.rodando .teste-anel-fracao { animation: none; }
+  .teste-barra.rodando .teste-barra-fill::after { animation: none; display: none; }
 }
-.teste-anel-fracao {
-  position: absolute; inset: 0;
-  display: flex; align-items: baseline; justify-content: center;
-  padding-top: 3.6rem;
-  color: var(--text); font-variant-numeric: tabular-nums;
-  font-size: var(--fs-display-sm); font-weight: var(--fw-forte); line-height: 1;
+.teste-barra-txt {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: var(--text); font-size: var(--fs-2xl); font-weight: var(--fw-forte);
+  font-variant-numeric: tabular-nums; pointer-events: none;
 }
-.teste-anel-total { color: var(--muted); font-size: var(--fs-2xl); font-weight: normal; }
+.teste-barra-txt--sobre { color: var(--bg); clip-path: inset(0 calc(100% - var(--p)) 0 0); }
 .teste-resumo {
-  margin: var(--sp-5) 0 0; text-align: center;
+  margin: var(--sp-4) 0 0; text-align: center;
   color: var(--text); font-size: var(--fs-3xl); font-weight: var(--fw-forte);
   line-height: 1.3;
 }
@@ -8309,7 +8304,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   padding: var(--sp-4);
   background: var(--poco); border-radius: var(--radius-card);
 }
-.teste-marca { flex-shrink: 0; display: flex; align-items: center; padding-top: 1.1rem; }
+.teste-marca { flex-shrink: 0; display: flex; align-items: center; padding-top: .1rem; }
 .teste-marca svg { display: block; width: var(--icon-md); height: var(--icon-md); }
 .teste-erro--falhou .teste-marca { color: var(--danger-strong); }
 .teste-erro--mudo .teste-marca { color: var(--warn); }

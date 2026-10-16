@@ -419,7 +419,6 @@ try {
     const meio = await pg.evaluate(() => ({
       semEtapa: !document.getElementById('testeEtapa'),
       pct1: +document.getElementById('testePct').textContent,
-      arco: parseFloat(document.getElementById('testeArco').style.strokeDashoffset),
       registroOculto: document.getElementById('testeFecho').classList.contains('teste-fecho--oculto'),
       ep: testeDl.episodio && testeDl.episodio.id,
     }));
