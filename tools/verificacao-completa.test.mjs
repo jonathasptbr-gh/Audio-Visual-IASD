@@ -230,18 +230,17 @@ async function aparelho(viewport) {
   return { ctx, pg, ids };
 }
 
-// A rodada completa pelo BOTÃO, esperando o FATO (o resultado completo novo).
-// A FOLHA TEM DE TER ASSENTADO antes do toque: ela SOBE por transição, e um
-// toque no meio dela cai noutro lugar (a régua do `verificacao-do-sistema`, I2).
-const assentar = (pg) => pg.evaluate(async () => {
-  await Promise.all([...document.querySelectorAll('#testePopup, #testePopup *')]
-    .flatMap((n) => n.getAnimations().map((a) => a.finished.catch(() => {}))));
-});
-async function rodarCompletaPeloBotao(pg) {
-  await assentar(pg);
-  await pg.evaluate(() => { window.__antes = Date.now(); });
-  await pg.click('#testeCompleta');
-  return esperar(pg, () => !testeRodando && testeResultado && testeResultado.completa
+// UMA VERIFICAÇÃO SÓ (v1.12.44): abrir a folha roda a leve E o download de
+// teste. A folha é fechada e reaberta, e espera-se o FATO (o resultado
+// completo novo). Fechar antes cancela a anterior, que é desfeita por inteiro.
+async function rodarVerificacao(pg) {
+  await pg.evaluate(async () => {
+    closeTestePopup();
+    while (testeEmCurso || testeRodando) await new Promise((r) => setTimeout(r, 20));
+    window.__antes = Date.now();
+    openTestePopup();
+  });
+  return esperar(pg, () => !testeEmCurso && !testeRodando && testeResultado && testeResultado.completa
     && testeResultado.emCompleta >= window.__antes, null, 60000);
 }
 const itemDl = (pg) => pg.evaluate(() => {
@@ -254,92 +253,64 @@ const sobras = (pg, vid) => pg.evaluate(async (v) => {
 }, vid);
 
 try {
-  // ---- A: UM BOTÃO SÓ, E A LEVE (que roda ao abrir) NÃO BAIXA NADA -------
+  // ---- A: UMA VERIFICAÇÃO SÓ, SEM BOTÃO — a leve e depois o download -------
   {
     const { ctx, pg } = await aparelho();
-    const durante = await pg.evaluate(() => {
-      openTestePopup();
-      const b = document.getElementById('testeCompleta');
-      return { dis: b.disabled, title: b.title };
+    await pg.evaluate(() => {
+      window.__ordem = [];
+      const real = window.rodarUmaChecagem;
+      window.rodarUmaChecagem = (c) => { window.__ordem.push(c.id); return real(c); };
     });
-    checar(durante.dis && /[Ee]spere/.test(durante.title),
-      'A0 · enquanto a leve roda, a completa fica APAGADA, com o motivo — ela é "além do que já foi '
-      + 'feito", e sem o feito não há o que somar', JSON.stringify(durante));
-    const r = await esperar(pg, () => !testeRodando && testeResultado, null, 30000);
-    checar(r === true, 'A0 · a folha abre e a rodada LEVE de sempre termina', porque(r));
+    const r = await rodarVerificacao(pg);
+    checar(r === true, 'A0 · abrir a folha roda a verificação inteira, com o download de teste', porque(r));
     const a = await pg.evaluate(() => ({
-      leve: !!document.getElementById('testeRodar'),
+      semBotao: !document.getElementById('testeCompleta') && !document.getElementById('testeRodar'),
       botoes: [...document.querySelectorAll('#testePopup .popup-fecho button:not([hidden])')].map((x) => x.id),
-      completa: document.getElementById('testeCompleta').textContent.trim(),
-      completaAtiva: !document.getElementById('testeCompleta').disabled,
-      res: { completa: testeResultado.completa, temDl: testeResultado.itens.some((x) => x.id === 'yt-download') },
-      baixou: window.__chamadas.filter((c) => /^ytFetch/.test(c.n)).length,
+      dlPorUltimo: window.__ordem[window.__ordem.length - 1] === 'yt-download'
+        && window.__ordem.filter((x) => x === 'yt-download').length === 1,
+      n: window.__ordem.length, total: TESTES.length + 1,
+      fracao: document.getElementById('testeFeitas').textContent + '/' + document.getElementById('testeTotal').textContent,
     }));
-    checar(!a.leve && a.completa === 'Verificação completa',
-      'A1 · o botão "Leve" SAIU (a leve roda ao abrir) e o que sobra é "Verificação completa"',
+    checar(a.semBotao && a.botoes.join() === 'testeSalvar',
+      'A1 · não há botão de verificação: a faixa tem só o Registro, e só no fim', JSON.stringify(a));
+    checar(a.dlPorUltimo && a.n === a.total && a.fracao === a.total + '/' + a.total,
+      'A2 · o download de teste roda UMA vez, DEPOIS de todas as checagens leves, e o anel fecha em N/N',
       JSON.stringify(a));
-    checar(a.res.completa === false && !a.res.temDl && a.baixou === 0,
-      'A2 · a rodada que abre a folha é a LEVE: nenhuma linha de download no resultado e nenhum pedido de '
-      + 'vídeo à ponte — a leve nunca baixa megabytes', JSON.stringify(a));
-    checar(a.completaAtiva, 'A3 · terminada a leve, com a ponte, a Completa é tocável', JSON.stringify(a));
     await ctx.close();
   }
 
-  // ---- A5: A FAIXA A 320 × 1,5 — o rótulo inteiro, uma altura só -----------
+  // ---- A5: A FAIXA A 320 × 1,5 — o rótulo do Registro inteiro ---------------
   {
     const { ctx, pg } = await aparelho({ width: 320, height: 640 });
-    await pg.evaluate(() => { document.documentElement.style.fontSize = '150%'; window.__NATIVE__ = true; });
-    await pg.evaluate(() => { document.getElementById('testeSalvar').hidden = false; openTestePopup(); });
-    await esperar(pg, () => !testeRodando && testeResultado, null, 30000);
+    await pg.evaluate(() => { document.documentElement.style.fontSize = '150%'; });
+    await rodarVerificacao(pg);
     const f = await pg.evaluate(() => {
-      const m = (id) => { const e = document.getElementById(id); const r = e.getBoundingClientRect();
-        return { w: +r.width.toFixed(1), h: +r.height.toFixed(1), cortou: e.scrollWidth > e.clientWidth + 1 }; };
-      const fx = document.getElementById('testeSalvar').parentElement;
-      // LINHAS DE TEXTO por Range: um rótulo que QUEBRA não transborda
-      // (`scrollWidth` fica igual), então a régua do corte sozinha aprova a quebra.
-      const linhas = (el) => { const rg = document.createRange(); rg.selectNodeContents(el);
-        return new Set([...rg.getClientRects()].map((q) => Math.round(q.top))).size; };
-      return { salvar: m('testeSalvar'), completa: m('testeCompleta'),
-        linhasCompleta: linhas(document.getElementById('testeCompleta')),
-        linhasSalvar: linhas(document.getElementById('testeSalvar').querySelector('span')),
-        faixaVaza: fx.scrollWidth > fx.clientWidth + 1 };
+      const e = document.getElementById('testeSalvar');
+      const rg = document.createRange(); rg.selectNodeContents(e.querySelector('span'));
+      return { cortou: e.scrollWidth > e.clientWidth + 1, w: e.getBoundingClientRect().width,
+        linhas: new Set([...rg.getClientRects()].map((q) => Math.round(q.top))).size };
     });
-    checar(!f.completa.cortou,
-      'A5 · a 320px com a fonte a 1,5× "Verificação completa" cabe inteiro', JSON.stringify(f));
-    checar(Math.abs(f.salvar.h - f.completa.h) < 0.5,
-      'A5 · e a faixa tem UMA altura (o "Registro" e o primário)', JSON.stringify(f));
-    checar(!f.salvar.cortou && !f.faixaVaza && f.linhasCompleta === 1 && f.linhasSalvar === 1,
-      'A5 · e o "Registro" (v1.12.29: ícone E palavra) também cabe inteiro, sem a faixa transbordar e '
-      + 'sem nenhum dos dois rótulos quebrar em duas linhas',
-      JSON.stringify(f));
+    checar(f.w > 0 && !f.cortou && f.linhas === 1,
+      'A5 · a 320px com a fonte a 1,5× "Compartilhar registro" cabe inteiro, numa linha', JSON.stringify(f));
     await ctx.close();
   }
 
   // ---- B: A COMPLETA — o caminho, o episódio, a medida e a limpeza -------
   {
     const { ctx, pg } = await aparelho();
-    await pg.evaluate(() => openTestePopup());
-    await esperar(pg, () => !testeRodando && testeResultado, null, 30000);
+    await rodarVerificacao(pg);
     await pg.evaluate(() => {
       window.__chamadas.length = 0; window.__cmds.length = 0; window.__estados.length = 0;
-      window.__leve = { em: testeResultado.em, itens: testeResultado.itens.slice(), n: testeResultado.itens.length };
-      window.__rodadas = 0;
-      const real = window.rodarUmaChecagem;
-      window.rodarUmaChecagem = (c) => { window.__rodadas++; return real(c); };
     });
-    const r = await rodarCompletaPeloBotao(pg);
+    const r = await rodarVerificacao(pg);
     checar(r === true, 'B0 · a rodada completa termina', porque(r));
     const so = await pg.evaluate(() => ({
-      rodadas: window.__rodadas, mesmoEm: testeResultado.em === window.__leve.em,
-      mesmas: window.__leve.itens.every((x) => testeResultado.itens.includes(x)),
-      n: testeResultado.itens.length, antes: window.__leve.n,
+      n: testeResultado.itens.length, total: TESTES.length + 1,
       dl: testeResultado.itens.filter((x) => x.id === 'yt-download').length,
       contas: testeResultado.ok + testeResultado.falhou + testeResultado.mudo + testeResultado.na,
     }));
-    checar(so.rodadas === 1 && so.mesmoEm && so.mesmas && so.n === so.antes + 1 && so.dl === 1
-      && so.contas === so.n,
-      'B0 · a completa roda SÓ a linha do download, por cima da leve: as 41 não rodam de novo, o '
-      + 'resultado é o MESMO objeto com UMA linha a mais, e as contas são refeitas com ela', JSON.stringify(so));
+    checar(so.n === so.total && so.dl === 1 && so.contas === so.n,
+      'B0 · o resultado é UM objeto, com a linha do download uma vez só e as contas fechando', JSON.stringify(so));
     const it = await itemDl(pg);
     checar(it && it.v === 'ok', 'B1 · a linha do download PASSA, com a nota dizendo o que veio', JSON.stringify(it));
     const d = await pg.evaluate(() => {
@@ -439,46 +410,36 @@ try {
     await ctx.close();
   }
 
-  // ---- C: CANCELAR — pelo mesmo botão, e a limpeza continua -----------------
+  // ---- C: FECHAR A FOLHA CANCELA O DOWNLOAD, e a limpeza continua -----------
   {
     const { ctx, pg } = await aparelho();
-    await pg.evaluate(() => { window.__yt.passos = 200; window.__yt.intervalo = 50; openTestePopup(); });
-    await esperar(pg, () => !testeRodando && testeResultado, null, 30000);
-    await assentar(pg);
-    await pg.evaluate(() => { window.__antes = Date.now(); window.__chamadas.length = 0; });
-    const antes = await pg.evaluate(() => { const r = document.getElementById('testeCompleta').getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; });
-    await pg.click('#testeCompleta');
+    await pg.evaluate(() => { window.__yt.passos = 200; window.__yt.intervalo = 50; window.__chamadas.length = 0; openTestePopup(); });
     const andando = await esperar(pg, () => testeDl && testeDl.amostras.length > 3, null, 30000);
     checar(andando === true, 'C0 · o download de teste começa e o progresso chega', porque(andando));
-    const meio = await pg.evaluate(() => {
-      const b = document.getElementById('testeCompleta'); const r = b.getBoundingClientRect();
-      const linha = document.querySelector('[data-teste="yt-download"]');
-      return { txt: b.textContent.trim(), dis: b.disabled, leveDis: true,
-        linha: linha && linha.className, nota: linha && linha.querySelector('.teste-nota').textContent,
-        rect: [r.x, r.y, r.width, r.height], resumo: document.getElementById('testeResumo').textContent };
-    });
-    checar(meio.txt === 'Cancelar' && !meio.dis && meio.leveDis,
-      'C1 · enquanto anda, a Completa vira "Cancelar"', JSON.stringify(meio));
-    checar(/teste-item--curso/.test(meio.linha || '') && /^Download de teste: \d+% · /.test(meio.nota || ''),
-      'C1b · e a LINHA do download, que existia desde a abertura, mostra o andamento — pendente → '
-      + 'progresso → resultado, no mesmo lugar', JSON.stringify(meio));
-    checar(JSON.stringify(meio.rect) === JSON.stringify(antes),
-      'C2 · no MESMO lugar e do MESMO tamanho — a faixa não se move', JSON.stringify({ antes, depois: meio.rect }));
-    checar(/^Download de teste: \d+% · /.test(meio.resumo),
-      'C3 · e o resumo mostra o PROGRESSO do download, não um "Verificando…" parado', meio.resumo);
-    await pg.click('#testeCompleta');
-    const fim = await esperar(pg, () => !testeRodando && testeResultado.emCompleta >= window.__antes, null, 30000);
-    checar(fim === true, 'C4 · cancelado, a rodada termina', porque(fim));
-    const it = await itemDl(pg);
-    const x = await pg.evaluate(() => ({ chamadas: window.__chamadas.map((c) => c.n), ep: testeResultado.download.episodio.id,
-      txt: document.getElementById('testeCompleta').textContent.trim() }));
-    checar(it && it.v === 'na' && /cancelado por você/.test(it.nota) && x.chamadas.includes('ytCancel'),
-      'C5 · a linha diz que FOI CANCELADO (não é falha), e o pedido de parar chegou ao shell',
-      JSON.stringify({ it, x }));
-    const s = await sobras(pg, x.ep);
-    checar(!s.rec && s.avulsos === 0 && s.cancelados === 0 && x.txt === 'Verificação completa',
+    const meio = await pg.evaluate(() => ({
+      etapa: document.getElementById('testeEtapa').textContent,
+      fracao: document.getElementById('testeFeitas').textContent + '/' + document.getElementById('testeTotal').textContent,
+      total: TESTES.length + 1,
+      arco: parseFloat(document.getElementById('testeArco').style.strokeDashoffset),
+      registroOculto: document.getElementById('testeSalvar').hidden,
+      ep: testeDl.episodio && testeDl.episodio.id,
+    }));
+    checar(/^Download de teste: \d+% · /.test(meio.etapa) && meio.fracao === (meio.total - 1) + '/' + meio.total,
+      'C1 · durante o download o anel está na última etapa e a linha de baixo mostra o PROGRESSO dele',
+      JSON.stringify(meio));
+    checar(meio.registroOculto, 'C2 · e o Registro continua oculto', JSON.stringify(meio));
+    await pg.evaluate(() => closeTestePopup());
+    const fim = await esperar(pg, () => !testeEmCurso && !testeRodando, null, 30000);
+    checar(fim === true, 'C4 · fechada a folha, a rodada termina', porque(fim));
+    const x = await pg.evaluate(() => ({ chamadas: window.__chamadas.map((c) => c.n), resultado: testeResultado,
+      tile: document.getElementById('testeTile').classList.contains('qs-trabalhando') }));
+    checar(x.chamadas.includes('ytCancel') && x.resultado === null && !x.tile,
+      'C5 · fechar a folha CANCELA: o pedido de parar chegou ao shell e a rodada não deixa resultado',
+      JSON.stringify(x));
+    const s = await sobras(pg, meio.ep);
+    checar(!s.rec && s.avulsos === 0 && s.cancelados === 0,
       'C6 · e nada fica para trás — nem registro, nem a marca de cancelado que armaria o próximo download '
-      + 'deste vídeo —, e o botão volta a ser "Verificação completa"', JSON.stringify({ s, txt: x.txt }));
+      + 'deste vídeo', JSON.stringify(s));
     await ctx.close();
   }
 
@@ -608,72 +569,6 @@ try {
     checar(lento.paradas === 1 && lento.vaoMediano === 9000,
       'G4 · a um aviso por MB a cada 9 s, só o vão de 30 s é parada — a régua é relativa ao vão mediano '
       + 'daquele download, com o piso de 5 s', JSON.stringify(lento));
-    await ctx.close();
-  }
-
-  // ---- H: A LISTA EXISTE DESDE O COMEÇO, E CADA LINHA ACENDE QUANDO CHEGA ----
-  // Pedido do operador: *"mantenha a lista dos itens a serem verificados
-  // visível, dando o check conforme cada um é verificado"*. As linhas nascem
-  // pendentes (com a do download à espera) e cada uma troca de marca quando a
-  // dela chega. (A rolagem NÃO é asserção: medido pela reversão, recriar a
-  // lista inteira a cada resposta também a preserva no Chromium — o layout só
-  // roda depois do laço.)
-  {
-    const { ctx, pg } = await aparelho({ width: 430, height: 640 });
-    const h = await pg.evaluate(async () => {
-      // UMA checagem LENTA de propósito, para a rodada ter um "meio" medível.
-      const lenta = { id: 'z-lenta', area: 'Teste', titulo: 'uma lenta', fn: () => new Promise((r) => setTimeout(() => r(tOk('')), 1500)) };
-      TESTES.push(lenta);
-      testePopupEl.classList.add('open');
-      const p = dispararTeste();
-      const lis = () => [...document.querySelectorAll('#testeList [data-teste]')];
-      const inicio = { n: lis().length, pend: lis().filter((l) => l.classList.contains('teste-item--pendente')).length,
-        dl: (document.querySelector('[data-teste="yt-download"]') || {}).className };
-      const ordemInicio = lis().map((l) => l.dataset.teste).join(',');
-      // espera o MEIO: algumas já chegaram, a lenta ainda não
-      let meio = null;
-      for (let i = 0; i < 200 && !meio; i++) {
-        await new Promise((r) => setTimeout(r, 20));
-        const feitas = lis().filter((l) => !/--pendente|--espera/.test(l.className)).length;
-        if (testeRodando && feitas > 3) meio = { feitas, pend: lis().filter((l) => l.classList.contains('teste-item--pendente')).length };
-      }
-      await p;
-      const fim = { n: lis().length, pend: lis().filter((l) => l.classList.contains('teste-item--pendente')).length,
-        ordem: lis().map((l) => l.dataset.teste).join(',') === ordemInicio };
-      TESTES.pop();
-      return { inicio, meio, fim, total: TESTES.length + 1 };
-    });
-    checar(h.inicio.n === h.total + 1 && h.inicio.pend === h.total && /--espera/.test(h.inicio.dl || ''),
-      'H1 · no ato do toque a lista INTEIRA já está na tela, cada linha pendente — e a do download à '
-      + 'espera da completa', JSON.stringify(h.inicio));
-    checar(h.meio && h.meio.feitas > 3 && h.meio.pend > 0,
-      'H2 · no meio da rodada umas já acenderam e outras ainda esperam — o check chega linha a linha',
-      JSON.stringify(h.meio));
-    checar(h.fim.n === h.inicio.n && h.fim.pend === 0 && h.fim.ordem,
-      'H3 · no fim são as MESMAS linhas, na mesma ordem, nenhuma pendente', JSON.stringify(h.fim));
-    await ctx.close();
-  }
-
-  // ---- I: O RESUMO SÓ DIZ QUANTAS FUNCIONARAM E QUANTAS FALHARAM -----------
-  {
-    const { ctx, pg } = await aparelho();
-    const r = await pg.evaluate(async () => {
-      testePopupEl.classList.add('open');
-      await dispararTeste();
-      return { resumo: testeResumoEl.textContent, mudo: testeResultado.mudo, na: testeResultado.na,
-        ok: testeResultado.ok, falhou: testeResultado.falhou,
-        linhasNa: document.querySelectorAll('#testeList .teste-item--na, #testeList .teste-item--mudo').length,
-        registro: blocoAutoteste().split('\n')[2] };
-    });
-    checar(r.na + r.mudo > 0,
-      'I0 · PREMISSA: a rodada tem linhas "não se aplica" ou "sem resposta" — senão o resumo nada provaria',
-      JSON.stringify(r));
-    checar(r.resumo === r.ok + ' funcionaram · ' + r.falhou + ' com falha',
-      'I1 · o resumo da tela diz SÓ quantas funcionaram e quantas falharam — "não se aplica" e "sem '
-      + 'resposta" saíram dele', JSON.stringify(r.resumo));
-    checar(r.linhasNa === r.na + r.mudo && /sem resposta · \d+ não se aplica/.test(r.registro),
-      'I2 · mas as linhas seguem na lista com a marca delas, e o Registro segue com as QUATRO contas',
-      JSON.stringify(r));
     await ctx.close();
   }
 

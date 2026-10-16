@@ -8226,69 +8226,98 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    mensagens, não outra cor para a mesma — e elas pedem ações opostas (uma manda
    consertar, a outra manda tentar de novo ou olhar a rede).
 
-   E o NÃO SE APLICA é APAGADO, que neste app quer dizer INDISPONÍVEL — que é o
-   que ele é: a checagem existe, e não há como fazê-la agora. */
+   O que funcionou e o que NÃO SE APLICA não aparecem na tela desde a v1.12.44
+   — só no Registro. */
+/* O ANEL (v1.12.44). A folha deixou de ser uma lista de 42 linhas: o anel diz
+   feitas/total enquanto anda e, no fim, só os PROBLEMAS aparecem embaixo, em
+   cartões do mesmo `--poco` das sessões do Histórico. O corpo rola inteiro —
+   com muitos problemas, o anel sobe junto, e a resposta em uma olhada é o
+   resumo logo abaixo dele. */
+.teste-corpo {
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; align-items: center;
+  padding: var(--sp-5) .7rem var(--sp-5);
+}
+.teste-anel {
+  position: relative; flex-shrink: 0;
+  width: 10.5rem; height: 10.5rem;
+  --anel-cor: var(--accent);
+}
+.teste-anel.ruim { --anel-cor: var(--danger-strong); }
+.teste-anel.aviso { --anel-cor: var(--warn); }
+.teste-anel-svg { display: block; width: 100%; height: 100%; transform: rotate(-90deg); }
+.teste-anel-svg circle { fill: none; stroke-width: 9; }
+.teste-anel-trilho { stroke: var(--poco); }
+.teste-anel-arco {
+  stroke: var(--anel-cor); stroke-linecap: round;
+  stroke-dasharray: 100; stroke-dashoffset: 100;
+  transition: stroke-dashoffset var(--dur-lenta) ease, stroke var(--dur-lenta) ease;
+}
+/* A ATIVIDADE: um cometa curto girando por cima do trilho enquanto a
+   verificação anda — a fração pode ficar parada segundos numa checagem lenta,
+   e o giro diz que o app não travou. Some no fim. */
+.teste-anel-giro {
+  stroke: var(--anel-cor); stroke-linecap: round; opacity: 0;
+  stroke-dasharray: 8 92;
+  transform-origin: 60px 60px;
+  transition: opacity var(--dur-lenta) ease;
+}
+.teste-anel.rodando .teste-anel-giro { opacity: .35; animation: teste-gira 1.2s linear infinite; }
+.teste-anel.rodando .teste-anel-fracao { animation: teste-pulsa 1.6s ease-in-out infinite; }
+@keyframes teste-gira { to { transform: rotate(360deg); } }
+@keyframes teste-pulsa { 50% { opacity: .6; } }
+@media (prefers-reduced-motion: reduce) {
+  .teste-anel.rodando .teste-anel-giro,
+  .teste-anel.rodando .teste-anel-fracao { animation: none; }
+}
+.teste-anel-fracao {
+  position: absolute; inset: 0;
+  display: flex; align-items: baseline; justify-content: center;
+  padding-top: 3.6rem;
+  color: var(--text); font-variant-numeric: tabular-nums;
+  font-size: var(--fs-display-sm); font-weight: var(--fw-forte); line-height: 1;
+}
+.teste-anel-total { color: var(--muted); font-size: var(--fs-2xl); font-weight: normal; }
 .teste-resumo {
-  flex-shrink: 0;
-  margin: 0 .7rem var(--sp-3);
-  padding: var(--sp-3) var(--sp-4);
-  border-radius: var(--radius-card);
-  background: var(--poco);
-  color: var(--muted);
-  font-size: var(--fs-sm);
-  line-height: 1.35;
+  margin: var(--sp-5) 0 0; text-align: center;
+  color: var(--text); font-size: var(--fs-3xl); font-weight: var(--fw-forte);
+  line-height: 1.3;
 }
 .teste-resumo:empty { display: none; }
-.teste-resumo--bom { background: var(--btn-accent); color: var(--accent); }
-.teste-resumo--ruim { background: var(--btn-danger); color: var(--danger-strong); }
-.teste-resumo--rodando { color: var(--muted); }
-/* O CABEÇALHO DE ÁREA é rótulo, não linha: ele não recebe toque, não tem alvo e
-   não pode parecer um item da lista que está logo abaixo dele. */
+.teste-resumo--bom { color: var(--accent); }
+.teste-resumo--ruim { color: var(--danger-strong); }
+.teste-resumo--aviso { color: var(--warn-text); }
+.teste-etapa {
+  margin: var(--sp-2) 0 0; text-align: center;
+  color: var(--muted); font-size: var(--fs-md); line-height: 1.4;
+  min-height: 1.4em;
+}
+.teste-erros {
+  list-style: none; align-self: stretch;
+  margin: var(--sp-5) 0 0; padding: 0;
+  display: flex; flex-direction: column; gap: var(--sp-3);
+}
+.teste-erros:empty { display: none; }
+.teste-erro {
+  display: flex; align-items: flex-start; gap: var(--sp-4);
+  padding: var(--sp-4);
+  background: var(--poco); border-radius: var(--radius-card);
+}
+.teste-marca { flex-shrink: 0; display: flex; align-items: center; padding-top: 1.1rem; }
+.teste-marca svg { display: block; width: var(--icon-md); height: var(--icon-md); }
+.teste-erro--falhou .teste-marca { color: var(--danger-strong); }
+.teste-erro--mudo .teste-marca { color: var(--warn); }
+.teste-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
 .teste-area {
-  list-style: none;
-  padding: var(--sp-4) var(--sp-2) var(--sp-1);
-  color: var(--muted);
-  font-size: var(--fs-xs);
-  font-weight: var(--fw-forte);
-  letter-spacing: .04em;
-  text-transform: uppercase;
+  color: var(--muted); font-size: var(--fs-xs); font-weight: var(--fw-forte);
+  letter-spacing: .04em; text-transform: uppercase;
 }
-.teste-item {
-  list-style: none;
-  display: flex; align-items: flex-start; gap: var(--sp-3);
-  padding: var(--sp-2) var(--sp-2);
-}
-.teste-marca { flex-shrink: 0; display: flex; align-items: center; height: 1.3em; }
-.teste-marca svg { display: block; width: var(--icon-sm); height: var(--icon-sm); }
-.teste-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.teste-titulo { color: var(--text); font-size: var(--fs-sm); line-height: 1.3; }
-/* A NOTA É A CAUSA, e ela QUEBRA em quantas linhas precisar: cortar com
-   reticências a frase que diz o que fazer é apagar a razão de a linha existir.
-   É a mesma escolha do Registro — comprimento não custa tela nenhuma numa lista
-   que rola; o que custa é enterrar. */
-.teste-nota {
-  color: var(--muted); font-size: var(--fs-xs); line-height: 1.3;
-  margin-top: 1px;
-}
-.teste-item--ok .teste-marca { color: var(--accent); }
-.teste-item--falhou .teste-marca { color: var(--danger-strong); }
-.teste-item--falhou .teste-nota { color: var(--danger-strong); }
-.teste-item--mudo .teste-marca { color: var(--warn); }
-.teste-item--mudo .teste-nota { color: var(--warn-text); }
-.teste-item--na { opacity: var(--op-inativo); }
-/* OS ESTADOS DA TELA (v1.12.28): a linha que a leve ainda não alcançou
-   (`pendente`, círculo vazio), o download de teste andando (`curso`, o arco
-   que gira) e a linha do download antes de a completa ser pedida (`espera`,
-   apagada como o `na`). Nenhum deles é desfecho, então nenhum tem cor de
-   desfecho: é o `--muted` das notas. */
-.teste-item--pendente .teste-marca,
-.teste-item--curso .teste-marca { color: var(--muted); }
-.teste-item--espera { opacity: var(--op-inativo); }
-.teste-item--curso .teste-marca svg { animation: teste-gira 1s linear infinite; }
-@keyframes teste-gira { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) {
-  .teste-item--curso .teste-marca svg { animation: none; }
-}
+.teste-titulo { color: var(--text); font-size: var(--fs-xl); font-weight: var(--fw-forte); line-height: 1.3; }
+/* A NOTA É A CAUSA, e ela QUEBRA em quantas linhas precisar: cortar a frase
+   que diz o que fazer é apagar a razão de o cartão existir. */
+.teste-nota { font-size: var(--fs-md); line-height: 1.4; }
+.teste-erro--falhou .teste-nota { color: var(--danger-strong); }
+.teste-erro--mudo .teste-nota { color: var(--warn-text); }
 
 .hist-sessao {
   background: var(--poco); border-radius: var(--radius-card);
@@ -10231,35 +10260,13 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 }
 .sorteio-dest svg, .sorteio-sortear svg { width: var(--icon-sm); height: var(--icon-sm); }
 
-/* ---------- O SALVAR DA VERIFICAÇÃO: ÍCONE **E** RÓTULO (v1.12.29) ----------
-   Era um QUADRADO de ícone (v1.10.3); o operador pediu a palavra: *"adicione o
-   texto 'registro' ao invés de apenas o ícone"*. Desde o mesmo lote ele é a
-   ÚNICA porta do Registro.
-
-   A LARGURA É O CONTEÚDO (`flex: 0 0 auto`) e o primário fica com a sobra
-   (`flex: 1`, `min-width: 0`). A ALTURA É DECLARADA (`--quad-faixa`) e
-   `align-self: center` desliga o esticamento: a faixa tem irmão, então o
-   `:has(> .song-menu-btn ~ .song-menu-btn)` já põe o primário na mesma altura —
-   uma altura só, a regra da v1.8.61, sem que ela dependa do vizinho.
-
-   ÍCONE ANTES DO TEXTO, como o "Importar arquivo" do editor (o par da faixa de
-   fecho deste app), e `--sp-3` entre os dois.
-
-   O `[hidden]` é fechado pelo `[hidden] { display: none !important }` da base
-   (um `display` de autor venceria o da folha do navegador). */
-.song-menu-go-row > .teste-salvar {
-  flex: 0 0 auto; width: auto; min-width: 0; padding: 0 var(--sp-5);
-  height: var(--quad-faixa); align-self: center;
+/* O REGISTRO DA VERIFICAÇÃO (v1.12.44): o primário sozinho na faixa, com o
+   ícone de compartilhar antes do texto. Só existe com a verificação terminada;
+   o `[hidden]` é fechado pela regra `!important` da base. */
+.song-menu-go.teste-salvar {
   display: flex; align-items: center; justify-content: center; gap: var(--sp-3);
-  white-space: nowrap;
-  background: var(--surface); color: var(--accent);
 }
 .teste-salvar svg { width: var(--icon-sm); height: var(--icon-sm); flex: none; }
-.teste-salvar:disabled { opacity: var(--op-inativo); cursor: default; }
-/* O CANCELAR DA VERIFICAÇÃO COMPLETA (v1.12.27): é o mesmo botão da
-   "Completa" enquanto o download de teste anda — mesma caixa, então a faixa não
-   se move —, vestido como ação que DESFAZ (o par do `.teste-resumo--ruim`). */
-.song-menu-go.teste-cancelar { background: var(--btn-danger); color: var(--danger-strong); }
 .sorteio-acao .song-menu-text { align-items: center; justify-content: center; min-height: var(--hit); }
 .sorteio-acao:disabled { opacity: .5; cursor: default; }
 

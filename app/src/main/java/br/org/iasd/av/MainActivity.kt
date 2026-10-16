@@ -1658,6 +1658,40 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * escolhido abre numa tarefa PRÓPRIA, e voltar do WhatsApp não pode
      * significar voltar para dentro desta Activity com a projeção no meio.
      */
+    override fun shareTextFile(nome: String, texto: String, onResult: (Boolean) -> Unit) {
+        // O NOME VEM DO WEB, e vira caminho: só o que é seguro num nome de
+        // arquivo passa, e nunca uma barra (ela sairia da pasta `registro/`).
+        val seguro = nome.replace(Regex("[^A-Za-z0-9._-]"), "_").take(80).ifEmpty { "registro.txt" }
+        val pasta = File(filesDir, "registro")
+        val alvo = try {
+            pasta.mkdirs()
+            // UM arquivo de cada vez: o anterior já foi entregue, e guardá-lo
+            // seria acumular Registros no aparelho.
+            pasta.listFiles()?.forEach { it.delete() }
+            File(pasta, seguro).also { it.writeText(texto, Charsets.UTF_8) }
+        } catch (e: Exception) {
+            Log.w(TAG, "não deu para gravar o registro a compartilhar", e)
+            onResult(false); return
+        }
+        runOnUiThread {
+            try {
+                val uri = FileProvider.getUriForFile(this, "$packageName.pacote", alvo)
+                // A MESMA FORMA do [pacoteShare]: só o `EXTRA_STREAM` com a flag,
+                // sem `ClipData` à mão e sem tarefa nova (ver o comentário lá).
+                val envio = Intent(Intent.ACTION_SEND)
+                    .setType("text/plain")
+                    .putExtra(Intent.EXTRA_STREAM, uri)
+                    .putExtra(Intent.EXTRA_SUBJECT, seguro)
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                startActivity(Intent.createChooser(envio, getString(R.string.registro_share_titulo)))
+                onResult(true)
+            } catch (e: Exception) {
+                Log.w(TAG, "nada recebeu o registro compartilhado", e)
+                onResult(false)
+            }
+        }
+    }
+
     override fun shareText(texto: String) {
         runOnUiThread {
             try {

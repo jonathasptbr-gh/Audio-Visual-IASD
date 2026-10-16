@@ -343,51 +343,88 @@ try {
     'e o resto RODA assim mesmo: ceder a vez não é recusar a rodada — um toque que não faz nada é o '
     + 'pior desfecho de um botão', JSON.stringify(emCulto.armazenamento));
 
-  // ---- I: A COR DO QUE PASSOU É AZUL, NUNCA VERDE -----------------------
-  // A régua é do operador (v1.8.56): *"verde é para sinal de 'ligado'; nesses
-  // casos são mensagem de conclusão, não de atividade"*. Uma checagem que
-  // respondeu é uma conclusão.
+  // ---- I: O ANEL E SÓ OS PROBLEMAS (v1.12.44) ----------------------------
+  // Pedido do operador: *"listar todas as coisas que estão funcionando
+  // corretamente não me é informação nenhuma"*. A folha é um anel com
+  // feitas/total e, no fim, só o que não funcionou ou não respondeu.
   await pg.evaluate(() => { if (typeof setAppMode === 'function') setAppMode('full'); });
   await pg.click('#settingsBtn');
   await pg.waitForSelector('#fadePopup.open', { timeout: 5000 });
   await pg.click('#testeTile');
   await pg.waitForSelector('#testePopup.open', { timeout: 5000 });
-  await pg.waitForFunction(() => !testeRodando && testeResultado
-    && document.querySelectorAll('#testeList .teste-item--ok').length > 0, null, { timeout: 25000 });
+  await pg.waitForFunction(() => !testeRodando && testeResultado && !testeEmCurso, null, { timeout: 40000 });
   const tela = await pg.evaluate(() => {
-    const cor = (sel) => {
-      const el = document.querySelector(sel + ' .teste-marca');
-      return el ? getComputedStyle(el).color : '';
-    };
+    const r = testeResultado;
+    const itens = [...document.querySelectorAll('#testeList .teste-erro')];
+    const sonda = document.createElement('p');
+    sonda.className = 'teste-resumo teste-resumo--bom';
+    document.getElementById('testeCorpo').appendChild(sonda);
+    sonda.textContent = 'x';
+    const corBom = getComputedStyle(sonda).color;
+    sonda.remove();
     const raiz = getComputedStyle(document.documentElement);
-    const itens = [...document.querySelectorAll('#testeList .teste-item')];
+    const titulo = itens[0] && itens[0].querySelector('.teste-titulo');
     return {
-      corOk: cor('.teste-item--ok'),
-      accent: raiz.getPropertyValue('--accent').trim(),
-      ok: raiz.getPropertyValue('--ok').trim(),
+      feitas: document.getElementById('testeFeitas').textContent,
+      total: document.getElementById('testeTotal').textContent,
+      esperado: String(TESTES.length + 1),
+      problemas: r.itens.filter((x) => x.v === 'falhou' || x.v === 'mudo').length,
       itens: itens.length,
+      soProblemas: itens.every((i) => /teste-erro--(falhou|mudo)/.test(i.className)),
+      falhaAntes: itens.findIndex((i) => /--mudo/.test(i.className)) < 0
+        || !itens.slice(itens.findIndex((i) => /--mudo/.test(i.className))).some((i) => /--falhou/.test(i.className)),
       comDesenho: itens.filter((i) => i.querySelector('.teste-marca svg path')).length,
-      areas: document.querySelectorAll('#testeList .teste-area').length,
+      fonteTitulo: titulo ? parseFloat(getComputedStyle(titulo).fontSize) : 0,
       resumo: document.getElementById('testeResumo').textContent,
+      girando: document.getElementById('testeAnel').classList.contains('rodando'),
+      corBom, accent: raiz.getPropertyValue('--accent').trim(), ok: raiz.getPropertyValue('--ok').trim(),
     };
   });
   const rgb = (hex) => {
     const h = hex.replace('#', '');
     return 'rgb(' + parseInt(h.slice(0, 2), 16) + ', ' + parseInt(h.slice(2, 4), 16) + ', ' + parseInt(h.slice(4, 6), 16) + ')';
   };
-  checar(tela.corOk === rgb(tela.accent),
-    'o que PASSOU veste o azul de `--accent` — a conclusão de uma ação é azul neste app desde a '
-    + 'v1.8.55, e o verde tem dois consumidores só (a TV no ar e o ponto do Auxiliar)',
-    tela.corOk + ' vs ' + rgb(tela.accent));
-  checar(tela.corOk !== rgb(tela.ok),
-    'e NÃO é o verde: "verde é para sinal de ligado, nesses casos são mensagem de conclusão, não de '
-    + 'atividade" — a régua é do operador', tela.corOk + ' vs ' + rgb(tela.ok));
-  checar(tela.comDesenho === tela.itens && tela.itens > 0,
-    'toda linha tem a marca DESENHADA: a fonte de símbolos é um subset de 31 codepoints e um de fora '
-    + 'não desenha nada — um vão do tamanho de um ícone, sem erro nenhum', tela.comDesenho + '/' + tela.itens);
-  checar(tela.areas >= 6, 'e a lista é agrupada por área, que é como o operador procura', tela.areas);
-  checar(/funcionaram/.test(tela.resumo),
-    'o resumo responde em UMA olhada, que é o que se lê antes de subir para a mesa de som', tela.resumo);
+  checar(tela.feitas === tela.esperado && tela.total === tela.esperado,
+    'I · o anel termina em N/N, com o download de teste contando como etapa', JSON.stringify(tela));
+  checar(tela.itens === tela.problemas && tela.soProblemas && tela.problemas > 0,
+    'I · a lista do fim tem SÓ o que não funcionou ou não respondeu — o que funcionou e o que não se '
+    + 'aplica não aparecem', JSON.stringify(tela));
+  checar(tela.falhaAntes, 'I · e "não funcionou" vem antes de "não respondeu"', JSON.stringify(tela));
+  checar(tela.comDesenho === tela.itens,
+    'I · todo cartão tem a marca DESENHADA (a fonte de símbolos é um subset)', tela.comDesenho + '/' + tela.itens);
+  checar(tela.fonteTitulo >= 14,
+    'I · e o título do problema é texto grande, não a letra miúda da lista antiga', tela.fonteTitulo);
+  checar(/problema|não respond|Tudo certo/.test(tela.resumo) && !tela.girando,
+    'I · o resumo responde em UMA olhada, e o anel para de girar no fim', JSON.stringify(tela.resumo));
+  checar(tela.corBom === rgb(tela.accent) && tela.corBom !== rgb(tela.ok),
+    'I · "Tudo certo" veste o azul de `--accent`, nunca o verde (a conclusão é azul desde a v1.8.55)',
+    tela.corBom + ' vs ' + rgb(tela.accent));
+
+  // I1 · FECHAR CANCELA. Depois de fechada a folha, nenhuma checagem nova
+  // começa e a rodada não deixa resultado — meia lista se leria como o
+  // veredito do aparelho.
+  const cancela = await pg.evaluate(async () => {
+    const real = window.rodarUmaChecagem;
+    let fechada = false; let depois = 0; let antes = 0;
+    window.rodarUmaChecagem = (c) => { if (fechada) depois++; else antes++; return real(c); };
+    closeTestePopup();
+    openTestePopup();
+    await new Promise((r) => setTimeout(r, 0));
+    const rodava = testeRodando;
+    closeTestePopup(); fechada = true;
+    while (testeEmCurso || testeRodando) await new Promise((r) => setTimeout(r, 20));
+    window.rodarUmaChecagem = real;
+    return { rodava, antes, depois, resultado: testeResultado, tile: document.getElementById('testeTile').classList.contains('qs-trabalhando') };
+  });
+  checar(cancela.rodava && cancela.antes > 0,
+    'I1 · PREMISSA: a rodada estava andando quando a folha fechou', JSON.stringify(cancela));
+  checar(cancela.depois === 0 && cancela.resultado === null && !cancela.tile,
+    'I1 · fechar a folha CANCELA: nenhuma checagem começa depois, e nada fica como resultado',
+    JSON.stringify(cancela));
+  await pg.evaluate(async () => {
+    openTestePopup();
+    while (testeEmCurso || testeRodando || !testeResultado) await new Promise((r) => setTimeout(r, 20));
+  });
 
   // ---- I2: A CAMADA — ela abre SOBRE Configurações, não atrás (v1.10.10) ----
   //
@@ -683,23 +720,23 @@ try {
     + 'ser o gancho — as teclas físicas não acham quem responda, que é o desfecho mais confuso dos '
     + 'dois e o único que o envio mudo da ponte jamais acusaria', JSON.stringify(ganchos));
 
-  // L7 · O "VERIFICANDO…" EXISTE DE VERDADE. A trava só era erguida DENTRO de
-  // `rodarAutoteste`, e o desenho vinha antes da chamada: o ramo nunca
-  // executava. A folha ficava em BRANCO a rodada inteira na primeira abertura
-  // e, da segunda em diante, mostrava o veredito da rodada ANTERIOR com o aro
-  // girando por cima.
+  // L7 · O "VERIFICANDO…" EXISTE DE VERDADE. O prólogo de `rodarAutoteste` é
+  // síncrono e ergue a trava: o desenho tem de vir depois da chamada, senão a
+  // folha mostraria em branco (ou o veredito anterior) a rodada inteira.
   const durante = await pg.evaluate(async () => {
-    const p = dispararTeste();
+    closeTestePopup();
+    while (testeEmCurso || testeRodando) await new Promise((r) => setTimeout(r, 20));
+    openTestePopup();
+    await new Promise((r) => setTimeout(r, 0));
     const noAto = document.getElementById('testeResumo').textContent;
     const travada = testeRodando;
-    await p;
-    return { noAto, travada, depois: document.getElementById('testeResumo').textContent };
+    const girando = document.getElementById('testeAnel').classList.contains('rodando');
+    while (testeEmCurso || testeRodando || !testeResultado) await new Promise((r) => setTimeout(r, 20));
+    return { noAto, travada, girando, depois: document.getElementById('testeResumo').textContent };
   });
-  checar(durante.travada && /Verificando/.test(durante.noAto),
-    'L7 · a folha diz "Verificando…" DURANTE a rodada — o prólogo de `rodarAutoteste` é síncrono, e '
-    + 'é por isso que o desenho tem de vir depois da chamada e antes do `await`',
-    JSON.stringify(durante.noAto));
-  checar(/funcionaram/.test(durante.depois),
+  checar(durante.travada && durante.girando && /Verificando/.test(durante.noAto),
+    'L7 · a folha diz "Verificando…" e o anel gira DURANTE a rodada', JSON.stringify(durante));
+  checar(/problema|não respond|Tudo certo/.test(durante.depois),
     'L7 · e o veredito substitui o aviso quando ela termina', JSON.stringify(durante.depois));
 
   // L8 · ZERO É UM NÚMERO. `!bytes` engolia o disco CHEIO junto com "o aparelho
@@ -723,15 +760,13 @@ try {
     'L8 · e o aparelho que de fato não informa continua sendo "não se aplica"',
     JSON.stringify(pacote.mudo));
 
-  // ===== BLOCO M · O SALVAR DA FOLHA (v1.10.3) =====
+  // ===== BLOCO M · O REGISTRO DA FOLHA (v1.10.3; compartilhado desde a v1.12.44) =====
   //
-  // Pedido do operador: *"faça com que essa verificação, após feita, tenha uma
-  // botão para salvar o registro normal + os dados dessa verificação"*. Ele
-  // revoga a decisão da v1.10.0 de não haver salvar aqui — e o ARGUMENTO
-  // daquela decisão é o que este bloco trava: **o arquivo continua sendo UM**.
+  // O arquivo continua sendo UM: o `diagTexto` com a verificação dentro. Desde
+  // a v1.12.44 ele só aparece com a verificação terminada e sai pelo seletor
+  // de compartilhamento (`compartilharArquivoTexto`).
 
-  // M1 · SEM PONTE ELE NÃO EXISTE. Gravar arquivo é o SAF; um botão que só sabe
-  // não funcionar é pior que botão nenhum.
+  // M1 · SEM PONTE ELE NÃO EXISTE.
   const semPonteSalvar = await pg.evaluate(() => {
     const sv = document.getElementById('testeSalvar');
     return { existe: !!sv, hidden: sv && sv.hidden, display: sv && getComputedStyle(sv).display,
@@ -740,63 +775,55 @@ try {
   checar(semPonteSalvar.existe && !semPonteSalvar.nativo,
     'M1 · PREMISSA: o botão está no documento e esta página não tem ponte', JSON.stringify(semPonteSalvar));
   checar(semPonteSalvar.hidden && semPonteSalvar.display === 'none' && semPonteSalvar.largura === 0,
-    'M1 · e sem ponte ele não é desenhado nem ocupa lugar — gravar arquivo é o seletor do sistema, '
-    + 'e o navegador não o tem', JSON.stringify(semPonteSalvar));
+    'M1 · e sem ponte ele não é desenhado nem ocupa lugar', JSON.stringify(semPonteSalvar));
 
-  // M2 · O RÓTULO "Registro" (v1.12.29, pedido do operador: *"adicione o texto
-  // 'registro' ao invés de apenas o ícone"*). Era um quadrado de ícone; agora é
-  // ícone E palavra, a largura é o conteúdo, e a faixa com irmão continua com
-  // UMA altura (v1.8.61). É também a ÚNICA porta do Registro desde o mesmo lote.
+  // M2 · NO APP, ele fica OCULTO enquanto a verificação anda e aparece no fim,
+  // dizendo o que faz. O download de teste é trocado por um desfecho imediato:
+  // aqui não há ponte para baixar nada.
   const caixa = await pg.evaluate(async () => {
     const sv = document.getElementById('testeSalvar');
-    window.__NATIVE__ = true; sv.hidden = false;
+    const realDl = window.testeDownloadCompleto;
+    window.testeDownloadCompleto = async () => ({ v: 'na', nota: 'sem ponte neste oráculo' });
+    window.__NATIVE__ = true;
+    closeTestePopup();
+    while (testeEmCurso || testeRodando) await new Promise((r) => setTimeout(r, 20));
     openTestePopup();
-    // ESPERA O FATO, NUNCA UM PRAZO: `openTestePopup` dispara uma rodada e não a
-    // aguarda. Sob carga (o CI roda três oráculos de cada vez) um `setTimeout`
-    // curto deixa a rodada em voo, e os blocos seguintes leem o estado no meio
-    // dela — uma reprovação por carga do runner chega indistinguível de um
-    // defeito do app, que é a primeira classe que a campanha da v5.316 teve de
-    // corrigir uma a uma.
-    while (testeRodando || !testeResultado) await new Promise((r) => setTimeout(r, 20));
-    const go = document.getElementById('testeCompleta');
-    const a = sv.getBoundingClientRect(); const b = go.getBoundingClientRect();
+    await new Promise((r) => setTimeout(r, 0));
+    const durante = { svHidden: sv.hidden, fechoHidden: document.getElementById('testeFecho').hidden };
+    while (testeEmCurso || testeRodando || !testeResultado) await new Promise((r) => setTimeout(r, 20));
+    window.testeDownloadCompleto = realDl;
+    const a = sv.getBoundingClientRect();
     const svg = sv.querySelector('svg').getBoundingClientRect();
     const rot = sv.querySelector('span');
     return {
-      sv: [+a.width.toFixed(1), +a.height.toFixed(1)],
-      go: [+b.width.toFixed(1), +b.height.toFixed(1)],
-      svg: [+svg.width.toFixed(1), +svg.height.toFixed(1)],
+      durante,
+      depois: { svHidden: sv.hidden, fechoHidden: document.getElementById('testeFecho').hidden },
+      largura: +a.width.toFixed(1),
+      svg: +svg.width.toFixed(1),
       rotulo: rot ? rot.textContent.trim() : '',
-      rotuloVisivel: rot ? rot.getBoundingClientRect().width > 0 : false,
       rotuloCortado: sv.scrollWidth > sv.clientWidth + 1,
-      cortou: go.scrollWidth > go.clientWidth + 1,
+      semCompleta: !document.getElementById('testeCompleta'),
       unicaPorta: !document.getElementById('diagSave'),
     };
   });
-  checar(caixa.rotulo === 'Registro' && caixa.rotuloVisivel && !caixa.rotuloCortado,
-    'M2 · o botão DIZ "Registro", inteiro e à vista — não é mais só o ícone', JSON.stringify(caixa));
-  checar(Math.abs(caixa.sv[1] - caixa.go[1]) < 0.5,
-    'M2 · e a faixa de fecho com irmão tem UMA altura só (v1.8.61)', JSON.stringify(caixa));
-  checar(!caixa.cortou && caixa.svg[0] > 0,
-    'M2 · o rótulo do primário continua inteiro ao lado dele, e o ícone DESENHA — a fonte de '
-    + 'símbolos é um subset de 31 codepoints, então aqui é `<use>` de um `<symbol>`', JSON.stringify(caixa));
-  checar(caixa.unicaPorta,
-    'M2 · e é a ÚNICA porta do Registro: o botão do rodapé de Configurações saiu (v1.12.29)',
-    JSON.stringify(caixa.unicaPorta));
+  checar(caixa.durante.svHidden && caixa.durante.fechoHidden,
+    'M2 · durante a verificação o Registro fica OCULTO — ele sairia com o resultado anterior', JSON.stringify(caixa));
+  checar(!caixa.depois.svHidden && !caixa.depois.fechoHidden && caixa.largura > 0,
+    'M2 · e aparece quando ela termina', JSON.stringify(caixa));
+  checar(caixa.rotulo === 'Compartilhar registro' && !caixa.rotuloCortado && caixa.svg > 0,
+    'M2 · dizendo "Compartilhar registro", inteiro, com o ícone DESENHADO', JSON.stringify(caixa));
+  checar(caixa.semCompleta && caixa.unicaPorta,
+    'M2 · a verificação é UMA (o botão "Verificação completa" saiu) e esta é a única porta do Registro',
+    JSON.stringify(caixa));
 
-  // M3 · O ARQUIVO É UM SÓ, e é o do Registro. `blocoAutoteste()` já é um bloco
-  // do `renderDiag()`: o que o botão salva É "o registro normal + os dados
-  // desta verificação". Um segundo artefato parecido faria quem lê a distância
-  // perguntar qual dos dois é o de verdade — o argumento que a v1.10.0 escreveu
-  // e que sobrevive a esta revogação.
+  // M3 · O ARQUIVO É UM SÓ, e é o do Registro.
   const salvo = await pg.evaluate(async () => {
     const pedidos = [];
     const av = window.AVNative;
     window.AVNative = Object.assign({}, av, {
-      salvarTexto: (nome, texto) => { pedidos.push({ nome, texto }); return Promise.resolve('/mnt/x/' + nome); },
+      compartilharArquivoTexto: (nome, texto) => { pedidos.push({ nome, texto }); return Promise.resolve(true); },
     });
-    await rodarAutoteste();
-    await salvarRegistroDaVerificacao();
+    await compartilharRegistroDaVerificacao();
     window.AVNative = av;
     const t = pedidos[0] ? pedidos[0].texto : '';
     return {
@@ -809,68 +836,29 @@ try {
     };
   });
   checar(salvo.n === 1 && salvo.bytes > 200,
-    'M3 · um toque grava UM arquivo, com conteúdo', JSON.stringify(salvo));
+    'M3 · um toque compartilha UM arquivo, com conteúdo', JSON.stringify(salvo));
   checar(salvo.igualAoRegistro && salvo.temVerificacao && salvo.temCabecalho,
-    'M3 · e o que ele grava é o REGISTRO INTEIRO com a verificação dentro — não um segundo '
-    + 'artefato parecido, que é o que faria quem lê a distância perguntar qual dos dois vale',
-    JSON.stringify(salvo));
+    'M3 · e o que ele leva é o REGISTRO INTEIRO com a verificação dentro', JSON.stringify(salvo));
   checar(/^registro-av-\d{8}-\d{4}\.txt$/.test(salvo.nome),
-    'M3 · com o MESMO nome do salvar de Configurações: duas portas, um arquivo, um padrão de nome',
-    salvo.nome);
+    'M3 · com o nome datado do Registro', salvo.nome);
 
-  // M4 · ELE MONTA O TEXTO ANTES DE GRAVAR. `dispararTeste` chama `renderDiag()`
-  // SEM `await`, e aquela função vai à ponte cinco vezes: um toque logo depois
-  // da rodada pegaria a montagem ANTERIOR — ou, na primeira abertura do app, a
-  // string VAZIA com que `diagTexto` nasce. Um arquivo de zero byte que o
-  // operador manda achando que mandou o Registro é o pior desfecho deste botão.
-  const frescor = await pg.evaluate(() => {
-    const f = salvarRegistroDaVerificacao.toString();
-    return { esperaOTexto: /await\s+renderDiag\(\)/.test(f), recusaVazio: /if\s*\(!diagTexto\)/.test(f) };
-  });
-  checar(frescor.esperaOTexto,
-    'M4 · ele ESPERA a montagem do Registro antes de gravar — sem isso o arquivo sai com a '
-    + 'montagem anterior, ou vazio na primeira abertura do app', JSON.stringify(frescor));
+  // M4 · ELE MONTA O TEXTO ANTES, E VAZIO NUNCA SAI.
   const vazio = await pg.evaluate(async () => {
     const pedidos = [];
     const av = window.AVNative; const real = window.renderDiag;
     window.AVNative = Object.assign({}, av, {
-      salvarTexto: (nome, texto) => { pedidos.push(texto); return Promise.resolve('/mnt/x'); },
+      compartilharArquivoTexto: (nome, texto) => { pedidos.push(texto); return Promise.resolve(true); },
     });
-    // a montagem devolve cedo (outra assumiu): `diagTexto` fica vazio
     const guardado = diagTexto;
     window.renderDiag = async () => { diagTexto = ''; };
-    await salvarRegistroDaVerificacao();
+    await compartilharRegistroDaVerificacao();
     window.renderDiag = real; window.AVNative = av; diagTexto = guardado;
+    window.__NATIVE__ = false; desenharTeste();
     return { gravou: pedidos.length };
   });
   checar(vazio.gravou === 0,
-    'M4 · e um texto VAZIO nunca é gravado: o `renderDiag` tem guarda de sequência e volta cedo '
-    + 'quando outra montagem assume — gravar ali seria o arquivo que discorda do aparelho',
-    JSON.stringify(vazio));
-
-  // M5 · "APÓS FEITA" É A PALAVRA DO PEDIDO. Durante a rodada o arquivo sairia
-  // com o resultado da ANTERIOR; antes da primeira, sem nenhum. É `disabled`
-  // com o `title` dizendo por quê, nunca um botão aceso que não faz nada.
-  const trava = await pg.evaluate(async () => {
-    const sv = document.getElementById('testeSalvar');
-    const guardado = testeResultado;
-    testeResultado = null; desenharTeste();
-    const semRodada = { off: sv.disabled, title: sv.title };
-    const p = dispararTeste();
-    const durante = { off: sv.disabled, title: sv.title };
-    await p;
-    const depois = { off: sv.disabled, title: sv.title };
-    testeResultado = guardado;
-    return { semRodada, durante, depois };
-  });
-  checar(trava.semRodada.off && /[Nn]ada verificado/.test(trava.semRodada.title),
-    'M5 · sem rodada na mão ele é APAGADO, com o motivo no `title`', JSON.stringify(trava.semRodada));
-  checar(trava.durante.off && /[Ee]spere/.test(trava.durante.title),
-    'M5 · durante a rodada também, e a razão MUDA com o estado — salvar ali gravaria o resultado '
-    + 'da rodada anterior', JSON.stringify(trava.durante));
-  checar(!trava.depois.off,
-    'M5 · e ele acende quando a verificação termina, que é o "após feita" do pedido',
-    JSON.stringify(trava.depois));
+    'M4 · um texto VAZIO nunca é compartilhado: o `renderDiag` pode voltar cedo quando outra montagem '
+    + 'assume, e mandar ali seria o arquivo de zero byte', JSON.stringify(vazio));
 
   // ===== BLOCO N · AS SETE LINHAS NOVAS (v1.10.4) =====
   //

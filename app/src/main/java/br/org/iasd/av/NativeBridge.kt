@@ -112,6 +112,13 @@ interface BridgeHost {
     fun shareText(texto: String)
 
     /**
+     * Grava [texto] num arquivo do próprio app (`files/registro/[nome]`) e abre
+     * o SELETOR DE COMPARTILHAMENTO com ele — o Registro da Verificação
+     * (shell 82). [onResult] diz se o seletor abriu.
+     */
+    fun shareTextFile(nome: String, texto: String, onResult: (Boolean) -> Unit)
+
+    /**
      * Abre o "Salvar como" do sistema para um arquivo BINÁRIO e deixa o destino
      * ABERTO para escrita — ver [PacoteCanal], que é quem escreve nele.
      *
@@ -360,7 +367,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 81
+        const val SHELL_VERSION = 82
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -1140,6 +1147,23 @@ class NativeBridge(
      *
      * O WebView do telão recebe a ponte com `host = null` e não chega aqui.
      */
+    /**
+     * O REGISTRO COMPARTILHADO COMO ARQUIVO (shell 82). Ele não cabe no
+     * [compartilharTexto]: um Registro passa de 100 kB, e um `EXTRA_TEXT` desse
+     * tamanho é cortado por quem recebe ou estoura o `Intent`. Vai como
+     * arquivo, pelo mesmo `FileProvider` do pacote.
+     *
+     * FILA `io`: é a escrita de um texto, na casa dos milissegundos.
+     */
+    @JavascriptInterface
+    fun compartilharArquivoTexto(callId: String, nome: String, texto: String) {
+        val h = host
+        if (h == null) { resolve(callId, "false"); return }
+        io.execute {
+            h.shareTextFile(nome, texto) { ok -> resolve(callId, if (ok) "true" else "false") }
+        }
+    }
+
     @JavascriptInterface
     fun compartilharTexto(texto: String) {
         val t = texto.trim()

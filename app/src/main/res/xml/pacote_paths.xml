@@ -11,4 +11,7 @@
 -->
 <paths>
   <files-path name="pacote" path="pacote/" />
+  <!-- O REGISTRO da Verificação (shell 82): um arquivo só, regravado a cada
+       envio pela MainActivity. Subdiretório próprio pelo mesmo motivo acima. -->
+  <files-path name="registro" path="registro/" />
 </paths>
