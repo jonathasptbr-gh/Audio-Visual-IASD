@@ -26,8 +26,11 @@
 //  6. **A BASE DA FOLHA** (o bloco H, v1.12.49): a faixa de fecho de borda a
 //     borda (a tira do scroller aparecia nas calhas ao lado dela), sem pular no
 //     fim da rolagem, com a sombra de "há mais abaixo" na borda dela; o estado da
-//     Verificação acima da barra e o ritmo vertical; a versão e o pedir ajuda
-//     dentro da Verificação; e o teto da folha acima dos 80%.
+//     Verificação acima da barra e o ritmo vertical; e o teto da folha acima dos
+//     80%. Desde a v1.12.50: a versão (texto) e o pedir ajuda (ícone) no
+//     cabeçalho da folha, e o cabeçalho da seção grudado no topo.
+//  7. **A GRADE SOME** (v1.12.50, bloco B): com uma seção aberta o `#cfgTopo` sai
+//     do layout e sobe para fora animado; recolher o devolve.
 //
 // E o invariante 6 do shell, que o movimento do Wallpaper pode quebrar: ele
 // continua sendo um `<label>` com o `<input type=file>` DENTRO — é a ativação
@@ -312,12 +315,14 @@ try {
   await nav.ctx.close();
 
   // =========================================================================
-  // B · A SEÇÃO ABRE DENTRO DE CONFIGURAÇÕES, UMA POR VEZ, E ANIMA
+  // B · A SEÇÃO ABRE DENTRO DE CONFIGURAÇÕES, UMA POR VEZ, E A GRADE SOME
   // =========================================================================
   //
-  // O VIEWPORT É BAIXO (440) DE PROPÓSITO: com a folha no teto de 80% a seção
-  // começa abaixo da dobra, e é aí que se vê se a folha ROLA para mostrá-la —
-  // a 900 tudo cabe e o "à vista" passaria sem medir nada.
+  // Desde a v1.12.50 a grade (`#cfgTopo`) SAI DO LAYOUT com uma seção aberta e o
+  // cabeçalho da seção fica logo abaixo do cabeçalho da folha — *"faça com que a
+  // zona dos botões originais das configurações seja oculta"*. O VIEWPORT É BAIXO
+  // (440) DE PROPÓSITO: com a grade de pé a seção nasceria abaixo da dobra, e é aí
+  // que "o cabeçalho no topo" separa grade escondida de grade apenas rolada.
   const b = await aparelho({}, null, { width: 430, height: 440 });
   await abrirConfiguracoes(b.pg);
   const estadoB = () => b.pg.evaluate(() => ({
@@ -325,51 +330,49 @@ try {
     abertas: [...document.querySelectorAll('#cfgSecoes .cfg-sec')].filter((s) => !s.hidden).map((s) => s.id),
     expandidos: [...document.querySelectorAll('#fadePopup .qs-grade [aria-expanded="true"]')].map((n) => n.id),
     config: document.getElementById('fadePopup').classList.contains('open'),
+    // A GRADE: fora do layout (o `hidden` do `#cfgTopo` e caixa zero), não só rolada.
+    gradeFora: document.getElementById('cfgTopo').hidden
+      && document.querySelector('#fadePopup .qs-grade').getClientRects().length === 0,
   }));
   const TILES = [['Tela', '#telaTile', 'telaSecao', 'tela'], ['Transferir', '#pacoteTile', 'pacoteSecao', 'pacote'],
     ['Editar mídia', '#edicaoTile', 'edicaoSecao', 'edicao'], ['Histórico', '#histOpenRow', 'histSecao', 'hist'],
     ['Verificação', '#testeTile', 'testeSecao', 'teste']];
-  let rolouAlguma = false;
   for (const [nome, tile, secao, chave] of TILES) {
+    const antes = await estadoB();
+    checar(!antes.gradeFora && antes.aberta === '',
+      'B · ' + nome + ' · PREMISSA: a grade está à vista antes do toque', JSON.stringify(antes));
     const abriu = await abrirJanela(b.pg, tile, secao);
     const e = await estadoB();
     checar(abriu === true && e.aberta === chave && e.abertas.length === 1 && e.abertas[0] === secao,
-      'B · ' + nome + ' · tocar no tile abre a seção — e SÓ ela: a anterior recolheu na troca',
-      JSON.stringify(e));
+      'B · ' + nome + ' · tocar no tile abre a seção — e SÓ ela', JSON.stringify(e));
     checar(e.config === true && e.expandidos.length === 1 && e.expandidos[0] === tile.slice(1),
       'B · ' + nome + ' · Configurações continua aberta e o tile diz `aria-expanded` (o aberto '
       + 'não é cor — é o corpo à vista)', JSON.stringify(e));
-    // À VISTA: o cabeçalho da seção está dentro da parte visível do scroller, e o
-    // toque nele chega à própria seção. A rolagem é SUAVE e roda depois da
-    // animação da altura: espera-se por ela assentar.
-    await esperarDb(b.pg, () => {
-      const sc = document.querySelector('#fadePopup .fade-opts');
-      const v = sc.scrollTop;
-      return new Promise((r) => setTimeout(() => r(sc.scrollTop === v), 150));
-    }, null, 5000);
+    checar(e.gradeFora === true,
+      'B · ' + nome + ' · com a seção aberta a GRADE SAI DO LAYOUT (o modo e os tiles), não só rola',
+      JSON.stringify(e));
+    // O CABEÇALHO DA SEÇÃO É O PRIMEIRO À VISTA, colado ao cabeçalho da folha, e o
+    // toque nele chega à própria seção.
     const vista = await b.pg.evaluate((s) => {
       const cab = document.querySelector('#' + s + ' .cfg-sec-cab').getBoundingClientRect();
-      const sc = document.querySelector('#fadePopup .fade-opts');
-      const scr = sc.getBoundingClientRect();
+      const topo = document.querySelector('#fadePopup .popup-header').getBoundingClientRect();
       const el = document.elementFromPoint(cab.left + cab.width / 2, cab.top + cab.height / 2);
-      return { dentro: cab.top >= scr.top - 1 && cab.bottom <= scr.bottom + 1,
-        dono: el && el.closest('.cfg-sec') ? el.closest('.cfg-sec').id : null, rolou: sc.scrollTop };
+      return { cab: cab.top, folha: topo.bottom,
+        dono: el && el.closest('.cfg-sec') ? el.closest('.cfg-sec').id : null };
     }, secao);
-    if (vista.rolou > 0) rolouAlguma = true;
-    checar(vista.dentro && vista.dono === secao,
-      'B · ' + nome + ' · o cabeçalho da seção fica À VISTA (a folha rola até ele) e o toque '
-      + 'nele chega à própria seção', JSON.stringify(vista));
+    checar(Math.abs(vista.cab - vista.folha) <= 1 && vista.dono === secao,
+      'B · ' + nome + ' · o cabeçalho da seção fica logo abaixo do cabeçalho de Configurações, e o '
+      + 'toque nele chega à própria seção', JSON.stringify(vista));
+    // RECOLHER DEVOLVE A GRADE: o chevron, e na Verificação (cujo chevron some
+    // enquanto ela anda) o voltar.
+    if (chave === 'teste') await b.pg.evaluate(() => window.__avBack());
+    else await tocar(b.pg, '#' + secao + ' .cfg-sec-recolher');
+    await assentar(b.pg, ['#cfgSecoes', '#cfgSecoes .cfg-sec', '#cfgTopo']);
+    const r = await estadoB();
+    checar(r.aberta === '' && r.abertas.length === 0 && !r.gradeFora && r.config,
+      'B · ' + nome + ' · recolher (' + (chave === 'teste' ? 'voltar' : 'chevron')
+      + ') devolve a GRADE, e Configurações fica', JSON.stringify(r));
   }
-  checar(rolouAlguma,
-    'B · PREMISSA: a 440 de altura a folha precisou ROLAR para mostrar alguma seção', 'sem rolagem');
-
-  // ---- O MESMO TILE RECOLHE ----
-  await b.pg.evaluate(() => { document.querySelector('#fadePopup .fade-opts').scrollTop = 0; });
-  await tocar(b.pg, '#testeTile');
-  await assentar(b.pg, ['#cfgSecoes', '#cfgSecoes .cfg-sec']);
-  const recolheu = await estadoB();
-  checar(recolheu.aberta === '' && recolheu.abertas.length === 0 && recolheu.config && recolheu.expandidos.length === 0,
-    'B · tocar de novo no tile da seção aberta a RECOLHE, e Configurações fica', JSON.stringify(recolheu));
 
   // ---- NENHUM ✕ DENTRO DAS SEÇÕES ----
   const fechos = await b.pg.evaluate(() => ({
@@ -385,27 +388,24 @@ try {
     'B · o ÚNICO ✕ é o de Configurações: cada seção recolhe por um chevron SEM CAIXA no '
     + 'cabeçalho dela — não disputa com o ✕ da folha', JSON.stringify(fechos));
 
-  // ---- O CHEVRON RECOLHE ----
-  await abrirJanela(b.pg, '#histOpenRow', 'histSecao');
-  await tocar(b.pg, '#histSecao .cfg-sec-recolher');
-  const peloChevron = await esperar(b.pg, () => secaoAberta === '' && document.getElementById('histSecao').hidden, null, 5000);
-  checar(peloChevron === true && (await aberta(b.pg, 'fadePopup')),
-    'B · o chevron do cabeçalho recolhe a seção, e Configurações fica', porque(peloChevron));
-
   // ---- A TROCA ANIMA, E NUNCA HÁ DUAS ----
   await b.pg.evaluate(() => { document.querySelector('#fadePopup .fade-opts').scrollTop = 0; });
   await abrirJanela(b.pg, '#telaTile', 'telaSecao');
+  // A TROCA não tem porta na tela (os tiles somem com a grade), mas a conta existe
+  // (`trocarSecao` com outra aberta): ela só cruza as seções, e a grade NÃO volta.
   const troca = await b.pg.evaluate(async () => {
     const box = document.getElementById('cfgSecoes');
-    document.getElementById('histOpenRow').click();
+    trocarSecao('hist');
+    const gradeNaTroca = [];
     const animando = box.getAnimations().some((a) => a.effect && a.effect.getKeyframes().some((k) => 'height' in k));
     const amostras = [];
     for (let i = 0; i < 12; i++) {
       await new Promise((r) => requestAnimationFrame(r));
       amostras.push([...box.querySelectorAll('.cfg-sec')].filter((s) => !s.hidden && !s.classList.contains('saindo')).length);
+      gradeNaTroca.push(document.getElementById('cfgTopo').hidden);
     }
     await Promise.all(box.getAnimations({ subtree: true }).map((a) => a.finished.catch(() => {})));
-    return { animando, amostras, saindo: box.querySelectorAll('.saindo').length,
+    return { animando, amostras, gradeNaTroca, saindo: box.querySelectorAll('.saindo').length,
       visiveis: [...box.querySelectorAll('.cfg-sec')].filter((s) => !s.hidden).map((s) => s.id) };
   });
   checar(troca.animando === true,
@@ -413,15 +413,18 @@ try {
   checar(troca.amostras.every((n) => n === 1) && troca.saindo === 0 && troca.visiveis.length === 1 && troca.visiveis[0] === 'histSecao',
     'B · e durante a troca há UMA seção de pé a cada quadro (a que sai é `.saindo`, absoluta '
     + 'por cima), e no fim só a nova', JSON.stringify(troca));
+  checar(troca.gradeNaTroca.every(Boolean),
+    'B · e a troca entre seções NÃO devolve a grade em quadro nenhum', JSON.stringify(troca.gradeNaTroca));
 
   // ---- O VOLTAR RECOLHE ANTES DE FECHAR ----
   const volta = await b.pg.evaluate(() => {
     const um = window.__avBack();
-    const depoisUm = { secao: secaoAberta, config: document.getElementById('fadePopup').classList.contains('open') };
+    const depoisUm = { secao: secaoAberta, config: document.getElementById('fadePopup').classList.contains('open'),
+      grade: !document.getElementById('cfgTopo').hidden };
     const dois = window.__avBack();
     return { um, depoisUm, dois, configFim: document.getElementById('fadePopup').classList.contains('open') };
   });
-  checar(volta.um === true && volta.depoisUm.secao === '' && volta.depoisUm.config === true
+  checar(volta.um === true && volta.depoisUm.secao === '' && volta.depoisUm.config === true && volta.depoisUm.grade
       && volta.dois === true && volta.configFim === false,
     'B · o voltar RECOLHE a seção primeiro (Configurações fica) e só o segundo fecha a folha',
     JSON.stringify(volta));
@@ -434,29 +437,44 @@ try {
   await tocar(b.pg, '#fadePopupClose');
   const folhaFechou = await esperar(b.pg, () => !document.getElementById('fadePopup').classList.contains('open'), null, 5000);
   const aposFechar = await b.pg.evaluate(() => ({ secao: secaoAberta,
-    abertas: [...document.querySelectorAll('#cfgSecoes .cfg-sec')].filter((s) => !s.hidden).length }));
-  checar(folhaFechou === true && aposFechar.secao === '' && aposFechar.abertas === 0,
+    abertas: [...document.querySelectorAll('#cfgSecoes .cfg-sec')].filter((s) => !s.hidden).length,
+    grade: !document.getElementById('cfgTopo').hidden }));
+  checar(folhaFechou === true && aposFechar.secao === '' && aposFechar.abertas === 0 && aposFechar.grade,
     'B · fechar Configurações pelo ✕ recolhe a seção aberta — a próxima abertura começa na grade',
     JSON.stringify(aposFechar));
   await b.ctx.close();
 
-  // ---- ABRIR FAZ A FOLHA CRESCER (a 900 de altura, longe do teto) ----
+  // ---- ABRIR ANIMA: A GRADE SOBE PARA FORA E A FOLHA ACOMPANHA ----
+  // A 900 de altura, longe do teto: a folha vai da altura da grade à da seção
+  // passando por alturas intermediárias, e a grade sai por `margin-top` negativo
+  // (sobe), em vez de sumir num quadro.
   const alta = await aparelho({}, null, { width: 430, height: 900 });
   await abrirConfiguracoes(alta.pg);
   await assentar(alta.pg, ['#fadePopup .popup-sheet']);
   const cresce = await alta.pg.evaluate(async () => {
     const folha = document.querySelector('#fadePopup .popup-sheet');
+    const topo = document.getElementById('cfgTopo');
     const f0 = folha.getBoundingClientRect().height;
+    const t0 = topo.getBoundingClientRect().top;
     document.getElementById('telaTile').click();
     const box = document.getElementById('cfgSecoes');
     const meio = [];
-    for (let i = 0; i < 6; i++) { await new Promise((r) => requestAnimationFrame(r)); meio.push(folha.getBoundingClientRect().height); }
-    await Promise.all(box.getAnimations({ subtree: true }).map((a) => a.finished.catch(() => {})));
-    return { f0, meio, f1: folha.getBoundingClientRect().height };
+    const topos = [];
+    for (let i = 0; i < 6; i++) {
+      await new Promise((r) => requestAnimationFrame(r));
+      meio.push(folha.getBoundingClientRect().height);
+      topos.push(topo.hidden ? null : topo.getBoundingClientRect().top);
+    }
+    await Promise.all([...box.getAnimations({ subtree: true }), ...topo.getAnimations()].map((a) => a.finished.catch(() => {})));
+    return { f0, t0, meio, topos, f1: folha.getBoundingClientRect().height, fim: topo.hidden };
   });
-  checar(cresce.f1 > cresce.f0 + 100 && cresce.meio.some((h) => h > cresce.f0 + 1 && h < cresce.f1 - 1),
-    'B · a folha de Configurações CRESCE com a seção, e passa por alturas intermediárias '
-    + '(acompanha a animação, não salta)', JSON.stringify(cresce));
+  const lo = Math.min(cresce.f0, cresce.f1), hi = Math.max(cresce.f0, cresce.f1);
+  checar(Math.abs(cresce.f1 - cresce.f0) > 50 && cresce.meio.some((h) => h > lo + 1 && h < hi - 1),
+    'B · a folha muda de altura com a seção (da grade para a seção) passando por alturas '
+    + 'intermediárias — acompanha a animação, não salta', JSON.stringify(cresce));
+  checar(cresce.topos.some((t) => t !== null && t < cresce.t0 - 1) && cresce.fim === true,
+    'B · e a GRADE SOBE para fora (o topo dela anda para cima durante a animação) antes de sair do layout',
+    JSON.stringify(cresce));
   await alta.ctx.close();
 
   // ---- SEM MOVIMENTO, NÃO ANIMA ----
@@ -471,9 +489,10 @@ try {
     const n1 = document.getElementById('cfgSecoes').getAnimations({ subtree: true }).length;
     document.getElementById('histOpenRow').click();
     const n2 = document.getElementById('cfgSecoes').getAnimations({ subtree: true }).length;
-    return { n1, n2, secao: secaoAberta, abertas: [...document.querySelectorAll('#cfgSecoes .cfg-sec')].filter((s) => !s.hidden).length };
+    return { n1, n2, secao: secaoAberta, abertas: [...document.querySelectorAll('#cfgSecoes .cfg-sec')].filter((s) => !s.hidden).length,
+      topo: document.getElementById('cfgTopo').getAnimations().length, grade: document.getElementById('cfgTopo').hidden };
   });
-  checar(semAnim.n1 === 0 && semAnim.n2 === 0 && semAnim.secao === 'hist' && semAnim.abertas === 1,
+  checar(semAnim.n1 === 0 && semAnim.n2 === 0 && semAnim.topo === 0 && semAnim.grade && semAnim.secao === 'hist' && semAnim.abertas === 1,
     'B · com `prefers-reduced-motion` a seção abre e troca SEM animação, no mesmo estado final',
     JSON.stringify(semAnim));
   await quieto.close();
@@ -908,15 +927,37 @@ try {
   const sp6 = await sonda(h.pg, 'var(--sp-6)');
   const baseFolha = await sonda(h.pg, '.9rem');
 
-  // ---- H1 · A VERSÃO E O PEDIR AJUDA SÃO DA VERIFICAÇÃO, E O RODAPÉ SOME ----
+  // ---- H1 · A VERSÃO E O PEDIR AJUDA SÃO DO CABEÇALHO DA FOLHA (v1.12.50), E O RODAPÉ SOME ----
+  // *"colocar o botão de versão no topo, ao lado do título de configurações, mas não
+  // torne ele um botão explícito, mas apenas as letras … ao lado do botão de fechar
+  // configurações, coloque um botão de apenas ícone, com ícone de mensagem"*.
   const casa = await h.pg.evaluate(() => {
     const ft = document.querySelector('#fadePopup .popup-footer');
+    const cab = document.querySelector('#fadePopup .popup-header');
+    const v = document.getElementById('versaoBtn');
+    const c = document.getElementById('contatoBtn');
+    const x = document.getElementById('fadePopupClose');
+    const t = cab.querySelector('.popup-title');
+    const cs = getComputedStyle(v);
+    const vr = v.getBoundingClientRect(), tr = t.getBoundingClientRect(), cr = c.getBoundingClientRect(), xr = x.getBoundingClientRect();
+    const svg = c.querySelector('svg');
     return {
-      versao: !!document.querySelector('#testeSecao #versaoBtn'),
-      ajuda: !!document.querySelector('#testeSecao #contatoBtn'),
-      appVersion: !!document.querySelector('#testeSecao #versaoBtn #appVersion'),
+      versao: !!cab.querySelector('#versaoBtn #appVersion'),
+      ajuda: !!cab.querySelector('#contatoBtn'),
+      naVerificacao: !!document.querySelector('#testeSecao #versaoBtn, #testeSecao #contatoBtn, #testeSecao .versao-faixa'),
       noRodape: !!ft.querySelector('#versaoBtn, #contatoBtn, #appVersion'),
       rodape: getComputedStyle(ft).display,
+      // A VERSÃO É SÓ AS LETRAS: sem fundo, sem borda, menor e mais apagada que o título.
+      fundo: cs.backgroundColor, borda: cs.borderTopWidth + ' ' + cs.borderTopStyle,
+      corV: cs.color, corT: getComputedStyle(t).color,
+      fonteV: parseFloat(cs.fontSize), fonteT: parseFloat(getComputedStyle(t).fontSize),
+      // ao LADO do título (depois dele, na mesma faixa vertical do cabeçalho)
+      aoLado: vr.left >= tr.right - 1 || vr.top >= tr.bottom - 1,
+      // O PEDIR AJUDA É SÓ O ÍCONE: nenhum texto, o balão, e logo antes do ✕.
+      ajudaTexto: c.textContent.trim(), ajudaIcone: svg ? svg.querySelector('use').getAttribute('href') : null,
+      ajudaW: svg ? +svg.getBoundingClientRect().width.toFixed(1) : null,
+      vizinhoDoX: c.nextElementSibling === x && cr.right <= xr.left + 1,
+      ajudaRotulo: c.getAttribute('aria-label') + ' | ' + c.title,
       // A ATUALIZAÇÃO ADIADA FICA NO RODAPÉ, e com ela à vista ele volta a existir.
       comOta: (() => {
         const o = document.getElementById('otaRow'); o.hidden = false;
@@ -924,11 +965,19 @@ try {
       })(),
     };
   });
-  checar(casa.versao && casa.ajuda && casa.appVersion && !casa.noRodape,
-    'H1 · a versão (com o `#appVersion` dentro) e o pedir ajuda moram na seção da Verificação, '
-    + 'e NÃO no rodapé de Configurações', JSON.stringify(casa));
+  checar(casa.versao && casa.ajuda && !casa.naVerificacao && !casa.noRodape,
+    'H1 · a versão (com o `#appVersion` dentro) e o pedir ajuda moram no CABEÇALHO de Configurações — '
+    + 'fora da Verificação e do rodapé', JSON.stringify(casa));
+  checar(/rgba\(0, 0, 0, 0\)|transparent/.test(casa.fundo) && /^0px/.test(casa.borda)
+      && casa.fonteV < casa.fonteT && casa.corV !== casa.corT && casa.aoLado,
+    'H1 · a versão é SÓ AS LETRAS ao lado do título: sem fundo, sem borda, menor e em outra cor (mais '
+    + 'apagada)', JSON.stringify(casa));
+  checar(casa.ajudaTexto === '' && casa.ajudaIcone === '#icoContato' && casa.ajudaW === 20
+      && casa.vizinhoDoX && /Pedir ajuda/.test(casa.ajudaRotulo),
+    'H1 · o pedir ajuda é um botão SÓ DE ÍCONE (o balão, 20px), logo antes do ✕, e diz "Pedir ajuda" ao '
+    + 'leitor de tela', JSON.stringify(casa));
   checar(casa.rodape === 'none',
-    'H1 · e sem atualização adiada o rodapé da folha NÃO EXISTE — as seções são o fim dela',
+    'H1 · e sem atualização adiada o rodapé da folha NÃO EXISTE',
     JSON.stringify(casa));
   checar(casa.comOta !== 'none',
     'H1 · mas com a atualização adiada à vista o rodapé APARECE — quem adiou a encontra sem abrir seção',
@@ -950,7 +999,6 @@ try {
     const R = (sel) => document.querySelector(sel).getBoundingClientRect();
     const cab = R('#testeSecao .cfg-sec-cab'), res = R('#testeResumo'), bar = R('#testeAnel');
     const erros = [...document.querySelectorAll('#testeList > li')].map((n) => n.getBoundingClientRect());
-    const ver = R('#testeSecao .versao-faixa');
     const ordem = document.getElementById('testeResumo')
       .compareDocumentPosition(document.getElementById('testeAnel')) & Node.DOCUMENT_POSITION_FOLLOWING;
     return {
@@ -958,7 +1006,6 @@ try {
       cabResumo: +(res.top - cab.bottom).toFixed(2), resumoBarra: +(bar.top - res.bottom).toFixed(2),
       barraErros: erros.length ? +(erros[0].top - bar.bottom).toFixed(2) : null,
       entreErros: erros.length > 1 ? +(erros[1].top - erros[0].bottom).toFixed(2) : null,
-      errosVersao: erros.length ? +(ver.top - erros[erros.length - 1].bottom).toFixed(2) : null,
     };
   });
   checar(ritmo.ordem && ritmo.texto && ritmo.resumoBarra >= 0 && ritmo.n === 2,
@@ -967,12 +1014,13 @@ try {
   checar(ritmo.cabResumo >= sp6 - 0.5 && ritmo.resumoBarra >= sp6 - 0.5,
     'H2 · e há `--sp-6` (' + sp6.toFixed(2) + 'px) do cabeçalho ao estado e do estado à barra — '
     + 'eram 4 e 8px, *"muito amontoados"*', JSON.stringify(ritmo));
-  checar(ritmo.barraErros >= 2 * sp6 - 0.5 && ritmo.errosVersao >= 2 * sp6 - 0.5
-    && ritmo.entreErros >= sp6 / 2,
-    'H2 · e o DOBRO entre blocos de assunto diferente: da barra aos problemas e dos problemas à '
-    + 'versão', JSON.stringify(ritmo));
+  checar(ritmo.barraErros >= 2 * sp6 - 0.5 && ritmo.entreErros >= sp6 / 2,
+    'H2 · e o DOBRO entre blocos de assunto diferente: da barra aos problemas', JSON.stringify(ritmo));
 
   // ---- H3 · A FAIXA DE FECHO: DE BORDA A BORDA, SEM PULO, SEM COBRIR A LISTA ----
+  // (e o cabeçalho da seção GRUDADO no topo, v1.12.50)
+  await h.pg.evaluate(() => { window.__avBack(); });
+  await assentar(h.pg, ['#cfgSecoes', '#cfgSecoes .cfg-sec', '#cfgTopo']);
   await h.pg.evaluate(() => {
     historico = [{ inicio: Date.now() - 7200000, itens: Array.from({ length: 30 },
       (_, i) => ({ id: 'h' + i, nome: 'Louvor ' + i, sub: '', hora: Date.now() - i * 60000, vezes: 1, rec: null })) }];
@@ -992,15 +1040,27 @@ try {
       // diz `block` para um pseudo sem `content`, que não pinta nada.
       sombra: /^(none|normal)$/.test(getComputedStyle(f, '::before').content) ? 'sem conteúdo'
         : getComputedStyle(f, '::before').display, abaixo: sc.classList.contains('tem-abaixo'),
+      // O CABEÇALHO DA SEÇÃO: colado ao da folha, de borda a borda, opaco, e com a
+      // sombra de "há mais acima" na borda de baixo dele.
+      cabTopo: document.querySelector('#histSecao .cfg-sec-cab').getBoundingClientRect().top,
+      cabEsq: document.querySelector('#histSecao .cfg-sec-cab').getBoundingClientRect().left,
+      cabDir: document.querySelector('#histSecao .cfg-sec-cab').getBoundingClientRect().right,
+      cabFundo: getComputedStyle(document.querySelector('#histSecao .cfg-sec-cab')).backgroundColor,
+      folhaBase: document.querySelector('#fadePopup .popup-header').getBoundingClientRect().bottom,
+      cabSombra: (() => { const cs = getComputedStyle(document.querySelector('#histSecao .cfg-sec-cab'), '::after');
+        return /^(none|normal)$/.test(cs.content) ? 'sem conteúdo' : cs.display; })(),
+      acima: sc.classList.contains('tem-acima'),
       folha: document.querySelector('#fadePopup .popup-sheet').getBoundingClientRect().height,
       vh: innerHeight,
     };
   });
-  // NO MEIO: o topo da lista à vista, e a faixa grudada.
+  // NO TOPO, e depois NO MEIO (a faixa grudada).
+  await h.pg.evaluate(() => { document.querySelector('#fadePopup .fade-opts').scrollTop = 0; });
+  await h.pg.waitForTimeout(150);
+  const hTopo = await medirFaixa();
   await h.pg.evaluate(() => {
     const sc = document.querySelector('#fadePopup .fade-opts');
-    const l = document.getElementById('histList');
-    sc.scrollTop += l.getBoundingClientRect().top - sc.getBoundingClientRect().top;
+    sc.scrollTop = (sc.scrollHeight - sc.clientHeight) / 2;
   });
   await h.pg.waitForTimeout(150);
   const meio = await medirFaixa();
@@ -1033,6 +1093,15 @@ try {
   checar(!hFim.abaixo && hFim.listaFim <= hFim.fTopo + 0.5,
     'H3 · no fim a última linha da lista fica INTEIRA acima da faixa — nada escondido atrás dela',
     JSON.stringify(hFim));
+
+  // O CABEÇALHO DA SEÇÃO NO TOPO, COM A LISTA ROLADA ATÉ O FIM (v1.12.50).
+  checar(Math.abs(hFim.cabTopo - hFim.folhaBase) <= 1 && Math.abs(hFim.cabEsq - hFim.scEsq) <= 0.5
+      && Math.abs(hFim.cabDir - hFim.scDir) <= 0.5 && !/rgba\(0, 0, 0, 0\)/.test(hFim.cabFundo),
+    'H3 · com a lista rolada até o FIM o cabeçalho da seção continua colado ao de Configurações, de borda '
+    + 'a borda e opaco', JSON.stringify(hFim));
+  checar(hTopo.cabSombra === 'none' && !hTopo.acima && hFim.acima && hFim.cabSombra === 'block',
+    'H3 · e a sombra de "há mais acima" é DELE (na borda de baixo), só com a lista rolada — a tira do '
+    + 'scroller ficaria escondida atrás de um cabeçalho opaco', JSON.stringify([hTopo.cabSombra, hFim.cabSombra]));
 
   // ---- H4 · A FOLHA PASSA DOS 80% QUANDO O CONTEÚDO PEDE ----
   checar(hFim.folha > 0.8 * hFim.vh + 1 && hFim.folha < hFim.vh - 40,

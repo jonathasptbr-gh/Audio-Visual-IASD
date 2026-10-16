@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.12.50",
+    "itens": [
+      "Configurações: ao abrir Histórico, Transferir, Editar mídia, Tela ou Verificação, os botões de cima somem.",
+      "O título da opção aberta fica fixo no topo; a seta dele fecha a opção e os botões voltam.",
+      "A versão do app fica no topo, ao lado de \"Configurações\"; toque nela para ver o que mudou.",
+      "\"Pedir ajuda\" virou o ícone de mensagem no topo, ao lado do X."
+    ]
+  },
+  {
     "versao": "1.12.49",
     "itens": [
       "Verificação: \"Verificando…\" e \"Tudo certo\" aparecem acima da barra, com mais espaço entre as partes.",
