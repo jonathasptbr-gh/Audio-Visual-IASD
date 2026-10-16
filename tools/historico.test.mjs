@@ -93,9 +93,9 @@ try {
   // e esta é a tela que o operador abre justamente quando quer saber se o app
   // está guardando alguma coisa.
   const vazia = await pg.evaluate(() => {
-    openHistPopup();
+    abrirSecao('hist');
     const t = document.getElementById('histList').textContent;
-    closeHistPopup();
+    recolherSecao();
     return t;
   });
   checar(/Nada projetado ainda/.test(vazia),
@@ -113,7 +113,7 @@ try {
   // que é por onde estas asserções as endereçam: o que elas medem são as
   // LINHAS, e o `textContent` do bloco contém o de todas elas.
   const lido = () => pg.evaluate(() => {
-    openHistPopup();
+    abrirSecao('hist');
     const linhas = [...document.querySelectorAll('#histList .hist-corpo > li')].map((li) => ({
       hora: (li.querySelector('.hist-hora') || {}).textContent || '',
       nome: (li.querySelector('.row-name') || {}).textContent || '',
@@ -121,7 +121,7 @@ try {
       botoes: [...li.querySelectorAll('button')].map((b) => b.title),
       sumiu: li.classList.contains('hist-sumiu'),
     }));
-    closeHistPopup();
+    recolherSecao();
     return linhas;
   });
 
@@ -163,13 +163,13 @@ try {
   await pg.evaluate((i) => send(i.solto), ids);
   await pg.waitForTimeout(400);
   const foi = await pg.evaluate(async (i) => {
-    openHistPopup();
+    abrirSecao('hist');
     const li = [...document.querySelectorAll('#histList .hist-corpo > li')]
       .find((el) => /Slide avulso/.test(el.textContent));
     li.querySelector('button').click();
     await new Promise((r) => setTimeout(r, 500));
     const dentro = await AVDB.listHas('imports', i.solto);
-    closeHistPopup();
+    recolherSecao();
     return dentro;
   }, ids);
   checar(foi === true,
@@ -187,7 +187,7 @@ try {
     await send(i.um);                 // outra coisa em cena, para haver o que trocar
     await new Promise((r) => setTimeout(r, 300));
     const antes = currentId;
-    openHistPopup();
+    abrirSecao('hist');
     const li = [...document.querySelectorAll('#histList .hist-corpo > li')]
       .find((el) => /Aviso da secretaria/.test(el.textContent));
     li.querySelector('.row').click();
@@ -196,9 +196,10 @@ try {
       antes,
       depois: currentId,
       alvo: i.dois,
-      // A FOLHA FECHA: ela cobre a preview e o transporte, que é onde a
-      // resposta ao toque aparece.
-      fechou: !document.getElementById('histPopup').classList.contains('open'),
+      // CONFIGURAÇÕES FECHA, com a seção junto (v1.12.48): ela cobre a preview
+      // e o transporte, que é onde a resposta ao toque aparece.
+      fechou: !document.getElementById('histSecao').classList.contains('open')
+        && !document.getElementById('fadePopup').classList.contains('open'),
     };
   }, ids);
   checar(tocou.antes !== tocou.alvo,
@@ -207,7 +208,7 @@ try {
     'o toque na linha PROJETA aquele item — é para isto que se abre o histórico',
     tocou);
   checar(tocou.fechou,
-    'e a folha fecha, senão a projeção aconteceria atrás dela', tocou);
+    'e Configurações fecha (com a seção junto), senão a projeção aconteceria atrás dela', tocou);
 
   // O BOTÃO NÃO PROJETA: ele tem `stopPropagation`, e sem isso "mandar ao
   // Cronograma" mandaria ao TELÃO junto — uma ação a mais que ninguém pediu, na
@@ -215,14 +216,14 @@ try {
   const soBotao = await pg.evaluate(async (i) => {
     await send(i.um);
     await new Promise((r) => setTimeout(r, 300));
-    openHistPopup();
+    abrirSecao('hist');
     const li = [...document.querySelectorAll('#histList .hist-corpo > li')]
       .find((el) => /Aviso da secretaria/.test(el.textContent));
     li.querySelector('.row-btn').click();
     await new Promise((r) => setTimeout(r, 500));
     const r2 = { emCena: currentId, alvo: i.um,
-      aberta: document.getElementById('histPopup').classList.contains('open') };
-    closeHistPopup();
+      aberta: document.getElementById('histSecao').classList.contains('open') };
+    recolherSecao();
     return r2;
   }, ids);
   checar(soBotao.emCena === soBotao.alvo,
@@ -245,7 +246,7 @@ try {
     await AVDB.listRemove('imports', i.solto);
     await AVDB.listRemove('avulsos', i.solto);
     const aindaTem = !!(await AVDB.getMedia(i.solto));
-    openHistPopup();
+    abrirSecao('hist');
     await new Promise((r) => setTimeout(r, 400));
     const li = [...document.querySelectorAll('#histList .hist-corpo > li')]
       .find((el) => /Slide avulso/.test(el.textContent));
@@ -256,7 +257,7 @@ try {
       botoes: li ? li.querySelectorAll('button').length : -1,
       sub: li ? (li.querySelector('.row-sub') || {}).textContent : '',
     };
-    closeHistPopup();
+    recolherSecao();
     return r;
   }, ids);
   checar(!sumido.aindaTem, 'o cenário está montado: o item saiu do banco', sumido);
@@ -289,7 +290,7 @@ try {
   //    que precisa dele. É a razão inteira da regra: o histórico não pode
   //    obrigar o aparelho a guardar nada.
   const cabs = () => pg.evaluate(() => {
-    openHistPopup();
+    abrirSecao('hist');
     const r = [...document.querySelectorAll('#histList .hist-sessao')].map((li) => ({
       tit: (li.querySelector('.hist-sessao-tit') || {}).textContent || '',
       sub: (li.querySelector('.hist-sessao-sub') || {}).textContent || '',
@@ -298,7 +299,7 @@ try {
       // "Adicionar ao Cronograma" de cada uma.
       botoes: [...li.querySelectorAll('.hist-sessao-bar button')].map((b) => b.title),
     }));
-    closeHistPopup();
+    recolherSecao();
     return r;
   });
   const c1 = await cabs();
@@ -363,7 +364,7 @@ try {
 
   const depois = await pg.evaluate(() => {
     setAppMode('full');
-    openHistPopup();
+    abrirSecao('hist');
     // UMA SESSÃO É UM BLOCO, E AS LINHAS DELA MORAM DENTRO (v1.7.5) — a
     // anatomia da `.coll-group` da Biblioteca. A leitura por IRMÃOS que estava
     // aqui (`#histList > li`, alternando cabeçalho e linha) descrevia o desenho
@@ -378,7 +379,7 @@ try {
         arquivada: li.classList.contains('hist-arquivada'),
       })),
     }));
-    closeHistPopup();
+    recolherSecao();
     return blocos;
   });
   checar(depois.length === 2 && depois.every((b) => b.linhas.length),
@@ -467,14 +468,14 @@ try {
       };
     };
     setAppMode('full');
-    openHistPopup();
+    abrirSecao('hist');
     await new Promise((r) => setTimeout(r, 60));
     const escuro = medir();
     setTema('claro');
     await new Promise((r) => setTimeout(r, 60));
     const claro = medir();
     setTema('escuro');
-    closeHistPopup();
+    recolherSecao();
     return { escuro, claro };
   });
   for (const tema of ['escuro', 'claro']) {
@@ -495,7 +496,7 @@ try {
   // continuam sendo uma corrida de irmãos, e é a filiação que faz a sublista
   // existir. Sem ela, um cabeçalho não tem como dizer onde o dia dele acaba.
   const arvore = await pg.evaluate(() => {
-    openHistPopup();
+    abrirSecao('hist');
     const blocos = [...document.querySelectorAll('#histList > li')];
     const r = {
       soBlocos: blocos.every((li) => li.classList.contains('hist-sessao')),
@@ -505,7 +506,7 @@ try {
         .every((li) => li.parentElement.classList.contains('hist-corpo')
           && li.closest('.hist-sessao')),
     };
-    closeHistPopup();
+    recolherSecao();
     return r;
   });
   checar(arvore.soBlocos && arvore.comCorpo && arvore.linhas > 0 && arvore.dentro,
@@ -520,13 +521,13 @@ try {
   // Cronograma ter ganhado uma cena com aquele texto, não o clique ter
   // acontecido.
   const remontou = await pg.evaluate(async () => {
-    openHistPopup();
+    abrirSecao('hist');
     const li = [...document.querySelectorAll('#histList .hist-corpo > li')]
       .find((el) => /Louvor de abertura/.test(el.textContent));
     li.querySelector('.row-btn').click();
     await new Promise((r) => setTimeout(r, 700));
     const itens = await AVDB.listItems('imports');
-    closeHistPopup();
+    recolherSecao();
     return {
       orfao: !(await AVDB.getMedia('sumido-2')),
       achou: itens.some((r) => r.kind === 'cue' && r.data && r.data.text === 'Bem-vindos ao culto'),
@@ -545,7 +546,7 @@ try {
   // criado responde "adicionado ao Cronograma" sem adicionar nada — e isso é
   // indistinguível do certo até o sábado seguinte.
   const achado = await pg.evaluate(async (idNovo) => {
-    openHistPopup();
+    abrirSecao('hist');
     const li = [...document.querySelectorAll('#histList .hist-corpo > li')]
       .find((el) => /Hino do acervo/.test(el.textContent));
     li.querySelector('.row-btn').click();
@@ -554,7 +555,7 @@ try {
       idVelhoMorto: !(await AVDB.getMedia('sumido-4')),
       entrou: await AVDB.listHas('imports', idNovo),
     };
-    closeHistPopup();
+    recolherSecao();
     return r;
   }, idAcervo);
   checar(achado.idVelhoMorto,
@@ -568,13 +569,13 @@ try {
   const nova = await pg.evaluate(async (i) => {
     await send(i.um);
     await new Promise((r) => setTimeout(r, 400));
-    openHistPopup();
+    abrirSecao('hist');
     const primeiro = document.querySelector('#histList > li');
     const r = {
       cabs: [...document.querySelectorAll('#histList .hist-sessao-tit')].map((e) => e.textContent),
       primeiroEhCabecalho: !!primeiro && primeiro.classList.contains('hist-sessao'),
     };
-    closeHistPopup();
+    recolherSecao();
     return r;
   }, ids);
   checar(nova.primeiroEhCabecalho && nova.cabs.length === 3 && /Esta sessão/.test(nova.cabs[0]),
@@ -583,7 +584,7 @@ try {
 
   // ── LIMPAR: por sessão, e tudo ──────────────────────────────────────────
   const limpou = await pg.evaluate(async () => {
-    openHistPopup();
+    abrirSecao('hist');
     const bloco = [...document.querySelectorAll('#histList .hist-sessao')][1];
     // A BARRA, e não o bloco: desde a v1.7.5 o `<li>` contém também o corpo com
     // as linhas do dia, e medir o bloco inteiro responderia outra pergunta — a
@@ -617,7 +618,7 @@ try {
       restaram: [...document.querySelectorAll('#histList .hist-sessao-tit')].map((e) => e.textContent),
       noDisco: (await AVDB.getState('historico') || []).length,
     };
-    closeHistPopup();
+    recolherSecao();
     return r;
   });
   checar(limpou.alturas.par.length === 2
@@ -633,7 +634,7 @@ try {
     'e some só ELA — as outras ficam, na tela e no disco', limpou);
 
   const limpouTudo = await pg.evaluate(async () => {
-    openHistPopup();
+    abrirSecao('hist');
     const btn = document.getElementById('histClear');
     const visivel = !document.getElementById('histClearFaixa').hidden;
     btn.click();
@@ -647,7 +648,7 @@ try {
       faixaSumiu: document.getElementById('histClearFaixa').hidden,
       noDisco: (await AVDB.getState('historico') || []).length,
     };
-    closeHistPopup();
+    recolherSecao();
     return r;
   });
   checar(limpouTudo.visivel && limpouTudo.cabs === 0 && limpouTudo.noDisco === 0,

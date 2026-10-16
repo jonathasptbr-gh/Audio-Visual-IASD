@@ -369,7 +369,7 @@ const abrir = async (pg2 = app) => {
   await pg2.evaluate(() => (document.getElementById('settingsBtn') || document.getElementById('simpleSettingsBtn')).click());
   await esperar(pg2, () => document.getElementById('fadePopup').classList.contains('open'), null, 10000);
   await pg2.click('#edicaoTile');
-  return esperar(pg2, () => document.getElementById('edicaoPopup').classList.contains('open'), null, 10000);
+  return esperar(pg2, () => document.getElementById('edicaoSecao').classList.contains('open'), null, 10000);
 };
 // Abre o grupo e toca na linha pelo NOME (o seletor é a lista de grupos da exportação).
 const escolher = async (grupo, nome, pg2 = app) => {
@@ -530,7 +530,7 @@ checar(fecho.dest.join() === 'cronograma,playlist,favoritos' && fecho.quadrados 
 
 // C3 · PERSISTÊNCIA do rascunho: fechar e recarregar o app.
 await app.waitForTimeout(400);   // o gravar do rascunho é adiado em 250 ms de propósito
-await app.click('#edicaoPopupClose');
+await app.click('#edicaoSecao .cfg-sec-recolher');
 await app.reload({ waitUntil: 'domcontentloaded' });
 await esperarCortina(app);
 const voltou = await abrir();
@@ -689,33 +689,51 @@ const solto = await app.evaluate(async () => {
 });
 checar(solto === false, 'C · descartar sem criar nada solta o arquivo importado (o coletor o leva, não vaza)', String(solto));
 
-// C2d · ALTURA E CARD ESTÁVEIS (v1.12.9): a folha tem a altura do FORMULÁRIO (sem vão sobrando abaixo do
-// campo de nome), o seletor a reusa, e o card do item NÃO muda de altura com um título comprido — o texto
-// rola em ping-pong em vez de quebrar a linha.
+// C2d · CARD ESTÁVEL (v1.12.9) e ALTURA QUE ANIMA (v1.12.48): o card do item NÃO muda de altura com um título
+// comprido — o texto rola em ping-pong em vez de quebrar a linha —, a seção tem a altura do formulário (sem vão
+// sobrando abaixo do campo de nome), e a troca de vista ANIMA a altura da seção. (A altura FIXA entre as vistas
+// era de uma folha ancorada no fundo da tela; uma seção cresce para baixo a partir do cabeçalho.)
 await esperar(app, () => !!document.querySelector('#edicaoLista [data-grupo="lst:imports"]'), null, 10000);
 const curtoCard = await app.evaluate(() => document.querySelector('#edicaoLista .edicao-card') ? document.querySelector('#edicaoLista .edicao-card').getBoundingClientRect().height : 0);
-const alturaLista = await app.evaluate(() => document.querySelector('#edicaoPopup .popup-sheet').getBoundingClientRect().height);
 const longoNome = 'Louvor com um nome tão comprido que jamais caberia na largura do card do item';
 const longoOk = await escolher('lst:imports', longoNome);
-const longo = await app.evaluate(() => {
+// A SEÇÃO ASSENTA ANTES DE MEDIR: o formulário chega em dois desenhos (o card antes da duração), e cada um
+// ANIMA a altura da caixa e pode rolar a folha — medido no meio, a caixa ainda tem a altura de antes.
+await esperarDb(app, () => new Promise((r) => {
+  const box = document.getElementById('cfgSecoes');
+  const sc = box.closest('.fade-opts');
+  const h = box.getBoundingClientRect().height; const st = sc.scrollTop;
+  setTimeout(() => r(!box.getAnimations().length && box.getBoundingClientRect().height === h && sc.scrollTop === st), 250);
+}), null, 10000);
+const longo = await app.evaluate(async () => {
   const L = document.getElementById('edicaoLista');
   const card = L.querySelector('.edicao-card').getBoundingClientRect();
+  const fecho = document.querySelector('#edicaoSecao .popup-fecho');
+  // Na base da seção, sem a folha grudando o fecho por cima da lista.
+  fecho.closest('.fade-opts').scrollTop = 99999;
+  await new Promise((r) => setTimeout(r, 100));
   const nome = L.querySelector('.edicao-bloco:last-of-type').getBoundingClientRect();
-  const fecho = document.querySelector('#edicaoPopup .popup-fecho').getBoundingClientRect();
-  const folha = document.querySelector('#edicaoPopup .popup-sheet').getBoundingClientRect();
+  const fr = fecho.getBoundingClientRect();
   const lab = L.querySelector('.edicao-card .song-menu-label');
   const ro = L.querySelector('.edicao-card .edicao-rolante');
-  return { card: +card.height.toFixed(1), vao: +(fecho.top - nome.bottom).toFixed(1), folha: +folha.height.toFixed(1),
+  return { card: +card.height.toFixed(1), vao: +(fr.top - nome.bottom).toFixed(1),
     rolando: !!(ro && ro.classList.contains('edicao-rolando')), animado: ro ? getComputedStyle(ro).animationName : '', uma: lab.getBoundingClientRect().height < 40 };
 });
 checar(longoOk === true && longo.rolando === true && longo.animado === 'np-marquee' && longo.uma === true && Math.abs(longo.card - 53.2) < 6,
   'C · com um título comprido o card segue de UMA linha (mesma altura) e o texto ROLA em ping-pong', porque(longoOk) || JSON.stringify(longo));
-checar(longo.vao <= 40, 'C · a folha acompanha o formulário: sem espaço sobrando entre o campo de nome e a base (≤ 40px)', JSON.stringify(longo));
-await app.evaluate(() => document.querySelector('#edicaoLista .edicao-card .edicao-x').click());
+checar(longo.vao <= 40, 'C · a seção acompanha o formulário: sem espaço sobrando entre o campo de nome e o fecho (≤ 40px)', JSON.stringify(longo));
+const trocaVista = await app.evaluate(async () => {
+  document.querySelector('#edicaoLista .edicao-card .edicao-x').click();
+  // O X descarta o rascunho (uma gravação) ANTES de desenhar o seletor: a animação nasce alguns quadros depois.
+  for (let i = 0; i < 40; i++) {
+    if (document.getElementById('cfgSecoes').getAnimations().some((a) => a.effect && a.effect.getKeyframes().some((k) => 'height' in k))) return true;
+    await new Promise((r) => requestAnimationFrame(r));
+  }
+  return false;
+});
 await esperar(app, () => !document.querySelector('.edicao-carga') && !!document.querySelector('#edicaoLista [data-grupo]'), null, 10000);
-const lista2 = await app.evaluate(() => document.querySelector('#edicaoPopup .popup-sheet').getBoundingClientRect().height);
-checar(Math.abs(lista2 - longo.folha) <= 2,
-  'C · o seletor tem a MESMA altura do formulário (os botões da base não andam entre as vistas)', JSON.stringify({ lista2, form: longo.folha, antes: alturaLista, curtoCard }));
+checar(trocaVista === true,
+  'C · trocar do formulário para o seletor ANIMA a altura da seção (a folha de Configurações acompanha)', JSON.stringify({ trocaVista, curtoCard }));
 
 // C7 · BUSCA no seletor
 await esperar(app, () => !document.querySelector('.edicao-carga') && !!document.querySelector('#edicaoLista [data-grupo]'), null, 10000);
@@ -734,7 +752,7 @@ await app.evaluate(async (b64) => {
     lyrics: [{ time: 0, text: 'a' }, { time: 3, text: 'b' }] });
 }, wav);
 await app.fill('#edicaoBusca', '');
-await app.evaluate(() => document.getElementById('edicaoPopupClose').click());
+await app.evaluate(() => recolherSecao());
 await abrir();
 await esperar(app, () => !document.querySelector('.edicao-carga') && !!document.querySelector('#edicaoLista [data-grupo="col:hinC"]'), null, 10000);
 const c7 = await escolher('col:hinC', 'Hino Letra');
@@ -806,8 +824,8 @@ const visivel = await facil.evaluate(async () => {
 });
 checar(modo === true && visivel === true, 'C · no MODO FÁCIL o tile "Editar mídia" está à vista em Configurações', JSON.stringify({ modo, visivel }));
 await facil.click('#edicaoTile');
-const abriuFacil = await esperar(facil, () => document.getElementById('edicaoPopup').classList.contains('open'), null, 10000);
-checar(abriuFacil === true, 'C · e abre a janela do editor no Modo Fácil', porque(abriuFacil));
+const abriuFacil = await esperar(facil, () => document.getElementById('edicaoSecao').classList.contains('open'), null, 10000);
+checar(abriuFacil === true, 'C · e abre a seção do editor no Modo Fácil', porque(abriuFacil));
 const semQuad = await facil.evaluate(() => {
   edicaoAtualizarBotoes(null);              // o que o desenho do formulário faz a cada passada
   const q = [...document.querySelectorAll('#edicaoFechoForm .sorteio-dest')];

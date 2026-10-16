@@ -647,8 +647,11 @@ try {
       + 'ainda QUADRADOS — a margem na `.pl-limpar-faixa` os esticaria para '
       + '42,4×52,0, porque os três são irmãos flex com `align-items: stretch`',
       JSON.stringify(jPl));
-    // O SEGUNDO DOENTE: o Histórico. Lá a faixa é filha DIRETA da folha, sem
-    // `.pl-rodape` por volta — ela não tinha margem NENHUMA, nem nos lados.
+    // O SEGUNDO DOENTE: o Histórico. Lá a faixa é filha DIRETA da seção (uma
+    // seção de Configurações desde a v1.12.48), sem `.pl-rodape` por volta.
+    // Quem rola é a folha inteira, e a faixa GRUDA na base dela (`sticky`): no
+    // FIM da rolagem ela pousa no lugar dela, `--sp-5` abaixo da lista, e no
+    // MEIO ela fica à vista sobre a lista que continua por baixo.
     const jHi = await pgJ.evaluate(async () => {
       const z = (ms) => new Promise((f) => setTimeout(f, ms));
       __avBack(); await z(350);
@@ -657,33 +660,43 @@ try {
       historico = [{ inicio: Date.now() - 7200000, itens: Array.from({ length: 30 },
         (_, i) => ({ id: 'h' + i, nome: 'Louvor ' + i, t: 'media',
           em: Date.now() - i * 60000 })) }];
-      openHistPopup(); await z(500);
+      abrirSecao('hist'); await z(500);
+      await Promise.all(document.getElementById('cfgSecoes').getAnimations({ subtree: true })
+        .map((a) => a.finished.catch(() => {})));
       const l = document.getElementById('histList');
       const f = document.getElementById('histClearFaixa');
-      if (!l || !f || f.hidden) return { erro: 'folha não abriu', temL: !!l, temF: !!f };
-      const c = getComputedStyle(f);
-      const folha = f.parentElement.getBoundingClientRect();
-      const fr = f.getBoundingClientRect();
+      if (!l || !f || f.hidden) return { erro: 'seção não abriu', temL: !!l, temF: !!f };
+      const sc = f.closest('.fade-opts');
+      const btn = document.getElementById('histClear');
+      // NO MEIO: o topo da lista à vista, e a faixa grudada na base.
+      sc.scrollTop = sc.scrollTop + (l.getBoundingClientRect().top - sc.getBoundingClientRect().top);
+      await z(150);
+      const scr = sc.getBoundingClientRect();
+      const noMeio = { visivel: btn.getBoundingClientRect().bottom <= scr.bottom + 1
+        && btn.getBoundingClientRect().top >= scr.top - 1,
+        listaPassa: l.getBoundingClientRect().bottom > f.getBoundingClientRect().top };
+      // NO FIM: a faixa no lugar dela.
+      sc.scrollTop = 99999; await z(150);
+      const secao = f.parentElement.getBoundingClientRect();
+      const br = btn.getBoundingClientRect();
+      const lr = l.getBoundingClientRect();
       const sonda = document.createElement('div');
       sonda.style.cssText = 'position:absolute;visibility:hidden;height:var(--sp-5)';
       document.body.appendChild(sonda);
       const alvo = +sonda.getBoundingClientRect().height.toFixed(2);
       sonda.remove();
-      return { vao: +(fr.top - l.getBoundingClientRect().bottom).toFixed(2),
-        alvo,
-        esq: +(fr.left - folha.left).toFixed(2), dir: +(folha.right - fr.right).toFixed(2),
-        transborda: l.scrollHeight - l.clientHeight > 2,
-        temTira: getComputedStyle(l, '::after').display, mt: c.marginTop };
+      return { vao: +(br.top - lr.bottom).toFixed(2), alvo, noMeio,
+        esq: +(br.left - lr.left).toFixed(2), dir: +(lr.right - br.right).toFixed(2),
+        naSecao: +(br.left - secao.left).toFixed(2),
+        transborda: sc.scrollHeight - sc.clientHeight > 2, fundo: getComputedStyle(f).backgroundColor };
     });
-    checar(!jHi.erro && jHi.transborda && jHi.temTira === 'block',
-      'J · o Histórico também TRANSBORDA com a tira desenhada — é o segundo da '
-      + 'família, e sem ele o conserto sairia pela metade', JSON.stringify(jHi));
-    checar(!jHi.erro && Math.abs(jHi.vao - jHi.alvo) <= 0.5
-      && jHi.esq > 8 && jHi.dir > 8,
-      'J · e o rodapé dele ganhou as QUATRO margens (topo ' + jHi.vao + ', lados '
-      + jHi.esq + '/' + jHi.dir + '). Ali a faixa é filha direta da folha, sem '
-      + '`.pl-rodape` por volta: ela herdava as margens de ninguém e ficava '
-      + 'colada nas duas bordas e na tira', JSON.stringify(jHi));
+    checar(!jHi.erro && jHi.transborda && jHi.noMeio.listaPassa && jHi.noMeio.visivel,
+      'J · o Histórico TRANSBORDA a folha, e com a lista no topo o "Limpar" continua À VISTA, '
+      + 'grudado na base sobre a lista que segue por baixo', JSON.stringify(jHi));
+    checar(!jHi.erro && Math.abs(jHi.vao - jHi.alvo) <= 0.5 && Math.abs(jHi.esq) <= 0.5 && Math.abs(jHi.dir) <= 0.5
+      && !/rgba\(0, 0, 0, 0\)/.test(jHi.fundo),
+      'J · e no fim ele pousa `--sp-5` (' + jHi.vao + 'px) abaixo da lista, alinhado a ela nos dois '
+      + 'lados, num fundo OPACO (o que rola por baixo some atrás dele)', JSON.stringify(jHi));
     await ctxJ.close();
   }
 

@@ -314,41 +314,50 @@ const plClearEl = document.getElementById('plClear');
 // enquanto ele está fora de cena, e é ela que some com a fila vazia.
 const plClearFaixaEl = document.getElementById('plClearFaixa');
 
-// O HISTÓRICO DO CULTO (v1.2.0) — a folha irmã da playlist, e por isso vizinha
-// dela aqui: mesma anatomia de bottom-sheet, mesma `.popup-list`, mesma linha.
-// Quem a ABRE mudou na v1.4.31: era a sétima célula do transporte, hoje é uma
-// linha de Configurações (`#histOpenRow`).
+// AS SEÇÕES DE CONFIGURAÇÕES (v1.12.48) — Histórico, Verificação, Tela,
+// Transferir e Editar mídia. Eram folhas de baixo abertas por cima de
+// Configurações; hoje moram DENTRO dela (`#cfgSecoes`), uma aberta por vez (ver
+// `trocarSecao`). Declaradas AQUI, no bloco do topo, e não perto dos pintores:
+// `pacoteRenderTiles()` roda na CARGA, e uma constante lida antes da linha em que
+// nasce é uma zona morta temporal — e a tabela `SECOES` logo abaixo as lê.
+const cfgSecoesEl = document.getElementById('cfgSecoes');
+// O HISTÓRICO DO CULTO (v1.2.0). Quem o ABRE mudou na v1.4.31: era a sétima
+// célula do transporte, hoje é um tile de Configurações (`#histOpenRow`).
 const histOpenRowEl = document.getElementById('histOpenRow');
-const histPopupEl = document.getElementById('histPopup');
+const histSecaoEl = document.getElementById('histSecao');
 const histListEl = document.getElementById('histList');
-const histPopupCloseEl = document.getElementById('histPopupClose');
 const histClearEl = document.getElementById('histClear');
 const histClearFaixaEl = document.getElementById('histClearFaixa');
-// A VERIFICAÇÃO DO SISTEMA (v1.10.0) — irmã do Histórico: mesma anatomia de
-// bottom-sheet, mesma `.popup-list`, e as duas abrem de dentro de Configurações.
 const testeTileEl = document.getElementById('testeTile');
-const testePopupEl = document.getElementById('testePopup');
-const testePopupCloseEl = document.getElementById('testePopupClose');
-// A TELA e o TRANSFERIR (v1.11.7) — duas janelas irmãs, com a mesma anatomia e a
-// mesma origem (abrem de dentro de Configurações). Declaradas AQUI, no bloco do
-// topo, e não perto dos pintores: `pacoteRenderTiles()` roda na CARGA, e uma
-// constante lida antes da linha em que nasce é uma zona morta temporal.
+const testeSecaoEl = document.getElementById('testeSecao');
 const telaTileEl = document.getElementById('telaTile');
-const telaPopupEl = document.getElementById('telaPopup');
-const telaPopupCloseEl = document.getElementById('telaPopupClose');
+const telaSecaoEl = document.getElementById('telaSecao');
 const pacoteTileEl = document.getElementById('pacoteTile');
-const pacotePopupEl = document.getElementById('pacotePopup');
-const pacotePopupCloseEl = document.getElementById('pacotePopupClose');
+const pacoteSecaoEl = document.getElementById('pacoteSecao');
+const edicaoTileEl = document.getElementById('edicaoTile');
+const edicaoSecaoEl = document.getElementById('edicaoSecao');
 const pacoteListaEl = document.getElementById('pacoteLista');
 const pacoteNotaEl = document.getElementById('pacoteNota');
 const testeResumoEl = document.getElementById('testeResumo');
 const testeListEl = document.getElementById('testeList');
 const testeSalvarEl = document.getElementById('testeSalvar');
-const testeFechoEl = document.getElementById('testeFecho');
+const testeCancelarEl = document.getElementById('testeCancelar');
 const testeAnelEl = document.getElementById('testeAnel');
 const testePctEl = document.getElementById('testePct');
 const testePct2El = document.getElementById('testePct2');
 const testeRefazerEl = document.getElementById('testeRefazer');
+// A TABELA DAS SEÇÕES: o tile que a abre, o nó dela e o que roda ao abrir e ao
+// recolher. Uma seção nova entra numa linha (e numa `<section class="cfg-sec">`
+// dentro de `#cfgSecoes`) e já ganha a troca, a animação, o voltar e o recolher
+// ao fechar Configurações — duas listas divergiriam no primeiro esquecimento.
+const SECOES = {
+  tela: { tile: telaTileEl, el: telaSecaoEl, abrir: aoAbrirTela },
+  pacote: { tile: pacoteTileEl, el: pacoteSecaoEl, abrir: aoAbrirPacote },
+  edicao: { tile: edicaoTileEl, el: edicaoSecaoEl, abrir: aoAbrirEdicao, recolher: aoRecolherEdicao },
+  hist: { tile: histOpenRowEl, el: histSecaoEl, abrir: renderHistorico, recolher: aoRecolherHist },
+  teste: { tile: testeTileEl, el: testeSecaoEl, abrir: aoAbrirTeste, recolher: aoRecolherTeste },
+};
+let secaoAberta = '';
 
 const fileEl = document.getElementById('file');
 const mainEl = document.querySelector('main');
@@ -404,7 +413,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.47';
+const WEB_VERSION = '1.12.48';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -27739,7 +27748,11 @@ function openFadePopup() {
   pedirDiag();
   fadePopupEl.classList.add('open');
 }
+// FECHAR RECOLHE A SEÇÃO ABERTA, sem animar (a folha inteira está subindo), e
+// recolher a Verificação a CANCELA (`aoRecolherTeste`) — fechar Configurações
+// no meio de uma rodada é desistir dela, como era fechar a folha dela.
 function closeFadePopup() {
+  recolherSecao({ animar: false });
   fadePopupEl.classList.remove('open');
 }
 
@@ -32752,7 +32765,7 @@ function pacoteMidiaSelecionada(plano, sel) {
   return ids;
 }
 
-// ===== A LISTA DA JANELA DO TRANSFERIR (v1.7.2 → v1.11.9) =====
+// ===== A LISTA DO TRANSFERIR (v1.7.2 → v1.11.9) =====
 //
 // Pedido do operador (v1.7.2): *"caso o usuário não queira levar toda a
 // biblioteca … permita um popup com um check list de grupos para a exportação"*.
@@ -32760,8 +32773,8 @@ function pacoteMidiaSelecionada(plano, sel) {
 // importação a mesma lista em leitura. A v1.11.9 desfez a duplicação a pedido
 // do operador: *"em ambos os casos a lista será vista, então já pode tornar ela
 // visível diretamente e ter apenas os dois botões de ações na base"*. Hoje a
-// lista É a janela (`#pacoteLista`), e Exportar e Importar são os dois botões
-// da base dela.
+// lista É a seção (`#pacoteLista`, uma seção de Configurações desde a
+// v1.12.48), e Exportar e Importar são os dois botões da base dela.
 //
 // As linhas são as do seletor de destinos (`songMenuItem`): a mesma caixa como
 // INDICADOR, mas o Set é PRÓPRIO (`pacoteMarcados`). As caixas dizem o que LEVAR
@@ -32811,7 +32824,7 @@ function pacoteMarcarPadrao(plano) {
 }
 
 /**
- * A lista na ABERTURA da janela. Com trabalho andando ou um pacote pronto a
+ * A lista na ABERTURA da seção. Com trabalho andando ou um pacote pronto a
  * marca que já existe é a escolha DELE e fica; sem marca nenhuma (a primeira
  * abertura da sessão) ela volta ao padrão.
  *
@@ -33173,8 +33186,8 @@ async function exportarPacote() {
   // "Salvar como", em silêncio absoluto; a v1.7.2 a mostrou no cartão sobre a
   // PREVIEW, e a v1.7.3 a trouxe para cá: a ação acontece no botão, e é nele
   // que ela responde (ver `falarNoTile`).
-  // A LISTA JÁ ESTÁ NA JANELA (v1.11.9), com o peso que a Biblioteca já tem, e a
-  // escolha é a marca que ela mostra. Sem janela aberta (um oráculo, ou a
+  // A LISTA JÁ ESTÁ NA SEÇÃO (v1.11.9), com o peso que a Biblioteca já tem, e a
+  // escolha é a marca que ela mostra. Sem a seção aberta (um oráculo, ou a
   // própria função chamada de fora) o plano sai agora e entra TUDO MARCADO — o
   // padrão da lista. A varredura do disco corre DEPOIS — ver
   // `pacotePlanoAproximado`.
@@ -34404,9 +34417,9 @@ function pacoteFalarPercentual(el, fracao) {
 
 // ===== O FEEDBACK DE EXPORTAR/IMPORTAR TAMBÉM VAI PARA O TILE DA GRADE (v1.11.7)
 //
-// Os dois botões moram numa janela, e ela pode estar FECHADA durante os minutos
-// de uma exportação: `pulsar` recusa um nó dentro de `.popup-backdrop:not(.open)`
-// e a frase emprestada num nó oculto não se vê. O tile da grade (`#pacoteTile`)
+// Os dois botões moram numa seção, e ela pode estar RECOLHIDA durante os minutos
+// de uma exportação: `pulsar` recusa um nó fora da tela (`visivelNaTela`) e a
+// frase emprestada num nó oculto não se vê. O tile da grade (`#pacoteTile`)
 // é o que continua à vista com Configurações aberta, então todo desfecho que
 // vai para um dos dois passa por aqui e vai para ele também. O que NÃO passa por
 // aqui é o rótulo de PAPEL do irmão ("Cancelar", "Descartar"): ele diz o que o
@@ -35096,11 +35109,11 @@ function pacoteIrmaoCancela(el, acao, rotulo, descricao) {
   el.onclick = (ev) => { ev.preventDefault(); acao(); };
 }
 
-// Os dois botões da janela (a coreografia inteira) e o sinal do tile da grade:
+// Os dois botões da seção (a coreografia inteira) e o sinal do tile da grade:
 // QUEM PINTA UM, PINTA O OUTRO — são 15 chamadores, e um chamador que esquecesse
-// o tile da grade deixaria um trabalho de minutos sem sinal nenhum com a janela
-// fechada. O corpo é o de sempre, e `pacoteRenderPar` é o nome dele. A lista da
-// janela acompanha o mesmo estado (`pacoteOcupado`): com trabalho andando ela só
+// o tile da grade deixaria um trabalho de minutos sem sinal nenhum com a seção
+// recolhida. O corpo é o de sempre, e `pacoteRenderPar` é o nome dele. A lista da
+// seção acompanha o mesmo estado (`pacoteOcupado`): com trabalho andando ela só
 // se olha.
 function pacoteRenderTiles() {
   pacoteRenderPar();
@@ -35111,10 +35124,10 @@ function pacoteRenderTiles() {
 /**
  * O TILE DA GRADE É O SINAL, não só a porta (v1.11.7).
  *
- * Ele diz, com a janela fechada, as duas coisas que a coreografia dos botões
+ * Ele diz, com a seção recolhida, as duas coisas que a coreografia dos botões
  * dizia: HÁ TRABALHO ANDANDO (o aro, no lugar do ícone) e HÁ UM PACOTE PRONTO
  * (o desenho de compartilhar). O que o toque faz é o mesmo nos dois casos —
- * abrir a janela, onde o botão certo espera: o Exportar que envia, o Importar
+ * abrir a seção, onde o botão certo espera: o Exportar que envia, o Importar
  * que descarta, o que cancela.
  *
  * O ARO GIRA ONDE HÁ TRABALHO, e não onde há `pacoteEmCurso` (a regra da
@@ -35225,7 +35238,7 @@ function pacoteRenderPar() {
   }
 
   // A MEDIÇÃO É TRABALHO ANDANDO (`pacoteMedindo`, a mesma pergunta do tile da
-  // grade): a janela pode ser fechada e reaberta durante os segundos dela, e
+  // grade): a seção pode ser recolhida e reaberta durante os segundos dela, e
   // cair no ramo ocioso apagava o aro e o percentual do Exportar — que o tile da
   // grade, ao lado, continuava mostrando. Não há o que cancelar (nenhum byte foi
   // escrito), então o Exportar trabalha INDISPONÍVEL e o irmão fica parado. O
@@ -39206,7 +39219,10 @@ function histLinha(h, atual) {
     // nela — pô-lo ali despejaria um avulso de verdade por um item que não
     // precisa de abrigo.
     if (alvo.criado) await fixarAvulso(alvo.rec.id);
-    closeHistPopup();
+    // CONFIGURAÇÕES FECHA INTEIRA (v1.12.48): ela cobre a preview e o
+    // transporte, que é onde a resposta ao toque aparece — e fechá-la recolhe a
+    // seção junto.
+    closeFadePopup();
     await projetarItem(alvo.rec);
   });
 
@@ -39284,72 +39300,206 @@ async function histLimpar(inicio) {
   renderHistorico();
 }
 
-function openHistPopup() {
-  renderHistorico();
-  histPopupEl.classList.add('open');
+// ===== AS SEÇÕES DE CONFIGURAÇÕES (v1.12.48) =====
+//
+// Pedido do operador: *"ao invés das opções de configurações abrirem em uma nova
+// janela na base da tela, faça com que seus conteúdos abram dentro da janela
+// original das configurações"*. Uma seção aberta por vez, entre a grade e o
+// rodapé: o tile abre a dele, outro tile TROCA, o mesmo tile RECOLHE.
+//
+// A ALTURA DA CAIXA ANIMA, e a folha vai junto: Configurações tem a altura do
+// conteúdo até o teto de 80%, então quem a faz crescer e encolher é esta caixa.
+// Na troca, a seção que sai fica ABSOLUTA por cima (`.saindo`) e as duas se
+// cruzam por opacidade; abrir e recolher são a mesma conta com uma das pontas
+// vazia. Sem movimento (`prefers-reduced-motion`) ou com a folha fechada, nada
+// anima. Depois de abrir, a folha ROLA o mínimo para a seção inteira caber,
+// sem nunca esconder o topo dela (`rolarAteSecao`).
+let secaoAnim = null;
+let secaoAlturaAnim = null;
+// Os ganchos de abrir e recolher DESENHAM (a Verificação recolhida se redesenha),
+// e no meio de uma troca quem anima a caixa é a troca — não eles.
+let secaoMudando = false;
+function msDaDurLenta() {
+  const v = getComputedStyle(document.documentElement).getPropertyValue('--dur-lenta').trim();
+  return (parseFloat(v) || 0.3) * (/ms$/.test(v) ? 1 : 1000);
+}
+function acabarTrocaDeSecao() { if (secaoAnim) secaoAnim.fim(); }
+
+// O TOQUE NO TILE: abre a seção dele, ou a recolhe se ela já é a aberta.
+function trocarSecao(nome, opcoes) {
+  if (nome && nome === secaoAberta) recolherSecao(opcoes);
+  else abrirSecao(nome, opcoes);
+}
+// ABRIR NÃO ALTERNA: com a seção já aberta, nada muda. Com Configurações
+// fechada, ela abre antes (a seção mora nela).
+function abrirSecao(nome, opcoes) {
+  if (!SECOES[nome]) return;
+  if (!fadePopupEl.classList.contains('open')) openFadePopup();
+  if (secaoAberta !== nome) mudarSecao(nome, opcoes);
+}
+function recolherSecao(opcoes) { if (secaoAberta) mudarSecao('', opcoes); }
+
+function mudarSecao(para, opcoes) {
+  const animar = !opcoes || opcoes.animar !== false;
+  const de = secaoAberta;
+  if (de === para) return;
+  acabarTrocaDeSecao();
+  if (secaoAlturaAnim) { secaoAlturaAnim.cancel(); secaoAlturaAnim = null; }
+  const box = cfgSecoesEl;
+  const anima = animar && fadePopupEl.classList.contains('open') && !semMovimento()
+    && typeof box.animate === 'function';
+  const h0 = box.getBoundingClientRect().height;
+  const velha = de ? SECOES[de] : null;
+  const nova = para ? SECOES[para] : null;
+  secaoAberta = para;
+  secaoMudando = true;
+  try {
+    if (velha) {
+      if (velha.tile) velha.tile.setAttribute('aria-expanded', 'false');
+      velha.el.classList.remove('open');
+      if (velha.recolher) velha.recolher();
+      if (anima) velha.el.classList.add('saindo');
+      else velha.el.hidden = true;
+    }
+    if (nova) {
+      nova.el.hidden = false;
+      nova.el.classList.add('open');
+      if (nova.tile) nova.tile.setAttribute('aria-expanded', 'true');
+      if (nova.abrir) nova.abrir();
+    }
+  } finally { secaoMudando = false; }
+  if (!anima) {
+    if (nova && fadePopupEl.classList.contains('open')) rolarAteSecao(nova.el, false);
+    return;
+  }
+  const h1 = box.getBoundingClientRect().height;
+  const D = msDaDurLenta();
+  box.style.overflow = 'hidden';
+  const anims = [box.animate([{ height: h0 + 'px' }, { height: h1 + 'px' }], { duration: D, easing: 'ease' })];
+  if (velha) {
+    anims.push(velha.el.animate([{ opacity: 1 }, { opacity: 0 }],
+      { duration: nova ? D * 0.5 : D, easing: 'ease', fill: 'forwards' }));
+  }
+  if (nova) {
+    anims.push(nova.el.animate([{ opacity: 0 }, { opacity: 1 }],
+      { duration: velha ? D * 0.6 : D, delay: velha ? D * 0.4 : 0, easing: 'ease', fill: 'backwards' }));
+  }
+  let feito = false;
+  const fim = () => {
+    if (feito) return;
+    feito = true;
+    secaoAnim = null;
+    box.style.overflow = '';
+    if (velha) { velha.el.classList.remove('saindo'); velha.el.hidden = true; }
+    anims.forEach((a) => { try { a.cancel(); } catch (_) {} });
+    if (nova && secaoAberta === para) rolarAteSecao(nova.el, true);
+  };
+  secaoAnim = { fim };
+  // Pela PROMESSA, e não pelo evento: quem espera a animação acabar (outra troca,
+  // um oráculo) acorda na mesma fila de microtarefas, e o evento só viria numa
+  // tarefa depois — com a seção que saiu ainda de pé.
+  anims[0].finished.then(fim, () => {});
 }
 
-// ===== A FOLHA DA VERIFICAÇÃO (v1.10.0) =====
-//
-// ELA RODA AO ABRIR. Um toque que abre uma lista vazia com um botão "verificar"
-// embaixo é dois toques para a mesma intenção — quem abriu esta folha já pediu
-// o teste — e reabrir a folha roda de novo. Desde a v1.12.44 a rodada é UMA só,
-// com o download de teste no fim, e FECHAR A FOLHA A CANCELA.
-function openTestePopup() {
-  testePopupEl.classList.add('open');
+// A FOLHA ROLA O MÍNIMO para a seção caber, e nunca além do topo dela: a seção
+// é o que o operador acabou de pedir, e o topo é onde está o título dela.
+function rolarAteSecao(el, suave) {
+  const sc = el && el.closest('.fade-opts');
+  if (!sc) return;
+  const r = el.getBoundingClientRect();
+  const s = sc.getBoundingClientRect();
+  const topo = sc.scrollTop + (r.top - s.top);
+  const base = sc.scrollTop + (r.bottom - s.bottom) + parseFloat(getComputedStyle(sc).paddingBottom || '0');
+  const alvo = Math.min(topo, Math.max(sc.scrollTop, base));
+  if (alvo <= sc.scrollTop + 1) return;
+  try { sc.scrollTo({ top: alvo, behavior: suave && !semMovimento() ? 'smooth' : 'auto' }); }
+  catch (_) { sc.scrollTop = alvo; }
+}
+
+// UMA MUDANÇA DE ALTURA DENTRO DA SEÇÃO ABERTA também anima (a barra da
+// Verificação virando a lista de problemas, o editor trocando de vista): mede,
+// desenha, mede de novo e anima a caixa entre as duas. Fora de uma seção aberta,
+// ou no meio de uma troca, só desenha.
+function animarAlturaDasSecoes(desenhar) {
+  const box = cfgSecoesEl;
+  if (!box || secaoAnim || secaoMudando || !secaoAberta || !fadePopupEl.classList.contains('open')) { desenhar(); return; }
+  const h0 = box.getBoundingClientRect().height;
+  if (secaoAlturaAnim) { secaoAlturaAnim.cancel(); secaoAlturaAnim = null; }
+  desenhar();
+  const h1 = box.getBoundingClientRect().height;
+  if (Math.abs(h1 - h0) < 1 || !h0) return;
+  if (semMovimento() || typeof box.animate !== 'function') {
+    if (h1 > h0) rolarAteSecao(SECOES[secaoAberta].el, false);
+    return;
+  }
+  box.style.overflow = 'hidden';
+  const a = box.animate([{ height: h0 + 'px' }, { height: h1 + 'px' }], { duration: msDaDurLenta(), easing: 'ease' });
+  secaoAlturaAnim = a;
+  a.oncancel = () => {
+    if (secaoAlturaAnim === a) secaoAlturaAnim = null;
+    if (!secaoAnim) box.style.overflow = '';
+  };
+  // CRESCENDO, a folha rola o que for preciso para o que entrou caber (a lista
+  // que chegou depois do spinner, os problemas no fim da Verificação).
+  a.onfinish = () => {
+    a.oncancel();
+    const s = SECOES[secaoAberta];
+    if (h1 > h0 && s) rolarAteSecao(s.el, true);
+  };
+}
+
+// O HISTÓRICO: recolher CANCELA A PERGUNTA — a mesma regra da gaveta da linha e
+// da folha da playlist: perder a pergunta custa um toque, herdar um "sim"
+// pendente apagaria um histórico na abertura seguinte.
+function aoRecolherHist() { fecharConfirmacaoNaLinha(); }
+
+// A VERIFICAÇÃO RODA AO ABRIR. Um toque que abre uma lista vazia com um botão
+// "verificar" embaixo é dois toques para a mesma intenção — quem abriu esta
+// seção já pediu o teste — e reabrir roda de novo. Desde a v1.12.44 a rodada é
+// UMA só, com o download de teste no fim, e RECOLHER A SEÇÃO A CANCELA (o
+// Cancelar dela, fechar Configurações e o voltar passam todos por aqui).
+function aoAbrirTeste() {
   desenharTeste();
   dispararTeste();
 }
-function closeTestePopup() {
-  testePopupEl.classList.remove('open');
+function aoRecolherTeste() {
   cancelarVerificacao();
   desenharTeste();
 }
 
-// ===== AS JANELAS DA TELA E DO TRANSFERIR (v1.11.7) =====
-//
-// Abrem de DENTRO de Configurações, como o Histórico e a Verificação, e por isso
-// têm linha na tabela `POPUPS` (✕, toque no fundo e o degrau do voltar) logo
-// depois dela. NÃO FECHAM AO TOCAR NUM TILE: quem alterna o preenchimento olha
-// para a prévia, não para a janela, e o Tema já era assim.
+// A TELA E O TRANSFERIR (v1.11.7). NÃO RECOLHEM AO TOCAR NUM TILE: quem alterna
+// o preenchimento olha para a prévia, não para a seção, e o Tema já era assim.
 //
 // OS PINTORES RODAM NA ABERTURA, e é só um ajuste fino: o `data-estado` dos tiles
-// já está certo com a janela fechada (`load()` os pinta na carga, e
-// `applyPvWallpaper` repinta o do wallpaper) — a janela fechada é `opacity: 0`, e
-// não `display: none`, então o nó existe e responde. O que a abertura refaz é o
-// que depende de um instante, como a largura do ícone do giro.
-function openTelaPopup() {
+// já está certo com a seção recolhida (`load()` os pinta na carga, e
+// `applyPvWallpaper` repinta o do wallpaper) — o nó existe e responde, só não
+// aparece. O que a abertura refaz é o que depende de layout, como a largura do
+// ícone do giro.
+function aoAbrirTela() {
   renderFitTile();
   renderRotBtn();
   renderLyricsBgTile();
   renderWallTile();
-  telaPopupEl.classList.add('open');
 }
-function closeTelaPopup() { telaPopupEl.classList.remove('open'); }
-function openPacotePopup() {
+function aoAbrirPacote() {
   pacoteRenderTiles();
-  pacotePopupEl.classList.add('open');
   pacoteAbrirLista();
 }
-function closePacotePopup() { pacotePopupEl.classList.remove('open'); }
 
 // ===== EDITAR MÍDIA (v1.12.0) =====
 //
 // O item editado é VIRTUAL: guarda só `edicao` (origem, início, fim, fades, "só o áudio") e
 // aponta para o original, que o coletor segura enquanto o item existir em qualquer lugar (ver
 // `lerDetentores`). Quem aplica o recorte e os fades é o `stage.js`, na hora de tocar. Esta
-// janela é só o formulário — sem player. O operador anota os pontos tocando o ORIGINAL na
+// seção de Configurações é só o formulário — sem player. O operador anota os pontos tocando o ORIGINAL na
 // prévia e volta aqui; por isso o rascunho é gravado a cada ajuste e reaparece na reabertura.
 //
-// DUAS VISTAS NA MESMA FOLHA (a folha não muda de altura entre elas): o FORMULÁRIO e o SELETOR
+// DUAS VISTAS NA MESMA SEÇÃO (a troca entre elas anima a altura): o FORMULÁRIO e o SELETOR
 // DE MÍDIA, que é a lista de grupos da exportação (Cronograma, Playlist, Favoritos e a
 // Biblioteca por coletânea), com um "Importar arquivo" que traz o arquivo SÓ para o editor.
 // Escolher um item JÁ EDITADO o edita NO LUGAR (v1.12.6): o mesmo registro e o mesmo id, então toda
 // lista que o tem (Cronograma, playlist, favoritos) passa a mostrar a edição nova — `AVDB.atualizarEdicao`.
 // Escolher o ORIGINAL cria um item novo. O fecho é o "Confirmar" + os quadrados dos destinos.
-const edicaoTileEl = document.getElementById('edicaoTile');
-const edicaoPopupEl = document.getElementById('edicaoPopup');
-const edicaoPopupCloseEl = document.getElementById('edicaoPopupClose');
 const edicaoTituloEl = document.getElementById('edicaoTitulo');
 const edicaoBuscaCaixaEl = document.getElementById('edicaoBuscaCaixa');
 const edicaoBuscaEl = document.getElementById('edicaoBusca');
@@ -39560,6 +39710,9 @@ function renderEdicaoEscolha() {
       const abrindo = !aberta;
       const aplicar = () => {
         if (abrindo) edicaoAbertos.add(g.chave); else edicaoAbertos.delete(g.chave);
+        // O FECHAR ANIMA ANTES DE REMONTAR, e nesse meio-tempo uma linha pode ter
+        // sido escolhida: desenhar o seletor por cima do formulário o apagaria.
+        if (edicaoVista !== 'escolha') return;
         renderEdicaoEscolha();
         if (abrindo) {
           const novo = edicaoListaEl.querySelector('[data-grupo="' + CSS.escape(g.chave) + '"] .pacote-grupo-corpo');
@@ -39850,23 +40003,18 @@ function edicaoRolarTextos() {
     }
   });
 }
-// A folha tem a altura do FORMULÁRIO (que é o conteúdo natural dela); o seletor a reusa para os botões da
-// base não andarem entre as vistas. Mede a folha já desenhada.
-function edicaoMedirFolha() {
-  const folha = edicaoPopupEl.querySelector('.popup-sheet');
-  const h = folha.getBoundingClientRect().height;
-  if (h > 0) edicaoPopupEl.style.setProperty('--edicao-h', Math.round(h) + 'px');
-}
 window.addEventListener('resize', () => { if (edicaoVista === 'form') edicaoRolarTextos(); });
 
+// A seção tem a altura do que mostra, e a troca de vista ANIMA a altura (v1.12.48).
 function edicaoRender() {
-  const escolha = edicaoVista === 'escolha';
-  edicaoPopupEl.dataset.vista = escolha ? 'escolha' : 'form';
-  edicaoTituloEl.textContent = escolha ? 'Escolher a mídia' : 'Editar mídia';
-  edicaoBuscaCaixaEl.hidden = !escolha;
-  edicaoFechoFormEl.hidden = escolha;
-  edicaoFechoEscolhaEl.hidden = !escolha;
-  if (escolha) { renderEdicaoEscolha(); } else { renderEdicaoForm(); edicaoRolarTextos(); edicaoMedirFolha(); }
+  animarAlturaDasSecoes(() => {
+    const escolha = edicaoVista === 'escolha';
+    edicaoTituloEl.textContent = escolha ? 'Escolher a mídia' : 'Editar mídia';
+    edicaoBuscaCaixaEl.hidden = !escolha;
+    edicaoFechoFormEl.hidden = escolha;
+    edicaoFechoEscolhaEl.hidden = !escolha;
+    if (escolha) { renderEdicaoEscolha(); } else { renderEdicaoForm(); edicaoRolarTextos(); }
+  });
   edicaoEntrar();
 }
 
@@ -39884,10 +40032,10 @@ async function edicaoCarregarLista() {
   if (seq !== edicaoSeqLista) return;
   edicaoGrupos = grupos;
   edicaoCarregando = false;
-  if (edicaoVista === 'escolha') { renderEdicaoEscolha(); edicaoEntrar(); }
+  if (edicaoVista === 'escolha') { animarAlturaDasSecoes(renderEdicaoEscolha); edicaoEntrar(); }
 }
 let edicaoSeqLista = 0;
-// Reinicia a animação de entrada do corpo da folha.
+// Reinicia a animação de entrada do corpo da seção.
 function edicaoEntrar() {
   edicaoListaEl.classList.remove('edicao-entra');
   void edicaoListaEl.offsetWidth;
@@ -39952,8 +40100,7 @@ async function edicaoEscolherItem(it) {
   edicaoSalvarJa();
 }
 
-async function openEdicaoPopup() {
-  edicaoPopupEl.classList.add('open');
+async function aoAbrirEdicao() {
   let r = null;
   try { r = await AVDB.getState(EDICAO_RASCUNHO); } catch (_) { r = null; }
   if (r && r.origem && (!edicaoOrigem || edicaoOrigem.id !== r.origem)) {
@@ -39973,9 +40120,8 @@ async function openEdicaoPopup() {
   if (edicaoVista === 'escolha') { edicaoCarregando = true; edicaoRender(); await edicaoCarregarLista(); }
   else edicaoRender();
 }
-function closeEdicaoPopup() {
+function aoRecolherEdicao() {
   edicaoSalvarJa();
-  edicaoPopupEl.classList.remove('open');
 }
 
 async function edicaoDescartar() {
@@ -40115,7 +40261,7 @@ edicaoBuscaEl.addEventListener('input', () => { if (edicaoVista === 'escolha') r
 edicaoConfirmarEl.addEventListener('click', () => edicaoConfirmar('', edicaoConfirmarEl));
 edicaoDestEls.forEach((b) => b.addEventListener('click', () => edicaoConfirmar(b.dataset.dest, b)));
 edicaoImportarEl.addEventListener('click', edicaoImportar);
-if (edicaoTileEl) edicaoTileEl.addEventListener('click', openEdicaoPopup);
+if (edicaoTileEl) edicaoTileEl.addEventListener('click', () => trocarSecao('edicao'));
 
 // O REGISTRO É COMPARTILHADO COMO ARQUIVO (v1.12.44, shell 82). Pedido do
 // operador: *"faça ele ser compartilhável e não apenas salvável na memória"*.
@@ -40144,7 +40290,7 @@ async function compartilharRegistroDaVerificacao() {
 //
 // Pedido do operador: *"vamos ter apenas uma verificação, direta e completa"*.
 // A leve roda e, no fim dela, o download de teste roda por cima (as mesmas
-// duas funções de antes, encadeadas). FECHAR A FOLHA CANCELA TUDO: a leve para
+// duas funções de antes, encadeadas). RECOLHER A SEÇÃO CANCELA TUDO: a leve para
 // de começar checagens novas e descarta o resultado; o download é cancelado e
 // limpo pelo caminho que ele já tinha. Uma reabertura espera a rodada cancelada
 // terminar de se desfazer antes de começar a nova — duas rodadas dividiriam o
@@ -40154,7 +40300,7 @@ let testeEmCurso = null;
 
 async function dispararTeste() {
   if (testeEmCurso) { try { await testeEmCurso; } catch (_) {} }
-  if (!testePopupEl.classList.contains('open') || testeRodando) return;
+  if (secaoAberta !== 'teste' || testeRodando) return;
   testeCancelada = false;
   testeResultado = null;
   testeMostrado = 0;
@@ -40323,31 +40469,12 @@ function testeProblemas(r) {
   return r.itens.filter((x) => x.v in peso).sort((a, b) => peso[a.v] - peso[b.v]);
 }
 
-// A FOLHA TEM A ALTURA DO QUE MOSTRA, e toda mudança dela ANIMA (v1.12.47).
-// Pedido do operador: a altura fixa deixava a janela vazia na maior parte das
-// rodadas. A altura é medida antes e depois do desenho e a diferença corre por
-// WAAPI (`--dur-lenta`); sem movimento com `prefers-reduced-motion`, com a
-// folha fechada, ou quando nada mudou.
-let testeAlturaAnim = null;
-function animarAlturaDoTeste(desenhar) {
-  const folha = testePopupEl && testePopupEl.querySelector('.popup-sheet');
-  const aberta = folha && testePopupEl.classList.contains('open');
-  const h0 = aberta ? folha.getBoundingClientRect().height : 0;
-  if (testeAlturaAnim) { testeAlturaAnim.cancel(); testeAlturaAnim = null; }
-  desenhar();
-  if (!aberta || matchMedia('(prefers-reduced-motion: reduce)').matches || !folha.animate) return;
-  const h1 = folha.getBoundingClientRect().height;
-  if (Math.abs(h1 - h0) < 1 || !h0) return;
-  const v = getComputedStyle(document.documentElement).getPropertyValue('--dur-lenta').trim();
-  const dur = (parseFloat(v) || 0.3) * (/ms$/.test(v) ? 1 : 1000);
-  folha.style.overflow = 'hidden';
-  testeAlturaAnim = folha.animate([{ height: h0 + 'px' }, { height: h1 + 'px' }], { duration: dur, easing: 'ease' });
-  testeAlturaAnim.onfinish = testeAlturaAnim.oncancel = () => { folha.style.overflow = ''; testeAlturaAnim = null; };
-}
-
 function desenharTeste() {
   if (!testeResumoEl || !testeListEl) return;
-  animarAlturaDoTeste(desenharTesteJa);
+  // A SEÇÃO TEM A ALTURA DO QUE MOSTRA, e toda mudança dela ANIMA (v1.12.47,
+  // na seção desde a v1.12.48): a barra virando a lista de problemas, o
+  // Cancelar virando o fecho.
+  animarAlturaDasSecoes(desenharTesteJa);
 }
 function desenharTesteJa() {
   const r = testeResultado;
@@ -40399,12 +40526,15 @@ function desenharTesteJa() {
     testeListEl.appendChild(li);
   }
 
-  // A FAIXA SÓ APARECE NO FIM, mas o lugar dela fica reservado (a folha não
-  // muda de tamanho). O Registro só existe no app.
-  if (testeFechoEl) testeFechoEl.classList.toggle('teste-fecho--oculto', !pronto);
-  if (testeSalvarEl) testeSalvarEl.hidden = !window.__NATIVE__;
-  if (testeRefazerEl) testeRefazerEl.disabled = !pronto;
-  if (testeSalvarEl) testeSalvarEl.disabled = !pronto;
+  // O FECHO TEM DOIS ESTADOS (v1.12.48): enquanto anda, só o CANCELAR (e o
+  // chevron do cabeçalho some — ele também cancelaria, e duas saídas para a
+  // mesma coisa disputam); no fim, Refazer e o Registro, que só existe no app.
+  const anda = testeRodando || !!testeEmCurso;
+  if (testeCancelarEl) testeCancelarEl.hidden = !anda;
+  if (testeRefazerEl) { testeRefazerEl.hidden = !pronto; testeRefazerEl.disabled = !pronto; }
+  if (testeSalvarEl) { testeSalvarEl.hidden = !pronto || !window.__NATIVE__; testeSalvarEl.disabled = !pronto; }
+  const recolher = testeSecaoEl && testeSecaoEl.querySelector('.cfg-sec-recolher');
+  if (recolher) recolher.hidden = anda;
 }
 
 // A rodada chama isto a cada resposta (e o download, a cada aviso de bytes).
@@ -40420,14 +40550,6 @@ function svgDoDesfecho(v) {
   if (v === TESTE_MUDO) return abre + '<path d="M12 7v6"/><path d="M12 17h.01"/></svg>';
   return abre + '<path d="M6 12h12"/></svg>';
 }
-function closeHistPopup() {
-  // FECHAR CANCELA A PERGUNTA — a mesma regra da gaveta da linha e da folha da
-  // playlist: perder a pergunta custa um toque, herdar um "sim" pendente
-  // apagaria um histórico na abertura seguinte.
-  fecharConfirmacaoNaLinha();
-  histPopupEl.classList.remove('open');
-}
-
 function openPlPopup() {
   renderPlaylist();
   plPopupEl.classList.add('open');
@@ -40565,14 +40687,19 @@ muteToggleEl.addEventListener('click', toggleMute);
 // miniatura, e uma configuração escondida atrás de um estado de UI é a que
 // ninguém acha.
 settingsBtnEl.addEventListener('click', openFadePopup);
-// O HISTÓRICO abre de DENTRO de Configurações (v1.4.31) — a folha de cima
-// FICA aberta atrás dele, e é o `z-index` de `#histPopup` que garante a ordem.
-// Fechá-la aqui devolveria o operador à tela principal ao fechar o histórico,
-// e não à folha de onde ele saiu.
-histOpenRowEl.addEventListener('click', openHistPopup);
-if (testeTileEl) testeTileEl.addEventListener('click', openTestePopup);
-if (telaTileEl) telaTileEl.addEventListener('click', openTelaPopup);
-if (pacoteTileEl) pacoteTileEl.addEventListener('click', openPacotePopup);
+// AS SEÇÕES (v1.12.48): o tile abre a dele, troca a aberta ou a recolhe (ver
+// `trocarSecao`); o chevron do cabeçalho de cada uma a recolhe; o Cancelar da
+// Verificação a recolhe, e recolher a cancela (`aoRecolherTeste`).
+histOpenRowEl.addEventListener('click', () => trocarSecao('hist'));
+if (testeTileEl) testeTileEl.addEventListener('click', () => trocarSecao('teste'));
+if (telaTileEl) telaTileEl.addEventListener('click', () => trocarSecao('tela'));
+if (pacoteTileEl) pacoteTileEl.addEventListener('click', () => trocarSecao('pacote'));
+if (cfgSecoesEl) {
+  cfgSecoesEl.addEventListener('click', (e) => {
+    if (e.target.closest('.cfg-sec-recolher')) recolherSecao();
+  });
+}
+if (testeCancelarEl) testeCancelarEl.addEventListener('click', () => recolherSecao());
 if (testeSalvarEl) testeSalvarEl.addEventListener('click', compartilharRegistroDaVerificacao);
 if (testeRefazerEl) testeRefazerEl.addEventListener('click', () => dispararTeste());
 // LIMPAR TUDO. A pergunta mora na faixa do próprio botão — mesma porta do
@@ -43474,25 +43601,9 @@ const POPUPS = [
   [plPopupEl, plPopupCloseEl, closePlPopup],
   [bibleVerPopupEl, bibleVerCloseEl, closeBibleVerPopup],
   [fadePopupEl, fadePopupCloseEl, closeFadePopup],
-  // O HISTÓRICO abre DE DENTRO de Configurações (v1.4.31 — era vizinho da
-  // playlist, de onde ele abria antes), então vem DEPOIS dela: o voltar
-  // percorre esta tabela de trás para a frente, e fechar o histórico tem de
-  // devolver o operador à folha de onde ele saiu. O `z-index` de `#histPopup`
-  // diz a MESMA ordem, e mudar uma sem a outra é o acaso que já cobriu um
-  // popup por inteiro aqui.
-  [histPopupEl, histPopupCloseEl, closeHistPopup],
-  // A VERIFICAÇÃO abre de dentro de Configurações, como o Histórico, e não abre
-  // nada por cima de si. O voltar percorre esta tabela de trás para a frente,
-  // então ela fecha antes de Configurações — que é para onde o operador volta.
-  [testePopupEl, testePopupCloseEl, closeTestePopup],
-  // A TELA e o TRANSFERIR abrem de dentro de Configurações (v1.11.7), como a
-  // Verificação logo acima — e o `z-index` de `#telaPopup`/`#pacotePopup` diz a
-  // mesma ordem. Nada abre por cima do Transferir.
-  [telaPopupEl, telaPopupCloseEl, closeTelaPopup],
-  [pacotePopupEl, pacotePopupCloseEl, closePacotePopup],
-  // EDITAR MÍDIA abre de Configurações como as duas acima (v1.12.0), e a pergunta
-  // de destino (`#songMenuPopup`, degrau 210) abre POR CIMA dela.
-  [edicaoPopupEl, edicaoPopupCloseEl, closeEdicaoPopup],
+  // (O Histórico, a Verificação, a Tela, o Transferir e o Editar mídia tinham
+  // linha aqui, depois de Configurações. Desde a v1.12.48 são SEÇÕES dela: o
+  // voltar as recolhe no degrau de Configurações, ver `__avBack`.)
   // A folha de CONECTAR UMA TELA abre da tela principal (o botão de cast), e
   // vem antes das duas que nascem dela — o voltar percorre esta tabela de trás
   // para a frente.
@@ -43562,7 +43673,12 @@ window.__avBack = function () {
     // A BIBLIOTECA ENCAIXADA DO MODO FÁCIL É A TELA, não uma janela: o voltar não
     // a fecha (fechada, o corpo ficaria vazio) e segue para a fila de baixo.
     if (backdrop === hymnSearchPopupEl && simplesBibliotecaDocada()) continue;
-    if (backdrop.classList.contains('open')) { close(); return true; }
+    if (!backdrop.classList.contains('open')) continue;
+    // A SEÇÃO ABERTA DE CONFIGURAÇÕES RECOLHE ANTES de a folha fechar (v1.12.48):
+    // ela foi aberta depois, e é a ordem do mais efêmero ao mais permanente.
+    if (backdrop === fadePopupEl && secaoAberta) { recolherSecao(); return true; }
+    close();
+    return true;
   }
   // 2.5. A folha de Ferramentas. Depois dos bottom-sheets porque um deles pode
   //    abrir DE DENTRO dela (a folha da música, pelo sorteio), e antes da tela

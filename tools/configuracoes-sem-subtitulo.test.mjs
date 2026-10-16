@@ -63,12 +63,12 @@ try {
   const a = await abrirConfig(430);
   checar(a.abriu === true, 'A · a folha de Configurações abre', porque(a.abriu));
 
-  // A GRADE E AS DUAS JANELAS (v1.11.7): quatro tiles moram em `#telaPopup` e
-  // dois em `#pacotePopup`, e a regra "nenhum tile tem segunda linha" vale para
+  // A GRADE E AS DUAS SEÇÕES (v1.11.7; seções desde a v1.12.48): quatro tiles
+  // moram em `#telaSecao` e dois em `#pacoteSecao`, e a regra "nenhum tile tem segunda linha" vale para
   // todos — varrer só `.qs-grade` deixaria a palavra do estado voltar por uma
   // porta que esta asserção não olha.
   const tiles = await a.pg.evaluate(() => [...document.querySelectorAll(
-    '.qs-grade .qs-tile, #telaPopup .qs-tile, #pacotePopup .qs-tile')]
+    '.qs-grade .qs-tile, #telaSecao .qs-tile, #pacoteSecao .qs-tile')]
     .map((t) => ({
       id: t.id,
       // O TEXTO INTEIRO do tile, e não a ausência de uma classe: `.qs-estado`
@@ -115,6 +115,9 @@ try {
   // B · O GIRO GIRA O PRÓPRIO ÍCONE (no RENDERIZADO)
   // =========================================================================
   const giro = await a.pg.evaluate(async () => {
+    // O tile mora na SEÇÃO da Tela (v1.12.48), e uma seção recolhida não tem
+    // caixa: o `transform` de um nó sem caixa computa `none`.
+    trocarSecao('tela', { animar: false });
     const b = document.getElementById('rotBtn');
     const svg = b.querySelector('svg');
     // ASSENTAR É `getAnimations()` + `finished`, e não um prazo: o ícone GIRA

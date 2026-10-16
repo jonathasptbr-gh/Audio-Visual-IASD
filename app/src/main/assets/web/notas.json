@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.12.48",
+    "itens": [
+      "Configurações: Tela, Transferir, Editar mídia, Histórico e Verificação abrem dentro da própria janela.",
+      "Uma opção aberta por vez, com animação; a seta no canto de cada uma a recolhe.",
+      "Verificação: enquanto roda, um botão vermelho \"Cancelar\" interrompe o teste.",
+      "Histórico: tocar num item para projetar fecha as configurações, para você ver o resultado."
+    ]
+  },
+  {
     "versao": "1.12.47",
     "itens": [
       "Verificação: o círculo virou uma barra grossa, com a porcentagem no meio dela.",

@@ -1,33 +1,28 @@
 #!/usr/bin/env node
 // ============================================================================
-// AS DUAS JANELAS DE CONFIGURAÇÕES — "Tela" e "Transferir" (v1.11.7).
+// AS SEÇÕES DE CONFIGURAÇÕES — Tela, Transferir, Editar mídia, Histórico e
+// Verificação (janelas desde a v1.11.7, SEÇÕES desde a v1.12.48).
 //
 // ## Por que este oráculo existe
 //
-// Pedido do operador: a grade de Configurações tinha 13 tiles e passou a ter 8.
-// Quatro deles (Preenchimento, Wallpaper, Fundo da letra, Girar no telão) moram
-// agora numa JANELA aberta pelo tile "Tela"; Exportar e Importar moram noutra,
-// aberta pelo tile "Transferir" — e a janela do Transferir mostra o que o
-// aparelho já tem ANTES de pedir o arquivo. Mover um nó de lugar não deixa
-// sintoma nenhum: tudo continua existindo, e as quatro falhas abaixo são todas
-// MUDAS.
+// Pedido do operador (v1.12.48): *"ao invés das opções de configurações abrirem
+// em uma nova janela na base da tela, faça com que seus conteúdos abram dentro
+// da janela original das configurações, abaixo dos botões … mas acima dos
+// botões de versão e pedir ajuda"*, com o fechar de cada uma sem disputar com o
+// ✕ de Configurações e as trocas ANIMADAS. As falhas que isto trava são todas
+// MUDAS:
 //
-//  1. **A JANELA NASCE ATRÁS.** `#telaPopup` e `#pacotePopup` vêm ANTES de
-//     `#fadePopup` no documento, e todo `.popup-backdrop` tem o mesmo degrau de
-//     `z-index`: sem o `205` deles quem decide é a ORDEM DO DOCUMENTO, e a
-//     janela abre debaixo de Configurações — o toque no tile "funciona" e a
-//     tela não muda. A prova é HIT-TEST, nunca o `z-index` lido de volta.
-//  2. **O VOLTAR E O ✕ DEIXAM DE VALER.** Quem os dá é UMA linha da tabela
-//     `POPUPS`; sem ela a janela abre, não fecha por ✕, e o `__avBack` fecha
-//     Configurações por baixo dela.
-//  3. **A LISTAGEM DO IMPORTAR.** Ela é um passo ANTES do seletor de arquivos,
-//     e o defeito é o seletor abrir direto — nada falha, a listagem só não
-//     existe. A metade que impede o conserto largo demais: desistir (✕) NÃO
-//     pode abrir o seletor, e o aparelho vazio tem de dizer que está vazio.
-//  4. **O TRABALHO SEM SINAL.** Exportar leva minutos e a janela pode estar
-//     FECHADA: o feedback dos dois botões (aro, percentual) mora num nó dentro
-//     de `.popup-backdrop:not(.open)`, que não se vê. O tile da GRADE é o sinal,
-//     e quem o pinta é `pacoteSinal()`, chamado por `pacoteRenderTiles()`.
+//  1. **DUAS ABERTAS.** Uma por vez é a regra; uma troca que esquecesse de
+//     recolher a anterior empilharia as duas e a folha dobraria de altura.
+//  2. **O VOLTAR FECHA CONFIGURAÇÕES POR CIMA DA SEÇÃO.** Ela foi aberta depois,
+//     e o voltar a recolhe primeiro (`__avBack`); fechar Configurações a recolhe.
+//  3. **UM SEGUNDO ✕.** O único ✕ grande é o da folha; cada seção recolhe por
+//     um chevron SEM CAIXA no cabeçalho dela.
+//  4. **A TROCA SECA.** Abrir, trocar e recolher animam a ALTURA da caixa das
+//     seções (a folha vai junto) — e com `prefers-reduced-motion` não animam.
+//  5. **A LISTAGEM DO IMPORTAR e O TRABALHO SEM SINAL** (os blocos D a G): a
+//     lista do Transferir já está à vista quando a seção abre, e com ela
+//     recolhida o tile da grade é o sinal do trabalho (`pacoteSinal()`).
 //
 // E o invariante 6 do shell, que o movimento do Wallpaper pode quebrar: ele
 // continua sendo um `<label>` com o `<input type=file>` DENTRO — é a ativação
@@ -38,7 +33,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, esperar, esperarCortina, porque, checar, falhas } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, esperar, esperarDb, esperarCortina, porque, checar, falhas } from './arnes.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const RAIZ = path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web');
@@ -159,7 +154,7 @@ const erros = [];
 const EXTERNO = /ERR_TUNNEL_CONNECTION_FAILED|ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISCONNECTED|ERR_CONNECTION_|ERR_PROXY|ERR_FAILED/;
 
 // Um aparelho. `opts === null` é o NAVEGADOR (sem ponte, sem `__NATIVE__`).
-// Configurações fica ABERTA: as janelas nascem dela, e o tile só se toca com a
+// Configurações fica ABERTA: as seções moram nela, e o tile só se toca com a
 // folha à vista (um tile de folha fechada está fora da viewport).
 async function aparelho(opts, antesDaCarga, viewport = { width: 430, height: 900 }) {
   const ctx = await navegador.newContext({ viewport, hasTouch: true });
@@ -204,25 +199,13 @@ async function tocar(pg, sel) {
 
 const aberta = (pg, id) => pg.evaluate((i) => document.getElementById(i).classList.contains('open'), id);
 
-// Toca no tile da grade e espera a janela abrir E assentar.
-async function abrirJanela(pg, tile, popup) {
+// Toca no tile da grade e espera a seção abrir E a caixa assentar.
+async function abrirJanela(pg, tile, secao) {
   await tocar(pg, tile);
-  const r = await esperar(pg, (i) => document.getElementById(i).classList.contains('open'), popup, 10000);
-  await assentar(pg, ['#' + popup + ' .popup-sheet', '#fadePopup .popup-sheet']);
+  const r = await esperar(pg, (i) => document.getElementById(i).classList.contains('open'), secao, 10000);
+  await assentar(pg, ['#cfgSecoes', '#cfgSecoes .cfg-sec', '#fadePopup .popup-sheet']);
   return r;
 }
-
-// QUEM ESTÁ POR CIMA no centro do cabeçalho da folha `sel`: o id do backdrop
-// dono do nó que o hit-test devolve.
-const donoDoCabecalho = (pg, sel) => pg.evaluate((s) => {
-  const cab = document.querySelector(s + ' .popup-header');
-  const r = cab.getBoundingClientRect();
-  const fr = document.querySelector('#fadePopup .popup-sheet').getBoundingClientRect();
-  const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-  const el = document.elementFromPoint(cx, cy);
-  const dono = el && el.closest('.popup-backdrop');
-  return { dono: dono ? dono.id : null, dentroDeConfig: cy < fr.bottom && cy > fr.top };
-}, sel);
 
 try {
   // =========================================================================
@@ -231,16 +214,20 @@ try {
   const ORDEM = ['temaTile', 'telaTile', 'saidaAudioTile', 'dadosMoveisTile',
     'edicaoTile', 'histOpenRow', 'testeTile', 'shareAppTile', 'pacoteTile'];
   const lerGrade = (pg) => pg.evaluate(() => {
-    // `#fadePopup .qs-grade`, e não `.qs-grade` solto: as janelas vêm ANTES de
-    // Configurações no documento, e é por isso que a classe delas é OUTRA.
+    // `#fadePopup .qs-grade`: a grade das seções é OUTRA classe
+    // (`.qs-grade-folha`), e o `.qs-grade` solto tem de achar esta.
     const g = document.querySelector('#fadePopup .qs-grade');
     return {
       ids: [...g.children].map((n) => n.id),
       escondidos: [...g.children].filter((n) => n.hidden).map((n) => n.id),
       primeiraGrade: (document.querySelector('.qs-grade') || {}).parentElement
         && document.querySelector('.qs-grade').closest('.popup-backdrop').id,
-      colunasDaJanela: ['telaPopup', 'pacotePopup'].map((i) => getComputedStyle(
-        document.querySelector('#' + i + ' .qs-grade-folha')).gridTemplateColumns.split(' ').length),
+      colunasDaJanela: ['tela', 'pacote'].map((nome) => {
+        trocarSecao(nome, { animar: false });
+        return getComputedStyle(document.querySelector('#' + nome + 'Secao .qs-grade-folha'))
+          .gridTemplateColumns.split(' ').length;
+      }),
+      recolheu: (recolherSecao({ animar: false }), secaoAberta === ''),
     };
   });
 
@@ -254,39 +241,52 @@ try {
   checar(gNativa.escondidos.length === 0,
     'A · e no app nenhum está escondido', JSON.stringify(gNativa.escondidos));
   checar(gNativa.primeiraGrade === 'fadePopup',
-    'A · a PRIMEIRA `.qs-grade` do documento é a de Configurações — as janelas '
+    'A · a PRIMEIRA `.qs-grade` do documento é a de Configurações — as seções '
     + 'usam `.qs-grade-folha`, senão o `querySelector(".qs-grade")` de meia dúzia '
-    + 'de oráculos mediria a grade da janela', gNativa.primeiraGrade);
-  checar(gNativa.colunasDaJanela.every((n) => n === 2),
-    'A · e a grade das duas janelas tem DUAS colunas — quatro tiles fecham 2x2, '
+    + 'de oráculos mediria a grade de uma seção', gNativa.primeiraGrade);
+  checar(gNativa.colunasDaJanela.every((n) => n === 2) && gNativa.recolheu,
+    'A · e a grade das duas seções tem DUAS colunas — quatro tiles fecham 2x2, '
     + 'três deixariam um órfão', JSON.stringify(gNativa.colunasDaJanela));
 
   // ===== QUEM MORA DENTRO DE QUEM =====
-  const casas = await app.pg.evaluate(() => {
-    const dentro = (id, popup) => {
+  const SECOES = ['telaSecao', 'pacoteSecao', 'edicaoSecao', 'histSecao', 'testeSecao'];
+  const casas = await app.pg.evaluate((secoes) => {
+    const dentro = (id, sec) => {
       const n = document.getElementById(id);
-      return !!n && !!n.closest('#' + popup) && !n.closest('#fadePopup');
+      return !!n && !!n.closest('#' + sec) && !n.closest('.qs-grade');
     };
+    const grade = document.querySelector('#fadePopup .qs-grade');
+    const rodape = document.querySelector('#fadePopup .popup-footer');
+    const SEGUE = Node.DOCUMENT_POSITION_FOLLOWING;
     return {
-      tela: ['fitTile', 'wallTile', 'lyricsBgTile', 'rotBtn'].map((i) => [i, dentro(i, 'telaPopup')]),
-      pacote: ['pacoteExportarTile', 'pacoteImportarTile'].map((i) => [i, dentro(i, 'pacotePopup')]),
+      tela: ['fitTile', 'wallTile', 'lyricsBgTile', 'rotBtn'].map((i) => [i, dentro(i, 'telaSecao')]),
+      pacote: ['pacoteExportarTile', 'pacoteImportarTile'].map((i) => [i, dentro(i, 'pacoteSecao')]),
       naGrade: ['fitTile', 'wallTile', 'lyricsBgTile', 'rotBtn', 'pacoteExportarTile', 'pacoteImportarTile']
         .filter((i) => document.querySelector('#fadePopup .qs-grade #' + i)),
-      sobrePopups: [...document.body.children].filter((n) => /^(telaPopup|pacotePopup)$/.test(n.id)).length,
+      // ENTRE A GRADE E O RODAPÉ, dentro da parte que rola de Configurações.
+      lugar: secoes.map((s) => {
+        const n = document.getElementById(s);
+        return [s, !!n && !!n.closest('#fadePopup .fade-opts')
+          && !!(grade.compareDocumentPosition(n) & SEGUE)
+          && !!(n.compareDocumentPosition(rodape) & SEGUE)];
+      }),
+      // As folhas de antes não existem mais.
+      folhasVelhas: ['telaPopup', 'pacotePopup', 'edicaoPopup', 'histPopup', 'testePopup']
+        .filter((i) => document.getElementById(i)),
     };
-  });
+  }, SECOES);
   checar(casas.tela.every(([, ok]) => ok),
     'A · Preenchimento, Wallpaper, Fundo da letra e Girar no telão estão DENTRO de '
-    + '#telaPopup — e fora de Configurações', JSON.stringify(casas.tela));
+    + '#telaSecao — e fora da grade', JSON.stringify(casas.tela));
   checar(casas.pacote.every(([, ok]) => ok),
-    'A · Exportar e Importar estão DENTRO de #pacotePopup — e fora de Configurações',
+    'A · Exportar e Importar estão DENTRO de #pacoteSecao — e fora da grade',
     JSON.stringify(casas.pacote));
   checar(casas.naGrade.length === 0,
     'A · e NENHUM dos seis sobrou na grade', JSON.stringify(casas.naGrade));
-  checar(casas.sobrePopups === 2,
-    'A · as duas janelas são irmãs diretas do `<body>` — dentro de `<main>` o '
-    + 'Modo Fácil as esconderia junto (`body.mode-simple main { display: none }`)',
-    casas.sobrePopups);
+  checar(casas.lugar.every(([, ok]) => ok) && casas.folhasVelhas.length === 0,
+    'A · as CINCO seções moram DENTRO de Configurações, depois da grade e antes do '
+    + 'rodapé da versão — e as cinco folhas de baixo de antes não existem mais',
+    JSON.stringify(casas));
   await app.ctx.close();
 
   // O NAVEGADOR: sem ponte, três tiles não existem (não há o que chamar) — e as
@@ -306,86 +306,187 @@ try {
   await nav.ctx.close();
 
   // =========================================================================
-  // B · A JANELA ABRE SOBRE CONFIGURAÇÕES, E É ALCANÇÁVEL
+  // B · A SEÇÃO ABRE DENTRO DE CONFIGURAÇÕES, UMA POR VEZ, E ANIMA
   // =========================================================================
   //
-  // O VIEWPORT É DE 440 DE ALTURA DE PROPÓSITO, e é a reversão que o escolheu:
-  // Configurações mede 390 de altura e a janela do Transferir 134 — a 900 de
-  // altura as duas folhas NÃO se sobrepõem em pixel nenhum (a janela fica na base,
-  // Configurações no topo), o hit-test devolve a janela com ou sem `z-index`, e a
-  // asserção passaria com o defeito. A 440 as duas disputam os mesmos pixels,
-  // que é o único lugar onde a ordem das camadas aparece.
+  // O VIEWPORT É BAIXO (440) DE PROPÓSITO: com a folha no teto de 80% a seção
+  // começa abaixo da dobra, e é aí que se vê se a folha ROLA para mostrá-la —
+  // a 900 tudo cabe e o "à vista" passaria sem medir nada.
   const b = await aparelho({}, null, { width: 430, height: 440 });
   await abrirConfiguracoes(b.pg);
-  for (const [nome, tile, popup, fecha] of [
-    ['Tela', '#telaTile', 'telaPopup', '#telaPopupClose'],
-    ['Transferir', '#pacoteTile', 'pacotePopup', '#pacotePopupClose'],
-  ]) {
-    const abriu = await abrirJanela(b.pg, tile, popup);
-    checar(abriu === true, 'B · ' + nome + ' · tocar no tile abre a janela', porque(abriu));
-    const conf = await aberta(b.pg, 'fadePopup');
-    checar(conf === true,
-      'B · ' + nome + ' · e Configurações CONTINUA aberta por baixo — a janela é '
-      + 'uma folha de dentro dela, como o Histórico e a Verificação', String(conf));
-
-    // ---- A CAMADA: HIT-TEST ----
-    const camada = await donoDoCabecalho(b.pg, '#' + popup);
-    checar(camada.dentroDeConfig === true,
-      'B · ' + nome + ' · PREMISSA: o ponto medido está DENTRO da área de '
-      + 'Configurações — senão a medição não prova nada sobre a disputa das duas '
-      + 'camadas', JSON.stringify(camada));
-    checar(camada.dono === popup,
-      'B · ' + nome + ' · a janela PINTA POR CIMA de Configurações: o toque no '
-      + 'cabeçalho dela alcança a PRÓPRIA folha. Sem o `z-index: 205` quem decide '
-      + 'é a ordem do documento, e a janela vem ANTES de `#fadePopup`', JSON.stringify(camada));
-
-    // ---- O VOLTAR (o degrau que a tabela POPUPS dá) ----
-    const volta = await b.pg.evaluate((p) => {
-      window.__avBack();
-      return {
-        janela: document.getElementById(p).classList.contains('open'),
-        config: document.getElementById('fadePopup').classList.contains('open'),
-      };
-    }, popup);
-    checar(!volta.janela && volta.config,
-      'B · ' + nome + ' · o voltar fecha a JANELA e devolve Configurações, de onde '
-      + 'ela nasceu — a tabela POPUPS é percorrida de trás para a frente',
-      JSON.stringify(volta));
-
-    // ---- O ✕ ----
-    await abrirJanela(b.pg, tile, popup);
-    await tocar(b.pg, fecha);
-    const fechou = await esperar(b.pg, (i) => !document.getElementById(i).classList.contains('open'), popup, 10000);
-    checar(fechou === true && (await aberta(b.pg, 'fadePopup')),
-      'B · ' + nome + ' · o ✕ fecha só a janela', porque(fechou));
-
-    // ---- O TOQUE NO FUNDO ----
-    await abrirJanela(b.pg, tile, popup);
-    // Alto da tela, longe das duas folhas: o que está sob o ponto é o BACKDROP
-    // da janela (205), não o de Configurações.
-    await b.pg.mouse.click(215, 3);
-    const fundo = await esperar(b.pg, (i) => !document.getElementById(i).classList.contains('open'), popup, 10000);
-    checar(fundo === true && (await aberta(b.pg, 'fadePopup')),
-      'B · ' + nome + ' · o toque no fundo fecha só a janela — é a mesma linha da '
-      + 'tabela que dá o ✕, o fundo e o voltar', porque(fundo));
+  const estadoB = () => b.pg.evaluate(() => ({
+    aberta: secaoAberta,
+    abertas: [...document.querySelectorAll('#cfgSecoes .cfg-sec')].filter((s) => !s.hidden).map((s) => s.id),
+    expandidos: [...document.querySelectorAll('#fadePopup .qs-grade [aria-expanded="true"]')].map((n) => n.id),
+    config: document.getElementById('fadePopup').classList.contains('open'),
+  }));
+  const TILES = [['Tela', '#telaTile', 'telaSecao', 'tela'], ['Transferir', '#pacoteTile', 'pacoteSecao', 'pacote'],
+    ['Editar mídia', '#edicaoTile', 'edicaoSecao', 'edicao'], ['Histórico', '#histOpenRow', 'histSecao', 'hist'],
+    ['Verificação', '#testeTile', 'testeSecao', 'teste']];
+  let rolouAlguma = false;
+  for (const [nome, tile, secao, chave] of TILES) {
+    const abriu = await abrirJanela(b.pg, tile, secao);
+    const e = await estadoB();
+    checar(abriu === true && e.aberta === chave && e.abertas.length === 1 && e.abertas[0] === secao,
+      'B · ' + nome + ' · tocar no tile abre a seção — e SÓ ela: a anterior recolheu na troca',
+      JSON.stringify(e));
+    checar(e.config === true && e.expandidos.length === 1 && e.expandidos[0] === tile.slice(1),
+      'B · ' + nome + ' · Configurações continua aberta e o tile diz `aria-expanded` (o aberto '
+      + 'não é cor — é o corpo à vista)', JSON.stringify(e));
+    // À VISTA: o cabeçalho da seção está dentro da parte visível do scroller, e o
+    // toque nele chega à própria seção. A rolagem é SUAVE e roda depois da
+    // animação da altura: espera-se por ela assentar.
+    await esperarDb(b.pg, () => {
+      const sc = document.querySelector('#fadePopup .fade-opts');
+      const v = sc.scrollTop;
+      return new Promise((r) => setTimeout(() => r(sc.scrollTop === v), 150));
+    }, null, 5000);
+    const vista = await b.pg.evaluate((s) => {
+      const cab = document.querySelector('#' + s + ' .cfg-sec-cab').getBoundingClientRect();
+      const sc = document.querySelector('#fadePopup .fade-opts');
+      const scr = sc.getBoundingClientRect();
+      const el = document.elementFromPoint(cab.left + cab.width / 2, cab.top + cab.height / 2);
+      return { dentro: cab.top >= scr.top - 1 && cab.bottom <= scr.bottom + 1,
+        dono: el && el.closest('.cfg-sec') ? el.closest('.cfg-sec').id : null, rolou: sc.scrollTop };
+    }, secao);
+    if (vista.rolou > 0) rolouAlguma = true;
+    checar(vista.dentro && vista.dono === secao,
+      'B · ' + nome + ' · o cabeçalho da seção fica À VISTA (a folha rola até ele) e o toque '
+      + 'nele chega à própria seção', JSON.stringify(vista));
   }
+  checar(rolouAlguma,
+    'B · PREMISSA: a 440 de altura a folha precisou ROLAR para mostrar alguma seção', 'sem rolagem');
+
+  // ---- O MESMO TILE RECOLHE ----
+  await b.pg.evaluate(() => { document.querySelector('#fadePopup .fade-opts').scrollTop = 0; });
+  await tocar(b.pg, '#testeTile');
+  await assentar(b.pg, ['#cfgSecoes', '#cfgSecoes .cfg-sec']);
+  const recolheu = await estadoB();
+  checar(recolheu.aberta === '' && recolheu.abertas.length === 0 && recolheu.config && recolheu.expandidos.length === 0,
+    'B · tocar de novo no tile da seção aberta a RECOLHE, e Configurações fica', JSON.stringify(recolheu));
+
+  // ---- NENHUM ✕ DENTRO DAS SEÇÕES ----
+  const fechos = await b.pg.evaluate(() => ({
+    xSecoes: document.querySelectorAll('#cfgSecoes .popup-close').length,
+    xFolha: document.querySelectorAll('#fadePopup .popup-close').length,
+    chevrons: [...document.querySelectorAll('#cfgSecoes .cfg-sec')].map((s) => !!s.querySelector(':scope > .cfg-sec-cab > .cfg-sec-recolher')),
+    // O chevron NÃO tem caixa: fundo transparente, ao contrário do ✕ da folha.
+    fundoChevron: getComputedStyle(document.querySelector('#cfgSecoes .cfg-sec-recolher')).backgroundColor,
+    fundoX: getComputedStyle(document.getElementById('fadePopupClose')).backgroundColor,
+  }));
+  checar(fechos.xSecoes === 0 && fechos.xFolha === 1 && fechos.chevrons.every(Boolean)
+      && /rgba\(0, 0, 0, 0\)|transparent/.test(fechos.fundoChevron) && fechos.fundoChevron !== fechos.fundoX,
+    'B · o ÚNICO ✕ é o de Configurações: cada seção recolhe por um chevron SEM CAIXA no '
+    + 'cabeçalho dela — não disputa com o ✕ da folha', JSON.stringify(fechos));
+
+  // ---- O CHEVRON RECOLHE ----
+  await abrirJanela(b.pg, '#histOpenRow', 'histSecao');
+  await tocar(b.pg, '#histSecao .cfg-sec-recolher');
+  const peloChevron = await esperar(b.pg, () => secaoAberta === '' && document.getElementById('histSecao').hidden, null, 5000);
+  checar(peloChevron === true && (await aberta(b.pg, 'fadePopup')),
+    'B · o chevron do cabeçalho recolhe a seção, e Configurações fica', porque(peloChevron));
+
+  // ---- A TROCA ANIMA, E NUNCA HÁ DUAS ----
+  await b.pg.evaluate(() => { document.querySelector('#fadePopup .fade-opts').scrollTop = 0; });
+  await abrirJanela(b.pg, '#telaTile', 'telaSecao');
+  const troca = await b.pg.evaluate(async () => {
+    const box = document.getElementById('cfgSecoes');
+    document.getElementById('histOpenRow').click();
+    const animando = box.getAnimations().some((a) => a.effect && a.effect.getKeyframes().some((k) => 'height' in k));
+    const amostras = [];
+    for (let i = 0; i < 12; i++) {
+      await new Promise((r) => requestAnimationFrame(r));
+      amostras.push([...box.querySelectorAll('.cfg-sec')].filter((s) => !s.hidden && !s.classList.contains('saindo')).length);
+    }
+    await Promise.all(box.getAnimations({ subtree: true }).map((a) => a.finished.catch(() => {})));
+    return { animando, amostras, saindo: box.querySelectorAll('.saindo').length,
+      visiveis: [...box.querySelectorAll('.cfg-sec')].filter((s) => !s.hidden).map((s) => s.id) };
+  });
+  checar(troca.animando === true,
+    'B · trocar de seção ANIMA a altura da caixa (WAAPI em `height`)', JSON.stringify(troca));
+  checar(troca.amostras.every((n) => n === 1) && troca.saindo === 0 && troca.visiveis.length === 1 && troca.visiveis[0] === 'histSecao',
+    'B · e durante a troca há UMA seção de pé a cada quadro (a que sai é `.saindo`, absoluta '
+    + 'por cima), e no fim só a nova', JSON.stringify(troca));
+
+  // ---- O VOLTAR RECOLHE ANTES DE FECHAR ----
+  const volta = await b.pg.evaluate(() => {
+    const um = window.__avBack();
+    const depoisUm = { secao: secaoAberta, config: document.getElementById('fadePopup').classList.contains('open') };
+    const dois = window.__avBack();
+    return { um, depoisUm, dois, configFim: document.getElementById('fadePopup').classList.contains('open') };
+  });
+  checar(volta.um === true && volta.depoisUm.secao === '' && volta.depoisUm.config === true
+      && volta.dois === true && volta.configFim === false,
+    'B · o voltar RECOLHE a seção primeiro (Configurações fica) e só o segundo fecha a folha',
+    JSON.stringify(volta));
+
+  // ---- FECHAR CONFIGURAÇÕES RECOLHE A SEÇÃO ----
+  await abrirConfiguracoes(b.pg);
+  await assentar(b.pg, ['#fadePopup .popup-sheet']);
+  await abrirJanela(b.pg, '#telaTile', 'telaSecao');
+  await b.pg.evaluate(() => { document.querySelector('#fadePopup .fade-opts').scrollTop = 0; });
+  await tocar(b.pg, '#fadePopupClose');
+  const folhaFechou = await esperar(b.pg, () => !document.getElementById('fadePopup').classList.contains('open'), null, 5000);
+  const aposFechar = await b.pg.evaluate(() => ({ secao: secaoAberta,
+    abertas: [...document.querySelectorAll('#cfgSecoes .cfg-sec')].filter((s) => !s.hidden).length }));
+  checar(folhaFechou === true && aposFechar.secao === '' && aposFechar.abertas === 0,
+    'B · fechar Configurações pelo ✕ recolhe a seção aberta — a próxima abertura começa na grade',
+    JSON.stringify(aposFechar));
   await b.ctx.close();
+
+  // ---- ABRIR FAZ A FOLHA CRESCER (a 900 de altura, longe do teto) ----
+  const alta = await aparelho({}, null, { width: 430, height: 900 });
+  await abrirConfiguracoes(alta.pg);
+  await assentar(alta.pg, ['#fadePopup .popup-sheet']);
+  const cresce = await alta.pg.evaluate(async () => {
+    const folha = document.querySelector('#fadePopup .popup-sheet');
+    const f0 = folha.getBoundingClientRect().height;
+    document.getElementById('telaTile').click();
+    const box = document.getElementById('cfgSecoes');
+    const meio = [];
+    for (let i = 0; i < 6; i++) { await new Promise((r) => requestAnimationFrame(r)); meio.push(folha.getBoundingClientRect().height); }
+    await Promise.all(box.getAnimations({ subtree: true }).map((a) => a.finished.catch(() => {})));
+    return { f0, meio, f1: folha.getBoundingClientRect().height };
+  });
+  checar(cresce.f1 > cresce.f0 + 100 && cresce.meio.some((h) => h > cresce.f0 + 1 && h < cresce.f1 - 1),
+    'B · a folha de Configurações CRESCE com a seção, e passa por alturas intermediárias '
+    + '(acompanha a animação, não salta)', JSON.stringify(cresce));
+  await alta.ctx.close();
+
+  // ---- SEM MOVIMENTO, NÃO ANIMA ----
+  const quieto = await navegador.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true, reducedMotion: 'reduce' });
+  await semRedeExterna(quieto);
+  const qpg = await quieto.newPage();
+  await qpg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+  await esperarCortina(qpg);
+  await abrirConfiguracoes(qpg);
+  const semAnim = await qpg.evaluate(() => {
+    document.getElementById('telaTile').click();
+    const n1 = document.getElementById('cfgSecoes').getAnimations({ subtree: true }).length;
+    document.getElementById('histOpenRow').click();
+    const n2 = document.getElementById('cfgSecoes').getAnimations({ subtree: true }).length;
+    return { n1, n2, secao: secaoAberta, abertas: [...document.querySelectorAll('#cfgSecoes .cfg-sec')].filter((s) => !s.hidden).length };
+  });
+  checar(semAnim.n1 === 0 && semAnim.n2 === 0 && semAnim.secao === 'hist' && semAnim.abertas === 1,
+    'B · com `prefers-reduced-motion` a seção abre e troca SEM animação, no mesmo estado final',
+    JSON.stringify(semAnim));
+  await quieto.close();
 
   // =========================================================================
   // C · O WALLPAPER CONTINUA SENDO UM `<label>` — o invariante 6 do shell
   // =========================================================================
   const c = await aparelho({});
   await abrirConfiguracoes(c.pg);
-  await abrirJanela(c.pg, '#telaTile', 'telaPopup');
+  await abrirJanela(c.pg, '#telaTile', 'telaSecao');
   const forma = await c.pg.evaluate(() => {
     const w = document.getElementById('wallTile');
     const i = document.getElementById('wallFile');
     return { tag: w.tagName, filho: !!i && i.parentElement === w, tipo: i && i.type,
-      dentro: !!w.closest('#telaPopup') };
+      dentro: !!w.closest('#telaSecao') };
   });
   checar(forma.tag === 'LABEL' && forma.filho && forma.tipo === 'file' && forma.dentro,
     'C · o Wallpaper é um <label> com o <input type=file> DENTRO dele, dentro da '
-    + 'janela: é a ativação nativa do rótulo que abre o `onShowFileChooser` do '
+    + 'seção: é a ativação nativa do rótulo que abre o `onShowFileChooser` do '
     + 'WebView — um botão chamando `.click()` no input perderia o seletor',
     JSON.stringify(forma));
   // SEM IMAGEM PRÓPRIA: o toque deixa o rótulo abrir o seletor. Esta é a metade
@@ -396,7 +497,7 @@ try {
   ]);
   checar(!!seletor,
     'C · sem imagem própria o toque ABRE o seletor de arquivos — a ativação do '
-    + 'rótulo atravessa a janela', 'nenhum seletor abriu');
+    + 'rótulo atravessa a seção', 'nenhum seletor abriu');
   // COM IMAGEM PRÓPRIA: o toque VOLTA AO PADRÃO, e para isso o `preventDefault`
   // cancela a ativação do rótulo (senão o seletor abriria por cima do reset).
   const reset = await c.pg.evaluate(() => {
@@ -430,7 +531,7 @@ try {
   // coletâneas, e abaixo as duas opções de exportar/salvar e importar … em
   // ambos os casos a lista será vista, então já pode tornar ela visível
   // diretamente e ter apenas os dois botões de ações na base"*. A v1.11.7 abria
-  // a lista DEPOIS do toque em cada botão (uma folha por cima da janela).
+  // a lista DEPOIS do toque em cada botão (uma folha por cima da seção).
   const pickDocs = (pg) => pg.evaluate(() => window.__chamadas.filter((x) => x === 'pickDoc').length);
   const lerLista = (pg) => pg.evaluate(() => {
     const ul = document.getElementById('pacoteLista');
@@ -461,10 +562,10 @@ try {
   // ---- D1 · APARELHO NOVO: A LISTA DIZ QUE ESTÁ VAZIA, E OS DOIS BOTÕES ESTÃO LÁ ----
   const novo = await aparelho({});
   await abrirConfiguracoes(novo.pg);
-  await abrirJanela(novo.pg, '#pacoteTile', 'pacotePopup');
+  await abrirJanela(novo.pg, '#pacoteTile', 'pacoteSecao');
   const abriuVazia = await esperar(novo.pg, () => !!document.querySelector('#pacoteLista li'), null, 20000);
   checar(abriuVazia === true,
-    'D · a janela abre JÁ com a lista desenhada — sem toque nenhum', porque(abriuVazia));
+    'D · a seção abre JÁ com a lista desenhada — sem toque nenhum', porque(abriuVazia));
   const vazia = await lerLista(novo.pg);
   checar(vazia.caixas === 4 && vazia.marcadas === 4
       && vazia.textos.slice(0, 2).every((t) => /sem vídeo da semana baixado/.test(t) && !/nada baixado/.test(t))
@@ -488,7 +589,7 @@ try {
   const antiga = await novo.pg.evaluate(() => document.getElementById('songMenuPopup').classList.contains('open'));
   checar(seguiu === true && (await pickDocs(novo.pg)) === 1 && antiga === false,
     'D · tocar em Importar abre o seletor de arquivos NA HORA, UMA vez — a lista '
-    + 'que vinha antes dele é a própria janela', porque(seguiu) || await pickDocs(novo.pg));
+    + 'que vinha antes dele é a própria seção', porque(seguiu) || await pickDocs(novo.pg));
   await novo.ctx.close();
 
   // ---- D2 · COM COLEÇÕES: AS LINHAS ESTÃO NA JANELA, COM CAIXA, E A NOTA DIZ O PESO ----
@@ -512,11 +613,11 @@ try {
     });
   });
   await abrirConfiguracoes(com.pg);
-  await abrirJanela(com.pg, '#pacoteTile', 'pacotePopup');
+  await abrirJanela(com.pg, '#pacoteTile', 'pacoteSecao');
   // PREMISSA: as linhas aparecem SEM nenhum toque — é o pedido inteiro.
   const apareceu = await esperar(com.pg, () => !!document.querySelector('#pacoteLista .song-menu-grupo'), null, 20000);
   checar(apareceu === true,
-    'D · com coleções no aparelho a lista aparece sozinha, assim que a janela abre',
+    'D · com coleções no aparelho a lista aparece sozinha, assim que a seção abre',
     porque(apareceu));
   const fechada = await lerLista(com.pg);
   checar(fechada.secoes === 1 && fechada.marcadas === fechada.caixas && fechada.caixas > 0,
@@ -560,19 +661,25 @@ try {
     const ex = document.getElementById('pacoteExportarTile');
     const im = document.getElementById('pacoteImportarTile');
     const re = ex.getBoundingClientRect(), ri = im.getBoundingClientRect(), rl = lista.getBoundingClientRect();
+    const fecho = ex.closest('.popup-fecho');
+    const sc = document.querySelector('#fadePopup .fade-opts').getBoundingClientRect();
     return {
       mesmoFecho: !!ex.closest('.popup-fecho') && ex.closest('.popup-fecho') === im.closest('.popup-fecho'),
       foraDaLista: !lista.contains(ex) && !lista.contains(im),
-      abaixoDaLista: +Math.min(re.top, ri.top).toFixed(1) - +rl.bottom.toFixed(1) >= 0,
+      // ABAIXO DA LISTA, ou GRUDADO na base da folha com a lista passando por
+      // baixo (`sticky`, v1.12.48) — nos dois casos à vista e fora dela.
+      abaixoDaLista: +Math.min(re.top, ri.top).toFixed(1) - +rl.bottom.toFixed(1) >= 0
+        || (!!fecho && Math.abs(fecho.getBoundingClientRect().bottom - sc.bottom) <= 1),
       ladoALado: Math.abs(re.top - ri.top) < 1 && re.left < ri.left,
       mesmaAltura: Math.abs(re.height - ri.height) < 1,
-      naTela: re.bottom <= innerHeight + 1 && ri.bottom <= innerHeight + 1 && re.height > 0,
+      naTela: re.bottom <= sc.bottom + 1 && ri.bottom <= sc.bottom + 1 && re.top >= sc.top - 1 && re.height > 0,
       rotulos: [(ex.querySelector('.qs-titulo') || {}).textContent, (im.querySelector('.qs-titulo') || {}).textContent],
     };
   });
   checar(baseJ.mesmoFecho && baseJ.foraDaLista && baseJ.abaixoDaLista && baseJ.naTela,
     'D · Exportar e Importar são os dois botões da BASE: no `.popup-fecho`, FORA '
-    + 'do scroller da lista e abaixo dela — com o acervo inteiro à vista eles não rolam',
+    + 'da lista, abaixo dela ou grudados na base da folha — com o acervo inteiro à vista '
+    + 'eles não somem rolando',
     JSON.stringify(baseJ));
   checar(baseJ.ladoALado && baseJ.mesmaAltura && baseJ.rotulos[0] === 'Exportar' && baseJ.rotulos[1] === 'Importar',
     'D · lado a lado, na mesma altura (uma faixa de fecho com dois botões tem UMA '
@@ -606,7 +713,7 @@ try {
         .map((u) => u.getAttribute('href')) };
   });
   checar(tilePronto.estado === 'pronto-para-enviar' && tilePronto.alt === true && !tilePronto.trabalhando,
-    'E · com um pacote pronto o TILE DA GRADE diz isso com a janela fechada: '
+    'E · com um pacote pronto o TILE DA GRADE diz isso com a seção recolhida: '
     + 'data-estado "pronto-para-enviar" e o desenho de compartilhar (`qs-alt`)',
     JSON.stringify(tilePronto));
   checar(tilePronto.desenho.length === 1 && tilePronto.desenho[0] === '#icoCompartilhar',
@@ -614,11 +721,11 @@ try {
     JSON.stringify(tilePronto.desenho));
   checar(/pronto/.test(tilePronto.aria) && /\d/.test(tilePronto.aria),
     'E · e o `aria-label` diz o tamanho', tilePronto.aria);
-  await abrirJanela(pronto.pg, '#pacoteTile', 'pacotePopup');
+  await abrirJanela(pronto.pg, '#pacoteTile', 'pacoteSecao');
   const rotulo = await pronto.pg.evaluate(
     () => (document.querySelector('#pacoteImportarTile .qs-titulo') || {}).textContent.trim());
   checar(rotulo === 'Descartar',
-    'E · e dentro da janela o irmão é o DESCARTAR', rotulo);
+    'E · e dentro da seção o irmão é o DESCARTAR', rotulo);
   await tocar(pronto.pg, '#pacoteImportarTile');
   const perguntou = await esperar(pronto.pg,
     () => document.getElementById('appDialog').classList.contains('open'), null, 20000);
@@ -641,7 +748,7 @@ try {
     await AVDB.fileAdd({ id: 'f-x', folder: 'x', opfsPath: 'folders/x/a.m4a', name: 'a',
       type: 'audio/mp4', kind: 'audio', size: 400000, thumb: null, blob: null, url: null, addedAt: 1 });
     window.__segurar = true;
-    // Direto, sem a janela: sem lista aberta a função marca TUDO (o padrão).
+    // Direto, sem a seção: sem lista aberta a função marca TUDO (o padrão).
     window.__fim = exportarPacote();
   });
   await esperar(f.pg, () => (window.__presos || []).length > 0, null, 30000);
@@ -653,18 +760,18 @@ try {
     return { aro: t.classList.contains('qs-trabalhando'), estado: t.dataset.estado,
       titulo: (t.querySelector('.qs-titulo') || {}).textContent || '',
       aroPintado: getComputedStyle(t, '::after').content,
-      janela: document.getElementById('pacotePopup').classList.contains('open'),
+      janela: document.getElementById('pacoteSecao').classList.contains('open'),
       exportando: pacoteExportando };
   });
   const comPct = await esperar(f.pg, () => /\d+%/.test(
     (document.querySelector('#pacoteTile .qs-titulo') || {}).textContent || ''), null, 30000);
   const sinal = await lerSinal();
   checar(sinal.janela === false && sinal.exportando === true,
-    'F · PREMISSA: a exportação está em curso e a janela está FECHADA',
+    'F · PREMISSA: a exportação está em curso e a seção está RECOLHIDA',
     JSON.stringify(sinal));
   checar(sinal.aro === true && sinal.estado === 'ocupado',
     'F · o tile da grade mostra o ARO de trabalho (`qs-trabalhando`, data-estado '
-    + '"ocupado") — sem o sinal um trabalho de minutos fica mudo com a janela '
+    + '"ocupado") — sem o sinal um trabalho de minutos fica mudo com a seção '
     + 'fechada, e o que resta é a notificação', JSON.stringify(sinal));
   checar(sinal.aroPintado !== 'none' && sinal.aroPintado !== 'normal',
     'F · e o aro é PINTADO (`::after` com conteúdo), não só uma classe',
@@ -673,8 +780,8 @@ try {
     'F · e o título do tile carrega o PERCENTUAL, emprestado como o dos botões',
     porque(comPct) || sinal.titulo);
 
-  // FECHAR A JANELA NO MEIO NÃO CANCELA: o trabalho é do módulo, não da janela.
-  await abrirJanela(f.pg, '#pacoteTile', 'pacotePopup');
+  // RECOLHER A SEÇÃO NO MEIO NÃO CANCELA: o trabalho é do módulo, não da seção.
+  await abrirJanela(f.pg, '#pacoteTile', 'pacoteSecao');
   // COM TRABALHO ANDANDO A LISTA SÓ SE OLHA (v1.11.9): as caixas apagam
   // (INDISPONÍVEL) e as linhas de marcar não respondem — mudar a escolha de
   // uma exportação que já está escrevendo seria uma mentira da tela.
@@ -690,13 +797,13 @@ try {
   checar(travada.classe && travada.botoes > 0 && travada.todosOff && travada.opacidade < 0.5,
     'F · com a exportação andando a lista TRAVA: as linhas de marcar ficam '
     + '`disabled` e as caixas apagam (--op-inativo)', JSON.stringify(travada));
-  await tocar(f.pg, '#pacotePopupClose');
-  await esperar(f.pg, () => !document.getElementById('pacotePopup').classList.contains('open'), null, 10000);
+  await tocar(f.pg, '#pacoteSecao .cfg-sec-recolher');
+  await esperar(f.pg, () => !document.getElementById('pacoteSecao').classList.contains('open'), null, 10000);
   const depoisDeFechar = await lerSinal();
   const cancelou = await f.pg.evaluate(() => window.__chamadas.includes('cancelar'));
   checar(depoisDeFechar.exportando === true && depoisDeFechar.aro === true && !cancelou,
-    'F · abrir e fechar a janela no meio NÃO cancela a exportação — cancelar é '
-    + 'tocar no botão que trabalha, nunca fechar uma janela',
+    'F · abrir e recolher a seção no meio NÃO cancela a exportação — cancelar é '
+    + 'tocar no botão que trabalha, nunca recolher uma seção',
     JSON.stringify([depoisDeFechar, cancelou]));
 
   // O FIM: o aro apaga e o tile vira o PRONTO.
@@ -738,10 +845,10 @@ try {
   // G · REABRIR A JANELA DURANTE A MEDIÇÃO NÃO APAGA O SINAL
   // =========================================================================
   // A medição leva segundos num acervo grande, e é TRABALHO ANDANDO
-  // (`pacoteMedindo`): o tile da grade já o dizia, mas `openPacotePopup` chama
+  // (`pacoteMedindo`): o tile da grade já o dizia, mas `aoAbrirPacote` chama
   // `pacoteRenderTiles` e o ramo ocioso do `pacoteRenderPar` apagava o aro e o
-  // percentual do Exportar — a janela discordava da grade ao lado.
-  // O estado é posto como o início da medição o põe (`exportarPacote`), e a janela
+  // percentual do Exportar — a seção discordava da grade ao lado.
+  // O estado é posto como o início da medição o põe (`exportarPacote`), e a seção
   // é aberta DEPOIS: é a reabertura que se mede.
   await repouso.pg.evaluate(() => {
     pacoteEmCurso = true; pacoteMedindo = true; pacotePercentualDito = -1;
@@ -749,7 +856,7 @@ try {
     pacoteSinal();
     pacoteFalarPercentual(pacoteExportarTileEl, 0.37);
   });
-  await abrirJanela(repouso.pg, '#pacoteTile', 'pacotePopup');
+  await abrirJanela(repouso.pg, '#pacoteTile', 'pacoteSecao');
   const medindo = await repouso.pg.evaluate(() => {
     const ex = document.getElementById('pacoteExportarTile');
     const im = document.getElementById('pacoteImportarTile');
@@ -762,13 +869,13 @@ try {
     };
   });
   checar(medindo.exportar.aro === true && /37%/.test(medindo.exportar.titulo) && medindo.exportar.off === true,
-    'G · reabrir a janela DURANTE A MEDIÇÃO mantém o ARO e o percentual no Exportar '
+    'G · reabrir a seção DURANTE A MEDIÇÃO mantém o ARO e o percentual no Exportar '
     + '(indisponível: não há o que cancelar) — o ramo ocioso os apagava',
     JSON.stringify(medindo));
   checar(medindo.importar.aro === false && medindo.importar.off === true,
     'G · e o Importar fica parado e indisponível, sem aro — ele não trabalha', JSON.stringify(medindo));
   checar(medindo.grade.aro === true && medindo.grade.estado === 'ocupado' && /37%/.test(medindo.grade.titulo),
-    'G · e o tile da GRADE não perde o número: a janela e a grade dizem a MESMA coisa',
+    'G · e o tile da GRADE não perde o número: a seção e a grade dizem a MESMA coisa',
     JSON.stringify(medindo));
   await repouso.ctx.close();
 

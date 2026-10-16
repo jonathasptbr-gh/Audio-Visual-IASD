@@ -313,14 +313,14 @@ async function responderDialogo(pg) {
   return texto;
 }
 
-// A LISTA DA JANELA (v1.11.9) já está à vista quando ela abre, e o toque em
-// Exportar é a confirmação: o oráculo abre a janela e aperta o botão de VERDADE,
+// A LISTA DO TRANSFERIR (v1.11.9) já está à vista quando a seção abre, e o toque
+// em Exportar é a confirmação: o oráculo abre a seção e aperta o botão de VERDADE,
 // que é o que quem opera faz — e assim o caminho da lista entra na cobertura
 // deste percurso de graça.
 async function confirmarGrupos(pg) {
-  await pg.evaluate(() => openPacotePopup());
+  await pg.evaluate(() => abrirSecao('pacote'));
   const abriu = await esperar(pg, () => {
-    const d = document.getElementById('pacotePopup');
+    const d = document.getElementById('pacoteSecao');
     return !!d && d.classList.contains('open') && !!document.querySelector('#pacoteLista li');
   }, null, 60000);
   if (abriu !== true) return abriu;
