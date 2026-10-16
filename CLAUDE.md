@@ -532,14 +532,13 @@ navegador a IIFE retorna na entrada e nada é definido, nem `__NATIVE__`.
 método. Aqui ficam as REGRAS, que valem para todos eles.
 
 São **64 métodos**, e essa é a superfície inteira que o resto do lado web tem
-direito de usar — o SHELL serve **75** métodos `@JavascriptInterface`, e a
-diferença de 14 contra os 61 que têm par no Kotlin (os outros três da superfície
-são callbacks só do lado web) são os NOVE internos logo abaixo mais CINCO
+direito de usar — o SHELL serve **76** métodos `@JavascriptInterface`, e a
+diferença de 15 contra os 61 que têm par no Kotlin (os outros três da superfície
+são callbacks só do lado web) são os NOVE internos logo abaixo mais SEIS
 ÓRFÃOS encolhidos pelo lado web: três na v1.8.71 (`ytStream`, `otaPending`,
-`apkProcurar` — órfãos de duas fusões) e dois na v1.8.89 (`requestMic`,
-`micDiag`, com o MICROFONE AO VIVO). O
-Kotlin continua servindo os cinco, e por isso nenhum dos dois lotes pediu
-Release. **Encolher no WEB primeiro é o lado seguro** — um APK que ainda serve
+`apkProcurar` — órfãos de duas fusões), dois na v1.8.89 (`requestMic`,
+`micDiag`, com o MICROFONE AO VIVO) e o `salvarTexto` na v1.12.44 (o Registro
+passou a ser compartilhado). O Kotlin continua servindo os seis. **Encolher no WEB primeiro é o lado seguro** — um APK que ainda serve
 métodos que ninguém chama não custa nada ao aparelho; é a ordem inversa (base
 web nova contra APK velho) que precisa do `shellTag`. Quem guarda a regra agora
 é o `funcao-sem-chamador.test.mjs`, que varre a superfície da ponte e exige
@@ -552,14 +551,13 @@ outros dois DESTINOS do `ytFetch` — só-áudio e teto de resolução),
 (relay do barramento), `otaConfirm()` (watchdog do OTA) e `takeShare()` (consumo
 do share pendente, que alimenta o `onShare`). **A conta fecha, e é MEDIDA:** 64
 de superfície − 3 callbacks sem par no Kotlin (`onShare`, `onRemote`,
-`onDisplayChange`) + 9 internos = 70 chamados, + 5 órfãos = 75 servidos. A
+`onDisplayChange`) + 9 internos = 70 chamados, + 6 órfãos = 76 servidos. A
 varredura que a refaz é o que responde em vez da memória, porque estes números
 envelhecem a cada lote de ponte: `@JavascriptInterface` + `fun <nome>` no
 `NativeBridge.kt` contra `B.<nome>(` no `native.js` (as três ocorrências de
 `@JavascriptInterface` em comentário do arquivo não contam — por isso o `grep -c`
-cru dá 78). Remedida na v1.12.36 (shell 81, cujo degrau é um CALLBACK — o
-`__avYtFase`, 5º argumento do `ytFetch` — e um campo do `bgProgress`, não método):
-64 · 70 · 75.
+cru dá 78). Remedida na v1.12.44 (shell 82: entrou `compartilharArquivoTexto` e o
+`salvarTexto` saiu do web, virando o sexto ÓRFÃO): 64 · 70 · 76.
 
 **Quatro globais lidas direto, sem Promise:** `window.__NATIVE__`, `__AV_ROLE__`
 (`'controle'`/`'display'`; o terceiro valor, `'tela'`, é escrito por
@@ -615,13 +613,13 @@ coisa chegar ao telão; o Display nunca busca um `/saf/`.
 página recarrega, o contador volta a zero, mas o `resolve` do Kotlin aponta para
 o WebView ATUAL — com ids "1", "2", "3" a resposta atrasada da página velha
 resolvia a promise homônima da NOVA. Chamadas que dependem de **máquina** têm
-prazo de 60 s; `pickFolder`, `pickDoc`, `salvarTexto` e `pacoteCriar` abrem um
+prazo de 60 s; `pickFolder`, `pickDoc` e `pacoteCriar` abrem um
 seletor do sistema, esperam uma **pessoa** e ficam sem prazo (um timeout ali
 resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **81**, e ele é o **PISO**: o bundle declara `minShell: 81`, então
+Hoje vale **82**, e ele é o **PISO**: o bundle declara `minShell: 82`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -634,7 +632,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 81 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 82 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As QUATRO filas da ponte — escolher a errada é uma regressão muda
@@ -2603,9 +2601,8 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   teste que aparece não é teste), baixar megabytes ou deixar rastro — a sonda de
   escrita apaga o que criou no `finally`. **A EXCEÇÃO ÚNICA AO "NÃO BAIXA
   MEGABYTES" É A VERIFICAÇÃO COMPLETA** (v1.12.27, pedida pelo operador): a
-  leve (a tabela `TESTES`) roda ao abrir a folha e NUNCA baixa nada; o único
-  botão da faixa (v1.12.28) é **Verificação completa**, que roda SÓ a linha
-  `TESTE_DL` por cima do resultado da leve — baixa um episódio ANTERIOR do
+  leve (a tabela `TESTES`) NUNCA baixa nada; desde a v1.12.44 a linha
+  `TESTE_DL` roda no fim de TODA verificação, sem botão, por cima da leve — baixa um episódio ANTERIOR do
   Provai e Vede fora do aparelho, mede cada fase e o APAGA. Ela baixa pelo MESMO caminho do "Tocar
   agora" (`ytBaixarNativo` no teto do operador) e as outras regras continuam
   valendo nela: não começa com mídia no ar, com outro download ou na rede que
@@ -2621,11 +2618,13 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   ajuste, e o que sairia é uma tela que discorda do arquivo que o operador
   mandou (a completa SOMA a linha dela a esse objeto, nunca cria outro). **A
   TELA E O REGISTRO DIZEM COISAS DE TAMANHO DIFERENTE, do mesmo objeto**
-  (v1.12.28): a lista aparece inteira ao abrir e cada linha acende quando a
-  dela chega; o RESUMO da tela é só *"N funcionaram · M com falha"* (o
-  operador: *"deixe só quantos estão ok e quantos realmente falharam"* — "não
-  respondeu" não é falha, e fica na própria linha), e o Registro segue com as
-  QUATRO contas.
+  (v1.12.44): a tela é um ANEL com feitas/total enquanto anda e, no fim, SÓ os
+  problemas — "não funcionou", depois "não respondeu" (que não é falha do app e
+  tem cor própria) —; o que funcionou e o que não se aplica não aparecem (o
+  operador: *"listar o que está funcionando não me é informação nenhuma"*). O
+  Registro segue com a lista inteira e as QUATRO contas. **A rodada é UMA** (a
+  leve e o download de teste encadeados, sem botão) **e fechar a folha a
+  CANCELA**: o resultado de uma rodada cancelada não é guardado.
 - **UMA ROTINA DE MASSA CONTA O QUE CHEGOU AO DISCO, NUNCA O QUE ELA TENTOU**
   (v1.9.13). O laço de `syncCollection` move a barra por `done`, que conta
   TENTATIVAS — e enquanto `downloadCollectionSong` devolvia `undefined` em toda
@@ -2855,7 +2854,9 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
 - **O REGISTRO TEM UMA PORTA SÓ: A FOLHA DA VERIFICAÇÃO** (v1.12.29). O
   botão do rodapé de Configurações (`#diagSave`) saiu a pedido do operador —
   *"agora vamos usar expressamente o método via verificador"* —, e o
-  `#testeSalvar` (rotulado "Registro" desde o mesmo lote) grava o `diagTexto`,
+  `#testeSalvar` — desde a v1.12.44 "Compartilhar registro", visível só com a
+  verificação terminada, e entregando o arquivo ao seletor de compartilhamento
+  (`compartilharArquivoTexto`) — leva o `diagTexto`,
   com o nome de `nomeDoRegistro` e o resultado da verificação lá dentro como um
   bloco. A regra da v1.10.3 que sobrevive é a do ARQUIVO ÚNICO: **porta nova é
   porta para o mesmo arquivo**, nunca um recorte próprio. Quem salva **monta o
@@ -3008,10 +3009,17 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.12.43 · APK v1.12.36** · `SHELL_VERSION` **81** ·
-bundle com `minShell: 81` e **sem `shellTag`** — o shell 81 é o **PISO**: todo
-método da ponte existe, e não há guarda de versão no lado web. **Este lote é só web**
-(a Release v1.12.36 já está publicada; nada em `java/`, `res/` ou no manifesto mudou).
+**Versão atual: base web v1.12.44 · APK v1.12.36** · `SHELL_VERSION` **82** ·
+bundle com `minShell: 82` e **`shellTag: "v1.12.44"`** — o shell 82 é o **PISO**: todo
+método da ponte existe, e não há guarda de versão no lado web. **Este lote PEDE RELEASE**
+(a ponte ganhou `compartilharArquivoTexto`, e `MainActivity`/`res/` mudaram).
+**A v1.12.44 REFAZ A FOLHA DA VERIFICAÇÃO** (pedido do operador: *"listar todas as coisas que estão funcionando
+corretamente não me é informação nenhuma"*): um ANEL com a fração feitas/total (`TESTES.length + 1`, o download de
+teste conta) e um cometa girando enquanto anda; no fim, só os problemas (`testeProblemas`: não funcionou, depois não
+respondeu), em cartões de texto maior. A verificação é UMA — `dispararTeste` encadeia a leve e o download de teste — e
+FECHAR A FOLHA A CANCELA (`cancelarVerificacao`: a leve para de começar checagens e não guarda resultado; o download é
+cancelado e limpo). O Registro só aparece no fim e é COMPARTILHADO como arquivo (`compartilharArquivoTexto`, shell 82,
+`files/registro/` pelo FileProvider do pacote); o `salvarTexto` saiu do web (órfão no Kotlin).
 **A v1.12.43 DÁ AO SERVIDOR DA LOUVORJA UM VEREDITO SÓ** (`fonteVeredito`: `ok` · `sem-internet` · `servidor`; a
 falta de resposta é apurada contra `sondarInternet`, dois hosts que NÃO são da LouvorJA — a mesma sonda de "Há
 internet agora", que deixou de perguntar à própria LouvorJA; um 404 é o servidor no ar). Com ele ruim só o que DEPENDE

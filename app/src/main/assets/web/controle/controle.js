@@ -344,7 +344,12 @@ const pacoteNotaEl = document.getElementById('pacoteNota');
 const testeResumoEl = document.getElementById('testeResumo');
 const testeListEl = document.getElementById('testeList');
 const testeSalvarEl = document.getElementById('testeSalvar');
-const testeCompletaEl = document.getElementById('testeCompleta');
+const testeFechoEl = document.getElementById('testeFecho');
+const testeAnelEl = document.getElementById('testeAnel');
+const testeArcoEl = document.getElementById('testeArco');
+const testeFeitasEl = document.getElementById('testeFeitas');
+const testeTotalEl = document.getElementById('testeTotal');
+const testeEtapaEl = document.getElementById('testeEtapa');
 
 const fileEl = document.getElementById('file');
 const mainEl = document.querySelector('main');
@@ -400,7 +405,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.43';
+const WEB_VERSION = '1.12.44';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -31069,6 +31074,7 @@ async function rodarAutoteste() {
   const chegou = (it) => { itens.push(it); testeParcial.set(it.id, it); atualizarLinhaDoTeste(it); };
   try {
     await runLimited(TESTES, TESTE_CONCORRENCIA, async (c) => {
+      if (testeCancelada) return;
       if (c.cena && haCena) {
         chegou({
           id: c.id, area: c.area, titulo: c.titulo, v: TESTE_NA,
@@ -31084,14 +31090,16 @@ async function rodarAutoteste() {
     // exatamente nessa janela que um segundo toque cairia.
     itens.sort((a, b) => (ordem.has(a.id) ? ordem.get(a.id) : 1e9)
       - (ordem.has(b.id) ? ordem.get(b.id) : 1e9));
-    testeResultado = testeContar({ em: Date.now(), ms: Date.now() - t0, completa: false, download: null, itens });
+    // CANCELADA (a folha fechou), a rodada não deixa resultado: meia lista se
+    // leria como o veredito do aparelho.
+    if (!testeCancelada) testeResultado = testeContar({ em: Date.now(), ms: Date.now() - t0, completa: false, download: null, itens });
   } finally {
     testeRodando = false;
     testeParcial = null;
   }
   // UMA LINHA NA LINHA DO TEMPO, com o placar. Ela é o que amarra "o operador
   // testou" ao que veio depois, num Registro lido a distância.
-  diagC('verificação leve do sistema: ' + testePlacar(testeResultado));
+  if (testeResultado) diagC('verificação leve do sistema: ' + testePlacar(testeResultado));
   return testeResultado;
 }
 
@@ -31105,18 +31113,13 @@ const testePlacar = (r) => r.ok + ' ok · ' + r.falhou + ' com falha · ' + r.mu
   + r.na + ' não se aplica';
 
 /**
- * A VERIFICAÇÃO COMPLETA (v1.12.28): SÓ a linha do download, por cima da leve.
+ * O DOWNLOAD DE TESTE: SÓ a linha `TESTE_DL`, por cima da leve.
  *
- * Pedido do operador: *"sem o botão Leve, deixe apenas o botão da verificação
- * profunda; ela funciona como uma opção além do processo já feito"*. A leve
- * roda ao abrir a folha, então refazer as 41 linhas aqui seria repetir o que
- * acabou de aparecer na tela. **O resultado continua UM objeto**: a linha
- * `TESTE_DL` entra no `testeResultado` da leve (substituindo a de uma completa
- * anterior), as contas são refeitas e ele passa a se dizer `completa` — o
- * Registro, a tela e o "Salvar registro" seguem lendo a mesma coisa.
- *
- * SEM uma leve na mão ele não roda (o botão fica apagado até ela terminar):
- * a completa é "além do que já foi feito", e sem o feito não há o que somar.
+ * Desde a v1.12.44 ele não tem botão: `dispararTeste` o encadeia no fim da
+ * leve (*"vamos ter apenas uma verificação, direta e completa"*). **O resultado
+ * continua UM objeto**: a linha entra no `testeResultado` da leve, as contas
+ * são refeitas e ele passa a se dizer `completa`. Sem uma leve na mão ele não
+ * roda — a leve cancelada não deixa resultado, e então não há o que somar.
  */
 async function rodarDownloadDeTeste() {
   if (testeRodando || !testeResultado) return testeResultado;
@@ -31652,11 +31655,11 @@ if (castUrlCopyEl) {
  * arquivos com o mesmo nome viram "registro (1).txt" na pasta e ninguém sabe
  * qual é qual uma semana depois.
  *
- * Só no app: gravar arquivo é `AVNative.salvarTexto` (SAF), e no navegador não
- * há ponte — o botão nasce `hidden` e quem o revela é a seção da Verificação.
+ * Só no app: o arquivo sai por `AVNative.compartilharArquivoTexto`, e no
+ * navegador não há ponte — o botão fica `hidden`.
  */
-// O NOME DO ARQUIVO. Desde a v1.12.29 a porta é UMA só — o `#testeSalvar` da
-// folha da Verificação (o botão do rodapé de Configurações saiu a pedido).
+// O NOME DO ARQUIVO. A porta é UMA só — o `#testeSalvar` da folha da
+// Verificação, que COMPARTILHA o arquivo desde a v1.12.44.
 //
 // A DATA está no nome porque o valor de um Registro é comparar dois: dois
 // arquivos de mesmo nome viram "registro (1).txt" na pasta e ninguém sabe qual
@@ -33282,8 +33285,7 @@ async function exportarPacote() {
     ? await AVNative.pacoteCriarLocal(AVPacote.nomeDoArquivo(new Date()))
     : await AVNative.pacoteCriar(AVPacote.nomeDoArquivo(new Date()));
   // VAZIO É "desistiu OU não deu", e a diferença não existe para quem opera:
-  // nos dois casos não há arquivo, e o botão continua ali. Mesma regra do
-  // `salvarTexto` do Registro.
+  // nos dois casos não há arquivo, e o botão continua ali.
   if (!nome) {
     pacotePlanoAtual = null;
     pacoteExportarTileEl.classList.remove('qs-trabalhando');
@@ -39305,15 +39307,18 @@ function openHistPopup() {
 //
 // ELA RODA AO ABRIR. Um toque que abre uma lista vazia com um botão "verificar"
 // embaixo é dois toques para a mesma intenção — quem abriu esta folha já pediu
-// o teste (a LEVE) — e é ela a SEGUNDA rodada também: reabrir a folha roda de
-// novo (o botão "Leve" saiu na v1.12.28, a pedido). A "Completa" só roda
-// pedida, porque baixa um vídeo inteiro.
+// o teste — e reabrir a folha roda de novo. Desde a v1.12.44 a rodada é UMA só,
+// com o download de teste no fim, e FECHAR A FOLHA A CANCELA.
 function openTestePopup() {
   testePopupEl.classList.add('open');
   desenharTeste();
   dispararTeste();
 }
-function closeTestePopup() { testePopupEl.classList.remove('open'); }
+function closeTestePopup() {
+  testePopupEl.classList.remove('open');
+  cancelarVerificacao();
+  desenharTeste();
+}
 
 // ===== AS JANELAS DA TELA E DO TRANSFERIR (v1.11.7) =====
 //
@@ -40126,271 +40131,186 @@ edicaoDestEls.forEach((b) => b.addEventListener('click', () => edicaoConfirmar(b
 edicaoImportarEl.addEventListener('click', edicaoImportar);
 if (edicaoTileEl) edicaoTileEl.addEventListener('click', openEdicaoPopup);
 
-/**
- * SALVA O REGISTRO — o mesmo arquivo de Configurações, com a verificação dentro
- * (v1.10.3). Pedido do operador: *"faça com que essa verificação, após feita,
- * tenha uma botão para salvar o registro normal + os dados dessa verificação"*.
- *
- * NÃO HÁ SEGUNDO ARTEFATO, e é isso que mantém de pé o argumento da v1.10.0 que
- * este botão revoga: `blocoAutoteste()` já é um dos blocos do `renderDiag()`,
- * então `diagTexto` É "o registro normal + os dados desta verificação". O que
- * o lote acrescenta é a PORTA, no lugar onde o operador está quando acaba de
- * ler o resultado — e não um arquivo parecido com outro.
- *
- * ELE MONTA O TEXTO ANTES DE SALVAR, e essa é a parte que não dá para pular:
- * `dispararTeste` chama `renderDiag()` SEM `await` (o desenho não espera o
- * Registro), e aquela função vai à ponte cinco vezes. Um toque logo depois da
- * rodada pegaria o `diagTexto` da montagem ANTERIOR — ou, no primeiro uso do
- * app, a string VAZIA com que ele nasce: um arquivo de zero byte que o operador
- * manda achando que mandou o Registro. O `await` aqui fecha os dois.
- *
- * E VAZIO NUNCA É GRAVADO. `renderDiag` tem guarda de sequência e volta cedo
- * quando outra montagem assume no meio — o desfecho é raro e inofensivo (quem
- * assumiu escreve o texto bom), mas gravar antes dele seria o arquivo que
- * discorda do aparelho. Sem texto, o botão responde ERRO e continua ali.
- */
-async function salvarRegistroDaVerificacao() {
-  if (!window.__NATIVE__ || !testeSalvarEl) return;
+// O REGISTRO É COMPARTILHADO COMO ARQUIVO (v1.12.44, shell 82). Pedido do
+// operador: *"faça ele ser compartilhável e não apenas salvável na memória"*.
+// O texto é o MESMO `diagTexto` de sempre, com o resultado da verificação lá
+// dentro (`blocoAutoteste`) — continua sendo UM arquivo, agora entregue ao
+// seletor de compartilhamento do Android em vez do "Salvar como".
+//
+// ELE MONTA O TEXTO ANTES (`await renderDiag()`): `dispararTeste` chama o
+// `renderDiag` sem esperar, e um toque logo depois pegaria o texto ANTERIOR —
+// ou a string vazia com que ele nasce. VAZIO NUNCA SAI: o botão responde erro.
+async function compartilharRegistroDaVerificacao() {
+  if (!window.__NATIVE__ || !testeSalvarEl || testeRodando) return;
   testeSalvarEl.disabled = true;
   try {
     await renderDiag();
     if (!diagTexto) { responder(testeSalvarEl, 'erro'); return; }
-    let salvo = '';
-    try { salvo = await AVNative.salvarTexto(nomeDoRegistro(new Date()), diagTexto); } catch (_) { salvo = ''; }
-    // VAZIO É "desistiu OU não deu", e a diferença não existe para quem opera:
-    // nos dois casos não há arquivo, e o botão continua ali para tentar de novo.
-    responder(testeSalvarEl, salvo ? 'ok' : 'erro');
+    let ok = false;
+    try { ok = await AVNative.compartilharArquivoTexto(nomeDoRegistro(new Date()), diagTexto); } catch (_) { ok = false; }
+    if (!ok) responder(testeSalvarEl, 'erro');
   } finally {
-    // QUEM MANDA NO `disabled` É O DESENHO, e não este `finally`: a trava certa
-    // depende de haver rodada e de ela ter terminado, e essa pergunta tem UM
-    // dono. Reescrevê-la aqui faria as duas divergirem no primeiro ajuste.
-    desenharTeste();
+    testeSalvarEl.disabled = false;
   }
 }
+
+// ===== UMA VERIFICAÇÃO SÓ (v1.12.44) =====
+//
+// Pedido do operador: *"vamos ter apenas uma verificação, direta e completa"*.
+// A leve roda e, no fim dela, o download de teste roda por cima (as mesmas
+// duas funções de antes, encadeadas). FECHAR A FOLHA CANCELA TUDO: a leve para
+// de começar checagens novas e descarta o resultado; o download é cancelado e
+// limpo pelo caminho que ele já tinha. Uma reabertura espera a rodada cancelada
+// terminar de se desfazer antes de começar a nova — duas rodadas dividiriam o
+// mesmo estado.
+let testeCancelada = false;
+let testeEmCurso = null;
 
 async function dispararTeste() {
-  if (testeRodando) return;
-  // O ARO NO TILE segue girando com a folha fechada: o operador pode fechar e a
-  // rodada continua — o resultado o espera na próxima abertura.
+  if (testeEmCurso) { try { await testeEmCurso; } catch (_) {} }
+  if (!testePopupEl.classList.contains('open') || testeRodando) return;
+  testeCancelada = false;
+  testeResultado = null;
   if (testeTileEl) testeTileEl.classList.add('qs-trabalhando');
-  // ===== A RODADA COMEÇA ANTES DO DESENHO, E A ORDEM É O RECURSO (v1.10.2) =====
-  //
-  // `testeRodando` só é erguida DENTRO de `rodarAutoteste`, e o desenho vinha
-  // antes da chamada: nos três pontos que desenham a trava ainda era `false`,
-  // então o ramo "Verificando N partes do app…" NUNCA executava. O que o
-  // operador via era a folha EM BRANCO a rodada inteira na primeira abertura —
-  // e, a partir da segunda, o veredito da rodada ANTERIOR, com o aro girando
-  // por cima de uma lista que parecia o resultado de agora.
-  //
-  // `rodarAutoteste()` é `async`, mas o prólogo dela é SÍNCRONO: chamar sem
-  // esperar já ergue a trava, e é por isso que o desenho vem depois da
-  // chamada e antes do `await`. Guardar a Promise é o que mantém o `await`
-  // sobre a MESMA rodada — um segundo `rodarAutoteste()` devolveria a trava.
-  const rodada = rodarAutoteste();
-  desenharTeste();
-  try { await rodada; } catch (_) { /* o desenho mostra o que houve */ }
-  if (testeTileEl) testeTileEl.classList.remove('qs-trabalhando');
-  desenharTeste();
-  // O REGISTRO acompanha sem que ninguém o peça: quem abre Configurações depois
-  // de testar encontra o resultado já no texto que ele salva.
-  renderDiag();
-}
-
-// A COMPLETA, pelo botão: a mesma coreografia, sobre `rodarDownloadDeTeste`.
-async function dispararTesteCompleto() {
-  if (testeRodando || !testeResultado) return;
-  if (testeTileEl) testeTileEl.classList.add('qs-trabalhando');
-  const rodada = rodarDownloadDeTeste();
-  desenharTeste();
-  try { await rodada; } catch (_) { /* o desenho mostra o que houve */ }
-  if (testeTileEl) testeTileEl.classList.remove('qs-trabalhando');
-  desenharTeste();
-  renderDiag();
-}
-
-// O DESENHO LÊ A MESMA ESTRUTURA QUE O REGISTRO ESCREVE. Duas leituras da mesma
-// rodada divergiriam no primeiro ajuste, e o que sairia é uma tela que discorda
-// do arquivo que o operador mandou — exatamente o artefato que este projeto
-// trata como o pior que sabe produzir.
-//
-// Os três estados a mais são só da TELA (v1.12.28) e nunca entram no
-// resultado: `pendente` (a leve ainda não chegou nela), `curso` (o download de
-// teste andando) e `espera` (a linha do download antes de alguém pedir a
-// completa).
-const TESTE_ROTULO = {
-  ok: 'funcionou', falhou: 'não funcionou', mudo: 'não respondeu', na: 'não se aplica',
-  pendente: 'verificando', curso: 'em andamento', espera: 'só na verificação completa',
-};
-const TESTE_DL_ESPERA = 'só na verificação completa — baixa um vídeo e o apaga no fim';
-
-// O ESTADO DE UMA LINHA AGORA: o que chegou nesta rodada, o resultado guardado,
-// ou "ainda não". É a ÚNICA pergunta que o desenho faz por linha.
-function estadoDaLinhaDoTeste(c) {
-  if (c.id === TESTE_DL.id) {
-    if (testeRodando && testeCompleta) return { id: c.id, v: 'curso', nota: testeDlResumo() };
-    const feita = testeResultado && !(testeRodando && !testeCompleta)
-      && testeResultado.itens.find((x) => x.id === c.id);
-    return feita || { id: c.id, v: 'espera', nota: TESTE_DL_ESPERA };
-  }
-  if (testeParcial) return testeParcial.get(c.id) || { id: c.id, v: 'pendente', nota: '' };
-  const r = testeResultado && testeResultado.itens.find((x) => x.id === c.id);
-  return r || { id: c.id, v: 'pendente', nota: '' };
-}
-
-// AS LINHAS EXISTEM DESDE O COMEÇO (v1.12.28). Pedido do operador: *"em vez de
-// deixar a janela vazia durante a verificação, mantenha a lista dos itens a
-// serem verificados visível, dando o check conforme cada um é verificado"*. A
-// lista é montada UMA vez, com todas as linhas da tabela mais a do download, e
-// daí em diante cada linha só troca de marca e de nota NO LUGAR: a ordem e o
-// número de linhas são os mesmos do começo ao fim. (A rolagem não depende
-// disso — MEDIDO, recriar a lista inteira também a preserva no Chromium.)
-function montarListaDoTeste() {
-  testeListEl.innerHTML = '';
-  let area = '';
-  for (const c of TESTES.concat([TESTE_DL])) {
-    if (c.area !== area) {
-      area = c.area;
-      const cab = document.createElement('li');
-      cab.className = 'teste-area';
-      cab.textContent = area;
-      testeListEl.appendChild(cab);
+  testeEmCurso = (async () => {
+    // O prólogo de `rodarAutoteste` é SÍNCRONO e ergue a trava: o desenho vem
+    // depois da chamada, senão a primeira pintura mostraria "pronto".
+    const leve = rodarAutoteste();
+    desenharTeste();
+    try { await leve; } catch (_) { /* o desenho mostra o que houve */ }
+    if (!testeCancelada && testeResultado) {
+      const dl = rodarDownloadDeTeste();
+      desenharTeste();
+      try { await dl; } catch (_) {}
     }
-    const li = document.createElement('li');
-    li.dataset.teste = c.id;
-    const marca = document.createElement('span');
-    marca.className = 'teste-marca';
-    marca.setAttribute('aria-hidden', 'true');
-    const txt = document.createElement('span');
-    txt.className = 'teste-texto';
-    const t = document.createElement('span');
-    t.className = 'teste-titulo';
-    t.textContent = c.titulo;
-    const n = document.createElement('span');
-    n.className = 'teste-nota';
-    txt.appendChild(t);
-    txt.appendChild(n);
-    li.appendChild(marca);
-    li.appendChild(txt);
-    testeListEl.appendChild(li);
-    pintarLinhaDoTeste(li, c.titulo, estadoDaLinhaDoTeste(c));
+  })();
+  try { await testeEmCurso; } finally {
+    testeEmCurso = null;
+    if (testeTileEl) testeTileEl.classList.remove('qs-trabalhando');
+    desenharTeste();
+    // O REGISTRO acompanha sem que ninguém o peça.
+    if (testeCancelada) testeResultado = null;
+    else renderDiag();
   }
 }
 
-function pintarLinhaDoTeste(li, titulo, it) {
-  li.className = 'teste-item teste-item--' + it.v;
-  // O SÍMBOLO É DESENHADO, e não um glifo da fonte: o subset tem 31
-  // codepoints e um de fora não desenha NADA (ver `tools/glifos.test.mjs`).
-  const marca = li.querySelector('.teste-marca');
-  if (marca.dataset.v !== it.v) { marca.innerHTML = svgDoDesfecho(it.v); marca.dataset.v = it.v; }
-  const n = li.querySelector('.teste-nota');
-  n.textContent = it.nota || '';
-  n.hidden = !it.nota;
-  // O DESFECHO EM PALAVRA vai no rótulo de acessibilidade, nunca na linha: a
-  // cor e o desenho já o dizem, e repeti-lo em texto acrescentaria uma
-  // terceira cópia da mesma resposta em cada linha.
-  li.setAttribute('aria-label', titulo + ': ' + (TESTE_ROTULO[it.v] || it.v) + (it.nota ? '. ' + it.nota : ''));
-}
-
-// UMA linha, no lugar — é o que a rodada chama a cada resposta.
-function atualizarLinhaDoTeste(it) {
-  if (!testeListEl) return;
-  const c = TESTES.find((x) => x.id === it.id) || (it.id === TESTE_DL.id ? TESTE_DL : null);
-  if (!c) return;
-  const li = testeListEl.querySelector('[data-teste="' + it.id + '"]');
-  if (!li) { montarListaDoTeste(); return; }
-  pintarLinhaDoTeste(li, c.titulo, estadoDaLinhaDoTeste(c));
-  if (testeRodando) desenharResumoDoTeste();
-}
-
-// O RESUMO SÓ CONTA O QUE O OPERADOR PRECISA SABER (v1.12.28): quantas
-// funcionaram e quantas FALHARAM de verdade. Pedido: *"pode remover do resumo o
-// 'não se aplica' e semelhantes; deixe apenas quantos estão ok e quantos
-// realmente falharam"*. "Não respondeu" fica de fora pela mesma regra que o
-// separa de "não funcionou" — ele não é falha do app —, e continua à vista na
-// PRÓPRIA linha, com a marca e a nota. O Registro segue com as quatro contas.
-function desenharResumoDoTeste() {
-  const r = testeResultado;
+function cancelarVerificacao() {
+  if (!testeRodando && !testeEmCurso) return;
+  testeCancelada = true;
   if (testeRodando && testeCompleta) {
-    // A COMPLETA: o resumo é o PROGRESSO do download — é a única coisa
-    // andando, e minutos de texto parado se leriam como travado.
-    testeResumoEl.textContent = testeDlResumo();
-    testeResumoEl.className = 'teste-resumo teste-resumo--rodando';
-  } else if (testeRodando) {
-    const feitas = testeParcial ? testeParcial.size : 0;
-    testeResumoEl.textContent = 'Verificando ' + TESTES.length + ' partes do app… ' + feitas + ' de ' + TESTES.length;
-    testeResumoEl.className = 'teste-resumo teste-resumo--rodando';
-  } else if (!r) {
-    testeResumoEl.textContent = '';
-    testeResumoEl.className = 'teste-resumo';
-  } else {
-    testeResumoEl.textContent = r.ok + ' funcionaram · ' + r.falhou + ' com falha';
-    testeResumoEl.className = 'teste-resumo ' + (r.falhou ? 'teste-resumo--ruim' : 'teste-resumo--bom');
+    if (testeDlCancelar) testeDlCancelar();
+    else testeDlCanceladoAntes = true;
   }
+}
+
+// O TOTAL É A TABELA MAIS O DOWNLOAD; a fração conta o que já RESPONDEU. Durante
+// o download o anel anda também pela fração dele, senão minutos de download
+// ficariam parados numa só etapa.
+const testeTotal = () => TESTES.length + 1;
+function testeProgresso() {
+  const total = testeTotal();
+  if (!testeRodando) return testeResultado ? { feitas: total, frac: 1 } : { feitas: 0, frac: 0 };
+  if (!testeCompleta) {
+    const feitas = testeParcial ? testeParcial.size : 0;
+    return { feitas, frac: feitas / total };
+  }
+  const a = testeDl && testeDl.amostras;
+  const ult = a && a.length ? a[a.length - 1] : null;
+  const dl = ult && ult[2] ? Math.min(1, ult[1] / ult[2]) : 0;
+  return { feitas: TESTES.length, frac: (TESTES.length + dl * 0.95) / total };
+}
+
+// O QUE ENTRA NA LISTA DO FIM: só o que pede atenção. "Não funcionou" primeiro,
+// "não respondeu" depois — ele não é falha do app, mas é a rede ou a fonte
+// calada, e o operador decide o que fazer. "Funcionou" e "não se aplica" não
+// aparecem: *"listar o que está funcionando não me é informação nenhuma"*.
+function testeProblemas(r) {
+  const peso = { [TESTE_FALHOU]: 0, [TESTE_MUDO]: 1 };
+  return r.itens.filter((x) => x.v in peso).sort((a, b) => peso[a.v] - peso[b.v]);
 }
 
 function desenharTeste() {
-  if (!testeListEl || !testeResumoEl) return;
+  if (!testeResumoEl || !testeListEl) return;
   const r = testeResultado;
-  // O SALVAR SÓ EXISTE COM RODADA NA MÃO (v1.10.3) — "após feita", nas palavras
-  // do pedido. Durante a rodada o arquivo sairia com o resultado da ANTERIOR
-  // (ou sem nenhum, na primeira), e é a mesma classe do log que discorda do
-  // aparelho. **É `disabled` com o `title` dizendo por quê**, nunca um botão
-  // aceso que não faz nada (v1.8.50) — e o `title` é escrito aqui em vez de
-  // ficar no HTML porque ele MUDA com o estado.
-  if (testeSalvarEl) {
-    testeSalvarEl.disabled = testeRodando || !r;
-    testeSalvarEl.title = testeRodando ? 'Espere a verificação terminar'
-      : !r ? 'Nada verificado ainda'
-        : 'Salvar o registro com esta verificação';
-    testeSalvarEl.setAttribute('aria-label', testeSalvarEl.title);
+  const total = testeTotal();
+  const p = testeProgresso();
+  const pronto = !testeRodando && !!r;
+  const problemas = pronto ? testeProblemas(r) : [];
+  const falhas = problemas.filter((x) => x.v === TESTE_FALHOU).length;
+  testeFeitasEl.textContent = String(p.feitas);
+  testeTotalEl.textContent = String(total);
+  testeArcoEl.style.strokeDashoffset = String(100 - Math.round(p.frac * 1000) / 10);
+  testeAnelEl.classList.toggle('rodando', testeRodando);
+  testeAnelEl.classList.toggle('ruim', pronto && falhas > 0);
+  testeAnelEl.classList.toggle('aviso', pronto && !falhas && problemas.length > 0);
+  testeAnelEl.setAttribute('aria-valuemax', String(total));
+  testeAnelEl.setAttribute('aria-valuenow', String(p.feitas));
+  testeAnelEl.setAttribute('aria-label', p.feitas + ' de ' + total + ' etapas verificadas');
+
+  if (testeRodando) {
+    testeResumoEl.textContent = 'Verificando…';
+    testeResumoEl.className = 'teste-resumo';
+    testeEtapaEl.textContent = testeCompleta ? testeDlResumo() : 'Conferindo cada parte do app';
+  } else if (!r) {
+    testeResumoEl.textContent = '';
+    testeResumoEl.className = 'teste-resumo';
+    testeEtapaEl.textContent = '';
+  } else {
+    const mudos = problemas.length - falhas;
+    testeResumoEl.textContent = !problemas.length ? 'Tudo certo'
+      : falhas ? (falhas === 1 ? '1 problema encontrado' : falhas + ' problemas encontrados')
+        : (mudos === 1 ? '1 parte não respondeu' : mudos + ' partes não responderam');
+    testeResumoEl.className = 'teste-resumo ' + (falhas ? 'teste-resumo--ruim' : problemas.length ? 'teste-resumo--aviso' : 'teste-resumo--bom');
+    testeEtapaEl.textContent = !problemas.length ? 'Todas as partes do app responderam como deveriam.'
+      : falhas && mudos ? (mudos === 1 ? 'E 1 parte não respondeu.' : 'E ' + mudos + ' partes não responderam.') : '';
   }
-  desenharBotoesDoTeste();
-  desenharResumoDoTeste();
-  if (!testeListEl.querySelector('[data-teste]')) { montarListaDoTeste(); return; }
-  for (const c of TESTES.concat([TESTE_DL])) {
-    const li = testeListEl.querySelector('[data-teste="' + c.id + '"]');
-    if (!li) { montarListaDoTeste(); return; }
-    pintarLinhaDoTeste(li, c.titulo, estadoDaLinhaDoTeste(c));
+
+  testeListEl.innerHTML = '';
+  for (const it of problemas) {
+    const li = document.createElement('li');
+    li.className = 'teste-erro teste-erro--' + it.v;
+    const marca = document.createElement('span');
+    marca.className = 'teste-marca';
+    marca.setAttribute('aria-hidden', 'true');
+    marca.innerHTML = svgDoDesfecho(it.v);
+    const txt = document.createElement('div');
+    txt.className = 'teste-texto';
+    const area = document.createElement('span');
+    area.className = 'teste-area';
+    area.textContent = it.area || '';
+    const t = document.createElement('span');
+    t.className = 'teste-titulo';
+    t.textContent = it.titulo;
+    txt.append(area, t);
+    if (it.nota) {
+      const n = document.createElement('span');
+      n.className = 'teste-nota';
+      n.textContent = it.nota;
+      txt.appendChild(n);
+    }
+    li.append(marca, txt);
+    li.setAttribute('aria-label', it.titulo + ': ' + (it.v === TESTE_FALHOU ? 'não funcionou' : 'não respondeu')
+      + (it.nota ? '. ' + it.nota : ''));
+    testeListEl.appendChild(li);
   }
+
+  // O REGISTRO SÓ EXISTE COM A VERIFICAÇÃO TERMINADA, e só no app.
+  const mostraRegistro = pronto && !!window.__NATIVE__;
+  if (testeFechoEl) testeFechoEl.hidden = !mostraRegistro;
+  if (testeSalvarEl) testeSalvarEl.hidden = !mostraRegistro;
 }
 
-// O BOTÃO DA FAIXA (v1.12.28): só a COMPLETA. A leve roda sozinha ao abrir a
-// folha, e o botão "Leve" saiu a pedido (*"não precisa existir"*). Enquanto a
-// completa anda, o MESMO botão vira "Cancelar" (mesma caixa, então nada na
-// faixa se move). Ele fica APAGADO, com o `title` dizendo por quê, fora do
-// app (não há download a testar) e enquanto a leve não terminou (a completa é
-// "além do que já foi feito").
-function desenharBotoesDoTeste() {
-  if (!testeCompletaEl) return;
-  const cancela = testeRodando && testeCompleta;
-  testeCompletaEl.textContent = cancela ? 'Cancelar' : 'Verificação completa';
-  testeCompletaEl.classList.toggle('teste-cancelar', cancela);
-  testeCompletaEl.disabled = cancela ? false : (testeRodando || !testeResultado || !window.__NATIVE__);
-  testeCompletaEl.title = cancela ? 'Parar a verificação completa e apagar o download de teste'
-    : !window.__NATIVE__ ? 'O download de teste só existe no app Android'
-      : (testeRodando || !testeResultado) ? 'Espere a verificação terminar'
-        : 'Verificação completa: baixa um episódio anterior do Provai e Vede, mede o download e o apaga no fim';
-  testeCompletaEl.setAttribute('aria-label', testeCompletaEl.title);
-}
+// A rodada chama isto a cada resposta (e o download, a cada aviso de bytes).
+function atualizarLinhaDoTeste() { desenharTeste(); }
 
-function cancelarTesteCompleto() {
-  if (!(testeRodando && testeCompleta)) return;
-  if (testeDlCancelar) testeDlCancelar();
-  else testeDlCanceladoAntes = true;
-  desenharTeste();
-}
-
-// ✓ / ✕ / ! / — desenhados à mão pelo motivo do comentário acima, mais os três
-// da TELA: o círculo vazio (`pendente`), o arco que gira (`curso`) e o traço
-// apagado (`espera`, o mesmo do `na`).
+// ✓ / ✕ / ! desenhados à mão: o subset da fonte tem 31 codepoints e um de fora
+// não desenha NADA (ver `tools/glifos.test.mjs`).
 function svgDoDesfecho(v) {
-  const abre = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" '
+  const abre = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" '
     + 'stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
   if (v === TESTE_OK) return abre + '<path d="M4 12.8l5 5L20 6.5"/></svg>';
   if (v === TESTE_FALHOU) return abre + '<path d="M6 6l12 12M18 6L6 18"/></svg>';
   if (v === TESTE_MUDO) return abre + '<path d="M12 7v6"/><path d="M12 17h.01"/></svg>';
-  if (v === 'pendente') return abre + '<circle cx="12" cy="12" r="6.5"/></svg>';
-  if (v === 'curso') return abre + '<path d="M12 5.5a6.5 6.5 0 1 1-6.5 6.5"/></svg>';
   return abre + '<path d="M6 12h12"/></svg>';
 }
 function closeHistPopup() {
@@ -40546,17 +40466,7 @@ histOpenRowEl.addEventListener('click', openHistPopup);
 if (testeTileEl) testeTileEl.addEventListener('click', openTestePopup);
 if (telaTileEl) telaTileEl.addEventListener('click', openTelaPopup);
 if (pacoteTileEl) pacoteTileEl.addEventListener('click', openPacotePopup);
-if (testeCompletaEl) testeCompletaEl.addEventListener('click', () => {
-  if (testeRodando && testeCompleta) cancelarTesteCompleto();
-  else dispararTesteCompleto();
-});
-if (testeSalvarEl) {
-  // REVELADO AQUI, e não no `renderVersionLabel` (a zona morta temporal do
-  // `#contatoBtn`): quem sabe deste botão é esta seção. Sem ponte não há como gravar arquivo, e um
-  // botão que só sabe não funcionar é pior que botão nenhum.
-  testeSalvarEl.hidden = !window.__NATIVE__;
-  testeSalvarEl.addEventListener('click', salvarRegistroDaVerificacao);
-}
+if (testeSalvarEl) testeSalvarEl.addEventListener('click', compartilharRegistroDaVerificacao);
 // LIMPAR TUDO. A pergunta mora na faixa do próprio botão — mesma porta do
 // "Limpar a playlist", e por isso o `#histClearFaixa` existe (a confirmação
 // substitui os IRMÃOS de quem a pediu).

@@ -120,7 +120,7 @@ resolvia a promise homônima da NOVA.
 |---|---|---|
 | `CALL_TIMEOUT_MS` = **60 s** | tudo que depende de MÁQUINA | nenhuma deveria demorar mais que isso |
 | `APK_TIMEOUT_MS` = **15 min** | `apkInstalar` | dezenas de MB numa rede de igreja levam minutos; um prazo curto resolveria `null` sobre um trabalho que continua, e o instalador abriria sozinho depois de a tela já ter dito que falhou |
-| **sem prazo** | `pickFolder`, `pickDoc`, `salvarTexto`, `pacoteCriar`, `ytFetch`, `deckPages` | quem responde é uma **PESSOA** num diálogo do sistema — um timeout resolveria `null` com o operador ainda escolhendo a pasta |
+| **sem prazo** | `pickFolder`, `pickDoc`, `pacoteCriar`, `ytFetch`, `deckPages` | quem responde é uma **PESSOA** num diálogo do sistema — um timeout resolveria `null` com o operador ainda escolhendo a pasta |
 
 Vencido o prazo, `call()` resolve **`null`**, e cada chamador já trata isso como
 lista vazia, string vazia ou `false`. **Isso é uma mentira silenciosa por
@@ -970,13 +970,12 @@ window.AVNative = {
                        //   `espelhoCertImportar`: "não apagou" tem causas que
                        //   pedem coisas diferentes (o provedor recusou, o
                        //   arquivo sumiu, o token não é mais conhecido)
-  salvarTexto(nome, texto), // → o NOME gravado, ou '' (desistiu ou falhou): o
-                       //   "Salvar como" do sistema (SAF `CREATE_DOCUMENT`),
-                       //   com o shell ESCREVENDO o texto. Existe porque o
-                       //   WebView do app não tem `DownloadListener`: um
-                       //   `<a download>` sobre um `blob:` não faz NADA ali —
-                       //   sem erro, sem arquivo. Sem prazo: quem responde é
-                       //   uma pessoa no seletor
+  compartilharArquivoTexto(nome, texto), // → true se o seletor abriu
+                       //   (shell 82): grava o texto em `files/registro/` e
+                       //   abre o seletor de compartilhamento com o arquivo
+                       //   (FileProvider do pacote). É a porta do Registro
+                       //   desde a v1.12.44. O `salvarTexto` (SAF) que ela
+                       //   substituiu saiu do web e ficou ÓRFÃO no Kotlin
   cifraDiag(),         // → string: o que a última busca de cifra recebeu
   // ---- O DESVIO DE CORS DAS FOTOS DE FUNDO — ver "A ponte" no CLAUDE.md ----
   r2Imagem(url),       // → { status, url }: busca uma imagem de um host da

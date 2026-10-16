@@ -7,4 +7,5 @@
          o SISTEMA, e o `createChooser` só aceita um texto. -->
     <string name="share_app_titulo">Compartilhar o app</string>
     <string name="pacote_share_titulo">Enviar a biblioteca</string>
+    <string name="registro_share_titulo">Compartilhar o registro</string>
 </resources>

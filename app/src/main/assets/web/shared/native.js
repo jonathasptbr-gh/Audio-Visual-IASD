@@ -208,7 +208,7 @@
     return Number.isFinite(n) && n > 0 ? n : 0;
   }
 
-  // `timeoutMs` é OPCIONAL de propósito: `pickFolder`, `pickDoc` e `salvarTexto`
+  // `timeoutMs` é OPCIONAL de propósito: `pickFolder`, `pickDoc` e `pacoteCriar`
   // esperam uma PESSOA (navegar no seletor do SAF, responder ao "Salvar como")
   // e não têm prazo razoável — um timeout ali resolveria null com o operador
   // ainda escolhendo a pasta, e o `resolve` que chegasse depois seria jogado
@@ -492,10 +492,13 @@
     // `DownloadListener` — um `<a download>` sobre um `blob:` ali não faz NADA,
     // sem erro e sem arquivo.
     //
-    // SEM PRAZO: quem responde é uma PESSOA no seletor "Salvar como" do
-    // sistema, e um timeout resolveria vazio com o diálogo ainda aberto — a
-    // mesma regra do `pickFolder`.
-    salvarTexto: (nome, texto) => call((id) => B.salvarTexto(id, String(nome), String(texto))),
+    // O REGISTRO COMPARTILHADO COMO ARQUIVO (shell 82): grava o texto num
+    // arquivo do próprio app e abre o seletor de compartilhamento. Resolve
+    // `true` quando o seletor abriu — o desfecho de um seletor é uma pessoa
+    // escolhendo um app, e não há API que o entregue. Com prazo: aqui não há
+    // pessoa a esperar antes de responder.
+    compartilharArquivoTexto: (nome, texto) => call((id) => B.compartilharArquivoTexto(id, String(nome), String(texto)), CALL_TIMEOUT_MS)
+      .then((r) => r === true),
 
     // ---- O PACOTE DE TRANSFERÊNCIA (shell 63) ----
     //
@@ -511,7 +514,7 @@
     // Abre o "Salvar como" para o pacote e DEIXA O DESTINO ABERTO. Resolve o
     // NOME gravado, ou `''` (desistiu, ou não deu para abrir).
     //
-    // SEM PRAZO, como o `salvarTexto` logo acima e pelo mesmo motivo: quem
+    // SEM PRAZO, como o `pickDoc` e pelo mesmo motivo: quem
     // responde é uma pessoa navegando no seletor do sistema. Um timeout aqui
     // resolveria vazio com o destino ABERTO e ninguém para fechá-lo.
     pacoteCriar: (nome) => call((id) => B.pacoteCriar(id, String(nome)))

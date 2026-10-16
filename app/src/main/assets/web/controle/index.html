@@ -283,14 +283,6 @@
       <rect x="9" y="9" width="11" height="11" rx="2"/>
       <path d="M5 15V5a2 2 0 0 1 2-2h10"/>
     </symbol>
-    <!-- SALVAR: a seta que desce para a bandeja é o símbolo universal de
-         download, e é o que distingue este botão do de COPIAR ao lado — os
-         dois levam o mesmo texto para fora, por caminhos diferentes. -->
-    <symbol id="icoSalvar" viewBox="0 0 24 24">
-      <path d="M12 3v12"/>
-      <path d="M7 11l5 5 5-5"/>
-      <path d="M4 19h16"/>
-    </symbol>
     <!-- LIXEIRA COM LISTA — o "limpar o Cronograma" do cabeçalho (v1.8.66,
          reproporcionado na v1.8.67).
 
@@ -2039,9 +2031,8 @@
        percorrida de trás para a frente pelo voltar: fechar esta folha devolve
        o operador à folha de onde ele saiu.
 
-       O RESUMO FICA NO TOPO e não rola: ele é a resposta em uma olhada
-       (*"posso subir para a mesa de som?"*), e a lista embaixo é o detalhe de
-       quem quer saber qual linha. -->
+       O ANEL É A RESPOSTA EM UMA OLHADA (*"posso subir para a mesa de som?"*);
+       a lista embaixo existe só quando há problema. -->
   <div id="testePopup" class="popup-backdrop">
     <div class="popup-sheet">
       <div class="popup-header">
@@ -2051,51 +2042,35 @@
         <span class="popup-title">Verificação do sistema</span>
         <button id="testePopupClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
-      <div id="testeResumo" class="teste-resumo" role="status" aria-live="polite"></div>
-      <ul id="testeList" class="popup-list rola"></ul>
-      <!-- FAIXA DE FECHO COM DOIS BOTÕES, então a altura é UMA só e é a do
-           quadrado (a regra da v1.8.61, e não a da v5.301, que vale para o
-           confirmar sozinho). Quem a aplica é o `:has(> .song-menu-btn ~
-           .song-menu-btn)` que já existe no CSS — nada a escrever aqui.
-
-           O SALVAR ENTROU NA v1.10.3, a pedido do operador: *"faça com que essa
-           verificação, após feita, tenha uma botão para salvar o registro
-           normal + os dados dessa verificação"*. Ele REVOGA a decisão da
-           v1.10.0, que dizia não haver salvar aqui de propósito — e o argumento
-           daquela decisão continua de pé e é o que decide COMO este botão
-           funciona: **o arquivo é UM só**. Ele salva o MESMO `diagTexto` do
-           Registro, com o MESMO nome, e o resultado da verificação já viaja lá
-           dentro como um bloco (`blocoAutoteste`). Não há segundo artefato —
-           há uma segunda PORTA para o mesmo, no lugar onde o operador está
-           quando termina de ler o resultado.
-
-           ELE TEM RÓTULO desde a v1.12.29 (*"adicione o texto 'registro' ao
-           invés de apenas o ícone"*) — e é a ÚNICA porta do Registro desde o
-           mesmo lote (o botão do rodapé de Configurações saiu). Ícone ao lado
-           do texto, como o "Importar arquivo" do editor; a altura continua a
-           da faixa (`--quad-faixa`), e a largura é o conteúdo.
-
-           ELE VEM ANTES do primário no DOM, como o irmão do confirmar em toda
-           outra faixa deste app (`destConfirmRow`): a ordem visual e a de foco
-           concordam, e o primário fica à direita.
-
-           NASCE `hidden` E `disabled`: sem ponte não há como gravar arquivo
-           (`salvarTexto` é SAF), e antes de uma rodada terminar não há o
-           que salvar. Quem os desarma é o `controle.js`. -->
-      <div class="popup-fecho">
+      <!-- O ANEL (v1.12.44). Pedido do operador: *"listar todas as coisas que
+           estão funcionando corretamente não me é informação nenhuma"*. A
+           folha diz a fração feita/total num anel de progresso e, no fim, SÓ
+           os problemas (`#testeList`). A verificação é UMA, e inclui o
+           download de teste — fechar a folha a cancela (`closeTestePopup`). -->
+      <div id="testeCorpo" class="teste-corpo rola">
+        <div id="testeAnel" class="teste-anel" role="progressbar" aria-valuemin="0">
+          <svg class="teste-anel-svg" viewBox="0 0 120 120" aria-hidden="true">
+            <circle class="teste-anel-trilho" cx="60" cy="60" r="52"/>
+            <circle class="teste-anel-arco" id="testeArco" cx="60" cy="60" r="52" pathLength="100"/>
+            <circle class="teste-anel-giro" cx="60" cy="60" r="52" pathLength="100"/>
+          </svg>
+          <div class="teste-anel-fracao"><span id="testeFeitas">0</span><span class="teste-anel-total">/<span id="testeTotal">0</span></span></div>
+        </div>
+        <p id="testeResumo" class="teste-resumo" role="status" aria-live="polite"></p>
+        <p id="testeEtapa" class="teste-etapa"></p>
+        <ul id="testeList" class="teste-erros"></ul>
+      </div>
+      <!-- O REGISTRO SÓ APARECE COM A VERIFICAÇÃO TERMINADA, e é COMPARTILHADO
+           como arquivo (`compartilharArquivoTexto`, shell 82) — o MESMO
+           `diagTexto`, com o resultado da verificação dentro (`blocoAutoteste`).
+           Sem ponte não existe (o `controle.js` o mantém `hidden`). -->
+      <div class="popup-fecho" id="testeFecho" hidden>
         <div class="song-menu-go-row">
-          <button type="button" id="testeSalvar" class="song-menu-btn teste-salvar"
-                  title="Salvar o registro com esta verificação"
-                  aria-label="Salvar o registro com esta verificação" hidden disabled>
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSalvar"/></svg>
-            <span>Registro</span>
+          <button type="button" id="testeSalvar" class="song-menu-btn song-menu-go teste-salvar"
+                  title="Compartilhar o registro com esta verificação" hidden>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCompartilhar"/></svg>
+            <span>Compartilhar registro</span>
           </button>
-          <!-- A VERIFICAÇÃO COMPLETA (v1.12.27; sozinha desde a v1.12.28). A leve
-               roda ao abrir a folha, e o botão "Leve" saiu a pedido do
-               operador. Este roda SÓ o download de teste por cima do resultado
-               da leve, e enquanto ele anda o MESMO botão vira "Cancelar". -->
-          <button type="button" id="testeCompleta" class="song-menu-btn song-menu-go"
-                  title="Verificação completa: baixa um episódio anterior do Provai e Vede, mede o download e o apaga no fim">Verificação completa</button>
         </div>
       </div>
     </div>
@@ -2727,7 +2702,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.12.43</span>
+            <span id="appVersion" class="app-version">v1.12.44</span>
           </button>
             <!-- O REGISTRO SAIU DESTA FAIXA (v1.12.29), a pedido do operador:
                  *"Remova a opção de registro que tem avulsa na base das

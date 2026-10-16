@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.12.44",
+    "itens": [
+      "Verificação: um círculo mostra quantas etapas já foram feitas, e no fim aparecem só os problemas.",
+      "A verificação agora é uma só e já inclui o teste de download; fechar a janela cancela tudo.",
+      "O botão Registro aparece no fim e compartilha o arquivo direto (WhatsApp, e-mail, Drive…).",
+      "Esta versão vem com um novo APK: o app vai pedir para instalar a atualização."
+    ]
+  },
+  {
     "versao": "1.12.43",
     "itens": [
       "Biblioteca: se o servidor dos hinos e da Bíblia estiver fora do ar, um aviso diz isso na própria Biblioteca.",
