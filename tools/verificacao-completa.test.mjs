@@ -269,12 +269,12 @@ try {
       dlPorUltimo: window.__ordem[window.__ordem.length - 1] === 'yt-download'
         && window.__ordem.filter((x) => x === 'yt-download').length === 1,
       n: window.__ordem.length, total: TESTES.length + 1,
-      fracao: document.getElementById('testeFeitas').textContent + '/' + document.getElementById('testeTotal').textContent,
+      pct: document.getElementById('testePct').textContent,
     }));
-    checar(a.semBotao && a.botoes.join() === 'testeSalvar',
-      'A1 · não há botão de verificação: a faixa tem só o Registro, e só no fim', JSON.stringify(a));
-    checar(a.dlPorUltimo && a.n === a.total && a.fracao === a.total + '/' + a.total,
-      'A2 · o download de teste roda UMA vez, DEPOIS de todas as checagens leves, e o anel fecha em N/N',
+    checar(a.semBotao && a.botoes.join() === 'testeRefazer,testeSalvar',
+      'A1 · não há botão de verificação completa: a faixa tem "Refazer" e o Registro, e só no fim', JSON.stringify(a));
+    checar(a.dlPorUltimo && a.n === a.total && a.pct === '100',
+      'A2 · o download de teste roda UMA vez, DEPOIS de todas as checagens leves, e o anel fecha em 100%',
       JSON.stringify(a));
     await ctx.close();
   }
@@ -291,7 +291,7 @@ try {
         linhas: new Set([...rg.getClientRects()].map((q) => Math.round(q.top))).size };
     });
     checar(f.w > 0 && !f.cortou && f.linhas === 1,
-      'A5 · a 320px com a fonte a 1,5× "Compartilhar registro" cabe inteiro, numa linha', JSON.stringify(f));
+      'A5 · a 320px com a fonte a 1,5× "Compartilhar registro" cabe inteiro, numa linha, ao lado do "Refazer"', JSON.stringify(f));
     await ctx.close();
   }
 
@@ -417,15 +417,16 @@ try {
     const andando = await esperar(pg, () => testeDl && testeDl.amostras.length > 3, null, 30000);
     checar(andando === true, 'C0 · o download de teste começa e o progresso chega', porque(andando));
     const meio = await pg.evaluate(() => ({
-      etapa: document.getElementById('testeEtapa').textContent,
-      fracao: document.getElementById('testeFeitas').textContent + '/' + document.getElementById('testeTotal').textContent,
-      total: TESTES.length + 1,
+      semEtapa: !document.getElementById('testeEtapa'),
+      pct1: +document.getElementById('testePct').textContent,
       arco: parseFloat(document.getElementById('testeArco').style.strokeDashoffset),
-      registroOculto: document.getElementById('testeSalvar').hidden,
+      registroOculto: document.getElementById('testeFecho').classList.contains('teste-fecho--oculto'),
       ep: testeDl.episodio && testeDl.episodio.id,
     }));
-    checar(/^Download de teste: \d+% · /.test(meio.etapa) && meio.fracao === (meio.total - 1) + '/' + meio.total,
-      'C1 · durante o download o anel está na última etapa e a linha de baixo mostra o PROGRESSO dele',
+    await pg.waitForTimeout(800);
+    meio.pct2 = await pg.evaluate(() => +document.getElementById('testePct').textContent);
+    checar(meio.semEtapa && meio.pct1 > 0 && meio.pct1 < 100 && meio.pct2 > meio.pct1 && meio.pct2 < 100,
+      'C1 · durante o download o anel mostra PERCENTUAL andando (sem legenda embaixo), e não para na última etapa',
       JSON.stringify(meio));
     checar(meio.registroOculto, 'C2 · e o Registro continua oculto', JSON.stringify(meio));
     await pg.evaluate(() => closeTestePopup());

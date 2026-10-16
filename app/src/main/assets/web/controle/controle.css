@@ -8233,6 +8233,17 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    cartões do mesmo `--poco` das sessões do Histórico. O corpo rola inteiro —
    com muitos problemas, o anel sobe junto, e a resposta em uma olhada é o
    resumo logo abaixo dele. */
+/* A FOLHA TEM ALTURA FIXA (v1.12.46): o anel, o resumo e a faixa de fecho não
+   podem andar quando os problemas aparecem — a lista rola dentro do corpo, e a
+   faixa tem o lugar reservado mesmo antes do fim (`visibility`, não `hidden`). */
+#testePopup .popup-sheet { height: 80vh; }
+.teste-fecho--oculto { visibility: hidden; }
+.song-menu-go-row > .teste-refazer {
+  flex: 0 0 auto; width: auto; padding: 0 var(--sp-5);
+  display: flex; align-items: center; justify-content: center; gap: var(--sp-3);
+  white-space: nowrap; background: var(--surface); color: var(--accent);
+}
+.teste-refazer svg { width: var(--icon-sm); height: var(--icon-sm); flex: none; }
 .teste-corpo {
   flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
   display: flex; flex-direction: column; align-items: center;
@@ -8251,7 +8262,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .teste-anel-arco {
   stroke: var(--anel-cor); stroke-linecap: round;
   stroke-dasharray: 100; stroke-dashoffset: 100;
-  transition: stroke-dashoffset var(--dur-lenta) ease, stroke var(--dur-lenta) ease;
+  transition: stroke-dashoffset .15s linear, stroke var(--dur-lenta) ease;
 }
 /* A ATIVIDADE: um cometa curto girando por cima do trilho enquanto a
    verificação anda — a fração pode ficar parada segundos numa checagem lenta,
@@ -8287,11 +8298,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .teste-resumo--bom { color: var(--accent); }
 .teste-resumo--ruim { color: var(--danger-strong); }
 .teste-resumo--aviso { color: var(--warn-text); }
-.teste-etapa {
-  margin: var(--sp-2) 0 0; text-align: center;
-  color: var(--muted); font-size: var(--fs-md); line-height: 1.4;
-  min-height: 1.4em;
-}
 .teste-erros {
   list-style: none; align-self: stretch;
   margin: var(--sp-5) 0 0; padding: 0;
@@ -10260,6 +10266,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    ícone de compartilhar antes do texto. Só existe com a verificação terminada;
    o `[hidden]` é fechado pela regra `!important` da base. */
 .song-menu-go.teste-salvar {
+  white-space: nowrap; min-width: 0;
   display: flex; align-items: center; justify-content: center; gap: var(--sp-3);
 }
 .teste-salvar svg { width: var(--icon-sm); height: var(--icon-sm); flex: none; }

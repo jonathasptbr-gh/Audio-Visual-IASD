@@ -347,9 +347,8 @@ const testeSalvarEl = document.getElementById('testeSalvar');
 const testeFechoEl = document.getElementById('testeFecho');
 const testeAnelEl = document.getElementById('testeAnel');
 const testeArcoEl = document.getElementById('testeArco');
-const testeFeitasEl = document.getElementById('testeFeitas');
-const testeTotalEl = document.getElementById('testeTotal');
-const testeEtapaEl = document.getElementById('testeEtapa');
+const testePctEl = document.getElementById('testePct');
+const testeRefazerEl = document.getElementById('testeRefazer');
 
 const fileEl = document.getElementById('file');
 const mainEl = document.querySelector('main');
@@ -405,7 +404,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.45';
+const WEB_VERSION = '1.12.46';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -30997,19 +30996,6 @@ function blocoDownloadDeTeste(m) {
   return l;
 }
 
-// O PROGRESSO NA LINHA DE RESUMO enquanto o download anda.
-function testeDlResumo() {
-  const m = testeDl;
-  if (!m || !m.episodio) return 'Verificação completa: preparando o download de teste…';
-  const a = m.amostras;
-  if (!a.length) return 'Baixando "' + (m.episodio.titulo || 'episódio') + '"… procurando o vídeo';
-  const ult = a[a.length - 1];
-  const pct = ult[2] ? Math.floor((ult[1] / ult[2]) * 100) : null;
-  if (pct != null && pct >= 100 && !m.tGravado) return 'Download de teste: juntando e gravando…';
-  return 'Download de teste: ' + (pct != null ? pct + '% · ' : '') + fmtBytes(ult[1])
-    + (ult[2] ? ' de ' + fmtBytes(ult[2]) : '');
-}
-
 // ===== "A INTERNET NÃO RESPONDEU" ERA A FRASE ERRADA PARA A FONTE (v1.12.28) =====
 //
 // Um Registro do operador trouxe as quatro linhas da fonte em *"a internet não
@@ -40171,14 +40157,27 @@ async function dispararTeste() {
   if (!testePopupEl.classList.contains('open') || testeRodando) return;
   testeCancelada = false;
   testeResultado = null;
+  testeMostrado = 0;
+  testeTIni = Date.now();
+  let fimLeve = 0;
+  // SEM `await`: a rodada começa no ato (o prólogo síncrono ergue a trava antes
+  // do primeiro desenho); a previsão aprendida chega em milissegundos e só
+  // muda o RITMO do anel dali em diante.
+  Promise.resolve().then(() => AVDB.getState('testeTempos')).then((t) => {
+    if (t && t.leve > 0 && t.dl > 0) testeTempos = { leve: t.leve, dl: t.dl };
+  }).catch(() => {});
   if (testeTileEl) testeTileEl.classList.add('qs-trabalhando');
+  clearInterval(testeRelogio);
+  testeRelogio = setInterval(tiqueDoTeste, 100);
   testeEmCurso = (async () => {
     // O prólogo de `rodarAutoteste` é SÍNCRONO e ergue a trava: o desenho vem
     // depois da chamada, senão a primeira pintura mostraria "pronto".
     const leve = rodarAutoteste();
     desenharTeste();
     try { await leve; } catch (_) { /* o desenho mostra o que houve */ }
+    fimLeve = Date.now();
     if (!testeCancelada && testeResultado) {
+      testeTDl = Date.now();
       const dl = rodarDownloadDeTeste();
       desenharTeste();
       try { await dl; } catch (_) {}
@@ -40186,11 +40185,17 @@ async function dispararTeste() {
   })();
   try { await testeEmCurso; } finally {
     testeEmCurso = null;
+    clearInterval(testeRelogio);
+    testeRelogio = null;
     if (testeTileEl) testeTileEl.classList.remove('qs-trabalhando');
+    if (testeCancelada) { testeResultado = null; testeMostrado = 0; }
+    else {
+      aprenderTemposDoTeste(fimLeve, Date.now());
+      testeMostrado = 1;
+      // O REGISTRO acompanha sem que ninguém o peça.
+      renderDiag();
+    }
     desenharTeste();
-    // O REGISTRO acompanha sem que ninguém o peça.
-    if (testeCancelada) testeResultado = null;
-    else renderDiag();
   }
 }
 
@@ -40203,21 +40208,58 @@ function cancelarVerificacao() {
   }
 }
 
-// O TOTAL É A TABELA MAIS O DOWNLOAD; a fração conta o que já RESPONDEU. Durante
-// o download o anel anda também pela fração dele, senão minutos de download
-// ficariam parados numa só etapa.
-const testeTotal = () => TESTES.length + 1;
-function testeProgresso() {
-  const total = testeTotal();
-  if (!testeRodando) return testeResultado ? { feitas: total, frac: 1 } : { feitas: 0, frac: 0 };
+// O PERCENTUAL É DE TEMPO, NÃO DE ETAPAS (v1.12.46). Pedido do operador: a
+// fração parava na última etapa durante todo o download de teste, que dura
+// muito mais que as 41 checagens juntas. O anel anda pelo tempo PREVISTO de
+// cada parte (`testeTempos`, aprendido das rodadas anteriores), corrigido pelo
+// que de fato aconteceu (checagens respondidas, bytes baixados), e a exibição
+// é suavizada e nunca volta: um ritmo que dá para sentir quanto falta.
+const TESTE_TEMPOS_PADRAO = { leve: 8000, dl: 45000 };
+let testeTempos = Object.assign({}, TESTE_TEMPOS_PADRAO);
+let testeTIni = 0;        // início da rodada
+let testeTDl = 0;         // início do download de teste
+let testeMostrado = 0;    // o que o anel mostra (0..1), só sobe
+let testeRelogio = null;
+
+function testeAlvo() {
+  if (!testeRodando && !testeEmCurso) return testeResultado ? 1 : 0;
+  const leve = testeTempos.leve; const dl = testeTempos.dl; const tot = leve + dl;
+  const agora = Date.now();
   if (!testeCompleta) {
-    const feitas = testeParcial ? testeParcial.size : 0;
-    return { feitas, frac: feitas / total };
+    const feitas = testeParcial ? testeParcial.size / TESTES.length : 0;
+    const tempo = Math.min(0.97, (agora - testeTIni) / leve);
+    return (Math.max(tempo, feitas * 0.97) * leve) / tot;
   }
   const a = testeDl && testeDl.amostras;
   const ult = a && a.length ? a[a.length - 1] : null;
-  const dl = ult && ult[2] ? Math.min(1, ult[1] / ult[2]) : 0;
-  return { feitas: TESTES.length, frac: (TESTES.length + dl * 0.95) / total };
+  const bytes = ult && ult[2] ? Math.min(1, ult[1] / ult[2]) * 0.85 : 0;
+  const tempo = Math.min(0.97, (agora - testeTDl) / dl);
+  return (leve + Math.max(tempo, bytes) * dl) / tot;
+}
+
+function tiqueDoTeste() {
+  const alvo = testeAlvo();
+  if (alvo >= 1) testeMostrado = 1;
+  else if (alvo > testeMostrado) testeMostrado = Math.min(0.99, testeMostrado + (alvo - testeMostrado) * 0.2);
+  desenharAnelDoTeste();
+}
+function desenharAnelDoTeste() {
+  const pct = Math.floor(testeMostrado * 100);
+  testePctEl.textContent = String(pct);
+  testeArcoEl.style.strokeDashoffset = String(100 - testeMostrado * 100);
+  testeAnelEl.setAttribute('aria-valuenow', String(pct));
+  testeAnelEl.setAttribute('aria-label', pct + '% verificado');
+}
+
+// O QUE A RODADA ENSINA: o tempo de cada parte, numa média que esquece aos poucos.
+// O download só ensina quando de fato baixou (`ok`): um "não se aplica" dura um
+// instante e puxaria a previsão para baixo.
+function aprenderTemposDoTeste(fimLeve, fimDl) {
+  const media = (velho, novo) => Math.round(velho * 0.5 + novo * 0.5);
+  if (fimLeve > testeTIni) testeTempos.leve = media(testeTempos.leve, fimLeve - testeTIni);
+  const dl = testeResultado && testeResultado.itens.find((x) => x.id === TESTE_DL.id);
+  if (dl && dl.v === TESTE_OK && fimDl > testeTDl) testeTempos.dl = media(testeTempos.dl, fimDl - testeTDl);
+  try { AVDB.setState('testeTempos', testeTempos); } catch (_) {}
 }
 
 // O TÍTULO DO PROBLEMA (v1.12.44). A tela só mostra o que deu errado, então o
@@ -40283,37 +40325,24 @@ function testeProblemas(r) {
 function desenharTeste() {
   if (!testeResumoEl || !testeListEl) return;
   const r = testeResultado;
-  const total = testeTotal();
-  const p = testeProgresso();
-  const pronto = !testeRodando && !!r;
+  const pronto = !testeRodando && !testeEmCurso && !!r;
   const problemas = pronto ? testeProblemas(r) : [];
   const falhas = problemas.filter((x) => x.v === TESTE_FALHOU).length;
-  testeFeitasEl.textContent = String(p.feitas);
-  testeTotalEl.textContent = String(total);
-  testeArcoEl.style.strokeDashoffset = String(100 - Math.round(p.frac * 1000) / 10);
-  testeAnelEl.classList.toggle('rodando', testeRodando);
+  if (pronto) testeMostrado = 1;
+  desenharAnelDoTeste();
+  testeAnelEl.classList.toggle('rodando', !pronto && (testeRodando || !!testeEmCurso));
   testeAnelEl.classList.toggle('ruim', pronto && falhas > 0);
   testeAnelEl.classList.toggle('aviso', pronto && !falhas && problemas.length > 0);
-  testeAnelEl.setAttribute('aria-valuemax', String(total));
-  testeAnelEl.setAttribute('aria-valuenow', String(p.feitas));
-  testeAnelEl.setAttribute('aria-label', p.feitas + ' de ' + total + ' etapas verificadas');
 
-  if (testeRodando) {
-    testeResumoEl.textContent = 'Verificando…';
+  if (!pronto) {
+    testeResumoEl.textContent = (testeRodando || testeEmCurso) ? 'Verificando…' : '';
     testeResumoEl.className = 'teste-resumo';
-    testeEtapaEl.textContent = testeCompleta ? testeDlResumo() : 'Conferindo cada parte do app';
-  } else if (!r) {
-    testeResumoEl.textContent = '';
-    testeResumoEl.className = 'teste-resumo';
-    testeEtapaEl.textContent = '';
   } else {
     const mudos = problemas.length - falhas;
     testeResumoEl.textContent = !problemas.length ? 'Tudo certo'
       : falhas ? (falhas === 1 ? '1 problema encontrado' : falhas + ' problemas encontrados')
         : (mudos === 1 ? '1 parte não respondeu' : mudos + ' partes não responderam');
     testeResumoEl.className = 'teste-resumo ' + (falhas ? 'teste-resumo--ruim' : problemas.length ? 'teste-resumo--aviso' : 'teste-resumo--bom');
-    testeEtapaEl.textContent = !problemas.length ? 'Todas as partes do app responderam como deveriam.'
-      : falhas && mudos ? (mudos === 1 ? 'E 1 parte não respondeu.' : 'E ' + mudos + ' partes não responderam.') : '';
   }
 
   testeListEl.innerHTML = '';
@@ -40344,10 +40373,12 @@ function desenharTeste() {
     testeListEl.appendChild(li);
   }
 
-  // O REGISTRO SÓ EXISTE COM A VERIFICAÇÃO TERMINADA, e só no app.
-  const mostraRegistro = pronto && !!window.__NATIVE__;
-  if (testeFechoEl) testeFechoEl.hidden = !mostraRegistro;
-  if (testeSalvarEl) testeSalvarEl.hidden = !mostraRegistro;
+  // A FAIXA SÓ APARECE NO FIM, mas o lugar dela fica reservado (a folha não
+  // muda de tamanho). O Registro só existe no app.
+  if (testeFechoEl) testeFechoEl.classList.toggle('teste-fecho--oculto', !pronto);
+  if (testeSalvarEl) testeSalvarEl.hidden = !window.__NATIVE__;
+  if (testeRefazerEl) testeRefazerEl.disabled = !pronto;
+  if (testeSalvarEl) testeSalvarEl.disabled = !pronto;
 }
 
 // A rodada chama isto a cada resposta (e o download, a cada aviso de bytes).
@@ -40517,6 +40548,7 @@ if (testeTileEl) testeTileEl.addEventListener('click', openTestePopup);
 if (telaTileEl) telaTileEl.addEventListener('click', openTelaPopup);
 if (pacoteTileEl) pacoteTileEl.addEventListener('click', openPacotePopup);
 if (testeSalvarEl) testeSalvarEl.addEventListener('click', compartilharRegistroDaVerificacao);
+if (testeRefazerEl) testeRefazerEl.addEventListener('click', () => dispararTeste());
 // LIMPAR TUDO. A pergunta mora na faixa do próprio botão — mesma porta do
 // "Limpar a playlist", e por isso o `#histClearFaixa` existe (a confirmação
 // substitui os IRMÃOS de quem a pediu).

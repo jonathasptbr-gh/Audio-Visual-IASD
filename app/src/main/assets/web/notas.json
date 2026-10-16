@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.12.46",
+    "itens": [
+      "Verificação: o círculo mostra porcentagem, num ritmo constante que inclui o teste de download.",
+      "Verificação: a janela não muda mais de tamanho, e saíram as legendas embaixo de \"Verificando…\".",
+      "Verificação: no fim aparece o botão \"Refazer\", ao lado de \"Compartilhar registro\".",
+      "Downloads: a notificação mostra só a porcentagem e o tamanho total, sem os MB já baixados.",
+      "Esta versão vem com um novo APK: o app vai pedir para instalar a atualização."
+    ]
+  },
+  {
     "versao": "1.12.45",
     "itens": [
       "Verificação: cada problema agora tem um título que diz o que está errado, como \"Sem internet\".",

@@ -588,8 +588,12 @@ class SyncService : Service() {
             // enganosa que esta notificação pode fazer. Melhor dizer o que de
             // fato se sabe — que faz X sem novidade.
             val cauda = if (parado) "sem resposta há ${formatIdle(p.idleMs)}" else formatEta(p.etaMs)
+            // SÓ O TOTAL em bytes (v1.12.46, pedido do operador): o percentual
+            // cobre TODAS as fases (preparo, junção, gravação), e "X MB de Y MB"
+            // ao lado dele andava num ritmo diferente — os dois números se
+            // contradiziam. O tamanho fica como o que qualifica o percentual.
             val quanto = if (p.bytes) {
-                "${formatBytes(feito)} de ${formatBytes(p.total)}"
+                formatBytes(p.total)
             } else {
                 "${p.done} de ${p.total}"
             }
