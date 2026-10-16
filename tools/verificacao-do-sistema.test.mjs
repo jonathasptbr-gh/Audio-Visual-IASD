@@ -365,9 +365,7 @@ try {
     const raiz = getComputedStyle(document.documentElement);
     const titulo = itens[0] && itens[0].querySelector('.teste-titulo');
     return {
-      feitas: document.getElementById('testeFeitas').textContent,
-      total: document.getElementById('testeTotal').textContent,
-      esperado: String(TESTES.length + 1),
+      pct: document.getElementById('testePct').textContent,
       problemas: r.itens.filter((x) => x.v === 'falhou' || x.v === 'mudo').length,
       itens: itens.length,
       soProblemas: itens.every((i) => /teste-erro--(falhou|mudo)/.test(i.className)),
@@ -384,8 +382,8 @@ try {
     const h = hex.replace('#', '');
     return 'rgb(' + parseInt(h.slice(0, 2), 16) + ', ' + parseInt(h.slice(2, 4), 16) + ', ' + parseInt(h.slice(4, 6), 16) + ')';
   };
-  checar(tela.feitas === tela.esperado && tela.total === tela.esperado,
-    'I · o anel termina em N/N, com o download de teste contando como etapa', JSON.stringify(tela));
+  checar(tela.pct === '100',
+    'I · o anel termina em 100%', JSON.stringify(tela));
   checar(tela.itens === tela.problemas && tela.soProblemas && tela.problemas > 0,
     'I · a lista do fim tem SÓ o que não funcionou ou não respondeu — o que funcionou e o que não se '
     + 'aplica não aparecem', JSON.stringify(tela));
@@ -802,7 +800,10 @@ try {
     while (testeEmCurso || testeRodando) await new Promise((r) => setTimeout(r, 20));
     openTestePopup();
     await new Promise((r) => setTimeout(r, 0));
-    const durante = { svHidden: sv.hidden, fechoHidden: document.getElementById('testeFecho').hidden };
+    const folha = () => document.querySelector('#testePopup .popup-sheet').getBoundingClientRect().height;
+    const fecho = () => document.getElementById('testeFecho');
+    const durante = { oculto: fecho().classList.contains('teste-fecho--oculto'),
+      visivel: getComputedStyle(fecho()).visibility === 'visible', svOff: sv.disabled, h: folha() };
     while (testeEmCurso || testeRodando || !testeResultado) await new Promise((r) => setTimeout(r, 20));
     window.testeDownloadCompleto = realDl;
     const a = sv.getBoundingClientRect();
@@ -810,7 +811,9 @@ try {
     const rot = sv.querySelector('span');
     return {
       durante,
-      depois: { svHidden: sv.hidden, fechoHidden: document.getElementById('testeFecho').hidden },
+      depois: { svHidden: sv.hidden, oculto: fecho().classList.contains('teste-fecho--oculto'),
+        visivel: getComputedStyle(fecho()).visibility === 'visible', svOff: sv.disabled, h: folha(),
+        refazer: !!document.getElementById('testeRefazer') && !document.getElementById('testeRefazer').disabled },
       largura: +a.width.toFixed(1),
       svg: +svg.width.toFixed(1),
       rotulo: rot ? rot.textContent.trim() : '',
@@ -819,10 +822,13 @@ try {
       unicaPorta: !document.getElementById('diagSave'),
     };
   });
-  checar(caixa.durante.svHidden && caixa.durante.fechoHidden,
-    'M2 · durante a verificação o Registro fica OCULTO — ele sairia com o resultado anterior', JSON.stringify(caixa));
-  checar(!caixa.depois.svHidden && !caixa.depois.fechoHidden && caixa.largura > 0,
-    'M2 · e aparece quando ela termina', JSON.stringify(caixa));
+  checar(caixa.durante.oculto && !caixa.durante.visivel && caixa.durante.svOff,
+    'M2 · durante a verificação a faixa fica OCULTA — o Registro sairia com o resultado anterior', JSON.stringify(caixa));
+  checar(!caixa.depois.svHidden && !caixa.depois.oculto && caixa.depois.visivel && !caixa.depois.svOff
+    && caixa.largura > 0 && caixa.depois.refazer,
+    'M2 · e aparece quando ela termina, com "Verificar de novo" ao lado', JSON.stringify(caixa));
+  checar(Math.abs(caixa.durante.h - caixa.depois.h) < 0.5,
+    'M2 · a folha tem a MESMA altura durante e depois — nada nela anda', JSON.stringify(caixa));
   checar(caixa.rotulo === 'Compartilhar registro' && !caixa.rotuloCortado && caixa.svg > 0,
     'M2 · dizendo "Compartilhar registro", inteiro, com o ícone DESENHADO', JSON.stringify(caixa));
   checar(caixa.semCompleta && caixa.unicaPorta,
