@@ -405,7 +405,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.44';
+const WEB_VERSION = '1.12.45';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -40220,6 +40220,57 @@ function testeProgresso() {
   return { feitas: TESTES.length, frac: (TESTES.length + dl * 0.95) / total };
 }
 
+// O TÍTULO DO PROBLEMA (v1.12.44). A tela só mostra o que deu errado, então o
+// cartão nomeia o PROBLEMA — o `titulo` da tabela é uma afirmação ("Há internet
+// agora") que só faz sentido no Registro, onde as linhas boas também aparecem,
+// e na tela contradizia a nota logo abaixo dela. Sem entrada aqui, cai no
+// `titulo` (uma checagem nova nunca some da tela por faltar texto).
+const TESTE_PROBLEMA = {
+  opfs: 'Não dá para guardar arquivos no aparelho',
+  idb: 'Não dá para guardar ajustes e o catálogo',
+  espaco: 'Pouco espaço livre para baixar',
+  persistencia: 'O sistema pode apagar a biblioteca para liberar espaço',
+  ponte: 'A parte Android do app não respondeu',
+  'piso-shell': 'O app instalado está desatualizado para esta versão',
+  versoes: 'As versões do app não batem entre si',
+  atualizacao: 'O canal de atualização não respondeu',
+  'partes-do-bundle': 'Faltam partes do app',
+  modulos: 'Uma parte do app não iniciou',
+  'fonte-banco': 'A lista de hinos e álbuns não carrega',
+  'fonte-arquivo': 'As músicas não estão sendo entregues pelo servidor',
+  'fonte-arquivo-imagem': 'As imagens de fundo não estão sendo entregues pelo servidor',
+  'fonte-biblia': 'A Bíblia não carrega',
+  'acervo-indice': 'As coleções não estão listadas',
+  'acervo-ids': 'Há músicas marcadas como baixadas que não estão no aparelho',
+  'acervo-fundos': 'Há letras sem imagem de fundo',
+  'acervo-arquivos': 'Os arquivos no aparelho não batem com a biblioteca',
+  'pastas-contagem': 'A contagem de arquivos de uma pasta está errada',
+  'biblia-completa': 'A Bíblia baixada está incompleta',
+  'biblia-em-uso': 'A versão da Bíblia em uso não está no aparelho',
+  'cifra-acervo': 'Faltam cifras do hinário no aparelho',
+  'listas-sumidas': 'Há itens nas suas listas que não existem mais',
+  'listas-arquivo': 'Há itens nas suas listas sem o arquivo',
+  'tv-listada': 'Nenhuma TV conectada',
+  'telao-no-ar': 'A TV está conectada, mas o telão não abriu nela',
+  'telao-responde': 'O telão não responde aos comandos',
+  'telas-rede': 'A transmissão para computadores está com problema',
+  palco: 'O reprodutor de mídia não iniciou',
+  decodificador: 'O aparelho não conseguiu abrir um áudio',
+  desenhador: 'O aparelho não conseguiu transformar um slide em imagem',
+  'controles-fora': 'Os controles fora do app não estão funcionando',
+  'segundo-plano': 'O trabalho em segundo plano está desencontrado',
+  volume: 'As teclas de volume não estão ligadas ao app',
+  cores: 'As cores do app não carregaram',
+  tema: 'O tema na tela não é o escolhido',
+  botoes: 'Faltam controles na tela principal',
+  cortina: 'A abertura do app não terminou',
+  icones: 'Há ícones que não aparecem',
+  internet: 'Sem internet',
+  'espaco-pacote': 'Não dá para exportar a biblioteca',
+  'yt-download': 'O download de vídeos do YouTube não funcionou',
+};
+const tituloDoProblema = (it) => TESTE_PROBLEMA[it.id] || it.titulo;
+
 // O QUE ENTRA NA LISTA DO FIM: só o que pede atenção. "Não funcionou" primeiro,
 // "não respondeu" depois — ele não é falha do app, mas é a rede ou a fonte
 // calada, e o operador decide o que fazer. "Funcionou" e "não se aplica" não
@@ -40275,21 +40326,20 @@ function desenharTeste() {
     marca.innerHTML = svgDoDesfecho(it.v);
     const txt = document.createElement('div');
     txt.className = 'teste-texto';
-    const area = document.createElement('span');
-    area.className = 'teste-area';
-    area.textContent = it.area || '';
     const t = document.createElement('span');
     t.className = 'teste-titulo';
-    t.textContent = it.titulo;
-    txt.append(area, t);
+    t.textContent = tituloDoProblema(it);
+    txt.appendChild(t);
     if (it.nota) {
       const n = document.createElement('span');
       n.className = 'teste-nota';
-      n.textContent = it.nota;
+      // A NOTA É A CAUSA, escrita em minúscula para caber no Registro depois do
+      // título; no cartão ela é frase própria.
+      n.textContent = it.nota.charAt(0).toUpperCase() + it.nota.slice(1);
       txt.appendChild(n);
     }
     li.append(marca, txt);
-    li.setAttribute('aria-label', it.titulo + ': ' + (it.v === TESTE_FALHOU ? 'não funcionou' : 'não respondeu')
+    li.setAttribute('aria-label', tituloDoProblema(it) + ': ' + (it.v === TESTE_FALHOU ? 'não funcionou' : 'não respondeu')
       + (it.nota ? '. ' + it.nota : ''));
     testeListEl.appendChild(li);
   }

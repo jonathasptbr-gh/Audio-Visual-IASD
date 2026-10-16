@@ -392,6 +392,19 @@ try {
   checar(tela.falhaAntes, 'I · e "não funcionou" vem antes de "não respondeu"', JSON.stringify(tela));
   checar(tela.comDesenho === tela.itens,
     'I · todo cartão tem a marca DESENHADA (a fonte de símbolos é um subset)', tela.comDesenho + '/' + tela.itens);
+  // I3 · O CARTÃO NOMEIA O PROBLEMA (v1.12.45): toda checagem tem título de
+  // problema, e o cartão não repete o título AFIRMATIVO do Registro ("Há
+  // internet agora" sobre uma nota dizendo que não há), nem o nome da área.
+  const textos = await pg.evaluate(() => {
+    const ids = TESTES.concat([TESTE_DL]).map((c) => c.id);
+    const cartoes = [...document.querySelectorAll('#testeList .teste-erro')].map((li) => li.querySelector('.teste-titulo').textContent);
+    const afirmativos = testeResultado.itens.filter((x) => x.v === 'falhou' || x.v === 'mudo').map((x) => x.titulo);
+    return { semTitulo: ids.filter((id) => !TESTE_PROBLEMA[id]), cartoes,
+      repete: cartoes.filter((t) => afirmativos.includes(t)), area: document.querySelectorAll('#testeList .teste-area').length };
+  });
+  checar(textos.semTitulo.length === 0, 'I3 · toda checagem tem um título de PROBLEMA', JSON.stringify(textos.semTitulo));
+  checar(textos.cartoes.length > 0 && textos.repete.length === 0 && textos.area === 0,
+    'I3 · e o cartão mostra esse título, nunca a afirmação do Registro nem o nome da área', JSON.stringify(textos));
   checar(tela.fonteTitulo >= 14,
     'I · e o título do problema é texto grande, não a letra miúda da lista antiga', tela.fonteTitulo);
   checar(/problema|não respond|Tudo certo/.test(tela.resumo) && !tela.girando,

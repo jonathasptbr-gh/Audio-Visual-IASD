@@ -3009,10 +3009,12 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.12.44 · APK v1.12.36** · `SHELL_VERSION` **82** ·
-bundle com `minShell: 82` e **`shellTag: "v1.12.44"`** — o shell 82 é o **PISO**: todo
-método da ponte existe, e não há guarda de versão no lado web. **Este lote PEDE RELEASE**
-(a ponte ganhou `compartilharArquivoTexto`, e `MainActivity`/`res/` mudaram).
+**Versão atual: base web v1.12.45 · APK v1.12.44** · `SHELL_VERSION` **82** ·
+bundle com `minShell: 82` e **sem `shellTag`** — o shell 82 é o **PISO**: todo
+método da ponte existe, e não há guarda de versão no lado web. **Este lote é só web**
+(a Release v1.12.44 já está publicada). **A v1.12.45 DÁ A CADA CHECAGEM UM TÍTULO DE PROBLEMA**
+(`TESTE_PROBLEMA`, por id, lido por `tituloDoProblema`): a tela só mostra o que deu errado, e o `titulo` afirmativo
+("Há internet agora") contradizia a nota; ele continua no Registro. O nome da área saiu do cartão.
 **A v1.12.44 REFAZ A FOLHA DA VERIFICAÇÃO** (pedido do operador: *"listar todas as coisas que estão funcionando
 corretamente não me é informação nenhuma"*): um ANEL com a fração feitas/total (`TESTES.length + 1`, o download de
 teste conta) e um cometa girando enquanto anda; no fim, só os problemas (`testeProblemas`: não funcionou, depois não
