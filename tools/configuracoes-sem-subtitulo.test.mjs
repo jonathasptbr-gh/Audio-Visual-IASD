@@ -234,7 +234,7 @@ try {
     JSON.stringify(aceso));
 
   // =========================================================================
-  // D · O RODAPÉ LEVA O NOME DO APP
+  // D · A FAIXA DA VERSÃO DIZ SÓ O NÚMERO (na seção da Verificação desde a v1.12.49)
   // =========================================================================
   const rodape = await a.pg.evaluate(async () => {
     const z = (ms) => new Promise((f) => setTimeout(f, ms));
@@ -247,11 +247,14 @@ try {
     }
     await z(120);
     const v = document.getElementById('appVersion');
-    const faixa = document.querySelector('#fadePopup .footer-diag');
+    // A FAIXA MORA NA SEÇÃO DA VERIFICAÇÃO (v1.12.49): descoberta só para medir —
+    // abri-la rodaria a verificação, e aqui se mede o desenho.
+    document.getElementById('testeSecao').hidden = false;
+    const faixa = document.querySelector('#testeSecao .versao-faixa');
     const botoes = faixa ? [...faixa.querySelectorAll('.diag-btn')] : [];
     return {
       texto: (v.textContent || '').trim(),
-      // A BADGE DO MODO FÁCIL SAIU (v1.11.15, a pedido do operador): o número mora só no rodapé. Ela é
+      // A BADGE DO MODO FÁCIL SAIU (v1.11.15, a pedido do operador): o número mora só no botão de versão. Ela é
       // medida pela AUSÊNCIA — um `#simpleVersion` que volte é um segundo escritor do mesmo número.
       badge: document.getElementById('simpleVersion') === null,
       transborda: faixa ? faixa.scrollWidth > faixa.clientWidth + 1 : null,
@@ -274,8 +277,8 @@ try {
       })).size,
       peso: getComputedStyle(v).fontWeight,
       pesoIrmao: getComputedStyle(botoes[1] || v).fontWeight,
-      // NENHUM RÓTULO CORTADO: o `min-width: max-content` é o que segura isso,
-      // e sem ele a divisão igual espreme a palavra mais longa.
+      // NENHUM RÓTULO CORTADO: o `min-width: auto` de item flex é o que segura
+      // isso (ver D3), e sem ele a divisão igual espreme a palavra mais longa.
       corta: botoes.map((b) => b.querySelector('span'))
         .filter((e) => e && e.scrollWidth > e.clientWidth + 1).length,
     };
@@ -364,7 +367,10 @@ try {
       const e = document.getElementById(id); if (e) e.hidden = false;
     }
     await z(150);
-    const faixa = document.querySelector('#fadePopup .footer-diag');
+    // A FAIXA MORA NA SEÇÃO DA VERIFICAÇÃO (v1.12.49): descoberta só para medir —
+    // abri-la rodaria a verificação, e aqui se mede o desenho.
+    document.getElementById('testeSecao').hidden = false;
+    const faixa = document.querySelector('#testeSecao .versao-faixa');
     const botoes = [...faixa.querySelectorAll('.diag-btn')];
     return {
       linhas: new Set(botoes.map((b) => {

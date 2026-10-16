@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.12.49",
+    "itens": [
+      "Verificação: \"Verificando…\" e \"Tudo certo\" aparecem acima da barra, com mais espaço entre as partes.",
+      "Os botões de versão e \"Pedir ajuda\" agora ficam dentro da Verificação.",
+      "Configurações: as listas não ficam mais com sombra torta nem espaço a mais na base.",
+      "Configurações pode ficar mais alta quando a lista é longa, como o Histórico."
+    ]
+  },
+  {
     "versao": "1.12.48",
     "itens": [
       "Configurações: Tela, Transferir, Editar mídia, Histórico e Verificação abrem dentro da própria janela.",

@@ -650,8 +650,9 @@ try {
     // O SEGUNDO DOENTE: o Histórico. Lá a faixa é filha DIRETA da seção (uma
     // seção de Configurações desde a v1.12.48), sem `.pl-rodape` por volta.
     // Quem rola é a folha inteira, e a faixa GRUDA na base dela (`sticky`): no
-    // FIM da rolagem ela pousa no lugar dela, `--sp-5` abaixo da lista, e no
-    // MEIO ela fica à vista sobre a lista que continua por baixo.
+    // FIM da rolagem ela pousa no lugar dela, `--sp-6` abaixo da lista (o respiro
+    // de toda faixa de seção desde a v1.12.49), e no MEIO ela fica à vista sobre
+    // a lista que continua por baixo.
     const jHi = await pgJ.evaluate(async () => {
       const z = (ms) => new Promise((f) => setTimeout(f, ms));
       __avBack(); await z(350);
@@ -681,7 +682,7 @@ try {
       const br = btn.getBoundingClientRect();
       const lr = l.getBoundingClientRect();
       const sonda = document.createElement('div');
-      sonda.style.cssText = 'position:absolute;visibility:hidden;height:var(--sp-5)';
+      sonda.style.cssText = 'position:absolute;visibility:hidden;height:var(--sp-6)';
       document.body.appendChild(sonda);
       const alvo = +sonda.getBoundingClientRect().height.toFixed(2);
       sonda.remove();
@@ -695,7 +696,7 @@ try {
       + 'grudado na base sobre a lista que segue por baixo', JSON.stringify(jHi));
     checar(!jHi.erro && Math.abs(jHi.vao - jHi.alvo) <= 0.5 && Math.abs(jHi.esq) <= 0.5 && Math.abs(jHi.dir) <= 0.5
       && !/rgba\(0, 0, 0, 0\)/.test(jHi.fundo),
-      'J · e no fim ele pousa `--sp-5` (' + jHi.vao + 'px) abaixo da lista, alinhado a ela nos dois '
+      'J · e no fim ele pousa `--sp-6` (' + jHi.vao + 'px) abaixo da lista, alinhado a ela nos dois '
       + 'lados, num fundo OPACO (o que rola por baixo some atrás dele)', JSON.stringify(jHi));
     await ctxJ.close();
   }
