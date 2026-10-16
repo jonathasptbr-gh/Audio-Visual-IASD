@@ -344,9 +344,9 @@ async function responderDialogo(pg) {
 // que é o que quem opera faz — e assim o caminho da lista entra na cobertura
 // deste percurso de graça.
 async function confirmarGrupos(pg) {
-  await pg.evaluate(() => openPacotePopup());
+  await pg.evaluate(() => abrirSecao('pacote'));
   const abriu = await esperar(pg, () => {
-    const d = document.getElementById('pacotePopup');
+    const d = document.getElementById('pacoteSecao');
     return !!d && d.classList.contains('open') && !!document.querySelector('#pacoteLista li');
   }, null, 60000);
   if (abriu !== true) return abriu;
@@ -410,9 +410,9 @@ const lerDestino = (pg) => pg.evaluate(async () => {
 
 // Importa pela janela: abre, aplica as marcas, aperta Importar de verdade.
 async function importarPelaJanela(pg, aoMarcar) {
-  await pg.evaluate(() => openPacotePopup());
+  await pg.evaluate(() => abrirSecao('pacote'));
   const abriu = await esperar(pg, () => {
-    const d = document.getElementById('pacotePopup');
+    const d = document.getElementById('pacoteSecao');
     return !!d && d.classList.contains('open') && !!document.querySelector('#pacoteLista li');
   }, null, 60000);
   if (abriu !== true) return { erro: porque(abriu) };
@@ -438,7 +438,7 @@ const saidaDe = (pg) => pg.evaluate(() => {
 });
 // Exporta DESMARCANDO linhas pelo nome — o toque de verdade em cada uma, e depois em Exportar.
 async function exportarSem(pg, nomes) {
-  await pg.evaluate(() => openPacotePopup());
+  await pg.evaluate(() => abrirSecao('pacote'));
   const abriu = await esperar(pg, () => !!document.querySelector('#pacoteLista li'), null, 60000);
   if (abriu !== true) return { erro: porque(abriu) };
   for (const n of nomes) await tocarLinha(pg, n);
@@ -493,7 +493,7 @@ try {
   const a = await aparelho(null);
   await SEMENTE(a.pg);
   // E · a lista da ORIGEM, lida antes de exportar: o que o operador vê em cada série
-  await a.pg.evaluate(() => openPacotePopup());
+  await a.pg.evaluate(() => abrirSecao('pacote'));
   await esperar(a.pg, () => !!document.querySelector('#pacoteLista li'), null, 60000);
   const textosA = await textosDaLista(a.pg);
   const linhaPV = textosA['Provai e Vede 2026'] || '';
@@ -514,7 +514,7 @@ try {
 
   // ---- D · UM APARELHO NOVO TEM O QUE MARCAR ---------------------------------
   const novo = await aparelho(saida);
-  await novo.pg.evaluate(() => openPacotePopup());
+  await novo.pg.evaluate(() => abrirSecao('pacote'));
   await esperar(novo.pg, () => !!document.querySelector('#pacoteLista li'), null, 30000);
   const textosNovo = await textosDaLista(novo.pg);
   checar(/sem vídeo da semana baixado/.test(textosNovo['Provai e Vede 2026'] || '')
@@ -648,7 +648,7 @@ try {
   const o3 = await aparelho(null);
   await SEMENTE(o3.pg);
   await o3.pg.evaluate(async () => { await AVDB.setState('serie', []); });
-  await o3.pg.evaluate(() => openPacotePopup());
+  await o3.pg.evaluate(() => abrirSecao('pacote'));
   await esperar(o3.pg, () => !!document.querySelector('#pacoteLista li'), null, 60000);
   const textosI = await textosDaLista(o3.pg);
   checar(textosI['Provai e Vede 2026'] === 'sem vídeo da semana baixado',
@@ -671,7 +671,7 @@ try {
   const jLista = await j.pg.evaluate(async () => {
     pacotePronto = { bytes: 1234 };            // exportado e ainda não enviado: a lista fica travada
     destLimpar(); destPadraoTocar();           // o que abrir a gaveta de um item faz à folha de destinos
-    openPacotePopup();
+    abrirSecao('pacote');
     return null;
   });
   await esperar(j.pg, () => !!document.querySelector('#pacoteLista li'), null, 60000);

@@ -84,23 +84,25 @@ export const SUPERFICIES = [
   { nome: 'fila da playlist', abrir: () => { setAppMode('full'); openPlPopup(); }, alvo: '#plPopup.open' },
   { nome: 'ferramentas', abrir: () => { setAppMode('full'); abrirFerramentas(); }, alvo: '#toolsSheet:not([hidden])' },
   { nome: 'configurações', abrir: () => { setAppMode('full'); openFadePopup(); }, alvo: '#fadePopup.open' },
-  // As duas JANELAS que sobem de Configurações (v1.11.7): a das opções do
-  // telão (Preenchimento, Papel de parede, Fundo da letra, Girar) e a da
-  // transferência da biblioteca (Exportar, Importar). O portão não monta ponte
-  // nativa, e fora do app os dois tiles da segunda nascem `hidden` — a janela
-  // abriria SEM OS BOTÕES (a lista também nasce vazia sem ponte) e as sondas aprovariam uma caixa sem
-  // nada para medir, que é o placar limpo que não vale. Por isso o `abrir` os
-  // desoculta, como o `selo` do oráculo do deck: no app eles são os dois moradores.
-  { nome: 'tela (opções do telão)', abrir: () => { setAppMode('full'); openTelaPopup(); }, alvo: '#telaPopup.open' },
+  // As SEÇÕES de Configurações (janelas na v1.11.7, seções desde a v1.12.48):
+  // a das opções do telão (Preenchimento, Papel de parede, Fundo da letra,
+  // Girar), a da transferência da biblioteca (Exportar, Importar) e a do
+  // histórico. O portão não monta ponte nativa, e fora do app os dois tiles do
+  // Transferir nascem `hidden` — a seção abriria SEM OS BOTÕES (a lista também
+  // nasce vazia sem ponte) e as sondas aprovariam uma caixa sem nada para medir,
+  // que é o placar limpo que não vale. Por isso o `abrir` os desoculta, como o
+  // `selo` do oráculo do deck: no app eles são os dois moradores. Sem animação:
+  // a sonda mede o estado final, não uma altura no meio do caminho.
+  { nome: 'tela (opções do telão)', abrir: () => { setAppMode('full'); openFadePopup(); trocarSecao('tela', { animar: false }); }, alvo: '#telaSecao.open' },
   {
     nome: 'transferir (exportar e importar)',
     abrir: () => {
-      setAppMode('full'); openPacotePopup();
+      setAppMode('full'); openFadePopup(); trocarSecao('pacote', { animar: false });
       for (const id of ['pacoteExportarTile', 'pacoteImportarTile']) document.getElementById(id).hidden = false;
     },
-    alvo: '#pacotePopup.open #pacoteExportarTile:not([hidden])',
+    alvo: '#pacoteSecao.open #pacoteExportarTile:not([hidden])',
   },
-  { nome: 'histórico', abrir: () => { setAppMode('full'); openHistPopup(); }, alvo: '#histPopup.open' },
+  { nome: 'histórico', abrir: () => { setAppMode('full'); openFadePopup(); trocarSecao('hist', { animar: false }); }, alvo: '#histSecao.open' },
   { nome: 'conexão (cast)', abrir: () => { setAppMode('full'); abrirCast(); }, alvo: '#castPopup.open' },
   { nome: 'bíblia · livros', abrir: () => { setAppMode('full'); abrirBiblia(); }, alvo: '#bibleSheet:not([hidden])' },
   { nome: 'bíblia · versões', abrir: () => { setAppMode('full'); openBibleVerPopup(); }, alvo: '#bibleVerPopup.open' },

@@ -178,13 +178,14 @@ nenhum, e o cursor tropeça no meio de um registro. Ver `pacoteFonteDaUrl` e o
 do Kotlin (`PacoteCanal.kt`). É a divisão do `pptxzip.js` × `deck.js`, e pelo
 mesmo motivo — a regra é o que erra, e a regra se conserta por OTA em minutos.
 
-### Onde os botões moram: a janela do Transferir (v1.11.7)
+### Onde os botões moram: o Transferir (v1.11.7; seção de Configurações desde a v1.12.48)
 
 Exportar e Importar deixaram de ser dois tiles da grade de Configurações e viraram
-**UM tile, "Transferir"** (`#pacoteTile`), que abre `#pacotePopup`: os dois botões
+**UM tile, "Transferir"** (`#pacoteTile`), que abre a seção `#pacoteSecao` dentro
+de Configurações (uma folha própria até a v1.12.48): os dois botões
 de sempre (`#pacoteExportarTile`, `#pacoteImportarTile` — mesmos ids, mesmo
 markup, mesmos três desenhos) e uma nota. Tudo o que este capítulo diz sobre "o
-botão" vale para eles, na janela; o que mudou é a porta e o sinal:
+botão" vale para eles, na seção; o que mudou é a porta e o sinal:
 
 - **`pacoteRenderTiles()` = `pacoteRenderPar()` + `pacoteSinal()`.** O par é a
   coreografia de sempre; `pacoteSinal` pinta o tile da GRADE — aro enquanto há
@@ -193,9 +194,9 @@ botão" vale para eles, na janela; o que mudou é a porta e o sinal:
   `disabled`. `pacoteMedindo` cobre a varredura do disco que vem depois da folha
   de escolha, até o "Salvar como" responder.
 - **O feedback dos dois botões é espelhado no tile da grade**
-  (`pacoteFalar`/`pacoteCalar`/`pacotePulsar`): `pulsar` recusa um nó dentro de
-  `.popup-backdrop:not(.open)`, e a janela pode estar fechada durante os minutos de
-  uma exportação. O rótulo de PAPEL do irmão ("Cancelar", "Descartar") não é
+  (`pacoteFalar`/`pacoteCalar`/`pacotePulsar`): `pulsar` recusa um nó fora da
+  tela (`visivelNaTela`), e a seção pode estar recolhida durante os minutos de uma
+  exportação. O rótulo de PAPEL do irmão ("Cancelar", "Descartar") não é
   espelhado.
 - **A lista da biblioteca atual É A JANELA (v1.11.9):** ela já está desenhada
   quando a janela abre — pedido do operador: *"em ambos os casos a lista será

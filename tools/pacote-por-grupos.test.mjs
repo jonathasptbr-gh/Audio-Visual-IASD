@@ -152,7 +152,7 @@ async function aparelho() {
 // (v1.11.9: a lista é a JANELA do Transferir, e os controles são os dois botões
 // da base dela. "Abrir a folha" é abrir a janela e esperar as linhas.)
 const abriuFolha = (pg) => esperar(pg, () => {
-  const d = document.getElementById('pacotePopup');
+  const d = document.getElementById('pacoteSecao');
   return !!d && d.classList.contains('open')
     && !!document.querySelector('#pacoteLista li');
 }, null, 60000);
@@ -262,7 +262,7 @@ try {
     new MutationObserver(() => window.__rotulos.push(alvo.textContent))
       .observe(alvo, { childList: true, characterData: true, subtree: true });
   });
-  await a.pg.evaluate(() => { openPacotePopup(); });
+  await a.pg.evaluate(() => { abrirSecao('pacote'); });
   const listaA = await escolher(a.pg, []);
   checar(Array.isArray(listaA), 'A · a folha de escolha abre', porque(listaA));
   const fimA = await fimDaExportacao(a.pg);
@@ -474,7 +474,7 @@ try {
       thumb: null, blob: null, url: null, addedAt: 1,
     });
   });
-  await b.pg.evaluate(() => { openPacotePopup(); });
+  await b.pg.evaluate(() => { abrirSecao('pacote'); });
   const abriuB = await abriuFolha(b.pg);
   checar(abriuB === true, 'B · a folha de escolha abre', porque(abriuB));
 
@@ -656,7 +656,7 @@ try {
       await AVDB.listAdd('imports', 'nos-dois');
       await AVDB.listAdd('imports', 'so-cron');
     });
-    await d.pg.evaluate(() => { openPacotePopup(); });
+    await d.pg.evaluate(() => { abrirSecao('pacote'); });
     const linhas = await abriuFolha(d.pg);
     checar(linhas === true, 'D · a folha abre', porque(linhas));
     const rotulos = (await lerFolha(d.pg)).map((x) => x.rotulo);
@@ -800,7 +800,7 @@ try {
       await AVDB.updateStateLote(lote, (_atual, novo) => novo);
       return { escrito };
     });
-    await e.pg.evaluate(() => { openPacotePopup(); });
+    await e.pg.evaluate(() => { abrirSecao('pacote'); });
     const abriuE = await abriuFolha(e.pg);
     checar(abriuE === true, 'E · a folha abre', porque(abriuE));
 
@@ -1249,7 +1249,7 @@ try {
         await AVDB.setState('coll:album-' + id, { songs: [{ id_music: 1, fileIdFull: 'f-' + id }] });
       }
     }, ALBUNS);
-    await f.pg.evaluate(() => { openPacotePopup(); });
+    await f.pg.evaluate(() => { abrirSecao('pacote'); });
     const abriu = await abriuFolha(f.pg);
     checar(abriu === true, 'F · a folha de grupos abriu', porque(abriu));
     const pos = await f.pg.evaluate(async () => {
@@ -1257,34 +1257,39 @@ try {
       const lista = document.getElementById('pacoteLista');
       const go = document.querySelector('#pacoteExportarTile');
       if (!go) return { erro: 'sem botão de exportar' };
-      // ROLA ATÉ O TOPO: é o estado em que o defeito aparece — com a lista no
-      // fim o botão estava à vista mesmo antes do conserto.
-      lista.scrollTop = 0; await z(300);
+      // Desde a v1.12.48 quem rola é CONFIGURAÇÕES (a seção não tem scroller
+      // próprio). ROLA ATÉ O TOPO DA LISTA: é o estado em que o defeito aparece —
+      // com a folha no fim o botão estava à vista mesmo antes do conserto.
+      await Promise.all(document.getElementById('cfgSecoes').getAnimations({ subtree: true })
+        .map((a) => a.finished.catch(() => {})));
+      const sc = document.querySelector('#fadePopup .fade-opts');
+      sc.scrollTop = sc.scrollTop + (lista.getBoundingClientRect().top - sc.getBoundingClientRect().top);
+      await z(300);
       const lr = lista.getBoundingClientRect();
       const gr = go.getBoundingClientRect();
+      const sr = sc.getBoundingClientRect();
       return {
         naLista: lista.contains(go),
         noFecho: !!go.closest('.popup-fecho'),
-        transborda: lista.scrollHeight - lista.clientHeight,
-        // O botão está inteiro ABAIXO da base da lista, isto é, no rodapé.
-        abaixoDaLista: +(gr.top - lr.bottom).toFixed(2),
-        visivel: gr.height > 0 && gr.bottom <= innerHeight + 1 && gr.top >= 0,
-        alturaFolha: +document.querySelector('#pacotePopup .popup-sheet')
-          .getBoundingClientRect().height.toFixed(2),
+        transborda: sc.scrollHeight - sc.clientHeight,
+        // A lista continua ABAIXO da base visível: o botão a cobre, não a segue.
+        listaPassa: +(lr.bottom - gr.top).toFixed(2),
+        visivel: gr.height > 0 && gr.bottom <= sr.bottom + 1 && gr.top >= sr.top - 1,
       };
     });
-    checar(!pos.erro && pos.transborda > 40,
-      'F · e a lista de grupos TRANSBORDA de verdade (' + pos.transborda + 'px) — '
-      + 'sobre uma lista que cabe inteira o botão está à vista com e sem o '
-      + 'conserto, e a asserção abaixo aprovaria qualquer coisa', JSON.stringify(pos));
-    checar(!pos.erro && !pos.naLista && pos.noFecho,
-      'F · o "Salvar" mora no `.popup-fecho`, FORA do scroller — ele era o '
-      + 'último `<li>` da lista, e só aparecia depois de rolar o acervo inteiro',
+    checar(!pos.erro && pos.transborda > 40 && pos.listaPassa > 0,
+      'F · e a folha TRANSBORDA de verdade (' + pos.transborda + 'px), com a lista '
+      + 'continuando abaixo do botão — sobre uma lista que cabe inteira o botão '
+      + 'está à vista com e sem o conserto, e a asserção abaixo aprovaria qualquer coisa',
       JSON.stringify(pos));
-    checar(!pos.erro && pos.abaixoDaLista >= 0 && pos.visivel,
-      'F · e com a lista NO TOPO ele continua na tela, abaixo dela ('
-      + pos.abaixoDaLista + 'px) — a posição na árvore sozinha aprovaria um '
-      + 'rodapé que sai da folha', JSON.stringify(pos));
+    checar(!pos.erro && !pos.naLista && pos.noFecho,
+      'F · o "Salvar" mora no `.popup-fecho`, FORA da lista — ele era o último '
+      + '`<li>` dela, e só aparecia depois de rolar o acervo inteiro',
+      JSON.stringify(pos));
+    checar(!pos.erro && pos.visivel,
+      'F · e com a lista NO TOPO ele continua À VISTA, grudado na base da folha '
+      + '(`sticky`, v1.12.48) — a posição na árvore sozinha aprovaria um rodapé '
+      + 'que só aparece no fim da rolagem', JSON.stringify(pos));
     await f.ctx.close();
   }
 

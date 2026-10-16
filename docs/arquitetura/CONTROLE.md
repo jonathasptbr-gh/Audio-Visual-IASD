@@ -1230,22 +1230,59 @@ móveis · Verificar]` `[Compartilhar · Transferir]`; no navegador (Saída de
 | tile | id | estado (`data-estado`) | aceso | ícone |
 |---|---|---|---|---|
 | Tema | `#temaTile` | `escuro` · `claro` | **sempre** | `#icoLua` / `#icoSol` |
-| **Tela** | `#telaTile` | — (abre a janela da Tela) | **sempre** (classe no HTML) | `#icoTela` |
-| Histórico | `#histOpenRow` | — (abre a folha) | **sempre** (classe no HTML) | `#icoHistorico` |
+| **Tela** | `#telaTile` | — (abre a seção da Tela) | **sempre** (classe no HTML) | `#icoTela` |
+| Histórico | `#histOpenRow` | — (abre a seção) | **sempre** (classe no HTML) | `#icoHistorico` |
 | Saída de áudio | `#saidaAudioTile` | — (abre o seletor do sistema) | **sempre** | `#icoSaidaDeAudio` |
 | Dados móveis | `#dadosMoveisTile` | `on` · `off` | **sempre** | `#icoDadosMoveisOff` / `#icoDadosMoveis` |
-| Verificar | `#testeTile` | — (abre a folha) | **sempre** | `#icoVerificar` |
+| Verificar | `#testeTile` | — (abre a seção) | **sempre** | `#icoVerificar` |
 | Compartilhar | `#shareAppTile` | `app` | **sempre** | `#icoCompartilhar` |
 | **Transferir** | `#pacoteTile` | `ocioso` · `ocupado` · `pronto-para-enviar` | **sempre** | `#icoTransferir` / `#icoCompartilhar` (pronto) · o ARO no lugar dele em curso |
 
-##### A janela da TELA (v1.11.7)
+##### As SEÇÕES de Configurações (v1.12.48)
+
+Pedido do operador: *"ao invés das opções de configurações abrirem em uma nova
+janela na base da tela, faça com que seus conteúdos abram dentro da janela
+original das configurações, abaixo dos botões … mas acima dos botões de versão e
+pedir ajuda. Ajuste a questão do botão de fechar dessas 'janelas', para que sejam
+mais individuais e não concorram visualmente com o botão de fechar a janela toda
+… Lembre de fazer as animações de alternância, abertura e fechamento dessas
+seções no corpo, como também cuidar a animação da própria janela"*.
+
+**Tela, Transferir, Editar mídia, Histórico e Verificação são SEÇÕES de
+`#fadePopup`**, e não folhas: cada uma é uma `<section class="cfg-sec">`
+(`#telaSecao`, `#pacoteSecao`, `#edicaoSecao`, `#histSecao`, `#testeSecao`)
+dentro de `#cfgSecoes`, no fim da `.fade-opts` — depois da `.qs-grade`, antes do
+`.popup-footer` da versão. Os ids de dentro (tiles, listas, botões) são os de
+quando eram folhas.
+
+| peça | onde | regra |
+|---|---|---|
+| a tabela | `SECOES` (bloco do topo do `controle.js`) | tile, nó, `abrir`, `recolher` de cada seção. Seção nova = uma linha + uma `<section class="cfg-sec">` |
+| a troca | `trocarSecao(nome)` | UMA aberta por vez: o tile abre a dele, outro tile TROCA, o mesmo tile RECOLHE. `abrirSecao(nome)` abre Configurações antes se preciso; `recolherSecao()` |
+| a animação | `trocarSecao` · `animarAlturaDasSecoes` | WAAPI na `height` de `#cfgSecoes` (`--dur-lenta`); a folha tem a altura do conteúdo (teto 80%) e cresce JUNTO. Na troca a seção que sai é `.saindo` (absoluta, sem toque) e as duas se cruzam por opacidade. Mudanças de DENTRO (a Verificação terminando, o editor trocando de vista) passam por `animarAlturaDasSecoes`. Sem movimento: sem animação, mesmo estado final |
+| a rolagem | `rolarAteSecao` | depois de abrir (e quando a seção CRESCE), a folha rola o mínimo para a seção caber, nunca além do topo dela |
+| o fechar | `.cfg-sec-recolher` | NENHUMA seção tem ✕ — o único é o de Configurações. O cabeçalho (`.cfg-sec-cab`: o desenho e o título do tile) tem um chevron para cima SEM CAIXA (`--muted`, fundo transparente, `--hit` × `--hit`) |
+| a Verificação | `#testeCancelar` | enquanto anda, o chevron, o Refazer e o Registro somem e a faixa mostra o CANCELAR (✕ + "Cancelar", `--danger-strong` sobre `--btn-danger`), que recolhe a seção. Recolher CANCELA a rodada (`aoRecolherTeste`) |
+| o aberto | `aria-expanded` no tile | **ABERTO não é cor**: o tile não muda; quem diz é o corpo à vista e o cabeçalho com o desenho dele |
+| a faixa de fecho | `.cfg-sec > .popup-fecho`, `.cfg-sec > #histClearFaixa` | GRUDA na base da folha (`sticky`, `bottom: calc(-1 * var(--veu-base))`, fundo `--panel`, `z-index: 6` acima da tira de sombra, respiro `--sp-5` em padding) — a regra da v1.8.60, *"o botão de salvar … fixo na base"*, sobrevivendo à mudança de casa |
+| as listas | `.cfg-sec .popup-list` | NÃO rolam sozinhas (sem `rola`): quem rola é a `.fade-opts`. Um scroller dentro de outro faz o mesmo gesto mover coisas diferentes |
+
+- **Fechar Configurações recolhe a seção** (`closeFadePopup`, sem animar) — e
+  fechar no meio da Verificação a CANCELA, como fechar a folha dela fazia.
+- **O voltar recolhe a seção ANTES de fechar Configurações** (`__avBack`, no
+  degrau da folha). As folhas que uma seção abre por cima (a pergunta de destino
+  do editor, `#songMenuPopup`) continuam folhas e fecham primeiro.
+- **Projetar um item do Histórico fecha Configurações inteira:** ela cobre a
+  preview e o transporte, que é onde a resposta ao toque aparece.
+- **Não há caminho de fora** que abra uma delas sem Configurações; quem quiser
+  um usa `abrirSecao(nome)`, que abre a folha antes.
+
+##### A seção da TELA (v1.11.7; seção desde a v1.12.48)
 
 Pedido do operador: *"centralizar opções que se referem a tela em um botão nas
 configurações, que abre uma janela com as opções"*. Quatro tiles que eram da
-grade moram agora em `#telaPopup`, com os **mesmos ids e o mesmo markup**
-(pintores, `data-estado` e quase todos os oráculos os alcançam por id): ela abre
-de dentro de Configurações como o Histórico e a Verificação, tem linha na tabela
-`POPUPS` e `z-index: 205`.
+grade moram agora em `#telaSecao`, com os **mesmos ids e o mesmo markup**
+(pintores, `data-estado` e quase todos os oráculos os alcançam por id).
 
 | tile | id | estado (`data-estado`) | ícone |
 |---|---|---|---|
@@ -1255,22 +1292,22 @@ de dentro de Configurações como o Histórico e a Verificação, tem linha na t
 | Girar no telão | `#rotBtn` | `0` `90` `180` `270` | `#icoPaisagem`, GIRADO pelo `data-estado` |
 
 - **O Tema FICA na grade:** é a cor do APP, e o palco não tem tema — pô-lo numa
-  janela chamada "Tela" induziria a lê-lo como o tema do telão. O Histórico (o
+  seção chamada "Tela" induziria a lê-lo como o tema do telão. O Histórico (o
   que foi ao ar), a Saída de áudio (o som) e os Dados móveis (a rede) também não
   descrevem a aparência do telão.
 - **O WALLPAPER continua sendo um `<label>` com o `<input type=file>` DENTRO**
   (invariante 6 do shell): a ativação nativa do rótulo é o que abre o
-  `onShowFileChooser`. Tocar num tile NÃO fecha a janela.
-- **A grade da janela é `.qs-grade-folha`, DUAS colunas** (4 tiles fecham 2×2; 3
+  `onShowFileChooser`. Tocar num tile NÃO recolhe a seção.
+- **A grade da seção é `.qs-grade-folha`, DUAS colunas** (4 tiles fecham 2×2; 3
   deixariam um órfão e 4 não comportam "Preenchimento" a 360px). **Não é
-  `.qs-grade`**: `document.querySelector('.qs-grade')` devolve o PRIMEIRO no
-  documento, e as janelas vêm antes de Configurações no HTML.
-- **A janela fechada é `opacity: 0`, não `display: none`:** o nó existe e
-  responde, e é por isso que `load()` pinta o `data-estado` dos quatro na carga
-  e que `getAnimations()` do giro continua valendo. `openTelaPopup` só refaz o
-  que depende de um instante.
+  `.qs-grade`**: essa é a grade de Configurações, e os oráculos a alcançam por
+  `document.querySelector('.qs-grade')`.
+- **A seção recolhida é `hidden` (`display: none`):** o nó existe e `load()`
+  pinta o `data-estado` dos quatro na carga, mas o que depende de LAYOUT (o
+  `transform` computado do giro, a largura do ícone) só existe com ela aberta —
+  `aoAbrirTela` refaz isso na abertura.
 
-##### A janela do TRANSFERIR (v1.11.7; a lista sempre à vista, v1.11.9)
+##### A seção do TRANSFERIR (v1.11.7; a lista sempre à vista, v1.11.9; seção desde a v1.12.48)
 
 Pedido do operador (v1.11.7): *"os botões de exportar e importar, para que sejam
 um único botão, e depois na janela aberta teremos a escolha de exportar ou
@@ -1280,15 +1317,15 @@ tem"*. E a v1.11.9, sobre a primeira entrega: *"em ambos os casos a lista será
 vista, então já pode tornar ela visível diretamente e ter apenas os dois botões
 de ações na base"*.
 
-- **`#pacoteTile` abre `#pacotePopup`**: cabeçalho, a LISTA (`#pacoteLista`), a
-  nota (`#pacoteNota`) e, no `.popup-fecho` — fora do scroller, como o confirmar
-  de toda folha —, os DOIS botões de sempre (`#pacoteExportarTile`,
+- **`#pacoteTile` abre `#pacoteSecao`**: cabeçalho, a LISTA (`#pacoteLista`), a
+  nota (`#pacoteNota`) e, no `.popup-fecho` — grudado na base da folha, como o
+  confirmar de toda seção —, os DOIS botões de sempre (`#pacoteExportarTile`,
   `#pacoteImportarTile`, mesmos ids, mesmo markup, mesmos três desenhos, lado a
   lado). Toda a coreografia de `pacoteRenderTiles` — o aro, o pronto-para-enviar,
   o irmão que vira Cancelar ou Descartar — continua pintando ELES:
   `pacoteRenderTiles()` é `pacoteRenderPar()` (o corpo de antes) mais
   `pacoteSinal()` mais `pacoteRedesenharLista()`.
-- **A LISTA JÁ ESTÁ NA JANELA, e é a escolha do que levar.** `openPacotePopup()`
+- **A LISTA JÁ ESTÁ NA SEÇÃO, e é a escolha do que levar.** `aoAbrirPacote()`
   chama `pacoteAbrirLista()`: o plano APROXIMADO (`pacotePlanoAproximado`, o que
   a Biblioteca já sabe) vai para `pacoteEsboco` e `renderPacoteGrupos(plano)`
   desenha as mesmas linhas do seletor de destinos (`songMenuItem`, o Set
@@ -3514,10 +3551,9 @@ repetir um louvor que entrou de improviso e não ficou guardado em lista nenhuma
 
 **ELE MORA EM CONFIGURAÇÕES desde a v1.4.31** (`#histOpenRow`). Era a sétima
 célula da linha de transporte, e aquela fileira é o que se opera DURANTE o
-culto; o histórico é o que se consulta ANTES ou DEPOIS. A folha (`#histPopup`)
-abre por cima de Configurações — daí ela vir DEPOIS na tabela `POPUPS` **e** um
-degrau acima no `z-index`: as duas dizem a mesma ordem, e mudar uma sem a outra
-é o acaso que já cobriu um popup por inteiro aqui.
+culto; o histórico é o que se consulta ANTES ou DEPOIS. Ele é uma SEÇÃO de
+Configurações (`#histSecao`, v1.12.48; era uma folha aberta por cima dela) — ver
+"As SEÇÕES de Configurações".
 
 #### O que cada linha guarda
 
@@ -7593,7 +7629,8 @@ metadado, e ela sai **dos dois lados** da fração.
 
 ##### A Verificação do Sistema
 
-O tile *"Verificar"* de Configurações abre a `#testePopup`, que roda a tabela
+O tile *"Verificar"* de Configurações abre a seção `#testeSecao` (uma folha
+própria até a v1.12.48), que roda a tabela
 `TESTES` (40 linhas, nove áreas) e lista o desfecho de cada uma. **Ela nasceu
 de uma classe de defeito, não de um defeito**: o download do acervo ficou
 quebrado por semanas sem ninguém ver, porque quem já tem o acervo baixado nunca
@@ -10079,15 +10116,15 @@ Parar e "mídia entra" mudam a base da leitura (o card do nome aparece/some) no 
 
 ## Editar mídia (v1.12.0 → v1.12.10)
 
-Janela `#edicaoPopup` aberta pelo tile "Editar mídia" de Configurações (nos DOIS modos). Módulo `// ===== EDITAR MÍDIA` do `controle.js`; banco em `shared/db.js` (`addEdicao`, `resolverEdicao`, `baseDe`, `adotarBases`, `addBase`, `basesDoEditor`); motor em `shared/stage.js`.
+Seção `#edicaoSecao` de Configurações (uma folha própria até a v1.12.48), aberta pelo tile "Editar mídia" (nos DOIS modos). Módulo `// ===== EDITAR MÍDIA` do `controle.js`; banco em `shared/db.js` (`addEdicao`, `resolverEdicao`, `baseDe`, `adotarBases`, `addBase`, `basesDoEditor`); motor em `shared/stage.js`.
 
 - **Item virtual:** registro `media` com `edicao {origem, inicio, fim, fadeEntrada, fadeSaida, soAudio}`; `getMedia` o devolve RESOLVIDO (bytes do original, duração do trecho, letra deslocada), `getMediaCru` devolve o registro. O original é segurado por `lerDetentores` (também pelo rascunho `edicaoRascunho`); o do catálogo `files` é adotado para `media` por `adotarBases` antes de `purgeCatalogRecords` apagar os bytes. A origem nunca encadeia.
 - **O original adotado guarda `opfsPath`, nunca o `File` do OPFS (v1.12.22):** o Chromium grava no IndexedDB um `File` vindo do OPFS POR REFERÊNCIA — apagada a pasta, `size` continua certo e `arrayBuffer()` lança `NotFoundError` (o item editado seguia na lista e não tocava, e o pacote exportava o blob morto). `adotarBases` copia os bytes EM FLUXO (`stream().pipeTo`) para `bases/<id>` (`caminhoDeBase`) antes de voltar — isto é, antes do `opfsDeleteDir` — e grava o registro `media` com `opfsPath` e `blob: null`. Quem apaga o arquivo é o `gcOrfaos`, que no fim chama `varrerBases`: tira de `bases/` o que nenhum registro aponta, pulando o arquivo do último minuto (adoção em curso). `bases/` não é "arquivo sem coleção" no pacote (`AVDB.ehCaminhoDeBase`): o original adotado só viaja pelo `pacoteBases`. Oráculo: D1 do `edicao-de-midia` (LÊ os bytes depois do `opfsDeleteDir`; coleta com o relógio adiantado).
 - **Um fim só no corte (v1.12.22):** `marcarFimNatural` espera o fade de saída do palco antes de marcar `ended`, e nesse meio-tempo o `<video>` segue tocando; sem guarda, cada `timeupdate` achava `resta < 0` e o `vigiarCorte` despachava outro `ended` sintético (MEDIDO: ~17 `onEnded` até o fim do arquivo, com o `FADE` fixo do app e um item sem "Fade de saída"). `fimEmCurso` nasce no INÍCIO do fim (antes do `await`), é checada em `vigiarCorte`/`encerrarNoCorte`/`marcarFimNatural` e morre onde uma reprodução recomeça (`ended = false` em `play`/`load`/`clear`/`fadeOutToBlack`, e no `seek`). Oráculo: B5 do `edicao-de-midia`.
-- **Duas vistas na mesma folha** (altura fixa): formulário e seletor. O seletor é a lista de grupos da exportação (Cronograma, Playlist, Favoritos, Biblioteca por coletânea, "Importados para edição"), com busca e "Importar arquivo" (`addBase`: bytes só para o editor, fora de toda lista). Linhas SEM caixa de marcação (escolha de um; `edicaoLinha(..., null, ...)`).
+- **Duas vistas na mesma seção** (a troca ANIMA a altura, `animarAlturaDasSecoes`, v1.12.48): formulário e seletor. O seletor é a lista de grupos da exportação (Cronograma, Playlist, Favoritos, Biblioteca por coletânea, "Importados para edição"), com busca e "Importar arquivo" (`addBase`: bytes só para o editor, fora de toda lista). Linhas SEM caixa de marcação (escolha de um; `edicaoLinha(..., null, ...)`).
 - **Carga:** `edicaoCarregarLista` mostra spinner por `EDICAO_CARGA_MS` (1 s) antes da lista; sem ele a leitura assíncrona dos grupos aparecia como "nenhuma mídia". Trocas de vista entram por `edicaoEntrar` (`@keyframes edicao-entra`).
 - **SEM TEXTO DE ESTADO (v1.12.10):** o rodapé da janela não tem nota (`#edicaoNota`/`edicaoDizer` saíram, e o recado "Lendo a duração…"/"Item criado…"/erros com eles). O retorno é o pulso do botão que o operador tocou (`responder`: `ok` pelo `adicionarNasListas`/Confirmar, `erro` em criar/salvar que falha e no Importar arquivo que não lê). Falha sem botão à vista (mídia que sumiu ao abrir) não diz nada. Os oráculos esperam o FATO (o rótulo do nome vira "Nome do item" depois de criar; o banco mostra o `fim` novo depois de salvar), nunca um texto.
-- **Altura e card (v1.12.9):** `#edicaoPopup .popup-sheet` é `height: auto` (a do formulário, sem vão sobrando); `edicaoMedirFolha` (fim do `edicaoRender` do formulário) guarda a altura medida, sem o recado de baixo, em `--edicao-h`, e `#edicaoPopup[data-vista="escolha"]` a usa (`min(var(--edicao-h, 32rem), 92%)`) para os botões da base não andarem — antes da primeira medição vale o palpite de 32rem. O card do item (`.edicao-card`) tem rótulo e apoio em UMA linha (`nowrap`); o texto vai dentro de `.edicao-rolante` e `edicaoRolarTextos` liga o ping-pong (`np-marquee`, `--np-shift`/`--np-dur`, a conta do título da mídia no ar) quando o excesso passa de 4 px; com `prefers-reduced-motion` vira reticência. Oráculo: C2d (reversões medidas: altura 80% e `nowrap` fora reprovam).
+- **Card (v1.12.9):** o texto do card do item nunca quebra (uma linha por rótulo, ping-pong `edicaoRolarTextos` se não couber). A ALTURA da v1.12.9 (`edicaoMedirFolha`, `--edicao-h`, o seletor com a altura do formulário) SAIU na v1.12.48: era de uma folha ancorada no fundo, e uma seção cresce para baixo a partir do cabeçalho. Oráculo: C2d.
 - **Acabamento da v1.12.8:** sem o recado "fica com …" no cabeçalho do trecho (só o título "Trecho", centrado); cada ponta é `.edicao-ponta-cab` (rótulo + tempo na MESMA linha, tempo à direita) sobre os dois botões de 1 s; o rótulo do nome (`.edicao-rotulo-nome`) tem 14 px de recuo, o do texto do campo. Oráculo: C2c.
 - **Acabamento da v1.12.7:** o formulário NÃO tem nota de rodapé (a linha "Original: …" saiu; desde a v1.12.10 não há texto de estado nenhum, ver "SEM TEXTO DE ESTADO"); o `#edicaoImportar` é um primário da barra (`height: var(--quad-faixa)`, `.song-menu-text` em linha); `.edicao-faixa` leva `margin-inline: calc(var(--sp-6) + var(--sp-3))` — as pontas ficam a ≥ 28 px da borda, fora da zona do gesto de voltar; `.edicao-spin` é 64 px e `.edicao-carga` não tem texto (o `aria-label` do svg diz "Carregando a lista"). Oráculo: C1c, C2b e a checagem do spinner no `edicao-de-midia`.
 - **Editar um item já editado é NO LUGAR (v1.12.6, revoga o "ajuste fino" que criava item novo):** escolher um item editado abre o formulário com os valores GRAVADOS dele e o nome dele (`edicaoEditandoId`/`edicaoBase`); "Confirmar" chama `AVDB.atualizarEdicao(id, e)` — o MESMO registro e o MESMO id, com `edicao`/`kind`/`name` reescritos (o original não muda; um `e.origem` diferente é ignorado) —, e como as listas guardam só o id, o item muda em TODAS onde está (Cronograma, playlist, favoritos); `edicaoRecarregarListas` redesenha as três. Escolher o ORIGINAL cria um item novo; depois de criar o formulário passa a editar o item recém-criado (`edicaoFixarNoItem`), então confirmar de novo o atualiza e não duplica. O rascunho guarda `editandoId`; se o item sumiu na reabertura, o rascunho vira item novo. Efeito no ar: o que já está no palco só muda no próximo `load`.

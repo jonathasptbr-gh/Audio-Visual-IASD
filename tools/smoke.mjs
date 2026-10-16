@@ -602,7 +602,7 @@ try {
       versaoDentro: faixa.contains(document.getElementById('appVersion')),
       // O REGISTRO SAIU DAQUI (v1.12.29): a porta dele é só a Verificação.
       salvarNaFaixa: !!document.getElementById('diagSave'),
-      salvarNaVerificacao: !!document.querySelector('#testePopup #testeSalvar'),
+      salvarNaVerificacao: !!document.querySelector('#testeSecao #testeSalvar'),
       // A faixa mede a mesma coisa que a grade — ela é a última linha da folha.
       faixa: cx(faixa), grade: grade ? cx(grade) : null,
     };
@@ -721,11 +721,8 @@ try {
   // que não mudou. Os botões destas duas moram na barra de controles, na base.
   for (const [abrir, sel, nome] of [
     [() => openPlPopup(), '#plPopup', 'a playlist'],
-    [() => openHistPopup(), '#histPopup', 'o histórico'],
-    // As duas janelas de Configurações (v1.11.7) sobem da base como o Histórico,
-    // de onde o botão que as abre já não importa: elas são folhas de baixo.
-    [() => openTelaPopup(), '#telaPopup', 'a janela da Tela'],
-    [() => openPacotePopup(), '#pacotePopup', 'a janela do Transferir'],
+    // (O Histórico e as janelas da Tela e do Transferir subiam da base até a
+    // v1.12.48; hoje são SEÇÕES de Configurações, que desce do teto.)
   ]) {
     await pg.evaluate(abrir);
     const g = await gaveta(sel);
@@ -830,6 +827,13 @@ try {
     openHymnSearch(false); await new Promise((r) => setTimeout(r, 400)); varrer();
     closeHymnSearch(); await new Promise((r) => setTimeout(r, 100));
     openFadePopup(); await new Promise((r) => setTimeout(r, 150)); varrer();
+    // AS SEÇÕES DE CONFIGURAÇÕES (v1.12.48) nascem com botões novos — o
+    // chevron sem caixa e o Cancelar da Verificação — e o padrão do navegador
+    // é o bisel: cada uma é varrida aberta.
+    for (const s of ['tela', 'pacote', 'edicao', 'hist', 'teste']) {
+      trocarSecao(s, { animar: false }); await new Promise((r) => setTimeout(r, 60)); varrer();
+    }
+    recolherSecao({ animar: false });
     setAppMode('simple'); await new Promise((r) => setTimeout(r, 100)); varrer();
     setAppMode('full');
     return [...achados];

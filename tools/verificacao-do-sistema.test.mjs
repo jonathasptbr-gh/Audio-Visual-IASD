@@ -351,7 +351,7 @@ try {
   await pg.click('#settingsBtn');
   await pg.waitForSelector('#fadePopup.open', { timeout: 5000 });
   await pg.click('#testeTile');
-  await pg.waitForSelector('#testePopup.open', { timeout: 5000 });
+  await pg.waitForSelector('#testeSecao.open', { timeout: 5000 });
   await pg.waitForFunction(() => !testeRodando && testeResultado && !testeEmCurso, null, { timeout: 40000 });
   const tela = await pg.evaluate(() => {
     const r = testeResultado;
@@ -411,91 +411,136 @@ try {
     'I · "Tudo certo" veste o azul de `--accent`, nunca o verde (a conclusão é azul desde a v1.8.55)',
     tela.corBom + ' vs ' + rgb(tela.accent));
 
-  // I1 · FECHAR CANCELA. Depois de fechada a folha, nenhuma checagem nova
+  // I1 · RECOLHER CANCELA. Depois de recolhida a seção, nenhuma checagem nova
   // começa e a rodada não deixa resultado — meia lista se leria como o
   // veredito do aparelho.
   const cancela = await pg.evaluate(async () => {
     const real = window.rodarUmaChecagem;
     let fechada = false; let depois = 0; let antes = 0;
     window.rodarUmaChecagem = (c) => { if (fechada) depois++; else antes++; return real(c); };
-    closeTestePopup();
-    openTestePopup();
+    recolherSecao();
+    abrirSecao('teste');
     await new Promise((r) => setTimeout(r, 0));
     const rodava = testeRodando;
-    closeTestePopup(); fechada = true;
+    recolherSecao(); fechada = true;
     while (testeEmCurso || testeRodando) await new Promise((r) => setTimeout(r, 20));
     window.rodarUmaChecagem = real;
     return { rodava, antes, depois, resultado: testeResultado, tile: document.getElementById('testeTile').classList.contains('qs-trabalhando') };
   });
   checar(cancela.rodava && cancela.antes > 0,
-    'I1 · PREMISSA: a rodada estava andando quando a folha fechou', JSON.stringify(cancela));
+    'I1 · PREMISSA: a rodada estava andando quando a seção recolheu', JSON.stringify(cancela));
   checar(cancela.depois === 0 && cancela.resultado === null && !cancela.tile,
-    'I1 · fechar a folha CANCELA: nenhuma checagem começa depois, e nada fica como resultado',
+    'I1 · recolher a seção CANCELA: nenhuma checagem começa depois, e nada fica como resultado',
     JSON.stringify(cancela));
   await pg.evaluate(async () => {
-    openTestePopup();
+    abrirSecao('teste');
     while (testeEmCurso || testeRodando || !testeResultado) await new Promise((r) => setTimeout(r, 20));
   });
 
-  // ---- I2: A CAMADA — ela abre SOBRE Configurações, não atrás (v1.10.10) ----
+  // ---- I2: ELA MORA DENTRO DE CONFIGURAÇÕES (v1.12.48) ----------------
   //
-  // Relato do operador: *"atualmente ela fica atrás das configurações, exigindo
-  // um toque extra para fechar as configurações para poder analisar a
-  // verificação. Ela deve abrir sobre as configurações"*. A tabela `POPUPS` já
-  // tinha a ORDEM certa (o voltar sempre devolveu Configurações — bloco J,
-  // abaixo); o que faltava era o `z-index`, que com o mesmo degrau de todo
-  // `.popup-backdrop` deixava a ORDEM DO DOCUMENTO decidir — e `#testePopup`
-  // está declarado ANTES de `#fadePopup` no HTML.
-  //
-  // A PROVA É HIT-TEST, nunca o `z-index` computado lido de volta: um número
-  // escrito na folha prova que ela declara o que declara, não que o navegador
-  // pinta na ordem certa — a mesma régua que `biblioteca-camadas.test.mjs` já
-  // cobra para a pilha da Biblioteca. O ponto medido é o CABEÇALHO da folha de
-  // Verificação (onde as duas folhas — a de cima, ancorada no teto, e a de
-  // baixo, ancorada na base — comprovadamente se sobrepõem: a de Configurações
-  // mede até 80% da tela a partir do topo).
-  // A TRANSIÇÃO `transform` de CADA folha (`var(--dur-lenta)`) precisa ter
-  // ASSENTADO antes de medir — a régua do `abertura-e-transferencia.test.mjs`:
-  // `getAnimations()` + `finished`, nunca duas amostras iguais em quadros
-  // seguidos. Sem isto o retângulo mede a folha NO MEIO do deslizar, ainda
-  // fora do lugar de repouso — que é justamente por que a asserção mede uma
-  // GEOMETRIA e não confia em `waitForSelector('.open')` sozinho.
+  // Ela foi uma folha de baixo aberta POR CIMA de Configurações (e a v1.10.10
+  // teve de consertar o `z-index` dela, que a deixava atrás). Desde a v1.12.48
+  // é uma SEÇÃO de Configurações: não há camada a disputar, e a prova é que o
+  // toque no cabeçalho dela chega à própria seção, dentro da folha.
   await pg.evaluate(async () => {
-    const parar = (sel) => Promise.all(document.querySelector(sel)
-      .getAnimations().map((a) => a.finished.catch(() => {})));
-    await Promise.all([parar('#testePopup .popup-sheet'), parar('#fadePopup .popup-sheet')]);
+    await Promise.all(document.getElementById('cfgSecoes').getAnimations({ subtree: true })
+      .map((a) => a.finished.catch(() => {})));
+    const cab = document.querySelector('#testeSecao .cfg-sec-cab');
+    cab.scrollIntoView({ block: 'nearest' });
   });
   const camada = await pg.evaluate(() => {
-    const sheet = document.querySelector('#testePopup .popup-sheet');
-    const r = sheet.getBoundingClientRect();
-    const fr = document.getElementById('fadePopup').querySelector('.popup-sheet').getBoundingClientRect();
-    const cx = r.left + r.width / 2, cy = r.top + 10;
-    const el = document.elementFromPoint(cx, cy);
-    const dono = el && el.closest('.popup-backdrop');
+    const cab = document.querySelector('#testeSecao .cfg-sec-cab').getBoundingClientRect();
+    const el = document.elementFromPoint(cab.left + cab.width / 2, cab.top + cab.height / 2);
     return {
-      donoId: dono ? dono.id : null,
-      dentroDaFadePopup: cy < fr.bottom,
+      secao: el && el.closest('.cfg-sec') ? el.closest('.cfg-sec').id : null,
+      folha: el && el.closest('.popup-backdrop') ? el.closest('.popup-backdrop').id : null,
+      xProprio: !!document.querySelector('#testeSecao .popup-close'),
     };
   });
-  checar(camada.dentroDaFadePopup === true,
-    'PREMISSA: o ponto medido está DENTRO da área da folha de Configurações — '
-    + 'senão a medição não prova nada sobre a disputa das duas camadas', camada);
-  checar(camada.donoId === 'testePopup',
-    'A VERIFICAÇÃO PINTA POR CIMA DE CONFIGURAÇÕES: o toque no cabeçalho dela '
-    + 'alcança a PRÓPRIA folha, não a que ficava por baixo antes deste lote',
-    camada);
+  checar(camada.secao === 'testeSecao' && camada.folha === 'fadePopup' && !camada.xProprio,
+    'I2 · a Verificação é uma SEÇÃO de Configurações: o toque no cabeçalho dela chega à própria '
+    + 'seção, dentro da folha, e ela não tem ✕ próprio', JSON.stringify(camada));
 
-  // ---- J: O VOLTAR DEVOLVE CONFIGURAÇÕES --------------------------------
+  // ---- J: O VOLTAR RECOLHE A SEÇÃO E DEVOLVE CONFIGURAÇÕES ---------------
   const volta = await pg.evaluate(() => {
     window.__avBack();
     return {
-      teste: document.getElementById('testePopup').classList.contains('open'),
+      teste: document.getElementById('testeSecao').classList.contains('open'),
       config: document.getElementById('fadePopup').classList.contains('open'),
     };
   });
   checar(!volta.teste && volta.config,
-    'o voltar fecha esta folha e devolve Configurações, de onde ela nasceu — a tabela POPUPS é '
-    + 'percorrida de trás para a frente, e a ordem dela diz isso', JSON.stringify(volta));
+    'J · o voltar recolhe a seção e Configurações fica — ela foi aberta depois, e é desfeita antes',
+    JSON.stringify(volta));
+
+  // ---- J2: FECHAR CONFIGURAÇÕES NO MEIO DA RODADA A CANCELA (v1.12.48) ----
+  // Era o que fechar a folha da Verificação fazia; a folha agora é a de
+  // Configurações inteira, e a regra continua: desistir da folha é desistir
+  // da rodada. Pelo ✕ grande, que é o único que existe.
+  const fecharNoMeio = await pg.evaluate(async () => {
+    const real = window.rodarUmaChecagem;
+    let fechada = false; let depois = 0;
+    window.rodarUmaChecagem = (c) => { if (fechada) depois++; return real(c); };
+    abrirSecao('teste');
+    await new Promise((r) => setTimeout(r, 0));
+    const rodava = testeRodando;
+    document.getElementById('fadePopupClose').click(); fechada = true;
+    while (testeEmCurso || testeRodando) await new Promise((r) => setTimeout(r, 20));
+    window.rodarUmaChecagem = real;
+    return { rodava, depois, resultado: testeResultado, secao: secaoAberta,
+      config: document.getElementById('fadePopup').classList.contains('open') };
+  });
+  checar(fecharNoMeio.rodava && fecharNoMeio.depois === 0 && fecharNoMeio.resultado === null
+      && fecharNoMeio.secao === '' && !fecharNoMeio.config,
+    'J2 · fechar Configurações pelo ✕ no meio da rodada CANCELA a verificação e recolhe a seção',
+    JSON.stringify(fecharNoMeio));
+
+  // ---- J3: O CANCELAR VERMELHO (v1.12.48) ---------------------------------
+  // Enquanto a rodada anda a seção tem UMA saída: o Cancelar da faixa dela,
+  // no vermelho destrutivo de sempre (`--btn-danger` + `--danger-strong`). O
+  // chevron do cabeçalho some — duas saídas para a mesma coisa disputam. No
+  // fim, o Cancelar some e voltam o chevron e o Refazer.
+  await pg.evaluate(() => { document.getElementById('settingsBtn').click(); });
+  await pg.waitForSelector('#fadePopup.open', { timeout: 5000 });
+  const cancelar = await pg.evaluate(async () => {
+    const real = window.rodarUmaChecagem;
+    let tocado = false; let depois = 0;
+    window.rodarUmaChecagem = (c) => { if (tocado) depois++; return real(c); };
+    abrirSecao('teste');
+    await new Promise((r) => setTimeout(r, 0));
+    const cx = document.getElementById('testeCancelar');
+    const ch = document.querySelector('#testeSecao .cfg-sec-recolher');
+    const cs = getComputedStyle(cx);
+    const raiz = getComputedStyle(document.documentElement);
+    const cor = (v) => { const s = document.createElement('span'); s.style.color = raiz.getPropertyValue(v); document.body.appendChild(s); const c = getComputedStyle(s).color; s.remove(); return c; };
+    const durante = { rodava: testeRodando, cancelar: !cx.hidden && cs.display !== 'none' && cx.getBoundingClientRect().width > 0,
+      fundo: cs.backgroundColor, tinta: cs.color, danger: cor('--btn-danger'), dangerStrong: cor('--danger-strong'),
+      rotulo: cx.textContent.trim(), chevron: !ch.hidden && getComputedStyle(ch).display !== 'none',
+      refazer: !document.getElementById('testeRefazer').hidden };
+    cx.click(); tocado = true;
+    while (testeEmCurso || testeRodando) await new Promise((r) => setTimeout(r, 20));
+    window.rodarUmaChecagem = real;
+    const aposCancelar = { depois, resultado: testeResultado, secao: secaoAberta,
+      config: document.getElementById('fadePopup').classList.contains('open') };
+    abrirSecao('teste');
+    while (testeEmCurso || testeRodando || !testeResultado) await new Promise((r) => setTimeout(r, 20));
+    const fim = { cancelar: !cx.hidden, chevron: !ch.hidden, refazer: !document.getElementById('testeRefazer').hidden };
+    return { durante, aposCancelar, fim };
+  });
+  checar(cancelar.durante.rodava && cancelar.durante.cancelar && cancelar.durante.rotulo === 'Cancelar'
+      && cancelar.durante.fundo === cancelar.durante.danger && cancelar.durante.tinta === cancelar.durante.dangerStrong,
+    'J3 · DURANTE a rodada a faixa da seção mostra o CANCELAR, no vermelho destrutivo de sempre '
+    + '(`--danger-strong` sobre `--btn-danger`)', JSON.stringify(cancelar.durante));
+  checar(!cancelar.durante.chevron && !cancelar.durante.refazer,
+    'J3 · e enquanto ele está lá o chevron de recolher e o Refazer não aparecem — uma saída só',
+    JSON.stringify(cancelar.durante));
+  checar(cancelar.aposCancelar.depois === 0 && cancelar.aposCancelar.resultado === null
+      && cancelar.aposCancelar.secao === '' && cancelar.aposCancelar.config,
+    'J3 · tocar no Cancelar interrompe a rodada e recolhe a seção, e Configurações fica',
+    JSON.stringify(cancelar.aposCancelar));
+  checar(!cancelar.fim.cancelar && cancelar.fim.chevron && cancelar.fim.refazer,
+    'J3 · e com a rodada terminada o Cancelar some: voltam o chevron e o Refazer', JSON.stringify(cancelar.fim));
 
   // ---- K: OS FALSOS VERDES QUE A PRIMEIRA VERSÃO NÃO PODIA VER (v1.10.1) ----
   //
@@ -735,9 +780,9 @@ try {
   // síncrono e ergue a trava: o desenho tem de vir depois da chamada, senão a
   // folha mostraria em branco (ou o veredito anterior) a rodada inteira.
   const durante = await pg.evaluate(async () => {
-    closeTestePopup();
+    recolherSecao();
     while (testeEmCurso || testeRodando) await new Promise((r) => setTimeout(r, 20));
-    openTestePopup();
+    abrirSecao('teste');
     await new Promise((r) => setTimeout(r, 0));
     const noAto = document.getElementById('testeResumo').textContent;
     const travada = testeRodando;
@@ -796,24 +841,22 @@ try {
     const realDl = window.testeDownloadCompleto;
     window.testeDownloadCompleto = async () => ({ v: 'na', nota: 'sem ponte neste oráculo' });
     window.__NATIVE__ = true;
-    closeTestePopup();
+    recolherSecao();
     while (testeEmCurso || testeRodando) await new Promise((r) => setTimeout(r, 20));
-    openTestePopup();
+    abrirSecao('teste');
     await new Promise((r) => setTimeout(r, 0));
-    const folha = () => document.querySelector('#testePopup .popup-sheet').getBoundingClientRect().height;
-    const fecho = () => document.getElementById('testeFecho');
-    const durante = { oculto: fecho().classList.contains('teste-fecho--oculto'),
-      visivel: getComputedStyle(fecho()).display !== 'none', svOff: sv.disabled, h: folha() };
+    const folha = () => document.getElementById('cfgSecoes').getBoundingClientRect().height;
+    const durante = { svHidden: sv.hidden, svDisplay: getComputedStyle(sv).display,
+      refazerHidden: document.getElementById('testeRefazer').hidden, svOff: sv.disabled, h: folha() };
     while (testeEmCurso || testeRodando || !testeResultado) await new Promise((r) => setTimeout(r, 20));
-    await Promise.all(document.querySelector('#testePopup .popup-sheet').getAnimations().map((a) => a.finished.catch(() => {})));
+    await Promise.all(document.getElementById('cfgSecoes').getAnimations().map((a) => a.finished.catch(() => {})));
     window.testeDownloadCompleto = realDl;
     const a = sv.getBoundingClientRect();
     const svg = sv.querySelector('svg').getBoundingClientRect();
     const rot = sv.querySelector('span');
     return {
       durante,
-      depois: { svHidden: sv.hidden, oculto: fecho().classList.contains('teste-fecho--oculto'),
-        visivel: getComputedStyle(fecho()).display !== 'none', svOff: sv.disabled, h: folha(),
+      depois: { svHidden: sv.hidden, visivel: getComputedStyle(sv).display !== 'none', svOff: sv.disabled, h: folha(),
         refazer: !!document.getElementById('testeRefazer') && !document.getElementById('testeRefazer').disabled },
       largura: +a.width.toFixed(1),
       svg: +svg.width.toFixed(1),
@@ -823,13 +866,14 @@ try {
       unicaPorta: !document.getElementById('diagSave'),
     };
   });
-  checar(caixa.durante.oculto && !caixa.durante.visivel && caixa.durante.svOff,
-    'M2 · durante a verificação a faixa fica OCULTA — o Registro sairia com o resultado anterior', JSON.stringify(caixa));
-  checar(!caixa.depois.svHidden && !caixa.depois.oculto && caixa.depois.visivel && !caixa.depois.svOff
+  checar(caixa.durante.svHidden && caixa.durante.svDisplay === 'none' && caixa.durante.refazerHidden && caixa.durante.svOff,
+    'M2 · durante a verificação o Registro e o Refazer ficam OCULTOS (a faixa é do Cancelar) — o Registro '
+    + 'sairia com o resultado anterior', JSON.stringify(caixa));
+  checar(!caixa.depois.svHidden && caixa.depois.visivel && !caixa.depois.svOff
     && caixa.largura > 0 && caixa.depois.refazer,
     'M2 · e aparece quando ela termina, com "Verificar de novo" ao lado', JSON.stringify(caixa));
   const anima = await pg.evaluate(async () => {
-    const folha = document.querySelector('#testePopup .popup-sheet');
+    const folha = document.getElementById('cfgSecoes');
     await Promise.all(folha.getAnimations().map((a) => a.finished.catch(() => {})));
     const h0 = folha.getBoundingClientRect().height;
     const r = testeResultado;
@@ -843,7 +887,7 @@ try {
     return { h0, h1, animou };
   });
   checar(caixa.durante.h < caixa.depois.h,
-    'M2 · a folha tem a altura do que mostra: durante a rodada ela é menor que no fim', JSON.stringify(caixa));
+    'M2 · a seção tem a altura do que mostra: durante a rodada ela é menor que no fim', JSON.stringify(caixa));
   checar(anima.animou && anima.h1 < anima.h0,
     'M2 · e a mudança de altura ANIMA, em vez de saltar', JSON.stringify(anima));
   checar(caixa.rotulo === 'Compartilhar registro' && !caixa.rotuloCortado && caixa.svg > 0,

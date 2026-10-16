@@ -231,14 +231,14 @@ async function aparelho(viewport) {
 }
 
 // UMA VERIFICAÇÃO SÓ (v1.12.44): abrir a folha roda a leve E o download de
-// teste. A folha é fechada e reaberta, e espera-se o FATO (o resultado
+// teste. A seção é recolhida e reaberta, e espera-se o FATO (o resultado
 // completo novo). Fechar antes cancela a anterior, que é desfeita por inteiro.
 async function rodarVerificacao(pg) {
   await pg.evaluate(async () => {
-    closeTestePopup();
+    recolherSecao();
     while (testeEmCurso || testeRodando) await new Promise((r) => setTimeout(r, 20));
     window.__antes = Date.now();
-    openTestePopup();
+    abrirSecao('teste');
   });
   return esperar(pg, () => !testeEmCurso && !testeRodando && testeResultado && testeResultado.completa
     && testeResultado.emCompleta >= window.__antes, null, 60000);
@@ -265,7 +265,7 @@ try {
     checar(r === true, 'A0 · abrir a folha roda a verificação inteira, com o download de teste', porque(r));
     const a = await pg.evaluate(() => ({
       semBotao: !document.getElementById('testeCompleta') && !document.getElementById('testeRodar'),
-      botoes: [...document.querySelectorAll('#testePopup .popup-fecho button:not([hidden])')].map((x) => x.id),
+      botoes: [...document.querySelectorAll('#testeSecao .popup-fecho button:not([hidden])')].map((x) => x.id),
       dlPorUltimo: window.__ordem[window.__ordem.length - 1] === 'yt-download'
         && window.__ordem.filter((x) => x === 'yt-download').length === 1,
       n: window.__ordem.length, total: TESTES.length + 1,
@@ -413,13 +413,13 @@ try {
   // ---- C: FECHAR A FOLHA CANCELA O DOWNLOAD, e a limpeza continua -----------
   {
     const { ctx, pg } = await aparelho();
-    await pg.evaluate(() => { window.__yt.passos = 200; window.__yt.intervalo = 50; window.__chamadas.length = 0; openTestePopup(); });
+    await pg.evaluate(() => { window.__yt.passos = 200; window.__yt.intervalo = 50; window.__chamadas.length = 0; abrirSecao('teste'); });
     const andando = await esperar(pg, () => testeDl && testeDl.amostras.length > 3, null, 30000);
     checar(andando === true, 'C0 · o download de teste começa e o progresso chega', porque(andando));
     const meio = await pg.evaluate(() => ({
       semEtapa: !document.getElementById('testeEtapa'),
       pct1: +document.getElementById('testePct').textContent,
-      registroOculto: document.getElementById('testeFecho').classList.contains('teste-fecho--oculto'),
+      registroOculto: document.getElementById('testeSalvar').hidden && !document.getElementById('testeCancelar').hidden,
       ep: testeDl.episodio && testeDl.episodio.id,
     }));
     await pg.waitForTimeout(800);
@@ -428,7 +428,7 @@ try {
       'C1 · durante o download o anel mostra PERCENTUAL andando (sem legenda embaixo), e não para na última etapa',
       JSON.stringify(meio));
     checar(meio.registroOculto, 'C2 · e o Registro continua oculto', JSON.stringify(meio));
-    await pg.evaluate(() => closeTestePopup());
+    await pg.evaluate(() => recolherSecao());
     const fim = await esperar(pg, () => !testeEmCurso && !testeRodando, null, 30000);
     checar(fim === true, 'C4 · fechada a folha, a rodada termina', porque(fim));
     const x = await pg.evaluate(() => ({ chamadas: window.__chamadas.map((c) => c.n), resultado: testeResultado,

@@ -1861,7 +1861,8 @@ sessão e `Presentation` vivas. **Quem decide é o lado web** (`window.__avBack`
 invariante 5); `MainActivity.handleBack()` pergunta e obedece. A ordem é do mais
 efêmero ao mais permanente:
 
-1. diálogo modal → 2. bottom-sheet (o de cima) → 2.5. a folha de Ferramentas →
+1. diálogo modal → 2. bottom-sheet (o de cima; em Configurações, a SEÇÃO aberta
+recolhe antes de a folha fechar — v1.12.48) → 2.5. a folha de Ferramentas →
 **2.6. a folha da Bíblia** (que SOBE dentro dela — livros ← capítulos ← leitura —
 antes de fechar) → 3. preview em tela cheia (que, sem telão, **é** a projeção) →
 *(o degrau 4 era o fader do mixer, e saiu na v1.3.8)* → 5. seleção múltipla →
@@ -2623,8 +2624,10 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   tem cor própria) —; o que funcionou e o que não se aplica não aparecem (o
   operador: *"listar o que está funcionando não me é informação nenhuma"*). O
   Registro segue com a lista inteira e as QUATRO contas. **A rodada é UMA** (a
-  leve e o download de teste encadeados, sem botão) **e fechar a folha a
-  CANCELA**: o resultado de uma rodada cancelada não é guardado.
+  leve e o download de teste encadeados, sem botão) **e recolher a seção dela
+  A CANCELA** — pelo Cancelar vermelho que a faixa mostra enquanto ela anda, pelo
+  chevron, pelo voltar ou fechando Configurações (v1.12.48): o resultado de uma
+  rodada cancelada não é guardado.
 - **UMA ROTINA DE MASSA CONTA O QUE CHEGOU AO DISCO, NUNCA O QUE ELA TENTOU**
   (v1.9.13). O laço de `syncCollection` move a barra por `done`, que conta
   TENTATIVAS — e enquanto `downloadCollectionSong` devolvia `undefined` em toda
@@ -2851,7 +2854,8 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   porque é lido A DISTÂNCIA por quem não tem como conferir. **E registra o dado
   CRU:** um rótulo já formado prova que a regra rodou; só a entrada dela diz por
   que ela produziu aquilo.
-- **O REGISTRO TEM UMA PORTA SÓ: A FOLHA DA VERIFICAÇÃO** (v1.12.29). O
+- **O REGISTRO TEM UMA PORTA SÓ: A VERIFICAÇÃO** (v1.12.29; seção de
+  Configurações desde a v1.12.48). O
   botão do rodapé de Configurações (`#diagSave`) saiu a pedido do operador —
   *"agora vamos usar expressamente o método via verificador"* —, e o
   `#testeSalvar` — desde a v1.12.44 "Compartilhar registro", visível só com a
@@ -3009,10 +3013,15 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.12.47 · APK v1.12.46** · `SHELL_VERSION` **82** ·
+**Versão atual: base web v1.12.48 · APK v1.12.46** · `SHELL_VERSION` **82** ·
 bundle com `minShell: 82` e **sem `shellTag`** — o shell 82 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. **Este lote é só web**
-(a Release v1.12.46 já está publicada). **A v1.12.47 TROCA O ANEL DA VERIFICAÇÃO POR UMA BARRA LINEAR GROSSA**
+(a Release v1.12.46 já está publicada). **A v1.12.48 TRAZ AS JANELAS DE CONFIGURAÇÕES PARA DENTRO DELA**: Tela,
+Transferir, Editar mídia, Histórico e Verificação deixam de ser folhas de baixo e viram SEÇÕES de `#fadePopup`
+(`#cfgSecoes`, entre a grade e o rodapé da versão), uma por vez, com a altura animada (`trocarSecao`,
+`animarAlturaDasSecoes`), recolhidas por um chevron sem caixa (o único ✕ é o da folha), a faixa de fecho grudada na
+base (`sticky`) e, na Verificação em curso, um CANCELAR vermelho — ver o capítulo do Controle, "As seções de
+Configurações". **A v1.12.47 TROCA O ANEL DA VERIFICAÇÃO POR UMA BARRA LINEAR GROSSA**
 (`.teste-barra`, percentual no centro desenhado duas vezes — `--text` no trilho, `--bg` recortado em `--p` sobre o
 preenchimento) **e REVOGA A ALTURA FIXA da v1.12.46**: a folha tem a altura do conteúdo e toda mudança dela anima
 (`animarAlturaDoTeste`, WAAPI na `height`, `--dur-lenta`); a faixa de fecho sai do layout até o fim. **A v1.12.46 DÁ À VERIFICAÇÃO UM

@@ -797,6 +797,8 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   .lib-search-limpar,
   /* O "Tentar de novo" do aviso do servidor da biblioteca (v1.12.43). */
   .fonte-aviso-btn,
+  /* O chevron que RECOLHE uma seção de Configurações (v1.12.48). */
+  .cfg-sec-recolher,
   /* A linha de slide que PROJETA, no auxiliar de leitura (v1.4.26). */
   .lv-row--tocavel,
   /* O ✓ do renomear, na coluna do `⋮` (v1.4.27). A LIXEIRA fica de fora: ela é
@@ -843,7 +845,10 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   /* O ⛶ da cifra (v1.6.0): o desenho é reescrito por `innerHTML` a cada troca
      de estado, então o `width`/`height` do atributo se perderia no primeiro
      alternar — quem manda é esta regra. */
-  .lv-cheia-btn
+  .lv-cheia-btn,
+  /* O chevron das seções de Configurações (v1.12.48): o degrau dos botões de
+     cabeçalho, e não o do ✕ da folha — ele é menor de propósito. */
+  .cfg-sec-recolher
 ) svg { display: block; width: var(--icon-sm); height: var(--icon-sm); }
 /* E O `.lib-quad` É O IRMÃO DO `.lib-toggle` NESTA LISTA (v1.8.73). Os dois
    quadrados da barra da Biblioteca são medidos contra o TRANSPORTE desde a
@@ -7597,35 +7602,10 @@ main {
    205 e não 210: ele fica ACIMA da Biblioteca e ABAIXO da folha da música,
    que é exatamente a ordem daquela tabela. */
 #lyricsPopup { z-index: 205; }
-/* O HISTÓRICO abre de DENTRO de Configurações (v1.4.31), que é um
-   `.popup-backdrop` comum (200). Com o mesmo degrau quem decidiria é a ordem
-   do documento, e a folha do histórico é declarada ANTES da de Configurações
-   — ela abriria ATRÁS de quem a chamou, que é o acaso que já cobriu um popup
-   por inteiro aqui. A tabela `POPUPS` diz a MESMA ordem, e mudar uma sem a
-   outra é o defeito. */
-#histPopup { z-index: 205; }
-/* A VERIFICAÇÃO abre de DENTRO de Configurações, exatamente como o Histórico
-   acima — e nasceu com o MESMO acaso (v1.10.10). Relato do operador: *"atualmente
-   ela fica atrás das configurações, exigindo um toque extra para fechar as
-   configurações para poder analisar a verificação"*. A tabela `POPUPS` já
-   tinha a ordem certa desde que a folha nasceu (`testePopupEl` depois de
-   `fadePopupEl`, para o voltar devolver ao lugar certo); só o `z-index` ficou
-   no 200 padrão, e com o mesmo degrau de quem a abre quem decide é a ORDEM DO
-   DOCUMENTO — e `#testePopup` está declarado ANTES de `#fadePopup` no HTML.
-   Mesmo degrau do Histórico porque a pergunta é a mesma (abre de Configurações,
-   não abre nada por cima de si) e as duas nunca estão abertas ao mesmo tempo. */
-#testePopup { z-index: 205; }
-/* AS DUAS JANELAS DE CONFIGURAÇÕES (v1.11.7) — a da Tela e a do Transferir —
-   abrem de DENTRO dela como o Histórico e a Verificação, e nascem declaradas
-   ANTES de `#fadePopup` no HTML: no degrau padrão (200) quem decidiria a ordem
-   seria o documento, e as duas abririam ATRÁS. Mesmo degrau pela mesma
-   pergunta (abre de Configurações, e nada abre por cima de si), e as quatro
-   nunca estão abertas ao mesmo tempo. */
-#telaPopup { z-index: 205; }
-#pacotePopup { z-index: 205; }
-/* EDITAR MÍDIA (v1.12.0): mesma família e mesmo degrau das duas acima. A pergunta
-   de destino que ela abre é o `#songMenuPopup` (210), que sobe por cima. */
-#edicaoPopup { z-index: 205; }
+/* (O Histórico, a Verificação, a Tela, o Transferir e o Editar mídia tinham
+   aqui o degrau 205, porque eram folhas abertas de DENTRO de Configurações e
+   declaradas antes dela. Desde a v1.12.48 eles são SEÇÕES de Configurações —
+   ver `.cfg-secoes` —, e uma seção não é camada.) */
 /* A folha da PLAYLIST AUTOMÁTICA abre de dentro da Biblioteca, como a da música
    — daí o degrau que o comentário abaixo reservava. Ela NÃO abre a folha da
    música por cima de si, então é a última linha de POPUPS e o degrau mais alto
@@ -8228,24 +8208,35 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 
    O que funcionou e o que NÃO SE APLICA não aparecem na tela desde a v1.12.44
    — só no Registro. */
-/* O ANEL (v1.12.44). A folha deixou de ser uma lista de 42 linhas: o anel diz
-   feitas/total enquanto anda e, no fim, só os PROBLEMAS aparecem embaixo, em
-   cartões do mesmo `--poco` das sessões do Histórico. O corpo rola inteiro —
-   com muitos problemas, o anel sobe junto, e a resposta em uma olhada é o
-   resumo logo abaixo dele. */
-.teste-fecho--oculto { display: none; }
+/* A BARRA E OS PROBLEMAS (v1.12.44). A seção deixou de ser uma lista de 42
+   linhas: a barra diz quanto falta enquanto anda e, no fim, só os PROBLEMAS
+   aparecem embaixo, em cartões do mesmo `--poco` das sessões do Histórico. Quem
+   rola é Configurações inteira (v1.12.48): a seção não tem scroller próprio. */
+/* O CANCELAR (v1.12.48): o vermelho destrutivo de sempre — `--danger-strong`
+   sobre `--btn-danger`, opaco, o par do ✕ do card do editor —, ocupando a faixa
+   inteira enquanto a verificação anda. Ele é a única saída da rodada que não
+   fecha Configurações, e não veste o `.popup-close`: o ✕ grande é UM só, o da
+   folha. */
+.song-menu-go-row > .teste-cancelar {
+  flex: 1 1 auto; justify-content: center; gap: var(--sp-3);
+  background: var(--btn-danger); color: var(--danger-strong);
+}
+/* A FAIXA TEM UMA ALTURA SÓ NOS DOIS ESTADOS: o Cancelar sozinho e o Refazer
+   (sozinho no navegador, ao lado do Registro no app) vestem a do quadrado da
+   faixa (`--quad-faixa`), que é a que o par Refazer · Registro já tinha — sem
+   isto a faixa encolhia na troca, e o Refazer sozinho media 20px. */
+.song-menu-go-row > .teste-cancelar, .song-menu-go-row > .teste-refazer { min-height: var(--quad-faixa); }
+.teste-cancelar svg { width: var(--icon-sm); height: var(--icon-sm); flex: none; }
 .song-menu-go-row > .teste-refazer {
   flex: 0 0 auto; width: auto; padding: 0 var(--sp-5);
   display: flex; align-items: center; justify-content: center; gap: var(--sp-3);
   white-space: nowrap; background: var(--surface); color: var(--accent);
 }
 .teste-refazer svg { width: var(--icon-sm); height: var(--icon-sm); flex: none; }
-/* O CORPO: a barra, o resumo e, no fim, os cartões dos problemas. Ele rola só
-   quando a lista passa da altura máxima da folha. */
+/* O CORPO: a barra, o resumo e, no fim, os cartões dos problemas. */
 .teste-corpo {
-  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
   display: flex; flex-direction: column;
-  padding: var(--sp-4) .7rem var(--sp-5);
+  padding: var(--sp-2) 0 0;
 }
 /* A BARRA (v1.12.47): grossa, no trilho do `--poco`, preenchida no `--accent`
    (o da linha do tempo do Modo Fácil). O número é desenhado duas vezes: o de
@@ -8441,14 +8432,11 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   flex-shrink: 0; margin: var(--sp-5) .7rem .8rem;
   display: flex; flex-wrap: wrap; align-items: stretch; gap: var(--sp-4);
 }
-/* O RODAPÉ DO HISTÓRICO É O SEGUNDO DA FAMÍLIA, e ele não tinha margem NENHUMA.
-   Ali a `.pl-limpar-faixa` é filha direta da `.popup-sheet` (não há `.pl-rodape`
-   por volta), então ela herdava as margens de ninguém: colada nas duas bordas da
-   folha, na base dela, e a 0,00px da tira de sombra do `#histList`. As quatro
-   medidas são as MESMAS do rodapé da playlist, porque é o mesmo lugar na mesma
-   folha — e o alvo é o ID, nunca a classe: a classe é também a caixa do "Limpar"
-   dentro do `.pl-rodape`, onde uma margem quebra os dois quadrados. */
-#histClearFaixa { margin: var(--sp-5) .7rem .8rem; }
+/* O RODAPÉ DO HISTÓRICO É O SEGUNDO DA FAMÍLIA. Ali a `.pl-limpar-faixa` é filha
+   direta da SEÇÃO (não há `.pl-rodape` por volta), e as medidas dela são as da
+   faixa de fecho de toda seção — ver `.cfg-sec > #histClearFaixa`, que a gruda
+   na base da folha. O alvo é o ID, nunca a classe: a classe é também a caixa do
+   "Limpar" dentro do `.pl-rodape`, onde uma margem quebra os dois quadrados. */
 /* O RÓTULO NÃO PODE MUDAR A ALTURA DA FAIXA — e desde a v1.8.54 ele é UM só, o
    do "Limpar" (os dois de guardar viraram botões de símbolo). A linha fica pelo
    caso da FONTE DO SISTEMA: a 320px com ela a 1,5× o rótulo já não cabe na
@@ -8635,7 +8623,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 }
 /* EM PARTES IGUAIS (v1.8.65): *"coloque a versão, o registro e o pedir
    ajuda igualmente distribuídos horizontalmente"*. (Desde a v1.12.29 são DOIS:
-   o Registro saiu para a folha da Verificação, e a regra vale igual.) `flex: 1 1 0` é o que iguala
+   o Registro saiu para a Verificação, e a regra vale igual.) `flex: 1 1 0` é o que iguala
    — a base é ZERO nos três, então o que cada um recebe é a mesma fatia do
    espaço, e não a própria largura mais um pedaço (que é o que `1 1 auto` dá, e
    ali "Pedir ajuda" sairia sempre maior que "v1.8.65"). MEDIDO a 390×1×:
@@ -10510,39 +10498,104 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    AFUNDA (a inversão que a regra do topo deste arquivo descreve). Não é
    `--panel`: sobre a folha, que já é `--panel`, ele desapareceria. */
 .qs-grade { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3); }
-/* A GRADE DAS JANELAS (v1.11.7): o mesmo tile, a mesma folga, e DUAS colunas — a
-   janela da Tela leva quatro tiles (2x2 exato) e a do Transferir, dois. NÃO É
-   `.qs-grade`: o `document.querySelector('.qs-grade')` dos oráculos devolve o
-   PRIMEIRO no documento, e as janelas vêm antes de Configurações. */
+/* A GRADE DAS SEÇÕES (v1.11.7): o mesmo tile, a mesma folga, e DUAS colunas — a
+   seção da Tela leva quatro tiles (2x2 exato) e a do Transferir, dois. NÃO É
+   `.qs-grade`: essa é a grade de Configurações, e os oráculos a alcançam por
+   `document.querySelector('.qs-grade')`. */
 .qs-grade-folha { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); }
-/* A nota da janela do Transferir: o peso do que está marcado e a promessa da
-   importação, na tinta de apoio, entre a lista e os botões. Fora do scroller —
-   o peso é a pergunta que se faz depois de marcar, e rolar para vê-lo seria
-   escondê-lo. As margens são as do rodapé (`.popup-fecho`): a nota se alinha a
-   ele, não à lista. */
-.pacote-nota { margin: var(--sp-3) .7rem 0; color: var(--muted); font-size: var(--fs-sm); line-height: 1.4; }
-#pacotePopup .popup-fecho { margin-top: var(--sp-3); }
+
+/* ===== AS SEÇÕES DE CONFIGURAÇÕES (v1.12.48) =====
+   Tela, Transferir, Editar mídia, Histórico e Verificação abrem DENTRO desta
+   folha, entre a grade e o rodapé — eram folhas de baixo abertas por cima dela.
+   Uma por vez; o JS (`trocarSecao`) anima a ALTURA da caixa, e a folha, que tem
+   a altura do conteúdo até o teto de 80%, cresce e encolhe com ela.
+
+   A CAIXA DESCONTA O VÃO DA FOLHA: `.fade-opts` é um flex com `gap`, e uma caixa
+   vazia (altura zero) ainda o somaria abaixo da grade. Quem o devolve é o
+   `padding-top` da seção — então, aberta ou não, a distância até a grade é a do
+   resto da folha mais o respiro de um cabeçalho de seção.
+
+   A SEÇÃO QUE SAI NUMA TROCA (`.saindo`) fica ABSOLUTA por cima da que entra, só
+   durante a animação: as duas se cruzam por opacidade enquanto a caixa vai da
+   altura de uma à da outra. Sem toque nela — o dedo é da que entra. */
+.cfg-secoes { position: relative; margin-top: calc(-1 * var(--sp-3)); }
+.cfg-sec {
+  display: flex; flex-direction: column;
+  padding-top: calc(var(--sp-3) + var(--sp-3));
+}
+.cfg-sec[hidden] { display: none; }
+.cfg-sec.saindo { position: absolute; top: 0; left: 0; right: 0; pointer-events: none; }
+/* O CABEÇALHO DA SEÇÃO É DISCRETO, e é isso que o pedido nomeia: *"ajuste a
+   questão do botão de fechar dessas janelas, para que sejam mais individuais e
+   não concorram visualmente com o botão de fechar a janela toda"*. O título é o
+   do tile que a abriu, com o mesmo desenho; o RECOLHER é um chevron para cima
+   (a seção sobe de volta para a grade) SEM CAIXA — a tinta de apoio, nenhum
+   fundo —, enquanto o ✕ de Configurações tem a caixa `--surface-2`. A caixa de
+   toque é a do app (`--hit`, as duas dimensões). */
+.cfg-sec-cab { display: flex; align-items: center; gap: var(--sp-3); min-height: var(--hit); }
+.cfg-sec-ico { width: var(--icon-sm); height: var(--icon-sm); flex: none; color: var(--accent); }
+.cfg-sec-titulo {
+  flex: 1; min-width: 0; color: var(--text);
+  font-size: var(--fs-lg); font-weight: var(--fw-forte);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cfg-sec-recolher {
+  flex: none; width: var(--hit); height: var(--hit); padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  border: none; appearance: none; -webkit-appearance: none; cursor: pointer;
+  border-radius: var(--radius-btn);
+  background: transparent; color: var(--muted);
+}
+.cfg-sec-recolher[hidden] { display: none; }
+/* AS LISTAS DAS SEÇÕES NÃO ROLAM: quem rola é Configurações inteira. Um scroller
+   dentro de outro, numa folha de toque, faz o mesmo gesto mover coisas
+   diferentes conforme onde o dedo pousa. O recuo lateral é zero porque a seção
+   já mora dentro do recuo da folha. */
+.cfg-sec .popup-list { flex: none; overflow: visible; padding: var(--sp-2) 0 0; }
+/* A FAIXA DE FECHO GRUDA NA BASE DA FOLHA — é a regra da v1.8.60 (*"o botão de
+   salvar dentro do scroll, ao invés de ficar fora, fixo na base"*) sobrevivendo
+   à mudança de casa. Sem scroller próprio, a seção rola com Configurações, e o
+   Exportar, o Confirmar do editor, o Limpar do Histórico e o fecho da
+   Verificação só apareceriam depois de rolar a lista inteira. `sticky` na base
+   do scroller enquanto a seção passa por baixo, e no lugar dela quando a seção
+   acaba. Ela vai até a BORDA do padding box (`--veu-base`, lido do layout pelo
+   mesmo `acertarVeus` das tiras), e é OPACA: o que rola por baixo some atrás
+   dela, e ela pinta ACIMA da tira de sombra de baixo (5) — um rodapé flutuante
+   passa por cima da tira, a regra da v1.8.62. */
+.cfg-sec > .popup-fecho, .cfg-sec > #histClearFaixa {
+  position: sticky; z-index: 6;
+  bottom: calc(-1 * var(--veu-base, 0px));
+  /* O RESPIRO ACIMA É `--sp-5`, o de toda faixa de fecho — e ele é PADDING, não
+     margem: grudada, a faixa cobre com o próprio fundo o que rola por baixo, e
+     os botões não encostam na última linha à vista. */
+  margin: 0;
+  padding: var(--sp-5) 0 var(--veu-base, 0px);
+  background: var(--panel);
+  /* A R1 (a superfície AFUNDA dentro de um cartão): ela é o chão da folha
+     aparecendo, e os botões dela leem o mesmo recesso que já liam. */
+  --surface: var(--surface-sunk); --surface-2: var(--surface-2-sunk);
+}
+/* A FAIXA DO HISTÓRICO CARREGA A ALTURA DO BOTÃO (`min-height`, a regra da
+   v1.8.53) e é `border-box`: o respiro e a área segura entram SOMADOS a ela, ou
+   eles a comeriam e o "Limpar" encolheria abaixo do piso de toque. */
+.cfg-sec > #histClearFaixa { min-height: calc(var(--faixa-alt) + var(--sp-5) + var(--veu-base, 0px)); }
+/* A nota da seção do Transferir: o peso do que está marcado e a promessa da
+   importação, na tinta de apoio, entre a lista e os botões. */
+.pacote-nota { margin: var(--sp-3) 0 0; color: var(--muted); font-size: var(--fs-sm); line-height: 1.4; }
 
 /* ===== EDITAR MÍDIA (v1.12.1) =====
-   Duas vistas na mesma folha: o FORMULÁRIO e o SELETOR (grupos como a exportação).
-   O scroller é a própria `.popup-list` (`rola`); a folha tem altura fixa para os
-   botões da base não andarem entre as vistas. Nada de cor nova: cartões em `--poco`
-   sobre o `--panel` da folha (a escada de camadas), campo no par `--field-*`,
-   estados no par `--btn-accent`/`--accent`. */
-/* ALTURA (v1.12.9): a folha tem a do FORMULÁRIO — o conteúdo natural dela, sem o vão que a altura fixa de 80%
-   deixava abaixo do campo de nome. O JS (`edicaoMedirFolha`) guarda essa altura em `--edicao-h`, e o SELETOR a
-   reusa para os botões da base não andarem entre as vistas; antes da primeira medição (o seletor abre
-   primeiro) vale o palpite em rem, que pode ficar um pouco abaixo ou acima. */
-#edicaoPopup .popup-sheet { height: auto; max-height: 92%; }
-#edicaoPopup[data-vista="escolha"] .popup-sheet { height: min(var(--edicao-h, 32rem), 92%); }
-#edicaoPopup .popup-fecho { margin-top: var(--sp-3); }
-.edicao-busca { padding: 0 .7rem; }
+   Duas vistas na mesma seção: o FORMULÁRIO e o SELETOR (grupos como a exportação).
+   Desde a v1.12.48 a seção tem a altura do que mostra, e a troca de vista ANIMA a
+   altura (`animarAlturaDasSecoes`) — a altura fixa que segurava os botões da base
+   era de uma folha ancorada no fundo da tela, e uma seção cresce para baixo, a
+   partir do cabeçalho. Nada de cor nova: cartões em `--poco` sobre o `--panel` da
+   folha (a escada de camadas), campo no par `--field-*`, estados no par
+   `--btn-accent`/`--accent`. */
+.edicao-busca { padding: 0; }
 .edicao-busca[hidden] { display: none; }
-/* A SOMBRA DE CIMA DA LISTA TEM FOLGA DA CAIXA DE BUSCA (v1.12.3, pedido do operador: *"na lista para
-   escolher a mídia para edição, a sombra de corte superior da fronteira da lista está sem margem com a
-   caixa de texto da busca; a sombra está colando na caixa"*). A tira mora no topo do scroller e o
-   scroller começava na base do campo, só o `.35rem` do `.sorteio-campo` entre os dois. A folga vale
-   quando o campo existe (`:not([hidden])`): sem ele a lista segue o cabeçalho como sempre. */
+/* A FOLGA ENTRE A BUSCA E A LISTA (v1.12.3, pedido do operador: a sombra de cima
+   da lista colava no campo). A lista não rola mais sozinha (v1.12.48), e a folga
+   fica: é o respiro entre o campo e a primeira linha. */
 .edicao-busca:not([hidden]) + #edicaoLista { margin-top: var(--sp-5); }
 /* O FECHO DA ESCOLHA TEM UM BOTÃO SÓ: o "Voltar" saiu na v1.12.6 — o card do item no formulário já é a
    porta de ida e volta. Desde a v1.12.7 ele é UM BOTÃO DA BARRA (o primário da `.sorteio-barra`), na altura

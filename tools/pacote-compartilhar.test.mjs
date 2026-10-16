@@ -191,12 +191,12 @@ async function aparelho(opts) {
   await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
   await esperarCortina(pg);
   await pg.evaluate(() => setAppMode('full'));
-  // A JANELA DO TRANSFERIR ABERTA, porque este oráculo TOCA nos dois botões — e
-  // um botão de janela fechada está fora da viewport, onde o `click` do
-  // Playwright retenta até vencer o prazo. Desde a v1.11.7 os dois moram em
-  // `#pacotePopup`, que abre de Configurações pelo tile `#pacoteTile`: o
-  // caminho é o do DEDO (Configurações → tile → janela), e é o dedo que ela
-  // mede. A versão anterior chamava `exportarPacote()` por dentro e nunca
+  // A SEÇÃO DO TRANSFERIR ABERTA, porque este oráculo TOCA nos dois botões — e
+  // um botão de seção recolhida não tem caixa, onde o `click` do Playwright
+  // retenta até vencer o prazo. Desde a v1.11.7 os dois moram no Transferir
+  // (`#pacoteSecao` desde a v1.12.48), aberto em Configurações pelo tile
+  // `#pacoteTile`: o caminho é o do DEDO (Configurações → tile → seção), e é o
+  // dedo que ela mede. A versão anterior chamava `exportarPacote()` por dentro e nunca
   // precisou dela; o que a v1.8.19 acrescentou acontece no toque.
   await pg.evaluate(() => { document.getElementById('simpleSettingsBtn').click(); });
   await esperar(pg, () => {
@@ -205,13 +205,13 @@ async function aparelho(opts) {
   }, null, 10000);
   await pg.click('#pacoteTile');
   await esperar(pg, () => {
-    const d = document.getElementById('pacotePopup');
+    const d = document.getElementById('pacoteSecao');
     return !!d && d.classList.contains('open');
   }, null, 10000);
   // A TRANSIÇÃO TEM DE TER ASSENTADO: um botão que ainda desliza sob o dedo faz
   // o `click` do Playwright medir "estável" no quadro errado.
   await pg.evaluate(async () => {
-    await Promise.all(['#pacotePopup .popup-sheet', '#fadePopup .popup-sheet']
+    await Promise.all(['#cfgSecoes', '#fadePopup .popup-sheet']
       .flatMap((s) => document.querySelector(s).getAnimations().map((a) => a.finished.catch(() => {}))));
   });
   return { ctx, pg };
@@ -220,7 +220,7 @@ async function aparelho(opts) {
 // A lista é a JANELA do Transferir (v1.11.9), já aberta pelo `aparelho()`: o que
 // se espera é ela ter desenhado as linhas (ou a frase de aparelho vazio).
 const abriuFolha = (pg) => esperar(pg, () => {
-  const d = document.getElementById('pacotePopup');
+  const d = document.getElementById('pacoteSecao');
   return !!d && d.classList.contains('open') && !!document.querySelector('#pacoteLista li');
 }, null, 60000);
 
@@ -245,8 +245,8 @@ const lerTile = (pg) => pg.evaluate(() => {
     .filter((u) => getComputedStyle(u).display !== 'none')
     .map((u) => u.getAttribute('href'));
   const d = document.getElementById('appDialog');
-  // O TILE DA GRADE (`#pacoteTile`) é o SINAL do que os dois botões da janela
-  // dizem — ver `pacoteSinal` —, e é o único que se vê com a janela fechada.
+  // O TILE DA GRADE (`#pacoteTile`) é o SINAL do que os dois botões da seção
+  // dizem — ver `pacoteSinal` —, e é o único que se vê com a seção recolhida.
   const g = document.getElementById('pacoteTile');
   const grade = {
     estado: g.dataset.estado || '',
@@ -344,7 +344,7 @@ try {
   checar(/toque para enviar/i.test(cheio.tile.aria) && /\d/.test(cheio.tile.aria),
     'A · e o `aria-label` diz o tamanho e o que o toque faz — a informação que '
     + 'saiu do diálogo não saiu do app', cheio.tile.aria);
-  // O SINAL NA GRADE (v1.11.7): os dois botões moram numa janela que pode estar
+  // O SINAL NA GRADE (v1.11.7): os dois botões moram numa seção que pode estar
   // fechada, e o tile de Configurações é o que continua à vista. Pronto = o
   // desenho de COMPARTILHAR e `data-estado` "pronto-para-enviar", SEM aro. Sem
   // `pacoteSinal()` em `pacoteRenderTiles()` o tile fica em "ocioso" com
@@ -352,7 +352,7 @@ try {
   checar(cheio.tile.grade.estado === 'pronto-para-enviar' && cheio.tile.grade.alt === true
       && cheio.tile.grade.aro === false
       && cheio.tile.grade.desenho.length === 1 && cheio.tile.grade.desenho[0] === '#icoCompartilhar',
-    'A · e o TILE DA GRADE diz o mesmo com a janela fechada: "pronto-para-enviar", '
+    'A · e o TILE DA GRADE diz o mesmo com a seção recolhida: "pronto-para-enviar", '
     + 'desenho de compartilhar, sem aro', JSON.stringify(cheio.tile.grade));
 
   // ---- E O MESMO ARQUIVO SAI QUANTAS VEZES O OPERADOR PEDIR ----
@@ -455,7 +455,7 @@ try {
   const destravou = await esperar(cheio.pg,
     () => !document.getElementById('pacoteLista').classList.contains('travada'), null, 20000);
   checar(destravou === true,
-    'A · e a LISTA da janela destrava junto: descartar devolve ao operador a '
+    'A · e a LISTA da seção destrava junto: descartar devolve ao operador a '
     + 'escolha do que levar', porque(destravou));
   checar(voltouAoRepouso === true,
     'A · e o PAR volta ao repouso: o exportar deixa de dizer 100% e o importar '
@@ -610,7 +610,7 @@ try {
     await AVDB.opfsWriteFile('folders/x/a.m4a',
       new Blob([new Uint8Array(400000).fill(7)], { type: 'audio/mp4' }));
     window.__segurar = true;
-    // Direto, sem a janela: sem lista aberta a função marca TUDO (o padrão).
+    // Direto, sem a seção: sem lista aberta a função marca TUDO (o padrão).
     window.__fim = exportarPacote();
   });
   await esperar(pg, () => (window.__presos || []).length > 0, null, 30000);
@@ -654,7 +654,7 @@ try {
   // dois passaria em tudo o mais.
   checar(r.exp.estado === 'ocupado',
     'E · enquanto o que TRABALHA continua sendo o que trabalha', JSON.stringify(r.exp));
-  // O TILE DA GRADE É O SINAL DO TRABALHO: com a janela fechada (aqui ela nunca
+  // O TILE DA GRADE É O SINAL DO TRABALHO: com a seção recolhida (aqui ela nunca
   // abriu) o aro e o data-estado "ocupado" são a única coisa que diz que há
   // exportação andando. O `pacoteSinal()` que `pacoteRenderTiles()` chama é o
   // que os escreve.
