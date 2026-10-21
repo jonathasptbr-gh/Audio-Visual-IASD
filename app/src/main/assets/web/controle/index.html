@@ -2005,7 +2005,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion" class="app-version">v1.12.50</span>
+          <span id="appVersion" class="app-version">v1.12.51</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
@@ -3018,6 +3018,12 @@
        janela subindo de trás dela até uma folga do topo. A folga anunciava
        "isto é uma janela" e custava o campo de texto atrás do teclado, que é o
        defeito que este lote existe para fechar.) -->
+  <!-- O FORMULÁRIO DA BUSCA (v1.12.51), vazio e escondido: o campo pertence a ele por
+       `form="hymnBuscaForm"`, e é o `submit` dele que pega a tecla "Pesquisar" dos teclados
+       que não entregam um `keydown` de Enter (o 229 "Unidentified" de vários IMEs do Android)
+       — a submissão implícita sai de qualquer jeito. Ver o `keydown` do campo no controle.js.
+       FORA da janela: ela é uma coluna `[barra][lista]` e nada mais (o `smoke` conta os filhos). -->
+  <form id="hymnBuscaForm" hidden></form>
   <div id="hymnSearchPopup" class="popup-backdrop popup-backdrop--lib">
     <div class="popup-sheet popup-sheet--lib">
       <!-- ===== A BARRA É A CABEÇA DA JANELA (v1.5.1) =====
@@ -3053,7 +3059,10 @@
                engole o toque no meio de um campo de texto é um ponto morto
                exatamente onde o dedo mira. -->
           <svg class="lib-search-lupa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoLupa"/></svg>
-          <input id="hymnSearchInput" class="lib-search" type="search" placeholder="Buscar por nome ou número…">
+          <!-- `enterkeyhint="search"` (v1.12.51): a tecla de confirmar do teclado diz "Pesquisar", e
+               o Enter tira o foco — o teclado desce e a lista ganha a tela (ver o `keydown` do
+               campo no controle.js). -->
+          <input id="hymnSearchInput" class="lib-search" type="search" inputmode="search" enterkeyhint="search" autocomplete="off" form="hymnBuscaForm" placeholder="Buscar por nome ou número…">
           <!-- O ✕ DENTRO DO CAMPO (v1.11.10, pedido do operador: *"preciso de um
                'x' dentro da caixa de texto que permita apagar a palavra atual e
                diretamente digitar uma nova palavra"*). Só existe com texto

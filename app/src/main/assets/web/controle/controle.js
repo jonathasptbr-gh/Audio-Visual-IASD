@@ -416,7 +416,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.50';
+const WEB_VERSION = '1.12.51';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -2064,6 +2064,11 @@ let corpoSimplesForma = '';
 let corpoSimplesRaf = 0;
 let corpoSimplesFoco = null;
 let aplicarTeclado = null;        // o `apply` do `keyboardShift`, para reconferir `--kb` na entrada
+// A BUSCA DO MODO FÁCIL TIRA AS TECLAS (v1.12.51) — ver `renderBuscaSimples`. O timer reavalia a
+// pergunta quando a escolha de uma linha assenta (`SIMPLE_FEEDBACK_MS`); o outro tira a classe da
+// volta das teclas depois da animação.
+let simpleBuscaTimer = null;
+let simpleTeclasVoltaTimer = null;
 // QUAL mídia está no telão — o par de `cueNoArId`, e pelo mesmo motivo.
 //
 // `midiaNoAr` responde "há mídia no ar?" e `currentId` responde "qual é o item
@@ -22537,6 +22542,7 @@ function openHymnSearch(comFoco) {
   document.body.classList.add('lib-aberta');
   renderLibToggle();
   medirBarraDaBiblioteca();
+  renderBuscaSimples();
   // ===== A LISTA ABRE NO TOPO (v5.280) =====
   //
   // Decisão do operador: *"ao invés de ter um scroll de tela inteira, deixar
@@ -22805,6 +22811,7 @@ function closeHymnSearch(opts) {
     hymnSearchPopupEl.classList.remove('open');
     document.body.classList.remove('lib-aberta');
     renderLibToggle();
+    renderBuscaSimples();
   }
   // O CAMPO PERDE O FOCO ao fechar: sem isto o teclado fica de pé sobre o app
   // com a janela já fora de cena — a mesma classe de defeito do foco pendente
@@ -41731,6 +41738,60 @@ function simplesBibliotecaDocada() {
   return simplesComBarra() && (!haOQueParar() || simplesSemLeitura());
 }
 
+// ===== DURANTE UMA BUSCA AS TECLAS SAEM (v1.12.51) =====
+// Pedido do operador: *"Ocultar os botões de play, stop, e volumes no modo simples, durante uma
+// busca na caixa de texto da biblioteca … em alguns aparelhos de menor resolução de tela, ou por
+// tamanho de teclados diversos, a seção de resultados não tem mais de 20% de tela disponível"*.
+//
+// A CAUSA DOS 20%: onde o navegador ENCOLHE a viewport com o teclado (o hint
+// `interactive-widget=resizes-content` honrado, ou o `adjustResize` do Android), `--kb` dá zero e o
+// `.simple` (fixo, `inset: 0`) encolhe junto — as teclas, o volume e o card do nome continuam no fim
+// dele, logo acima do teclado, e a janela termina na base da zona de leitura, que é o que SOBRA.
+// MEDIDO, teclado de 55%: 3 a 13% da área visível para a lista (10 px a 360×640). Onde a viewport
+// não encolhe (`--kb` > 0) a lista ia até o teclado, mas com o card e as teclas abaixo da base ela
+// também perdia altura quando a soma passava do teclado.
+//
+// A REGRA: a busca é o campo COM FOCO, ou com TEXTO — o Enter tira o foco para a lista ganhar a
+// tela, e o texto mantém a busca de pé. Com a busca, `.simple.buscando` tira as teclas
+// (`.simple-remote`: play, parar, mudo, volume e as páginas) e o card do nome; a zona de leitura
+// cresce até o cartão de "Baixando…" (que FICA: é a única porta de cancelar um download) e a janela
+// acompanha, porque a base dela é a da zona. Saem da busca: o ✕ do campo seguido de o campo perder
+// o foco, a Biblioteca fechando (✕ da janela, voltar, a escolha que recolhe) e uma ESCOLHA
+// assentada — passados `SIMPLE_FEEDBACK_MS` do toque numa linha o texto deixa de contar (um
+// download longo não segura as teclas de fora); o FOCO volta a contar sempre, porque quem digita a
+// próxima busca durante o download está buscando.
+//
+// Só com a JANELA ABERTA: fechada (a barra sobre a leitura) não há lista a quem dar a altura, e a
+// limpeza "com calma" deixa o texto por `SIMPLE_SAIDA_MS` com a janela já recolhendo.
+function simplesBuscando() {
+  if (!simplesComBarra() || !hymnSearchPopupEl.classList.contains('open')) return false;
+  if (document.activeElement === hymnSearchInputEl) return true;
+  if (!hymnSearchInputEl.value) return false;
+  const assentada = !!simpleSel.em && (performance.now() - simpleSel.em) >= SIMPLE_FEEDBACK_MS;
+  return !assentada;
+}
+function renderBuscaSimples() {
+  if (!simpleModeEl) return;
+  const buscando = simplesBuscando();
+  if (buscando === simpleModeEl.classList.contains('buscando')) return;
+  simpleModeEl.classList.toggle('buscando', buscando);
+  // AS TECLAS VOLTAM COM UM FADE (`.teclas-voltando`): `display` não anima, e elas reapareceriam
+  // de um quadro para o outro enquanto a janela ainda está subindo. Sair é seco: a janela desce
+  // sobre o lugar delas.
+  clearTimeout(simpleTeclasVoltaTimer);
+  simpleModeEl.classList.toggle('teclas-voltando', !buscando);
+  if (!buscando) {
+    simpleTeclasVoltaTimer = setTimeout(() => {
+      simpleTeclasVoltaTimer = null;
+      simpleModeEl.classList.remove('teclas-voltando');
+    }, 400);
+  }
+  // A ZONA DE LEITURA MUDOU DE ALTURA PORQUE A TELA TROCOU — a janela ANIMA até a base nova (a
+  // remedição comum desligaria o tempo e ela pularia). O `ResizeObserver` que vem depois acha a
+  // raiz já escrita e não mexe.
+  if (simplesComBarra()) { medirCorpoSimples({ troca: true }); medirCorpoSimplesDepois(); }
+}
+
 function renderSimpleCorpo() {
   const barra = simplesComBarra();
   const principal = simplesBibliotecaDocada();
@@ -41771,6 +41832,9 @@ function renderSimpleCorpo() {
   // `troca: true` — a medida muda PORQUE a tela está trocando (o card do nome aparece ou some), e a
   // troca da Biblioteca TEM de animar: ver `medirCorpoSimples`.
   if (formaMudou && barra) { medirCorpoSimples({ troca: true }); medirCorpoSimplesDepois(); }
+  // A busca depende da barra (sair do Modo Fácil, a tela caindo): reavaliada a cada pulso — ela só
+  // mexe quando a resposta muda.
+  renderBuscaSimples();
   const aberta = hymnSearchPopupEl.classList.contains('open');
   if (principal) {
     // A janela abre SEM foco: é a tela, não uma busca iniciada (o teclado
@@ -41810,6 +41874,10 @@ function simpleSelecionarLinha(li) {
     emVoo: false,
   };
   li.classList.add('selecionando');
+  // A ESCOLHA ASSENTADA TIRA O TEXTO DA CONTA DA BUSCA (ver `simplesBuscando`): reavaliada quando
+  // o feedback termina, e não no toque — as teclas voltando sob o dedo seriam o "piscar".
+  clearTimeout(simpleBuscaTimer);
+  simpleBuscaTimer = setTimeout(() => { simpleBuscaTimer = null; renderBuscaSimples(); }, SIMPLE_FEEDBACK_MS + 20);
 }
 
 // A ESCOLHA AINDA ESTÁ A CAMINHO (v1.12.32): o download, a junção, a gravação e o `send`. Sem
@@ -41844,6 +41912,8 @@ function simpleLimparSelecao() {
   clearTimeout(simpleSaidaTimer); simpleSaidaTimer = null;
   clearInterval(simpleVigiaTimer); simpleVigiaTimer = null;
   hymnResultsEl.querySelectorAll('.hymn-result.selecionando').forEach((el) => el.classList.remove('selecionando'));
+  clearTimeout(simpleBuscaTimer); simpleBuscaTimer = null;
+  renderBuscaSimples();
 }
 
 // Quem fechava a Biblioteca na hora do toque (`closeHymnSearch`) cai aqui quando houve
@@ -42319,7 +42389,34 @@ if (bibleCloseEl) bibleCloseEl.addEventListener('click', fecharBiblia);
 // por teclado físico e pelo `Tab`, e nos dois a intenção é a mesma.
 hymnSearchInputEl.addEventListener('focus', () => {
   if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch(true);
+  renderBuscaSimples();
 });
+// O FOCO ENTRA NA PERGUNTA DA BUSCA do Modo Fácil (`simplesBuscando`): sair dele sem texto devolve
+// as teclas.
+hymnSearchInputEl.addEventListener('blur', renderBuscaSimples);
+// ===== O ENTER DO TECLADO FECHA O TECLADO (v1.12.51) =====
+// Pedido do operador: *"aceite o enter/pesquisar do teclado para fechar o teclado e permitir exibir
+// os resultados de forma a ter mais espaço visual"*. O campo declara `enterkeyhint="search"` (a
+// tecla diz "Pesquisar"); aqui ela tira o foco — o teclado desce — e a busca fica: o texto, os
+// resultados e, no Modo Fácil, as teclas fora (o TEXTO mantém a busca de pé). Nos DOIS modos: no
+// avançado a caixa de controles volta, porque ela só sai com o teclado no ar (`lib-aberta.teclado`).
+// A lista é redesenhada JÁ, sem esperar o debounce da digitação: quem apertou Enter acabou de
+// digitar. DOIS caminhos para o mesmo desfecho: o `keydown` de Enter (o teclado físico, e o IME que
+// o entrega) e o `submit` do formulário vazio a que o campo pertence (`#hymnBuscaForm`) — vários
+// teclados do Android mandam a tecla de ação como `keyCode` 229 "Unidentified", e a submissão
+// implícita sai mesmo assim. O `preventDefault` do primeiro cancela o segundo; o do segundo impede
+// a navegação. Sem guarda de `isComposing`: no português o Enter que fecha uma palavra em composição
+// É o "Pesquisar", e tirar o foco confirma a composição.
+function confirmarBusca(ev) {
+  if (ev) ev.preventDefault();
+  renderSearchResults(hymnSearchInputEl.value);
+  hymnSearchInputEl.blur();
+}
+hymnSearchInputEl.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Enter' || ev.keyCode === 13) confirmarBusca(ev);
+});
+const hymnBuscaFormEl = document.getElementById('hymnBuscaForm');
+if (hymnBuscaFormEl) hymnBuscaFormEl.addEventListener('submit', confirmarBusca);
 // A SETA abre sem foco; o ✕ (o mesmo botão, outro desenho) fecha.
 if (hymnSearchToggleEl) {
   hymnSearchToggleEl.addEventListener('click', () => {
@@ -42415,6 +42512,8 @@ hymnSearchInputEl.addEventListener('input', debounce(() => renderSearchResults(h
 // isso a visibilidade sai de uma função só, chamada nos dois.
 function renderBuscaLimpar() {
   if (hymnSearchLimparEl) hymnSearchLimparEl.hidden = !hymnSearchInputEl.value;
+  // E A BUSCA DO MODO FÁCIL (v1.12.51) segue o MESMO valor, pelos mesmos caminhos.
+  renderBuscaSimples();
 }
 hymnSearchInputEl.addEventListener('input', renderBuscaLimpar);
 if (hymnSearchLimparEl) {

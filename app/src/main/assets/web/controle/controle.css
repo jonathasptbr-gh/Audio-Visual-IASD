@@ -7972,6 +7972,27 @@ body.simples-barra .lib-toggle { display: none; }
 body.simples-barra:not(.simples-principal) .popup-backdrop--lib.open .lib-toggle { display: flex; }
 body.simples-barra { --lib-lista-base: var(--sp-5); }
 .simple.corpo-biblioteca .simple-song { visibility: hidden; }
+/* ===== DURANTE UMA BUSCA AS TECLAS SAEM (v1.12.51) =====
+   Pedido do operador: *"Ocultar os botões de play, stop, e volumes no modo simples, durante uma
+   busca"*. Quem decide é `simplesBuscando` (campo com foco ou com texto, janela aberta). As teclas
+   (`.simple-remote`, com a linha das páginas) e o card do nome SAEM DO LAYOUT, e é isso que dá a
+   altura à lista: a zona de leitura é `flex: 1`, cresce até o cartão de "Baixando…" (que fica — é a
+   única porta de cancelar um download), e a janela termina na base dela (`--simple-corpo-base`,
+   lida do layout). `display` e não `visibility`: o que se quer é o espaço. MEDIDO, teclado de 55% a
+   360×740 com a viewport encolhendo: a lista ia de 3% da área visível a ~70%. */
+.simple.buscando .simple-remote,
+.simple.buscando .simple-nowplaying { display: none; }
+/* E VOLTAM COM UM FADE: `display` não anima, e sem isto elas apareceriam inteiras num quadro com a
+   janela ainda subindo sobre elas. Só opacidade — nada se move. */
+.simple.teclas-voltando .simple-remote,
+.simple.teclas-voltando .simple-nowplaying {
+  animation: simple-teclas-voltam .26s ease-out both;
+}
+@keyframes simple-teclas-voltam { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .simple.teclas-voltando .simple-remote,
+  .simple.teclas-voltando .simple-nowplaying { animation: none; }
+}
 /* A LEITURA SÓ SOME QUANDO A JANELA JÁ A COBRIU (v1.12.12). `visibility` troca no ato, e a janela
    leva `--pop-anim` para descer: a leitura desaparecia num quadro e a janela chegava depois, sobre
    o vazio — o "piscar" do Parar. O atraso vale só para ESCONDER (a regra de baixo o zera para

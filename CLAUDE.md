@@ -3013,10 +3013,15 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.12.50 · APK v1.12.46** · `SHELL_VERSION` **82** ·
+**Versão atual: base web v1.12.51 · APK v1.12.46** · `SHELL_VERSION` **82** ·
 bundle com `minShell: 82` e **sem `shellTag`** — o shell 82 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. **Este lote é só web**
-(a Release v1.12.46 já está publicada). **A v1.12.50 ESCONDE A GRADE COM UMA SEÇÃO ABERTA**: abrir uma seção de
+(a Release v1.12.46 já está publicada). **A v1.12.51 TIRA AS TECLAS DO MODO FÁCIL DURANTE UMA BUSCA E FAZ O ENTER
+FECHAR O TECLADO**: com o campo da Biblioteca em foco, ou com texto (`simplesBuscando`), `.simple.buscando` tira
+`.simple-remote` e o card do nome do layout e a janela vai até o cartão de "Baixando…" (ou a base); o Enter
+(`enterkeyhint="search"`) tira o foco e mantém a busca, nos dois modos. A causa dos "20% da tela": com a viewport de
+layout encolhendo junto com o teclado, `--kb` é zero e as teclas ficavam acima dele — 3 a 13% da área visível para a
+lista, 50 a 76% depois. Ver o capítulo do Controle, "DURANTE UMA BUSCA AS TECLAS SAEM". **A v1.12.50 ESCONDE A GRADE COM UMA SEÇÃO ABERTA**: abrir uma seção de
 Configurações tira o modo e a grade do layout (`#cfgTopo`, que sobe animado e recebe `hidden`; `.com-secao` na
 `.fade-opts`), o cabeçalho da seção gruda no topo, logo abaixo do da folha, com a sombra de "há mais acima" nele, e
 recolher devolve a grade — nas cinco seções; e a versão (texto `--muted` ao lado do título, `.versao-txt`) e o
