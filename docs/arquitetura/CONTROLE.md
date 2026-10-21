@@ -177,6 +177,34 @@ da barra** (`#simpleBarra`) · **zona de leitura** (`.simple-song`) · cartão d
   mesa foi o lado "mais ALTA" (14 px); o "mais CURTA" do relato não foi** — se ele voltar,
   a linha do Registro diz qual conta discorda. Estado novo (`corpoSimplesRaf`,
   `aplicarTeclado`) mora no TOPO do arquivo, pelo mesmo motivo do `simpleSel`.
+- **DURANTE UMA BUSCA AS TECLAS SAEM, E O ENTER FECHA O TECLADO (v1.12.51)** — pedido: *"Ocultar
+  os botões de play, stop, e volumes no modo simples, durante uma busca … aceite o
+  enter/pesquisar do teclado para fechar o teclado … a seção de resultados não tem mais de 20%
+  de tela disponível"*. **A causa dos 20%:** onde a viewport de LAYOUT encolhe com o teclado (o
+  hint `resizes-content` honrado, o `adjustResize`), `--kb` dá zero, o `.simple` (fixo,
+  `inset: 0`) encolhe junto e as teclas, o volume e o card do nome ficam no fim dele, logo
+  acima do teclado; a janela termina na base da zona de leitura, que é o que SOBRA. MEDIDO com
+  teclado de 55%: 3 a 13% da área visível para a lista (10 px a 360×640), e 3 a 35% com 40%.
+  Onde só a viewport VISUAL encolhe (`--kb` > 0) a lista já ia ao teclado, salvo quando o card e
+  as teclas somavam mais que ele (320×568 a 1,3×: 51%). **A regra** (`simplesBuscando`):
+  `simplesComBarra()` + janela ABERTA + (campo com FOCO, ou com TEXTO e nenhuma escolha
+  ASSENTADA — passados `SIMPLE_FEEDBACK_MS` do toque numa linha, o texto deixa de contar; o foco
+  conta sempre). Com ela `.simple.buscando` tira `.simple-remote` (play, parar, mudo, volume,
+  páginas) e `.simple-nowplaying` do layout (`display: none`, é o espaço que se quer); a zona de
+  leitura (`flex: 1`) cresce até o cartão de "Baixando…", que FICA (é a única porta de cancelar
+  um download), e a janela acompanha porque a base dela é a da zona — medida com
+  `troca: true`, para ANIMAR até lá (`renderBuscaSimples`). A volta tem um fade de opacidade
+  (`.teclas-voltando`, 0,26 s, nada se move; nenhum com `prefers-reduced-motion`). A escolha
+  NÃO devolve as teclas no toque (apareceriam sob o dedo); devolve quando o feedback assenta
+  (timer em `simpleSelecionarLinha`), e o download não as segura de fora. **O Enter**
+  (`confirmarBusca`, por DOIS caminhos: o `keydown` de Enter e o `submit` do formulário vazio
+  `#hymnBuscaForm`, a que o campo pertence por `form=` — vários IMEs do Android mandam a tecla de
+  ação como 229 "Unidentified", e a submissão implícita sai mesmo assim): redesenha os
+  resultados já, sem o debounce, e tira o foco — o teclado desce, o texto mantém a busca e a lista ganha a tela; o campo
+  declara `enterkeyhint="search"` e `inputmode="search"`. Vale nos DOIS modos; no avançado nada
+  é escondido (a caixa de controles volta, porque só sai com o teclado no ar). Depois: 50 a 76%
+  da área visível nos mesmos casos — o resto é o cabeçalho do app e a barra, que ficam (tirar o
+  cabeçalho moveria o campo sob o dedo no toque). Oráculo: `modo-simples-busca`.
 - **O que a prévia levava, e onde está:** o cartão `#pvBusy` (única porta de
   CANCELAR um download no Modo Fácil) é o MESMO nó, movido por `hostPreview` para
   `#simpleBusySlot` — e de volta à casa de origem (`pvBusyOrigem`) no avançado; o
@@ -2137,6 +2165,8 @@ pelo teclado (`innerHeight - vv.height - vv.offsetTop`) e escreve em `--kb`, que
 `body { height: calc(100svh - var(--kb)) }` (controle.css) usa para encolher o
 app pra cima. Quando o layout já é redimensionado pelo navegador (ou o teclado
 está fechado), a conta dá ~0 e nada muda — os dois mecanismos convivem.
+O **Enter** do campo da Biblioteca (`enterkeyhint="search"`) tira o foco e assim fecha o teclado
+sem apagar a busca (v1.12.51; ver "DURANTE UMA BUSCA AS TECLAS SAEM").
 
 ### A abertura e a badge de versão (v1.7.0)
 

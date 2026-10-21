@@ -520,9 +520,11 @@ try {
   await pg.evaluate(() => { closeHymnSearch(); document.activeElement && document.activeElement.blur(); });
   await quadros();
   const n5 = await medirN();
-  checar([n3, n4, n5].every((n) => Math.abs(n.cardTop - n0.cardTop) <= .5),
-    'N3 · abrir e fechar a Biblioteca sobre a leitura não mexe no card (topo igual nos três estados)',
-    JSON.stringify({ n0, n3, n4, n5 }));
+  // ABERTA PELO CAMPO É UMA BUSCA (v1.12.51): o card SAI com as teclas (`.simple.buscando`, ver o
+  // `modo-simples-busca`) — some, não anda. Fechada antes e depois, ele está no mesmo lugar.
+  checar([n3, n5].every((n) => Math.abs(n.cardTop - n0.cardTop) <= .5) && n4.cardH === 0,
+    'N3 · abrir e fechar a Biblioteca sobre a leitura não mexe no card: o mesmo topo antes e depois, e '
+    + 'durante a busca ele sai (v1.12.51) em vez de andar', JSON.stringify({ n0, n3, n4, n5 }));
 
   // O · A TROCA ENTRE A LEITURA E A BIBLIOTECA ANIMA, NÃO PISCA (v1.12.12)
   // Pedido do operador: *"melhore as animações de alternância entre o auxiliar de leitura no modo

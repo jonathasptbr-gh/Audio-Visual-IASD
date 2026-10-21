@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.12.51",
+    "itens": [
+      "Modo simples: ao buscar na biblioteca, os botões de tocar, parar e volume somem para dar espaço à lista.",
+      "Eles voltam ao fechar a busca, ao apagar o texto ou ao escolher uma música.",
+      "A tecla Pesquisar (Enter) do teclado fecha o teclado e deixa os resultados à vista.",
+      "Em celulares de tela pequena, a lista de resultados agora ocupa todo o espaço acima do teclado."
+    ]
+  },
+  {
     "versao": "1.12.50",
     "itens": [
       "Configurações: ao abrir Histórico, Transferir, Editar mídia, Tela ou Verificação, os botões de cima somem.",
