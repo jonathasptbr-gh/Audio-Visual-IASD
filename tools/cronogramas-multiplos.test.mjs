@@ -1,5 +1,5 @@
 // ============================================================================
-// OS CRONOGRAMAS MÚLTIPLOS (v1.12.54)
+// OS CRONOGRAMAS MÚLTIPLOS (v1.12.54; a gaveta refeita na v1.12.55)
 // ============================================================================
 //
 // Pedido do operador: *"o sistema de múltiplos cronogramas na verdade vai
@@ -22,6 +22,9 @@
 //     e abrir o app novo não pode mudar nada nele — nem escrever a chave.
 //  5. O TOQUE DE FORA QUE TOCA (bloco J). Fechar a gaveta tocando fora não pode
 //     PROJETAR a linha de baixo.
+//  6. A LINHA QUE SE ATROPELA (bloco M, v1.12.55). Cada cronograma é uma linha
+//     renomear · nome · excluir, e o nome tem de ficar no EIXO entre os dois
+//     quadrados em toda largura e escala de fonte — medido, nunca de olho.
 //
 //   node tools/cronogramas-multiplos.test.mjs
 import path from 'node:path';
@@ -58,24 +61,36 @@ const estado = () => pg.evaluate(async () => ({
 const qtdDe = (st, nome) => { const c = st.cronos.itens.find((x) => x.nome === nome); return c ? c.qtd : null; };
 // A gaveta, aberta pelo TOQUE no título, e o toque numa linha dela.
 async function abrirGaveta() {
+  // JÁ ABERTA (renomear e excluir a deixam aberta), o título está sob o véu:
+  // tocá-lo seria um toque de fora, que FECHA.
+  if (await pg.evaluate(() => document.getElementById('cronoGaveta').classList.contains('aberta'))) return true;
   await pg.click('#cronoTitulo');
   return esperar(pg, () => document.getElementById('cronoGaveta').classList.contains('aberta'));
 }
 async function tocarNaGaveta(nome) {
   await abrirGaveta();
   await pg.evaluate((n) => {
-    const b = [...document.querySelectorAll('#cronoLista .crono-item')]
+    if (n === 'Novo cronograma') { document.getElementById('cronoNovo').click(); return; }
+    const li = [...document.querySelectorAll('#cronoLista .crono-item')]
       .find((x) => (x.querySelector('.crono-item-nome') || {}).textContent === n);
-    b.click();
+    li.querySelector('.crono-trocar').click();
   }, nome);
   await esperar(pg, (n) => document.getElementById('listTitle').textContent === n
     || n === 'Novo cronograma', nome);
   await z(300);
 }
-async function menu(id) {
-  await pg.click('#cronoMenuBtn');
-  await esperar(pg, () => document.getElementById('cronoMenu').classList.contains('aberta'));
-  await pg.click('#' + id);
+// Um dos dois quadrados da LINHA de um cronograma na gaveta: `renomear` ou `excluir`.
+async function naLinha(nome, qual) {
+  await abrirGaveta();
+  await pg.evaluate(([n, q]) => {
+    const li = [...document.querySelectorAll('#cronoLista .crono-item')]
+      .find((x) => (x.querySelector('.crono-item-nome') || {}).textContent === n);
+    li.querySelector('.crono-' + q).click();
+  }, [nome, qual]);
+}
+async function fecharGaveta() {
+  await pg.evaluate(() => fecharCronoGaveta());
+  await esperar(pg, () => document.getElementById('cronoGaveta').hidden);
 }
 async function responder(valor) {
   await esperar(pg, () => document.getElementById('appDialog').classList.contains('open'));
@@ -135,8 +150,8 @@ try {
       return {
         abaixo: +(r.top - h.bottom).toFixed(1),
         n: itens.length,
-        ultimo: (itens[itens.length - 1].textContent || '').trim(),
-        ativo: ativo && ativo.textContent.trim(),
+        ultimo: (document.querySelector('#cronoLista > li:last-child').textContent || '').trim(),
+        ativo: ativo && ativo.querySelector('.crono-trocar').textContent.trim(),
         fundo: ativo && getComputedStyle(ativo).backgroundColor,
         selRgb,
         expandido: document.getElementById('cronoTitulo').getAttribute('aria-expanded'),
@@ -145,7 +160,7 @@ try {
     });
     checar(ab === true && g.abaixo >= 0 && g.abaixo < 12,
       'A · tocar no título abre a GAVETA logo abaixo da barra do topo', porque(ab) || JSON.stringify(g));
-    checar(g.n === 2 && /^Cronograma\s*3 itens$/.test(g.ativo) && g.ultimo === 'Novo cronograma',
+    checar(g.n === 1 && /^Cronograma\s*3 itens$/.test(g.ativo) && g.ultimo === 'Novo cronograma',
       'A · e ela lista o cronograma com a CONTA de itens, e a última linha é "Novo cronograma"',
       JSON.stringify(g));
     checar(g.fundo === g.selRgb && g.expandido === 'true',
@@ -196,25 +211,35 @@ try {
   // D · RENOMEAR: aparado, vazio recusado, colisão com sufixo
   // =========================================================================
   {
-    await menu('cronoRenomear');
+    await naLinha('Cronograma', 'renomear');
     const val = await pg.evaluate(() => document.getElementById('appDialogInput').value);
     await responder('   Culto jovem   ');
     let st = await estado();
+    const naGaveta = await pg.evaluate(() => ({
+      aberta: !document.getElementById('cronoGaveta').hidden,
+      nomes: [...document.querySelectorAll('#cronoLista .crono-item-nome')].map((x) => x.textContent),
+    }));
     checar(val === 'Cronograma' && st.titulo === 'Culto jovem',
-      'D · Renomear abre o diálogo com o nome atual e grava o novo, APARADO',
+      'D · o RENOMEAR da linha abre o diálogo com o nome atual e grava o novo, APARADO',
       JSON.stringify({ val, titulo: st.titulo }));
-    await menu('cronoRenomear');
+    checar(naGaveta.aberta && naGaveta.nomes.includes('Culto jovem'),
+      'D · e a gaveta FICA ABERTA, com o nome novo na linha — o diálogo por cima dela '
+      + 'não é um "toque de fora"', JSON.stringify(naGaveta));
+    await fecharGaveta();
+    await naLinha('Culto jovem', 'renomear');
     await responder('    ');
     st = await estado();
     checar(st.titulo === 'Culto jovem',
       'D · e um nome VAZIO é recusado: o antigo fica', st.titulo);
-    await tocarNaGaveta('Cronograma 2');
-    await menu('cronoRenomear');
+    // RENOMEAR UM QUE NÃO É O ATIVO: a linha age sobre o cronograma DELA.
+    await naLinha('Cronograma 2', 'renomear');
     await responder('culto JOVEM');
     st = await estado();
-    checar(st.titulo === 'culto JOVEM (2)',
-      'D · e um nome que COLIDE com outro cronograma ganha " (2)" — duas linhas iguais '
-      + 'na gaveta seriam indistinguíveis ao toque', st.titulo);
+    checar(st.titulo === 'Culto jovem' && st.cronos.itens.some((c) => c.nome === 'culto JOVEM (2)'),
+      'D · renomear pela linha de um cronograma GUARDADO renomeia ESSE, e não o ativo — '
+      + 'e um nome que COLIDE com outro ganha " (2)": duas linhas iguais na gaveta '
+      + 'seriam indistinguíveis ao toque', JSON.stringify({ titulo: st.titulo, itens: st.cronos.itens.map((c) => c.nome) }));
+    await fecharGaveta();
   }
 
   // =========================================================================
@@ -223,7 +248,7 @@ try {
   {
     await tocarNaGaveta('Cronograma 3');
     await semear(2, 'Hino');
-    await menu('cronoLimpar');
+    await pg.click('#cronoLimpar');
     await responder(true);
     const st = await estado();
     checar(st.imports === 0 && st.titulo === 'Cronograma 3',
@@ -231,14 +256,17 @@ try {
     checar(qtdDe(st, 'Culto jovem') === 3,
       'E · e só ele: o "Culto jovem" guardado continua com os três', JSON.stringify(st.cronos));
     const dis = await pg.evaluate(() => {
-      document.getElementById('cronoMenuBtn').click();
       const b = document.getElementById('cronoLimpar');
-      const r = { dis: b.disabled, title: b.title };
-      fecharCronoCamadas();
-      return r;
+      const h = document.querySelector('.list-header').getBoundingClientRect();
+      const r = b.getBoundingClientRect();
+      const t = document.getElementById('cronoTitulo').getBoundingClientRect();
+      return { dis: b.disabled, title: b.title, esq: r.left - h.left, antes: r.right <= t.left };
     });
     checar(dis.dis === true && /vazio/i.test(dis.title),
       'E · e com o cronograma vazio o Limpar é APAGADO, dizendo por quê', JSON.stringify(dis));
+    checar(dis.esq < 24 && dis.antes,
+      'E · e o Limpar mora NA BARRA, encostado à ESQUERDA, antes do título (v1.12.55)',
+      JSON.stringify(dis));
   }
 
   // =========================================================================
@@ -252,7 +280,7 @@ try {
     await pg.evaluate((id) => AVDB.listAdd('favs', id), junto);
     await tocarNaGaveta('Cronograma 3');
     // O usado mais recentemente, ao sair do 3, é o "culto JOVEM (2)".
-    await menu('cronoExcluir');
+    await naLinha('Cronograma 3', 'excluir');
     await esperar(pg, () => document.getElementById('appDialog').classList.contains('open'));
     const msg = await pg.evaluate(() => document.getElementById('appDialogMsg').textContent);
     await responder(true);
@@ -263,25 +291,26 @@ try {
       JSON.stringify({ titulo: st.titulo, msg, itens: st.cronos.itens.map((c) => c.nome) }));
     checar(/Cronograma 3/.test(msg),
       'F · e a pergunta nomeia o cronograma que sai', msg);
+    await fecharGaveta();
+    // EXCLUIR UM QUE NÃO É O ATIVO: a linha age sobre o cronograma DELA, e o ativo
+    // não muda. É o caminho que o menu ⋮ não tinha.
     await tocarNaGaveta('Culto jovem');
-    await tocarNaGaveta('culto JOVEM (2)');
-    await menu('cronoExcluir');
+    await naLinha('culto JOVEM (2)', 'excluir');
     await responder(true);
     st = await estado();
     const sobra = await pg.evaluate(async ([a, b]) => ({
       so: !!(await AVDB.getMedia(a)), junto: !!(await AVDB.getMedia(b)),
     }), [so, junto]);
-    checar(st.titulo === 'Culto jovem' && sobra.so === false && sobra.junto === true,
-      'F · e o que SÓ ele segurava é coletado, enquanto o que outra lista segura fica',
-      JSON.stringify({ titulo: st.titulo, sobra }));
+    checar(st.titulo === 'Culto jovem' && st.imports === 3 && sobra.so === false && sobra.junto === true,
+      'F · excluir pela linha de um GUARDADO o tira sem mexer no ativo, e o que SÓ ele '
+      + 'segurava é coletado, enquanto o que outra lista segura fica',
+      JSON.stringify({ titulo: st.titulo, imports: st.imports, sobra }));
     // Sobrou UM: o "Culto jovem".
     const dis = await pg.evaluate(() => {
-      document.getElementById('cronoMenuBtn').click();
-      const b = document.getElementById('cronoExcluir');
-      const r = { dis: b.disabled, title: b.title, aria: b.getAttribute('aria-label') };
-      fecharCronoCamadas();
-      return r;
+      const b = document.querySelector('#cronoLista .crono-item .crono-excluir');
+      return { dis: b.disabled, title: b.title, aria: b.getAttribute('aria-label') };
     });
+    await fecharGaveta();
     checar(st.cronos.itens.length === 1 && dis.dis === true && /único/.test(dis.title) && dis.aria === dis.title,
       'F · com UM cronograma só, o Excluir é APAGADO e o `title` diz por quê — o app '
       + 'nunca fica sem cronograma', JSON.stringify({ n: st.cronos.itens.length, dis }));
@@ -354,16 +383,17 @@ try {
     const g1 = await esperar(pg, () => document.getElementById('cronoGaveta').hidden, null, 3000);
     // Sem o degrau a gaveta fica aberta, e o véu engoliria o toque seguinte: o
     // oráculo a fecha à mão para o veredito sair na asserção, não num prazo.
-    if (g1 !== true) await pg.evaluate(() => fecharCronoCamadas());
-    await z(300);
-    await pg.click('#cronoMenuBtn');
-    await esperar(pg, () => document.getElementById('cronoMenu').classList.contains('aberta'));
-    const v2 = await pg.evaluate(() => window.__avBack());
-    const m2 = await esperar(pg, () => document.getElementById('cronoMenu').hidden, null, 3000);
-    if (m2 !== true) { await pg.evaluate(() => fecharCronoCamadas()); await z(300); }
-    checar(v1 === true && g1 === true && v2 === true && m2 === true,
-      'J · o VOLTAR do Android fecha a gaveta e o menu (e consome o toque)',
-      JSON.stringify({ v1, g1: porque(g1) || g1, v2, m2: porque(m2) || m2 }));
+    if (g1 !== true) { await pg.evaluate(() => fecharCronoGaveta()); await z(300); }
+    checar(v1 === true && g1 === true,
+      'J · o VOLTAR do Android fecha a gaveta (e consome o toque)',
+      JSON.stringify({ v1, g1: porque(g1) || g1 }));
+    const semMenu = await pg.evaluate(() => ({
+      btn: !!document.getElementById('cronoMenuBtn'), menu: !!document.getElementById('cronoMenu'),
+      fn: typeof window.fecharCronoCamadas,
+    }));
+    checar(!semMenu.btn && !semMenu.menu && semMenu.fn === 'undefined',
+      'J · e o menu ⋮ SAIU inteiro (v1.12.55): nem o botão, nem a folha, nem o código',
+      JSON.stringify(semMenu));
     // O TOQUE FORA, em cima de uma linha do Cronograma: fecha, e NÃO projeta.
     await abrirGaveta();
     const alvo = await pg.evaluate(() => {
@@ -410,18 +440,117 @@ try {
   // L · UM NOME LONGO VIRA RETICÊNCIAS, NÃO EMPURRA A FAIXA
   // =========================================================================
   {
-    await menu('cronoRenomear');
+    await naLinha('Culto jovem', 'renomear');
     await responder('Culto de sábado de manhã com a escola sabatina e o sermão');
+    await fecharGaveta();
     const r = await pg.evaluate(() => {
       const t = document.getElementById('cronoTitulo').getBoundingClientRect();
-      const m = document.getElementById('cronoMenuBtn').getBoundingClientRect();
+      const m = document.getElementById('cronoLimpar').getBoundingClientRect();
       const g = document.getElementById('settingsBtn').getBoundingClientRect();
       return { esq: t.left - m.right, dir: g.left - t.right, larg: document.documentElement.scrollWidth - innerWidth,
         gear: g.right <= innerWidth };
     });
     checar(r.esq >= 0 && r.dir >= 0 && r.larg <= 0 && r.gear,
-      'L · um nome longo cabe entre o ⋮ e a engrenagem, sem empurrar ninguém para fora',
+      'L · um nome longo cabe entre o Limpar e a engrenagem, sem empurrar ninguém para fora',
       JSON.stringify(r));
+  }
+
+  // =========================================================================
+  // M · A LINHA: renomear · nome NO EIXO · excluir, em toda largura e escala
+  // =========================================================================
+  // Pedido do operador (v1.12.55): *"o botão de novo cronograma fique
+  // centralizado horizontalmente. E o mesmo para os nomes dos cronogramas,
+  // deixando o botão de excluir em um dos lados e o de renomear no outro
+  // extremo"*. Os cronogramas que os blocos anteriores deixaram (cinco): curtos, o longo do bloco L e um vazio.
+  {
+    await tocarNaGaveta('Novo cronograma');
+    const celulas = [];
+    for (const w of [320, 360, 430]) {
+      for (const f of [1, 1.25]) {
+        await pg.setViewportSize({ width: w, height: 900 });
+        await pg.evaluate((e) => { document.documentElement.style.fontSize = (16 * e) + 'px'; }, f);
+        await abrirGaveta();
+        await z(350);
+        const r = await pg.evaluate(() => {
+          const cx = (b) => (b.left + b.right) / 2;
+          const linhas = [...document.querySelectorAll('#cronoLista .crono-item')].map((li) => {
+            const L = li.getBoundingClientRect();
+            const ren = li.querySelector('.crono-renomear').getBoundingClientRect();
+            const tro = li.querySelector('.crono-trocar').getBoundingClientRect();
+            const exc = li.querySelector('.crono-excluir').getBoundingClientRect();
+            const nm = li.querySelector('.crono-item-nome');
+            const n = nm.getBoundingClientRect();
+            const q = li.querySelector('.crono-item-qtd').getBoundingClientRect();
+            return {
+              // Os dois quadrados nas DUAS PONTAS da linha, quadrados e iguais.
+              pontas: ren.left - L.left < 12 && L.right - exc.right < 12,
+              quadrados: Math.abs(ren.width - ren.height) < 0.5 && Math.abs(exc.width - ren.width) < 0.5,
+              // Nada se sobrepõe: o miolo fica ENTRE os dois.
+              semToque: ren.right <= tro.left + 0.5 && tro.right <= exc.left + 0.5,
+              // O NOME e a CONTA no eixo entre os dois quadrados.
+              eixoNome: +Math.abs(cx(n) - (ren.right + exc.left) / 2).toFixed(2),
+              eixoQtd: +Math.abs(cx(q) - (ren.right + exc.left) / 2).toFixed(2),
+              // Um nome longo vira reticências DENTRO do miolo.
+              cabe: n.left >= tro.left - 0.5 && n.right <= tro.right + 0.5,
+              cortado: nm.scrollWidth > nm.clientWidth + 1,
+            };
+          });
+          const novo = document.getElementById('cronoNovo');
+          const nb = novo.getBoundingClientRect();
+          const ico = novo.querySelector('svg').getBoundingClientRect();
+          const rot = novo.querySelector('span').getBoundingClientRect();
+          const gv = document.getElementById('cronoGaveta').getBoundingClientRect();
+          return {
+            linhas,
+            novoEixo: +Math.abs((ico.left + rot.right) / 2 - cx(nb)).toFixed(2),
+            novoCheio: Math.abs(nb.width - (gv.width - 2 * 12.8)) < 4 || nb.width > gv.width * 0.8,
+            dentro: gv.left >= 0 && gv.right <= innerWidth,
+            larg: document.documentElement.scrollWidth - innerWidth,
+          };
+        });
+        celulas.push({ w, f, ...r });
+        await fecharGaveta();
+      }
+    }
+    await pg.evaluate(() => { document.documentElement.style.fontSize = ''; });
+    await pg.setViewportSize({ width: 390, height: 900 });
+    const ruins = (pred) => celulas.filter((c) => !pred(c)).map((c) => ({ w: c.w, f: c.f, l: c.linhas, novo: c.novoEixo }));
+    checar(celulas.every((c) => c.linhas.length >= 3 && c.linhas.every((l) => l.pontas && l.quadrados && l.semToque)),
+      'M · em 320/360/430 px e fonte 1×/1,25×, cada linha tem RENOMEAR numa ponta e EXCLUIR '
+      + 'na outra, quadrados iguais, e o miolo ENTRE eles sem sobrepor nenhum',
+      JSON.stringify(ruins((c) => c.linhas.length >= 3 && c.linhas.every((l) => l.pontas && l.quadrados && l.semToque))));
+    checar(celulas.every((c) => c.linhas.every((l) => l.eixoNome <= 1 && l.eixoQtd <= 1 && l.cabe)),
+      'M · e o NOME e a CONTA ficam no EIXO entre os dois botões (≤ 1px), dentro do miolo',
+      JSON.stringify(ruins((c) => c.linhas.every((l) => l.eixoNome <= 1 && l.eixoQtd <= 1 && l.cabe))));
+    checar(celulas.every((c) => c.linhas.some((l) => l.cortado)),
+      'M · PREMISSA: o nome longo do bloco L está de fato cortado em reticências — sem '
+      + 'ele o eixo acima seria medido só sobre nomes curtos', JSON.stringify(celulas.map((c) => c.linhas.map((l) => l.cortado))));
+    checar(celulas.every((c) => c.novoEixo <= 1 && c.dentro && c.larg <= 0),
+      'M · e o "Novo cronograma" tem ícone + rótulo CENTRADOS na linha (≤ 1px), e a gaveta '
+      + 'não passa da tela', JSON.stringify(celulas.map((c) => ({ w: c.w, f: c.f, novo: c.novoEixo, dentro: c.dentro, larg: c.larg }))));
+  }
+
+  // =========================================================================
+  // N · O TOQUE NO MIOLO TROCA; OS QUADRADOS NÃO TROCAM
+  // =========================================================================
+  {
+    const antes = (await estado()).titulo;
+    await naLinha('Cronograma 2', 'renomear');
+    await responder(false);
+    const depoisRen = (await estado()).titulo;
+    const r = await pg.evaluate(() => {
+      const li = document.querySelector('#cronoLista .crono-item.ativo');
+      const b = li.querySelector('.crono-trocar');
+      return { cur: b.getAttribute('aria-current'), resp: getComputedStyle(li).getPropertyValue('filter') };
+    });
+    await fecharGaveta();
+    checar(depoisRen === antes && r.cur === 'true',
+      'N · tocar no RENOMEAR de outra linha (e cancelar) NÃO troca de cronograma — o '
+      + 'quadrado não é o miolo', JSON.stringify({ antes, depoisRen, r }));
+    await tocarNaGaveta('Cronograma 2');
+    const st = await estado();
+    checar(st.titulo === 'Cronograma 2' && st.imports === 1,
+      'N · e tocar no MIOLO da linha troca para ele', JSON.stringify({ titulo: st.titulo, imports: st.imports }));
   }
 
   checar(erros.length === 0, 'nenhum erro de página', erros.join(' | '));

@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.12.55",
+    "itens": [
+      "O botão de limpar o cronograma voltou para a barra do topo, à esquerda.",
+      "Na lista de cronogramas, cada um tem o seu lápis (renomear) à esquerda e a lixeira (excluir) à direita.",
+      "Dá para renomear ou excluir qualquer cronograma da lista, não só o que está aberto.",
+      "Os nomes e o \"Novo cronograma\" ficam centralizados; tocar no nome troca para aquele cronograma."
+    ]
+  },
+  {
     "versao": "1.12.54",
     "itens": [
       "Agora há vários cronogramas: toque no nome do cronograma, no topo, para ver a lista e trocar de um para outro.",

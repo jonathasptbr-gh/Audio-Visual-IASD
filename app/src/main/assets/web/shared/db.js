@@ -1604,13 +1604,17 @@
     await txDone(tx);
     return true;
   }
-  /** Todos os ids dos cronogramas GUARDADOS (os inativos). */
-  async function cronoIdsGuardados() {
+  /**
+   * Os ids dos cronogramas GUARDADOS (os inativos) — de todos, ou só do `so`
+   * (o EXCLUIR de uma linha da gaveta, v1.12.55, que solta a prateleira
+   * invisível do conteúdo dele).
+   */
+  async function cronoIdsGuardados(so) {
     const [s, tx] = await storeTx(STORE_STATE, 'readonly');
     const c = await cronoLerEm(s);
     await txDone(tx).catch(() => {});
     const out = [];
-    for (const x of c.itens) if (x.id !== c.ativo) out.push(...x.ids);
+    for (const x of c.itens) if (x.id !== c.ativo && (!so || x.id === so)) out.push(...x.ids);
     return out;
   }
   // AS DUAS MANUTENÇÕES QUE AS LISTAS JÁ RECEBEM, aplicadas aos guardados: o

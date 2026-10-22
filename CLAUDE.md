@@ -1438,9 +1438,10 @@ nenhum**, e por isso ficam aqui.
   mexer no token. Foi o que aconteceu ao limpar do Cronograma: MEDIDO, o `<svg>` dele
   media 20px contra os 22 da engrenagem a 34px de distância na MESMA faixa,
   enquanto as CAIXAS dos dois botões eram iguais — e havia asserção provando que
-  as caixas eram iguais, o que é por que ninguém viu. (A casa hoje é do ⋮,
-  `.crono-menu`, `--icon-lg` por regra PRÓPRIA — o degrau a mais que a v1.8.69
-  deu à lixeira, pelo mesmo motivo: desenho esparso ao lado do glifo denso.) **Botão de
+  as caixas eram iguais, o que é por que ninguém viu. (O limpar, `.crono-limpar`,
+  mede `--icon-lg` por regra PRÓPRIA — o degrau a mais que a v1.8.69 deu à
+  lixeira: desenho esparso ao lado do glifo denso. A casa foi de um menu ⋮ só na
+  v1.12.54, e o limpar voltou a ela na v1.12.55.) **Botão de
   ícone novo entra numa das TRÊS listas — ou ganha regra própria com a razão ao
   lado — no lote em que nasce**, e o oráculo que o cobrir mede o
   `<svg>`, não o botão. É a mesma armadilha que a v1.5.19 já tinha consertado
@@ -1873,8 +1874,8 @@ sessão e `Presentation` vivas. **Quem decide é o lado web** (`window.__avBack`
 invariante 5); `MainActivity.handleBack()` pergunta e obedece. A ordem é do mais
 efêmero ao mais permanente:
 
-1. diálogo modal → **1.7. a gaveta dos cronogramas ou o menu ⋮ do Cronograma**
-(v1.12.54) → 2. bottom-sheet (o de cima; em Configurações, a SEÇÃO aberta
+1. diálogo modal → **1.7. a gaveta dos cronogramas** (v1.12.54; o menu ⋮ que
+dividia o degrau saiu na v1.12.55) → 2. bottom-sheet (o de cima; em Configurações, a SEÇÃO aberta
 recolhe antes de a folha fechar — v1.12.48) → 2.5. a folha de Ferramentas →
 **2.6. a folha da Bíblia** (que SOBE dentro dela — livros ← capítulos ← leitura —
 antes de fechar) → 3. preview em tela cheia (que, sem telão, **é** a projeção) →
@@ -3031,12 +3032,17 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.12.54 · APK v1.12.46** · `SHELL_VERSION` **82** ·
+**Versão atual: base web v1.12.55 · APK v1.12.46** · `SHELL_VERSION` **82** ·
 bundle com `minShell: 82` e **sem `shellTag`** — o shell 82 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. **Este lote é só web**
-(a Release v1.12.46 já está publicada). **A v1.12.54 TRAZ OS CRONOGRAMAS MÚLTIPLOS**: o
+(a Release v1.12.46 já está publicada). **A v1.12.55 DEVOLVE O LIMPAR À BARRA E PÕE RENOMEAR E EXCLUIR NA LINHA DE
+CADA CRONOGRAMA**: o menu ⋮ saiu inteiro; `#cronoLimpar` volta à trilha 1 (esquerda), e cada linha da gaveta é
+renomear (lápis, ponta esquerda) · nome e conta CENTRADOS (o miolo, que troca) · excluir (lixeira em `--btn-danger`,
+ponta direita, apagada no único), sempre à vista, na receita da linha de lista do app; "Novo cronograma" com ícone e
+rótulo centrados. Renomear e excluir valem para QUALQUER cronograma e deixam a gaveta aberta. Ver o capítulo do
+Controle, "Os cronogramas múltiplos". **A v1.12.54 TRAZ OS CRONOGRAMAS MÚLTIPLOS**: o
 título do Cronograma é o nome do ATIVO e abre a gaveta deles (`#cronoTitulo` → `#cronoGaveta`, "Novo cronograma"
-por último), e o antigo limpar virou o ⋮ (`#cronoMenuBtn` → Renomear · Limpar cronograma · Excluir cronograma). **O
+por último), e o antigo limpar virou um ⋮ (revogado na v1.12.55). **O
 ATIVO CONTINUA SENDO `imports`** — todo consumidor segue intocado —, e os outros são conjuntos guardados na chave
 `cronogramas`, DETENTORA no `lerDetentores`; trocar é uma transação só (`AVDB.cronoTrocar`). CORREÇÃO e não
 INCREMENTAL: não é um lugar novo do app, é a mesma tela com um atalho para trocar a lista inteira. Ver o capítulo do
