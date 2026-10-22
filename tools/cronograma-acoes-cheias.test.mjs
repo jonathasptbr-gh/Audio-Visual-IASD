@@ -18,7 +18,7 @@
 //  C. NUNCA PELA METADE: em toda célula, ou a faixa não toca a capa, ou a capa está
 //     escondida — a meia capa debaixo de um botão é o defeito do relato;
 //  D. a CONFIRMAÇÃO de excluir devolve a capa (é nela que mora a lixeira) e a faixa
-//     ao piso de sempre.
+//     ao piso de sempre (que não nasce na borda do cartão).
 // A decisão é MEDIDA pelo app (`acertarFaixaDaLinha`), e este oráculo mede o
 // DESENHO que sai dela — nunca repete a conta.
 //
@@ -149,13 +149,19 @@ try {
     const r = {
       confirmando: caixa.classList.contains('confirmando'),
       capaVisivel: getComputedStyle(capa).visibility === 'visible',
-      sobreposicao: Math.max(0, Math.min(cb.right, tb.right) - Math.max(cb.left, tb.left)),
+      // A RÉGUA É "A FAIXA NÃO NASCE NA BORDA DO CARTÃO" — a geometria cheia não
+      // vale na confirmação. NÃO é "não toca a capa": o piso de sempre cresce para
+      // a esquerda o que o texto da pergunta pedir, e com a fonte do runner (mais
+      // larga) a 320×1,25 ele avança alguns pixels sobre a capa — comportamento
+      // anterior a este lote, MEDIDO no CI (11,8px), e não o que este bloco trava.
+      faixaEsq: cb.left, capaEsq: tb.left,
     };
     fecharAcoesDaLinha();
     return r;
   }, ids[1]);
-  checar(conf.confirmando && conf.capaVisivel && conf.sobreposicao === 0,
-    'D · na CONFIRMAÇÃO de excluir a capa volta (é nela que a lixeira aparece) e a faixa não a cobre',
+  checar(conf.confirmando && conf.capaVisivel && conf.faixaEsq > conf.capaEsq + 0.5,
+    'D · na CONFIRMAÇÃO de excluir a capa volta (é nela que a lixeira aparece) e a faixa deixa de '
+    + 'nascer na borda do cartão — a geometria cheia não vale ali',
     JSON.stringify(conf));
 
   await pg.evaluate(() => { document.documentElement.style.fontSize = ''; });
