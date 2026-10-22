@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.12.57",
+    "itens": [
+      "As séries no modo simples (Provai e Vede, Informativo) abrem e fecham sem travar no fim.",
+      "O vídeo da semana dessas séries aparece como as outras faixas, sem o cartão azul por cima.",
+      "Toda coleção da Biblioteca fecha até o fim num movimento só, mesmo com um download em andamento."
+    ]
+  },
+  {
     "versao": "1.12.56",
     "itens": [
       "Os Favoritos da Biblioteca abrem e fecham num movimento só, sem a travada no meio do caminho.",

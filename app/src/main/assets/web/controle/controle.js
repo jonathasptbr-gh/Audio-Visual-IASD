@@ -426,7 +426,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.56';
+const WEB_VERSION = '1.12.57';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -12072,6 +12072,50 @@ function semMovimento() {
   return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
+// ===== O ACERVO NÃO É REDESENHADO NO MEIO DE UM ACORDEÃO (v1.12.57) =====
+// Relato do operador: *"O mesmo problema da coleção travando no último instante antes de
+// fechar, ocorre no modo simples com o provai e vede e o informativo das missões"*.
+// O redesenho do acervo (`renderSearchResults`) refaz os cards a partir do ESTADO — e no
+// fechamento o estado só muda no FIM da animação (o `aplicar`). Um redesenho no meio dela
+// (o tique de 400 ms do progresso, `refreshCollectionsIfVisible`, ou um `renderCollectionsNow`
+// direto — a verificação da semana que abrir a série dispara é um deles) trocava o card que
+// encolhia por um card NOVO, ABERTO e inteiro: MEDIDO a 390×780, 166 → 129 → 103px e de volta
+// a 166px por ~130 ms, até o fim da animação antiga (num nó já fora do documento) fechar de
+// vez. A espera é a resposta, como a da gaveta aberta (`interacaoAbertaNoAcervo`): enquanto um
+// acordeão DO ACERVO FECHA, o redesenho se rearma no tique coalescido e sai em dia logo depois.
+// O próprio `aplicar` do acordeão não passa por aqui (é o `redesenharAcervo` direto), e o
+// contador zera ANTES dele. A ABERTURA segura só o TIQUE (um card redesenhado no meio dela
+// nasce inteiro, sem a curva); o redesenho DIRETO (`renderCollectionsNow`) só espera um
+// FECHAMENTO — na abertura o estado já é o de depois, e ali ele continua sendo o primitivo
+// sem guarda que o `gaveta-no-download` afirma.
+let acervoAnimando = 0;
+let acervoFechando = 0;
+function marcarAnimacaoNoAcervo(el, fechando) {
+  if (!el || !hymnResultsEl || !hymnResultsEl.contains(el)) return () => {};
+  acervoAnimando++;
+  if (fechando) acervoFechando++;
+  let solto = false;
+  const soltar = () => {
+    if (solto) return; solto = true;
+    acervoAnimando = Math.max(0, acervoAnimando - 1);
+    if (fechando) acervoFechando = Math.max(0, acervoFechando - 1);
+  };
+  // Rede de segurança: um `finish` que nunca venha não pode segurar o acervo para sempre.
+  setTimeout(soltar, ACC_MS + 500);
+  return soltar;
+}
+// O RECUO DO CORPO ANIMA JUNTO COM A ALTURA (v1.12.57). Com `box-sizing: border-box`,
+// `height: 0` não passa do `padding`: o corpo de um card parava nos 7,2px do recuo de baixo
+// (e a margem dele seguia ocupando lugar), o card ficava PARADO uns 14px acima da altura
+// fechada no fim da curva — MEDIDO, 80px por ~66 ms — e só então caía para 66 no redesenho:
+// o "travando no último instante". Indo a zero junto com a altura, o card aberto e vazio
+// mede o mesmo que o fechado, e o fim da animação É o card fechado. `null` = a ponta zerada.
+function caixaDoAcordeao(el) {
+  if (!el) return { paddingTop: '0px', paddingBottom: '0px', marginTop: '0px', marginBottom: '0px' };
+  const cs = getComputedStyle(el);
+  return { paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom,
+    marginTop: cs.marginTop, marginBottom: cs.marginBottom };
+}
 function expandAccordion(el) {
   if (!el || !el.isConnected) return;
   if (semMovimento()) return;
@@ -12081,14 +12125,16 @@ function expandAccordion(el) {
   const alvo = el.offsetHeight;
   if (!alvo) return;
   el.style.overflow = 'hidden';
+  const liberar = marcarAnimacaoNoAcervo(el, false);
   const anim = el.animate(
-    [{ height: '0px', opacity: 0 }, { height: alvo + 'px', opacity: 1 }],
+    [{ height: '0px', opacity: 0, ...caixaDoAcordeao(null) },
+      { height: alvo + 'px', opacity: 1, ...caixaDoAcordeao(el) }],
     { duration: ACC_MS, easing: ACC_EASE },
   );
   // O `finally` do acordeão: sem devolver o `overflow`, a lista de músicas
   // ficaria presa à altura do instante em que a animação foi montada — e a
   // letra que uma linha abre depois seria cortada.
-  const soltar = () => { el.style.overflow = ''; };
+  const soltar = () => { el.style.overflow = ''; liberar(); };
   anim.addEventListener('finish', soltar);
   anim.addEventListener('cancel', soltar);
 }
@@ -12099,12 +12145,14 @@ function collapseAccordion(el, depois) {
   const de = el.offsetHeight;
   if (!de) { depois(); return; }
   el.style.overflow = 'hidden';
+  const liberar = marcarAnimacaoNoAcervo(el, true);
   const anim = el.animate(
-    [{ height: de + 'px', opacity: 1 }, { height: '0px', opacity: 0 }],
+    [{ height: de + 'px', opacity: 1, ...caixaDoAcordeao(el) },
+      { height: '0px', opacity: 0, ...caixaDoAcordeao(null) }],
     { duration: ACC_MS, easing: ACC_EASE },
   );
   let feito = false;
-  const fim = () => { if (feito) return; feito = true; el.style.overflow = ''; depois(); };
+  const fim = () => { if (feito) return; feito = true; el.style.overflow = ''; liberar(); depois(); };
   anim.addEventListener('finish', fim);
   anim.addEventListener('cancel', fim);
 }
@@ -12382,7 +12430,7 @@ function refreshCollectionsIfVisible() {
   if (collRefreshTimer) return;
   collRefreshTimer = setTimeout(() => {
     collRefreshTimer = null;
-    if (acervoAVista() && interacaoAbertaNoAcervo()) {
+    if (acervoAVista() && (interacaoAbertaNoAcervo() || acervoAnimando > 0)) {
       refreshCollectionsIfVisible();   // rearma: o redesenho sai quando fechar
       return;
     }
@@ -12394,6 +12442,9 @@ function renderCollectionsNow() {
   renderSorteioSimples();
   // Só redesenha com o acervo à vista — redesenhar por baixo de uma lista de
   // músicas tiraria do lugar o que o operador mira.
+  // E NUNCA NO MEIO DE UM FECHAMENTO (v1.12.57, ver `marcarAnimacaoNoAcervo`): vira o
+  // tique coalescido, que se rearma até a animação acabar.
+  if (acervoAVista() && acervoFechando > 0) { refreshCollectionsIfVisible(); return; }
   if (acervoAVista()) renderSearchResults(hymnSearchInputEl.value);
   // (O painel de opções vive DENTRO do card desde a v5.72, então ele é
   // redesenhado junto com o acervo — não há mais um popup a sincronizar à

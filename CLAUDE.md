@@ -2129,7 +2129,7 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os de Chromium são **119** e os de Node puro **23** — juntos, os 142 (contados na v1.12.56). MEDIDO com
+Os de Chromium são **120** e os de Node puro **23** — juntos, os 143 (contados na v1.12.57). MEDIDO com
 82 deles: **~13 min em série** e **~4,3 min nos três processos** (4 vCPU, o mesmo
 do runner); os de Node puro somam **8 s**. **Os números moram no `apk.yml`**, ao
 lado do passo que descrevem, e esta é a cópia — divergiram uma vez (79/99 aqui
@@ -3032,10 +3032,15 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.12.56 · APK v1.12.46** · `SHELL_VERSION` **82** ·
+**Versão atual: base web v1.12.57 · APK v1.12.46** · `SHELL_VERSION` **82** ·
 bundle com `minShell: 82` e **sem `shellTag`** — o shell 82 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. **Este lote é só web**
-(a Release v1.12.46 já está publicada). **A v1.12.56 FAZ OS FAVORITOS FECHAREM E ABRIREM NUM MOVIMENTO SÓ E DÁ À
+(a Release v1.12.46 já está publicada). **A v1.12.57 FAZ TODO CARD DO ACERVO FECHAR NUM MOVIMENTO SÓ E TIRA O
+CARTÃO DA SEMANA NO MODO FÁCIL**: o redesenho do acervo espera os acordeões em curso (`marcarAnimacaoNoAcervo`:
+o tique se rearma com qualquer um, o `renderCollectionsNow` direto só com um FECHAMENTO), o recuo do corpo anima
+com a altura (`caixaDoAcordeao`), e `body.mode-simple .serie-destaque` pousa a linha da semana no card como a
+faixa de um hinário (no avançado o preenchimento fica). Ver o capítulo do Controle, "O rodízio das coleções".
+**A v1.12.56 FAZ OS FAVORITOS FECHAREM E ABRIREM NUM MOVIMENTO SÓ E DÁ À
 BARRA DO MODO FÁCIL UM CARD TAMBÉM FECHADA**: o piso `--fav-vao` segurava o bloco parado até o redesenho, e agora
 `fecharFavoritosAnimando`/`abrirFavoritosAnimando` animam o bloco e as irmãs fechadas junto com o corpo (a altura
 de depois sai de `calcularTampa`); e no Modo Fácil com tela a folha da Biblioteca pinta `--panel` com
