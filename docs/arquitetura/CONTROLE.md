@@ -25,6 +25,7 @@
 | [Compartilhamento](#compartilhamento) · [Diálogo padrão](#diálogo-padrão-do-app-confirmações--prompts) | entradas e confirmações |
 | [O histórico do culto](#o-histórico-do-culto-em-configurações-v120--v1430) | o que já foi ao telão, por sessão |
 | [A abertura e a badge de versão](#a-abertura-e-a-badge-de-versão-v170) | a cortina do `#splash`, as duas casas do número, o limpar do Cronograma |
+| [Os cronogramas múltiplos](#os-cronogramas-múltiplos-v11254) | o título que troca de cronograma, o ⋮ (renomear, limpar, excluir) |
 | [O que o telão retoma](#o-que-o-telão-retoma-ao-reconectar-midianoar-v5142) | reconexão |
 
 
@@ -2216,6 +2217,14 @@ direita). Um `#simpleVersion` que volte é um segundo escritor do mesmo número.
   colada à badge): `min-width: 0` e as reticências ficam — num aparelho estreito é a
   MARCA que cede, nunca as duas portas.
 
+> **DESDE A v1.12.54 A CASA É DO MENU ⋮ (`#cronoMenuBtn`), e o LIMPAR é a linha
+> do meio dele** (`#cronoLimpar`, ver [Os cronogramas múltiplos](#os-cronogramas-múltiplos-v11254)).
+> O que vale abaixo sobre a OPERAÇÃO, a cena e a pergunta continua valendo; o
+> que é do BOTÃO DA BARRA (a tinta `--muted`, o `--icon-lg` por regra própria, a
+> densidade) passou ao ⋮; e o apagado de alfa próprio (.5) saiu com o botão — a
+> linha do menu é rótulo + ícone sobre `--panel`, família do `--op-inativo`
+> (MEDIDO: 2,59:1 no escuro e 2,43:1 no claro, separação de 4,0x e 8,6x).
+
 **E O QUE ENTROU NO LUGAR: LIMPAR O CRONOGRAMA (v1.8.66).** Pedido do operador:
 *"substitua o badge de versão que temos na barra do topo do cronograma, a
 esquerda, por um icone/botão de excluir lista (ele limpa a lista do cronograma).
@@ -2361,6 +2370,58 @@ ficar mais mesclado a cor do fundo e se destacar menos"*.
   o `getBoundingClientRect()` do `<li>` não acusa nada: ele carrega `flex: 1` e
   ocupa a caixa inteira COM e SEM o `place-content`. Quem se move é a LINHA de
   texto — com a régua certa o desvio vai de 4,8px para **266,1px**.
+
+### Os cronogramas múltiplos (v1.12.54)
+
+Pedido do operador: *"o título 'cronograma' vai ser um título que pode ser
+modificado, e tocar nele … abre uma pequena gaveta abaixo da top bar, que lista
+os cronogramas … o botão que hoje é o limpar toda a playlist, agora vai ser um
+botão de menu ou 3 pontos … limpar cronograma, excluir aquele cronograma ou
+renomear … o sistema de múltiplos cronogramas na verdade vai funcionar apenas
+como um 'atalho para alterar todo o cronograma de uma vez', ao invés de criar
+cronogramas concorrentes ao mesmo tempo"*.
+
+**UM ATIVO, E ELE É `imports`.** É essa a decisão que deixa o resto do app
+intocado: tocar, o avanço da fila, os destinos ("Cronograma" das folhas, sempre o
+ATIVO), o share, o Histórico, a Verificação, o pacote e o Modo Fácil — que nem
+desenha o `<main>` — leem a MESMA lista de sempre. Os outros são CONJUNTOS
+GUARDADOS na chave `cronogramas` (forma e regra em
+[MODELO-DE-DADOS.md](MODELO-DE-DADOS.md)). Um desenho por PONTEIRO (o ativo
+apontando para uma lista própria) foi descartado: seriam 45 pontos de `'imports'`
+a trocar, e cada um que escapasse leria o cronograma errado calado.
+
+| peça | o que é |
+|---|---|
+| `#cronoTitulo` | o botão do título: `#listTitle` (o NOME do ativo, "Cronograma" por padrão) + a seta `.crono-seta` à direita. O `padding-left` é a largura da seta mais o vão: o NOME fica no eixo da faixa |
+| `#cronoGaveta` · `#cronoLista` | a GAVETA, no topo do `.list-body` (que começa na borda de baixo da barra): uma linha por cronograma com a conta de itens, o ativo em `--sel-fill`, e "Novo cronograma" (`#cronoNovo`) por último. Rola com a marca `rola` |
+| `#cronoMenuBtn` (`.crono-menu`) | o ⋮, na casa do antigo limpar: chapado, `--muted`, `--hit` e `--icon-lg` por regra própria. Nunca apagado (Renomear sempre tem função) |
+| `#cronoMenu` | o MENU: `#cronoRenomear` · `#cronoLimpar` · `#cronoExcluir` (`--danger-text`, o par declarado sobre `--panel`) |
+| `#cronoVeu` | o VÉU transparente (z 160) que engole o toque de fora |
+
+- **NOVO** cria um vazio "Cronograma N" (o primeiro número livre, a partir de 2) e
+  troca para ele. **TROCAR** é `AVDB.cronoTrocar` + `load()`; a seleção múltipla e
+  a gaveta de uma linha morrem antes (`cronoAntesDeTrocar`), porque apontam para
+  linhas que saem de cena. **A CENA NO AR NÃO É TOCADA** por trocar, limpar ou
+  excluir — a regra da v1.3.13: o Cronograma é acervo.
+- **RENOMEAR** é o `appPrompt` dos itens. O nome é APARADO; vazio mantém o antigo;
+  um nome que colide com OUTRO cronograma ganha " (2)" — duas linhas iguais na
+  gaveta seriam indistinguíveis ao toque.
+- **LIMPAR** é o `limparCronograma` de sempre (ver "E o que entrou no lugar" na
+  seção da abertura), só do ativo, APAGADO com o cronograma vazio.
+- **EXCLUIR** pergunta (modal, `perigo`), cai no **USADO MAIS RECENTEMENTE** dos
+  outros (`usado`, escrito a cada troca) e coleta o que só ele segurava, com as
+  duas metades que o `db.js` não faz (a marca `ytEstado` e o `soltarAvulso`).
+  **APAGADO quando é o ÚNICO**, com o `title` dizendo por quê: o app nunca fica
+  sem cronograma.
+- **AS DUAS CAMADAS ANIMAM** (opacidade e 6px, `--dur-media`; nada com
+  `prefers-reduced-motion`) e só uma fica aberta por vez. Fechar tira o VÉU na
+  hora e o nó (`hidden`) no fim da transição — um nó apagado continuaria tocável.
+- **O TOQUE DE FORA É ENGOLIDO, e é o motivo do véu:** uma linha do Cronograma
+  tocada PROJETA, e o toque que fecha a gaveta não pode ser esse. O que cai ACIMA
+  do véu (a barra da Biblioteca, 190; as folhas, 200+) fecha pelo `pointerdown`
+  na captura e segue para quem o recebeu — abrir outra janela com a gaveta
+  esquecida por baixo seria o pior dos dois.
+- **O VOLTAR fecha as duas** (degrau 1.7 do `__avBack`, depois do diálogo).
 
 ### O que o telão retoma ao RECONECTAR (`midiaNoAr`, v5.142)
 

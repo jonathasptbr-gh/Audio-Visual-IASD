@@ -211,7 +211,8 @@ O campo `kind` é derivado do `type` (ou definido pelo chamador para itens de UR
 
 | Chave | Conteúdo |
 |---|---|
-| `imports` / `playlist` | arrays de IDs de mídia |
+| `imports` / `playlist` | arrays de IDs de mídia. `imports` é o cronograma ATIVO |
+| `cronogramas` | **os cronogramas múltiplos** (v1.12.54): `{ ativo, itens: [{ id, nome, ids, usado }] }`. O conteúdo do ATIVO é `imports` (o `ids` dele é sempre `[]` na chave); os outros são conjuntos GUARDADOS. **Ausente = o aparelho de sempre**: um cronograma, "Cronograma", com o id PROVISÓRIO `cr-atual` até a primeira escrita, que o troca por um aleatório (é o id que diz "o mesmo cronograma" numa importação). **É DETENTORA**: `lerDetentores` lê os `ids` de todo item. Escrita só pelas funções `crono*` do `db.js`, sempre numa transação `state`+`media` |
 | `current` | `{ mediaId, view, muted, volume, at }` — estado de exibição atual. O `mediaId` é **limpo na abertura** (`clearCurrentSelection`): sessão nova começa com o player vazio; volume/mudo/cortina ficam, que são o ajuste da mesa e não uma seleção. **`mediaId` é DETENTOR DE REFERÊNCIA** (v5.315): `lerDetentores` o conta, e é o que impede o coletor de apagar a mídia em cena — a limpeza da abertura é o que solta o órfão para o `gcOrfaos` da mesma abertura |
 | `repeat` | `'off'` \| `'all'` \| `'one'` \| `'shuffle'` |
 | `fade` | legado — as transições visuais (fade in/out) viraram **inerentes ao sistema** (`createStage.FADE`, fixo em `{in:true, out:true, time:0.6}` e compartilhado pelos dois apps, não configurável); esta chave **não é mais lida nem gravada** (fica ignorada se existir de versões antigas). Fade em toda troca visual: mídia, cortina do wallpaper (view toggle), letra e texto bíblico |
@@ -260,6 +261,18 @@ definirMiniatura(id, thumb)   // a miniatura que chega DEPOIS (v1.12.39): get + 
                               // numa transação, só onde não há; false se sumiu
 mediaByYoutube(youtubeId, kind)  // o registro desse vídeo na FORMA pedida, ou null
 listIds, listSet, listItems, listHas, listAdd, listRemove, gc
+cronoLer()                    // { ativo, itens: [{ id, nome, qtd, usado }] } — qtd do
+                              // ativo lida de `imports`, na MESMA transação
+cronoTrocar(id), cronoCriar() // a troca é UMA transação: imports → o ativo, o
+                              // escolhido → imports. Nunca coleta (a união não muda)
+cronoRenomear(id, nome)       // aparado; vazio → null; colisão → " (2)"
+cronoExcluir(id)              // cai no usado mais recentemente; coleta o que só ele
+                              // segurava; recusa (false) o ÚNICO
+cronoIdsGuardados()           // os ids dos inativos (o pacote os conta como lista)
+cronoGuardadosTirar(ids), cronoGuardadosTrocarId(velho, novo)
+                              // a manutenção que as listas recebem, nos guardados
+cronoImportar(vindo, admitidos)  // o `.avpkg`: cada guardado de lá entra como
+                              // guardado daqui; nunca substitui; mesmo id = união
 gcOrfaos()                    // a FAXINA: recolhe registro que nenhuma lista
                               // aponta (o `listSet` os criava a cada troca)
 folderDrop(folderId)          // apaga um ATALHO inteiro, coletando o que ficar sem dono
@@ -308,6 +321,14 @@ pasta dos Favoritos, nem a CENA:
 listRemove(listName, id)
   → isReferenced(id, exceto listName)?  → não; delete no store media (gc)
 ```
+
+**OS CRONOGRAMAS GUARDADOS SÃO DETENTORES (v1.12.54).** O ativo é `imports` e
+já entra pela constante `LISTS`; os outros moram em `state.cronogramas.itens[].ids`,
+e `lerDetentores` os lê todos. Sem isso, uma mídia que só está num cronograma
+INATIVO seria apagada pelo `gcOrfaos` da abertura seguinte — e o cronograma do
+culto voltaria com linhas a menos. TROCAR nunca coleta (o que sai de `imports`
+entra no guardado na mesma transação); EXCLUIR coleta o que só ele segurava,
+como o `listSet`.
 
 **A CENA É DETENTORA (v5.315), e ela não é lista.** `lerDetentores` lê
 `state['current'].mediaId` — o `currentId` do Controle, que `persistCurrent`

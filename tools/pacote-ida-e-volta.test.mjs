@@ -400,6 +400,11 @@ try {
     await AVDB.setState('bibleVersion', 'versao-de-teste');
     await AVDB.setState('lyricsFont', 'grande-de-teste');
     await AVDB.setState('favs', ['item-de-teste']);
+    // UM CRONOGRAMA GUARDADO (v1.12.54): "Culto jovem" com o item dentro, e o
+    // ATIVO vazio ("Cronograma 2"). É o que o bloco 2-C confere no destino.
+    await AVDB.listAdd('imports', 'item-de-teste');
+    await AVDB.cronoRenomear((await AVDB.cronoLer()).ativo, 'Culto jovem');
+    await AVDB.cronoCriar();
     // A PASTA DO APARELHO, com um arquivo dentro. Ela é o corte declarado do
     // recurso — as concessões do SAF não existem no outro celular —, e sem ela
     // semeada aqui a asserção do corte não teria o que recusar.
@@ -525,6 +530,17 @@ try {
   checar(chegou.pref === undefined || chegou.pref === null,
     '2 · e o AJUSTE INDIVIDUAL não veio — o pacote é para o acervo, não para '
     + 'copiar o app de uma pessoa', chegou.pref);
+
+  // ── 2-C · OS CRONOGRAMAS GUARDADOS CHEGARAM (v1.12.54) ─────────────────
+  // O guardado de lá entra como um guardado DAQUI, com o nome e os itens; o
+  // ATIVO de lá não vira cronograma (o conteúdo dele viaja em `imports`), e o
+  // ativo daqui continua o mesmo.
+  const cronosB = await b.pg.evaluate(() => AVDB.cronoLer());
+  const jovem = cronosB.itens.find((c) => c.nome === 'Culto jovem');
+  checar(cronosB.itens.length === 2 && !!jovem && jovem.qtd === 1 && jovem.id !== cronosB.ativo
+    && !cronosB.itens.some((c) => c.nome === 'Cronograma 2'),
+    '2-C · o cronograma GUARDADO atravessou com o nome e o item, como guardado — e o '
+    + 'ativo de lá ("Cronograma 2") não virou um cronograma daqui', JSON.stringify(cronosB));
 
   // ── E O QUE NÃO PODE CHEGAR, NÃO CHEGOU ────────────────────────────────
   checar(chegou.stream === 'ausente',
@@ -677,6 +693,12 @@ try {
     '3 · mas a LISTA de ids se SOMA, na ordem local primeiro — a playlist de quem importa '
     + 'não é reordenada por um arquivo', depois.favs);
   checar(depois.quantos === 1, '3 · e nada é duplicado', depois.quantos);
+  const cronosB2 = await b.pg.evaluate(() => AVDB.cronoLer());
+  checar(cronosB2.itens.length === 2
+    && cronosB2.itens.filter((c) => /^Culto jovem/.test(c.nome)).length === 1
+    && cronosB2.itens.find((c) => c.nome === 'Culto jovem').qtd === 1,
+    '3 · e o cronograma guardado NÃO é duplicado por uma segunda importação — o mesmo '
+    + 'id é o mesmo cronograma', JSON.stringify(cronosB2));
 
   await b.ctx.close();
 

@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.12.54",
+    "itens": [
+      "Agora há vários cronogramas: toque no nome do cronograma, no topo, para ver a lista e trocar de um para outro.",
+      "\"Novo cronograma\", no fim dessa lista, cria um vazio; o anterior fica guardado com tudo o que tinha.",
+      "O botão de limpar virou o menu ⋮: Renomear, Limpar cronograma e Excluir cronograma.",
+      "Limpar e Excluir valem só para o cronograma que está aberto; o resto do app sempre usa esse.",
+      "Exportar e importar a biblioteca também leva os cronogramas guardados, sem apagar os que já existem."
+    ]
+  },
+  {
     "versao": "1.12.53",
     "itens": [
       "Playlist automática: os filtros agora escolhem o que entra, e não o que sai. Nada marcado é a biblioteca toda.",
