@@ -579,6 +579,7 @@ jobs:
           rodar tools/leitor-biblioteca.test.mjs
           rodar tools/sorteio-tela.test.mjs
           rodar tools/sorteio-lista-por-pagina.test.mjs
+          rodar tools/sorteio-simples.test.mjs
           rodar tools/cena.test.mjs
           rodar tools/hidratacao-perde-a-vez.test.mjs
           rodar tools/telao-no-chao.test.mjs
@@ -605,6 +606,7 @@ jobs:
           rodar tools/controles-layout.test.mjs
           rodar tools/volume-troca.test.mjs
           rodar tools/sombra-das-portas.test.mjs
+          rodar tools/cronograma-acoes-cheias.test.mjs
           rodar tools/transporte-sem-cena.test.mjs
           rodar tools/eixo-de-acao.test.mjs
           rodar tools/rodape-da-playlist.test.mjs

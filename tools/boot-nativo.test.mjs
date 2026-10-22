@@ -1117,11 +1117,10 @@ try {
 
   // O download EM LOTE não pode existir para a série: são ~52 vídeos.
   //
-  // MEDIDO NOS DOIS ESTADOS (v1.2.0): o `aberto` diz se o card da série está
-  // expandido quando a barra é desenhada, e é ele que separa as duas metades da
-  // regra nova — o botão de atualizar SÓ existe com o álbum aberto. Uma medição
-  // só aprovaria as duas leituras opostas, que é o modo de este oráculo passar
-  // sem afirmar nada.
+  // MEDIDO NOS DOIS ESTADOS: o `aberto` diz se o card da série está expandido
+  // quando a barra é desenhada. Desde a v1.12.53 a barra dela não tem botão
+  // NENHUM em estado nenhum (o "Atualizar a lista" saiu: abrir o card verifica a
+  // semana — o `serie-mantem-a-semana`, bloco K, mede isso).
   const medirSerie = (aberto) => pg.evaluate((abrir) => {
     const lista = document.getElementById('hymnResults');
     const guardado = grupoAberto;
@@ -1135,21 +1134,16 @@ try {
     renderCollectionsList(lista, () => {}, { semTotal: true });
     const cards = [...lista.querySelectorAll('.hymnal-card')];
     const card = cards.find((el) => /Provai e Vede 2026/.test(el.textContent));
-    const at = card && card.querySelector('.coll-bar .coll-bar-at');
     const r = {
       achou: !!card,
-      // O botão de BAIXAR é o `.coll-bar-dl` SEM modificador: os três desta
-      // coluna dividem a geometria, e sem o `:not()` esta asserção passaria a
-      // medir o de atualizar, que nasceu ali na v1.1.21.
+      // O botão de BAIXAR é o `.coll-bar-dl` SEM modificador: a lixeira divide a
+      // geometria com ele, e sem o `:not()` esta asserção a mediria junto.
       temBotaoBaixar: !!(card && card.querySelector(
-        '.coll-bar .coll-bar-dl:not(.coll-bar-at):not(.coll-bar-rm)')),
+        '.coll-bar .coll-bar-dl:not(.coll-bar-rm)')),
       temLixeira: !!(card && card.querySelector('.coll-bar .coll-bar-rm')),
-      temAtualizar: !!at,
-      // "Botão puro, sem texto": nós de TEXTO, não `textContent` — este traz o
-      // codepoint do glifo junto (ver a lixeira, mais abaixo).
-      textoAtualizar: at ? [...at.childNodes].filter((n) => n.nodeType === 3)
-        .map((n) => n.textContent).join('').trim() : null,
-      rotuloAtualizar: at ? (at.getAttribute('aria-label') || at.title || '') : '',
+      // QUALQUER botão da barra além da seta (v1.12.53): o de atualizar saiu, e
+      // um botão novo ali seria uma ação que o pedido tirou.
+      botoesNaBarra: card ? card.querySelectorAll('.coll-bar button:not(.coll-bar-icon)').length : -1,
       temPainel: !!(card && card.querySelector('.coll-opts')),
       // O SUBTÍTULO da barra: `fracaoPeso` devolvia, para um acervo vazio, "o
       // que vai custar baixar" — gigabytes prometendo um download em lote que
@@ -1172,24 +1166,15 @@ try {
     'a série NÃO tem o botão de baixar a coleção — "não quero um download direto"');
   checar(!semLote.temLixeira,
     'e NÃO tem a lixeira: o álbum de série não retém arquivo nenhum');
-  checar(aberta.temAtualizar && aberta.textoAtualizar === '',
-    'o que ela tem é UM botão, puro e sem texto — "atualizar a lista" no lugar '
-    + 'onde ficava o excluir', JSON.stringify(aberta.textoAtualizar));
-  checar(/Atualizar a lista/.test(aberta.rotuloAtualizar),
-    'com a frase no `aria-label`/`title` — quem não vê o ícone continua sabendo '
-    + 'o que o toque faz', aberta.rotuloAtualizar);
-  // ===== E ELE SÓ EXISTE COM O ÁLBUM ABERTO (v1.2.0) =====
-  // Pedido do operador: *"os botões de atualizar lista do provai e vede e do
-  // informativo mundial das missões só deve aparecer com o album/grupo
-  // aberto"*. É a régua da lixeira (v1.1.16) aplicada ao terceiro botão desta
-  // coluna: o gesto que revela a ação é o mesmo que revela a LISTA sobre a qual
-  // ela age — e o acervo inteiro é uma lista de cards FECHADOS.
-  //
-  // As duas metades juntas são a asserção: sem a de baixo, o oráculo aprovaria
-  // um botão que aparece sempre; sem a de cima, aprovaria um que sumiu de vez.
-  checar(!semLote.temAtualizar,
-    'e com o álbum FECHADO ele NÃO existe — o card de uma série fechada não '
-    + 'oferece ação nenhuma');
+  // ===== E O DE ATUALIZAR SAIU TAMBÉM (v1.12.53) =====
+  // Pedido do operador: *"Remover o botão de atualizar e verificar o informativo
+  // das missões e provai e vede, deixe essa ação automática quando o usuário abre
+  // as respectivas coleções"*. Aberto ou fechado, a barra da série fica só com a
+  // seta.
+  checar(semLote.botoesNaBarra === 0 && aberta.botoesNaBarra === 0,
+    'e a barra da série não tem botão NENHUM, fechada ou aberta — o "Atualizar a '
+    + 'lista" saiu: abrir o card verifica a semana sozinho',
+    JSON.stringify([semLote.botoesNaBarra, aberta.botoesNaBarra]));
   checar(!semLote.temPainel,
     'e o painel `.coll-opts` não existe mais: as três ações que ele teve '
     + 'terminaram todas na coluna da direita da barra');
@@ -3836,7 +3821,7 @@ try {
       + 'guardou, nunca ao catálogo inteiro');
     checar(!auto.aberturaTemSerie,
       'a SÉRIE fica de fora mesmo fresca — o índice dela custa uma extração do '
-      + 'canal do YouTube, e é por isso que ela mantém o botão "Atualizar a lista"');
+      + 'canal do YouTube, e quem o refaz é a ABERTURA do card dela (v1.12.53)');
     checar(!auto.retomadaTemComDl,
       'e NA RETOMADA nada é forçado de novo: esta função roda a cada '
       + '`visibilitychange`, e sem o `indicesForcados` cada volta ao app seria uma '
@@ -4096,7 +4081,7 @@ try {
 
   // ---- A FOLHA DE CONEXÃO ABRE COM TELA JÁ CONECTADA (v5.217) -----------
   //
-  // O relato: com o ícone de cast no estado CONECTADO (vermelho), tocar nele
+  // O relato: com o ícone de cast no estado CONECTADO (era vermelho; verde desde a v1.12.53), tocar nele
   // não abria nada. Ele abria — e a folha se fechava sozinha em milissegundos,
   // porque o fecho automático da v5.193 era um teste de NÍVEL ("há tela?") e
   // não de BORDA ("uma tela entrou?"). O próprio `abrirCast` liga a enquete,

@@ -9,8 +9,8 @@
 // não há tela intermediária, não há confirmação, e ninguém confere a lista
 // antes. Os quatro modos de errar são silenciosos, e o oráculo cobra os quatro:
 //
-//   - **aceitar demais** → um episódio de série (~300 MB) ou um hinário que o
-//     filtro mandou tirar entra no lugar do louvor;
+//   - **aceitar demais** → um episódio de série (~300 MB) ou uma coleção que o
+//     operador não marcou entra no lugar do louvor;
 //   - **aceitar de menos** → o tema casa na letra e a faixa não aparece, e o
 //     operador conclui que o acervo não tem o que ele sabe que tem;
 //   - **errar a VARIANTE** → `resolveSongMediaId` mapeia tudo que não seja
@@ -110,11 +110,17 @@ const LETRAS = {
 // verdade, porque é assim que a busca da Biblioteca já se comporta.
 const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
+// AS COLETÂNEAS de cada álbum (`cap.coletaneas`), com o N:N do banco: o álbum 4
+// está em DUAS. O álbum sem índice não está em nenhuma — cai em "outros".
+const COLETANEAS_DE = { 'album-9': [7], 'album-4': [7, 8] };
+
 const cap = {
   norm,
   nomeNorm: (s) => norm(s.name),
   ehMusica: (coll) => coll.kind !== 'serie',
-  ehHinario: (coll) => coll.kind === 'hymnal',
+  ehHinarioNovo: (coll) => coll.id === 'hymnal-2022',
+  ehHinarioAntigo: (coll) => coll.id === 'hymnal-1996',
+  coletaneas: (coll) => COLETANEAS_DE[coll.id] || [],
   faixas: (coll) => ACERVO[coll.id] || [],
   // Espelha o `lyricMatch`: piso de 3 caracteres e busca no texto normalizado.
   letraCasa: (coll, s, q) => q.length >= 3 && (LETRAS[coll.id + ':' + s.id_music] || '').includes(q),
@@ -151,8 +157,23 @@ checar(S.sanear({ quantos: 0 }).quantos === S.QUANTIDADE_PADRAO
   && S.sanear({ quantos: -3 }).quantos === S.QUANTIDADE_PADRAO,
   'e abaixo do piso ela cai no padrão: zero não é uma escolha a preservar',
   JSON.stringify([S.sanear({ quantos: 0 }).quantos, S.sanear({ quantos: -3 }).quantos]));
-checar(S.sanear({ semHinario: 'sim' }).semHinario === false,
+checar(S.sanear({ soNoAparelho: 'sim' }).soNoAparelho === false,
   'filtro com tipo errado é FALSO, não "verdadeiro porque tem conteúdo"');
+// AS CATEGORIAS: só uma LISTA de strings atravessa, sem repetição. Uma string
+// solta (`'hinario-2022'`) não vira lista de caracteres, e um registro VELHO,
+// com os filtros de exclusão, chega como "nada marcado" — isto é, tudo.
+checar(JSON.stringify(S.sanear({ categorias: 'hinario-2022' }).categorias) === '[]',
+  'categorias que não são lista caem em NENHUMA marcada (= tudo), nunca em letras soltas',
+  JSON.stringify(S.sanear({ categorias: 'hinario-2022' }).categorias));
+checar(JSON.stringify(S.sanear({ categorias: ['infantis', 3, '', 'infantis', 'col:7'] }).categorias)
+  === JSON.stringify(['infantis', 'col:7']),
+  'só strings não vazias entram, e sem repetição',
+  JSON.stringify(S.sanear({ categorias: ['infantis', 3, '', 'infantis', 'col:7'] }).categorias));
+checar(JSON.stringify(S.sanear({ semHinario: true, semInfantis: true }).categorias) === '[]'
+  && S.sanear({ semHinario: true }).semHinario === undefined
+  && S.sanear({ semInfantis: true }).semInfantis === undefined,
+  'os filtros de EXCLUSÃO saíram: um registro velho com eles chega como "tudo", e '
+  + 'eles não atravessam o saneamento', JSON.stringify(S.sanear({ semHinario: true, semInfantis: true })));
 
 // ── 2. A coleção: quem nem chega a ser varrida ──────────────────────────────
 // A recusa da SÉRIE é a que mais custa se falhar: o item dela é um vídeo de
@@ -163,14 +184,16 @@ checar(!semSerie.entra && semSerie.motivo === S.MOTIVO_SEM_MUSICA,
   'a SÉRIE é recusada por não ser acervo de música, e o motivo sai nomeado', semSerie);
 checar(S.avaliarColecao(ALBUM_VAZIO, S.sanear({}), cap).motivo === S.MOTIVO_SEM_INDICE,
   'coleção sem índice é recusada como "sem índice" — não como "sem música"');
-checar(S.avaliarColecao(HINARIO, S.sanear({ semHinario: true }), cap).motivo === S.MOTIVO_HINARIO,
-  'com o filtro ligado o hinário sai, e sai nomeado');
+checar(S.avaliarColecao(HINARIO, S.sanear({ categorias: ['col:7'] }), cap).motivo === S.MOTIVO_CATEGORIA,
+  'com outra coleção marcada o hinário sai, e sai nomeado');
 checar(S.avaliarColecao(HINARIO, S.sanear({}), cap).entra,
-  'e sem o filtro ele entra — "não tocar do hinário" é OPÇÃO, não regra');
+  'e sem nada marcado ele entra — nada marcado é TUDO');
+checar(S.avaliarColecao(HINARIO, S.sanear({ categorias: ['infantis'] }), cap).entra,
+  'marcar só os INFANTIS deixa o hinário novo entrar — é nele que eles moram');
 // A ORDEM das perguntas é contrato (é ela que o Registro imprime): uma série
 // também não tem índice útil, e ainda assim o motivo é "não é acervo de música".
 checar(S.avaliarColecao({ id: 'serie-x', name: 'x', kind: 'serie' },
-  S.sanear({ semHinario: true }), { ...cap, faixas: () => [] }).motivo === S.MOTIVO_SEM_MUSICA,
+  S.sanear({ categorias: ['col:7'] }), { ...cap, faixas: () => [] }).motivo === S.MOTIVO_SEM_MUSICA,
   'a ORDEM dos motivos é contrato: o estrutural vence o consertável');
 
 // ── 3. A variante: a origem tem? (≠ está no aparelho) ───────────────────────
@@ -224,8 +247,30 @@ checar(poolTudo.colecoesRecusadas.some((c) => c.motivo === S.MOTIVO_SEM_INDICE),
 const poolPB = S.montarPool(TODAS, { variante: 'playback' }, cap);
 checar(chaves(poolPB).sort().join(',') === 'album-9:a1,album-9:a2,album-4:b1,hymnal-2022:h1'.split(',').sort().join(','),
   'só PLAYBACK deixa exatamente as faixas cujo banco publica instrumental', chaves(poolPB));
-checar(!chaves(S.montarPool(TODAS, { semHinario: true }, cap)).some((k) => k.startsWith('hymnal-')),
-  '"não tocar do hinário" tira o hinário inteiro do pool');
+// ── 5b. A UNIÃO: marcar estreita para o que está marcado, e só ──────────
+const soHinario = S.montarPool(TODAS, { categorias: [S.CAT_HINARIO_2022] }, cap);
+checar(chaves(soHinario).length > 0 && chaves(soHinario).every((k) => k.startsWith('hymnal-2022:')),
+  'UM toque, "Hinário 2022", e só o hinário entra — o que antes eram duas exclusões',
+  chaves(soHinario));
+const soCol8 = S.montarPool(TODAS, { categorias: ['col:8'] }, cap);
+checar(chaves(soCol8).join(',') === 'album-4:b1',
+  'uma coletânea marcada traz os álbuns DELA, e só', chaves(soCol8));
+const uniao = S.montarPool(TODAS, { categorias: ['col:8', S.CAT_HINARIO_2022] }, cap);
+checar(chaves(uniao).sort().join(',') === chaves(soHinario).concat(chaves(soCol8)).sort().join(','),
+  'duas marcadas são a UNIÃO das duas — nem interseção, nem a última que se tocou',
+  chaves(uniao));
+const col7 = S.montarPool(TODAS, { categorias: ['col:7'] }, cap);
+checar(chaves(col7).includes('album-4:b1') && chaves(col7).includes('album-9:a2'),
+  'N:N: o álbum que está em duas coletâneas entra por QUALQUER uma delas', chaves(col7));
+checar(soCol8.colecoesRecusadas.some((c) => c.motivo === S.MOTIVO_CATEGORIA && /Hinário/.test(c.nome)),
+  'e o que ficou de fora pela marca sai NOMEADO como "fora das coleções marcadas"',
+  JSON.stringify(soCol8.colecoesRecusadas));
+checar(chaves(S.montarPool(TODAS, { categorias: [S.CAT_OUTROS] }, cap)).length === 0
+  && S.montarPool(TODAS, { categorias: [S.CAT_OUTROS] }, cap).colecoesRecusadas
+    .some((c) => c.nome === 'Álbum sem índice' && c.motivo === S.MOTIVO_SEM_INDICE),
+  'o álbum sem coletânea é "outros": marcado, ele passa da marca e só para no índice que falta');
+checar(chaves(S.montarPool(TODAS, { categorias: ['col:999'] }, cap)).length === 0,
+  'uma marca que nada no acervo tem dá pool VAZIO — nunca "tudo" por engano');
 const poolLocal = S.montarPool(TODAS, { soNoAparelho: true }, cap);
 checar(chaves(poolLocal).sort().join(',') === ['hymnal-2022:h1', 'hymnal-2022:h4', 'album-9:a2', 'album-4:b1'].sort().join(','),
   '"só no aparelho" deixa só o que tem `fileIdFull`', chaves(poolLocal));
@@ -283,18 +328,18 @@ checar(poolTudo.faixasVistas === 7,
 checar(poolTudo.itens.length > 0 && poolNatal.itens.length > 0 && poolGrat.itens.length > 0,
   'os três pools do teste têm conteúdo');
 
-// ── N. "SEM INFANTIS": a faixa 508–557 do hinário NOVO ─────────────────────
+// ── N. OS INFANTIS SÃO UMA CATEGORIA: a faixa 508–557 do hinário NOVO ────
 //
-// Pedido do operador: *"ela restringe a inclusão das músicas 508 a 557 do novo
-// hinário adventista. Ela vem ativa por padrão para não incluir as infantis"*.
-//
-// TRÊS modos de errar, e os três são silenciosos:
-//   - **a ponta** — um intervalo exclusivo deixa 508 ou 557 passar, e o
-//     operador recebe um infantil no meio do louvor sem nada que explique;
-//   - **o hinário errado** — aplicar 508–557 ao Hinário 1996 recusa cinquenta
-//     hinos escolhidos ao acaso, e a lista só fica "menor" sem dizer por quê;
-//   - **o padrão** — o filtro nasce LIGADO, e um `sorteioPrefs` gravado por uma
-//     versão anterior (que não tem o campo) não pode ressuscitá-lo desligado.
+// O antigo filtro "Sem infantis" virou PARTIÇÃO (v1.12.53): o hinário novo se
+// divide em "Hinário 2022" (sem os infantis) e "Infantis". Três modos de errar,
+// e os três são silenciosos:
+//   - **a ponta** — um intervalo exclusivo põe 508 ou 557 do lado errado, e o
+//     operador recebe um infantil no meio do louvor sem nada que explique (é
+//     também o sorteio do Modo Fácil, que sorteia "Hinário 2022" sem perguntar);
+//   - **o hinário errado** — aplicar 508–557 ao Hinário 1996 tiraria cinquenta
+//     hinos escolhidos ao acaso da categoria dele;
+//   - **o buraco** — uma faixa que não está em categoria nenhuma some de toda
+//     marca, e só aparece com nada marcado.
 //
 // FIXTURE PRÓPRIO: o acervo lá de cima é contado por asserção ("as 7 faixas"),
 // e acrescentar faixas nele faria este bloco reprovar um caso que não é dele.
@@ -312,58 +357,58 @@ checar(poolTudo.itens.length > 0 && poolNatal.itens.length > 0 && poolGrat.itens
       hino('n558', 558, 'O primeiro depois da faixa'),
     ],
     // MESMO NÚMERO, hinário de 1996: ele numera outra coisa, e a faixa não vale
-    // para ele. Sem este par, um filtro que ignorasse a coleção passaria.
+    // para ele. Sem este par, uma regra que ignorasse a coleção passaria.
     'hymnal-1996': [hino('v530', 530, 'Hino 530 do hinário de 1996')],
   };
   const capI = {
     ...cap,
     faixas: (coll) => ACERVO_I[coll.id] || [],
-    ehHinarioNovo: (coll) => coll.id === 'hymnal-2022',
     noAparelho: () => true,
   };
   const TODAS_I = [H2022, H1996];
   const nums = (r) => r.itens.map((i) => i.s.track).sort((a, b) => a - b);
 
-  // O PADRÃO — ninguém tocou em nada.
-  checar(S.sanear(null).semInfantis === true,
-    'SEM INFANTIS NASCE LIGADO: o padrão do app não sorteia hino infantil');
-  checar(S.sanear({}).semInfantis === true,
-    'e um objeto vazio também cai no ligado');
-  // A ARMADILHA DO PADRÃO INVERTIDO: todo irmão deste filtro usa `=== true`, que
-  // devolve `false` para um campo AUSENTE. Aqui isso ressuscitaria o filtro
-  // desligado em todo aparelho que já tinha prefs gravadas — o operador
-  // receberia infantis sem ter mexido em nada, e nada na tela diria por quê.
-  checar(S.sanear({ semHinario: true, soNoAparelho: false }).semInfantis === true,
-    'e prefs GRAVADAS POR UMA VERSÃO ANTERIOR (sem o campo) voltam com ele LIGADO',
-    JSON.stringify(S.sanear({ semHinario: true })));
-  checar(S.sanear({ semInfantis: false }).semInfantis === false,
-    'quem o desligou de propósito continua com ele desligado');
-
-  const ligado = S.montarPool(TODAS_I, { semInfantis: true }, capI);
-  checar(JSON.stringify(nums(ligado)) === JSON.stringify([507, 530, 558]),
-    'LIGADO, saem os três infantis do hinário novo — e as duas pontas (508 e 557) '
-    + 'saem junto, porque o intervalo é INCLUSIVO', JSON.stringify(nums(ligado)));
-  checar(ligado.itens.some((i) => i.coll.id === 'hymnal-1996' && i.s.track === 530),
-    'e o 530 DO HINÁRIO DE 1996 continua entrando: a faixa é a numeração do NOVO',
-    JSON.stringify(ligado.itens.map((i) => i.coll.id + ':' + i.s.track)));
-  checar(ligado.recusas[S.MOTIVO_INFANTIL] === 3,
-    'a recusa é CONTADA e NOMEADA — uma lista menor sem motivo é indistinguível '
-    + 'de um defeito', JSON.stringify(ligado.recusas));
-
-  const desligado = S.montarPool(TODAS_I, { semInfantis: false }, capI);
-  checar(JSON.stringify(nums(desligado)) === JSON.stringify([507, 508, 530, 530, 557, 558]),
-    'DESLIGADO, os infantis voltam inteiros — o filtro é uma escolha, não uma '
-    + 'remoção do acervo', JSON.stringify(nums(desligado)));
-  checar(!desligado.recusas[S.MOTIVO_INFANTIL],
-    'e ninguém é recusado por ele');
+  const soH = S.montarPool(TODAS_I, { categorias: [S.CAT_HINARIO_2022] }, capI);
+  checar(JSON.stringify(nums(soH)) === JSON.stringify([507, 558]),
+    '"Hinário 2022" é o hinário novo SEM os infantis — e as duas pontas (508 e 557) '
+    + 'ficam de fora, porque o intervalo é INCLUSIVO', JSON.stringify(nums(soH)));
+  checar(soH.recusas[S.MOTIVO_CATEGORIA] === 3,
+    'os três infantis são CONTADOS como fora das coleções marcadas — uma lista '
+    + 'menor sem motivo é indistinguível de um defeito', JSON.stringify(soH.recusas));
+  const soI = S.montarPool(TODAS_I, { categorias: [S.CAT_INFANTIS] }, capI);
+  checar(JSON.stringify(nums(soI)) === JSON.stringify([508, 530, 557]),
+    '"Infantis" é exatamente a faixa 508–557 do hinário novo', JSON.stringify(nums(soI)));
+  checar(!soI.itens.some((i) => i.coll.id === 'hymnal-1996'),
+    'e o 530 DO HINÁRIO DE 1996 não é infantil: a faixa é a numeração do NOVO',
+    JSON.stringify(soI.itens.map((i) => i.coll.id + ':' + i.s.track)));
+  const so96 = S.montarPool(TODAS_I, { categorias: [S.CAT_HINARIO_1996] }, capI);
+  checar(JSON.stringify(so96.itens.map((i) => i.coll.id + ':' + i.s.track)) === JSON.stringify(['hymnal-1996:530']),
+    '"Hinário 1996" é o de 1996, inteiro', JSON.stringify(nums(so96)));
+  const tudo = S.montarPool(TODAS_I, {}, capI);
+  checar(tudo.itens.length === 6 && tudo.itens.length === soH.itens.length + soI.itens.length + so96.itens.length,
+    'SEM BURACO E SEM SOBRA: nada marcado traz as 6, e as três categorias somadas dão as mesmas 6',
+    [tudo.itens.length, soH.itens.length, soI.itens.length, so96.itens.length].join(' · '));
 
   // A CAPACIDADE AUSENTE não pode quebrar a regra: um `cap` sem
-  // `ehHinarioNovo` (um chamador antigo) desliga o filtro em vez de lançar.
-  const semCap = S.montarPool(TODAS_I, { semInfantis: true },
-    { ...capI, ehHinarioNovo: undefined });
+  // `ehHinarioNovo` (um chamador antigo) não divide o hinário — e não lança.
+  const semCap = S.montarPool(TODAS_I, {}, { ...capI, ehHinarioNovo: undefined });
   checar(semCap.itens.length === 6,
-    'sem a capacidade `ehHinarioNovo` o filtro não age — e não lança',
+    'sem a capacidade `ehHinarioNovo` nada lança, e nada marcado continua sendo tudo',
     semCap.itens.length + ' item(ns)');
+
+  // ── AS CATEGORIAS QUE A FOLHA OFERECE ──
+  const disp = S.categoriasDisponiveis(TODAS.concat([H1996]),
+    [{ id: 7, nome: 'Diversas' }, { id: 8, nome: 'CDs oficiais' }, { id: 7, nome: 'repetida' }], cap, true);
+  checar(JSON.stringify(disp.map((d) => d.chave)) === JSON.stringify(
+    [S.CAT_HINARIO_2022, S.CAT_HINARIO_1996, S.CAT_INFANTIS, 'col:7', 'col:8', S.CAT_OUTROS]),
+    'a folha oferece os dois hinários e os infantis, depois as coletâneas na ordem dada '
+    + '(sem repetir), e "outros" por último', JSON.stringify(disp.map((d) => d.chave)));
+  checar(disp.find((d) => d.chave === 'col:7').faixas === 3 && disp.find((d) => d.chave === 'col:8').faixas === 1
+    && disp.find((d) => d.chave === S.CAT_HINARIO_1996).faixas === 0,
+    'cada uma diz quantas faixas INDEXADAS tem — zero é o que a tela apaga',
+    JSON.stringify(disp.map((d) => [d.chave, d.faixas])));
+  checar(!S.categoriasDisponiveis(TODAS, [], cap, false).some((d) => d.chave === S.CAT_OUTROS),
+    '"outros" só existe quando há álbum sem coletânea');
 }
 
 console.log('\n' + (falhas.length ? falhas.length + ' FALHA(S)' : 'tudo certo'));

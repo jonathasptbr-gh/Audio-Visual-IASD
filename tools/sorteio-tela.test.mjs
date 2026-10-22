@@ -9,9 +9,9 @@
 //  - o botão da barra abre a folha, e a folha DESENHA (um id trocado no HTML dá
 //    `null` num `getElementById` e o toque vira silêncio);
 //  - as capacidades injetadas (`sorteioCap`) apontam para as funções certas do
-//    `controle.js` — `norm`/`nomeNorm`/`ehMusica`/`ehHinario`/`faixas`/
-//    `letraCasa`/`noAparelho` são SETE ponteiros, e um errado devolve um pool
-//    plausível e errado;
+//    `controle.js` — `norm`/`nomeNorm`/`ehMusica`/`ehHinarioNovo`/
+//    `ehHinarioAntigo`/`coletaneas`/`faixas`/`letraCasa`/`noAparelho` são NOVE
+//    ponteiros, e um errado devolve um pool plausível e errado;
 //  - o CONTADOR responde a cada controle, porque ele é a única coisa que o
 //    operador lê antes de o botão disparar sem mais nenhuma tela;
 //  - o sorteio CHEGA à fila do player e ao telão, nos dois modos.
@@ -156,7 +156,13 @@ try {
     const alb = allCollections().find((x) => x.id === 'album-9');
     return {
       achouAsDuas: !!hin && !!alb,
-      hinarioEhHinario: !!c.ehHinario(hin), albumNaoEhHinario: !!c.ehHinario(alb),
+      // AS CATEGORIAS (v1.12.53): o hinário NOVO é o que divide 2022 × infantis, o
+      // de 1996 é outro, e o álbum responde pelas coletâneas dele — o `album-9` não
+      // está em nenhuma (`albumCatalog.categories` vazio), então cai em "outros".
+      hinarioEhNovo: !!c.ehHinarioNovo(hin) && !c.ehHinarioAntigo(hin),
+      albumNaoEhHinario: !c.ehHinarioNovo(alb) && !c.ehHinarioAntigo(alb),
+      coletaneasDoAlbum: JSON.stringify(c.coletaneas(alb)),
+      categoriaDoAlbum: JSON.stringify(AVSorteio.categoriasDaColecao(alb, c)),
       hinarioEhMusica: !!c.ehMusica(hin),
       faixas: c.faixas(hin).length,
       normSemAcento: c.norm('Gratidão') === c.norm('gratidao'),
@@ -178,8 +184,10 @@ try {
     };
   });
   checar(cap.achouAsDuas, 'o acervo plantado aparece em allCollections()');
-  checar(cap.hinarioEhHinario && !cap.albumNaoEhHinario,
-    '`ehHinario` distingue o hinário do álbum — é o filtro "Sem hinário"', cap);
+  checar(cap.hinarioEhNovo && cap.albumNaoEhHinario,
+    '`ehHinarioNovo`/`ehHinarioAntigo` distinguem o hinário do álbum — são as categorias "Hinário 2022" e "Hinário 1996"', cap);
+  checar(cap.coletaneasDoAlbum === '[]' && cap.categoriaDoAlbum === JSON.stringify(['outros']),
+    '`coletaneas` lê o catálogo de verdade: o álbum que coletânea nenhuma reivindica é "Outros álbuns"', cap);
   checar(cap.hinarioEhMusica, '`ehMusica` aceita o acervo de música');
   checar(cap.faixas === 3, '`faixas` devolve as faixas da coleção', cap.faixas);
   checar(cap.normSemAcento && cap.nomeNorm,
@@ -365,6 +373,9 @@ try {
     chips: document.querySelectorAll('#sorteioList .misc-chip').length,
     filtros: document.querySelectorAll(
       '#sorteioList .sorteio-linha:not(.sorteio-linha--quantas) .misc-chip').length,
+    rotulos: [...document.querySelectorAll('#sorteioList .sorteio-linha--cats .misc-chip')].map((c) => c.textContent),
+    apagados: [...document.querySelectorAll('#sorteioList .sorteio-linha--cats .misc-chip:disabled')]
+      .map((c) => c.textContent + ' | ' + c.title),
     go: !!document.querySelector('#sorteioPopup .song-menu-go'),
   }));
   const conta0 = await lerResultado();
@@ -395,23 +406,31 @@ try {
   // coloque mais opção de playlist ou uma música só, integre isso nas opções de
   // quantidade, afinal a única diferença é quantidade"*. Sobra o da VARIANTE
   // (Cantada × Fundo musical), que responde outra pergunta.
-  checar(folha.segmentos === 1 && folha.campo && folha.filtros === 3 && folha.go,
-    'e ela desenha o segmento da VARIANTE, o campo, os TRÊS filtros e o '
-    + 'confirmar — o segmento do MODO virou a linha "Quantas" na v1.8.61', folha);
-  checar(folha.chips === 3,
-    'e os TRÊS são os únicos chips da folha: a linha da quantidade deixou de ser '
+  // OS FILTROS SÃO AS COLEÇÕES DESTE APARELHO (v1.12.53): os dois hinários, os
+  // infantis, "Outros álbuns" (o `album-9`, que coletânea nenhuma reivindica) e o
+  // "Só no aparelho" no fim. Nenhuma coletânea, porque o catálogo plantado não tem.
+  checar(folha.segmentos === 1 && folha.campo && folha.go
+    && JSON.stringify(folha.rotulos) === JSON.stringify(
+      ['Hinário 2022', 'Hinário 1996', 'Infantis', 'Outros álbuns', 'Só no aparelho']),
+    'e ela desenha o segmento da VARIANTE, o campo, uma pílula por COLEÇÃO que '
+    + 'existe nos dados mais o "Só no aparelho", e o confirmar', folha);
+  checar(folha.chips === folha.filtros && folha.chips === 5,
+    'e elas são os únicos chips da folha: a linha da quantidade deixou de ser '
     + 'uma fileira de pílulas na v1.8.96', folha.chips);
+  checar(folha.apagados.length === 2 && /^Hinário 1996 \| Nenhuma música/.test(folha.apagados[0])
+    && /^Infantis \| Nenhuma música/.test(folha.apagados[1]),
+    'e a coleção SEM faixa carregada fica APAGADA com o motivo no `title` — nunca '
+    + 'acesa e inerte (o acervo plantado não tem o de 1996 nem um infantil)', folha.apagados);
   // (Aqui morava a asserção das SEIS pílulas de quantidade — `1·3·5·10·15·20`.
   //  Elas saíram na v1.8.96 e a linha virou uma ROLETA horizontal de 1 ao teto;
   //  quem a mede é o bloco do fim deste arquivo, onde a faixa, o teto, o
   //  assentamento e o recuo das pontas têm cenário próprio.)
-  // O FILTRO QUE NASCE LIGADO JÁ AGIU (v1.0.7): `semInfantis` recusa sem que
-  // ninguém o tenha tocado, e o pool de saída é o do acervo MENOS os infantis.
-  // A pílula conta o pool e a lista mostra um por linha — as duas medidas, e não
-  // uma, porque um conserto que quebrasse a lista deixaria a pílula certa.
+  // NADA MARCADO É TUDO (v1.12.53). A pílula conta o pool e a lista mostra um
+  // por linha — as duas medidas, e não uma, porque um conserto que quebrasse a
+  // lista deixaria a pílula certa.
   checar(conta0.n === 5 && conta0.linhas === 5,
-    'de saída, a pílula conta o pool (5) e a lista tem uma linha por música — o '
-    + 'filtro que nasce ligado já agiu', conta0);
+    'de saída, sem coleção marcada, a pílula conta o acervo INTEIRO (5) e a lista '
+    + 'tem uma linha por música', conta0);
   checar(conta0.vai === Math.min(5, 3) || conta0.vai >= 1,
     '  ↳ e o LOTE está marcado no topo dela', conta0);
 
@@ -436,18 +455,30 @@ try {
   checar(comTema.focado && comTema.valor === 'natal',
     'e o campo NÃO perde o foco a cada tecla — a conta muda sem remontar a folha', comTema);
 
-  // ---- OS FILTROS ----------------------------------------------------------
-  await pg.evaluate(() => { sorteioPrefs.semHinario = true; renderSorteio(); });
-  const semHinario = await lerResultado();
-  checar(semHinario.n === 2 && semHinario.linhas === 2,
-    '"Sem hinário" tira as faixas do hinário do pool', semHinario);
+  // ---- OS FILTROS SÃO INCLUSIVOS (v1.12.53) --------------------------------
+  // PELO TOQUE na pílula, que é o caminho do operador: marcar "Outros álbuns"
+  // deixa só o álbum (as duas de `album-9` que casam "natal").
+  const pilula = (rotulo) => pg.evaluate((r) => [...document.querySelectorAll(
+    '#sorteioList .sorteio-linha--cats .misc-chip')].find((c) => c.textContent === r).click(), rotulo);
+  await pilula('Outros álbuns');
+  const soAlbum = await lerResultado();
+  const acesa = await pg.evaluate(() => [...document.querySelectorAll(
+    '#sorteioList .sorteio-linha--cats .misc-chip.active')].map((c) => c.textContent + ':' + c.getAttribute('aria-pressed')));
+  checar(soAlbum.n === 2 && soAlbum.linhas === 2 && JSON.stringify(acesa) === JSON.stringify(['Outros álbuns:true']),
+    'UM toque em "Outros álbuns" deixa SÓ o álbum no pool, e a pílula fica acesa', { soAlbum, acesa });
+  await pilula('Hinário 2022');
+  const uniaoTela = await lerResultado();
+  checar(uniaoTela.n === 3 && uniaoTela.linhas === 3,
+    'e marcar "Hinário 2022" junto SOMA o hinário ao álbum — a união das duas', uniaoTela);
+  await pilula('Outros álbuns');
+  await pilula('Hinário 2022');
 
   // A DISPONIBILIDADE É POR VARIANTE, e ela se lê na LINHA: em Playback só a que
   // TEM o instrumental no aparelho diz "no aparelho". Ela saiu da frase e foi
   // para o subtítulo de cada música, que é onde ela é acionável — dá para
   // desmarcar a que vai baixar.
   const soPlayback = await pg.evaluate(() => {
-    sorteioPrefs.semHinario = false;
+    sorteioPrefs.categorias = [];
     sorteioPrefs.variante = AVSorteio.VARIANTE_PLAYBACK;
     renderSorteio();
     const subs = [...document.querySelectorAll('#sorteioList .sorteio-res-btn .song-menu-sub')]
@@ -476,54 +507,41 @@ try {
     '"Só no aparelho" deixa só o que não precisa de download — e nenhuma linha '
     + 'da lista diz "vai baixar"', soLocal);
 
-  // ---- OS FILTROS COMPÕEM, E CADA UM ENCOLHE O POOL ------------------------
+  // ---- AS MARCAS SOMAM; O "SÓ NO APARELHO" ESTREITA (v1.12.53) -------------
   //
-  // Aqui moravam SEIS asserções sobre a FRASE do cartão ("Toda a biblioteca, sem
-  // o hinário — N músicas"), e o cartão saiu na v1.8.84 porque ela reescrevia
-  // por extenso o que as pílulas logo acima já mostram. **O fato que elas
-  // guardavam continua**, e é o que importa: cada filtro de fato encolhe o pool,
-  // e dois ligados juntos encolhem juntos. Ele se lê no NÚMERO.
+  // O fato se lê no NÚMERO: cada coleção marcada sozinha dá a parte dela, as
+  // duas juntas dão a SOMA (é uma partição), e o "Só no aparelho" encolhe o que
+  // as marcas trouxeram.
   const escopos = await pg.evaluate(() => {
     // O PRIMEIRO número do cabeçalho é a contagem; o segundo é quantos já
     // estão baixados. Tirar os não-dígitos concatenaria os dois.
     const ler = () => Number((document.querySelector('#sorteioList .sorteio-res-cab')
       .textContent.match(/\d+/) || [0])[0]);
-    const antes = { ...sorteioPrefs };
+    const antes = { ...sorteioPrefs, categorias: (sorteioPrefs.categorias || []).slice() };
     sorteioPrefs.tema = '';
     const fora = {};
-    // "SEM FILTRO NENHUM" EXIGE DESLIGAR TRÊS (v1.0.7): `semInfantis` nasce
-    // LIGADO, então o estado sem ressalva nenhuma deixou de ser o padrão do app
-    // — e é justamente por isso que ele é a linha de base contra a qual cada
-    // filtro se mede.
-    sorteioPrefs.semHinario = false; sorteioPrefs.soNoAparelho = false;
-    sorteioPrefs.semInfantis = false;
+    sorteioPrefs.categorias = []; sorteioPrefs.soNoAparelho = false;
     renderSorteio(); fora.tudo = ler();
-    sorteioPrefs.semInfantis = true;
-    renderSorteio(); fora.semInfantis = ler();
-    sorteioPrefs.semInfantis = false;
-    sorteioPrefs.semHinario = true;
-    renderSorteio(); fora.semHinario = ler();
-    sorteioPrefs.semHinario = false; sorteioPrefs.soNoAparelho = true;
+    sorteioPrefs.categorias = [AVSorteio.CAT_HINARIO_2022];
+    renderSorteio(); fora.hinario = ler();
+    sorteioPrefs.categorias = [AVSorteio.CAT_OUTROS];
+    renderSorteio(); fora.outros = ler();
+    sorteioPrefs.categorias = [AVSorteio.CAT_HINARIO_2022, AVSorteio.CAT_OUTROS];
+    renderSorteio(); fora.uniao = ler();
+    sorteioPrefs.categorias = []; sorteioPrefs.soNoAparelho = true;
     renderSorteio(); fora.soLocal = ler();
-    sorteioPrefs.semHinario = true;
-    renderSorteio(); fora.ambos = ler();
-    sorteioPrefs.semInfantis = true;
-    renderSorteio(); fora.tres = ler();
+    sorteioPrefs.categorias = [AVSorteio.CAT_OUTROS];
+    renderSorteio(); fora.outrosLocal = ler();
     Object.assign(sorteioPrefs, antes); renderSorteio();
     return fora;
   });
-  // `semInfantis` é `<=` e não `<` porque a fixture não tem faixa infantil: ele
-  // é o filtro que nasce ligado, e medi-lo com `<` seria exigir da fixture uma
-  // propriedade que ela não tem — a asserção passaria a falar do acervo de
-  // mentira em vez da regra. Quem cobre a ação dele é o `sorteio.test.mjs`, com
-  // as faixas 508–557 plantadas.
-  checar(escopos.semHinario < escopos.tudo && escopos.soLocal < escopos.tudo
-    && escopos.semInfantis <= escopos.tudo,
-    'cada filtro ENCOLHE o pool contra a linha de base sem filtro nenhum', escopos);
-  checar(escopos.ambos <= Math.min(escopos.semHinario, escopos.soLocal)
-    && escopos.tres <= escopos.ambos,
-    'e eles COMPÕEM: dois ligados nunca devolvem mais que o menor dos dois, e os '
-    + 'três nunca mais que os dois', escopos);
+  checar(escopos.hinario < escopos.tudo && escopos.outros < escopos.tudo
+    && escopos.hinario + escopos.outros === escopos.uniao && escopos.uniao === escopos.tudo,
+    'cada coleção marcada sozinha dá a PARTE dela, e as duas juntas dão a SOMA — '
+    + 'que aqui é o acervo inteiro (a partição não tem sobra nem buraco)', escopos);
+  checar(escopos.soLocal < escopos.tudo && escopos.outrosLocal <= Math.min(escopos.outros, escopos.soLocal),
+    'e o "Só no aparelho" ESTREITA o que as marcas trouxeram — junto de uma coleção '
+    + 'nunca devolve mais que qualquer um dos dois', escopos);
   // (E A DICA DO CAMPO DEIXOU DE EXPLICAR O VAZIO na v1.8.96 — *"na dica da
   //  barra de buscas, remova o comentário 'vazio = toda a biblioteca'"*. A
   //  asserção que a cobria morava aqui e foi para o bloco do fim, junto das
@@ -1244,20 +1262,26 @@ try {
     // instalada aqui pela mesma razão da outra: a leitura é a MESMA nas duas, e
     // copiá-la as faria divergir no primeiro ajuste.
     window.__medirChips = () => {
-      const opts = document.querySelector(
-        '#sorteioList .sorteio-linha:not(.sorteio-linha--quantas) .misc-opts');
+      const opts = document.querySelector('#sorteioList .sorteio-linha--cats .misc-opts');
       const chips = [...opts.querySelectorAll('.misc-chip')];
       const vao = parseFloat(getComputedStyle(opts).columnGap) || 0;
-      const soma = chips.reduce((t, c) => t + c.getBoundingClientRect().width, 0)
-        + vao * (chips.length - 1);
-      // A ALTURA DO TEXTO de cada pílula, por `Range`: é ela que diz QUEM
-      // quebrou, e é justamente o que o `stretch` esconde ao igualar as CAIXAS.
-      // Sem esta medida não há como saber se a célula escolhida é uma em que a
-      // igualdade das caixas prova alguma coisa.
-      const texto = chips.map((c) => {
-        const rg = document.createRange(); rg.selectNodeContents(c);
-        return Math.round(rg.getBoundingClientRect().height * 10) / 10;
-      });
+      const caixa = opts.getBoundingClientRect();
+      // AS LINHAS DA FILEIRA (v1.12.53): ela QUEBRA, e cada linha é medida à parte —
+      // agrupada pelo `top` de cada pílula. É POR LINHA que vale "da borda à borda".
+      const porLinha = new Map();
+      for (const c of chips) {
+        const b = c.getBoundingClientRect();
+        const k = Math.round(b.top);
+        if (!porLinha.has(k)) porLinha.set(k, []);
+        porLinha.get(k).push(b);
+      }
+      const linhas = [...porLinha.values()].map((bs) => ({
+        n: bs.length,
+        soma: Math.round((bs.reduce((t, b) => t + b.width, 0) + vao * (bs.length - 1)) * 10) / 10,
+        esq: Math.round((Math.min(...bs.map((b) => b.left)) - caixa.left) * 10) / 10,
+        dir: Math.round((caixa.right - Math.max(...bs.map((b) => b.right))) * 10) / 10,
+        alturas: [...new Set(bs.map((b) => Math.round(b.height * 10) / 10))],
+      }));
       return {
         // O ESCOPO É A FOLHA, e não a lista: desde a v1.11.18 a linha da
         // quantidade mora no `.popup-fecho`, irmão dela — um título "Quantas"
@@ -1265,19 +1289,18 @@ try {
         rotulos: document.querySelectorAll('#sorteioPopup .sorteio-rotulo').length,
         textoRotulo: /Filtros|Quantas/.test(document.querySelector('#sorteioPopup .popup-sheet').textContent),
         quantos: chips.length,
-        // DA BORDA À BORDA: a soma das três mais os dois vãos é a fileira
-        // inteira. Medida contra a FILEIRA, e não contra a folha — é ela que o
-        // `flex: 1` manda preencher.
-        fileira: Math.round(opts.getBoundingClientRect().width * 10) / 10,
-        soma: Math.round(soma * 10) / 10,
-        caixas: [...new Set(chips.map((c) => Math.round(c.getBoundingClientRect().height * 10) / 10))],
-        texto,
+        fileira: Math.round(caixa.width * 10) / 10,
+        linhas,
         // NADA RETICENCIADO E NADA CORTADO, e a medida é no BOTÃO, que é quem
         // recorta: um `<span>` de dentro tem o tamanho do próprio texto e nunca
         // acusa nada (a armadilha da régua, v1.8.65).
         corte: chips.filter((c) => c.scrollWidth > c.clientWidth + 1
           || c.scrollHeight > c.clientHeight + 1).map((c) => c.textContent),
         reticencia: [...new Set(chips.map((c) => getComputedStyle(c).textOverflow))],
+        // E NINGUÉM SAI DA FILEIRA: uma pílula que não cabe na linha é o que o
+        // `nowrap` de antes faria com cinco rótulos a 320.
+        fora: chips.filter((c) => { const b = c.getBoundingClientRect();
+          return b.left < caixa.left - 0.5 || b.right > caixa.right + 0.5; }).map((c) => c.textContent),
       };
     };
   });
@@ -1285,8 +1308,8 @@ try {
 
   // (A) A ROLETA ESTÁ NO LUGAR DAS PÍLULAS, E O TETO É O QUE EXISTE (CINCO).
   roleta.pequena = await pg.evaluate(async () => {
-    sorteioPrefs.tema = ''; sorteioPrefs.semHinario = false;
-    sorteioPrefs.soNoAparelho = false; sorteioPrefs.semInfantis = true;
+    sorteioPrefs.tema = ''; sorteioPrefs.categorias = [];
+    sorteioPrefs.soNoAparelho = false;
     sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA;
     await abrirSorteio();
     // O `await` acima já esgotou o re-render do índice de letras (ele sai no
@@ -1435,43 +1458,25 @@ try {
     + 'nenhuma — no aparelho a barra sobreposta pintaria por cima dos números',
     roleta.pontas);
 
-  // (H) OS RÓTULOS SUMIRAM E AS TRÊS PÍLULAS OCUPAM A LINHA INTEIRA.
+  // (H) OS RÓTULOS SUMIRAM, E AS PÍLULAS PREENCHEM CADA LINHA (v1.8.96 · v1.12.53).
   //
   // *"Remova os títulos 'quantas' e 'filtros', use a largura toda apenas para
-  // distribuir os botões seletores e a roleta da quantidade"*.
+  // distribuir os botões seletores e a roleta da quantidade"*. Desde que o filtro
+  // virou INCLUSIVO a fileira tem uma pílula por coleção e QUEBRA em linhas: a
+  // régua passou a ser POR LINHA — cada uma vai da borda à borda (`flex: 1 1
+  // auto` faz as pílulas da linha crescerem até fechá-la), em qualquer largura.
   //
-  // SÃO DUAS CÉLULAS, E A REVERSÃO ESCOLHEU CADA UMA — as duas metades do
-  // pedido não se medem no mesmo lugar:
-  //
-  //  - **DA BORDA À BORDA se mede LARGO (430×1).** MEDIDO: tirando o `flex: 1`
-  //    das pílulas, numa tela ESTREITA elas encolhem para caber (o
-  //    `flex-shrink` é 1 por padrão) e a soma dá a fileira inteira de novo — a
-  //    asserção passa com e sem o conserto. A 430 a largura natural das três
-  //    somadas é menor que a fileira, e sem o `flex: 1` o `justify-content:
-  //    center` as junta no meio com sobra nas pontas.
-  //  - **A ALTURA ÚNICA se mede ESTREITO (320×1).** É a largura em que só o
-  //    TERCEIRO rótulo ("Só no aparelho") precisa de duas linhas — medido, o
-  //    texto dele mede 30,1px contra 15px dos irmãos —, e é essa desigualdade
-  //    que faz a igualdade das CAIXAS provar alguma coisa. A 320×1,25 os TRÊS
-  //    quebram (36,9px cada) e as caixas saem iguais sozinhas: ali a asserção
-  //    não mede nada.
-  //
-  // E O `align-items: stretch` DA FILEIRA É INERTE — MEDIDO POR REVERSÃO, e
-  // está dito aqui porque o comentário do CSS credita a peça errada: tirar a
-  // declaração não move UM pixel, porque `align-items` de um contêiner flex
-  // nasce `normal`, e `normal` **é** o esticamento. O que a asserção de baixo
-  // guarda é o dia em que alguém escrever `center` ou `flex-start` ali — medido
-  // também: com `center` ela reprova, e a pílula que quebrou fica mais alta que
-  // as irmãs na mesma faixa.
+  // A 430 elas cabem numa linha só ou em duas, conforme a fonte; a 320 elas TÊM de
+  // quebrar (cinco rótulos não cabem) — e é ali que o `nowrap` de antes as
+  // empurraria para fora da fileira, que é a reversão que a asserção `fora` mede.
   const chipsLargo = await pg.evaluate(() => window.__medirChips());
   checar(chipsLargo.rotulos === 0 && chipsLargo.textoRotulo === false,
     'os rótulos "Filtros" e "Quantas" saíram do DOM — a fileira usa a largura '
     + 'toda, e cada pílula já diz por extenso o que ela filtra', chipsLargo);
-  checar(chipsLargo.quantos === 3
-    && Math.abs(chipsLargo.soma - chipsLargo.fileira) <= 1,
-    'e a 430 as TRÊS ocupam a fileira inteira, da borda à borda — a largura '
-    + 'natural delas é menor que ela, então quem a preenche é o `flex: 1`',
-    chipsLargo);
+  checar(chipsLargo.quantos === 5
+    && chipsLargo.linhas.every((l) => l.esq <= 1 && l.dir <= 1),
+    'e a 430 cada LINHA de pílulas vai da borda à borda da fileira — quem as '
+    + 'estica até fechar a linha é o `flex: 1 1 auto`', chipsLargo);
 
   // E A FOLHA É REDESENHADA DEPOIS DE ESTREITAR, o que é PRECISÃO da fixture e
   // não conveniência: MEDIDO, um `ResizeObserver` observa o **content box**, e o
@@ -1496,18 +1501,17 @@ try {
     r.roleta = window.__medirRoleta();
     return r;
   });
-  checar(chipsEstreito.texto[2] > chipsEstreito.texto[0] + 4,
-    'a 320×1 só o TERCEIRO rótulo precisa de duas linhas — é esta desigualdade '
-    + 'que a asserção seguinte mede, e sem ela o `stretch` não tem o que igualar',
-    chipsEstreito.texto);
-  checar(chipsEstreito.caixas.length === 1,
-    'e as três pílulas ficam com UMA altura só, apesar de só uma delas ter '
-    + 'quebrado — o esticamento é o padrão do flex, e o que isto guarda é um '
-    + '`center` escrito ali um dia', chipsEstreito);
+  checar(chipsEstreito.linhas.length >= 2 && chipsEstreito.fora.length === 0
+    && chipsEstreito.linhas.every((l) => l.esq <= 1 && l.dir <= 1),
+    'a 320 as pílulas QUEBRAM em linhas, nenhuma sai da fileira, e cada linha '
+    + 'continua indo da borda à borda', chipsEstreito);
+  checar(chipsEstreito.linhas.every((l) => l.alturas.length === 1),
+    'e as pílulas de uma MESMA linha têm uma altura só — o esticamento é o padrão '
+    + 'do flex, e o que isto guarda é um `center` escrito ali um dia', chipsEstreito.linhas);
   checar(chipsEstreito.corte.length === 0
     && !chipsEstreito.reticencia.includes('ellipsis'),
     'e nenhuma é RETICENCIADA nem cortada: reticências não dizem QUAL palavra foi '
-    + 'cortada, e "Só no aparelho" é a que se perde', chipsEstreito);
+    + 'cortada', chipsEstreito);
   // E O RECUO SEGUE A LARGURA — a outra metade do "medido, não declarado": um
   // número em CSS valeria para uma tela só.
   checar(chipsEstreito.roleta.vao !== roleta.pontas.vao
@@ -2096,7 +2100,7 @@ try {
       + 'acima do piso de 1,28:1, e todas as superfícies OPACAS (tinta com alfa empilha)', t);
   }
 
-  // (Q) REABRIR ZERA OS TRÊS FILTROS E A PALAVRA.
+  // (Q) REABRIR ZERA AS COLEÇÕES MARCADAS, O "SÓ NO APARELHO" E A PALAVRA.
   //
   // Pelos CHIPS RENDERIZADOS e pelo valor do campo, nunca pelo objeto de
   // preferências: é o que o operador vê, e um `sorteioPrefs` limpo com a folha
@@ -2106,24 +2110,23 @@ try {
   // A PALAVRA É PLANTADA DEPOIS DO FECHAMENTO, e isso está dito porque não é
   // óbvio: o `fecharSorteio` já a limpa desde a v5.307, então sem o plantio a
   // linha nova do `abrirSorteio` ficaria sem oráculo — ela é a SEGUNDA guarda, a
-  // que cobre uma reabertura que não passe pelo fechamento. Os TRÊS FILTROS não
-  // precisam de plantio nenhum: eles são gravados (`saveSorteioPrefs`) e
-  // atravessam o fechamento por construção, que é o que tornava o relato
-  // possível.
+  // que cobre uma reabertura que não passe pelo fechamento. O "Só no aparelho" é
+  // GRAVADO (`saveSorteioPrefs`) e atravessa o fechamento por construção; as
+  // coleções marcadas não são gravadas, mas sobrevivem em memória — as duas são o
+  // que tornava o relato da v1.8.98 possível.
   const reabrir = await pg.evaluate(async () => {
     const w = (ms) => new Promise((r) => setTimeout(r, ms));
     calarSorteio();
-    const chips = () => [...document.querySelectorAll('#sorteioList .sorteio-linha .misc-chip')];
+    const chips = () => [...document.querySelectorAll('#sorteioList .sorteio-linha--cats .misc-chip')];
     const foto = async () => ({
       acesos: chips().filter((c) => c.classList.contains('active')).map((c) => c.textContent),
       aria: chips().map((c) => c.getAttribute('aria-pressed')),
       campo: document.querySelector('#sorteioList .lib-search').value,
-      prefs: [sorteioPrefs.semHinario, sorteioPrefs.semInfantis, sorteioPrefs.soNoAparelho,
-        sorteioPrefs.tema],
+      prefs: [(sorteioPrefs.categorias || []).length, sorteioPrefs.soNoAparelho, sorteioPrefs.tema],
       gravado: await AVDB.getState('sorteioPrefs'),
     });
-    // PELO TOQUE DE VERDADE em cada chip, que é quem grava.
-    for (const c of chips()) if (!c.classList.contains('active')) c.click();
+    // PELO TOQUE DE VERDADE em cada chip ACESÁVEL (um apagado não responde).
+    for (const c of chips()) if (!c.classList.contains('active') && !c.disabled) { c.click(); await w(30); }
     await w(80);
     const campo = document.querySelector('#sorteioList .lib-search');
     campo.value = 'natal';
@@ -2139,21 +2142,18 @@ try {
     return { antes, noFechamento, depois: await foto() };
   });
   checar(reabrir.antes.acesos.length === 3 && reabrir.antes.campo === 'natal'
-    && reabrir.noFechamento.gravado.semHinario === true
-    && reabrir.noFechamento.gravado.semInfantis === true
-    && reabrir.noFechamento.gravado.soNoAparelho === true,
-    'Q · a PREMISSA: os três chips foram ACESOS pelo toque e a palavra escrita no '
-    + 'campo, e os três ATRAVESSAM o fechamento no registro gravado — é essa '
-    + 'sobrevivência que fazia o filtro esquecido tirar músicas do culto sem que '
-    + 'ninguém lembrasse por quê', reabrir);
+    && reabrir.noFechamento.prefs[0] === 2
+    && reabrir.noFechamento.gravado.soNoAparelho === true
+    && !('categorias' in reabrir.noFechamento.gravado),
+    'Q · a PREMISSA: as duas coleções e o "Só no aparelho" foram ACESOS pelo toque, '
+    + 'a palavra escrita no campo, e as escolhas ATRAVESSAM o fechamento — as coleções '
+    + 'em memória (elas não são gravadas), o "Só no aparelho" no registro', reabrir);
   checar(reabrir.depois.acesos.length === 0
-    && reabrir.depois.aria.join() === 'false,false,false'
+    && reabrir.depois.aria.every((a) => a === 'false')
     && reabrir.depois.campo === ''
-    && JSON.stringify(reabrir.depois.prefs) === JSON.stringify([false, false, false, '']),
-    'Q · e a reabertura desenha os TRÊS apagados e o campo vazio — inclusive o '
-    + '"Sem infantis", cujo "nasce ligado" o operador revogou por extenso; o '
-    + '`sanear` segue o ligando para quem LÊ um registro, e a folha o apaga por '
-    + 'escrito a cada abertura', reabrir.depois);
+    && JSON.stringify(reabrir.depois.prefs) === JSON.stringify([0, false, '']),
+    'Q · e a reabertura desenha TODAS as pílulas apagadas e o campo vazio — nada '
+    + 'marcado é o acervo inteiro, o estado de que toda abertura parte', reabrir.depois);
 
   checar(erros.length === 0, 'nenhum erro de console', erros.slice(0, 3));
 } finally {

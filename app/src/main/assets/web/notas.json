@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.12.53",
+    "itens": [
+      "Playlist automática: os filtros agora escolhem o que entra, e não o que sai. Nada marcado é a biblioteca toda.",
+      "Toque em \"Hinário 2022\", \"Infantis\", \"Hinário 1996\" ou numa coletânea: vale só o que você marcar.",
+      "Modo simples: o botão de sorteio, à esquerda da busca, toca um hino cantado do Hinário 2022 (sem os infantis).",
+      "Em telas pequenas, as opções de um item do cronograma cobrem a miniatura inteira e usam a linha toda.",
+      "O ícone de conectar a TV, na prévia do modo avançado, fica verde enquanto há uma TV conectada.",
+      "Provai e Vede e Informativo: o botão de atualizar saiu; abrir a coleção já verifica o vídeo da semana."
+    ]
+  },
+  {
     "versao": "1.12.52",
     "itens": [
       "Editar mídia: a janela abre de uma vez, sem encolher e crescer; enquanto a lista carrega, aparece o indicador.",

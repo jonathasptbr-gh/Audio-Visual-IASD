@@ -12,8 +12,8 @@
 //  - o DIÁRIO da varredura das séries (`serieDiag:<id>`) é gravado em DUAS
 //    metades — a do canal e a dos vídeos — e duas varreduras da mesma série
 //    correm juntas com facilidade (a abertura dispara
-//    `autoRefreshCollections()` sem `await`, e "Atualizar a lista" é um toque
-//    por cima disso). Perdida a metade dos vídeos, o Registro passa a responder
+//    `autoRefreshCollections()` sem `await`, e abrir o card da série é uma
+//    verificação por cima disso). Perdida a metade dos vídeos, o Registro passa a responder
 //    como se a varredura nunca tivesse acontecido — e ele é lido A DISTÂNCIA,
 //    por quem não tem como conferir;
 //  - `ytIntencoes` é uma LISTA que ganha item no começo de cada download e

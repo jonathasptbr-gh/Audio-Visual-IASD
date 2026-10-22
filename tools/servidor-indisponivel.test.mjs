@@ -113,7 +113,7 @@ const lerBiblioteca = (pg) => pg.evaluate(() => {
   const aviso = document.querySelector('#fonteAvisoLib');
   const r = aviso ? aviso.getBoundingClientRect() : null;
   const centro = r ? document.elementFromPoint(r.left + r.width / 2, r.top + 12) : null;
-  const dls = [...document.querySelectorAll('#hymnResults .coll-bar-dl:not(.coll-bar-rm):not(.coll-bar-at), #hymnResults .coll-group-btn')];
+  const dls = [...document.querySelectorAll('#hymnResults .coll-bar-dl:not(.coll-bar-rm), #hymnResults .coll-group-btn')];
   return {
     aviso: !!aviso,
     titulo: aviso ? aviso.querySelector('.fonte-aviso-tit').textContent : '',

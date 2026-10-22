@@ -1,8 +1,9 @@
 // ============================================================================
 // SORTEIO TEMÁTICO — a regra que decide o que pode ser sorteado da Biblioteca
 //
-// O operador digita uma PALAVRA TEMA ("natal", "cruz", "gratidão"), marca dois
-// ou três filtros e recebe UMA faixa no telão ou uma FILA montada na hora. Este
+// O operador digita uma PALAVRA TEMA ("natal", "cruz", "gratidão"), marca as
+// COLEÇÕES de onde quer sortear e recebe UMA faixa no telão ou uma FILA montada
+// na hora. Este
 // arquivo responde à única pergunta difícil disso: **quais faixas do acervo
 // podem sair no sorteio, e por quê as outras não podem.**
 //
@@ -33,7 +34,7 @@
 // Uma faixa entra por ter a variante pedida E casar o tema. Não casando o tema
 // ela fica de fora — mas a recusa é CONTADA e NOMEADA (ver [montarPool]),
 // porque "nada encontrado" tem cinco causas indistinguíveis da tela: a coleção
-// não tem índice, o filtro de hinário levou tudo, a variante não existe na
+// não tem índice, as coleções marcadas não têm nada, a variante não existe na
 // origem, o tema não casa, ou nada está no aparelho. As cinco pedem ações
 // opostas do operador, e é o Registro que as separa.
 //
@@ -99,12 +100,44 @@
   // o `controle.js` (regra do projeto: Kotlin e regra devolvem dado, a UI
   // escreve a frase).
   const MOTIVO_SEM_MUSICA = 'sem-musica';   // coleção: não é acervo de música
-  const MOTIVO_HINARIO = 'hinario';         // coleção: o filtro pediu sem hinário
+  const MOTIVO_CATEGORIA = 'categoria';     // coleção ou faixa: fora das coleções marcadas
   const MOTIVO_SEM_INDICE = 'sem-indice';   // coleção: nenhuma faixa indexada
   const MOTIVO_VARIANTE = 'variante';       // faixa: a origem não tem esta variante
   const MOTIVO_TEMA = 'tema';               // faixa: não casa a palavra tema
   const MOTIVO_FORA = 'fora-do-aparelho';   // faixa: o filtro pediu só o baixado
-  const MOTIVO_INFANTIL = 'infantil';       // faixa: hino infantil, e o filtro os recusa
+
+  // ---- AS CATEGORIAS: o filtro é INCLUSIVO (v1.12.53) ----
+  //
+  // Pedido do operador: *"Vamos modificar o sistema de filtros da Playlist
+  // automática, agora ela vai ser inclusiva e não exclusiva. Vamos ter o
+  // hinário 2022, hinário 1996, infantis, músicas jovens... com tantas opções,
+  // acabo tendo de dar vários toques para chegar no tipo de música que quero,
+  // por exemplo quando quero só musicas do hinário, hoje preciso selecionar
+  // várias exclusões."*
+  //
+  // A REGRA É UMA FRASE: **nada marcado = tudo entra; marcado = a UNIÃO do que
+  // está marcado.** Os dois filtros de exclusão ("Sem hinário", "Sem infantis")
+  // saíram, e o que eles diziam virou categoria: "só o hinário" é UM toque.
+  //
+  // As categorias são uma PARTIÇÃO do acervo de música, e é isso que faz a
+  // união não ter sobra nem buraco:
+  //   - o Hinário 2022 SEM os infantis (a faixa 508–557 é a categoria de baixo);
+  //   - os INFANTIS do Hinário 2022 — por isso "Hinário 2022" sozinho é o antigo
+  //     "Sem infantis" ligado, e a ponte do Modo Fácil sorteia por ele;
+  //   - o Hinário 1996;
+  //   - uma por COLETÂNEA do banco (`col:<id_category>`), a mesma leitura
+  //     editorial que a Biblioteca desenha (`AVColetanea.aplicar`) — quem a
+  //     entrega é `cap.coletaneas`;
+  //   - e os álbuns que coletânea nenhuma reivindica (`outros`), os "Outros
+  //     álbuns" da Biblioteca.
+  // Um álbum pode estar em DUAS coletâneas (a relação do banco é N:N): ele
+  // entra se QUALQUER uma delas estiver marcada, que é o que "união" quer dizer.
+  const CAT_HINARIO_2022 = 'hinario-2022';
+  const CAT_HINARIO_1996 = 'hinario-1996';
+  const CAT_INFANTIS = 'infantis';
+  const CAT_OUTROS = 'outros';
+  const PREFIXO_COLETANEA = 'col:';
+  function chaveDaColetanea(id) { return PREFIXO_COLETANEA + String(id); }
 
   // ---- A FAIXA INFANTIL DO HINÁRIO NOVO ----
   //
@@ -114,16 +147,42 @@
   // uma propriedade da faixa.
   //
   // O intervalo é INCLUSIVO nas duas pontas, e vale SÓ para o hinário novo: o
-  // de 1996 tem outra numeração, e aplicar estes números lá recusaria cinquenta
-  // hinos escolhidos ao acaso. Quem responde "é o hinário novo?" é uma
-  // capacidade injetada (`cap.ehHinarioNovo`), como todo o resto deste módulo —
-  // a identidade da coleção é assunto do `controle.js`.
+  // de 1996 tem outra numeração, e aplicar estes números lá poria cinquenta
+  // hinos escolhidos ao acaso na categoria errada. Quem responde "é o hinário
+  // novo?" é uma capacidade injetada (`cap.ehHinarioNovo`), como todo o resto
+  // deste módulo — a identidade da coleção é assunto do `controle.js`.
   const INFANTIL_DE = 508;
   const INFANTIL_ATE = 557;
   function ehInfantil(coll, s, cap) {
     if (!cap.ehHinarioNovo || !cap.ehHinarioNovo(coll)) return false;
     const n = s ? (s.track | 0) : 0;
     return n >= INFANTIL_DE && n <= INFANTIL_ATE;
+  }
+
+  // AS CATEGORIAS DE UMA COLEÇÃO — todas as que ALGUMA faixa dela pode ter. É a
+  // pergunta barata, feita antes de varrer as faixas: uma coleção que não toca
+  // nenhuma categoria marcada é recusada inteira, e nomeada (o Registro).
+  // As capacidades ausentes NÃO lançam: sem `ehHinarioNovo`/`ehHinarioAntigo`
+  // os hinários caem em "outros", e um chamador antigo continua funcionando.
+  function categoriasDaColecao(coll, cap) {
+    if (cap.ehHinarioNovo && cap.ehHinarioNovo(coll)) return [CAT_HINARIO_2022, CAT_INFANTIS];
+    if (cap.ehHinarioAntigo && cap.ehHinarioAntigo(coll)) return [CAT_HINARIO_1996];
+    const ids = (cap.coletaneas && cap.coletaneas(coll)) || [];
+    return ids.length ? ids.map(chaveDaColetanea) : [CAT_OUTROS];
+  }
+
+  // A CATEGORIA DE UMA FAIXA. Só o hinário novo divide a coleção: a faixa 508–557
+  // é dos infantis e o resto é do hinário. Nas outras a faixa herda a coleção.
+  function categoriasDaFaixa(coll, s, cap) {
+    if (cap.ehHinarioNovo && cap.ehHinarioNovo(coll)) {
+      return [ehInfantil(coll, s, cap) ? CAT_INFANTIS : CAT_HINARIO_2022];
+    }
+    return categoriasDaColecao(coll, cap);
+  }
+
+  function tocaAlguma(cats, marcadas) {
+    for (const c of cats) if (marcadas.indexOf(c) >= 0) return true;
+    return false;
   }
 
   // ---- ONDE O TEMA CASOU ----
@@ -191,15 +250,14 @@
     return {
       tema: typeof p.tema === 'string' ? p.tema : '',
       variante: p.variante === VARIANTE_PLAYBACK ? VARIANTE_PLAYBACK : VARIANTE_CANTADA,
-      semHinario: p.semHinario === true,
-      // ===== O ÚNICO FILTRO QUE NASCE LIGADO =====
-      // `!== false`, e não `=== true` como os irmãos: o padrão dele é LIGADO
-      // (pedido do operador — a playlist automática de um culto não deve trazer
-      // hino infantil sem que ninguém tenha pedido). A inversão é o ponto: com
-      // `=== true`, um `sorteioPrefs` gravado por uma versão anterior — que não
-      // tem o campo — voltaria com o filtro DESLIGADO, e o operador receberia
-      // infantis na fila sem ter mexido em nada.
-      semInfantis: p.semInfantis !== false,
+      // AS CATEGORIAS MARCADAS (v1.12.53): só strings, sem repetição. Um
+      // `semHinario`/`semInfantis` gravado por uma versão anterior NÃO é
+      // traduzido: a folha apaga as escolhas a cada abertura (v1.8.98), e um
+      // registro velho chega aqui sem `categorias` — isto é, "tudo", que é o
+      // estado de que toda abertura parte.
+      categorias: Array.isArray(p.categorias)
+        ? p.categorias.filter((c, i, a) => typeof c === 'string' && c && a.indexOf(c) === i)
+        : [],
       soNoAparelho: p.soNoAparelho === true,
       quantos: saneQuantos(p),
     };
@@ -237,7 +295,10 @@
   function avaliarColecao(coll, filtros, cap) {
     if (!coll) return { entra: false, motivo: MOTIVO_SEM_MUSICA };
     if (!cap.ehMusica(coll)) return { entra: false, motivo: MOTIVO_SEM_MUSICA };
-    if (filtros.semHinario && cap.ehHinario(coll)) return { entra: false, motivo: MOTIVO_HINARIO };
+    const marcadas = filtros.categorias || [];
+    if (marcadas.length && !tocaAlguma(categoriasDaColecao(coll, cap), marcadas)) {
+      return { entra: false, motivo: MOTIVO_CATEGORIA };
+    }
     if (!cap.faixas(coll).length) return { entra: false, motivo: MOTIVO_SEM_INDICE };
     return { entra: true, motivo: '' };
   }
@@ -274,13 +335,13 @@
   // permite ao contador dizer "12 casam · 3 já no aparelho" e ao operador
   // entender o que o filtro está custando.
   function avaliarFaixa(coll, s, filtros, cap, q) {
-    // O INFANTIL VEM PRIMEIRO, e a ordem é a mesma decisão de sempre: o motivo
-    // que sai é o que o operador pode AGIR sobre. Este filtro nasce ligado, ou
-    // seja, é o único que pode estar recusando sem que ninguém o tenha tocado —
-    // dizer "não casa o tema" para um hino que o filtro escondeu mandaria
-    // reescrever a palavra à toa.
-    if (filtros.semInfantis && ehInfantil(coll, s, cap)) {
-      return { entra: false, motivo: MOTIVO_INFANTIL, casou: '', noAparelho: false };
+    // A CATEGORIA VEM PRIMEIRO, e a ordem é a mesma decisão de sempre: o motivo
+    // que sai é o que o operador pode AGIR sobre. A coleção já passou pela
+    // pergunta (`avaliarColecao`); o que sobra aqui é o hinário NOVO, a única
+    // coleção que divide as faixas entre duas categorias.
+    const marcadas = filtros.categorias || [];
+    if (marcadas.length && !tocaAlguma(categoriasDaFaixa(coll, s, cap), marcadas)) {
+      return { entra: false, motivo: MOTIVO_CATEGORIA, casou: '', noAparelho: false };
     }
     if (!temVariante(s, filtros.variante)) {
       return { entra: false, motivo: MOTIVO_VARIANTE, casou: '', noAparelho: false };
@@ -403,14 +464,53 @@
     return baralhar(itens, rnd).slice(0, n);
   }
 
+  // ---- AS CATEGORIAS QUE A FOLHA OFERECE ----
+  //
+  // Uma por categoria que EXISTE nos dados, nesta ordem: os dois hinários e os
+  // infantis primeiro (o acervo fixo, de todo aparelho), depois as coletâneas na
+  // ordem que o chamador entrega (a do catálogo, já dissolvida), e "outros" por
+  // último — e só se houver álbum sem coletânea, porque não é uma categoria do
+  // banco e oferecê-la vazia seria inventá-la.
+  //
+  // `faixas` conta as faixas INDEXADAS de cada uma, em coleções de música. Zero
+  // não tira a categoria da lista: quem decide o que fazer com ela é a tela
+  // (apagada, com o motivo no `title`), e um chip que some e aparece conforme o
+  // índice chega moveria os vizinhos debaixo do dedo.
+  //
+  // `coletaneas` = `[{ id, nome }]`; `outros` = há álbum sem coletânea?
+  function categoriasDisponiveis(colecoes, coletaneas, cap, outros) {
+    const lista = [
+      { chave: CAT_HINARIO_2022, nome: 'Hinário 2022', faixas: 0 },
+      { chave: CAT_HINARIO_1996, nome: 'Hinário 1996', faixas: 0 },
+      { chave: CAT_INFANTIS, nome: 'Infantis', faixas: 0 },
+    ];
+    for (const c of coletaneas || []) {
+      if (!c || c.id == null) continue;
+      const chave = chaveDaColetanea(c.id);
+      if (!lista.some((x) => x.chave === chave)) lista.push({ chave, nome: String(c.nome || ''), faixas: 0 });
+    }
+    if (outros) lista.push({ chave: CAT_OUTROS, nome: 'Outros álbuns', faixas: 0 });
+    const porChave = Object.create(null);
+    for (const x of lista) porChave[x.chave] = x;
+    for (const coll of colecoes || []) {
+      if (!coll || !cap.ehMusica(coll)) continue;
+      for (const s of cap.faixas(coll)) {
+        for (const k of categoriasDaFaixa(coll, s, cap)) if (porChave[k]) porChave[k].faixas++;
+      }
+    }
+    return lista;
+  }
+
   global.AVSorteio = {
     // (`MODO_UMA`/`MODO_PLAYLIST` saíram da superfície na v1.8.61: o eixo virou
     // `quantos`, e as duas strings sobrevivem só como ENTRADA da migração —
     // exportá-las convidaria o eixo velho de volta por um consumidor novo.)
     VARIANTE_CANTADA, VARIANTE_PLAYBACK,
-    MOTIVO_SEM_MUSICA, MOTIVO_HINARIO, MOTIVO_SEM_INDICE,
-    MOTIVO_VARIANTE, MOTIVO_TEMA, MOTIVO_FORA, MOTIVO_INFANTIL,
+    MOTIVO_SEM_MUSICA, MOTIVO_CATEGORIA, MOTIVO_SEM_INDICE,
+    MOTIVO_VARIANTE, MOTIVO_TEMA, MOTIVO_FORA,
     INFANTIL_DE, INFANTIL_ATE,
+    CAT_HINARIO_2022, CAT_HINARIO_1996, CAT_INFANTIS, CAT_OUTROS,
+    chaveDaColetanea, categoriasDaColecao, categoriasDaFaixa, categoriasDisponiveis,
     CASOU_NOME, CASOU_LETRA, CASOU_SEM_TEMA,
     QUANTIDADE_MIN, QUANTIDADE_MAX, QUANTIDADE_PADRAO,
     sanear, temVariante, avaliarColecao, ondeCasa, avaliarFaixa,

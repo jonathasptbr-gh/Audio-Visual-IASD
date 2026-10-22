@@ -213,7 +213,9 @@ try {
   const linhas = css.split('\n');
   const consumidores = [];
   for (let i = 0; i < linhas.length; i++) {
-    if (!/var\(--(ok|btn-ok|ok-fill)\)/.test(linhas[i])) continue;
+    // `--stage-ok` (v1.12.53) é o MESMO verde no palco, que não tem tema: entra na
+    // varredura, senão um consumidor dele escaparia da lista nomeada.
+    if (!/var\(--(ok|btn-ok|ok-fill|stage-ok)\)/.test(linhas[i])) continue;
     // o seletor é a última linha anterior (ou a própria) que abre um bloco
     let j = i;
     while (j >= 0 && !/[.#:a-z\]][^;]*\{/.test(linhas[j])) j--;
@@ -233,6 +235,10 @@ try {
     // O ÍCONE DE CAST DO CABEÇALHO DO MODO FÁCIL (v1.11.11): a MESMA "TV no ar",
     // agora que a prévia (e o `#pvCastBtn`) saiu desse modo. Estado, não desfecho.
     '.simple-head #simpleCastBtn.connected',
+    // O ÍCONE DE CAST DA PRÉVIA DO AVANÇADO (v1.12.53): a MESMA "TV no ar". Era
+    // vermelho ("o toque desconecta"), e o operador o pediu verde — *"o vermelho
+    // indica algo desativado e não conectado"*. Estado, não desfecho.
+    '.pv-fab.connected',
   ];
   const sobrando = consumidores.filter((c) => !ESPERADOS.includes(c));
   checar(sobrando.length === 0,

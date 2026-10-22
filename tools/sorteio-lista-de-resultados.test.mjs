@@ -498,7 +498,9 @@ try {
   // `tema` passava, porque ele já era `''`.
   const antesDoSorteio = await pg.evaluate(async () => {
     sorteioPrefs.soNoAparelho = true;
-    sorteioPrefs.semInfantis = false;
+    // UMA COLEÇÃO MARCADA (v1.12.53, eram os infantis desligados): o valor
+    // não-padrão do filtro inclusivo. A do hinário novo, que o acervo daqui tem.
+    sorteioPrefs.categorias = [AVSorteio.CAT_HINARIO_2022];
     renderSorteio();
     await new Promise((f) => setTimeout(f, 80));
     return {
@@ -510,7 +512,7 @@ try {
     };
   });
   checar(/"soNoAparelho":true/.test(antesDoSorteio.prefs)
-    && /"semInfantis":false/.test(antesDoSorteio.prefs),
+    && /"categorias":\["hinario-2022"\]/.test(antesDoSorteio.prefs),
     'G2 · A PREMISSA dos filtros: eles estão em valores NÃO-PADRÃO, senão a '
     + 'asserção de "não mexe nos filtros" mediria um objeto vazio',
     antesDoSorteio.prefs);

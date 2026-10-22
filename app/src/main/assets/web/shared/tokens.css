@@ -114,6 +114,10 @@
   --stage-accent-glow: rgba(143, 177, 243, .32);
   --stage-on-accent: #0e1215;            /* texto SOBRE o acento preenchido; 8,65:1 */
   --stage-alert: #f97a7e;                /* timer estourado; 5,8:1 sobre o preto */
+  /* O VERDE DE ATIVIDADE NO PALCO (v1.12.53): o ícone de cast da prévia com a TV no ar.
+     É o `--ok` do tema ESCURO, LITERAL e fora de `[data-tema]` — a prévia espelha o telão,
+     e o `--ok` do claro (#216900) sobre o preto do palco dá 3,0:1. 9,4:1 sobre o preto. */
+  --stage-ok: #80bd64;
 
   /* wallpaper (cortina do telão) — a cor de BASE por baixo do desenho padrão.
      Desde a v5.188 o desenho é o SÍMBOLO OFICIAL da IASD sobre denim profundo

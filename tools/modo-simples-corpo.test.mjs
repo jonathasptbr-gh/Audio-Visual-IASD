@@ -736,7 +736,8 @@ try {
     'I3 · e a badge de versão não existe mais nesta tela — o número mora só no rodapé de Configurações',
     JSON.stringify(cab1));
   checar(cab1.sorteio === 'none',
-    'I4 · o botão de PLAYLIST AUTOMÁTICA não é desenhado no Modo Fácil — a barra fica com o campo',
+    'I4 · o botão de PLAYLIST AUTOMÁTICA não é desenhado no Modo Fácil — no lugar dele mora o sorteio '
+    + 'simples (v1.12.53, `sorteio-simples.test.mjs`)',
     cab1.sorteio);
 
   // S · O VIGIA, OS TEMPOS DA ESCOLHA E O CUSTO POR PULSO (v1.12.30)

@@ -273,9 +273,21 @@ ser diagnosticável.
     o `ytArquivo` reaproveita o registro e o teto não é consultado.
 
   Oráculo: `serie-mantem-a-semana.test.mjs`.
-- **O CARD DA SÉRIE TEM UM BOTÃO SÓ** (v1.1.21), e é o de **atualizar a lista**
-  (`syncCollection(coll, { soIndice: true })`) — puro, sem texto, na direita da
-  barra. Os outros dois saíram porque **o álbum de série não retém arquivo**: um
+- **O CARD DA SÉRIE NÃO TEM BOTÃO NENHUM NA BARRA** (v1.12.53). Ele teve UM, o de
+  **atualizar a lista** (v1.1.21, `syncCollection(coll, { soIndice: true })`), e ele
+  saiu a pedido do operador: *"Remover o botão de atualizar e verificar o
+  informativo das missões e provai e vede, deixe essa ação automática quando o
+  usuário abre as respectivas coleções … torne isso uma rotina, verificar os
+  vídeos da semana."* Quem verifica é a **ABERTURA do card**, nos dois modos
+  (`verificarSemanaAoAbrir`): refaz a lista e, com ela de pé, roda a rotina do
+  episódio da semana. Piso de 5 min entre verificações (1 min depois de uma
+  falha), uma por vez, e **CEDE à mídia no ar** — adiada, ela não arma o piso, o
+  subtítulo diz por quê, e o próximo desenho do card aberto a retoma. O subtítulo
+  da barra é o estado: "Verificando os vídeos da semana…", o número de episódios,
+  ou o motivo de não ter acontecido. O detalhe está em
+  `docs/arquitetura/CONTROLE.md`, "A coluna da direita". Oráculo:
+  `serie-mantem-a-semana.test.mjs`, bloco K.
+  **Os outros dois botões saíram antes** (v1.1.21), porque **o álbum de série não retém arquivo**: um
   episódio só existe no aparelho enquanto está no Cronograma, nos Favoritos ou na
   playlist, e o coletor o recolhe quando sai de lá. Logo não há o que baixar em
   lote (~15 GB) nem o que remover — "Remover do dispositivo" ali apagaria o que
