@@ -953,9 +953,16 @@ try {
       fonteV: parseFloat(cs.fontSize), fonteT: parseFloat(getComputedStyle(t).fontSize),
       // ao LADO do título (depois dele, na mesma faixa vertical do cabeçalho)
       aoLado: vr.left >= tr.right - 1 || vr.top >= tr.bottom - 1,
-      // O PEDIR AJUDA É SÓ O ÍCONE: nenhum texto, o balão, e logo antes do ✕.
+      // O PEDIR AJUDA É O BALÃO COM A PALAVRA "AJUDA" AO LADO (v1.12.52), logo antes do ✕.
       ajudaTexto: c.textContent.trim(), ajudaIcone: svg ? svg.querySelector('use').getAttribute('href') : null,
       ajudaW: svg ? +svg.getBoundingClientRect().width.toFixed(1) : null,
+      ajudaPalavra: (() => {
+        const sp = c.querySelector('span'); if (!sp || !svg) return null;
+        const a = svg.getBoundingClientRect(), b = sp.getBoundingClientRect();
+        return { w: b.width, depois: b.left >= a.right - 0.5, mesmaLinha: Math.abs((a.top + a.bottom) / 2 - (b.top + b.bottom) / 2) < 4,
+          fonte: parseFloat(getComputedStyle(sp).fontSize), cor: getComputedStyle(sp).color };
+      })(),
+      ajudaAltura: cr.height,
       vizinhoDoX: c.nextElementSibling === x && cr.right <= xr.left + 1,
       ajudaRotulo: c.getAttribute('aria-label') + ' | ' + c.title,
       // A ATUALIZAÇÃO ADIADA FICA NO RODAPÉ, e com ela à vista ele volta a existir.
@@ -972,10 +979,14 @@ try {
       && casa.fonteV < casa.fonteT && casa.corV !== casa.corT && casa.aoLado,
     'H1 · a versão é SÓ AS LETRAS ao lado do título: sem fundo, sem borda, menor e em outra cor (mais '
     + 'apagada)', JSON.stringify(casa));
-  checar(casa.ajudaTexto === '' && casa.ajudaIcone === '#icoContato' && casa.ajudaW === 20
+  checar(casa.ajudaTexto === 'Ajuda' && casa.ajudaIcone === '#icoContato' && casa.ajudaW === 20
       && casa.vizinhoDoX && /Pedir ajuda/.test(casa.ajudaRotulo),
-    'H1 · o pedir ajuda é um botão SÓ DE ÍCONE (o balão, 20px), logo antes do ✕, e diz "Pedir ajuda" ao '
+    'H1 · o pedir ajuda é o balão (20px) com a palavra "Ajuda", logo antes do ✕, e diz "Pedir ajuda" ao '
     + 'leitor de tela', JSON.stringify(casa));
+  checar(casa.ajudaPalavra && casa.ajudaPalavra.w > 0 && casa.ajudaPalavra.depois && casa.ajudaPalavra.mesmaLinha
+      && casa.ajudaPalavra.fonte === casa.fonteV && casa.ajudaPalavra.cor === casa.corV && casa.ajudaAltura >= 33.5,
+    'H1 · "Ajuda" está À VISTA, ao lado do balão, na régua da versão (mesmo tamanho e cor) — e a caixa de toque '
+    + 'mantém a altura de um botão', JSON.stringify(casa.ajudaPalavra) + ' h=' + casa.ajudaAltura);
   checar(casa.rodape === 'none',
     'H1 · e sem atualização adiada o rodapé da folha NÃO EXISTE',
     JSON.stringify(casa));

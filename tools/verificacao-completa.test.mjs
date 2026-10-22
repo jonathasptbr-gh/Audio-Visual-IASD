@@ -138,7 +138,10 @@ const PONTE = `(function () {
             bytes: 15000000, ok: true, erro: '', retentativas: 1, pedacosRefeitos: 1,
             pedacos: { n: 6, msMin: 700, msMediano: 1100, msMax: 2600, bytes: 15000000 } }],
         juncao: { inicio: 7400, fim: 9500, ok: true }, audioEVideoJuntos: true, desfecho: 'juntou',
-        totalMs: 9600, sobraNoCache: [] }), 0);
+        totalMs: 9600,
+        // A SOBRA (v1.12.52): o nome com VID vira o id do vídeo pedido.
+        sobraNoCache: (window.__yt.sobra || []).map((x) => ({ nome: x.nome.replace('VID',
+          (/[?&]v=([^&]+)/.exec(window.__ultimoLink) || [])[1] || ''), bytes: x.bytes })) }), 0);
       return undefined;
     },
     ytDiag: (id) => setTimeout(() => window.__avResolve(id,
@@ -232,11 +235,15 @@ async function aparelho(viewport) {
 
 // UMA VERIFICAÇÃO SÓ (v1.12.44): abrir a folha roda a leve E o download de
 // teste. A seção é recolhida e reaberta, e espera-se o FATO (o resultado
-// completo novo). Fechar antes cancela a anterior, que é desfeita por inteiro.
+// completo novo). Uma rodada anterior é CANCELADA antes (recolher só a oculta
+// desde a v1.12.52), e o resultado não visto é esquecido — senão a reabertura o
+// mostraria em vez de rodar.
 async function rodarVerificacao(pg) {
   await pg.evaluate(async () => {
+    cancelarVerificacao();
     recolherSecao();
     while (testeEmCurso || testeRodando) await new Promise((r) => setTimeout(r, 20));
+    testeNaoVisto = false;
     window.__antes = Date.now();
     abrirSecao('teste');
   });
@@ -422,7 +429,9 @@ try {
     await ctx.close();
   }
 
-  // ---- C: FECHAR A FOLHA CANCELA O DOWNLOAD, e a limpeza continua -----------
+  // ---- C: O CANCELAR PARA O DOWNLOAD, e a limpeza continua -----------
+  // (Até a v1.12.51 era FECHAR a folha que cancelava; desde a v1.12.52 recolher só
+  // oculta — ver o bloco G — e quem interrompe é o Cancelar da faixa.)
   {
     const { ctx, pg } = await aparelho();
     await pg.evaluate(() => { window.__yt.passos = 200; window.__yt.intervalo = 50; window.__chamadas.length = 0; abrirSecao('teste'); });
@@ -440,13 +449,13 @@ try {
       'C1 · durante o download o anel mostra PERCENTUAL andando (sem legenda embaixo), e não para na última etapa',
       JSON.stringify(meio));
     checar(meio.registroOculto, 'C2 · e o Registro continua oculto', JSON.stringify(meio));
-    await pg.evaluate(() => recolherSecao());
+    await pg.evaluate(() => document.getElementById('testeCancelar').click());
     const fim = await esperar(pg, () => !testeEmCurso && !testeRodando, null, 30000);
-    checar(fim === true, 'C4 · fechada a folha, a rodada termina', porque(fim));
+    checar(fim === true, 'C4 · cancelada, a rodada termina', porque(fim));
     const x = await pg.evaluate(() => ({ chamadas: window.__chamadas.map((c) => c.n), resultado: testeResultado,
-      tile: document.getElementById('testeTile').classList.contains('qs-trabalhando') }));
-    checar(x.chamadas.includes('ytCancel') && x.resultado === null && !x.tile,
-      'C5 · fechar a folha CANCELA: o pedido de parar chegou ao shell e a rodada não deixa resultado',
+      tile: document.getElementById('testeTile').classList.contains('qs-trabalhando'), secao: secaoAberta }));
+    checar(x.chamadas.includes('ytCancel') && x.resultado === null && !x.tile && x.secao === '',
+      'C5 · o Cancelar PARA: o pedido de parar chegou ao shell, a seção recolheu e a rodada não deixa resultado',
       JSON.stringify(x));
     const s = await sobras(pg, meio.ep);
     checar(!s.rec && s.avulsos === 0 && s.cancelados === 0,
@@ -488,6 +497,68 @@ try {
     });
     checar(r.x.v === 'falhou' && /arquivo do shell ficou no cache/.test(r.x.nota) && r.limpeza.registro === true,
       'D3 · o que SOBRA é falha com nome — o arquivo do shell que não sumiu não passa calado', JSON.stringify(r));
+    // D4 · O CACHE DO SHELL É CONFERIDO (v1.12.52): um arquivo DESTE vídeo na sobra
+    // que a medida do shell lista é lixo do teste — inclusive no cancelamento, em
+    // que não há `/saf/` a conferir. Um de OUTRO vídeo não reprova a linha.
+    r = await pg.evaluate(async () => {
+      window.__yt.passos = 3; window.__yt.intervalo = 20;
+      window.__yt.sobra = [{ nome: 'VID.mp4', bytes: 24000000 }];
+      const meu = await testeDownloadCompleto();
+      window.__yt.sobra = [{ nome: 'outroVideo1.mp4', bytes: 24000000 }];
+      const outro = await testeDownloadCompleto();
+      window.__yt.sobra = [];
+      return { meu, outro, vid: testeDl.episodio && testeDl.episodio.id };
+    });
+    checar(r.meu.v === 'falhou' && /sobrou no cache do shell: \w+\.mp4/.test(r.meu.nota),
+      'D4 · um arquivo DESTE vídeo que a medida do shell diz ter sobrado no cache é FALHA, com o nome',
+      JSON.stringify(r.meu));
+    checar(r.outro.v === 'ok', 'D4 · e um de OUTRO vídeo não reprova o teste (o Registro o mostra)', JSON.stringify(r.outro));
+    // D5 · O CANCELAR QUE CHEGA DURANTE A ESCOLHA DO EPISÓDIO (v1.12.52): a marca era
+    // lida só na entrada, e o download partia assim mesmo.
+    r = await pg.evaluate(async () => {
+      window.__chamadas.length = 0;
+      const real = AVDB.mediaByYoutube;
+      testeRodando = true; testeCompleta = true; testeDlCanceladoAntes = false;
+      AVDB.mediaByYoutube = async (v) => { cancelarVerificacao(); return real.call(AVDB, v); };
+      let x;
+      try { x = await testeDownloadCompleto(); } finally {
+        AVDB.mediaByYoutube = real; testeRodando = false; testeCompleta = false; testeCancelada = false;
+      }
+      return { x, pediu: window.__chamadas.some((c) => /^ytFetch/.test(c.n)) };
+    });
+    checar(r.x.v === 'na' && /cancelado por você/.test(r.x.nota) && !r.pediu,
+      'D5 · o Cancelar que chega DURANTE a escolha do episódio impede o download — nenhum pedido sai ao shell',
+      JSON.stringify(r));
+    await ctx.close();
+  }
+
+  // ---- K: O OCULTAR NÃO PARA O DOWNLOAD (v1.12.52) -------------------------
+  // Recolhida pelo Ocultar no meio do download de teste, a rodada SEGUE: termina,
+  // grava o resultado, LIMPA o que baixou e o tile "Verificar" diz o desfecho.
+  {
+    const { ctx, pg } = await aparelho();
+    await pg.evaluate(() => { window.__yt.passos = 30; window.__yt.intervalo = 40; window.__chamadas.length = 0; abrirSecao('teste'); });
+    const andando = await esperar(pg, () => testeDl && testeDl.amostras.length > 3, null, 30000);
+    checar(andando === true, 'K0 · PREMISSA: o download de teste começou', porque(andando));
+    const meio = await pg.evaluate(() => {
+      document.getElementById('testeOcultar').click();
+      const t = document.getElementById('testeTile');
+      return { secao: secaoAberta, rodando: testeRodando || !!testeEmCurso, aro: t.classList.contains('qs-trabalhando'),
+        titulo: t.querySelector('.qs-titulo').textContent, ep: testeDl.episodio && testeDl.episodio.id };
+    });
+    checar(meio.secao === '' && meio.rodando && meio.aro && /^\d+%$/.test(meio.titulo),
+      'K1 · o Ocultar recolhe a seção e o download continua — o tile mostra o aro e o percentual', JSON.stringify(meio));
+    const fim = await esperar(pg, () => !testeEmCurso && !testeRodando, null, 30000);
+    checar(fim === true, 'K2 · oculta, a rodada termina sozinha', porque(fim));
+    const x = await pg.evaluate(() => {
+      const it = testeResultado && testeResultado.itens.find((i) => i.id === 'yt-download');
+      return { completa: !!(testeResultado && testeResultado.completa), dl: it && it.v, cancel: window.__chamadas.some((c) => c.n === 'ytCancel'),
+        naoVisto: testeNaoVisto, titulo: document.querySelector('#testeTile .qs-titulo').textContent };
+    });
+    checar(x.completa && x.dl === 'ok' && !x.cancel && x.naoVisto && x.titulo !== 'Verificar' && !/%$/.test(x.titulo),
+      'K2 · e termina COMPLETA, com o download ok, sem pedido de parar — e o tile guarda o desfecho', JSON.stringify(x));
+    const s = await sobras(pg, meio.ep);
+    checar(!s.rec && s.avulsos === 0 && s.cancelados === 0, 'K3 · e a limpeza roda igual: nada fica para trás', JSON.stringify(s));
     await ctx.close();
   }
 

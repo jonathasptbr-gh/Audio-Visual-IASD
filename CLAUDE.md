@@ -2624,10 +2624,15 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   tem cor própria) —; o que funcionou e o que não se aplica não aparecem (o
   operador: *"listar o que está funcionando não me é informação nenhuma"*). O
   Registro segue com a lista inteira e as QUATRO contas. **A rodada é UMA** (a
-  leve e o download de teste encadeados, sem botão) **e recolher a seção dela
-  A CANCELA** — pelo Cancelar vermelho que a faixa mostra enquanto ela anda, pelo
-  chevron, pelo voltar ou fechando Configurações (v1.12.48): o resultado de uma
-  rodada cancelada não é guardado.
+  leve e o download de teste encadeados, sem botão) **e recolher a seção dela SÓ A
+  OCULTA** (v1.12.52; até a v1.12.51 recolher cancelava) — o Ocultar da faixa, o
+  chevron, o voltar e fechar Configurações deixam a rodada seguir, e o tile
+  "Verificar" mostra o aro e o percentual e, no fim, o desfecho até a seção abrir
+  (`pintarTileDoTeste`, `testeNaoVisto`); reabrir com resultado não visto o mostra
+  SEM rodar. **Só o Cancelar vermelho interrompe**, e o resultado de uma rodada
+  cancelada não é guardado. **E a limpeza do download de teste confere também o
+  cache do SHELL** (v1.12.52): um arquivo DESTE vídeo na `sobraNoCache` da medida
+  dele é falha.
 - **UMA ROTINA DE MASSA CONTA O QUE CHEGOU AO DISCO, NUNCA O QUE ELA TENTOU**
   (v1.9.13). O laço de `syncCollection` move a barra por `done`, que conta
   TENTATIVAS — e enquanto `downloadCollectionSong` devolvia `undefined` em toda
@@ -3013,10 +3018,15 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.12.51 · APK v1.12.46** · `SHELL_VERSION` **82** ·
+**Versão atual: base web v1.12.52 · APK v1.12.46** · `SHELL_VERSION` **82** ·
 bundle com `minShell: 82` e **sem `shellTag`** — o shell 82 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. **Este lote é só web**
-(a Release v1.12.46 já está publicada). **A v1.12.51 TIRA AS TECLAS DO MODO FÁCIL DURANTE UMA BUSCA E FAZ O ENTER
+(a Release v1.12.46 já está publicada). **A v1.12.52 FAZ A ABERTURA DO EDITAR MÍDIA ANIMAR UMA VEZ SÓ, DÁ À
+VERIFICAÇÃO UM OCULTAR E PÕE "AJUDA" AO LADO DO BALÃO**: `aoAbrirEdicao` desenha no ATO (o spinner reserva a altura
+da última lista, `edicaoAlturaLista`) e o `fim()` de `mudarSecao` anima o que mudou no meio da troca; recolher a
+Verificação só a oculta (o tile mostra o percentual e o desfecho; só o Cancelar interrompe); o `#contatoBtn` leva a
+palavra e volta a ser só o balão onde o título não caberia (`acertarAjudaDoCabecalho`). Ver o capítulo do Controle,
+"As seções de Configurações" e "A RODADA OCULTA". **A v1.12.51 TIRA AS TECLAS DO MODO FÁCIL DURANTE UMA BUSCA E FAZ O ENTER
 FECHAR O TECLADO**: com o campo da Biblioteca em foco, ou com texto (`simplesBuscando`), `.simple.buscando` tira
 `.simple-remote` e o card do nome do layout e a janela vai até o cartão de "Baixando…" (ou a base); o Enter
 (`enterkeyhint="search"`) tira o foco e mantém a busca, nos dois modos. A causa dos "20% da tela": com a viewport de

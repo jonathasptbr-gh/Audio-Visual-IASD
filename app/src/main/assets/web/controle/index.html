@@ -2000,16 +2000,18 @@
              UM NÚMERO SÓ (v1.7.0), escrito por `renderVersionLabel` — o índice do shell fica
              no Registro.
 
-             O PEDIR AJUDA é só o balão (`#icoContato`), sem caixa — o ✕ é a única caixa do
-             cabeçalho, e o vizinho dele não disputa com ele. Ele nasce `hidden` e é revelado
+             O PEDIR AJUDA é o balão (`#icoContato`) com a palavra "Ajuda" ao lado (v1.12.52,
+             *"coloque a palavra 'Ajuda' ao lado do botão"*), sem caixa — o ✕ é a única caixa
+             do cabeçalho, e o vizinho dele não disputa com ele. Ele nasce `hidden` e é revelado
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion" class="app-version">v1.12.51</span>
+          <span id="appVersion" class="app-version">v1.12.52</span>
         </button>
         </span>
-        <button id="contatoBtn" class="popup-acao" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
+        <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoContato"/></svg>
+          <span aria-hidden="true">Ajuda</span>
         </button>
         <button id="fadePopupClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
@@ -2546,7 +2548,7 @@
             </div>
             <!-- O ESTADO, A BARRA E, NO FIM, SÓ OS PROBLEMAS (v1.12.44 · v1.12.47). A verificação
                  é UMA, com o download de teste no fim; recolher a seção ou fechar
-                 Configurações a CANCELA (`aoRecolherTeste`). -->
+                 Configurações só a OCULTA (v1.12.52) — quem a interrompe é o Cancelar. -->
             <div id="testeCorpo" class="teste-corpo">
               <!-- O ESTADO VEM ANTES DA BARRA (v1.12.49, pedido do operador): *"Coloque
                    o texto 'verificando...' E 'tudo certo' acima da barra"*. É o que se
@@ -2564,9 +2566,9 @@
               </div>
               <ul id="testeList" class="teste-erros"></ul>
             </div>
-            <!-- O FECHO TEM DOIS ESTADOS (v1.12.48). Enquanto a verificação anda, só o
-                 CANCELAR — vermelho, com o ✕, na faixa da própria seção: é o que a
-                 interrompe, e ele não disputa com o ✕ de Configurações, lá no topo.
+            <!-- O FECHO TEM DOIS ESTADOS (v1.12.48). Enquanto a verificação anda, o
+                 OCULTAR (v1.12.52) e o CANCELAR — vermelho, com o ✕, na faixa da própria
+                 seção: é o que a interrompe, e ele não disputa com o ✕ de Configurações.
                  No fim, "Refazer" e o Registro, COMPARTILHADO como arquivo
                  (`compartilharArquivoTexto`, shell 82 — o MESMO `diagTexto`, com o
                  resultado dentro); sem ponte ele não existe. Quem escolhe o estado é
@@ -2574,6 +2576,15 @@
                  (`animarAlturaDasSecoes`). -->
             <div class="popup-fecho" id="testeFecho">
               <div class="song-menu-go-row">
+                <!-- O OCULTAR (v1.12.52): recolhe a seção e a rodada SEGUE — o tile
+                     "Verificar" mostra o andamento e, no fim, o desfecho. O chevron do
+                     cabeçalho, o voltar e fechar Configurações fazem o mesmo; só o
+                     Cancelar interrompe. -->
+                <button type="button" id="testeOcultar" class="song-menu-btn teste-refazer teste-ocultar"
+                        title="Ocultar — a verificação continua, e o botão Verificar mostra o andamento" hidden>
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoExpandir"/></svg>
+                  <span>Ocultar</span>
+                </button>
                 <button type="button" id="testeCancelar" class="song-menu-btn teste-cancelar"
                         title="Cancelar a verificação">
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCancelar"/></svg>

@@ -8122,9 +8122,9 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    as letras, com uma fonte mais escura e discreta que o título"*. A caixa de toque
    continua sendo a do app (`--hit` de altura).
 
-   O PEDIR AJUDA É SÓ O ÍCONE (`.popup-acao`): o esqueleto de `--hit` dos botões de
-   ícone, SEM caixa — `--muted` sobre o transparente, como o chevron das seções —,
-   para não virar um segundo ✕ ao lado do ✕. */
+   O PEDIR AJUDA (`.popup-acao`) é o esqueleto de `--hit` dos botões de ícone, SEM
+   caixa — `--muted` sobre o transparente, como o chevron das seções —, para não
+   virar um segundo ✕ ao lado do ✕; desde a v1.12.52 com a palavra ao lado. */
 .cfg-titulos {
   flex: 1; min-width: 0;
   display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--sp-2);
@@ -8140,6 +8140,17 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 }
 .popup-acao { background: transparent; color: var(--muted); }
 .popup-acao[hidden] { display: none; }
+/* O PEDIR AJUDA COM A PALAVRA (v1.12.52), pedido do operador: *"coloque a palavra
+   'Ajuda' ao lado do botão de mandar mensagem"*. A caixa larga com o rótulo, na
+   altura de sempre (`--hit`) e na régua da versão do outro lado (`--fs-sm`,
+   `--fw-medio`, `--muted`) — o texto não é um segundo título. */
+.popup-acao.popup-acao--rotulo {
+  width: auto; padding: 0 var(--sp-2); gap: var(--sp-2);
+  font-family: inherit; font-size: var(--fs-sm); font-weight: var(--fw-medio);
+  white-space: nowrap;
+}
+.popup-acao.popup-acao--rotulo.compacto { width: var(--hit); padding: 0; }
+.popup-acao.popup-acao--rotulo.compacto > span { display: none; }
 /* (O `.popup-total` — o contador de peso do acervo inteiro e o botão de baixar
    tudo, no cabeçalho — saiu na v5.258, a pedido do operador. O `flex-shrink: 0`
    do ✕ que ele justificava continua valendo: o cabeçalho é uma linha flex, e um
