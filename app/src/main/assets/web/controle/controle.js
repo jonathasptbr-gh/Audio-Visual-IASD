@@ -405,21 +405,17 @@ const appVersionEl = document.getElementById('appVersion');
 //  do Modo Fácil na v1.11.15 (a pedido do operador, que pôs o NOME do app no topo dessa tela).
 //  O número mora no rótulo de versão do cabeçalho de Configurações (`#versaoBtn`, v1.12.50; foi
 //  o rodapé da folha e, na v1.12.49, a Verificação), escrito pelo `renderVersionLabel`.)
-// O MENU E A GAVETA DO CRONOGRAMA (v1.12.54; o menu herdou a casa do LIMPAR,
-// que herdou a da badge) são declarados AQUI pela razão do bloco acima:
-// `renderCronoMenu` os lê milhares de linhas antes de onde o cromo é ligado, e
-// um `const` lido antes da própria declaração é `ReferenceError` — que aborta o
-// `controle.js` inteiro e faz o watchdog do OTA descartar o bundle sem nada na
-// tela dizer por quê.
-const cronoMenuBtnEl = document.getElementById('cronoMenuBtn');
-const cronoMenuEl = document.getElementById('cronoMenu');
+// O LIMPAR E A GAVETA DO CRONOGRAMA (o limpar herdou a casa da badge na
+// v1.8.66; a gaveta é da v1.12.54) são declarados AQUI pela razão do bloco
+// acima: `renderCronoLimpar` os lê milhares de linhas antes de onde o cromo é
+// ligado, e um `const` lido antes da própria declaração é `ReferenceError` —
+// que aborta o `controle.js` inteiro e faz o watchdog do OTA descartar o bundle
+// sem nada na tela dizer por quê.
 const cronoTituloEl = document.getElementById('cronoTitulo');
 const cronoGavetaEl = document.getElementById('cronoGaveta');
 const cronoListaEl = document.getElementById('cronoLista');
 const cronoVeuEl = document.getElementById('cronoVeu');
-const cronoRenomearEl = document.getElementById('cronoRenomear');
 const cronoLimparEl = document.getElementById('cronoLimpar');
-const cronoExcluirEl = document.getElementById('cronoExcluir');
 // OS CRONOGRAMAS (v1.12.54): `{ ativo, itens: [{ id, nome, qtd, usado }] }`, lido
 // por `AVDB.cronoLer` em todo `load()`. O conteúdo do ativo é `libItems`, como
 // sempre — este objeto só diz o NOME dele e quais outros existem.
@@ -430,7 +426,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.54';
+const WEB_VERSION = '1.12.55';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -9488,35 +9484,29 @@ function msgProjecting() { return !!(msgSession && msgSession.projecting); }
 // `finally` do balde roda do mesmo jeito.
 function renderLibrary() {
   comBaldeDeMiniaturas(libraryEl, () => renderLibraryCorpo());
-  renderCronoMenu();
+  renderCronoLimpar();
 }
 
 /**
- * AS DUAS LINHAS QUE PODEM NÃO TER FUNÇÃO, NO MENU DO CRONOGRAMA (v1.8.66 o
- * limpar; v1.12.54 o menu).
+ * O BOTÃO DE LIMPAR, APAGADO COM A LISTA VAZIA (v1.8.66; de volta à barra na
+ * v1.12.55, depois de um lote como linha do menu ⋮).
  *
- * Ele mora AQUI e não no `renderListTitle` porque a pergunta do Limpar é sobre a
- * LISTA, e `renderLibrary` é o ponto único que a redesenha — todo caminho que
- * muda `libItems` passa por ele (o `load()`, e o `toggleCronograma` que reatribui
- * a lista e chama só este). Pendurado no título, o estado ficaria velho no
- * segundo caminho, que é justamente o de tirar o último item pela gaveta da linha.
+ * Ele mora AQUI e não no `renderListTitle` porque a pergunta é sobre a LISTA, e
+ * `renderLibrary` é o ponto único que a redesenha — todo caminho que muda
+ * `libItems` passa por ele (o `load()`, e o `toggleCronograma` que reatribui a
+ * lista e chama só este). Pendurado no título, o estado ficaria velho no segundo
+ * caminho, que é justamente o de tirar o último item pela gaveta da linha.
  *
  * A REGRA É A DA v1.8.50 — o que não tem função agora é APAGADO, não deixado
  * inerte —, e ela pesa o dobro num destrutivo. O `title` diz POR QUÊ, e o
  * `aria-label` ACOMPANHA: o nome acessível vem dele, que VENCE o `title`.
- * O EXCLUIR é apagado quando o cronograma é o ÚNICO: o app nunca fica com zero.
  */
-function renderCronoMenu() {
-  const marcar = (el, pode, sim, nao) => {
-    if (!el) return;
-    el.disabled = !pode;
-    el.title = pode ? sim : nao;
-    el.setAttribute('aria-label', el.title);
-  };
-  marcar(cronoLimparEl, libItems.length > 0, 'Limpar o Cronograma', 'O Cronograma já está vazio');
-  marcar(cronoExcluirEl, cronos.itens.length > 1, 'Excluir este cronograma',
-    'É o único cronograma — o app precisa de pelo menos um');
-  if (cronoRenomearEl) { cronoRenomearEl.title = 'Renomear este cronograma'; }
+function renderCronoLimpar() {
+  if (!cronoLimparEl) return;
+  const vazio = !libItems.length;
+  cronoLimparEl.disabled = vazio;
+  cronoLimparEl.title = vazio ? 'O Cronograma já está vazio' : 'Limpar o Cronograma';
+  cronoLimparEl.setAttribute('aria-label', cronoLimparEl.title);
 }
 
 function renderLibraryCorpo() {
@@ -18760,8 +18750,8 @@ async function deleteSelected() {
 
 // ===== LIMPAR O CRONOGRAMA INTEIRO (v1.8.66) =====
 //
-// A linha do meio do menu ⋮ do Cronograma (v1.12.54; foi o botão do canto
-// superior esquerdo da faixa, onde morava a badge de versão). Só o ATIVO.
+// O botão do canto superior esquerdo da faixa, onde morava a badge de versão
+// (foi uma linha do menu ⋮ só na v1.12.54). Só o ATIVO — a lista à vista.
 // Ele é a irmã do `deleteSelected` acima — mesma declaração de intenção, sobre
 // a lista toda em vez de uma seleção — e por isso repete as DUAS metades que
 // aquele tem e que o `listSet` sozinho não faz.
@@ -18854,88 +18844,106 @@ async function limparCronograma() {
 // (*"excluir de uma lista não tira do ar"*): o Cronograma é acervo, e a cena é
 // detentora dos próprios bytes.
 
-/** Qual camada do cabeçalho está aberta: `'gaveta'`, `'menu'` ou `null`. */
-function cronoCamadaAberta() {
-  if (cronoGavetaEl && !cronoGavetaEl.hidden) return 'gaveta';
-  if (cronoMenuEl && !cronoMenuEl.hidden) return 'menu';
-  return null;
-}
-let cronoCamadaSeq = 0;
+/** A gaveta dos cronogramas está aberta? */
+function cronoGavetaAberta() { return !!(cronoGavetaEl && !cronoGavetaEl.hidden); }
+let cronoGavetaSeq = 0;
 /**
- * Abre a GAVETA dos cronogramas ou o MENU do cronograma — uma por vez, com o
- * véu que engole o toque de fora. ANIMA: o nó aparece apagado e ganha `.aberta`
- * no quadro seguinte, que é o que dá à transição um "de" para partir.
+ * Abre a GAVETA dos cronogramas, com o véu que engole o toque de fora. ANIMA: o
+ * nó aparece apagado e ganha `.aberta` no quadro seguinte, que é o que dá à
+ * transição um "de" para partir.
  */
-function abrirCronoCamada(qual) {
-  const el = qual === 'gaveta' ? cronoGavetaEl : cronoMenuEl;
-  const outro = qual === 'gaveta' ? cronoMenuEl : cronoGavetaEl;
-  if (!el) return;
+function abrirCronoGaveta() {
+  if (!cronoGavetaEl) return;
   fecharAcoesDaLinha();
-  if (outro) { outro.classList.remove('aberta'); outro.hidden = true; }
-  if (qual === 'gaveta') renderCronoGaveta(); else renderCronoMenu();
-  const seq = ++cronoCamadaSeq;
+  renderCronoGaveta();
+  const seq = ++cronoGavetaSeq;
   if (cronoVeuEl) cronoVeuEl.hidden = false;
-  el.hidden = false;
-  if (cronoTituloEl) cronoTituloEl.setAttribute('aria-expanded', String(qual === 'gaveta'));
-  if (cronoMenuBtnEl) cronoMenuBtnEl.setAttribute('aria-expanded', String(qual === 'menu'));
+  cronoGavetaEl.hidden = false;
+  if (cronoTituloEl) cronoTituloEl.setAttribute('aria-expanded', 'true');
   // O REFLOW antes da classe é o que garante o ponto de partida da transição.
-  void el.offsetHeight;
-  if (seq === cronoCamadaSeq) el.classList.add('aberta');
+  void cronoGavetaEl.offsetHeight;
+  if (seq === cronoGavetaSeq) cronoGavetaEl.classList.add('aberta');
 }
 /**
- * Fecha a que estiver aberta. ANIMA a saída e só então tira o nó (`hidden`): um
- * nó apagado continuaria recebendo o toque. O véu sai NA HORA — fechada, a
- * gaveta não pode continuar engolindo o próximo toque na lista.
+ * Fecha a gaveta. ANIMA a saída e só então tira o nó (`hidden`): um nó apagado
+ * continuaria recebendo o toque. O véu sai NA HORA — fechada, a gaveta não pode
+ * continuar engolindo o próximo toque na lista.
  */
-function fecharCronoCamadas() {
-  const seq = ++cronoCamadaSeq;
+function fecharCronoGaveta() {
+  const seq = ++cronoGavetaSeq;
   if (cronoVeuEl) cronoVeuEl.hidden = true;
   if (cronoTituloEl) cronoTituloEl.setAttribute('aria-expanded', 'false');
-  if (cronoMenuBtnEl) cronoMenuBtnEl.setAttribute('aria-expanded', 'false');
-  const reduzido = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  for (const el of [cronoGavetaEl, cronoMenuEl]) {
-    if (!el || el.hidden) continue;
-    el.classList.remove('aberta');
-    // A TRANSIÇÃO É `--dur-media`; o relógio é de segurança, não de régua: o
-    // `transitionend` não chega com `prefers-reduced-motion` nem com o nó já
-    // apagado, e um nó que nunca recebesse `hidden` ficaria tocável.
-    const fim = () => { if (seq === cronoCamadaSeq) el.hidden = true; };
-    if (reduzido) { fim(); continue; }
-    el.addEventListener('transitionend', fim, { once: true });
-    setTimeout(fim, 260);
-  }
+  const el = cronoGavetaEl;
+  if (!el || el.hidden) return;
+  el.classList.remove('aberta');
+  // A TRANSIÇÃO É `--dur-media`; o relógio é de segurança, não de régua: o
+  // `transitionend` não chega com `prefers-reduced-motion` nem com o nó já
+  // apagado, e um nó que nunca recebesse `hidden` ficaria tocável.
+  const fim = () => { if (seq === cronoGavetaSeq) el.hidden = true; };
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { fim(); return; }
+  el.addEventListener('transitionend', fim, { once: true });
+  setTimeout(fim, 260);
 }
-/** A gaveta: um botão por cronograma (o ativo marcado) e o "Novo cronograma". */
+/**
+ * A GAVETA (v1.12.54; as linhas refeitas na v1.12.55). Uma LINHA por
+ * cronograma — renomear à esquerda, o nome (e a conta) no MEIO, excluir à
+ * direita, os dois sempre à vista — e o "Novo cronograma" por último. Pedido do
+ * operador: *"os demais botões individuais de cada cronograma, no caso,
+ * renomear e excluir, deixe-os na própria lista um para cada item da lista,
+ * sempre visíveis"*.
+ *
+ * O miolo é um botão: tocar nele TROCA. O ativo é a linha em `--sel-fill`. O
+ * EXCLUIR é apagado quando o cronograma é o ÚNICO, com o `title` dizendo por
+ * quê — o app nunca fica com zero.
+ */
 function renderCronoGaveta() {
   if (!cronoListaEl) return;
   cronoListaEl.innerHTML = '';
-  const ativoQtd = libItems.length;
+  const unico = cronos.itens.length < 2;
   for (const c of cronos.itens) {
-    const li = document.createElement('li');
-    const b = document.createElement('button');
     const ativo = c.id === cronos.ativo;
-    b.className = 'crono-item' + (ativo ? ' ativo' : '');
-    if (ativo) b.setAttribute('aria-current', 'true');
+    const li = document.createElement('li');
+    li.className = 'crono-item' + (ativo ? ' ativo' : '');
+
+    const ren = document.createElement('button');
+    ren.className = 'row-btn crono-renomear';
+    ren.title = 'Renomear “' + c.nome + '”';
+    ren.setAttribute('aria-label', ren.title);
+    ren.innerHTML = pencilIconSvg();
+    ren.addEventListener('click', (e) => { e.stopPropagation(); renomearCronograma(c.id); });
+
+    const troca = document.createElement('button');
+    troca.className = 'crono-trocar';
+    if (ativo) troca.setAttribute('aria-current', 'true');
+    troca.title = ativo ? 'Este é o cronograma em uso' : 'Usar “' + c.nome + '”';
     const nome = document.createElement('span');
-    nome.className = 'crono-item-nome';
+    nome.className = 'row-name crono-item-nome';
     nome.textContent = c.nome;
     const qtd = document.createElement('span');
-    qtd.className = 'crono-item-qtd';
-    const n = ativo ? ativoQtd : c.qtd;
+    qtd.className = 'row-sub crono-item-qtd';
+    const n = ativo ? libItems.length : c.qtd;
     qtd.textContent = n === 1 ? '1 item' : n + ' itens';
-    b.append(nome, qtd);
-    b.addEventListener('click', () => { trocarCronograma(c.id); });
-    li.appendChild(b);
+    troca.append(nome, qtd);
+    troca.addEventListener('click', () => { trocarCronograma(c.id); });
+
+    const exc = document.createElement('button');
+    exc.className = 'row-btn crono-excluir';
+    exc.disabled = unico;
+    exc.title = unico ? 'É o único cronograma — o app precisa de pelo menos um' : 'Excluir “' + c.nome + '”';
+    exc.setAttribute('aria-label', exc.title);
+    exc.appendChild(msym(ICON.del));
+    exc.addEventListener('click', (e) => { e.stopPropagation(); excluirCronograma(c.id); });
+
+    li.append(ren, troca, exc);
     cronoListaEl.appendChild(li);
   }
   const li = document.createElement('li');
   const b = document.createElement('button');
-  b.className = 'crono-item crono-novo';
+  b.className = 'crono-novo';
   b.id = 'cronoNovo';
   b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"'
     + ' stroke-linecap="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>';
   const t = document.createElement('span');
-  t.className = 'crono-item-nome';
   t.textContent = 'Novo cronograma';
   b.appendChild(t);
   b.addEventListener('click', () => { novoCronograma(); });
@@ -18949,7 +18957,7 @@ function cronoAntesDeTrocar() {
   fecharAcoesDaLinha();
 }
 async function trocarCronograma(id) {
-  fecharCronoCamadas();
+  fecharCronoGaveta();
   if (!id || id === cronos.ativo) return;
   cronoAntesDeTrocar();
   try { await AVDB.cronoTrocar(id); } catch (e) { console.warn('[crono] trocar falhou:', e); }
@@ -18957,51 +18965,67 @@ async function trocarCronograma(id) {
   if (libraryEl) libraryEl.scrollTop = 0;
 }
 async function novoCronograma() {
-  fecharCronoCamadas();
+  fecharCronoGaveta();
   cronoAntesDeTrocar();
   try { await AVDB.cronoCriar(); } catch (e) { console.warn('[crono] criar falhou:', e); }
   await load();
   if (libraryEl) libraryEl.scrollTop = 0;
 }
-/**
- * RENOMEAR, no diálogo de nome que o app já usa para itens (`appPrompt`). O nome
- * é aparado; vazio mantém o antigo; colidindo com outro, o `db.js` acrescenta
- * " (2)" — duas linhas iguais na gaveta seriam indistinguíveis ao toque.
- */
-async function renomearCronograma() {
-  const atual = cronoNomeAtivo();
-  const nome = await appPrompt({ title: 'Renomear o cronograma', message: 'Novo nome:', value: atual, okText: 'Renomear' });
-  if (nome == null || !String(nome).trim() || String(nome).trim() === atual) return;
-  try { await AVDB.cronoRenomear(cronos.ativo, nome); } catch (e) { console.warn('[crono] renomear falhou:', e); }
-  await load();
+/** O cronograma `id` (ou o ativo), como a gaveta o conhece. */
+function cronoPorId(id) {
+  return cronos.itens.find((x) => x.id === id) || cronos.itens.find((x) => x.id === cronos.ativo) || cronos.itens[0];
 }
 /**
- * EXCLUIR o cronograma ativo: pergunta (é o único destrutivo sem desfazer do
- * cabeçalho) e cai no usado mais recentemente. O que só ele segurava é coletado
- * — a mesma promessa do Limpar, e as mesmas duas metades que o `db.js` não faz
- * (a marca do YouTube e a prateleira invisível; ver `limparCronograma`).
+ * RENOMEAR um cronograma (o botão da esquerda da linha dele na gaveta), no
+ * diálogo de nome que o app já usa para itens (`appPrompt`). O nome é aparado;
+ * vazio mantém o antigo; colidindo com outro, o `db.js` acrescenta " (2)" —
+ * duas linhas iguais na gaveta seriam indistinguíveis ao toque. A GAVETA FICA
+ * ABERTA e é redesenhada: o nome novo aparece onde o dedo estava.
  */
-async function excluirCronograma() {
+async function renomearCronograma(id) {
+  const alvo = cronoPorId(id || cronos.ativo);
+  if (!alvo) return;
+  const atual = alvo.nome;
+  const nome = await appPrompt({ title: 'Renomear o cronograma', message: 'Novo nome:', value: atual, okText: 'Renomear' });
+  if (nome == null || !String(nome).trim() || String(nome).trim() === atual) return;
+  try { await AVDB.cronoRenomear(alvo.id, nome); } catch (e) { console.warn('[crono] renomear falhou:', e); }
+  await load();
+  if (cronoGavetaAberta()) renderCronoGaveta();
+}
+/**
+ * EXCLUIR um cronograma (o botão da direita da linha dele na gaveta): pergunta
+ * (é destrutivo e não tem desfazer). Sendo o ATIVO, cai no usado mais
+ * recentemente. O que só ele segurava é coletado — a mesma promessa do Limpar.
+ * As duas metades que o `db.js` não faz: a marca `ytEstado` do ✓ da busca é do
+ * ATIVO (só ele as tem), e a prateleira invisível (`soltarAvulso`) vale para o
+ * conteúdo de qualquer um. A GAVETA FICA ABERTA e é redesenhada.
+ */
+async function excluirCronograma(id) {
   if (cronos.itens.length < 2) return;
-  const nome = cronoNomeAtivo();
-  const ids = await AVDB.listIds('imports');
+  const alvo = cronoPorId(id || cronos.ativo);
+  if (!alvo) return;
+  const ativo = alvo.id === cronos.ativo;
+  const ids = ativo ? await AVDB.listIds('imports') : await AVDB.cronoIdsGuardados(alvo.id);
   const n = ids.length;
   const ok = await appConfirm({
     title: 'Excluir o cronograma',
-    message: 'Excluir “' + nome + '”' + (n ? ' e ' + (n === 1 ? 'o único item' : 'os ' + n + ' itens') + ' dele' : '') + '?',
+    message: 'Excluir “' + alvo.nome + '”' + (n ? ' e ' + (n === 1 ? 'o único item' : 'os ' + n + ' itens') + ' dele' : '') + '?',
     okText: 'Excluir',
     perigo: true,
   });
   if (!ok) return;
-  cronoAntesDeTrocar();
-  for (const id of ids) {
-    const it = libItems.find((m) => m.id === id) || await AVDB.getMedia(id);
-    if (it && it.youtubeId) setYtEstado(it.youtubeId, null);
+  if (ativo) {
+    cronoAntesDeTrocar();
+    for (const x of ids) {
+      const it = libItems.find((m) => m.id === x) || await AVDB.getMedia(x);
+      if (it && it.youtubeId) setYtEstado(it.youtubeId, null);
+    }
   }
-  for (const id of ids) await soltarAvulso(id);
-  try { await AVDB.cronoExcluir(cronos.ativo); } catch (e) { console.warn('[crono] excluir falhou:', e); }
+  for (const x of ids) await soltarAvulso(x);
+  try { await AVDB.cronoExcluir(alvo.id); } catch (e) { console.warn('[crono] excluir falhou:', e); }
   await load();
-  if (libraryEl) libraryEl.scrollTop = 0;
+  if (ativo && libraryEl) libraryEl.scrollTop = 0;
+  if (cronoGavetaAberta()) renderCronoGaveta();
 }
 
 // A PRATELEIRA INVISÍVEL não sobrevive a uma exclusão explícita.
@@ -42931,28 +42955,24 @@ plClearEl.addEventListener('click', (e) => {
   });
 });
 selDeleteEl.addEventListener('click', deleteSelected);
-if (cronoLimparEl) cronoLimparEl.addEventListener('click', () => { fecharCronoCamadas(); limparCronograma(); });
-if (cronoMenuBtnEl) cronoMenuBtnEl.addEventListener('click', () => {
-  if (cronoMenuEl && !cronoMenuEl.hidden && cronoMenuEl.classList.contains('aberta')) fecharCronoCamadas();
-  else abrirCronoCamada('menu');
-});
+if (cronoLimparEl) cronoLimparEl.addEventListener('click', () => { fecharCronoGaveta(); limparCronograma(); });
 if (cronoTituloEl) cronoTituloEl.addEventListener('click', () => {
-  if (cronoGavetaEl && !cronoGavetaEl.hidden && cronoGavetaEl.classList.contains('aberta')) fecharCronoCamadas();
-  else abrirCronoCamada('gaveta');
+  if (cronoGavetaEl && !cronoGavetaEl.hidden && cronoGavetaEl.classList.contains('aberta')) fecharCronoGaveta();
+  else abrirCronoGaveta();
 });
-if (cronoVeuEl) cronoVeuEl.addEventListener('click', () => fecharCronoCamadas());
+if (cronoVeuEl) cronoVeuEl.addEventListener('click', () => fecharCronoGaveta());
 // O TOQUE FORA QUE O VÉU NÃO ALCANÇA: a barra da Biblioteca e as folhas moram
 // acima dele (190+), e abrir uma delas com a gaveta aberta a deixaria esquecida
-// por baixo. Na CAPTURA, para fechar antes de quem recebe o toque reagir.
+// por baixo. Na CAPTURA, para fechar antes de quem recebe o toque reagir. O
+// DIÁLOGO fica de fora: renomear e excluir o abrem POR CIMA da gaveta, e ela
+// continua aberta para mostrar o desfecho.
 document.addEventListener('pointerdown', (e) => {
-  if (!cronoCamadaAberta()) return;
+  if (!cronoGavetaAberta()) return;
   const t = e.target;
   if (t === cronoVeuEl) return;
-  if ([cronoGavetaEl, cronoMenuEl, cronoTituloEl, cronoMenuBtnEl].some((el) => el && el.contains(t))) return;
-  fecharCronoCamadas();
+  if ([cronoGavetaEl, cronoTituloEl, appDialogEl].some((el) => el && el.contains(t))) return;
+  fecharCronoGaveta();
 }, true);
-if (cronoRenomearEl) cronoRenomearEl.addEventListener('click', () => { fecharCronoCamadas(); renomearCronograma(); });
-if (cronoExcluirEl) cronoExcluirEl.addEventListener('click', () => { fecharCronoCamadas(); excluirCronograma(); });
 selRenameEl.addEventListener('click', renameSelected);
 
 // (O `#backBtn` do cabeçalho perdeu o dono na v1.5.0: ele só servia à Bíblia,
@@ -44364,11 +44384,11 @@ window.__avBack = function () {
   //    a Activity continua deitada. Sair aqui deixa a folha ABERTA, no retrato;
   //    o toque seguinte a fecha.
   if (document.fullscreenElement === lyricsPopupEl) { cifraCheiaSair(); return true; }
-  // 1.7. A GAVETA DOS CRONOGRAMAS e o MENU do cronograma (v1.12.54). São as
-  //    camadas mais efêmeras do Cronograma — abertas de um toque no cabeçalho, e
-  //    fechadas pelo toque seguinte em qualquer lugar —, e nada abre por cima
-  //    delas além do diálogo, que é o degrau 1.
-  if (cronoCamadaAberta()) { fecharCronoCamadas(); return true; }
+  // 1.7. A GAVETA DOS CRONOGRAMAS (v1.12.54). É a camada mais efêmera do
+  //    Cronograma — aberta de um toque no título, e fechada pelo toque seguinte
+  //    em qualquer lugar —, e nada abre por cima dela além do diálogo (renomear
+  //    e excluir de uma linha), que é o degrau 1.
+  if (cronoGavetaAberta()) { fecharCronoGaveta(); return true; }
   // 2. Bottom-sheets. Fecha o ÚLTIMO da tabela que estiver aberto — normalmente
   //    há um só, mas se houver dois o de cima é o que o operador vê.
   for (let i = POPUPS.length - 1; i >= 0; i--) {
