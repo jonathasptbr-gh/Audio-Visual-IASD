@@ -8077,6 +8077,22 @@ body.simples-barra .popup-backdrop--lib.open .popup-sheet--lib,
 body.mode-simple.simples-barra .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   transform: none; height: 100%;
 }
+/* ===== E A JANELA É UM CARD TAMBÉM FECHADA (v1.12.56) =====
+   Pedido do operador: *"a barra de buscas e sorteio tem uma moldura da biblioteca que só aparece
+   quando a biblioteca está aberta … Verifique o card da biblioteca/caixa de buscas, para que ele
+   fique visível, assim esse card não vai aparecer e desaparecer, mas sim expandir e encolher"*.
+   No avançado a folha FECHADA não pinta (a barra é uma linha da caixa de controles — o
+   "zoneamento" da v1.5.2) e por isso o fundo e o raio andam com atraso no fechamento (v1.12.21).
+   Aqui não há caixa de controles: fechada, a barra é um bloco da coluna como a placa da letra e o
+   card do nome, nas mesmas bordas (a camada usa `--simple-corpo-esq/dir`). O card é o MESMO nos
+   três estados — `--panel` e `--radius-card`, os da `.simple-nowplaying` — e o que anima é só o
+   `bottom` da camada: ele cresce e encolhe, nunca some. A transição fica só com o `transform`
+   (a entrada e a saída deste modo): o fundo e o raio com atraso não têm o que esperar aqui. */
+body.mode-simple.simples-barra .popup-backdrop--lib .popup-sheet--lib {
+  background: var(--panel);
+  border-radius: var(--radius-card);
+  transition: transform var(--lib-anim, 0s) cubic-bezier(.2, .7, .3, 1);
+}
 /* A SETA/✕ da janela só existe quando há o que fechar: ABERTA SOBRE A LEITURA. Como
    PRINCIPAL ela é a tela (não se fecha), e fechada o campo é quem abre. */
 /* SEM A PLAYLIST AUTOMÁTICA NO MODO FÁCIL (v1.11.15), pedido do operador: *"aproveite para

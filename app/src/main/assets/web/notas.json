@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.12.56",
+    "itens": [
+      "Os Favoritos da Biblioteca abrem e fecham num movimento só, sem a travada no meio do caminho.",
+      "No modo simples, a barra de busca e sorteio fica num card também fechada: ele só cresce e encolhe."
+    ]
+  },
+  {
     "versao": "1.12.55",
     "itens": [
       "O botão de limpar o cronograma voltou para a barra do topo, à esquerda.",
