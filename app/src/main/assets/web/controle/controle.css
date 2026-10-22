@@ -766,7 +766,10 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 :is(
   .ctl-btn, .t-btn, .settings-btn,
   .import-btn, .tools-btn, .lib-foot-btn, .back-btn, .sel-btn,
-  .row-btn, .popup-close, .popup-acao, .versao-txt, .crono-limpar,
+  .row-btn, .popup-close, .popup-acao, .versao-txt,
+  /* O MENU e o TÍTULO do Cronograma, e as linhas da gaveta e do menu deles
+     (v1.12.54) — nascidos no mesmo lote em que entram aqui. */
+  .crono-menu, .crono-titulo, .crono-op, .crono-item,
   /* O ⛶ da cifra (v1.6.0): ele nasce no MESMO lote em que entra aqui, que é a
      regra desta lista — um controle novo fora dela fica mudo ao toque sem nada
      na tela dizer por quê. Nenhum ancestral dele responde ao toque. */
@@ -848,7 +851,9 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   .lv-cheia-btn,
   /* O chevron das seções de Configurações (v1.12.48): o degrau dos botões de
      cabeçalho, e não o do ✕ da folha — ele é menor de propósito. */
-  .cfg-sec-recolher
+  .cfg-sec-recolher,
+  /* As linhas do menu e da gaveta do Cronograma (v1.12.54): ícone de LINHA. */
+  .crono-op, .crono-item
 ) svg { display: block; width: var(--icon-sm); height: var(--icon-sm); }
 /* E O `.lib-quad` É O IRMÃO DO `.lib-toggle` NESTA LISTA (v1.8.73). Os dois
    quadrados da barra da Biblioteca são medidos contra o TRANSPORTE desde a
@@ -856,7 +861,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    chegava aqui por `.lib-toggle`; o `#sorteioBtn` só casava `.popup-close` e
    desenhava 20px contra os 22 do vizinho, a um campo de busca de distância —
    com as CAIXAS idênticas, que é por que ninguém via (a mesma cegueira do
-   `.crono-limpar` na v1.8.68). O HTML pediu os dois iguais (`width="19"` nos
+   limpar do Cronograma na v1.8.68). O HTML pediu os dois iguais (`width="19"` nos
    dois), e a receita compartilhada logo abaixo diz que o que os distingue é a
    COR. A entrada é por CLASSE e não pelo id: dentro de um `:is()` a
    especificidade é a do argumento MAIS específico, então um `#sorteioBtn` aqui
@@ -866,28 +871,19 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 }
 /* Barra larga de ação (projetar): o ícone acompanha o alvo. */
 .misc-project svg { display: block; width: var(--icon-lg); height: var(--icon-lg); }
-/* O LIMPAR DO CRONOGRAMA É `--icon-lg` NUMA CAIXA DE `--hit` (v1.8.69), e é a
-   ÚNICA peça do app com essa combinação — por isso ele tem linha própria, e não
-   uma vírgula na regra acima, cujo comentário fala de BARRAS LARGAS DE AÇÃO e
-   deixaria de descrever os inquilinos dela.
+/* O MENU DO CRONOGRAMA É `--icon-lg` NUMA CAIXA DE `--hit` (v1.12.54), e é a
+   ÚNICA peça do app com essa combinação — por isso ela tem linha própria. Ela
+   herdou a casa e a regra do LIMPAR (v1.8.69), e pelo mesmo motivo: o desenho
+   é ESPARSO (três pontos) ao lado do glifo DENSO da engrenagem, e igualar o
+   tamanho não iguala o peso — o degrau a mais é o eixo que o operador escolheu
+   na v1.8.69 (*"eu queria ela maior e não com traços mais grossos"*).
 
-   DOIS DEFEITOS, e o primeiro era MUDO. Até a v1.8.68 ele não estava em NENHUMA
-   das duas listas, então o svg vivia do atributo `width="20"` do HTML enquanto a
-   engrenagem, a 34px de distância na MESMA faixa, media 22 — e as CAIXAS dos
-   dois botões são iguais (34x34, `--hit`), com asserção provando isso, que é por
-   que ninguém viu. É a MESMA armadilha da v1.5.19 logo acima.
-
-   O SEGUNDO É DENSIDADE, e ele é o que pede o degrau a MAIS: uma lixeira é
-   contorno esparso e a engrenagem é glifo denso — 66,2 unidades de comprimento
-   de traço contra 107,3 —, então igualar o TAMANHO não iguala o PESO. MEDIDO,
-   tinta contra a engrenagem no tema padrão: 20px -> 0,60 · 22px -> 0,74 ·
-   **24px -> 0,89**. Emparelhar os dois em 22 deixaria o relato de pé.
-
-   A v1.8.68 fechou isso engrossando o traço (2,4 a 22px -> 0,90), e o operador
-   revogou o EIXO: *"a parte do traço da lixeira, desfaça. Eu queria ela maior e
-   não com traços mais grossos."* O número é o mesmo; a diferença é que um degrau
-   de escala é declarado e uma espessura por símbolo é exceção. */
-.crono-limpar svg { display: block; width: var(--icon-lg); height: var(--icon-lg); }
+   E A CAIXA FICA COM O CSS: fora de uma lista de escala, o `<svg>` viveria do
+   atributo do HTML, a divergência muda que a v1.8.68 mediu nesta mesma casa. */
+.crono-menu svg { display: block; width: var(--icon-lg); height: var(--icon-lg); }
+/* A SETA DO TÍTULO é `--icon-sm`, o degrau dos botões de cabeçalho: ela é a
+   marca de "isto abre", não um botão por si. */
+.crono-seta { display: block; flex: none; width: var(--icon-sm); height: var(--icon-sm); }
 
 html, body { height: 100%; overflow: hidden; }
 /* svh = small viewport height: desconta as barras do browser fora do modo PWA. */
@@ -2539,67 +2535,97 @@ main {
 
    CHAPADO (sem `background`), como a engrenagem: o esqueleto acima dá caixa,
    raio e alvo; o que sobra aqui é a cor. */
-.crono-limpar { background: none; color: var(--muted); }
-.list-header > .crono-limpar { grid-column: 1; justify-self: start; }
-/* ---------- E COM A LISTA VAZIA ELE É APAGADO, não deixado inerte ----------
-   A regra do app (v1.8.50): um botão aceso que não faz nada é indistinguível de
-   um quebrado, e o que se faz diante dele é tocar de novo — pior ainda num
-   DESTRUTIVO, que assim ensinaria que tocá-lo é inofensivo. É o mesmo par do
-   `#plBtn` com a fila vazia. `disabled` e não uma classe: é ele que tira o nó da
-   tabulação e faz o navegador engolir o toque.
+.crono-menu { background: none; color: var(--muted); }
+.list-header > .crono-menu { grid-column: 1; justify-self: start; }
+/* (O APAGADO DO LIMPAR — o alfa próprio de .5, medido em 3,12:1 · 2,23:1 contra
+   a barra — saiu com o botão na v1.12.54. O menu que ocupa a casa NUNCA é
+   apagado: Renomear sempre tem função. O apagado mora agora nas LINHAS do menu,
+   e ali a peça é rótulo + ícone com tinta `--text` sobre `--panel` — a família
+   do `--op-inativo`, ver `.crono-op:disabled`.) */
+.list-header > .crono-titulo { grid-column: 2; }
+/* ---------- O TÍTULO É UM BOTÃO: o nome e a seta (v1.12.54) ----------
+   Pedido do operador: *"o título 'cronograma' vai ser um título que pode ser
+   modificado, e tocar nele (também haverá uma pequena seta apontando para
+   baixo, que ficará a direita desse título …) abre uma pequena gaveta"*.
 
-   NÃO HÁ REGRA GLOBAL de desabilitado nesta folha — cada botão declara a sua
-   (`.slide-btn:disabled`, `.t-btn:disabled`).
+   O NOME CONTINUA NO EIXO DA FAIXA, e é o `padding-left` que segura: ele é a
+   largura da seta mais o vão, do outro lado — o par fica simétrico em volta do
+   nome, e o alvo de toque cresce para os dois lados em vez de um. Sem ele o
+   nome andaria meia seta para a esquerda, e o B do oráculo mede isso.
 
-   E O ALFA É PRÓPRIO, NÃO O `--op-inativo` (v1.8.68). Pedido do operador:
-   *"aprimore o sistema de esmaecimento da sua cor quando inativo/sem itens na
-   lista do cronograma"*.
+   `min-width: 0` nos DOIS (botão e `<span>`): um nome longo vira reticências
+   em vez de empurrar as pontas da faixa para fora da tela. */
+.crono-titulo {
+  display: flex; align-items: center; justify-content: center; gap: var(--sp-1);
+  min-width: 0; height: var(--hit); margin: 0;
+  padding: 0 0 0 calc(var(--icon-sm) + var(--sp-1));
+  background: none; border: none; border-radius: var(--radius-btn);
+  color: var(--muted); font: inherit; cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+}
+.crono-titulo[aria-expanded="true"] .crono-seta { transform: rotate(180deg); }
+.crono-seta { transition: transform var(--dur-media) ease; }
 
-   O QUE O `--op-inativo` IGUALA É O ALFA, e o que precisa ficar igual aqui é o
-   DESFECHO. Aquele token nasceu (v1.5.15) para manter em sincronia uma família
-   que o operador amarrou por extenso — três PÍLULAS PREENCHIDAS mais o cartão da
-   linha do tempo, *"o mesmo cinza claro dos botões inativos de próximo e
-   anterior slide"* —, e as quatro têm corpo e tinta `--text`. Este é um ícone
-   SOLTO, sem corpo, com o traço de sempre a `--icon-lg` (v1.8.69) e tinta
-   `--muted`: ele nunca foi dessa
-   família, só pegou o número emprestado. MEDIDO no mesmo PNG, contra a MESMA
-   barra: a pílula desabilitada entrega 2,66:1 no escuro e o traço deste botão
-   entregava **1,83:1** — mesmo alfa, 0,83 ponto de diferença.
+/* ---------- A GAVETA DOS CRONOGRAMAS e O MENU DO CRONOGRAMA (v1.12.54) ------
+   Os dois moram no topo do `.list-body`, que começa na borda de baixo da barra:
+   abrem "abaixo da top bar" sem número escrito. `z-index` acima das portas (6)
+   e das folhas (8) do Cronograma, e abaixo da Biblioteca (190) e das folhas de
+   baixo (200+): eles são do Cronograma, e o resto do app pode abrir por cima.
 
-   E 1,83:1 NÃO É ESMAECER, É SUMIR. MEDIDO por população de pixel, contra a
-   barra: dos 488 pixels de tinta do ícone apagado, **ZERO** cruzavam 2:1 no tema
-   escuro (o padrão, o da captura do operador) contra 262 no claro. O par de
-   números "1,83 · 2,00" fazia os dois temas parecerem vizinhos; em tinta
-   legível eles eram 0 contra 262.
+   O VÉU engole o toque de fora. Sem ele o toque que fecha a gaveta cairia na
+   linha de baixo — e uma linha do Cronograma tocada PROJETA. Ele é
+   transparente: não há escurecimento, a lista continua à vista.
 
-   E A COR NEUTRA PIORARIA ISSO SOZINHA: `--muted` no mesmo `.35` mede 1,71:1 no
-   claro, com **zero** pixels acima de 2:1 — um traço quase branco sobre barra
-   branca. Os dois pedidos do operador são UM: trocar a tinta sem refazer o véu
-   trocaria o sumiço de tema.
-
-   O NÚMERO É 0,5, e a varredura está aqui porque nenhum alfa iguala os dois
-   temas — misturar para uma barra escura e para uma branca não é simétrico, e
-   essa assimetria É o defeito de origem:
-
-   | alfa | escuro | claro |
-   |------|--------|-------|
-   | .35  | 2,22:1 | 1,71:1 |
-   | .45  | 2,79:1 | 2,03:1 |
-   | **.5** | **3,12:1** | **2,23:1** |
-   | .6   | 3,86:1 | 2,70:1 |
-
-   .5 é o primeiro degrau em que os DOIS temas têm margem acima de 2:1 (em .45 o
-   claro fica em 2,03, a um arredondamento do chão). Contra o ACESO — 8,09:1 e
-   6,66:1 — a separação de estado fica em 2,6x e 3,0x, na mesma ordem dos 3,2x e
-   3,4x que o vermelho tinha; o que mudou não foi a distância entre os estados,
-   foi o apagado deixar de cair abaixo do piso.
-
-   NÃO HÁ TRANSIÇÃO, e é de propósito: MEDIDO, nenhuma das seis famílias de botão
-   do app declara uma, e a troca de estado acompanha o redesenho da lista
-   (`renderCronoLimpar`, dentro do `renderLibrary`) — não há quadro em que uma
-   animação teria o que ligar. */
-.crono-limpar:disabled { opacity: .5; cursor: default; }
-.list-header > .list-title { grid-column: 2; }
+   OPACOS e SEM CONTORNO (as regras da paleta): `--panel` com a sombra das
+   superfícies que flutuam, e o arco recortando a tira de rolagem. */
+.crono-veu { position: fixed; inset: 0; z-index: 160; }
+.crono-gaveta, .crono-menu-folha {
+  position: absolute; top: var(--sp-3); z-index: 161;
+  background: var(--panel); border-radius: var(--radius-card);
+  box-shadow: 0 4px 14px var(--shadow-card);
+  /* R1: dentro de um cartão a superfície de um controle AFUNDA. */
+  --surface: var(--surface-sunk); --surface-2: var(--surface-2-sunk);
+  overflow: hidden;
+  opacity: 0; transform: translateY(-6px);
+  transition: opacity var(--dur-media) ease, transform var(--dur-media) ease;
+}
+.crono-gaveta.aberta, .crono-menu-folha.aberta { opacity: 1; transform: none; }
+.crono-veu[hidden], .crono-gaveta[hidden], .crono-menu-folha[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .crono-gaveta, .crono-menu-folha, .crono-seta { transition: none; }
+}
+/* A gaveta é CENTRADA sob o título que a abre; o menu ENCOSTA no canto do ⋮. */
+.crono-gaveta { left: 0; right: 0; margin: 0 auto; width: min(100%, 22rem); }
+.crono-menu-folha {
+  left: 0; min-width: 13rem; max-width: 100%;
+  display: flex; flex-direction: column; padding: var(--sp-2);
+}
+/* A LISTA ROLA (com a marca `rola`) quando os cronogramas passam do teto; flex
+   em coluna porque a tira de sombra é item dela, como em toda `.rola`. */
+.crono-lista {
+  list-style: none; margin: 0; padding: var(--sp-2);
+  display: flex; flex-direction: column; gap: var(--sp-1);
+  max-height: min(55vh, 24rem); overflow-y: auto; overscroll-behavior: contain;
+}
+.crono-item, .crono-op {
+  display: flex; align-items: center; gap: var(--sp-4);
+  width: 100%; min-height: var(--hit); margin: 0; padding: var(--sp-3) var(--sp-4);
+  background: none; border: none; border-radius: var(--radius-btn);
+  color: var(--text); font: inherit; font-size: var(--fs-lg); text-align: left;
+  cursor: pointer; appearance: none; -webkit-appearance: none;
+}
+/* O ATIVO é SELECIONADO numa lista: `--sel-fill`, a linguagem única de estado. */
+.crono-item.ativo { background: var(--sel-fill); font-weight: var(--fw-forte); }
+.crono-item-nome { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.crono-item-qtd { flex: none; color: var(--muted); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.crono-item.crono-novo { color: var(--accent); }
+.crono-op > span { flex: 1; min-width: 0; white-space: nowrap; }
+/* O EXCLUIR é o destrutivo: `--danger-text` é o par declarado sobre `--panel`. */
+.crono-op--perigo { color: var(--danger-text); }
+/* APAGADO = INDISPONÍVEL, com o `title` dizendo por quê (a regra da v1.8.50). A
+   peça é rótulo + ícone com tinta `--text` sobre `--panel` — a família de
+   PÍLULA do `--op-inativo`, não a do ícone solto. */
+.crono-op:disabled { opacity: var(--op-inativo); cursor: default; }
 /* A TRILHA 3 era um VÃO reservado (v5.309, para o título não sair do eixo
    quando o voltar aparece) e virou a casa da ENGRENAGEM na v1.2.0 — o vão
    previa isto por escrito. A trilha já mede `--hit`, que é a caixa do botão. */
@@ -2647,7 +2673,7 @@ main {
    (fundo, cor e, no `.cue-save-btn`, a borda). O voltar tinha só ~20×20 px —
    o menor alvo do app inteiro, e é a única saída da gaveta de pasta e da
    navegação da Bíblia. */
-.back-btn, .sel-btn, .row-btn, .row-slot, .crono-limpar,
+.back-btn, .sel-btn, .row-btn, .row-slot, .crono-menu,
 .cue-save-btn, .popup-close, .popup-acao, .log-copy, .lv-cheia-btn {
   flex-shrink: 0; width: var(--hit); height: var(--hit); padding: 0;
   border: none; border-radius: var(--radius-btn);

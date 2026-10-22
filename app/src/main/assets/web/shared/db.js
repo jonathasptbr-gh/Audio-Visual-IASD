@@ -1290,6 +1290,15 @@
     // comportamento de antes deste conserto, que é o lado seguro de errar aqui:
     // apagar cedo demais custa um download, prender para sempre custa o espaço
     // do aparelho e não tem porta de saída.
+    // OS CRONOGRAMAS GUARDADOS (v1.12.54) seguram o que carregam, como o ativo
+    // (que é `imports`, já lido acima): trocar de cronograma não pode virar
+    // apagar o que ficou no outro. O `ids` do ativo é sempre vazio na chave.
+    const cronos = await asPromise(stateStore.get(CRONOS));
+    if (cronos && Array.isArray(cronos.itens)) {
+      for (const c of cronos.itens) {
+        if (c && Array.isArray(c.ids)) for (const id of c.ids) if (typeof id === 'string') donos.add(id);
+      }
+    }
     const cena = await asPromise(stateStore.get('current'));
     if (cena && cena.noAr && cena.mediaId) donos.add(cena.mediaId);
     // UM CUE TAMBÉM É DETENTOR — do que ele carrega em `data.ids`. O cue
@@ -1416,6 +1425,261 @@
       if (!donos.has(id)) await asPromise(ms.delete(id));
     }
     await txDone(tx);
+  }
+
+  // ===== OS CRONOGRAMAS MÚLTIPLOS (v1.12.54) =====
+  //
+  // Pedido do operador: *"o sistema de múltiplos cronogramas na verdade vai
+  // funcionar apenas como um 'atalho para alterar todo o cronograma de uma vez',
+  // ao invés de criar cronogramas concorrentes ao mesmo tempo"*.
+  //
+  // O CRONOGRAMA ATIVO CONTINUA MORANDO EM `imports`, e é isso que deixa o resto
+  // do app intocado: tocar, avançar a fila, os destinos ("ao Cronograma"), o
+  // share, o Histórico, a Verificação e o pacote leem e escrevem a MESMA lista de
+  // sempre. Os outros são CONJUNTOS GUARDADOS, numa chave só (`cronogramas`):
+  //
+  //   { ativo: '<id>', itens: [{ id, nome, ids: [...], usado: <ms> }] }
+  //
+  // `ids` do ATIVO é sempre `[]` — o conteúdo dele é `imports`, e duas cópias
+  // divergiriam na primeira escrita. TROCAR é guardar `imports` no ativo e pôr o
+  // conteúdo do escolhido em `imports`, NUMA TRANSAÇÃO SÓ (state + media): a
+  // união de tudo o que os cronogramas seguram não muda, então trocar nunca
+  // coleta nada.
+  //
+  // A CHAVE AUSENTE É O APARELHO DE SEMPRE: um cronograma só, chamado
+  // "Cronograma", com `imports` dentro — a migração é não escrever nada. O id
+  // dele nasce ALEATÓRIO na primeira escrita (`cronoLerEm` devolve um provisório
+  // até lá): dois aparelhos que nunca trocaram ids não podem colidir no pacote,
+  // e é o id que diz "este é o mesmo cronograma" numa importação repetida.
+  //
+  // E OS GUARDADOS SÃO DETENTORES (`lerDetentores`): uma mídia que só está num
+  // cronograma inativo sobrevive a todo coletor, como a do ativo.
+  const CRONOS = 'cronogramas';
+  const CRONO_PADRAO = 'Cronograma';
+  const CRONO_PROVISORIO = 'cr-atual';
+  function cronoId() { return 'cr-' + uid(); }
+  // A LEITURA NORMALIZADA, de um objectStore de `state` já aberto. Um valor
+  // malformado (pacote antigo, bundle futuro) cai no padrão, e um `ativo` que
+  // não está na lista é corrigido para o primeiro: o app nunca fica com zero
+  // cronogramas nem com um ativo fantasma.
+  async function cronoLerEm(st) {
+    const v = await asPromise(st.get(CRONOS));
+    const itens = (v && Array.isArray(v.itens) ? v.itens : [])
+      .filter((c) => c && typeof c.id === 'string' && c.id)
+      .map((c) => ({
+        id: c.id,
+        nome: (typeof c.nome === 'string' && c.nome.trim()) ? c.nome.trim() : CRONO_PADRAO,
+        ids: Array.isArray(c.ids) ? c.ids.filter((x) => typeof x === 'string') : [],
+        usado: typeof c.usado === 'number' ? c.usado : 0,
+      }));
+    if (!itens.length) return { ativo: CRONO_PROVISORIO, itens: [{ id: CRONO_PROVISORIO, nome: CRONO_PADRAO, ids: [], usado: 0 }], virgem: true };
+    const ativo = itens.some((c) => c.id === v.ativo) ? v.ativo : itens[0].id;
+    return { ativo, itens };
+  }
+  // A GRAVAÇÃO: o provisório vira um id de verdade aqui, e o `ids` do ativo é
+  // zerado sempre (ver o cabeçalho).
+  function cronoGravarEm(st, c) {
+    for (const x of c.itens) {
+      if (x.id !== CRONO_PROVISORIO) continue;
+      x.id = cronoId();
+      if (c.ativo === CRONO_PROVISORIO) c.ativo = x.id;
+    }
+    const itens = c.itens.map((x) => ({ id: x.id, nome: x.nome, ids: x.id === c.ativo ? [] : x.ids.slice(), usado: x.usado || 0 }));
+    return asPromise(st.put({ ativo: c.ativo, itens }, CRONOS));
+  }
+  const cronoChave = (s) => String(s || '').trim().toLocaleLowerCase('pt');
+  // O NOME LIVRE, para RENOMEAR e para IMPORTAR: o pedido sai inteiro quando
+  // ninguém o usa, e com " (2)", " (3)"… quando colide. Duplicata não quebra nada
+  // (os ids são distintos), mas dois "Culto jovem" na gaveta são indistinguíveis
+  // — e o que se toca é o nome.
+  function cronoNomeLivre(nome, usados) {
+    const tem = new Set([...usados].map(cronoChave));
+    if (!tem.has(cronoChave(nome))) return nome;
+    for (let n = 2; ; n++) { const t = nome + ' (' + n + ')'; if (!tem.has(cronoChave(t))) return t; }
+  }
+  // O NOME DE UM CRONOGRAMA NOVO: "Cronograma 2", "Cronograma 3"…, o primeiro
+  // número livre. Começa em 2 mesmo com "Cronograma" livre: o novo é sempre um
+  // SEGUNDO, e o nome diz isso.
+  function cronoNomeNovo(usados) {
+    const tem = new Set([...usados].map(cronoChave));
+    for (let n = 2; ; n++) { const t = CRONO_PADRAO + ' ' + n; if (!tem.has(cronoChave(t))) return t; }
+  }
+  async function cronoTx() {
+    const db = await openDB();
+    const tx = db.transaction([STORE_STATE, STORE_MEDIA], 'readwrite');
+    return [tx.objectStore(STORE_STATE), tx];
+  }
+  /** A gaveta: `{ ativo, itens: [{ id, nome, qtd, usado }] }`, com `qtd` do ativo lida de `imports`. */
+  async function cronoLer() {
+    const [s, tx] = await storeTx(STORE_STATE, 'readonly');
+    const c = await cronoLerEm(s);
+    const atual = await readListIn(s, 'imports');
+    await txDone(tx).catch(() => {});
+    return {
+      ativo: c.ativo,
+      itens: c.itens.map((x) => ({ id: x.id, nome: x.nome, usado: x.usado, qtd: x.id === c.ativo ? atual.length : x.ids.length })),
+    };
+  }
+  // A TROCA, numa transação: `imports` → o ativo; o escolhido → `imports`.
+  async function cronoTrocarEm(st, c, id) {
+    if (id === c.ativo) return;
+    const alvo = c.itens.find((x) => x.id === id);
+    if (!alvo) return;
+    const agora = Date.now();
+    const atual = c.itens.find((x) => x.id === c.ativo);
+    atual.ids = await readListIn(st, 'imports');
+    atual.usado = agora;
+    await asPromise(st.put(alvo.ids.slice(), 'imports'));
+    alvo.ids = [];
+    alvo.usado = agora;
+    c.ativo = id;
+  }
+  /** Torna `id` o ativo. Devolve `true` se trocou. */
+  async function cronoTrocar(id) {
+    const [st, tx] = await cronoTx();
+    const c = await cronoLerEm(st);
+    const antes = c.ativo;
+    if (c.virgem || id === antes || !c.itens.some((x) => x.id === id)) { await txDone(tx); return false; }
+    await cronoTrocarEm(st, c, id);
+    await cronoGravarEm(st, c);
+    await txDone(tx);
+    return true;
+  }
+  /** Cria um vazio ("Cronograma N") e o torna ativo. Devolve `{ id, nome }`. */
+  async function cronoCriar() {
+    const [st, tx] = await cronoTx();
+    const c = await cronoLerEm(st);
+    delete c.virgem;
+    const novo = { id: cronoId(), nome: cronoNomeNovo(c.itens.map((x) => x.nome)), ids: [], usado: 0 };
+    c.itens.push(novo);
+    await cronoTrocarEm(st, c, novo.id);
+    await cronoGravarEm(st, c);
+    await txDone(tx);
+    return { id: novo.id, nome: novo.nome };
+  }
+  /**
+   * Renomeia. O nome é APARADO; vazio é recusado (devolve `null` e o antigo fica).
+   * Colidindo com OUTRO cronograma, ganha o sufixo. Devolve o nome gravado.
+   */
+  async function cronoRenomear(id, nome) {
+    const limpo = String(nome == null ? '' : nome).replace(/\s+/g, ' ').trim().slice(0, 60);
+    if (!limpo) return null;
+    const [st, tx] = await cronoTx();
+    const c = await cronoLerEm(st);
+    delete c.virgem;
+    const alvo = c.itens.find((x) => x.id === id);
+    if (!alvo) { await txDone(tx); return null; }
+    alvo.nome = cronoNomeLivre(limpo, c.itens.filter((x) => x !== alvo).map((x) => x.nome));
+    await cronoGravarEm(st, c);
+    await txDone(tx);
+    return alvo.nome;
+  }
+  /**
+   * EXCLUI um cronograma, e o ativo cai no USADO MAIS RECENTEMENTE dos outros.
+   * Recusa (devolve `false`) se ele é o único: o app nunca fica sem cronograma.
+   * O que só ele segurava é COLETADO na mesma transação — a regra do `listSet`.
+   */
+  async function cronoExcluir(id) {
+    const [st, tx] = await cronoTx();
+    const c = await cronoLerEm(st);
+    const alvo = c.itens.find((x) => x.id === id);
+    if (c.virgem || !alvo || c.itens.length < 2) { await txDone(tx); return false; }
+    let saem;
+    if (id === c.ativo) {
+      saem = await readListIn(st, 'imports');
+      const resto = c.itens.filter((x) => x !== alvo).sort((a, b) => (b.usado || 0) - (a.usado || 0));
+      const prox = resto[0];
+      await asPromise(st.put(prox.ids.slice(), 'imports'));
+      prox.ids = [];
+      prox.usado = Date.now();
+      c.ativo = prox.id;
+    } else {
+      saem = alvo.ids.slice();
+    }
+    c.itens = c.itens.filter((x) => x !== alvo);
+    await cronoGravarEm(st, c);
+    const donos = await lerDetentores(st);
+    const ms = tx.objectStore(STORE_MEDIA);
+    for (const x of saem) if (!donos.has(x)) await asPromise(ms.delete(x));
+    await txDone(tx);
+    return true;
+  }
+  /** Todos os ids dos cronogramas GUARDADOS (os inativos). */
+  async function cronoIdsGuardados() {
+    const [s, tx] = await storeTx(STORE_STATE, 'readonly');
+    const c = await cronoLerEm(s);
+    await txDone(tx).catch(() => {});
+    const out = [];
+    for (const x of c.itens) if (x.id !== c.ativo) out.push(...x.ids);
+    return out;
+  }
+  // AS DUAS MANUTENÇÕES QUE AS LISTAS JÁ RECEBEM, aplicadas aos guardados: o
+  // registro de catálogo que sai de uma coleção (`purgeCatalogRecords`) e o link
+  // do YouTube trocado pelo arquivo baixado (`trocarLinkPeloArquivo`). Sem elas
+  // um cronograma guardado apontaria para o que não existe, ou seguraria o link
+  // velho depois de o arquivo tomar o lugar dele no ativo.
+  async function cronoGuardadosMapear(fn) {
+    const [st, tx] = await cronoTx();
+    const c = await cronoLerEm(st);
+    if (c.virgem) { await txDone(tx); return; }
+    let mudou = false;
+    for (const x of c.itens) {
+      if (x.id === c.ativo) continue;
+      const novo = fn(x.ids);
+      if (novo.length !== x.ids.length || novo.some((v, i) => v !== x.ids[i])) { x.ids = novo; mudou = true; }
+    }
+    if (mudou) await cronoGravarEm(st, c);
+    await txDone(tx);
+  }
+  function cronoGuardadosTirar(ids) {
+    const fora = new Set(ids);
+    return cronoGuardadosMapear((l) => l.filter((x) => !fora.has(x)));
+  }
+  function cronoGuardadosTrocarId(velho, novo) {
+    return cronoGuardadosMapear((l) => {
+      const out = [];
+      for (const x of l) { const y = x === velho ? novo : x; if (!out.includes(y)) out.push(y); }
+      return out;
+    });
+  }
+  /**
+   * A IMPORTAÇÃO DE UM PACOTE (o `.avpkg`). O ATIVO do pacote não entra aqui: o
+   * conteúdo dele viaja em `imports` e se soma ao ativo deste aparelho, como
+   * sempre. Cada GUARDADO entra como um cronograma guardado novo, com o nome dele
+   * (sufixo se colidir) — e NUNCA substitui um daqui. O mesmo id é o mesmo
+   * cronograma (uma importação repetida): os itens se UNEM, e o nome local fica.
+   * `admitidos` (a seleção da janela) filtra os ids, como nas listas.
+   * Devolve quantos cronogramas mudaram.
+   */
+  async function cronoImportar(vindo, admitidos) {
+    const fora = vindo && Array.isArray(vindo.itens) ? vindo.itens : [];
+    const [st, tx] = await cronoTx();
+    const c = await cronoLerEm(st);
+    let mudou = 0;
+    for (const v of fora) {
+      if (!v || typeof v.id !== 'string' || !v.id || v.id === vindo.ativo) continue;
+      let ids = Array.isArray(v.ids) ? v.ids.filter((x) => typeof x === 'string') : [];
+      if (admitidos) ids = ids.filter((x) => admitidos.has(x));
+      const local = c.itens.find((x) => x.id === v.id);
+      if (local) {
+        if (local.id === c.ativo) {
+          const atual = await readListIn(st, 'imports');
+          const novos = ids.filter((x) => !atual.includes(x));
+          if (novos.length) { await asPromise(st.put(atual.concat(novos), 'imports')); mudou++; }
+        } else {
+          const novos = ids.filter((x) => !local.ids.includes(x));
+          if (novos.length) { local.ids = local.ids.concat(novos); mudou++; }
+        }
+        continue;
+      }
+      const nome = (typeof v.nome === 'string' && v.nome.trim()) ? v.nome.trim().slice(0, 60) : CRONO_PADRAO;
+      c.itens.push({ id: v.id, nome: cronoNomeLivre(nome, c.itens.map((x) => x.nome)), ids, usado: 0 });
+      delete c.virgem;
+      mudou++;
+    }
+    if (mudou) await cronoGravarEm(st, c);
+    await txDone(tx);
+    return mudou;
   }
 
   /**
@@ -1583,6 +1847,8 @@
     addMedia, addUrlMedia, addDeck, addCue,
     getMedia, getMediaCru, addEdicao, atualizarEdicao, addBase, basesDoEditor, baseDe, adotarBases, ehCaminhoDeBase, mediaByYoutube, renameMedia, definirMiniatura,
     LISTS, listIds, listSet, listItems, listHas, listAdd, listRemove, gc, gcOrfaos, folderDrop,
+    cronoLer, cronoTrocar, cronoCriar, cronoRenomear, cronoExcluir, cronoIdsGuardados,
+    cronoGuardadosTirar, cronoGuardadosTrocarId, cronoImportar,
     fileAdd, fileGet, fileDelete, filesByFolder, filesAll, filesChaves,
     filesPastas,
     opfsSupported, opfsGetFile, opfsWriteFile, opfsDeleteDir, opfsFolderSize,

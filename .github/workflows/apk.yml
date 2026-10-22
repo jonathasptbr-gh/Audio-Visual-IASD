@@ -553,6 +553,7 @@ jobs:
           rodar tools/previa-animacao.test.mjs
           rodar tools/versao-o-que-mudou.test.mjs
           rodar tools/limpar-cronograma.test.mjs
+          rodar tools/cronogramas-multiplos.test.mjs
           rodar tools/linha-da-preparacao.test.mjs
           rodar tools/miniaturas-estaveis.test.mjs
           rodar tools/biblia-leitura-cabe.test.mjs

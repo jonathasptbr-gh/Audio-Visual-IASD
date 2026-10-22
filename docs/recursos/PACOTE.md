@@ -717,6 +717,28 @@ lenta e muda continua produzindo o arquivo certo.
 
 ---
 
+## Os cronogramas guardados (v1.12.54)
+
+A chave `cronogramas` (ver o modelo de dados) VIAJA — não está no `FORA` —, mas
+**não pela mescla genérica** (`pacoteMesclarValor`). Unida por `id` com o local
+vencendo, ela deixaria o `ativo` de lá decidir nada e misturaria o conteúdo de
+dois cronogramas de mesmo id provisório; o que se promete é outra coisa:
+
+| do pacote | entra como |
+|---|---|
+| o ATIVO de lá | **nada novo**: o conteúdo dele viaja em `imports` e se SOMA ao ativo daqui, como sempre fez |
+| cada GUARDADO | um guardado **novo** daqui, com o nome dele — " (2)" se colidir — e só os itens ADMITIDOS (`filtro.admitidos`, como as listas) |
+| um guardado de id que já existe aqui | a MESMA importação de novo: os itens se UNEM e o nome local fica |
+
+- **Ela fica para o FIM do fluxo** (`cronosDoPacote` no `pacoteAplicarFluxo`,
+  aplicado por `AVDB.cronoImportar` depois do último `escoarEstado`): só ali a
+  seleção sabe quem entrou. É ela que mantém "importar SÓ ACRESCENTA": nada que
+  já esteja no aparelho é substituído, e importar duas vezes não duplica.
+- **A mídia dos guardados viaja em "Outros itens"** (o grupo de escape), como a
+  do ativo — as listas de trabalho não têm linha na folha desde a v1.8.40. O
+  original de um editado que só um guardado segura não é escondido
+  (`cronoIdsGuardados` entra na conta das `origens`): ali ele é um item visível.
+
 ## O original escondido do item editado (v1.12.0)
 
 Um item editado (`edicao.origem`) não guarda bytes, então o original viaja SEMPRE com ele:

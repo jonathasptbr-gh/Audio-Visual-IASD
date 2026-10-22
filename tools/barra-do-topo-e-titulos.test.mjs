@@ -73,7 +73,7 @@ try {
       setAppMode('full');
       const h = document.querySelector('.list-header');
       const r = h.getBoundingClientRect();
-      const moradores = ['#cronoLimpar', '#listTitle', '.list-header .settings-btn']
+      const moradores = ['#cronoMenuBtn', '#cronoTitulo', '.list-header .settings-btn']
         .map((s) => document.querySelector(s)).filter(Boolean)
         .map((e) => e.getBoundingClientRect());
       const raiz = getComputedStyle(document.documentElement);

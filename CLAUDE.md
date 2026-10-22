@@ -1366,8 +1366,8 @@ nenhum**, e por isso ficam aqui.
   usado por UMA regra em quinze). **MAS O QUE SE IGUALA É O DESFECHO, NÃO O
   ALFA:** o token nasceu para sincronizar PÍLULAS PREENCHIDAS com tinta `--text`,
   e o mesmo `.35` sobre um ícone SOLTO entrega outro número — medido no mesmo
-  PNG e contra a mesma barra, a pílula dá 2,66:1 e o traço do `.crono-limpar`
-  dava **1,83:1**. **E abaixo de 2:1 não é indisponível, é AUSENTE**: por
+  PNG e contra a mesma barra, a pílula dá 2,66:1 e o traço do limpar do
+  Cronograma (o ícone solto que a v1.12.54 trocou pelo ⋮) dava **1,83:1**. **E abaixo de 2:1 não é indisponível, é AUSENTE**: por
   população de pixel, dos 488 pixels de tinta daquele ícone apagado ZERO
   cruzavam 2:1 no tema escuro contra 262 no claro — o par "1,83 · 2,00" fazia os
   dois temas parecerem vizinhos. Um botão que some não ensina nada; a regra
@@ -1435,11 +1435,12 @@ nenhum**, e por isso ficam aqui.
   (`--icon-sm`, 20px; `--icon-md`, 22px; `--icon-lg`, 24px), e um botão que não
   esteja em NENHUMA delas cai no atributo `width`/`height` que o HTML escreveu — que pode coincidir
   com o degrau certo por acidente e deixar de coincidir no dia em que alguém
-  mexer no token. Foi o que aconteceu ao `.crono-limpar`: MEDIDO, o `<svg>` dele
+  mexer no token. Foi o que aconteceu ao limpar do Cronograma: MEDIDO, o `<svg>` dele
   media 20px contra os 22 da engrenagem a 34px de distância na MESMA faixa,
   enquanto as CAIXAS dos dois botões eram iguais — e havia asserção provando que
-  as caixas eram iguais, o que é por que ninguém viu. (Ele hoje é `--icon-lg`,
-  por regra PRÓPRIA, que é o degrau a mais que a v1.8.69 lhe deu.) **Botão de
+  as caixas eram iguais, o que é por que ninguém viu. (A casa hoje é do ⋮,
+  `.crono-menu`, `--icon-lg` por regra PRÓPRIA — o degrau a mais que a v1.8.69
+  deu à lixeira, pelo mesmo motivo: desenho esparso ao lado do glifo denso.) **Botão de
   ícone novo entra numa das TRÊS listas — ou ganha regra própria com a razão ao
   lado — no lote em que nasce**, e o oráculo que o cobrir mede o
   `<svg>`, não o botão. É a mesma armadilha que a v1.5.19 já tinha consertado
@@ -1872,7 +1873,8 @@ sessão e `Presentation` vivas. **Quem decide é o lado web** (`window.__avBack`
 invariante 5); `MainActivity.handleBack()` pergunta e obedece. A ordem é do mais
 efêmero ao mais permanente:
 
-1. diálogo modal → 2. bottom-sheet (o de cima; em Configurações, a SEÇÃO aberta
+1. diálogo modal → **1.7. a gaveta dos cronogramas ou o menu ⋮ do Cronograma**
+(v1.12.54) → 2. bottom-sheet (o de cima; em Configurações, a SEÇÃO aberta
 recolhe antes de a folha fechar — v1.12.48) → 2.5. a folha de Ferramentas →
 **2.6. a folha da Bíblia** (que SOBE dentro dela — livros ← capítulos ← leitura —
 antes de fechar) → 3. preview em tela cheia (que, sem telão, **é** a projeção) →
@@ -2126,7 +2128,7 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os de Chromium são **117** e os de Node puro **23** — juntos, os 140 (contados na v1.12.53). MEDIDO com
+Os de Chromium são **118** e os de Node puro **23** — juntos, os 141 (contados na v1.12.54). MEDIDO com
 82 deles: **~13 min em série** e **~4,3 min nos três processos** (4 vCPU, o mesmo
 do runner); os de Node puro somam **8 s**. **Os números moram no `apk.yml`**, ao
 lado do passo que descrevem, e esta é a cópia — divergiram uma vez (79/99 aqui
@@ -3029,10 +3031,17 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.12.53 · APK v1.12.46** · `SHELL_VERSION` **82** ·
+**Versão atual: base web v1.12.54 · APK v1.12.46** · `SHELL_VERSION` **82** ·
 bundle com `minShell: 82` e **sem `shellTag`** — o shell 82 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. **Este lote é só web**
-(a Release v1.12.46 já está publicada). **A v1.12.53 FAZ A PLAYLIST AUTOMÁTICA INCLUSIVA, DÁ AO MODO FÁCIL UM
+(a Release v1.12.46 já está publicada). **A v1.12.54 TRAZ OS CRONOGRAMAS MÚLTIPLOS**: o
+título do Cronograma é o nome do ATIVO e abre a gaveta deles (`#cronoTitulo` → `#cronoGaveta`, "Novo cronograma"
+por último), e o antigo limpar virou o ⋮ (`#cronoMenuBtn` → Renomear · Limpar cronograma · Excluir cronograma). **O
+ATIVO CONTINUA SENDO `imports`** — todo consumidor segue intocado —, e os outros são conjuntos guardados na chave
+`cronogramas`, DETENTORA no `lerDetentores`; trocar é uma transação só (`AVDB.cronoTrocar`). CORREÇÃO e não
+INCREMENTAL: não é um lugar novo do app, é a mesma tela com um atalho para trocar a lista inteira. Ver o capítulo do
+Controle, "Os cronogramas múltiplos", o modelo de dados e o `docs/recursos/PACOTE.md` ("Os cronogramas guardados").
+**A v1.12.53 FAZ A PLAYLIST AUTOMÁTICA INCLUSIVA, DÁ AO MODO FÁCIL UM
 SORTEIO DE UM TOQUE, LEVA A FAIXA DE OPÇÕES DA LINHA À LARGURA TODA, PÕE O CAST DA PRÉVIA EM VERDE E FAZ A SÉRIE SE
 VERIFICAR AO ABRIR**: categorias que particionam o acervo no lugar das exclusões (`AVSorteio.categoriasDisponiveis`,
 nada marcado = tudo, marcado = a união); `#sorteioSimplesBtn` na barra do Modo Fácil (Hinário 2022, cantada, sem

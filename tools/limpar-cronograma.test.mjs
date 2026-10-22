@@ -2,6 +2,11 @@
 // LIMPAR O CRONOGRAMA — o botão que substituiu a badge de versão (v1.8.66)
 // ============================================================================
 //
+// DESDE A v1.12.54 A CASA É DO MENU ⋮ (`#cronoMenuBtn`), e o LIMPAR é a linha do
+// meio dele (`#cronoLimpar`). Os blocos A, C e H medem o BOTÃO DA BARRA — que
+// agora é o menu —; D, E e F medem o LIMPAR, aberto pelo menu. A forma da
+// lixeira-com-lista (bloco A) continua medida: o símbolo é o da linha do menu.
+//
 // Pedido do operador, verbatim: *"substitua o badge de versão que temos na barra
 // do topo do cronograma, a esquerda, por um icone/botão de excluir lista (ele
 // limpa a lista do cronograma). use um icone de lixeira com list… use o icone na
@@ -82,6 +87,9 @@ async function abrir(tema, n) {
 
 // O toque, e o desfecho do diálogo. `sim` = confirmar, `nao` = cancelar.
 async function tocarE(pg, sim) {
+  // O CAMINHO DO OPERADOR: o ⋮ abre o menu, e o Limpar é a linha dele.
+  await pg.evaluate(() => { document.getElementById('cronoMenuBtn').click(); });
+  await esperar(pg, () => !document.getElementById('cronoMenu').hidden);
   await pg.evaluate(() => { document.getElementById('cronoLimpar').click(); });
   const abriu = await esperar(pg, () => {
     const bd = document.querySelector('.dialog-backdrop');
@@ -112,7 +120,7 @@ try {
   {
     const a = await abrir('dark', 6);
     const r = await a.pg.evaluate(() => {
-      const b = document.getElementById('cronoLimpar');
+      const b = document.getElementById('cronoMenuBtn');
       const cs = b && getComputedStyle(b);
       return {
         existe: !!b,
@@ -125,9 +133,12 @@ try {
         // SEM CORPO: o fundo não pinta. `background: none` computa para
         // `rgba(0, 0, 0, 0)`, como no `#backBtn`.
         fundo: cs && cs.backgroundColor,
-        // O DESENHO é o da lixeira-com-lista, e não a lixeira sozinha que o
-        // EXCLUIR da seleção e o LIMPAR da fila usam.
-        simbolo: b && b.querySelector('use') ? b.querySelector('use').getAttribute('href') : null,
+        // O DESENHO DA LINHA DO LIMPAR é o da lixeira-com-lista, e não a
+        // lixeira sozinha que o EXCLUIR da seleção e o LIMPAR da fila usam.
+        simbolo: (() => {
+          const u = document.querySelector('#cronoLimpar use');
+          return u ? u.getAttribute('href') : null;
+        })(),
         // A CAIXA é a mesma da engrenagem em frente — o `--hit` da barra.
         cx: b ? +b.getBoundingClientRect().width.toFixed(1) : null,
         cy: b ? +b.getBoundingClientRect().height.toFixed(1) : null,
@@ -182,7 +193,7 @@ try {
         // O TAMANHO RENDERIZADO do desenho, contra o da engrenagem. Não é a
         // caixa do BOTÃO (essa é a `cx`/`cy` acima, e ela já era igual): é o
         // `<svg>` dentro dele, que é onde os dois divergiam em silêncio.
-        svgCx: +document.querySelector('#cronoLimpar svg').getBoundingClientRect().width.toFixed(1),
+        svgCx: +document.querySelector('#cronoMenuBtn svg').getBoundingClientRect().width.toFixed(1),
         svgGear: +document.querySelector('#settingsBtn svg').getBoundingClientRect().width.toFixed(1),
         // OS TRÊS DEGRAUS DECLARADOS da escala de ícone, lidos do `:root`. É
         // contra eles que o tamanho é conferido: um número escrito à mão
@@ -190,12 +201,19 @@ try {
         degraus: ['--icon-sm', '--icon-md', '--icon-lg']
           .map((n) => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(n))),
         traco: parseFloat(document.querySelector('#cronoLimpar svg').getAttribute('stroke-width')),
+        // A linha do Limpar, no menu: o ícone dela é o degrau de LINHA.
+        svgLinha: (() => {
+          document.getElementById('cronoMenuBtn').click();
+          const w = +document.querySelector('#cronoLimpar svg').getBoundingClientRect().width.toFixed(1);
+          fecharCronoCamadas();
+          return w;
+        })(),
         tracoGear: parseFloat(document.querySelector('#settingsBtn svg').getAttribute('stroke-width')),
       };
     });
     checar(r.existe && !r.badge,
-      'A · o botão de limpar ocupa a casa da badge de versão, e a badge não '
-      + 'existe mais no cabeçalho — ela não se mudou, ela SAIU',
+      'A · o MENU ⋮ ocupa a casa do limpar (que era a da badge de versão), e a '
+      + 'badge não existe mais no cabeçalho — ela não se mudou, ela SAIU',
       JSON.stringify({ botao: r.existe, badge: r.badge }));
     checar(r.filhos.length === 1 && r.filhos[0] === 'svg' && r.texto === '',
       'A · e ele é SÓ o ícone: um filho, o `<svg>`, sem rótulo nenhum — o padrão '
@@ -205,8 +223,13 @@ try {
       'A · e SEM CORPO: o botão não pinta fundo. Um corpo aqui o faria a única '
       + 'peça com superfície numa barra de três ícones soltos', r.fundo);
     checar(r.simbolo === '#icoLimparLista',
-      'A · e o desenho é a LIXEIRA COM LISTA, não a lixeira sozinha — é ela que '
-      + 'distingue "apagar a lista inteira" do EXCLUIR de um item', r.simbolo);
+      'A · e o desenho da linha LIMPAR é a LIXEIRA COM LISTA, não a lixeira '
+      + 'sozinha — é ela que distingue "apagar a lista inteira" do EXCLUIR de um '
+      + 'item (e do Excluir CRONOGRAMA, logo abaixo dela no menu)', r.simbolo);
+    checar(r.svgLinha === r.degraus[0],
+      'A · e na linha do menu o ícone é o degrau de LINHA (`--icon-sm`, '
+      + r.degraus[0] + 'px), lido do `:root` — fora de lista de escala ele '
+      + 'viveria do atributo do HTML', JSON.stringify({ linha: r.svgLinha, degraus: r.degraus }));
     checar(r.cx === r.gear && Math.abs(r.cx - r.cy) < 0.5,
       'A · e a caixa é a MESMA da engrenagem em frente, e quadrada: as duas '
       + 'pontas da barra medem `--hit`', JSON.stringify(r));
@@ -257,12 +280,12 @@ try {
     // nas três portas do rodapé — e a asserção mede o `<svg>`, não o botão,
     // porque é ali que a divergência mora.
     checar(r.svgCx > r.svgGear && r.degraus.includes(r.svgCx),
-      'A · e o DESENHO é MAIOR que o da engrenagem (' + r.svgCx + ' contra '
+      'A · e o DESENHO do ⋮ é MAIOR que o da engrenagem (' + r.svgCx + ' contra '
       + r.svgGear + 'px) E é um DEGRAU DECLARADO da escala (' + r.degraus.join('/')
       + '): a caixa dos dois já era igual, e era o `<svg>` dentro dela que '
-      + 'divergia em silêncio — e igualá-lo não bastava, porque uma lixeira é '
-      + 'contorno esparso e a engrenagem é glifo denso (66,2 unidades de traço '
-      + 'contra 107,3)', JSON.stringify({ limpar: r.svgCx, gear: r.svgGear, degraus: r.degraus }));
+      + 'divergia em silêncio — e igualá-lo não bastava, porque três pontos '
+      + '(como a lixeira antes deles) são desenho esparso e a engrenagem é glifo '
+      + 'denso', JSON.stringify({ limpar: r.svgCx, gear: r.svgGear, degraus: r.degraus }));
     // E O PESO VEM DO TAMANHO, NÃO DA ESPESSURA (v1.8.69). A v1.8.68 fechou o
     // mesmo vão engrossando o traço deste símbolo para 2,4, e o operador revogou
     // o eixo: *"a parte do traço da lixeira, desfaça. Eu queria ela maior e não
@@ -324,7 +347,7 @@ try {
   for (const tema of ['dark', 'light']) {
     const a = await abrir(tema, 6);
     const r = await a.pg.evaluate(() => {
-      const b = document.getElementById('cronoLimpar');
+      const b = document.getElementById('cronoMenuBtn');
       return {
         tema: document.documentElement.dataset.tema || 'escuro',
         cor: getComputedStyle(b).color,
@@ -487,49 +510,48 @@ try {
   // vizinhos, e em tinta legível eles eram 0 contra 262. Apagado não é ausente:
   // a regra da v1.8.50 existe para o operador VER o que não responde e entender
   // por quê, e um traço que some não diz nada.
+  //
+  // DESDE A v1.12.54 O APAGADO É A LINHA DO MENU, e a régua é a mesma — o
+  // DESFECHO —, só que contra o FUNDO DO MENU (`--panel`) e não da barra. A peça
+  // agora é rótulo + ícone com tinta `--text`, a família de PÍLULA do
+  // `--op-inativo`.
   for (const tema of ['dark', 'light']) {
     const a = await abrir(tema, 0);
-    const vazio = await a.pg.evaluate(() => {
+    const ler = () => a.pg.evaluate(() => {
+      document.getElementById('cronoMenuBtn').click();
       const b = document.getElementById('cronoLimpar');
       const cs = getComputedStyle(b);
-      return {
+      const r = {
         dis: b.disabled, title: b.title, op: +cs.opacity, cor: cs.color,
-        barra: getComputedStyle(document.querySelector('.list-header')).backgroundColor,
+        menu: getComputedStyle(document.getElementById('cronoMenu')).backgroundColor,
       };
+      fecharCronoCamadas();
+      return r;
     });
+    const vazio = await ler();
     checar(vazio.dis === true && /vazio/i.test(vazio.title),
-      'F · ' + tema + ': com a lista vazia o botão é APAGADO e o `title` diz por '
+      'F · ' + tema + ': com a lista vazia o LIMPAR é APAGADO e o `title` diz por '
       + 'quê — a regra da v1.8.50 pesa o dobro num destrutivo: aceso e inerte, '
       + 'ele ensina que tocá-lo é inofensivo', JSON.stringify(vazio));
-    // A COMPOSTA: a `opacity` mistura o traço com a barra, então a razão tem de
-    // ser calculada sobre a MISTURA — ler a `color` crua devolveria o contraste
-    // do token, que é o do estado ACESO.
-    const fundo = rgb(vazio.barra);
+    const fundo = rgb(vazio.menu);
     const mist = rgb(vazio.cor).map((c, i) => c * vazio.op + fundo[i] * (1 - vazio.op));
-    const cApagado = razao('rgb(' + mist.map(Math.round).join(',') + ')', vazio.barra);
+    const cApagado = razao('rgb(' + mist.map(Math.round).join(',') + ')', vazio.menu);
     checar(cApagado > 2,
       'F · ' + tema + ': e o apagado ainda SE VÊ — ' + cApagado + ':1 composta '
-      + 'contra a barra, acima do piso de 2:1. Abaixo dele não é indisponível, é '
-      + 'ausente: o desenho anterior media 1,83:1 no escuro, com ZERO pixels de '
-      + 'tinta cruzando 2:1', JSON.stringify({ cor: vazio.cor, op: vazio.op, razao: cApagado }));
-    const cheio = await a.pg.evaluate(async () => {
+      + 'contra o menu, acima do piso de 2:1. Abaixo dele não é indisponível, é '
+      + 'ausente', JSON.stringify({ cor: vazio.cor, op: vazio.op, razao: cApagado }));
+    await a.pg.evaluate(async () => {
       const z = (ms) => new Promise((f) => setTimeout(f, ms));
       await AVDB.addMedia(new Blob(['x'], { type: 'audio/mpeg' }),
         { name: 'Um', type: 'audio/mpeg', kind: 'audio', list: 'imports' });
       await load(); await z(400);
-      const b = document.getElementById('cronoLimpar');
-      const cs = getComputedStyle(b);
-      return { dis: b.disabled, title: b.title, op: +cs.opacity, cor: cs.color };
     });
+    const cheio = await ler();
     checar(cheio.dis === false && !/vazio/i.test(cheio.title),
       'F · ' + tema + ': e com UM item ele volta a acender, com o `title` da '
       + 'ação — sem esta metade, um botão apagado para sempre passaria na de '
       + 'cima', JSON.stringify(cheio));
-    // E A SEPARAÇÃO ENTRE OS ESTADOS É O OUTRO LADO DO MESMO PISO: sem ela, um
-    // apagado que subisse até encostar no aceso passaria na asserção acima. O
-    // teto de 2x é medido — hoje a separação é 2,6x no escuro e 3,0x no claro,
-    // e o vermelho de antes dava 3,2x e 3,4x.
-    const cAceso = razao(cheio.cor, vazio.barra);
+    const cAceso = razao(cheio.cor, vazio.menu);
     checar(cAceso / cApagado >= 2,
       'F · ' + tema + ': e o aceso é NITIDAMENTE mais forte — ' + cAceso + ':1 '
       + 'contra ' + cApagado + ':1, ' + (cAceso / cApagado).toFixed(2) + 'x. O '
@@ -561,6 +583,7 @@ try {
     const a = await abrir('dark', 0);
     const r = await a.pg.evaluate(() => {
       const b = document.getElementById('cronoLimpar');
+      const m = document.getElementById('cronoMenuBtn');
       const g = document.getElementById('settingsBtn') || document.querySelector('.settings-btn');
       const dePress = (el) => {
         // a regra do `--press` é `:active`; sem pseudo-classe em JS, mede-se a
@@ -578,6 +601,7 @@ try {
       };
       return {
         botao: dePress(b),
+        menu: dePress(m),
         vizinha: g ? dePress(g) : null,
         rotuloVazio: b.getAttribute('aria-label'),
         titleVazio: b.title,
@@ -586,9 +610,9 @@ try {
     checar(r.vizinha === true,
       'H · PREMISSA: a engrenagem da mesma faixa está na lista do `--press` — '
       + 'sem ela a metade de baixo mediria a ausência da lista inteira', r);
-    checar(r.botao === true,
-      'H · e o limpar também: ele é o botão de uma barra de controles, e um '
-      + 'que não afunda ao toque é indistinguível de um quebrado', r);
+    checar(r.menu === true && r.botao === true,
+      'H · e o ⋮ e a linha do limpar também: um controle que não afunda ao '
+      + 'toque é indistinguível de um quebrado', r);
     checar(r.rotuloVazio === r.titleVazio && /vazio/i.test(r.rotuloVazio),
       'H · com a lista vazia o `aria-label` ACOMPANHA o `title` — o nome '
       + 'acessível vence o `title`, e congelado ele anunciava o botão sem '

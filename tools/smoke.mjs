@@ -699,8 +699,11 @@ try {
     // foco, escurece o resto e exige um toque. É o canal do único caso sem
     // interface de origem (um compartilhamento que chega de fora e falha
     // inteiro); ver `registrarShareNativo`.
+    // O VÉU DA GAVETA DOS CRONOGRAMAS (v1.12.54) também: ele não pinta nada e só
+    // existe com a gaveta ou o menu do Cronograma abertos, para engolir o toque
+    // de fora — sem ele esse toque projetaria a linha de baixo.
     const OK = ['popup-backdrop', 'popup-sheet', 'simple', 'simple-veil', 'bottombar',
-      'appDialog', 'dialog-card', 'tab-ghost', 'selbar'];
+      'appDialog', 'dialog-card', 'tab-ghost', 'selbar', 'crono-veu'];
     const achados = [];
     document.querySelectorAll('body *').forEach((el) => {
       const cs = getComputedStyle(el);
