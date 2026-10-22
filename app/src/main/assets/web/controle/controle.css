@@ -4039,6 +4039,29 @@ main {
    A confirmação de exclusão não precisa de exceção nenhuma aqui: com dois
    filhos visíveis a caixa desce ao piso sozinha, e a lixeira da miniatura fica
    à vista. */
+/* ---------- SEM LUGAR AO LADO DA CAPA, A FAIXA TOMA A LINHA (v1.12.53) ----------
+   Pedido do operador: *"quando for uma certa largura, ele realmente oculta a
+   thumbnail, distribui corretamente a largura que sobrou para os botões de
+   opções"*. Quem decide é a MEDIDA (`acertarFaixaDaLinha`: a soma dos botões contra
+   o vão entre a capa e o `⋮`), nunca um ponto de quebra. Com a marca, a caixa vai da
+   borda do cartão (o mesmo `.5rem` do teto acima) ao `⋮`, a capa sai de vista e os
+   botões se DISTRIBUEM — o primeiro onde a capa começava, o último colado ao `⋮`.
+   Sem ela, a capa fica pela metade debaixo de um botão, que é o que o operador
+   relatou como estranho. A CONFIRMAÇÃO fica de fora: com dois filhos ela volta ao
+   piso de sempre, e a LIXEIRA que ocupa a capa tem de estar à vista. */
+.acoes-cheias > .row > .row-acoes:not(.confirmando) {
+  left: .5rem; width: auto; min-width: 0; max-width: none;
+  justify-content: space-between;
+}
+.acoes-abertas.acoes-cheias > .row:not(:has(> .row-acoes.confirmando)) > .thumb { visibility: hidden; }
+/* E SE NEM A LINHA INTEIRA COMPORTA (`.acoes-justas`, também medida): os quadrados
+   descem ao piso de toque (`--hit`, a descida do sétimo botão) e o vão sai — quem
+   reparte o que sobra é o `space-between`. Só encolhem abaixo do piso se nem assim
+   couberem: desenhar por cima do `⋮` seria pior. */
+.acoes-justas > .row > .row-acoes:not(.confirmando) { gap: 0; }
+.acoes-justas > .row > .row-acoes:not(.confirmando) > .row-btn {
+  width: var(--hit); height: var(--hit); flex: 0 1 var(--hit); min-width: 0;
+}
 .row-acoes:has(> :nth-child(7)) { gap: var(--sp-2); }
 .lib-item .row-acoes:has(> :nth-child(7)) .row-btn {
   width: var(--hit); height: var(--hit);
@@ -5016,12 +5039,12 @@ main {
    baixa é o botão do painel logo abaixo — que tem o estado e o progresso. O
    `visibility: hidden` tira o botão do toque, do foco e do leitor de tela e
    MANTÉM a coluna, que é o que impede o peso de saltar. */
-/* OS TRÊS BOTÕES DA COLUNA DA DIREITA dividem a geometria de `.coll-bar-dl` —
+/* OS DOIS BOTÕES DA COLUNA DA DIREITA dividem a geometria de `.coll-bar-dl` —
    centros ou tamanhos que discordem num par colado é a coisa que mais parece
    defeito numa linha. O que os distingue é a COR e o modificador:
-   `.coll-bar-dl` puro = baixar/cancelar · `.coll-bar-at` = atualizar a lista
-   (v1.1.21, só na série) · `.coll-bar-rm` = remover.
-   O de atualizar fica no tom neutro dos irmãos; só o destrutivo muda de cor.
+   `.coll-bar-dl` puro = baixar/cancelar · `.coll-bar-rm` = remover. (O terceiro,
+   `.coll-bar-at` — atualizar a lista de uma série — saiu na v1.12.53: abrir o card
+   da série verifica a semana sozinho.) Só o destrutivo muda de cor.
    (`.coll-bar-dl.vago` saiu junto: ela escondia o botão de baixar com o card
    aberto porque o painel de dentro repetia a ação. O painel saiu.)
 
@@ -7010,6 +7033,9 @@ main {
   appearance: none; -webkit-appearance: none;
 }
 .misc-chip.active { background: var(--btn-accent); color: var(--accent); }
+/* APAGADO É INDISPONÍVEL (v1.12.53): a pílula de uma coleção sem faixa carregada
+   neste aparelho, na playlist automática — o `title` diz por quê. */
+.misc-chip:disabled { opacity: var(--op-inativo); cursor: default; }
 .misc-row { display: flex; align-items: center; gap: var(--sp-5); }
 .misc-row-label { font-size: var(--fs-md); font-weight: var(--fw-forte); color: var(--muted); flex-shrink: 0; }
 /* "Guardar esta contagem / este sorteio" (v5.103): o rótulo à esquerda e os
@@ -7968,6 +7994,13 @@ body.mode-simple.simples-barra .popup-backdrop--lib:not(.open) .popup-sheet--lib
    (`#sorteioBtn`); a barra fica com o campo (e o ✕ quando aberta sobre a leitura). Só some
    aqui: no avançado ele continua sendo a porta do sorteio. */
 body.mode-simple #sorteioBtn { display: none; }
+/* E O SORTEIO SIMPLES VOLTA AO MESMO LUGAR (v1.12.53), pedido do operador: *"Adicionar o botão de
+   sorteio no modo simples, mas bem simplificado"*. É outro botão (`#sorteioSimplesBtn`): sem folha e
+   sem opções, um toque sorteia um hino cantado do Hinário 2022 sem os infantis. O quadrado da
+   esquerda da barra é onde o avançado tem o sorteio — a mesma porta, no mesmo canto, nos dois
+   modos —, e a barra está à vista em todos os estados do Modo Fácil. Fora dele, não existe. */
+body:not(.mode-simple) #sorteioSimplesBtn { display: none; }
+#sorteioSimplesBtn:disabled { opacity: var(--op-inativo); cursor: default; }
 body.simples-barra .lib-toggle { display: none; }
 body.simples-barra:not(.simples-principal) .popup-backdrop--lib.open .lib-toggle { display: flex; }
 body.simples-barra { --lib-lista-base: var(--sp-5); }
@@ -8798,11 +8831,12 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    E ELE É CLARO, como o campo: a barra escureceu no tema claro, e um botão em
    `--surface-2`/`--muted` ali daria 2,09:1 no ícone. Vestindo `--field-*` ele
    vira o irmão do campo e o glifo volta a 8,4:1. */
-/* O `#sorteioBtn` DIVIDE ESTA REGRA (v5.303) e não tem uma sua: os dois são os
+/* O `#sorteioBtn` DIVIDE ESTA REGRA (v5.303) e não tem uma sua — e o
+   `#sorteioSimplesBtn` (v1.12.53), que é o mesmo quadrado no Modo Fácil: os dois são os
    quadrados da mesma linha, ao lado do mesmo campo, e uma segunda declaração de
    `--campo-alt` divergiria da primeira no próximo ajuste do campo. O que os
    separa é a COR do glifo, três linhas abaixo. */
-#hymnSearchToggle, #sorteioBtn {
+#hymnSearchToggle, #sorteioBtn, #sorteioSimplesBtn {
   /* QUADRADO (v5.277, pedido do operador: *"ele deve ser um botão quadrado"*).
      A v5.270 lhe deu a ALTURA do campo (`align-self: stretch`) e deixou a
      largura em `--hit` — 34px contra os 40 do campo, isto é, um retângulo em pé
@@ -9788,31 +9822,31 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .sorteio-linha { display: flex; align-items: center; gap: .4rem .55rem; padding: .15rem .1rem; }
 /* DA BORDA À BORDA (v1.8.96, revogando o rótulo à esquerda). Pedido do
    operador: *"remova os títulos 'quantas' e 'filtros', use a largura toda
-   apenas para distribuir os botões seletores e a roleta da quantidade"*. Com o
-   rótulo fora, o que sobra é a fileira — e ela passa a DISTRIBUIR em vez de se
-   encolher contra ele: `flex: 1` na fileira, `flex: 1` em cada pílula, e o
-   `space-between` que não é mais necessário porque não sobra vão.
+   apenas para distribuir os botões seletores e a roleta da quantidade"*.
 
-   `flex-wrap` saiu da linha junto: ele existia para a fileira poder cair para
-   baixo do rótulo numa tela estreita, e sem rótulo não há para onde cair. */
+   E ELA QUEBRA EM LINHAS DESDE A v1.12.53. O filtro virou INCLUSIVO, e as
+   pílulas deixaram de ser três fixas para ser uma por coleção que existe nos
+   dados (os dois hinários, os infantis, cada coletânea) mais o "Só no aparelho":
+   sete ou oito, que não cabem numa linha de 360px. Cada pílula nasce com a
+   largura do RÓTULO e cresce para fechar a linha em que caiu (`flex: 1 1 auto`)
+   — sem vão no fim de linha, e sem espremer um nome longo até quebrá-lo quando
+   ele cabe inteiro na linha de baixo. (A única fileira de pílulas desta folha é
+   a das coleções: a da quantidade virou a roleta na v1.8.96.) */
 .sorteio-linha > .misc-opts {
-  flex: 1; min-width: 0; flex-wrap: nowrap; gap: var(--sp-3);
+  flex: 1; min-width: 0; flex-wrap: wrap; gap: var(--sp-3);
 }
 .sorteio-linha > .misc-opts > .misc-chip {
-  flex: 1; min-width: 0; padding-inline: .2rem;
-  /* O RÓTULO QUEBRA, E NUNCA RETICENCIA. MEDIDO: com `nowrap` + `ellipsis`, "Só
-     no aparelho" é cortado já a 320×1× e os TRÊS a 320×1,25× — e reticências são
-     piores que a palavra em duas linhas, porque não dizem qual palavra foi
-     cortada. Quebrando, o que muda é a altura da FAIXA, que é constante por
-     tela (o texto destas três pílulas não muda de estado nenhum) e por isso não
-     é o motor de pulo que a regra da v1.8.61 proíbe. */
+  flex: 1 1 auto; min-width: var(--hit); padding-inline: .6rem;
+  /* O RÓTULO QUEBRA, E NUNCA RETICENCIA — e só quando ele é mais largo que a
+     linha inteira (antes disso a pílula cai para a linha de baixo). Reticências
+     são piores que a palavra em duas linhas, porque não dizem qual palavra foi
+     cortada. */
   display: flex; align-items: center; justify-content: center;
   text-align: center; line-height: 1.15;
-  /* E AS TRÊS TÊM UMA ALTURA SÓ, por ESTICAMENTO — que é o padrão de um item
-     flex (`align-items: normal`) e não precisa ser declarado: um
+  /* E AS DE UMA MESMA LINHA TÊM UMA ALTURA SÓ, por ESTICAMENTO — que é o padrão
+     de um item flex (`align-items: normal`) e não precisa ser declarado: um
      `align-items: stretch` escrito na fileira foi MEDIDO INERTE e removido, na
-     regra da v1.8.65. O que quebra a igualdade é declarar `center` ali, e é
-     essa a reversão que o oráculo mede. */
+     regra da v1.8.65. O que quebra a igualdade é declarar `center` ali. */
 }
 
 /* ===== A ROLETA HORIZONTAL DA QUANTIDADE (v1.8.96) =====
@@ -11979,17 +12013,15 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
   --surface: var(--surface-sunk);
   --surface-2: var(--surface-2-sunk);
 }
-/* CONECTADO ele fica VERMELHO, e isso não é o estado — é a AÇÃO. Quem diz que
-   há tela recebendo é a própria preview (que só existe aqui quando há); o que o
-   ícone tem a dizer é o que o toque faz, e ele DESCONECTA.
-   Em `--danger-strong` (ação destrutiva, tom SATURADO — 6,28:1 sobre a
-   miniatura escura) e nunca no `--danger` cheio: preenchido, o vermelho deste
-   app significa "está no ar agora", e competiria com a mídia que a miniatura
-   está mostrando. O par pálido `--danger-text` também não serve — num ícone de
-   24px aquele salmão chega como "um tom quente", não como vermelho.
-   A liberação de TESTE segue em âmbar de aviso: ali não há tela para
-   desconectar, e o toque tranca de volta. */
-.pv-fab.connected { color: var(--danger-strong); }
+/* CONECTADO ele fica VERDE (v1.12.53, revogando o vermelho de "a ação é
+   desconectar"). Pedido do operador: *"O botão de cast na preview do modo avançado
+   está vermelho quando há uma tv no espelhamento, verifique para que ele fique
+   verde enquanto conectado, pois o vermelho indica algo desativada e não
+   conectado."* É a régua do verde de ATIVIDADE (v1.8.56): a TV no ar é estado que
+   dura o culto, o mesmo da `.cast-acao.connected` e do `#simpleCastBtn.connected`.
+   O TOKEN É DO PALCO (`--stage-ok`, o `--ok` do tema escuro escrito literal): a
+   prévia não tem tema, e o `--ok` do claro sobre o preto dela daria 3,0:1. */
+.pv-fab.connected { color: var(--stage-ok); }
 
 /* A caixa-preta do telão, em Configurações. `pre` porque cada linha é um
    registro e a ordem/alinhamento são a informação. */

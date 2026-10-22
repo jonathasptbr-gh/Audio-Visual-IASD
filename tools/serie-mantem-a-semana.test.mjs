@@ -44,6 +44,13 @@
 //  I. **A FOLHA DE UM EPISÓDIO JÁ BAIXADO OMITE A QUALIDADE** — *"não precisa
 //     mais dessa ação"* —, e a de um episódio AUSENTE continua com ela. As duas
 //     metades, porque uma sozinha aprova o seletor sumindo de todo vídeo.
+//  K. **ABRIR A SÉRIE VERIFICA A SEMANA, E O BOTÃO SAIU (v1.12.53).** *"Remover o
+//     botão de atualizar … deixe essa ação automática quando o usuário abre as
+//     respectivas coleções"*. A barra da série não tem botão nenhum, aberta ou
+//     fechada; o toque que ABRE o card refaz a lista (`soIndice`) e roda a rotina
+//     da semana; reabrir dentro do piso não repete; com mídia no ar ela ESPERA, o
+//     subtítulo diz por quê, e o primeiro desenho com a mídia fora a retoma; e o
+//     subtítulo diz o que está acontecendo enquanto ela corre e quando ela falha.
 //
 //   node tools/serie-mantem-a-semana.test.mjs
 // ============================================================================
@@ -496,6 +503,101 @@ try {
     'J · no MODO FÁCIL o card tem SÓ o destaque da semana: nenhuma linha da lista '
     + 'completa (a semana passada e a seguinte, que estão no índice, não aparecem)',
     noFacil);
+
+  // ── K. ABRIR A SÉRIE VERIFICA A SEMANA, E O BOTÃO SAIU (v1.12.53) ───────
+  //
+  // O `syncCollection` e a rotina são ESPIADOS (a extração do canal tem oráculo
+  // próprio no `boot-nativo`): o que se afirma é a DECISÃO de quando verificar.
+  // A espia segura a resposta (`__soltar`) para o bloco poder ler o subtítulo
+  // ENQUANTO a verificação corre — é o estado que o botão de antes mostrava.
+  await pg.evaluate(() => {
+    window.__verif = [];
+    window.__rotina = 0;
+    window.__respostaVerif = { ok: true, baixados: 0, falhou: 0 };
+    const real = window.syncCollection;
+    window.__syncReal = real;
+    window.syncCollection = (coll, opts) => {
+      window.__verif.push({ id: coll.id, soIndice: !!(opts && opts.soIndice), rotulo: (opts && opts.rotulo) || '' });
+      const u = ui(coll.id);
+      u.syncBusy = true;
+      setCollStatus(coll.id, (opts && opts.rotulo) || 'Atualizando lista…');
+      return new Promise((ok) => { window.__soltar = () => {
+        u.syncBusy = false; setCollStatus(coll.id, '');
+        ok(window.__respostaVerif);
+      }; });
+    };
+    window.manterSeriesDaSemana = async () => { window.__rotina++; };
+  });
+  // A BARRA, e o card ABERTO PELO TOQUE na barra — o caminho do operador
+  // (`alternarAcordeao`), nos dois modos.
+  const barra = (abrir, modo) => pg.evaluate((a) => {
+    setAppMode(a.modo);
+    const coll = allCollections().find((c) => c.id === a.id);
+    allCollections().forEach((c) => { ui(c.id).expanded = false; });
+    const li = renderCollectionCard(coll);
+    if (a.abrir) li.querySelector('.coll-bar').click();
+    const vista = renderCollectionCard(coll);
+    return {
+      aberto: ui(a.id).expanded,
+      botoes: [...vista.querySelectorAll('.coll-bar button:not(.coll-bar-icon)')].map((b) => b.className),
+      resumo: ((vista.querySelector('.coll-bar-sync') || {}).textContent || ''),
+      verif: window.__verif.slice(), rotina: window.__rotina,
+    };
+  }, { id: SERIE, abrir, modo });
+
+  const fechada = await barra(false, 'full');
+  checar(fechada.botoes.length === 0 && fechada.verif.length === 0,
+    'K1 · FECHADO, o card da série não tem botão nenhum na barra — e desenhá-lo '
+    + 'não verifica nada (só ABRIR verifica)', fechada);
+  await pg.evaluate((id) => { ui(id).semanaProxima = 0; }, SERIE);
+  const abertaFacil = await barra(true, 'simple');
+  checar(abertaFacil.aberto && abertaFacil.botoes.length === 0,
+    'K2 · ABERTO, também nenhum botão: o "Atualizar a lista" saiu', abertaFacil);
+  checar(abertaFacil.verif.length === 1 && abertaFacil.verif[0].id === SERIE
+    && abertaFacil.verif[0].soIndice === true,
+    'K3 · o toque que ABRE o card (aqui no Modo Fácil) refaz a lista da série — '
+    + 'SÓ o índice, nunca um download de episódio', abertaFacil.verif);
+  checar(/Verificando os vídeos da semana/.test(abertaFacil.resumo),
+    'K4 · e ENQUANTO corre, o subtítulo da barra diz o que está acontecendo', abertaFacil.resumo);
+  await pg.evaluate(() => window.__soltar());
+  const rodou = await esperar(pg, () => window.__rotina === 1, null, 5000);
+  checar(rodou === true,
+    'K5 · e com a lista de pé, a rotina do episódio da semana roda em seguida — '
+    + 'é ela que baixa o do sábado (com as regras de rede dela)', porque(rodou));
+  const fimOk = await barra(false, 'simple');
+  checar(/epis[óo]dio/.test(fimOk.resumo),
+    'K6 · terminada bem, o subtítulo volta a dizer quantos episódios a lista tem', fimOk.resumo);
+
+  const reaberta = await barra(true, 'full');
+  checar(reaberta.verif.length === 1,
+    'K7 · reabrir dentro do PISO (agora no avançado) não verifica de novo — abrir e '
+    + 'fechar o card num culto não pode ser uma extração do canal por toque', reaberta.verif);
+
+  // COM MÍDIA NO AR ELA ESPERA, e o subtítulo diz por quê.
+  await pg.evaluate((id) => { ui(id).semanaProxima = 0; midiaNoAr = true; }, SERIE);
+  const comMidia = await barra(true, 'full');
+  checar(comMidia.verif.length === 1 && /adiada/.test(comMidia.resumo),
+    'K8 · com MÍDIA NO AR a abertura não verifica (cede a vez, como toda rotina de '
+    + 'acervo) e o subtítulo diz que ficou adiada', comMidia);
+  const retomou = await pg.evaluate(async (id) => {
+    midiaNoAr = false;
+    const coll = allCollections().find((c) => c.id === id);
+    ui(id).expanded = true;
+    renderCollectionCard(coll);
+    await new Promise((r) => setTimeout(r, 50));
+    return window.__verif.length;
+  }, SERIE);
+  checar(retomou === 2,
+    'K9 · e o primeiro desenho do card aberto com a mídia já fora do ar a RETOMA — '
+    + 'sem pedir ao operador que feche e reabra', retomou);
+  // A FALHA: o subtítulo diz que não aconteceu.
+  await pg.evaluate(() => { window.__respostaVerif = { ok: false, baixados: 0, falhou: 0 }; window.__soltar(); });
+  await esperar(pg, (id) => !ui(id).syncBusy, SERIE, 5000);
+  const semRede = await barra(false, 'full');
+  checar(/Sem conexão/.test(semRede.resumo) && semRede.rotina === 1,
+    'K10 · e quando ela FALHA o subtítulo diz que a semana não foi verificada — '
+    + 'sem o botão, esta linha é a única que conta — e a rotina não roda', semRede);
+  await pg.evaluate(() => { window.syncCollection = window.__syncReal; });
 
 } finally {
   await navegador.close();

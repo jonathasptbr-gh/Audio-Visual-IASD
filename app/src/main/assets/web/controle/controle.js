@@ -417,7 +417,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.52';
+const WEB_VERSION = '1.12.53';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1232,6 +1232,7 @@ Louvorja.observar((ev) => {
 // esperando por ele: a primeira listagem das coleções e a Bíblia base.
 function fonteAoMudar(antes) {
   const voltou = fonteVeredito.estado === 'ok' && (antes === 'servidor' || antes === 'sem-internet');
+  try { renderSorteioSimples(); } catch (_) {}
   // Coalescido e com a guarda de quem está mexendo na lista (o mesmo caminho
   // de um download que termina).
   try { refreshCollectionsIfVisible(); } catch (_) {}
@@ -10119,7 +10120,60 @@ function alternarAcoesDaLinha(li) {
   if (!abrir) return;
   li.classList.add('acoes-abertas');
   linhaAcoesAberta = li;
+  acertarFaixaDaLinha(li);
 }
+
+/**
+ * ===== SEM LUGAR AO LADO DA CAPA, A FAIXA TOMA A LINHA INTEIRA (v1.12.53) =====
+ *
+ * Pedido do operador: *"Em telas menores permita as opções individuais do item no
+ * cronograma, sobreporem a thumbnail, mas de forma completa, aproveitando e
+ * distribuindo corretamente o espaço disponível. Atualmente em telas menores, ele
+ * sobrepõe apenas parte da thumbnail, ficando estranho"*.
+ *
+ * A caixa da v5.301 cresce para a esquerda SÓ O QUE PRECISA, e numa tela estreita
+ * isso é um pedaço da capa coberto e o resto à vista — meia miniatura ao lado de um
+ * botão. Agora a pergunta é binária: **os botões cabem entre a capa e o `⋮`?** Cabem,
+ * nada muda (a capa fica, e é ela que diz de qual item é o menu). Não cabem, a caixa
+ * vai da borda do cartão ao `⋮` (`.acoes-cheias`), a capa sai de vista, e os botões se
+ * DISTRIBUEM pela largura toda (`space-between`), em vez de se amontoarem à direita.
+ *
+ * É MEDIDO, nunca um ponto de quebra (a régua do `acertarExtrasDaPrevia`): a SOMA das
+ * larguras dos botões à vista, mais os vãos, contra o vão de layout entre a capa e a
+ * borda direita da caixa. O que decide é o número de botões (de dois a sete, conforme o
+ * item), a fonte do sistema e a largura da tela — três eixos que um `@media` não vê.
+ * Mede na ABERTURA, que é quando a pergunta tem resposta (com o `li` no documento), e
+ * de novo num `resize` com a faixa aberta. A confirmação de excluir (`.confirmando`)
+ * fica de fora pela regra dela: com dois filhos a caixa volta ao piso e a LIXEIRA da
+ * capa precisa estar à vista.
+ */
+//
+// E HÁ UM SEGUNDO DEGRAU, porque a linha inteira também acaba: MEDIDO, seis quadrados de
+// `--thumb` com o vão de sempre pedem 268px, e a 320px a linha toda dá 224. Não cabendo
+// nem nela, os quadrados descem a `--hit` e o vão sai (`.acoes-justas`) — a mesma descida
+// do sétimo botão, e o `space-between` continua repartindo o que sobra. É o piso de toque
+// do app; abaixo dele eles só encolhem se nem assim couberem (sete botões numa tela
+// minúscula), porque desenhar por cima do `⋮` é pior que um alvo um pouco menor.
+function acertarFaixaDaLinha(li) {
+  if (!li || !li.isConnected) return;
+  const row = li.querySelector(':scope > .row');
+  const caixa = row && row.querySelector(':scope > .row-acoes');
+  const capa = row && row.querySelector(':scope > .thumb');
+  // MEDE NO DESENHO DE SEMPRE: as duas marcas mudam a largura dos botões e da faixa.
+  li.classList.remove('acoes-cheias', 'acoes-justas');
+  if (!caixa || !capa) return;
+  const filhos = [...caixa.children].filter((el) => el.offsetWidth > 0);
+  const vao = parseFloat(getComputedStyle(caixa).columnGap) || 0;
+  const precisa = filhos.reduce((t, el) => t + el.offsetWidth, 0) + vao * Math.max(0, filhos.length - 1);
+  const vaoLinha = parseFloat(getComputedStyle(row).columnGap) || 0;
+  const direita = caixa.getBoundingClientRect().right;
+  const capaR = capa.getBoundingClientRect();
+  const cabeAoLado = direita - (capaR.right + vaoLinha);
+  if (precisa <= cabeAoLado + 0.5) return;
+  li.classList.add('acoes-cheias');
+  li.classList.toggle('acoes-justas', precisa > direita - capaR.left + 0.5);
+}
+window.addEventListener('resize', () => { if (linhaAcoesAberta) acertarFaixaDaLinha(linhaAcoesAberta); });
 // Tocar em QUALQUER outro lugar fecha. Na fase de CAPTURA e por `pointerdown`,
 // e não por `click`, e a razão MUDOU de dono sem mudar de forma: até a v5.284
 // era a alça de arrastar (que morava dentro do menu, capturava o ponteiro e
@@ -10727,6 +10781,8 @@ function montarAcoesDaLinha(li, botoes, chave) {
     fecharAcoesDaLinha();
     li.classList.add('acoes-abertas');
     linhaAcoesAberta = li;
+    // O `li` AINDA NÃO ESTÁ NO DOCUMENTO: a medida da faixa espera o quadro seguinte.
+    requestAnimationFrame(() => { if (linhaAcoesAberta === li) acertarFaixaDaLinha(li); });
   }
   const caixa = document.createElement('div');
   caixa.className = 'row-acoes';
@@ -11490,7 +11546,7 @@ function renderCollectionCard(coll, ctx) {
   // um número de gigabytes prometendo um download em lote que nunca existiu e
   // que agora nem botão tem. O que ela tem de verdade para dizer na barra é
   // quantos episódios a lista traz, que é o número que o painel carregava antes
-  // de sair. Sem índice, silêncio: o botão de atualizar ao lado já é a mensagem.
+  // de sair. Sem índice, silêncio — abrir o card já busca a lista.
   //
   // COM O ÁLBUM INTEIRO BAIXADO ELE SOME (v5.70), junto com o botão de baixar
   // que já saíra na v5.63. "24/24" não pede nada nem informa nada de novo — é
@@ -11507,7 +11563,10 @@ function renderCollectionCard(coll, ctx) {
   } else if (peso) {
     summary.textContent = peso;
   } else if (ehLink(coll)) {
-    summary.textContent = total ? total + (total === 1 ? ' episódio' : ' episódios') : '';
+    // A VERIFICAÇÃO DA SEMANA FALA AQUI (v1.12.53), quando não deu certo: o botão de
+    // atualizar saiu, e esta linha é a única que diz que ela não aconteceu.
+    summary.textContent = u.semanaAviso
+      || (total ? total + (total === 1 ? ' episódio' : ' episódios') : '');
   } else if (coll.kind === 'album') {
     summary.textContent = 'não sincron.';
   }
@@ -11564,57 +11623,21 @@ function renderCollectionCard(coll, ctx) {
     bar.appendChild(dl);
   }
 
-  // ===== A SÉRIE TEM UM BOTÃO SÓ, E ELE É O DE ATUALIZAR A LISTA (v1.1.21) =====
+  // ===== A SÉRIE NÃO TEM BOTÃO NENHUM NA BARRA (v1.12.53) =====
   //
-  // Pedido do operador: *"para o Provai e Vede e para o Informativo, os arquivos
-  // precisam estar ou no cronograma ou nos favoritos ou no player para o arquivo
-  // baixado existir… então não vamos precisar de um botão geral de baixar no
-  // topo desses álbuns e nem um para excluir… vamos jogar o botão de atualizar
-  // lista para o local onde está o botão excluir, no mesmo estilo, botão puro,
-  // sem texto"*.
+  // Ela tinha UM, o de atualizar a lista (v1.1.21), e ele saiu a pedido do
+  // operador: *"Remover o botão de atualizar e verificar o informativo das
+  // missões e provai e vede, deixe essa ação automática quando o usuário abre as
+  // respectivas coleções … Como são apenas dois, essa pequena verificação dos
+  // vídeos da semana não será um problema"*. A verificação é a ABERTURA do card
+  // (`verificarSemanaAoAbrir`, no `alternarAcordeao` e no `openCollectionOptions`),
+  // e o que ela diz aparece no subtítulo da barra, logo acima.
   //
-  // **O ÁLBUM DE SÉRIE NÃO GUARDA NADA, e é isso que tira dele os outros dois
-  // botões.** Um episódio só existe no aparelho enquanto está no Cronograma, nos
-  // Favoritos ou na playlist; saindo de lá, o coletor o recolhe. Não há acervo
-  // do álbum para baixar em lote (~15 GB/ano) nem para remover — "Remover do
-  // dispositivo" num álbum que não retém nada apagaria o que está em OUTRA
-  // lista, ou nada, e as duas leituras são erradas.
-  //
-  // Sobra UMA ação, e ela é a que a série tem de ter: refazer a lista. O índice
-  // dela custa uma extração do canal do YouTube, então o TTL de 12 h a segura —
-  // e sem este botão o operador esperaria meio dia pelo episódio do sábado sem
-  // ter o que fazer (ver `forcarIndice`, que de propósito não a força).
-  //
-  // ===== E ELE SÓ EXISTE COM O ÁLBUM ABERTO (v1.2.0) =====
-  //
-  // Pedido do operador: *"os botões de atualizar lista do provai e vede e do
-  // informativo mundial das missões só deve aparecer com o album/grupo
-  // aberto"*.
-  //
-  // É a régua da LIXEIRA (v1.1.16) aplicada ao terceiro botão desta coluna: o
-  // gesto que revela a ação é o mesmo que revela a LISTA sobre a qual ela age.
-  // Fechado, o card de uma série não oferece nada — e o acervo inteiro é uma
-  // lista de cards fechados, onde este ícone aparecia em cada série como uma
-  // ação sem contexto a dois centímetros do nome.
-  //
-  // **`u.syncBusy` é a exceção, e ela não é uma segunda regra:** enquanto a
-  // varredura corre este botão não é "atualizar", é o CANCELAR dela — o mesmo
-  // desfecho que faz o irmão de download ficar visível com o card fechado. Um
-  // cancelar que some é um cancelar que não existe no único momento em que ele
-  // importa.
-  if (ehLink(coll) && (u.expanded || u.syncBusy)) {
-    const at = document.createElement('button');
-    // `coll-bar-at` além da base: os TRÊS botões desta coluna dividem a
-    // geometria (`.coll-bar-dl`) e precisam ser distinguíveis um do outro — por
-    // quem lê a folha e por quem escreve um oráculo sobre ela.
-    at.className = 'coll-bar-dl coll-bar-at' + (u.syncBusy ? ' busy' : '');
-    at.title = u.syncBusy ? 'Cancelar' : 'Atualizar a lista';
-    at.setAttribute('aria-label', at.title);
-    at.innerHTML = u.syncBusy ? closeIconSvg() : syncIconSvg();
-    // `soIndice`: numa série o toque NUNCA baixa episódio — ele refaz a lista.
-    at.addEventListener('click', (e) => { e.stopPropagation(); syncCollection(coll, { soIndice: true }); });
-    bar.appendChild(at);
-  }
+  // Os outros dois botões já não existiam aqui (v1.1.21), pela razão do modelo:
+  // **o álbum de série não guarda nada**. Um episódio só existe no aparelho
+  // enquanto está no Cronograma, nos Favoritos, na playlist ou é o da semana
+  // (a lista `serie`); não há acervo do álbum para baixar em lote (~15 GB/ano)
+  // nem para remover.
 
   // ===== A LIXEIRA MORA NA BARRA, E SÓ COM O ÁLBUM ABERTO (v1.1.16) =====
   //
@@ -11667,8 +11690,8 @@ function renderCollectionCard(coll, ctx) {
   }
 
   // Sem índice ainda não há lista para abrir — o toque abre o card assim mesmo.
-  // O que resolve a ausência é um botão da BARRA, presente com o card fechado ou
-  // aberto: "Sincronizar a lista" num álbum, "Atualizar a lista" numa série.
+  // O que resolve a ausência é o botão "Sincronizar a lista" da BARRA num álbum,
+  // e a própria ABERTURA numa série (`verificarSemanaAoAbrir`).
   //
   // Nomeada porque tem DOIS gatilhos: o toque na barra e a seta (v5.95).
   const alternarAcordeao = () => {
@@ -11684,6 +11707,8 @@ function renderCollectionCard(coll, ctx) {
       allCollections().forEach((c) => { const x = ui(c.id); x.expanded = false; x.shown = 0; });
       u.expanded = abrindo;
       if (abrindo) u.shown = COLL_PAGE;
+      // ABRIR UMA SÉRIE VERIFICA A SEMANA (v1.12.53) — ver `verificarSemanaAoAbrir`.
+      if (abrindo) verificarSemanaAoAbrir(coll);
       // O card só existe DEPOIS do redesenho (a lista inteira é reconstruída),
       // então quem anima a abertura é o próprio render — este é o recado.
       if (abrindo) u.animarAbertura = true;
@@ -11749,6 +11774,9 @@ function renderCollectionCard(coll, ctx) {
     // O AVISO DO DOWNLOAD AUTOMÁTICO (v1.11.10): sem a caixa que havia aqui, só o
     // impedimento de rede sobrevive — e vai para a linha de status do card.
     serieAutoAviso(coll);
+    // A VERIFICAÇÃO ADIADA PELA MÍDIA NO AR (v1.12.53) volta aqui, no primeiro desenho do
+    // card aberto com a mídia já fora do ar — sem pedir ao operador que feche e reabra.
+    if (u.semanaAdiada && rotinaDeAcervoPodeCorrer()) setTimeout(() => verificarSemanaAoAbrir(coll), 0);
 
     // O DESTAQUE DO SÁBADO, acima da lista e só na série (ver `blocoDestaque`).
     const dest = blocoDestaque(coll);
@@ -12099,15 +12127,73 @@ function openCollectionOptions(coll) {
   allCollections().forEach((c) => { ui(c.id).expanded = false; });
   u.expanded = true;
   u.animarAbertura = true;
+  verificarSemanaAoAbrir(coll);
   redesenharAcervo();
+}
+
+// ===== ABRIR UMA SÉRIE VERIFICA OS VÍDEOS DA SEMANA (v1.12.53) =====
+//
+// Pedido do operador: *"Remover o botão de atualizar e verificar o informativo das
+// missões e provai e vede, deixe essa ação automática quando o usuário abre as
+// respectivas coleções … Isso vale principalmente no modo simples e também vai ser
+// funcional no modo avançado. Então torne isso uma rotina, verificar os vídeos da
+// semana."*
+//
+// É O QUE O BOTÃO FAZIA, e mais o passo que faltava a ele: refazer a lista da série
+// (`syncCollection(coll, { soIndice: true })`, que só extrai o canal — nunca baixa um
+// episódio) e, com ela de pé, rodar a rotina do episódio da semana
+// (`manterSeriesDaSemana`), que baixa o do sábado com as regras de rede dela e solta as
+// semanas passadas. Nos dois modos: o card é o mesmo.
+//
+// AS TRÊS GUARDAS, e as três são o que a deixa ser automática:
+//  - **o PISO** (`SERIE_VERIFICA_PISO_MS`): abrir e fechar o card dez vezes num culto
+//    não pode ser dez extrações do canal. A falha arma um piso menor
+//    (`SERIE_VERIFICA_FALHA_MS`), para quem voltou a ter rede tentar de novo logo;
+//  - **uma por vez**: com a lista já sendo refeita (`syncBusy`), abrir não pede outra;
+//  - **CEDE à mídia no ar** (`rotinaDeAcervoPodeCorrer`), como toda rotina de acervo: a
+//    extração disputa a fila da ponte com o que está tocando. Adiada, ela NÃO arma o piso,
+//    o subtítulo diz por quê, e o próximo desenho do card aberto com a mídia já fora do ar
+//    a retoma (`renderCollectionCard`).
+// O subtítulo da barra é o estado: "Verificando os vídeos da semana…" enquanto corre, o
+// número de episódios quando acaba bem, e o motivo quando não aconteceu (`u.semanaAviso`).
+const SERIE_VERIFICA_PISO_MS = 5 * 60 * 1000;
+const SERIE_VERIFICA_FALHA_MS = 60 * 1000;
+function verificarSemanaAoAbrir(coll) {
+  if (!coll || coll.kind !== 'serie' || !window.__NATIVE__) return;
+  const u = ui(coll.id);
+  if (u.syncBusy) return;
+  const agora = Date.now();
+  if (u.semanaProxima && agora < u.semanaProxima) return;
+  if (!rotinaDeAcervoPodeCorrer()) {
+    u.semanaAdiada = true;
+    u.semanaAviso = 'Verificação da semana adiada: há mídia no ar';
+    refreshCollectionsIfVisible();
+    return;
+  }
+  u.semanaAdiada = false;
+  u.semanaAviso = '';
+  u.semanaProxima = agora + SERIE_VERIFICA_PISO_MS;
+  syncCollection(coll, { soIndice: true, rotulo: 'Verificando os vídeos da semana…' })
+    .then((r) => {
+      if (r && r.ok) {
+        u.semanaAviso = '';
+        return manterSeriesDaSemana();
+      }
+      u.semanaProxima = Date.now() + SERIE_VERIFICA_FALHA_MS;
+      u.semanaAviso = 'Sem conexão — semana não verificada';
+      refreshCollectionsIfVisible();
+      return null;
+    })
+    .catch(() => {});
 }
 
 // (`buildCollectionOptions` e o painel `.coll-opts` saíram na v1.1.21, e as
 // três ações que ele teve terminaram na COLUNA DA DIREITA DA BARRA — ver
-// `renderCollectionCard`. A última a sair foi o "Atualizar a lista" da série,
-// que virou botão puro ao lado dos irmãos; antes dele saíram o "Verificar"
-// (v1.1.16, a verificação virou automática na abertura) e o "Baixar", que já
-// existia na barra e era só repetido ali.
+// `renderCollectionCard`. A última a sair do painel foi o "Atualizar a lista" da
+// série, que virou botão puro ao lado dos irmãos — e saiu da barra também na
+// v1.12.53, quando abrir o card passou a verificar a semana; antes dele saíram o
+// "Verificar" (v1.1.16, a verificação virou automática na abertura) e o "Baixar",
+// que já existia na barra e era só repetido ali.
 //
 // O QUE ELE ENSINOU, e vale para o que vier ocupar aquele lugar: **nada dentro
 // do card repete o que a barra dele já diz.** Ele teve três chips, uma linha de
@@ -12285,6 +12371,8 @@ function refreshCollectionsIfVisible() {
   }, COLL_REFRESH_MS);
 }
 function renderCollectionsNow() {
+  // O SORTEIO DO MODO FÁCIL depende do mesmo acervo (o índice do hinário, o que está baixado).
+  renderSorteioSimples();
   // Só redesenha com o acervo à vista — redesenhar por baixo de uma lista de
   // músicas tiraria do lugar o que o operador mira.
   if (acervoAVista()) renderSearchResults(hymnSearchInputEl.value);
@@ -20321,7 +20409,7 @@ async function syncCollection(coll, opts) {
     return { ok: false, baixados: 0, falhou: 0 };
   }
   u.syncBusy = true; u.cancel = false;
-  setCollStatus(coll.id, 'Atualizando lista…');
+  setCollStatus(coll.id, (opts && opts.rotulo) || 'Atualizando lista…');
   renderCollectionsNow(); // resposta ao toque é imediata; só o PROGRESSO é coalescido
   // Cancelamento: o próprio álbum (botão) ou o lote que o contém (syncGroup).
   // Declarado antes de tudo porque a VARREDURA do que falta também é longa num
@@ -20335,7 +20423,7 @@ async function syncCollection(coll, opts) {
       setCollStatus(coll.id, 'Sem internet — falha ao atualizar', 5000);
       return { ok: false, baixados: 0, falhou: 0 };
     }
-    // SÓ O ÍNDICE (v5.230) — é o que o botão de uma SÉRIE faz. A lista chegou,
+    // SÓ O ÍNDICE (v5.230) — é o que a abertura de uma SÉRIE faz (v1.12.53). A lista chegou,
     // e é só ela que foi pedida: os episódios são baixados um a um, pela folha
     // de destinos, como um vídeo do YouTube. Cair no laço abaixo aqui seria
     // exatamente o "download direto" que este lote existe para tirar.
@@ -25953,6 +26041,7 @@ async function addSongToDestinos(coll, s, variant, destinos, btn) {
 
 const sorteioPopupEl = document.getElementById('sorteioPopup');
 const sorteioBtnEl = document.getElementById('sorteioBtn');
+const sorteioSimplesBtnEl = document.getElementById('sorteioSimplesBtn');
 const sorteioCloseEl = document.getElementById('sorteioClose');
 const sorteioListEl = document.getElementById('sorteioList');
 
@@ -26218,11 +26307,13 @@ async function lerSorteioPrefs() {
 // campo que não existe não fica velho: escrito, um `'uma'` sobrevivente faria a
 // migração do `saneQuantos` re-disparar e engolir a quantidade escolhida a cada
 // relançamento (escolher 10, fechar o app e voltar em 1, para sempre).
+// E AS CATEGORIAS NÃO SÃO GRAVADAS (v1.12.53): a folha as apaga a cada abertura
+// (`abrirSorteio`), então um valor guardado nunca seria lido por ninguém — e um
+// campo que não existe não fica velho.
 function saveSorteioPrefs() {
   return AVDB.setState('sorteioPrefs', {
     variante: sorteioPrefs.variante,
-    semHinario: sorteioPrefs.semHinario, soNoAparelho: sorteioPrefs.soNoAparelho,
-    semInfantis: sorteioPrefs.semInfantis,
+    soNoAparelho: sorteioPrefs.soNoAparelho,
     quantos: sorteioPrefs.quantos,
   });
 }
@@ -26238,7 +26329,25 @@ function saveSorteioPrefs() {
 // perguntar por faixa varreria o acervo inteiro a cada tecla. O erro possível é
 // o seguro — uma faixa marcada como presente que precise de retoque apenas
 // passa pelo `resolveSongMediaId` de sempre.
+// AS COLETÂNEAS DE CADA ÁLBUM, pela MESMA leitura editorial que a Biblioteca
+// desenha (`AVColetanea.aplicar`): uma coletânea dissolvida noutra some dos
+// chips pelo mesmo motivo que some da tela. Montado UMA vez por `sorteioCap()`
+// (preguiçoso: o sorteio do Modo Fácil só pergunta por hinários e nunca o monta).
+function sorteioColetaneas() {
+  const cats = AVColetanea.aplicar(albumCatalog.categories).categorias;
+  const porAlbum = new Map();
+  for (const cat of cats) {
+    for (const a of cat.albums || []) {
+      const id = 'album-' + a.id_album;
+      if (!porAlbum.has(id)) porAlbum.set(id, []);
+      if (!porAlbum.get(id).includes(cat.id_category)) porAlbum.get(id).push(cat.id_category);
+    }
+  }
+  return { cats, porAlbum };
+}
+
 function sorteioCap() {
+  let colet = null;
   return {
     norm: normalizeForSearch,
     // O MESMO cache preguiçoso da busca (`renderSearchResults`): `s._norm` é
@@ -26246,11 +26355,17 @@ function sorteioCap() {
     // alocações por música sobre os dois hinários mais todos os álbuns.
     nomeNorm: (s) => s._norm || (s._norm = normalizeForSearch(s.name)),
     ehMusica: temLetra,
-    ehHinario: collNumbersSongs,
     // O HINÁRIO NOVO, e só ele: a faixa 508–557 dos infantis é a numeração DELE
     // (ver `AVSorteio.INFANTIL_DE`). O de 1996 numera outra coisa, e emprestar
-    // estes números para lá recusaria cinquenta hinos escolhidos ao acaso.
+    // estes números para lá poria cinquenta hinos escolhidos ao acaso na
+    // categoria dos infantis.
     ehHinarioNovo,
+    ehHinarioAntigo: (coll) => !!coll && coll.id === 'hymnal-1996',
+    coletaneas: (coll) => {
+      if (!coll || coll.kind !== 'album') return [];
+      if (!colet) colet = sorteioColetaneas();
+      return colet.porAlbum.get(coll.id) || [];
+    },
     faixas: (coll) => collSongs(coll.id),
     letraCasa: (coll, s, q) => !!lyricMatch(coll, s, q),
     noAparelho: (coll, s, variante) => !!(variante === AVSorteio.VARIANTE_PLAYBACK
@@ -26343,16 +26458,13 @@ async function abrirSorteio() {
   // hinário, sem infantis e só no aparelho. Além de limpar a palavra tema."*
   //
   // É o mesmo argumento das MARCAS, um nível acima: um filtro que sobrevive
-  // fechado tira músicas do sorteio sem que ninguém lembre por quê — e o "sem
-  // hinário" esquecido ligado é a biblioteca inteira do culto fora da conta.
+  // fechado tira músicas do sorteio sem que ninguém lembre por quê.
   //
-  // **ISTO REVOGA "O ÚNICO FILTRO QUE NASCE LIGADO"** (`sanear` mantém o
-  // `semInfantis: true` por omissão, e essa regra fica de pé para quem LÊ um
-  // registro gravado): aqui ele é apagado por escrito, a cada abertura, porque
-  // o operador pediu os três desmarcados. A folha volta a ser o acervo inteiro,
-  // que é o estado de que toda decisão parte.
-  sorteioPrefs.semHinario = false;
-  sorteioPrefs.semInfantis = false;
+  // **OS FILTROS DE HOJE SÃO AS COLEÇÕES MARCADAS (v1.12.53)**: o filtro virou
+  // INCLUSIVO, e "nenhuma marcada" é o acervo inteiro — o mesmo estado de partida
+  // que a v1.8.98 pediu, dito pela regra nova. A folha volta a ser o acervo
+  // inteiro, que é o estado de que toda decisão parte.
+  sorteioPrefs.categorias = [];
   sorteioPrefs.soNoAparelho = false;
   sorteioPrefs.tema = '';
   saveSorteioPrefs();
@@ -26500,13 +26612,13 @@ function temaNaFrase(palavra) {
 // mais numeroso é `sem-musica`, e a tela diria "nenhuma coleção de música neste
 // aparelho" com o hinário inteiro instalado — além de falsa, sem ação nenhuma.
 // A ordem é a do conserto possível: `sem-indice` vence sempre (abrir o card e
-// carregar a lista), depois `hinario` (desligar o filtro), e `sem-musica` por
-// último — só sobra quando é de fato o caso.
+// carregar a lista), depois `categoria` (marcar outra coleção), e `sem-musica`
+// por último — só sobra quando é de fato o caso.
 function motivoAcionavelDasColecoes(pool) {
   const vistos = Object.create(null);
   for (const c of (pool && pool.colecoesRecusadas) || []) vistos[c.motivo] = true;
   if (vistos[AVSorteio.MOTIVO_SEM_INDICE]) return AVSorteio.MOTIVO_SEM_INDICE;
-  if (vistos[AVSorteio.MOTIVO_HINARIO]) return AVSorteio.MOTIVO_HINARIO;
+  if (vistos[AVSorteio.MOTIVO_CATEGORIA]) return AVSorteio.MOTIVO_CATEGORIA;
   if (vistos[AVSorteio.MOTIVO_SEM_MUSICA]) return AVSorteio.MOTIVO_SEM_MUSICA;
   return '';
 }
@@ -26518,14 +26630,14 @@ function motivoAcionavelDasColecoes(pool) {
 function fraseDoVazioSorteio(pool) {
   if (!pool.colecoesUsadas) {
     // PELO MOTIVO QUE TEM CONSERTO, e não pelo filtro que estava ligado: com
-    // "sem hinário" marcado E as coleções recusadas por falta de índice, a
-    // pergunta do filtro respondia "só há hinário aqui" — o operador desligava
-    // o filtro, continuava vazio, e nada dizia que faltava carregar a
-    // biblioteca. Quem sabe por que cada coleção ficou de fora é a própria
-    // regra (`avaliarColecao`), e é dela que a frase sai. `sem-indice` e "nenhuma
+    // uma coleção marcada E as outras recusadas por falta de índice, a pergunta
+    // do filtro responderia "nada nas marcadas" — o operador trocaria a marca,
+    // continuaria vazio, e nada diria que faltava carregar a biblioteca. Quem
+    // sabe por que cada coleção ficou de fora é a própria regra
+    // (`avaliarColecao`), e é dela que a frase sai. `sem-indice` e "nenhuma
     // recusa" caem na última frase, que é a que manda carregar a biblioteca.
     const dom = motivoAcionavelDasColecoes(pool);
-    if (dom === AVSorteio.MOTIVO_HINARIO) return 'Só há hinário neste aparelho, e o filtro pediu sem ele.';
+    if (dom === AVSorteio.MOTIVO_CATEGORIA) return 'Nada carregado nas coleções marcadas. Marque outra.';
     if (dom === AVSorteio.MOTIVO_SEM_MUSICA) return 'Nenhuma coleção de música neste aparelho.';
     return 'A biblioteca ainda não foi carregada. Abra-a uma vez com internet.';
   }
@@ -26540,14 +26652,13 @@ function fraseDoVazioSorteio(pool) {
   if (sorteioPrefs.variante === AVSorteio.VARIANTE_PLAYBACK && r[AVSorteio.MOTIVO_VARIANTE]) {
     return 'Nenhuma delas tem fundo musical. Troque para Cantada.';
   }
-  // O FILTRO QUE NINGUÉM LIGOU. Ele nasce aceso, então é o único capaz de
-  // esvaziar a lista sem que o operador tenha tocado em nada — e sem esta frase
-  // o desfecho seria "nada combina com a palavra", mandando reescrever um tema
-  // que não é o problema. Ela vem DEPOIS das duas acima porque aquelas falam de
-  // escolhas explícitas: quem ligou "Só no aparelho" quer ouvir sobre ele
-  // primeiro.
-  if (sorteioPrefs.semInfantis && r[AVSorteio.MOTIVO_INFANTIL]) {
-    return 'Só sobraram hinos infantis. Desligue “Sem infantis” para incluí-los.';
+  // A MARCA QUE SOBROU VAZIA (v1.12.53): as coleções marcadas entraram, mas as
+  // faixas que caberiam nelas não — é o hinário novo com só "Infantis" ou só
+  // "Hinário 2022" marcado, e a outra metade dele fora. Sem palavra a culpa não
+  // é do tema.
+  if ((sorteioPrefs.categorias || []).length && r[AVSorteio.MOTIVO_CATEGORIA] && !pool.itens.length
+      && !sorteioPrefs.tema.trim()) {
+    return 'Nada carregado nas coleções marcadas. Marque outra.';
   }
   const palavra = sorteioPrefs.tema.trim();
   return palavra ? 'Nada combina com “' + temaNaFrase(palavra) + '” na biblioteca.'
@@ -26561,23 +26672,68 @@ function fraseDoVazioSorteio(pool) {
 // 'quantas' e 'filtros', use a largura toda apenas para distribuir os botões
 // seletores e a roleta da quantidade"* — e a folha não perde nada, porque cada
 // pílula já diz por extenso o que ela filtra e o `title` diz o resto.
-function sorteioLinhaChips(opcoes) {
+//
+// ===== E ELA QUEBRA EM LINHAS DESDE QUE O FILTRO VIROU INCLUSIVO (v1.12.53) =====
+//
+// Eram três pílulas fixas que se repartiam UMA linha (`flex: 1`, sem quebra). As
+// categorias são uma por coleção que EXISTE nos dados — os dois hinários, os
+// infantis e cada coletânea do banco —, e numa tela de 360px elas não cabem numa
+// linha. A fileira passa a QUEBRAR, cada pílula com a largura do próprio rótulo
+// e crescendo para fechar a linha em que caiu (`.sorteio-linha` no CSS).
+//
+// `desligado`: a categoria existe mas não tem faixa carregada neste aparelho. Ela
+// fica APAGADA, com o `title` dizendo por quê (a régua da v1.8.50), e não some:
+// uma pílula que aparece quando o índice chega moveria as vizinhas debaixo do dedo.
+function sorteioLinhaChips(opcoes, classe) {
   const li = document.createElement('li');
-  li.className = 'sorteio-linha';
+  li.className = 'sorteio-linha' + (classe ? ' ' + classe : '');
   const cx = document.createElement('div');
   cx.className = 'misc-opts';
-  opcoes.forEach(({ nome, ativo, aoTocar, titulo }) => {
+  opcoes.forEach(({ nome, ativo, aoTocar, titulo, desligado }) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'misc-chip' + (ativo ? ' active' : '');
     b.textContent = nome;
     if (titulo) b.title = titulo;
     b.setAttribute('aria-pressed', ativo ? 'true' : 'false');
+    if (desligado) b.disabled = true;
     b.addEventListener('click', aoTocar);
     cx.appendChild(b);
   });
   li.appendChild(cx);
   return li;
+}
+
+/**
+ * AS CATEGORIAS QUE ESTE APARELHO TEM (v1.12.53), pela regra
+ * (`AVSorteio.categoriasDisponiveis`). As coletâneas são as que a Biblioteca
+ * desenha — a MESMA leitura dissolvida e o mesmo filtro (`categoryCards`, que
+ * tira o hinário disfarçado de álbum) —, e "Outros álbuns" só existe com álbum
+ * que nenhuma reivindica, como lá. Duas listas de coletâneas divergiriam no
+ * primeiro ajuste, e o operador veria na folha uma seção que a Biblioteca não tem.
+ */
+function sorteioCategorias() {
+  const { cats } = sorteioColetaneas();
+  const coletaneas = cats.filter((cat) => categoryCards(cat).length)
+    .map((cat) => ({ id: cat.id_category, nome: cat.name }));
+  const reivindicados = new Set();
+  for (const cat of cats) for (const a of cat.albums || []) reivindicados.add('album-' + a.id_album);
+  const outros = allCollections().some((c) => c.kind === 'album'
+    && !reivindicados.has(c.id) && !isHymnalAlbum(c));
+  return AVSorteio.categoriasDisponiveis(allCollections(), coletaneas, sorteioCap(), outros);
+}
+
+// O NOME de uma categoria, para o Registro — pela mesma lista que a folha desenha.
+function sorteioNomeDaCategoria(chave) {
+  const c = sorteioCategorias().find((x) => x.chave === chave);
+  return c ? c.nome : chave;
+}
+
+function sorteioAlternarCategoria(chave) {
+  const atuais = sorteioPrefs.categorias || [];
+  sorteioPrefs.categorias = atuais.includes(chave)
+    ? atuais.filter((c) => c !== chave) : atuais.concat([chave]);
+  renderSorteio();
 }
 
 /**
@@ -26847,29 +27003,34 @@ function renderSorteio() {
   //  dos quatro motores do pulo da folha — o motor morre com ela, porque o que
   //  pulava era a nota APARECENDO, e agora não há nota em estado nenhum.)
 
-  // ---- OS FILTROS ----
-  alvo.appendChild(sorteioLinhaChips([
-    {
-      nome: 'Sem hinário', ativo: sorteioPrefs.semHinario,
-      titulo: 'Não sortear dos hinários',
-      aoTocar: () => { sorteioPrefs.semHinario = !sorteioPrefs.semHinario; saveSorteioPrefs(); renderSorteio(); },
-    },
-    {
-      // NASCE LIGADO (ver `sanear`). É o único chip desta linha que já está
-      // aceso quando a folha abre, e é por isso que ele existe como CHIP e não
-      // como regra fixa: um filtro que decide sozinho precisa estar à vista, e
-      // ser desligável por quem quiser sortear um infantil de propósito.
-      nome: 'Sem infantis', ativo: sorteioPrefs.semInfantis,
-      titulo: 'Não sortear os hinos infantis do Hinário 2022 ('
-        + AVSorteio.INFANTIL_DE + ' a ' + AVSorteio.INFANTIL_ATE + ')',
-      aoTocar: () => { sorteioPrefs.semInfantis = !sorteioPrefs.semInfantis; saveSorteioPrefs(); renderSorteio(); },
-    },
-    {
-      nome: 'Só no aparelho', ativo: sorteioPrefs.soNoAparelho,
-      titulo: 'Sortear só o que já está baixado — nenhum download',
-      aoTocar: () => { sorteioPrefs.soNoAparelho = !sorteioPrefs.soNoAparelho; saveSorteioPrefs(); renderSorteio(); },
-    },
-  ]));
+  // ---- OS FILTROS: as COLEÇÕES, e o "Só no aparelho" no fim (v1.12.53) ----
+  // INCLUSIVOS: nada marcado é o acervo inteiro, e cada marca acrescenta a sua
+  // coleção ao que entra (`AVSorteio`, a regra da união). "Só no aparelho" mora
+  // na MESMA fileira, por último, e lê como a frase que ele é ("Hinário 2022 ·
+  // só no aparelho"): ele não é uma coleção, estreita o que as marcas trouxeram.
+  const marcadas = sorteioPrefs.categorias || [];
+  const opcoes = sorteioCategorias().map((c) => {
+    const ativo = marcadas.includes(c.chave);
+    const vazia = !c.faixas;
+    const infantis = c.chave === AVSorteio.CAT_INFANTIS
+      ? ' (' + AVSorteio.INFANTIL_DE + ' a ' + AVSorteio.INFANTIL_ATE + ' do Hinário 2022)' : '';
+    return {
+      nome: c.nome, ativo,
+      // A MARCADA NUNCA SE APAGA: apagada, ela seria uma marca que não se desfaz.
+      desligado: vazia && !ativo,
+      titulo: vazia && !ativo
+        ? 'Nenhuma música de “' + c.nome + '” carregada neste aparelho — abra-a na Biblioteca com internet'
+        : (ativo ? 'Tirar “' + c.nome + '” do sorteio' : 'Sortear de “' + c.nome + '”' + infantis
+          + (marcadas.length ? ', junto com as marcadas' : '')),
+      aoTocar: () => sorteioAlternarCategoria(c.chave),
+    };
+  });
+  opcoes.push({
+    nome: 'Só no aparelho', ativo: sorteioPrefs.soNoAparelho,
+    titulo: 'Sortear só o que já está baixado — nenhum download',
+    aoTocar: () => { sorteioPrefs.soNoAparelho = !sorteioPrefs.soNoAparelho; saveSorteioPrefs(); renderSorteio(); },
+  });
+  alvo.appendChild(sorteioLinhaChips(opcoes, 'sorteio-linha--cats'));
 
   // ---- QUANTAS ----
   // Um teto, e ele é obrigatório: um tema genérico ("Deus" casa em quase toda
@@ -27804,8 +27965,8 @@ document.addEventListener('visibilitychange', () => diagC('visibilidade'));
 // independentes — a tela da rede que cai, o download que trava, a atualização
 // que não chega —, e sem esta linha os três chegam ao Registro sem a coisa que
 // os une.
-window.addEventListener('offline', () => diagC('rede do celular: OFFLINE'));
-window.addEventListener('online', () => diagC('rede do celular: online'));
+window.addEventListener('offline', () => { diagC('rede do celular: OFFLINE'); renderSorteioSimples(); });
+window.addEventListener('online', () => { diagC('rede do celular: online'); renderSorteioSimples(); });
 window.addEventListener('freeze', () => diagC('congelou'));
 window.addEventListener('resume', () => diagC('descongelou'));
 (function vigiarPreview() {
@@ -28396,7 +28557,7 @@ function serieLista(itens, formatar) {
 // que a regra rodou; só a entrada dela diz por que ela produziu aquilo.
 const SORTEIO_MOTIVOS = {
   'sem-musica': 'não é acervo de música (séries e vídeos)',
-  hinario: 'hinário, e o filtro pediu sem',
+  categoria: 'fora das coleções marcadas',
   'sem-indice': 'sem índice neste aparelho',
   variante: 'a origem não tem esta variante',
   tema: 'não casa a palavra tema',
@@ -28423,8 +28584,7 @@ function blocoSorteio() {
     ? 'fila de ' + quantasSairam : 'uma só')
     + ' · ' + (f.variante === AVSorteio.VARIANTE_PLAYBACK
       ? 'fundo musical (telão coberto)' : 'cantada')
-    + (f.semHinario ? ' · sem hinário' : '')
-    + (f.semInfantis ? ' · sem infantis' : '')
+    + ((f.categorias || []).length ? ' · só ' + f.categorias.map(sorteioNomeDaCategoria).join(' + ') : '')
     + (f.soNoAparelho ? ' · só no aparelho' : ''));
   // A palavra CRUA e a normalizada, porque a diferença entre as duas já
   // explicou uma busca que "não achava nada" (espaço à direita, acento).
@@ -28859,7 +29019,7 @@ async function blocoSeries() {
       // normal (a lista só é buscada no primeiro toque ou na retomada) e
       // precisa estar DITO, senão se lê como o recurso quebrado.
       linhas.push('  ainda não varrido neste aparelho — abra o card na Biblioteca'
-        + ' (ou toque em "Atualizar a lista")');
+        + ' (abrir verifica a semana)');
       continue;
     }
     const pls = d.playlists || [];
@@ -41237,6 +41397,8 @@ function setAppMode(mode) {
   // A ESCOLHA EM CURSO É DO MODO FÁCIL (v1.12.30): trocar de modo a encerra — marca, vigia e saída.
   // Sem isto o vigia, que nasceu no simples, fechava a Biblioteca do AVANÇADO quatro segundos depois.
   simpleLimparSelecao();
+  // O SORTEIO DO MODO FÁCIL só é pintado neste modo (`renderSorteioSimples` sai cedo no outro).
+  renderSorteioSimples();
   // O "tocar neste celular" VALE O USO ATUAL, e uma ida ao avançado encerra
   // esse uso: voltar ao Modo Fácil devolve a tela de bloqueio. É por isto que
   // não há botão de desfazer — este é um dos três caminhos de volta, e o único
@@ -41538,7 +41700,7 @@ function espelhoRecebendo() {
 //
 // Esta função morava dentro de `renderSimpleCast`, que começa com
 // `if (appMode !== 'simple') return`. O efeito era duplo e o segundo é o do
-// relato: no modo avançado o ícone NUNCA era repintado, então o vermelho de
+// relato: no modo avançado o ícone NUNCA era repintado, então o estado de
 // "conectado" que o simplificado deixou aceso ficava para sempre — o operador
 // trocava de modo, a tela caía, e o ícone seguia dizendo que havia telão. O
 // estado da tela não é uma decoração de um dos modos; é o mesmo fato nos dois.
@@ -41976,6 +42138,13 @@ function renderSimpleCorpo() {
 //   3. só então o campo é limpo e o acervo volta ao estado padrão (`closeHymnSearch`).
 function simpleSelecionarLinha(li) {
   if (!li || !li.dataset) return;
+  simpleMarcarEscolha(li.dataset.song || (li.dataset.yt ? 'yt:' + li.dataset.yt : ''), li);
+}
+
+// A ESCOLHA, com ou sem LINHA tocada. O sorteio do Modo Fácil (v1.12.53) é uma escolha sem
+// linha — o toque foi no botão da barra —, e a coreografia depois dela é a mesma: a Biblioteca
+// recolhe quando a mídia entra, e o vigia a reinicia se a escolha não virar mídia.
+function simpleMarcarEscolha(chave, li) {
   hymnResultsEl.querySelectorAll('.hymn-result.selecionando').forEach((el) => {
     if (el !== li) el.classList.remove('selecionando');
   });
@@ -41984,12 +42153,12 @@ function simpleSelecionarLinha(li) {
   clearTimeout(simpleEntradaTimer); simpleEntradaTimer = null;
   simpleSel = {
     em: performance.now(),
-    chave: li.dataset.song || (li.dataset.yt ? 'yt:' + li.dataset.yt : ''),
+    chave: chave || '',
     // O TERMO DA ESCOLHA: o vigia só reinicia a Biblioteca se o campo ainda é este (ver lá).
     termo: hymnSearchInputEl.value,
     emVoo: false,
   };
-  li.classList.add('selecionando');
+  if (li) li.classList.add('selecionando');
   // A ESCOLHA ASSENTADA TIRA O TEXTO DA CONTA DA BUSCA (ver `simplesBuscando`): reavaliada quando
   // o feedback termina, e não no toque — as teclas voltando sob o dedo seriam o "piscar".
   clearTimeout(simpleBuscaTimer);
@@ -42009,6 +42178,64 @@ function simpleAcompanhar(p) {
     if (simpleSel.em === em) simpleSel.emVoo = false;
   });
   return p;
+}
+
+// ===== O SORTEIO DO MODO FÁCIL (v1.12.53) =====
+//
+// Pedido do operador: *"Adicionar o botão de sorteio no modo simples, mas bem simplificado, no
+// caso ele vai sortear apenas músicas do hinário 2022, sem infantis e sem opções, apenas tocar o
+// botão de sorteio escolhe uma música dessa categoria, sempre cantada."*
+//
+// UMA REGRA SÓ: é a playlist automática do avançado com a categoria "Hinário 2022" marcada e a
+// variante cantada (`AVSorteio.montarPool`) — a categoria já exclui os infantis (508–557) por
+// construção. Uma segunda escrita de "é do hinário novo e não é infantil" divergiria da folha.
+//
+// O SORTEIO É UNIFORME sobre o que pode tocar, e isto DIVERGE de propósito do `sortear` da folha,
+// que põe o que está no aparelho na frente de tudo: aqui não há lista à vista nem "Só no aparelho"
+// para o operador tornar a escolha explícita, e com três hinos baixados a preferência absoluta
+// sortearia sempre um daqueles três. O que toca é o que uma escolha da Biblioteca tocaria — o
+// mesmo `simplePlaySong`, que baixa o que falta. SEM REDE (ou com o servidor fora) só entra o que
+// está no aparelho, porque o resto não tem como chegar.
+function sorteioSimplesPool() {
+  const h = allCollections().find((c) => c.id === HYMNAL_2022_ID);
+  return AVSorteio.montarPool(h ? [h] : [],
+    { categorias: [AVSorteio.CAT_HINARIO_2022], variante: AVSorteio.VARIANTE_CANTADA }, sorteioCap());
+}
+
+function sorteioSimplesSemRede() { return navigator.onLine === false || fonteBloqueada(); }
+
+// POR QUE O BOTÃO NÃO PODE AGIR AGORA — '' quando pode. Apagado e com o `title`, nunca inerte.
+function sorteioSimplesImpedimento(pool) {
+  if (!pool.itens.length) {
+    return 'O Hinário 2022 ainda não foi carregado neste aparelho — abra a Biblioteca uma vez com internet';
+  }
+  if (pool.noAparelho || !sorteioSimplesSemRede()) return '';
+  return navigator.onLine === false
+    ? 'Nenhum hino do Hinário 2022 está baixado, e sem internet não dá para baixar'
+    : fonteMotivoCurto();
+}
+
+// O NÓ É LIDO AQUI, e não pela constante do topo: esta função é chamada por caminhos que podem
+// rodar antes de a linha da constante executar (`setAppMode`, `renderCollectionsNow`), e um `const`
+// lido antes da declaração LANÇA.
+function renderSorteioSimples() {
+  const el = document.getElementById('sorteioSimplesBtn');
+  if (!el || appMode !== 'simple' || !window.AVSorteio) return;
+  const porque = sorteioSimplesImpedimento(sorteioSimplesPool());
+  el.disabled = !!porque;
+  el.title = porque || 'Sortear um hino do Hinário 2022 (cantado, sem os infantis)';
+  el.setAttribute('aria-label', porque || 'Sortear um hino do Hinário 2022');
+}
+
+function sortearSimples() {
+  const pool = sorteioSimplesPool();
+  if (sorteioSimplesImpedimento(pool)) { renderSorteioSimples(); return null; }
+  const itens = sorteioSimplesSemRede() ? pool.itens.filter((i) => i.noAparelho) : pool.itens;
+  const [e] = AVSorteio.embaralhar(itens, Math.random);
+  if (!e) return null;
+  diagC('sorteio do Modo Fácil: ' + songLabel(e.coll, e.s) + (e.noAparelho ? '' : ' (vai baixar)'));
+  simpleMarcarEscolha('sorteio:' + e.s.id_music, null);
+  return simpleAcompanhar(simplePlaySong(e.coll, e.s));
 }
 
 function simpleSelecaoFresca() {
@@ -42621,6 +42848,7 @@ if (window.ResizeObserver && bottombarEl) {
   new ResizeObserver(medirBarraDaBiblioteca).observe(bottombarEl);
 }
 sorteioBtnEl.addEventListener('click', abrirSorteio);
+sorteioSimplesBtnEl.addEventListener('click', () => { sortearSimples(); });
 hymnSearchInputEl.addEventListener('input', debounce(() => renderSearchResults(hymnSearchInputEl.value), SEARCH_DEBOUNCE_MS));
 // O ✕ DO CAMPO (v1.11.10): aparece com texto, apaga e devolve o foco. Segue o
 // valor do campo por TODOS os caminhos que o escrevem — a digitação (`input`) e

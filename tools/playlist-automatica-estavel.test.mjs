@@ -135,8 +135,8 @@ const abrir = async (ctx, escala) => {
 const ESTADOS = [
   ['vazio · biblioteca não carregada', () => { collState = {}; albumCatalog = { categories: [], albums: [] }; sorteioPrefs.tema = ''; }],
   ['sem palavra · tudo', () => { sorteioPrefs.tema = ''; sorteioPrefs.quantos = 1; }],
-  ['sem palavra · sem hinário e sem infantis', () => { sorteioPrefs.tema = ''; sorteioPrefs.semHinario = true; sorteioPrefs.semInfantis = true; }],
-  ['sem palavra · só no aparelho', () => { sorteioPrefs.tema = ''; sorteioPrefs.semHinario = false; sorteioPrefs.soNoAparelho = true; }],
+  ['sem palavra · só o hinário 2022', () => { sorteioPrefs.tema = ''; sorteioPrefs.categorias = ['hinario-2022']; }],
+  ['sem palavra · só no aparelho', () => { sorteioPrefs.tema = ''; sorteioPrefs.categorias = []; sorteioPrefs.soNoAparelho = true; }],
   ['palavra curta · uma', () => { sorteioPrefs.soNoAparelho = false; sorteioPrefs.tema = 'paz'; sorteioPrefs.quantos = 1; }],
   ['palavra curta · dez', () => { sorteioPrefs.tema = 'paz'; sorteioPrefs.quantos = 10; }],
   ['palavra LONGA · dez', () => { sorteioPrefs.tema = 'misericórdia e graça abundante'; sorteioPrefs.quantos = 10; }],

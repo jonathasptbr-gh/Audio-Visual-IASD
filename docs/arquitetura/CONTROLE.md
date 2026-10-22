@@ -2435,6 +2435,13 @@ de pé" não conserta um arquivo pronto.
 
 ### O cast só era repintado no modo simplificado (v5.142)
 
+> **E ELE É VERDE COM A TV NO AR desde a v1.12.53** (era vermelho, "o toque
+> desconecta"). Pedido do operador: *"o vermelho indica algo desativado e não
+> conectado"*. `.pv-fab.connected` veste `--stage-ok` — o `--ok` do tema escuro
+> escrito literal no bloco sem tema, porque a prévia é PALCO (o `--ok` do claro
+> daria 3,0:1 sobre o preto dela). É o quarto verde de ATIVIDADE, nomeado no
+> `feedback-de-confirmacao.test.mjs`.
+
 O ícone de cast sobre a preview carrega o estado da conexão, e quem o pintava era
 `renderSimpleCast()` — que começa com `if (appMode !== 'simple') return`. No modo
 avançado ele **nunca** era repintado: o aceso que o simplificado deixou ficava
@@ -5238,6 +5245,30 @@ divergirem. As decisões:
   traz o "baixar o vídeo". `smoke.mjs` mede a 360px de propósito: os quatro
   oráculos de Chromium rodam a 430px, onde cabia, e era essa a razão de o defeito
   publicar verde.
+- **SEM LUGAR AO LADO DA CAPA, A FAIXA TOMA A LINHA INTEIRA** (v1.12.53). Pedido
+  do operador: *"Atualmente em telas menores, ele sobrepõe apenas parte da
+  thumbnail, ficando estranho … quando for uma certa largura, ele realmente oculta
+  a thumbnail, distribui corretamente a largura que sobrou para os botões de
+  opções."* O "cresce só o que precisa" acima deixava meia capa debaixo de um
+  botão. Hoje a pergunta é binária e MEDIDA (`acertarFaixaDaLinha`, a régua do
+  `acertarExtrasDaPrevia` — nunca um ponto de quebra): a SOMA das larguras dos
+  botões à vista, mais os vãos, contra o vão de layout entre a capa e a borda
+  direita da caixa.
+  - **Cabem:** nada muda — a capa fica, e é ela que diz de qual item é o menu.
+  - **Não cabem:** `.acoes-cheias` leva a caixa da borda do cartão (`.5rem`) ao
+    `⋮`, a capa sai de vista (`visibility: hidden`) e os botões se DISTRIBUEM
+    (`space-between`): o primeiro onde a capa começava, o último colado à borda.
+  - **Nem a linha inteira comporta** (`.acoes-justas`): MEDIDO, seis quadrados de
+    40px pedem 268px e a 320px a linha dá 224. Os quadrados descem a `--hit` (a
+    descida do sétimo botão) e o vão sai; só encolhem abaixo do piso se nem assim
+    couberem, porque desenhar por cima do `⋮` é pior.
+  - **A confirmação de excluir fica de fora** (`:not(.confirmando)`): com dois
+    filhos a caixa volta ao piso, e a LIXEIRA que ocupa a capa tem de estar à vista.
+  - Mede na abertura (`alternarAcoesDaLinha`), na reabertura depois do redesenho
+    (no quadro seguinte: o `li` ainda não está no documento) e num `resize`.
+  Vale para toda lista que monta a faixa por `montarAcoesDaLinha` com capa
+  (Cronograma, Favoritos, as mensagens). Oráculo: `cronograma-acoes-cheias.test.mjs`
+  (430 · 360 · 320×1,25).
 
 #### O toque encolhe o CARTÃO, não o miolo dele
 
@@ -7572,15 +7603,42 @@ responde a uma pergunta diferente:
   o toque borbulha até o card e o FECHA — a lixeira fecharia o álbum debaixo do
   diálogo que ela acabou de abrir.
 
-**A COLUNA DA DIREITA tem TRÊS botões possíveis** (v1.1.21), todos com a
-geometria de `.coll-bar-dl` — centros ou tamanhos que discordem num par colado é
-a coisa que mais parece defeito numa linha:
+**A COLUNA DA DIREITA tem DOIS botões possíveis** (eram três de v1.1.21 a v1.12.52),
+os dois com a geometria de `.coll-bar-dl` — centros ou tamanhos que discordem
+num par colado é a coisa que mais parece defeito numa linha:
 
 | botão | classe | responde a | quando |
 |---|---|---|---|
 | **baixar / cancelar** | `.coll-bar-dl` | "há o que baixar?" | álbum e hinário, aberto ou fechado |
-| **atualizar a lista** | `.coll-bar-at` | — | **só na SÉRIE**, sempre |
 | **remover** | `.coll-bar-rm` | "o álbum está aberto?" | álbum e hinário, só aberto |
+
+**O TERCEIRO, "Atualizar a lista" (`.coll-bar-at`, só na SÉRIE), SAIU NA v1.12.53**, a
+pedido do operador: *"Remover o botão de atualizar e verificar o informativo das
+missões e provai e vede, deixe essa ação automática quando o usuário abre as
+respectivas coleções … Como são apenas dois, essa pequena verificação dos vídeos
+da semana não será um problema … torne isso uma rotina, verificar os vídeos da
+semana."* A barra da série não tem botão nenhum, aberta ou fechada; quem verifica
+é a ABERTURA do card (`verificarSemanaAoAbrir`, no `alternarAcordeao` e no
+`openCollectionOptions`), nos dois modos:
+
+- **O que ela faz é o que o botão fazia, mais o passo seguinte:** refaz a lista
+  (`syncCollection(coll, { soIndice: true, rotulo })`, que só extrai o canal e
+  NUNCA baixa um episódio) e, com ela de pé, roda `manterSeriesDaSemana` — a
+  rotina que baixa o do sábado com as regras de rede dela e solta as passadas.
+- **Piso de 5 min** (`SERIE_VERIFICA_PISO_MS`; 1 min depois de uma falha, para
+  quem voltou a ter rede tentar logo): abrir e fechar o card num culto não pode
+  ser uma extração do canal por toque. **Uma por vez**: com `syncBusy` ela não
+  pede outra.
+- **CEDE À MÍDIA NO AR** (`rotinaDeAcervoPodeCorrer`), como toda rotina de
+  acervo — a extração disputa a fila da ponte com o que está tocando. Adiada, ela
+  NÃO arma o piso, o subtítulo diz "Verificação da semana adiada: há mídia no ar",
+  e o primeiro desenho do card ABERTO com a mídia já fora do ar a retoma — sem
+  pedir ao operador que feche e reabra.
+- **O subtítulo da barra é o estado:** "Verificando os vídeos da semana…"
+  enquanto corre (o `rotulo` do `syncCollection`), o número de episódios quando
+  acaba bem, e "Sem conexão — semana não verificada" quando falha
+  (`u.semanaAviso`). Sem o botão, esta linha é a única que conta.
+Oráculo: `serie-mantem-a-semana.test.mjs`, bloco K.
 
 - **A lixeira é revelada pelo mesmo gesto que revela o que ela apaga.** Fechado,
   o card não oferece destruição nenhuma — e o acervo inteiro é uma lista de
@@ -7636,7 +7694,8 @@ não saiu.
 > terminaram na coluna da direita da barra: o "Verificar" saiu na v1.1.16 (a
 > verificação virou automática na abertura — ver `forcarIndice`), o "Baixar" já
 > existia na barra e era só repetido, e o "Atualizar a lista" da série virou
-> botão puro ao lado dos irmãos.
+> botão puro ao lado dos irmãos — e saiu da barra também na v1.12.53, quando
+> abrir o card passou a verificar a semana.
 
 > **A REGRA QUE ESTE PAINEL ENSINOU, DUAS VEZES: nada aqui repete o que a barra
 > do card já diz.** Ele já teve três chips, uma linha de status e um chip de
@@ -8166,15 +8225,86 @@ palavra tema (que vai fazer a busca na biblioteca sobre palavras-chave e filtrar
 a lista) e então aleatoriamente escolhe uma ou mais para tocar."*
 
 Um botão **abre a barra da Biblioteca** (`#sorteioBtn`, à esquerda do campo de
-busca) e leva a uma folha com cinco decisões e um botão:
+busca) e leva a uma folha com estas decisões (a tabela é a de HOJE; o segmento
+do modo virou a roleta da quantidade na v1.8.61/v1.8.96):
 
 | Controle | Pergunta | Valores |
 |---|---|---|
-| segmento | quanto? | **Tocar uma só** · **Montar playlist** |
 | campo | qual tema? | palavra livre — vazio = o acervo inteiro |
 | segmento | o quê? | **Cantada** · **Fundo musical** |
-| pílulas | filtros | **Sem hinário** · **Só no aparelho** |
-| pílulas | quantas? | 3 · 5 · 10 · 15 · 20 *(só montando fila)* |
+| pílulas | de onde? | uma por COLEÇÃO que existe nos dados — **Hinário 2022** · **Hinário 1996** · **Infantis** · uma por coletânea · **Outros álbuns** — e **Só no aparelho** no fim |
+| roleta | quantas? | 1 ao teto (`min(50, disponíveis)`) |
+
+#### Os filtros são INCLUSIVOS (v1.12.53)
+
+Pedido do operador: *"agora ela vai ser inclusiva e não exclusiva. Vamos ter o
+hinário 2022, hinário 1996, infantis, músicas jovens... com tantas opções, acabo
+tendo de dar vários toques para chegar no tipo de música que quero, por exemplo
+quando quero só musicas do hinário, hoje preciso selecionar várias exclusões."*
+
+**A regra é uma frase: nada marcado = tudo entra; marcado = a UNIÃO do que está
+marcado.** "Sem hinário" e "Sem infantis" saíram; "só o hinário" é UM toque.
+
+- **As categorias PARTICIONAM o acervo de música** (`AVSorteio.categoriasDaFaixa`),
+  e é isso que faz a união não ter sobra nem buraco: o Hinário 2022 SEM a faixa
+  508–557, os **Infantis** (a faixa — o antigo "Sem infantis" ligado é hoje
+  "Hinário 2022" marcado), o Hinário 1996, uma por **coletânea** do banco
+  (`col:<id_category>`) e **Outros álbuns** (o álbum que coletânea nenhuma
+  reivindica). Um álbum em duas coletâneas (N:N) entra por qualquer uma delas.
+- **As coletâneas são as que a Biblioteca DESENHA** — a mesma leitura dissolvida
+  (`AVColetanea.aplicar`) e o mesmo filtro (`categoryCards`, que tira o hinário
+  disfarçado de álbum); "Outros álbuns" só existe com órfão, como lá
+  (`sorteioCategorias`, `sorteioColetaneas`). Duas listas divergiriam no
+  primeiro ajuste, e a folha ofereceria uma seção que a Biblioteca não tem. Os
+  "músicas jovens" do pedido são uma dessas coletâneas — o nome é o do banco.
+- **Coleção sem faixa carregada fica APAGADA** (`disabled`, `--op-inativo`) com o
+  motivo no `title` — e não some: uma pílula que aparece quando o índice chega
+  moveria as vizinhas debaixo do dedo. A MARCADA nunca se apaga.
+- **"Só no aparelho" fica, por último na mesma fileira.** Ele não é coleção:
+  estreita o que as marcas trouxeram, e lê como a frase que é ("Hinário 2022 · só
+  no aparelho").
+- **A fileira QUEBRA** (`.sorteio-linha--cats`): sete ou oito pílulas não cabem
+  numa linha de 360px. Cada uma nasce com a largura do rótulo e cresce para
+  fechar a linha em que caiu (`flex: 1 1 auto`).
+- **As categorias NÃO são gravadas**: a folha as apaga a cada abertura (a regra da
+  v1.8.98, que continua de pé com os filtros de hoje), e um campo que ninguém lê
+  não fica velho. Um `sorteioPrefs` antigo com `semHinario`/`semInfantis` chega
+  como "tudo".
+- **A recusa é NOMEADA** (`MOTIVO_CATEGORIA`, "fora das coleções marcadas" no
+  Registro), e o Registro diz o que estava marcado (`· só Hinário 2022 + …`).
+
+#### O sorteio do Modo Fácil: um toque, sem folha (v1.12.53)
+
+Pedido do operador: *"Adicionar o botão de sorteio no modo simples, mas bem
+simplificado, no caso ele vai sortear apenas músicas do hinário 2022, sem
+infantis e sem opções, apenas tocar o botão de sorteio escolhe uma música dessa
+categoria, sempre cantada."*
+
+- **ONDE: o quadrado da ESQUERDA da barra da Biblioteca** (`#sorteioSimplesBtn`).
+  É o lugar do `#sorteioBtn` no avançado — a mesma porta, no mesmo canto, nos dois
+  modos —, e a barra está à vista em TODO estado do Modo Fácil (principal, fechada
+  sobre a leitura, aberta sobre ela). O `#sorteioBtn` continua escondido ali
+  (`body.mode-simple #sorteioBtn`, v1.11.15): são dois botões, um por modo, e o do
+  simples não existe no avançado. Não foi para as teclas do transporte porque
+  elas SAEM durante uma busca (v1.12.51) e porque sortear é escolher o que tocar —
+  é pergunta da Biblioteca, não do transporte.
+- **A REGRA É A DA FOLHA**, com `categorias: ['hinario-2022']` e a cantada
+  (`sorteioSimplesPool`): a categoria já exclui os infantis por construção. Uma
+  segunda escrita de "é do hinário novo e não é infantil" divergiria dela.
+- **O TOQUE É UMA ESCOLHA DA BIBLIOTECA**: `simpleMarcarEscolha` (a escolha sem
+  LINHA tocada — `simpleSelecionarLinha` virou um embrulho dela) e
+  `simpleAcompanhar(simplePlaySong(coll, s))`, isto é, o mesmo download, o mesmo
+  consentimento e a mesma coreografia de saída.
+- **UNIFORME, e isto diverge da folha de propósito.** A folha põe o que já está
+  no aparelho na frente de tudo; aqui não há lista à vista nem "Só no aparelho"
+  para tornar isso explícito, e com três hinos baixados a preferência absoluta
+  sortearia sempre um daqueles três. **Sem rede** (`navigator.onLine === false`
+  ou o servidor da biblioteca fora) só entra o que está no aparelho.
+- **APAGADO, NUNCA INERTE** (`sorteioSimplesImpedimento`): sem o Hinário 2022
+  carregado, ou com nada baixado e sem como baixar, o `title` diz por quê.
+  Repintado em `setAppMode`, `renderCollectionsNow`, `fonteAoMudar` e nos eventos
+  `online`/`offline`; o toque reconfere antes de sortear.
+Oráculo: `sorteio-simples.test.mjs`.
 
 #### A REGRA é um arquivo puro, com oráculo
 
@@ -8198,12 +8328,13 @@ intermediária e sem ninguém conferir a lista antes.
 | **as séries** | `temLetra(coll)` — a pergunta é pela CAPACIDADE, nunca por `kind === 'serie'`. Um episódio são ~300 MB no lugar do louvor |
 | **pastas do aparelho e Favoritos** | eles não são coleções, são LISTAS: `allCollections()` não os conhece |
 | **faixa sem a variante pedida** | `semAudio` / `has_instrumental_music && !semPlayback` — sem essa guarda a faixa entra, o download não acha URL, e o cartão responde *"sem internet para baixar"*, que é a frase errada |
-| **o hinário**, se o operador pedir | `collNumbersSongs(coll)`. É OPÇÃO, não regra — foi assim que ele pediu |
+| **o que não está nas coleções marcadas** | `avaliarColecao`/`avaliarFaixa` com `categorias` (v1.12.53). Nada marcado = nada fica de fora por isto |
 
 #### A palavra é MOMENTÂNEA; os filtros são AJUSTES (v5.308)
 
-A caixa é **limpa a cada fechamento** e a palavra **não é gravada** — só as
-outras cinco escolhas são (modo, variante, os dois filtros, quantidade). A
+A caixa é **limpa a cada fechamento** e a palavra **não é gravada** — gravados
+são a variante, o "Só no aparelho" e a quantidade (as coleções marcadas também
+não, desde a v1.12.53: a folha as apaga a cada abertura). A
 diferença é o que cada uma significa: aquelas são *como o recurso deve se
 comportar*, e a palavra é uma *pergunta*, feita uma vez. Reencontrá-la em
 fevereiro é um filtro silencioso sobre o primeiro sorteio de quem só queria
@@ -8213,18 +8344,9 @@ A limpeza mora em `fecharSorteio`, e é ali porque essa é a única função que
 **três** caminhos de fechamento alcançam (o ✕, o toque no fundo e o voltar do
 aparelho) — é o que a tabela `POPUPS` garante.
 
-**Vazia, a caixa sorteia do acervo INTEIRO**, e a frase o diz liderando com o
-escopo em vez do número: com o campo em branco é o escopo que está em dúvida.
-Ela é honesta sobre os dois filtros que encolhem o "tudo" — dizer "toda a
-biblioteca" com o hinário fora seria uma frase errada, e frase errada é pior que
-nenhuma:
-
-| Filtros | A frase |
-|---|---|
-| nenhum | `Toda a biblioteca — 58 músicas` |
-| sem hinário | `Toda a biblioteca, sem o hinário — 18 músicas` |
-| só no aparelho | `Só o que já está no aparelho — 17 músicas` |
-| os dois | `Só o que já está no aparelho, sem o hinário — 5 músicas` |
+**Vazia, a caixa sorteia do acervo INTEIRO** (dentro das coleções marcadas). *(A
+frase de escopo que liderava a conta — "Toda a biblioteca, sem o hinário — 18
+músicas" — saiu na v1.8.84 com o cartão; o que fica é o número.)*
 
 A **variante** (Cantada × Playback) fica de fora dessa conta de propósito: ela
 não encolhe um acervo, escolhe QUAL faixa de cada música — e o segmento logo
@@ -8566,11 +8688,11 @@ justamente o número do meio: escolher 4 exigia marcar as linhas na mão.
   seus filtros sempre que for reaberta. Desmarcando os filtros hinário, sem
   infantis e só no aparelho. Além de limpar a palavra tema."* É o argumento das
   MARCAS (v1.8.84) um nível acima: um filtro que sobrevive fechado tira músicas
-  do sorteio sem que ninguém lembre por quê — e o "sem hinário" esquecido ligado
-  é a biblioteca inteira do culto fora da conta. **Isto REVOGA "o único filtro
-  que nasce ligado"** da v5.311 pela metade que importa: `AVSorteio.sanear`
-  continua devolvendo `semInfantis: true` por omissão (aquela regra é sobre LER
-  um registro gravado), e a folha o apaga por escrito em toda abertura.
+  do sorteio sem que ninguém lembre por quê. **Desde a v1.12.53 os filtros são as
+  COLEÇÕES marcadas** (inclusivas), e a regra vale igual: `abrirSorteio` zera
+  `categorias`, o "Só no aparelho" e a palavra — nada marcado é o acervo inteiro.
+  (O "único filtro que nasce ligado", `semInfantis`, saiu com os filtros de
+  exclusão.)
 - **A LISTA NÃO SE REORGANIZA.** Marcar a linha 9 deixa a linha 9 onde está, com
   a posição 3 do lote: o que numera é a ordem do BARALHO, contando só as
   marcadas. Subir a marcada para o topo seria reorganizar a lista debaixo do
@@ -10062,7 +10184,7 @@ sábado é visto uma vez. Então:
 | "Tocar agora" | `ytAcao(…, ['tocar'])` | **BAIXA e projeta** — `ytArquivo`, no teto padrão do operador (720p). Era TRANSMISSÃO DIRETA até a v1.7.2 |
 | Modo Fácil | `simplePlaySong` desvia para o mesmo `ytAcao` | aquele modo não pergunta nada, e esperar 300 MB com o culto rodando não é opção |
 | guardar offline | os destinos da folha (playlist · Cronograma · Favoritos) | um episódio por vez, pelo caminho de download do YouTube |
-| card | `renderCollectionCard` | **card da RAIZ** do índice (v1.0.1), acima dos hinários. **UM botão só** (v1.1.21): "Atualizar a lista" (`syncCollection(coll, { soIndice: true })`), puro e sem texto, na direita da barra — sem baixar em lote e sem lixeira, porque o álbum não retém arquivo. A barra diz quantos EPISÓDIOS a lista tem, não peso, e o do sábado desta semana fica DESTACADO no topo (`blocoDestaque`). A série sai de "Baixar toda a biblioteca" |
+| card | `renderCollectionCard` | **card da RAIZ** do índice (v1.0.1), acima dos hinários. **NENHUM botão na barra** desde a v1.12.53 (o "Atualizar a lista" da v1.1.21 saiu): abrir o card verifica a semana (`verificarSemanaAoAbrir`) — sem baixar em lote e sem lixeira, porque o álbum não retém arquivo. A barra diz quantos EPISÓDIOS a lista tem, não peso, e o do sábado desta semana fica DESTACADO no topo (`blocoDestaque`). A série sai de "Baixar toda a biblioteca" |
 
 `downloadSerieItem` e o laço de `syncCollection` continuam existindo e corretos
 — o que mudou é que nenhum toque de UI os alcança hoje. O que muda em relação a

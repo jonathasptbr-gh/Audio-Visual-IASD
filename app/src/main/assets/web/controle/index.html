@@ -2006,7 +2006,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion" class="app-version">v1.12.52</span>
+          <span id="appVersion" class="app-version">v1.12.53</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
@@ -3063,6 +3063,12 @@
              operador). Ela ABRE A LINHA, e o botão de fechar continua encerrando-a:
              a barra se lê como uma frase — *sortear* · *procurar* · *sair*. -->
         <button id="sorteioBtn" class="popup-close lib-quad" title="Playlist automática — sortear por tema" aria-label="Playlist automática"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSorteio"/></svg></button>
+        <!-- O SORTEIO DO MODO FÁCIL (v1.12.53), pedido do operador: *"bem simplificado … sortear
+             apenas músicas do hinário 2022, sem infantis e sem opções, apenas tocar o botão"*. É OUTRO
+             botão no MESMO lugar do `#sorteioBtn` (que segue escondido neste modo): sem folha, um
+             toque sorteia um hino e o toca como uma escolha da Biblioteca. Só existe no Modo Fácil
+             (CSS). Apagado, com o `title` dizendo por quê, quando não há hino que possa tocar. -->
+        <button id="sorteioSimplesBtn" class="popup-close lib-quad" type="button" title="Sortear um hino do Hinário 2022" aria-label="Sortear um hino do Hinário 2022"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSorteio"/></svg></button>
         <div class="lib-search-campo">
           <!-- A LUPA DENTRO DO CAMPO (v5.264, pedido do operador: *"isso vai
                indicar melhor o objetivo da barra"*). Ela é DECORAÇÃO — o toque nela
