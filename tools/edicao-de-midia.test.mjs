@@ -411,6 +411,64 @@ const criarEGuardar = async (pg2) => {
   return { folha, criado: await esperar(pg2, () => [...document.querySelectorAll('#edicaoLista .edicao-rotulo')].some((e) => e.textContent === 'Nome do item'), null, 15000) };
 };
 
+// C0 · A ABERTURA NÃO ENCOLHE (v1.12.52). Relato do operador: *"ela abre grande,
+// encolhe para carregamento da lista e depois fica grande quando a lista está
+// pronta"*. A troca de seção mede a altura final logo depois do gancho de abrir, e
+// o editor desenhava DEPOIS de um `await`: a caixa animava até o desenho da
+// abertura ANTERIOR (a lista inteira), o spinner entrava por cima e ela encolhia,
+// para crescer de novo com a lista. MEDIDO antes do conserto (430 px): 1ª abertura
+// 0→121 animado e SALTO a 299 no último quadro; 2ª 0→342, cai a 299, volta a 342.
+// Depois: 0→299 e 299→342 animados; a 2ª abre uma vez só, em 342.
+// `abrirMedindo` amostra a altura de `#cfgSecoes` a cada quadro, do toque até 1,6 s.
+const abrirMedindo = async (pg2 = app) => {
+  await pg2.evaluate(() => (document.getElementById('settingsBtn') || document.getElementById('simpleSettingsBtn')).click());
+  await esperar(pg2, () => document.getElementById('fadePopup').classList.contains('open'), null, 10000);
+  // A FOLHA ACABA DE SUBIR: espera-se o fim das animações FINITAS dela (o aro de um
+  // spinner é infinito, e o `finished` dele nunca chega).
+  await pg2.evaluate(() => Promise.all(document.getElementById('fadePopup').getAnimations({ subtree: true })
+    .filter((a) => a.effect && a.effect.getComputedTiming().iterations !== Infinity)
+    .map((a) => a.finished.catch(() => {}))));
+  return pg2.evaluate(() => new Promise((res) => {
+    const box = document.getElementById('cfgSecoes');
+    const out = []; const t0 = performance.now();
+    document.getElementById('edicaoTile').click();
+    // NO ATO do toque: o que a seção já mostra (o spinner, ou o formulário).
+    const noAto = { spinner: !!document.querySelector('#edicaoLista .edicao-carga'), form: !!document.getElementById('edicaoIni'),
+      titulo: document.getElementById('edicaoTitulo').textContent };
+    const tempos = []; const troca = []; const anims = [];
+    const tick = () => {
+      out.push(box.getBoundingClientRect().height); tempos.push(performance.now() - t0);
+      // `secaoAnim` é a troca de seção em curso; `anims`, as animações de altura da caixa.
+      troca.push(!!secaoAnim); anims.push(box.getAnimations().length);
+      if (performance.now() - t0 < 1600) requestAnimationFrame(tick); else res({ noAto, alturas: out, tempos, troca, anims });
+    };
+    tick();
+  }));
+};
+const quedaMaior = (a) => a.reduce((m, h, i) => (i && a[i - 1] - h > m ? a[i - 1] - h : m), 0);
+const fechar = (pg2 = app) => pg2.evaluate(() => closeFadePopup());
+const ab1 = await abrirMedindo();
+await esperar(app, () => !!document.querySelector('#edicaoLista [data-grupo="lst:favs"]'), null, 10000);
+await fechar();
+const ab2 = await abrirMedindo();
+await fechar();
+const resumo = (x) => JSON.stringify({ noAto: x.noAto, queda: +quedaMaior(x.alturas).toFixed(1),
+  fim: +x.alturas[x.alturas.length - 1].toFixed(1), n: x.alturas.length });
+checar(ab1.noAto.spinner && ab1.noAto.titulo === 'Escolher a mídia',
+  'C0 · no ATO do toque a seção já mostra o que esta abertura vai ser — o seletor com o spinner no lugar da '
+  + 'lista —, e a troca anima até ELE, não até o desenho da abertura anterior', resumo(ab1));
+checar(quedaMaior(ab1.alturas) < 0.5,
+  'C0 · a 1ª abertura só CRESCE (até o spinner, e dele até a lista)', resumo(ab1));
+checar(ab2.noAto.spinner && quedaMaior(ab2.alturas) < 0.5,
+  'C0 · e a 2ª abertura também só cresce — não há o encolher-e-crescer', resumo(ab2));
+// UMA ALTURA SÓ NA REABERTURA: o spinner reserva a altura da última lista, então aos
+// ~800 ms (a troca de 0,3 s já acabou, a lista só chega depois de 1 s) a caixa já
+// está na altura final.
+const em800 = ab2.alturas[Math.max(0, ab2.tempos.findIndex((t) => t >= 800))];
+checar(Math.abs(em800 - ab2.alturas[ab2.alturas.length - 1]) < 1,
+  'C0 · e a 2ª abertura já nasce na altura FINAL (o spinner guarda a da última lista) — a lista entra sem '
+  + 'mover a caixa', 'aos 800 ms ' + em800.toFixed(1) + ' · fim ' + ab2.alturas[ab2.alturas.length - 1].toFixed(1));
+
 // C1 · SEM rascunho a janela abre no SELETOR, com os grupos das listas.
 const aberta = await abrir();
 await esperar(app, () => !!document.querySelector('#edicaoLista [data-grupo="lst:favs"]'), null, 10000);
@@ -533,7 +591,21 @@ await app.waitForTimeout(400);   // o gravar do rascunho é adiado em 250 ms de 
 await app.click('#edicaoSecao .cfg-sec-recolher');
 await app.reload({ waitUntil: 'domcontentloaded' });
 await esperarCortina(app);
-const voltou = await abrir();
+// C3a · COM RASCUNHO, a abertura lê o banco antes de saber que é o formulário: o que
+// muda no meio da troca continua animando (MEDIDO antes: 0→121 e SALTO a 504 num
+// quadro só, 76% da altura; depois, passos de quadro de no máximo ~12%).
+const ab3 = await abrirMedindo();
+await esperar(app, () => !!document.getElementById('edicaoIni'), null, 10000);
+const total3 = Math.max(...ab3.alturas);
+// O PRIMEIRO QUADRO DEPOIS DA TROCA: o formulário chegou no meio dela, então ali a
+// caixa ou está ANIMANDO até a altura nova, ou não se moveu. Sem a continuação ela
+// salta, sem animação nenhuma.
+const iFim = ab3.troca.findIndex((t, i) => i > 0 && ab3.troca[i - 1] && !t);
+const depoisDaTroca = iFim > 0 ? { anims: ab3.anims[iFim], salto: +(ab3.alturas[iFim] - ab3.alturas[iFim - 1]).toFixed(1) } : null;
+checar(quedaMaior(ab3.alturas) < 0.5 && depoisDaTroca && (depoisDaTroca.anims > 0 || Math.abs(depoisDaTroca.salto) < total3 * 0.3),
+  'C3a · com rascunho a abertura só cresce, e o formulário que chega no meio da troca ANIMA a partir dela — '
+  + 'no fim da troca a caixa não salta para a altura nova', resumo(ab3) + ' ' + JSON.stringify(depoisDaTroca) + ' total=' + total3.toFixed(1));
+const voltou = await esperar(app, () => document.getElementById('edicaoSecao').classList.contains('open'), null, 10000);
 await esperar(app, () => !!document.getElementById('edicaoIni'), null, 10000);
 const rasc2 = await estado(app);
 checar(voltou === true && rasc2.titulo === 'Editar mídia' && rasc2.ini === '2' && rasc2.fim === '5'

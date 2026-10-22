@@ -411,31 +411,61 @@ try {
     'I · "Tudo certo" veste o azul de `--accent`, nunca o verde (a conclusão é azul desde a v1.8.55)',
     tela.corBom + ' vs ' + rgb(tela.accent));
 
-  // I1 · RECOLHER CANCELA. Depois de recolhida a seção, nenhuma checagem nova
-  // começa e a rodada não deixa resultado — meia lista se leria como o
-  // veredito do aparelho.
-  const cancela = await pg.evaluate(async () => {
+  // I1 · RECOLHER SÓ OCULTA (v1.12.52). Pedido do operador: *"fazer um botão de
+  // ocultar para o processo de verificação sem ser interrompido"*. Recolhida a
+  // seção, a rodada SEGUE até o fim e deixa resultado; o tile "Verificar" mostra
+  // o aro e o percentual enquanto anda e o desfecho no fim; reabrir mostra o
+  // resultado pronto, sem rodar de novo — e o tile volta a ser "Verificar".
+  const oculta = await pg.evaluate(async () => {
     const real = window.rodarUmaChecagem;
     let fechada = false; let depois = 0; let antes = 0;
-    window.rodarUmaChecagem = (c) => { if (fechada) depois++; else antes++; return real(c); };
+    window.rodarUmaChecagem = async (c) => {
+      if (fechada) depois++; else antes++;
+      await new Promise((r) => setTimeout(r, 60));
+      return real(c);
+    };
     recolherSecao();
+    testeNaoVisto = false;
     abrirSecao('teste');
     await new Promise((r) => setTimeout(r, 0));
     const rodava = testeRodando;
     recolherSecao(); fechada = true;
+    await new Promise((r) => setTimeout(r, 400));
+    const tile = document.getElementById('testeTile');
+    const durante = { rodando: testeRodando || !!testeEmCurso, aro: tile.classList.contains('qs-trabalhando'),
+      titulo: tile.querySelector('.qs-titulo').textContent, grade: !document.getElementById('cfgTopo').hidden,
+      secao: secaoAberta };
     while (testeEmCurso || testeRodando) await new Promise((r) => setTimeout(r, 20));
     window.rodarUmaChecagem = real;
-    return { rodava, antes, depois, resultado: testeResultado, tile: document.getElementById('testeTile').classList.contains('qs-trabalhando') };
-  });
-  checar(cancela.rodava && cancela.antes > 0,
-    'I1 · PREMISSA: a rodada estava andando quando a seção recolheu', JSON.stringify(cancela));
-  checar(cancela.depois === 0 && cancela.resultado === null && !cancela.tile,
-    'I1 · recolher a seção CANCELA: nenhuma checagem começa depois, e nada fica como resultado',
-    JSON.stringify(cancela));
-  await pg.evaluate(async () => {
+    const fim = { resultado: !!testeResultado, naoVisto: testeNaoVisto, aro: tile.classList.contains('qs-trabalhando'),
+      titulo: tile.querySelector('.qs-titulo').textContent, rotulo: testeResultado ? rotuloDoTileDoTeste(testeResultado) : null };
+    let novas = 0;
+    window.rodarUmaChecagem = (c) => { novas++; return real(c); };
+    const emAntes = testeResultado ? testeResultado.em : -1;
     abrirSecao('teste');
-    while (testeEmCurso || testeRodando || !testeResultado) await new Promise((r) => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 300));
+    window.rodarUmaChecagem = real;
+    const reaberta = { novas, rodando: testeRodando || !!testeEmCurso, mesmo: testeResultado && testeResultado.em === emAntes,
+      cartoes: document.querySelectorAll('#testeList .teste-erro').length, resumo: document.getElementById('testeResumo').textContent,
+      titulo: tile.querySelector('.qs-titulo').textContent, naoVisto: testeNaoVisto };
+    return { rodava, antes, depois, durante, fim, reaberta };
   });
+  checar(oculta.rodava && oculta.antes > 0,
+    'I1 · PREMISSA: a rodada estava andando quando a seção recolheu', JSON.stringify(oculta));
+  checar(oculta.durante.rodando && oculta.durante.secao === '' && oculta.durante.grade && oculta.depois > 0,
+    'I1 · recolher a seção NÃO cancela: a rodada segue (checagens continuam começando) com a grade de volta',
+    JSON.stringify(oculta.durante) + ' depois=' + oculta.depois);
+  checar(oculta.durante.aro && /^\d+%$/.test(oculta.durante.titulo),
+    'I1 · e enquanto ela anda oculta o tile "Verificar" mostra o ARO e o PERCENTUAL', JSON.stringify(oculta.durante));
+  checar(oculta.fim.resultado && oculta.fim.naoVisto && !oculta.fim.aro && oculta.fim.titulo === oculta.fim.rotulo
+      && /^(Tudo certo|\d+ problemas?|\d+ sem resposta)$/.test(oculta.fim.titulo),
+    'I1 · terminada oculta, ela deixa RESULTADO e o tile diz o desfecho ("Tudo certo" / "N problemas")',
+    JSON.stringify(oculta.fim));
+  checar(oculta.reaberta.novas === 0 && !oculta.reaberta.rodando && oculta.reaberta.mesmo
+      && oculta.reaberta.cartoes > 0 && /problema|não respond|Tudo certo/.test(oculta.reaberta.resumo),
+    'I1 · reabrir mostra o resultado PRONTO, sem rodar de novo', JSON.stringify(oculta.reaberta));
+  checar(oculta.reaberta.titulo === 'Verificar' && !oculta.reaberta.naoVisto,
+    'I1 · e, visto, o tile volta a ser "Verificar"', JSON.stringify(oculta.reaberta));
 
   // ---- I2: ELA MORA DENTRO DE CONFIGURAÇÕES (v1.12.48) ----------------
   //
@@ -474,73 +504,92 @@ try {
     'J · o voltar recolhe a seção e Configurações fica — ela foi aberta depois, e é desfeita antes',
     JSON.stringify(volta));
 
-  // ---- J2: FECHAR CONFIGURAÇÕES NO MEIO DA RODADA A CANCELA (v1.12.48) ----
-  // Era o que fechar a folha da Verificação fazia; a folha agora é a de
-  // Configurações inteira, e a regra continua: desistir da folha é desistir
-  // da rodada. Pelo ✕ grande, que é o único que existe.
+  // ---- J2: FECHAR CONFIGURAÇÕES NO MEIO DA RODADA NÃO A CANCELA (v1.12.52) ----
+  // Até a v1.12.51 desistir da folha era desistir da rodada; hoje recolher (o
+  // voltar, o chevron, o ✕ de Configurações) só OCULTA — quem interrompe é o
+  // Cancelar. Pelo ✕ grande, que é o único que existe.
   const fecharNoMeio = await pg.evaluate(async () => {
     const real = window.rodarUmaChecagem;
     let fechada = false; let depois = 0;
-    window.rodarUmaChecagem = (c) => { if (fechada) depois++; return real(c); };
+    window.rodarUmaChecagem = async (c) => { if (fechada) depois++; await new Promise((r) => setTimeout(r, 40)); return real(c); };
+    testeNaoVisto = false;
     abrirSecao('teste');
     await new Promise((r) => setTimeout(r, 0));
     const rodava = testeRodando;
     document.getElementById('fadePopupClose').click(); fechada = true;
     while (testeEmCurso || testeRodando) await new Promise((r) => setTimeout(r, 20));
     window.rodarUmaChecagem = real;
-    return { rodava, depois, resultado: testeResultado, secao: secaoAberta,
+    return { rodava, depois, resultado: !!testeResultado, naoVisto: testeNaoVisto, secao: secaoAberta,
       config: document.getElementById('fadePopup').classList.contains('open') };
   });
-  checar(fecharNoMeio.rodava && fecharNoMeio.depois === 0 && fecharNoMeio.resultado === null
+  checar(fecharNoMeio.rodava && fecharNoMeio.depois > 0 && fecharNoMeio.resultado && fecharNoMeio.naoVisto
       && fecharNoMeio.secao === '' && !fecharNoMeio.config,
-    'J2 · fechar Configurações pelo ✕ no meio da rodada CANCELA a verificação e recolhe a seção',
-    JSON.stringify(fecharNoMeio));
+    'J2 · fechar Configurações pelo ✕ no meio da rodada NÃO a cancela: ela termina com resultado, guardado '
+    + 'como não visto', JSON.stringify(fecharNoMeio));
 
-  // ---- J3: O CANCELAR VERMELHO (v1.12.48) ---------------------------------
-  // Enquanto a rodada anda a seção tem UMA saída: o Cancelar da faixa dela,
-  // no vermelho destrutivo de sempre (`--btn-danger` + `--danger-strong`). O
-  // chevron do cabeçalho some — duas saídas para a mesma coisa disputam. No
-  // fim, o Cancelar some e voltam o chevron e o Refazer.
+  // ---- J3: OCULTAR E CANCELAR (v1.12.48 · v1.12.52) ------------------------
+  // Enquanto a rodada anda a faixa tem o OCULTAR (secundário, que só recolhe) e o
+  // CANCELAR, no vermelho destrutivo de sempre (`--btn-danger` +
+  // `--danger-strong`); o chevron do cabeçalho fica e também só oculta. No fim,
+  // os dois somem e volta o Refazer.
   await pg.evaluate(() => { document.getElementById('settingsBtn').click(); });
   await pg.waitForSelector('#fadePopup.open', { timeout: 5000 });
   const cancelar = await pg.evaluate(async () => {
     const real = window.rodarUmaChecagem;
     let tocado = false; let depois = 0;
-    window.rodarUmaChecagem = (c) => { if (tocado) depois++; return real(c); };
+    window.rodarUmaChecagem = async (c) => { if (tocado) depois++; await new Promise((r) => setTimeout(r, 40)); return real(c); };
+    testeNaoVisto = false;
     abrirSecao('teste');
     await new Promise((r) => setTimeout(r, 0));
     const cx = document.getElementById('testeCancelar');
+    const oc = document.getElementById('testeOcultar');
     const ch = document.querySelector('#testeSecao .cfg-sec-recolher');
     const cs = getComputedStyle(cx);
     const raiz = getComputedStyle(document.documentElement);
     const cor = (v) => { const s = document.createElement('span'); s.style.color = raiz.getPropertyValue(v); document.body.appendChild(s); const c = getComputedStyle(s).color; s.remove(); return c; };
-    const durante = { rodava: testeRodando, cancelar: !cx.hidden && cs.display !== 'none' && cx.getBoundingClientRect().width > 0,
+    const vis = (e) => !e.hidden && getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().width > 0;
+    const durante = { rodava: testeRodando, cancelar: vis(cx), ocultar: vis(oc), ocultarRotulo: oc.textContent.trim(),
       fundo: cs.backgroundColor, tinta: cs.color, danger: cor('--btn-danger'), dangerStrong: cor('--danger-strong'),
-      rotulo: cx.textContent.trim(), chevron: !ch.hidden && getComputedStyle(ch).display !== 'none',
-      refazer: !document.getElementById('testeRefazer').hidden };
+      ocultarFundo: getComputedStyle(oc).backgroundColor,
+      rotulo: cx.textContent.trim(), chevron: vis(ch), refazer: !document.getElementById('testeRefazer').hidden };
+    // O OCULTAR: recolhe, devolve a grade, e a rodada continua.
+    oc.click();
+    await new Promise((r) => setTimeout(r, 0));
+    const aposOcultar = { secao: secaoAberta, rodando: testeRodando || !!testeEmCurso, grade: !document.getElementById('cfgTopo').hidden };
+    abrirSecao('teste');
+    await new Promise((r) => setTimeout(r, 0));
+    const reaberta = { rodando: testeRodando || !!testeEmCurso, cancelar: vis(cx), pct: +document.getElementById('testePct').textContent };
     cx.click(); tocado = true;
     while (testeEmCurso || testeRodando) await new Promise((r) => setTimeout(r, 20));
     window.rodarUmaChecagem = real;
     const aposCancelar = { depois, resultado: testeResultado, secao: secaoAberta,
-      config: document.getElementById('fadePopup').classList.contains('open') };
+      config: document.getElementById('fadePopup').classList.contains('open'),
+      tile: document.querySelector('#testeTile .qs-titulo').textContent,
+      aro: document.getElementById('testeTile').classList.contains('qs-trabalhando') };
     abrirSecao('teste');
     while (testeEmCurso || testeRodando || !testeResultado) await new Promise((r) => setTimeout(r, 20));
-    const fim = { cancelar: !cx.hidden, chevron: !ch.hidden, refazer: !document.getElementById('testeRefazer').hidden };
-    return { durante, aposCancelar, fim };
+    const fim = { cancelar: vis(cx), ocultar: vis(oc), chevron: vis(ch), refazer: !document.getElementById('testeRefazer').hidden };
+    return { durante, aposOcultar, reaberta, aposCancelar, fim };
   });
   checar(cancelar.durante.rodava && cancelar.durante.cancelar && cancelar.durante.rotulo === 'Cancelar'
       && cancelar.durante.fundo === cancelar.durante.danger && cancelar.durante.tinta === cancelar.durante.dangerStrong,
     'J3 · DURANTE a rodada a faixa da seção mostra o CANCELAR, no vermelho destrutivo de sempre '
     + '(`--danger-strong` sobre `--btn-danger`)', JSON.stringify(cancelar.durante));
-  checar(!cancelar.durante.chevron && !cancelar.durante.refazer,
-    'J3 · e enquanto ele está lá o chevron de recolher e o Refazer não aparecem — uma saída só',
+  checar(cancelar.durante.ocultar && cancelar.durante.ocultarRotulo === 'Ocultar'
+      && cancelar.durante.ocultarFundo !== cancelar.durante.danger && cancelar.durante.chevron && !cancelar.durante.refazer,
+    'J3 · e ao lado dele o OCULTAR, secundário (não vermelho); o chevron fica, e o Refazer não aparece',
     JSON.stringify(cancelar.durante));
+  checar(cancelar.aposOcultar.secao === '' && cancelar.aposOcultar.rodando && cancelar.aposOcultar.grade
+      && cancelar.reaberta.rodando && cancelar.reaberta.cancelar,
+    'J3 · tocar no Ocultar recolhe a seção e devolve a grade SEM interromper; reaberta, a rodada continua',
+    JSON.stringify([cancelar.aposOcultar, cancelar.reaberta]));
   checar(cancelar.aposCancelar.depois === 0 && cancelar.aposCancelar.resultado === null
-      && cancelar.aposCancelar.secao === '' && cancelar.aposCancelar.config,
-    'J3 · tocar no Cancelar interrompe a rodada e recolhe a seção, e Configurações fica',
-    JSON.stringify(cancelar.aposCancelar));
-  checar(!cancelar.fim.cancelar && cancelar.fim.chevron && cancelar.fim.refazer,
-    'J3 · e com a rodada terminada o Cancelar some: voltam o chevron e o Refazer', JSON.stringify(cancelar.fim));
+      && cancelar.aposCancelar.secao === '' && cancelar.aposCancelar.config
+      && cancelar.aposCancelar.tile === 'Verificar' && !cancelar.aposCancelar.aro,
+    'J3 · tocar no Cancelar interrompe a rodada, não deixa resultado, recolhe a seção, e o tile volta a ser '
+    + '"Verificar"', JSON.stringify(cancelar.aposCancelar));
+  checar(!cancelar.fim.cancelar && !cancelar.fim.ocultar && cancelar.fim.chevron && cancelar.fim.refazer,
+    'J3 · e com a rodada terminada Ocultar e Cancelar somem: fica o Refazer', JSON.stringify(cancelar.fim));
 
   // ---- K: OS FALSOS VERDES QUE A PRIMEIRA VERSÃO NÃO PODIA VER (v1.10.1) ----
   //

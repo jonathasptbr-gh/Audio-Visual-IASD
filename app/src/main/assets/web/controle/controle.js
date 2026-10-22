@@ -344,6 +344,7 @@ const testeResumoEl = document.getElementById('testeResumo');
 const testeListEl = document.getElementById('testeList');
 const testeSalvarEl = document.getElementById('testeSalvar');
 const testeCancelarEl = document.getElementById('testeCancelar');
+const testeOcultarEl = document.getElementById('testeOcultar');
 const testeAnelEl = document.getElementById('testeAnel');
 const testePctEl = document.getElementById('testePct');
 const testePct2El = document.getElementById('testePct2');
@@ -416,7 +417,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.51';
+const WEB_VERSION = '1.12.52';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -27758,10 +27759,10 @@ function openFadePopup() {
   lerEspelho();
   pedirDiag();
   fadePopupEl.classList.add('open');
+  acertarAjudaDoCabecalho();
 }
-// FECHAR RECOLHE A SEÇÃO ABERTA, sem animar (a folha inteira está subindo), e
-// recolher a Verificação a CANCELA (`aoRecolherTeste`) — fechar Configurações
-// no meio de uma rodada é desistir dela, como era fechar a folha dela.
+// FECHAR RECOLHE A SEÇÃO ABERTA, sem animar (a folha inteira está subindo). Uma
+// Verificação em curso SEGUE oculta (v1.12.52): o tile dela mostra o andamento.
 function closeFadePopup() {
   recolherSecao({ animar: false });
   fadePopupEl.classList.remove('open');
@@ -30824,6 +30825,11 @@ async function testeDownloadCompleto() {
     return tNa('sem Wi-Fi confirmado e com "Dados móveis" desligado nas Configurações — o teste baixaria um vídeo inteiro');
   }
   const esc = await testeEscolherEpisodio();
+  // O CANCELAR QUE CHEGOU DURANTE A ESCOLHA (v1.12.52): `testeDlCancelar` ainda não
+  // existia, `cancelarVerificacao` só deixou a marca — e ela era lida só na entrada,
+  // então o download partia assim mesmo e baixava inteiro, por baixo de uma rodada já
+  // cancelada.
+  if (testeDlCanceladoAntes) { m.cancelado = 'você'; return tNa('cancelado por você antes de começar'); }
   if (!esc.s) return tNa(esc.motivo);
   const s = esc.s;
   const vid = s.id_music;
@@ -30904,12 +30910,21 @@ async function testeDownloadCompleto() {
   m.contas = c;
   const caminho = /→ juntou/.test(m.diag || '') ? 'juntou' : /→ veio/.test(m.diag || '') ? 'veio' : '';
   m.caminho = caminho;
+  // O CACHE DO SHELL TAMBÉM É CONFERIDO (v1.12.52): a medida dele lista o que sobrou
+  // na pasta do download ao fim (`sobraNoCache`). Um arquivo DESTE vídeo ali — que não
+  // seja o entregue, que ele já exclui — é lixo do teste, inclusive num cancelamento,
+  // em que não há `/saf/` para conferir. Os de OUTROS vídeos não são deste teste: o
+  // Registro os mostra, sem reprovar a linha.
+  const sobraDoShell = ((m.shell && m.shell.sobraNoCache) || [])
+    .filter((x) => x && typeof x.nome === 'string' && x.nome.indexOf(vid) === 0);
+  m.limpeza.sobraDoShell = sobraDoShell.map((x) => x.nome);
   const sobrou = (m.limpeza.registro === false && !(m.limpeza.seguradoPor || []).length)
-    || m.limpeza.arquivoDoShell === false || m.limpeza.erro;
+    || m.limpeza.arquivoDoShell === false || m.limpeza.erro || sobraDoShell.length > 0;
   if (sobrou) {
     return tFalhou('o arquivo de teste não foi apagado'
       + (m.limpeza.registro === false ? ' (o registro ficou na biblioteca)' : '')
       + (m.limpeza.arquivoDoShell === false ? ' (o arquivo do shell ficou no cache)' : '')
+      + (sobraDoShell.length ? ' (sobrou no cache do shell: ' + m.limpeza.sobraDoShell.join(', ') + ')' : '')
       + (m.limpeza.erro ? ' — ' + m.limpeza.erro : ''));
   }
   if (m.cancelado === 'você') return tNa('cancelado por você aos ' + fmtSeg(Date.now() - m.em));
@@ -31796,6 +31811,19 @@ if (contatoBtnEl) {
     }
   });
 }
+// A PALAVRA "AJUDA" CEDE AO TÍTULO (v1.12.52): ela come ~42px do cabeçalho, e MEDIDO a
+// 320px × 1,25 (e a 360 × 1,5) "Configurações" passava a sair cortado. Tudo ou nada,
+// medido e nunca escrito — a régua do Refazer (`acertarFechoDoTeste`): sem lugar para
+// o título inteiro, o botão volta a ser só o balão (o `aria-label` continua dizendo).
+function acertarAjudaDoCabecalho() {
+  if (!contatoBtnEl || contatoBtnEl.hidden) return;
+  const t = fadePopupEl.querySelector('.popup-title');
+  if (!t) return;
+  contatoBtnEl.classList.remove('compacto');
+  if (!t.clientWidth) return;
+  if (t.scrollWidth > t.clientWidth + 1) contatoBtnEl.classList.add('compacto');
+}
+window.addEventListener('resize', acertarAjudaDoCabecalho);
 
 // =============================================================================
 // O PACOTE DE TRANSFERÊNCIA — o lado que mexe em bytes (v1.7.0)
@@ -39430,6 +39458,18 @@ function mudarSecao(para, opcoes) {
     // ida a quer de pé.
     if (some && secaoAberta) cfgTopoEl.hidden = true;
     anims.forEach((a) => { try { a.cancel(); } catch (_) {} });
+    // O QUE MUDOU DURANTE A TROCA CONTINUA ANIMANDO (v1.12.52). Um gancho de abrir
+    // assíncrono (o editor lendo o rascunho) desenha no MEIO desta animação, e aí quem
+    // segura a altura é ela (`animarAlturaDasSecoes` só desenha): sem isto, a caixa
+    // saltava da altura medida no começo para a nova no último quadro.
+    const hFim = box.getBoundingClientRect().height;
+    if (secaoAberta && hFim > 0 && Math.abs(hFim - h1) >= 1 && fadePopupEl.classList.contains('open')) {
+      box.style.overflow = 'hidden';
+      const a = box.animate([{ height: h1 + 'px' }, { height: hFim + 'px' }], { duration: D * 0.6, easing: 'ease' });
+      secaoAlturaAnim = a;
+      a.oncancel = () => { if (secaoAlturaAnim === a) secaoAlturaAnim = null; if (!secaoAnim) box.style.overflow = ''; };
+      a.onfinish = () => { a.oncancel(); };
+    }
   };
   secaoAnim = { fim };
   // Pela PROMESSA, e não pelo evento: quem espera a animação acabar (outra troca,
@@ -39468,15 +39508,25 @@ function aoRecolherHist() { fecharConfirmacaoNaLinha(); }
 
 // A VERIFICAÇÃO RODA AO ABRIR. Um toque que abre uma lista vazia com um botão
 // "verificar" embaixo é dois toques para a mesma intenção — quem abriu esta
-// seção já pediu o teste — e reabrir roda de novo. Desde a v1.12.44 a rodada é
-// UMA só, com o download de teste no fim, e RECOLHER A SEÇÃO A CANCELA (o
-// Cancelar dela, fechar Configurações e o voltar passam todos por aqui).
+// seção já pediu o teste. Desde a v1.12.44 a rodada é UMA só, com o download de
+// teste no fim.
+//
+// RECOLHER A SEÇÃO SÓ A OCULTA (v1.12.52), pedido do operador: *"fazer um botão de
+// ocultar para o processo de verificação sem ser interrompido"*. O Ocultar, o
+// chevron, o voltar e fechar Configurações recolhem a seção e a rodada SEGUE; o
+// tile da grade mostra o andamento (o aro e o percentual) e, no fim, que há
+// resultado (`testeNaoVisto`). Só o CANCELAR interrompe. Reabrir no meio mostra a
+// barra no ponto em que está; reabrir com um resultado NÃO VISTO mostra esse
+// resultado, sem rodar de novo. Um resultado já visto roda de novo na reabertura,
+// como sempre.
+let testeNaoVisto = false;
 function aoAbrirTeste() {
+  if (testeRodando || testeEmCurso) { desenharTeste(); return; }
+  if (testeNaoVisto && testeResultado) { desenharTeste(); return; }
   desenharTeste();
   dispararTeste();
 }
 function aoRecolherTeste() {
-  cancelarVerificacao();
   desenharTeste();
 }
 
@@ -39674,8 +39724,13 @@ function edicaoLinha(icone, rotulo, sub, marcado, aoToque) {
   return li;
 }
 
+// A ALTURA DA ÚLTIMA LISTA DESENHADA (sem busca): o spinner a reserva, e a reabertura sai
+// numa altura só. Na primeira vez dela não há medida, e a lista CRESCE a partir do spinner
+// (os três grupos das listas existem sempre, e passam dos `8rem` dele).
+let edicaoAlturaLista = 0;
 function renderEdicaoEscolha() {
   edicaoListaEl.innerHTML = '';
+  edicaoListaEl.style.minHeight = edicaoCarregando && edicaoAlturaLista ? edicaoAlturaLista + 'px' : '';
   if (edicaoCarregando) {
     const c = document.createElement('li');
     c.className = 'edicao-carga';
@@ -39762,6 +39817,10 @@ function renderEdicaoEscolha() {
     vazio.textContent = q ? 'Nenhuma mídia com esse nome.'
       : 'Nenhuma mídia de áudio ou vídeo neste aparelho. Use “Importar arquivo”.';
     edicaoListaEl.appendChild(vazio);
+  }
+  if (!q) {
+    const h = edicaoListaEl.getBoundingClientRect().height;
+    if (h > 0) edicaoAlturaLista = h;
   }
 }
 
@@ -40113,7 +40172,18 @@ async function edicaoEscolherItem(it) {
   edicaoSalvarJa();
 }
 
+// A ABERTURA DESENHA NO ATO (v1.12.52). Relato do operador: *"ela abre grande, encolhe para
+// carregamento da lista e depois fica grande quando a lista está pronta"*. A troca de seção
+// mede a altura final LOGO DEPOIS de chamar este gancho, e o que havia na seção era o
+// desenho da ABERTURA ANTERIOR (a lista inteira, ou nada na primeira vez): a caixa animava
+// até ela, o spinner entrava por cima no meio da animação (sem animar, porque quem anima
+// ali é a troca) e a caixa PULAVA no fim. Agora o primeiro quadro já é o que esta abertura
+// vai mostrar — o formulário que está na memória, ou o spinner no lugar da lista, que
+// guarda a altura da última lista (`edicaoAlturaLista`) — e o resto chega depois, animado.
 async function aoAbrirEdicao() {
+  if (edicaoOrigem) { edicaoVista = 'form'; edicaoRender(); }
+  else { edicaoVista = 'escolha'; edicaoBuscaEl.value = ''; edicaoCarregando = true; edicaoRender(); }
+  let carregou = false;
   let r = null;
   try { r = await AVDB.getState(EDICAO_RASCUNHO); } catch (_) { r = null; }
   if (r && r.origem && (!edicaoOrigem || edicaoOrigem.id !== r.origem)) {
@@ -40127,11 +40197,15 @@ async function aoAbrirEdicao() {
         editando = { id: cru.id, nome: cru.name || '', base: edicaoBaseDe(cru) };
       }
     }
-    await edicaoCarregarOrigem(r.origem, r, editando);
+    carregou = await edicaoCarregarOrigem(r.origem, r, editando);
   }
-  edicaoVista = edicaoOrigem ? 'form' : 'escolha';
-  if (edicaoVista === 'escolha') { edicaoCarregando = true; edicaoRender(); await edicaoCarregarLista(); }
-  else edicaoRender();
+  const vista = edicaoOrigem ? 'form' : 'escolha';
+  // Só redesenha o que MUDOU: o seletor já está no spinner, e um segundo `edicaoRender`
+  // reiniciaria a entrada dele.
+  if (vista === 'escolha') {
+    if (edicaoVista !== 'escolha' || !edicaoCarregando) { edicaoVista = 'escolha'; edicaoCarregando = true; edicaoRender(); }
+    await edicaoCarregarLista();
+  } else if (edicaoVista !== 'form' || carregou) { edicaoVista = 'form'; edicaoRender(); }
 }
 function aoRecolherEdicao() {
   edicaoSalvarJa();
@@ -40325,7 +40399,9 @@ async function dispararTeste() {
   Promise.resolve().then(() => AVDB.getState('testeTempos')).then((t) => {
     if (t && t.leve > 0 && t.dl > 0) testeTempos = { leve: t.leve, dl: t.dl };
   }).catch(() => {});
+  testeNaoVisto = false;
   if (testeTileEl) testeTileEl.classList.add('qs-trabalhando');
+  pintarTileDoTeste();
   clearInterval(testeRelogio);
   testeRelogio = setInterval(tiqueDoTeste, 100);
   testeEmCurso = (async () => {
@@ -40347,15 +40423,47 @@ async function dispararTeste() {
     clearInterval(testeRelogio);
     testeRelogio = null;
     if (testeTileEl) testeTileEl.classList.remove('qs-trabalhando');
-    if (testeCancelada) { testeResultado = null; testeMostrado = 0; }
+    if (testeCancelada) { testeResultado = null; testeMostrado = 0; testeNaoVisto = false; }
     else {
       aprenderTemposDoTeste(fimLeve, Date.now());
       testeMostrado = 1;
+      // Terminou com a seção recolhida: o tile guarda o desfecho até ela abrir.
+      testeNaoVisto = secaoAberta !== 'teste' || !fadePopupEl.classList.contains('open');
       // O REGISTRO acompanha sem que ninguém o peça.
       renderDiag();
     }
     desenharTeste();
   }
+}
+
+// O TILE "VERIFICAR" É O SINAL DA RODADA OCULTA (v1.12.52) — a mecânica do
+// Transferir (`pacoteSinal`): enquanto anda, o ARO no lugar do ícone e o
+// PERCENTUAL no lugar do título (`falarNoTile`); terminada com a seção recolhida,
+// o título diz o desfecho ("Tudo certo", "2 problemas") até o operador abrir a
+// seção. Nenhuma cor nova: o estado mora no desenho e no rótulo, como na grade
+// inteira.
+function pintarTileDoTeste() {
+  if (!testeTileEl) return;
+  const anda = testeRodando || !!testeEmCurso;
+  testeTileEl.classList.toggle('qs-trabalhando', anda);
+  let fala = '';
+  if (anda) fala = Math.floor(testeMostrado * 100) + '%';
+  else if (testeNaoVisto && testeResultado) fala = rotuloDoTileDoTeste(testeResultado);
+  const titulo = testeTileEl.querySelector('.qs-titulo');
+  if (fala) { if (!titulo || titulo.textContent !== fala) falarNoTile(testeTileEl, fala, 0); }
+  else if (testeTileEl.dataset.falando) calarTile(testeTileEl);
+  pintarTile(testeTileEl, anda ? 'verificando' : (fala ? 'resultado' : 'ocioso'),
+    anda ? 'verificando, ' + fala : fala, true, false);
+  testeTileEl.title = anda ? 'Verificando (' + fala + ') — toque para ver ou cancelar'
+    : fala ? 'Verificação terminada: ' + fala.toLowerCase() + ' — toque para ver'
+      : 'Conferir se cada parte do app está respondendo';
+}
+function rotuloDoTileDoTeste(r) {
+  const p = testeProblemas(r);
+  const falhas = p.filter((x) => x.v === TESTE_FALHOU).length;
+  if (!p.length) return 'Tudo certo';
+  if (falhas) return falhas === 1 ? '1 problema' : falhas + ' problemas';
+  return p.length === 1 ? '1 sem resposta' : p.length + ' sem resposta';
 }
 
 function cancelarVerificacao() {
@@ -40409,6 +40517,7 @@ function desenharAnelDoTeste() {
   testeAnelEl.style.setProperty('--p', (testeMostrado * 100).toFixed(2) + '%');
   testeAnelEl.setAttribute('aria-valuenow', String(pct));
   testeAnelEl.setAttribute('aria-label', pct + '% verificado');
+  pintarTileDoTeste();
 }
 
 // O QUE A RODADA ENSINA: o tempo de cada parte, numa média que esquece aos poucos.
@@ -40495,6 +40604,8 @@ function desenharTesteJa() {
   const problemas = pronto ? testeProblemas(r) : [];
   const falhas = problemas.filter((x) => x.v === TESTE_FALHOU).length;
   if (pronto) testeMostrado = 1;
+  // VISTO: o resultado desenhado com a seção ABERTA deixa de ser novidade para o tile.
+  if (pronto && testeNaoVisto && secaoAberta === 'teste' && fadePopupEl.classList.contains('open')) testeNaoVisto = false;
   desenharAnelDoTeste();
   testeAnelEl.classList.toggle('rodando', !pronto && (testeRodando || !!testeEmCurso));
   testeAnelEl.classList.toggle('ruim', pronto && falhas > 0);
@@ -40539,15 +40650,15 @@ function desenharTesteJa() {
     testeListEl.appendChild(li);
   }
 
-  // O FECHO TEM DOIS ESTADOS (v1.12.48): enquanto anda, só o CANCELAR (e o
-  // chevron do cabeçalho some — ele também cancelaria, e duas saídas para a
-  // mesma coisa disputam); no fim, Refazer e o Registro, que só existe no app.
+  // O FECHO TEM DOIS ESTADOS (v1.12.48): enquanto anda, OCULTAR e CANCELAR
+  // (v1.12.52 — o chevron do cabeçalho fica, e também só oculta); no fim, Refazer
+  // e o Registro, que só existe no app.
   const anda = testeRodando || !!testeEmCurso;
   if (testeCancelarEl) testeCancelarEl.hidden = !anda;
+  if (testeOcultarEl) testeOcultarEl.hidden = !anda;
   if (testeRefazerEl) { testeRefazerEl.hidden = !pronto; testeRefazerEl.disabled = !pronto; }
   if (testeSalvarEl) { testeSalvarEl.hidden = !pronto || !window.__NATIVE__; testeSalvarEl.disabled = !pronto; }
-  const recolher = testeSecaoEl && testeSecaoEl.querySelector('.cfg-sec-recolher');
-  if (recolher) recolher.hidden = anda;
+  pintarTileDoTeste();
   acertarFechoDoTeste();
 }
 
@@ -40555,12 +40666,15 @@ function desenharTesteJa() {
 // os dois rótulos não cabem (MEDIDO a 320 × 1,5: zero de folga, e cortado com a
 // fonte do runner). Medido, nunca escrito: tudo ou nada, o Refazer vira só o
 // ícone (o `title` continua dizendo o que ele faz).
+// O OCULTAR CEDE AO CANCELAR pela mesma régua (v1.12.52): enquanto a rodada anda, o
+// irmão largo é o Cancelar.
 function acertarFechoDoTeste() {
   const linha = testeSalvarEl && testeSalvarEl.parentElement;
   if (!linha) return;
   linha.classList.remove('compacto');
-  if (testeSalvarEl.hidden || !testeSalvarEl.clientWidth) return;
-  if (testeSalvarEl.scrollWidth > testeSalvarEl.clientWidth + 1) linha.classList.add('compacto');
+  const largo = [testeSalvarEl, testeCancelarEl].find((b) => b && !b.hidden && b.clientWidth);
+  if (!largo) return;
+  if (largo.scrollWidth > largo.clientWidth + 1) linha.classList.add('compacto');
 }
 window.addEventListener('resize', acertarFechoDoTeste);
 
@@ -40715,8 +40829,8 @@ muteToggleEl.addEventListener('click', toggleMute);
 // ninguém acha.
 settingsBtnEl.addEventListener('click', openFadePopup);
 // AS SEÇÕES (v1.12.48): o tile abre a dele, troca a aberta ou a recolhe (ver
-// `trocarSecao`); o chevron do cabeçalho de cada uma a recolhe; o Cancelar da
-// Verificação a recolhe, e recolher a cancela (`aoRecolherTeste`).
+// `trocarSecao`); o chevron do cabeçalho de cada uma a recolhe. Na Verificação,
+// recolher só OCULTA a rodada (v1.12.52); quem a interrompe é o Cancelar.
 histOpenRowEl.addEventListener('click', () => trocarSecao('hist'));
 if (testeTileEl) testeTileEl.addEventListener('click', () => trocarSecao('teste'));
 if (telaTileEl) telaTileEl.addEventListener('click', () => trocarSecao('tela'));
@@ -40726,7 +40840,9 @@ if (cfgSecoesEl) {
     if (e.target.closest('.cfg-sec-recolher')) recolherSecao();
   });
 }
-if (testeCancelarEl) testeCancelarEl.addEventListener('click', () => recolherSecao());
+// O CANCELAR interrompe a rodada e recolhe; o OCULTAR só recolhe (v1.12.52).
+if (testeCancelarEl) testeCancelarEl.addEventListener('click', () => { cancelarVerificacao(); recolherSecao(); });
+if (testeOcultarEl) testeOcultarEl.addEventListener('click', () => recolherSecao());
 if (testeSalvarEl) testeSalvarEl.addEventListener('click', compartilharRegistroDaVerificacao);
 if (testeRefazerEl) testeRefazerEl.addEventListener('click', () => dispararTeste());
 // LIMPAR TUDO. A pergunta mora na faixa do próprio botão — mesma porta do

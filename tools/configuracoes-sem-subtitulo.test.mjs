@@ -285,6 +285,35 @@ try {
     + 'fica dentro da folha', JSON.stringify(ap));
   await estreito.ctx.close();
 
+  // ===== D3 · A PALAVRA "AJUDA" CEDE AO TÍTULO (v1.12.52) =====
+  //
+  // O pedir ajuda ganhou a palavra ao lado do balão, e ela come ~42px do cabeçalho.
+  // A REGRA É O TÍTULO INTEIRO em toda célula; a palavra aparece onde cabe e, onde
+  // não cabe, o botão volta a ser só o balão (tudo ou nada, medido). As células
+  // são de folga GRANDE para os dois lados (a fonte do runner é mais larga, e uma
+  // asserção que dependa de 1–2px reprova lá): 430×1× (a palavra cabe com mais de
+  // 100px de sobra) e 320×1,25× (MEDIDO: faltam ~18px com a palavra; com a fonte
+  // mais larga, faltam mais).
+  for (const [largura, raiz, palavra] of [[430, 16, true], [360, 20, null], [320, 20, false], [360, 24, false]]) {
+    const c = await abrirConfig(largura);
+    const m = await c.pg.evaluate(async (fs) => {
+      document.documentElement.style.fontSize = fs + 'px';
+      window.__NATIVE__ = true;
+      document.getElementById('contatoBtn').hidden = false;
+      window.dispatchEvent(new Event('resize'));
+      await new Promise((f) => setTimeout(f, 150));
+      const t = document.querySelector('#fadePopup .popup-title');
+      const sp = document.querySelector('#contatoBtn span');
+      return { cortado: t.scrollWidth > t.clientWidth + 1, tw: t.scrollWidth, tc: t.clientWidth,
+        palavra: !!sp && sp.getBoundingClientRect().width > 0 };
+    }, raiz);
+    checar(!m.cortado && (palavra === null || m.palavra === palavra),
+      'D3 · a ' + largura + 'px × ' + (raiz / 16) + '× o título sai INTEIRO'
+      + (palavra === null ? '' : palavra ? ', com "Ajuda" à vista' : ', e "Ajuda" cede (só o balão)'),
+      JSON.stringify(m));
+    await c.ctx.close();
+  }
+
   // =========================================================================
   // E · O RÓTULO DO MODO CABE — nas DUAS larguras
   // =========================================================================

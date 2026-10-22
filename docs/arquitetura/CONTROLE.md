@@ -1294,8 +1294,8 @@ botões) são os de quando eram folhas.
 | a animação | `trocarSecao` · `animarAlturaDasSecoes` | WAAPI na `height` de `#cfgSecoes` (`--dur-lenta`); a folha tem a altura do conteúdo e cresce JUNTO. O TETO é `calc(100% - 3.5rem)` desde a v1.12.49 (`#fadePopup .popup-sheet`, era 80%): *"permita essa janela … ficar maior em altura"* — a lista de uma seção usa quase a tela, e o scrim fica à vista embaixo. Na troca a seção que sai é `.saindo` (absoluta, sem toque) e as duas se cruzam por opacidade. Mudanças de DENTRO (a Verificação terminando, o editor trocando de vista) passam por `animarAlturaDasSecoes`. Sem movimento: sem animação, mesmo estado final |
 | o fechar | `.cfg-sec-recolher` | NENHUMA seção tem ✕ — o único é o de Configurações. O cabeçalho (`.cfg-sec-cab`: o desenho e o título do tile) tem um chevron para cima SEM CAIXA (`--muted`, fundo transparente, `--hit` × `--hit`) |
 | o cabeçalho da seção | `.fade-opts.com-secao .cfg-sec-cab` | GRUDA no topo do scroller, logo abaixo do cabeçalho da folha (`sticky`, `top: -var(--veu-topo)`), de borda a borda (margens negativas de `--veu-*`, o recuo de volta em `padding`) e OPACO (`--panel`, `z-index: 7`). Ele cobre a tira de cima do scroller, então a sombra de "há mais acima" é DELE (`::after` na borda de baixo, só com `.tem-acima`) — a receita da faixa de fecho, de cabeça para baixo |
-| o topo da folha | `.cfg-titulos` · `#versaoBtn.versao-txt` · `#contatoBtn.popup-acao` | v1.12.50: a VERSÃO é texto ao lado do título (sem fundo nem borda, `--fs-sm`, `--muted` — 6,66:1 sobre `--panel` nos dois temas), e o toque mostra o que mudou; título e versão dividem uma caixa que QUEBRA (a 360×1,25× a versão desce e o título fica inteiro). O PEDIR AJUDA é só o balão (`#icoContato`, `--icon-sm`, caixa `--hit` sem fundo) logo antes do ✕, `hidden` fora do app |
-| a Verificação | `#testeCancelar` | enquanto anda, o chevron, o Refazer e o Registro somem e a faixa mostra o CANCELAR (✕ + "Cancelar", `--danger-strong` sobre `--btn-danger`), que recolhe a seção. Recolher CANCELA a rodada (`aoRecolherTeste`) |
+| o topo da folha | `.cfg-titulos` · `#versaoBtn.versao-txt` · `#contatoBtn.popup-acao` | v1.12.50: a VERSÃO é texto ao lado do título (sem fundo nem borda, `--fs-sm`, `--muted` — 6,66:1 sobre `--panel` nos dois temas), e o toque mostra o que mudou; título e versão dividem uma caixa que QUEBRA (a 360×1,25× a versão desce e o título fica inteiro). O PEDIR AJUDA é o balão (`#icoContato`, `--icon-sm`) com a palavra **"Ajuda"** ao lado (v1.12.52, `.popup-acao--rotulo`: `--fs-sm`, `--fw-medio`, `--muted` — a régua da versão; altura `--hit`, sem fundo) logo antes do ✕, `hidden` fora do app. A PALAVRA CEDE AO TÍTULO: ela come ~42px, e MEDIDO a 320×1,25× e a 360×1,5× "Configurações" saía cortado — sem lugar para o título inteiro o botão volta a ser só o balão (`.compacto`, `acertarAjudaDoCabecalho`, tudo ou nada, medido na abertura e no `resize`). A 360×1,25× a palavra cabe (22px de sobra) |
+| a Verificação | `#testeOcultar` · `#testeCancelar` · `pintarTileDoTeste` | enquanto anda, o Refazer e o Registro somem e a faixa mostra o OCULTAR (secundário, `.teste-refazer`: `--surface` + `--accent`, o chevron para cima) e o CANCELAR (✕ + "Cancelar", `--danger-strong` sobre `--btn-danger`). **Desde a v1.12.52 recolher só OCULTA** (pedido do operador: *"fazer um botão de ocultar para o processo de verificação sem ser interrompido"*): o Ocultar, o chevron (que fica à vista), o voltar e fechar Configurações recolhem a seção e a rodada SEGUE; só o Cancelar a interrompe (`cancelarVerificacao` + recolher). Oculta, o tile "Verificar" é o SINAL — a mecânica do Transferir: o aro no lugar do ícone e o percentual no lugar do título (`falarNoTile`), e, terminada com a seção recolhida (`testeNaoVisto`), o desfecho (`rotuloDoTileDoTeste`: "Tudo certo", "N problemas", "N sem resposta") até a seção abrir. Reabrir no meio mostra a barra no ponto atual; reabrir com resultado NÃO VISTO o mostra sem rodar; um resultado já visto roda de novo na reabertura. Nenhuma cor nova. O Ocultar cede a largura ao Cancelar pela régua do Refazer (`acertarFechoDoTeste`) |
 | o aberto | `aria-expanded` no tile | **ABERTO não é cor**: o tile não muda; quem diz é o corpo à vista e o cabeçalho com o desenho dele |
 | a faixa de fecho | `.cfg-sec > .popup-fecho`, `.cfg-sec > #histClearFaixa` | GRUDA na base da folha (`sticky`, fundo `--panel`, `z-index: 6` acima da tira de sombra) — a regra da v1.8.60, *"o botão de salvar … fixo na base"*, sobrevivendo à mudança de casa. Desde a v1.12.49: DE BORDA A BORDA (margens negativas de `--veu-esq`/`--veu-dir`, o recuo de volta em `padding`), respiro `--sp-6` acima e `--cfg-base` (`.9rem`) abaixo, e a SOMBRA de "há mais abaixo" é dela (`::before` na borda de cima, só com a `.fade-opts.tem-abaixo`) |
 | a base da folha | `.fade-opts` (`padding-bottom: 0`) · `.cfg-secoes` (`margin-bottom: --cfg-base`) | a regra da v1.8.63 (*margem do último item, nunca padding do scroller*): com uma seção de faixa aberta a margem é zero e a base é o `padding` da faixa, então ela fica no MESMO lugar grudada e no fim da rolagem |
@@ -1317,7 +1317,12 @@ do `configuracoes-janelas`:
    nos últimos 16 px de rolagem).
 
 - **Fechar Configurações recolhe a seção** (`closeFadePopup`, sem animar) — e
-  fechar no meio da Verificação a CANCELA, como fechar a folha dela fazia.
+  uma Verificação em curso SEGUE oculta (v1.12.52; até a v1.12.51 fechar a cancelava).
+- **O que muda NO MEIO de uma troca continua animando** (v1.12.52): um gancho de
+  abrir assíncrono desenha durante a animação da troca, quando `animarAlturaDasSecoes`
+  só desenha; o `fim()` de `mudarSecao` mede a altura natural e, se ela não é a que a
+  troca alcançou, anima da altura da troca até ela (`D × 0,6`). Sem isto a caixa
+  saltava no último quadro.
 - **O voltar recolhe a seção ANTES de fechar Configurações** (`__avBack`, no
   degrau da folha). As folhas que uma seção abre por cima (a pergunta de destino
   do editor, `#songMenuPopup`) continuam folhas e fecham primeiro.
@@ -7745,6 +7750,30 @@ quem a autoriza é a permissão do Android, e o web não tem como perguntar.
 | o Registro | `blocoAutoteste` | o bloco que o operador manda a distância. O carimbo da COMPLETA diz as duas horas — a da leve (`em`) e a do fim do download (`emCompleta`), v1.12.29 — e a linha "caminho:" do detalhe leva a extração INTEIRA (era cortada em 160 caracteres, no meio de um `{…}`) |
 | o salvar | `salvarRegistroDaVerificacao` | a ÚNICA porta do Registro desde a v1.12.29 (o `#diagSave` do rodapé de Configurações saiu), rotulada "Registro" (ícone + palavra, largura do conteúdo, altura `--quad-faixa`) — monta o texto (`await renderDiag()`) e recusa o vazio |
 
+**A RODADA OCULTA** (v1.12.52). Pedido do operador: *"fazer um botão de ocultar
+para o processo de verificação sem ser interrompido"*. Recolher a seção — o
+Ocultar da faixa, o chevron, o voltar, fechar Configurações — deixou de cancelar;
+só o Cancelar interrompe. Oculta, o tile "Verificar" mostra o aro e o percentual
+(`pintarTileDoTeste`, a cada tique do anel) e, terminada, o desfecho, até a seção
+abrir (`testeNaoVisto`); `aoAbrirTeste` não dispara rodada nova enquanto há uma
+andando ou um resultado não visto. O download de teste continua obedecendo às
+regras dele (para se uma mídia entra no ar, prazo, limpeza no `finally`).
+
+**O CACHE DO SHELL TAMBÉM É CONFERIDO** (v1.12.52). Um Registro do operador
+(17/10) trouxe `sobra no cache do shell: 1 arquivo(s), 24 MB (hevOy4tlhiQ.mp4)`
+numa rodada de OUTRO episódio. A conferência da limpeza olhava só o registro e o
+`/saf/` do arquivo ENTREGUE — num cancelamento não há entregue, e a sobra do shell
+não reprovava nada. Hoje um arquivo DESTE vídeo na `sobraNoCache` da medida do
+shell é falha com o nome (`m.limpeza.sobraDoShell`); os de outros vídeos só
+aparecem no Registro. O nome `<id>.mp4` (sem `-v`/`-a`) é o de uma SAÍDA pronta
+(junção ou progressivo), não o parcial de retomada — e o web não tem como
+apagá-la (o `ytDiscard` só alcança o `/saf/` de um resultado entregue). A
+origem não foi reproduzida pelo código (todo ramo de cancelamento do
+`YoutubeGrab` apaga os seus arquivos); a faxina da pasta é proposta de Kotlin,
+com a análise na nota da v1.12.52 do `HISTORICO.md`. E o Cancelar que chega DURANTE a escolha do
+episódio (`testeDlCancelar` ainda nulo) passou a ser lido depois dela — antes, a
+marca era lida só na entrada e o download partia assim mesmo.
+
 **A LEVE E A COMPLETA** (v1.12.27). Pedido do operador: *"faça que o app baixe
 aleatoriamente um dos vídeos anteriores do Provai e Vede que ainda não estão no
 sistema, e acompanhe todo o processo registrando tamanho, duração do vídeo,
@@ -10186,6 +10215,7 @@ Seção `#edicaoSecao` de Configurações (uma folha própria até a v1.12.48), 
 - **Um fim só no corte (v1.12.22):** `marcarFimNatural` espera o fade de saída do palco antes de marcar `ended`, e nesse meio-tempo o `<video>` segue tocando; sem guarda, cada `timeupdate` achava `resta < 0` e o `vigiarCorte` despachava outro `ended` sintético (MEDIDO: ~17 `onEnded` até o fim do arquivo, com o `FADE` fixo do app e um item sem "Fade de saída"). `fimEmCurso` nasce no INÍCIO do fim (antes do `await`), é checada em `vigiarCorte`/`encerrarNoCorte`/`marcarFimNatural` e morre onde uma reprodução recomeça (`ended = false` em `play`/`load`/`clear`/`fadeOutToBlack`, e no `seek`). Oráculo: B5 do `edicao-de-midia`.
 - **Duas vistas na mesma seção** (a troca ANIMA a altura, `animarAlturaDasSecoes`, v1.12.48): formulário e seletor. O seletor é a lista de grupos da exportação (Cronograma, Playlist, Favoritos, Biblioteca por coletânea, "Importados para edição"), com busca e "Importar arquivo" (`addBase`: bytes só para o editor, fora de toda lista). Linhas SEM caixa de marcação (escolha de um; `edicaoLinha(..., null, ...)`).
 - **Carga:** `edicaoCarregarLista` mostra spinner por `EDICAO_CARGA_MS` (1 s) antes da lista; sem ele a leitura assíncrona dos grupos aparecia como "nenhuma mídia". Trocas de vista entram por `edicaoEntrar` (`@keyframes edicao-entra`).
+- **A abertura desenha NO ATO (v1.12.52).** Relato do operador: *"ela abre grande, encolhe para carregamento da lista e depois fica grande quando a lista está pronta"*. A troca de seção mede a altura final LOGO DEPOIS de chamar `aoAbrirEdicao`, e ele desenhava só depois de um `await` (o rascunho): a caixa animava até o desenho da abertura ANTERIOR (a lista inteira, ou nada na primeira), o spinner entrava no meio da animação sem animar, e no fim ela saltava. MEDIDO a 430 px: 1ª abertura 0→121 animado e salto a 299; 2ª 0→342, cai a 299, volta a 342; com rascunho, 0→121 e salto a 504. Hoje o primeiro quadro já é o desta abertura — o formulário em memória, ou o seletor com o spinner —, o spinner RESERVA a altura da última lista desenhada sem busca (`edicaoAlturaLista`, `min-height` da `#edicaoLista` só durante a carga), e o que chega no meio da troca continua animando (o `fim()` de `mudarSecao`, ver "As seções de Configurações"). Depois: 1ª 0→299→342 animado; 2ª 0→342 uma vez só; com rascunho 0→299→504 animado. Oráculo: C0 e C3a do `edicao-de-midia`.
 - **SEM TEXTO DE ESTADO (v1.12.10):** o rodapé da janela não tem nota (`#edicaoNota`/`edicaoDizer` saíram, e o recado "Lendo a duração…"/"Item criado…"/erros com eles). O retorno é o pulso do botão que o operador tocou (`responder`: `ok` pelo `adicionarNasListas`/Confirmar, `erro` em criar/salvar que falha e no Importar arquivo que não lê). Falha sem botão à vista (mídia que sumiu ao abrir) não diz nada. Os oráculos esperam o FATO (o rótulo do nome vira "Nome do item" depois de criar; o banco mostra o `fim` novo depois de salvar), nunca um texto.
 - **Card (v1.12.9):** o texto do card do item nunca quebra (uma linha por rótulo, ping-pong `edicaoRolarTextos` se não couber). A ALTURA da v1.12.9 (`edicaoMedirFolha`, `--edicao-h`, o seletor com a altura do formulário) SAIU na v1.12.48: era de uma folha ancorada no fundo, e uma seção cresce para baixo a partir do cabeçalho. Oráculo: C2d.
 - **Acabamento da v1.12.8:** sem o recado "fica com …" no cabeçalho do trecho (só o título "Trecho", centrado); cada ponta é `.edicao-ponta-cab` (rótulo + tempo na MESMA linha, tempo à direita) sobre os dois botões de 1 s; o rótulo do nome (`.edicao-rotulo-nome`) tem 14 px de recuo, o do texto do campo. Oráculo: C2c.

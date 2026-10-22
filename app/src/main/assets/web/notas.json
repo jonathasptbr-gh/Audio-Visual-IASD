@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.12.52",
+    "itens": [
+      "Editar mídia: a janela abre de uma vez, sem encolher e crescer; enquanto a lista carrega, aparece o indicador.",
+      "Verificação: o novo botão \"Ocultar\" guarda a janela e a verificação continua.",
+      "Fechar Configurações ou a seta também só ocultam; para parar, toque em \"Cancelar\".",
+      "Enquanto ela roda, o botão Verificar mostra o percentual; no fim, \"Tudo certo\" ou os problemas.",
+      "O botão de pedir ajuda, no topo de Configurações, agora diz \"Ajuda\" ao lado do ícone.",
+      "Verificação: se o vídeo de teste deixar arquivo no aparelho, isso agora aparece como problema."
+    ]
+  },
+  {
     "versao": "1.12.51",
     "itens": [
       "Modo simples: ao buscar na biblioteca, os botões de tocar, parar e volume somem para dar espaço à lista.",
