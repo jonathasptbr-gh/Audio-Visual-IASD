@@ -46,7 +46,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
 import {
-  servirEstatico, abrirNavegador, esperar, esperarCortina, porque, checar, falhas, lerPng, pixel,
+  servirEstatico, abrirNavegador, esperar, esperarCortina, porque, checar, falhas, lerPng, pixel, comTema,
 } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
@@ -600,8 +600,13 @@ try {
   checar(r2.pintados >= 5 && r2.retos === 0 && r2.raioMax > 4,
     'R2 · a mídia que entra: ao recolher para a barra o painel também desce com os cantos arredondados',
     JSON.stringify(r2));
-  checar(r2.raioFinal === 0 && /rgba\(0, 0, 0, 0\)|transparent/.test(r2.bgFinal),
-    'R3 · e FECHADA a folha volta a não pintar nada (a barra é só uma linha da caixa)', JSON.stringify(r2));
+  // R3 · REVOGADA na v1.12.56 (*"o card da biblioteca/caixa de buscas … fique visível, assim esse card
+  // não vai aparecer e desaparecer, mas sim expandir e encolher"*): FECHADA a folha CONTINUA pintando
+  // o card, e em NENHUM quadro da ida ou da volta o fundo cai a transparente.
+  checar(r1.pintados === r1.quadros && r2.pintados === r2.quadros && r2.raioFinal > 4
+    && !/rgba\(0, 0, 0, 0\)|transparent/.test(r2.bgFinal),
+    'R3 · o card da barra NÃO some: todo quadro da descida e da subida pinta o painel, e fechada a folha '
+    + 'continua um card de cantos arredondados', JSON.stringify({ r1, r2 }));
 
   // P · A CAIXA SE CURA SOZINHA DEPOIS DE ASSENTAR (v1.12.13)
   // Relato do operador: *"verifique o ajuste de altura disponível para a biblioteca no modo simples,
@@ -891,6 +896,13 @@ try {
   const sorteioAvancado = await pg.evaluate(() => getComputedStyle(document.getElementById('sorteioBtn')).display);
   checar(sorteioAvancado !== 'none',
     'G3b · e no avançado o botão de playlist automática CONTINUA: a regra é só do Modo Fácil', sorteioAvancado);
+  const folhaAvancado = await pg.evaluate(() => {
+    const cs = getComputedStyle(document.querySelector('#hymnSearchPopup .popup-sheet--lib'));
+    return { bg: cs.backgroundColor, raio: parseFloat(cs.borderTopLeftRadius) || 0 };
+  });
+  checar(/rgba\(0, 0, 0, 0\)|transparent/.test(folhaAvancado.bg) && folhaAvancado.raio === 0,
+    'G3c · no avançado a folha FECHADA continua sem pintar nada: a barra é uma linha da caixa de controles '
+    + '(o card fechado é só do Modo Fácil)', JSON.stringify(folhaAvancado));
   await pg.evaluate(() => { setAppMode('simple'); });
   await quadros();
   const g2 = await ler();
@@ -904,6 +916,49 @@ try {
   const cab2 = await lerCab();
   checar(cab2.castVisivel === false && Math.abs(cab2.textoCentro - cab2.vw / 2) <= 1,
     'G5b · SEM TV o cast some e o NOME continua no centro: cada peça do topo tem a coluna dela', JSON.stringify(cab2));
+
+  // U · A BARRA FECHADA É UM CARD, NOS DOIS TEMAS (v1.12.56)
+  // O mesmo fundo OPACO e o mesmo raio do card do nome, e as mesmas bordas laterais da placa da letra
+  // e do card do nome — medido no tema escuro e no claro (`comTema`), com mídia no ar (FECHADA).
+  for (const tema of ['escuro', 'claro']) {
+    const ctxT = await navegador.newContext({ viewport: { width: 390, height: 780 }, hasTouch: true });
+    await semRedeExterna(ctxT);
+    await comTema(ctxT, tema);
+    const pt = await ctxT.newPage();
+    pt.on('pageerror', (e) => erros.push('pageerror: ' + e.message));
+    await pt.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+    await esperarCortina(pt);
+    await pt.evaluate(() => { webDisplayWin = { closed: false }; renderSimpleCast(); });
+    await pt.evaluate((it) => {
+      currentItem = it; midiaNoAr = true; npNameInnerEl.textContent = it.name;
+      renderSimple(); renderTransporteHabilitado();
+    }, LETRA);
+    await esperar(pt, () => document.body.classList.contains('simples-barra')
+      && !document.getElementById('hymnSearchPopup').classList.contains('open'), null, 10000);
+    await pt.waitForTimeout(500);
+    const u = await pt.evaluate(() => {
+      const caixa = (el) => { const r = el.getBoundingClientRect(); return { esq: r.left, dir: r.right, alt: r.height }; };
+      const folha = document.querySelector('#hymnSearchPopup .popup-sheet--lib');
+      const np = document.querySelector('.simple-nowplaying');
+      const cf = getComputedStyle(folha); const cn = getComputedStyle(np);
+      return {
+        tema: document.documentElement.dataset.tema || 'escuro',
+        bg: cf.backgroundColor, bgCard: cn.backgroundColor, raio: cf.borderTopLeftRadius, raioCard: cn.borderTopLeftRadius,
+        folha: caixa(folha), song: caixa(document.querySelector('.simple-song')), np: caixa(np),
+        fundoPagina: getComputedStyle(document.body).backgroundColor,
+      };
+    });
+    checar(u.tema === tema, 'U0 · PREMISSA (' + tema + '): o tema é o que se pediu', JSON.stringify(u));
+    const opaco = /^rgb\(/.test(u.bg) || /rgba\([^)]*,\s*1\)$/.test(u.bg);
+    checar(opaco && u.bg === u.bgCard && u.bg !== u.fundoPagina && u.raio === u.raioCard,
+      'U1 · (' + tema + ') FECHADA, a barra de busca e sorteio está num CARD: fundo opaco, o mesmo do card '
+      + 'do nome e diferente do fundo da tela, com o mesmo raio', JSON.stringify(u));
+    checar(u.folha.alt > 20 && Math.abs(u.folha.esq - u.song.esq) <= 1 && Math.abs(u.folha.dir - u.song.dir) <= 1
+      && Math.abs(u.folha.esq - u.np.esq) <= 1 && Math.abs(u.folha.dir - u.np.dir) <= 1,
+      'U2 · (' + tema + ') e as bordas laterais do card da barra são as da placa da letra e do card do nome',
+      JSON.stringify(u));
+    await ctxT.close();
+  }
 
   checar(erros.length === 0, 'nenhum erro de página', erros.join(' | '));
 } finally {

@@ -2129,7 +2129,7 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os de Chromium são **118** e os de Node puro **23** — juntos, os 141 (contados na v1.12.54). MEDIDO com
+Os de Chromium são **119** e os de Node puro **23** — juntos, os 142 (contados na v1.12.56). MEDIDO com
 82 deles: **~13 min em série** e **~4,3 min nos três processos** (4 vCPU, o mesmo
 do runner); os de Node puro somam **8 s**. **Os números moram no `apk.yml`**, ao
 lado do passo que descrevem, e esta é a cópia — divergiram uma vez (79/99 aqui
@@ -3032,10 +3032,15 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.12.55 · APK v1.12.46** · `SHELL_VERSION` **82** ·
+**Versão atual: base web v1.12.56 · APK v1.12.46** · `SHELL_VERSION` **82** ·
 bundle com `minShell: 82` e **sem `shellTag`** — o shell 82 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. **Este lote é só web**
-(a Release v1.12.46 já está publicada). **A v1.12.55 DEVOLVE O LIMPAR À BARRA E PÕE RENOMEAR E EXCLUIR NA LINHA DE
+(a Release v1.12.46 já está publicada). **A v1.12.56 FAZ OS FAVORITOS FECHAREM E ABRIREM NUM MOVIMENTO SÓ E DÁ À
+BARRA DO MODO FÁCIL UM CARD TAMBÉM FECHADA**: o piso `--fav-vao` segurava o bloco parado até o redesenho, e agora
+`fecharFavoritosAnimando`/`abrirFavoritosAnimando` animam o bloco e as irmãs fechadas junto com o corpo (a altura
+de depois sai de `calcularTampa`); e no Modo Fácil com tela a folha da Biblioteca pinta `--panel` com
+`--radius-card` nos três estados (no avançado, fechada, segue sem pintar). Ver o capítulo do Controle, "O rodízio
+das coleções" e "NO MODO FÁCIL A BARRA DA BIBLIOTECA É SEMPRE VISÍVEL". **A v1.12.55 DEVOLVE O LIMPAR À BARRA E PÕE RENOMEAR E EXCLUIR NA LINHA DE
 CADA CRONOGRAMA**: o menu ⋮ saiu inteiro; `#cronoLimpar` volta à trilha 1 (esquerda), e cada linha da gaveta é
 renomear (lápis, ponta esquerda) · nome e conta CENTRADOS (o miolo, que troca) · excluir (lixeira em `--btn-danger`,
 ponta direita, apagada no único), sempre à vista, na receita da linha de lista do app; "Novo cronograma" com ícone e

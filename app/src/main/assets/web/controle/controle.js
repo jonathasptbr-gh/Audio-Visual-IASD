@@ -426,7 +426,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.55';
+const WEB_VERSION = '1.12.56';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -11248,7 +11248,15 @@ function renderCollectionsListMiolo(alvo, redesenhar) {
       };
       // Fechando: anima ANTES de redesenhar. O redesenho apaga o nó, e um nó
       // apagado não tem como sair deslizando (a mesma nota do card).
-      if (!abrindo) { collapseAccordion(corpo, aplicar); return; }
+      // OS FAVORITOS TÊM PISO (`--fav-vao`), e só animar o corpo deixava o
+      // bloco parado nele até o redesenho (v1.12.56) — ver
+      // `fecharFavoritosAnimando`.
+      if (!abrindo) {
+        if (ehFav) fecharFavoritosAnimando(li, corpo, aplicar);
+        else collapseAccordion(corpo, aplicar);
+        return;
+      }
+      if (ehFav) { abrirFavoritosAnimando(alvo, li, aplicar); return; }
       aplicar();
       // ===== A COLEÇÃO ABRE PARA BAIXO, ALINHADA PELO TOPO (v5.277) =====
       //
@@ -13400,16 +13408,14 @@ function limparTampa(lista) {
   }
 }
 
-function medirTampa(lista) {
-  if (!lista || !lista.isConnected) return;
-  // Fora do acervo (a lista de BUSCA) não há bloco de raiz que cresça, e um
-  // valor de ontem herdado ali pintaria altura em linha de resultado.
-  if (!lista.classList.contains('acervo')) {
-    limparTampa(lista);
-    return;
-  }
+// A CONTA, separada de quem a escreve (v1.12.56): o fechamento dos Favoritos
+// precisa da tampa de DEPOIS antes de o estado mudar, para animar até ela
+// (`fecharFavoritosAnimando`). `favFechada` conta a seção dos Favoritos como
+// FECHADA mesmo com ela aberta — é a hipótese "depois do toque", e a mesma
+// régua do caso normal, sem uma segunda cópia da fórmula. `null` = não há tampa.
+function calcularTampa(lista, favFechada) {
   const blocos = [...lista.children].filter((n) => n.nodeType === 1);
-  if (!blocos.length) { limparTampa(lista); return; }
+  if (!blocos.length) return null;
   const cs = getComputedStyle(lista);
   const gap = parseFloat(cs.rowGap) || 0;
   // A MESMA CORREÇÃO do `--fav-vao` (v1.5.20): o respiro do primeiro filho
@@ -13423,7 +13429,7 @@ function medirTampa(lista) {
   let n = 0;
   let sobra = util;
   for (const b of blocos) {
-    if (b.classList.contains('coll-group--fav')
+    if (!favFechada && b.classList.contains('coll-group--fav')
         && (b.classList.contains('aberto') || b.classList.contains('expanded'))) {
       sobra -= b.getBoundingClientRect().height;
       continue;
@@ -13435,12 +13441,25 @@ function medirTampa(lista) {
     base += (barra ? barra.getBoundingClientRect().height
       : b.getBoundingClientRect().height);
   }
-  if (!n) { limparTampa(lista); return; }
+  if (!n) return null;
   // SÓ CRESCE, e nunca acima do teto de hoje: o `--bar-raiz-max` existe porque
   // a lista pode ter POUCOS blocos (três coleções dariam 183px cada).
   const teto = parseFloat(getComputedStyle(document.documentElement)
     .getPropertyValue('--bar-raiz-max')) || 66;
-  const h = Math.max(base / n, Math.min(sobra / n, teto));
+  return { h: Math.max(base / n, Math.min(sobra / n, teto)), base, n, blocos };
+}
+
+function medirTampa(lista) {
+  if (!lista || !lista.isConnected) return;
+  // Fora do acervo (a lista de BUSCA) não há bloco de raiz que cresça, e um
+  // valor de ontem herdado ali pintaria altura em linha de resultado.
+  if (!lista.classList.contains('acervo')) {
+    limparTampa(lista);
+    return;
+  }
+  const conta = calcularTampa(lista, false);
+  if (!conta) { limparTampa(lista); return; }
+  const { h, base, n, blocos } = conta;
   lista.style.setProperty('--tampa-h', h.toFixed(2) + 'px');
   // ===== E O RESPIRO ACIMA DA BARRA, PARA O TÍTULO NÃO SE MEXER (v1.8.50) =====
   //
@@ -13525,6 +13544,99 @@ function acertarVaoDosFavoritos(corpoDado) {
 function acertarTampa(lista) {
   if (!lista) return;
   requestAnimationFrame(() => { if (lista.isConnected) medirTampa(lista); });
+}
+
+// ===== OS FAVORITOS ABREM E FECHAM NUM MOVIMENTO SÓ (v1.12.56) =====
+// Relato do operador: *"a coleção de favoritos, que ao fechar, encolhe, e dá uma
+// pequena travada antes de realmente fechar… uma diferença grande entre o
+// funcionamento visual das outras coleções que corretamente encolhem de forma
+// fluida"*.
+//
+// A CAUSA é o PISO. A seção aberta tem `min-height: var(--fav-vao)`, e o
+// acordeão anima só o CORPO: o bloco encolhia até o vão e PARAVA nele (MEDIDO a
+// 430×900, 20 favoritos: 1201 → 401px em 90 ms e 401px parado por 130 ms; com
+// 3 favoritos o bloco ficava parado os 220 ms inteiros) até o redesenho tirar o
+// `.aberto` — e aí caía de uma vez, e as irmãs com ele: a tampa delas (ver
+// `medirTampa`) desconta o vão dos Favoritos abertos, então elas iam de 45 para
+// 66px num quadro DEPOIS do redesenho (o bloco passava por 45 antes de 66). Ao
+// abrir era o mesmo salto ao contrário, no quadro do toque.
+//
+// O CONSERTO é animar a RAIZ junto com o corpo, no mesmo `ACC_MS`/`ACC_EASE`: o
+// bloco vai da altura de agora à altura de depois, e cada irmã FECHADA idem. A
+// altura de depois é a mesma régua do caso normal (`calcularTampa` com os
+// Favoritos contados como fechados), e a das irmãs é LIDA com a tampa de depois
+// escrita por um instante (sem pintura no meio) — nenhuma fórmula de CSS copiada.
+// Ao fim, o redesenho e a tampa saem no MESMO quadro, e o que eles desenham é o
+// último quadro da animação. Uma irmã ABERTA não é animada: o vão interno dela
+// segue a tampa como sempre seguiu.
+function blocoDeRaizFechado(b) {
+  return (b.classList.contains('coll-group--drop') && !b.classList.contains('aberto'))
+    || (b.classList.contains('hymnal-card') && !b.classList.contains('expanded'));
+}
+function animarAlturaDeBloco(el, de, para) {
+  if (!el || Math.abs(de - para) < 0.5) return;
+  el.animate([{ height: de + 'px' }, { height: para + 'px' }],
+    { duration: ACC_MS, easing: ACC_EASE });
+}
+function fecharFavoritosAnimando(li, corpo, depois) {
+  const lista = li && li.parentElement;
+  if (!lista || !li.isConnected || semMovimento() || !lista.classList.contains('acervo')) {
+    collapseAccordion(corpo, depois);
+    return;
+  }
+  const conta = calcularTampa(lista, true);
+  const de = li.getBoundingClientRect().height;
+  const barra = li.querySelector('.coll-group-bar');
+  const para = conta ? conta.h : (barra || li).getBoundingClientRect().height;
+  const irmas = [...lista.children].filter((b) => b.nodeType === 1 && b !== li
+    && blocoDeRaizFechado(b));
+  const antes = irmas.map((b) => b.getBoundingClientRect().height);
+  const velha = lista.style.getPropertyValue('--tampa-h');
+  if (conta) lista.style.setProperty('--tampa-h', conta.h.toFixed(2) + 'px');
+  const agora = irmas.map((b) => b.getBoundingClientRect().height);
+  if (velha) lista.style.setProperty('--tampa-h', velha);
+  else lista.style.removeProperty('--tampa-h');
+  // O `min-height` vai junto: é ELE que segurava o bloco. E o `overflow` corta o
+  // corpo que ainda não terminou de sair — o nó é refeito no fim, não há o que
+  // devolver.
+  li.style.overflow = 'hidden';
+  li.animate([{ height: de + 'px', minHeight: de + 'px' }, { height: para + 'px', minHeight: '0px' }],
+    { duration: ACC_MS, easing: ACC_EASE });
+  irmas.forEach((b, i) => animarAlturaDeBloco(b, antes[i], agora[i]));
+  collapseAccordion(corpo, () => {
+    depois();
+    // NO MESMO QUADRO do redesenho: esperar o `requestAnimationFrame` do
+    // `acertarTampa` deixava um quadro com a tampa de quando os Favoritos
+    // estavam abertos.
+    if (lista.isConnected) medirTampa(lista);
+  });
+}
+function abrirFavoritosAnimando(lista, li, aplicar) {
+  if (!lista || semMovimento() || !lista.classList.contains('acervo')) { aplicar(); return; }
+  const blocos = [...lista.children].filter((n) => n.nodeType === 1);
+  const idx = blocos.indexOf(li);
+  const antes = blocos.map((b) => b.getBoundingClientRect().height);
+  aplicar();
+  // No quadro seguinte, DEPOIS do vão e da tampa (os dois `requestAnimationFrame`
+  // da passada foram registrados antes deste) e junto com o `expandAccordion` do
+  // corpo, que começa no mesmo quadro: o que se lê aqui já é o estado aberto.
+  requestAnimationFrame(() => {
+    if (!lista.isConnected || idx < 0) return;
+    const novos = [...lista.children].filter((n) => n.nodeType === 1);
+    if (novos.length !== blocos.length) return;
+    const fav = novos[idx];
+    if (!fav || !fav.classList.contains('coll-group--fav')) return;
+    const vao = parseFloat(getComputedStyle(fav).minHeight) || 0;
+    if (vao > antes[idx]) {
+      fav.animate([{ minHeight: antes[idx] + 'px' }, { minHeight: vao + 'px' }],
+        { duration: ACC_MS, easing: ACC_EASE });
+    }
+    novos.forEach((b, i) => {
+      if (i !== idx && blocoDeRaizFechado(b)) {
+        animarAlturaDeBloco(b, antes[i], b.getBoundingClientRect().height);
+      }
+    });
+  });
 }
 
 // ===== A TAMPA ACOMPANHA A ALTURA DA LISTA, não só o render (v1.12.14) =====

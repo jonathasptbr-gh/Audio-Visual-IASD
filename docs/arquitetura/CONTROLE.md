@@ -129,6 +129,18 @@ da barra** (`#simpleBarra`) · **zona de leitura** (`.simple-song`) · cartão d
   .popup-sheet--lib` desce a janela fechada para fora da tela e tem a mesma
   especificidade da regra nova, vindo depois — por isso a regra do estado fechado
   leva `.mode-simple` na conta.
+- **A FOLHA É UM CARD NOS TRÊS ESTADOS (v1.12.56)** — relato: *"a barra de buscas
+  e sorteio tem uma moldura da biblioteca que só aparece quando a biblioteca está
+  aberta … para que ele fique visível, assim esse card não vai aparecer e
+  desaparecer, mas sim expandir e encolher"*. No AVANÇADO a folha fechada não
+  pinta (a barra é uma linha da caixa de controles) e o fundo e o raio andam com
+  atraso no fechamento (v1.12.21); com `body.simples-barra` a regra
+  `body.mode-simple.simples-barra .popup-backdrop--lib .popup-sheet--lib` pinta
+  `--panel` + `--radius-card` (os do `.simple-nowplaying`) SEMPRE, e a transição
+  dela fica só com o `transform`. Fechada, o card tem a altura da barra e as bordas
+  laterais dos outros cards; abrir e fechar são o `bottom` da camada, e o fundo
+  nunca cai a transparente no caminho (`modo-simples-corpo`, R3 e U1/U2 nos dois
+  temas; G3c trava o avançado).
 - **`renderSimpleCorpo` roda em três pulsos:** `renderSimpleGate` (tela entrou ou
   saiu, troca de modo), `renderTransporteHabilitado` (cena mudou — e também a CADA
   `display-status`, ~4 Hz com TV) e `setAppMode`. **Só REMEDE quando a FORMA muda**
@@ -5522,6 +5534,21 @@ barra dela sem ver um item. **O alinhamento espera a animação do acordeão**
 o conteúdo ainda não existe e a lista não tem para onde rolar — em rAF ele media
 o layout COLAPSADO e rolava 7px de 59 possíveis. Sem conteúdo abaixo que leve a
 seção ao topo, a lista rola até o fim, que é o mais perto que existe.
+
+**E ELA ABRE E FECHA NUM MOVIMENTO SÓ (v1.12.56)** — relato: *"a coleção de
+favoritos, que ao fechar, encolhe, e dá uma pequena travada antes de realmente
+fechar"*. O piso é a armadilha: o acordeão anima só o CORPO, e o bloco com
+`min-height: var(--fav-vao)` parava no vão até o redesenho tirar o `.aberto` —
+e então caía, com as irmãs fechadas saltando depois (a tampa delas desconta o
+vão dos Favoritos abertos). Por isso o `alternar` dos Favoritos tem caminho
+próprio: `fecharFavoritosAnimando` anima o bloco (`height` + `min-height`) até a
+altura fechada — `calcularTampa(lista, true)`, a conta do `medirTampa` com os
+Favoritos contados como fechados — e cada irmã FECHADA até a altura LIDA com a
+tampa de depois escrita por um instante; no fim, o redesenho e a `medirTampa`
+saem no mesmo quadro. `abrirFavoritosAnimando` anima o `min-height` da altura
+fechada ao vão no quadro seguinte ao redesenho (depois do vão e da tampa, junto
+com o `expandAccordion`). Mesmos `ACC_MS`/`ACC_EASE` do corpo; uma irmã ABERTA
+não anima. Oráculo: `favoritos-fechar.test.mjs`.
 
 **A seção NÃO tem tom próprio.** Ela não é uma coleção e só ela ocupa o vão — as
 duas coisas são verdade e **nenhuma se lê como COR**: o nome no cabeçalho diz a
