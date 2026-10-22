@@ -5550,6 +5550,28 @@ fechada ao vão no quadro seguinte ao redesenho (depois do vão e da tampa, junt
 com o `expandAccordion`). Mesmos `ACC_MS`/`ACC_EASE` do corpo; uma irmã ABERTA
 não anima. Oráculo: `favoritos-fechar.test.mjs`.
 
+**E NENHUM CARD DO ACERVO É REDESENHADO NO MEIO DO ACORDEÃO (v1.12.57)** — relato:
+*"O mesmo problema da coleção travando no último instante antes de fechar, ocorre no
+modo simples com o provai e vede e o informativo das missões"*. O redesenho refaz os
+cards a partir do ESTADO, e no fechamento o estado só muda no FIM da animação: um
+`renderSearchResults` no meio dela (o tique do progresso, ou um `renderCollectionsNow`
+direto como o da verificação da semana) devolvia o card aberto e inteiro até a
+animação antiga, num nó já fora do documento, terminar. `marcarAnimacaoNoAcervo`
+conta os acordeões do acervo em curso: o tique (`refreshCollectionsIfVisible`) se
+rearma com QUALQUER um, e o `renderCollectionsNow` direto vira o tique só com um
+FECHAMENTO — na abertura ele segue o primitivo sem guarda que o
+`gaveta-no-download` afirma. **E o recuo do corpo anima com a altura**
+(`caixaDoAcordeao`): com `border-box`, `height: 0` não passa do `padding`, e o card
+ficava parado ~14px acima da altura fechada no fim da curva. Oráculo:
+`serie-no-modo-facil.test.mjs`.
+
+**NO MODO FÁCIL A SEMANA DA SÉRIE NÃO É UM CARTÃO (v1.12.57).** Lá a série mostra só
+a semana (`soASemana`), e o `--sel-fill` do `.serie-destaque` virava um cartão azul
+dentro do card escuro. `body.mode-simple .serie-destaque` zera fundo, raio e recuo:
+a linha pousa no `.coll-open` como a faixa de um hinário, na mesma coluna, com o
+cabeçalho "Este sábado". No avançado o preenchimento fica — ali ele separa a semana
+da lista inteira.
+
 **A seção NÃO tem tom próprio.** Ela não é uma coleção e só ela ocupa o vão — as
 duas coisas são verdade e **nenhuma se lê como COR**: o nome no cabeçalho diz a
 primeira e o vão reservado diz a segunda. O que a cor acrescentava era um QUARTO

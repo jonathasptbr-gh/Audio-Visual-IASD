@@ -5368,6 +5368,20 @@ main {
   padding: 0 .15rem;
   font-size: var(--fs-md); color: var(--muted);
 }
+/* ---------- NO MODO FÁCIL O DESTAQUE NÃO É UM SEGUNDO CARTÃO (v1.12.57) ----------
+   Pedido do operador: *"parece ter dupla camada de card na visualização desses vídeos
+   unitários … deixar esses itens no mesmo padrão/nível visual das listagens das outras
+   coleções do modo simples. Exemplo, no modo escuro, os itens estão em fundos escuros, mas
+   o provai e vede tem um card azul sobre esse card escuro"*. No Modo Fácil a série mostra SÓ
+   a semana (`soASemana`): não há lista abaixo de que o destaque precise se separar, e o
+   `--sel-fill` virava um cartão dentro do cartão. Aqui ele é a linha de uma faixa como a de
+   um hinário — sem fundo, sem raio, na coluna da `.coll-songs` (o recuo é o do `.coll-open`)
+   e com o mesmo `.4rem` de cima. O cabeçalho "Este sábado" fica: é o rótulo da semana. No
+   avançado o preenchimento continua, porque ali ele separa a semana da lista inteira. */
+body.mode-simple .serie-destaque {
+  margin: .4rem 0 0; padding: 0;
+  border-radius: 0; background: none;
+}
 
 /* A sentinela do fim da página (ver `fillSongList`). O objetivo é que ela NÃO
    seja vista: o observador dispara 300px antes, então na rolagem normal a
