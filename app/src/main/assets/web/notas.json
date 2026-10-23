@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.12.58",
+    "itens": [
+      "O título dos Favoritos, e o de toda coleção da Biblioteca, não sobe nem desce mais ao abrir e fechar."
+    ]
+  },
+  {
     "versao": "1.12.57",
     "itens": [
       "As séries no modo simples (Provai e Vede, Informativo) abrem e fecham sem travar no fim.",

@@ -426,7 +426,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.57';
+const WEB_VERSION = '1.12.58';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -11830,8 +11830,10 @@ function renderCollectionCard(coll, ctx) {
     // vê-lo "abrir" de novo sozinho leria como se algo tivesse acontecido.
     if (u.animarAbertura) {
       u.animarAbertura = false;
-      // O `li` ainda não está no documento: medir agora daria zero.
-      requestAnimationFrame(() => expandAccordion(aberto));
+      // O `li` ainda não está no documento: medir agora daria zero. O acervo fica seguro até
+      // lá (`segurarAcervo`).
+      const soltar = segurarAcervo(false);
+      requestAnimationFrame(() => { expandAccordion(aberto); soltar(); });
     }
   }
   return li;
@@ -12092,6 +12094,13 @@ let acervoAnimando = 0;
 let acervoFechando = 0;
 function marcarAnimacaoNoAcervo(el, fechando) {
   if (!el || !hymnResultsEl || !hymnResultsEl.contains(el)) return () => {};
+  return segurarAcervo(fechando);
+}
+// SEGURA O ACERVO SEM UM ELEMENTO NA MÃO (v1.12.58): o card que vai abrir é DESENHADO num
+// turno e animado no quadro seguinte (o `li` ainda não está no documento para medir), e um
+// tique caindo nesse vão o trocava por um card sem a curva — ele abria de uma vez. Quem
+// desenha com `animarAbertura` segura daqui até o `expandAccordion` assumir.
+function segurarAcervo(fechando) {
   acervoAnimando++;
   if (fechando) acervoFechando++;
   let solto = false;
@@ -12110,11 +12119,14 @@ function marcarAnimacaoNoAcervo(el, fechando) {
 // fechada no fim da curva — MEDIDO, 80px por ~66 ms — e só então caía para 66 no redesenho:
 // o "travando no último instante". Indo a zero junto com a altura, o card aberto e vazio
 // mede o mesmo que o fechado, e o fim da animação É o card fechado. `null` = a ponta zerada.
+// O RECUO DE CIMA FICA (v1.12.58): o do corpo de uma SEÇÃO é o `.35rem` que separa a barra
+// do primeiro card, e é PARTE da tampa — zerado, a seção terminava a curva 5,6px abaixo da
+// altura fechada e subia de volta no redesenho. O `.coll-open` de um card não tem recuo em
+// cima, então para ele não muda nada.
 function caixaDoAcordeao(el) {
-  if (!el) return { paddingTop: '0px', paddingBottom: '0px', marginTop: '0px', marginBottom: '0px' };
+  if (!el) return { paddingBottom: '0px', marginTop: '0px', marginBottom: '0px' };
   const cs = getComputedStyle(el);
-  return { paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom,
-    marginTop: cs.marginTop, marginBottom: cs.marginBottom };
+  return { paddingBottom: cs.paddingBottom, marginTop: cs.marginTop, marginBottom: cs.marginBottom };
 }
 function expandAccordion(el) {
   if (!el || !el.isConnected) return;
@@ -13548,11 +13560,19 @@ function medirTampa(lista) {
   // `topo + barra + topo = --tampa-h`, e ela só fecha se `barra` for a daquele
   // bloco: a de uma seção e a de um card diferem (MEDIDO, 0,86px a 430×900), e
   // uma média erraria nos dois. O laço já tem a barra na mão.
+  // OS FAVORITOS ABERTOS USAM A TAMPA DE QUANDO FECHAM (v1.12.58): a deles some da conta
+  // quando abrem (o vão já é deles), e o respiro calculado na tampa de agora descia
+  // o título 10,4px ao fechar. A tampa de depois é a mesma régua, com eles fechados.
+  const favAbertos = blocos.some((b) => b.classList.contains('coll-group--fav')
+    && b.classList.contains('aberto'));
+  const contaFechada = favAbertos ? calcularTampa(lista, true) : null;
+  const hFav = contaFechada ? contaFechada.h : h;
   const topoDe = (b) => {
     const barra = b.querySelector('.coll-group-bar, .coll-bar, .row');
     const alt = barra ? barra.getBoundingClientRect().height
       : b.getBoundingClientRect().height;
-    return Math.max(0, (h - alt) / 2);
+    const alvo = b.classList.contains('coll-group--fav') ? hFav : h;
+    return Math.max(0, (alvo - alt) / 2);
   };
   for (const b of blocos) b.style.setProperty('--tampa-topo', topoDe(b).toFixed(2) + 'px');
   // O da LISTA fica como piso herdado: um bloco acrescentado entre esta medição

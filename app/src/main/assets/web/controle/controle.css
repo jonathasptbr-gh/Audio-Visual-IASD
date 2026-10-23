@@ -5984,11 +5984,24 @@ body.mode-simple .serie-destaque {
    porque não tem vão interno a acomodar.
 
    Qual cede está decidido pelo relato: o título de uma SEÇÃO andava 0,86px, que
-   ninguém vê; o de um CARD andava 10,4px, que foi o que o operador viu. A seção
-   fica com a compensação de sempre (o vão inteiro em cima, que é o que mantém a
-   tampa dela constante) e o card ganha a nova. Forçar a seção à mesma regra pede
-   margem NEGATIVA, e ela sobe o corpo por cima da própria barra assim que a
-   lista fica sem folga — o `smoke.mjs` mediu −5px de vão dentro da coleção. */
+   ninguém vê; o de um CARD andava 10,4px, que foi o que o operador viu. Forçar a
+   seção à mesma regra pede margem NEGATIVA, e ela sobe o corpo por cima da
+   própria barra assim que a lista fica sem folga — o `smoke.mjs` mediu −5px de
+   vão dentro da coleção.
+
+   ---------- E A SEÇÃO PASSOU A SEGUIR O TÍTULO TAMBÉM (v1.12.58) ----------
+   Relato do operador: *"Ao abrir a coleção dos favoritos, no modo avançado, há um
+   mínimo deslocamento vertical do título 'favoritos' e toda a linha de
+   informações desse cabeçalho"*. Os 0,86px eram a medida de UMA tela: com
+   poucos blocos a tampa vai ao teto (66px) e a seção comum andava 4,8px; a dos
+   FAVORITOS andava 10,4 — aberta ela desconta o próprio vão da tampa
+   (`medirTampa`), a tampa cai ao piso e o `padding-top` antigo ia a zero.
+   Agora a seção aberta reproduz a caixa fechada como o card: `--tampa-topo`
+   em cima (por bloco, e o dos Favoritos é o da tampa de QUANDO ELES FECHAM —
+   `calcularTampa(lista, true)`) e, embaixo da barra, o que falta dele depois
+   do `.35rem` que o corpo já traz — nunca negativo, que é a margem que o
+   `smoke.mjs` reprovou. Com folga (`topo ≥ .35rem`) título E tampa ficam
+   exatos; sem ela o título fica e a tampa cresce `.35rem − topo`. */
 #hymnResults.acervo > .hymnal-card.expanded {
   padding-top: var(--tampa-topo, 0px);
 }
@@ -5996,7 +6009,10 @@ body.mode-simple .serie-destaque {
   margin-bottom: var(--tampa-topo, 0px);
 }
 #hymnResults.acervo > .coll-group--drop.aberto {
-  padding-top: max(0px, calc(var(--tampa-h, var(--bar-secao-h)) - var(--bar-secao-h) - .35rem));
+  padding-top: var(--tampa-topo, 0px);
+}
+#hymnResults.acervo > .coll-group--drop.aberto > .coll-group-bar {
+  margin-bottom: max(0px, calc(var(--tampa-topo, 0px) - .35rem));
 }
 /* ---------- O BLOCO RESPONDE POR LUZ, E RESPONDE INTEIRO ----------
    (v1.5.17, generalizado e desencolhido na v1.7.4.)
