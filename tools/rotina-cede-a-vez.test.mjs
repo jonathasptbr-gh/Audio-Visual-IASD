@@ -151,7 +151,11 @@ try {
     const conta = (f) => (String(f).match(g) || []).length;
     return {
       lyrics: conta(syncLyrics),
+      // A PORTA e o LAÇO moram em funções vizinhas desde a v1.12.60: a porta no
+      // `syncCifrasColecao` (a trava de uma passada por vez), o laço no corpo da
+      // passada (`syncCifrasPassada`).
       cifrasColecao: conta(syncCifrasColecao),
+      cifrasPassada: conta(syncCifrasPassada),
       cifrasAcervo: conta(syncCifrasAcervo),
       colecoes: conta(autoRefreshCollections),
     };
@@ -160,8 +164,9 @@ try {
     'o `syncLyrics` consulta o gate na PORTA e DENTRO do laço — a porta cobre '
     + '"começar com cena no ar"; o laço cobre o caso normal, em que a cena entra '
     + 'DEPOIS de a varredura partir', forma);
-  checar(forma.cifrasColecao >= 2,
-    'e o `syncCifrasColecao` também, pelos mesmos dois motivos', forma);
+  checar(forma.cifrasColecao >= 1 && forma.cifrasPassada >= 1,
+    'e a passada de cifras também, pelos mesmos dois motivos — a porta no `syncCifrasColecao`, '
+    + 'o laço no `syncCifrasPassada`', forma);
   checar(forma.cifrasAcervo >= 1,
     'e o laço de coleções para entre uma coleção e a seguinte', forma);
   // A GUARDA DE PORTA DELE VEM ANTES DE `collectionsRefreshing = true`, e a

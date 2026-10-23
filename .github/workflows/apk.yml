@@ -575,6 +575,7 @@ jobs:
           rodar tools/display-smoke.mjs
           rodar tools/destinos.test.mjs
           rodar tools/cifra-offline.test.mjs
+          rodar tools/cifra-escolha.test.mjs
           rodar tools/cifra-tela-cheia.test.mjs
           rodar tools/fonte-so-do-par.test.mjs
           rodar tools/leitor-biblioteca.test.mjs

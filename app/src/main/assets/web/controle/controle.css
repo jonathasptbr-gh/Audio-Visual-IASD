@@ -11962,6 +11962,17 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   cursor: pointer;
 }
 .lv-cifra-link:active { opacity: .6; }
+/* A ESCOLHA "GUARDAR TODAS AS CIFRAS" (v1.12.60), na linha de baixo do rodapé
+   e na mesma forma do "Ver no Cifra Club": texto tocável à direita, sem caixa —
+   não pode tomar altura da folha. Ligada, a linha de estado vem antes do
+   "Desligar", em `--muted` e um degrau abaixo, e quebra para a linha seguinte
+   numa tela estreita em vez de empurrar o link para fora. */
+.lv-cifra-acervo {
+  display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: baseline;
+  column-gap: var(--sp-6); row-gap: var(--sp-2); margin-top: var(--sp-3);
+  text-align: right;
+}
+.lv-cifra-acervo-estado { color: var(--muted); font-size: var(--fs-sm); }
 
 /* Nota: o antigo "toast" flutuante foi removido — as informações agora são
    transmitidas pela própria interface (ver flash() em controle.js, hoje um

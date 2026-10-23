@@ -254,6 +254,9 @@ try {
     // dias, e sem limpá-lo o cenário seguinte mede o prazo, não a regra.
     await AVDB.setState('cifras-passada:hymnal-2022', null);
     cifraDiscoColl = ''; cifraDisco = null; cifraSyncRodando = false;
+    // A VARREDURA DO ACERVO INTEIRO é uma ESCOLHA desde a v1.12.60, e nasce
+    // desligada: estes cenários medem a passada do hinário, então a ligam.
+    cifraAcervoInteiro = true;
     const nomes = Array.from({ length: arg.total }, (_, i) => 'Hino ' + (i + 1));
     collState['hymnal-2022'] = { songs: nomes.map((n, i) => ({ id_music: 'h' + i, name: n })) };
     const soLetra = new Set(nomes.slice(0, arg.quantos).map((n) => AVCifra.slug(n)));
@@ -289,6 +292,9 @@ try {
   const comExemplos = await pg.evaluate(async () => {
     await AVDB.setState('cifras:hymnal-2022', {});
     cifraDiscoColl = ''; cifraDisco = null; cifraSyncRodando = false;
+    // A VARREDURA DO ACERVO INTEIRO é uma ESCOLHA desde a v1.12.60, e nasce
+    // desligada: estes cenários medem a passada do hinário, então a ligam.
+    cifraAcervoInteiro = true;
     await AVDB.setState('cifras-passada:hymnal-2022', null);
     const nomes = Array.from({ length: 10 }, (_, i) => '00' + (i + 1) + '. Hino De Marcador ' + (i + 1));
     collState['hymnal-2022'] = { songs: nomes.map((n, i) => ({ id_music: 'h' + i, name: n })) };
@@ -542,6 +548,9 @@ try {
   const semResposta = await pg.evaluate(async () => {
     await AVDB.setState('cifras:hymnal-2022', {});
     cifraDiscoColl = ''; cifraDisco = null; cifraSyncRodando = false;
+    // A VARREDURA DO ACERVO INTEIRO é uma ESCOLHA desde a v1.12.60, e nasce
+    // desligada: estes cenários medem a passada do hinário, então a ligam.
+    cifraAcervoInteiro = true;
     await AVDB.setState('cifras-passada:hymnal-2022', null);
     const nomes = Array.from({ length: 10 }, (_, i) => '00' + (i + 1) + '. Hino Sem Rede ' + (i + 1));
     // `fileIdFull`: o bloco do Registro só percorre a coleção que tem música baixada.
@@ -583,6 +592,9 @@ try {
   const adiada = await pg.evaluate(async () => {
     await AVDB.setState('cifras:hymnal-2022', {});
     cifraDiscoColl = ''; cifraDisco = null; cifraSyncRodando = false;
+    // A VARREDURA DO ACERVO INTEIRO é uma ESCOLHA desde a v1.12.60, e nasce
+    // desligada: estes cenários medem a passada do hinário, então a ligam.
+    cifraAcervoInteiro = true;
     await AVDB.setState('cifras-passada:hymnal-2022', null);
     const nomes = Array.from({ length: 14 }, (_, i) => '00' + (i + 1) + '. Hino Adiado ' + (i + 1));
     collState['hymnal-2022'] = { songs: nomes.map((n, i) => ({ id_music: 'h' + i, name: n, fileIdFull: 'x' + i })) };

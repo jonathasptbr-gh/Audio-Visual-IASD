@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.12.60",
+    "itens": [
+      "O app não baixa mais sozinho as cifras de todas as músicas: isso agora é uma escolha.",
+      "Na aba de cifra da letra, toque em \"Deixar todas as cifras disponíveis sem internet\" para ligar.",
+      "As cifras das músicas do cronograma são guardadas sozinhas, no Wi-Fi.",
+      "A cifra de uma música que você abre fica guardada e abre sem internet da próxima vez."
+    ]
+  },
+  {
     "versao": "1.12.59",
     "itens": [
       "O título dos Favoritos não treme mais ao fechar, mesmo com a Biblioteca cheia de coleções."
