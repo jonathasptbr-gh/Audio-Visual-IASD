@@ -26,6 +26,9 @@
 //    (o defeito ao abrir: 100% num quadro);
 //  · e a coleção comum, medida no mesmo arquivo, é a referência do tempo total.
 //
+// E O CABEÇALHO NÃO ANDA (v1.12.58, A8/A9): o topo da barra e o do título, a cada quadro,
+// não se afastam mais de 0,5px do de antes do toque — nos Favoritos e numa coleção comum.
+//
 //   node tools/favoritos-fechar.test.mjs
 // ============================================================================
 import { semRedeExterna } from './sem-rede.mjs';
@@ -112,6 +115,14 @@ async function cenario(nFav) {
     const irma = () => [...hymnResultsEl.children].find((b) => b !== bloco()
       && b.classList.contains('coll-group--drop') && !b.classList.contains('aberto'));
     const alt = (el) => (el ? el.getBoundingClientRect().height : -1);
+    // O CABEÇALHO: o topo da barra e o do título, a cada quadro (v1.12.58).
+    const cabDe = () => {
+      const b = bloco(); const barra = b && b.querySelector('.coll-group-bar');
+      const nome = b && b.querySelector('.coll-group-name');
+      return barra && nome ? [barra.getBoundingClientRect().top, nome.getBoundingClientRect().top] : null;
+    };
+    const cab0 = cabDe();
+    let desvio = 0;
     const serie = [[0, alt(bloco())]];
     const irmaS = [[0, alt(irma())]];
     const t0 = performance.now();
@@ -121,11 +132,13 @@ async function cenario(nFav) {
         const t = performance.now() - t0;
         serie.push([t, alt(bloco())]);
         irmaS.push([t, alt(irma())]);
+        const c = cabDe();
+        if (c && cab0) desvio = Math.max(desvio, Math.abs(c[0] - cab0[0]), Math.abs(c[1] - cab0[1]));
         if (t < 700) requestAnimationFrame(f); else fim();
       };
       requestAnimationFrame(f);
     });
-    return { serie, irma: irmaS, aberto: bloco().classList.contains('aberto') };
+    return { serie, irma: irmaS, aberto: bloco().classList.contains('aberto'), cab: +desvio.toFixed(2) };
   }, sel);
   return { ctx, pg, tocar };
 }
@@ -168,6 +181,18 @@ try {
     const sa = await tocar(SEC);
     await new Promise((r) => setTimeout(r, 300));
     const sf = await tocar(SEC);
+    // O CABEÇALHO NÃO ANDA (v1.12.58): o topo da barra e o do título, em todo quadro da
+    // curva e no repouso (a amostra vai até 700 ms, muito depois do redesenho).
+    checar(ab.cab <= 0.5 && fe.cab <= 0.5,
+      'A8 · o cabeçalho dos FAVORITOS (barra e título) não se desloca ao abrir nem ao fechar, '
+      + 'nem durante a curva nem em repouso (maior desvio ≤ 0,5px)', { abrir: ab.cab, fechar: fe.cab });
+    checar(sa.cab <= 0.5 && sf.cab <= 0.5,
+      'A9 · e o de uma coleção comum também não', { abrir: sa.cab, fechar: sf.cab });
+    // E A SEÇÃO COMUM TERMINA A CURVA NA ALTURA FECHADA (v1.12.58): o recuo de cima do corpo
+    // é parte da tampa, e zerá-lo com a altura a deixava 5,6px abaixo, subindo no redesenho.
+    const sl = ler(sf.serie, false);
+    checar(sl.volta === 0 && sl.parado <= PATAMAR_MAX_MS,
+      'A10 · FECHAR uma coleção comum: só desce, e não passa abaixo da altura fechada para subir de volta', sl);
     const s = ler(sf.serie, false);
     checar(sa.aberto && !sf.aberto && f.chegou !== null && s.chegou !== null
       && f.chegou <= s.chegou + 150,

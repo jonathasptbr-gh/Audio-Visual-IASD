@@ -151,7 +151,10 @@ const tocar = (pg, nome, redesenharEm, tiqueEm) => pg.evaluate(async ({ nome, re
   const t0 = performance.now();
   achar().querySelector('.coll-bar').click();
   if (redesenharEm) setTimeout(() => renderCollectionsNow(), redesenharEm);
-  if (tique) setTimeout(() => { collRefreshTimer = null; tique(); }, tiqueEm);
+  // `0` = NO MESMO TURNO do toque, antes de qualquer quadro: é o vão entre o desenho do card
+  // que abre e o quadro em que a animação começa, o caso mais apertado (e o único determinístico).
+  if (tique && tiqueEm === 0) { collRefreshTimer = null; tique(); }
+  else if (tique) setTimeout(() => { collRefreshTimer = null; tique(); }, tiqueEm);
   await new Promise((fim) => {
     const f = () => {
       const t = performance.now() - t0; const li = achar();

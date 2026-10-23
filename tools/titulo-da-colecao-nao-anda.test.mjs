@@ -34,9 +34,11 @@
 // mexer aqui pede rodar aquele — e o `smoke.mjs` junto, que foi quem reprovou a
 // tentativa de estender a regra à SEÇÃO (lá o corpo traz `.35rem` de vão por
 // dentro, e forçar a mesma conta pede margem negativa: −5px de vão dentro da
-// coleção, o corpo subindo por cima da própria barra). A seção fica com a
-// compensação de sempre, e o relato é quem decide: o título dela andava 0,86px,
-// o de um card andava 10,4.
+// coleção, o corpo subindo por cima da própria barra). Desde a v1.12.58 a SEÇÃO
+// também segue o título (`--tampa-topo` em cima; embaixo da barra o que falta
+// dele depois do `.35rem`, nunca negativo): com poucos blocos ela andava 4,8px e a
+// dos Favoritos 10,4 — o `favoritos-fechar` (A8/A9) mede isso quadro a quadro, e o
+// `lista-da-biblioteca` (F1b) aceita o resíduo declarado da tampa, `.35rem − topo`.
 //
 // ## O que ele mede, e por que a segunda metade existe
 //

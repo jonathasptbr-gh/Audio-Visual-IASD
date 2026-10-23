@@ -3032,10 +3032,14 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.12.57 · APK v1.12.46** · `SHELL_VERSION` **82** ·
+**Versão atual: base web v1.12.58 · APK v1.12.46** · `SHELL_VERSION` **82** ·
 bundle com `minShell: 82` e **sem `shellTag`** — o shell 82 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. **Este lote é só web**
-(a Release v1.12.46 já está publicada). **A v1.12.57 FAZ TODO CARD DO ACERVO FECHAR NUM MOVIMENTO SÓ E TIRA O
+(a Release v1.12.46 já está publicada). **A v1.12.58 SEGURA O TÍTULO DE TODA SEÇÃO DA BIBLIOTECA AO ABRIR E
+FECHAR**: a seção aberta passou à regra do card (`--tampa-topo` em cima e, embaixo da barra, o que falta dele depois
+do `.35rem` do corpo, nunca negativo), e o respiro dos Favoritos abertos é o da tampa de quando fecham
+(`calcularTampa(lista, true)` no `medirTampa`); o recuo de CIMA do corpo não anima mais com a altura
+(`caixaDoAcordeao`). Ver o capítulo do Controle, "O rodízio das coleções". **A v1.12.57 FAZ TODO CARD DO ACERVO FECHAR NUM MOVIMENTO SÓ E TIRA O
 CARTÃO DA SEMANA NO MODO FÁCIL**: o redesenho do acervo espera os acordeões em curso (`marcarAnimacaoNoAcervo`:
 o tique se rearma com qualquer um, o `renderCollectionsNow` direto só com um FECHAMENTO), o recuo do corpo anima
 com a altura (`caixaDoAcordeao`), e `body.mode-simple .serie-destaque` pousa a linha da semana no card como a

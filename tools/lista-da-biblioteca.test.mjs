@@ -1329,7 +1329,9 @@ try {
   // SEÇÃO ainda AUMENTA a tampa em 5,59px. É o número da própria linha de base,
   // não regressão deste lote, e por isso o F1b só afirma a seção onde a lista
   // cabe. Quem cobre a outra tela é o F1c, que é o relato ao pé da letra:
-  // a tampa não ENCOLHE.
+  // a tampa não ENCOLHE. (Desde a v1.12.58 a seção segue o TÍTULO, e onde o
+  // respiro `(tampa − barra) / 2` é menor que o `.35rem` do corpo a tampa cresce a
+  // diferença — o F1b a lê do layout e a aceita, e só ela.)
   //
   // As telas são as do D5, e pela mesma razão: numa tela só, *"a tampa não
   // muda"* e *"a tampa está sempre no piso"* são indistinguíveis.
@@ -1594,10 +1596,25 @@ try {
       'F1a · ' + tela.nome + ': a tampa de um CARD mede o mesmo fechada e aberta '
       + '(Δ ' + dCard + 'px)', medida);
     if (tela.cabe) {
-      checar(dSec !== null && Math.abs(dSec) <= 0.5,
-        'F1b · ' + tela.nome + ': e a tampa de uma SEÇÃO também (Δ ' + dSec + 'px) '
-        + '— os dois tipos falham diferente, porque a `box-shadow` existe na '
-        + '`.coll-bar` de um card aberto e NÃO na `.coll-group-bar`', medida);
+      // O RESÍDUO DA SEÇÃO É DECLARADO, E LIDO (v1.12.58): ela segue o TÍTULO (`--tampa-topo`
+      // em cima, como o card), e o corpo dela traz `.35rem` de vão por dentro — com o respiro
+      // `(tampa − barra) / 2` menor que isso a tampa cresce `.35rem − topo`, nunca encolhe. O
+      // número sai do layout: a tampa medida fechada e a barra da seção.
+      const residuo = await pg.evaluate((tampaH) => {
+        const el = document.getElementById('hymnResults');
+        const s = [...el.children].find((b) => b.classList
+          && b.classList.contains('coll-group--drop') && !b.classList.contains('coll-group--fav'));
+        const bar = s && s.querySelector('.coll-group-bar');
+        if (!bar) return 0;
+        const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+        const topo = Math.max(0, (tampaH - bar.getBoundingClientRect().height) / 2);
+        return Math.max(0, 0.35 * rem - topo);
+      }, fechado.tampaH);
+      medida.residuo = Math.round(residuo * 100) / 100;
+      checar(dSec !== null && dSec >= -0.5 && dSec <= residuo + 0.5,
+        'F1b · ' + tela.nome + ': e a tampa de uma SEÇÃO também (Δ ' + dSec + 'px, resíduo '
+        + 'declarado ' + medida.residuo + 'px) — os dois tipos falham diferente, porque a '
+        + '`box-shadow` existe na `.coll-bar` de um card aberto e NÃO na `.coll-group-bar`', medida);
     }
     checar(dCard !== null && dSec !== null && dCard >= -0.5 && dSec >= -0.5,
       'F1c · ' + tela.nome + ': e em nenhum dos dois a tampa ENCOLHE ao abrir — é '
