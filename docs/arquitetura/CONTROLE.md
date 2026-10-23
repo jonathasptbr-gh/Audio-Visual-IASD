@@ -4803,7 +4803,8 @@ As quatro células:
 
 #### A FOLHA DE FERRAMENTAS (v1.3.10)
 
-Mensagens, Tempo (cronômetro/relógio/timer) e Sorteio. Elas eram uma ABA; hoje
+Mensagens, Tempo (relógio/cronômetro/timer e, desde a v1.13.0, o ITINERÁRIO — ver
+`CAMADA-DE-TEXTO.md`, "Ferramentas: itinerário") e Sorteio. Elas eram uma ABA; hoje
 são `#toolsSheet`, uma folha que sobe **de dentro do Cronograma**, aberta pelo
 `#toolsBtn` — o botão à direita de "Importar arquivos", no `#listFoot`. (O
 microfone ao vivo era a quarta peça delas, e saiu na v1.8.89.)

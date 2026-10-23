@@ -1602,6 +1602,160 @@
     return { text: String(min + Math.floor(r * (max - min + 1))), rolling: true };
   }
 
+  // ===== Itinerário (aba Ferramentas → Tempo, v1.13.0) =====
+  // A programação do evento — horário + título —, com o item de AGORA em
+  // destaque e os seguintes abaixo. Mesmo desenho do relógio: o Controle manda
+  // a LISTA e o AJUSTE, e cada tela deriva sozinha qual item está no ar a partir
+  // do próprio relógio. Nenhum comando trafega quando o relógio cruza um
+  // horário — e a reconexão volta no item certo pelo mesmo descritor.
+  //
+  // Descritor:
+  //   { itens:[{k, min, titulo}], desloc:<min, + = atrasa>, horas:bool,
+  //     fuso:<getTimezoneOffset() de quem mandou> }
+  //
+  // `min` é o minuto do dia (0..1439) PREVISTO; o efetivo é `min + desloc`, e é
+  // ele que se compara e se mostra. O `fuso` é o do CELULAR: a hora do dia sai
+  // do fuso de quem montou a programação, e não do da tela que a desenha (uma
+  // Smart TV com o fuso errado mostraria o item errado). A VIRADA DA MEIA-NOITE
+  // fica fora: a programação é de UM dia, e um item deslocado para antes de
+  // 00:00 ou depois de 23:59 é mostrado com a hora dada a volta, mas comparado
+  // como se fosse do mesmo dia.
+  const ITIN_TICK_MS = 1000;   // o minuto vira sem atraso perceptível
+  const ITIN_JANELA = 6;       // o item de agora + os cinco seguintes
+  const ITIN_ANIM_MS = 700;
+  const ITIN_CURVA = 'cubic-bezier(.2, .7, .2, 1)';
+  const DIA_MS = 86400000;
+
+  function itinHora(min) {
+    const m = ((Math.round(min) % 1440) + 1440) % 1440;
+    return pad2(Math.floor(m / 60)) + ':' + pad2(m % 60);
+  }
+
+  // A LEITURA PURA: (descritor, relógio) → a lista ordenada pelo horário
+  // efetivo e o índice do item no ar. `ativo` é -1 ANTES do primeiro horário
+  // (nada no ar ainda); DEPOIS do último ele fica no último — o encerramento é
+  // um momento como os outros, e não tem hora de acabar.
+  function itinerarioLeitura(d, agora) {
+    const o = (d && typeof d === 'object') ? d : {};
+    const desloc = Number.isFinite(o.desloc) ? Math.round(o.desloc) : 0;
+    const itens = [];
+    (Array.isArray(o.itens) ? o.itens : []).forEach((x, i) => {
+      if (!x || !Number.isFinite(x.min)) return;
+      const min = Math.round(x.min);
+      if (min < 0 || min >= 1440) return;
+      itens.push({
+        k: x.k != null ? String(x.k) : 'i' + i, min, ef: min + desloc,
+        hora: itinHora(min + desloc), titulo: String(x.titulo || ''), o: i,
+      });
+    });
+    // FORA DE ORDEM SE ORDENA PELO HORÁRIO; empate fica na ordem de chegada.
+    itens.sort((a, b) => a.ef - b.ef || a.o - b.o);
+    const t = agora == null ? Date.now() : agora;
+    const fuso = Number.isFinite(o.fuso) ? o.fuso : new Date(t).getTimezoneOffset();
+    const msDia = (((t - fuso * 60000) % DIA_MS) + DIA_MS) % DIA_MS;
+    let ativo = -1;
+    for (let i = 0; i < itens.length; i++) if (itens[i].ef * 60000 <= msDia) ativo = i;
+    return { itens, ativo, horas: o.horas !== false, desloc };
+  }
+
+  // O QUE A TELA MOSTRA: a partir do item de agora, ITIN_JANELA linhas. Antes
+  // do primeiro horário a janela começa nele, marcado "A seguir".
+  function itinerarioJanela(l) {
+    const ini = Math.max(l.ativo, 0);
+    return l.itens.slice(ini, ini + ITIN_JANELA).map((x, j) => Object.assign({}, x, {
+      estado: ini + j === l.ativo ? 'agora' : (l.ativo < 0 && j === 0 ? 'seguir' : ''),
+    }));
+  }
+
+  function reduzMovimento() {
+    try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+    catch (_) { return false; }
+  }
+
+  /**
+   * DESENHA o itinerário numa `<ol class="itin">` — o MESMO código no telão,
+   * nas telas da rede e na preview, porque a preview existe para espelhar o
+   * telão e duas escritas da mesma lista divergiriam no primeiro ajuste.
+   *
+   * As linhas são REAPROVEITADAS pela chave do item (`data-k`), e é isso que
+   * permite ANIMAR a troca: quando o relógio cruza um horário, a linha que sai
+   * esmaece subindo, as que ficam deslizam para o lugar novo (FLIP: mede antes,
+   * muda o DOM, mede depois, anima a diferença) e a que entra embaixo aparece.
+   * O destaque do item de agora troca por `transition` no CSS. Nada se move com
+   * `prefers-reduced-motion`.
+   *
+   * Devolve `false` quando nada mudou (a assinatura da janela é a mesma) — o
+   * tique de um segundo passa por aqui e não pode tocar no DOM à toa.
+   */
+  function desenharItinerario(ol, d, agora, animar) {
+    if (!ol) return false;
+    const l = itinerarioLeitura(d, agora);
+    const jan = itinerarioJanela(l);
+    const assin = (l.horas ? 'h' : 't') + '|' + l.itens.length + '|' + jan.map((x) =>
+      [x.k, x.hora, x.titulo, x.estado].join('\u0001')).join('\u0002');
+    if (ol.__itinAssin === assin) return false;
+    ol.__itinAssin = assin;
+    ol.classList.toggle('sem-horas', !l.horas);
+    // A ALTURA É A DA LISTA CHEIA, e não a da janela de agora: perto do fim as
+    // linhas de baixo vagam, e sem a reserva o bloco se recentraria a cada
+    // item que acaba — o de agora andaria na tela.
+    ol.style.setProperty('--itin-linhas', String(Math.max(1, Math.min(l.itens.length, ITIN_JANELA))));
+    const mover = !!animar && !reduzMovimento() && typeof ol.animate === 'function'
+      && ol.getClientRects().length > 0;
+    const vivas = [...ol.children].filter((li) => !li.classList.contains('itin-saindo'));
+    const antes = new Map();
+    if (mover) vivas.forEach((li) => antes.set(li.dataset.k, li.getBoundingClientRect().top));
+    const ficam = new Set(jan.map((x) => x.k));
+    const saindo = [];
+    vivas.forEach((li) => {
+      if (ficam.has(li.dataset.k)) return;
+      if (mover && antes.has(li.dataset.k)) { li.classList.add('itin-saindo'); saindo.push(li); }
+      else li.remove();
+    });
+    const porChave = new Map(vivas.map((li) => [li.dataset.k, li]));
+    const novas = new Set();
+    jan.forEach((x) => {
+      let li = ficam.has(x.k) ? porChave.get(x.k) : null;
+      if (!li) {
+        li = document.createElement('li');
+        li.className = 'itin-linha';
+        li.dataset.k = x.k;
+        ['itin-hora', 'itin-titulo', 'itin-tag'].forEach((c) => {
+          const s = document.createElement('span'); s.className = c; li.appendChild(s);
+        });
+        novas.add(li);
+      }
+      const [hora, titulo, tag] = li.children;
+      hora.textContent = x.hora;
+      titulo.textContent = x.titulo;
+      tag.textContent = x.estado === 'agora' ? 'Agora' : x.estado === 'seguir' ? 'A seguir' : '';
+      li.classList.toggle('agora', x.estado === 'agora');
+      li.classList.toggle('seguir', x.estado === 'seguir');
+      ol.appendChild(li);
+    });
+    if (!mover) return true;
+    const base = ol.getBoundingClientRect().top;
+    const opts = { duration: ITIN_ANIM_MS, easing: ITIN_CURVA };
+    // A QUE SAI fica no lugar em que estava (fora do fluxo) e esmaece subindo.
+    saindo.forEach((li) => {
+      li.style.top = (antes.get(li.dataset.k) - base) + 'px';
+      const a = li.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-60%)' }],
+        Object.assign({ fill: 'forwards' }, opts));
+      a.onfinish = () => li.remove();
+      a.oncancel = () => li.remove();
+    });
+    [...ol.children].forEach((li) => {
+      if (li.classList.contains('itin-saindo')) return;
+      if (novas.has(li)) {
+        li.animate([{ opacity: 0, transform: 'translateY(40%)' }, { opacity: 1, transform: 'none' }], opts);
+        return;
+      }
+      const dy = antes.get(li.dataset.k) - li.getBoundingClientRect().top;
+      if (Math.abs(dy) > 0.5) li.animate([{ transform: 'translateY(' + dy + 'px)' }, { transform: 'none' }], opts);
+    });
+    return true;
+  }
+
   // ===== O ESTILO DE UM CARTÃO DE MENSAGEM (v1.9.1) =====
   // Três escolhas por mensagem — tamanho, fonte e alinhamento —, e a REGRA que
   // as traduz mora AQUI porque os DOIS lados do cartão a aplicam: o telão
@@ -1673,4 +1827,8 @@
   // ao pausar o cronômetro (acumular o baseMs).
   createStage.DRAW_FRAME_MS = DRAW_FRAME_MS;
   createStage.drawReading = drawReading;
+  createStage.ITIN_TICK_MS = ITIN_TICK_MS;
+  createStage.itinHora = itinHora;
+  createStage.itinerarioLeitura = itinerarioLeitura;
+  createStage.desenharItinerario = desenharItinerario;
 })(this);

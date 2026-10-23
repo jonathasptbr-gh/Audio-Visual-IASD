@@ -13,6 +13,7 @@ const textContentEl = document.getElementById('textContent');
 const textMainEl = document.getElementById('textMain');
 const textSubEl = document.getElementById('textSub');
 const textImgEl = document.getElementById('textImg');
+const textItinEl = document.getElementById('textItin');
 
 // IDENTIDADE DESTA INSTÂNCIA, por CARREGAMENTO da página. Existe para o
 // Controle poder ENDEREÇAR o reenvio de cena a quem acabou de se anunciar, em
@@ -644,9 +645,10 @@ let cartaoAssinado = '';
 // escrevendo no mesmo nó nunca seriam ambos corretos. Com registro único isso é
 // estruturalmente impossível.
 
-let liveKind = '';    // 'chrono' | 'draw' | ''
+let liveKind = '';    // 'chrono' | 'draw' | 'itinerario' | ''
 let liveDesc = null;
 let liveTimer = null;
+let liveAnima = false;   // ver o ramo do itinerário no `liveTick`
 
 // O RELÓGIO DA ORIGEM — a diferença entre ele e `Date.now()` é uma hora errada
 // na frente da congregação.
@@ -687,6 +689,17 @@ function liveReading() {
 }
 
 function liveTick() {
+  // O ITINERÁRIO É UMA LISTA, e não um número: quem desenha é o mesmo
+  // `desenharItinerario` da preview. O relógio é o DA ORIGEM, pelo motivo do
+  // modo relógio logo acima — o que decide o item no ar é a HORA CORRENTE, e
+  // ela não viaja em campo nenhum (os horários são minutos do dia, sem época a
+  // traduzir). O primeiro desenho de uma entrada nova não anima (`liveAnima`):
+  // a lista aparece junto com o fade do cartão.
+  if (liveKind === 'itinerario') {
+    createStage.desenharItinerario(textItinEl, liveDesc, agoraDaOrigem(), liveAnima);
+    liveAnima = true;
+    return;
+  }
   const r = liveReading();
   if (!r) return;
   textMainEl.textContent = r.text;
@@ -702,9 +715,15 @@ function liveTick() {
 }
 
 function startLive(kind, desc) {
+  // A LISTA ANIMA SÓ SE JÁ ESTAVA À VISTA: um descritor novo sobre o itinerário
+  // no ar (o ajuste de atraso, uma linha editada) desliza as linhas; vindo de
+  // outro modo, ela entra pelo fade do cartão.
+  liveAnima = kind === 'itinerario' && liveKind === 'itinerario' && textActive;
+  if (kind !== 'itinerario') limparItin();
   liveKind = kind; liveDesc = desc || {};
   stopLiveTimer();
   liveTick();
+  if (kind === 'itinerario') { liveTimer = setInterval(liveTick, createStage.ITIN_TICK_MS); return; }
   if (kind === 'draw') {
     // Só rola enquanto há rolo; depois o próprio liveTick se desliga.
     if (liveDesc.rollUntil && Date.now() < liveDesc.rollUntil) {
@@ -725,6 +744,15 @@ function stopLiveTimer() {
 function clearLive() {
   stopLiveTimer(); liveKind = ''; liveDesc = null;
   textContentEl.classList.remove('chrono-over', 'draw-rolling');
+  limparItin();
+}
+
+// A lista sai INTEIRA com o modo, e a assinatura junto: sem ela o próximo
+// itinerário com a mesma janela acharia que já está desenhado.
+function limparItin() {
+  if (!textItinEl) return;
+  textItinEl.innerHTML = '';
+  textItinEl.__itinAssin = '';
 }
 
 // ===== A IMAGEM SOBRE O ÁUDIO (v5.312) =====
@@ -858,11 +886,13 @@ function showText(cmd) {
   letraManual = false;
   const wallpaper = cmd.view === 'wallpaper';
   textMode = cmd.mode === 'message' ? 'message'
-    : (cmd.mode === 'chrono' || cmd.mode === 'draw' || cmd.mode === 'image') ? cmd.mode : 'verse';
+    : (cmd.mode === 'chrono' || cmd.mode === 'draw' || cmd.mode === 'image'
+      || cmd.mode === 'itinerario') ? cmd.mode : 'verse';
   textContentEl.classList.toggle('mode-message', textMode === 'message');
   aplicarEstiloDoCartao(cmd.estilo, textMode === 'message');
   textContentEl.classList.toggle('mode-chrono', textMode === 'chrono');
   textContentEl.classList.toggle('mode-draw', textMode === 'draw');
+  textContentEl.classList.toggle('mode-itinerario', textMode === 'itinerario');
   textEl.classList.toggle('mode-img', textMode === 'image');
   if (textMode === 'image') {
     // A resolução é assíncrona e a camada entra JÁ: o cartão preto aparece no
@@ -875,6 +905,9 @@ function showText(cmd) {
     startLive('chrono', cmd.chrono || {});
   } else if (textMode === 'draw') {
     startLive('draw', cmd.draw || {});
+  } else if (textMode === 'itinerario') {
+    textMainEl.textContent = '';
+    startLive('itinerario', cmd.itinerario || {});
   } else {
     clearLive();
     textMainEl.textContent = cmd.main || '';

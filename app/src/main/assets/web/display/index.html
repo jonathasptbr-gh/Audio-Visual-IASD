@@ -68,8 +68,8 @@
        CLAUDE.md. Genérica, e os modos vivem em `.text-content`: SEM CLASSE =
        versículo (a referência dourada em #textSub) · `mode-message`
        (mensagem/texto puro) · `mode-chrono` (cronômetro/relógio/timer) ·
-       `mode-draw` (sorteio). Não existe `mode-verse`: o versículo é o estado
-       sem classe, e uma regra escrita para ela nunca casaria — os três nomes
+       `mode-draw` (sorteio) · `mode-itinerario` (a programação). Não existe `mode-verse`: o versículo é o estado
+       sem classe, e uma regra escrita para ela nunca casaria — os quatro nomes
        acima são os únicos que display.js escreve. Camada paralela ao stage.js (mesmo
        z-index dos layers de mídia); a cortina do wallpaper (z-index maior) a
        cobre/revela de graça. Independente do áudio: um som pode tocar por baixo. -->
@@ -85,6 +85,10 @@
       <div class="text-box">
         <div class="text-main" id="textMain"></div>
         <div class="text-sub" id="textSub" hidden></div>
+        <!-- O ITINERÁRIO (v1.13.0) — `mode-itinerario`: a lista que o
+             `createStage.desenharItinerario` monta e anima. Só aparece nesse
+             modo (ver display.css). -->
+        <ol class="itin" id="textItin" aria-label="Itinerário"></ol>
       </div>
     </div>
   </div>

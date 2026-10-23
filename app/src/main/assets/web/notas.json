@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.13.0",
+    "itens": [
+      "Novo: Itinerário, em Ferramentas > Tempo. Monte a programação do evento com horário e título.",
+      "Toque numa linha para mudar o horário ou o título. A lista se ordena sozinha pelo horário.",
+      "Projetado, o telão mostra o momento de agora em destaque e os seguintes logo abaixo.",
+      "A troca para o próximo momento acontece sozinha, na hora marcada, com uma animação suave.",
+      "Atrasou? Use −5, −1, +1 e +5 para mover toda a programação junta. O botão ↺ volta ao previsto.",
+      "O botão do relógio, ao lado de Projetar, escolhe mostrar os horários ou só os títulos no telão."
+    ]
+  },
+  {
     "versao": "1.12.60",
     "itens": [
       "O app não baixa mais sozinho as cifras de todas as músicas: isso agora é uma escolha.",
