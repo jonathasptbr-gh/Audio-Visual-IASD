@@ -5562,8 +5562,8 @@ rearma com QUALQUER um, e o `renderCollectionsNow` direto vira o tique só com u
 FECHAMENTO — na abertura ele segue o primitivo sem guarda que o
 `gaveta-no-download` afirma. O card que vai ABRIR fica seguro desde o desenho até o quadro da animação (`segurarAcervo`, v1.12.58) — um tique nesse vão o trocava por um card sem a curva. **E o recuo do corpo anima com a altura**
 (`caixaDoAcordeao`): com `border-box`, `height: 0` não passa do `padding`, e o card
-ficava parado ~14px acima da altura fechada no fim da curva (o recuo de CIMA fica de
-fora desde a v1.12.58). Oráculo: `serie-no-modo-facil.test.mjs`.
+ficava parado ~14px acima da altura fechada no fim da curva (o recuo de CIMA vai a
+`min(.35rem, --tampa-topo)` desde a v1.12.59). Oráculo: `serie-no-modo-facil.test.mjs`.
 
 **E O TÍTULO DE UMA SEÇÃO NÃO ANDA (v1.12.58)** — relato: *"Ao abrir a coleção dos
 favoritos … há um mínimo deslocamento vertical do título"*. A seção aberta segue a
@@ -5571,8 +5571,11 @@ regra do card: `--tampa-topo` em cima e, embaixo da barra, `max(0, --tampa-topo 
 .35rem)` (o corpo já traz `.35rem`). O respiro dos Favoritos ABERTOS é o da tampa de
 quando eles FECHAM (`calcularTampa(lista, true)`), porque abertos eles saem da conta
 dela. Sem folga (`topo < .35rem`) o título fica e a tampa cresce `.35rem − topo`. E o
-recuo de cima do corpo NÃO anima com a altura (`caixaDoAcordeao`): é parte da tampa.
-Oráculo: `favoritos-fechar` A8–A10; o resíduo é o `lista-da-biblioteca` F1b.
+recuo de cima do corpo anima até `min(.35rem, --tampa-topo)` da seção, nunca a zero nem
+inteiro (`recuoFechadoDoAcordeao`, v1.12.59): é parte da tampa, e com a lista cheia
+(tampa no piso, respiro zero) o inteiro não cabia na caixa fechada e o flex o centrava —
+o cabeçalho tremia 2,8px no fim do fechamento. Oráculo: `favoritos-fechar` A8–A10 e o
+bloco C (celular, lista cheia); o resíduo é o `lista-da-biblioteca` F1b.
 
 **NO MODO FÁCIL A SEMANA DA SÉRIE NÃO É UM CARTÃO (v1.12.57).** Lá a série mostra só
 a semana (`soASemana`), e o `--sel-fill` do `.serie-destaque` virava um cartão azul

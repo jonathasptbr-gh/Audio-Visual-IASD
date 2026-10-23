@@ -71,8 +71,11 @@ function ler(serie, sobe) {
   };
 }
 
-async function cenario(nFav) {
-  const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 } });
+async function cenario(nFav, opts = {}) {
+  const ctx = await navegador.newContext({
+    viewport: opts.viewport || { width: 430, height: 900 },
+    deviceScaleFactor: opts.dpr || 1,
+  });
   await semRedeExterna(ctx);
   await comModoAvancado(ctx);
   const pg = await ctx.newPage();
@@ -88,14 +91,18 @@ async function cenario(nFav) {
       && s.getBoundingClientRect().bottom <= window.innerHeight + 1;
   }, null, 10000);
   if (assentou !== true) throw new Error('a Biblioteca não assentou: ' + assentou);
-  await pg.evaluate(async (n) => {
+  await pg.evaluate(async ({ n, extras }) => {
     const faixas = (k) => Array.from({ length: k }, (_, i) => ({
       id_music: 'a' + (i + 1), track: i + 1, name: 'Faixa ' + (i + 1),
       duration: '3:00', has_instrumental_music: false,
     }));
-    albumCatalog.categories = [{ name: 'Seção de teste', albums: [{ id_album: 77, name: 'Álbum' }] }];
-    albumCatalog.albums = [{ id_album: 77, name: 'Álbum' }];
-    collState['album-77'] = { indexSyncedAt: Date.now(), songs: faixas(5) };
+    // `extras` seções a mais: com a lista cheia a tampa vai ao PISO (respiro zero), que é o
+    // acervo de verdade de um aparelho com hinários, séries e coletâneas (v1.12.59).
+    const cats = [{ name: 'Seção de teste', albums: [{ id_album: 77, name: 'Álbum' }] }];
+    for (let c = 0; c < extras; c++) cats.push({ name: 'Seção ' + c, albums: [{ id_album: 200 + c, name: 'Álbum ' + c }] });
+    albumCatalog.categories = cats;
+    albumCatalog.albums = cats.map((c) => c.albums[0]);
+    for (const c of cats) collState['album-' + c.albums[0].id_album] = { indexSyncedAt: Date.now(), songs: faixas(5) };
     for (let i = 0; i < n; i++) {
       await AVDB.addMedia(new Blob(['x' + i], { type: 'audio/mpeg' }), { name: 'Favorito ' + i, list: 'favs' });
     }
@@ -103,7 +110,7 @@ async function cenario(nFav) {
     grupoAberto = ''; favAberto = false;
     hymnResultsEl.innerHTML = '';
     renderSearchResults('');
-  }, nFav);
+  }, { n: nFav, extras: opts.extras || 0 });
   await esperar(pg, () => document.querySelector('#hymnResults > .coll-group--fav')
     && document.querySelector('#hymnResults > .coll-group--drop[data-grupo="Seção de teste"]'));
   await pg.waitForTimeout(150);   // a tampa do `requestAnimationFrame` assenta
@@ -183,10 +190,10 @@ try {
     const sf = await tocar(SEC);
     // O CABEÇALHO NÃO ANDA (v1.12.58): o topo da barra e o do título, em todo quadro da
     // curva e no repouso (a amostra vai até 700 ms, muito depois do redesenho).
-    checar(ab.cab <= 0.5 && fe.cab <= 0.5,
+    checar(ab.cab < 0.25 && fe.cab < 0.25,
       'A8 · o cabeçalho dos FAVORITOS (barra e título) não se desloca ao abrir nem ao fechar, '
-      + 'nem durante a curva nem em repouso (maior desvio ≤ 0,5px)', { abrir: ab.cab, fechar: fe.cab });
-    checar(sa.cab <= 0.5 && sf.cab <= 0.5,
+      + 'nem durante a curva nem em repouso (maior desvio < 0,25px)', { abrir: ab.cab, fechar: fe.cab });
+    checar(sa.cab < 0.25 && sf.cab < 0.25,
       'A9 · e o de uma coleção comum também não', { abrir: sa.cab, fechar: sf.cab });
     // E A SEÇÃO COMUM TERMINA A CURVA NA ALTURA FECHADA (v1.12.58): o recuo de cima do corpo
     // é parte da tampa, e zerá-lo com a altura a deixava 5,6px abaixo, subindo no redesenho.
@@ -216,6 +223,38 @@ try {
       'B2 · o cenário está de pé: a lista passava do vão e fechou', f);
     checar(f.parado <= PATAMAR_MAX_MS && f.volta === 0,
       'B3 · FECHAR: o bloco desce até a altura fechada sem PARAR no vão (' + f.parado + ' ms parado)', f);
+    await ctx.close();
+  }
+
+  // ======================================================================
+  // C · A LISTA CHEIA (a tampa no PISO), NUM CELULAR: O CABEÇALHO NÃO TREME
+  // ======================================================================
+  // Relato sobre a v1.12.58: *"Ainda está acontecendo nos favoritos, mas está mais reduzido,
+  // como uma vibração e não um movimento completo"*. Com a tampa no piso o respiro é zero, o
+  // `.35rem` de cima do corpo não cabe na caixa fechada, e o flex da seção centrava o excesso
+  // no fim da curva: a barra e o título tremiam 2,8px. A régua aperta para 0,25px.
+  for (const cel of [
+    { nome: '393×852 @3x, 8 seções', viewport: { width: 393, height: 852 }, dpr: 3, extras: 7 },
+    { nome: '360×780 @2,625x, 8 seções', viewport: { width: 360, height: 780 }, dpr: 2.625, extras: 7 },
+  ]) {
+    const { ctx, pg, tocar } = await cenario(3, cel);
+    const piso = await pg.evaluate(() => {
+      const fav = document.querySelector('#hymnResults > .coll-group--fav');
+      const barra = fav.querySelector('.coll-group-bar').getBoundingClientRect().height;
+      const tampa = parseFloat(getComputedStyle(hymnResultsEl).getPropertyValue('--tampa-h')) || 0;
+      return { barra: +barra.toFixed(2), tampa };
+    });
+    checar(Math.abs(piso.tampa - piso.barra) <= 0.5,
+      'C0 · PREMISSA (' + cel.nome + '): a tampa está no PISO (a altura da barra)', piso);
+    const ab = await tocar(FAV);
+    await new Promise((r) => setTimeout(r, 300));
+    const fe = await tocar(FAV);
+    checar(ab.aberto && !fe.aberto && ab.cab < 0.25 && fe.cab < 0.25,
+      'C1 · (' + cel.nome + ') o cabeçalho dos Favoritos não treme nem 0,25px, abrindo ou fechando, '
+      + 'em nenhum quadro', { abrir: ab.cab, fechar: fe.cab });
+    const f = ler(fe.serie, false);
+    checar(f.volta === 0 && f.parado <= PATAMAR_MAX_MS,
+      'C2 · (' + cel.nome + ') e o bloco fecha só descendo, sem parar', f);
     await ctx.close();
   }
 

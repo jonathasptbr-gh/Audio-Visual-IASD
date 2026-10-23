@@ -426,7 +426,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.58';
+const WEB_VERSION = '1.12.59';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -12118,15 +12118,30 @@ function segurarAcervo(fechando) {
 // (e a margem dele seguia ocupando lugar), o card ficava PARADO uns 14px acima da altura
 // fechada no fim da curva — MEDIDO, 80px por ~66 ms — e só então caía para 66 no redesenho:
 // o "travando no último instante". Indo a zero junto com a altura, o card aberto e vazio
-// mede o mesmo que o fechado, e o fim da animação É o card fechado. `null` = a ponta zerada.
-// O RECUO DE CIMA FICA (v1.12.58): o do corpo de uma SEÇÃO é o `.35rem` que separa a barra
-// do primeiro card, e é PARTE da tampa — zerado, a seção terminava a curva 5,6px abaixo da
-// altura fechada e subia de volta no redesenho. O `.coll-open` de um card não tem recuo em
-// cima, então para ele não muda nada.
-function caixaDoAcordeao(el) {
-  if (!el) return { paddingBottom: '0px', marginTop: '0px', marginBottom: '0px' };
+// mede o mesmo que o fechado, e o fim da animação É o card fechado.
+// O RECUO DE CIMA VAI AO QUE CABE NA CAIXA FECHADA (v1.12.58 → v1.12.59). O do corpo de uma
+// SEÇÃO é o `.35rem` que separa a barra do primeiro card, e é PARTE da tampa: zerado (v1.12.57),
+// a seção terminava a curva 5,6px abaixo da altura fechada; mantido inteiro (v1.12.58), com a
+// lista cheia e a tampa no piso (respiro 0) o conteúdo passava 5,6px da caixa que encolhia, e
+// o flex da seção o CENTRAVA — a barra e o título tremiam 2,8px no fim da curva (MEDIDO a
+// 393×852, 8 seções). A ponta certa é `min(.35rem, --tampa-topo)` da seção: com ela o corpo
+// vazio mede EXATAMENTE a caixa fechada (`topo + barra + max(0, topo − .35rem) + min(.35rem,
+// topo) = 2·topo + barra`) em toda tela. Fora de uma seção (o `.coll-open` de um card, a
+// gaveta de uma linha) a ponta é zero, como na v1.12.57. `null` = a ponta fechada de `el`.
+function recuoFechadoDoAcordeao(el) {
+  const sec = el && el.parentElement;
+  if (!sec || !sec.classList.contains('coll-group--drop')) return '0px';
+  const topo = parseFloat(getComputedStyle(sec).getPropertyValue('--tampa-topo')) || 0;
+  const pt = parseFloat(getComputedStyle(el).paddingTop) || 0;
+  return Math.max(0, Math.min(pt, topo)) + 'px';
+}
+function caixaDoAcordeao(el, fechada) {
+  if (fechada) {
+    return { paddingTop: recuoFechadoDoAcordeao(el), paddingBottom: '0px', marginTop: '0px', marginBottom: '0px' };
+  }
   const cs = getComputedStyle(el);
-  return { paddingBottom: cs.paddingBottom, marginTop: cs.marginTop, marginBottom: cs.marginBottom };
+  return { paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom,
+    marginTop: cs.marginTop, marginBottom: cs.marginBottom };
 }
 function expandAccordion(el) {
   if (!el || !el.isConnected) return;
@@ -12139,7 +12154,7 @@ function expandAccordion(el) {
   el.style.overflow = 'hidden';
   const liberar = marcarAnimacaoNoAcervo(el, false);
   const anim = el.animate(
-    [{ height: '0px', opacity: 0, ...caixaDoAcordeao(null) },
+    [{ height: '0px', opacity: 0, ...caixaDoAcordeao(el, true) },
       { height: alvo + 'px', opacity: 1, ...caixaDoAcordeao(el) }],
     { duration: ACC_MS, easing: ACC_EASE },
   );
@@ -12160,7 +12175,7 @@ function collapseAccordion(el, depois) {
   const liberar = marcarAnimacaoNoAcervo(el, true);
   const anim = el.animate(
     [{ height: de + 'px', opacity: 1, ...caixaDoAcordeao(el) },
-      { height: '0px', opacity: 0, ...caixaDoAcordeao(null) }],
+      { height: '0px', opacity: 0, ...caixaDoAcordeao(el, true) }],
     { duration: ACC_MS, easing: ACC_EASE },
   );
   let feito = false;
