@@ -789,6 +789,9 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   .bible-cell, .bible-ref-part, .bible-vsec, .bible-ver-row,
   .song-menu-btn, .msg-add-btn,
   .misc-tab, .misc-seg, .misc-chip, .chrono-btn, .misc-project,
+  /* A linha do ITINERÁRIO (v1.13.0): tocar nela a abre para editar. Nasce no
+     mesmo lote em que entra aqui; nenhum ancestral dela responde ao toque. */
+  .itin-item,
   /* (`.lib-item` saiu na v1.7.4, pela regra do bloco — ver "O BLOCO RESPONDE
      POR LUZ". Ela é a linha de lista deste app, isto é, o outro CONTÊINER que
      hospeda controles: o `⋮`, o "Tirar do ar" na capa, a gaveta inteira.) */
@@ -7252,6 +7255,77 @@ body.mode-simple .serie-destaque {
    faria a faixa inteira mudar de altura a cada troca de ferramenta. */
 .misc-project:disabled { opacity: .4; background: var(--surface); color: var(--muted); cursor: default; }
 
+/* ---------- O ITINERÁRIO (v1.13.0), o quarto segmento do Tempo ----------
+   Três faixas: o AJUSTE em cima, a LISTA no meio (é ela que rola) e a linha de
+   ADICIONAR embaixo. O painel NÃO rola — o scroller é a lista, pelo motivo das
+   Mensagens: um scroller dentro de outro é o gesto que não se sabe para quem vai.
+
+   OS QUATRO SEGMENTOS CABEM A 360px porque o rótulo encolhe pela largura do
+   trilho (`cqw`), a régua do primário do rodapé: "Cronômetro" e "Itinerário"
+   são as duas palavras mais longas da linha. */
+.misc-panel--itin { min-height: 0; overflow: hidden; gap: var(--sp-4); }
+.misc-panel--chrono .misc-modes { container-type: inline-size; }
+.misc-panel--chrono .misc-seg {
+  min-width: 0; padding-inline: .15rem;
+  /* MEDIDO: "Cronômetro" é ~5,3 corpos de largura; com 3,6cqw ele cabe nas
+     quatro caixas de 360px até a fonte do sistema em 1,5× (63px de 66). */
+  font-size: min(var(--fs-md), 3.6cqw);
+}
+.itin-ajuste { flex-shrink: 0; display: flex; align-items: center; gap: var(--sp-3); }
+.itin-ajuste .chrono-btn { font-size: var(--fs-md); font-weight: var(--fw-max); font-variant-numeric: tabular-nums; }
+.itin-ajuste-txt {
+  flex: 1; min-width: 0; text-align: center;
+  font-size: var(--fs-md); font-weight: var(--fw-forte); color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* COM ATRASO, a frase deixa de ser apagada: é o estado que muda o que o telão
+   mostra, e ele tem de se ler de relance. */
+.itin-ajuste-txt.deslocado { color: var(--accent); }
+.itin-lista {
+  flex: 1; min-height: 0; overflow-y: auto; touch-action: pan-y;
+  list-style: none; margin: 0; padding: 0; position: relative;
+  display: flex; flex-direction: column; gap: var(--sp-3);
+}
+.itin-lista > .empty { color: var(--muted); font-size: var(--fs-md); text-align: center; padding: var(--sp-5) var(--sp-3); }
+.itin-li { display: flex; }
+.itin-item {
+  flex: 1; min-width: 0; min-height: var(--hit);
+  display: flex; align-items: center; gap: var(--sp-4);
+  padding: .5rem .75rem;
+  border: 0; border-radius: var(--radius-btn);
+  background: var(--surface); color: var(--text);
+  font: inherit; font-size: var(--fs-lg); text-align: left; cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+}
+.itin-item-hora { flex: none; font-weight: var(--fw-max); font-variant-numeric: tabular-nums; }
+.itin-item-prev { flex: none; font-size: var(--fs-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
+.itin-item-titulo { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.itin-item-tag {
+  flex: none; font-size: var(--fs-sm); font-weight: var(--fw-max);
+  letter-spacing: .04em; text-transform: uppercase; color: var(--accent);
+}
+.itin-item-tag:empty { display: none; }
+/* O ITEM DE AGORA é o par de "ligado" do app (`--btn-accent` + `--accent`),
+   OPACO. Não é seleção (não se escolhe) nem "no ar" (o vermelho é do telão). */
+.itin-item.agora { background: var(--btn-accent); color: var(--accent); }
+.itin-item.agora .itin-item-prev { color: var(--accent); }
+.itin-editor {
+  display: flex; flex-direction: column; gap: var(--sp-3);
+  padding: var(--sp-3); border-radius: var(--radius-btn); background: var(--surface);
+}
+.itin-editor-linha { display: flex; align-items: stretch; gap: var(--sp-3); }
+.itin-vao { flex: 1; }
+.itin-novo { flex-shrink: 0; display: flex; align-items: stretch; gap: var(--sp-3); }
+.itin-campo-hora { flex: none; width: 7.2rem; font-variant-numeric: tabular-nums; }
+/* O ÍCONE DO SELETOR SAI: no aparelho o toque no campo já abre o relógio do
+   sistema, e o ícone comia a largura que o "09:00" precisa num celular de 12 h. */
+.itin-campo-hora::-webkit-calendar-picker-indicator { display: none; }
+.itin-editor .chrono-btn, .itin-novo .chrono-btn { height: auto; min-height: var(--hit); }
+.chrono-btn.itin-del { background: var(--btn-danger); color: var(--danger-strong); }
+/* O QUADRADO DAS HORAS, no rodapé: ligado = os horários vão ao telão. O par do
+   "ligado" (`--btn-accent` + `--accent`), como o "Seg" e o "12h" do Relógio. */
+.chrono-btn.itin-horas.active { background: var(--btn-accent); color: var(--accent); }
+
 /* ---------- Sorteio (aba Ferramentas) ---------- */
 /* O resultado. Sem `tabular-nums` (ao contrário do cronômetro): aqui o valor
    pode ser um nome, e a métrica tabular espaça mal as letras. */
@@ -7646,6 +7720,53 @@ body.mode-simple .serie-destaque {
   opacity: .55; transform: scale(.94); color: var(--stage-accent);
 }
 .pv-text-sub:empty { display: none; }
+/* O ITINERÁRIO na preview (v1.13.0) — espelha `.itin` do Display (display.css),
+   linha a linha: a lista é desenhada pelo MESMO `createStage.desenharItinerario`,
+   e o que difere entre as duas telas é só a caixa do `cq*`. Só tokens do PALCO. */
+.pv-text-content:not(.mode-itinerario) .itin { display: none; }
+.pv-text-content.mode-itinerario .pv-text-main { display: none; }
+.pv-text-content .itin {
+  --itin-h: 9.6cqmin; --itin-vao: 1.8cqmin;
+  position: relative; align-self: stretch;
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: var(--itin-vao);
+  min-height: calc(var(--itin-linhas, 1) * var(--itin-h) + (var(--itin-linhas, 1) - 1) * var(--itin-vao));
+  text-align: left;
+}
+.pv-text-content .itin-linha {
+  height: var(--itin-h); box-sizing: border-box; flex-shrink: 0;
+  display: flex; align-items: center; gap: 3cqmin;
+  padding: 0 3cqmin; border-radius: 1.6cqmin;
+  font-size: 5.2cqmin; line-height: 1.2; color: var(--stage-text);
+  transition: background-color .7s ease, color .7s ease;
+}
+.pv-text-content .itin-linha.itin-saindo { position: absolute; left: 0; right: 0; }
+.pv-text-content .itin-hora {
+  flex: none; color: var(--stage-text-dim); font-weight: var(--fw-medio);
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+  transition: color .7s ease;
+}
+.pv-text-content .itin.sem-horas .itin-hora { display: none; }
+.pv-text-content .itin-titulo {
+  flex: 1; min-width: 0; font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pv-text-content .itin-tag {
+  flex: none; font-size: 2.8cqmin; font-weight: var(--fw-max);
+  letter-spacing: .08em; text-transform: uppercase;
+}
+.pv-text-content .itin-tag:empty { display: none; }
+.pv-text-content .itin-linha.agora { background: var(--stage-accent); color: var(--stage-on-accent); }
+.pv-text-content .itin-linha.agora .itin-hora { color: var(--stage-on-accent); }
+.pv-text-content .itin-linha.agora .itin-titulo { font-weight: var(--fw-forte); }
+.pv-text-content .itin-linha.agora .itin-tag {
+  background: var(--stage-on-accent); color: var(--stage-accent);
+  padding: .5cqmin 1.4cqmin; border-radius: 99cqmin;
+}
+.pv-text-content .itin-linha.seguir .itin-tag { color: var(--stage-accent); }
+@media (prefers-reduced-motion: reduce) {
+  .pv-text-content .itin-linha, .pv-text-content .itin-hora { transition: none; }
+}
 
 /* (O fundo de ação do deslize — `.swipe-bg`/`.swipe-hint` — saiu na v5.50 com
    o próprio gesto: ver "gestos da biblioteca" em controle.js. O eixo horizontal

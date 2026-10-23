@@ -299,6 +299,7 @@ const pvGiroNumEl = document.getElementById('pvGiroNum');
 const pvTextContentEl = document.getElementById('pvTextContent');
 const pvTextMainEl = document.getElementById('pvTextMain');
 const pvTextSubEl = document.getElementById('pvTextSub');
+const pvTextItinEl = document.getElementById('pvTextItin');
 const pvTextImgEl = document.getElementById('pvTextImg');
 
 const plBtnEl = document.getElementById('plBtn');
@@ -426,7 +427,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.60';
+const WEB_VERSION = '1.13.0';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -3629,8 +3630,16 @@ function restorePvSceneAfterText() {
 let pvLiveKind = '';
 let pvLiveDesc = null;
 let pvLiveTimer = null;
+let pvLiveAnima = false;   // ver o ramo do itinerário no `pvLiveTick`
 
 function pvLiveTick() {
+  // O ITINERÁRIO, pelo MESMO desenho do telão (`desenharItinerario`) — a
+  // preview é a ilustração dele. O relógio é o deste aparelho, que é a origem.
+  if (pvLiveKind === 'itinerario') {
+    createStage.desenharItinerario(pvTextItinEl, pvLiveDesc, Date.now(), pvLiveAnima);
+    pvLiveAnima = true;
+    return;
+  }
   const r = pvLiveKind === 'draw' ? drawReading(pvLiveDesc, Date.now())
     : pvLiveKind === 'chrono' ? chronoReading(pvLiveDesc, Date.now()) : null;
   if (!r) return;
@@ -3642,9 +3651,13 @@ function pvLiveTick() {
 }
 
 function startPvLive(kind, desc) {
+  // A lista anima só se JÁ ESTAVA à vista — o espelho do `startLive` do telão.
+  pvLiveAnima = kind === 'itinerario' && pvLiveKind === 'itinerario' && pvTextActive;
+  if (kind !== 'itinerario') limparPvItin();
   pvLiveKind = kind; pvLiveDesc = desc || {};
   stopPvLiveTimer();
   pvLiveTick();
+  if (kind === 'itinerario') { pvLiveTimer = setInterval(pvLiveTick, createStage.ITIN_TICK_MS); return; }
   if (kind === 'draw') {
     if (pvLiveDesc.rollUntil && Date.now() < pvLiveDesc.rollUntil) {
       pvLiveTimer = setInterval(pvLiveTick, DRAW_FRAME_MS);
@@ -3663,6 +3676,13 @@ function stopPvLiveTimer() {
 function clearPvLive() {
   stopPvLiveTimer(); pvLiveKind = ''; pvLiveDesc = null;
   pvTextContentEl.classList.remove('chrono-over', 'draw-rolling');
+  limparPvItin();
+}
+
+function limparPvItin() {
+  if (!pvTextItinEl) return;
+  pvTextItinEl.innerHTML = '';
+  pvTextItinEl.__itinAssin = '';
 }
 
 // A metade da preview do modo IMAGEM. Mesma anatomia do lado do telão, e mesma
@@ -3721,6 +3741,7 @@ function showPvText(obj) {
   const isChrono = obj.mode === 'chrono';
   const isDraw = obj.mode === 'draw';
   const isImg = obj.mode === 'image';
+  const isItin = obj.mode === 'itinerario';
   pvTextContentEl.classList.toggle('mode-message', isMsg);
   // O ESTILO DA MENSAGEM, pela MESMA regra do telão (`createStage.estiloDoCartao`)
   // e escrito do mesmo jeito: variáveis na caixa, a folha decide onde entram.
@@ -3741,6 +3762,7 @@ function showPvText(obj) {
   }
   pvTextContentEl.classList.toggle('mode-chrono', isChrono);
   pvTextContentEl.classList.toggle('mode-draw', isDraw);
+  pvTextContentEl.classList.toggle('mode-itinerario', isItin);
   pvTextEl.classList.toggle('mode-img', isImg);
   if (!isImg) soltarPvTextImg();
   if (isImg) {
@@ -3754,6 +3776,9 @@ function showPvText(obj) {
     startPvLive('chrono', obj.chrono || {});
   } else if (isDraw) {
     startPvLive('draw', obj.draw || {});
+  } else if (isItin) {
+    pvTextMainEl.textContent = '';
+    startPvLive('itinerario', obj.itinerario || {});
   } else {
     clearPvLive();
     pvTextMainEl.textContent = obj.main || '';
@@ -3764,7 +3789,8 @@ function showPvText(obj) {
   // Escrita duas vezes ela daria um cartão que pisca de um lado e não do outro,
   // e a preview existe justamente para ESPELHAR o que a congregação vê.
   const assinado = createStage.assinaturaDoCartao(obj,
-    isImg ? 'image' : isChrono ? 'chrono' : isDraw ? 'draw' : isMsg ? 'message' : 'verse');
+    isImg ? 'image' : isChrono ? 'chrono' : isDraw ? 'draw' : isItin ? 'itinerario'
+      : isMsg ? 'message' : 'verse');
   const soReenvio = pvTextActive && assinado === pvCartaoAssinado;
   pvCartaoAssinado = assinado;
   if (pvTextActive) {
@@ -4082,6 +4108,7 @@ async function load(opts) {
   const messagesV = (await AVDB.getState('messages')) || [];
   const chronoPrefsV = (await AVDB.getState('chronoPrefs')) || null;
   const drawPrefsV = (await AVDB.getState('drawPrefs')) || null;
+  const itinerarioV = (await AVDB.getState('itinerario')) || null;
   const storedFit = await AVDB.getState('fit');
   const storedRot = await AVDB.getState('rotate');
   const lvFonteV = await AVDB.getState('lyricsFont');
@@ -4130,6 +4157,7 @@ async function load(opts) {
   messages = messagesV;
   applyChronoPrefs(chronoPrefsV);
   applyDrawPrefs(drawPrefsV);
+  applyItin(itinerarioV);
   // "Esticar" SAIU da UI na v5.142 e o valor guardado é MIGRADO aqui, uma vez.
   // Sem a migração, quem já o tinha escolhido continuaria com a mídia distorcida
   // no telão e sem nenhum botão na tela que explicasse por quê — o pior estado
@@ -4445,6 +4473,16 @@ function renderNowPlaying() {
     pushNowPlaying();
     return;
   }
+  // ITINERÁRIO EM EXIBIÇÃO: o nome da ferramenta, como o cronômetro abaixo — o
+  // item de agora muda com o relógio, e o título não é redesenhado por tique.
+  if (itinProjecting()) {
+    npNameInnerEl.textContent = 'Itinerário';
+    applyTitleMarquee();
+    playPauseEl.querySelector('.msym').textContent = playing ? ICON.pause : ICON.play;
+    renderSimple();
+    pushNowPlaying();
+    return;
+  }
   // Cronômetro/relógio/timer EM EXIBIÇÃO: o nome da ferramenta. Não há barra de
   // progresso (o tempo dele não é o de uma mídia), e o ▶ segue valendo para o
   // áudio de fundo, que continua tocando por baixo do cartão.
@@ -4593,7 +4631,8 @@ function cenaNoAr() {
     || !!(bibleSession && bibleSession.projecting)
     || lyricProjecting()
     || chronoProjecting()
-    || drawProjecting();
+    || drawProjecting()
+    || itinProjecting();
 }
 
 // HÁ O QUE PARAR? A pergunta que o comentário acima aponta, com nome (v1.11.6):
@@ -6797,6 +6836,7 @@ async function projetarVersiculoRef(ref, cueId) {
   let idx = verses.findIndex((v) => v.n === ref.verse);
   if (idx < 0) idx = 0;
   clearMsgSession(); clearChronoSession(); clearDrawSession(); clearLyricSession();
+  clearItinSession();
   bibleSession = {
     versionId: versao, bookIdx: ref.bookIdx, bookId: bibleBookId(ref.bookIdx),
     bookName: book.name, chapter: ref.chapter, verses, idx, projecting: false,
@@ -7180,6 +7220,7 @@ function soUmProvedorDeTexto(quem) {
   if (quem !== 'songlyrics') clearLyricSession();
   if (quem !== 'chrono') clearChronoSession();
   if (quem !== 'draw') clearDrawSession();
+  if (quem !== 'itinerario') clearItinSession();
   // O AVULSO não tem sessão (é a mensagem de roteiro cuja original foi
   // apagada), e por isso ele não estava em lista nenhuma — mas ele responde
   // `cenaDeRoteiroNoAr()`, então deixá-lo de pé fazia a lista continuar
@@ -7189,7 +7230,7 @@ function soUmProvedorDeTexto(quem) {
 
 function clearManualText() {
   clearBibleSession(); clearMsgSession(); clearLyricSession();
-  clearChronoSession(); clearDrawSession(); clearVisualSession();
+  clearChronoSession(); clearDrawSession(); clearVisualSession(); clearItinSession();
   textoAvulsoNoAr = false;
   // A Camada de Texto saiu: nenhuma cena de roteiro está mais no ar, venha ela
   // de onde vier. Ver `cueNoArId`.
@@ -7209,6 +7250,7 @@ function provedorDoCartao() {
   if (lyricSession) return 'songlyrics';
   if (chronoSession) return 'chrono';
   if (drawSession) return 'draw';
+  if (itinSession) return 'itinerario';
   if (visualSession) return 'visual';
   if (textoAvulsoNoAr) return 'avulso';
   return '';
@@ -7222,6 +7264,7 @@ function provedorDeTextoNoAr() {
   if (lyricProjecting()) return 'songlyrics';
   if (chronoProjecting()) return 'chrono';
   if (drawProjecting()) return 'draw';
+  if (itinProjecting()) return 'itinerario';
   if (visualSobreProjetando()) return 'visual';
   if (textoAvulsoNoAr) return 'avulso';
   return '';
@@ -7276,6 +7319,7 @@ function encerrarCamadaDeCima() {
   if (quem === 'message') return hideMessage();
   if (quem === 'chrono') return hideChrono();
   if (quem === 'draw') return hideDraw();
+  if (quem === 'itinerario') return hideItin();
   cmd({ type: 'text-hide' });
   clearManualText();
   marcarNoAr();
@@ -7300,7 +7344,7 @@ function encerrarCamadaDeCima() {
  */
 function cenaDeRoteiroNoAr() {
   return !!((bibleSession && bibleSession.projecting) || msgProjecting()
-    || lyricProjecting() || chronoProjecting() || drawProjecting()
+    || lyricProjecting() || chronoProjecting() || drawProjecting() || itinProjecting()
     || visualSobreProjetando() || textoAvulsoNoAr);
 }
 
@@ -7453,6 +7497,13 @@ function miscProjectState() {
     const live = drawProjecting();
     return { live, disabled: false, hint: '', act: () => (live ? hideDraw() : projectDraw()) };
   }
+  if (miscTool === 'chrono' && tempoVista === 'itinerario') {
+    const live = itinProjecting();
+    // LISTA VAZIA É APAGADO, NÃO INERTE (a regra da v1.8.50), com o porquê.
+    const vazio = !live && !itin.itens.length;
+    return { live, disabled: vazio, hint: vazio ? 'Adicione um horário antes de projetar' : '',
+      act: () => (live ? hideItin() : projectItin()) };
+  }
   if (miscTool === 'chrono') {
     const live = chronoProjecting();
     return { live, disabled: false, hint: '', act: () => (live ? hideChrono() : projectChrono()) };
@@ -7522,7 +7573,21 @@ function renderFoot() {
   // ---- À ESQUERDA, o que a ferramenta ATIVA opera ----
   const esq = document.createElement('div');
   esq.className = 'misc-foot-esq';
-  if (miscTool === 'chrono') {
+  if (miscTool === 'chrono' && tempoVista === 'itinerario') {
+    // O ITINERÁRIO NÃO SE PAUSA NEM SE ZERA: no lugar do transporte fica a única
+    // opção de formato dele — os horários no telão, ou só os títulos. O mesmo
+    // quadrado do "Seg"/"12h" do Relógio, com o relógio desenhado.
+    const h = document.createElement('button');
+    h.type = 'button'; h.id = 'itinHorasBtn';
+    h.className = 'chrono-btn itin-horas' + (itin.horas ? ' active' : '');
+    h.title = itin.horas ? 'Mostrando os horários no telão — toque para mostrar só os títulos'
+      : 'Mostrando só os títulos no telão — toque para mostrar os horários';
+    h.setAttribute('aria-label', 'Mostrar os horários no telão');
+    h.setAttribute('aria-pressed', itin.horas ? 'true' : 'false');
+    h.innerHTML = cueIconSvg('chrono');
+    h.addEventListener('click', () => itinSetHoras(!itin.horas));
+    esq.appendChild(h);
+  } else if (miscTool === 'chrono') {
     if (chrono.mode === 'clock') {
       // O RELÓGIO NÃO SE PAUSA, então no lugar do transporte ficam as duas
       // opções de formato — o mesmo canto, a mesma pergunta ("o que eu aciono
@@ -7669,6 +7734,15 @@ function renderFoot() {
 // deixar o cronômetro correndo aqui e projetá-lo depois — ou tirá-lo do telão
 // sem zerar a contagem.
 let chronoSession = null;   // { projecting } | null
+// O ITINERÁRIO mora no MESMO painel (o quarto segmento do Tempo), com estado e
+// projeção próprios — ver "Itinerário" logo depois do `renderChrono`.
+let tempoVista = 'chrono';  // 'chrono' (as três roletas) | 'itinerario'
+let itinSession = null;     // { projecting } | null
+let itin = { itens: [], horas: true, desloc: 0 };   // itens: [{ id, min, titulo }]
+let itinEditando = null;    // o id da linha aberta em edição
+let itinPanelTimer = null;
+const ITIN_DESLOC_MAX = 720;   // min — doze horas para cada lado
+const ITIN_TITULO_MAX = 60;
 let chrono = {
   mode: 'clock',            // 'clock' | 'stopwatch' | 'timer'
   running: false,
@@ -7714,13 +7788,16 @@ function applyChronoPrefs(p) {
   if (typeof p.secs === 'boolean' && !legado) chrono.secs = p.secs;
   if (typeof p.h12 === 'boolean') chrono.h12 = p.h12;
   if (typeof p.label === 'string') chrono.label = p.label;
+  // A VISTA DO TEMPO volta como foi deixada: o Itinerário é o quarto segmento,
+  // e quem o deixou aberto reabre nele.
+  tempoVista = p.vista === 'itinerario' ? 'itinerario' : 'chrono';
 }
 
 function saveChronoPrefs() {
   return AVDB.setState('chronoPrefs', {
     v: CHRONO_PREFS_V,
     mode: chrono.mode, durationMs: chrono.durationMs,
-    secs: chrono.secs, h12: chrono.h12, label: chrono.label,
+    secs: chrono.secs, h12: chrono.h12, label: chrono.label, vista: tempoVista,
   });
 }
 
@@ -7906,9 +7983,34 @@ function stopChronoPanelTimer() {
 function chronoSegBtn(m) {
   const b = document.createElement('button');
   b.type = 'button';
-  b.className = 'misc-seg' + (chrono.mode === m.id ? ' active' : '');
+  b.className = 'misc-seg' + (tempoVista === 'chrono' && chrono.mode === m.id ? ' active' : '');
   b.textContent = m.name;
-  b.addEventListener('click', () => chronoSetMode(m.id));
+  b.addEventListener('click', () => {
+    // VOLTAR DO ITINERÁRIO NÃO ZERA NADA: o cronômetro seguiu correndo no estado
+    // enquanto a lista estava à vista. Só a TROCA de modo zera (`chronoSetMode`).
+    if (tempoVista !== 'chrono') {
+      tempoVista = 'chrono';
+      if (chrono.mode === m.id) { saveChronoPrefs(); renderChronoEControles(); return; }
+    }
+    chronoSetMode(m.id);
+  });
+  return b;
+}
+
+// O QUARTO SEGMENTO (v1.13.0). Ele não é um `chrono.mode`: o Itinerário tem
+// estado e projeção próprios, e entrar nele não pode parar a contagem que o
+// operador deixou correndo nas outras três.
+function itinSegBtn() {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'misc-seg' + (tempoVista === 'itinerario' ? ' active' : '');
+  b.textContent = 'Itinerário';
+  b.addEventListener('click', () => {
+    if (tempoVista === 'itinerario') return;
+    tempoVista = 'itinerario';
+    saveChronoPrefs();
+    renderChronoEControles();
+  });
   return b;
 }
 
@@ -8328,7 +8430,16 @@ function renderChrono() {
   const modes = document.createElement('div');
   modes.className = 'misc-modes';
   CHRONO_MODES.forEach((m) => modes.appendChild(chronoSegBtn(m)));
+  modes.appendChild(itinSegBtn());
   host.appendChild(modes);
+
+  host.classList.toggle('misc-panel--itin', tempoVista === 'itinerario');
+  if (tempoVista === 'itinerario') {
+    stopChronoPanelTimer();
+    renderItinerario(host);
+    return;
+  }
+  stopItinPanelTimer();
 
   // ---- O MOSTRADOR: as MESMAS três roletas nas três ferramentas ----
   //
@@ -8419,6 +8530,398 @@ function renderChrono() {
   startChronoPanelTimer();
 }
 
+// ===== Itinerário (aba Ferramentas → Tempo, v1.13.0) =====
+// A PROGRAMAÇÃO DO EVENTO: horário + título, editável aqui e projetável no
+// cartão da Camada de Texto (`mode: 'itinerario'`). O item de AGORA sai em
+// destaque e os seguintes vêm abaixo, em ordem — para a igreja e a equipe saberem
+// em que momento estão e o que vem a seguir.
+//
+// **O QUE VIAJA É UM DESCRITOR** (`itinDescriptor`): a lista, o ajuste e o fuso
+// do celular. Quem decide qual item está no ar é cada tela, pelo próprio relógio
+// (`createStage.itinerarioLeitura`) — a mesma regra do relógio do Tempo. Por isso
+// nenhum comando trafega quando o relógio cruza um horário, e a reconexão volta
+// no item certo.
+//
+// **O AJUSTE DESLOCA A LISTA INTEIRA** (`desloc`, em minutos: + = atrasou):
+// todos os horários andam juntos e os intervalos entre eles ficam. Ele PERSISTE
+// PELO DIA (`deslocDia`): sobrevive a uma atualização ou a uma morte do renderer
+// no meio do culto, e não chega ao sábado seguinte — ali a programação volta ao
+// previsto sem ninguém lembrar de zerar.
+//
+// **A VIRADA DA MEIA-NOITE fica fora**: a lista é de um dia (ver o stage.js).
+function hojeLocal() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+    + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+// FORA DE ORDEM SE ORDENA PELO HORÁRIO — e o empate fica na ordem em que entrou.
+function ordenarItin(lista) {
+  return lista.map((x, i) => [x, i]).sort((a, b) => a[0].min - b[0].min || a[1] - b[1]).map((p) => p[0]);
+}
+
+function applyItin(p) {
+  if (!p || typeof p !== 'object') return;
+  const itens = (Array.isArray(p.itens) ? p.itens : [])
+    .filter((x) => x && Number.isFinite(x.min) && x.min >= 0 && x.min < 1440)
+    .map((x) => ({ id: String(x.id || uid()), min: Math.round(x.min),
+      titulo: String(x.titulo || '').slice(0, ITIN_TITULO_MAX) }));
+  itin.itens = ordenarItin(itens);
+  itin.horas = p.horas !== false;
+  itin.desloc = (p.deslocDia === hojeLocal() && Number.isFinite(p.desloc))
+    ? Math.max(-ITIN_DESLOC_MAX, Math.min(ITIN_DESLOC_MAX, Math.round(p.desloc))) : 0;
+}
+
+// `updateState`, e não `setState`: a escrita é LER + MESCLAR + GRAVAR numa
+// transação só — um campo que uma versão futura acrescente não é apagado por
+// uma gravação desta.
+function saveItin() {
+  const v = {
+    v: 1,
+    itens: itin.itens.map((x) => ({ id: x.id, min: x.min, titulo: x.titulo })),
+    horas: itin.horas, desloc: itin.desloc, deslocDia: itin.desloc ? hojeLocal() : '',
+  };
+  return AVDB.updateState('itinerario', (atual) =>
+    Object.assign({}, (atual && typeof atual === 'object') ? atual : {}, v)).catch(() => {});
+}
+
+function itinProjecting() { return !!(itinSession && itinSession.projecting); }
+
+// O descritor enviado ao telão — uma CÓPIA, pelo motivo do `chronoDescriptor`.
+function itinDescriptor() {
+  return {
+    itens: itin.itens.map((x) => ({ k: x.id, min: x.min, titulo: x.titulo })),
+    desloc: itin.desloc, horas: itin.horas,
+    fuso: new Date().getTimezoneOffset(),
+  };
+}
+
+// Reenvia SE estiver no ar — o único ponto que fala com o telão depois da
+// projeção, como o `pushChrono`. A VIEW VIGENTE, nunca 'visual' literal: isto é
+// reenvio, e com o telão coberto um literal o descobriria. A lista que ESVAZIA
+// no ar sai do telão: um cartão sem linha nenhuma é um retângulo preto.
+function pushItin() {
+  if (!itinProjecting()) return;
+  if (!itin.itens.length) { hideItin(); return; }
+  cmd({ type: 'text', mode: 'itinerario', itinerario: itinDescriptor(), view });
+}
+
+function projectItin() {
+  if (!itin.itens.length) return;
+  soUmProvedorDeTexto('itinerario');
+  itinSession = { projecting: true };
+  view = 'visual';
+  persistCurrent();
+  cmd({ type: 'text', mode: 'itinerario', itinerario: itinDescriptor(), view: 'visual' });
+  diagC('itinerário: no telão (' + itin.itens.length + ' itens' + (itin.desloc ? ', ajuste ' + textoDoAjuste() : '') + ')');
+  renderControls();
+  renderNowPlaying();
+  renderSlideNav();
+  refreshDiversos();
+}
+
+// Tira do telão SEM apagar a lista — espelha o `hideChrono`.
+function hideItin() {
+  if (!itinProjecting()) return;
+  itinSession.projecting = false;
+  cmd({ type: 'text-hide' });
+  diagC('itinerário: fora do telão');
+  renderControls();
+  renderNowPlaying();
+  renderSlideNav();
+  marcarNoAr();
+  refreshDiversos();
+}
+
+function clearItinSession() {
+  if (!itinSession) return;
+  itinSession = null;
+  renderNowPlaying();
+  renderSlideNav();
+  refreshDiversos();
+}
+
+// O painel e o rodapé mudam juntos (o projetar apaga com a lista vazia, o
+// quadrado das horas acende e apaga) — o mesmo par do `renderChronoEControles`.
+function itinMudou() {
+  saveItin();
+  pushItin();
+  if (ferramentasAbertas() && miscTool === 'chrono' && tempoVista === 'itinerario') renderChronoEControles();
+}
+
+function textoDoAjuste() {
+  const d = itin.desloc;
+  if (!d) return 'no horário';
+  return (d > 0 ? '+' : '−') + Math.abs(d) + ' min';
+}
+
+function itinAjustar(delta) {
+  const novo = Math.max(-ITIN_DESLOC_MAX, Math.min(ITIN_DESLOC_MAX, itin.desloc + delta));
+  if (novo === itin.desloc) return;
+  itin.desloc = novo;
+  diagC('itinerário: ajuste ' + textoDoAjuste());
+  itinMudou();
+}
+
+function itinAjusteZerar() {
+  if (!itin.desloc) return;
+  itin.desloc = 0;
+  diagC('itinerário: ajuste zerado (horário previsto)');
+  itinMudou();
+}
+
+function itinSetHoras(v) {
+  itin.horas = !!v;
+  itinMudou();
+}
+
+function itinAdicionar(min, titulo) {
+  const t = String(titulo || '').trim().slice(0, ITIN_TITULO_MAX);
+  if (!t || !Number.isFinite(min)) return false;
+  itin.itens = ordenarItin(itin.itens.concat([{ id: uid(), min, titulo: t }]));
+  itinMudou();
+  return true;
+}
+
+function itinSalvar(id, min, titulo) {
+  const t = String(titulo || '').trim().slice(0, ITIN_TITULO_MAX);
+  const x = itin.itens.find((i) => i.id === id);
+  if (!x || !t || !Number.isFinite(min)) return false;
+  x.min = min; x.titulo = t;
+  itin.itens = ordenarItin(itin.itens);
+  itinEditando = null;
+  itinMudou();
+  return true;
+}
+
+function itinExcluir(id) {
+  const n = itin.itens.length;
+  itin.itens = itin.itens.filter((x) => x.id !== id);
+  if (itin.itens.length === n) return;
+  if (itinEditando === id) itinEditando = null;
+  itinMudou();
+}
+
+// "HH:MM" (o valor de um `<input type="time">`) → minuto do dia, ou NaN.
+function minutoDoCampo(v) {
+  const m = /^(\d{1,2}):(\d{2})/.exec(String(v || ''));
+  if (!m) return NaN;
+  const h = Number(m[1]), mi = Number(m[2]);
+  return (h < 24 && mi < 60) ? h * 60 + mi : NaN;
+}
+
+// O HORÁRIO SUGERIDO para a próxima linha: 15 minutos depois da última, ou o
+// próximo múltiplo de cinco a partir de agora numa lista vazia.
+function itinHoraSugerida() {
+  if (itin.itens.length) return Math.min(1439, itin.itens[itin.itens.length - 1].min + 15);
+  const d = new Date();
+  return Math.min(1439, Math.ceil((d.getHours() * 60 + d.getMinutes() + 1) / 5) * 5);
+}
+
+function campoDeHora(min, rotulo) {
+  const inp = document.createElement('input');
+  inp.type = 'time'; inp.className = 'misc-num itin-campo-hora';
+  inp.value = createStage.itinHora(min);
+  inp.setAttribute('aria-label', rotulo);
+  inp.title = rotulo;
+  return inp;
+}
+
+function campoDeTitulo(valor, rotulo) {
+  const inp = document.createElement('input');
+  inp.type = 'text'; inp.className = 'misc-text itin-campo-titulo';
+  inp.maxLength = ITIN_TITULO_MAX;
+  inp.placeholder = 'Título (ex.: Louvor)';
+  inp.value = valor || '';
+  inp.setAttribute('aria-label', rotulo);
+  inp.dataset.teclado = 'sobrepoe';   // ver a legenda do Tempo
+  inp.enterKeyHint = 'done';
+  return inp;
+}
+
+function itinBotao(classe, rotulo, conteudo, fn) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'chrono-btn ' + classe;
+  b.title = rotulo; b.setAttribute('aria-label', rotulo);
+  if (typeof conteudo === 'string') b.textContent = conteudo; else b.appendChild(conteudo);
+  b.addEventListener('click', fn);
+  return b;
+}
+
+function svgNo(html) {
+  const t = document.createElement('template');
+  t.innerHTML = html.trim();
+  return t.content.firstChild;
+}
+
+/**
+ * O PAINEL DO ITINERÁRIO — três faixas, de cima para baixo:
+ *
+ *  1. o AJUSTE (−5 · −1 · o atraso · +1 · +5 · ↺). Ele mora no CORPO, e não no
+ *     rodapé com o transporte das abas irmãs: são seis peças, e na faixa de
+ *     fecho a 360px elas empurrariam o "Projetar no telão" para as reticências;
+ *  2. a LISTA, que é o que cresce e rola — tocar numa linha a EDITA ali mesmo;
+ *  3. a linha de ADICIONAR (horário · título · +), fixa embaixo da lista.
+ *
+ * O item de AGORA é marcado pela MESMA leitura do telão, e um laço de um segundo
+ * (`itinMarcar`) só troca as marcas — reconstruir o painel a cada segundo
+ * tiraria o campo de baixo do dedo de quem está digitando.
+ */
+function renderItinerario(host) {
+  // --- 1. o ajuste ---
+  const aj = document.createElement('div');
+  aj.className = 'itin-ajuste';
+  const passo = (n) => itinBotao('itin-passo', (n > 0 ? 'Atrasar ' : 'Adiantar ') + Math.abs(n) + ' min',
+    (n > 0 ? '+' : '−') + Math.abs(n), () => itinAjustar(n));
+  const menos5 = passo(-5), menos1 = passo(-1), mais1 = passo(1), mais5 = passo(5);
+  // NOS EXTREMOS O PASSO É APAGADO (doze horas para cada lado; mais que isso
+  // cruza a meia-noite, que está fora).
+  menos5.disabled = menos1.disabled = itin.desloc <= -ITIN_DESLOC_MAX;
+  mais5.disabled = mais1.disabled = itin.desloc >= ITIN_DESLOC_MAX;
+  const txt = document.createElement('span');
+  txt.className = 'itin-ajuste-txt' + (itin.desloc ? ' deslocado' : '');
+  txt.id = 'itinAjusteTxt';
+  txt.textContent = itin.desloc > 0 ? 'Atrasado ' + itin.desloc + ' min'
+    : itin.desloc < 0 ? 'Adiantado ' + (-itin.desloc) + ' min' : 'No horário';
+  const zerar = itinBotao('itin-zerar', 'Voltar ao horário previsto', svgNo(icoSprite('icoZerar')), itinAjusteZerar);
+  zerar.disabled = !itin.desloc;
+  if (!itin.desloc) zerar.title = 'Já está no horário previsto';
+  [menos5, menos1, txt, mais1, mais5, zerar].forEach((e) => aj.appendChild(e));
+  host.appendChild(aj);
+
+  // --- 2. a lista ---
+  const lista = document.createElement('ul');
+  lista.className = 'itin-lista rola';
+  lista.id = 'itinLista';
+  if (!itin.itens.length) {
+    const vazio = document.createElement('li');
+    vazio.className = 'empty';
+    vazio.textContent = 'Nenhum horário ainda. Adicione o primeiro abaixo.';
+    lista.appendChild(vazio);
+  }
+  itin.itens.forEach((x) => {
+    lista.appendChild(itinEditando === x.id ? itinEditor(x) : itinLinha(x));
+  });
+  host.appendChild(lista);
+
+  // --- 3. adicionar ---
+  const novo = document.createElement('div');
+  novo.className = 'itin-novo';
+  const hora = campoDeHora(itinHoraSugerida(), 'Horário do novo item');
+  const titulo = campoDeTitulo('', 'Título do novo item');
+  const add = itinBotao('primary itin-add', 'Adicionar ao itinerário', msym(ICON.add), () => {
+    if (itinAdicionar(minutoDoCampo(hora.value), titulo.value)) {
+      const t = document.querySelector('.itin-novo .itin-campo-titulo');
+      if (t) t.focus();
+    }
+  });
+  const acertar = () => {
+    add.disabled = !titulo.value.trim() || !Number.isFinite(minutoDoCampo(hora.value));
+    add.title = add.disabled ? 'Escreva o título e o horário' : 'Adicionar ao itinerário';
+  };
+  hora.addEventListener('input', acertar);
+  titulo.addEventListener('input', acertar);
+  titulo.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !add.disabled) { e.preventDefault(); add.click(); } });
+  acertar();
+  [hora, titulo, add].forEach((e) => novo.appendChild(e));
+  host.appendChild(novo);
+
+  itinMarcar();
+  startItinPanelTimer();
+}
+
+function itinLinha(x) {
+  const li = document.createElement('li');
+  li.className = 'itin-li';
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'itin-item'; b.dataset.id = x.id;
+  b.title = 'Editar este horário';
+  const h = document.createElement('span');
+  h.className = 'itin-item-hora';
+  h.textContent = createStage.itinHora(x.min + itin.desloc);
+  b.appendChild(h);
+  // COM AJUSTE, o previsto fica ao lado — o operador edita o PREVISTO, e o que
+  // vai ao telão é o efetivo.
+  if (itin.desloc) {
+    const p = document.createElement('span');
+    p.className = 'itin-item-prev';
+    p.textContent = createStage.itinHora(x.min);
+    p.title = 'Horário previsto';
+    b.appendChild(p);
+  }
+  const t = document.createElement('span');
+  t.className = 'itin-item-titulo'; t.textContent = x.titulo;
+  const tag = document.createElement('span');
+  tag.className = 'itin-item-tag';
+  b.appendChild(t); b.appendChild(tag);
+  b.addEventListener('click', () => {
+    itinEditando = x.id;
+    renderChronoEControles();
+    const c = document.querySelector('.itin-editor .itin-campo-titulo');
+    if (c) c.focus();
+  });
+  li.appendChild(b);
+  return li;
+}
+
+function itinEditor(x) {
+  const li = document.createElement('li');
+  li.className = 'itin-editor';
+  li.dataset.id = x.id;
+  const l1 = document.createElement('div'); l1.className = 'itin-editor-linha';
+  const hora = campoDeHora(x.min, 'Horário previsto');
+  const titulo = campoDeTitulo(x.titulo, 'Título');
+  l1.appendChild(hora); l1.appendChild(titulo);
+  const l2 = document.createElement('div'); l2.className = 'itin-editor-linha itin-editor-acoes';
+  const del = itinBotao('itin-del', 'Excluir este horário', msym(ICON.del), async () => {
+    const ok = await appConfirm({ title: 'Excluir horário',
+      message: 'Apagar "' + x.titulo + '" do itinerário?', okText: 'Excluir', perigo: true });
+    if (ok) itinExcluir(x.id);
+  });
+  const cancelar = itinBotao('itin-cancelar', 'Cancelar a edição', msym(ICON.close), () => {
+    itinEditando = null; renderChronoEControles();
+  });
+  const salvar = itinBotao('primary itin-salvar', 'Salvar', svgNo(checkIconSvg()), () => {
+    itinSalvar(x.id, minutoDoCampo(hora.value), titulo.value);
+  });
+  const acertar = () => { salvar.disabled = !titulo.value.trim() || !Number.isFinite(minutoDoCampo(hora.value)); };
+  hora.addEventListener('input', acertar);
+  titulo.addEventListener('input', acertar);
+  titulo.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !salvar.disabled) { e.preventDefault(); salvar.click(); }
+    else if (e.key === 'Escape') { e.preventDefault(); cancelar.click(); }
+  });
+  acertar();
+  const vao = document.createElement('span'); vao.className = 'itin-vao';
+  [del, vao, cancelar, salvar].forEach((e) => l2.appendChild(e));
+  li.appendChild(l1); li.appendChild(l2);
+  return li;
+}
+
+// A MARCA DE AGORA no painel, pela MESMA leitura do telão (relógio deste
+// aparelho, que é a origem). Só troca classes e o rótulo — nada se reconstrói.
+function itinMarcar() {
+  const l = createStage.itinerarioLeitura(itinDescriptor(), Date.now());
+  const agora = l.ativo >= 0 ? l.itens[l.ativo].k : '';
+  const seguir = l.ativo < 0 && l.itens.length ? l.itens[0].k : '';
+  document.querySelectorAll('#itinLista .itin-item').forEach((b) => {
+    const id = b.dataset.id;
+    b.classList.toggle('agora', id === agora);
+    b.classList.toggle('seguir', id === seguir);
+    const tag = b.querySelector('.itin-item-tag');
+    if (tag) tag.textContent = id === agora ? 'Agora' : id === seguir ? 'A seguir' : '';
+  });
+}
+
+function startItinPanelTimer() {
+  stopItinPanelTimer();
+  itinPanelTimer = setInterval(itinMarcar, createStage.ITIN_TICK_MS);
+}
+
+function stopItinPanelTimer() {
+  if (itinPanelTimer) { clearInterval(itinPanelTimer); itinPanelTimer = null; }
+}
+
 // UM BOTÃO DE ÍCONE para "guardar isto aqui" (v5.109). Os dois destinos de uma
 // cena de roteiro apareciam com rótulo em dois lugares ("Ao Cronograma" /
 // "Favoritar" na Bíblia, "Cronograma" / "Favoritos" nas Ferramentas) e com
@@ -8456,6 +8959,10 @@ function cueSaveBtn(icone, titulo, fn) {
  * caminho próprio delas.
  */
 function cueSaveDaFerramenta() {
+  // O ITINERÁRIO NÃO VIRA CENA DE ROTEIRO (ainda): ele é a programação do dia
+  // inteiro, e o lugar dele é este painel. Sem destinos o rodapé desenha só o
+  // projetar.
+  if (miscTool === 'chrono' && tempoVista === 'itinerario') return null;
   if (miscTool === 'chrono') {
     return async (destino, btn) => {
       const nome = chrono.label
@@ -9278,7 +9785,7 @@ let miscTool = 'msg';
 
 const MISC_TOOLS = [
   { id: 'msg', name: 'Mensagens', wrap: 'msgWrap', render: () => renderMsg(), live: () => msgProjecting() },
-  { id: 'chrono', name: 'Tempo', wrap: 'chronoWrap', render: () => renderChrono(), live: () => chronoProjecting() },
+  { id: 'chrono', name: 'Tempo', wrap: 'chronoWrap', render: () => renderChrono(), live: () => chronoProjecting() || itinProjecting() },
   { id: 'draw', name: 'Sorteio', wrap: 'drawWrap', render: () => renderDraw(), live: () => drawProjecting() },
 ];
 
@@ -9296,6 +9803,7 @@ function renderDiversos() {
   // As outras não existem no DOM — nenhum laço batendo em nó invisível.
   stopChronoPanelTimer();
   stopDrawPanelTimer();
+  stopItinPanelTimer();
 
   const sw = document.createElement('div');
   sw.className = 'misc-switch';
@@ -9383,6 +9891,7 @@ function fecharFerramentas() {
   // timer de 5 Hz reescrevendo nós que o `innerHTML = ''` já descartou.
   stopChronoPanelTimer();
   stopDrawPanelTimer();
+  stopItinPanelTimer();
   // A FOLHA DESCE POR ONDE SUBIU (v1.3.13, a pedido do operador). Ela aparecia
   // deslizando e sumia no talo — duas coisas diferentes para o olho, e a
   // segunda lendo como um erro justamente porque a primeira já ensinou a
@@ -14416,6 +14925,10 @@ function slideTarget() {
   // transporte), e um par aceso ali seria o botão inerte que a v1.8.50 existe
   // para não deixar nascer.
   if (chronoProjecting()) return chrono.mode === 'clock' ? null : 'chrono';
+  // O ITINERÁRIO NÃO TEM EIXO, pela regra do relógio logo acima: quem troca o
+  // item é o relógio, e o ajuste de atraso mora no painel. Um par aceso ali seria
+  // o botão inerte que a v1.8.50 proíbe.
+  if (itinProjecting()) return null;
   if (drawProjecting()) return 'draw';
   if (lyricProjecting()) return 'songlyrics';
   if (msgSession && msgSession.projecting) return 'message';
@@ -45001,6 +45514,10 @@ function resendSceneToDisplay(para) {
     enviar({ type: 'text', mode: 'draw', draw: drawDescriptor(), sub: draw.label || '', view });
   } else if (chronoProjecting()) {
     enviar({ type: 'text', mode: 'chrono', chrono: chronoDescriptor(), sub: chrono.label || '', view });
+  } else if (itinProjecting()) {
+    // O ITINERÁRIO volta pelo DESCRITOR, como o relógio: a lista e o ajuste, e o
+    // telão acha sozinho o item de agora — no minuto certo, não no da queda.
+    enviar({ type: 'text', mode: 'itinerario', itinerario: itinDescriptor(), view });
   } else if (bibleSession && bibleSession.projecting) {
     const v = bibleSession.verses[bibleSession.idx];
     if (v) {

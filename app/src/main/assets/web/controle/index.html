@@ -1414,7 +1414,7 @@
                visualização do Display, em miniatura (a preview sempre espelha o
                telão). Camada paralela sob a cortina. Os modos são: SEM CLASSE =
                versículo (a referência dourada em .pv-text-sub) · mode-message ·
-               mode-chrono · mode-draw. Não existe `mode-verse`: o versículo é o
+               mode-chrono · mode-draw · mode-itinerario. Não existe `mode-verse`: o versículo é o
                estado sem classe, e uma regra escrita para ela nunca casaria. -->
           <div id="pvText" class="pv-layer pv-text" hidden>
             <!-- A IMAGEM SOBRE O ÁUDIO na preview (v5.312) — irmã do conteúdo,
@@ -1424,6 +1424,9 @@
               <div class="pv-text-box">
                 <div class="pv-text-main" id="pvTextMain"></div>
                 <div class="pv-text-sub" id="pvTextSub"></div>
+                <!-- O ITINERÁRIO (v1.13.0): a MESMA lista do telão, desenhada
+                     pelo mesmo `createStage.desenharItinerario`. -->
+                <ol class="itin" id="pvTextItin" aria-label="Itinerário"></ol>
               </div>
             </div>
           </div>
@@ -2013,7 +2016,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion" class="app-version">v1.12.60</span>
+          <span id="appVersion" class="app-version">v1.13.0</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>

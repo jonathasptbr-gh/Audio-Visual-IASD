@@ -3,7 +3,7 @@
 
 ## Camada de Texto (Bíblia · Mensagens · Letra · Imagem)
 
-O sistema serve **conteúdo de tela no telão** por sete provedores que
+O sistema serve **conteúdo de tela no telão** por oito provedores que
 compartilham um **modelo padronizado** de camada paralela (mesmo padrão do
 YouTube: um layer que a **cortina do wallpaper** — sempre por cima de tudo —
 cobre/revela "de graça", sem tocar em `stage.js`). São eles:
@@ -15,6 +15,7 @@ cobre/revela "de graça", sem tocar em `stage.js`). São eles:
 | **Letra avulsa** | manual (operador avança estrofe) | `lyricSlidesFor` (o ARQUIVO quando há ilustração; o acervo de texto quando não há) | **`#lyrics` / `#pvLyrics`** — a camada da letra CANTADA (v1.9.7) |
 | **Cronômetro/relógio/timer** | **derivado do relógio** (sem avanço) | o próprio tempo (`chronoReading`) | `#text` / `#pvText` |
 | **Sorteio** | **derivado** (rolo até assentar) | faixa numérica ou lista de opções (`drawReading`) | `#text` / `#pvText` |
+| **Itinerário** (v1.13.0) | **derivado do relógio** (o item de agora) | `state.itinerario` (`itinerarioLeitura`) | `#text` / `#pvText` (a lista `.itin`) |
 | **Letra sincronizada** | **temporizado** (segue o `currentTime` do áudio) | música do LouvorJA | `#lyrics` / `#pvLyrics` |
 | **Mídia visual sobre o áudio** | manual (o toque na imagem ou na apresentação) | um registro `kind:'image'` — ou `kind:'deck'`, e aí o cartão pinta `pages[page]` | `#text` / `#pvText` (modo `mode-img`) |
 
@@ -894,7 +895,7 @@ exibindo exatamente o mesmo valor do Controle.
 - **O painel do Controle tem laço próprio**, com vida ligada à aba: o operador
   precisa ver a contagem correr **antes** de projetar. Sair da aba não para a
   contagem (ela vive no estado), só o laço do painel.
-- **Cronômetro e sorteio dividem UM laço só** no cartão (`liveKind`/`liveDesc`
+- **Cronômetro, sorteio e itinerário dividem UM laço só** no cartão (`liveKind`/`liveDesc`
   no Display, `pvLiveKind`/`pvLiveDesc` no Controle). O cartão é um só, então
   dois timers escrevendo no mesmo nó nunca seriam ambos corretos — bastaria um
   esquecer de parar o outro para o sorteio ser sobrescrito pelo relógio. Com um
@@ -1057,6 +1058,82 @@ Tempo e o Sorteio chamam. Duas cópias divergiriam no primeiro ajuste, e aqui
   valor centrado saltaria a cada toque no campo. A regra é ESCOPADA à
   `.misc-row--legenda`: os outros `.misc-text` são listas e faixas numéricas, que
   se leem alinhadas à esquerda.
+
+### Ferramentas: itinerário (v1.13.0)
+
+Mais um provedor da Camada de Texto, na folha de Ferramentas: o **quarto segmento do Tempo**
+(Relógio · Cronômetro · Timer · Itinerário): a programação do evento — horário +
+título —, com o item de AGORA em destaque e os seguintes abaixo, para a igreja e a
+equipe saberem em que momento estão e o que vem a seguir.
+
+```js
+{ type:'text', mode:'itinerario', view,
+  itinerario: { itens:[{ k:<id>, min:<minuto do dia PREVISTO>, titulo }],
+                desloc:<min, + = atrasou>, horas:bool,
+                fuso:<getTimezoneOffset() do celular> } }
+```
+
+- **O DESCRITOR, NUNCA O ESTADO CALCULADO.** Quem decide o item no ar é cada tela,
+  pelo relógio dela (`createStage.itinerarioLeitura`, em `shared/stage.js`): o
+  cruzamento de um horário não custa comando nenhum, e o reenvio de cena
+  (`resendSceneToDisplay`, depois do `load`, pelo mesmo descritor) volta no item
+  certo. É o desenho do RELÓGIO do Tempo, e pelo mesmo motivo.
+- **A HORA É A DA ORIGEM, E O FUSO TAMBÉM.** O descritor não carrega época
+  nenhuma (os horários são minutos do dia), então a tradução do `corrigirRelogio`
+  do `tela.js` não o alcança: o telão desenha com `agoraDaOrigem()` (o
+  `__avAgora` da casca numa tela da rede) e tira o minuto do dia do `fuso` do
+  CELULAR. Uma Smart TV com relógio ou fuso errados marca o item certo. Oráculo:
+  `tela-rede.test.mjs`, 3-bis.
+- **O EFETIVO É `min + desloc`**, e é ele que se compara e se mostra. O ajuste
+  (−5 · −1 · +1 · +5 · ↺) desloca a lista INTEIRA, os intervalos ficam; vai a
+  ±12 h e PERSISTE PELO DIA (`deslocDia`): sobrevive a um OTA ou a uma morte do
+  renderer no culto e não chega ao sábado seguinte.
+- **ANTES DO PRIMEIRO HORÁRIO nada é destaque**, e o primeiro diz "A seguir".
+  **DEPOIS DO ÚLTIMO, o último fica no ar** — o encerramento é um momento como os
+  outros e não tem hora de acabar. **A VIRADA DA MEIA-NOITE está fora**: a lista é
+  de um dia, e um item deslocado para fora de 00:00–23:59 é mostrado com a hora
+  dada a volta mas comparado como do mesmo dia.
+- **UM DESENHO SÓ** (`createStage.desenharItinerario`), no telão, nas telas da
+  rede e na preview: até seis linhas (`ITIN_JANELA`) a partir do item de agora,
+  numa `<ol class="itin">` irmã do `.text-main` (que some em `mode-itinerario`).
+  As linhas são reaproveitadas pela chave (`data-k`) e a troca é ANIMADA por FLIP
+  — mede antes, muda o DOM, mede depois, anima a diferença (WAAPI, 700 ms): a que
+  sai esmaece subindo (`.itin-saindo`, fora do fluxo), as que ficam deslizam, a
+  que entra aparece; o destaque troca por `transition`. **Nada se move com
+  `prefers-reduced-motion`** (o JS pergunta o `matchMedia`; a folha zera a
+  transição). A primeira pintura de uma entrada nova NÃO anima — ela chega com o
+  fade do cartão (`liveAnima`/`pvLiveAnima`). A assinatura da janela
+  (`__itinAssin`) é o que faz o tique de um segundo não tocar no DOM à toa.
+- **A ALTURA RESERVADA É A DA LISTA CHEIA** (`--itin-linhas`, até seis): perto do
+  fim as linhas de baixo vagam, e sem a reserva o bloco se recentraria a cada item
+  que acaba — o de agora andaria na tela. As linhas têm altura fixa (`--itin-h`).
+- **Só tokens do palco**: o item de agora é `--stage-accent` preenchido com
+  `--stage-on-accent` (8,65:1), e a etiqueta "Agora" é o par invertido. A regra
+  do telão (`display.css`) tem a gêmea na preview (`controle.css`).
+- **O laço do cartão é o mesmo do cronômetro e do sorteio** (`liveKind`
+  `'itinerario'`, um segundo — `ITIN_TICK_MS`), e o `slideTarget()` devolve
+  `null` com ele no ar: quem troca o item é o relógio, e o ajuste mora no painel
+  (a regra do Relógio).
+- **NO PAINEL** (`renderItinerario`): o AJUSTE em cima (no CORPO, não no rodapé:
+  seis peças empurrariam o primário para as reticências a 360px), a LISTA no meio
+  (`.itin-lista rola`; tocar numa linha a abre para editar ali mesmo, a lixeira
+  pergunta pelo diálogo do app) e a linha de ADICIONAR embaixo (`<input
+  type="time">`, título, +; o horário sugerido é 15 min depois do último). O
+  rodapé tem o quadrado das HORAS (`#itinHorasBtn`, o relógio desenhado, no lugar
+  do "Seg"/"12h") e o projetar — APAGADO com a lista vazia, com o porquê no
+  `title`. Sem destinos: o itinerário não vira cena de roteiro. Um laço de um
+  segundo (`itinMarcar`) troca só as MARCAS de agora;
+  reconstruir o painel tiraria o campo de baixo do dedo de quem digita.
+- **O segmento não é um `chrono.mode`** (`tempoVista`, guardado em
+  `chronoPrefs.vista`): entrar no Itinerário não para a contagem que ficou
+  correndo nas outras três, e voltar delas não zera nada.
+- **Persiste** em `state.itinerario` por `AVDB.updateState` (os itens, `horas` e o
+  ajuste com o dia). A PROJEÇÃO não, como a do cronômetro. A lista que esvazia no
+  ar sai do telão (`pushItin`). Viaja no `.avpkg` como as mensagens.
+- **Registro**: uma linha na linha do tempo ao projetar, tirar e ajustar
+  (`itinerário: …`).
+
+Oráculo: `itinerario.test.mjs` (A–I).
 
 ### Entradas e saídas de camada sempre com fade (`fadeLayerIn`/`fadeLayerOut`)
 

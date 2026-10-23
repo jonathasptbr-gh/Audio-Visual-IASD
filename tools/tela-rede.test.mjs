@@ -344,6 +344,38 @@ await espera(1200);
 }
 
 // ---------------------------------------------------------------------------
+// 3-bis. O ITINERÁRIO (v1.13.0) segue o relógio DO CELULAR
+//
+// Ele não viaja com época nenhuma (os horários são minutos do dia), então a
+// tradução do `corrigirRelogio` não o alcança: quem escolhe o item de agora é a
+// HORA CORRENTE, e ela tem de ser a de quem mandou — o `__avAgora` da casca,
+// como no modo relógio. O cenário põe uma virada de minuto ENTRE o relógio da
+// tela (90 s atrás) e o do celular: lido pelo relógio local, o item de agora
+// seria o anterior.
+// ---------------------------------------------------------------------------
+{
+  const fuso = await pg.evaluate(() => new Date().getTimezoneOffset());
+  const tela0 = Date.now();
+  let b = Math.ceil((tela0 + 1) / 60000) * 60000;
+  if (b - tela0 < 20000) b += 60000;   // folga de 20 s para o relógio local não alcançar
+  const minB = ((Math.round(b / 60000 - fuso) % 1440) + 1440) % 1440;
+  if (minB === 0) {
+    console.log('----    o itinerário não foi exercitado: a virada cai na meia-noite (fora de escopo)');
+  } else {
+    evento({ type: 'text', mode: 'itinerario', view: 'visual', __mid: 'm:2b', itinerario: {
+      itens: [{ k: 'a', min: minB - 1, titulo: 'Antes' }, { k: 'b', min: minB, titulo: 'Agora pelo celular' }],
+      desloc: 0, horas: true, fuso } });
+    await ate(() => pg.$eval('#textItin', (e) => !!e.querySelector('.itin-linha.agora')).catch(() => false), 4000);
+    const ag = await pg.$eval('#textItin', (e) => {
+      const l = e.querySelector('.itin-linha.agora .itin-titulo');
+      return l ? l.textContent : null;
+    }).catch(() => null);
+    checar(ag === 'Agora pelo celular',
+      'o itinerário na tela da rede marca o item pelo relógio DO CELULAR, não pelo da tela (90 s atrás)', ag);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // 4. Sorteio, cortina e text-hide
 // ---------------------------------------------------------------------------
 evento({ type: 'text', mode: 'draw', view: 'visual', draw: { kind: 'number', value: 7, min: 1, max: 10 }, __mid: 'm:3' });
