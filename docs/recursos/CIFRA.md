@@ -68,9 +68,11 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   - **O preço, dito:** quem quiser saber POR QUE um hino não tem aba de cifra
     não descobre pela tela; descobre pelo Registro. Foi a troca que o pedido
     fez, e é a mesma da v1.2.21.
-- **SOB DEMANDA é o contrato, não uma otimização.** Nada é baixado em lote,
-  **nada entra no bundle do OTA e nada é gravado em disco**. O cache é um `Map`
-  em memória, morto ao fechar o app. Trocá-lo por IndexedDB mudaria o recurso de
+- **SOB DEMANDA é o contrato, não uma otimização.** **Nada entra no bundle do
+  OTA**, e o que o aparelho guarda ele buscou sozinho. *(A frase original dizia
+  também "nada é gravado em disco" e "o cache é um `Map` em memória": as duas
+  caíram — o disco desde a v1.1.28, ver "AS CIFRAS FICAM GUARDADAS NO APARELHO",
+  e a música aberta passou a ir para ele na v1.12.60.)* Pôr cifras no bundle mudaria o recurso de
   natureza: o app deixaria de LER conteúdo de terceiro no aparelho do operador e
   passaria a DISTRIBUIR uma cópia dele. As duas coisas não são degraus da mesma
   escada.
@@ -79,7 +81,8 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   os caminhos passam. Isso tira a rede do caminho crítico: quem abre a aba está
   com o instrumento na mão e a música tocando, e é o pior momento para esperar
   um GET a um site de terceiro. Não muda o contrato acima — continua sendo uma
-  música por vez, sem lote e sem disco —, muda QUANDO ele acontece.
+  música por vez —, muda QUANDO ele acontece. (O desfecho dela vai ao disco desde a
+  v1.12.60: ver "GUARDAR TODAS AS CIFRAS É UMA ESCOLHA".)
 
   **Quem decide se cabe é `cifraCabe`, e ela é UMA para os dois consumidores**
   (a aba, que decide se se oferece; o `send`, que decide se busca). O corte é
@@ -157,9 +160,48 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
     hinário já completo faz aquela função retornar em "Já completo offline"
     muito antes do gancho. MEDIDO em dois Registros seguidos, `0 de 601` depois
     de o operador sincronizar. Hoje `syncCifrasAcervo` roda na abertura, ao
-    lado do `syncLyrics` — informação padrão do acervo, uma vez por sessão, em
-    segundo plano —, e o download deixou de ser a única porta (tocar em
-    sincronizar num hinário completo também dispara).
+    lado do `syncLyrics` — em segundo plano —, e o download deixou de ser a
+    única porta (tocar em sincronizar num hinário completo também dispara).
+    **Desde a v1.12.60 o que ela varre depende de uma ESCOLHA** — ver o bloco
+    seguinte.
+  - **GUARDAR TODAS AS CIFRAS É UMA ESCOLHA, E ELA NASCE DESLIGADA** (v1.12.60,
+    revogando a varredura incondicional da v1.2.1). Pedido do operador: poucos
+    de quem usa o app tocam instrumento, e a varredura do acervo inteiro — uma
+    ou mais requisições por música, centenas por hinário — corria em toda
+    abertura com Wi-Fi, para todo mundo. **O padrão é DESLIGADO para todos,
+    inclusive quem já tinha o acervo varrido**, e o que já está guardado FICA:
+    nada é apagado ao desligar, e a leitura do disco continua valendo.
+    | o que vai para o aparelho | quando |
+    |---|---|
+    | **a música ABERTA** | sempre: `cifraGarantir` procura na hora, como antes, e o desfecho é GRAVADO (`cifraGuardarDesfecho` — a folha, `sem-cifra` e `nao-tem` com data; `sem-rede`, `recusou` e `ilegivel` nada; o que veio do disco não é regravado). Até a v1.12.59 só a varredura gravava, e com ela desligada a música aberta no ensaio voltaria a pedir rede no sábado |
+    | **as músicas do CRONOGRAMA ativo** (`imports`) | sempre, com as regras da varredura (Wi-Fi, cede à mídia no ar, segundo plano, notificação). O gatilho é o `load()` — acrescentar, trocar de cronograma (`AVDB.cronoTrocar` + `load()`) e a abertura passam todos por ele —, COALESCIDO em 1,5 s (`cifrasDoCronogramaAgendar`). Sem o que buscar, é uma leitura do disco por coleção e um `filter`. Só conta o que passa por `cifraCabe` e `cifraGuardavel`, com a chave do disco do NOME da música (`cifrasDoCronograma`) |
+    | **o acervo baixado inteiro** | só com a escolha ligada (`cifraAcervoInteiro`, chave `cifraAcervoInteiro` do `state`, gravada por `AVDB.updateState`; ausente = desligada) |
+    - **É A MESMA ROTINA, com a fila restrita.** `syncCifrasColecao` monta a fila
+      com o Cronograma SEMPRE e o `collSongs` só com a escolha ligada; os três
+      chamadores (a abertura e os dois do `syncCollection`) herdam a regra num
+      ponto só. `doAcervo` marca o que veio só do acervo: desligada no meio, a
+      passada deixa essas de lado (`desligadas` no diário) e termina as do
+      Cronograma. O diário grava `escopo` (`acervo` · `cronograma`) e o
+      Registro diz *"só o Cronograma"* na linha da passada.
+    - **UMA PASSADA POR VEZ, E A ROTINA É UMA SÓ EM VOO.** `cifraSyncRodando` é
+      levantado de forma SÍNCRONA, antes do primeiro `await` (com ele depois da
+      leitura do disco, duas chamadas passavam juntas). Quem chega de fora e a
+      acha ocupada volta, como sempre; a rotina da abertura ESPERA
+      (`cifraPassadaFim`). Um pedido com ela em voo marca `cifraAcervoDeNovo`, e
+      ela dá mais uma volta no fim — é o que alcança o item acrescentado no meio.
+    - **A PORTA É A ABA DE CIFRA**, no rodapé da folha, abaixo do "Ver no Cifra
+      Club" e na mesma forma dele (texto tocável, sem caixa — `.lv-cifra-acervo`):
+      desligada, *"Deixar todas as cifras disponíveis sem internet"*; ligada, uma
+      linha de estado em `--muted` (guardando · espera o Wi-Fi · ficam no
+      aparelho) e *"Desligar"*. As duas formas sempre fazem algo, então nunca
+      nascem apagadas. A linha é repintada NO LUGAR quando a passada começa e
+      termina (`cifraPintarEscolhaDoAcervo`): redesenhar a folha mexeria na
+      rolagem de quem lê. Só existe ali porque a aba só existe com folha na mão.
+    - **A VERIFICAÇÃO** (`cifra-acervo`) sai `na` com a escolha desligada — a
+      conta dela é sobre o produto da varredura, e reprovaria um aparelho certo.
+      **O REGISTRO** abre o bloco de cifras com *"guardar todas as cifras:
+      LIGADO/DESLIGADO"* e conta as do Cronograma (*"N com cifra possível · M com
+      resposta guardada"*). Oráculo: `tools/cifra-escolha.test.mjs`.
   - **A forma é a do `syncLyrics`**, de propósito: mesma fila, mesma proteção de
     segundo plano, mesma notificação, gravação em LOTES, nada em dados móveis. E
     a regra que mais importa é a mesma — **falha de rede não grava nada**: num

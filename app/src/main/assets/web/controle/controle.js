@@ -426,7 +426,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.59';
+const WEB_VERSION = '1.12.60';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4087,6 +4087,7 @@ async function load(opts) {
   const lvFonteV = await AVDB.getState('lyricsFont');
   const cifraVelV = await AVDB.getState('cifraVelocidade');
   const cifraFonteCheiaV = await AVDB.getState('cifraFonteCheia');
+  const cifraAcervoV = (await AVDB.getState(CIFRA_ACERVO_CHAVE)) === true;
   const lyricsBgV = (await AVDB.getState('lyricsBg')) === 'black' ? 'black' : 'image';
   const economiaV = !!(await AVDB.getState('economiaPreview'));
   const permitirDadosMoveisV = !!(await AVDB.getState('permitirDadosMoveis'));
@@ -4160,6 +4161,12 @@ async function load(opts) {
   // altura que ninguém escolheu.
   ytAlturaPreferida = YT_ALTURAS.includes(ytAlturaV | 0) ? (ytAlturaV | 0) : YT_ALTURA_PADRAO;
   libItems = libItemsV;
+  // A ESCOLHA DE GUARDAR TODAS AS CIFRAS (v1.12.60) e, com o Cronograma recém-
+  // lido, as cifras DELE — ver `cifrasDoCronogramaAgendar`. Toda mudança do
+  // Cronograma (acrescentar, trocar de cronograma, a abertura) passa por este
+  // `load()`, e por isso o gatilho mora aqui e não em cada porta.
+  cifraAcervoInteiro = cifraAcervoV;
+  cifrasDoCronogramaAgendar();
   // O PAR do `currentId` acima, e pela mesma senha: `currentItemV` foi lido com
   // o id de ANTES do toque, então aplicá-lo deixaria a linha "no ar", o título
   // do transporte e a notificação de mídia descrevendo a mídia anterior.
@@ -15728,6 +15735,7 @@ function cifraGarantir(item) {
     entrada.url = r.url;
     if (seq === lvCifraSeq) cifraUltimoDiag = r.tentativas.join('\n');
     esquecerSeNaoFoiResposta(chave, entrada);
+    cifraGuardarDesfecho(coll, nome, r);
     cifraDesfechoNaTela();
   }).catch(() => {
     entrada.estado = 'falha';
@@ -15737,6 +15745,32 @@ function cifraGarantir(item) {
   });
 
   return entrada;
+}
+
+/**
+ * A CIFRA PROCURADA NA HORA VAI PARA O DISCO (v1.12.60) — a música aberta abre
+ * sem rede na próxima vez, com a varredura do acervo ligada ou não.
+ *
+ * Até aqui só a VARREDURA gravava: a procura da aba ia para o `cifraCache`, que
+ * morre com o app, e com a varredura passando a nascer desligada a música que o
+ * operador abriu no ensaio voltaria a precisar de rede no sábado. As réguas são
+ * as da varredura, de propósito: a coleção que guarda (`cifraGuardavel`), a
+ * mesma chave (`cifraChaveNoDisco`), a MESCLA (`cifraDiscoMesclar`), e só o que
+ * o SITE respondeu — folha, `sem-cifra` e `nao-tem` com data; `sem-rede`,
+ * `recusou` e `ilegivel` não gravam nada. O que veio do próprio disco
+ * (`via === 'aparelho'`) não é regravado.
+ */
+function cifraGuardarDesfecho(coll, nome, r) {
+  if (!window.__NATIVE__ || !coll || !cifraGuardavel(coll) || !r || r.via === 'aparelho') return;
+  const chave = cifraChaveNoDisco(nome);
+  if (!chave) return;
+  const em = Date.now();
+  let v = null;
+  if (r.ok && r.pagina) v = { pagina: r.pagina, url: r.url || '', em };
+  else if (r.motivo === AVCifra.MOTIVO_SEM_CIFRA) v = { semCifra: r.variante || 'letra', url: r.url || '', em };
+  else if (r.motivo === AVCifra.MOTIVO_NAO_TEM) v = { naoTem: true, em };
+  if (!v) return;
+  cifraDiscoMesclar(coll.id, { [chave]: v }).catch(() => {});
 }
 
 /**
@@ -15877,6 +15911,7 @@ function cifraSemDesfecho(p) {
   if (p.semRede) partes.push(p.semRede + ' sem resposta do site (rede)');
   if (p.adiadas) partes.push(p.adiadas + ' adiada(s) por haver mídia no ar');
   if (p.excecoes) partes.push(p.excecoes + ' com erro');
+  if (p.desligadas) partes.push(p.desligadas + ' deixada(s) de lado (guardar todas foi desligado)');
   if (typeof p.semRede !== 'number' && typeof p.ilegivel === 'number') {
     const resto = (p.tentadas || 0)
       - ((p.ok || 0) + (p.semCifra || 0) + (p.naoTem || 0) + (p.ilegivel || 0) + (p.recusou || 0));
@@ -16012,7 +16047,9 @@ function cifraGuardavel(coll) {
 }
 
 /**
- * As cifras de TODO acervo de música que o operador tem no aparelho.
+ * As cifras de TODO acervo de música que o operador tem no aparelho — desde a
+ * v1.12.60 só com a escolha ligada (ver "GUARDAR TODAS AS CIFRAS É UMA
+ * ESCOLHA", logo abaixo); sem ela, só as do Cronograma ativo.
  *
  * O irmão do `syncLyrics`, e chamado do mesmo lugar: sem isto, o recurso só
  * existia para quem baixasse o acervo DEPOIS da versão que o trouxe — quem já o
@@ -16052,32 +16089,169 @@ function cifraGuardavel(coll) {
 // cena que já saiu seria o mesmo defeito com o sinal trocado.
 function rotinaDeAcervoPodeCorrer() { return !midiaNoAr; }
 
-async function syncCifrasAcervo() {
-  for (const c of allCollections().filter((c) => cifraGuardavel(c) && countDownloaded(c.id) > 0)) {
-    if (!rotinaDeAcervoPodeCorrer()) return;
-    await syncCifrasColecao(c).catch(() => {});
-  }
+// ===== GUARDAR TODAS AS CIFRAS É UMA ESCOLHA, E ELA NASCE DESLIGADA (v1.12.60) =====
+//
+// Pedido do operador: a varredura do acervo inteiro rodava em TODA abertura com
+// Wi-Fi, para todo mundo — e poucos de quem usa o app tocam instrumento. Ela é
+// longa (uma ou mais requisições por música, centenas por hinário) e cobra rede
+// de quem nunca vai abrir a aba de cifra.
+//
+// **O QUE SOBROU SEM ESCOLHA NENHUMA**, porque é o que quem toca usa de fato:
+//  1. **a música aberta** busca a cifra na hora, como sempre (`cifraGarantir`),
+//     e o desfecho dela é GRAVADO (`cifraGuardarDesfecho`) — abre sem rede na
+//     próxima vez;
+//  2. **as músicas do Cronograma ATIVO** (`imports`) são varridas sozinhas
+//     (`cifrasDoCronograma`), pela MESMA rotina e com as MESMAS regras: Wi-Fi,
+//     ceder a vez à mídia no ar, proteção de segundo plano, notificação.
+//
+// **A ESCOLHA** liga a varredura do acervo inteiro, e mora no `state` em
+// `CIFRA_ACERVO_CHAVE`; AUSENTE é DESLIGADA, inclusive para quem já tinha o
+// acervo varrido. O que já está guardado FICA — nada é apagado ao desligar, e a
+// leitura do disco (`cifraProcurar`) continua valendo para tudo o que estiver lá.
+// A porta dela é a própria aba de cifra (`cifraDesenharEscolhaDoAcervo`): só
+// quem já está lendo uma cifra a vê.
+const CIFRA_ACERVO_CHAVE = 'cifraAcervoInteiro';
+let cifraAcervoInteiro = false;
+
+/** Grava a escolha (numa transação só) e age sobre ela. */
+async function cifraAcervoEscolher(ligar) {
+  const v = !!ligar;
+  cifraAcervoInteiro = v;
+  try { await AVDB.updateState(CIFRA_ACERVO_CHAVE, () => v); } catch (_) { /* a sessão segue com o que se escolheu */ }
+  cifraPintarEscolhaDoAcervo();
+  // LIGAR começa agora: a mesma rotina da abertura. DESLIGAR não apaga nada, e a
+  // passada em curso para na próxima música que não for do Cronograma (ver o
+  // `doAcervo` da fila).
+  if (v) syncCifrasAcervo().catch(() => {});
 }
 
-async function syncCifrasColecao(coll) {
-  if (!window.__NATIVE__ || !cifraGuardavel(coll) || cifraSyncRodando) return;
+/**
+ * AS MÚSICAS DO CRONOGRAMA ATIVO que valem cifra, agrupadas por coleção:
+ * `Map<collId, { coll, fila: [{ nome, chave }] }>`. As MESMAS réguas da aba —
+ * `cifraCabe` (vale procurar?) e `cifraGuardavel` (a coleção guarda?) — e a
+ * MESMA chave do disco (`cifraChaveNoDisco` do nome da música), senão a
+ * varredura guardaria sob uma chave que a aba nunca lê.
+ */
+function cifrasDoCronograma() {
+  const porColl = new Map();
+  for (const item of (libItems || [])) {
+    if (!cifraCabe(item)) continue;
+    const coll = cifraColecaoDoItem(item);
+    if (!coll || !cifraGuardavel(coll)) continue;
+    const nome = cifraNomeDoItem(item);
+    const chave = cifraChaveNoDisco(nome);
+    if (!chave) continue;
+    let g = porColl.get(coll.id);
+    if (!g) { g = { coll, fila: [], vistas: new Set() }; porColl.set(coll.id, g); }
+    if (g.vistas.has(chave)) continue;
+    g.vistas.add(chave);
+    g.fila.push({ nome, chave });
+  }
+  return porColl;
+}
+
+// O GATILHO DO CRONOGRAMA é o `load()` — toda mudança da lista passa por ele —,
+// COALESCIDO: o `load()` roda dezenas de vezes por culto, e uma rajada dele vira
+// UMA ida à rotina. Ela é um no-op barato quando tudo já tem resposta guardada
+// (uma leitura do disco por coleção e um `filter`).
+const CIFRA_CRONO_ESPERA_MS = 1500;
+let cifraCronoTimer = 0;
+function cifrasDoCronogramaAgendar() {
+  if (!window.__NATIVE__) return;
+  clearTimeout(cifraCronoTimer);
+  cifraCronoTimer = setTimeout(() => { cifraCronoTimer = 0; syncCifrasAcervo().catch(() => {}); }, CIFRA_CRONO_ESPERA_MS);
+}
+
+// A ROTINA É UMA SÓ EM VOO. Um pedido que chega com ela correndo (o Cronograma
+// mudou, a escolha foi ligada) marca `cifraAcervoDeNovo`, e ela dá mais uma
+// volta no fim — é essa volta que alcança o que entrou no meio.
+let cifraAcervoVoo = null;
+let cifraAcervoDeNovo = false;
+
+function syncCifrasAcervo() {
+  if (cifraAcervoVoo) { cifraAcervoDeNovo = true; return cifraAcervoVoo; }
+  cifraAcervoVoo = (async () => {
+    try {
+      // A escolha é RELIDA aqui: na abertura esta rotina pode partir antes de o
+      // `load()` hidratá-la, e partir com o padrão seria varrer quem ligou
+      // como se tivesse desligado (ou o contrário).
+      try { cifraAcervoInteiro = (await AVDB.getState(CIFRA_ACERVO_CHAVE)) === true; } catch (_) { /* fica a da sessão */ }
+      cifraPintarEscolhaDoAcervo();
+      do {
+        cifraAcervoDeNovo = false;
+        const crono = cifrasDoCronograma();
+        const colls = new Map();
+        if (cifraAcervoInteiro) {
+          for (const c of allCollections()) {
+            if (cifraGuardavel(c) && countDownloaded(c.id) > 0) colls.set(c.id, c);
+          }
+        }
+        for (const g of crono.values()) if (!colls.has(g.coll.id)) colls.set(g.coll.id, g.coll);
+        for (const c of colls.values()) {
+          if (!rotinaDeAcervoPodeCorrer()) return;
+          await syncCifrasColecao(c, { esperar: true }).catch(() => {});
+        }
+      } while (cifraAcervoDeNovo && rotinaDeAcervoPodeCorrer());
+    } finally {
+      cifraAcervoVoo = null;
+      cifraPintarEscolhaDoAcervo();
+    }
+  })();
+  return cifraAcervoVoo;
+}
+
+// UMA PASSADA POR VEZ. `cifraSyncRodando` é levantado de forma SÍNCRONA, antes
+// do primeiro `await` — com ele depois de uma leitura do disco, duas chamadas
+// passavam pela porta juntas. Quem vem de fora (o download de uma coleção) e a
+// acha ocupada VOLTA, como sempre voltou; a rotina acima ESPERA (`esperar`).
+let cifraPassadaFim = null;
+
+async function syncCifrasColecao(coll, opts) {
+  const o = opts || {};
+  if (!window.__NATIVE__ || !cifraGuardavel(coll)) return;
+  if (o.esperar) { while (cifraSyncRodando && cifraPassadaFim) await cifraPassadaFim; }
+  if (cifraSyncRodando) { cifraAcervoDeNovo = true; return; }
   // Ver `rotinaDeAcervoPodeCorrer`: a varredura é adiável, o louvor não.
   if (!rotinaDeAcervoPodeCorrer()) return;
   // A MESMA REGRA DO `syncLyrics`: são centenas de requisições a um site que
   // não é nosso, e o plano de dados do operador não é o lugar delas.
   if (networkType() === 'cellular') return;
+  cifraSyncRodando = true;
+  let soltar = null;
+  cifraPassadaFim = new Promise((r) => { soltar = r; });
+  try { await syncCifrasPassada(coll); } finally {
+    cifraSyncRodando = false;
+    cifraPassadaFim = null;
+    soltar();
+  }
+}
 
+async function syncCifrasPassada(coll) {
   const agora = Date.now();
   // NÃO HÁ MAIS PRAZO DE PASSADA (v1.2.21): ele existia para o caso em que o
   // teto recusava tudo, e o teto saiu — quem impede a revarredura agora é o
   // que sempre deveria: cada música tem uma resposta GRAVADA, com data.
   const disco = await cifraDiscoDe(coll.id);
-  const faltam = collSongs(coll.id)
-    .map((s) => ({ nome: s.name, chave: cifraChaveNoDisco(s.name) }))
-    .filter((h) => h.chave && !cifraNoDiscoVale(disco[h.chave], agora));
+  // A FILA DEPENDE DA ESCOLHA (v1.12.60): o acervo inteiro só com ela ligada; o
+  // Cronograma ativo SEMPRE. `doAcervo` marca o que entrou só pelo acervo — é o
+  // que a passada deixa de fazer se a escolha for desligada no meio dela.
+  const inteiro = cifraAcervoInteiro;
+  const doCrono = (cifrasDoCronograma().get(coll.id) || { fila: [] }).fila;
+  const fila = doCrono.map((h) => ({ nome: h.nome, chave: h.chave, doAcervo: false }));
+  if (inteiro) {
+    const vistas = new Set(fila.map((h) => h.chave));
+    for (const s of collSongs(coll.id)) {
+      const chave = cifraChaveNoDisco(s.name);
+      if (!chave || vistas.has(chave)) continue;
+      vistas.add(chave);
+      fila.push({ nome: s.name, chave, doAcervo: true });
+    }
+  }
+  const faltam = fila.filter((h) => h.chave && !cifraNoDiscoVale(disco[h.chave], agora));
   if (!faltam.length) return;
+  cifraPassadaTrabalhando = true;
+  cifraPintarEscolhaDoAcervo();
 
-  cifraSyncRodando = true;
   const notifId = bgTaskStart('Cifras do ' + coll.name, faltam.length);
   let done = 0;
   let desdeGravacao = 0;
@@ -16111,6 +16285,7 @@ async function syncCifrasColecao(coll) {
   let semRedeDaPassada = 0;
   let adiadasDaPassada = 0;
   let excecoesDaPassada = 0;
+  let desligadasDaPassada = 0;
   // OS EXEMPLOS DO QUE NÃO SAIU COM FOLHA — número, nome, veredito e o ENDEREÇO
   // tentado. É o que responde a pergunta que nenhum contador responde: *"quais
   // hinos, e o que a página deles tem?"*. Sem o endereço a lista não serve para
@@ -16128,6 +16303,9 @@ async function syncCifrasColecao(coll) {
           // O gêmeo do `syncLyrics`, e pelo mesmo motivo — ver
           // `rotinaDeAcervoPodeCorrer`.
           if (!rotinaDeAcervoPodeCorrer()) { adiadasDaPassada++; return; }
+          // A ESCOLHA FOI DESLIGADA NO MEIO: o que veio só do acervo sai, o que é
+          // do Cronograma continua.
+          if (h.doAcervo && !cifraAcervoInteiro) { desligadasDaPassada++; return; }
           bgItemStart(notifId, h.nome);
           try {
             // A CADEIA INTEIRA, e não só o catálogo (v1.2.14). É ela que faz o
@@ -16216,9 +16394,15 @@ async function syncCifrasColecao(coll) {
       semCifra: quantos,
       ilegivel: ilegivelDaPassada, recusou: recusouDaPassada,
       semRede: semRedeDaPassada, adiadas: adiadasDaPassada, excecoes: excecoesDaPassada,
+      desligadas: desligadasDaPassada,
+      // DE ONDE VEIO A FILA (v1.12.60): `acervo` com a escolha ligada,
+      // `cronograma` sem ela — o Registro diz qual, senão uma passada de três
+      // músicas do Cronograma se leria como a varredura do hinário inteiro.
+      escopo: inteiro ? 'acervo' : 'cronograma',
       exemplos,
     }).catch(() => {});
-    cifraSyncRodando = false;
+    cifraPassadaTrabalhando = false;
+    cifraPintarEscolhaDoAcervo();
   }
 }
 
@@ -17686,6 +17870,63 @@ function lvBuildCifra(el) {
   fonte.addEventListener('click', () => { if (entrada.url) AVNative.openExternal(entrada.url); });
   rodape.appendChild(fonte);
   el.appendChild(rodape);
+  cifraDesenharEscolhaDoAcervo(el);
+}
+
+// ===== A PORTA DA ESCOLHA "GUARDAR TODAS AS CIFRAS" (v1.12.60) =====
+//
+// Mora no RODAPÉ da folha, abaixo do "Ver no Cifra Club" e na mesma forma dele —
+// texto tocável, não botão: é uma nota para quem toca, e com corpo de botão ela
+// cobraria altura da caixa cuja função é mostrar a cifra. Só existe aqui, onde
+// só chega quem já está lendo uma cifra: a aba nasce com folha na mão.
+//
+// DESLIGADA, ela é o convite. LIGADA, uma linha de estado curta e o "Desligar" —
+// as duas sempre fazem alguma coisa, então nunca nascem apagadas. A linha é
+// repintada NO LUGAR (`cifraPintarEscolhaDoAcervo`) quando a varredura começa ou
+// termina: redesenhar a folha inteira por isso mexeria na rolagem de quem lê.
+let cifraEscolhaEl = null;
+let cifraPassadaTrabalhando = false;
+
+function cifraDesenharEscolhaDoAcervo(el) {
+  const box = document.createElement('div');
+  box.className = 'lv-cifra-acervo';
+  cifraEscolhaEl = box;
+  el.appendChild(box);
+  cifraPintarEscolhaDoAcervo();
+}
+
+function cifraPintarEscolhaDoAcervo() {
+  const box = cifraEscolhaEl;
+  if (!box || !box.isConnected) return;
+  box.textContent = '';
+  const link = (texto, titulo, fn) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'lv-cifra-link';
+    b.textContent = texto;
+    b.title = titulo;
+    b.addEventListener('click', fn);
+    return b;
+  };
+  if (!cifraAcervoInteiro) {
+    box.dataset.estado = 'desligado';
+    box.appendChild(link('Deixar todas as cifras disponíveis sem internet',
+      'Guarda no aparelho a cifra de todas as músicas baixadas, quando houver Wi-Fi',
+      () => cifraAcervoEscolher(true)));
+    return;
+  }
+  box.dataset.estado = 'ligado';
+  const estado = document.createElement('span');
+  estado.className = 'lv-cifra-acervo-estado';
+  estado.textContent = cifraPassadaTrabalhando
+    ? 'Guardando as cifras da biblioteca…'
+    : (networkType() === 'cellular'
+      ? 'Todas as cifras: guardo quando houver Wi-Fi'
+      : 'Todas as cifras ficam no aparelho');
+  box.appendChild(estado);
+  box.appendChild(link('Desligar',
+    'Para de guardar as cifras da biblioteca inteira (as já guardadas ficam)',
+    () => cifraAcervoEscolher(false)));
 }
 
 // ===== O TÍTULO DA OBRA É A PRIMEIRA LINHA DO CORPO QUE ROLA (v1.11.21) =====
@@ -20757,7 +20998,9 @@ async function autoRefreshCollections() {
     syncLyrics().catch(() => {})
       .then(() => syncFundosAcervo())
       .catch(() => {});
-    // Fase 4: as CIFRAS dos hinários, pelo mesmo motivo e pelo mesmo caminho.
+    // Fase 4: as CIFRAS, pelo mesmo motivo e pelo mesmo caminho — as do
+    // Cronograma sempre, as do acervo inteiro só com a escolha ligada (v1.12.60,
+    // ver "GUARDAR TODAS AS CIFRAS É UMA ESCOLHA").
     //
     // ELA PRECISOU SAIR DO DOWNLOAD (v1.1.30). Pendurada no fim do
     // `syncCollection`, a v1.1.28 nunca alcançou quem MAIS precisa dela: um
@@ -30486,6 +30729,14 @@ const TESTES = [
       //
       // E SÓ NOS HINÁRIOS (`cifraDeduzivel`): ali o endereço sai do CATÁLOGO e
       // toda música é dedutível. Num álbum a ausência é o caso normal.
+      // SEM A ESCOLHA, A VARREDURA NÃO RODA (v1.12.60) — e o que esta linha mede
+      // é o produto dela. Desligada, o hinário fica com as cifras do Cronograma
+      // e das músicas abertas, que é o que se pediu: qualquer conta sobre o
+      // acervo inteiro sairia vermelha num aparelho certo.
+      if (!cifraAcervoInteiro) {
+        return tNa('guardar todas as cifras está desligado (liga-se na aba de cifra da letra) — '
+          + 'ficam no aparelho só as do Cronograma e as das músicas abertas');
+      }
       const PISO = 20;            // julgadas antes de a conta valer
       const SEM_PAGINA_CORTE = 0.15; // semPagina/julgadas acima disto é o catálogo, não o site
       const alvos = allCollections().filter((c) => cifraDeduzivel(c) && countDownloaded(c.id) > 0);
@@ -31931,6 +32182,11 @@ async function renderDiag() {
     try { cd = await AVNative.cifraDiag(); } catch (_) { cd = ''; }
     if (meu !== diagSeq) return;
     const linhas = [];
+    // A ESCOLHA PRIMEIRO (v1.12.60): é ela que diz se o "por varrer" das linhas
+    // abaixo vai andar sozinho ou não.
+    linhas.push('guardar todas as cifras: ' + (cifraAcervoInteiro
+      ? 'LIGADO — a varredura percorre o acervo baixado a cada abertura com Wi-Fi'
+      : 'DESLIGADO — só as do Cronograma e as das músicas abertas vão para o aparelho'));
     if (cifraUltimoDiag) linhas.push(cifraUltimoDiag);
     if (cd) linhas.push('shell: ' + cd);
     // O QUE ESTÁ GUARDADO, POR HINÁRIO. Responde "a folha vai abrir sem rede no
@@ -31991,7 +32247,7 @@ async function renderDiag() {
       linhas.push(c.name + ': ' + n + ' de ' + total + ' cifra(s) no aparelho'
         + (semCifra ? ' · ' + semCifra + ' sem cifra no site' : '')
         + (naoAchei ? ' · ' + naoAchei + ' não achei (repergunto em 30 dias)' : '')
-        + (porVarrer ? ' · ' + porVarrer + ' por varrer' : ''));
+        + (porVarrer ? ' · ' + porVarrer + (cifraAcervoInteiro ? ' por varrer' : ' sem resposta guardada') : ''));
       // A ÚLTIMA PASSADA, quando ela teve algo a dizer. É a linha que faltava
       // para "N por varrer" deixar de ser um mistério que volta toda sessão:
       // ela diz quantas foram tentadas e o que cada desfecho respondeu.
@@ -32005,6 +32261,7 @@ async function renderDiag() {
       // de que uma passada de fato rodou.
       if (passada && passada.tentadas) {
         linhas.push('    última passada (' + new Date(passada.em || 0).toLocaleDateString('pt-BR')
+          + (passada.escopo === 'cronograma' ? ', só o Cronograma' : '')
           + '): ' + passada.tentadas + ' tentada(s), ' + passada.ok + ' achada(s), '
           + (passada.semCifra || 0) + ' sem cifra no site, '
           + (passada.naoTem || 0) + ' sem página'
@@ -32024,6 +32281,28 @@ async function renderDiag() {
         linhas.push('    não achei: ' + faltando.slice(0, CIFRA_FALTANDO_MAX).join(' · ')
           + (faltando.length > CIFRA_FALTANDO_MAX
             ? ' … e mais ' + (faltando.length - CIFRA_FALTANDO_MAX) : ''));
+      }
+    }
+    // AS DO CRONOGRAMA (v1.12.60), que vão para o aparelho com a escolha
+    // desligada também: quantas cabem, e quantas já têm resposta guardada.
+    {
+      let cabem = 0; let folhas = 0; let respondidas = 0;
+      const agoraC = Date.now();
+      for (const g of cifrasDoCronograma().values()) {
+        let guardado = {};
+        try { guardado = (await AVDB.getState('cifras:' + g.coll.id)) || {}; } catch (_) { guardado = {}; }
+        for (const h of g.fila) {
+          cabem++;
+          const v = guardado[h.chave];
+          if (!cifraNoDiscoVale(v, agoraC)) continue;
+          respondidas++;
+          if (v.pagina) folhas++;
+        }
+      }
+      if (meu !== diagSeq) return;
+      if (cabem) {
+        linhas.push('Cronograma: ' + cabem + ' música(s) com cifra possível · ' + respondidas
+          + ' com resposta guardada (' + folhas + ' cifra(s))');
       }
     }
     // NÃO BAIXADO É OUTRA RESPOSTA, não um zero — mas ela cabe em UMA linha. A

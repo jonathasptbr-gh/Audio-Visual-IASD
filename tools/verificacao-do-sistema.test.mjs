@@ -1318,6 +1318,11 @@ try {
   // endereço tira a cifra do app por um mês, sem uma linha em lugar nenhum.
   const cifra = await pg.evaluate(async () => {
     const achada = TESTES.find((c) => c.id === 'cifra-acervo');
+    // A CONTA SOBRE O ACERVO SÓ VALE COM A VARREDURA LIGADA (v1.12.60) — ela é
+    // uma escolha, e nasce desligada; desligada, a linha sai "não se aplica"
+    // (quem cobre esse ramo é o `cifra-escolha.test.mjs`).
+    const inteiroAntes = cifraAcervoInteiro;
+    cifraAcervoInteiro = true;
     const ac = window.allCollections; const cs = window.collSongs;
     const cd = window.countDownloaded; const gs = AVDB.getState;
     const hinos = Array.from({ length: 40 }, (_, i) => ({ name: 'Hino ' + (i + 1) }));
@@ -1372,6 +1377,7 @@ try {
     const novo = await rodarUmaChecagem(achada);
     window.allCollections = ac; window.collSongs = cs;
     window.countDownloaded = cd; AVDB.getState = gs;
+    cifraAcervoInteiro = inteiroAntes;
     return { comCifras, maioriaSemCifra, siteMudou, sobreviventes, novo };
   });
   checar(cifra.comCifras.v === 'ok' && /30 cifra\(s\) · 10 sem cifra no site \(de 40 de 40 já varridos\)/.test(cifra.comCifras.nota),

@@ -674,7 +674,8 @@ de renderer e a cada ciclo do dongle). Todos daemon.
   escrito só pelo caminho do download e `diagnosticoStream` só pelo do
   manifesto — que é justamente por que eles são dois campos.
 - **A `cifra` é própria porque ela é MASSA e a `extracao` é TOQUE.** A varredura
-  do acervo roda na ABERTURA com seis requisições concorrentes do lado web, e o
+  roda na ABERTURA com seis requisições concorrentes do lado web (a do acervo
+  inteiro só com a escolha ligada, v1.12.60; sem ela, a do Cronograma), e o
   prazo do `CifraFonte` vale para connect E para read: na `extracao` havia
   sempre ~6 páginas à frente de quem chegasse depois, e o `ytStream` de um
   "Tocar agora" podia vencer os 60 s do `call()` e cair no download, calado. Sair
@@ -2129,7 +2130,7 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os de Chromium são **120** e os de Node puro **23** — juntos, os 143 (contados na v1.12.57). MEDIDO com
+Os de Chromium são **121** e os de Node puro **23** — juntos, os 144 (contados na v1.12.60). MEDIDO com
 82 deles: **~13 min em série** e **~4,3 min nos três processos** (4 vCPU, o mesmo
 do runner); os de Node puro somam **8 s**. **Os números moram no `apk.yml`**, ao
 lado do passo que descrevem, e esta é a cópia — divergiram uma vez (79/99 aqui
@@ -3032,10 +3033,10 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.12.59 · APK v1.12.46** · `SHELL_VERSION` **82** ·
+**Versão atual: base web v1.12.60 · APK v1.12.46** · `SHELL_VERSION` **82** ·
 bundle com `minShell: 82` e **sem `shellTag`** — o shell 82 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. **Este lote é só web**
-(a Release v1.12.46 já está publicada). **A v1.12.59 TIRA O TREMOR DO CABEÇALHO COM A LISTA CHEIA**: com a tampa
+(a Release v1.12.46 já está publicada). **A v1.12.60 FAZ DE "GUARDAR TODAS AS CIFRAS" UMA ESCOLHA, DESLIGADA POR PADRÃO**: a varredura do acervo inteiro só corre com ela ligada (convite no rodapé da aba de cifra, chave `cifraAcervoInteiro`); sem ela vão ao aparelho as cifras do Cronograma ativo (gatilho no `load()`, coalescido) e o desfecho da música aberta (`cifraGuardarDesfecho`). A Verificação sai `na` desligada e o Registro diz o estado — ver `docs/recursos/CIFRA.md`. **A v1.12.59 TIRA O TREMOR DO CABEÇALHO COM A LISTA CHEIA**: com a tampa
 no piso o recuo de cima do corpo de uma seção não cabe na caixa fechada, e o flex o centrava no fim do fechamento;
 a ponta dele é `min(.35rem, --tampa-topo)` (`recuoFechadoDoAcordeao`). **A v1.12.58 SEGURA O TÍTULO DE TODA SEÇÃO DA BIBLIOTECA AO ABRIR E
 FECHAR**: a seção aberta passou à regra do card (`--tampa-topo` em cima e, embaixo da barra, o que falta dele depois
