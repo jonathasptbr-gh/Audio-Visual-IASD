@@ -1,5 +1,17 @@
 [
   {
+    "versao": "1.13.1",
+    "itens": [
+      "Itinerário: o horário agora se escolhe girando a hora e o minuto, sem depender do relógio do sistema.",
+      "A lista do itinerário ficou igual às outras listas: toque na linha para editar, e o ⋮ tem editar e excluir.",
+      "Adicionar horário fica embaixo da lista e abre a mesma janela de editar.",
+      "O itinerário pode ir para o Cronograma e para os Favoritos, como o cronômetro e o timer.",
+      "Com o itinerário no telão, os botões de slide atrasam (+5) ou adiantam (−5) a programação inteira.",
+      "No telão, o itinerário fica à esquerda, sobre o wallpaper, com um fundo escuro só atrás do texto.",
+      "A marca \"Agora\" passou para a esquerda do horário."
+    ]
+  },
+  {
     "versao": "1.13.0",
     "itens": [
       "Novo: Itinerário, em Ferramentas > Tempo. Monte a programação do evento com horário e título.",

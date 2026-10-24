@@ -427,7 +427,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.0';
+const WEB_VERSION = '1.13.1';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -3763,6 +3763,8 @@ function showPvText(obj) {
   pvTextContentEl.classList.toggle('mode-chrono', isChrono);
   pvTextContentEl.classList.toggle('mode-draw', isDraw);
   pvTextContentEl.classList.toggle('mode-itinerario', isItin);
+  pvTextEl.classList.toggle('mode-itinerario', isItin);
+  pintarFundoDoPvCartao();
   pvTextEl.classList.toggle('mode-img', isImg);
   if (!isImg) soltarPvTextImg();
   if (isImg) {
@@ -6470,6 +6472,10 @@ const CUE_SVG = {
   songlyrics: '<line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="11" x2="16" y2="11"/><line x1="4" y1="16" x2="20" y2="16"/><line x1="4" y1="21" x2="12" y2="21"/>',
   chrono: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><line x1="9" y1="2" x2="15" y2="2"/>',
   draw: '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.3"/><circle cx="15.5" cy="15.5" r="1.3"/><circle cx="15.5" cy="8.5" r="1.3"/><circle cx="8.5" cy="15.5" r="1.3"/>',
+  // O ITINERÁRIO (v1.13.1): uma pauta — três marcas de horário com a linha de
+  // cada item ao lado.
+  itinerario: '<circle cx="5" cy="6" r="1.4"/><circle cx="5" cy="12" r="1.4"/><circle cx="5" cy="18" r="1.4"/>'
+    + '<line x1="9.5" y1="6" x2="20" y2="6"/><line x1="9.5" y1="12" x2="20" y2="12"/><line x1="9.5" y1="18" x2="16" y2="18"/>',
 };
 
 function cueIconSvg(cue) {
@@ -6485,6 +6491,7 @@ const CUES = {
   songlyrics: { nome: 'Letra' },
   chrono: { nome: 'Tempo' },
   draw: { nome: 'Sorteio' },
+  itinerario: { nome: 'Itinerário' },
   group: { nome: 'Pacote', glifo: () => ICON.queue },
 };
 
@@ -6796,6 +6803,7 @@ async function playCue(rec) {
     case 'songlyrics': return projetarLetraCue(d, rec.id);
     case 'chrono': return projetarTempoCue(d);
     case 'draw': return projetarSorteioCue(d);
+    case 'itinerario': return projetarItinerarioCue(d, rec.id);
     case 'group': return abrirPacote(d, rec.id);
     default: return undefined;
   }
@@ -7710,10 +7718,14 @@ function renderFoot() {
   const montar = cueSaveDaFerramenta();
   if (montar) {
     const mk = (icone, titulo, destino) => {
-      row.appendChild(cueSaveBtn(icone, titulo, async (b) => {
-        const rec = await montar(destino, b);
-        if (!rec) responder(b, 'erro', 'Não foi possível guardar');
-      }));
+      const b = cueSaveBtn(icone, titulo, async (bt) => {
+        const rec = await montar(destino, bt);
+        if (!rec) responder(bt, 'erro', 'Não foi possível guardar');
+      });
+      // APAGADO COM O PORQUÊ, quando a ferramenta diz que não há o que guardar
+      // (o itinerário vazio) — ver `cueSaveDaFerramenta`.
+      if (montar.apagado) { b.disabled = true; b.title = montar.apagado; }
+      row.appendChild(b);
     };
     mk(ICON.cronoAdd, 'Adicionar ao Cronograma', 'imports');
     mk(ICON.star, 'Favoritar', 'favs');
@@ -7739,9 +7751,10 @@ let chronoSession = null;   // { projecting } | null
 let tempoVista = 'chrono';  // 'chrono' (as três roletas) | 'itinerario'
 let itinSession = null;     // { projecting } | null
 let itin = { itens: [], horas: true, desloc: 0 };   // itens: [{ id, min, titulo }]
-let itinEditando = null;    // o id da linha aberta em edição
+let itinEditor = null;      // { id|null } — o horário aberto na folha de edição
 let itinPanelTimer = null;
 const ITIN_DESLOC_MAX = 720;   // min — doze horas para cada lado
+const ITIN_PASSO_PAR = 5;      // min — o passo do ⏮/⏭ com o itinerário no ar
 const ITIN_TITULO_MAX = 60;
 let chrono = {
   mode: 'clock',            // 'clock' | 'stopwatch' | 'timer'
@@ -8140,10 +8153,17 @@ function roletaEditavel() {
 // se confundem: MEDIDO, às 19 h o mostrador dizia 08. Índice e valor são
 // coisas diferentes desde que a lista virou infinita; esta é a segunda
 // diferença entre eles, e mora no mesmo lugar.
-function chronoRoletaEl(campo, base, ciclo, rotulo, inicio) {
+//
+// `opts` é a porta da SEGUNDA dona (v1.13.1, o horário do Itinerário): o `id` e
+// quem é avisado quando a lista ASSENTA. Sem ela os dois valem o do Timer — e
+// isso não é detalhe: o `roletaAssentou` do Timer lê as colunas pelo id e
+// escreve a duração, então uma roleta alheia com o mesmo id mexeria no Timer.
+function chronoRoletaEl(campo, base, ciclo, rotulo, inicio, opts) {
+  const o = opts || {};
+  const aoAssentar = o.aoAssentar || roletaAssentou;
   const el = document.createElement('div');
   el.className = 'roleta';
-  el.id = 'roleta_' + campo;
+  el.id = o.id || ('roleta_' + campo);
   const reps = repeticoesDe(ciclo);
   el.dataset.ciclo = String(ciclo);
   el.dataset.inicio = String(inicio || 0);
@@ -8169,7 +8189,7 @@ function chronoRoletaEl(campo, base, ciclo, rotulo, inicio) {
     // parece escolhido é o anterior.
     roletaAcender(el);
     clearTimeout(assenta);
-    assenta = setTimeout(() => { roletaRecentrar(el); roletaAssentou(); }, ROLETA_ASSENTA_MS);
+    assenta = setTimeout(() => { roletaRecentrar(el); aoAssentar(el); }, ROLETA_ASSENTA_MS);
   });
   return el;
 }
@@ -8278,45 +8298,51 @@ function roletaAssentou() {
 function roletasMostrar(h, m, sg) {
   for (const [campo, valor] of [['hora', h], ['min', m], ['seg', sg]]) {
     const el = document.getElementById('roleta_' + campo);
-    if (!el) continue;
-    const item = roletaItem(el);
-    if (!item) continue;
-    const ciclo = Number(el.dataset.ciclo) || 1;
-    const inicio = Number(el.dataset.inicio) || 0;
-    const v = pistaDoValor(Math.round(valor), ciclo, inicio);
-    // O CAMINHO CURTO, e ele não é otimização: andar SEMPRE para a banda do
-    // meio faria a lista SALTAR uma volta inteira toda vez que a contagem
-    // cruzasse o 0 — o número certo, chegando de um pulo que ninguém pediu.
-    // Daqui, o vizinho é o vizinho.
-    // A PRIMEIRA POSIÇÃO É A BANDA DO MEIO, e é a única que não usa o caminho
-    // curto (v1.8.95). Sem isto a lista abre onde NASCEU — `scrollTop` 0, o
-    // topo da pista —, e ali não existe célula acima: relato do operador,
-    // *"[a exibição inicial] só apresenta a roleta em uma das direções se
-    // iniciada na posição 0"*. E não havia conserto depois, porque a
-    // recentragem só roda atrás de um `scroll` e ali não houve rolagem nenhuma.
-    // O mesmo vale depois de a RÉGUA mudar: `acertarRoletas` apaga esta marca,
-    // porque um `scrollTop` medido na célula velha não é índice na nova.
-    const primeira = el.dataset.pos !== '1';
-    el.dataset.pos = '1';
-    const atual = primeira ? (Number(el.dataset.base) || 0) : roletaIndice(el);
-    const dentro = ((atual % ciclo) + ciclo) % ciclo;
-    // QUEM RECENTRA É O `roletaRecentrar`, e não esta função: escrever
-    // `scrollTop` dispara um `scroll`, que agenda o assentamento, que recentra
-    // 140 ms depois — inclusive durante a contagem, onde não há dedo nenhum.
-    // MEDIDO por reversão: um segundo retorno à banda do meio aqui não muda
-    // nada, e um comentário que credite a peça errada manda o próximo leitor
-    // proteger o lugar errado.
-    //
-    // E O ALVO NÃO PODE FICAR NEGATIVO — sem piso, e é por CONSTRUÇÃO: da banda
-    // do meio (que começa em `base >= ciclo`) um passo move no máximo
-    // `ciclo - 1`, então o mínimo alcançável é 1. Um `Math.max(0, …)` aqui foi
-    // escrito, revertido e removido: ele não muda nada e diria que há um caso a
-    // proteger.
-    const alvo = atual + (v - dentro);
-    const px = alvo * item;
-    roletaIr(el, px, roletaAnimaAgora(alvo - atual));
-    roletaAcender(el);
+    if (el) roletaLevar(el, valor, roletaAnimaAgora);
   }
+}
+
+// LEVA UMA ROLETA a um valor — o corpo do `roletasMostrar`, separado na v1.13.1
+// para o horário do Itinerário posicionar as dele pelo MESMO caminho (a
+// primeira posição na banda do meio, o caminho curto depois). `animar(passo)`
+// decide se o passo é suave: só o Timer contando anima.
+function roletaLevar(el, valor, animar) {
+  const item = roletaItem(el);
+  if (!item) return;
+  const ciclo = Number(el.dataset.ciclo) || 1;
+  const inicio = Number(el.dataset.inicio) || 0;
+  const v = pistaDoValor(Math.round(valor), ciclo, inicio);
+  // O CAMINHO CURTO, e ele não é otimização: andar SEMPRE para a banda do
+  // meio faria a lista SALTAR uma volta inteira toda vez que a contagem
+  // cruzasse o 0 — o número certo, chegando de um pulo que ninguém pediu.
+  // Daqui, o vizinho é o vizinho.
+  // A PRIMEIRA POSIÇÃO É A BANDA DO MEIO, e é a única que não usa o caminho
+  // curto (v1.8.95). Sem isto a lista abre onde NASCEU — `scrollTop` 0, o
+  // topo da pista —, e ali não existe célula acima: relato do operador,
+  // *"[a exibição inicial] só apresenta a roleta em uma das direções se
+  // iniciada na posição 0"*. E não havia conserto depois, porque a
+  // recentragem só roda atrás de um `scroll` e ali não houve rolagem nenhuma.
+  // O mesmo vale depois de a RÉGUA mudar: `acertarRoletas` apaga esta marca,
+  // porque um `scrollTop` medido na célula velha não é índice na nova.
+  const primeira = el.dataset.pos !== '1';
+  el.dataset.pos = '1';
+  const atual = primeira ? (Number(el.dataset.base) || 0) : roletaIndice(el);
+  const dentro = ((atual % ciclo) + ciclo) % ciclo;
+  // QUEM RECENTRA É O `roletaRecentrar`, e não esta função: escrever
+  // `scrollTop` dispara um `scroll`, que agenda o assentamento, que recentra
+  // 140 ms depois — inclusive durante a contagem, onde não há dedo nenhum.
+  // MEDIDO por reversão: um segundo retorno à banda do meio aqui não muda
+  // nada, e um comentário que credite a peça errada manda o próximo leitor
+  // proteger o lugar errado.
+  //
+  // E O ALVO NÃO PODE FICAR NEGATIVO — sem piso, e é por CONSTRUÇÃO: da banda
+  // do meio (que começa em `base >= ciclo`) um passo move no máximo
+  // `ciclo - 1`, então o mínimo alcançável é 1. Um `Math.max(0, …)` aqui foi
+  // escrito, revertido e removido: ele não muda nada e diria que há um caso a
+  // proteger.
+  const alvo = atual + (v - dentro);
+  roletaIr(el, alvo * item, animar(alvo - atual));
+  roletaAcender(el);
 }
 
 /**
@@ -8641,6 +8667,54 @@ function clearItinSession() {
   refreshDiversos();
 }
 
+// ===== O ITINERÁRIO COMO CENA DE ROTEIRO (v1.13.1) =====
+// Pedido do operador: adicionar ao Cronograma e aos Favoritos, como as abas
+// irmãs. O descritor é a PROGRAMAÇÃO — `{ itens: [{min, titulo}], horas }` —, e
+// os `id` ficam de fora: a identidade de uma cena é o conteúdo (`cueChave`), e
+// dois itinerários iguais guardados duas vezes nos Favoritos são o mesmo.
+//
+// O AJUSTE NÃO VIAJA: ele é do DIA (`deslocDia`). Um roteiro montado no sábado
+// passado que trouxesse o atraso daquele culto começaria errado hoje.
+function itinCueData() {
+  return { itens: itin.itens.map((x) => ({ min: x.min, titulo: x.titulo })), horas: itin.horas };
+}
+
+function itinCueNome() {
+  const n = itin.itens.length;
+  if (!n) return 'Itinerário';
+  const a = createStage.itinHora(itin.itens[0].min);
+  const b = createStage.itinHora(itin.itens[n - 1].min);
+  return 'Itinerário ' + (n > 1 ? a + '–' + b : a);
+}
+
+// PROJETA UMA CENA GUARDADA. É um PRESET, como o do Tempo (`projetarTempoCue`):
+// a programação guardada passa a ser a do painel, e o que vai ao telão é o
+// `projectItin` de sempre — o reenvio de cena, o ⏮/⏭ do ajuste e a marca de
+// agora no painel vêm de graça, porque é a MESMA sessão.
+//
+// O `id` DE UMA LINHA QUE CONTINUA IGUAL é reaproveitado (mesmo horário e mesmo
+// título): é a chave por que o telão reconhece as linhas, e reprojetar a mesma
+// programação faria todas elas "entrarem" de novo, animadas, sem nada ter mudado.
+function projetarItinerarioCue(d, cueId) {
+  const dados = (d && Array.isArray(d.itens)) ? d.itens : [];
+  const livres = itin.itens.slice();
+  const itens = dados
+    .filter((x) => x && Number.isFinite(x.min) && x.min >= 0 && x.min < 1440 && String(x.titulo || '').trim())
+    .map((x) => {
+      const min = Math.round(x.min);
+      const titulo = String(x.titulo).trim().slice(0, ITIN_TITULO_MAX);
+      const i = livres.findIndex((y) => y.min === min && y.titulo === titulo);
+      const id = i >= 0 ? livres.splice(i, 1)[0].id : uid();
+      return { id, min, titulo };
+    });
+  if (!itens.length) { falharNoItem(cueId, 'o itinerário guardado está vazio'); return; }
+  itin.itens = ordenarItin(itens);
+  if (typeof d.horas === 'boolean') itin.horas = d.horas;
+  saveItin();
+  projectItin();
+  if (ferramentasAbertas() && miscTool === 'chrono' && tempoVista === 'itinerario') renderChronoEControles();
+}
+
 // O painel e o rodapé mudam juntos (o projetar apaga com a lista vazia, o
 // quadrado das horas acende e apaga) — o mesmo par do `renderChronoEControles`.
 function itinMudou() {
@@ -8655,12 +8729,21 @@ function textoDoAjuste() {
   return (d > 0 ? '+' : '−') + Math.abs(d) + ' min';
 }
 
+// HÁ PARA ONDE ANDAR? A régua única dos passos do ajuste — os quatro do painel
+// e o par ao lado da preview. Nos extremos (doze horas) o passo apaga.
+function itinPassoApagado(sentido) {
+  return sentido < 0 ? itin.desloc <= -ITIN_DESLOC_MAX : itin.desloc >= ITIN_DESLOC_MAX;
+}
+
 function itinAjustar(delta) {
   const novo = Math.max(-ITIN_DESLOC_MAX, Math.min(ITIN_DESLOC_MAX, itin.desloc + delta));
   if (novo === itin.desloc) return;
   itin.desloc = novo;
   diagC('itinerário: ajuste ' + textoDoAjuste());
   itinMudou();
+  // O PAR AO LADO DA PREVIEW lê a mesma régua, e a folha pode estar fechada (o
+  // ajuste veio do próprio par, ou da notificação): o pulso dele é aqui.
+  renderEixoDoPar();
 }
 
 function itinAjusteZerar() {
@@ -8668,6 +8751,7 @@ function itinAjusteZerar() {
   itin.desloc = 0;
   diagC('itinerário: ajuste zerado (horário previsto)');
   itinMudou();
+  renderEixoDoPar();
 }
 
 function itinSetHoras(v) {
@@ -8689,7 +8773,6 @@ function itinSalvar(id, min, titulo) {
   if (!x || !t || !Number.isFinite(min)) return false;
   x.min = min; x.titulo = t;
   itin.itens = ordenarItin(itin.itens);
-  itinEditando = null;
   itinMudou();
   return true;
 }
@@ -8698,16 +8781,7 @@ function itinExcluir(id) {
   const n = itin.itens.length;
   itin.itens = itin.itens.filter((x) => x.id !== id);
   if (itin.itens.length === n) return;
-  if (itinEditando === id) itinEditando = null;
   itinMudou();
-}
-
-// "HH:MM" (o valor de um `<input type="time">`) → minuto do dia, ou NaN.
-function minutoDoCampo(v) {
-  const m = /^(\d{1,2}):(\d{2})/.exec(String(v || ''));
-  if (!m) return NaN;
-  const h = Number(m[1]), mi = Number(m[2]);
-  return (h < 24 && mi < 60) ? h * 60 + mi : NaN;
 }
 
 // O HORÁRIO SUGERIDO para a próxima linha: 15 minutos depois da última, ou o
@@ -8716,27 +8790,6 @@ function itinHoraSugerida() {
   if (itin.itens.length) return Math.min(1439, itin.itens[itin.itens.length - 1].min + 15);
   const d = new Date();
   return Math.min(1439, Math.ceil((d.getHours() * 60 + d.getMinutes() + 1) / 5) * 5);
-}
-
-function campoDeHora(min, rotulo) {
-  const inp = document.createElement('input');
-  inp.type = 'time'; inp.className = 'misc-num itin-campo-hora';
-  inp.value = createStage.itinHora(min);
-  inp.setAttribute('aria-label', rotulo);
-  inp.title = rotulo;
-  return inp;
-}
-
-function campoDeTitulo(valor, rotulo) {
-  const inp = document.createElement('input');
-  inp.type = 'text'; inp.className = 'misc-text itin-campo-titulo';
-  inp.maxLength = ITIN_TITULO_MAX;
-  inp.placeholder = 'Título (ex.: Louvor)';
-  inp.value = valor || '';
-  inp.setAttribute('aria-label', rotulo);
-  inp.dataset.teclado = 'sobrepoe';   // ver a legenda do Tempo
-  inp.enterKeyHint = 'done';
-  return inp;
 }
 
 function itinBotao(classe, rotulo, conteudo, fn) {
@@ -8754,20 +8807,44 @@ function svgNo(html) {
   return t.content.firstChild;
 }
 
+// "1 h 30 min", "45 min" — o intervalo até o item seguinte, no subtítulo.
+function itinDuracao(min) {
+  if (!(min > 0)) return '';
+  const h = Math.floor(min / 60), m = min % 60;
+  return h ? h + ' h' + (m ? ' ' + m + ' min' : '') : m + ' min';
+}
+
 /**
- * O PAINEL DO ITINERÁRIO — três faixas, de cima para baixo:
+ * O PAINEL DO ITINERÁRIO (v1.13.1) — a LISTA do app, e não um formulário.
  *
- *  1. o AJUSTE (−5 · −1 · o atraso · +1 · +5 · ↺). Ele mora no CORPO, e não no
- *     rodapé com o transporte das abas irmãs: são seis peças, e na faixa de
- *     fecho a 360px elas empurrariam o "Projetar no telão" para as reticências;
- *  2. a LISTA, que é o que cresce e rola — tocar numa linha a EDITA ali mesmo;
- *  3. a linha de ADICIONAR (horário · título · +), fixa embaixo da lista.
+ * Relato do operador: *"a posição e o design dos elementos interativos estão
+ * totalmente diferentes do que se espera, comparado com o Cronograma e as
+ * listas em geral"*. A v1.13.0 tinha campos de horário e título soltos embaixo
+ * da lista e uma linha que se abria em formulário ali mesmo, com três botões
+ * próprios. Hoje são as peças que o operador já sabe, de cima para baixo:
+ *
+ *  1. o AJUSTE (−5 · −1 · o atraso · +1 · +5 · ↺) — inalterado;
+ *  2. a LISTA (`.lib-item > .row`, a linha do Cronograma e das Mensagens): a
+ *     HORA no quadrado da capa, o título com o subtítulo embaixo, e o `⋮` com a
+ *     faixa de ações (excluir, que pergunta NA LINHA, e editar). Tocar na linha
+ *     EDITA — a ação de quem abre um horário é corrigi-lo; quem projeta é o
+ *     rodapé, que manda a lista inteira;
+ *  3. "ADICIONAR HORÁRIO", a última linha — o "Novo cronograma" da gaveta dos
+ *     cronogramas, fora do scroller para não sumir numa lista comprida.
+ *
+ * Adicionar e editar abrem a MESMA folha (`#itinPopup`), com as roletas de
+ * hora e minuto do Tempo — sem diálogo do sistema (ver `abrirItinEditor`).
+ *
+ * NÃO HÁ ↑↓: a ordem do itinerário é a do relógio, e mudar a posição de um item
+ * é mudar o horário dele.
  *
  * O item de AGORA é marcado pela MESMA leitura do telão, e um laço de um segundo
  * (`itinMarcar`) só troca as marcas — reconstruir o painel a cada segundo
- * tiraria o campo de baixo do dedo de quem está digitando.
+ * fecharia a faixa de ações debaixo do dedo.
  */
 function renderItinerario(host) {
+  // A gaveta de uma linha não sobrevive ao redesenho (a regra do `renderMsg`).
+  fecharAcoesDaLinha();
   // --- 1. o ajuste ---
   const aj = document.createElement('div');
   aj.className = 'itin-ajuste';
@@ -8776,8 +8853,8 @@ function renderItinerario(host) {
   const menos5 = passo(-5), menos1 = passo(-1), mais1 = passo(1), mais5 = passo(5);
   // NOS EXTREMOS O PASSO É APAGADO (doze horas para cada lado; mais que isso
   // cruza a meia-noite, que está fora).
-  menos5.disabled = menos1.disabled = itin.desloc <= -ITIN_DESLOC_MAX;
-  mais5.disabled = mais1.disabled = itin.desloc >= ITIN_DESLOC_MAX;
+  menos5.disabled = menos1.disabled = itinPassoApagado(-1);
+  mais5.disabled = mais1.disabled = itinPassoApagado(1);
   const txt = document.createElement('span');
   txt.className = 'itin-ajuste-txt' + (itin.desloc ? ' deslocado' : '');
   txt.id = 'itinAjusteTxt';
@@ -8796,121 +8873,260 @@ function renderItinerario(host) {
   if (!itin.itens.length) {
     const vazio = document.createElement('li');
     vazio.className = 'empty';
-    vazio.textContent = 'Nenhum horário ainda. Adicione o primeiro abaixo.';
+    vazio.textContent = 'Nenhum horário ainda.';
     lista.appendChild(vazio);
   }
-  itin.itens.forEach((x) => {
-    lista.appendChild(itinEditando === x.id ? itinEditor(x) : itinLinha(x));
-  });
+  itin.itens.forEach((x, i) => lista.appendChild(itinLinha(x, itin.itens[i + 1] || null)));
   host.appendChild(lista);
 
   // --- 3. adicionar ---
-  const novo = document.createElement('div');
-  novo.className = 'itin-novo';
-  const hora = campoDeHora(itinHoraSugerida(), 'Horário do novo item');
-  const titulo = campoDeTitulo('', 'Título do novo item');
-  const add = itinBotao('primary itin-add', 'Adicionar ao itinerário', msym(ICON.add), () => {
-    if (itinAdicionar(minutoDoCampo(hora.value), titulo.value)) {
-      const t = document.querySelector('.itin-novo .itin-campo-titulo');
-      if (t) t.focus();
-    }
-  });
-  const acertar = () => {
-    add.disabled = !titulo.value.trim() || !Number.isFinite(minutoDoCampo(hora.value));
-    add.title = add.disabled ? 'Escreva o título e o horário' : 'Adicionar ao itinerário';
-  };
-  hora.addEventListener('input', acertar);
-  titulo.addEventListener('input', acertar);
-  titulo.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !add.disabled) { e.preventDefault(); add.click(); } });
-  acertar();
-  [hora, titulo, add].forEach((e) => novo.appendChild(e));
+  const novo = document.createElement('button');
+  novo.type = 'button';
+  novo.className = 'crono-novo itin-novo-btn';
+  novo.id = 'itinNovoBtn';
+  novo.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"'
+    + ' stroke-linecap="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>';
+  const t = document.createElement('span');
+  t.textContent = 'Adicionar horário';
+  novo.appendChild(t);
+  novo.addEventListener('click', () => abrirItinEditor(null));
   host.appendChild(novo);
 
   itinMarcar();
   startItinPanelTimer();
 }
 
-function itinLinha(x) {
+function itinLinha(x, proximo) {
   const li = document.createElement('li');
-  li.className = 'itin-li';
-  const b = document.createElement('button');
-  b.type = 'button'; b.className = 'itin-item'; b.dataset.id = x.id;
-  b.title = 'Editar este horário';
-  const h = document.createElement('span');
-  h.className = 'itin-item-hora';
-  h.textContent = createStage.itinHora(x.min + itin.desloc);
-  b.appendChild(h);
-  // COM AJUSTE, o previsto fica ao lado — o operador edita o PREVISTO, e o que
-  // vai ao telão é o efetivo.
-  if (itin.desloc) {
-    const p = document.createElement('span');
-    p.className = 'itin-item-prev';
-    p.textContent = createStage.itinHora(x.min);
-    p.title = 'Horário previsto';
-    b.appendChild(p);
-  }
-  const t = document.createElement('span');
-  t.className = 'itin-item-titulo'; t.textContent = x.titulo;
-  const tag = document.createElement('span');
-  tag.className = 'itin-item-tag';
-  b.appendChild(t); b.appendChild(tag);
-  b.addEventListener('click', () => {
-    itinEditando = x.id;
-    renderChronoEControles();
-    const c = document.querySelector('.itin-editor .itin-campo-titulo');
-    if (c) c.focus();
-  });
-  li.appendChild(b);
-  return li;
-}
-
-function itinEditor(x) {
-  const li = document.createElement('li');
-  li.className = 'itin-editor';
+  li.className = 'lib-item itin-li';
   li.dataset.id = x.id;
-  const l1 = document.createElement('div'); l1.className = 'itin-editor-linha';
-  const hora = campoDeHora(x.min, 'Horário previsto');
-  const titulo = campoDeTitulo(x.titulo, 'Título');
-  l1.appendChild(hora); l1.appendChild(titulo);
-  const l2 = document.createElement('div'); l2.className = 'itin-editor-linha itin-editor-acoes';
-  const del = itinBotao('itin-del', 'Excluir este horário', msym(ICON.del), async () => {
-    const ok = await appConfirm({ title: 'Excluir horário',
-      message: 'Apagar "' + x.titulo + '" do itinerário?', okText: 'Excluir', perigo: true });
-    if (ok) itinExcluir(x.id);
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.title = 'Editar este horário';
+  // A HORA MORA NA CAPA: é o que identifica a linha num itinerário, e é o
+  // quadrado de `--thumb` que toda linha de lista deste app já tem à esquerda.
+  // O que vai ali é o horário EFETIVO (com o ajuste); o previsto vai no
+  // subtítulo quando eles diferem.
+  const thumb = document.createElement('div');
+  thumb.className = 'thumb thumb--icon itin-thumb';
+  const hora = document.createElement('span');
+  hora.className = 'itin-thumb-hora';
+  hora.textContent = createStage.itinHora(x.min + itin.desloc);
+  thumb.appendChild(hora);
+  const texto = document.createElement('div'); texto.className = 'row-text';
+  const nome = document.createElement('span'); nome.className = 'row-name'; nome.textContent = x.titulo;
+  const sub = document.createElement('span'); sub.className = 'row-sub';
+  sub.dataset.dur = proximo ? itinDuracao(proximo.min - x.min) : '';
+  texto.append(nome, sub);
+  row.addEventListener('click', (e) => {
+    if (e.target.closest('.row-btn,.row-acoes,.row-slot,.row-stop')) return;
+    abrirItinEditor(x.id);
   });
-  const cancelar = itinBotao('itin-cancelar', 'Cancelar a edição', msym(ICON.close), () => {
-    itinEditando = null; renderChronoEControles();
+  // EXCLUIR PERGUNTA NA LINHA, como em toda lista deste app (v5.301): a faixa
+  // troca de conteúdo e a linha sai antes de o item ser apagado.
+  const del = document.createElement('button');
+  del.type = 'button'; del.className = 'row-btn row-excluir';
+  del.title = 'Excluir este horário';
+  del.setAttribute('aria-label', 'Excluir este horário');
+  del.appendChild(msym(ICON.del));
+  del.addEventListener('click', (e) => {
+    e.stopPropagation();
+    pedirConfirmacaoNaLinha(del, {
+      ok: 'Excluir',
+      dica: 'Apagar este horário do itinerário. Os itinerários já guardados no '
+        + 'Cronograma ou nos favoritos continuam como estavam.',
+      aoConfirmar: () => itinExcluir(x.id),
+    });
   });
-  const salvar = itinBotao('primary itin-salvar', 'Salvar', svgNo(checkIconSvg()), () => {
-    itinSalvar(x.id, minutoDoCampo(hora.value), titulo.value);
-  });
-  const acertar = () => { salvar.disabled = !titulo.value.trim() || !Number.isFinite(minutoDoCampo(hora.value)); };
-  hora.addEventListener('input', acertar);
-  titulo.addEventListener('input', acertar);
-  titulo.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !salvar.disabled) { e.preventDefault(); salvar.click(); }
-    else if (e.key === 'Escape') { e.preventDefault(); cancelar.click(); }
-  });
-  acertar();
-  const vao = document.createElement('span'); vao.className = 'itin-vao';
-  [del, vao, cancelar, salvar].forEach((e) => l2.appendChild(e));
-  li.appendChild(l1); li.appendChild(l2);
+  // EDITAR abre a folha, e por isso FECHA a faixa (não está em
+  // `ACOES_QUE_NAO_FECHAM`): a conversa continua noutro lugar.
+  const ed = document.createElement('button');
+  ed.type = 'button'; ed.className = 'row-btn itin-editar';
+  ed.title = 'Editar horário e título';
+  ed.setAttribute('aria-label', 'Editar horário e título');
+  ed.innerHTML = pencilIconSvg();
+  ed.addEventListener('click', (e) => { e.stopPropagation(); abrirItinEditor(x.id); });
+  // A ORDEM É A DAS LISTAS: o excluir primeiro, o mais longe do `⋮`.
+  const [caixa, mais] = montarAcoesDaLinha(li, [del, ed], 'itin:' + x.id);
+  row.append(thumb, texto, caixa, mais);
+  li.appendChild(row);
   return li;
 }
 
 // A MARCA DE AGORA no painel, pela MESMA leitura do telão (relógio deste
-// aparelho, que é a origem). Só troca classes e o rótulo — nada se reconstrói.
+// aparelho, que é a origem). Só troca classes e textos — nada se reconstrói.
+// O item de agora é a linha ATUAL da lista (`.active`, o `--sel-fill` das
+// listas); o subtítulo diz "Agora"/"A seguir", o previsto quando há ajuste e o
+// intervalo até o seguinte.
 function itinMarcar() {
   const l = createStage.itinerarioLeitura(itinDescriptor(), Date.now());
   const agora = l.ativo >= 0 ? l.itens[l.ativo].k : '';
   const seguir = l.ativo < 0 && l.itens.length ? l.itens[0].k : '';
-  document.querySelectorAll('#itinLista .itin-item').forEach((b) => {
-    const id = b.dataset.id;
-    b.classList.toggle('agora', id === agora);
-    b.classList.toggle('seguir', id === seguir);
-    const tag = b.querySelector('.itin-item-tag');
-    if (tag) tag.textContent = id === agora ? 'Agora' : id === seguir ? 'A seguir' : '';
+  document.querySelectorAll('#itinLista .itin-li').forEach((li) => {
+    const id = li.dataset.id;
+    const x = itin.itens.find((i) => i.id === id);
+    li.classList.toggle('active', id === agora);
+    li.classList.toggle('itin-seguir', id === seguir);
+    const sub = li.querySelector('.row-sub');
+    if (!sub || !x) return;
+    const partes = [];
+    if (id === agora) partes.push('Agora');
+    else if (id === seguir) partes.push('A seguir');
+    if (itin.desloc) partes.push('previsto ' + createStage.itinHora(x.min));
+    if (sub.dataset.dur) partes.push(sub.dataset.dur);
+    const txt = partes.join(' · ') || 'Último horário';
+    if (sub.textContent !== txt) sub.textContent = txt;
   });
+}
+
+// ===== A FOLHA DE UM HORÁRIO: adicionar e editar (v1.13.1) =====
+//
+// Relato do operador: *"o seletor de horário de um item não funciona"* — no
+// aparelho o toque no campo não deixava escolher a hora. A v1.13.0 usava um
+// `<input type="time">`, cuja escolha NÃO é do app: o WebView a entrega a um
+// diálogo do sistema, que depende da versão do WebView e do fabricante — e a
+// folha ainda escondia o indicador do seletor. Nada disso se conserta daqui.
+//
+// O CONSERTO É NÃO DEPENDER DO SISTEMA: a hora e o minuto se escolhem nas
+// MESMAS roletas do Timer (`chronoRoletaEl`), o idioma de "escolher um tempo"
+// que o app já tem — com tudo o que elas já respondem: a lista infinita, a
+// banda do meio desde a primeira pintura, a célula medida pelo que sobra, sem a
+// marca `rola` e com a máscara nas pontas. A folha desce do TETO (a de um campo
+// de texto, como a da playlist automática): o teclado do título sobe por baixo
+// e não cobre nada.
+//
+// A FOLHA TEM UMA FORMA SÓ: adicionar e editar são as mesmas peças, e só o
+// título e o rótulo do confirmar mudam — nenhuma linha aparece e some.
+const itinPopupEl = document.getElementById('itinPopup');
+const itinPopupCloseEl = document.getElementById('itinPopupClose');
+const itinPopupTituloEl = document.getElementById('itinPopupTitulo');
+const itinPopupCorpoEl = document.getElementById('itinPopupCorpo');
+let itinRoletasObs = null;
+
+function itinRoletaColuna(campo, ciclo, rotulo) {
+  const base = [];
+  for (let k = 0; k < ciclo; k++) base.push(String(valorNaPista(k, ciclo, 0)).padStart(2, '0'));
+  // A SEGUNDA DONA das roletas: id próprio e sem `aoAssentar` que escreva
+  // nada — o valor é lido no confirmar. Com o id do Timer, o assentamento
+  // escreveria a duração dele.
+  return chronoRoletaEl(campo, base, ciclo, rotulo, 0, {
+    id: 'itinRoleta_' + campo, aoAssentar: () => {},
+  });
+}
+
+// A MESMA MEDIDA do `acertarRoletas` (a célula é a altura que sobra dividida
+// por três, com a largura como segundo teto), escrita para a caixa da folha.
+// Mudou a régua, as posições voltam à banda do meio no valor que tinham.
+function acertarRoletasDoItin() {
+  const caixa = document.getElementById('itinRoletas');
+  if (!caixa) return;
+  const valores = [...caixa.querySelectorAll('.roleta')].map((r) => (roletaItem(r) ? roletaValorDe(r) : null));
+  const antes = roletaItem(caixa);
+  const porAltura = Math.max(ROLETA_ITEM_MIN,
+    Math.min(ROLETA_ITEM_MAX, Math.floor(caixa.clientHeight / ROLETA_VISIVEIS)));
+  caixa.style.setProperty('--roleta-item', porAltura + 'px');
+  let precisa = 0;
+  for (const f of caixa.children) precisa += f.getBoundingClientRect().width;
+  const cabe = caixa.clientWidth;
+  const item = (precisa > cabe && cabe > 0)
+    ? Math.max(ROLETA_ITEM_MIN, Math.floor(porAltura * cabe / precisa)) : porAltura;
+  caixa.style.setProperty('--roleta-item', item + 'px');
+  if (item === antes) return;
+  [...caixa.querySelectorAll('.roleta')].forEach((r, i) => {
+    delete r.dataset.pos;
+    const v = valores[i] != null ? valores[i] : Number(r.dataset.valor) || 0;
+    roletaLevar(r, v, () => false);
+  });
+}
+
+function itinEditorValor() {
+  const h = document.getElementById('itinRoleta_hora');
+  const m = document.getElementById('itinRoleta_min');
+  if (!h || !m || !roletaItem(h)) return NaN;
+  return roletaValorDe(h) * 60 + roletaValorDe(m);
+}
+
+function abrirItinEditor(id) {
+  const x = id ? itin.itens.find((i) => i.id === id) : null;
+  if (id && !x) return;
+  fecharAcoesDaLinha();
+  itinEditor = { id: x ? x.id : null };
+  const min = x ? x.min : itinHoraSugerida();
+  itinPopupTituloEl.textContent = x ? 'Editar horário' : 'Novo horário';
+  limparFolha(itinPopupCorpoEl);
+
+  const cx = document.createElement('div');
+  cx.className = 'chrono-roletas itin-roletas';
+  cx.id = 'itinRoletas';
+  const rh = itinRoletaColuna('hora', 24, 'Hora');
+  const rm = itinRoletaColuna('min', 60, 'Minuto');
+  rh.dataset.valor = String(Math.floor(min / 60));
+  rm.dataset.valor = String(min % 60);
+  const dp = document.createElement('span');
+  dp.className = 'roleta-dp'; dp.setAttribute('aria-hidden', 'true'); dp.textContent = ':';
+  cx.append(rh, dp, rm);
+  itinPopupCorpoEl.appendChild(cx);
+
+  const titulo = document.createElement('input');
+  titulo.type = 'text'; titulo.className = 'misc-text itin-campo-titulo';
+  titulo.id = 'itinCampoTitulo';
+  titulo.maxLength = ITIN_TITULO_MAX;
+  titulo.placeholder = 'Título (ex.: Louvor)';
+  titulo.value = x ? x.titulo : '';
+  titulo.setAttribute('aria-label', 'Título');
+  titulo.enterKeyHint = 'done';
+  itinPopupCorpoEl.appendChild(titulo);
+
+  // O CONFIRMAR É O DA FAIXA DE FECHO das folhas (`song-menu-go`), sempre à
+  // vista — APAGADO sem título, com o porquê (a regra da v1.8.50).
+  const linha = document.createElement('li');
+  linha.className = 'song-menu-go-row';
+  const ok = document.createElement('button');
+  ok.type = 'button'; ok.id = 'itinEditorOk';
+  ok.className = 'song-menu-btn song-menu-go';
+  const txt = document.createElement('span'); txt.className = 'song-menu-text';
+  const lab = document.createElement('span'); lab.className = 'song-menu-label';
+  lab.textContent = x ? 'Salvar' : 'Adicionar ao itinerário';
+  txt.appendChild(lab); ok.appendChild(txt);
+  const acertar = () => {
+    ok.disabled = !titulo.value.trim();
+    ok.title = ok.disabled ? 'Escreva o título' : lab.textContent;
+  };
+  titulo.addEventListener('input', acertar);
+  titulo.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !ok.disabled) { e.preventDefault(); ok.click(); }
+  });
+  ok.addEventListener('click', () => {
+    const m = itinEditorValor();
+    if (!Number.isFinite(m) || !titulo.value.trim()) return;
+    const feito = itinEditor && itinEditor.id
+      ? itinSalvar(itinEditor.id, m, titulo.value) : itinAdicionar(m, titulo.value);
+    if (feito) fecharItinEditor();
+  });
+  acertar();
+  linha.appendChild(ok);
+  porFecho(itinPopupCorpoEl, linha);
+
+  itinPopupEl.classList.add('open');
+  // A ORDEM DO TIMER: medir a caixa (que só tem tamanho aberta), depois
+  // posicionar — invertida, a primeira posição usa a régua do CSS.
+  acertarRoletasDoItin();
+  roletaLevar(rh, Math.floor(min / 60), () => false);
+  roletaLevar(rm, min % 60, () => false);
+  if (itinRoletasObs) itinRoletasObs.disconnect();
+  if (typeof ResizeObserver === 'function') {
+    itinRoletasObs = new ResizeObserver(() => acertarRoletasDoItin());
+    itinRoletasObs.observe(cx);
+  }
+}
+
+function fecharItinEditor() {
+  if (!itinPopupEl.classList.contains('open')) return;
+  itinPopupEl.classList.remove('open');
+  itinEditor = null;
+  if (itinRoletasObs) { itinRoletasObs.disconnect(); itinRoletasObs = null; }
+  const c = document.getElementById('itinCampoTitulo');
+  if (c && document.activeElement === c) c.blur();
 }
 
 function startItinPanelTimer() {
@@ -8959,10 +9175,19 @@ function cueSaveBtn(icone, titulo, fn) {
  * caminho próprio delas.
  */
 function cueSaveDaFerramenta() {
-  // O ITINERÁRIO NÃO VIRA CENA DE ROTEIRO (ainda): ele é a programação do dia
-  // inteiro, e o lugar dele é este painel. Sem destinos o rodapé desenha só o
-  // projetar.
-  if (miscTool === 'chrono' && tempoVista === 'itinerario') return null;
+  // O ITINERÁRIO VIRA CENA DE ROTEIRO (v1.13.1), como as abas irmãs: o que se
+  // guarda é a PROGRAMAÇÃO (os itens e a escolha de horários × títulos), e não o
+  // ajuste — esse é do DIA, e um roteiro do sábado que viesse com o atraso de
+  // hoje começaria errado. O que a linha faz ao ser tocada é `projetarItinerarioCue`.
+  if (miscTool === 'chrono' && tempoVista === 'itinerario') {
+    const montar = async (destino, btn) => (itin.itens.length
+      ? criarCue('itinerario', itinCueData(), itinCueNome(), destino, btn) : null);
+    // LISTA VAZIA não tem o que guardar, e os dois quadrados ficam APAGADOS, não
+    // ausentes: uma peça que aparece e some desloca o primário sob o dedo (a
+    // regra da v1.8.61), e o `title` diz por quê (a da v1.8.50).
+    if (!itin.itens.length) montar.apagado = 'Adicione um horário antes de guardar';
+    return montar;
+  }
   if (miscTool === 'chrono') {
     return async (destino, btn) => {
       const nome = chrono.label
@@ -14925,10 +15150,13 @@ function slideTarget() {
   // transporte), e um par aceso ali seria o botão inerte que a v1.8.50 existe
   // para não deixar nascer.
   if (chronoProjecting()) return chrono.mode === 'clock' ? null : 'chrono';
-  // O ITINERÁRIO NÃO TEM EIXO, pela regra do relógio logo acima: quem troca o
-  // item é o relógio, e o ajuste de atraso mora no painel. Um par aceso ali seria
-  // o botão inerte que a v1.8.50 proíbe.
-  if (itinProjecting()) return null;
+  // ===== O ITINERÁRIO: O PAR É O AJUSTE, DE CINCO EM CINCO MINUTOS (v1.13.1) =====
+  // Pedido do operador: *"mudar o atraso via os botões de slide anterior e
+  // próximo, sempre de 5 em 5 minutos"*. Quem troca o ITEM continua sendo o
+  // relógio; o que o par move é a programação inteira — ⏮ adianta 5 min e ⏭
+  // atrasa 5 min, a mesma ordem do −5 … +5 do painel, da esquerda para a direita.
+  // Isto revoga a v1.13.0, em que o par ficava apagado com ele no ar.
+  if (itinProjecting()) return 'itinerario';
   if (drawProjecting()) return 'draw';
   if (lyricProjecting()) return 'songlyrics';
   if (msgSession && msgSession.projecting) return 'message';
@@ -14978,6 +15206,9 @@ function stepSlide(delta) {
     return;
   }
   if (who === 'draw') { if (delta < 0) drawReset(); else doDraw(); return; }
+  // O AJUSTE DO ITINERÁRIO — o MESMO `itinAjustar` dos botões do painel, que
+  // guarda pelo dia, reenvia o descritor e escreve a linha do Registro.
+  if (who === 'itinerario') { itinAjustar(delta < 0 ? -ITIN_PASSO_PAR : ITIN_PASSO_PAR); return; }
   if (who !== 'lyrics') return;
   const lyrics = currentItem.lyrics;
   const idx = findSlideIndex(lyrics, authoritativeTime());
@@ -15231,6 +15462,13 @@ function applySlideLimits(who) {
     slideNextBtnEl.disabled = drawGoApagado();
     return;
   }
+  // Nos extremos (doze horas para cada lado) o passo APAGA — a mesma régua dos
+  // −5/+5 do painel (`itinPassoApagado`).
+  if (who === 'itinerario') {
+    slidePrevBtnEl.disabled = itinPassoApagado(-1);
+    slideNextBtnEl.disabled = itinPassoApagado(1);
+    return;
+  }
   if (who !== 'lyrics') {
     slidePrevBtnEl.disabled = true;
     slideNextBtnEl.disabled = true;
@@ -15265,6 +15503,10 @@ function applySlideLimits(who) {
 const SLIDE_AXIS_NAME = {
   lyrics: 'estrofe', songlyrics: 'estrofe', bible: 'versículo',
   message: 'mensagem', deck: 'página',
+  // A NOTIFICAÇÃO só recebe esta palavra (o Kotlin monta "Anterior (…)" e
+  // "Próxima (…)"), e é por ela que a tela de bloqueio diz que o par mexe no
+  // horário. O desenho e o rótulo da TELA saem do `EIXO_DE_ACAO`.
+  itinerario: '±5 min',
 };
 const SLIDE_AXIS_PREV = {
   lyrics: 'Estrofe anterior', songlyrics: 'Estrofe anterior', bible: 'Versículo anterior',
@@ -15297,6 +15539,13 @@ const EIXO_DE_ACAO = {
     next: { sym: 'icoSorteio',
       rotulo: (draw.used.length || draw.value) ? 'Sortear de novo' : 'Sortear' },
   }),
+  // O ITINERÁRIO (v1.13.1) escreve o PASSO no botão, e não um desenho: "−5" e
+  // "+5" são o que os dois botões do painel já dizem, e uma seta de slide sobre
+  // um ajuste de horário prometeria passar de item.
+  itinerario: () => ({
+    prev: { texto: '−' + ITIN_PASSO_PAR, rotulo: 'Adiantar ' + ITIN_PASSO_PAR + ' min' },
+    next: { texto: '+' + ITIN_PASSO_PAR, rotulo: 'Atrasar ' + ITIN_PASSO_PAR + ' min' },
+  }),
 };
 
 /**
@@ -15315,10 +15564,17 @@ const EIXO_DE_ACAO = {
  */
 function desenharBotaoDeEixo(btn, d) {
   const padrao = btn === slidePrevBtnEl ? 'icoSlidePrev' : 'icoSlideNext';
-  const marca = d.sym ? 's:' + d.sym : (d.glifo ? 'g:' + d.glifo : 's:' + padrao);
+  const marca = d.texto ? 't:' + d.texto
+    : d.sym ? 's:' + d.sym : (d.glifo ? 'g:' + d.glifo : 's:' + padrao);
   if (btn.dataset.desenho === marca) return;
   btn.dataset.desenho = marca;
-  if (d.glifo) { btn.innerHTML = ''; btn.appendChild(msym(d.glifo)); }
+  if (d.texto) {
+    // O TEXTO É UM `<span>` com classe, e não o `textContent` do botão: quem
+    // dá a ele o corpo e o peso é a folha (`.eixo-texto`), como dá ao ícone.
+    const t = document.createElement('span');
+    t.className = 'eixo-texto'; t.textContent = d.texto;
+    btn.replaceChildren(t);
+  } else if (d.glifo) { btn.innerHTML = ''; btn.appendChild(msym(d.glifo)); }
   else btn.innerHTML = icoSprite(d.sym || padrao);
 }
 
@@ -15345,6 +15601,12 @@ function renderTransportAxis(who) {
 // `chrono`/`draw` faria a tela de bloqueio ZERAR a contagem com o desenho de
 // "mídia anterior" na frente. Elas continuam no eixo de MÍDIA, que é o que
 // aquele desenho promete.
+//
+// O ITINERÁRIO NÃO ESTÁ NA LISTA, e é de propósito (v1.13.1): o par dele é
+// SIMÉTRICO (−5 · +5, o mesmo eixo de "antes · depois" que as setas prometem) e
+// não aciona nada que não se desfaça com o toque oposto. Na tela cheia e na
+// notificação ele adianta e atrasa como ao lado da preview; a notificação diz
+// "(±5 min)" no rótulo, pelo `SLIDE_AXIS_NAME`.
 const EIXO_SO_DO_PAINEL = ['chrono', 'draw'];
 function eixoForaDoPainel() {
   const w = slideTarget();
@@ -39238,6 +39500,14 @@ let pvWallpaperUrl = null;
 // estado desmarcado em vez de uma ação.
 let customWallpaper = false;
 
+// O ITINERÁRIO VESTE O WALLPAPER, na preview como no telão (v1.13.1) — a gêmea
+// do `pintarFundoDoCartao` do `display.js`: a imagem escolhida é copiada da
+// cortina da preview, e todo ponto que a troca chama esta função.
+function pintarFundoDoPvCartao() {
+  pvTextEl.style.backgroundImage = pvTextEl.classList.contains('mode-itinerario')
+    ? (pvWallEl.style.backgroundImage || '') : '';
+}
+
 async function applyPvWallpaper() {
   let blob = null;
   try { blob = await AVDB.getState('wallpaper'); } catch (_) { /* segue no padrão */ }
@@ -39250,6 +39520,7 @@ async function applyPvWallpaper() {
   } else {
     pvWallEl.style.backgroundImage = '';
   }
+  pintarFundoDoPvCartao();
 }
 
 // Reduz a imagem escolhida para caber num telão 1080p. O operador costuma
@@ -45329,6 +45600,10 @@ const POPUPS = [
   // duas coisas dizem a mesma ordem, e mudar uma sem a outra é o acaso que já
   // cobriu um popup por inteiro aqui.
   [sorteioPopupEl, sorteioCloseEl, fecharSorteio],
+  // A FOLHA DE UM HORÁRIO DO ITINERÁRIO (v1.13.1) abre de dentro da folha de
+  // Ferramentas, que fica FORA desta tabela e abaixo de toda folha — então o
+  // voltar a fecha antes de chegar às Ferramentas, que é a ordem certa.
+  [itinPopupEl, itinPopupCloseEl, fecharItinEditor],
 ];
 // A FOLHA DE FERRAMENTAS fica FORA da tabela, e não por esquecimento: ela não é
 // um `.popup-backdrop` (não há camada sobre a tela toda, não há fundo escurecido

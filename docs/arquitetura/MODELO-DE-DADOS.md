@@ -413,13 +413,14 @@ contagem regressiva, leitura bíblica, aviso, letra sem música:
 { kind: 'cue', cue: 'songlyrics', data: { collId, songId } }
 { kind: 'cue', cue: 'chrono',     data: { mode, durationMs, label, secs, h12 } }
 { kind: 'cue', cue: 'draw',       data: { kind, min, max, pool, label } }
+{ kind: 'cue', cue: 'itinerario', data: { itens: [{ min, titulo }], horas } }  // v1.13.1, sem o ajuste do dia
 { kind: 'cue', cue: 'group',      data: { ids: [...] } }        // o "pacote"
 ```
 
 1. **O Display não muda uma linha, e sequer sabe que cues existem.** Um cue
    NUNCA vira `load`: projetá-lo chama a MESMA função que o botão da aba já
    chamava (`projectBibleVerse`, `projectMessage`, `projectChrono`,
-   `projectDraw`, `projectSongLyricsOnly`), que manda o `text`/`chrono`/`draw`
+   `projectDraw`, `projectItin`, `projectSongLyricsOnly`), que manda o `text`/`chrono`/`draw`
    de sempre. Ponteiro novo, nunca lógica de projeção nova.
 2. **A guarda mora em `send()`**, não no toque da lista: é por ali que passam o
    avanço automático da playlist, o ⏮/⏭ do transporte, a notificação nativa e o
