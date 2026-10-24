@@ -2453,6 +2453,10 @@ a trocar, e cada um que escapasse leria o cronograma errado calado.
   na captura e segue para quem o recebeu — abrir outra janela com a gaveta
   esquecida por baixo seria o pior dos dois.
 - **O VOLTAR a fecha** (degrau 1.7 do `__avBack`, depois do diálogo).
+- **A IRMÃ NO ITINERÁRIO (v1.13.2)**: a gaveta dos itinerários (`#itinGaveta`, degrau
+  1.8) é esta, com as mesmas classes, na folha de Ferramentas — ver
+  [CAMADA-DE-TEXTO.md](CAMADA-DE-TEXTO.md), "Ferramentas: itinerário". Mexer numa
+  é olhar a outra.
 - **O MENU ⋮ DA v1.12.54 SAIU INTEIRO na v1.12.55** — botão, folha, CSS e
   `abrirCronoCamada`/`fecharCronoCamadas`. Relato do operador: *"Achei pouco
   intuitivo os botões de edição do cronograma ficarem fora da lista de

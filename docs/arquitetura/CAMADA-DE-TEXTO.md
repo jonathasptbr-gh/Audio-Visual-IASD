@@ -1059,7 +1059,7 @@ Tempo e o Sorteio chamam. Duas cópias divergiriam no primeiro ajuste, e aqui
   `.misc-row--legenda`: os outros `.misc-text` são listas e faixas numéricas, que
   se leem alinhadas à esquerda.
 
-### Ferramentas: itinerário (v1.13.0; lista, folha, destinos, par e desenho da v1.13.1)
+### Ferramentas: itinerário (v1.13.0; lista, folha, destinos, par e desenho da v1.13.1; os múltiplos, o ↑↓ e o bloco centrado da v1.13.2)
 
 Mais um provedor da Camada de Texto, na folha de Ferramentas: o **quarto segmento do Tempo**
 (Relógio · Cronômetro · Timer · Itinerário): a programação do evento — horário +
@@ -1118,8 +1118,10 @@ equipe saberem em que momento estão e o que vem a seguir.
      (`controle.js`), chamadas por todo ponto que troca a imagem da cortina
      (`applyWallpaper`, `telaAplicarWallpaper`, `telaWallpaperPadrao`,
      `applyPvWallpaper`) e pela troca de modo. A mídia por baixo segue coberta;
-  2. o BLOCO é uma coluna ancorada à ESQUERDA (`width: min(100%, max(60cqw,
-     100cqmin))`) sobre `--stage-painel` (`rgba(0,0,0,.72)`, token do palco):
+  2. o BLOCO é uma coluna CENTRADA na tela (`align-self: center`, v1.13.2 — era
+     ancorada à esquerda; *"centralize… mantendo estreito"*), com a largura da
+     v1.13.1 (`width: min(100%, max(60cqw, 100cqmin))`) e o texto de DENTRO ainda
+     à esquerda, sobre `--stage-painel` (`rgba(0,0,0,.72)`, token do palco):
      MEDIDO no pior caso, um wallpaper branco, texto 9,29:1, hora 5,73:1, o
      acento do "A seguir" 4,31:1 (com os .62 da moldura da letra o acento caía a
      2,88:1);
@@ -1147,11 +1149,20 @@ equipe saberem em que momento estão e o que vem a seguir.
   previsto com ajuste, o intervalo até o seguinte), o `⋮` com excluir (pergunta
   NA LINHA, `pedirConfirmacaoNaLinha`) · editar; o item de agora é a linha
   `.active` — e "Adicionar horário" embaixo, fora do scroller (o `.crono-novo`
-  da gaveta dos cronogramas). Tocar na linha EDITA. Não há ↑↓: a ordem é a do
-  relógio. Um laço de um segundo (`itinMarcar`) troca só as marcas e o
+  da gaveta dos cronogramas). Tocar na linha EDITA. O PAR ↑↓ (v1.13.2, revogando
+  o "não há ↑↓" da v1.13.1) é o do Cronograma — `row-btn row-ordem`, por último
+  na faixa do `⋮`, pontas apagadas, a faixa REABRE na linha que andou
+  (`reabrirAcoesEm`) — e mover TROCA o evento com o vizinho deixando os HORÁRIOS
+  no lugar (`itinMover`): a grade da programação não muda, a lista continua em
+  ordem, e o id fica com o título (no ar, o telão desliza as duas linhas).
+  Recusado: trocar levando a duração de cada um — o último não tem. Um laço de um segundo (`itinMarcar`) troca só as marcas e o
   subtítulo; reconstruir o painel fecharia a faixa de ações debaixo do dedo.
 - **ADICIONAR E EDITAR SÃO UMA FOLHA** (`#itinPopup`, `abrirItinEditor`), que
-  desce do teto e desconta o teclado (a regra das folhas com campo de texto): as
+  desce do teto e termina onde o teclado começa. **O CAMPO DO TÍTULO SOBREPÕE**
+  (`data-teclado="sobrepoe"`, v1.13.2) e a folha desconta `--kb-folha` — o teclado
+  inteiro, que o `keyboardShift` escreve no mesmo quadro do `--kb`. Com o `--kb`
+  fazendo os dois papéis, o campo encolhia o `<body>`: a barra de busca da
+  Biblioteca subia com o teclado e descia no confirmar (o relato). As
   ROLETAS de hora e minuto do Tempo (`chronoRoletaEl` com `opts.id`/`aoAssentar`
   próprios — com o id do Timer, o assentamento escreveria a duração dele;
   `roletaLevar` posiciona; `acertarRoletasDoItin` mede a célula pelo que sobra) e
@@ -1162,22 +1173,49 @@ equipe saberem em que momento estão e o que vem a seguir.
 - **VIRA CENA DE ROTEIRO (v1.13.1)**: o rodapé tem os dois destinos das abas
   irmãs (Cronograma · favoritos, `cueSaveDaFerramenta`), APAGADOS com a lista
   vazia. A cena `itinerario` guarda `{ itens:[{min, titulo}], horas }` — sem ids
-  (a identidade é o conteúdo, `cueChave`) e SEM O AJUSTE, que é do dia. Tocá-la é
-  um PRESET (`projetarItinerarioCue`): a programação guardada vira a do painel
-  (reaproveitando o id das linhas iguais, para o telão não as "entrar" de novo),
-  o ajuste do dia fica, e projeta pelo `projectItin` de sempre. Ela é um registro
+  (a identidade é o conteúdo, `cueChave`) e SEM O AJUSTE, que é do dia; o nome
+  dela é o do itinerário quando o operador o escreveu, senão os horários. Tocá-la
+  (`projetarItinerarioCue`) a torna o ITINERÁRIO ATIVO do painel SEM APAGAR NADA
+  (v1.13.2), e o lugar dela na lista sai do CONTEÚDO (`itinChaveDoConteudo`), não
+  de um id gravado na cena: o ativo igual a ela → ele mesmo (o id das linhas
+  iguais reaproveitado, para o telão não as "entrar" de novo); um guardado igual →
+  troca para ele; o ativo VAZIO → recebe a cena (e o nome dela, se o dele era
+  automático); senão → um itinerário NOVO com o nome da cena (" (2)" se colidir),
+  e o de antes fica intocado. Tocar de novo não duplica; um ativo editado depois
+  de guardado não é apagado pela cena. O ajuste do dia fica, e projeta pelo
+  `projectItin` de sempre. Ela é um registro
   `cue` comum: o coletor a guarda pela lista, o `.avpkg` a leva inteira, e o
   Histórico não a registra (nenhuma cena de roteiro passa pelo `historicoRegistrar`).
 - **O segmento não é um `chrono.mode`** (`tempoVista`, guardado em
   `chronoPrefs.vista`): entrar no Itinerário não para a contagem que ficou
   correndo nas outras três, e voltar delas não zera nada.
-- **Persiste** em `state.itinerario` por `AVDB.updateState` (os itens, `horas` e o
-  ajuste com o dia). A PROJEÇÃO não, como a do cronômetro. A lista que esvazia no
-  ar sai do telão (`pushItin`). Viaja no `.avpkg` como as mensagens.
+- **OS ITINERÁRIOS MÚLTIPLOS (v1.13.2)**, no idioma dos cronogramas múltiplos: o
+  título do painel (`#itinTitulo`, o `.crono-titulo`) é o NOME do ativo e abre a
+  gaveta (`#itinGaveta`, a `.crono-gaveta` e as `.crono-item` verbatim):
+  renomear (lápis, esquerda) · nome e conta de horários (tocar TROCA) · excluir
+  (lixeira `--btn-danger`, direita, APAGADA no único; pergunta pelo diálogo; o
+  ativo cai no usado mais recentemente), e "Novo itinerário" por último
+  ("Itinerário 2"…). Renomear e excluir deixam a gaveta aberta. **A GAVETA MORA
+  NA FOLHA de Ferramentas, não no painel** (que é redesenhado a cada mudança): o
+  `top` é medido do título ao abrir, o VÉU é `absolute` na folha, e fora da folha
+  a captura do `pointerdown` fecha e deixa o toque seguir. O voltar a fecha antes
+  da folha (degrau 1.8). Trocar de ferramenta ou de segmento a fecha.
+  **A PROJEÇÃO SEGUE O ATIVO**: trocar (ou excluir o ativo) com ele no ar manda o
+  novo pelo `pushItin` — vazio, sai do telão; um telão preso ao de antes deixaria
+  painel e projeção falando de programações diferentes. **O AJUSTE É GLOBAL** (o
+  atraso é do culto); `horas` é de cada itinerário (viaja na cena).
+- **Persiste** em `state.itinerario` por `AVDB.updateState`, numa chave SÓ (a forma
+  e a migração em [MODELO-DE-DADOS.md](MODELO-DE-DADOS.md)): o ativo nos campos de
+  sempre (`itens`, `horas`, o ajuste com o dia) e os outros em `itinerarios`.
+  Trocar, criar e excluir são UMA escrita. A PROJEÇÃO não persiste, como a do
+  cronômetro. A lista que esvazia no ar sai do telão (`pushItin`). No `.avpkg` a
+  chave viaja inteira e entra pela regra dos cronogramas guardados
+  (`itinMesclarPacote`, ver [PACOTE.md](../recursos/PACOTE.md)), nunca pela
+  mescla genérica. Nada aqui segura mídia: o coletor não lê a chave.
 - **Registro**: uma linha na linha do tempo ao projetar, tirar e ajustar
   (`itinerário: …`).
 
-Oráculo: `itinerario.test.mjs` (A–M).
+Oráculo: `itinerario.test.mjs` (A–Q).
 
 ### Entradas e saídas de camada sempre com fade (`fadeLayerIn`/`fadeLayerOut`)
 

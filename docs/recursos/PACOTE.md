@@ -739,6 +739,28 @@ dois cronogramas de mesmo id provisório; o que se promete é outra coisa:
   original de um editado que só um guardado segura não é escondido
   (`cronoIdsGuardados` entra na conta das `origens`): ali ele é um item visível.
 
+## Os itinerários (v1.13.2)
+
+A chave `state.itinerario` (ver o modelo de dados) VIAJA inteira — o ativo e os
+guardados —, e entra pela regra dos cronogramas guardados, **não pela mescla
+genérica**: unida por `id`, ela juntaria os horários do ativo de lá aos do ativo
+daqui, duas programações embaralhadas numa lista só. Quem decide é
+`itinMesclarPacote` (controle.js, PURA), aplicada no fim do fluxo
+(`itinDoPacote` no `pacoteAplicarFluxo`) e só quando muda alguma coisa:
+
+| do pacote | entra como |
+|---|---|
+| um itinerário de id que já existe aqui (ativo ou guardado) | a MESMA importação de novo: os horários se UNEM pelo id do horário, o daqui vencendo, e o nome daqui fica |
+| um de CONTEÚDO igual a um daqui (o pacote da v1, sem id) | nada — já está aqui |
+| qualquer outro, inclusive o ATIVO de lá | um GUARDADO novo daqui, com o nome dele (" (2)" se colidir); o ativo daqui não muda |
+| tudo, num aparelho VIRGEM (um itinerário só, vazio e com o nome do app) | a lista de lá inteira, com o ativo de lá como o ativo daqui |
+
+- **O AJUSTE DO DIA NÃO VIAJA**: o atraso é do culto daquele aparelho.
+- **Nada aqui é mídia**: o itinerário não tem linha na folha de grupos e não
+  passa pelo `filtro` da seleção — ele vai sempre, como as mensagens.
+- **A cena `itinerario`** (um registro `cue` do Cronograma ou dos Favoritos)
+  viaja como qualquer registro, com o descritor inteiro (`sanearMedia`).
+
 ## O original escondido do item editado (v1.12.0)
 
 Um item editado (`edicao.origem`) não guarda bytes, então o original viaja SEMPRE com ele:
