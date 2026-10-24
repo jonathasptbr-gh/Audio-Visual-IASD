@@ -3474,3 +3474,4 @@ lote de shell anterior ainda não tem Release, e não herda quando tem.
 | por que é assim? / já foi tentado? / foi revogado? | `grep -n "<termo>" docs/HISTORICO.md` |
 | o contrato do telão nas telas da rede | `docs/TELAO-POR-COMANDOS.md` |
 | o banco de hinos e Bíblia | `docs/FONTE-DE-DADOS-LOUVORJA.md` |
+| o que o operador pediu e ainda não foi feito? | `docs/PEDIDOS-EM-ESPERA.md` — pacotes; perguntar qual seguir antes de começar |
