@@ -138,6 +138,15 @@
      .62 põe o pior caso em ~#616161, que dá 6,2:1. */
   --lyrics-frame-bg: rgba(0, 0, 0, .62);
 
+  /* O BLOCO DO ITINERÁRIO sobre o wallpaper (v1.13.1): a camada escura atrás do
+     texto, e só dele — o wallpaper continua à vista em volta. Mais densa que a
+     moldura da letra porque aqui há DUAS tintas mais fracas que o branco: a
+     hora (`--stage-text-dim`) e o "A seguir" (`--stage-accent`). MEDIDO no
+     pior caso, um wallpaper BRANCO (a camada vira #474747): texto 9,29:1, hora
+     5,73:1, acento 4,31:1 — com .62 o acento caía a 2,88:1. Sobre o wallpaper
+     padrão (#04070d): 20,8 · 10,5 · 9,6. */
+  --stage-painel: rgba(0, 0, 0, .72);
+
   /* Cortina de modal (bottom-sheets e diálogo): escurece a tela ATRÁS. Preta
      nos dois temas — é assim que um modal se destaca em qualquer UI, e no tema
      claro ela é o único elemento que precisa vencer uma página branca. */

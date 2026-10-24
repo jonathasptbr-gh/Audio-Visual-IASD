@@ -893,6 +893,8 @@ function showText(cmd) {
   textContentEl.classList.toggle('mode-chrono', textMode === 'chrono');
   textContentEl.classList.toggle('mode-draw', textMode === 'draw');
   textContentEl.classList.toggle('mode-itinerario', textMode === 'itinerario');
+  textEl.classList.toggle('mode-itinerario', textMode === 'itinerario');
+  pintarFundoDoCartao();
   textEl.classList.toggle('mode-img', textMode === 'image');
   if (textMode === 'image') {
     // A resolução é assíncrona e a camada entra JÁ: o cartão preto aparece no
@@ -1072,6 +1074,20 @@ function reconcileCover(view) {
 //  `RECORD_AUDIO` só saem instalando um APK — encolher pelo WEB primeiro é o
 //  lado seguro.)
 
+// ===== O ITINERÁRIO VESTE O WALLPAPER (v1.13.1) =====
+// O cartão é opaco (o `.layer` pinta o preto do palco) e cobre a mídia que toca
+// por baixo — no itinerário ele pinta o WALLPAPER no lugar do preto, e o texto
+// vai num bloco escuro só atrás dele (ver `.text-layer.mode-itinerario`). O
+// desenho padrão vem da folha; uma imagem escolhida é COPIADA da cortina, que é
+// a dona dela nos dois papéis (o IDB no telão, o `__wp` numa tela da rede) —
+// por isso todo ponto que troca a imagem da cortina chama esta função.
+function pintarFundoDoCartao() {
+  try {
+    textEl.style.backgroundImage = textEl.classList.contains('mode-itinerario')
+      ? (wallpaperEl.style.backgroundImage || '') : '';
+  } catch (_) { /* fica o desenho padrão */ }
+}
+
 // ===== Wallpaper personalizado =====
 // A cortina do telão aceita uma imagem escolhida pelo operador no lugar do
 // gradiente padrão. A imagem vem do state `wallpaper` (blob), gravada pelo
@@ -1086,6 +1102,7 @@ function telaWallpaperPadrao() {
   try {
     wallpaperEl.style.backgroundImage = '';
   } catch (e) { /* já era o padrão */ }
+  pintarFundoDoCartao();
 }
 
 let telaWpSeq = 0;
@@ -1115,6 +1132,7 @@ function telaAplicarWallpaper(url) {
       try {
         wallpaperEl.style.backgroundImage = 'url(' + JSON.stringify(url) + ')';
       } catch (e) { /* fica o desenho padrão */ }
+      pintarFundoDoCartao();
     };
     img.onerror = () => {
       if (seq !== telaWpSeq || Date.now() - inicio > TETO_MS) return;
@@ -1136,6 +1154,7 @@ async function applyWallpaper() {
   } else {
     wallpaperEl.style.backgroundImage = '';
   }
+  pintarFundoDoCartao();
 }
 
 // ===== Áudio sem toque: recuperação automática =====

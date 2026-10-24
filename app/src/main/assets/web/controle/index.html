@@ -2016,7 +2016,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion" class="app-version">v1.13.0</span>
+          <span id="appVersion" class="app-version">v1.13.1</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
@@ -3163,6 +3163,24 @@
       </div>
       <ul id="sorteioList" class="popup-list song-menu-list rola"></ul>
       <!-- O rodapé da folha, o mesmo do `#songMenuPopup` (v1.8.60). -->
+      <div class="popup-fecho"></div>
+    </div>
+  </div>
+
+  <!-- A FOLHA DE UM HORÁRIO DO ITINERÁRIO (v1.13.1): adicionar e editar, com as
+       roletas de hora e minuto do Tempo e o título. Desce do TETO, como as
+       outras folhas com campo de texto: o teclado sobe por baixo. O corpo é
+       montado por `abrirItinEditor`; a faixa de fecho é a das outras folhas. -->
+  <div id="itinPopup" class="popup-backdrop popup-backdrop--topo">
+    <div class="popup-sheet popup-sheet--topo">
+      <div class="popup-header">
+        <span class="popup-header-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><line x1="9" y1="2" x2="15" y2="2"/></svg>
+        </span>
+        <span class="popup-title" id="itinPopupTitulo">Novo horário</span>
+        <button id="itinPopupClose" class="popup-close" title="Fechar" aria-label="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
+      </div>
+      <div id="itinPopupCorpo" class="itin-editor-corpo"></div>
       <div class="popup-fecho"></div>
     </div>
   </div>

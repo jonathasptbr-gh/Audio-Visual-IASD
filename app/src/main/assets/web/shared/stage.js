@@ -1720,12 +1720,16 @@
         li = document.createElement('li');
         li.className = 'itin-linha';
         li.dataset.k = x.k;
-        ['itin-hora', 'itin-titulo', 'itin-tag'].forEach((c) => {
+        // A MARCA VEM PRIMEIRO (v1.13.1, pedido do operador): "Agora" e "A
+        // seguir" ficam à ESQUERDA do texto, colados nele, numa coluna que toda
+        // linha reserva — é ela que mantém os horários alinhados entre a linha
+        // marcada e as outras.
+        ['itin-tag', 'itin-hora', 'itin-titulo'].forEach((c) => {
           const s = document.createElement('span'); s.className = c; li.appendChild(s);
         });
         novas.add(li);
       }
-      const [hora, titulo, tag] = li.children;
+      const [tag, hora, titulo] = li.children;
       hora.textContent = x.hora;
       titulo.textContent = x.titulo;
       tag.textContent = x.estado === 'agora' ? 'Agora' : x.estado === 'seguir' ? 'A seguir' : '';

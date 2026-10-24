@@ -1059,7 +1059,7 @@ Tempo e o Sorteio chamam. Duas cópias divergiriam no primeiro ajuste, e aqui
   `.misc-row--legenda`: os outros `.misc-text` são listas e faixas numéricas, que
   se leem alinhadas à esquerda.
 
-### Ferramentas: itinerário (v1.13.0)
+### Ferramentas: itinerário (v1.13.0; lista, folha, destinos, par e desenho da v1.13.1)
 
 Mais um provedor da Camada de Texto, na folha de Ferramentas: o **quarto segmento do Tempo**
 (Relógio · Cronômetro · Timer · Itinerário): a programação do evento — horário +
@@ -1107,23 +1107,67 @@ equipe saberem em que momento estão e o que vem a seguir.
 - **A ALTURA RESERVADA É A DA LISTA CHEIA** (`--itin-linhas`, até seis): perto do
   fim as linhas de baixo vagam, e sem a reserva o bloco se recentraria a cada item
   que acaba — o de agora andaria na tela. As linhas têm altura fixa (`--itin-h`).
+  Com o bloco escuro à vista, a reserva aparece como o fundo dele (decidido: um
+  bloco que encolhesse levaria a borda de baixo junto com a linha que sai).
+- **O DESENHO NO TELÃO É DO OPERADOR (v1.13.1)**: *"mantenha o wallpaper visível,
+  apenas com uma camada escura semitransparente atrás do texto… alinhar à
+  esquerda… não precisa explorar toda a largura da tela"*. Três peças:
+  1. o CARTÃO PINTA O WALLPAPER no lugar do preto (`.mode-itinerario` também na
+     camada `#text`/`#pvText`); a imagem escolhida é COPIADA da cortina por
+     `pintarFundoDoCartao` (`display.js`) e `pintarFundoDoPvCartao`
+     (`controle.js`), chamadas por todo ponto que troca a imagem da cortina
+     (`applyWallpaper`, `telaAplicarWallpaper`, `telaWallpaperPadrao`,
+     `applyPvWallpaper`) e pela troca de modo. A mídia por baixo segue coberta;
+  2. o BLOCO é uma coluna ancorada à ESQUERDA (`width: min(100%, max(60cqw,
+     100cqmin))`) sobre `--stage-painel` (`rgba(0,0,0,.72)`, token do palco):
+     MEDIDO no pior caso, um wallpaper branco, texto 9,29:1, hora 5,73:1, o
+     acento do "A seguir" 4,31:1 (com os .62 da moldura da letra o acento caía a
+     2,88:1);
+  3. a MARCA é a PRIMEIRA coluna da linha (`itin-tag · itin-hora · itin-titulo`,
+     em grade), colada no horário; toda linha reserva a coluna (`--itin-tag-w`),
+     e é isso que alinha os horários.
 - **Só tokens do palco**: o item de agora é `--stage-accent` preenchido com
   `--stage-on-accent` (8,65:1), e a etiqueta "Agora" é o par invertido. A regra
   do telão (`display.css`) tem a gêmea na preview (`controle.css`).
 - **O laço do cartão é o mesmo do cronômetro e do sorteio** (`liveKind`
-  `'itinerario'`, um segundo — `ITIN_TICK_MS`), e o `slideTarget()` devolve
-  `null` com ele no ar: quem troca o item é o relógio, e o ajuste mora no painel
-  (a regra do Relógio).
-- **NO PAINEL** (`renderItinerario`): o AJUSTE em cima (no CORPO, não no rodapé:
-  seis peças empurrariam o primário para as reticências a 360px), a LISTA no meio
-  (`.itin-lista rola`; tocar numa linha a abre para editar ali mesmo, a lixeira
-  pergunta pelo diálogo do app) e a linha de ADICIONAR embaixo (`<input
-  type="time">`, título, +; o horário sugerido é 15 min depois do último). O
-  rodapé tem o quadrado das HORAS (`#itinHorasBtn`, o relógio desenhado, no lugar
-  do "Seg"/"12h") e o projetar — APAGADO com a lista vazia, com o porquê no
-  `title`. Sem destinos: o itinerário não vira cena de roteiro. Um laço de um
-  segundo (`itinMarcar`) troca só as MARCAS de agora;
-  reconstruir o painel tiraria o campo de baixo do dedo de quem digita.
+  `'itinerario'`, um segundo — `ITIN_TICK_MS`).
+- **O ⏮/⏭ COM ELE NO AR É O AJUSTE, DE 5 EM 5 MIN (v1.13.1, revogando a v1.13.0,
+  em que o par ficava apagado)**: `slideTarget()` devolve `'itinerario'`, o ⏮
+  ADIANTA 5 min e o ⏭ ATRASA 5 min (`ITIN_PASSO_PAR`, a ordem do −5 … +5 do
+  painel), pelo MESMO `itinAjustar`. O botão diz "−5"/"+5" (`EIXO_DE_ACAO`,
+  `desenharBotaoDeEixo` com `texto`) e apaga nos extremos (`itinPassoApagado`, a
+  régua única dos passos). NÃO entra em `EIXO_SO_DO_PAINEL`: o par é simétrico e
+  se desfaz com o toque oposto, então a coluna da tela cheia e a notificação
+  (rótulo "±5 min", `SLIDE_AXIS_NAME`) também ajustam. Quem troca o ITEM continua
+  sendo o relógio.
+- **NO PAINEL (v1.13.1, a LISTA do app)**: o AJUSTE em cima (no CORPO, não no
+  rodapé: seis peças empurrariam o primário para as reticências a 360px), a LISTA
+  no meio — a `.lib-item > .row` do Cronograma e das Mensagens: a HORA na capa
+  (`--thumb`, o efetivo), o título com o subtítulo ("Agora"/"A seguir", o
+  previsto com ajuste, o intervalo até o seguinte), o `⋮` com excluir (pergunta
+  NA LINHA, `pedirConfirmacaoNaLinha`) · editar; o item de agora é a linha
+  `.active` — e "Adicionar horário" embaixo, fora do scroller (o `.crono-novo`
+  da gaveta dos cronogramas). Tocar na linha EDITA. Não há ↑↓: a ordem é a do
+  relógio. Um laço de um segundo (`itinMarcar`) troca só as marcas e o
+  subtítulo; reconstruir o painel fecharia a faixa de ações debaixo do dedo.
+- **ADICIONAR E EDITAR SÃO UMA FOLHA** (`#itinPopup`, `abrirItinEditor`), que
+  desce do teto e desconta o teclado (a regra das folhas com campo de texto): as
+  ROLETAS de hora e minuto do Tempo (`chronoRoletaEl` com `opts.id`/`aoAssentar`
+  próprios — com o id do Timer, o assentamento escreveria a duração dele;
+  `roletaLevar` posiciona; `acertarRoletasDoItin` mede a célula pelo que sobra) e
+  o título; o confirmar é a faixa de fecho, APAGADO sem título. A v1.13.0 usava
+  `<input type="time">`, cuja escolha é um diálogo do SISTEMA que o WebView pode
+  não abrir — o relato do operador foi que o toque não deixava escolher a hora.
+  **Nenhum `<input type="time">` volta**: o oráculo conta zero.
+- **VIRA CENA DE ROTEIRO (v1.13.1)**: o rodapé tem os dois destinos das abas
+  irmãs (Cronograma · favoritos, `cueSaveDaFerramenta`), APAGADOS com a lista
+  vazia. A cena `itinerario` guarda `{ itens:[{min, titulo}], horas }` — sem ids
+  (a identidade é o conteúdo, `cueChave`) e SEM O AJUSTE, que é do dia. Tocá-la é
+  um PRESET (`projetarItinerarioCue`): a programação guardada vira a do painel
+  (reaproveitando o id das linhas iguais, para o telão não as "entrar" de novo),
+  o ajuste do dia fica, e projeta pelo `projectItin` de sempre. Ela é um registro
+  `cue` comum: o coletor a guarda pela lista, o `.avpkg` a leva inteira, e o
+  Histórico não a registra (nenhuma cena de roteiro passa pelo `historicoRegistrar`).
 - **O segmento não é um `chrono.mode`** (`tempoVista`, guardado em
   `chronoPrefs.vista`): entrar no Itinerário não para a contagem que ficou
   correndo nas outras três, e voltar delas não zera nada.
@@ -1133,7 +1177,7 @@ equipe saberem em que momento estão e o que vem a seguir.
 - **Registro**: uma linha na linha do tempo ao projetar, tirar e ajustar
   (`itinerário: …`).
 
-Oráculo: `itinerario.test.mjs` (A–I).
+Oráculo: `itinerario.test.mjs` (A–M).
 
 ### Entradas e saídas de camada sempre com fade (`fadeLayerIn`/`fadeLayerOut`)
 
