@@ -138,28 +138,29 @@ try {
     'A · a hora mostrada dá a volta na meia-noite (a comparação não — fora de escopo)', leitura.hora);
 
   // ── B. EDITAR E PERSISTIR, PELA UI ───────────────────────────────────────
+  // DESDE A v1.13.3 o Itinerário é um TILE da grade da folha, e o toque nele o abre.
   const abrirItinerario = () => pg.evaluate(async () => {
     if (!ferramentasAbertas()) abrirFerramentas();
-    [...document.querySelectorAll('.misc-tab')].find((b) => b.textContent.trim() === 'Tempo').click();
-    const seg = [...document.querySelectorAll('.misc-seg')].find((b) => b.textContent === 'Itinerário');
-    if (seg && !seg.classList.contains('active')) seg.click();
+    if (!document.getElementById('itinLista')) {
+      if (!document.getElementById('ferrGrade')) voltarAGradeDeFerramentas();
+      document.getElementById('ferrTile_itinerario').click();
+    }
   });
   await abrirItinerario();
   await esperar(pg, () => !!document.getElementById('itinLista'));
 
   const vazio = await pg.evaluate(() => {
     const p = document.getElementById('miscProjectBtn');
-    const segs = [...document.querySelectorAll('#chronoWrap .misc-seg')];
+    const t = document.getElementById('toolsTitle');
     return {
       off: p && p.disabled, titulo: p && p.title,
-      segs: segs.map((b) => b.textContent),
-      // OS QUATRO CABEM a 360px: nenhum rótulo cortado pela própria caixa.
-      cortados: segs.filter((b) => b.scrollWidth > b.clientWidth + 1).map((b) => b.textContent),
+      cabecalho: t && t.textContent,
+      // NENHUM SEGMENTO SOBROU no painel: o Tempo não tem mais sub-abas.
+      segs: document.querySelectorAll('#chronoWrap .misc-seg').length,
     };
   });
-  checar(vazio.segs.join('|') === 'Relógio|Cronômetro|Timer|Itinerário',
-    'B · o Itinerário é o QUARTO segmento do Tempo', vazio.segs);
-  checar(vazio.cortados.length === 0, 'B · e os quatro rótulos cabem a 360px', vazio.cortados);
+  checar(vazio.cabecalho === 'Itinerário' && vazio.segs === 0,
+    'B · o Itinerário abre pelo TILE dele, com o nome no cabeçalho e sem segmentos no painel (v1.13.3)', vazio);
   checar(vazio.off && /adicione/i.test(vazio.titulo || ''),
     'I · lista vazia: o "Projetar no telão" é APAGADO e diz por quê', vazio);
 
@@ -350,11 +351,11 @@ try {
   await esperarCortina(pg);
   await pg.evaluate(() => {
     abrirFerramentas();
-    [...document.querySelectorAll('.misc-tab')].find((b) => b.textContent.trim() === 'Tempo').click();
+    abrirFerramenta('itinerario');
   });
   await esperar(pg, () => !!document.getElementById('itinLista'));
   checar((await lista()).join(' · ') === '09:00 Recepção · 10:00 Louvor · 10:40 Pregação',
-    'B · depois de RECARREGAR, a lista volta do banco — e o Tempo reabre no Itinerário', await lista());
+    'B · depois de RECARREGAR, a lista volta do banco', await lista());
 
   // ── C. PROJETAR, E A TROCA QUANDO O RELÓGIO CRUZA ────────────────────────
   // Espia o barramento: a troca de item NÃO pode custar comando nenhum.
@@ -484,7 +485,7 @@ try {
   }
   await pg.evaluate(() => {
     abrirFerramentas();
-    [...document.querySelectorAll('.misc-tab')].find((b) => b.textContent.trim() === 'Tempo').click();
+    abrirFerramenta('itinerario');
   });
   await esperar(pg, () => !!document.getElementById('itinLista'));
 
@@ -927,7 +928,7 @@ try {
   }
   await pg.evaluate(() => {
     abrirFerramentas();
-    [...document.querySelectorAll('.misc-tab')].find((b) => b.textContent.trim() === 'Tempo').click();
+    abrirFerramenta('itinerario');
   });
   await esperar(pg, () => !!document.getElementById('itinLista'));
   await pg.evaluate(() => projectItin());
@@ -960,7 +961,7 @@ try {
   await esperarCortina(pg);
   await pg.evaluate(() => {
     abrirFerramentas();
-    [...document.querySelectorAll('.misc-tab')].find((b) => b.textContent.trim() === 'Tempo').click();
+    abrirFerramenta('itinerario');
   });
   await esperar(pg, () => !!document.getElementById('itinLista'));
   {

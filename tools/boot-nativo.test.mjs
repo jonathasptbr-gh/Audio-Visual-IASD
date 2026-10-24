@@ -5518,6 +5518,9 @@ try {
     await new Promise((f) => setTimeout(f, 120));
     document.getElementById('toolsBtn').click();
     await new Promise((f) => setTimeout(f, 300));
+    // A FOLHA ABRE NA GRADE (v1.13.3): o toque no tile das Mensagens, como o operador.
+    document.getElementById('ferrTile_msg').click();
+    await new Promise((f) => setTimeout(f, 400));
     return eval('(' + fn + ')')();
   }, medir.toString());
 
@@ -5538,7 +5541,7 @@ try {
     + 'para a LISTA, que é o que cresce', JSON.stringify(msg));
 
   const tempo = await pgM.evaluate(async (fn) => {
-    [...document.querySelectorAll('.misc-tab')].find((b) => b.textContent.trim() === 'Tempo').click();
+    abrirFerramenta(chrono.mode);
     await new Promise((f) => setTimeout(f, 200));
     return eval('(' + fn + ')')();
   }, medir.toString());
@@ -5585,7 +5588,7 @@ try {
   // novo e bonito na faixa, com a ação ainda pendurada no botão que saiu.
   const criou = await pgM.evaluate(async () => {
     const z = (ms) => new Promise((f) => setTimeout(f, ms));
-    [...document.querySelectorAll('.misc-tab')].find((b) => b.textContent.trim() === 'Mensagens').click();
+    abrirFerramenta('msg');
     await z(250);
     const antes = messages.length;
     document.getElementById('msgNovaBtn').click();

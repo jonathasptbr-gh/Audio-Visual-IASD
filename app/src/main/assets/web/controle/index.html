@@ -1178,7 +1178,9 @@
     <div id="listFoot" class="list-foot"></div>
 
     <!-- ===== FERRAMENTAS: A FOLHA DO CRONOGRAMA (v1.3.10) =====
-         Mensagens, Tempo (cronômetro/relógio/timer) e Sorteio. (O microfone ao
+         Relógio, Cronômetro, Timer, Itinerário, Mensagens e Sorteio — desde a
+         v1.13.3 numa GRADE inicial, uma ferramenta por tile (ver
+         `renderGradeDeFerramentas`), no lugar das três abas e dos segmentos. (O microfone ao
          vivo morava aqui e saiu na v1.8.89 — ver a lápide no `controle.js`.)
          Elas eram uma ABA, ao lado do Cronograma e da Bíblia, e a faixa
          ficou com três destinos mais a busca — a pedido do operador ela voltou
@@ -1201,7 +1203,13 @@
          O ✕ e o voltar do Android a fecham (ver `POPUPS`/`__avBack`). -->
     <div id="toolsSheet" class="tools-sheet" hidden>
       <div class="tools-head">
-        <span class="tools-title">Ferramentas</span>
+        <!-- O VOLTAR À GRADE (v1.13.3). A folha abre SEMPRE na grade das
+             ferramentas (`renderGradeDeFerramentas`); dentro de uma, este é o
+             caminho de volta — o molde do `#bibleBack` da folha irmã, na trilha
+             1 da grade do cabeçalho, e por isso o título não anda quando ele
+             aparece. O voltar do Android faz o mesmo antes de fechar a folha. -->
+        <button id="toolsBack" class="back-btn" type="button" title="Todas as ferramentas" aria-label="Voltar para todas as ferramentas" hidden><span class="msym" aria-hidden="true">&#xe5c4;</span></button>
+        <span id="toolsTitle" class="tools-title">Ferramentas</span>
         <!-- O ✕ PADRÃO, o mesmo dos outros cinco do app (v1.3.15): a classe
              `.popup-close` traz a caixa quadrada do esqueleto de botão de
              ícone, o fundo `--surface-2` e o glifo `close` da fonte. Ele era
@@ -2026,7 +2034,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion" class="app-version">v1.13.2</span>
+          <span id="appVersion" class="app-version">v1.13.3</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
@@ -2508,7 +2516,7 @@
             <div id="edicaoBuscaCaixa" class="edicao-busca sorteio-campo" hidden>
               <div class="lib-search-campo">
                 <svg class="lib-search-lupa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoLupa"/></svg>
-                <input id="edicaoBusca" class="lib-search" type="search" placeholder="Buscar pelo nome…" autocomplete="off" enterkeyhint="search">
+                <input id="edicaoBusca" class="lib-search" type="search" placeholder="Buscar pelo nome…" autocomplete="off" enterkeyhint="search" data-teclado="sobrepoe">
               </div>
             </div>
             <ul id="edicaoLista" class="popup-list song-menu-list"></ul>

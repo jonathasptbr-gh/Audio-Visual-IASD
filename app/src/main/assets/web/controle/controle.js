@@ -389,6 +389,9 @@ const toolsBodyEl = document.getElementById('toolsBody');
 // O RODAPÉ FIXO da folha (v1.8.89), irmão do corpo — ver `renderFoot`.
 const toolsFootEl = document.getElementById('toolsFoot');
 const toolsCloseEl = document.getElementById('toolsClose');
+// O VOLTAR À GRADE e o TÍTULO da folha (v1.13.3) — ver `renderGradeDeFerramentas`.
+const toolsBackEl = document.getElementById('toolsBack');
+const toolsTitleEl = document.getElementById('toolsTitle');
 // Há UM host de lista (`libraryEl`). A pasta do aparelho abre INLINE, como um
 // álbum — e por isso não há busca dentro de uma pasta nem seleção múltipla lá
 // dentro: a barra da Biblioteca varre `allCollections()`, que não alcança o
@@ -432,7 +435,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.2';
+const WEB_VERSION = '1.13.3';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -7581,6 +7584,10 @@ function miscProjectState() {
 function renderFoot() {
   if (!toolsFootEl) return;
   toolsFootEl.innerHTML = '';
+  // A GRADE NÃO TEM RODAPÉ (v1.13.3): o que se aciona é de uma ferramenta, e na grade
+  // nenhuma está aberta. O par ao lado da preview continua sendo repintado daqui —
+  // todo mutador das ferramentas passa por este `renderFoot`.
+  if (ferrNaGrade) { renderEixoDoPar(); return; }
   const row = document.createElement('div'); row.className = 'misc-foot';
 
   // ---- À ESQUERDA, o que a ferramenta ATIVA opera ----
@@ -7814,16 +7821,17 @@ function applyChronoPrefs(p) {
   if (typeof p.secs === 'boolean' && !legado) chrono.secs = p.secs;
   if (typeof p.h12 === 'boolean') chrono.h12 = p.h12;
   if (typeof p.label === 'string') chrono.label = p.label;
-  // A VISTA DO TEMPO volta como foi deixada: o Itinerário é o quarto segmento,
-  // e quem o deixou aberto reabre nele.
-  tempoVista = p.vista === 'itinerario' ? 'itinerario' : 'chrono';
+  // (A VISTA DO TEMPO — `p.vista`, o Itinerário reaberto onde foi deixado — deixou de
+  //  ser lida na v1.13.3: a folha abre SEMPRE na grade, e quem escolhe a vista é o
+  //  tile. O campo de um aparelho antigo fica no registro e ninguém o lê; a próxima
+  //  gravação já sai sem ele.)
 }
 
 function saveChronoPrefs() {
   return AVDB.setState('chronoPrefs', {
     v: CHRONO_PREFS_V,
     mode: chrono.mode, durationMs: chrono.durationMs,
-    secs: chrono.secs, h12: chrono.h12, label: chrono.label, vista: tempoVista,
+    secs: chrono.secs, h12: chrono.h12, label: chrono.label,
   });
 }
 
@@ -7898,6 +7906,7 @@ function clearChronoSession() {
 function renderChronoEControles() {
   renderChrono();
   renderFoot();
+  acertarGradeDeFerramentas();   // com a grade à vista, o tile do Tempo acompanha
 }
 
 function chronoStart() {
@@ -7926,7 +7935,10 @@ function chronoReset() {
   renderChronoEControles();
 }
 
-function chronoSetMode(mode) {
+// A TROCA DE MODO — quem a faz é o tile da grade (v1.13.3, `abrirFerramenta`), que
+// escreve o modo ANTES de montar o painel; por isso ela não desenha nada. (O
+// `chronoSetMode`, que desenhava, saiu com o segmentado que era o único chamador.)
+function chronoTrocarModo(mode) {
   if (chrono.mode === mode) return;
   chrono.mode = mode;
   // Trocar de ferramenta zera a contagem: levar o decorrido do cronômetro para
@@ -7934,7 +7946,6 @@ function chronoSetMode(mode) {
   chrono.running = false; chrono.baseMs = 0; chrono.startAt = 0;
   saveChronoPrefs();
   pushChrono();
-  renderChronoEControles();
 }
 
 // O PISO É ZERO, e não mais um segundo (v1.8.92): com duas roletas o 0:00 é uma
@@ -8006,39 +8017,10 @@ function stopChronoPanelTimer() {
   if (chronoPanelTimer) { clearInterval(chronoPanelTimer); chronoPanelTimer = null; }
 }
 
-function chronoSegBtn(m) {
-  const b = document.createElement('button');
-  b.type = 'button';
-  b.className = 'misc-seg' + (tempoVista === 'chrono' && chrono.mode === m.id ? ' active' : '');
-  b.textContent = m.name;
-  b.addEventListener('click', () => {
-    // VOLTAR DO ITINERÁRIO NÃO ZERA NADA: o cronômetro seguiu correndo no estado
-    // enquanto a lista estava à vista. Só a TROCA de modo zera (`chronoSetMode`).
-    if (tempoVista !== 'chrono') {
-      tempoVista = 'chrono';
-      if (chrono.mode === m.id) { saveChronoPrefs(); renderChronoEControles(); return; }
-    }
-    chronoSetMode(m.id);
-  });
-  return b;
-}
-
-// O QUARTO SEGMENTO (v1.13.0). Ele não é um `chrono.mode`: o Itinerário tem
-// estado e projeção próprios, e entrar nele não pode parar a contagem que o
-// operador deixou correndo nas outras três.
-function itinSegBtn() {
-  const b = document.createElement('button');
-  b.type = 'button';
-  b.className = 'misc-seg' + (tempoVista === 'itinerario' ? ' active' : '');
-  b.textContent = 'Itinerário';
-  b.addEventListener('click', () => {
-    if (tempoVista === 'itinerario') return;
-    tempoVista = 'itinerario';
-    saveChronoPrefs();
-    renderChronoEControles();
-  });
-  return b;
-}
+// (O `chronoSegBtn` e o `itinSegBtn` — os quatro segmentos do Tempo — saíram na
+//  v1.13.3 com o segmentado: o toque num tile da grade é quem escolhe o modo
+//  (`abrirFerramenta` → `chronoTrocarModo`) ou a vista do Itinerário, e voltar ao
+//  Itinerário continua não zerando a contagem das outras três.)
 
 /**
  * ===== AS TRÊS ROLETAS DO TEMPO (v1.8.94) =====
@@ -8466,12 +8448,8 @@ function renderChrono() {
   if (!host) return;
   host.innerHTML = '';
 
-  const modes = document.createElement('div');
-  modes.className = 'misc-modes';
-  CHRONO_MODES.forEach((m) => modes.appendChild(chronoSegBtn(m)));
-  modes.appendChild(itinSegBtn());
-  host.appendChild(modes);
-
+  // (O segmentado Relógio · Cronômetro · Timer · Itinerário saiu na v1.13.3: cada
+  //  um é um tile da grade da folha — ver `FERRAMENTAS`.)
   host.classList.toggle('misc-panel--itin', tempoVista === 'itinerario');
   if (tempoVista === 'itinerario') {
     stopChronoPanelTimer();
@@ -9390,7 +9368,7 @@ function fecharItinGaveta() {
 // A gaveta só existe com o painel do itinerário à vista: trocar de ferramenta
 // ou de segmento a fecha.
 function fecharItinGavetaForaDoPainel() {
-  if (!(miscTool === 'chrono' && tempoVista === 'itinerario')) fecharItinGaveta();
+  if (ferrNaGrade || !(miscTool === 'chrono' && tempoVista === 'itinerario')) fecharItinGaveta();
 }
 
 function renderItinGaveta() {
@@ -9964,6 +9942,20 @@ function drawReset() {
   renderFoot();   // ver `doDraw`
 }
 
+// O TOGGLE "NÚMEROS" (v1.13.3) — a única porta da troca de natureza do sorteio, que
+// era o segmentado Número · Texto. A LISTA FICA (`draw.pool` não é tocado: desligar a
+// devolve); o HISTÓRICO SAI, porque "12" e "Maria" não pertencem ao mesmo conjunto e
+// manter os dois faria o "Não repetir" filtrar por valores que nem podem sair. Com o
+// sorteio no ar, o telão recebe o descritor novo pelo `pushDraw` de sempre.
+function drawSetKind(kind) {
+  if (kind !== 'text' && kind !== 'number') return;
+  if (draw.kind === kind) return;
+  draw.kind = kind;
+  draw.used = []; draw.value = null; draw.rollUntil = 0;
+  saveDrawPrefs(); pushDraw(); renderDraw();
+  renderFoot();   // os dois quadrados dependem do histórico — ver `doDraw`
+}
+
 function projectDraw() {
   soUmProvedorDeTexto('draw');
   drawSession = { projecting: true };
@@ -10029,102 +10021,88 @@ function drawChip(name, on, fn) {
 }
 
 /**
- * ===== O SORTEIO DE TEXTO EM DUAS COLUNAS (v1.9.1) =====
+ * ===== UM SORTEIO SÓ, E O TOGGLE "NÚMEROS" (v1.13.3) =====
  *
- * Pedido do operador: *"deixe o texto sorteado no topo e abaixo faça duas
- * colunas, na primeira a esquerda, coloque os botões de opções, sorteados e a
- * caixa de texto da legenda… na direita deixe a caixa de texto dos itens a
- * serem sorteados… a lógica é essa, jogar as ações no rodapé, o sorteado no
- * principal, e duas colunas."*
+ * Pedido do operador: *"temos apenas um sorteio, o de texto, mas teremos um toggle que
+ * preenche esse sorteio com números. Basicamente unificando a interface dos dois, para
+ * que tenhamos apenas uma aba."* Eram dois desenhos atrás de um segmentado (Número ·
+ * Texto): o de texto em duas colunas e o de número empilhado. Hoje há UM painel — o
+ * de texto, o sorteado no topo e duas colunas abaixo — e o chip **"Números"** ao lado
+ * do "Não repetir" troca a FONTE das opções, na coluna da direita: ligado, a lista dá
+ * lugar à faixa "De / Até"; desligado, a lista volta.
  *
- * **A COLUNA DA DIREITA É A LISTA, e por isso ela é a que ESTICA.** A caixa de
- * opções cresce com a lista que se digita; num painel de altura fixa (a folha
- * não rola, ela encolhe — ver `.misc-panel--chrono`) quem tem de ceder é o
- * resto. A da esquerda leva o que tem tamanho PREVISÍVEL: um chip, o contador,
- * os já sorteados e a legenda.
+ * **O VALOR É O DE SEMPRE** (`draw.kind`, 'number' · 'text'), e é isso que faz a
+ * unificação não custar compatibilidade: o descritor que vai ao telão, a cena guardada
+ * no Cronograma, nos Favoritos e no `.avpkg`, e o `drawPrefs` gravado continuam com o
+ * mesmo campo e o mesmo significado — uma cena "1–60" de antes toca como tocava.
  *
- * **SÓ NO MODO TEXTO.** No modo Número não há lista para digitar — a fonte das
- * opções são dois campos curtos —, e duas colunas ali dariam uma coluna vazia.
+ * **LIGAR NÃO APAGA A LISTA**: `draw.pool` não é tocado, e desligar a devolve como
+ * estava. **O HISTÓRICO SAI na troca**, pela regra de sempre: "12" e "Maria" não
+ * pertencem ao mesmo conjunto, e manter os dois faria o "Não repetir" filtrar por
+ * valores que nem podem sair.
+ *
+ * **A COLUNA DA DIREITA É A FONTE, e por isso ela é a que ESTICA.** A caixa de opções
+ * cresce com a lista que se digita; a faixa tem dois campos curtos, empilhados (na
+ * coluna de ~160px dois campos lado a lado não cabem com o rótulo). A da esquerda leva
+ * o que tem tamanho PREVISÍVEL: os dois chips, o contador e os já sorteados.
  */
 function renderDraw() {
   const host = document.getElementById('drawWrap');
   if (!host) return;
   host.innerHTML = '';
 
-  const modes = document.createElement('div');
-  modes.className = 'misc-modes';
-  // `id` interno × `name` exibido, como em CHRONO_MODES — o id era 'texto'
-  // com um ternário remapeando para 'text' logo abaixo, dois nomes para o
-  // mesmo valor dentro do mesmo laço.
-  [{ id: 'number', name: 'Número' }, { id: 'text', name: 'Texto' }].forEach((m) => {
-    const id = m.id;
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'misc-seg' + (draw.kind === id ? ' active' : '');
-    b.textContent = m.name;
-    b.addEventListener('click', () => {
-      if (draw.kind === id) return;
-      draw.kind = id;
-      // Trocar a natureza do sorteio invalida o histórico: "12" e "Maria" não
-      // pertencem ao mesmo conjunto, e manter os dois faria `noRepeat` filtrar
-      // por valores que nem podem sair.
-      draw.used = []; draw.value = null; draw.rollUntil = 0;
-      saveDrawPrefs(); pushDraw(); renderDraw();
-      renderFoot();   // os dois quadrados dependem do histórico — ver `doDraw`
-    });
-    modes.appendChild(b);
-  });
-  host.appendChild(modes);
-
   const read = document.createElement('div');
   read.className = 'draw-read'; read.id = 'drawRead';
   host.appendChild(read);
 
   const texto = draw.kind === 'text';
-  // O CORPO É UMA CAIXA SÓ, NOS DOIS MODOS (v1.9.2), e é ela que OCUPA a altura
-  // que sobra — sem isso o painel media o conteúdo e deixava um vão morto
-  // embaixo, com a caixa de opções pequena no meio de uma janela vazia. No modo
-  // TEXTO ela é de duas colunas; no Número, o empilhamento de sempre. A LEGENDA
-  // fica FORA dela, e por isso encosta na base: *"faça a caixa de texto da
-  // legenda ficar colada na base, logo acima dos botões de projetar no telão"*.
+  // O CORPO OCUPA A ALTURA QUE SOBRA (v1.9.2) — sem isso o painel media o conteúdo e
+  // deixava um vão morto embaixo. A LEGENDA fica FORA dele e por isso encosta na base:
+  // *"faça a caixa de texto da legenda ficar colada na base, logo acima dos botões de
+  // projetar no telão"*.
   const corpo = document.createElement('div');
-  corpo.className = 'draw-corpo' + (texto ? ' draw-cols' : '');
+  corpo.className = 'draw-corpo draw-cols';
   const esq = document.createElement('div');
   esq.className = 'draw-col draw-col--esq';
   const dir = document.createElement('div');
   dir.className = 'draw-col draw-col--dir';
-  if (texto) { corpo.appendChild(esq); corpo.appendChild(dir); }
+  corpo.appendChild(esq); corpo.appendChild(dir);
   host.appendChild(corpo);
-  const opcoes = texto ? esq : corpo;
 
-  // ---- Fonte das opções ----
+  // ---- A fonte das opções, na coluna da direita ----
   if (!texto) {
-    const row = document.createElement('div');
-    row.className = 'draw-range';
+    const faixa = document.createElement('div');
+    faixa.className = 'draw-range';
+    faixa.id = 'drawRange';
     const mk = (lab, val, fn) => {
       const wrap = document.createElement('label');
       wrap.className = 'draw-range-field';
       const sp = document.createElement('span'); sp.className = 'misc-row-label'; sp.textContent = lab;
       const i = document.createElement('input');
       i.type = 'number'; i.inputMode = 'numeric'; i.className = 'misc-num';
+      i.enterKeyHint = 'done';
+      // O TECLADO SOBREPÕE (v1.13.3) — ver `keyboardShift`. Estes dois eram os únicos
+      // campos da folha sem a declaração: o teclado encolhia o app e a caixa de
+      // controles, com a barra da Biblioteca, subia com ele e descia no confirmar.
+      i.dataset.teclado = 'sobrepoe';
       i.value = String(val);
       i.addEventListener('change', () => fn(parseInt(i.value, 10)));
       wrap.appendChild(sp); wrap.appendChild(i);
       return wrap;
     };
-    row.appendChild(mk('De', draw.min, (v) => {
+    faixa.appendChild(mk('De', draw.min, (v) => {
       if (!isFinite(v)) return renderDraw();
       draw.min = v; if (draw.max < draw.min) draw.max = draw.min;
       if (draw.max - draw.min + 1 > DRAW_SPAN_CAP) draw.max = draw.min + DRAW_SPAN_CAP - 1;
       saveDrawPrefs(); renderDraw(); renderFoot();
     }));
-    row.appendChild(mk('Até', draw.max, (v) => {
+    faixa.appendChild(mk('Até', draw.max, (v) => {
       if (!isFinite(v)) return renderDraw();
       draw.max = v; if (draw.max < draw.min) draw.max = draw.min;
       if (draw.max - draw.min + 1 > DRAW_SPAN_CAP) draw.max = draw.min + DRAW_SPAN_CAP - 1;
       saveDrawPrefs(); renderDraw(); renderFoot();
     }));
-    corpo.appendChild(row);
+    dir.appendChild(faixa);
   } else {
     const ta = document.createElement('textarea');
     ta.className = 'draw-pool'; ta.rows = 5;
@@ -10145,20 +10123,30 @@ function renderDraw() {
   // ---- Regras e histórico ----
   const opts = document.createElement('div');
   opts.className = 'misc-opts';
-  opts.appendChild(drawChip('Não repetir', draw.noRepeat, () => {
+  // O TOGGLE DOS NÚMEROS é um chip de LIGADO, a mesma peça do "Não repetir" ao lado
+  // (`--btn-accent` + `--accent` ligado, `aria-pressed` dizendo o valor).
+  const num = drawChip('Números', !texto, () => drawSetKind(texto ? 'number' : 'text'));
+  num.id = 'drawNumerosBtn';
+  num.title = texto ? 'Sortear números de uma faixa, no lugar da lista' : 'Voltar a sortear a lista de opções';
+  num.setAttribute('aria-pressed', texto ? 'false' : 'true');
+  opts.appendChild(num);
+  const nr = drawChip('Não repetir', draw.noRepeat, () => {
     draw.noRepeat = !draw.noRepeat; saveDrawPrefs(); renderDraw();
     renderFoot();   // ele muda quantas opções restam — ver `doDraw`
-  }));
+  });
+  nr.setAttribute('aria-pressed', draw.noRepeat ? 'true' : 'false');
+  opts.appendChild(nr);
   const left = drawRemaining();
   const info = document.createElement('span');
   info.className = 'draw-info';
+  info.id = 'drawInfo';
   info.textContent = draw.noRepeat
     ? left + ' de ' + (texto ? draw.pool.length : Math.max(0, draw.max - draw.min + 1)) + ' restantes'
     : (texto ? draw.pool.length + ' opções' : Math.max(0, draw.max - draw.min + 1) + ' números');
   opts.appendChild(info);
   // (O chip "Reiniciar" saiu na v1.9.1: ele é um QUADRADO do rodapé, ao lado do
   //  sortear — ver `renderFoot`.)
-  opcoes.appendChild(opts);
+  esq.appendChild(opts);
 
   // Os já sorteados, à vista: numa rifa a pergunta seguinte é sempre "quem já
   // saiu?" — e o contador sozinho não responde.
@@ -10176,7 +10164,7 @@ function renderDraw() {
       c.textContent = u;
       hist.appendChild(c);
     });
-    opcoes.appendChild(hist);
+    esq.appendChild(hist);
   }
 
   // ---- Legenda ----
@@ -10544,69 +10532,181 @@ function renderMsg() {
   //  `renderFoot`. O corpo da janela fica para a lista, que é o que cresce.)
 }
 
-// ===== A aba Ferramentas =====
-// Três ferramentas empilhadas não cabiam numa tela de celular. A primeira
-// tentativa (v5.31) foi um acordeão, e ele custava caro pelo que entregava:
-// três cabeçalhos permanentes comendo altura, e a ferramenta em uso empurrada
-// para baixo conforme a posição dela na pilha. Um SELETOR no topo faz o mesmo
-// trabalho em UMA linha — as outras ferramentas continuam a um toque, e o
-// painel ativo começa sempre no mesmo lugar, o que importa para a memória
-// muscular de quem opera sem olhar.
+// ===== A FOLHA DE FERRAMENTAS ABRE NUMA GRADE (v1.13.3) =====
+// Pedido do operador: *"ao invés de usar tabs e sub tabs, use uma grade inicial com
+// todas as ferramentas prontas no primeiro toque, por exemplo não separa por tempo,
+// sorteio e mensagens, mas já põe direto as subdivisões"*. Eram TRÊS abas no topo
+// (Mensagens · Tempo · Sorteio) e, dentro do Tempo, um segmentado de quatro (Relógio ·
+// Cronômetro · Timer · Itinerário) — dois níveis de escolha para chegar à ferramenta.
+// Hoje a folha abre numa GRADE de seis tiles, um por ferramenta (`FERRAMENTAS`), e o
+// toque abre a ferramenta; o voltar do cabeçalho (`#toolsBack`) e o do Android devolvem
+// a grade antes de a folha fechar.
 //
-// O que SAI da ferramenta fica fora do seletor, no rodapé fixo (`renderFoot`):
-// projetar à esquerda, os dois destinos à direita.
+// **O ESTADO DOS PAINÉIS É O DE SEMPRE.** `miscTool` ('msg' · 'chrono' · 'draw'),
+// `tempoVista` e `chrono.mode` continuam dizendo QUAL painel está montado — as dezenas
+// de guardas espalhadas pelo arquivo seguem valendo —, e o que entrou é UMA pergunta a
+// mais: `ferrNaGrade`, "a folha está mostrando a grade?". Ela nasce `true` em TODA
+// abertura da folha: Configurações também reabre sempre na grade (fechar recolhe a
+// seção), e a mesma regra nas duas folhas é o que o operador aprende uma vez só.
+//
+// **O TILE É O DE CONFIGURAÇÕES** (`.qs-tile.qs-on`: ícone em cima, título curto
+// embaixo, a cor de ligado para todos), com duas leituras vivas que lá não existem e
+// aqui são a pergunta de quem volta à grade no meio do culto: o PONTO de "no ar" (o
+// `--live-strong` de 7px que a aba projetando já levava) e, com o Cronômetro ou o
+// Timer CONTANDO, o próprio número no lugar do ícone — o canal do desenho, que é onde
+// aquela grade diz estado.
 let miscTool = 'msg';
+let ferrNaGrade = true;
 
+// Os PAINÉIS — o que cada ferramenta monta no corpo da folha.
 const MISC_TOOLS = [
   { id: 'msg', name: 'Mensagens', wrap: 'msgWrap', render: () => renderMsg(), live: () => msgProjecting() },
   { id: 'chrono', name: 'Tempo', wrap: 'chronoWrap', render: () => renderChrono(), live: () => chronoProjecting() || itinProjecting() },
   { id: 'draw', name: 'Sorteio', wrap: 'drawWrap', render: () => renderDraw(), live: () => drawProjecting() },
 ];
 
+// OS TILES DA GRADE, na ordem dela — uma fileira por assunto, como em Configurações:
+// em cima o TEMPO (as três roletas, na ordem de `CHRONO_MODES`), embaixo o que vai ao
+// telão como TEXTO do culto (o Itinerário sob o Relógio, que é o relógio dele).
+// `tool` é o painel; `modo`/`vista` são o que o toque escreve no Tempo. Os desenhos
+// são os das cenas de roteiro (`CUE_SVG`) — o tile e a linha do Cronograma que ele
+// produz dizem a mesma coisa —, e os dois que não tinham cena própria (Relógio e
+// Timer guardam a cena `chrono`, desenhada como o cronômetro) ganharam o mostrador
+// e a ampulheta.
+const FERR_ICO = {
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/>',
+  timer: '<path d="M7 3h10M7 21h10"/><path d="M8 3v2.6c0 2.2 4 4.2 4 6.4s-4 4.2-4 6.4V21"/>'
+    + '<path d="M16 3v2.6c0 2.2-4 4.2-4 6.4s4 4.2 4 6.4V21"/>',
+};
+const FERRAMENTAS = [
+  { id: 'clock', nome: 'Relógio', tool: 'chrono', modo: 'clock', ico: FERR_ICO.clock },
+  { id: 'stopwatch', nome: 'Cronômetro', tool: 'chrono', modo: 'stopwatch', ico: CUE_SVG.chrono },
+  { id: 'timer', nome: 'Timer', tool: 'chrono', modo: 'timer', ico: FERR_ICO.timer },
+  { id: 'itinerario', nome: 'Itinerário', tool: 'chrono', vista: 'itinerario', ico: CUE_SVG.itinerario },
+  { id: 'msg', nome: 'Mensagens', tool: 'msg', ico: CUE_SVG.message },
+  { id: 'draw', nome: 'Sorteio', tool: 'draw', ico: CUE_SVG.draw },
+];
+
+// QUAL TILE é a ferramenta montada agora (o inverso do toque).
+function ferramentaAtual() {
+  if (miscTool === 'chrono') return tempoVista === 'itinerario' ? 'itinerario' : chrono.mode;
+  return miscTool;
+}
+
+// O QUE ESTÁ NO AR, por tile. O Tempo projeta UM modo por vez (`chronoDescriptor`
+// leva o `chrono.mode`), então o ponto vai só no tile dele.
+function ferramentaNoAr(f) {
+  if (f.id === 'msg') return msgProjecting();
+  if (f.id === 'draw') return drawProjecting();
+  if (f.id === 'itinerario') return itinProjecting();
+  return chronoProjecting() && chrono.mode === f.modo;
+}
+
+// A LEITURA VIVA de um tile do Tempo: o número do Cronômetro ou do Timer QUE ESTÁ
+// CONTANDO — a mesma leitura do telão (`chronoReading`), então o tile e a TV não
+// discordam de um segundo. Parado não há leitura: o número congelado é o painel que diz.
+function ferramentaLeitura(f) {
+  if (f.tool !== 'chrono' || !f.modo || f.modo === 'clock') return '';
+  if (chrono.mode !== f.modo || !chrono.running) return '';
+  return createStage.chronoReading(chronoDescriptor(), Date.now()).text;
+}
+
+let ferrGradeTimer = null;
+function pararGradeTimer() { if (ferrGradeTimer) { clearInterval(ferrGradeTimer); ferrGradeTimer = null; } }
+
+function renderGradeDeFerramentas() {
+  const g = document.createElement('div');
+  g.className = 'ferr-grade';
+  g.id = 'ferrGrade';
+  FERRAMENTAS.forEach((f) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'qs-tile qs-on ferr-tile';
+    b.id = 'ferrTile_' + f.id;
+    b.dataset.ferr = f.id;
+    b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"'
+      + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + f.ico + '</svg>';
+    const leitura = document.createElement('span');
+    leitura.className = 'ferr-leitura';
+    leitura.setAttribute('aria-hidden', 'true');
+    const titulo = document.createElement('span');
+    titulo.className = 'qs-titulo';
+    titulo.textContent = f.nome;
+    const ponto = document.createElement('span');
+    ponto.className = 'ferr-no-ar';
+    ponto.setAttribute('aria-hidden', 'true');
+    b.append(leitura, titulo, ponto);
+    b.addEventListener('click', () => abrirFerramenta(f.id, { animar: true }));
+    g.appendChild(b);
+  });
+  toolsBodyEl.appendChild(g);
+  pintarGradeDeFerramentas();
+}
+
+// PINTA O ESTADO de cada tile, sem refazer a grade — é o que o tique do relógio
+// chama. O estado mora no `data-estado` (a regra dos tiles: a classe é aparência, o
+// atributo é o valor), e o nome acessível o diz por extenso.
+function pintarGradeDeFerramentas() {
+  let contando = false;
+  FERRAMENTAS.forEach((f) => {
+    const b = document.getElementById('ferrTile_' + f.id);
+    if (!b) return;
+    const noAr = ferramentaNoAr(f);
+    const leitura = ferramentaLeitura(f);
+    if (leitura) contando = true;
+    b.classList.toggle('no-ar', noAr);
+    b.classList.toggle('contando', !!leitura);
+    b.dataset.estado = noAr ? 'no-ar' : (leitura ? 'contando' : 'ocioso');
+    const l = b.querySelector('.ferr-leitura');
+    if (l.textContent !== leitura) l.textContent = leitura;
+    const extra = [noAr ? 'no telão' : '', leitura ? 'contando ' + leitura : ''].filter(Boolean).join(', ');
+    b.setAttribute('aria-label', f.nome + (extra ? ' — ' + extra : ''));
+    b.title = f.nome + (noAr ? ' — no telão agora' : '');
+  });
+  // O TIQUE SÓ EXISTE COM O QUE CONTAR, e só com a grade à vista.
+  if (contando && !ferrGradeTimer) ferrGradeTimer = setInterval(pintarGradeDeFerramentas, CHRONO_TICK_MS);
+  else if (!contando) pararGradeTimer();
+}
+
+// O que muda o Tempo POR FORA do painel (o par ao lado da preview, a notificação)
+// passa por aqui: com a grade à vista, o tile acompanha.
+function acertarGradeDeFerramentas() {
+  if (ferrNaGrade && ferramentasAbertas()) pintarGradeDeFerramentas();
+}
+
+// O CABEÇALHO DIZ ONDE SE ESTÁ: "Ferramentas" na grade, o nome da ferramenta dentro
+// dela — e o voltar só existe dentro (a trilha dele é reservada pela grade do
+// cabeçalho, então o título não anda).
+function pintarCabecalhoDasFerramentas() {
+  if (toolsBackEl) toolsBackEl.hidden = ferrNaGrade;
+  if (!toolsTitleEl) return;
+  const f = FERRAMENTAS.find((x) => x.id === ferramentaAtual());
+  toolsTitleEl.textContent = ferrNaGrade || !f ? 'Ferramentas' : f.nome;
+}
+
 /**
  * **ELE APENSA, NÃO TROCA** — quem esvazia o `#toolsBody` é o CHAMADOR
- * (`abrirFerramentas`, `refreshDiversos` e o toque no seletor, os três com o
- * `innerHTML = ''` antes). A pilha que sai de chamá-lo duas vezes não erra alto:
- * o segundo painel ENTRA embaixo do primeiro, os dois dividem a altura da folha,
- * e o que se vê é um painel espremido — foi assim que uma medição de oráculo
- * leu 94px onde havia 238 e concluiu que o layout estava errado. Precisa de um
- * redesenho? Chame o `refreshDiversos`.
+ * (`abrirFerramentas`, `refreshDiversos`, `abrirFerramenta` e o voltar à grade, todos
+ * com o `innerHTML = ''` antes). A pilha que sai de chamá-lo duas vezes não erra alto:
+ * o segundo painel ENTRA embaixo do primeiro, os dois dividem a altura da folha, e o
+ * que se vê é um painel espremido — foi assim que uma medição de oráculo leu 94px onde
+ * havia 238 e concluiu que o layout estava errado. Precisa de um redesenho? Chame o
+ * `refreshDiversos`.
  */
 function renderDiversos() {
-  // Só a ferramenta ATIVA é montada, e é o render dela que religa o seu timer.
-  // As outras não existem no DOM — nenhum laço batendo em nó invisível.
+  // Só a vista ATIVA é montada, e é o render dela que religa o seu timer. As outras
+  // não existem no DOM — nenhum laço batendo em nó invisível.
   stopChronoPanelTimer();
   stopDrawPanelTimer();
   stopItinPanelTimer();
+  pararGradeTimer();
   fecharItinGavetaForaDoPainel();
-
-  const sw = document.createElement('div');
-  sw.className = 'misc-switch';
-  MISC_TOOLS.forEach((t) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'misc-tab' + (miscTool === t.id ? ' active' : '');
-    const label = document.createElement('span');
-    label.textContent = t.name;
-    b.appendChild(label);
-    // Ponto vermelho = esta ferramenta está PROJETANDO. Fora dela, nada na aba
-    // diria isso: trocar de ferramenta não tira do telão a que estava no ar, e
-    // sem o ponto o operador teria que voltar em cada uma para descobrir qual é.
-    if (t.live()) {
-      const dot = document.createElement('span');
-      dot.className = 'misc-tab-live';
-      b.appendChild(dot);
-    }
-    b.addEventListener('click', () => {
-      if (miscTool === t.id) return;
-      miscTool = t.id;
-      toolsBodyEl.innerHTML = '';
-      renderDiversos();
-    });
-    sw.appendChild(b);
-  });
-  toolsBodyEl.appendChild(sw);
-
+  pintarCabecalhoDasFerramentas();
+  if (ferrNaGrade) {
+    renderGradeDeFerramentas();
+    renderFoot();   // a grade não tem rodapé — ver o primeiro ramo de `renderFoot`
+    return;
+  }
   const tool = MISC_TOOLS.find((t) => t.id === miscTool) || MISC_TOOLS[0];
   const panel = document.createElement('div');
   panel.className = 'misc-panel rola misc-panel--' + tool.id;
@@ -10617,12 +10717,121 @@ function renderDiversos() {
   renderFoot();
 }
 
-// Redesenha só a aba Ferramentas (usado quando o estado de uma ferramenta muda
-// por fora do painel — ex.: uma mensagem projetada por outro caminho).
+// Redesenha a folha na vista em que ela está (usado quando o estado de uma ferramenta
+// muda por fora do painel — ex.: uma mensagem projetada por outro caminho; na grade,
+// é o que acende e apaga o ponto de "no ar").
 function refreshDiversos() {
   if (!ferramentasAbertas()) return;
   toolsBodyEl.innerHTML = '';
   renderDiversos();
+}
+
+/**
+ * ABRE UMA FERRAMENTA — o toque no tile (e a porta dos oráculos). Com a folha fechada
+ * ela abre DIRETO na ferramenta, sem passar pela grade.
+ *
+ * O TOQUE NUM TILE DO TEMPO ESCREVE O MODO, e trocar de modo ZERA a contagem — a regra
+ * de sempre do segmentado que ele substitui (`chronoTrocarModo`): levar o decorrido do
+ * cronômetro para dentro de um timer daria um valor que ninguém pediu. Voltar ao MESMO
+ * modo não zera nada, e entrar no Itinerário não mexe na contagem.
+ */
+function abrirFerramenta(id, opcoes) {
+  const f = FERRAMENTAS.find((x) => x.id === id);
+  if (!f || !toolsSheetEl) return;
+  const desenhar = () => {
+    miscTool = f.tool;
+    if (f.tool === 'chrono') {
+      tempoVista = f.vista || 'chrono';
+      if (f.modo && chrono.mode !== f.modo) chronoTrocarModo(f.modo);
+    }
+    ferrNaGrade = false;
+    toolsBodyEl.innerHTML = '';
+    renderDiversos();
+  };
+  if (!ferramentasAbertas()) { abrirFerramentas(); desenhar(); return; }
+  trocarVistaDasFerramentas(desenhar, 'entra', opcoes);
+}
+
+// DE VOLTA À GRADE — o `#toolsBack` e o degrau 2.5 do voltar do Android.
+function voltarAGradeDeFerramentas(opcoes) {
+  if (!ferramentasAbertas() || ferrNaGrade) return;
+  fecharItinGaveta();
+  trocarVistaDasFerramentas(() => {
+    ferrNaGrade = true;
+    toolsBodyEl.innerHTML = '';
+    renderDiversos();
+  }, 'volta', opcoes);
+}
+
+/**
+ * A TROCA GRADE ↔ FERRAMENTA ANIMA, e só pelo TOQUE (a regra da seta da prévia: a
+ * abertura e os oráculos que chamam direto assentam no ato). É a troca das seções de
+ * Configurações por outro eixo: lá a caixa cresce, aqui a folha tem altura FIXA (ela é
+ * a lista), então o que se move é o CONTEÚDO — o que sai fica numa camada ABSOLUTA por
+ * cima, no lugar exato em que estava (`.ferr-saindo`, sem toque e sem ids), e sobe
+ * esmaecendo; o que entra sobe de baixo aparecendo. Na volta, o inverso. A ferramenta
+ * nova já está montada no estado final desde o primeiro quadro — as roletas se medem
+ * pela altura de verdade, nunca por uma intermediária. Sem movimento
+ * (`prefers-reduced-motion`): sem camada, mesmo estado final.
+ */
+let ferrTrocaAnim = null;
+function trocarVistaDasFerramentas(desenhar, sentido, opcoes) {
+  if (ferrTrocaAnim) ferrTrocaAnim.fim();
+  const anima = !!(opcoes && opcoes.animar) && ferramentasAbertas() && !semMovimento()
+    && typeof toolsBodyEl.animate === 'function';
+  if (!anima) { desenhar(); return; }
+  const folha = toolsSheetEl.getBoundingClientRect();
+  const corpoR = toolsBodyEl.getBoundingClientRect();
+  const temPe = toolsFootEl.childElementCount > 0;
+  const fundo = temPe ? toolsFootEl.getBoundingClientRect().bottom : corpoR.bottom;
+  const camada = document.createElement('div');
+  camada.className = 'ferr-saindo';
+  camada.setAttribute('aria-hidden', 'true');
+  camada.inert = true;
+  camada.style.top = (corpoR.top - folha.top) + 'px';
+  camada.style.left = (corpoR.left - folha.left) + 'px';
+  camada.style.width = corpoR.width + 'px';
+  camada.style.height = Math.max(0, fundo - corpoR.top) + 'px';
+  const corpo = document.createElement('div');
+  corpo.className = 'ferr-saindo-corpo';
+  corpo.style.height = corpoR.height + 'px';
+  while (toolsBodyEl.firstChild) corpo.appendChild(toolsBodyEl.firstChild);
+  camada.appendChild(corpo);
+  if (temPe) {
+    const pe = document.createElement('div');
+    pe.className = 'tools-foot';
+    while (toolsFootEl.firstChild) pe.appendChild(toolsFootEl.firstChild);
+    camada.appendChild(pe);
+  }
+  // SEM IDS: quem procura `#chronoRoletas` ou `#drawRead` durante a troca tem de achar
+  // o painel NOVO, nunca o que está saindo.
+  camada.querySelectorAll('[id]').forEach((n) => n.removeAttribute('id'));
+  toolsSheetEl.appendChild(camada);
+  desenhar();
+  const D = msDaDurLenta();
+  const d = sentido === 'volta' ? -1 : 1;
+  const passo = 18;
+  const anims = [
+    toolsBodyEl.animate([{ opacity: 0, transform: 'translateY(' + (d * passo) + 'px)' }, { opacity: 1, transform: 'none' }],
+      { duration: D, easing: 'ease' }),
+    camada.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(' + (-d * passo) + 'px)' }],
+      { duration: D * 0.6, easing: 'ease', fill: 'forwards' }),
+  ];
+  if (toolsFootEl.childElementCount) {
+    anims.push(toolsFootEl.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D, easing: 'ease' }));
+  }
+  let feito = false;
+  const fim = () => {
+    if (feito) return;
+    feito = true;
+    ferrTrocaAnim = null;
+    anims.forEach((a) => { try { a.cancel(); } catch (_) {} });
+    camada.remove();
+  };
+  ferrTrocaAnim = { fim };
+  // Pela PROMESSA, como em `mudarSecao`: quem espera a troca acabar acorda na mesma
+  // fila de microtarefas.
+  anims[0].finished.then(fim, () => {});
 }
 
 // ===== A FOLHA DE FERRAMENTAS (v1.3.10) =====
@@ -10647,7 +10856,10 @@ const TOOLS_ANIM_MS = 220;
 let toolsSaindoTimer = null;
 
 function abrirFerramentas() {
-  if (!toolsSheetEl || ferramentasAbertas()) return;
+  // A FOLHA AINDA DESCENDO CONTA COMO FECHADA (v1.13.3): ela só ganha o `hidden` no
+  // fim da saída, e até a v1.13.2 uma reabertura nesses 220 ms voltava daqui sem
+  // fazer nada — o toque engolido, e a folha sumindo logo depois.
+  if (!toolsSheetEl || (ferramentasAbertas() && !toolsSheetEl.classList.contains('saindo'))) return;
   // Uma saída em curso é CANCELADA: reabrir no meio dela deixaria a folha
   // entrando com a classe da descida ainda pendurada, e o `setTimeout` daquela
   // saída a esconderia logo depois — aberta e sumindo sozinha.
@@ -10655,18 +10867,22 @@ function abrirFerramentas() {
   toolsSaindoTimer = null;
   toolsSheetEl.classList.remove('saindo');
   toolsSheetEl.hidden = false;
+  // TODA ABERTURA COMEÇA NA GRADE (v1.13.3) — ver `ferrNaGrade`.
+  ferrNaGrade = true;
   toolsBodyEl.innerHTML = '';
   renderDiversos();
 }
 
 function fecharFerramentas() {
   if (!ferramentasAbertas()) return;
+  if (ferrTrocaAnim) ferrTrocaAnim.fim();
   // Os laços dos painéis morrem com a folha — o cronômetro NÃO: ele segue
   // correndo no estado, e a projeção tem laço próprio. Sem isto sobraria um
   // timer de 5 Hz reescrevendo nós que o `innerHTML = ''` já descartou.
   stopChronoPanelTimer();
   stopDrawPanelTimer();
   stopItinPanelTimer();
+  pararGradeTimer();
   fecharItinGaveta();
   // A FOLHA DESCE POR ONDE SUBIU (v1.3.13, a pedido do operador). Ela aparecia
   // deslizando e sumia no talo — duas coisas diferentes para o olho, e a
@@ -28939,6 +29155,12 @@ function renderSorteio() {
   inp.placeholder = 'Palavra tema';
   inp.value = sorteioPrefs.tema;
   inp.setAttribute('aria-label', 'Palavra tema');
+  // O TECLADO SOBREPÕE (v1.13.3) — a causa da v1.13.2 no `#itinPopup`, nesta folha:
+  // sem a declaração o `keyboardShift` escrevia o teclado em `--kb`, que encolhe o
+  // `<body>`, e a barra de busca da Biblioteca (que repousa na caixa de controles)
+  // subia com ele e descia quando o campo perdia o foco. Quem desconta o teclado é a
+  // própria folha, por `--kb-folha` (ver `#sorteioPopup` no CSS).
+  inp.dataset.teclado = 'sobrepoe';
   // A PALAVRA É ASSINADA NA HORA; SÓ A CONTA ESPERA.
   //
   // O `debounce` cobria a atribuição TAMBÉM, e isso era um defeito latente:
@@ -42280,6 +42502,8 @@ function renderEdicaoForm() {
   const campo = document.createElement('div'); campo.className = 'sorteio-campo edicao-nome';
   const inp = document.createElement('input');
   inp.type = 'text'; inp.className = 'lib-search'; inp.maxLength = 120; inp.autocomplete = 'off';
+  // O TECLADO SOBREPÕE (v1.13.3) — ver o `#edicaoBusca` e o `#fadePopup` no CSS.
+  inp.dataset.teclado = 'sobrepoe';
   inp.value = v.nome; inp.setAttribute('aria-label', edicaoEditandoId ? 'Nome do item' : 'Nome do item novo');
   inp.addEventListener('input', () => { edicaoVals.nome = inp.value; edicaoSalvarLogo(); });
   campo.appendChild(inp);
@@ -46203,6 +46427,7 @@ const POPUPS = [
 // ela compartilha com a tabela é o ✕ e o degrau do voltar, e os dois estão
 // escritos aqui e no `__avBack`.
 if (toolsCloseEl) toolsCloseEl.addEventListener('click', fecharFerramentas);
+if (toolsBackEl) toolsBackEl.addEventListener('click', () => voltarAGradeDeFerramentas({ animar: true }));
 
 POPUPS.forEach(([backdrop, closeBtn, close]) => {
   if (closeBtn) closeBtn.addEventListener('click', close);
@@ -46267,7 +46492,14 @@ window.__avBack = function () {
   // 2.5. A folha de Ferramentas. Depois dos bottom-sheets porque um deles pode
   //    abrir DE DENTRO dela (a folha da música, pelo sorteio), e antes da tela
   //    cheia porque ela é mais efêmera: é uma camada da lista, não a projeção.
-  if (ferramentasAbertas()) { fecharFerramentas(); return true; }
+  //    E ELA TEM UM DEGRAU DENTRO (v1.13.3): com uma ferramenta aberta, o voltar
+  //    devolve a GRADE antes de fechar a folha — o `#toolsBack` do cabeçalho, como a
+  //    Bíblia sobe por dentro dela logo abaixo.
+  if (ferramentasAbertas()) {
+    if (!ferrNaGrade) voltarAGradeDeFerramentas({ animar: true });
+    else fecharFerramentas();
+    return true;
+  }
   // 2.6. A folha da BÍBLIA, irmã da de Ferramentas — e com um degrau a mais: ela
   //    tem navegação DENTRO (livros → capítulos → leitura), e o voltar sobe por
   //    ela antes de fechar a folha. É a hierarquia que o `#backBtn` do cabeçalho

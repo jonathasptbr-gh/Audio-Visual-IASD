@@ -317,11 +317,15 @@ try {
   }
   await esperarCortina(pg);
 
-  await pg.evaluate(() => { setAppMode('full'); document.getElementById('toolsBtn').click(); });
+  // A FOLHA ABRE NA GRADE (v1.13.3): o tile das Mensagens abre a ferramenta.
+  await pg.evaluate(() => {
+    setAppMode('full'); document.getElementById('toolsBtn').click();
+    document.getElementById('ferrTile_msg').click();
+  });
   {
     const r = await esperar(pg, () => !!document.querySelector('.misc-panel .msg-list'),
       null, 10000);
-    checar(r === true, 'B · a folha de Ferramentas abriu na aba Mensagens', porque(r));
+    checar(r === true, 'B · a folha de Ferramentas abriu nas Mensagens, pelo tile da grade', porque(r));
   }
 
   const abrir = (estilo, texto = MSG) => pg.evaluate(async (a) => {

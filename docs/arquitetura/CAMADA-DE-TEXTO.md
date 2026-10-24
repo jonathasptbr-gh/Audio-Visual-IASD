@@ -635,34 +635,23 @@ baixada): o índice sai de UMA leitura do IDB, sem requisição, e funciona offl
 - **Acento não atrapalha**: índice e consulta passam pelo mesmo
   `normalizeForSearch` (NFD + remoção de diacríticos).
 
-A v5.31 tentou um **acordeão** e ele foi trocado na v5.32: cobrava três
-cabeçalhos permanentes de altura para entregar o mesmo resultado, e ainda
-deslocava o painel para baixo conforme a posição da ferramenta na pilha — o
-Sorteio começava três linhas mais abaixo que as Mensagens. Hoje é um **seletor
-no topo** (`.misc-switch`), uma linha só:
+A v5.31 tentou um **acordeão** e a v5.32 o trocou por um **seletor no topo**
+(três abas, com um segmentado de quatro dentro do Tempo). **Desde a v1.13.3 a
+folha abre numa GRADE** de seis tiles — Relógio · Cronômetro · Timer /
+Itinerário · Mensagens · Sorteio — e o toque abre a ferramenta; o detalhe (o
+tile, o ponto de "no ar", o número de quem conta, o voltar e a animação) está em
+[`CONTROLE.md`](CONTROLE.md), "A GRADE DAS FERRAMENTAS". O que vale aqui:
 
-- **Uma ferramenta ativa por vez** (`miscTool`), e **só ela é montada** no DOM —
-  é o render dela que religa o seu timer de painel. As outras não existem, então
-  não há laço batendo em nó invisível.
-- **O painel ativo começa sempre no mesmo lugar**, o que importa para a memória
-  muscular de quem opera sem olhar.
-- **O trilho do seletor é PREENCHIDO no segmento ativo**, ao contrário dos
-  segmentados de dentro das ferramentas (Relógio/Cronômetro/Timer,
-  Número/Texto), que são contornados. São dois níveis de escolha empilhados na
-  mesma tela; parecidos demais, leriam como um só.
-- **Ponto vermelho no segmento = aquela ferramenta está projetando.** Trocar de
-  ferramenta **não** tira do telão a que estava no ar, e sem o ponto descobrir
-  qual é exigiria visitar cada uma. O ponto (`.misc-tab-live`, 7px) é
-  `--danger-text`, **não** `--live`: ele é um gráfico que carrega informação
-  (piso de 3:1), e o vermelho cheio da paleta — escuro por construção, ver R2 —
-  não chegava lá em fundo nenhum. Com o tom claro ele passa nos dois fundos que
-  encontra (**7,08:1** sobre o trilho e **3,29:1** sobre o `--accent-fill` do
-  segmento ativo), e o anel claro que existia só no segmento ativo saiu: sobre
-  um ponto claro ele não separava nada.
-- **`#library` não rola nesta aba** (`.lib-misc`): quem administra a altura é o
-  seletor + painel, e o painel ativo rola por dentro se precisar. Com a rolagem
-  da lista ligada, a página inteira voltaria a rolar e o rodapé sairia da base.
-- Verificado nas três ferramentas: **zero rolagem**, horizontal ou vertical.
+- **Uma ferramenta montada por vez** (`miscTool` + `tempoVista` + `chrono.mode`),
+  e **só ela existe no DOM** — é o render dela que religa o seu timer de painel.
+  Na grade nenhuma está montada; o tique da grade só existe com algo contando.
+- **O painel começa sempre no mesmo lugar** e ocupa a folha inteira, o que
+  importa para a memória muscular de quem opera sem olhar.
+- **O ponto de "no ar" mudou de casa, não de linguagem**: era o `.misc-tab-live`
+  da aba projetando, hoje é o `.ferr-no-ar` do tile — o mesmo `--live-strong` de
+  7px. Sair de uma ferramenta não tira do telão o que ela pôs lá.
+- **`#library` não rola com a folha aberta** (`.lib-misc`): quem administra a
+  altura é o painel, que rola por dentro se precisar.
 
 **O RODAPÉ É FIXO E É IRMÃO DO CORPO** (`#toolsFoot`, v1.8.89): uma barra que
 more dentro do scroller rola com os itens dele, que é o que o pedido do operador
@@ -928,8 +917,19 @@ exibindo exatamente o mesmo valor do Controle.
 
 ### Ferramentas: sorteio
 
-Quarto provedor da Camada de Texto, na mesma aba. Sorteia **número** (faixa
-de/até) ou **texto** (lista de opções — nomes, prêmios, perguntas).
+Quarto provedor da Camada de Texto, na mesma folha. Sorteia **texto** (lista de
+opções — nomes, prêmios, perguntas) ou, com o chip **"Números"** ligado,
+**número** (faixa de/até).
+
+**UM SORTEIO SÓ** (v1.13.3, pedido do operador: *"temos apenas um sorteio, o de
+texto, mas teremos um toggle que preenche esse sorteio com números"*). O
+segmentado Número · Texto saiu: o painel é sempre o de duas colunas, e o chip
+"Números" (`#drawNumerosBtn`, `aria-pressed`, ao lado do "Não repetir") troca a
+FONTE na coluna da direita — a lista, ou a faixa De/Até empilhada. **O valor é o
+de sempre** (`draw.kind`, `drawSetKind`), e é isso que torna a troca de
+interface compatível: o descritor do telão, as cenas guardadas (Cronograma,
+Favoritos, `.avpkg`) e o `drawPrefs` não mudaram. **Ligar não apaga a lista**
+(`draw.pool` fica e volta ao desligar); **o histórico sai** (ver abaixo).
 
 **Quem sorteia é só o Controle.** Se cada tela rodasse o próprio `Math.random`,
 o telão e a preview anunciariam **ganhadores diferentes** — o pior defeito
@@ -970,9 +970,9 @@ lado faz sozinho é só a animação até ele.
   sorteio não depende do relógio — e perder "quem já foi sorteado" porque o app
   fechou no meio faria a rodada seguinte repetir alguém, que é exatamente o
   erro que "não repetir" existe para impedir.
-- **Trocar número↔texto zera o histórico**: "12" e "Maria" não pertencem ao
-  mesmo conjunto, e manter os dois faria o filtro excluir valores que nem podem
-  sair.
+- **Trocar número↔texto zera o histórico** (o toggle, `drawSetKind`): "12" e
+  "Maria" não pertencem ao mesmo conjunto, e manter os dois faria o filtro
+  excluir valores que nem podem sair. A LISTA não é tocada.
 - **Verificado uniforme**, que é a promessa central: 6.000 sorteios em 1–6 dão
   X² = 9,59 (corte de 1% = 15,09) e 5.000 em cinco nomes dão X² = 5,09 (corte
   13,28).
@@ -1037,8 +1037,9 @@ sorteados."*
   que decide é 360×1,5× (49px de transbordo); a 360×1× a asserção passa com e
   sem a linha. É o mesmo vazamento de flexbox que o `.draw-range-field` já
   documentava nesta aba, pela outra ponta.
-- **SÓ NO MODO TEXTO:** no Número a fonte das opções são dois campos curtos, e
-  duas colunas ali dariam uma coluna vazia.
+- **NOS DOIS, desde a v1.13.3:** com "Números" a coluna da direita leva a faixa
+  De/Até EMPILHADA (na coluna de ~160px dois campos lado a lado com o rótulo não
+  cabem), e os campos SOBREPÕEM o teclado (`data-teclado`) como os outros da folha.
 
 **A LEGENDA SE IDENTIFICA POR DENTRO** (v1.9.1), nos DOIS provedores: *"a
 identificação e explicação ficara dentro da caixa, não precisa do título legenda
@@ -1061,8 +1062,8 @@ Tempo e o Sorteio chamam. Duas cópias divergiriam no primeiro ajuste, e aqui
 
 ### Ferramentas: itinerário (v1.13.0; lista, folha, destinos, par e desenho da v1.13.1; os múltiplos, o ↑↓ e o bloco centrado da v1.13.2)
 
-Mais um provedor da Camada de Texto, na folha de Ferramentas: o **quarto segmento do Tempo**
-(Relógio · Cronômetro · Timer · Itinerário): a programação do evento — horário +
+Mais um provedor da Camada de Texto, na folha de Ferramentas: um **tile da grade** (era o
+quarto segmento do Tempo até a v1.13.3): a programação do evento — horário +
 título —, com o item de AGORA em destaque e os seguintes abaixo, para a igreja e a
 equipe saberem em que momento estão e o que vem a seguir.
 
@@ -1186,9 +1187,10 @@ equipe saberem em que momento estão e o que vem a seguir.
   `projectItin` de sempre. Ela é um registro
   `cue` comum: o coletor a guarda pela lista, o `.avpkg` a leva inteira, e o
   Histórico não a registra (nenhuma cena de roteiro passa pelo `historicoRegistrar`).
-- **O segmento não é um `chrono.mode`** (`tempoVista`, guardado em
-  `chronoPrefs.vista`): entrar no Itinerário não para a contagem que ficou
-  correndo nas outras três, e voltar delas não zera nada.
+- **O Itinerário não é um `chrono.mode`** (`tempoVista`, escrito pelo TILE desde a
+  v1.13.3 — `chronoPrefs.vista` deixou de ser lida, a folha abre na grade):
+  entrar no Itinerário não para a contagem que ficou correndo nas outras três, e
+  voltar delas não zera nada.
 - **OS ITINERÁRIOS MÚLTIPLOS (v1.13.2)**, no idioma dos cronogramas múltiplos: o
   título do painel (`#itinTitulo`, o `.crono-titulo`) é o NOME do ativo e abre a
   gaveta (`#itinGaveta`, a `.crono-gaveta` e as `.crono-item` verbatim):
@@ -1199,7 +1201,7 @@ equipe saberem em que momento estão e o que vem a seguir.
   NA FOLHA de Ferramentas, não no painel** (que é redesenhado a cada mudança): o
   `top` é medido do título ao abrir, o VÉU é `absolute` na folha, e fora da folha
   a captura do `pointerdown` fecha e deixa o toque seguir. O voltar a fecha antes
-  da folha (degrau 1.8). Trocar de ferramenta ou de segmento a fecha.
+  da folha (degrau 1.8). Trocar de ferramenta (ou voltar à grade) a fecha.
   **A PROJEÇÃO SEGUE O ATIVO**: trocar (ou excluir o ativo) com ele no ar manda o
   novo pelo `pushItin` — vazio, sai do telão; um telão preso ao de antes deixaria
   painel e projeção falando de programações diferentes. **O AJUSTE É GLOBAL** (o

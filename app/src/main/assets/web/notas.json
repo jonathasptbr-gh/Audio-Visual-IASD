@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.13.3",
+    "itens": [
+      "Ferramentas: agora abre numa grade com todas elas. Um toque já leva ao relógio, cronômetro, timer e às outras.",
+      "Na grade, um ponto vermelho mostra o que está no telão, e o timer ou cronômetro contando mostra o tempo.",
+      "Dentro de uma ferramenta, a seta no topo ou o voltar do celular levam de volta à grade.",
+      "Sorteio: agora é um só. Ligue \"Números\" para sortear de um número a outro; desligue e sua lista volta.",
+      "Corrigido: ao digitar na playlist automática ou no Editar mídia, a barra de busca da Biblioteca não se mexe mais."
+    ]
+  },
+  {
     "versao": "1.13.2",
     "itens": [
       "Itinerário: agora dá para ter vários, com nome. Toque no nome no topo para trocar, criar, renomear ou excluir.",

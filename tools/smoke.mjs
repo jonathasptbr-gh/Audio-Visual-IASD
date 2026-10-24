@@ -781,6 +781,23 @@ try {
       try { fecharBiblia(); fecharFerramentas(); } catch (e) { /* idem */ }
       await new Promise((r) => setTimeout(r, 260));
     }
+    // AS FERRAMENTAS ABREM NUMA GRADE (v1.13.3): o que a varredura de cima viu é só
+    // a grade, e os controles de cada ferramenta só existem com ela aberta — cada
+    // uma é aberta e varrida, e o Sorteio também com os "Números" ligados.
+    for (const id of ['clock', 'stopwatch', 'timer', 'itinerario', 'msg', 'draw']) {
+      try { abrirFerramenta(id); } catch (e) { /* idem */ }
+      await new Promise((r) => setTimeout(r, 60));
+      varrer();
+    }
+    try {
+      const k = draw.kind;
+      drawSetKind(k === 'number' ? 'text' : 'number');
+      await new Promise((r) => setTimeout(r, 60));
+      varrer();
+      drawSetKind(k);
+      fecharFerramentas();
+    } catch (e) { /* idem */ }
+    await new Promise((r) => setTimeout(r, 260));
     openHymnSearch(false); await new Promise((r) => setTimeout(r, 400)); varrer();
     closeHymnSearch(); await new Promise((r) => setTimeout(r, 100));
     openFadePopup(); await new Promise((r) => setTimeout(r, 150)); varrer();
