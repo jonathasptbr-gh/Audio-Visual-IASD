@@ -788,7 +788,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      inteiro: ver "O BLOCO RESPONDE POR LUZ".) */
   .bible-cell, .bible-ref-part, .bible-vsec, .bible-ver-row,
   .song-menu-btn, .msg-add-btn,
-  .misc-tab, .misc-seg, .misc-chip, .chrono-btn, .misc-project,
+  .misc-chip, .chrono-btn, .misc-project,
   /* (`.lib-item` saiu na v1.7.4, pela regra do bloco — ver "O BLOCO RESPONDE
      POR LUZ". Ela é a linha de lista deste app, isto é, o outro CONTÊINER que
      hospeda controles: o `⋮`, o "Tirar do ar" na capa, a gaveta inteira.) */
@@ -868,7 +868,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    COR. A entrada é por CLASSE e não pelo id: dentro de um `:is()` a
    especificidade é a do argumento MAIS específico, então um `#sorteioBtn` aqui
    levaria a lista inteira a (1,0,1) e moveria a cascata dos outros cinco. */
-:is(.lib-toggle, .lib-quad, .t-btn, .ctl-btn, .misc-tab, .settings-btn, .chrono-btn) svg {
+:is(.lib-toggle, .lib-quad, .t-btn, .ctl-btn, .settings-btn, .chrono-btn) svg {
   display: block; width: var(--icon-md); height: var(--icon-md);
 }
 /* Barra larga de ação (projetar): o ícone acompanha o alvo. */
@@ -6891,51 +6891,64 @@ body.mode-simple .serie-destaque {
    `.chrono-*`, com uma ferramenta só; ao ganhar a segunda, um nome que anuncia
    apenas uma delas passava a mentir sobre quem o usa. O que é de fato exclusivo
    segue nomeado por dono: `.chrono-btn` e `.draw-*`.
-   Três ferramentas não cabem juntas numa tela de celular. Um SELETOR no topo
-   troca entre elas em UMA linha: o painel ativo começa sempre no mesmo lugar
-   (memória muscular de quem opera sem olhar) e a tela não rola. A v5.31 tentou
-   um acordeão e ele cobrava três cabeçalhos permanentes de altura para entregar
-   a mesma coisa — além de deslocar o painel conforme a posição da ferramenta
-   na pilha. */
+   As ferramentas não cabem juntas numa tela de celular: a folha abre numa GRADE
+   de tiles (`.ferr-grade`, v1.13.3) e monta SÓ a ferramenta tocada, que ocupa a
+   folha inteira — o painel começa sempre no mesmo lugar (memória muscular de quem
+   opera sem olhar). */
 /* E O CORPO DA FOLHA ROLA EM VEZ DE CORTAR. O `overflow: hidden` daqui era o
    par do `min-height: 0` acima: com o painel podendo encolher até zero, nada
    nunca transbordava. Com o piso, transborda — e a resposta a "não cabe" é
    rolar, nunca esconder. */
 .lib-misc { overflow-y: auto; touch-action: pan-y; gap: 0; padding-bottom: 0; }
-/* Trilho do seletor: fundo próprio e segmento ativo PREENCHIDO, para não se
-   confundir com os segmentados de DENTRO das ferramentas (Relógio/Cronômetro/
-   Timer, Número/Texto), que usam contorno. São dois níveis de escolha, e
-   parecidos demais eles leriam como um só. */
-.misc-switch {
-  flex-shrink: 0; display: flex; gap: var(--sp-2);
-  background: var(--surface); border-radius: var(--radius-btn);
-  padding: .25rem; margin-bottom: .55rem;
+/* ===== A GRADE DAS FERRAMENTAS (v1.13.3) =====
+   Pedido do operador: *"ao invés de usar tabs e sub tabs, use uma grade inicial com
+   todas as ferramentas prontas no primeiro toque"*. Seis tiles em três colunas, uma
+   fileira por assunto (o tempo em cima, o texto do culto embaixo), e a folha abre
+   SEMPRE nela — ver `renderGradeDeFerramentas`.
+
+   O TILE É O DE CONFIGURAÇÕES (`.qs-tile.qs-on`), verbatim: ícone em cima, título
+   curto embaixo, `--btn-accent` + `--accent` em todos, sobre a mesma `--panel` de
+   folha. A grade é OUTRA classe porque os oráculos alcançam a de Configurações por
+   `.qs-grade`. O que este tile tem a mais são as duas leituras vivas, e as duas no
+   canal que aquela grade reserva para o estado — o DESENHO: */
+.ferr-grade {
+  flex-shrink: 0;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3);
 }
-.misc-tab {
-  /* PISO — MEDIDO antes: 32,6px, a 1,4px do alvo. Perto não conta: o número
-     saía do recuo em `rem`, e um recuo que acerta o piso numa fonte só é um
-     piso que não existe. */
-  flex: 1; min-width: 0; min-height: var(--hit); padding: .55rem .3rem;
-  display: flex; align-items: center; justify-content: center; gap: var(--sp-3);
-  border: 0; border-radius: var(--radius-btn); background: none; color: var(--muted);
-  font-size: var(--fs-md); font-weight: var(--fw-max); cursor: pointer;
-  appearance: none; -webkit-appearance: none;
+.ferr-tile { position: relative; min-width: 0; }
+/* CONTANDO, O NÚMERO ENTRA NO LUGAR DO ÍCONE — na caixa dele (`--icon-md` de altura),
+   então a grade não pula quando o Timer parte ou para. `tabular-nums` pelo motivo do
+   telão: sem ele o número treme a cada segundo. */
+.ferr-leitura { display: none; }
+.ferr-tile.contando svg { display: none; }
+.ferr-tile.contando .ferr-leitura {
+  display: block; height: var(--icon-md); line-height: var(--icon-md);
+  max-width: 100%; overflow: hidden;
+  font-size: var(--fs-lg); font-weight: var(--fw-max); white-space: nowrap;
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
 }
-.misc-tab.active { background: var(--btn-accent); color: var(--accent); }
-/* Ponto = está PROJETANDO. Trocar de ferramenta não tira do telão a que estava
-   no ar; sem o ponto, descobrir qual é exigiria visitar cada uma.
-   Em `--live-strong`, não em `--live`: o ponto é um GRÁFICO que carrega
-   informação (piso de 3:1) e tem 7px — o vermelho cheio da paleta, que é
-   escuro, dava 2,50:1 contra a superfície do trilho e 2,54:1 contra o segmento
-   ativo. Era por isso que existia um anel claro só no segmento ativo; com o
-   tom claro o ponto passa nos dois fundos e o anel — que sobre um ponto claro
-   não separa nada — saiu. (Era o `--live-text` salmão até a v5.76; num ponto
-   de 7px a diferença entre salmão e vermelho é justamente o que decide se ele
-   é lido como alarme.) */
-.misc-tab-live {
-  flex-shrink: 0; width: 7px; height: 7px; border-radius: 50%;
+/* NO AR, O PONTO NO CANTO — o mesmo `--live-strong` de 7px que a aba projetando
+   levava no seletor de antes, e pelo mesmo motivo: sair da ferramenta não tira do
+   telão o que ela pôs lá, e sem o ponto descobrir o que está no ar exigiria abrir
+   cada uma. Ele é um GRÁFICO que carrega informação (piso de 3:1): sobre o
+   `--btn-accent` MEDIDO 4,27:1 no escuro e 5,65:1 no claro. */
+.ferr-no-ar {
+  display: none; position: absolute; top: .5rem; right: .5rem;
+  width: 7px; height: 7px; border-radius: 50%;
   background: var(--live-strong);
 }
+.ferr-tile.no-ar .ferr-no-ar { display: block; }
+/* O QUE SAI NA TROCA GRADE ↔ FERRAMENTA (`trocarVistaDasFerramentas`): uma camada
+   ABSOLUTA no lugar exato do corpo e do rodapé de antes, sem toque, que esmaece por
+   cima do que entra. Ela só existe durante a animação. */
+.ferr-saindo {
+  position: absolute; z-index: 3; pointer-events: none; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.ferr-saindo-corpo { flex: none; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+/* (O SELETOR DE FERRAMENTAS — `.misc-switch`/`.misc-tab`, a faixa de três abas com o
+   ponto de "no ar" — saiu na v1.13.3: a folha abre numa GRADE, ver `.ferr-grade`. O
+   ponto mudou de casa com ele, para o canto do tile.) */
 /* O painel da ferramenta ativa ocupa toda a altura restante.
    `touch-action: pan-y` PRECISA estar aqui, e não bastava na `.lib-list`: o
    valor de um ANCESTRAL não governa um toque que começa dentro de um scroller
@@ -7002,17 +7015,9 @@ body.mode-simple .serie-destaque {
   position: relative;
   display: flex; flex-direction: column; gap: var(--sp-3);
 }
-/* Segmentado de ferramenta — fora da regra "ícone = ação" por natureza (não
-   alterna duas ações opostas; o segmento marcado é que diz o modo). */
-.misc-modes { display: flex; gap: var(--sp-3); }
-.misc-seg {
-  flex: 1; padding: .5rem .3rem;
-  border-radius: var(--radius-btn);
-  background: var(--surface); color: var(--muted);
-  font-size: var(--fs-md); font-weight: var(--fw-forte); cursor: pointer;
-  appearance: none; -webkit-appearance: none;
-}
-.misc-seg.active { background: var(--btn-accent); color: var(--accent); }
+/* (O SEGMENTADO DE DENTRO das ferramentas — `.misc-modes`/`.misc-seg`: Relógio ·
+   Cronômetro · Timer · Itinerário, e Número · Texto — saiu na v1.13.3. Os quatro do
+   Tempo são tiles da grade; o do Sorteio virou o chip "Números".) */
 /* ---------- UMA LINHA SÓ PARA O TEMPO (v1.8.89) ----------
    O mostrador e o transporte na MESMA faixa — quatro linhas viraram uma, e é o
    que tirou a rolagem da folha. Ver `renderChrono`.
@@ -7263,22 +7268,11 @@ body.mode-simple .serie-destaque {
    faria a faixa inteira mudar de altura a cada troca de ferramenta. */
 .misc-project:disabled { opacity: .4; background: var(--surface); color: var(--muted); cursor: default; }
 
-/* ---------- O ITINERÁRIO (v1.13.0), o quarto segmento do Tempo ----------
+/* ---------- O ITINERÁRIO (v1.13.0), um tile da grade desde a v1.13.3 ----------
    Três faixas: o AJUSTE em cima, a LISTA no meio (é ela que rola) e a linha de
    ADICIONAR embaixo. O painel NÃO rola — o scroller é a lista, pelo motivo das
-   Mensagens: um scroller dentro de outro é o gesto que não se sabe para quem vai.
-
-   OS QUATRO SEGMENTOS CABEM A 360px porque o rótulo encolhe pela largura do
-   trilho (`cqw`), a régua do primário do rodapé: "Cronômetro" e "Itinerário"
-   são as duas palavras mais longas da linha. */
+   Mensagens: um scroller dentro de outro é o gesto que não se sabe para quem vai. */
 .misc-panel--itin { min-height: 0; overflow: hidden; gap: var(--sp-4); }
-.misc-panel--chrono .misc-modes { container-type: inline-size; }
-.misc-panel--chrono .misc-seg {
-  min-width: 0; padding-inline: .15rem;
-  /* MEDIDO: "Cronômetro" é ~5,3 corpos de largura; com 3,6cqw ele cabe nas
-     quatro caixas de 360px até a fonte do sistema em 1,5× (63px de 66). */
-  font-size: min(var(--fs-md), 3.6cqw);
-}
 .itin-ajuste { flex-shrink: 0; display: flex; align-items: center; gap: var(--sp-3); }
 .itin-ajuste .chrono-btn { font-size: var(--fs-md); font-weight: var(--fw-max); font-variant-numeric: tabular-nums; }
 .itin-ajuste-txt {
@@ -7421,6 +7415,11 @@ body.mode-simple .serie-destaque {
    com ela a cada render. */
 .draw-col--dir .draw-pool { flex: 1 1 auto; min-height: 4rem; overflow-y: auto; resize: none; }
 .draw-range { display: flex; gap: var(--sp-5); }
+/* NA COLUNA DA DIREITA, EMPILHADA (v1.13.3): o toggle "Números" põe a faixa no lugar
+   da lista, e a coluna tem ~160px — dois campos lado a lado com o rótulo não cabem.
+   O rótulo ganha a largura do maior ("Até"), e os dois campos começam no mesmo x. */
+.draw-col--dir .draw-range { flex-direction: column; gap: var(--sp-4); }
+.draw-col--dir .draw-range-field .misc-row-label { min-width: 2.2em; }
 /* `min-width: 0` nos DOIS níveis: o padrão de um item flex é `min-width: auto`,
    que o impede de encolher abaixo da largura intrínseca do conteúdo — e um
    `<input type="number">` sem `size` mede ~200px por conta própria. Dois campos
@@ -7932,7 +7931,14 @@ body.mode-simple .serie-destaque {
    de crescer por baixo do teclado. É ele que dá sentido ao `max-height: 80%` do
    `--topo`: com `80vh` a folha mediria a tela inteira e ignoraria o desconto,
    devolvendo o defeito por outro caminho. */
-#sorteioPopup { inset: var(--vv-top, 0px) 0 var(--kb, 0px) 0; }
+#sorteioPopup { inset: var(--vv-top, 0px) 0 var(--kb-folha, 0px) 0; }
+/* O DESCONTO É `--kb-folha`, E NÃO `--kb` (v1.13.3) — a regra do `#itinPopup`: o campo
+   da palavra tema SOBREPÕE (`data-teclado`), então o app por baixo não encolhe; com
+   `--kb` a caixa de controles e a barra de busca da Biblioteca subiam com o teclado e
+   desciam quando o campo perdia o foco. `--kb-folha` é o teclado inteiro.
+   CONFIGURAÇÕES TEM A MESMA FORMA (uma folha do teto com campos: a busca e o nome do
+   Editar mídia), e por isso a mesma exceção ao `inset: 0` do `.popup-backdrop`. */
+#fadePopup { inset: var(--vv-top, 0px) 0 var(--kb-folha, 0px) 0; }
 /* (O `#folderPopup` — o seletor de atalhos, que abria de dentro da folha da
    música e por isso pedia mais um degrau (220) — saiu na v5.254 com os atalhos
    de pasta. O 220 fica LIVRE: é o degrau do próximo popup que abrir de dentro
@@ -12795,7 +12801,7 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
    o servidor sozinha ao abrir — um cartão não sabe dizer "ligado".
 
    O BOTÃO É PREENCHIDO NO ACCENT, a anatomia de botão principal do app
-   (`.tab-add`, `.misc-tab.active`): `--accent-fill` de fundo
+   (`.tab-add`): `--accent-fill` de fundo
    com `--on-accent` por cima — o par que existe para isso, e o único que passa
    o piso (5,37:1). Escrever `--accent` num fundo cheio é o erro que a paleta
    descreve: aquele tom é claro porque é para ser TEXTO sobre fundo escuro. */
@@ -12928,8 +12934,8 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
    RÓTULO deste botão, ele é o recado — e um recado a 55% de opacidade é o
    defeito que o lote veio corrigir, com outro nome. Continua claramente inerte;
    passou a ser legível. */
-/* A ESCOLHA DA REDE — a mesma anatomia do `.misc-seg`, que é o par
-   "ESCOLHIDO entre alternativas" da paleta: `--surface` no que não está
+/* A ESCOLHA DA REDE — a anatomia do par "ESCOLHIDO entre alternativas" da
+   paleta: `--surface` no que não está
    escolhido, `--btn-accent` + `--accent` no que está (era o denim até a
    v1.8.95). Ela não reusa aquela
    classe porque as duas vivem em telas diferentes e um ajuste de uma não deve

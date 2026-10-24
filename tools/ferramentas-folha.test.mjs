@@ -167,11 +167,12 @@ try {
         return r.top <= topo + 1 && r.bottom >= l.bottom - 1;
       })(),
       biblia: bibliaAberta(),
-      ferramentas: !!document.querySelector('.misc-switch'),
+      // A GRADE (v1.13.3): a folha abre nos seis tiles, nunca numa ferramenta.
+      ferramentas: document.querySelectorAll('#ferrGrade .ferr-tile').length === 6,
     };
   });
   checar(dentro.aberta && dentro.ferramentas,
-    'o toque na porta abre a folha com o seletor de ferramentas dentro', dentro);
+    'o toque na porta abre a folha com a GRADE das ferramentas dentro', dentro);
   checar(!dentro.invadeCabecalho && !dentro.invadeControles,
     'ela NÃO cobre o cabeçalho nem a caixa de controles — quem projeta um '
     + 'cronômetro precisa do transporte e da preview na frente', dentro);
@@ -1136,10 +1137,10 @@ try {
     const abrir = async (modo, opts) => pg.evaluate(async (a) => {
       document.getElementById('toolsBtn').click();
       await new Promise((f) => setTimeout(f, 250));
-      [...document.querySelectorAll('.misc-tab')].find((b) => b.textContent.trim() === 'Tempo').click();
+      abrirFerramenta(chrono.mode);
       await new Promise((f) => setTimeout(f, 150));
       if (a.o) Object.assign(chrono, a.o);
-      chronoSetMode(a.m);
+      abrirFerramenta(a.m);
       if (a.m === 'timer') chronoSetDuration(((1 * 60) + 4) * 60000 + 30000);   // 1:04:30
       renderChronoEControles();
       await new Promise((f) => setTimeout(f, 200));
@@ -1202,9 +1203,9 @@ try {
       + 'de defeito que um botão aceso sem função: parece decisão de alguém',
       JSON.stringify(padrao));
     const zerado = await pg.evaluate(async () => {
-      [...document.querySelectorAll('.misc-tab')].find((b) => b.textContent.trim() === 'Tempo').click();
+      abrirFerramenta(chrono.mode);
       await new Promise((f) => setTimeout(f, 150));
-      chronoSetMode('timer');
+      abrirFerramenta('timer');
       chrono.durationMs = 0;
       renderChronoEControles();
       await new Promise((f) => setTimeout(f, 200));
@@ -1399,7 +1400,7 @@ try {
         ref: cx('#miscProjectBtn') };
     });
     const botao = await pg.evaluate(async () => {
-      chronoSetMode('timer'); renderChronoEControles();
+      abrirFerramenta('timer'); renderChronoEControles();
       await new Promise((f) => setTimeout(f, 200));
       const e = document.getElementById('chronoRun');
       const b = e.getBoundingClientRect(); const g = getComputedStyle(e);
@@ -1423,7 +1424,7 @@ try {
     // relógio de parede — é animação do compositor, não um `setInterval` nosso.
     const rolagem = await pg.evaluate(async () => {
       const amostrar = async (modo) => {
-        chronoSetMode(modo);
+        abrirFerramenta(modo);
         if (modo === 'timer') chronoSetDuration(20000);
         renderChronoEControles();
         await new Promise((f) => setTimeout(f, 250));
@@ -1530,8 +1531,8 @@ try {
     const irPara = (nome) => pg.evaluate(async (n) => {
       abrirFerramentas();
       await new Promise((f) => setTimeout(f, 120));
-      const t = [...document.querySelectorAll('.misc-tab')].find((b) => b.textContent.trim() === n);
-      if (t) t.click();
+      // A GRADE (v1.13.3): a ferramenta se abre pelo tile — o Tempo no modo em que está.
+      abrirFerramenta({ Tempo: chrono.mode, Mensagens: 'msg', Sorteio: 'draw' }[n]);
       await new Promise((f) => setTimeout(f, 150));
     }, nome);
 
@@ -2027,15 +2028,15 @@ try {
     const irPara = (nome) => pg.evaluate(async (n) => {
       abrirFerramentas();
       await new Promise((f) => setTimeout(f, 120));
-      const t = [...document.querySelectorAll('.misc-tab')].find((b) => b.textContent.trim() === n);
-      if (t) t.click();
+      // A GRADE (v1.13.3): a ferramenta se abre pelo tile — o Tempo no modo em que está.
+      abrirFerramenta({ Tempo: chrono.mode, Mensagens: 'msg', Sorteio: 'draw' }[n]);
       await new Promise((f) => setTimeout(f, 150));
     }, nome);
 
     // A RÉGUA VEM DA OUTRA ABA: o ▶ do Tempo, no mesmo rodapé.
     await irPara('Tempo');
     const refRun = await pg.evaluate(async () => {
-      chronoSetMode('stopwatch');
+      abrirFerramenta('stopwatch');
       renderChronoEControles();
       await new Promise((f) => setTimeout(f, 150));
       const b = document.getElementById('chronoRun');
@@ -2184,18 +2185,20 @@ try {
       'M · e a caixa de opções é quem ESTICA: ela cresce com a lista que se digita, '
       + 'e o painel não rola — quem cede é o resto', JSON.stringify(cols));
 
+    // UM SORTEIO SÓ (v1.13.3): o toggle "Números" troca a FONTE, na coluna da
+    // direita, e o desenho das duas colunas é o mesmo nos dois.
     const numero = await pg.evaluate(async () => {
-      [...document.querySelectorAll('#drawWrap .misc-seg')]
-        .find((b) => b.textContent.trim() === 'Número').click();
+      document.getElementById('drawNumerosBtn').click();
       await new Promise((f) => setTimeout(f, 200));
       return {
         cols: !!document.querySelector('.draw-cols'),
-        faixa: !!document.querySelector('.draw-range'),
+        faixaNaDireita: !!document.querySelector('.draw-col--dir > .draw-range'),
+        lista: !!document.querySelector('textarea.draw-pool'),
       };
     });
-    checar(numero.cols === false && numero.faixa === true,
-      'M · e no modo NÚMERO não há duas colunas: a fonte das opções são dois campos '
-      + 'curtos, e uma segunda coluna ali seria uma coluna vazia', JSON.stringify(numero));
+    checar(numero.cols === true && numero.faixaNaDireita === true && numero.lista === false,
+      'M · e com "Números" ligado o corpo é o MESMO de duas colunas: a faixa De/Até '
+      + 'entra na coluna da DIREITA, no lugar da lista', JSON.stringify(numero));
 
     // ---- O CORPO OCUPA A ALTURA, A LEGENDA ENCOSTA NA BASE (v1.9.2) ----
     //
@@ -2333,10 +2336,13 @@ try {
     // do mesmo problema"*. Recortado, o que some é o campo de legenda —
     // inalcançável, e sem nada dizendo por quê.
     //
-    // A CÉLULA É 360×740 COM A RAIZ EM 1,25×, e ela foi MEDIDA: nos 412×892 dos
+    // A CÉLULA É 360×700 COM A RAIZ EM 1,25×, e ela foi MEDIDA: nos 412×892 dos
     // blocos acima o painel não rola um pixel nessa mesma escala (0 contra 74),
-    // e afirmar "não recorta" ali passaria com e sem `hidden`.
-    await pg.setViewportSize({ width: 360, height: 740 });
+    // e afirmar "não recorta" ali passaria com e sem `hidden`. (Era 360×740 até a
+    // v1.13.3: o segmentado Número · Texto saiu do topo do painel e devolveu a
+    // altura dele — ali o painel passou a CABER, MEDIDO 0px de sobra, e a asserção
+    // virou tautologia. A 360×700 sobram 52px.)
+    await pg.setViewportSize({ width: 360, height: 700 });
     await pg.waitForTimeout(200);
     const punitiva = await pg.evaluate(async (e) => {
       const z = (ms) => new Promise((f) => setTimeout(f, ms));
@@ -2386,9 +2392,8 @@ try {
     // célula em que ela existe, e a que mede a IGUALDADE das colunas na célula
     // em que a quebra é muda.
     const trocarParaTexto = () => pg.evaluate(async () => {
-      const b = [...document.querySelectorAll('#drawWrap .misc-seg')]
-        .find((x) => x.textContent.trim() === 'Texto');
-      if (b && !b.classList.contains('active')) b.click();
+      const b = document.getElementById('drawNumerosBtn');
+      if (b && b.getAttribute('aria-pressed') === 'true') b.click();
       await new Promise((f) => setTimeout(f, 250));
     });
     const medirLargo = (escala) => pg.evaluate(async (e) => {
@@ -2451,8 +2456,8 @@ try {
     const irPara = (nome) => pg.evaluate(async (n) => {
       abrirFerramentas();
       await new Promise((f) => setTimeout(f, 120));
-      const t = [...document.querySelectorAll('.misc-tab')].find((b) => b.textContent.trim() === n);
-      if (t) t.click();
+      // A GRADE (v1.13.3): a ferramenta se abre pelo tile — o Tempo no modo em que está.
+      abrirFerramenta({ Tempo: chrono.mode, Mensagens: 'msg', Sorteio: 'draw' }[n]);
       await new Promise((f) => setTimeout(f, 150));
     }, nome);
     const ler = () => pg.evaluate(() => {
@@ -2522,8 +2527,8 @@ try {
     const irPara = (nome) => pg.evaluate(async (n) => {
       abrirFerramentas();
       await new Promise((f) => setTimeout(f, 120));
-      const t = [...document.querySelectorAll('.misc-tab')].find((b) => b.textContent.trim() === n);
-      if (t) t.click();
+      // A GRADE (v1.13.3): a ferramenta se abre pelo tile — o Tempo no modo em que está.
+      abrirFerramenta({ Tempo: chrono.mode, Mensagens: 'msg', Sorteio: 'draw' }[n]);
       await new Promise((f) => setTimeout(f, 150));
     }, nome);
 
@@ -2538,7 +2543,7 @@ try {
         // O Tempo precisa estar no CRONÔMETRO: no Relógio a célula da esquerda
         // leva os dois seletores, e é o par de quadrados que faz o primário
         // ficar com o resto.
-        if (miscTool === 'chrono') { chronoSetMode('stopwatch'); renderChronoEControles(); }
+        if (miscTool === 'chrono') { abrirFerramenta('stopwatch'); renderChronoEControles(); }
         if (miscTool === 'draw') { draw.kind = 'text'; draw.pool = ['Maria', 'João']; renderDiversos(); }
         await new Promise((f) => setTimeout(f, 200));
         const p = document.getElementById('miscProjectBtn');
@@ -2574,6 +2579,264 @@ try {
         + 'só na largura confortável deixaria de fora o estado em que ela corre risco',
         JSON.stringify(m.alturas));
     }
+  }
+
+  // ── G. A GRADE DAS FERRAMENTAS (v1.13.3) ────────────────────────────────
+  //
+  // Pedido do operador: *"ao invés de usar tabs e sub tabs, use uma grade inicial
+  // com todas as ferramentas prontas no primeiro toque … não separa por tempo,
+  // sorteio e mensagens, mas já põe direto as subdivisões"*. O que se erra calado
+  // aqui: a folha reabrir na última ferramenta (a regra é a de Configurações — toda
+  // abertura começa na grade); o voltar do Android fechar a folha de dentro de uma
+  // ferramenta em vez de devolver a grade; o tile de um modo do Tempo abrir o painel
+  // no modo errado; e as leituras vivas (o ponto de "no ar", o número contando)
+  // mentirem sobre o que está no ar.
+  await pg.setViewportSize({ width: 412, height: 892 });
+  await pg.evaluate(() => { document.documentElement.style.fontSize = ''; fecharFerramentas(); });
+  await esperar(pg, () => toolsSheetEl.hidden);
+  await pg.click('#toolsBtn');
+  {
+    const g = await pg.evaluate(() => {
+      const tiles = [...document.querySelectorAll('#ferrGrade .ferr-tile')];
+      const caixas = tiles.map((t) => t.getBoundingClientRect());
+      const cfg = document.querySelector('.qs-grade .qs-tile.qs-on');
+      return {
+        ids: tiles.map((t) => t.dataset.ferr).join(','),
+        nomes: tiles.map((t) => t.querySelector('.qs-titulo').textContent).join(','),
+        titulo: document.getElementById('toolsTitle').textContent,
+        voltar: document.getElementById('toolsBack').hidden,
+        pe: document.getElementById('toolsFoot').childElementCount,
+        painel: !!document.querySelector('#toolsBody .misc-panel'),
+        // TRÊS COLUNAS, DUAS FILEIRAS, UMA ALTURA.
+        fileiras: [...new Set(caixas.map((c) => Math.round(c.top)))].length,
+        colunas: [...new Set(caixas.map((c) => Math.round(c.left)))].length,
+        alturas: [...new Set(caixas.map((c) => Math.round(c.height)))].length,
+        // O TILE É O DE CONFIGURAÇÕES: a mesma tinta, o mesmo raio.
+        bg: !!tiles.length && getComputedStyle(tiles[0]).backgroundColor === getComputedStyle(cfg).backgroundColor,
+        raio: !!tiles.length && getComputedStyle(tiles[0]).borderRadius === getComputedStyle(cfg).borderRadius,
+        tituloCx: (() => { const r = document.getElementById('toolsTitle').getBoundingClientRect(); return Math.round(r.left + r.width / 2); })(),
+      };
+    });
+    checar(g.ids === 'clock,stopwatch,timer,itinerario,msg,draw'
+      && g.nomes === 'Relógio,Cronômetro,Timer,Itinerário,Mensagens,Sorteio',
+      'G · a folha abre na GRADE: seis tiles, um por ferramenta, o tempo em cima e o texto embaixo', g);
+    checar(g.titulo === 'Ferramentas' && g.voltar === true && g.pe === 0 && g.painel === false,
+      'G · na grade o título é "Ferramentas", não há voltar nem rodapé, e nenhum painel está montado', g);
+    checar(g.fileiras === 2 && g.colunas === 3 && g.alturas === 1,
+      'G · três colunas, duas fileiras e uma altura só', g);
+    checar(g.bg && g.raio, 'G · e o tile é o de Configurações: a mesma tinta e o mesmo raio', g);
+
+    // O TOQUE NUM TILE: a ferramenta monta no ato, e a troca ANIMA (camada que sai).
+    const t = await pg.evaluate(() => {
+      document.getElementById('ferrTile_timer').click();
+      const saindo = document.querySelector('#toolsSheet > .ferr-saindo');
+      return {
+        saindo: !!saindo,
+        semIds: saindo ? saindo.querySelectorAll('[id]').length : -1,
+        anima: document.getElementById('toolsBody').getAnimations().length > 0,
+        painel: !!document.getElementById('chronoWrap'),
+        modo: chrono.mode, vista: tempoVista,
+      };
+    });
+    checar(t.saindo && t.semIds === 0 && t.anima,
+      'G · o toque ANIMA a troca: a grade sai numa camada por cima (sem ids) e o painel entra', t);
+    checar(t.painel && t.modo === 'timer' && t.vista === 'chrono',
+      'G · e o tile do Timer abre o Tempo NO TIMER, no mesmo toque', t);
+    const r = await esperar(pg, () => !document.querySelector('#toolsSheet > .ferr-saindo'), null, 3000);
+    const d = await pg.evaluate(() => ({
+      titulo: document.getElementById('toolsTitle').textContent,
+      voltar: document.getElementById('toolsBack').hidden,
+      run: !!document.getElementById('chronoRun'),
+      grade: !!document.getElementById('ferrGrade'),
+      segs: document.querySelectorAll('#toolsBody .misc-seg, #toolsBody .misc-tab').length,
+      tituloCx: (() => { const q = document.getElementById('toolsTitle').getBoundingClientRect(); return Math.round(q.left + q.width / 2); })(),
+    }));
+    checar(r === true, 'G · e a camada que sai some no fim da animação', porque(r));
+    checar(d.titulo === 'Timer' && d.voltar === false && d.run && !d.grade && d.segs === 0,
+      'G · dentro dela o título é o NOME da ferramenta, o voltar aparece, o rodapé é o dela, e não há abas nem segmentos', d);
+    checar(Math.abs(d.tituloCx - g.tituloCx) <= 1,
+      'G · e o título fica PARADO no centro entre a grade e a ferramenta (o voltar tem trilha própria)', { g: g.tituloCx, d: d.tituloCx });
+
+    // O VOLTAR DO CABEÇALHO devolve a grade.
+    await pg.click('#toolsBack');
+    const rv = await esperar(pg, () => !!document.getElementById('ferrGrade') && !document.querySelector('.ferr-saindo'), null, 3000);
+    checar(rv === true, 'G · o voltar do cabeçalho devolve a GRADE', porque(rv));
+
+    // O VOLTAR DO ANDROID: de dentro de uma ferramenta devolve a grade (a folha
+    // continua aberta); da grade, fecha a folha.
+    const b = await pg.evaluate(() => {
+      abrirFerramenta('msg');
+      const c1 = window.__avBack();
+      const naGrade = !!document.getElementById('ferrGrade') && ferramentasAbertas()
+        && !toolsSheetEl.classList.contains('saindo');
+      const c2 = window.__avBack();
+      return { c1, naGrade, c2, saindo: toolsSheetEl.classList.contains('saindo') };
+    });
+    checar(b.c1 === true && b.naGrade, 'G · o voltar do Android, dentro de uma ferramenta, DEVOLVE A GRADE e não fecha a folha', b);
+    checar(b.c2 === true && b.saindo, 'G · e da grade, o voltar fecha a folha', b);
+    await esperar(pg, () => toolsSheetEl.hidden);
+
+    // A FOLHA NÃO LEMBRA A ÚLTIMA FERRAMENTA: fechada de dentro do Sorteio, ela
+    // reabre na grade (a regra de Configurações).
+    await pg.evaluate(() => { abrirFerramenta('draw'); fecharFerramentas(); });
+    await esperar(pg, () => toolsSheetEl.hidden);
+    await pg.click('#toolsBtn');
+    const m = await pg.evaluate(() => ({ grade: !!document.getElementById('ferrGrade'), draw: !!document.getElementById('drawWrap') }));
+    checar(m.grade && !m.draw, 'G · fechada de dentro de uma ferramenta, a folha REABRE na grade', m);
+
+    // REABRIR NO MEIO DA DESCIDA não é engolido (o toque antes voltava sem fazer nada).
+    const re = await pg.evaluate(() => {
+      fecharFerramentas(); abrirFerramentas();
+      return { saindo: toolsSheetEl.classList.contains('saindo'), grade: !!document.getElementById('ferrGrade') };
+    });
+    await pg.waitForTimeout(400);
+    const reDepois = await pg.evaluate(() => ferramentasAbertas());
+    checar(!re.saindo && re.grade && reDepois, 'G · reabrir a folha enquanto ela desce a REABRE (o toque não é engolido)', { re, reDepois });
+
+    // AS LEITURAS VIVAS. O ponto de "no ar" no tile de quem projeta — só nele.
+    const ar = await pg.evaluate(() => {
+      draw.kind = 'text'; draw.pool = ['Ana', 'Bia']; draw.used = []; draw.value = null;
+      projectDraw();
+      const vis = (id) => getComputedStyle(document.querySelector('#ferrTile_' + id + ' .ferr-no-ar')).display !== 'none';
+      const out = { draw: vis('draw'), msg: vis('msg'), timer: vis('timer'),
+        estado: document.getElementById('ferrTile_draw').dataset.estado,
+        aria: document.getElementById('ferrTile_draw').getAttribute('aria-label') };
+      hideDraw();
+      out.depois = vis('draw');
+      return out;
+    });
+    checar(ar.draw && !ar.msg && !ar.timer && ar.estado === 'no-ar' && /no telão/.test(ar.aria),
+      'G · com o sorteio no ar, o tile do Sorteio (e só ele) leva o PONTO de "no ar", e o nome acessível diz', ar);
+    checar(ar.depois === false, 'G · e tirado do ar, o ponto some', ar);
+
+    // O TIMER CONTANDO MOSTRA O NÚMERO no lugar do ícone, e ele ANDA com a grade à vista.
+    const c1 = await pg.evaluate(() => {
+      abrirFerramenta('timer'); chronoSetDuration(300000); chronoStart();
+      voltarAGradeDeFerramentas();
+      const t = document.getElementById('ferrTile_timer');
+      return { contando: t.classList.contains('contando'), leitura: t.querySelector('.ferr-leitura').textContent,
+        svg: getComputedStyle(t.querySelector('svg')).display,
+        outro: document.getElementById('ferrTile_stopwatch').classList.contains('contando') };
+    });
+    await pg.waitForTimeout(1300);
+    const c2 = await pg.evaluate(() => document.querySelector('#ferrTile_timer .ferr-leitura').textContent);
+    checar(c1.contando && /^0[45]:\d\d$/.test(c1.leitura) && c1.svg === 'none' && !c1.outro,
+      'G · com o Timer contando, o tile do Timer mostra o NÚMERO no lugar do ícone (e só ele)', c1);
+    checar(c2 !== c1.leitura, 'G · e o número ANDA com a grade à vista', { antes: c1.leitura, depois: c2 });
+    // ENTRAR NO ITINERÁRIO NÃO PARA A CONTAGEM (a regra do segmento de antes).
+    const it = await pg.evaluate(() => {
+      document.getElementById('ferrTile_itinerario').click();
+      return { vista: tempoVista, correndo: chrono.running, modo: chrono.mode, lista: !!document.getElementById('itinLista'),
+        titulo: document.getElementById('toolsTitle').textContent };
+    });
+    checar(it.vista === 'itinerario' && it.lista && it.correndo && it.modo === 'timer' && it.titulo === 'Itinerário',
+      'G · o tile do Itinerário abre a lista e NÃO para o Timer que estava contando', it);
+    const p = await pg.evaluate(() => {
+      voltarAGradeDeFerramentas(); chronoPause();
+      return document.getElementById('ferrTile_timer').classList.contains('contando');
+    });
+    checar(p === false, 'G · pausado, o tile volta ao ícone (o número congelado é o painel que diz)', p);
+    // DEPOIS DO ITINERÁRIO, um tile do Tempo volta às ROLETAS (a vista é do tile).
+    const rel = await pg.evaluate(() => {
+      chronoReset();
+      document.getElementById('ferrTile_clock').click();
+      return { vista: tempoVista, modo: chrono.mode, roletas: !!document.getElementById('chronoRoletas'),
+        lista: !!document.getElementById('itinLista') };
+    });
+    checar(rel.vista === 'chrono' && rel.modo === 'clock' && rel.roletas && !rel.lista,
+      'G · e depois do Itinerário o tile do Relógio abre as ROLETAS no Relógio — a vista é escrita pelo tile', rel);
+    await pg.evaluate(() => voltarAGradeDeFerramentas());
+
+    // SEM MOVIMENTO, a troca assenta no ato: nenhuma camada.
+    await pg.emulateMedia({ reducedMotion: 'reduce' });
+    const rm = await pg.evaluate(() => {
+      document.getElementById('ferrTile_msg').click();
+      return { saindo: !!document.querySelector('.ferr-saindo'), anima: document.getElementById('toolsBody').getAnimations().length,
+        painel: !!document.getElementById('msgWrap') };
+    });
+    await pg.emulateMedia({ reducedMotion: null });
+    checar(!rm.saindo && rm.anima === 0 && rm.painel,
+      'G · com `prefers-reduced-motion` a troca não anima: a ferramenta aparece no ato', rm);
+    await pg.evaluate(() => voltarAGradeDeFerramentas());
+  }
+
+  // ── S. UM SORTEIO SÓ, COM O TOGGLE "NÚMEROS" (v1.13.3) ──────────────────
+  //
+  // Pedido do operador: *"temos apenas um sorteio, o de texto, mas teremos um
+  // toggle que preenche esse sorteio com números"*. O que se erra calado: ligar os
+  // números APAGAR a lista que o operador digitou; o histórico de nomes sobreviver
+  // à troca (e o "Não repetir" filtrar números por nomes); e o descritor que vai ao
+  // telão — e o que as cenas guardadas trazem — mudar de forma.
+  {
+    const s1 = await pg.evaluate(async () => {
+      draw.kind = 'text'; draw.pool = ['Ana', 'Bia', 'Caio']; draw.used = ['Ana']; draw.value = 'Ana';
+      draw.min = 1; draw.max = 10; draw.noRepeat = true;
+      await saveDrawPrefs();
+      document.getElementById('ferrTile_draw').click();
+      const n = document.getElementById('drawNumerosBtn');
+      return {
+        segs: document.querySelectorAll('#drawWrap .misc-seg, #drawWrap .misc-modes').length,
+        chip: !!n && n.classList.contains('misc-chip'), press: n && n.getAttribute('aria-pressed'),
+        lista: !!document.querySelector('.draw-col--dir > textarea.draw-pool'),
+        titulo: document.getElementById('toolsTitle').textContent,
+      };
+    });
+    checar(s1.segs === 0 && s1.chip && s1.press === 'false' && s1.lista && s1.titulo === 'Sorteio',
+      'S · o Sorteio é UM painel: sem segmentado Número · Texto, com o chip "Números" desligado e a lista na direita', s1);
+    const espiao = await pg.evaluate(() => {
+      window.__cmds = [];
+      const orig = AVDB.sendCommand;
+      AVDB.sendCommand = (c) => { window.__cmds.push(JSON.parse(JSON.stringify(c))); return orig.call(AVDB, c); };
+      projectDraw();
+      return true;
+    });
+    const s2 = await pg.evaluate(async () => {
+      document.getElementById('drawNumerosBtn').click();
+      await new Promise((f) => setTimeout(f, 150));
+      const p = await AVDB.getState('drawPrefs');
+      const ult = window.__cmds.filter((c) => c.type === 'text' && c.mode === 'draw').pop();
+      return {
+        kind: draw.kind, used: draw.used.length, value: draw.value, pool: draw.pool.join('|'),
+        press: document.getElementById('drawNumerosBtn').getAttribute('aria-pressed'),
+        faixa: [...document.querySelectorAll('.draw-col--dir .draw-range input')].map((i) => i.value).join('-'),
+        info: document.getElementById('drawInfo').textContent,
+        gravado: p && p.kind, gravadoPool: p && p.pool.join('|'),
+        telao: ult && ult.draw && ult.draw.kind, telaoFaixa: ult && ult.draw && (ult.draw.min + '-' + ult.draw.max),
+      };
+    });
+    checar(espiao && s2.kind === 'number' && s2.press === 'true' && s2.faixa === '1-10' && s2.info === '10 de 10 restantes',
+      'S · ligado, o MESMO sorteio passa a sortear a faixa De/Até (1–10), na coluna da direita', s2);
+    checar(s2.pool === 'Ana|Bia|Caio' && s2.gravadoPool === 'Ana|Bia|Caio',
+      'S · e a LISTA FICA — na memória e no que foi gravado: ligar os números não apaga o que o operador digitou', s2);
+    checar(s2.used === 0 && s2.value === null && s2.gravado === 'number',
+      'S · o histórico sai na troca ("12" e "Maria" não são o mesmo conjunto), e a escolha é gravada', s2);
+    checar(s2.telao === 'number' && s2.telaoFaixa === '1-10',
+      'S · com o sorteio no ar, o telão recebe o descritor de sempre (`kind: number`, a faixa)', s2);
+    const s3 = await pg.evaluate(async () => {
+      document.getElementById('drawNumerosBtn').click();
+      await new Promise((f) => setTimeout(f, 150));
+      hideDraw();
+      return { kind: draw.kind, ta: (document.querySelector('textarea.draw-pool') || {}).value,
+        faixa: !!document.querySelector('.draw-range') };
+    });
+    checar(s3.kind === 'text' && s3.ta === 'Ana\nBia\nCaio' && !s3.faixa,
+      'S · desligado, a lista VOLTA como estava', s3);
+    // AS CENAS GUARDADAS dos dois tipos continuam tocando pelo descritor de sempre.
+    const s4 = await pg.evaluate(() => {
+      projetarSorteioCue({ kind: 'number', min: 1, max: 60, label: 'Rifa' });
+      const a = { kind: draw.kind, faixa: draw.min + '-' + draw.max, no: drawProjecting(),
+        press: (document.getElementById('drawNumerosBtn') || {}).getAttribute && document.getElementById('drawNumerosBtn').getAttribute('aria-pressed') };
+      projetarSorteioCue({ kind: 'text', pool: ['X', 'Y'] });
+      const b = { kind: draw.kind, pool: draw.pool.join('|'), no: drawProjecting(),
+        press: document.getElementById('drawNumerosBtn').getAttribute('aria-pressed') };
+      hideDraw();
+      return { a, b };
+    });
+    checar(s4.a.kind === 'number' && s4.a.faixa === '1-60' && s4.a.no && s4.a.press === 'true',
+      'S · uma cena de sorteio de NÚMEROS guardada antes toca como tocava — e o painel mostra o chip ligado', s4);
+    checar(s4.b.kind === 'text' && s4.b.pool === 'X|Y' && s4.b.no && s4.b.press === 'false',
+      'S · e uma de TEXTO também', s4);
+    await pg.evaluate(() => { voltarAGradeDeFerramentas(); });
   }
 
   checar(erros.length === 0, 'nenhum erro de página', erros);

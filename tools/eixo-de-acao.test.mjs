@@ -374,10 +374,10 @@ try {
   const pelaFolha = await pg.evaluate(async () => {
     document.getElementById('toolsBtn').click();
     await new Promise((f) => setTimeout(f, 300));
-    miscTool = 'chrono';
+    ferrNaGrade = false; miscTool = 'chrono';
     toolsBodyEl.innerHTML = '';
     renderDiversos();
-    chronoSetMode('timer');
+    abrirFerramenta('timer');
     chronoSetDuration(300000);
     await new Promise((f) => setTimeout(f, 60));
     document.getElementById('miscProjectBtn').click();
@@ -413,7 +413,7 @@ try {
   // A única exceção da divisão da guarda: ele não se pausa nem se zera, e o
   // rodapé dele traz os dois seletores de FORMATO no lugar do transporte.
   const relogio = await pg.evaluate(async () => {
-    chronoSetMode('clock');
+    abrirFerramenta('clock');
     await new Promise((f) => setTimeout(f, 120));
     return { projetando: chronoProjecting(), modo: chrono.mode, ...window.__olhar() };
   });
@@ -531,17 +531,17 @@ try {
     // 0:00 desde a v1.8.95): ali a régua de verdade ACENDE o ▶ e a ingênua o
     // apaga. Por isso os dois estados de cronômetro vêm ANTES do
     // `chronoSetDuration(60000)`, e não depois.
-    miscTool = 'chrono'; toolsBodyEl.innerHTML = ''; renderDiversos();
-    chronoSetMode('timer');
+    ferrNaGrade = false; miscTool = 'chrono'; toolsBodyEl.innerHTML = ''; renderDiversos();
+    abrirFerramenta('timer');
     projectChrono();
     chronoSetDuration(0);
     await medir('timer vazio (0:00)', 'chronoZero', 'chronoRun');
-    chronoSetMode('stopwatch');
+    abrirFerramenta('stopwatch');
     await medir('cronômetro parado, timer ainda em 0:00', 'chronoZero', 'chronoRun');
     chronoStart();
     await medir('cronômetro correndo', 'chronoZero', 'chronoRun');
     chronoPause();
-    chronoSetMode('timer');
+    abrirFerramenta('timer');
     chronoSetDuration(60000);
     await medir('timer com 1 min', 'chronoZero', 'chronoRun');
     chronoStart();
@@ -550,7 +550,7 @@ try {
     hideChrono();
     clearChronoSession();
     // ---- SORTEIO ----
-    miscTool = 'draw'; toolsBodyEl.innerHTML = ''; renderDiversos();
+    ferrNaGrade = false; miscTool = 'draw'; toolsBodyEl.innerHTML = ''; renderDiversos();
     draw.kind = 'text'; draw.pool = []; draw.noRepeat = true;
     draw.used = []; draw.value = null;
     projectDraw();

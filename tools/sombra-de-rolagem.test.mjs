@@ -117,7 +117,7 @@ async function cena(pg) {
     // é um scroller VERTICAL com a marca, e entra no censo como os outros.
     miscTool = 'draw';
     draw.used = ['7', '12', '3', '21', '9', '33', '41', '2', '18', '27', '5', '14'];
-    abrirFerramentas(); await z(300);
+    abrirFerramenta('draw'); await z(300);
     document.getElementById('plBtn').click(); await z(250);
     // `currentItem` é `let` no topo de um script clássico: vínculo léxico, não
     // propriedade de `window`.
@@ -168,7 +168,7 @@ try {
       // `#msgWrap` veste `.misc-panel` (que carrega a marca) e computa
       // `overflow-y: hidden` — uma marca sobre quem não rola, exatamente o que
       // a segunda asserção deste bloco existe para policiar e nunca via.
-      miscTool = 'msg'; refreshDiversos(); await z(250);
+      abrirFerramenta('msg'); await z(250);
       const varrer = () => {
       for (const n of document.querySelectorAll('*')) {
         const cs = getComputedStyle(n);
@@ -185,7 +185,7 @@ try {
       }
       };
       varrer();
-      miscTool = 'draw'; refreshDiversos(); await z(250);
+      abrirFerramenta('draw'); await z(250);
       varrer();
       return out;
     });

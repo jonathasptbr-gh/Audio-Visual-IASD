@@ -4807,8 +4807,9 @@ As quatro células:
 
 #### A FOLHA DE FERRAMENTAS (v1.3.10)
 
-Mensagens, Tempo (relógio/cronômetro/timer e, desde a v1.13.0, o ITINERÁRIO — ver
-`CAMADA-DE-TEXTO.md`, "Ferramentas: itinerário") e Sorteio. Elas eram uma ABA; hoje
+Relógio, Cronômetro, Timer, Itinerário (ver `CAMADA-DE-TEXTO.md`, "Ferramentas:
+itinerário"), Mensagens e Sorteio — desde a v1.13.3 numa GRADE inicial (abaixo).
+Elas eram uma ABA; hoje
 são `#toolsSheet`, uma folha que sobe **de dentro do Cronograma**, aberta pelo
 `#toolsBtn` — o botão à direita de "Importar arquivos", no `#listFoot`. (O
 microfone ao vivo era a quarta peça delas, e saiu na v1.8.89.)
@@ -4844,6 +4845,27 @@ quarta célula de uma faixa feita de LUGARES.
 | **a saída tem PAR** (v1.3.13) | ela subia deslizando e sumia no talo — duas coisas diferentes para o olho, e a segunda lendo como um erro justamente porque a primeira já ensinou a esperar o contrário. Mesma curva, mesma duração (`--tools-anim`, um valor só, lido pelo CSS e pelo JS), ao contrário. Quem tira a folha da árvore é o `hidden` no FIM da animação, e não um `animation-fill-mode`: uma folha "fora" por estar transladada continuaria capturando toque. Sem `animationend`, porque `prefers-reduced-motion` desliga a animação e o evento nunca chegaria — a folha ficaria de pé para sempre |
 | **trocar de aba a fecha** (`switchTab` → `fecharFerramentas`) | ela é extensão do CRONOGRAMA; de pé sobre a Bíblia seria a folha de uma tela flutuando sobre outra |
 | **`fecharFerramentas` desliga os laços** | eram as mesmas guardas do `switchTab`, quando sair daqui era trocar de aba: os timers de 5 Hz do cronômetro/sorteio não podem sobrar reescrevendo nós já descartados. (A terceira guarda soltava o microfone, e saiu na v1.8.89 com ele.) |
+
+##### A GRADE DAS FERRAMENTAS (v1.13.3)
+
+Pedido do operador: *"ao invés de usar tabs e sub tabs, use uma grade inicial com
+todas as ferramentas prontas no primeiro toque, por exemplo não separa por tempo,
+sorteio e mensagens, mas já põe direto as subdivisões"*. Eram três abas no topo da
+folha (`.misc-switch`) e, dentro do Tempo, um segmentado de quatro; hoje a folha
+abre em seis tiles e o toque abre a ferramenta.
+
+| peça | onde | regra |
+|---|---|---|
+| a tabela | `FERRAMENTAS` (`id`, `nome`, `tool`, `modo`/`vista`, `ico`) | a ORDEM é a da grade, uma fileira por assunto: Relógio · Cronômetro · Timer (os `CHRONO_MODES`) / Itinerário · Mensagens · Sorteio. Os desenhos são os das cenas (`CUE_SVG`), e os dois sem cena própria ganharam o mostrador e a ampulheta (`FERR_ICO`). Ferramenta nova = uma linha |
+| a grade | `renderGradeDeFerramentas` · `.ferr-grade` | o tile é o de Configurações VERBATIM (`.qs-tile.qs-on`: ícone `--icon-md`, título `.qs-titulo`, `--btn-accent` + `--accent`), três colunas. A grade é outra classe porque os oráculos alcançam a de Configurações por `.qs-grade`. Nenhum tile é apagado: toda ferramenta abre em qualquer estado |
+| as leituras vivas | `pintarGradeDeFerramentas` · `data-estado` (`no-ar` · `contando` · `ocioso`) | no canal do DESENHO, que é onde aquela grade diz estado: o PONTO de "no ar" (`.ferr-no-ar`, o `--live-strong` de 7px da aba projetando de antes, no canto; MEDIDO sobre o `--btn-accent`, 4,27:1 no escuro e 5,65:1 no claro) no tile de quem projeta (o Tempo projeta UM modo, então só o tile dele), e o NÚMERO do Cronômetro ou do Timer CONTANDO no lugar do ícone (`.ferr-leitura`, a `chronoReading` do telão, na caixa do ícone — a grade não pula). O tique (`ferrGradeTimer`, `CHRONO_TICK_MS`) só existe com a grade à vista e algo contando; o que muda o Tempo por fora (o par, a notificação) repinta pelo `renderChronoEControles` → `acertarGradeDeFerramentas`. O nome acessível diz os dois |
+| o estado | `ferrNaGrade` | UMA pergunta a mais sobre o estado de sempre (`miscTool`, `tempoVista`, `chrono.mode`, que continuam dizendo QUAL painel). Nasce `true` em TODA abertura da folha (`abrirFerramentas`): a regra de Configurações, que também reabre na grade. `chronoPrefs.vista` deixou de ser lida e escrita |
+| o toque | `abrirFerramenta(id, { animar })` | escreve `miscTool`, a vista do Tempo e o MODO (`chronoTrocarModo`, que não desenha — o `chronoSetMode` saiu com o segmentado: trocar de modo zera a contagem, como o segmentado fazia; o mesmo modo e o Itinerário não mexem nela). Com a folha fechada ela abre direto na ferramenta (a porta dos oráculos) |
+| o cabeçalho | `pintarCabecalhoDasFerramentas` · `#toolsTitle` · `#toolsBack` | "Ferramentas" na grade, o NOME da ferramenta dentro dela; o voltar (o molde do `#bibleBack`) só dentro, na trilha 1 da grade do cabeçalho — o título fica parado (medido) |
+| a volta | `voltarAGradeDeFerramentas` · `__avBack` degrau 2.5 | o `#toolsBack` e o voltar do Android devolvem a grade (fechando a gaveta dos itinerários antes); da grade, o voltar fecha a folha |
+| o rodapé | `renderFoot` | a grade não tem rodapé: o primeiro ramo só repinta o par ao lado da preview, que todo mutador das ferramentas espera daqui |
+| a animação | `trocarVistaDasFerramentas` · `.ferr-saindo` | SÓ PELO TOQUE (a regra da seta da prévia: a abertura e quem chama direto assentam no ato). A folha tem altura FIXA (é a lista), então quem se move é o CONTEÚDO: o que sai vira uma camada ABSOLUTA no lugar exato do corpo e do rodapé, sem toque e SEM IDS (quem procura `#chronoRoletas` durante a troca tem de achar o painel novo) e sobe esmaecendo (`--dur-lenta` × 0,6); o que entra sobe aparecendo, já no estado final — as roletas se medem pela altura de verdade. Na volta, o inverso. `prefers-reduced-motion`: nenhuma camada |
+| reabrir descendo | `abrirFerramentas` | a folha `saindo` conta como fechada: reabri-la nos 220 ms da descida era engolido (achado da v1.13.1) |
 
 **Os nomes internos ficaram**: `renderDiversos`/`refreshDiversos`, `miscTool`,
 `MISC_TOOLS` e as classes `.misc-*`. Renomeá-los não muda um pixel — a mesma
