@@ -1221,6 +1221,16 @@
            janela, e não rolar com os itens dentro dela"*). O corpo leva
            `flex: 1` e rola; este fica. Quem o preenche é `renderFoot()`. -->
       <div id="toolsFoot" class="tools-foot"></div>
+      <!-- A GAVETA DOS ITINERÁRIOS (v1.13.2): o molde da `#cronoGaveta`, aberta
+           pelo nome do itinerário ativo (`#itinTitulo`, no painel). Mora AQUI,
+           na folha, e não no painel: o painel é redesenhado a cada mudança, e a
+           gaveta morreria com o redesenho que ela própria dispara. O véu engole
+           o toque de dentro da folha — o toque que fecha não pode editar a linha
+           de baixo. Desenhada por `renderItinGaveta`. -->
+      <div id="itinVeu" class="itin-veu" hidden></div>
+      <div id="itinGaveta" class="crono-gaveta itin-gaveta" role="region" aria-label="Itinerários" hidden>
+        <ul id="itinGavetaLista" class="crono-lista rola"></ul>
+      </div>
     </div>
     <!-- ===== A BÍBLIA É UMA FOLHA DO CRONOGRAMA (v1.5.0) =====
          Pedido do operador: *"agora o cronograma vai ser a tela padrão e única
@@ -2016,7 +2026,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion" class="app-version">v1.13.1</span>
+          <span id="appVersion" class="app-version">v1.13.2</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>

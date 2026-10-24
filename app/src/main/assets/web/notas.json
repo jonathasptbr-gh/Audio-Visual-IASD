@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.13.2",
+    "itens": [
+      "Itinerário: agora dá para ter vários, com nome. Toque no nome no topo para trocar, criar, renomear ou excluir.",
+      "Tocar um itinerário guardado no Cronograma ou nos Favoritos abre ele no painel, sem apagar o que estava lá.",
+      "Cada horário ganhou ↑ e ↓ no ⋮, como no Cronograma: o evento troca de lugar e os horários ficam.",
+      "No telão, o quadro do itinerário fica no centro da tela, estreito como antes.",
+      "Corrigido: ao digitar o título de um horário, a barra de busca da Biblioteca não sobe nem desce mais."
+    ]
+  },
+  {
     "versao": "1.13.1",
     "itens": [
       "Itinerário: o horário agora se escolhe girando a hora e o minuto, sem depender do relógio do sistema.",

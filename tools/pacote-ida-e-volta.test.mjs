@@ -405,6 +405,17 @@ try {
     await AVDB.listAdd('imports', 'item-de-teste');
     await AVDB.cronoRenomear((await AVDB.cronoLer()).ativo, 'Culto jovem');
     await AVDB.cronoCriar();
+    // DOIS ITINERÁRIOS (v1.13.2): o ATIVO "Culto de sábado" e o guardado
+    // "Ensaio". É o que o bloco 2-D confere no destino — e o ajuste do dia, que
+    // NÃO viaja.
+    await AVDB.setState('itinerario', {
+      v: 2, ativo: 'it-sabado', horas: true, desloc: 10, deslocDia: hojeLocal(),
+      itens: [{ id: 'h1', min: 540, titulo: 'Recepção' }, { id: 'h2', min: 600, titulo: 'Louvor' }],
+      itinerarios: [
+        { id: 'it-sabado', nome: 'Culto de sábado', usado: 1, itens: [], horas: true },
+        { id: 'it-ensaio', nome: 'Ensaio', usado: 2, itens: [{ id: 'h3', min: 1140, titulo: 'Coral' }], horas: false },
+      ],
+    });
     // A PASTA DO APARELHO, com um arquivo dentro. Ela é o corte declarado do
     // recurso — as concessões do SAF não existem no outro celular —, e sem ela
     // semeada aqui a asserção do corte não teria o que recusar.
@@ -530,6 +541,22 @@ try {
   checar(chegou.pref === undefined || chegou.pref === null,
     '2 · e o AJUSTE INDIVIDUAL não veio — o pacote é para o acervo, não para '
     + 'copiar o app de uma pessoa', chegou.pref);
+
+  // ── 2-D · OS ITINERÁRIOS CHEGARAM (v1.13.2) ────────────────────────────
+  // Num aparelho VIRGEM a lista de lá entra inteira, com o ATIVO de lá como o
+  // ativo daqui; o ajuste do dia fica para trás. E é a REHIDRATAÇÃO que o mostra:
+  // o painel lê a memória (`itin`), não o banco.
+  {
+    const it = await b.pg.evaluate(async () => ({
+      st: await AVDB.getState('itinerario'),
+      mem: { nome: itin.nome, itens: itin.itens.map((x) => x.titulo).join('|'), desloc: itin.desloc },
+      gaveta: itinEntradas().map((x) => x.nome + ':' + x.qtd + (x.ativo ? '*' : '')).join(' · '),
+    }));
+    checar(it.st && it.st.ativo === 'it-sabado' && it.mem.nome === 'Culto de sábado'
+      && it.mem.itens === 'Recepção|Louvor' && it.mem.desloc === 0
+      && it.gaveta === 'Culto de sábado:2* · Ensaio:1',
+      '2-D · os ITINERÁRIOS atravessaram: os dois, com os nomes, o de lá ATIVO aqui, e sem o ajuste do dia', it);
+  }
 
   // ── 2-C · OS CRONOGRAMAS GUARDADOS CHEGARAM (v1.12.54) ─────────────────
   // O guardado de lá entra como um guardado DAQUI, com o nome e os itens; o
@@ -699,6 +726,9 @@ try {
     && cronosB2.itens.find((c) => c.nome === 'Culto jovem').qtd === 1,
     '3 · e o cronograma guardado NÃO é duplicado por uma segunda importação — o mesmo '
     + 'id é o mesmo cronograma', JSON.stringify(cronosB2));
+  const itinB2 = await b.pg.evaluate(() => itinEntradas().map((x) => x.nome + ':' + x.qtd).join(' · '));
+  checar(itinB2 === 'Culto de sábado:2 · Ensaio:1',
+    '3 · e os itinerários também não — o mesmo id é o mesmo itinerário', itinB2);
 
   await b.ctx.close();
 

@@ -7312,13 +7312,38 @@ body.mode-simple .serie-destaque {
 .lib-item.active .itin-thumb { background: var(--btn-accent); }
 .lib-item.active .itin-thumb-hora { color: var(--accent); }
 .lib-item.active .row-sub, .lib-item.itin-seguir .row-sub { color: var(--accent); }
+/* ---------- O NOME DO ITINERÁRIO ATIVO E A GAVETA DELES (v1.13.2) ----------
+   O título é o `.crono-titulo` do Cronograma (o nome no eixo, a seta à direita,
+   o `padding-left` que a equilibra), numa faixa própria no topo do painel; o
+   nome é um rótulo de seção do painel, um degrau abaixo do nome da TELA.
+
+   A GAVETA é a `.crono-gaveta`, verbatim — as mesmas linhas (`.crono-item`) e o
+   mesmo "Novo" —, posicionada na folha de Ferramentas logo abaixo do título (o
+   `top` é medido ao abrir, `abrirItinGaveta`). O VÉU é da folha (`absolute`, e
+   não `fixed`): fora dela o toque fecha pela captura e segue para quem o
+   recebeu, como o da Biblioteca sobre a gaveta dos cronogramas. */
+.itin-cab { flex-shrink: 0; display: flex; justify-content: center; min-width: 0; }
+.itin-titulo { max-width: 100%; }
+.itin-nome {
+  min-width: 0; text-align: center;
+  font-size: var(--fs-md); font-weight: var(--fw-forte); color: var(--muted);
+  text-transform: uppercase; letter-spacing: .06em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.itin-veu { position: absolute; inset: 0; z-index: 160; }
+.itin-veu[hidden] { display: none; }
+.itin-gaveta { left: .7rem; right: .7rem; width: auto; max-width: 24rem; }
 /* "Adicionar horário" fica FORA do scroller, embaixo da lista: o "Novo
    cronograma" da gaveta dos cronogramas (`.crono-novo`), sem precisar rolar. */
 .itin-novo-btn { flex-shrink: 0; }
-/* A FOLHA DE UM HORÁRIO (`#itinPopup`): desce do teto e desconta o teclado,
-   como a da playlist automática (ela tem campo de texto). As roletas ocupam o
-   que sobra e se medem por isso (`acertarRoletasDoItin`). */
-#itinPopup { inset: var(--vv-top, 0px) 0 var(--kb, 0px) 0; }
+/* A FOLHA DE UM HORÁRIO (`#itinPopup`): desce do teto e termina onde o teclado
+   começa. As roletas ocupam o que sobra e se medem por isso
+   (`acertarRoletasDoItin`).
+   O DESCONTO É `--kb-folha`, E NÃO `--kb` (v1.13.2): o campo do título SOBREPÕE
+   (`data-teclado`), então o app por baixo não encolhe — com `--kb` a caixa de
+   controles e a barra de busca da Biblioteca subiam com o teclado e desciam no
+   confirmar. `--kb-folha` é o teclado inteiro, escrito no mesmo quadro. */
+#itinPopup { inset: var(--vv-top, 0px) 0 var(--kb-folha, 0px) 0; }
 .itin-editor-corpo {
   flex: 1 1 auto; min-height: 0;
   display: flex; flex-direction: column; gap: var(--sp-5);
@@ -7727,9 +7752,9 @@ body.mode-simple .serie-destaque {
 /* O ITINERÁRIO na preview (v1.13.0; o desenho de agora é da v1.13.1) — espelha
    `.itin` do Display (display.css), linha a linha: a lista é desenhada pelo
    MESMO `createStage.desenharItinerario`, e o que difere entre as duas telas é
-   só a caixa do `cq*`. O WALLPAPER no lugar do preto, o bloco escuro ancorado à
-   esquerda e a marca na primeira coluna — ver o cabeçalho da gêmea. Só tokens
-   do PALCO. */
+   só a caixa do `cq*`. O WALLPAPER no lugar do preto, o bloco escuro CENTRADO
+   (v1.13.2; o texto de dentro continua à esquerda) e a marca na primeira coluna
+   — ver o cabeçalho da gêmea. Só tokens do PALCO. */
 .pv-text-content:not(.mode-itinerario) .itin { display: none; }
 .pv-text-content.mode-itinerario .pv-text-main { display: none; }
 .pv-text.mode-itinerario {
@@ -7737,11 +7762,10 @@ body.mode-simple .serie-destaque {
   background-image: url('../shared/wallpaper-padrao.svg');
   background-size: cover; background-position: center;
 }
-.pv-text-content.mode-itinerario .pv-text-box { align-items: flex-start; }
 .pv-text-content .itin {
   --itin-h: 9.6cqmin; --itin-vao: 1.4cqmin; --itin-pad: 2.4cqmin;
   --itin-tag-w: 17cqmin;
-  position: relative; align-self: flex-start;
+  position: relative; align-self: center;
   width: min(100%, max(60cqw, 100cqmin)); box-sizing: border-box;
   list-style: none; margin: 0; padding: var(--itin-pad);
   border-radius: 2.4cqmin; background: var(--stage-painel);

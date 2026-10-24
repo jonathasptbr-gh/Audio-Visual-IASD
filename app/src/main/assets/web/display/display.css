@@ -484,14 +484,17 @@ html, body {
 
    O DESENHO É O PEDIDO DO OPERADOR (v1.13.1): *"mantenha o wallpaper visível,
    apenas com uma camada escura semitransparente atrás do texto… alinhar à
-   esquerda… não precisa explorar toda a largura da tela"*. Três peças:
+   esquerda… não precisa explorar toda a largura da tela"* — e o bloco passou ao
+   CENTRO da tela na v1.13.2, também a pedido dele, estreito como era e com o
+   texto de dentro ainda alinhado à esquerda. Três peças:
 
    1. A CAMADA PINTA O WALLPAPER no lugar do preto do palco (`.mode-itinerario`
       no `#text`, escrita pelo `display.js` junto com a imagem escolhida — ver
       `pintarFundoDoCartao`). A cortina continua sendo a cortina: o cartão
       apenas VESTE a mesma imagem por baixo do bloco, e a mídia que toca por
       baixo segue coberta.
-   2. O BLOCO é uma COLUNA ancorada à esquerda (`--itin-largura`), sobre
+   2. O BLOCO é uma COLUNA CENTRADA (`align-self: center`; a largura é a da
+      v1.13.1, `min(100%, max(60cqw, 100cqmin))`), sobre
       `--stage-painel` — o escuro semitransparente que segura a leitura em
       qualquer wallpaper (o claro e o padrão, medidos no token).
    3. A MARCA ("Agora", "A seguir") é a PRIMEIRA coluna da linha, colada no
@@ -512,11 +515,10 @@ html, body {
   background-image: url('../shared/wallpaper-padrao.svg');
   background-size: cover; background-position: center;
 }
-.text-content.mode-itinerario .text-box { align-items: flex-start; }
 .itin {
   --itin-h: 9.6cqmin; --itin-vao: 1.4cqmin; --itin-pad: 2.4cqmin;
   --itin-tag-w: 17cqmin;
-  position: relative; align-self: flex-start;
+  position: relative; align-self: center;
   width: min(100%, max(60cqw, 100cqmin)); box-sizing: border-box;
   list-style: none; margin: 0; padding: var(--itin-pad);
   border-radius: 2.4cqmin; background: var(--stage-painel);
