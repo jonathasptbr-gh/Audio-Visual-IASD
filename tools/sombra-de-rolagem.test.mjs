@@ -299,7 +299,7 @@ try {
                  dentro: el.contains(e) && e !== el };
       };
       // A PONTA DE BAIXO É A FRONTEIRA VISÍVEL, não a base da caixa (v1.8.61).
-      // No Cronograma as três portas FLUTUAM sobre a lista, e a caixa dela passa
+      // No Cronograma as portas FLUTUAM sobre a lista, e a caixa dela passa
       // por baixo delas: um ponto em `q.bottom - 8` cai no botão de Ferramentas,
       // que é o comportamento certo (a porta tem de receber o toque) e não diz
       // nada sobre a tira. O que a tira vela é a fronteira acima das portas, e é
@@ -562,7 +562,7 @@ try {
       const mag = (c) => !!c && c[0] > 200 && c[1] < 80 && c[2] > 200;
       const xm = Math.round((cx.padLeft + cx.padRight) / 2);
       // A COLUNA DE BAIXO NÃO É A DO MEIO ONDE HÁ RODAPÉ FLUTUANTE (v1.8.62):
-      // as três portas são OPACAS e pintam acima da tira, então no meio da tela
+      // as portas são OPACAS e pintam acima da tira, então no meio da tela
       // não há magenta nenhum a achar — o rastreio de baixo para cima cairia na
       // tira DE CIMA e devolveria um "vão" de 500px. A moldura de 12,8px que
       // elas não cobrem é onde a tira sobrevive, e é lá que ela é medida.
@@ -822,25 +822,34 @@ try {
     // depois da borda não descreve a fronteira de uma lista que vai de 0 a `w`.
     // Ele passou a 0 pelo mesmo movimento do `#library`: margem negativa e o
     // recuo devolvido como `padding`. O RODAPÉ continua em 12,8 — ele é a faixa
-    // das três portas, não uma fronteira.
+    // das portas, não uma fronteira.
     checar(geo.cabecalho === 0 && geo.rodape === 12.8
       && geo.pagina[0] === geo.tela && geo.pagina[1] === geo.tela,
       'M · o CABEÇALHO acompanha a caixa e vai de borda a borda (a barra da '
       + 'v1.8.61), o rodapé das portas continua recuado, e a PÁGINA não ganha '
       + 'rolagem horizontal — o transbordo de 12,8px do `.list-body` é recortado '
       + 'por `main { overflow: hidden }`', JSON.stringify(geo));
-    // A SEGUNDA METADE: com a folha aberta, a tira se cala.
+    // A SEGUNDA METADE: com a folha LARGA aberta, a tira se cala. Na LISTA das
+    // ferramentas a folha é ESTREITA (v1.13.5, a largura da porta) e o Cronograma
+    // continua à vista ao lado dela — ali a tira fica, e é a guarda
+    // `:not(.estreita)` que separa os dois casos.
     const comFolha = await pg.evaluate(async () => {
       const z = (ms) => new Promise((f) => setTimeout(f, ms));
       abrirFerramentas(); await z(400);
       const el = document.getElementById('library');
+      const naLista = { estreita: toolsSheetEl.classList.contains('estreita'),
+        depois: getComputedStyle(el, '::after').display };
+      abrirFerramenta('msg'); await z(400);
       return { antes: getComputedStyle(el, '::before').display,
         depois: getComputedStyle(el, '::after').display,
-        folhaAberta: !document.getElementById('toolsSheet').hidden };
+        folhaAberta: !document.getElementById('toolsSheet').hidden, naLista };
     });
+    checar(comFolha.naLista.estreita && comFolha.naLista.depois === 'block',
+      'M · com a folha ESTREITA (a lista das ferramentas, v1.13.5) a tira do Cronograma FICA — '
+      + 'a lista continua à vista ao lado dela', JSON.stringify(comFolha.naLista));
     const semFolha = await pg.evaluate(async () => {
       const z = (ms) => new Promise((f) => setTimeout(f, ms));
-      __avBack(); await z(450);
+      fecharFerramentas(); await z(450);
       const el = document.getElementById('library');
       el.scrollTop = Math.floor(el.scrollHeight / 3); await z(300);
       return { depois: getComputedStyle(el, '::after').display,
@@ -1151,7 +1160,7 @@ try {
       };
     });
     checar(geo.posicao === 'absolute' && Math.abs(geo.alcanca) <= 1,
-      'Q · o rodapé das três portas FLUTUA e a lista corre por baixo dele até o '
+      'Q · o rodapé das portas FLUTUA e a lista corre por baixo dele até o '
       + 'TOPO DA BARRA DE BUSCAS (vão ' + geo.alcanca + 'px) — era a base das '
       + 'portas, 5,59px acima, e aquela faixa de `--bg` era o que o operador via',
       JSON.stringify(geo));
@@ -1457,9 +1466,11 @@ try {
       const lib = document.getElementById('library');
       lib.scrollTop = 200; await z(400);
       const foot = document.getElementById('listFoot');
-      const portas = [...foot.querySelectorAll('.lib-foot-btn, .import-btn, .tools-btn')];
+      const portas = [...foot.querySelectorAll('.lib-foot-btn, .tools-btn')];
       const raiz = getComputedStyle(document.documentElement);
       const corpo = document.querySelector('.list-body').getBoundingClientRect();
+      // A PORTA MEDIDA é a das Ferramentas (a da direita; até a v1.13.4 era a do
+      // meio de três).
       const meio = portas[1].getBoundingClientRect();
       return {
         n: portas.length,
@@ -1510,9 +1521,9 @@ try {
     // literal digitado aqui daria a cor certa num tema e um bloco branco no
     // outro. A identidade COMPOSTA mora no 9-B do `ferramentas-folha`; aqui
     // basta a declarada, que é o que o token entrega.
-    checar(r.n === 3 && r.fundos.length === 1 && !!r.tile
+    checar(r.n === 2 && r.fundos.length === 1 && !!r.tile
       && r.fundos[0] === r.tile.bg,
-      'T · ' + tema + ': as TRÊS portas vestem o MESMO azul do `.qs-tile.qs-on`, '
+      'T · ' + tema + ': as DUAS portas vestem o MESMO azul do `.qs-tile.qs-on`, '
       + 'lido do tile e não escrito aqui',
       JSON.stringify(r.fundos) + ' vs ' + (r.tile && r.tile.bg) + ' · ' + r.token);
     checar(r.tracos.length === 1 && !!r.tile && r.tracos[0] === r.tile.cor

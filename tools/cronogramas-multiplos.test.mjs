@@ -14,10 +14,12 @@
 //     está em `imports` — sem os guardados em `lerDetentores`, a faxina da
 //     abertura seguinte (`gcOrfaos`) o apaga, e o operador descobre no sábado
 //     que o cronograma do culto voltou com linhas a menos.
-//  2. O LIMPAR VAZANDO (bloco E). Limpar é do ATIVO; um que esvaziasse a chave
-//     inteira apagaria os outros cronogramas de uma vez.
+//  2. O LIMPAR DE VOLTA (bloco E). O botão de limpar da barra SAIU na v1.13.5 —
+//     a casa dele é do IMPORTAR —, e esvaziar é o Excluir do ÚNICO (ver o
+//     `limpar-cronograma.test.mjs`).
 //  3. O APP SEM CRONOGRAMA (bloco F). Excluir o último deixaria a tela sem lista
-//     nenhuma para os destinos — por isso o Excluir é APAGADO quando ele é o único.
+//     nenhuma para os destinos — por isso o Excluir do ÚNICO o ESVAZIA (v1.13.5;
+//     até a v1.13.4 ele era apagado), e o cronograma fica.
 //  4. A MIGRAÇÃO QUE ESCREVE (bloco A). Um aparelho de antes tem um cronograma só,
 //     e abrir o app novo não pode mudar nada nele — nem escrever a chave.
 //  5. O TOQUE DE FORA QUE TOCA (bloco J). Fechar a gaveta tocando fora não pode
@@ -243,29 +245,27 @@ try {
   }
 
   // =========================================================================
-  // E · LIMPAR É SÓ DO ATIVO
+  // E · A TRILHA 1 DA BARRA É DO IMPORTAR (v1.13.5)
   // =========================================================================
+  // Pedido do operador: *"remova o botão de limpar cronograma … no lugar do
+  // esvaziar lista de cronograma, mova o botão de importar arquivo"*.
   {
     await tocarNaGaveta('Cronograma 3');
-    await semear(2, 'Hino');
-    await pg.click('#cronoLimpar');
-    await responder(true);
-    const st = await estado();
-    checar(st.imports === 0 && st.titulo === 'Cronograma 3',
-      'E · Limpar esvazia o cronograma ATIVO', JSON.stringify({ imports: st.imports }));
-    checar(qtdDe(st, 'Culto jovem') === 3,
-      'E · e só ele: o "Culto jovem" guardado continua com os três', JSON.stringify(st.cronos));
     const dis = await pg.evaluate(() => {
-      const b = document.getElementById('cronoLimpar');
+      const b = document.getElementById('cronoImportar');
       const h = document.querySelector('.list-header').getBoundingClientRect();
       const r = b.getBoundingClientRect();
       const t = document.getElementById('cronoTitulo').getBoundingClientRect();
-      return { dis: b.disabled, title: b.title, esq: r.left - h.left, antes: r.right <= t.left };
+      return {
+        limpar: !!document.getElementById('cronoLimpar') || !!document.querySelector('.crono-limpar'),
+        fn: typeof window.renderCronoLimpar,
+        esq: r.left - h.left, antes: r.right <= t.left,
+      };
     });
-    checar(dis.dis === true && /vazio/i.test(dis.title),
-      'E · e com o cronograma vazio o Limpar é APAGADO, dizendo por quê', JSON.stringify(dis));
+    checar(!dis.limpar && dis.fn === 'undefined',
+      'E · o botão de LIMPAR saiu da barra, com o código que o pintava (v1.13.5)', JSON.stringify(dis));
     checar(dis.esq < 24 && dis.antes,
-      'E · e o Limpar mora NA BARRA, encostado à ESQUERDA, antes do título (v1.12.55)',
+      'E · e o IMPORTAR mora NA BARRA, encostado à ESQUERDA, antes do título — a casa do limpar',
       JSON.stringify(dis));
   }
 
@@ -305,20 +305,27 @@ try {
       'F · excluir pela linha de um GUARDADO o tira sem mexer no ativo, e o que SÓ ele '
       + 'segurava é coletado, enquanto o que outra lista segura fica',
       JSON.stringify({ titulo: st.titulo, imports: st.imports, sobra }));
-    // Sobrou UM: o "Culto jovem".
+    // Sobrou UM: o "Culto jovem", com três itens.
     const dis = await pg.evaluate(() => {
       const b = document.querySelector('#cronoLista .crono-item .crono-excluir');
       return { dis: b.disabled, title: b.title, aria: b.getAttribute('aria-label') };
     });
+    checar(st.cronos.itens.length === 1 && dis.dis === false && /único/.test(dis.title)
+      && /limpar/i.test(dis.title) && dis.aria === dis.title,
+      'F · com UM cronograma só (e itens nele), o Excluir LIMPA — aceso, e o `title` diz o '
+      + 'que o toque faz (v1.13.5; o limpar da barra saiu)', JSON.stringify({ n: st.cronos.itens.length, dis }));
+    // O TOQUE pergunta LIMPAR, e cancelar não muda nada: o último nunca se exclui.
+    await pg.evaluate(() => document.querySelector('#cronoLista .crono-item .crono-excluir').click());
+    const abriu = await esperar(pg, () => document.getElementById('appDialog').classList.contains('open'), null, 4000);
+    const pergunta = abriu === true ? await pg.evaluate(() => document.getElementById('appDialogTitle').textContent) : porque(abriu);
+    if (abriu === true) await responder(false);
     await fecharGaveta();
-    checar(st.cronos.itens.length === 1 && dis.dis === true && /único/.test(dis.title) && dis.aria === dis.title,
-      'F · com UM cronograma só, o Excluir é APAGADO e o `title` diz por quê — o app '
-      + 'nunca fica sem cronograma', JSON.stringify({ n: st.cronos.itens.length, dis }));
-    const ainda = await pg.evaluate(async () => {
-      await excluirCronograma();
-      return (await AVDB.cronoLer()).itens.length;
-    });
-    checar(ainda === 1, 'F · e nem o caminho direto exclui o último', ainda);
+    const ainda = await pg.evaluate(async () => ({
+      n: (await AVDB.cronoLer()).itens.length, itens: (await AVDB.listIds('imports')).length,
+    }));
+    checar(ainda.n === 1 && ainda.itens === 3 && /limpar/i.test(pergunta),
+      'F · e o toque no Excluir do único pergunta LIMPAR — cancelado, o cronograma e os '
+      + 'três itens ficam; o último nunca se exclui', JSON.stringify({ ainda, pergunta }));
   }
 
   // =========================================================================
@@ -445,13 +452,13 @@ try {
     await fecharGaveta();
     const r = await pg.evaluate(() => {
       const t = document.getElementById('cronoTitulo').getBoundingClientRect();
-      const m = document.getElementById('cronoLimpar').getBoundingClientRect();
+      const m = document.getElementById('cronoImportar').getBoundingClientRect();
       const g = document.getElementById('settingsBtn').getBoundingClientRect();
       return { esq: t.left - m.right, dir: g.left - t.right, larg: document.documentElement.scrollWidth - innerWidth,
         gear: g.right <= innerWidth };
     });
     checar(r.esq >= 0 && r.dir >= 0 && r.larg <= 0 && r.gear,
-      'L · um nome longo cabe entre o Limpar e a engrenagem, sem empurrar ninguém para fora',
+      'L · um nome longo cabe entre o Importar e a engrenagem, sem empurrar ninguém para fora',
       JSON.stringify(r));
   }
 

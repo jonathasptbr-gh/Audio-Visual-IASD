@@ -765,12 +765,12 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    que não recebe o dedo. */
 :is(
   .ctl-btn, .t-btn, .settings-btn,
-  .import-btn, .tools-btn, .lib-foot-btn, .back-btn, .sel-btn,
+  .tools-btn, .lib-foot-btn, .back-btn, .sel-btn,
   .row-btn, .popup-close, .popup-acao, .versao-txt,
-  /* O LIMPAR e o TÍTULO do Cronograma, e o "Novo cronograma" da gaveta
-     (v1.12.54/v1.12.55). Os dois quadrados de cada linha da gaveta já entram
-     por `.row-btn`; a LINHA responde por luz (ver `.crono-item:active`). */
-  .crono-limpar, .crono-titulo, .crono-novo,
+  /* O IMPORTAR (v1.13.5) e o TÍTULO do Cronograma, e o "Novo cronograma" da
+     gaveta (v1.12.54/v1.12.55). Os dois quadrados de cada linha da gaveta já
+     entram por `.row-btn`; a LINHA responde por luz (ver `.crono-item:active`). */
+  .crono-importar, .crono-titulo, .crono-novo,
   /* O ⛶ da cifra (v1.6.0): ele nasce no MESMO lote em que entra aqui, que é a
      regra desta lista — um controle novo fora dela fica mudo ao toque sem nada
      na tela dizer por quê. Nenhum ancestral dele responde ao toque. */
@@ -837,15 +837,12 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 :is(
   .row-btn, .row-slot, .back-btn, .sel-btn, .popup-close, .popup-acao,
   .coll-bar-dl, .coll-group-btn,
-  /* As TRÊS portas do rodapé entraram juntas na v1.5.19: só a do meio estava
-     aqui, e o ícone das laterais vivia do atributo `width="20"` que o
-     `botaoDoRodape` escreve. Elas coincidiam por acidente (`--icon-sm` é 20px),
-     e a divergência era MUDA — MEDIDO forçando `--icon-sm: 26px`, a do meio ia
-     a 26 e as laterais ficavam em 20 sem que a ALTURA denunciasse, porque a
-     `.import-row` é `align-items: stretch` e as três esticam para a mais alta.
-     Num lote cuja palavra é "padronize", o único eixo em que as três divergiam
-     por construção não podia ficar de pé. É NO-OP hoje, de propósito. */
-  .import-btn, .tools-btn, .lib-foot-btn, .song-menu-icon,
+  /* As portas do rodapé entraram juntas na v1.5.19: só a do meio (o Importar de
+     então) estava aqui, e o ícone das laterais vivia do atributo `width="20"`
+     que o `botaoDoRodape` escreve. Elas coincidiam por acidente (`--icon-sm` é
+     20px), e a divergência era MUDA — a ALTURA não denunciava, porque a faixa é
+     `align-items: stretch`. É NO-OP hoje, de propósito. */
+  .tools-btn, .lib-foot-btn, .song-menu-icon,
   /* O ⛶ da cifra (v1.6.0): o desenho é reescrito por `innerHTML` a cada troca
      de estado, então o `width`/`height` do atributo se perderia no primeiro
      alternar — quem manda é esta regra. */
@@ -873,22 +870,17 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 }
 /* Barra larga de ação (projetar): o ícone acompanha o alvo. */
 .misc-project svg { display: block; width: var(--icon-lg); height: var(--icon-lg); }
-/* O LIMPAR DO CRONOGRAMA É `--icon-lg` NUMA CAIXA DE `--hit` (v1.8.69; de volta
-   na v1.12.55, depois de um lote como menu ⋮), e é a ÚNICA peça do app com essa
-   combinação — por isso ele tem linha própria, e não uma vírgula na regra acima,
-   cujo comentário fala de BARRAS LARGAS DE AÇÃO.
+/* O IMPORTAR DO CRONOGRAMA É `--icon-lg` NUMA CAIXA DE `--hit` (v1.13.5), a
+   combinação que a casa dele já tinha (o limpar da v1.8.69 à v1.13.4), e é a
+   ÚNICA peça do app com ela — por isso tem linha própria, e não uma vírgula na
+   regra acima, cujo comentário fala de BARRAS LARGAS DE AÇÃO.
 
-   DOIS DEFEITOS, e o primeiro era MUDO. Até a v1.8.68 ele não estava em NENHUMA
-   das listas, então o svg vivia do atributo `width="20"` do HTML enquanto a
-   engrenagem, na MESMA faixa, media 22 — com as CAIXAS iguais (34x34, `--hit`).
-
-   O SEGUNDO É DENSIDADE, e ele é o que pede o degrau a MAIS: uma lixeira é
-   contorno esparso e a engrenagem é glifo denso — 66,2 unidades de comprimento
-   de traço contra 107,3 —, então igualar o TAMANHO não iguala o PESO. MEDIDO,
-   tinta contra a engrenagem no tema padrão: 20px -> 0,60 · 22px -> 0,74 ·
-   **24px -> 0,89**. O operador escolheu o EIXO (v1.8.69): *"Eu queria ela maior
-   e não com traços mais grossos."* */
-.crono-limpar svg { display: block; width: var(--icon-lg); height: var(--icon-lg); }
+   O DEGRAU A MAIS É DENSIDADE: a folha com o + é contorno esparso, como a
+   lixeira com lista que morava aqui, e a engrenagem na outra ponta é glifo
+   denso — igualar o TAMANHO não iguala o PESO. (MEDIDO com a lixeira, tinta
+   contra a engrenagem: 20px -> 0,60 · 22px -> 0,74 · 24px -> 0,89.) Fora de toda
+   lista, o svg viveria do atributo do HTML — a armadilha muda da v1.8.68. */
+.crono-importar svg { display: block; width: var(--icon-lg); height: var(--icon-lg); }
 /* A SETA DO TÍTULO é `--icon-sm`, o degrau dos botões de cabeçalho: ela é a
    marca de "isto abre", não um botão por si. */
 .crono-seta { display: block; flex: none; width: var(--icon-sm); height: var(--icon-sm); }
@@ -2510,71 +2502,25 @@ main {
   padding: calc(var(--sp-5) / 2 + env(safe-area-inset-top)) .8rem calc(var(--sp-5) / 2);
 }
 .list-header > .back-btn { grid-column: 1; }
-/* ---------- LIMPAR O CRONOGRAMA: a trilha 1 (v1.8.66) ----------
-   Ele mora na MESMA trilha do voltar — vago desde a v1.5.0 e escondido em toda
-   passada do `renderListTitle` —, herdada da badge de versão que saiu a pedido
-   do operador. `justify-self: start` porque a trilha é elástica
+/* ---------- IMPORTAR ARQUIVOS: a trilha 1 (v1.13.5) ----------
+   Ele mora na MESMA trilha do voltar (escondido em toda passada do
+   `renderListTitle`), a casa que foi da badge de versão (até a v1.8.66) e do
+   LIMPAR (v1.8.66 a v1.13.4). `justify-self: start` porque a trilha é elástica
    (`minmax(--hit, 1fr)`): sem ele o botão flutuaria no meio da sobra, e o que a
    faixa promete é um alvo ENCOSTADO no canto, como a engrenagem na outra ponta.
 
-   A COR É `--muted`, NEUTRA (v1.8.68, revogando o vermelho da v1.8.66). Pedido
-   do operador: *"troque o vermelho pelo branco/cinza, uma cor neutra para esse
-   icone. Vermelho está muito chamativo."*
+   A COR É `--accent`, A DA ENGRENAGEM EM FRENTE: as duas pontas da faixa são
+   AÇÕES (abrir o seletor, abrir Configurações) com a mesma caixa e a mesma tinta,
+   e o título no meio, `--muted`, é o único que não é ação. (O limpar vestia
+   `--muted` por ser DESTRUTIVO — o vermelho dele era *"muito chamativo"*, v1.8.68
+   —, razão que não vale para quem acrescenta à lista.) MEDIDO, a engrenagem
+   renderiza `--accent` porque `.list-header .settings-btn` (0,2,0) vence a regra
+   base dela; aqui a cor é declarada direto.
 
-   O NEUTRO CERTO NÃO SE COPIA DO VIZINHO DE CAIXA — a engrenagem é AZUL. MEDIDO
-   por pixel, ela renderiza `--accent` (`rgb(149,181,244)` / `rgb(47,85,127)`),
-   porque `.list-header .settings-btn` (0,2,0) vence a regra base dela. O vizinho
-   NEUTRO desta faixa é o `#listTitle`, e a tinta dele é exatamente esta — a
-   mesma que a `.ver-badge` que este botão substituiu na v1.8.66 já pintava.
-
-   E A ESCOLHA É MEDIDA, não o primeiro cinza. Varridos os 57 tokens declarados
-   nos DOIS blocos de tema, só DOIS são neutros (amplitude de croma baixa) E
-   passam o piso de 3:1 contra a `--bar` nos dois: `--muted` (8,09:1 · 6,66:1) e
-   `--text` (11,56:1 · **21,00:1**). O segundo faria o destrutivo virar a peça
-   mais gritante da barra no tema claro, que é o oposto do pedido.
-
-   OS BRANCOS "ÓBVIOS" SÃO OS QUE MORREM, e num tema só: `--on-accent` e
-   `--on-live` medem 13,0:1 e 13,4:1 no escuro — e **1,00:1** no claro, onde os
-   dois valem `#fff` e a barra também. Branco sobre branco, sem erro nenhum, e
-   uma captura no tema escuro não acusa.
-
-   E `--danger` NÃO É UM TOKEN — a armadilha fica escrita porque ela sobrevive à
-   saída do vermelho. O que existe declarado é `--danger-strong`, `--danger-text`
-   e `--btn-danger`; o scarlett preenchido tem um nome só, `--live-fill`. Um
-   `var()` que não computa cai no valor HERDADO, e aqui o herdado é `--text`: apagar a linha
-   `color` abaixo (a "simplificação" óbvia ao tirar o vermelho) não deixa o botão
-   sem cor — deixa-o com a tinta PRIMÁRIA do app, 21,00:1 no claro, calado.
-
-   O SINAL DE DESTRUTIVO PASSA A MORAR SÓ NO DIÁLOGO (`appConfirm({perigo})`,
-   que continua vermelho e continua tendo asserção). Enfraquecer aquele bloco
-   deixa o recurso sem aviso nenhum.
-
-   CHAPADO (sem `background`), como a engrenagem: o esqueleto acima dá caixa,
-   raio e alvo; o que sobra aqui é a cor. */
-.crono-limpar { background: none; color: var(--muted); }
-.list-header > .crono-limpar { grid-column: 1; justify-self: start; }
-/* ---------- E COM A LISTA VAZIA ELE É APAGADO, não deixado inerte ----------
-   A regra do app (v1.8.50): um botão aceso que não faz nada é indistinguível de
-   um quebrado — pior ainda num DESTRUTIVO, que assim ensinaria que tocá-lo é
-   inofensivo. `disabled` e não uma classe: é ele que tira o nó da tabulação e
-   faz o navegador engolir o toque; o `title` diz por quê (`renderCronoLimpar`).
-
-   O ALFA É PRÓPRIO, NÃO O `--op-inativo` (v1.8.68): aquele token iguala o ALFA
-   de PÍLULAS PREENCHIDAS com tinta `--text`, e este é um ícone SOLTO em
-   `--muted`. MEDIDO contra a barra, o `.35` dava 1,83:1 no escuro — com ZERO
-   pixels de tinta acima de 2:1, isto é, AUSENTE e não apagado. Nenhum alfa
-   iguala os dois temas:
-
-   | alfa | escuro | claro |
-   |------|--------|-------|
-   | .35  | 2,22:1 | 1,71:1 |
-   | .45  | 2,79:1 | 2,03:1 |
-   | **.5** | **3,12:1** | **2,23:1** |
-   | .6   | 3,86:1 | 2,70:1 |
-
-   .5 é o primeiro degrau em que os DOIS temas têm margem acima de 2:1. Contra o
-   ACESO — 8,09:1 e 6,66:1 — a separação fica em 2,6x e 3,0x. */
-.crono-limpar:disabled { opacity: .5; cursor: default; }
+   CHAPADO (sem `background`), como a engrenagem: o esqueleto do botão
+   só-de-ícone dá caixa, raio e alvo; o que sobra aqui é a cor. */
+.crono-importar { background: none; color: var(--accent); }
+.list-header > .crono-importar { grid-column: 1; justify-self: start; }
 .list-header > .crono-titulo { grid-column: 2; }
 /* ---------- O TÍTULO É UM BOTÃO: o nome e a seta (v1.12.54) ----------
    Pedido do operador: *"o título 'cronograma' vai ser um título que pode ser
@@ -2745,7 +2691,7 @@ main {
    (fundo, cor e, no `.cue-save-btn`, a borda). O voltar tinha só ~20×20 px —
    o menor alvo do app inteiro, e é a única saída da gaveta de pasta e da
    navegação da Bíblia. */
-.back-btn, .sel-btn, .row-btn, .row-slot, .crono-limpar,
+.back-btn, .sel-btn, .row-btn, .row-slot, .crono-importar,
 .cue-save-btn, .popup-close, .popup-acao, .log-copy, .lv-cheia-btn {
   flex-shrink: 0; width: var(--hit); height: var(--hit); padding: 0;
   border: none; border-radius: var(--radius-btn);
@@ -2893,29 +2839,24 @@ main {
 
 /* ---------- Rodapé FIXO da caixa da lista (v5.107) ---------- */
 /* Fora do `<ul>` rolável: o que está aqui não some de vista, e é isso que o
-   justifica. "Importar arquivos" era o último item da lista — com um culto
-   montado (trinta itens, o normal) a ação mais frequente da tela exigia rolar
-   até o fim para ser alcançada, e depois rolar de volta.
-   Ele divide o rodapé com a barra de seleção múltipla, NUNCA ao mesmo tempo:
-   uma é "acrescentar à lista", a outra é "o que fazer com o que já está nela".
+   justifica. Hoje ele hospeda as duas PORTAS (Bíblia · Ferramentas, a
+   `.portas-row`), e as divide com a barra de seleção múltipla, NUNCA ao mesmo
+   tempo. (O "Importar arquivos" morou aqui da v5.107 à v1.13.4 — ele era o
+   último item da lista, e com trinta itens a ação mais frequente da tela exigia
+   rolar até o fim. Desde a v1.13.5 ele é o `#cronoImportar` da barra do topo.)
    Vazio, o rodapé não existe — `:empty` some com ele e com o `gap` do `<main>`
    junto, senão sobraria uma faixa de ar acima da caixa de controles nas abas
    que não têm rodapé nenhum. */
 .list-foot { flex-shrink: 0; display: flex; flex-direction: column; }
 .list-foot:empty { display: none; }
 
-/* Fim da lista do Cronograma: "Importar arquivos" — tracejado para se ler como
-   "espaço a preencher", não como mais um item da lista. (A mesma receita serve
-   ao "Novo atalho" da gaveta de Favoritos, que continua sendo um `<li>` no fim
-   daquela lista.)
-   A margem de cima só vale DENTRO de uma lista, onde ele precisa se separar da
-   última mídia; no rodapé quem dá o respiro é o `gap` do `<main>`. */
-.import-row { flex-shrink: 0; display: flex; gap: var(--sp-4); margin-top: .85rem; }
-/* ---------- AS TRÊS PORTAS FICAM QUIETAS (v1.5.19) ----------
+.portas-row { flex-shrink: 0; display: flex; gap: var(--sp-4); }
+/* ---------- AS PORTAS FICAM QUIETAS (v1.5.19; eram três até a v1.13.4) ----------
    Pedido do operador: *"padronize os botões de biblia, importar e ferramentas
    da aba de cronograma, para que tenham uma cor mais proxima a cor de fundo,
    para que não se destaquem … preciso que sejam opções discretas, mescladas ao
-   fundo."*
+   fundo."* (A tinta deste bloco foi revogada pelos dois seguintes; fica o
+   raciocínio de por que a faixa NÃO veste o `--btn-accent` de "ligado".)
 
    A DO MEIO ERA A QUE SALTAVA, E NÃO POR CLARIDADE. MEDIDO no tema CLARO — o da
    captura dele —, o azul mede **1,07:1** contra o fundo, MENOS que as laterais
@@ -3003,10 +2944,9 @@ main {
    `--on-accent` que morou aqui na v1.8.62 é o par do DENIM: sobre o azul claro
    ele mede **1,21:1** (branco sobre #dcebfe), rótulo que só se lê no escuro.
 
-   ELE MORA SÓ AQUI, e tinha de sair das duas regras de baixo: `.tools-btn,
-   .lib-foot-btn` e `.import-btn` vêm DEPOIS desta com a mesma especificidade, e
-   qualquer `color` deixado lá venceria — em silêncio, e correto em toda captura
-   de layout.
+   ELE MORA SÓ AQUI, e tinha de sair da regra de baixo: `.tools-btn,
+   .lib-foot-btn` vem DEPOIS desta com a mesma especificidade, e qualquer `color`
+   deixado lá venceria — em silêncio, e correto em toda captura de layout.
 
    A SOMBRA É NORMAL, PARA BAIXO (v1.8.64, revogando a v1.8.63): *"essas sombras
    são sombras normais, para baixo"*. A v1.8.63 a apontou para CIMA pelo
@@ -3016,7 +2956,7 @@ main {
    recorte cai no padding box, a 5,59px abaixo da base das portas, então o
    desenho é uma sombra CURTA entre elas e a barra de buscas — o que passa
    daquilo não chega a existir na tela. */
-.tools-btn, .lib-foot-btn, .import-btn {
+.tools-btn, .lib-foot-btn {
   background: var(--surface-porta); color: var(--accent);
   box-shadow: 0 2px 8px var(--shadow-card);
 }
@@ -3028,59 +2968,55 @@ main {
    (controle.js), que escreve `.livre` no rodapé; a AUSÊNCIA da marca é a sombra
    de sempre, então JS que falhe deixa o desenho de antes. `:is()` e dois
    seletores de classe vencem a regra agrupada acima sem `!important`. */
-.list-foot.livre :is(.tools-btn, .lib-foot-btn, .import-btn) { box-shadow: none; }
+.list-foot.livre :is(.tools-btn, .lib-foot-btn) { box-shadow: none; }
 /* ...E ELA ENTRA E SAI AOS POUCOS (v1.12.20). Pedido do operador: *"a sombra dos
    botões surgir de forma gradual, ou mais sutil"*. A troca `none` ↔ `0 2px 8px`
    é interpolável (o navegador a completa com a mesma forma, transparente), então
    basta declarar a transição; o `.livre` muda quando a lista cresce, encolhe ou
    passa de rolagem, e um corte seco ali era o que chamava o olho. Sem movimento
    com `prefers-reduced-motion`. */
-.tools-btn, .lib-foot-btn, .import-btn { transition: box-shadow var(--dur-lenta) ease; }
+.tools-btn, .lib-foot-btn { transition: box-shadow var(--dur-lenta) ease; }
 @media (prefers-reduced-motion: reduce) {
-  .tools-btn, .lib-foot-btn, .import-btn { transition: none; }
+  .tools-btn, .lib-foot-btn { transition: none; }
 }
-/* ===== AS TRÊS PORTAS DO CRONOGRAMA, EM PARTES IGUAIS (v1.5.0) =====
-   Bíblia · Importar arquivos · Ferramentas, e as três com RÓTULO — o pedido do
-   operador foi *"coloque um texto no botão de ferramentas"*, e o argumento que
-   as mantinha mudas (*"dois nomes lado a lado numa faixa de celular empurrariam
-   o primeiro para reticências"*) valia para uma linha em que a do meio era
-   `flex: 1` e as laterais eram quadrados de 44px. Com TRÊS portas de mesmo
-   peso, `flex: 1 1 0` reparte a faixa em três partes IGUAIS e cada rótulo
-   encolhe por conta própria — a caixa de nenhum depende do nome do vizinho.
+/* ===== AS DUAS PORTAS DO CRONOGRAMA, EM PARTES IGUAIS (v1.13.5; três desde a v1.5.0) =====
+   Bíblia · Ferramentas, as duas com RÓTULO e o ícone À ESQUERDA dele — pedido do
+   operador: *"na base, agora dividida apenas entre bíblia e ferramentas, ajuste
+   para que o icone fique a esquerda dos titulos dos dois botões"*. Ícone e
+   rótulo são UM grupo centrado na porta.
 
-   `1 1 0` e não `flex: 1` sozinho: a base `auto` mede o CONTEÚDO, e ali
-   "Importar arquivos" começaria maior que "Bíblia" e ficaria maior depois de
-   repartida a sobra. Com base zero as três partem do mesmo lugar.
+   A PILHA (ícone em cima, rótulo embaixo, a do `.qs-tile`) morou aqui da v1.5.0 à
+   v1.13.4, e a razão dela era a largura de UM TERÇO: MEDIDO em 360px, três
+   rótulos lado a lado com o ícone não cabiam, e "Ferramentas" saía com
+   reticências. Numa METADE ele cabe deitado.
 
-   AS TRÊS TÊM A MESMA TINTA desde a v1.8.61, e o denim desde a v1.8.62. A
-   distinção que existiu aqui — laterais em `--surface`, a do meio em
-   `--btn-accent`, porque só ela ENTRA com conteúdo na lista — caiu com o
-   pedido de pintar as três de azul. Ela sobrevive onde ainda descreve o que
-   está na tela: a `.lib-toggle` e o `+ Nova mensagem` (ver a regra da cor por
-   HABITAT, abaixo). */
+   `flex: 1 1 0` e não `flex: 1` sozinho: a base `auto` mede o CONTEÚDO, e ali
+   "Ferramentas" começaria maior que "Bíblia" e ficaria maior depois de repartida
+   a sobra. Com base zero as duas partem do mesmo lugar — e a largura da porta de
+   Ferramentas é a da LISTA dela (`#toolsSheet.estreita`), então ela não pode
+   depender do nome do vizinho.
+
+   AS DUAS TÊM A MESMA TINTA desde a v1.8.61, e o denim desde a v1.8.62 (ver a
+   regra agrupada do `--surface-porta`, acima). */
 .tools-btn, .lib-foot-btn {
-  /* `padding: 0 .3rem` desde a v1.5.19 — ver "AS TRÊS PORTAS FICAM QUIETAS". O
+  /* `padding: 0 .3rem` desde a v1.5.19 — ver "AS PORTAS FICAM QUIETAS". O
      recuo VERTICAL saiu porque era ele, e não o `--hit-foot`, o termo que
      mandava na altura: MEDIDO, a pilha pedia 51,77px contra os 44 do token, e o
-     token ficava INERTE (varrê-lo de 48 a 36px não mudava um pixel). Com ele
-     fora, "mais baixo" volta a ser um número num lugar só — e é a MESMA forma
-     que a `.selbar` já tem (`min-height: var(--hit-foot); padding: 0 .5rem`),
-     que é o que faz as duas inquilinas da fatia medirem o mesmo. */
+     token ficava INERTE. Com ele fora, "mais baixo" volta a ser um número num
+     lugar só — e é a MESMA forma que a `.selbar` já tem (`min-height:
+     var(--hit-foot); padding: 0 .5rem`), que é o que faz as duas inquilinas da
+     fatia medirem o mesmo. */
   flex: 1 1 0; min-width: 0; min-height: var(--hit-foot); padding: 0 .3rem;
-  /* ÍCONE EM CIMA, RÓTULO EMBAIXO — a pilha do `.qs-tile` do painel rápido, e
-     ela entra aqui pela mesma razão que entrou lá: numa faixa de celular, três
-     rótulos LADO A LADO com o ícone não cabem. MEDIDO em 360px, "Ferramentas"
-     saía com reticências na linha; empilhado, a palavra tem a largura inteira
-     do terço e cabe até em 320. */
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: var(--sp-1);
+  display: flex; flex-direction: row; align-items: center; justify-content: center;
+  gap: var(--sp-4);
   border: 0; border-radius: var(--radius-btn);
-  /* (O `color: var(--accent)` saiu na v1.8.62 — o traço das três portas mora na
+  /* (O `color: var(--accent)` saiu na v1.8.62 — o traço das portas mora na
      regra agrupada do `--surface-porta`, e repeti-lo aqui o faria VENCER.) */
-  /* `.82rem` e não `.9`: são TRÊS rótulos onde havia um, e MEDIDO em 430px o
-     terço de cada um não paga "Ferramentas" no corpo antigo — o nome saía com
-     reticências, que é pior que a palavra curta porque não diz qual palavra
-     foi cortada. */
+  /* `font-family: inherit` porque elas são `<button>`, e a folha do agente de
+     usuário entrega a família do botão — que o `font-size` sobrescreve e a
+     `font-family` não. MEDIDO no arnês: `Arial` contra `system-ui`, 14% de
+     diferença na largura do MESMO rótulo (a armadilha foi achada na v1.5.19, na
+     porta do Importar, que no navegador era `<label>` e no app `<button>`). */
   font-size: var(--fs-md); font-family: inherit;
   cursor: pointer; appearance: none; -webkit-appearance: none;
 }
@@ -3091,7 +3027,6 @@ main {
 /* (A regra `:active` própria destes dois saiu na v1.5.14: as duas classes já
    estão na lista `:is()` do `--press`, com o mesmo valor e a mesma pseudo-classe.
    Uma segunda escrita da mesma coisa só cria a chance de as duas divergirem.) */
-.list-foot > .import-row { margin-top: 0; }
 /* (`.fav-section` saiu na v5.254: os favoritos são UMA lista, na ordem que o
    operador der a ela. Os cabeçalhos por tipo eram doze rótulos disputando a
    altura da primeira tela, e a ordenação manual desmente o pressuposto deles —
@@ -3128,15 +3063,15 @@ main {
    agrupado de propósito: a `.selbar` base declara `--radius-card` (10px) e é
    esta linha, mais específica, que a põe em `--radius-btn` (8px). Tirá-la daqui
    junto com a cor devolveria 10px à barra de seleção sem erro e sem oráculo. */
-.import-btn, .list-foot > .selbar, .msg-add-btn, .pl-pack {
+.list-foot > .selbar, .msg-add-btn, .pl-pack {
   border-radius: var(--radius-btn);
 }
 /* A COR SE PARTIU POR HABITAT (v1.5.19), e não por botão. O `--btn-accent`
    continua sendo o preenchimento de `+ Nova mensagem`, que vive sobre `--panel`
    (onde ele mede 1,21:1, a faixa normal de um controle de folha) e é de fato a
    única ação do bloco dela — o argumento em que ele nasceu. Quem saiu primeiro
-   foi a porta do meio do RODAPÉ, que vive sobre `--bg`: ver "AS TRÊS PORTAS
-   FICAM QUIETAS".
+   foi a porta do meio do RODAPÉ, que vive sobre `--bg`: ver "AS PORTAS FICAM
+   QUIETAS".
 
    E O `Guardar como pacote` SAIU NA v1.8.53, pelo MESMO argumento caindo pela
    segunda vez: ele era pintado por ser *"a única ação do bloco dela"*, e o
@@ -3166,41 +3101,6 @@ main {
 .msg-add-btn {
   background: var(--btn-accent);
 }
-/* `min-height: var(--hit-foot)` e não só o padding: é ele que fixa a altura da
-   fatia do rodapé, para a barra de seleção poder ocupar exatamente a mesma
-   caixa quando toma o lugar dele. */
-.import-btn {
-  /* `1 1 0` desde a v1.5.0: são TRÊS portas de mesmo peso, e a base `auto`
-     mediria o conteúdo — "Importar arquivos" partiria maior que as vizinhas e
-     ficaria maior ainda depois de repartida a sobra. */
-  flex: 1 1 0; min-width: 0; min-height: var(--hit-foot); padding: 0 .3rem;
-  /* O PREENCHIMENTO VEM DA REGRA DAS TRÊS PORTAS (v1.5.19; era a regra agrupada
-     do `--btn-accent` desde a v5.267). Ele não pode ser `transparent`: sem
-     contorno em lugar nenhum do app, isso deixaria o botão como uma frase solta
-     no meio da tela — verificado no renderizado. */
-  /* (O `color` saiu na v1.8.62 — ver a irmã acima.) */
-  font-size: var(--fs-md);
-  /* `font-family: inherit` COMO AS IRMÃS (v1.5.19), e a assimetria que ele
-     fecha só existe NO APP: no navegador esta porta é um `<label>` e herda do
-     `body`; no app ela é um `<button>` (`usaSeletorNativo`), e a folha do
-     agente de usuário entrega a família — que o `font-size` sobrescreve e a
-     `font-family` não. MEDIDO no arnês, criando o `<button>` que o app cria:
-     `Arial` contra `system-ui`, 14% de diferença na largura do MESMO rótulo.
-     Nenhum oráculo enxerga isto — eles rodam no navegador, onde a porta é
-     `<label>`: é a armadilha do `__tela` num lugar novo. */
-  font-family: inherit;
-  /* A MESMA PILHA das irmãs (v1.5.0): ícone em cima, rótulo embaixo. */
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: var(--sp-1);
-  cursor: pointer;
-}
-.import-btn svg { flex-shrink: 0; }
-/* "Novo atalho" passou a usar o glifo da fonte (create_new_folder) no lugar de
-   um SVG de estrela — a estrela agora é só do favorito. O tamanho vem daqui
-   porque o `.msym` nasce em 24px. */
-.import-btn .msym { flex-shrink: 0; font-size: var(--icon-sm); }
-.import-btn span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
 /* (A regra do `.tab-add` — a porta do acervo na faixa de abas — saiu na v1.5.0
    com a faixa. O que ela dizia sobrevive na `.lib-toggle`: numa linha em que o
    resto não tem fundo, a porta da Biblioteca é a única superfície de AÇÃO, e o
@@ -3279,7 +3179,7 @@ main {
   display: flex; flex-direction: column;
 }
 
-/* ---------- AS TRÊS PORTAS FLUTUAM, E A LISTA CORRE POR BAIXO (v1.8.61) -----
+/* ---------- AS PORTAS FLUTUAM, E A LISTA CORRE POR BAIXO (v1.8.61) ----------
    Pedido do operador: *"ajuste os 3 botões de bíblia, importar e ferramentas,
    para que sejam botões flutuantes sobre o cronograma. eles ficam nas mesmas
    posições, mas agora a lista corre por baixo deles até a fronteira dos
@@ -3298,7 +3198,7 @@ main {
    sombra, senão a sombra pintaria sobre os botões.
 
    O QUE FICA DITO PORQUE NÃO TEM CONSERTO: sobra o vão de 8px ENTRE as portas
-   (`gap` da `.import-row`), e ali a lista aparece — 11 a 17 de 35 linhas de
+   (`gap` da `.portas-row`), e ali a lista aparece — 11 a 17 de 35 linhas de
    pixel mudam com a rolagem. É a consequência honesta de "flutuante", e vale
    para qualquer um dos três desenhos. */
 .list-body > #listFoot {
@@ -3540,14 +3440,14 @@ main {
      porque elas são `absolute` contra o `.list-body`, que não mudou. */
   margin-bottom: calc(-1 * var(--vao-barra));
 }
-/* E ELA RECOLHE SOB UMA FOLHA, pelo motivo da tira duas regras abaixo: com
-   Ferramentas ou a Bíblia aberta, os 5,6px de lista que passariam por baixo
+/* E ELA RECOLHE SOB UMA FOLHA LARGA, pelo motivo da tira duas regras abaixo: com
+   Ferramentas (fora da lista, que é estreita — v1.13.5) ou a Bíblia aberta, os 5,6px de lista que passariam por baixo
    ficariam à vista E tocáveis na moldura que a folha não cobre. É o MESMO
    seletor — `#bibleSheet` também veste `.tools-sheet` —, então não há motor
    novo. MEDIDO com a folha aberta: `elementFromPoint` devolve o `<main>` em
    617 e 619, bit a bit igual à base, e o `scrollTop` da lista fica em 300 ao
    abrir e ao fechar (a caixa cresce pela BASE, então nada se move). */
-.list-body:has(.tools-sheet:not([hidden])) > #library { margin-bottom: 0; }
+.list-body:has(.tools-sheet:not([hidden]):not(.estreita)) > #library { margin-bottom: 0; }
 /* E AS DUAS FOLHAS RECUPERAM O DEGRAU QUE A BARRA COMEU. Elas são
    `position: absolute; inset: 0` no `.list-body`, e subir esse contêiner 9,6px
    encostava a borda de cima delas na barra: MEDIDO, a fronteira caía de 1,667
@@ -3556,6 +3456,44 @@ main {
    ficar escrita: a sombra da folha caía sobre `--bg` e passava a cair sobre
    `--bar`, que separa menos. Devolvido o degrau, as duas voltam ao que eram. */
 .list-body > .tools-sheet { top: var(--sp-5); }
+/* ===== NA LISTA, A FOLHA DE FERRAMENTAS TEM A LARGURA DA PORTA (v1.13.5) =====
+   Pedido do operador: *"ajuste a janela da lista de ferramentas para que ela seja
+   um janela de largura mais fina … alinhada a direita, e ao selecionar uma das
+   ferramentas, ela vai se expandir para ocupar o espaço normal"* e, na mesma
+   conversa, *"a largura da janela de ferramentas durante a listagem, pode ser a
+   mesma largura do botão que abre a janela de ferramentas"*.
+
+   AS DUAS BORDAS SÃO LIDAS DA PORTA, nunca escritas: `medirPortaDasFerramentas`
+   escreve `--ferr-porta-esq`/`--ferr-porta-dir` (a distância da porta às bordas
+   do `.list-body`, que é o bloco contêiner da folha) a cada mudança de tamanho do
+   rodapé — giro, largura, fonte do sistema. FALHA ABERTA: sem a medida as duas
+   valem zero, e a folha é a de sempre, larga.
+
+   A BASE DA FOLHA CONTINUA SENDO A DO `.list-body`: ela cobre a própria porta, e
+   o que se vê é a porta crescendo para cima. A de Bíblia, ao lado, continua à
+   vista e tocável (abri-la fecha esta, `abrirBiblia`).
+
+   E ELA CEDE A ALTURA PARA AS SEIS LINHAS NÃO ROLAREM: o recuo de cima e o vão
+   do cabeçalho no `--sp-1`, o resto no `--sp-2` (MEDIDO a 360×640 com a fonte em
+   1,25×: com `--sp-2` nos três a linha media 33,9px; com isto, 34,6), e o título
+   encosta à esquerda, com o ✕ na ponta (as trilhas
+   simétricas do cabeçalho — `--hit` dos dois lados — não cabem na largura de
+   uma porta; o voltar não existe na lista). O corpo do título também é MEDIDO
+   (`--ferr-titulo-teto`). */
+#toolsSheet.estreita {
+  left: var(--ferr-porta-esq, 0px); right: var(--ferr-porta-dir, 0px);
+  padding: var(--sp-1) var(--sp-2) var(--sp-2);
+}
+#toolsSheet.estreita > .tools-head {
+  grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-2);
+  margin-bottom: var(--sp-1);
+}
+#toolsSheet.estreita > .tools-head > .tools-title {
+  grid-column: 1; text-align: left; padding-left: var(--sp-4);
+  font-size: min(var(--ferr-titulo-teto, 99rem), var(--fs-xl));
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#toolsSheet.estreita > .tools-head > .popup-close { grid-column: 2; }
 /* E COM UMA FOLHA ABERTA A TIRA SE CALA. As folhas de Ferramentas e da Bíblia
    cobrem o Cronograma inteiro MENOS essa moldura de 12,8px, e a tira alargada
    passava a pintar justamente ali: MEDIDO com Ferramentas aberta, **1004px de
@@ -3566,8 +3504,8 @@ main {
    fechadores de folha teriam de lembrar dela, e é o tipo de par que diverge no
    primeiro caminho novo. Ele já é dependência desta folha desde a v1.8.53
    (`.song-menu-go-row:has(> .fav-acoes.confirmando)`), então não é motor novo. */
-.list-body:has(.tools-sheet:not([hidden])) > #library::before,
-.list-body:has(.tools-sheet:not([hidden])) > #library::after { display: none; }
+.list-body:has(.tools-sheet:not([hidden]):not(.estreita)) > #library::before,
+.list-body:has(.tools-sheet:not([hidden]):not(.estreita)) > #library::after { display: none; }
 .empty { color: var(--muted); text-align: center; padding: 1.6rem 0; line-height: 1.6; font-size: var(--fs-lg); }
 /* ---------- O CRONOGRAMA VAZIO É UMA MARCA-D'ÁGUA (v1.8.67) ----------
    Pedido do operador: *"ajuste o texto de cronograma vazio, para que seja um
@@ -6909,26 +6847,26 @@ body.mode-simple .serie-destaque {
    `FERRAMENTAS`, e a folha abre SEMPRE nela — ver `renderGradeDeFerramentas`. (O nome
    `.ferr-grade` ficou: renomear não muda um pixel.)
 
+   A LARGURA É A DA PORTA de Ferramentas (v1.13.5) — ver `#toolsSheet.estreita`.
+
    A ALTURA É REPARTIDA PELO LAYOUT, nunca escrita: a lista ocupa o corpo da folha
    (`flex: 1`) e cada linha leva uma fatia igual (`flex: 1 1 0`) — e A LISTA NÃO
-   ROLA enquanto o piso de toque couber, a regra do Tempo (v1.8.92: *"o que eu não
-   quero é que tenha scroll nessa janela de ferramentas"*). A folha mora DENTRO do
-   Cronograma, com a prévia e o transporte à vista, e o corpo dela vai de ~475px
-   (430×900) a ~218px (360×640) e ~186px (360×640 com a fonte em 1,25×). Três
-   peças, e a conta é toda do layout:
+   ROLA NUNCA (v1.13.5; até a v1.13.4 ela rolava 18px na tela menor), a regra do
+   Tempo (v1.8.92: *"o que eu não quero é que tenha scroll nessa janela de
+   ferramentas"*). A folha mora DENTRO do Cronograma, com a prévia e o transporte
+   à vista. Três peças, e a conta é toda do layout:
    1. o PISO da linha é o `--hit` (34px, o piso de toque do app, que o
       `geometria.test.mjs` cobra) — o `--hit-foot` (42px) foi tentado e MEDIDO
-      rolando 60px a 360×640;
+      rolando 60px a 360×640. Onde nem seis `--hit` cabem, a linha mede a sexta
+      parte da lista (a exceção NOMEADA, logo abaixo);
    2. o VÃO entre as linhas cede antes da linha: ele é `--sp-3` com folga e
       encolhe até zero quando seis pisos não cabem com ele (a 360×640 sai ~2,9px
       e a lista fecha sem rolar). Ele é margem e não `gap` porque a conta lê a
       altura da LISTA (`100cqh`), que só existe para quem está DENTRO dela;
    3. o DESENHO da linha cede junto: a lista é contêiner de tamanho
       (`container-type: size`), e o corpo do nome e o ícone saem da FATIA de cada
-      linha (`--ferr-linha`), presos entre piso e teto.
-   Abaixo de seis pisos (só a 360×640 com a fonte do sistema grande) a lista
-   transborda o que falta e o corpo (`.rola`) rola — encolher o alvo de toque
-   seria pior que rolar 18px.
+      linha (`--ferr-linha`), presos entre piso e teto — e o nome tem ainda o teto
+      da LARGURA, medido.
 
    A LINHA VESTE O TILE DE CONFIGURAÇÕES (`.qs-tile.qs-on`: `--btn-accent` +
    `--accent`, o raio, a resposta ao toque), deitado — ícone à esquerda, nome à
@@ -6941,8 +6879,7 @@ body.mode-simple .serie-destaque {
    corpo de uma linha de lista). O ÍCONE vai de `--icon-sm` a 28px, um degrau acima
    do `--icon-lg`, por REGRA PRÓPRIA e pela razão que a v1.8.69 escreveu para a
    lixeira: ele acompanha um rótulo maior que o de qualquer lista daqui, e um
-   `--icon-md` ao lado de um nome de 20px lê como miniatura. MEDIDO: o nome mais
-   longo ("Cronômetro") cabe sem reticências a 360px com a fonte em 1,25×. */
+   `--icon-md` ao lado de um nome de 20px lê como miniatura. */
 .ferr-grade {
   flex: 1 0 auto; min-height: 0;
   container-type: size;
@@ -6951,11 +6888,20 @@ body.mode-simple .serie-destaque {
 .ferr-grade > .ferr-tile {
   --ferr-linha: calc((100cqh - 5 * var(--sp-3)) / 6);
   position: relative; min-width: 0;
-  flex: 1 1 0; min-height: var(--hit);
-  flex-direction: row; justify-content: flex-start; gap: var(--sp-6);
-  /* À DIREITA, A RESERVA DO PONTO de "no ar" (7px + o vão): o número contando não
-     corre para baixo dele quando ele acende. */
-  padding: 0 calc(var(--sp-5) + 7px + var(--sp-4)) 0 var(--sp-6);
+  /* O PISO É O `--hit`, MENOS ONDE SEIS NÃO CABEM (v1.13.5): aí a linha mede a
+     SEXTA PARTE da lista e o corpo NÃO ROLA. É a exceção NOMEADA do
+     `geometria.test.mjs`, pedida pelo operador: *"verifique em telas menores,
+     para garantir que essa janela de ferramentas não necessite de scroll, mas
+     sim tenha seus botões encolhidos verticalmente para caber de forma
+     correta"*. Antes de chegar aqui a folha estreita já cedeu o que podia (o
+     recuo e o vão do cabeçalho, e o vão entre as linhas a zero); MEDIDO, só a
+     360×640 com a fonte do sistema em 1,25× a linha passa abaixo do piso. */
+  flex: 1 1 0; min-height: min(var(--hit), 100cqh / 6);
+  flex-direction: row; justify-content: flex-start; gap: var(--sp-4);
+  /* À DIREITA, A RESERVA DO PONTO de "no ar" (7px + o vão): o nome não corre
+     para baixo dele quando ele acende. Os recuos são os de uma linha ESTREITA
+     (v1.13.5): a lista tem a largura da porta de Ferramentas. */
+  padding: 0 calc(var(--sp-4) + 7px + var(--sp-3)) 0 var(--sp-4);
   text-align: left;
 }
 .ferr-grade > .ferr-tile + .ferr-tile {
@@ -6966,20 +6912,29 @@ body.mode-simple .serie-destaque {
   width: clamp(var(--icon-sm), calc(var(--ferr-linha) * .6), 28px);
   height: clamp(var(--icon-sm), calc(var(--ferr-linha) * .6), 28px);
 }
+/* O CORPO DO NOME TEM DOIS TETOS: o da ALTURA da linha (o `clamp`, pelo pedido da
+   v1.13.4 — *"se necessário, para melhor preenchimento, aumente o tamanho da
+   fonte"*) e o da LARGURA da lista (`--ferr-fs-teto`, v1.13.5), que é MEDIDO e
+   escrito por `acertarLetraDaListaDeFerramentas`: o maior corpo em que o nome mais
+   longo cabe sem reticências na largura da porta. Sem a medida, o teto é o da
+   altura, que é o desenho de antes. */
 .ferr-grade .ferr-tile .qs-titulo {
   flex: 1; min-width: 0;
-  font-size: clamp(var(--fs-md), calc(var(--ferr-linha) * .45), var(--fs-4xl));
+  font-size: min(var(--ferr-fs-teto, 99rem), clamp(var(--fs-md), calc(var(--ferr-linha) * .45), var(--fs-4xl)));
   font-weight: var(--fw-forte); line-height: 1.15;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-/* CONTANDO, O NÚMERO NA PONTA DIREITA da linha — o ícone fica (a v1.13.3 o trocava
-   pelo número, na caixa dele; deitada, a linha tem a largura que o tile não tinha).
-   `tabular-nums` pelo motivo do telão: sem ele o número treme a cada segundo, e o
-   nome à esquerda, `flex: 1`, não anda quando ele aparece. O corpo é o do nome. */
+/* CONTANDO, O NÚMERO TOMA O LUGAR DO NOME (v1.13.5; até a v1.13.4 ele ia na ponta
+   direita, AO LADO do nome). Na largura da porta os dois não cabem juntos, e o
+   número é a leitura que quem volta à lista procura; o ÍCONE continua dizendo qual
+   ferramenta é, e o nome segue no `aria-label`. `tabular-nums` pelo motivo do
+   telão: sem ele o número treme a cada segundo. O corpo é o do nome, com os
+   mesmos dois tetos. */
 .ferr-leitura { display: none; }
+.ferr-tile.contando .qs-titulo { display: none; }
 .ferr-tile.contando .ferr-leitura {
-  display: block; flex: none;
-  font-size: clamp(var(--fs-md), calc(var(--ferr-linha) * .45), var(--fs-4xl));
+  display: block; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  font-size: min(var(--ferr-fs-teto, 99rem), clamp(var(--fs-md), calc(var(--ferr-linha) * .45), var(--fs-4xl)));
   font-weight: var(--fw-max); white-space: nowrap;
   font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
 }
@@ -8849,7 +8804,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
      aqui, `--danger-text` no limpar. Ele saiu da regra agrupada do
      `--btn-accent` — ver lá o porquê, que é o argumento da v1.5.19 caindo pela
      segunda vez. O raio continua vindo da regra do `--radius-btn`, que ele
-     divide com o `.import-btn` e a `.selbar`. */
+     divide com a `.selbar`. */
   background: var(--surface); color: var(--accent);
   font-size: var(--fs-md); font-weight: var(--fw-medio); font-family: inherit; cursor: pointer;
   appearance: none; -webkit-appearance: none;
@@ -11985,7 +11940,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    O CORPO É `--fs-2xs` PORQUE É O ÚNICO DEGRAU QUE CABE. O rótulo tem até CINCO
    caracteres (`0,75×`), não um par deles, e a régua é a fonte MAIS LARGA que
    este botão pode calhar de pegar: um `<button>` não herda família (o
-   `.lv-fonte-btn` não declara nenhuma — a armadilha escrita no `.import-btn`),
+   `.lv-fonte-btn` não declara nenhuma — a armadilha escrita nas portas do rodapé),
    então ele computa a do agente do usuário. MEDIDO em `system-ui`, numa caixa
    de `--hit` (34px): `--fs-md` pede 43,34px (estoura 9,34), `--fs-sm` 39,11
    (estoura 5,11), `--fs-xs` 35,95 (estoura 1,95) e `--fs-2xs` 31,72 — folga

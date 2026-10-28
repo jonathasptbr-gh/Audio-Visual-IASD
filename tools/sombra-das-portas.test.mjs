@@ -12,7 +12,7 @@
 //  E. um pouco antes do fim (o último item volta a cruzar o topo das portas): a sombra VOLTA;
 //  F. lista que ENCOLHE (itens apagados) volta ao sem-sombra sem ninguém rolar — o render não dispara
 //     `scroll` nem `ResizeObserver`, e é o caminho que uma marca só do scroll perderia;
-//  G. a sombra entra e sai por TRANSIÇÃO (v1.12.20, *"surgir de forma gradual"*): declarada nas três portas e,
+//  G. a sombra entra e sai por TRANSIÇÃO (v1.12.20, *"surgir de forma gradual"*): declarada nas portas e,
 //     medida quadro a quadro, passa por valores intermediários.
 //
 //   node tools/sombra-das-portas.test.mjs
@@ -38,16 +38,16 @@ try {
   await esperarCortina(pg);
 
   const sombras = () => pg.evaluate(() => {
-    const portas = [...document.querySelectorAll('#listFoot .lib-foot-btn, #listFoot .import-btn, #listFoot .tools-btn')];
+    const portas = [...document.querySelectorAll('#listFoot .lib-foot-btn, #listFoot .tools-btn')];
     return { n: portas.length, sombras: [...new Set(portas.map((b) => getComputedStyle(b).boxShadow))] };
   });
-  const comSombra = (s) => s.n === 3 && s.sombras.length === 1 && s.sombras[0] !== 'none';
-  const semSombra = (s) => s.n === 3 && s.sombras.length === 1 && s.sombras[0] === 'none';
+  const comSombra = (s) => s.n === 2 && s.sombras.length === 1 && s.sombras[0] !== 'none';
+  const semSombra = (s) => s.n === 2 && s.sombras.length === 1 && s.sombras[0] === 'none';
   const estado = (alvo) => esperar(pg, (a) => {
-    const portas = [...document.querySelectorAll('#listFoot .lib-foot-btn, #listFoot .import-btn, #listFoot .tools-btn')];
+    const portas = [...document.querySelectorAll('#listFoot .lib-foot-btn, #listFoot .tools-btn')];
     // A sombra entra e sai por TRANSIÇÃO (v1.12.20): o valor calculado passa por
     // intermediários, então "com sombra" só vale ASSENTADA (o 8px do desenho final).
-    return portas.length === 3 && portas.every((b) => {
+    return portas.length === 2 && portas.every((b) => {
       const v = getComputedStyle(b).boxShadow;
       return a ? v === 'none' : v.includes(' 8px');
     });
@@ -63,9 +63,9 @@ try {
 
   // A · vazia
   await pg.evaluate(() => { setAppMode('full'); });
-  await esperar(pg, () => !!document.querySelector('#listFoot .import-btn'));
+  await esperar(pg, () => !!document.querySelector('#listFoot .tools-btn'));
   checar(await estado(true) === true && semSombra(await sombras()),
-    'A · com a lista VAZIA as três portas ficam sem sombra', JSON.stringify(await sombras()));
+    'A · com a lista VAZIA as portas ficam sem sombra', JSON.stringify(await sombras()));
 
   // B · curta
   await semear(2);
@@ -84,7 +84,7 @@ try {
     'D · rolada até o FIM o último item para acima das portas e a sombra sai', JSON.stringify(await sombras()));
   const folga = await pg.evaluate(() => {
     const u = document.getElementById('library').lastElementChild.getBoundingClientRect().bottom;
-    return Math.round(document.querySelector('#listFoot .import-row').getBoundingClientRect().top - u);
+    return Math.round(document.querySelector('#listFoot .portas-row').getBoundingClientRect().top - u);
   });
   checar(folga > 0, 'D · (premissa: no fim há folga real entre o último item e as portas, ' + folga + ' px)', String(folga));
 
@@ -101,9 +101,9 @@ try {
     'F · a lista que ENCOLHE volta a ficar sem sombra sem ninguém rolar', JSON.stringify(await sombras()));
 
   // G · a entrada é GRADUAL: a transição está declarada e, no meio dela, o valor não é nem 'none' nem o final
-  const decl = await pg.evaluate(() => [...document.querySelectorAll('#listFoot .lib-foot-btn, #listFoot .import-btn, #listFoot .tools-btn')]
+  const decl = await pg.evaluate(() => [...document.querySelectorAll('#listFoot .lib-foot-btn, #listFoot .tools-btn')]
     .map((b) => { const c = getComputedStyle(b); return c.transitionProperty.includes('box-shadow') && parseFloat(c.transitionDuration) > 0; }));
-  checar(decl.length === 3 && decl.every(Boolean), 'G · as três portas declaram transição de sombra com duração', JSON.stringify(decl));
+  checar(decl.length === 2 && decl.every(Boolean), 'G · as portas declaram transição de sombra com duração', JSON.stringify(decl));
   await semear(40);
   await pg.evaluate(() => { const l = document.getElementById('library'); l.scrollTop = l.scrollHeight; });
   await estado(true);

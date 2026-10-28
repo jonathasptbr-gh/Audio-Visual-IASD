@@ -37,7 +37,7 @@
 //    `controles-layout.test.mjs` já pagou uma vez.
 //  - **o voltar do Android pulá-la.** Sem o degrau, o gesto que todo mundo usa
 //    para "fechar isto" minimiza o app no meio do culto.
-//  - **o DESENHO das três portas** (v1.5.19, bloco 9). Elas são a navegação
+//  - **o DESENHO das portas** (v1.5.19, bloco 9; duas desde a v1.13.5). Elas são a navegação
 //    inteira do app e vivem sobre a página o culto todo: a faixa voltar a ter um
 //    destaque, a discrição virar desaparecimento, o rodapé PULAR ao entrar na
 //    seleção múltipla, e a `.selbar` ser "padronizada" junto — nenhum dos quatro
@@ -87,8 +87,8 @@ try {
     barra: !!document.querySelector('.lib-bar'),
     campo: !!document.querySelector('.lib-bar #hymnSearchInput'),
     alternador: !!document.querySelector('.lib-bar #hymnSearchToggle'),
-    // As TRÊS portas do rodapé, na ordem do pedido.
-    portas: [...document.querySelectorAll('.import-row > *')].map((e) => e.id || e.className),
+    // As DUAS portas do rodapé (v1.13.5; eram três, com "Importar" no meio).
+    portas: [...document.querySelectorAll('.portas-row > *')].map((e) => e.id || e.className),
   }));
   checar(faixa.abas === 0 && !faixa.faixaAntiga,
     'a faixa de abas não existe mais: o app tem UM lugar e duas folhas', faixa);
@@ -98,29 +98,51 @@ try {
   checar(faixa.barra && faixa.campo && faixa.alternador,
     'o que ocupa o lugar dela é a barra da Biblioteca, com o campo e o alternador',
     faixa);
-  checar(faixa.portas.length === 3 && faixa.portas[0] === 'bibleBtn'
-    && faixa.portas[2] === 'toolsBtn',
-    'e o rodapé do Cronograma tem as TRÊS portas, na ordem do pedido: Bíblia · '
-    + 'Importar · Ferramentas', JSON.stringify(faixa.portas));
+  checar(faixa.portas.length === 2 && faixa.portas[0] === 'bibleBtn'
+    && faixa.portas[1] === 'toolsBtn',
+    'e o rodapé do Cronograma tem as DUAS portas, na ordem do pedido: Bíblia · '
+    + 'Ferramentas (o Importar foi para a barra do topo, v1.13.5)', JSON.stringify(faixa.portas));
 
-  // ── 2. A PORTA É NO CRONOGRAMA, À DIREITA DA IMPORTAÇÃO ─────────────────
+  // ── 2. A PORTA É NO CRONOGRAMA, À DIREITA DA BÍBLIA ─────────────────────
+  // E O ÍCONE FICA À ESQUERDA DO RÓTULO (v1.13.5), pedido do operador: *"na
+  // base, agora dividida apenas entre bíblia e ferramentas, ajuste para que o
+  // icone fique a esquerda dos titulos dos dois botões"*. Os dois, como UM grupo
+  // centrado na porta — medido por geometria, nunca pelo `flex-direction`.
   const porta = await pg.evaluate(() => {
     const b = document.getElementById('toolsBtn');
-    const imp = document.querySelector('.import-row .import-btn');
-    if (!b || !imp) return { faltando: !b ? 'toolsBtn' : 'import-btn' };
+    const bib = document.getElementById('bibleBtn');
+    if (!b || !bib) return { faltando: !b ? 'toolsBtn' : 'bibleBtn' };
     const rb = b.getBoundingClientRect();
-    const ri = imp.getBoundingClientRect();
+    const ri = bib.getBoundingClientRect();
+    const deitado = (el) => {
+      const r = el.getBoundingClientRect();
+      const i = el.querySelector('svg').getBoundingClientRect();
+      const t = el.querySelector('span').getBoundingClientRect();
+      return {
+        esquerda: i.right <= t.left,
+        mesmaLinha: Math.abs((i.top + i.height / 2) - (t.top + t.height / 2)) < 2,
+        centrado: Math.abs((i.left - r.left) - (r.right - t.right)) < 2,
+        cortado: el.querySelector('span').scrollWidth > el.querySelector('span').clientWidth,
+      };
+    };
     return {
-      naMesmaLinha: b.parentElement === imp.parentElement,
+      naMesmaLinha: b.parentElement === bib.parentElement,
       aDireita: rb.left >= ri.right - 1,
       // A altura é a da LINHA: um botão mais baixo que o irmão lê como um
       // acessório dele, e não como a segunda porta da mesma faixa.
       mesmaAltura: Math.abs(rb.height - ri.height) < 2,
+      mesmaLargura: Math.abs(rb.width - ri.width) < 1,
+      ferramentas: deitado(b),
+      biblia: deitado(bib),
     };
   });
   checar(porta.naMesmaLinha && porta.aDireita,
-    'a porta das Ferramentas está NA LINHA da importação, à DIREITA dela', porta);
-  checar(porta.mesmaAltura, 'e com a mesma caixa do irmão', porta);
+    'a porta das Ferramentas está NA LINHA da Bíblia, à DIREITA dela', porta);
+  checar(porta.mesmaAltura && porta.mesmaLargura, 'e com a mesma caixa da irmã (metade da faixa)', porta);
+  checar(['ferramentas', 'biblia'].every((k) => porta[k] && porta[k].esquerda && porta[k].mesmaLinha
+    && porta[k].centrado && !porta[k].cortado),
+    'e nas duas o ÍCONE fica À ESQUERDA do rótulo, na mesma linha, os dois como UM grupo '
+    + 'centrado na porta, sem reticências (v1.13.5)', JSON.stringify(porta));
 
   // ASSENTAR É `getAnimations()` + `finished`, NUNCA UM PRAZO. As duas folhas
   // entram animadas (`tools-sobe`), e os dois blocos abaixo medem a CAIXA delas:
@@ -164,7 +186,19 @@ try {
         const el = document.getElementById('library');
         const l = el.getBoundingClientRect();
         const topo = l.top + parseFloat(getComputedStyle(el).paddingTop);
-        return r.top <= topo + 1 && r.bottom >= l.bottom - 1;
+        // A BASE É A DO `.list-body` (v1.13.5): com a folha ESTREITA a lista
+        // continua à vista ao lado dela e mantém a margem que a leva até a
+        // barra — a regra que a recolhe é só da folha larga.
+        const corpo = el.parentElement.getBoundingClientRect();
+        return r.top <= topo + 1 && r.bottom >= corpo.bottom - 1;
+      })(),
+      // NA LISTA, A LARGURA É A DA PORTA (v1.13.5): as duas bordas da folha são as
+      // da porta de Ferramentas, ±1px — pedido do operador: *"a largura da janela
+      // de ferramentas durante a listagem, pode ser a mesma largura do botão que
+      // abre a janela de ferramentas"*.
+      bordas: (() => {
+        const p = document.getElementById('toolsBtn').getBoundingClientRect();
+        return { esq: +(r.left - p.left).toFixed(2), dir: +(r.right - p.right).toFixed(2) };
       })(),
       biblia: bibliaAberta(),
       // A GRADE (v1.13.3): a folha abre nos seis tiles, nunca numa ferramenta.
@@ -176,7 +210,10 @@ try {
   checar(!dentro.invadeCabecalho && !dentro.invadeControles,
     'ela NÃO cobre o cabeçalho nem a caixa de controles — quem projeta um '
     + 'cronômetro precisa do transporte e da preview na frente', dentro);
-  checar(dentro.cobreALista, 'e cobre a lista inteira, que é o território dela', dentro);
+  checar(dentro.cobreALista, 'e cobre a lista de cima a baixo, que é o território dela', dentro);
+  checar(Math.abs(dentro.bordas.esq) <= 1 && Math.abs(dentro.bordas.dir) <= 1,
+    'e NA LISTA ela tem a largura da PORTA de Ferramentas: as duas bordas ±1px (v1.13.5)',
+    JSON.stringify(dentro.bordas));
   checar(dentro.biblia === false,
     'o operador continua NO CRONOGRAMA: a folha é uma camada dele, não outra tela', dentro);
 
@@ -432,7 +469,10 @@ try {
     'na raiz, o toque seguinte FECHA a folha — e continua consumindo o gesto, que '
     + 'é o que impede o app de minimizar no meio do culto', JSON.stringify(subida));
 
-  // ── 9. AS TRÊS PORTAS DO RODAPÉ SÃO IGUAIS ENTRE SI (v1.5.19) ───────────
+  // ── 9. AS PORTAS DO RODAPÉ SÃO IGUAIS ENTRE SI (v1.5.19) ────────────────
+  //
+  // ERAM TRÊS ATÉ A v1.13.4 (Bíblia · Importar · Ferramentas); o Importar foi
+  // para a barra do topo, e as asserções valem para as DUAS que ficaram.
   //
   // Pedido do operador que criou o bloco: *"padronize os botões de biblia,
   // importar e ferramentas da aba de cronograma, para que tenham uma cor mais
@@ -477,13 +517,11 @@ try {
   //    EXCLUIR.
   //  - **o ícone das três divergir.** Hoje eles coincidem por ACIDENTE (o
   //    atributo `width="20"` que o `botaoDoRodape` escreve vale exatamente
-  //    `--icon-sm`), e a divergência é MUDA duas vezes: a `.import-row` é
+  //    `--icon-sm`), e a divergência é MUDA duas vezes: a `.portas-row` é
   //    `align-items: stretch`, então a altura nunca denuncia.
-  //  - **a fonte da porta do meio**, que só diverge NO APP: ali ela é um
-  //    `<button>` (`usaSeletorNativo`) e a folha do agente de usuário entrega a
-  //    família. Nenhum oráculo enxerga isso rodando no navegador, onde ela é um
-  //    `<label>` — é a armadilha do `__tela` num lugar novo, e a resposta é
-  //    criar aqui o `<button>` que o app cria.
+  //  - **a fonte das portas**: elas são `<button>`, e a folha do agente de
+  //    usuário entrega a família do botão — que o `font-size` sobrescreve e a
+  //    `font-family` não.
   //
   // ## As réguas
   //
@@ -592,10 +630,10 @@ try {
     // A SONDA DO "ANTES" pousa na MESMA fileira: `--surface` não tem valor
     // único (a regra R1 o troca por `--surface-sunk` dentro de quem pinta
     // `--panel`), então medi-lo fora do habitat mediria outro token.
-    // Layout-neutra de propósito — `.import-row` é flex, e um quarto filho de
+    // Layout-neutra de propósito — `.portas-row` é flex, e um terceiro filho de
     // largura real repartiria a faixa e mudaria o que se veio medir.
     window.__sonda = (css) => {
-      const row = document.querySelector('.import-row');
+      const row = document.querySelector('.portas-row');
       if (!row) return null;
       const d = document.createElement('div');
       d.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;' + css;
@@ -653,11 +691,10 @@ try {
       openFadePopup();
       await z(320);
       const bib = document.getElementById('bibleBtn');
-      const imp = document.querySelector('.import-row .import-btn');
       const fer = document.getElementById('toolsBtn');
-      const row = document.querySelector('.import-row');
+      const row = document.querySelector('.portas-row');
       const cs = (e) => getComputedStyle(e);
-      const tres = [bib, imp, fer];
+      const tres = [bib, fer];   // as portas da faixa (eram três até a v1.13.4)
       return {
         cores: tres.map((e) => window.__efetivo(e).map((v) => Math.round(v * 100) / 100)),
         // A MESMA COR, SEM ARREDONDAR: `cores` é arredondado para a comparação
@@ -700,28 +737,24 @@ try {
       };
     }, tema);
 
-    // ── 9-A · AS TRÊS SÃO IGUAIS ────────────────────────────────────────
+    // ── 9-A · AS PORTAS SÃO IGUAIS ──────────────────────────────────────
     //
     // É a palavra do pedido ("padronize"), e ela é medível em cinco eixos. Em
     // COR ela é o que morde: as outras quatro já eram verdade antes do lote.
-    // REVERSÃO: devolver `background: var(--btn-accent)` à `.import-btn` (a
-    // regra agrupada de que ela saiu neste lote) — as laterais ficam na
-    // superfície quieta e a do meio volta a saltar.
-    const iguais = (v) => JSON.stringify(v[0]) === JSON.stringify(v[1])
-      && JSON.stringify(v[1]) === JSON.stringify(v[2]);
+    // REVERSÃO: dar `background: var(--btn-accent)` a uma delas — ela volta a
+    // saltar sobre a irmã.
+    const iguais = (v) => v.every((x) => JSON.stringify(x) === JSON.stringify(v[0]));
     checar(iguais(m.cores),
-      '[' + tema + '] A · as três portas pintam a MESMA cor COMPOSTA — a palavra '
-      + 'do pedido é "padronize", e a do meio era a que saltava', m.cores);
-    // A altura é quase tautológica (`.import-row` é `align-items: stretch`, e
-    // as três esticam para a mais alta) e está aqui para o dia em que alguém
-    // der `align-self` a uma delas: um botão mais baixo que os irmãos lê como
-    // acessório de um deles, não como a terceira porta da mesma faixa.
+      '[' + tema + '] A · as portas pintam a MESMA cor COMPOSTA — a palavra '
+      + 'do pedido é "padronize"', m.cores);
+    // A altura é quase tautológica (`.portas-row` é `align-items: stretch`, e
+    // as duas esticam para a mais alta) e está aqui para o dia em que alguém
+    // der `align-self` a uma delas: um botão mais baixo que o irmão lê como
+    // acessório dele, não como a outra porta da mesma faixa.
     checar(iguais(m.alturas) && iguais(m.raios) && iguais(m.icones),
       '[' + tema + '] A · e a mesma altura, o mesmo raio e o mesmo ícone',
       JSON.stringify([m.alturas, m.raios, m.icones]));
-    // NO NAVEGADOR a do meio é um `<label>` e herda de qualquer forma — esta
-    // metade morde nas duas LATERAIS, que são `<button>`. O caso do APP é o
-    // 9-I, logo abaixo.
+    // As duas são `<button>`, e a família vem do `font-family: inherit` (ver o 9-I).
     checar(iguais(m.fontes),
       '[' + tema + '] A · e a mesma família de fonte', m.fontes);
 
@@ -740,7 +773,7 @@ try {
     // `#dcebfe` digitado aqui seria a cor num segundo lugar, que é o defeito
     // que o `--surface-porta` existe para não ter.
     //
-    // A RÉGUA É UMA PORTA SÓ: o 9-A já provou que as três pintam igual.
+    // A RÉGUA É UMA PORTA SÓ: o 9-A já provou que as duas pintam igual.
     // REVERSÕES MEDIDAS, uma por metade do lote — e nenhuma reprova tudo, que é
     // o que prova que as asserções não são uma só:
     //   · `--surface-porta: #2f557f` nos dois blocos (o estado da v1.8.62):
@@ -781,7 +814,7 @@ try {
     // sem prendê-la, subir o piso do app move a `.selbar` e reprova o 9-D
     // junto, que é outra asserção sobre o mesmo número.
     checar(Math.min(...m.alturas) >= m.hit,
-      '[' + tema + '] G · as três continuam com pelo menos `--hit` de altura — a '
+      '[' + tema + '] G · as portas continuam com pelo menos `--hit` de altura — a '
       + 'faixa ficou mais baixa, não menor que o piso de alvo do app',
       JSON.stringify(m.alturas) + ' vs --hit ' + m.hit);
 
@@ -795,9 +828,9 @@ try {
     // A entrada é pelo CAMINHO REAL (`enterSelection`, o mesmo que o toque
     // longo chama), e não por um `hidden` mexido à mão: é ele que passa pelo
     // `renderSelbar` → `renderListFoot`, onde a troca de inquilino acontece.
-    // REVERSÃO: devolver `padding: .45rem .3rem` às duas regras das portas
-    // (`.tools-btn, .lib-foot-btn` e `.import-btn`) — o rodapé volta a 51,77
-    // fora da seleção e 42,00 dentro.
+    // REVERSÃO: devolver `padding: .45rem .3rem` à regra das portas
+    // (`.tools-btn, .lib-foot-btn`) — o rodapé passa a medir o conteúdo fora da
+    // seleção e 42,00 dentro.
     //
     // ── 9-E · A `.selbar` NÃO FICOU DISCRETA ────────────────────────────
     // ── 9-F · O RAIO CONTINUA UM SÓ PARA AS QUATRO ──────────────────────
@@ -805,7 +838,7 @@ try {
       const foot = document.getElementById('listFoot');
       const h = () => Math.round(foot.getBoundingClientRect().height * 100) / 100;
       const fora = h();
-      const foraRaio = getComputedStyle(document.querySelector('.import-row .import-btn')).borderRadius;
+      const foraRaio = getComputedStyle(document.getElementById('toolsBtn')).borderRadius;
       enterSelection('porta-1');
       const sb = document.getElementById('selbar');
       const r = {
@@ -839,7 +872,7 @@ try {
       + '"Renomear" fica desabilitado', sel);
     checar(Math.abs(sel.dentro - sel.fora) <= 0.5 && Math.abs(sel.dentroDois - sel.fora) <= 0.5
       && Math.abs(sel.depois - sel.fora) <= 0.5,
-      '[' + tema + '] D · e o rodapé NÃO PULA: a fatia mede o mesmo com as três '
+      '[' + tema + '] D · e o rodapé NÃO PULA: a fatia mede o mesmo com as '
       + 'portas e com a barra de seleção — era 51,77 → 42,00, um pulo de 7,77px '
       + 'debaixo do dedo que segura um item',
       JSON.stringify([sel.fora, sel.dentro, sel.depois]));
@@ -876,8 +909,8 @@ try {
       + 'que essa diferença anuncia',
       'ΔE00 ' + n2(dE00(m.base, sel.selbar)));
     checar(sel.selbarRaio === sel.foraRaio && m.raios.every((r) => r === sel.selbarRaio),
-      '[' + tema + '] F · o raio é UM SÓ para as quatro inquilinas da fatia (as '
-      + 'três portas e a `.selbar`) — a base dela declara `--radius-card`, e '
+      '[' + tema + '] F · o raio é UM SÓ para as inquilinas da fatia (as '
+      + 'portas e a `.selbar`) — a base dela declara `--radius-card`, e '
       + 'quem a puxa para `--radius-btn` é a regra agrupada',
       JSON.stringify([m.raios, sel.selbarRaio]));
     if (tema === 'claro') {
@@ -898,8 +931,8 @@ try {
       // reversão, isto é, ele nem sente. Afirmar "nos dois temas" seria
       // afirmar onde não morde.
       // REVERSÃO: mover `.list-foot > .selbar` da regra do `--btn-accent` para
-      // a regra da superfície discreta (`.tools-btn, .lib-foot-btn,
-      // .import-btn`) — a "padronização" que o pedido não pediu.
+      // a regra da superfície das portas (`.tools-btn, .lib-foot-btn`) — a
+      // "padronização" que o pedido não pediu.
       const eSel = dE00(sel.habilitado, sel.desabilitado);
       checar(eSel >= 2.3,
         '[claro] E · a `.selbar` NÃO entrou na padronização: sobre ela o par '
@@ -917,46 +950,17 @@ try {
   // ── 9-H · NENHUM RÓTULO SAI COM RETICÊNCIAS ────────────────────────────
   //
   // A pergunta é `scrollWidth <= clientWidth` do `<span>`, e NÃO a largura
-  // absoluta do texto: a base pede `system-ui, -apple-system, sans-serif`, então
-  // quem responde por quantos pixels "Ferramentas" ocupa é a fonte instalada na
-  // máquina. O que se afirma é a RELAÇÃO entre duas medidas do mesmo desenho, e
-  // é a mesma pergunta que o `text-overflow: ellipsis` faz.
+  // absoluta do texto: quem responde por quantos pixels "Ferramentas" ocupa é a
+  // fonte instalada na máquina. O que se afirma é a RELAÇÃO entre duas medidas
+  // do mesmo desenho, e é a mesma pergunta que o `text-overflow: ellipsis` faz.
   //
-  // E O QUE ESTE ORÁCULO NÃO PODE AFIRMAR, dito: que o rótulo CABE no terço. A
-  // margem a 320px é de 0,2px (MEDIDO: o terço útil vale 83,2 e "Ferramentas"
-  // pede 83,0 na fonte desta máquina), então uma asserção de "cabe" viraria
-  // medida do runner — a fonte de lá é outra, e ela reprovaria um app correto.
-  // O que cabe ou não cabe no aparelho é decisão do `--fs-md` e está MEDIDA no
-  // comentário da folha.
-  //
-  // NA PILHA O `<span>` NUNCA É CLAMPADO — `align-items: center` num flex
-  // COLUMN não limita a largura do item, então ele TRANSBORDA em vez de sair
-  // cortado. É essa propriedade que a primeira asserção guarda, e ela é o
-  // argumento da folha (*"empilhado, a palavra tem a largura inteira do
-  // terço"*).
-  //
-  // E É PRECISO DIZER O QUE ELA **NÃO** GUARDA, senão ela vira uma tautologia
-  // que se lê como proteção. MEDIDO forçando o rótulo a crescer a 320px: com
-  // `font-size: 4rem` o `<span>` de "Ferramentas" pede **403,34px** dentro de um
-  // botão de 92,8 e a faixa transborda 156px — e a asserção do `<span>` PASSA,
-  // porque na pilha `clientWidth === scrollWidth` sempre. Ela responde
-  // *"o arranjo continua sendo pilha"*, e mais nada.
-  //
-  // POR ISSO A SEGUNDA, que é a pergunta de verdade: a FAIXA não transborda a
-  // caixa dela. Continua sendo uma RELAÇÃO entre duas medidas do mesmo desenho
-  // — nenhum número de largura escrito aqui —, mas esta pode reprovar no
-  // defeito que nomeia. A margem é apertada e está MEDIDA: a 320px a
-  // `.import-row` fecha em **294 × 294**, com ~10px de folga por terço. A fonte
-  // do runner não é a do Android, e por isso a margem importa: nesta máquina
-  // `system-ui` resolve para DejaVu Sans, que MEDI ser a MAIS LARGA das nove
-  // instaladas ("Nada em exibição": DejaVu 136,5 · Liberation 121,6 · WenQuanYi
-  // 118,3 · FreeSans 117,5) — uma fonte diferente dá MAIS folga, não menos.
-  // REVERSÃO: `flex-direction: column` → `row` nas duas regras das portas — o
-  // arranjo anterior à v1.5.0, em que o rótulo divide o eixo principal com o
-  // ícone e encolhe. MEDIDO a 320px: "Ferramentas" passa a `clientWidth` 61
-  // contra `scrollWidth` 83, isto é, reticências que não dizem qual palavra
-  // foi cortada. A da FAIXA reprova com qualquer coisa que a faça transbordar —
-  // um `--fs-md` maior, um rótulo mais longo, um recuo horizontal maior.
+  // DEITADO (v1.13.5), o `<span>` É CLAMPADO: ele divide o eixo principal com o
+  // ícone, e é por isso que esta asserção agora tem dente — na pilha de antes
+  // (v1.5.0 a v1.13.4) ela era quase tautologia, porque um item de `flex column`
+  // centrado nunca é clampado. O que cabe é a METADE da faixa, e MEDIDO ela
+  // sobra: a 320px a porta mede 143px para o ícone de 20 e "Ferramentas".
+  // REVERSÃO: `gap: var(--sp-4)` → `gap: 5rem` na regra das portas — o rótulo
+  // passa a sair com reticências.
   for (const largura of [430, 393, 360, 320]) {
     await pg.setViewportSize({ width: largura, height: 892 });
     const corte = await pg.evaluate(() => {
@@ -965,60 +969,38 @@ try {
         const sp = e.querySelector('span');
         return { texto: sp.textContent, sobra: Math.round((sp.clientWidth - sp.scrollWidth) * 100) / 100 };
       };
-      const row = document.querySelector('.import-row');
-      return { portas: [q('#bibleBtn'), q('.import-row .import-btn'), q('#toolsBtn')],
+      const row = document.querySelector('.portas-row');
+      return { portas: [q('#bibleBtn'), q('#toolsBtn')],
         faixa: { scroll: row.scrollWidth, client: row.clientWidth } };
     });
     checar(corte.portas.every((c) => c.sobra >= 0),
-      'H · a ' + largura + 'px o arranjo continua sendo PILHA: nenhum rótulo é '
-      + 'clampado, logo nenhum sai com reticências — elas são piores que a '
-      + 'palavra curta, porque não dizem qual palavra foi cortada',
+      'H · a ' + largura + 'px nenhum rótulo das portas sai com reticências — elas '
+      + 'são piores que a palavra curta, porque não dizem qual palavra foi cortada',
       JSON.stringify(corte.portas));
     checar(corte.faixa.scroll <= corte.faixa.client,
-      'H · e a ' + largura + 'px a FAIXA não transborda a caixa dela — é esta '
-      + 'que pode reprovar de verdade: a do `<span>` passa com o rótulo a 403px '
-      + 'dentro de um botão de 93, porque na pilha ele nunca é clampado',
+      'H · e a ' + largura + 'px a FAIXA não transborda a caixa dela',
       JSON.stringify(corte.faixa));
   }
   await pg.setViewportSize({ width: 412, height: 892 });
 
-  // ── 9-I · A FONTE DA PORTA DO MEIO ─────────────────────────────────────
+  // ── 9-I · A FONTE DAS PORTAS ───────────────────────────────────────────
   //
-  // ESTA ASSERÇÃO EXISTE PORQUE O DEFEITO SÓ APARECE NO APP. No navegador a
-  // porta do meio é um `<label>`, e um `<label>` herda a família do `body` de
-  // graça; no app ela é um `<button>` (`usaSeletorNativo`), e a folha do agente
-  // de usuário entrega a família — que o `font-size` sobrescreve e a
-  // `font-family` não. É a armadilha do `__tela` num lugar novo: ler o lado que
-  // o oráculo alcança aprova os dois.
-  // A resposta é criar AQUI o `<button class="import-btn">` que o app cria, na
-  // MESMA fileira (a família é herdada, então o lugar é a pergunta).
-  // REVERSÃO: tirar `font-family: inherit` da regra `.import-btn` — o botão
-  // sonda passa a computar a família do agente de usuário e diverge do
-  // `#toolsBtn`, que é `<button>` também e já tinha a linha.
-  const fonte = await pg.evaluate(() => {
-    const row = document.querySelector('.import-row');
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'import-btn';
-    b.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden';
-    row.appendChild(b);
-    const r = {
-      sonda: getComputedStyle(b).fontFamily,
-      ferramentas: getComputedStyle(document.getElementById('toolsBtn')).fontFamily,
-      corpo: getComputedStyle(document.body).fontFamily,
-      eBotao: b.tagName,
-      noNavegador: document.querySelector('.import-row .import-btn').tagName,
-    };
-    b.remove();
-    return r;
-  });
-  checar(fonte.noNavegador === 'LABEL' && fonte.eBotao === 'BUTTON',
-    'I · ponto de partida: no navegador a porta do meio é um `<label>` (por isso '
-    + 'nenhum oráculo via isto), e a sonda é o `<button>` que o app cria', fonte);
-  checar(fonte.sonda === fonte.ferramentas && fonte.sonda === fonte.corpo,
-    'I · e como `<button>` ela herda a MESMA família das irmãs — sem '
+  // As duas são `<button>`, e a folha do agente de usuário entrega a família do
+  // botão — que o `font-size` sobrescreve e a `font-family` não. MEDIDO: `Arial`
+  // contra `system-ui`, 14% de diferença na largura do MESMO rótulo. (Achado na
+  // v1.5.19 na porta do Importar, que no navegador era `<label>` e no app
+  // `<button>`.)
+  // REVERSÃO: tirar `font-family: inherit` da regra `.tools-btn, .lib-foot-btn`
+  // — as portas passam a computar a família do agente de usuário.
+  const fonte = await pg.evaluate(() => ({
+    tags: [...document.querySelectorAll('.portas-row > *')].map((e) => e.tagName),
+    portas: [...document.querySelectorAll('.portas-row > *')].map((e) => getComputedStyle(e).fontFamily),
+    corpo: getComputedStyle(document.body).fontFamily,
+  }));
+  checar(fonte.tags.every((t) => t === 'BUTTON') && fonte.portas.every((f) => f === fonte.corpo),
+    'I · as portas são `<button>` e herdam a MESMA família do corpo — sem '
     + '`font-family: inherit` a folha do agente de usuário entrega outra, e o '
-    + 'MESMO rótulo muda de largura no aparelho', fonte);
+    + 'MESMO rótulo muda de largura', fonte);
 
   // ── 9-I2 · A FATIA SEGUE O TOKEN, E ISSO É OUTRA PERGUNTA ──────────────
   //
@@ -1041,7 +1023,7 @@ try {
   const fatia = await pg.evaluate(async () => {
     const de = document.documentElement;
     const li = [...document.querySelectorAll('#library li')].find((n) => n.dataset.id);
-    const alturas = () => ['#bibleBtn', '.import-row .import-btn', '#toolsBtn']
+    const alturas = () => ['#bibleBtn', '#toolsBtn']
       .map((sel) => Math.round(document.querySelector(sel).getBoundingClientRect().height * 100) / 100);
     const daSelbar = () => {
       const sb = document.querySelector('.list-foot > .selbar');
@@ -1068,7 +1050,7 @@ try {
   });
   checar(fatia.p42.portas.every((h) => Math.abs(h - 42) <= 0.5)
     && fatia.p56.portas.every((h) => Math.abs(h - 56) <= 0.5),
-    'I2 · as três portas SEGUEM o `--hit-foot`: forçado o token, elas o medem — '
+    'I2 · as portas SEGUEM o `--hit-foot`: forçado o token, elas o medem — '
     + 'antes deste lote o termo que mandava era o `padding`, e varrer o token de '
     + '48 a 36px não movia um pixel', JSON.stringify(fatia));
   checar(fatia.s56 !== null && Math.abs(fatia.s56 - 56) <= 0.5,
@@ -1079,21 +1061,19 @@ try {
     'I2 · e a folha volta ao valor dela depois da sonda, para o resto do arquivo '
     + 'não medir uma tela adulterada', JSON.stringify(fatia));
 
-  // ── 9-J · O ÍCONE DAS TRÊS SAI DO MESMO LUGAR ──────────────────────────
+  // ── 9-J · O ÍCONE DAS PORTAS SAI DO MESMO LUGAR ────────────────────────
   //
-  // Hoje os três medem 20px, e até este lote isso era ACIDENTE: só a do meio
-  // estava na lista `:is()` do `svg`, e as laterais viviam do atributo
-  // `width="20"` que o `botaoDoRodape` escreve — que vale exatamente
-  // `--icon-sm`. A divergência era MUDA duas vezes: nada na tela muda enquanto
-  // o token for 20, e a ALTURA nunca denuncia, porque a `.import-row` é
-  // `align-items: stretch` e as três esticam para a mais alta.
+  // Hoje os dois medem 20px, e até a v1.5.19 isso era ACIDENTE: as portas viviam
+  // do atributo `width="20"` que o `botaoDoRodape` escreve — que vale
+  // exatamente `--icon-sm`. A divergência é MUDA: nada na tela muda enquanto o
+  // token for 20.
   // A régua é FORÇAR o token: é a única pergunta que separa "sai do token" de
   // "coincide com ele".
   // REVERSÃO: tirar `.tools-btn, .lib-foot-btn` da lista `:is()` do `svg` — com
-  // `--icon-sm: 26px` a do meio vai a 26 e as laterais ficam em 20.
+  // `--icon-sm: 26px` as duas ficam em 20.
   const icone = await pg.evaluate(() => {
     const de = document.documentElement;
-    const ler = () => ['#bibleBtn', '.import-row .import-btn', '#toolsBtn']
+    const ler = () => ['#bibleBtn', '#toolsBtn']
       .map((s) => getComputedStyle(document.querySelector(s).querySelector('svg')).width);
     const padrao = ler();
     de.style.setProperty('--icon-sm', '26px');
@@ -1102,9 +1082,9 @@ try {
     return { padrao, forcado, depois: ler() };
   });
   checar(icone.forcado.every((w) => w === '26px'),
-    'J · o ícone das três sai de `--icon-sm`: forçado o token, os TRÊS `svg` '
-    + 'acompanham — antes deste lote as laterais viviam do atributo `width="20"` '
-    + 'e coincidiam por acidente', JSON.stringify(icone));
+    'J · o ícone das portas sai de `--icon-sm`: forçado o token, os `svg` '
+    + 'acompanham — sem a regra eles viveriam do atributo `width="20"` e '
+    + 'coincidiriam por acidente', JSON.stringify(icone));
   checar(icone.depois.join() === icone.padrao.join(),
     'J · e o token volta ao valor da folha depois da sonda, para o resto do '
     + 'arquivo não medir uma tela adulterada', JSON.stringify(icone));
@@ -2616,6 +2596,8 @@ try {
         bg: !!tiles.length && getComputedStyle(tiles[0]).backgroundColor === getComputedStyle(cfg).backgroundColor,
         raio: !!tiles.length && getComputedStyle(tiles[0]).borderRadius === getComputedStyle(cfg).borderRadius,
         tituloCx: (() => { const r = document.getElementById('toolsTitle').getBoundingClientRect(); return Math.round(r.left + r.width / 2); })(),
+        // NA LISTA, A FOLHA TEM A LARGURA DA PORTA (v1.13.5).
+        estreita: toolsSheetEl.classList.contains('estreita'),
       };
     });
     checar(g.ids === 'clock,stopwatch,timer,itinerario,msg,draw'
@@ -2632,6 +2614,10 @@ try {
       document.getElementById('ferrTile_timer').click();
       const saindo = document.querySelector('#toolsSheet > .ferr-saindo');
       return {
+        // E A FOLHA SE ALARGA ANIMANDO (v1.13.5): as bordas andam da porta até a
+        // largura de sempre.
+        alarga: toolsSheetEl.getAnimations().some((a) => a.effect && a.effect.getKeyframes()
+          .some((k) => 'left' in k)),
         saindo: !!saindo,
         semIds: saindo ? saindo.querySelectorAll('[id]').length : -1,
         anima: document.getElementById('toolsBody').getAnimations().length > 0,
@@ -2641,6 +2627,9 @@ try {
     });
     checar(t.saindo && t.semIds === 0 && t.anima,
       'G · o toque ANIMA a troca: a grade sai numa camada por cima (sem ids) e o painel entra', t);
+    checar(g.estreita && t.alarga,
+      'G · e a folha, ESTREITA na lista, se ALARGA animando quando a ferramenta abre (v1.13.5)',
+      { estreita: g.estreita, alarga: t.alarga });
     checar(t.painel && t.modo === 'timer' && t.vista === 'chrono',
       'G · e o tile do Timer abre o Tempo NO TIMER, no mesmo toque', t);
     const r = await esperar(pg, () => !document.querySelector('#toolsSheet > .ferr-saindo'), null, 3000);
@@ -2651,12 +2640,22 @@ try {
       grade: !!document.getElementById('ferrGrade'),
       segs: document.querySelectorAll('#toolsBody .misc-seg, #toolsBody .misc-tab').length,
       tituloCx: (() => { const q = document.getElementById('toolsTitle').getBoundingClientRect(); return Math.round(q.left + q.width / 2); })(),
+      folhaCx: (() => { const q = toolsSheetEl.getBoundingClientRect(); return Math.round(q.left + q.width / 2); })(),
+      // LARGA: as bordas da folha são as do `.list-body`, como sempre foram.
+      larga: (() => {
+        const q = toolsSheetEl.getBoundingClientRect(); const c = toolsSheetEl.parentElement.getBoundingClientRect();
+        return !toolsSheetEl.classList.contains('estreita') && Math.abs(q.left - c.left) <= 1 && Math.abs(q.right - c.right) <= 1;
+      })(),
     }));
     checar(r === true, 'G · e a camada que sai some no fim da animação', porque(r));
     checar(d.titulo === 'Timer' && d.voltar === false && d.run && !d.grade && d.segs === 0,
       'G · dentro dela o título é o NOME da ferramenta, o voltar aparece, o rodapé é o dela, e não há abas nem segmentos', d);
-    checar(Math.abs(d.tituloCx - g.tituloCx) <= 1,
-      'G · e o título fica PARADO no centro entre a grade e a ferramenta (o voltar tem trilha própria)', { g: g.tituloCx, d: d.tituloCx });
+    // O TÍTULO FICA NO CENTRO DA FOLHA LARGA (o voltar tem trilha própria). Na
+    // lista ele encosta à esquerda da folha ESTREITA (v1.13.5), então "parado
+    // entre as duas vistas" deixou de ser a pergunta — a folha muda de largura.
+    checar(Math.abs(d.tituloCx - d.folhaCx) <= 1 && d.larga,
+      'G · dentro da ferramenta a folha é LARGA de novo (as bordas do `.list-body`) e o título fica no CENTRO dela',
+      { d: d.tituloCx, folha: d.folhaCx, larga: d.larga });
 
     // O VOLTAR DO CABEÇALHO devolve a grade.
     await pg.click('#toolsBack');
@@ -2710,22 +2709,25 @@ try {
       'G · com o sorteio no ar, o tile do Sorteio (e só ele) leva o PONTO de "no ar", e o nome acessível diz', ar);
     checar(ar.depois === false, 'G · e tirado do ar, o ponto some', ar);
 
-    // O TIMER CONTANDO MOSTRA O NÚMERO na ponta direita da linha (v1.13.4: o ícone
-    // fica), e ele ANDA com a lista à vista.
+    // O TIMER CONTANDO MOSTRA O NÚMERO NO LUGAR DO NOME (v1.13.5; até a v1.13.4 ia
+    // à direita dele — na largura da porta os dois não cabem): o ícone fica, e o
+    // número ANDA com a lista à vista.
     const c1 = await pg.evaluate(() => {
       abrirFerramenta('timer'); chronoSetDuration(300000); chronoStart();
       voltarAGradeDeFerramentas();
       const t = document.getElementById('ferrTile_timer');
       const l = t.querySelector('.ferr-leitura').getBoundingClientRect();
       const n = t.querySelector('.qs-titulo').getBoundingClientRect();
-      return { contando: t.classList.contains('contando'), leitura: t.querySelector('.ferr-leitura').textContent,
-        svg: getComputedStyle(t.querySelector('svg')).display, aDireita: l.width > 0 && l.left >= n.right - 0.5,
+      const sp = t.querySelector('.ferr-leitura');
+      return { contando: t.classList.contains('contando'), leitura: sp.textContent,
+        svg: getComputedStyle(t.querySelector('svg')).display,
+        noLugar: l.width > 0 && n.width === 0 && sp.scrollWidth <= sp.clientWidth,
         outro: document.getElementById('ferrTile_stopwatch').classList.contains('contando') };
     });
     await pg.waitForTimeout(1300);
     const c2 = await pg.evaluate(() => document.querySelector('#ferrTile_timer .ferr-leitura').textContent);
-    checar(c1.contando && /^0[45]:\d\d$/.test(c1.leitura) && c1.svg !== 'none' && c1.aDireita && !c1.outro,
-      'G · com o Timer contando, a linha do Timer mostra o NÚMERO à direita do nome, o ícone fica (e só ela conta)', c1);
+    checar(c1.contando && /^0[45]:\d\d$/.test(c1.leitura) && c1.svg !== 'none' && c1.noLugar && !c1.outro,
+      'G · com o Timer contando, a linha do Timer mostra o NÚMERO no lugar do nome, inteiro, e o ícone fica (e só ela conta)', c1);
     checar(c2 !== c1.leitura, 'G · e o número ANDA com a grade à vista', { antes: c1.leitura, depois: c2 });
     // ENTRAR NO ITINERÁRIO NÃO PARA A CONTAGEM (a regra do segmento de antes).
     const it = await pg.evaluate(() => {
@@ -2741,7 +2743,7 @@ try {
       voltarAGradeDeFerramentas(); chronoPause();
       return document.getElementById('ferrTile_timer').classList.contains('contando');
     });
-    checar(p === false, 'G · pausado, o tile volta ao ícone (o número congelado é o painel que diz)', p);
+    checar(p === false, 'G · pausado, o tile volta ao nome (o número congelado é o painel que diz)', p);
     // DEPOIS DO ITINERÁRIO, um tile do Tempo volta às ROLETAS (a vista é do tile).
     const rel = await pg.evaluate(() => {
       chronoReset();
@@ -2776,9 +2778,22 @@ try {
   // embaixo (ou rolar, no celular pequeno, onde o corpo da folha mede ~190px); o
   // ícone ir para cima do nome; a linha encolher abaixo do piso de toque (`--hit`,
   // 34px) para caber; e a faixa do título continuar no painel, comendo a altura que
-  // o pedido quis devolver. A 360×640 com a raiz em 20px seis pisos NÃO cabem no
-  // corpo (~186px): ali a régua é o piso, e o que rola é só o que falta.
-  for (const [w, h, raiz] of [[412, 892, ''], [360, 640, ''], [360, 640, '20px']]) {
+  // o pedido quis devolver.
+  //
+  // E DESDE A v1.13.5 A LISTA NÃO ROLA EM CÉLULA NENHUMA, e ela tem a LARGURA DA
+  // PORTA. Pedido do operador: *"verifique em telas menores, para garantir que essa
+  // janela de ferramentas não necessite de scroll, mas sim tenha seus botões
+  // encolhidos verticalmente para caber de forma correta"*. A folha estreita cede
+  // o recuo e o vão do cabeçalho; onde nem assim seis pisos cabem (só a 360×640
+  // com a fonte do sistema em 1,3×), a linha mede a SEXTA PARTE do corpo — a
+  // exceção NOMEADA do `geometria.mjs`.
+  // REVERSÕES: `min-height: var(--hit)` na linha (o piso de antes) — a célula de
+  // 1,3× volta a rolar; e o recuo do cabeçalho de volta a `.5rem .7rem .6rem` —
+  // a de 1,25× passa a ficar abaixo do piso.
+  // A QUARTA COLUNA É A EXCEÇÃO: a célula em que seis pisos NÃO cabem (360×600 com a fonte em 1,3× — a
+  // premissa abaixo confere que ela de fato não cabe, senão o ramo da exceção não seria exercido).
+  for (const [w, h, raiz, excecao] of [[430, 900, ''], [412, 892, ''], [360, 640, ''], [360, 640, '20px'],
+    [360, 600, '20.8px', true]]) {
     await pg.setViewportSize({ width: w, height: h });
     await pg.evaluate((r) => { document.documentElement.style.fontSize = r; fecharFerramentas(); }, raiz);
     await esperar(pg, () => toolsSheetEl.hidden);
@@ -2797,32 +2812,43 @@ try {
         const nr = nm.getBoundingClientRect();
         return { top: b.top, bottom: b.bottom, h: b.height,
           iconeAEsquerda: ic.right <= nr.left + 0.5 && Math.abs((ic.top + ic.bottom) / 2 - (nr.top + nr.bottom) / 2) < 3,
-          nomeInteiro: nm.scrollWidth <= nm.clientWidth + 1 };
+          nomeInteiro: nm.scrollWidth <= nm.clientWidth };
       });
+      const f = toolsSheetEl.getBoundingClientRect();
+      const p = document.getElementById('toolsBtn').getBoundingClientRect();
+      const tt = document.getElementById('toolsTitle');
       return {
         n: linhas.length,
         // A SOMA DAS LINHAS (com os vãos) É O CORPO: do topo da primeira à base da última.
         topo: linhas.length ? linhas[0].top - cr.top : -1,
         base: linhas.length ? cr.bottom - linhas[linhas.length - 1].bottom : -1,
-        alturas: linhas.map((l) => +l.h.toFixed(1)),
+        alturas: linhas.map((l) => +l.h.toFixed(2)),
         icones: linhas.every((l) => l.iconeAEsquerda), nomes: linhas.every((l) => l.nomeInteiro),
         rola: corpo.scrollHeight - corpo.clientHeight,
         corpo: +cr.height.toFixed(1),
         piso: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hit')),
+        bordas: [+(f.left - p.left).toFixed(2), +(f.right - p.right).toFixed(2)],
+        titulo: { texto: tt.textContent, inteiro: tt.scrollWidth <= tt.clientWidth },
+        fecharDentro: document.getElementById('toolsClose').getBoundingClientRect().right <= f.right,
       };
     });
-    const cel = w + '×' + h + (raiz ? ' (fonte 1,25×)' : '');
-    const cabe = v.corpo >= 6 * v.piso;
-    checar(r === true && v.n === 6 && Math.max(...v.alturas) - Math.min(...v.alturas) < 1
-      && Math.min(...v.alturas) >= v.piso - 0.5,
-      'V · [' + cel + '] seis linhas da mesma altura, nenhuma abaixo do piso de toque', { r: porque(r), v });
-    if (cabe) {
-      checar(Math.abs(v.topo) <= 2 && Math.abs(v.base) <= 2 && v.rola <= 1,
-        'V · [' + cel + '] e elas dividem a altura do corpo da folha: da borda de cima à de baixo, sem rolar', v);
-    } else {
-      checar(Math.abs(v.topo) <= 2 && v.rola <= 6 * v.piso - v.corpo + 1,
-        'V · [' + cel + '] seis pisos não cabem: as linhas ficam no piso e o corpo rola SÓ o que falta', v);
+    const cel = w + '×' + h + (raiz ? ' (fonte ' + (parseFloat(raiz) / 16).toFixed(2).replace('.', ',') + '×)' : '');
+    checar(r === true && v.n === 6 && Math.max(...v.alturas) - Math.min(...v.alturas) < 1,
+      'V · [' + cel + '] seis linhas da mesma altura', { r: porque(r), v });
+    checar(Math.abs(v.topo) <= 2 && Math.abs(v.base) <= 2 && v.rola <= 0,
+      'V · [' + cel + '] e elas dividem a altura do corpo da folha, da borda de cima à de baixo, SEM ROLAR', v);
+    // A 360×640 com a fonte em 1,25× seis pisos CABEM, e é a folha estreita cedendo o recuo e o vão do
+    // cabeçalho que os faz caber (MEDIDO: com o recuo de antes a linha media 33,9px): ali a régua é o piso.
+    if (excecao) {
+      checar(v.corpo < 6 * v.piso,
+        'V · [' + cel + '] (premissa) aqui seis pisos NÃO cabem — ' + v.corpo + 'px de corpo', v);
     }
+    checar(excecao ? Math.min(...v.alturas) >= v.corpo / 6 - 0.5 : Math.min(...v.alturas) >= v.piso - 0.05,
+      'V · [' + cel + '] e nenhuma abaixo do piso de toque (' + v.corpo + 'px de corpo)'
+      + (excecao ? ' — aqui não cabem seis: a SEXTA PARTE do corpo, a exceção nomeada' : ''), v);
+    checar(Math.abs(v.bordas[0]) <= 1 && Math.abs(v.bordas[1]) <= 1 && v.titulo.inteiro
+      && v.titulo.texto === 'Ferramentas' && v.fecharDentro,
+      'V · [' + cel + '] e a folha tem as BORDAS DA PORTA (±1px), com o título "Ferramentas" inteiro e o ✕ dentro', v);
     checar(v.icones && v.nomes, 'V · [' + cel + '] o ícone à ESQUERDA do nome, na mesma linha, e nenhum nome cortado', v);
   }
   await pg.setViewportSize({ width: 412, height: 892 });
