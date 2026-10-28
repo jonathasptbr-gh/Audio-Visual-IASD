@@ -544,7 +544,7 @@ desde a v1.8.95, quando ESCOLHIDO e LIGADO passaram a vestir o mesmo par:
   `.misc-chip.active`, `.fit-opt.active`, `.cast-rede.active`) mais o polegar do
   alternador de modo — `.qs-modo::before` no fundo, `.qs-modo .fit-opt.active`
   na tinta. (`.misc-tab` e `.misc-seg` saíram na v1.13.3 com as abas e os segmentados
-  das Ferramentas, que viraram uma grade de tiles.)
+  das Ferramentas, que viraram uma grade de tiles — e, na v1.13.4, uma lista vertical.)
 
   **MEDIDO no renderizado:** a tinta sobre o fundo novo dá **5,37:1** no escuro
   e **6,37:1** no claro, contra o piso de 4,5. O que ENCOLHEU foi o

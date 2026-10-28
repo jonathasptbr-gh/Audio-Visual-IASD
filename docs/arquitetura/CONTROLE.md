@@ -4808,7 +4808,7 @@ As quatro células:
 #### A FOLHA DE FERRAMENTAS (v1.3.10)
 
 Relógio, Cronômetro, Timer, Itinerário (ver `CAMADA-DE-TEXTO.md`, "Ferramentas:
-itinerário"), Mensagens e Sorteio — desde a v1.13.3 numa GRADE inicial (abaixo).
+itinerário"), Mensagens e Sorteio — desde a v1.13.3 numa tela inicial que as lista, e desde a v1.13.4 uma LISTA VERTICAL (abaixo).
 Elas eram uma ABA; hoje
 são `#toolsSheet`, uma folha que sobe **de dentro do Cronograma**, aberta pelo
 `#toolsBtn` — o botão à direita de "Importar arquivos", no `#listFoot`. (O
@@ -4846,36 +4846,47 @@ quarta célula de uma faixa feita de LUGARES.
 | **trocar de aba a fecha** (`switchTab` → `fecharFerramentas`) | ela é extensão do CRONOGRAMA; de pé sobre a Bíblia seria a folha de uma tela flutuando sobre outra |
 | **`fecharFerramentas` desliga os laços** | eram as mesmas guardas do `switchTab`, quando sair daqui era trocar de aba: os timers de 5 Hz do cronômetro/sorteio não podem sobrar reescrevendo nós já descartados. (A terceira guarda soltava o microfone, e saiu na v1.8.89 com ele.) |
 
-##### A GRADE DAS FERRAMENTAS (v1.13.3)
+##### A LISTA DAS FERRAMENTAS (v1.13.3; lista vertical da v1.13.4)
 
 Pedido do operador: *"ao invés de usar tabs e sub tabs, use uma grade inicial com
 todas as ferramentas prontas no primeiro toque, por exemplo não separa por tempo,
 sorteio e mensagens, mas já põe direto as subdivisões"*. Eram três abas no topo da
 folha (`.misc-switch`) e, dentro do Tempo, um segmentado de quatro; hoje a folha
-abre em seis tiles e o toque abre a ferramenta.
+abre nas seis ferramentas e o toque abre uma. A v1.13.3 as desenhava numa grade
+de 3×2 tiles; a v1.13.4 a REVOGOU por uma lista vertical: *"como temos poucas
+ferramentas, ao invés de uma grande, faça apenas uma lista vertical, mantendo o tom
+de cores, mas aproveitando e distribuindo toda a altura disponível para esses 6
+itens. Use o icone a esquerda e texto a direita. Se necessário, para melhor
+preenchimento, aumente o tamanho da fonte."*
 
 | peça | onde | regra |
 |---|---|---|
-| a tabela | `FERRAMENTAS` (`id`, `nome`, `tool`, `modo`/`vista`, `ico`) | a ORDEM é a da grade, uma fileira por assunto: Relógio · Cronômetro · Timer (os `CHRONO_MODES`) / Itinerário · Mensagens · Sorteio. Os desenhos são os das cenas (`CUE_SVG`), e os dois sem cena própria ganharam o mostrador e a ampulheta (`FERR_ICO`). Ferramenta nova = uma linha |
-| a grade | `renderGradeDeFerramentas` · `.ferr-grade` | o tile é o de Configurações VERBATIM (`.qs-tile.qs-on`: ícone `--icon-md`, título `.qs-titulo`, `--btn-accent` + `--accent`), três colunas. A grade é outra classe porque os oráculos alcançam a de Configurações por `.qs-grade`. Nenhum tile é apagado: toda ferramenta abre em qualquer estado |
-| as leituras vivas | `pintarGradeDeFerramentas` · `data-estado` (`no-ar` · `contando` · `ocioso`) | no canal do DESENHO, que é onde aquela grade diz estado: o PONTO de "no ar" (`.ferr-no-ar`, o `--live-strong` de 7px da aba projetando de antes, no canto; MEDIDO sobre o `--btn-accent`, 4,27:1 no escuro e 5,65:1 no claro) no tile de quem projeta (o Tempo projeta UM modo, então só o tile dele), e o NÚMERO do Cronômetro ou do Timer CONTANDO no lugar do ícone (`.ferr-leitura`, a `chronoReading` do telão, na caixa do ícone — a grade não pula). O tique (`ferrGradeTimer`, `CHRONO_TICK_MS`) só existe com a grade à vista e algo contando; o que muda o Tempo por fora (o par, a notificação) repinta pelo `renderChronoEControles` → `acertarGradeDeFerramentas`. O nome acessível diz os dois |
-| o estado | `ferrNaGrade` | UMA pergunta a mais sobre o estado de sempre (`miscTool`, `tempoVista`, `chrono.mode`, que continuam dizendo QUAL painel). Nasce `true` em TODA abertura da folha (`abrirFerramentas`): a regra de Configurações, que também reabre na grade. `chronoPrefs.vista` deixou de ser lida e escrita |
+| a tabela | `FERRAMENTAS` (`id`, `nome`, `tool`, `modo`/`vista`, `ico`) | a ORDEM é a da lista, por assunto: Relógio · Cronômetro · Timer (os `CHRONO_MODES`), depois Itinerário · Mensagens · Sorteio. Os desenhos são os das cenas (`CUE_SVG`), e os dois sem cena própria ganharam o mostrador e a ampulheta (`FERR_ICO`). Ferramenta nova = uma linha |
+| a lista | `renderGradeDeFerramentas` · `.ferr-grade` | UMA coluna que ocupa o corpo da folha (`flex: 1`), cada linha com uma fatia igual (`flex: 1 1 0`). A linha é o tile de Configurações DEITADO (`.qs-tile.qs-on`: `--btn-accent` + `--accent`, o raio, a resposta ao toque) — ícone à esquerda, nome à direita, alinhados à esquerda. A lista é outra classe porque os oráculos alcançam a grade de Configurações por `.qs-grade`. Nenhuma linha é apagada: toda ferramenta abre em qualquer estado |
+| a altura | `container-type: size` · `--ferr-linha` · `--hit` | **A LISTA NÃO ROLA enquanto o piso de toque couber** (a regra do Tempo, v1.8.92), e o corpo vai de ~475px (430×900) a ~218px (360×640) e ~186px (fonte 1,25×). Três peças: a linha tem o PISO `--hit` (34px, o que o `geometria` cobra; o `--hit-foot` foi MEDIDO rolando 60px a 360×640); o VÃO entre linhas é margem que cede antes dela (`clamp(0, (100cqh − 6 × --hit) / 5, --sp-3)`); e o DESENHO cede junto — a lista é contêiner de tamanho e o nome e o ícone saem da fatia (`--ferr-linha` = `(100cqh − 5 × --sp-3) / 6`): o nome × 0,45 entre `--fs-md` e `--fs-4xl`, o ícone × 0,6 entre `--icon-sm` e 28px (REGRA PRÓPRIA, um degrau acima do `--icon-lg`: ele acompanha um nome maior que o de qualquer lista daqui). MEDIDO: linha de 74,5px e nome de 20px a 430×900; a linha no piso com vão de ~2,9px a 360×640, sem rolar; com a fonte em 1,25× seis pisos não cabem e o corpo rola os ~18px que faltam. Nenhum nome com reticências |
+| as leituras vivas | `pintarGradeDeFerramentas` · `data-estado` (`no-ar` · `contando` · `ocioso`) | o PONTO de "no ar" (`.ferr-no-ar`, o `--live-strong` de 7px da aba projetando de antes, na ponta DIREITA da linha, no meio da altura, com a reserva dele no `padding-right`; MEDIDO sobre o `--btn-accent`, 4,27:1 no escuro e 5,65:1 no claro) na linha de quem projeta (o Tempo projeta UM modo, então só a dele), e o NÚMERO do Cronômetro ou do Timer CONTANDO à direita do nome (`.ferr-leitura`, a `chronoReading` do telão; o ícone fica, e o nome, `flex: 1`, não anda — na grade da v1.13.3 ele substituía o ícone). O tique (`ferrGradeTimer`, `CHRONO_TICK_MS`) só existe com a lista à vista e algo contando; o que muda o Tempo por fora (o par, a notificação) repinta pelo `renderChronoEControles` → `acertarGradeDeFerramentas`. O nome acessível diz os dois |
+| o estado | `ferrNaGrade` | UMA pergunta a mais sobre o estado de sempre (`miscTool`, `tempoVista`, `chrono.mode`, que continuam dizendo QUAL painel). Nasce `true` em TODA abertura da folha (`abrirFerramentas`): a regra de Configurações, que também reabre na grade dela. `chronoPrefs.vista` deixou de ser lida e escrita |
 | o toque | `abrirFerramenta(id, { animar })` | escreve `miscTool`, a vista do Tempo e o MODO (`chronoTrocarModo`, que não desenha — o `chronoSetMode` saiu com o segmentado: trocar de modo zera a contagem, como o segmentado fazia; o mesmo modo e o Itinerário não mexem nela). Com a folha fechada ela abre direto na ferramenta (a porta dos oráculos) |
-| o cabeçalho | `pintarCabecalhoDasFerramentas` · `#toolsTitle` · `#toolsBack` | "Ferramentas" na grade, o NOME da ferramenta dentro dela; o voltar (o molde do `#bibleBack`) só dentro, na trilha 1 da grade do cabeçalho — o título fica parado (medido) |
-| a volta | `voltarAGradeDeFerramentas` · `__avBack` degrau 2.5 | o `#toolsBack` e o voltar do Android devolvem a grade (fechando a gaveta dos itinerários antes); da grade, o voltar fecha a folha |
-| o rodapé | `renderFoot` | a grade não tem rodapé: o primeiro ramo só repinta o par ao lado da preview, que todo mutador das ferramentas espera daqui |
+| o cabeçalho | `pintarCabecalhoDasFerramentas` · `#toolsTitle` · `#toolsBack` · `#itinTitulo` | "Ferramentas" na lista, o NOME da ferramenta dentro dela; o voltar (o molde do `#bibleBack`) só dentro, na trilha 1 da grade do cabeçalho — o título fica parado (medido). **No Itinerário o título é o NOME DO ITINERÁRIO ATIVO** (v1.13.4): o `#itinTitulo` (nome e seta, a porta da gaveta) toma a trilha 2 e o `#toolsTitle` fica escondido — ver `CAMADA-DE-TEXTO.md`, "Ferramentas: itinerário" |
+| a volta | `voltarAGradeDeFerramentas` · `__avBack` degrau 2.5 | o `#toolsBack` e o voltar do Android devolvem a lista (fechando a gaveta dos itinerários antes); da lista, o voltar fecha a folha |
+| o rodapé | `renderFoot` | a lista não tem rodapé: o primeiro ramo só repinta o par ao lado da preview, que todo mutador das ferramentas espera daqui |
 | a animação | `trocarVistaDasFerramentas` · `.ferr-saindo` | SÓ PELO TOQUE (a regra da seta da prévia: a abertura e quem chama direto assentam no ato). A folha tem altura FIXA (é a lista), então quem se move é o CONTEÚDO: o que sai vira uma camada ABSOLUTA no lugar exato do corpo e do rodapé, sem toque e SEM IDS (quem procura `#chronoRoletas` durante a troca tem de achar o painel novo) e sobe esmaecendo (`--dur-lenta` × 0,6); o que entra sobe aparecendo, já no estado final — as roletas se medem pela altura de verdade. Na volta, o inverso. `prefers-reduced-motion`: nenhuma camada |
 | reabrir descendo | `abrirFerramentas` | a folha `saindo` conta como fechada: reabri-la nos 220 ms da descida era engolido (achado da v1.13.1) |
 
 **Os nomes internos ficaram**: `renderDiversos`/`refreshDiversos`, `miscTool`,
-`MISC_TOOLS` e as classes `.misc-*`. Renomeá-los não muda um pixel — a mesma
-regra do `'simple'` do Modo Fácil. O que mudou de host foi só o destino dos
+`MISC_TOOLS` e as classes `.misc-*` — e, da grade que a v1.13.4 deitou, `ferrNaGrade`,
+`renderGradeDeFerramentas`, `#ferrGrade`, `.ferr-grade` e `.ferr-tile`. Renomeá-los
+não muda um pixel — a mesma regra do `'simple'` do Modo Fácil. O que mudou de host foi só o destino dos
 `appendChild`: `libraryEl` → `#toolsBody`.
 
 Oráculo: **`tools/ferramentas-folha.test.mjs`**, e a asserção que carrega o lote
 é GEOMÉTRICA — a caixa da folha contra a do cabeçalho e a da `.bottombar`. Uma
 folha de corpo inteiro continua funcionando e continua bonita; o que ela perde
-não aparece em teste de comportamento nenhum.
+não aparece em teste de comportamento nenhum. O bloco G cobre a lista (a ordem,
+uma coluna, o voltar, as leituras vivas) e o V a GEOMETRIA dela — em três células
+(412×892, 360×640 e 360×640 com a fonte em 1,25×), nenhuma linha abaixo do
+`--hit` e, onde seis pisos cabem, as seis de borda a borda do corpo, sem rolar —
+e o nome do itinerário no cabeçalho. O `geometria.test.mjs` cobra o piso de toque.
 
 #### O contrato do `shouldInterceptRequest` (a invariante 8)
 
