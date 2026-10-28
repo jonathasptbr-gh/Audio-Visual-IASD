@@ -1,5 +1,17 @@
 [
   {
+    "versao": "1.13.5",
+    "itens": [
+      "Cronograma: o botão de limpar a lista saiu. Para esvaziar, use a lixeira do cronograma na lista de cronogramas.",
+      "Se houver um cronograma só, a lixeira dele esvazia a lista e o cronograma continua lá, com o mesmo nome.",
+      "Importar arquivos agora é o ícone no canto esquerdo do topo, onde ficava o limpar.",
+      "Embaixo ficam só Bíblia e Ferramentas, com o ícone à esquerda do nome.",
+      "Ferramentas: a lista abre estreita, da largura do botão. Ao escolher uma, a janela se abre inteira.",
+      "Em telas pequenas a lista não rola mais: as linhas encolhem para caber.",
+      "Com o tempo contando, a linha mostra o número no lugar do nome."
+    ]
+  },
+  {
     "versao": "1.13.4",
     "itens": [
       "Ferramentas: agora é uma lista, uma embaixo da outra, ocupando a janela toda, com letras maiores.",

@@ -364,7 +364,6 @@ const SECOES = {
 let secaoAberta = '';
 
 const fileEl = document.getElementById('file');
-const mainEl = document.querySelector('main');
 // (`tabsEl` saiu na v1.5.0 com a faixa de abas — ver `.lib-bar` no `index.html`.)
 const libBarEl = document.getElementById('libBar');
 // A CAIXA DE CONTROLES: é o `padding-top` dela que reserva o lugar da barra da
@@ -378,7 +377,7 @@ const bibleBackEl = document.getElementById('bibleBack');
 const bibleCloseEl = document.getElementById('bibleClose');
 const libraryEl = document.getElementById('library');
 // O rodapé FIXO da caixa da lista: fora do `<ul>` rolável, e por isso sempre à
-// vista. Hospeda "Importar arquivos" e, durante a seleção múltipla, a `#selbar`
+// vista. Hospeda as portas (Bíblia · Ferramentas) e, durante a seleção múltipla, a `#selbar`
 // (ver `renderListFoot` e `hostSelbar`) — nunca os dois ao mesmo tempo.
 const listFootEl = document.getElementById('listFoot');
 // A FOLHA DE FERRAMENTAS (v1.3.10) — ver `abrirFerramentas`. Quem a ancora é o
@@ -409,13 +408,13 @@ const appVersionEl = document.getElementById('appVersion');
 // declaradas junto do resto do cromo, centenas de linhas abaixo, seriam zona
 // morta temporal — o `ReferenceError` aborta o `controle.js` inteiro e o
 // watchdog do OTA descarta o bundle sem nada na tela dizer por quê.
-// (AS BADGES SAÍRAM: a do cabeçalho do Cronograma na v1.8.66 (deu lugar ao botão de LIMPAR) e a
+// (AS BADGES SAÍRAM: a do cabeçalho do Cronograma na v1.8.66 (a casa é hoje do IMPORTAR) e a
 //  do Modo Fácil na v1.11.15 (a pedido do operador, que pôs o NOME do app no topo dessa tela).
 //  O número mora no rótulo de versão do cabeçalho de Configurações (`#versaoBtn`, v1.12.50; foi
 //  o rodapé da folha e, na v1.12.49, a Verificação), escrito pelo `renderVersionLabel`.)
-// O LIMPAR E A GAVETA DO CRONOGRAMA (o limpar herdou a casa da badge na
-// v1.8.66; a gaveta é da v1.12.54) são declarados AQUI pela razão do bloco
-// acima: `renderCronoLimpar` os lê milhares de linhas antes de onde o cromo é
+// O IMPORTAR E A GAVETA DO CRONOGRAMA (o importar mora na casa da badge desde a
+// v1.13.5; a gaveta é da v1.12.54) são declarados AQUI pela razão do bloco
+// acima: `renderLibrary` lê a gaveta milhares de linhas antes de onde o cromo é
 // ligado, e um `const` lido antes da própria declaração é `ReferenceError` —
 // que aborta o `controle.js` inteiro e faz o watchdog do OTA descartar o bundle
 // sem nada na tela dizer por quê.
@@ -423,7 +422,7 @@ const cronoTituloEl = document.getElementById('cronoTitulo');
 const cronoGavetaEl = document.getElementById('cronoGaveta');
 const cronoListaEl = document.getElementById('cronoLista');
 const cronoVeuEl = document.getElementById('cronoVeu');
-const cronoLimparEl = document.getElementById('cronoLimpar');
+const cronoImportarEl = document.getElementById('cronoImportar');
 // A GAVETA DOS ITINERÁRIOS (v1.13.2), irmã da dos cronogramas — mora na folha
 // de Ferramentas (ver `abrirItinGaveta`).
 const itinGavetaEl = document.getElementById('itinGaveta');
@@ -439,7 +438,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.4';
+const WEB_VERSION = '1.13.5';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10632,6 +10631,80 @@ function renderGradeDeFerramentas() {
   });
   toolsBodyEl.appendChild(g);
   pintarGradeDeFerramentas();
+  vigiarLetraDaListaDeFerramentas(g);
+}
+
+// ===== NA LISTA, A FOLHA TEM A LARGURA DA PORTA (v1.13.5) =====
+//
+// Pedido do operador: *"a largura da janela de ferramentas durante a listagem,
+// pode ser a mesma largura do botão que abre a janela de ferramentas"*. As duas
+// bordas da folha estreita (`#toolsSheet.estreita`) são as da porta `#toolsBtn`,
+// LIDAS do layout como distância às bordas do `.list-body` (o bloco contêiner da
+// folha) — nunca um número. Quem chama é a abertura da folha e o
+// `medirRodapeDaLista`, que roda a cada mudança de tamanho do rodapé (giro,
+// largura, fonte do sistema): a porta é filha dele. Sem a porta à vista (a seleção
+// múltipla toma o rodapé) a medida boa que já está lá é a resposta certa.
+// SÓ O QUE MUDOU, como no `acertarVeus`.
+function medirPortaDasFerramentas() {
+  if (!toolsSheetEl) return;
+  const base = toolsSheetEl.parentElement;
+  const porta = document.getElementById('toolsBtn');
+  if (!base || !porta) return;
+  const p = porta.getBoundingClientRect();
+  const b = base.getBoundingClientRect();
+  if (!p.width || !b.width) return;
+  const px = (v) => (Math.round(v * 100) / 100) + 'px';
+  const esq = px(p.left - b.left);
+  const dir = px(b.right - p.right);
+  if (toolsSheetEl.style.getPropertyValue('--ferr-porta-esq') !== esq) toolsSheetEl.style.setProperty('--ferr-porta-esq', esq);
+  if (toolsSheetEl.style.getPropertyValue('--ferr-porta-dir') !== dir) toolsSheetEl.style.setProperty('--ferr-porta-dir', dir);
+}
+
+// O NOME CABE NA LARGURA DA PORTA (v1.13.5): o corpo do nome tem o teto da ALTURA
+// da linha no CSS (`clamp` sobre `--ferr-linha`), e este escreve o da LARGURA —
+// o maior corpo em que o nome mais longo da lista (e o título da folha) cabe sem
+// reticências. MEDIDO, não escrito: a largura do texto é proporcional ao corpo,
+// então a razão `clientWidth / scrollWidth` do pior nome dá o corpo que cabe
+// (o 0,98 é a folga do arredondamento de subpixel; ver `tetoQueCabe`). O PISO é 11px:
+// abaixo dele o nome sai com reticências, e o Registro de quem relatar mostra a
+// tela — nunca um nome legível cortado sem aviso por uma conta escondida.
+// Roda no desenho da lista e a cada mudança de tamanho dela (`ResizeObserver`):
+// o teto mexe na fonte, não na caixa, então ele não se realimenta.
+const FERR_FS_PISO = 11;
+let ferrLetraRO = null;
+function tetoQueCabe(els, prop, host) {
+  host.style.removeProperty(prop);
+  // A conta é proporcional, mas a métrica da fonte não é exatamente (o kerning e
+  // o arredondamento de subpixel): até três passadas, cada uma conferindo a
+  // anterior.
+  for (let passada = 0; passada < 3; passada++) {
+    let r = 1;
+    let fs = 0;
+    for (const el of els) {
+      if (!el || !el.clientWidth || el.scrollWidth <= el.clientWidth) continue;
+      r = Math.min(r, el.clientWidth / el.scrollWidth);
+      fs = fs || parseFloat(getComputedStyle(el).fontSize);
+    }
+    if (r >= 1 || !fs || fs <= FERR_FS_PISO) return;
+    host.style.setProperty(prop, Math.max(FERR_FS_PISO, Math.floor(fs * r * 0.98 * 10) / 10) + 'px');
+  }
+}
+function acertarLetraDaListaDeFerramentas() {
+  const g = document.getElementById('ferrGrade');
+  if (!g || !g.isConnected) return;
+  tetoQueCabe([...g.querySelectorAll('.qs-titulo, .ferr-tile.contando .ferr-leitura')], '--ferr-fs-teto', g);
+  if (toolsSheetEl && toolsTitleEl && toolsSheetEl.classList.contains('estreita')) {
+    tetoQueCabe([toolsTitleEl], '--ferr-titulo-teto', toolsSheetEl);
+  } else if (toolsSheetEl) {
+    toolsSheetEl.style.removeProperty('--ferr-titulo-teto');
+  }
+}
+function vigiarLetraDaListaDeFerramentas(g) {
+  acertarLetraDaListaDeFerramentas();
+  if (typeof ResizeObserver !== 'function') return;
+  if (!ferrLetraRO) ferrLetraRO = new ResizeObserver(() => acertarLetraDaListaDeFerramentas());
+  ferrLetraRO.disconnect();
+  ferrLetraRO.observe(g);
 }
 
 // PINTA O ESTADO de cada linha, sem refazer a lista — é o que o tique do relógio
@@ -10639,6 +10712,7 @@ function renderGradeDeFerramentas() {
 // atributo é o valor), e o nome acessível o diz por extenso.
 function pintarGradeDeFerramentas() {
   let contando = false;
+  let mudouLeitura = false;
   FERRAMENTAS.forEach((f) => {
     const b = document.getElementById('ferrTile_' + f.id);
     if (!b) return;
@@ -10646,14 +10720,23 @@ function pintarGradeDeFerramentas() {
     const leitura = ferramentaLeitura(f);
     if (leitura) contando = true;
     b.classList.toggle('no-ar', noAr);
-    b.classList.toggle('contando', !!leitura);
+    if (b.classList.contains('contando') !== !!leitura) {
+      b.classList.toggle('contando', !!leitura);
+      mudouLeitura = true;
+    }
     b.dataset.estado = noAr ? 'no-ar' : (leitura ? 'contando' : 'ocioso');
     const l = b.querySelector('.ferr-leitura');
-    if (l.textContent !== leitura) l.textContent = leitura;
+    if (l.textContent !== leitura) {
+      // O número que ganha um dígito (9:59 → 10:00) muda a largura dele.
+      if (l.textContent.length !== leitura.length) mudouLeitura = true;
+      l.textContent = leitura;
+    }
     const extra = [noAr ? 'no telão' : '', leitura ? 'contando ' + leitura : ''].filter(Boolean).join(', ');
     b.setAttribute('aria-label', f.nome + (extra ? ' — ' + extra : ''));
     b.title = f.nome + (noAr ? ' — no telão agora' : '');
   });
+  // O NÚMERO TOMA O LUGAR DO NOME (v1.13.5), e o teto da largura vale para ele.
+  if (mudouLeitura) acertarLetraDaListaDeFerramentas();
   // O TIQUE SÓ EXISTE COM O QUE CONTAR, e só com a lista à vista.
   if (contando && !ferrGradeTimer) ferrGradeTimer = setInterval(pintarGradeDeFerramentas, CHRONO_TICK_MS);
   else if (!contando) pararGradeTimer();
@@ -10710,6 +10793,8 @@ function renderDiversos() {
   stopItinPanelTimer();
   pararGradeTimer();
   fecharItinGavetaForaDoPainel();
+  // A FOLHA É ESTREITA NA LISTA, e só nela (v1.13.5) — ver `medirPortaDasFerramentas`.
+  if (toolsSheetEl) toolsSheetEl.classList.toggle('estreita', ferrNaGrade);
   pintarCabecalhoDasFerramentas();
   if (ferrNaGrade) {
     renderGradeDeFerramentas();
@@ -10776,7 +10861,9 @@ function voltarAGradeDeFerramentas(opcoes) {
  * A TROCA LISTA ↔ FERRAMENTA ANIMA, e só pelo TOQUE (a regra da seta da prévia: a
  * abertura e os oráculos que chamam direto assentam no ato). É a troca das seções de
  * Configurações por outro eixo: lá a caixa cresce, aqui a folha tem altura FIXA (ela
- * cobre a lista do Cronograma), então o que se move é o CONTEÚDO — o que sai fica numa camada ABSOLUTA por
+ * cobre a lista do Cronograma) e a LARGURA muda — a lista é estreita, com a largura
+ * da porta, e a ferramenta é larga (v1.13.5): as bordas da folha andam juntas com
+ * o conteúdo. No conteúdo, o que sai fica numa camada ABSOLUTA por
  * cima, no lugar exato em que estava (`.ferr-saindo`, sem toque e sem ids), e sobe
  * esmaecendo; o que entra sobe de baixo aparecendo. Na volta, o inverso. A ferramenta
  * nova já está montada no estado final desde o primeiro quadro — as roletas se medem
@@ -10829,6 +10916,15 @@ function trocarVistaDasFerramentas(desenhar, sentido, opcoes) {
   if (toolsFootEl.childElementCount) {
     anims.push(toolsFootEl.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D, easing: 'ease' }));
   }
+  // E A FOLHA MUDA DE LARGURA (v1.13.5): estreita na lista, larga na ferramenta.
+  // As duas bordas andam de onde estavam até onde a classe as pôs, na mesma
+  // duração; sem a animação (o fim, ou o cancelamento) vale a da classe.
+  const depois = toolsSheetEl.getBoundingClientRect();
+  if (Math.abs(depois.left - folha.left) > 0.5 || Math.abs(depois.right - folha.right) > 0.5) {
+    const base = toolsSheetEl.parentElement.getBoundingClientRect();
+    const bordas = (r) => ({ left: (r.left - base.left) + 'px', right: (base.right - r.right) + 'px' });
+    anims.push(toolsSheetEl.animate([bordas(folha), bordas(depois)], { duration: D, easing: 'ease' }));
+  }
   let feito = false;
   const fim = () => {
     if (feito) return;
@@ -10875,8 +10971,10 @@ function abrirFerramentas() {
   clearTimeout(toolsSaindoTimer);
   toolsSaindoTimer = null;
   toolsSheetEl.classList.remove('saindo');
+  medirPortaDasFerramentas();
   toolsSheetEl.hidden = false;
-  // TODA ABERTURA COMEÇA NA LISTA (v1.13.3) — ver `ferrNaGrade`.
+  // TODA ABERTURA COMEÇA NA LISTA (v1.13.3) — ver `ferrNaGrade`. E A LISTA É
+  // ESTREITA, com a largura da porta (v1.13.5).
   ferrNaGrade = true;
   toolsBodyEl.innerHTML = '';
   renderDiversos();
@@ -11001,29 +11099,10 @@ function msgProjecting() { return !!(msgSession && msgSession.projecting); }
 // `finally` do balde roda do mesmo jeito.
 function renderLibrary() {
   comBaldeDeMiniaturas(libraryEl, () => renderLibraryCorpo());
-  renderCronoLimpar();
-}
-
-/**
- * O BOTÃO DE LIMPAR, APAGADO COM A LISTA VAZIA (v1.8.66; de volta à barra na
- * v1.12.55, depois de um lote como linha do menu ⋮).
- *
- * Ele mora AQUI e não no `renderListTitle` porque a pergunta é sobre a LISTA, e
- * `renderLibrary` é o ponto único que a redesenha — todo caminho que muda
- * `libItems` passa por ele (o `load()`, e o `toggleCronograma` que reatribui a
- * lista e chama só este). Pendurado no título, o estado ficaria velho no segundo
- * caminho, que é justamente o de tirar o último item pela gaveta da linha.
- *
- * A REGRA É A DA v1.8.50 — o que não tem função agora é APAGADO, não deixado
- * inerte —, e ela pesa o dobro num destrutivo. O `title` diz POR QUÊ, e o
- * `aria-label` ACOMPANHA: o nome acessível vem dele, que VENCE o `title`.
- */
-function renderCronoLimpar() {
-  if (!cronoLimparEl) return;
-  const vazio = !libItems.length;
-  cronoLimparEl.disabled = vazio;
-  cronoLimparEl.title = vazio ? 'O Cronograma já está vazio' : 'Limpar o Cronograma';
-  cronoLimparEl.setAttribute('aria-label', cronoLimparEl.title);
+  // A GAVETA ABERTA ACOMPANHA A LISTA: a conta do ativo e o EXCLUIR do único
+  // (apagado com a lista vazia) leem `libItems`, e todo caminho que a muda passa
+  // por aqui — inclusive o `toggleCronograma`, que não chama `load()`.
+  if (cronoGavetaAberta()) renderCronoGaveta();
 }
 
 function renderLibraryCorpo() {
@@ -11034,7 +11113,7 @@ function renderLibraryCorpo() {
   host.innerHTML = '';
   // ANTES do desvio por aba, e não no fim: a Bíblia e a raiz dos Favoritos saem
   // por `return` daqui, e o rodapé é da CAIXA da lista, não da lista — deixado
-  // para o fim, o "Importar arquivos" do Cronograma continuava desenhado
+  // para o fim, a faixa de portas do Cronograma continuava desenhada
   // embaixo da grade de livros da Bíblia.
   renderListFoot();
 
@@ -11278,20 +11357,16 @@ function renderLibraryCorpo() {
   provisorias.forEach(([chave, reg]) => host.appendChild(libBusyRow(chave, reg)));
 }
 
-// Importar arquivos é uma ação sobre ESTA lista, não uma aba — mas até a v5.106
-// ele era o último `<li>` do `<ul>` rolável, e com trinta itens no Cronograma
-// (que é o culto normal) alcançá-lo exigia rolar a lista inteira. Agora mora no
-// RODAPÉ FIXO da caixa da lista (`#listFoot`), fora da rolagem: continua junto
-// do lugar onde os arquivos vão cair e está sempre a um toque.
-// O `<input type="file">` continua dentro de um <label>, que é o que dispensa
-// JS pra abrir o seletor.
+// O RODAPÉ FIXO da caixa da lista (`#listFoot`), fora da rolagem: as PORTAS
+// (Bíblia · Ferramentas) ou a barra de seleção. O IMPORTAR morou aqui da v5.107
+// à v1.13.4 e foi para a barra do topo (`#cronoImportar`).
 //
 // A função reconstrói só o que é DELA: o rodapé é dividido com a barra de
 // seleção (ver `hostSelbar`), e um `innerHTML = ''` aqui tiraria a `#selbar` do
 // documento — o nó é um só, movido, e perdê-lo significa perder os listeners.
-// O MOLDE DAS DUAS PORTAS LATERAIS do rodapé (v1.5.0): ícone em cima da caixa,
-// rótulo ao lado, `title` igual ao `aria-label`. Uma função e não duas cópias —
-// elas nasceram iguais e a terceira porta que aparecer nasce igual também.
+// O MOLDE DAS PORTAS do rodapé (v1.5.0): ícone e rótulo na caixa (o ícone à
+// ESQUERDA desde a v1.13.5), `title` igual ao `aria-label`. Uma função e não
+// duas cópias — elas nasceram iguais e a próxima porta nasce igual também.
 function botaoDoRodape(id, cls, titulo, rotulo, desenho) {
   const b = document.createElement('button');
   b.type = 'button';
@@ -11310,7 +11385,7 @@ function botaoDoRodape(id, cls, titulo, rotulo, desenho) {
 
 // ===== A ALTURA DO RODAPÉ FLUTUANTE É LIDA, NUNCA TRANSCRITA (v1.8.61) =====
 //
-// Com as três portas flutuando sobre a lista (`#listFoot` absoluto), quem
+// Com as portas flutuando sobre a lista (`#listFoot` absoluto), quem
 // responde "quanto recuo o fim da lista precisa?" é a altura DELAS. `--hit-foot`
 // é um `min-height` de 42px, e o rodapé o EXCEDE quando o corpo de fonte do
 // sistema cresce: MEDIDO, 42,00 de 280 a 480px de largura com a raiz em 16px E
@@ -11332,6 +11407,7 @@ function medirRodapeDaLista() {
   if (rodapeObservado !== listFootEl) {
     rodapeRO.disconnect(); rodapeRO.observe(listFootEl); rodapeObservado = listFootEl;
   }
+  medirPortaDasFerramentas();
   const h = listFootEl.getBoundingClientRect().height;
   // Zero é a AUSÊNCIA de uma medida (rodapé `hidden`, app fora da tela), não uma
   // medida de zero: escrevê-lo tiraria o recuo do fim da lista. A boa que já
@@ -11345,90 +11421,37 @@ function medirRodapeDaLista() {
 }
 
 function renderListFoot() {
-  const antiga = listFootEl.querySelector('.import-row');
-  // O seletor de arquivos mora DENTRO da linha antiga; tirá-lo antes de
-  // descartá-la é o que preserva o listener de `change` — descartar o nó com o
-  // `<input>` dentro leva o ouvinte junto, e o toque em "Importar" deixa de
-  // fazer qualquer coisa, sem erro nenhum.
-  if (fileEl.parentElement && fileEl.parentElement.closest('.import-row')) mainEl.appendChild(fileEl);
+  const antiga = listFootEl.querySelector('.portas-row');
   if (antiga) antiga.remove();
   // O rodapé some quando não tem inquilino nenhum. Não dá para deixar isso com
   // um `:empty` no CSS: a `#selbar` MORA aqui mesmo fora da seleção (escondida
   // pelo `hidden`), então o rodapé nunca fica de fato vazio — e um filho de
   // altura zero ainda consome o `gap` do `<main>`, que viraria uma faixa de ar
   // acima da caixa de controles em toda aba sem rodapé.
-  const temImport = !selectionMode;
+  const temPortas = !selectionMode;
   const temSelbar = selectionMode && selbarEl.parentElement === listFootEl;
-  listFootEl.hidden = !temImport && !temSelbar;
-  if (!temImport) return;
+  listFootEl.hidden = !temPortas && !temSelbar;
+  if (!temPortas) return;
   const li = document.createElement('div');
-  li.className = 'import-row';
+  li.className = 'portas-row';
 
-  // UM botão só, para TODO arquivo — inclusive apresentação (v5.99). O que
-  // muda é só QUEM abre o seletor:
+  // ===== AS DUAS PORTAS DO CRONOGRAMA (v1.13.5; eram três desde a v1.5.0) =====
   //
-  //  - no app (shell ≥ 21), o seletor do SISTEMA (`AVNative.pickDoc`). É o
-  //    único caminho que serve para o PDF: o `<input type="file">` devolve um
-  //    `File` — bytes já lidos —, e quem desenha o PDF é o shell, que precisa
-  //    do ARQUIVO; mandar os bytes de volta pela ponte inverteria o princípio
-  //    dela ("URLs servíveis, nunca bytes"). O `content://` que o seletor
-  //    entrega é a mesma porta por onde as pastas do dispositivo já entram.
-  //  - no navegador (e num shell antigo), o `<input type="file">` de sempre,
-  //    dentro de um <label>, que é o que dispensa JS para abrir o seletor.
+  // Com o Cronograma sendo a tela ÚNICA, este rodapé é a navegação do app: o
+  // único ponto sempre à vista (fora do `<ul>` rolável), e é dele que saem os
+  // dois lugares que não são a lista. A Biblioteca não entra aqui — ela tem a
+  // barra própria na caixa de controles.
   //
-  // O rótulo é o mesmo nos dois casos: o operador escolhe o ARQUIVO, não a
-  // porta por onde ele entra.
-  const usaSeletorNativo = !!window.__NATIVE__;
-  const label = document.createElement(usaSeletorNativo ? 'button' : 'label');
-  if (usaSeletorNativo) label.type = 'button';
-  label.className = 'import-btn';
-  label.title = 'Importar arquivos (mídia, PDF ou PowerPoint)';
-  label.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"'
-    + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-    + '<path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/>'
-    + '<path d="M14 3v5h5"/>'
-    + '<line x1="12" y1="12" x2="12" y2="17.6"/>'
-    + '<line x1="9.2" y1="14.8" x2="14.8" y2="14.8"/></svg>';
-  const txt = document.createElement('span');
-  // "Importar", e não "Importar arquivos" (v1.5.0): a faixa passou a ter TRÊS
-  // portas em partes iguais, e MEDIDO em 430px o nome inteiro saía com
-  // reticências — que é pior que a palavra curta, porque as reticências não
-  // dizem qual palavra foi cortada. O `title` guarda a frase completa (e o que
-  // ela inclui: mídia, PDF ou PowerPoint).
-  txt.textContent = 'Importar';
-  label.appendChild(txt);
-  if (usaSeletorNativo) label.addEventListener('click', importarPeloSistema);
-  else label.appendChild(fileEl); // o MESMO input de sempre, só reposicionado
-
-  // O BOTÃO DE FAVORITOS SAIU DAQUI (v5.104). Ele fazia par com "Importar" — as
-  // duas respondendo "de onde vem a mídia?" —, mas era também a ÚNICA porta da
-  // gaveta, e uma porta no fim de uma lista rolável não é acesso rápido: com
-  // trinta itens no Cronograma era preciso rolar tudo para chegar num favorito.
-  // Agora ela mora no cabeçalho FIXO, com rótulo, alcançável de qualquer aba.
-  li.appendChild(label);
-
-  // ===== AS TRÊS PORTAS DO CRONOGRAMA (v1.5.0) =====
+  // O "Importar" do MEIO saiu na v1.13.5, para a trilha 1 da barra do topo
+  // (`#cronoImportar`), a pedido do operador: *"Deixando na base, apenas bíblia e
+  // ferramentas"*. As duas dividem a faixa em partes iguais, cada uma com o ícone
+  // À ESQUERDA do rótulo (*"ajuste para que o icone fique a esquerda dos titulos
+  // dos dois botões"*) — a pilha ícone-em-cima da v1.5.0 existia porque TRÊS
+  // rótulos lado a lado com o ícone não cabiam num terço de celular; numa metade
+  // cabem.
   //
-  // Pedido do operador: *"na base dela se mantém o botão de importar arquivos
-  // no centro, a esquerda o botão de bíblia e a direita o botão de
-  // ferramentas"*.
-  //
-  // Com o Cronograma virando a tela ÚNICA, este rodapé passou a ser a
-  // navegação inteira do app: é o único ponto que fica sempre à vista (fora do
-  // `<ul>` rolável), e é dele que saem os dois lugares que não são a lista. A
-  // Biblioteca não entra aqui — ela tem a barra própria na caixa de controles.
-  //
-  // OS TRÊS TÊM RÓTULO desde a v1.5.0, a pedido (*"coloque um texto no botão de
-  // ferramentas"*). O argumento anterior contra o texto — *"dois nomes lado a
-  // lado numa faixa de celular empurrariam o primeiro para reticências"* —
-  // valia para uma linha em que "Importar arquivos" era `flex: 1` e os irmãos
-  // eram quadrados; com TRÊS portas de mesmo peso, deixar duas mudas faria a
-  // faixa dizer que a do meio é a única que importa, e ela não é. Quem paga a
-  // conta da largura é o `.import-row`, que reparte as três em partes iguais e
-  // deixa cada rótulo encolher com reticências por conta própria.
-  //
-  // A ORDEM É A DO PEDIDO, e ela é a da leitura: o que se CONSULTA à esquerda,
-  // o que ENTRA no roteiro no centro, o que se PRODUZ à direita.
+  // A ORDEM É A DA LEITURA: o que se CONSULTA à esquerda, o que se PRODUZ à
+  // direita.
   const bib = botaoDoRodape('bibleBtn', 'lib-foot-btn',
     'Bíblia: livros, capítulos e versículos', 'Bíblia',
     '<path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H19v15H5.5A1.5 1.5 0 0 0 4 19.5z"/>'
@@ -11436,10 +11459,10 @@ function renderListFoot() {
     + '<line x1="11.5" y1="6.4" x2="11.5" y2="11.6"/>'
     + '<line x1="9.2" y1="8.4" x2="13.8" y2="8.4"/>');
   bib.addEventListener('click', abrirBiblia);
-  li.insertBefore(bib, label);
+  li.appendChild(bib);
 
   const ferr = botaoDoRodape('toolsBtn', 'tools-btn',
-    'Ferramentas: mensagens, tempo e sorteio', 'Ferramentas',
+    'Ferramentas: relógio, cronômetro, timer, itinerário, mensagens e sorteio', 'Ferramentas',
     '<rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/>'
     + '<rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/>'
     + '<rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/>'
@@ -11449,8 +11472,25 @@ function renderListFoot() {
 
   listFootEl.appendChild(li);
   // O INQUILINO ACABOU DE TROCAR, e a altura é dele: a `.selbar` e a
-  // `.import-row` medem o mesmo hoje (42,00 nas duas), mas é medida, não regra.
+  // `.portas-row` medem o mesmo hoje (42,00 nas duas), mas é medida, não regra.
   medirRodapeDaLista();
+}
+
+// O IMPORTAR (v1.13.5, o `#cronoImportar` da barra do topo; era a porta do meio
+// do rodapé). UM botão só, para TODO arquivo — inclusive apresentação (v5.99). O
+// que muda é só QUEM abre o seletor:
+//
+//  - no app, o seletor do SISTEMA (`AVNative.pickDoc`). É o único caminho que
+//    serve para o PDF: o `<input type="file">` devolve um `File` — bytes já
+//    lidos —, e quem desenha o PDF é o shell, que precisa do ARQUIVO; mandar os
+//    bytes de volta pela ponte inverteria o princípio dela ("URLs servíveis,
+//    nunca bytes").
+//  - no navegador, o `<input type="file">` de sempre (`#file`, solto no
+//    `<main>`), aberto por `click()` dentro do toque — que é a ativação que o
+//    navegador exige para abrir o seletor.
+function importarArquivos() {
+  if (window.__NATIVE__) { importarPeloSistema(); return; }
+  fileEl.click();
 }
 
 // Os tipos que o seletor do sistema oferece. PDF e PPTX entram na MESMA lista
@@ -14652,7 +14692,7 @@ function renderSelbar() {
   selbarEl.hidden = !selectionMode;
   // As ABAS NÃO SOMEM MAIS durante a seleção (v5.107): a barra passou a ocupar
   // o rodapé da lista, não a faixa de navegação. Quem cede o lugar é o
-  // "Importar arquivos", e é `renderListFoot` (pela guarda de `selectionMode`)
+  // faixa das portas, e é `renderListFoot` (pela guarda de `selectionMode`)
   // que cuida disso.
   renderListFoot();
   if (!selectionMode) return;
@@ -20740,9 +20780,12 @@ async function deleteSelected() {
 
 // ===== LIMPAR O CRONOGRAMA INTEIRO (v1.8.66) =====
 //
-// O botão do canto superior esquerdo da faixa, onde morava a badge de versão
-// (foi uma linha do menu ⋮ só na v1.12.54). Só o ATIVO — a lista à vista.
-// Ele é a irmã do `deleteSelected` acima — mesma declaração de intenção, sobre
+// Desde a v1.13.5 é o EXCLUIR DO ÚNICO cronograma, na linha dele na gaveta (ver
+// `excluirCronograma`): o botão próprio da barra do topo saiu a pedido do
+// operador — *"sua função basicamente se pode obter pelo botão de excluir
+// cronograma na lista de cronogramas"* —, e com UM cronograma só excluí-lo é
+// esvaziá-lo, porque o app nunca fica com zero. Só o ATIVO — que, sendo o único,
+// é a lista à vista. Ele é a irmã do `deleteSelected` acima — mesma declaração de intenção, sobre
 // a lista toda em vez de uma seleção — e por isso repete as DUAS metades que
 // aquele tem e que o `listSet` sozinho não faz.
 //
@@ -20775,6 +20818,7 @@ async function limparCronograma() {
   // mas o estado dele é pintado no render e o toque pode chegar entre um
   // esvaziamento e o próximo `load()`.
   if (!ids.length) return;
+  const nome = (cronoPorId(cronos.ativo) || {}).nome || 'Cronograma';
   // O MODAL, e não a pergunta na própria faixa (`pedirConfirmacaoNaLinha`), que
   // é o que o LIMPAR da fila usa. A razão é que a `dica` daquela vai para o
   // `title`/`aria-label` — e num WebView NÃO HÁ HOVER, então a frase que explica
@@ -20799,10 +20843,14 @@ async function limparCronograma() {
   // lista pode estar rolada. As duas promessas continuam VALENDO no código
   // (`listSet` só coleta o que não tem detentor; a cena não é encerrada); o que
   // saiu foi dizê-las toda vez.
+  // E A FRASE DIZ QUE ELE FICA (v1.13.5): o toque foi num EXCLUIR, e o que
+  // acontece é outra coisa — a lista esvazia e o cronograma continua lá, com o
+  // nome. O verbo do botão de confirmar é o do que de fato acontece.
   const n = ids.length;
   const ok = await appConfirm({
-    title: 'Limpar o Cronograma',
-    message: 'Tirar ' + (n === 1 ? 'o único item' : 'os ' + n + ' itens') + ' da lista?',
+    title: 'Limpar o cronograma',
+    message: 'Tirar ' + (n === 1 ? 'o único item' : 'os ' + n + ' itens') + ' de “' + nome
+      + '”? Ele é o único cronograma, e fica vazio.',
     okText: 'Limpar',
     perigo: true,
   });
@@ -20817,6 +20865,7 @@ async function limparCronograma() {
   // lista, e o `load()` a re-hidrataria sobre linhas que já não existem.
   if (typeof exitSelection === 'function') exitSelection();
   await load();
+  if (libraryEl) libraryEl.scrollTop = 0;
 }
 
 // ===== OS CRONOGRAMAS MÚLTIPLOS (v1.12.54) =====
@@ -20883,8 +20932,10 @@ function fecharCronoGaveta() {
  * sempre visíveis"*.
  *
  * O miolo é um botão: tocar nele TROCA. O ativo é a linha em `--sel-fill`. O
- * EXCLUIR é apagado quando o cronograma é o ÚNICO, com o `title` dizendo por
- * quê — o app nunca fica com zero.
+ * EXCLUIR DO ÚNICO cronograma LIMPA (v1.13.5; até a v1.13.4 ele era apagado): o
+ * app nunca fica com zero, e o limpar da barra do topo saiu — com o excluir
+ * apagado, esvaziar o único deixaria de existir. Ele é apagado só com o único
+ * VAZIO, que não tem o que limpar, e o `title` diz o que o toque faz.
  */
 function renderCronoGaveta() {
   if (!cronoListaEl) return;
@@ -20918,8 +20969,11 @@ function renderCronoGaveta() {
 
     const exc = document.createElement('button');
     exc.className = 'row-btn crono-excluir';
-    exc.disabled = unico;
-    exc.title = unico ? 'É o único cronograma — o app precisa de pelo menos um' : 'Excluir “' + c.nome + '”';
+    const vazio = unico && !(ativo ? libItems.length : c.qtd);
+    exc.disabled = vazio;
+    exc.title = !unico ? 'Excluir “' + c.nome + '”'
+      : vazio ? 'O cronograma já está vazio'
+        : 'Limpar “' + c.nome + '” (é o único cronograma)';
     exc.setAttribute('aria-label', exc.title);
     exc.appendChild(msym(ICON.del));
     exc.addEventListener('click', (e) => { e.stopPropagation(); excluirCronograma(c.id); });
@@ -20991,7 +21045,12 @@ async function renomearCronograma(id) {
  * conteúdo de qualquer um. A GAVETA FICA ABERTA e é redesenhada.
  */
 async function excluirCronograma(id) {
-  if (cronos.itens.length < 2) return;
+  // O ÚNICO NÃO SE EXCLUI, SE ESVAZIA (v1.13.5) — ver `limparCronograma`.
+  if (cronos.itens.length < 2) {
+    await limparCronograma();
+    if (cronoGavetaAberta()) renderCronoGaveta();
+    return;
+  }
   const alvo = cronoPorId(id || cronos.ativo);
   if (!alvo) return;
   const ativo = alvo.id === cronos.ativo;
@@ -24673,7 +24732,7 @@ function acertarVeu(el) {
 }
 // ===== A SOMBRA DAS PORTAS SÓ EXISTE COM ITEM POR BAIXO DELAS (v1.12.19) =====
 //
-// Pedido do operador: as sombras das três portas do Cronograma ficam muito marcantes quando não há
+// Pedido do operador: as sombras das portas do Cronograma ficam muito marcantes quando não há
 // item nenhum atrás delas. A sombra descreve SOBREPOSIÇÃO ("o botão flutua sobre a lista"); sem
 // lista por baixo ela só suja o fundo liso. A pergunta é geométrica: o fim do ÚLTIMO item (a borda
 // de baixo, sem a folga que a margem dele reserva) passou do topo das portas? Lista vazia, lista
@@ -24683,7 +24742,7 @@ function acertarVeu(el) {
 // Escreve só quando o booleano vira, como o `acertarVeu` — roda a cada quadro de rolagem.
 function acertarSombraDasPortas() {
   if (!listFootEl || !libraryEl) return;
-  const porta = listFootEl.querySelector('.import-row');
+  const porta = listFootEl.querySelector('.portas-row');
   const ultimo = libraryEl.lastElementChild;
   let livre = true;
   if (porta && ultimo && !listFootEl.hidden && !ultimo.classList.contains('empty')) {
@@ -45029,7 +45088,7 @@ plClearEl.addEventListener('click', (e) => {
   });
 });
 selDeleteEl.addEventListener('click', deleteSelected);
-if (cronoLimparEl) cronoLimparEl.addEventListener('click', () => { fecharCronoGaveta(); limparCronograma(); });
+if (cronoImportarEl) cronoImportarEl.addEventListener('click', () => { fecharCronoGaveta(); importarArquivos(); });
 if (cronoTituloEl) cronoTituloEl.addEventListener('click', () => {
   if (cronoGavetaEl && !cronoGavetaEl.hidden && cronoGavetaEl.classList.contains('aberta')) fecharCronoGaveta();
   else abrirCronoGaveta();
@@ -46981,7 +47040,7 @@ document.addEventListener('visibilitychange', () => {
   // MUDA depois dele, e o que já está desenhado na primeira pintura não muda.
   // Daqui em diante ninguém mais precisa lembrar de nada.
   acertarVeus();
-  // E a altura das TRÊS PORTAS, pelo mesmo motivo e no mesmo lugar: o
+  // E a altura das PORTAS, pelo mesmo motivo e no mesmo lugar: o
   // `ResizeObserver` só vê o que muda depois dele, e a primeira pintura não
   // muda. (Ver `medirRodapeDaLista`.)
   medirRodapeDaLista();

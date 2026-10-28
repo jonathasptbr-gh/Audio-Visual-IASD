@@ -222,7 +222,8 @@ só descobriria na frente da congregação, na página que não existe.
 
 **As portas de entrada são as mesmas de qualquer arquivo:**
 
-- **"Importar arquivos"**, no rodapé fixo do Cronograma. No app (shell ≥ 21) esse botão
+- **"Importar arquivos"**, o ícone da trilha 1 da barra do Cronograma (`#cronoImportar`,
+  `importarArquivos`; até a v1.13.4 era a porta do meio do rodapé). No app (shell ≥ 21) esse botão
   abre o seletor do SISTEMA (`AVNative.pickDoc`, com a lista de mimes), e não o
   `<input type="file">`: aquele devolve um `File` — bytes já lidos —, e quem
   desenha o PDF é o shell, que precisa do ARQUIVO; devolver os bytes pela ponte

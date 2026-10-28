@@ -40,6 +40,19 @@ export const PISOS = [
     porque: 'a grade de 66 livros — 66 alvos de 34px pedem 414px de altura e a '
       + 'folha mede 280,5px a 360×640. Ver `--hit-denso` em controle.css.',
   },
+  {
+    // A LISTA DAS FERRAMENTAS NÃO ROLA (v1.13.5), por pedido EXPLÍCITO do operador:
+    // *"verifique em telas menores, para garantir que essa janela de ferramentas não
+    // necessite de scroll, mas sim tenha seus botões encolhidos verticalmente para
+    // caber de forma correta"*. A folha estreita cede antes o recuo e o vão do
+    // cabeçalho e o vão entre as linhas; MEDIDO, só a 360×640 com a fonte do sistema
+    // em 1,3× a linha passa abaixo do `--hit` — 33,4px, a sexta parte do corpo. O
+    // piso trocado é 32, um píxel e pouco de folga sobre o medido.
+    sel: '.ferr-grade > .ferr-tile', piso: 32,
+    porque: 'a lista das ferramentas não rola por pedido do operador (v1.13.5): seis '
+      + 'linhas de 34px pedem 204px e o corpo da folha mede 200,3px a 360×640 · 1,3×. '
+      + 'Ver `.ferr-grade > .ferr-tile` em controle.css.',
+  },
 ];
 
 /** O rótulo de cada sonda, para o relatório e para a frase da reprovação. */

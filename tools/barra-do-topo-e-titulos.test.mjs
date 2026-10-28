@@ -73,7 +73,7 @@ try {
       setAppMode('full');
       const h = document.querySelector('.list-header');
       const r = h.getBoundingClientRect();
-      const moradores = ['#cronoLimpar', '#cronoTitulo', '.list-header .settings-btn']
+      const moradores = ['#cronoImportar', '#cronoTitulo', '.list-header .settings-btn']
         .map((s) => document.querySelector(s)).filter(Boolean)
         .map((e) => e.getBoundingClientRect());
       const raiz = getComputedStyle(document.documentElement);
@@ -116,8 +116,11 @@ try {
       JSON.stringify({ altura: barra.altura, esperado: barra.hit + barra.sp5 }));
 
     // ── 3a · O TÍTULO DA FOLHA DE FERRAMENTAS ────────────────────────────
+    // DENTRO DE UMA FERRAMENTA, onde a folha é LARGA: na lista ela é ESTREITA, com
+    // a largura da porta (v1.13.5), e o título encosta à esquerda com o ✕ na ponta
+    // — as trilhas simétricas de `--hit` não cabem numa porta.
     const ferr = await pg.evaluate(() => {
-      abrirFerramentas();
+      abrirFerramenta('msg');
       const head = document.querySelector('#toolsSheet .tools-head');
       const t2 = head.querySelector('.tools-title');
       const hb = head.getBoundingClientRect(), tb = t2.getBoundingClientRect();
@@ -125,7 +128,7 @@ try {
       return { desvio: +(((tb.left + tb.right) / 2) - ((hb.left + hb.right) / 2)).toFixed(1) };
     });
     checar(Math.abs(ferr.desvio) < 1.5,
-      onde + ' · 3 · o título da janela de Ferramentas está no CENTRO da barra '
+      onde + ' · 3 · o título da janela de Ferramentas (larga, numa ferramenta) está no CENTRO da barra '
       + 'dela — com `flex: 1` ele era o espaçador da linha e encostava à '
       + 'esquerda', ferr.desvio);
 

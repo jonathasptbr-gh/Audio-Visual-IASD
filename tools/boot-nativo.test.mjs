@@ -2102,7 +2102,7 @@ try {
       // O RODAPÉ DA SEÇÃO. `syncDeviceFolder` era o botão do cabeçalho da
       // gaveta, e a gaveta deixou de ter porta própria: sem esta linha a ação
       // ficaria sem lugar nenhum de onde ser alcançada.
-      rodape: !corpo ? [] : [...corpo.querySelectorAll('.import-row .import-btn')]
+      rodape: !corpo ? [] : [...corpo.querySelectorAll('.portas-row > button')]
         .map((b) => b.textContent.trim()),
       // O cabeçalho: o que ele mostra em TEXTO (só o nome — o contador saiu) e
       // se o botão de ação está lá.
@@ -2322,7 +2322,7 @@ try {
     r.vazioTexto = vazio ? vazio.textContent.trim() : '';
     r.vazioUmaLinha = !!vazio && !vazio.querySelector('br')
       && /^Nenhum favorito ainda\.?$/.test(r.vazioTexto)
-      && !lista2.querySelector('.import-row');
+      && !lista2.querySelector('.portas-row');
     lista2.remove();
     favItems = guardados;
     lista.remove();

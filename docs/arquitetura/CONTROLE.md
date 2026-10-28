@@ -25,7 +25,7 @@
 | [Compartilhamento](#compartilhamento) · [Diálogo padrão](#diálogo-padrão-do-app-confirmações--prompts) | entradas e confirmações |
 | [O histórico do culto](#o-histórico-do-culto-em-configurações-v120--v1430) | o que já foi ao telão, por sessão |
 | [A abertura e a badge de versão](#a-abertura-e-a-badge-de-versão-v170) | a cortina do `#splash`, as duas casas do número, o limpar do Cronograma |
-| [Os cronogramas múltiplos](#os-cronogramas-múltiplos-v11254) | o título que troca de cronograma, a gaveta (renomear · nome · excluir por linha) e o limpar da barra |
+| [Os cronogramas múltiplos](#os-cronogramas-múltiplos-v11254) | o título que troca de cronograma, a gaveta (renomear · nome · excluir por linha; o excluir do único LIMPA) e o importar da barra |
 | [O que o telão retoma](#o-que-o-telão-retoma-ao-reconectar-midianoar-v5142) | reconexão |
 
 
@@ -563,10 +563,11 @@ olha o `closed` — e ele só existe enquanto a janela existe.
 │  │  item 1                                           │  │  ← .lib-list
 │  │  item 2                                           │  │     (área scrollável)
 │  └───────────────────────────────────────────────────┘  │
-│  [     + Importar arquivos     ] [⠿]                    │ ← #listFoot (fixo, não rola)
+│  [  📖 Bíblia  ]  [  ⠿ Ferramentas  ]                    │ ← #listFoot (fixo, não rola)
 │   ↑ na seleção múltipla, a #selbar ocupa esta mesma fatia │
-│   ↑ o [⠿] abre a FOLHA DE FERRAMENTAS, que sobe cobrindo  │
-│     a .lib-list e o #listFoot — e só eles (v1.3.10)       │
+│   ↑ Ferramentas abre a FOLHA, que sobe cobrindo a .lib-list│
+│     e o #listFoot — e só eles; na LISTA ela tem a largura │
+│     da porta (v1.13.5)                                    │
 ├─────────────────────────────────────────────────────────┤
 │ [Cronograma] [Bíblia] [🔍]                              │  ← .tabs (dentro da barra)
 │  ┌─────────────────────────────────────┬──────┐         │  ← .bottombar (base fixa)
@@ -2403,7 +2404,7 @@ a trocar, e cada um que escapasse leria o cronograma errado calado.
 | peça | o que é |
 |---|---|
 | `#cronoTitulo` | o botão do título: `#listTitle` (o NOME do ativo, "Cronograma" por padrão) + a seta `.crono-seta` à direita. O `padding-left` é a largura da seta mais o vão: o NOME fica no eixo da faixa |
-| `#cronoLimpar` (`.crono-limpar`) | o LIMPAR, na trilha 1 da barra, encostado à esquerda — de volta na v1.12.55 (ver "E o que entrou no lugar" na seção da abertura). Só do ATIVO, apagado com ele vazio |
+| `#cronoImportar` (`.crono-importar`) | o IMPORTAR (v1.13.5), na trilha 1 da barra, encostado à esquerda: só o ícone (a folha com o +, `--icon-lg` por regra própria), chapado e em `--accent`, como a engrenagem em frente. Abre o seletor (`importarArquivos`: `AVNative.pickDoc` no app, o `#file` no navegador). A casa foi do LIMPAR da v1.8.66 à v1.13.4 — ele saiu, e esvaziar é o excluir do ÚNICO cronograma |
 | `#cronoGaveta` · `#cronoLista` | a GAVETA, no topo do `.list-body` (que começa na borda de baixo da barra), `--panel` com `--camada: --panel-2`: uma LINHA por cronograma e "Novo cronograma" (`#cronoNovo`) por último. Rola com a marca `rola` |
 | `.crono-item` | a LINHA (v1.12.55), na receita da linha de lista do app (`.lib-item`/`.row-item`): cartão `--camada`, `--radius-card`, recuo da `.row`, 51,2px. **Renomear** (`.crono-renomear`, `.row-btn`, lápis) na ponta ESQUERDA · o **miolo** (`.crono-trocar`: o nome em `.row-name` e a conta em `.row-sub`, CENTRADOS) · **Excluir** (`.crono-excluir`, `.row-btn`, lixeira, `--btn-danger` + `--danger-strong`) na ponta DIREITA. Os dois quadrados medem `--thumb` e estão SEMPRE à vista. O ativo é a linha em `--sel-fill` |
 | `#cronoNovo` (`.crono-novo`) | a última linha: ícone + "Novo cronograma" CENTRADOS, o par discreto de criar (`--surface` + `--accent`, o do "Refazer"), `--quad-faixa` de altura |
@@ -2429,17 +2430,24 @@ a trocar, e cada um que escapasse leria o cronograma errado calado.
   `appPrompt` dos itens, e vale para QUALQUER cronograma, não só o ativo. O nome é
   APARADO; vazio mantém o antigo; um nome que colide com OUTRO cronograma ganha
   " (2)" — duas linhas iguais na gaveta seriam indistinguíveis ao toque.
-- **LIMPAR** é o botão da BARRA (`#cronoLimpar`), o `limparCronograma` de sempre
-  (ver "E o que entrou no lugar" na seção da abertura), só do ativo, APAGADO com o
-  cronograma vazio.
+- **LIMPAR É O EXCLUIR DO ÚNICO** (v1.13.5). O botão próprio da barra saiu a pedido do
+  operador — *"remova o botão de limpar cronograma, pois sua função basicamente se
+  pode obter pelo botão de excluir cronograma na lista de cronogramas"* —, e com um
+  cronograma só excluí-lo é ESVAZIÁ-LO: `excluirCronograma` chama o
+  `limparCronograma` de sempre, o cronograma fica (com o nome) e a lista esvazia. O
+  diálogo diz isso (*"Tirar os N itens de “nome”? Ele é o único cronograma, e fica
+  vazio."*, título e confirmar "Limpar"), e o `title` do quadrado também (*"Limpar
+  “nome” (é o único cronograma)"*). Sem esta troca, apagado como era, esvaziar o único
+  deixaria de existir.
 - **EXCLUIR** (o quadrado da DIREITA, `excluirCronograma(id)`) pergunta (modal,
   `perigo`, nomeando o cronograma e a conta). Sendo o ATIVO, cai no **USADO MAIS
   RECENTEMENTE** dos outros (`usado`, escrito a cada troca); sendo um GUARDADO, o
   ativo não muda. Coleta o que só ele segurava, com as duas metades que o `db.js`
   não faz: a marca `ytEstado` (só do ativo — é dele que o ✓ da busca fala) e o
   `soltarAvulso` (de qualquer um; os ids de um guardado vêm de
-  `AVDB.cronoIdsGuardados(id)`). **APAGADO quando é o ÚNICO**, com o `title`
-  dizendo por quê: o app nunca fica sem cronograma.
+  `AVDB.cronoIdsGuardados(id)`). **O ÚNICO NUNCA SE EXCLUI** — o app nunca fica sem
+  cronograma —: ele se LIMPA (acima), e o quadrado só é APAGADO com o único VAZIO,
+  com o `title` dizendo por quê.
 - **RENOMEAR E EXCLUIR DEIXAM A GAVETA ABERTA** e a redesenham: o desfecho aparece
   onde o dedo estava. O diálogo abre POR CIMA dela, e o `pointerdown` de fora o
   exclui (`appDialogEl`) — sem isso, o toque no OK fecharia a gaveta.
@@ -3911,7 +3919,7 @@ cronograma vai ser a tela padrão e única."*
  │ ┌─────────────────────────────────────┐ │  ← #toolsSheet · #bibleSheet
  │ │  folha (Ferramentas | Bíblia)       │ │    cobrem SÓ o corpo da lista
  │ └─────────────────────────────────────┘ │
- │  [ Bíblia ]  [ Importar ]  [ Ferram. ]  │  ← as três portas
+ │  [ 📖 Bíblia ]      [ ⠿ Ferramentas ]    │  ← as duas portas (v1.13.5)
  ├─────────────────────────────────────────┤
  │  🎲  [ buscar…            ]   ↑ / ✕     │  ← a .lib-bar: a CABEÇA da janela,
  │  transporte · preview · mixer           │    pousada no TOPO desta caixa
@@ -3950,25 +3958,31 @@ Ferramentas (que não tem voltar) poria o título na trilha 1.
 |---|---|
 | `#toolsSheet` · `#bibleSheet` | as duas folhas, filhas do `.list-body`, cobrindo só a lista |
 | `.tools-head` | a barra de cada uma: **uma grade de três trilhas**, com o título no centro (v1.8.80) |
-| `.import-row` | as três portas: `#bibleBtn` · `.import-btn` · `#toolsBtn` |
+| `.portas-row` | as duas portas (v1.13.5; eram três): `#bibleBtn` · `#toolsBtn` |
 | `.lib-bar` | a barra da Biblioteca — a CABEÇA da janela, à vista no topo da caixa de controles |
 | `#hymnSearchPopup` | a JANELA da Biblioteca — `fixed`, do topo até a LINHA DA BARRA, sobe da barra |
 
-#### As três portas do rodapé
+#### As portas do rodapé (duas desde a v1.13.5)
 
-*"na base dela se mantém o botão de importar arquivos no centro, a esquerda o
-botão de bíblia e a direita o botão de ferramentas"* + *"coloque um texto no
-botão de ferramentas"*.
+Eram TRÊS da v1.5.0 à v1.13.4 — *"na base dela se mantém o botão de importar
+arquivos no centro, a esquerda o botão de bíblia e a direita o botão de
+ferramentas"* —, e o IMPORTAR foi para a trilha 1 da barra do topo
+(`#cronoImportar`, ver "Os cronogramas múltiplos"): *"no lugar do esvaziar lista
+de cronograma, mova o botão de importar arquivo para o cronograma … Deixando na
+base, apenas bíblia e ferramentas"*.
 
-A ordem é a da leitura: o que se **consulta** à esquerda, o que **entra** no
-roteiro no centro, o que se **produz** à direita. `flex: 1 1 0` — base ZERO,
-porque com `auto` a do meio partiria maior e ficaria maior depois de repartida a
-sobra.
+A ordem é a da leitura: o que se **consulta** à esquerda, o que se **produz** à
+direita. `flex: 1 1 0` — base ZERO, porque com `auto` "Ferramentas" partiria maior
+que "Bíblia" e ficaria maior depois de repartida a sobra; e a largura da porta de
+Ferramentas é a da LISTA dela (ver "A LISTA DAS FERRAMENTAS").
 
-**Ícone em cima, rótulo embaixo**, a pilha do `.qs-tile`: MEDIDO em 360px, três
-rótulos em LINHA não cabem ("Ferramentas" sai com reticências; em 320px, dois dos
-três). E **"Importar"**, não "Importar arquivos" — o nome inteiro não paga um
-terço em largura nenhuma; o `title` guarda a frase completa.
+**Ícone À ESQUERDA do rótulo** (v1.13.5): *"ajuste para que o icone fique a
+esquerda dos titulos dos dois botões"*. Os dois são UM grupo centrado na porta
+(`flex-direction: row`, `justify-content: center`, `gap: --sp-4`). A pilha de antes
+(ícone em cima, a do `.qs-tile`) existia pela largura de UM TERÇO — MEDIDO em 360px,
+três rótulos em linha não cabiam; numa METADE cabem (de 320 a 430px, o 9-H do
+`ferramentas-folha`). As alturas (`--hit-foot`), a tinta (`--surface-porta` +
+`--accent`) e a sombra (`acertarSombraDasPortas`, `.livre`) não mudaram.
 
 ##### E AS TRÊS FICARAM QUIETAS E BAIXAS (v1.5.19)
 
@@ -4711,7 +4725,7 @@ toque único.
 > **ESTA SEÇÃO DESCREVE UMA PEÇA QUE JÁ NÃO EXISTE**, e o aviso entrou na
 > v1.8.81 porque o corpo dela está todo em PRESENTE: a faixa saiu inteira na
 > v1.5.0 (com o `.tab`, o `.tab-add`, o `.tab-pl`, o vazado deslizante e o
-> `switchTab`), e hoje a navegação são as três portas do rodapé. Ela fica pelo
+> `switchTab`), e hoje a navegação são as portas do rodapé. Ela fica pelo
 > que explica — por que quatro alvos viraram três, e por que nenhuma das cinco
 > formas anteriores sobreviveu —, não pelo que promete. O token de altura dela,
 > `--hit-nav`, saiu na v1.8.81; o que se lê aqui sobre ele é história.
@@ -4811,7 +4825,7 @@ Relógio, Cronômetro, Timer, Itinerário (ver `CAMADA-DE-TEXTO.md`, "Ferramenta
 itinerário"), Mensagens e Sorteio — desde a v1.13.3 numa tela inicial que as lista, e desde a v1.13.4 uma LISTA VERTICAL (abaixo).
 Elas eram uma ABA; hoje
 são `#toolsSheet`, uma folha que sobe **de dentro do Cronograma**, aberta pelo
-`#toolsBtn` — o botão à direita de "Importar arquivos", no `#listFoot`. (O
+`#toolsBtn` — a porta da DIREITA do `#listFoot`, ao lado da Bíblia. (O
 microfone ao vivo era a quarta peça delas, e saiu na v1.8.89.)
 
 **O RODAPÉ DELA É FIXO** (`#toolsFoot`, v1.8.89), e é IRMÃO do `#toolsBody`: uma
@@ -4841,7 +4855,7 @@ quarta célula de uma faixa feita de LUGARES.
 | **`activeTab` continua `'imports'`** com a folha aberta | é o recurso, não um detalhe: o rodapé do Cronograma (onde mora a porta dela) continua desenhado, o carrossel continua sabendo para onde ir e o voltar continua tendo para onde voltar. O valor `'mic'` de `activeTab` **saiu** |
 | **filha de `.list-body`**, não do `<main>` nem do `<body>` | é o que define o que ela NÃO cobre: o cabeçalho (nome da tela, engrenagem) e a caixa de controles inteira ficam à vista e ALCANÇÁVEIS. Quem projeta um cronômetro precisa do transporte e da preview na frente enquanto o acerta — uma folha de corpo inteiro cobra um fechar-e-abrir por ajuste. `.list-body` nasceu para isto: dar `position: relative` ao território da lista |
 | **não é `.popup-backdrop`** | aquilo é uma camada sobre a tela toda, com fundo escurecido e o toque fora fechando. Esta é uma camada da LISTA, e o app atrás dela continua vivo de propósito. Ela fica fora da tabela `POPUPS`; o ✕ e o degrau do voltar estão escritos à mão |
-| **a porta é só ÍCONE** | "Importar arquivos" fica com o rótulo e com a linha. Dois nomes lado a lado numa faixa de celular empurram o primeiro para reticências justamente na tela mais estreita |
+| **a porta tem RÓTULO** (desde a v1.5.0; ícone à esquerda dele desde a v1.13.5) | ver "As portas do rodapé" |
 | **a saída tem PAR** (v1.3.13) | ela subia deslizando e sumia no talo — duas coisas diferentes para o olho, e a segunda lendo como um erro justamente porque a primeira já ensinou a esperar o contrário. Mesma curva, mesma duração (`--tools-anim`, um valor só, lido pelo CSS e pelo JS), ao contrário. Quem tira a folha da árvore é o `hidden` no FIM da animação, e não um `animation-fill-mode`: uma folha "fora" por estar transladada continuaria capturando toque. Sem `animationend`, porque `prefers-reduced-motion` desliga a animação e o evento nunca chegaria — a folha ficaria de pé para sempre |
 | **trocar de aba a fecha** (`switchTab` → `fecharFerramentas`) | ela é extensão do CRONOGRAMA; de pé sobre a Bíblia seria a folha de uma tela flutuando sobre outra |
 | **`fecharFerramentas` desliga os laços** | eram as mesmas guardas do `switchTab`, quando sair daqui era trocar de aba: os timers de 5 Hz do cronômetro/sorteio não podem sobrar reescrevendo nós já descartados. (A terceira guarda soltava o microfone, e saiu na v1.8.89 com ele.) |
@@ -4859,18 +4873,28 @@ de cores, mas aproveitando e distribuindo toda a altura disponível para esses 6
 itens. Use o icone a esquerda e texto a direita. Se necessário, para melhor
 preenchimento, aumente o tamanho da fonte."*
 
+**E DESDE A v1.13.5 A LISTA É ESTREITA, COM A LARGURA DA PORTA**: *"ajuste a janela
+da lista de ferramentas para que ela seja um janela de largura mais fina … alinhada
+a direita, e ao selecionar uma das ferramentas, ela vai se expandir para ocupar o
+espaço normal"* e *"a largura da janela de ferramentas durante a listagem, pode ser
+a mesma largura do botão que abre a janela de ferramentas"*; e ela NÃO ROLA em tela
+nenhuma: *"tenha seus botões encolhidos verticalmente para caber de forma
+correta"*.
+
 | peça | onde | regra |
 |---|---|---|
 | a tabela | `FERRAMENTAS` (`id`, `nome`, `tool`, `modo`/`vista`, `ico`) | a ORDEM é a da lista, por assunto: Relógio · Cronômetro · Timer (os `CHRONO_MODES`), depois Itinerário · Mensagens · Sorteio. Os desenhos são os das cenas (`CUE_SVG`), e os dois sem cena própria ganharam o mostrador e a ampulheta (`FERR_ICO`). Ferramenta nova = uma linha |
 | a lista | `renderGradeDeFerramentas` · `.ferr-grade` | UMA coluna que ocupa o corpo da folha (`flex: 1`), cada linha com uma fatia igual (`flex: 1 1 0`). A linha é o tile de Configurações DEITADO (`.qs-tile.qs-on`: `--btn-accent` + `--accent`, o raio, a resposta ao toque) — ícone à esquerda, nome à direita, alinhados à esquerda. A lista é outra classe porque os oráculos alcançam a grade de Configurações por `.qs-grade`. Nenhuma linha é apagada: toda ferramenta abre em qualquer estado |
-| a altura | `container-type: size` · `--ferr-linha` · `--hit` | **A LISTA NÃO ROLA enquanto o piso de toque couber** (a regra do Tempo, v1.8.92), e o corpo vai de ~475px (430×900) a ~218px (360×640) e ~186px (fonte 1,25×). Três peças: a linha tem o PISO `--hit` (34px, o que o `geometria` cobra; o `--hit-foot` foi MEDIDO rolando 60px a 360×640); o VÃO entre linhas é margem que cede antes dela (`clamp(0, (100cqh − 6 × --hit) / 5, --sp-3)`); e o DESENHO cede junto — a lista é contêiner de tamanho e o nome e o ícone saem da fatia (`--ferr-linha` = `(100cqh − 5 × --sp-3) / 6`): o nome × 0,45 entre `--fs-md` e `--fs-4xl`, o ícone × 0,6 entre `--icon-sm` e 28px (REGRA PRÓPRIA, um degrau acima do `--icon-lg`: ele acompanha um nome maior que o de qualquer lista daqui). MEDIDO: linha de 74,5px e nome de 20px a 430×900; a linha no piso com vão de ~2,9px a 360×640, sem rolar; com a fonte em 1,25× seis pisos não cabem e o corpo rola os ~18px que faltam. Nenhum nome com reticências |
-| as leituras vivas | `pintarGradeDeFerramentas` · `data-estado` (`no-ar` · `contando` · `ocioso`) | o PONTO de "no ar" (`.ferr-no-ar`, o `--live-strong` de 7px da aba projetando de antes, na ponta DIREITA da linha, no meio da altura, com a reserva dele no `padding-right`; MEDIDO sobre o `--btn-accent`, 4,27:1 no escuro e 5,65:1 no claro) na linha de quem projeta (o Tempo projeta UM modo, então só a dele), e o NÚMERO do Cronômetro ou do Timer CONTANDO à direita do nome (`.ferr-leitura`, a `chronoReading` do telão; o ícone fica, e o nome, `flex: 1`, não anda — na grade da v1.13.3 ele substituía o ícone). O tique (`ferrGradeTimer`, `CHRONO_TICK_MS`) só existe com a lista à vista e algo contando; o que muda o Tempo por fora (o par, a notificação) repinta pelo `renderChronoEControles` → `acertarGradeDeFerramentas`. O nome acessível diz os dois |
+| a largura | `#toolsSheet.estreita` · `medirPortaDasFerramentas` · `--ferr-porta-esq`/`--ferr-porta-dir` | **NA LISTA a folha tem as BORDAS DA PORTA de Ferramentas** (v1.13.5): `renderDiversos` escreve `.estreita` com `ferrNaGrade`, e as duas bordas são a distância da porta às bordas do `.list-body` (o bloco contêiner da folha), LIDAS do layout — na abertura e a cada `medirRodapeDaLista` (o `ResizeObserver` do rodapé: giro, largura, fonte do sistema). FALHA ABERTA: sem a medida valem 0, a folha larga de sempre. A base continua a do `.list-body`: a folha cobre a própria porta (a de Bíblia fica à vista e tocável — abri-la fecha esta). Os `:has(.tools-sheet:not([hidden]))` que recolhem a lista e calam a tira do Cronograma valem só para a folha LARGA (`:not(.estreita)`): com a estreita a lista continua à vista ao lado. Dentro de uma ferramenta a folha é LARGA, como sempre |
+| a altura | `container-type: size` · `--ferr-linha` · `--hit` | **A LISTA NÃO ROLA EM CÉLULA NENHUMA** (v1.13.5; até a v1.13.4 ela rolava ~18px a 360×640 com a fonte em 1,25×). A folha estreita CEDE altura antes da linha: recuo `--sp-1` em cima e `--sp-2` nos lados e embaixo, o vão do cabeçalho em `--sp-1`. Depois: a linha tem o PISO `--hit` (34px, o que o `geometria` cobra); o VÃO entre linhas é margem que cede antes dela (`clamp(0, (100cqh − 6 × --hit) / 5, --sp-3)`); e onde nem assim seis pisos cabem a linha mede a SEXTA PARTE da lista (`min-height: min(var(--hit), 100cqh / 6)`) — a exceção NOMEADA do `geometria.mjs` (piso 32), pedida pelo operador. O DESENHO cede junto — a lista é contêiner de tamanho e o nome e o ícone saem da fatia (`--ferr-linha` = `(100cqh − 5 × --sp-3) / 6`): o nome × 0,45 entre `--fs-md` e `--fs-4xl`, o ícone × 0,6 entre `--icon-sm` e 28px (REGRA PRÓPRIA, um degrau acima do `--icon-lg`). MEDIDO no avançado de fábrica (linha · corpo): 430×900 77,3 px; 412×892 77,7; 360×640 34,6; 360×640 com a fonte em 1,25× **34,0**, no piso, sem rolar; com 1,3× **33,4** (a exceção). Rolagem 0 nas cinco |
+| o corpo do nome | `acertarLetraDaListaDeFerramentas` · `tetoQueCabe` · `--ferr-fs-teto` · `--ferr-titulo-teto` | o nome tem DOIS tetos: o da altura (o `clamp` acima) e o da LARGURA, MEDIDO — o maior corpo em que o nome mais longo cabe sem reticências na largura da porta (a razão `clientWidth / scrollWidth` do pior, × 0,98, até três passadas; piso 11px). O título da folha estreita ("Ferramentas", encostado à esquerda, com o ✕ na ponta: as trilhas simétricas de `--hit` não cabem numa porta) tem o mesmo teto. Roda no desenho da lista, num `ResizeObserver` dela e quando um número aparece ou muda de dígitos. MEDIDO: 20px a 430/412; 15,5 a 360×640; 14,2 com 1,25×; 13,7 com 1,3×; 11 (o piso, sem cortar) a 360×740 com 1,5× |
+| as leituras vivas | `pintarGradeDeFerramentas` · `data-estado` (`no-ar` · `contando` · `ocioso`) | o PONTO de "no ar" (`.ferr-no-ar`, o `--live-strong` de 7px da aba projetando de antes, na ponta DIREITA da linha, no meio da altura, com a reserva dele no `padding-right`; MEDIDO sobre o `--btn-accent`, 4,27:1 no escuro e 5,65:1 no claro) na linha de quem projeta (o Tempo projeta UM modo, então só a dele), e o NÚMERO do Cronômetro ou do Timer CONTANDO no LUGAR do nome (`.ferr-leitura`, a `chronoReading` do telão, v1.13.5: na largura da porta os dois não cabem juntos — o ícone fica e diz qual ferramenta é, e o nome segue no `aria-label`; na v1.13.4 o número ia à direita do nome e na v1.13.3 substituía o ícone). O tique (`ferrGradeTimer`, `CHRONO_TICK_MS`) só existe com a lista à vista e algo contando; o que muda o Tempo por fora (o par, a notificação) repinta pelo `renderChronoEControles` → `acertarGradeDeFerramentas`. O nome acessível diz os dois |
 | o estado | `ferrNaGrade` | UMA pergunta a mais sobre o estado de sempre (`miscTool`, `tempoVista`, `chrono.mode`, que continuam dizendo QUAL painel). Nasce `true` em TODA abertura da folha (`abrirFerramentas`): a regra de Configurações, que também reabre na grade dela. `chronoPrefs.vista` deixou de ser lida e escrita |
 | o toque | `abrirFerramenta(id, { animar })` | escreve `miscTool`, a vista do Tempo e o MODO (`chronoTrocarModo`, que não desenha — o `chronoSetMode` saiu com o segmentado: trocar de modo zera a contagem, como o segmentado fazia; o mesmo modo e o Itinerário não mexem nela). Com a folha fechada ela abre direto na ferramenta (a porta dos oráculos) |
-| o cabeçalho | `pintarCabecalhoDasFerramentas` · `#toolsTitle` · `#toolsBack` · `#itinTitulo` | "Ferramentas" na lista, o NOME da ferramenta dentro dela; o voltar (o molde do `#bibleBack`) só dentro, na trilha 1 da grade do cabeçalho — o título fica parado (medido). **No Itinerário o título é o NOME DO ITINERÁRIO ATIVO** (v1.13.4): o `#itinTitulo` (nome e seta, a porta da gaveta) toma a trilha 2 e o `#toolsTitle` fica escondido — ver `CAMADA-DE-TEXTO.md`, "Ferramentas: itinerário" |
+| o cabeçalho | `pintarCabecalhoDasFerramentas` · `#toolsTitle` · `#toolsBack` · `#itinTitulo` | "Ferramentas" na lista, o NOME da ferramenta dentro dela; o voltar (o molde do `#bibleBack`) só dentro, na trilha 1 da grade do cabeçalho — dentro, o título fica no centro da folha larga; na lista ele encosta à esquerda da folha estreita (ver "o corpo do nome"). **No Itinerário o título é o NOME DO ITINERÁRIO ATIVO** (v1.13.4): o `#itinTitulo` (nome e seta, a porta da gaveta) toma a trilha 2 e o `#toolsTitle` fica escondido — ver `CAMADA-DE-TEXTO.md`, "Ferramentas: itinerário" |
 | a volta | `voltarAGradeDeFerramentas` · `__avBack` degrau 2.5 | o `#toolsBack` e o voltar do Android devolvem a lista (fechando a gaveta dos itinerários antes); da lista, o voltar fecha a folha |
 | o rodapé | `renderFoot` | a lista não tem rodapé: o primeiro ramo só repinta o par ao lado da preview, que todo mutador das ferramentas espera daqui |
-| a animação | `trocarVistaDasFerramentas` · `.ferr-saindo` | SÓ PELO TOQUE (a regra da seta da prévia: a abertura e quem chama direto assentam no ato). A folha tem altura FIXA (é a lista), então quem se move é o CONTEÚDO: o que sai vira uma camada ABSOLUTA no lugar exato do corpo e do rodapé, sem toque e SEM IDS (quem procura `#chronoRoletas` durante a troca tem de achar o painel novo) e sobe esmaecendo (`--dur-lenta` × 0,6); o que entra sobe aparecendo, já no estado final — as roletas se medem pela altura de verdade. Na volta, o inverso. `prefers-reduced-motion`: nenhuma camada |
+| a animação | `trocarVistaDasFerramentas` · `.ferr-saindo` | SÓ PELO TOQUE (a regra da seta da prévia: a abertura e quem chama direto assentam no ato). A folha tem altura FIXA, e a LARGURA muda (v1.13.5): as bordas da folha andam por WAAPI (`left`/`right`, de onde estavam até onde a classe as pôs, `--dur-lenta`) junto com o conteúdo — as roletas se remedem pelo `ResizeObserver` delas no caminho. No conteúdo: o que sai vira uma camada ABSOLUTA no lugar exato do corpo e do rodapé, sem toque e SEM IDS (quem procura `#chronoRoletas` durante a troca tem de achar o painel novo) e sobe esmaecendo (`--dur-lenta` × 0,6); o que entra sobe aparecendo, já no estado final — as roletas se medem pela altura de verdade. Na volta, o inverso. `prefers-reduced-motion`: nenhuma camada |
 | reabrir descendo | `abrirFerramentas` | a folha `saindo` conta como fechada: reabri-la nos 220 ms da descida era engolido (achado da v1.13.1) |
 
 **Os nomes internos ficaram**: `renderDiversos`/`refreshDiversos`, `miscTool`,
@@ -4883,10 +4907,13 @@ Oráculo: **`tools/ferramentas-folha.test.mjs`**, e a asserção que carrega o l
 é GEOMÉTRICA — a caixa da folha contra a do cabeçalho e a da `.bottombar`. Uma
 folha de corpo inteiro continua funcionando e continua bonita; o que ela perde
 não aparece em teste de comportamento nenhum. O bloco G cobre a lista (a ordem,
-uma coluna, o voltar, as leituras vivas) e o V a GEOMETRIA dela — em três células
-(412×892, 360×640 e 360×640 com a fonte em 1,25×), nenhuma linha abaixo do
-`--hit` e, onde seis pisos cabem, as seis de borda a borda do corpo, sem rolar —
-e o nome do itinerário no cabeçalho. O `geometria.test.mjs` cobra o piso de toque.
+uma coluna, o voltar, as leituras vivas, a folha estreita que se ALARGA animando) e o
+V a GEOMETRIA dela — em cinco células (430×900, 412×892, 360×640, 360×640 com a fonte
+em 1,25× e 360×600 com 1,3×, a da exceção, com premissa de que ali seis pisos NÃO
+cabem): as seis de borda a borda do corpo SEM ROLAR, nenhuma abaixo do `--hit` fora da
+exceção, as BORDAS DA PORTA (±1px), o título inteiro e nenhum nome cortado — e o nome
+do itinerário no cabeçalho. O `geometria.test.mjs` cobra o piso de toque, com a
+exceção nomeada.
 
 #### O contrato do `shouldInterceptRequest` (a invariante 8)
 
@@ -5795,7 +5822,7 @@ ele, e o custo dele, que prendia o efeito a um scroller só.
   a v1.5.16 (sem ela a tira gruda acima do recuo), e o topo e os dois lados
   desde este lote — sem eles o vão entre a fronteira e a sombra é exatamente o
   `padding` do scroller, que aqui são 11,2px no topo e 12,8px de cada lado.
-- **AS TRÊS PORTAS FLUTUAM SOBRE A LISTA** (v1.8.61) — `#listFoot` é
+- **AS PORTAS FLUTUAM SOBRE A LISTA** (v1.8.61) — `#listFoot` é
   `position: absolute` no `.list-body`, e a lista corre por baixo até a
   fronteira. Ver o CSS para os três desenhos medidos e por que a margem negativa
   foi recusada (o número passa a definir a EXTENSÃO, e a lista para antes da
@@ -6236,16 +6263,16 @@ mesmo tempo**:
 
 | Inquilino | Quem monta | Quando |
 |---|---|---|
-| **"Importar arquivos"** (`.import-row`) | `renderListFoot()` | aba Cronograma, fora de pasta, sem seleção |
+| **as portas** Bíblia · Ferramentas (`.portas-row`) | `renderListFoot()` | fora da seleção |
 | **barra de seleção múltipla** (`#selbar`) | `hostSelbar()` | seleção múltipla ligada |
 
 Os dois vestem a MESMA caixa: é uma fatia só, com inquilinos diferentes.
 
-O lugar de cada um foi decidido pelo que ele custa em outro: "Importar arquivos"
-como último `<li>` do `<ul>` exigia rolar trinta itens para alcançar a ação mais
-frequente da tela; a barra de seleção no lugar da faixa de ABAS mexia no que não
-é da seleção e sumia com a navegação justamente quando o operador pode querer
-sair da tela.
+O lugar de cada um foi decidido pelo que ele custa em outro: o "Importar arquivos"
+(o primeiro inquilino, v5.107 a v1.13.4 — hoje na barra do topo) como último `<li>`
+do `<ul>` exigia rolar trinta itens para alcançar a ação mais frequente da tela; a
+barra de seleção no lugar da faixa de ABAS mexia no que não é da seleção e sumia
+com a navegação justamente quando o operador pode querer sair da tela.
 
 Três detalhes que o mecanismo exige:
 
@@ -6253,20 +6280,19 @@ Três detalhes que o mecanismo exige:
   alturas diferentes a caixa da lista muda de tamanho ao entrar e sair da
   seleção, e a lista dá um pulo debaixo do dedo que estava segurando o item.
 - **`renderListFoot()` reconstrói só o que é dela.** Um `innerHTML = ''` tiraria
-  a `#selbar` do documento: o nó é UM só, movido entre hosts (o padrão do
-  `<input type="file">`), e perdê-lo é perder os listeners.
+  a `#selbar` do documento: o nó é UM só, movido entre hosts, e perdê-lo é perder
+  os listeners.
 - **Quem esconde o rodapé vazio é o JS, não um `:empty`.** A `#selbar` mora ali
   mesmo fora da seleção (escondida por `hidden`), então o rodapé nunca fica de
   fato vazio — e um filho de altura zero ainda consome o `gap` do `<main>`, que
   viraria uma faixa de ar acima da caixa de controles em toda aba sem rodapé. E
   a chamada é **antes** do desvio por aba em `renderLibrary()`: Bíblia e
-  Ferramentas saem por `return`, e deixada para o fim ela desenhava o "Importar
-  arquivos" embaixo da grade de livros da Bíblia.
+  Ferramentas saem por `return`, e deixada para o fim ela desenhava a faixa das
+  portas embaixo da grade de livros da Bíblia.
 
-O `<input type="file" multiple>` é o mesmo elemento de sempre (`#file`, com o
-listener já registrado): ele mora solto no `index.html` e é MOVIDO para dentro do
-`<label>` a cada render, porque descartar a linha antiga destruiria um input
-criado ali.
+O `<input type="file" multiple>` (`#file`, com o listener já registrado) mora solto
+e FIXO no `<main>` desde a v1.13.5: quem o abre é o `#cronoImportar` da barra, por
+`fileEl.click()` dentro do toque (no navegador; no app o seletor é o do sistema).
 
 **Navegação persistente:** trocar de aba não reseta a busca. A posição de scroll
 é guardada por aba (`scrollPos`, chave `scrollKey()`) e restaurada **só na
@@ -6689,7 +6715,8 @@ e excluir.
 > fundo que já está atrás com os botões `--surface-2` flutuando. O sinal de
 > "outro modo" fica no CONTADOR em accent: uma cor de texto, não uma placa.
 >
-> **No rodapé ela veste a moldura TRACEJADA do "Importar arquivos"** (v5.108) —
+> **No rodapé ela vestia a moldura TRACEJADA do "Importar arquivos"** (v5.108; o
+> tracejado saiu na v5.267 e a porta do Importar na v1.13.5) —
 > mesma linha pontilhada em `--accent`, mesmo raio, mesma caixa. As duas são a
 > mesma fatia do rodapé com inquilinos diferentes, e o contorno é o que diz
 > isso. Não recria o problema acima: o que fazia a barra parecer um item
@@ -6699,7 +6726,7 @@ e excluir.
 > Favoritos ela segue sem moldura: ali a folha já é a moldura.
 >
 > **E ela saiu da caixa de controles** (v5.107): mora no rodapé fixo da lista
-> (`#listFoot`), na fatia do "Importar arquivos" — as abas não somem mais para
+> (`#listFoot`), na fatia das portas — as abas não somem mais para
 > abrir espaço a ela. Ali ocupa `--hit-foot` (44px), a mesma altura do botão que
 > substitui; os `.sel-btn` continuam em `--hit` (34px), e é a folga de 5px de
 > cada lado que os faz parecer flutuando dentro da moldura em vez de

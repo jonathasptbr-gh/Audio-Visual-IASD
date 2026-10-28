@@ -84,7 +84,7 @@ try {
       // do app —, mais as portas do rodapé. É o irmão do `--tab-w` que estava
       // aqui: uma peça que só existe depois de a caixa de controles existir.
       && !!document.querySelector('.lib-bar')
-      && !!document.querySelector('.import-row #toolsBtn')
+      && !!document.querySelector('.portas-row #toolsBtn')
   ), null, { timeout: 30000 });
   checar(true, 'o app sobe com o `AVHinario` publicado — e o watchdog do OTA o exige');
 
