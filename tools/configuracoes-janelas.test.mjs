@@ -652,11 +652,21 @@ try {
     'D · e a nota acima dos botões diz o PESO do que vai ("até X", o teto) e a '
     + 'promessa do Importar', fechada.nota);
   await tocar(com.pg, '#pacoteLista .pacote-seta');
-  await esperar(com.pg, () => document.querySelectorAll('#pacoteLista .pacote-grupo-corpo .pacote-linha').length >= 2, null, 10000);
+  // ESPERAR PELAS DUAS LINHAS SEMEADAS, e LER o desfecho da espera. Os álbuns
+  // moram no corpo da seção, que só existe depois do toque na seta (acordeão
+  // animado); a espera antiga era "≥ 2 linhas no corpo" com 10 s e o resultado
+  // DESCARTADO — no runner a seção não estava aberta a tempo, a lista foi lida com o
+  // corpo ainda vazio (só os hinários e as séries, que são linhas soltas) e a
+  // falha saiu como exceção no `li.querySelector` abaixo (run 40759983512).
+  const linhasDosAlbuns = await esperar(com.pg, () => {
+    const t = [...document.querySelectorAll('#pacoteLista .pacote-grupo-corpo .pacote-linha')]
+      .map((li) => li.textContent || '');
+    return t.some((x) => /Álbum Um/.test(x)) && t.some((x) => /Álbum Dois/.test(x));
+  }, null, 20000);
   const cheia = await lerLista(com.pg);
-  checar(cheia.textos.some((t) => /Álbum Um/.test(t)) && cheia.textos.some((t) => /Álbum Dois/.test(t)),
+  checar(linhasDosAlbuns === true && cheia.textos.some((t) => /Álbum Um/.test(t)) && cheia.textos.some((t) => /Álbum Dois/.test(t)),
     'D · a lista nomeia cada coleção do aparelho, uma linha por coleção',
-    JSON.stringify(cheia.textos));
+    porque(linhasDosAlbuns) || JSON.stringify(cheia.textos));
   checar(cheia.textos.filter((t) => !/nada baixado|sem vídeo da semana/.test(t)).every((t) => /até /.test(t)),
     'D · com o peso por linha em "até X", o teto', JSON.stringify(cheia.textos));
   // O ÍCONE É UM ELEMENTO, não um texto: `msym()` devolve um <span>, e atribuí-lo
@@ -672,7 +682,7 @@ try {
   await com.pg.evaluate(() => {
     const li = [...document.querySelectorAll('#pacoteLista .pacote-linha')]
       .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Álbum Dois');
-    li.querySelector('button').click();
+    if (li) li.querySelector('button').click();
   });
   const mudou = await esperar(com.pg, (antes) => document.getElementById('pacoteNota').textContent !== antes, notaAntes, 10000);
   const depois = await lerLista(com.pg);
