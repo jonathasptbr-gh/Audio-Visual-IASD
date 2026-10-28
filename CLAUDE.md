@@ -104,6 +104,7 @@ pergunta dele é sempre a mesma: *mudou o quê, e eu preciso fazer alguma coisa?
 | **ECONOMIA DE PALAVRAS** | frases curtas, sem preâmbulo e sem fecho de cortesia. Um relatório de dez linhas que se lê vale mais que um de cinquenta que se pula |
 | **DETALHE SÓ SOB PEDIDO** | ele pergunta, e aí vem o técnico inteiro, sem economia |
 | **ESPERAR É MUDO** | *"pode ocultar as mensagens e logs que não sejam seu relatório final"*. Enquanto um agente delegado trabalha, a sessão NÃO escreve "aguardando", "ainda rodando", "o agente continua". Isso não é narrar o trabalho: é narrar a AUSÊNCIA de trabalho, e sai dezenas de vezes seguidas |
+| **A ETAPA É DITA, EM UMA LINHA** | *"me atualizasse nas mensagens sobre em qual etapa estamos… bem genéricas… em 4 ou 5 etapas… assim eu consigo perceber se algo está errado, ou se sequer está tendo progresso ou algo travou"* (2026-10-28). Cinco etapas fixas — **1 Planejando · 2 Executando · 3 Testando · 4 Publicando · 5 Conferindo** — e UMA linha a cada troca de etapa (ex.: *"Pacote 4: etapa 3 de 5, testando."*), sem detalhe. Com agente delegado em segundo plano, um check-in a cada ~15 min (`send_later`) confere o estado e manda a linha; é a única exceção ao "esperar é mudo", e ela não vira narração: nada além da etapa |
 
 **AS DUAS COISAS QUE NUNCA SE OMITEM** — são elas que impedem "sucinto" de virar
 "só a parte boa":
