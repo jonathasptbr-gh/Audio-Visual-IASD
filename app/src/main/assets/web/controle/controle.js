@@ -389,9 +389,13 @@ const toolsBodyEl = document.getElementById('toolsBody');
 // O RODAPÉ FIXO da folha (v1.8.89), irmão do corpo — ver `renderFoot`.
 const toolsFootEl = document.getElementById('toolsFoot');
 const toolsCloseEl = document.getElementById('toolsClose');
-// O VOLTAR À GRADE e o TÍTULO da folha (v1.13.3) — ver `renderGradeDeFerramentas`.
+// O VOLTAR À LISTA e o TÍTULO da folha (v1.13.3) — ver `renderGradeDeFerramentas`.
 const toolsBackEl = document.getElementById('toolsBack');
 const toolsTitleEl = document.getElementById('toolsTitle');
+// O NOME DO ITINERÁRIO ATIVO no título da folha (v1.13.4) — ver
+// `pintarCabecalhoDasFerramentas`.
+const itinTituloEl = document.getElementById('itinTitulo');
+const itinNomeEl = document.getElementById('itinNome');
 // Há UM host de lista (`libraryEl`). A pasta do aparelho abre INLINE, como um
 // álbum — e por isso não há busca dentro de uma pasta nem seleção múltipla lá
 // dentro: a barra da Biblioteca varre `allCollections()`, que não alcança o
@@ -435,7 +439,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.3';
+const WEB_VERSION = '1.13.4';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -7584,7 +7588,7 @@ function miscProjectState() {
 function renderFoot() {
   if (!toolsFootEl) return;
   toolsFootEl.innerHTML = '';
-  // A GRADE NÃO TEM RODAPÉ (v1.13.3): o que se aciona é de uma ferramenta, e na grade
+  // A LISTA NÃO TEM RODAPÉ (v1.13.3): o que se aciona é de uma ferramenta, e na lista
   // nenhuma está aberta. O par ao lado da preview continua sendo repintado daqui —
   // todo mutador das ferramentas passa por este `renderFoot`.
   if (ferrNaGrade) { renderEixoDoPar(); return; }
@@ -7822,8 +7826,8 @@ function applyChronoPrefs(p) {
   if (typeof p.h12 === 'boolean') chrono.h12 = p.h12;
   if (typeof p.label === 'string') chrono.label = p.label;
   // (A VISTA DO TEMPO — `p.vista`, o Itinerário reaberto onde foi deixado — deixou de
-  //  ser lida na v1.13.3: a folha abre SEMPRE na grade, e quem escolhe a vista é o
-  //  tile. O campo de um aparelho antigo fica no registro e ninguém o lê; a próxima
+  //  ser lida na v1.13.3: a folha abre SEMPRE na lista, e quem escolhe a vista é a
+  //  linha. O campo de um aparelho antigo fica no registro e ninguém o lê; a próxima
   //  gravação já sai sem ele.)
 }
 
@@ -7906,7 +7910,7 @@ function clearChronoSession() {
 function renderChronoEControles() {
   renderChrono();
   renderFoot();
-  acertarGradeDeFerramentas();   // com a grade à vista, o tile do Tempo acompanha
+  acertarGradeDeFerramentas();   // com a lista à vista, a linha do Tempo acompanha
 }
 
 function chronoStart() {
@@ -7935,7 +7939,7 @@ function chronoReset() {
   renderChronoEControles();
 }
 
-// A TROCA DE MODO — quem a faz é o tile da grade (v1.13.3, `abrirFerramenta`), que
+// A TROCA DE MODO — quem a faz é a linha da lista (v1.13.3, `abrirFerramenta`), que
 // escreve o modo ANTES de montar o painel; por isso ela não desenha nada. (O
 // `chronoSetMode`, que desenhava, saiu com o segmentado que era o único chamador.)
 function chronoTrocarModo(mode) {
@@ -8018,7 +8022,7 @@ function stopChronoPanelTimer() {
 }
 
 // (O `chronoSegBtn` e o `itinSegBtn` — os quatro segmentos do Tempo — saíram na
-//  v1.13.3 com o segmentado: o toque num tile da grade é quem escolhe o modo
+//  v1.13.3 com o segmentado: o toque numa linha da lista é quem escolhe o modo
 //  (`abrirFerramenta` → `chronoTrocarModo`) ou a vista do Itinerário, e voltar ao
 //  Itinerário continua não zerando a contagem das outras três.)
 
@@ -8449,7 +8453,7 @@ function renderChrono() {
   host.innerHTML = '';
 
   // (O segmentado Relógio · Cronômetro · Timer · Itinerário saiu na v1.13.3: cada
-  //  um é um tile da grade da folha — ver `FERRAMENTAS`.)
+  //  um é uma linha da lista da folha — ver `FERRAMENTAS`.)
   host.classList.toggle('misc-panel--itin', tempoVista === 'itinerario');
   if (tempoVista === 'itinerario') {
     stopChronoPanelTimer();
@@ -9137,8 +9141,10 @@ function itinDuracao(min) {
  * O PAR ↑↓ MORA NA FAIXA, como no Cronograma (v1.13.2): mover TROCA o evento
  * de lugar com o vizinho e os horários ficam onde estão (ver `itinMover`).
  *
- * E EM CIMA DE TUDO, O NOME DO ITINERÁRIO ATIVO (v1.13.2): o título que abre a
- * gaveta dos itinerários — o `#cronoTitulo` do Cronograma, no painel.
+ * O NOME DO ITINERÁRIO ATIVO não mora no painel: desde a v1.13.4 ele é o TÍTULO
+ * DA FOLHA (`#itinTitulo`, no `.tools-head`), a porta da gaveta dos itinerários
+ * — o `#cronoTitulo` do Cronograma. Era uma faixa no topo do painel (v1.13.2), e
+ * a altura dela voltou para a lista.
  *
  * O item de AGORA é marcado pela MESMA leitura do telão, e um laço de um segundo
  * (`itinMarcar`) só troca as marcas — reconstruir o painel a cada segundo
@@ -9147,31 +9153,9 @@ function itinDuracao(min) {
 function renderItinerario(host) {
   // A gaveta de uma linha não sobrevive ao redesenho (a regra do `renderMsg`).
   fecharAcoesDaLinha();
-  // --- 0. o nome do itinerário ativo: a porta da gaveta (v1.13.2) ---
-  const cab = document.createElement('div');
-  cab.className = 'itin-cab';
-  const tit = document.createElement('button');
-  tit.type = 'button';
-  tit.id = 'itinTitulo';
-  tit.className = 'crono-titulo itin-titulo';
-  tit.title = 'Trocar de itinerário';
-  tit.setAttribute('aria-haspopup', 'true');
-  tit.setAttribute('aria-controls', 'itinGaveta');
-  tit.setAttribute('aria-expanded', itinGavetaAberta() ? 'true' : 'false');
-  const nomeEl = document.createElement('span');
-  nomeEl.className = 'itin-nome';
-  nomeEl.id = 'itinNome';
-  nomeEl.textContent = itin.nome;
-  tit.appendChild(nomeEl);
-  tit.appendChild(svgNo('<svg class="crono-seta" viewBox="0 0 24 24" width="20" height="20" fill="none"'
-    + ' stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'
-    + ' aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>'));
-  tit.addEventListener('click', () => {
-    if (itinGavetaAberta()) fecharItinGaveta();
-    else abrirItinGaveta();
-  });
-  cab.appendChild(tit);
-  host.appendChild(cab);
+  // O NOME DO ATIVO, a porta da gaveta, mora no TÍTULO DA FOLHA (v1.13.4): o
+  // painel é redesenhado a cada mudança, e o cabeçalho acompanha daqui.
+  pintarCabecalhoDasFerramentas();
   // --- 1. o ajuste ---
   const aj = document.createElement('div');
   aj.className = 'itin-ajuste';
@@ -9333,12 +9317,12 @@ function itinGavetaAberta() { return !!(itinGavetaEl && !itinGavetaEl.hidden && 
 
 function abrirItinGaveta() {
   if (!itinGavetaEl) return;
-  const tit = document.getElementById('itinTitulo');
+  const tit = itinTituloEl;
   fecharAcoesDaLinha();
   renderItinGaveta();
   const seq = ++itinGavetaSeq;
-  // ABAIXO DO TÍTULO, medido: o painel é redesenhado e o corpo da folha pode
-  // ter rolado — um número escrito no CSS envelheceria nos dois.
+  // ABAIXO DO TÍTULO, medido: o cabeçalho da folha cresce com a fonte do
+  // sistema — um número escrito no CSS envelheceria com ela.
   if (tit && toolsSheetEl) {
     const t = tit.getBoundingClientRect(), f = toolsSheetEl.getBoundingClientRect();
     itinGavetaEl.style.top = Math.max(0, Math.round(t.bottom - f.top)) + 'px';
@@ -9353,8 +9337,7 @@ function abrirItinGaveta() {
 function fecharItinGaveta() {
   const seq = ++itinGavetaSeq;
   if (itinVeuEl) itinVeuEl.hidden = true;
-  const tit = document.getElementById('itinTitulo');
-  if (tit) tit.setAttribute('aria-expanded', 'false');
+  if (itinTituloEl) itinTituloEl.setAttribute('aria-expanded', 'false');
   const el = itinGavetaEl;
   if (!el || el.hidden) return;
   el.classList.remove('aberta');
@@ -10532,29 +10515,36 @@ function renderMsg() {
   //  `renderFoot`. O corpo da janela fica para a lista, que é o que cresce.)
 }
 
-// ===== A FOLHA DE FERRAMENTAS ABRE NUMA GRADE (v1.13.3) =====
+// ===== A FOLHA DE FERRAMENTAS ABRE NUMA LISTA (v1.13.3; lista vertical da v1.13.4) =====
 // Pedido do operador: *"ao invés de usar tabs e sub tabs, use uma grade inicial com
 // todas as ferramentas prontas no primeiro toque, por exemplo não separa por tempo,
 // sorteio e mensagens, mas já põe direto as subdivisões"*. Eram TRÊS abas no topo
 // (Mensagens · Tempo · Sorteio) e, dentro do Tempo, um segmentado de quatro (Relógio ·
 // Cronômetro · Timer · Itinerário) — dois níveis de escolha para chegar à ferramenta.
-// Hoje a folha abre numa GRADE de seis tiles, um por ferramenta (`FERRAMENTAS`), e o
+// Hoje a folha abre na LISTA das seis, uma linha por ferramenta (`FERRAMENTAS`), e o
 // toque abre a ferramenta; o voltar do cabeçalho (`#toolsBack`) e o do Android devolvem
-// a grade antes de a folha fechar.
+// a lista antes de a folha fechar.
+//
+// A v1.13.3 a desenhava numa GRADE de 3×2 tiles, e a v1.13.4 a trocou por uma LISTA
+// VERTICAL que divide a altura da folha: *"como temos poucas ferramentas, ao invés de
+// uma grade, faça apenas uma lista vertical, mantendo o tom de cores, mas aproveitando
+// e distribuindo toda a altura disponível para esses 6 itens. Use o icone a esquerda e
+// texto a direita"*. Os nomes internos (`ferrNaGrade`, `renderGradeDeFerramentas`,
+// `#ferrGrade`, `.ferr-tile`) ficaram — renomeá-los não muda um pixel.
 //
 // **O ESTADO DOS PAINÉIS É O DE SEMPRE.** `miscTool` ('msg' · 'chrono' · 'draw'),
 // `tempoVista` e `chrono.mode` continuam dizendo QUAL painel está montado — as dezenas
 // de guardas espalhadas pelo arquivo seguem valendo —, e o que entrou é UMA pergunta a
-// mais: `ferrNaGrade`, "a folha está mostrando a grade?". Ela nasce `true` em TODA
-// abertura da folha: Configurações também reabre sempre na grade (fechar recolhe a
+// mais: `ferrNaGrade`, "a folha está mostrando a lista?". Ela nasce `true` em TODA
+// abertura da folha: Configurações também reabre sempre na grade dela (fechar recolhe a
 // seção), e a mesma regra nas duas folhas é o que o operador aprende uma vez só.
 //
-// **O TILE É O DE CONFIGURAÇÕES** (`.qs-tile.qs-on`: ícone em cima, título curto
-// embaixo, a cor de ligado para todos), com duas leituras vivas que lá não existem e
-// aqui são a pergunta de quem volta à grade no meio do culto: o PONTO de "no ar" (o
-// `--live-strong` de 7px que a aba projetando já levava) e, com o Cronômetro ou o
-// Timer CONTANDO, o próprio número no lugar do ícone — o canal do desenho, que é onde
-// aquela grade diz estado.
+// **A LINHA VESTE O TILE DE CONFIGURAÇÕES** (`.qs-tile.qs-on`: a cor de ligado para
+// todas, o raio, a resposta ao toque), deitado — ícone à esquerda, nome à direita —,
+// com duas leituras vivas que lá não existem e aqui são a pergunta de quem volta à
+// lista no meio do culto: o PONTO de "no ar" (o `--live-strong` de 7px que a aba
+// projetando já levava) e, com o Cronômetro ou o Timer CONTANDO, o próprio número na
+// ponta direita da linha.
 let miscTool = 'msg';
 let ferrNaGrade = true;
 
@@ -10565,9 +10555,9 @@ const MISC_TOOLS = [
   { id: 'draw', name: 'Sorteio', wrap: 'drawWrap', render: () => renderDraw(), live: () => drawProjecting() },
 ];
 
-// OS TILES DA GRADE, na ordem dela — uma fileira por assunto, como em Configurações:
-// em cima o TEMPO (as três roletas, na ordem de `CHRONO_MODES`), embaixo o que vai ao
-// telão como TEXTO do culto (o Itinerário sob o Relógio, que é o relógio dele).
+// AS LINHAS DA LISTA, na ordem dela — por assunto: primeiro o TEMPO (as três roletas,
+// na ordem de `CHRONO_MODES`), depois o que vai ao telão como TEXTO do culto (o
+// Itinerário logo abaixo do Timer, encabeçando o texto).
 // `tool` é o painel; `modo`/`vista` são o que o toque escreve no Tempo. Os desenhos
 // são os das cenas de roteiro (`CUE_SVG`) — o tile e a linha do Cronograma que ele
 // produz dizem a mesma coisa —, e os dois que não tinham cena própria (Relógio e
@@ -10587,14 +10577,14 @@ const FERRAMENTAS = [
   { id: 'draw', nome: 'Sorteio', tool: 'draw', ico: CUE_SVG.draw },
 ];
 
-// QUAL TILE é a ferramenta montada agora (o inverso do toque).
+// QUAL LINHA é a ferramenta montada agora (o inverso do toque).
 function ferramentaAtual() {
   if (miscTool === 'chrono') return tempoVista === 'itinerario' ? 'itinerario' : chrono.mode;
   return miscTool;
 }
 
-// O QUE ESTÁ NO AR, por tile. O Tempo projeta UM modo por vez (`chronoDescriptor`
-// leva o `chrono.mode`), então o ponto vai só no tile dele.
+// O QUE ESTÁ NO AR, por linha. O Tempo projeta UM modo por vez (`chronoDescriptor`
+// leva o `chrono.mode`), então o ponto vai só na linha dele.
 function ferramentaNoAr(f) {
   if (f.id === 'msg') return msgProjecting();
   if (f.id === 'draw') return drawProjecting();
@@ -10602,8 +10592,8 @@ function ferramentaNoAr(f) {
   return chronoProjecting() && chrono.mode === f.modo;
 }
 
-// A LEITURA VIVA de um tile do Tempo: o número do Cronômetro ou do Timer QUE ESTÁ
-// CONTANDO — a mesma leitura do telão (`chronoReading`), então o tile e a TV não
+// A LEITURA VIVA de uma linha do Tempo: o número do Cronômetro ou do Timer QUE ESTÁ
+// CONTANDO — a mesma leitura do telão (`chronoReading`), então a linha e a TV não
 // discordam de um segundo. Parado não há leitura: o número congelado é o painel que diz.
 function ferramentaLeitura(f) {
   if (f.tool !== 'chrono' || !f.modo || f.modo === 'clock') return '';
@@ -10626,16 +10616,17 @@ function renderGradeDeFerramentas() {
     b.dataset.ferr = f.id;
     b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"'
       + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + f.ico + '</svg>';
-    const leitura = document.createElement('span');
-    leitura.className = 'ferr-leitura';
-    leitura.setAttribute('aria-hidden', 'true');
+    // ÍCONE · NOME · LEITURA · PONTO, da esquerda para a direita (v1.13.4).
     const titulo = document.createElement('span');
     titulo.className = 'qs-titulo';
     titulo.textContent = f.nome;
+    const leitura = document.createElement('span');
+    leitura.className = 'ferr-leitura';
+    leitura.setAttribute('aria-hidden', 'true');
     const ponto = document.createElement('span');
     ponto.className = 'ferr-no-ar';
     ponto.setAttribute('aria-hidden', 'true');
-    b.append(leitura, titulo, ponto);
+    b.append(titulo, leitura, ponto);
     b.addEventListener('click', () => abrirFerramenta(f.id, { animar: true }));
     g.appendChild(b);
   });
@@ -10643,7 +10634,7 @@ function renderGradeDeFerramentas() {
   pintarGradeDeFerramentas();
 }
 
-// PINTA O ESTADO de cada tile, sem refazer a grade — é o que o tique do relógio
+// PINTA O ESTADO de cada linha, sem refazer a lista — é o que o tique do relógio
 // chama. O estado mora no `data-estado` (a regra dos tiles: a classe é aparência, o
 // atributo é o valor), e o nome acessível o diz por extenso.
 function pintarGradeDeFerramentas() {
@@ -10663,30 +10654,48 @@ function pintarGradeDeFerramentas() {
     b.setAttribute('aria-label', f.nome + (extra ? ' — ' + extra : ''));
     b.title = f.nome + (noAr ? ' — no telão agora' : '');
   });
-  // O TIQUE SÓ EXISTE COM O QUE CONTAR, e só com a grade à vista.
+  // O TIQUE SÓ EXISTE COM O QUE CONTAR, e só com a lista à vista.
   if (contando && !ferrGradeTimer) ferrGradeTimer = setInterval(pintarGradeDeFerramentas, CHRONO_TICK_MS);
   else if (!contando) pararGradeTimer();
 }
 
 // O que muda o Tempo POR FORA do painel (o par ao lado da preview, a notificação)
-// passa por aqui: com a grade à vista, o tile acompanha.
+// passa por aqui: com a lista à vista, a linha acompanha.
 function acertarGradeDeFerramentas() {
   if (ferrNaGrade && ferramentasAbertas()) pintarGradeDeFerramentas();
 }
 
-// O CABEÇALHO DIZ ONDE SE ESTÁ: "Ferramentas" na grade, o nome da ferramenta dentro
+// O CABEÇALHO DIZ ONDE SE ESTÁ: "Ferramentas" na lista, o nome da ferramenta dentro
 // dela — e o voltar só existe dentro (a trilha dele é reservada pela grade do
 // cabeçalho, então o título não anda).
+//
+// NO ITINERÁRIO O TÍTULO É O NOME DO ITINERÁRIO ATIVO (v1.13.4), e é a porta da
+// gaveta deles: pedido do operador, *"use o campo de título da barra superior
+// geral, para colocar o título editável dos nomes dos itinerários, para aproveitar
+// o espaço vertical"*. É o idioma do `#cronoTitulo` inteiro — o nome e a seta, o
+// toque abre a gaveta e o RENOMEAR é o lápis da linha dela —, e não um campo de
+// texto no cabeçalho: um título que edita no toque não teria como abrir a gaveta,
+// e as duas folhas que têm "vários" passariam a responder ao mesmo gesto de formas
+// diferentes. O nome "Itinerário" da ferramenta sai da tela ali (o ícone da lista
+// já a disse), e o `#toolsTitle` continua escrito por baixo, escondido.
 function pintarCabecalhoDasFerramentas() {
   if (toolsBackEl) toolsBackEl.hidden = ferrNaGrade;
   if (!toolsTitleEl) return;
-  const f = FERRAMENTAS.find((x) => x.id === ferramentaAtual());
+  const atual = ferramentaAtual();
+  const f = FERRAMENTAS.find((x) => x.id === atual);
   toolsTitleEl.textContent = ferrNaGrade || !f ? 'Ferramentas' : f.nome;
+  const noItin = !ferrNaGrade && atual === 'itinerario';
+  toolsTitleEl.hidden = noItin;
+  if (!itinTituloEl) return;
+  itinTituloEl.hidden = !noItin;
+  if (!noItin) return;
+  if (itinNomeEl.textContent !== itin.nome) itinNomeEl.textContent = itin.nome;
+  itinTituloEl.setAttribute('aria-expanded', itinGavetaAberta() ? 'true' : 'false');
 }
 
 /**
  * **ELE APENSA, NÃO TROCA** — quem esvazia o `#toolsBody` é o CHAMADOR
- * (`abrirFerramentas`, `refreshDiversos`, `abrirFerramenta` e o voltar à grade, todos
+ * (`abrirFerramentas`, `refreshDiversos`, `abrirFerramenta` e o voltar à lista, todos
  * com o `innerHTML = ''` antes). A pilha que sai de chamá-lo duas vezes não erra alto:
  * o segundo painel ENTRA embaixo do primeiro, os dois dividem a altura da folha, e o
  * que se vê é um painel espremido — foi assim que uma medição de oráculo leu 94px onde
@@ -10704,7 +10713,7 @@ function renderDiversos() {
   pintarCabecalhoDasFerramentas();
   if (ferrNaGrade) {
     renderGradeDeFerramentas();
-    renderFoot();   // a grade não tem rodapé — ver o primeiro ramo de `renderFoot`
+    renderFoot();   // a lista não tem rodapé — ver o primeiro ramo de `renderFoot`
     return;
   }
   const tool = MISC_TOOLS.find((t) => t.id === miscTool) || MISC_TOOLS[0];
@@ -10718,7 +10727,7 @@ function renderDiversos() {
 }
 
 // Redesenha a folha na vista em que ela está (usado quando o estado de uma ferramenta
-// muda por fora do painel — ex.: uma mensagem projetada por outro caminho; na grade,
+// muda por fora do painel — ex.: uma mensagem projetada por outro caminho; na lista,
 // é o que acende e apaga o ponto de "no ar").
 function refreshDiversos() {
   if (!ferramentasAbertas()) return;
@@ -10727,10 +10736,10 @@ function refreshDiversos() {
 }
 
 /**
- * ABRE UMA FERRAMENTA — o toque no tile (e a porta dos oráculos). Com a folha fechada
- * ela abre DIRETO na ferramenta, sem passar pela grade.
+ * ABRE UMA FERRAMENTA — o toque na linha (e a porta dos oráculos). Com a folha fechada
+ * ela abre DIRETO na ferramenta, sem passar pela lista.
  *
- * O TOQUE NUM TILE DO TEMPO ESCREVE O MODO, e trocar de modo ZERA a contagem — a regra
+ * O TOQUE NUMA LINHA DO TEMPO ESCREVE O MODO, e trocar de modo ZERA a contagem — a regra
  * de sempre do segmentado que ele substitui (`chronoTrocarModo`): levar o decorrido do
  * cronômetro para dentro de um timer daria um valor que ninguém pediu. Voltar ao MESMO
  * modo não zera nada, e entrar no Itinerário não mexe na contagem.
@@ -10752,7 +10761,7 @@ function abrirFerramenta(id, opcoes) {
   trocarVistaDasFerramentas(desenhar, 'entra', opcoes);
 }
 
-// DE VOLTA À GRADE — o `#toolsBack` e o degrau 2.5 do voltar do Android.
+// DE VOLTA À LISTA — o `#toolsBack` e o degrau 2.5 do voltar do Android.
 function voltarAGradeDeFerramentas(opcoes) {
   if (!ferramentasAbertas() || ferrNaGrade) return;
   fecharItinGaveta();
@@ -10764,10 +10773,10 @@ function voltarAGradeDeFerramentas(opcoes) {
 }
 
 /**
- * A TROCA GRADE ↔ FERRAMENTA ANIMA, e só pelo TOQUE (a regra da seta da prévia: a
+ * A TROCA LISTA ↔ FERRAMENTA ANIMA, e só pelo TOQUE (a regra da seta da prévia: a
  * abertura e os oráculos que chamam direto assentam no ato). É a troca das seções de
- * Configurações por outro eixo: lá a caixa cresce, aqui a folha tem altura FIXA (ela é
- * a lista), então o que se move é o CONTEÚDO — o que sai fica numa camada ABSOLUTA por
+ * Configurações por outro eixo: lá a caixa cresce, aqui a folha tem altura FIXA (ela
+ * cobre a lista do Cronograma), então o que se move é o CONTEÚDO — o que sai fica numa camada ABSOLUTA por
  * cima, no lugar exato em que estava (`.ferr-saindo`, sem toque e sem ids), e sobe
  * esmaecendo; o que entra sobe de baixo aparecendo. Na volta, o inverso. A ferramenta
  * nova já está montada no estado final desde o primeiro quadro — as roletas se medem
@@ -10867,7 +10876,7 @@ function abrirFerramentas() {
   toolsSaindoTimer = null;
   toolsSheetEl.classList.remove('saindo');
   toolsSheetEl.hidden = false;
-  // TODA ABERTURA COMEÇA NA GRADE (v1.13.3) — ver `ferrNaGrade`.
+  // TODA ABERTURA COMEÇA NA LISTA (v1.13.3) — ver `ferrNaGrade`.
   ferrNaGrade = true;
   toolsBodyEl.innerHTML = '';
   renderDiversos();
@@ -45046,8 +45055,7 @@ document.addEventListener('pointerdown', (e) => {
   if (!itinGavetaAberta()) return;
   const t = e.target;
   if (t === itinVeuEl) return;
-  const tit = document.getElementById('itinTitulo');
-  if ([itinGavetaEl, tit, appDialogEl].some((el) => el && el.contains(t))) return;
+  if ([itinGavetaEl, itinTituloEl, appDialogEl].some((el) => el && el.contains(t))) return;
   fecharItinGaveta();
 }, true);
 selRenameEl.addEventListener('click', renameSelected);
@@ -46428,6 +46436,12 @@ const POPUPS = [
 // escritos aqui e no `__avBack`.
 if (toolsCloseEl) toolsCloseEl.addEventListener('click', fecharFerramentas);
 if (toolsBackEl) toolsBackEl.addEventListener('click', () => voltarAGradeDeFerramentas({ animar: true }));
+// O TÍTULO DO ITINERÁRIO abre e fecha a gaveta deles (v1.13.4: ele mora no
+// cabeçalho da folha, e o ouvinte é ligado uma vez, aqui).
+if (itinTituloEl) itinTituloEl.addEventListener('click', () => {
+  if (itinGavetaAberta()) fecharItinGaveta();
+  else abrirItinGaveta();
+});
 
 POPUPS.forEach(([backdrop, closeBtn, close]) => {
   if (closeBtn) closeBtn.addEventListener('click', close);
@@ -46493,7 +46507,7 @@ window.__avBack = function () {
   //    abrir DE DENTRO dela (a folha da música, pelo sorteio), e antes da tela
   //    cheia porque ela é mais efêmera: é uma camada da lista, não a projeção.
   //    E ELA TEM UM DEGRAU DENTRO (v1.13.3): com uma ferramenta aberta, o voltar
-  //    devolve a GRADE antes de fechar a folha — o `#toolsBack` do cabeçalho, como a
+  //    devolve a LISTA antes de fechar a folha — o `#toolsBack` do cabeçalho, como a
   //    Bíblia sobe por dentro dela logo abaixo.
   if (ferramentasAbertas()) {
     if (!ferrNaGrade) voltarAGradeDeFerramentas({ animar: true });

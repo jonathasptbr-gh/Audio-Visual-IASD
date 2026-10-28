@@ -6891,8 +6891,8 @@ body.mode-simple .serie-destaque {
    `.chrono-*`, com uma ferramenta só; ao ganhar a segunda, um nome que anuncia
    apenas uma delas passava a mentir sobre quem o usa. O que é de fato exclusivo
    segue nomeado por dono: `.chrono-btn` e `.draw-*`.
-   As ferramentas não cabem juntas numa tela de celular: a folha abre numa GRADE
-   de tiles (`.ferr-grade`, v1.13.3) e monta SÓ a ferramenta tocada, que ocupa a
+   As ferramentas não cabem juntas numa tela de celular: a folha abre na LISTA
+   delas (`.ferr-grade`, v1.13.3) e monta SÓ a ferramenta tocada, que ocupa a
    folha inteira — o painel começa sempre no mesmo lugar (memória muscular de quem
    opera sem olhar). */
 /* E O CORPO DA FOLHA ROLA EM VEZ DE CORTAR. O `overflow: hidden` daqui era o
@@ -6900,41 +6900,97 @@ body.mode-simple .serie-destaque {
    nunca transbordava. Com o piso, transborda — e a resposta a "não cabe" é
    rolar, nunca esconder. */
 .lib-misc { overflow-y: auto; touch-action: pan-y; gap: 0; padding-bottom: 0; }
-/* ===== A GRADE DAS FERRAMENTAS (v1.13.3) =====
-   Pedido do operador: *"ao invés de usar tabs e sub tabs, use uma grade inicial com
-   todas as ferramentas prontas no primeiro toque"*. Seis tiles em três colunas, uma
-   fileira por assunto (o tempo em cima, o texto do culto embaixo), e a folha abre
-   SEMPRE nela — ver `renderGradeDeFerramentas`.
+/* ===== A LISTA DAS FERRAMENTAS (v1.13.3; vertical desde a v1.13.4) =====
+   Pedido do operador: *"como temos poucas ferramentas, ao invés de uma grade, faça
+   apenas uma lista vertical, mantendo o tom de cores, mas aproveitando e
+   distribuindo toda a altura disponível para esses 6 itens. Use o icone a esquerda
+   e texto a direita. Se necessário, para melhor preenchimento, aumente o tamanho da
+   fonte."* Era uma grade de 3×2 tiles (v1.13.3); hoje é UMA coluna, na ordem de
+   `FERRAMENTAS`, e a folha abre SEMPRE nela — ver `renderGradeDeFerramentas`. (O nome
+   `.ferr-grade` ficou: renomear não muda um pixel.)
 
-   O TILE É O DE CONFIGURAÇÕES (`.qs-tile.qs-on`), verbatim: ícone em cima, título
-   curto embaixo, `--btn-accent` + `--accent` em todos, sobre a mesma `--panel` de
-   folha. A grade é OUTRA classe porque os oráculos alcançam a de Configurações por
-   `.qs-grade`. O que este tile tem a mais são as duas leituras vivas, e as duas no
-   canal que aquela grade reserva para o estado — o DESENHO: */
+   A ALTURA É REPARTIDA PELO LAYOUT, nunca escrita: a lista ocupa o corpo da folha
+   (`flex: 1`) e cada linha leva uma fatia igual (`flex: 1 1 0`) — e A LISTA NÃO
+   ROLA enquanto o piso de toque couber, a regra do Tempo (v1.8.92: *"o que eu não
+   quero é que tenha scroll nessa janela de ferramentas"*). A folha mora DENTRO do
+   Cronograma, com a prévia e o transporte à vista, e o corpo dela vai de ~475px
+   (430×900) a ~218px (360×640) e ~186px (360×640 com a fonte em 1,25×). Três
+   peças, e a conta é toda do layout:
+   1. o PISO da linha é o `--hit` (34px, o piso de toque do app, que o
+      `geometria.test.mjs` cobra) — o `--hit-foot` (42px) foi tentado e MEDIDO
+      rolando 60px a 360×640;
+   2. o VÃO entre as linhas cede antes da linha: ele é `--sp-3` com folga e
+      encolhe até zero quando seis pisos não cabem com ele (a 360×640 sai ~2,9px
+      e a lista fecha sem rolar). Ele é margem e não `gap` porque a conta lê a
+      altura da LISTA (`100cqh`), que só existe para quem está DENTRO dela;
+   3. o DESENHO da linha cede junto: a lista é contêiner de tamanho
+      (`container-type: size`), e o corpo do nome e o ícone saem da FATIA de cada
+      linha (`--ferr-linha`), presos entre piso e teto.
+   Abaixo de seis pisos (só a 360×640 com a fonte do sistema grande) a lista
+   transborda o que falta e o corpo (`.rola`) rola — encolher o alvo de toque
+   seria pior que rolar 18px.
+
+   A LINHA VESTE O TILE DE CONFIGURAÇÕES (`.qs-tile.qs-on`: `--btn-accent` +
+   `--accent`, o raio, a resposta ao toque), deitado — ícone à esquerda, nome à
+   direita, alinhados à esquerda como toda linha de lista. A lista é OUTRA classe
+   porque os oráculos alcançam a grade de Configurações por `.qs-grade`.
+
+   O NOME SOBE ATÉ `--fs-4xl` (dois degraus acima do `--fs-xl` do título da folha),
+   pelo pedido — *"se necessário, para melhor preenchimento, aumente o tamanho da
+   fonte"*: numa linha de ~75px o `--fs-sm` do tile boiava. O PISO é o `--fs-md` (o
+   corpo de uma linha de lista). O ÍCONE vai de `--icon-sm` a 28px, um degrau acima
+   do `--icon-lg`, por REGRA PRÓPRIA e pela razão que a v1.8.69 escreveu para a
+   lixeira: ele acompanha um rótulo maior que o de qualquer lista daqui, e um
+   `--icon-md` ao lado de um nome de 20px lê como miniatura. MEDIDO: o nome mais
+   longo ("Cronômetro") cabe sem reticências a 360px com a fonte em 1,25×. */
 .ferr-grade {
-  flex-shrink: 0;
-  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3);
+  flex: 1 0 auto; min-height: 0;
+  container-type: size;
+  display: flex; flex-direction: column;
 }
-.ferr-tile { position: relative; min-width: 0; }
-/* CONTANDO, O NÚMERO ENTRA NO LUGAR DO ÍCONE — na caixa dele (`--icon-md` de altura),
-   então a grade não pula quando o Timer parte ou para. `tabular-nums` pelo motivo do
-   telão: sem ele o número treme a cada segundo. */
+.ferr-grade > .ferr-tile {
+  --ferr-linha: calc((100cqh - 5 * var(--sp-3)) / 6);
+  position: relative; min-width: 0;
+  flex: 1 1 0; min-height: var(--hit);
+  flex-direction: row; justify-content: flex-start; gap: var(--sp-6);
+  /* À DIREITA, A RESERVA DO PONTO de "no ar" (7px + o vão): o número contando não
+     corre para baixo dele quando ele acende. */
+  padding: 0 calc(var(--sp-5) + 7px + var(--sp-4)) 0 var(--sp-6);
+  text-align: left;
+}
+.ferr-grade > .ferr-tile + .ferr-tile {
+  margin-top: clamp(0px, calc((100cqh - 6 * var(--hit)) / 5), var(--sp-3));
+}
+.ferr-grade .ferr-tile svg {
+  flex: none;
+  width: clamp(var(--icon-sm), calc(var(--ferr-linha) * .6), 28px);
+  height: clamp(var(--icon-sm), calc(var(--ferr-linha) * .6), 28px);
+}
+.ferr-grade .ferr-tile .qs-titulo {
+  flex: 1; min-width: 0;
+  font-size: clamp(var(--fs-md), calc(var(--ferr-linha) * .45), var(--fs-4xl));
+  font-weight: var(--fw-forte); line-height: 1.15;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* CONTANDO, O NÚMERO NA PONTA DIREITA da linha — o ícone fica (a v1.13.3 o trocava
+   pelo número, na caixa dele; deitada, a linha tem a largura que o tile não tinha).
+   `tabular-nums` pelo motivo do telão: sem ele o número treme a cada segundo, e o
+   nome à esquerda, `flex: 1`, não anda quando ele aparece. O corpo é o do nome. */
 .ferr-leitura { display: none; }
-.ferr-tile.contando svg { display: none; }
 .ferr-tile.contando .ferr-leitura {
-  display: block; height: var(--icon-md); line-height: var(--icon-md);
-  max-width: 100%; overflow: hidden;
-  font-size: var(--fs-lg); font-weight: var(--fw-max); white-space: nowrap;
+  display: block; flex: none;
+  font-size: clamp(var(--fs-md), calc(var(--ferr-linha) * .45), var(--fs-4xl));
+  font-weight: var(--fw-max); white-space: nowrap;
   font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
 }
-/* NO AR, O PONTO NO CANTO — o mesmo `--live-strong` de 7px que a aba projetando
-   levava no seletor de antes, e pelo mesmo motivo: sair da ferramenta não tira do
-   telão o que ela pôs lá, e sem o ponto descobrir o que está no ar exigiria abrir
-   cada uma. Ele é um GRÁFICO que carrega informação (piso de 3:1): sobre o
-   `--btn-accent` MEDIDO 4,27:1 no escuro e 5,65:1 no claro. */
+/* NO AR, O PONTO NA PONTA DIREITA, no meio da altura — o mesmo `--live-strong` de 7px
+   que a aba projetando levava no seletor de antes, e pelo mesmo motivo: sair da
+   ferramenta não tira do telão o que ela pôs lá, e sem o ponto descobrir o que está
+   no ar exigiria abrir cada uma. Ele é um GRÁFICO que carrega informação (piso de
+   3:1): sobre o `--btn-accent` MEDIDO 4,27:1 no escuro e 5,65:1 no claro. */
 .ferr-no-ar {
-  display: none; position: absolute; top: .5rem; right: .5rem;
-  width: 7px; height: 7px; border-radius: 50%;
+  display: none; position: absolute; top: 50%; right: var(--sp-5);
+  width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%;
   background: var(--live-strong);
 }
 .ferr-tile.no-ar .ferr-no-ar { display: block; }
@@ -6947,8 +7003,8 @@ body.mode-simple .serie-destaque {
 }
 .ferr-saindo-corpo { flex: none; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
 /* (O SELETOR DE FERRAMENTAS — `.misc-switch`/`.misc-tab`, a faixa de três abas com o
-   ponto de "no ar" — saiu na v1.13.3: a folha abre numa GRADE, ver `.ferr-grade`. O
-   ponto mudou de casa com ele, para o canto do tile.) */
+   ponto de "no ar" — saiu na v1.13.3: a folha abre numa LISTA, ver `.ferr-grade`. O
+   ponto mudou de casa com ele, para a ponta da linha.) */
 /* O painel da ferramenta ativa ocupa toda a altura restante.
    `touch-action: pan-y` PRECISA estar aqui, e não bastava na `.lib-list`: o
    valor de um ANCESTRAL não governa um toque que começa dentro de um scroller
@@ -7306,22 +7362,28 @@ body.mode-simple .serie-destaque {
 .lib-item.active .itin-thumb { background: var(--btn-accent); }
 .lib-item.active .itin-thumb-hora { color: var(--accent); }
 .lib-item.active .row-sub, .lib-item.itin-seguir .row-sub { color: var(--accent); }
-/* ---------- O NOME DO ITINERÁRIO ATIVO E A GAVETA DELES (v1.13.2) ----------
+/* ---------- O NOME DO ITINERÁRIO ATIVO E A GAVETA DELES (v1.13.2; o nome no
+   cabeçalho da folha desde a v1.13.4) ----------
    O título é o `.crono-titulo` do Cronograma (o nome no eixo, a seta à direita,
-   o `padding-left` que a equilibra), numa faixa própria no topo do painel; o
-   nome é um rótulo de seção do painel, um degrau abaixo do nome da TELA.
+   o `padding-left` que a equilibra), e desde a v1.13.4 ele MORA NO CABEÇALHO DA
+   FOLHA, na trilha 2 do `.tools-head`, no lugar do `#toolsTitle` — o pedido foi
+   devolver à lista a altura da faixa que ele tinha no topo do painel. O nome veste
+   o `.tools-title` (o corpo e o peso do título de toda folha): ali ele É o título.
+
+   `display: flex` do `.crono-titulo` VENCE o `[hidden]` da folha do agente, então
+   a regra de esconder é escrita. `max-width: 100%` com o `min-width: 0` dos dois:
+   um nome longo vira reticências em vez de empurrar o ✕ para fora. A classe é
+   `.itin-cab-titulo`, e não `.itin-titulo`, que é a coluna do título na lista
+   desenhada no PALCO (`createStage.desenharItinerario`).
 
    A GAVETA é a `.crono-gaveta`, verbatim — as mesmas linhas (`.crono-item`) e o
-   mesmo "Novo" —, posicionada na folha de Ferramentas logo abaixo do título (o
+   mesmo "Novo" —, posicionada na folha de Ferramentas logo abaixo do cabeçalho (o
    `top` é medido ao abrir, `abrirItinGaveta`). O VÉU é da folha (`absolute`, e
    não `fixed`): fora dela o toque fecha pela captura e segue para quem o
    recebeu, como o da Biblioteca sobre a gaveta dos cronogramas. */
-.itin-cab { flex-shrink: 0; display: flex; justify-content: center; min-width: 0; }
-.itin-titulo { max-width: 100%; }
-.itin-nome {
-  min-width: 0; text-align: center;
-  font-size: var(--fs-md); font-weight: var(--fw-forte); color: var(--muted);
-  text-transform: uppercase; letter-spacing: .06em;
+.tools-head > .itin-cab-titulo { grid-column: 2; max-width: 100%; }
+.tools-head > .itin-cab-titulo[hidden] { display: none; }
+.itin-cab-titulo .itin-nome {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .itin-veu { position: absolute; inset: 0; z-index: 160; }

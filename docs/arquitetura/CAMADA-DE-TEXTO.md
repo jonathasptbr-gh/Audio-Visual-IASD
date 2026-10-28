@@ -637,18 +637,20 @@ baixada): o índice sai de UMA leitura do IDB, sem requisição, e funciona offl
 
 A v5.31 tentou um **acordeão** e a v5.32 o trocou por um **seletor no topo**
 (três abas, com um segmentado de quatro dentro do Tempo). **Desde a v1.13.3 a
-folha abre numa GRADE** de seis tiles — Relógio · Cronômetro · Timer /
-Itinerário · Mensagens · Sorteio — e o toque abre a ferramenta; o detalhe (o
-tile, o ponto de "no ar", o número de quem conta, o voltar e a animação) está em
-[`CONTROLE.md`](CONTROLE.md), "A GRADE DAS FERRAMENTAS". O que vale aqui:
+folha abre nas seis ferramentas** — numa grade 3×2 até a v1.13.4, hoje numa
+LISTA VERTICAL que divide a altura da folha: Relógio · Cronômetro · Timer ·
+Itinerário · Mensagens · Sorteio — e o toque abre a ferramenta; o detalhe (a
+linha, a altura, o ponto de "no ar", o número de quem conta, o voltar e a
+animação) está em [`CONTROLE.md`](CONTROLE.md), "A LISTA DAS FERRAMENTAS". O que
+vale aqui:
 
 - **Uma ferramenta montada por vez** (`miscTool` + `tempoVista` + `chrono.mode`),
   e **só ela existe no DOM** — é o render dela que religa o seu timer de painel.
-  Na grade nenhuma está montada; o tique da grade só existe com algo contando.
+  Na lista nenhuma está montada; o tique da lista só existe com algo contando.
 - **O painel começa sempre no mesmo lugar** e ocupa a folha inteira, o que
   importa para a memória muscular de quem opera sem olhar.
 - **O ponto de "no ar" mudou de casa, não de linguagem**: era o `.misc-tab-live`
-  da aba projetando, hoje é o `.ferr-no-ar` do tile — o mesmo `--live-strong` de
+  da aba projetando, hoje é o `.ferr-no-ar` da linha — o mesmo `--live-strong` de
   7px. Sair de uma ferramenta não tira do telão o que ela pôs lá.
 - **`#library` não rola com a folha aberta** (`.lib-misc`): quem administra a
   altura é o painel, que rola por dentro se precisar.
@@ -1060,10 +1062,10 @@ Tempo e o Sorteio chamam. Duas cópias divergiriam no primeiro ajuste, e aqui
   `.misc-row--legenda`: os outros `.misc-text` são listas e faixas numéricas, que
   se leem alinhadas à esquerda.
 
-### Ferramentas: itinerário (v1.13.0; lista, folha, destinos, par e desenho da v1.13.1; os múltiplos, o ↑↓ e o bloco centrado da v1.13.2)
+### Ferramentas: itinerário (v1.13.0; lista, folha, destinos, par e desenho da v1.13.1; os múltiplos, o ↑↓ e o bloco centrado da v1.13.2; o nome no cabeçalho da v1.13.4)
 
-Mais um provedor da Camada de Texto, na folha de Ferramentas: um **tile da grade** (era o
-quarto segmento do Tempo até a v1.13.3): a programação do evento — horário +
+Mais um provedor da Camada de Texto, na folha de Ferramentas: uma **linha da lista das
+ferramentas** (era o quarto segmento do Tempo até a v1.13.3): a programação do evento — horário +
 título —, com o item de AGORA em destaque e os seguintes abaixo, para a igreja e a
 equipe saberem em que momento estão e o que vem a seguir.
 
@@ -1192,16 +1194,28 @@ equipe saberem em que momento estão e o que vem a seguir.
   entrar no Itinerário não para a contagem que ficou correndo nas outras três, e
   voltar delas não zera nada.
 - **OS ITINERÁRIOS MÚLTIPLOS (v1.13.2)**, no idioma dos cronogramas múltiplos: o
-  título do painel (`#itinTitulo`, o `.crono-titulo`) é o NOME do ativo e abre a
-  gaveta (`#itinGaveta`, a `.crono-gaveta` e as `.crono-item` verbatim):
+  NOME do ativo é a porta da gaveta. **DESDE A v1.13.4 ELE É O TÍTULO DA FOLHA**
+  (pedido do operador: *"use o campo de título da barra superior geral, para
+  colocar o título editável dos nomes dos itinerários, para aproveitar o espaço
+  vertical"*): o `#itinTitulo` (o `.crono-titulo`, nome e seta; classe
+  `.itin-cab-titulo` — `.itin-titulo` é a coluna da lista no PALCO) mora no
+  `.tools-head`, na trilha 2, e `pintarCabecalhoDasFerramentas` o mostra no lugar
+  do `#toolsTitle` só com o Itinerário aberto (o `renderItinerario` a chama, então
+  trocar, criar e renomear acertam o nome). A faixa que ele tinha no topo do
+  painel (`.itin-cab`) saiu, e a altura foi para a lista. **"EDITÁVEL" É O IDIOMA
+  DO CRONOGRAMA, não um campo no cabeçalho**: o toque no nome abre a gaveta e
+  RENOMEAR é o lápis da linha dela, pelo diálogo do app (`appPrompt`, que DESLOCA
+  de propósito: cartão centrado) — um título que editasse no toque não teria como
+  abrir a gaveta, e as duas folhas de "vários" responderiam ao mesmo gesto de
+  jeitos diferentes. A gaveta (`#itinGaveta`, a `.crono-gaveta` e as `.crono-item` verbatim):
   renomear (lápis, esquerda) · nome e conta de horários (tocar TROCA) · excluir
   (lixeira `--btn-danger`, direita, APAGADA no único; pergunta pelo diálogo; o
   ativo cai no usado mais recentemente), e "Novo itinerário" por último
   ("Itinerário 2"…). Renomear e excluir deixam a gaveta aberta. **A GAVETA MORA
   NA FOLHA de Ferramentas, não no painel** (que é redesenhado a cada mudança): o
-  `top` é medido do título ao abrir, o VÉU é `absolute` na folha, e fora da folha
+  `top` é medido do título (no cabeçalho) ao abrir, o VÉU é `absolute` na folha, e fora da folha
   a captura do `pointerdown` fecha e deixa o toque seguir. O voltar a fecha antes
-  da folha (degrau 1.8). Trocar de ferramenta (ou voltar à grade) a fecha.
+  da folha (degrau 1.8). Trocar de ferramenta (ou voltar à lista) a fecha.
   **A PROJEÇÃO SEGUE O ATIVO**: trocar (ou excluir o ativo) com ele no ar manda o
   novo pelo `pushItin` — vazio, sai do telão; um telão preso ao de antes deixaria
   painel e projeção falando de programações diferentes. **O AJUSTE É GLOBAL** (o

@@ -15,8 +15,9 @@ Contexto da entrega: base web **v1.13.3** em `main` (28b7e5dd), APK v1.12.46,
 O operador pediu economia: *"não temos tokens então toda ação deve ser fracionada
 e controlada"* — um pacote por vez, cada um com o rito de entrega completo.
 
-**Ordem recomendada ao operador:** 2 → 1 → 3 → 4 → 5, e o 6 (pesquisa) por
-último.
+**Ordem recomendada ao operador:** 2 → 1 → 3 → 5, e o 6 (pesquisa) por
+último. (O Pacote 4 — a lista vertical das Ferramentas e o nome do itinerário no
+título da folha — saiu na v1.13.4.)
 
 ---
 
@@ -66,25 +67,6 @@ hoje o que mantém o passo de volume igual às teclas físicas (`volumeProximo`)
 sem ele, as teclas físicas ficam como o único ajuste fino no Modo Fácil —
 **dizer isso ao operador na entrega**. Oráculo: `modo-simples-corpo` (ou um novo)
 para a composição e o recolhimento com o relógio mockado.
-
-## Pacote 4 — Ferramentas e Itinerário (só web)
-
-| hora | pedido |
-|---|---|
-| 13:04 | *"Sobre a grade de ferramentas… faça apenas uma lista vertical, mantendo o tom de cores, mas… distribuindo toda a altura disponível para esses 6 itens. Use o icone a esquerda e texto a direita. Se necessário… aumente o tamanho da fonte."* |
-| 13:02 | *"No itinerário, use o campo de título da barra superior geral, para colocar o título editável dos nomes dos itinerários…"* |
-
-**Revoga parte da v1.13.3:** a `.ferr-grade` (2×3 tiles) vira uma lista
-vertical de 6 linhas que divide a altura da folha (ícone à esquerda, texto à
-direita, mesmas cores do `.qs-tile.qs-on`; fonte maior se couber). A tabela
-`FERRAMENTAS`, `abrirFerramenta`, `#toolsBack` e `ferrNaGrade` ficam.
-
-**O título:** com o Itinerário aberto, o cabeçalho geral da folha de
-Ferramentas mostra o nome do itinerário ATIVO e ele é editável ali (hoje o nome
-mora em `#itinTitulo`, que abre a `#itinGaveta`). Decidir na implementação como
-convivem "tocar abre a gaveta" e "tocar edita o nome" — o cronograma resolveu
-com o lápis na linha da gaveta (v1.12.55); propor ao operador se não houver
-leitura óbvia. O campo nasce com `sobrepoe` (Pacote 2).
 
 ## Pacote 5 — O vídeo da semana como item (só web, provável)
 

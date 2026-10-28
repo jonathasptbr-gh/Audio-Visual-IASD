@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.13.4",
+    "itens": [
+      "Ferramentas: agora é uma lista, uma embaixo da outra, ocupando a janela toda, com letras maiores.",
+      "Em cada linha, o ícone fica à esquerda e o nome à direita. O tempo contando aparece no fim da linha.",
+      "Itinerário: o nome dele agora fica no título da janela, no topo. Toque nele para trocar, criar ou renomear.",
+      "Com isso a lista de horários do itinerário ganhou mais espaço."
+    ]
+  },
+  {
     "versao": "1.13.3",
     "itens": [
       "Ferramentas: agora abre numa grade com todas elas. Um toque já leva ao relógio, cronômetro, timer e às outras.",
