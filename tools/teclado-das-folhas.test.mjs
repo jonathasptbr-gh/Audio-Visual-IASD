@@ -179,12 +179,21 @@ try {
       })();
       window.__scrollerDoCampo = sc;
       window.__padAntes = sc ? sc.style.paddingBottom : null;
+      const er = el.getBoundingClientRect();
+      const ec = getComputedStyle(el);
+      const lh = parseFloat(ec.lineHeight) || parseFloat(ec.fontSize) * 1.2;
       return {
         foco: document.activeElement === el,
         barra: Math.round(document.getElementById('libBar').getBoundingClientRect().top * 10) / 10,
         kb: getComputedStyle(document.documentElement).getPropertyValue('--kb').trim(),
         corpo: Math.round(document.body.getBoundingClientRect().height),
-        campo: Math.round(el.getBoundingClientRect().bottom * 10) / 10,
+        campo: Math.round(er.bottom * 10) / 10,
+        // O CAMPO MAIS ALTO QUE O ESPAÇO LIVRE (a lista de nomes do Sorteio, cinco
+        // linhas): o `revelarCampo` o leva até o TOPO do scroller e não além, e o
+        // que tem de estar acima do teclado é a linha do cursor — a primeira, depois
+        // de digitar "12". É ela que o navegador revelaria.
+        linha1: Math.round((er.top + parseFloat(ec.borderTopWidth) + parseFloat(ec.paddingTop) + lh) * 10) / 10,
+        noTopo: sc ? er.top - sc.getBoundingClientRect().top <= 1 : false,
         fundo: f ? Math.round(document.querySelector(f).getBoundingClientRect().bottom) : null,
         folga: sc ? sc.style.paddingBottom : '',
         limite: innerHeight,
@@ -196,9 +205,10 @@ try {
     checar(rk === true && com.foco && com.barra === antes && com.kb === '0px' && com.corpo === com.tela,
       rotulo + ' · ' + campo.nome + ' · com o teclado no ar a barra de busca da Biblioteca NÃO sobe — o campo '
       + 'sobrepõe e o app por baixo não encolhe', { antes, com, r: porque(rk) });
-    checar(com.campo <= com.limite + 1,
+    checar(com.campo <= com.limite + 1 || (com.noTopo && com.linha1 <= com.limite),
       rotulo + ' · ' + campo.nome + ' · e o CAMPO fica acima do teclado: o navegador não tem o que revelar '
-      + 'rolando a tela inteira', com);
+      + 'rolando a tela inteira (o campo mais alto que o espaço livre: no topo da lista, com a linha do cursor '
+      + 'acima do teclado)', com);
     if (casca) {
       checar(com.fundo <= com.limite + 1,
         rotulo + ' · ' + campo.nome + ' · e a folha termina onde o teclado começa (`--kb-folha`): nada dela '

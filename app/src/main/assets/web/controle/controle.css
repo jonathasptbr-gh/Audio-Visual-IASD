@@ -3032,11 +3032,14 @@ main {
      (22px) deixava "Ferramentas" com 0,4px de folga a 360px · 1,3× — um pixel de
      fonte diferente no aparelho e o rótulo sai com reticências.
      O QUE PAGA É O VÃO: `--sp-3` entre ícone e rótulo. MEDIDO a 360×640 · 1,3×
-     (o pior caso comum do `geometria`): rótulo de 116px numa caixa de 118,4px. A
-     1,5× ele já cortava antes deste lote (117 em 108) e continua cortando (134 em
-     112) — reticências, nunca serra. A ALTURA NÃO MUDA (42px, o `--hit-foot`,
-     nas cinco células medidas), e é ela que a seta `#toolsFechar` copia. */
-  font-size: var(--fs-lg); font-weight: var(--fw-forte); font-family: inherit;
+     (o pior caso comum do `geometria`), com uma fonte da métrica da Arial: rótulo
+     de 116px numa caixa de 118,4px. A 1,5× ele já cortava com reticências antes
+     deste lote (117 em 108). E A LARGURA DA PALAVRA É DA FONTE DO APARELHO: com a
+     DejaVu do runner do CI ela é 134px a 1,3×. Onde não cabe, o `--porta-fs-teto` (MEDIDO por
+     `acertarLetraDasPortas`, comum às duas portas) baixa o corpo até caber — nunca
+     reticências, com o piso de 11px do `tetoQueCabe`. A ALTURA NÃO MUDA (42px, o
+     `--hit-foot`), e é ela que a seta `#toolsFechar` copia. */
+  font-size: min(var(--porta-fs-teto, 99rem), var(--fs-lg)); font-weight: var(--fw-forte); font-family: inherit;
   cursor: pointer; appearance: none; -webkit-appearance: none;
 }
 .tools-btn svg, .lib-foot-btn svg { flex-shrink: 0; }
