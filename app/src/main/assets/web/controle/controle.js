@@ -436,7 +436,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.9';
+const WEB_VERSION = '1.13.10';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -2923,74 +2923,56 @@ function renderRecolherBtn() {
 }
 
 /**
- * A LINHA ÚNICA DA PRÉVIA RECOLHIDA CABE? (v1.11.17)
- *
- * Recolhida, a prévia põe tudo numa linha: os dois grupos laterais, a seta e, quando
- * existem, o selo de camadas e o desfazer do giro (o CSS está em `.pv-recolhida`).
- * Em tela estreita a soma passa da largura — 250px contra 211 a 240 em 360px — e a
- * linha DESCE (`pv-extras-baixo`: os dois extras numa segunda linha, o desenho de
- * antes). **A pergunta é medida, nunca declarada:** o giro tem a largura do ângulo
- * ("0°" a "270°") e o cast some no navegador, então nenhum número escrito aqui
- * valeria por mais de um aparelho.
- *
- * A SOMA É A DOS BOTÕES À VISTA (`hidden` fica de fora) contra a largura da prévia
- * menos o recuo de 2px de cada lado. A largura de um botão não depende do layout em
- * que ele está (`flex: none` e `width: var(--hit)`; o giro cresce só pelo conteúdo),
- * e a prévia não muda de LARGURA quando a classe liga ou desliga — só de altura —,
- * então decidir não realimenta a decisão. Quem a refaz é o `ResizeObserver`, que
- * enxerga a largura da prévia e cada botão (um `hidden` que cai, o ângulo que muda).
- */
-function acertarExtrasDaPrevia() {
-  if (!previewEl) return;
-  let soma = 0;
-  previewEl.querySelectorAll('.pv-fabs .pv-fab').forEach((b) => {
-    if (!b.hidden) soma += b.getBoundingClientRect().width;
-  });
-  const folga = previewEl.clientWidth - 4;
-  previewEl.classList.toggle('pv-extras-baixo', soma > folga + 0.5);
-}
-if (previewEl && typeof ResizeObserver === 'function') {
-  const roPrevia = new ResizeObserver(() => acertarExtrasDaPrevia());
-  roPrevia.observe(previewEl);
-  previewEl.querySelectorAll('.pv-fabs .pv-fab').forEach((b) => roPrevia.observe(b));
-}
-acertarExtrasDaPrevia();
-
-/**
  * O RECOLHER ANIMA (v1.11.17). Pedido do operador: *"faça uma animação para a
  * colapsação da preview, ao invés de piscar e mudar de tamanho"*.
  *
  * O ESTADO FINAL É O DE SEMPRE e vale no primeiro quadro (a classe e a geometria
  * mudam no ato, e é o estado que o oráculo e a decodificação leem); o que a
- * animação faz é DESENHAR O CAMINHO até ele, em duas peças:
+ * animação faz é DESENHAR O CAMINHO até ele:
  *  - a ALTURA da prévia, do valor medido antes ao medido depois (`height` em px dos
  *    dois lados: a prévia aberta tem a altura da proporção do telão e a recolhida a
- *    do conteúdo, e nenhuma delas é um número que se possa escrever);
- *  - cada BOTÃO, de onde estava até onde ficou, no eixo X — o que o operador vê é a
- *    seta, o selo e os dois grupos andando para a linha única. O eixo Y não precisa
- *    de movimento nenhum: o que era de cima fica a 2px do topo e o que era de baixo
- *    a 2px da base nas DUAS geometrias, e a classe `pv-animando` mantém cada um
- *    ancorado onde estava enquanto a altura corre.
+ *    de um botão do deck, e nenhuma delas é um número que se possa escrever);
+ *  - o FUNDO, a moldura e o raio da prévia, do palco à linha do deck (v1.13.10:
+ *    recolhida ela não pinta nada, e sem isto o preto sumiria no último quadro);
+ *  - cada BOTÃO, de onde estava até onde ficou, e o fundo e a cor dele — o ícone
+ *    solto vira a tecla do deck no caminho, não no fim. A classe `pv-animando` mantém
+ *    cada um ANCORADO à borda dele enquanto a altura corre (o de cima no topo, o de
+ *    baixo na base), e o deslocamento é contado a partir dessa mesma âncora: no eixo
+ *    Y a do aberto, no X a da linha (o da esquerda pela borda esquerda, o da direita
+ *    pela direita, a seta pelo centro). Contado de outra ponta, a largura que muda
+ *    (o quadrado de `--hit` virando a célula do deck) jogaria o canto para fora da
+ *    caixa no primeiro quadro.
  * As camadas (mídia, wallpaper, letra) desvanecem junto, senão sumiriam de uma vez
- * no último quadro.
+ * no último quadro. O selo de camadas e o giro não entram: recolhida eles não são
+ * desenhados (o ponto da seta os substitui).
  *
  * MEDIDA POR `getBoundingClientRect`, que já leva em conta a animação em curso: um
  * segundo toque no meio do movimento parte de onde a prévia está, não de onde ela
  * ia chegar (`cancelarAnimacaoDaPrevia` é chamada ENTRE as duas medidas, de
  * propósito: a de antes enxerga a animação, a de depois não).
  *
- * `semMovimento()` e a tela cheia ficam sem animação; o fallback `pv-extras-baixo`
- * anima só a altura e o desvanecer (a segunda linha mexeria o eixo Y de todos).
+ * `semMovimento()` e a tela cheia ficam sem animação.
  */
 let pvAnimacoes = [];
 function medirPrevia() {
   if (!previewEl) return null;
   const pr = previewEl.getBoundingClientRect();
-  const x = new Map();
+  const cs = getComputedStyle(previewEl);
+  const fabs = new Map();
   previewEl.querySelectorAll('.pv-fabs .pv-fab').forEach((b) => {
-    if (!b.hidden) x.set(b, b.getBoundingClientRect().left - pr.left);
+    const r = b.getBoundingClientRect();
+    if (b.hidden || !r.width) return;
+    const bs = getComputedStyle(b);
+    fabs.set(b, {
+      l: r.left - pr.left, xr: pr.right - r.right, cx: r.left + r.width / 2 - pr.left,
+      t: r.top - pr.top, yb: pr.bottom - r.bottom, baixo: r.top + r.height / 2 > pr.top + pr.height / 2,
+      fundo: bs.backgroundColor, cor: bs.color,
+    });
   });
-  return { h: pr.height, x };
+  return {
+    w: pr.width, h: pr.height, fabs,
+    caixa: { backgroundColor: cs.backgroundColor, boxShadow: cs.boxShadow, borderRadius: cs.borderRadius },
+  };
 }
 function cancelarAnimacaoDaPrevia() {
   const em = pvAnimacoes;
@@ -3007,17 +2989,27 @@ function animarRecolhimentoDaPrevia(antes) {
   const opts = { duration: ms, easing: ACC_EASE };
   const recolhendo = depois.h < antes.h;
   previewEl.classList.add('pv-animando');
-  const anims = [previewEl.animate([{ height: antes.h + 'px' }, { height: depois.h + 'px' }], opts)];
+  const anims = [previewEl.animate([
+    { height: antes.h + 'px', ...antes.caixa },
+    { height: depois.h + 'px', ...depois.caixa },
+  ], opts)];
   previewEl.querySelectorAll('.pv-layer, .pv-wall').forEach((c) => {
     anims.push(c.animate(recolhendo ? [{ opacity: 1 }, { opacity: 0 }] : [{ opacity: 0 }, { opacity: 1 }], opts));
   });
-  if (!previewEl.classList.contains('pv-extras-baixo')) {
-    depois.x.forEach((nx, b) => {
-      const ox = antes.x.get(b);
-      if (ox == null || Math.abs(ox - nx) < 0.5) return;
-      anims.push(b.animate([{ transform: 'translateX(' + (ox - nx) + 'px)' }, { transform: 'translateX(0)' }], opts));
-    });
-  }
+  const aberta = recolhendo ? antes : depois;
+  const linha = recolhendo ? depois : antes;
+  depois.fabs.forEach((n, b) => {
+    const o = antes.fabs.get(b);
+    const ab = aberta.fabs.get(b), li = linha.fabs.get(b);
+    if (!o || !ab || !li) return;
+    const lado = li.cx - linha.w / 2;
+    const dx = lado < -1 ? o.l - n.l : lado > 1 ? n.xr - o.xr : o.cx - n.cx;
+    const dy = ab.baixo ? n.yb - o.yb : o.t - n.t;
+    anims.push(b.animate([
+      { transform: 'translate(' + dx + 'px, ' + dy + 'px)', backgroundColor: o.fundo, color: o.cor },
+      { transform: 'translate(0, 0)', backgroundColor: n.fundo, color: n.cor },
+    ], opts));
+  });
   pvAnimacoes = anims;
   Promise.all(anims.map((a) => a.finished.catch(() => {}))).then(() => {
     if (pvAnimacoes === anims) { pvAnimacoes = []; previewEl.classList.remove('pv-animando'); }
@@ -11780,7 +11772,7 @@ function alternarAcoesDaLinha(li) {
  * vai da borda do cartão ao `⋮` (`.acoes-cheias`), a capa sai de vista, e os botões se
  * DISTRIBUEM pela largura toda (`space-between`), em vez de se amontoarem à direita.
  *
- * É MEDIDO, nunca um ponto de quebra (a régua do `acertarExtrasDaPrevia`): a SOMA das
+ * É MEDIDO, nunca um ponto de quebra: a SOMA das
  * larguras dos botões à vista, mais os vãos, contra o vão de layout entre a capa e a
  * borda direita da caixa. O que decide é o número de botões (de dois a sete, conforme o
  * item), a fonte do sistema e a largura da tela — três eixos que um `@media` não vê.

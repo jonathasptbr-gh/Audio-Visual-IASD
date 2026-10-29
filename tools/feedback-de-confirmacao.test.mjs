@@ -239,6 +239,10 @@ try {
     // vermelho ("o toque desconecta"), e o operador o pediu verde — *"o vermelho
     // indica algo desativado e não conectado"*. Estado, não desfecho.
     '.pv-fab.connected',
+    // O MESMO CAST NA PRÉVIA RECOLHIDA (v1.13.10): ela vira uma linha do deck, e a
+    // "TV no ar" passa a ser superfície (`--ok-fill` + `--ok`), como no vizinho
+    // da folha de conexão. Estado, não desfecho.
+    '.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) .pv-fab.connected',
   ];
   const sobrando = consumidores.filter((c) => !ESPERADOS.includes(c));
   checar(sobrando.length === 0,
