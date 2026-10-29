@@ -2176,14 +2176,40 @@ sob o dedo); o que age sobre UMA linha se resolve onde a linha está.
 
 ### Deslocamento com o teclado virtual
 
-Para o teclado não cobrir listas/preview: o meta viewport declara
-`interactive-widget=resizes-content` (o navegador encolhe o layout ao abrir o
-teclado). Como fallback (navegadores que não honram o hint), um handler de
+O meta viewport declara `interactive-widget=resizes-content` (o navegador encolhe
+o layout ao abrir o teclado). Onde o hint não é honrado — o WebView em
+edge-to-edge do Android 15+, o aparelho do operador —, um handler de
 **VisualViewport** (`keyboardShift()` em `controle.js`) mede a altura coberta
-pelo teclado (`innerHeight - vv.height - vv.offsetTop`) e escreve em `--kb`, que
-`body { height: calc(100svh - var(--kb)) }` (controle.css) usa para encolher o
-app pra cima. Quando o layout já é redimensionado pelo navegador (ou o teclado
-está fechado), a conta dá ~0 e nada muda — os dois mecanismos convivem.
+pelo teclado (`innerHeight - vv.height - vv.offsetTop`) e escreve DUAS medidas:
+`--kb-folha` (o teclado inteiro, sempre) e `--kb`, que
+`body { height: calc(100svh - var(--kb)) }` usa para encolher o app pra cima.
+
+**O TECLADO SOBREPÕE: O PADRÃO DO APP** (v1.13.7, invertendo a regra da v1.4.29).
+`--kb` é ZERO para todo campo, e só quem declara `data-teclado="desloca"` o recebe.
+Relato que a inverteu: *"o problema da caixa de texto da biblioteca subindo e
+descendo em todas as interações de texto do app persiste… edição do nome
+cronograma… edição de nome dos itens no cronograma"* — com `--kb` escrito, a caixa
+de controles (e a barra da Biblioteca que repousa nela) sobe com o teclado e desce
+quando o campo perde o foco; três lotes declararam `sobrepoe` campo a campo, e o
+padrão continuava deslocando para o resto. O que cada forma de campo faz:
+
+| forma | quem põe o campo acima do teclado |
+|---|---|
+| folha do teto (`#fadePopup`, `#sorteioPopup`, `#itinPopup`) | a folha desconta `--kb-folha`; a lista dela rola dentro do que sobra |
+| diálogo centrado (`appPrompt`: renomear cronograma/itinerário, nova mensagem, guardar pacote, renomear a seleção) | `.dialog-backdrop` desconta `--kb-folha`, e o cartão centra no que sobra acima do teclado |
+| campo no corpo de uma lista (o renomear da faixa no Cronograma e nos Favoritos, as legendas do Tempo, os campos do Sorteio) | `revelarCampo`: rola o scroller do campo até 12px acima do teclado e, sem curso (a última linha), dá a ele um `padding-bottom` provisório, desfeito quando o teclado desce |
+| **a EXCEÇÃO: a busca da Biblioteca** (`#hymnSearchInput`, `data-teclado="desloca"`) | o app encolhe: a lista termina onde o teclado começa (`body.lib-aberta.teclado`) e, no Modo Fácil, as teclas saem ("DURANTE UMA BUSCA AS TECLAS SAEM"). A barra sobe porque ela É o campo |
+
+**POR QUE O CAMPO NÃO PODE FICAR SOB O TECLADO, mesmo sobrepondo:** o navegador
+revela um campo coberto rolando a viewport VISUAL (`vv.offsetTop`), e isso arrasta
+a tela INTEIRA para cima — a barra subindo e descendo por outro caminho. É por isso
+que o renomear da faixa, marcado `sobrepoe` desde a v1.4.29, ainda se movia no
+aparelho. Se o navegador chegar antes do `revelarCampo`, `scrollTo(0, 0)` devolve a
+viewport visual (a raiz não rola e o zoom é travado); essa metade só é medida no
+modelo do oráculo. Campo novo nasce SEM marca nenhuma; a exceção nova entra com
+`desloca`, a razão ao lado e o nome na lista `EXCECOES` do `teclado-das-folhas`.
+Onde o hint é honrado quem encolhe é o próprio navegador, e não há daqui como
+impedir.
 O **Enter** do campo da Biblioteca (`enterkeyhint="search"`) tira o foco e assim fecha o teclado
 sem apagar a busca (v1.12.51; ver "DURANTE UMA BUSCA AS TECLAS SAEM").
 
@@ -3978,11 +4004,21 @@ Ferramentas é a da LISTA dela (ver "A LISTA DAS FERRAMENTAS").
 
 **Ícone À ESQUERDA do rótulo** (v1.13.5): *"ajuste para que o icone fique a
 esquerda dos titulos dos dois botões"*. Os dois são UM grupo centrado na porta
-(`flex-direction: row`, `justify-content: center`, `gap: --sp-4`). A pilha de antes
+(`flex-direction: row`, `justify-content: center`, `gap: --sp-3` desde a v1.13.7). A pilha de antes
 (ícone em cima, a do `.qs-tile`) existia pela largura de UM TERÇO — MEDIDO em 360px,
 três rótulos em linha não cabiam; numa METADE cabem (de 320 a 430px, o 9-H do
 `ferramentas-folha`). As alturas (`--hit-foot`), a tinta (`--surface-porta` +
 `--accent`) e a sombra (`acertarSombraDasPortas`, `.livre`) não mudaram.
+
+**O RÓTULO TEM PRESENÇA** (v1.13.7): *"agora que temos mais espaço para os dois
+botões de biblia e ferramentas, verifique se conseguimos aumentar a fonte ou ao menos
+colocar elas em negrito … sinto que eles estão com pouca presença"*. As duas coisas:
+`--fs-lg` (era `--fs-md`; 13,12 → 14,4px a 1×) e `--fw-forte` (o peso de botão da
+escala). O que paga a largura é o vão (`--sp-3`, era `--sp-4`), e o ícone fica em
+`--icon-sm`: o degrau a mais deixava "Ferramentas" com 0,4px de folga a 360px · 1,3×.
+MEDIDO ("Ferramentas" / a caixa dele, a altura): 430×900 89/89, 42px; 360×640 89/89,
+42px; 360×640 · 1,25× 111/111, 42px; 360×640 · 1,3× 116 em 118,4, 42px. A 1,5× ele
+já cortava com reticências antes e continua. Oráculo: `portas-presenca`.
 
 **Com a folha aberta na LISTA, a porta de Ferramentas vira SETA** (v1.13.6): a folha
 cobre a porta, e no retângulo exato dela mora o `#toolsFechar`, que fecha a folha —
@@ -5503,7 +5539,9 @@ seguir a viewport visual (para a barra do topo não sair pela borda); com a barr
 no topo e o cabeçalho fora, quem rola é a LISTA e a folha inteira encolhendo e
 subindo era só efeito colateral. **O `.dialog-backdrop` FICA com a conta**, e a
 diferença é a razão dela: o `appPrompt` é um cartão CENTRADO com campo de texto,
-e ali a metade de baixo é onde o teclado sobe.
+e ali a metade de baixo é onde o teclado sobe. (Desde a v1.13.7 a conta dele é
+`--kb-folha`, e não `--kb`: o cartão sobe e o app por baixo fica — ver
+"Deslocamento com o teclado virtual".)
 
 **A ROLAGEM PARA DENTRO DA LISTA.** A estrutura sempre esteve certa (rolar
 `#hymnResults` 116px não move um pixel da barra); o que se mexe no APARELHO é a
@@ -6625,12 +6663,12 @@ primeiro era garantir que um dos dois esquecesse uma das cinco coisas.
   lá o vizinho é o confirmar da folha, que estica, e o campo entrou na regra da
   v5.309 (`.fav-acoes > .linha-confirma > …`) para a gaveta não dar o pulo de
   19px sob o dedo.
-- **O TECLADO SOBREPÕE, não desloca** (v1.4.29): o campo declara
-  `data-teclado="sobrepoe"` e o `keyboardShift` deixa de descontar `--kb` por
-  ele. É a régua que o `.popup-backdrop` já escrevia para a Biblioteca — *quem
-  rola é a LISTA* —, e aqui o que o app encolhia para caber era a preview e o
-  transporte. O padrão continua sendo deslocar, que é o que o `appPrompt`
-  precisa.
+- **O TECLADO SOBREPÕE, não desloca** (v1.4.29; o padrão do app inteiro desde a
+  v1.13.7, sem marca nenhuma no campo). É a régua que o `.popup-backdrop` já
+  escrevia para a Biblioteca — *quem rola é a LISTA* —, e aqui o que o app
+  encolhia para caber era a preview e o transporte. Quem põe o campo acima do
+  teclado é o `revelarCampo`, rolando a lista (ver "Deslocamento com o teclado
+  virtual").
 - **A capa saiu de cena na v1.4.27**, junto com o `⋮` — ver a seção acima. Até
   lá ela ficava intocada aqui (ao contrário da exclusão, que a virava lixeira),
   com o argumento de continuar dizendo de qual item era o campo.

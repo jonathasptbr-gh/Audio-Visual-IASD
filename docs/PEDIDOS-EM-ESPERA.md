@@ -15,9 +15,10 @@ Contexto da entrega: base web **v1.13.3** em `main` (28b7e5dd), APK v1.12.46,
 O operador pediu economia: *"não temos tokens então toda ação deve ser fracionada
 e controlada"* — um pacote por vez, cada um com o rito de entrega completo.
 
-**Ordem recomendada ao operador:** 2 → 1 → 3 → 5, e o 6 (pesquisa) por
+**Ordem recomendada ao operador:** 1 → 3 → 5, e o 6 (pesquisa) por
 último. (O Pacote 4 — a lista vertical das Ferramentas e o nome do itinerário no
-título da folha — saiu na v1.13.4.)
+título da folha — saiu na v1.13.4; o Pacote 2 — o teclado sobrepondo em todo
+campo de texto — na v1.13.7.)
 
 ---
 
@@ -29,27 +30,6 @@ título da folha — saiu na v1.13.4.)
 | 09:24 | *"Verifique as mensagens duplicadas no processo de conectar a um computador, quando o aparelho não está conectado a nenhuma rede wifi…"* | folha de conexão do telão por comandos (`docs/TELAO-POR-COMANDOS.md`). Sem Wi-Fi cliente e sem ponto de acesso, duas frases dizem a mesma coisa. Achar as duas fontes e deixar UMA |
 | 10:38 | *"A alteração entre slides dos textos bíblicos está muito instantânea… mais suave… ligeiramente mais devagar."* | a troca de estrofe/slide da Bíblia na Camada de Texto (`docs/arquitetura/CAMADA-DE-TEXTO.md`). Dar uma transição curta (cruzamento de opacidade) mais lenta que a atual; respeitar `prefers-reduced-motion`. Conferir se a letra de música usa o mesmo caminho antes de mudar — o pedido é da BÍBLIA |
 | 09:22 | *"Ao tentar escolher o momento de um vídeo… deslizando a barra de progresso… o vídeo no computador conectado via navegador, apenas reinicia, mas não pula realmente para o ponto."* | tela da rede (papel `tela`), mídia por `/m/<token>` com `Range` RFC 7233 (`EspelhoHttp.alcanceDe`). "Reinicia" sugere: (a) o `seek` chega mas o `<video>` não tem a faixa servível (resposta 200 em vez de 206 → o navegador recomeça), ou (b) item ainda EM CRESCIMENTO servido em chunked, que não é buscável. Se (a) for no Kotlin, o pacote deixa de ser só web — **medir antes de prometer**. Reproduzir no `tela-rede.test.mjs` |
-
-## Pacote 2 — O teclado em todo campo de texto (só web)
-
-| hora | pedido |
-|---|---|
-| 09:36 | *"O problema da caixa de texto da biblioteca subindo e descendo em todas as Interações de texto do app persiste… edição do nome cronograma… edição de nome dos itens no cronograma… se movendo por causa do teclado."* |
-
-**Sobreposição com o que já existe:** a v1.13.2 e a v1.13.3 consertaram isto
-CAMPO A CAMPO (`#itinPopup`, `#sorteioPopup`, `#fadePopup`, os campos De/Até do
-sorteio) com o par `data-teclado="sobrepoe"` (o `--kb` fica 0 e o corpo não
-encolhe) + `--kb-folha` (a folha desconta o teclado inteiro, escrito por
-`keyboardShift`). O operador relata que o defeito PERSISTE nos outros campos —
-renomear cronograma (gaveta `#cronoGaveta`), renomear item do Cronograma, e
-provavelmente todo `input`/`textarea` fora das folhas já tratadas.
-
-**O pacote é inverter a regra, não acrescentar mais campos:** o padrão do app
-passa a ser SOBREPOR, e o encolhimento do corpo vira a exceção nomeada (o campo
-da própria Biblioteca, que precisa subir com o teclado). Uma varredura de todo
-campo de texto do `controle/index.html` e dos renders dinâmicos decide a lista.
-Oráculo: estender o `teclado-das-folhas.test.mjs` para varrer TODO campo
-editável e afirmar que a barra de busca não se move; reversão obrigatória.
 
 ## Pacote 3 — A linha de controles do Modo Fácil (só web)
 
@@ -101,5 +81,3 @@ resolvido). Ver `docs/recursos/SERIES.md`.
   operador dizer se quer (a).**
 - **Varrer a sobra de ~24 MB do cache do YouTube no shell** — Kotlin; entra
   num lote que já precise de Release, nunca sozinho.
-- **O campo de nome do Editar mídia** recebeu o conserto do teclado sem
-  asserção própria — o Pacote 2 a cobre.

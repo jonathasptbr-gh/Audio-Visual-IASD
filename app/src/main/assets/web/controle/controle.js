@@ -439,7 +439,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.6';
+const WEB_VERSION = '1.13.7';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -8554,10 +8554,10 @@ function renderChrono() {
 
   // ---- Sublinha do telão ----
   // O rótulo mora DENTRO da caixa desde a v1.9.1, e o campo é o MESMO do
-  // Sorteio — ver `campoDeLegenda`. O relato que trouxe o `teclado: sobrepoe`
-  // para cá continua valendo, e agora vale nos dois de uma vez: *"ao tocar em
-  // digitar uma legenda… o teclado sobe, mas ele também leva o controle todo
-  // visível, o que espreme a janela das ferramentas"*.
+  // Sorteio — ver `campoDeLegenda`. (O relato que trouxe o teclado sobrepondo
+  // para cá, *"ao tocar em digitar uma legenda… o teclado sobe, mas ele também
+  // leva o controle todo visível"*, virou a regra do app inteiro na v1.13.7 —
+  // ver `keyboardShift`.)
   host.appendChild(campoDeLegenda(chrono.label, (v) => {
     chrono.label = v;
     saveChronoPrefs();
@@ -9602,10 +9602,8 @@ function abrirItinEditor(id) {
   titulo.value = x ? x.titulo : '';
   titulo.setAttribute('aria-label', 'Título');
   titulo.enterKeyHint = 'done';
-  // O TECLADO SOBREPÕE O APP (v1.13.2): a folha se põe acima dele sozinha
-  // (`--kb-folha`), e o app por baixo não encolhe — sem isto a barra de busca da
-  // Biblioteca subia com o teclado e descia no confirmar (ver `keyboardShift`).
-  titulo.dataset.teclado = 'sobrepoe';
+  // (O teclado SOBREPÕE — o padrão do app desde a v1.13.7, ver `keyboardShift`;
+  //  a folha se põe acima dele sozinha, por `--kb-folha`.)
   itinPopupCorpoEl.appendChild(titulo);
 
   // O CONFIRMAR É O DA FAIXA DE FECHO das folhas (`song-menu-go`), sempre à
@@ -10085,10 +10083,6 @@ function renderDraw() {
       const i = document.createElement('input');
       i.type = 'number'; i.inputMode = 'numeric'; i.className = 'misc-num';
       i.enterKeyHint = 'done';
-      // O TECLADO SOBREPÕE (v1.13.3) — ver `keyboardShift`. Estes dois eram os únicos
-      // campos da folha sem a declaração: o teclado encolhia o app e a caixa de
-      // controles, com a barra da Biblioteca, subia com ele e descia no confirmar.
-      i.dataset.teclado = 'sobrepoe';
       i.value = String(val);
       i.addEventListener('change', () => fn(parseInt(i.value, 10)));
       wrap.appendChild(sp); wrap.appendChild(i);
@@ -10112,7 +10106,6 @@ function renderDraw() {
     ta.className = 'draw-pool'; ta.rows = 5;
     ta.placeholder = 'Uma opção por linha\nEx.:\nMaria\nJoão\nAna';
     ta.setAttribute('aria-label', 'Opções a sortear, uma por linha');
-    ta.dataset.teclado = 'sobrepoe';   // ver a legenda do Tempo
     ta.value = draw.pool.join('\n');
     // `change` (e não `input`): reprojetar/repersistir a cada tecla escreveria
     // no IDB dezenas de vezes enquanto o operador ainda digita a lista.
@@ -10216,8 +10209,6 @@ function campoDeLegenda(valor, aoMudar) {
   inp.title = 'Sublinha do cartão no telão';
   inp.maxLength = 60;
   inp.value = valor;
-  // O TECLADO SOBREPÕE, NÃO ENCOLHE (v1.8.94) — ver `keyboardShift`.
-  inp.dataset.teclado = 'sobrepoe';
   inp.addEventListener('change', () => aoMudar(inp.value.trim()));
   row.appendChild(inp);
   return row;
@@ -12175,10 +12166,10 @@ function pedirRenomearNaLinha(botao, item, aoGravar) {
   campo.autocapitalize = 'off';
   campo.autocomplete = 'off';
   campo.spellcheck = false;
-  // O TECLADO SOBREPÕE (v1.4.29) — ver `keyboardShift`. Este campo vive DENTRO
-  // da lista, que rola sozinha; encolher o app para revelá-lo comprime a
-  // preview e o transporte, que é o que o operador está olhando.
-  campo.dataset.teclado = 'sobrepoe';
+  // (O teclado SOBREPÕE — o padrão do app desde a v1.13.7, ver `keyboardShift`.
+  //  Este campo vive DENTRO da lista: quem o põe acima do teclado é o
+  //  `revelarCampo`, rolando a lista, e não o app encolhendo a preview e o
+  //  transporte, que é o que o operador está olhando.)
 
   // O CAMPO É O ÚNICO FILHO DA FAIXA — o ✓ já foi para a coluna do `⋮`.
   // `prepend` e não `append`: no CAMINHO B o ✓ já está aqui dentro (o `semSlot`
@@ -29287,12 +29278,8 @@ function renderSorteio() {
   inp.placeholder = 'Palavra tema';
   inp.value = sorteioPrefs.tema;
   inp.setAttribute('aria-label', 'Palavra tema');
-  // O TECLADO SOBREPÕE (v1.13.3) — a causa da v1.13.2 no `#itinPopup`, nesta folha:
-  // sem a declaração o `keyboardShift` escrevia o teclado em `--kb`, que encolhe o
-  // `<body>`, e a barra de busca da Biblioteca (que repousa na caixa de controles)
-  // subia com ele e descia quando o campo perdia o foco. Quem desconta o teclado é a
-  // própria folha, por `--kb-folha` (ver `#sorteioPopup` no CSS).
-  inp.dataset.teclado = 'sobrepoe';
+  // (O teclado SOBREPÕE — o padrão do app desde a v1.13.7, ver `keyboardShift`;
+  //  quem desconta o teclado é a própria folha, por `--kb-folha`.)
   // A PALAVRA É ASSINADA NA HORA; SÓ A CONTA ESPERA.
   //
   // O `debounce` cobria a atribuição TAMBÉM, e isso era um defeito latente:
@@ -42634,8 +42621,6 @@ function renderEdicaoForm() {
   const campo = document.createElement('div'); campo.className = 'sorteio-campo edicao-nome';
   const inp = document.createElement('input');
   inp.type = 'text'; inp.className = 'lib-search'; inp.maxLength = 120; inp.autocomplete = 'off';
-  // O TECLADO SOBREPÕE (v1.13.3) — ver o `#edicaoBusca` e o `#fadePopup` no CSS.
-  inp.dataset.teclado = 'sobrepoe';
   inp.value = v.nome; inp.setAttribute('aria-label', edicaoEditandoId ? 'Nome do item' : 'Nome do item novo');
   inp.addEventListener('input', () => { edicaoVals.nome = inp.value; edicaoSalvarLogo(); });
   campo.appendChild(inp);
@@ -43624,24 +43609,34 @@ window.addEventListener('resize', () => {
     const t = (a.tagName || '').toLowerCase();
     return t === 'input' || t === 'textarea' || a.isContentEditable === true;
   };
-  // ===== E HÁ CAMPO QUE PEDE O TECLADO POR CIMA, NÃO O APP ENCOLHIDO =====
+  // ===== O TECLADO SOBREPÕE: O PADRÃO DO APP (v1.13.7; exceção desde a v1.4.29) =====
   //
-  // Relato do operador, sobre o renomear na linha: *"o teclado está arrastando
-  // e encolhendo a tela com o controle ao invés de sobrepor o controle/tela
-  // como já faz na biblioteca"*.
+  // Relato do operador, depois de três lotes consertando campo a campo: *"o
+  // problema da caixa de texto da biblioteca subindo e descendo em todas as
+  // interações de texto do app persiste… edição do nome cronograma… edição de
+  // nome dos itens no cronograma… se movendo por causa do teclado"*. Com `--kb`
+  // escrito, o `<body>` encolhe e a caixa de controles — com a barra de busca da
+  // Biblioteca repousando nela — SOBE com o teclado e DESCE quando o campo perde
+  // o foco. A v1.4.29 declarou `sobrepoe` no renomear da linha, a v1.13.2 no
+  // título do itinerário, a v1.13.3 em mais quatro; o resto (o `appPrompt` de
+  // renomear o cronograma e o itinerário, a nova mensagem, o guardar pacote)
+  // continuava deslocando, porque o PADRÃO era deslocar.
   //
-  // A régua já estava escrita — no `.popup-backdrop` do CSS, para a Biblioteca:
-  // *"O TECLADO SOBREPÕE, NÃO DESLOCA… nada aqui embaixo precisa ser revelado e
-  // quem rola é a LISTA"*. Ela vale igual aqui, e por um motivo a mais: o que o
-  // app encolhe para caber é justamente a PREVIEW e o TRANSPORTE, isto é, a
-  // projeção e os controles do culto — comprimidos para revelar um campo que
-  // já está à vista, dentro de uma lista que rola sozinha.
+  // A REGRA INVERTEU: todo campo sobrepõe, e quem precisa do app encolhido o
+  // DECLARA (`data-teclado="desloca"`). A exceção é UMA, e tem nome: o campo da
+  // BIBLIOTECA (`#hymnSearchInput`). Ele é a cabeça de uma janela de tela cheia
+  // cuja LISTA tem de terminar onde o teclado começa — é por `--kb` que a caixa
+  // de controles sai de cena (`body.lib-aberta.teclado`), que a janela para no
+  // teclado e que o Modo Fácil recolhe as teclas ("DURANTE UMA BUSCA AS TECLAS
+  // SAEM"). Ali a barra SOBE com o teclado de propósito: ela é o campo.
   //
-  // A DECLARAÇÃO É DO CAMPO (`data-teclado="sobrepoe"`), não uma classe que
-  // este handler conheça: o próximo campo que nascer dentro de uma lista já diz
-  // o que quer, sem ninguém precisar voltar aqui. O padrão continua sendo
-  // DESLOCAR — é o que o `appPrompt` precisa, um cartão CENTRADO cuja metade de
-  // baixo é exatamente onde o teclado sobe.
+  // O que cada forma de campo faz no lugar do encolhimento:
+  //  · FOLHA DO TETO (`#fadePopup`, `#sorteioPopup`, `#itinPopup`): desconta
+  //    `--kb-folha`, e a lista dela rola dentro do que sobra;
+  //  · DIÁLOGO CENTRADO (`appPrompt`): o `.dialog-backdrop` desconta
+  //    `--kb-folha` e o cartão centra no que sobra acima do teclado;
+  //  · CAMPO NO CORPO DE UMA LISTA (o renomear da linha, os campos de
+  //    Ferramentas): `revelarCampo`, abaixo.
   //
   // O QUE ISTO ALCANÇA, dito: só o mundo em que o hint
   // `interactive-widget=resizes-content` é IGNORADO — a viewport de LAYOUT não
@@ -43649,9 +43644,66 @@ window.addEventListener('resize', () => {
   // do Android 15+, o aparelho do operador. Onde o hint é HONRADO quem encolhe
   // é o próprio navegador (o `100svh` do `body` passa a valer menos) e não há
   // daqui como impedir.
-  const campoSobrepoe = () => {
+  const campoDesloca = () => {
     const a = document.activeElement;
-    return !!a && !!a.dataset && a.dataset.teclado === 'sobrepoe';
+    return !!a && !!a.dataset && a.dataset.teclado === 'desloca';
+  };
+  // ===== O CAMPO NÃO FICA ATRÁS DO TECLADO (v1.13.7) =====
+  //
+  // Sem o app encolhendo, um campo na METADE DE BAIXO de uma lista (o renomear
+  // da penúltima linha do Cronograma, a legenda do Timer) fica sob o teclado. O
+  // navegador então REVELA o campo rolando a viewport VISUAL (`vv.offsetTop`), e
+  // isso arrasta a tela INTEIRA para cima — a mesma barra subindo e descendo,
+  // por outro caminho. A resposta é revelar ANTES, e pelo scroller do campo: ele
+  // rola até o campo ficar acima do teclado, e onde falta curso (a última linha)
+  // ganha um `padding-bottom` provisório, desfeito quando o teclado desce. O
+  // `<body>`, a caixa de controles e a barra não se mexem.
+  //
+  // E SE O NAVEGADOR JÁ TIVER ROLADO a viewport visual (ele pode chegar antes
+  // deste quadro), `scrollTo(0, 0)` a devolve: a raiz não rola (`body {
+  // overflow: hidden }`, zoom travado no meta viewport), então o único
+  // deslocamento que ela tem é o do teclado. MEDIDO só no modelo do oráculo
+  // (Chromium de mesa não tem teclado virtual); o aparelho é quem confirma.
+  const REVELA_FOLGA = 12;
+  let folga = null;   // { el, antes } — o scroller que ganhou curso e o `padding-bottom` dele
+  const desfazerFolga = () => {
+    if (!folga) return;
+    folga.el.style.paddingBottom = folga.antes;
+    folga = null;
+  };
+  const scrollerDe = (el) => {
+    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+      const oy = getComputedStyle(p).overflowY;
+      if (oy === 'auto' || oy === 'scroll') return p;
+    }
+    return null;
+  };
+  const revelarCampo = (teclado) => {
+    const a = document.activeElement;
+    const eCampo = teclado > 0 && temCampoEmFoco() && !campoDesloca();
+    if (!eCampo) { desfazerFolga(); return; }
+    const s = scrollerDe(a);
+    if (folga && folga.el !== s) desfazerFolga();
+    if (!s) return;
+    const limite = Math.round(vv.height) - REVELA_FOLGA;
+    const r = a.getBoundingClientRect();
+    const falta = r.bottom - limite;
+    if (falta > 0.5) {
+      // O campo não pode passar do TOPO do scroller: um que more inteiro sob o
+      // teclado não tem o que rolar, e então é o navegador quem revela.
+      const sr = s.getBoundingClientRect();
+      const passo = Math.min(falta, r.top - sr.top);
+      if (passo > 0.5) {
+        const curso = s.scrollHeight - s.clientHeight - s.scrollTop;
+        if (curso < passo) {
+          if (!folga) folga = { el: s, antes: s.style.paddingBottom };
+          s.style.paddingBottom = 'calc(' + getComputedStyle(s).paddingBottom + ' + '
+            + Math.ceil(passo - curso) + 'px)';
+        }
+        s.scrollTop += passo;
+      }
+    }
+    if (vv.offsetTop > 0.5 && a.getBoundingClientRect().bottom <= limite + 0.5) window.scrollTo(0, 0);
   };
   const apply = () => {
     raf = 0;
@@ -43659,16 +43711,16 @@ window.addEventListener('resize', () => {
     const teclado = temCampoEmFoco()
       ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))
       : 0;
-    const kb = campoSobrepoe() ? 0 : teclado;
+    const kb = campoDesloca() ? teclado : 0;
     document.documentElement.style.setProperty('--kb', kb + 'px');
     // ===== `--kb-folha`: O TECLADO INTEIRO, MESMO QUANDO O CAMPO SOBREPÕE (v1.13.2) =====
-    // Uma FOLHA QUE DESCE DO TETO com um campo (`#itinPopup`) precisa das duas
-    // coisas ao mesmo tempo: que o app por baixo NÃO encolha (o campo declara
-    // `sobrepoe`, e `--kb` fica 0) e que ela própria termine onde o teclado
-    // começa (a faixa de fecho não pode ficar atrás dele). Com o `--kb` fazendo os
-    // dois papéis, o campo do título do itinerário encolhia o `<body>`: a caixa
-    // de controles e a barra de busca da Biblioteca SUBIAM com o teclado, e
-    // DESCIAM no confirmar, quando o campo perde o foco — o relato do operador.
+    // Uma FOLHA QUE DESCE DO TETO com um campo (`#itinPopup`) e o DIÁLOGO
+    // centrado precisam das duas coisas ao mesmo tempo: que o app por baixo NÃO
+    // encolha (o campo sobrepõe, e `--kb` fica 0) e que eles próprios terminem
+    // onde o teclado começa (a faixa de fecho e o cartão não podem ficar atrás
+    // dele). Com o `--kb` fazendo os dois papéis, o campo do título do itinerário
+    // encolhia o `<body>`: a caixa de controles e a barra de busca da Biblioteca
+    // SUBIAM com o teclado, e DESCIAM no confirmar — o relato do operador.
     document.documentElement.style.setProperty('--kb-folha', teclado + 'px');
     document.documentElement.style.setProperty('--vv-top', Math.max(0, Math.round(vv.offsetTop)) + 'px');
     // ===== E O TECLADO GANHA NOME (v1.5.6) =====
@@ -43689,6 +43741,7 @@ window.addEventListener('resize', () => {
     // lista que passou a caber, ou apagado sobre uma que passou a não caber.
     // Aqui, no mesmo ponto e no mesmo quadro em que a medida é escrita.
     pedirVeus();
+    revelarCampo(teclado);
   };
   const schedule = () => { if (!raf) raf = requestAnimationFrame(apply); };
   vv.addEventListener('resize', schedule);

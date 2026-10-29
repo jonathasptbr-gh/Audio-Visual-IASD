@@ -608,6 +608,7 @@ jobs:
           rodar tools/controles-layout.test.mjs
           rodar tools/volume-troca.test.mjs
           rodar tools/sombra-das-portas.test.mjs
+          rodar tools/portas-presenca.test.mjs
           rodar tools/cronograma-acoes-cheias.test.mjs
           rodar tools/transporte-sem-cena.test.mjs
           rodar tools/eixo-de-acao.test.mjs

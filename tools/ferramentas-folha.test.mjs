@@ -1438,14 +1438,15 @@ try {
       + 'de um lado e acendendo do outro — um piscar pior que o que a animação '
       + 'veio consertar', JSON.stringify(rolagem));
 
-    // O TECLADO SOBREPÕE, NÃO ENCOLHE — relato do operador. A DECLARAÇÃO é do
-    // campo; quem a lê é o `keyboardShift`, e a marca sem leitor já reprova no
-    // `funcao-sem-chamador`.
+    // O TECLADO SOBREPÕE, NÃO ENCOLHE — relato do operador. Desde a v1.13.7 é o
+    // PADRÃO do app (ver `keyboardShift`), e o que se cobra aqui é a AUSÊNCIA da
+    // exceção `desloca`: o percurso inteiro de cada campo mora no
+    // `teclado-das-folhas.test.mjs`.
     const teclado = await pg.evaluate(() => {
-      const q = (sel) => { const e = document.querySelector(sel); return e && e.dataset.teclado; };
+      const q = (sel) => { const e = document.querySelector(sel); return e ? (e.dataset.teclado || '') : null; };
       return { legenda: q('.misc-panel .misc-text') };
     });
-    checar(teclado.legenda === 'sobrepoe',
+    checar(teclado.legenda !== null && teclado.legenda !== 'desloca',
       'K · o campo de legenda pede o teclado POR CIMA: encolher o app para revelar '
       + 'um campo que já está à vista comprime a preview, o transporte e a própria '
       + 'roleta — que se mede pelo que sobra', JSON.stringify(teclado));
@@ -2471,7 +2472,7 @@ try {
         + 'leitura cobrada de todo mundo para servir ninguém. A igualdade é exata '
         + 'porque um `startsWith` aprovaria o exemplo de volta',
         JSON.stringify(r.marcador));
-      checar(!!r.nome && r.teclado === 'sobrepoe',
+      checar(!!r.nome && r.teclado !== 'desloca',
         'N · e o `aria-label` devolve o nome que o `<span>` dava, com o teclado '
         + 'SOBREPONDO como antes (' + onde + ')', JSON.stringify(r));
     }
