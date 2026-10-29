@@ -1162,7 +1162,7 @@ equipe saberem em que momento estão e o que vem a seguir.
   subtítulo; reconstruir o painel fecharia a faixa de ações debaixo do dedo.
 - **ADICIONAR E EDITAR SÃO UMA FOLHA** (`#itinPopup`, `abrirItinEditor`), que
   desce do teto e termina onde o teclado começa. **O CAMPO DO TÍTULO SOBREPÕE**
-  (`data-teclado="sobrepoe"`, v1.13.2) e a folha desconta `--kb-folha` — o teclado
+  (v1.13.2; desde a v1.13.7 o padrão de todo campo, ver `keyboardShift`) e a folha desconta `--kb-folha` — o teclado
   inteiro, que o `keyboardShift` escreve no mesmo quadro do `--kb`. Com o `--kb`
   fazendo os dois papéis, o campo encolhia o `<body>`: a barra de busca da
   Biblioteca subia com o teclado e descia no confirmar (o relato). As

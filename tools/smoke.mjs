@@ -6192,9 +6192,12 @@ try {
 // o hint é honrado quem encolhe é o navegador, e não há daqui como impedir.
 //
 // DUAS METADES, e a segunda é a que impede a correção de virar um defeito
-// maior: o campo MARCADO não encolhe o app, e um campo SEM a marca continua
-// encolhendo — o `appPrompt` é um cartão CENTRADO, e ali a metade de baixo é
-// exatamente onde o teclado sobe.
+// maior. Desde a v1.13.7 sobrepor é o PADRÃO do app (ver `keyboardShift`): o
+// renomear e o `appPrompt` (que DESLOCAVA até ali, e por isso a barra da
+// Biblioteca subia ao renomear um cronograma) não encolhem o app — e a EXCEÇÃO
+// nomeada, o campo da Biblioteca (`data-teclado="desloca"`), continua
+// encolhendo. Sem esta metade, desligar o mecanismo inteiro passaria. O
+// percurso de TODO campo do app mora no `teclado-das-folhas.test.mjs`.
 try {
   const tec = await pg.evaluate(async () => {
     const alturaDoBody = () => Math.round(document.body.getBoundingClientRect().height);
@@ -6223,8 +6226,8 @@ try {
     fecharConfirmacaoNaLinha();
     fecharAcoesDaLinha();
     await new Promise((f) => setTimeout(f, 200));
-    // ---- A METADE DE CONTRASTE: o `appPrompt` continua DESLOCANDO ----
-    appPrompt({ title: 'Medição', message: 'campo sem a marca' });
+    // ---- O `appPrompt` também SOBREPÕE (v1.13.7) ----
+    appPrompt({ title: 'Medição', message: 'campo sem marca nenhuma' });
     await new Promise((f) => setTimeout(f, 280));
     document.getElementById('appDialogInput').focus();
     window.__teclado(380, 0);
@@ -6234,6 +6237,18 @@ try {
     document.getElementById('appDialogCancel').click();
     window.__teclado(0);
     await new Promise((f) => setTimeout(f, 200));
+    // ---- A METADE DE CONTRASTE: a EXCEÇÃO, o campo da Biblioteca, DESLOCA ----
+    openHymnSearch(false);
+    await new Promise((f) => setTimeout(f, 400));
+    hymnSearchInputEl.focus();
+    window.__teclado(380, 0);
+    await new Promise((f) => setTimeout(f, 150));
+    r.comTecladoNaBusca = alturaDoBody();
+    r.kbNaBusca = kb();
+    hymnSearchInputEl.blur();
+    window.__teclado(0);
+    closeHymnSearch();
+    await new Promise((f) => setTimeout(f, 400));
     await AVDB.listRemove('imports', m.id);
     await load();
     return r;
@@ -6244,11 +6259,15 @@ try {
     + tec.semTeclado + 'px → ' + tec.comTeclado + 'px) — encolher comprime a '
     + 'preview e o transporte para revelar um campo que já está à vista, dentro '
     + 'de uma lista que rola sozinha', JSON.stringify(tec));
-  checar(!tec.erro && tec.comTecladoNoPrompt < tec.semTeclado
-    && tec.kbNoPrompt !== '0px',
-    'mas um campo SEM a marca continua DESLOCANDO — o `appPrompt` é um cartão '
-    + 'CENTRADO, e ali a metade de baixo é onde o teclado sobe ('
-    + tec.semTeclado + 'px → ' + tec.comTecladoNoPrompt + 'px). Sem esta '
+  checar(!tec.erro && tec.comTecladoNoPrompt === tec.semTeclado
+    && tec.kbNoPrompt === '0px',
+    'e o `appPrompt` SOBREPÕE também (v1.13.7): um campo SEM marca nenhuma não encolhe '
+    + 'o app — o cartão centra acima do teclado por `--kb-folha`', JSON.stringify(tec));
+  checar(!tec.erro && tec.comTecladoNaBusca < tec.semTeclado
+    && tec.kbNaBusca !== '0px',
+    'mas a EXCEÇÃO nomeada continua DESLOCANDO — o campo da Biblioteca '
+    + '(`data-teclado="desloca"`), cuja lista termina onde o teclado começa ('
+    + tec.semTeclado + 'px → ' + tec.comTecladoNaBusca + 'px). Sem esta '
     + 'metade, desligar o mecanismo inteiro passaria', JSON.stringify(tec));
 } catch (e) {
   checar(false, 'a medição do teclado no renomear terminou sem exceção ('

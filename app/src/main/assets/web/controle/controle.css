@@ -528,13 +528,16 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   --icon-lg: 24px;   /* miniatura-ícone e dicas de deslize */
 
   /* A FAIXA VISÍVEL, escrita pelo JS via VisualViewport (`keyboardShift`):
-     `--kb` = quanto o teclado come EMBAIXO, `--vv-top` = quanto a viewport
-     visual foi rolada para baixo dentro da de layout. Os dois valem 0 no caso
+     `--kb` = quanto o teclado come EMBAIXO E O APP ENCOLHE — só com o campo da
+     Biblioteca em foco, a exceção `data-teclado="desloca"` (v1.13.7); todo outro
+     campo sobrepõe e lê `--kb-folha`, o teclado inteiro. `--vv-top` = quanto a
+     viewport visual foi rolada para baixo dentro da de layout. Os dois valem 0 no caso
      normal, e é por isso que quem os consome não precisa de um `if`.
      Existem porque **`100svh` NÃO é a área visível** com o teclado aberto e o
      layout sem encolher — o caso do WebView em edge-to-edge do Android 15+,
      onde o `adjustResize` do manifest deixa de ter efeito. */
   --kb: 0px;
+  --kb-folha: 0px;
   --vv-top: 0px;
 }
 
@@ -899,9 +902,10 @@ body {
   font-family: system-ui, -apple-system, sans-serif;
   display: flex; flex-direction: column;
   height: 100vh;    /* fallback para browsers mais antigos */
-  /* Desconta o teclado virtual (ver `--kb`): o app encolhe para cima e nenhuma
-     lista fica escondida atrás dele, mesmo onde o navegador não redimensiona o
-     layout sozinho. `--kb` é 0 no caso normal. */
+  /* Desconta o teclado virtual (ver `--kb`): o app encolhe para cima — e desde a
+     v1.13.7 SÓ com o campo da Biblioteca em foco, a exceção nomeada. Todo outro
+     campo sobrepõe e o `<body>` fica do tamanho da tela (ver `keyboardShift`).
+     `--kb` é 0 no caso normal. */
   height: calc(100svh - var(--kb, 0px));
   overflow: hidden;
 }
@@ -3008,7 +3012,9 @@ main {
      fatia medirem o mesmo. */
   flex: 1 1 0; min-width: 0; min-height: var(--hit-foot); padding: 0 .3rem;
   display: flex; flex-direction: row; align-items: center; justify-content: center;
-  gap: var(--sp-4);
+  /* `--sp-3` e não `--sp-4` desde a v1.13.7: é o vão que paga o rótulo maior (ver
+     o `font-size` abaixo). */
+  gap: var(--sp-3);
   border: 0; border-radius: var(--radius-btn);
   /* (O `color: var(--accent)` saiu na v1.8.62 — o traço das portas mora na
      regra agrupada do `--surface-porta`, e repeti-lo aqui o faria VENCER.) */
@@ -3017,7 +3023,20 @@ main {
      `font-family` não. MEDIDO no arnês: `Arial` contra `system-ui`, 14% de
      diferença na largura do MESMO rótulo (a armadilha foi achada na v1.5.19, na
      porta do Importar, que no navegador era `<label>` e no app `<button>`). */
-  font-size: var(--fs-md); font-family: inherit;
+  /* ===== O RÓTULO TEM PRESENÇA (v1.13.7) =====
+     Pedido do operador: *"agora que temos mais espaço para os dois botões de
+     biblia e ferramentas, verifique se conseguimos aumentar a fonte ou ao menos
+     colocar elas em negrito … sinto que eles estão com pouca presença"*. As DUAS
+     coisas: `--fs-lg` (era `--fs-md`, 13,12 → 14,4px a 1×) e `--fw-forte`, o peso
+     de BOTÃO da escala. O ícone fica em `--icon-sm`: MEDIDO, o degrau a mais
+     (22px) deixava "Ferramentas" com 0,4px de folga a 360px · 1,3× — um pixel de
+     fonte diferente no aparelho e o rótulo sai com reticências.
+     O QUE PAGA É O VÃO: `--sp-3` entre ícone e rótulo. MEDIDO a 360×640 · 1,3×
+     (o pior caso comum do `geometria`): rótulo de 116px numa caixa de 118,4px. A
+     1,5× ele já cortava antes deste lote (117 em 108) e continua cortando (134 em
+     112) — reticências, nunca serra. A ALTURA NÃO MUDA (42px, o `--hit-foot`,
+     nas cinco células medidas), e é ela que a seta `#toolsFechar` copia. */
+  font-size: var(--fs-lg); font-weight: var(--fw-forte); font-family: inherit;
   cursor: pointer; appearance: none; -webkit-appearance: none;
 }
 .tools-btn svg, .lib-foot-btn svg { flex-shrink: 0; }
@@ -7376,7 +7395,7 @@ body.mode-simple .serie-destaque {
    começa. As roletas ocupam o que sobra e se medem por isso
    (`acertarRoletasDoItin`).
    O DESCONTO É `--kb-folha`, E NÃO `--kb` (v1.13.2): o campo do título SOBREPÕE
-   (`data-teclado`), então o app por baixo não encolhe — com `--kb` a caixa de
+   (o padrão do app desde a v1.13.7), então o app por baixo não encolhe — com `--kb` a caixa de
    controles e a barra de busca da Biblioteca subiam com o teclado e desciam no
    confirmar. `--kb-folha` é o teclado inteiro, escrito no mesmo quadro. */
 #itinPopup { inset: var(--vv-top, 0px) 0 var(--kb-folha, 0px) 0; }
@@ -7888,9 +7907,11 @@ body.mode-simple .serie-destaque {
   transform: translateY(100%);
   transition: transform var(--dur-lenta) ease;
   /* A área segura de baixo é a barra de gestos do Android — e com o teclado
-     aberto ela está ATRÁS dele, então descontar `--kb` a zera. Sem isso a folha
-     ficaria com uma faixa morta de ~24px entre ela e o teclado. */
-  padding-bottom: max(0px, env(safe-area-inset-bottom) - var(--kb, 0px));
+     aberto ela está ATRÁS dele, então descontar o teclado a zera. Sem isso a
+     folha ficaria com uma faixa morta de ~24px entre ela e o teclado.
+     `--kb-folha`, o teclado INTEIRO, desde a v1.13.7: com o campo sobrepondo
+     (o padrão), `--kb` é zero. */
+  padding-bottom: max(0px, env(safe-area-inset-bottom) - var(--kb-folha, 0px));
 }
 .popup-backdrop.open .popup-sheet { transform: translateY(0); }
 
@@ -7975,7 +7996,7 @@ body.mode-simple .serie-destaque {
    devolvendo o defeito por outro caminho. */
 #sorteioPopup { inset: var(--vv-top, 0px) 0 var(--kb-folha, 0px) 0; }
 /* O DESCONTO É `--kb-folha`, E NÃO `--kb` (v1.13.3) — a regra do `#itinPopup`: o campo
-   da palavra tema SOBREPÕE (`data-teclado`), então o app por baixo não encolhe; com
+   da palavra tema SOBREPÕE (o padrão do app desde a v1.13.7), então o app por baixo não encolhe; com
    `--kb` a caixa de controles e a barra de busca da Biblioteca subiam com o teclado e
    desciam quando o campo perdia o foco. `--kb-folha` é o teclado inteiro.
    CONFIGURAÇÕES TEM A MESMA FORMA (uma folha do teto com campos: a busca e o nome do
@@ -12198,7 +12219,12 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
      centrado na tela INTEIRA fica metade atrás do teclado que ele próprio abre.
      Deixar uma das duas camadas fixas para trás seria consertar o defeito na
      metade dos lugares em que ele existe. */
-  position: fixed; inset: var(--vv-top, 0px) 0 var(--kb, 0px) 0; z-index: 300;
+  /* `--kb-folha` e não `--kb` desde a v1.13.7: o campo do `appPrompt` SOBREPÕE
+     (o padrão do app, ver `keyboardShift`), então o app por baixo não encolhe —
+     com `--kb` a barra de busca da Biblioteca subia com o teclado de renomear o
+     cronograma e descia no confirmar. O cartão centra no que sobra ACIMA do
+     teclado, que é o que esta conta sempre fez. */
+  position: fixed; inset: var(--vv-top, 0px) 0 var(--kb-folha, 0px) 0; z-index: 300;
   background: var(--scrim);
   display: flex; align-items: center; justify-content: center;
   padding: 1.2rem;

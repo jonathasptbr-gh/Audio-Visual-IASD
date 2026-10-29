@@ -1994,7 +1994,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion" class="app-version">v1.13.6</span>
+          <span id="appVersion" class="app-version">v1.13.7</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
@@ -2476,7 +2476,7 @@
             <div id="edicaoBuscaCaixa" class="edicao-busca sorteio-campo" hidden>
               <div class="lib-search-campo">
                 <svg class="lib-search-lupa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoLupa"/></svg>
-                <input id="edicaoBusca" class="lib-search" type="search" placeholder="Buscar pelo nome…" autocomplete="off" enterkeyhint="search" data-teclado="sobrepoe">
+                <input id="edicaoBusca" class="lib-search" type="search" placeholder="Buscar pelo nome…" autocomplete="off" enterkeyhint="search">
               </div>
             </div>
             <ul id="edicaoLista" class="popup-list song-menu-list"></ul>
@@ -3066,8 +3066,10 @@
           <svg class="lib-search-lupa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoLupa"/></svg>
           <!-- `enterkeyhint="search"` (v1.12.51): a tecla de confirmar do teclado diz "Pesquisar", e
                o Enter tira o foco — o teclado desce e a lista ganha a tela (ver o `keydown` do
-               campo no controle.js). -->
-          <input id="hymnSearchInput" class="lib-search" type="search" inputmode="search" enterkeyhint="search" autocomplete="off" form="hymnBuscaForm" placeholder="Buscar por nome ou número…">
+               campo no controle.js). `data-teclado="desloca"` (v1.13.7): a ÚNICA exceção ao
+               teclado que sobrepõe — a lista desta janela termina onde o teclado começa
+               (ver `keyboardShift`). -->
+          <input id="hymnSearchInput" class="lib-search" type="search" data-teclado="desloca" inputmode="search" enterkeyhint="search" autocomplete="off" form="hymnBuscaForm" placeholder="Buscar por nome ou número…">
           <!-- O ✕ DENTRO DO CAMPO (v1.11.10, pedido do operador: *"preciso de um
                'x' dentro da caixa de texto que permita apagar a palavra atual e
                diretamente digitar uma nova palavra"*). Só existe com texto

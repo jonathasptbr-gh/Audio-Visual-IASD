@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.13.7",
+    "itens": [
+      "Bíblia e Ferramentas, embaixo: os nomes dos dois botões ficaram maiores e em negrito.",
+      "Teclado: ao digitar em qualquer campo, a barra de busca e os controles não sobem nem descem mais.",
+      "Vale para renomear um cronograma, um item, um itinerário, uma mensagem e os campos das ferramentas.",
+      "Se o campo estiver embaixo, a lista sobe sozinha para ele ficar acima do teclado.",
+      "Só a busca da biblioteca continua subindo com o teclado, para a lista de resultados caber na tela."
+    ]
+  },
+  {
     "versao": "1.13.6",
     "itens": [
       "Bíblia: ao abrir na escolha de capítulo e versículo, a tela não pula mais nem empurra o topo do cronograma.",
