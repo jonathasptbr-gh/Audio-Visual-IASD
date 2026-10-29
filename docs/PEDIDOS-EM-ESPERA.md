@@ -10,8 +10,10 @@ nada aqui está autorizado para execução sem essa resposta.
 quem revogou. Não é log, e não é `docs/ACHADOS-EM-ABERTO.md` (lá moram defeitos
 CONFIRMADOS por auditoria; aqui, pedidos).
 
-Contexto da entrega: base web **v1.13.3** em `main` (28b7e5dd), APK v1.12.46,
-`SHELL_VERSION` 82. Pedidos recebidos em **2026-10-24**, com o horário do relato.
+Contexto da entrega: base web **v1.13.9** em `main` (87be4f21), APK v1.12.46,
+`SHELL_VERSION` 82 — conferido em 2026-10-29, quando o operador deixou os
+pacotes 1, 5 e 6 para outro momento. Pedidos recebidos em **2026-10-24**, com o
+horário do relato.
 O operador pediu economia: *"não temos tokens então toda ação deve ser fracionada
 e controlada"* — um pacote por vez, cada um com o rito de entrega completo.
 
@@ -19,7 +21,8 @@ e controlada"* — um pacote por vez, cada um com o rito de entrega completo.
 último. (O Pacote 4 — a lista vertical das Ferramentas e o nome do itinerário no
 título da folha — saiu na v1.13.4; o Pacote 2 — o teclado sobrepondo em todo
 campo de texto — na v1.13.7; o Pacote 3 — a linha de controles do Modo Fácil —
-na v1.13.8.)
+na v1.13.8. Fora dos pacotes, saíram também as portas do rodapé maiores e em negrito,
+na v1.13.7, e a Biblioteca maior do Modo Fácil, na v1.13.9.)
 
 ---
 
