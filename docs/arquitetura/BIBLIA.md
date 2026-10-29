@@ -361,6 +361,26 @@ meio cortada quando a grade rola, que era o argumento do anel), e é isso que
 faz **voltar da leitura mostrar de imediato o capítulo E o versículo que estão
 no ar**, sem o operador ter que se localizar — e sem procurar, já que nada rola.
 
+**E QUEM ROLA ATÉ A CÉLULA MARCADA É A METADE, NUNCA O `scrollIntoView` (v1.13.6).**
+A grade longa (Salmos, o 119) põe a célula marcada fora da vista, e
+`scrollActiveIntoView` a centra escrevendo o `scrollTop` da `.bible-half` dela — a
+conta é o centro da célula menos o centro da caixa de rolagem (`clientTop` +
+`clientHeight / 2`), com as duas rects tomadas no mesmo quadro, então a translação
+da folha se cancela. Relato do operador: *"ao abrir a bíblia durante a seleção dos
+capítulos e versículos, a janela salta mais do que sua determinada area, empurrando
+a barra do topo do cronograma e depois voltando de forma elástica"*. O
+`scrollIntoView({ block: 'center' })` de antes rolava TODO ancestral rolável,
+inclusive os de `overflow: hidden`, e ele roda no `requestAnimationFrame` seguinte
+ao desenho — o primeiro quadro da subida da folha (`translateY(100%)`), com a célula
+fora da TELA. Quem cedia era o `<main>`: MEDIDO a 412×892 no Salmo 119,
+`scrollTop` 488 no primeiro quadro, o cabeçalho do Cronograma a −488px, e o valor
+caindo a zero em ~230 ms, porque a área rolável dele inclui a folha transladada e
+encolhe com a subida — o navegador recorta o `scrollTop` a cada quadro, e era isso
+a "volta elástica". Só a tela de seleção tinha o defeito porque só ela chama o
+`scrollIntoView`. `{ block: 'nearest' }` não serve: com a célula fora da tela todo
+ancestral continua tendo o que rolar. Portão: bloco G do
+`tools/biblia-versoes-e-retomada.test.mjs`, quadro a quadro pela porta.
+
 Capítulos e versículos mantêm **tons distintos** (`--cell-chapter` em tom frio,
 `--cell-verse` em tom quente) pra separar bem os dois níveis: as duas grades
 são iguais em forma e conteúdo (só números) e ficam uma sobre a outra na mesma

@@ -2583,8 +2583,10 @@ try {
       return {
         ids: tiles.map((t) => t.dataset.ferr).join(','),
         nomes: tiles.map((t) => t.querySelector('.qs-titulo').textContent).join(','),
-        titulo: document.getElementById('toolsTitle').textContent,
-        voltar: document.getElementById('toolsBack').hidden,
+        // NA LISTA NÃO HÁ CABEÇALHO (v1.13.6): quem fecha é a seta na casa da porta.
+        cabecalho: getComputedStyle(document.querySelector('#toolsSheet > .tools-head')).display,
+        seta: getComputedStyle(document.getElementById('toolsFechar')).display,
+        voltar: !!document.getElementById('toolsBack') || !!document.querySelector('#toolsSheet .back-btn'),
         pe: document.getElementById('toolsFoot').childElementCount,
         painel: !!document.querySelector('#toolsBody .misc-panel'),
         // UMA COLUNA, SEIS FILEIRAS, UMA ALTURA (a lista vertical da v1.13.4).
@@ -2595,7 +2597,6 @@ try {
         // O TILE É O DE CONFIGURAÇÕES: a mesma tinta, o mesmo raio.
         bg: !!tiles.length && getComputedStyle(tiles[0]).backgroundColor === getComputedStyle(cfg).backgroundColor,
         raio: !!tiles.length && getComputedStyle(tiles[0]).borderRadius === getComputedStyle(cfg).borderRadius,
-        tituloCx: (() => { const r = document.getElementById('toolsTitle').getBoundingClientRect(); return Math.round(r.left + r.width / 2); })(),
         // NA LISTA, A FOLHA TEM A LARGURA DA PORTA (v1.13.5).
         estreita: toolsSheetEl.classList.contains('estreita'),
       };
@@ -2603,8 +2604,9 @@ try {
     checar(g.ids === 'clock,stopwatch,timer,itinerario,msg,draw'
       && g.nomes === 'Relógio,Cronômetro,Timer,Itinerário,Mensagens,Sorteio',
       'G · a folha abre na GRADE: seis tiles, um por ferramenta, o tempo em cima e o texto embaixo', g);
-    checar(g.titulo === 'Ferramentas' && g.voltar === true && g.pe === 0 && g.painel === false,
-      'G · na grade o título é "Ferramentas", não há voltar nem rodapé, e nenhum painel está montado', g);
+    checar(g.cabecalho === 'none' && g.seta !== 'none' && g.voltar === false && g.pe === 0 && g.painel === false,
+      'G · na lista NÃO HÁ CABEÇALHO (nem título, nem ✕), a seta de fechar está à vista, não há voltar nem rodapé, '
+      + 'e nenhum painel está montado (v1.13.6)', g);
     checar(g.fileiras === 6 && g.colunas === 1 && g.alturas === 1 && g.empilhadas,
       'G · uma LISTA VERTICAL (v1.13.4): seis linhas empilhadas, uma coluna e uma altura só', g);
     checar(g.bg && g.raio, 'G · e o tile é o de Configurações: a mesma tinta e o mesmo raio', g);
@@ -2635,7 +2637,12 @@ try {
     const r = await esperar(pg, () => !document.querySelector('#toolsSheet > .ferr-saindo'), null, 3000);
     const d = await pg.evaluate(() => ({
       titulo: document.getElementById('toolsTitle').textContent,
-      voltar: document.getElementById('toolsBack').hidden,
+      cabecalho: getComputedStyle(document.querySelector('#toolsSheet > .tools-head')).display,
+      fechar: (() => { const x = document.getElementById('toolsClose').getBoundingClientRect(); return x.width > 0 && x.height > 0; })(),
+      seta: getComputedStyle(document.getElementById('toolsFechar')).display,
+      // NENHUM VOLTAR NA TELA (v1.13.6): nem o nó, nem um `.back-btn` qualquer na folha.
+      voltar: !!document.getElementById('toolsBack') || !!document.querySelector('#toolsSheet .back-btn'),
+      fantasmas: document.querySelectorAll('#toolsSheet > .ferr-fantasma').length,
       run: !!document.getElementById('chronoRun'),
       grade: !!document.getElementById('ferrGrade'),
       segs: document.querySelectorAll('#toolsBody .misc-seg, #toolsBody .misc-tab').length,
@@ -2648,8 +2655,12 @@ try {
       })(),
     }));
     checar(r === true, 'G · e a camada que sai some no fim da animação', porque(r));
-    checar(d.titulo === 'Timer' && d.voltar === false && d.run && !d.grade && d.segs === 0,
-      'G · dentro dela o título é o NOME da ferramenta, o voltar aparece, o rodapé é o dela, e não há abas nem segmentos', d);
+    checar(d.titulo === 'Timer' && d.cabecalho !== 'none' && d.fechar && d.seta === 'none' && d.run && !d.grade && d.segs === 0,
+      'G · dentro dela HÁ o cabeçalho, com o NOME da ferramenta e o ✕; a seta da lista some, o rodapé é o dela, e não há '
+      + 'abas nem segmentos', d);
+    checar(d.voltar === false && d.fantasmas === 0,
+      'G · e NÃO HÁ VOLTAR na tela (v1.13.6: saiu a pedido do operador — o caminho de volta à lista é o voltar do Android), '
+      + 'e os fantasmas da troca sumiram com ela', d);
     // O TÍTULO FICA NO CENTRO DA FOLHA LARGA (o voltar tem trilha própria). Na
     // lista ele encosta à esquerda da folha ESTREITA (v1.13.5), então "parado
     // entre as duas vistas" deixou de ser a pergunta — a folha muda de largura.
@@ -2657,10 +2668,16 @@ try {
       'G · dentro da ferramenta a folha é LARGA de novo (as bordas do `.list-body`) e o título fica no CENTRO dela',
       { d: d.tituloCx, folha: d.folhaCx, larga: d.larga });
 
-    // O VOLTAR DO CABEÇALHO devolve a grade.
-    await pg.click('#toolsBack');
-    const rv = await esperar(pg, () => !!document.getElementById('ferrGrade') && !document.querySelector('.ferr-saindo'), null, 3000);
-    checar(rv === true, 'G · o voltar do cabeçalho devolve a GRADE', porque(rv));
+    // DE VOLTA À LISTA (o caminho do voltar do Android, animado como o toque).
+    await pg.evaluate(() => voltarAGradeDeFerramentas({ animar: true }));
+    const rv = await esperar(pg, () => !!document.getElementById('ferrGrade') && !document.querySelector('.ferr-saindo')
+      && !document.querySelector('#toolsSheet > .ferr-fantasma'), null, 3000);
+    const vd = await pg.evaluate(() => ({
+      cabecalho: getComputedStyle(document.querySelector('#toolsSheet > .tools-head')).display,
+      seta: getComputedStyle(document.getElementById('toolsFechar')).display,
+    }));
+    checar(rv === true && vd.cabecalho === 'none' && vd.seta !== 'none',
+      'G · a volta à lista devolve a GRADE, sem cabeçalho e com a seta (e os fantasmas da troca somem)', { r: porque(rv), vd });
 
     // O VOLTAR DO ANDROID: de dentro de uma ferramenta devolve a grade (a folha
     // continua aberta); da grade, fecha a folha.
@@ -2792,8 +2809,24 @@ try {
   // a de 1,25× passa a ficar abaixo do piso.
   // A QUARTA COLUNA É A EXCEÇÃO: a célula em que seis pisos NÃO cabem (360×600 com a fonte em 1,3× — a
   // premissa abaixo confere que ela de fato não cabe, senão o ramo da exceção não seria exercido).
-  for (const [w, h, raiz, excecao] of [[430, 900, ''], [412, 892, ''], [360, 640, ''], [360, 640, '20px'],
-    [360, 600, '20.8px', true]]) {
+  //
+  // E DESDE A v1.13.6 A LISTA NÃO TEM CABEÇALHO: quem fecha é a SETA, no retângulo
+  // exato da porta (±1px, nas quatro bordas), e as MARGENS cresceram com a letra um
+  // pouco menor. As réguas relativas são contra os números da v1.13.5, que estão
+  // escritos aqui porque a pergunta é "cresceu?": o recuo de DENTRO da linha era
+  // `--sp-4` e passou a `--sp-6`; o de FORA (linha × folha) era `--sp-2` e passou a
+  // `--sp-4`; e o corpo do nome tinha o teto `--fs-4xl` e passou a `--fs-3xl`.
+  // REVERSÕES: os três números de volta no CSS — reprova a régua de cada um; a seta
+  // dentro do recuo da folha (`left`/`right` em `--sp-4`) — reprova a régua do
+  // retângulo; o cabeçalho de volta à lista — reprova a régua dele. (A ALTURA e a
+  // BASE lidas da porta são defesa: em todas estas células a porta mede 42px, o
+  // mesmo `--hit-foot` da falha aberta, e a base dela é a do `.list-body`.)
+  // A LETRA DA v1.13.5, MEDIDA em cada célula (o último número é ela): na tela
+  // estreita o corpo já era o teto da LARGURA, abaixo do `--fs-4xl`, e só a
+  // comparação com o número daquela versão diz que ele encolheu ali também.
+  for (const [w, h, raiz, excecao, letraAntes] of [[430, 900, '', false, 20], [412, 892, '', false, 20],
+    [360, 640, '', false, 15.9], [360, 640, '20px', false, 14.2],
+    [360, 640, '20.8px', false, 13.7], [360, 600, '20.8px', true, 13.7]]) {
     await pg.setViewportSize({ width: w, height: h });
     await pg.evaluate((r) => { document.documentElement.style.fontSize = r; fecharFerramentas(); }, raiz);
     await esperar(pg, () => toolsSheetEl.hidden);
@@ -2816,27 +2849,42 @@ try {
       });
       const f = toolsSheetEl.getBoundingClientRect();
       const p = document.getElementById('toolsBtn').getBoundingClientRect();
-      const tt = document.getElementById('toolsTitle');
+      const sr = document.getElementById('toolsFechar').getBoundingClientRect();
+      const raiz = parseFloat(getComputedStyle(document.documentElement).fontSize);
+      const t0 = document.querySelector('#ferrGrade .ferr-tile');
+      const t0r = t0.getBoundingClientRect();
+      const rem = (v) => parseFloat(v) * raiz;
+      const tok = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
       return {
         n: linhas.length,
         // A SOMA DAS LINHAS (com os vãos) É O CORPO: do topo da primeira à base da última.
         topo: linhas.length ? linhas[0].top - cr.top : -1,
         base: linhas.length ? cr.bottom - linhas[linhas.length - 1].bottom : -1,
         alturas: linhas.map((l) => +l.h.toFixed(2)),
+        // O VÃO ENTRE AS LINHAS, que é também a margem de cima e a de baixo (v1.13.6).
+        vao: linhas.length > 1 ? +(linhas[1].top - linhas[0].bottom).toFixed(2) : -1,
         icones: linhas.every((l) => l.iconeAEsquerda), nomes: linhas.every((l) => l.nomeInteiro),
         rola: corpo.scrollHeight - corpo.clientHeight,
         corpo: +cr.height.toFixed(1),
         piso: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hit')),
         bordas: [+(f.left - p.left).toFixed(2), +(f.right - p.right).toFixed(2)],
-        titulo: { texto: tt.textContent, inteiro: tt.scrollWidth <= tt.clientWidth },
-        fecharDentro: document.getElementById('toolsClose').getBoundingClientRect().right <= f.right,
+        cabecalho: getComputedStyle(document.querySelector('#toolsSheet > .tools-head')).display,
+        // A SETA NO RETÂNGULO DA PORTA, nas quatro bordas.
+        seta: [sr.left - p.left, sr.right - p.right, sr.top - p.top, sr.bottom - p.bottom].map((x) => +x.toFixed(2)),
+        setaRotulo: document.getElementById('toolsFechar').getAttribute('aria-label'),
+        // AS TRÊS MARGENS, e o teto da letra — contra os valores da v1.13.5.
+        dentro: parseFloat(getComputedStyle(t0).paddingLeft), dentroAntes: rem(tok('--sp-4')),
+        fora: +(t0r.left - f.left).toFixed(2), foraAntes: rem(tok('--sp-2')),
+        letra: parseFloat(getComputedStyle(t0.querySelector('.qs-titulo')).fontSize),
+        tetoAntes: rem(tok('--fs-4xl')), tetoAgora: rem(tok('--fs-3xl')),
       };
     });
     const cel = w + '×' + h + (raiz ? ' (fonte ' + (parseFloat(raiz) / 16).toFixed(2).replace('.', ',') + '×)' : '');
     checar(r === true && v.n === 6 && Math.max(...v.alturas) - Math.min(...v.alturas) < 1,
       'V · [' + cel + '] seis linhas da mesma altura', { r: porque(r), v });
-    checar(Math.abs(v.topo) <= 2 && Math.abs(v.base) <= 2 && v.rola <= 0,
-      'V · [' + cel + '] e elas dividem a altura do corpo da folha, da borda de cima à de baixo, SEM ROLAR', v);
+    checar(Math.abs(v.topo - v.vao) <= 1 && Math.abs(v.base - v.vao) <= 1 && v.rola <= 0,
+      'V · [' + cel + '] e elas dividem a altura do corpo da folha, com a margem de cima e a de baixo iguais ao vão '
+      + 'entre elas (' + v.vao + 'px), SEM ROLAR', v);
     // A 360×640 com a fonte em 1,25× seis pisos CABEM, e é a folha estreita cedendo o recuo e o vão do
     // cabeçalho que os faz caber (MEDIDO: com o recuo de antes a linha media 33,9px): ali a régua é o piso.
     if (excecao) {
@@ -2846,9 +2894,17 @@ try {
     checar(excecao ? Math.min(...v.alturas) >= v.corpo / 6 - 0.5 : Math.min(...v.alturas) >= v.piso - 0.05,
       'V · [' + cel + '] e nenhuma abaixo do piso de toque (' + v.corpo + 'px de corpo)'
       + (excecao ? ' — aqui não cabem seis: a SEXTA PARTE do corpo, a exceção nomeada' : ''), v);
-    checar(Math.abs(v.bordas[0]) <= 1 && Math.abs(v.bordas[1]) <= 1 && v.titulo.inteiro
-      && v.titulo.texto === 'Ferramentas' && v.fecharDentro,
-      'V · [' + cel + '] e a folha tem as BORDAS DA PORTA (±1px), com o título "Ferramentas" inteiro e o ✕ dentro', v);
+    checar(Math.abs(v.bordas[0]) <= 1 && Math.abs(v.bordas[1]) <= 1 && v.cabecalho === 'none',
+      'V · [' + cel + '] e a folha tem as BORDAS DA PORTA (±1px), SEM cabeçalho (v1.13.6)', v);
+    checar(v.seta.every((x) => Math.abs(x) <= 1) && v.setaRotulo === 'Fechar ferramentas',
+      'V · [' + cel + '] e a SETA de fechar ocupa o retângulo EXATO da porta (±1px nas quatro bordas): '
+      + JSON.stringify(v.seta), v);
+    checar(v.dentro > v.dentroAntes + 0.5 && v.fora > v.foraAntes + 0.5,
+      'V · [' + cel + '] as MARGENS cresceram: dentro da linha ' + v.dentro + 'px (era ' + v.dentroAntes
+      + '), entre a linha e a folha ' + v.fora + 'px (era ' + v.foraAntes + ')', v);
+    checar(v.letra <= v.tetoAgora + 0.05 && v.letra < letraAntes - 0.3,
+      'V · [' + cel + '] e a letra é um pouco MENOR: ' + v.letra + 'px, contra ' + letraAntes
+      + ' na v1.13.5 (teto ' + v.tetoAgora + 'px, era ' + v.tetoAntes + ')', v);
     checar(v.icones && v.nomes, 'V · [' + cel + '] o ícone à ESQUERDA do nome, na mesma linha, e nenhum nome cortado', v);
   }
   await pg.setViewportSize({ width: 412, height: 892 });
@@ -2893,6 +2949,62 @@ try {
       titulo: document.getElementById('toolsTitle').textContent, visivel: !document.getElementById('toolsTitle').hidden }; });
     checar(fora.escondido && fora.visivel && fora.titulo === 'Ferramentas',
       'V · fora do Itinerário o cabeçalho volta a dizer "Ferramentas"', fora);
+  }
+
+  // ── W. A PORTA VIRA SETA, E A TROCA NÃO FAZ A FOLHA PULAR (v1.13.6) ──────
+  //
+  // Pedido do operador: *"apenas para essa seção de lista de ferramentas, substitua
+  // a barra de topo com o título 'ferramentas' e o botão de fechar, por um botão de
+  // seta que ficara na base da lista, na exata posição onde originalmente fica o
+  // botão de abrir ferramentas … (Remova o botão de retornar das abas de
+  // ferramentas)"*. O retângulo é medido no bloco V; aqui, o que se erra calado:
+  // a seta que não FECHA (um botão desenhado sem ouvinte); e a troca lista ↔
+  // ferramenta em que o cabeçalho e a seta trocam de lugar MEXENDO NA FOLHA — a
+  // caixa dela tem de ficar parada no eixo vertical em TODO quadro da animação
+  // (só as bordas laterais andam), e quem sai esmaece como FANTASMA, sem toque.
+  // REVERSÕES: o ouvinte da seta removido — reprova W1; os fantasmas desligados
+  // (`saem` vazio) — reprova W2 nas duas direções.
+  await pg.setViewportSize({ width: 412, height: 892 });
+  await pg.evaluate(() => { document.documentElement.style.fontSize = ''; fecharFerramentas(); });
+  await esperar(pg, () => toolsSheetEl.hidden);
+  await pg.click('#toolsBtn');
+  await esperar(pg, () => !!document.getElementById('ferrGrade') && toolsSheetEl.getAnimations().every((a) => a.playState !== 'running'), null, 3000);
+  {
+    await pg.click('#toolsFechar');
+    const r = await esperar(pg, () => toolsSheetEl.hidden, null, 3000);
+    checar(r === true, 'W1 · tocar na SETA da lista fecha a folha de Ferramentas', porque(r));
+
+    await pg.click('#toolsBtn');
+    await esperar(pg, () => !!document.getElementById('ferrGrade') && toolsSheetEl.getAnimations().every((a) => a.playState !== 'running'), null, 3000);
+    // QUADRO A QUADRO, nos dois sentidos.
+    const amostrar = (acao) => pg.evaluate(async (qual) => {
+      const f0 = toolsSheetEl.getBoundingClientRect();
+      if (qual === 'entra') document.getElementById('ferrTile_msg').click();
+      else voltarAGradeDeFerramentas({ animar: true });
+      const fant = [...toolsSheetEl.querySelectorAll(':scope > .ferr-fantasma')].map((n) => n.className);
+      let pior = 0;
+      let quadros = 0;
+      const t0 = performance.now();
+      await new Promise((ok) => {
+        const passo = () => {
+          const f = toolsSheetEl.getBoundingClientRect();
+          pior = Math.max(pior, Math.abs(f.top - f0.top), Math.abs(f.bottom - f0.bottom));
+          quadros++;
+          if (performance.now() - t0 < 700) requestAnimationFrame(passo); else ok();
+        };
+        requestAnimationFrame(passo);
+      });
+      return { fant, pior: +pior.toFixed(2), quadros,
+        sobra: toolsSheetEl.querySelectorAll(':scope > .ferr-fantasma, :scope > .ferr-saindo').length };
+    }, acao);
+    const ida = await amostrar('entra');
+    checar(ida.fant.length === 1 && /tools-fechar/.test(ida.fant[0]) && ida.pior <= 0.5 && ida.sobra === 0,
+      'W2 · lista → ferramenta: a SETA sai como fantasma, e a folha não anda no eixo vertical em nenhum quadro '
+      + '(' + ida.quadros + ' quadros, pior ' + ida.pior + 'px)', ida);
+    const volta = await amostrar('volta');
+    checar(volta.fant.length === 1 && /tools-head/.test(volta.fant[0]) && volta.pior <= 0.5 && volta.sobra === 0,
+      'W2 · ferramenta → lista: o CABEÇALHO sai como fantasma, e a folha também não anda '
+      + '(' + volta.quadros + ' quadros, pior ' + volta.pior + 'px)', volta);
   }
 
   // ── S. UM SORTEIO SÓ, COM O TOGGLE "NÚMEROS" (v1.13.3) ──────────────────

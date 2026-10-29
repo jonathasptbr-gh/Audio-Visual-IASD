@@ -1145,12 +1145,11 @@
          O ✕ e o voltar do Android a fecham (ver `POPUPS`/`__avBack`). -->
     <div id="toolsSheet" class="tools-sheet" hidden>
       <div class="tools-head">
-        <!-- O VOLTAR À LISTA (v1.13.3). A folha abre SEMPRE na lista das
-             ferramentas (`renderGradeDeFerramentas`); dentro de uma, este é o
-             caminho de volta — o molde do `#bibleBack` da folha irmã, na trilha
-             1 da grade do cabeçalho, e por isso o título não anda quando ele
-             aparece. O voltar do Android faz o mesmo antes de fechar a folha. -->
-        <button id="toolsBack" class="back-btn" type="button" title="Todas as ferramentas" aria-label="Voltar para todas as ferramentas" hidden><span class="msym" aria-hidden="true">&#xe5c4;</span></button>
+        <!-- O CABEÇALHO SÓ EXISTE DENTRO DE UMA FERRAMENTA (v1.13.6): na LISTA
+             delas quem fecha é a seta `#toolsFechar`, na casa da porta. Ele não
+             tem voltar na tela — a trilha 1 fica vazia, reservada pela grade, e
+             o título continua no centro; o caminho de volta à lista é o voltar
+             do Android (degrau 2.5 do `__avBack`). -->
         <span id="toolsTitle" class="tools-title">Ferramentas</span>
         <!-- O NOME DO ITINERÁRIO ATIVO MORA NO TÍTULO DA FOLHA (v1.13.4): com o
              Itinerário aberto, ele toma a trilha 2 no lugar do `#toolsTitle` e é a
@@ -1181,6 +1180,15 @@
            janela, e não rolar com os itens dentro dela"*). O corpo leva
            `flex: 1` e rola; este fica. Quem o preenche é `renderFoot()`. -->
       <div id="toolsFoot" class="tools-foot"></div>
+      <!-- A PORTA VIRA SETA (v1.13.6). Na LISTA das ferramentas não há cabeçalho:
+           quem fecha a folha é esta seta, no retângulo EXATO da porta
+           `#toolsBtn` que ela cobre — as bordas são as da folha estreita, e a
+           altura e a base são LIDAS da porta (`medirPortaDasFerramentas`).
+           Pedido do operador: *"substitua a barra de topo com o título
+           'ferramentas' e o botão de fechar, por um botão de seta que ficara na
+           base da lista, na exata posição onde originalmente fica o botão de
+           abrir ferramentas"*. Só existe na lista (`#toolsSheet.estreita`). -->
+      <button id="toolsFechar" class="tools-btn tools-fechar" type="button" title="Fechar ferramentas" aria-label="Fechar ferramentas"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
       <!-- A GAVETA DOS ITINERÁRIOS (v1.13.2): o molde da `#cronoGaveta`, aberta
            pelo nome do itinerário ativo (`#itinTitulo`, no cabeçalho). Mora AQUI,
            na folha, e não no painel: o painel é redesenhado a cada mudança, e a
@@ -1986,7 +1994,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion" class="app-version">v1.13.5</span>
+          <span id="appVersion" class="app-version">v1.13.6</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>

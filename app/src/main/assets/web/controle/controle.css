@@ -3473,27 +3473,38 @@ main {
    o que se vê é a porta crescendo para cima. A de Bíblia, ao lado, continua à
    vista e tocável (abri-la fecha esta, `abrirBiblia`).
 
-   E ELA CEDE A ALTURA PARA AS SEIS LINHAS NÃO ROLAREM: o recuo de cima e o vão
-   do cabeçalho no `--sp-1`, o resto no `--sp-2` (MEDIDO a 360×640 com a fonte em
-   1,25×: com `--sp-2` nos três a linha media 33,9px; com isto, 34,6), e o título
-   encosta à esquerda, com o ✕ na ponta (as trilhas
-   simétricas do cabeçalho — `--hit` dos dois lados — não cabem na largura de
-   uma porta; o voltar não existe na lista). O corpo do título também é MEDIDO
-   (`--ferr-titulo-teto`). */
+   NA LISTA NÃO HÁ CABEÇALHO, E A PORTA VIRA SETA (v1.13.6). Pedido do operador:
+   *"apenas para essa seção de lista de ferramentas, substitua a barra de topo com
+   o título 'ferramentas' e o botão de fechar, por um botão de seta que ficara na
+   base da lista, na exata posição onde originalmente fica o botão de abrir
+   ferramentas"*. A `#toolsFechar` é `absolute` no retângulo da porta que a folha
+   cobre: as bordas são as da folha (que são as da porta), e a altura e a base são
+   LIDAS da porta (`--ferr-porta-h`, `--ferr-porta-base`). O recuo de baixo da folha
+   é o espaço dela, e o vão entre a última linha e a seta é da LISTA (ver
+   `.ferr-grade`), que cede quando a altura aperta. Os cantos de baixo da folha
+   são os da porta (`--radius-btn`), senão a seta sairia com o raio da folha.
+
+   A SETA VESTE A PORTA (`.tools-btn`: `--surface-porta` + `--accent`, a resposta
+   ao toque, o ícone de `--icon-sm`), SEM a sombra: a sombra da porta descreve a
+   lista correndo por baixo dela, e a seta mora dentro da folha, sobre nada. A
+   tinta é a mesma das linhas (`.qs-tile.qs-on`) e não se confunde com elas: é o
+   único quadro sem rótulo, na casa onde a porta estava.
+
+   FALHA ABERTA: sem a medida a folha é a larga de sempre, e a seta tem a altura
+   do `--hit-foot` na base dela. */
 #toolsSheet.estreita {
   left: var(--ferr-porta-esq, 0px); right: var(--ferr-porta-dir, 0px);
-  padding: var(--sp-1) var(--sp-2) var(--sp-2);
+  padding: 0 var(--sp-4) calc(var(--ferr-porta-base, 0px) + var(--ferr-porta-h, var(--hit-foot)));
+  border-bottom-left-radius: var(--radius-btn); border-bottom-right-radius: var(--radius-btn);
 }
-#toolsSheet.estreita > .tools-head {
-  grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-2);
-  margin-bottom: var(--sp-1);
+#toolsSheet.estreita > .tools-head:not(.ferr-fantasma) { display: none; }
+#toolsFechar { display: none; }
+#toolsSheet.estreita > #toolsFechar { display: flex; }
+.tools-fechar {
+  position: absolute; left: 0; right: 0;
+  bottom: var(--ferr-porta-base, 0px); height: var(--ferr-porta-h, var(--hit-foot));
+  min-height: 0; padding: 0; box-shadow: none;
 }
-#toolsSheet.estreita > .tools-head > .tools-title {
-  grid-column: 1; text-align: left; padding-left: var(--sp-4);
-  font-size: min(var(--ferr-titulo-teto, 99rem), var(--fs-xl));
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-#toolsSheet.estreita > .tools-head > .popup-close { grid-column: 2; }
 /* E COM UMA FOLHA ABERTA A TIRA SE CALA. As folhas de Ferramentas e da Bíblia
    cobrem o Cronograma inteiro MENOS essa moldura de 12,8px, e a tira alargada
    passava a pintar justamente ali: MEDIDO com Ferramentas aberta, **1004px de
@@ -6859,10 +6870,12 @@ body.mode-simple .serie-destaque {
       `geometria.test.mjs` cobra) — o `--hit-foot` (42px) foi tentado e MEDIDO
       rolando 60px a 360×640. Onde nem seis `--hit` cabem, a linha mede a sexta
       parte da lista (a exceção NOMEADA, logo abaixo);
-   2. o VÃO entre as linhas cede antes da linha: ele é `--sp-3` com folga e
-      encolhe até zero quando seis pisos não cabem com ele (a 360×640 sai ~2,9px
-      e a lista fecha sem rolar). Ele é margem e não `gap` porque a conta lê a
-      altura da LISTA (`100cqh`), que só existe para quem está DENTRO dela;
+   2. o VÃO cede antes da linha: ele é `--sp-4` com folga e encolhe até zero
+      quando seis pisos não cabem com ele. São SETE vãos (v1.13.6): o de cima da
+      primeira linha, os cinco entre elas e o de baixo da última, até a seta — a
+      folha não tem recuo vertical próprio na lista, e por isso a margem em volta
+      das linhas cede junto. Ele é margem e não `gap` porque a conta lê a altura
+      da LISTA (`100cqh`), que só existe para quem está DENTRO dela;
    3. o DESENHO da linha cede junto: a lista é contêiner de tamanho
       (`container-type: size`), e o corpo do nome e o ícone saem da FATIA de cada
       linha (`--ferr-linha`), presos entre piso e teto — e o nome tem ainda o teto
@@ -6873,44 +6886,51 @@ body.mode-simple .serie-destaque {
    direita, alinhados à esquerda como toda linha de lista. A lista é OUTRA classe
    porque os oráculos alcançam a grade de Configurações por `.qs-grade`.
 
-   O NOME SOBE ATÉ `--fs-4xl` (dois degraus acima do `--fs-xl` do título da folha),
-   pelo pedido — *"se necessário, para melhor preenchimento, aumente o tamanho da
-   fonte"*: numa linha de ~75px o `--fs-sm` do tile boiava. O PISO é o `--fs-md` (o
-   corpo de uma linha de lista). O ÍCONE vai de `--icon-sm` a 28px, um degrau acima
-   do `--icon-lg`, por REGRA PRÓPRIA e pela razão que a v1.8.69 escreveu para a
-   lixeira: ele acompanha um rótulo maior que o de qualquer lista daqui, e um
-   `--icon-md` ao lado de um nome de 20px lê como miniatura. */
+   AS MARGENS SÃO MAIORES E A LETRA UM POUCO MENOR (v1.13.6). Pedido do operador:
+   *"pode aumentar as margens dos botões na lista de ferramentas, e também por
+   consequência a isso, reduzir um pouco o tamanho da fonte desses textos"*. São
+   três margens, e as três cresceram: a da LISTA dentro da folha (`--sp-4` dos
+   lados, era `--sp-2`; os vãos de cima e de baixo, acima), o vão ENTRE as linhas
+   (até `--sp-4`, era `--sp-3`) e o recuo DENTRO de cada linha (`--sp-6` dos dois
+   lados, era `--sp-4`). O NOME VAI ATÉ `--fs-3xl` (era `--fs-4xl`), e na largura
+   da porta o teto medido baixa sozinho, porque o recuo maior come a largura do
+   texto. O PISO é o `--fs-md` (o corpo de uma linha de lista). O ÍCONE vai de
+   `--icon-sm` a 26px, um degrau acima do `--icon-lg`, por REGRA PRÓPRIA e pela
+   razão que a v1.8.69 escreveu para a lixeira: ele acompanha um rótulo maior que o
+   de qualquer lista daqui, e um `--icon-md` ao lado de um nome de 18px lê como
+   miniatura. */
 .ferr-grade {
   flex: 1 0 auto; min-height: 0;
   container-type: size;
   display: flex; flex-direction: column;
 }
 .ferr-grade > .ferr-tile {
-  --ferr-linha: calc((100cqh - 5 * var(--sp-3)) / 6);
+  --ferr-vao: clamp(0px, calc((100cqh - 6 * var(--hit)) / 7), var(--sp-4));
+  --ferr-linha: calc((100cqh - 7 * var(--sp-4)) / 6);
   position: relative; min-width: 0;
   /* O PISO É O `--hit`, MENOS ONDE SEIS NÃO CABEM (v1.13.5): aí a linha mede a
      SEXTA PARTE da lista e o corpo NÃO ROLA. É a exceção NOMEADA do
      `geometria.test.mjs`, pedida pelo operador: *"verifique em telas menores,
      para garantir que essa janela de ferramentas não necessite de scroll, mas
      sim tenha seus botões encolhidos verticalmente para caber de forma
-     correta"*. Antes de chegar aqui a folha estreita já cedeu o que podia (o
-     recuo e o vão do cabeçalho, e o vão entre as linhas a zero); MEDIDO, só a
-     360×640 com a fonte do sistema em 1,25× a linha passa abaixo do piso. */
+     correta"*. Antes de chegar aqui os sete vãos da lista já cederam a zero (e
+     na lista não há cabeçalho desde a v1.13.6); MEDIDO no estado do `geometria`,
+     só a 360×640 com a fonte do sistema em 1,3× a linha passa abaixo do piso —
+     33,9px, a sexta parte de 203,6px de corpo. */
   flex: 1 1 0; min-height: min(var(--hit), 100cqh / 6);
   flex-direction: row; justify-content: flex-start; gap: var(--sp-4);
-  /* À DIREITA, A RESERVA DO PONTO de "no ar" (7px + o vão): o nome não corre
-     para baixo dele quando ele acende. Os recuos são os de uma linha ESTREITA
-     (v1.13.5): a lista tem a largura da porta de Ferramentas. */
-  padding: 0 calc(var(--sp-4) + 7px + var(--sp-3)) 0 var(--sp-4);
+  /* O RECUO É O MESMO DOS DOIS LADOS (v1.13.6), e o PONTO de "no ar" mora DENTRO
+     do da direita, centrado nele: o nome não corre para baixo dele quando ele
+     acende, e a reserva não come a largura que o nome precisa. */
+  padding: 0 var(--sp-6);
+  margin-top: var(--ferr-vao);
   text-align: left;
 }
-.ferr-grade > .ferr-tile + .ferr-tile {
-  margin-top: clamp(0px, calc((100cqh - 6 * var(--hit)) / 5), var(--sp-3));
-}
+.ferr-grade > .ferr-tile:last-child { margin-bottom: var(--ferr-vao); }
 .ferr-grade .ferr-tile svg {
   flex: none;
-  width: clamp(var(--icon-sm), calc(var(--ferr-linha) * .6), 28px);
-  height: clamp(var(--icon-sm), calc(var(--ferr-linha) * .6), 28px);
+  width: clamp(var(--icon-sm), calc(var(--ferr-linha) * .55), 26px);
+  height: clamp(var(--icon-sm), calc(var(--ferr-linha) * .55), 26px);
 }
 /* O CORPO DO NOME TEM DOIS TETOS: o da ALTURA da linha (o `clamp`, pelo pedido da
    v1.13.4 — *"se necessário, para melhor preenchimento, aumente o tamanho da
@@ -6920,7 +6940,7 @@ body.mode-simple .serie-destaque {
    altura, que é o desenho de antes. */
 .ferr-grade .ferr-tile .qs-titulo {
   flex: 1; min-width: 0;
-  font-size: min(var(--ferr-fs-teto, 99rem), clamp(var(--fs-md), calc(var(--ferr-linha) * .45), var(--fs-4xl)));
+  font-size: min(var(--ferr-fs-teto, 99rem), clamp(var(--fs-md), calc(var(--ferr-linha) * .4), var(--fs-3xl)));
   font-weight: var(--fw-forte); line-height: 1.15;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
@@ -6934,7 +6954,7 @@ body.mode-simple .serie-destaque {
 .ferr-tile.contando .qs-titulo { display: none; }
 .ferr-tile.contando .ferr-leitura {
   display: block; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
-  font-size: min(var(--ferr-fs-teto, 99rem), clamp(var(--fs-md), calc(var(--ferr-linha) * .45), var(--fs-4xl)));
+  font-size: min(var(--ferr-fs-teto, 99rem), clamp(var(--fs-md), calc(var(--ferr-linha) * .4), var(--fs-3xl)));
   font-weight: var(--fw-max); white-space: nowrap;
   font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
 }
@@ -6944,14 +6964,19 @@ body.mode-simple .serie-destaque {
    no ar exigiria abrir cada uma. Ele é um GRÁFICO que carrega informação (piso de
    3:1): sobre o `--btn-accent` MEDIDO 4,27:1 no escuro e 5,65:1 no claro. */
 .ferr-no-ar {
-  display: none; position: absolute; top: 50%; right: var(--sp-5);
+  display: none; position: absolute; top: 50%; right: calc((var(--sp-6) - 7px) / 2);
   width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%;
   background: var(--live-strong);
 }
 .ferr-tile.no-ar .ferr-no-ar { display: block; }
 /* O QUE SAI NA TROCA GRADE ↔ FERRAMENTA (`trocarVistaDasFerramentas`): uma camada
    ABSOLUTA no lugar exato do corpo e do rodapé de antes, sem toque, que esmaece por
-   cima do que entra. Ela só existe durante a animação. */
+   cima do que entra. Ela só existe durante a animação. O cabeçalho e a seta que
+   saem (v1.13.6) viram FANTASMAS do mesmo jeito, cada um no próprio retângulo. */
+.ferr-fantasma {
+  position: absolute; z-index: 3; pointer-events: none;
+  bottom: auto; right: auto; margin: 0; box-sizing: border-box;
+}
 .ferr-saindo {
   position: absolute; z-index: 3; pointer-events: none; overflow: hidden;
   display: flex; flex-direction: column;
