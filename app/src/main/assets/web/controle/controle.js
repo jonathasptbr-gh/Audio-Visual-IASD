@@ -10720,6 +10720,19 @@ function acertarLetraDaListaDeFerramentas() {
   if (!g || !g.isConnected) return;
   tetoQueCabe([...g.querySelectorAll('.qs-titulo, .ferr-tile.contando .ferr-leitura')], '--ferr-fs-teto', g);
 }
+// O RÓTULO DAS PORTAS CABE NA PORTA (v1.13.7). Ele subiu a `--fs-lg` em negrito,
+// e a largura da palavra depende da FONTE do aparelho: MEDIDO, "Ferramentas" a
+// 360px · 1,3× mede 116px numa caixa de 118,4 com uma fonte da métrica da Arial e
+// 134px com a DejaVu do runner do CI. O teto da LARGURA (`--porta-fs-teto`, na
+// `.portas-row`, comum às duas para elas falarem no mesmo corpo) é o mesmo
+// `tetoQueCabe` da lista das Ferramentas: só existe onde a palavra não cabe, e no
+// caso normal o rótulo é o `--fs-lg` do CSS. Roda no `medirRodapeDaLista`, isto é,
+// a cada desenho do rodapé e a cada mudança de tamanho dele.
+function acertarLetraDasPortas() {
+  const fila = listFootEl && listFootEl.querySelector('.portas-row');
+  if (!fila) return;
+  tetoQueCabe([...fila.querySelectorAll('.tools-btn > span, .lib-foot-btn > span')], '--porta-fs-teto', fila);
+}
 function vigiarLetraDaListaDeFerramentas(g) {
   acertarLetraDaListaDeFerramentas();
   if (typeof ResizeObserver !== 'function') return;
@@ -11463,6 +11476,7 @@ function medirRodapeDaLista() {
     rodapeRO.disconnect(); rodapeRO.observe(listFootEl); rodapeObservado = listFootEl;
   }
   medirPortaDasFerramentas();
+  acertarLetraDasPortas();
   const h = listFootEl.getBoundingClientRect().height;
   // Zero é a AUSÊNCIA de uma medida (rodapé `hidden`, app fora da tela), não uma
   // medida de zero: escrevê-lo tiraria o recuo do fim da lista. A boa que já
@@ -43686,22 +43700,26 @@ window.addEventListener('resize', () => {
     if (folga && folga.el !== s) desfazerFolga();
     if (!s) return;
     const limite = Math.round(vv.height) - REVELA_FOLGA;
-    const r = a.getBoundingClientRect();
-    const falta = r.bottom - limite;
-    if (falta > 0.5) {
+    // ATÉ TRÊS PASSADAS, cada uma conferindo a anterior: a folga nem sempre vira
+    // CURSO. Num scroller cujo conteúdo é FLEXÍVEL (a lista de nomes do Sorteio,
+    // um `<textarea>` que ocupa o que sobra) o `padding-bottom` encolhe o campo em
+    // vez de dar rolagem, e a medida seguinte é a que diz quanto ainda falta.
+    for (let passada = 0; passada < 3; passada++) {
+      const r = a.getBoundingClientRect();
+      const falta = r.bottom - limite;
+      if (falta <= 0.5) break;
       // O campo não pode passar do TOPO do scroller: um que more inteiro sob o
       // teclado não tem o que rolar, e então é o navegador quem revela.
       const sr = s.getBoundingClientRect();
       const passo = Math.min(falta, r.top - sr.top);
-      if (passo > 0.5) {
-        const curso = s.scrollHeight - s.clientHeight - s.scrollTop;
-        if (curso < passo) {
-          if (!folga) folga = { el: s, antes: s.style.paddingBottom };
-          s.style.paddingBottom = 'calc(' + getComputedStyle(s).paddingBottom + ' + '
-            + Math.ceil(passo - curso) + 'px)';
-        }
-        s.scrollTop += passo;
+      if (passo <= 0.5) break;
+      const curso = s.scrollHeight - s.clientHeight - s.scrollTop;
+      if (curso < passo) {
+        if (!folga) folga = { el: s, antes: s.style.paddingBottom };
+        s.style.paddingBottom = 'calc(' + getComputedStyle(s).paddingBottom + ' + '
+          + Math.ceil(passo - curso) + 'px)';
       }
+      s.scrollTop += passo;
     }
     if (vv.offsetTop > 0.5 && a.getBoundingClientRect().bottom <= limite + 0.5) window.scrollTo(0, 0);
   };

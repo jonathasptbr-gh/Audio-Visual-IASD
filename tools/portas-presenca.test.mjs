@@ -7,13 +7,19 @@
 // elas em negrito desses dois botões. Sinto que eles estão com pouca presença."*
 // As duas coisas: o rótulo em `--fs-lg` (era `--fs-md`) e em `--fw-forte`. O que
 // este arquivo trava, nas células do relato e no pior caso comum de fonte:
-//  A. o rótulo é NEGRITO (≥ 700) e mede `--fs-lg` (0,9 da raiz) — a presença;
-//  B. ele NÃO é cortado: nem reticências, nem serra — "Ferramentas" é a palavra
-//     mais longa, e a 360px · 1,3× ela tem ~2px de folga (a régua mede o SPAN
-//     contra a própria caixa, que é o que o `text-overflow` corta);
+//  A. o rótulo é NEGRITO (≥ 700) e mede `--fs-lg` (0,9 da raiz) onde a palavra
+//     cabe — a presença; onde não cabe ele baixa, e nunca passa do `--fs-lg` nem
+//     desce do piso de 11px. A largura da palavra é da FONTE: MEDIDO, a 360px ·
+//     1,3× "Ferramentas" cabe com ~2px de folga numa fonte da métrica da Arial e
+//     NÃO cabe com a DejaVu do runner do CI (134 em 118) — quem a faz caber é o
+//     `--porta-fs-teto` (`acertarLetraDasPortas`). A célula de 1,5× não cabe em
+//     fonte nenhuma, e é ela que prova o teto em qualquer máquina;
+//  B. ele NÃO é cortado: nem reticências, nem serra (a régua mede o SPAN contra a
+//     própria caixa, que é o que o `text-overflow` corta);
 //  C. a ALTURA da porta é a de sempre (`--hit-foot`, 42px) e igual nas duas — é
 //     ela que a seta `#toolsFechar` copia, e é ela que a `.selbar` empata;
 //  D. o par de tinta não mudou: `--accent` sobre `--surface-porta`.
+//  (Células: 430×900, 360×640, 360×640 a 1,25× e 1,3×, e 360×740 a 1,5×.)
 //
 //   node tools/portas-presenca.test.mjs
 // ============================================================================
@@ -27,6 +33,7 @@ const TELAS = [
   { w: 360, h: 640, nome: '360×640' },
   { w: 360, h: 640, fonte: 1.25, nome: '360×640 · 1,25×' },
   { w: 360, h: 640, fonte: 1.30, nome: '360×640 · 1,3×' },
+  { w: 360, h: 740, fonte: 1.50, nome: '360×740 · 1,5×', estreita: true },
 ];
 
 const servidor = servirEstatico(RAIZ_WEB);
@@ -76,9 +83,16 @@ try {
     });
     console.log(t.nome, JSON.stringify(m.portas.map((p) => [p.id, p.fs + 'px', p.fw, p.spw + '/' + p.spc, p.h + 'px', p.ico + 'px'])));
     checar(ok === true, t.nome + ' · as duas portas estão no rodapé', porque(ok));
-    checar(m.portas.every((p) => p.fw >= 700 && Math.abs(p.fs - 0.9 * m.raiz) < 0.05),
-      'A · ' + t.nome + ' · o rótulo das duas portas é NEGRITO e mede `--fs-lg` (0,9 da raiz): a presença que o '
-      + 'operador pediu', m.portas);
+    const lg = 0.9 * m.raiz;
+    checar(m.portas.every((p) => p.fw >= 700 && p.fs <= lg + 0.05 && p.fs >= 11 - 0.05)
+        && Math.abs(m.portas[0].fs - m.portas[1].fs) < 0.05 && (t.fonte || m.portas.every((p) => Math.abs(p.fs - lg) < 0.05)),
+      'A · ' + t.nome + ' · o rótulo das duas portas é NEGRITO, no mesmo corpo nas duas, em `--fs-lg` (0,9 da raiz) '
+      + 'a 1× e nunca acima dele nem abaixo de 11px: a presença que o operador pediu', { lg, portas: m.portas });
+    if (t.estreita) {
+      checar(m.portas[1].fs < lg - 0.05,
+        'A · ' + t.nome + ' · PREMISSA: aqui a palavra não cabe em `--fs-lg` em fonte nenhuma, e o teto da largura '
+        + 'baixou o corpo (senão a célula não mede o `acertarLetraDasPortas`)', { lg, portas: m.portas });
+    }
     checar(m.portas.every((p) => p.spw <= p.spc + 0.5),
       'B · ' + t.nome + ' · e o rótulo cabe inteiro, sem reticências ("Ferramentas" é o mais longo)', m.portas);
     checar(m.portas.every((p) => p.h === m.hitFoot) && m.portas[0].h === m.portas[1].h,

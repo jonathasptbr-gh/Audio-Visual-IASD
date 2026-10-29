@@ -2197,7 +2197,7 @@ padrão continuava deslocando para o resto. O que cada forma de campo faz:
 |---|---|
 | folha do teto (`#fadePopup`, `#sorteioPopup`, `#itinPopup`) | a folha desconta `--kb-folha`; a lista dela rola dentro do que sobra |
 | diálogo centrado (`appPrompt`: renomear cronograma/itinerário, nova mensagem, guardar pacote, renomear a seleção) | `.dialog-backdrop` desconta `--kb-folha`, e o cartão centra no que sobra acima do teclado |
-| campo no corpo de uma lista (o renomear da faixa no Cronograma e nos Favoritos, as legendas do Tempo, os campos do Sorteio) | `revelarCampo`: rola o scroller do campo até 12px acima do teclado e, sem curso (a última linha), dá a ele um `padding-bottom` provisório, desfeito quando o teclado desce |
+| campo no corpo de uma lista (o renomear da faixa no Cronograma e nos Favoritos, as legendas do Tempo, os campos do Sorteio) | `revelarCampo`: rola o scroller do campo até 12px acima do teclado e, sem curso (a última linha), dá a ele um `padding-bottom` provisório, desfeito quando o teclado desce — em até três passadas, porque num scroller de conteúdo FLEXÍVEL (a lista de nomes do Sorteio) a folga encolhe o campo em vez de dar rolagem. Um campo mais alto que o espaço livre vai até o topo do scroller e não além |
 | **a EXCEÇÃO: a busca da Biblioteca** (`#hymnSearchInput`, `data-teclado="desloca"`) | o app encolhe: a lista termina onde o teclado começa (`body.lib-aberta.teclado`) e, no Modo Fácil, as teclas saem ("DURANTE UMA BUSCA AS TECLAS SAEM"). A barra sobe porque ela É o campo |
 
 **POR QUE O CAMPO NÃO PODE FICAR SOB O TECLADO, mesmo sobrepondo:** o navegador
@@ -4016,9 +4016,13 @@ colocar elas em negrito … sinto que eles estão com pouca presença"*. As duas
 `--fs-lg` (era `--fs-md`; 13,12 → 14,4px a 1×) e `--fw-forte` (o peso de botão da
 escala). O que paga a largura é o vão (`--sp-3`, era `--sp-4`), e o ícone fica em
 `--icon-sm`: o degrau a mais deixava "Ferramentas" com 0,4px de folga a 360px · 1,3×.
-MEDIDO ("Ferramentas" / a caixa dele, a altura): 430×900 89/89, 42px; 360×640 89/89,
-42px; 360×640 · 1,25× 111/111, 42px; 360×640 · 1,3× 116 em 118,4, 42px. A 1,5× ele
-já cortava com reticências antes e continua. Oráculo: `portas-presenca`.
+MEDIDO com uma fonte da métrica da Arial ("Ferramentas" / a caixa dele, a altura): 430×900
+89/89, 42px; 360×640 89/89, 42px; 360×640 · 1,25× 111/111, 42px; 360×640 · 1,3× 116 em
+118,4, 42px. **A LARGURA DA PALAVRA É DA FONTE**: com a DejaVu do CI ela é 16% maior
+(134 em 118 a 1,3×). Onde não cabe, o `--porta-fs-teto` da `.portas-row`
+(`acertarLetraDasPortas`, o `tetoQueCabe` da lista das Ferramentas, comum às duas
+portas) baixa o corpo até caber — nunca reticências, piso 11px. Oráculo:
+`portas-presenca`.
 
 **Com a folha aberta na LISTA, a porta de Ferramentas vira SETA** (v1.13.6): a folha
 cobre a porta, e no retângulo exato dela mora o `#toolsFechar`, que fecha a folha —
