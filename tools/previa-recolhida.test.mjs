@@ -3,10 +3,13 @@
 // ## O que o recurso é, e onde cada defeito dele falha CALADO
 //
 // O tile "Imagem da prévia" saiu de Configurações e virou uma SETA DENTRO da
-// prévia (`#pvRecolherBtn`), nos dois modos. O toque grava a MARCAÇÃO
-// (`economiaPreview`) e a prévia vira uma TIRA: a classe `pv-recolhida` põe os
-// botões em fluxo numa grade e a altura passa a ser a do CONTEÚDO — ninguém
-// declara 38 ou 72 px em lugar nenhum. Cinco coisas se quebram sem erro:
+// prévia (`#pvRecolherBtn`). O toque grava a MARCAÇÃO (`economiaPreview`) e a
+// prévia vira MAIS UMA LINHA DO DECK (v1.13.10; era uma tira do palco): a classe
+// `pv-recolhida` põe os cinco botões numa grade de cinco células, cada uma com a
+// caixa do botão do transporte logo abaixo, e a altura passa a ser a do CONTEÚDO
+// — ninguém declara um número. O selo de camadas e o giro saem da linha, e um
+// PONTO na seta diz que um deles está ativo (bloco H). Cinco coisas se quebram
+// sem erro:
 //
 //   · **A altura que sobra.** Uma altura declarada (`height: 72px`) ou um piso
 //     esquecido recolhe "para menos", mas não para o MENOR POSSÍVEL, e o
@@ -16,7 +19,7 @@
 //   · **A tela cheia sem TV.** Ali a prévia É a projeção. Uma regra recolhida
 //     sem `:not(:fullscreen)` esconde as camadas e a congregação vê o BRANCO,
 //     sem erro algum.
-//   · **O cartão de espera.** Ele mede 43 a 58 px e não cabe numa tira de 38,
+//   · **O cartão de espera.** Ele mede 43 a 58 px e não cabe numa linha de botão,
 //     e é a ÚNICA porta de cancelar um download e o ÚNICO canal de falha do
 //     "tocar": sem `:not(:has(.pv-busy.on))` ele é engolido pelo `overflow`.
 //   · **As camadas.** A `visibility: hidden` é o que tira a letra e o texto
@@ -29,9 +32,9 @@
 // ## O que se MEDE, e o que NÃO se escreve aqui
 //
 // `--hit` é LIDO do estilo (`getComputedStyle`), nunca escrito, e o recuo da
-// tira também. O oráculo só afirma relações — "todo botão mede `--hit`",
+// tira também. O oráculo só afirma relações — "todo botão mede o do transporte",
 // "está dentro", "não se sobrepõem", "a folga é no máximo 2,5 px" — e é a
-// folga, não o número 38 ou 72, o que prova a altura.
+// folga, não um número, o que prova a altura.
 //
 // ## O que NÃO cobre — e está dito
 //
@@ -140,13 +143,9 @@ const trocarTelas = async (pg, telas) => {
 // espera entre escrever o estado e medir). `--hit` e o recuo saem do ESTILO —
 // o oráculo não conhece 34 nem 2. "Visível" é o que o operador alcança: sem
 // `display: none`, sem `visibility: hidden` e com caixa.
-const MEDIR = (tirarFallback) => {
+const MEDIR = () => {
   const r = (el) => { const b = el.getBoundingClientRect(); return { l: b.left, t: b.top, w: b.width, h: b.height }; };
   const pv = document.getElementById('preview');
-  // `tirarFallback`: mede COMO SERIA com a linha única à força (a classe é devolvida ao fim da
-  // própria leitura, antes de qualquer quadro) — é o que prova que o fallback só liga quando precisa.
-  const tinhaFallback = pv.classList.contains('pv-extras-baixo');
-  if (tirarFallback) pv.classList.remove('pv-extras-baixo');
   const cs = getComputedStyle(pv);
   const hit = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hit'));
   const vis = (e) => {
@@ -172,13 +171,14 @@ const MEDIR = (tirarFallback) => {
       }
     }
   }
-  // O GIRO traz o ângulo escrito ("270°") e por isso é mais LARGO que `--hit`:
-  // para ele a régua é a ALTURA (e a largura nunca menor que `--hit`); para os
-  // demais, o QUADRADO.
-  const comRotulo = ['pvGiroBtn'];
-  const diferentes = fabs.filter((f) => Math.abs(f.h - hit) > 0.5
-    || (comRotulo.includes(f.id) ? f.w < hit - 0.5 : Math.abs(f.w - hit) > 0.5))
-    .map((f) => f.id + ':' + f.w.toFixed(1) + 'x' + f.h.toFixed(1));
+  // A RÉGUA RECOLHIDA É O BOTÃO DO TRANSPORTE logo abaixo (v1.13.10: a prévia recolhida é
+  // mais uma linha do deck). Expandida, cada `.pv-fab` é o quadrado de `--hit`.
+  const tb = document.getElementById('prev').getBoundingClientRect();
+  const recolhida = pv.classList.contains('pv-recolhida');
+  const alvo = recolhida ? { w: tb.width, h: tb.height } : { w: hit, h: hit };
+  const diferentes = fabs.filter((f) => Math.abs(f.h - alvo.h) > 0.5 || Math.abs(f.w - alvo.w) > 0.5)
+    .map((f) => f.id + ':' + f.w.toFixed(1) + 'x' + f.h.toFixed(1) + ' contra ' + alvo.w.toFixed(1) + 'x' + alvo.h.toFixed(1));
+  const ponto = getComputedStyle(document.getElementById('pvRecolherBtn'), '::after');
   // A FOLGA: o que a prévia tem a mais do que os botões ocupam. Recuo lido do
   // estilo da própria prévia (a tira recuada em cima e embaixo).
   let folga = null;
@@ -188,8 +188,8 @@ const MEDIR = (tirarFallback) => {
     folga = P.h - (base - topo) - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
   }
   const linhas = new Set(fabs.map((f) => Math.round(f.t / 4))).size;
-  if (tirarFallback) pv.classList.toggle('pv-extras-baixo', tinhaFallback);
   return {
+    ponto: ponto.content !== 'none' && ponto.display !== 'none',
     hit, P, cls: pv.className, fabs, ids: fabs.map((f) => f.id).join(','), seta, cx,
     fora, sobre, diferentes, folga, linhas,
     ladoDoIcone: seta && seta.svg ? [seta.svg.w, seta.svg.h] : null,
@@ -220,12 +220,11 @@ try {
   // =========================================================================
   // A · A SETA, QUADRADA E NO LUGAR CERTO (só no avançado: o Modo Fácil não tem prévia, v1.11.11)
   // B · RECOLHER: A ALTURA É A MENOR POSSÍVEL (a folga), SEM BOTÃO APERTADO
-  // H · COM SELO E GIRO À VISTA: LINHA ÚNICA, OU DUAS SE NÃO CABE (v1.11.17), SEM SOBREPOSIÇÃO
+  // H · COM O GIRO ATIVO: RECOLHIDA ELE SAI E A SETA GANHA O PONTO (v1.13.10); EXPANDIDA, VOLTA
   // =========================================================================
-  // Uma varredura só: 3 larguras x 2 proporções, e em cada célula três
-  // estados (expandida, recolhida e recolhida com o giro à vista). A largura
-  // mexe no que CABE na linha, e a proporção na altura natural da prévia — e é
-  // só a 320 px que selo e giro deixam de caber ao lado da seta.
+  // Uma varredura só: 3 larguras x 2 proporções, e em cada célula os estados
+  // expandida, recolhida, recolhida com o giro ativo e com a camada ativa. A
+  // largura mexe na célula do deck, e a proporção na altura natural da prévia.
     for (const modo of ['full']) {
     await pg.evaluate((m) => setAppMode(m), modo);
     const modoOk = await esperar(pg, (m) => appMode === m, modo, 5000);
@@ -279,7 +278,7 @@ try {
           'B1 · recolher ENCOLHE de fato a prévia [' + tag + ']',
           'expandida ' + exp.P.h.toFixed(1) + ', recolhida ' + rec.P.h.toFixed(1));
         checar(rec.diferentes.length === 0,
-          'B2 · TODO botão visível mede `--hit` recolhida — nada é apertado para caber [' + tag + ']',
+          'B2 · TODO botão visível recolhido mede o botão do TRANSPORTE logo abaixo (largura e altura) [' + tag + ']',
           rec.diferentes);
         checar(rec.fora.length === 0, 'B3 · e nenhum fica fora da prévia [' + tag + ']', rec.fora);
         checar(rec.sobre.length === 0, 'B4 · e nenhum se sobrepõe a outro [' + tag + ']', rec.sobre);
@@ -292,46 +291,34 @@ try {
             'cx ' + rec.cx.toFixed(2));
         }
 
-        // ---- H: com o giro à vista (o selo da camada mora na mesma linha) ----
-        // O GIRO ENTRA NA LINHA ÚNICA OU, SE NÃO CABE, DESCE COM O SELO (v1.11.17): quem decide é o
-        // `ResizeObserver` do `acertarExtrasDaPrevia`, que roda ANTES da pintura mas depois do
-        // layout — duas rodadas de quadro bastam para o veredito assentar.
+        checar(rec.ponto === false,
+          'B7 · sem giro nem camada a seta recolhida NÃO tem o ponto vermelho [' + tag + ']', rec.ids);
+
+        // ---- H: com o giro ativo, recolhida: o giro SAI e o ponto da seta o diz (v1.13.10) ----
         await pg.evaluate(() => { mediaRot = 270; renderRotBtn(); });
-        await pg.evaluate(() => new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f))));
         const gir = await pg.evaluate(MEDIR);
-        checar(/pvGiroBtn/.test(gir.ids),
-          'H0 · PREMISSA: o giro está à vista (`mediaRot` 270) [' + tag + ']', gir.ids);
-        checar(gir.diferentes.length === 0 && gir.fora.length === 0 && gir.sobre.length === 0,
-          'H1 · com o giro à vista: todo botão é `--hit`, dentro e SEM sobreposição [' + tag + ']',
-          { diferentes: gir.diferentes, fora: gir.fora, sobre: gir.sobre });
-        checar(gir.folga !== null && gir.folga <= 2.5,
-          'H2 · e a altura segue a MENOR POSSÍVEL (folga <= 2,5 px) [' + tag + ']',
-          'folga ' + (gir.folga == null ? '?' : gir.folga.toFixed(1)) + 'px, altura ' + gir.P.h.toFixed(1));
-        const desceu = /\bpv-extras-baixo\b/.test(gir.cls);
-        // H4 · O FALLBACK SÓ LIGA QUANDO A LINHA ÚNICA NÃO CABERIA: com a classe tirada na hora,
-        // a mesma prévia tem de estourar (fora ou sobreposição). Sem esta asserção um
-        // `pv-extras-baixo` sempre ligado passaria em tudo acima, e a linha única — o pedido —
-        // nunca existiria.
-        const forcada = await pg.evaluate(MEDIR, true);
-        if (desceu) {
-          checar(forcada.fora.length > 0 || forcada.sobre.length > 0,
-            'H4 · o fallback só liga quando a linha única NÃO caberia: com a classe tirada na hora a prévia estoura '
-            + '(fora ou sobreposição) [' + tag + ']', { fora: forcada.fora, sobre: forcada.sobre });
-        } else {
-          checar(forcada.fora.length === 0 && forcada.sobre.length === 0 && forcada.linhas === 1,
-            'H4 · e, sem o fallback, a linha única é uma linha só e cabe inteira [' + tag + ']',
-            { linhas: forcada.linhas, fora: forcada.fora, sobre: forcada.sobre });
-        }
-        if (modo === 'full' && largura === 320) {
-          checar(desceu && gir.linhas === 2 && gir.P.h > rec.P.h + gir.hit - 2,
-            'H3 · a 320 px o giro NÃO cabe ao lado da seta: a linha DESCE (`pv-extras-baixo`) e a prévia ganha a segunda [' + tag + ']',
-            { desceu, linhas: gir.linhas, sem: rec.P.h.toFixed(1), com: gir.P.h.toFixed(1) });
-        }
-        if (modo === 'full' && largura === 430) {
-          checar(!desceu && gir.linhas === 1 && Math.abs(gir.P.h - rec.P.h) <= 0.5,
-            'H3b · a 430 px tudo cabe NUMA linha: selo, seta e giro lado a lado, e a prévia NÃO ganha altura nenhuma [' + tag + ']',
-            { desceu, linhas: gir.linhas, sem: rec.P.h.toFixed(1), com: gir.P.h.toFixed(1) });
-        }
+        const giroMarcado = await pg.evaluate(() => !document.getElementById('pvGiroBtn').hidden);
+        checar(giroMarcado === true,
+          'H0 · PREMISSA: o giro está ativo (`mediaRot` 270, o botão sem `hidden`) [' + tag + ']', gir.ids);
+        checar(!/pvGiroBtn|pvCamadaBtn/.test(gir.ids),
+          'H1 · recolhida, o desfazer do giro e o selo de camadas NÃO são desenhados [' + tag + ']', gir.ids);
+        checar(gir.ponto === true,
+          'H2 · e a seta ganha o PONTO que diz que um deles está ativo [' + tag + ']', gir.ids);
+        checar(gir.diferentes.length === 0 && gir.fora.length === 0 && gir.sobre.length === 0
+          && gir.linhas === 1 && Math.abs(gir.P.h - rec.P.h) <= 0.5,
+          'H3 · e a linha não muda: uma linha só, a mesma altura, os mesmos botões [' + tag + ']',
+          { diferentes: gir.diferentes, fora: gir.fora, sobre: gir.sobre, linhas: gir.linhas, sem: rec.P.h, com: gir.P.h });
+        // SÓ A CAMADA também acende o ponto (o selo é o outro morador da base).
+        await pg.evaluate(() => { mediaRot = 0; renderRotBtn(); document.getElementById('pvCamadaBtn').hidden = false; });
+        const cam = await pg.evaluate(MEDIR);
+        checar(cam.ponto === true && !/pvCamadaBtn/.test(cam.ids),
+          'H5 · só a camada de cima no ar: o selo some da linha e o ponto aparece [' + tag + ']', cam.ids);
+        await pg.evaluate(() => { document.getElementById('pvCamadaBtn').hidden = true; mediaRot = 270; renderRotBtn(); });
+        // EXPANDIDA, o giro volta sem alteração e o ponto não existe.
+        await pg.evaluate(() => setEconomiaPreview(false));
+        const giroExp = await pg.evaluate(MEDIR);
+        checar(/pvGiroBtn/.test(giroExp.ids) && giroExp.ponto === false,
+          'H4 · expandida, o desfazer do giro volta à vista e a seta não tem ponto [' + tag + ']', giroExp.ids);
         await pg.evaluate(() => { mediaRot = 0; renderRotBtn(); });
       }
     }
@@ -483,7 +470,7 @@ try {
   });
   checar(Math.abs(comCartao.h - naturalAgora) <= 1,
     'E2 · COM O CARTÃO NO AR a prévia volta à altura NATURAL (a de expandida, medida tirando a '
-    + 'classe): ele mede 43 a 58 px e numa tira de 38 seria cortado pelo `overflow`',
+    + 'classe): ele mede 43 a 58 px e numa linha de botão seria cortado pelo `overflow`',
     { comCartao: comCartao.h, natural: naturalAgora });
   checar(comCartao.cartaoDentro === true,
     'E3 · e o cartão fica INTEIRO dentro da prévia', comCartao);
@@ -506,7 +493,7 @@ try {
     'E4b · COM O CARTÃO NO AR a seta sai da frente dele (avançado): `visibility: hidden` e fora do '
     + 'toque — ela cobria o texto do download em 3 a 26 px, conforme a proporção da TV', setaComCartao);
   // O CARTÃO SAI NO ATO: a grade é desfeita no instante em que o `.on` cai, e com
-  // o fade de 200 ms o cartão (52 px) ainda aparecia cortado numa tira de 38 px.
+  // o fade de 200 ms o cartão (52 px) ainda aparecia cortado numa linha de botão.
   // A leitura é feita DENTRO da mutação da classe — um `esperar` que a leia depois
   // mede o quadro seguinte, e o fade já teria andado.
   const saida = await pg.evaluate(() => new Promise((resolve) => {
@@ -526,7 +513,7 @@ try {
   }));
   checar(saida.recolhida === true && saida.opacidade < 0.05,
     'E4c · e quando o cartão SAI com a prévia recolhida ele some NO ATO (opacidade ~0 na própria '
-    + 'mutação da classe): com o fade de 200 ms ele aparecia espremido numa tira de 38 px',
+    + 'mutação da classe): com o fade de 200 ms ele aparecia espremido numa linha de botão',
     saida);
   const saiu = await esperar(pg, () => !document.getElementById('pvBusy').classList.contains('on'), null, 5000);
   const depoisDoCartao = await lerCartao();
@@ -607,7 +594,7 @@ try {
       };
     });
     checar(cheiaOk === true,
-      'F1 · em tela cheia a prévia OCUPA a viewport inteira — não a tira de 38 px', { ...cheia, prazo: porque(cheiaOk) });
+      'F1 · em tela cheia a prévia OCUPA a viewport inteira — não a linha recolhida', { ...cheia, prazo: porque(cheiaOk) });
     checar(cheia.marcacao === true && cheia.recolhidaClasse === true,
       'F2 · a MARCAÇÃO atravessa (a classe segue ligada; quem a cala é o CSS, sem o atraso de um '
       + 'quadro do `fullscreenchange`)', cheia);

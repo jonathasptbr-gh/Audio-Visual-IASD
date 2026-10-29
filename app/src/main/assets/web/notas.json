@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.13.10",
+    "itens": [
+      "Prévia recolhida: virou mais uma fileira de botões, igual aos de play, pausa e próxima logo abaixo.",
+      "Os botões dela são: mudo, cobrir o telão, a seta para abrir, conectar a TV e tela cheia.",
+      "Os botões de tirar a camada de cima e de desfazer o giro não aparecem com a prévia recolhida.",
+      "No lugar deles, um pontinho vermelho na seta avisa que há camada por cima ou giro ligado.",
+      "Abrindo a prévia, tudo continua como antes."
+    ]
+  },
+  {
     "versao": "1.13.9",
     "itens": [
       "Modo Fácil: a biblioteca ficou maior: letras, ícones, cartões e músicas dentro dos álbuns.",

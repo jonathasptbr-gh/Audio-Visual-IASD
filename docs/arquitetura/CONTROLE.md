@@ -2886,68 +2886,75 @@ que ela ganhou GEOMETRIA.
   estar em tela cheia**). Ligar a decodificação à marcação pararia o `<video>` da
   prévia, que sem tela é a fonte do som; ligar a geometria ao veredito faria a
   seta não fazer nada visível sem TV.
-- **A altura mínima é a do CONTEÚDO, e ninguém a escreve.** Recolhida, a prévia
-  deixa de ser um retângulo com botões POR CIMA (as colunas `.pv-fabs` são
-  `position: absolute`, e a altura delas não conta) e vira uma GRADE em fluxo:
-  `height: auto`, sem `aspect-ratio`, os grupos `static` em linha. MEDIDO de 320
-  a 430px de largura e de 1,2 a 2,4 de proporção, nos dois modos: **38px** (34 de
-  `--hit` mais 2px de recuo de cada lado). Nenhum botão apertado, nenhum fora,
-  nenhuma sobreposição. Um número declarado assumiria dois botões empilhados e
-  quebraria no terceiro; `flex: 0 1` com `min-height: 24px` espremeria a cortina
-  e o mudo, que o pedido proíbe. O oráculo é quem MEDE (`previa-recolhida.test.mjs`).
-- **UMA LINHA SÓ, CINCO COLUNAS (v1.11.17).** O selo de camadas e o desfazer do
-  giro moravam numa SEGUNDA linha (72px) — pedido do operador: *"esses botões
-  fiquem lado a lado com o próprio botão de descolapsar, não criando altura
-  desnecessária apenas para esses botões"*. Hoje a grade é
-  `minmax(0,1fr) auto auto auto minmax(0,1fr)`: laterais nos extremos, selo ·
-  seta · giro no miolo (`.pv-fabs--base` é `display: contents`, os dois botões
-  viram células). Com extras à vista a seta anda até ~23px do centro (o bloco
-  selo+seta+giro é que fica centrado); sem extras ela segue exatamente no centro.
-  **A ORDEM DOS GRUPOS LATERAIS espelha a da prévia aberta:** o grupo esquerdo é
-  `row-reverse` (o HTML é cortina, mudo), então o MUDO é o canto esquerdo e a TELA
-  CHEIA o direito nos DOIS estados — *"na esquerda o botão de mudo não está
-  mantendo a mesma posição relativa de antes e depois de colapsar, diferente do
-  botão de tela cheia, que se mantém imóvel"*. **O fallback `pv-extras-baixo`:** em
-  360px a prévia mede 211–240px e a soma dos botões à vista (250 com cast + selo +
-  giro) passa disso. `acertarExtrasDaPrevia` mede a SOMA contra a largura (nenhum
-  número escrito: o giro tem a largura do ângulo e o cast some no navegador) por um
-  `ResizeObserver` na prévia e em cada botão, e a linha desce para o desenho
-  antigo — tudo ou nada. Decidir não realimenta a decisão: a classe muda só a
-  ALTURA da prévia, nunca a largura. O oráculo prova o limite pelos dois lados
-  (`H4`: tirada a classe à força, a linha única estoura onde o fallback ligou e
-  cabe onde não ligou).
-- **A ANIMAÇÃO (v1.11.17)** — *"faça uma animação para a colapsação da preview,
-  ao invés de piscar e mudar de tamanho"*. `animarRecolhimentoDaPrevia`, chamada
-  só por `setEconomiaPreview` (o TOQUE: mede ANTES e anima DEPOIS; a abertura, a
-  troca de destino e a saída da tela cheia chamam `acertarEconomiaDaPreview` direto
-  e assentam no ato). O estado final vale no primeiro quadro; WAAPI desenha o
-  caminho: `height` do medido antes ao medido depois, cada botão em FLIP no eixo X
-  (de onde estava até onde ficou) e as camadas desvanecendo. **O eixo Y não precisa
-  de movimento:** o de cima fica a 2px do topo e o de baixo a 2px da base nas duas
-  geometrias, e `pv-animando` ancora cada um enquanto a altura corre (grade:
-  `align-self: start`/`end`; ao EXPANDIR a coluna de 34px não comporta dois botões
-  de 34, e o mudo/tela cheia ficam `position: absolute; bottom: 0` — MEDIDO, sem
-  isso o mudo caía a −12px da base nos primeiros quadros). `--dur-lenta` lida do
-  token; `semMovimento()` e tela cheia não animam; um segundo toque no meio parte de
-  onde a prévia está (`getBoundingClientRect` já inclui a animação em curso, e
-  `cancelarAnimacaoDaPrevia` roda ENTRE as duas medidas). No fallback anima só a
-  altura e o desvanecer. **Oráculo que clica a seta e mede NO ATO abre o contexto
-  com `reducedMotion: 'reduce'`**; o caminho animado é do `previa-animacao.test.mjs`.
-- **`1fr auto 1fr`, e não `auto 1fr auto`:** com o cast oculto (o navegador) ou a
-  coluna da esquerda fora (Modo Fácil) as laterais ficam desiguais e a seta
-  sairia do centro.
+- **RECOLHIDA, ELA É MAIS UMA LINHA DO DECK (v1.13.10).** Pedido do operador:
+  *"o colapso da preview vai simplesmente se transformar em uma outra linha, com
+  os botões que antes estavam na preview … o mesmo design de botões e grade que já
+  temos nesses controles abaixo"*. Era uma tira do PALCO (v1.11.7–v1.13.9: fundo
+  preto, ícones soltos de `--hit` com `drop-shadow`, 38px, e um fallback de duas
+  linhas para o selo e o giro). Hoje:
+  - **A GRADE É A DO TRANSPORTE, SEM CONTA.** A prévia ocupa a coluna do meio do
+    deck, `W − 2·col − 2·vão`; com `col = (W − 6·vão)/7` (a demonstração está no
+    `.deck`) isso é exatamente `5·col + 4·vão`. `repeat(5, minmax(0, 1fr))` com
+    `--deck-gap` dá cinco células de `--deck-col`, borda com borda sobre a
+    playlist, ⏮, ▶, ⏭ e o parar; os dois botões de slide, que flanqueiam a
+    prévia, ganham a altura da linha e fecham as sete. MEDIDO a 390px: os dez
+    botões das duas linhas em 47,7 × 36,4.
+  - **COLUNA FIXA POR BOTÃO:** mudo · cortina · seta · cast · tela cheia. A ordem
+    espelha a prévia aberta (o mudo é o canto de baixo à esquerda e a tela cheia o
+    de baixo à direita, então cada um é o extremo do seu lado); sem cast (o
+    navegador) a quarta célula fica VAZIA, em vez de os vizinhos andarem e saírem
+    da coluna do transporte.
+  - **O BOTÃO É O `.t-btn`:** `--surface`, `--radius-btn`, `--text`, recuo `.45rem`,
+    ícone `--icon-md`, sem as sombras de traço (elas existem para um fundo
+    desconhecido), com o `--press` + `--press-luz` do deck — por isso a prévia
+    recolhida é `overflow: visible` (recortado, o recuo de 2px perderia a base). A
+    altura sai do conteúdo, como a do vizinho. **O estado vira superfície**, a
+    regra "LIGADO É SUPERFÍCIE": cortina e mudo `--btn-danger` + `--danger-strong`,
+    bloqueio de áudio `--btn-warn` + `--warn`, cast conectado `--ok-fill` + `--ok`
+    (nomeado na lista do `feedback-de-confirmacao`). Os tokens do palco
+    (`--stage-alert`, `--stage-ok`) não servem aqui: o deck tem tema.
+  - **O SELO DE CAMADAS E O DESFAZER DO GIRO NÃO ENTRAM NA LINHA**
+    (`.pv-fabs--base { display: none }` só recolhida). No lugar, um PONTO no canto
+    da seta — o tamanho e o canto da `.lv-badge`, tinta `--danger-strong` —, que
+    aparece por `:has(:is(#pvCamadaBtn, #pvGiroBtn):not([hidden]))`: a pergunta é
+    a MESMA que desenha os dois (`renderCamadaBtn`/`renderRotBtn` escrevem o
+    `hidden`), então o ponto não diverge do selo e não há JS. *"um simples ponto
+    vermelho … como indicação de um ou dos dois símbolos ativos"*. Expandida, os
+    dois seguem como sempre.
+  - **O fallback de duas linhas SAIU** (`acertarExtrasDaPrevia`, o `ResizeObserver`
+    dele e todo o `pv-extras-baixo`): sem selo e giro, cinco células sempre cabem.
+- **A ANIMAÇÃO (v1.11.17; o fundo na v1.13.10)** — *"faça uma animação para a
+  colapsação da preview, ao invés de piscar e mudar de tamanho"*.
+  `animarRecolhimentoDaPrevia`, chamada só por `setEconomiaPreview` (o TOQUE: mede
+  ANTES e anima DEPOIS; a abertura, a troca de destino e a saída da tela cheia
+  chamam `acertarEconomiaDaPreview` direto e assentam no ato). O estado final vale
+  no primeiro quadro; WAAPI desenha o caminho: `height`, `background-color`,
+  `box-shadow` e `border-radius` da prévia do medido antes ao medido depois (do
+  palco ao transparente), e em cada botão o fundo, a cor e o deslocamento — **contado
+  da ÂNCORA do botão**: no Y a do aberto (topo ou base), no X a da linha (borda
+  esquerda, direita ou centro). Contado de outra ponta, a largura que muda (34 →
+  47,7) jogava o canto para fora da caixa no primeiro quadro. `pv-animando` estica
+  a trilha única e prende cada botão à borda dele (`align-self: start`/`end`)
+  enquanto a altura corre, e recorta (`overflow: hidden`); ao EXPANDIR a coluna de
+  34px não comporta dois botões, e o mudo/tela cheia ficam `position: absolute;
+  bottom: 0` — MEDIDO, sem isso o mudo caía a −12px da base nos primeiros quadros.
+  `--dur-lenta` lida do token; `semMovimento()` e tela cheia não animam; um
+  segundo toque no meio parte de onde a prévia está (`getBoundingClientRect` já
+  inclui a animação em curso, e `cancelarAnimacaoDaPrevia` roda ENTRE as duas
+  medidas). **Oráculo que clica a seta e mede NO ATO abre o contexto com
+  `reducedMotion: 'reduce'`**; o caminho animado é do `previa-animacao.test.mjs`.
 - **O Modo Fácil NÃO TEM A SETA** (v1.11.11): sem prévia não há o que recolher; o canto superior esquerdo que a v1.11.7 lhe dava saiu junto.
 - **O CSS recolhido fica de fora da TELA CHEIA e do CARTÃO DE ESPERA**
   (`:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on))`). Em tela
   cheia sem TV a prévia É a projeção: uma regra sem o `:not(:fullscreen)` deixa o
   telão em branco, sem erro algum (e ao sair a prévia volta recolhida, sem
-  alternar a marcação). O cartão `#pvBusy` mede 43 a 58px, não cabe em 38, e é o
+  alternar a marcação). O cartão `#pvBusy` mede 43 a 58px, não cabe numa linha de botão, e é o
   ÚNICO canal de falha do download no ato do "tocar" e a única porta de
   CANCELAR: com ele no ar a prévia volta à altura natural e recolhe sozinha 700ms
   depois (`PV_BUSY_SAIDA_MS`). O custo é um salto de layout num download lento.
   O desenho da seta diz a MARCAÇÃO, não a geometria do instante.
-- **A seta é um `.pv-fab`** (caixa quadrada `--hit`, ícone 24px, a mesma
-  `drop-shadow` tripla), no quarto grupo `.pv-fabs--topo`. **Chevron para BAIXO =
+- **A seta é um `.pv-fab`** (expandida: caixa quadrada `--hit`, ícone 24px, a mesma
+  `drop-shadow` tripla; recolhida: a tecla do deck), no quarto grupo `.pv-fabs--topo`. **Chevron para BAIXO =
   recolher, para CIMA = expandir** (`#icoRecolher`/`#icoExpandir`, `.alternado`):
   a caixa de controles é ancorada na base da tela, então a borda de cima da
   prévia — onde a seta mora — desce quando ela encolhe. Sem cor de estado, sem
@@ -2955,7 +2962,7 @@ que ela ganhou GEOMETRIA.
 - **Efeitos que o operador vê:** a caixa de controles encolhe (304 → 204px em
   430×900) e a lista do Cronograma ganha a diferença (`--lib-caixa-h` acompanha
   pelo `ResizeObserver` que já existia); os botões de passar slide, que têm a
-  altura da faixa da prévia, caem de 88–241px para 38px (continuam ≥ `--hit`); o
+  altura da faixa da prévia, caem de 88–241px para a altura do transporte (36,4px a 1×); o
   fader fica com ~12px de curso — serve para MOSTRAR o número na espiada da tecla
   física, e arrastar com o dedo deixa de ser prático.
 - **A escolha é GUARDADA e o veredito é DERIVADO**, a separação do
@@ -5490,8 +5497,7 @@ divergirem. As decisões:
   thumbnail, ficando estranho … quando for uma certa largura, ele realmente oculta
   a thumbnail, distribui corretamente a largura que sobrou para os botões de
   opções."* O "cresce só o que precisa" acima deixava meia capa debaixo de um
-  botão. Hoje a pergunta é binária e MEDIDA (`acertarFaixaDaLinha`, a régua do
-  `acertarExtrasDaPrevia` — nunca um ponto de quebra): a SOMA das larguras dos
+  botão. Hoje a pergunta é binária e MEDIDA (`acertarFaixaDaLinha` — nunca um ponto de quebra): a SOMA das larguras dos
   botões à vista, mais os vãos, contra o vão de layout entre a capa e a borda
   direita da caixa.
   - **Cabem:** nada muda — a capa fica, e é ela que diz de qual item é o menu.

@@ -8,27 +8,30 @@
 // antes e depois de colapsar, diferente do botão de tela cheia, que se mantém imóvel."*
 //
 // O estado final é o de sempre e vale no primeiro quadro (a classe `pv-recolhida` e a geometria
-// mudam no ato); o que a animação desenha é o CAMINHO até ele — a altura, o eixo X de cada botão
-// e o desvanecer das camadas. O que este arquivo trava, e cada uma falha CALADA (a prévia recolhe
-// do mesmo jeito; só o olho nota):
+// mudam no ato); o que a animação desenha é o CAMINHO até ele — a altura, o fundo da prévia, a
+// posição e o fundo de cada botão e o desvanecer das camadas. Desde a v1.13.10 a recolhida é
+// UMA LINHA DO DECK (cinco teclas com a caixa do transporte), e o selo e o giro não entram nela.
+// O que este arquivo trava, e cada uma falha CALADA (a prévia recolhe do mesmo jeito; só o olho
+// nota):
 //
-//  A1 · o MUDO e a TELA CHEIA ficam IMÓVEIS no recolher: a mesma distância da borda esquerda
-//       (mudo) e da direita (tela cheia), nos dois estados — a ordem é do canto, não da fila.
-//  A2 · e continuam no mesmo lugar em TODOS os quadros do movimento (não só nas pontas).
+//  A1 · o MUDO é o canto de baixo à ESQUERDA e a TELA CHEIA o de baixo à DIREITA nos dois
+//       estados — a ordem é do canto, não da fila (o recuo de 2 px do palco é a única diferença).
+//  A2 · e continuam no canto deles em TODOS os quadros do movimento (não só nas pontas).
 //  B1 · a altura corre (vários valores intermediários, sem salto no primeiro quadro, monótona,
 //       terminando na altura medida do estado final) — recolhendo E expandindo.
-//  B2 · cada botão fica ANCORADO onde estava no eixo Y durante o movimento (o de cima a 2px do
-//       topo, o de baixo a 2px da base): sem a classe `pv-animando` a linha única flutuaria no
-//       meio de uma caixa que ainda encolhe.
-//  B3 · a cortina e o cast ANDAM no eixo X (de onde estavam até a linha única), em vez de pular.
+//  B2 · cada botão fica ANCORADO à borda dele durante o movimento (o de cima no topo, o de baixo
+//       na base): sem a classe `pv-animando` a linha flutuaria no meio de uma caixa que encolhe.
+//  B3 · a cortina e o cast ANDAM no eixo X (de onde estavam até a célula deles), em vez de pular.
 //  B4 · as camadas ficam visíveis e desvanecem (opacidade intermediária), e SOMEM só no fim.
 //  B5 · no fim não sobra NADA: nenhuma animação, nenhuma classe de movimento, nenhum `transform`.
+//  B6 · o fundo da tecla e o do palco passam por valores intermediários: o ícone solto vira a
+//       tecla no caminho, e o preto da prévia não some de uma vez no último quadro.
 //  C1 · só o TOQUE anima: a abertura, a troca de destino e a saída da tela cheia chamam
 //       `acertarEconomiaDaPreview` direto e a prévia assenta no ato.
 //  C2 · `prefers-reduced-motion` desliga: o primeiro quadro já é o final.
 //  D1 · um segundo toque no MEIO do movimento parte de onde a prévia está (sem salto) e assenta.
-//  E1 · no fallback estreito (a linha desce) a altura anima, os botões não andam em X, e termina
-//       assentado e dentro da prévia.
+//  E1 · com o selo e o giro à vista, a 320 px: anima, assenta dentro da prévia, sem os dois na
+//       linha e com o ponto na seta.
 //
 //   node tools/previa-animacao.test.mjs
 // ============================================================================
@@ -91,11 +94,14 @@ const AMOSTRAR = ({ ids, ms, segundoToqueEm }) => new Promise((resolve) => {
   const t0 = performance.now();
   const ler = () => {
     const P = pv.getBoundingClientRect();
-    const o = { t: performance.now() - t0, h: P.height, wallOp: parseFloat(getComputedStyle(wall).opacity), wallVis: getComputedStyle(wall).visibility, anim: pv.classList.contains('pv-animando') };
+    const alfa = (c) => { const m = c.match(/rgba?\(([^)]+)\)/); if (!m) return 1; const p = m[1].split(','); return p.length > 3 ? parseFloat(p[3]) : 1; };
+    const o = { t: performance.now() - t0, h: P.height, wallOp: parseFloat(getComputedStyle(wall).opacity), wallVis: getComputedStyle(wall).visibility, anim: pv.classList.contains('pv-animando'),
+      fundoPv: alfa(getComputedStyle(pv).backgroundColor), fundoCortina: alfa(getComputedStyle(document.getElementById('viewToggle')).backgroundColor) };
     ids.forEach((id) => {
       const b = document.getElementById(id);
       if (!b || b.hidden) return;
       const r = b.getBoundingClientRect();
+      if (!r.width) return;
       o[id] = { x: r.left - P.left, xr: P.right - r.right, y: r.top - P.top, yb: P.bottom - r.bottom };
     });
     return o;
@@ -123,7 +129,8 @@ const medirFinal = (pg) => pg.evaluate((ids) => {
   const pv = document.getElementById('preview');
   const P = pv.getBoundingClientRect();
   const o = {
-    h: P.height, recolhida: pv.classList.contains('pv-recolhida'), baixo: pv.classList.contains('pv-extras-baixo'),
+    h: P.height, recolhida: pv.classList.contains('pv-recolhida'),
+    ponto: getComputedStyle(document.getElementById('pvRecolherBtn'), '::after').content !== 'none',
     animando: pv.classList.contains('pv-animando'),
     animacoes: pv.getAnimations({ subtree: true }).filter((a) => a.effect.getComputedTiming().iterations !== Infinity).length,
     wallVis: getComputedStyle(document.getElementById('pvWall')).visibility,
@@ -133,6 +140,7 @@ const medirFinal = (pg) => pg.evaluate((ids) => {
     const b = document.getElementById(id);
     if (!b || b.hidden) return;
     const r = b.getBoundingClientRect();
+    if (!r.width) return;
     o[id] = { x: r.left - P.left, xr: P.right - r.right, y: r.top - P.top, yb: P.bottom - r.bottom };
     if (b.style.transform) o.transformados.push(id);
     if (r.left < P.left - 0.5 || r.right > P.right + 0.5 || r.top < P.top - 0.5 || r.bottom > P.bottom + 0.5) o.fora.push(id);
@@ -146,15 +154,15 @@ const distintos = (xs, de, ate, passo = 1) => new Set(xs.filter((v) => v > Math.
 
 try {
   // =========================================================================
-  // A · B · O RECOLHER E O EXPANDIR, COM TODOS OS BOTÕES À VISTA (linha única a 390px)
+  // A · B · O RECOLHER E O EXPANDIR, COM TODOS OS BOTÕES À VISTA (390px)
   // =========================================================================
   {
     const { ctx, pg } = await abrir();
     const exp0 = await medirFinal(pg);
     checar(exp0.recolhida === false && exp0.animacoes === 0,
       'PREMISSA: a prévia nasce expandida e sem animação nenhuma', { recolhida: exp0.recolhida, animacoes: exp0.animacoes });
-    checar(exp0.baixo === false,
-      'PREMISSA: a 390 px o selo, a seta, o giro e os dois grupos laterais cabem numa linha só (sem fallback)', exp0.baixo);
+    checar(!!(exp0.pvCamadaBtn && exp0.pvGiroBtn),
+      'PREMISSA: expandida, o selo e o giro estão à vista (eles saem só na linha recolhida)', Object.keys(exp0));
 
     const rec = await pg.evaluate(AMOSTRAR, { ids: IDS, ms: 800 });
     await assentar(pg);
@@ -164,11 +172,14 @@ try {
       'PREMISSA: o toque recolhe de fato (a altura final é bem menor)', { H0, H1 });
 
     // ---- A1 · MUDO E TELA CHEIA NO MESMO LUGAR, EXPANDIDA × RECOLHIDA -------------------------
-    checar(perto(exp0.muteToggle.x, rec1.muteToggle.x) && perto(exp0.pvFullBtn.xr, rec1.pvFullBtn.xr),
-      'A1 · o MUDO fica à mesma distância da borda ESQUERDA e a TELA CHEIA da DIREITA, expandida e recolhida '
-      + '— cada um no seu canto, imóveis', { mudo: [exp0.muteToggle.x, rec1.muteToggle.x], cheia: [exp0.pvFullBtn.xr, rec1.pvFullBtn.xr] });
-    checar(perto(exp0.muteToggle.yb, rec1.muteToggle.yb) && perto(exp0.pvFullBtn.yb, rec1.pvFullBtn.yb),
-      'A1 · e na mesma distância da BASE nos dois estados', { mudo: [exp0.muteToggle.yb, rec1.muteToggle.yb], cheia: [exp0.pvFullBtn.yb, rec1.pvFullBtn.yb] });
+    const canto = (v) => v >= -0.5 && v <= 2.5;
+    checar([exp0, rec1].every((e) => canto(e.muteToggle.x) && canto(e.pvFullBtn.xr)),
+      'A1 · o MUDO encosta na borda ESQUERDA e a TELA CHEIA na DIREITA, expandida e recolhida '
+      + '— cada um no seu canto', { mudo: [exp0.muteToggle.x, rec1.muteToggle.x], cheia: [exp0.pvFullBtn.xr, rec1.pvFullBtn.xr] });
+    checar([exp0, rec1].every((e) => canto(e.muteToggle.yb) && canto(e.pvFullBtn.yb)),
+      'A1 · e na BASE nos dois estados', { mudo: [exp0.muteToggle.yb, rec1.muteToggle.yb], cheia: [exp0.pvFullBtn.yb, rec1.pvFullBtn.yb] });
+    checar(!rec1.pvCamadaBtn && !rec1.pvGiroBtn && rec1.ponto === true,
+      'A1 · recolhida, o selo e o giro saem da linha e a seta tem o ponto', { camada: !!rec1.pvCamadaBtn, giro: !!rec1.pvGiroBtn, ponto: rec1.ponto });
     checar(rec1.muteToggle.x < rec1.viewToggle.x && rec1.pvCastBtn.x < rec1.pvFullBtn.x,
       'A1 · recolhida, o mudo é o PRIMEIRO da esquerda (a cortina fica à direita dele) e a tela cheia o ÚLTIMO da direita',
       { mudo: rec1.muteToggle.x, cortina: rec1.viewToggle.x, cast: rec1.pvCastBtn.x, cheia: rec1.pvFullBtn.x });
@@ -187,16 +198,14 @@ try {
 
     // ---- A2 · E B2 · NO MEIO DO MOVIMENTO -----------------------------------------------------
     const todos = (f) => rec.every(f);
-    checar(todos((q) => perto(q.muteToggle.x, exp0.muteToggle.x) && perto(q.pvFullBtn.xr, exp0.pvFullBtn.xr)),
-      'A2 · o mudo e a tela cheia ficam imóveis em TODOS os quadros do movimento, não só nas pontas',
+    checar(todos((q) => canto(q.muteToggle.x) && canto(q.pvFullBtn.xr)),
+      'A2 · o mudo e a tela cheia ficam no canto deles em TODOS os quadros do movimento, não só nas pontas',
       rec.map((q) => [+q.muteToggle.x.toFixed(1), +q.pvFullBtn.xr.toFixed(1)]).slice(0, 8));
-    checar(todos((q) => perto(q.muteToggle.yb, exp0.muteToggle.yb) && perto(q.pvFullBtn.yb, exp0.pvFullBtn.yb)
-        && perto(q.pvCamadaBtn.yb, exp0.pvCamadaBtn.yb) && perto(q.pvGiroBtn.yb, exp0.pvGiroBtn.yb)),
-      'B2 · os de BAIXO (mudo, tela cheia, selo, giro) ficam a 2 px da base durante toda a descida',
-      rec.map((q) => [+q.muteToggle.yb.toFixed(1), +q.pvCamadaBtn.yb.toFixed(1)]).slice(0, 8));
-    checar(todos((q) => perto(q.viewToggle.y, exp0.viewToggle.y) && perto(q.pvCastBtn.y, exp0.pvCastBtn.y)
-        && perto(q.pvRecolherBtn.y, exp0.pvRecolherBtn.y)),
-      'B2 · e os de CIMA (cortina, cast, seta) a 2 px do topo — acompanham a borda que desce',
+    checar(todos((q) => canto(q.muteToggle.yb) && canto(q.pvFullBtn.yb)),
+      'B2 · os de BAIXO (mudo, tela cheia) ficam na base durante toda a descida',
+      rec.map((q) => [+q.muteToggle.yb.toFixed(1), +q.pvFullBtn.yb.toFixed(1)]).slice(0, 8));
+    checar(todos((q) => canto(q.viewToggle.y) && canto(q.pvCastBtn.y) && canto(q.pvRecolherBtn.y)),
+      'B2 · e os de CIMA (cortina, cast, seta) no topo — acompanham a borda que desce',
       rec.map((q) => [+q.viewToggle.y.toFixed(1), +q.pvRecolherBtn.y.toFixed(1)]).slice(0, 8));
 
     // ---- B3 · OS BOTÕES ANDAM EM X ------------------------------------------------------------
@@ -208,7 +217,7 @@ try {
     const xc = rec.map((q) => q.pvCastBtn.xr);
     checar(perto(xc[0], exp0.pvCastBtn.xr, 1.5) && perto(xc[xc.length - 1], rec1.pvCastBtn.xr) && monotona(xc, 1)
         && distintos(xc, exp0.pvCastBtn.xr, rec1.pvCastBtn.xr, 2) >= 3,
-      'B3 · e o CAST, do canto da direita até ficar ao lado da tela cheia',
+      'B3 · e o CAST, do canto da direita até a célula dele, ao lado da tela cheia',
       { de: exp0.pvCastBtn.xr, ate: rec1.pvCastBtn.xr });
 
     // ---- B4 · AS CAMADAS DESVANECEM -----------------------------------------------------------
@@ -226,6 +235,15 @@ try {
       { animando: rec1.animando, animacoes: rec1.animacoes, transformados: rec1.transformados });
     checar(rec1.fora.length === 0, 'B5 · e nenhum botão ficou fora da prévia', rec1.fora);
 
+    // ---- B6 · O FUNDO MUDA NO CAMINHO ---------------------------------------------------------
+    // A régua é o alfa FINAL da tecla (o `--surface` pode ter alfa próprio): o caminho passa
+    // ENTRE o transparente do palco e ele, e não só por "algum alfa".
+    const alfaFinal = rec[rec.length - 1].fundoCortina;
+    checar(alfaFinal > 0 && rec.some((q) => q.fundoCortina > 0.1 * alfaFinal && q.fundoCortina < 0.9 * alfaFinal),
+      'B6 · o fundo da tecla aparece aos poucos (o ícone solto vira a tecla no caminho)', rec.map((q) => +q.fundoCortina.toFixed(2)).slice(0, 12));
+    checar(rec.some((q) => q.fundoPv > 0.05 && q.fundoPv < 0.95),
+      'B6 · e o preto do palco desvanece, em vez de sumir no último quadro', rec.map((q) => +q.fundoPv.toFixed(2)).slice(0, 12));
+
     // ---- EXPANDIR: O CAMINHO DE VOLTA, SIMÉTRICO ----------------------------------------------
     const vol = await pg.evaluate(AMOSTRAR, { ids: IDS, ms: 800 });
     await assentar(pg);
@@ -235,10 +253,9 @@ try {
       'B1 · o segundo toque EXPANDE de volta à altura que a prévia tinha', { antes: H0, depois: exp1.h });
     checar(perto(hv[0], H1, 1.5) && monotona(hv, 1) && distintos(hv, H1, H0, 2) >= 4,
       'B1 · e a altura SOBE por valores intermediários, sem salto no primeiro quadro', { primeiro: hv[0], passou: distintos(hv, H1, H0, 2) });
-    checar(vol.every((q) => perto(q.muteToggle.x, exp0.muteToggle.x) && perto(q.pvFullBtn.xr, exp0.pvFullBtn.xr)
-        && perto(q.muteToggle.yb, exp0.muteToggle.yb) && perto(q.pvFullBtn.yb, exp0.pvFullBtn.yb)),
-      'A2 · expandindo, o mudo e a tela cheia também não saem do lugar em quadro nenhum');
-    checar(vol.every((q) => perto(q.viewToggle.y, exp0.viewToggle.y) && perto(q.pvRecolherBtn.y, exp0.pvRecolherBtn.y)),
+    checar(vol.every((q) => canto(q.muteToggle.x) && canto(q.pvFullBtn.xr) && canto(q.muteToggle.yb) && canto(q.pvFullBtn.yb)),
+      'A2 · expandindo, o mudo e a tela cheia também não saem do canto em quadro nenhum');
+    checar(vol.every((q) => canto(q.viewToggle.y) && canto(q.pvRecolherBtn.y)),
       'B2 · e os de cima seguem a borda que sobe');
     checar(vol.some((q) => q.wallOp > 0.1 && q.wallOp < 0.9) && vol.every((q) => q.wallVis === 'visible'),
       'B4 · as camadas voltam desvanecendo, visíveis o tempo todo');
@@ -298,24 +315,23 @@ try {
   }
 
   // =========================================================================
-  // E · O FALLBACK ESTREITO (a linha desce): anima a altura, não anda em X
+  // E · COM O SELO E O GIRO À VISTA, NUMA TELA ESTREITA (320 px)
   // =========================================================================
   {
     const { ctx, pg } = await abrir({ largura: 320 });
     const exp0 = await medirFinal(pg);
-    checar(exp0.baixo === true,
-      'E0 · PREMISSA: a 320 px a linha única NÃO cabe (selo + seta + giro + cast) e o fallback liga', exp0.baixo);
     const rec = await pg.evaluate(AMOSTRAR, { ids: IDS, ms: 800 });
     await assentar(pg);
     const fim = await medirFinal(pg);
     const hs = rec.map((q) => q.h);
-    checar(fim.recolhida === true && fim.baixo === true && perto(hs[0], exp0.h, 1.5) && monotona(hs, -1)
+    checar(fim.recolhida === true && perto(hs[0], exp0.h, 1.5) && monotona(hs, -1)
         && distintos(hs, exp0.h, fim.h, 2) >= 4 && perto(hs[hs.length - 1], fim.h, 0.6),
-      'E1 · no fallback a altura também ANIMA, do estado aberto ao das duas linhas, sem salto',
+      'E1 · a altura ANIMA também com o selo e o giro à vista, sem salto',
       { primeiro: hs[0], antes: exp0.h, final: fim.h, passou: distintos(hs, exp0.h, fim.h, 2) });
-    checar(fim.animando === false && fim.animacoes === 0 && fim.transformados.length === 0 && fim.fora.length === 0,
-      'E1 · e termina assentado, sem resíduo e com todos os botões dentro da prévia',
-      { animando: fim.animando, animacoes: fim.animacoes, transformados: fim.transformados, fora: fim.fora });
+    checar(fim.animando === false && fim.animacoes === 0 && fim.transformados.length === 0 && fim.fora.length === 0
+        && !fim.pvCamadaBtn && !fim.pvGiroBtn && fim.ponto === true,
+      'E1 · e termina assentado, dentro da prévia, sem o selo e o giro na linha e com o ponto na seta',
+      { animando: fim.animando, animacoes: fim.animacoes, transformados: fim.transformados, fora: fim.fora, ponto: fim.ponto });
     await ctx.close();
   }
 

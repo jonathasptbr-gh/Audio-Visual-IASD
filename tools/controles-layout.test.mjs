@@ -1446,73 +1446,81 @@ try {
   // Cinco lugares leem a altura ou o conteúdo da prévia, e cada um já tinha a
   // asserção dele no estado EXPANDIDO (o padrão). O que a tira muda em cada um:
   //
-  //  A. O SELO e o GIRO moram LADO A LADO COM A SETA, na mesma linha (v1.11.17: eles
-  //     moravam numa segunda linha e criavam altura só para dois botões que nem
-  //     sempre existem). Só quando a soma passa da largura da prévia — 320 px —
-  //     a linha desce, o desenho de antes (`pv-extras-baixo`).
+  //  A. A LINHA RECOLHIDA É UMA LINHA DO DECK (v1.13.10): cinco botões com a caixa,
+  //     o tom e o raio do transporte, cada um sobre uma coluna dele; o SELO e o
+  //     GIRO não são desenhados ali, e um PONTO na seta diz que um deles está ativo.
   //  B. O FADER ocupa a faixa da prévia, e a faixa agora tem a altura de um botão.
   //  C. O MODO FÁCIL, onde a seta vai para o canto superior ESQUERDO.
   //  D. O CARTÃO DE ESPERA, que não cabe na tira e é o único canal de falha do
   //     "tocar" e a única porta de cancelar um download.
   //
-  // A·1 · O SELO + O GIRO, a 430 (linha ÚNICA) e a 320 (a linha desce).
+  // A·1 · A LINHA DO DECK, a 430 e a 320, com e sem o giro e a camada.
+  const linhaDoDeck = () => pg.evaluate(() => {
+    const est = (el) => {
+      const c = getComputedStyle(el); const r = el.getBoundingClientRect();
+      return { id: el.id, l: r.left, r: r.right, t: r.top, w: r.width, h: r.height,
+        fundo: c.backgroundColor, raio: c.borderRadius, cor: c.color,
+        vis: c.display !== 'none' && c.visibility !== 'hidden' && r.width > 0 };
+    };
+    const fabs = [...document.querySelectorAll('#preview .pv-fab')].map(est).filter((f) => f.vis);
+    const trans = [...document.querySelectorAll('.transport .t-btn')].map(est);
+    const p = getComputedStyle(document.getElementById('pvRecolherBtn'), '::after');
+    const vermelho = (() => {
+      const d = document.createElement('i'); d.style.color = 'var(--danger-strong)';
+      document.body.appendChild(d); const c = getComputedStyle(d).color; d.remove(); return c;
+    })();
+    return { fabs, trans, ponto: p.content !== 'none' && p.display !== 'none', pontoCor: p.backgroundColor, vermelho,
+      pontoLado: [parseFloat(p.width), parseFloat(p.height)] };
+  });
   for (const largura of [430, 320]) {
     const nome = largura + ' px';
-    const umaLinha = largura === 430;
     await pg.setViewportSize({ width: largura, height: 900 });
-    await pg.evaluate(async () => {
-      await applyRotate(270);          // o número mais largo ("270°") é o pior caso
-      document.getElementById('pvCamadaBtn').hidden = false;
-    });
+    await pg.evaluate(async () => { await applyRotate(0); document.getElementById('pvCamadaBtn').hidden = true; });
     await recolher(true);
-    const g = await geoPv();
-    const seta = g.seta;
-    const camada = g.fabs.find((f) => f.id === 'pvCamadaBtn');
-    const giro = g.fabs.find((f) => f.id === 'pvGiroBtn');
-    const abaixo = [camada, giro].filter(Boolean);
-    checar(abaixo.length === 2,
-      `o selo e o giro estão à vista com a prévia recolhida (${nome})`, g.fabs.map((f) => f.id));
-    if (umaLinha) {
-      checar(abaixo.every((f) => Math.abs(f.t - seta.t) <= 0.5),
-        `e ficam NA MESMA LINHA da seta — nenhuma altura a mais para dois botões (${nome})`,
-        { seta: [seta.t, seta.b], extras: abaixo.map((f) => [f.id, f.t, f.b]) });
-      checar(camada.r <= seta.l + 0.5 && seta.r <= giro.l + 0.5,
-        `o selo à ESQUERDA da seta e o giro à DIREITA, lado a lado com ela (${nome})`,
-        { camada: [camada.l, camada.r], seta: [seta.l, seta.r], giro: [giro.l, giro.r] });
-      checar(Math.abs(g.alto - (g.hit + g.pad)) <= 0.6,
-        `e a tira continua medindo UM botão mais o recuo (${nome})`, { alto: g.alto, hit: g.hit, recuo: g.pad });
-    } else {
-      checar(abaixo.every((f) => f.t >= seta.b - 0.5),
-        `e descem para uma SEGUNDA linha, abaixo da seta — ao lado dela não cabem (${nome})`,
-        { seta: [seta.t, seta.b], abaixo: abaixo.map((f) => [f.id, f.t, f.b]) });
-      checar(g.alto >= 2 * g.hit + g.pad - 0.6,
-        `a tira cresce para duas linhas de botão — e mede só isso (${nome})`, { alto: g.alto, hit: g.hit, recuo: g.pad });
-      checar(Math.abs(g.desvioDaSeta) < 1,
-        `e a seta continua no CENTRO com a segunda linha presente (${nome})`, g.desvioDaSeta);
+    const sem = await linhaDoDeck();
+    const ref = sem.trans.find((t) => t.id === 'prev');
+    checar(sem.fabs.length >= 4 && sem.fabs.every((f) => perto(f.w, ref.w) && perto(f.h, ref.h)),
+      `recolhida, todo botão da prévia tem a CAIXA do botão do transporte (${nome})`,
+      { fabs: sem.fabs.map((f) => [f.id, f.w, f.h]), transporte: [ref.w, ref.h] });
+    checar(sem.fabs.every((f) => f.fundo === ref.fundo && f.raio === ref.raio && f.cor === ref.cor),
+      `e o MESMO fundo, raio e cor de traço do transporte — o desenho das teclas, não o do palco (${nome})`,
+      { fabs: sem.fabs.map((f) => [f.id, f.fundo, f.raio, f.cor]), transporte: [ref.fundo, ref.raio, ref.cor] });
+    checar(sem.fabs.every((f) => sem.trans.some((t) => perto(t.l, f.l) && perto(t.r, f.r))),
+      `e cada um cai sobre uma COLUNA do transporte, borda com borda (${nome})`,
+      { fabs: sem.fabs.map((f) => [f.id, f.l, f.r]), transporte: sem.trans.map((t) => [t.id, t.l, t.r]) });
+    checar(new Set(sem.fabs.map((f) => Math.round(f.t))).size === 1,
+      `numa linha só (${nome})`, sem.fabs.map((f) => [f.id, f.t]));
+    checar(sem.ponto === false, `sem giro nem camada, a seta NÃO tem o ponto (${nome})`, sem.pontoCor);
+    for (const [qual, liga] of [
+      ['o giro', async () => { await applyRotate(270); }],
+      ['a camada', async () => { document.getElementById('pvCamadaBtn').hidden = false; }],
+      ['os dois', async () => { await applyRotate(90); document.getElementById('pvCamadaBtn').hidden = false; }],
+    ]) {
+      await pg.evaluate(liga);
+      await quadro();
+      const com = await linhaDoDeck();
+      checar(!com.fabs.some((f) => f.id === 'pvGiroBtn' || f.id === 'pvCamadaBtn'),
+        `com ${qual} ativo, o selo e o giro NÃO aparecem na linha recolhida (${nome})`, com.fabs.map((f) => f.id));
+      checar(com.ponto && com.pontoCor === com.vermelho && com.pontoLado.every((x) => x > 0 && x < ref.h / 3),
+        `e a seta ganha um PONTO vermelho (\`--danger-strong\`), pequeno (${qual}, ${nome})`,
+        { ponto: com.ponto, cor: com.pontoCor, esperado: com.vermelho, lado: com.pontoLado });
+      checar(com.fabs.length === sem.fabs.length && com.fabs.every((f, k) => perto(f.l, sem.fabs[k].l) && perto(f.t, sem.fabs[k].t)),
+        `e a linha não se mexe: os mesmos botões, no mesmo lugar (${qual}, ${nome})`,
+        { com: com.fabs.map((f) => [f.id, f.l, f.t]), sem: sem.fabs.map((f) => [f.id, f.l, f.t]) });
+      await pg.evaluate(async () => { await applyRotate(0); document.getElementById('pvCamadaBtn').hidden = true; });
     }
-    checar(g.sobrepostos.length === 0 && g.fora.length === 0,
-      `nenhum botão se sobrepõe a outro nem sai da prévia (${nome})`,
-      { sobrepostos: g.sobrepostos, fora: g.fora });
-    // O deck acompanha também a tira.
+    // O deck acompanha também a linha.
     const d = await medirDeck();
-    checar(perto(d.ant.alto, d.pv.alto) && perto(d.prox.alto, d.pv.alto),
-      `e os botões de slide têm a altura dela (${nome})`, { ant: d.ant.alto, prox: d.prox.alto, pv: d.pv.alto });
-    // Sem o giro nem o selo a tira volta a UMA linha: a segunda não é reserva.
-    await pg.evaluate(async () => {
-      await applyRotate(0);
-      document.getElementById('pvCamadaBtn').hidden = true;
-    });
-    await quadro();
-    const so1 = await geoPv();
-    if (umaLinha) {
-      checar(Math.abs(so1.alto - g.alto) <= 0.6 && so1.linhas === 1,
-        `a linha única não muda de altura quando os dois somem (${nome})`, { com: g.alto, sem: so1.alto, linhas: so1.linhas });
-    } else {
-      checar(so1.alto < g.alto - 20 && so1.linhas === 1,
-        `e some quando os dois somem: a linha de baixo não é reserva, ela existe quando há o que pôr nela (${nome})`,
-        { com: g.alto, sem: so1.alto, linhas: so1.linhas });
-    }
+    checar(perto(d.ant.alto, d.pv.alto) && perto(d.prox.alto, d.pv.alto) && perto(d.pv.alto, ref.h),
+      `e os botões de slide têm a altura dela, que é a do transporte (${nome})`,
+      { ant: d.ant.alto, prox: d.prox.alto, pv: d.pv.alto, transporte: ref.h });
+    // EXPANDIDA, o selo e o giro voltam SEM alteração.
+    await pg.evaluate(async () => { await applyRotate(270); document.getElementById('pvCamadaBtn').hidden = false; });
     await recolher(false);
+    const exp = await geoPv();
+    checar(['pvGiroBtn', 'pvCamadaBtn'].every((id) => exp.fabs.some((f) => f.id === id)),
+      `expandida, o selo e o giro voltam à base da prévia (${nome})`, exp.fabs.map((f) => f.id));
+    await pg.evaluate(async () => { await applyRotate(0); document.getElementById('pvCamadaBtn').hidden = true; });
   }
   await pg.setViewportSize({ width: 430, height: 900 });
 

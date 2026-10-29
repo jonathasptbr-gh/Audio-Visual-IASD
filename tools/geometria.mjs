@@ -82,12 +82,13 @@ export const TELAS = [
 export const SUPERFICIES = [
   { nome: 'principal · avançado', abrir: () => { setAppMode('full'); }, alvo: '#playlist' },
   {
-    // A PRÉVIA RECOLHIDA (v1.11.7): a seta do topo a faz virar uma tira em fluxo
-    // de grade (`.preview.pv-recolhida`), e é a ÚNICA superfície em que a caixa
-    // da prévia mede o que os botões dela medem em vez da proporção do telão —
-    // o terreno das sondas T2 (a seta e as colunas na mesma linha) e T4 (o
-    // alvo de toque dentro de uma caixa de 38px). O portão devolve a marcação
-    // ao estado de fábrica entre uma superfície e outra.
+    // A PRÉVIA RECOLHIDA (v1.11.7; uma linha do deck desde a v1.13.10): a seta
+    // do topo a faz virar uma linha de cinco botões em grade
+    // (`.preview.pv-recolhida`), e é a ÚNICA superfície em que a caixa da prévia
+    // mede o que os botões dela medem em vez da proporção do telão — o terreno
+    // das sondas T2 (cinco células lado a lado) e T4 (o alvo de toque numa
+    // linha da altura de um botão). O portão devolve a marcação ao estado de
+    // fábrica entre uma superfície e outra.
     nome: 'principal · avançado · prévia recolhida',
     abrir: async () => { setAppMode('full'); await setEconomiaPreview(true); },
     alvo: '.preview.pv-recolhida',
