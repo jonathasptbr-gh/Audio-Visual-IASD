@@ -54,22 +54,19 @@ const simpleFsBtnEl = document.getElementById('simpleFsBtn');
 const simpleNpNameEl = document.getElementById('simpleNpName');
 const simplePlayEl = document.getElementById('simplePlay');
 const simpleStopEl = document.getElementById('simpleStop');
-const simpleMuteEl = document.getElementById('simpleMute');
+const simpleNivelEl = document.getElementById('simpleNivel');
+const simpleNivelNumEl = document.getElementById('simpleNivelNum');
 const simpleLyricsEl = document.getElementById('simpleLyrics');
 const simpleTimeEl = document.getElementById('simpleTime');
 const simpleTimeCurEl = document.getElementById('simpleTimeCur');
 const simpleTimeDurEl = document.getElementById('simpleTimeDur');
 const simpleTimeFillEl = document.getElementById('simpleTimeFill');
 const simpleTimeHitEl = document.getElementById('simpleTimeHit');
-const simpleVolWrapEl = document.getElementById('simpleVolWrap');
 const simpleSlidesRowEl = document.getElementById('simpleSlidesRow');
 const simpleRemoteEl = document.querySelector('.simple-remote');
 const simpleSlidePrevEl = document.getElementById('simpleSlidePrev');
 const simpleSlideNextEl = document.getElementById('simpleSlideNext');
 const simpleSlideNumEl = document.getElementById('simpleSlideNum');
-const simpleVolUpEl = document.getElementById('simpleVolUp');
-const simpleVolDownEl = document.getElementById('simpleVolDown');
-const simpleVolValueEl = document.getElementById('simpleVolValue');
 
 // ===== O MODO VALE PELA SESSÃO — toda abertura nasce no Modo Fácil =====
 // Em `sessionStorage`, e NÃO no IndexedDB como o resto do estado: esta chave é
@@ -439,7 +436,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.7';
+const WEB_VERSION = '1.13.8';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -728,7 +725,7 @@ const ICON = {
   // (`renderControls`), então "viewOn" apareceria com a view DESLIGADA.
   // (`image`/`imageOff` saíram na v1.3.5: a cortina subiu para cima da
   //  preview e virou SVG do sprite — ver `#icoImagem`. O par abaixo ficou
-  //  porque o `#simpleMute` do Modo Fácil tem moldura e segue sendo glifo.)
+  //  porque o `#simpleNivel` do Modo Fácil tem moldura e segue sendo glifo.)
   volOn: '', // volume_up
   volOff: '', // volume_off
   music: '', // music_note
@@ -2093,6 +2090,14 @@ let aplicarTeclado = null;        // o `apply` do `keyboardShift`, para reconfer
 // volta das teclas depois da animação.
 let simpleBuscaTimer = null;
 let simpleTeclasVoltaTimer = null;
+// SEM NADA NO AR AS TECLAS RECOLHEM (v1.13.8) — ver `renderTeclasSimples`. A ESPERA é longa o
+// bastante para o dedo que tocou o Parar (ou ia tocar a Pausa no fim do louvor) já ter saído, e
+// para a troca de faixa de uma fila, que derruba o "no ar" por um instante, não recolher nada.
+const SIMPLE_TECLAS_ESPERA_MS = 1500;
+const SIMPLE_TECLAS_ANIM_MS = 260;   // a saída e a volta (opacidade + um recuo curto para baixo)
+let simpleTeclasTimer = null;
+let simpleTeclasAnim = null;         // a animação de SAÍDA em curso (a volta não precisa de dono)
+let simpleTeclasModo = '';           // o modo da última passada: mudar de modo assenta sem animar
 // QUAL mídia está no telão — o par de `cueNoArId`, e pelo mesmo motivo.
 //
 // `midiaNoAr` responde "há mídia no ar?" e `currentId` responde "qual é o item
@@ -4315,7 +4320,7 @@ function renderControls() {
     ? 'Sem áudio no Display — toque para tentar liberar'
     : muted ? 'Tirar o mudo' : 'Mutar';
   muteToggleEl.setAttribute('aria-label', muteToggleEl.title);
-  // Os DOIS mostradores de volume (o fader do deck e a leitura do Modo Fácil)
+  // Os DOIS mostradores de volume (o fader do deck e a tecla de nível do Modo Fácil)
   // saem daqui: um só ponto os escreve, então nunca divergem.
   syncFader(Math.round(volume * 100));
   renderSimple();
@@ -16279,10 +16284,9 @@ function renderSimpleSlides(who) {
   simpleSlidesRowEl.hidden = !d;
   // A ÁREA DE CONTROLE INTEIRA SEGUE A CENA (v1.5.14). A marca vai no
   // `.simple-remote` e não em cada peça: quem decide o que existe é a CENA, e
-  // uma classe no contêiner deixa isso escrito num lugar só — as três regras
-  // que dependem dela (o play e o mudo somem, a linha de volume some, o parar
-  // fica sozinho e ganha rótulo) moram juntas na folha, onde se leem como um
-  // desenho e não como três exceções.
+  // uma classe no contêiner deixa isso escrito num lugar só — as regras que
+  // dependem dela (o play e o nível somem, o parar fica sozinho e ganha rótulo)
+  // moram juntas na folha, onde se leem como um desenho e não como exceções.
   simpleRemoteEl.classList.toggle('deck', !!d);
   if (!d) return;
   simpleSlidePrevEl.disabled = slidePrevBtnEl.disabled;
@@ -43550,7 +43554,7 @@ function peekVolume() {
   // EM TELA CHEIA o fader não está à vista: quem responde é a barra da prévia — também quando a
   // tecla vai ao SISTEMA e o número do app não muda (o teto e o zero são justamente a resposta).
   mostrarVolumeDaTelaCheia();
-  // No Modo Fácil a barra de volume já é a lateral inteira da tela: não há o
+  // No Modo Fácil o número mora na tecla de NÍVEL (com mídia no ar): não há o
   // que espiar, e mexer numa classe do deck escondido não teria efeito nenhum.
   if (appMode === 'simple') return;
   abrirFader();
@@ -44033,16 +44037,18 @@ function renderSimple() {
   // é a mesma chave que lá troca o desenho. O espelho continua LENDO o controle
   // de verdade em vez de reler `muted`/`displayAudioBlocked` por conta própria:
   // uma segunda leitura divergiria no primeiro caso de borda.
-  simpleMuteEl.querySelector('.msym').textContent =
+  // A TECLA DE NÍVEL (v1.13.8) é o mudo e o mostrador do volume numa peça só: o glifo e as classes
+  // vêm do `#muteToggle`, o número e o traço de curso (`--curso`, ver `.simple-key--nivel::after`)
+  // vêm do mesmo `volume` que o fader do avançado mostra.
+  simpleNivelEl.querySelector('.msym').textContent =
     muteToggleEl.classList.contains('alternado') ? ICON.volOff : ICON.volOn;
-  simpleMuteEl.classList.toggle('muted', muteToggleEl.classList.contains('muted'));
-  simpleMuteEl.classList.toggle('blocked', muteToggleEl.classList.contains('blocked'));
-  simpleMuteEl.title = muteToggleEl.title;
-  // Volume por teclas: o número é o indicador, e `--vol` desenha a barrinha de
-  // curso na base dele (ver .simple-vol-read::after).
+  simpleNivelEl.classList.toggle('muted', muteToggleEl.classList.contains('muted'));
+  simpleNivelEl.classList.toggle('blocked', muteToggleEl.classList.contains('blocked'));
   const pct = Math.round(volume * 100);
-  simpleVolValueEl.textContent = String(pct);
-  simpleVolWrapEl.style.setProperty('--curso', String(pct / 100));
+  simpleNivelNumEl.textContent = String(pct);
+  simpleNivelEl.style.setProperty('--curso', String(pct / 100));
+  simpleNivelEl.title = muteToggleEl.title;
+  simpleNivelEl.setAttribute('aria-label', 'Volume ' + pct + ' — ' + muteToggleEl.title);
   renderSimpleTime();
   refreshSimpleLyrics();
 }
@@ -44166,27 +44172,6 @@ ligarBarraDeTempo(simpleTimeHitEl, {
     simpleTimeFillEl.style.width = (d > 0 ? Math.max(0, Math.min(100, (t / d) * 100)) : 0) + '%';
   },
 });
-
-// Volume em passos, como num controle remoto — a MESMA grade dos botões
-// físicos (`volumeProximo`), para os dois caminhos não discordarem, e a mesma
-// `applyVolume` de sempre (clamp, desmutar ao subir de 0, comando, render).
-function simpleVolStep(dir) {
-  applyVolume(volumeProximo(volume, dir));
-  persistCurrent();
-}
-
-// Segurar a tecla repete, como num controle de verdade. O primeiro passo sai
-// no `pointerdown` (resposta imediata); a repetição só começa depois de uma
-// pausa, senão um toque comum viraria dois.
-function holdRepeat(btn, fn) {
-  let delay = null, timer = null;
-  const stop = () => { clearTimeout(delay); clearInterval(timer); delay = timer = null; };
-  btn.addEventListener('pointerdown', () => {
-    fn();
-    delay = setTimeout(() => { timer = setInterval(fn, 120); }, 420);
-  });
-  ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => btn.addEventListener(ev, stop));
-}
 
 /**
  * Quantas telas da REDE estão recebendo agora — 0 com o espelho desligado.
@@ -44537,7 +44522,7 @@ function simplesBibliotecaDocada() {
 //
 // A REGRA: a busca é o campo COM FOCO, ou com TEXTO — o Enter tira o foco para a lista ganhar a
 // tela, e o texto mantém a busca de pé. Com a busca, `.simple.buscando` tira as teclas
-// (`.simple-remote`: play, parar, mudo, volume e as páginas) e o card do nome; a zona de leitura
+// (`.simple-remote`: parar, play, nível e as páginas) e o card do nome; a zona de leitura
 // cresce até o cartão de "Baixando…" (que FICA: é a única porta de cancelar um download) e a janela
 // acompanha, porque a base dela é a da zona. Saem da busca: o ✕ do campo seguido de o campo perder
 // o foco, a Biblioteca fechando (✕ da janela, voltar, a escolha que recolhe) e uma ESCOLHA
@@ -44592,6 +44577,9 @@ function renderSimpleCorpo() {
       return;
     }
   }
+  // As teclas antes da medida: a VOLTA delas muda a altura da leitura no mesmo pulso em que o card
+  // do nome aparece, e a medida de troca abaixo pega as duas juntas.
+  renderTeclasSimples();
   corpo.classList.toggle('simples-barra', barra);
   corpo.classList.toggle('simples-principal', principal);
   simpleModeEl.classList.toggle('corpo-biblioteca', principal);
@@ -44629,6 +44617,67 @@ function renderSimpleCorpo() {
     // leitura entra — com calma, quando veio de uma escolha.
     simpleSairDaBiblioteca();
   }
+}
+
+// ===== SEM NADA NO AR AS TECLAS RECOLHEM (v1.13.8) =====
+// Pedido do operador: *"Esconder play pause e stop no modo simples, após um encerramento de mídia,
+// no caso também vale para quando feito stop pelo usuário. Lembre de animar o recolhimento e com
+// tempo suficiente para não desaparecer debaixo dos dedos do usuário."*
+//
+// A PERGUNTA É A DO PARAR (`haOQueParar`): o fim natural e o Parar recolhem, a pausa não (pausar
+// não tira nada do ar), e uma cena de roteiro conta como "no ar". Recolher espera
+// `SIMPLE_TECLAS_ESPERA_MS` e reconfere; a saída é só opacidade e um recuo curto (nada muda de
+// tamanho no meio dela), e só DEPOIS a linha sai do layout — a zona de leitura cresce e a
+// Biblioteca, que nesse estado é a tela principal e se mede nela, anima até a base nova (a medida
+// de troca, como a do card do nome). A VOLTA é imediata quando algo entra no ar, com o fade
+// inverso; sem movimento (`prefers-reduced-motion`) as duas são secas. Fora do Modo Fácil, e na
+// passada em que o modo muda, o estado assenta sem espera e sem animação.
+function renderTeclasSimples() {
+  if (!simpleRemoteEl) return;
+  const noAr = haOQueParar();
+  const assentar = appMode !== 'simple' || simpleTeclasModo !== appMode;
+  simpleTeclasModo = appMode;
+  const recolhida = simpleRemoteEl.classList.contains('recolhida');
+  if (noAr) {
+    clearTimeout(simpleTeclasTimer); simpleTeclasTimer = null;
+    const saindo = !!simpleTeclasAnim;
+    if (saindo) { const a = simpleTeclasAnim; simpleTeclasAnim = null; a.cancel(); }
+    if (!recolhida && !saindo) return;
+    simpleRemoteEl.classList.remove('recolhida');
+    if (!assentar && !semMovimento() && typeof simpleRemoteEl.animate === 'function') {
+      simpleRemoteEl.animate(
+        [{ opacity: 0, transform: 'translateY(16px)' }, { opacity: 1, transform: 'none' }],
+        { duration: SIMPLE_TECLAS_ANIM_MS, easing: 'ease-out' });
+    }
+    return;
+  }
+  if (recolhida || simpleTeclasAnim) return;
+  if (assentar) {
+    clearTimeout(simpleTeclasTimer); simpleTeclasTimer = null;
+    simpleRemoteEl.classList.add('recolhida');
+    return;
+  }
+  if (!simpleTeclasTimer) simpleTeclasTimer = setTimeout(recolherTeclasSimples, SIMPLE_TECLAS_ESPERA_MS);
+}
+function recolherTeclasSimples() {
+  simpleTeclasTimer = null;
+  if (haOQueParar() || simpleRemoteEl.classList.contains('recolhida')) return;
+  const fim = () => {
+    simpleRemoteEl.classList.add('recolhida');
+    // A leitura cresceu porque a tela trocou: a Biblioteca ANIMA até a base nova (`troca`).
+    if (simplesComBarra()) { medirCorpoSimples({ troca: true }); medirCorpoSimplesDepois(); }
+  };
+  if (appMode !== 'simple' || semMovimento() || typeof simpleRemoteEl.animate !== 'function') { fim(); return; }
+  const a = simpleRemoteEl.animate(
+    [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(16px)' }],
+    { duration: SIMPLE_TECLAS_ANIM_MS, easing: 'ease-in', fill: 'forwards' });
+  simpleTeclasAnim = a;
+  a.onfinish = () => {
+    if (simpleTeclasAnim !== a) return;
+    simpleTeclasAnim = null;
+    fim();
+    a.cancel();
+  };
 }
 
 // ---- A ESCOLHA DE UMA MÚSICA: toque, saída e entrada, nessa ordem (v1.11.12) ----
@@ -45063,15 +45112,13 @@ simpleCastBtnEl.addEventListener('click', () => abrirCast());
 // lugar só.
 simplePlayEl.addEventListener('click', () => playPauseEl.click());
 simpleStopEl.addEventListener('click', () => stopEl.click());
-simpleMuteEl.addEventListener('click', () => muteToggleEl.click());
+simpleNivelEl.addEventListener('click', () => muteToggleEl.click());
 // AS PÁGINAS SEGUEM A MESMA REGRA (v1.4.30): elas acionam as âncoras do modo
 // completo, e não `stepSlide` direto. Um `.click()` num botão `disabled` é
 // no-op natural, e é o que faz o limite (que `applySlideLimits` já calculou uma
 // vez) valer aqui sem uma segunda guarda.
 simpleSlidePrevEl.addEventListener('click', () => slidePrevBtnEl.click());
 simpleSlideNextEl.addEventListener('click', () => slideNextBtnEl.click());
-holdRepeat(simpleVolUpEl, () => simpleVolStep(1));
-holdRepeat(simpleVolDownEl, () => simpleVolStep(-1));
 // (A LIBERAÇÃO DE TESTE — segurar 5 s — SAIU na v5.199. O alvo dela mudou duas
 // vezes em cinco versões: o botão grande (até a v5.192), a cortina (v5.193) e
 // nada (v5.199), porque o que ela destravava deixou de estar trancado. Ficasse,

@@ -399,7 +399,7 @@
          (ver `.pv-fab svg`), e um glifo da fonte não tem traço para sombrear —
          perderia justamente o contraste que o mantém legível sobre um slide
          branco. O glifo `volume_up`/`volume_off` continua valendo onde há
-         moldura de botão: o `#simpleMute` do Modo Fácil. -->
+         moldura de botão: o `#simpleNivel` do Modo Fácil. -->
     <symbol id="icoSom" viewBox="0 0 24 24">
       <path d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z"/>
       <path d="M16.2 9.4a3.6 3.6 0 0 1 0 5.2"/>
@@ -898,75 +898,59 @@
       <div class="simple-conn rola" id="simpleConn" hidden></div>
     </div>
 
-    <!-- O "controle remoto": teclas grandes, nada de arrastar. -->
+    <!-- O "controle remoto": teclas grandes, nada de arrastar. TRÊS teclas desde a v1.13.8, a
+         pedido do operador — *"fica assim: botão de stop, botão de play/pause e botão de nivel de
+         volume/mute"*: o Parar, o Play/Pausa e o NÍVEL (o número do volume, e o toque muta). O
+         − e o + saíram: no Modo Fácil o ajuste fino é o das teclas físicas (`volumeProximo`).
+         SEM NADA NO AR a linha RECOLHE (`renderTeclasSimples`, a pergunta do Parar). -->
     <div class="simple-remote">
       <div class="simple-keys">
-        <!-- Os glifos estáticos são os do ESTADO INICIAL: nada tocando (▶) e
-             som LIGADO (alto-falante inteiro — pela convenção da v5.50 o
-             riscado significa cortado, e no boot nada está cortado). A janela
-             não é curta: `renderSimple()` copia o glifo de #muteToggle, mas
-             quem o corrige é `renderControls()`, alcançado só depois de
-             `load()` e de dezenas de leituras do IndexedDB — e o modo
-             simplificado é a primeira tela que o operador vê. -->
-        <button type="button" id="simplePlay" class="simple-key simple-key--big" title="Play/Pause"><span class="msym" aria-hidden="true">&#xe037;</span></button>
         <!-- Parar e limpar: a outra metade do transporte. Sem ele, tirar a
              mídia do telão obrigava a ir ao modo avançado — e é justamente o
              que se faz no fim de cada louvor. O glifo é estático porque ele não
              tem estado: aciona o `#stop` de sempre por `.click()`. -->
         <button type="button" id="simpleStop" class="simple-key simple-key--big" title="Parar e limpar"><span class="msym" aria-hidden="true">&#xe047;</span><span class="simple-key-label simple-key-label--parar">Parar</span></button>
-        <button type="button" id="simpleMute" class="simple-key simple-key--big" title="Mutar"><span class="msym" aria-hidden="true">&#xe050;</span></button>
+        <!-- Os glifos estáticos são os do ESTADO INICIAL: nada tocando (▶) e
+             som LIGADO (alto-falante inteiro — pela convenção da v5.50 o
+             riscado significa cortado, e no boot nada está cortado). A janela
+             não é curta: `renderSimple()` copia o glifo de #playpause e o
+             estado de #muteToggle, mas quem os corrige é `renderControls()`,
+             alcançado só depois de `load()` e de dezenas de leituras do
+             IndexedDB — e o modo simplificado é a primeira tela que o operador vê. -->
+        <button type="button" id="simplePlay" class="simple-key simple-key--big" title="Play/Pause"><span class="msym" aria-hidden="true">&#xe037;</span></button>
+        <!-- O NÍVEL (v1.13.8): o número do volume na COR DE TECLA de sempre, e o toque é o MUDO
+             (`#muteToggle` por `.click()`, o mesmo comando, o mesmo estado). O estado mudo se lê
+             pelo DESENHO — o alto-falante riscado e o traço de curso que some —, além da cor. -->
+        <button type="button" id="simpleNivel" class="simple-key simple-key--big simple-key--nivel" title="Mutar" aria-label="Volume 100 — Mutar"><span class="msym" aria-hidden="true">&#xe050;</span><span class="simple-nivel-num" id="simpleNivelNum">100</span></button>
       </div>
       <!-- AS PÁGINAS DA APRESENTAÇÃO (v1.4.30), a pedido do operador. Só
            aparece com um deck no ar — quem a mostra e a esconde é
            `renderSlideNav`, pela MESMA resposta que governa o ⏮/⏭ do modo
            avançado (`slideTarget()`), e não por uma segunda pergunta.
 
-           A GEOMETRIA É A DA LINHA DE VOLUME, de propósito: as mesmas três
-           células (`1fr 1.1fr 1fr`), a mesma altura de tecla e o mesmo mostrador
-           no meio. Este modo é "teclas grandes, nada de arrastar", e a linha de
-           volume é a forma já provada disso — o número no meio responde "onde
-           estou?" sem exigir mira, que é o que a página precisa responder.
+           TRÊS CÉLULAS (`1fr 1.1fr 1fr`): as teclas de 76px nas pontas e o
+           mostrador no meio. Este modo é "teclas grandes, nada de arrastar" — o
+           número no meio responde "onde estou?" sem exigir mira.
 
-           E POR ISSO AS DUAS NUNCA COEXISTEM (v1.5.14). Relato do operador:
-           *"no modo de slides fica bem estranha"*. MEDIDO: com um deck no ar a
-           tela empilhava TRÊS fileiras de 76px — play/parar/mudo, páginas e
-           volume —, e as duas de baixo eram a MESMA peça (mesmo grid, mesma
-           altura, a mesma classe `.simple-key--vol` e o mesmo nó de mostrador),
-           distinguidas só por um rótulo de .6rem em `--muted`, o elemento
-           tipográfico mais fraco de uma tela feita para quem está de pé.
-           Pior que a repetição: SEIS das nove teclas não agiam sobre nada. Com
-           um deck no ar não há áudio (é a regra do "um elemento no ar", da
-           v1.4.32), então play, mudo e a linha inteira de volume governavam o
-           silêncio. Agora a área de controle mostra o transporte DA CENA: com
-           uma apresentação sobram o "Parar" e as páginas, e mais nada.
+           A ÁREA DE CONTROLE MOSTRA O TRANSPORTE DA CENA (v1.5.14). Relato do
+           operador: *"no modo de slides fica bem estranha"*. Com um deck no ar
+           não há áudio (é a regra do "um elemento no ar", da v1.4.32), então
+           play e nível governariam o silêncio: sobram o "Parar" e as páginas,
+           e mais nada.
 
            O toque numa MINIATURA da zona de leitura pula direto para ela (o
            mesmo `deckIr`); estas teclas são o passo a passo, que é o gesto do
            sermão: repetido, sem olhar. -->
       <div class="simple-slidesrow" id="simpleSlidesRow" hidden>
-        <button type="button" id="simpleSlidePrev" class="simple-key simple-key--vol" title="Página anterior" aria-label="Página anterior">
+        <button type="button" id="simpleSlidePrev" class="simple-key simple-key--pag" title="Página anterior" aria-label="Página anterior">
           <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSlidePrev"/></svg>
         </button>
-        <div class="simple-vol-read">
-          <span class="simple-vol-num" id="simpleSlideNum">1/1</span>
-          <span class="simple-vol-cap">página</span>
+        <div class="simple-pag-read">
+          <span class="simple-pag-num" id="simpleSlideNum">1/1</span>
+          <span class="simple-pag-cap">página</span>
         </div>
-        <button type="button" id="simpleSlideNext" class="simple-key simple-key--vol" title="Próxima página" aria-label="Próxima página">
+        <button type="button" id="simpleSlideNext" class="simple-key simple-key--pag" title="Próxima página" aria-label="Próxima página">
           <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSlideNext"/></svg>
-        </button>
-      </div>
-      <!-- Volume por teclas (− / +) com o indicador no meio: num controle não
-           se arrasta nada, e o número diz onde está sem precisar mirar. -->
-      <div class="simple-volrow" id="simpleVolWrap">
-        <button type="button" id="simpleVolDown" class="simple-key simple-key--vol" title="Abaixar o volume" aria-label="Abaixar o volume">
-          <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </button>
-        <div class="simple-vol-read">
-          <span class="simple-vol-num" id="simpleVolValue">100</span>
-          <span class="simple-vol-cap">volume</span>
-        </div>
-        <button type="button" id="simpleVolUp" class="simple-key simple-key--vol" title="Aumentar o volume" aria-label="Aumentar o volume">
-          <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><line x1="12" y1="5" x2="12" y2="19"/></svg>
         </button>
       </div>
     </div>
@@ -1601,7 +1585,7 @@
                bloqueio de áudio veste `--warn-text`, com a pulsação de sempre.
 
                NÃO APARECE NO MODO FÁCIL: a prévia nem é desenhada lá (v1.11.11),
-               e o mudo já é uma tecla grande própria (`#simpleMute`). -->
+               e o mudo é o toque na tecla de NÍVEL (`#simpleNivel`). -->
           <div class="pv-fabs pv-fabs--esq">
             <!-- ===== A CORTINA SUBIU PARA O CANTO (v1.4.31) =====
                  Pedido do operador: *"na preview, pode subir o botão do
@@ -1624,7 +1608,7 @@
               </svg>
             </button>
             <!-- Idem: `muted = false` no boot → sai som, então o alto-falante
-                 inteiro. É este botão que #simpleMute copia. -->
+                 inteiro. É deste botão que #simpleNivel copia o estado. -->
             <button id="muteToggle" class="pv-fab pv-fab--mute" type="button" title="Mutar" aria-label="Mutar">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <use class="ico-base" href="#icoSom"/><use class="ico-alt" href="#icoSomOff"/>
@@ -1994,7 +1978,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion" class="app-version">v1.13.7</span>
+          <span id="appVersion" class="app-version">v1.13.8</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>

@@ -436,8 +436,8 @@ if (!ausentes.length) {
 // trocar uma confusão por outra não atende ao pedido.
 //
 // CONTA TODA PRIMITIVA DE DESENHO, e não só `<path>`: a barra de volta escrita
-// como `<line x1="6" y1="6" x2="6" y2="18"/>` — o idioma que este mesmo arquivo
-// já usa em `#simpleVolDown` — passaria por uma asserção que só olhasse `path`.
+// como `<line x1="6" y1="6" x2="6" y2="18"/>` — o idioma dos traços avulsos do
+// HTML — passaria por uma asserção que só olhasse `path`.
 {
   const DESENHO = /<(path|line|polyline|polygon|rect|circle|ellipse)\b/g;
   const FECHADA = /^(polygon|rect|circle|ellipse)$/;

@@ -108,8 +108,8 @@ try {
       return cs.display !== 'none' && cs.visibility !== 'hidden' && el.offsetParent !== null;
     };
     return {
-      play: vis('#simplePlay'), mudo: vis('#simpleMute'), parar: vis('#simpleStop'),
-      volume: vis('.simple-volrow'), paginas: vis('.simple-slidesrow'),
+      play: vis('#simplePlay'), nivel: vis('#simpleNivel'), parar: vis('#simpleStop'),
+      paginas: vis('.simple-slidesrow'),
       rotuloParar: vis('.simple-key-label--parar'),
       fileiras: [...document.querySelectorAll('.simple-remote > *')]
         .filter((el) => getComputedStyle(el).display !== 'none').length,
@@ -142,9 +142,9 @@ try {
   // repete), então a cena que desfaz um deck é outra cena, não o Parar.
   // Sem esta metade, "esconder o que atrapalha" passaria no caso do deck.
   const cMidia = await verControles();
-  checar(cMidia.play && cMidia.mudo && cMidia.parar && cMidia.volume
-    && !cMidia.paginas && cMidia.fileiras === 2,
-    '  ↳ e a área de controle é a da MÍDIA: play, parar, mudo e volume, sem a '
+  checar(cMidia.play && cMidia.nivel && cMidia.parar
+    && !cMidia.paginas && cMidia.fileiras === 1,
+    '  ↳ e a área de controle é a da MÍDIA: parar, play e nível, sem a '
     + 'linha de páginas', cMidia);
 
   // ── 2. A APRESENTAÇÃO ENTRA ───────────────────────────────────────────────
@@ -165,29 +165,17 @@ try {
     + 'de uma segunda conta: na página 1 o ⏮ está apagado', d0);
 
   // ===== NADA INERTE NA TELA (v1.5.14) =====
-  // Relato do operador: *"no modo de slides fica bem estranha"*. MEDIDO antes:
-  // com um deck no ar a tela empilhava TRÊS fileiras de 76px, e as duas de
-  // baixo eram a MESMA peça — `.simple-slidesrow` e `.simple-volrow` têm o
-  // mesmo grid (`1fr 1.1fr 1fr`), a mesma altura, a mesma classe de botão
-  // (`.simple-key--vol`, nomeada por volume e usada por páginas) e o mesmo nó
-  // de mostrador. O que as separava era um rótulo de `--fs-2xs` em `--muted`:
-  // o elemento tipográfico mais fraco de uma tela feita para quem está de pé.
-  //
-  // A metade que carrega o lote é a das TECLAS QUE NÃO AGIAM SOBRE NADA: com
-  // uma apresentação no ar não há áudio (a regra do "um elemento no ar", da
-  // v1.4.32), então play, mudo e a linha inteira de volume governavam o
-  // silêncio — seis das nove teclas grandes.
-  //
-  // As duas metades falham CALADAS, e por isso as duas são medidas: a homonímia
-  // não dá erro nenhum (só faz o dedo errar de fileira) e um controle inerte
-  // responde ao toque como qualquer outro — ele só não muda nada.
+  // Relato do operador: *"no modo de slides fica bem estranha"*. Com uma
+  // apresentação no ar não há áudio (a regra do "um elemento no ar", da
+  // v1.4.32), então play e nível governariam o silêncio. Um controle inerte
+  // responde ao toque como qualquer outro — ele só não muda nada —, e por isso
+  // a composição é medida.
   const cDeck = await verControles();
-  checar(cDeck.paginas && cDeck.parar && !cDeck.play && !cDeck.mudo && !cDeck.volume,
+  checar(cDeck.paginas && cDeck.parar && !cDeck.play && !cDeck.nivel,
     'COM UM DECK NO AR a área de controle mostra o transporte DA CENA: páginas e '
-    + '"Parar", e mais nada — play, mudo e volume governariam o silêncio', cDeck);
+    + '"Parar", e mais nada — play e nível governariam o silêncio', cDeck);
   checar(cDeck.fileiras === 2,
-    '  ↳ e sobram DUAS fileiras, não três: some a que era gêmea da linha de '
-    + 'volume (mesmo grid, mesma altura, o mesmo nó de mostrador)', cDeck.fileiras);
+    '  ↳ e são DUAS fileiras: o "Parar" sozinho e as páginas', cDeck.fileiras);
   checar(cDeck.rotuloParar,
     '  ↳ e o "Parar" ganha RÓTULO quando fica sozinho: um quadrado com um ícone '
     + 'no meio da tela não diz o que ele para — nas outras cenas as três teclas '
