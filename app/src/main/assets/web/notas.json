@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.13.9",
+    "itens": [
+      "Modo Fácil: a biblioteca ficou maior: letras, ícones, cartões e músicas dentro dos álbuns.",
+      "Os botões e as músicas da lista ficaram mais altos, fáceis de tocar com o dedo.",
+      "Com poucas coleções, os cartões crescem até ocupar a tela inteira, sem sobrar espaço vazio embaixo.",
+      "Nome comprido agora quebra em duas linhas, em vez de ser cortado com reticências.",
+      "Ao tocar numa música para tocar, o destaque azul ficou inteiro, sem a linha fina que aparecia.",
+      "No modo avançado nada mudou de tamanho."
+    ]
+  },
+  {
     "versao": "1.13.8",
     "itens": [
       "Modo Fácil: embaixo agora são três botões: Parar, Play/Pausa e o volume.",

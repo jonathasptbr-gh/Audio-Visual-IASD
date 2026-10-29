@@ -436,7 +436,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.8';
+const WEB_VERSION = '1.13.9';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -15107,6 +15107,55 @@ function medirVaoDosFavoritos(lista) {
 // AS DUAS SAEM JUNTAS, sempre: o respiro é derivado da tampa, e um valor de
 // ontem herdado sem a altura que o justifica pinta um vão em cima de uma barra
 // que já voltou ao tamanho natural.
+// ===== A BIBLIOTECA DO MODO FÁCIL É MAIOR (v1.13.9) =====
+// Pedido do operador: *"agora com mais espaço vertical na biblioteca, o sistema tem de aumentar os
+// itens para aproveitar completamente esse vão … de forma responsiva"*. O CSS redeclara os tokens
+// de medida da lista no Modo Fácil (ver "A BIBLIOTECA DO MODO FÁCIL É MAIOR" em `controle.css`),
+// multiplicados pelos dois fatores que esta função escreve em `#hymnResults`:
+//   · `--lib-esc` (alvos, miniaturas, ícones — tudo em px) sai da ALTURA DA TELA em px —
+//     `LIB_ESC_PX` de altura por unidade de escala, entre `LIB_ESC_MIN` e `LIB_ESC_MAX`. Em px e
+//     não em rem: o que ele escala é medida de toque, e o dedo não muda com a fonte do sistema;
+//   · `--lib-esc-fs` (a LETRA) é o mesmo fator, limitado pela LARGURA da lista em rem
+//     (`LIB_ESC_FS_REM`): numa lista estreita a letra maior cortaria com "…" um nome que hoje cabe,
+//     e o pedido é crescer, não esconder o que o item é. Nunca abaixo de 1 — o tamanho de hoje.
+// A ALTURA É A DA TELA, NÃO A DO MOMENTO, e é isso que deixa a troca sem salto: a linha de
+// controles recolhe 1,5 s depois do Parar (v1.13.8) e a janela anima até a base nova; um fator
+// que seguisse a altura da LISTA mudaria o tamanho de tudo DEPOIS dessa animação, um segundo
+// pulo. A escala já é a da Biblioteca como tela principal (a linha recolhida), e quem preenche a
+// sobra do momento é a TAMPA (`medirTampa`, que segue a altura da lista). A tela é a MAIOR vista
+// nesta largura: o teclado encolhe o `.simple` e não pode encolher a lista junto; girar (outra
+// largura) recomeça a conta.
+const LIB_ESC_MIN = 1.3;
+const LIB_ESC_MAX = 1.5;
+const LIB_ESC_PX = 576;
+const LIB_ESC_FS_REM = 20;
+let libEscTela = { w: 0, h: 0 };
+function acertarEscalaDaBiblioteca() {
+  const lista = hymnResultsEl;
+  if (!lista) return;
+  if (appMode !== 'simple') {
+    lista.style.removeProperty('--lib-esc');
+    lista.style.removeProperty('--lib-esc-fs');
+    libEscTela = { w: 0, h: 0 };
+    return;
+  }
+  const w = simpleModeEl.clientWidth;
+  const h = simpleModeEl.clientHeight;
+  // Modo ainda sem layout: zero não é medida (a mesma regra do `medirCorpoSimples`).
+  if (!w || !h) return;
+  if (w !== libEscTela.w) libEscTela = { w, h };
+  else if (h > libEscTela.h) libEscTela.h = h;
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const esc = Math.min(LIB_ESC_MAX, Math.max(LIB_ESC_MIN, libEscTela.h / LIB_ESC_PX));
+  const largura = (lista.clientWidth || w) / rem;
+  const fs = Math.min(esc, Math.max(1, largura / LIB_ESC_FS_REM));
+  const vEsc = esc.toFixed(2);
+  const vFs = fs.toFixed(2);
+  if (lista.style.getPropertyValue('--lib-esc') !== vEsc) lista.style.setProperty('--lib-esc', vEsc);
+  if (lista.style.getPropertyValue('--lib-esc-fs') !== vFs) lista.style.setProperty('--lib-esc-fs', vFs);
+}
+window.addEventListener('resize', () => acertarEscalaDaBiblioteca());
+
 function limparTampa(lista) {
   lista.style.removeProperty('--tampa-h');
   lista.style.removeProperty('--tampa-topo');
@@ -15153,13 +15202,18 @@ function calcularTampa(lista, favFechada) {
   if (!n) return null;
   // SÓ CRESCE, e nunca acima do teto de hoje: o `--bar-raiz-max` existe porque
   // a lista pode ter POUCOS blocos (três coleções dariam 183px cada).
-  const teto = parseFloat(getComputedStyle(document.documentElement)
-    .getPropertyValue('--bar-raiz-max')) || 66;
+  // NO MODO FÁCIL o teto é o do escopo da lista (v1.13.9), lido da `--lib-teto-px` — registrada
+  // como `<length>`, então resolvida em pixels. Fora dele ela vale 0 e o caminho é o de sempre.
+  const tetoDaLista = parseFloat(getComputedStyle(lista).getPropertyValue('--lib-teto-px')) || 0;
+  const teto = tetoDaLista > 0 ? tetoDaLista : (parseFloat(getComputedStyle(document.documentElement)
+    .getPropertyValue('--bar-raiz-max')) || 66);
   return { h: Math.max(base / n, Math.min(sobra / n, teto)), base, n, blocos };
 }
 
 function medirTampa(lista) {
   if (!lista || !lista.isConnected) return;
+  // A escala ANTES da conta: a tampa mede a barra de cada bloco, e a barra é do tamanho da escala.
+  if (lista === hymnResultsEl) acertarEscalaDaBiblioteca();
   // Fora do acervo (a lista de BUSCA) não há bloco de raiz que cresça, e um
   // valor de ontem herdado ali pintaria altura em linha de resultado.
   if (!lista.classList.contains('acervo')) {
@@ -15379,7 +15433,16 @@ function remedirTampa() {
   cancelAnimationFrame(tampaRaf);
   tampaRaf = requestAnimationFrame(() => {
     tampaRaf = 0;
-    if (hymnResultsEl.isConnected && hymnResultsEl.classList.contains('acervo')) medirTampa(hymnResultsEl);
+    if (!hymnResultsEl.isConnected || !hymnResultsEl.classList.contains('acervo')) return;
+    // OS BLOCOS ACOMPANHAM SEM SALTO (v1.13.9): a lista cresce quando a linha de controles do
+    // Modo Fácil recolhe (v1.13.8), e a tampa nova chega ao FIM da animação da janela. Os blocos
+    // FECHADOS vão da altura de antes à de agora na curva do acordeão, em vez de pularem num
+    // quadro; o que se escreve é o mesmo de sempre, a animação só cobre o caminho.
+    const fechados = semMovimento() ? []
+      : [...hymnResultsEl.children].filter((b) => b.nodeType === 1 && blocoDeRaizFechado(b));
+    const antes = fechados.map((b) => b.getBoundingClientRect().height);
+    medirTampa(hymnResultsEl);
+    fechados.forEach((b, i) => animarAlturaDeBloco(b, antes[i], b.getBoundingClientRect().height));
   });
 }
 if (typeof ResizeObserver === 'function' && hymnResultsEl) {
@@ -43943,6 +44006,8 @@ function setAppMode(mode) {
   try { sessionStorage.setItem(APP_MODE_KEY, appMode); } catch (_) { /* storage bloqueado */ }
   document.body.classList.toggle('mode-simple', appMode === 'simple');
   simpleModeEl.classList.toggle('open', appMode === 'simple');
+  // A ESCALA DA BIBLIOTECA é do Modo Fácil (v1.13.9): escrita ao entrar, apagada ao sair.
+  acertarEscalaDaBiblioteca();
   // A preview troca de casa junto com o modo (ver hostPreview) — antes dos
   // renders, para que eles já a encontrem no lugar certo.
   hostPreview();

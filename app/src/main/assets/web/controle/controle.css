@@ -360,8 +360,12 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      E O `calc()` NÃO É A DEFESA INTEIRA: dois dos três termos continuam sendo
      literais (o `.5rem` da `.hymn-row` e os 38px da `.hymn-play-thumb`), porque
      tokenizá-los custaria dois tokens novos consumidos em duas pontas cada.
-     Quem fecha a conta é o oráculo, que mede o RESULTADO. */
-  --faixa-coluna-texto: calc(.5rem + 38px + var(--sp-4));
+     Quem fecha a conta é o oráculo, que mede o RESULTADO.
+     A MINIATURA VIROU TOKEN na v1.13.9 (`--faixa-thumb`): o Modo Fácil a aumenta
+     no escopo da Biblioteca (ver "A BIBLIOTECA DO MODO FÁCIL É MAIOR"), e um
+     literal em duas pontas teria de ser reescrito nas duas. */
+  --faixa-thumb: 38px;
+  --faixa-coluna-texto: calc(.5rem + var(--faixa-thumb) + var(--sp-4));
   /* ---------- A ALTURA DA SOMBRA DE UM SCROLL (v1.5.16 · v1.8.58) ----------
      Pedido do operador, duas vezes: *"um efeito de blur na borda interna
      superior ou inferior, quando algum elemento da tela ir para debaixo dessa
@@ -6208,11 +6212,11 @@ body.mode-simple .serie-destaque {
    borda o MEIO do vão. Sem ela o traço fica no limite INFERIOR: 6,42px de
    branco acima e 1,37px abaixo, que foi o segundo relato deste lote.
 
-   SEM `z-index`, e isso é a regra escrita: a `.row` é `z-index: 1` e pinta
-   `--linha`, então o traço some quando a `.row` daquela faixa pinta um `--linha`
-   OPACO — ali quem separa é o preenchimento. Dentro de um álbum isso não
-   acontece hoje: a faixa não recebe estado (ver o bloco do nível 3) e o único
-   `--linha` que ela pode ter é translúcido, que o traço atravessa.
+   COM UM PREENCHIMENTO DE ESTADO QUEM SEPARA É O PREENCHIMENTO, e o traço sai —
+   mas não por baixo da `.row`: ele pousa no `padding-top` da faixa (a regra logo
+   acima), FORA da `.row`, e ela não o cobre. Quem o apaga é uma regra própria,
+   "A ESCOLHA NÃO TEM DIVISÓRIA" (v1.13.9): na faixa escolhida do Modo Fácil e na
+   aberta do avançado, o dela e o da vizinha de baixo.
 
    O RAIO APARA A PONTA DIREITA: com `border-radius: 8px` e `overflow: hidden`,
    os ~8px finais do traço somem no canto. É o mesmo canto que o preenchimento
@@ -8424,6 +8428,94 @@ body.simples-barra { --lib-lista-base: var(--sp-5); }
   --linha: var(--sel-fill);
   transform: translateY(2px); filter: var(--press-luz);
 }
+/* ---------- A ESCOLHA NÃO TEM DIVISÓRIA (v1.13.9) ----------
+   Relato do operador: *"ao tocar em um item de um álbum para tocar, ele colore o card … mas
+   parece que fica uma fina linha sem essa cor"*. A causa é a receita "METADE DO VÃO MORA DENTRO
+   DA CAIXA" (v1.5.17): o traço da `--divisoria` pousa no `padding-top` da faixa, ACIMA da `.row`,
+   e por isso a `.row` (`z-index: 1`) não o cobre — MEDIDO, sobre a linha marcada ele lia
+   117,139,174 contra os 62,89,132 do preenchimento, da coluna do texto até a direita. E o da
+   faixa de BAIXO encostava na base do card: o recuo do toque (`translateY(2px)`) desce a linha
+   marcada exatamente o meio vão que a separava dele. Com um preenchimento quem separa é o
+   preenchimento (a regra do `--divisoria`), então os DOIS traços saem: o da própria faixa e o da
+   vizinha de baixo. O ABERTO do modo avançado (`.expanded`, a gaveta) tinha o mesmo traço sobre
+   a tampa — a regra da v1.5.18 dizia que ele sumia, e ele não sumia pelo mesmo motivo. */
+.acervo .coll-songs > .hymn-result:is(.selecionando, .expanded)::before,
+.acervo .coll-songs > .hymn-result:is(.selecionando, .expanded) + .hymn-result::before,
+#hymnResults > .hymn-result:is(.selecionando, .expanded)::before,
+#hymnResults > .hymn-result:is(.selecionando, .expanded) + .hymn-result::before { display: none; }
+/* ===== A BIBLIOTECA DO MODO FÁCIL É MAIOR (v1.13.9) =====
+   Pedido do operador: *"agora com mais espaço vertical na biblioteca, o sistema tem de aumentar
+   os itens para aproveitar completamente esse vão … fique a vontade para aumentar o tamanho dos
+   cards … no modo simples (mesmo que saia do padrão do resto do app) … os itens dentro dos
+   álbuns, alguns chegam a estar tão pequenos que fica estranho de tocar neles"*.
+
+   A ESCALA É DO ESCOPO, NÃO DE CADA PEÇA. A lista do acervo é desenhada inteira com os tokens
+   de medida (`--hit`, `--thumb`, `--faixa-thumb`, `--icon-*`, `--fs-*`), e no Modo Fácil eles
+   são REDECLARADOS em `#hymnResults` multiplicados por dois fatores que o JS escreve
+   (`acertarEscalaDaBiblioteca`): `--lib-esc` (as DIMENSÕES — alvos, miniaturas, ícones) sai da
+   ALTURA da tela em rem, e `--lib-esc-fs` (a LETRA) é o mesmo número limitado pela LARGURA da
+   lista em rem, que é o que impede a letra maior de cortar com "…" um nome que hoje cabe. Peça
+   nova da Biblioteca que use os tokens cresce junto, sem lista a lembrar; e o que mora FORA da
+   lista (a barra de busca, que alinha com o espaço `#simpleBarra`) não muda.
+
+   O VALOR ORIGINAL É CAPTURADO UM NÍVEL ACIMA (`body.mode-simple`, o `--base-*`): uma
+   propriedade não pode se referir a si mesma, e copiar `0.9rem` para cá divergiria do token no
+   primeiro ajuste. As DERIVADAS que a lista usa (`--bar-secao-h`, `--bar-raiz-max`,
+   `--faixa-coluna-texto`) são REESCRITAS aqui com a MESMA fórmula da raiz: uma propriedade
+   personalizada é resolvida onde é DECLARADA, e herdada da raiz ela traria o `--hit` de lá.
+   Quem confere que as duas fórmulas continuam a mesma é o `modo-simples-biblioteca-tamanho`.
+
+   O PISO DO ALVO É 44px, e quem o garante é o fator MÍNIMO (`LIB_ESC_MIN`, 1,3 × 34px = 44,2):
+   é a medida de toque confortável do pedido. Um `max(44px, …)` aqui seria inerte.
+
+   O TETO DA TAMPA PRECISA SER LIDO EM PIXELS pelo `calcularTampa`, e uma propriedade
+   personalizada comum devolve o TEXTO da fórmula (`calc(…)`), que o `parseFloat` não lê: daí o
+   `--lib-teto-px`, REGISTRADA como `<length>` (o navegador a entrega resolvida). Ela só existe
+   aqui; no avançado o `calcularTampa` segue pelo caminho de sempre. */
+@property --lib-teto-px { syntax: '<length>'; inherits: false; initial-value: 0px; }
+body.mode-simple {
+  --base-hit: var(--hit); --base-thumb: var(--thumb); --base-faixa-thumb: var(--faixa-thumb);
+  --base-icon-sm: var(--icon-sm); --base-icon-md: var(--icon-md); --base-icon-lg: var(--icon-lg);
+  --base-fs-2xs: var(--fs-2xs); --base-fs-xs: var(--fs-xs); --base-fs-sm: var(--fs-sm);
+  --base-fs-md: var(--fs-md); --base-fs-lg: var(--fs-lg); --base-fs-xl: var(--fs-xl);
+  --base-fs-2xl: var(--fs-2xl); --base-fs-3xl: var(--fs-3xl); --base-fs-4xl: var(--fs-4xl);
+}
+body.mode-simple #hymnResults {
+  --hit: calc(var(--base-hit) * var(--lib-esc, 1.3));
+  --thumb: calc(var(--base-thumb) * var(--lib-esc, 1.3));
+  --faixa-thumb: calc(var(--base-faixa-thumb) * var(--lib-esc, 1.3));
+  --icon-sm: calc(var(--base-icon-sm) * var(--lib-esc, 1.3));
+  --icon-md: calc(var(--base-icon-md) * var(--lib-esc, 1.3));
+  --icon-lg: calc(var(--base-icon-lg) * var(--lib-esc, 1.3));
+  --fs-2xs: calc(var(--base-fs-2xs) * var(--lib-esc-fs, 1));
+  --fs-xs: calc(var(--base-fs-xs) * var(--lib-esc-fs, 1));
+  --fs-sm: calc(var(--base-fs-sm) * var(--lib-esc-fs, 1));
+  --fs-md: calc(var(--base-fs-md) * var(--lib-esc-fs, 1));
+  --fs-lg: calc(var(--base-fs-lg) * var(--lib-esc-fs, 1));
+  --fs-xl: calc(var(--base-fs-xl) * var(--lib-esc-fs, 1));
+  --fs-2xl: calc(var(--base-fs-2xl) * var(--lib-esc-fs, 1));
+  --fs-3xl: calc(var(--base-fs-3xl) * var(--lib-esc-fs, 1));
+  --fs-4xl: calc(var(--base-fs-4xl) * var(--lib-esc-fs, 1));
+  /* As derivadas, com a fórmula da raiz (ver acima). */
+  --bar-secao-h: calc(var(--hit) + .7rem);
+  --bar-raiz-max: calc(2 * var(--hit) + 2rem);
+  --faixa-coluna-texto: calc(.5rem + var(--faixa-thumb) + var(--sp-4));
+  --lib-teto-px: var(--bar-raiz-max);
+}
+/* O NOME QUEBRA EM DUAS LINHAS EM VEZ DE CORTAR. Com a letra e os alvos maiores, a largura do
+   nome encolhe dos dois lados — MEDIDO a 390×844, "Hinário Adventista 2022" e um título de faixa de
+   31 letras passavam a sair com "…", e o pedido é crescer sem esconder o que o item é. Duas linhas
+   cabem na altura que a MINIATURA (faixa) ou o ALVO (barra) já dão, então a linha não cresce
+   por isso. Na barra de SEÇÃO (`.coll-group-name`) a altura é DECLARADA (`--bar-secao-h`, o
+   degrau em que a barra do álbum aberto gruda) e continua sendo: as duas linhas cabem no alvo
+   mais o recuo da barra, e a declaração não muda. */
+body.mode-simple #hymnResults :is(.hymn-name, .coll-bar-name, .coll-group-name) {
+  white-space: normal;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+/* O anel de download dentro da miniatura acompanha a miniatura (26 de 38 na raiz). */
+body.mode-simple #hymnResults .hymn-play-thumb .dl-ring { --dl-ring: calc(var(--faixa-thumb) * 26 / 38); }
 /* E A CAIXA DE CONTROLES SAI DE CENA — só com a Biblioteca ABERTA e o teclado no
    ar. As duas condições são necessárias: sozinho, o teclado não justifica tirar
    o transporte de quem está operando o culto (ele sobe pela Bíblia, pelo
@@ -9365,7 +9457,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    existe mais. O que ele ainda faz é REAL e é a razão de ele ficar: hospedar o
    anel de download e segurar a coluna que alinha a lista inteira. */
 .hymn-play-thumb {
-  width: 38px; height: 38px; flex-shrink: 0;
+  width: var(--faixa-thumb); height: var(--faixa-thumb); flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   border-radius: var(--radius-btn);
   background: var(--surface); color: var(--muted);
@@ -9462,9 +9554,10 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    são a PRECEDÊNCIA DO ESTADO: uma linha NO AR que o operador abra continua
    vermelha.
 
-   E A DIVISÓRIA ACIMA DELA SOME, de propósito: o traço mora sob a `.row`
-   (`z-index: 1`), e ali quem separa passa a ser o PREENCHIMENTO — que é a regra
-   já escrita ao lado do `--divisoria`. */
+   E A DIVISÓRIA ACIMA DELA SOME, de propósito: ali quem separa passa a ser o
+   PREENCHIMENTO — que é a regra já escrita ao lado do `--divisoria`. Quem a apaga
+   é a regra "A ESCOLHA NÃO TEM DIVISÓRIA" (v1.13.9): o traço mora no
+   `padding-top` da faixa, ACIMA da `.row`, e a `.row` não o cobre. */
 .lib-item.expanded:not(.no-ar):not(.active):not(.selected) > .row {
   background: var(--gaveta-bg);
 }

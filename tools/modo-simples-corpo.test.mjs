@@ -641,6 +641,10 @@ try {
   await quadros();
   await parar();
   await quadros();
+  // DESDE A v1.13.9 os blocos vão até a tampa nova PELA CURVA (`remedirTampa`, 220 ms depois de a
+  // janela assentar): mede-se com a animação terminada, senão a leitura cai no meio dela.
+  await esperar(pg, () => !document.getElementById('hymnResults').getAnimations({ subtree: true })
+    .some((a) => a.playState === 'running'), null, 5000);
   const alturasQ = () => pg.evaluate(() => [...document.querySelectorAll('#hymnResults > .hymnal-card')]
     .map((c) => +c.getBoundingClientRect().height.toFixed(1)));
   const q1 = await alturasQ();
