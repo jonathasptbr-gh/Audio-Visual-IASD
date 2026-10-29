@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.13.6",
+    "itens": [
+      "Bíblia: ao abrir na escolha de capítulo e versículo, a tela não pula mais nem empurra o topo do cronograma.",
+      "Ferramentas: os botões da lista têm mais espaço em volta, e os nomes ficaram um pouco menores.",
+      "Na lista de ferramentas o topo saiu. Para fechar, toque na seta embaixo, no lugar do botão Ferramentas.",
+      "Dentro de uma ferramenta, o topo continua com o nome e o X para fechar.",
+      "O botão de voltar dentro das ferramentas saiu. Para voltar à lista, use o voltar do celular."
+    ]
+  },
+  {
     "versao": "1.13.5",
     "itens": [
       "Cronograma: o botão de limpar a lista saiu. Para esvaziar, use a lixeira do cronograma na lista de cronogramas.",

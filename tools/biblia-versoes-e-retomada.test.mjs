@@ -40,6 +40,10 @@
 // era desenhado pela FONTE DO SISTEMA. O que separa um do outro é o NÓ — um
 // `<svg>` com a `polyline` do `checkIconSvg`, que é o traço reto do resto do app.
 //
+// **G · ABRIR NA SELEÇÃO NÃO EMPURRA O CRONOGRAMA (v1.13.6).** Quadro a quadro,
+// pela porta: o cabeçalho do Cronograma parado e nenhum ancestral da folha rolado
+// enquanto ela sobe na tela de capítulo e versículo.
+//
 // REVERSÃO MEDIDA, e ela reprova 9 das 22. Desfeitos os cinco pontos do lote —
 // o `bibleScreen = 'books'` no `abrirBiblia`, a frase "Baixa ao usar", a
 // varredura no toque, o `apagarVersaoBiblia` no botão e o `chk.textContent =
@@ -421,6 +425,78 @@ try {
   checar(!intencao.depoisDeEscolher.includes(7),
     'F · e escolher a versão de novo a desfaz — senão ela ficaria para sempre '
     + 'fora do alcance do `garantirBibliaBase`', intencao);
+
+  // =======================================================================
+  // G · ABRIR NA SELEÇÃO NÃO EMPURRA O CRONOGRAMA (v1.13.6)
+  //
+  // Relato do operador: *"ao abrir a bíblia durante a seleção dos capítulos e
+  // versículos, a janela salta mais do que sua determinada area, empurrando a
+  // barra do topo do cronograma e depois voltando de forma elástica"*. A causa
+  // era o `scrollIntoView` da célula marcada, no primeiro quadro da subida da
+  // folha: ele rola TODO ancestral rolável — o `<main>` foi a 488px a 412×892 — e
+  // o navegador recorta esse `scrollTop` quadro a quadro conforme a folha sobe.
+  // A régua é QUADRO A QUADRO, pela PORTA (o toque de verdade, com a animação):
+  // o cabeçalho do Cronograma não anda e nenhum ancestral da folha rola em
+  // quadro nenhum — medir só no fim aprovaria o defeito, que termina em zero.
+  // E a premissa: a célula marcada está FORA da vista inicial da metade (o
+  // Salmo 119, de 150), senão não haveria o que rolar e a régua seria tautologia;
+  // e a metade, ela sim, rola até a célula.
+  // REVERSÃO: `scrollIntoView({ block: 'center' })` de volta no
+  // `scrollActiveIntoView` — reprova as duas primeiras.
+  // =======================================================================
+  await pg.evaluate(async () => {
+    fecharBiblia();
+    const bookIdx = Bible.BOOKS.findIndex((x) => /^Salmos/i.test(x.name));
+    const vs = [];
+    for (let i = 1; i <= 40; i++) vs.push({ n: i, text: 'Versículo ' + i + '.' });
+    await AVDB.setState('bible:' + bibleVersionId + '_' + bibleBookId(bookIdx) + '_119', { verses: vs, syncedAt: Date.now() });
+    bibleSel = { bookIdx, chapter: 119 };
+    bibleChapterData = { verses: vs };
+    bibleScreen = 'chapters';
+  });
+  await pg.waitForTimeout(400);
+  const sel = await pg.evaluate(async () => {
+    const cab = document.querySelector('.list-header');
+    const ancestrais = [];
+    for (let n = bibleSheetEl.parentElement; n; n = n.parentElement) ancestrais.push(n);
+    if (document.scrollingElement && !ancestrais.includes(document.scrollingElement)) ancestrais.push(document.scrollingElement);
+    const topo0 = cab.getBoundingClientRect().top;
+    let anda = 0;
+    let rolou = '';
+    let quadros = 0;
+    const amostra = () => {
+      quadros++;
+      anda = Math.max(anda, Math.abs(cab.getBoundingClientRect().top - topo0));
+      for (const a of ancestrais) {
+        if (a.scrollTop && !rolou) rolou = (a.id || a.tagName) + ':' + a.scrollTop;
+      }
+    };
+    document.getElementById('bibleBtn').click();
+    const t0 = performance.now();
+    await new Promise((ok) => {
+      const passo = () => { amostra(); if (performance.now() - t0 < 700) requestAnimationFrame(passo); else ok(); };
+      requestAnimationFrame(passo);
+    });
+    const metade = document.querySelector('#bibleBody .bible-half');
+    const cel = metade && metade.querySelector('.bible-cell.active');
+    const m = metade.getBoundingClientRect();
+    const c = cel ? cel.getBoundingClientRect() : null;
+    return {
+      tela: bibleScreen, quadros, anda: +anda.toFixed(2), rolou,
+      metadeRolou: metade.scrollTop,
+      // A PREMISSA: sem rolar, a célula estaria abaixo da metade.
+      foraDaVista: !!c && c.top + metade.scrollTop > m.bottom,
+      naVista: !!c && c.top >= m.top - 0.5 && c.bottom <= m.bottom + 0.5,
+    };
+  });
+  checar(sel.tela === 'chapters' && sel.anda <= 0.5,
+    'G · abrir a Bíblia na SELEÇÃO (capítulo/versículo) não empurra o cabeçalho do Cronograma em quadro nenhum ('
+    + sel.quadros + ' quadros, pior ' + sel.anda + 'px)', sel);
+  checar(sel.rolou === '',
+    'G · e nenhum ancestral da folha rola durante a abertura — o `scrollIntoView` rolava o `<main>`', sel);
+  checar(sel.foraDaVista && sel.metadeRolou > 0 && sel.naVista,
+    'G · (premissa) a célula marcada estava fora da vista da metade, e a METADE rolou até ela', sel);
+  await pg.evaluate(() => fecharBiblia());
 
   checar(erros.length === 0, 'nenhum erro de console', erros);
 } catch (e) {

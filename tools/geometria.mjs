@@ -44,13 +44,14 @@ export const PISOS = [
     // A LISTA DAS FERRAMENTAS NÃO ROLA (v1.13.5), por pedido EXPLÍCITO do operador:
     // *"verifique em telas menores, para garantir que essa janela de ferramentas não
     // necessite de scroll, mas sim tenha seus botões encolhidos verticalmente para
-    // caber de forma correta"*. A folha estreita cede antes o recuo e o vão do
-    // cabeçalho e o vão entre as linhas; MEDIDO, só a 360×640 com a fonte do sistema
-    // em 1,3× a linha passa abaixo do `--hit` — 33,4px, a sexta parte do corpo. O
-    // piso trocado é 32, um píxel e pouco de folga sobre o medido.
+    // caber de forma correta"*. Os vãos da lista cedem antes (sete, até zero; e desde a
+    // v1.13.6 a lista não tem cabeçalho — a seta de fechar mora na casa da porta);
+    // MEDIDO, só a 360×640 com a fonte do sistema em 1,3× a linha passa abaixo do
+    // `--hit` — 33,9px, a sexta parte de 203,6px de corpo (33,4 na v1.13.5). O piso
+    // trocado é 32, um píxel e pouco de folga sobre o medido.
     sel: '.ferr-grade > .ferr-tile', piso: 32,
     porque: 'a lista das ferramentas não rola por pedido do operador (v1.13.5): seis '
-      + 'linhas de 34px pedem 204px e o corpo da folha mede 200,3px a 360×640 · 1,3×. '
+      + 'linhas de 34px pedem 204px e o corpo da folha mede 203,6px a 360×640 · 1,3×. '
       + 'Ver `.ferr-grade > .ferr-tile` em controle.css.',
   },
 ];

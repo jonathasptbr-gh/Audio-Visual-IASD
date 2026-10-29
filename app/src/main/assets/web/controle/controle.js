@@ -388,12 +388,13 @@ const toolsBodyEl = document.getElementById('toolsBody');
 // O RODAPÉ FIXO da folha (v1.8.89), irmão do corpo — ver `renderFoot`.
 const toolsFootEl = document.getElementById('toolsFoot');
 const toolsCloseEl = document.getElementById('toolsClose');
-// O VOLTAR À LISTA e o TÍTULO da folha (v1.13.3) — ver `renderGradeDeFerramentas`.
-const toolsBackEl = document.getElementById('toolsBack');
+// O TÍTULO da folha (v1.13.3) — ver `pintarCabecalhoDasFerramentas`.
 const toolsTitleEl = document.getElementById('toolsTitle');
 // O NOME DO ITINERÁRIO ATIVO no título da folha (v1.13.4) — ver
 // `pintarCabecalhoDasFerramentas`.
 const itinTituloEl = document.getElementById('itinTitulo');
+// A SETA QUE FECHA A LISTA, na casa da porta (v1.13.6) — ver `medirPortaDasFerramentas`.
+const toolsFecharEl = document.getElementById('toolsFechar');
 const itinNomeEl = document.getElementById('itinNome');
 // Há UM host de lista (`libraryEl`). A pasta do aparelho abre INLINE, como um
 // álbum — e por isso não há busca dentro de uma pasta nem seleção múltipla lá
@@ -438,7 +439,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.5';
+const WEB_VERSION = '1.13.6';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -5847,9 +5848,30 @@ function renderBibleChapters(wrap) {
 // Rola cada grade até a célula marcada. As duas podem ser longas (Salmos tem
 // 150 capítulos, o 119 tem 176 versículos), e voltar da leitura tem que
 // mostrar onde se está sem o operador procurar.
+//
+// QUEM ROLA É A METADE, E SÓ ELA (v1.13.6) — nunca `scrollIntoView`. Relato do
+// operador: *"ao abrir a bíblia durante a seleção dos capítulos e versículos, a
+// janela salta mais do que sua determinada area, empurrando a barra do topo do
+// cronograma e depois voltando de forma elástica"*. `scrollIntoView` rola TODO
+// ancestral rolável até a célula aparecer, inclusive os de `overflow: hidden` —
+// e este roda no primeiro quadro da subida da folha, com ela ainda em
+// `translateY(100%)`, fora da tela. O ancestral que cedia era o `<main>`:
+// MEDIDO a 412×892 no Salmo 119, `scrollTop` 488 no primeiro quadro, o
+// cabeçalho do Cronograma a −488px, e o valor DESCENDO quadro a quadro até zero
+// em ~230 ms — a área rolável dele inclui a folha TRANSLADADA, e ela encolhe com
+// a subida, então o navegador recorta o `scrollTop` a cada quadro. Era a "volta
+// elástica". O `{ block: 'nearest' }` não salva: a célula está fora da TELA, e
+// todo ancestral continua tendo o que rolar.
+// A conta é a do centro DENTRO da metade (`clientTop`/`clientHeight`, a caixa de
+// rolagem, nunca a borda), e as duas rects levam a MESMA translação da folha,
+// então a diferença vale em qualquer quadro da animação.
 function scrollActiveIntoView(grid) {
   const active = grid && grid.querySelector('.bible-cell.active');
-  if (active && active.scrollIntoView) active.scrollIntoView({ block: 'center' });
+  const rolo = grid && grid.closest('.bible-half');
+  if (!active || !rolo) return;
+  const a = active.getBoundingClientRect();
+  const r = rolo.getBoundingClientRect();
+  rolo.scrollTop += (a.top + a.height / 2) - (r.top + rolo.clientTop + rolo.clientHeight / 2);
 }
 
 // A metade de baixo: grade de versículos do capítulo selecionado, ou o estado
@@ -10521,8 +10543,9 @@ function renderMsg() {
 // (Mensagens · Tempo · Sorteio) e, dentro do Tempo, um segmentado de quatro (Relógio ·
 // Cronômetro · Timer · Itinerário) — dois níveis de escolha para chegar à ferramenta.
 // Hoje a folha abre na LISTA das seis, uma linha por ferramenta (`FERRAMENTAS`), e o
-// toque abre a ferramenta; o voltar do cabeçalho (`#toolsBack`) e o do Android devolvem
-// a lista antes de a folha fechar.
+// toque abre a ferramenta; o voltar do Android devolve a lista antes de a folha fechar
+// (na tela não há voltar desde a v1.13.6: dentro de uma ferramenta o cabeçalho tem o
+// título e o ✕, e na lista quem fecha é a seta na casa da porta, `#toolsFechar`).
 //
 // A v1.13.3 a desenhava numa GRADE de 3×2 tiles, e a v1.13.4 a trocou por uma LISTA
 // VERTICAL que divide a altura da folha: *"como temos poucas ferramentas, ao invés de
@@ -10645,6 +10668,13 @@ function renderGradeDeFerramentas() {
 // largura, fonte do sistema): a porta é filha dele. Sem a porta à vista (a seleção
 // múltipla toma o rodapé) a medida boa que já está lá é a resposta certa.
 // SÓ O QUE MUDOU, como no `acertarVeus`.
+//
+// E A PORTA VIRA SETA (v1.13.6): na lista não há cabeçalho, e quem fecha a folha é
+// a `#toolsFechar`, no retângulo EXATO da porta que a folha cobre. As bordas dela
+// são as da folha estreita; a ALTURA (`--ferr-porta-h`) e a distância da base da
+// porta à do `.list-body` (`--ferr-porta-base`) são lidas aqui também, pelo
+// `getBoundingClientRect` (`offsetHeight` arredonda), e a leitura acontece com a folha FECHADA ou estreita — nas duas a porta está no
+// lugar dela, porque a folha é `absolute` e não a empurra.
 function medirPortaDasFerramentas() {
   if (!toolsSheetEl) return;
   const base = toolsSheetEl.parentElement;
@@ -10654,17 +10684,22 @@ function medirPortaDasFerramentas() {
   const b = base.getBoundingClientRect();
   if (!p.width || !b.width) return;
   const px = (v) => (Math.round(v * 100) / 100) + 'px';
-  const esq = px(p.left - b.left);
-  const dir = px(b.right - p.right);
-  if (toolsSheetEl.style.getPropertyValue('--ferr-porta-esq') !== esq) toolsSheetEl.style.setProperty('--ferr-porta-esq', esq);
-  if (toolsSheetEl.style.getPropertyValue('--ferr-porta-dir') !== dir) toolsSheetEl.style.setProperty('--ferr-porta-dir', dir);
+  const medidas = {
+    '--ferr-porta-esq': px(p.left - b.left),
+    '--ferr-porta-dir': px(b.right - p.right),
+    '--ferr-porta-h': px(p.height),
+    '--ferr-porta-base': px(b.bottom - p.bottom),
+  };
+  for (const [k, v] of Object.entries(medidas)) {
+    if (toolsSheetEl.style.getPropertyValue(k) !== v) toolsSheetEl.style.setProperty(k, v);
+  }
 }
 
 // O NOME CABE NA LARGURA DA PORTA (v1.13.5): o corpo do nome tem o teto da ALTURA
 // da linha no CSS (`clamp` sobre `--ferr-linha`), e este escreve o da LARGURA —
-// o maior corpo em que o nome mais longo da lista (e o título da folha) cabe sem
-// reticências. MEDIDO, não escrito: a largura do texto é proporcional ao corpo,
-// então a razão `clientWidth / scrollWidth` do pior nome dá o corpo que cabe
+// o maior corpo em que o nome mais longo da lista cabe sem reticências (o título
+// da folha não entra desde a v1.13.6: na lista não há cabeçalho). MEDIDO, não
+// escrito: a largura do texto é proporcional ao corpo, então a razão `clientWidth / scrollWidth` do pior nome dá o corpo que cabe
 // (o 0,98 é a folga do arredondamento de subpixel; ver `tetoQueCabe`). O PISO é 11px:
 // abaixo dele o nome sai com reticências, e o Registro de quem relatar mostra a
 // tela — nunca um nome legível cortado sem aviso por uma conta escondida.
@@ -10693,11 +10728,6 @@ function acertarLetraDaListaDeFerramentas() {
   const g = document.getElementById('ferrGrade');
   if (!g || !g.isConnected) return;
   tetoQueCabe([...g.querySelectorAll('.qs-titulo, .ferr-tile.contando .ferr-leitura')], '--ferr-fs-teto', g);
-  if (toolsSheetEl && toolsTitleEl && toolsSheetEl.classList.contains('estreita')) {
-    tetoQueCabe([toolsTitleEl], '--ferr-titulo-teto', toolsSheetEl);
-  } else if (toolsSheetEl) {
-    toolsSheetEl.style.removeProperty('--ferr-titulo-teto');
-  }
 }
 function vigiarLetraDaListaDeFerramentas(g) {
   acertarLetraDaListaDeFerramentas();
@@ -10748,9 +10778,11 @@ function acertarGradeDeFerramentas() {
   if (ferrNaGrade && ferramentasAbertas()) pintarGradeDeFerramentas();
 }
 
-// O CABEÇALHO DIZ ONDE SE ESTÁ: "Ferramentas" na lista, o nome da ferramenta dentro
-// dela — e o voltar só existe dentro (a trilha dele é reservada pela grade do
-// cabeçalho, então o título não anda).
+// O CABEÇALHO SÓ EXISTE DENTRO DE UMA FERRAMENTA (v1.13.6), e diz qual é: o nome
+// dela no centro e o ✕ na ponta. Na LISTA ele não é desenhado — pedido do operador,
+// *"apenas para essa seção de lista de ferramentas, substitua a barra de topo com o
+// título 'ferramentas' e o botão de fechar, por um botão de seta que ficara na base
+// da lista"* —, e quem fecha é a `#toolsFechar` (ver `medirPortaDasFerramentas`).
 //
 // NO ITINERÁRIO O TÍTULO É O NOME DO ITINERÁRIO ATIVO (v1.13.4), e é a porta da
 // gaveta deles: pedido do operador, *"use o campo de título da barra superior
@@ -10762,7 +10794,6 @@ function acertarGradeDeFerramentas() {
 // diferentes. O nome "Itinerário" da ferramenta sai da tela ali (o ícone da lista
 // já a disse), e o `#toolsTitle` continua escrito por baixo, escondido.
 function pintarCabecalhoDasFerramentas() {
-  if (toolsBackEl) toolsBackEl.hidden = ferrNaGrade;
   if (!toolsTitleEl) return;
   const atual = ferramentaAtual();
   const f = FERRAMENTAS.find((x) => x.id === atual);
@@ -10846,7 +10877,7 @@ function abrirFerramenta(id, opcoes) {
   trocarVistaDasFerramentas(desenhar, 'entra', opcoes);
 }
 
-// DE VOLTA À LISTA — o `#toolsBack` e o degrau 2.5 do voltar do Android.
+// DE VOLTA À LISTA — o degrau 2.5 do voltar do Android (o único caminho; ver `__avBack`).
 function voltarAGradeDeFerramentas(opcoes) {
   if (!ferramentasAbertas() || ferrNaGrade) return;
   fecharItinGaveta();
@@ -10903,7 +10934,36 @@ function trocarVistaDasFerramentas(desenhar, sentido, opcoes) {
   // o painel NOVO, nunca o que está saindo.
   camada.querySelectorAll('[id]').forEach((n) => n.removeAttribute('id'));
   toolsSheetEl.appendChild(camada);
+  // O CABEÇALHO E A SETA TROCAM DE LUGAR COM A VISTA (v1.13.6): na lista há a seta
+  // na casa da porta e nenhum cabeçalho; numa ferramenta, o cabeçalho e nenhuma
+  // seta. Os dois vivem FORA do corpo, então a camada acima não os leva: quem sai
+  // vira um FANTASMA no lugar exato em que estava (sem toque e sem ids) e esmaece
+  // com ela, e quem entra aparece com o corpo. Nada disso mexe na caixa da folha —
+  // a troca de cabeçalho por seta muda só o recuo do corpo, e o corpo novo já nasce
+  // no lugar final.
+  const cabEl = toolsSheetEl.querySelector(':scope > .tools-head');
+  const visivel = (el) => !!el && el.getClientRects().length > 0;
+  const fantasmas = [];
+  [cabEl, toolsFecharEl].forEach((el) => {
+    if (!visivel(el)) return;
+    const r = el.getBoundingClientRect();
+    const f = el.cloneNode(true);
+    f.removeAttribute('id');
+    f.querySelectorAll('[id]').forEach((n) => n.removeAttribute('id'));
+    f.setAttribute('aria-hidden', 'true');
+    f.inert = true;
+    f.classList.add('ferr-fantasma');
+    f.style.top = (r.top - folha.top) + 'px';
+    f.style.left = (r.left - folha.left) + 'px';
+    f.style.width = r.width + 'px';
+    f.style.height = r.height + 'px';
+    fantasmas.push({ el, f });
+  });
   desenhar();
+  // Só quem SAIU fica de fantasma: o que continua à vista (nenhum hoje) não se duplica.
+  const saem = fantasmas.filter((x) => !visivel(x.el)).map((x) => x.f);
+  saem.forEach((f) => toolsSheetEl.appendChild(f));
+  const entram = [cabEl, toolsFecharEl].filter((el) => visivel(el) && !fantasmas.some((x) => x.el === el));
   const D = msDaDurLenta();
   const d = sentido === 'volta' ? -1 : 1;
   const passo = 18;
@@ -10916,6 +10976,9 @@ function trocarVistaDasFerramentas(desenhar, sentido, opcoes) {
   if (toolsFootEl.childElementCount) {
     anims.push(toolsFootEl.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D, easing: 'ease' }));
   }
+  saem.forEach((f) => anims.push(f.animate([{ opacity: 1 }, { opacity: 0 }],
+    { duration: D * 0.6, easing: 'ease', fill: 'forwards' })));
+  entram.forEach((el) => anims.push(el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D, easing: 'ease' })));
   // E A FOLHA MUDA DE LARGURA (v1.13.5): estreita na lista, larga na ferramenta.
   // As duas bordas andam de onde estavam até onde a classe as pôs, na mesma
   // duração; sem a animação (o fim, ou o cancelamento) vale a da classe.
@@ -10932,6 +10995,7 @@ function trocarVistaDasFerramentas(desenhar, sentido, opcoes) {
     ferrTrocaAnim = null;
     anims.forEach((a) => { try { a.cancel(); } catch (_) {} });
     camada.remove();
+    saem.forEach((f) => f.remove());
   };
   ferrTrocaAnim = { fim };
   // Pela PROMESSA, como em `mudarSecao`: quem espera a troca acabar acorda na mesma
@@ -46494,7 +46558,7 @@ const POPUPS = [
 // ela compartilha com a tabela é o ✕ e o degrau do voltar, e os dois estão
 // escritos aqui e no `__avBack`.
 if (toolsCloseEl) toolsCloseEl.addEventListener('click', fecharFerramentas);
-if (toolsBackEl) toolsBackEl.addEventListener('click', () => voltarAGradeDeFerramentas({ animar: true }));
+if (toolsFecharEl) toolsFecharEl.addEventListener('click', fecharFerramentas);
 // O TÍTULO DO ITINERÁRIO abre e fecha a gaveta deles (v1.13.4: ele mora no
 // cabeçalho da folha, e o ouvinte é ligado uma vez, aqui).
 if (itinTituloEl) itinTituloEl.addEventListener('click', () => {
@@ -46566,8 +46630,9 @@ window.__avBack = function () {
   //    abrir DE DENTRO dela (a folha da música, pelo sorteio), e antes da tela
   //    cheia porque ela é mais efêmera: é uma camada da lista, não a projeção.
   //    E ELA TEM UM DEGRAU DENTRO (v1.13.3): com uma ferramenta aberta, o voltar
-  //    devolve a LISTA antes de fechar a folha — o `#toolsBack` do cabeçalho, como a
-  //    Bíblia sobe por dentro dela logo abaixo.
+  //    devolve a LISTA antes de fechar a folha, como a Bíblia sobe por dentro dela
+  //    logo abaixo. É o ÚNICO caminho de volta à lista: na tela não há voltar
+  //    (v1.13.6) — o cabeçalho de uma ferramenta tem o título e o ✕.
   if (ferramentasAbertas()) {
     if (!ferrNaGrade) voltarAGradeDeFerramentas({ animar: true });
     else fecharFerramentas();
