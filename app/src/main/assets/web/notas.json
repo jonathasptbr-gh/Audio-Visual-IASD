@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.13.8",
+    "itens": [
+      "Modo Fácil: embaixo agora são três botões: Parar, Play/Pausa e o volume.",
+      "O botão do volume mostra o nível. Um toque deixa mudo; outro toque volta o som.",
+      "Mudo: o alto-falante aparece riscado e o botão fica vermelho.",
+      "Os botões de mais e de menos saíram. Para ajustar o volume, use os botões do lado do celular.",
+      "Quando a música termina ou você toca em Parar, os botões somem devagar, depois de um segundo e meio.",
+      "Eles voltam sozinhos quando algo começa a tocar. Pausar não esconde nada."
+    ]
+  },
+  {
     "versao": "1.13.7",
     "itens": [
       "Bíblia e Ferramentas, embaixo: os nomes dos dois botões ficaram maiores e em negrito.",

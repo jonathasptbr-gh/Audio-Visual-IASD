@@ -22,7 +22,8 @@
 //     o Enter (o `keydown` ou a submissão do formulário do campo) tira o foco e MANTÉM o texto, os
 //     resultados e as teclas fora; o ✕ do campo com o
 //     campo perdendo o foco devolve as teclas (com o fade); o voltar devolve as teclas.
-//  B. COMO TELA PRINCIPAL: o foco tira as teclas; a ESCOLHA de uma linha não as devolve sob o dedo,
+//  B. COMO TELA PRINCIPAL (com um VÍDEO no ar — sem nada no ar as teclas já estão recolhidas desde
+//     a v1.13.8, ver `modo-simples-teclas`): o foco tira as teclas; a ESCOLHA de uma linha não as devolve sob o dedo,
 //     mas devolve quando o feedback assenta, mesmo com o texto ainda no campo; o foco volta a
 //     tirá-las durante o download.
 //  C. COM TECLADO (os dois mundos, três telas pequenas, fonte 1× e 1,3×): a lista vai do campo ao
@@ -72,6 +73,8 @@ const TECLADO_FALSO = () => {
 
 const LETRA = { id: 'm-letra', name: 'Louvor de Fundo', kind: 'audio',
   lyrics: [{ cover: true }, { time: 0, text: 'primeira' }, { time: 5, text: 'segunda' }] };
+// Mídia que não usa o auxiliar de leitura: a Biblioteca segue como tela principal, e as teclas à vista.
+const VIDEO = { id: 'm-video', name: 'Vídeo de Abertura', kind: 'video' };
 
 async function abrir(opts = {}) {
   const ctx = await navegador.newContext({
@@ -92,7 +95,7 @@ async function abrir(opts = {}) {
       await pg.evaluate((it) => {
         currentItem = it; midiaNoAr = true; npNameInnerEl.textContent = it.name;
         renderSimple(); renderTransporteHabilitado();
-      }, LETRA);
+      }, opts.midia === true ? LETRA : opts.midia);
     }
     await quadros(pg);
   }
@@ -199,10 +202,10 @@ try {
 
   // ======================= B · COMO TELA PRINCIPAL =======================
   {
-    const { ctx, pg } = await abrir({ midia: false });
+    const { ctx, pg } = await abrir({ midia: VIDEO });
     const b0 = await ler(pg);
     checar(b0.aberta && b0.teclas && !b0.buscando,
-      'B0 · PREMISSA: sem mídia a Biblioteca é a tela principal, aberta SEM foco, e as teclas estão à vista',
+      'B0 · PREMISSA: com um vídeo no ar (sem leitura) a Biblioteca é a tela principal, aberta SEM foco, e as teclas estão à vista',
       JSON.stringify(b0));
     await pg.click('#hymnSearchInput');
     await pg.keyboard.type('louvor');

@@ -15,10 +15,11 @@ Contexto da entrega: base web **v1.13.3** em `main` (28b7e5dd), APK v1.12.46,
 O operador pediu economia: *"não temos tokens então toda ação deve ser fracionada
 e controlada"* — um pacote por vez, cada um com o rito de entrega completo.
 
-**Ordem recomendada ao operador:** 1 → 3 → 5, e o 6 (pesquisa) por
+**Ordem recomendada ao operador:** 1 → 5, e o 6 (pesquisa) por
 último. (O Pacote 4 — a lista vertical das Ferramentas e o nome do itinerário no
 título da folha — saiu na v1.13.4; o Pacote 2 — o teclado sobrepondo em todo
-campo de texto — na v1.13.7.)
+campo de texto — na v1.13.7; o Pacote 3 — a linha de controles do Modo Fácil —
+na v1.13.8.)
 
 ---
 
@@ -30,23 +31,6 @@ campo de texto — na v1.13.7.)
 | 09:24 | *"Verifique as mensagens duplicadas no processo de conectar a um computador, quando o aparelho não está conectado a nenhuma rede wifi…"* | folha de conexão do telão por comandos (`docs/TELAO-POR-COMANDOS.md`). Sem Wi-Fi cliente e sem ponto de acesso, duas frases dizem a mesma coisa. Achar as duas fontes e deixar UMA |
 | 10:38 | *"A alteração entre slides dos textos bíblicos está muito instantânea… mais suave… ligeiramente mais devagar."* | a troca de estrofe/slide da Bíblia na Camada de Texto (`docs/arquitetura/CAMADA-DE-TEXTO.md`). Dar uma transição curta (cruzamento de opacidade) mais lenta que a atual; respeitar `prefers-reduced-motion`. Conferir se a letra de música usa o mesmo caminho antes de mudar — o pedido é da BÍBLIA |
 | 09:22 | *"Ao tentar escolher o momento de um vídeo… deslizando a barra de progresso… o vídeo no computador conectado via navegador, apenas reinicia, mas não pula realmente para o ponto."* | tela da rede (papel `tela`), mídia por `/m/<token>` com `Range` RFC 7233 (`EspelhoHttp.alcanceDe`). "Reinicia" sugere: (a) o `seek` chega mas o `<video>` não tem a faixa servível (resposta 200 em vez de 206 → o navegador recomeça), ou (b) item ainda EM CRESCIMENTO servido em chunked, que não é buscável. Se (a) for no Kotlin, o pacote deixa de ser só web — **medir antes de prometer**. Reproduzir no `tela-rede.test.mjs` |
-
-## Pacote 3 — A linha de controles do Modo Fácil (só web)
-
-| hora | pedido |
-|---|---|
-| 11:22 | *"Vamos remover o botão de mais e menos de volume e o de mute do modo simples. Adicione a função de mute ao próprio botão que indica o nivel de volume (… cor do botão normal…). Então fica assim: botão de stop, botão de play/pause e botão de nivel de volume/mute"* |
-| 10:13 | *"Esconder play pause e stop no modo simples, após um encerramento de mídia, no caso também vale para quando feito stop pelo usuário. Lembre de animar o recolhimento e com tempo suficiente para não desaparecer debaixo dos dedos do usuário."* |
-
-Os dois pedidos são A MESMA linha (`.simple-remote`), e por isso um pacote só.
-Resultado: **Parar · Play/Pausa · Nível (toque = mudo)**, o nível na cor de
-botão normal (não `--btn-accent`). Sem mídia no ar (fim natural ou Parar), a
-linha recolhe ANIMADA, com uma espera antes de começar (o dedo ainda está ali)
-— a pergunta é `haOQueParar()`, a mesma do Parar. Cuidar: o ± do Modo Fácil é
-hoje o que mantém o passo de volume igual às teclas físicas (`volumeProximo`);
-sem ele, as teclas físicas ficam como o único ajuste fino no Modo Fácil —
-**dizer isso ao operador na entrega**. Oráculo: `modo-simples-corpo` (ou um novo)
-para a composição e o recolhimento com o relógio mockado.
 
 ## Pacote 5 — O vídeo da semana como item (só web, provável)
 

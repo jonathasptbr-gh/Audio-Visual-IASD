@@ -131,11 +131,11 @@ try {
     'B1 · no Modo Fácil a coluna da tela cheia tem SAIR e PLAY/PAUSE; a cortina, ⏮ e ⏭ não existem',
     JSON.stringify(a));
 
-  // E · a barra de volume no Modo Fácil (o ± da tela)
+  // E · a barra de volume no Modo Fácil (o mesmo passo das teclas físicas, sem o `peekVolume`)
   const e0 = await lerBarra(pg);
   checar(e0.display !== 'none' && e0.visivel === false,
     'E1 · em tela cheia a barra existe, apagada até o volume mudar', JSON.stringify(e0));
-  await pg.evaluate(() => { simpleVolStep(-1); });
+  await pg.evaluate(() => { applyVolume(volumeProximo(volume, -1)); });
   const e1 = await lerBarra(pg);
   const esperado = await pg.evaluate(() => String(Math.round(volume * 100)));
   checar(e1.visivel && e1.num === esperado && e1.nivel === esperado + '%' && e1.w > 0,
@@ -192,7 +192,7 @@ try {
   // (sob carga, um status da prévia com a mídia de 64 bytes a zera e a linha do tempo some).
   const [v7, f7] = await pg.evaluate(() => {
     seekEl.disabled = false; seekEl.max = '120'; seekEl.value = '10'; renderSimpleTime();
-    simpleVolStep(1);
+    applyVolume(volumeProximo(volume, 1));
     const r = (id) => { const x = document.getElementById(id).getBoundingClientRect(); return { t: Math.round(x.top), b: Math.round(x.bottom), l: Math.round(x.left), w: Math.round(x.width), h: Math.round(x.height) }; };
     const v = r('pvVolume');
     return [Object.assign(v, { visivel: document.getElementById('pvVolume').classList.contains('visivel') }), { nome: r('pvFsNome'), hit: r('pvFsTempoHit') }];

@@ -1367,7 +1367,7 @@ try {
       selo: vis('.pv-fabs--base'),
       seta: vis('#pvRecolherBtn'),
       castDaPrevia: vis('#pvCastBtn'),
-      teclaPropria: vis('#simpleMute'),
+      teclaPropria: vis('#simpleNivel'),
       semFaixaDePrevia: document.getElementById('simpleStage') === null,
       semBuscar: document.getElementById('simpleSearchBtn') === null,
       previaFora: document.querySelector('.preview').closest('.simple') === null,
@@ -1381,7 +1381,7 @@ try {
   checar(facil.operacao === false && facil.selo === false && facil.seta === false
       && facil.castDaPrevia === false && facil.teclaPropria,
     'e nada que se pendurava nela aparece: coluna de operação, selo, seta e ícone de cast — o mudo '
-    + 'é a tecla grande própria', facil);
+    + 'é o toque na tecla de nível', facil);
   checar(facil.semBuscar,
     'e o botão "Buscar música" saiu: a Biblioteca é a tela, não uma porta para ela', facil);
 
