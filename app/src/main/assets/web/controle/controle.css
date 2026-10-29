@@ -8514,6 +8514,12 @@ body.mode-simple #hymnResults :is(.hymn-name, .coll-bar-name, .coll-group-name) 
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
   overflow: hidden;
 }
+/* E A BARRA DEVOLVE AO NOME PARTE DO QUE OS ALVOS TOMARAM. A seta e o botão de baixar crescem
+   ~10px cada, e numa palavra só não há segunda linha que salve: MEDIDO a 360×640 · 1,3× com uma
+   fonte larga (a DejaVu do runner do CI), "Infantis" saía com "…" — 78 de 85px — numa barra de
+   seção que no avançado o mostrava inteiro. O vão entre as peças cai um degrau (`--sp-5` →
+   `--sp-4`) e o recuo lateral de .7rem para .55rem: 12px de volta ao nome, sem tocar na altura. */
+body.mode-simple #hymnResults :is(.coll-bar, .coll-group-bar) { gap: var(--sp-4); padding-inline: .55rem; }
 /* O anel de download dentro da miniatura acompanha a miniatura (26 de 38 na raiz). */
 body.mode-simple #hymnResults .hymn-play-thumb .dl-ring { --dl-ring: calc(var(--faixa-thumb) * 26 / 38); }
 /* E A CAIXA DE CONTROLES SAI DE CENA — só com a Biblioteca ABERTA e o teclado no
