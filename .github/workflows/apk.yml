@@ -651,6 +651,7 @@ jobs:
           rodar tools/plataforma.test.mjs
           rodar tools/site-grade-e-carrossel.test.mjs
           rodar tools/lista-da-biblioteca.test.mjs
+          rodar tools/faixa-no-ar.test.mjs
           rodar tools/favoritos-fechar.test.mjs
           rodar tools/serie-no-modo-facil.test.mjs
           rodar tools/busca-limpar.test.mjs

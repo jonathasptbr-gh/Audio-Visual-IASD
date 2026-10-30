@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.13.14",
+    "itens": [
+      "Biblioteca: a música que está tocando agora fica destacada em vermelho dentro do álbum de onde você a tocou.",
+      "Se a mesma música está em dois álbuns, só acende a do álbum em que você tocou.",
+      "Tocada pelo Cronograma, pelos Favoritos ou pela busca, ela não acende dentro dos álbuns."
+    ]
+  },
+  {
     "versao": "1.13.13",
     "itens": [
       "Provai e Vede e Informativo: nova linha \"Vídeo da semana (sempre o atual)\" no topo de cada um.",

@@ -10,44 +10,20 @@ nada aqui está autorizado para execução sem essa resposta.
 quem revogou. Não é log, e não é `docs/ACHADOS-EM-ABERTO.md` (lá moram defeitos
 CONFIRMADOS por auditoria; aqui, pedidos).
 
-Contexto da entrega: base web **v1.13.13** em `main`, APK v1.13.12,
+Contexto da entrega: base web **v1.13.14** em `main`, APK v1.13.12,
 `SHELL_VERSION` 82 — conferido em 2026-10-30. Pedidos recebidos em **2026-10-24**, com o
 horário do relato.
 O operador pediu economia: *"não temos tokens então toda ação deve ser fracionada
 e controlada"* — um pacote por vez, cada um com o rito de entrega completo.
 
-**Ordem recomendada ao operador:** o 7, e o 6 (pesquisa) por
-último. (O Pacote 5 — o vídeo da semana como item — saiu na v1.13.13; o Pacote 1 — as quatro correções pequenas — saiu na v1.13.11, e a busca no computador foi refeita no servidor na v1.13.12; o Pacote 4 — a lista vertical das Ferramentas e o nome do itinerário no
+**Ordem recomendada ao operador:** resta o 6 (pesquisa). (O Pacote 7 — a faixa de
+álbum no ar destacada — saiu na v1.13.14; o Pacote 5 — o vídeo da semana como item — saiu na v1.13.13; o Pacote 1 — as quatro correções pequenas — saiu na v1.13.11, e a busca no computador foi refeita no servidor na v1.13.12; o Pacote 4 — a lista vertical das Ferramentas e o nome do itinerário no
 título da folha — saiu na v1.13.4; o Pacote 2 — o teclado sobrepondo em todo
 campo de texto — na v1.13.7; o Pacote 3 — a linha de controles do Modo Fácil —
 na v1.13.8. Fora dos pacotes, saíram também as portas do rodapé maiores e em negrito,
 na v1.13.7, e a Biblioteca maior do Modo Fácil, na v1.13.9.)
 
 ---
-
-## Pacote 7 — A faixa de álbum que está NO AR, destacada (só web)
-
-| quando | pedido |
-|---|---|
-| 2026-10-30 | *"Pode considerar que quero que seja destacado também."* (resposta ao §4 de `docs/ACHADOS-EM-ABERTO.md`) |
-
-Dentro da Biblioteca, a faixa de um álbum que está sendo projetada não se
-distingue das vizinhas (o Cronograma e os Favoritos marcam). O defeito tem DUAS
-metades, e as duas entram no MESMO lote — o detalhe e a correção proposta estão
-em `docs/ACHADOS-EM-ABERTO.md` §4:
-
-1. **a classe não chega** — `marcarNoAr` lê `dataset.id`, e o `hymnResultRow`
-   só escreve `dataset.song`;
-2. **a cor estaria errada se chegasse** — `.coll-songs > .hymn-result` vence
-   `.lib-item.no-ar` por ordem de fonte (no claro, 1,00:1 contra a vizinha).
-
-**Decidido pelo operador (2026-10-30):** *"acender apenas o álbum de onde está
-tocando o item"*. A mesma música pode estar em dois álbuns (ou no hinário e numa
-coletânea); acende SÓ a faixa do álbum de onde ela foi tocada. Logo não basta
-comparar a música de catálogo: o toque tem de guardar a ORIGEM (o álbum), e
-`marcarNoAr` compara música + álbum. Uma música tocada por outra porta
-(Cronograma, Favoritos, busca) não acende faixa de álbum nenhuma.
-Ao entregar, o §4 sai do `ACHADOS-EM-ABERTO.md`.
 
 ## Pacote 6 — Pesquisa, sem implementação
 
