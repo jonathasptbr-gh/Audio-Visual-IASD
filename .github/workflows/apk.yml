@@ -597,6 +597,7 @@ jobs:
           rodar tools/modo-facil-fonte.test.mjs
           rodar tools/tela-rede.test.mjs
           rodar tools/busca-na-tela.test.mjs
+          rodar tools/listas-de-protecao.test.mjs
           rodar tools/registro.test.mjs
           rodar tools/ota.test.mjs
           rodar tools/ota-confirma.test.mjs

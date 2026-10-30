@@ -436,7 +436,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.11';
+const WEB_VERSION = '1.13.12';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -935,9 +935,8 @@ let grupoAberto = '';
 //
 // O `true` da v5.276 respondia a uma tela com DOIS cabeçalhos de coleção; hoje
 // são quatro cards fixos na raiz mais as seções, e cada série nova é mais uma
-// barra. A seção aberta reserva o vão (`--fav-vao`), e o vão é justamente o que
-// falta quando a lista de barras cresce — o padrão passou a gastar a tela com a
-// única coisa dali que o operador já sabe onde encontrar.
+// barra, e o espaço de uma lista de barras é o que mais falta — o padrão passou a
+// gastar a tela com a única coisa dali que o operador já sabe onde encontrar.
 let favAberto = false;
 // QUAL PASTA DO APARELHO está aberta — o id, ou `null`. Ela abre INLINE, como um
 // álbum, e precisa de estado que sobreviva ao redesenho da seção: favoritar um
@@ -12885,9 +12884,8 @@ function renderCollectionsListMiolo(alvo, redesenhar) {
       };
       // Fechando: anima ANTES de redesenhar. O redesenho apaga o nó, e um nó
       // apagado não tem como sair deslizando (a mesma nota do card).
-      // OS FAVORITOS TÊM PISO (`--fav-vao`), e só animar o corpo deixava o
-      // bloco parado nele até o redesenho (v1.12.56) — ver
-      // `fecharFavoritosAnimando`.
+      // Os Favoritos animam o bloco e as irmãs fechadas junto com o corpo
+      // (v1.12.56) — ver `fecharFavoritosAnimando`.
       if (!abrindo) {
         if (ehFav) fecharFavoritosAnimando(li, corpo, aplicar);
         else collapseAccordion(corpo, aplicar);
@@ -12901,10 +12899,9 @@ function renderCollectionsListMiolo(alvo, redesenhar) {
       // mas elas devem sempre abrir para baixo e rolar/alinhar a tela sempre
       // com o início da lista da coleção, alinhando com o topo dela"*.
       //
-      // O "para cima" era a seção dos Favoritos ENCOLHENDO para dar espaço (ver
-      // `--fav-vao`, que este mesmo lote tornou fixo) — o conteúdo acima subia,
-      // e o que se via era a coleção crescendo na direção errada. Com o vão
-      // fixo, o que falta é a segunda metade: uma coleção que abre lá embaixo
+      // O "para cima" era a seção dos Favoritos ENCOLHENDO para dar espaço — o
+      // conteúdo acima subia, e o que se via era a coleção crescendo na direção
+      // errada. O que falta é a segunda metade: uma coleção que abre lá embaixo
       // cresce para fora da tela, e quem a abriu fica olhando a barra dela sem
       // ver um item. Rolar até o topo dela é o que faz "abrir" e "ver o que
       // abriu" serem a mesma coisa.
@@ -13026,9 +13023,6 @@ function renderCollectionsListMiolo(alvo, redesenhar) {
     // no corpo de um grupo que já saiu do documento, e a gaveta de verdade
     // passaria a desenhar dentro de um nó órfão — sem erro nenhum na tela.
     try { comBaldeDeMiniaturas('fav-biblioteca', renderFolderList); } finally { favHost = null; }
-    // A medição do vão é agendada aqui e roda no quadro seguinte — quando as
-    // outras seções já foram anexadas e a altura que sobra é a de verdade.
-    acertarVaoDosFavoritos(favCorpo);
   }
 
   // AS COLEÇÕES FIXAS FICAM NA RAIZ, uma a uma (v1.0.1).
@@ -13092,7 +13086,7 @@ function renderCollectionsListMiolo(alvo, redesenhar) {
 // faltando a listagem (a instalação nova), e só no ACERVO (numa busca ele sai:
 // o YouTube continua respondendo ali). Ele mora FORA da lista, entre a barra e
 // `#hymnResults`: a lista é feita de blocos de raiz que se repartem a altura
-// (`medirTampa`, o vão dos Favoritos, "as fechadas empilhadas na base"), e um
+// (`medirTampa`, "as fechadas empilhadas na base"), e um
 // filho a mais que não é bloco quebraria essas contas. Fora dela, a lista só
 // fica mais baixa — que é o que essas contas já sabem medir.
 function acertarAvisoDaFonte(noAcervo) {
@@ -14889,7 +14883,7 @@ function redesenharFavoritosNaBiblioteca() {
   corpo.innerHTML = '';
   favHost = corpo;
   try { comBaldeDeMiniaturas('fav-biblioteca', renderFolderList); } finally { favHost = null; }
-  acertarVaoDosFavoritos();
+  acertarTampa(hymnResultsEl);
   favAssinatura = assinaturaDosFavoritos();
 }
 
@@ -15003,72 +14997,6 @@ function alinharGrupoNoTopo(lista, nome) {
   lista.scrollTo({ top: lista.scrollTop + dy, behavior: semMovimento() ? 'auto' : 'smooth' });
 }
 
-// ===== O VÃO DOS FAVORITOS É UMA MEDIDA DE TELA =====
-//
-// Ele é o que sobra da TELA depois de tudo o mais COLAPSADO: uma altura em
-// pixels, escrita numa custom property da lista. A conta usa a altura da BARRA
-// de cada vizinho (que é a altura dele fechado, já que o resto é `display:
-// none` ou nem é montado nesse estado), então ela NÃO depende de qual coleção
-// está aberta — que é a propriedade inteira. Por `flex-grow` o vão era
-// REPARTIDO com a coleção aberta, e os favoritos encolhiam conforme o operador
-// abrisse outra coisa.
-//
-// OS VIZINHOS NÃO SÃO SÓ SEÇÕES (v1.0.1). Com as coleções fixas na RAIZ, a
-// lista passou a ter `.hymnal-card` como filho direto, lado a lado com as
-// seções — e a conta que só somava `.coll-group--drop` devolvia um vão maior
-// que a tela pela altura dos quatro cards mais os vãos entre eles. O efeito é o
-// oposto do que o vão existe para produzir: os favoritos ficavam grandes demais
-// e empurravam as seções fechadas para FORA da primeira tela, isto é, elas
-// deixavam de estar "empilhadas na base".
-//
-// Daí a conta ser sobre TODO filho da lista, e a barra ser procurada pelos dois
-// nomes: um vizinho novo aqui entra sozinho, e o que não tiver barra responde
-// com a própria altura.
-//
-// No CSS ele é `min-height`, não `height`: o vão é o piso, e a seção cresce
-// quando a lista pede mais. Esta função não muda por causa disso — a MEDIDA é a
-// mesma pergunta ("o que sobra da tela?").
-function medirVaoDosFavoritos(lista) {
-  if (!lista || !lista.isConnected) return;
-  const vizinhos = [...lista.children].filter((n) => n.nodeType === 1);
-  const fav = vizinhos.find((n) => n.classList
-    && n.classList.contains('coll-group--fav'));
-  if (!fav) return;
-  const cs = getComputedStyle(lista);
-  const gap = parseFloat(cs.rowGap) || 0;
-  // O RESPIRO DO PRIMEIRO FILHO (v1.5.20, `.coll-group--drop:first-child`) é
-  // MARGEM, e margem não entra em `clientHeight`/padding/gap — mas consome
-  // espaço de verdade na coluna, do mesmo jeito que os outros três termos.
-  // Lido do COMPUTADO (não um `--sp-5` copiado): o dia em que a regra mudar de
-  // valor, ou deixar de existir, esta conta acompanha sozinha.
-  const margemTopo = parseFloat(getComputedStyle(vizinhos[0]).marginTop) || 0;
-  const util = lista.clientHeight - (parseFloat(cs.paddingTop) || 0)
-    - (parseFloat(cs.paddingBottom) || 0) - gap * Math.max(0, vizinhos.length - 1)
-    - margemTopo;
-  let fechadas = 0;
-  for (const s of vizinhos) {
-    if (s === fav) continue;
-    // FECHADA, A CAIXA É A BARRA. (Medir o `<li>` direto não serve: a seção
-    // ABERTA tem corpo, e é a altura FECHADA que esta soma quer.)
-    // A v1.5.9 somava aqui as duas linhas de 1px da moldura da Biblioteca; ela
-    // saiu na v1.5.14 e a parcela ia junto — um termo que hoje é sempre zero,
-    // com cinco linhas de comentário explicando um desenho que não existe.
-    // `.row` NA LISTA desde a v1.5.17: com o `flex-grow` dos blocos de raiz, um
-    // bloco que caísse no ramo de baixo (o `<li>` inteiro) entraria nesta soma
-    // já CRESCIDO, e o vão dos Favoritos encolheria em silêncio. Hoje nenhum
-    // bloco da raiz é uma pasta — mas a fórmula não pode depender disso.
-    // `querySelector` devolve o primeiro em ordem de DOCUMENTO, não de seletor:
-    // numa seção a barra vem antes de qualquer `.row`.
-    const barra = s.querySelector('.coll-group-bar, .coll-bar, .row');
-    fechadas += (barra ? barra.getBoundingClientRect().height
-      : s.getBoundingClientRect().height);
-  }
-  const vao = Math.max(0, Math.round(util - fechadas));
-  // Escrito na LISTA e não no `li`: o `li` é refeito a cada redesenho, e a
-  // propriedade herda daqui sem que ninguém precise reaplicá-la.
-  lista.style.setProperty('--fav-vao', vao + 'px');
-}
-
 // ===== A TAMPA DE UM BLOCO DE RAIZ NÃO MUDA DE ALTURA AO ABRIR (v1.5.19) =====
 //
 // Relato do operador: *"Ajuste o cartão das coleções, o card do titulo, pois ele
@@ -15091,19 +15019,15 @@ function medirVaoDosFavoritos(lista) {
 // número é MEDIDO uma vez. **O operador escolheu manter a pílula gorda**, e é
 // isso que esta função faz.
 //
-// ELA É A IRMÃ EXATA DO `--fav-vao`: mesma caixa, mesma régua (a BARRA de cada
-// vizinha é a altura fechada dela), mesmo lugar de chamada. Não é uma COORDENADA
+// A RÉGUA é a BARRA de cada vizinha (a altura fechada dela). Não é uma COORDENADA
 // guardada — é uma ALTURA recomposta a cada render —, e por isso a classe de
 // defeito da v1.5.3 (o valor que envelhece por um caminho que ninguém observa)
 // não se aplica.
 //
-// A CLÁUSULA DOS FAVORITOS É OBRIGATÓRIA, e sem ela o lote não sai: a seção dos
-// Favoritos ABERTA nunca veste `--tampa-h` — ela tem `min-height: var(--fav-vao)`
-// e come a folga por conta própria (v5.273). Contá-la na divisão dá a cada irmã
-// uma fatia da folga que ela JÁ gastou, e a lista COLAPSADA passa a ROLAR:
-// MEDIDO, 81,5px de transbordo a 430×900 com 9 blocos, e o `smoke.mjs` reprova
-// em *"as fechadas ficam EMPILHADAS NA BASE"*. Como o `verificar` é `needs` do
-// `web-ota`, isso seria o bundle não chegando à frota.
+// A CLÁUSULA DOS FAVORITOS: a seção ABERTA nunca veste `--tampa-h` — ela tem a
+// altura do que mostra (desde a v1.13.12, sem piso), e a altura dela sai da
+// sobra antes da divisão. Contá-la como bloco fechado daria a cada irmã uma
+// fatia de um espaço que ela JÁ ocupa, e a lista passaria a ROLAR.
 //
 // E É SÓ A DOS FAVORITOS. Descontar TODO bloco aberto é a variante óbvia e está
 // ERRADA (MEDIDO): ela leva `--tampa-h` ao piso assim que alguém abre um hinário,
@@ -15182,7 +15106,7 @@ function calcularTampa(lista, favFechada) {
   if (!blocos.length) return null;
   const cs = getComputedStyle(lista);
   const gap = parseFloat(cs.rowGap) || 0;
-  // A MESMA CORREÇÃO do `--fav-vao` (v1.5.20): o respiro do primeiro filho
+  // O RESPIRO DO PRIMEIRO FILHO (v1.5.20)
   // (`.coll-group--drop:first-child`) é margem, e ela consome espaço da coluna
   // sem entrar em `clientHeight`/padding/gap.
   const margemTopo = parseFloat(getComputedStyle(blocos[0]).marginTop) || 0;
@@ -15199,8 +15123,7 @@ function calcularTampa(lista, favFechada) {
       continue;
     }
     n++;
-    // A MESMA RÉGUA do `--fav-vao`, e pelo mesmo motivo: fechada, a caixa é a
-    // BARRA. Medir o `<li>` leria um bloco ABERTO com o corpo dele dentro.
+    // Fechada, a caixa é a BARRA. Medir o `<li>` leria um bloco ABERTO com o corpo dele dentro.
     const barra = b.querySelector('.coll-group-bar, .coll-bar, .row');
     base += (barra ? barra.getBoundingClientRect().height
       : b.getBoundingClientRect().height);
@@ -15267,7 +15190,7 @@ function medirTampa(lista) {
   // bloco: a de uma seção e a de um card diferem (MEDIDO, 0,86px a 430×900), e
   // uma média erraria nos dois. O laço já tem a barra na mão.
   // OS FAVORITOS ABERTOS USAM A TAMPA DE QUANDO FECHAM (v1.12.58): a deles some da conta
-  // quando abrem (o vão já é deles), e o respiro calculado na tampa de agora descia
+  // quando abrem, e o respiro calculado na tampa de agora descia
   // o título 10,4px ao fechar. A tampa de depois é a mesma régua, com eles fechados.
   const favAbertos = blocos.some((b) => b.classList.contains('coll-group--fav')
     && b.classList.contains('aberto'));
@@ -15286,23 +15209,6 @@ function medirTampa(lista) {
   lista.style.setProperty('--tampa-topo', Math.max(0, (h - base / n) / 2).toFixed(2) + 'px');
 }
 
-// A MEDIÇÃO É ADIADA UM QUADRO, e não é cerimônia: quem chama isto durante a
-// montagem da lista (o `renderCollectionsList`) ainda vai anexar as outras
-// seções na mesma passada síncrona, e a conta soma a barra de CADA uma delas —
-// medir na hora leria uma tela com metade das seções e devolveria um vão grande
-// demais.
-function acertarVaoDosFavoritos(corpoDado) {
-  const corpo = corpoDado || hymnResultsEl.querySelector('[data-fav-corpo]');
-  const li = corpo && corpo.parentElement;
-  if (!li) return;
-  requestAnimationFrame(() => {
-    // O redesenho é a cada 400 ms durante um download: reconferir que o `li`
-    // ainda é o do documento evita medir um nó que já foi substituído.
-    if (!li.isConnected) return;
-    medirVaoDosFavoritos(li.parentElement);
-  });
-}
-
 // A tampa é agendada NO FIM DA PASSADA (ver o `finally` de
 // `renderCollectionsList`), e não aqui dentro: esta função só é chamada com a
 // seção dos Favoritos ABERTA — o `grupo()` só devolve o corpo nesse caso, e é o
@@ -15311,13 +15217,9 @@ function acertarVaoDosFavoritos(corpoDado) {
 // exatamente o cenário do oráculo: MEDIDO, os blocos caíam para a barra nua
 // (45,19) e o D5/D5b reprovavam.
 //
-// A ORDEM ENTRE AS DUAS É OBRIGATÓRIA, e é o preço declarado da cláusula dos
-// Favoritos: `--tampa-h` lê a ALTURA RENDERIZADA daquela seção, que é governada
-// por `--fav-vao`. Não há realimentação — o `--fav-vao` soma BARRAS, que
-// `--tampa-h` nunca muda (MEDIDO, 1769px antes e depois) —, mas há ORDEM. Ela
-// sai de graça do agendamento: `acertarVaoDosFavoritos` registra o `rAF` DENTRO
-// da passada síncrona e este registra no `finally` dela, e os callbacks de
-// `requestAnimationFrame` rodam na ordem em que foram registrados.
+// `--tampa-h` lê a ALTURA RENDERIZADA da seção dos Favoritos aberta: medi-la no
+// quadro seguinte, com a passada já anexada, é o que faz a conta ver o
+// conteúdo dela inteiro.
 function acertarTampa(lista) {
   if (!lista) return;
   requestAnimationFrame(() => { if (lista.isConnected) medirTampa(lista); });
@@ -15329,8 +15231,8 @@ function acertarTampa(lista) {
 // funcionamento visual das outras coleções que corretamente encolhem de forma
 // fluida"*.
 //
-// A CAUSA é o PISO. A seção aberta tem `min-height: var(--fav-vao)`, e o
-// acordeão anima só o CORPO: o bloco encolhia até o vão e PARAVA nele (MEDIDO a
+// A CAUSA ERA O PISO (o `--fav-vao`, que saiu na v1.13.12), e o acordeão anima
+// só o CORPO: o bloco encolhia até o vão e PARAVA nele (MEDIDO a
 // 430×900, 20 favoritos: 1201 → 401px em 90 ms e 401px parado por 130 ms; com
 // 3 favoritos o bloco ficava parado os 220 ms inteiros) até o redesenho tirar o
 // `.aberto` — e aí caía de uma vez, e as irmãs com ele: a tampa delas (ver
@@ -15373,11 +15275,10 @@ function fecharFavoritosAnimando(li, corpo, depois) {
   const agora = irmas.map((b) => b.getBoundingClientRect().height);
   if (velha) lista.style.setProperty('--tampa-h', velha);
   else lista.style.removeProperty('--tampa-h');
-  // O `min-height` vai junto: é ELE que segurava o bloco. E o `overflow` corta o
-  // corpo que ainda não terminou de sair — o nó é refeito no fim, não há o que
-  // devolver.
+  // O `overflow` corta o corpo que ainda não terminou de sair — o nó é refeito
+  // no fim, não há o que devolver.
   li.style.overflow = 'hidden';
-  li.animate([{ height: de + 'px', minHeight: de + 'px' }, { height: para + 'px', minHeight: '0px' }],
+  li.animate([{ height: de + 'px' }, { height: para + 'px' }],
     { duration: ACC_MS, easing: ACC_EASE });
   irmas.forEach((b, i) => animarAlturaDeBloco(b, antes[i], agora[i]));
   collapseAccordion(corpo, () => {
@@ -15403,11 +15304,6 @@ function abrirFavoritosAnimando(lista, li, aplicar) {
     if (novos.length !== blocos.length) return;
     const fav = novos[idx];
     if (!fav || !fav.classList.contains('coll-group--fav')) return;
-    const vao = parseFloat(getComputedStyle(fav).minHeight) || 0;
-    if (vao > antes[idx]) {
-      fav.animate([{ minHeight: antes[idx] + 'px' }, { minHeight: vao + 'px' }],
-        { duration: ACC_MS, easing: ACC_EASE });
-    }
     novos.forEach((b, i) => {
       if (i !== idx && blocoDeRaizFechado(b)) {
         animarAlturaDeBloco(b, antes[i], b.getBoundingClientRect().height);
@@ -21637,12 +21533,22 @@ async function syncDeviceFolder(existing, botao) {
 // ou o Hinário inteiro — os bytes já são apagados em bloco por opfsDeleteDir,
 // então aqui não é preciso opfsDeleteFile por registro.
 async function purgeCatalogRecords(recs) {
+  // O QUE UMA LISTA DE PROTEÇÃO SEGURA NÃO SAI (v1.13.12). Cronograma (o ativo
+  // e os guardados), Favoritos, playlist e a cena: o registro e os bytes passam
+  // para a store de mídia com o MESMO id ANTES de a pasta ser apagada em bloco,
+  // e as listas continuam apontando para eles — *"a menos que eu remova o item
+  // do favorito, diretamente através dele, outra lista como a coletânea hinário
+  // não deve afetar aquele item"*. VEM ANTES do `adotarBases`: um original de
+  // editado que também está numa lista é um item comum, não um `base`.
+  let protegidos = new Set();
+  try { protegidos = await AVDB.adotarProtegidos(recs); } catch (e) { console.warn('[protecao] adotarProtegidos falhou:', e); }
   // O ORIGINAL DE UM ITEM EDITADO NÃO SE PERDE: o que algum item editado usa
   // sai do catálogo para a store de mídia (sem lista, invisível) ANTES de os
   // bytes do OPFS serem apagados em bloco por quem chamou.
   try { await AVDB.adotarBases(recs); } catch (e) { console.warn('[edicao] adotarBases falhou:', e); }
   for (const r of recs) {
     await AVDB.fileDelete(r.id);
+    if (protegidos.has(r.id)) continue;
     // `favs` entra junto: um arquivo de pasta favoritado e depois excluído
     // deixaria uma estrela apontando para um registro que não existe mais — a
     // linha some da gaveta pelo `filter(Boolean)` do `listItems`, mas o id fica
@@ -21655,7 +21561,7 @@ async function purgeCatalogRecords(recs) {
   }
   // E DOS CRONOGRAMAS GUARDADOS (v1.12.54), pela mesma razão: um id de catálogo
   // apagado num cronograma inativo reapareceria como item fantasma ao trocar.
-  try { await AVDB.cronoGuardadosTirar(recs.map((r) => r.id)); } catch (e) { console.warn('[crono] tirar falhou:', e); }
+  try { await AVDB.cronoGuardadosTirar(recs.filter((r) => !protegidos.has(r.id)).map((r) => r.id)); } catch (e) { console.warn('[crono] tirar falhou:', e); }
 }
 
 /**
@@ -24434,7 +24340,7 @@ async function buildLyricSlides(meta, timeField, resolveImage) {
  * são tocados aqui: são fato sobre a ORIGEM, não sobre o download.
  */
 async function deleteCollection(coll) {
-  if (!(await appConfirm({ title: 'Excluir ' + coll.name, message: 'Excluir o que foi baixado de "' + coll.name + '" (áudios e capas)? A lista de músicas continua no aparelho.', okText: 'Excluir', perigo: true }))) return;
+  if (!(await appConfirm({ title: 'Excluir ' + coll.name, message: 'Excluir o que foi baixado de "' + coll.name + '" (áudios e capas)? A lista de músicas continua no aparelho, e o que estiver no Cronograma, nos Favoritos ou na playlist também fica.', okText: 'Excluir', perigo: true }))) return;
   const u = ui(coll.id);
   u.delBusy = true;
   renderCollectionsNow();
@@ -31215,6 +31121,35 @@ function blocoAcervo() {
  * enterraria os dois. As contagens são do ACERVO, e o detalhe por coleção sai
  * só para quem tem pendência, com o corte DITO.
  */
+// O bloco "Favoritos" do Registro — a resposta a *"um favorito sumiu e eu não o
+// removi"*: os ids que a lista tem e não resolvem (o registro saiu por baixo
+// dela) e as últimas saídas, com a função que tirou cada uma. Mudo quando a
+// lista está inteira e nada saiu.
+async function blocoFavoritos() {
+  let ids = [], saidas = [];
+  try { ids = await AVDB.listIds('favs'); } catch (_) { ids = []; }
+  try { saidas = (await AVDB.getState('favsSaidas')) || []; } catch (_) { saidas = []; }
+  const perdidos = [];
+  for (const id of ids) {
+    let rec = null;
+    try { rec = await AVDB.getMedia(id); } catch (_) { rec = null; }
+    if (!rec) perdidos.push(id);
+  }
+  if (!perdidos.length && !saidas.length) return '';
+  const linhas = ['Favoritos', '  ' + ids.length + ' na lista · ' + (ids.length - perdidos.length) + ' abrem'];
+  if (perdidos.length) linhas.push('  na lista mas SEM registro no aparelho: ' + perdidos.join(', '));
+  if (saidas.length) {
+    linhas.push('  saídas recentes (quem tirou):');
+    for (const x of saidas.slice(-10).reverse()) {
+      const d = new Date(x.em);
+      const quando = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+        + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      linhas.push('    ' + quando + ' · ' + x.id + ' · ' + (x.via || '?'));
+    }
+  }
+  return linhas.join('\n');
+}
+
 async function blocoFundos() {
   const alvos = allCollections().filter((c) => c.kind !== 'serie' && countDownloaded(c.id) > 0);
   if (!alvos.length) return '';
@@ -34151,6 +34086,11 @@ async function renderDiag() {
   const bfun = await blocoFundos();
   if (meu !== diagSeq) return;   // outro render assumiu durante a espera
   if (bfun) blocos.push(bfun);
+  // OS FAVORITOS (v1.13.12): quantos ids a lista tem, quantos resolvem e, se um
+  // saiu, quem o tirou (`favsSaidas`, escrito pelo `db.js`).
+  const bfav = await blocoFavoritos();
+  if (meu !== diagSeq) return;
+  if (bfav) blocos.push(bfav);
   // O LADO DO SHELL vem ANTES de montar o bloco, e é `await` como as outras
   // leituras de ponte deste render. Ele é o único que sabe se há um pronto no
   // disco e o que o seletor respondeu.

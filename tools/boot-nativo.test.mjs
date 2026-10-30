@@ -2906,53 +2906,19 @@ try {
     'e o redesenho é da SEÇÃO, não da Biblioteca inteira: a rolagem não volta ao topo',
     JSON.stringify(favVivo));
 
-  // ── O VÃO É UM PISO, E A SEÇÃO CRESCE ALÉM DELE (v5.273 → v5.282) ──────
+  // ── A SEÇÃO DOS FAVORITOS TEM A ALTURA DO QUE MOSTRA (v1.13.12) ────────
   //
-  // Pedido do operador: *"não tenha mais o sistema de ver mais. Agora quando
-  // aberta ela mostra toda a listagem"* e *"mantenha o tamanho mínimo dela,
-  // mesmo vazia, como o tamanho flexível que ocupa o que sobra das outras
-  // coleções… mas agora esse é apenas o tamanho mínimo, que cresce conforme a
-  // lista dos favoritos requerir mais que esse espaço disponível"*.
-  //
-  // Isto REVOGA o caso do botão "Ver todos" (v5.273/v5.276), que media a régua
-  // do recorte — quantos itens ficavam de fora da caixa. Não há mais recorte, e
-  // é isso que as DUAS metades afirmam, porque nenhuma basta sozinha: com a
-  // lista vazia a seção ainda RESERVA o vão (senão a Biblioteca abriria com as
-  // coleções coladas no topo, que é o desenho que o operador mandou manter), e
-  // com a lista cheia ela PASSA dele sem cortar um item.
-  //
-  // A medição é na Biblioteca DE VERDADE: o vão é uma consequência de a lista
-  // ter altura finita, e num `<ul>` solto no `<body>` não há vão nenhum.
+  // Ela tinha um piso (`--fav-vao`, v5.273 → v5.282): o que sobrava da tela com
+  // as outras seções fechadas. Pedido do operador: *"remova o sistema de
+  // preencher o espaço disponível… o sistema prefere distribuir o espaço livre
+  // no dimensionamento de todas as coleções juntas"*. Vazia ou cheia, nada fica
+  // de fora e não sobra área vazia sob o último item — medido na Biblioteca de
+  // verdade, com blocos bastante para a lista cheia passar da tela.
   const vao = await pg.evaluate(async () => {
     const modoAntes = appMode;
     setAppMode('full');
     await window.__bibliotecaComFavoritos();
     await new Promise((r) => setTimeout(r, 250));
-    // A BIBLIOTECA DO OPERADOR, e a fidelidade aqui é o caso inteiro: o vão tem
-    // de ser PEQUENO, senão a metade que importa deste caso (a lista passando
-    // do piso) fica verdadeira por vacuidade — num fixture com duas seções
-    // sobra tela à vontade e a lista nunca alcança o piso.
-    //
-    // QUANTAS CATEGORIAS depende de QUANTO A JANELA MEDE, e esse número já mudou
-    // três vezes — **o número nunca foi o assunto: a PROPRIEDADE é**, o vão
-    // pequeno o bastante para a lista de favoritos passar dele, e grande o
-    // bastante para existir. Seis categorias (oito blocos) valiam com a janela
-    // de TELA CHEIA da v1.5.1 (lista de 847px, 218px de vão MEDIDOS); com a
-    // janela da v1.5.4, que termina na LINHA DA BARRA para os controles ficarem
-    // à vista, a lista voltou a medir ~602px e os oito blocos não deixavam vão
-    // NENHUM (piso zero) — a primeira metade passava a falar de um desenho que a
-    // tela não tinha. São DUAS desde a v1.5.9, quando a Biblioteca ganhou
-    // MOLDURA: a linha de cada caixa acrescenta 2px por seção fechada ao
-    // empilhamento e 2px à altura da própria seção vazia, e os dois lados
-    // cruzaram (MEDIDO: seção de 138px para um vão de 135px).
-    //
-    // A RÉGUA NÃO É "vão > 0": é **vão maior que a seção VAZIA**, que tem altura
-    // própria (136px aqui — cabeçalho mais a linha de "Nenhum favorito ainda").
-    // Com quatro categorias o vão dá 96px e a seção mede os 136 dela: a primeira
-    // metade reprova dizendo "136px para um vão de 96px", e a leitura fácil
-    // (*"a seção não respeita o piso"*) é falsa — o piso é que ficou menor que o
-    // conteúdo mínimo. Quem mexer na altura da janela remede aqui; o sinal é
-    // esta linha reprovando com os dois números diferentes.
     albumCatalog.categories = ['CDs oficiais/ano', 'Adoradores']
       .map((nome, i) => ({
       name: nome,
@@ -2964,11 +2930,16 @@ try {
       const c = corpo();
       return c ? c.parentElement : null;
     };
-    // O PISO, lido de onde o JS o escreve — a custom property da lista. Comparar
-    // a altura contra ele é o que separa "cresceu" de "está grande": um número
-    // fixo aqui dependeria da altura da tela do runner.
-    const piso = () => parseFloat(
-      getComputedStyle(hymnResultsEl).getPropertyValue('--fav-vao')) || 0;
+    // A FOLGA SOB O ÚLTIMO ITEM (v1.13.12): a seção aberta tem a altura do que
+    // mostra, sem o piso do `--fav-vao`. É a distância entre o fim do conteúdo
+    // do corpo e o fim da seção — com o piso, a lista vazia deixava ali o vão
+    // inteiro da tela.
+    const folga = () => {
+      const c = corpo(), sec = secao();
+      if (!c || !sec) return -1;
+      const ult = c.lastElementChild || c;
+      return sec.getBoundingClientRect().bottom - ult.getBoundingClientRect().bottom;
+    };
     // ITENS FORA DA CAIXA do corpo. Era a régua do botão; agora é a afirmação
     // de que NADA fica de fora, em nenhum tamanho de lista. `.empty` é a linha
     // de "Nenhum favorito ainda" e não é um item.
@@ -2983,7 +2954,7 @@ try {
       }).length;
     };
     const ler = () => ({
-      piso: piso(),
+      folga: folga(),
       altura: secao() ? secao().getBoundingClientRect().height : 0,
       deFora: deFora(),
       // O BOTÃO não pode existir em estado nenhum (v5.282).
@@ -3013,8 +2984,7 @@ try {
       ids.push(r.id);
     }
     await recarregarFavoritos();
-    // A medição do vão é adiada um quadro de propósito (ver
-    // `acertarVaoDosFavoritos`), então a leitura espera dois.
+    // O redesenho e a tampa são adiados um quadro: a leitura espera dois.
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     const muitos = {
       ...ler(),
@@ -3048,22 +3018,16 @@ try {
     return { vazio, muitos };
   });
   checar(vao.vazio.blocos >= 6,
-    'a Biblioteca do caso tem blocos bastante para o vão ser PEQUENO — é o que '
-    + 'torna a lista de favoritos capaz de passar dele',
+    'a Biblioteca do caso tem blocos bastante para a lista cheia de favoritos passar da tela',
     vao.vazio.blocos + ' bloco(s)');
-  // A PRIMEIRA METADE: vazia, ela RESERVA o vão. É o desenho de abertura da
-  // Biblioteca — coleções empilhadas na base, o que sobra em cima é dos
-  // favoritos — e é o que o operador mandou manter.
-  checar(vao.vazio.piso > 0 && Math.abs(vao.vazio.altura - vao.vazio.piso) <= 2,
-    'sem favorito NENHUM a seção ainda ocupa o vão que sobra das outras: o piso '
-    + 'é o tamanho dela (' + Math.round(vao.vazio.altura) + 'px para um vão de '
-    + Math.round(vao.vazio.piso) + 'px)');
-  // A SEGUNDA: cheia, ela PASSA do vão. Sem ela, um `height` fixo de volta
-  // passaria na de cima.
-  checar(vao.muitos.altura > vao.muitos.piso + 2,
-    'e com mais favoritos do que cabe nele ela CRESCE além do piso — o vão é um '
-    + 'mínimo, não uma altura (' + Math.round(vao.muitos.altura) + 'px para um '
-    + 'vão de ' + Math.round(vao.muitos.piso) + 'px)');
+  // A SEÇÃO TEM A ALTURA DO QUE MOSTRA (v1.13.12, revogando o piso da v5.282):
+  // pedido do operador — *"remova o sistema de preencher o espaço disponível"*.
+  // Vazia ou cheia, abaixo do último item sobra só o recuo do corpo.
+  checar(vao.vazio.folga >= 0 && vao.vazio.folga <= 24,
+    'sem favorito NENHUM a seção NÃO reserva o vão da tela: abaixo da linha de "nenhum" '
+    + 'sobra só o recuo (' + Math.round(vao.vazio.folga) + 'px)');
+  checar(vao.muitos.folga >= 0 && vao.muitos.folga <= 24,
+    'e cheia ela termina no último favorito (' + Math.round(vao.muitos.folga) + 'px de recuo)');
   checar(vao.muitos.deFora === 0 && vao.vazio.deFora === 0,
     'e a lista inteira aparece: nenhum item fica cortado fora da caixa, em '
     + 'tamanho de lista nenhum',

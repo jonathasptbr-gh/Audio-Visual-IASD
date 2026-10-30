@@ -430,12 +430,20 @@ Payloads em português passam INTACTOS — o caminho de comandos não passa por
 ### 5.3 Mídia (`GET /m/<token>`)
 Range RFC 7233 faixa única; sem Range → 200 inteiro; malformado → 416/400.
 `Accept-Ranges: bytes`, `Content-Type` do registro. Token de serviço opaco
-por recurso+sessão. Enquanto o arquivo ainda está sendo empurrado pelo canal
-ArrayBuffer, a rota serve o que existe em chunked sem Content-Length e Range
-só vale depois de completo (regra simples, declarada; a pré-busca torna o
-caso raro).
+por recurso+sessão. **Enquanto o arquivo ainda está sendo empurrado** pelo canal
+ArrayBuffer, a rota responde COMO SE ESTIVESSE COMPLETO, pelo tamanho anunciado
+no `abrir` (`esperado`, o `size` do Blob): 200 com `Content-Length` ou 206 com
+`Content-Range`, e a cópia ESPERA o empurrão alcançar cada byte pedido
+(`copiarCrescendo`). Desde a v1.13.12 — antes era chunked sem faixa, e MEDIDO no
+Chromium a fonte ficava NÃO BUSCÁVEL pela vida da URL: o seek na tela era
+ignorado mesmo depois de o item completar ("o vídeo apenas reinicia"). Faltando
+bytes no fim (o empurrão morreu), a conexão fecha antes do `Content-Length` e a
+tela vê o erro de rede. Só um item SEM tamanho anunciado ainda sai em chunked.
+Do lado web, `stage.js` (`precisaRecarregar`) pede a mesma mídia por uma URL
+nova quando um seek cai fora do `seekable` — a rede de segurança para um shell
+anterior a este.
 
-**O terminador do chunked só sai quando os bytes anunciados no `abrir`
+**O terminador do chunked (o caso sem tamanho) só sai quando os bytes anunciados no `abrir`
 chegaram todos**: ele É a afirmação "o recurso acabou aqui", e um empurrão que
 morreu no meio (o renderer do Controle caiu) fecha a conexão SEM ele — a tela
 vê o erro de rede que de fato houve, em vez de tocar meia mídia e disparar
