@@ -1626,9 +1626,8 @@ try {
     //
     // É a metade que derrubaria a Release, e o D5 não a alcança: ele mede a
     // lista com os Favoritos FECHADOS. A seção dos Favoritos ABERTA nunca veste
-    // `--tampa-h` — ela tem `min-height: var(--fav-vao)` e come a folga por
-    // conta própria (v5.273) —, então contá-la na divisão dá a cada irmã uma
-    // fatia da folga que ela JÁ gastou.
+    // `--tampa-h` — ela tem a altura do que mostra —, então contá-la na divisão
+    // dá a cada irmã uma fatia do espaço que ela JÁ ocupa.
     //
     // E O F1 NÃO PEGARIA ISTO: ele mede a TAMPA, e o que quebra aqui é a LISTA
     // COLAPSADA. MEDIDO sem a cláusula: 79px de transbordo a 430×900 com nove
@@ -1657,11 +1656,16 @@ try {
       }, 'a seção dos Favoritos abre pelo toque na barra e o acordeão termina');
       await quadro();
       const comFav = abriuFav ? await olhar() : null;
-      checar(comFav !== null && !comFav.rola && comFav.transbordo <= 1,
-        'F2 · com os Favoritos ABERTOS a lista colapsada CONTINUA CABENDO '
-        + '(transbordo ' + (comFav && comFav.transbordo) + 'px) — a seção que come '
-        + 'a folga por conta própria sai da divisão do `medirTampa`. É o par do '
-        + 'D5, que mede a mesma lista com os Favoritos FECHADOS', comFav);
+      // DESDE A v1.13.12 a seção aberta tem a altura do que mostra (o piso
+      // `--fav-vao` saiu): com mais favoritos do que a folga, a lista ROLA — e o
+      // que se afirma é que ela rola SÓ o que os Favoritos passam da folga
+      // (transbordo = −sobra), sem que as irmãs ganhem a fatia que eles ocupam.
+      checar(comFav !== null && (comFav.transbordo <= 1
+          || (comFav.sobra < 0 && Math.abs(comFav.transbordo + comFav.sobra) <= 1.5)),
+        'F2 · com os Favoritos ABERTOS a lista colapsada só transborda o que os Favoritos '
+        + 'passam da folga (transbordo ' + (comFav && comFav.transbordo) + 'px, sobra '
+        + (comFav && comFav.sobra) + 'px) — a seção aberta sai da divisão do `medirTampa`. '
+        + 'É o par do D5, que mede a mesma lista com os Favoritos FECHADOS', comFav);
     }
     await cF.close();
   }

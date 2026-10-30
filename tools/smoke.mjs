@@ -2453,6 +2453,8 @@ for (const tema of ['escuro', 'claro']) {
           ? outras[outras.length - 1].getBoundingClientRect().bottom : 0,
         fundoLista: hymnResultsEl.getBoundingClientRect().bottom
           - parseFloat(cx(hymnResultsEl).paddingBottom),
+        // O TETO da tampa: desde a v1.13.12 a sobra é das coleções, até ele.
+        teto: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bar-raiz-max')) || 66,
         // O TOM DA SEÇÃO, e o das outras ao lado: desde a v5.282 a afirmação é
         // que os dois são IGUAIS.
         corFav: fav ? cx(fav).backgroundColor : 'AUSENTE',
@@ -2705,16 +2707,15 @@ for (const tema of ['escuro', 'claro']) {
       const x = lum(a); const y = lum(b);
       return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
     };
-    // ELA OCUPA O VÃO: muitas vezes uma seção fechada, sem nenhum favorito na
-    // lista. O "quanto" não pode virar número aqui — depende do acervo do
-    // fixture —, e a comparação com a barra fechada é a régua da própria tela.
-    checar(v.altFav > v.altOutra * 2,
-      '[' + tema + '] a seção dos FAVORITOS ocupa o vão que sobra, mesmo sem '
-      + 'nenhum favorito (' + Math.round(v.altFav) + 'px contra '
-      + Math.round(v.altOutra) + 'px de uma seção fechada)');
-    checar(Math.abs(v.fundoUltima - v.fundoLista) <= 1,
-      '[' + tema + '] e as fechadas ficam EMPILHADAS NA BASE — a última termina '
-      + 'onde a lista termina (' + Math.round(v.fundoUltima) + ' contra '
+    // ELA TEM A ALTURA DO QUE MOSTRA (v1.13.12, revogando o vão da v5.273):
+    // *"remova o sistema de preencher o espaço disponível… o sistema prefere
+    // distribuir o espaço livre no dimensionamento de todas as coleções juntas"*.
+    // A sobra vai para as FECHADAS — até o teto da tampa; o que passa dele fica
+    // abaixo da última.
+    checar(Math.abs(v.fundoUltima - v.fundoLista) <= 1 || v.altOutra >= v.teto - 0.5,
+      '[' + tema + '] a sobra da tela vai para as coleções fechadas: ou a última termina '
+      + 'onde a lista termina, ou elas estão no teto (' + Math.round(v.altOutra) + 'px de '
+      + Math.round(v.teto) + ' · ' + Math.round(v.fundoUltima) + ' contra '
       + Math.round(v.fundoLista) + ')');
     // ===== ELA VESTE O TOM DAS OUTRAS (v5.282 → v1.5.8) =====
     // A afirmação INVERTEU duas vezes. Da v5.273 à v5.281 este par era

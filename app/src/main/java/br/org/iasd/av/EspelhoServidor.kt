@@ -648,7 +648,44 @@ class EspelhoServidor(
                 }
                 return
             }
-            // EM CRESCIMENTO: chunked do byte 0, acompanhando o empurrão.
+            // EM CRESCIMENTO COM TAMANHO CONHECIDO: Range DE VERDADE, como o
+            // completo (v1.13.12). O chunked sem faixa fazia o navegador da tela
+            // marcar a fonte como NÃO BUSCÁVEL pela vida da URL — MEDIDO no
+            // Chromium: o seek era ignorado mesmo depois de o item completar, e
+            // o vídeo "apenas reiniciava". Com `Content-Length`/`Content-Range`
+            // anunciados pelo `esperado` (o `size` do Blob que o Controle manda),
+            // a fonte é buscável desde o primeiro byte; um pedido além do que já
+            // chegou ESPERA o empurrão alcançá-lo. Faltando bytes no fim (o
+            // empurrão morreu), a conexão fecha antes do `Content-Length`, e o
+            // cliente vê o erro de rede que de fato houve — a mesma regra do
+            // terminador do chunked, abaixo.
+            if (item.esperado > 0L) {
+                val total = item.esperado
+                val faixa = when (val alcance = EspelhoHttp.alcanceDe(r.intervalo, total)) {
+                    is EspelhoHttp.Alcance.Insatisfazivel -> {
+                        responder(saida, EspelhoHttp.resposta416(total))
+                        return
+                    }
+                    is EspelhoHttp.Alcance.Inteiro -> null
+                    is EspelhoHttp.Alcance.Parcial -> alcance.faixa
+                }
+                saida.write(
+                    if (faixa == null) EspelhoHttp.cabecalhoConteudo(item.tipo, total)
+                    else EspelhoHttp.cabecalhoParcial(item.tipo, faixa, total),
+                )
+                saida.flush()
+                val ini = faixa?.ini ?: 0L
+                val fim = faixa?.fim ?: (total - 1)
+                val pos = copiarCrescendo(item, ini, fim, saida)
+                if (pos <= fim) {
+                    registrar(
+                        "mídia ${item.nome}: entrega TRUNCADA em $pos byte(s) de ${fim + 1}"
+                            + " — conexão fechada antes do tamanho anunciado",
+                    )
+                }
+                return
+            }
+            // EM CRESCIMENTO SEM TAMANHO: chunked do byte 0, acompanhando o empurrão.
             saida.write(EspelhoHttp.cabecalhoChunked(200, item.tipo))
             saida.flush()
             var pos = 0L
@@ -822,6 +859,41 @@ class EspelhoServidor(
     }
 
     /** Copia `[ini..fim]` do arquivo para a saída, em blocos de 64 kB. */
+    /**
+     * Copia `[ini, fim]` de um item EM CRESCIMENTO, esperando o empurrão
+     * alcançar cada byte. Para no cancelamento, no item completo sem os bytes
+     * que faltam, e no empurrão parado por [TETO_MIDIA_PARADA_MS]. Devolve a
+     * posição alcançada — `fim + 1` é a entrega inteira.
+     */
+    private fun copiarCrescendo(item: EspelhoMidiaCache.Item, ini: Long, fim: Long, saida: OutputStream): Long {
+        var pos = ini
+        var paradoDesde = 0L
+        val buf = ByteArray(64 * 1024)
+        java.io.RandomAccessFile(item.arquivo, "r").use { raf ->
+            while (pos <= fim) {
+                if (item.cancelado) break
+                val disponivel = minOf(item.recebido, fim + 1) - pos
+                if (disponivel <= 0) {
+                    if (item.completo) break
+                    val agora = SystemClock.elapsedRealtime()
+                    if (paradoDesde == 0L) paradoDesde = agora
+                    if (agora - paradoDesde > TETO_MIDIA_PARADA_MS) break
+                    Thread.sleep(100)
+                    continue
+                }
+                paradoDesde = 0
+                raf.seek(pos)
+                val n = raf.read(buf, 0, minOf(buf.size.toLong(), disponivel).toInt())
+                if (n <= 0) break
+                saida.write(buf, 0, n)
+                saida.flush()
+                pos += n
+                EspelhoEnergia.progresso()
+            }
+        }
+        return pos
+    }
+
     private fun copiarFaixa(arquivo: java.io.File, ini: Long, fim: Long, saida: OutputStream) {
         val buf = ByteArray(64 * 1024)
         java.io.RandomAccessFile(arquivo, "r").use { raf ->

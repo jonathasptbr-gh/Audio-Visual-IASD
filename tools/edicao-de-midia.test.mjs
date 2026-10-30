@@ -932,7 +932,9 @@ const d1 = await app.evaluate(async (b64) => {
   await A.fileAdd({ id: 'cat-hino-1', folder: 'hinD', opfsPath: 'folders/hinD/1.wav', name: 'Hino 1',
     type: 'audio/wav', kind: 'audio', size: u.length, seconds: 6, blob: null, url: null,
     lyrics: [{ time: 0, text: 'a' }, { time: 3, text: 'b' }] });
-  await A.listAdd('imports', 'cat-hino-1');
+  // (O original NÃO está em lista nenhuma: desde a v1.13.12 um que estivesse — no
+  // Cronograma, por exemplo — ficaria nela como item comum, pelas listas de
+  // proteção; ver `listas-de-protecao`. Aqui é o original que SÓ o editado segura.)
   const ed = await A.addEdicao({ origem: 'cat-hino-1', inicio: 1, fim: 5 }, 'favs');
   // o que "Excluir a coleção" faz: purge do catálogo + apagar a pasta do OPFS
   const recs = await A.filesByFolder('hinD');

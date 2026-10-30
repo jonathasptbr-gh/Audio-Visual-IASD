@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.13.12",
+    "itens": [
+      "Computador conectado: arrastar a barra de tempo do vídeo pula para o ponto, mesmo logo que o vídeo começou.",
+      "Excluir o que foi baixado de um hinário ou pasta não tira mais nada do Cronograma, Favoritos ou playlist.",
+      "O que está nessas listas continua no aparelho, com a letra e as imagens, sem precisar baixar de novo.",
+      "Favoritos abertos: a seção tem só o tamanho dos itens, sem a área vazia embaixo.",
+      "Esta versão vem com uma atualização do aplicativo: aceite a instalação quando o app perguntar."
+    ]
+  },
+  {
     "versao": "1.13.11",
     "itens": [
       "Itinerário na prévia: as marcas \"Agora\" e \"A seguir\" não saem mais da caixa; a prévia fica igual ao telão.",

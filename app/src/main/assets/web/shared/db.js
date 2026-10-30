@@ -701,6 +701,75 @@
     }
     return n;
   }
+  // ===== AS LISTAS DE PROTEÇÃO SEGURAM O ARQUIVO (v1.13.12) =====
+  //
+  // Regra do operador: *"elementos e seus arquivos não podem ser excluídos sem
+  // que sejam removidos de todas as listas em que estão"*. Excluir o baixado de
+  // uma coleção ou uma pasta apaga os registros do catálogo (`files`) e a pasta
+  // do OPFS em bloco — e um registro que o Cronograma, os Favoritos, a playlist,
+  // um cronograma guardado ou a cena seguram (`lerDetentores`) saía das listas
+  // junto. Aqui ele é ADOTADO antes: os bytes vão para `bases/<id>` (fora de
+  // `folders/`, então fora da exclusão em bloco) e o registro passa para a store
+  // `media` com o MESMO id — as listas continuam apontando para ele, e o coletor
+  // o recolhe quando a última lista o soltar (`varrerBases` leva o arquivo).
+  // Sem `base: true`: para o pacote ele é um item comum, não o original de um
+  // editado. Devolve o conjunto dos ids adotados; quem chama NÃO os tira das
+  // listas. Um que não pôde ser copiado fica de fora (e sai como antes).
+  async function adotarProtegidos(recs) {
+    const db = await openDB();
+    const tx = db.transaction([STORE_STATE, STORE_MEDIA], 'readonly');
+    // `semOrigens`: o original de um item editado que NENHUMA lista segura não é
+    // item do operador — ele segue o caminho do `adotarBases` (interno, `base`).
+    const donos = await lerDetentores(tx.objectStore(STORE_STATE), { semOrigens: true });
+    const adotados = new Set();
+    for (const r of (recs || [])) {
+      if (!r || !donos.has(r.id)) continue;
+      const s = await store(STORE_MEDIA, 'readonly');
+      if (await asPromise(s.get(r.id))) { adotados.add(r.id); continue; }
+      const b = await baseDe(r.id);
+      if (!b || !b.corpo) { console.warn('[protecao] arquivo não pôde ser guardado:', r.id); continue; }
+      const rec = Object.assign({}, b.rec);
+      delete rec.base;
+      // AS IMAGENS DE FUNDO DA LETRA moram na MESMA pasta da coleção e iriam
+      // embora com ela: cada uma é copiada para `bases/` e o slide aponta para a
+      // cópia. Uma que não copie deixa a estrofe sobre o fundo de sempre.
+      if (Array.isArray(rec.lyrics)) {
+        const copiadas = new Map();
+        rec.lyrics = await Promise.all(rec.lyrics.map(async (sl) => {
+          const de = sl && sl.imageOpfsPath;
+          if (!de || ehCaminhoDeBase(de)) return sl;
+          if (!copiadas.has(de)) {
+            copiadas.set(de, (async () => {
+              const para = caminhoDeBase(r.id + '-' + splitPath(de).pop());
+              try {
+                const f = await opfsGetFile(de);
+                if (!f) return null;
+                await opfsCopiar(f, para);
+                return para;
+              } catch (_) { return null; }
+            })());
+          }
+          const para = await copiadas.get(de);
+          return Object.assign({}, sl, { imageOpfsPath: para });
+        }));
+      }
+      const cru = await getMediaCru(r.id);
+      try {
+        if (cru && cru.opfsPath) {
+          const caminho = caminhoDeBase(r.id);
+          await opfsCopiar(b.corpo, caminho);
+          await mediaAdd(Object.assign(rec, { blob: null, opfsPath: caminho }));
+        } else {
+          await mediaAdd(Object.assign(rec, { blob: b.corpo }));
+        }
+        adotados.add(r.id);
+      } catch (e) {
+        console.warn('[protecao] arquivo não pôde ser copiado:', r.id, e);
+      }
+    }
+    return adotados;
+  }
+
   // O LUGAR DOS ORIGINAIS ADOTADOS no OPFS — fora de `folders/`, então fora de
   // toda coleção e de toda pasta (o pacote não os conta como "outros arquivos":
   // eles viajam como `media` com `base: true`, ver `pacoteBases`).
@@ -745,6 +814,13 @@
         if (!c) { resolve(); return; }
         const p = c.value && c.value.opfsPath;
         if (ehCaminhoDeBase(p)) vivos.add(splitPath(p).pop());
+        // E AS IMAGENS DE FUNDO DA LETRA de um adotado (`adotarProtegidos`).
+        const ly = c.value && c.value.lyrics;
+        if (Array.isArray(ly)) {
+          for (const sl of ly) {
+            if (sl && ehCaminhoDeBase(sl.imageOpfsPath)) vivos.add(splitPath(sl.imageOpfsPath).pop());
+          }
+        }
         c.continue();
       };
     });
@@ -1181,6 +1257,7 @@
     const bruto = typeof ids === 'function' ? ids(antes) : ids;
     const depois = Array.isArray(bruto) ? bruto.slice() : [];
     await asPromise(st.put(depois, name));
+    if (name === 'favs') await anotarSaidasDosFavoritos(st, antes.filter((x) => !depois.includes(x)));
     const ms = tx.objectStore(STORE_MEDIA);
     // Detentores lidos UMA vez para o lote inteiro (ver lerDetentores) —
     // depois do put, então a própria lista nova já conta como detentora do
@@ -1254,7 +1331,8 @@
   // `readListIn` lê do store — logo ler a própria lista já devolve a resposta
   // certa, sem o id que acabou de sair. O comentário do `listSet` abaixo já
   // dizia isso por extenso.
-  async function lerDetentores(stateStore) {
+  async function lerDetentores(stateStore, opts) {
+    const semOrigens = !!(opts && opts.semOrigens);
     const donos = new Set();
     for (const l of LISTS) {
       for (const id of await readListIn(stateStore, l)) donos.add(id);
@@ -1360,13 +1438,13 @@
       // argumento do deck): ele não guarda bytes, só aponta. Sem esta linha o
       // original sairia da última lista, morreria no `gcOrfaos` seguinte e o
       // item editado continuaria na lista sem nada para tocar.
-      if (rec.edicao && rec.edicao.origem) donos.add(rec.edicao.origem);
+      if (!semOrigens && rec.edicao && rec.edicao.origem) donos.add(rec.edicao.origem);
     }
     // O RASCUNHO DO EDITOR TAMBÉM É DETENTOR do original que ele está editando: um arquivo
     // importado só para o editor (`addBase`) não está em lista nenhuma, e sem esta linha o
     // coletor da abertura seguinte o apagaria com o rascunho ainda de pé.
     const rasc = await asPromise(stateStore.get('edicaoRascunho'));
-    if (rasc && rasc.origem) donos.add(rasc.origem);
+    if (!semOrigens && rasc && rasc.origem) donos.add(rasc.origem);
     return donos;
   }
 
@@ -1378,6 +1456,32 @@
   // Remoção + gc na MESMA transação (state + media): sem isso, um listAdd
   // concorrente entre a remoção e a checagem do gc poderia re-referenciar o
   // id e o gc apagaria o blob mesmo assim (TOCTOU).
+  // ===== O DIÁRIO DE SAÍDAS DOS FAVORITOS (v1.13.12) =====
+  //
+  // Um favorito sumiu sem o operador tê-lo removido, e nada no aparelho dizia
+  // por onde. Cada id que sai de `favs` deixa uma linha — quando, qual id e QUEM
+  // o tirou (a primeira função do Controle na pilha) — numa chave pequena
+  // (`favsSaidas`, as últimas 30), escrita na MESMA transação da saída. O
+  // Registro a imprime no bloco "Favoritos".
+  const FAVS_SAIDAS = 'favsSaidas';
+  function quemChamou() {
+    const pilha = String((new Error()).stack || '').split('\n');
+    for (const l of pilha) {
+      if (l.indexOf('/controle/') === -1) continue;
+      const m = /at\s+(?:async\s+)?([\w$.]+)\s*\(/.exec(l) || /^\s*([\w$.]+)@/.exec(l);
+      if (m) return m[1];
+    }
+    return '?';
+  }
+  async function anotarSaidasDosFavoritos(st, ids) {
+    if (!ids.length) return;
+    const via = quemChamou();
+    const antes = await asPromise(st.get(FAVS_SAIDAS));
+    const lista = Array.isArray(antes) ? antes : [];
+    for (const id of ids) lista.push({ em: Date.now(), id, via });
+    await asPromise(st.put(lista.slice(-30), FAVS_SAIDAS));
+  }
+
   async function listRemove(name, id) {
     const db = await openDB();
     const tx = db.transaction([STORE_STATE, STORE_MEDIA], 'readwrite');
@@ -1386,6 +1490,7 @@
     const after = before.filter((x) => x !== id);
     if (after.length === before.length) return; // não estava na lista
     await asPromise(st.put(after, name));
+    if (name === 'favs') await anotarSaidasDosFavoritos(st, [id]);
     // gc: o id ainda está referenciado em algum outro lugar (outra lista, um
     // Favorito, a cena, um cue ou uma apresentação)? A lista de onde ele saiu
     // ENTRA na varredura — o `put` acima já a gravou sem ele.
@@ -1853,6 +1958,7 @@
     LISTS, listIds, listSet, listItems, listHas, listAdd, listRemove, gc, gcOrfaos, folderDrop,
     cronoLer, cronoTrocar, cronoCriar, cronoRenomear, cronoExcluir, cronoIdsGuardados,
     cronoGuardadosTirar, cronoGuardadosTrocarId, cronoImportar,
+    adotarProtegidos,
     fileAdd, fileGet, fileDelete, filesByFolder, filesAll, filesChaves,
     filesPastas,
     opfsSupported, opfsGetFile, opfsWriteFile, opfsDeleteDir, opfsFolderSize,

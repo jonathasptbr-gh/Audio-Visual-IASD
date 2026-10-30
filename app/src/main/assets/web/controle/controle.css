@@ -257,11 +257,8 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      ESTICAR PARA PREENCHER FOI MEDIDO E RECUSADO. A 430×900 a caixa da lista
      tem 582px, dos quais 569,2 sobram depois do recuo de base; a barra media
      51,59px (passo de 61,19 com o `gap`): com uma coletânea a menos sobravam
-     28,09px, e a barra de enchimento EXATO seria 54,71px. Só que o vão dos Favoritos — MEDIDO com eles ABERTOS, que é quando
-     o `--fav-vao` é escrito — cairia de 131px para 55px, e a seção passaria a
-     ROLAR no instante em que alguém os abrisse.
-     Isso é a v5.273/v5.277 desfeita por baixo, e aquilo o operador pediu por
-     extenso duas vezes. Somem-se os `env(safe-area-inset-bottom)`, que valem
+     28,09px, e a barra de enchimento EXATO seria 54,71px. (O argumento de então era o
+     vão dos Favoritos, que saiu na v1.13.12.) Somem-se os `env(safe-area-inset-bottom)`, que valem
      ZERO em todo oráculo e são positivos no aparelho: com 24px de inset a
      sobra de hoje já é de 4px, e não há 28px para encher.
 
@@ -4593,8 +4590,8 @@ main {
    Biblioteca não tem mais moldura, tem alternância de tom) e sobre o CONTEÚDO
    da caixa, nunca sobre o scroller — `margin-top` continua FORA do retângulo
    do bloco. O preço que o comentário antigo cobrava —
-   `medirVaoDosFavoritos`/`medirTampa` ignorando esse respiro na conta do vão —
-   está pago: as duas funções, em `controle.js`, leem o `margin-top` computado
+   `medirTampa` ignorando esse respiro na conta da sobra —
+   está pago: a função, em `controle.js`, lê o `margin-top` computado
    do primeiro filho e o descontam de `util`, então a lista colapsada continua
    enchendo a tela exatamente como antes (MEDIDO por reversão em
    `lista-da-biblioteca.test.mjs`, casos D5/D5b/F2). */
@@ -4641,45 +4638,16 @@ main {
 #hymnResults > .coll-group--drop.aberto > .coll-group-corpo {
   flex: 0 1 auto; min-height: 0;
 }
-/* ---------- O VÃO DOS FAVORITOS É UM PISO (v5.277 → v5.282) ----------
-   Ele era `flex: 1 1 auto`, e **flex REPARTE**: com uma coleção aberta, o que
-   sobrava passava a ser dividido entre as duas e os favoritos ENCOLHIAM para
-   dar espaço a ela. Relato do operador: *"ao abrir uma coleção, ele encolhe os
-   favoritos para dar espaço à coleção aberta, dividindo os espaços… eu quero
-   que o espaço dos favoritos seja fixo, mas seja o espaço proporcional que
-   sobrou após listar as outras coleções abaixo"*.
-
-   `--fav-vao` é uma ALTURA EM PIXELS, medida em JS a partir das barras das
-   outras seções (ver `medirVaoDosFavoritos`) — isto é, do que sobra da tela com
-   todas elas COLAPSADAS. Ela não depende de qual coleção está aberta, que é a
-   propriedade inteira: a lista de atalhos para de mudar de tamanho conforme o
-   que o operador abre noutro lugar da tela.
-
-   ---------- E ELE É `min-height`, NÃO `height` (v5.282) ----------
-   Pedido do operador: *"mantenha o tamanho mínimo dela, mesmo vazia, como o
-   tamanho flexível que ocupa o que sobra das outras coleções… mas agora esse é
-   apenas o tamanho mínimo, que cresce conforme a lista dos favoritos requerir
-   mais que esse espaço disponível"*.
-
-   Era uma altura EXATA, e é dela que vinha o recorte — e do recorte vinha o
-   botão "Ver todos", que saiu neste mesmo lote. Como piso, a seção continua
-   reservando o vão com a lista vazia (o desenho de abertura da Biblioteca:
-   coleções empilhadas na base, o que sobra em cima é dos favoritos) e passa a
-   crescer com o conteúdo, empurrando as fechadas para baixo e rolando a
-   Biblioteca — que é o que qualquer outra seção aberta já faz.
-
-   `flex: 0 0 auto` é o que impede o flex de mexer nela nos dois sentidos — sem
-   o `grow` ela não reparte, sem o `shrink` ela não é espremida por uma coleção
-   grande logo abaixo (e é o `shrink: 0` que faz o piso valer de verdade: um
-   `min-height` num filho que encolhe seria só uma sugestão).
-
-   O CORPO não ganha regra de FLEX própria: ele cai no `flex: 0 1 auto` das
-   outras seções logo acima. Ele não precisa mais crescer para preencher a
-   caixa — não há mais caixa de tamanho fixo a preencher, nem recorte a
-   produzir —, e o que sobrar do vão fica embaixo dele, dentro da seção, como em
-   qualquer outra. */
+/* ---------- OS FAVORITOS ABERTOS TÊM A ALTURA DO QUE MOSTRAM (v1.13.12) ----------
+   Eles tinham um PISO (`--fav-vao`, v5.277–v5.282): o que sobrava da tela com
+   as outras seções fechadas — do tempo em que havia poucas coleções e muito
+   espaço. Com um favorito só, sobrava uma área vazia sob ele. Pedido do
+   operador: *"remova o sistema de preencher o espaço disponível… atualmente o
+   sistema prefere distribuir o espaço livre no dimensionamento de todas as
+   coleções juntas"* — quem reparte a sobra é a TAMPA (`medirTampa`), entre os
+   blocos fechados. `flex: 0 0 auto` fica: a seção aberta não reparte nem é
+   espremida. */
 #hymnResults > .coll-group--fav.aberto {
-  min-height: var(--fav-vao, auto);
   flex: 0 0 auto;
 }
 /* ---------- UM FAVORITO É UM ITEM; UMA PASTA, UM CONTÊINER ----------
@@ -5869,13 +5837,9 @@ body.mode-simple .serie-destaque {
      e isso se vê; uma faixa morta não.
    · `:not(.aberto)`/`:not(.expanded)`: uma seção ABERTA mede o conteúdo dela
      (v5.276), e sem a guarda o vão volta a ser repartido com quem abriu.
-   · A BARRA NÃO CRESCE — nada de `height: 100%` nela. `medirVaoDosFavoritos`
-     soma as BARRAS das vizinhas para escrever `--fav-vao`, e uma barra que
-     cresce realimenta a conta até o vão deixar de ser dos Favoritos: quem
-     REPROVA essa variante é o `boot-nativo.test.mjs` — é lá que `--fav-vao` é
-     lido e que estão as duas asserções na forma "…px para um vão de …px"; o
-     `smoke.mjs` não menciona o token e mede uma `<ul>` PRÓPRIA, em que a regra
-     do crescimento nem se aplica.
+   · A BARRA NÃO CRESCE — nada de `height: 100%` nela. `calcularTampa` soma
+     as BARRAS dos blocos fechados para repartir a sobra, e uma barra que
+     cresce realimentaria a conta.
      E O PREÇO DELE NÃO É "SEM TOQUE": a v1.5.17 pôs o ouvinte e o `--press` no
      BLOCO, que é o que o card já fazia ("O ALVO É O CARD, E NÃO A BARRA"). Sem
      isso, uma seção tinha 9,5px de MARGEM MORTA em volta da barra — o oposto do
@@ -5897,7 +5861,7 @@ body.mode-simple .serie-destaque {
    `height: var(--tampa-h)` NO LUGAR DO `flex-grow`, e o mesmo número volta como
    RECUO ACIMA DA BARRA no estado aberto: a tampa passa a medir o mesmo nos dois
    estados por construção. Quem escreve `--tampa-h` é o `medirTampa` do
-   `controle.js` — a irmã exata do `--fav-vao`, com o teorema que obriga a
+   `controle.js`, com o teorema que obriga a
    medição escrito lá (a altura de encaixe é função da TELA e do NÚMERO de
    blocos, e não existe como valor em CSS).
 
@@ -8582,7 +8546,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
      existir. O que se perde é .5rem de respiro no repouso; o que se ganha é a
      tampa docando RENTE à barra, que é o que um cabeçalho grudento promete.
 
-     A conta de `medirVaoDosFavoritos` não muda de forma: ela é
+     A conta de `calcularTampa` não muda de forma: ela é
      `clientHeight − padding − gaps`, e um dos termos passa a ser zero. */
   padding-top: 0;
 }
