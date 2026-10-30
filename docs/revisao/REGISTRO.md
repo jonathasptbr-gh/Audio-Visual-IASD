@@ -14,7 +14,7 @@ abandonada → primeira pendente pelo `nº`).
 |---|---|---|---|---|---|
 | 1 | A1 | feita (com um resíduo: `configuracoes-janelas` D, ver o relatório) | sem versão (só `tools/`) | 2026-10-30 | 5 oráculos instáveis consertados, 1 instrumentado, 1 corrida do APP (repasse W2) |
 | 2 | A2 | feita | sem versão (só docs) | 2026-10-30 | `CLAUDE.md` 315 kB → 79 kB, nenhuma regra mudada: detalhe verbatim nos capítulos e em 4 arquivos novos |
-| 3 | A3 | parcial (falta: narrativa do `ORACULOS.md`; fundir as seções A2 de `PONTE.md` e `TELAO-POR-COMANDOS.md`) | sem versão (só docs) | 2026-10-30 | `CONTROLE.md` 770 kB → hub de 18 kB + 11 partes `CONTROLE-<ÁREA>.md`, verbatim provado; duplicatas da A2 fundidas em 5 de 7 capítulos |
+| 3 | A3 | em curso (retomada; falta: narrativa do `ORACULOS.md`; fundir as seções A2 de `PONTE.md` e `TELAO-POR-COMANDOS.md`) | sem versão (só docs) | 2026-10-30 | `CONTROLE.md` 770 kB → hub de 18 kB + 11 partes `CONTROLE-<ÁREA>.md`, verbatim provado; duplicatas da A2 fundidas em 5 de 7 capítulos |
 | 4 | A4 | pendente | | | |
 | 5 | A5 | pendente | | | |
 | 6 | A6 | pendente | | | |
