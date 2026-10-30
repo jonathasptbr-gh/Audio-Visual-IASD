@@ -5321,20 +5321,33 @@ main {
   padding: 0 .15rem;
   font-size: var(--fs-md); color: var(--muted);
 }
-/* ---------- NO MODO FÁCIL O DESTAQUE NÃO É UM SEGUNDO CARTÃO (v1.12.57) ----------
-   Pedido do operador: *"parece ter dupla camada de card na visualização desses vídeos
-   unitários … deixar esses itens no mesmo padrão/nível visual das listagens das outras
-   coleções do modo simples. Exemplo, no modo escuro, os itens estão em fundos escuros, mas
-   o provai e vede tem um card azul sobre esse card escuro"*. No Modo Fácil a série mostra SÓ
-   a semana (`soASemana`): não há lista abaixo de que o destaque precise se separar, e o
-   `--sel-fill` virava um cartão dentro do cartão. Aqui ele é a linha de uma faixa como a de
-   um hinário — sem fundo, sem raio, na coluna da `.coll-songs` (o recuo é o do `.coll-open`)
-   e com o mesmo `.4rem` de cima. O cabeçalho "Este sábado" fica: é o rótulo da semana. No
-   avançado o preenchimento continua, porque ali ele separa a semana da lista inteira. */
-body.mode-simple .serie-destaque {
-  margin: .4rem 0 0; padding: 0;
-  border-radius: 0; background: none;
+/* ---------- NO MODO FÁCIL O VÍDEO DA SEMANA É UM BLOCO DA RAIZ (v1.13.15) ----------
+   Pedido do operador: *"remova a coleção do informativo e do provai e vede, jogue o
+   card/elemento do item diretamente para substituir o card de coleção … mantenha o título
+   indicativo 'este sábado' e a data"*. Ver `blocoSemanasRaiz`. É a anatomia do destaque (o
+   rótulo da semana e a data em cima, as linhas embaixo) com o tom e o raio de um bloco de
+   raiz (`--poco`, nível 1, a regra "por profundidade") e o recuo da faixa de um álbum aberto
+   (`.7rem`, o da `.coll-bar`) — as linhas são as de uma `.coll-songs`, sem fundo próprio: o
+   mesmo nível visual das outras listas do Modo Fácil, e nunca um cartão dentro do cartão (a
+   queixa da v1.12.57). Ele tem a altura do CONTEÚDO (`bloco-fixo`, fora da repartição da
+   tampa). O `--sel-fill` do destaque do avançado não entra: aqui não há lista de que ele
+   precise se separar. */
+#hymnResults.acervo > .semana-raiz {
+  flex-shrink: 0;
+  border-radius: var(--radius-card);
+  background: var(--poco);
+  /* O ▶ NA COLUNA DO ÍCONE DA BARRA de um card: o bloco tem o recuo da `.coll-bar` DO MODO
+     FÁCIL (`.55rem`, a regra `body.mode-simple #hymnResults .coll-bar` — o bloco só existe
+     nele) e a linha larga o dela (o `.5rem` da `.hymn-row`). O cabeçalho fica na mesma coluna. */
+  padding: .55rem .55rem .45rem;
 }
+.semana-raiz-cab { padding: 0 0 .35rem; }
+.semana-raiz-item > .hymn-row { padding-inline: 0; }
+/* A divisória começa na coluna do TEXTO, que aqui está `.5rem` antes (a linha largou o recuo). */
+.acervo .coll-songs.semana-raiz-lista > .hymn-result + .hymn-result::before {
+  left: calc(var(--faixa-coluna-texto) - .5rem);
+}
+.semana-raiz-lista { margin: 0; }
 
 /* A sentinela do fim da página (ver `fillSongList`). O objetivo é que ela NÃO
    seja vista: o observador dispara 300px antes, então na rolagem normal a

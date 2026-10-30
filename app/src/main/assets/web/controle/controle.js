@@ -436,7 +436,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.14';
+const WEB_VERSION = '1.13.15';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -13049,8 +13049,14 @@ function renderCollectionsListMiolo(alvo, redesenhar) {
   // biblioteca", busca), NÃO o desenho. Uma coleção fixa nova tem de ser
   // acrescentada AQUI também, ou ela é construída, conta no peso e não aparece
   // em lugar nenhum — sem erro.
-  const fixasNaRaiz = [...serieCollections(), ...FIXED_COLLECTIONS]
+  //
+  // NO MODO FÁCIL AS SÉRIES NÃO SÃO COLEÇÃO (v1.13.15): os dois cards dão lugar a UM bloco,
+  // "Este sábado", com o vídeo da semana de cada série como linha — ver `blocoSemanasRaiz`.
+  const seriesNaRaiz = serieCollections().filter((c) => byId.has(c.id));
+  const semanasNaRaiz = appMode === 'simple' ? blocoSemanasRaiz(seriesNaRaiz) : null;
+  const fixasNaRaiz = [...(semanasNaRaiz ? [] : seriesNaRaiz), ...FIXED_COLLECTIONS]
     .filter((c) => byId.has(c.id));
+  if (semanasNaRaiz) { any = true; alvo.appendChild(semanasNaRaiz); }
   if (fixasNaRaiz.length) {
     any = true;
     fixasNaRaiz.forEach((coll) => alvo.appendChild(renderCollectionCard(coll)));
@@ -13431,7 +13437,7 @@ function renderCollectionCard(coll, ctx) {
     if (u.semanaAdiada && rotinaDeAcervoPodeCorrer()) setTimeout(() => verificarSemanaAoAbrir(coll), 0);
 
     // O DESTAQUE DO SÁBADO, acima da lista e só na série (ver `blocoDestaque`).
-    // A PORTA DO "VÍDEO DA SEMANA" (v1.13.13), no topo, nos dois modos — ver `semanaLinha`.
+    // A PORTA DO "VÍDEO DA SEMANA" (v1.13.13), no topo — ver `semanaLinha`.
     const semana = semanaLinha(coll);
     if (semana) aberto.appendChild(semana);
     const dest = blocoDestaque(coll);
@@ -13442,16 +13448,10 @@ function renderCollectionCard(coll, ctx) {
     // qualquer hinário. É o mesmo `hymnResultRow` da busca, sem o subtítulo da
     // coleção (que é o próprio card em volta). Ela só chega em PÁGINAS de
     // `COLL_PAGE`, à medida que o scroll alcança o fim — ver `fillSongList`.
-    // NO MODO FÁCIL A SÉRIE MOSTRA SÓ A SEMANA (v1.11.11). Pedido do operador:
-    // *"para o Provai e Vede e o Informativo Mundial das Missões, exiba apenas a
-    // seção do vídeo da semana, e não a lista completa"*. A lista inteira (52
-    // episódios) é a coisa de quem folheia o acervo, e o Modo Fácil existe para
-    // quem só quer o vídeo do sábado. **Só a APRESENTAÇÃO muda**: nada é apagado,
-    // o avançado segue com a lista, e a busca por palavra-chave continua achando
-    // qualquer episódio. Sem episódio da semana o destaque diz "Aguardando
-    // lançamento" (`blocoDestaque`), então o card nunca abre vazio.
-    const soASemana = simplificado() && !!dest;
-    if (total > 0 && !soASemana) {
+    // (No Modo Fácil o card de uma SÉRIE não é desenhado desde a v1.13.15 — o vídeo da
+    // semana mora na raiz, `blocoSemanasRaiz` —, e com ele saiu o `soASemana` da v1.11.11,
+    // que escondia aqui a lista de episódios naquele modo.)
+    if (total > 0) {
       const lista = document.createElement('ul'); lista.className = 'coll-songs';
       // O ÍNDICE ANTES da lista, e FECHADO (ver `indiceDeSecoes`).
       const indice = indiceDeSecoes(coll, u, lista);
@@ -15122,6 +15122,12 @@ function calcularTampa(lista, favFechada) {
   let n = 0;
   let sobra = util;
   for (const b of blocos) {
+    // O BLOCO FIXO (o "Este sábado" do Modo Fácil, `blocoSemanasRaiz`) tem a altura do
+    // conteúdo: ele sai da sobra e não entra na média, como os Favoritos abertos.
+    if (b.classList.contains('bloco-fixo')) {
+      sobra -= b.getBoundingClientRect().height;
+      continue;
+    }
     if (!favFechada && b.classList.contains('coll-group--fav')
         && (b.classList.contains('aberto') || b.classList.contains('expanded'))) {
       sobra -= b.getBoundingClientRect().height;
@@ -15208,7 +15214,9 @@ function medirTampa(lista) {
     const alvo = b.classList.contains('coll-group--fav') ? hFav : h;
     return Math.max(0, (alvo - alt) / 2);
   };
-  for (const b of blocos) b.style.setProperty('--tampa-topo', topoDe(b).toFixed(2) + 'px');
+  for (const b of blocos) {
+    if (!b.classList.contains('bloco-fixo')) b.style.setProperty('--tampa-topo', topoDe(b).toFixed(2) + 'px');
+  }
   // O da LISTA fica como piso herdado: um bloco acrescentado entre esta medição
   // e a próxima nasce com um respiro plausível em vez de nenhum.
   lista.style.setProperty('--tampa-topo', Math.max(0, (h - base / n) / 2).toFixed(2) + 'px');
@@ -21863,6 +21871,44 @@ function serieFaixaDoItem(s, it) {
   return s;
 }
 
+/**
+ * ===== O EPISÓDIO JÁ GUARDADO GANHA O NOME NOVO (v1.13.15) =====
+ *
+ * O nome de um episódio é escrito no REGISTRO de mídia na hora do download (o
+ * `s.name` do índice, via `serieComoYoutube`), e é ele que o Cronograma, a
+ * playlist e os Favoritos desenham. Quando a regra do nome muda — o Provai e
+ * Vede passou de "15/Ago · Match point" para "15/Ago · Provai e Vede 2026" —, a
+ * `impressao` refaz o ÍNDICE, mas os registros já baixados ficariam com o nome
+ * velho para sempre: é a lição da v5.220 (um valor DERIVADO que sobrevive à
+ * regra que o derivou) no registro em vez do índice.
+ *
+ * Só renomeia o que ainda tem o nome AUTOMÁTICO da regra anterior (a data mais o
+ * pedaço à esquerda da barra, `TITULO_ESQUERDA`): um episódio que o operador
+ * renomeou à mão não é tocado. Roda logo depois de o índice ser REFEITO, que é o
+ * único momento em que um nome pode ter mudado; num índice que não mudou o nome
+ * novo já é o do registro e o laço não escreve nada.
+ */
+async function renomearEpisodiosGuardados(songs) {
+  if (!window.AVSerie || !AVSerie.tituloDoEpisodio) return 0;
+  let n = 0;
+  for (const s of songs || []) {
+    if (!s || !s.id_music || !s.name || !s.nomeOriginal) continue;
+    const titulo = AVSerie.tituloDoEpisodio(s.nomeOriginal, { titulo: AVSerie.TITULO_ESQUERDA });
+    const antigo = AVSerie.nomeDoItem({ id: s.id_music, nomeOriginal: s.nomeOriginal, titulo,
+      dia: s.serieData ? s.serieData.dia : 0, mes: s.serieData ? s.serieData.mes : 0 });
+    if (antigo === s.name) continue;
+    const vistos = new Set();
+    for (const kind of ['video', null]) {
+      const rec = await AVDB.mediaByYoutube(s.id_music, kind || undefined).catch(() => null);
+      if (!rec || vistos.has(rec.id)) continue;
+      vistos.add(rec.id);
+      if (rec.name === antigo) { await AVDB.renameMedia(rec.id, s.name); n++; }
+    }
+  }
+  if (n) { diagC('séries: ' + n + ' episódio(s) guardado(s) renomeado(s) pela regra nova'); load(); }
+  return n;
+}
+
 // ===== O DIÁRIO DA VARREDURA DE UMA SÉRIE =====
 //
 // A regra decide a partir de NOMES que um canal muda sem avisar, e os dois
@@ -22028,6 +22074,8 @@ async function fetchSerieIndex(coll) {
     serieDiaEm: serieDiaLocal(hoje),
   };
   await AVDB.setState('coll:' + coll.id, collState[coll.id]);
+  // O QUE JÁ ESTAVA BAIXADO GANHA O NOME NOVO (v1.13.15) — ver `renomearEpisodiosGuardados`.
+  await renomearEpisodiosGuardados(songs).catch(() => {});
   refreshCollectionsIfVisible();
   // PELO GUARDA, nunca direto: `renderSearchResults` faz `hymnResultsEl
   // .innerHTML = ''`, e o que ABRE uma linha vive no `li` que ele joga fora
@@ -22410,8 +22458,9 @@ function openSemanaMenu(cat, alvo) {
 
 /**
  * A LINHA NO TOPO DO CARD DA SÉRIE: "Vídeo da semana (sempre o atual)". Abre a
- * gaveta de destinos nos DOIS modos — ela é a porta do item virtual, e no Modo
- * Fácil um toque que tocasse direto repetiria o destaque logo abaixo.
+ * gaveta de destinos — ela é a porta do item virtual no AVANÇADO. (No Modo Fácil o
+ * card da série não existe desde a v1.13.15: o item mora na raiz, `blocoSemanasRaiz`,
+ * e lá o toque toca.)
  */
 function semanaLinha(coll) {
   if (!coll || coll.kind !== 'serie' || !coll.serie || !window.AVSerie || !AVSerie.chaveDaSerie) return null;
@@ -22446,6 +22495,84 @@ function semanaLinha(coll) {
   li.append(row, gaveta);
   ul.appendChild(li);
   return ul;
+}
+
+/**
+ * ===== NO MODO FÁCIL O VÍDEO DA SEMANA MORA NA RAIZ (v1.13.15) =====
+ *
+ * Pedido do operador: *"remova a coleção do informativo e do provai e vede, jogue o
+ * card/elemento do item diretamente para substituir o card de coleção. Pois atualmente
+ * estamos abrindo uma coleção, para sempre buscar um único item … mantenha o título
+ * indicativo 'este sábado' e a data"*.
+ *
+ * UM BLOCO, e não um por série: as duas linhas respondem à MESMA pergunta ("o vídeo deste
+ * sábado") e o cabeçalho "Este sábado · 17/Out" é o mesmo para as duas — dois cards o
+ * repetiriam. É a anatomia do destaque (`blocoDestaque`: o rótulo da semana e a data em
+ * cima, as linhas embaixo) com o tom de um bloco de raiz, e as linhas são as da faixa de um
+ * álbum aberto: o mesmo nível visual das outras listas do Modo Fácil (v1.12.57).
+ *
+ * A LINHA É O ITEM VIRTUAL (`semanaRegistro`): o toque TOCA — resolve o episódio desta
+ * semana, baixa e projeta se faltar, avisa se não saiu (`resolverSemana`). Sem gaveta de
+ * destinos: o Modo Fácil não tem listas à vista para onde mandar (a regra da seção de
+ * Favoritos, que não existe aqui). O subtítulo é o do destaque: a data do episódio, ou
+ * "Aguardando lançamento".
+ *
+ * ELE NÃO ENTRA NA REPARTIÇÃO DA TAMPA (`bloco-fixo`, ver `calcularTampa`): tem a altura
+ * do conteúdo, e a sobra da lista vai aos blocos fechados, como com os Favoritos abertos.
+ *
+ * E DESENHÁ-LO VERIFICA A SEMANA (`verificarSemanaAoAbrir`, com o piso e a cessão de
+ * sempre): no Modo Fácil não há mais card a abrir, e a abertura da Biblioteca é o gesto
+ * equivalente.
+ */
+function blocoSemanasRaiz(colls) {
+  const series = (colls || []).filter((c) => c && c.kind === 'serie' && c.serie);
+  if (!series.length || !window.AVSerie || !AVSerie.chaveDaSerie) return null;
+  const li = document.createElement('li');
+  li.className = 'semana-raiz bloco-fixo';
+  const cab = document.createElement('div'); cab.className = 'serie-destaque-cab semana-raiz-cab';
+  const rot = document.createElement('span'); rot.className = 'serie-destaque-rot';
+  rot.textContent = 'Este sábado';
+  const dia = document.createElement('span'); dia.className = 'serie-destaque-data';
+  dia.textContent = AVSerie.rotuloData(AVSerie.sabadoDaSemana());
+  cab.append(rot, dia);
+  const ul = document.createElement('ul'); ul.className = 'coll-songs semana-raiz-lista';
+  for (const coll of series) {
+    ul.appendChild(semanaLinhaRaiz(coll));
+    // Adiada (mídia no ar), ela não é repedida a cada desenho: o pedido adiado redesenha o
+    // acervo, e repedir aqui faria disso um laço de 400 ms enquanto a mídia tocar.
+    if (!ui(coll.id).semanaAdiada || rotinaDeAcervoPodeCorrer()) verificarSemanaAoAbrir(coll);
+  }
+  li.append(cab, ul);
+  return li;
+}
+
+function semanaLinhaRaiz(coll) {
+  const cat = coll.serie;
+  const reg = semanaRegistro(cat);
+  const epi = serieEpisodioDaSemana(coll);
+  const item = document.createElement('li');
+  item.className = 'lib-item hymn-result semana-raiz-item';
+  item.dataset.song = 'semana:' + reg.semana.chave;
+  if (simpleLinhaSelecionada(item.dataset.song)) item.classList.add('selecionando');
+  const row = document.createElement('div'); row.className = 'row hymn-row';
+  const play = document.createElement('span');
+  play.className = 'hymn-play-thumb'; play.setAttribute('aria-hidden', 'true');
+  play.appendChild(msym(ICON.play));
+  const info = document.createElement('div'); info.className = 'hymn-info';
+  const nome = document.createElement('span'); nome.className = 'row-name hymn-name';
+  nome.textContent = AVSerie.rotuloDaSerie(cat);
+  const sub = document.createElement('span'); sub.className = 'hymn-sub';
+  sub.textContent = epi && epi.serieData
+    ? 'Episódio de ' + AVSerie.rotuloData(epi.serieData) : 'Aguardando lançamento';
+  info.append(nome, sub);
+  row.append(play, info);
+  row.title = 'Tocar o vídeo desta semana do ' + AVSerie.rotuloDaSerie(cat);
+  row.addEventListener('click', () => {
+    simpleSelecionarLinha(item);
+    simpleAcompanhar(semanaAcao(cat, ['tocar'], null));
+  });
+  item.appendChild(row);
+  return item;
 }
 
 // ===== A RESOLUÇÃO, NO TOQUE =====

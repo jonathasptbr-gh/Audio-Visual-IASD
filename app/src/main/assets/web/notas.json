@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.13.15",
+    "itens": [
+      "Modo Fácil: Provai e Vede e Informativo não são mais coleções para abrir na Biblioteca.",
+      "No lugar delas, um quadro \"Este sábado\" com a data e o vídeo da semana de cada um.",
+      "Basta tocar no nome para o vídeo da semana tocar; se faltar no aparelho, ele baixa e projeta.",
+      "Os vídeos do Provai e Vede agora se chamam \"Provai e Vede 2026\" depois da data.",
+      "Os que já estavam baixados ganham o nome novo na próxima atualização da lista."
+    ]
+  },
+  {
     "versao": "1.13.14",
     "itens": [
       "Biblioteca: a música que está tocando agora fica destacada em vermelho dentro do álbum de onde você a tocou.",
