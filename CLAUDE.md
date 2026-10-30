@@ -2135,7 +2135,7 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os de Chromium são **129** e os de Node puro **23** — juntos, os 152 (contados na v1.13.12). MEDIDO com
+Os de Chromium são **130** e os de Node puro **23** — juntos, os 153 (contados na v1.13.13). MEDIDO com
 82 deles: **~13 min em série** e **~4,3 min nos três processos** (4 vCPU, o mesmo
 do runner); os de Node puro somam **8 s**. **Os números moram no `apk.yml`**, ao
 lado do passo que descrevem, e esta é a cópia — divergiram uma vez (79/99 aqui
@@ -3045,11 +3045,12 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.13.12 · APK v1.13.12** · `SHELL_VERSION` **82** ·
-bundle com `minShell: 82` e **`shellTag: "v1.13.12"`** — o shell 82 é o **PISO**: todo
-método da ponte existe, e não há guarda de versão no lado web. **Este lote pede
-Release** (a rota `/m/` do `EspelhoServidor` passou a servir o item em crescimento
-com faixa; a ponte não mudou). **A v1.13.12 FAZ TRÊS COISAS**: o vídeo do computador
+**Versão atual: base web v1.13.13 · APK v1.13.12** · `SHELL_VERSION` **82** ·
+bundle com `minShell: 82` e **sem `shellTag`** — o shell 82 é o **PISO**: todo
+método da ponte existe, e não há guarda de versão no lado web. **Este lote é só
+web** (a Release v1.13.12 já existe). **A v1.13.13 FAZ DO "VÍDEO DA SEMANA" UM ITEM**
+(registro virtual `kind: 'semana'`, resolvido pelo `send` antes do `load`; ver
+`docs/recursos/SERIES.md`). **A v1.13.12 FAZ TRÊS COISAS**: o vídeo do computador
 conectado se deixa buscar desde o primeiro byte (o servidor responde 200/206 pelo
 tamanho anunciado e espera o empurrão; ver `docs/TELAO-POR-COMANDOS.md` §5.3); as
 LISTAS DE PROTEÇÃO seguram o item E o arquivo — excluir o baixado de uma coleção ou

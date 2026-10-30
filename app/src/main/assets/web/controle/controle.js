@@ -436,7 +436,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.12';
+const WEB_VERSION = '1.13.13';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4848,7 +4848,8 @@ function thumbEl(item) {
     miniaturaDesenhadaPendente.add(item.id);
     t.classList.add('thumb--icon', 'thumb--espera');
   } else {
-    t.appendChild(msym(item.kind === 'audio' ? ICON.music : ICON.broken));
+    t.appendChild(msym(item.kind === 'audio' ? ICON.music
+      : (item.kind === 'semana' ? ICON.play : ICON.broken)));
     t.classList.add('thumb--icon');
   }
   return t;
@@ -6559,6 +6560,7 @@ function isCue(rec) { return !!(rec && rec.kind === 'cue' && rec.cue); }
 function subtituloItem(item) {
   if (!item) return '';
   if (isCue(item)) return cueTipo(item);
+  if (ehSemana(item)) return semanaSubtitulo(item);
   const album = (item.hymnAlbum || '').trim();
   const com = (base) => base + (album ? ' · ' + album : '');
   if (item.kind === 'deck') {
@@ -13429,6 +13431,9 @@ function renderCollectionCard(coll, ctx) {
     if (u.semanaAdiada && rotinaDeAcervoPodeCorrer()) setTimeout(() => verificarSemanaAoAbrir(coll), 0);
 
     // O DESTAQUE DO SÁBADO, acima da lista e só na série (ver `blocoDestaque`).
+    // A PORTA DO "VÍDEO DA SEMANA" (v1.13.13), no topo, nos dois modos — ver `semanaLinha`.
+    const semana = semanaLinha(coll);
+    if (semana) aberto.appendChild(semana);
     const dest = blocoDestaque(coll);
     if (dest) aberto.appendChild(dest);
 
@@ -15709,6 +15714,12 @@ async function send(id, daFila, recPronto) {
     await resolverLinkYoutube(alvo);
     return;
   }
+  // O "VÍDEO DA SEMANA" (v1.13.13) resolve aqui pelo mesmo motivo: o `send`
+  // seguinte, com o arquivo do episódio, é quem põe algo no ar.
+  if (ehSemana(alvo)) {
+    await resolverSemana(alvo, daFila);
+    return;
+  }
   // ===== IMAGEM SOBRE ÁUDIO (v5.312) =====
   //
   // Com um áudio no ar, tocar numa IMAGEM sobrepõe em vez de substituir: o
@@ -15763,6 +15774,14 @@ async function send(id, daFila, recPronto) {
       && (alvo.kind === 'image' || isDeck(alvo)) && audioNoAr()) {
     projetarVisualSobre(alvo);
     return;
+  }
+  // A ÂNCORA DA FILA (v1.13.13): o arquivo que o item virtual prometeu (`semanaPendente`) ou o
+  // mesmo episódio de novo (`repeat: one`) a mantém; qualquer outra cena a solta.
+  {
+    const pend = semanaPendente;
+    semanaPendente = null;
+    if (pend && alvo && alvo.youtubeId === pend.yt) semanaAncora = { virtualId: pend.virtualId, epId: id };
+    else if (!(semanaAncora && semanaAncora.epId === id)) semanaAncora = null;
   }
   currentId = id;
   // O registro já foi resolvido acima (listas carregadas, com o IDB como
@@ -15948,7 +15967,7 @@ function step(delta) {
   // que o operador via era ela voltando ao começo a cada toque no ⏭. O item da
   // fila que está no ar é a apresentação a que o vídeo pertence, e é a partir
   // dela que "o próximo" faz sentido.
-  const ancora = deckVideoVolta ? deckVideoVolta.deckId : currentId;
+  const ancora = deckVideoVolta ? deckVideoVolta.deckId : ancoraDaFila();
   const idx = plItems.findIndex((m) => m.id === ancora);
   const target = idx === -1 ? 0 : (idx + delta + plItems.length) % plItems.length;
   send(plItems[target].id, true);
@@ -19997,11 +20016,12 @@ function autoAdvance() {
   if (plItems.length === 0) { resetAfterEnd(); return; }
   if (repeat === 'shuffle') {
     if (plItems.length === 1) { send(plItems[0].id, true); return; }
-    let i; do { i = Math.floor(Math.random() * plItems.length); } while (plItems[i].id === currentId);
+    const atual = ancoraDaFila();
+    let i; do { i = Math.floor(Math.random() * plItems.length); } while (plItems[i].id === atual);
     send(plItems[i].id, true);
     return;
   }
-  const idx = plItems.findIndex((m) => m.id === currentId);
+  const idx = plItems.findIndex((m) => m.id === ancoraDaFila());
   // ===== `off` É "SEM REPETIÇÃO", NUNCA "SEM SEQUÊNCIA" (v1.8.77) =====
   //
   // Relato do operador: *"é normal o seletor estar desativado, tocar uma
@@ -20553,6 +20573,9 @@ function linhaNoAr(id) {
   if (!id) return false;
   if (visualSobreNaLinha(id)) return true;
   if (midiaNoAr && id === midiaNoArId) return true;
+  // O item virtual que pôs o episódio no ar (v1.13.13) — ver `semanaAncora`.
+  if (midiaNoAr && semanaAncora && id === semanaAncora.virtualId
+      && midiaNoArId === semanaAncora.epId) return true;
   return !!cueNoArId && id === cueNoArId && cenaDeRoteiroNoAr();
 }
 
@@ -20648,6 +20671,7 @@ function linhaAtiva(id) {
   if (!id) return false;
   if (visualSobreNaLinha(id)) return true;
   if (id === currentId) return true;
+  if (semanaAncora && id === semanaAncora.virtualId && semanaAncora.epId === currentId) return true;
   return !!cueNoArId && id === cueNoArId && cenaDeRoteiroNoAr();
 }
 
@@ -22268,6 +22292,199 @@ async function serieArquivoDoEpisodio(s) {
   if (!s || !s.id_music) return null;
   const rec = await AVDB.mediaByYoutube(s.id_music, 'video').catch(() => null);
   return rec && rec.blob ? rec : null;
+}
+
+// ============================================================================
+// O "VÍDEO DA SEMANA" COMO ITEM (v1.13.13)
+// ============================================================================
+//
+// Pedido do operador: *"um item que automaticamente toca o respectivo vídeo da
+// semana… cronograma pode ser atemporal"*. Um registro VIRTUAL por série
+// (`kind: 'semana'`), sem bytes, que entra no Cronograma, na playlist e nos
+// Favoritos e, ao TOCAR, vira o episódio desta semana — o que
+// `serieEpisodioDaSemana` (a MESMA régua do destaque e da rotina) reconhece.
+//
+// A RESOLUÇÃO É NO CONTROLE, ANTES DO `load`, como a do item de LINK
+// (`resolverLinkYoutube`), e não no `AVDB.getMedia` como a do item editado: ela
+// pode precisar BAIXAR, e só o Controle tem o cartão, a barra e o `ytAcao`. O
+// Display e as telas da rede nunca veem um `semana` — o `load` sai com o id do
+// ARQUIVO do episódio.
+//
+// O id é FIXO por série (`semana-<chave>`, `AVSerie.chaveDaSerie`, sem o ano):
+// mandar duas vezes ao Cronograma é o "já está" de sempre, e o Cronograma
+// montado em dezembro toca o episódio de janeiro. **Ele não retém arquivo**:
+// quem segura o episódio continua sendo a lista `serie` (`manterSeriesDaSemana`).
+// O registro sai do banco com a última lista que o tiver, como uma cena.
+function ehSemana(rec) { return !!(rec && rec.kind === 'semana' && rec.semana && rec.semana.chave); }
+
+function semanaRegistro(cat) {
+  const chave = AVSerie.chaveDaSerie(cat);
+  return {
+    id: 'semana-' + chave, kind: 'semana', type: 'semana/serie',
+    name: AVSerie.rotuloDaSerie(cat) + ' — vídeo da semana',
+    semana: { chave }, blob: null, url: null, thumb: null, youtubeId: null,
+    createdAt: Date.now(),
+  };
+}
+
+// A coleção (do ano corrente, ou a mais nova do catálogo) que o item resolve agora.
+function semanaColecao(rec) {
+  if (!ehSemana(rec) || !window.AVSerie || !AVSerie.serieDaChave) return null;
+  const cat = AVSerie.serieDaChave(rec.semana.chave);
+  return cat ? (allCollections().find((c) => c.id === cat.id) || null) : null;
+}
+
+// A SEGUNDA LINHA do item nas listas: a DATA do episódio que ele toca AGORA.
+function semanaSubtitulo(rec) {
+  const coll = semanaColecao(rec);
+  if (!coll) return 'Série fora do catálogo do app';
+  const epi = serieEpisodioDaSemana(coll);
+  if (epi && epi.serieData) return 'Episódio de ' + AVSerie.rotuloData(epi.serieData);
+  return 'O desta semana ainda não saiu (sábado ' + AVSerie.rotuloData(AVSerie.sabadoDaSemana()) + ')';
+}
+
+// Garante o registro (um só por série) e o põe nas listas pedidas.
+async function semanaGuardar(cat, listas, btn) {
+  const reg = semanaRegistro(cat);
+  const ja = await AVDB.getMediaCru(reg.id).catch(() => null);
+  if (!ja) await AVDB.mediaAdd(reg);
+  return adicionarNasListas(listas, reg.id, reg.name, btn);
+}
+
+// O que a folha da linha "Vídeo da semana" executa: as listas e/ou o "Tocar agora".
+async function semanaAcao(cat, alvos, btn) {
+  const escolhas = [...new Set(typeof alvos === 'string' ? [alvos] : (alvos || []))];
+  const listas = listasDosDestinos(escolhas.filter((d) => d !== 'tocar'));
+  const reg = semanaRegistro(cat);
+  if (listas.length) await semanaGuardar(cat, listas, btn);
+  else if (!(await AVDB.getMediaCru(reg.id).catch(() => null))) {
+    // Só "Tocar agora": o registro mora na prateleira avulsa, que é o lugar do que
+    // está em cena sem pertencer a lista nenhuma (`fixarAvulso`).
+    await AVDB.mediaAdd(reg);
+    await fixarAvulso(reg.id);
+  }
+  if (escolhas.includes('tocar')) {
+    closeHymnSearch();
+    await send(reg.id);
+  }
+}
+
+// A FOLHA DA LINHA — a de um vídeo do YouTube (`openYtMenu`) sem os seletores de
+// forma e de qualidade: quem decide a forma é o episódio, na hora de tocar.
+function openSemanaMenu(cat, alvo) {
+  if (!songMenuFor || songMenuFor.semana !== cat) {
+    songMenuFor = { semana: cat, variant: 'full', alvo };
+    destLimpar();
+  }
+  limparFolha(alvo);
+  const remontar = () => openSemanaMenu(cat, alvo);
+  destRemontar = remontar;
+  destExecutor = (alvos, btn) => semanaAcao(cat, alvos, btn);
+  alvo.appendChild(songMenuItem(msym(ICON.play), 'Tocar agora', 'O episódio desta semana',
+    (vr, btn, alvos) => semanaAcao(cat, alvos, btn), 'tocar', remontar));
+  DESTINOS.forEach((d) => {
+    alvo.appendChild(songMenuItem(msym(ICON[d.ico]), d.acao, '',
+      (vr, btn, alvos) => semanaAcao(cat, alvos, btn), d.chave, remontar));
+  });
+  const go = destConfirmRow();
+  if (go) porFecho(alvo, go);
+}
+
+/**
+ * A LINHA NO TOPO DO CARD DA SÉRIE: "Vídeo da semana (sempre o atual)". Abre a
+ * gaveta de destinos nos DOIS modos — ela é a porta do item virtual, e no Modo
+ * Fácil um toque que tocasse direto repetiria o destaque logo abaixo.
+ */
+function semanaLinha(coll) {
+  if (!coll || coll.kind !== 'serie' || !coll.serie || !window.AVSerie || !AVSerie.chaveDaSerie) return null;
+  const cat = coll.serie;
+  const ul = document.createElement('ul');
+  ul.className = 'coll-songs serie-semana-lista';
+  const li = document.createElement('li');
+  li.className = 'lib-item hymn-result serie-semana';
+  const row = document.createElement('div'); row.className = 'row hymn-row';
+  const play = document.createElement('span');
+  play.className = 'hymn-play-thumb'; play.setAttribute('aria-hidden', 'true');
+  play.appendChild(msym(ICON.play));
+  const info = document.createElement('div'); info.className = 'hymn-info';
+  const nome = document.createElement('span'); nome.className = 'row-name hymn-name';
+  nome.textContent = 'Vídeo da semana (sempre o atual)';
+  const sub = document.createElement('span'); sub.className = 'hymn-sub';
+  sub.textContent = semanaSubtitulo(semanaRegistro(cat));
+  info.append(nome, sub);
+  row.append(play, info);
+  const gaveta = document.createElement('div'); gaveta.className = 'hymn-gaveta';
+  const opcoes = document.createElement('ul'); opcoes.className = 'song-menu-list hymn-opcoes';
+  gaveta.appendChild(opcoes);
+  row.addEventListener('click', () => {
+    if (li.classList.contains('expanded')) {
+      collapseAccordion(gaveta, () => li.classList.remove('expanded'));
+      return;
+    }
+    openSemanaMenu(cat, opcoes);
+    li.classList.add('expanded');
+    expandAccordion(gaveta);
+  });
+  li.append(row, gaveta);
+  ul.appendChild(li);
+  return ul;
+}
+
+// ===== A RESOLUÇÃO, NO TOQUE =====
+//
+// O item da FILA continua sendo o virtual: `semanaAncora` liga o arquivo que está
+// no ar ao item que o pôs lá, e é por ela que o avanço da playlist, o ⏮/⏭ e o
+// realce "no ar" acham o lugar dele (`ancoraDaFila`). `semanaPendente` é a
+// promessa que o `send` do arquivo consome — pelo `youtubeId`, porque o download
+// devolve um registro novo cujo id ninguém conhecia no toque.
+let semanaAncora = null;     // { virtualId, epId }
+let semanaPendente = null;   // { virtualId, yt }
+
+function ancoraDaFila() {
+  return (semanaAncora && semanaAncora.epId === currentId) ? semanaAncora.virtualId : currentId;
+}
+
+async function resolverSemana(rec, daFila) {
+  const senha = projecaoSeq;
+  const coll = semanaColecao(rec);
+  const serieNome = coll && coll.serie ? AVSerie.rotuloDaSerie(coll.serie) : 'desta série';
+  if (!coll) return recusarLink(rec, 'Esta série não está mais no catálogo do app.', senha);
+  let epi = serieEpisodioDaSemana(coll);
+  // A LISTA PODE SER DE ANTES DA PUBLICAÇÃO: uma procura, a mesma da abertura do card.
+  if (!epi && window.__NATIVE__ && !ui(coll.id).syncBusy) {
+    const cartao = cederOPalco(rec.name || 'o vídeo da semana');
+    marcarCarregando(rec.id, true);
+    try { await syncCollection(coll, { soIndice: true }); } catch (_) { /* a frase abaixo responde */ }
+    finally { marcarCarregando(rec.id, false); cartao.soltar(); }
+    if (projecaoSeq !== senha) return false;
+    epi = serieEpisodioDaSemana(coll);
+  }
+  if (!epi) {
+    if (!collSongs(coll.id).length) {
+      return recusarLink(rec, 'Sem a lista de vídeos do ' + serieNome + ' — confira a internet.', senha);
+    }
+    return recusarLink(rec, 'O vídeo desta semana do ' + serieNome + ' ainda não saiu.', senha);
+  }
+  const arquivo = await serieArquivoDoEpisodio(epi);
+  if (arquivo) {
+    if (projecaoSeq !== senha) return false;
+    semanaPendente = { virtualId: rec.id, yt: epi.id_music };
+    await send(arquivo.id, daFila, arquivo);
+    return true;
+  }
+  if (!window.__NATIVE__) {
+    return recusarLink(rec, 'Este vídeo só baixa pelo app — o navegador não baixa vídeo.', senha);
+  }
+  // SEM O ARQUIVO: BAIXA E PROJETA, pelo MESMO caminho do "Tocar agora" de um
+  // episódio (decisão do operador) — cartão, barra e frase de falha inclusos.
+  semanaPendente = { virtualId: rec.id, yt: epi.id_music };
+  marcarCarregando(rec.id, true);
+  try {
+    await ytAcao(serieComoYoutube(coll, epi), 'tocar', null, false, ytAlturaPadrao());
+  } finally { marcarCarregando(rec.id, false); }
+  // O episódio novo entra na lista de RETENÇÃO já agora (a rotina só reescreve a lista).
+  manterSeriesDaSemana().catch(() => {});
+  return true;
 }
 
 /**

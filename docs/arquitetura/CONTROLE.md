@@ -10432,6 +10432,13 @@ controles inteira e um modo herdado não teria por onde ser desfeito.
 
 ### Séries do YouTube — coleções que NÃO vêm do LouvorJA (v5.228)
 
+> **O "VÍDEO DA SEMANA" COMO ITEM (v1.13.13).** O topo do card aberto de uma
+> série é a linha "Vídeo da semana (sempre o atual)" (`semanaLinha`, antes do
+> destaque, nos dois modos), cuja gaveta põe um item VIRTUAL (`kind: 'semana'`)
+> no Cronograma, na playlist ou nos Favoritos. O `send` o resolve antes do `load`
+> (`resolverSemana`) e a fila o reconhece pela âncora (`ancoraDaFila`). O detalhe
+> está em `docs/recursos/SERIES.md`, "O vídeo da semana como ITEM".
+
 Uma **série** é um canal do YouTube que publica um episódio por semana e
 organiza o ano em playlists por período. Ela vira um card da Biblioteca ao lado
 dos hinários e dos álbuns, e usa a mesma casca: `collState`, `medirColecao`,

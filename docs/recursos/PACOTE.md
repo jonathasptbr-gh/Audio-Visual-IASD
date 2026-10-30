@@ -739,6 +739,19 @@ dois cronogramas de mesmo id provisório; o que se promete é outra coisa:
   original de um editado que só um guardado segura não é escondido
   (`cronoIdsGuardados` entra na conta das `origens`): ali ele é um item visível.
 
+## O "vídeo da semana" como item (v1.13.13)
+
+O item virtual de uma série (`kind: 'semana'`, ver `docs/recursos/SERIES.md`)
+**viaja como item virtual, SEM bytes**: é um registro de `media` sem corpo, o
+mesmo caminho de uma cena de roteiro (`cue`). `mediaResumo` o conta com 0 bytes,
+e ele cai no grupo de quem o tem — "Outros itens" quando está no Cronograma ou na
+playlist (as listas de trabalho não têm linha na folha), "Favoritos" quando está
+lá. No destino ele resolve pela `semana.chave` (canal + prefixo, SEM o ano) para a
+série do catálogo DAQUELE aparelho, e o episódio da semana é o de lá: o arquivo do
+episódio não viaja junto com ele (quem o leva, se for o caso, é a linha da série
+na folha — o vídeo retido pela lista `serie`). Importar de novo não duplica: o id
+é fixo por série, e `mediaAdd` falha sobre um id que já existe.
+
 ## Os itinerários (v1.13.2)
 
 A chave `state.itinerario` (ver o modelo de dados) VIAJA inteira — o ativo e os

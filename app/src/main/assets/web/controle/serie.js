@@ -727,6 +727,36 @@
     return n >= -d.getDay() && n <= 6 - d.getDay();
   }
 
+  // ===== A SÉRIE SEM O ANO: o "vídeo da semana" como item (v1.13.13) =====
+  //
+  // O item virtual que entra no Cronograma aponta para a SÉRIE, não para o álbum
+  // de um ano: o `id` do catálogo carrega o ano (`serie-provai-vede-2026`), e um
+  // Cronograma montado em dezembro tem de tocar o episódio de janeiro. A chave é
+  // o canal mais o prefixo, que não mudam de um ano para o outro; o ano vem do
+  // relógio (`serieDaChave`), com o álbum mais novo como resposta quando o do ano
+  // corrente ainda não entrou no catálogo. Fica FORA da `impressao` de propósito:
+  // nada aqui decide o conteúdo do álbum.
+  function chaveDaSerie(serie) {
+    if (!serie) return '';
+    const canal = String(serie.canal || '').replace(/^.*\/@?/, '');
+    return normalizar(canal + ' ' + (serie.prefixo || '')).replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  function serieDaChave(chave, hoje) {
+    if (!chave) return null;
+    const d = hoje instanceof Date ? hoje : new Date();
+    const da = SERIES.filter((s) => chaveDaSerie(s) === chave);
+    if (!da.length) return null;
+    return da.find((s) => s.ano === d.getFullYear())
+      || da.slice().sort((a, b) => b.ano - a.ano)[0];
+  }
+
+  /** O nome da série SEM o ano — o `rotulo` quando o catálogo o tem, senão o prefixo. */
+  function rotuloDaSerie(serie) {
+    return serie ? (serie.rotulo || serie.prefixo || serie.name || '') : '';
+  }
+
   /** "15/Ago" — o prefixo pelo qual o operador procura o sábado. */
   function rotuloData(d) {
     return d ? String(d.dia).padStart(2, '0') + '/' + MES_CURTO[d.mes - 1] : '';
@@ -937,6 +967,7 @@
     mesDaPlaylist, playlistsDaSerie,
     dataDoVideo, tituloDoEpisodio, rotuloData,
     sabadoDaSemana, ehDoSabadoAtual,
+    chaveDaSerie, serieDaChave, rotuloDaSerie,
     itensDaPlaylist, ordenarItens, nomeDoItem,
     impressao,
   };
