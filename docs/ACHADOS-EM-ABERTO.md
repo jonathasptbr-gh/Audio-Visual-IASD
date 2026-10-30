@@ -331,7 +331,8 @@ que a v1.5.16 chegou a escrever e removeu (estão no histórico do repositório)
 
 **Resposta do operador (2026-10-30):** *"pode considerar que quero que seja
 destacado também"* — a ressalva abaixo está respondida: o destaque é QUERIDO, e o
-conserto é o Pacote 7 de `PEDIDOS-EM-ESPERA.md`.
+conserto é o Pacote 7 de `PEDIDOS-EM-ESPERA.md`. E a identidade está decidida:
+*"acender apenas o álbum de onde está tocando o item"* — música + álbum de origem.
 
 **Ressalva do cético:** vale perguntar se a faixa da Biblioteca DEVE mesmo
 mostrar "no ar". O argumento a favor é o mais simples: as outras duas listas do
