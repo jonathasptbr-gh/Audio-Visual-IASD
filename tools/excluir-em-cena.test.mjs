@@ -109,11 +109,19 @@ try {
   // aprovaria uma correção que simplesmente parasse de coletar.
   await pg.evaluate((id) => send(id), ids.parado);
   await pg.waitForTimeout(250);
-  await pg.evaluate((id) => send(id), ids.emCena);
-  await pg.waitForFunction(() => {
+  // O `<video>` é o MESMO elemento nas duas cargas, e o do "Louvor Parado"
+  // continua tocando durante o fade de saída: esperar só "tocando e > 0,2 s"
+  // casava com ELE, e a leitura seguinte pegava o novo no segundo 0 (run 2245).
+  // A espera é pela FONTE nova tocando.
+  const srcAntes = await pg.evaluate(() => {
     const v = document.querySelector('#preview video') || document.querySelector('video');
-    return !!v && !v.paused && v.currentTime > 0.2;
-  }, null, { timeout: 15000 }).catch(() => {});
+    return v ? v.currentSrc : '';
+  });
+  await pg.evaluate((id) => send(id), ids.emCena);
+  await pg.waitForFunction((antes) => {
+    const v = document.querySelector('#preview video') || document.querySelector('video');
+    return !!v && v.currentSrc !== antes && !v.paused && v.currentTime > 0.2;
+  }, srcAntes, { timeout: 15000 }).catch(() => {});
   const espiar = () => pg.evaluate(() => {
     const v = document.querySelector('#preview video') || document.querySelector('video');
     return { pausado: v ? v.paused : null, tempo: v ? v.currentTime : null, atual: currentId };

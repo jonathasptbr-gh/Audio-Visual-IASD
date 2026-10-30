@@ -93,7 +93,10 @@ async function aparelho(rede, opts = {}) {
   // vê é o mesmo — `navigator.onLine` falso — e a próxima apuração o lê.
   if (opts.offline) {
     await ctx.setOffline(true);
-    await pg.evaluate(() => apurarFonte('teste'));
+    // E A APURAÇÃO DA ABERTURA PRIMEIRO: ainda em voo (ela partiu ONLINE), o
+    // `apurarFonte` devolve ELA, e o desfecho é o de online — `servidor`, que só
+    // a rechecagem de 60 s desfaria (run 2248, sob carga).
+    await pg.evaluate(async () => { while (fonteApuracao) await fonteApuracao; await apurarFonte('teste'); });
   }
   return { ctx, pg, pendurados };
 }
