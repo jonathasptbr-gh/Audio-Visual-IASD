@@ -610,6 +610,7 @@ jobs:
           rodar tools/leitor-do-transporte.test.mjs
           rodar tools/controles-layout.test.mjs
           rodar tools/volume-troca.test.mjs
+          rodar tools/nao-perturbe.test.mjs
           rodar tools/sombra-das-portas.test.mjs
           rodar tools/portas-presenca.test.mjs
           rodar tools/cronograma-acoes-cheias.test.mjs

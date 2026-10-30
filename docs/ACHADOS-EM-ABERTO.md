@@ -25,7 +25,10 @@ objetivo de controle"*. O Bluetooth É o destino desejado para o som com o
 espelhamento no ar, e é para isso que o tile "Saída de áudio" existe (o estudo
 de abrir a lista de aparelhos está no Pacote 6 de `PEDIDOS-EM-ESPERA.md`). O que
 segue abaixo fica como registro do raciocínio; não há conserto a fazer aqui
-além daquele estudo.
+além daquele estudo. **Desde a v1.13.16** o tile tenta primeiro a API pública
+(`MediaRouter2.showSystemOutputSwitcher`) e o Registro imprime *"Mídia saindo
+agora por: …"* (`getAudioDevicesForAttributes`) — a medição (b) abaixo passa a
+sair de uma cópia do Registro com o espelhamento no ar e o Bluetooth escolhido.
 
 **O que já se sabe (relato do operador, v1.1.11):** numa tela secundária por
 CABO ou virtual, o Android **oferece a escolha** da saída de mídia entre a tela e

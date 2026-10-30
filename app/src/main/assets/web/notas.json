@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.13.16",
+    "itens": [
+      "\"Saída de áudio\": o botão tenta primeiro a lista de aparelhos de som pelo caminho oficial do Android.",
+      "Se o celular recusar, ele continua abrindo o painel de volume, como antes.",
+      "Com o som saindo pelo celular, o app sugere ligar o \"Não Perturbe\" (uma vez por uso).",
+      "O Registro passou a dizer por onde o som está saindo e se o \"Não Perturbe\" está ligado.",
+      "Esta versão precisa instalar o aplicativo novo (APK)."
+    ]
+  },
+  {
     "versao": "1.13.15",
     "itens": [
       "Modo Fácil: Provai e Vede e Informativo não são mais coleções para abrir na Biblioteca.",

@@ -436,7 +436,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.15';
+const WEB_VERSION = '1.13.16';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -2759,6 +2759,55 @@ function acertarSaidaDeAudio() {
   // um corte no talo, e um corte estala na caixa de som.
   preview.setForceMuted(!somLocal);
   diagC(somLocal ? 'som: neste aparelho' : 'som: nos displays');
+  if (somLocal) talvezDicaNaoPerturbe();
+}
+
+/**
+ * ===== A DICA DO "NÃO PERTURBE" (v1.13.16) =====
+ *
+ * Pedido do operador (a opção (a) da análise da v1.13.1): o Android ABAIXA a
+ * mídia quando uma notificação toca, e quando o som da projeção nasce NESTE
+ * aparelho — a preview sem tela, ou o telão do espelhamento, cujo áudio é a
+ * mistura do celular — isso se ouve nas caixas. O app não pode ligar o Não
+ * Perturbe por conta própria (a opção (c), desaconselhada); ele SUGERE.
+ *
+ * Uma vez por uso do app, só no app, só com mídia tocando e o som saindo daqui
+ * (as telas da rede tocam o arquivo delas: ali uma notificação do celular não
+ * abaixa nada), e só quando o sistema diz que o Não Perturbe está DESLIGADO — um
+ * `desconhecido` não vira aviso, senão ele apareceria para quem já o ligou.
+ * "Não avisar mais" grava a escolha neste aparelho. Não abre por cima de outro
+ * diálogo: o próximo play tenta de novo.
+ */
+let dicaNaoPerturbeFeita = false;
+const DICA_NAO_PERTURBE_KEY = 'av.dicaNaoPerturbe';
+function talvezDicaNaoPerturbe() {
+  if (!window.__NATIVE__ || dicaNaoPerturbeFeita || !playing) return;
+  if (!(somLocal || telaoNoAr())) return;
+  try { if (localStorage.getItem(DICA_NAO_PERTURBE_KEY) === 'nunca') { dicaNaoPerturbeFeita = true; return; } } catch (_) { /* segue */ }
+  if (appDialogResolve) return;
+  dicaNaoPerturbeFeita = true;
+  AVNative.saidaDeAudioAlvo().then((r) => {
+    if (r) { audioSaindoPor = r.saindoPor; audioNaoPerturbe = r.naoPerturbe; }
+    // Sem resposta da ponte, o próximo play pergunta de novo; com resposta, a
+    // dica desta sessão está decidida (ligado ou desconhecido não avisam).
+    if (!r) { dicaNaoPerturbeFeita = false; return; }
+    if (r.naoPerturbe !== 'desligado' || !playing) return;
+    if (appDialogResolve) { dicaNaoPerturbeFeita = false; return; }
+    diagC('dica do Não Perturbe mostrada');
+    openAppDialog({
+      title: 'Dica: ligue o "Não Perturbe"',
+      message: 'O som está saindo por este celular. Quando chega uma notificação, '
+        + 'o Android abaixa o volume da música por alguns segundos.\n\nPara isso não '
+        + 'acontecer durante o culto, ligue o "Não Perturbe" no painel rápido do '
+        + 'celular (puxando a barra de cima para baixo).',
+      // "NÃO AVISAR MAIS" É O OK, e não o cancelar: o voltar do Android e o
+      // toque fora resolvem `false`, e nenhum dos dois pode valer uma escolha
+      // permanente. `fixo` tira o toque fora de vez.
+      okText: 'Não avisar mais', cancelText: 'Entendi', fixo: true,
+    }).then((ok) => {
+      if (ok === true) { try { localStorage.setItem(DICA_NAO_PERTURBE_KEY, 'nunca'); } catch (_) { /* fica por esta sessão */ } }
+    });
+  }).catch(() => { dicaNaoPerturbeFeita = false; });
 }
 
 /**
@@ -4771,6 +4820,7 @@ function pushNowPlaying() {
 // exatamente o padrão observado em aparelho.
 function setPlaying(v) {
   playing = !!v;
+  if (playing) talvezDicaNaoPerturbe();
   playPauseEl.querySelector('.msym').textContent = playing ? ICON.pause : ICON.play;
   renderFsCtl();   // e a coluna da tela cheia, pelo mesmo motivo
   renderSimple();   // o botão do modo simplificado espelha este
@@ -30775,6 +30825,18 @@ function cabecalhoDiag() {
       // app deixou de tentar" seria um estado invisível.
       + (c.bloqueado ? '  (BLOQUEADO — o app não tenta mais nesta versão)' : ''));
   }
+  // ===== POR ONDE A MÍDIA SAI, E O "NÃO PERTURBE" (v1.13.16) =====
+  //
+  // A cadeia diz que tela o TOQUE abre; esta linha diz para onde o som de
+  // mídia está indo AGORA — a pergunta de quem relata "o som foi para o fone" ou
+  // "saiu no celular". É a leitura do SISTEMA no instante em que o Registro foi
+  // montado, não um histórico.
+  if (Array.isArray(audioSaindoPor)) {
+    l.push('Mídia saindo agora por: ' + (audioSaindoPor.length
+      ? audioSaindoPor.map(nomeDaSaidaDeAudio).join(' + ')
+      : 'nenhum aparelho informado pelo sistema'));
+  }
+  if (audioNaoPerturbe !== 'desconhecido') l.push('Não Perturbe: ' + audioNaoPerturbe);
   // A PRÉVIA RECOLHIDA, e ela precisa da linha porque MUDA O QUE SE MEDE
   // (v1.9.9): com a imagem parada a prévia não anda, e quem lê este Registro a
   // distância diante de "a prévia está parada" tem de saber se é um defeito ou
@@ -34151,6 +34213,20 @@ let diagSeq = 0;
 // (O BLOCO "microfone" do Registro saiu na v1.8.89 com o recurso — ele
 //  respondia "por que a voz não saiu", e não há mais voz a sair.)
 
+// O `AudioDeviceInfo.type` que o shell devolve (shell 83), em português. O que
+// não estiver na tabela sai com o número, nunca calado.
+const SAIDAS_DE_AUDIO = {
+  1: 'fone de ouvido do celular', 2: 'alto-falante do celular', 3: 'fone com fio',
+  4: 'fone com fio', 7: 'Bluetooth (chamada)', 8: 'Bluetooth', 9: 'HDMI', 10: 'HDMI',
+  11: 'USB', 12: 'USB', 13: 'dock', 22: 'fone USB', 25: 'espelhamento (mistura do aparelho)',
+  26: 'Bluetooth LE', 27: 'Bluetooth LE', 29: 'HDMI', 30: 'Bluetooth LE (difusão)', 31: 'dock',
+};
+function nomeDaSaidaDeAudio(d) {
+  const tipo = d && d.tipo;
+  const base = SAIDAS_DE_AUDIO[tipo] || ('tipo ' + tipo);
+  return d && d.nome ? base + ' "' + d.nome + '"' : base;
+}
+
 function blocoAudio() {
   if (!window.__NATIVE__) return '';
   const tv = lastDisplays[0] || null;
@@ -34217,6 +34293,8 @@ async function renderDiag() {
       audioAlvo = (sa && sa.label) || audioAlvo;
       audioCadeia = (sa && sa.candidatos) || audioCadeia;
       audioDesfecho = (sa && sa.desfecho) || 'nunca';
+      audioSaindoPor = (sa && sa.saindoPor) || null;
+      audioNaoPerturbe = (sa && sa.naoPerturbe) || 'desconhecido';
     } catch (_) { /* fica o que a abertura leu */ }
     if (meu !== diagSeq) return;
   }
@@ -46255,6 +46333,8 @@ let castAlvo = '';
 let audioAlvo = '';
 let audioCadeia = [];
 let audioDesfecho = 'nunca';
+let audioSaindoPor = null;            // [{ tipo, nome }] da última leitura (shell 83)
+let audioNaoPerturbe = 'desconhecido'; // 'ligado' · 'desligado' · 'desconhecido'
 
 // "Telão: …" para o Registro. Mesma frase que o rodapé mostrava, montada do
 // `lastDisplays` em vez de lida de um `<span>` — ver `cabecalhoDiag`.
@@ -46358,6 +46438,8 @@ if (window.__NATIVE__) {
     audioAlvo = (r && r.label) || '';
     audioCadeia = (r && r.candidatos) || [];
     audioDesfecho = (r && r.desfecho) || 'nunca';
+    audioSaindoPor = (r && r.saindoPor) || null;
+    audioNaoPerturbe = (r && r.naoPerturbe) || 'desconhecido';
   });
 } else {
   // NO NAVEGADOR ELE FICA, e é AÇÃO, não estado: sem `Presentation` não há quem

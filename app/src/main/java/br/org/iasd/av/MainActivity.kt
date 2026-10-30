@@ -10,6 +10,7 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.hardware.display.DisplayManager
 import android.media.AudioManager
+import android.media.MediaRouter2
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -1929,33 +1930,40 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * espelhamento não havia, e foi isso que a fez cair no Google Cast.
      */
     override fun openAudioOutputPicker() {
-        runOnUiThread {
-            for (c in audioOutputCandidates()) {
-                // ===== O QUE JÁ FOI MEDIDO COMO BLOQUEADO NÃO É TENTADO DE NOVO =====
-                //
-                // Pedido do operador, depois de o Registro dele provar que o
-                // diálogo do SystemUI é engolido NAQUELE aparelho: tirar a espera.
-                // Os 800 ms do [conferirDialogoDeSaida] são o que impede o tile de
-                // ficar mudo — mas onde o desfecho JÁ é conhecido eles são espera
-                // pura, e o operador os paga em todo toque, num culto.
-                //
-                // A memória é POR VERSÃO DO APK (ver [dialogoDeSaidaBloqueado]): um
-                // APK novo re-mede uma vez, senão um aparelho que passasse a
-                // permitir ficaria excluído para sempre — e a exclusão é escrita no
-                // Registro, para não ser um estado invisível.
-                if (c.broadcast && dialogoDeSaidaBloqueado()) continue
-                if (abrirCandidatoDeAudio(c)) return@runOnUiThread
-            }
-            // O laço CEGO, e ele é o PISO: as duas ações abaixo são constantes
-            // públicas que todo aparelho declara. Sem ele o tile ficaria mudo num
-            // aparelho que filtrasse as consultas acima.
-            for (action in listOf(Settings.ACTION_SOUND_SETTINGS, Settings.ACTION_SETTINGS)) {
-                try {
-                    startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                    return@runOnUiThread
-                } catch (e: Exception) {
-                    Log.w(TAG, "tela de som indisponível: $action", e)
-                }
+        runOnUiThread { seguirCadeiaDeAudio(depoisDe = null) }
+    }
+
+    /**
+     * Percorre a cadeia a partir do candidato SEGUINTE a [depoisDe] (`null` = do
+     * começo). É o mesmo laço para o toque e para a queda de um diálogo
+     * ENGOLIDO: a posição é achada pela AÇÃO, nunca por um `drop(1)` que
+     * supusesse quem vem primeiro — essa ordem mora em [audioOutputCandidates].
+     */
+    private fun seguirCadeiaDeAudio(depoisDe: CandidatoDeAudio?) {
+        val todos = audioOutputCandidates()
+        val ini = if (depoisDe == null) 0
+            else todos.indexOfFirst { it.intent.action == depoisDe.intent.action } + 1
+        for (c in todos.drop(ini)) {
+            // ===== O QUE JÁ FOI MEDIDO COMO BLOQUEADO NÃO É TENTADO DE NOVO =====
+            //
+            // Pedido do operador, depois de o Registro dele provar que o diálogo
+            // do SystemUI é engolido NAQUELE aparelho: tirar a espera. Os 800 ms
+            // do [conferirDialogoDeSaida] são o que impede o tile de ficar mudo —
+            // mas onde o desfecho JÁ é conhecido eles são espera pura, e o
+            // operador os paga em todo toque, num culto. A memória é POR
+            // CANDIDATO e POR VERSÃO DO APK (ver [dialogoDeSaidaBloqueado]).
+            if (c.confere && dialogoDeSaidaBloqueado(c)) continue
+            if (abrirCandidatoDeAudio(c)) return
+        }
+        // O laço CEGO, e ele é o PISO: as duas ações abaixo são constantes
+        // públicas que todo aparelho declara. Sem ele o tile ficaria mudo num
+        // aparelho que filtrasse as consultas acima.
+        for (action in listOf(Settings.ACTION_SOUND_SETTINGS, Settings.ACTION_SETTINGS)) {
+            try {
+                startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                return
+            } catch (e: Exception) {
+                Log.w(TAG, "tela de som indisponível: $action", e)
             }
         }
     }
@@ -1972,6 +1980,24 @@ class MainActivity : ComponentActivity(), BridgeHost {
      */
     private fun abrirCandidatoDeAudio(c: CandidatoDeAudio): Boolean {
         try {
+            if (c.roteador) {
+                // ===== A PORTA PÚBLICA (v1.13.16) =====
+                //
+                // `MediaRouter2.showSystemOutputSwitcher()` (API 34, sem
+                // permissão) pede ao SISTEMA o mesmo seletor de saída que o
+                // broadcast do SystemUI abria — pelo caminho que ele oferece a
+                // apps comuns. O Registro de 30/10 mostrou os dois endereços não
+                // documentados mortos no aparelho do operador (o broadcast
+                // engolido, o painel `MEDIA_OUTPUT` ausente). O `true` que ela
+                // devolve diz que o pedido foi ACEITO, não que a janela subiu —
+                // daí a mesma conferência por foco do broadcast.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    if (!MediaRouter2.getInstance(this).showSystemOutputSwitcher()) return false
+                    aguardarDialogoDeSaida(c)
+                    return true
+                }
+                return false
+            }
             if (c.broadcast) {
                 // ===== UM BROADCAST NÃO É DESFECHO, E A v1.9.10 PAGOU POR ISSO =====
                 //
@@ -1993,8 +2019,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
                 // caso volta a ser o painel de volume, que é o PISO que já existia.
                 if (packageManager.queryBroadcastReceivers(c.intent, 0).isEmpty()) return false
                 sendBroadcast(c.intent)
-                saidaAudioDesfecho = "aguardando"
-                window.decorView.postDelayed({ conferirDialogoDeSaida() }, ESPERA_DIALOGO_MS)
+                aguardarDialogoDeSaida(c)
                 return true
             }
             startActivity(Intent(c.intent).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -2021,34 +2046,25 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * O desfecho fica guardado para o REGISTRO: é ele que diz, a distância, se
      * aquele aparelho chega a mostrar o diálogo alguma vez.
      */
-    private fun conferirDialogoDeSaida() {
+    private fun aguardarDialogoDeSaida(c: CandidatoDeAudio) {
+        saidaAudioDesfecho = "aguardando"
+        window.decorView.postDelayed({ conferirDialogoDeSaida(c) }, ESPERA_DIALOGO_MS)
+    }
+
+    private fun conferirDialogoDeSaida(c: CandidatoDeAudio) {
         if (hasWindowFocus()) {
             saidaAudioDesfecho = "engolido"
-            marcarDialogoDeSaidaBloqueado()
-            Log.w(TAG, "o diálogo de saída de áudio não subiu — seguindo a cadeia")
-            // SÓ AS TELAS: retentar o broadcast aqui seria um laço, e o filtro é
-            // por TIPO e não por POSIÇÃO — `drop(1)` supunha que o broadcast é
-            // sempre o primeiro, e essa é a cópia de uma ordem que mora noutro
-            // lugar.
-            for (c in audioOutputCandidates()) {
-                if (c.broadcast) continue
-                if (abrirCandidatoDeAudio(c)) return
-            }
-            for (action in listOf(Settings.ACTION_SOUND_SETTINGS, Settings.ACTION_SETTINGS)) {
-                try {
-                    startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                    return
-                } catch (e: Exception) {
-                    Log.w(TAG, "tela de som indisponível: $action", e)
-                }
-            }
+            marcarDialogoDeSaidaBloqueado(c)
+            Log.w(TAG, "o seletor de saída não subiu (${c.intent.action}) — seguindo a cadeia")
+            seguirCadeiaDeAudio(depoisDe = c)
             return
         }
         saidaAudioDesfecho = "abriu"
     }
 
     override fun audioOutputLastOutcome(): String =
-        if (saidaAudioDesfecho == "nunca" && dialogoDeSaidaBloqueado()) "bloqueado" else saidaAudioDesfecho
+        if (saidaAudioDesfecho == "nunca" && audioOutputCandidates().any { it.confere && dialogoDeSaidaBloqueado(it) })
+            "bloqueado" else saidaAudioDesfecho
 
     /**
      * O diálogo do SystemUI já foi medido como ENGOLIDO neste aparelho?
@@ -2059,13 +2075,17 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * re-mede UMA vez, e o preço disso é um único toque com os 800 ms de espera
      * depois de cada instalação.
      */
-    private fun dialogoDeSaidaBloqueado(): Boolean =
-        getSharedPreferences(SAIDA_PREFS, MODE_PRIVATE).getLong(SAIDA_BLOQUEADO_KEY, -1L) == versaoDoApk()
+    private fun dialogoDeSaidaBloqueado(c: CandidatoDeAudio): Boolean =
+        getSharedPreferences(SAIDA_PREFS, MODE_PRIVATE).getLong(chaveDeBloqueio(c), -1L) == versaoDoApk()
 
-    private fun marcarDialogoDeSaidaBloqueado() {
+    private fun marcarDialogoDeSaidaBloqueado(c: CandidatoDeAudio) {
         getSharedPreferences(SAIDA_PREFS, MODE_PRIVATE).edit()
-            .putLong(SAIDA_BLOQUEADO_KEY, versaoDoApk()).apply()
+            .putLong(chaveDeBloqueio(c), versaoDoApk()).apply()
     }
+
+    /** A chave do broadcast é a de sempre: um APK novo re-mede do mesmo jeito. */
+    private fun chaveDeBloqueio(c: CandidatoDeAudio): String =
+        if (c.roteador) SAIDA_ROTEADOR_BLOQUEADO_KEY else SAIDA_BLOQUEADO_KEY
 
     /** `versionCode` do APK instalado — a chave da memória acima. */
     @Suppress("DEPRECATION")
@@ -2095,26 +2115,19 @@ class MainActivity : ComponentActivity(), BridgeHost {
     override fun listAudioOutputCandidates(): JSONArray {
         val arr = JSONArray()
         for (c in audioOutputCandidates()) {
-            val alvo = if (c.broadcast) {
-                packageManager.queryBroadcastReceivers(c.intent, 0)
-                    .firstOrNull()?.activityInfo
-                    ?.let { shortComponent(it.packageName, it.name) }
-            } else {
-                packageManager.resolveActivity(c.intent, 0)?.activityInfo
-                    ?.let { shortComponent(it.packageName, it.name) }
-            }
+            val alvo = alvoDoCandidato(c)
             arr.put(
                 JSONObject()
                     .put("acao", c.intent.action ?: "")
                     .put("rotulo", audioOutputLabel(c.intent.action ?: ""))
-                    .put("tipo", if (c.broadcast) "broadcast" else "tela")
+                    .put("tipo", if (c.roteador) "sistema" else if (c.broadcast) "broadcast" else "tela")
                     .put("alvo", alvo ?: JSONObject.NULL)
                     // MEDIDO COMO BLOQUEADO NESTE APARELHO: o endereço existe e o
                     // sistema recusa mostrar a janela. Sem esta linha, "o app deixou
                     // de tentar" seria um estado INVISÍVEL — e um estado invisível
                     // num diagnóstico lido a distância é o que este Registro existe
                     // para não produzir.
-                    .put("bloqueado", c.broadcast && dialogoDeSaidaBloqueado()),
+                    .put("bloqueado", c.confere && dialogoDeSaidaBloqueado(c)),
             )
         }
         return arr
@@ -2122,17 +2135,23 @@ class MainActivity : ComponentActivity(), BridgeHost {
 
     private fun pickAudioOutputIntent(): Pair<Intent, String>? {
         for (c in audioOutputCandidates()) {
-            val nome = if (c.broadcast) {
-                packageManager.queryBroadcastReceivers(c.intent, 0)
-                    .firstOrNull()?.activityInfo
-                    ?.let { shortComponent(it.packageName, it.name) }
-            } else {
-                packageManager.resolveActivity(c.intent, 0)?.activityInfo
-                    ?.let { shortComponent(it.packageName, it.name) }
-            } ?: continue
+            // O que o aparelho já recusou não é "para onde abre" — o toque o pula.
+            if (c.confere && dialogoDeSaidaBloqueado(c)) continue
+            val nome = alvoDoCandidato(c) ?: continue
             return c.intent to (audioOutputLabel(c.intent.action ?: "") + " (" + nome + ")")
         }
         return null
+    }
+
+    /** O componente que atende o candidato, ou `null` se o aparelho não o tem. */
+    private fun alvoDoCandidato(c: CandidatoDeAudio): String? = when {
+        c.roteador ->
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) "MediaRouter2 (API pública)" else null
+        c.broadcast -> packageManager.queryBroadcastReceivers(c.intent, 0)
+            .firstOrNull()?.activityInfo
+            ?.let { shortComponent(it.packageName, it.name) }
+        else -> packageManager.resolveActivity(c.intent, 0)?.activityInfo
+            ?.let { shortComponent(it.packageName, it.name) }
     }
 
     /**
@@ -2141,6 +2160,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * distingue nada. O componente entra ao lado pelo motivo de sempre.
      */
     private fun audioOutputLabel(action: String): String = when (action) {
+        ACAO_SELETOR_DO_SISTEMA -> "Seletor de saída (sistema)"
         ACTION_SYSTEMUI_MEDIA_OUTPUT -> "Seletor de saída (SystemUI)"
         ACTION_MEDIA_OUTPUT_PANEL -> "Seletor de saída (Configurações)"
         ACTION_VOLUME_PANEL -> "Painel de volume"
@@ -2148,11 +2168,22 @@ class MainActivity : ComponentActivity(), BridgeHost {
     }
 
     /** Um candidato da cadeia: o `Intent` e COMO ele se dispara. */
-    private class CandidatoDeAudio(val intent: Intent, val broadcast: Boolean)
+    private class CandidatoDeAudio(
+        val intent: Intent,
+        val broadcast: Boolean,
+        /** `MediaRouter2.showSystemOutputSwitcher()` — a [Intent] só carrega o rótulo. */
+        val roteador: Boolean = false,
+    ) {
+        /** O desfecho só é conhecido conferindo o FOCO depois ([conferirDialogoDeSaida]). */
+        val confere: Boolean get() = broadcast || roteador
+    }
 
     /**
      * Candidatos de saída de áudio, do mais específico ao mais genérico.
      *
+     * 0. **O SELETOR PELA API PÚBLICA** (`MediaRouter2.showSystemOutputSwitcher`,
+     *    API 34, v1.13.16): o mesmo diálogo do candidato 1, pedido pelo caminho
+     *    documentado. Abaixo da API 34 ele aparece no Registro como ausente.
      * 1. **O DIÁLOGO DO SystemUI** (`com.android.systemui.action.LAUNCH_MEDIA_OUTPUT_DIALOG`)
      *    — é ELE que o operador quer: a lista "Alto-falante do telefone · Fones ·
      *    <aparelho Bluetooth>", a mesma que o ícone da notificação de mídia abre.
@@ -2174,7 +2205,8 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * tela errada, essa lista diz quais endereços ele TEM — e não só qual pegou.
      */
     private fun audioOutputCandidates(): List<CandidatoDeAudio> {
-        val out = ArrayList<CandidatoDeAudio>(4)
+        val out = ArrayList<CandidatoDeAudio>(5)
+        out.add(CandidatoDeAudio(Intent(ACAO_SELETOR_DO_SISTEMA), broadcast = false, roteador = true))
         out.add(
             CandidatoDeAudio(
                 Intent(ACTION_SYSTEMUI_MEDIA_OUTPUT)
@@ -3135,6 +3167,9 @@ class MainActivity : ComponentActivity(), BridgeHost {
         /** A memória do diálogo de saída bloqueado — ver `dialogoDeSaidaBloqueado`. */
         private const val SAIDA_PREFS = "saida-audio"
         private const val SAIDA_BLOQUEADO_KEY = "dialogoBloqueadoNaVersao"
+        private const val SAIDA_ROTEADOR_BLOQUEADO_KEY = "roteadorBloqueadoNaVersao"
+        /** Não é ação de `Intent` nenhuma: é a CHAVE do candidato [CandidatoDeAudio.roteador]. */
+        private const val ACAO_SELETOR_DO_SISTEMA = "android.media.MediaRouter2#showSystemOutputSwitcher"
 
         private const val TEMA_PREFS = "tema"
         private const val TEMA_CLARO_KEY = "claro"
