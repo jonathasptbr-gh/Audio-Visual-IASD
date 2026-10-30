@@ -54,7 +54,12 @@ const S = janela.AVSerie;
 checar(!!S, 'serie.js publica window.AVSerie');
 if (!S) { process.exit(1); }
 
-const SERIE = S.SERIES.find((x) => x.id === 'serie-provai-vede-2026');
+const PEV = S.SERIES.find((x) => x.id === 'serie-provai-vede-2026');
+// O MECANISMO DO NOME À ESQUERDA (`TITULO_ESQUERDA`, o padrão de uma série nova) é provado
+// sobre uma CÓPIA do Provai e Vede com esse modo: desde a v1.13.15 a série de verdade é
+// `TITULO_SERIE` (ver o bloco "O NOME DO PROVAI E VEDE"), e as asserções do mecanismo abaixo
+// falam da regra, não do valor que o catálogo tem hoje.
+const SERIE = PEV && { ...PEV, titulo: S.TITULO_ESQUERDA };
 checar(!!SERIE, 'o catálogo traz a série Provai e Vede 2026');
 checar(SERIE && /@provaievedeoficial/.test(SERIE.canal),
   'o canal é o @provaievedeoficial (a ÚNICA constante da descoberta)', SERIE && SERIE.canal);
@@ -242,6 +247,33 @@ checar(S.ehLibras('Provai e Vede - Julho 2026 (Libras)'), 'ARMADILHA 3a: "(Libra
 checar(S.ehLibras('Match point | Provai e Vede 2026 (01/Ago) - Libras'), 'ARMADILHA 3b: "- Libras" é detectado');
 checar(S.ehLibras('ALGO EM LIBRAS'), 'caixa alta é detectada');
 checar(!S.ehLibras('Palavras que libertam'), '"libertam" não é "libras" (a busca é pela PALAVRA)');
+
+// ── 6-B. O NOME DO PROVAI E VEDE É "Provai e Vede 2026" (v1.13.15) ────────
+// Pedido do operador: *"remova o título nominal e use o título genérico de 'Provai e Vede
+// 2026' … mantenha os números da data, troque apenas o nome posterior"*. O item SAI do álbum
+// (Cronograma, playlist), e "15/Ago · Match point" lá fora não diz de que série ele é.
+checar(PEV && PEV.titulo === S.TITULO_SERIE,
+  'o Provai e Vede é `TITULO_SERIE`: o nome do episódio é o da SÉRIE', PEV && PEV.titulo);
+const pevItens = S.ordenarItens(S.itensDaPlaylist([
+  { id: 'p1', url: 'y/p1', name: 'Match point | Provai e Vede 2026 (01/Ago)', seconds: 319 },
+  { id: 'p2', url: 'y/p2', name: 'Quando o evangelho sussurra | Provai e Vede 2026 (15/Ago)', seconds: 300 },
+], 8, PEV, new Date(2026, 11, 31)));
+checar(pevItens.map((i) => S.nomeDoItem(i)).join(' | ') === '01/Ago · Provai e Vede 2026 | 15/Ago · Provai e Vede 2026',
+  'o rótulo é a MESMA data de antes e "Provai e Vede 2026" no lugar do título do episódio',
+  pevItens.map((i) => S.nomeDoItem(i)));
+checar(pevItens[0] && pevItens[0].nomeOriginal === 'Match point | Provai e Vede 2026 (01/Ago)',
+  'e o título CRU continua no item (a gaveta o mostra)', pevItens[0] && pevItens[0].nomeOriginal);
+// A IMPRESSÃO MUDA COM O MODO DO NOME: é ela que refaz o índice já guardado no aparelho (que
+// guarda os nomes JÁ FORMADOS) e, com ele, o nome dos episódios já baixados.
+{
+  const agora = S.impressao();
+  PEV.titulo = S.TITULO_ESQUERDA;
+  const antes = S.impressao();
+  PEV.titulo = S.TITULO_SERIE;
+  checar(agora !== antes && S.impressao() === agora,
+    'trocar o modo do nome de uma série muda a impressão da regra — o índice guardado é refeito',
+    [antes, agora]);
+}
 
 // ── 7. A SEGUNDA SÉRIE: o Informativo Mundial das Missões (v5.244) ──────────
 //

@@ -51,8 +51,9 @@ const base = 'http://localhost:' + servidor.address().port;
 const navegador = await abrirNavegador();
 const erros = [];
 
-// O ACERVO: as duas séries, os dois hinários e três seções de coletâneas — 7 blocos de raiz, o
-// suficiente para a lista preencher sem transbordar a 390×844 (é onde o F mede o crescimento).
+// O ACERVO: as duas séries, os dois hinários e três seções de coletâneas — 7 blocos de raiz no
+// avançado e 6 no Modo Fácil (lá as duas séries são UM bloco, "Este sábado", desde a v1.13.15),
+// o suficiente para a lista preencher sem transbordar a 390×844 (é onde o F mede o crescimento).
 const SEMEAR = ({ modo, series = true }) => {
   if (series) window.serieDisponivel = () => true;
   if (series) for (const s of AVSerie.SERIES) collState[s.id] = { indexSyncedAt: Date.now(), serieDiarioEm: Date.now(), songs: [] };
@@ -100,7 +101,7 @@ const assentar = (pg) => esperar(pg, () => {
   const l = document.getElementById('hymnResults');
   return j.classList.contains('open') && !j.getAnimations().some((a) => a.playState === 'running')
     && !l.getAnimations({ subtree: true }).some((a) => a.playState === 'running')
-    && !!l.style.getPropertyValue('--tampa-h') && l.children.length >= 7;
+    && !!l.style.getPropertyValue('--tampa-h') && l.children.length >= 6;
 }, null, 10000);
 
 // O que uma tela diz: os blocos de raiz, a barra, a seta, e — com um álbum aberto — as faixas e os
@@ -118,7 +119,9 @@ const medir = (pg) => pg.evaluate(() => {
   const barra = hino.querySelector('.coll-bar, .coll-group-bar');
   const seta = barra.querySelector('.coll-bar-fechar, .coll-group-icon, .coll-bar-icon');
   const nomeBarra = barra.querySelector('.coll-bar-name, .coll-group-name');
-  const faixas = [...lista.querySelectorAll('.coll-songs > .hymn-result')].filter(vis);
+  // As FAIXAS DE UM ÁLBUM — as linhas do bloco "Este sábado" (`.semana-raiz-item`, v1.13.15) também
+  // são `.coll-songs > .hymn-result`, e ficam fora: o que se mede aqui é o álbum aberto.
+  const faixas = [...lista.querySelectorAll('.coll-songs > .hymn-result:not(.semana-raiz-item)')].filter(vis);
   const album = faixas.length ? faixas[0].closest('.hymnal-card') : null;
   const botoes = album ? [...album.querySelector('.coll-bar').querySelectorAll('button, [role="button"]')].filter(vis) : [];
   const fora = [...lista.querySelectorAll('*')].filter((el) => {
@@ -204,7 +207,7 @@ try {
       { faixa: [sAlb.nomeFaixaFs, aAlb.nomeFaixaFs], barra: [sRaiz.nomeBarraFs, aRaiz.nomeBarraFs], escFs: sRaiz.escFs });
 
     // ── B · PREENCHE ──
-    // Com SETE blocos: ou eles chegam à base da lista, ou a lista já transborda (360×640). O teto
+    // Com SEIS blocos: ou eles chegam à base da lista, ou a lista já transborda (360×640). O teto
     // da raiz do avançado (`--hit` + 2rem) deixava 75px de lista vazia a 390×844 — MEDIDO por reversão.
     checar(sRaiz.esc !== '' && sRaiz.teto > 66 && (Math.abs(sRaiz.sobra) <= 2 || sRaiz.rola),
       `B · ${cel} · sem nada no ar os blocos de raiz vão até a base da lista`,
@@ -290,7 +293,8 @@ try {
       await new Promise((fim) => {
         const passo = () => {
           const t = performance.now() - t0;
-          const b = lista.firstElementChild;
+          // O primeiro bloco que REPARTE a tampa: o "Este sábado" tem a altura do conteúdo (v1.13.15).
+          const b = [...lista.children].find((n) => !n.classList.contains('bloco-fixo'));
           if (recolheuEm === null && remote.classList.contains('recolhida')) recolheuEm = t;
           amostras.push([Math.round(t), lista.style.getPropertyValue('--lib-esc'), b ? +b.getBoundingClientRect().height.toFixed(2) : 0]);
           if (recolheuEm !== null && t - recolheuEm > 1200) return fim();

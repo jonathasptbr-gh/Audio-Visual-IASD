@@ -225,8 +225,13 @@ recolhidas sem nada no ar).
   ícone de cast é o `#simpleCastBtn` (espelha classe e `title` do `#pvCastBtn`
   em `renderCastBtn`, e chama o mesmo `abrirCast`).
 - **Aceito:** o selo de camadas não existe no Modo Fácil (o Parar encerra tudo).
-- **Séries:** no Modo Fácil o card de Provai e Vede e Informativo Mundial mostra
-  só a seção da semana (`soASemana`), nunca a lista completa.
+- **Séries:** no Modo Fácil Provai e Vede e Informativo Mundial NÃO são coleção
+  (v1.13.15): a raiz da Biblioteca abre com UM bloco, "Este sábado" e a data
+  (`blocoSemanasRaiz`, `.semana-raiz.bloco-fixo`), com uma linha por série — o item
+  virtual "vídeo da semana" — que TOCA no toque (sem gaveta de destinos). Ele tem a
+  altura do conteúdo e fica fora da repartição da tampa (`calcularTampa` desconta o
+  `bloco-fixo` da sobra e da média, como os Favoritos abertos). Ver
+  `docs/recursos/SERIES.md`.
 
 Oráculo: `modo-simples-corpo.test.mjs`.
 
@@ -5732,7 +5737,8 @@ FECHAMENTO — na abertura ele segue o primitivo sem guarda que o
 `gaveta-no-download` afirma. O card que vai ABRIR fica seguro desde o desenho até o quadro da animação (`segurarAcervo`, v1.12.58) — um tique nesse vão o trocava por um card sem a curva. **E o recuo do corpo anima com a altura**
 (`caixaDoAcordeao`): com `border-box`, `height: 0` não passa do `padding`, e o card
 ficava parado ~14px acima da altura fechada no fim da curva (o recuo de CIMA vai a
-`min(.35rem, --tampa-topo)` desde a v1.12.59). Oráculo: `serie-no-modo-facil.test.mjs`.
+`min(.35rem, --tampa-topo)` desde a v1.12.59). Oráculo: `serie-no-modo-facil.test.mjs` (desde a
+v1.13.15 sobre o card do Hinário 2022: a série não é mais card no Modo Fácil).
 
 **E O TÍTULO DE UMA SEÇÃO NÃO ANDA (v1.12.58)** — relato: *"Ao abrir a coleção dos
 favoritos … há um mínimo deslocamento vertical do título"*. A seção aberta segue a
@@ -5746,12 +5752,14 @@ inteiro (`recuoFechadoDoAcordeao`, v1.12.59): é parte da tampa, e com a lista c
 o cabeçalho tremia 2,8px no fim do fechamento. Oráculo: `favoritos-fechar` A8–A10 e o
 bloco C (celular, lista cheia); o resíduo é o `lista-da-biblioteca` F1b.
 
-**NO MODO FÁCIL A SEMANA DA SÉRIE NÃO É UM CARTÃO (v1.12.57).** Lá a série mostra só
-a semana (`soASemana`), e o `--sel-fill` do `.serie-destaque` virava um cartão azul
-dentro do card escuro. `body.mode-simple .serie-destaque` zera fundo, raio e recuo:
-a linha pousa no `.coll-open` como a faixa de um hinário, na mesma coluna, com o
-cabeçalho "Este sábado". No avançado o preenchimento fica — ali ele separa a semana
-da lista inteira.
+**NO MODO FÁCIL A SEMANA DA SÉRIE NÃO É UM CARTÃO (v1.12.57 → v1.13.15).** A queixa
+era o `--sel-fill` do `.serie-destaque` virando um cartão azul dentro do card escuro.
+Desde a v1.13.15 a série nem é card no Modo Fácil: as linhas da semana moram no bloco
+"Este sábado" da raiz (`.semana-raiz`), que veste o `--poco` de um bloco de raiz — a
+mesma tinta de um card fechado — e põe o ▶ na coluna do ícone da barra de um card
+(`.55rem`, o recuo da `.coll-bar` naquele modo; a linha larga o `.5rem` da `.hymn-row` e
+a divisória desconta o mesmo). No avançado o destaque fica preenchido — ali ele separa
+a semana da lista inteira. Oráculo: `serie-no-modo-facil`, bloco C.
 
 **A seção NÃO tem tom próprio.** Ela não é uma coleção e só ela ocupa o vão — as
 duas coisas são verdade e **nenhuma se lê como COR**: o nome no cabeçalho diz a
@@ -10453,7 +10461,8 @@ controles inteira e um modo herdado não teria por onde ser desfeito.
 
 > **O "VÍDEO DA SEMANA" COMO ITEM (v1.13.13).** O topo do card aberto de uma
 > série é a linha "Vídeo da semana (sempre o atual)" (`semanaLinha`, antes do
-> destaque, nos dois modos), cuja gaveta põe um item VIRTUAL (`kind: 'semana'`)
+> destaque, no avançado — no Modo Fácil o item mora na raiz, no bloco "Este sábado",
+> e o toque toca, v1.13.15), cuja gaveta põe um item VIRTUAL (`kind: 'semana'`)
 > no Cronograma, na playlist ou nos Favoritos. O `send` o resolve antes do `load`
 > (`resolverSemana`) e a fila o reconhece pela âncora (`ancoraDaFila`). O detalhe
 > está em `docs/recursos/SERIES.md`, "O vídeo da semana como ITEM".

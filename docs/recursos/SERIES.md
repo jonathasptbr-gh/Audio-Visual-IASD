@@ -182,7 +182,15 @@ ser diagnosticável.
   `TITULO_ESQUERDA` (o padrão — o nome à esquerda da barra) e `TITULO_SERIE` (o
   rótulo da série mais a data). **O Informativo é `TITULO_SERIE` desde a
   v5.271**, porque o item SAI do álbum (vai para o Cronograma, para a fila) e
-  uma data sozinha não o identifica lá fora. **`nomeDoItem` nunca devolve vazio** — sem data e sem
+  uma data sozinha não o identifica lá fora. **O Provai e Vede também, desde a
+  v1.13.15** (pedido do operador: *"esse título de nome na mídia não identifica
+  que ele é um 'provai e vede' … use o título genérico de 'Provai e Vede 2026'"*):
+  "15/Ago · Provai e Vede 2026". Sem `rotulo` no catálogo o nome é o `name`, COM
+  o ano, que é o que ele pediu. Hoje nenhuma série usa `TITULO_ESQUERDA`; ele é o
+  padrão de uma série nova, provado sobre uma série sintética. **O que já estava
+  BAIXADO acompanha:** a `impressao` refaz o índice, e logo depois
+  `renomearEpisodiosGuardados` troca o nome dos registros que ainda têm o nome
+  AUTOMÁTICO da regra anterior — nunca um renomeado à mão. **`nomeDoItem` nunca devolve vazio** — sem data e sem
   título ele cai no título CRU, que é feio e longo, e é infinitamente melhor que
   uma linha em branco na lista do culto.
 - **A assinatura das playlists evita doze extrações por retomada** (a aba do canal
@@ -231,14 +239,19 @@ ser diagnosticável.
   que sobrou da linha é o AVISO (`serieAutoAviso`), na linha de status do card,
   quando a rede não deixa baixar.
 
-  **NO MODO FÁCIL O CARD MOSTRA SÓ A SEMANA** (v1.11.11, pedido do operador: *"exiba
-  apenas a seção do vídeo da semana, e não a lista completa"*): `soASemana =
-  simplificado() && !!dest` em `renderCollectionCard` esconde a lista inteira de
-  episódios quando há uma seção da semana para mostrar; o avançado continua com a
-  lista. `dest` só existe em SÉRIE (o destaque da semana, que sem episódio diz
-  "Aguardando lançamento" e por isso nunca deixa o card vazio): os hinários e os
-  outros álbuns seguem com a lista nos dois modos. Oráculo:
-  `serie-mantem-a-semana.test.mjs`, bloco J.
+  **NO MODO FÁCIL A SÉRIE NÃO É COLEÇÃO** (v1.13.15, pedido do operador: *"remova a coleção
+  do informativo e do provai e vede, jogue o card/elemento do item diretamente para substituir
+  o card de coleção … mantenha o título indicativo 'este sábado' e a data"*). Os dois cards
+  saem da raiz da Biblioteca e entra UM bloco, `blocoSemanasRaiz` (`.semana-raiz.bloco-fixo`,
+  o primeiro da raiz): o cabeçalho do destaque — "Este sábado" e a data do sábado — e uma linha
+  por série, que é o ITEM VIRTUAL (abaixo): o nome da série, e embaixo "Episódio de DD/Mmm" ou
+  "Aguardando lançamento". **O toque toca** (`semanaAcao(…, ['tocar'])`), sem gaveta de
+  destinos: o Modo Fácil não tem listas à vista. **Um bloco, não dois**: as duas linhas
+  respondem à mesma pergunta e o cabeçalho é o mesmo. Ele tem a altura do conteúdo e fica fora
+  da repartição da tampa (`calcularTampa`), e desenhá-lo verifica a semana
+  (`verificarSemanaAoAbrir`) — no Modo Fácil não há card a abrir. O avançado segue com as duas
+  coleções e o destaque. (O `soASemana` da v1.11.11, que escondia a lista do card naquele modo,
+  saiu com o card.) Oráculo: `semana-item.test.mjs`, bloco I.
 
   **O álbum de série continua não retendo arquivo**, e a regra da v1.1.21 não
   mudou: não há botão de baixar em lote, a barra não anuncia peso, e a série
@@ -316,7 +329,7 @@ playlist e nos Favoritos e, ao TOCAR, vira o episódio desta semana.
 |---|---|
 | o registro | `kind: 'semana'`, sem bytes, `semana: { chave }`, id FIXO `semana-<chave>` (`semanaRegistro`). Mandar de novo é o "já está" de sempre |
 | a chave | `AVSerie.chaveDaSerie` — canal + prefixo, **sem o ano**. `AVSerie.serieDaChave` a devolve ao álbum do ano corrente, ou ao mais novo do catálogo. O `id` da coleção carrega o ano, e o item tem de servir em janeiro. Fora da `impressao`: não decide o conteúdo do álbum |
-| a porta | a linha "Vídeo da semana (sempre o atual)" no TOPO do card (`semanaLinha`), nos DOIS modos, abrindo a gaveta de destinos (`openSemanaMenu`: Tocar agora · Cronograma · playlist · favoritos). No Modo Fácil ela também abre a gaveta, não toca direto: tocar direto repetiria o destaque logo abaixo |
+| a porta | no AVANÇADO, a linha "Vídeo da semana (sempre o atual)" no TOPO do card (`semanaLinha`), abrindo a gaveta de destinos (`openSemanaMenu`: Tocar agora · Cronograma · playlist · favoritos). No MODO FÁCIL (v1.13.15) o item é a linha da série no bloco "Este sábado" da RAIZ (`semanaLinhaRaiz`), e o toque TOCA — ali não há card nem listas à vista |
 | o rótulo | o nome da série + "— vídeo da semana", e embaixo a DATA do episódio que ele toca agora (`semanaSubtitulo`), ou "o desta semana ainda não saiu" |
 | tocar | `send` → `resolverSemana`, ANTES do `load` (como o `resolverLinkYoutube`): o episódio é o de `serieEpisodioDaSemana`, a MESMA régua do destaque e da rotina. Com o arquivo, projeta o arquivo; sem ele, `ytAcao(…, 'tocar')` — baixa e projeta, cartão e barra inclusos — e a lista `serie` passa a retê-lo (`manterSeriesDaSemana`) |
 | não saiu | uma procura na lista do canal (`syncCollection(…, { soIndice })`) e, sem o episódio, a frase *"O vídeo desta semana do Provai e Vede ainda não saiu."* — NÃO toca nem baixa |

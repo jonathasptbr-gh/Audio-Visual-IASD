@@ -19,6 +19,11 @@
 //  G. O item virtual NÃO retém o episódio (o coletor o ignora), e sobrevive ao
 //     coletor enquanto estiver numa lista.
 //  H. O PACOTE o leva como registro de mídia SEM bytes, no grupo da lista.
+//  I. NO MODO FÁCIL (v1.13.15) os cards das duas séries SAEM da raiz e um bloco
+//     "Este sábado" com a data mostra o item de cada série; o toque TOCA. No
+//     avançado as coleções seguem. O bloco fica fora da repartição da tampa.
+//  J. O NOME NOVO do Provai e Vede chega ao que já estava BAIXADO (só ao que
+//     ainda tem o nome automático antigo).
 //
 //   node tools/semana-item.test.mjs
 // ============================================================================
@@ -126,8 +131,9 @@ try {
   });
   const datas = await plantar(true);
 
-  // ── A. A LINHA NO TOPO DO CARD, NOS DOIS MODOS ──────────────────────────
-  for (const modo of ['full', 'simple']) {
+  // ── A. A LINHA NO TOPO DO CARD (no AVANÇADO: no Modo Fácil o card da série não
+  // existe desde a v1.13.15 — ver o bloco I) ─────────────────────────────────
+  for (const modo of ['full']) {
     const c = await montarCard(modo);
     checar(/serie-semana-lista/.test(c.primeiro) && c.nome === 'Vídeo da semana (sempre o atual)',
       'A · (' + modo + ') a PRIMEIRA linha do card da série é "Vídeo da semana (sempre o atual)"', c);
@@ -268,6 +274,145 @@ try {
   }, VID);
   checar(h.noGrupo && h.bytes === 0,
     'H · no `.avpkg` ele viaja como registro de mídia SEM bytes, num grupo da seleção (o Cronograma cai em "Outros itens", como qualquer item dele)', h);
+
+  // ── I. NO MODO FÁCIL, O ITEM NA RAIZ NO LUGAR DAS DUAS COLEÇÕES ───────────
+  await plantar(true);
+  const raizDo = (modo) => pg.evaluate((a) => {
+    setAppMode(a.modo);
+    const lista = document.createElement('ul');
+    lista.className = 'popup-list acervo';
+    renderCollectionsList(lista, () => {}, { semTotal: true });
+    const cards = [...lista.querySelectorAll('.hymnal-card')].map((n) => n.textContent);
+    const bloco = lista.querySelector(':scope > .semana-raiz');
+    const linhas = bloco ? [...bloco.querySelectorAll('.semana-raiz-item')].map((n) => ({
+      nome: n.querySelector('.hymn-name').textContent, sub: n.querySelector('.hymn-sub').textContent })) : [];
+    return {
+      serieCard: cards.some((t) => /Provai e Vede|Informativo Mundial/.test(t)),
+      hinarios: cards.filter((t) => /Hinário Adventista/.test(t)).length,
+      primeiro: lista.firstElementChild ? lista.firstElementChild.className : '',
+      rot: bloco ? bloco.querySelector('.serie-destaque-rot').textContent : null,
+      data: bloco ? bloco.querySelector('.serie-destaque-data').textContent : null,
+      linhas,
+    };
+  }, { modo });
+  const iFacil = await raizDo('simple');
+  checar(!iFacil.serieCard,
+    'I1 · no MODO FÁCIL nenhum card de coleção do Provai e Vede ou do Informativo na raiz', iFacil);
+  checar(/semana-raiz/.test(iFacil.primeiro) && iFacil.rot === 'Este sábado' && iFacil.data === datas.sab,
+    'I2 · no lugar deles, o PRIMEIRO bloco da raiz diz "Este sábado" e a DATA do sábado', { iFacil, datas });
+  checar(iFacil.linhas.length === 2 && iFacil.linhas[0].nome === 'Provai e Vede'
+      && iFacil.linhas[1].nome === 'Informativo Mundial das Missões',
+    'I3 · com UMA linha por série — o vídeo da semana de cada uma, direto na raiz', iFacil.linhas);
+  checar(iFacil.linhas.length === 2 && iFacil.linhas[0].sub === 'Episódio de ' + datas.rotulo
+      && iFacil.linhas[1].sub === 'Aguardando lançamento',
+    'I4 · e embaixo de cada uma a data do episódio, ou "Aguardando lançamento" quando ele não saiu',
+    iFacil.linhas);
+  checar(iFacil.hinarios === 2, 'I5 · os dois hinários continuam cards da raiz', iFacil);
+  const iAvancado = await raizDo('full');
+  checar(iAvancado.serieCard && !/semana-raiz/.test(iAvancado.primeiro) && iAvancado.linhas.length === 0,
+    'I6 · no AVANÇADO as duas séries continuam COLEÇÕES, e o bloco da raiz não existe', iAvancado);
+
+  // O TOQUE TOCA: com o arquivo no aparelho, o `load` sai com o arquivo do episódio.
+  const epI = await pg.evaluate(async () => {
+    const r = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'video/mp4' }),
+      { name: 'semana', kind: 'video', type: 'video/mp4', youtubeId: 'semana', list: 'imports' });
+    window.__yt = []; window.__cmds = [];
+    return r.id;
+  });
+  const toque = await pg.evaluate(async () => {
+    setAppMode('simple');
+    const lista = document.createElement('ul');
+    lista.className = 'popup-list acervo';
+    renderCollectionsList(lista, () => {}, { semTotal: true });
+    document.body.appendChild(lista);
+    const row = lista.querySelector('.semana-raiz-item .hymn-row');
+    const gaveta = !!lista.querySelector('.semana-raiz-item .hymn-gaveta');
+    row.click();
+    for (let i = 0; i < 50 && !window.__cmds.some((c) => c.type === 'load'); i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    lista.remove();
+    return { gaveta, loads: window.__cmds.filter((c) => c.type === 'load').map((c) => c.mediaId),
+      yt: window.__yt.length, ancora: ancoraDaFila() };
+  });
+  checar(!toque.gaveta && toque.loads.length === 1 && toque.loads[0] === epI && toque.yt === 0
+      && toque.ancora === VID,
+    'I7 · tocar a linha da raiz TOCA o vídeo desta semana na hora (sem gaveta de destinos), pelo item virtual',
+    { toque, epI });
+
+  // A TAMPA, NA BIBLIOTECA DE VERDADE (a `#hymnResults` do Modo Fácil com tela conectada, onde
+  // ela é a tela principal): o bloco tem a altura do CONTEÚDO, e a sobra vai aos cards fechados.
+  // CINCO SEÇÕES de coletâneas: a lista APERTA (a tampa fica abaixo do teto), que é a célula em
+  // que contar o bloco fixo na repartição faria os cards crescerem além da sobra — com poucos
+  // blocos a tampa bate no teto e a asserção passaria com e sem a regra.
+  await pg.evaluate(() => {
+    const faixas = (pre) => Array.from({ length: 4 }, (_, i) => ({ id_music: pre + i, track: i + 1,
+      name: 'Faixa ' + i, duration: '3:00', has_instrumental_music: false }));
+    albumCatalog.categories = Array.from({ length: 5 }, (_, i) => ({ name: 'Coletânea ' + (i + 1),
+      albums: [{ id_album: 900 + i, name: 'Álbum ' + i }] }));
+    albumCatalog.albums = albumCatalog.categories.map((c) => c.albums[0]);
+    for (const c of albumCatalog.categories) {
+      collState['album-' + c.albums[0].id_album] = { indexSyncedAt: Date.now(), songs: faixas('a' + c.albums[0].id_album) };
+    }
+    setAppMode('simple');
+    webDisplayWin = { closed: false };
+    renderSimpleCast();
+    renderSearchResults('');
+  });
+  await esperar(pg, () => {
+    const j = document.getElementById('hymnSearchPopup');
+    const l = document.getElementById('hymnResults');
+    return j.classList.contains('open') && !j.getAnimations().some((a) => a.playState === 'running')
+      && !!l.style.getPropertyValue('--tampa-h') && !!l.querySelector(':scope > .semana-raiz');
+  }, null, 10000);
+  const tampa = await pg.evaluate(() => {
+    const lista = document.getElementById('hymnResults');
+    medirTampa(lista);
+    const bloco = lista.querySelector(':scope > .semana-raiz');
+    const cs = getComputedStyle(bloco);
+    const tampaH = parseFloat(lista.style.getPropertyValue('--tampa-h')) || 0;
+    const cards = [...lista.children].filter((n) => n.classList.contains('hymnal-card')
+      || n.classList.contains('coll-group--drop'));
+    const conteudo = [...bloco.children].reduce((n, c) => n + c.getBoundingClientRect().height, 0)
+      + (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+    const linhas = [...bloco.querySelectorAll('.semana-raiz-item .hymn-row')]
+      .map((r) => r.getBoundingClientRect().height);
+    return {
+      bloco: bloco.getBoundingClientRect().height, conteudo, tampaH, linhas,
+      cards: cards.map((c) => c.getBoundingClientRect().height),
+      topoNoBloco: bloco.style.getPropertyValue('--tampa-topo'),
+      transborda: lista.scrollHeight > lista.clientHeight + 1,
+      teto: parseFloat(getComputedStyle(lista).getPropertyValue('--lib-teto-px')) || 0,
+    };
+  });
+  checar(Math.abs(tampa.bloco - tampa.conteudo) < 2 && tampa.topoNoBloco === '',
+    'I8 · o bloco "Este sábado" tem a altura do CONTEÚDO (fora da repartição da tampa)', tampa);
+  checar(tampa.cards.length > 0 && tampa.cards.every((h) => Math.abs(h - tampa.tampaH) < 1) && !tampa.transborda,
+    'I9 · e a conta da tampa FECHA: os cards fechados medem a tampa e a lista não transborda', tampa);
+  checar(tampa.linhas.length === 2 && tampa.linhas.every((h) => h >= 44),
+    'I10 · a linha de cada série é um alvo de pelo menos 44px', tampa);
+
+  // ── J. O NOME NOVO CHEGA AO QUE JÁ ESTAVA BAIXADO ──────────────────────────
+  const j = await pg.evaluate(async () => {
+    const coll = allCollections().find((c) => c.id === 'serie-provai-vede-2026');
+    const ep = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'video/mp4' }),
+      { name: '15/Ago · Match point', kind: 'video', type: 'video/mp4', youtubeId: 'mp1', list: 'imports' });
+    const meu = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'video/mp4' }),
+      { name: 'O do pastor', kind: 'video', type: 'video/mp4', youtubeId: 'mp2', list: 'imports' });
+    const faixa = (id, cru) => serieFaixaDoItem({ id_music: id }, AVSerie.itensDaPlaylist(
+      [{ id, url: 'y/' + id, name: cru, seconds: 300 }], 8, coll.serie, new Date(coll.serie.ano, 11, 31))[0]);
+    const songs = [faixa('mp1', 'Match point | Provai e Vede 2026 (15/Ago)'),
+      faixa('mp2', 'Cada centavo conta | Provai e Vede 2026 (22/Ago)')];
+    const n = await renomearEpisodiosGuardados(songs);
+    return { n, novo: songs[0].name, ep: (await AVDB.getMediaCru(ep.id)).name,
+      meu: (await AVDB.getMediaCru(meu.id)).name };
+  });
+  checar(j.novo === '15/Ago · Provai e Vede 2026',
+    'J1 · o nome do episódio do Provai e Vede é a DATA mais "Provai e Vede 2026" (sem o título do episódio)', j);
+  checar(j.ep === '15/Ago · Provai e Vede 2026' && j.n === 1,
+    'J2 · o episódio JÁ BAIXADO com o nome automático antigo ganha o nome novo', j);
+  checar(j.meu === 'O do pastor',
+    'J3 · e o que o operador renomeou à mão NÃO é tocado', j);
 } finally {
   await navegador.close();
   await new Promise((r) => servidor.close(r));

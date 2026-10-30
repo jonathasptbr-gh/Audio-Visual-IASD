@@ -8,20 +8,20 @@
 // escuro, os itens estão em fundos escuros, mas o provai e vede tem um card azul sobre esse
 // card escuro."*
 //
-// DUAS CAUSAS NO FECHAMENTO, e cada uma tem célula própria:
-//  · o REDESENHO no meio do acordeão: o tique do progresso (ou a verificação da semana que
-//    abrir a série dispara) refazia o card a partir do estado — ainda ABERTO — e ele voltava
-//    inteiro até a animação antiga fechar. O oráculo PROVOCA o redesenho no meio da curva
-//    (`renderCollectionsNow`, o caminho do app), para não depender da sorte do relógio;
-//  · o RECUO do corpo: `height: 0` não passa do `padding` (border-box), e o card parava
-//    ~14px acima da altura fechada no fim da curva até o redesenho.
-// A régua é a do `favoritos-fechar`: altura amostrada a cada `requestAnimationFrame`,
-// monotonia, tempo PARADO antes do fim e o maior passo contra o percurso.
-//
-// O CARTÃO A MAIS é medido pela TINTA que fica atrás da linha: o primeiro ancestral com
-// fundo, contra o da faixa de um hinário aberto no mesmo modo e tema. Nos dois temas
-// (`comTema`); e no avançado o destaque CONTINUA preenchido (ali ele separa a semana da lista
-// inteira).
+// DESDE A v1.13.15 A SÉRIE NÃO É CARD NO MODO FÁCIL (o vídeo da semana mora num bloco da
+// raiz, `blocoSemanasRaiz` — o `semana-item`, bloco I). O que este oráculo guarda continua
+// valendo, e por isso ele mudou de ALVO e não saiu:
+//  · A e B — o fechamento num movimento só é do ACORDEÃO, não da série: as duas causas
+//    (o REDESENHO no meio da curva e o RECUO do corpo) são medidas no card do Hinário 2022,
+//    o card que sobra no Modo Fácil. O oráculo PROVOCA o redesenho no meio da curva
+//    (`renderCollectionsNow`, o caminho do app), para não depender da sorte do relógio.
+//    A régua é a do `favoritos-fechar`: altura amostrada a cada `requestAnimationFrame`,
+//    monotonia, tempo PARADO antes do fim e o maior passo contra o percurso;
+//  · C — o CARTÃO A MAIS: as linhas da semana pousam direto na TINTA do bloco "Este sábado",
+//    a mesma de um card de coleção fechado (o poço da raiz), sem um cartão azul no meio, e na
+//    coluna da barra de um card. Nos dois temas (`comTema`);
+//  · D — no avançado o destaque CONTINUA preenchido (ali ele separa a semana da lista
+//    inteira), e o card da série fecha num movimento só.
 //
 //   node tools/serie-no-modo-facil.test.mjs
 // ============================================================================
@@ -175,16 +175,17 @@ try {
     const prem = await pg.evaluate(() => document.body.classList.contains('mode-simple')
       && document.body.classList.contains('simples-barra'));
     checar(prem, 'A0 · PREMISSA: Modo Fácil com tela, a Biblioteca como tela principal', String(prem));
-    const ab = await tocar(pg, nome, 0, 0);
+    const hino = 'Hinário Adventista 2022';
+    const ab = await tocar(pg, hino, 0, 0);
     const a = ler(ab.serie);
-    checar(ab.aberto && a.fim - a.ini > 40, 'A1 · o card da série ABRIU', a);
+    checar(ab.aberto && a.fim - a.ini > 40, 'A1 · o card (o Hinário 2022, o que sobra no Modo Fácil) ABRIU', a);
     checar(a.volta === 0 && a.salto < SALTO_MAX && a.parado <= PATAMAR_MAX_MS,
       'A2 · ABRIR: o card cresce sem saltar ao tamanho final, mesmo com o tique do progresso caindo no '
       + 'meio da curva (ele espera a animação)', a);
     await pg.waitForTimeout(400);
-    const fe = await tocar(pg, nome, 60);
+    const fe = await tocar(pg, hino, 60);
     const f = ler(fe.serie);
-    checar(!fe.aberto && f.ini - f.fim > 40, 'A3 · o card da série FECHOU', f);
+    checar(!fe.aberto && f.ini - f.fim > 40, 'A3 · o card FECHOU', f);
     checar(f.volta === 0,
       'A4 · FECHAR: o card só desce — o redesenho no meio da curva não o devolve aberto e inteiro', f);
     checar(f.parado <= PATAMAR_MAX_MS,
@@ -197,10 +198,10 @@ try {
   // B · MODO FÁCIL, SEM REDESENHO: O FIM DA CURVA É O CARD FECHADO
   // ======================================================================
   {
-    const { ctx, pg, nome } = await abrir();
-    await tocar(pg, nome, 0);
+    const { ctx, pg } = await abrir();
+    await tocar(pg, 'Hinário Adventista 2022', 0);
     await pg.waitForTimeout(400);
-    const fe = await tocar(pg, nome, 0);
+    const fe = await tocar(pg, 'Hinário Adventista 2022', 0);
     const f = ler(fe.serie);
     checar(!fe.aberto && f.volta === 0 && f.parado <= PATAMAR_MAX_MS,
       'B1 · FECHAR sem redesenho: o card desce até a altura fechada sem ficar parado acima dela '
@@ -212,38 +213,34 @@ try {
   // C · A SEMANA NÃO É UM CARTÃO A MAIS (Modo Fácil, os dois temas)
   // ======================================================================
   for (const tema of ['escuro', 'claro']) {
-    const { ctx, pg, nome } = await abrir({ tema });
-    const c = await pg.evaluate((nome) => {
+    const { ctx, pg } = await abrir({ tema });
+    const c = await pg.evaluate(() => {
       const fundo = (el) => {
         for (let n = el; n; n = n.parentElement) {
           const bg = getComputedStyle(n).backgroundColor;
-          if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') return { bg, cls: n.className };
+          if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') return { bg, cls: String(n.className) };
         }
         return null;
       };
-      const card = (txt) => [...hymnResultsEl.children].find((b) => {
-        const bar = b.querySelector('.coll-bar'); return bar && bar.textContent.includes(txt);
+      const bloco = hymnResultsEl.querySelector(':scope > .semana-raiz');
+      const semana = bloco && bloco.querySelector('.semana-raiz-item');
+      const card = [...hymnResultsEl.children].find((b) => {
+        const bar = b.querySelector('.coll-bar'); return bar && bar.textContent.includes('Hinário Adventista 2022');
       });
-      const serie = allCollections().find((x) => x.name === nome);
-      ui(serie.id).expanded = true; ui('hymnal-2022').expanded = true; ui('hymnal-2022').shown = 100;
-      renderSearchResults('');
-      const semana = card(nome).querySelector('.serie-destaque .hymn-result');
-      const hino = card('Hinário Adventista 2022').querySelector('.coll-songs > .hymn-result');
-      const rs = semana.getBoundingClientRect(); const rh = hino.getBoundingClientRect();
+      const icone = card.querySelector('.coll-bar .coll-bar-fechar, .coll-bar .coll-bar-icon');
+      const thumb = semana && semana.querySelector('.hymn-play-thumb');
       return {
         tema: document.documentElement.dataset.tema || 'escuro',
-        atrasSemana: fundo(semana), atrasHino: fundo(hino),
-        destaque: getComputedStyle(card(nome).querySelector('.serie-destaque')).backgroundColor,
-        esq: [Math.round(rs.left), Math.round(rh.left)], dir: [Math.round(rs.right), Math.round(rh.right)],
+        atrasSemana: semana ? fundo(semana) : null, card: getComputedStyle(card).backgroundColor,
+        esq: [thumb ? Math.round(thumb.getBoundingClientRect().left) : -1, Math.round(icone.getBoundingClientRect().left)],
       };
-    }, nome);
+    });
     checar(c.tema === tema, 'C0 · PREMISSA (' + tema + '): o tema é o que se pediu', c);
-    checar(c.atrasSemana && c.atrasHino && c.atrasSemana.bg === c.atrasHino.bg
-      && /coll-open/.test(c.atrasSemana.cls) && c.atrasSemana.cls === c.atrasHino.cls,
-      'C1 · (' + tema + ') a linha da semana pousa direto no card da coleção, sobre a MESMA tinta da '
-      + 'faixa de um hinário — sem um cartão azul no meio', c);
-    checar(Math.abs(c.esq[0] - c.esq[1]) <= 1 && Math.abs(c.dir[0] - c.dir[1]) <= 1,
-      'C2 · (' + tema + ') e na mesma coluna das faixas do hinário', c);
+    checar(c.atrasSemana && /semana-raiz/.test(c.atrasSemana.cls) && c.atrasSemana.bg === c.card,
+      'C1 · (' + tema + ') a linha da semana pousa direto no bloco "Este sábado", sobre a MESMA tinta '
+      + 'de um card de coleção fechado — sem um cartão azul no meio', c);
+    checar(Math.abs(c.esq[0] - c.esq[1]) <= 1,
+      'C2 · (' + tema + ') e o ▶ dela fica na coluna do ícone da barra de um card', c);
     await ctx.close();
   }
 

@@ -399,8 +399,9 @@ try {
   checar(!(serie.itens || []).some((n) => /libras/i.test(n)),
     'NENHUM episódio em Libras entrou — o par dobraria o álbum na projeção');
   checar((serie.itens || []).join(' | ')
-      === '25/Jul · Chamado em Silêncio | 01/Ago · Match point | 08/Ago · Cada centavo conta',
-    'a lista vem em ordem CRONOLÓGICA e rotulada pela data, que é como se procura o sábado',
+      === '25/Jul · Provai e Vede 2026 | 01/Ago · Provai e Vede 2026 | 08/Ago · Provai e Vede 2026',
+    'a lista vem em ordem CRONOLÓGICA e rotulada pela data mais o nome da série (v1.13.15: '
+    + '"Provai e Vede 2026" no lugar do título do episódio), que é como se procura o sábado',
     JSON.stringify(serie.itens));
   checar((serie.urls || []).join(',') === 'y/4,y/1,y/3',
     'cada episódio carrega a URL do vídeo — é ela que o download vai buscar', JSON.stringify(serie.urls));
@@ -1121,8 +1122,12 @@ try {
   // quando a barra é desenhada. Desde a v1.12.53 a barra dela não tem botão
   // NENHUM em estado nenhum (o "Atualizar a lista" saiu: abrir o card verifica a
   // semana — o `serie-mantem-a-semana`, bloco K, mede isso).
+  // NO AVANÇADO: no Modo Fácil a série não é card desde a v1.13.15 (o vídeo da semana mora na
+  // raiz — `semana-item`, bloco I), e é o card que este caso mede.
   const medirSerie = (aberto) => pg.evaluate((abrir) => {
     const lista = document.getElementById('hymnResults');
+    const modoDaSerie = appMode;
+    setAppMode('full');
     const guardado = grupoAberto;
     grupoAberto = '';  // as fixas ficam na RAIZ desde a v1.0.1 — não há grupo a abrir
     // `renderCollectionsList` ACRESCENTA à lista (a lição da v5.232): sem
@@ -1152,6 +1157,7 @@ try {
     };
     if (serie) ui(serie.id).expanded = false;
     grupoAberto = guardado;
+    setAppMode(modoDaSerie);
     return r;
   }, aberto);
   const semLote = await medirSerie(false);

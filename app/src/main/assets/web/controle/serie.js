@@ -96,7 +96,8 @@
   const TITULO_ESQUERDA = 'esquerda';     // "Match point | Provai e Vede 2026 (01/Ago)"
   // A SÉRIE É O NOME DO EPISÓDIO (v5.271). Vale quando o canal não põe nome de
   // episódio nenhum no título ("Informativo Mundial das Missões | 15 AGOSTO
-  // 2026"): em vez de deixar a linha só com a data, ela leva o nome da série.
+  // 2026") — e, desde a v1.13.15, também quando põe um nome que não diz de que
+  // série ele é (o Provai e Vede): a linha leva a data e o nome da série.
   const TITULO_SERIE = 'serie';
 
   // O que fazer com um episódio cujo sábado ainda não chegou. Ver [aindaNaoSaiu]
@@ -116,8 +117,8 @@
   // push em `main` — o OTA leva em minutos, e é justamente para isso que ele
   // existe neste projeto.
   //
-  // `periodo` e `titulo` têm padrão (mês, nome à esquerda) e por isso a linha
-  // do Provai e Vede podia ter ficado sem eles. Estão escritos assim mesmo:
+  // `periodo` e `titulo` têm padrão (mês, nome à esquerda), e uma série nova
+  // pode ficar sem eles. Estão escritos nas duas linhas assim mesmo:
   // enquanto havia uma série só, essas duas escolhas não pareciam escolhas — e
   // é exatamente essa a leitura que a segunda série desmentiu.
   const SERIES = [
@@ -128,7 +129,15 @@
       prefixo: 'Provai e Vede',
       ano: 2026,
       periodo: PERIODO_MES,
-      titulo: TITULO_ESQUERDA,
+      // A SÉRIE É O NOME DO EPISÓDIO TAMBÉM AQUI (v1.13.15), pedido do operador:
+      // *"ele tem um título de nome, mas esse título de nome na mídia não
+      // identifica que ele é um 'provai e vede', então remova o título nominal e
+      // use o título genérico de 'Provai e Vede 2026' … mantenha os números da
+      // data"*. É o argumento do Informativo (v5.271): o item SAI do álbum, e no
+      // Cronograma "15/Ago · Match point" não diz de que série ele é. Sem
+      // `rotulo`, o nome é o `name` COM o ano — foi o que ele pediu por extenso.
+      // O título cru continua no índice (`nomeOriginal`), e a gaveta o mostra.
+      titulo: TITULO_SERIE,
       // LIGADO na v1.4.15, e a medição que o mantinha desligado estava ERRADA.
       //
       // Ela dizia: *"em 15 de agosto a playlist já tinha até 26 de setembro, e
@@ -647,7 +656,9 @@
    * do outro, e ocupa a largura da linha na lista. Mesmo problema (e mesma
    * solução) do `tituloLimpo` do `YoutubeGrab`, que tira o nome do canal da
    * frente do título. Sem a barra, devolve o título inteiro: um rótulo
-   * comprido é melhor que um rótulo vazio.
+   * comprido é melhor que um rótulo vazio. (Desde a v1.13.15 nenhuma série do
+   * catálogo o usa — o Provai e Vede passou a `TITULO_SERIE` —, e ele fica como
+   * o padrão de uma série nova, com oráculo sobre uma série sintética.)
    *
    * **`TITULO_SERIE`: a série não põe nome de episódio no título.** No
    * Informativo o título é a série mais a data ("Informativo Mundial das

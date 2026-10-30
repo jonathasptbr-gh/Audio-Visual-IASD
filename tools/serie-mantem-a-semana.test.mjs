@@ -478,11 +478,11 @@ try {
     + 'de fato é gravar um padrão novo para o PRÓXIMO vídeo, calado',
     escada.baixado);
 
-  // ── J. NO MODO FÁCIL A SÉRIE MOSTRA SÓ A SEMANA (v1.11.11) ──────────────
-  // *"exiba apenas a seção do vídeo da semana, e não a lista completa"*. As DUAS
-  // metades, porque uma sozinha aprovaria o card sem lista em TODO modo: o
-  // avançado segue com a lista inteira (menos o episódio em destaque, que sai
-  // dela), e o Modo Fácil fica só com o destaque.
+  // ── J. NO AVANÇADO O CARD TEM O DESTAQUE E A LISTA (v1.11.11 → v1.13.15) ──
+  // A metade do Modo Fácil (*"exiba apenas a seção do vídeo da semana"*) saiu daqui: desde a
+  // v1.13.15 a série nem é card naquele modo — o vídeo da semana mora num bloco da raiz, e quem
+  // o mede é o `semana-item`, bloco I. Fica a metade do avançado: a lista inteira (menos o
+  // episódio em destaque, que sai dela) com o destaque em cima.
   const cartaoDoModo = (modo) => pg.evaluate((a) => {
     setAppMode(a.modo);
     const coll = allCollections().find((c) => c.id === a.id);
@@ -495,16 +495,8 @@ try {
     };
   }, { modo, id: SERIE });
   const noAvancado = await cartaoDoModo('full');
-  const noFacil = await cartaoDoModo('simple');
-  await pg.evaluate(() => setAppMode('full'));
   checar(noAvancado.destaque && noAvancado.semana >= 1 && noAvancado.lista >= 2,
-    'J · no AVANÇADO o card tem o destaque E a lista dos outros episódios — a '
-    + 'restrição é só do Modo Fácil, e sem esta metade "sem lista em todo modo" passaria',
-    noAvancado);
-  checar(noFacil.destaque && noFacil.semana >= 1 && noFacil.lista === 0,
-    'J · no MODO FÁCIL o card tem SÓ o destaque da semana: nenhuma linha da lista '
-    + 'completa (a semana passada e a seguinte, que estão no índice, não aparecem)',
-    noFacil);
+    'J · no AVANÇADO o card tem o destaque E a lista dos outros episódios', noAvancado);
 
   // ── K. ABRIR A SÉRIE VERIFICA A SEMANA, E O BOTÃO SAIU (v1.12.53) ───────
   //
@@ -552,12 +544,12 @@ try {
     'K1 · FECHADO, o card da série não tem botão nenhum na barra — e desenhá-lo '
     + 'não verifica nada (só ABRIR verifica)', fechada);
   await pg.evaluate((id) => { ui(id).semanaProxima = 0; }, SERIE);
-  const abertaFacil = await barra(true, 'simple');
+  const abertaFacil = await barra(true, 'full');
   checar(abertaFacil.aberto && abertaFacil.botoes.length === 0,
     'K2 · ABERTO, também nenhum botão: o "Atualizar a lista" saiu', abertaFacil);
   checar(abertaFacil.verif.length === 1 && abertaFacil.verif[0].id === SERIE
     && abertaFacil.verif[0].soIndice === true,
-    'K3 · o toque que ABRE o card (aqui no Modo Fácil) refaz a lista da série — '
+    'K3 · o toque que ABRE o card refaz a lista da série — '
     + 'SÓ o índice, nunca um download de episódio', abertaFacil.verif);
   checar(/Verificando os vídeos da semana/.test(abertaFacil.resumo),
     'K4 · e ENQUANTO corre, o subtítulo da barra diz o que está acontecendo', abertaFacil.resumo);
@@ -566,13 +558,13 @@ try {
   checar(rodou === true,
     'K5 · e com a lista de pé, a rotina do episódio da semana roda em seguida — '
     + 'é ela que baixa o do sábado (com as regras de rede dela)', porque(rodou));
-  const fimOk = await barra(false, 'simple');
+  const fimOk = await barra(false, 'full');
   checar(/epis[óo]dio/.test(fimOk.resumo),
     'K6 · terminada bem, o subtítulo volta a dizer quantos episódios a lista tem', fimOk.resumo);
 
   const reaberta = await barra(true, 'full');
   checar(reaberta.verif.length === 1,
-    'K7 · reabrir dentro do PISO (agora no avançado) não verifica de novo — abrir e '
+    'K7 · reabrir dentro do PISO não verifica de novo — abrir e '
     + 'fechar o card num culto não pode ser uma extração do canal por toque', reaberta.verif);
 
   // COM MÍDIA NO AR ELA ESPERA, e o subtítulo diz por quê.
