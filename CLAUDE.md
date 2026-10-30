@@ -3509,3 +3509,4 @@ lote de shell anterior ainda não tem Release, e não herda quando tem.
 | o contrato do telão nas telas da rede | `docs/TELAO-POR-COMANDOS.md` |
 | o banco de hinos e Bíblia | `docs/FONTE-DE-DADOS-LOUVORJA.md` |
 | o que o operador pediu e ainda não foi feito? | `docs/PEDIDOS-EM-ESPERA.md` — pacotes; perguntar qual seguir antes de começar |
+| a revisão profunda (manutenção, limpeza, otimização) em etapas | `docs/REVISAO-PROFUNDA.md` (o plano) e `docs/revisao/REGISTRO.md` (o andamento) — uma etapa por sessão |
