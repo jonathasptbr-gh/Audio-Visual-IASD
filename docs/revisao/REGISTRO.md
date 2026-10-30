@@ -12,7 +12,7 @@ abandonada → primeira pendente pelo `nº`).
 
 | nº | id | estado | versão entregue | data | resumo em uma linha |
 |---|---|---|---|---|---|
-| 1 | A1 | pendente | | | |
+| 1 | A1 | em curso | | 2026-10-30 | |
 | 2 | A2 | pendente | | | |
 | 3 | A3 | pendente | | | |
 | 4 | A4 | pendente | | | |
