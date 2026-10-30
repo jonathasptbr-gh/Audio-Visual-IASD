@@ -4718,9 +4718,8 @@ main {
      projetada não pintava nada, e sobravam a cor do nome e o selo "● No ar". A
      mesma `.lib-item.no-ar` fora dos Favoritos pinta `--live-fill`.
      Ele é alcançável de verdade — a linha de favorito escreve `dataset.id`
-     (`linhaDeItem`) e o `marcarNoAr` a encontra —, ao contrário da faixa de
-     álbum, que nunca é marcada (ver o bloco `.acervo` e
-     `docs/ACHADOS-EM-ABERTO.md`). */
+     (`linhaDeItem`) e o `marcarNoAr` a encontra. (A faixa de álbum acende pela
+     ORIGEM do toque desde a v1.13.14 — ver o bloco `.acervo`.) */
   --camada: transparent;
 }
 #hymnResults > .coll-group--fav.aberto .fav-itens
@@ -6102,24 +6101,16 @@ body.mode-simple .serie-destaque {
    aplicada um nível acima, porque saiu uma camada de caixas. O preenchimento
    fica reservado ao ESTADO (no ar, selecionado), e é isso que faz o estado
    saltar: numa lista sem fundo nenhum, a única mancha de cor é a que importa. */
-/* ---------- O NÍVEL 3 NÃO TEM FUNDO, E ELE TAMBÉM NÃO TEM ESTADO ----------
-   (A segunda metade é da v1.5.16, e ela é uma AUSÊNCIA verificada, não um
-   desenho.) A faixa de um álbum NUNCA recebe `.no-ar`, `.active` ou
-   `.selected`: quem escreve essas classes é o `marcarNoAr`, que varre
-   `.lib-item,.row-item` e lê `el.dataset.id` — e o `hymnResultRow` escreve
-   `dataset.song`, nunca `dataset.id`. MEDIDO pelo caminho real (mídia no ar,
-   `marcarNoAr()`): a faixa do álbum sai sem classe e sem selo, enquanto o
-   FAVORITO da mesma passada sai marcado e pintado.
-
-   Um `:not(.no-ar):not(.active):not(.selected)` chegou a ser escrito aqui neste
-   lote e saiu na mesma revisão: ele era código morto por dois motivos
-   empilhados — a classe não chega, e mesmo forçada ela perderia para
-   `.coll-songs > .hymn-result { --linha: var(--item-fill) }`, que empata em
-   (0,2,0) com `.lib-item.no-ar` e vence por ordem de fonte. O conserto de
-   verdade tem DUAS metades e nenhuma serve sozinha; ele está descrito em
-   `docs/ACHADOS-EM-ABERTO.md`. O irmão dos FAVORITOS, esse, era alcançável e
-   foi corrigido (ver a regra da `.fav-itens`). */
+/* ---------- O NÍVEL 3 NÃO TEM FUNDO — SÓ O ESTADO (v1.13.14) ----------
+   A faixa de um álbum recebe `.no-ar` desde a v1.13.14 (`pintarFaixaNoAr`: pela
+   ORIGEM do toque, álbum + música — ver `faixaPendente`). As duas regras de baixo
+   são `(0,3,0)` e `(0,2,0)` e vinham DEPOIS de `.lib-item.no-ar` `(0,2,0)`: sem as
+   variantes com `.no-ar` elas apagavam o estado (no escuro, a mesma tinta da
+   vizinha; no claro, 1,00:1). Quem trava a cor nos dois temas é o oráculo
+   `faixa-no-ar`. */
 .acervo .coll-songs > .hymn-result { --linha: transparent; }
+.coll-songs > .hymn-result.no-ar,
+.acervo .coll-songs > .hymn-result.no-ar { --linha: var(--live-fill); }
 /* ---------- METADE DO VÃO MORA DENTRO DA CAIXA (v1.5.17) ----------
    Relato do operador: *"o alinhamento vertical das linhas de divisão entre os
    itens das listas … estão ligeiramente descentralizadas para baixo em relação

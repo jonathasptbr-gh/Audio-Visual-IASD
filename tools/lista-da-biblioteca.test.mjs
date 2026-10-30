@@ -373,20 +373,11 @@ try {
       + 'sobre a borda esquerda do `.hymn-name`', { primeiro, nome: l.nome });
   }
 
-  // ---- A5 · A FAIXA DE UM ÁLBUM NÃO RECEBE ESTADO ----------------------
-  // A regra do traço não tem `z-index`, e a `.row` (z-index 1) o cobriria se
-  // pintasse um `--linha` OPACO. Dentro de um álbum isso não acontece — e a
-  // razão é anterior à cor: a faixa NUNCA é marcada. Quem escreve `.no-ar` /
-  // `.active` é o `marcarNoAr`, que varre `.lib-item,.row-item` e lê
-  // `el.dataset.id`; o `hymnResultRow` escreve `dataset.song` e nunca
-  // `dataset.id`.
-  //
-  // O QUE SE AFIRMA É A AUSÊNCIA, pelo caminho REAL, e ela é o par da B0 logo
-  // abaixo (onde o FAVORITO, que escreve `dataset.id`, É marcado no mesmo
-  // passe). As duas juntas dizem por que o conserto tem duas metades — ver
-  // `docs/ACHADOS-EM-ABERTO.md`. Escrever aqui "a faixa no ar pinta" seria
-  // afirmar um estado que o app não produz, e o oráculo passaria a bloquear o
-  // conserto em vez de guardá-lo.
+  // ---- A5 · A FAIXA DE UM ÁLBUM NÃO ACENDE POR OUTRA PORTA -----------
+  // Desde a v1.13.14 a faixa acende pela ORIGEM do toque (álbum + música, ver
+  // `faixaPendente` e o oráculo `faixa-no-ar`). Aqui a mídia no ar é a do
+  // FAVORITO, posta pelo caminho real: o favorito acende e a faixa de álbum não,
+  // porque nenhum toque nasceu dentro de um álbum.
   {
     const marcacao = await pg.evaluate(({ nA }) => {
       const alb = [...document.querySelectorAll('#hymnResults .coll-songs')]
@@ -413,9 +404,8 @@ try {
       + 'escreve `dataset.id`, e é essa metade que o lote consertou',
       marcacao);
     checar(!marcacao.faixaTemId && !marcacao.faixaMarcada,
-      'A5b · e a faixa de um ÁLBUM não é marcada: `hymnResultRow` não escreve '
-      + '`dataset.id`. É a AUSÊNCIA que está registrada em ACHADOS-EM-ABERTO, e '
-      + 'ela é o par da de cima — não uma promessa que o app não cumpre',
+      'A5b · e a faixa de um ÁLBUM não acende com a mídia posta por OUTRA porta (o '
+      + 'favorito): ela acende pela origem do toque, que o oráculo `faixa-no-ar` mede',
       marcacao);
   }
 
@@ -501,8 +491,7 @@ try {
       '[' + tema + '] B4 · REVERSÃO: a faixa NEUTRA continua SEM preenchimento — '
       + 'ela lê a placa por baixo, que é a regra da v1.5.14. Sem esta metade, '
       + '"pintar tudo" passaria', e);
-    // (B1/B2/B3 — a faixa de ÁLBUM no ar — saíram na revisão deste lote: elas
-    // afirmavam um estado que o app não produz. Ver A5b e ACHADOS-EM-ABERTO.)
+    // (A tinta da faixa de ÁLBUM no ar, nos dois temas, é medida no `faixa-no-ar`.)
     checar(distancia(e.favNoAr, e.favNeutro) >= 8,
       '[' + tema + '] B5 · o FAVORITO no ar PINTA, e a cor difere da linha neutra '
       + 'ao lado — é o conserto de cascata deste lote: `#hymnResults > '

@@ -436,7 +436,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.13';
+const WEB_VERSION = '1.13.14';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -15673,6 +15673,8 @@ function favBtn(id, nome) {
 // disparar (é onde ele confere a senha), e sem isto o vídeo do slide levaria o
 // dobro do tempo para entrar.
 async function send(id, daFila, recPronto) {
+  const faixaDoToque = faixaPendente;   // ver `faixaPendente`: consumido em TODO envio
+  faixaPendente = null;
   ++projecaoSeq;   // ver `projecaoSeq`: invalida um versículo de roteiro em voo
   ++cenaSeq;       // ver `cenaSeq`: a senha do SLOT DE MÍDIA, só deste ponto
   // E DESARMA A VOLTA DA APRESENTAÇÃO. `send` é o ponto por onde todo caminho
@@ -15783,6 +15785,10 @@ async function send(id, daFila, recPronto) {
     if (pend && alvo && alvo.youtubeId === pend.yt) semanaAncora = { virtualId: pend.virtualId, epId: id };
     else if (!(semanaAncora && semanaAncora.epId === id)) semanaAncora = null;
   }
+  // A FAIXA DE ÁLBUM (v1.13.14): o toque que veio de um álbum a fixa; repetir a
+  // mesma faixa pela fila a mantém; qualquer outra porta a solta.
+  if (faixaDoToque) faixaNoAr = { chave: faixaDoToque, mediaId: id };
+  else if (!(daFila && faixaNoAr && faixaNoAr.mediaId === id)) faixaNoAr = null;
   currentId = id;
   // O registro já foi resolvido acima (listas carregadas, com o IDB como
   // reserva) — a mídia AVULSA (v5.87 — "Tocar agora" num vídeo do YouTube) não
@@ -20548,6 +20554,8 @@ function marcarNoAr() {
   renderCamadaBtn();
   document.querySelectorAll('.lib-item,.row-item').forEach((el) => {
     const id = el.dataset.id;
+    // A FAIXA DE ÁLBUM não tem `data-id` (v1.13.14): ela acende pela ORIGEM do toque.
+    if (!id && el.dataset.song) { pintarFaixaNoAr(el); return; }
     el.classList.toggle('active', linhaAtiva(id));
     const noAr = linhaNoAr(id);
     el.classList.toggle('no-ar', noAr);
@@ -20640,6 +20648,16 @@ function pintarFalha(sub, id) {
   selo.textContent = f.texto;
   sub.prepend(selo);
   if (sub.textContent.replace(f.texto, '').trim()) selo.after(' · ');
+}
+
+// A faixa de álbum no ar: a classe e o selo. O selo vai no NOME, que é a linha que
+// toda faixa tem — dentro de um álbum ela não tem subtítulo, e criar um faria a
+// faixa crescer de altura ao entrar no ar.
+function pintarFaixaNoAr(li) {
+  const noAr = faixaAlbumNoAr(li);
+  li.classList.toggle('no-ar', noAr);
+  const nome = li.querySelector('.hymn-name');
+  if (nome) pintarSubNoAr(nome, noAr);
 }
 
 function pintarSubNoAr(sub, noAr) {
@@ -22439,6 +22457,24 @@ function semanaLinha(coll) {
 // devolve um registro novo cujo id ninguém conhecia no toque.
 let semanaAncora = null;     // { virtualId, epId }
 let semanaPendente = null;   // { virtualId, yt }
+
+// ===== A FAIXA DE ÁLBUM NO AR (v1.13.14) =====
+//
+// Decisão do operador: *"acender apenas o álbum de onde está tocando o item"*. A
+// faixa de um álbum é uma MÚSICA DE CATÁLOGO, não um item: ela não tem `data-id`,
+// e a mesma música pode estar em dois álbuns. Por isso o que acende é a ORIGEM do
+// toque — a chave da linha (`songRowKey`, álbum + música) que pôs a mídia no ar —,
+// e só quando o toque nasceu DENTRO de um álbum (`data-album`). Tocada por outra
+// porta (Cronograma, Favoritos, busca, o "vídeo da semana"), nenhuma faixa acende.
+// `faixaPendente` é escrito por quem toca a partir de uma linha de álbum logo antes
+// do `send`, que o consome (sempre, no topo) e o fixa em `faixaNoAr` junto do id.
+let faixaPendente = null;    // a chave da linha de álbum que está tocando agora
+let faixaNoAr = null;        // { chave, mediaId }
+
+function faixaAlbumNoAr(el) {
+  return !!(el && el.dataset.album && midiaNoAr && faixaNoAr
+    && faixaNoAr.chave === el.dataset.song && faixaNoAr.mediaId === midiaNoArId);
+}
 
 function ancoraDaFila() {
   return (semanaAncora && semanaAncora.epId === currentId) ? semanaAncora.virtualId : currentId;
@@ -26531,6 +26567,7 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura, extra) {
   if (tocar && projecaoSeq === senhaDoToque) {
     // A mídia avulsa não está em `libItems` nem em `plItems`, então quem
     // resolve o nome dela é o `send` (que cai no `getMedia`).
+    faixaPendente = r.__origemFaixa || null;
     await send(rec.id);
     // O 100 É A MÍDIA TOCANDO — e a espera é só do NÚMERO: o `send` já foi, e
     // nada aqui segura a cena. A barra fica reservada para não ser abandonada
@@ -26832,6 +26869,13 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
   // música depois de um redesenho (ver setSongRowBusy).
   const chave = songRowKey(coll, s);
   li.dataset.song = chave;
+  // DENTRO DE UM ÁLBUM (a lista do card, ou o destaque da série): só aqui a faixa
+  // acende no ar. Um resultado da BUSCA é a mesma linha com a coleção embaixo, e
+  // não acende — a decisão do operador é pela origem (ver `faixaPendente`).
+  const doAlbum = !!semColecao;
+  if (doAlbum) li.dataset.album = '1';
+  // O toque que nasce aqui deixa a origem para o `send` (`faixaPendente`).
+  const origem = doAlbum ? chave : null;
   if (simpleLinhaSelecionada(chave)) li.classList.add('selecionando');
 
   const row = document.createElement('div'); row.className = 'row hymn-row';
@@ -27020,6 +27064,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
       // ser posto e apenas redesenha a lista com ele. Um `serieComoYoutube`
       // novo seria outro objeto — o estado seria zerado e o irmão sumiria.
       const r = serieComoYoutube(coll, s);
+      r.__origemFaixa = origem;
       // ===== JÁ ESTÁ NO APARELHO? A QUALIDADE SAI DA FOLHA (v1.8.87) =====
       //
       // A leitura é AQUI e não dentro do `openYtMenu` porque aquele é chamado de
@@ -27041,7 +27086,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
         if (songMenuFor) { songMenuFor.aoLado = aoLado; openYtMenu(r, opcoes); }
       });
     }
-    songMenuFor = { coll, s, variant: 'full', alvo: opcoes, aoLado };
+    songMenuFor = { coll, s, variant: 'full', alvo: opcoes, aoLado, origem };
     // A marca nasce AQUI e não em `renderSongMenu`: aquela função é também o
     // `destRemontar` (o seletor Cantada/Playback e cada marca de destino a
     // chamam de volta), e remarcar lá dentro tornaria o "Tocar agora"
@@ -27221,7 +27266,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
 
   row.addEventListener('click', async () => {
     // No simplificado a linha TOCA — não abre gaveta nenhuma.
-    if (appMode === 'simple') { simpleSelecionarLinha(li); simpleAcompanhar(simplePlaySong(coll, s)); return; }
+    if (appMode === 'simple') { simpleSelecionarLinha(li); simpleAcompanhar(simplePlaySong(coll, s, origem)); return; }
     const aberta = li.classList.contains('expanded');
     // Acordeão: abrir uma fecha a anterior — duas linhas abertas ao mesmo
     // tempo empurrariam a lista e tirariam do lugar o que o operador mira. O
@@ -27269,6 +27314,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
   });
 
   li.append(row, gaveta);
+  if (doAlbum) pintarFaixaNoAr(li);
   return li;
 }
 
@@ -27738,7 +27784,7 @@ function renderSongMenu() {
   // qualquer abertura futura sem `coll` de desestruturar o que não existe.)
   if (!songMenuFor || songMenuFor.yt || songMenuFor.destPrompt || songMenuFor.folha
       || songMenuFor.item) return;
-  const { coll, s } = songMenuFor;
+  const { coll, s, origem } = songMenuFor;
   const temPlayback = !!s.has_instrumental_music;
   // ===== O ALVO PODE NÃO SER A FOLHA (v5.285) =====
   //
@@ -27796,7 +27842,7 @@ function renderSongMenu() {
       if (listas.length) await addLyricCue(coll, s, btn, listasDosDestinos(listas));
       return;
     }
-    if (tocar) await playSongVariant(coll, s, vr);
+    if (tocar) await playSongVariant(coll, s, vr, origem);
     if (listas.length) await addSongToDestinos(coll, s, vr, listas, btn);
   };
   // "Tocar agora" é o único que NÃO guarda nada, e é isso que o rótulo não diz
@@ -27964,17 +28010,22 @@ async function resolveSongMediaId(coll, s, variant) {
 // estiver no aparelho, pergunta ANTES de gastar internet — uma vez só: quem
 // respondeu "baixar" já disse como quer que o app se comporte, e repetir a
 // pergunta a cada música viraria ruído no meio do culto.
-async function simplePlaySong(coll, s) {
+async function simplePlaySong(coll, s, origem) {
   // NO MODO FÁCIL A SÉRIE ENTRA SEM PERGUNTA (v5.230): este modo existe para
   // não perguntar nada, e `ytAcao` com "tocar" e nenhum destino de guarda é o
   // caminho do `ytArquivo` — download e projeta, com o cartão sobre a preview
   // cobrindo a espera. A TRANSMISSÃO DIRETA que este caminho usava saiu na
   // v1.7.7, e o preço está aceito e escrito: um episódio pesa ~300 MB e o
   // "Tocar agora" espera por ele.
-  if (ehLink(coll)) { await ytAcao(serieComoYoutube(coll, s), ['tocar'], null, false, 0); return; }
+  if (ehLink(coll)) {
+    const r = serieComoYoutube(coll, s);
+    r.__origemFaixa = origem || null;
+    await ytAcao(r, ['tocar'], null, false, 0);
+    return;
+  }
   const { needsFull } = await songVariantsNeeded(coll, s);
   if (needsFull && !(await ensureDownloadConsent())) return;
-  await playSongVariant(coll, s, 'full');
+  await playSongVariant(coll, s, 'full', origem);
 }
 
 // Persistido em `state.downloadOk`: a resposta vale para as próximas sessões
@@ -28474,7 +28525,7 @@ function previewBusy(acao, nome, aoCancelar) {
   };
 }
 
-async function playSongVariant(coll, s, variant) {
+async function playSongVariant(coll, s, variant, origem) {
   // A RESPOSTA VEM PRIMEIRO. Fechar o acervo aqui, e não depois do download, é
   // o que faz o toque parecer ter funcionado — que é exatamente o que ele fez.
   closeSongMenu();
@@ -28491,6 +28542,7 @@ async function playSongVariant(coll, s, variant) {
     const rec = await AVDB.getMedia(id);
     if (!rec) { bg.falhar('não foi possível abrir a mídia'); return; }
     await replacePlaylistWith(rec);
+    faixaPendente = origem || null;
     await send(id);
   } finally {
     bg.soltar();

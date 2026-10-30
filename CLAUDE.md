@@ -61,9 +61,8 @@ tem o que se pode quebrar sem abrir o capítulo, e o capítulo tem o resto:
 
 **Fora daqui:** `docs/ACHADOS-EM-ABERTO.md` (os defeitos CONFIRMADOS e ainda não
 corrigidos, com cenário e correção proposta — **leia antes de mexer no que ele
-nomeia**; hoje tem QUATRO — os dois do áudio do espelhamento, o CLIENTE de onde
-sai a escada da transmissão, e a faixa de álbum que nunca é marcada como NO AR
-—, e é arquivo para esvaziar, não para crescer),
+nomeia**; hoje tem TRÊS — os dois do áudio do espelhamento e o CLIENTE de onde
+sai a escada da transmissão —, e é arquivo para esvaziar, não para crescer),
 `docs/shell/README.md`
 (o HUB do **Kotlin**: um capítulo por
 subsistema do shell, mais a tabela que diz onde cada um dos 32 arquivos é
@@ -2135,7 +2134,7 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os de Chromium são **130** e os de Node puro **23** — juntos, os 153 (contados na v1.13.13). MEDIDO com
+Os de Chromium são **131** e os de Node puro **23** — juntos, os 154 (contados na v1.13.14). MEDIDO com
 82 deles: **~13 min em série** e **~4,3 min nos três processos** (4 vCPU, o mesmo
 do runner); os de Node puro somam **8 s**. **Os números moram no `apk.yml`**, ao
 lado do passo que descrevem, e esta é a cópia — divergiram uma vez (79/99 aqui
@@ -3045,10 +3044,12 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.13.13 · APK v1.13.12** · `SHELL_VERSION` **82** ·
+**Versão atual: base web v1.13.14 · APK v1.13.12** · `SHELL_VERSION` **82** ·
 bundle com `minShell: 82` e **sem `shellTag`** — o shell 82 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. **Este lote é só
-web** (a Release v1.13.12 já existe). **A v1.13.13 FAZ DO "VÍDEO DA SEMANA" UM ITEM**
+web** (a Release v1.13.12 já existe). **A v1.13.14 ACENDE A FAIXA DE ÁLBUM NO AR**
+pela ORIGEM do toque (álbum + música: `faixaPendente`/`faixaNoAr`; ver o capítulo
+do Controle, "A faixa de álbum no ar"). **A v1.13.13 FAZ DO "VÍDEO DA SEMANA" UM ITEM**
 (registro virtual `kind: 'semana'`, resolvido pelo `send` antes do `load`; ver
 `docs/recursos/SERIES.md`). **A v1.13.12 FAZ TRÊS COISAS**: o vídeo do computador
 conectado se deixa buscar desde o primeiro byte (o servidor responde 200/206 pelo

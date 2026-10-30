@@ -5411,6 +5411,25 @@ cirurgia de DOM nesse ritmo recriaria botões e perderia listeners quatro vezes
 por segundo. O teste mede o RENDERIZADO, não a presença do nó: uma regra que
 deixe de casar não apaga botão nenhum, ela só para de escondê-lo, em silêncio.
 
+#### A faixa de álbum no ar (v1.13.14)
+
+A faixa de um álbum é uma MÚSICA DE CATÁLOGO: ela não tem `data-id` (só
+`data-song`, `songRowKey` = álbum + música), e a mesma música pode estar em dois
+álbuns. Decisão do operador: *"acender apenas o álbum de onde está tocando o
+item"*. Por isso ela acende pela **ORIGEM do toque**, não pela música:
+
+| peça | o que faz |
+|---|---|
+| `data-album` | o `hymnResultRow` o escreve só com `semColecao` (a lista do card e o destaque da série). Um resultado da BUSCA é a mesma linha com a coleção embaixo, e não acende |
+| `faixaPendente` | a chave da linha, escrita logo antes do `send` por quem toca a partir dela: `playSongVariant(…, origem)` (gaveta e Modo Fácil, via `simplePlaySong`) e o `ytAcaoInterno` (`r.__origemFaixa`, o episódio de série) |
+| `faixaNoAr` | `{ chave, mediaId }`, fixado pelo `send` (que consome o pendente em TODO envio). Repetir pela fila (`daFila` com o mesmo id) mantém; qualquer outra porta — Cronograma, Favoritos, busca, sorteio, o "vídeo da semana" — solta |
+| `pintarFaixaNoAr` | chamado pelo `marcarNoAr` (linha sem `data-id` e com `data-song`) e na montagem da linha: `.no-ar` e o selo `● No ar` prefixado ao NOME (a faixa de álbum não tem subtítulo, e criar um a faria crescer ao entrar no ar) |
+
+**A cor tem regra própria:** `.coll-songs > .hymn-result` `(0,2,0)` e
+`.acervo .coll-songs > .hymn-result` `(0,3,0)` vêm depois de `.lib-item.no-ar`
+`(0,2,0)` e apagavam o estado; as variantes com `.no-ar` repõem `--live-fill`.
+Oráculo: `faixa-no-ar.test.mjs` (a mesma música em dois álbuns, os dois temas).
+
 #### Os botões da linha viram UM SÓ (o `⋮`)
 
 A coluna de texto é `flex: 1` entre a miniatura e uma fileira que **cresce com o
