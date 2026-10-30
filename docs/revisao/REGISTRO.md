@@ -12,7 +12,7 @@ abandonada → primeira pendente pelo `nº`).
 
 | nº | id | estado | versão entregue | data | resumo em uma linha |
 |---|---|---|---|---|---|
-| 1 | A1 | parcial (faltam `configuracoes-janelas`, `busca-na-tela`, `favoritos-fechar`; ver o relatório) | sem versão (só `tools/`) | 2026-10-30 | 4 oráculos instáveis consertados; 1 é corrida do APP (repasse W2) |
+| 1 | A1 | em curso (retomada do parcial) | sem versão (só `tools/`) | 2026-10-30 | 4 oráculos instáveis consertados; 1 é corrida do APP (repasse W2) |
 | 2 | A2 | pendente | | | |
 | 3 | A3 | pendente | | | |
 | 4 | A4 | pendente | | | |
