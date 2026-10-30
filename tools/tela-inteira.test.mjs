@@ -124,8 +124,10 @@ try {
   checar(b2 === true, 'B2 · um toque na tela acende a coluna', String(b2));
   // B3 (v1.12.41) · o TÍTULO e a LINHA DO TEMPO existem também na tela inteira do app e acendem com a
   // coluna. A mídia plantada não tem duração: a premissa a escreve, como o `display-status`.
-  await pg.evaluate(() => { seekEl.disabled = false; seekEl.max = '90'; seekEl.value = '0'; renderSimpleTime(); });
+  // A ESCRITA E A LEITURA NUM `evaluate` SÓ: entre dois, um evento do `<video>` da prévia (sem duração)
+  // reescreve o `seekEl` e esconde a linha — no runner foi o que reprovou (run 2243, `display: none`).
   const b3 = await pg.evaluate(() => {
+    seekEl.disabled = false; seekEl.max = '90'; seekEl.value = '0'; renderSimpleTime();
     const est = (id) => { const el = document.getElementById(id); const cs = getComputedStyle(el);
       return { vis: el.classList.contains('visivel'), display: cs.display, top: Math.round(el.getBoundingClientRect().top) }; };
     return { topo: est('pvFsTopo'), base: est('pvFsBase'), nome: document.getElementById('pvFsNome').textContent, vh: innerHeight };

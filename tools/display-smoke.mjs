@@ -270,7 +270,16 @@ checar(depoisDoClear, 'e o `clear` segue encerrando a CENA INTEIRA — ele não 
 //
 //    A espera por `saindoDeCena === 0` é a outra metade da correção: sem ela o
 //    caso começaria a contar com o fade anterior ainda aberto.
+//    E O CONTADOR A ZERO NÃO É O STATUS ENTREGUE: o `then` que zera emite o
+//    status final pelo `BroadcastChannel`, e a entrega no espião é outra tarefa.
+//    No runner ela chegou DEPOIS de o caso zerar o espião, e contou como o
+//    "status do meio do fade" (run 2243). A MARCA sai pelo MESMO canal do telão,
+//    que entrega na ordem de envio: vista a marca, tudo que veio antes chegou.
 await telao.waitForFunction(() => saindoDeCena === 0, null, { timeout: 4000 }).catch(() => {});
+await telao.evaluate(() => AVDB.sendCommand({ type: '__marca-smoke' }));
+await espiao.waitForFunction(
+  () => window.__vistos.some((c) => c && c.type === '__marca-smoke'), null, { timeout: 4000 },
+).catch(() => {});
 await espiao.evaluate(() => { window.__vistos.length = 0; });
 const mecanismo = await telao.evaluate(() => {
   if (typeof aoSairDeCena !== 'function') return 'sem a guarda';

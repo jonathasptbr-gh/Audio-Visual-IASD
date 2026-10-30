@@ -12,7 +12,7 @@ abandonada → primeira pendente pelo `nº`).
 
 | nº | id | estado | versão entregue | data | resumo em uma linha |
 |---|---|---|---|---|---|
-| 1 | A1 | em curso | | 2026-10-30 | |
+| 1 | A1 | parcial (faltam `configuracoes-janelas`, `busca-na-tela`, `favoritos-fechar`; ver o relatório) | sem versão (só `tools/`) | 2026-10-30 | 4 oráculos instáveis consertados; 1 é corrida do APP (repasse W2) |
 | 2 | A2 | pendente | | | |
 | 3 | A3 | pendente | | | |
 | 4 | A4 | pendente | | | |
@@ -51,9 +51,34 @@ tratou.
 
 | para | de | achado (arquivo:símbolo — cenário) |
 |---|---|---|
+| W2 | A1 | `shared/stage.js`:`aplicarGiroTudo` — SUSPEITA com cenário: `enquadramento-da-camada` reprovou IDÊNTICO nos runs 2229 e 2242 (`pvTextImg` com `cover` mas sem giro, caixa = palco 669×376). Com a camada (`#pvText`) ainda `hidden` quando o `reporGiro` roda, o reenvio por `requestAnimationFrame` desiste em `GIRO_TENTATIVAS` (60 QUADROS, não tempo): se a revelação vier depois disso (runner lento), a imagem sobreposta fica SEM o giro para sempre — sem TV, isso é a projeção. Medir: forçar a revelação depois de 60 quadros; conserto provável: quem revela a camada chama `reporGiro` DEPOIS de revelar o ancestral, ou um `ResizeObserver` na própria `camadaImg`. O oráculo não foi mexido: esperar pelo giro esconderia o defeito |
 
 ## Relatórios
 
 Um bloco por etapa executada, ≤ 25 linhas: corrigido · achado e não corrigido
 (com o porquê) · repasses · ponto de parada · o que o operador confere no
 aparelho.
+
+### A1 · CI estável — parcial (2026-10-30)
+
+Levantamento das 10 runs vermelhas mais 2 tentativas (runs 2213–2248): 8 oráculos
+reprovaram por acaso, nenhum tocado pelo lote que os reprovou (o commit `9c24d68`
+reprovou 3 vezes, cada uma num oráculo diferente). **Consertados (só o oráculo):**
+- `display-smoke` 5-B — o status final do `clear` anterior chegava ao espião
+  DEPOIS de ele ser zerado (o `saindoDeCena === 0` não é a entrega). Agora uma
+  MARCA sai pelo mesmo `BroadcastChannel` do telão e o zero espera por ela.
+- `tela-inteira` B3 — a premissa (`seekEl` com duração) e a leitura em dois
+  `evaluate`; entre eles um evento do `<video>` sem duração escondia a linha.
+- `excluir-em-cena` — a espera "tocando e > 0,2 s" casava com o vídeo ANTERIOR
+  ainda no fade de saída (o `<video>` é o mesmo elemento); agora exige a fonte nova.
+- `servidor-indisponivel` D1 — o `apurarFonte('teste')` depois do `setOffline`
+  devolvia a apuração da abertura ainda em voo (partida ONLINE → `servidor`).
+**Não consertados:** `enquadramento-da-camada` (corrida do APP → repasse W2).
+**Ponto de parada (o que a próxima sessão retoma):** `configuracoes-janelas` D
+(runs 2213, 2234, 2244 — "a lista nomeia cada coleção": os álbuns semeados não
+aparecem no corpo da seção em 20 s; o texto de 2244 não foi lido, o log corta em
+~5.000 linhas); `busca-na-tela` A/C (run 2232, o vídeo da rede não tocou em 15 s);
+`favoritos-fechar` A8 (run 2209 tentativa 1, cabeçalho deslocou 10,34px ao abrir).
+**A carga local NÃO reproduziu:** `display-smoke` antigo e novo, 12 rodadas cada (3 em paralelo + 4 `yes`), 0 reprovações nos dois; os outros três passaram sob a mesma carga. Os consertos saem da leitura do valor impresso no log do CI — a prova é o CI ficar verde nas próximas ~10 runs (conferir antes de fechar a A1).
+**O operador:** nada a fazer no aparelho — só o CI muda.
+
