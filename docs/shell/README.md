@@ -20,8 +20,9 @@ para a TV com `android.app.Presentation`.
 > Os demais subsistemas ainda não têm capítulo próprio: o telão nas telas da
 > rede está em [`../TELAO-POR-COMANDOS.md`](../TELAO-POR-COMANDOS.md), e o resto
 > (YouTube, serviços em primeiro plano, Activity/WebViews, arquivos do aparelho,
-> build/assinatura/backup) vive nas seções correspondentes do `CLAUDE.md` mais o
-> KDoc dos arquivos.
+> build/assinatura/backup) vive nas seções correspondentes do `CLAUDE.md`, no
+> [`../BUILD.md`](../BUILD.md) (build, assinatura, backup) e no
+> [`../DIVERGENCIAS-WEB-NATIVO.md`](../DIVERGENCIAS-WEB-NATIVO.md), mais o KDoc dos arquivos.
 
 ## Os 33 arquivos, e onde cada um é explicado
 
@@ -42,21 +43,21 @@ para a TV com `android.app.Presentation`.
 | `EspelhoEnergia.kt` | 334 | idem |
 | `EspelhoCert.kt` | 298 | idem (TLS opcional; **sem UI desde a v5.196**) |
 | `EspelhoDiag.kt` | 116 | idem |
-| `YoutubeGrab.kt` | 1.996 | `CLAUDE.md` — "Trabalho em segundo plano" e "Divergências" |
+| `YoutubeGrab.kt` | 1.996 | `CLAUDE.md` — "Trabalho em segundo plano"; [`../DIVERGENCIAS-WEB-NATIVO.md`](../DIVERGENCIAS-WEB-NATIVO.md) |
 | `StreamProxy.kt` | 511 | `CLAUDE.md` — invariante 8 |
-| `MuxMp4.kt` | 190 | `CLAUDE.md` — "Resolução do download" |
-| `MuxMp4.kt` | 191 | `CLAUDE.md` — "Divergências" (acima de 720p o YouTube entrega vídeo sem som; o `MediaMuxer` junta as duas faixas por CÓPIA de amostras, sem recodificar, e pares de contêineres diferentes o muxer recusa DEPOIS de tudo baixado) |
+| `MuxMp4.kt` | 190 | [`../DIVERGENCIAS-WEB-NATIVO.md`](../DIVERGENCIAS-WEB-NATIVO.md) — "Resolução do download" |
+| `MuxMp4.kt` | 191 | [`../DIVERGENCIAS-WEB-NATIVO.md`](../DIVERGENCIAS-WEB-NATIVO.md) (acima de 720p o YouTube entrega vídeo sem som; o `MediaMuxer` junta as duas faixas por CÓPIA de amostras, sem recodificar, e pares de contêineres diferentes o muxer recusa DEPOIS de tudo baixado) |
 | `TrilhaAudio.kt` | 138 | `CLAUDE.md` — "Séries do YouTube" |
 | `SessionService.kt` | 916 | `CLAUDE.md` — "Notificação de controles" |
 | `SyncService.kt` | 550 | `CLAUDE.md` — "Trabalho em segundo plano" |
-| `MainActivity.kt` | 2.992 | `CLAUDE.md` — voltar, volume, cast, saída de áudio, fullscreen |
-| `StagePresentation.kt` | 188 | `CLAUDE.md` — "Reconexão e morte do renderer" |
-| `MicChromeClient.kt` | 81 | `CLAUDE.md` — "O microfone ao vivo SAIU" (**sem consumidor desde a v1.8.89**: o recurso saiu pelo lado WEB e o Kotlin ficou, que é o lado seguro de encolher a ponte) |
-| `MicDiag.kt` | 181 | `CLAUDE.md` — "O microfone ao vivo SAIU" (idem: o `micDiag` da ponte é servido e ninguém o chama. Leitura PURA — não abre nada, não pede nada) |
+| `MainActivity.kt` | 2.992 | [`../DIVERGENCIAS-WEB-NATIVO.md`](../DIVERGENCIAS-WEB-NATIVO.md) — voltar, volume, cast, saída de áudio, fullscreen |
+| `StagePresentation.kt` | 188 | [`../arquitetura/DISPLAY.md`](../arquitetura/DISPLAY.md) — "Reconexão e morte do renderer" (resumo no `CLAUDE.md`) |
+| `MicChromeClient.kt` | 81 | [`../DIVERGENCIAS-WEB-NATIVO.md`](../DIVERGENCIAS-WEB-NATIVO.md) — "O microfone ao vivo SAIU" (**sem consumidor desde a v1.8.89**: o recurso saiu pelo lado WEB e o Kotlin ficou, que é o lado seguro de encolher a ponte) |
+| `MicDiag.kt` | 181 | [`../DIVERGENCIAS-WEB-NATIVO.md`](../DIVERGENCIAS-WEB-NATIVO.md) — "O microfone ao vivo SAIU" (idem: o `micDiag` da ponte é servido e ninguém o chama. Leitura PURA — não abre nada, não pede nada) |
 | `PacoteProvider.kt` | 39 | `CLAUDE.md` — "O pacote de transferência" (subclasse VAZIA do `FileProvider`, e ela É a correção do "0 KB": duas autoridades sobre a MESMA classe compartilham a instância — e a tabela de caminhos — da primeira, porque o `ActivityThread` as guarda por `ComponentName`. Oráculo: `manifest-provedores.test.mjs`) |
 | `PacoteCanal.kt` | 265 | `CLAUDE.md` — "O pacote de transferência" (o SEGUNDO canal de `ArrayBuffer` do shell; abrir e fechar o destino entram pela ponte, porque envolvem uma PESSOA) |
 | `MessageBus.kt` | 54 | `CLAUDE.md` — "Barramento de comandos" |
-| `ShareIntake.kt` | 143 | `CLAUDE.md` — "Compartilhamento" |
+| `ShareIntake.kt` | 143 | [`../DIVERGENCIAS-WEB-NATIVO.md`](../DIVERGENCIAS-WEB-NATIVO.md) — "Compartilhamento" |
 | `SlideDeck.kt` | 321 | [`../arquitetura/DOCUMENTO-EM-CENA.md`](../arquitetura/DOCUMENTO-EM-CENA.md) |
 | `Farol.kt` | 244 | [`../MEDICAO-DE-ALCANCE.md`](../MEDICAO-DE-ALCANCE.md) — uma busca por dia, agregada, sem id nenhum |
 | `CifraFonte.kt` | 178 | `CLAUDE.md` — "A aba de cifra" (transporte só; quem lê o HTML é `controle/cifra.js`) |

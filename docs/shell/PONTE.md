@@ -1009,3 +1009,205 @@ window.AVNative = {
                        //   (`farolContar` SAIU no shell 61 — ver abaixo)
 }
 ```
+
+## As regras da ponte como estavam no núcleo (revisão A2)
+
+> **Movido do `CLAUDE.md` na revisão A2 (2026-10-30), sem mudança de texto** (só os links relativos e o nível dos títulos). No núcleo ficou um resumo com o link para cá. "Acima", "abaixo", "esta seção" e as invariantes numeradas falam do `CLAUDE.md`, de onde este texto veio.
+
+Definida em `shared/native.js` (web) sobre `__AVBridge` (Kotlin,
+`NativeBridge.kt`). **Só existe quando `window.__AVBridge` existe** — no
+navegador a IIFE retorna na entrada e nada é definido, nem `__NATIVE__`.
+
+**O CATÁLOGO dos 64 métodos, um a um, está em
+[`docs/shell/PONTE.md`](PONTE.md)** — é referência, aberta por
+método. Aqui ficam as REGRAS, que valem para todos eles.
+
+São **64 métodos**, e essa é a superfície inteira que o resto do lado web tem
+direito de usar — o SHELL serve **76** métodos `@JavascriptInterface`, e a
+diferença de 15 contra os 61 que têm par no Kotlin (os outros três da superfície
+são callbacks só do lado web) são os NOVE internos logo abaixo mais SEIS
+ÓRFÃOS encolhidos pelo lado web: três na v1.8.71 (`ytStream`, `otaPending`,
+`apkProcurar` — órfãos de duas fusões), dois na v1.8.89 (`requestMic`,
+`micDiag`, com o MICROFONE AO VIVO) e o `salvarTexto` na v1.12.44 (o Registro
+passou a ser compartilhado). O Kotlin continua servindo os seis. **Encolher no WEB primeiro é o lado seguro** — um APK que ainda serve
+métodos que ninguém chama não custa nada ao aparelho; é a ordem inversa (base
+web nova contra APK velho) que precisa do `shellTag`. Quem guarda a regra agora
+é o `funcao-sem-chamador.test.mjs`, que varre a superfície da ponte e exige
+consumidor fora do `native.js` — fora do `native.js`, tocar em `__AVBridge` direto é
+acoplamento indevido. O próprio `native.js` chama mais NOVE coisas lá, e nenhuma
+é API para o app: `ytFetchAudio` e `ytFetchAte` (não são métodos a mais, são os
+outros dois DESTINOS do `ytFetch` — só-áudio e teto de resolução),
+`espelhoLigarEm` (a via escolhida pelo operador, por trás do `espelhoLigar`),
+`shellVersion()`/`role()`/`appVersion()` (viram as globais abaixo), `busPost()`
+(relay do barramento), `otaConfirm()` (watchdog do OTA) e `takeShare()` (consumo
+do share pendente, que alimenta o `onShare`). **A conta fecha, e é MEDIDA:** 64
+de superfície − 3 callbacks sem par no Kotlin (`onShare`, `onRemote`,
+`onDisplayChange`) + 9 internos = 70 chamados, + 6 órfãos = 76 servidos. A
+varredura que a refaz é o que responde em vez da memória, porque estes números
+envelhecem a cada lote de ponte: `@JavascriptInterface` + `fun <nome>` no
+`NativeBridge.kt` contra `B.<nome>(` no `native.js` (as três ocorrências de
+`@JavascriptInterface` em comentário do arquivo não contam — por isso o `grep -c`
+cru dá 78). Remedida na v1.12.44 (shell 82: entrou `compartilharArquivoTexto` e o
+`salvarTexto` saiu do web, virando o sexto ÓRFÃO): 64 · 70 · 76.
+
+**Quatro globais lidas direto, sem Promise:** `window.__NATIVE__`, `__AV_ROLE__`
+(`'controle'`/`'display'`; o terceiro valor, `'tela'`, é escrito por
+`espelho/tela.js`, não pela ponte), `__SHELL_VERSION__` (o inteiro do contrato) e
+`__SHELL_NAME__` (o `versionName` do APK — o índice de versão exibido ao
+operador, que **não** se confunde com `__SHELL_VERSION__`: base web e shell
+atualizam por caminhos independentes). **Desde a v1.7.0 o `__SHELL_NAME__` NÃO
+aparece na tela**: quem o mostra é o REGISTRO, e a UI diz um número só — ver a
+badge de versão. Sem `appVersion()` a string vem vazia, e o Registro cai em só a
+versão web.
+
+> **O ÚNICO MÉTODO QUE JÁ SAIU** é o `farolContar` (shell 61, v1.4.42) — a chave
+> "este aparelho entra na contagem", descartada a pedido do operador:
+> *"descarte a opção de contagem de uso como opcional, deixe sempre ativo, não
+> preciso do sistema de exclusividade"*. Ele é o caso de ENCOLHER a ponte que a
+> regra abaixo descreve, e foi entregue como ela manda: APK + web no mesmo lote,
+> com `shellTag` segurando o bundle até a Release existir. O que sobra da
+> medição é uma exclusão sem chave nenhuma — o build debuggável, que acende num
+> contador separado por construção (`Farol.contar`).
+
+**Princípio: a ponte entrega URLs SERVÍVEIS, não bytes.** Arquivos do aparelho e
+compartilhamentos chegam como `https://appassets.androidplatform.net/saf/<token>`
+e o web usa `fetch()` + `Blob` como já faz com o OPFS — nenhuma função de
+importação precisou ser reescrita, e **um vídeo de 2 GB nunca passa por base64**.
+
+O token (`SafRegistry`, em `SafPathHandler.kt`):
+
+- **Opaco**, não o URI codificado: o `PathHandler` recebe o caminho já
+  decodificado, e um `content://` com barras viraria segmentos de rota.
+- **Aleatório** (128 bits base64url, `SecureRandom`), não um contador — as
+  entradas nunca expiram, e não custa nada deixar `/saf/1..N` fora do alcance de
+  quem enumerar.
+- **É uma URL `https://`, do MESMO origin da base.** Quem recebe uma delas de
+  parâmetro e pergunta `origem.startsWith("https://")` para decidir "é da rede ou
+  é local?" manda **todo arquivo do aparelho** para o caminho de download — foi o
+  que deixou o PDF quebrado da v5.97 à v5.99, indistinguível de "PDF com senha".
+  A pergunta certa é pelo **host** (`u.host == ORIGIN_HOST`), invariante 2.
+- **O mesmo URI devolve sempre o mesmo token.** Sem isso, cada `listFolder` de
+  uma pasta de 500 arquivos acrescentava 500 entradas novas a cada
+  re-sincronização, num processo mantido vivo durante todo o culto.
+
+**Superfície nativa é privilégio do Controle.** O WebView do telão recebe a ponte
+com `host = null` e o loader dele é montado **sem** o handler `/saf/`.
+`listFolder` honra a mesma regra e devolve lista vazia sem host — era a exceção,
+porque lê o `ContentResolver` direto, e sem a guarda qualquer script no documento
+do Display lia o índice inteiro (nome, tamanho e token servível) de toda pasta
+concedida. Os dois consumidores de arquivo do aparelho (`importShare`,
+`syncDeviceFolder`) rodam no Controle e copiam para o OPFS antes de qualquer
+coisa chegar ao telão; o Display nunca busca um `/saf/`.
+
+**As Promises têm época por carregamento.** O id é `EPOCH + ':' + seq`, com
+`EPOCH` aleatório a cada carga. O renderer pode morrer com uma chamada em voo: a
+página recarrega, o contador volta a zero, mas o `resolve` do Kotlin aponta para
+o WebView ATUAL — com ids "1", "2", "3" a resposta atrasada da página velha
+resolvia a promise homônima da NOVA. Chamadas que dependem de **máquina** têm
+prazo de 60 s; `pickFolder`, `pickDoc` e `pacoteCriar` abrem um
+seletor do sistema, esperam uma **pessoa** e ficam sem prazo (um timeout ali
+resolveria null com o operador ainda escolhendo a pasta).
+
+### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
+
+Hoje vale **83**, e ele é o **PISO**: o bundle declara `minShell: 83`, então
+todo método da ponte existe sempre e **não há guarda de versão no lado web**.
+"Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
+um campo que some, um contrato de URL que muda ou um método que passa a fazer
+outra coisa exigem o degrau do mesmo jeito.
+
+**Com o piso, subir o degrau deixou de ser higiene e virou PRÉ-REQUISITO.**
+Antes, esquecer a Release fazia o recurso não aparecer — a guarda `< N` o
+escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
+`native.js` cai no `catch`, ou o `call` vence os 60 s e resolve `null`. O botão
+existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
+**APK + web publicado JUNTO**, com `shellTag` no `version.json`.
+
+> A tabela dos 82 degraus está em `docs/HISTORICO.md` — ela é história do
+> contrato, e história mora lá.
+
+### As QUATRO filas da ponte — escolher a errada é uma regressão muda
+
+São quatro executores de **uma thread cada**, no `companion` do `NativeBridge`
+(portanto **compartilhados por todas as instâncias**: um por instância vazava a
+`NativeBridge` inteira, e com ela a Activity/Presentation antigas, a cada morte
+de renderer e a cada ciclo do dongle). Todos daemon.
+
+| fila | o que roda nela | por quê |
+|---|---|---|
+| **`io`** | só o que responde em MILISSEGUNDOS: `version.json`, estado do OTA, `listFolder` pelo `ContentResolver`. **Nada de rede** | é a fila de que tudo mais depende |
+| **`transferencia`** | as transferências de MINUTOS: o download do YouTube, o do APK, e o `ytDiscard` | ver abaixo |
+| **`extracao`** | o que vai à rede ler METADADOS (busca, playlists de canal, o manifesto do `ytStream`, o `apkProcurar`) e a rasterização de PDF — coisas de SEGUNDOS | ver abaixo |
+| **`cifra`** | só o `cifraHtml` — o GET da página do Cifra Club | ver abaixo |
+
+- **Enfileirar rede em `io` é o defeito que a separação corrigiu — e "curta"
+  não salva.** `io` é de uma thread só; do lado web `CALL_TIMEOUT_MS` são 60 s e
+  o `call()` resolve `null` ao vencer. Com um vídeo de 300 MB baixando,
+  `listFolder` devolvia lista vazia, `otaPending` dizia que não há atualização e
+  `atualizacaoEstado` não respondia nada. **Nenhum deles erra: os três mentem
+  baixinho** — e o pior é o `listFolder`, cuja lista vazia o `controle.js` lê
+  como "a pasta sumiu do aparelho". O `apkProcurar` repetiu isso em escala
+  menor: um GET à API do GitHub com 20 s de connect + 20 s de read trava a mesma
+  fila por até 40 s. Ele mora na `extracao` — não toca no NewPipe, mas é rede
+  lendo metadados, e o pior caso dele lá é um "Tocar agora" esperando.
+- **`extracao` é separada de `transferencia` porque segundos não esperam
+  minutos.** Atrás de um download, o "Tocar agora" de um vídeo esperaria o
+  hinário terminar — e, vencido o prazo, cairia no download sem que nada
+  explicasse por quê.
+- **UMA thread em `transferencia` é invariante, não economia:** o resgate de
+  download do `YoutubeGrab` é um slot único e o mapa de parciais supõe **um
+  download por vez**. `ytDiscard` mora aqui pelo mesmo motivo — fora desta fila
+  ele poderia apagar o parcial de um download em curso.
+- **`extracao` também é de uma thread só**, porque as extrações compartilham a
+  inicialização global do NewPipe. Os diagnósticos não colidem: `diagnostico` é
+  escrito só pelo caminho do download e `diagnosticoStream` só pelo do
+  manifesto — que é justamente por que eles são dois campos.
+- **A `cifra` é própria porque ela é MASSA e a `extracao` é TOQUE.** A varredura
+  roda na ABERTURA com seis requisições concorrentes do lado web (a do acervo
+  inteiro só com a escolha ligada, v1.12.60; sem ela, a do Cronograma), e o
+  prazo do `CifraFonte` vale para connect E para read: na `extracao` havia
+  sempre ~6 páginas à frente de quem chegasse depois, e o `ytStream` de um
+  "Tocar agora" podia vencer os 60 s do `call()` e cair no download, calado. Sair
+  dali é seguro porque o que obriga AQUELA fila a ser serial é a inicialização
+  do NewPipe, que o `CifraFonte` não toca (`HttpURLConnection` avulso); esta
+  continua de uma thread pelo motivo dela — `CifraFonte.ultimaTentativa` é o
+  veredito da ÚLTIMA busca, e escritas concorrentes fariam a linha "Cifra:" do
+  Registro descrever outra tentativa.
+
+E duas regras que ficam de fora das filas:
+
+- **Os cinco métodos do espelho rodam na MAIN THREAD**, fora de qualquer fila.
+  "Ligar a transmissão" enfileirado atrás de um download venceria o prazo de
+  60 s e resolveria `null` — um erro sem causa. O que sustenta isso hoje é a
+  serialização de `espelhoSrv`/`espelhoMidia` (a razão ORIGINAL morreu com o
+  espelho de pixels). Ver o KDoc de `MainActivity.startMirror`.
+- **`ytCancel` não vai para fila nenhuma**, e não poderia: `transferencia` está
+  ocupada justamente pelo download que se quer parar. Ele escreve um `@Volatile`
+  e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
+  64 kB.
+
+**O bundle declara `minShell` IGUAL ao `SHELL_VERSION`, e é a VÁLVULA que
+resolve.** Um bundle que
+exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
+(`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
+não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
+o que separa navegador de app é `if (!window.__NATIVE__)`, e nada mais.
+
+> **O modo de falhar desta escolha:** `minShell` acima do `SHELL_VERSION` do APK
+> instalado faz o aparelho recusar **todo** bundle, para sempre, e a única pista
+> é a linha "Procura:" do Registro. O CI confere o teto lendo o
+> `SHELL_VERSION` do próprio Kotlin.
+
+**E MUDAR A FORMA de um método que já existe é PIOR que acrescentar um.** A
+assimetria é real: o web chega por OTA em minutos, o shell só chega instalando o
+APK. Uma assinatura encolhida publicada sozinha faz o bundle chamar a forma NOVA
+contra um APK que ainda tem a VELHA — e o recurso para de funcionar sem nada na
+tela que explique. **A resposta é a regra de entrega, não uma guarda:** encolher
+a ponte é um lote APK + web publicado JUNTO, com `shellTag` no `version.json`
+segurando o bundle até a Release existir.
+
+Foi assim que os dois argumentos ignorados saíram (`espelhoLigar(modo)` e o
+`sim` do `espelhoAprovar`, que virou `espelhoDerrubar(rotulo)`): eles esperaram
+o lote que sobe o degrau, e não uma versão em que "já dava".
+
+---

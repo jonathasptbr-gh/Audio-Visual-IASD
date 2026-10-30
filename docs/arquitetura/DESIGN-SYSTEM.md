@@ -2466,3 +2466,450 @@ níveis — a única parte do contraste que tem oráculo — e a resposta ao
 toque, que num BLOCO é a LUZ e nunca a geometria — v1.7.2).
 
 ---
+
+## As regras da paleta como estavam no núcleo (revisão A2)
+
+> **Movido do `CLAUDE.md` na revisão A2 (2026-10-30), sem mudança de texto** (só os links relativos e o nível dos títulos). No núcleo ficou um resumo com o link para cá. "Acima", "abaixo", "esta seção" e as invariantes numeradas falam do `CLAUDE.md`, de onde este texto veio.
+
+Mora em **`assets/web/shared/tokens.css`**, fonte única carregada pelos dois
+`index.html` **antes** da folha do app. Ela é a **identidade oficial da IASD**,
+em **DOIS TEMAS**, com o denim `#2F557F` (PMS 302) como núcleo.
+
+**O raciocínio inteiro — cada par medido, os pisos, o que foi tentado e
+revogado — está em
+[`docs/arquitetura/DESIGN-SYSTEM.md`](DESIGN-SYSTEM.md).**
+Abra-o antes de mexer na hierarquia da Biblioteca, no feedback de toque ou na
+escada de camadas. **As regras abaixo são as que se quebram sem abrir capítulo
+nenhum**, e por isso ficam aqui.
+
+- **Só COR entra em `tokens.css`.** Raio, escala de ícone, curva de toque e
+  medidas de layout ficam no `:root` de `controle.css`.
+- **Três blocos, nesta ordem:** `:root` com o que NÃO muda, `:root` com o tema
+  ESCURO (o padrão, sem atributo) e `:root[data-tema="claro"]`. O claro é um
+  **DELTA** — **um token que exista SÓ no claro não está definido no tema
+  padrão**, e o `var()` computa para o valor inicial da propriedade, sem aviso.
+  `tokens.test.mjs` trava isso.
+- **O PALCO NÃO TEM TEMA.** `--stage-*`, `--wallpaper`, `--lyrics-frame-bg`, as
+  sombras e o `--scrim` moram no bloco compartilhado — e a regra vale para as
+  REGRAS, não só para os tokens: **nada pintado no palco pode ler um token
+  redeclarado em `[data-tema]`**. O que a separação garante é a PREVIEW do
+  Controle, que roda no documento que TEM tema e existe para ESPELHAR o telão.
+- **NÃO HÁ CONTORNO EM LUGAR NENHUM**, e as quatro exceções são NOMEADAS uma a
+  uma no oráculo (o aro que gira, o ✓ do seletor de destinos, o campo de busca
+  da Biblioteca e a divisória entre faixas irmãs). **É o NOME que segura a
+  lista** — ela não tem regra que a próxima borda possa alegar cumprir.
+- **Nunca escrever branco literal.** Nenhum `#fff` como valor de cor em
+  `controle.css`/`display.css`; as três exceções estão declaradas em
+  `tokens.css` (o palco, o campo da playlist automática, o campo da busca).
+- **Os fundos de ESTADO e as superfícies de AÇÃO são OPACOS** (`--sel-fill`,
+  `--live-fill`, `--btn-accent`, `--btn-danger`…). Tinta com alfa EMPILHA: o
+  mesmo botão derivava **1,97:1** entre a base mais escura e a mais clara em que
+  pousa. Os `-soft` ficam para o que é wash de verdade.
+- **UMA LINGUAGEM DE ESTADO SÓ:** ESCOLHIDO entre alternativas **e** LIGADO
+  (interruptor) = `--btn-accent` + `--accent`; SELECIONADO numa lista =
+  `--sel-fill`; ABERTO **não é cor**. **O denim `--accent-fill` + `--on-accent`
+  é dos BOTÕES**, e só deles — a v1.8.95 revogou metade da regra da v1.3.14 a
+  pedido do operador: *"todos esses usam um azul forte, sólido, que deveria ser
+  reservado para botões e não seleções. Para seleções, pode usar o mesmo azul
+  que usamos nos botões flutuantes sobre o cronograma"*. Os dois estados
+  passaram a ser o MESMO par de propósito: foi o tile LIGADO que ele apontou
+  como modelo. **O preço está medido e é de PREENCHIMENTO**, não de tinta: o
+  traço sobre o fundo novo dá 5,37:1 no escuro e 6,37:1 no claro (o par é
+  declarado), mas o fundo contra a pílula apagada caiu de 2,05:1 para 1,43:1 no
+  escuro e de 5,56:1 para 1,14:1 no claro — o que separa os dois estados passou
+  a ser sobretudo o MATIZ, que é como o `.qs-tile.qs-on` já vivia. Quem trava é
+  o `tokens.test.mjs`, e ele varre por SELETOR e não por regra: **o seletor é
+  que diz o PAPEL**, e quem termina em `.active` está pintando uma escolha
+  (`.qs-modo::before`, o polegar do alternador de modo, entra NOMEADO — nenhum
+  `.active` o alcançaria).
+  **Cor de texto nunca carrega estado sozinha**, e **apagado quer dizer
+  INDISPONÍVEL** (`--op-inativo` + `disabled`), nunca "desligado" — e o número
+  é **.35**, não o `.3` que este arquivo afirmou até a v1.8.68 (MEDIDO: `.3` é
+  usado por UMA regra em quinze). **MAS O QUE SE IGUALA É O DESFECHO, NÃO O
+  ALFA:** o token nasceu para sincronizar PÍLULAS PREENCHIDAS com tinta `--text`,
+  e o mesmo `.35` sobre um ícone SOLTO entrega outro número — medido no mesmo
+  PNG e contra a mesma barra, a pílula dá 2,66:1 e o traço do limpar do
+  Cronograma (o ícone solto que morou na barra até a v1.13.4) dava **1,83:1**. **E abaixo de 2:1 não é indisponível, é AUSENTE**: por
+  população de pixel, dos 488 pixels de tinta daquele ícone apagado ZERO
+  cruzavam 2:1 no tema escuro contra 262 no claro — o par "1,83 · 2,00" fazia os
+  dois temas parecerem vizinhos. Um botão que some não ensina nada; a regra
+  existe para o operador VER o que não responde.
+- **E O DESFECHO DE UMA AÇÃO É AZUL, NUNCA VERDE** (v1.8.55): o pulso do botão
+  (`.btn-pulso--ok`) e a nota na linha (`.row-nota--ok`) vestem `--btn-accent` +
+  `--accent`, o par do `.fav-btn.on`. **O âmbar e o vermelho FICAM** — "já estava
+  lá" e "não deu" são outras mensagens, não outra cor para a mesma. **O verde que
+  sobra é ATIVIDADE, e são QUATRO** — a TV no ar (`.cast-acao.connected`), o ícone
+  de cast do cabeçalho do Modo Fácil (`#simpleCastBtn.connected`, v1.11.11: o
+  mesmo estado, noutro lugar), o ícone de cast da PRÉVIA do avançado
+  (`.pv-fab.connected`, v1.12.53: era vermelho, e o operador o quis verde — *"o
+  vermelho indica algo desativado e não conectado"* —; ele mora no PALCO e por isso
+  veste `--stage-ok`, o `--ok` do escuro escrito literal, que o oráculo varre junto)
+  e o ponto do Auxiliar (`.lv-badge`). A régua é do operador (v1.8.56): *"verde é para
+  sinal de 'ligado', nesses casos são mensagem de conclusão, não de atividade"* —
+  e por ela saíram os dois que restavam, o ✓ do download do YouTube e o "Completa
+  offline" da Bíblia, que anunciam algo que ACABOU. A lista é nomeada no oráculo
+  **nos dois sentidos**: um seletor novo consumindo `--ok` reprova até alguém
+  dizer se aquilo é estado ou desfecho, e um NOME que já não descreve seletor
+  nenhum reprova também. **E a regra do pulso tem uma
+  armadilha de CASCATA**: as variantes são `(0,1,0)` e perdiam para
+  `.fav-btn.on`, `.row-*.on`, `.qs-tile.qs-on` e `.fav-acoes .row-btn` — daí a
+  classe DOBRADA (`.btn-pulso.btn-pulso--ok`), que as leva a `(0,2,0)` sem
+  `!important`. Botão novo que pinte por `(0,2,0)` e receba pulso entra na conta.
+- **E OS TRÊS DESTINOS TÊM UMA ORDEM SÓ: Cronograma · playlist · favoritos**
+  (v1.8.56, pedido do operador). Ela vale em toda superfície que ofereça mais de
+  um deles — folhas de destino, gaveta de linha, rodapé da fila, faixa de fecho
+  da playlist automática —, e **onde falta um, a ordem relativa sobrevive**. Ela
+  não é uma convenção a lembrar: **é a ordem da tabela `DESTINOS`**, que carrega
+  também o ícone e o verbo, e `destinosNaOrdem()` reordena o que um chamador
+  peça fora de ordem. O que isto fechou foram QUATRO listas escritas à mão com a
+  mesma tríade em ordens diferentes — o detalhe está em `docs/arquitetura/CONTROLE.md`,
+  "UM item, VÁRIOS destinos".
+- **E O QUE NÃO TEM FUNÇÃO AGORA É APAGADO, não deixado inerte** (v1.8.50).
+  Inerte e apagado não são a mesma coisa: um botão aceso que não faz nada é
+  indistinguível de um quebrado, e o que se faz diante dele é tocar de novo — a
+  mesma troca de EXPLICAR por NÃO OFERECER que o microfone sem TV e a aba de
+  cifra sem cifra já fazem. É `disabled` e não uma classe (é ele que veste o
+  `--op-inativo`, tira o nó da tabulação e faz o navegador engolir o toque), com
+  o `title` dizendo POR QUÊ. **A pergunta é a MESMA que a de quem executa** —
+  reescrevê-la faz as duas divergirem no primeiro ajuste —, e ela pede cuidado:
+  `cenaNoAr()` parece "há algo no ar" e começa por `!!currentId`, que sobrevive
+  ao stop de propósito — **e a pergunta certa tem nome, `haOQueParar()`
+  (v1.11.6)**: lida como `cenaNoAr()`, a pergunta da ATUALIZAÇÃO ficava fechada
+  depois da primeira mídia da sessão, e o aparelho aberto de sábado a sábado
+  nunca a recebia. **E o que NÃO se apaga entra na lista escrita ao lado**,
+  senão o lote seguinte "completa" a varredura e leva um recurso junto — hoje
+  sobra UM na lista, o ▶ parado, que repete a faixa. **E a lista se ENCOLHE
+  quando o operador revoga**: a playlist saiu dela na v1.8.51 e a REPETIÇÃO na
+  v1.8.87. Esta segunda não desmente o argumento dela (*"é um modo, e escolher
+  o modo antes de montar a fila é o caminho normal"*) — o argumento é que
+  escreve a régua: o modo governa o `autoAdvance`, que só roda quando uma mídia
+  ACABA, então sem fila E sem `currentId` não há o que acabar. A régua é
+  `repeticaoPode()` = `plItems.length || currentId`, e a segunda metade é a que
+  se erra: escrita como `midiaNoAr`, ela apaga o botão sobre a faixa PARADA, e
+  armar `repeat: one` ali para o próximo ▶ repeti-la é uso legítimo. **A célula
+  que separa as duas escritas é UMA** — fila vazia, nada no ar, faixa ainda
+  escolhida —, e é ela que o oráculo mede. A playlist encolheu com a MEDIDA ao
+  lado: o operador pediu o apagado também com UM item (*"um item não é uma
+  lista"*) e desistiu diante do preço, porque ali a folha ainda é a única porta
+  para cinco coisas e um item é o estado que todo toque numa mídia produz.
+- **A CAIXA CERTA NÃO GARANTE O DESENHO CERTO, e a divergência é MUDA**
+  (v1.8.68). A escala de ícone mora em TRÊS listas de `controle.css`
+  (`--icon-sm`, 20px; `--icon-md`, 22px; `--icon-lg`, 24px), e um botão que não
+  esteja em NENHUMA delas cai no atributo `width`/`height` que o HTML escreveu — que pode coincidir
+  com o degrau certo por acidente e deixar de coincidir no dia em que alguém
+  mexer no token. Foi o que aconteceu ao limpar do Cronograma: MEDIDO, o `<svg>` dele
+  media 20px contra os 22 da engrenagem a 34px de distância na MESMA faixa,
+  enquanto as CAIXAS dos dois botões eram iguais — e havia asserção provando que
+  as caixas eram iguais, o que é por que ninguém viu. (A casa dele é hoje do
+  IMPORTAR, `.crono-importar`, v1.13.5, que mede `--icon-lg` por regra PRÓPRIA — o
+  degrau a mais que a v1.8.69 deu à lixeira: desenho esparso ao lado do glifo
+  denso. O oráculo FORÇA o token, porque o atributo do HTML vale os mesmos 24.) **Botão de
+  ícone novo entra numa das TRÊS listas — ou ganha regra própria com a razão ao
+  lado — no lote em que nasce**, e o oráculo que o cobrir mede o
+  `<svg>`, não o botão. É a mesma armadilha que a v1.5.19 já tinha consertado
+  nas três portas do rodapé, e o comentário dela está no lugar certo do CSS.
+- **E O TAMANHO NÃO É A ÚNICA RÉGUA DE "PARECE PEQUENO": A OUTRA É DENSIDADE**
+  (v1.8.68). Dois desenhos no mesmo viewBox e no mesmo tamanho pesam diferente se
+  um é contorno esparso e o outro é glifo cheio — MEDIDO, a lixeira tem 66,2
+  unidades de comprimento de traço contra 107,3 da engrenagem, e **nenhum
+  redesenho fecha isso** (escalar a união até encostar nas bordas do viewBox
+  chega a 0,63x da tinta). **O eixo que fecha é o DEGRAU DE ESCALA, nunca a
+  espessura** (v1.8.69, revogando a v1.8.68 a pedido do operador: *"a parte do
+  traço da lixeira, desfaça. Eu queria ela maior e não com traços mais
+  grossos."*). Os dois caminhos dão o MESMO número — MEDIDO, tinta contra a
+  engrenagem no tema padrão: 2,4 a 22px dá 0,90 e o traço de sempre a 24px dá
+  0,89 —, e o que os separa é que um degrau é declarado e vale para o app inteiro,
+  enquanto uma espessura por símbolo é exceção de um consumidor só. **Um desenho
+  esparso pode precisar de um degrau A MAIS que o vizinho denso**, e aí ele ganha
+  regra própria com a razão ao lado, em vez de uma vírgula numa lista cujo
+  comentário deixaria de descrever os inquilinos dela. **MAS O VÃO QUE A
+  ESPESSURA MOVIA É O DE TINTA, e `getBBox()` é cego a ele**: ele devolve a caixa
+  da GEOMETRIA e ignora o traço, então engrossar aproxima duas metades do desenho
+  sem mover um pixel da medida. A conta é `vão geométrico − stroke-width`, e um
+  piso menor que o próprio traço não é piso nenhum.
+- **UM BOTÃO SEM RÓTULO É QUADRADO** (v1.8.57), e o app tem TRÊS caixas para
+  ele, as três legítimas porque respondem ao VIZINHO: `--hit` (34px) no
+  cabeçalho de uma folha, `--thumb` (40px) numa LINHA de lista (é a medida da
+  capa ao lado) e `--quad-faixa` (42,4px) numa FAIXA DE FECHO. **O que não é
+  legítimo é a mesma caixa sair de dois tamanhos por ESTICAMENTO**:
+  `align-items: stretch` é o padrão do flex, e um botão de símbolo que declara
+  só a largura recebe a altura do irmão — que numa faixa de fecho é um botão de
+  rótulo, mais alto. Foi assim que os mesmos dois destinos saíram em três
+  caixas. **As DUAS dimensões são declaradas** — e `aspect-ratio` só substitui
+  uma delas onde a CRUZADA é definida: medido INERTE duas vezes (v1.8.54,
+  v1.8.56) porque ali as duas vinham do conteúdo, e medido CERTO na Bíblia
+  (v1.8.57), onde a altura vem do esticamento contra as pílulas e a largura
+  deriva dela — que é o único jeito de o botão ficar quadrado sem engordar a
+  barra e serrar a leitura. **Duas exceções, as duas NOMEADAS e as duas com
+  asserção:** a CÉLULA da caixa de controles, cujo tamanho vem do LUGAR (o ⏮/⏭ e
+  as portas medem `--deck-col`, e o oráculo as reconhece pela largura do
+  transporte, não pelo nome); e a faixa da gaveta de um favorito, onde largura
+  da capa × altura da faixa não fecham num quadrado — ali o oráculo TROCA a
+  régua pela que vale (toda peça na mesma altura), em vez de calar.
+- **TODO SCROLLER TEM A SOMBRA DAS BORDAS, e a marca é `rola`** (v1.8.58). Ela
+  diz *"há conteúdo escondido deste lado"*: duas tiras `sticky` de 22px, tinta
+  de `linear-gradient(var(--sombra-rolagem))` e `pointer-events: none`. **É
+  `linear-gradient` e nunca `backdrop-filter`** — o segundo obriga a compor o
+  que está atrás (MEDIDO: duas camadas por tira), e foi esse custo que prendeu o
+  efeito a uma lista só da v1.5.16 até aqui.
+- **A TIRA MORA NO PADDING BOX, E AS CINCO MEDIDAS SÃO LIDAS DO LAYOUT**
+  (v1.8.59) — `--veu-vao`/`--veu-topo`/`--veu-base`/`--veu-esq`/`--veu-dir`,
+  todas por `getComputedStyle` na mesma varredura, nunca declaradas. **Um
+  `sticky` em `top: 0` para no topo do CONTENT box**, e um pseudo-elemento é
+  item flex e nasce com a largura dele: sem o desconto, o vão entre a fronteira
+  e a sombra é EXATAMENTE o `padding` do scroller — medido em doze dos dezenove,
+  de 5 a 14px. **E o valor tem de ser lido, nunca escrito**: errar o `top` para
+  mais não é limitado, é RECORTADO pelo overflow, e a sombra encolhe e some sem
+  erro nenhum. (Escritas à mão, quatro das catorze primeiras já saíram erradas, e
+  o `scrollHeight` não acusa nenhuma numa lista que ainda cabe.) **Encostada, ela
+  é RECORTADA pelo arco** de quem arredonda — é assim que o canto fica redondo,
+  e não com um raio próprio.
+- **UM RODAPÉ QUE FLUTUA SOBRE UMA LISTA COBRA UMA FOLGA NO FIM DELA, E ELA É
+  MEDIDA POR PIXEL** (v1.8.61). Com o rodapé fora do fluxo a lista chega à
+  fronteira por `bottom: 0` — **nunca por margem negativa**, cujo número passa a
+  DEFINIR a extensão e faz a lista parar antes dela quando o rodapé cresce com a
+  fonte do sistema (medido: 4,59px, calado). A folga é a altura do rodapé LIDA
+  (`--rodape-h`, falha aberta em `--hit-foot`) mais o recuo que já existia, e o
+  teste é de PIXEL: a geometria não acusa uma linha coberta, porque ela continua
+  dentro da caixa (medido: 58 a 61% da última linha).
+  **E ELA É MARGEM DO ÚLTIMO ITEM, NUNCA `padding` DO SCROLLER** (v1.8.63). Um
+  `sticky` não escapa do bloco contêiner dele, e o de um item flex é o CONTENT
+  box do pai — que termina onde o `padding-bottom` começa. A tira pede o padding
+  box e, nos últimos pixels de rolagem, é RECORTADA: ela sobe 1px por pixel
+  rolado. **A janela de subida é IGUAL ao `padding-bottom` do scroller** —
+  medido, 57,4px no último degrau com os 61,2px da v1.8.61, e 72,4px com a raiz
+  do sistema a 24px. Num contêiner flex a margem do último item entra na região
+  rolável do mesmo jeito e fica DENTRO do bloco contêiner: `--veu-base` cai a
+  zero e não há o que recortar. **O mesmo mecanismo segue vivo, 8× menor, no
+  `#playlist` (7,2px) e no `#lyricsViewBody` (6,6px)** — não foi consertado
+  neles, e quem for lá encontra a receita aqui.
+  **E o que flutua tem de ser OPACO** — tinta com alfa sobre uma lista que rola
+  muda de cor a cada quadro (medido: 1343 de 3192 amostras), e o valor opaco é
+  um TOKEN, não um gradiente compondo sobre o fundo: a cor tem de estar no
+  `background-color`, que é o que toda sonda de contraste deste repositório lê.
+  **E ele é o AZUL DE "ATIVADO" desde a v1.8.63** — `--surface-porta:
+  var(--btn-accent)`, o mesmo dos cards de Configurações, a pedido do operador.
+  **É ALIAS e não literal:** os dois temas têm valores OPOSTOS (`#293d57` ·
+  `#dcebfe`), e um deles digitado aqui mede 15,57:1 contra o `--bg` no outro.
+  Sobre ele escreve-se `--accent`, o par declarado do token (5,37:1 · 6,37:1) —
+  o `--on-accent` é o par do DENIM e mede **1,21:1** no claro; e como as regras
+  por classe vêm DEPOIS da agrupada com a mesma especificidade, um `color`
+  deixado numa delas vence e apaga o rótulo. **A sombra de cada porta é NORMAL,
+  para BAIXO** (`0 2px 8px`, v1.8.64, revogando a v1.8.63) **e SÓ EXISTE COM ITEM POR
+  BAIXO DELA, E ENTRA/SAI EM 0,3 s** (v1.12.19/v1.12.20: `.livre` em `#listFoot`, escrita por `acertarSombraDasPortas`): *"essas sombras são
+  sombras normais, para baixo"*. O argumento da inversão — abaixo delas está a
+  fronteira, e uma sombra para baixo cairia fora da tela — foi revogado com o
+  preço MEDIDO: o `main { overflow: hidden }` recorta 5,59px abaixo da base das
+  portas, então o que se vê é uma sombra CURTA entre elas e a barra de buscas, e
+  o que passa daquilo não chega a existir. **E a asserção que a mede é a subida
+  RELATIVA da faixa, nunca `perto < longe`**: invertida, a faixa é fundo liso e
+  a diferença entre dois pontos dela é ruído que passa (0,0130 contra 0,0137).
+  Medido nos quatro estados — 0,248 · 0,290 para baixo contra 0,051 · 0,050 para
+  cima, piso em 0,15.
+  **E A `.selbar` LARGOU ESSE AZUL NO MESMO LOTE** — ela é a outra inquilina da
+  MESMA fatia do rodapé, e as duas ficariam em ΔE00 **0,00**. Ela volta à base
+  (`--bg`), que é a que já veste na gaveta dos Favoritos, e a remoção atravessa
+  um piso de carona: o ícone do EXCLUIR estava em **2,48:1** no escuro (abaixo
+  do piso de 3:1) e foi a **4,26:1**. Pintá-la de denim fazia o oposto: 1,88:1
+  no ícone e 1,00:1 no contador.
+- **MAS ELA NÃO ALCANÇA O SCROLLER INTEIRO: A CAIXA TEM DE ALCANÇAR PRIMEIRO**
+  (v1.8.60). `overflow-y: auto` COMPUTA `overflow-x: auto`, então a margem
+  negativa é RECORTADA pela caixa do scroller — MEDIDO no Cronograma, forçar
+  `--veu-esq`/`--veu-dir` a 12,8px não move a tira um pixel. Um scroller que
+  deva velar até a borda da tela carrega o recuo como `padding` PRÓPRIO e a
+  caixa vai até lá (`margin` negativa), que é o desenho da Biblioteca e da
+  playlist. **E uma tira alargada precisa saber se calar**: sob uma folha
+  (`.tools-sheet`) o Cronograma fica com uma moldura de 12,8px à vista, e a tira
+  pintava 1004px ali — quem a cala é um `:has()`, não uma classe que os dois
+  abridores e os dois fechadores teriam de lembrar.
+- **A CALHA DA BARRA DE ROLAGEM ERA INALCANÇÁVEL, e a nota fica pelo motivo**
+  (v1.8.60). O retângulo de recorte de um scroller é o padding box MENOS a
+  calha: nada que seja filho dele pinta ali, por margem nenhuma — MEDIDO, somar
+  a calha à margem deixava o vão em 10,0px. Desde a v1.8.61 a pergunta não se
+  faz mais (não há barra), mas a armadilha volta com qualquer barra que volte.
+  Um `--veu-calha` foi escrito, medido e revertido; não refazer.
+- **E A CAIXA TEM DE ALCANÇAR A BARRA, NÃO A BASE DAS PORTAS** (v1.8.63). O
+  `<main>` tem um `padding-bottom` de 5,59px (`--vao-barra`) entre a lista e a
+  caixa de controles, e a tira mora no padding box do SCROLLER: ela nunca
+  alcançava a fronteira que o operador vê. É a lição do eixo horizontal
+  (v1.8.60) aplicada ao vertical — margem negativa leva a caixa até lá, as
+  portas não se mexem (são `absolute` contra o `.list-body`, que não mudou), e
+  a caixa RECOLHE sob uma folha, senão sobram 5,6px de lista visíveis E tocáveis
+  na moldura que a folha não cobre.
+- **A TIRA MARCA A FRONTEIRA, E UM RODAPÉ FLUTUANTE PASSA POR CIMA DELA**
+  (v1.8.62, revogando a v1.8.61). Aquele lote descontava a altura das portas do
+  `bottom` da tira para ela não ficar atrás delas; o pedido do operador é o
+  contrário — *"a sombra deve ficar abaixo, na borda com os controles; assim os
+  botões flutuantes ficam sobre a sombra"* —, e o preço estava medido: com as
+  portas OPACAS por cima, a tira só sobrevive nos dois cotos de 12,8px da moldura
+  e nos dois vãos de 8px entre elas. Não há regra: a `.rola` já a põe no PADDING
+  BOX. **O que isto cobra é do ORÁCULO** — quem procura a tira de baixo no MEIO
+  da tela acha a de CIMA e devolve um vão de 507px; a coluna certa é a moldura
+  (bloco J do `sombra-de-rolagem.test.mjs`).
+- **NÃO HÁ BARRA DE ROLAGEM** (`.rola { scrollbar-width: none }`, v1.8.61,
+  revogando a v1.8.60). A sombra das bordas é o indicador ÚNICO, e alcança os 15
+  scrollers marcados. **Não era bug o operador não a ver:** no Android ela é
+  SOBREPOSTA e apaga sozinha — MEDIDO, **780 a 850 ms** depois do gesto, com
+  `scrollbar-width: thin` e sem ele; declarar a largura **não** a torna
+  permanente, ao contrário do que um comentário afirmou da v5.188 à v1.8.60.
+  **E a sombra PODE pintar sobre ela, mas só de FORA do scroller** — 240 de 240
+  linhas do polegar cobertas, contra 149 de 240 de dentro, e `z-index:
+  2147483647` não move um pixel: um filho jamais pinta sobre a barra do próprio
+  scroller. O caminho foi recusado com o preço medido — geometria em JS em 11
+  dos 15 scrollers e a PERDA do recorte do arco (o acabamento da v1.8.59), por
+  um efeito visível em 1,6% das posições de rolagem durante 0,8 s.
+  **E `::-webkit-scrollbar` continua código morto** onde `scrollbar-width` ou
+  `scrollbar-color` é diferente de `auto` — o Chromium desliga esses pseudos
+  (medido: calha 10px, o valor de `thin`, contra os 7px que o pseudo pedia).
+  Não escrever mais nenhum.
+- **UM SCROLLER QUE É SELETOR NÃO LEVA A MARCA `rola`** (v1.8.92). As roletas do
+  Tempo são scrollers com `scroll-snap`, e a sombra das bordas diria ali *"há
+  conteúdo escondido"* sobre uma lista cujo conteúdo escondido é o RECURSO — ela
+  é um seletor de valor, não um texto que continua fora da vista. O que marca a
+  célula escolhida é uma MÁSCARA que apaga as pontas da janela mais o
+  `--op-inativo` nas vizinhas: zero JS por quadro de rolagem, e a centrada é a
+  única cheia por construção do recuo. **E o tamanho dela é MEDIDO NOS DOIS
+  EIXOS, não declarado** — a caixa cresce por flex, o JS lê a altura dela e
+  escreve a célula (`--roleta-item`), porque `cqh` mediria a caixa que a própria
+  roleta define; e a LARGURA vira um segundo teto por regra de três, porque um
+  divisor escrito à mão é uma cópia da métrica da fonte (MEDIDO: dois dígitos
+  tabulares valem 1,00 × célula, não os 0,75 da conta ingênua). **A soma dos
+  filhos, nunca o `scrollWidth`:** a linha é centrada, o excesso sai metade para
+  cada lado, e o `scrollWidth` conta só o do fim. **INFINITA é a base REPETIDA**
+  (ímpar, ~300 células) com a posição de repouso na banda do MEIO, e a
+  recentragem acontece PARADA — escrever `scrollTop` no meio de um arremesso o
+  cancela, e o dedo sente a lista travar. **MAS A PRIMEIRA PINTURA NÃO TEM
+  ROLAGEM PARA DISPARÁ-LA** (v1.8.95): a lista nasce em `scrollTop` 0, o TOPO da
+  pista, e ali não existe célula acima — a roleta abria de um lado só, para
+  sempre, no único valor que não pede movimento. Quem a coloca na banda do meio
+  é o posicionamento, na primeira vez e sempre que a RÉGUA muda (`scrollTop` em
+  px da célula velha não é índice na nova). **E O ÍNDICE CRESCE PARA BAIXO
+  ENQUANTO O VALOR CRESCE PARA CIMA** — pedido do operador —, o que põe a
+  inversão em TRÊS lugares que têm de concordar: as duas conversões e o TEXTO
+  das células. Divergindo, o mostrador acende uma célula e devolve o número de
+  outra. **A PISTA À VISTA É DE QUEM ESCOLHE:** onde não há escolha as vizinhas
+  somem por OPACIDADE e jamais por altura — a janela continua de três células e
+  o número fica no mesmo pixel em toda aba, e a régua que prova isso é a JANELA,
+  porque encolher a caixa para uma célula **não move o centro um pixel** (o flex
+  recentra sozinho: a asserção do centro, sozinha, é tautologia). Um
+  scroller-seletor novo nasce com isso: sem `rola`, com máscara, com a régua
+  vinda do layout, com o repouso na banda do meio desde a primeira pintura, e
+  com ÍNDICE e VALOR separados (a pista tem 300 células e o valor tem 60).
+  **E A CONTAGEM ROLA** (v1.8.96): o tique do Timer anda por
+  `scrollTo({behavior:'smooth'})`, nunca por um `scroll-behavior` na folha — no
+  CSS ele animaria TODA escrita, inclusive a recentragem, que salta uma volta
+  inteira. Três guardas: só o TIMER (onde a pista está à vista), só o passo
+  CURTO (um salto grande é a cena mudando, não contagem) e
+  `prefers-reduced-motion`.
+- **UMA ROLETA DEITADA NÃO DÁ A VOLTA, e por isso ela é outra peça** (v1.8.96, a
+  quantidade da playlist automática). A faixa tem PONTAS de verdade — não existe
+  "zero músicas" —, então não há base repetida, banda do meio nem recentragem; o
+  que sobrevive do idioma é o resto (sem `rola`, máscara nas pontas,
+  `--op-inativo` nas vizinhas, régua do layout). **O recuo das duas pontas é
+  MEDIDO** (`(janela − célula) / 2`, escrito em JS): `padding-inline: 50%` com
+  `box-sizing: border-box` zera a caixa de conteúdo e as células saem
+  transbordando por baixo do recuo.
+- **UM SCROLLER QUE É GRADE NÃO PODE TER A TIRA — então ele deixa de ser o
+  scroller** (v1.8.60). O `sem-veu` está certo e fica (o pseudo de uma grade é
+  ITEM dela), mas ele APAGA o aviso sem tirar o problema: a `.bible-grid--books`
+  escrevia `tem-abaixo` e não pintava nada, e MEDIDO a 360×640 escondia **24 dos
+  66 livros**. O conserto é um envelope de bloco que rola e leva a marca; os
+  dois candidatos de CSS morreram medidos (`grid-column: 1/-1` no pseudo desce a
+  primeira célula 32px e cobra 10px de rolagem fantasma). **Grade nova que role
+  nasce dentro de um envelope**, não com a marca em si.
+- **UMA FAIXA DE FECHO COM MAIS DE UM BOTÃO TEM UMA ALTURA SÓ** (v1.8.61), e o
+  número é o do QUADRADO (`--quad-faixa`), como no rodapé da fila. Sozinho, o
+  confirmar continua vestindo a altura das LINHAS que ele fecha (a regra da
+  v5.301) — a pergunta que separa as duas é *"há irmão nesta faixa?"*, e não
+  qual folha é. Escopar por folha dá duas caixas ao mesmo botão; aplicar a todas
+  quebra a folha de destinos. MEDIDO: 0 de 144 pontos alinhados antes, com CINCO
+  alturas de primário, contra 144 de 144 depois.
+- **UMA FOLHA NÃO PODE MUDAR DE TAMANHO ENTRE OS ESTADOS QUE O OPERADOR
+  ALCANÇA** (v1.8.61) — *"para não ficar movendo a posição relativa de seus
+  botões na tela, atrapalhando o toque"*. Toda linha que APARECE E SOME é um
+  motor: a da playlist automática tinha quatro (a linha de quantidade
+  condicional, a nota que só existia num segmento, a conta que crescia com o
+  texto e o rótulo do primário quebrando em duas linhas), e eles se
+  CONTRAPESAVAM — fechar um só piorava o total em 3,4×. O conserto é reservar,
+  nunca esconder: linha sempre desenhada, frases de comprimento EMPARELHADO e
+  `min-height` pelo pior caso MEDIDO (33 células: 3 larguras × 3 escalas de
+  fonte × 11 estados). **Desde a v1.11.18 a folha da playlist automática tem
+  ALTURA FIXA** (`#sorteioPopup .popup-sheet { height: 80% }`): com a barra na
+  base, o motor que sobrou era o da própria folha encolhendo com a lista, e uma
+  folha que se ancora no fundo e muda de altura leva os botões junto.
+- **A FAIXA DE FECHO DE UMA FOLHA NÃO ROLA** (v1.8.60): ela mora no
+  `.popup-fecho`, irmão da `.popup-list`. Quem decide é o DOM (`porFecho` procura
+  o rodapé ao lado), nunca uma lista de folhas — a MESMA faixa é também uma
+  linha da gaveta de um item, onde ela é conteúdo e deve rolar com o resto.
+  Render novo que a monte usa `limparFolha`/`porFecho`; esvaziar só a lista
+  empilha um confirmar embaixo do anterior.
+- **E ELA PINTA ACIMA DAS TAMPAS GRUDADAS** (`z-index: 5`, v1.8.59, revogando a
+  v1.5.16). Aquele lote a pôs em 2, abaixo dos 3/4 das tampas, para que se
+  calasse onde já houvesse quem respondesse — mas **`z-index` é propriedade do
+  ELEMENTO e não do estado "colada"**: uma `.coll-group-bar` é `sticky` com z 4
+  no meio da lista e na borda de baixo, onde não exerce papel de tampa nenhum.
+  MEDIDO na mesma linha de pixel, a 26px: a barra lia 1,0000 e o fundo ao lado
+  1,1553 — numa lista feita de barras, a sombra só alcançava os vãos. O preço
+  aceito é a tampa grudada receber a sombra como qualquer outra superfície.
+- **Nada precisa ser religado**: um observador só, no documento inteiro, vê todo
+  `.rola` que nasce — MEDIDO, ele registra ZERO callbacks em 6 s de
+  `display-status` a 4 Hz e a varredura completa custa 0,093 ms. **E `sem-veu`
+  sai de DOIS vereditos medidos a cada passada**: quem é GRADE (o
+  pseudo-elemento de um contêiner de grade é um ITEM dela e empurra o conteúdo
+  uma casa) e quem NÃO ROLA (uma regra pode tirar a rolagem por baixo da marca —
+  é o `.misc-panel--msg { overflow: hidden }`). **Um carrossel HORIZONTAL não
+  recebe a marca** — `overflow-x: auto` COMPUTA `overflow-y: auto`, e a sombra
+  vertical ali não descreve nada.
+- **O feedback de toque é `translateY(2px)` — recuo ABSOLUTO, nunca uma
+  fração.** Uma fração aplicada a alvos de 34px a 408px não é um valor, são
+  doze. **E um BLOCO que hospeda controles responde só com a LUZ**, nunca com
+  geometria: um ancestral não responde ao toque que foi para um filho, e as
+  guardas suprimem as DUAS partes (`transform` e `filter`). **Bloco novo que
+  hospede controles entra na lista de guardas no MESMO lote em que nasce.**
+- **A escada de camadas tem TRÊS degraus, e o quarto é o ESPAÇO.** A superfície
+  AFUNDA dentro de um cartão (o overlay inverte de sinal), e **o tom de um bloco
+  é decisão do PAI** (`--camada`) — quem a declara é o contêiner, nunca quem
+  pinta. **Onde a árvore é mais funda que três, não se acrescenta degrau:
+  ALTERNA-SE** (papel → poço → papel, a Biblioteca).
+- **`res/values/colors.xml` espelha `--bg` à mão, em DOIS valores.** É o único
+  lugar fora de `tokens.css` que carrega cor de fundo, e não tem escapatória:
+  recurso de Android não enxerga custom property. O OTA troca a base sem trocar
+  o APK — mudou o token, muda aqui. Desde a v1.8.32 a igualdade tem oráculo.
+- **O ÍCONE DO APP é a paleta** e é VETOR (`minSdk` 26: o adaptativo é o único
+  ícone que chega a ser desenhado). Ele **não segue o tema claro** — é desenhado
+  pela gaveta do sistema com o app fechado.
+- **O TEMA TEM DUAS OPÇÕES, e o tile é um ALTERNADOR** (v1.8.64, revogando a
+  v1.8.49). Claro e escuro; a ausência da chave `av.tema` é o ESCURO, e **todo
+  toque muda a cor**. O AUTOMÁTICO — um terceiro estado que seguia
+  `prefers-color-scheme` ao vivo — saiu a pedido do operador: *"remova o auto,
+  não está sendo eficaz essa opção"*. Ele custou três lotes e vale registrar por
+  que, porque o defeito não era a regra, era a ARITMÉTICA: **três estados sobre
+  duas cores** fazem um dos toques não mudar um pixel, e **três estados sobre
+  dois desenhos** fazem dois deles saírem no mesmo PNG, byte a byte. A v1.8.62
+  tentou escolher QUAL toque seria o mudo (a ordem do ciclo decidida pelo
+  aparelho) e a v1.8.63 tentou INDICAR o estado (marca aditiva no ícone mais uma
+  `.qs-estado` com a palavra, a única exceção à v1.7.2) — as duas trataram o
+  sintoma. Com dois estados não há toque mudo, não há desenho repetido, e a
+  exceção da v1.7.2 volta a não existir: **todo tile diz o estado pelo DESENHO**.
+  O tema viaja só em `data-tema` (o `data-tema-escolha` saiu com o terceiro
+  estado), escrito pelo script inline do `<head>` — é UMA leitura de
+  `localStorage` no app inteiro, e o atributo é o carrier.
+
+  **E TIRÁ-LO TIROU A ÚNICA LEITURA DE `prefers-color-scheme` DO APP** — que é
+  por onde o `colorScheme` do Playwright chegava ao documento. Cinco laços
+  `['dark', 'light']` passaram a medir o ESCURO nas DUAS voltas, verdes: MEDIDO,
+  as duas metades do bloco T do `sombra-de-rolagem` saíram no mesmo PNG, com as
+  asserções de cor comparando o tema padrão consigo mesmo. **Um oráculo de cor
+  DECLARA de que tema partiu** — `comTema(ctx, tema)` do arnês, que escreve a
+  chave por `addInitScript` —, e o laço abre com uma asserção de PREMISSA
+  (`data-tema` é o que se pediu) para que tirá-la volte a reprovar em vez de
+  calar. É a mesma armadilha que o `smoke.mjs` já declarava pelo outro lado — **o
+  Chromium responde CLARO por padrão** —, agora pelos dois.
+
+> **NÃO HÁ TESTE DE CONTRASTE ABSOLUTO.** Os números nos comentários de
+> `tokens.css` são medições à mão, e os pares abaixo do piso estão declarados
+> como tais ali mesmo. **Ao mexer num token, meça — e são DOIS temas.** O que o
+> CI trava é outra coisa: `tokens.test.mjs` (o `var()` que aponta para token
+> inexistente, o token só no claro, o contorno, a superfície com alfa, o
+> `colors.xml` × `tokens.css`) e `smoke.mjs` (o efeito RENDERIZADO nos dois
+> temas, o palco que não os segue, o degrau ENTRE níveis e a resposta ao toque).
