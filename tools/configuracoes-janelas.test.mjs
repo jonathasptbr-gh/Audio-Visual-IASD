@@ -664,9 +664,19 @@ try {
     return t.some((x) => /Álbum Um/.test(x)) && t.some((x) => /Álbum Dois/.test(x));
   }, null, 20000);
   const cheia = await lerLista(com.pg);
+  // O ESTADO DA SEÇÃO VAI JUNTO com o desfecho: no runner esta asserção reprovou
+  // três vezes (runs 2213, 2234, 2244) sem nada que dissesse se o toque não
+  // abriu a seção, se ela abriu e foi remontada fechada, ou se os álbuns não
+  // entraram no plano — e cada causa é um conserto diferente.
+  const estadoSecao = linhasDosAlbuns === true ? null : await com.pg.evaluate(() => {
+    const seta = document.querySelector('#pacoteLista .pacote-seta');
+    return { seta: seta ? seta.getAttribute('aria-expanded') : 'sem seta', secaoAberta: pacoteSecaoAberta,
+      corpo: document.querySelectorAll('#pacoteLista .pacote-grupo-corpo .pacote-linha').length,
+      grupos: pacoteEsboco ? pacoteEsboco.grupos.map((g) => g.chave) : null, ocupado: pacoteOcupado() };
+  });
   checar(linhasDosAlbuns === true && cheia.textos.some((t) => /Álbum Um/.test(t)) && cheia.textos.some((t) => /Álbum Dois/.test(t)),
     'D · a lista nomeia cada coleção do aparelho, uma linha por coleção',
-    porque(linhasDosAlbuns) || JSON.stringify(cheia.textos));
+    (porque(linhasDosAlbuns) || '') + ' ' + JSON.stringify({ textos: cheia.textos, estadoSecao }));
   checar(cheia.textos.filter((t) => !/nada baixado|sem vídeo da semana/.test(t)).every((t) => /até /.test(t)),
     'D · com o peso por linha em "até X", o teto', JSON.stringify(cheia.textos));
   // O ÍCONE É UM ELEMENTO, não um texto: `msym()` devolve um <span>, e atribuí-lo

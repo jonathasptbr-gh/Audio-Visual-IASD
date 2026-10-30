@@ -27,6 +27,8 @@ na v1.13.7, e a Biblioteca maior do Modo Fácil, na v1.13.9.)
 
 ## Pacote 8 — URGENTE: os oráculos instáveis do CI
 
+> **Tratado pela etapa A1 da revisão (2026-10-30)** — o relatório e o resíduo (`configuracoes-janelas`, instrumentado) estão em `docs/revisao/REGISTRO.md`.
+
 Pedido do operador (2026-10-30): *"Urgente. Coloque em prioridade."* O lote
 v1.13.16 reprovou TRÊS rodadas seguidas, cada uma num oráculo DIFERENTE, todos
 de tempo e nenhum tocado pelo lote; todos passam na máquina local (o

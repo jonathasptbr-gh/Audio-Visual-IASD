@@ -113,7 +113,18 @@ async function cenario(nFav, opts = {}) {
   }, { n: nFav, extras: opts.extras || 0 });
   await esperar(pg, () => document.querySelector('#hymnResults > .coll-group--fav')
     && document.querySelector('#hymnResults > .coll-group--drop[data-grupo="Seção de teste"]'));
-  await pg.waitForTimeout(150);   // a tampa do `requestAnimationFrame` assenta
+  // A TAMPA ASSENTA (ela é medida num `requestAnimationFrame`, e sob carga mais de
+  // 150 ms depois): sem isto o `cab0` do primeiro toque é lido ANTES dela, e a
+  // tampa assentando no meio da curva sai como o cabeçalho andando — 10,34px no
+  // runner (run 2209, tentativa 1), num app que estava certo. O fato é a GEOMETRIA
+  // parada: o topo de cada barra igual em dez quadros seguidos.
+  await pg.waitForFunction(() => {
+    const k = [...document.querySelectorAll('#hymnResults .coll-group-bar')]
+      .map((b) => b.getBoundingClientRect().top.toFixed(2)).join();
+    window.__assenta = window.__assenta && window.__assenta.k === k
+      ? { k, n: window.__assenta.n + 1 } : { k, n: 0 };
+    return window.__assenta.n >= 10;
+  }, null, { polling: 'raf', timeout: 10000 }).catch(() => {});
 
   // Toca a seta do bloco e amostra o bloco e a PRIMEIRA irmã fechada até 700 ms.
   // Os nós são reencontrados a cada quadro: o redesenho os substitui.
