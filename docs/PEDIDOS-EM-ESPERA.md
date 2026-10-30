@@ -56,10 +56,12 @@ em `docs/ACHADOS-EM-ABERTO.md` §4:
 2. **a cor estaria errada se chegasse** — `.coll-songs > .hymn-result` vence
    `.lib-item.no-ar` por ordem de fonte (no claro, 1,00:1 contra a vizinha).
 
-**Pergunta a fechar com o operador ANTES de começar:** a mesma música pode
-estar em dois álbuns (ou no hinário e numa coletânea) ao mesmo tempo — acende
-nos dois, ou só no álbum de onde ela foi tocada? A primeira é mais simples
-(compara a MÚSICA de catálogo); a segunda pede guardar a ORIGEM do toque.
+**Decidido pelo operador (2026-10-30):** *"acender apenas o álbum de onde está
+tocando o item"*. A mesma música pode estar em dois álbuns (ou no hinário e numa
+coletânea); acende SÓ a faixa do álbum de onde ela foi tocada. Logo não basta
+comparar a música de catálogo: o toque tem de guardar a ORIGEM (o álbum), e
+`marcarNoAr` compara música + álbum. Uma música tocada por outra porta
+(Cronograma, Favoritos, busca) não acende faixa de álbum nenhuma.
 Ao entregar, o §4 sai do `ACHADOS-EM-ABERTO.md`.
 
 ## Pacote 6 — Pesquisa, sem implementação
