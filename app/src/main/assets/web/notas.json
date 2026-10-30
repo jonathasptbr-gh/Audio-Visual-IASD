@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.13.13",
+    "itens": [
+      "Provai e Vede e Informativo: nova linha \"Vídeo da semana (sempre o atual)\" no topo de cada um.",
+      "Ela vai ao Cronograma, à playlist ou aos Favoritos e toca sempre o vídeo da semana em que você está.",
+      "Assim o Cronograma montado uma vez serve para todo sábado, sem trocar o vídeo à mão.",
+      "Na lista aparece a data do vídeo que ele vai tocar agora.",
+      "Se o vídeo da semana ainda não estiver no aparelho, ele baixa e projeta, como o \"Tocar agora\".",
+      "Se o canal ainda não publicou o desta semana, o app avisa e não toca nada."
+    ]
+  },
+  {
     "versao": "1.13.12",
     "itens": [
       "Computador conectado: arrastar a barra de tempo do vídeo pula para o ponto, mesmo logo que o vídeo começou.",

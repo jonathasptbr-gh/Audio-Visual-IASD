@@ -10,35 +10,20 @@ nada aqui está autorizado para execução sem essa resposta.
 quem revogou. Não é log, e não é `docs/ACHADOS-EM-ABERTO.md` (lá moram defeitos
 CONFIRMADOS por auditoria; aqui, pedidos).
 
-Contexto da entrega: base web **v1.13.12** em `main`, APK v1.13.12,
+Contexto da entrega: base web **v1.13.13** em `main`, APK v1.13.12,
 `SHELL_VERSION` 82 — conferido em 2026-10-30. Pedidos recebidos em **2026-10-24**, com o
 horário do relato.
 O operador pediu economia: *"não temos tokens então toda ação deve ser fracionada
 e controlada"* — um pacote por vez, cada um com o rito de entrega completo.
 
-**Ordem recomendada ao operador:** o 5, o 7, e o 6 (pesquisa) por
-último. (O Pacote 1 — as quatro correções pequenas — saiu na v1.13.11, e a busca no computador foi refeita no servidor na v1.13.12; o Pacote 4 — a lista vertical das Ferramentas e o nome do itinerário no
+**Ordem recomendada ao operador:** o 7, e o 6 (pesquisa) por
+último. (O Pacote 5 — o vídeo da semana como item — saiu na v1.13.13; o Pacote 1 — as quatro correções pequenas — saiu na v1.13.11, e a busca no computador foi refeita no servidor na v1.13.12; o Pacote 4 — a lista vertical das Ferramentas e o nome do itinerário no
 título da folha — saiu na v1.13.4; o Pacote 2 — o teclado sobrepondo em todo
 campo de texto — na v1.13.7; o Pacote 3 — a linha de controles do Modo Fácil —
 na v1.13.8. Fora dos pacotes, saíram também as portas do rodapé maiores e em negrito,
 na v1.13.7, e a Biblioteca maior do Modo Fácil, na v1.13.9.)
 
 ---
-
-## Pacote 5 — O vídeo da semana como item (só web, provável)
-
-| hora | pedido |
-|---|---|
-| 10:28 | *"Sistema do provai e vede e do informativo mundial… 'elemento genérico da semana'… 'provai e vede atual'… um item que automaticamente toca o respectivo vídeo da semana… cronograma pode ser atemporal."* |
-
-Um item VIRTUAL por série ("Provai e Vede — vídeo da semana") que pode entrar no
-Cronograma, na playlist e nos Favoritos e, ao tocar, resolve para o episódio
-retido pela lista `serie` de `db.js` (o detentor de tamanho UM). Um Cronograma
-montado uma vez serve todo sábado. É o mesmo desenho do item editado (v1.12.0):
-registro que `getMedia` devolve RESOLVIDO. Perguntas a fechar: o que tocar sem o
-episódio baixado (baixar e projetar, como o "Tocar agora"? avisar?); como o
-item viaja no `.avpkg`; e o rótulo na lista (mostrar a data do episódio
-resolvido). Ver `docs/recursos/SERIES.md`.
 
 ## Pacote 7 — A faixa de álbum que está NO AR, destacada (só web)
 

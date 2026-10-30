@@ -834,5 +834,25 @@ checar(!S.ehDoSabadoAtual(null, SEM, new Date(2026, 7, 19)),
   'sem data no título, nunca é o destaque — a mesma regra do `aindaNaoSaiu`: '
   + 'esconder o que não se sabe julgar seria transformar um item feio num ausente');
 
+
+// ── A SÉRIE SEM O ANO: a chave do "vídeo da semana" como item (v1.13.13) ──
+// O item virtual do Cronograma aponta para a SÉRIE, não para o álbum de um ano.
+{
+  const chaves = S.SERIES.map((x) => S.chaveDaSerie(x));
+  checar(chaves[0] === 'provaievedeoficial-provai-e-vede' && chaves[1] === 'daniellocutor-informativo',
+    'a chave da série é o canal mais o prefixo, sem o ano e sem acento', chaves);
+  const de2027 = Object.assign({}, S.SERIES[0], { id: 'serie-provai-vede-2027', ano: 2027 });
+  checar(S.chaveDaSerie(de2027) === chaves[0],
+    'e o álbum do ano seguinte tem a MESMA chave: o Cronograma montado em dezembro serve em janeiro');
+  checar((S.serieDaChave(chaves[0], new Date(2026, 9, 30)) || {}).id === 'serie-provai-vede-2026'
+    && (S.serieDaChave(chaves[0], new Date(2027, 0, 9)) || {}).id === 'serie-provai-vede-2026',
+    'a chave resolve para o álbum do ano corrente e, sem ele no catálogo, para o mais novo');
+  checar(S.serieDaChave('canal-que-nao-existe', new Date(2026, 9, 30)) === null,
+    'uma chave que o catálogo não tem não resolve para série nenhuma');
+  checar(S.rotuloDaSerie(S.SERIES[0]) === 'Provai e Vede'
+    && S.rotuloDaSerie(S.SERIES[1]) === 'Informativo Mundial das Missões',
+    'o nome da série sem o ano: o `rotulo` quando há, senão o prefixo');
+}
+
 console.log('\n' + (falhas.length ? falhas.length + ' FALHA(S)' : 'tudo certo'));
 process.exit(falhas.length ? 1 : 0);

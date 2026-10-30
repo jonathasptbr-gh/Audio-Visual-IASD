@@ -213,6 +213,8 @@ const cartao = () => pg.evaluate((id) => {
     temCaixa: !!aberto.querySelector('[role="checkbox"], .song-menu-check'),
     temDestaque: !!dest,
     primeiro: aberto.firstElementChild ? aberto.firstElementChild.className : '',
+    // O SEGUNDO desde a v1.13.13: o primeiro é a porta do "vídeo da semana" como item.
+    segundo: aberto.children[1] ? aberto.children[1].className : '',
   };
 }, SERIE);
 
@@ -262,8 +264,8 @@ try {
   checar(cx && cx.temAuto === false && cx.temCaixa === false,
     'A · o card aberto da série NÃO tem mais a linha "Manter o … da semana '
     + 'baixado" — nem a classe dela, nem uma caixa de marcação', cx);
-  checar(cx.temDestaque && cx.primeiro === 'serie-destaque',
-    'e o destaque do sábado passou a ser o PRIMEIRO filho do card', cx);
+  checar(cx.temDestaque && /serie-semana-lista/.test(cx.primeiro) && cx.segundo === 'serie-destaque',
+    'e o topo do card é a linha do "vídeo da semana" (v1.13.13) seguida do destaque do sábado', cx);
   const semFuncoes = await pg.evaluate(() => ({
     linha: typeof serieAutoLinha, alterna: typeof alternarSerieAuto, conjunto: typeof serieAuto,
   }));
@@ -488,7 +490,7 @@ try {
     const aberto = renderCollectionCard(coll).querySelector('.coll-open');
     return {
       destaque: !!aberto.querySelector('.serie-destaque'),
-      lista: aberto.querySelectorAll(':scope > ul.coll-songs > li').length,
+      lista: aberto.querySelectorAll(':scope > ul.coll-songs:not(.serie-semana-lista) > li').length,
       semana: aberto.querySelectorAll('.serie-destaque .lib-item, .serie-destaque li').length,
     };
   }, { modo, id: SERIE });

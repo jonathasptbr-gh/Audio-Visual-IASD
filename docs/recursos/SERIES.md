@@ -306,6 +306,37 @@ ser diagnosticável.
 - **O card não é desenhado abaixo do shell 41** — um card que não carrega nada é
   pior que card nenhum.
 
+### O "vídeo da semana" como ITEM (v1.13.13)
+
+Um item VIRTUAL por série — *"um item que automaticamente toca o respectivo
+vídeo da semana… cronograma pode ser atemporal"* —, que entra no Cronograma, na
+playlist e nos Favoritos e, ao TOCAR, vira o episódio desta semana.
+
+| peça | o que é |
+|---|---|
+| o registro | `kind: 'semana'`, sem bytes, `semana: { chave }`, id FIXO `semana-<chave>` (`semanaRegistro`). Mandar de novo é o "já está" de sempre |
+| a chave | `AVSerie.chaveDaSerie` — canal + prefixo, **sem o ano**. `AVSerie.serieDaChave` a devolve ao álbum do ano corrente, ou ao mais novo do catálogo. O `id` da coleção carrega o ano, e o item tem de servir em janeiro. Fora da `impressao`: não decide o conteúdo do álbum |
+| a porta | a linha "Vídeo da semana (sempre o atual)" no TOPO do card (`semanaLinha`), nos DOIS modos, abrindo a gaveta de destinos (`openSemanaMenu`: Tocar agora · Cronograma · playlist · favoritos). No Modo Fácil ela também abre a gaveta, não toca direto: tocar direto repetiria o destaque logo abaixo |
+| o rótulo | o nome da série + "— vídeo da semana", e embaixo a DATA do episódio que ele toca agora (`semanaSubtitulo`), ou "o desta semana ainda não saiu" |
+| tocar | `send` → `resolverSemana`, ANTES do `load` (como o `resolverLinkYoutube`): o episódio é o de `serieEpisodioDaSemana`, a MESMA régua do destaque e da rotina. Com o arquivo, projeta o arquivo; sem ele, `ytAcao(…, 'tocar')` — baixa e projeta, cartão e barra inclusos — e a lista `serie` passa a retê-lo (`manterSeriesDaSemana`) |
+| não saiu | uma procura na lista do canal (`syncCollection(…, { soIndice })`) e, sem o episódio, a frase *"O vídeo desta semana do Provai e Vede ainda não saiu."* — NÃO toca nem baixa |
+
+- **A RESOLUÇÃO É DO CONTROLE, não do `AVDB.getMedia`** (o desenho do item
+  editado): ela pode precisar BAIXAR. O Display e as telas da rede nunca veem
+  um `semana` — o `load` leva o id do ARQUIVO do episódio.
+- **A FILA SABE QUEM ESTÁ NO AR.** `semanaAncora` liga o arquivo no ar ao item
+  virtual que o pôs lá, e `ancoraDaFila()` é o que o `autoAdvance` e o `step`
+  procuram na playlist — sem ela, o episódio (que não está na fila) teria
+  `idx === -1` e a fila pararia nele. `linhaNoAr`/`linhaAtiva` acendem a linha
+  virtual. `repeat: one` mantém a âncora; outra cena a solta.
+- **ELE NÃO RETÉM ARQUIVO.** O `lerDetentores` não o conhece; quem segura o
+  episódio continua sendo só a lista `serie`. O registro sai do banco com a
+  última lista que o tiver, como uma cena.
+- **No `.avpkg`** viaja como item virtual sem bytes — ver
+  `docs/recursos/PACOTE.md`.
+
+Oráculo: `semana-item.test.mjs` (a regra pura da chave no `serie.test.mjs`).
+
 ### O REGISTRO da varredura — o laço de manutenção, fechado
 
 A regra decide a partir de NOMES que um canal muda sem avisar, e os dois modos de
