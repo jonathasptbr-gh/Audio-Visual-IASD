@@ -41,7 +41,7 @@ nele.
 #### O servidor fora do ar (v1.12.43)
 
 Com o veredito da fonte ruim (`fonteBloqueada`, ver "O servidor da LouvorJA
-fora do ar" no capítulo do Controle), a Bíblia barra só o que depende dele.
+fora do ar" em `CONTROLE-COLECOES.md`), a Bíblia barra só o que depende dele.
 A VARREDURA da versão NÃO é segurada pelo veredito (ele é do servidor inteiro e
 pode estar velho ou oscilando — o `boot-nativo` sob carga pegou a versão que a
 segurava e a Bíblia base não descia): ela tem o freio próprio de 25 falhas, e a

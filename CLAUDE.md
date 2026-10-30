@@ -48,7 +48,7 @@ capítulo, e o capítulo tem o resto:
 | a árvore anotada do repositório | [§](#estrutura-do-repositório) | [`docs/ESTRUTURA.md`](docs/ESTRUTURA.md) |
 | o catálogo dos 64 métodos, as regras da ponte por extenso | [§](#a-ponte-windowavnative) | [`docs/shell/PONTE.md`](docs/shell/PONTE.md) |
 | reconexão do telão, "há tela" ≠ "há telão", morte do renderer | [§](#reconexão-e-morte-do-renderer) | [`docs/arquitetura/DISPLAY.md`](docs/arquitetura/DISPLAY.md) |
-| o relay · o dreno do papel `tela` · a referência da preview · o `load` | [§](#barramento-de-comandos-e-o-plano-b-do-broadcastchannel) | [`MODELO-DE-DADOS`](docs/arquitetura/MODELO-DE-DADOS.md) · [`TELAO-POR-COMANDOS`](docs/TELAO-POR-COMANDOS.md) · [`CONTROLE`](docs/arquitetura/CONTROLE.md) · [`MOTOR-STAGE`](docs/arquitetura/MOTOR-STAGE.md) |
+| o relay · o dreno do papel `tela` · a referência da preview · o `load` | [§](#barramento-de-comandos-e-o-plano-b-do-broadcastchannel) | [`MODELO-DE-DADOS`](docs/arquitetura/MODELO-DE-DADOS.md) · [`TELAO-POR-COMANDOS`](docs/TELAO-POR-COMANDOS.md) · [`CONTROLE-TELAO`](docs/arquitetura/CONTROLE-TELAO.md) · [`MOTOR-STAGE`](docs/arquitetura/MOTOR-STAGE.md) |
 | download minimizado, `SyncService`, notificação de progresso | [§](#trabalho-em-segundo-plano-downloads-com-o-app-minimizado) | [`docs/shell/SEGUNDO-PLANO.md`](docs/shell/SEGUNDO-PLANO.md) |
 | `MediaSession`, transporte fora do app | [§](#notificação-de-controles-sessão-de-mídia) | [`docs/shell/SESSAO-DE-MIDIA.md`](docs/shell/SESSAO-DE-MIDIA.md) |
 | os dois canais, a detecção, o watchdog, a pergunta | [§](#ota-da-base-web-atualização-sem-apk) | [`docs/shell/OTA.md`](docs/shell/OTA.md) |
@@ -56,7 +56,7 @@ capítulo, e o capítulo tem o resto:
 | os álbuns oficiais da Biblioteca | [§](#séries-do-youtube-os-álbuns-oficiais-da-biblioteca) | [`docs/recursos/SERIES.md`](docs/recursos/SERIES.md) |
 | acordes sobre a letra, sob demanda | [§](#a-aba-de-cifra-acordes-ao-lado-da-letra) | [`docs/recursos/CIFRA.md`](docs/recursos/CIFRA.md) |
 | o acervo num arquivo `.avpkg` | [§](#o-pacote-de-transferência-o-acervo-num-arquivo) | [`docs/recursos/PACOTE.md`](docs/recursos/PACOTE.md) |
-| a cortina da abertura, o piso e o prazo | [§](#a-abertura-por-trás-dos-panos) | [`docs/arquitetura/CONTROLE.md`](docs/arquitetura/CONTROLE.md) |
+| a cortina da abertura, o piso e o prazo | [§](#a-abertura-por-trás-dos-panos) | [`docs/arquitetura/CONTROLE-TELAO.md`](docs/arquitetura/CONTROLE-TELAO.md) |
 | cada par de cor medido, os pisos, o revogado, as regras da paleta por extenso | [§](#a-paleta) | [`docs/arquitetura/DESIGN-SYSTEM.md`](docs/arquitetura/DESIGN-SYSTEM.md) |
 | cada ponto web × nativo por extenso; share, microfone, voltar, volume, cast, som do espelhamento | [§](#divergências-entre-o-caminho-web-e-o-nativo) | [`docs/DIVERGENCIAS-WEB-NATIVO.md`](docs/DIVERGENCIAS-WEB-NATIVO.md) |
 | arnês, prazos, paralelismo, stub de 60 s, passos do CI, JUnit, assinatura, backup, a página do site, as dependências | [§](#build-e-distribuição) | [`docs/BUILD.md`](docs/BUILD.md) |
@@ -379,8 +379,9 @@ O **relay nativo roda SEMPRE em paralelo**: cada comando sai por
 pelo `__mid`. Por extenso: o relay em
 [`MODELO-DE-DADOS.md`](docs/arquitetura/MODELO-DE-DADOS.md), o dreno em
 [`TELAO-POR-COMANDOS.md`](docs/TELAO-POR-COMANDOS.md), a referência da preview em
-[`CONTROLE.md`](docs/arquitetura/CONTROLE.md) e o `load` em
-[`MOTOR-STAGE.md`](docs/arquitetura/MOTOR-STAGE.md) (seções ao fim de cada um).
+[`CONTROLE-TELAO.md`](docs/arquitetura/CONTROLE-TELAO.md) e o `load` em
+[`MOTOR-STAGE.md`](docs/arquitetura/MOTOR-STAGE.md) (seções ao fim de cada um; no
+`CONTROLE-TELAO.md`, "A referência da preview").
 
 - **O DRENO do papel `tela` é lista de PERMISSÃO** (`espelho/tela.js`): sobe só
   `display-ready` com `__tela` (dispara `telaReenviarPreferencias`; `anuncio()` é
@@ -631,8 +632,8 @@ O que vale sem abrir o capítulo:
 
 O lado nativo já nasce na cor do tema guardado; o que piscava era o DOCUMENTO.
 **Por extenso, com o oráculo (`abertura-e-transferencia.test.mjs`), em
-[`docs/arquitetura/CONTROLE.md`](docs/arquitetura/CONTROLE.md)** (seção "A
-abertura por trás dos panos", ao fim). O que se quebra sem abrir:
+[`docs/arquitetura/CONTROLE-TELAO.md`](docs/arquitetura/CONTROLE-TELAO.md)** (seção "A
+abertura por trás dos panos"). O que se quebra sem abrir:
 
 - O **tema** é escrito por um `<script>` inline no `<head>` do
   `controle/index.html`, a ÚNICA leitura de `av.tema`; o resto é a **cortina**

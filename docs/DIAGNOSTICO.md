@@ -5,7 +5,7 @@ Verificação do Sistema (os quatro desfechos, o que uma checagem nunca faz, a
 exceção do download de teste), as rotinas de massa, os campos de endereço de
 terceiro, o backfill, e o Registro (uma porta só, sobre o culto, o veredito e o
 dado cru). O `CLAUDE.md` guarda o resumo; a mecânica de cada bloco está no
-capítulo do Controle ("A Verificação do Sistema").
+capítulo do Controle (`arquitetura/CONTROLE-COLECOES.md`, "A Verificação do Sistema").
 
 > **Movido do `CLAUDE.md` na revisão A2 (2026-10-30), sem mudança de texto** (só os links relativos e o nível dos títulos). No núcleo ficou um resumo com o link para cá. "Acima", "abaixo", "esta seção" e as invariantes numeradas falam do `CLAUDE.md`, de onde este texto veio.
 

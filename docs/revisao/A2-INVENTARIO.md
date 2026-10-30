@@ -15,21 +15,21 @@ link. As linhas `L…` são do arquivo antigo.
 | O ganho: Presentation (135–163) | fica no núcleo, inteiro |
 | Estrutura do repositório — a árvore anotada (164–347) | `docs/ESTRUTURA.md` (novo), verbatim; núcleo: árvore condensada + a linha `**33 arquivos Kotlin…` e o "meça antes de citar" |
 | Invariantes 1–9, `KeepVisibleWebView` (348–437) | fica no núcleo, inteiro |
-| Reconexão e morte do renderer (438–525) | `docs/arquitetura/DISPLAY.md#reconexão-e-morte-do-renderer-do-núcleo-revisão-a2`, verbatim; núcleo: 5 pontos |
+| Reconexão e morte do renderer (438–525) | `docs/arquitetura/DISPLAY.md#reconexão-e-morte-do-renderer` (o sufixo "(do núcleo, revisão A2)" saiu na A3), verbatim; núcleo: 5 pontos |
 | A ponte: superfície 64/76, globais, `farolContar`, URLs servíveis, token `/saf/`, privilégio do Controle, épocas (526–621) | `docs/shell/PONTE.md` (seção nova ao fim), verbatim; núcleo: 6 pontos |
 | `SHELL_VERSION` (622–639) | idem PONTE.md; núcleo: o piso 83, sem guarda web, forma > acréscimo |
 | As QUATRO filas, main thread do espelho, `ytCancel`, `minShell` = válvula, mudar forma (640–725) | idem PONTE.md (já coberto em "As QUATRO filas"); núcleo: tabela de 4 linhas |
 | Barramento: relay paralelo (726–737) | `docs/arquitetura/MODELO-DE-DADOS.md` (seção nova ao fim), verbatim |
 | O DRENO do papel `tela` (738–788) | `docs/TELAO-POR-COMANDOS.md` (seção nova ao fim), verbatim |
-| A referência da preview (789–829) | `docs/arquitetura/CONTROLE.md` (seção nova ao fim), verbatim |
+| A referência da preview (789–829) | `docs/arquitetura/CONTROLE.md` (seção nova ao fim), verbatim; desde a A3, `docs/arquitetura/CONTROLE-TELAO.md` |
 | O `load` carrega ponto e estado (830–863) | `docs/arquitetura/MOTOR-STAGE.md` (seção nova ao fim), verbatim |
 | Barramento (as quatro, juntas) | núcleo: 4 pontos |
 | Segundo plano · Sessão de mídia · OTA (864–958) | ficam no núcleo, inteiros (já eram resumo + capítulo) |
 | Telão por comandos: mapa, vias, AP (959–1018) | `docs/TELAO-POR-COMANDOS.md` (seção nova ao fim), verbatim; núcleo: 9 pontos, inclusive a regra de calendário |
 | As peças · As decisões · As inversões (1019–1156) | idem TELAO |
 | Séries · Cifra · Pacote (1157–1242) | ficam no núcleo, inteiros (já eram resumo + capítulo) |
-| A abertura por trás dos panos (1243–1311) | `docs/arquitetura/CONTROLE.md` (seção nova ao fim), verbatim; núcleo: 3 pontos |
-| A paleta, as ~40 regras (1312–1756) | `docs/arquitetura/DESIGN-SYSTEM.md` (seção nova ao fim), verbatim; núcleo: as regras duras em uma linha cada |
+| A abertura por trás dos panos (1243–1311) | `docs/arquitetura/CONTROLE.md` (seção nova ao fim), verbatim; núcleo: 3 pontos; desde a A3, `docs/arquitetura/CONTROLE-TELAO.md` |
+| A paleta, as ~40 regras (1312–1756) | `docs/arquitetura/DESIGN-SYSTEM.md` (seção nova ao fim), verbatim; núcleo: as regras duras em uma linha cada; na A3, fundida em "### As regras" e nas quatro seções que a seguem (o que já estava no capítulo saiu da cópia) |
 | Divergências web × nativo, a tabela (1757–1815) | `docs/DIVERGENCIAS-WEB-NATIVO.md` (novo), verbatim; núcleo: uma linha curta por ponto |
 | Compartilhamento · Microfone · Voltar · Volume · Cast · Som do espelhamento · Andaimes (1816–2044) | idem DIVERGENCIAS; núcleo: 1–3 linhas cada |
 | Build: rotas, `web-ota` sem filtro e com fila (2045–2075) | `docs/BUILD.md` (novo), verbatim; núcleo: resumo |

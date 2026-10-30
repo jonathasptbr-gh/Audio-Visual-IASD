@@ -298,7 +298,7 @@ ser diagnosticável.
   subtítulo diz por quê, e o próximo desenho do card aberto a retoma. O subtítulo
   da barra é o estado: "Verificando os vídeos da semana…", o número de episódios,
   ou o motivo de não ter acontecido. O detalhe está em
-  `docs/arquitetura/CONTROLE.md`, "A coluna da direita". Oráculo:
+  `docs/arquitetura/CONTROLE-LAYOUT.md`, "A coluna da direita". Oráculo:
   `serie-mantem-a-semana.test.mjs`, bloco K.
   **Os outros dois botões saíram antes** (v1.1.21), porque **o álbum de série não retém arquivo**: um
   episódio só existe no aparelho enquanto está no Cronograma, nos Favoritos ou na

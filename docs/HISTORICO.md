@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **revisão A3 (sem versão nova; só docs)** — CAPÍTULOS GRANDES: o `CONTROLE.md` (770 kB) partido VERBATIM em onze partes por área (`docs/arquitetura/CONTROLE-*.md`) mais um hub de 18 kB; as seções "(do núcleo, revisão A2)" fundidas no `DESIGN-SYSTEM.md`, no `CONTROLE-TELAO.md`, no `DISPLAY.md`, no `MODELO-DE-DADOS.md` e no `MOTOR-STAGE.md`; três fatos velhos corrigidos no `DESIGN-SYSTEM.md`. A narrativa tirada está na seção `## revisão A3`.
 - **revisão A2 (sem versão nova; só docs)** — A DIETA DO `CLAUDE.md`: 315 kB → ~79 kB sem mudar regra. O detalhe de recurso saiu VERBATIM para o capítulo dono e para quatro arquivos novos (`docs/ESTRUTURA.md`, `docs/DIVERGENCIAS-WEB-NATIVO.md`, `docs/BUILD.md`, `docs/DIAGNOSTICO.md`); o bloco "Versão atual" perdeu os resumos de lote (os sem casa aqui foram para a seção `## revisão A2`). Inventário: `docs/revisao/A2-INVENTARIO.md`.
 - **revisão A1, retomada (sem versão nova; só `tools/`)** — `favoritos-fechar` A8 lia o cabeçalho de partida antes de a TAMPA assentar (espera fixa de 150 ms, medida num `requestAnimationFrame`) e o assentamento no meio da curva saía como o cabeçalho andando 10,34px; agora espera a geometria parada em dez quadros. O `configuracoes-janelas` D (três vermelhos, sem reprodução local) passa a imprimir o ESTADO da seção no `obtido`. O `busca-na-tela` saiu da lista: o vermelho dele foi a primeira run, consertada no lote seguinte.
 - **revisão A1 (sem versão nova; só `tools/`)** — QUATRO ORÁCULOS INSTÁVEIS DEIXAM DE MEDIR O RUNNER. `display-smoke` 5-B: o zero do `saindoDeCena` não é a ENTREGA do status final pelo `BroadcastChannel`, e ele chegava depois de o espião ser zerado — agora uma marca pelo MESMO canal do telão fecha a janela. `tela-inteira` B3: premissa e leitura num `evaluate` só (um evento do `<video>` sem duração reescrevia o `seekEl` entre os dois). `excluir-em-cena`: a espera casava com o vídeo ANTERIOR ainda no fade de saída (o `<video>` é reaproveitado) — exige a fonte nova. `servidor-indisponivel` D1: o `apurarFonte` depois do `setOffline` devolvia a apuração da ABERTURA em voo (partida online → `servidor`); o oráculo espera ela acabar. O `enquadramento-da-camada` (giro ausente, idêntico em dois runs) é corrida do APP e foi a repasse para a W2. Restam `configuracoes-janelas`, `busca-na-tela` e `favoritos-fechar` (ver `docs/revisao/REGISTRO.md`).
@@ -617,6 +618,110 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## revisão A3 — os capítulos grandes (sem versão nova; só docs)
+
+**O `CONTROLE.md` foi partido por área**, com o texto MOVIDO verbatim: só o
+nível dos títulos e os links (âncoras que viraram `CONTROLE-<PARTE>.md#…`)
+mudaram. Prova: as 9.409 linhas de conteúdo (não vazias, fora de título) do
+arquivo de antes estão TODAS, como multiconjunto, nas partes novas. As partes:
+`MODOS` · `LAYOUT` · `NAVEGACAO` · `CONFIGURACOES` · `TELAO` · `BIBLIOTECA` ·
+`LISTAS` · `COLECOES` · `SORTEIO` · `YOUTUBE` · `LEITURA`; o hub guarda o mapa,
+o índice por assunto e as três seções que valem para o Controle inteiro
+(feedback, diálogo, teclado virtual). Três seções mudaram de pai por estarem no
+lugar errado do arquivo único: "Configurações é um PAINEL RÁPIDO" (com o rodapé
+e a contagem de uso) estava DENTRO de "Os dois botões de slide"; "A FOLHA DE
+FERRAMENTAS", "O contrato do `shouldInterceptRequest`" e "UM registro só"
+estavam dentro de "Abas e biblioteca". Uma âncora do índice já nascera quebrada
+(`…-v120--v1430`, o título diz `v1.4.31`) e foi acertada.
+
+**As seções "(do núcleo, revisão A2)"** perderam o sufixo e o aviso de
+procedência ("Movido do `CLAUDE.md` na revisão A2 …, sem mudança de texto"): a
+procedência está no `docs/revisao/A2-INVENTARIO.md`. A da paleta foi FUNDIDA no
+`DESIGN-SYSTEM.md`: as regras que o capítulo já tinha (só COR no `tokens.css`,
+três blocos, o palco sem tema, sem contorno, superfícies opacas, a linguagem de
+estado, o recuo de toque, a escada, o `colors.xml`, o ícone do app, "não há
+teste de contraste absoluto") saíram da cópia; as que o núcleo acumulou depois
+de 2026-09-07 e o capítulo nunca recebeu entraram em "### As regras" e em
+quatro seções novas (escala de ícone · sombra das bordas, roletas e grades ·
+folhas e faixa de fecho · o tema de dois estados). A da abertura fundiu-se com o
+parágrafo "A CORTINA" de "A abertura e a badge de versão", que a repetia. A do
+`MOTOR-STAGE.md` perdeu a frase do `loadedmetadata`, que "Posição inicial e
+autoplay" já dizia.
+
+**Fatos velhos corrigidos no `DESIGN-SYSTEM.md`** (a cópia do núcleo estava
+certa, o capítulo não): o véu de indisponível é `--op-inativo` (.35), não
+`opacity: .3` (dois lugares); o verde é ATIVIDADE e o desfecho é azul (o capítulo
+ainda dizia "concluído/conectado"); o `colors.xml` × `tokens.css` TEM oráculo
+desde a v1.8.32 (o capítulo dizia "nada no build detecta divergência").
+
+### Narrativa tirada de `docs/arquitetura/DESIGN-SYSTEM.md`
+
+**O aviso de procedência da faxina de 2026-09-07** (abria "## A paleta — o
+raciocínio inteiro"; hoje é falso — as regras duras não "ficaram lá"):
+
+<!-- Extraído do `CLAUDE.md` na faxina de 2026-09-07. -->
+
+> **Este bloco saiu do `CLAUDE.md`**, que é lido INTEIRO em toda sessão: eram
+> 772 linhas — 14% daquele arquivo — cobradas de toda tarefa, inclusive das que
+> nunca escrevem uma cor. **As REGRAS DURAS ficaram lá** (cor nova em
+> `tokens.css`, não há contorno, o palco não tem tema, nunca branco literal, o
+> recuo absoluto, a escada de camadas, o `colors.xml`), porque quebrá-las é
+> possível sem abrir capítulo nenhum. **Aqui está o raciocínio: cada par medido,
+> os pisos, o que foi tentado e revogado.**
+>
+> Ele NÃO sobrepõe o que já estava neste arquivo — MEDIDO na entrada da faxina:
+> 6% de coincidência. Os dois foram escritos para dizer coisas diferentes.
+
+E a frase que apontava o capítulo para si mesmo: *"O raciocínio completo (cada
+par medido, os pisos, os ladrilhos da Bíblia) está na seção de paleta de
+`docs/arquitetura/DESIGN-SYSTEM.md`."*
+
+**De "Regras do sistema" (antes da tabela R1–R5):**
+
+> O texto normativo anterior citava um contraste de **2,66:1 para o azul como
+> TEXTO**, e esse número não correspondia a medição nenhuma — o azul antigo
+> (`#58a6ff`) dava 7,42:1 sobre o fundo. Ele fazia a régua da decisão parecer
+> outra: sugeria que o problema estava no azul como texto, quando estava no
+> par fundo/branco. Registrado aqui porque foi essa leitura errada que
+> sobreviveu em três lugares da documentação.
+
+**De "A CAIXA CERTA NÃO GARANTE O DESENHO CERTO" (como o defeito apareceu):**
+*"Foi o que aconteceu ao limpar do Cronograma: MEDIDO, o `<svg>` dele media 20px
+contra os 22 da engrenagem a 34px de distância na MESMA faixa, enquanto as
+CAIXAS dos dois botões eram iguais — e havia asserção provando que as caixas
+eram iguais, o que é por que ninguém viu. (A casa dele é hoje do IMPORTAR,
+`.crono-importar`, v1.13.5, que mede `--icon-lg` por regra PRÓPRIA — o degrau a
+mais que a v1.8.69 deu à lixeira …)"*
+
+**De "O TEMA TEM DUAS OPÇÕES" (o que se tentou antes):** *"Ele custou três lotes
+e vale registrar por que … A v1.8.62 tentou escolher QUAL toque seria o mudo (a
+ordem do ciclo decidida pelo aparelho) e a v1.8.63 tentou INDICAR o estado
+(marca aditiva no ícone mais uma `.qs-estado` com a palavra, a única exceção à
+v1.7.2) — as duas trataram o sintoma."*
+
+### Tirado de `docs/arquitetura/CONTROLE.md`, "A abertura e a badge de versão"
+
+O parágrafo "A CORTINA" (a regra está, inteira, em "A abertura por trás dos
+panos", no `CONTROLE-TELAO.md`; o que era só dele — o `#splash` pinta `--bg` no
+primeiro quadro, e "uma preview sem wallpaper é mais um dos carregamentos" —
+foi fundido lá). A frase de abertura dele, que deixou de ser verdade: *"O
+contrato inteiro está no `CLAUDE.md`, em 'A abertura por trás dos panos'; o que
+interessa a este capítulo é onde ela mora e o que ela cobre."*
+
+### O que a A3 NÃO fez
+
+- **`docs/ORACULOS.md`: a narrativa ficou** (nenhuma linha mexida). As células
+  misturam o que o oráculo trava com a história do lote que o criou, frase a
+  frase; separar exige ler cada uma.
+- **`docs/arquitetura/DESIGN-SYSTEM.md`: só as quatro passagens acima.** O
+  capítulo guarda o REVOGADO por contrato (o `CLAUDE.md` o manda para lá), e o
+  resto da prosa de lote sustenta uma régua medida.
+- **`docs/shell/PONTE.md` e `docs/TELAO-POR-COMANDOS.md`**: as seções "(do
+  núcleo, revisão A2)" continuam lá, sem fusão (a sobreposição medida é parcial
+  e pede leitura frase a frase).
 
 ---
 

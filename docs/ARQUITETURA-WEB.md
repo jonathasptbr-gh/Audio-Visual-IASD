@@ -17,7 +17,18 @@ para uma pergunta sobre a Bíblia não custar a leitura do Controle inteiro.
 
 | capítulo | arquivo | quando abrir |
 |---|---|---|
-| Controle | [`arquitetura/CONTROLE.md`](arquitetura/CONTROLE.md) | layout, transporte, mixer, Biblioteca, coleções (LouvorJA), YouTube, favoritos, playlist, séries, playlist automática |
+| Controle — o HUB | [`arquitetura/CONTROLE.md`](arquitetura/CONTROLE.md) | o mapa das partes abaixo, o índice por assunto e as regras do Controle inteiro (feedback, diálogo, teclado virtual) |
+| Controle — modos | [`arquitetura/CONTROLE-MODOS.md`](arquitetura/CONTROLE-MODOS.md) | Modo Fácil × avançado, o modo pela sessão, o modo sem tela, o vídeo do Modo Fácil em tela cheia |
+| Controle — layout | [`arquitetura/CONTROLE-LAYOUT.md`](arquitetura/CONTROLE-LAYOUT.md) | layout geral, transporte, fader, os dois botões de slide, os controles dentro do fullscreen |
+| Controle — navegação | [`arquitetura/CONTROLE-NAVEGACAO.md`](arquitetura/CONTROLE-NAVEGACAO.md) | uma tela, duas folhas e uma janela: as portas do rodapé, a folha da Bíblia, a barra da Biblioteca |
+| Controle — Configurações | [`arquitetura/CONTROLE-CONFIGURACOES.md`](arquitetura/CONTROLE-CONFIGURACOES.md) | tema, painel rápido e seções, rodapé, Registro, wallpaper, girar a mídia, histórico do culto |
+| Controle — telão | [`arquitetura/CONTROLE-TELAO.md`](arquitetura/CONTROLE-TELAO.md) | abertura (cortina, versão), retomada do telão, a referência da preview, a saída de áudio, a prévia recolhível |
+| Controle — Biblioteca | [`arquitetura/CONTROLE-BIBLIOTECA.md`](arquitetura/CONTROLE-BIBLIOTECA.md) | abas, destinos de um item, a linha da lista, o rodízio das coleções, a coletânea, deslizar entre abas |
+| Controle — listas | [`arquitetura/CONTROLE-LISTAS.md`](arquitetura/CONTROLE-LISTAS.md) | cronogramas múltiplos, gestos nos itens, favoritos, editar mídia |
+| Controle — coleções | [`arquitetura/CONTROLE-COLECOES.md`](arquitetura/CONTROLE-COLECOES.md) | coleções (LouvorJA), sincronização, acordeões, completude, peso, classificação |
+| Controle — sorteio | [`arquitetura/CONTROLE-SORTEIO.md`](arquitetura/CONTROLE-SORTEIO.md) | playlist automática: filtros, pool, fundo musical, lote, baralho |
+| Controle — YouTube | [`arquitetura/CONTROLE-YOUTUBE.md`](arquitetura/CONTROLE-YOUTUBE.md) | busca e download, o download como estado da tela, compartilhamento, `shouldInterceptRequest`, séries |
+| Controle — leitura | [`arquitetura/CONTROLE-LEITURA.md`](arquitetura/CONTROLE-LEITURA.md) | folha de ferramentas, leitura auxiliar (letra, Bíblia, cifra deitada) |
 | Modelo de dados | [`arquitetura/MODELO-DE-DADOS.md`](arquitetura/MODELO-DE-DADOS.md) | `shared/db.js`: IDB, OPFS, BroadcastChannel, coletor de lixo |
 | Motor de renderização | [`arquitetura/MOTOR-STAGE.md`](arquitetura/MOTOR-STAGE.md) | `shared/stage.js`: cortina, fades, concorrência de load |
 | Camada de Texto | [`arquitetura/CAMADA-DE-TEXTO.md`](arquitetura/CAMADA-DE-TEXTO.md) | Bíblia, Mensagens, letra avulsa, cronômetro, sorteio, itinerário, letra sincronizada, IMAGEM sobre o áudio |

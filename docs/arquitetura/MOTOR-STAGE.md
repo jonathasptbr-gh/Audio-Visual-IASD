@@ -472,9 +472,7 @@ stage sozinho não tem como saber disso — ele só enxerga o que ele mesmo dese
 
 ---
 
-## O `load` carrega o ponto e o estado da mídia (do núcleo, revisão A2)
-
-> **Movido do `CLAUDE.md` na revisão A2 (2026-10-30), sem mudança de texto** (só os links relativos e o nível dos títulos). No núcleo ficou um resumo com o link para cá. "Acima", "abaixo", "esta seção" e as invariantes numeradas falam do `CLAUDE.md`, de onde este texto veio.
+## O `load` carrega o ponto e o estado da mídia
 
 Além de `mediaId`/`view`/`muted`/`volume`, dois campos que existem **para a
 reconexão do telão**:
@@ -490,11 +488,10 @@ reconexão do telão**:
 seguida agiria sobre o `<video>` **anterior** — o seek seria aplicado à mídia
 errada e depois perdido.
 
-- `stage.js` → `load(id, v, m, vol, startAt, autoplay)`. A posição só "gruda"
-  depois que a duração é conhecida (escrever `currentTime` junto com o `src` é
-  perdido em silêncio), então o `startAt` entra num `loadedmetadata` com
-  `{ once: true }`, protegido pelo `loadSeq`. `autoplay === false` é a cena que
-  voltou pausada; `undefined` mantém o comportamento de sempre.
+- `stage.js` → `load(id, v, m, vol, startAt, autoplay)`; `autoplay === false` é a
+  cena que voltou pausada e `undefined` mantém o comportamento de sempre. Por que
+  o `startAt` entra num `loadedmetadata` protegido pelo `loadSeq`: acima, em
+  "Posição inicial e autoplay".
 - **Não há segundo caminho.** TODA mídia entra como `<video>`/`<img>` comum, e
   o `startAt` segue sempre a MESMA regra acima. Um `kind: 'youtube'` (link sem
   bytes) nem chega a ser cena no telão: quem o resolve é o Controle, antes do
