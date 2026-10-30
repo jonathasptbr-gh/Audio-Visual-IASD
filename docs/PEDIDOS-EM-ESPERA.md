@@ -16,7 +16,7 @@ horário do relato.
 O operador pediu economia: *"não temos tokens então toda ação deve ser fracionada
 e controlada"* — um pacote por vez, cada um com o rito de entrega completo.
 
-**Ordem recomendada ao operador:** o 5, e o 6 (pesquisa) por
+**Ordem recomendada ao operador:** o 5, o 7, e o 6 (pesquisa) por
 último. (O Pacote 1 — as quatro correções pequenas — saiu na v1.13.11, e a busca no computador foi refeita no servidor na v1.13.12; o Pacote 4 — a lista vertical das Ferramentas e o nome do itinerário no
 título da folha — saiu na v1.13.4; o Pacote 2 — o teclado sobrepondo em todo
 campo de texto — na v1.13.7; o Pacote 3 — a linha de controles do Modo Fácil —
@@ -40,6 +40,28 @@ episódio baixado (baixar e projetar, como o "Tocar agora"? avisar?); como o
 item viaja no `.avpkg`; e o rótulo na lista (mostrar a data do episódio
 resolvido). Ver `docs/recursos/SERIES.md`.
 
+## Pacote 7 — A faixa de álbum que está NO AR, destacada (só web)
+
+| quando | pedido |
+|---|---|
+| 2026-10-30 | *"Pode considerar que quero que seja destacado também."* (resposta ao §4 de `docs/ACHADOS-EM-ABERTO.md`) |
+
+Dentro da Biblioteca, a faixa de um álbum que está sendo projetada não se
+distingue das vizinhas (o Cronograma e os Favoritos marcam). O defeito tem DUAS
+metades, e as duas entram no MESMO lote — o detalhe e a correção proposta estão
+em `docs/ACHADOS-EM-ABERTO.md` §4:
+
+1. **a classe não chega** — `marcarNoAr` lê `dataset.id`, e o `hymnResultRow`
+   só escreve `dataset.song`;
+2. **a cor estaria errada se chegasse** — `.coll-songs > .hymn-result` vence
+   `.lib-item.no-ar` por ordem de fonte (no claro, 1,00:1 contra a vizinha).
+
+**Pergunta a fechar com o operador ANTES de começar:** a mesma música pode
+estar em dois álbuns (ou no hinário e numa coletânea) ao mesmo tempo — acende
+nos dois, ou só no álbum de onde ela foi tocada? A primeira é mais simples
+(compara a MÚSICA de catálogo); a segunda pede guardar a ORIGEM do toque.
+Ao entregar, o §4 sai do `ACHADOS-EM-ABERTO.md`.
+
 ## Pacote 6 — Pesquisa, sem implementação
 
 | hora | pedido | o que já se sabe |
@@ -51,11 +73,6 @@ resolvido). Ver `docs/recursos/SERIES.md`.
 
 ## Pendências antigas (anteriores a 2026-10-24)
 
-- **A faixa de um álbum marcada como NO AR na Biblioteca** — o operador
-  decidiu em 2026-10-30 que QUER o destaque (*"pode considerar que quero que
-  seja destacado também"*). O defeito, as duas metades e a correção proposta
-  estão em `docs/ACHADOS-EM-ABERTO.md` §4; falta decidir o que acende quando a
-  mesma música está em dois álbuns.
 - **Notificação abaixando o volume da mídia** (análise da v1.13.1): a saída
   barata é (a) uma dica, só web, sugerindo ligar o "Não Perturbe" quando o som
   sai pelo celular; (b) um tile que abre as configurações do Não Perturbe pede
