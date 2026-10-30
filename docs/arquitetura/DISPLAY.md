@@ -434,9 +434,7 @@ Duas defesas em `shared/native.js`, ambas invisíveis no navegador:
 
 ---
 
-## Reconexão e morte do renderer (do núcleo, revisão A2)
-
-> **Movido do `CLAUDE.md` na revisão A2 (2026-10-30), sem mudança de texto** (só os links relativos e o nível dos títulos). No núcleo ficou um resumo com o link para cá. "Acima", "abaixo", "esta seção" e as invariantes numeradas falam do `CLAUDE.md`, de onde este texto veio.
+## Reconexão e morte do renderer
 
 **Reconexão vem de graça:** dongle cai e volta → o Android recria a
 `Presentation` → o WebView recarrega `/display/` e dispara `display-ready` → o

@@ -14,7 +14,7 @@ abandonada → primeira pendente pelo `nº`).
 |---|---|---|---|---|---|
 | 1 | A1 | feita (com um resíduo: `configuracoes-janelas` D, ver o relatório) | sem versão (só `tools/`) | 2026-10-30 | 5 oráculos instáveis consertados, 1 instrumentado, 1 corrida do APP (repasse W2) |
 | 2 | A2 | feita | sem versão (só docs) | 2026-10-30 | `CLAUDE.md` 315 kB → 79 kB, nenhuma regra mudada: detalhe verbatim nos capítulos e em 4 arquivos novos |
-| 3 | A3 | em curso | | 2026-10-30 | |
+| 3 | A3 | parcial (falta: narrativa do `ORACULOS.md`; fundir as seções A2 de `PONTE.md` e `TELAO-POR-COMANDOS.md`) | sem versão (só docs) | 2026-10-30 | `CONTROLE.md` 770 kB → hub de 18 kB + 11 partes `CONTROLE-<ÁREA>.md`, verbatim provado; duplicatas da A2 fundidas em 5 de 7 capítulos |
 | 4 | A4 | pendente | | | |
 | 5 | A5 | pendente | | | |
 | 6 | A6 | pendente | | | |
@@ -56,6 +56,8 @@ tratou.
 | W2 | A1 | `shared/stage.js`:`aplicarGiroTudo` — SUSPEITA com cenário: `enquadramento-da-camada` reprovou IDÊNTICO nos runs 2229 e 2242 (`pvTextImg` com `cover` mas sem giro, caixa = palco 669×376). Com a camada (`#pvText`) ainda `hidden` quando o `reporGiro` roda, o reenvio por `requestAnimationFrame` desiste em `GIRO_TENTATIVAS` (60 QUADROS, não tempo): se a revelação vier depois disso (runner lento), a imagem sobreposta fica SEM o giro para sempre — sem TV, isso é a projeção. Medir: forçar a revelação depois de 60 quadros; conserto provável: quem revela a camada chama `reporGiro` DEPOIS de revelar o ancestral, ou um `ResizeObserver` na própria `camadaImg`. O oráculo não foi mexido: esperar pelo giro esconderia o defeito |
 | A3 | A2 | Os blocos movidos VERBATIM para `docs/arquitetura/DESIGN-SYSTEM.md` ("As regras da paleta como estavam no núcleo"), `docs/arquitetura/CONTROLE.md` (referência da preview; abertura), `docs/shell/PONTE.md`, `docs/TELAO-POR-COMANDOS.md`, `docs/arquitetura/DISPLAY.md`, `MODELO-DE-DADOS.md` e `MOTOR-STAGE.md` (seções "(do núcleo, revisão A2)" ao fim de cada um) DUPLICAM em parte o que o capítulo já tinha (medido: PONTE.md já cobria ~95% dos símbolos; DESIGN-SYSTEM ~53%). A A2 não deduplicou de propósito (mover sem perder era a cerca); fundir cada seção na casa certa do capítulo é trabalho de capítulo |
 | A4 | A2 | `docs/shell/README.md` tem DUAS linhas para o `MuxMp4.kt` (190 e 191 linhas, textos diferentes) — uma deve sair. E a árvore anotada de `docs/ESTRUTURA.md` (verbatim do `CLAUDE.md` antigo) não lista o `R2ImagemFonte.kt`, embora diga 33 arquivos (a árvore condensada do `CLAUDE.md` novo já o lista) |
+| A5 | A3 | `tools/docs-coerentes.test.mjs` seção 6 — só confere âncora do PRÓPRIO arquivo, e a regex `\]\((#[a-z0-9-]+)\)` pula âncora acentuada (a maioria aqui); `X.md#slug` entre arquivos não é conferido. O piso "≥ 20 âncoras" é frágil (o desmembramento o derrubou a 16; voltou com os "Nesta parte" de cada parte, sem mexer no oráculo). Sugestão: conferir âncoras entre arquivos com o slug do GitHub (a A3 mediu 23 links cruzados, 0 quebrados) |
+| A4 | A3 | referências genéricas ao "capítulo do Controle" sem a parte (válidas pelo hub, mas podiam nomeá-la): `CIFRA.md:532`, `PACOTE.md:801`, `FONTE-DE-DADOS-LOUVORJA.md:558`, `CAMADA-DE-TEXTO.md:245` |
 
 ## Relatórios
 
@@ -113,3 +115,39 @@ Mapas atualizados: `docs/shell/README.md` (8 linhas) e `docs/ARQUITETURA-WEB.md`
 sanidade verdes; a "Sanidade da base web" (o script do workflow) verde.
 **Repasses:** dois (A3: deduplicar as seções verbatim nos capítulos; A4: linha
 dupla do `MuxMp4.kt` no mapa do shell e o `R2ImagemFonte.kt` fora da árvore). **O operador:** nada a fazer.
+
+### A3 · Capítulos grandes — parcial (2026-10-30)
+
+**Feito:** `docs/arquitetura/CONTROLE.md` 769.843 → 18.241 bytes: virou HUB (mapa das
+partes, o índice por assunto, e as três regras do Controle inteiro — feedback,
+diálogo padrão, teclado virtual) + 11 partes no mesmo diretório,
+`CONTROLE-{MODOS,LAYOUT,NAVEGACAO,CONFIGURACOES,TELAO,BIBLIOTECA,LISTAS,COLECOES,SORTEIO,YOUTUBE,LEITURA}.md`
+(48–107 kB), cada uma com um "Nesta parte:". Três grupos de `####` estavam sob o
+pai errado e subiram a `###` (o painel de Configurações dentro de "Os dois botões
+de slide"; a folha de Ferramentas, o contrato do `shouldInterceptRequest` e "UM
+registro só" dentro de "Abas e biblioteca"). **Prova verbatim** (multiconjunto de
+linhas não-título): 9.409 do original, 0 faltando depois do corte; depois da
+fusão da A2, 18 faltando, todas intencionais (duplicata "A CORTINA", 2 citações de
+procedência, 3 linhas reescritas para absorver o único). Links: `CLAUDE.md` (4,
+regras intactas), hub `ARQUITETURA-WEB.md` (12 linhas), `ESTRUTURA.md` e mais 8
+capítulos; 23 âncoras entre arquivos conferidas, 0 quebradas (uma já quebrada,
+`…v1430`, consertada). **Duplicatas da A2 fundidas:** CONTROLE-TELAO,
+DESIGN-SYSTEM (209 → 202 kB; 73 linhas repetidas saíram, o único foi a 4 seções
+novas, e três fatos VELHOS do capítulo corrigidos pela cópia mais nova: `.3` →
+`--op-inativo` .35, o verde é ATIVIDADE e o desfecho é azul, `tokens.test.mjs`
+confere `colors.xml`), DISPLAY, MODELO-DE-DADOS, MOTOR-STAGE. ~3 kB de narrativa
+do DESIGN-SYSTEM foram ao `HISTORICO.md` (`## revisão A3`); o resto ali é razão de
+regra revogada, que o capítulo guarda de propósito.
+**Verificado:** `docs-coerentes`, `tokens` e a "Sanidade da base web" (todos os
+oráculos de Node puro) verdes; `CLAUDE.md` 79,4 kB.
+**PONTO DE PARADA (a próxima sessão da A3 retoma daqui):** (1) narrativa de lote
+do `docs/ORACULOS.md` — não começada; as células misturam "o que trava" e
+histórico frase a frase (`verificacao-do-sistema` tem 13,8 kB): ler célula a
+célula, o histórico vai ao `HISTORICO.md`; (2) fundir as seções A2 de
+`docs/shell/PONTE.md` e `docs/TELAO-POR-COMANDOS.md` (sobreposição parcial, frase a
+frase); (3) opcional: os "quatro relatos da v1.5.17" e "três relatos da v1.5.18"
+em `CONTROLE-BIBLIOTECA.md`, e os dois blocos verde × azul (v1.8.55/56) do
+DESIGN-SYSTEM, que repetem em parte o item fundido (guardam medidas).
+**Repasses:** A5 (âncoras entre arquivos no `docs-coerentes`), A4 (4 referências
+genéricas ao Controle). **O operador:** nada a fazer — só documentação.
+

@@ -748,9 +748,7 @@ sustentam isso, e as duas primeiras nasceram de defeitos vistos em culto:
 
 ---
 
-## Barramento de comandos e o plano B do BroadcastChannel (do núcleo, revisão A2)
-
-> **Movido do `CLAUDE.md` na revisão A2 (2026-10-30), sem mudança de texto** (só os links relativos e o nível dos títulos). No núcleo ficou um resumo com o link para cá. "Acima", "abaixo", "esta seção" e as invariantes numeradas falam do `CLAUDE.md`, de onde este texto veio.
+## Barramento de comandos e o plano B do BroadcastChannel
 
 `BroadcastChannel` entre dois WebViews same-origin no mesmo processo **deve**
 funcionar — mas o isolamento de sites do WebView pode surpreender, e uma falha aí

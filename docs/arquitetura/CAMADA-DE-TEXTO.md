@@ -641,7 +641,7 @@ folha abre nas seis ferramentas** — numa grade 3×2 até a v1.13.4, hoje numa
 LISTA VERTICAL que divide a altura da folha: Relógio · Cronômetro · Timer ·
 Itinerário · Mensagens · Sorteio — e o toque abre a ferramenta; o detalhe (a
 linha, a altura, o ponto de "no ar", o número de quem conta, o voltar e a
-animação) está em [`CONTROLE.md`](CONTROLE.md), "A LISTA DAS FERRAMENTAS". O que
+animação) está em [`CONTROLE-LEITURA.md`](CONTROLE-LEITURA.md), "A LISTA DAS FERRAMENTAS". O que
 vale aqui:
 
 - **Uma ferramenta montada por vez** (`miscTool` + `tempoVista` + `chrono.mode`),

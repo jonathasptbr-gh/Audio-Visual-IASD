@@ -162,7 +162,18 @@ docs/
 │   └── OTA.md                   #   watchdog de boot, detecção, shellTag, achados abertos
 ├── ARQUITETURA-WEB.md           # HUB da base web: regras gerais + mapa dos capítulos
 ├── arquitetura/                 # um capítulo por arquivo — abrir SÓ o que a pergunta pede
-│   ├── CONTROLE.md              #   layout, transporte, mixer, Biblioteca, coleções, YouTube
+│   ├── CONTROLE.md              #   HUB do Controle: mapa das partes + regras gerais
+│   ├── CONTROLE-MODOS.md        #     Modo Fácil × avançado
+│   ├── CONTROLE-LAYOUT.md       #     layout, transporte, botões de slide, fullscreen
+│   ├── CONTROLE-NAVEGACAO.md    #     uma tela, duas folhas e uma janela
+│   ├── CONTROLE-CONFIGURACOES.md #    tema, painel rápido, Registro, wallpaper, histórico
+│   ├── CONTROLE-TELAO.md        #     abertura, retomada, referência da preview, saída de áudio
+│   ├── CONTROLE-BIBLIOTECA.md   #     abas, destinos, a linha da lista, coleções na raiz
+│   ├── CONTROLE-LISTAS.md       #     cronogramas, gestos, favoritos, editar mídia
+│   ├── CONTROLE-COLECOES.md     #     LouvorJA, sincronização, acordeões, completude
+│   ├── CONTROLE-SORTEIO.md      #     playlist automática
+│   ├── CONTROLE-YOUTUBE.md      #     busca, download, compartilhamento, séries
+│   ├── CONTROLE-LEITURA.md      #     ferramentas, leitura auxiliar, cifra deitada
 │   ├── MODELO-DE-DADOS.md       #   shared/db.js: IDB, OPFS, BroadcastChannel, coletor
 │   ├── MOTOR-STAGE.md           #   shared/stage.js: cortina, fades, concorrência de load
 │   ├── CAMADA-DE-TEXTO.md       #   Bíblia, Mensagens, letra, cronômetro, sorteio, itinerário, imagem
