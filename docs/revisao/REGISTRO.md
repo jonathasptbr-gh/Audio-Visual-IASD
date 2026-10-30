@@ -2,44 +2,46 @@
 
 O andamento das etapas de [`docs/REVISAO-PROFUNDA.md`](../REVISAO-PROFUNDA.md).
 É a ÚNICA memória entre as sessões: o que uma etapa precisa saber de outra está
-aqui, e só aqui.
+aqui, e só aqui. **A tabela abaixo É a fila**: "faça uma das etapas de revisão"
+pega a próxima pela regra "A ESCOLHA DA ETAPA" do plano (parcial → em curso
+abandonada → primeira pendente pelo `nº`).
 
 ## Estado
 
 `pendente` · `em curso` · `parcial (ponto de parada)` · `feita` · `pulada (porquê)`
 
-| id | estado | versão entregue | data | resumo em uma linha |
-|---|---|---|---|---|
-| A1 | pendente | | | |
-| A2 | pendente | | | |
-| A3 | pendente | | | |
-| A4 | pendente | | | |
-| A5 | pendente | | | |
-| A6 | pendente | | | |
-| W1 | pendente | | | |
-| W2 | pendente | | | |
-| W3 | pendente | | | |
-| C1 | pendente | | | |
-| C2 | pendente | | | |
-| C3 | pendente | | | |
-| C4 | pendente | | | |
-| C5 | pendente | | | |
-| C6 | pendente | | | |
-| C7 | pendente | | | |
-| C8 | pendente | | | |
-| C9 | pendente | | | |
-| S1 | pendente | | | |
-| S2 | pendente | | | |
-| K1 | pendente | | | |
-| K2 | pendente | | | |
-| K3 | pendente | | | |
-| K4 | pendente | | | |
-| K5 | pendente | | | |
-| K6 | pendente | | | |
-| X1 | pendente | | | |
-| X2 | pendente | | | |
-| X3 | pendente | | | |
-| X4 | pendente | | | |
+| nº | id | estado | versão entregue | data | resumo em uma linha |
+|---|---|---|---|---|---|
+| 1 | A1 | pendente | | | |
+| 2 | A2 | pendente | | | |
+| 3 | A3 | pendente | | | |
+| 4 | A4 | pendente | | | |
+| 5 | A5 | pendente | | | |
+| 6 | A6 | pendente | | | |
+| 7 | W1 | pendente | | | |
+| 8 | W2 | pendente | | | |
+| 9 | W3 | pendente | | | |
+| 10 | C1 | pendente | | | |
+| 11 | C2 | pendente | | | |
+| 12 | C3 | pendente | | | |
+| 13 | C4 | pendente | | | |
+| 14 | C5 | pendente | | | |
+| 15 | C6 | pendente | | | |
+| 16 | C7 | pendente | | | |
+| 17 | C8 | pendente | | | |
+| 18 | C9 | pendente | | | |
+| 19 | S1 | pendente | | | |
+| 20 | S2 | pendente | | | |
+| 21 | K1 | pendente | | | |
+| 22 | K2 | pendente | | | |
+| 23 | K3 | pendente | | | |
+| 24 | K4 | pendente | | | |
+| 25 | K5 | pendente | | | |
+| 26 | K6 | pendente | | | |
+| 27 | X1 | pendente | | | |
+| 28 | X2 | pendente | | | |
+| 29 | X3 | pendente | | | |
+| 30 | X4 | pendente (opcional: só com o "sim" do operador) | | | |
 
 ## Repasses
 
