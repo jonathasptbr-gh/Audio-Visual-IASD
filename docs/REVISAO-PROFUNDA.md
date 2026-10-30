@@ -7,8 +7,28 @@ O andamento mora em [`docs/revisao/REGISTRO.md`](revisao/REGISTRO.md).
 
 ## Como uma sessão executa uma etapa
 
-O operador abre uma sessão nova e diz: **"Execute a etapa XN do
-docs/REVISAO-PROFUNDA.md"**. A sessão:
+O operador abre uma sessão nova e diz só: **"faça uma das etapas de
+revisão"** (ou "prossiga com a revisão"). Ele NÃO diz qual. A sessão escolhe
+sozinha, por esta regra, sem perguntar:
+
+**A ESCOLHA DA ETAPA (a fila do `docs/revisao/REGISTRO.md`, de cima para baixo):**
+
+1. a primeira com estado `parcial` — retomar o que parou vem antes de abrir
+   outra (o ponto de parada está no relatório dela);
+2. senão, a primeira `em curso` cuja data NÃO seja de hoje — é uma sessão que
+   morreu no meio; conferir no `git log` o que dela chegou a `main` e retomar
+   dali como `parcial`;
+3. senão, a primeira `pendente` na ORDEM da fila (a coluna `nº`);
+4. a X4 (opcional) só entra com um "sim" do operador escrito no registro;
+   sem ele, é pulada pela regra 3 e a sessão diz que a fila acabou;
+5. o operador pode sempre nomear uma etapa ("faça a C4"): aí vale a dele.
+
+**O primeiro ato da sessão** é marcar a etapa escolhida como `em curso` com a
+data, commitar e empurrar esse único arquivo para `main` — é o que impede uma
+segunda sessão aberta por engano de pegar a mesma etapa. A linha ao operador é
+uma só: *"Revisão: etapa C4 (Cronograma e Biblioteca), 1 de 5, planejando."*
+
+Depois, a sessão:
 
 1. lê **só** esta seção, a linha da etapa na tabela, o cartão dela abaixo e o
    `docs/revisao/REGISTRO.md` (os "repasses" que etapas anteriores deixaram
@@ -23,7 +43,15 @@ docs/REVISAO-PROFUNDA.md"**. A sessão:
    quando o operador vê diferença, merge em `main`, Release se tocou Kotlin);
 6. escreve o relatório: **uma** linha na tabela do registro + um bloco curto
    (≤ 25 linhas) na seção da etapa — o que foi corrigido, o que foi achado e
-   não corrigido (com o porquê), os repasses, e o PONTO DE PARADA se não acabou.
+   não corrigido (com o porquê), os repasses, e o PONTO DE PARADA se não acabou;
+7. muda o estado para `feita` (ou `parcial`), e o registro vai a `main` no
+   MESMO merge da entrega — um registro que diz `feita` sobre trabalho que não
+   chegou a `main` faz a próxima sessão pular a etapa;
+8. **pouco contexto sobrando?** Para ANTES de acabar o fôlego: entrega o que já
+   está pronto, marca `parcial` com o ponto exato e encerra. Uma etapa entregue
+   pela metade e anotada vale mais que uma inteira perdida no meio;
+9. ao operador, no fim, o relatório curto de sempre (o que mudou, o que ele
+   precisa fazer, o que não deu certo) e **qual é a próxima etapa da fila**.
 
 ### As regras que tornam as etapas independentes
 
@@ -136,7 +164,9 @@ de parágrafos de lotes antigos; a tabela de divergências tem células de 40
 linhas). Método: inventário regra a regra ANTES de cortar (cada regra tem casa
 nova nomeada no relatório), e o `tools/docs-coerentes.test.mjs` verde. **Não
 muda regra nenhuma**, só onde ela mora. Cuidado com a "quarta casa da versão"
-e a contagem de arquivos Kotlin, que o oráculo lê dali.
+e a contagem de arquivos Kotlin, que o oráculo lê dali. **E a linha da
+revisão na tabela "Onde procurar" fica** — é por ela que "faça uma das etapas
+de revisão" acha este plano.
 
 **A3 · Capítulos grandes.** `CONTROLE.md` (762 kB) é o maior custo por
 pergunta: quebrar em capítulos por área (Biblioteca, Modo Fácil,
