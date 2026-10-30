@@ -1,6 +1,10 @@
 package br.org.iasd.av
 
+import android.app.NotificationManager
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.AudioManager
+import android.os.Build
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
@@ -367,7 +371,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 82
+        const val SHELL_VERSION = 83
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -1848,8 +1852,48 @@ class NativeBridge(
                 // O DESFECHO DO ÚLTIMO TOQUE (shell 75): o primeiro candidato é um
                 // broadcast, e ele pode ser ENGOLIDO em silêncio.
                 .put("desfecho", host?.audioOutputLastOutcome() ?: "nunca")
+                // POR ONDE A MÍDIA SAI AGORA e se o "Não Perturbe" está ligado
+                // (shell 83): duas leituras públicas, sem permissão. O lado web
+                // monta as frases (o Registro e a dica do "Não Perturbe").
+                .put("saindoPor", if (host != null) saidaDeMidiaAgora() else JSONObject.NULL)
+                .put("naoPerturbe", if (host != null) naoPerturbeAgora() else "desconhecido")
                 .toString(),
         )
+    }
+
+    /**
+     * Os aparelhos que tocariam MÍDIA agora (`getAudioDevicesForAttributes`,
+     * API 33). Devolve o `type` cru de `AudioDeviceInfo` e o nome do produto;
+     * a tradução para frase é do `controle.js`. Abaixo da API 33, `null`.
+     */
+    private fun saidaDeMidiaAgora(): Any {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            return try {
+                val am = ctx.getSystemService(AudioManager::class.java) ?: return JSONObject.NULL
+                val attrs = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).build()
+                val arr = JSONArray()
+                for (d in am.getAudioDevicesForAttributes(attrs)) {
+                    arr.put(JSONObject().put("tipo", d.type).put("nome", d.productName?.toString() ?: ""))
+                }
+                arr
+            } catch (_: Exception) {
+                JSONObject.NULL
+            }
+        }
+        return JSONObject.NULL
+    }
+
+    /** `ligado` · `desligado` · `desconhecido` — o filtro de interrupção do sistema. */
+    private fun naoPerturbeAgora(): String = try {
+        when (ctx.getSystemService(NotificationManager::class.java)?.currentInterruptionFilter) {
+            NotificationManager.INTERRUPTION_FILTER_ALL -> "desligado"
+            NotificationManager.INTERRUPTION_FILTER_PRIORITY,
+            NotificationManager.INTERRUPTION_FILTER_NONE,
+            NotificationManager.INTERRUPTION_FILTER_ALARMS -> "ligado"
+            else -> "desconhecido"
+        }
+    } catch (_: Exception) {
+        "desconhecido"
     }
 
     // ---------- botões físicos de volume ----------

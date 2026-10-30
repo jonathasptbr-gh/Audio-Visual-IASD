@@ -703,7 +703,12 @@ window.AVNative = {
                        //   áudio do Miracast é `REMOTE_SUBMIX`, a mistura do
                        //   aparelho inteiro
   saidaDeAudioAlvo(),  // → { label, candidatos: [{acao, rotulo, tipo, alvo}],
-                       //   desfecho } (shell 75). São TRÊS perguntas, e cada uma
+                       //   desfecho, saindoPor, naoPerturbe } (shell 75; os
+                       //   dois últimos no shell 83: `[{tipo, nome}]` de
+                       //   `getAudioDevicesForAttributes(USAGE_MEDIA)` ou `null`
+                       //   abaixo da API 33, e `ligado`/`desligado`/`desconhecido`;
+                       //   o `tipo` de candidato `sistema` é o
+                       //   `MediaRouter2.showSystemOutputSwitcher`). São TRÊS perguntas, e cada uma
                        //   nasceu de um relato que a anterior não explicava:
                        //   `label` é quem PEGOU, `candidatos` é quais EXISTEM, e
                        //   `desfecho` é se o diálogo ABRIU — `nunca`,

@@ -866,6 +866,11 @@
         // engolido em silêncio: sem este campo, um aparelho em que o diálogo
         // nunca sobe é indistinguível de um em que ele sobe.
         desfecho: (r && r.desfecho) || 'nunca',
+        // POR ONDE A MÍDIA SAI AGORA (shell 83): `[{ tipo, nome }]` com o
+        // `AudioDeviceInfo.type` cru, ou `null` abaixo do Android 13.
+        saindoPor: (r && Array.isArray(r.saindoPor)) ? r.saindoPor : null,
+        // O "NÃO PERTURBE" (shell 83): `ligado` · `desligado` · `desconhecido`.
+        naoPerturbe: (r && r.naoPerturbe) || 'desconhecido',
       })),
 
     // ---------- O TELÃO POR COMANDOS ----------
