@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.13.11",
+    "itens": [
+      "Itinerário na prévia: as marcas \"Agora\" e \"A seguir\" não saem mais da caixa; a prévia fica igual ao telão.",
+      "Conectar um computador sem Wi-Fi: a mensagem que aparecia repetida agora aparece uma vez só.",
+      "Bíblia: a troca de um versículo para o outro ficou mais suave e um pouco mais lenta.",
+      "No computador conectado, arrastar a barra de tempo do vídeo agora pula para o ponto escolhido."
+    ]
+  },
+  {
     "versao": "1.13.10",
     "itens": [
       "Prévia recolhida: virou mais uma fileira de botões, igual aos de play, pausa e próxima logo abaixo.",

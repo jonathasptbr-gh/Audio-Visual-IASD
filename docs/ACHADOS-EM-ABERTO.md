@@ -16,7 +16,15 @@ lotes em que foram achados; a nota de cada um está em
 
 ---
 
-## 1. O fone/Bluetooth desvia o áudio da TV? (MEDIDO PELA METADE)
+## 1. O fone/Bluetooth desvia o áudio da TV? (RESPONDIDO PELO OPERADOR)
+
+**Resposta do operador (2026-10-30):** *"o fone bluetooth pode carregar o som do
+espelhamento. Inclusive esse é o método que o controle de saída de som tem como
+objetivo de controle"*. O Bluetooth É o destino desejado para o som com o
+espelhamento no ar, e é para isso que o tile "Saída de áudio" existe (o estudo
+de abrir a lista de aparelhos está no Pacote 6 de `PEDIDOS-EM-ESPERA.md`). O que
+segue abaixo fica como registro do raciocínio; não há conserto a fazer aqui
+além daquele estudo.
 
 **O que já se sabe (relato do operador, v1.1.11):** numa tela secundária por
 CABO ou virtual, o Android **oferece a escolha** da saída de mídia entre a tela e
@@ -54,6 +62,8 @@ e do lado JS **não há sinal que nomeie a chamada** (a Media Session API é
 desligada no WebView; `visibilityState` é sempre `visible` no telão por causa do
 `KeepVisibleWebView`).
 
+**Resposta do operador (2026-10-30):** não foi testado. Segue aberto.
+
 **O que limita o estrago hoje:** o teto de três tentativas (`RETOM_ESPERAS`, ~15 s)
 e a desistência definitiva até um comando humano. O pior caso é três tentativas
 falhas durante a ligação e depois silêncio. **Não medido em aparelho.**
@@ -72,7 +82,11 @@ dois celulares. Só teste em aparelho decide se o veto é necessário.
 
 ---
 
-## 3. Só o CLIENTE pode fazer o app escolher baixo (NÃO MEDIDO)
+## 3. Só o CLIENTE pode fazer o app escolher baixo (DESCONSIDERADO PELO OPERADOR)
+
+**Resposta do operador (2026-10-30):** *"é raro, pois depende da fonte do vídeo,
+mas não é um defeito nosso, então desconsidere também"*. Fica como registro;
+não se trabalha nele.
 
 **O que já foi respondido, e saiu deste arquivo:** a rede **não** baixa a
 resolução (não há ABR — v1.4.4), e desde a **v1.4.5** o app **mede** a banda nos
@@ -314,6 +328,10 @@ escrito assim de propósito: afirmar "a faixa no ar pinta" seria prometer um
 estado que o app não produz, e o oráculo passaria a **bloquear** o conserto em
 vez de guardá-lo. Quem fizer o conserto troca essas duas asserções pelas seis
 que a v1.5.16 chegou a escrever e removeu (estão no histórico do repositório).
+
+**Resposta do operador (2026-10-30):** *"pode considerar que quero que seja
+destacado também"* — a ressalva abaixo está respondida: o destaque é QUERIDO, e o
+conserto entra na fila (`PEDIDOS-EM-ESPERA.md`, pendências).
 
 **Ressalva do cético:** vale perguntar se a faixa da Biblioteca DEVE mesmo
 mostrar "no ar". O argumento a favor é o mais simples: as outras duas listas do

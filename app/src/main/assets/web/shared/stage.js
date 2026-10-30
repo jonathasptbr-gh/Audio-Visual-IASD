@@ -56,6 +56,45 @@
     el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease' });
   }
 
+  // A TROCA DE VERSÍCULO É UM CRUZAMENTO, e não um corte (v1.13.11). Pedido do
+  // operador: *"a alteração entre slides dos textos bíblicos está muito
+  // instantânea… mais suave… ligeiramente mais devagar"*. O `fadeContentIn`
+  // escrevia o texto novo no ato e o fazia surgir em 260 ms — o antigo SUMIA
+  // num quadro. Aqui o antigo esmaece (`TROCA_SAI_MS`), o novo é escrito com o
+  // texto invisível e entra devagar (`TROCA_ENTRA_MS`). `aplicar` escreve o
+  // conteúdo; só a ÚLTIMA troca de uma rajada o escreve — a seguinte CANCELA a
+  // saída em curso, e uma animação cancelada rejeita o `finished` —, e a que é
+  // interrompida sai do ponto em que estava, sem salto. Sem fade configurado,
+  // ou com `prefers-reduced-motion`, escreve na hora.
+  const TROCA_SAI_MS = 240;
+  const TROCA_ENTRA_MS = 520;
+  function trocarTextoSuave(els, aplicar) {
+    els = els.filter(Boolean);
+    const el0 = els[0];
+    if (!el0 || !el0.animate || !FADE.in || reduzMovimento()) {
+      pararTrocaSuave(els); aplicar(); return;
+    }
+    const op = els.map((e) => { const o = parseFloat(getComputedStyle(e).opacity); return isFinite(o) ? o : 1; });
+    pararTrocaSuave(els);
+    const saidas = els.map((e, i) => e.animate([{ opacity: op[i] }, { opacity: 0 }],
+      { duration: Math.max(1, TROCA_SAI_MS * op[i]), easing: 'ease-in', fill: 'forwards' }));
+    saidas[0].finished.then(() => {
+      aplicar();
+      els.forEach((e) => {
+        try { e.getAnimations().forEach((a) => a.cancel()); } catch (_) {}
+        e.animate([{ opacity: 0 }, { opacity: 1 }], { duration: TROCA_ENTRA_MS, easing: 'ease-out' });
+      });
+    }, () => {});
+  }
+  // Desarma uma troca em curso: quem escreve o conteúdo por outro caminho
+  // (outro modo, a camada saindo) não pode ver o `aplicar` atrasado por cima, nem
+  // ficar com a opacidade presa no zero do `fill: 'forwards'`.
+  function pararTrocaSuave(els) {
+    els.filter(Boolean).forEach((e) => {
+      try { e.getAnimations().forEach((a) => a.cancel()); } catch (_) {}
+    });
+  }
+
   // Revela a camada inteira.
   function fadeLayerIn(el) {
     if (!el) return;
@@ -579,7 +618,36 @@
         clearTimeout(saidaTimer); saidaTimer = null;
       }
       fimEmCurso = false;
-      video.currentTime = t + (e ? e.inicio : 0);
+      const alvoT = t + (e ? e.inicio : 0);
+      if (precisaRecarregar(alvoT)) { recarregarNoPonto(alvoT); return; }
+      video.currentTime = alvoT;
+    }
+    // A FONTE DE REDE QUE NÃO SE DEIXA BUSCAR (v1.13.11). Numa tela da rede a
+    // mídia vem de `/m/<token>`, e enquanto o empurrão do Controle anda o
+    // servidor a entrega em chunked, SEM faixa: o Chromium marca a fonte como
+    // não buscável (`seekable` vazio) e guarda isso pela vida da URL — MEDIDO,
+    // o seek é ignorado mesmo depois de o item ficar completo e o servidor
+    // passar a responder 206. Era o *"o vídeo apenas reinicia"* do operador.
+    // A saída é pedir a MESMA mídia por uma URL nova (a query é ignorada pelo
+    // servidor e muda a chave do Chromium) e entrar no ponto pela regra do
+    // `load()`: a posição só gruda no `loadedmetadata`. Blob e OPFS sempre são
+    // buscáveis, e por isso ficam de fora.
+    let recargaSeq = 0;
+    function precisaRecarregar(alvoT) {
+      if (isBlobUrl || !url || !video.src || video.readyState < 1) return false;
+      const s = video.seekable;
+      for (let i = 0; i < s.length; i++) if (alvoT >= s.start(i) && alvoT <= s.end(i)) return false;
+      return true;
+    }
+    function recarregarNoPonto(alvoT) {
+      const seq = loadSeq;
+      const tocando = !video.paused;
+      video.src = url + (url.includes('?') ? '&' : '?') + 'r=' + (++recargaSeq);
+      video.addEventListener('loadedmetadata', () => {
+        if (seq !== loadSeq) return;
+        try { video.currentTime = alvoT; } catch (_) { /* fonte sem seek */ }
+      }, { once: true });
+      if (tocando) play();
     }
     function setView(v) { view = v; instantCover(computeCover()); applyMedia(); }
     // Troca de view com transição: visual→wallpaper cobre, wallpaper→visual
@@ -1489,6 +1557,8 @@
 
   createStage.assinaturaDoCartao = assinaturaDoCartao;
   createStage.fadeContentIn = fadeContentIn;
+  createStage.trocarTextoSuave = trocarTextoSuave;
+  createStage.pararTrocaSuave = pararTrocaSuave;
   createStage.fadeLayerIn = fadeLayerIn;
   createStage.fadeLayerOut = fadeLayerOut;
   createStage.findSlideIndex = findSlideIndex;
@@ -1738,11 +1808,16 @@
       ol.appendChild(li);
     });
     if (!mover) return true;
-    const base = ol.getBoundingClientRect().top;
+    const caixa = ol.getBoundingClientRect();
+    const base = caixa.top;
+    // A PREVIEW DESENHA ESCALADA (v1.13.11, ver `.pv-text-content.mode-itinerario`):
+    // o retângulo vem na escala da TELA e o `top`/`translateY` são escritos na
+    // escala do LAYOUT. `esc` converte; no telão ele é 1.
+    const esc = (ol.offsetHeight && caixa.height / ol.offsetHeight) || 1;
     const opts = { duration: ITIN_ANIM_MS, easing: ITIN_CURVA };
     // A QUE SAI fica no lugar em que estava (fora do fluxo) e esmaece subindo.
     saindo.forEach((li) => {
-      li.style.top = (antes.get(li.dataset.k) - base) + 'px';
+      li.style.top = (antes.get(li.dataset.k) - base) / esc + 'px';
       const a = li.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-60%)' }],
         Object.assign({ fill: 'forwards' }, opts));
       a.onfinish = () => li.remove();
@@ -1754,7 +1829,7 @@
         li.animate([{ opacity: 0, transform: 'translateY(40%)' }, { opacity: 1, transform: 'none' }], opts);
         return;
       }
-      const dy = antes.get(li.dataset.k) - li.getBoundingClientRect().top;
+      const dy = (antes.get(li.dataset.k) - li.getBoundingClientRect().top) / esc;
       if (Math.abs(dy) > 0.5) li.animate([{ transform: 'translateY(' + dy + 'px)' }, { transform: 'none' }], opts);
     });
     return true;

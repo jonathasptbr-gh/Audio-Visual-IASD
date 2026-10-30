@@ -436,7 +436,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.10';
+const WEB_VERSION = '1.13.11';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -3544,6 +3544,9 @@ function applyPvLyricsBg() {
 let pvTextActive = false;
 // O que o cartão da preview mostrava da última vez — ver `assinaturaDoCartao`.
 let pvCartaoAssinado = '';
+// O modo do cartão em cena — a metade preview do `modoAntes` do `showText`
+// (v1.13.11): só versículo → versículo cruza devagar.
+let pvTextModo = '';
 
 // UM `load` EM VOO ADIA A RESTAURAÇÃO — a metade PREVIEW da regra que o
 // `display.js` aplica ao telão (`aoCarregar`/`aoSairDeCena`), e ler cada lado
@@ -3599,6 +3602,7 @@ function hidePvText(restore = true) {
   }
   if (!pvTextActive && pvTextEl.hidden) return;
   pvTextActive = false;
+  createStage.pararTrocaSuave([pvTextMainEl, pvTextSubEl]);
   soltarPvTextImg();
   pvTextEl.classList.remove('mode-img');
   stopPvLiveTimer();   // espelha hideText no Display
@@ -3751,6 +3755,15 @@ function showPvText(obj) {
   const isDraw = obj.mode === 'draw';
   const isImg = obj.mode === 'image';
   const isItin = obj.mode === 'itinerario';
+  // A TROCA DE VERSÍCULO cruza devagar, pela MESMA regra do telão (v1.13.11 —
+  // ver `createStage.trocarTextoSuave` e o `showText` do display.js).
+  const modo = isImg ? 'image' : isChrono ? 'chrono' : isDraw ? 'draw' : isItin ? 'itinerario'
+    : isMsg ? 'message' : 'verse';
+  const assinado = createStage.assinaturaDoCartao(obj, modo);
+  const soReenvio = pvTextActive && assinado === pvCartaoAssinado;
+  const trocaSuave = pvTextActive && !soReenvio && pvTextModo === 'verse' && modo === 'verse';
+  pvTextModo = modo;
+  if (!trocaSuave) createStage.pararTrocaSuave([pvTextMainEl, pvTextSubEl]);
   pvTextContentEl.classList.toggle('mode-message', isMsg);
   // O ESTILO DA MENSAGEM, pela MESMA regra do telão (`createStage.estiloDoCartao`)
   // e escrito do mesmo jeito: variáveis na caixa, a folha decide onde entram.
@@ -3792,21 +3805,22 @@ function showPvText(obj) {
     startPvLive('itinerario', obj.itinerario || {});
   } else {
     clearPvLive();
-    pvTextMainEl.textContent = obj.main || '';
+    if (!trocaSuave) pvTextMainEl.textContent = obj.main || '';
   }
-  pvTextSubEl.textContent = obj.sub || '';
+  if (!trocaSuave) pvTextSubEl.textContent = obj.sub || '';
   // O FADE É DA TROCA DE CONTEÚDO, NUNCA DO REENVIO (v1.9.5) — a metade da
   // preview, com a MESMA régua do telão (`createStage.assinaturaDoCartao`).
   // Escrita duas vezes ela daria um cartão que pisca de um lado e não do outro,
   // e a preview existe justamente para ESPELHAR o que a congregação vê.
-  const assinado = createStage.assinaturaDoCartao(obj,
-    isImg ? 'image' : isChrono ? 'chrono' : isDraw ? 'draw' : isItin ? 'itinerario'
-      : isMsg ? 'message' : 'verse');
-  const soReenvio = pvTextActive && assinado === pvCartaoAssinado;
   pvCartaoAssinado = assinado;
   if (pvTextActive) {
-    // Já em cena (troca de versículo/mensagem): fade-in do texto.
-    if (!soReenvio) { pvFadeIn(pvTextMainEl); if (obj.sub) pvFadeIn(pvTextSubEl); }
+    // Já em cena (troca de versículo/mensagem): o texto troca, a moldura fica.
+    if (trocaSuave) {
+      createStage.trocarTextoSuave([pvTextMainEl, pvTextSubEl], () => {
+        pvTextMainEl.textContent = obj.main || '';
+        pvTextSubEl.textContent = obj.sub || '';
+      });
+    } else if (!soReenvio) { pvFadeIn(pvTextMainEl); if (obj.sub) pvFadeIn(pvTextSubEl); }
     preview.instantCover(wallpaper);
     return;
   }
@@ -46173,6 +46187,13 @@ async function confirmarEspelhoComTv() {
 // o qual isto existe. Quem garante que a recusa de porta continua de fora é o
 // `tools/recusa-transmissao.test.mjs`, que lê as frases do PRÓPRIO Kotlin.
 const CAST_RECUSA_DE_REDE = /wi-?fi|ponto de acesso|rede/i;
+// E O ENSINO NÃO REPETE O QUE O VEREDITO JÁ ENSINA (v1.13.11). A recusa
+// GENÉRICA do shell (`motivoSemRede`: "sem rede para transmitir — ligue o ponto
+// de acesso deste celular, ou entre numa Wi-Fi…") já traz a instrução, e as duas
+// frases saíam uma embaixo da outra dizendo a mesma coisa — o relato do
+// operador. O ensino fica para as recusas ESPECÍFICAS de rede (a Wi-Fi
+// associada sem endereço, por exemplo), que dizem o que falhou e não o que fazer.
+const CAST_VEREDITO_JA_ENSINA = /ligue o ponto de acesso/i;
 const CAST_ENSINO = 'A transmissão não precisa de internet — precisa de uma rede. '
   + 'Ligue o ponto de acesso deste celular e conecte o computador nele, '
   + 'ou entre numa Wi-Fi qualquer (um roteador sem internet serve).';
@@ -46226,7 +46247,7 @@ async function ligarEspelho(ip) {
     // embaixo. Juntá-los faria a frase do Kotlin virar prosa do web, que é
     // exatamente o que a invariante 5 recusa.
     texto2(castMsgEl, r.erro);
-    if (castEnsinoEl && CAST_RECUSA_DE_REDE.test(r.erro)) {
+    if (castEnsinoEl && CAST_RECUSA_DE_REDE.test(r.erro) && !CAST_VEREDITO_JA_ENSINA.test(r.erro)) {
       texto2(castEnsinoEl, CAST_ENSINO);
       castEnsinoEl.hidden = false;
     }

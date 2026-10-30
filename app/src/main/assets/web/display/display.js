@@ -885,6 +885,7 @@ function showText(cmd) {
   // ar, com `textActive` preso em `true`, e nada mais o tirava do telão.
   letraManual = false;
   const wallpaper = cmd.view === 'wallpaper';
+  const modoAntes = textMode;
   textMode = cmd.mode === 'message' ? 'message'
     : (cmd.mode === 'chrono' || cmd.mode === 'draw' || cmd.mode === 'image'
       || cmd.mode === 'itinerario') ? cmd.mode : 'verse';
@@ -894,6 +895,13 @@ function showText(cmd) {
   textContentEl.classList.toggle('mode-draw', textMode === 'draw');
   textContentEl.classList.toggle('mode-itinerario', textMode === 'itinerario');
   textEl.classList.toggle('mode-itinerario', textMode === 'itinerario');
+  // A TROCA DE VERSÍCULO COM O CARTÃO JÁ EM CENA cruza devagar (v1.13.11,
+  // `createStage.trocarTextoSuave`): o texto novo é escrito no fim da saída do
+  // antigo, e não aqui. A pergunta "mudou?" é a assinatura de sempre (v1.9.5).
+  const assinado = createStage.assinaturaDoCartao(cmd, textMode);
+  const soReenvio = textActive && assinado === cartaoAssinado;
+  const trocaSuave = textActive && !soReenvio && modoAntes === 'verse' && textMode === 'verse';
+  if (!trocaSuave) createStage.pararTrocaSuave([textMainEl, textSubEl]);
   pintarFundoDoCartao();
   textEl.classList.toggle('mode-img', textMode === 'image');
   if (textMode === 'image') {
@@ -912,11 +920,13 @@ function showText(cmd) {
     startLive('itinerario', cmd.itinerario || {});
   } else {
     clearLive();
-    textMainEl.textContent = cmd.main || '';
+    if (!trocaSuave) textMainEl.textContent = cmd.main || '';
   }
   if (textMode !== 'image') soltarTextImg();
-  textSubEl.textContent = cmd.sub || '';
-  textSubEl.hidden = !cmd.sub;
+  if (!trocaSuave) {
+    textSubEl.textContent = cmd.sub || '';
+    textSubEl.hidden = !cmd.sub;
+  }
   textView = wallpaper ? 'wallpaper' : 'visual';
   // O STAGE PRECISA SABER QUE HÁ UM CARTÃO POR CIMA DELE. Sem isto ele
   // reavalia a cortina sozinho no fim natural da mídia, no `play()` e no fim de
@@ -938,12 +948,16 @@ function showText(cmd) {
   // valia para iniciar/pausar/zerar a contagem, e ali o piscar acontece NA
   // FRENTE DA CONGREGAÇÃO. Quem responde "o cartão mudou?" é a assinatura, e ela
   // é do `stage.js` porque a preview tem de espelhar isto.
-  const assinado = createStage.assinaturaDoCartao(cmd, textMode);
-  const soReenvio = textActive && assinado === cartaoAssinado;
   cartaoAssinado = assinado;
   if (textActive) {
-    // Já em cena (troca de versículo/mensagem): fade-in do texto, sem mexer na moldura.
-    if (!soReenvio) { animateFadeIn(textMainEl); if (!textSubEl.hidden) animateFadeIn(textSubEl); }
+    // Já em cena (troca de versículo/mensagem): o texto troca sem mexer na moldura.
+    if (trocaSuave) {
+      createStage.trocarTextoSuave([textMainEl, textSubEl], () => {
+        textMainEl.textContent = cmd.main || '';
+        textSubEl.textContent = cmd.sub || '';
+        textSubEl.hidden = !cmd.sub;
+      });
+    } else if (!soReenvio) { animateFadeIn(textMainEl); if (!textSubEl.hidden) animateFadeIn(textSubEl); }
     stage.instantCover(wallpaper);
     return;
   }
@@ -980,6 +994,7 @@ function hideText(restore = true) {
   }
   if (!textActive) return;
   textActive = false;
+  createStage.pararTrocaSuave([textMainEl, textSubEl]);
   soltarTextImg();
   textEl.classList.remove('mode-img');
   // ANTES do `restoreSceneAfterText`: ele decide a cortina por `shouldCover()`,

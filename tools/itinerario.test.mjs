@@ -567,6 +567,27 @@ try {
     });
     checar(Math.abs(pvCentro.meio - 0.5) < 0.02 && pvCentro.larg < 0.9,
       'M · e na preview o bloco também é CENTRADO (a gêmea do `display.css`)', pvCentro);
+    // A PREVIEW É O TELÃO EM MINIATURA, NÃO UM LAYOUT PRÓPRIO (v1.13.11). Numa
+    // caixa de ~400px a marca media 2,6cqmin ≈ 5,6px, e o WebView engorda toda
+    // fonte abaixo de 8px (`WebSettings.minimumFontSize`) sem engordar a coluna
+    // dela: "A seguir" vazava pela ESQUERDA do bloco. Desenhada numa caixa
+    // quatro vezes maior e reduzida, nenhuma fonte cai abaixo do piso e a
+    // proporção é a do telão. As duas réguas: a fonte de LAYOUT da marca, e a
+    // PROPORÇÃO entre a marca e o bloco nas duas telas.
+    const prop = async (p, olId) => p.evaluate((id) => {
+      const ol = document.getElementById(id);
+      const li = ol.querySelector('.itin-linha.agora') || ol.querySelector('.itin-linha');
+      const tag = li.querySelector('.itin-tag');
+      // A RÉGUA É A ALTURA DA LINHA (9,6cqmin), não a largura do bloco: a largura
+      // depende da proporção da tela, e telão e preview não têm a mesma.
+      const h = li.getBoundingClientRect().height, l = li.getBoundingClientRect(), t = tag.getBoundingClientRect();
+      return { fs: parseFloat(getComputedStyle(tag).fontSize), tagLarg: t.width / h, tagEsq: (t.left - l.left) / h };
+    }, olId);
+    const pvP = await prop(pg, 'pvTextItin'), tvP = await prop(tv, 'textItin');
+    checar(pvP.fs >= 8,
+      'M · na preview a marca é desenhada com fonte ≥ 8px (o piso do WebView não a deforma)', pvP);
+    checar(Math.abs(pvP.tagLarg - tvP.tagLarg) < 0.03 && Math.abs(pvP.tagEsq - tvP.tagEsq) < 0.03,
+      'M · e a marca tem na preview a MESMA proporção que no telão, medida pela altura da linha (enquadramento igual)', { pvP, tvP });
     // NUM WALLPAPER BRANCO o wallpaper continua à vista em volta, e o bloco
     // escurece o que está atrás DELE — medido por pixel.
     await tv.evaluate(() => {
