@@ -10702,3 +10702,117 @@ Seção `#edicaoSecao` de Configurações (uma folha própria até a v1.12.48), 
 - **"Só o áudio":** vale para vídeo (some a imagem) e para ÁUDIO COM LETRA (`soAudioValido`/`edicaoPodeSoAudio`: o item sai com `lyrics: null`, telão no wallpaper). Áudio sem letra ignora a marca.
 - **Modo Fácil:** sem pergunta de destino; o item vai ao Cronograma e aos Favoritos.
 - Oráculo: `tools/edicao-de-midia.test.mjs` (banco, palco, janela, original vinculado e pacote).
+
+## A referência da preview — ela ILUSTRA, nunca mede (do núcleo, revisão A2)
+
+> **Movido do `CLAUDE.md` na revisão A2 (2026-10-30), sem mudança de texto** (só os links relativos e o nível dos títulos). No núcleo ficou um resumo com o link para cá. "Acima", "abaixo", "esta seção" e as invariantes numeradas falam do `CLAUDE.md`, de onde este texto veio.
+
+A preview roda no WebView do Controle, o único dos três que o Android estrangula
+quando o app sai da frente: minimizado, o `<video>` dela é pausado ou desacelerado
+enquanto a projeção segue andando. **Enquanto ela for a régua, não há como
+corrigir isso — o erro está na régua.**
+
+A projeção é uma destas três, **nesta ordem**:
+
+1. **o TELÃO** (`display-status`), com TV conectada;
+2. **a TELA ELEITA** (`tela-status` → `espelho-status`), sem TV — cada tela roda o
+   próprio `/display/` com um `<video>` de verdade, num navegador que o Android do
+   celular não estrangula;
+3. **ninguém** — sem TV e sem telas, a projeção É a preview em tela cheia, que
+   exige o app na frente. Aí ela é a própria referência, e o caso não existe.
+
+Daí **duas funções com nomes distintos**, e a distinção é o modelo inteiro:
+`authoritativeTime()` responde *"o que está no ar agora?"* (qual estrofe vem a
+seguir, o que a barra marca, o que a `MediaSession` publica) e `tempoDaPreview()`
+responde *"o que a ilustração deve estar desenhando?"*. Sem as duas, o atraso
+deliberado da preview vira defeito nos dois sentidos: quem desenha a letra pelo
+tempo da projeção troca a estrofe antes da imagem a que ela pertence, e quem
+realinha o `<video>` pelo tempo da projeção **desfaz o atraso** a cada status.
+
+- **O realinhamento mira `projeção − atraso`**, nunca a projeção: com
+  `PREV_ATRASO_MAX` (2,5 s) maior que a tolerância, mirar a projeção faria cada
+  status puxar a preview para a frente — o resync brigando com o atraso, a 4 Hz.
+- **A tolerância é de meio segundo.** A preview **não tem som** por construção, e
+  sem som um seek custa um quadro e não estala nada. Ao **retomar do segundo
+  plano** ela cai para `RESYNC_EXATO` (0,15 s): ali não há ruído a poupar, há um
+  desvio conhecido.
+- **Escondida, a preview não atrasa nada** — o atraso existe para o operador não
+  vê-la responder antes das telas da rede; sem plateia ele só empilha comandos
+  numa fila cujos `setTimeout` o Android estrangula.
+- **E escondida ela também não é TOCADA** (`preverPodeMexer`). O Chromium pausa um
+  `<video>` de página oculta: o `play()` do resync sai, o navegador pausa de
+  volta, e o status seguinte recomeça — um laço a ~4 Hz. Não é só inútil: **os
+  WebViews dividem UM processo**, e essa rotatividade de decodificador rouba fio
+  de todo o resto. A janela de `forcarResyncAte` só é CONSUMIDA quando há como
+  agir, senão a retomada seguinte partiria de um crédito já gasto.
+
+## A abertura por trás dos panos (do núcleo, revisão A2)
+
+> **Movido do `CLAUDE.md` na revisão A2 (2026-10-30), sem mudança de texto** (só os links relativos e o nível dos títulos). No núcleo ficou um resumo com o link para cá. "Acima", "abaixo", "esta seção" e as invariantes numeradas falam do `CLAUDE.md`, de onde este texto veio.
+
+O app piscava ao abrir: o tema escuro aparecia antes do claro, a lista vazia
+antes do Cronograma. **O lado nativo já estava
+certo** — `windowBackground`, a raiz da Activity e o próprio WebView nascem na
+cor do tema guardado —; o que piscava era o DOCUMENTO, entre o primeiro quadro e
+a última linha do `init()`.
+
+- **O TEMA tem conserto próprio:** um `<script>` inline no `<head>` do
+  `controle/index.html` lê `av.tema` e escreve `data-tema` ANTES do primeiro
+  quadro. Ele é a **única** leitura daquela chave — o `storedTema()` do
+  `controle.js` lê o ATRIBUTO que sai dali, porque uma segunda leitura seria a
+  mesma regra escrita duas vezes.
+- **O resto é a CORTINA** (`#splash`, primeiro filho do `<body>`): opaca, no
+  topo da pilha, com o ícone do app e a marca, e ela levanta na última linha do
+  `init()` que muda o que se vê (depois do `applyPvWallpaper`).
+- **O PRAZO É ARMADO NO `<head>`, e não no `controle.js`.** Uma cortina que não
+  levanta é um app INUTILIZÁVEL, e o caminho mais provável de isso acontecer é
+  justamente o que o watchdog do OTA existe para pegar: um bundle em que o
+  `controle.js` nem chega a ser parseado. Armado no `<head>`, o prazo (12 s)
+  roda mesmo aí, e o desfecho ruim volta a ser o app quebrado À VISTA, que é
+  diagnosticável.
+- **E HÁ UM PISO, NÃO SÓ UM TETO** (1,8 s, v1.7.2). Pedido do operador: *"está
+  muito rápido, deixe por padrão um tempo mínimo se possível mais longo"*. Num
+  aparelho com o acervo em cache o `init()` termina em algumas centenas de
+  milissegundos, e o que se vê não é uma tela de abertura, é um LAMPEJO — a
+  mesma sensação de piscar que a cortina veio consertar, um degrau acima. Ele é
+  contado do INÍCIO da página e não do fim do `init()`, então um `init()` de 5 s
+  já o pagou e levanta a cortina na hora; encadeá-lo depois somaria os dois e
+  faria o aparelho lento esperar mais, que é o oposto do recurso. O teto chama a
+  saída DIRETO, sem passar pelo piso: ele é a rede de segurança de um app que
+  não subiu.
+- **Ela some por REMOÇÃO DO NÓ**, não por opacidade: uma camada `opacity: 0`
+  sobre a tela inteira continua recebendo o toque, e o app abriria intocável.
+
+> **O PISO COBRA OS ORÁCULOS, e isso está dito porque não é óbvio.** A cortina é
+> opaca e é o topo da pilha, e com 1,8 s de piso existe um vão real em que a
+> tela não responde. `pg.click()` do Playwright espera a actionability e retenta
+> sozinho, então um oráculo que CLICA não vê nada; quem vê é quem MEDE —
+> `elementFromPoint`, captura de pixel, geometria. MEDIDO na entrada deste lote:
+> **6 dos 63 oráculos reprovaram, e os 6 por hit-test**. Daí o `esperarCortina`
+> do arnês, e a regra para o próximo: **todo oráculo que toca na tela espera a
+> cortina depois de CADA carga** — inclusive depois de um `reload` no meio do
+> arquivo, que foi como ela apareceu no `smoke.mjs`.
+>
+> **MAS ELE NÃO PAGA O PISO, E ISSO É DELIBERADO.** O piso é do OPERADOR, e quem
+> o AFIRMA é o `abertura-e-transferencia`, com o relógio mockado e nas duas
+> pontas. Os outros ~70 pontos que chamam o `esperarCortina` não medem a cortina:
+> esperam o app ficar TOCÁVEL, e pagavam o piso de carona — MEDIDO, 1,8 s × ~70,
+> **126 s de sono por rodada em série**. Hoje ele espera o `__avPronto` (escrito
+> pelo gancho do `abrirNavegador` quando o `controle.js` chama
+> `__avSplash.pronto()`, a última linha do `init()` que muda o que se vê) e tira
+> o nó, que é o que o `sair()` do app faria 1,8 s depois. **E ELE NÃO É UM
+> DETECTOR DE APP QUEBRADO**: no cenário catastrófico o teto de 12 s do `<head>`
+> tira a cortina, o predicado passa a valer e ele devolve `true` — a garantia é
+> que a tela fica TOCÁVEL, não que o app subiu. Quem afirma o app de pé é o
+> `abertura-e-transferencia`, com asserção própria; um oráculo que trate o
+> retorno deste como veredito está lendo o que ele não responde.
+
+Oráculo: `abertura-e-transferencia.test.mjs`, com o cenário catastrófico medido
+(o `controle.js` abortado pela rota, o tema já certo, a cortina levantando pelo
+prazo) e o piso medido nas DUAS pontas com o relógio mockado — **em fatias**,
+porque `fastForward` não reprocessa o temporizador que o callback agenda no meio
+do salto, e **por leitura imediata**, porque o relógio instalado continua
+andando com o tempo real e uma espera de 15 s cruzaria o teto de 12 s (foi assim
+que a segunda asserção chegou a passar pelo motivo errado).
+
+---

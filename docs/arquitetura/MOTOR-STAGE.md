@@ -471,3 +471,39 @@ por cima do stage, descobrir revela alguma coisa, e o fade tem de acontecer. O
 stage sozinho não tem como saber disso — ele só enxerga o que ele mesmo desenha.
 
 ---
+
+## O `load` carrega o ponto e o estado da mídia (do núcleo, revisão A2)
+
+> **Movido do `CLAUDE.md` na revisão A2 (2026-10-30), sem mudança de texto** (só os links relativos e o nível dos títulos). No núcleo ficou um resumo com o link para cá. "Acima", "abaixo", "esta seção" e as invariantes numeradas falam do `CLAUDE.md`, de onde este texto veio.
+
+Além de `mediaId`/`view`/`muted`/`volume`, dois campos que existem **para a
+reconexão do telão**:
+
+| campo | significado |
+|---|---|
+| `time` | segundo em que a mídia deve entrar (0 = do começo) |
+| `playing` | `false` = a cena voltou PAUSADA; ausente/`true` = toca |
+
+**Por que viajam no próprio `load`, e não como um `seek`/`pause` logo depois:** o
+`onCommand` do Display **não serializa**. O `load` é assíncrono (`getMedia` →
+`opfsGetFile` → `mediaReady`, mais o fade de saída), e um comando que chegasse em
+seguida agiria sobre o `<video>` **anterior** — o seek seria aplicado à mídia
+errada e depois perdido.
+
+- `stage.js` → `load(id, v, m, vol, startAt, autoplay)`. A posição só "gruda"
+  depois que a duração é conhecida (escrever `currentTime` junto com o `src` é
+  perdido em silêncio), então o `startAt` entra num `loadedmetadata` com
+  `{ once: true }`, protegido pelo `loadSeq`. `autoplay === false` é a cena que
+  voltou pausada; `undefined` mantém o comportamento de sempre.
+- **Não há segundo caminho.** TODA mídia entra como `<video>`/`<img>` comum, e
+  o `startAt` segue sempre a MESMA regra acima. Um `kind: 'youtube'` (link sem
+  bytes) nem chega a ser cena no telão: quem o resolve é o Controle, antes do
+  `load` (`resolverLinkYoutube`, que BAIXA), e o Display esvazia o palco se um
+  chegar. (`loadYoutube`/`playerVars` saíram com a IFrame Player API na v5.212;
+  a transmissão direta, o outro segundo caminho, saiu na v1.7.7.)
+
+O comando mais frequente do barramento é o `display-status`, emitido pelo telão a
+cada `timeupdate` (mais `play`, `pause`, `loadedmetadata`, `ended`,
+`volumechange`). Ele é a fonte de sincronização enquanto existir.
+
+---

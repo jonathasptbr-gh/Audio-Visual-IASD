@@ -747,3 +747,17 @@ sustentam isso, e as duas primeiras nasceram de defeitos vistos em culto:
   certo (e no mesmo quadro do rolo), não no ponto em que a conexão caiu.
 
 ---
+
+## Barramento de comandos e o plano B do BroadcastChannel (do núcleo, revisão A2)
+
+> **Movido do `CLAUDE.md` na revisão A2 (2026-10-30), sem mudança de texto** (só os links relativos e o nível dos títulos). No núcleo ficou um resumo com o link para cá. "Acima", "abaixo", "esta seção" e as invariantes numeradas falam do `CLAUDE.md`, de onde este texto veio.
+
+`BroadcastChannel` entre dois WebViews same-origin no mesmo processo **deve**
+funcionar — mas o isolamento de sites do WebView pode surpreender, e uma falha aí
+derrubaria o comando do telão no meio de um culto.
+
+Em vez de detectar a falha (handshake com janela de corrida), o **relay nativo
+roda SEMPRE em paralelo**: cada comando sai pelos dois caminhos
+(`BroadcastChannel` + `MessageBus`) e a cópia repetida é descartada em `db.js`
+pelo campo `__mid`. `sendCommand`/`onCommand` mantêm a mesma assinatura; o custo
+é desprezível (objetos JSON pequenos).

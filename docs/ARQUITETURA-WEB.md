@@ -25,6 +25,8 @@ para uma pergunta sobre a Bíblia não custar a leitura do Controle inteiro.
 | Display | [`arquitetura/DISPLAY.md`](arquitetura/DISPLAY.md) | wallpaper, recuperação de áudio, o telão |
 | Design System | [`arquitetura/DESIGN-SYSTEM.md`](arquitetura/DESIGN-SYSTEM.md) | **antes de escrever qualquer cor**; tokens, dois temas, contraste, ícones |
 | Documento em cena | [`arquitetura/DOCUMENTO-EM-CENA.md`](arquitetura/DOCUMENTO-EM-CENA.md) | PDF, PowerPoint e Google Apresentações virando páginas |
+| Divergências web × nativo | [`DIVERGENCIAS-WEB-NATIVO.md`](DIVERGENCIAS-WEB-NATIVO.md) | o que muda entre navegador e app, ponto a ponto (fora de `arquitetura/`: cobre shell e web) |
+| Diagnóstico | [`DIAGNOSTICO.md`](DIAGNOSTICO.md) | a Verificação do Sistema, o Registro e as regras de diagnóstico |
 
 Neste arquivo:
 
@@ -107,7 +109,8 @@ git push origin main
   — nunca o inverso: o comportamento de navegador é o padrão, e o nativo é a
   exceção que se declara. Os pontos onde os dois divergem (autoplay, pastas do
   dispositivo, compartilhamento, fullscreen, atualização) estão tabelados em
-  `../CLAUDE.md`, "Divergências entre o caminho web e o nativo".
+  [`DIVERGENCIAS-WEB-NATIVO.md`](DIVERGENCIAS-WEB-NATIVO.md) (resumo em
+  `../CLAUDE.md`, "Divergências entre o caminho web e o nativo").
 - **A cada atualização de código, incrementar a versão visual do Controle** em
   **três lugares que precisam bater**:
   1. `version` em `assets/web/version.json` — **a fonte da verdade**. É este
@@ -162,7 +165,7 @@ desenvolver) são duas páginas, `/controle/` e `/display/`.
 > instalar o Display como app separado para espelhar apenas ele. A
 > `Presentation` resolveu isso de verdade, e os andaimes daquele modelo
 > (`manifest.json`, ícones de WebAPK, service workers, a página com os dois
-> links) **foram removidos** — ver CLAUDE.md, "Andaimes do modelo de dois
+> links) **foram removidos** — ver `DIVERGENCIAS-WEB-NATIVO.md`, "Andaimes do modelo de dois
 > PWAs". O que ficou é justamente o que era bom: mesmo origin, IDB/OPFS/
 > BroadcastChannel compartilhados e um protocolo de comandos que não mudou.
 

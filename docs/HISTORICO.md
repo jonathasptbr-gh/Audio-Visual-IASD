@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **revisão A2 (sem versão nova; só docs)** — A DIETA DO `CLAUDE.md`: 315 kB → ~79 kB sem mudar regra. O detalhe de recurso saiu VERBATIM para o capítulo dono e para quatro arquivos novos (`docs/ESTRUTURA.md`, `docs/DIVERGENCIAS-WEB-NATIVO.md`, `docs/BUILD.md`, `docs/DIAGNOSTICO.md`); o bloco "Versão atual" perdeu os resumos de lote (os sem casa aqui foram para a seção `## revisão A2`). Inventário: `docs/revisao/A2-INVENTARIO.md`.
 - **revisão A1, retomada (sem versão nova; só `tools/`)** — `favoritos-fechar` A8 lia o cabeçalho de partida antes de a TAMPA assentar (espera fixa de 150 ms, medida num `requestAnimationFrame`) e o assentamento no meio da curva saía como o cabeçalho andando 10,34px; agora espera a geometria parada em dez quadros. O `configuracoes-janelas` D (três vermelhos, sem reprodução local) passa a imprimir o ESTADO da seção no `obtido`. O `busca-na-tela` saiu da lista: o vermelho dele foi a primeira run, consertada no lote seguinte.
 - **revisão A1 (sem versão nova; só `tools/`)** — QUATRO ORÁCULOS INSTÁVEIS DEIXAM DE MEDIR O RUNNER. `display-smoke` 5-B: o zero do `saindoDeCena` não é a ENTREGA do status final pelo `BroadcastChannel`, e ele chegava depois de o espião ser zerado — agora uma marca pelo MESMO canal do telão fecha a janela. `tela-inteira` B3: premissa e leitura num `evaluate` só (um evento do `<video>` sem duração reescrevia o `seekEl` entre os dois). `excluir-em-cena`: a espera casava com o vídeo ANTERIOR ainda no fade de saída (o `<video>` é reaproveitado) — exige a fonte nova. `servidor-indisponivel` D1: o `apurarFonte` depois do `setOffline` devolvia a apuração da ABERTURA em voo (partida online → `servidor`); o oráculo espera ela acabar. O `enquadramento-da-camada` (giro ausente, idêntico em dois runs) é corrida do APP e foi a repasse para a W2. Restam `configuracoes-janelas`, `busca-na-tela` e `favoritos-fechar` (ver `docs/revisao/REGISTRO.md`).
 - **v1.13.16** — A SAÍDA DE ÁUDIO PELA API PÚBLICA, O REGISTRO DIZ POR ONDE O SOM SAI, E A DICA DO "NÃO PERTURBE" (APK: `shellTag: "v1.13.16"`, `SHELL_VERSION` 83, `minShell: 83`; degrau CORREÇÃO). O estudo (Pacote 6, etapa 1, sobre o Registro de 30/10 08:54 — SM-S928B, Android 17) mostrou as duas pistas do relato das 09:58 já na cadeia e mortas no aparelho: o broadcast `LAUNCH_MEDIA_OUTPUT_DIALOG` ENGOLIDO (bloqueado por `versionCode`) e o painel `MEDIA_OUTPUT` do app de Configurações ausente. **(1) O CANDIDATO 0:** `MediaRouter2.getInstance(ctx).showSystemOutputSwitcher()` (API 34, pública, sem permissão), na frente da cadeia de `audioOutputCandidates()` (`CandidatoDeAudio.roteador`, chave `ACAO_SELETOR_DO_SISTEMA` só para o rótulo e a posição). O `true` dela diz que o pedido foi ACEITO, não que a janela subiu — daí a mesma conferência por FOCO do broadcast (`aguardarDialogoDeSaida`/`conferirDialogoDeSaida(c)`), e a memória de bloqueio virou POR CANDIDATO (`chaveDeBloqueio`: a do broadcast é a de sempre, a nova é `roteadorBloqueadoNaVersao`). A queda depois de um engolido segue a cadeia pelo candidato SEGUINTE, achado pela ação (`seguirCadeiaDeAudio(depoisDe)`), no lugar do laço que pulava "todo broadcast". "Saída de áudio abre" pula os bloqueados. Abaixo da API 34 o candidato aparece no Registro como ausente. **Risco declarado:** a One UI pode recusar também esta via; aí o desfecho segue o painel de volume (o piso de hoje) e o Registro diz que ela foi engolida. **(2) O REGISTRO:** `saidaDeAudioAlvo` ganhou `saindoPor` (`AudioManager.getAudioDevicesForAttributes(USAGE_MEDIA)`, API 33, o `type` cru + `productName`) e `naoPerturbe` (`NotificationManager.currentInterruptionFilter`: `ligado` · `desligado` · `desconhecido`) — a forma de retorno mudou, daí o degrau 83 sem método novo (a contagem da ponte segue 64 · 70 · 76). O cabeçalho imprime *"Mídia saindo agora por: …"* (`nomeDaSaidaDeAudio`, tabela `SAIDAS_DE_AUDIO`; tipo desconhecido sai com o número) e *"Não Perturbe: …"*. Fecha o achado 1 de `ACHADOS-EM-ABERTO.md` pelo lado do diagnóstico. **(3) A DICA DO "NÃO PERTURBE"** (a opção (a) da análise da v1.13.1, escolhida pelo operador em 30/10): `talvezDicaNaoPerturbe`, chamada no `setPlaying(true)` e no `acertarSaidaDeAudio` quando o som passa a ser local — só no app, uma vez por uso, com mídia tocando e o som nascendo NESTE aparelho (`somLocal || telaoNoAr()`; as telas da rede tocam o arquivo delas), e só com o sistema dizendo `desligado` (um `desconhecido` não avisa). O diálogo não abre por cima de outro. **"Não avisar mais" é o OK, não o cancelar**: o voltar do Android e o toque fora resolvem `false`, e nenhum dos dois pode valer uma escolha permanente (`av.dicaNaoPerturbe = 'nunca'`, `fixo: true`).
@@ -616,6 +617,407 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## revisão A2 — a dieta do `CLAUDE.md` (sem versão nova; só docs)
+
+O núcleo foi de **315.387 bytes a ~79 kB** sem mudar regra nenhuma: o que era
+detalhe de recurso saiu VERBATIM para o capítulo dono (ou para quatro arquivos
+novos — `docs/ESTRUTURA.md`, `docs/DIVERGENCIAS-WEB-NATIVO.md`, `docs/BUILD.md`,
+`docs/DIAGNOSTICO.md`), e no núcleo ficou um resumo com o link. O bloco
+*"Versão atual"* — 67 kB de resumos de lote, da v1.7.0 à v1.13.15 — voltou a ser
+só o estado presente e a regra do `shellTag`. O inventário bloco a bloco, com a
+casa nova de cada um, é `docs/revisao/A2-INVENTARIO.md`.
+
+**A régua de "já tem casa no histórico":** toda versão citada naqueles resumos
+tem entrada `**vX**` aqui, e os símbolos em crase de cada resumo foram
+procurados neste arquivo. Os resumos com algum símbolo ou frase em negrito SEM ocorrência aqui (uma regra embutida num resumo, como *"um sinal do shell tem GRÃO"*, só sobrevive assim), os
+blocos de lição (as rodadas v1.9.13→v1.10.9, a coletânea de vídeos, o
+`shellTag` da v1.8.100) e a narrativa da faxina de 2026-09-07 vão abaixo,
+verbatim — o histórico não se reescreve, então eles entram nesta entrada nova em
+vez de nas antigas.
+
+### O que saiu do CLAUDE.md sem casa no histórico
+
+**Versão atual: base web v1.13.16 · APK v1.13.16** · `SHELL_VERSION` **83** ·
+bundle com `minShell: 83` e **`shellTag: "v1.13.16"`** — o shell 83 é o **PISO**: todo
+método da ponte existe, e não há guarda de versão no lado web. **Este lote pede
+Release**: a saída de áudio ganhou o candidato `MediaRouter2.showSystemOutputSwitcher`
+(API 34) na frente da cadeia, e o `saidaDeAudioAlvo` devolve também `saindoPor` e
+`naoPerturbe` (forma de retorno, daí o degrau sem método novo) — o Registro diz por
+onde a mídia sai, e o app sugere o "Não Perturbe" com o som saindo daqui
+(`talvezDicaNaoPerturbe`).
+
+**A v1.13.10 FAZ DA PRÉVIA RECOLHIDA MAIS UMA LINHA DO DECK**: cinco teclas com a caixa, o tom e o raio do `.t-btn` (mudo · cortina · seta · cast · tela cheia, uma por coluna do transporte — a coluna do meio do deck mede exatamente `5·col + 4·vão`), o selo de camadas e o desfazer do giro fora da linha e um PONTO `--danger-strong` no canto da seta quando um deles estaria à vista (`:has(...:not([hidden]))`, sem JS); saiu o fallback de duas linhas (`acertarExtrasDaPrevia`, `pv-extras-baixo`); a animação leva também o fundo do palco e o de cada tecla. Ver a linha "Recolher a prévia" da tabela de divergências.
+
+**A v1.13.9 FAZ A BIBLIOTECA DO MODO FÁCIL MAIOR E TIRA O TRAÇO DA LINHA ESCOLHIDA**: no Modo Fácil os tokens de medida da lista (`--hit`, `--thumb`, `--faixa-thumb` — a miniatura da faixa virou token —, `--icon-*`, `--fs-*`) são redeclarados em `#hymnResults` multiplicados por `--lib-esc` (da ALTURA da tela em px, 1,3–1,5) e `--lib-esc-fs` (o mesmo limitado pela LARGURA da lista em rem, nunca abaixo de 1), escritos por `acertarEscalaDaBiblioteca`; a altura é a da TELA e não a do momento, para a linha de controles que recolhe não dar um segundo pulo; o teto da tampa sobe para `2 × --hit + 2rem` (lido pela `--lib-teto-px`, registrada como `<length>`) e os blocos de raiz preenchem a lista, crescendo pela curva quando ela cresce (`remedirTampa`); os nomes quebram em DUAS linhas em vez de cortar. E o traço da `--divisoria` some sobre a linha escolhida e sob ela (`.selecionando`) — e sobre o ABERTO do avançado (`.expanded`), que tinha o mesmo traço. Ver `docs/arquitetura/CONTROLE.md`, "A Biblioteca do Modo Fácil é maior"; oráculo `modo-simples-biblioteca-tamanho`.
+
+**A v1.13.8 FAZ DA LINHA DE CONTROLES DO MODO FÁCIL PARAR · PLAY/PAUSA · NÍVEL, E A RECOLHE SEM NADA NO AR**: o − e o + saíram, e o mudo próprio virou o toque na tecla de NÍVEL (`#simpleNivel`: o número do volume na cor de tecla, glifo riscado e traço de curso sumindo no mudo; `#muteToggle.click()`, o mesmo comando); sem nada no ar (`haOQueParar`) `renderTeclasSimples` espera `SIMPLE_TECLAS_ESPERA_MS` (1,5 s), faz a linha sair por opacidade e só então a tira do layout, com a Biblioteca animando até a base nova (medida de troca); volta animada; seca com `prefers-reduced-motion`. No Modo Fácil o ajuste fino de volume passa a ser só o das teclas físicas. Ver `docs/arquitetura/CONTROLE.md`, "As três teclas e a linha que recolhe"; oráculo `modo-simples-teclas`.
+
+**A v1.12.54 TRAZ OS CRONOGRAMAS MÚLTIPLOS**: o
+título do Cronograma é o nome do ATIVO e abre a gaveta deles (`#cronoTitulo` → `#cronoGaveta`, "Novo cronograma"
+por último), e o antigo limpar virou um ⋮ (revogado na v1.12.55). **O
+ATIVO CONTINUA SENDO `imports`** — todo consumidor segue intocado —, e os outros são conjuntos guardados na chave
+`cronogramas`, DETENTORA no `lerDetentores`; trocar é uma transação só (`AVDB.cronoTrocar`). CORREÇÃO e não
+INCREMENTAL: não é um lugar novo do app, é a mesma tela com um atalho para trocar a lista inteira. Ver o capítulo do
+Controle, "Os cronogramas múltiplos", o modelo de dados e o `docs/recursos/PACOTE.md` ("Os cronogramas guardados").
+
+**A v1.12.53 FAZ A PLAYLIST AUTOMÁTICA INCLUSIVA, DÁ AO MODO FÁCIL UM
+SORTEIO DE UM TOQUE, LEVA A FAIXA DE OPÇÕES DA LINHA À LARGURA TODA, PÕE O CAST DA PRÉVIA EM VERDE E FAZ A SÉRIE SE
+VERIFICAR AO ABRIR**: categorias que particionam o acervo no lugar das exclusões (`AVSorteio.categoriasDisponiveis`,
+nada marcado = tudo, marcado = a união); `#sorteioSimplesBtn` na barra do Modo Fácil (Hinário 2022, cantada, sem
+infantis); `acertarFaixaDaLinha` (`.acoes-cheias`/`.acoes-justas`, medido); `.pv-fab.connected` em `--stage-ok`; e o
+`.coll-bar-at` saiu — `verificarSemanaAoAbrir` (piso de 5 min, cede à mídia no ar). Ver o capítulo do Controle,
+"Playlist automática", "Os botões da linha viram UM SÓ" e "A coluna da direita", e o `docs/recursos/SERIES.md`.
+
+**A v1.12.47 TROCA O ANEL DA VERIFICAÇÃO POR UMA BARRA LINEAR GROSSA**
+(`.teste-barra`, percentual no centro desenhado duas vezes — `--text` no trilho, `--bg` recortado em `--p` sobre o
+preenchimento) **e REVOGA A ALTURA FIXA da v1.12.46**: a folha tem a altura do conteúdo e toda mudança dela anima
+(`animarAlturaDoTeste`, WAAPI na `height`, `--dur-lenta`); a faixa de fecho sai do layout até o fim.
+
+**A v1.12.46 DÁ À VERIFICAÇÃO UM
+PERCENTUAL DE TEMPO** (`testeAlvo`: o tempo previsto de cada parte, `testeTempos` aprendido das rodadas — média
+meio a meio, o download só ensina com `ok` —, corrigido pelas checagens respondidas e pelos bytes; `tiqueDoTeste`
+a 100 ms suaviza e nunca volta), ALTURA FIXA (`#testePopup .popup-sheet { height: 80vh }`, faixa reservada por
+`.teste-fecho--oculto`), sem legenda sob "Verificando…" e com **"Refazer"** no fim; e a notificação de download mostra
+só o percentual e o TOTAL em bytes (o "X MB de Y MB" contradizia o percentual de todas as fases).
+
+**A v1.12.41 SÓ PRENDE O DOWNLOAD ATRASADO E REFAZ A VELOCIDADE QUANDO O PLANO ENCOLHE** (o Registro de
+15/10 13h25: dois vídeos PEQUENOS no ritmo aprendido abrindo com a barra em 62 e 74): o teto dos bytes da
+v1.12.40 só vale com `downloadAtrasado` (o que chegou abaixo de `LENTO` do que o ritmo aprendido traria, ou
+os avisos parados por `PARADO_MS`), e quando os bytes acabam, o tamanho de verdade chega ou o teto solta a
+velocidade vai DIRETO à alvo se for maior (para baixo, inércia e freio) — **revoga em parte a régua da
+v1.12.37** ("a velocidade muda aos poucos" vale para baixo e fora desses eventos). E **A TELA CHEIA DO VÍDEO
+DO MODO FÁCIL ganha o NOME da mídia no topo, a LINHA DO TEMPO na base** (tocar/arrastar procura pelo mesmo
+caminho da barra do card, `ligarBarraDeTempo`; os dois acendem e apagam com a coluna, e o arraste segura o
+relógio) **e o VOLUME em pé na borda esquerda**; no avançado nada mudou. Oráculos: `progresso` S e H,
+`video-tela-cheia` H, `tela-inteira` B3.
+
+**A v1.12.39 TIRA A MINIATURA DO CAMINHO DO "TOCAR AGORA", ESTABILIZA A ESTIMATIVA E SEGURA O FIM** (o
+Registro de 15/10: gravações de 1,5 e 1,9 s eram a `makeThumb`, e a barra abria em 61 e 73): o vídeo é
+gravado SEM miniatura e ela é extraída depois do play (`miniaturaDepois` — a promessa `miniaturaApos` do
+`ytAcaoInterno`, cumprida no `esperarTocando` + `MINIATURA_FOLGA_MS`, com teto `MINIATURA_ESPERA_MAX_MS`;
+grava por `AVDB.definirMiniatura`, que só escreve onde não há; a linha desenha a caixa vazia
+`.thumb--espera` e é redesenhada); cada tempo do `AVProgresso` é um QUANTIL (`estimar`, `QUANTIL` 0,6 das
+últimas `JANELA` 8, sem peso de idade — só a `juncaoChance` ainda pesa a recência), a inclinação por MB
+pede DOIS pares, o tamanho típico é misturado ao padrão (agora 12 MB) até `APOIO_TAMANHO` 3 amostras e os
+bytes/s só valem com elas; histórico `VERSAO` 4 (a v3 é lida SEM a gravação); e o FIM SEGURADO: no
+começo da abertura `barra.revelar()` varre até 100 e o `send` espera até `SEGURA_MAX` 500 ms (nada a
+partir do `POUSO`). A Verificação completa mede a miniatura à parte (`tMiniaturaIni/Fim`, fora do
+total). Oráculos: `progresso` P–Q, `youtube-fim-segurado` (novo), `modo-simples-espera` C,
+`verificacao-completa` G5.
+
+**A v1.12.38 FAZ A BARRA DO YOUTUBE APRENDER A REDE E A CAUDA** (o "abre depois dos 75%" do Registro
+do operador): o shell avisa os bytes a cada 1 MB, e a régua do "retomado" da v1.12.37 (primeiro aviso
+> 1 MB) acertava TODO download pequeno — a rede nunca era aprendida. Hoje retomado é o primeiro aviso
+trazer muito mais do que o ritmo MEDIDO explica (`retomado()`), e o ritmo da amostra é o medido ENTRE
+avisos (`ritmoDoDownload`), que byte do disco nenhum altera; download = `latenciaMs` + bytes/ritmo;
+junção, cópia e gravação = FIXO + POR MB (`ajustar`, inclinação nunca negativa); junção pesa
+`juncaoChance`; o tamanho antes do shell é duração × bytes/s ou o típico da mesma `chave`; todo número era
+a mediana ponderada pela idade (trocada pelo quantil na v1.12.39); a velocidade mira o pouso com a cauda do app a `MIRA_CAUDA` e tem um
+`FREIO` de desaceleração constante (a inércia não carrega a barra do 95 ao 99); histórico `VERSAO` 3 (4 desde a v1.12.39).
+**Regra que fica: um sinal do shell tem GRÃO** — um critério em bytes que não conta o grão do aviso
+(1 MB) classifica errado tudo que é pequeno, e calado. Oráculos: `progresso` K–O (K replica os quatro
+downloads do Registro com o aviso de 1 MB) e `modo-simples-espera` E.
+
+**A v1.12.37 FAZ A BARRA DO YOUTUBE ANDAR NUM RITMO CONSTANTE** (o "97 parado" e o "abre em 75" da
+v1.12.36): a exibição do `AVProgresso` é um controle de VELOCIDADE — pousa em 95 no fim previsto, com
+inércia (`TAU_V`), um PISO que não deixa parar e um `CAP` 99,6 nunca alcançado (o inteiro máximo antes
+do fim é 99), e o `concluir()` é uma VARREDURA de 150–450 ms; o download usa o ritmo MEDIDO dos últimos
+3 s; só amostras COMPARÁVEIS ensinam (retomado não ensina a rede; fase do app com a página oculta e
+abertura sem play não ensinam; o histórico tem `VERSAO` e o v1 recomeça). **E O REGISTRO DIZ O QUE ELA
+FEZ:** `relatorio()` → anel dos últimos 5 em `ytBarraDiag` (gravado), bloco *"Barra do YouTube"* logo
+depois da linha do tempo (`blocoBarraYt`) e uma linha *"barra: …"* na linha do tempo por download.
+Oráculos: `progresso` (A–J) e `modo-simples-espera` D.
+
+**A v1.12.36 FAZ O PERCENTUAL DO YOUTUBE IR DO TOQUE À MÍDIA TOCANDO** (fases preparo · bytes ·
+junção · cópia · gravação · abertura, com o peso de cada uma APRENDIDO dos downloads anteriores —
+`controle/progresso.js` (`AVProgresso`, puro, oráculo `progresso`), `novaBarraYt`, histórico
+`ytTempos`; o shell avisa as fases por `__avYtFase` e a notificação recebe o número pelo `pct` do
+`bgProgress`; nunca 100 antes de a mídia estar pronta — e desde a v1.12.39 a revelação ESPERA a barra
+varrer até 100, no máximo 500 ms), **PÕE O ANEL E O NÚMERO NO
+CENTRO DA MINIATURA, ESCREVE "No aparelho" NA LINHA DO CANAL** (o véu sobre a miniatura saiu) **E LEVA
+O CARTÃO DO RESULTADO DO YOUTUBE AO AVANÇADO** (as regras saíram de `body.mode-simple`; oráculo
+`busca-divisoria` A8/A9).
+
+**A v1.12.35 FAZ DUAS COISAS** (no Modo Fácil o resultado do YouTube na busca é um CARTÃO —
+`body.mode-simple .yt-result`: miniatura na largura da lista em 16:9, título, canal e duração
+abaixo, percentual como selo; oráculo `busca-divisoria` A8 — e o APK entregue ao instalador não é
+perguntado de novo por trás dele — `apkEntregue`/`APK_ENTREGUE_MS` em `decidirAtualizacao`, ver
+`docs/shell/OTA.md`; oráculo `ota` 2b).
+
+**A v1.12.31 ACELERA O DOWNLOAD DO YOUTUBE** (`YoutubeGrab`: cada faixa em pedaços de `BLOCO_BYTES` por `Range` exato, até `CONEXOES` em paralelo, retomando só os pedaços que faltam — `Pedacos`/`baixarEmBlocos`/`baixarPedaco`; servidor que ignora a faixa ou não diz o total cai em `baixarSequencial`, o caminho de antes; o áudio corre num fio próprio enquanto o vídeo baixa — `AudioEmVoo`, que continua sendo a SONDA: o vídeo só parte com o CDN tendo respondido ao áudio —, e a barra das duas é a `BarraDoPar`; `MainActivity.aplicarProjecaoLocal` mantém o renderer do Controle em `RENDERER_PRIORITY_IMPORTANT` também enquanto `backgroundWork`, só a PRIORIDADE, nunca a visibilidade) **E DÁ À VERIFICAÇÃO COMPLETA A MEDIDA DO SHELL** (`ytMedida` → `YoutubeGrab.ultimaMedida`: extração, cada faixa com pedaços/conexões/refeitos/retentativas, áudio e vídeo juntos ou em fila, junção, sobra no cache — também na falha; e a linha do tempo da visibilidade do app por fase, `testeMsNoFundo`; oráculo `verificacao-completa` B6d–B6f). **A cópia em FLUXO para o OPFS foi tentada e RECUSADA:** o IndexedDB do Chromium guarda um `File` do OPFS por REFERÊNCIA — MEDIDO, apagado o arquivo, o registro lê `NotFoundError` —, então o arquivo de passagem nunca poderia sair.
+
+**A v1.12.27 DIVIDE A VERIFICAÇÃO EM LEVE E COMPLETA** (a Completa baixa um episódio anterior do Provai e Vede fora do aparelho pelo caminho do "Tocar agora", mede cada fase — `ytBaixarNativo(…, { medida, semResgate })`, `testeDlContas` — e o apaga, conferindo; a única exceção ao "não baixa megabytes", ver §Diagnóstico; oráculo `verificacao-completa`).
+
+**A v1.12.21 PÔS O `border-radius` NO RELÓGIO DO FUNDO DA FOLHA DA BIBLIOTECA** (`.popup-sheet--lib`: `border-radius 0s linear var(--lib-anim)` ao lado do `background-color`, para o painel não descer com cantos retos no fechamento; oráculo `modo-simples-corpo` bloco R).
+
+**A v1.12.19 CONDICIONOU A SOMBRA DAS PORTAS DO CRONOGRAMA** (`acertarSombraDasPortas` escreve `.livre` em `#listFoot` quando nenhum item corre por baixo delas — lista vazia, curta ou rolada até o fim —, e `.list-foot.livre … { box-shadow: none }`; a AUSÊNCIA da marca é a sombra de sempre; oráculo `sombra-das-portas`).
+
+**A v1.12.11 FEZ DUAS COISAS** (o título da letra fica a UMA linha da letra, não duas — `.lv-cab--letra`/`.lv-row--cover`, margem `1.5 × --lv-fonte − --lv-estrofe-gap`; e o card do nome do Modo Fácil tem UMA altura enquanto há mídia no ar: a linha do tempo escondida continua ocupando o lugar — `visibility`, não `display` — e o nome vazio mantém a linha, para o card, a zona de leitura e a caixa da Biblioteca não andarem).
+
+**A v1.12.10 TIROU O TEXTO DE ESTADO DO RODAPÉ DO EDITOR** (`#edicaoNota` e `edicaoDizer` não existem mais: o retorno é só o pulso do botão — `responder(btn, 'ok'|'erro')`; falha sem botão à vista, como mídia que sumiu, fica muda).
+
+**A v1.12.9 FEZ DOIS AJUSTES NO EDITOR** (a folha tem a altura NATURAL do formulário — `edicaoMedirFolha` a guarda em `--edicao-h` e o seletor a reusa —, sem o vão da altura fixa de 80%; e o texto do card do item nunca quebra: uma linha por rótulo e, se não couber, rola em ping-pong com a animação do título da mídia no ar, `edicaoRolarTextos`).
+
+**A v1.12.7 FEZ QUATRO AJUSTES NO EDITOR** (a linha "Original: …" da base saiu; o "Importar arquivo" do seletor é um botão BAIXO — `--quad-faixa`, ícone ao lado do texto —; a faixa de corte tem margem lateral de `--sp-6 + --sp-3` para o gesto de voltar da borda do Android não disputar o arrasto; e o spinner da carga é só o desenho, 64 px, sem texto).
+
+**A v1.12.0 TRAZ "EDITAR MÍDIA"** (seção nova, daí o degrau INCREMENTAL; lote só de web, sem Release): o item editado é VIRTUAL — um registro com `edicao` (`origem`, `inicio`, `fim`, `fadeEntrada`, `fadeSaida`, `soAudio`) que `AVDB.getMedia` devolve RESOLVIDO (bytes do original, duração do trecho, letra deslocada) e que `stage.js` aplica ao tocar; o original é segurado por `lerDetentores` enquanto o item existir; o tempo reportado (`getTime`/`getDuration`/`seek`) é o do TRECHO, o `fim` dispara um `ended` sintético, e as marcas de fade DOBRAM o `fadeTime` da tela na ponta que nomeiam (v1.12.25). A janela de Configurações é só formulário (seletor, sliders, três marcas) com rascunho persistente em `edicaoRascunho`. **O ORIGINAL É SEMPRE VINCULADO**: na store `media` o coletor o segura (`lerDetentores`); no catálogo `files` (hinário, pasta) `purgeCatalogRecords` chama `AVDB.adotarBases` ANTES de apagar — o original passa para `media` com os bytes, fora de toda lista (invisível). No `.avpkg` o original viaja SEMPRE com o editado (`pacoteBases`, registro `media` com `base: true`), não aparece em "Outros itens" (`pacoteGruposDeMidia`) e na importação por marcas entra só se o editado entrou (`filtro.bases`; contado em `contagem.bases`, não em `media`). A exportação lê o editado CRU (`getMediaCru`). Escolher um item JÁ EDITADO no seletor (grupos como a exportação, mais "Importar arquivo", que traz bytes só para o editor) o EDITA NO LUGAR desde a v1.12.6 (`AVDB.atualizarEdicao`: o mesmo id, em todas as listas onde ele está, sobre o MESMO original — a origem nunca encadeia). O editor existe nos DOIS modos (v1.12.1); o corte é UMA faixa de duas pontas. Oráculo: `edicao-de-midia.test.mjs`.
+
+**A v1.11.7
+juntou QUATRO pedidos do operador,
+todos de superfície:** (1) a **seta no topo da prévia** que a recolhe na menor altura em
+que os botões dela cabem (substitui o tile "Imagem da prévia"; ver a linha
+"Recolher a prévia" da tabela de divergências); (2) o app **SEMPRE abre no Modo
+Fácil** — o modo vale pela sessão (`sessionStorage`), atravessa a recarga do
+documento e morre com o app; (3) a janela da **Tela** (`#telaPopup`:
+preenchimento, wallpaper, fundo da letra e giro) e (4) a janela do
+**Transferir** (`#pacotePopup`: exportar e importar, refeita na v1.11.9) — a grade de Configurações passou de 13 para
+8 tiles.
+
+**Se a numeração o contrariar:** a tabela do número manda
+INCREMENTAL para "uma seção inteiramente nova do app"; as duas janelas
+reagrupam o que já existia, e por isso o degrau ficou em CORREÇÃO.
+
+**O
+hotspot de outro celular conta como Wi-Fi comum, e isso está DECIDIDO** (ver a
+linha "Manter o episódio da SEMANA baixado" da tabela de divergências).
+
+**Conferir a Release é parte de decidir** — um lote só de web herda o `shellTag` quando o
+lote de shell anterior ainda não tem Release, e não herda quando tem.
+
+> **A v1.11.9 TIROU A FOLHA "O QUE LEVAR" E A LISTAGEM EM LEITURA** (lote só de
+> web, sem `shellTag`): a lista é a janela do Transferir (`#pacoteLista`) e o
+> peso do que está marcado mora na nota `#pacoteNota`. `exportarPacote()` chamado
+> direto (sem a janela) marca TUDO. **`renderPacoteGrupos` limpa por
+> `innerHTML = ''`, nunca por `limparFolha`**: ela esvaziaria o `.popup-fecho`
+> irmão, onde moram os dois botões.
+
+> **A v1.11.8 CONSERTA O WATCHDOG DO OTA** (lote só de web, sem `shellTag`): `otaAppIsUp` exigia
+> um `<li>` em `#playlist`, que não existe com a fila vazia (v1.8.54 em diante) — o bundle OTA nunca era
+> confirmado nesses aparelhos, era descartado no lançamento seguinte e o app voltava ao embutido (1.11.3),
+> oferecendo a mesma atualização. Agora é `__avSplash.terminou` (fim do `init()`); a regra e o oráculo
+> (`ota-confirma`) estão em `docs/shell/OTA.md`. **Prova de boot nunca é item de lista.**
+
+> **A v1.11.3 pediu Release** — a ponte ganhou UM método (`r2Imagem`) e o
+> `WebViewFactory` um `PathHandler` novo (`/r2img/`), para desviar de CORS no
+> bucket R2 de fotos do Hinário 2022 (que não manda
+> `Access-Control-Allow-Origin`) por fora do WebView. Foi a primeira Release
+> desde a v1.9.12, com `shellTag: "v1.11.3"` segurando o bundle até ela sair —
+> e ela já saiu, publicada na frota.
+
+> **A v1.10.9 É A QUINTA RODADA da mesma série, e confirma o palpite do
+> OPERADOR.** Com a causa da v1.10.8 já viajando no veredito, o Registro
+> seguinte respondeu direto: as 601 fotos sem fundo do Hinário 2022 têm todas a
+> MESMA causa — `fora` —, com o endereço exemplo apontando para
+> `pub-8c0e123c55a14cdfa0c52fa182688782.r2.dev`, um bucket Cloudflare R2. O
+> operador tinha avisado, antes de o Registro confirmar: *"pode estar
+> relacionado com o formato do endereçamento dos arquivos na origem,
+> considerando que as músicas também tiveram esse problema um tempo atrás"* —
+> e é a MESMA classe de defeito da v1.9.14/v1.9.15 (a origem move um campo do
+> JSON para um host novo), agora um domínio INTEIRO diferente, não um
+> subdomínio. **A trava por domínio (v1.9.15) recusou o host corretamente** —
+> ele não é `louvorja.com.br` nem subdomínio dele —, mas ele É a origem de
+> verdade das fotos daquele hinário. A resposta não é abrir a trava para
+> qualquer host (o JSON voltaria a escolher o destino do fetch privilegiado,
+> o problema que ela existe para impedir): é um SEGUNDO host PINADO POR NOME
+> (`Louvorja.CDN_HOSTS_CONHECIDOS`), do mesmo jeito que `AVCifra.CATALOGO` pina
+> os dois hinários — uma exceção nomeada e medida, nunca um sufixo `.r2.dev`
+> (que aceitaria bucket de qualquer cliente da Cloudflare). O `FUNDO_VEREDITO_VERSAO`
+> sobe de novo (2 → 3), pelo mesmo motivo da v1.10.8: as 601 ausências gravadas
+> sob a regra antiga não podem esperar os seis dias de prazo para serem
+> reavaliadas sob a regra nova.
+
+> **A v1.10.8 É A QUARTA RODADA da mesma série (v1.9.13→v1.9.15), e desta vez
+> quem apontou a causa foi o OPERADOR, não uma segunda cópia do Registro.**
+> Duas frases erradas, nenhuma delas nova: **a primeira** é a premissa de
+> `cifra-acervo` (v1.10.7) — *"quase toda música tem cifra"* — que o operador
+> desmentiu por extenso (*"não são todos os hinos que tem cifras, não sei
+> quantos são na realidade"*) e que o Registro dele confirmou: 286 folhas contra
+> 305 `sem-cifra` no Hinário 2022, ~48%, abaixo do corte de 50% que a v1.10.7
+> introduziu. A checagem reprovava um acervo são todo sábado. **O sinal de
+> verdade não é quanto o site TEM** (pergunta que só o site responde) **— é
+> quanto ficou SEM PÁGINA nenhuma** (`naoTem` de `cifraProcurar`: todo endereço
+> dedutível respondeu 404, o sinal de catálogo quebrado). **A segunda** é o
+> defeito que o relato "ainda não estão apresentando imagens" expôs: a
+> conferência dos fundos sabia dizer QUANTAS faltavam, mas não POR QUÊ — a
+> causa (erro HTTP, endereço fora do servidor, disco recusando gravar, ou a
+> fonte de fotos muda) morria com a sessão em que a passada rodou, e só
+> sobrevivia ali quem tivesse copiado o Registro na hora certa. Ela passa a
+> viajar NO VEREDITO (`causa`/`status`/`url`), ao lado de `tem`, e alcança
+> tanto o Registro (`blocoFundos`, a distribuição por causa mais um exemplo com
+> endereço) quanto a Verificação do Sistema (a frase nomeia a causa direto, sem
+> mandar esperar o Registro de uma passada futura).
+
+> **AS DUAS JUNTAS SÃO UMA LIÇÃO DE MÉTODO, e ela é a da série v1.9.9→v1.9.12
+> aplicada de novo.** A v1.9.13 fez o download **parar de anunciar sucesso sem
+> um byte no disco** e criou o bloco "Download do acervo"; **a PRIMEIRA cópia
+> desse Registro entregou a causa raiz** — o campo `url_*` do LouvorJA virou URL
+> ABSOLUTA e o `fileUrl` somava o prefixo por cima, e o parser de URL não
+> reclama disso (no PATH STATE o `:` e o `//` não são separadores), então o
+> pedido sai bem-formado e a fonte responde 404 para 100% dos arquivos. A
+> v1.9.14 conserta isso e leva a CAUSA às frases que a escondiam. **Duas
+> rodadas, nenhum palpite:** *um diagnóstico que responde só a pergunta anterior
+> custa um lote inteiro por relato* — e o que encurta a próxima é acrescentar a
+> pergunta que falta NO MESMO lote do conserto.
+>
+> **E A v1.9.15 É A TERCEIRA RODADA, com a lição cobrada de dentro:** o conserto
+> da v1.9.14 travou o destino do `fetch` no host EXATO, e nada obriga a origem a
+> servir a IMAGEM pelo mesmo subdomínio do áudio — o áudio voltou, o fundo da
+> letra não. *Um
+> conserto pode criar a causa seguinte, e o diagnóstico tem de alcançá-la
+> também:* daí a trava passar a ser o DOMÍNIO da origem e o endereço de fora
+> virar causa com NOME no Registro, em vez de um 404 indistinguível de "o
+> arquivo não existe".
+
+> **A v1.8.99 REMOVE a coletânea de vídeos do LouvorJA, que a v1.8.97 tinha
+> acrescentado — e a razão é do operador, não técnica:** *"Eu achava que seria
+> uma coleção mais abrangente, com arquivos oficiais e diversos… Que se tornaram
+> irrelevantes no meu app que já possui o sistema de busca direta no YouTube.
+> Não preciso de atalhos para músicas tão aleatórias."* O acervo real (lido do
+> Registro dele) eram 1150 vídeos em 16 playlists de 5 canais, e o recurso
+> funcionava: nada foi recusado nem perdido. Ele simplesmente não paga por si
+> diante da busca do YouTube que o app já tem.
+>
+> **A REMOÇÃO É INTEIRA, e volta ao que a v1.8.96 tinha** — o módulo, os dois
+> oráculos, as linhas do workflow, a seção da Biblioteca, o bloco do Registro e
+> o `fetchOnline` do cliente. **Voltaram também as três peças que só existiam
+> por causa dela:** `temCalendario`, os nomes `videoComoYoutube`/
+> `downloadItemDeVideo` e o despacho do download por capacidade. **Isso é
+> deliberado e a armadilha fica REGISTRADA no `tipoDaColecao`**, que é onde o
+> próximo leitor a encontra: com UMA família de vídeo, `ehLink` e "tem
+> calendário" são a mesma pergunta, e manter dois nomes para uma pergunta é o
+> convite que aquele bloco proíbe — a distinção volta a valer, e com oráculo,
+> no dia em que existir uma segunda família.
+>
+> Lote só de web: nada em `java/`, `res/` ou no manifesto, e `SHELL_VERSION`
+> segue 72.
+>
+> **E O NÚMERO PULOU DE 98 PARA 99 NO MEIO DO LOTE**, porque outra sessão
+> publicou a v1.8.98 enquanto este trabalho corria. Não é cosmético: o
+> `compareVersions` do OTA ignora, EM SILÊNCIO, um bundle cuja versão não seja
+> MAIOR que a instalada — republicar a 98 seria o lote inteiro não chegando a
+> aparelho nenhum, sem erro em lugar nenhum. Quem renumerar um lote mexe nas
+> QUATRO casas (`version.json`, `WEB_VERSION`, `#appVersion` e esta linha) e no
+> `notas.json`; aqui houve uma quinta, a chave da faxina (`faxina:online-1899`),
+> que carrega o número no nome.
+
+> **A v1.8.100 NÃO declara `shellTag`, e a v1.8.91 declarou — a diferença é o
+> ACOPLAMENTO, que é a pergunta que aquele campo faz.** Aquela mudou `java/` (o
+> cancelamento da exportação saiu da main thread) e nada em `java/` chega por
+> OTA, então o bundle ficou SEGURO até a Release sair — **e ela saiu**: o APK
+> v1.8.91 está publicado e o manifesto do canal já aponta para ele. Esta não
+> toca `java/`, `res/` nem o manifesto, e por isso a obrigação NÃO é herdada: o
+> bundle sai na hora, contra um shell que já está na frota. **E a ponte só ENCOLHEU** — `requestMic` e `micDiag` saíram do
+> `native.js` com o MICROFONE AO VIVO, e o `@JavascriptInterface` de cada um
+> continua no Kotlin. Encolher pelo WEB primeiro é o lado seguro, e por isso não
+> pede Release: um APK que ainda serve método que ninguém chama não custa nada
+> ao aparelho. É a ordem inversa — base web nova contra APK velho — que precisa
+> do `shellTag`. Como a LISTA `serie` da v1.8.87, o
+> `AVSorteio.baralhar` da v1.8.86 e o `AVDB.stateApagarPrefixo` da v1.8.83: a
+> superfície que o `SHELL_VERSION` governa é a da PONTE (`window.AVNative` sobre
+> `__AVBridge`), não a dos módulos de `assets/web/` — eles viajam DENTRO do
+> bundle, e quem os chama chega no mesmo zip. **E o download automático da série
+> não pediu método novo**: a pergunta do Wi-Fi (`isConfirmedWifi`) já era
+> respondida no bundle e o download já era do shell (`ytFetch`). Aquela
+> declarou porque o Kotlin da v1.8.72 (o fecho do pacote) ainda não tinha
+> Release — e é essa a regra, não a data: **o `shellTag` ACOMPANHA A ÚLTIMA
+> VERSÃO, NÃO A QUE MEXEU NO KOTLIN**, porque o CI exige
+> `shellTag == 'v' + version`. Um lote só de web publicado DEPOIS de um lote de
+> shell ainda não lançado HERDA a obrigação; zerá-lo ali publicaria o bundle
+> sozinho e deixaria o conserto do shell para trás, calado. **A Release é UMA**,
+> cortada de `main` na tag mais nova, e o APK que sai dela carrega todo o Kotlin
+> acumulado.
+>
+> **E O GATILHO DA RELEASE NÃO É A PONTE, É O `java/`.** A v1.8.72 não
+> acrescentou método nenhum — o `SHELL_VERSION` seguiu 72 —, mas `PacoteCanal` e
+> `MainActivity` mudaram, e nada em `java/` chega por OTA. O inverso também é
+> regra: a v1.8.71 ENCOLHEU a ponte (três métodos saíram do `native.js`) e NÃO
+> pediu Release, porque encolher pelo lado WEB é o lado seguro — o
+> `@JavascriptInterface` fica, e um APK que ainda serve método que ninguém chama
+> não custa nada ao aparelho. É a ordem inversa (base web nova contra APK velho)
+> que precisa do `shellTag`.
+>
+> **O modo de falhar deste campo está dito e é o caro:** uma tag declarada cuja
+> Release nunca sai segura o canal PARA SEMPRE, em silêncio, e a única pista é a
+> linha no resumo do run. **Deixá-la apontando para a tag do lote ANTERIOR é o
+> mesmo defeito por outro caminho.** Declarada, a Release se dispara depois do
+> merge em `main`: Actions → *Build APK* → `release_tag` = a MESMA tag.
+
+> **ESTE BLOCO É A QUARTA CASA DA VERSÃO, e desde a v1.8.50 ela TEM ORÁCULO.**
+> As três oficiais (`version.json` · `WEB_VERSION` · `#appVersion`) têm asserção
+> no `verificar` e por isso nunca divergem; esta não tinha, e MEDIDO ela ficou
+> para trás **três vezes** — duas em vinte minutos (a v1.8.8 a deixou em v1.8.7;
+> corrigida, a v1.8.9 a deixou em v1.8.8) e de novo na v1.8.49, que a deixou em
+> v1.8.48. O modo de falhar é o desta seção inteira: um arquivo lido a cada
+> sessão, ANTES do trabalho, afirmando um estado que o repositório já não tem —
+> e quem o lê não confere, porque é justamente para não conferir que ele existe.
+> Quem a fecha é o `docs-coerentes.test.mjs`, que lê esta linha e a compara com
+> o `version.json`. **Renumerar o lote continua incluindo esta linha**, ao lado
+> das três e do `shellTag`; o que mudou é que esquecê-la passou a reprovar o
+> build em vez de sobreviver até alguém reparar.
+
+> **UM `apk` REPROVADO NÃO PULA O `web-ota` — QUEM SEGURA É O HOLD.** A
+> confusão é fácil e custou um lote inteiro de raciocínio errado: o `web-ota`
+> tem `needs: [verificar, apk]`, mas o `if:` dele é `!cancelled() &&
+> needs.verificar.result == 'success'` — **o resultado do `apk` é
+> deliberadamente ignorado**, e o `needs` está lá pela ORDEM (o passo que
+> consulta a Release precisa rodar depois de quem a publica). O job RODA com o
+> `apk` vermelho. O que impede a publicação é o HOLD do `shellTag`, cuja
+> Release o build que falhou não chegou a criar — e por isso o desfecho é um
+> job VERDE que não publicou, com o motivo no resumo do run. Foi assim com a
+> v1.8.6. A conclusão prática continua a mesma (**um lote que toca `java/`
+> confere o `apk`**); o mecanismo é este, e está escrito no comentário do
+> próprio `web-ota`, vinte linhas acima do `if:`.
+
+> **UM LOTE QUE PEDIU RELEASE (v1.7.0)**, e a razão fica registrada porque
+> ela é o caso normal: a ponte ganhou QUATRO métodos (`compartilharTexto` e os
+> três do PACOTE) e o shell um canal de `ArrayBuffer` novo — nada disso chega
+> por OTA. Sem o `shellTag` os tiles novos chegariam sozinhos à frota,
+> chamariam métodos que o APK instalado não tem, o `call()` venceria os 60 s e
+> resolveria `null`, e o que o operador teria seriam botões tocáveis que não
+> fazem nada.
+>
+> **E O ESPELHO DISSO É O LOTE ATUAL (v1.8.16), que ENCOLHE a ponte sem pedir
+> Release** — porque encolher no WEB primeiro é o lado seguro: um APK que ainda
+> serve oito métodos que ninguém chama não custa nada ao aparelho. É a ordem
+> inversa — a base web nova contra o APK velho — que precisa do `shellTag`.
+
+> **AS NOTAS DE LOTE MORAM NO `docs/HISTORICO.md`, E ESTE ARQUIVO NÃO GUARDA
+> LOG** (a faxina de 2026-09-07). Havia aqui **25 blocos** — *"O QUE O LOTE
+> TRAZ (vX)"*, da v1.7.4 à v1.8.48 —, **1.294 linhas, 19% deste arquivo**, num
+> arquivo que é lido INTEIRO em
+> toda sessão antes de qualquer trabalho. Eles contradiziam a regra escrita duas
+> seções acima: *"Aqui entra o que VALE HOJE; em `docs/HISTORICO.md`, o que
+> explica POR QUÊ."*
+>
+> **MEDIDO antes de apagar**, porque apagar sem medir é perder: os 25 têm
+> entrada no `HISTORICO.md` (as seis que faltavam — a v1.7.7 e as v1.8.44 a
+> v1.8.48 — foram escritas no mesmo lote), e a regra permanente de cada um já
+> vive na seção canônica ou na TABELA DE ORÁCULOS, que é a casa dela. As duas
+> exceções encontradas foram enxertadas antes da remoção: as linhas de tabela do
+> `funcao-sem-chamador` e do `notificacao-ids`, que existiam só nos blocos, e o
+> avanço da playlist sem TV, na linha do `preview-volta-ao-wallpaper`.
+>
+> **A regra que substitui os blocos:** um lote publicado escreve a nota no
+> `HISTORICO.md` e, AQUI, só corrige a REGRA que mudou — no lugar dela. Se um
+> lote não muda regra nenhuma, este arquivo não muda. O bloco *"Versão atual"*
+> logo acima é a única coisa por lote que fica, porque ele responde uma pergunta
+> do PRESENTE (*"o que está publicado, e este lote pede Release?"*).
+
+A regra existia e foi contrariada por vinte e cinco lotes seguidos: em
+  2026-09-07 havia **25 blocos "O QUE O LOTE TRAZ (vX)"**, da v1.7.4 à v1.8.48,
+  somando **1.294 linhas — 19% do arquivo**, todas justificativa. O arquivo
+  cresceu **47% em três dias** por esse caminho (381 kB em 04/set, 562 kB em
+  07/set), contra os 23% em sete dias que a auditoria de eficiência tinha
+  medido. **O formato é o defeito**: um bloco por lote é um log, e um log só
+  cresce.
+
+  **A casa da regra permanente é a seção canônica ou a TABELA DE ORÁCULOS** — e
+  foi ela que segurou a remoção: dos 25 blocos, só três regras não tinham casa
+  (as linhas de tabela do `funcao-sem-chamador` e do `notificacao-ids`, e o
+  avanço da playlist sem TV), e as três foram enxertadas ANTES de apagar.
 
 ---
 

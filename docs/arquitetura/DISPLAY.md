@@ -433,3 +433,93 @@ Duas defesas em `shared/native.js`, ambas invisíveis no navegador:
   operador ainda escolhendo a pasta.
 
 ---
+
+## Reconexão e morte do renderer (do núcleo, revisão A2)
+
+> **Movido do `CLAUDE.md` na revisão A2 (2026-10-30), sem mudança de texto** (só os links relativos e o nível dos títulos). No núcleo ficou um resumo com o link para cá. "Acima", "abaixo", "esta seção" e as invariantes numeradas falam do `CLAUDE.md`, de onde este texto veio.
+
+**Reconexão vem de graça:** dongle cai e volta → o Android recria a
+`Presentation` → o WebView recarrega `/display/` e dispara `display-ready` → o
+Controle reenvia a cena (`resendSceneToDisplay`). **Não invente um mecanismo
+paralelo.**
+
+**MAS "HÁ TELA" NÃO É "HÁ TELÃO", e essa é a única parte que NÃO vem de graça.**
+`AVNative.displays()` responde pelo `DisplayManager`; quem projeta é a
+`Presentation`. As duas divergem exatamente durante uma negociação de Miracast —
+`show()` **lança** com o dongle instável, e o sistema derruba a janela sozinho
+numa oscilação —, e nos dois casos a tela **continua listada**. Enquanto o web
+perguntou `lastDisplays.length > 0`, esse estado calava a preview (havia "para
+onde mandar o som") sem ninguém tocando do outro lado: **silêncio nos dois
+lados**, sem erro no console e com o Registro dizendo "conectado". E não passava
+sozinho — `syncPresentation` só volta a rodar por um evento do `DisplayManager`
+(que numa tela que continua listada não vem) ou por um `onResume`, e num culto o
+celular fica no suporte.
+
+- **O campo `telao` de cada tela** é a `Presentation` DE FATO no ar nela, e é
+  ele que responde às perguntas que dependem de haver projeção: quem toca o som
+  (`somLocalDeveEstar`) e se o Modo Fácil destrava (`simpleDisplay`). (A
+  terceira era se o microfone é oferecido, e saiu na v1.8.89 com o recurso.) O
+  que segue lendo a lista CRUA é o que descreve a CONEXÃO —
+  o rótulo da folha, o `applyPreviewAspect`, o Registro.
+- **E AS TELAS DA REDE TÊM O IRMÃO DISSO** (v1.4.19): `telasDaRede()` exige
+  `pronta` — o `__de` do `display-ready` tendo voltado, isto é, o `/display/`
+  daquela tela subiu e se anunciou. Entre o `POST /par` (que já cria a sessão e
+  o fio) e esse anúncio a tela não projeta nada, e sem TV a tela É a projeção:
+  o celular ficava mudo com ninguém tocando do outro lado. **A janela do socket
+  MORTO continua aberta** e está dita — um navegador que dorme sem FIN segura o
+  mudo até a escrita falhar (o vigia corta em 20 s).
+- **A tela CONTINUA na lista**, e é isso que separa o campo de um filtro: *"não
+  há TV"* e *"a TV está aí e o telão não subiu"* pedem frases diferentes, e a
+  segunda é a única das duas que diz o que está acontecendo.
+- **A escada de retomada** (`agendarRetomadaDoTelao`, 0,4 s → 8 s, cinco degraus)
+  retenta `syncPresentation`. Cresce pelo motivo da retomada de áudio do
+  `display.js` — o pior caso audível é uma falha no começo, não uma tentativa por
+  quadro —, zera em toda subida e é **cancelada quando a tela some de verdade**,
+  onde o caminho normal (a preview assume o som) já é o certo. Um pedido em voo
+  não é reagendado: `onDisplayChanged` chega em rajada, e sem essa guarda a
+  espera nunca cresceria.
+- **Enquanto o telão está no chão o som volta para o celular** — que no
+  espelhamento continua chegando às caixas, porque o `REMOTE_SUBMIX` leva a
+  mistura do aparelho inteiro. Oráculo: `tools/telao-no-chao.test.mjs`.
+
+**E o reenvio é ENDEREÇADO.** O barramento é broadcast, mas a resposta a um
+`display-ready` é para UMA instância: o telão assina o anúncio (`__de`, id
+aleatório por carga da página) e o Controle devolve a cena com `__para`, que o
+`onCommand` do Display confere **antes de qualquer outra coisa**. Sem isso,
+qualquer segunda instância de `/display/` que abrisse ou recarregasse fazia a TV
+rodar um `load` inteiro (fade de saída, releitura, re-seek, fade de entrada) na
+frente da congregação, por um evento que não era dela. Comando **sem** `__para`
+vale para todos — que é o caso de **todos** os comandos de operação; só o reenvio
+de cena endereça, e um bundle antigo de qualquer lado cai de volta no broadcast.
+`tools/display-smoke.mjs` trava a regra.
+
+A **cena** é mais que "mídia tocando":
+
+- **Toda mídia CARREGADA**, não só a que toca. A condição anterior
+  (`playing || isImage`) deixava de fora o caso mais comum de uma queda de
+  dongle: o louvor de fundo PAUSADO para a oração. Vídeo pausado mostra o quadro
+  congelado, áudio pausado mantém a letra em cena — nos dois casos há algo
+  projetado, e nos dois ele sumia.
+- O `load` leva **posição e estado de reprodução** (ver o barramento).
+- Também o `text` do sorteio, cronômetro, versículo ou mensagem projetados —
+  **nessa ordem**, já que no Display um `load` visual encerra a Camada de Texto e
+  um `load` de áudio a mantém. Cronômetro e sorteio voltam pelo **descritor**
+  (`startAt`), não por um valor: o telão recalcula a partir do mesmo instante de
+  origem e reaparece no segundo certo, não no ponto em que a conexão caiu.
+
+**Morte do renderer também é recuperável:** `WebViewFactory.create` recebe
+`onRendererGone` e o `WebViewClient` devolve `true` em `onRenderProcessGone` —
+sem isso o padrão do framework é matar o processo, e um OOM derrubaria o Controle
+e a projeção juntos. Cada dono remonta o próprio WebView, e o telão recarregado
+cai no caminho de reconexão acima.
+
+**O que morre com o renderer não se limita à página:** os `fetch` em voo morrem
+junto e o `finally` de `withBgWork()` nunca roda, então ninguém chamaria
+`keepAlive(false)`. `buildControleWebView` **zera o estado de trabalho em segundo
+plano** ao remontar — senão sobravam para sempre o foreground service, a
+notificação congelada e um wake lock de 2 h, e a guarda de `setBackgroundWork`
+transformava o próximo download real em no-op. (Ela também desfaz a **tela
+cheia**: o WebView novo entra num `webContainer` que continuaria `GONE`, e sem
+TV a preview em tela cheia É a projeção.)
+
+---
