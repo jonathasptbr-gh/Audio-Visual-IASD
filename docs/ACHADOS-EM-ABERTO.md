@@ -331,7 +331,7 @@ que a v1.5.16 chegou a escrever e removeu (estão no histórico do repositório)
 
 **Resposta do operador (2026-10-30):** *"pode considerar que quero que seja
 destacado também"* — a ressalva abaixo está respondida: o destaque é QUERIDO, e o
-conserto entra na fila (`PEDIDOS-EM-ESPERA.md`, pendências).
+conserto é o Pacote 7 de `PEDIDOS-EM-ESPERA.md`.
 
 **Ressalva do cético:** vale perguntar se a faixa da Biblioteca DEVE mesmo
 mostrar "no ar". O argumento a favor é o mais simples: as outras duas listas do
