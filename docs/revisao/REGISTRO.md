@@ -13,7 +13,7 @@ abandonada → primeira pendente pelo `nº`).
 | nº | id | estado | versão entregue | data | resumo em uma linha |
 |---|---|---|---|---|---|
 | 1 | A1 | feita (com um resíduo: `configuracoes-janelas` D, ver o relatório) | sem versão (só `tools/`) | 2026-10-30 | 5 oráculos instáveis consertados, 1 instrumentado, 1 corrida do APP (repasse W2) |
-| 2 | A2 | pendente | | | |
+| 2 | A2 | em curso | | 2026-10-30 | |
 | 3 | A3 | pendente | | | |
 | 4 | A4 | pendente | | | |
 | 5 | A5 | pendente | | | |
