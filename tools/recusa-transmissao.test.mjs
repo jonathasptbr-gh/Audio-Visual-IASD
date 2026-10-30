@@ -109,6 +109,10 @@ try {
   // nós do documento. Subir a tela toda traria o acervo, o hinário e a
   // inicialização assíncrona para dentro de um teste que fala de duas frases.
   const trecho = JS.match(/const CAST_RECUSA_DE_REDE[\s\S]*?^}/m);
+  // O ramo copiado abaixo tem de ser o que o `ligarEspelho` RODA: a cópia sem
+  // esta asserção aprovaria um `controle.js` que voltasse a ensinar sempre.
+  checar(/CAST_RECUSA_DE_REDE\.test\(r\.erro\) && !CAST_VEREDITO_JA_ENSINA\.test\(r\.erro\)/.test(JS),
+    'o `ligarEspelho` pergunta se o veredito já ensina antes de mostrar o ensino');
   checar(!!trecho, 'consegui isolar o bloco do ensino do controle.js');
 
   await pg.setContent(`<!doctype html><html><body>
@@ -123,7 +127,7 @@ try {
     // eslint-disable-next-line no-new-func
     const montar = new Function('castMsgEl', 'castEnsinoEl', 'texto2', `
       ${fonte}
-      return { limparCastMsg, CAST_RECUSA_DE_REDE, CAST_ENSINO };
+      return { limparCastMsg, CAST_RECUSA_DE_REDE, CAST_VEREDITO_JA_ENSINA, CAST_ENSINO };
     `);
     const api = montar(castMsgEl, castEnsinoEl, texto2);
 
@@ -131,7 +135,7 @@ try {
     const recusar = (erro) => {
       api.limparCastMsg();
       texto2(castMsgEl, erro);
-      if (castEnsinoEl && api.CAST_RECUSA_DE_REDE.test(erro)) {
+      if (castEnsinoEl && api.CAST_RECUSA_DE_REDE.test(erro) && !api.CAST_VEREDITO_JA_ENSINA.test(erro)) {
         texto2(castEnsinoEl, api.CAST_ENSINO);
         castEnsinoEl.hidden = false;
       }
@@ -143,6 +147,8 @@ try {
 
     const saida = {};
     recusar('sem rede para transmitir — ligue o ponto de acesso deste celular, ou entre numa Wi-Fi (nao precisa de internet)');
+    saida.generica = ler();
+    recusar('a Wi-Fi nao deu endereco IPv4 a este aparelho');
     saida.rede = ler();
     recusar('nao foi possivel abrir a porta 8787: Address already in use');
     saida.porta = ler();
@@ -152,8 +158,14 @@ try {
     return saida;
   }, { fonte: trecho ? trecho[0] : '' });
 
-  checar(r.rede.msg.startsWith('sem rede para transmitir'),
-    'recusa de REDE: o veredito do shell sai VERBATIM', r.rede.msg);
+  checar(r.generica.msg.startsWith('sem rede para transmitir'),
+    'recusa GENÉRICA de rede: o veredito do shell sai VERBATIM', r.generica.msg);
+  // O PAR da v1.13.11: a genérica já traz a instrução, e o ensino embaixo dela
+  // era a mensagem DUPLICADA do relato do operador.
+  checar(r.generica.ensino === '',
+    'recusa GENÉRICA: o ensino NÃO se repete — o veredito já diz o que fazer', r.generica.ensino);
+  checar(r.rede.msg.startsWith('a Wi-Fi nao deu endereco'),
+    'recusa ESPECÍFICA de rede: o veredito sai VERBATIM', r.rede.msg);
   checar(r.rede.ensino.includes('ponto de acesso') && r.rede.ensino.includes('não precisa de internet'),
     'recusa de REDE: e o ensino aparece, nomeando as duas saídas', r.rede.ensino);
 

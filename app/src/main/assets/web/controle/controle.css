@@ -7825,6 +7825,21 @@ body.mode-simple .serie-destaque {
    só a caixa do `cq*`. O WALLPAPER no lugar do preto, o bloco escuro CENTRADO
    (v1.13.2; o texto de dentro continua à esquerda) e a marca na primeira coluna
    — ver o cabeçalho da gêmea. Só tokens do PALCO. */
+/* O ITINERÁRIO É DESENHADO NUMA CAIXA QUATRO VEZES MAIOR E REDUZIDO
+   (v1.13.11). A caixa da preview tem ~400px, e nela a marca "A seguir" mede
+   2,6cqmin ≈ 5,6px — abaixo da fonte MÍNIMA do WebView (8px, padrão do
+   `WebSettings`), que a engorda sem engordar a coluna: MEDIDO, a marca saía
+   pela esquerda do bloco. No telão a mesma conta dá 20px e cabe. Desenhando
+   numa caixa do porte de um telão e reduzindo por `transform`, toda medida
+   `cq*` sai proporcional à do telão e nenhuma fonte cai abaixo do piso — a
+   preview fica IGUAL ao telão, que é o que ela existe para ser. O deslizar do
+   `desenharItinerario` desconta a escala (`esc`). */
+.pv-text-content.mode-itinerario {
+  --pv-itin-esc: 4;
+  inset: auto; left: 0; top: 0;
+  width: calc(100% * var(--pv-itin-esc)); height: calc(100% * var(--pv-itin-esc));
+  transform: scale(calc(1 / var(--pv-itin-esc))); transform-origin: 0 0;
+}
 .pv-text-content:not(.mode-itinerario) .itin { display: none; }
 .pv-text-content.mode-itinerario .pv-text-main { display: none; }
 .pv-text.mode-itinerario {

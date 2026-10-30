@@ -596,6 +596,7 @@ jobs:
           rodar tools/modo-facil-um-elemento.test.mjs
           rodar tools/modo-facil-fonte.test.mjs
           rodar tools/tela-rede.test.mjs
+          rodar tools/busca-na-tela.test.mjs
           rodar tools/registro.test.mjs
           rodar tools/ota.test.mjs
           rodar tools/ota-confirma.test.mjs
@@ -686,6 +687,7 @@ jobs:
           rodar tools/sorteio-lista-de-resultados.test.mjs
           rodar tools/mensagem-estilo.test.mjs
           rodar tools/itinerario.test.mjs
+          rodar tools/troca-de-versiculo.test.mjs
           rodar tools/teclado-das-folhas.test.mjs
 
           # O PLACAR VAI PARA O RESUMO DO RUN, não só para o log — a queixa que
