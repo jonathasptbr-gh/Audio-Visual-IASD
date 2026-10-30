@@ -44,5 +44,17 @@ na v1.13.7, e a Biblioteca maior do Modo Fácil, na v1.13.9.)
   a grade não ficar com um buraco. Ao tirar: o tile, `abrirSaidaDeAudio` do web
   (o Kotlin pode ficar órfão, o lado seguro), e manter as linhas *"Mídia saindo
   agora por"* e *"Não Perturbe"* do Registro (o `saidaDeAudioAlvo` continua).
+- **O "vídeo da semana" vira OPÇÃO da linha do episódio deste sábado, não uma
+  linha a mais** (pedido do operador, 2026-10-30) — **na próxima vez que se
+  mexer nas séries**, não sozinho. Hoje, no AVANÇADO, o card da série tem a
+  linha "Vídeo da semana (sempre o atual)" no topo (`semanaLinha` →
+  `openSemanaMenu`) ACIMA do episódio da semana. O pedido: tirá-la e pôr na
+  gaveta de destinos do EPISÓDIO DESTE SÁBADO um seletor segmentado com DUAS
+  opções, **"Este sábado"** (o arquivo do episódio, como hoje) e **"Atalho
+  universal"** (o item virtual `kind: 'semana'`, `semanaRegistro`), no MESMO
+  visual dos seletores Cantada/Playback e da qualidade do YouTube. Os destinos
+  (Tocar agora · Cronograma · playlist · Favoritos) levam o que estiver
+  escolhido. O Modo Fácil (bloco "Este sábado" da raiz) não muda. Ver
+  `docs/recursos/SERIES.md`, "O vídeo da semana como ITEM".
 - **Varrer a sobra de ~24 MB do cache do YouTube no shell** — Kotlin; entra
   num lote que já precise de Release, nunca sozinho.
