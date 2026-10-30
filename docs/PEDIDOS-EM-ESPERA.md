@@ -35,5 +35,14 @@ na v1.13.7, e a Biblioteca maior do Modo Fácil, na v1.13.9.)
 
 ## Pendências antigas (anteriores a 2026-10-24)
 
+- **Tirar o tile "Saída de áudio" de Configurações** (decisão do operador,
+  2026-10-30): o projeto da janela da Samsung foi ABANDONADO — não há caminho
+  documentado (a One UI não expõe a dela; a única via pública,
+  `MediaRouter2.showSystemOutputSwitcher`, abre a do Android, e é o que o tile
+  faz desde a v1.13.16). O operador usa o atalho do próprio aparelho. **O tile
+  FICA até a próxima função nova de Configurações**, que entra NO LUGAR dele para
+  a grade não ficar com um buraco. Ao tirar: o tile, `abrirSaidaDeAudio` do web
+  (o Kotlin pode ficar órfão, o lado seguro), e manter as linhas *"Mídia saindo
+  agora por"* e *"Não Perturbe"* do Registro (o `saidaDeAudioAlvo` continua).
 - **Varrer a sobra de ~24 MB do cache do YouTube no shell** — Kotlin; entra
   num lote que já precise de Release, nunca sozinho.
