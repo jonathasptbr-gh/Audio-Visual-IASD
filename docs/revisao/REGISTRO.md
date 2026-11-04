@@ -17,7 +17,7 @@ abandonada → primeira pendente pelo `nº`).
 | 3 | A3 | feita (resíduo: as células do `ORACULOS.md` em cadeia só-acrescenta, repasse A5) | sem versão (só docs) | 2026-10-30 → 2026-11-04 | `CONTROLE.md` 770 kB → hub + 11 partes (verbatim provado); duplicatas da A2 fundidas nos 7 capítulos; narrativa do `ORACULOS.md` e da Biblioteca ao `HISTORICO.md`; ~20 fatos velhos corrigidos contra o código |
 | 4 | A4 | feita | sem versão (só docs + `docs-coerentes`) | 2026-11-04 | índice do `HISTORICO.md` 1,2 MB → 58 kB (notas movidas verbatim às seções); auditorias com o estado conferido (os "26" da 2026-08 são 7 ids + 3 resíduos); `TELAO-POR-COMANDOS.md` 73 → 56 kB com ~25 fatos corrigidos; os repasses da A2/A3 |
 | 5 | A5 | feita (resíduo: as outras células em cadeia do `ORACULOS.md`, ver o relatório) | sem versão (só `tools/` + docs) | 2026-11-04 | `docs-coerentes` confere âncora com o slug do GitHub e entre arquivos; `display-smoke` sem a comparação morta do espelho; `wav()` no arnês; JUnit sem rede +14 testes; 4 células do `ORACULOS.md` colapsadas; tempos medidos arquivo a arquivo |
-| 6 | A6 | pendente | | | |
+| 6 | A6 | em curso | | 2026-11-04 | |
 | 7 | W1 | pendente | | | |
 | 8 | W2 | pendente | | | |
 | 9 | W3 | pendente | | | |
