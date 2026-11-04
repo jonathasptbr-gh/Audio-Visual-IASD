@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **revisão A4 (sem versão nova; só docs e o `docs-coerentes`)** — APÊNDICES E ARQUIVO MORTO: o índice deste arquivo vira uma linha por lote, as auditorias dizem o que segue aberto, e o `TELAO-POR-COMANDOS.md` vira especificação do que existe
 - **revisão A3 (sem versão nova; só docs)** — CAPÍTULOS GRANDES: o `CONTROLE.md`
 - **revisão A2 (sem versão nova; só docs)** — A DIETA DO `CLAUDE.md`: 315 kB → ~79 kB sem mudar regra
 - **revisão A1, retomada (sem versão nova; só `tools/`)** — `favoritos-fechar` A8 lia o cabeçalho de partida antes de a TAMPA assentar
@@ -626,6 +627,275 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## revisão A4 — apêndices e arquivo morto (sem versão nova; só docs e o `docs-coerentes`)
+
+**O ÍNDICE DESTE ARQUIVO voltou a ser índice.** Da v1.8.18 à revisão A3 a nota
+inteira de cada lote foi escrita DENTRO da linha do índice (mediana 1,2 kB, a
+maior 13,6 kB): o índice chegou a 1,2 MB. Cada uma das 397 linhas acima de 400
+caracteres foi MOVIDA verbatim: 220 viraram a seção `## vX — <título>` (logo
+antes da `## v1.8.17`), e 177 que já tinham seção a recebem como primeiro
+parágrafo. No índice ficou `- **vX** — <título>` (~58 kB). Prova: nenhuma linha
+do original sumiu fora as 397, e o corpo das 397 está presente. O
+`docs-coerentes` cobra o teto de 400 caracteres, e a regra do `CLAUDE.md`
+("topo do índice, e a seção se a série ainda a tiver", que sancionava o costume)
+foi corrigida no lugar.
+
+**As auditorias:** a 2026-08 dizia "TODOS FORAM CORRIGIDOS" e, no fim, "26 por
+aplicar" — o 26 é a soma das listas brutas dos lotes 4 e 5; pelos diffs, sobram 7
+ids e 3 resíduos (tabela no topo dela). A EFICIENCIA e a ESTABILIDADE-AV ganharam
+o estado conferido no cabeçalho.
+
+**O `TELAO-POR-COMANDOS.md`** (73 → 56 kB): o §0 (notas v5.188→v5.223, já
+presentes como seções aqui) saiu; ~25 fatos velhos corrigidos contra o código
+(o papel vem do `<meta name="av-tela">` do `comMarcaDeTela`, não do `?tela=1`;
+o gesto ANTES da rede; `EspelhoEnergia`, não `EspelhoService`; `PING_SUMIDO_MS`;
+`REENTRADA`; a eleição pela `mediaId`; `no-store` sem exceção; o token por
+`telaTokenDe`; sem embed do YouTube; sem captura). O que saiu e não estava aqui
+segue abaixo, verbatim (títulos internos rebaixados a `####`). Os "relatos" de
+`CONTROLE-NAVEGACAO` (v1.5.6/7/9), `CONTROLE-SORTEIO` (v1.8.83) e do
+`DESIGN-SYSTEM` (o pedido de geometria e a escada de camadas) viraram regras por
+assunto; toda citação já estava aqui.
+
+### docs/TELAO-POR-COMANDOS.md — cabeçalho (a varredura E0 e a reconciliação com a v5.186)
+
+> Os fatos de código citados vêm da varredura E0 (9 leitores paralelos, 229
+> fatos com arquivo:linha) — o bruto está em
+> `docs/anexo-varredura-command-stream.json` — que FOI apagado, como estava
+> previsto; o que sobrou dele é o que está escrito aqui. As linhas
+> citadas valem para o commit da varredura (2026-08-13) e envelhecem.
+>
+> **RECONCILIADO COM A v5.186 (v1.85)**, que entrou em `main` depois da
+> varredura e ANTES da E1: a entrada do espelho virou um CÓDIGO de três
+> dígitos (nascido em `EspelhoPares.ligar`, mostrado na folha do operador;
+> `POST /par {codigo}` → `200 {t}` | `403` na MESMA resposta, sem fila de
+> aprovação), o QR e o `av.local`/mDNS SAÍRAM (qr.js, EspelhoMdns*
+> apagados), e `SHELL_VERSION` já é **36**. A exigência que governou aquela
+> mudança governa esta também: **o botão de conectar gasta o ÚNICO gesto do
+> visitante — entra, liga o som e vai a tela cheia**. Toda decisão abaixo
+> que citava QR/av.local foi corrigida; a decisão nova de §3.4 (uma página
+> só) existe por causa dessa exigência.
+
+### docs/TELAO-POR-COMANDOS.md — §0 COMO RETOMAR ESTE TRABALHO (o roteiro, a tabela de Estado e as duas notas de fecho)
+
+#### §0 COMO RETOMAR ESTE TRABALHO
+
+1. Leia este arquivo inteiro (é a especificação fechada + o plano).
+2. Olhe a tabela de Estado: a primeira etapa não-`CONCLUÍDA` é a atual.
+3. Cada etapa diz o que entrega, como se prova e o que NÃO pode quebrar. Uma
+   etapa só é `CONCLUÍDA` com testes verdes e commit empurrado (branch de
+   trabalho **e** `main`, conforme a regra da etapa).
+4. Branch de trabalho: `claude/audio-desconexao-transmissao-web-6tbhsq`.
+   `main` recebe merge **apenas de etapas inteiras e seguras** — todo push em
+   `main` publica a base web por OTA ao aparelho do operador em minutos
+   (aplicação automática, v5.151). `main` verde e funcional é lei.
+5. Ao concluir qualquer etapa: atualize a tabela de Estado NO MESMO COMMIT.
+6. O espelho de pixels segue sendo o caminho ATIVO até a E6. As etapas E1–E5
+   são código escuro (aditivo, não ligado à UI). O corte é a E6, atrás de
+   constante, com volta. A remoção é a E7 e nunca antes.
+
+#### Estado
+
+| Etapa | Descrição curta | Estado |
+|---|---|---|
+| E0 | Especificação fechada (este documento) | **CONCLUÍDA** (varredura 9/11 leitores; testes-CI e docs supridos pelo CLAUDE.md) |
+| E1 | Fundações puras no shell: Range RFC 7233 + framing SSE no `EspelhoHttp` — com JUnit, sem fiação | **CONCLUÍDA** (commit b756d19, CI verde: 128 JUnit, 21 novos) |
+| E2 | Servir o bundle à LAN (prefixos `web/display/`, `web/shared/`, `web/espelho/`) + rota SSE `GET /e` + tap de comandos em `busPost` → servidor | **CONCLUÍDA** (aguardou o CI verde do lote E2+E3) |
+| E3 | Papel `tela` no lado web (`espelho/tela.js` + `?tela=1`): display rodando num navegador da LAN, TEXTO completo (versículo, mensagem, cronômetro com correção de relógio, sorteio, cortina), dreno de subida, vigília de tela acesa | **CONCLUÍDA** (tela-rede.test 23/23 no Chromium; ligado no apk.yml) |
+| E4 | Mídia sob demanda: cache no shell + canal ArrayBuffer OPFS→shell + `GET /m/<token>` com Range + `__rec` no load + wallpaper | **CONCLUÍDA** (JUnit do cache; tela-rede.test 26/26). Pendências DECLARADAS → E4.1: pré-busca da playlist. Fechadas: imagens de fundo da letra (v5.188) e **deck por páginas (v1.1.7)** — hoje só o EMBED vira o aviso de cena-sem-rede. A §7 (proxy da transmissão direta) foi fechada na v5.189 e ficou SEM CLIENTE na v1.8.82, quando a transmissão direta saiu do lado web |
+| E5 | Status de volta (`tela-status` → ponte → Controle), eleição de referência, snoop da notificação, preview sem atraso | **CONCLUÍDA** (ramo `st` no /r → MessageBus + snoop; eleição no controle.js; preview: telas de comando não entram em `mirrorEstado.telas`, então o atraso já resolve 0 sem pixels). Folha/Registro novos → E6 |
+| E6 | Corte: a transmissão liga o caminho novo; raiz `/` → tela; frases da UI; política YouTube sem TV | **CONCLUÍDA** (commit 518f960) — **DESVIO DECLARADO**: a pedido do operador, E6 e E7 saíram num lote só; a "volta por constante" não existe — a volta é o revert do lote |
+| E7 | Remoção: EspelhoCodec/EspelhoAudio/EspelhoDisplay/MirrorPresentation/fmp4.js/cliente.js/espelho.css/sonda.html; EspelhoDiag realocado na MainActivity; dreno do papel espelho fora do native.js; testes e CI atualizados; SHELL_VERSION 37; v5.187 | **CONCLUÍDA** (o commit desta linha) |
+
+> Preencher ao concluir: `CONCLUÍDA (commit <hash>, vX.YZZ)`.
+>
+> **CONFIRMADO EM REDE DE VERDADE (v5.205 / v1.92):** *"funcionou, a tela
+> conectou"*. A primeira ligada em rede real custou cinco versões de correção
+> depois do corte, e as três que valeram estão na §8 e na §10: o estilo da
+> entrada bloqueado pela CSP (era o defeito), o papel `tela` deixando de depender
+> da query (a fragilidade), e — fora deste doc, na seção do OTA do CLAUDE.md — o
+> cache do WebView na troca de base servida, que fazia a versão ANTIGA reaparecer
+> e mascarou o diagnóstico por três rodadas.
+>
+> **PROJETO CONCLUÍDO (v5.187 / v1.86).** O que fica de fora, declarado:
+> E4.1 (pré-busca da playlist — as outras três fecharam),
+> §7 (proxy da transmissão direta, hoje sem cliente — o caminho é o download quando não há
+> TV), e o primeiro culto de VALIDAÇÃO em aparelho — que, pela regra de
+> calendário herdada do espelho, acontece num dia SEM culto (segunda, terça,
+> quinta ou sexta), nunca num dos três: sábado de manhã, domingo ou quarta à
+> noite. O Registro e a folha mostram as telas de comando; o diagnóstico
+> fino delas (eco de __mid, atraso medido) é evolução futura sobre o campo
+> `eventos`/`pronta` que já viaja.
+
+### docs/TELAO-POR-COMANDOS.md — §2 O QUE FICA E O QUE MORRE (a especificação de antes da E7)
+
+#### §2 O QUE FICA E O QUE MORRE
+
+**Fica (infraestrutura de rede):** `EspelhoServidor` (sockets, bind Wi-Fi,
+allowlist de Host, religamento, tetos), `EspelhoHttp` (parser puro — GANHA
+Range e SSE), `EspelhoPares` (o protocolo `/par` → `200 {t}` | `403`, com JUnit — o CÓDIGO
+de três dígitos que ele carregava na v5.186 **saiu na v5.189**: o `/par` é
+anônimo), `EspelhoEnergia`, `EspelhoCert`, `EspelhoDiag` (conteúdo novo), e de
+`cliente.js`: a escada de reconexão, o `guardado()` do sessionStorage, o
+adeus, e o botão único que gasta o gesto (entrar + som + tela cheia) — tudo
+isso MIGRA para o `tela.js` (§3.4), porque a página da tela passa a ser o
+próprio display.
+
+**Morre (na E7, nunca antes):** `EspelhoCodec`, `EspelhoAudio`,
+`EspelhoDisplay`, `MirrorPresentation`, `fmp4.js`, a maquinaria MSE de
+`cliente.js` (~72% das 3.033 linhas — medido na varredura), o batimento e o
+bloco de áudio do papel `espelho` em `display.js` (linhas 1716–2149), o dreno
+do papel `espelho` em `native.js`, `tools/fmp4.test.mjs`, os blocos MSE de
+`tools/espelho-cliente.test.mjs`. O filtro `telasExternas` fica (é cinto e
+suspensório documentado), mas a exclusão por `displayId` passa a casar com
+nada.
+
+**Some como problema:** deriva A/V (cada tela toca o arquivo com a própria
+faixa), poda/GOP/IDR/borda viva, térmica do encoder, atraso do pipeline, e o
+`previewAtrasoMs` (v5.162) zera sem pixels.
+
+### docs/TELAO-POR-COMANDOS.md — §6 AS ETAPAS (o plano de construção)
+
+#### §6 AS ETAPAS
+
+Cada etapa: testes verdes, Estado atualizado, commit na branch, merge em
+`main` (E1–E5 são escuras; E6 é o corte; ver §0.6).
+
+- **E1 — fundações puras.** `EspelhoHttp`: `parsearRange(header, tamanho)`
+  → `Faixa|null|Invalida`, `respostaParcial()`, `resposta416()`,
+  `respostaSse()`, `eventoSse()`, `pingSse()`; o parser passa a CAPTURAR o
+  header `Range` (política de duplicata: recusa, como os quatro campos que
+  já lê). JUnit: as formas malformadas, limites, duplicata, e o caso
+  `bytes=a-` / `bytes=-n` / além-do-fim. Nada fiado.
+  *(Os nomes finais divergiram do plano, e é este documento que fica errado se
+  não disser: `parsearRange` virou **`alcanceDe`**, `respostaParcial` virou
+  **`cabecalhoParcial`** e `respostaSse` virou **`cabecalhoSse`** — a mudança é
+  de nome e de forma, porque as três devolvem o CABEÇALHO e o corpo é escrito
+  em seguida no socket, o que é obrigatório num arquivo em crescimento.
+  `resposta416`, `eventoSse` e `pingSse` saíram com o nome do plano.)*
+- **E2 — bundle + SSE + tap.** Prefixo-allowlist no servidor
+  (`web/display/`, `web/shared/`, `web/espelho/` — jamais `web/controle/`)
+  usando a resolução do `WebPathHandler` (sessionRoot OTA → assets APK, por
+  arquivo); rota `/e` com heartbeat+epoch e adeus; consumidor de barramento
+  em `busPost` → `EspelhoServidor.difundirJson` (novo), com filas por tela
+  e a conta do `TETO_EM_VOO` refeita (SSE + mídia por tela); renovação do
+  wake lock pelos writes do SSE. `SHELL_VERSION` NÃO sobe aqui: o tap não é
+  superfície da ponte (o web não o vê), e a regra do repositório manda subir
+  só quando a superfície muda — o bump vai na E4, junto com o canal de mídia
+  e o `__rec` (a primeira mudança que o web precisa detectar). Prova:
+  o CI compila e roda os JUnit (o roteamento é código de socket, fora do
+  alcance de teste puro — o padrão da casa: o `EspelhoServidor` nunca teve
+  JUnit próprio); o contrato é provado do lado do CLIENTE na E3, quando o
+  `tela.js` existir (`tools/tela-rede.test.mjs` contra servidor de mentira,
+  o molde do espelho-cliente.test). NOTA da E4: o `SHELL_VERSION` acabou não
+  subindo em lugar nenhum — a detecção do canal de mídia é por PRESENÇA
+  (`window.__avTelaMidia`, a mesma pergunta que `__AVBridge` sempre
+  respondeu), que degrada melhor que número de versão.
+- **E3 — papel tela, texto completo.** `espelho/tela.js` (bus, dreno de
+  subida, overlay de ENTRADA com o código e o botão de gesto único —
+  migrado de cliente.js —, correção de relógio, vigília, overlay de
+  aviso); `display/index.html` ganha `<script src="../espelho/tela.js">`
+  ANTES de `db.js`, inerte fora do papel. A raiz `/` NÃO muda aqui — o
+  cliente de pixels a usa até o corte, e trocá-la agora quebraria o caminho
+  ativo (o redirect para `?tela=1` é da E6). Prova: tela-rede.test cobre a entrada
+  pelo código (certo e errado), versículo com acento, cronômetro
+  com relógio da página adiantado em 90 s (a correção tem de anular),
+  sorteio, cortina, text-hide, reconexão→display-ready→cena, dreno (nada
+  além de display-ready/tela-status sobe), BC neutralizado.
+- **E4 — mídia.** Canal `__avTelaMidia` (ArrayBuffer, molde EspelhoAudio:
+  origem exata, isMainFrame, teto por mensagem, fila fora da main);
+  `EspelhoMidia.kt` (cache em cacheDir, LRU por bytes, tokens opacos,
+  servir-enquanto-cresce); rota `/m/`; `__rec`/`__wp` no Controle;
+  pré-busca (ligar a transmissão empurra o item no ar e a playlist do
+  Cronograma, em segundo plano, com `bgProgress` se demorar). Prova: JUnit
+  do cache e do Range fiado; tela-rede.test toca um vídeo pequeno com
+  Range de verdade e um áudio com letra (imageUrl no slide).
+- **E5 — status, referência, preview, Registro.** Injeção `st` + snoop;
+  eleição no Controle; `recalcularAtrasoPreview` → 0 para telas de
+  comando (a condição atual daria 1.200 ms de atraso indevido a telas sem
+  `vivo.vfim` — fato da varredura); telemetria nova no alive (último
+  `__mid` aplicado + atraso de eco, estado do `<video>`, gesto/som/
+  telaAcesaMin) e o bloco do Registro reescrito (§9). Prova: tela-rede.test
+  + caso de eleição com duas telas.
+- **E6 — o corte.** `ligarEspelho()` passa a subir servidor SEM
+  `EspelhoDisplay.ligar` (constante `ESPELHO_PIXELS = false` por um lote,
+  com o caminho velho compilado); frases MIRROR_TEXTO/confirmação com TV
+  reescritas (os custos que descrevem deixaram de existir); política
+  YouTube sem TV; `espelhoEstado()` ganha os campos novos mantendo os
+  velhos até a E7. **Liga-se num dia sem culto.** Prova: smoke completo +
+  culto de teste do operador.
+- **E7 — remoção.** A lista do §2; `EspelhoDiag` realocado (dono passa a
+  ser quem liga o servidor); `contexto-seguro.test.mjs` passa a varrer
+  também `display/` e `shared/` (a tela roda em http — a varredura provou
+  que hoje o escopo é só `espelho/`); `ESPELHO-DE-PIXELS.md` ganha nota de
+  aposentadoria apontando para cá; CLAUDE.md reescrito; SHELL_VERSION sobe
+  de novo se a superfície da ponte mudar na limpeza.
+
+### docs/TELAO-POR-COMANDOS.md — §10 FATOS DA VARREDURA (a varredura E0, com as linhas do commit de 2026-08-13)
+
+#### §10 FATOS DA VARREDURA — os que moldaram a spec
+
+1. **Funil real de comandos**: `AVDB.sendCommand` (db.js:832) manda TODA
+   mensagem por BC + `__AVBus.post` → `busPost` (native.js:331,
+   NativeBridge.kt:355) → `MessageBus.post` — o tap Kotlin vê 100%;
+   `cmd()` não (seis chamadores diretos de sendCommand).
+2. **Dedup**: `__mid` por página (`MID_PREFIX:seq`), Set de 400; o dedup só
+   roda quando há `bus` — o tela.js fornece um, então herda a semântica.
+3. **Endereçamento**: `__de`/`__para` vivem em display.js:24/1430/1667 e
+   controle.js:15943/16027 — prontos para N telas.
+4. **`load` resolve tudo do IDB**, `getMedia` chamado 2× (display.js:1549,
+   stage.js:735); precedência blob→pages→opfsPath→stream→url; `rec.url`
+   entra direto no src (stage.js:785) — daí o `__rec` com URL.
+5. **OPFS é secure-context** (db.js:466): telas http não têm; IDB existe
+   mas é por-aparelho (vazio na tela). Letra: `rec.lyrics[]` com
+   `imageOpfsPath` (display.js:264,341) — precisa de URL. Wallpaper: blob
+   no state do IDB, comando não transporta (display.js:752) — daí `__wp`.
+6. **Texto viaja completo no comando** (verse/message inline; chrono/draw
+   por DESCRITOR com epoch — display.js:462-499) — texto funciona sem
+   mídia nenhuma; o epoch exige a correção de relógio.
+7. **Auth hoje**: `Authorization: Bearer` ou token nu (EspelhoPares.validar,
+   tempo constante); token no corpo do `/par` (`200 {t}`); cliente usa
+   fetch+ReadableStream — NÃO EventSource. Cookie não chega ao parser (o
+   when descarta) — e não será preciso.
+8. **`EspelhoHttp` não tem Range** (KDoc invariante 7 declara; o header é
+   descartado) e põe `Cache-Control: no-store` em TUDO (suíte trava) —
+   E1/E4 declaram exceções explícitas.
+9. **`Connection: close` + 6 conexões do Chromium**: PRAZO_POST_MS=15 s já
+   existe; SSE(1)+mídia(1)+POSTs curtos cabem.
+10. **Wake lock renovado por escrita real** (EspelhoService.progresso ←
+    threads de escrita); vigia do cliente SEM_BYTES_MS=20 s supõe bytes
+    contínuos — o heartbeat de 15 s sustenta os dois.
+11. **Servidor→Controle não existe** (KDoc deliberado; estado por enquete
+    de 2,5 s) — o `st` injetado no MessageBus é o caminho novo; a folha
+    continua na enquete.
+12. **`snoopDisplayStatus`** (NativeBridge:355) alimenta a notificação com
+    o app minimizado — o ramo `st` precisa alimentá-lo também.
+13. **Bundle à LAN**: `WebPathHandler.handle` resolve qualquer caminho
+    (sessionRoot OTA → APK, por arquivo, contenção canonicalPath) — a
+    allowlist de PREFIXO substitui o mapa fixo ESTATICOS para o bundle, e
+    o KDoc dele muda junto.
+14. **`previewAtrasoMs`**: mediana de `vivo.vfim`; telas SEM vfim caem no
+    PADRÃO de 1.200 ms — a condição muda na E5 ou a preview atrasa 1,2 s
+    à toa.
+15. **Sem vídeo tocando a tela apaga** (o cliente atual documenta que o
+    `<video>` cheio segura a tela; wakeLock é secure-context) — a vigília.
+16. **`sanear()` apagaria acentos** — o caminho de comandos não passa por
+    ele (é ferramenta do Registro).
+17. **StreamProxy não é molde para a LAN** (200 seco, fatia-como-todo,
+    pedaço inteiro em memória) — Range real é obrigatório e novo.
+18. **Canal ArrayBuffer** (EspelhoAudio.instalar): WebViewCompat +
+    allowedOriginRules exato + isMainFrame + teto por mensagem + fila fora
+    da main — o molde do `__avTelaMidia`.
+19. ~~QR/pareamento~~ **SUPERADO pela v5.186**: a entrada é o código de
+    três dígitos (`/par {codigo}` → `200 {t}` | `403`, JUnit dos dois
+    lados); QR, filas de espera e av.local/mDNS já saíram do código.
+20. **Frases da UI do espelho** (MIRROR_TEXTO, confirmação com TV,
+    'até três navegadores') descrevem custos de pixels — mentem no mundo
+    novo; reescrever na E6.
+
+*(CI e promessas de docs — leitores que caíram no limite de sessão — foram
+supridos pelo CLAUDE.md, que descreve o apk.yml passo a passo e as regras
+operacionais: OTA×APK, dia sem culto, alfa fechado.)*
 
 ## revisão A3 — os capítulos grandes (sem versão nova; só docs)
 

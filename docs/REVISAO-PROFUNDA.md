@@ -128,7 +128,7 @@ pede APK. Ordem recomendada = a ordem da tabela.
 | **K5** | shell | serviços e atualização | `SyncService.kt`, `SessionService.kt`, `WebUpdater.kt`, `ShellUpdater.kt`, `Farol.kt`, `WebPathHandler.kt` | 3.590 | sim |
 | **K6** | shell | o resto do shell + build | `SlideDeck.kt`, `CifraFonte.kt`, `R2ImagemFonte.kt`, `PacoteCanal.kt`, `PacoteProvider.kt`, `MicChromeClient.kt`, `MicDiag.kt`, `app/build.gradle.kts` | 1.900 | sim |
 | **X1** | transversal | o contrato da ponte | a superfície web × Kotlin: órfãos, `SHELL_VERSION`, os 64/76 | — | sim |
-| **X2** | transversal | achados em aberto | os três de `docs/ACHADOS-EM-ABERTO.md` + os 26 não aplicados da auditoria 2026-08 | — | depende |
+| **X2** | transversal | achados em aberto | os de `docs/ACHADOS-EM-ABERTO.md` + os que sobraram da auditoria 2026-08 (enumerados no topo dela pela A4) | — | depende |
 | **X3** | transversal | medição de desempenho | abertura, memória, trabalho por status — medido no Chromium, sem mudar código | — | não |
 | **X4** | transversal | partir o `controle.js` (OPCIONAL) | dividir o arquivo de 48,8 mil linhas em módulos | 48.796 | não |
 
