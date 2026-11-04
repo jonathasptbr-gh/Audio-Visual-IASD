@@ -529,7 +529,7 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   que está sendo visto. Desde a v1.4.26 a lista é a PILHA do que está em
   exibição (a Bíblia por cima de um louvor de fundo oferece as três e abre na
   Bíblia); a exclusividade da v1.1.11 valia como PRECEDÊNCIA, e era só isso que
-  ela precisava valer — ver o capítulo do Controle.
+  ela precisava valer — ver [`CONTROLE-LEITURA.md`](../arquitetura/CONTROLE-LEITURA.md).
 - **A QUEBRA DE LINHA É NOSSA, e ela quebra o PAR** (`AVCifra.quebrarPares`). O
   CSS quebra cada linha INDEPENDENTEMENTE, e acorde e letra são uma unidade: com
   `pre-wrap` uma folha larga saía como duas linhas de acorde seguidas de duas de

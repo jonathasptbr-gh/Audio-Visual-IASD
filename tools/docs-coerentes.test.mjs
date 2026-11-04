@@ -289,6 +289,19 @@ const docs = [];
     + '\n\tconserto: escreva a entrada de índice (`- **vX** — …`) no topo do índice.'
     + '\n\tSem ela, um `grep` por aquela versão devolve VAZIO — e o apêndice é'
     + '\n\to lugar declarado para responder "por que isto é assim?"');
+
+  // O ÍNDICE É UMA LINHA POR LOTE, SEM A NOTA. A nota escrita dentro da linha
+  // do índice levou o índice a 1,2 MB (v1.8.18 → revisão A3); a A4 a moveu.
+  const ini = hist.indexOf('\n## Índice\n');
+  const fim = hist.indexOf('\n---\n', ini);
+  const longas = ini < 0 || fim < 0 ? ['(índice não achado)']
+    : hist.slice(ini, fim).split('\n')
+      .filter((l) => l.startsWith('- **') && l.length > 400)
+      .map((l) => l.slice(0, 40) + '… (' + l.length + ' caracteres)');
+  if (!longas.length) ok('e o índice do `HISTORICO.md` é uma linha curta por lote (≤ 400 caracteres)');
+  else nao('o índice do HISTORICO tem uma linha curta por lote', longas.join('\n\t')
+    + '\n\tconserto: a nota vai para uma seção `## vX — <título>` logo abaixo do'
+    + '\n\tíndice; no índice fica só `- **vX** — <título>`.');
 }
 
 // ============================================================================
