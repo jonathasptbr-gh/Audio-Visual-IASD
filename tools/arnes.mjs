@@ -345,6 +345,23 @@ export function luminancia(c) {
 }
 
 /**
+ * UM WAV DE VERDADE com `segundos` de duração (8 kHz, mono, 16 bits, um seno
+ * baixo) — o arquivo que um oráculo serve como "baixado" quando o que se mede é
+ * a DURAÇÃO e o transporte, não o som. Era copiado, idêntico, em quatro deles.
+ */
+export function wav(segundos) {
+  const sr = 8000, n = sr * segundos;
+  const b = Buffer.alloc(44 + n * 2);
+  b.write('RIFF', 0); b.writeUInt32LE(36 + n * 2, 4); b.write('WAVEfmt ', 8);
+  b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22);
+  b.writeUInt32LE(sr, 24); b.writeUInt32LE(sr * 2, 28);
+  b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34);
+  b.write('data', 36); b.writeUInt32LE(n * 2, 40);
+  for (let i = 0; i < n; i++) b.writeInt16LE(Math.round(Math.sin(i / 20) * 3000), 44 + i * 2);
+  return b;
+}
+
+/**
  * ESCREVE O TEMA NA CHAVE DO APP, e não só no `colorScheme` do aparelho.
  *
  * O `colorScheme` do Playwright é `prefers-color-scheme`, e o app só o LIA

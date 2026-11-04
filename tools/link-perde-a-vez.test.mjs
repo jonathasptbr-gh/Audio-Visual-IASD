@@ -36,7 +36,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, checar, falhas, esperar, esperarDb, porque } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, checar, falhas, esperar, esperarDb, porque, wav } from './arnes.mjs';
 
 // A ponte de mentira, com a espera SEGURA do `ytFetch` (o download). Sem ela
 // a chamada resolveria no mesmo tique e não haveria janela nenhuma para medir.
@@ -93,17 +93,6 @@ const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app'
 // O WAV que o "download" entrega. Ele é servido pelo mesmo servidor do bundle
 // porque o `ytBaixarNativo` BUSCA a URL que o shell devolve — um arquivo de
 // mentira que não existisse faria o caminho falhar por outro motivo.
-function wav(segundos) {
-  const sr = 8000, n = sr * segundos;
-  const b = Buffer.alloc(44 + n * 2);
-  b.write('RIFF', 0); b.writeUInt32LE(36 + n * 2, 4); b.write('WAVEfmt ', 8);
-  b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22);
-  b.writeUInt32LE(sr, 24); b.writeUInt32LE(sr * 2, 28);
-  b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34);
-  b.write('data', 36); b.writeUInt32LE(n * 2, 40);
-  for (let i = 0; i < n; i++) b.writeInt16LE(Math.round(Math.sin(i / 20) * 3000), 44 + i * 2);
-  return b;
-}
 const BAIXADO = wav(20);
 
 const servidor = servirEstatico(RAIZ, (req, res) => {

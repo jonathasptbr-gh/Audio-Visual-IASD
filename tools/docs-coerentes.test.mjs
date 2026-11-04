@@ -335,29 +335,57 @@ const docs = [];
 }
 
 // ============================================================================
-// 6 · AS ÂNCORAS INTERNAS APONTAM PARA SEÇÕES QUE EXISTEM
+// 6 · AS ÂNCORAS APONTAM PARA SEÇÕES QUE EXISTEM — no próprio arquivo e no outro
 //
 // O índice do `CLAUDE.md` e os dos capítulos navegam por âncora. Uma seção
 // renomeada deixa a linha do índice apontando para lugar nenhum — e o índice é
 // justamente o que se lê para NÃO carregar o arquivo inteiro.
+//
+// O SLUG É O DO GITHUB, que é onde se clica: minúsculas, ACENTO PRESERVADO,
+// pontuação fora (a crase do código inclusive), espaço vira hífen, e o título
+// repetido ganha `-1`, `-2`. Tirar o acento aqui aprovaria `#reconexao` para um
+// título "Reconexão" — um link que no GitHub não leva a lugar nenhum. O link
+// para OUTRO `.md` (`X.md#slug`) é conferido contra os títulos de lá.
 // ============================================================================
 {
-  const acento = (t) => t.normalize('NFD').replace(/[̀-ͯ]/g, '');
-  const slug = (t) => acento(t.trim().toLowerCase()).replace(/[^a-z0-9 -]/g, '').replace(/ /g, '-');
+  const slug = (t) => t.toLowerCase().replace(/[^\p{L}\p{M}\p{N}\p{Pc} -]/gu, '').replace(/ /g, '-');
+  const cache = new Map();
+  const titulosDe = (p) => {
+    if (cache.has(p)) return cache.get(p);
+    const src = ler(p).replace(/^```[\s\S]*?^```/gm, '');
+    const s = new Set(); const repetidos = new Map();
+    for (const m of src.matchAll(/^#{1,6} (.+?)\s*#*$/gm)) {
+      const b = slug(m[1]); const n = repetidos.get(b) || 0;
+      repetidos.set(b, n + 1);
+      s.add(n ? b + '-' + n : b);
+    }
+    for (const m of src.matchAll(/<a (?:id|name)="([^"]+)"/g)) s.add(m[1]);
+    cache.set(p, s);
+    return s;
+  };
   const quebradas = [];
-  let ancoras = 0;
+  let ancoras = 0, entreArquivos = 0;
   for (const f of docs) {
-    const src = ler(f);
-    const titulos = new Set([...src.matchAll(/^#{1,6} (.+)$/gm)].map((m) => slug(m[1])));
-    for (const m of src.matchAll(/\]\((#[a-z0-9-]+)\)/g)) {
+    for (const m of ler(f).matchAll(/\]\(([^)\s#]*)#([^)\s]+)\)/g)) {
+      let alvo = f;
+      if (m[1]) {
+        if (/^(https?:|mailto:)/.test(m[1]) || !m[1].endsWith('.md')) continue;
+        alvo = relative(RAIZ, resolve(RAIZ, dirname(f), m[1]));
+        // Arquivo inexistente é o bloco 1 que acusa; aqui seria a mesma falha duas vezes.
+        if (!existsSync(join(RAIZ, alvo))) continue;
+        entreArquivos++;
+      }
       ancoras++;
-      if (!titulos.has(m[1].slice(1))) quebradas.push(f + ' → ' + m[1]);
+      let a = m[2];
+      try { a = decodeURIComponent(a); } catch (_) { /* fica o texto cru */ }
+      if (!titulosDe(alvo).has(a)) quebradas.push(f + ' → ' + (m[1] || '') + '#' + a);
     }
   }
-  if (ancoras >= 20) ok('as âncoras internas foram varridas (' + ancoras + ')');
-  else nao('as âncoras internas foram varridas', 'só ' + ancoras);
-  if (!quebradas.length) ok('e toda âncora interna aponta para uma seção que existe');
-  else nao('toda âncora interna aponta para uma seção que existe', quebradas.join('\n\t'));
+  if (ancoras >= 50 && entreArquivos >= 10) {
+    ok('as âncoras foram varridas (' + ancoras + ', ' + entreArquivos + ' para outro arquivo)');
+  } else nao('as âncoras foram varridas', 'só ' + ancoras + ' (' + entreArquivos + ' para outro arquivo)');
+  if (!quebradas.length) ok('e toda âncora aponta para uma seção que existe');
+  else nao('toda âncora aponta para uma seção que existe', quebradas.join('\n\t'));
 }
 
 console.log('');

@@ -469,10 +469,9 @@ try {
 
   // ---- I2: ELA MORA DENTRO DE CONFIGURAÇÕES (v1.12.48) ----------------
   //
-  // Ela foi uma folha de baixo aberta POR CIMA de Configurações (e a v1.10.10
-  // teve de consertar o `z-index` dela, que a deixava atrás). Desde a v1.12.48
-  // é uma SEÇÃO de Configurações: não há camada a disputar, e a prova é que o
-  // toque no cabeçalho dela chega à própria seção, dentro da folha.
+  // Ela é uma SEÇÃO de Configurações, não uma folha aberta por cima: não há
+  // camada a disputar, e a prova é que o toque no cabeçalho dela chega à
+  // própria seção, dentro da folha.
   await pg.evaluate(async () => {
     await Promise.all(document.getElementById('cfgSecoes').getAnimations({ subtree: true })
       .map((a) => a.finished.catch(() => {})));

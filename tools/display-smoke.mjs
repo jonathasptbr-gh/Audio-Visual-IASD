@@ -27,33 +27,15 @@
 // continua valendo para todos (é assim que todo comando de operação viaja, e é
 // o que mantém um Controle com bundle antigo funcionando).
 //
-// ## E ele prova a DECISÃO DE DENSIDADE do espelho de pixels, sem aparelho
+// ## E ele mede o telão no viewport de uma TV 1080p: 960×540 CSS
 //
-// (A seção que a explicava saiu com o `ESPELHO-DE-PIXELS.md`, na revisão A4;
-// `git show 6db65c4:docs/ESPELHO-DE-PIXELS.md`.) O espelho renderiza este mesmo
-// `/display/` num `VirtualDisplay` de 1280×720, e o que a congregação compara
-// não é resolução: é o VIEWPORT CSS, que é `pixels / (densityDpi / 160)`.
-//
-// Uma TV Miracast NÃO reporta 160 dpi. O AOSP calcula
+// Uma TV ligada por Miracast NÃO reporta 160 dpi: o AOSP assume
 // `densityDpi = min(w,h) × DENSITY_XHIGH / 1080` para display externo
 // (`DisplayDeviceInfo.setAssumedDensityForExternalDisplay`), logo uma TV 1080p
-// reporta 320 dpi e o telão que a congregação vê HOJE é desenhado em
-// **960×540 CSS** — não em 1920×1080. Se o espelho nascesse a 160 dpi ele
-// desenharia em 1280×720 CSS: outra quebra de estrofe, outro tamanho relativo
-// de letra, outro enquadramento. Deixaria de ser espelho, e ninguém veria a
-// diferença olhando o celular.
-//
-// Daí a densidade DERIVADA do alvo: `dpi = 1280 × 160 / 960 = 213`, e o
-// viewport que sai dela é `1280 × 160 / 213 = 961,5` px CSS. Não é identidade
-// de pixel — 213,33 não é inteiro e nunca vai ser —, é o mesmo viewport com
-// meio ponto percentual de folga.
-//
-// Este arquivo rodava no default do Playwright (1280×720) POR ACIDENTE, por um
-// `newContext()` sem viewport: um upgrade da biblioteca apagaria a garantia em
-// silêncio. Fixado em 961×540, ele passa a MEDIR a decisão — e a última
-// asserção compara com uma segunda janela em 960×540, que é o telão de
-// verdade. É o único item das seções técnicas daquele documento que se prova
-// sem aparelho nenhum.
+// reporta 320 dpi e o telão que a congregação vê é desenhado em **960×540
+// CSS** — não em 1920×1080. O viewport é EXPLÍCITO: o default do Playwright
+// (1280×720) é outra diagramação, e um upgrade da biblioteca a trocaria em
+// silêncio.
 //
 //   node tools/display-smoke.mjs
 import path from 'node:path';
@@ -68,11 +50,8 @@ const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app'
 // papel do Controle sem carregar o Controle: o que se testa aqui é o Display.
 const ESPIAO = '/__espiao.html';
 
-// Os dois viewports, EXPLÍCITOS (ver o cabeçalho). Nunca deixar o Playwright
-// escolher: o default dele é 1280×720, que é justamente o valor errado — o
-// viewport que o espelho teria se alguém fixasse a densidade em 160 dpi.
-const VP_ESPELHO = { width: 961, height: 540 }; // 1280 px a 213 dpi
-const VP_TELAO = { width: 960, height: 540 };   // 1920 px a 320 dpi (a TV real)
+// O viewport, EXPLÍCITO (ver o cabeçalho): nunca o default do Playwright.
+const VP_TELAO = { width: 960, height: 540 }; // 1920 px a 320 dpi (a TV real)
 
 // Piso de legibilidade do texto projetado. `.text-content.mode-message
 // .text-main` é `7.4cqmin`, e o container de tamanho é a camada de texto
@@ -101,10 +80,8 @@ const navegador = await abrirNavegador();
 // mesmo origin no mesmo perfil — que é exatamente a premissa da arquitetura de
 // dois WebViews, e por isso a montagem do teste espelha a do app.
 //
-// E com VIEWPORT EXPLÍCITO — ver o cabeçalho. O `newContext()` pelado herdava
-// 1280×720 do Playwright, que é o valor que a decisão de densidade do espelho
-// existe para EVITAR.
-const ctx = await navegador.newContext({ viewport: VP_ESPELHO });
+// E com VIEWPORT EXPLÍCITO — ver o cabeçalho.
+const ctx = await navegador.newContext({ viewport: VP_TELAO });
 await semRedeExterna(ctx);
 
 const erros = [];
@@ -146,7 +123,7 @@ await telao.waitForFunction(() => !!window.AVDB && !!document.getElementById('te
 const subiu = await telao.evaluate(() => !!window.AVDB && !!window.createStage);
 checar(subiu, 'o Display carrega e publica AVDB + createStage');
 
-// A COBERTURA é medida AQUI, no boot, e conferida lá embaixo (§7): neste
+// A COBERTURA é medida AQUI, no boot, e conferida lá embaixo (no bloco 6): neste
 // instante a cortina é o que está em cena, e o primeiro comando de texto a
 // abre. Depois dele o `#wallpaper` some e não haveria mais o que medir.
 //
@@ -407,21 +384,21 @@ await telao.waitForFunction(
   null, { timeout: 4000 },
 ).catch(() => {});
 
-// 6. O VIEWPORT DO ESPELHO — a decisão de densidade, medida.
+// 6. O VIEWPORT DO TELÃO.
 //
 //    Com a mensagem de cima ainda em cena (é a única forma de o `#textMain`
-//    ter tamanho), as quatro perguntas do §7.1 da spec: a janela é a que se
-//    pediu, as camadas cobrem a tela, nada estoura, e a letra não encolheu.
-checar(cobertura.vw === VP_ESPELHO.width && cobertura.vh === VP_ESPELHO.height,
-  'a janela é a do ESPELHO (961×540 CSS) — explícita, não o default do Playwright',
+//    ter tamanho), quatro perguntas: a janela é a que se pediu, as camadas
+//    cobrem a tela, nada estoura, e a letra não encolheu.
+checar(cobertura.vw === VP_TELAO.width && cobertura.vh === VP_TELAO.height,
+  'a janela é a do TELÃO (960×540 CSS) — explícita, não o default do Playwright',
   cobertura.vw + '×' + cobertura.vh);
 
 const cobre = (c) => c[0] === 0 && c[1] === 0 && c[2] === cobertura.vw && c[3] === cobertura.vh;
 checar(cobre(cobertura.wallpaper),
-  'a cortina (#wallpaper) cobre a tela inteira — é ela que o espelho transmite entre as cenas',
+  'a cortina (#wallpaper) cobre a tela inteira — é ela que a TV mostra entre as cenas',
   JSON.stringify(cobertura.wallpaper));
 checar(cobre(cobertura.video),
-  'e a camada de vídeo (#video) também — sem isso o espelho serviria uma tarja preta em volta',
+  'e a camada de vídeo (#video) também — sem isso a TV mostraria uma tarja preta em volta',
   JSON.stringify(cobertura.video));
 
 // NADA ESTOURA. As camadas são `position: fixed` e o `<body>` é
@@ -443,7 +420,7 @@ const estouraram = await telao.evaluate(() => {
   return fora;
 });
 checar(estouraram.length === 0,
-  'nenhum elemento estoura o viewport do espelho', estouraram.join(' · '));
+  'nenhum elemento estoura o viewport do telão', estouraram.join(' · '));
 
 const fonteEspelho = await telao.evaluate(
   () => parseFloat(getComputedStyle(document.getElementById('textMain')).fontSize),
@@ -451,33 +428,6 @@ const fonteEspelho = await telao.evaluate(
 checar(fonteEspelho >= PISO_FONTE_PX,
   'a mensagem projetada continua acima do piso de legibilidade (' + PISO_FONTE_PX + ' px)',
   fonteEspelho + 'px');
-
-// 7. E A PROVA propriamente dita: o MESMO layout no viewport do TELÃO DE
-//    VERDADE (960×540 CSS, que é o que uma TV 1080p a 320 dpi entrega). Se os
-//    dois números baterem, o espelho não é uma segunda diagramação — é o
-//    telão. É esta linha que dispensa o aparelho.
-//
-//    Contexto SEPARADO de propósito: viewport é propriedade do contexto, e um
-//    perfil próprio ainda isola o BroadcastChannel desta página do espião lá
-//    de cima (ela manda o comando para si mesma).
-const ctxTv = await navegador.newContext({ viewport: VP_TELAO });
-await semRedeExterna(ctxTv);
-const tv = await ctxTv.newPage();
-await tv.goto(base + '/display/');
-await tv.waitForFunction(() => !!window.AVDB, null, { timeout: 15000 }).catch(() => {});
-await tv.evaluate(() => new BroadcastChannel('av-iasd').postMessage({
-  type: 'text', mode: 'message', main: 'PARA TODOS', sub: '', view: 'visual',
-}));
-await tv.waitForFunction(
-  () => document.getElementById('textMain').textContent === 'PARA TODOS',
-  null, { timeout: 4000 },
-).catch(() => {});
-const fonteTelao = await tv.evaluate(
-  () => parseFloat(getComputedStyle(document.getElementById('textMain')).fontSize),
-);
-checar(fonteTelao > 0 && fonteEspelho === fonteTelao,
-  'a letra do espelho (961×540) tem EXATAMENTE o tamanho da do telão (960×540) — a densidade 213 dpi está certa',
-  fonteEspelho + 'px vs ' + fonteTelao + 'px');
 
 // 7-A-bis. O FIM NATURAL NÃO É UMA "PAUSA ESPONTÂNEA".
 //
