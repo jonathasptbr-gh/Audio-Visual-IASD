@@ -15,8 +15,11 @@
 > | o overlay tem **campo + botão** | tem **UM botão**, "Ativar esta tela" |
 > | `EspelhoService` | não existe: quem carrega a transmissão em primeiro plano é o `SessionService`, e o wake lock/Wi-Fi lock/térmica moram no `EspelhoEnergia` |
 > | o papel vem de **`?tela=1`** | vem da `<meta name="av-tela">` que o servidor INJETA; o `?tela=1` ficou só como caminho de desenvolvimento no navegador |
+> | o toque faz `POST /par` **primeiro** e só depois som e tela cheia (§3.4) | o toque gasta o gesto ANTES da rede (`gastarGesto`: `requestFullscreen` → `__telaSom(true)` → vigília) e só então `POST /par` → token → SSE — a ativação transitória não espera um POST dar a volta |
 >
-> A fonte de verdade é o `CLAUDE.md` ("Telão por comandos") mais o código.
+> A fonte de verdade são as DUAS SEÇÕES FINAIS deste documento ("O DRENO do papel
+> `tela`" e "O mapa de hoje", que vieram do `CLAUDE.md` na revisão A2) mais o
+> código; as §1–§10 são a especificação e o diário da construção.
 >
 > **O SEGUNDO INQUILINO DESTE SERVIDOR SAIU (v1.8.16).** Da v1.8.0 até lá ele
 > hospedou o CLONE da biblioteca celular a celular (`/acervo/*`), que foi
@@ -285,10 +288,11 @@ As decisões, cada uma com o porquê e com o fato que a sustenta:
    direto — mic, view, audio-retry, diag-ask, wallpaper, resend). Quem vê
    100% dos comandos de todas as páginas é o relay nativo que o db.js já
    alimenta incondicionalmente no app (db.js:832→native.js:331→busPost).
-   O servidor ganha um consumidor ali: JSON verbatim → fila SSE de cada
-   tela. Zero interpretação no Kotlin (invariante 5). Sem eco: mensagens
-   injetadas pelo servidor entram por `MessageBus.post`, que não passa por
-   `busPost`.
+   O servidor ganha um consumidor ali (o `tapLan`): JSON verbatim → fila SSE
+   de cada tela. Zero interpretação no Kotlin (invariante 5). Sem eco por
+   construção: mensagens injetadas pelo servidor entram por
+   `MessageBus.post(null,…)`, que não passa por `busPost` — um comando vindo
+   de uma tela não volta para as telas.
 3. **O Kotlin não interpreta comandos.** Cena inicial de uma tela que
    conecta: a tela emite `display-ready` com `__de` próprio (display.js:24,
    1667), o tap de subida o entrega ao barramento, e
@@ -328,7 +332,10 @@ As decisões, cada uma com o porquê e com o fato que a sustenta:
    DIRETO no `src` (stage.js:785), o stage não muda. O tela.js instala o
    `__rec` num cache local e embrulha `AVDB.getMedia` para respondê-lo —
    UM ponto cobre os dois chamadores. O comando enriquecido também chega ao
-   telão de verdade, que o ignora (getMedia local vence).
+   telão de verdade, que o ignora (getMedia local vence). **`__rec` viaja NO
+   comando, não numa consulta:** um "GET /registro/<id>" a cada load seria uma
+   ida-e-volta a mais no caminho crítico do culto, e o Controle já tem o
+   registro na mão quando emite o `load`.
 6. **Tokens de serviço opacos, padrão `SafRegistry`** (128 bits base64url,
    mesmo token para o mesmo recurso, morrem com a sessão de transmissão).
    NÃO são o token de sessão — a regra "o token de sessão nunca viaja numa
@@ -365,11 +372,9 @@ As decisões, cada uma com o porquê e com o fato que a sustenta:
    precedência pelo relógio de 2,5 s que já existe.
 10. **Som opt-in continua** (invariante 10): a tela nasce muda; o gesto
     desmuta `el.v` — é um atributo do `<video>`, sem torneira.
-11. **(Microfone: o recurso SAIU na v1.8.89.** Ele nunca saía na rede, e a
-    armadilha que deixou vale para o próximo comando de DESCIDA: quem barra um
-    comando numa tela é uma GUARDA no consumidor, nunca o ambiente — "numa
-    página http não há `getUserMedia`" é proteção emprestada do navegador, e ela
-    se desfaz sozinha no dia em que a transmissão subir em `https://`.)
+11. **(Microfone: o recurso SAIU na v1.8.89.** Ele nunca saía na rede; a
+    armadilha que deixou para o próximo comando de DESCIDA está em "As inversões
+    que precisam estar ditas", no mapa de hoje, ao fim.)
 12. **Relógio das telas.** Cronômetro e sorteio viajam por descritor com
     epoch ms (`startAt`, `rollUntil`) e supõem relógio comum — uma Smart TV
     com minutos de desvio contaria errado. O tela.js mede o desvio
@@ -428,7 +433,10 @@ Payloads em português passam INTACTOS — o caminho de comandos não passa por
 `sanear()` (que é para o Registro e apagaria acentos).
 
 ### 5.3 Mídia (`GET /m/<token>`)
-Range RFC 7233 faixa única; sem Range → 200 inteiro; malformado → 416/400.
+Range RFC 7233 faixa única (`EspelhoHttp.alcanceDe`); sem Range → 200 inteiro;
+malformado (inclusive `Range` duplicado e multi-faixa) → **IGNORADO, 200
+inteiro**, nunca adivinhado e nunca 400 (um 400 quebraria um player legítimo);
+só a faixa VÁLIDA que não cabe no recurso (`ini >= tamanho`, sufixo `-0`) → 416.
 `Accept-Ranges: bytes`, `Content-Type` do registro. Token de serviço opaco
 por recurso+sessão. **Enquanto o arquivo ainda está sendo empurrado** pelo canal
 ArrayBuffer, a rota responde COMO SE ESTIVESSE COMPLETO, pelo tamanho anunciado
@@ -469,15 +477,22 @@ transmissão está ligada; o wallpaper vai por `__wp: <url>` no comando
 ### 5.6 Cenas que não vão para a rede
 Sobrou **uma**: `kind === 'youtube'` (embed), que é iframe de terceiro e a CSP
 das telas barra por construção. O Controle relaya no lugar do load um
-`{type:'tela-aviso', texto:'Esta cena não aparece nas telas da rede.'}` +
+`{type:'tela-aviso', texto:'Esta cena não aparece no computador conectado.'}` +
 `media-clear`. O tela.js desenha o aviso; o display limpa. Política E6: com
 transmissão ligada e sem TV, "Tocar agora" de YouTube cai no download.
 
 `rec.stream` SAIU desta lista na v5.189 (a rota `/s/<token>`), e o **deck** na
 v1.1.7: cada página vira uma `/m/` (`telaDeckUrls`/`telaEmpurrarPaginasDeck` no
 Controle; `urlDaPagina` no `stage.js`, que passou a aceitar string ou Blob em
-`pages`). Um deck de que não se consiga cunhar token cai no aviso — lista com
-buraco projetaria página em branco no meio do sermão.
+`pages`). A apresentação é o único kind cujo conteúdo é uma LISTA, e por isso
+não cabia no `url` do registro saneado: `telaDeckUrls` cunha um token por página
+(id estável `dk:<item>:<i>`, irmão do `ly:`) e `telaEmpurrarPaginasDeck` os
+enfileira EM ORDEM — a página 1 chega primeiro, que é a que a tela busca assim
+que o `load` pousa. Sem token forte (`crypto.randomUUID` ausente) a lista
+INTEIRA é recusada e a cena cai no aviso — lista com buraco projetaria página em
+branco no meio do sermão. Oráculo: a metade CONSUMIDORA no
+`tela-rede.test.mjs`; a produtora (o ramo `pages` do `telaEnriquecer`) segue
+**sem oráculo**, e isso está dito porque as duas quebram diferente.
 
 ## §6 AS ETAPAS
 
@@ -570,7 +585,7 @@ vias, e o campo `via` do estado diz qual está servindo.
 
 | via | o que é | como é achada |
 |---|---|---|
-| `WIFI` | o celular é cliente de uma Wi-Fi (com ou **sem** uplink) | `redeDaWifi` → `ConnectivityManager`, `ehWifiLimpa`. **Não mudou uma linha** — é o degrau 1, e é o que garante zero regressão na igreja que já funciona |
+| `WIFI` | o celular é cliente de uma Wi-Fi (com ou **sem** uplink — `NET_CAPABILITY_VALIDATED` fica deliberadamente fora do filtro) | `redeDaWifi` → `ConnectivityManager`, `ehWifiLimpa`. **Não mudou uma linha** — é o degrau 1, e é o que garante zero regressão na igreja que já funciona |
 | `PONTO_DE_ACESSO` | o celular É o roteador | `redeParaServir` degrau 2 → `EspelhoInterfaces.escolher` sobre `NetworkInterface.getNetworkInterfaces()` |
 
 **O soft AP não é um `Network`, e é disso que tudo decorre.** O downstream do
@@ -628,7 +643,7 @@ SEMPRE não em modo AP, e sem ele a transmissão morreria na primeira suspeita.
 
 **O `confirmarRede` religa na MESMA via**, nunca na outra: migrar de ponto de
 acesso para Wi-Fi sozinho seria ligar por conta própria, e o contrato diz
-AUXILIAR (§1). E a frase do religamento perdeu o *"sem perder o pareamento"* no
+AUXILIAR (ver "O mapa de hoje", ao fim). E a frase do religamento perdeu o *"sem perder o pareamento"* no
 AP — se o hotspot reiniciou, as telas perderam o SSID, e prometer o contrário
 num artefato que é lido a distância é o pior que este projeto sabe produzir.
 
@@ -809,25 +824,25 @@ errada para quem está servindo pelo próprio celular.
 supridos pelo CLAUDE.md, que descreve o apk.yml passo a passo e as regras
 operacionais: OTA×APK, dia sem culto, alfa fechado.)*
 
-## O DRENO do papel `tela` — uma lista de PERMISSÃO (do núcleo, revisão A2)
-
-> **Movido do `CLAUDE.md` na revisão A2 (2026-10-30), sem mudança de texto** (só os links relativos e o nível dos títulos). No núcleo ficou um resumo com o link para cá. "Acima", "abaixo", "esta seção" e as invariantes numeradas falam do `CLAUDE.md`, de onde este texto veio.
+## O DRENO do papel `tela` — uma lista de PERMISSÃO
 
 Cada tela da rede roda uma **cópia de `/web/display/`** ligada ao MESMO
 barramento por SSE. É o mesmo arquivo — e é por ser idêntico que **ele não pode
 falar tudo**: a arquitetura inteira supõe UM telão. Drenado tudo passa:
 `display-status` sai a ~4 Hz de CADA um (o Controle e o `snoopDisplayStatus`
-passariam a ter N fontes alternadas), `media-ended` dobrado dá um segundo `load`
-em `repeat one`, e `diag-ask` respondido por vários faz o Registro mostrar o
-diário de um deles sem dizer qual. (O `mic-status` era o quarto, e o mais
-perigoso: 'unsupported' de uma tela — que **nega `getUserMedia` em silêncio**,
-por não ter o `MicChromeClient` — apagava o estado do microfone VERDADEIRO. Ele
-saiu na v1.8.89 com o recurso, e o dreno não muda por isso: lista de PERMISSÃO,
-um emissor a menos não abre porta nenhuma.)
+passariam a ter N fontes alternadas), além do `media-ended` dobrado e do
+`diag-dump`/`diag-ask` respondido por vários que a §3.9 já nomeia. (O
+`mic-status` era o quarto, e o mais perigoso: 'unsupported' de uma tela — que
+**nega `getUserMedia` em silêncio**, por não ter o `MicChromeClient` — apagava o
+estado do microfone VERDADEIRO. Ele saiu na v1.8.89 com o recurso, e o dreno não
+muda por isso: lista de PERMISSÃO, um emissor a menos não abre porta nenhuma.)
 
 O dreno mora em `espelho/tela.js` (o `__AVBus.post` do papel) e é lista de
 **PERMISSÃO** — um tipo de mensagem novo em `display.js` nasce mudo por
-construção:
+construção. `media-ended`, `diag-dump` e todo o resto de uma tela morrem ali. **E
+a lista existe nos DOIS lados**: o `EspelhoServidor` só injeta no barramento os
+tipos de `TIPOS_QUE_SOBEM` (`display-ready`, `tela-status`) — validação que mora
+só no cliente não é validação.
 
 - **`display-ready` passa, com `__tela`.** É esse anúncio que faz o Controle
   reenviar a cena — drenado por inteiro, a tela fica no wallpaper até alguém
@@ -843,9 +858,7 @@ construção:
   quase sempre o segundo, porque o `display-ready` nasce antes de existir token.
   **Os dois lados do contrato têm oráculo** — o produtor no `tela-rede.test.mjs`,
   o consumidor no `boot-nativo.test.mjs` —, e são dois porque *ler cada lado
-  isolado aprova ambos*: este combinado passou dezenas de versões documentado e
-  não cumprido (o campo ia no `tela-status` e nunca no `display-ready`, e a
-  função nunca rodou para uma tela de verdade, sem erro em lugar nenhum).
+  isolado aprova ambos* (a história está na nota da v5.223, na §0).
 - **`display-status` sai RENOMEADO para `tela-status`.** **Sem TV as telas da
   rede SÃO a projeção**, e calá-las deixaria o Controle sem referência de tempo
   nenhuma — sobraria a preview, que é o que o Android estrangula quando o app sai
@@ -862,15 +875,13 @@ construção:
   subclasse do construtor real — e a troca precisa acontecer **antes de `db.js`**,
   que captura o construtor na carga.
 
-## O telão por comandos como estava no núcleo (revisão A2)
-
-> **Movido do `CLAUDE.md` na revisão A2 (2026-10-30), sem mudança de texto** (só os links relativos e o nível dos títulos). No núcleo ficou um resumo com o link para cá. "Acima", "abaixo", "esta seção" e as invariantes numeradas falam do `CLAUDE.md`, de onde este texto veio.
+## O mapa de hoje: as peças, as decisões e as inversões
 
 O telão inteiro — fades, cortina, Camada de Texto, letra sincronizada e vídeo —
 em até **três navegadores da rede da igreja**, sem instalar nada neles e sem
-internet. A especificação fechada está em
-[`docs/TELAO-POR-COMANDOS.md`](TELAO-POR-COMANDOS.md) — **leia antes de
-mexer**; esta seção é o mapa.
+internet. As §1–§10 acima são a especificação e o diário da construção; **esta
+seção é o mapa de hoje**, e onde as duas divergem vale esta, conferida contra o
+código.
 
 ```
  ┌────────────── celular ──────────────┐        ┌───── navegador na LAN ─────┐
@@ -882,47 +893,11 @@ mexer**; esta seção é o mapa.
  └─────────────────────────────────────┘        └────────────────────────────┘
 ```
 
-**O que faz isto valer a pena é o que NÃO atravessa a rede.** A tela carrega o
-próprio bundle do app (servido pelo celular, com a MESMA resolução OTA→APK do
-`WebPathHandler`) e roda o `/web/display/` de verdade. O que viaja são
-**comandos** (os objetos JSON do barramento, verbatim, por SSE) e **mídia sob
-demanda** (`/m/<token>`, com `Range` RFC 7233 de verdade — a **inversão da
-invariante 8**: num `ServerSocket` quem aplica a faixa somos NÓS). A invariante 5
-sai ilesa duas vezes: o Kotlin não decide nada de cena, e a tela não reimplementa
-nada.
-
 **AUXILIAR por contrato:** liga e desliga **só** por ação do operador, pelo
 fechamento do app, ou por uma falha nomeada em texto. Uma TV que conecta **não**
-derruba a transmissão — sem TV, as telas da rede SÃO o que a congregação vê.
-
-**A REDE PODE SER O PRÓPRIO CELULAR (v1.4.1).** A transmissão nunca precisou de
-internet; ela precisava que o celular fosse **cliente** de uma Wi-Fi, e numa
-igreja sem rede isso não existe. Hoje há duas vias, e o `via` do estado diz qual
-está servindo:
-
-| via | o que é |
-|---|---|
-| `WIFI` | o de sempre: o celular é cliente de uma Wi-Fi (com ou **sem** uplink — `NET_CAPABILITY_VALIDATED` fica deliberadamente fora do filtro) |
-| `PONTO_DE_ACESSO` | o celular É o roteador: hotspot ligado, o computador entra nele |
-
-**E o ponto de acesso é a resposta mais forte ao AP ISOLATION** — a falha muda
-deste recurso (servidor de pé, porta escutando, nenhum SYN chegando). Isolamento
-bloqueia cliente↔cliente; no hotspot o celular é o **GATEWAY**, e é dele que o
-computador tira DHCP e DNS, então esse caminho não pode estar fechado.
-
-**As duas não se somam por decisão nossa:** com as duas de pé, quem escolhe é o
-operador (`redes.length > 1` desenha a escolha) — qual delas a tela alcança não
-é decidível pelo app. E quem serve não migra sozinho para a outra: o
-`confirmarRede` religa **na mesma via**, porque migrar seria ligar por conta
-própria, e o contrato diz AUXILIAR.
-
-**O que o AP tem de próprio, e por que a enquete existe:** `observarRede` assina
-`TRANSPORT_WIFI`, e em modo AP puro esse callback **nunca dispara** — não há
-`Network` para ganhar nem perder. Não há morte errada em 6 s ali; há coisa pior,
-**nada vigiaria o AP caindo**, e o socket ficaria amarrado a um endereço morto.
-Quem cobre isso é `vigiarPontoDeAcesso` (5 s), que levanta a mesma SUSPEITA e
-deixa o veredito com o `confirmarRede` de sempre. O caso não é raro: o hotspot
-**se desliga sozinho por ociosidade** em vários fabricantes.
+derruba a transmissão — sem TV, as telas da rede SÃO o que a congregação vê. As
+duas vias (`WIFI` e `PONTO_DE_ACESSO`), a escolha do operador, o religar na MESMA
+via e a enquete do AP estão na §7-B.
 
 ### As peças, e o que cada uma se recusa a fazer
 
@@ -930,37 +905,41 @@ deixa o veredito com o `confirmarRede` de sempre. O caso não é raro: o hotspot
 |---|---|
 | `EspelhoHttp.kt` | parser HTTP **+ Range + SSE** — **PURO, zero import de Android**, com JUnit. `alcanceDe` segue a RFC 7233 à risca: faixa malformada é **IGNORADA** (200 inteiro), nunca adivinhada; `Range` duplicado é malformado; fora do tamanho é 416 |
 | `EspelhoPares.kt` | porta, tokens, prazo, castigo — **PURO**, com JUnit. **Sem código de entrada**: a porta é o ENDEREÇO na rede, e o controle real é o teto de 3 sessões + o `derrubar` do operador (com castigo de 2 min, sem o qual "Desconectar" não faria nada visível). O token **nunca viaja numa URL**: o SSE vai por `fetch` + `Authorization: Bearer` (não `EventSource`, que não manda cabeçalho) |
-| `EspelhoServidor.kt` | sockets, rotas, fan-out. Serve **só** `PREFIXOS_BUNDLE` (display/shared/espelho — **nunca** `web/controle/`); `GET /e` (SSE: fila de 256 por tela, ping de 15 s com o epoch do celular, `adeus` no desligar); `/m/<token>` (completo = 206/416; **em crescimento, 206/200 com o tamanho anunciado** (`esperado`), servindo enquanto o empurrão anda e esperando-o alcançar a faixa pedida — v1.13.12: o chunked sem faixa deixava o vídeo da tela NÃO BUSCÁVEL pela vida da URL; chunked só sem tamanho); `POST /r` (o `st` injeta o status via `MessageBus.post(null,…)`, que **não** passa pelo `busPost` — **sem eco por construção** — e só os tipos de `TIPOS_QUE_SOBEM`). Bind explícito a um IPv4 **SERVÍVEL** (RFC1918, de uma interface que a regra aceita e que nenhum `Network` reivindica — ver `EspelhoInterfaces.kt`), **nunca** `0.0.0.0`; allowlist de `Host` exata |
-| `EspelhoInterfaces.kt` | **EM QUE INTERFACE** o socket pode abrir — **PURO**, com JUnit. Ele existe porque o **ponto de acesso do próprio celular não é um `Network`**: o downstream do tethering é montado no netd sem `NetworkAgent`, e sempre viveu no eixo que devolve NOME DE INTERFACE. **O discriminador não é o nome**, e é isso que faz a regra durar: *no ar, com IPv4 privado, e que NENHUM `Network` reivindica* — a do soft AP é a única com essa forma, porque não é uma rede que o aparelho USA, é uma que ele SERVE. O nome entra só na CLASSIFICAÇÃO, depois de três filtros. Ele **classifica; não faz política**: admitir só `PONTO_DE_ACESSO` é uma linha visível do `redeParaServir` |
-| `EspelhoMidiaCache.kt` | o cache da rota `/m/` — **PURO**, com JUnit. Token é **capacidade** (forma validada aqui; entropia de quem cunha — o Controle, `crypto.randomUUID`); mesmo id + mesmo token = mesmo item (a regra do `SafRegistry`); id com token novo **substitui**; LRU por **bytes** e só de **completos** (um item em crescimento tem um empurrão vivo do outro lado) |
+| `EspelhoServidor.kt` | sockets, rotas, fan-out. Serve **só** `PREFIXOS_BUNDLE` (display/shared/espelho — **nunca** `web/controle/`); `GET /e` (SSE: fila de 256 por tela, ping de 15 s com o epoch do celular, `adeus` no desligar); `/m/<token>` (completo = 206/416; em crescimento, 206/200 com o tamanho anunciado — ver §5.3); `POST /r` (o `st` injeta o status via `MessageBus.post(null,…)`, que **não** passa pelo `busPost` — **sem eco por construção** — e só os tipos de `TIPOS_QUE_SOBEM`). Bind explícito a um IPv4 **SERVÍVEL** (RFC1918, de uma interface que a regra aceita e que nenhum `Network` reivindica — ver `EspelhoInterfaces.kt`), **nunca** `0.0.0.0`; allowlist de `Host` exata |
+| `EspelhoInterfaces.kt` | **EM QUE INTERFACE** o socket pode abrir — **PURO**, com JUnit. Existe porque o ponto de acesso do próprio celular **não é um `Network`**; o discriminador não é o nome, e ele **classifica, não faz política** — a regra inteira está na §7-B |
+| `EspelhoMidiaCache.kt` | o cache da rota `/m/` — **PURO**, com JUnit. Token é **capacidade**: a FORMA é validada aqui (`^[A-Za-z0-9_-]{16,64}$`), a entropia é de quem cunha — o Controle, sincronamente, com `crypto.randomUUID`; mesmo id + mesmo token = mesmo item (a regra do `SafRegistry`); id com token novo **substitui**; LRU por **bytes** e só de **completos** (um item em crescimento tem um empurrão vivo do outro lado) |
 | `EspelhoMidiaCanal.kt` | o empurrão OPFS → cache, por `WebMessageListener` com `ArrayBuffer` (allowedOriginRules exato, `isMainFrame`, host conferido). Ack por bloco; a oferta na fila é **não-bloqueante** — fila cheia = erro retentável, nunca travar a main thread |
 | `EspelhoEnergia.kt` | wake lock, Wi-Fi lock e térmica — **não é um Service**: quem carrega a transmissão em primeiro plano é o `SessionService`. Exige `CHANGE_WIFI_MULTICAST_STATE` no manifest, senão `startForeground` **lança** |
 | `EspelhoDiag.kt` | o anel. **Devolve JSON, não texto** — quem monta a frase é o `controle.js` |
 | `espelho/tela.js` | a casca do papel `tela`, carregada **no próprio `display/index.html`** entre `native.js` e `db.js`, e no-op de uma guarda fora do papel. Define `__AVBus` (recepção = SSE; envio = o DRENO), neutraliza o `postMessage` do `BroadcastChannel`, corrige o relógio (mediana do epoch dos pings — cronômetro e sorteio chegam como DESCRITOR com instante do celular), embrulha `AVDB.getMedia` para resolver `__rec.url`, e mantém a vigília para a tela não dormir |
 | `display.js` (papel `tela`) | `forceMuted` nasce ligado (autoplay sem gesto não existe num navegador de verdade); `window.__telaSom(true)` é o que o botão de entrada chama ao gastar o único gesto; wallpaper por `__wp` (ou o sentinela `'padrao'`), fundo da letra por `imageUrl` na estrofe |
-| `controle.js` | **enriquece** cada `load` com `__rec` (registro saneado: id/kind/nome/tipo/url=`/m/<token>`/letra — **nunca** blob, opfsPath ou youtubeId) e dispara o empurrão; reescreve o manifesto de stream para `/s/<token>`; **elege** uma tela como referência de tempo; manda a APRESENTAÇÃO por páginas (uma `/m/` por página, `telaDeckUrls`); converte o embed do YouTube em `tela-aviso` (o que a tela não sabe tocar, ela DIZ) |
+| `controle.js` | **enriquece** cada `load` com `__rec` (registro saneado: id/kind/nome/tipo/url=`/m/<token>`/letra — **nunca** blob, opfsPath ou youtubeId) e dispara o empurrão; **elege** uma tela como referência de tempo; manda a APRESENTAÇÃO por páginas (uma `/m/` por página, `telaDeckUrls` — §5.6); converte o embed do YouTube em `tela-aviso` (o que a tela não sabe tocar, ela DIZ) |
 
 ### As decisões que precisam estar ditas
 
 - **UMA página, não duas.** O gesto do visitante (fullscreen + som) **não
   sobrevive a uma navegação**, então não existe "página de entrada que
   redireciona": `tela.js` desenha a entrada como OVERLAY sobre o próprio
-  display, e o toque gasta o único gesto em tudo de uma vez (`__telaSom(true)` →
-  `requestFullscreen` → `POST /par` → token → SSE). Um botão só, "Ativar esta
-  tela", sem código a digitar.
+  display, e o toque gasta o único gesto em tudo de uma vez — ANTES da rede
+  (`gastarGesto`: `requestFullscreen` → `__telaSom(true)` → vigília) e só então
+  `POST /par` → token → SSE. Um botão só, "Ativar esta tela", sem código a
+  digitar.
 - **"O que ainda falta nesta tela?" NÃO pode ser perguntado DENTRO do gesto.**
   `requestFullscreen()` é assíncrono e o clique borbulha até o `document` antes
   de a tela cheia existir (medido: o ouvinte roda com `fullscreenElement=false`
   e o `fullscreenchange` chega 9 ms depois). Perguntar ali responde sempre
   contra o passado, e o que nascia disso era um SEGUNDO botão oferecendo o que o
-  toque acabara de fazer. Quem responde é a Promise do próprio pedido; entre o
-  gesto e o desfecho o `oferecerGesto()` é mudo (`assentando`).
+  toque acabara de fazer. A regra mora no `telaCheia` de `tela.js`: nunca ler
+  `document.fullscreenElement` no mesmo turno do pedido para decidir alguma
+  coisa; a recusa da Promise é engolida (a tela funciona em janela). O botão de
+  canto, o `oQueFalta`/`oferecerGesto` e o guarda `assentando` SAÍRAM na v5.218.
 - **Depois de ativada, NADA cobre a tela.** O overlay cheio existe só na primeira
   carga, quando não há nada por baixo. Queda de fio, token vencido e até o
-  `adeus` reentram **em silêncio** (um `POST /par` numa escada de 1 s a 30 s) —
-  a mídia é local e a letra anda pelo `timeupdate` do próprio `<video>`, então a
-  queda leva o fio e mais nada. O gesto perdido volta por **dois atalhos e
-  nenhum botão**: TOQUE DUPLO e **F11**.
+  `adeus` reentram **em silêncio** (um `POST /par` numa escada de 1 s a 30 s,
+  `REENTRADA`) — a mídia é local e a letra anda pelo `timeupdate` do próprio
+  `<video>`, então a queda leva o fio e mais nada. O gesto perdido volta por
+  **dois atalhos e nenhum botão**: TOQUE DUPLO e **F11** (com `preventDefault`,
+  senão o navegador entra na tela cheia dele junto com a da API).
 - **MAS A RECARGA VOLTA PARA A ENTRADA OFICIAL.** A distinção é entre perder o
   FIO e perder a PÁGINA: numa queda de fio a mídia continua tocando e cobrir a
   tela apagaria uma cena que o problema não atingiu; uma recarga já derrubou
@@ -968,36 +947,6 @@ deixa o veredito com o `confirmarRede` de sempre. O caso não é raro: o hotspot
   abre no toque): `telasSse` é indexado pelo TOKEN, e pedir pareamento novo a
   cada F5 deixaria a sessão anterior ocupando vaga até o vigia notá-la — a
   terceira recarga seguida receberia "lotado".
-- **O tap é no `busPost`, e isso fecha o eco.** `NativeBridge.busPost` vê 100%
-  dos comandos (o relay nativo roda sempre), e é ali que o `tapLan` os copia para
-  o fan-out. A injeção de volta entra por `MessageBus.post(null,…)`, que não
-  passa pelo `busPost`: **um comando vindo de uma tela não volta para as telas.**
-- **`__rec` viaja NO comando, não numa consulta.** A tela não tem IndexedDB com o
-  acervo, e um "GET /registro/<id>" a cada load seria uma ida-e-volta a mais no
-  caminho crítico do culto. O Controle já tem o registro na mão quando emite o
-  `load`. Tokens de mídia são cunhados pelo Controle (sincronamente); o shell só
-  valida a FORMA (`^[A-Za-z0-9_-]{16,64}$`).
-- **`display-ready` com `__tela` sobe; `tela-status` sobe; o resto morre** —
-  `media-ended`, `mic-status` e `diag-dump` de uma tela morrem no dreno. **E a
-  lista existe nos DOIS lados**: validação que mora só no cliente não é
-  validação (ver `TIPOS_QUE_SOBEM`, acima).
-- **O QUE NÃO VAI PARA A REDE É O EMBED** — iframe de terceiro, que a CSP das
-  telas barra por construção. A rota `/s/<token>` do `EspelhoServidor` era a
-  metade de rede da TRANSMISSÃO DIRETA e ficou sem cliente quando ela saiu do
-  web (v1.8.82): **ela é KOTLIN**, e tirá-la é um degrau de `SHELL_VERSION` e
-  uma Release — o lado seguro é encolher o web primeiro, e foi o que este lote
-  fez.
-- **A APRESENTAÇÃO CHEGA ÀS TELAS, uma `/m/` POR PÁGINA.** Ela é o único kind
-  cujo conteúdo é uma LISTA, e por isso não cabia no `url` do registro saneado:
-  `telaDeckUrls` cunha um token por página (id estável `dk:<item>:<i>`, irmão do
-  `ly:`) e `telaEmpurrarPaginasDeck` os enfileira EM ORDEM — a página 1 chega
-  primeiro, que é a que a tela busca assim que o `load` pousa. No `stage.js`,
-  `pages` passou a aceitar **string ou Blob** (`urlDaPagina`): é o mesmo par
-  `rec.url` × `rec.blob` da mídia principal, aplicado à lista. Sem token forte
-  (`crypto.randomUUID` ausente) a lista inteira é recusada e a cena volta ao
-  aviso — meia lista projetaria uma página em branco no meio do sermão. Oráculo:
-  a metade CONSUMIDORA no `tela-rede.test.mjs`; a produtora (`telaEnriquecer`)
-  segue **sem oráculo**, e isso está dito porque as duas quebram diferente.
 - **A preview não atrasa para telas de comando** (`dePixels` em
   `recalcularAtrasoPreview`): o atraso media o buffer de MSE do espelho de
   pixels; uma tela por comandos aplica no ato, e o alvo é 0.
@@ -1010,7 +959,8 @@ deixa o veredito com o `confirmarRede` de sempre. O caso não é raro: o hotspot
   barra da tela de bloqueio andando para a frente e para trás é o mesmo defeito
   da precedência, um nível abaixo.
 - **Detecção por PRESENÇA, não por versão**, onde há objeto injetável:
-  `telaAtiva()` pergunta `espelhoLigado() && window.__avTelaMidia`.
+  `telaAtiva()` é `telaCanal() && espelhoLigado()`, e `telaCanal()` pergunta
+  `window.__NATIVE__ && window.__avTelaMidia`.
 - **E O `mirrorEstado` É SEMEADO NA ABERTURA** (`lerEspelho()` no `init()`). O
   servidor vive no SHELL e sobrevive ao documento: o OTA aplicado e a morte do
   renderer recarregam o Controle com as telas ainda pareadas. Sem a semente o
@@ -1021,6 +971,10 @@ deixa o veredito com o `confirmarRede` de sempre. O caso não é raro: o hotspot
   culto inteiro, sem erro em lugar nenhum. Pelo mesmo cache nulo
   `somLocalDeveEstar()` desmuta a preview por cima das telas.
 
+O tap no `busPost` (§3.2), o `__rec` no comando (§3.5), o embed que não vai à
+rede e a apresentação por páginas (§5.6), e a rota `/s/<token>` sem cliente (§7)
+estão nas seções da especificação, conferidas na revisão A3.
+
 ### As inversões que precisam estar ditas
 
 1. **O áudio é INTEIRO e local.** A tela toca o arquivo (`/m/`) no **`<video>`**
@@ -1030,21 +984,21 @@ deixa o veredito com o `confirmarRede` de sempre. O caso não é raro: o hotspot
    gesto do visitante).
 
    **A ARMADILHA QUE O MICROFONE DEIXOU, e ela vale para o PRÓXIMO comando de
-   descida** (o recurso saiu na v1.8.89 — ver a seção dele). O dreno é o filtro
-   de SUBIDA; um comando de DESCIDA desce verbatim para toda tela (o
-   `difundirJson` não lê tipo, o `entregar()` do `tela.js` também não), então
-   quem precisa barrá-lo numa tela é uma GUARDA no consumidor. A do `mic` era
-   `if (TELA) return` no topo do `setMic`, e ela existia porque a alternativa era
-   uma proteção **EMPRESTADA DO NAVEGADOR**: uma tela roda em `http://`, e
-   `getUserMedia` é `[SecureContext]`, logo `navigator.mediaDevices` nem existe
-   ali. Proteção assim **se desfaz sozinha** no dia em que a transmissão subir em
-   `https://`, e naquele caso o desfecho seria o primeiro push-to-talk pedindo o
-   microfone **de cada aparelho da rede**. Comando novo que a tela não deva
-   executar nasce com a guarda no consumidor, nunca confiando no ambiente dela.
+   descida** (o recurso saiu na v1.8.89). O dreno é o filtro de SUBIDA; um
+   comando de DESCIDA desce verbatim para toda tela (o `difundirJson` não lê
+   tipo, o `entregar()` do `tela.js` também não), então quem precisa barrá-lo
+   numa tela é uma GUARDA no consumidor. A do `mic` era `if (TELA) return` no
+   topo do `setMic`, e ela existia porque a alternativa era uma proteção
+   **EMPRESTADA DO NAVEGADOR**: uma tela roda em `http://`, e `getUserMedia` é
+   `[SecureContext]`, logo `navigator.mediaDevices` nem existe ali. Proteção
+   assim **se desfaz sozinha** no dia em que a transmissão subir em `https://`, e
+   naquele caso o desfecho seria o primeiro push-to-talk pedindo o microfone
+   **de cada aparelho da rede**. Comando novo que a tela não deva executar nasce
+   com a guarda no consumidor, nunca confiando no ambiente dela.
 2. **O que vaza numa rede aberta mudou de natureza:** antes, a imagem contínua de
    tudo que a igreja projeta; agora, os comandos (títulos, referências, letras) e
-   as mídias carregadas durante a transmissão, por tokens opacos por sessão. A
-   porta nasce aberta (conteúdo público por definição); o teto de 3 sessões e o
+   as mídias carregadas durante a transmissão, por tokens opacos por sessão (§8).
+   A porta nasce aberta (conteúdo público por definição); o teto de 3 sessões e o
    derrubar são o controle real.
 3. **A tela executa CÓDIGO nosso, não só decodifica pixels.** O bundle é o mesmo
    do app, então um bundle quebrado quebra as telas junto — **e o watchdog de
@@ -1052,12 +1006,7 @@ deixa o veredito com o `confirmarRede` de sempre. O caso não é raro: o hotspot
    de o telão de verdade rodar o MESMO `display.js`: quebrar um é quebrar o
    outro, que é o defeito que aparece.
 
-> **Regra de calendário:** a primeira ligada em rede de verdade é **num dia SEM
-> culto** — segunda, terça, quinta ou sexta. A agenda é **sábado de manhã** (o
-> culto principal), mais **domingo e quarta à noite** (menores, opcionais).
->
-> O que a regra protege não é o dia: é ter **folga na frente para desfazer**. Um
-> recurso de rede que só falha na igreja falha na frente da congregação, e o
-> conserto de uma regra em Kotlin é uma Release.
+A regra de calendário (a primeira ligada em rede de verdade num dia SEM culto)
+está ao fim da §7-B.
 
 ---

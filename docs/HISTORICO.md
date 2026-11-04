@@ -978,6 +978,108 @@ Trechos movidos VERBATIM das células da tabela de oráculos (2026-10-30). Cada 
 
 - (eram 0,26 s)
 
+### A narrativa que saiu dos capítulos na fusão (PONTE, TELAO-POR-COMANDOS, CONTROLE-BIBLIOTECA)
+
+#### docs/arquitetura/CONTROLE-BIBLIOTECA.md — Os quatro relatos da v1.5.17 / Os três relatos da v1.5.18
+
+> Narrativa de lote tirada do capítulo na revisão A3 (os relatos do operador, verbatim, e o desenho REVOGADO da v1.5.17/3). As regras e medidas ficaram no capítulo, sob títulos de assunto. A entrada `v1.5.17`/`v1.5.18` do índice já resume cada relato; o texto abaixo é o original do capítulo.
+
+##### v1.5.17 — intro e relato 1
+
+##### Os quatro relatos da v1.5.17
+
+Quatro mensagens do operador sobre a mesma tela, no mesmo minuto, todas com o
+mesmo formato de falha: nada quebra, nada aparece no console, e o que sai é uma
+lista que parece certa a quem não a desenhou.
+
+**1. A altura sobrando** — *"o aproveitamento da altura não está correto, está
+sobrando. É claro que pode haver telas menores, por isso o tamanho deve ser
+ajustável para se encaixar a altura da tela."*
+
+##### v1.5.17/1 — bullet 'a lista passa a RESPIRAR' (REVOGADO na v1.5.19)
+
+- **A lista passa a RESPIRAR** ao abrir uma seção (uma irmã colapsada desce de
+  54,28 para 48,64px seguindo a curva do acordeão). É o recurso: evitá-lo com um
+  `:has()` faria a lista PULAR num quadro.
+
+##### v1.5.17 — relato 2
+
+**2. Os cards do topo sem margem** — *"os cards que ficam no topo das listas,
+como o cards de este sábado do informativo, ou das seções do hinário … estão se
+sobrepondo de forma errada ao espaço em que deveriam ficar, ficando para cima do
+correto, sem margem no topo."*
+
+##### v1.5.17 — item 3 inteiro (o overlay do aberto; REVOGADO pela v1.5.18/2)
+
+**3. O tom do item aberto** — *"a zona do título e thumbnail está ficando
+diferente da cor do corpo desse item ao abrir as opções."*
+
+O `.lib-item.expanded` pintava `background-image: linear-gradient(--surface-sunk,
+--surface-sunk)`, escrito na v5.271 quando a faixa FECHADA já vinha recuada
+(`--item-fill`): era MAIS UM degrau sobre um degrau existente. A v1.5.14 tirou o
+preenchimento do nível 3 e a premissa caiu — o overlay virou o ÚNICO tom da
+faixa aberta, num lugar que a alternância não tem. `--panel` rgb(33,47,61) +
+rgba(0,0,0,.24) = rgb(25,36,46), que é o pixel MEDIDO.
+
+MEDIDO entre o título e o corpo do MESMO item: **1,15:1** no escuro e **1,39:1**
+no claro. **E o achado que decidiu o desenho:** na lista de BUSCA, onde
+`--linha` é OPACO e a `.row` (`z-index: 1`) esconde o overlay, o mesmo par já
+media **1,00:1** — *o app tinha duas leituras da mesma gaveta, e o operador
+abriu a metade quebrada.* Sem o overlay: 1,00:1 nas três listas, e o poço ganha
+separação (1,196 → 1,380 no escuro, 1,338 → 1,853 no claro).
+
+A leitura estava certa; a ESCOLHA entre as duas era do operador, e ele a fez na
+volta seguinte — ver *"a tampa veste o poço"*, no capítulo da v1.5.18. O que
+sobrevive desta metade é o achado: **o app tinha duas leituras da mesma gaveta**,
+e nenhuma delas tinha sido decidida.
+
+##### v1.5.17 — relato 4
+
+**4. A divisória descentrada** — *"o alinhamento vertical das linhas de divisão
+entre os itens das listas … estão ligeiramente descentralizadas para baixo em
+relação aos itens e o vão entre eles."*
+
+##### v1.5.17 — relato 5
+
+**5. A densidade da gaveta de opções** — *"essa seção de opções manteve a altura
+dos elementos muito grande, pois ainda fazia referência a padrões antigos …
+alinhando-se ao padrão e densidade das listas que temos na biblioteca."*
+
+São DOIS defeitos, e o operador acertou o diagnóstico e a data.
+
+##### v1.5.18 — intro, relato 1 e a captura decodificada
+
+##### Os três relatos da v1.5.18
+
+Os três chegaram **depois** de o crescimento estar no aparelho, e é isso que os
+separa dos anteriores: nenhum deles é o recurso falhando — são o resto que ele
+deixou à mostra.
+
+**1. A margem de baixo** — *"o sistema de espaçamento das coleções ainda está
+ficando desregulado … há uma margem maior na parte de baixo. lembrando, a minha
+tela tem um tamanho de pixels, a sua tem outro e a dos usuários podem ter outro
+tamanho."*
+
+Ele está certo e o crescimento está funcionando: decodificados os pixels da
+captura (1440×2938), os blocos medem ~167 image px e os vãos ~30, mas embaixo do
+último sobram ~100. **O que restava não era espaço por repartir — era o
+`padding-bottom` do scroller**, `.8rem` MAIS `env(safe-area-inset-bottom)`.
+
+##### v1.5.18/1 — 'literalmente o relato'
+
+— que é literalmente o que o relato descreve. MEDIDO
+
+##### v1.5.18 — relato 2
+
+**2. O card dono das opções sem cor** — *"as opções de play não estão colorindo
+o card dono daquelas opções, pois ali nos favoritos você pode ver que o card
+titular do item não ganhou a cor de seleção/cor do corpo da caixa de opções."*
+
+##### v1.5.18 — relato 3
+
+**3. A divisória que falta nos favoritos** — *"nessa lista de favoritos também
+não há a linha divisória que temos nas outras listas na biblioteca."*
+
 ## revisão A2 — a dieta do `CLAUDE.md` (sem versão nova; só docs)
 
 O núcleo foi de **315.387 bytes a ~79 kB** sem mudar regra nenhuma: o que era
