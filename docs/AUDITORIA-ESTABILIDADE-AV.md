@@ -7,6 +7,13 @@
 > continua sendo o LAUDO — o cenário, o raciocínio e a ressalva —, que é o que
 > não cabe numa nota de versão.
 >
+> **Conferido na revisão A4 (2026-11-04):** o placar tem 11 linhas, e três
+> seguem sem fechar — **C2** (o empurrão às telas da rede, "medir antes":
+> `telaEmpurrarAgora` existe), **D2** ("em parte": `telasDaRede()` filtra
+> `pronta`, mas a janela da tela que dormiu, 45 s / 4 min, continua) e **D1**
+> ("a medir"), cujo CÓDIGO SUMIU: o `mse.js` saiu e o `StreamProxy.kt` não tem
+> cliente desde a v1.8.82.
+>
 > A tabela abaixo guarda o estado de cada um.
 
 **A pergunta:** *o que pode INTERROMPER a transmissão, ou a mídia que está no ar

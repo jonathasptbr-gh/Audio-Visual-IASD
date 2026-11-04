@@ -339,7 +339,15 @@ ninguém mediu quanto uma página de comparação economizaria de fato.
 
 ## Próximos passos — a receita, para não redescobrir nada
 
-Nada abaixo foi aplicado. Cada item traz a âncora GREPÁVEL — símbolo ou texto
+**Estado conferido na revisão A4 (2026-11-04):** FEITOS o #1 (o gate em
+`autoRefreshCollections`), o #3 (as três afirmações: as duas frases saíram do
+`CLAUDE.md`, e `PRECEDENCIA_TELAO_MS` = `DISPLAY_TIMEOUT` = 2500) e o #4 (a poda,
+revisão A2). ABERTOS: o #2 (a fixture `DIAG` do `tools/registro.test.mjs` sem
+`via`/`interfaces`/`midia`/`ultimo`), o #5 (o `dados.yml` segue em `'17 * * * *'`,
+e a promessa "por hora do dia" do `MEDICAO-DE-ALCANCE.md` de pé) e o #9 (não há
+`tools/versao.mjs`). O texto abaixo é o de quando foi escrito.
+
+Cada item traz a âncora GREPÁVEL — símbolo ou texto
 literal —, e a linha só como dica: número de linha envelhece a cada lote, e este
 arquivo mesmo já viu os dele deslocarem enquanto era escrito.
 
