@@ -38,8 +38,8 @@ const INSTANCIA = 'd' + Math.random().toString(36).slice(2, 10).padEnd(8, '0');
 // (Aqui havia um bloco gêmeo descrevendo um `ESPELHO` — o papel do espelho de
 // PIXELS, removido na v5.187 junto com a constante. O comentário ficou de pé e
 // passou a afirmar, no presente, um identificador que não existe em lugar
-// nenhum. A história dele mora em passado no rodapé deste arquivo e em
-// `docs/ESPELHO-DE-PIXELS.md`.)
+// nenhum. A história dele mora em passado no rodapé deste arquivo e no
+// `docs/HISTORICO.md`, v5.187.)
 const TELA = window.__AV_ROLE__ === 'tela';
 
 // Config de transições. INERENTE ao sistema: toda troca visual é animada com

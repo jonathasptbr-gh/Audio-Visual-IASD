@@ -15,7 +15,7 @@ abandonada → primeira pendente pelo `nº`).
 | 1 | A1 | feita (com um resíduo: `configuracoes-janelas` D, ver o relatório) | sem versão (só `tools/`) | 2026-10-30 | 5 oráculos instáveis consertados, 1 instrumentado, 1 corrida do APP (repasse W2) |
 | 2 | A2 | feita | sem versão (só docs) | 2026-10-30 | `CLAUDE.md` 315 kB → 79 kB, nenhuma regra mudada: detalhe verbatim nos capítulos e em 4 arquivos novos |
 | 3 | A3 | feita (resíduo: as células do `ORACULOS.md` em cadeia só-acrescenta, repasse A5) | sem versão (só docs) | 2026-10-30 → 2026-11-04 | `CONTROLE.md` 770 kB → hub + 11 partes (verbatim provado); duplicatas da A2 fundidas nos 7 capítulos; narrativa do `ORACULOS.md` e da Biblioteca ao `HISTORICO.md`; ~20 fatos velhos corrigidos contra o código |
-| 4 | A4 | feita (com uma pergunta ao operador: o `ESPELHO-DE-PIXELS.md` sai?) | sem versão (só docs + `docs-coerentes`) | 2026-11-04 | índice do `HISTORICO.md` 1,2 MB → 58 kB (notas movidas verbatim às seções); auditorias com o estado conferido (os "26" da 2026-08 são 7 ids + 3 resíduos); `TELAO-POR-COMANDOS.md` 73 → 56 kB com ~25 fatos corrigidos; os repasses da A2/A3 |
+| 4 | A4 | feita | sem versão (só docs + `docs-coerentes`) | 2026-11-04 | índice do `HISTORICO.md` 1,2 MB → 58 kB (notas movidas verbatim às seções); auditorias com o estado conferido (os "26" da 2026-08 são 7 ids + 3 resíduos); `TELAO-POR-COMANDOS.md` 73 → 56 kB com ~25 fatos corrigidos; os repasses da A2/A3 |
 | 5 | A5 | pendente | | | |
 | 6 | A6 | pendente | | | |
 | 7 | W1 | pendente | | | |
@@ -63,6 +63,7 @@ tratou.
 | C1 | A4 | `controle.js` (~linha 715, o comentário do achado `:469` da auditoria 2026-08): diz que "a ÚNICA porta dinâmica é `DEST_ICONE`", que saiu na v1.8.56 — hoje é `ICON[d.ico]`. Lápide |
 | W2 | A4 | `espelho/tela.js`: o cabeçalho cita `db.js:800-801` (número de linha), e "digitação do código" / "o código rotacionou" descrevem o pareamento por código de 3 dígitos, que não existe mais |
 | K4 | A4 | `EspelhoServidor.servirMidia` — o KDoc diz que item em crescimento só sai em `chunked`; conferir contra o `alcanceDe`. O `EspelhoHttpRangeTest` cita o §6 do `TELAO-POR-COMANDOS.md`, que continua existindo (condensado). Não verificados na A4: `EspelhoPares.validar` aceitar token nu e o Cookie ser ignorado (saíram do doc por não terem prova) |
+| A5 | A4 | `tools/display-smoke.mjs` (~linha 30): o bloco "prova a DECISÃO DE DENSIDADE do espelho de pixels" mede uma decisão de um recurso removido na v5.187 (o `VirtualDisplay` de 1280×720) — conferir se a asserção ainda trava algo do telão de hoje ou se é morta |
 
 ## Relatórios
 
@@ -201,9 +202,11 @@ símbolo; §2/§6/§10 de antes da E7 ao `HISTORICO.md` (`## revisão A4`). Os n
 linha do mapa do shell, medidas), `R2ImagemFonte.kt` na árvore, as 4 referências
 ao "capítulo do Controle" nomeiam a parte.
 **Resíduo sem dono:** ainda há citações de relato em `CONTROLE-NAVEGACAO` (~7) e
-`CONTROLE-SORTEIO` (~15); o `ESPELHO-DE-PIXELS.md` cita um "§187" quebrado.
-**PERGUNTA AO OPERADOR:** o `ESPELHO-DE-PIXELS.md` (72 kB, arquivo de recurso
-removido) sai do repositório? O git o guarda; quatro comentários de código e um
-oráculo apontam para o §2.4 dele, e sairiam juntos. As auditorias ficam (abertas).
+`CONTROLE-SORTEIO` (~15); (o "§187" quebrado saiu com o `ESPELHO-DE-PIXELS.md`).
+**O `ESPELHO-DE-PIXELS.md` SAIU** (o operador disse sim, 2026-11-04): §2.3 e
+§2.4 (socket e TLS, citados por `EspelhoServidor`/`EspelhoCert`) foram VERBATIM ao
+§2 do `TELAO-POR-COMANDOS.md`; o §10-A já estava no histórico (v5.154→v5.186).
+Sete comentários repontados (só comentário: diff sem linha de código e
+`pares-de-comentario` verde nos seis de app — sem Release). As auditorias ficam.
 **Verificado:** `docs-coerentes`, os oráculos de Node puro e a "Sanidade da base
 web" verdes. **O operador:** nada a fazer no aparelho.

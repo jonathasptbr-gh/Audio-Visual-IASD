@@ -552,7 +552,7 @@ object EspelhoPares {
         // folha do operador listando duas telas**, e ele não tem em quem tocar
         // em "Desconectar". Pior: a MESMA TV religada é recusada pelo fantasma
         // dela própria, porque o token vive em `sessionStorage` e morre com o
-        // navegador. É a §10-A.10 item 2 corrigida pela metade — ela falhava
+        // navegador. É o item 2 da v5.172 (`docs/HISTORICO.md`) corrigido pela metade — ela falhava
         // justamente no exemplo que o doc nomeia.
         //
         // O piso de [PRAZO_SEM_CONEXAO_MS] não é zelo: uma tela em recuperação

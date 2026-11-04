@@ -657,6 +657,12 @@ segue abaixo, verbatim (títulos internos rebaixados a `####`). Os "relatos" de
 `DESIGN-SYSTEM` (o pedido de geometria e a escada de camadas) viraram regras por
 assunto; toda citação já estava aqui.
 
+**O `ESPELHO-DE-PIXELS.md` saiu do repositório** (decisão do operador): o §2.3
+(o socket nunca em `0.0.0.0`) e o §2.4 (o TLS: sem certificado público para IP
+privado, autoassinado descartado) foram verbatim ao §2 do
+`TELAO-POR-COMANDOS.md`, que é onde o código os procura; o §10-A já estava aqui
+(v5.154 → v5.186). O arquivo inteiro: `git show 6db65c4:docs/ESPELHO-DE-PIXELS.md`.
+
 ### docs/TELAO-POR-COMANDOS.md — cabeçalho (a varredura E0 e a reconciliação com a v5.186)
 
 > Os fatos de código citados vêm da varredura E0 (9 leitores paralelos, 229

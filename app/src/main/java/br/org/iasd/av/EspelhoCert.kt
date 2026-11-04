@@ -14,7 +14,7 @@ import java.util.Base64
  *
  * ## Por que TLS aqui é diferente de TLS em qualquer outro lugar
  *
- * `docs/ESPELHO-DE-PIXELS.md` §2.4 fecha a questão e vale reler antes de mexer:
+ * `docs/TELAO-POR-COMANDOS.md` §2.4 fecha a questão e vale reler antes de mexer:
  * **certificado público para IP privado não existe e nunca vai existir** (a
  * CA/Browser Forum proibiu *Reserved IP Addresses* em 2015 e mandou revogar os
  * remanescentes em 2016), e **autoassinado está descartado** — desde o Android

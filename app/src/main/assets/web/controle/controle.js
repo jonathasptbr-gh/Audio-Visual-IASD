@@ -2288,7 +2288,7 @@ let prevAtrasoMs = 0;
 /**
  * Quanto a preview fica atrás — 0 quando não há por que atrasar.
  *
- * A condição é a mesma frase de `docs/ESPELHO-DE-PIXELS.md`: **sem telão, as
+ * A condição: **sem telão, as
  * telas da rede SÃO o que a congregação vê**. Com um telão conectado ele é a
  * projeção, chega no ato, e atrasar a preview seria dessincronizá-la do que
  * importa. Sem tela nenhuma conectada não há nada para casar.
