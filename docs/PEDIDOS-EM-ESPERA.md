@@ -16,7 +16,7 @@ horário do relato.
 O operador pediu economia: *"não temos tokens então toda ação deve ser fracionada
 e controlada"* — um pacote por vez, cada um com o rito de entrega completo.
 
-**Ordem recomendada ao operador (2026-10-30):** **8 PRIMEIRO (urgente, pedido do operador)**, depois 12, 9, 10, 11; o 6 segue como estudo. (A saída de áudio pela API pública e a dica do "Não Perturbe" saíram na v1.13.16; O Pacote 7 — a faixa de
+**Ordem recomendada ao operador (2026-11-04):** **8 PRIMEIRO (urgente, pedido do operador)**, depois 13 (defeitos que o operador viu no culto), 15, 14, 16, 12, 9, 10, 11; o 6, o 17 (lives) e o 18 (Windows/paisagem) seguem como estudo. (A saída de áudio pela API pública e a dica do "Não Perturbe" saíram na v1.13.16; O Pacote 7 — a faixa de
 álbum no ar destacada — saiu na v1.13.14; o Pacote 5 — o vídeo da semana como item — saiu na v1.13.13; o Pacote 1 — as quatro correções pequenas — saiu na v1.13.11, e a busca no computador foi refeita no servidor na v1.13.12; o Pacote 4 — a lista vertical das Ferramentas e o nome do itinerário no
 título da folha — saiu na v1.13.4; o Pacote 2 — o teclado sobrepondo em todo
 campo de texto — na v1.13.7; o Pacote 3 — a linha de controles do Modo Fácil —
@@ -95,6 +95,154 @@ de divergências (linhas de 2 kB), `ACHADOS-EM-ABERTO.md` (o achado 3 foi
 desconsiderado pelo operador e o 1 respondido — sair), e poda de comentário com
 as DUAS provas da seção "Documentação".
 
+## Pacote 13 — Séries e vídeo da semana: contagem, retenção e playlist
+
+Três relatos do operador (2026-10-30 18:57; 2026-10-31 10:22 e 10:31) e uma
+pendência antiga (*"O vídeo da semana vira OPÇÃO…"*, abaixo) mexem no MESMO
+lugar — `controle/serie.js`, `serieEpisodioDaSemana`, `manterSeriesDaSemana`,
+`resolverSemana`/`semanaAncora` — e saem JUNTOS. Ler antes
+`docs/recursos/SERIES.md`. **Estudo preliminar (2026-11-04), sem medição em
+aparelho:**
+
+| # | relato | o que o código sugere | a fazer |
+|---|---|---|---|
+| a | *"Provai e Vede diz 30 episódios, Informativo 44… quero que conte apenas as versões disponíveis que são mostradas ao usuário"* | a barra do card escreve `total` = `songsBaixaveis(coll.id).length` (`renderCollection`), isto é, TODO item do índice sem `semAudio`; a LISTA desenhada passa por `faixasDaLista` (tira o destaque) e o índice já chega filtrado pela regra de playlist (`serie.js`, espanhol/infantil/Libras). Hipótese: o índice do Informativo guarda itens que a regra aceita mas que não são "um por sábado" (versões curtas, trailers, duplicatas de dublagem) — ou a contagem e a lista leem fontes diferentes. Nenhum dos dois números foi conferido contra o canal | (1) puxar os dois índices num aparelho (o Registro tem o bloco da varredura) e classificar cada item; (2) a contagem passa a ser `faixasDaLista(coll).length` + o destaque — UMA função para lista e número; (3) se sobrar item que não é episódio, a regra entra em `serie.js` com caso no oráculo Node. O número "certo" é o de sábados até hoje no ano corrente — dá para afirmar no oráculo |
+| b | *"vi o vídeo sendo baixado e depois… um deles não estava disponível offline"* | o download pelo atalho universal (`resolverSemana` sem arquivo) vai por `ytAcao(…, 'tocar')` e só DEPOIS chama `manterSeriesDaSemana()` com `.catch(() => {})` — falha calada. Suspeitas: (i) o arquivo baixado para TOCAR não entra na lista `serie` de retenção a tempo e uma limpeza o solta; (ii) a rotina semanal decide "qual é o deste sábado" por data e solta o que ela julga passado (fuso/virada de sábado); (iii) o download da rotina cedeu à mídia no ar (`midiaNoAr`) e não foi retomado | reproduzir com o Registro na mão (a linha do tempo deve mostrar baixou → soltou); tirar o `.catch` mudo (vira linha no Registro, regra do `DIAGNOSTICO.md`); oráculo de Chromium: baixar pelo atalho, rodar a rotina, afirmar que o arquivo sobrevive |
+| c | *"toquei um Provai e Vede e quando fui adicionar na playlist… não havia o Provai e Vede tocando na lista"* | tocar uma mídia isolada substitui a playlist por ela; o atalho universal toca pelo item VIRTUAL (`kind: 'semana'`) e o arquivo resolvido entra por `send(arquivo.id, …)` com `semanaPendente`. Hipótese forte: a substituição da playlist acontece no caminho do "Tocar agora" de um item comum e o caminho `semanaAcao(…, ['tocar'])` / `resolverSemana` a pula — a fila fica a anterior | conferir em que função mora a "fila vira só esta mídia" e chamá-la também no caminho da semana, com o item VIRTUAL na fila (é ele que `ancoraDaFila` procura); oráculo: tocar o atalho → adicionar outra → a fila tem os dois, nessa ordem |
+| d | a pendência antiga do seletor *"Este sábado"/"Atalho universal"* | — | entra aqui, como estava escrita |
+
+Só web, salvo se (b) mostrar causa no `YoutubeGrab.kt`. Vizinho do **Pacote 10**
+(a pergunta "toca sem rede?" do `semana` usa a mesma lista `serie`) — fazer o
+13 antes.
+
+## Pacote 14 — Biblioteca: destinos em botões diretos e miniaturas sem "play"
+
+Dois pedidos (2026-10-31 18:50 e 18:52), mesma superfície — a linha do acervo e
+a gaveta que ela abre.
+
+- **Destinos em botões diretos.** Hoje a gaveta de destinos é MULTI-SELEÇÃO
+  (`destinosNaOrdem`, o "multi-destino" com um aviso só, linha ~14765). O pedido:
+  uma linha de botões quadrados, um toque = uma ação, *"como já é no resto do
+  app"* — **Tocar agora · Cronograma · playlist · Favoritos · Auxiliar de
+  leitura**. Estudo: a ordem dos três destinos é LEI da paleta (`DESTINOS`,
+  `destinosNaOrdem()`), e "Tocar agora" e "Auxiliar de leitura" ficam nas
+  pontas. Cinco botões quadrados (`--hit`) cabem a 360 px; medir a 360×1,25×.
+  "Auxiliar de leitura" precisa de definição: abrir a folha de letra/Bíblia do
+  item sem projetar? (perguntar ao operador antes). O que se perde: "pôr em
+  vários destinos num toque" e o YouTube que baixa UMA vez para vários destinos —
+  com toques separados, o segundo toque reusa o download em curso (conferir que
+  o `YoutubeGrab` não baixa duas vezes). A tabela de divergências cita o
+  multi-destino — muda junto. **Absorve** a parte da gaveta do seletor
+  *"Este sábado"/"Atalho universal"* (Pacote 13d): fazer o 14 ANTES ou no mesmo
+  lote, para não desenhar a gaveta duas vezes.
+- **Miniaturas sem símbolo de play.** O ícone de play nas miniaturas (o
+  `hymn-play-thumb`, o `ICON.play` do item `semana` em `thumbFor`) lê como
+  BOTÃO. Estudo: trocar por ícone de TIPO (nota musical, filme, livro, ícone de
+  série) ou pela capa; o play fica só onde TOCA. Ícone novo entra numa das três
+  escalas (`--icon-*`) — regra da paleta. Conferir os oráculos que procuram o
+  `.hymn-play-thumb` pelo nome.
+
+## Pacote 15 — Biblioteca: rolagem ao abrir coleção e posição depois da tela cheia
+
+Dois relatos (2026-10-30 18:42; 2026-10-31 09:23), ambos de POSIÇÃO no acervo.
+
+- **Margem acima da coleção aberta.** O alinhamento ao abrir (`alinharGrupoNoTopo`
+  e o vizinho `revelarNaLista`) leva o TOPO do card à borda da área de rolagem
+  (`dy = topo do card − topo da lista`), e o card fica colado na fronteira. O
+  pedido: parar com a BASE do card de cima na borda, deixando visível só o vão
+  entre os dois. Estudo: subtrair do `dy` o vão real entre cards (a `margin`/`gap`
+  lida do layout, nunca um número fixo — o vão muda entre Modo Fácil e Avançado);
+  no primeiro card da lista o desconto é zero. Conferir a sombra `rola` (ela
+  cobre os primeiros pixels; o vão precisa ser maior que ela ou a margem some
+  embaixo da sombra). Oráculo geométrico com reversão.
+- **A barra de busca volta no lugar errado depois da tela cheia** (Avançado,
+  com ou sem prévia recolhida) e depois se corrige com um salto. Há QUATRO
+  ouvintes de `fullscreenchange` no Controle (`aoSairDaTelaCheiaGeral`,
+  `aoSairDaPreviaCheia`, `aoMudarCheia` e o da linha ~18503) e o comentário da
+  linha ~25496 já registra que *"o `fullscreenchange` de saída chega ANTES da
+  rotação de volta ao retrato"*. Hipótese: alguém mede/restaura a posição nesse
+  instante (ainda em paisagem) e a correção vem no `resize` seguinte. Estudo:
+  achar quem escreve a posição na saída e adiar para o primeiro `resize` em
+  retrato (ou o fim da trava de paisagem nativa). Medir com Playwright simulando
+  a ordem real: `fullscreenchange` → um quadro → `resize`.
+
+## Pacote 16 — Modo Fácil: indicador de volume flutuante e o botão de tela cheia
+
+Pedido (2026-10-31 09:02). Hoje o volume só tem retorno visual em parte dos
+estados (`mostrarVolumeDaTelaCheia` existe para a tela cheia); na busca da
+Biblioteca ou sem nada tocando as teclas físicas não mostram nada. Estudo:
+
+- um indicador FLUTUANTE único (uma pílula opaca com a barra e o número), que
+  aparece só quando as teclas físicas são usadas (`__avVolumeKey`) e some
+  sozinho em ~1,5 s — o mesmo em toda tela; substitui o indicador atual e o da
+  tela cheia (uma peça só). Ele não pode cobrir o transporte; rodapé flutuante é
+  opaco (regra da paleta);
+- **a pergunta a resolver:** o que a tecla controla sem nada tocando? Hoje ela
+  só é capturada depois que o web pede (`captureVolumeKeys(true)`); se a
+  captura estiver desligada nesse estado, o painel do sistema aparece e o nosso
+  não — decidir se o indicador mostra o volume do APP (preview/telão) ou se a
+  captura passa a valer sempre no Modo Fácil (com a válvula no zero e no teto);
+- o botão exclusivo de volume da linha de controles do Modo Fácil (Pacote 3,
+  v1.13.8) vira **tela cheia** da prévia. Conferir: o Modo Fácil não tem prévia
+  — "tela cheia" ali é a projeção-preview sem TV? Perguntar ao operador antes de
+  desenhar.
+
+Só web, salvo se a captura sempre ligada pedir mudança no `MainActivity`.
+
+## Pacote 17 — ESTUDO: transmissão ao vivo (câmera fixa → YouTube)
+
+Pedido (2026-10-31 11:53): um segundo celular dedicado é a CÂMERA (720p/30 na
+tomada); manda o vídeo pela rede local ao celular de CONTROLE, com ~1 s de
+buffer; o Controle reenvia por RTMP ao YouTube. **Estudo preliminar, nada
+decidido.** Ver antes a auditoria `docs/AUDITORIA-ESTABILIDADE-AV.md` e os
+achados do áudio do espelhamento em `docs/ACHADOS-EM-ABERTO.md` (a "escada da
+transmissão").
+
+| peça | caminho mais curto | dificuldade |
+|---|---|---|
+| sinalização câmera ↔ controle | o servidor das telas da rede (`EspelhoServidor`, Wi-Fi ou ponto de acesso) já pareia aparelhos sem internet; a câmera seria um 4º papel (`camera`) ou uma página servida | baixa — mas é porta nova de SUBIDA (hoje só `TIPOS_QUE_SOBEM`) |
+| captura na câmera | `getUserMedia` exige contexto seguro: no WebView do app ok (`appassets`), mas o projeto NEGA captura por invariante (`onPermissionRequest` nega com log; `tools/sem-captura.test.mjs` cobra). Ligar a câmera só no papel `camera` é decisão de projeto. Num navegador comum, o certificado do `EspelhoCert` é autoassinado (aviso de segurança) | média |
+| WebRTC com 1 s de buffer | possível: `RTCRtpReceiver.jitterBufferTarget` (Chromium) aceita até ~4 s | baixa |
+| **reenvio RTMP** | **nenhum navegador fala RTMP.** O vídeo teria de sair do WebView para o Kotlin — e tirar quadros decodificados do WebView para re-codificar é caro e frágil | **alta** |
+| alternativa sem re-codificar | a câmera codifica H.264/AAC em Kotlin (`MediaCodec`, como o `MuxMp4` já usa o lado de multiplexação) e manda pela LAN; o Controle só REMULTIPLEXA para FLV/RTMP, sem decodificar. Ou mais simples: a câmera manda RTMP DIRETO ao YouTube e o Controle só VÊ (prévia) e manda (início/fim). Perde: sobrepor letra/slides na live (exige compor e re-codificar) | média; RTMP à mão (handshake + FLV) é ~500 linhas Kotlin, ou uma dependência (seria a 5ª exceção, com justificativa) |
+| YouTube | chave de transmissão colada pelo operador (sem OAuth) é o mínimo; criar a transmissão pelo app exige a API do YouTube com OAuth — bem mais | média |
+| riscos de culto | aquecimento e bateria dos dois aparelhos por 2 h; uplink da igreja (720p30 ≈ 2,5–4 Mb/s); o Wi-Fi da igreja passa a carregar câmera + telas da rede; o Controle já hospeda dois WebViews e a `Presentation` (memória) | — |
+
+**Recomendação do estudo:** começar pela via "câmera manda RTMP direto, o
+Controle comanda e mostra a prévia" — é a única que não põe o vídeo da live
+dentro do processo do telão. Vizinho do Pacote 6 (controle remoto do pregador
+pelo mesmo servidor): as duas são PORTAS NOVAS DE SUBIDA e a decisão de
+segurança (código de entrada? só no ponto de acesso?) é UMA só para as duas.
+Pede Release (Kotlin) e decisão sobre a invariante de captura.
+
+## Pacote 18 — ESTUDO: o app no Windows, e o layout de paisagem
+
+Pedido (2026-10-31). **Estudo preliminar.** O fato que decide quase tudo: a
+base web JÁ roda no navegador (o PWA de origem); o que o app Android acrescenta
+é a ponte (`window.AVNative`, 64 métodos). Portar = escrever OUTRA casca, não
+reescrever o app.
+
+| caminho | como | prós | contras |
+|---|---|---|---|
+| **(A) PWA no Edge/Chrome** | instalar a base web como app do navegador | zero código; `showDirectoryPicker` existe; arrasta a janela do telão para o 2º monitor | sem YouTube baixado (CORS), sem cifra, sem séries, sem servidor das telas da rede, sem OTA nosso; dois apps/janelas (o modelo antigo) |
+| **(B) casca nativa com WebView2** (C#/.NET + WinUI ou WinForms) | o MESMO desenho do Android: `SetVirtualHostNameToFolderMapping` dá um origin `https://` (contexto seguro), dois WebView2 no MESMO perfil compartilham IDB/OPFS/BroadcastChannel; o telão é uma JANELA sem borda posicionada no monitor secundário (`Screen.AllScreens`) — mais simples que a `Presentation` | as invariantes 1–3 se traduzem 1:1; `AddHostObjectToScript` faz o papel do `addJavascriptInterface`; Windows tem 2º monitor por cabo HDMI (sem Miracast) | reescrever a ponte em C#: SAF→pastas do disco (mais fácil), `YoutubeGrab`/`TrilhaAudio` dependem do NewPipeExtractor (Java) — no Windows seria `yt-dlp` (executável externo) ou portar; `MuxMp4`, `EspelhoServidor` (HttpListener), OTA, `SlideDeck` (PDF via `Windows.Data.Pdf`), instalador e assinatura de código |
+| (C) Electron/Tauri | casca JS/Rust | menos C# | dependência grande, contra a regra "sem dependências externas" |
+
+**Recomendação do estudo:** (B), em fases — 1) casca + telão no 2º monitor +
+pastas (o culto básico); 2) YouTube/séries; 3) telas da rede e OTA. Guarda no web:
+continua só `if (!window.__NATIVE__)`; os métodos sem par no Windows respondem o
+desfecho inofensivo (a mesma regra do papel `display`). Custo maior: manter DUAS
+cascas a cada degrau de `SHELL_VERSION`.
+
+**O layout de paisagem** é o pedaço que vale JÁ, independente do Windows: serve
+tablet Android, celular deitado e o Windows. Hoje o Controle é retrato fixo
+(manifesto `portrait`) com uma coluna. Estudo: um `@media (orientation:
+landscape) and (min-width: …)` em DUAS colunas (Biblioteca/Cronograma à
+esquerda, prévia + transporte + letra à direita), sem duplicar DOM; folhas viram
+painéis laterais. Riscos: a escada de camadas, as folhas que "não mudam de
+tamanho entre estados", e os oráculos geométricos medidos só em retrato (cada um
+ganha a célula de paisagem). Liberar a rotação no Android é Release; o CSS é OTA.
+
 ## Pacote 6 — Pesquisa, sem implementação
 
 | hora | pedido | o que já se sabe |
@@ -116,8 +264,8 @@ as DUAS provas da seção "Documentação".
   (o Kotlin pode ficar órfão, o lado seguro), e manter as linhas *"Mídia saindo
   agora por"* e *"Não Perturbe"* do Registro (o `saidaDeAudioAlvo` continua).
 - **O "vídeo da semana" vira OPÇÃO da linha do episódio deste sábado, não uma
-  linha a mais** (pedido do operador, 2026-10-30) — **na próxima vez que se
-  mexer nas séries**, não sozinho. Hoje, no AVANÇADO, o card da série tem a
+  linha a mais** (pedido do operador, 2026-10-30) — **agora parte do Pacote 13
+  (item d), com a gaveta desenhada pelo Pacote 14**. Hoje, no AVANÇADO, o card da série tem a
   linha "Vídeo da semana (sempre o atual)" no topo (`semanaLinha` →
   `openSemanaMenu`) ACIMA do episódio da semana. O pedido: tirá-la e pôr na
   gaveta de destinos do EPISÓDIO DESTE SÁBADO um seletor segmentado com DUAS
