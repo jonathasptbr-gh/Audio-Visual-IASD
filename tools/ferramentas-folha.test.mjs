@@ -486,8 +486,8 @@ try {
   // (ver lá). O que sobrevive intacto é a metade "padronize" — as três pintam a
   // MESMA cor —, que é o 9-A e continua sendo o que morde.
   //
-  // Este arquivo já era o dono das TRÊS PORTAS (o bloco 1 trava que elas são
-  // três e a ordem delas), e é por isso que o desenho delas se mede aqui: uma
+  // Este arquivo é o dono das PORTAS (o bloco 1 trava quantas são e a ordem
+  // delas), e é por isso que o desenho delas se mede aqui: uma
   // segunda casa para a mesma faixa divergiria desta no primeiro ajuste.
   //
   // ## O que falha calado aqui, e é tudo
@@ -498,12 +498,6 @@ try {
   //    sozinho quando as três ganharam rótulo. Um lote futuro que reabra esse
   //    argumento não erra alto — ele devolve UMA cor a UM botão, e a palavra do
   //    pedido ("padronize") morre sem nada na tela dizendo por quê.
-  //  - **a discrição virar desaparecimento.** O piso continua escrito no 9-C e
-  //    continua sendo a linguagem do INDISPONÍVEL deste app (`--op-inativo`):
-  //    uma caixa mais quieta que um controle desabilitado deixa de ser
-  //    encontrável e continua tocável, que é o pior par possível. Com o denim
-  //    da v1.8.62 ele passa com folga — e fica, porque é o piso da FAIXA e não
-  //    do valor de um lote.
   //  - **o rodapé PULAR ao entrar na seleção.** É um defeito LATENTE que este
   //    lote fecha: MEDIDO antes dele, `#listFoot` ia de 51,77px (as portas) para
   //    44,00 (a `.selbar`) — 7,77px de pulo debaixo do dedo que segura um item,
@@ -610,8 +604,8 @@ try {
     };
     // O VÉU DO PRÓPRIO ELEMENTO entra na conta: um `:disabled` deste app é
     // `opacity: var(--op-inativo)`, e o que ele PINTA é a superfície dele
-    // composta contra o pai. Sem isto o piso da asserção C seria a superfície
-    // CHEIA de um botão apagado — a cor que ele não tem na tela.
+    // composta contra o pai. Sem isto o botão apagado do par do E mediria a
+    // superfície CHEIA — a cor que ele não tem na tela.
     window.__efetivo = (el) => {
       if (!el) return null;
       const [o, veu] = pilhar(el, true);
@@ -627,21 +621,6 @@ try {
     // descreve — o motor escolhe a sintaxe, e uma delas não é uma lista de
     // números. Aqui ele passa pelo MESMO decodificador do fundo.
     window.__texto = (el) => (el ? rgba(getComputedStyle(el).color).slice(0, 3) : null);
-    // A SONDA DO "ANTES" pousa na MESMA fileira: `--surface` não tem valor
-    // único (a regra R1 o troca por `--surface-sunk` dentro de quem pinta
-    // `--panel`), então medi-lo fora do habitat mediria outro token.
-    // Layout-neutra de propósito — `.portas-row` é flex, e um terceiro filho de
-    // largura real repartiria a faixa e mudaria o que se veio medir.
-    window.__sonda = (css) => {
-      const row = document.querySelector('.portas-row');
-      if (!row) return null;
-      const d = document.createElement('div');
-      d.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;' + css;
-      row.appendChild(d);
-      const c = window.__efetivo(d);
-      d.remove();
-      return c;
-    };
   });
 
   // UM ITEM DE VERDADE NO CRONOGRAMA, porque a seleção múltipla é o segundo
@@ -692,15 +671,14 @@ try {
       await z(320);
       const bib = document.getElementById('bibleBtn');
       const fer = document.getElementById('toolsBtn');
-      const row = document.querySelector('.portas-row');
       const cs = (e) => getComputedStyle(e);
       const tres = [bib, fer];   // as portas da faixa (eram três até a v1.13.4)
       return {
         cores: tres.map((e) => window.__efetivo(e).map((v) => Math.round(v * 100) / 100)),
         // A MESMA COR, SEM ARREDONDAR: `cores` é arredondado para a comparação
-        // de igualdade do 9-A (e para caber no log), e a aritmética de contraste
-        // do 9-B/9-C não pode usá-lo — as sondas do "antes" vêm cruas, e um
-        // centésimo de diferença entre as duas réguas transformava um EMPATE
+        // de igualdade do 9-A (e para caber no log), e a aritmética de ΔE do
+        // 9-B/9-C não pode usá-lo — um centésimo de diferença entre as duas
+        // réguas transformava um EMPATE
         // (que é o que a reversão do 9-B produz) num "passou" por acidente.
         base: window.__efetivo(bib),
         cru: tres.map((e) => cs(e).backgroundColor),
@@ -708,18 +686,7 @@ try {
         raios: tres.map((e) => cs(e).borderRadius),
         fontes: tres.map((e) => cs(e).fontFamily),
         icones: tres.map((e) => cs(e.querySelector('svg')).width),
-        // O fundo em que elas de fato pousam, e não um token digitado aqui.
-        fundo: window.__efetivo(row),
         hit: parseFloat(cs(document.documentElement).getPropertyValue('--hit')),
-        // O "ANTES" deste lote, medido no habitat: `--surface` puro é o que as
-        // LATERAIS tinham, `--btn-accent` é o que a do MEIO tinha.
-        antesLateral: window.__sonda('background: var(--surface)'),
-        antesMeio: window.__sonda('background: var(--btn-accent)'),
-        // O PISO: a linguagem do INDISPONÍVEL deste app — a superfície padrão
-        // de um controle sob `opacity: var(--op-inativo)` (`.sel-btn:disabled`,
-        // `.t-btn:disabled`). Ele é MEDIDO, e não escrito: um número copiado
-        // para cá envelheceria na primeira troca de alfa da paleta.
-        inativo: window.__sonda('background: var(--surface); opacity: var(--op-inativo)'),
         // O TILE ACESO DAS CONFIGURAÇÕES, RENDERIZADO — a régua do 9-B desde a
         // v1.8.63. Ele é lido da PÁGINA e nunca escrito aqui: o operador nomeou
         // *"os cards de tema, rotação, exportar"*, e um hexadecimal digitado

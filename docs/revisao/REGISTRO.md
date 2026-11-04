@@ -16,7 +16,7 @@ abandonada → primeira pendente pelo `nº`).
 | 2 | A2 | feita | sem versão (só docs) | 2026-10-30 | `CLAUDE.md` 315 kB → 79 kB, nenhuma regra mudada: detalhe verbatim nos capítulos e em 4 arquivos novos |
 | 3 | A3 | feita (resíduo: as células do `ORACULOS.md` em cadeia só-acrescenta, repasse A5) | sem versão (só docs) | 2026-10-30 → 2026-11-04 | `CONTROLE.md` 770 kB → hub + 11 partes (verbatim provado); duplicatas da A2 fundidas nos 7 capítulos; narrativa do `ORACULOS.md` e da Biblioteca ao `HISTORICO.md`; ~20 fatos velhos corrigidos contra o código |
 | 4 | A4 | feita | sem versão (só docs + `docs-coerentes`) | 2026-11-04 | índice do `HISTORICO.md` 1,2 MB → 58 kB (notas movidas verbatim às seções); auditorias com o estado conferido (os "26" da 2026-08 são 7 ids + 3 resíduos); `TELAO-POR-COMANDOS.md` 73 → 56 kB com ~25 fatos corrigidos; os repasses da A2/A3 |
-| 5 | A5 | em curso | | 2026-11-04 | |
+| 5 | A5 | feita (resíduo: as outras células em cadeia do `ORACULOS.md`, ver o relatório) | sem versão (só `tools/` + docs) | 2026-11-04 | `docs-coerentes` confere âncora com o slug do GitHub e entre arquivos; `display-smoke` sem a comparação morta do espelho; `wav()` no arnês; JUnit sem rede +14 testes; 4 células do `ORACULOS.md` colapsadas; tempos medidos arquivo a arquivo |
 | 6 | A6 | pendente | | | |
 | 7 | W1 | pendente | | | |
 | 8 | W2 | pendente | | | |
@@ -51,19 +51,15 @@ tratou.
 
 | para | de | achado (arquivo:símbolo — cenário) |
 |---|---|---|
-| A5 | A1 | `tools/configuracoes-janelas.test.mjs` bloco D — reprovou 3× no runner (2213, 2234, 2244: os álbuns semeados não aparecem no corpo da seção em 20 s) e 0 de 9 sob carga local. A A1 não achou a causa e acrescentou ao `obtido` o ESTADO da seção (`aria-expanded` da seta, `pacoteSecaoAberta`, linhas do corpo, grupos do `pacoteEsboco`, `pacoteOcupado`): o próximo vermelho diz se o toque não abriu, se a seção foi remontada fechada ou se os álbuns não entraram no plano. Se o toque não abriu, é defeito do APP (toque perdido) e vai à C8 |
-| A5 | A1 | `tools/boot-nativo.test.mjs` — reprovou no run 2253 (commit `90d2977`, que só mexeu no `REGISTRO.md`: não é defeito do lote) e passou nos runs seguintes. Asserção não lida (o log corta). Mesma família dos instáveis da A1: achar a espera que mede o runner |
 | W2 | A1 | `shared/stage.js`:`aplicarGiroTudo` — SUSPEITA com cenário: `enquadramento-da-camada` reprovou IDÊNTICO nos runs 2229 e 2242 (`pvTextImg` com `cover` mas sem giro, caixa = palco 669×376). Com a camada (`#pvText`) ainda `hidden` quando o `reporGiro` roda, o reenvio por `requestAnimationFrame` desiste em `GIRO_TENTATIVAS` (60 QUADROS, não tempo): se a revelação vier depois disso (runner lento), a imagem sobreposta fica SEM o giro para sempre — sem TV, isso é a projeção. Medir: forçar a revelação depois de 60 quadros; conserto provável: quem revela a camada chama `reporGiro` DEPOIS de revelar o ancestral, ou um `ResizeObserver` na própria `camadaImg`. O oráculo não foi mexido: esperar pelo giro esconderia o defeito |
 | A3 | A2 | Os blocos movidos VERBATIM para `docs/arquitetura/DESIGN-SYSTEM.md` ("As regras da paleta como estavam no núcleo"), `docs/arquitetura/CONTROLE.md` (referência da preview; abertura), `docs/shell/PONTE.md`, `docs/TELAO-POR-COMANDOS.md`, `docs/arquitetura/DISPLAY.md`, `MODELO-DE-DADOS.md` e `MOTOR-STAGE.md` (seções "(do núcleo, revisão A2)" ao fim de cada um) DUPLICAM em parte o que o capítulo já tinha (medido: PONTE.md já cobria ~95% dos símbolos; DESIGN-SYSTEM ~53%). A A2 não deduplicou de propósito (mover sem perder era a cerca); fundir cada seção na casa certa do capítulo é trabalho de capítulo |
-| A5 | A3 | `tools/docs-coerentes.test.mjs` seção 6 — só confere âncora do PRÓPRIO arquivo, e a regex `\]\((#[a-z0-9-]+)\)` pula âncora acentuada (a maioria aqui); `X.md#slug` entre arquivos não é conferido. O piso "≥ 20 âncoras" é frágil (o desmembramento o derrubou a 16; voltou com os "Nesta parte" de cada parte, sem mexer no oráculo). Sugestão: conferir âncoras entre arquivos com o slug do GitHub (a A3 mediu 23 links cruzados, 0 quebrados) |
-| A5 | A3 | `docs/ORACULOS.md` — muitas células são cadeias SÓ-ACRESCENTA: uma "trava" antiga revogada adiante na mesma célula ainda se lê como atual (`ferramentas-folha`: regras da v1.5.19 revogadas na v1.8.62/63, bloco G "três colunas" trocado na v1.13.4; `sombra-de-rolagem` S "deslocamento ZERO" trocado na v1.8.84/v1.11.18; `smoke` "a grade tem três colunas" da v1.4.38; `modo-simples-corpo` R3 revogado na v1.12.56). Colapsar cada célula no estado atual exige ler o arquivo do oráculo — é trabalho de A5. E o `docs-coerentes` só confere o NOME do oráculo, então linha que descreve asserção removida passa verde |
-| A5 | A3 | `tools/verificacao-do-sistema.test.mjs` ~470–475: comentário sobre o `z-index` do `#testePopup`, que deixou de existir (a folha virou seção de Configurações na v1.12.48) — conferir se é lápide |
 | K2 | A3 | `NativeBridge.kt` ~1350: o comentário diz que os métodos de certificado são guardados "como os cinco irmãos", mas a família do espelho tem 9 métodos com guarda `host` — conferir a conta |
+| X3 | A5 | (sem outra etapa em `tools/`; a X3 é a que mede no Chromium) `tools/configuracoes-janelas.test.mjs` D e `tools/boot-nativo.test.mjs` — instáveis no runner, SEM reprodução local (passaram na base e 5× cada a três processos). O `obtido` do D já diz o estado da seção (A1); o próximo vermelho do `boot-nativo` precisa ter a asserção lida no log (o log corta): sem ela, não há o que consertar |
+| A6 | A5 | `docs/BUILD.md` "EM PARALELO, TRÊS DE CADA VEZ": o parágrafo "Os números moram no `apk.yml`… divergiram uma vez (79/99 aqui contra 82/101 lá)" está ESCRITO DUAS VEZES na mesma seção. E os stubs da ponte: `takeShare: () => ''` (13 oráculos) e `espelhoLigar` em `nomes` sem `comCallId` (12) são armadilhas de 60 s latentes (custo hoje: zero) — uma varredura de Node puro que cruze cada stub com o `native.js` fecharia a classe |
 | X2 | A4 | Os que sobraram da `AUDITORIA-2026-08.md` estão ENUMERADOS na tabela "Conferência da revisão A4" no topo dela (7 ids + 3 resíduos; o "26" eram listas brutas). E fora da cerca de qualquer etapa: a `AUDITORIA-2026-09-11.md` tem 23 achados sem RESOLVIDO (entre eles [5] e [33] VERIFICADOS) + 3 extras (imports mortos em `EspelhoServidor.kt` e `ShellUpdater.kt`, o `#bibleTitle`) — vários ([23] [25] [29] [33] [37]) citam linhas do `CLAUDE.md` antigo e devem ter caducado; a `AUDITORIA-EFICIENCIA-2026-09.md` tem #2, #5 e #9 abertos; a `AUDITORIA-ESTABILIDADE-AV.md` tem C2 e D2 abertos (cabeçalhos atualizados) |
 | C1 | A4 | `controle.js` (~linha 715, o comentário do achado `:469` da auditoria 2026-08): diz que "a ÚNICA porta dinâmica é `DEST_ICONE`", que saiu na v1.8.56 — hoje é `ICON[d.ico]`. Lápide |
 | W2 | A4 | `espelho/tela.js`: o cabeçalho cita `db.js:800-801` (número de linha), e "digitação do código" / "o código rotacionou" descrevem o pareamento por código de 3 dígitos, que não existe mais |
 | K4 | A4 | `EspelhoServidor.servirMidia` — o KDoc diz que item em crescimento só sai em `chunked`; conferir contra o `alcanceDe`. O `EspelhoHttpRangeTest` cita o §6 do `TELAO-POR-COMANDOS.md`, que continua existindo (condensado). Não verificados na A4: `EspelhoPares.validar` aceitar token nu e o Cookie ser ignorado (saíram do doc por não terem prova) |
-| A5 | A4 | `tools/display-smoke.mjs` (~linha 30): o bloco "prova a DECISÃO DE DENSIDADE do espelho de pixels" mede uma decisão de um recurso removido na v5.187 (o `VirtualDisplay` de 1280×720) — conferir se a asserção ainda trava algo do telão de hoje ou se é morta |
 
 ## Relatórios
 
@@ -210,3 +206,29 @@ Sete comentários repontados (só comentário: diff sem linha de código e
 `pares-de-comentario` verde nos seis de app — sem Release). As auditorias ficam.
 **Verificado:** `docs-coerentes`, os oráculos de Node puro e a "Sanidade da base
 web" verdes. **O operador:** nada a fazer no aparelho.
+
+### A5 · O arnês e os oráculos — feita (2026-11-04)
+
+**Corrigido:** `docs-coerentes` §6 confere âncora com o slug do GitHub (acento
+preservado — antes o slug o tirava e a regex pulava toda âncora acentuada) e
+`X.md#slug` entre arquivos: 29 → 126 âncoras, 0 quebradas (reversão: o antigo
+aprovava três links errados). `display-smoke`: o bloco da densidade do espelho
+de pixels comparava 961×540 com 960×540 — a reversão (`cqmin` → `cqw`) mostrou
+que só trava "a letra não depende da largura"; saiu, e o oráculo roda em 960×540
+(a TV 1080p). `ferramentas-folha`: três sondas sem leitor (a régua revogada da
+v1.8.62/63) e dois comentários falsos. `wav()` idêntico em quatro oráculos foi
+para o `arnes.mjs` (md5 igual). `junit-sem-rede.sh` rodava sem o
+`EspelhoInterfacesTest` (124 → 138 testes). `ORACULOS.md`: `ferramentas-folha`,
+`sombra-de-rolagem`, `modo-simples-corpo` colapsadas no estado atual lido do
+arquivo (`smoke` conferido: vale); a cadeia foi verbatim ao `HISTORICO.md`.
+Repasses: z-index da Verificação (narrativa, aparada), os seis tratados.
+**Medido:** tempos arquivo a arquivo no `HISTORICO.md` (`## revisão A5`): o
+`funcao-sem-chamador` é 6,9 s dos ~9 s de Node puro; nenhum Chromium preso em
+stub de 60 s; o `display-smoke` gasta ~35 s na cadência real da retomada.
+**Achado e não corrigido:** as outras células em cadeia do `ORACULOS.md` e os
+comentários em cadeia dentro dos oráculos (dezenas; trabalho de várias sessões,
+sem dono); o `esperar`-que-checa em três oráculos (subir não removeria código);
+duas armadilhas latentes de stub (repasse A6). Os dois instáveis não reproduzem
+(repasse X3). Comparação `comm` dos dois sentidos: limpa.
+**PONTO DE PARADA:** nenhum na cerca do cartão; o resíduo é o colapso das
+demais células do `ORACULOS.md`. **O operador:** nada a fazer.

@@ -31,23 +31,12 @@
 //   node tools/verificacao-completa.test.mjs
 // ============================================================================
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, esperar, esperarCortina, porque, checar, falhas, RAIZ_WEB } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, esperar, esperarCortina, porque, checar, falhas, RAIZ_WEB, wav } from './arnes.mjs';
 
 // O ARQUIVO QUE O "SHELL" ENTREGA: um WAV de 20 s, servido pelo mesmo servidor
 // do bundle porque o `ytBaixarNativo` BUSCA a URL devolvida. Cada entrega tem
 // um TOKEN, e o `ytDiscard` do stub o apaga AQUI (pelo `/descartar/<t>`): é o
 // que deixa a sonda de limpeza medir de verdade se o arquivo do shell sumiu.
-function wav(segundos) {
-  const sr = 8000, n = sr * segundos;
-  const b = Buffer.alloc(44 + n * 2);
-  b.write('RIFF', 0); b.writeUInt32LE(36 + n * 2, 4); b.write('WAVEfmt ', 8);
-  b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22);
-  b.writeUInt32LE(sr, 24); b.writeUInt32LE(sr * 2, 28);
-  b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34);
-  b.write('data', 36); b.writeUInt32LE(n * 2, 40);
-  for (let i = 0; i < n; i++) b.writeInt16LE(Math.round(Math.sin(i / 20) * 3000), 44 + i * 2);
-  return b;
-}
 const ARQUIVO = wav(20);
 const descartados = new Set();
 const servidor = servirEstatico(RAIZ_WEB, (req, res) => {

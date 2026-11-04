@@ -26,8 +26,8 @@ mkdir -p "$TRAB/src" "$TRAB/out"
 
 # Os PUROS e os testes deles. Um arquivo que ganhe `import android.*` sai daqui
 # e o script acusa — é a mesma disciplina que o KDoc de cada um promete.
-PUROS=(EspelhoHttp EspelhoPares EspelhoMidiaCache TrilhaAudio)
-TESTES=(EspelhoHttpTest EspelhoHttpRangeTest EspelhoMidiaCacheTest EspelhoParesTest TrilhaAudioTest)
+PUROS=(EspelhoHttp EspelhoPares EspelhoMidiaCache EspelhoInterfaces TrilhaAudio)
+TESTES=(EspelhoHttpTest EspelhoHttpRangeTest EspelhoInterfacesTest EspelhoMidiaCacheTest EspelhoParesTest TrilhaAudioTest)
 
 for f in "${PUROS[@]}"; do
   a="app/src/main/java/br/org/iasd/av/$f.kt"
@@ -83,9 +83,7 @@ java -cp "$CPC" org.jetbrains.kotlin.cli.jvm.K2JVMCompiler \
   2>&1 | grep -vE "^(Picked up|warning:|info:)" || true
 [ -d "$TRAB/out/br/org/iasd/av" ] || { echo "REPROVOU  a compilação falhou"; exit 1; }
 
+# As classes saem da MESMA lista `TESTES`: uma segunda lista à mão é a que
+# esquece o teste novo, e ele compila sem nunca rodar.
 java -cp "$TRAB/out:$CPT" org.junit.runner.JUnitCore \
-  br.org.iasd.av.EspelhoHttpTest \
-  br.org.iasd.av.EspelhoHttpRangeTest \
-  br.org.iasd.av.EspelhoMidiaCacheTest \
-  br.org.iasd.av.EspelhoParesTest \
-  br.org.iasd.av.TrilhaAudioTest 2>&1 | grep -v "^Picked up"
+  "${TESTES[@]/#/br.org.iasd.av.}" 2>&1 | grep -v "^Picked up"

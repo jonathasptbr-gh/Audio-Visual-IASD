@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **revisão A5 (sem versão nova; só `tools/` e docs)** — O ARNÊS E OS ORÁCULOS: âncoras com o slug do GitHub e entre arquivos, o `display-smoke` sem o espelho de pixels, o `wav()` no arnês, o JUnit sem rede com o `EspelhoInterfacesTest`, tempos medidos
 - **revisão A4 (sem versão nova; só docs e o `docs-coerentes`)** — APÊNDICES E ARQUIVO MORTO: o índice deste arquivo vira uma linha por lote, as auditorias dizem o que segue aberto, e o `TELAO-POR-COMANDOS.md` vira especificação do que existe
 - **revisão A3 (sem versão nova; só docs)** — CAPÍTULOS GRANDES: o `CONTROLE.md`
 - **revisão A2 (sem versão nova; só docs)** — A DIETA DO `CLAUDE.md`: 315 kB → ~79 kB sem mudar regra
@@ -627,6 +628,109 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## revisão A5 — o arnês e os oráculos (sem versão nova; só `tools/` e docs)
+
+**revisão A5 (sem versão nova; só `tools/` e docs)** — O ARNÊS E OS ORÁCULOS: o `docs-coerentes` passa a conferir âncora com o slug do GitHub e entre arquivos; o `display-smoke` perde a comparação morta do espelho de pixels; o `wav()` dos oráculos sobe para o arnês; o JUnit sem rede roda o `EspelhoInterfacesTest`; quatro células do `ORACULOS.md` colapsadas no estado atual.
+
+**Medido (onde está o tempo).** Os 23 de Node puro somam ~9 s, e **6,9 s são do
+`funcao-sem-chamador`** (uma regex `\bnome\b` sobre o app inteiro por símbolo:
+1,2 s nas funções, 2,0 s nas constantes, 2,3 s na aridade, 1,2 s no CSS) — 0,5 %
+do passo de Chromium, por isso não foi reescrito. Os 132 de Chromium, três de
+cada vez nesta máquina (4 vCPU): **1.388 s somando o tempo de cada arquivo**; os mais
+caros: `cifra-rolagem` 60,0 s (não é o stub de 60 s: o tempo é a RAMPA real, em
+vãos de 3 a 10 s), `edicao-de-midia` 53,6, `sombra-de-rolagem` 52,4,
+`pacote-ida-e-volta` 48,6, `modo-simples-corpo` 44,8, `display-smoke` 44,8 (dos
+quais ~35 s são o bloco 7-A-ter esperando a cadência REAL do `RETOM_ESPERAS`,
+1,5 + 4 + 10 s — candidato a relógio mockado, não feito), `boot-nativo` 44,7,
+`ferramentas-folha` 43,1, `teclado-das-folhas` 43,0. Nenhum arquivo é múltiplo
+redondo de 60 s por stub. Três reprovam SÓ aqui (`cifra-tela-cheia`,
+`fonte-so-do-par`, `controles-layout`: `setViewportSize` com a janela em tela
+cheia, Playwright 1.63 local contra o 1.56 do pin) — ambiente, não lote.
+
+**Corrigido.**
+- `docs-coerentes` §6: o slug tirava o ACENTO e a regex só via `#[a-z0-9-]+` —
+  as âncoras acentuadas (a maioria) não eram conferidas, e `#reconexao` passaria
+  para "Reconexão". Agora: slug do GitHub (acento preservado, pontuação fora,
+  `-1`/`-2` para título repetido, título dentro de bloco de código ignorado) e
+  `X.md#slug` conferido contra os títulos de lá. 29 → 126 âncoras (23 entre
+  arquivos), 0 quebradas. Reversão: um `.md` de prova com cinco links — o antigo
+  aprova os cinco, o novo reprova os três errados e aprova os dois certos.
+- `display-smoke`: o cabeçalho afirmava no presente que "o espelho renderiza
+  este `/display/` num `VirtualDisplay` de 1280×720" (removido na v5.187), e o
+  bloco 7 comparava a letra a 961×540 com a de 960×540. Reversão: trocar o
+  `7.4cqmin` da mensagem por `4.16cqw` reprova SÓ essa asserção — ela trava "a
+  letra não depende da largura", que não é decisão nenhuma do telão de hoje. O
+  oráculo passa a rodar em 960×540 (a TV 1080p a 320 dpi, que continua valendo
+  para a `Presentation`), com as outras quatro perguntas do bloco 6; 44 → 43 ok.
+- `ferramentas-folha`: três sondas medidas e nunca lidas (`antesLateral`,
+  `antesMeio`, `inativo` — a régua de discrição revogada na v1.8.62/63), o
+  `__sonda` que só elas usavam e o `fundo` sem leitor; o comentário que dizia
+  "o piso continua escrito no 9-C" (o 9-C o SUBSTITUIU) e "TRÊS PORTAS" (são
+  duas desde a v1.13.5). 244 ok antes e depois.
+- `wav(segundos)` copiado IDÊNTICO em quatro oráculos (`link-perde-a-vez`,
+  `verificacao-completa`, `youtube-fim-segurado`, `modo-simples-espera`) foi
+  para o `arnes.mjs` (md5 das saídas iguais a 20 e 40 s).
+- `tools/junit-sem-rede.sh`: o `EspelhoInterfaces.kt` (puro, com teste) faltava
+  nas DUAS listas à mão; a lista de classes do `JUnitCore` agora sai do `TESTES`.
+  124 → 138 testes (rodado com o Gradle 8.14.3 local).
+- `verificacao-do-sistema` I2: a narrativa do `z-index` da v1.10.10 saiu do
+  comentário (não era lápide: dizia "foi"); prova 1 e `pares-de-comentario` ok.
+- `ORACULOS.md`: `ferramentas-folha` (bloco 9 e a folha como lista), `sombra-de-
+  rolagem` (S), `modo-simples-corpo` (R3/U) colapsados no estado atual LIDO DO
+  ARQUIVO; `smoke` ("a grade tem três colunas") conferido: continua valendo. A
+  cadeia que saiu vai abaixo, verbatim.
+
+**Achado e não corrigido.**
+- Stubs da ponte: nenhuma allowlist deixa um método que o oráculo usa
+  pendurado (o método ausente de `nomes` faz `B.x` lançar, e o `call()` resolve
+  `null` na hora). Ficam DUAS armadilhas latentes: `takeShare: () => ''` em 13
+  stubs (método com `callId` que nunca resolve: o `pumpShare` fica 60 s ocupado)
+  e `espelhoLigar` em `nomes` sem estar no `comCallId` em 12. Custo medido hoje:
+  zero. Uma varredura de Node puro que cruze cada stub com o `native.js`
+  fecharia a classe.
+- `esperar(pg, fn, msg, …)` que já CHECA, idêntico em três oráculos
+  (`gaveta-no-download`, `hinario-tela`, `lista-da-biblioteca`) e uma variante
+  no `modo-facil-fonte`: subir para o arnês não removeria código. Os
+  `aparelho`/`responderDialogo`/`fimDaExportacao` dos quatro `pacote-*` não são
+  iguais entre si.
+- As outras células em cadeia do `ORACULOS.md` (há dezenas: "E A vX…",
+  "Desde a vX…") e os comentários em cadeia dentro dos próprios oráculos.
+- Instáveis: `configuracoes-janelas` D e `boot-nativo` passaram em todas as
+  execuções locais (base + 5× cada sob carga) — continuam sem reprodução.
+
+### revisão A5 — o texto das células do `ORACULOS.md` que saiu ao colapsá-las no estado atual
+
+> Verbatim, na ordem da célula. A célula de hoje diz o que o oráculo trava AGORA (lido do arquivo); aqui fica a cadeia de lotes que a produziu.
+
+**`ferramentas-folha.test.mjs`** (12 trecho(s)):
+
+- **A NAVEGAÇÃO DO APP: uma tela e duas folhas** (v1.3.10 → v1.5.0). As três coisas se medem juntas porque são UMA decisão. Trava que a faixa e a máquina dela (`TAB_ORDER`, `SWIPE_TABS`, `switchTab`) não existem, que o rodapé tem as TRÊS portas na ordem do pedido, que a folha da Bíblia é o MESMO molde da de Ferramentas (não invade cabeçalho nem controles, cobre a lista, e tem host PRÓPRIO — ela disputava o `<ul>` do Cronograma), que as duas folhas não se empilham, que o alternador da Biblioteca troca de DESENHO (seta × ✕, medido no renderizado: a folha do documento não atravessa a árvore-sombra de um `<use>`) e que o voltar do Android SOBE dentro da Bíblia antes de fechá-la. A asserção que carrega o lote é GEOMÉTRICA — a caixa da folha contra o cabeçalho e a caixa de controles —, porque uma folha de corpo inteiro continua funcionando e continua bonita: o que ela perde é o transporte e a preview à vista, e isso não aparece em teste de comportamento nenhum. Trava também que `activeTab` continua em `'imports'` com a folha aberta (se ela trocasse a aba, o rodapé onde mora a porta dela deixaria de ser desenhado).
+- **E AS TRÊS PORTAS FICAM QUIETAS E BAIXAS** (v1.5.19), com dez asserções cujo tema é *"padronize"*: as três iguais em cor COMPOSTA (parse por CANVAS — `color-mix` computa como `color(srgb 1 1 1 / .49)` e uma regex de números lê (1,1,1)), altura, raio, ícone e família de fonte; a superfície mais quieta que o `--btn-accent` era **e acima do tom do `--op-inativo`**, que é a linguagem do INDISPONÍVEL neste app e o piso duro; o rodapé **não pulando** ao entrar na seleção múltipla; **a fatia SEGUINDO o token**, que é outra pergunta e sem a qual um patch que engorde as duas inquilinas por igual passa o bloco inteiro (provado: com o `padding` de volta E o token em 51,77px, tudo verde); a `.selbar` NÃO ficando discreta, porque os `.sel-btn` em cima dela cairiam a ΔE 2,11 no tema claro e o app perderia a distinção entre disponível e indisponível na barra que hospeda o EXCLUIR; o raio continuando UM SÓ para as quatro peças; a FAIXA não transbordando (a do `<span>` sozinha é uma TAUTOLOGIA — na pilha ele nunca é clampado, e ela passa com o rótulo a 403px dentro de um botão de 93); e as duas que só falham NO APP ou por acidente — a `font-family` da porta do meio (lá ela é `<button>` e não `<label>`) e o ícone das três saindo do MESMO token, cuja divergência a altura nunca denuncia porque a `.import-row` é `align-items: stretch`
+- **E O BLOCO 9-B TROCOU DE SINAL NA v1.8.62**, e a troca é uma REVOGAÇÃO declarada: ele nasceu exigindo que a superfície das portas fosse mais QUIETA que as duas que elas tinham, e o operador pediu o contrário (*"quero eles em azul … sólidos"*) — uma asserção que continuasse cobrando discrição reprova o app CERTO.
+- **E OS BLOCOS 9-B E 9-C TROCARAM DE RÉGUA NA v1.8.63, pela terceira vez e agora com DENTE.** A v1.5.19 cobrava discrição; a v1.8.62 inverteu e cobrou destaque em ΔE00 contra o `--bg` — e essa era TAUTOLOGIA: medido, ela passa em SEIS de seis cores, inclusive no denim que o operador acabou de recusar, em mostarda, verde e roxo. Hoje o
+- **9-B é IDENTIDADE** (a porta é o `.qs-tile.qs-on` RENDERIZADO, lido da página com o painel ABERTO — fechado ele mede largura zero —, na cor CRUA e na COMPOSTA, mais o traço) e o
+- **9-C é DISTINÇÃO** (a porta difere da `.selbar`, as duas inquilinas da mesma fatia). O 9-C anterior — o piso do `--op-inativo` — caiu junto com a régua de discrição: com o azul de "ativado" ele reprova por 0,0006 no tema claro sobre uma tela certa. Por ΔE00 e não por luminância: no claro a barra (`--bg`, #dfe3e7) e o azul (#dcebfe) medem 1,07:1, e o que os separa é o CROMA.
+- **E A v1.13.3 (dois blocos):**
+- **G** a GRADE — a folha abre nos seis tiles na ordem da tabela (três colunas, duas fileiras, uma altura; a tinta e o raio do `.qs-tile.qs-on` de Configurações), sem voltar, sem rodapé e sem painel; o toque ANIMA (a camada `.ferr-saindo` sem ids, o corpo com animação viva) e abre o Tempo NO modo do tile; dentro, o título é o nome da ferramenta e fica PARADO no centro; o voltar do Android devolve a grade (da grade, fecha; o voltar NA TELA, `#toolsBack`, saiu na v1.13.6); fechada de dentro de uma ferramenta, ela REABRE na grade; reabrir no meio da descida não é engolido; o PONTO de "no ar" só no tile de quem projeta; o Timer contando mostra o NÚMERO no lugar do ícone e ele ANDA com a grade à vista; o tile do Itinerário não para a contagem, e o do Relógio depois dele volta às roletas; com `prefers-reduced-motion` nada anima.
+- **Desde a v1.13.4 a grade é uma LISTA VERTICAL**: o G afirma UMA coluna de seis linhas empilhadas com uma altura só, e o número de quem conta à DIREITA do nome com o ícone à vista; o título do Itinerário é o nome do ativo.
+- **V** a geometria da lista, em três células (412×892, 360×640 e 360×640 com a raiz em 20px) — seis linhas da mesma altura e nenhuma abaixo do `--hit`; onde seis pisos cabem, de borda a borda do corpo da folha (±2px) e SEM ROLAR, e onde não cabem, o corpo rola só o que falta —, o ícone à esquerda do nome na mesma linha e nenhum nome cortado — e o NOME DO ITINERÁRIO no cabeçalho (`#itinTitulo` no `.tools-head`, o `#toolsTitle` escondido, nenhuma faixa de título no painel: o ajuste é o primeiro filho), o toque nele abrindo a gaveta logo abaixo (medida depois de a animação assentar) com o lápis, e "Ferramentas" de volta fora dele. Reversão: a folha da v1.13.3 reprova as da lista; o piso fixo de 42px (sem contêiner) reprova as células de 360×640; sem o piso `--hit` e sem o vão que cede, reprova a célula da raiz em 20px; o JS e o HTML da v1.13.3 reprovam as duas do cabeçalho.
+- **Desde a v1.13.5:** 1 cobra DUAS portas (Bíblia · Ferramentas); 2, o ícone À ESQUERDA do rótulo nas duas, na mesma linha, o grupo centrado e sem reticências; 3 e V, que NA LISTA a folha tem as BORDAS DA PORTA de Ferramentas (±1px); G, que a folha estreita se ALARGA animando ao abrir uma ferramenta (uma animação de `left` na folha), que dentro dela a folha é larga com o título no centro, e que o número contando toma o LUGAR do nome; V mede cinco células (430×900, 412×892, 360×640, 1,25× e 360×600 com 1,3× — a da exceção, com PREMISSA de que ali seis pisos não cabem): sem rolar, de borda a borda, nenhuma linha abaixo do `--hit` fora da exceção, o título "Ferramentas" inteiro e o ✕ dentro, e nenhum nome cortado. Reversões medidas: sem a classe `.estreita` (ou sem as bordas dela) reprovam 3, G e V; sem a animação, G; sem o teto de largura medido, V (nomes e título cortados a 360×640); com o piso `--hit` de volta, V na célula da exceção (rola); com a pilha de volta nas portas, 2.
+- **Desde a v1.13.6 (a porta vira seta):** G afirma que na lista NÃO HÁ cabeçalho (`display: none`) e a seta `#toolsFechar` está à vista, e que numa ferramenta HÁ o cabeçalho com o nome e o ✕, sem seta e sem NENHUM voltar na tela (nem `#toolsBack`, nem `.back-btn` na folha); a volta pelo caminho do Android devolve a lista sem cabeçalho e com a seta. V mede SEIS células (entrou 360×640 com 1,3×): a margem de cima e a de baixo da lista iguais ao vão entre as linhas (a folha não tem recuo vertical próprio), sem rolar; a SETA no retângulo EXATO da porta (±1px nas quatro bordas); as MARGENS maiores que as da v1.13.5 (recuo de dentro da linha acima de `--sp-4`, linha × folha acima de `--sp-2`); e a letra menor que a MEDIDA da v1.13.5 em cada célula (o número antigo está na tabela da célula: na tela estreita o corpo já era o teto da largura, e só ele diz que encolheu ali).
+
+**`sombra-de-rolagem.test.mjs`** (6 trecho(s)):
+
+- **S** varre a folha da playlist automática em 3 larguras × 3 escalas de fonte × 11 estados e exige deslocamento ZERO da folha E do rodapé dela; sem acervo plantado a conta não varia, e a asserção passava por vácuo sobre um dos quatro motores que veio medir.
+- **S** passou a medir o RÓTULO do primário nas mesmas 99 células: um nome só ("Tocar agora") e zero reticências a 390 e 430px nas três escalas, com o limite de 320px acima de 1× DECLARADO na asserção em vez de escondido.
+- **E A v1.8.84 REESCREVEU O BLOCO S, porque a peça que ele media saiu do lugar.** Os botões desceram do `.popup-fecho` para a `.sorteio-barra`, ACIMA da lista de resultados — então a folha voltou a variar de altura (110 a 338px) e **nenhum botão se move**: deslocamento ZERO da barra nas 33 células. Medir a altura da folha reprovaria um estado que atende o pedido do operador melhor que o anterior; a régua passou a ser o TOPO DA BARRA, que é onde os botões estão. A faixa ganhou uma quinta peça (a pílula, um `<span>` de propósito — a varredura é por FILHO e não por `button`, senão ela fica de fora justo onde pode desalinhar) e a regra de altura única da v1.8.61 teve de ganhar o novo ancestral: MEDIDO, 53,2px do primário contra 42,4 dos quatro irmãos, a v1.8.61 inteira de volta por um caminho que nenhuma daquelas asserções via.
+- **E o limite de 320px da v1.8.62 caiu**: cinco peças não cabem numa linha de 320px, a faixa passou a QUEBRAR, e com os três destinos na segunda linha o rótulo cabe nas NOVE células — o `if (w >= 390)` que separava aquela largura das outras deixou de existir.
+- **A ASSERÇÃO NOVA VEIO DA REVERSÃO**: tirar o `flex-wrap` deixava as três outras VERDES, porque o piso do primário faz o rótulo caber empurrando os três QUADRADOS para fora da tela — nenhuma delas os olhava. Hoje o bloco mede que nenhuma peça sai da faixa, e as três reversões da v1.8.84 (a quebra, o piso, a altura única) reprovam 1, 3 e 3.
+- **A v1.11.18 NÃO MUDOU O CÓDIGO DO BLOCO S, só o que o segura:** a barra voltou à base do `.popup-fecho` e a régua continua sendo o topo dela, mas o que a mantém parada é a altura FIXA da folha (`#sorteioPopup .popup-sheet`) — sem ela, o estado `zzzznadaaqui` encolhe a folha e a barra sobe; reversão medida: reprova nas três larguras.
+
+**`modo-simples-corpo.test.mjs`** (2 trecho(s)):
+
+- **Bloco R (v1.12.21): a moldura não fica quadrada** — por quadro, todo instante em que a folha ainda pinta o painel tem o raio do cartão (R1 abrir, R2 fechar; reversão: sem o `border-radius` na transição o R2 reprova), e fechada ela não pinta nada (R3).
+- **E O CARD FECHADO (v1.12.56)**: o R3 (*"FECHADA a folha volta a não pintar nada"*) foi REVOGADO — agora todo quadro da ida e da volta pinta o painel e a folha fechada é um card arredondado; U1/U2 nos dois temas (`comTema`) medem o fundo opaco igual ao do `.simple-nowplaying` e diferente do fundo da tela, o mesmo raio e as mesmas bordas laterais da placa da letra e do card do nome; G3c trava o avançado (fechada, a folha segue sem pintar). Com a regra desfeita, R3 e U1 reprovaram; U2 e G3c passam nas duas versões
 
 ## revisão A4 — apêndices e arquivo morto (sem versão nova; só docs e o `docs-coerentes`)
 
