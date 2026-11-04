@@ -16,16 +16,16 @@ link. As linhas `L…` são do arquivo antigo.
 | Estrutura do repositório — a árvore anotada (164–347) | `docs/ESTRUTURA.md` (novo), verbatim; núcleo: árvore condensada + a linha `**33 arquivos Kotlin…` e o "meça antes de citar" |
 | Invariantes 1–9, `KeepVisibleWebView` (348–437) | fica no núcleo, inteiro |
 | Reconexão e morte do renderer (438–525) | `docs/arquitetura/DISPLAY.md#reconexão-e-morte-do-renderer` (o sufixo "(do núcleo, revisão A2)" saiu na A3), verbatim; núcleo: 5 pontos |
-| A ponte: superfície 64/76, globais, `farolContar`, URLs servíveis, token `/saf/`, privilégio do Controle, épocas (526–621) | `docs/shell/PONTE.md` (seção nova ao fim), verbatim; núcleo: 6 pontos |
+| A ponte: superfície 64/76, globais, `farolContar`, URLs servíveis, token `/saf/`, privilégio do Controle, épocas (526–621) | `docs/shell/PONTE.md` (seção nova ao fim), verbatim; na A3, fundida no corpo do capítulo (o que já estava saiu da cópia; `farolContar` virou seção própria ao fim); núcleo: 6 pontos |
 | `SHELL_VERSION` (622–639) | idem PONTE.md; núcleo: o piso 83, sem guarda web, forma > acréscimo |
 | As QUATRO filas, main thread do espelho, `ytCancel`, `minShell` = válvula, mudar forma (640–725) | idem PONTE.md (já coberto em "As QUATRO filas"); núcleo: tabela de 4 linhas |
 | Barramento: relay paralelo (726–737) | `docs/arquitetura/MODELO-DE-DADOS.md` (seção nova ao fim), verbatim |
-| O DRENO do papel `tela` (738–788) | `docs/TELAO-POR-COMANDOS.md` (seção nova ao fim), verbatim |
+| O DRENO do papel `tela` (738–788) | `docs/TELAO-POR-COMANDOS.md` (seção nova ao fim), verbatim; o sufixo "(do núcleo, revisão A2)" saiu na A3 |
 | A referência da preview (789–829) | `docs/arquitetura/CONTROLE.md` (seção nova ao fim), verbatim; desde a A3, `docs/arquitetura/CONTROLE-TELAO.md` |
 | O `load` carrega ponto e estado (830–863) | `docs/arquitetura/MOTOR-STAGE.md` (seção nova ao fim), verbatim |
 | Barramento (as quatro, juntas) | núcleo: 4 pontos |
 | Segundo plano · Sessão de mídia · OTA (864–958) | ficam no núcleo, inteiros (já eram resumo + capítulo) |
-| Telão por comandos: mapa, vias, AP (959–1018) | `docs/TELAO-POR-COMANDOS.md` (seção nova ao fim), verbatim; núcleo: 9 pontos, inclusive a regra de calendário |
+| Telão por comandos: mapa, vias, AP (959–1018) | `docs/TELAO-POR-COMANDOS.md` (seção nova ao fim), verbatim; na A3, "O mapa de hoje" — vias, AP e calendário fundidos na §7-B; núcleo: 9 pontos, inclusive a regra de calendário |
 | As peças · As decisões · As inversões (1019–1156) | idem TELAO |
 | Séries · Cifra · Pacote (1157–1242) | ficam no núcleo, inteiros (já eram resumo + capítulo) |
 | A abertura por trás dos panos (1243–1311) | `docs/arquitetura/CONTROLE.md` (seção nova ao fim), verbatim; núcleo: 3 pontos; desde a A3, `docs/arquitetura/CONTROLE-TELAO.md` |

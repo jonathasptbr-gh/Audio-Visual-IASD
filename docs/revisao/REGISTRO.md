@@ -14,7 +14,7 @@ abandonada → primeira pendente pelo `nº`).
 |---|---|---|---|---|---|
 | 1 | A1 | feita (com um resíduo: `configuracoes-janelas` D, ver o relatório) | sem versão (só `tools/`) | 2026-10-30 | 5 oráculos instáveis consertados, 1 instrumentado, 1 corrida do APP (repasse W2) |
 | 2 | A2 | feita | sem versão (só docs) | 2026-10-30 | `CLAUDE.md` 315 kB → 79 kB, nenhuma regra mudada: detalhe verbatim nos capítulos e em 4 arquivos novos |
-| 3 | A3 | em curso (retomada; falta: narrativa do `ORACULOS.md`; fundir as seções A2 de `PONTE.md` e `TELAO-POR-COMANDOS.md`) | sem versão (só docs) | 2026-10-30 | `CONTROLE.md` 770 kB → hub de 18 kB + 11 partes `CONTROLE-<ÁREA>.md`, verbatim provado; duplicatas da A2 fundidas em 5 de 7 capítulos |
+| 3 | A3 | feita (resíduo: as células do `ORACULOS.md` em cadeia só-acrescenta, repasse A5) | sem versão (só docs) | 2026-10-30 → 2026-11-04 | `CONTROLE.md` 770 kB → hub + 11 partes (verbatim provado); duplicatas da A2 fundidas nos 7 capítulos; narrativa do `ORACULOS.md` e da Biblioteca ao `HISTORICO.md`; ~20 fatos velhos corrigidos contra o código |
 | 4 | A4 | pendente | | | |
 | 5 | A5 | pendente | | | |
 | 6 | A6 | pendente | | | |
@@ -58,6 +58,10 @@ tratou.
 | A4 | A2 | `docs/shell/README.md` tem DUAS linhas para o `MuxMp4.kt` (190 e 191 linhas, textos diferentes) — uma deve sair. E a árvore anotada de `docs/ESTRUTURA.md` (verbatim do `CLAUDE.md` antigo) não lista o `R2ImagemFonte.kt`, embora diga 33 arquivos (a árvore condensada do `CLAUDE.md` novo já o lista) |
 | A5 | A3 | `tools/docs-coerentes.test.mjs` seção 6 — só confere âncora do PRÓPRIO arquivo, e a regex `\]\((#[a-z0-9-]+)\)` pula âncora acentuada (a maioria aqui); `X.md#slug` entre arquivos não é conferido. O piso "≥ 20 âncoras" é frágil (o desmembramento o derrubou a 16; voltou com os "Nesta parte" de cada parte, sem mexer no oráculo). Sugestão: conferir âncoras entre arquivos com o slug do GitHub (a A3 mediu 23 links cruzados, 0 quebrados) |
 | A4 | A3 | referências genéricas ao "capítulo do Controle" sem a parte (válidas pelo hub, mas podiam nomeá-la): `CIFRA.md:532`, `PACOTE.md:801`, `FONTE-DE-DADOS-LOUVORJA.md:558`, `CAMADA-DE-TEXTO.md:245` |
+| A5 | A3 | `docs/ORACULOS.md` — muitas células são cadeias SÓ-ACRESCENTA: uma "trava" antiga revogada adiante na mesma célula ainda se lê como atual (`ferramentas-folha`: regras da v1.5.19 revogadas na v1.8.62/63, bloco G "três colunas" trocado na v1.13.4; `sombra-de-rolagem` S "deslocamento ZERO" trocado na v1.8.84/v1.11.18; `smoke` "a grade tem três colunas" da v1.4.38; `modo-simples-corpo` R3 revogado na v1.12.56). Colapsar cada célula no estado atual exige ler o arquivo do oráculo — é trabalho de A5. E o `docs-coerentes` só confere o NOME do oráculo, então linha que descreve asserção removida passa verde |
+| A5 | A3 | `tools/verificacao-do-sistema.test.mjs` ~470–475: comentário sobre o `z-index` do `#testePopup`, que deixou de existir (a folha virou seção de Configurações na v1.12.48) — conferir se é lápide |
+| A4 | A3 | `docs/TELAO-POR-COMANDOS.md` §0 (notas v5.188→v5.223) é diário de lote que repete o `HISTORICO.md`, e §1–§10 ainda afirmam fatos velhos (`?tela=1`, `EspelhoService`, "overlay do código", números de linha); o cabeçalho avisa, mas o texto pode virar especificação + ponteiros. O mesmo padrão "relatos do operador" em `CONTROLE-NAVEGACAO.md:336`, `CONTROLE-SORTEIO.md:357`, `DESIGN-SYSTEM.md:1428/2492` |
+| K2 | A3 | `NativeBridge.kt` ~1350: o comentário diz que os métodos de certificado são guardados "como os cinco irmãos", mas a família do espelho tem 9 métodos com guarda `host` — conferir a conta |
 
 ## Relatórios
 
@@ -116,7 +120,7 @@ sanidade verdes; a "Sanidade da base web" (o script do workflow) verde.
 **Repasses:** dois (A3: deduplicar as seções verbatim nos capítulos; A4: linha
 dupla do `MuxMp4.kt` no mapa do shell e o `R2ImagemFonte.kt` fora da árvore). **O operador:** nada a fazer.
 
-### A3 · Capítulos grandes — parcial (2026-10-30)
+### A3 · Capítulos grandes — feita (2026-10-30, retomada 2026-11-04)
 
 **Feito:** `docs/arquitetura/CONTROLE.md` 769.843 → 18.241 bytes: virou HUB (mapa das
 partes, o índice por assunto, e as três regras do Controle inteiro — feedback,
@@ -150,4 +154,25 @@ em `CONTROLE-BIBLIOTECA.md`, e os dois blocos verde × azul (v1.8.55/56) do
 DESIGN-SYSTEM, que repetem em parte o item fundido (guardam medidas).
 **Repasses:** A5 (âncoras entre arquivos no `docs-coerentes`), A4 (4 referências
 genéricas ao Controle). **O operador:** nada a fazer — só documentação.
+**Retomada (2026-11-04):** `ORACULOS.md` 326 → 315 kB — 99 trechos de narrativa
+de 50 células movidos verbatim ao `HISTORICO.md` (prova: 0 ausentes, 0
+não-verbatim, 20 costuras listadas); as maiores células lidas inteiras, o resto
+varrido por padrão; as cadeias "a vX acrescentou o bloco N" ficaram (dizem o que
+trava) → repasse A5. `PONTE.md` 77 → 67 kB: a seção A2 fundida e REMOVIDA, o
+único absorvido; fatos corrigidos contra o código: 76 servidos / SEIS órfãos
+(eram 75/cinco), 9 internos (eram 8), `ytFetch`/`deckPages` sem prazo por serem
+trabalho LONGO de máquina (não "uma pessoa responde"), só 5 métodos na main
+thread, contagens de linha do cabeçalho. `TELAO-POR-COMANDOS.md` 77 → 73 kB: o
+DRENO ficou (sem o sufixo); "como estava no núcleo" virou "O mapa de hoje"
+(~12 blocos duplicados viraram ponteiros, o único foi a §3.2/§3.5/§5.6/§7-B);
+fatos corrigidos: a ordem do gesto (gesto ANTES da rede), `oferecerGesto` não
+existe desde a v5.218, sem `/s/<token>`, sem dreno de `mic-status`, Range
+malformado é ignorado (200 inteiro; só 416 para faixa válida que não cabe), o
+texto real do aviso de embed. `CONTROLE-BIBLIOTECA.md`: os "relatos" da
+v1.5.17/v1.5.18 viraram seções por assunto; citações e o desenho revogado ao
+`HISTORICO.md`; a regra "a lista RESPIRA" (revogada na v1.5.19) reescrita.
+**Verificado:** `docs-coerentes` e a "Sanidade da base web" verdes.
+**Repasses novos:** A5 (cadeias do `ORACULOS.md`; comentário de `z-index` no
+oráculo da Verificação), A4 (§0 e fatos velhos do TELAO; mais "relatos" em três
+capítulos), K2 (a conta "cinco irmãos" no `NativeBridge.kt`). **O operador:** nada.
 

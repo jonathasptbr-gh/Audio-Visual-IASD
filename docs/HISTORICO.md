@@ -24,7 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
-- **revisão A3 (sem versão nova; só docs)** — CAPÍTULOS GRANDES: o `CONTROLE.md` (770 kB) partido VERBATIM em onze partes por área (`docs/arquitetura/CONTROLE-*.md`) mais um hub de 18 kB; as seções "(do núcleo, revisão A2)" fundidas no `DESIGN-SYSTEM.md`, no `CONTROLE-TELAO.md`, no `DISPLAY.md`, no `MODELO-DE-DADOS.md` e no `MOTOR-STAGE.md`; três fatos velhos corrigidos no `DESIGN-SYSTEM.md`. A narrativa tirada está na seção `## revisão A3`.
+- **revisão A3 (sem versão nova; só docs)** — CAPÍTULOS GRANDES: o `CONTROLE.md` (770 kB) partido VERBATIM em onze partes por área (`docs/arquitetura/CONTROLE-*.md`) mais um hub de 18 kB; as seções "(do núcleo, revisão A2)" fundidas no `DESIGN-SYSTEM.md`, no `CONTROLE-TELAO.md`, no `DISPLAY.md`, no `MODELO-DE-DADOS.md` e no `MOTOR-STAGE.md`; três fatos velhos corrigidos no `DESIGN-SYSTEM.md`. A narrativa tirada está na seção `## revisão A3` (com a das células do `ORACULOS.md`, ~11,5 kB, na retomada).
 - **revisão A2 (sem versão nova; só docs)** — A DIETA DO `CLAUDE.md`: 315 kB → ~79 kB sem mudar regra. O detalhe de recurso saiu VERBATIM para o capítulo dono e para quatro arquivos novos (`docs/ESTRUTURA.md`, `docs/DIVERGENCIAS-WEB-NATIVO.md`, `docs/BUILD.md`, `docs/DIAGNOSTICO.md`); o bloco "Versão atual" perdeu os resumos de lote (os sem casa aqui foram para a seção `## revisão A2`). Inventário: `docs/revisao/A2-INVENTARIO.md`.
 - **revisão A1, retomada (sem versão nova; só `tools/`)** — `favoritos-fechar` A8 lia o cabeçalho de partida antes de a TAMPA assentar (espera fixa de 150 ms, medida num `requestAnimationFrame`) e o assentamento no meio da curva saía como o cabeçalho andando 10,34px; agora espera a geometria parada em dez quadros. O `configuracoes-janelas` D (três vermelhos, sem reprodução local) passa a imprimir o ESTADO da seção no `obtido`. O `busca-na-tela` saiu da lista: o vermelho dele foi a primeira run, consertada no lote seguinte.
 - **revisão A1 (sem versão nova; só `tools/`)** — QUATRO ORÁCULOS INSTÁVEIS DEIXAM DE MEDIR O RUNNER. `display-smoke` 5-B: o zero do `saindoDeCena` não é a ENTREGA do status final pelo `BroadcastChannel`, e ele chegava depois de o espião ser zerado — agora uma marca pelo MESMO canal do telão fecha a janela. `tela-inteira` B3: premissa e leitura num `evaluate` só (um evento do `<video>` sem duração reescrevia o `seekEl` entre os dois). `excluir-em-cena`: a espera casava com o vídeo ANTERIOR ainda no fade de saída (o `<video>` é reaproveitado) — exige a fonte nova. `servidor-indisponivel` D1: o `apurarFonte` depois do `setOffline` devolvia a apuração da ABERTURA em voo (partida online → `servidor`); o oráculo espera ela acabar. O `enquadramento-da-camada` (giro ausente, idêntico em dois runs) é corrida do APP e foi a repasse para a W2. Restam `configuracoes-janelas`, `busca-na-tela` e `favoritos-fechar` (ver `docs/revisao/REGISTRO.md`).
@@ -724,6 +724,361 @@ interessa a este capítulo é onde ela mora e o que ela cobre."*
   e pede leitura frase a frase).
 
 ---
+
+### revisão A3 — a narrativa de lote que saiu de `docs/ORACULOS.md`
+
+Trechos movidos VERBATIM das células da tabela de oráculos (2026-10-30). Cada item é um fragmento cortado da célula do oráculo nomeado; a célula guarda o que ele trava.
+
+#### verificacao-do-sistema.test.mjs
+
+- — trocá-los foi literalmente o defeito da v1.9.14
+- , achada por revisão adversarial:
+- , e o operador procurou e não achou
+- (era *"já refaz sozinho"* sobre um veredito de seis dias)
+- **E O BLOCO I2 (v1.10.10) trava a CAMADA da folha**: relato do operador — *"atualmente ela fica atrás das configurações, exigindo um toque extra para fechar as configurações"*. A tabela `POPUPS` já tinha a ordem certa (o voltar sempre devolveu Configurações); faltava o `z-index` de `#testePopup`, ainda no 200 padrão de todo `.popup-backdrop` — com o mesmo degrau de `#fadePopup`, quem decidia era a ORDEM DO DOCUMENTO, e a folha de Verificação está declarada ANTES da de Configurações no HTML. A PROVA É HIT-TEST (`elementFromPoint` no cabeçalho da folha, nunca o `z-index` computado lido de volta — a mesma régua do `biblioteca-camadas.test.mjs`), com as duas folhas primeiro ASSENTADAS (`getAnimations()` + `finished` em cada `.popup-sheet`: medir em pleno deslizar dava um retângulo fora do lugar de repouso, com o `bottom` da folha de baixo além da própria tela) e uma PREMISSA provando que o ponto medido cai dentro da área da folha de Configurações — sem ela a medição não provaria a disputa entre as duas. **UMA REVERSÃO MEDIDA**.
+- , e um Registro de operador mostrou esse host mudo com o áudio, a Bíblia e o catálogo respondendo bem no mesmo minuto, sem nenhuma linha dizendo isso
+- , e o Registro do operador voltou a mostrar *"não respondeu em 6 s"* com o mesmo teto em vigor —
+- um Registro de aparelho com hotspot 4G trazia *"O servidor entrega as imagens de fundo — não respondeu em 9 s"*, e a linha não dizia qual dos DOIS pedidos em série (catálogo, foto) calou.
+- (o `z-index` acima ficou para a história): I2 mede por hit-test que o cabeçalho dela chega à própria seção dentro da folha, sem ✕ próprio;
+- e o operador viu "sem internet" com a fonte respondendo
+
+#### ferramentas-folha.test.mjs
+
+- Ele nasceu para as Ferramentas virando folha e cresceu no lote em que a faixa de abas saiu inteira — as três coisas
+- — um defeito LATENTE de 7,77px que o lote corrigiu, contra a promessa escrita do próprio `--hit-foot` —
+- , que foi como este oráculo derrubou o lote na primeira passada
+- Hoje ele cobra o destaque nas MESMAS duas propriedades viradas (luminância contra o `--surface` puro, ΔE00 contra o `--btn-accent` que o pedido cita) e, no lugar da faixa de mix, o TOKEN: a porta É o `--accent-fill` lido da página, porque `#2f557f` escrito aqui seria a cor num segundo lugar. O piso do 9-C fica — ele é da FAIXA, não do valor de um lote.
+- **O BLOCO L MUDOU DE ASSUNTO NA v1.9.3**: ele media o PARAR no rodapé das Mensagens, e hoje a linha
+
+#### sombra-de-rolagem.test.mjs
+
+- , e a tentativa foi revertida no mesmo lote
+- , e foi assim que dez `::-webkit-scrollbar` sobreviveram a vários lotes com um comentário que os creditava pelo efeito de outra coisa
+- ela nasceu com um PONTO CEGO que uma reversão expôs —
+- , e a ausência dela é o que deixou um salto de 57px nascer sob 63 oráculos verdes:
+- (os dois números coincidiam até a v1.8.62, e o que os separava eram 5,59px de `--bg`)
+- O `feedback-de-confirmacao.test.mjs` tinha o mesmo laço e recebeu o mesmo conserto.
+
+#### controles-layout.test.mjs
+
+- (era o relato)
+- (foi o que a primeira versão provou)
+- (a reversão do `libAoGirar` passava na primeira versão)
+
+#### download-do-acervo.test.mjs
+
+- , e são a segunda rodada do mesmo relato
+- o que a revisão adversarial derrubou antes da publicação
+- (pedido do operador)
+- o relato *"durante meus testes"*** (v1.10.7), que uma SONDA de abertura real mediu antes de qualquer conserto:
+- **E o que a revisão adversarial da v1.10.7 confirmou:**
+- o relato *"ainda não estão apresentando imagens"* expôs que a passada sabia dizer QUANTAS faltavam, nunca POR QUÊ — a causa morria com a sessão em que rodou.
+
+#### smoke.mjs
+
+- ele foi escrito para proteger o desenho da v1.5.9 e por isso APROVAVA o defeito — exigia que seção e card dividissem o tom (1,00:1), exigia a moldura nos dois níveis, e nunca comparava tampa × faixa, o par que valia 1,00:1 no escuro. Hoje afirma
+- , que a v1.5.14 não media e por isso deixou passar dois defeitos
+- , que é o relato
+- , e o relato foi o desalinhamento
+- **E O CICLO DO TEMA, NOS DOIS APARELHOS** (v1.8.62): o primeiro toque tem de MUDAR A COR, e a metade que faltava é a do aparelho CLARO — este arquivo emula ESCURO desde a v1.8.49, e no escuro o percurso sempre esteve certo, então o defeito (a lista fixa mandando o primeiro toque para o claro, num aparelho que já mostrava claro) sobreviveu de pé. A segunda asserção guarda que os TRÊS estados continuam no ciclo e que o toque sem cor é o que VOLTA ao automático — o único cujo rótulo anuncia o que aconteceu. **E A INDICAÇÃO DO AUTOMÁTICO (v1.8.63), nas DUAS metades que o operador pediu.** A do ÍCONE é PIXEL dentro da caixa do `<svg>`, comparando o automático com a escolha que casa com a cor de agora — um teste de `display` aprova a marca transladada para fora do tile ou em `opacity: 0`, que é a armadilha do `qs-alt` um nível abaixo; a do TEXTO cobra a palavra nos três estados e que ela nunca fique vazia. E o `aria-label` passou a exigir "Automático" por NOME: num botão ele SUBSTITUI o conteúdo, então o leitor de tela não lê a linha da tela — é o único canal acessível deste recurso, e a asserção anterior aceitaria a entrega que o apaga.
+- **E A v1.8.64 TIROU O AUTOMÁTICO, e o bloco do tema virou DOIS estados.** As metades da v1.8.62 e da v1.8.63 saíram com o recurso que mediam; as três que ficam são
+- O `data-tema-escolha` saiu do carrier..
+
+#### saida-de-audio-e-economia.test.mjs
+
+- — foi por isso que o atalho abriu o painel de volume no aparelho do operador
+- , e o aparelho do operador engolia o pedido em silêncio
+- , já antes do lote da revisão
+
+#### progresso.test.mjs
+
+- era 1,5 até a v1.12.38 —
+- (eram os quatro)
+- (eram 58, 68, 82)
+- (antes seguia o piso ao 99)
+- (eram 5,1 e 9,2 s no 99)
+- ; eram 62 e 74
+
+#### som-nao-vaza-ao-perder-a-tela.test.mjs
+
+- — relato do operador: *"estava tocando uma música no telão, e eu desconectei a tela, e a mídia seguiu tocando no smartphone"*
+
+#### previa-animacao.test.mjs
+
+- Pedido do operador: *"faça uma animação para a colapsação da preview, ao invés de piscar e mudar de tamanho… na esquerda o botão de mudo não está mantendo a mesma posição relativa de antes e depois de colapsar, diferente do botão de tela cheia, que se mantém imóvel"*.
+
+#### cartao-preso-no-telao.test.mjs
+
+- Relato do operador: *"ao tocar uma música, exibir um verso bíblico e tocar em 'apenas wallpaper', o preview se comporta corretamente e remove a bíblia da tela, mas na exibição do display, a bíblia segue sendo exibida. Isso aconteceu algumas vezes, mas não sempre."*
+
+#### fila-limpa-a-cena.test.mjs
+
+- Relato do operador: *"ao limpar um item da playlist, ele remove ele da exibição, mas quando limpo uma playlist inteira, ele mantém a mídia no player ao invés de limpar corretamente."*
+
+#### modo-facil-fonte.test.mjs
+
+- Pedido do operador: *"dois botões FAB dentro da caixa do auxiliar de leitura, os dois no canto inferior direito, um acima do outro, em uma coluna. Sem molduras, apenas os botões"*.
+
+#### dados-moveis.test.mjs
+
+- Pedido do operador: *"crie uma opção para permitir ou não o uso de dados móveis para as funções do app"*.
+
+#### letra-avulsa.test.mjs
+
+- Relato do operador: *"ao selecionar apenas a letra, sem música tocada, a letra é apresentada, mas não são exibidos as imagens de fundo de ilustração"*.
+
+#### portas-presenca.test.mjs
+
+- , pedido do operador: *"aumentar a fonte ou ao menos colocar elas em negrito"*
+
+#### excluir-colecao.test.mjs
+
+- Relato do operador: *"o botão de excluir coleção não tem feedback após a confirmação, nada mostrando que está excluindo. E ele nem parece se atualizar automaticamente após excluído"*.
+
+#### busca-limpar.test.mjs
+
+- Pedido do operador: *"preciso de um 'x' dentro da caixa de texto que permita apagar a palavra atual e diretamente digitar uma nova palavra"*.
+
+#### leitor-letra-topo.test.mjs
+
+- Relato do operador: *"a sua posição está se mantendo entre buscas e leituras de diferentes músicas, não voltando para o topo"*.
+
+#### modo-simples-busca.test.mjs
+
+- Pedido do operador: *"Ocultar os botões de play, stop, e volumes no modo simples, durante uma busca … aceite o enter/pesquisar do teclado … a seção de resultados não tem mais de 20% de tela disponível"*.
+
+#### modo-simples-biblioteca-tamanho.test.mjs
+
+- Pedido do operador: *"aumentar os itens para aproveitar completamente esse vão … os itens dentro dos álbuns, alguns chegam a estar tão pequenos que fica estranho de tocar"* · *"fica uma fina linha sem essa cor, logo abaixo da thumbnail"*.
+
+#### video-tela-cheia.test.mjs
+
+- Pedido do operador: *"no modo simples, quando tocar um vídeo … ligue o modo tela cheia … remova os botões de corte de imagem, anterior e próximo … ao final do vídeo, sai automaticamente"* · *"em tela cheia, mostre uma barra momentânea quando o volume for alterado"*.
+
+#### tela-inteira.test.mjs
+
+- Pedido do operador: *"não pode simplesmente fazer uma pseudo tela cheia? … sem exigir a interação do usuário"*.
+
+#### busca-divisoria.test.mjs
+
+- Pedido do operador: *"durante a pesquisa na biblioteca, a listagem de itens de resultados não possui uma linha divisória entre os resultados"*.
+
+#### modo-facil-card.test.mjs
+
+- Pedido do operador: *"colocar a seção de nome de mídia atual e barra de progresso que temos no modo simples dentro de um card. Semelhante ao que já é feito na seção controles do modo avançado. Onde cada seção fica em um card"*.
+
+#### kotlin-argumento-nomeado.test.mjs
+
+- Foi a v1.8.27 — o `baixando` entrou antes do `bytes` na `SyncService.Progress`, e o compilador só reprovou porque a assinatura da `updateProgress` ainda não tinha o parâmetro; tivesse tido, o `bytes` cairia no `baixando` e a notificação voltaria a mostrar BYTES como se fossem ITENS (o defeito da v5.118), com o lote verde.
+
+#### quadrado-de-icone.test.mjs
+
+- — o operador via os MESMOS dois destinos (ao Cronograma e favoritar) em três caixas: 42,4×53,2, 42,4×42,4 e 42×36,6, a última com o desvio mudando com a tela
+
+#### feedback-de-confirmacao.test.mjs
+
+- o operador via *"alguns com efeito verde, outros em cinza, outros em azul"*, e
+
+#### desvio-cors-fotos.test.mjs
+
+- **A PRIMEIRA RODADA achou um defeito de verdade antes de qualquer commit**: `fetchImagemDaOrigem` chamava `Louvorja.ehCdnSemCors(alvo)` passando a URL INTEIRA, não o HOST — `ehCdnSemCors` espera um host nu, então a comparação nunca batia e o desvio nunca era tomado, mesmo para o host pinado (o bloco A crashava com `TypeError: Failed to fetch` antes do conserto).
+
+#### miniaturas-estaveis.test.mjs
+
+- O relato foi *"a thumbnail dos vídeos baixados do YouTube ainda estão se quebrando entre seções… é provável que seja por falta de internet"*, e **não era a rede**
+
+#### sorteio-lista-de-resultados.test.mjs
+
+- , que foi como quatro asserções do `sorteio-tela` passaram a medir uma fila de três onde pediam uma
+
+#### sorteio-tela.test.mjs
+
+- **E ele achou um DEFEITO que o pedido não menciona:**
+- , a pedido: *"é auto explicativo"*
+- **E O LOTE COBROU UMA CORREÇÃO NO PRÓPRIO ARQUIVO:**
+- (era 22,4px contra 5,6 — duas folgas empilhadas)
+
+#### docs-coerentes.test.mjs
+
+- A faxina de 2026-09-07 achou QUINZE fatos falsos à mão, e cinco classes deles são mecânicas:
+- (dois estavam assim, e existiam só dentro dos blocos de lote que a faxina apagou)
+
+#### kotlin-simbolo-importado.test.mjs
+
+- (foi a v1.8.6)
+
+#### manifest-provedores.test.mjs
+
+- Foi o "0 KB" que custou CINCO lotes de campo, e o modo de falhar
+
+#### site-grade-e-carrossel.test.mjs
+
+- três relatos do operador num oráculo, e
+
+#### transporte-sem-cena.test.mjs
+
+- — dois relatos do operador
+- (dois relatos do operador)
+
+#### rodape-da-playlist.test.mjs
+
+- — dois pedidos do operador num arquivo
+
+#### eixo-de-acao.test.mjs
+
+- , pedido do operador
+
+#### youtube-fim-segurado.test.mjs
+
+- , os dois aprovados pelo operador
+- No Registro de 15/10 a gravação de 1,5–1,9 s era a `makeThumb` no caminho, e a barra abria o vídeo em 61 e 73.
+
+#### lista-da-biblioteca.test.mjs
+
+- **E os quatro relatos da v1.5.17** (bloco `D`)
+- **E os três relatos da v1.5.18** (bloco `E`), que chegaram DEPOIS de o crescimento estar no aparelho e por isso não são o recurso falhando — são o resto que ele deixou à mostra:
+- que o cético separou e nenhuma
+
+#### modo-simples-corpo.test.mjs
+
+- Pedidos do operador: *"a biblioteca é a tela principal sem mídia, com mídia o auxiliar de leitura"* · *"mantenha a barra de buscas sempre visível … o foco na caixa de buscas abre a biblioteca"* · *"feedback do toque, com calma, depois a animação de fechamento da biblioteca e a de entrada do auxiliar de leitura. Atualmente a tela está simplesmente piscando"*.
+
+#### cifra-tela-cheia.test.mjs
+
+- , e o que saía era a folha andando 19% do arquivo ao deitar
+- , e foi por aí que um desvio de 11,2px no X passou
+- — foi assim que a primeira escrita do bloco "reprovou" a correção certa
+
+#### pacote-por-grupos.test.mjs
+
+- — foi o defeito da Biblioteca na v1.5.14 —
+- — e foi por essa fresta que a seta e as cores passaram
+
+#### glifos.test.mjs
+
+- (foi o `#icoGirar` → `#icoPaisagem` deste lote que o motivou)
+
+#### sem-captura.test.mjs
+
+- (renomeado neste lote)
+
+#### funcao-sem-chamador.test.mjs
+
+- — foi assim que o `filesResumo` sobreviveu, com o único consumidor sendo um espião de oráculo afirmando que ele NÃO é chamado
+
+#### deslize-nao-vaza.test.mjs
+
+- (foi assim que a primeira tentativa do arquivo "reprovou" a correção certa)
+
+#### hidratacao-perde-a-vez.test.mjs
+
+- — foi assim que ela derrubou o `cena.test.mjs` no runner passando 7/7 fora dele —
+
+#### troca-de-versiculo.test.mjs
+
+- (eram 0,26 s)
+
+### A narrativa que saiu dos capítulos na fusão (PONTE, TELAO-POR-COMANDOS, CONTROLE-BIBLIOTECA)
+
+#### docs/arquitetura/CONTROLE-BIBLIOTECA.md — Os quatro relatos da v1.5.17 / Os três relatos da v1.5.18
+
+> Narrativa de lote tirada do capítulo na revisão A3 (os relatos do operador, verbatim, e o desenho REVOGADO da v1.5.17/3). As regras e medidas ficaram no capítulo, sob títulos de assunto. A entrada `v1.5.17`/`v1.5.18` do índice já resume cada relato; o texto abaixo é o original do capítulo.
+
+##### v1.5.17 — intro e relato 1
+
+##### Os quatro relatos da v1.5.17
+
+Quatro mensagens do operador sobre a mesma tela, no mesmo minuto, todas com o
+mesmo formato de falha: nada quebra, nada aparece no console, e o que sai é uma
+lista que parece certa a quem não a desenhou.
+
+**1. A altura sobrando** — *"o aproveitamento da altura não está correto, está
+sobrando. É claro que pode haver telas menores, por isso o tamanho deve ser
+ajustável para se encaixar a altura da tela."*
+
+##### v1.5.17/1 — bullet 'a lista passa a RESPIRAR' (REVOGADO na v1.5.19)
+
+- **A lista passa a RESPIRAR** ao abrir uma seção (uma irmã colapsada desce de
+  54,28 para 48,64px seguindo a curva do acordeão). É o recurso: evitá-lo com um
+  `:has()` faria a lista PULAR num quadro.
+
+##### v1.5.17 — relato 2
+
+**2. Os cards do topo sem margem** — *"os cards que ficam no topo das listas,
+como o cards de este sábado do informativo, ou das seções do hinário … estão se
+sobrepondo de forma errada ao espaço em que deveriam ficar, ficando para cima do
+correto, sem margem no topo."*
+
+##### v1.5.17 — item 3 inteiro (o overlay do aberto; REVOGADO pela v1.5.18/2)
+
+**3. O tom do item aberto** — *"a zona do título e thumbnail está ficando
+diferente da cor do corpo desse item ao abrir as opções."*
+
+O `.lib-item.expanded` pintava `background-image: linear-gradient(--surface-sunk,
+--surface-sunk)`, escrito na v5.271 quando a faixa FECHADA já vinha recuada
+(`--item-fill`): era MAIS UM degrau sobre um degrau existente. A v1.5.14 tirou o
+preenchimento do nível 3 e a premissa caiu — o overlay virou o ÚNICO tom da
+faixa aberta, num lugar que a alternância não tem. `--panel` rgb(33,47,61) +
+rgba(0,0,0,.24) = rgb(25,36,46), que é o pixel MEDIDO.
+
+MEDIDO entre o título e o corpo do MESMO item: **1,15:1** no escuro e **1,39:1**
+no claro. **E o achado que decidiu o desenho:** na lista de BUSCA, onde
+`--linha` é OPACO e a `.row` (`z-index: 1`) esconde o overlay, o mesmo par já
+media **1,00:1** — *o app tinha duas leituras da mesma gaveta, e o operador
+abriu a metade quebrada.* Sem o overlay: 1,00:1 nas três listas, e o poço ganha
+separação (1,196 → 1,380 no escuro, 1,338 → 1,853 no claro).
+
+A leitura estava certa; a ESCOLHA entre as duas era do operador, e ele a fez na
+volta seguinte — ver *"a tampa veste o poço"*, no capítulo da v1.5.18. O que
+sobrevive desta metade é o achado: **o app tinha duas leituras da mesma gaveta**,
+e nenhuma delas tinha sido decidida.
+
+##### v1.5.17 — relato 4
+
+**4. A divisória descentrada** — *"o alinhamento vertical das linhas de divisão
+entre os itens das listas … estão ligeiramente descentralizadas para baixo em
+relação aos itens e o vão entre eles."*
+
+##### v1.5.17 — relato 5
+
+**5. A densidade da gaveta de opções** — *"essa seção de opções manteve a altura
+dos elementos muito grande, pois ainda fazia referência a padrões antigos …
+alinhando-se ao padrão e densidade das listas que temos na biblioteca."*
+
+São DOIS defeitos, e o operador acertou o diagnóstico e a data.
+
+##### v1.5.18 — intro, relato 1 e a captura decodificada
+
+##### Os três relatos da v1.5.18
+
+Os três chegaram **depois** de o crescimento estar no aparelho, e é isso que os
+separa dos anteriores: nenhum deles é o recurso falhando — são o resto que ele
+deixou à mostra.
+
+**1. A margem de baixo** — *"o sistema de espaçamento das coleções ainda está
+ficando desregulado … há uma margem maior na parte de baixo. lembrando, a minha
+tela tem um tamanho de pixels, a sua tem outro e a dos usuários podem ter outro
+tamanho."*
+
+Ele está certo e o crescimento está funcionando: decodificados os pixels da
+captura (1440×2938), os blocos medem ~167 image px e os vãos ~30, mas embaixo do
+último sobram ~100. **O que restava não era espaço por repartir — era o
+`padding-bottom` do scroller**, `.8rem` MAIS `env(safe-area-inset-bottom)`.
+
+##### v1.5.18/1 — 'literalmente o relato'
+
+— que é literalmente o que o relato descreve. MEDIDO
+
+##### v1.5.18 — relato 2
+
+**2. O card dono das opções sem cor** — *"as opções de play não estão colorindo
+o card dono daquelas opções, pois ali nos favoritos você pode ver que o card
+titular do item não ganhou a cor de seleção/cor do corpo da caixa de opções."*
+
+##### v1.5.18 — relato 3
+
+**3. A divisória que falta nos favoritos** — *"nessa lista de favoritos também
+não há a linha divisória que temos nas outras listas na biblioteca."*
 
 ## revisão A2 — a dieta do `CLAUDE.md` (sem versão nova; só docs)
 
