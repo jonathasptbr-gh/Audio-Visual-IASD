@@ -105,9 +105,8 @@ const docs = [];
 {
   // Os apêndices FALAM do passado por definição: o histórico é verbatim e não é
   // reescrito ("uma decisão revogada é anotada na nota que a revoga"), as
-  // auditorias descrevem o estado de uma data, e o `ESPELHO-DE-PIXELS` é
-  // arquivo de um recurso removido.
-  const APENDICES = /^docs\/(HISTORICO|AUDITORIA-.*|ESPELHO-DE-PIXELS)\.md$/;
+  // auditorias descrevem o estado de uma data.
+  const APENDICES = /^docs\/(HISTORICO|AUDITORIA-.*)\.md$/;
 
   const NOMEADAS = new Map([
     // Os andaimes de PWA, removidos na v5.48 — os documentos explicam a AUSÊNCIA.

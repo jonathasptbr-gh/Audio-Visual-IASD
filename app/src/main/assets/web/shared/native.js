@@ -908,7 +908,7 @@
     ).then((r) => r === true),
 
     // O CERTIFICADO do espelho — o degrau opcional de TLS. Ver
-    // `docs/ESPELHO-DE-PIXELS.md` §2.4 para por que autoassinado está
+    // `docs/TELAO-POR-COMANDOS.md` §2.4 para por que autoassinado está
     // descartado e por que o caminho é um NOME que o operador controla.
     //
     // `espelhoCertImportar` devolve a FRASE do erro, e `''` quando deu certo —

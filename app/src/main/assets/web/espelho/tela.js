@@ -93,7 +93,7 @@
   // segue tocando — e o celular pode estar com a transmissão desligada.
   var REENTRADA = [1000, 3000, 8000, 15000, 30000];
   // O ping do servidor bate a cada 15 s; dois perdidos + folga = fio mudo. É o
-  // detector de TCP meio-aberto deste lado (§10-A.10 do espelho, de graça).
+  // detector de TCP meio-aberto deste lado (o da v5.172 no `docs/HISTORICO.md`, de graça).
   var PING_SUMIDO_MS = 35000;
   var ALIVE_MS = 10000;
   var PRAZO_POST_MS = 15000;

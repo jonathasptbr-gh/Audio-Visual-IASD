@@ -36,8 +36,8 @@ declarado:
 O espelho de pixels transmitia **o resultado** (H.264 ~3 Mbps + AAC por tela,
 contínuos, 0,7–2 s de atraso). O telão por comandos transmite **a causa**: o
 mesmo JSON do barramento interno, entregue por SSE a navegadores da LAN que
-renderizam localmente. O apêndice §10-A do `ESPELHO-DE-PIXELS.md` é o
-argumento: quase toda a sua tabela de defeitos (poda, GOP, IDR, deriva de
+renderizam localmente. A auditoria do espelho (v5.154 → v5.186 no
+`docs/HISTORICO.md`) é o argumento: quase toda a sua tabela de defeitos (poda, GOP, IDR, deriva de
 áudio, borda viva, fila de quadros) só existe porque há vídeo sendo
 transmitido.
 
@@ -73,6 +73,77 @@ com a tela virtual.
 faixa), poda/GOP/IDR/borda viva, térmica do encoder, atraso do pipeline, e o
 atraso da preview para telas de comando (`dePixels` em
 `recalcularAtrasoPreview` — ver "O mapa de hoje").
+
+> **§2.3 e §2.4 vieram VERBATIM do antigo `ESPELHO-DE-PIXELS.md`** (removido
+> na revisão A4; o resto dele está no git, `git show 6db65c4:docs/ESPELHO-DE-PIXELS.md`).
+> São as que o código ainda cita: o socket nunca em `0.0.0.0` e o TLS. Onde
+> falam do vídeo, é o transporte antigo; a regra vale igual para o telão por comandos.
+
+### §2.3 A rede: onde o socket liga, e por que isso é a linha mais importante da seção
+
+`ServerSocket(8787)` liga em **0.0.0.0** — toda interface do aparelho, inclusive `rmnet`. E o
+enunciado deste projeto diz que a igreja pode não ter internet, cujo desfecho normal é o celular em
+dados móveis. Operadoras brasileiras entregam **IPv6 globalmente roteável** ao aparelho, sem NAT e
+sem firewall implícito. O resultado seria **o culto em H.264 numa porta alcançável do mundo,
+protegida por um código curto** — e ninguém no prédio teria como perceber.
+
+**A regra, e ela não é negociável:**
+
+1. O socket é ligado ao **endereço IPv4 da rede ativa**, explicitamente
+   (`ServerSocket().bind(InetSocketAddress(ipv4DaWifi, porta), backlog)`), **nunca** pelo construtor
+   de porta e **nunca** em `::`. Os endereços IPv6 temporários do Android rotacionam, e um bind em
+   `::` reintroduz o problema por outra porta.
+2. **Recusa ligar** quando `NetworkCapabilities` não tiver `TRANSPORT_WIFI`, ou tiver
+   `TRANSPORT_CELLULAR` ou `TRANSPORT_VPN` — com a frase no Registro, nunca em silêncio.
+3. `registerNetworkCallback` → `onLost` / `onCapabilitiesChanged` que perca o Wi-Fi **desliga o
+   servidor**. Um endereço que sumiu não pode continuar escutando.
+
+Isto reinstala, com mais rigor, a regra do plano original ("sem Wi-Fi, não desenhar o
+endereço nem o QR"), que a versão intermediária tinha perdido.
+
+### §2.4 TLS — o degrau, com as três condições que são do operador
+
+Certificado público para IP privado **não existe e nunca vai existir**: a CA/Browser Forum proibiu
+*Reserved IP Addresses* e *Internal Names* em 2015 e mandou revogar os remanescentes em 2016
+**(doc — [CA/B Forum](https://cabforum.org/working-groups/server/internal-names/))**. A Let's Encrypt
+passou a emitir para IP, **só IP público, só HTTP-01/TLS-ALPN-01**. Autoassinado com CA instalada no
+cliente está **descartado**: desde o Android 7 apps com `targetSdk ≥ 24` não confiam em CA de
+usuário, o Chrome do Android exige Certificate Transparency (`ERR_CERTIFICATE_TRANSPARENCY_REQUIRED`
+numa CA própria), e o navegador de uma smart TV não tem UI para instalar CA. Trocaria uma limitação
+silenciosa e previsível por **uma tela vermelha em cada culto, em cada aparelho**.
+
+O que **funciona** é o modelo Plex/Tailscale: **um NOME que o operador controla, com registro `A`
+apontando para o IP privado, e certificado emitido por DNS-01** **(prática — `*.plex.direct`,
+`*.ts.net`)**. Do lado Kotlin custa ~40 linhas e **zero dependência**: `KeyStore.getInstance("PKCS12")`
+→ `KeyManagerFactory` → `SSLContext.getInstance("TLS")`, e daí em diante os `InputStream`/`OutputStream`
+são idênticos. O custo de CPU é irrelevante: 3 Mbps = 0,375 MB/s, e AES-GCM com as extensões ARMv8
+roda em ~1,2 GB/s por núcleo — **~0,03% de um núcleo**.
+
+**As três condições, e as três são do operador, não do código:**
+
+1. um subdomínio dedicado com **wildcard por DNS-01** (`*.lan.igreja.org.br`), para trocar de IP sem
+   reemitir;
+2. **uma entrada estática de DNS no roteador da igreja** (`address=/telao.igreja.org.br/192.168.0.42`
+   no dnsmasq). Sem ela o nome só resolve com internet, e a proteção contra DNS rebinding — ligada
+   por padrão em pfSense e Fritz!Box, e o motivo nº 1 de suporte do próprio Plex — o quebra em
+   silêncio;
+3. renovação automática. O teto de validade já é **200 dias** e cai para 100 em 2027 e 47 em 2029
+   **(doc — [Ballot SC-081v3](https://cabforum.org/2025/04/11/ballot-sc081v3-introduce-schedule-of-reducing-validity-and-data-reuse-periods/))**.
+
+**A chave privada nunca vai no APK** (as Releases são públicas no GitHub) e **nunca vai no backup**
+(mesma disciplina de `res/xml/backup_rules.xml` e `data_extraction_rules.xml`, que já existem para o
+bundle OTA). O `.p12` chega por importação manual (`pickDoc`, que já existe), **com a senha digitada
+à mão pelo operador** — senha no mesmo canal do arquivo anula o `sha256` e o TLS, coisa que o
+próprio `WebUpdater.kt:558` já admite por escrito **(código)**.
+
+**E a "placa de rua" NÃO leva credencial no APK.** A ideia de o celular publicar sozinho o IP no
+site do operador exige um segredo compartilhado, e o segredo estaria num binário público — qualquer
+pessoa reescreveria `igreja.org.br/telao` e a página oficial da igreja passaria a apontar para onde
+o atacante quisesse, com o domínio da própria igreja. As duas formas aceitas são: o operador digita
+o endereço no site à mão (uma vez por IP novo, e o IP é fixo por reserva de DHCP), ou uma credencial
+**por aparelho**, digitada em Configurações — a mesma disciplina da senha do `.p12`. E a página fica
+**atrás de login**, não "atrás de login *ou* com valor que expira": expirar não esconde nada de quem
+olha durante o culto, que é a janela em que o valor é útil.
 
 ## §3 ARQUITETURA
 

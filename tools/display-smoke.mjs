@@ -29,7 +29,8 @@
 //
 // ## E ele prova a DECISÃO DE DENSIDADE do espelho de pixels, sem aparelho
 //
-// Ver docs/ESPELHO-DE-PIXELS.md §3.2. O espelho renderiza este mesmo
+// (A seção que a explicava saiu com o `ESPELHO-DE-PIXELS.md`, na revisão A4;
+// `git show 6db65c4:docs/ESPELHO-DE-PIXELS.md`.) O espelho renderiza este mesmo
 // `/display/` num `VirtualDisplay` de 1280×720, e o que a congregação compara
 // não é resolução: é o VIEWPORT CSS, que é `pixels / (densityDpi / 160)`.
 //
