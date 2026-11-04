@@ -15,7 +15,7 @@ abandonada → primeira pendente pelo `nº`).
 | 1 | A1 | feita (com um resíduo: `configuracoes-janelas` D, ver o relatório) | sem versão (só `tools/`) | 2026-10-30 | 5 oráculos instáveis consertados, 1 instrumentado, 1 corrida do APP (repasse W2) |
 | 2 | A2 | feita | sem versão (só docs) | 2026-10-30 | `CLAUDE.md` 315 kB → 79 kB, nenhuma regra mudada: detalhe verbatim nos capítulos e em 4 arquivos novos |
 | 3 | A3 | feita (resíduo: as células do `ORACULOS.md` em cadeia só-acrescenta, repasse A5) | sem versão (só docs) | 2026-10-30 → 2026-11-04 | `CONTROLE.md` 770 kB → hub + 11 partes (verbatim provado); duplicatas da A2 fundidas nos 7 capítulos; narrativa do `ORACULOS.md` e da Biblioteca ao `HISTORICO.md`; ~20 fatos velhos corrigidos contra o código |
-| 4 | A4 | em curso | | 2026-11-04 | |
+| 4 | A4 | feita (com uma pergunta ao operador: o `ESPELHO-DE-PIXELS.md` sai?) | sem versão (só docs + `docs-coerentes`) | 2026-11-04 | índice do `HISTORICO.md` 1,2 MB → 58 kB (notas movidas verbatim às seções); auditorias com o estado conferido (os "26" da 2026-08 são 7 ids + 3 resíduos); `TELAO-POR-COMANDOS.md` 73 → 56 kB com ~25 fatos corrigidos; os repasses da A2/A3 |
 | 5 | A5 | pendente | | | |
 | 6 | A6 | pendente | | | |
 | 7 | W1 | pendente | | | |
@@ -55,13 +55,14 @@ tratou.
 | A5 | A1 | `tools/boot-nativo.test.mjs` — reprovou no run 2253 (commit `90d2977`, que só mexeu no `REGISTRO.md`: não é defeito do lote) e passou nos runs seguintes. Asserção não lida (o log corta). Mesma família dos instáveis da A1: achar a espera que mede o runner |
 | W2 | A1 | `shared/stage.js`:`aplicarGiroTudo` — SUSPEITA com cenário: `enquadramento-da-camada` reprovou IDÊNTICO nos runs 2229 e 2242 (`pvTextImg` com `cover` mas sem giro, caixa = palco 669×376). Com a camada (`#pvText`) ainda `hidden` quando o `reporGiro` roda, o reenvio por `requestAnimationFrame` desiste em `GIRO_TENTATIVAS` (60 QUADROS, não tempo): se a revelação vier depois disso (runner lento), a imagem sobreposta fica SEM o giro para sempre — sem TV, isso é a projeção. Medir: forçar a revelação depois de 60 quadros; conserto provável: quem revela a camada chama `reporGiro` DEPOIS de revelar o ancestral, ou um `ResizeObserver` na própria `camadaImg`. O oráculo não foi mexido: esperar pelo giro esconderia o defeito |
 | A3 | A2 | Os blocos movidos VERBATIM para `docs/arquitetura/DESIGN-SYSTEM.md` ("As regras da paleta como estavam no núcleo"), `docs/arquitetura/CONTROLE.md` (referência da preview; abertura), `docs/shell/PONTE.md`, `docs/TELAO-POR-COMANDOS.md`, `docs/arquitetura/DISPLAY.md`, `MODELO-DE-DADOS.md` e `MOTOR-STAGE.md` (seções "(do núcleo, revisão A2)" ao fim de cada um) DUPLICAM em parte o que o capítulo já tinha (medido: PONTE.md já cobria ~95% dos símbolos; DESIGN-SYSTEM ~53%). A A2 não deduplicou de propósito (mover sem perder era a cerca); fundir cada seção na casa certa do capítulo é trabalho de capítulo |
-| A4 | A2 | `docs/shell/README.md` tem DUAS linhas para o `MuxMp4.kt` (190 e 191 linhas, textos diferentes) — uma deve sair. E a árvore anotada de `docs/ESTRUTURA.md` (verbatim do `CLAUDE.md` antigo) não lista o `R2ImagemFonte.kt`, embora diga 33 arquivos (a árvore condensada do `CLAUDE.md` novo já o lista) |
 | A5 | A3 | `tools/docs-coerentes.test.mjs` seção 6 — só confere âncora do PRÓPRIO arquivo, e a regex `\]\((#[a-z0-9-]+)\)` pula âncora acentuada (a maioria aqui); `X.md#slug` entre arquivos não é conferido. O piso "≥ 20 âncoras" é frágil (o desmembramento o derrubou a 16; voltou com os "Nesta parte" de cada parte, sem mexer no oráculo). Sugestão: conferir âncoras entre arquivos com o slug do GitHub (a A3 mediu 23 links cruzados, 0 quebrados) |
-| A4 | A3 | referências genéricas ao "capítulo do Controle" sem a parte (válidas pelo hub, mas podiam nomeá-la): `CIFRA.md:532`, `PACOTE.md:801`, `FONTE-DE-DADOS-LOUVORJA.md:558`, `CAMADA-DE-TEXTO.md:245` |
 | A5 | A3 | `docs/ORACULOS.md` — muitas células são cadeias SÓ-ACRESCENTA: uma "trava" antiga revogada adiante na mesma célula ainda se lê como atual (`ferramentas-folha`: regras da v1.5.19 revogadas na v1.8.62/63, bloco G "três colunas" trocado na v1.13.4; `sombra-de-rolagem` S "deslocamento ZERO" trocado na v1.8.84/v1.11.18; `smoke` "a grade tem três colunas" da v1.4.38; `modo-simples-corpo` R3 revogado na v1.12.56). Colapsar cada célula no estado atual exige ler o arquivo do oráculo — é trabalho de A5. E o `docs-coerentes` só confere o NOME do oráculo, então linha que descreve asserção removida passa verde |
 | A5 | A3 | `tools/verificacao-do-sistema.test.mjs` ~470–475: comentário sobre o `z-index` do `#testePopup`, que deixou de existir (a folha virou seção de Configurações na v1.12.48) — conferir se é lápide |
-| A4 | A3 | `docs/TELAO-POR-COMANDOS.md` §0 (notas v5.188→v5.223) é diário de lote que repete o `HISTORICO.md`, e §1–§10 ainda afirmam fatos velhos (`?tela=1`, `EspelhoService`, "overlay do código", números de linha); o cabeçalho avisa, mas o texto pode virar especificação + ponteiros. O mesmo padrão "relatos do operador" em `CONTROLE-NAVEGACAO.md:336`, `CONTROLE-SORTEIO.md:357`, `DESIGN-SYSTEM.md:1428/2492` |
 | K2 | A3 | `NativeBridge.kt` ~1350: o comentário diz que os métodos de certificado são guardados "como os cinco irmãos", mas a família do espelho tem 9 métodos com guarda `host` — conferir a conta |
+| X2 | A4 | Os que sobraram da `AUDITORIA-2026-08.md` estão ENUMERADOS na tabela "Conferência da revisão A4" no topo dela (7 ids + 3 resíduos; o "26" eram listas brutas). E fora da cerca de qualquer etapa: a `AUDITORIA-2026-09-11.md` tem 23 achados sem RESOLVIDO (entre eles [5] e [33] VERIFICADOS) + 3 extras (imports mortos em `EspelhoServidor.kt` e `ShellUpdater.kt`, o `#bibleTitle`) — vários ([23] [25] [29] [33] [37]) citam linhas do `CLAUDE.md` antigo e devem ter caducado; a `AUDITORIA-EFICIENCIA-2026-09.md` tem #2, #5 e #9 abertos; a `AUDITORIA-ESTABILIDADE-AV.md` tem C2 e D2 abertos (cabeçalhos atualizados) |
+| C1 | A4 | `controle.js` (~linha 715, o comentário do achado `:469` da auditoria 2026-08): diz que "a ÚNICA porta dinâmica é `DEST_ICONE`", que saiu na v1.8.56 — hoje é `ICON[d.ico]`. Lápide |
+| W2 | A4 | `espelho/tela.js`: o cabeçalho cita `db.js:800-801` (número de linha), e "digitação do código" / "o código rotacionou" descrevem o pareamento por código de 3 dígitos, que não existe mais |
+| K4 | A4 | `EspelhoServidor.servirMidia` — o KDoc diz que item em crescimento só sai em `chunked`; conferir contra o `alcanceDe`. O `EspelhoHttpRangeTest` cita o §6 do `TELAO-POR-COMANDOS.md`, que continua existindo (condensado). Não verificados na A4: `EspelhoPares.validar` aceitar token nu e o Cookie ser ignorado (saíram do doc por não terem prova) |
 
 ## Relatórios
 
@@ -176,3 +177,33 @@ v1.5.17/v1.5.18 viraram seções por assunto; citações e o desenho revogado ao
 oráculo da Verificação), A4 (§0 e fatos velhos do TELAO; mais "relatos" em três
 capítulos), K2 (a conta "cinco irmãos" no `NativeBridge.kt`). **O operador:** nada.
 
+### A4 · Apêndices e arquivo morto — feita (2026-11-04)
+
+**`HISTORICO.md` (só a forma):** a nota inteira estava sendo escrita DENTRO da
+linha do índice desde a v1.8.18 — o índice tinha 1,2 MB. As 397 linhas > 400
+caracteres foram movidas verbatim: 220 viraram seção `## vX — título`, 177 entraram
+como primeiro parágrafo da seção que já existia. Índice: ~58 kB, uma linha por
+lote. Prova: 0 linhas do original perdidas fora as 397, os 397 corpos presentes.
+O `docs-coerentes` ganhou a asserção do teto (reversão: reprova o arquivo antigo
+com as linhas da A3/A2). A regra do `CLAUDE.md` que sancionava o costume foi
+corrigida no lugar, e o cabeçalho do apêndice diz a forma.
+**Auditorias (só conferir):** a 2026-08 dizia "TODOS FORAM CORRIGIDOS" e "26 por
+aplicar"; pelos diffs dos 7 commits dos lotes sobram 7 ids + 3 resíduos, tabela no
+topo dela (repasse X2). EFICIENCIA e ESTABILIDADE-AV: estado no cabeçalho. Nenhuma
+auditoria está FECHADA; só o `ESPELHO-DE-PIXELS.md` (recurso removido) está.
+**`TELAO-POR-COMANDOS.md` 73 → 56 kB:** §0 (diário v5.188→v5.223, já no histórico)
+fora; ~25 fatos velhos corrigidos contra o código; `arquivo:linha` trocados por
+símbolo; §2/§6/§10 de antes da E7 ao `HISTORICO.md` (`## revisão A4`). Os números
+§3.x/§5.x/§6/§8 ficaram (o código os cita).
+**Relatos:** `CONTROLE-NAVEGACAO` (v1.5.6/7/9), `CONTROLE-SORTEIO` (v1.8.83) e
+`DESIGN-SYSTEM` (geometria, escada de camadas) viraram regra por assunto.
+**Repasses da A2/A3 tratados:** linha dupla do `MuxMp4.kt` (e as 18 contagens de
+linha do mapa do shell, medidas), `R2ImagemFonte.kt` na árvore, as 4 referências
+ao "capítulo do Controle" nomeiam a parte.
+**Resíduo sem dono:** ainda há citações de relato em `CONTROLE-NAVEGACAO` (~7) e
+`CONTROLE-SORTEIO` (~15); o `ESPELHO-DE-PIXELS.md` cita um "§187" quebrado.
+**PERGUNTA AO OPERADOR:** o `ESPELHO-DE-PIXELS.md` (72 kB, arquivo de recurso
+removido) sai do repositório? O git o guarda; quatro comentários de código e um
+oráculo apontam para o §2.4 dele, e sairiam juntos. As auditorias ficam (abertas).
+**Verificado:** `docs-coerentes`, os oráculos de Node puro e a "Sanidade da base
+web" verdes. **O operador:** nada a fazer no aparelho.

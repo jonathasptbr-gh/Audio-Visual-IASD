@@ -100,6 +100,8 @@ app/src/main/
 │   ├── WebPathHandler.kt        # serve o bundle OTA, com fallback pro APK
 │   ├── CifraFonte.kt            # o GET da página de cifra — host travado,
 │   │                            #   sem parse, sem gravar nada em disco
+│   ├── R2ImagemFonte.kt         # /r2img/<token>: as fotos do bucket R2 pelo NOSSO
+│   │                            #   origin (o desvio de CORS; a classe do StreamProxy)
 │   ├── YoutubeGrab.kt           # extrai e baixa o vídeo do YouTube NO APARELHO
 │   ├── TrilhaAudio.kt           # QUAL trilha de áudio vai ao telão (a dublagem
 │   │                            #   automática do YouTube) — PURO, com JUnit

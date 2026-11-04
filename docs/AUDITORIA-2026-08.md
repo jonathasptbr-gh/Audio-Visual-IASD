@@ -17,6 +17,35 @@ sequência que o Android/navegador não produz).
 > "A correção", no fim.
 >
 > **PUBLICADA NA v1.4** (base web e APK), o lote que fecha este ciclo.
+>
+> **CORREÇÃO (revisão A4, 2026-11-04): o "TODOS FORAM CORRIGIDOS" acima não vale.**
+> Sobraram 7 ids e 3 resíduos, conferidos contra o código na seção logo abaixo.
+> O "26 por aplicar" do fim é a soma das listas BRUTAS dos lotes 4 (18) e 5 (8)
+> — os commits `8ecba36` e `4de14bc` não as enumeram —, e não uma contagem dos
+> ids deste arquivo.
+
+## Conferência da revisão A4 (2026-11-04) — o que ficou por aplicar
+
+Reconstruído pelos diffs dos seis lotes (`7127f0b`, `1e5a441`, `c68d2b0`,
+`8ecba36`, `4b68aa8`, `4de14bc`, `8b1c760`): K1–K11, K13–K19, W1–W11, T1–T7, M2 e
+M4 entraram; dos 32 do `controle.js`, só `:5705` e `:19952` ficaram. A mensagem
+do `c68d2b0` diz ter corrigido "o carimbo da área de transferência", e o diff não
+toca no `conferirLinkCopiado`. **Consertar é a etapa X2**; aqui só se conferiu.
+
+| id | achado | hoje | evidência |
+|---|---|---|---|
+| K12 | `EspelhoMidiaCanal.soltar()` sem chamador | ABERTO | fora do arquivo só o construtor e o `instalar` (`MainActivity`); a thread `laco()` (`poll` 250 ms) vive pelo processo; `tokenAberto` só zera em `fim`/`cancelar` |
+| T8 | `AVCifra.somenteLetra` exportada sem chamador | ABERTO | único uso é o `tools/cifra.test.mjs`; o KDoc promete recurso que não existe; o `funcao-sem-chamador` conta a exportação como uso |
+| T9 | `urlDeBusca(termo, extra)`: `extra` sem chamador de produção | ABERTO | o `controle.js` compõe `nome + ' ' + album` e chama com UM argumento; o KDoc atribui o "segundo tento" a `extra` |
+| M1 | `tools/pares-de-comentario.mjs` fora do CI | ABERTO em parte | o `maxBuffer` foi consertado; segue fora do workflow (o `CLAUDE.md` o exclui de propósito da lista) e o cabeçalho de todo `/**` vira `*` (19 blocos de `cifra.js` com o mesmo cabeçalho) |
+| M3 | `otaPending`/`apkProcurar` sem consumidor | FEITO no web (v1.8.71) | fora do `native.js`; o `@JavascriptInterface` fica entre os seis órfãos (etapa X1) |
+| `:5705` | `naoResta()` e as duas frases dela, inalcançáveis | ABERTO | `doDraw` só chega lá com `drawRemaining() <= 0`, e os dois caminhos até `doDraw` passam por botões com `disabled = drawGoApagado()`; as frases repetem o `go.title` |
+| `:19952` | o carimbo da área de transferência não avança | ABERTO (pede APK) | `MainActivity.lerLinkCopiado` LÊ o conteúdo (o aviso do Android sai aqui) e devolve `null`, sem carimbo, para texto sem `http(s)://`, > 2048 caracteres ou mime não `text/plain`; o web só avança o carimbo para link http fora do YouTube — texto comum copiado = aviso a cada retomada |
+| resíduo de `:8884` | `hymnResultRow` reabre a gaveta montada sem repor `destExecutor`/`destMarcados`/`songMenuFor` | ABERTO | com `gavetaMontada` nada é remontado e `destConfirmRow` lê o global `destExecutor`; o irmão `linhaDeItem` chama `renderItemMenu` sempre. Vale também para o ramo de episódio (`openYtMenu`) |
+| lote 3b | desfecho do `syncDeviceFolder` engole o `+N` com falha | ABERTO | `falhou ? falhou + ' falharam: ' + causa : '+' + added…` — some o `+N` e falta o DENOMINADOR |
+| lote 3b | "enumeração incompleta num comentário do sorteio" | INCERTO | o `4b68aa8` não diz qual; decidir exige ler os blocos do sorteio contra o código |
+| lote 1 | condição morta de `makeTabGhost` | CÓDIGO SUMIU | removido com o carrossel na v1.5.0 |
+| lote 1 | `DEST_ICONE` por valores | CÓDIGO SUMIU (deixou lápide) | `DEST_ICONE` saiu na v1.8.56; o comentário do achado `:469` no `controle.js` ainda diz que "a ÚNICA porta dinâmica é `DEST_ICONE`" — hoje é `ICON[d.ico]` (repasse C1) |
 
 ## Linha de base da auditoria
 
@@ -427,7 +456,7 @@ Vale uma varredura própria.
 
 ### O que foi deliberadamente NÃO corrigido
 
-26 achados ficaram por aplicar, cada um com justificativa registrada no commit
+26 achados (listas BRUTAS dos lotes; os ids que sobraram estão na "Conferência da revisão A4", no topo) ficaram por aplicar, cada um com justificativa registrada no commit
 do lote. Os que mais pesam:
 
 - **`EspelhoMidiaCanal.soltar()` sem chamador.** Removê-lo apagaria a metade

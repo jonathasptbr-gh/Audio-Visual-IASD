@@ -297,17 +297,13 @@ os botões de slide RENDERIZADOS, a 430px).
 
 #### A camada dela é o CHÃO da pilha, não o teto (v1.5.6)
 
-*"a barra de buscas está se sobrepondo a diversos elementos, como as
-configurações, aba da playlist e etc… Muito inconsistente"* · *"em aberto a aba
-da biblioteca, quando toco em abrir a aba da playlist a playlist tocando fica por
-baixo"*.
-
-**A causa é a camada existir SEMPRE.** Todo `.popup-backdrop` deste app está em
+**A camada existe SEMPRE, e é isso que decide a pilha.** Todo `.popup-backdrop` deste app está em
 `z-index: 200` e é criado e destruído com o uso, então quem se sobrepõe a quem é
 a ORDEM DO DOCUMENTO — um acaso que já cobriu um popup por inteiro aqui. Esta é
 a única que nunca sai de cena (a barra vive nela) e está declarada DEPOIS do
 `#plPopup`, do `#fadePopup` e do `#castPopup`: ganhava dos três, fechada,
-pintando a faixa da barra sobre folhas que o operador acabara de abrir.
+pintando a faixa da barra sobre as folhas recém-abertas (Configurações, a
+playlist) e, com a Biblioteca aberta, cobrindo a playlist aberta a partir dela.
 
 A correção não é um degrau a mais, é o degrau CERTO — `z-index: 190`. **Esta
 camada não é um modal sobre o app: é MOBÍLIA do app**, a cabeça de uma janela
@@ -327,13 +323,7 @@ alcançáveis desde a v1.5.4, e **é isso que tornou a colisão possível**.
 
 #### Sem caixa de controles na tela, a janela vai até a base (v1.5.6)
 
-*"ajuste também para que a zona dos controles seja ocultada quando a biblioteca
-estiver aberta e o teclado também estiver visível. Pois ocupar espaço com os
-controles e o teclado, deixa muito comprimido a área para a listagem"* · *"no
-modo simples, a aba de buscas pode usar a tela inteira, pois agora ela está
-cortando aleatoriamente em algum pedaço da tela"*.
-
-Uma regra, dois relatos. A camada termina na LINHA DA BARRA (v1.5.4) para os
+Uma regra, dois casos (o Modo Fácil e o teclado no ar). A camada termina na LINHA DA BARRA (v1.5.4) para os
 controles ficarem à vista; **quando não há controles na tela, esse recorte não
 protege nada** — e no Modo Fácil ele fazia pior: a `.bottombar` é `display: none`
 lá, então `--lib-caixa-h` guarda a última medida boa do modo AVANÇADO (o que é o
@@ -355,14 +345,10 @@ modo.**
 
 #### Ela é uma JANELA, e passou a parecer uma (v1.5.7)
 
-*"ajuste o design da janela da biblioteca para que ela se assemelhe ao design das
-janelas de bíblia e ferramentas. bordas curvas e tom branco como base"* ·
-*"ajustando também para que haja uma pequena margem em relação aos controles
-quando no modo aberta, pois hoje ela fica com a base 'fundida' dificultando a
-percepção de até onde vai a lista da biblioteca"*.
-
-`--panel` e `--radius-card`, os MESMOS valores da `.tools-sheet` — o molde que o
-pedido nomeia, e é contra ele que o oráculo mede (um literal copiado para o teste
+A janela da Biblioteca veste o desenho das folhas da Bíblia e de Ferramentas, e
+ABERTA para numa FRESTA acima dos controles (sem ela a base se funde com a caixa
+de controles e não se vê onde a lista acaba). `--panel` e `--radius-card`, os
+MESMOS valores da `.tools-sheet` — o molde, e é contra ele que o oráculo mede (um literal copiado para o teste
 envelheceria na primeira troca de paleta, e envelheceria parecendo certo).
 
 - **O raio só vale ABERTA.** Fechada, o que fica à vista é a BARRA, e ela é uma
@@ -379,18 +365,14 @@ envelheceria na primeira troca de paleta, e envelheceria parecendo certo).
 
 #### A hierarquia é desenhada com MOLDURA (v1.5.9)
 
-*"está errado, reformule o sistema de coloração e organização de grupos e
-subgrupos. vamos usar o padrão branco e azul padrão do sistema, e vou lhe dar
-autoridade para usar sistemas visuais de design e organização usando bordas, mas
-apenas para a biblioteca. pois temos 3 niveis de listagens na biblioteca e o
-sistema de separação apenas por cor sólida de cards está limitando nossas
-opções"* — com três capturas do defeito.
+**BORDA ESTÁ AUTORIZADA SÓ NA BIBLIOTECA** (decisão do operador, v1.5.9): são
+três níveis de listagem, sobre o branco e o azul do sistema, e separar só por cor
+sólida de card não dá conta deles.
 
 **Isto REVOGA a paleta da v1.5.7/v1.5.8 inteira**: a tampa tingida, os oito tons
-em ordem de espectro, as três famílias por coleção. O diagnóstico do operador é
-exato: **cor sólida não diz o que está dentro do quê.** Nas capturas, oito
-matizes pastel produziam uma lista bonita e ilegível — a seção "ADORADORES" em
-lilás com cinco álbuns lilás soltos dentro dela.
+em ordem de espectro, as três famílias por coleção. **Cor sólida não diz o que
+está dentro do quê:** oito matizes pastel produziam uma lista bonita e ilegível
+— a seção "ADORADORES" em lilás com cinco álbuns lilás soltos dentro dela.
 
 ```
 ┌ NÍVEL 1 — a SEÇÃO ────────────────────────────────┐  moldura + tampa

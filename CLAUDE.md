@@ -1055,8 +1055,8 @@ trabalho. Prosa custa contexto que não sobra para o código.
   se escreve largo esperando uma poda futura, porque a poda custa uma sessão
   inteira e a escrita custa uma linha.
 - **ESTE ARQUIVO NÃO GUARDA LOG DE LOTE.** Um lote publicado escreve a nota no
-  `docs/HISTORICO.md` (topo do índice, e a seção `## vX` se a série ainda a
-  tiver) e, AQUI, só corrige a REGRA que mudou — **no lugar dela**. Se o lote
+  `docs/HISTORICO.md` (a seção `## vX — título` logo abaixo do índice, e no
+  índice UMA linha sem a nota, até 400 caracteres — o `docs-coerentes` cobra) e, AQUI, só corrige a REGRA que mudou — **no lugar dela**. Se o lote
   não muda regra nenhuma, este arquivo não muda.
 
   **O formato é o defeito**: um bloco por lote é um log, e um log só cresce. A

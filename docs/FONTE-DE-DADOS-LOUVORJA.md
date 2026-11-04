@@ -555,7 +555,7 @@ se houver `url_*`, baixe via `fileUrl(path)`.
 ## 8.1 Quando o servidor não responde (v1.12.43)
 
 O app separa **três** situações, e quem decide é um veredito só
-(`fonteVeredito` em `controle/controle.js`; o capítulo do Controle tem a regra):
+(`fonteVeredito` em `controle/controle.js`; [`CONTROLE-COLECOES.md`](arquitetura/CONTROLE-COLECOES.md) tem a regra):
 
 | desfecho | como se reconhece |
 |---|---|

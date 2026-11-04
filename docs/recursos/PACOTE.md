@@ -798,6 +798,6 @@ os cabeçalhos do pacote inteiro antes de gravar: com `filtro` ela lê o corpo d
 `opfsPath` e os `imageOpfsPath` da letra), e o `opfs` desses caminhos entra também. Oráculo: K do
 `pacote-importar-marcados` (reversão sem a pré-varredura reprova o original que vem antes).
 
-**O original ADOTADO (`bases/<id>`, ver o capítulo do Controle) viaja só pelo `pacoteBases`:** o
+**O original ADOTADO (`bases/<id>`, ver [`CONTROLE-LISTAS.md`](../arquitetura/CONTROLE-LISTAS.md)) viaja só pelo `pacoteBases`:** o
 `pacotePlano` tira `bases/` da varredura do OPFS (não é "arquivo sem coleção") e o `pacoteBases` não
 o pula por grupo.

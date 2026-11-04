@@ -242,7 +242,7 @@ argumento que tornou a v5.312 segura, aplicado de novo.
   seguidas dariam o mesmo cabeçalho.
 - **O auxiliar de leitura passa a oferecer as DUAS camadas** (v1.4.26 + v1.4.28):
   Páginas por cima, a Letra do louvor de fundo por baixo, a Cifra por último. É
-  a pilha do `lyricsViewSources` — ver o capítulo do Controle. Ali a fonte
+  a pilha do `lyricsViewSources` — ver [`CONTROLE-LEITURA.md`](CONTROLE-LEITURA.md). Ali a fonte
   `deck` sai de `lvDeckRec()`, e não de `lvItem()`: sobreposta, quem está em
   `currentItem` é a MÚSICA, e perguntar páginas a ela devolveria nada.
 - **Trocar de modo apaga a `<img>`** (`display.js`: `if (textMode !== 'image')
