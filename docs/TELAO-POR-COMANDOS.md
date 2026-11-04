@@ -1,215 +1,39 @@
-# TELÃO POR COMANDOS — a substituição do espelho de pixels
+# TELÃO POR COMANDOS — o telão nas telas da rede local
 
-> **ESTE DOCUMENTO É O CONTRATO E O DIÁRIO DE BORDO deste trabalho.** Ele foi
-> escrito para sobreviver a interrupções: qualquer sessão (humana ou de agente)
-> que precise retomar o trabalho começa lendo a seção **"§0 COMO RETOMAR"** e a
-> tabela de **Estado** dentro dela. Nenhum passo deste projeto vive só na
-> memória de quem o executou — se não está aqui ou num commit, não aconteceu.
+> **ESTE DOCUMENTO É O CONTRATO** do telão nas telas da rede: até três
+> navegadores da LAN rodando o MESMO `/web/display/` (papel `tela`), servido
+> pelo celular. Ele descreve o que o código faz HOJE, e as duas seções finais
+> ("O DRENO do papel `tela`" e "O mapa de hoje") são o resumo para quem vai
+> mexer. A CONSTRUÇÃO — a varredura E0, as etapas E1–E7 e as rodadas em aparelho
+> da v5.186 à v5.223 — mora no apêndice:
+> `grep -n "v5.18[6-9]\|v5.19[0-9]\|v5.2[0-2][0-9]" docs/HISTORICO.md`. O anexo
+> bruto da varredura (`docs/anexo-varredura-command-stream.json`) foi apagado,
+> como estava previsto.
 >
-> ⚠️ **DUAS COISAS DESTE DOCUMENTO VENCERAM, e o texto abaixo ainda as afirma
-> em vários pontos.** O que vale hoje:
->
-> | o documento diz | o que vale |
-> |---|---|
-> | a entrada é um **CÓDIGO de três dígitos** (`POST /par {codigo}`) | **não há código nenhum** desde a v5.189: `POST /par` é ANÔNIMO, o corpo é o RELATO da tela, e a resposta é `200 {t}` ou `403` (castigo/lotado). A porta é o ENDEREÇO na rede; o controle real é o teto de **3 sessões** mais o `derrubar` do operador |
-> | o overlay tem **campo + botão** | tem **UM botão**, "Ativar esta tela" |
-> | `EspelhoService` | não existe: quem carrega a transmissão em primeiro plano é o `SessionService`, e o wake lock/Wi-Fi lock/térmica moram no `EspelhoEnergia` |
-> | o papel vem de **`?tela=1`** | vem da `<meta name="av-tela">` que o servidor INJETA; o `?tela=1` ficou só como caminho de desenvolvimento no navegador |
-> | o toque faz `POST /par` **primeiro** e só depois som e tela cheia (§3.4) | o toque gasta o gesto ANTES da rede (`gastarGesto`: `requestFullscreen` → `__telaSom(true)` → vigília) e só então `POST /par` → token → SSE — a ativação transitória não espera um POST dar a volta |
->
-> A fonte de verdade são as DUAS SEÇÕES FINAIS deste documento ("O DRENO do papel
-> `tela`" e "O mapa de hoje", que vieram do `CLAUDE.md` na revisão A2) mais o
-> código; as §1–§10 são a especificação e o diário da construção.
->
-> **O SEGUNDO INQUILINO DESTE SERVIDOR SAIU (v1.8.16).** Da v1.8.0 até lá ele
-> hospedou o CLONE da biblioteca celular a celular (`/acervo/*`), que foi
-> abandonado a pedido do operador — ~210 kB/s eram 15 a 500× menos que o mesmo
-> enlace entrega por Quick Share, e o caminho do ARQUIVO (o `.avpkg`) leva o
-> MESMO formato pelo transporte que funciona. Hoje o `EspelhoServidor` tem um
-> inquilino só, e a porta volta a nascer aberta pela razão escrita aqui: o que
+> **O servidor tem UM inquilino.** Da v1.8.0 à v1.8.16 ele hospedou também o
+> clone da biblioteca celular a celular (`/acervo/*`), que saiu
+> (`grep -n "v1.8.16" docs/HISTORICO.md`); a porta nasce aberta porque o que
 > passa por ela é conteúdo público por definição.
->
-> Os fatos de código citados vêm da varredura E0 (9 leitores paralelos, 229
-> fatos com arquivo:linha) — o bruto está em
-> `docs/anexo-varredura-command-stream.json` — que FOI apagado, como estava
-> previsto; o que sobrou dele é o que está escrito aqui. As linhas
-> citadas valem para o commit da varredura (2026-08-13) e envelhecem.
->
-> **RECONCILIADO COM A v5.186 (v1.85)**, que entrou em `main` depois da
-> varredura e ANTES da E1: a entrada do espelho virou um CÓDIGO de três
-> dígitos (nascido em `EspelhoPares.ligar`, mostrado na folha do operador;
-> `POST /par {codigo}` → `200 {t}` | `403` na MESMA resposta, sem fila de
-> aprovação), o QR e o `av.local`/mDNS SAÍRAM (qr.js, EspelhoMdns*
-> apagados), e `SHELL_VERSION` já é **36**. A exigência que governou aquela
-> mudança governa esta também: **o botão de conectar gasta o ÚNICO gesto do
-> visitante — entra, liga o som e vai a tela cheia**. Toda decisão abaixo
-> que citava QR/av.local foi corrigida; a decisão nova de §3.4 (uma página
-> só) existe por causa dessa exigência.
 
 ---
 
-## §0 COMO RETOMAR ESTE TRABALHO
+## §0 ESTADO
 
-1. Leia este arquivo inteiro (é a especificação fechada + o plano).
-2. Olhe a tabela de Estado: a primeira etapa não-`CONCLUÍDA` é a atual.
-3. Cada etapa diz o que entrega, como se prova e o que NÃO pode quebrar. Uma
-   etapa só é `CONCLUÍDA` com testes verdes e commit empurrado (branch de
-   trabalho **e** `main`, conforme a regra da etapa).
-4. Branch de trabalho: `claude/audio-desconexao-transmissao-web-6tbhsq`.
-   `main` recebe merge **apenas de etapas inteiras e seguras** — todo push em
-   `main` publica a base web por OTA ao aparelho do operador em minutos
-   (aplicação automática, v5.151). `main` verde e funcional é lei.
-5. Ao concluir qualquer etapa: atualize a tabela de Estado NO MESMO COMMIT.
-6. O espelho de pixels segue sendo o caminho ATIVO até a E6. As etapas E1–E5
-   são código escuro (aditivo, não ligado à UI). O corte é a E6, atrás de
-   constante, com volta. A remoção é a E7 e nunca antes.
+**Concluído** na v5.187 (APK v1.86) — o corte e a remoção do espelho de pixels
+num lote só — e **confirmado em rede de verdade** na v5.205. Fica de fora,
+declarado:
 
-### Estado
-
-| Etapa | Descrição curta | Estado |
-|---|---|---|
-| E0 | Especificação fechada (este documento) | **CONCLUÍDA** (varredura 9/11 leitores; testes-CI e docs supridos pelo CLAUDE.md) |
-| E1 | Fundações puras no shell: Range RFC 7233 + framing SSE no `EspelhoHttp` — com JUnit, sem fiação | **CONCLUÍDA** (commit b756d19, CI verde: 128 JUnit, 21 novos) |
-| E2 | Servir o bundle à LAN (prefixos `web/display/`, `web/shared/`, `web/espelho/`) + rota SSE `GET /e` + tap de comandos em `busPost` → servidor | **CONCLUÍDA** (aguardou o CI verde do lote E2+E3) |
-| E3 | Papel `tela` no lado web (`espelho/tela.js` + `?tela=1`): display rodando num navegador da LAN, TEXTO completo (versículo, mensagem, cronômetro com correção de relógio, sorteio, cortina), dreno de subida, vigília de tela acesa | **CONCLUÍDA** (tela-rede.test 23/23 no Chromium; ligado no apk.yml) |
-| E4 | Mídia sob demanda: cache no shell + canal ArrayBuffer OPFS→shell + `GET /m/<token>` com Range + `__rec` no load + wallpaper | **CONCLUÍDA** (JUnit do cache; tela-rede.test 26/26). Pendências DECLARADAS → E4.1: pré-busca da playlist. Fechadas: imagens de fundo da letra (v5.188) e **deck por páginas (v1.1.7)** — hoje só o EMBED vira o aviso de cena-sem-rede. A §7 (proxy da transmissão direta) foi fechada na v5.189 e ficou SEM CLIENTE na v1.8.82, quando a transmissão direta saiu do lado web |
-| E5 | Status de volta (`tela-status` → ponte → Controle), eleição de referência, snoop da notificação, preview sem atraso | **CONCLUÍDA** (ramo `st` no /r → MessageBus + snoop; eleição no controle.js; preview: telas de comando não entram em `mirrorEstado.telas`, então o atraso já resolve 0 sem pixels). Folha/Registro novos → E6 |
-| E6 | Corte: a transmissão liga o caminho novo; raiz `/` → tela; frases da UI; política YouTube sem TV | **CONCLUÍDA** (commit 518f960) — **DESVIO DECLARADO**: a pedido do operador, E6 e E7 saíram num lote só; a "volta por constante" não existe — a volta é o revert do lote |
-| E7 | Remoção: EspelhoCodec/EspelhoAudio/EspelhoDisplay/MirrorPresentation/fmp4.js/cliente.js/espelho.css/sonda.html; EspelhoDiag realocado na MainActivity; dreno do papel espelho fora do native.js; testes e CI atualizados; SHELL_VERSION 37; v5.187 | **CONCLUÍDA** (o commit desta linha) |
-
-> Preencher ao concluir: `CONCLUÍDA (commit <hash>, vX.YZZ)`.
->
-> **CONFIRMADO EM REDE DE VERDADE (v5.205 / v1.92):** *"funcionou, a tela
-> conectou"*. A primeira ligada em rede real custou cinco versões de correção
-> depois do corte, e as três que valeram estão na §8 e na §10: o estilo da
-> entrada bloqueado pela CSP (era o defeito), o papel `tela` deixando de depender
-> da query (a fragilidade), e — fora deste doc, na seção do OTA do CLAUDE.md — o
-> cache do WebView na troca de base servida, que fazia a versão ANTIGA reaparecer
-> e mascarou o diagnóstico por três rodadas.
->
-> **PROJETO CONCLUÍDO (v5.187 / v1.86).** O que fica de fora, declarado:
-> E4.1 (pré-busca da playlist — as outras três fecharam),
-> §7 (proxy da transmissão direta, hoje sem cliente — o caminho é o download quando não há
-> TV), e o primeiro culto de VALIDAÇÃO em aparelho — que, pela regra de
-> calendário herdada do espelho, acontece num dia SEM culto (segunda, terça,
-> quinta ou sexta), nunca num dos três: sábado de manhã, domingo ou quarta à
-> noite. O Registro e a folha mostram as telas de comando; o diagnóstico
-> fino delas (eco de __mid, atraso medido) é evolução futura sobre o campo
-> `eventos`/`pronta` que já viaja.
->
-> **v5.223: o `display-ready` da tela nunca levou `__tela`.** O Controle decide
-> reenviar as preferências de quem conecta (wallpaper, `lyricsbg`, `fit`)
-> perguntando `if (msg.__tela)` — e o `tela.js` anexava o campo ao `tela-status`
-> e NUNCA ao `display-ready`. Medido no fio:
-> `{"type":"display-ready","__de":"…","__mid":"…"}`. Logo,
-> `telaReenviarPreferencias` — criada na v5.188 exatamente para isto — nunca
-> rodou para uma tela de verdade, em versão nenhuma, e sem erro em lugar
-> nenhum: as três preferências simplesmente não existiam do outro lado. O fundo
-> da letra foi o que apareceu (preto é visível); wallpaper e preenchimento
-> estavam quebrados do mesmo jeito, calados. O carimbo passou a ter dono único
-> (`anuncio()`), porque há DOIS pontos de anúncio — o dreno e o `aoConectar` —
-> e quem entrega é quase sempre o segundo (o `display-ready` nasce antes de
-> existir token, e `subir` devolve cedo): a primeira tentativa de conserto
-> carimbou só o dreno e não mudou nada. Os dois lados do contrato ganharam
-> oráculo — o produtor no `tela-rede.test.mjs`, o consumidor no
-> `boot-nativo.test.mjs` —, e são dois porque ler cada lado isolado aprova ambos.
->
-> **v5.221: a imagem de fundo da letra desistia antes de poder chegar.** Numa
-> tela recém-ativada os slides ficavam pretos mesmo com a opção ligada, e só
-> desligar/religar a opção consertava. A preferência viajava certa (o
-> `telaReenviarPreferencias` da v5.188 faz o serviço) — o problema eram os
-> BYTES: as imagens são enfileiradas DEPOIS da mídia principal no mesmo canal
-> serializado (§5.5, e a decisão continua certa: o som não espera as fotos), e a
-> tela as buscava com uma ladeira de 0/600/1800 ms, desistindo em ~2,4 s. Por
-> construção elas só podem chegar depois de a música inteira atravessar o canal:
-> a tela desistia antes de existir chance de sucesso, e nada reexamina uma
-> estrofe já renderizada. Agora a ladeira dobra até um platô de 2,5 s com teto
-> de 45 s, morrendo na guarda de sequência quando a estrofe muda. O
-> `tela-rede.test.mjs` passou a 404ar a imagem por 3 s de propósito e exigir que
-> ela apareça assim mesmo — antes ele só provava que o `imageUrl` sobrevivia ao
-> `__rec`, nunca que a imagem chegava à tela.
->
-> **v5.218: a RECARGA volta para a entrada oficial, e o botão de canto sai.**
-> Decisão do operador, e ela revoga a metade da v5.189 que valia para o F5 — a
-> distinção é entre perder o FIO e perder a PÁGINA. Numa queda de conexão a
-> mídia continua tocando (local, `/m/`, letra pelo `timeupdate`) e cobrir a tela
-> apagaria uma cena que o problema não atingiu: isso NÃO mudou, `cairToken`/
-> `reentrarSozinho` seguem silenciosos. Uma recarga já derrubou tudo, inclusive
-> o gesto (ativação transitória não sobrevive a uma navegação), então não há
-> projeção a preservar e nada a cobrir — e o certo é o mesmo botão do primeiro
-> acesso, não um segundo controle de canto com outro nome. Saíram
-> `mostrarCanto`/`esconderCanto`/`oQueFalta`/`oferecerGesto` e o `assentando` da
-> v5.214 (era só o guarda daquela pergunta; a regra dele virou comentário no
-> `telaCheia`). Ficaram DOIS atalhos para voltar à tela cheia sem derrubar nada:
-> toque duplo e **F11** (com `preventDefault`, senão o navegador entra na tela
-> cheia dele junto com a da API e sair exige dois comandos). **O token é
-> carregado adiante na recarga** — o fio só abre no toque, mas a vaga é
-> reaproveitada: `telasSse` é indexado pelo token, e pedir pareamento novo a
-> cada F5 faria a terceira recarga seguida receber "lotado".
->
-> **v5.216: e na RECARGA quem desmentia era o "Ligar Sistema".** O `#startBtn`
-> — o overlay da era do navegador — era escondido por uma linha dentro de
-> `montarEntrada()` do `tela.js`, e essa função só roda na PRIMEIRA carga: a
-> recarga com sessão viva reconecta por trás (§3.4, a decisão da v5.189 de não
-> cobrir a projeção por causa de um F5) e sai antes de montar overlay nenhum.
-> Bastava recarregar para o botão antigo voltar, `inset: 0`, com a pílula no
-> centro — medido, `elementFromPoint` no meio da tela devolvia `start-pill`. Ele
-> não pareia, não solta o som e não pede tela cheia; só se esconde. O visitante
-> gastava nele o único gesto e a tela ficava conectada, MUDA e em janela. Quem o
-> desliga passou a ser o `display.js`, que é quem o declara, pelo PAPEL e em toda
-> carga — a decisão saiu de um caminho de UI que pode não ser percorrido e foi
-> para o dono do elemento. O `tela-rede.test.mjs` ganhou a seção da recarga, que
-> era o caminho que nenhum teste percorria.
->
-> **v5.214: a ativação de UM TOQUE já era verdade — o que a desmentia era um
-> segundo botão.** O relato ("o Ativar esta tela não ativa som nem tela cheia
-> junto") foi medido antes de qualquer mudança, num Chromium de verdade: as três
-> coisas acontecem no primeiro toque. O que ficava na tela era o botão de canto
-> da v5.189, opaco e permanente, oferecendo a tela cheia que já estava no ar.
-> Duas causas compostas: `oferecerGesto()` era chamado pelo ouvinte de clique do
-> `document` **no mesmo turno** do gesto — e `requestFullscreen()` é assíncrono,
-> então a pergunta "o que falta?" era respondida contra o passado (medido: o
-> ouvinte roda com `fullscreenElement=false`, o `fullscreenchange` chega 9 ms
-> depois) —; e o par mostrar/esconder do botão não cancelava o quadro de
-> opacidade que ele mesmo agendava, de modo que a saída relia `opacity`,
-> encontrava `'1'` e desistia. Agora quem responde é a Promise do próprio pedido
-> de tela cheia (resolve = entrou, rejeita = recusada) e `oferecerGesto()` é mudo
-> enquanto o gesto assenta; e os três prazos do botão são cancelados em bloco. O
-> `tela-rede.test.mjs` ganhou a regra, escrita para não depender de o runner
-> conceder tela cheia: **nada pode estar na tela oferecendo o que já está feito**
-> — e o caminho de volta é travado logo abaixo, senão apagar o botão passaria.
->
-> **v5.189 fechou a §7 e mudou a PORTA.** A transmissão direta do YouTube
-> passou a chegar às telas: o shell serve as mesmas faixas em `/s/<token>`
-> (repasse ao googlevideo com o UA que combina, `Range` do cliente subindo cru)
-> e o `telaEnriquecer` reescrevia o manifesto — com isso o `pularTransmissao` da
-> v5.187, que mandava todo "Tocar agora" para o download quando a transmissão
-> estava ligada e não havia TV, deixou de ter razão de existir e saiu. **O
-> cliente daquela rota saiu do web na v1.8.82** (a `/s/<token>` é Kotlin e fica
-> até uma Release a tirar); o que atravessa hoje é o ARQUIVO baixado, pela
-> `/m/<token>` de sempre. E a
-> ENTRADA perdeu o código de três dígitos (a porta é o endereço; ver a
-> invariante 5 do `EspelhoPares`): o overlay virou UM botão — "Ativar esta
-> tela" — que gasta o gesto, e a perda de token passou a reentrar sozinha, sem
-> desenhar nada por cima da mídia. Segue de fora: pré-busca da playlist e deck
-> por páginas.
->
-> **v5.188 fechou duas dívidas da E4.1 e uma lacuna que a E4 nem via:** as
-> **imagens de fundo da letra** agora viajam (`imageUrl` por estrofe no
-> `__rec`, uma URL `/m/` por imagem distinta, id estável `ly:`+caminho — o
-> mesmo hino duas vezes custa zero re-empurrão), e a tela que CONECTA recebe
-> as **preferências visuais** que o telão de verdade lê do IDB e ela não tem
-> de onde tirar: wallpaper (token REUSADO — o funil não re-cunha comando que
-> já chega com `__wp`; remoção viaja como o sentinela `__wp:'padrao'`),
-> `lyricsbg` e `fit`, tudo ENDEREÇADO no mesmo `display-ready` do reenvio de
-> cena (`telaReenviarPreferencias`). Seguem de fora: pré-busca da playlist,
-> deck por páginas e o proxy §7.
+| o quê | estado |
+|---|---|
+| **pré-busca da playlist** (a E4.1 restante: ligar a transmissão empurraria o item no ar e o Cronograma) | não existe — cada mídia é empurrada no `load` que a projeta (`telaGarantirEnvio`) |
+| **a rota `/s/<token>`** (§7) | no Kotlin, SEM CLIENTE desde a v1.8.82 |
+| **diagnóstico fino por tela** (eco de `__mid`, atraso medido) | não existe; o Registro lê `eventos`/`pronta`/`fila` (§9) |
 
 ---
 
 ## §1 A DECISÃO
 
-O espelho de pixels transmite **o resultado** (H.264 ~3 Mbps + AAC por tela,
+O espelho de pixels transmitia **o resultado** (H.264 ~3 Mbps + AAC por tela,
 contínuos, 0,7–2 s de atraso). O telão por comandos transmite **a causa**: o
 mesmo JSON do barramento interno, entregue por SSE a navegadores da LAN que
 renderizam localmente. O apêndice §10-A do `ESPELHO-DE-PIXELS.md` é o
@@ -223,53 +47,49 @@ em JS) aplicada ao próprio lado web. O celular serve o próprio bundle (o mesmo
 que o OTA atualiza — não existe "cliente desatualizado" possível); o que muda
 é o TRANSPORTE dos comandos e a FONTE da mídia.
 
-**Fora da equação, por decisão do operador:** o embed do YouTube. Cena de
-embed vira aviso "esta cena não vai para a rede". O caminho padrão de YouTube é
-o DOWNLOAD, e o arquivo baixado atravessa pela `/m/<token>` como qualquer outra
-mídia. E a CSP `default-src 'self'` que o
-servidor já põe em toda página **força** essa exclusão por construção: a
-IFrame API nem carregaria numa tela da rede.
+**O YouTube atravessa como ARQUIVO.** O embed saiu do app na v5.212; um
+`kind: 'youtube'` (o link sem bytes) é resolvido por DOWNLOAD no Controle antes
+do `load` (`resolverLinkYoutube`), e o arquivo baixado atravessa pela
+`/m/<token>` como qualquer outra mídia. A CSP `default-src 'self'` que o
+servidor põe em toda página barraria a IFrame API de qualquer jeito.
 
-## §2 O QUE FICA E O QUE MORRE
+## §2 O QUE FICOU E O QUE SAIU
 
-**Fica (infraestrutura de rede):** `EspelhoServidor` (sockets, bind Wi-Fi,
-allowlist de Host, religamento, tetos), `EspelhoHttp` (parser puro — GANHA
-Range e SSE), `EspelhoPares` (o protocolo `/par` → `200 {t}` | `403`, com JUnit — o CÓDIGO
-de três dígitos que ele carregava na v5.186 **saiu na v5.189**: o `/par` é
-anônimo), `EspelhoEnergia`, `EspelhoCert`, `EspelhoDiag` (conteúdo novo), e de
-`cliente.js`: a escada de reconexão, o `guardado()` do sessionStorage, o
-adeus, e o botão único que gasta o gesto (entrar + som + tela cheia) — tudo
-isso MIGRA para o `tela.js` (§3.4), porque a página da tela passa a ser o
-próprio display.
+**Ficou (infraestrutura de rede):** `EspelhoServidor` (sockets, bind num IPv4
+servível, allowlist de `Host`, religamento, tetos), `EspelhoHttp` (parser puro,
+com Range e SSE), `EspelhoPares` (o `/par` anônimo → `200 {t}` | `403`, com
+JUnit), `EspelhoEnergia`, `EspelhoCert`, `EspelhoDiag`. Do cliente de pixels
+migraram para o `espelho/tela.js` a escada de reconexão, o `guardado()` do
+`sessionStorage`, o adeus e o botão único que gasta o gesto.
 
-**Morre (na E7, nunca antes):** `EspelhoCodec`, `EspelhoAudio`,
-`EspelhoDisplay`, `MirrorPresentation`, `fmp4.js`, a maquinaria MSE de
-`cliente.js` (~72% das 3.033 linhas — medido na varredura), o batimento e o
-bloco de áudio do papel `espelho` em `display.js` (linhas 1716–2149), o dreno
-do papel `espelho` em `native.js`, `tools/fmp4.test.mjs`, os blocos MSE de
-`tools/espelho-cliente.test.mjs`. O filtro `telasExternas` fica (é cinto e
-suspensório documentado), mas a exclusão por `displayId` passa a casar com
-nada.
+**Saiu (E7, v5.187):** `EspelhoCodec`, `EspelhoAudio`, `EspelhoDisplay`,
+`MirrorPresentation`, o `fmp4.js`, o `cliente.js`, o papel `espelho` do
+`display.js` e o dreno dele no `native.js`, e os oráculos
+`fmp4.test.mjs`/`espelho-cliente.test.mjs`. O filtro `telasExternas` da
+`MainActivity` FICOU, só com o `FLAG_PRIVATE`: a exclusão por `displayId` saiu
+com a tela virtual.
 
-**Some como problema:** deriva A/V (cada tela toca o arquivo com a própria
+**Sumiu como problema:** deriva A/V (cada tela toca o arquivo com a própria
 faixa), poda/GOP/IDR/borda viva, térmica do encoder, atraso do pipeline, e o
-`previewAtrasoMs` (v5.162) zera sem pixels.
+atraso da preview para telas de comando (`dePixels` em
+`recalcularAtrasoPreview` — ver "O mapa de hoje").
 
 ## §3 ARQUITETURA
 
 ```
 ┌───────────────────────── celular ─────────────────────────┐   ┌─── navegador na LAN ───┐
-│ Controle ── AVDB.sendCommand (db.js:832) ──► BC + __AVBus │   │ GET / → redirect       │
+│ Controle ── AVDB.sendCommand ──► BC + __AVBus             │   │ GET / → 302            │
 │   (no load: anexa __rec com URLs /m/ — §5.5)              │   │        │               │
-│                    ▼ busPost (NativeBridge:355)           │   │        ▼               │
+│                    ▼ NativeBridge.busPost → tapLan        │   │        ▼               │
 │ MessageBus ─► telão/TV      └► EspelhoServidor            │   │ UMA página: display +  │
-│      ▲                        │                           │   │ overlay do código      │
-│      ▲                        ├ GET  /e   SSE ────────────┼───┼─► comandos JSON        │
-│      │ injeta tela-status     ├ GET  web/display|shared ──┼───┼─► o próprio bundle     │
+│      ▲                        │                           │   │ entrada (UM botão)     │
+│      │                        ├ GET  /e   SSE ────────────┼───┼─► comandos JSON        │
+│      │ injeta display-ready/  ├ GET  /display|shared|     │   │                        │
+│      │ tela-status            │      espelho ─────────────┼───┼─► o próprio bundle     │
 │      │ (POST /r "st")         ├ GET  /m/<token>  Range ───┼───┼─► mídia sob demanda    │
 │      │                        └ POST /r  ◄────────────────┼───┼── tela.js: dreno de    │
-│ Cache de mídia (canal ArrayBuffer web→Kotlin)             │   │   subida + transporte  │
-│ WebPathHandler (mesma resolução OTA→APK)                  │   │   + vigília + overlay  │
+│ EspelhoMidiaCache (canal ArrayBuffer web→Kotlin)          │   │   subida + transporte  │
+│ bundle: sessionRoot OTA → assets do APK, por arquivo      │   │   + vigília + entrada  │
 └───────────────────────────────────────────────────────────┘   └────────────────────────┘
 ```
 
@@ -278,159 +98,188 @@ As decisões, cada uma com o porquê e com o fato que a sustenta:
 1. **SSE por `fetch`+`ReadableStream`, não `EventSource` e não WebSocket.**
    WebSocket: recusado pelo projeto por falta de oráculo (RFC 6455).
    `EventSource`: não envia headers — forçaria o token para a URL, que a
-   invariante 2 do `EspelhoPares` proíbe. O cliente ATUAL já faz
-   `fetch('/v')` com `Authorization: Bearer` e `AbortController`
-   (cliente.js:2429): o SSE herda o transporte, o vigia e a escada de
-   reconexão prontos. O framing SSE é três linhas sobre o `chunked` que o
-   `EspelhoHttp` já emite.
+   invariante 2 do `EspelhoPares` proíbe. O `tela.js` faz `fetch('/e')` com
+   `Authorization: Bearer` e um `AbortController` — **com guarda**
+   (`abortador()`): navegador de TV anterior ao Chromium 66 não o tem, e sem a
+   guarda o `new AbortController()` lançaria dentro do `conectar()`; sem ele o
+   `fetch` vai sem `signal` e o laço de reconexão segue inteiro. O framing SSE
+   é três linhas sobre o `chunked` que o `EspelhoHttp` já emite.
 2. **O tap do relay é no Kotlin, em `NativeBridge.busPost`.** O `cmd()` do
-   Controle NÃO é funil único (seis caminhos chamam `AVDB.sendCommand`
-   direto — mic, view, audio-retry, diag-ask, wallpaper, resend). Quem vê
-   100% dos comandos de todas as páginas é o relay nativo que o db.js já
-   alimenta incondicionalmente no app (db.js:832→native.js:331→busPost).
-   O servidor ganha um consumidor ali (o `tapLan`): JSON verbatim → fila SSE
-   de cada tela. Zero interpretação no Kotlin (invariante 5). Sem eco por
-   construção: mensagens injetadas pelo servidor entram por
+   Controle NÃO é funil único: o `controle.js` chama `AVDB.sendCommand` direto
+   em vários pontos (o reenvio de cena, o wallpaper, o `tela-aviso`…). Quem vê
+   100% dos comandos de todas as páginas é o relay nativo que o `db.js` já
+   alimenta incondicionalmente no app (`sendCommand` → `__AVBus.post` →
+   `B.busPost` no `native.js` → `NativeBridge.busPost`). O consumidor ali é o
+   `NativeBridge.tapLan`, que a `MainActivity` aponta para
+   `EspelhoServidor.difundirJson` enquanto o servidor está no ar: JSON verbatim
+   → fila SSE de cada tela. Zero interpretação no Kotlin (invariante 5). Sem eco
+   por construção: mensagens injetadas pelo servidor entram por
    `MessageBus.post(null,…)`, que não passa por `busPost` — um comando vindo
    de uma tela não volta para as telas.
 3. **O Kotlin não interpreta comandos.** Cena inicial de uma tela que
-   conecta: a tela emite `display-ready` com `__de` próprio (display.js:24,
-   1667), o tap de subida o entrega ao barramento, e
-   `resendSceneToDisplay(msg.__de)` (controle.js:16027) devolve a cena
-   endereçada com `__para` — o mecanismo da v5.140, intacto. O reenvio já
-   leva rotate→load(time/playing)→view→text, na ordem certa.
+   conecta: a tela emite `display-ready` com `__de` próprio (`INSTANCIA` do
+   `display.js`), o servidor o injeta no barramento, e
+   `resendSceneToDisplay(msg.__de)` devolve a cena endereçada com `__para` — o
+   mecanismo da v5.140, intacto. O reenvio leva `rotate` → `load` (com `view`,
+   `time`, `playing` e `page` dentro) → o `text` projetado, nessa ordem.
 4. **UMA PÁGINA SÓ: a tela da rede É o `/display/` com o `tela.js` de
-   casca.** A raiz `/` da LAN responde um redirect para
-   `/display/index.html?tela=1`; NÃO existe página de entrada separada. O
-   motivo é a exigência da v5.186: `requestFullscreen()` e sair do `muted`
-   exigem ativação transitória, o gesto vale segundos e **não sobrevive a
-   uma navegação** — uma página de entrada que navegasse ao display
-   perderia o gesto, e a tela entraria muda e em janela. O tela.js desenha
-   o overlay de entrada (UM botão, "Ativar esta tela" — o campo de código saiu
-   na v5.189) POR CIMA do display ainda vazio; o toque faz, na ordem: `POST /par` →
-   guarda o token → desmuta o `<video>` do stage → `requestFullscreen` →
-   abre o SSE — tudo no mesmo gesto, na mesma página.
-   O `tela.js` entra em `display/index.html` ANTES de `db.js` e é ativado
-   por query explícita (`?tela=1` — nunca adivinhação de origem: o fluxo
-   de desenvolvimento no navegador continua). Ele define `window.__AVBus`
-   ANTES de db.js capturá-lo na carga (db.js:801) — a mesma janela do
-   native.js. `recv` = eventos do SSE; `post` = o DRENO DE SUBIDA (§5.4).
-   Define `__AV_ROLE__='tela'` (nenhum código existente testa
-   `=== 'display'`; `ESPELHO` fica false; guardas `!== 'controle'` seguem
-   corretas). Neutraliza o `postMessage` do BroadcastChannel como o papel
-   espelho fazia (duas abas no mesmo PC não se contaminam). `__NATIVE__`
-   fica indefinido: o comportamento "navegador" do display é o correto
-   aqui. Fora do papel `tela`, o arquivo é um no-op de uma guarda.
+   casca.** `requestFullscreen()` e sair do `muted` exigem ativação transitória,
+   o gesto vale segundos e **não sobrevive a uma navegação** — uma página de
+   entrada que navegasse ao display perderia o gesto, e a tela entraria muda e
+   em janela. O `tela.js` desenha a entrada (UM botão, "Ativar esta tela") POR
+   CIMA do display ainda vazio, e o toque gasta o gesto ANTES da rede
+   (`gastarGesto`: `requestFullscreen` → `__telaSom(true)` → vigília) e só
+   então faz `POST /par` → guarda o token → abre o SSE — tudo no mesmo gesto, na
+   mesma página.
+
+   **O PAPEL VEM DE QUEM SERVE, não da URL.** O servidor injeta
+   `<meta name="av-tela">` em toda página que entrega
+   (`EspelhoServidor.comMarcaDeTela`), e ele só entrega o display. A raiz `/`
+   ainda responde `302` para `/display/index.html?tela=1`, e o `?tela=1` é o
+   RECUO (shell antigo sem a marca): a query chega por um redirecionamento que
+   um navegador de TV pode não preservar, e enquanto ela era o marcador único a
+   tela abria como um `/display/` comum. Nunca adivinhação de origem: o
+   `/display/` aberto no navegador de desenvolvimento cai fora do papel.
+
+   O `tela.js` entra em `display/index.html` DEPOIS de `native.js` e ANTES de
+   `db.js`: ele define `window.__AVBus` e neutraliza o `postMessage` do
+   `BroadcastChannel` antes de o `db.js` capturar os dois na carga. `recv` =
+   eventos do SSE; `post` = o DRENO DE SUBIDA (§5.4). Define
+   `__AV_ROLE__='tela'` (o `display.js` lê `TELA`; nenhum código testa
+   `=== 'display'`; guardas `!== 'controle'` seguem corretas). `__NATIVE__`
+   fica indefinido: o comportamento "navegador" do display é o correto aqui.
+   Fora do papel `tela`, o arquivo é um no-op de uma guarda.
 5. **A mídia viaja por `__rec` + `/m/<token>`.** O `load` só carrega
-   `mediaId`; TUDO vem de `AVDB.getMedia` no IDB — chamado DUAS vezes
-   (display.js:1549 e stage.js:735) — e numa tela da LAN o IDB está vazio e
-   o OPFS nem existe (`getDirectory` é secure-context). A solução de menor
-   toque: o Controle anexa ao load um registro SANEADO (`__rec`) em que
-   toda referência local vira URL servível: `opfsPath/blob` → `url:
-   '/m/<token>'`; `pages[i]` → URLs por página; `lyrics[].imageOpfsPath` →
-   URL; `stream`/`youtubeId` → nunca chegam (§5.6). Como `rec.url` entra
-   DIRETO no `src` (stage.js:785), o stage não muda. O tela.js instala o
-   `__rec` num cache local e embrulha `AVDB.getMedia` para respondê-lo —
-   UM ponto cobre os dois chamadores. O comando enriquecido também chega ao
-   telão de verdade, que o ignora (getMedia local vence). **`__rec` viaja NO
-   comando, não numa consulta:** um "GET /registro/<id>" a cada load seria uma
+   `mediaId`; TUDO vem de `AVDB.getMedia` no IDB — chamado DUAS vezes (pelo
+   `display.js` e pelo `stage.js`) — e numa tela da LAN o IDB está vazio e o
+   OPFS nem existe (`getDirectory` é secure-context). A solução de menor
+   toque: o Controle anexa ao `load` um registro SANEADO (`__rec`) em que toda
+   referência local vira URL servível: `opfsPath/blob` → `url: '/m/<token>'`;
+   `pages[i]` → URLs por página; `lyrics[].imageOpfsPath` → `imageUrl`;
+   `stream`/`youtubeId` → nunca chegam (§5.6). Como `rec.url` entra DIRETO no
+   `src` (o ramo `rec.url` do `stage.js`, depois de `blob` e `opfsPath`), o
+   stage não muda. O `tela.js` instala o `__rec` num cache local (`recCache`)
+   ANTES de entregar o comando e embrulha `AVDB.getMedia` para respondê-lo — UM
+   ponto cobre os dois chamadores. O comando enriquecido também chega ao telão
+   de verdade, que o ignora (getMedia local vence). **`__rec` viaja NO comando,
+   não numa consulta:** um "GET /registro/<id>" a cada load seria uma
    ida-e-volta a mais no caminho crítico do culto, e o Controle já tem o
    registro na mão quando emite o `load`.
-6. **Tokens de serviço opacos, padrão `SafRegistry`** (128 bits base64url,
-   mesmo token para o mesmo recurso, morrem com a sessão de transmissão).
-   NÃO são o token de sessão — a regra "o token de sessão nunca viaja numa
-   URL" fica intacta; um token de serviço concede UM recurso, na LAN,
-   enquanto a transmissão durar. Rota `/m/` anônima (o token é a
-   capacidade); bundle (`web/display|shared|espelho`) anônimo por allowlist
-   de PREFIXO com contenção por canonicalPath — **nunca `web/controle/`**;
-   `/e` e `/r` autenticados por `Authorization` como hoje.
+6. **Tokens de serviço opacos**, cunhados pelo Controle (`telaTokenDe`:
+   `crypto.randomUUID()` sem hífens; sem ele, nenhum token e nenhuma mídia na
+   rede), estáveis por id (`telaTokens` — a regra "mesmo id + mesmo token =
+   mesmo item" do shell), e servidos pelo cache da SESSÃO de transmissão (a
+   `MainActivity` cria um `EspelhoMidiaCache` a cada ligada). NÃO são o token
+   de sessão — a regra "o token de sessão nunca viaja numa URL" fica intacta;
+   um token de serviço concede UM recurso, na LAN, enquanto a transmissão
+   durar. Rota `/m/` anônima (o token é a capacidade); bundle
+   (`PREFIXOS_BUNDLE`: `/display/`, `/shared/`, `/espelho/`) anônimo, com
+   contenção por canonicalPath — **nunca `web/controle/`**; `/e` e `/r`
+   autenticados por `Authorization`.
 7. **Range de verdade, nosso.** No `ServerSocket` a invariante 8 se inverte:
    quem aplica Range somos nós, com `206`/`Content-Range`/`416` reais —
-   copiar o StreamProxy (200 seco, fatia-como-todo) é o erro exato já
-   documentado. Parsing puro no `EspelhoHttp` (que hoje DESCARTA o header
-   Range), com JUnit. Faixa única. `Connection: close` fica (a premissa
-   anti-smuggling não cai): por tela, 1 SSE + 1 mídia + POSTs curtos cabem
-   nas 6 conexões do Chromium — os POSTs já têm prazo de 15 s (v5.181).
-8. **Heartbeat SSE de 15 s** (`: ping`), e ele paga três contas de uma vez:
-   o vigia de fio do cliente (que hoje depende dos bytes contínuos do
-   vídeo), o TCP meio-aberto do lado do servidor (escrita falha → tela
-   morta), e o **wake lock do EspelhoService**, cuja renovação é por
-   progresso real de escrita — sem tráfego, o teto de 2 h venceria no meio
-   do culto (fato da varredura).
+   copiar o StreamProxy (200 seco, fatia-como-todo, pedaço inteiro em memória)
+   é o erro exato. Parsing puro no `EspelhoHttp` (`alcanceDe`), com JUnit.
+   Faixa única. `Connection: close` fica (a premissa anti-smuggling não cai):
+   por tela, 1 SSE + 1 mídia + POSTs curtos cabem nas 6 conexões do Chromium —
+   os POSTs têm prazo de 15 s (`PRAZO_POST_MS` do `tela.js`) e o `tela-status`
+   sobe freado (§3.9).
+8. **Heartbeat SSE de 15 s** (`PING_SSE_MS`, `: ping <epoch-ms>`), e ele paga
+   três contas de uma vez: o vigia de fio do `tela.js` (`PING_SUMIDO_MS`, 35 s
+   sem byte = TCP meio-aberto → aborta e volta à escada), a escrita que falha do
+   lado do servidor (tela morta), e o **wake lock do `EspelhoEnergia`**, cuja
+   renovação é por progresso real de escrita (`EspelhoEnergia.progresso()`) —
+   sem tráfego, o teto de 2 h venceria no meio do culto. **E O SINAL DE VIDA
+   PEGA CARONA NO FIO** (v5.208): o `alive` sai quando um byte do SSE chega
+   (piso de `ALIVE_MS`, 10 s), além do timer e do `visibilitychange` —
+   navegador de TV estrangula timer de aba para ~1/min, e o servidor derruba
+   quem não relata (`TETO_SEM_RELATO_MS`, 150 s; qualquer `POST /r` conta).
 9. **Status: dreno de subida + eleição no Controle.** N telas emitindo
-   `display-status`/`media-ended`/`diag-dump` é exatamente o que o dreno
-   do papel espelho existe para calar — o problema reaparece na direção
-   LAN→celular. O `post` do tela.js é lista de PERMISSÃO: `display-ready`
-   (com `__tela`) e `display-status` RENOMEADO `tela-status` (com
-   `__tela`); todo o resto morre mudo (media-ended dobraria o repeat-one;
-   diag-dump duplo faria o Registro mostrar o diário de UM sem dizer qual;
-   quem avança playlist continua sendo o Controle, como hoje). O Kotlin injeta o `st` verbatim
-   no barramento E alimenta o snoop da notificação de mídia (a exceção já
-   documentada do `snoopDisplayStatus`: copiar campos que o web calculou).
-   Quem ELEGE a referência entre N telas é o Controle (invariante 5) — a
-   mais antiga com `mediaId === currentId`; o telão de verdade tem
-   precedência pelo relógio de 2,5 s que já existe.
-10. **Som opt-in continua** (invariante 10): a tela nasce muda; o gesto
-    desmuta `el.v` — é um atributo do `<video>`, sem torneira.
+   `display-status`/`media-ended`/`diag-dump` é o que o dreno existe para
+   calar. O `post` do `tela.js` é lista de PERMISSÃO: `display-ready` (com
+   `__tela`) e `display-status` RENOMEADO `tela-status` (com `__tela`, freado a
+   1 Hz e na hora quando `playing`/`mediaId`/`view` muda); todo o resto morre
+   mudo (`media-ended` dobraria o repeat-one; `diag-dump` duplo faria o Registro
+   mostrar o diário de UM sem dizer qual; quem avança playlist continua sendo o
+   Controle). O servidor confere de novo (`TIPOS_QUE_SOBEM`), injeta o `st`
+   verbatim no barramento E alimenta o snoop da notificação de mídia
+   (`snoopStatusDeFora`, a exceção documentada: copiar campos que o web
+   calculou). Quem ELEGE a referência entre N telas é o Controle (invariante 5):
+   a primeira vista com `mediaId === currentId`, trocada quando cala por
+   `TELA_REF_SILENCIO_MS` (5 s), e o status dela vira `espelho-status`. O telão
+   de verdade tem precedência (`telaoAtivo()`; no Kotlin,
+   `PRECEDENCIA_TELAO_MS`, 2,5 s).
+10. **Som opt-in por tela:** o `display.js` nasce com `forceMuted: TELA`, e o
+    gesto chama `window.__telaSom(true)` (`stage.setForceMuted(false)`) — um
+    gancho que só existe no papel `tela`.
 11. **(Microfone: o recurso SAIU na v1.8.89.** Ele nunca saía na rede; a
     armadilha que deixou para o próximo comando de DESCIDA está em "As inversões
     que precisam estar ditas", no mapa de hoje, ao fim.)
 12. **Relógio das telas.** Cronômetro e sorteio viajam por descritor com
-    epoch ms (`startAt`, `rollUntil`) e supõem relógio comum — uma Smart TV
-    com minutos de desvio contaria errado. O tela.js mede o desvio
-    (`Date.now()` da tela − epoch do celular, que o heartbeat SSE carrega;
-    mediana de várias amostras, ignorando outliers de rede) e SOMA o offset
-    aos campos de epoch dos comandos que chegam. Correção no lado web, por
-    tipo de campo conhecido — o Kotlin segue sem interpretar.
-13. **Vigília de tela acesa.** O espelho de pixels mantinha a tela da TV
-    acesa porque um `<video>` tocava sempre; numa cena de texto por
-    comandos não há vídeo, `navigator.wakeLock` não existe em http, e a
-    tela apagaria no meio do sermão. O tela.js mantém um `<video>` 1×1
-    mudo em loop tocando ("vigília") — o truque clássico, honesto sobre o
-    limite: navegador que o ignore vai apagar, e a frase da folha diz para
-    desligar a economia de tela do aparelho.
-14. **Despedida e adeus, desde o primeiro commit.** O SSE ganha o evento
-    `{"m":"adeus"}` no desligar; o cliente reusa a máquina que já existe
-    (ADEUS_VOLTA_MS, volta sozinho em 20 s). A lição da v5.154 (código
-    morto simétrico) exige o caso no teste de cliente desde a E2.
-15. **404 uniforme e queda de token**: mantidos — qualquer 404 nas rotas
-    autenticadas derruba o token e volta ao pareamento, como hoje.
+    epoch ms (`chrono.startAt`, `draw.rollUntil`) e supõem relógio comum — uma
+    Smart TV com minutos de desvio contaria errado. O `tela.js` mede o desvio
+    (`Date.now()` da tela − epoch do celular, que o `oi` e cada ping carregam;
+    mediana das últimas 5 amostras, `RELOGIO_AMOSTRAS`) e SOMA o offset a esses
+    campos nos comandos `text` que chegam (`corrigirRelogio`). O modo RELÓGIO,
+    que não tem época na mensagem, lê `window.__avAgora()` (v5.210): a casca
+    publica o relógio do celular; nos outros papéis a função não existe e o
+    `display.js` cai no `Date.now()`, que ali já é o celular. Correção no lado
+    web, por campo conhecido — o Kotlin segue sem interpretar.
+13. **Vigília de tela acesa.** Numa cena de texto não há vídeo tocando, e a
+    tela da TV apagaria no meio do sermão. Onde há contexto seguro (certificado
+    configurado, `localhost`), `navigator.wakeLock` — re-pedido no
+    `visibilitychange`, porque a trava morre quando a aba sai de foco; sempre,
+    o piso: um `<video>` de 2×2 alimentado por `canvas.captureStream` (que não
+    é `[SecureContext]`) tocando mudo. Honesto sobre o limite: navegador que o
+    ignore vai apagar, e a saída é desligar a economia de tela do aparelho.
+14. **Despedida.** No desligar o servidor esvazia a fila de cada tela e manda
+    `{"m":"adeus"}` (com `ADEUS_PRAZO_MS`, 1,5 s, para sair antes de o socket
+    cair). A tela trata como token morto: `aoAdeus` → `cairToken` → a reentrada
+    silenciosa (`REENTRADA`, 1 s → 30 s), que reconecta sozinha quando o
+    operador religar.
+15. **404 uniforme e queda de token**: 404/403 no `/e` e 404 no `/r` derrubam o
+    token (`cairToken`). Com o gesto já gasto a tela reentra EM SILÊNCIO; antes
+    dele, volta a entrada.
 
 ## §4 SEQUÊNCIA DE UM CULTO
 
-1. Operador liga a transmissão. Sobe servidor+service — sem tela virtual,
-   sem codec, sem janela. A folha mostra o ENDEREÇO (IP) — e nada mais: o
-   código de três dígitos saiu na v5.189.
-2. Visitante abre `http://<ip>:8787/` → redirect para
-   `/display/index.html?tela=1`, servido DO CELULAR (mesmo bundle do OTA).
-   O tela.js mostra o overlay: UM botão, "Ativar esta tela".
-3. O toque no botão gasta o gesto: `POST /par` (anônimo) → token → som +
-   tela cheia → SSE aberto → `display-ready` sobe pelo dreno e volta como
-   cena endereçada.
+1. Operador liga a transmissão. Sobe o servidor (a energia é do
+   `EspelhoEnergia`; o primeiro plano, do `SessionService`) — sem tela virtual,
+   sem codec, sem janela. A folha mostra o ENDEREÇO (IP), e nada mais.
+2. Visitante abre `http://<ip>:8787/` → `302` para
+   `/display/index.html?tela=1`, servido DO CELULAR (mesmo bundle do OTA, com a
+   `<meta name="av-tela">` injetada). O `tela.js` mostra a entrada: UM botão,
+   "Ativar esta tela".
+3. O toque gasta o gesto (tela cheia + som + vigília) e só então faz
+   `POST /par` (anônimo) → token → SSE aberto → o reanúncio do `display-ready`
+   sobe e volta como cena endereçada.
 4. Cada comando chega em ~10 ms. Texto renderiza vetorial. `load` traz
    `__rec` com `/m/<token>`; o navegador toca com Range e áudio próprio.
 5. A tela reporta `tela-status`; o Controle elege a referência para barra,
    MediaSession e preview.
-6. Queda de Wi-Fi: a escada de reconexão reabre o SSE, `display-ready` de
-   novo, cena com posição — o caminho do dongle. O que estava na tela nem
-   pisca durante a queda.
+6. Queda de Wi-Fi: a escada de reconexão (`RECONEXAO`, 0,5 s → 8 s) reabre o
+   SSE, o `display-ready` sobe de novo, cena com posição — o caminho do dongle.
+   O que estava na tela nem pisca durante a queda.
 
 ## §5 CONTRATOS
 
 ### 5.1 SSE (`GET /e`)
-`200`, `Content-Type: text/event-stream`, sem Content-Length, chunked como o
-`/v` de hoje. Evento = `data: <json>\n\n`. Heartbeat `: ping <epoch-ms>\n\n`
-a cada 15 s (o epoch alimenta a correção de relógio). Auth: `Authorization`
-(fetch). Na abertura o servidor manda `{"m":"oi","ms":<epoch>}` e nada mais —
-estado vem do reenvio de cena.
+`200`, `Content-Type: text/event-stream`, sem Content-Length, chunked.
+Evento = `data: <json>\n\n`. Heartbeat `: ping <epoch-ms>\n\n` a cada 15 s (o
+epoch alimenta a correção de relógio). Auth: `Authorization` (fetch). Na
+abertura o servidor manda `{"m":"oi","ms":<epoch>}` e nada mais — estado vem do
+reenvio de cena. Fila de 256 eventos por tela (`TETO_FILA_SSE`); fila cheia =
+tela que não escoa = derrubada (ela reconecta e recebe a cena inteira), nunca
+descarte silencioso de comando.
 
 ### 5.2 Comandos (celular → telas)
-JSON do barramento, verbatim, com `__mid` preservado (o dedup do db.js segue
-valendo via o `__AVBus` do tela.js). Endereçado (`__para`) vai só à tela dona
-— o servidor conhece o `__de`/`__tela` que cada tela anunciou e filtra por
-igualdade de string, sem ler mais nada do JSON. Broadcast vai a todas.
-Payloads em português passam INTACTOS — o caminho de comandos não passa por
-`sanear()` (que é para o Registro e apagaria acentos).
+JSON do barramento, verbatim, com `__mid` preservado (o dedup do `db.js` — Set
+de 400 por página — segue valendo, porque o `tela.js` fornece um `__AVBus`).
+Endereçado (`__para`) vai só à tela dona — o servidor guarda o `__de` que cada
+tela anunciou no `display-ready` e filtra por igualdade de string, e só faz o
+parse quando a substring `"__para"` existe. Broadcast vai a todas. Payloads em
+português passam INTACTOS — o caminho de comandos não passa por `sanear()`
+(que é para o Registro e apagaria acentos).
 
 ### 5.3 Mídia (`GET /m/<token>`)
 Range RFC 7233 faixa única (`EspelhoHttp.alcanceDe`); sem Range → 200 inteiro;
@@ -459,115 +308,76 @@ vê o erro de rede que de fato houve, em vez de tocar meia mídia e disparar
 válida: o anel do diário tem 60 linhas e um scanner na rede não pode apagá-lo
 com rotas inventadas.
 
+**`Cache-Control: no-store` em TODA resposta** (`EspelhoHttp.CABECALHOS_SEMPRE`),
+404 inclusive — é o que torna seguro repetir a MESMA URL numa retentativa: não
+há 404 grudado em cache para envenenar a tentativa boa.
+
 ### 5.4 Subida (`POST /r`)
-Ramos novos: `{"st": <tela-status>}` (injetado verbatim no MessageBus +
-snoop da notificação; teto 4 KiB; sem sanear no caminho do barramento) e o
-`alive` de sempre com telemetria NOVA de tela (§9). O dreno de subida do
-tela.js garante que só `display-ready` e `tela-status` sobem.
+Teto do corpo 4 KiB (`TETO_CORPO_RETORNO`). Dois ramos:
+`{"do":"st","st":<msg>}` — só os tipos de `TIPOS_QUE_SOBEM` (`display-ready`,
+`tela-status`), injetado verbatim no `MessageBus` + snoop da notificação, sem
+sanear no caminho do barramento; o `display-ready` registra o `__de` que roteia
+o endereçamento — e `{"do":"alive", telaAcesaMin, aviso}`, a telemetria da
+tela (§9; o `aviso` é saneado aqui, porque termina no Registro). Qualquer
+`POST /r` é sinal de vida. O dreno do `tela.js` garante do lado de lá que só
+`display-ready` e `tela-status` sobem; o servidor garante do lado de cá.
 
 ### 5.5 O registro saneado (`__rec`)
-Campos: `id, kind, name, type, url` (→ `/m/<token>`), `seconds, height,
-thumb?` (URL ou omitido), `pages?` (URLs), `lyrics?` (slides com
-`imageUrl` no lugar de `imageOpfsPath`, mantendo `time/text/auxText/cover/
-imagePosition`), `hymnName?, hymnTrack?`. NUNCA: `blob`, `opfsPath`,
-`stream`, `youtubeId`. Anexado pelo Controle na emissão do load quando a
-transmissão está ligada; o wallpaper vai por `__wp: <url>` no comando
-`wallpaper` e no reenvio de cena.
+`telaSanearRec`. Campos: `id, kind, name, type, url` (→ `/m/<token>`),
+`seconds, height`, `pages?` (uma URL `/m/` por página — §5.6), `edicao?`
+(`inicio/fim/fadeEntrada/fadeSaida`: os bytes são os do original, e quem corta e
+esmaece é o `stage.js` da tela), `hymnName?, hymnTrack?, hymnAlbum?`,
+`lyrics?` (slides com `imageUrl` no lugar de `imageOpfsPath`, mantendo
+`time/text/auxText/cover/imagePosition`). NUNCA: `blob`, `opfsPath`, `stream`,
+`youtubeId`. Anexado pelo Controle (`telaEnriquecer`) quando a transmissão está
+ligada, em dois comandos: o `load` e o `text` de modo `image` (a imagem sobre o
+áudio, v5.312, que leva um `mediaId` que a tela não resolveria). O wallpaper vai
+por `__wp: <url>` no comando `wallpaper` e no reenvio de preferências; a remoção
+viaja como o sentinela `__wp:'padrao'`.
+
+**As imagens de fundo da letra** viajam como uma `/m/` por imagem DISTINTA, id
+estável `ly:`+caminho (o mesmo hino de novo custa zero empurrão), e são
+enfileiradas DEPOIS da mídia principal no mesmo canal serializado
+(`telaEmpurrarImagensLetra`) — o som não espera as fotos. **Por isso a tela
+espera mais que o canal:** a retentativa dela dobra até um platô de 2,5 s com
+teto de 45 s, e morre na guarda de sequência quando a estrofe muda. Uma
+retentativa tem de durar mais que o processo que ela espera; a ladeira curta
+anterior (~2,4 s) desistia antes de os bytes poderem chegar.
 
 ### 5.6 Cenas que não vão para a rede
-Sobrou **uma**: `kind === 'youtube'` (embed), que é iframe de terceiro e a CSP
-das telas barra por construção. O Controle relaya no lugar do load um
-`{type:'tela-aviso', texto:'Esta cena não aparece no computador conectado.'}` +
-`media-clear`. O tela.js desenha o aviso; o display limpa. Política E6: com
-transmissão ligada e sem TV, "Tocar agora" de YouTube cai no download.
+Sobra **uma** guarda: `kind === 'youtube'` (o link sem bytes; o embed saiu na
+v5.212 e o Controle resolve o link por download antes do `load`). Se chegar
+assim mesmo, o Controle relaya um
+`{type:'tela-aviso', texto:'Esta cena não aparece no computador conectado.'}`;
+o `tela.js` desenha o aviso (6 s), e o display, que recebeu o `load` sem
+`__rec`, não acha o registro no IndexedDB dele e limpa a cena.
 
-`rec.stream` SAIU desta lista na v5.189 (a rota `/s/<token>`), e o **deck** na
-v1.1.7: cada página vira uma `/m/` (`telaDeckUrls`/`telaEmpurrarPaginasDeck` no
-Controle; `urlDaPagina` no `stage.js`, que passou a aceitar string ou Blob em
-`pages`). A apresentação é o único kind cujo conteúdo é uma LISTA, e por isso
-não cabia no `url` do registro saneado: `telaDeckUrls` cunha um token por página
-(id estável `dk:<item>:<i>`, irmão do `ly:`) e `telaEmpurrarPaginasDeck` os
-enfileira EM ORDEM — a página 1 chega primeiro, que é a que a tela busca assim
-que o `load` pousa. Sem token forte (`crypto.randomUUID` ausente) a lista
-INTEIRA é recusada e a cena cai no aviso — lista com buraco projetaria página em
-branco no meio do sermão. Oráculo: a metade CONSUMIDORA no
+O **deck** atravessa desde a v1.1.7: cada página vira uma `/m/`
+(`telaDeckUrls`/`telaEmpurrarPaginasDeck` no Controle; `urlDaPagina` no
+`stage.js`, que aceita string ou Blob em `pages`). A apresentação é o único kind
+cujo conteúdo é uma LISTA, e por isso não cabia no `url` do registro saneado:
+`telaDeckUrls` cunha um token por página (id estável `dk:<item>:<i>`, irmão do
+`ly:`) e `telaEmpurrarPaginasDeck` os enfileira EM ORDEM — a página 1 chega
+primeiro, que é a que a tela busca assim que o `load` pousa. Sem token forte
+(`crypto.randomUUID` ausente) a lista INTEIRA é recusada e a cena cai no aviso —
+lista com buraco projetaria página em branco no meio do sermão. O mesmo vale
+para o deck sobreposto (`text` de modo `image`). Oráculo: a metade CONSUMIDORA no
 `tela-rede.test.mjs`; a produtora (o ramo `pages` do `telaEnriquecer`) segue
 **sem oráculo**, e isso está dito porque as duas quebram diferente.
 
-## §6 AS ETAPAS
+## §6 AS ETAPAS (concluídas)
 
-Cada etapa: testes verdes, Estado atualizado, commit na branch, merge em
-`main` (E1–E5 são escuras; E6 é o corte; ver §0.6).
+O plano de cada etapa está no apêndice (`grep -n "v5.187" docs/HISTORICO.md`).
+O que cada uma deixou no código:
 
-- **E1 — fundações puras.** `EspelhoHttp`: `parsearRange(header, tamanho)`
-  → `Faixa|null|Invalida`, `respostaParcial()`, `resposta416()`,
-  `respostaSse()`, `eventoSse()`, `pingSse()`; o parser passa a CAPTURAR o
-  header `Range` (política de duplicata: recusa, como os quatro campos que
-  já lê). JUnit: as formas malformadas, limites, duplicata, e o caso
-  `bytes=a-` / `bytes=-n` / além-do-fim. Nada fiado.
-  *(Os nomes finais divergiram do plano, e é este documento que fica errado se
-  não disser: `parsearRange` virou **`alcanceDe`**, `respostaParcial` virou
-  **`cabecalhoParcial`** e `respostaSse` virou **`cabecalhoSse`** — a mudança é
-  de nome e de forma, porque as três devolvem o CABEÇALHO e o corpo é escrito
-  em seguida no socket, o que é obrigatório num arquivo em crescimento.
-  `resposta416`, `eventoSse` e `pingSse` saíram com o nome do plano.)*
-- **E2 — bundle + SSE + tap.** Prefixo-allowlist no servidor
-  (`web/display/`, `web/shared/`, `web/espelho/` — jamais `web/controle/`)
-  usando a resolução do `WebPathHandler` (sessionRoot OTA → assets APK, por
-  arquivo); rota `/e` com heartbeat+epoch e adeus; consumidor de barramento
-  em `busPost` → `EspelhoServidor.difundirJson` (novo), com filas por tela
-  e a conta do `TETO_EM_VOO` refeita (SSE + mídia por tela); renovação do
-  wake lock pelos writes do SSE. `SHELL_VERSION` NÃO sobe aqui: o tap não é
-  superfície da ponte (o web não o vê), e a regra do repositório manda subir
-  só quando a superfície muda — o bump vai na E4, junto com o canal de mídia
-  e o `__rec` (a primeira mudança que o web precisa detectar). Prova:
-  o CI compila e roda os JUnit (o roteamento é código de socket, fora do
-  alcance de teste puro — o padrão da casa: o `EspelhoServidor` nunca teve
-  JUnit próprio); o contrato é provado do lado do CLIENTE na E3, quando o
-  `tela.js` existir (`tools/tela-rede.test.mjs` contra servidor de mentira,
-  o molde do espelho-cliente.test). NOTA da E4: o `SHELL_VERSION` acabou não
-  subindo em lugar nenhum — a detecção do canal de mídia é por PRESENÇA
-  (`window.__avTelaMidia`, a mesma pergunta que `__AVBridge` sempre
-  respondeu), que degrada melhor que número de versão.
-- **E3 — papel tela, texto completo.** `espelho/tela.js` (bus, dreno de
-  subida, overlay de ENTRADA com o código e o botão de gesto único —
-  migrado de cliente.js —, correção de relógio, vigília, overlay de
-  aviso); `display/index.html` ganha `<script src="../espelho/tela.js">`
-  ANTES de `db.js`, inerte fora do papel. A raiz `/` NÃO muda aqui — o
-  cliente de pixels a usa até o corte, e trocá-la agora quebraria o caminho
-  ativo (o redirect para `?tela=1` é da E6). Prova: tela-rede.test cobre a entrada
-  pelo código (certo e errado), versículo com acento, cronômetro
-  com relógio da página adiantado em 90 s (a correção tem de anular),
-  sorteio, cortina, text-hide, reconexão→display-ready→cena, dreno (nada
-  além de display-ready/tela-status sobe), BC neutralizado.
-- **E4 — mídia.** Canal `__avTelaMidia` (ArrayBuffer, molde EspelhoAudio:
-  origem exata, isMainFrame, teto por mensagem, fila fora da main);
-  `EspelhoMidia.kt` (cache em cacheDir, LRU por bytes, tokens opacos,
-  servir-enquanto-cresce); rota `/m/`; `__rec`/`__wp` no Controle;
-  pré-busca (ligar a transmissão empurra o item no ar e a playlist do
-  Cronograma, em segundo plano, com `bgProgress` se demorar). Prova: JUnit
-  do cache e do Range fiado; tela-rede.test toca um vídeo pequeno com
-  Range de verdade e um áudio com letra (imageUrl no slide).
-- **E5 — status, referência, preview, Registro.** Injeção `st` + snoop;
-  eleição no Controle; `recalcularAtrasoPreview` → 0 para telas de
-  comando (a condição atual daria 1.200 ms de atraso indevido a telas sem
-  `vivo.vfim` — fato da varredura); telemetria nova no alive (último
-  `__mid` aplicado + atraso de eco, estado do `<video>`, gesto/som/
-  telaAcesaMin) e o bloco do Registro reescrito (§9). Prova: tela-rede.test
-  + caso de eleição com duas telas.
-- **E6 — o corte.** `ligarEspelho()` passa a subir servidor SEM
-  `EspelhoDisplay.ligar` (constante `ESPELHO_PIXELS = false` por um lote,
-  com o caminho velho compilado); frases MIRROR_TEXTO/confirmação com TV
-  reescritas (os custos que descrevem deixaram de existir); política
-  YouTube sem TV; `espelhoEstado()` ganha os campos novos mantendo os
-  velhos até a E7. **Liga-se num dia sem culto.** Prova: smoke completo +
-  culto de teste do operador.
-- **E7 — remoção.** A lista do §2; `EspelhoDiag` realocado (dono passa a
-  ser quem liga o servidor); `contexto-seguro.test.mjs` passa a varrer
-  também `display/` e `shared/` (a tela roda em http — a varredura provou
-  que hoje o escopo é só `espelho/`); `ESPELHO-DE-PIXELS.md` ganha nota de
-  aposentadoria apontando para cá; CLAUDE.md reescrito; SHELL_VERSION sobe
-  de novo se a superfície da ponte mudar na limpeza.
+| etapa | o que existe hoje por causa dela |
+|---|---|
+| **E1** — fundações puras | Range e SSE no `EspelhoHttp`, com JUnit (`EspelhoHttpRangeTest`). Os nomes finais divergiram do plano: `parsearRange` → **`alcanceDe`**, `respostaParcial` → **`cabecalhoParcial`**, `respostaSse` → **`cabecalhoSse`** — as três devolvem o CABEÇALHO e o corpo é escrito em seguida no socket, o que é obrigatório num arquivo em crescimento; `resposta416`, `eventoSse` e `pingSse` saíram com o nome do plano |
+| **E2** — bundle + SSE + tap | `PREFIXOS_BUNDLE`, rota `/e` com ping e adeus, `tapLan` → `difundirJson`, renovação do wake lock pelas escritas. O roteamento é código de socket, sem JUnit próprio (o padrão do `EspelhoServidor`); o contrato é provado do lado do CLIENTE, no `tools/tela-rede.test.mjs`, contra servidor de mentira |
+| **E3** — papel `tela`, texto completo | `espelho/tela.js` (bus, dreno, entrada, relógio, vigília, aviso), carregado no `display/index.html` |
+| **E4** — mídia | `__avTelaMidia` → `EspelhoMidiaCanal` → `EspelhoMidiaCache` → `/m/`; `__rec`/`__wp` no Controle. **Sem degrau de `SHELL_VERSION`:** a detecção do canal é por PRESENÇA (`window.__avTelaMidia`), que degrada melhor que número de versão |
+| **E5** — status, referência, preview | o ramo `st` do `/r`, a eleição no `controle.js`, `dePixels` no atraso da preview |
+| **E6/E7** — corte e remoção (um lote só, v5.187) | a raiz `/` → tela; o espelho de pixels apagado (§2). A "volta por constante" do plano não existe — a volta seria o revert do lote |
 
 ## §7 FASE OPCIONAL — FECHADA na v5.189 e SEM CLIENTE desde a v1.8.82
 Transmissão direta na LAN: rota proxy (`/s/<token>`) com a lógica do
@@ -711,9 +521,11 @@ modo de falhar é o comportamento de antes, nunca um socket no lugar errado.
 
 ## §8 SEGURANÇA — o que muda de verdade
 A inversão da §10 do espelho cresce: com `/m/`, o servidor tem OS ARQUIVOS
-que o operador transmitir (não a foto deles), em HTTP claro por padrão. Fica
-escrito na folha como as outras inversões; o degrau de TLS é a resposta. O
-que não muda: mic nunca sai, token de sessão nunca em URL, allowlist de Host
+que o operador transmitir (não a foto deles), em HTTP claro. O shell sabe servir
+em TLS (`EspelhoCert`; `espelhoCertImportar`/`espelhoCertEstado` seguem na
+ponte), mas desde a v5.196 a UI não tem porta para instalar o certificado: na
+prática a transmissão serve HTTP. O que não muda: não há captura nenhuma (o
+microfone saiu na v1.8.89), token de sessão nunca em URL, allowlist de Host
 exata, teto de 3 sessões, 404 uniforme, `web/controle/` jamais servido à
 rede, CSP `self` nas páginas servidas.
 
@@ -742,12 +554,18 @@ apenas anunciá-la ao dono.
 > nada; é a mesma lição da marca do papel (v5.204), por outra porta.
 
 ## §9 DIAGNÓSTICO (Registro)
-Morrem: readback, encoder, ritmo, fila de quadros, IDR, csd. Nascem, por
-tela: conectada há quanto, último comando aplicado (`__mid` + atraso de
-eco), mídia e posição reportadas, gesto/som, telaAcesaMin, bytes servidos de
-`/m/`, cache (itens/MB/despejos), heartbeats perdidos. Molde de sempre:
-Kotlin devolve JSON, controle.js monta a frase, linha ausente = shell
-antigo. O `EspelhoDiag` (anel) sobrevive à troca — realocado na E7.
+O que o `espelhoEstado` (`EspelhoServidor.estado()`) entrega, e o
+`blocoEspelho` do `controle.js` transforma em frase:
+
+| nível | campos |
+|---|---|
+| **por tela** (`telas[]`) | o relato da entrada (`ua`, `w`, `h`), `rotulo`, `comando`, `conectadaMs`, `telaAcesaMin` e `aviso` (do `alive`), `eventos`, `pronta` (o `display-ready` já anunciou o `__de`), `fila` |
+| **do servidor** | `ligado`, `url`, `ip`, `via`, `iface`, `porta`, `tls`, `noArMs`, `teto` × `sessoes` (sessões vivas × telas conectadas, lado a lado — divergem enquanto uma tela que caiu ocupa a vaga), `origensBloqueadas` (o castigo do derrubar), `conexoesTotais`, `semConexaoMs`, `ultimaSaida`, `recusadas` (por motivo — no fio todas são o mesmo 404), `enlace` (a banda que o Android estima, sem pedir localização) |
+| **do cache** (`midia`, SÓ quando há cache) | `itens`, `bytes`, `teto` — publicá-lo zerado com a transmissão desligada diria "cache vazio" onde a verdade é "não há cache" |
+
+Molde de sempre: Kotlin devolve JSON, `controle.js` monta a frase, linha
+ausente = shell antigo. O diário é o anel do `EspelhoDiag` (60 linhas), que a
+`MainActivity` possui.
 
 **E AS INTERFACES VISTAS, com o motivo de cada recusa** (v1.4.1,
 `EspelhoServidor.interfacesJson`). Ela não é conforto: a regra do ponto de acesso
@@ -759,70 +577,6 @@ acha" não tem pista nenhuma. O motivo sai VERBATIM de quem decidiu
 justamente a recusada que explica o caso). A linha do servidor também parou de
 cravar *"ligado à Wi-Fi"* — ela lê o `via`, senão o Registro afirmaria a rede
 errada para quem está servindo pelo próprio celular.
-
-## §10 FATOS DA VARREDURA — os que moldaram a spec
-
-1. **Funil real de comandos**: `AVDB.sendCommand` (db.js:832) manda TODA
-   mensagem por BC + `__AVBus.post` → `busPost` (native.js:331,
-   NativeBridge.kt:355) → `MessageBus.post` — o tap Kotlin vê 100%;
-   `cmd()` não (seis chamadores diretos de sendCommand).
-2. **Dedup**: `__mid` por página (`MID_PREFIX:seq`), Set de 400; o dedup só
-   roda quando há `bus` — o tela.js fornece um, então herda a semântica.
-3. **Endereçamento**: `__de`/`__para` vivem em display.js:24/1430/1667 e
-   controle.js:15943/16027 — prontos para N telas.
-4. **`load` resolve tudo do IDB**, `getMedia` chamado 2× (display.js:1549,
-   stage.js:735); precedência blob→pages→opfsPath→stream→url; `rec.url`
-   entra direto no src (stage.js:785) — daí o `__rec` com URL.
-5. **OPFS é secure-context** (db.js:466): telas http não têm; IDB existe
-   mas é por-aparelho (vazio na tela). Letra: `rec.lyrics[]` com
-   `imageOpfsPath` (display.js:264,341) — precisa de URL. Wallpaper: blob
-   no state do IDB, comando não transporta (display.js:752) — daí `__wp`.
-6. **Texto viaja completo no comando** (verse/message inline; chrono/draw
-   por DESCRITOR com epoch — display.js:462-499) — texto funciona sem
-   mídia nenhuma; o epoch exige a correção de relógio.
-7. **Auth hoje**: `Authorization: Bearer` ou token nu (EspelhoPares.validar,
-   tempo constante); token no corpo do `/par` (`200 {t}`); cliente usa
-   fetch+ReadableStream — NÃO EventSource. Cookie não chega ao parser (o
-   when descarta) — e não será preciso.
-8. **`EspelhoHttp` não tem Range** (KDoc invariante 7 declara; o header é
-   descartado) e põe `Cache-Control: no-store` em TUDO (suíte trava) —
-   E1/E4 declaram exceções explícitas.
-9. **`Connection: close` + 6 conexões do Chromium**: PRAZO_POST_MS=15 s já
-   existe; SSE(1)+mídia(1)+POSTs curtos cabem.
-10. **Wake lock renovado por escrita real** (EspelhoService.progresso ←
-    threads de escrita); vigia do cliente SEM_BYTES_MS=20 s supõe bytes
-    contínuos — o heartbeat de 15 s sustenta os dois.
-11. **Servidor→Controle não existe** (KDoc deliberado; estado por enquete
-    de 2,5 s) — o `st` injetado no MessageBus é o caminho novo; a folha
-    continua na enquete.
-12. **`snoopDisplayStatus`** (NativeBridge:355) alimenta a notificação com
-    o app minimizado — o ramo `st` precisa alimentá-lo também.
-13. **Bundle à LAN**: `WebPathHandler.handle` resolve qualquer caminho
-    (sessionRoot OTA → APK, por arquivo, contenção canonicalPath) — a
-    allowlist de PREFIXO substitui o mapa fixo ESTATICOS para o bundle, e
-    o KDoc dele muda junto.
-14. **`previewAtrasoMs`**: mediana de `vivo.vfim`; telas SEM vfim caem no
-    PADRÃO de 1.200 ms — a condição muda na E5 ou a preview atrasa 1,2 s
-    à toa.
-15. **Sem vídeo tocando a tela apaga** (o cliente atual documenta que o
-    `<video>` cheio segura a tela; wakeLock é secure-context) — a vigília.
-16. **`sanear()` apagaria acentos** — o caminho de comandos não passa por
-    ele (é ferramenta do Registro).
-17. **StreamProxy não é molde para a LAN** (200 seco, fatia-como-todo,
-    pedaço inteiro em memória) — Range real é obrigatório e novo.
-18. **Canal ArrayBuffer** (EspelhoAudio.instalar): WebViewCompat +
-    allowedOriginRules exato + isMainFrame + teto por mensagem + fila fora
-    da main — o molde do `__avTelaMidia`.
-19. ~~QR/pareamento~~ **SUPERADO pela v5.186**: a entrada é o código de
-    três dígitos (`/par {codigo}` → `200 {t}` | `403`, JUnit dos dois
-    lados); QR, filas de espera e av.local/mDNS já saíram do código.
-20. **Frases da UI do espelho** (MIRROR_TEXTO, confirmação com TV,
-    'até três navegadores') descrevem custos de pixels — mentem no mundo
-    novo; reescrever na E6.
-
-*(CI e promessas de docs — leitores que caíram no limite de sessão — foram
-supridos pelo CLAUDE.md, que descreve o apk.yml passo a passo e as regras
-operacionais: OTA×APK, dia sem culto, alfa fechado.)*
 
 ## O DRENO do papel `tela` — uma lista de PERMISSÃO
 
@@ -858,7 +612,7 @@ só no cliente não é validação.
   quase sempre o segundo, porque o `display-ready` nasce antes de existir token.
   **Os dois lados do contrato têm oráculo** — o produtor no `tela-rede.test.mjs`,
   o consumidor no `boot-nativo.test.mjs` —, e são dois porque *ler cada lado
-  isolado aprova ambos* (a história está na nota da v5.223, na §0).
+  isolado aprova ambos* (a história: `grep -n "v5.223" docs/HISTORICO.md`).
 - **`display-status` sai RENOMEADO para `tela-status`.** **Sem TV as telas da
   rede SÃO a projeção**, e calá-las deixaria o Controle sem referência de tempo
   nenhuma — sobraria a preview, que é o que o Android estrangula quando o app sai
@@ -879,9 +633,9 @@ só no cliente não é validação.
 
 O telão inteiro — fades, cortina, Camada de Texto, letra sincronizada e vídeo —
 em até **três navegadores da rede da igreja**, sem instalar nada neles e sem
-internet. As §1–§10 acima são a especificação e o diário da construção; **esta
-seção é o mapa de hoje**, e onde as duas divergem vale esta, conferida contra o
-código.
+internet. As §1–§9 acima são o contrato por extenso; **esta seção é o mapa**,
+para quem vai mexer — as duas foram conferidas contra o código, e onde uma
+divergir da outra, quem decide é o código.
 
 ```
  ┌────────────── celular ──────────────┐        ┌───── navegador na LAN ─────┐
@@ -912,7 +666,7 @@ via e a enquete do AP estão na §7-B.
 | `EspelhoEnergia.kt` | wake lock, Wi-Fi lock e térmica — **não é um Service**: quem carrega a transmissão em primeiro plano é o `SessionService`. Exige `CHANGE_WIFI_MULTICAST_STATE` no manifest, senão `startForeground` **lança** |
 | `EspelhoDiag.kt` | o anel. **Devolve JSON, não texto** — quem monta a frase é o `controle.js` |
 | `espelho/tela.js` | a casca do papel `tela`, carregada **no próprio `display/index.html`** entre `native.js` e `db.js`, e no-op de uma guarda fora do papel. Define `__AVBus` (recepção = SSE; envio = o DRENO), neutraliza o `postMessage` do `BroadcastChannel`, corrige o relógio (mediana do epoch dos pings — cronômetro e sorteio chegam como DESCRITOR com instante do celular), embrulha `AVDB.getMedia` para resolver `__rec.url`, e mantém a vigília para a tela não dormir |
-| `display.js` (papel `tela`) | `forceMuted` nasce ligado (autoplay sem gesto não existe num navegador de verdade); `window.__telaSom(true)` é o que o botão de entrada chama ao gastar o único gesto; wallpaper por `__wp` (ou o sentinela `'padrao'`), fundo da letra por `imageUrl` na estrofe |
+| `display.js` (papel `tela`) | `forceMuted` nasce ligado (autoplay sem gesto não existe num navegador de verdade); `window.__telaSom(true)` é o que o botão de entrada chama ao gastar o único gesto; wallpaper por `__wp` (ou o sentinela `'padrao'`), fundo da letra por `imageUrl` na estrofe. **Esconde o `#startBtn` ("Ligar Sistema") pelo PAPEL, em toda carga** — quem declara o elemento é quem o desliga; escondê-lo num caminho de UI do `tela.js` deixava a RECARGA trazê-lo de volta por cima da projeção, gastando o gesto do visitante em nada |
 | `controle.js` | **enriquece** cada `load` com `__rec` (registro saneado: id/kind/nome/tipo/url=`/m/<token>`/letra — **nunca** blob, opfsPath ou youtubeId) e dispara o empurrão; **elege** uma tela como referência de tempo; manda a APRESENTAÇÃO por páginas (uma `/m/` por página, `telaDeckUrls` — §5.6); converte o embed do YouTube em `tela-aviso` (o que a tela não sabe tocar, ela DIZ) |
 
 ### As decisões que precisam estar ditas

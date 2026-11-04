@@ -1400,9 +1400,6 @@ aparecem (R1).
 
 ## Geometria — o padrão seguro para qualquer tela
 
-Pedido do operador: *"faça a varredura completa no layout do app para que ele se
-torne responsivo geometricamente. vamos criar um padrão seguro de design."*
-
 O app é **retrato por manifesto**, então "responsivo" aqui não é paisagem: é
 sobreviver às DUAS variações que um parque de celulares tem — a **proporção da
 tela** (de 360×640 a 430×900, o dobro de altura útil entre as pontas) e a
@@ -1425,9 +1422,9 @@ lugares em que o fluxo não tem como decidir sozinho.
 As duas têm a mesma anatomia: **a caixa é da TELA e encolhe; o conteúdo é da
 FONTE e cresce.** Elas se movem em sentidos opostos e nada as apresenta uma à
 outra. Nada lança, nada aparece no console, e na tela em que o desenho foi
-decidido está tudo certo — que é por que os dois relatos do operador sobre a
-folha da Bíblia (v1.7.10) e este lote descrevem o mesmo defeito em quatro
-lugares diferentes.
+decidido está tudo certo — por isso o mesmo defeito aparece em lugares
+diferentes (a folha de leitura da Bíblia na v1.7.10; a grade de livros e a
+folha de Ferramentas na v1.8.1), e só a varredura o acha.
 
 ### As seis regras
 
@@ -1446,8 +1443,8 @@ de uma tela menor.
 
 **G3 · `--hit` é PISO, e piso não pode depender da métrica da fonte.** Um
 controle é `min-height: var(--hit)` — nunca um `height` que possa encolher, e
-nunca um `padding` em `rem` que "dá no piso" com a fonte padrão. MEDIDO neste
-lote: `.misc-tab` a **32,6px** (1,4px do alvo), `.fit-opt` a **31px**,
+nunca um `padding` em `rem` que "dá no piso" com a fonte padrão. MEDIDO na
+v1.8.1: `.misc-tab` a **32,6px** (1,4px do alvo), `.fit-opt` a **31px**,
 `.misc-chip` a **29,5px**, e o `.cue-save-btn` da leitura a **20px**. Nenhum
 deles era um número escolhido: os quatro eram o recuo em `rem` caindo onde caiu.
 
@@ -2404,13 +2401,13 @@ acima cobre a FAIXA — sem acrescentá-lo, o balanço voltava pelo botão novo.
   coisa que um override do mesmo nome não daria (`--surface: var(--surface)` é um
   ciclo que o CSS descarta).
 - **E A JANELA DA BIBLIOTECA GASTOU O DEGRAU DE CIMA** (v1.5.7). Ela pintava
-  `--bg` e passou a pintar `--panel`, a pedido do operador (*"bordas curvas e tom
-  branco como base"*) — e com isso sobraram DOIS degraus para TRÊS níveis de
+  `--bg` e passou a pintar `--panel` (o molde das folhas da Bíblia e de
+  Ferramentas) — e com isso sobraram DOIS degraus para TRÊS níveis de
   lista. Qualquer arranjo deixava dois com o mesmo tom: MEDIDO, seção e card a
   **1,00:1**, que é o defeito da v5.241 de volta.
 
-  **A v1.5.7 e a v1.5.8 responderam com COR e o operador reprovou** (três
-  capturas): oito matizes por coleção, em ordem de espectro, com três famílias de
+  **COR NÃO DIZ PROFUNDIDADE** (a v1.5.7 e a v1.5.8 tentaram; revogadas na
+  v1.5.9): oito matizes por coleção, em ordem de espectro, com três famílias de
   tom cada. *Cor sólida não diz o que está dentro do quê* — e a razão é que cor é
   um encode **nominal** (categoria), não **ordinal** (profundidade). É por isso
   que ela funciona nos ladrilhos da Bíblia, que são uma GRADE PLANA de irmãos
@@ -2420,8 +2417,8 @@ acima cobre a FAIXA — sem acrescentá-lo, o balanço voltava pelo botão novo.
   **E A v1.5.14 TROCOU A PREMISSA: papel → poço → papel.** A prova de que nenhuma
   das nove tentativas podia fechar é aritmética — quatro degraus no piso de
   1,28:1 partindo do branco dão `#ffffff → #e3e3e3 → #cacaca → #b3b3b3`, e o
-  nível 3, onde mora TODO o texto da lista, cairia no cinza médio que o operador
-  recusou na v1.5.10. **Não existe escada de TOM que resolva quatro níveis sobre
+  nível 3, onde mora TODO o texto da lista, cairia no cinza médio, recusado na
+  v1.5.10. **Não existe escada de TOM que resolva quatro níveis sobre
   base branca.**
 
   Uma escada ACUMULA e acaba; uma alternância não:
@@ -2451,8 +2448,8 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
   seção contém CARDS; uma coleção da raiz contém FAIXAS. Sem fundo próprio a
   faixa pousa no que o bloco pinta, então a MESMA `.hymn-result` saía em duas
   cores conforme onde a coleção calha de morar — papel dentro de uma seção,
-  AZUL num hinário ou numa série da raiz. Relato do operador: *"isso era pra ser
-  assim? fundo azul nos itens do provai e vede? e etc...?"*.
+  AZUL num hinário ou numa série da raiz (as faixas do Provai e Vede, por
+  exemplo).
 
   A alternância não estava errada: faltava o degrau de baixo dela. A regra
   completa é **o poço é a MOLDURA de um agrupamento; o papel é onde o conteúdo
@@ -2474,8 +2471,8 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
   torna ilimitados:
   1. **CABEÇALHO GRUDENTO NOS DOIS NÍVEIS.** É o único que continua respondendo
      DEPOIS de a lista rolar — tom, cor e borda só falam enquanto o topo do grupo
-     está à vista, e a queixa do operador (*"dificultando discernir se estou em
-     uma camada ou subcamada"*, v5.267) é sobre estar no MEIO de uma lista longa.
+     está à vista, e a pergunta "em que camada estou?" (v5.267) nasce no MEIO de
+     uma lista longa.
      O `.coll-bar` do álbum já grudava desde a v5.242, com o argumento escrito
      lá: *"a outra metade da pergunta 'onde eu estou?'"*. Faltava no nível 1,
      justamente o que ele não distinguia. A altura da barra da seção é token
@@ -2489,15 +2486,14 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
      (v1.5.15). A v1.5.14 deu a TODO `.hymnal-card.expanded` o `top` do segundo
      degrau, hinários e séries da RAIZ inclusive — que não têm barra nenhuma
      acima. **O vão que sobrava não é neutro: ele É o scrollport**, e a lista
-     rolava por ali À VISTA. Os dois relatos do operador saem dele: *"a lista
-     está vazando acima"* (as faixas do próprio card por cima da barra que as
-     encabeça) e *"essa sobreposição também permanece, mesmo após terminar a
-     lista de um álbum… parecendo que um álbum está pertencendo a outro"* — a
-     barra DESGRUDANDO, que sobe do slot dela até sumir e nesse trecho continua
-     inteira no topo, pintada por cima das coleções seguintes.
+     rolava por ali À VISTA. Dois sintomas saem dele: as faixas do próprio card
+     vazando por cima da barra que as encabeça, e — depois do fim da lista de
+     um álbum, parecendo que ele pertence ao seguinte — a barra DESGRUDANDO,
+     que sobe do slot dela até sumir e nesse trecho continua inteira no topo,
+     pintada por cima das coleções seguintes.
 
      **E O SCROLLER NÃO PODE TER `padding-top`, pela mesma razão** — padding de
-     um scroller é scrollport. Era a metade FINA do mesmo relato (.5rem de
+     um scroller é scrollport. É a metade FINA do mesmo defeito (.5rem de
      faixas à mostra acima de QUALQUER tampa colada). Ele foi a zero e não virou
      margem: a caixa da lista tem de começar exatamente onde a barra de busca
      acaba, que é o contrato geométrico da janela e tem oráculo.
@@ -2509,21 +2505,19 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
      tinha de ser um degrau de verdade.
 
   **E OS NOMES SE ESCREVEM TODOS IGUAL** (v1.5.11): a barra da seção perdeu a
-  caixa alta e o tracking. Pedido do operador: *"Nessas coleções, padronize em
-  caixa alta, ou em formatação normal"* · *"aproveite para pôr o texto em branco
-  no tema claro para os textos sobre o azul"*. **Branco era impossível sobre a
-  tampa da época** (`#bdcada` no claro dá 1,66:1 contra os 4,5:1 de AA), e o que
-  o pedido alcança é o outro lado: escurecer. **`--muted` fica no que é NÚMERO** —
+  caixa alta e o tracking — uma grafia só em todas as coleções. **Texto branco
+  sobre a tampa azul do tema claro era impossível na época** (`#bdcada` dá
+  1,66:1 contra os 4,5:1 de AA): o contraste ali se ganha pelo outro lado,
+  escurecendo. **`--muted` fica no que é NÚMERO** —
   o contador da seção, o peso do card. A caixa alta podia sair porque o
   ranqueamento que ela carregava passou para o desenho; e devia sair porque caixa
   alta a 14px é mais larga e mais lenta de ler.
 
   **E O ORÇAMENTO DA LISTA COLAPSADA É UMA CONTA, não uma sensação** (v1.5.16).
-  Pedido do operador: *"todas as coleções caibam na tela enquanto estiverem
-  colapsadas, sem a necessidade de rolar … reajustar o tamanho dos cards das
-  coletâneas e espaços, para que eles aproveitem exatamente esse espaço"*. Duas
-  metades, e a primeira é EDITORIAL (uma coletânea a menos — ver
-  `controle/coletanea.js`); a segunda é geométrica. MEDIDO a 430×900, com
+  O alvo: todas as coleções COLAPSADAS cabem na tela sem rolar, com cards e vãos
+  aproveitando exatamente o espaço. Duas metades, e a primeira é EDITORIAL
+  (uma coletânea a menos — ver `controle/coletanea.js`); a segunda é
+  geométrica. MEDIDO a 430×900, com
   **582px** de caixa de lista: antes, 9 blocos davam 553,9px (cabiam) e 10 davam
   615,1px (rolava). Apertar as DUAS barras (`padding` de `.55rem` para `.35rem`,
   e o `--bar-secao-h` acima) leva 10 blocos a 551,1px e 11 a 605,9px.
@@ -2533,9 +2527,8 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
   - **O SEGUNDO PREÇO ERA A SOBRA, e ele foi pago na v1.5.17.** Apertar AFASTA
     do enchimento exato em vez de aproximar: com os 9 blocos do acervo
     dissolvido a lista ocupava 496,3 dos 582px e sobravam **~86**, contra os ~28
-    que sobrariam sem o aperto. O operador viu a faixa vazia e pediu o oposto —
-    *"o aproveitamento da altura não está correto, está sobrando … o tamanho
-    deve ser ajustável para se encaixar a altura da tela"*.
+    que sobrariam sem o aperto — uma faixa vazia à vista. **A altura tem de ser
+    ajustável até encaixar a tela**, e quem a ajusta é o crescimento, abaixo.
   - **E a promessa vale de 430px para cima.** MEDIDO: a 393×786 (entalhe de
     39px, caixa de 436px) cabem 7 blocos nos DOIS desenhos — ali o aperto não
     compra bloco nenhum; a 360×740 (24px, 420px) ele vai de 6 para 7. Com 9
@@ -2583,11 +2576,11 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
     54,28 para 48,64px acompanhando a curva do acordeão). É o recurso, não um
     defeito: evitá-lo com um `:has()` faria a lista PULAR num quadro.
   - **E A TAMPA PASSOU A SER MEDIDA, PARA NÃO ENCOLHER AO ABRIR** (v1.5.19).
-    Relato: *"o card do titulo … está encolhendo ou modificando seu tamanho ao
-    abrir sua listagem"*. É este crescimento visto pelo outro lado: colapsado o
+    A tampa de um card não pode mudar de tamanho ao abrir a listagem dele. É
+    este crescimento visto pelo outro lado: colapsado o
     bloco cresce até a altura de encaixe com a barra CENTRADA dentro; ao abrir
     ele sai de `:not(.expanded)`, perde a repartição, e a tampa cai para a barra
-    nua. MEDIDO na captura do operador: **−11,2%** (51,00 → 45,01), em DOIS
+    nua. MEDIDO: **−11,2%** (51,00 → 45,01), em DOIS
     quadros, enquanto o corpo desliza por 220 ms.
     **O TEOREMA QUE FECHA AS SAÍDAS EM CSS PURO:** a tampa só pode ser CONSTANTE
     no valor MÍNIMO dela — qualquer altura maior tem de caber em toda tela e em
@@ -2629,9 +2622,9 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
       Não é regressão — é o número da própria base —, e a causa é assimétrica e
       está na folha: o `box-shadow` existe na `.coll-bar` de um card aberto e
       **não** na `.coll-group-bar`.
-  - **E O QUE SOBROU DEPOIS DELE ERA O RECUO DE BAIXO** (v1.5.18). Relato, já
-    com os blocos crescendo: *"há uma margem maior na parte de baixo … o ajuste
-    ainda não ficou correto"*. Não havia mais sobra por repartir — o que restava
+  - **E O QUE SOBROU DEPOIS DELE ERA O RECUO DE BAIXO** (v1.5.18): com os
+    blocos já crescendo, a margem de baixo ficava maior que os vãos. Não havia
+    mais sobra por repartir — o que restava
     era o `padding-bottom` do scroller, `.8rem` MAIS `env(safe-area-inset-bottom)`.
     **A ÁREA SEGURA SÓ VALE ONDE A JANELA ENCOSTA NA BASE**, e desde a v1.5.4 ela
     para na linha dos controles: o recuo reservava lugar para uma barra de gestos
@@ -2639,12 +2632,11 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
     mesmo até o fim (Modo Fácil e teclado no ar). E o valor é **`--sp-5`, o mesmo
     `gap` que separa dois blocos de raiz** — com o crescimento preenchendo o
     resto, qualquer outro número põe o último bloco a uma distância da borda que
-    nenhum par de vizinhos tem, que é literalmente o que o relato descreve.
+    nenhum par de vizinhos tem.
 
   **E A BORDA DO SCROLL DIZ QUE HÁ MAIS** (v1.5.16 aqui; o app inteiro desde a
-  v1.8.58). Pedido do operador: *"que o scroll da biblioteca tenha um efeito de
-  blur na borda interna superior ou inferior, quando algum elemento da tela ir
-  para debaixo dessa borda"*. São dois `::before`/`::after` `position: sticky`
+  v1.8.58): a borda interna de cima ou de baixo de um scroller se escurece
+  quando há conteúdo passando por debaixo dela. São dois `::before`/`::after` `position: sticky`
   DENTRO do scroller.
   - **A TINTA É UMA SOMBRA, e ela não é decisão desta lista.** O primeiro
     desenho foi BLUR, com o argumento de que *"não existe cor certa para o
@@ -2666,9 +2658,8 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
     genérico não há a disputa (1,1,0 contra 1,2,0) que uma vez deixou o véu
     aceso no topo da lista, onde ele mente.
 
-  **E O RECUO DE CIMA DA PLACA ESCAPAVA (v1.5.17).** Relato: *"os cards que
-  ficam no topo das listas … estão se sobrepondo de forma errada ao espaço em
-  que deveriam ficar, ficando para cima do correto, sem margem no topo"*.
+  **E O RECUO DE CIMA DA PLACA ESCAPAVA (v1.5.17).** O
+  primeiro bloco do topo de uma placa subia, sem margem no topo.
   **COLAPSO DE MARGEM:** o `.coll-open` não tem `padding-top` nem borda de cima,
   então a `margin-top` de `.4rem` do primeiro filho — o destaque do sábado, o
   índice de temas ou a própria lista — é ADJACENTE à dele e sai para FORA.
@@ -2693,10 +2684,9 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
     scrollport nenhum: o `padding-top` do scroller continua ZERO.
 
   **E A COLETÂNEA A MENOS É UMA REGRA, não uma linha apagada do catálogo**
-  (`controle/coletanea.js`, PURA, com oráculo Node). Pedido do operador: *"os
-  albuns do celebra SP, serão individualmente colocados na coleção de
-  'diversos'. Não identifiquei independência suficiente para que ele tenha uma
-  coleção só para ele."*
+  (`controle/coletanea.js`, PURA, com oráculo Node): os álbuns do Celebra SP
+  vão, um a um, para a coleção "Diversas" — a coletânea não tem independência
+  que justifique uma coleção própria (decisão do operador).
   - **DISSOLVER, não remover.** MEDIDO: descartar a categoria deixa os álbuns
     ÓRFÃOS, e o `controle.js` os recolhe em "Outros álbuns" — dez blocos de
     novo, com um nome pior. A regra FUNDE: ela move os álbuns para o destino e
@@ -2711,7 +2701,7 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
     do arquivo que decide contra o pedido, e de propósito: um destino renomeado
     no banco faria a origem sumir com os álbuns dentro, e o desfecho seguro é o
     de antes da regra.
-  - **A tabela aceita "Diversas" E "Diversos".** O operador escreveu *"diversos"*
+  - **A tabela aceita "Diversas" E "Diversos".** O pedido nomeou *"diversos"*
     e a seção no aparelho chama-se **"Diversas"** (conferido em
     `site/telas/biblioteca.webp`); nenhuma normalização une as duas, então as
     duas grafias entram na lista de aceitos — a comparação é por IGUALDADE sobre
@@ -2738,8 +2728,7 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
   **E O TRAÇO PRECISA FICAR NO MEIO DO VÃO** (v1.5.17). Ele mora em `top: 0` da
   faixa DE BAIXO — `.lib-item` é `overflow: hidden` e um traço desenhado no
   `gap` é RECORTADO —, então com o vão inteiro fora da caixa ele pousava no
-  limite INFERIOR: MEDIDO, 6,42px de branco acima e 1,37px abaixo, que foi o
-  relato. **Não se move o traço, move-se a CAIXA:** metade do `gap` entra como
+  limite INFERIOR: MEDIDO, 6,42px de branco acima e 1,37px abaixo. **Não se move o traço, move-se a CAIXA:** metade do `gap` entra como
   `padding-top` e um `margin-top` negativo da mesma medida devolve o conteúdo ao
   lugar (`N·(h+2) + (N−1)·4 − 2N` é `N·h + (N−1)·4` para qualquer N — a lista
   não muda de altura e o passo entre faixas não muda). A caixa vai de 42,78 a

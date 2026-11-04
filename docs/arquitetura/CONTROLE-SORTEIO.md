@@ -352,19 +352,14 @@ música. Ver a faixa de fecho, acima.
 | **cada sorteio é um pacote NOVO** | antes a dedução era por id e o segundo sorteio só acrescentava o que faltava. Um pacote é o INSTANTÂNEO de uma tirada; dois lotes no roteiro são dois lotes, e continuam saindo num toque cada. `criarCue` ainda avisa quando o conteúdo é idêntico |
 | **`f` é passado a `guardarSorteadasNoCronograma`** | e não `sorteioPrefs`: a folha fica aberta durante o download, e mexer num controle ali reescreveria as preferências — o pacote sairia com o nome de uma escolha que ninguém sorteou |
 
-##### A CONTA É UM CARTÃO DE TAMANHO FIXO, E O PULSO CHEGA À TELA (v1.8.83)
+##### A FOLHA NÃO SE REDESENHA SEM PRECISAR — e o pulso chega à tela (v1.8.83, v1.8.84)
 
-Dois relatos do operador no mesmo minuto, sobre a mesma folha — e são o MESMO
-defeito por dois ângulos: **ela se redesenhando quando não precisava**.
-
-**(1) O pulso.** *"O feedback de confirmação dos botões na seção de playlist
-automática, estão muito rápidos, basicamente não visíveis. Verifique seu tempo de
-exposição ou se tem algo atualizando a tela"* — era a segunda hipótese, e o tempo
-não tinha nada a ver. O `finally` do `executarSorteio` chamava `renderSorteio()`
-só para reabilitar a faixa de fecho, e um redesenho **troca os nós**
-(`limparFolha` esvazia a lista e cada botão é criado de novo). MEDIDO: o nó do
-botão tocado saía do documento em **23 ms**, e o pulso vivia os 1100 ms do
-`PULSO_MS` inteiros **num nó solto — zero milissegundo na tela**.
+**Um redesenho TROCA OS NÓS, e o pulso que mora no nó trocado não é visto.** O
+`finally` do `executarSorteio` chamava `renderSorteio()` só para reabilitar a
+faixa de fecho, e um redesenho **troca os nós** (`limparFolha` esvazia a lista e
+cada botão é criado de novo). MEDIDO: o nó do botão tocado saía do documento em
+**23 ms**, e o pulso vivia os 1100 ms do `PULSO_MS` inteiros **num nó solto —
+zero milissegundo na tela**. A duração do pulso nunca foi o problema.
 
 `acertarTravaSorteio` escreve `disabled` em ponto, que é tudo o que aquele
 redesenho tinha a fazer. A unificação achou a **segunda cópia da mesma regra** no
@@ -377,34 +372,24 @@ não moram desde a v1.8.60 — um laço sobre zero nós, sem erro em lugar nenhu
 > inteiros, nó solto e tudo. O que se mede é `.btn-pulso` **dentro da folha** —
 > isto é, um pulso que alguém pode ver.
 
-**(2) A zona de resultados** — e ela foi REESCRITA na v1.8.84, uma versão
-depois. Vale registrar as duas, porque a segunda revoga a primeira por uma razão
-que a primeira não podia ver.
+**A ZONA DE RESULTADOS NÃO REPETE A TELA** (v1.8.84, que revoga o cartão de
+tamanho fixo da v1.8.83). Uma frase que reescrevia por extenso *"Toda a
+biblioteca, sem os infantis — 2 músicas"* logo abaixo das pílulas que dizem "sem
+infantis" e do campo vazio repete o que as seleções já mostram. **Uma frase que
+repete a tela não fica melhor por não se mexer** — fixar a altura dela foi
+consertar a peça errada. Do resultado sobra o que só ele responde: QUANTOS, e se
+está disponível.
 
-**v1.8.83, o cartão de tamanho fixo.** *"Seu design está sendo muito variado e
-pouco modular, resultando novamente no problema de movimentação da janela… Algo
-como um simples card, com texto centralizado… O card sempre terá o mesmo
-tamanho"*. O `min-height: 6em` da v1.8.61 reservava QUATRO linhas e o pior caso
-são CINCO. MEDIDO em 99 células (3 larguras × 3 escalas da fonte do sistema × 11
-estados que o operador alcança tocando nas pílulas e digitando): a caixa ia de
-**78,7 a 143,7px** e a FOLHA andava **25,6px** a 360×1,5. A 320×1,5 ela NÃO
-andava, e isso era pior em vez de melhor — ali a folha já batia no teto de 80vh e
-o crescimento virava rolagem, que é o mesmo defeito escondido atrás de um gesto.
+**E a folha no teto não é folha parada.** Onde ela já bate no teto de 80vh
+(320×1,5), o crescimento de uma caixa vira ROLAGEM em vez de deslocamento — o
+mesmo defeito escondido atrás de um gesto, e uma medida que "não anda" ali não
+prova nada.
 
-**v1.8.84, a lista.** *"O cartão de resultados repete as informações que já temos
-nas seleções acima, como os filtros usados, e etc… Uma ação inútil, pois
-literalmente já há a visão das seleções. Nesse resultado, precisamos apenas dos
-resultados. Quantos temos, e se está disponível."* Ele estava certo, e o lote
-anterior tinha consertado a peça errada: fixar a altura de uma frase que
-reescrevia por extenso *"Toda a biblioteca, sem os infantis — 2 músicas"* logo
-abaixo das pílulas que dizem "sem infantis" e do campo vazio. **Uma frase que
-repete a tela não fica melhor por não se mexer.**
-
-O que sobrou dela se dividiu em dois, por onde cada metade é lida:
+O que sobrou do resultado se dividiu em dois, por onde cada metade é lida:
 
 | pergunta | onde vive | por quê |
 |---|---|---|
-| **QUANTOS** | `sorteioPilulaDaConta` — uma pílula à esquerda do primário | é o que se lê de RELANCE, e por isso fica na altura do dedo. Largura FIXA (`min-width: 4ch` + `tabular-nums`), *"cuide para que o botão tenha um tamanho fixo independente do número interno"*. **Só o número desde a v1.8.85** — ver abaixo |
+| **QUANTOS** | `sorteioPilulaDaConta` — uma pílula à esquerda do primário | é o que se lê de RELANCE, e por isso fica na altura do dedo. Largura FIXA (`min-width: 4ch` + `tabular-nums`), independente do número dentro. **Só o número desde a v1.8.85** — ver abaixo |
 | **QUAIS** | `sorteioListaDeResultados` — a lista, no formato da busca da Biblioteca | é o que o cartão nunca respondeu, e é onde a disponibilidade vira acionável: a linha diz "no aparelho" ou "vai baixar", e dá para desmarcar a que vai baixar |
 
 #### A MARCA É O LOTE, E O LOTE É "QUANTAS" (v1.8.85)
