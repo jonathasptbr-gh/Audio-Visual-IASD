@@ -30,7 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
-- **v1.13.22** — complemento da revisão C2: trocar a versão da Bíblia sem o capítulo nem rede deixava a pílula e a folha na versão nova sobre o texto (e a projeção) da velha, a navegação na velha e o retoque sem efeito; a falha desfaz a escolha e avisa no cartão da preview
+- **v1.13.22** — complemento da revisão C2: trocar a versão da Bíblia sem o capítulo nem rede deixava a pílula e a folha na versão nova sobre o texto (e a projeção) da velha, a navegação na velha e o retoque sem efeito; a falha desfaz a escolha e avisa no cartão da preview, e uma troca atrasada não sobrescreve a mais nova
 - **v1.13.21** — revisão C2: RENDER, FILA, BÍBLIA E DESTINOS (o `controle.js` de `carregar + render` ao Cronômetro); o giro e o "Preencher" tocados com um `load()` em voo deixam de voltar sozinhos no Controle, `cenaDeRoteiroNoAr` deixa de reescrever a régua de `provedorDeTextoNoAr`, três `renderLibrary()` órfãos da Bíblia e ~30 lápides
 - **v1.13.20** — revisão C1: ABERTURA, PREVIEW E ÁUDIO (o `controle.js` até `carregar + render`); a limpeza da seleção da abertura deixa de desfazer um `persistCurrent` no vão, código morto da preview e ~20 lápides
 - **v1.13.19** — revisão W3: OS MÓDULOS PUROS; o pacote deixava passar as intenções de download do YouTube (grafia errada na lista de recusa), quatro funções que só o oráculo chamava saíram e o `funcao-sem-chamador` passa a ver a superfície dos módulos; `bible.test.mjs` novo
@@ -666,16 +666,19 @@ chega, escolher de novo troca. Sem sessão aberta nada muda (a escolha vale, e o
 "o que aconteceria e não aconteceu"; no Modo Fácil sem tela ele é o stub mudo, e
 ali só a pílula e a folha passam a dizer a verdade.
 
-**Fica de fora, anotado:** o caso simétrico de SUCESSO atrasado — escolher a NVI
-(busca lenta) e logo a ACF (em cache): a NVI que chega depois escreve
-`s.versionId` sem conferir `bibleVersionId === id`. Exige dois toques em
-segundos com a rede lenta; não é o defeito pedido.
+**O VIZINHO, também consertado (commit à parte):** o SUCESSO atrasado —
+escolher a NVI (busca lenta) e logo a ACF (no aparelho): a ACF entrava, e a NVI
+que chegava depois passava no `bibleSession === s` (a sessão é a MESMA, mudada no
+lugar) e escrevia `s.versionId` — medido: sessão e texto NVI sob a pílula e a
+folha ACF. O ramo de sucesso passa a devolver também em `bibleVersionId !== id`:
+a chamada mais nova já tratou a sessão (trocou, ou desfez na falha).
 
 **Asserção:** bloco H do `tools/biblia-versoes-e-retomada.test.mjs` — depois da
 falha, escolha, banco, sessão, pílula, folha e texto dizem ARA e o cartão nomeia
 a NVI; com `Bible.fetchChapter` respondendo, o segundo toque troca de verdade
 (sessão, pílula e texto NVI). Reversão (o `catch (_) { return; }` de volta):
-reprova as três.
+reprova as três. Bloco I: NVI lenta e logo ACF; ao fim sessão, pílula e texto
+dizem ACF. Reversão (sem o `bibleVersionId !== id` do sucesso): reprova.
 
 ---
 

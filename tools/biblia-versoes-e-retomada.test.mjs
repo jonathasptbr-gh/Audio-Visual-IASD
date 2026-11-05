@@ -48,6 +48,9 @@
 // A escolha, o banco, a pílula e a folha voltam à versão que a sessão mostra, o
 // cartão da preview avisa, e o segundo toque (com a busca respondendo) troca.
 //
+// **I · A TROCA ATRASADA NÃO SOBRESCREVE A MAIS NOVA (v1.13.22).** NVI lenta,
+// logo ACF: ao fim, sessão, pílula e texto dizem ACF.
+//
 // REVERSÃO MEDIDA, e ela reprova 9 das 22. Desfeitos os cinco pontos do lote —
 // o `bibleScreen = 'books'` no `abrirBiblia`, a frase "Baixa ao usar", a
 // varredura no toque, o `apagarVersaoBiblia` no botão e o `chk.textContent =
@@ -578,6 +581,49 @@ try {
     'H · e tocar de novo na versão, agora com o capítulo vindo, TROCA de verdade — com a '
     + 'escolha presa na nova, o `bibleVersionId === id` devolvia cedo e nada era tentado',
     trocou);
+
+  // =======================================================================
+  // I · A TROCA ATRASADA NÃO SOBRESCREVE A MAIS NOVA (v1.13.22)
+  //
+  // NVI com a busca LENTA, e logo a ACF (no aparelho): a ACF entra primeiro, e a
+  // NVI que chegava depois passava no `bibleSession === s` (a sessão é a MESMA,
+  // mudada no lugar) e escrevia `s.versionId` — o texto da NVI sob a pílula ACF.
+  // REVERSÃO: sem o `bibleVersionId !== id` no ramo de sucesso, reprova.
+  // =======================================================================
+  await pg.waitForTimeout(400);
+  await pg.evaluate(async () => {
+    bibleVersions = [
+      { id: 'ara', name: 'Almeida Revista e Atualizada (ARA)' },
+      { id: 'nvi', name: 'Nova Versão Internacional (NVI)' },
+      { id: 'acf', name: 'Almeida Corrigida Fiel (ACF)' },
+    ];
+    bibleVersionId = 'ara';
+    await AVDB.setState('bibleVersion', 'ara');
+    await AVDB.stateApagarPrefixo('bible:nvi_');
+    const vs = [{ n: 1, text: 'ARA um.' }, { n: 2, text: 'ARA dois.' }];
+    await AVDB.setState('bible:acf_' + bibleBookId(0) + '_1',
+      { verses: [{ n: 1, text: 'ACF um.' }, { n: 2, text: 'ACF dois.' }], syncedAt: Date.now() });
+    window.__fetchOrig = Bible.fetchChapter;
+    window.__nviChegou = false;
+    Bible.fetchChapter = (v) => new Promise((ok) => setTimeout(() => {
+      window.__nviChegou = true;
+      ok([{ n: 1, text: 'NVI lenta.' }, { n: 2, text: 'NVI dois.' }]);
+    }, 800));
+    abrirBiblia();
+    bibleSel = { bookIdx: 0, chapter: 1 };
+    bibleChapterData = { verses: vs };
+    startBibleReading(0);
+  });
+  await linhaDaVersao('Nova Versão Internacional (NVI)');
+  await linhaDaVersao('Almeida Corrigida Fiel (ACF)');
+  await esperarDb(pg, () => window.__nviChegou === true, null, 8000);
+  await pg.waitForTimeout(300);
+  const atrasada = await fotoH();
+  await pg.evaluate(() => { Bible.fetchChapter = window.__fetchOrig; fecharBiblia(); });
+  checar(atrasada.escolha === 'acf' && atrasada.sessao === 'acf' && atrasada.pilula === 'ACF'
+    && atrasada.texto === 'ACF um.',
+    'I · a NVI que chega DEPOIS da ACF não sobrescreve a sessão — a escolha mais nova manda, '
+    + 'e pílula e texto continuam dizendo a mesma versão', atrasada);
 
   checar(erros.length === 0, 'nenhum erro de console', erros);
 } catch (e) {

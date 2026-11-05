@@ -404,8 +404,8 @@ cabeçalhos do `renderBibleReading` e do `ensureBibleVersionDownloaded`; "os qua
 `load()` "condicional" do `adicionarNasListas`; `adicionarNaLista` no `CONTROLE.md`. Lápides: `adicionarNaLista`,
 `renderTabs`, `renderFavHeader`, o microfone, o ✓ da versão escolhida, o lapso do `hideMessage`, `has-items`.
 Narrativa verbatim (31 blocos) na seção v1.13.21 do histórico.
-**Corrigido na v1.13.22:** a SUSPEITA do `changeBibleVersion` sem rede, MEDIDA (pílula/folha na nova sobre o texto da velha, navegar na velha, retocar
-não tentava): a falha desfaz a escolha (`updateState`) e avisa no cartão da preview; bloco H do `biblia-versoes-e-retomada` (reversão: 3 de 3).
+**Corrigido na v1.13.22:** a SUSPEITA do `changeBibleVersion` sem rede, MEDIDA (pílula/folha na nova sobre o texto da velha, navegar na velha, retocar não tentava): a falha
+desfaz a escolha (`updateState`) e avisa no cartão da preview (bloco H, reversão 3 de 3); e o sucesso ATRASADO não sobrescreve a escolha mais nova (bloco I, reversão reprova).
 **Achado e não corrigido:** prosa longa que é REGRA com o porquê (os pares da hidratação, a fila como host de
 miniaturas, a camada visual, o rodapé das Ferramentas, `scrollActiveIntoView`). Réguas `haOQueParar` × `cenaNoAr`
 × `midiaNoAr` coerentes com o que cada bloco nomeia; nenhum timer/listener que não se desarme; o `applyTitleMarquee`

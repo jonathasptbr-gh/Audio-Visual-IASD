@@ -5950,7 +5950,10 @@ async function changeBibleVersion(id) {
       : bibleVersionAbbr(id) + ': o capítulo não veio — tente de novo');
     return;
   }
-  if (bibleSession !== s) return;
+  // A ESCOLHA MAIS NOVA MANDA: a sessão é a MESMA (mudada no lugar), e uma busca
+  // lenta que chega depois de outra escolha escrevia esta versão sob a pílula
+  // daquela. A mais nova já tratou a sessão (trocou, ou desfez na falha).
+  if (bibleSession !== s || bibleVersionId !== id) return;
   s.versionId = id;
   s.verses = verses;
   s.idx = Math.min(s.idx, verses.length - 1);
