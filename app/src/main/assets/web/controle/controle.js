@@ -16503,8 +16503,6 @@ async function cifraProcurar(nome, coll, opts) {
   let desfecho = { ok: false, motivo: AVCifra.MOTIVO_NAO_TEM };
   let url = '';
   let via = '';
-  let crus = [];
-  let consulta = nome;
   // Um degrau só falha PARA A FRENTE se a página não existir. `ilegivel` é
   // "respondeu e o parser não entendeu", e insistir noutro endereço troca o
   // motivo certo (o site mudou de formato) por um errado (a música não existe).
