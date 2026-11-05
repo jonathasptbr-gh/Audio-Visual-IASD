@@ -687,8 +687,10 @@ steps.chromium.outcome == 'success'` e o passo `Oráculos em Chromium — PULADO
 (aviso)` foi apagado: infraestrutura que falha (rede, CDN, imagem recusada,
 prazo de 10 min) agora REPROVA o `verificar`, e o bundle não sai. Revoga a
 política "infraestrutura AUSENTE não segura o canal" (v5.316). Só os dois
-passos de CACHE seguem `continue-on-error` — não pulam teste. A válvula manual
-`ignorar_oraculos` ficou: ela não pula oráculo, roda todos e publica assinando.
+passos de CACHE seguem `continue-on-error` — não pulam teste. **E A VÁLVULA
+MANUAL SAIU** (operador, no mesmo dia: *"pode remover o botão manual"*): o input
+`ignorar_oraculos` do `workflow_dispatch`, o `env: IGNORAR` e o ramo que
+publicava com oráculo reprovado. Oráculo vermelho segura o canal até o conserto.
 
 ---
 
