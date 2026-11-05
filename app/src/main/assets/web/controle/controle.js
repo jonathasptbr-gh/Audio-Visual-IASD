@@ -113,7 +113,7 @@ const TEMA_KEY = 'av.tema';
 // que ELE decidiu. Não é indireção: aquele script precisa responder antes de
 // existir primeiro quadro — este arquivo é o ÚLTIMO dos treze do fim do
 // `<body>`, e até ele rodar quem pinta é o `:root` sem atributo, isto é, o tema
-// escuro (foi o exemplo do relato que abriu este lote). Uma SEGUNDA leitura de
+// escuro. Uma SEGUNDA leitura de
 // `av.tema` aqui seria a mesma regra escrita duas vezes, com duas chances de
 // divergir; o atributo é o carrier, e a ausência dele já é o padrão certo.
 function storedTema() {
@@ -133,23 +133,12 @@ function pintarTema() {
     const bg = getComputedStyle(raiz).getPropertyValue('--bg').trim();
     if (bg) temaMetaEl.setAttribute('content', bg);
   }
-  // O shell: ícones das barras e o windowBackground do próximo lançamento.
-  //
-  // ELE RECEBE O TEMA EFETIVO, nunca a escolha: o `windowBackground` é pintado
-  // antes de existir JS, então o que ele precisa saber é de que cor a tela vai
-  // nascer — e no automático essa cor é a que o SISTEMA respondeu na última vez
-  // que o app abriu. Um aparelho que troca de tema com o app fechado abre uma
-  // vez na cor antiga e se corrige no primeiro quadro do documento; guardar a
-  // escolha ali daria o mesmo, com uma regra a mais.
-  try { window.AVNative?.temaClaro(tema === 'claro'); } catch (_) { /* shell antigo */ }
+  // O shell: ícones das barras e o `windowBackground` do próximo lançamento,
+  // que é pintado antes de existir JS — é por ele que a abertura seguinte já
+  // nasce na cor do tema.
+  try { window.AVNative?.temaClaro(tema === 'claro'); } catch (_) { /* a ponte que lança não desfaz o tema da página */ }
 }
 pintarTema();
-
-// (O AUTOMÁTICO SAIU na v1.8.64, a pedido do operador: *"remova o auto, não
-//  está sendo eficaz essa opção"*. Com ele saíram o `data-tema-escolha`, o
-//  acompanhamento ao vivo do `prefers-color-scheme` e o terceiro estado do
-//  tile — que era o único da grade com TRÊS estados sobre DOIS desenhos, e
-//  cuja indicação na tela custou o lote inteiro da v1.8.63.)
 
 const settingsBtnEl = document.getElementById('settingsBtn');
 const lyricsViewBtnEl = document.getElementById('lyricsViewBtn');
@@ -361,7 +350,6 @@ const SECOES = {
 let secaoAberta = '';
 
 const fileEl = document.getElementById('file');
-// (`tabsEl` saiu na v1.5.0 com a faixa de abas — ver `.lib-bar` no `index.html`.)
 const libBarEl = document.getElementById('libBar');
 // A CAIXA DE CONTROLES: é o `padding-top` dela que reserva o lugar da barra da
 // Biblioteca, e é a borda de cima dela que diz onde esse lugar está na tela
@@ -400,19 +388,8 @@ const itinNomeEl = document.getElementById('itinNome');
 // sincronizados" da própria linha.
 const listTitleEl = document.getElementById('listTitle');
 const appVersionEl = document.getElementById('appVersion');
-// AS DUAS BADGES DE VERSÃO (v1.7.0) — uma por modo, e as duas escritas pelo
-// MESMO `renderVersionLabel` que escreve o botão de versão. Elas nascem
-// AQUI, ao lado do `appVersionEl`, porque aquela função roda na CARGA do módulo:
-// declaradas junto do resto do cromo, centenas de linhas abaixo, seriam zona
-// morta temporal — o `ReferenceError` aborta o `controle.js` inteiro e o
-// watchdog do OTA descarta o bundle sem nada na tela dizer por quê.
-// (AS BADGES SAÍRAM: a do cabeçalho do Cronograma na v1.8.66 (a casa é hoje do IMPORTAR) e a
-//  do Modo Fácil na v1.11.15 (a pedido do operador, que pôs o NOME do app no topo dessa tela).
-//  O número mora no rótulo de versão do cabeçalho de Configurações (`#versaoBtn`, v1.12.50; foi
-//  o rodapé da folha e, na v1.12.49, a Verificação), escrito pelo `renderVersionLabel`.)
-// O IMPORTAR E A GAVETA DO CRONOGRAMA (o importar mora na casa da badge desde a
-// v1.13.5; a gaveta é da v1.12.54) são declarados AQUI pela razão do bloco
-// acima: `renderLibrary` lê a gaveta milhares de linhas antes de onde o cromo é
+// O IMPORTAR E A GAVETA DO CRONOGRAMA são declarados AQUI, no topo:
+// `renderLibrary` lê a gaveta milhares de linhas antes de onde o cromo é
 // ligado, e um `const` lido antes da própria declaração é `ReferenceError` —
 // que aborta o `controle.js` inteiro e faz o watchdog do OTA descartar o bundle
 // sem nada na tela dizer por quê.
@@ -433,8 +410,8 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 
 // ===== Índices de versão (base web × shell nativo) =====
 // Os dois atualizam por caminhos INDEPENDENTES — a base por OTA, o shell só
-// instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
-// v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
+// instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
+// shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
 const WEB_VERSION = '1.13.19';
 
@@ -513,27 +490,11 @@ const AV_NOME = 'Áudio Visual IASD';
 
 function renderVersionLabel() {
   const rotulo = 'v' + WEB_VERSION;
-  // O `title` NÃO repete o rótulo: ele nomeia o que o número é. Numa badge de
-  // 40px o texto é o único contexto que existe, e "1.7.0" sozinho não diz de
-  // que coisa é a versão.
+  // O `title` NÃO repete o rótulo: ele nomeia o que o número é — "1.7.0"
+  // sozinho não diz de que coisa é a versão.
   //
-  // ===== E O RODAPÉ VOLTOU AO NÚMERO SECO (v1.8.51) =====
-  //
-  // A v1.7.2 pusera o nome do app junto, a pedido do operador: *"ajuste a
-  // nomenclatura da versão, para que seja 'áudio visual IASD vx.x.x' com o nome
-  // do app, **para ter um melhor preenchimento do rodapé**"*. O MOTIVO daquele
-  // pedido é o que caducou: a faixa estava larga e vazia, e a marca a enchia.
-  //
-  // O pedido de agora é o oposto pela mesma porta — *"considere abreviar a
-  // versão para dar espaço a um botão mais claro em sua função"* —, e a conta
-  // fecha: o nome mede **153,0px** e o número seco **44,6px** (medidos a 360px),
-  // então tirá-lo devolve 108,4px, que é exatamente o que os dois rótulos novos
-  // ("Registro" e "Pedir ajuda") custam. Não é economia de texto: é a troca de
-  // uma palavra que ninguém lê por duas que dizem o que os botões fazem.
-  //
-  // E NOMEAR O APP DENTRO DELE ERA A PALAVRA MAIS DISPENSÁVEL DA FAIXA. Quem
-  // ainda precisa da marca é o que SAI daqui — o rascunho do WhatsApp e o
-  // `compartilharTexto` —, e os dois continuam a escrever por conta própria.
+  // O NÚMERO É SECO, sem o nome do app: a marca só é escrita pelo que SAI daqui
+  // (o rascunho do WhatsApp e o `compartilharTexto`, pelo `AV_NOME`).
   if (appVersionEl) {
     appVersionEl.textContent = rotulo;
     appVersionEl.title = 'Versão do aplicativo';
@@ -545,9 +506,9 @@ renderVersionLabel();
 // ===== O BOTÃO DE ATUALIZAÇÃO, no rodapé de Configurações =====
 //
 // Ele é o caminho de volta para quem RECUSOU a pergunta de propósito — e só
-// existe nesse caso (ver `otaRowDisponivel`). Ele FICA no rodapé da folha quando
-// a versão desce para a Verificação (v1.12.49): é trabalho pendente, e quem adiou
-// o encontra ao abrir Configurações, sem abrir seção nenhuma.
+// existe nesse caso (ver `otaRowDisponivel`). Ele mora no rodapé da folha, fora
+// das seções: é trabalho pendente, e quem adiou o encontra ao abrir
+// Configurações, sem abrir seção nenhuma.
 //
 // A HORA RUIM DESABILITA, com o motivo escrito, e são DUAS réguas: instalar o
 // APK derruba o app inteiro (e o servidor das telas junto), então vale o
@@ -619,8 +580,7 @@ function renderOtaRow() {
   // carga não há (`otaPendenteVersao`/`apkNovo` nascem vazios). Não é sorte —
   // é uma garantia que precisa continuar valendo.
   // SEMPRE HÁ LOTE AQUI: `otaRowDisponivel()` já devolveu `false` sem ele, e o
-  // `hidden` de cima é o `return`. A guarda que existia neste ponto era o ramo
-  // "Procurar atualização", que saiu com ele.
+  // `hidden` de cima é o `return`; a guarda abaixo é só a rede.
   const lote = loteDaAtualizacao();
   if (!lote) { otaRowEl.hidden = true; return; }
   otaRowEl.classList.add('ota-row--agora');
@@ -701,10 +661,6 @@ const songMenuTitleEl = document.getElementById('songMenuTitle');
 const songMenuListEl = document.getElementById('songMenuList');
 const songMenuCloseEl = document.getElementById('songMenuClose');
 
-// (`#hymnSearchBtn` e `#hymnSearchClose` saíram na v1.5.0: a lupa da faixa de
-//  abas e o ✕ de dentro da folha viraram UM botão só, o `#hymnSearchToggle` da
-//  `.lib-bar`, que troca de desenho conforme a Biblioteca esteja aberta ou
-//  fechada. Ver `renderLibToggle`.)
 const hymnSearchPopupEl = document.getElementById('hymnSearchPopup');
 const hymnSearchInputEl = document.getElementById('hymnSearchInput');
 const hymnSearchLimparEl = document.getElementById('hymnSearchLimpar');
@@ -714,26 +670,23 @@ const bibleVerListEl = document.getElementById('bibleVerList');
 const bibleVerCloseEl = document.getElementById('bibleVerClose');
 // Só entradas COM chamador, e a leitura é por nome literal em quase toda
 // parte, o que torna a tabela varrível — um nome que ninguém cita é código
-// morto demonstrável. A ÚNICA porta dinâmica é `DEST_ICONE`, que alcança
-// `queue`, `cronoAdd` e `star` por STRING: conferi-la antes de tirar um nome
-// daqui, porque o `|| ICON.add` do chamador engole a falta — sai o glifo
-// errado, sem console e sem nada na tela que explique.
+// morto demonstrável. A ÚNICA porta dinâmica é `ICON[d.ico]`, que alcança
+// `queue`, `cronoAdd` e `star` pelo campo `ico` da tabela `DESTINOS`:
+// conferi-la antes de tirar um nome daqui, porque o `|| ICON.add` de um dos
+// chamadores engole a falta — sai o glifo errado, sem console e sem nada na
+// tela que explique.
 const ICON = {
   play: '', // play_arrow
   pause: '', // pause
   // Nomes pelo GLIFO, não pelo estado: os botões mostram a AÇÃO
   // (`renderControls`), então "viewOn" apareceria com a view DESLIGADA.
-  // (`image`/`imageOff` saíram na v1.3.5: a cortina subiu para cima da
-  //  preview e virou SVG do sprite — ver `#icoImagem`. O par abaixo ficou
-  //  porque o `#simpleNivel` do Modo Fácil tem moldura e segue sendo glifo.)
+  // O par do volume é do `#simpleNivel` do Modo Fácil, que segue sendo glifo.
   volOn: '', // volume_up
   volOff: '', // volume_off
   music: '', // music_note
   broken: '', // broken_image
   del: '', // delete
   import: '', // folder_open
-  // (`repeatAll`/`repeatOne`/`shuffle` saíram na v1.8.80: os quatro degraus do
-  //  `#repeat` viraram SVG do sprite — ver `#icoRepetir` no index.html.)
   // ADICIONAR AO CRONOGRAMA fica na família do TEMPO (`more_time`): ao lado do
   // `queue_music` da playlist, um `playlist_add` seria a mesma pilha de linhas
   // com outra marquinha. O relógio diz o que a lista é — a ORDEM do culto.
@@ -1353,9 +1306,8 @@ function blocoFonte() {
 // CAPACIDADE de que depende — NUNCA por "é série?". É isso que abre lugar para
 // o terceiro modelo (materiais de evento, vídeos avulsos, apresentações) sem
 // mais um `if (coll.kind === 'serie')` espalhado por funções que não se
-// conhecem. Houve aqui um atalho `ehSerie(coll)` para essa pergunta, e ele saiu
-// na v1.8.42 SEM NUNCA TER SIDO CHAMADO: um predicado que nomeia exatamente o
-// que este bloco proíbe é um convite, não uma conveniência.
+// conhecem. Um atalho `ehSerie(coll)` seria exatamente o que este bloco
+// proíbe: um convite, não uma conveniência.
 //
 // REGRA GERAL, aprendida duas vezes aqui: desviar as PORTAS de um recurso não
 // desvia o que estava atrás delas. As folhas foram desviadas para o caminho do
@@ -1375,11 +1327,11 @@ function blocoFonte() {
 // aqui que se decide o tipo:
 //
 // **`ehLink(coll)` significa "o item é um LINK", e HOJE isso coincide com "é a
-// série" — mas CINCO lugares perguntam por ele querendo dizer OUTRA coisa:**
+// série" — mas QUATRO lugares perguntam por ele querendo dizer OUTRA coisa:**
 // *"esta coleção tem um CALENDÁRIO semanal?"*. São o destaque do sábado no topo
 // do card (`destaqueDaSerie`), o episódio da semana (`serieEpisodioDaSemana`), a
-// rotina do download automático (`serieAutoLigada`, que perguntava por
-// `ehLink`) e o aviso dela (`serieAutoAviso`). Com uma segunda família
+// rotina do download automático (`serieAutoLigada`) e o aviso dela
+// (`serieAutoAviso`). Com uma segunda família
 // respondendo `true` a `ehLink`, cada card dela herdaria a rotina: uma busca
 // por uma data que aqueles vídeos não têm, sobre um `coll.serie` que não
 // existe — e que nunca baixaria nada, sem erro em lugar nenhum.
@@ -1585,11 +1537,8 @@ function setGroupStatus(key, text, autoClearMs) {
 // A pergunta de rede é feita UMA VEZ para o lote (por álbum seriam doze
 // checagens repetidas) e repassada como `allowMobile: true` — ver
 // `redeLiberadaParaBaixar` para a regra (Wi-Fi confirmado, ou "Dados móveis"
-// ligado nas Configurações). ATÉ A v1.10.10 ela era um DIÁLOGO por toque
-// (*"Baixar usando dados móveis?"*), e o próprio comentário desta função dizia
-// que a escolha *"não vira uma preferência do app"* — virou, a pedido do
-// operador, e o diálogo saiu: sem Wi-Fi e sem a opção ligada, o lote não
-// pergunta mais, só espera.
+// ligado nas Configurações): sem Wi-Fi e sem a opção ligada, o lote não
+// pergunta, só espera.
 async function syncGroup(key, label, colls, opts) {
   const g = gui(key);
   // O cancelamento vale a partir da PRÓXIMA MÚSICA, não do próximo álbum: com
@@ -1919,26 +1868,20 @@ function fracaoPeso(ids) {
   // — as duas contas divergem quando um Playback falhou, e duas respostas para
   // a mesma pergunta na mesma tela é pior do que a imprecisão que isso esconde.
   // Com o peso ainda desconhecido (a recontagem de fundo não terminou), cai na
-  // estimativa. (Ela deixou de ser marcada com "~" na v5.265 — ver o bloco de
-  // `medirColecao`, acima —, então este ramo e o de baixo passaram a ter a
-  // mesma FORMA e a diferir só no número: é justamente por isso que a
-  // definição de "completo" tinha de ser uma só.)
+  // estimativa — que não leva "~": este ramo e o de baixo têm a mesma FORMA e
+  // diferem só no número, e é justamente por isso que a definição de
+  // "completo" tem de ser uma só.
   if (completo && no > 0) return fmtBytes(no);
   if (!no) return fmtBytes(total);            // nada baixado: só o que vai custar
   return fmtFracBytes(no, total);
 }
 
 // "3,7/18 MB" — o "tanto de tanto" da barra do card e dos cabeçalhos de seção,
-// e desde a v5.232 a única forma (havia uma segunda, por extenso). É justamente
-// por ela já estar na barra que o chip de peso do painel aberto saiu.
+// e a única forma: é por ela já estar na barra que o painel aberto não tem chip
+// de peso.
 //
 // A unidade só aparece uma vez quando é a mesma nos dois números; se divergirem
 // (800 KB/1,2 GB), as duas ficam — omitir a primeira seria simplesmente falso.
-//
-// (Ela era `fmtBytesPar(a, b, sep)`, com o separador em parâmetro porque as
-// duas formas diferiam só nele. A forma por extenso saiu na v5.232 e o "~" saiu
-// na v5.265: sobrou UM chamador com UM valor, isto é, uma constante disfarçada
-// de parâmetro.)
 function fmtFracBytes(a, b) {
   const fa = fmtBytes(a);
   const fb = fmtBytes(b);
@@ -1983,12 +1926,9 @@ function isConfirmedWifi() {
  *
  * O QUE ELA GOVERNA — sempre pelo helper `redeLiberadaParaBaixar()`, nunca por
  * `isConfirmedWifi()` direto: a sincronização em MASSA de um álbum/grupo
- * (`syncCollection`/`syncGroup`, que ANTES perguntava por diálogo a cada toque
- * — *"Baixar usando dados móveis?"* — e o comentário de origem já dizia que
- * isso *"não vira uma preferência do app"*; virou, a pedido) e os DOIS
- * automáticos que já eram Wi-Fi-only (o episódio da semana de uma série, os
- * fundos da letra) — os três perguntavam a MESMA coisa e respondiam
- * diferente: um com diálogo, dois calados. Ligada, os dois automáticos
+ * (`syncCollection`/`syncGroup`) e os DOIS automáticos que eram Wi-Fi-only (o
+ * episódio da semana de uma série, os fundos da letra) — a MESMA pergunta,
+ * numa resposta só. Ligada, os dois automáticos
  * passam a poder rodar em dados móveis também — foi perguntado, e a resposta
  * do operador foi incluir os dois.
  *
@@ -3141,9 +3081,8 @@ function renderLyricsBgTile() {
   pintarTile(lyricsBgTileEl, lyricsBg, mostra ? 'Mostrar' : 'Remover', true, !mostra);
 }
 
-// Envia o comando ao display E aplica na preview. YouTube usa o player pequeno
-// (acima); mídia comum continua no stage.js. O mudo da preview NÃO se decide
-// aqui (ver `acertarSaidaDeAudio`).
+// Envia o comando ao display E aplica na preview (pelo stage.js). O mudo da
+// preview NÃO se decide aqui (ver `acertarSaidaDeAudio`).
 //
 // A PREVIEW ATRASA JUNTO COM AS TELAS DA REDE, e o ponto de corte é aqui. Sem
 // telão elas SÃO o que a congregação vê, e chegam ~1 s depois do comando; a
@@ -3238,9 +3177,8 @@ function aplicarNaPreview(obj, item) {
     if (!pvLetraManual) hidePvLyrics(true);
     const keepText = pvTextoNoAr() && item && item.kind === 'audio';
     if (!keepText) hidePvText(false); // o load abaixo já monta a cena nova
-    // preview.handle() sempre roda primeiro: mantém preview.getCurrent()/
-    // fallback de thumbnail em dia (stage.js já sabe lidar com kind=youtube,
-    // só não toca o vídeo) — mesmo quando o player real assume por cima.
+    // preview.handle() mantém preview.getCurrent()/fallback de thumbnail em
+    // dia (stage.js já sabe lidar com kind=youtube: desenha a miniatura).
     aoCarregarPv(preview.handle(obj));
     // Só mostra a letra do áudio se NÃO houver texto manual em cena (precedência).
     if (!keepText && item && item.kind === 'audio' && Array.isArray(item.lyrics) && item.lyrics.length) showPvLyrics(item);
@@ -3873,8 +3811,7 @@ function showPvText(obj) {
     return;
   }
   // O cartão é OPACO e fica acima de toda a mídia (.pv-text, z-index 2): nada
-  // precisa ser interrompido para ele aparecer — nem o player do YouTube, que
-  // antes era derrubado aqui e não tinha como voltar. A letra sincronizada é a
+  // precisa ser interrompido para ele aparecer. A letra sincronizada é a
   // única exceção (ela É texto; volta em hidePvText, no slide certo).
   hidePvLyrics(true);
   pvTextActive = true;
@@ -4041,8 +3978,8 @@ function medirAudio(file) {
       resolve(seg);
     };
     a.preload = 'metadata';
-    // `Infinity` É O CASO NORMAL de um blob de `MediaRecorder`: o WebM sai sem
-    // duração no cabeçalho, e `Math.round(Infinity) || 0` é `Infinity` — que
+    // `Infinity` É O CASO de um WebM sem duração no cabeçalho (o que um
+    // `MediaRecorder` grava), e `Math.round(Infinity) || 0` é `Infinity` — que
     // atravessava o `m.seconds || null` e virava `seconds: Infinity` no
     // registro. O estrago é contido (`fmtTime` e `seekEl.max` guardam
     // `isFinite`), mas o desfecho é uma faixa sem duração, sem barra e sem
