@@ -20586,10 +20586,6 @@ function guessMediaType(filename) {
 }
 
 // ===== Coleções de mídia (LouvorJA) — sincronização e download =====
-// Carrega em memória o estado de todas as coleções (índices por coll.id) + o
-// catálogo de álbuns, aplicando a migração do estado legado 'hymnal2022' →
-// 'coll:hymnal-2022' (mesma pasta OPFS 'hymnal-2022', então os downloads já
-// feitos continuam válidos). Chamado uma vez no init, antes do primeiro load().
 // ===== A FAXINA DA COLETÂNEA REMOVIDA (v1.8.98) =====
 //
 // A v1.8.97 guardou no aparelho o catálogo de vídeos do LouvorJA e um índice por
@@ -20610,23 +20606,13 @@ function guessMediaType(filename) {
 //
 // ===== E ELA NÃO BLOQUEIA A ABERTURA — MEDIDO =====
 //
-// A primeira escrita a colocava no COMEÇO do `loadCollections`, com `await`, por
-// um motivo que não se sustenta: *"as chaves não podem entrar na memória desta
-// sessão, senão seriam regravadas"*. **Elas não entram.** Quem lê `coll:<id>` é
-// o laço sobre `allCollections()`, e com a coletânea removida não há `coll` de
-// `online-` nenhum ali — nada neste app volta a tocar naquelas chaves. A ordem
-// era uma precaução contra um caminho que não existe.
-//
-// E ela custava: quatro transações de IndexedDB ANTES do primeiro desenho da
-// Biblioteca, na abertura de todo aparelho que ainda não fez a faxina. MEDIDO no
-// `boot-nativo.test.mjs` sob carga 3× (o mesmo regime do CI): **2 reprovações em
-// 6 com o `await` no começo, 0 em 6 sem ele** — o oráculo espera o desenho por
-// prazo FIXO depois do `load()`, e o atraso o empurrava para fora da janela. O
-// CI reprovou por isso na v1.8.99, e a causa é esta, não o oráculo.
-//
-// Fire-and-forget no FIM, como as outras rotinas de acervo: nada na tela espera
-// por ela, e um aparelho que feche o app antes de ela terminar a refaz na
-// abertura seguinte — a marca só é gravada depois de apagar.
+// Fire-and-forget no FIM do `loadCollections`, como as outras rotinas de acervo.
+// Nada desta sessão volta a tocar naquelas chaves (sem `coll` de `online-` em
+// `allCollections()`), e com `await` no começo ela custava quatro transações
+// antes do primeiro desenho da Biblioteca — MEDIDO no `boot-nativo.test.mjs`
+// sob carga 3×: 2 reprovações em 6 com o `await`, 0 em 6 sem ele. Um aparelho
+// que feche o app antes de ela terminar a refaz na abertura seguinte — a marca
+// só é gravada depois de apagar.
 const ONLINE_FAXINA_KEY = 'faxina:online-1899';
 
 async function faxinaDaColetaneaOnline() {
@@ -20644,6 +20630,10 @@ async function faxinaDaColetaneaOnline() {
   } catch (_) { /* faxina não pode impedir o app de abrir */ }
 }
 
+// Carrega em memória o estado de todas as coleções (índices por coll.id) + o
+// catálogo de álbuns, aplicando a migração do estado legado 'hymnal2022' →
+// 'coll:hymnal-2022' (mesma pasta OPFS 'hymnal-2022', então os downloads já
+// feitos continuam válidos). Chamado uma vez no init, antes do primeiro load().
 async function loadCollections() {
   const legacy = await AVDB.getState('hymnal2022');
   const has2022 = await AVDB.getState('coll:' + HYMNAL_2022_ID);
@@ -20710,31 +20700,6 @@ async function fetchAlbumCatalog() {
   refreshCollectionsIfVisible();
 }
 
-// Busca o índice (metadados leves) de UMA coleção e atualiza collState[coll.id],
-// preservando fileIdFull/fileIdPlayback já conhecidos de cada música. Para
-// hinários, o arquivo de lista (coll.source) já é o índice; para álbuns, o
-// índice vem de album_{id}.musics. Lança em caso de falha (sem rede/resposta
-// inválida); quem chama decide se avisa o operador ou ignora silenciosamente.
-/**
- * O ÍNDICE DE UMA SÉRIE — as playlists mensais do canal viram faixas do álbum.
- *
- * Duas etapas, e a segunda é sequencial de propósito: são ~12 playlists de 4-5
- * itens, e disparar doze extrações do YouTube em paralelo é justamente o que o
- * `NET_CONCURRENCY` existe para não fazer — aqui cada chamada é uma EXTRAÇÃO
- * (segundos), não um GET.
- *
- * **A mutação é IN-PLACE**, pelo mesmo motivo do índice do LouvorJA: o
- * `syncCollection` tira um snapshot do array e grava `fileIdFull` nos objetos
- * DELE conforme baixa. Recriar os objetos deixaria o snapshot apontando para
- * órfãos — os bytes iam para o OPFS e os ids eram descartados no `setState`
- * seguinte, com o item aparecendo como não baixado e sendo rebaixado.
- *
- * Falha com EXCEÇÃO, e não com lista vazia: quem chama (`syncCollection`) já
- * trata isso como "sem internet — falha ao atualizar" e PRESERVA o índice
- * anterior. Devolver zero itens apagaria da tela a série inteira que o operador
- * já tem baixada, por uma oscilação de rede.
- */
-
 /**
  * O item da REGRA vira a faixa que o `collState` guarda.
  *
@@ -20744,7 +20709,7 @@ async function fetchAlbumCatalog() {
  * de isso não virar o defeito mudo da v5.233 é a assinatura enxergar esta
  * função. Um `map` anônimo não tem nome para passar.
  *
- * **A mutação é IN-PLACE** (recebe `s` e devolve `s`): ver o KDoc acima.
+ * **A mutação é IN-PLACE** (recebe `s` e devolve `s`): ver o KDoc de `fetchSerieIndex`.
  */
 function serieFaixaDoItem(s, it) {
   s.name = AVSerie.nomeDoItem(it);
@@ -20874,6 +20839,25 @@ async function serieDiarioGravar(id, campos) {
   } catch (_) { /* diagnóstico não pode derrubar a sincronização */ }
 }
 
+/**
+ * O ÍNDICE DE UMA SÉRIE — as playlists mensais do canal viram faixas do álbum.
+ *
+ * Duas etapas, e a segunda é sequencial de propósito: são ~12 playlists de 4-5
+ * itens, e disparar doze extrações do YouTube em paralelo é justamente o que o
+ * `NET_CONCURRENCY` existe para não fazer — aqui cada chamada é uma EXTRAÇÃO
+ * (segundos), não um GET.
+ *
+ * **A mutação é IN-PLACE**, pelo mesmo motivo do índice do LouvorJA: o
+ * `syncCollection` tira um snapshot do array e grava `fileIdFull` nos objetos
+ * DELE conforme baixa. Recriar os objetos deixaria o snapshot apontando para
+ * órfãos — os bytes iam para o OPFS e os ids eram descartados no `setState`
+ * seguinte, com o item aparecendo como não baixado e sendo rebaixado.
+ *
+ * Falha com EXCEÇÃO, e não com lista vazia: quem chama (`syncCollection`) já
+ * trata isso como "sem internet — falha ao atualizar" e PRESERVA o índice
+ * anterior. Devolver zero itens apagaria da tela a série inteira que o operador
+ * já tem baixada, por uma oscilação de rede.
+ */
 async function fetchSerieIndex(coll) {
   const serie = coll.serie;
   // O `hoje` DA VARREDURA, lido UMA vez e no TOPO. Duas razões, e as duas já
@@ -20881,8 +20865,7 @@ async function fetchSerieIndex(coll) {
   // o carimbo do índice têm de julgar contra o MESMO dia — duas leituras do
   // relógio separadas por uma extração de rede podem cair em lados diferentes da
   // meia-noite —, e o caminho da economia logo abaixo já o consome, isto é,
-  // declará-lo mais adiante seria zona morta temporal (a armadilha das v5.184,
-  // v5.193, v5.195 e v5.199).
+  // declará-lo mais adiante seria zona morta temporal.
   const hoje = new Date();
   const doCanal = await AVNative.ytCanalPlaylists(serie.canal);
 
@@ -21010,6 +20993,11 @@ async function fetchSerieIndex(coll) {
   renderBuscaQuandoPuder(false);
 }
 
+// Busca o índice (metadados leves) de UMA coleção e atualiza collState[coll.id],
+// preservando fileIdFull/fileIdPlayback já conhecidos de cada música. Para
+// hinários, o arquivo de lista (coll.source) já é o índice; para álbuns, o
+// índice vem de album_{id}.musics. Lança em caso de falha (sem rede/resposta
+// inválida); quem chama decide se avisa o operador ou ignora silenciosamente.
 async function fetchCollectionIndex(coll) {
   if (coll.kind === 'serie') return fetchSerieIndex(coll);
   const raw = await Louvorja.fetchList(coll.source);
@@ -21087,15 +21075,6 @@ async function runLimited(items, limit, fn) {
 // visibilitychange). Álbuns novos ou ainda sem índice são sempre buscados.
 const ALBUM_INDEX_TTL = 12 * 60 * 60 * 1000; // 12 h
 
-// Atualização automática e silenciosa — ao abrir o app e ao retomar do 2º
-// plano (ver o handler de visibilitychange no fim do arquivo), sem aviso de erro:
-//  1. índices leves dos HINÁRIOS (fixos) + catálogo de ÁLBUNS (nomes dos cards);
-//  2. índice leve (só metadados — album_{id}.musics, SEM áudio) de CADA álbum,
-//     pra a busca do acervo cobrir TODAS as músicas de TODOS os álbuns mesmo
-//     sem nada baixado (tocar num resultado baixa sob demanda — igual ao
-//     hinário). Concorrência limitada + TTL (pula álbuns indexados há pouco,
-//     mas sempre busca os novos/vazios). Uma falha (ex: sem rede) só mantém o
-//     que já está em cache.
 let collectionsRefreshing = false;
 // O DIA CORRENTE como 'AAAA-MM-DD', no fuso do aparelho. É a chave de
 // validade do índice de uma série que esconde o que ainda não saiu — e é local
@@ -21108,10 +21087,8 @@ function serieDiaLocal(d) {
 
 // ===== A PROCURA DO EPISÓDIO DESTA SEMANA (v1.2.22) =====
 //
-// Pedido do operador: *"faça o provai e vede e o informativo das missões serem
-// atualizados, em especial buscando apenas o vídeo dessa semana, busca de se
-// atualizar diretamente quando o app é aberto. Não para baixar o vídeo nem
-// nada, apenas verificar a listagem em busca do vídeo atual."*
+// A abertura do app procura o episódio desta semana na LISTA da série (só o
+// índice; o download é outra rotina, `manterSeriesDaSemana`).
 //
 // **O piso entre duas procuras, e ele existe porque a pergunta é feita também
 // no `visibilitychange`:** o operador troca de app dezenas de vezes durante um
@@ -21122,8 +21099,8 @@ function serieDiaLocal(d) {
 const SERIE_PROCURA_MIN_MS = 30 * 60 * 1000; // 30 min
 
 /**
- * A PRIMEIRA passada da SESSÃO ignora o piso — *"quando o app é aberto"* é o
- * pedido, ao pé da letra.
+ * A PRIMEIRA passada da SESSÃO ignora o piso — abrir o app é perguntar *"já
+ * saiu?"*.
  *
  * Uma CARGA DE PÁGINA é rara (o app fica vivo o culto inteiro, segurado pelos
  * serviços em primeiro plano) e é o instante em que o operador está perguntando
@@ -21132,8 +21109,7 @@ const SERIE_PROCURA_MIN_MS = 30 * 60 * 1000; // 30 min
  *
  * O caso concreto que ela cobre: o Android mata o app, o operador o reabre
  * quinze minutos depois da última varredura, e o episódio saiu no meio desses
- * quinze minutos. Com o piso sozinho, abrir o app não responderia — que é a
- * queixa que este lote existe para consertar.
+ * quinze minutos. Com o piso sozinho, abrir o app não responderia.
  *
  * **Quem a desarma é `autoRefreshCollections`, não o `indiceVencido`:** aquele
  * é um PREDICADO, chamado dentro de um `filter` sobre todas as coleções, e um
@@ -21173,33 +21149,15 @@ function serieTemODaSemana(c, agora) {
 // MANTER O EPISÓDIO DA SEMANA BAIXADO (v1.8.87)
 // ============================================================================
 //
-// Pedido do operador, por extenso: *"faça uma opção de marcar nas coleções de
-// provai e vede e do informativo mundial das missões. Essa opção fica no topo e
-// nela diz, manter o provai e vede da semana baixado e atualizado na
-// biblioteca. Ele permite o download automático em segundo plano no wifi, para
-// baixar e ter disponível offline o provai e vede e o informativo. Ele baixa na
-// qualidade padrão que o usuário tem em seleção. Quando estiver baixado
-// disponível, ele dá as opções no formato que temos para os hinos baixados, que
-// omite a questão da qualidade, pois não precisa mais dessa ação. O sistema
-// automaticamente verifica se o arquivo já existe e limpa os arquivos de
-// semanas passadas e baixa se necessário apenas a mídia da semana."*
-//
-// ## SEM SELETOR: É O PADRÃO DO APP (v1.11.10)
-//
-// Pedido do operador: *"Hoje ele tem um seletor para ativar a função de download
-// automático. Remova o seletor e faça com que seja o padrão do app sempre
-// baixar os vídeos da semana do Informativo e do Provai e Vede."* A caixa de
-// marcação saiu, e com ela `serieAutoLinha`, `alternarSerieAuto`, o Set
-// `serieAuto` e a leitura de `state['serieAuto']`: `serieAutoLigada` passou a
-// responder só *"é uma série?"*. **A chave `serieAuto` que um aparelho já tenha
-// gravado fica no banco e NINGUÉM a lê** — marcada ou desmarcada, o padrão é
-// ligado. O que protege o plano de dados do operador deixou de ser um seletor
-// por série e é a guarda de rede do item 1 abaixo, que continua inteira: sem
-// Wi-Fi confirmado e sem "Dados móveis" ligado a rotina NÃO RODA, e o card diz
-// por quê (`serieAutoAviso`).
+// Uma rotina mantém no aparelho o episódio desta semana de cada série, na
+// qualidade padrão do operador, e solta as semanas passadas. SEM SELETOR desde a
+// v1.11.10: vale para toda série, sempre (`serieAutoLigada` responde só *"é uma
+// série?"*), e a chave `serieAuto` que um aparelho antigo tenha gravado fica no
+// banco e NINGUÉM a lê. O que protege o plano de dados é a guarda de rede do
+// item 1 abaixo: sem Wi-Fi confirmado e sem "Dados móveis" ligado a rotina NÃO
+// RODA, e o card diz por quê (`serieAutoAviso`).
 //
 // ## O que isto muda no modelo da série, e o que NÃO muda
-//
 //
 // **O álbum de série não retém arquivo** — é a regra que tirou dele o "baixar
 // em lote" e a lixeira (v1.1.21): um episódio só existe no aparelho enquanto
@@ -21219,15 +21177,15 @@ function serieTemODaSemana(c, agora) {
 //     e não "não é celular" como o `syncLyrics`. A assimetria é a que o próprio
 //     `syncLyrics` documenta pelo outro lado: lá são alguns kB de JSON e "na
 //     dúvida, baixa" é o certo; aqui são ~300 MB que NINGUÉM PEDIU AGORA — e
-//     é por isso que a opção nasce DESLIGADA (v1.11.0): sem o operador abrir
-//     Configurações e ligá-la, gastar o plano de dados dele é o pior desfecho
-//     que este recurso sabe produzir.
+//     é por isso que "Dados móveis" nasce DESLIGADO (v1.11.0): sem o operador
+//     abrir Configurações e ligá-lo, gastar o plano de dados dele é o pior
+//     desfecho que este recurso sabe produzir.
 //     **O preço está dito e é REAL:** `navigator.connection.type` devolve
-//     `'unknown'` em boa parte dos aparelhos, e nesses a rotina só roda com a
-//     opção ligada. É por isso que O CARD DIZ ISSO, na linha de status
-//     (`serieAutoImpedimento`): um no-op silencioso seria a opção marcada e
-//     nada acontecendo, para sempre, sem nada na tela. O caminho à mão (a
-//     folha de destinos) continua inteiro.
+//     `'unknown'` em boa parte dos aparelhos, e nesses a rotina só roda com
+//     "Dados móveis" ligado. É por isso que O CARD DIZ ISSO, na linha de status
+//     (`serieAutoImpedimento`): um no-op silencioso seria o download automático
+//     nunca acontecendo, sem nada na tela. O caminho à mão (a folha de
+//     destinos) continua inteiro.
 //  2. **CEDE A VEZ ao que está no ar** (`rotinaDeAcervoPodeCorrer`), a regra das
 //     rotinas irmãs. Cede SAINDO, não esperando: quem rearma já existe (a
 //     abertura e todo `visibilitychange`, por `autoRefreshCollections`).
@@ -21238,12 +21196,9 @@ function serieTemODaSemana(c, agora) {
 //
 // ## O que NÃO está aqui
 //
-// **Nenhum método novo da ponte.** A pergunta "estou no Wi-Fi?" já era
-// respondida no bundle (`isConfirmedWifi`, que o download em massa do hinário
-// usa desde sempre), e o download já é do shell (`ytArquivo` → `ytFetch`). Por
-// isso este lote não sobe `SHELL_VERSION` e não pede Release — se precisasse, a
-// metade web chegaria por OTA em minutos contra um APK que não tem o método, e
-// o que o operador teria seria uma opção marcada que não faz nada.
+// **Nenhum método próprio da ponte.** A pergunta "estou no Wi-Fi?" é do bundle
+// (`isConfirmedWifi`, a do download em massa do hinário), e o download é o do
+// YouTube (`ytArquivo` → `ytFetch`).
 
 // A lista que SEGURA o episódio da semana. Ela é o detentor de referência do
 // `db.js` (ver `LISTS` lá), e o nome é digitado nos dois lugares de propósito:
@@ -21288,8 +21243,7 @@ async function serieArquivoDoEpisodio(s) {
 // O "VÍDEO DA SEMANA" COMO ITEM (v1.13.13)
 // ============================================================================
 //
-// Pedido do operador: *"um item que automaticamente toca o respectivo vídeo da
-// semana… cronograma pode ser atemporal"*. Um registro VIRTUAL por série
+// Um registro VIRTUAL por série
 // (`kind: 'semana'`), sem bytes, que entra no Cronograma, na playlist e nos
 // Favoritos e, ao TOCAR, vira o episódio desta semana — o que
 // `serieEpisodioDaSemana` (a MESMA régua do destaque e da rotina) reconhece.
@@ -21424,10 +21378,7 @@ function semanaLinha(coll) {
 /**
  * ===== NO MODO FÁCIL O VÍDEO DA SEMANA MORA NA RAIZ (v1.13.15) =====
  *
- * Pedido do operador: *"remova a coleção do informativo e do provai e vede, jogue o
- * card/elemento do item diretamente para substituir o card de coleção. Pois atualmente
- * estamos abrindo uma coleção, para sempre buscar um único item … mantenha o título
- * indicativo 'este sábado' e a data"*.
+ * No lugar dos cards das séries — abrir uma coleção para buscar sempre um único item.
  *
  * UM BLOCO, e não um por série: as duas linhas respondem à MESMA pergunta ("o vídeo deste
  * sábado") e o cabeçalho "Este sábado · 17/Out" é o mesmo para as duas — dois cards o
@@ -21511,8 +21462,7 @@ let semanaPendente = null;   // { virtualId, yt }
 
 // ===== A FAIXA DE ÁLBUM NO AR (v1.13.14) =====
 //
-// Decisão do operador: *"acender apenas o álbum de onde está tocando o item"*. A
-// faixa de um álbum é uma MÚSICA DE CATÁLOGO, não um item: ela não tem `data-id`,
+// Acende só o álbum de onde a mídia foi tocada. A faixa de um álbum é uma MÚSICA DE CATÁLOGO, não um item: ela não tem `data-id`,
 // e a mesma música pode estar em dois álbuns. Por isso o que acende é a ORIGEM do
 // toque — a chave da linha (`songRowKey`, álbum + música) que pôs a mídia no ar —,
 // e só quando o toque nasceu DENTRO de um álbum (`data-album`). Tocada por outra
@@ -21575,30 +21525,15 @@ async function resolverSemana(rec, daFila) {
 }
 
 /**
- * ===== O ESTADO SAIU DE BAIXO DO TÍTULO (v1.8.88) =====
+ * O que IMPEDE o download automático do episódio agora, ou `''`.
  *
- * Pedido do operador: *"temos o título principal e um subtitulo com mais
- * explicações… remova esse subtitulo, não precisamos dos detalhes, apenas o
- * titulo descrevendo a função. O subtexto extra é desnecessário"*.
- *
- * **O que sai é a EXPLICAÇÃO; o que fica é o ESTADO, e ele muda de casa.** As
- * frases descritivas ("será baixado em segundo plano", "está no aparelho", "é
- * baixado a pedido") diziam ao operador o que ele acabou de marcar — texto que
- * se lê uma vez e depois ocupa duas linhas em toda abertura do card. Morreram
- * com o `serieAutoEstado`, que ficou sem chamador junto com elas.
- *
- * **UMA precisa sobreviver, e ela não é detalhe: a do Wi-Fi.** Sem Wi-Fi
- * confirmado a rotina NÃO RODA, e `connection.type` responde `'unknown'` em
- * boa parte dos aparelhos — sem nada dito, o desfecho é a opção marcada com
- * nada acontecendo, para sempre. Ela passa para a LINHA DE STATUS do card
- * (`setCollStatus`), que é onde os outros estados daquele card já moram
- * ("Baixando o episódio desta semana…", "Lista atualizada") e que é
- * TRANSITÓRIA por construção: aparece quando vale e some depois, em vez de
- * ocupar uma linha permanente para dizer o caso normal.
- *
- * Devolve o que IMPEDE o download agora, ou `''` quando nada impede — e o
- * vazio é a resposta certa para o caso comum: um status que descreve o normal
- * é ruído no card.
+ * O card não explica a rotina (v1.8.88): só o IMPEDIMENTO aparece, e na LINHA DE
+ * STATUS (`setCollStatus`), onde os outros estados daquele card já moram
+ * ("Baixando o episódio desta semana…", "Lista atualizada") e que é TRANSITÓRIA
+ * por construção. É o da rede: sem Wi-Fi confirmado a rotina NÃO RODA, e
+ * `connection.type` responde `'unknown'` em boa parte dos aparelhos — sem a
+ * frase, o desfecho seria o download que nunca acontece, sem nada na tela. O
+ * vazio é a resposta do caso comum: um status que descreve o normal é ruído.
  */
 function serieAutoImpedimento(coll, epi, rec) {
   if (!serieAutoLigada(coll) || rec || !epi) return '';
@@ -21612,13 +21547,9 @@ function serieAutoImpedimento(coll, epi, rec) {
 }
 
 /**
- * O AVISO DO CARD (v1.11.10). Ele era a linha de opção — a caixa "Manter o … da
- * semana baixado" — e o que sobra dela é a única coisa que não podia sair: o
- * IMPEDIMENTO. Chamado a cada abertura do card, ele pergunta ao disco se o
- * episódio da semana já está no aparelho e, se não está e a rede não deixa, diz
- * por quê na linha de status (`setCollStatus`), que é transitória por
- * construção. Sem isto o desfecho seria o download automático que nunca roda,
- * para sempre, sem nada na tela.
+ * O AVISO DO CARD, a cada abertura: pergunta ao disco se o episódio da semana já
+ * está no aparelho e, se não está e a rede não deixa, diz por quê na linha de
+ * status (`serieAutoImpedimento`).
  */
 function serieAutoAviso(coll) {
   if (!serieAutoLigada(coll)) return;
@@ -21627,6 +21558,54 @@ function serieAutoAviso(coll) {
     const porque = serieAutoImpedimento(coll, epi, rec);
     if (porque) setCollStatus(coll.id, porque, 6000);
   }).catch(() => {});
+}
+
+/**
+ * OS IDS QUE ESTA SÉRIE JÁ RETÉM — a metade que impede a limpeza de apagar a
+ * semana passada quando o download da nova não veio.
+ *
+ * A pergunta é feita pelo `youtubeId` do registro contra os `id_music` do
+ * índice, e não por um campo nosso no registro: o arquivo de um episódio é um
+ * vídeo do YouTube como qualquer outro (é o mesmo `ytArquivo`), e inventar uma
+ * marca de "pertence à série X" seria um segundo vínculo a manter em dia com o
+ * primeiro.
+ *
+ * `retidos` chega por parâmetro porque o laço o lê UMA vez: são duas séries e no
+ * máximo um punhado de ids, mas reler a lista por série faria a conta depender
+ * da ordem em que elas são visitadas.
+ */
+async function serieRetidosDa(coll, retidos) {
+  const daSerie = new Set(collSongs(coll.id).map((s) => s.id_music));
+  const meus = [];
+  for (const id of retidos) {
+    const rec = await AVDB.getMedia(id).catch(() => null);
+    if (rec && rec.youtubeId && daSerie.has(rec.youtubeId)) meus.push(id);
+  }
+  return meus;
+}
+
+/**
+ * O VÍDEO QUE UMA SÉRIE LEVA NO PACOTE (v1.11.14): o episódio que ela RETÉM, e só ele.
+ *
+ * A lista completa do álbum nunca foi baixada
+ * (o álbum de série não retém arquivo), e a linha dizia "nada baixado neste aparelho" sobre
+ * ela. O que a série de fato guarda é o episódio da lista de retenção (`SERIE_LISTA`), e é
+ * ele que a linha da folha mede, mostra e leva.
+ *
+ * `daSemana` diz se é o episódio desta semana: sem o dizer, um episódio que ficou retido
+ * porque o da semana ainda não saiu seria chamado de "vídeo da semana" — e a linha da folha
+ * é a única coisa que o operador lê antes de mandar.
+ */
+async function serieVideosDoPacote(coll, retidos) {
+  const epi = serieEpisodioDaSemana(coll);
+  const ids = [];
+  let daSemana = false;
+  for (const id of await serieRetidosDa(coll, retidos)) {
+    ids.push(id);
+    const rec = await AVDB.getMedia(id).catch(() => null);
+    if (epi && rec && rec.youtubeId === epi.id_music) daSemana = true;
+  }
+  return { ids, daSemana };
 }
 
 /**
@@ -21655,55 +21634,6 @@ function serieAutoAviso(coll) {
  * mantém viva a cada abertura: a lista de retenção é recalculada a partir da
  * semana corrente, e é isso que solta o que saiu.
  */
-/**
- * OS IDS QUE ESTA SÉRIE JÁ RETÉM — a metade que impede a limpeza de apagar a
- * semana passada quando o download da nova não veio.
- *
- * A pergunta é feita pelo `youtubeId` do registro contra os `id_music` do
- * índice, e não por um campo nosso no registro: o arquivo de um episódio é um
- * vídeo do YouTube como qualquer outro (é o mesmo `ytArquivo`), e inventar uma
- * marca de "pertence à série X" seria um segundo vínculo a manter em dia com o
- * primeiro.
- *
- * `retidos` chega por parâmetro porque o laço o lê UMA vez: são duas séries e no
- * máximo um punhado de ids, mas reler a lista por série faria a conta depender
- * da ordem em que elas são visitadas.
- */
-async function serieRetidosDa(coll, retidos) {
-  const daSerie = new Set(collSongs(coll.id).map((s) => s.id_music));
-  const meus = [];
-  for (const id of retidos) {
-    const rec = await AVDB.getMedia(id).catch(() => null);
-    if (rec && rec.youtubeId && daSerie.has(rec.youtubeId)) meus.push(id);
-  }
-  return meus;
-}
-
-/**
- * O VÍDEO QUE UMA SÉRIE LEVA NO PACOTE (v1.11.14): o episódio que ela RETÉM, e só ele.
- *
- * Pedido do operador: *"na exportação, em específico do informativo e do provai e vede,
- * faça ele exportar apenas o vídeo da semana"*. A lista completa do álbum nunca foi baixada
- * (o álbum de série não retém arquivo), e a linha dizia "nada baixado neste aparelho" sobre
- * ela. O que a série de fato guarda é o episódio da lista de retenção (`SERIE_LISTA`), e é
- * ele que a linha da folha mede, mostra e leva.
- *
- * `daSemana` diz se é o episódio desta semana: sem o dizer, um episódio que ficou retido
- * porque o da semana ainda não saiu seria chamado de "vídeo da semana" — e a linha da folha
- * é a única coisa que o operador lê antes de mandar.
- */
-async function serieVideosDoPacote(coll, retidos) {
-  const epi = serieEpisodioDaSemana(coll);
-  const ids = [];
-  let daSemana = false;
-  for (const id of await serieRetidosDa(coll, retidos)) {
-    ids.push(id);
-    const rec = await AVDB.getMedia(id).catch(() => null);
-    if (epi && rec && rec.youtubeId === epi.id_music) daSemana = true;
-  }
-  return { ids, daSemana };
-}
-
 async function manterSeriesDaSemana() {
   if (serieAutoRodando) return;
   const series = allCollections().filter((c) => c.kind === 'serie');
@@ -21758,7 +21688,7 @@ async function manterSeriesDaSemana() {
     // O PASSO QUE LIMPA. `listSet` com a lista INTEIRA (e não `listAdd` mais um
     // `listRemove` por item) porque é ele que coleta o que saiu na MESMA
     // transação — e porque a lista é pequena e conhecida por construção: um id
-    // por série marcada, no máximo.
+    // por série, no máximo.
     await AVDB.listSet(SERIE_LISTA, guardar).catch(() => {});
     renderCollectionsNow();
   } finally { serieAutoRodando = false; }
@@ -21802,8 +21732,8 @@ function indiceVencido(c, agora) {
   // procurado a cada meia hora, para sempre, sem nada a achar.
   //
   // NADA AQUI BAIXA VÍDEO: quem roda é `fetchCollectionIndex`, que só refaz a
-  // LISTA (`fetchSerieIndex`). O download continua sendo item a item, pela
-  // folha de destinos.
+  // LISTA (`fetchSerieIndex`); o episódio da semana desce depois, pela rotina
+  // (`manterSeriesDaSemana`).
   if (c.serie && c.serie.ano === new Date(agora).getFullYear()
       && (serieProcuraDaAbertura
         || (agora - (st.indexSyncedAt || 0)) > SERIE_PROCURA_MIN_MS)
@@ -21817,24 +21747,12 @@ function indiceVencido(c, agora) {
 }
 
 /**
- * ===== A VERIFICAÇÃO DE ÁLBUM VIRA AUTOMÁTICA (v1.1.16) =====
+ * ===== A VERIFICAÇÃO DE ÁLBUM É AUTOMÁTICA (v1.1.16) =====
  *
- * Pedido do operador: *"agora a verificação é feita de forma automática, no
- * segundo plano toda vez que o app abre (tente fazer de forma a ser algo
- * invisível para o usuário e sem efeito de peso significativo de processamento,
- * para não ser notado), e se tiver alguma diferença ele mostra o botão de
- * download"*.
- *
- * **O QUE FALTAVA ERA POUCO, e é a razão de o botão ter podido sair.** Esta
- * função já roda na abertura e relê os índices; a fase 2 é que só pegava os
- * VENCIDOS pelo TTL de 12 h. O botão "Verificar" existia exatamente para pular
- * esse TTL, e só aparecia num álbum COMPLETO — o caso em que não há o que
- * baixar e a única pergunta é "o catálogo cresceu?".
- *
- * `forcarIndice` reproduz aquele toque, sem o toque: relê o índice dos álbuns
- * que o operador DE FATO tem no aparelho. O desfecho é o mesmo que o botão
- * dava — o índice cresce, `colecaoCompleta` vira falso, e o botão de BAIXAR
- * aparece na barra do card, que é onde o pedido manda mostrá-lo.
+ * `forcarIndice` relê o índice dos álbuns que o operador DE FATO tem no
+ * aparelho mesmo dentro do TTL de 12 h (o que o botão "Verificar" fazia): o
+ * índice cresce, `colecaoCompleta` vira falso, e o botão de BAIXAR aparece na
+ * barra do card — "o catálogo cresceu?" respondido sem toque nenhum.
  *
  * ===== E ELE PRECISA SER INVISÍVEL, QUE É A METADE DIFÍCIL =====
  *
@@ -21865,6 +21783,15 @@ function indiceVencido(c, agora) {
  */
 const indicesForcados = new Set();
 
+// Atualização automática e silenciosa — ao abrir o app e ao retomar do 2º
+// plano (ver o handler de visibilitychange no fim do arquivo), sem aviso de erro:
+//  1. índices leves dos HINÁRIOS (fixos) + catálogo de ÁLBUNS (nomes dos cards);
+//  2. índice leve (só metadados — album_{id}.musics, SEM áudio) de CADA álbum,
+//     pra a busca do acervo cobrir TODAS as músicas de TODOS os álbuns mesmo
+//     sem nada baixado (tocar num resultado baixa sob demanda — igual ao
+//     hinário). Concorrência limitada + TTL (pula álbuns indexados há pouco,
+//     mas sempre busca os novos/vazios). Uma falha (ex: sem rede) só mantém o
+//     que já está em cache.
 async function autoRefreshCollections() {
   if (collectionsRefreshing) return;
   // ELA CEDE A VEZ AO QUE ESTÁ NO AR (v1.8.42) — a regra da v1.4.19, que
@@ -21974,7 +21901,7 @@ async function autoRefreshCollections() {
     // repetiu a mesma lição um degrau acima na v1.10.6: lá o botão de
     // sincronizar nem é desenhado com a coleção completa.)
     syncCifrasAcervo().catch(() => {});
-    // Fase 5: O EPISÓDIO DA SEMANA das séries marcadas (v1.8.87), pelo mesmo
+    // Fase 5: O EPISÓDIO DA SEMANA de cada série (v1.8.87), pelo mesmo
     // caminho e pelo mesmo motivo das duas acima — e DEPOIS delas de propósito:
     // ela roda sobre a lista que a fase 2 acabou de refazer, e é aquela fase
     // que faz o episódio do sábado existir no índice. Invertida, a primeira
@@ -22040,10 +21967,10 @@ async function syncCollection(coll, opts) {
       setCollStatus(coll.id, 'Sem internet — falha ao atualizar', 5000);
       return { ok: false, baixados: 0, falhou: 0 };
     }
-    // SÓ O ÍNDICE (v5.230) — é o que a abertura de uma SÉRIE faz (v1.12.53). A lista chegou,
-    // e é só ela que foi pedida: os episódios são baixados um a um, pela folha
-    // de destinos, como um vídeo do YouTube. Cair no laço abaixo aqui seria
-    // exatamente o "download direto" que este lote existe para tirar.
+    // SÓ O ÍNDICE — é o que a abertura de uma SÉRIE faz (`verificarSemanaAoAbrir`)
+    // e a procura do "vídeo da semana" (`resolverSemana`). A lista chegou e é só
+    // ela que foi pedida: cair no laço abaixo baixaria a série inteira (~300 MB
+    // por episódio).
     if (opts && opts.soIndice) {
       setCollStatus(coll.id, 'Lista atualizada', 4000);
       return { ok: true, baixados: 0, falhou: 0 };
@@ -22237,9 +22164,6 @@ async function syncCollection(coll, opts) {
 
 // ===== O FUNDO DA LETRA CHEGA À BIBLIOTECA QUE JÁ EXISTE (v1.9.15) =====
 //
-// O RELATO: *"ele conseguiu baixar, e usar as músicas, mas não está vindo com
-// as imagens de fundo"*.
-//
 // **O CONSERTO SOZINHO NÃO ALCANÇA O ACERVO JÁ BAIXADO, e essa é a armadilha
 // inteira.** Os slides guardam `imageOpfsPath` resolvido NO MOMENTO do
 // download, e `ensureSongVariant` devolve cedo para todo registro que já tenha
@@ -22253,26 +22177,19 @@ async function syncCollection(coll, opts) {
 // defeito noutro campo: *o conserto não alcançava a biblioteca que o operador
 // JÁ TEM, que é justamente a que ele usa*.
 //
-// ===== E ELE PASSOU A CORRER SOZINHO (v1.10.6) =====
+// ===== E ELE CORRE SOZINHO (v1.10.6) =====
 //
-// A v1.9.15 deixou escrito que ele NÃO corria sozinho e o que faltava para
-// isso: *"Para correr sozinho ele precisaria do que a varredura de cifras tem:
-// um veredito POR MÚSICA gravado com data."* O que provou que a porta única não
-// bastava foi o operador: *"Não há um botão de sincronizar as coleções"* — e
-// ele está certo, o botão de baixar só é desenhado com a coleção INCOMPLETA
-// (`if ((u.syncBusy || !complete) …)`), que é o estado em que o backfill não
-// serve. **Num aparelho com tudo baixado — o aparelho do relato — o conserto da
-// v1.9.15 era inalcançável.**
+// O botão de baixar só é desenhado com a coleção INCOMPLETA (`if ((u.syncBusy ||
+// !complete) …)`), que é o estado em que o backfill não serve: num aparelho com
+// tudo baixado ele era inalcançável — MEDIDO num Registro, 3556 músicas em 69
+// coleções e a Verificação respondendo `19 de 60 sem fundo`. Quem o roda é a
+// varredura automática (`syncFundosAcervo`).
 //
-// MEDIDO no Registro dele: 3556 músicas baixadas em 69 coleções, e a
-// Verificação do Sistema respondendo `19 de 60 sem fundo` — cerca de MIL E CEM
-// faixas que nenhum toque alcançava.
-//
-// O veredito é o que torna a varredura automática possível, e ele é o mesmo
-// desenho da cifra por um motivo de custo: sem memória, cada abertura do app
-// custaria ~7100 leituras de IndexedDB (duas variantes × 3556 faixas) só para
+// O veredito POR MÚSICA, gravado com data, é o que a torna possível, pelo mesmo
+// desenho da cifra e por custo: sem memória, cada abertura do app custaria
+// ~7100 leituras de IndexedDB (duas variantes × 3556 faixas) só para
 // redescobrir o que já se sabia. Com ele, a passada seguinte custa ZERO sobre o
-// que já foi conferido — que é a *"verificação rápida"* pedida.
+// que já foi conferido.
 let imagensSyncRodando = false;
 
 /**
@@ -22283,22 +22200,12 @@ let imagensSyncRodando = false;
  * chegaria por OTA e não rodaria. Entrada de versão diferente é IGNORADA, e a
  * música volta para a fila com o código novo, que é o que se quis publicar.
  *
- * **SUBIU PARA 2 na v1.10.8**, e não é o formato do campo que mudou — é a
- * REGRA que decidiu `tem:false` até aqui: a v1.10.7 passou a excluir a foto
- * cujo `fetch` não voltou (`fotoSemResposta`) do que conta como resposta, mas
- * um veredito gravado ANTES dela (v1.10.6, ou a própria v1.10.7 antes deste
- * lote) pode ter marcado `tem:false` por uma causa que hoje não fecharia mais
- * — e ficaria valendo os seis dias inteiros sem que este lote tivesse
- * chance de refazer. Subir a versão IGNORA todo veredito antigo e repergunta
- * o acervo inteiro na próxima passada — é o que faz este lote alcançar quem
- * já tinha `tem:false` gravado, e não só quem baixar depois dele.
- *
- * **SUBIU PARA 3 na v1.10.9**, pelo mesmo motivo, outra causa: o Hinário 2022
- * gravou `tem:false, causa:'fora'` para as 601 fotos dele porque a origem as
- * serve por um CDN (Cloudflare R2) que `Louvorja.daOrigem` não reconhecia —
- * ver o KDoc de `louvorja.js`. Esse veredito ficaria valendo seis dias mesmo
- * depois de o host entrar na lista de exceções; subir a versão faz a próxima
- * passada repetir as 601 SOB A REGRA NOVA, sem esperar o prazo.
+ * **SOBE QUANDO MUDA A REGRA que decide `tem:false`**, não só o formato: a
+ * versão nova IGNORA todo veredito antigo e repergunta o acervo inteiro na
+ * próxima passada, sem esperar os seis dias. Foi 2 na v1.10.8 (a foto cujo
+ * `fetch` não voltou, `fotoSemResposta`, deixou de contar como resposta) e 3 na
+ * v1.10.9 (o CDN das fotos do Hinário 2022, que `Louvorja.daOrigem` não
+ * reconhecia — 601 `tem:false, causa:'fora'`; ver o KDoc de `louvorja.js`).
  */
 const FUNDO_VEREDITO_VERSAO = 3;
 
@@ -22327,12 +22234,8 @@ const FUNDO_VEREDITO_VERSAO = 3;
 const FUNDO_REVISITA_MS = 6 * 24 * 60 * 60 * 1000;
 
 /**
- * SEM TETO POR PASSADA (v1.10.7) — a passada refaz TUDO o que falta, de uma vez.
- *
- * A v1.10.6 limitava a 60 faixas por passada, pelo peso das fotos; o operador
- * revogou por extenso: *"ajuste o limite de 60 verificações de imagem de fundo,
- * para que não haja limite, se ele achar necessário, ele verifica e atualiza
- * toda a biblioteca baixada"*. O preço está dito: no acervo do relato (~1100
+ * SEM TETO POR PASSADA (v1.10.7, decisão do operador) — a passada refaz TUDO o
+ * que falta, de uma vez. O preço está dito: no acervo do relato (~1100
  * faixas sem fundo) a primeira passada puxa de uma vez as fotos que faltam —
  * centenas de MB, num Wi-Fi CONFIRMADO (`fundosImpedimento`), com a barra na
  * notificação. O que continua limitando é o que NÃO é trabalho necessário:
@@ -22378,8 +22281,7 @@ const FUNDO_PASSO_MS = 30 * 60 * 1000;
  *
  * A passada cede a vez e SAI — à cena no ar, ao download pedido, à rede que
  * não é Wi-Fi —, e quem a rearmava era só a abertura e o `visibilitychange`.
- * O relato do operador é o buraco que isso deixa: *"não houve nenhuma
- * atualização das imagens … durante meus testes"*. MEDIDO no arnês: com uma
+ * MEDIDO no arnês: com uma
  * música tocando na abertura a passada cedeu, a cena saiu no segundo 20, e em
  * um minuto de app parado e à vista nada aconteceu — nem um pedido. Testar o
  * app É tocar mídia, e quem fica no app não dispara `visibilitychange` nenhum.
@@ -22393,8 +22295,7 @@ const FUNDO_PASSO_MS = 30 * 60 * 1000;
  * **E ELE SÓ TEM O QUE FAZER se o piso não estiver de pé** (v1.11.1): a
  * passada armava meia hora de piso ANTES de este relógio bater a primeira
  * vez, então "religar" um minuto depois caía direto na guarda do piso e não
- * fazia nada — foi o defeito por trás do MESMO relato acima, numa rodada
- * seguinte: a rede que faltava no boot volta em segundos, mas a passada só
+ * fazia nada: a rede que faltava no boot volta em segundos, mas a passada só
  * era retentada meia hora depois. Ver `fonteMudaPorRede` em
  * `syncFundosAcervo`, que devolve o piso quando o disjuntor abriu por FALTA
  * DE RESPOSTA — é isso que dá trabalho a este relógio de fato.
@@ -22879,22 +22780,6 @@ function fundosReligaFrase() {
   return 'a cada ' + (n === 1 ? 'minuto' : n + ' minutos');
 }
 
-// Baixa (ou completa) uma música: busca os metadados individuais (URLs reais) e
-// grava áudio Cantado + Playback (se houver) + capa/letra sincronizada no
-// OPFS/catálogo. `s` é mutado in-place (fileIdFull/fileIdPlayback), refletido
-// no collState[coll.id] compartilhado.
-//
-// Devolve `false` quando a faixa NÃO está no aparelho ao fim — quem chama
-// precisa poder distinguir "baixou" de "desistiu em silêncio", senão o status
-// final conta como baixada uma música que não saiu do lugar.
-//
-// E ISSO INCLUI OS BYTES, não só os metadados (v1.9.13). Até aqui ele só
-// respondia `false` quando o `music_{id}` não vinha; toda falha ABAIXO disso —
-// o servidor de arquivos mudo, um HTTP de erro, o disco recusando a gravação —
-// era engolida por `downloadCollectionFile` e a função voltava `undefined`, que
-// o laço lia como sucesso. **Era este o defeito do relato**: a barra ia até o
-// fim, o rodapé escrevia "Atualizado (N baixado(s))", e o botão de baixar
-// continuava na tela porque nenhum `fileIdFull` tinha sido escrito.
 /**
  * Baixa UM episódio de uma série e o grava na pasta do álbum.
  *
@@ -22964,6 +22849,20 @@ async function downloadSerieItem(coll, s) {
   }
 }
 
+// Baixa (ou completa) uma música: busca os metadados individuais (URLs reais) e
+// grava áudio Cantado + Playback (se houver) + capa/letra sincronizada no
+// OPFS/catálogo. `s` é mutado in-place (fileIdFull/fileIdPlayback), refletido
+// no collState[coll.id] compartilhado.
+//
+// Devolve `false` quando a faixa NÃO está no aparelho ao fim — quem chama
+// precisa poder distinguir "baixou" de "desistiu em silêncio", senão o status
+// final conta como baixada uma música que não saiu do lugar.
+//
+// E ISSO INCLUI OS BYTES, não só os metadados (v1.9.13): toda falha abaixo do
+// `music_{id}` — o servidor de arquivos mudo, um HTTP de erro, o disco
+// recusando a gravação — também é `false`. Lida como sucesso, a barra ia até o
+// fim, o rodapé escrevia "Atualizado (N baixado(s))", e o botão de baixar
+// continuava na tela porque nenhum `fileIdFull` tinha sido escrito.
 async function downloadCollectionSong(coll, s, opts) {
   if (coll.kind === 'serie') return downloadSerieItem(coll, s);
   let meta;
@@ -23046,13 +22945,8 @@ async function downloadCollectionSong(coll, s, opts) {
 //
 // DEVOLVE O DESFECHO (v1.9.13): `true` = esta variante está NO APARELHO, ou não
 // existe na origem (que é a mesma coisa para a tela — ver a regra `semFonte`
-// logo abaixo); `false` = era para ela estar e não está. Ela era `void`, e a
-// ausência de resposta era o defeito inteiro: `downloadCollectionSong` não
-// tinha como saber que o arquivo não chegou, então o laço de `syncCollection`
-// contava a faixa como baixada, a barra ia até o fim e o rodapé escrevia
-// "Atualizado (N baixado(s))" com zero bytes no disco. O irmão dela no mesmo
-// despacho (`downloadSerieItem`) sempre devolveu booleano — era esta metade que
-// faltava.
+// logo abaixo); `false` = era para ela estar e não está. É o que impede o laço
+// de `syncCollection` de contar como baixada uma faixa com zero bytes no disco.
 async function ensureSongVariant(coll, s, fileKey, urlPath, variantLabel, meta, timeField, thumb, resolveImage, opts) {
   // "NÃO EXISTE" NÃO É "NÃO BAIXEI" (v5.134). Uma música cuja origem não traz o
   // arquivo (`url_music`/`url_instrumental_music` vazios no `music_{id}`) nunca
@@ -23133,9 +23027,7 @@ async function ensureSongVariant(coll, s, fileKey, urlPath, variantLabel, meta, 
 
 // ===== O CENSO DO DOWNLOAD DO ACERVO (v1.9.13) =====
 //
-// O RELATO QUE O CRIOU: *"elas dão os tempos para baixar, e os progressos, mas
-// depois continuam com o botão de download e não ficam disponíveis offline"*. A
-// barra andava porque `done` conta TENTATIVAS; o botão ficava porque nenhum
+// Sem ele, a barra andava porque `done` conta TENTATIVAS; o botão ficava porque nenhum
 // byte chegou ao disco; e o rodapé anunciava *"Atualizado (3 baixado(s))"*
 // porque as três falhas abaixo eram engolidas por um `catch (_) { return null }`
 // que ninguém lia. **Um download que falha e se anuncia como sucesso é o pior
@@ -23167,9 +23059,7 @@ const acervoCenso = {
   // ESTREIA (*"chegou ao disco?"* — não, e é erro HTTP) e parou na porta da
   // seguinte, que é a que decide o conserto: **1203 falhas e UM status guardado
   // não distinguem "tudo 404" de "uns 403 e uns 404"**, e um contador único não
-  // diz se o problema é de UM álbum ou da fonte inteira. É a lição da série
-  // v1.9.9→v1.9.12 cobrada uma vez a mais: *um diagnóstico que responde só a
-  // pergunta anterior custa um lote inteiro por relato*.
+  // diz se o problema é de UM álbum ou da fonte inteira.
   porStatus: {},     // status HTTP → quantas vezes (403 em tudo é ROTA; 404 em tudo é CAMINHO)
   albuns: {},        // nome do álbum → quantas falhas (UM álbum, ou a fonte inteira?)
   ultimoStatus: 0,   // o status da ÚLTIMA recusa — é ele que vai ao cartão da prévia
@@ -23215,11 +23105,8 @@ function acervoFalhou(causa, detalhe, urlPath, coll, status) {
   // mesmo assim baixe (a origem pode servir os dois) não é notícia.
   if (/[?#]/.test(String(urlPath || ''))) acervoCenso.truncaveis++;
   acervoCenso.motivo = detalhe + ' — ' + urlPath;
-  // O CRU, COMO O BANCO O DEVOLVEU — e o comentário do campo só passou a
-  // descrever o código na v1.9.15: até aqui ele guardava o resultado do
-  // `fileUrl`, que é meio caminho entre os dois e não responde nem a uma
-  // pergunta nem a outra. É a diferença entre ESTE e o do fio que mostra um 404
-  // nascido de codificação, e ela some quando os dois lados são o mesmo lado.
+  // O CRU, COMO O BANCO O DEVOLVEU: é a diferença entre ESTE e o do fio que
+  // mostra um 404 nascido de codificação.
   acervoCenso.ultimoPath = String(urlPath || '');
   try { acervoCenso.ultimaUrl = new URL(Louvorja.fileUrl(urlPath)).href; }
   catch (_) { acervoCenso.ultimaUrl = ''; }
@@ -23256,28 +23143,6 @@ function retratoDoCenso() {
     semEspaco: acervoCenso.semEspaco, foraDoServidor: acervoCenso.foraDoServidor,
   };
 }
-// A CAUSA EM TRÊS PALAVRAS, e ela nunca falha VAZIO — a mesma regra da cifra:
-// cada motivo pede uma ação diferente de quem lê, e uma frase genérica ("sem
-// rede") sobre um disco cheio manda esperar um Wi-Fi que não resolve nada.
-//
-// MISTURADAS, ELA NÃO ESCOLHE. Duas causas no mesmo lote são duas histórias, e
-// eleger a maior esconderia a outra numa linha que cabe três palavras; quem as
-// separa é o Registro, que tem espaço e traz as QUATRO contagens.
-// ===== A CAUSA NO CARTÃO DA PRÉVIA (v1.9.14) =====
-//
-// O relato que a criou: *"não executam se selecionados individualmente, com
-// mensagens de 'sem internet para baixar', o que eu comprovei que tenho
-// internet corretamente"*. **Ele estava certo:** a fonte respondeu HTTP 404 e o
-// cartão disse "sem internet" — um texto FIXO escrito quando a rede era a
-// única falha imaginável naquele ponto. Um diagnóstico que acusa a coisa errada
-// não é só inútil: ele manda o operador consertar o que não está quebrado.
-//
-// **O RAMO "SEM INTERNET" FICA, e ele é o certo quando nada foi tentado:**
-// `downloadCollectionSong` desiste ANTES de pedir arquivo nenhum quando o
-// `music_{id}` não vem, e aí o censo não se move — essa É a falha de rede.
-//
-// O TEXTO É CURTO PORQUE A CAIXA É PEQUENA (a mesma medida do
-// `avisarResolucaoLimitada`: `-webkit-line-clamp: 2` num cartão de ~163px).
 // Alguma das QUATRO causas subiu desde o retrato? É a pergunta que separa "a
 // busca chegou ao fim e não há" de "a busca não chegou ao fim".
 function houveFalhaDeAcervo(antes) {
@@ -23288,6 +23153,18 @@ function houveFalhaDeAcervo(antes) {
     || acervoCenso.foraDoServidor > (base.foraDoServidor || 0);
 }
 
+// ===== A CAUSA NO CARTÃO DA PRÉVIA (v1.9.14) =====
+//
+// Um texto FIXO ("sem internet") acusava a rede quando a fonte respondia HTTP
+// 404 — e um diagnóstico que acusa a coisa errada manda o operador consertar o
+// que não está quebrado. O cartão diz a causa que o censo viu.
+//
+// **O RAMO "SEM INTERNET" FICA, e ele é o certo quando nada foi tentado:**
+// `downloadCollectionSong` desiste ANTES de pedir arquivo nenhum quando o
+// `music_{id}` não vem, e aí o censo não se move — essa É a falha de rede.
+//
+// O TEXTO É CURTO PORQUE A CAIXA É PEQUENA (a mesma medida do
+// `avisarResolucaoLimitada`: `-webkit-line-clamp: 2` num cartão de ~163px).
 function motivoDoCartao(antes) {
   const base = antes || { semRede: 0, recusadas: 0, semEspaco: 0, foraDoServidor: 0 };
   if (acervoCenso.semEspaco > base.semEspaco) return 'sem espaço neste aparelho';
@@ -23308,6 +23185,13 @@ function motivoDoCartao(antes) {
   return 'sem internet para baixar';
 }
 
+// A CAUSA EM TRÊS PALAVRAS, e ela nunca falha VAZIO — a mesma regra da cifra:
+// cada motivo pede uma ação diferente de quem lê, e uma frase genérica ("sem
+// rede") sobre um disco cheio manda esperar um Wi-Fi que não resolve nada.
+//
+// MISTURADAS, ELA NÃO ESCOLHE. Duas causas no mesmo lote são duas histórias, e
+// eleger a maior esconderia a outra numa linha que cabe três palavras; quem as
+// separa é o Registro, que tem espaço e traz as QUATRO contagens.
 function causaDoAcervo(antes) {
   const base = antes || { semRede: 0, recusadas: 0, semEspaco: 0, foraDoServidor: 0 };
   const rede = acervoCenso.semRede - base.semRede;
@@ -23548,14 +23432,6 @@ function parseTimeToSeconds(str) {
   return h * 3600 + m * 60 + sec;
 }
 
-// Monta os slides de letra sincronizada de uma variante (Cantado usa `time`,
-// Playback usa `instrumental_time`): slide de capa (tempo 0, sem texto,
-// imagem da música) + uma entrada por linha de `meta.lyric` marcada como
-// `show_slide`, ordenadas por tempo. Uma linha sem imagem própria herda a da
-// anterior (fallback "grudento", igual ao app original); linhas sem tempo
-// utilizável no campo ativo são ignoradas. Retorna `null` se não sobrar
-// nenhuma linha real (só a capa) — sinaliza "sem letra utilizável", pra não
-// tentar de novo a cada sincronização (ver ensureSongVariant).
 // A API do LouvorJA embute quebras de linha manuais como tags `<br>` literais
 // dentro do texto (confirmado no app-ja: ele usa `v-html` pra renderizar
 // essas tags como quebra real) — sem isso, a letra ficaria como um único
@@ -23567,6 +23443,14 @@ function normalizeLyricText(str) {
   return (str || '').replace(/<br\s*\/?>/gi, '\n').trim();
 }
 
+// Monta os slides de letra sincronizada de uma variante (Cantado usa `time`,
+// Playback usa `instrumental_time`): slide de capa (tempo 0, sem texto,
+// imagem da música) + uma entrada por linha de `meta.lyric` marcada como
+// `show_slide`, ordenadas por tempo. Uma linha sem imagem própria herda a da
+// anterior (fallback "grudento", igual ao app original); linhas sem tempo
+// utilizável no campo ativo são ignoradas. Retorna `null` se não sobrar
+// nenhuma linha real (só a capa) — sinaliza "sem letra utilizável", pra não
+// tentar de novo a cada sincronização (ver ensureSongVariant).
 async function buildLyricSlides(meta, timeField, resolveImage) {
   let prevImage = meta.url_image ? await resolveImage(meta.url_image) : null;
   let prevImagePosition = meta.image_position;
@@ -23621,25 +23505,20 @@ async function buildLyricSlides(meta, timeField, resolveImage) {
  * caminhos deste método chamava — o card ficava com o peso e o estado antigos
  * até o operador fechar e reabrir a Biblioteca.
  *
- * ===== A LISTAGEM NÃO É O QUE FOI BAIXADO (relato do operador) =====
+ * ===== A LISTAGEM NÃO É O QUE FOI BAIXADO =====
  *
- * Até aqui, o fim da exclusão gravava `collState[coll.id] = { indexSyncedAt:
- * 0, songs: [] }` — apagando o ÍNDICE inteiro, não só os bytes. `collSongs` é
- * o que a busca e a lista aberta do álbum percorrem (`renderSearchResults`,
- * `levantarColecao`), então a coleção ficava VAZIA por dentro até o próximo
- * `autoRefreshCollections` (abertura do app ou `visibilitychange`) buscar o
- * índice de novo — com internet. É o relato do operador: *"ele simplesmente
- * apaga a lista de itens na coleção"*, quando a listagem (o CATÁLOGO — quais
- * músicas existem, seus nomes e durações) é independente de ter ou não os
- * áudios baixados.
+ * A listagem (o CATÁLOGO — quais músicas existem, seus nomes e durações) é
+ * independente de ter os áudios: `collSongs` é o que a busca e a lista aberta do
+ * álbum percorrem (`renderSearchResults`, `levantarColecao`), e apagá-la deixava
+ * a coleção VAZIA por dentro até o próximo `autoRefreshCollections` — com
+ * internet.
  *
- * O conserto preserva `songs` (e `indexSyncedAt`, que não precisa de
+ * A exclusão preserva `songs` (e `indexSyncedAt`, que não precisa de
  * ressincronização forçada — o catálogo não mudou) e só apaga, POR FAIXA, os
  * ponteiros que a exclusão de fato invalidou: `fileIdFull`/`fileIdPlayback`
  * apontavam para os registros que `purgeCatalogRecords` acabou de remover do
  * catálogo OPFS. Sem isso, `levantarColecao` (que lê esses campos DIRETO, sem
- * ir ao IndexedDB) continuaria contando a faixa como baixada — o oposto do
- * relato, e igualmente errado: a tela diria "completo" sobre um áudio que já
+ * ir ao IndexedDB) continuaria contando a faixa como baixada: a tela diria "completo" sobre um áudio que já
  * não existe. `semAudio`/`semPlayback` (a origem não publica a variante) NÃO
  * são tocados aqui: são fato sobre a ORIGEM, não sobre o download.
  */
@@ -23986,7 +23865,7 @@ async function syncLyrics() {
   let desdeGravacao = 0;
   const sujas = new Set();
   try {
-    // `bgTaskEnd` DENTRO do withBgWork (mesma nota de syncGroup): o `finally`
+    // `bgTaskEnd` DENTRO do `withBgRotina` (mesma nota de syncGroup): o `finally`
     // dele roda antes do de fora e já limpa o registro de tarefas.
     await withBgRotina(async () => {
      try {
@@ -24036,32 +23915,9 @@ async function syncLyrics() {
   }
 }
 
-// Busca GLOBAL (botão de lupa): escopo null = varre todas as coleções.
-/**
- * ===== AS DUAS PORTAS DA BIBLIOTECA (v1.5.0) =====
- *
- * Pedido do operador: *"sua forma de abertura da biblioteca agora vai ser
- * através do foco na barra de texto, ou no toque do que seria o botão de fechar
- * a biblioteca (que quando fechado seria uma seta) … no caso de abrir pelo
- * foco, já abre o teclado junto, se abrir pelo botão de abrir, ela abre sem o
- * foco de digitação"*.
- *
- * São duas INTENÇÕES diferentes, e é por isso que elas abrem diferente:
- * *"procurar o hino 37"* chega pelo campo e quer o teclado; *"ver o que eu
- * tenho"* chega pela seta e quer a lista inteira à vista, sem metade da tela
- * ocupada por um teclado que ninguém pediu.
- *
- * `comFoco` é explícito e não derivado de `document.activeElement`: quando o
- * ouvinte de `focus` chama esta função o campo JÁ está focado, e quando o botão
- * a chama ele pode estar focado por um toque anterior — as duas leituras dariam
- * a mesma resposta e ela seria a errada em um dos dois casos.
- */
 // ===== O VÉU DAS BORDAS DA LISTA (v1.5.16) =====
 //
-// Pedido do operador: *"um efeito de blur na borda interna superior ou
-// inferior, quando algum elemento da tela ir para debaixo dessa borda. Para
-// melhor perceber que há mais itens no scroll da lista."*
-//
+// A sombra na borda de uma lista diz que há mais itens rolando por baixo dela.
 // O véu inteiro é CSS (ver "O VÉU DAS BORDAS DA LISTA" em `controle.css`); o
 // que o JS responde é a única coisa que a folha não sabe: **há conteúdo escondido
 // deste lado?** Nos extremos não há, e um borrão sobre a primeira linha com a
@@ -24084,8 +23940,7 @@ function acertarVeu(el) {
 }
 // ===== A SOMBRA DAS PORTAS SÓ EXISTE COM ITEM POR BAIXO DELAS (v1.12.19) =====
 //
-// Pedido do operador: as sombras das portas do Cronograma ficam muito marcantes quando não há
-// item nenhum atrás delas. A sombra descreve SOBREPOSIÇÃO ("o botão flutua sobre a lista"); sem
+// A sombra descreve SOBREPOSIÇÃO ("o botão flutua sobre a lista"); sem
 // lista por baixo ela só suja o fundo liso. A pergunta é geométrica: o fim do ÚLTIMO item (a borda
 // de baixo, sem a folga que a margem dele reserva) passou do topo das portas? Lista vazia, lista
 // curta e lista rolada até o fim respondem NÃO — neste último o último item para uma folga ACIMA
@@ -24233,6 +24088,20 @@ document.addEventListener('scroll', (e) => {
 new MutationObserver(() => pedirVeus())
   .observe(document.documentElement, { childList: true, subtree: true });
 
+/**
+ * ===== AS DUAS PORTAS DA BIBLIOTECA (v1.5.0) =====
+ *
+ * O foco no campo abre com o teclado; a seta abre sem ele. São duas INTENÇÕES
+ * diferentes, e é por isso que elas abrem diferente:
+ * *"procurar o hino 37"* chega pelo campo e quer o teclado; *"ver o que eu
+ * tenho"* chega pela seta e quer a lista inteira à vista, sem metade da tela
+ * ocupada por um teclado que ninguém pediu.
+ *
+ * `comFoco` é explícito e não derivado de `document.activeElement`: quando o
+ * ouvinte de `focus` chama esta função o campo JÁ está focado, e quando o botão
+ * a chama ele pode estar focado por um toque anterior — as duas leituras dariam
+ * a mesma resposta e ela seria a errada em um dos dois casos.
+ */
 function openHymnSearch(comFoco) {
   hymnSearchInputEl.placeholder = 'Nome, número ou trecho da letra…';
   // Com o servidor da biblioteca fora, abrir a Biblioteca pergunta de novo (v1.12.43).
@@ -24251,16 +24120,9 @@ function openHymnSearch(comFoco) {
   renderBuscaSimples();
   // ===== A LISTA ABRE NO TOPO (v5.280) =====
   //
-  // Decisão do operador: *"ao invés de ter um scroll de tela inteira, deixar
-  // apenas os itens abaixo da barra de pesquisa ficarem dentro de um scroll, e
-  // apenas rolar esse scroll para o topo quando a biblioteca é aberta"*.
-  //
-  // A rolagem SEMPRE foi só da lista — a barra e o ✕ vivem fora dela —, e o
-  // que faltava é esta linha: `#hymnResults` é o mesmo nó entre uma abertura e
-  // a seguinte, então ele guardava a posição de rolagem da vez anterior e a
-  // Biblioteca reabria no meio de um hinário. Isto REVOGA o mecanismo da
-  // v5.278 (a camada fixa seguindo a viewport visual): com a barra no topo da
-  // folha e nada rolando além da lista, não há o que acompanhar.
+  // A rolagem é só da lista — a barra e o ✕ vivem fora dela —, e `#hymnResults`
+  // é o mesmo nó entre uma abertura e a seguinte: sem esta linha ele guardava a
+  // posição da vez anterior e a Biblioteca reabria no meio de um hinário.
   hymnResultsEl.scrollTop = 0;
   // O TECLADO SOBE NOS DOIS MODOS, um tempo DEPOIS da tela (260 ms: o fade de
   // .25s mais um quadro). Simultâneos, o teclado ENCOLHE a faixa visível
@@ -24292,8 +24154,7 @@ function openHymnSearch(comFoco) {
  * A Biblioteca é uma coluna `[barra][lista]` de tela cheia. Aberta, ela é
  * `translateY(0)` — a barra no topo da tela. Fechada, ela desce até a barra
  * pousar no LUGAR dela: o topo da caixa de controles, acima do nome da mídia em
- * exibição (pedido do operador na v1.5.2 — na v1.5.1 o lugar era a base da
- * tela, e ali a conta era `100% - a barra`, sem medida nenhuma de posição).
+ * exibição.
  *
  *  · **`--lib-bar-h`** — a altura da barra. É o que a `.bottombar` RESERVA no
  *    `padding-top`, isto é, o lugar em que a barra pousa.
@@ -24307,11 +24168,7 @@ function openHymnSearch(comFoco) {
  * ele precisa ter prendia toda REMEDIÇÃO por 0,28 s — num oráculo sem quadros
  * desenhados, para sempre. Ver `.popup-sheet--lib`.)
  *
- * SÃO AS DUAS ALTURAS, e nenhuma POSIÇÃO — é a correção da v1.5.3, e ela veio de
- * um relato: *"o alinhamento da barra está completamente errado, está sendo
- * cortado e deslocado em suas animações … você pode estar usando números fixos
- * considerando a sua tela de testes, mas a tela do smartphone tem variação de
- * tamanho, pixels e espaços variáveis"*. O que se media era o TOPO da caixa, uma
+ * SÃO AS DUAS ALTURAS, e nenhuma POSIÇÃO (v1.5.3). O TOPO da caixa é uma
  * coordenada de tela — e uma coordenada envelhece por caminhos que ninguém
  * observa: o teclado encolhendo o corpo do app, a área segura entrando depois do
  * primeiro layout, a viewport mudando de altura sem a caixa mudar de tamanho.
@@ -24347,9 +24204,7 @@ function medirBarraDaBiblioteca() {
   if (!libBarEl || !bottombarEl) return;
   // ===== EM TELA CHEIA A CAIXA NÃO É A CAIXA (v1.11.19) =====
   //
-  // Relato do operador: *"ao voltar da tela cheia da preview, toda a seção da
-  // preview perde o espaçamento com a seção acima de busca, encostando a barra
-  // de busca na preview"*. A preview em tela cheia SAI DO FLUXO, e a caixa de
+  // A preview em tela cheia SAI DO FLUXO, e a caixa de
   // controles encolhe junto (MEDIDO a 390×800: 293 → 201px) — uma medida feita
   // ali descreve uma caixa que não existe, e é a `--lib-caixa-h` que posiciona
   // a barra. O `resize` da rotação a escreve (o app gira para paisagem na tela
@@ -24371,9 +24226,8 @@ function medirBarraDaBiblioteca() {
   // documento já saiu da tela cheia mas a janela ainda é a paisagem — MEDIDO a
   // 390×800, a caixa mede 436px ali (contra os 293 do retrato), porque a
   // preview deitada é larga. Gravar isso era a barra de busca indo para o
-  // lugar errado por um instante, até o `resize` do retrato a corrigir: o
-  // "volta com o defeito e no mesmo instante se ajusta" que o operador viu na
-  // v1.11.19. **Enquanto `libAssentando`, só vale uma medida na MESMA
+  // lugar errado por um instante, até o `resize` do retrato a corrigir — um
+  // salto visível na volta. **Enquanto `libAssentando`, só vale uma medida na MESMA
   // orientação da última medida boa**; a rede de segurança (`libAssentarTimer`)
   // solta a trava depois de 1,5 s, para o aparelho que de fato ficou deitado
   // medir como sempre mediu.
@@ -24456,9 +24310,6 @@ function semAnimarAJanela() {
 /**
  * ===== A BIBLIOTECA VOLTA AO ESTADO PADRÃO AO FECHAR (v1.1.4) =====
  *
- * Pedido do operador: *"inclusive toda vez que fechar a biblioteca, reset para o
- * estado padrão"*.
- *
  * O que ele resolve é ACÚMULO: `grupoAberto`, `favAberto`, `pastaAberta` e o
  * `expanded` de cada card sobrevivem ao fechamento do popup — o nó é o mesmo
  * entre uma abertura e a seguinte (a mesma razão do `scrollTop = 0` do
@@ -24524,14 +24375,7 @@ function closeHymnSearch(opts) {
   // logo acima, pelo outro caminho.
   try { hymnSearchInputEl.blur(); } catch (_) {}
   // ===== E O CAMPO SE LIMPA AQUI, NÃO NA ABERTURA (v1.5.6) =====
-  // Relato do operador: *"ajuste a caixa de buscas para que ela resete seu texto
-  // quando for fechada, pois agora ela está mantendo a palavra de filtro após
-  // ser fechada e limpando apenas quando aberta"*.
-  //
-  // A limpeza na abertura era certa enquanto o campo VIVIA DENTRO da Biblioteca
-  // (até a v1.5.0): fechada, ninguém o via, e o texto velho morria antes de
-  // aparecer. **Hoje a barra fica à vista o culto inteiro**, na caixa de
-  // controles — o filtro da busca anterior é a primeira coisa que o operador lê
+  // **A barra fica à vista o culto inteiro**, na caixa de controles — o filtro da busca anterior é a primeira coisa que o operador lê
   // quando volta ao transporte, e ele descreve uma tela que não está mais lá.
   //
   // É a mesma razão que já trouxe o `resetarBiblioteca` para cá, e agora vale
@@ -24578,14 +24422,6 @@ function renderSearchResults(query) {
   if (searchIsBrowsing(q)) {
     hymnResultsEl.innerHTML = '';
     renderCollectionsList(hymnResultsEl, () => renderSearchResults(hymnSearchInputEl.value));
-    // (A linha de uso do disco saiu na v5.239, a pedido do operador: *"esse
-    // valor é falso, irreal e disputa com os cabeçalhos que já dizem o peso
-    // atual e total dos arquivos"*. E ele está certo pela régua da própria
-    // medida: `navigator.storage.estimate()` fala do ORIGIN inteiro — com
-    // padding deliberado contra ataques de tempo — e a cota é o que o navegador
-    // ACHA que pode ceder, não o que o cartão tem. Os dois números eram
-    // arredondados sem casa acima de 10, e nenhum dos dois respondia a pergunta
-    // que a tela já responde uma linha acima: quanto ESTE acervo pesa.)
     return;
   }
   acertarAvisoDaFonte(false);
@@ -24660,7 +24496,7 @@ function renderSearchResults(query) {
 // que o compartilhamento (`ShareIntake`) já sabe receber o vídeo.
 //
 // Ela fecha o fim da lista em TODOS os desfechos da busca — inclusive (e
-// principalmente) "Nenhuma música encontrada", que é justamente quando a
+// principalmente) "Nada encontrado na biblioteca.", que é justamente quando a
 // pergunta "e agora?" aparece.
 // Estado da busca do YouTube dentro do acervo: `null` = nem pediram; array =
 // resultados do termo em `ytBuscaTermo`. Zerado a cada tecla nova (ver o
@@ -24677,15 +24513,15 @@ function appendYoutubeSearch(texto) {
   // navegação para fora do origin é BLOQUEADA no WebView
   // (WebViewFactory.shouldOverrideUrlLoading).
 
-  // Onde o shell sabe pesquisar, o BOTÃO SAIU (v5.91). Ele existia para quem
+  // No app, o BOTÃO SAIU (v5.91). Ele existia para quem
   // decidisse antes de rolar — mas chegar no fim da lista já dispara a busca
   // sozinho, e as duas coisas juntas viraram um botão que quase sempre era
   // apertado depois de a busca já ter começado, ou que simplesmente não tinha
   // mais função. No lugar dele fica uma LINHA DE ESTADO: ela é a sentinela que
   // o observador vigia (precisa de altura de verdade), o sinal de que a busca
   // está em curso e, depois, o rótulo que separa o acervo dos resultados do
-  // YouTube. O botão continua onde ele é a ÚNICA saída: navegador e shell < 18,
-  // que não sabem pesquisar de dentro do app e abrem o YouTube por fora.
+  // YouTube. O botão continua onde ele é a ÚNICA saída: o navegador, que não
+  // sabe pesquisar de dentro do app e abre o YouTube por fora.
   const aquiDentro = !!window.__NATIVE__;
   const li = document.createElement('li');
   if (aquiDentro) {
@@ -24770,7 +24606,7 @@ async function marcarYtProntos(itens) {
   }));
 }
 
-// CANCELAR O DOWNLOAD EM CURSO (v5.131 · shell 28).
+// CANCELAR O DOWNLOAD EM CURSO (v5.131).
 //
 // O que o shell pode parar é o download; a EXTRAÇÃO (segundos, antes do
 // primeiro byte) segue até o fim e só então o pedido é notado. Na prática o
@@ -24782,11 +24618,11 @@ async function marcarYtProntos(itens) {
 // operador pediu.
 const ytCancelados = new Set();
 
-/** O aparelho sabe parar um download? (o `ytCancel` é do shell 28.) */
+/** O aparelho sabe parar um download? Só o app: o `ytCancel` é da ponte. */
 function podeCancelarDownload() {
-  // Sem o método na ponte não há o que oferecer: um "cancelar" que só some com
-  // a marca da tela enquanto o aparelho continua baixando centenas de MB é
-  // pior que não ter botão, porque o operador acredita que parou.
+  // Sem a ponte não há o que oferecer: um "cancelar" que só some com a marca da
+  // tela enquanto o aparelho continua baixando centenas de MB é pior que não
+  // ter botão, porque o operador acredita que parou.
   return !!window.__NATIVE__;
 }
 
@@ -24815,7 +24651,7 @@ async function cancelarDownload({ link, youtubeId, nome, soAudio, aindaVale }) {
   });
   if (!ok || (aindaVale && !aindaVale())) return false;
   if (youtubeId) ytCancelados.add(youtubeId);
-  try { AVNative.ytCancel(link); } catch (_) { /* shell antigo: a guarda acima já barrou */ }
+  try { AVNative.ytCancel(link); } catch (_) { /* o desfecho é o mesmo: a marca e a intenção saem */ }
   await esquecerIntencao(link, !!soAudio);
   if (youtubeId) setYtEstado(youtubeId, null);
   return true;
@@ -24898,42 +24734,27 @@ function pintarYtLinha(li, reg) {
   if (t) t.textContent = (reg && reg.estado === 'baixando' && reg.pct >= 0) ? reg.pct + '%' : '';
 }
 
-// A folha de ações do resultado — as MESMAS três escolhas das músicas do
-// acervo, pela mesma folha (`#songMenuPopup`) e com os mesmos ícones. Antes o
-// toque baixava direto e pronto: o operador não escolhia nada e o vídeo caía no
-// Cronograma quisesse ele ou não.
-// Os tetos oferecidos, do melhor ao mais leve. 1080p é o telão da igreja e o
-// padrão; 720p corta o tamanho pela metade sem doer numa tela dessas; 480p é a
-// escolha de quem está no chip do celular minutos antes do culto — ali um
-// louvor que TERMINA vale mais que um que não.
+// Os tetos oferecidos, do melhor ao mais leve. 1080p é o telão da igreja; 720p
+// (o padrão, ver abaixo) corta o tamanho pela metade sem doer numa tela dessas;
+// 480p é a escolha de quem está no chip do celular minutos antes do culto — ali
+// um louvor que TERMINA vale mais que um que não.
 //
 // 360p ficou de fora de propósito: num telão de salão ele é ruim o suficiente
-// para não valer ser oferecido, e é justamente o piso em que o app ficou preso
-// por sete versões. Acima de 1080p também não: o telão não mostra a diferença e
+// para não valer ser oferecido. Acima de 1080p também não: o telão não mostra a diferença e
 // o aparelho ainda guarda hinário e Bíblia.
 const YT_ALTURAS = [1080, 720, 480];
 // ===== A QUALIDADE PADRÃO É 720p, E ELA É DO OPERADOR (v1.7.7) =====
 //
-// Pedido do operador: *"sobre os travamentos do YouTube, vamos abandonar o modo
-// online direto, ele é muito instável, vamos manter o download em 720p como
-// padrão, e caso o usuário selecione outra, aquele se torna o padrão para
-// ele."*
-//
-// SÃO DUAS REVOGAÇÕES, e as duas estavam escritas como decisão deste projeto.
-//
-// 1. O PADRÃO ERA `YT_ALTURAS[0]` (1080p) e passa a ser 720p. 1080p obriga o
+// 1. O PADRÃO é 720p, e não `YT_ALTURAS[0]`. 1080p obriga o
 //    shell a montar as DUAS faixas adaptativas e juntá-las com o `MediaMuxer`
 //    (acima de 720p o YouTube não entrega vídeo com som), e é o degrau que mais
 //    pesa em disco, em rede e no decodificador — num aparelho que, com
 //    espelhamento no ar, já está encodando a tela inteira em tempo real.
 //
-// 2. O TETO NASCIA NO PADRÃO A CADA ITEM, e a razão escrita era *"um teto que
-//    grudasse daria 480p no vídeo do domingo sem aviso"*. O operador pediu o
-//    oposto por extenso, e o argumento contra vale menos do que parecia: quem
-//    escolhe 480p uma vez o faz por uma razão que não muda de sábado para
-//    sábado (o aparelho, a rede da igreja, o espaço no cartão). A escolha vira
-//    a preferência DELE e sobrevive à sessão; o seletor continua na folha, a um
-//    toque, mostrando qual é.
+// 2. O TETO GRUDA (decisão do operador): quem escolhe 480p uma vez o faz por uma
+//    razão que não muda de sábado para sábado (o aparelho, a rede da igreja, o
+//    espaço no cartão). A escolha vira a preferência DELE e sobrevive à sessão;
+//    o seletor continua na folha, a um toque, mostrando qual é.
 const YT_ALTURA_PADRAO = 720;
 let ytAlturaPreferida = YT_ALTURA_PADRAO;
 
@@ -24957,10 +24778,8 @@ function adotarAlturaPreferida(h) {
 
 // ===== O AVISO DE RESOLUÇÃO LIMITADA (v1.4.11) =====
 //
-// Pedido do operador, depois de projetar 360p numa TV 4K sem nada na tela
-// dizendo isso: *"coloque o aviso sobre a resolução estar limitada"*.
-//
-// O app SEMPRE soube a altura real — ela vem do shell e vira o subtítulo da
+// Projetar 360p numa TV 4K sem nada na tela dizendo isso é lido como defeito do
+// app. O app SEMPRE soube a altura real — ela vem do shell e vira o subtítulo da
 // linha ("Vídeo · 1080p"). O buraco é que o "Tocar agora" põe o item na
 // prateleira `avulsos`, **que não tem lista visível**: a informação existia e
 // não tinha onde aparecer. O operador projetava 360p e a leitura possível era
@@ -25022,7 +24841,7 @@ function tetoEfetivo(altura) {
 // piscar entre as duas.
 //
 // SILENCIOSO POR CONSTRUÇÃO quando não há o que dizer: altura desconhecida
-// (shell antigo, ou um caminho que não a reporta) não vira aviso. Inventar
+// (um caminho que não a reporta) não vira aviso. Inventar
 // "qualidade limitada" sem número seria trocar uma ausência de informação por
 // uma afirmação que não se pode conferir.
 function avisarResolucaoLimitada(entregue, teto) {
@@ -25041,8 +24860,7 @@ function avisarResolucaoLimitada(entregue, teto) {
   // sobra é a metade sem a causa. Esta cabe nas duas larguras, com as duas
   // informações inteiras.
   // O CENSO É CONTADO AQUI, e não em quem chama: esta função é o único ponto
-  // que já sabe que a altura entregue é baixa, e os dois caminhos (transmissão
-  // e download) passam por ela. Contar do lado de fora seria escrever a regra
+  // que já sabe que a altura entregue é baixa, e todo download passa por ela. Contar do lado de fora seria escrever a regra
   // duas vezes, e as duas divergiriam no primeiro ajuste.
   ytCenso.limitadas++;
   if (!ytCenso.menor || h < ytCenso.menor) ytCenso.menor = h;
@@ -25058,10 +24876,8 @@ function avisarResolucaoLimitada(entregue, teto) {
 function ytSegRow(opcoes, atual, onPick, nota) {
   const li = document.createElement('li'); li.className = 'song-menu-seg-row';
   // A LINHA PODE DIZER O QUE ELA GOVERNA, e uma delas precisa: a escala de
-  // qualidade começa em "Online", que é escolha de ARMAZENAMENTO, e o resto lê
-  // como "qualidade do download". O operador não tinha como saber que os três
-  // últimos degraus também valem para o "Tocar agora" — e a instrução "escolha
-  // 480p numa rede ruim" era, por isso, tecnicamente certa e inútil.
+  // qualidade lê como "qualidade do download", e o operador não teria como saber
+  // que ela também vale para o "Tocar agora" e fica como padrão.
   if (nota) {
     const n = document.createElement('small');
     n.className = 'song-menu-seg-nota';
@@ -25080,12 +24896,13 @@ function ytSegRow(opcoes, atual, onPick, nota) {
   return li;
 }
 
+// A folha de ações do resultado — as MESMAS três escolhas das músicas do
+// acervo, pela mesma folha (`#songMenuPopup`) e com os mesmos ícones. Antes o
+// toque baixava direto e pronto: o operador não escolhia nada e o vídeo caía no
+// Cronograma quisesse ele ou não.
 function openYtMenu(r, alvoDado) {
-  // A qualidade nasce no padrão A CADA ITEM, como a forma e como a variante das
-  // músicas. Deliberado: um teto que grudasse faria o operador escolher 480p
-  // numa rede ruim e receber, sem aviso, o vídeo principal do domingo seguinte
-  // em 480p no telão. O atrito de dois toques é visível; a regressão silenciosa
-  // não seria.
+  // A qualidade nasce na PREFERÊNCIA do operador (`ytAlturaPadrao`, v1.7.7); a
+  // forma nasce em "Vídeo" a cada item, como a variante das músicas.
   if (!songMenuFor || songMenuFor.yt !== r) {
     songMenuFor = { yt: r, variant: 'full', audio: false, alt: ytAlturaPadrao(), alvo: alvoDado || null };
     // Item novo, folha nova: os destinos marcados são da FOLHA ABERTA e não
@@ -25105,9 +24922,7 @@ function openYtMenu(r, alvoDado) {
   // inventar um segundo desenho para ela. A escolha vale para as quatro ações
   // abaixo, em vez de dobrar a folha para oito linhas.
   //
-  // Só aparece com shell ≥ 23 (`ytFetchAudio` na ponte). Num anterior o botão
-  // não faria nada, e botão que não faz nada no meio de um culto é pior que
-  // botão nenhum — mesma regra do botão de busca no YouTube.
+  // Só no app: no navegador não há download nenhum.
   //
   // **E ele NÃO existe para um episódio de série** (`semSoAudio`, v5.230): um
   // testemunho em vídeo não tem versão de áudio que faça sentido projetar, e
@@ -25121,22 +24936,13 @@ function openYtMenu(r, alvoDado) {
   }
   // A QUALIDADE, logo abaixo da forma — e só quando há vídeo para qualificar:
   // com "Só áudio" escolhido não existe resolução nenhuma, e deixar a linha na
-  // tela seria oferecer uma escolha que não faz nada (a mesma regra do botão de
-  // busca no YouTube num shell antigo).
-  //
-  // Shell ≥ 25, pelo método `ytFetchAte` da ponte. Num anterior a linha não
-  // aparece e o download sai no padrão de sempre — que é exatamente o que este
-  // app fazia até agora, então nada regride.
+  // tela seria oferecer uma escolha que não faz nada.
   // TODA QUALIDADE DAQUI BAIXA BYTES: não há degrau que guarde só o link.
   //
   // E ESCOLHER AQUI É ESCOLHER O PADRÃO (`adotarAlturaPreferida`): a escolha
   // sobrevive à sessão e passa a valer para o próximo vídeo, que é o pedido ao
   // pé da letra.
   // E O SELETOR SOME QUANDO O ARQUIVO JÁ ESTÁ AQUI (`semQualidade`, v1.8.87).
-  // Pedido do operador, sobre o episódio mantido baixado: *"ele dá as opções no
-  // formato que temos para os hinos baixados, que omite a questão da qualidade,
-  // pois não precisa mais dessa ação"*.
-  //
   // É a MESMA regra que já tira a linha no caminho de só-áudio, uma condição
   // acima: uma escolha que não muda nada é pior que escolha nenhuma. Com bytes
   // no aparelho, `ytArquivo` REAPROVEITA o registro e o teto não é consultado —
@@ -25185,15 +24991,6 @@ function openYtMenu(r, alvoDado) {
   // não diz — daí ele manter subtítulo enquanto os três destinos perderam o
   // deles. No caminho de só-áudio o que ele não diz é outra coisa: o telão não
   // muda (o kind `audio` mantém o wallpaper).
-  //
-  // E COM "ONLINE" ELE DIZ OUTRA COISA AINDA, pedido do operador: **este toque
-  // toca direto da internet, e a qualidade depende dela**. A frase é sobre a
-  // CONEXÃO e não sobre o teto, porque desde o shell 60 é a banda medida que
-  // escolhe o degrau — e porque o modo de errar aqui é o de sempre neste app:
-  // uma imagem pior que a esperada, sem nada na tela dizendo por quê. Ela
-  // substitui "Sem entrar em lista nenhuma" em vez de somar-se a ela: com
-  // "Online" nada é guardado de qualquer forma (o item é o link), então aquela
-  // frase deixa de ser a informação que falta.
   const subTocar = soAudio ? 'Sem mexer no telão' : 'Sem entrar em lista nenhuma';
   alvo.appendChild(songMenuItem(msym(ICON.play), 'Tocar agora', subTocar,
     (vr, btn, alvos) => ytAcao(r, alvos, null, soAudio, altura), 'tocar', remontar));
@@ -25255,10 +25052,6 @@ async function trocarLinkPeloArquivo(velhoId, novoId) {
  */
 // ===== E ELE VALE PARA TODO CAMINHO QUE PÕE UM LINK NO AR (v1.4.7) =====
 //
-// Relato do operador: *"o tocar agora tem o sistema de reação instantânea, mas
-// o resto não. Por exemplo, tocar em um item de link que esteja no cronograma ou
-// dos favoritos e outras fontes"*.
-//
 // A v1.4.6 pôs o reconhecimento do toque no `ytAcao` — a folha da BUSCA —, e
 // deixou de fora a outra porta do mesmo trabalho: um item `kind: 'youtube'` já
 // guardado numa lista. Ele é a MESMA espera (o download abaixo começa pela
@@ -25293,9 +25086,7 @@ async function resolverLinkYoutube(rec) {
 
 // ===== A RECUSA FALA NOS DOIS LUGARES (v1.4.14) =====
 //
-// Relato do operador, num episódio de série: *"ele carrega um tempo, mas ele não
-// toca nada e nem dá nenhuma mensagem de erro nem nada"*. REPRODUZIDO: o
-// caminho da BUSCA falava pelo cartão da preview (`previewBusy(…).falhar`) e
+// O caminho da BUSCA falava pelo cartão da preview (`previewBusy(…).falhar`) e
 // este aqui não — a única saída era o `notaNoItem`, que escreve na LINHA do
 // item.
 //
@@ -25326,7 +25117,7 @@ function recusarLink(rec, frase, senha) {
 
 // A CAUSA, quando o shell a nomeia (v1.4.14).
 //
-// "Não foi possível transmitir nem baixar" e "este vídeo não está disponível"
+// "Não foi possível baixar" e "este vídeo não está disponível"
 // mandam fazer coisas OPOSTAS: a primeira convida a tentar de novo, a segunda a
 // escolher outro. MEDIDO em campo — o Registro trouxe
 // `extração falhou: ContentNotAvailableException` nas duas linhas, e o app
@@ -25351,7 +25142,7 @@ async function resolverLinkInterno(rec) {
   const vid = (rec && rec.youtubeId) || extractYouTubeId((rec && rec.url) || '');
   if (!vid) return recusarLink(rec, 'Sem o vídeo de origem — não há o que projetar.', senha);
   if (!window.__NATIVE__) {
-    // No navegador não há ponte: nem transmissão, nem download. Dizer isso é
+    // No navegador não há ponte, e sem ela não há download. Dizer isso é
     // melhor que projetar nada em silêncio.
     return recusarLink(rec, 'Este link só toca pelo app — o navegador não baixa vídeo.', senha);
   }
@@ -25365,12 +25156,9 @@ async function resolverLinkInterno(rec) {
   // de volta. (Um item de link nasce como `youtube`; a leitura fica dita para o
   // dia em que houver um link só de áudio.)
   const soAudio = rec.kind === 'audio';
-  // SEM TRANSMISSÃO (v1.7.7): o link vira ARQUIVO, e só. Este era o segundo
-  // caminho que projetava direto da rede, e ele cai junto com o primeiro (ver o
-  // bloco do "Tocar agora" em `ytAcaoInterno`). O arquivo toma o lugar do link
-  // EM POSIÇÃO (`trocarLinkPeloArquivo`), então a linha passa a ser a mídia e o
-  // `midiaNoArId` de sempre já a alcança — a marca de origem que a transmissão
-  // precisava escrever à mão aqui deixou de ser necessária com ela.
+  // O link vira ARQUIVO, e só (v1.7.7). O arquivo toma o lugar do link EM
+  // POSIÇÃO (`trocarLinkPeloArquivo`), então a linha passa a ser a mídia e o
+  // `midiaNoArId` de sempre já a alcança.
   const novo = await ytArquivo(alvo, { lista: 'avulsos', aviso: 'preview', somenteAudio: soAudio });
   if (!novo) {
     return recusarLink(rec, await motivoDaRecusa('Não foi possível baixar este vídeo.'), senha);
@@ -25395,23 +25183,17 @@ async function resolverLinkInterno(rec) {
 // ruído.
 // ===== O TOQUE RESPONDE NA HORA, e não quando os bytes chegam =====
 //
-// Relato do operador: *"após a seleção, ele leva algum tempo para reagir e
-// sequer aparecer o spinner do carregamento do vídeo… nem que tenha mais tempo
-// de carregamento, mas o feedback deve ser instantâneo"*.
-//
 // A janela era real e longa: a ação começa por uma EXTRAÇÃO DE REDE de
 // segundos, e só depois dela vem o `send` que muda alguma coisa na tela. No
 // meio-tempo o único sinal era o `setYtEstado` — que acende uma LINHA da
 // Biblioteca que o `closeHymnSearch` acabou de fechar. Do lado do operador:
 // nada.
 //
-// O CARTÃO CONTINUA VALENDO, e desde a v1.7.7 ele vale MAIS: sem a transmissão
-// direta, "Tocar agora" espera o download inteiro, e essa espera é de minutos —
-// é ele e a barra de progresso que a tornam legível.
+// O "Tocar agora" espera o download inteiro, e essa espera é de minutos — é o
+// cartão e a barra de progresso que a tornam legível.
 //
-// ESTE INVÓLUCRO EXISTE PELA SAÍDA ÚNICA. `ytAcaoInterno` tem meia dúzia de
-// `return` — transmitiu, guardou o link, já estava na lista, o download falhou
-// — e um deles sem a liberação prenderia o cartão sobre a preview para sempre.
+// ESTE INVÓLUCRO EXISTE PELA SAÍDA ÚNICA. `ytAcaoInterno` tem vários desfechos
+// — cancelado, o download falhou, guardado, no ar, perdeu a vez — e um deles sem a liberação prenderia o cartão sobre a preview para sempre.
 // Um `finally` cobre todos, e é por isso que a chamada não foi enfiada no corpo.
 //
 // Só no `tocar`: os outros destinos não vão ao telão, e interromper a cena para
@@ -25537,10 +25319,7 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura, extra) {
     // download vinha se anunciando (`aviso: 'preview'`), e ele fica sobre a
     // preview, que é para onde o operador olha na tela principal. "Um download
     // de minutos que termina em nada" é o silêncio que este app não pode ter.
-    // A FRASE DA JANELA DE ANTECEDÊNCIA vem na frente de "não foi possível
-    // baixar" quando ela existe (v5.256): as duas descrevem o mesmo desfecho, e
-    // só uma delas diz o que fazer a respeito.
-    // A JANELA DE ANTECEDÊNCIA continua vencendo: ela é mais específica que
+    // A JANELA DE ANTECEDÊNCIA vence (v5.256): ela é mais específica que
     // qualquer coisa que o shell saiba, e é a única das três que diz o que
     // fazer ("tente mais perto de 22/Ago"). Abaixo dela, o motivo do shell
     // quando ele nomeia um (v1.4.14) — o mesmo do caminho do item de link,
@@ -25604,6 +25383,9 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura, extra) {
   } else {
     await fixarAvulso(rec.id);
   }
+  // SEM `++listasSeq` AQUI, e não falta: o `load()` logo abaixo sobe o
+  // `loadSeqCtl`, e um `load()` em voo que leu as listas ANTES descarta o que
+  // leu (MEDIDO com a ordem forçada do `hidratacao-perde-a-vez`).
   if (listas.includes('playlist')) {
     plItems = await AVDB.listItems('playlist');
     renderPlaylist();
@@ -25748,11 +25530,6 @@ function armarAutoBuscaYt(sentinela, termo) {
 /**
  * ===== O RESULTADO DO YOUTUBE ESPERA A GAVETA FECHAR (v1.1.8) =====
  *
- * Relato do operador: *"se pesquiso na biblioteca e vou tocar uma música que já
- * está na biblioteca, ele fecha as opções de play quando mostra as opções do
- * YouTube, como um refresh da tela, semelhante ao que já acontecia durante o
- * download das coletâneas"*.
- *
  * É a MESMA armadilha do progresso dos downloads (`interacaoAbertaNoAcervo`),
  * por outra porta: `renderSearchResults` faz `hymnResultsEl.innerHTML = ''` e
  * remonta a lista, e o que ABRE uma linha vive no `li` que ele acabou de jogar
@@ -25834,18 +25611,16 @@ function searchIconSvg() {
 
 // ===== OS DETALHES DE UM VÍDEO: EM MEMÓRIA, E SÓ EM MEMÓRIA (v1.5.21) =====
 //
-// Pedido do operador: *"coloque dados como duração, nome completo, canal e
-// descrição se for possível obter"*. Duração e canal são do índice da série e
+// Duração e canal são do índice da série e
 // valem OFFLINE (ver `serieFaixaDoItem`); a DESCRIÇÃO não vem em listagem
 // nenhuma — ela custa uma extração POR VÍDEO —, e por isso ela é a única dos
 // quatro que precisa de rede e a única que exigiu um método novo da ponte
-// (`AVNative.ytDetalhes`, shell 62).
+// (`AVNative.ytDetalhes`).
 //
 // E O TÍTULO CRU ENTROU NA MESMA CARONA (v1.6.0). O índice de uma SÉRIE o
 // guarda (`serieFaixaDoItem`), mas um LINK salvo nunca teve título cru: o
 // registro guarda só o `name` já tratado, então a linha do título simplesmente
-// não existia ali — que foi o relato (*"não estou vendo o título completo e
-// original do vídeo do link"*). O `ytDetalhes` já devolvia o `titulo` ao lado
+// não existia ali. O `ytDetalhes` já devolvia o `titulo` ao lado
 // da descrição e ele era descartado no caminho; guardar o OBJETO em vez do
 // texto custa zero requisição a mais.
 //
@@ -25906,9 +25681,9 @@ async function detalhesDoVideo(id, url) {
 // outro lado, no corpo da linha (nunca um popup). Os dois botões custavam
 // 40 + 34 px mais os vãos numa linha de celular; o nome recebe isso de volta.
 //
-// A GAVETA NÃO PERDEU A LETRA: opções em cima, letra (ou detalhe do vídeo)
-// logo abaixo, na mesma abertura. A letra responde "é este mesmo?" e é dela que
-// sai o trecho marcado quando a busca casou no meio de uma estrofe.
+// A GAVETA É AS OPÇÕES, mais (num vídeo) o detalhe logo abaixo; numa música a
+// letra é o LEITOR, aberto pelo botão ao lado do confirmar — ver "A GAVETA DE
+// UMA MÚSICA É SÓ AS OPÇÕES" em `hymnResultRow`.
 //
 // `semColecao` = a linha já está DENTRO do card da coleção (acordeão do
 // acervo): repetir o nome do álbum em cada faixa é ruído.
@@ -25969,21 +25744,15 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
     info.appendChild(hit);
   }
 
-  // A COLUNA DA DIREITA ESTÁ VAZIA, e é a segunda vez que ela esvazia. A
-  // DURAÇÃO saiu dela na v5.62 ("ninguém escolhe o louvor pelo tempo dele") e o
-  // lugar foi para o `+`; o `+` saiu na v5.285, e agora quem recebe a largura é
-  // o NOME — a única coisa da linha que não se adivinha, e a que mais cortava.
+  // SEM COLUNA À DIREITA: a largura é do NOME — a única coisa da linha que não
+  // se adivinha, e a que mais cortava.
   row.append(play, info);
 
   // ===== A GAVETA DA LINHA: o que ela abre depende do TIPO =====
   //
   // Ela responde uma pergunta só — **"é este mesmo?"** —, e a resposta muda com
-  // o item. Numa música é a LETRA: é por ela que se reconhece o hino certo, e é
-  // dela que sai o trecho marcado quando a busca casou no meio de uma estrofe.
-  // Num VÍDEO não existe letra nenhuma, e até a v5.235 a gaveta abria assim
-  // mesmo, para anunciar "Letra ainda não baixada" — uma promessa de algo que
-  // nunca vai chegar, e o relato que abriu este lote. Ali a mesma pergunta é
-  // respondida pela MINIATURA e pela duração, que é o que o operador tem para
+  // o item: numa música, o trecho casado na própria linha e o LEITOR; num VÍDEO
+  // (que não tem letra), a MINIATURA e a duração, que é o que o operador tem para
   // reconhecer um episódio de que ele só sabe a data.
   //
   // Só é montada quando a linha ABRE (e uma vez só): montá-la para todos os
@@ -26009,19 +25778,15 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
   if (!temLetra(coll)) gaveta.appendChild(conteudo);
   let gavetaMontada = false;
 
-  // A gaveta de um VÍDEO. Sem prometer nada que dependa de rede: a miniatura é
-  // ilustração (sai de cena sozinha se não carregar) e as duas linhas de texto
-  // valem offline.
   // AS OPÇÕES DA LINHA. Elas são exatamente as da folha que existia até a
   // v5.284 — os mesmos executores, os mesmos destinos marcáveis, o mesmo
   // confirmar —, escritas no corpo em vez de num popup. O que muda é o ALVO, e
   // é por isso que nada aqui reimplementa nada: `renderSongMenu`/`openYtMenu`
   // ganharam para onde escrever (`songMenuFor.alvo`).
   //
-  // UM EPISÓDIO DE SÉRIE desvia para a lista do YouTube, como a folha já fazia
-  // desde a v5.230 (`openSongMenu` → `openYtMenu`): ali as escolhas são outras
-  // — transmitir sem baixar, o teto de qualidade — e o resto desta função monta
-  // justamente o que não se aplica a ele.
+  // UM EPISÓDIO DE SÉRIE desvia para a lista do YouTube (`openYtMenu`, v5.230):
+  // ali as escolhas são outras — o teto de qualidade — e o resto desta função
+  // monta justamente o que não se aplica a ele.
   //
   // `destLimpar()` a cada abertura: os destinos marcados são DESTA linha e não
   // atravessam de um item para o outro. O acordeão fecha a linha anterior, então
@@ -26071,8 +25836,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
       const nome = 'os detalhes';
       // ===== A LARGURA NÃO MUDA COM O ESTADO (v5.287) =====
       //
-      // Pedido do operador: *"fixe a largura do botão de ver/ocultar letra, para
-      // que tenha o mesmo tamanho nos dois estados"*. "Ocultar" é mais longo que
+      // "Ocultar" é mais longo que
       // "Ver", então o botão crescia ao ser tocado e o CONFIRMAR ao lado
       // encolhia junto — um toque que muda a largura do vizinho é a coisa que
       // mais parece defeito numa faixa de dois botões.
@@ -26206,9 +25970,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
   // a descrição tem links, então o que chega aqui é texto e a tela não mostra
   // marcação literal.
   //
-  // SEM CLAMP E SEM "VER MAIS". Pedido do operador: *"ajuste para que não
-  // precise do 'ver mais' nos detalhes, já deixe tudo aberto de uma vez"*. O
-  // recorte em quatro linhas custava um toque a mais para ler o que o card foi
+  // SEM CLAMP E SEM "VER MAIS". O recorte em quatro linhas custava um toque a mais para ler o que o card foi
   // buscar, e a gaveta já é um acordeão que se abre e se fecha inteiro — o
   // segundo grau de revelação dentro dele não respondia a pergunta nenhuma.
   // (O único teto que sobra é o do Kotlin, `DESCRICAO_MAX`, e ele é de
@@ -26224,6 +25986,9 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
     conteudo.appendChild(cx);
   }
 
+  // A gaveta de um VÍDEO. Sem prometer nada que dependa de rede: a miniatura é
+  // ilustração (sai de cena sozinha se não carregar) e as duas linhas de texto
+  // valem offline.
   async function montarDetalhe() {
     conteudo.innerHTML = '';
     if (s.thumb) {
@@ -26239,8 +26004,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
     const txt = document.createElement('div'); txt.className = 'item-detalhe-txt';
     // ===== O QUE O CARD DIZ, E EM QUE ORDEM (v1.5.21) =====
     //
-    // Pedido do operador: *"coloque dados como duração, nome completo, canal e
-    // descrição se for possível obter"*. Os três primeiros já chegavam do
+    // Duração, nome completo, canal e descrição. Os três primeiros já chegavam do
     // extrator e eram descartados no caminho (ver `serieFaixaDoItem`); a
     // DESCRIÇÃO não existe em lugar nenhum deste lado e é a única que exige um
     // método novo da ponte — ela entra como mais uma `linha()` aqui, sem mexer
@@ -26287,26 +26051,17 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
     conteudo.appendChild(txt);
     // ===== O ESTADO SÓ APARECE QUANDO ELE É FATO DO ARQUIVO (v1.6.0) =====
     //
-    // A linha nascia sempre, com "Toca sem baixar", e virava "Já no aparelho"
-    // quando havia bytes. Pedido do operador: *"remover a frase 'toca sem
-    // baixar' que tem na descrição do ver detalhes"* — *"essa informação é útil
-    // apenas quando estiver escolhendo a qualidade, no caso, não é um 'detalhe
-    // do arquivo', mas sim uma das características da opção de play"*.
-    //
-    // Ele separa duas coisas que estavam na mesma linha: "toca sem baixar"
-    // descreve a OPÇÃO DE PLAY — e o "Tocar agora", duas linhas acima no mesmo
-    // card, já diz *"Toca direto da internet…"* —, enquanto "já no aparelho" é
-    // FATO DO ARQUIVO, que é do que este card fala. Logo a linha existe só no
-    // segundo caso; no comum ela simplesmente não é desenhada, e o card fica
-    // com o que ele de fato sabe.
+    // "Já no aparelho" é FATO DO ARQUIVO, que é do que este card fala; o que
+    // descreve uma OPÇÃO DE PLAY mora na opção. Logo a linha existe só nesse
+    // caso; no comum ela não é desenhada, e o card fica com o que de fato sabe.
     //
     // Assíncrono e DEPOIS de a coluna já estar montada — e é seguro porque este
     // montador é AWAITADO antes do `expandAccordion` (ver o ouvinte da `.row`):
     // o acordeão mede a altura com a linha já no lugar.
     try {
       // `mediaByYoutube` devolve UM registro (ou `null`), nunca um array — e a
-      // pergunta é pelo BLOB, como em `marcarYtProntos` e `ytArquivo`. Um item
-      // criado pela qualidade "Online" (`addUrlMedia`, kind `youtube`) tem
+      // pergunta é pelo BLOB, como em `marcarYtProntos` e `ytArquivo`. Um item de
+      // LINK (kind `youtube`, o que sobra de um download que falhou) tem
       // registro e NÃO tem bytes: anunciá-lo como "Já no aparelho" trocaria um
       // defeito por outro.
       const rec = await AVDB.mediaByYoutube(s.id_music);
@@ -26370,34 +26125,20 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
 }
 
 // ===== A folha rápida de um item do acervo =====
-// Dois botões na linha, duas folhas. Cada uma lista as três coisas que aquele
-// botão pode fazer, ESCRITAS — é o que os seis ícones mudos da versão anterior
-// não conseguiam dizer.
+// O estado da lista de opções aberta — na folha `#songMenuPopup` ou, com `alvo`,
+// no corpo de uma linha (`montarOpcoes`).
 let songMenuFor = null;   // { coll, s, variant } — `variant` é a escolha da folha de adicionar
 
 // ===== MARCAR MAIS DE UM DESTINO NA MESMA FOLHA (v5.141) =====
 //
-// A folha nasceu como "uma pergunta, uma resposta": cada linha era uma ação
-// completa e o toque fechava tudo. O toque continua sendo isso — nada do que
-// funcionava mudou de lugar —, mas cada linha de DESTINO ganhou uma caixa de
-// marcação na borda direita.
+// Cada linha de DESTINO (o "Tocar agora" inclusive) marca ou desmarca, de corpo
+// inteiro, e a folha CONTINUA aberta; quem executa é o Confirmar, com a união
+// do que está marcado (`destUniao`). Ver `songMenuItem` e `destConfirmRow`
+// (v5.252). Vale para as duas folhas (acervo e YouTube) e para a gaveta.
 //
-// A regra é uma só, e vale para as duas folhas (acervo e YouTube):
-//
-//  - **Toque no corpo da linha** = executa AGORA, para aquele destino MAIS o
-//    que já estiver marcado. É o caminho de um toque de sempre quando não há
-//    nada marcado, e é o que fecha a escolha quando há: marcar "Playlist" e
-//    tocar em "Cronograma" manda para os dois. Ignorar o que está marcado seria
-//    o app desfazer, calado, uma escolha que o operador acabou de fazer.
-//  - **Toque na caixa** = só marca (ou desmarca) e a folha CONTINUA aberta.
-//  - Com pelo menos um marcado aparece a linha de confirmação no fim da folha,
-//    para o caso em que todos os destinos desejados já estão marcados e não
-//    sobrou nenhuma linha para tocar.
-//
-// O conjunto é da FOLHA ABERTA, não do item: ele nasce vazio a cada abertura,
-// pelo mesmo motivo que o teto de resolução do YouTube nasce no padrão a cada
-// item — uma marcação que grudasse mandaria para os Favoritos, sem aviso, o
-// vídeo que se quis ver uma vez no domingo seguinte.
+// O conjunto é da FOLHA ABERTA, não do item: ele nasce vazio a cada abertura —
+// uma marcação que grudasse mandaria para os Favoritos, sem aviso, o vídeo que
+// se quis ver uma vez no domingo seguinte.
 const destMarcados = new Set();
 // Quem sabe EXECUTAR os destinos desta folha: `(chaves, btn) => Promise`. É
 // definido por quem monta a folha (o acervo e o YouTube fazem coisas diferentes
@@ -26433,17 +26174,10 @@ function destUniao(chave) {
 /**
  * UM EPISÓDIO DE SÉRIE É UM VÍDEO DO YOUTUBE, e a folha dele é a mesma (v5.230).
  *
- * Pedido do operador: *"o tratamento que deve ter os itens da lista do provai e
- * vede, e suas opções, devem ser o mesmo dos vídeos do YouTube (sem a opção de
- * apenas áudio). no caso eu não quero um download direto, e também quero a opção
- * de tocar diretamente em stream pelo link sem o download"*.
- *
- * A v5.228 tratou a série como uma coleção do LouvorJA porque é dali que a
- * casca do card veio — e naquele mundo o toque BAIXA (uma faixa de hinário são
- * poucos MB e o acervo existe para ficar offline). Aqui a premissa não vale: são
- * ~300 MB por episódio, e o vídeo do sábado é visto uma vez. Quem já resolvia
- * isso é o caminho do YouTube: o download só acontece a pedido, e não por
- * abrir o álbum.
+ * Numa coleção do LouvorJA o toque BAIXA (uma faixa de hinário são poucos MB e o
+ * acervo existe para ficar offline). Aqui a premissa não vale: são ~300 MB por
+ * episódio, e o vídeo do sábado é visto uma vez. O download é a pedido (o da
+ * semana, pela rotina `manterSeriesDaSemana`), e não por abrir o álbum.
  *
  * `semSoAudio` é a única diferença: o seletor Vídeo × Só áudio some. Um
  * testemunho em vídeo não tem versão de áudio que faça sentido projetar, e uma
@@ -26496,12 +26230,9 @@ function serieComoYoutube(coll, s) {
   return r;
 }
 
-// (`openSongMenu` — a FOLHA de um item do acervo — saiu na v5.285: os dois
-// botões que a abriam deixaram de existir, e a mesma lista passa a ser montada
-// no corpo da linha por `montarOpcoes`. A folha `#songMenuPopup` continua de
-// pé, com os dois donos que sobraram: os resultados do YouTube (`openYtMenu`) e
-// o seletor de destinos da importação (`escolherDestinos`) — por isso
-// `closeSongMenu` fica.)
+// A folha `#songMenuPopup` tem dois donos: os resultados do YouTube
+// (`openYtMenu`) e o seletor de destinos da importação (`escolherDestinos`). A
+// lista de um item do acervo é montada no corpo da linha (`montarOpcoes`).
 
 function closeSongMenu() {
   // A folha é reusada como SELETOR DE DESTINOS da importação (ver
@@ -26510,9 +26241,6 @@ function closeSongMenu() {
   // pelo botão voltar do aparelho entra todo aqui, então é aqui que a
   // desistência é dita.
   if (destPromptResolve) { fecharDestPrompt(null); return; }
-  // A LISTA DO CLONE não resolve promessa nenhuma, mas tem efeito colateral: o
-  // mDNS fica varrendo a rede enquanto ela está aberta. Fechar sem desligá-lo
-  // deixaria a procura girando pelo resto da sessão, sem nada na tela.
   destLimpar();
   songMenuFor = null;
   songMenuPopupEl.classList.remove('open');
@@ -26561,10 +26289,6 @@ function songMenuItem(icone, rotulo, sub, acao, destino, aoMudar, marcados) {
   btn.appendChild(txt);
   // ===== UMA LINHA DE DESTINO É SELECIONÁVEL, DE CORPO INTEIRO (v5.252) =====
   //
-  // Pedido do operador: *"faça um método universal, o botão de confirmar sempre
-  // visível, e todas as outras opções (inclusive o tocar agora) são opções
-  // selecionáveis, não apenas tocando no check, mas de corpo inteiro."*
-  //
   // A folha tinha DUAS gramáticas na mesma linha: o corpo EXECUTAVA (aquele
   // destino mais o que estivesse marcado, fechando tudo) e a caixinha de 20px na
   // borda apenas MARCAVA. Duas coisas diferentes a dois centímetros uma da
@@ -26603,8 +26327,8 @@ function songMenuItem(icone, rotulo, sub, acao, destino, aoMudar, marcados) {
     closeSongMenu();
     // O botão VAI com a ação mesmo assim: a folha fecha aqui (o download de uma
     // música ou de um vídeo leva de segundos a minutos, e uma folha aberta
-    // durante isso é uma tela travada), então o `responder` cai na faixa de
-    // aviso — mas se um dia alguma dessas ações deixar de fechar a folha, o
+    // durante isso é uma tela travada), então o pulso do `responder` não é
+    // visto — mas se um dia alguma dessas ações deixar de fechar a folha, o
     // pulso passa a valer sem precisar lembrar de ligá-lo.
     acao(variante, btn, null);
   });
@@ -26616,9 +26340,7 @@ function songMenuItem(icone, rotulo, sub, acao, destino, aoMudar, marcados) {
 // A FAIXA DE FECHO DE UMA FOLHA NÃO ROLA (v1.8.60)
 // ============================================================================
 //
-// Relato do operador: *"verifique também o scroll do exportar, que está com o
-// botão de salvar dentro do scroll, ao invés de ficar fora, fixo na base, com
-// suas margens corretamente"*. A `.song-menu-go-row` era o último `<li>` da
+// A `.song-menu-go-row` era o último `<li>` da
 // `.popup-list`, isto é, DENTRO do scroller: na folha do pacote o "Salvar" só
 // aparecia depois de rolar o acervo inteiro.
 //
@@ -26645,9 +26367,7 @@ function porFecho(alvo, li) {
   (fechoDaFolha(alvo) || alvo).appendChild(li);
 }
 
-// A linha de confirmação, no fim da folha e só com algo marcado. Ela existe
-// para o caso em que já não há linha a tocar: marcados Playlist e Favoritos,
-// tocar numa terceira linha acrescentaria um destino que ninguém pediu.
+// A linha de confirmação, no fim da folha: é ela que executa o que está marcado.
 // O CONFIRMAR É SEMPRE VISÍVEL (v5.252). Ele só aparecia depois da primeira
 // marca — isto é, era invisível justamente para quem ainda não sabia que dava
 // para marcar, e a folha parecia não ter conclusão. Sem nada escolhido ele fica
@@ -26688,17 +26408,10 @@ function destConfirmRow(aoLado) {
   li.appendChild(btn);
   // ===== O BOTÃO IRMÃO (v5.286) =====
   //
-  // Pedido do operador: *"faça a letra escrita ficar escondida atrás de um
-  // botão que fica lado a lado com o 'escolha uma opção'"*. No corpo da linha a
-  // gaveta tem duas metades (opções + letra), e a letra é a mais alta das duas:
-  // ela empurrava as opções para longe do dedo em toda abertura, quando o que
-  // se abre a gaveta para fazer é DECIDIR. Atrás de um botão ela continua a um
-  // toque, e o toque é de quem quer conferir.
-  //
-  // Ele vive aqui, e não numa faixa própria abaixo: "lado a lado" é o pedido, e
-  // um segundo controle numa linha só sua seria mais uma faixa entre as opções
-  // e a letra. Quem o fornece é o DONO da lista, porque a folha não tem letra
-  // nenhuma a esconder — ali o campo não existe e nada muda.
+  // Um segundo botão LADO A LADO com o confirmar ("Ver a letra" ou "Ver os
+  // detalhes" na gaveta da Biblioteca; a faixa de ações de um Favorito), e não
+  // numa faixa própria: o que se abre a gaveta para fazer é DECIDIR. Quem o
+  // fornece é o DONO da lista; a folha não tem irmão, e ali nada muda.
   //
   // ===== ELE VEM POR ARGUMENTO, E ISSO NÃO É ESTILO (v5.302) =====
   //
@@ -26726,10 +26439,6 @@ function destConfirmRow(aoLado) {
   if (dono) {
     const irmao = dono();
     // ===== O CONFIRMAR É SEMPRE O ÚLTIMO, e isso deixou de ser negociável =====
-    //
-    // Relato do operador (v1.4.7): *"nos favoritos o botão de confirmar play
-    // está na direita, mas no resto da biblioteca está na esquerda; pode
-    // padronizar na direita?"*.
     //
     // O lado era DECISÃO DO IRMÃO (v5.307, `data-antes`), e um irmão que não a
     // tomava caía no `appendChild` — isto é, no lado oposto. Duas portas para o
@@ -26799,12 +26508,8 @@ function renderDestPrompt() {
   limparFolha(songMenuListEl);
   const remontar = () => renderDestPrompt();
   destRemontar = remontar;
-  // AS MESMAS LINHAS DAS OUTRAS FOLHAS (v5.252). Até aqui esta função montava
-  // as suas próprias, e o comentário explicava por quê: lá o corpo da linha
-  // EXECUTAVA e fechava a folha, e aqui não há ação por trás dele. Essa razão
-  // deixou de existir — `songMenuItem` com `destino` agora MARCA, que sempre foi
-  // o que esta folha fazia. As duas convergiram, e vinte linhas de marcação
-  // duplicada saíram com a divergência.
+  // AS MESMAS LINHAS DAS OUTRAS FOLHAS (v5.252): `songMenuItem` com `destino`
+  // MARCA, que é o que esta folha faz.
   DESTINOS.forEach((d) => {
     songMenuListEl.appendChild(songMenuItem(
       msym(ICON[d.ico] || ICON.add), d.rotulo, '',
@@ -26829,30 +26534,22 @@ function renderDestPrompt() {
 function renderSongMenu() {
   // A folha é compartilhada com os resultados do YouTube (`openYtMenu`), com o
   // seletor de destinos da importação (`escolherDestinos`), que não tem
-  // `coll`/`s` — e o seletor de variante do topo chama isto de volta.
-  // (`songMenuFor.folha` era a terceira: o "Adicionar pasta" dos Favoritos, que
-  // saiu na v5.254 com o atalho de pasta. A guarda fica: ela é a que impede
-  // qualquer abertura futura sem `coll` de desestruturar o que não existe.)
+  // `coll`/`s` — e o seletor de variante do topo chama isto de volta. A guarda
+  // impede qualquer abertura sem `coll` de desestruturar o que não existe.
   if (!songMenuFor || songMenuFor.yt || songMenuFor.destPrompt || songMenuFor.folha
       || songMenuFor.item) return;
   const { coll, s, origem } = songMenuFor;
   const temPlayback = !!s.has_instrumental_music;
   // ===== O ALVO PODE NÃO SER A FOLHA (v5.285) =====
   //
-  // Pedido do operador: as opções do item da Biblioteca deixam de ser um popup e
-  // passam a abrir NO CORPO da linha, onde hoje abre a letra. A folha continua
-  // existindo para quem ainda a usa — os resultados do YouTube e o seletor de
-  // destinos da importação —, então o que muda é só PARA ONDE isto escreve.
+  // As opções de um item da Biblioteca abrem NO CORPO da linha; a folha é dos
+  // resultados do YouTube e do seletor de destinos da importação — o que muda é
+  // só PARA ONDE isto escreve.
   // O alvo viaja em `songMenuFor` porque o `remontar` (o seletor Cantada/
   // Playback e cada marca de destino) refaz a lista, e ele precisa refazê-la no
   // mesmo lugar.
   const alvo = songMenuFor.alvo || songMenuListEl;
   limparFolha(alvo);
-  // (O PARÂMETRO `modo` saiu na v5.286. Ele escolhia entre a metade de TOCAR e a
-  // de ADICIONAR, porque cada botão da linha abria a sua — e a v5.285 já tinha
-  // acrescentado um terceiro valor, `tudo`, para o corpo da linha. Sem os
-  // botões, a pergunta deixou de ter metades: é uma lista só, e o parâmetro
-  // virou uma constante disfarçada.)
 
   // ===== O SELETOR DECIDE O QUÊ; AS OPÇÕES, ONDE =====
   //
