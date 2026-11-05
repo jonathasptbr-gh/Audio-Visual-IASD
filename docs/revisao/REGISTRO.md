@@ -23,7 +23,7 @@ abandonada → primeira pendente pelo `nº`).
 | 9 | W3 | feita | v1.13.19 (só web) | 2026-11-05 | a `FORA` do pacote com a grafia errada deixava as intenções do YouTube viajarem (consertado + asserção cruzada); 4 funções só-do-oráculo saíram e o `funcao-sem-chamador` vê a superfície dos módulos; `bible.test.mjs` novo |
 | 10 | C1 | feita | v1.13.20 (só web) | 2026-11-05 | nenhum defeito de culto na fatia; `clearCurrentSelection` em `updateState` (+ asserção com reversão); 2 trechos de código morto da preview/peso; ~20 lápides e fatos velhos nos comentários |
 | 11 | C2 | feita | v1.13.21 + v1.13.22 (só web) | 2026-11-05 | o giro e o "Preencher" tocados com um `load()` em voo deixavam de valer no Controle (consertado + asserção com reversão, os dois); `cenaDeRoteiroNoAr` sem a régua duplicada; 3 `renderLibrary()` órfãos da Bíblia; ~30 lápides e fatos velhos |
-| 12 | C3 | em curso | | 2026-11-05 | |
+| 12 | C3 | feita | v1.13.23 (só web) | 2026-11-05 | nenhum defeito de culto na fatia; `moverNaLista` (repasse W1, fatia C4) pela forma atômica do `listSet` (+ asserção com reversão); `TOOLS_ANIM_MS` copiava o token que dizia ler; ~60 comentários (lápides, fatos velhos, um bloco no símbolo errado) |
 | 13 | C4 | pendente | | | |
 | 14 | C5 | pendente | | | |
 | 15 | C6 | pendente | | | |
@@ -56,7 +56,6 @@ tratou.
 | X3 | A5 | (sem outra etapa em `tools/`; a X3 é a que mede no Chromium) `tools/configuracoes-janelas.test.mjs` D e `tools/boot-nativo.test.mjs` — instáveis no runner, SEM reprodução local (passaram na base e 5× cada a três processos). O `obtido` do D já diz o estado da seção (A1); o próximo vermelho do `boot-nativo` precisa ter a asserção lida no log (o log corta): sem ela, não há o que consertar. **A6 leu um:** run `41998913449` (1ª tentativa), única asserção vermelha *"o percurso dos Favoritos terminou sem exceção (page.evaluate: TypeError: Cannot read properties of null (reading 'click') at eval :41:35)"* — um `.click()` cru num `evaluate` dentro do `try` de 4437→5183 que ainda não nomeia o elemento ausente; a 2ª tentativa passou (132/132) e 5 rodadas locais passaram |
 | X2 | A4 | Os que sobraram da `AUDITORIA-2026-08.md` estão ENUMERADOS na tabela "Conferência da revisão A4" no topo dela (7 ids + 3 resíduos; o "26" eram listas brutas). E fora da cerca de qualquer etapa: a `AUDITORIA-2026-09-11.md` tem 23 achados sem RESOLVIDO (entre eles [5] e [33] VERIFICADOS) + 3 extras (imports mortos em `EspelhoServidor.kt` e `ShellUpdater.kt`, o `#bibleTitle`) — vários ([23] [25] [29] [33] [37]) citam linhas do `CLAUDE.md` antigo e devem ter caducado; a `AUDITORIA-EFICIENCIA-2026-09.md` tem #2, #5 e #9 abertos; a `AUDITORIA-ESTABILIDADE-AV.md` tem C2 e D2 abertos (cabeçalhos atualizados) |
 | K4 | A4 | `EspelhoServidor.servirMidia` — o KDoc diz que item em crescimento só sai em `chunked`; conferir contra o `alcanceDe`. O `EspelhoHttpRangeTest` cita o §6 do `TELAO-POR-COMANDOS.md`, que continua existindo (condensado). Não verificados na A4: `EspelhoPares.validar` aceitar token nu e o Cookie ser ignorado (saíram do doc por não terem prova) |
-| C3 | W1 | `controle.js`:`moverNaLista` (~12389) — `listIds` + `listSet(listName, ids)` em ARRAY: read-modify-write partido. Um download do YouTube que termina no vão (`addMediaToList` na mesma lista) some da lista e o `gcOrfaos` seguinte apaga o arquivo; dois toques rápidos em "Mover" perdem um movimento. Conserto: `AVDB.listSet(listName, (ids) => { …splice…; return ids; })` |
 | C8 | W1 | `controle.js`:`resgatarDownloads` (~39449) — `getState(YT_INTENCOES)` + `setState(YT_INTENCOES, [])`: uma intenção gravada por `lembrarIntencao` entre os dois é apagada (janela curta, na abertura). Conserto: `let pend = []; await AVDB.updateState(YT_INTENCOES, (a) => { pend = a \|\| []; return []; })` |
 | C5 | W1 | `controle.js`:`serieDiarioGravar` (~21990) — o comentário ainda cita o "Atualizar a lista" (saiu na v1.12.53) como a segunda varredura concorrente |
 | K2 | W1 | `NativeBridge.kt`:`bgProgress` (~951) — linha de comentário duplicada ("Só o Controle, como os onze irmãos…" duas vezes) |
@@ -413,3 +412,27 @@ miniaturas, a camada visual, o rodapé das Ferramentas, `scrollActiveIntoView`).
 não roda por `display-status`. **Repasses:** X2 (comentário da C1, ~1397), C4 (`CONTROLE-BIBLIOTECA.md`, `renderTabs`).
 **Verificado:** "Sanidade da base web" (todo Node puro, `docs-coerentes`), `tokens`; Chromium (51, Playwright local 1.63): 50 verdes (`smoke`, `display-smoke`, `destinos`, `enquadramento-da-camada`, `boot-nativo`, as `biblia-*`, `cena`, `hidratacao-perde-a-vez`, transporte, fila, letra, camadas, Ferramentas, sorteio, itinerário…); `controles-layout` reprova IGUAL no commit anterior (`setViewportSize` em tela cheia, ambiente).
 **O operador:** nada a fazer; a v1.13.21 chega sozinha (só web). O giro e o Ajustar/Preencher deixam de "voltar".
+
+### C3 · Ferramentas — feita (2026-11-05)
+
+Cerca: `controle.js` de `// ===== Cronômetro / Relógio / Timer` a antes de `A ALTURA DO RODAPÉ FLUTUANTE É LIDA` (3.679 linhas), lida inteira; mais o repasse W1 endereçado à C3 (`moverNaLista`, que mora na C4).
+**Corrigido (código, commits à parte):** `moverNaLista` — `listIds` + `listSet(nome, array)` desfazia um `listAdd` do vão (o download que termina
+por `addMediaToList`): o item sumia da lista e o coletor do `listSet` apagava o registro. Agora a forma atômica (a troca na transação que grava).
+Asserção: bloco 8 do `hidratacao-perde-a-vez` (espião põe o `listAdd` no vão da forma antiga + um concorrente; o item fica na lista e no banco; o
+mover anda; sozinho, devolve). Reversão: a forma antiga reprova a 1ª (`existe: false`).
+**Duplicação:** `TOOLS_ANIM_MS = 220` dizia ler o `--tools-anim` e era cópia: `msDaToolsAnim()` o lê (sem token, zero); o comentário do CSS e do `ferramentas-folha` acompanham.
+**Só comentário (provas 1 e 2):** fatos — "terceiro/quarto provedor" e "outros cinco" (são sete), as "DUAS ROLETAS" (três), a ordem da fileira do
+Cronograma contradita pelo excluir em primeiro, a nota da PASTA no Cronograma; o bloco "O ITEM em px" encabeçava `valorNaPista` (foi para
+`roletaItem`; a prova 2 o acusa de propósito, e a outra acusação é um `/**` que perdeu o lápide colado, mesmo alvo). Lápides: presets, `p.vista`,
+`chronoSetMode`, `chronoSegBtn`, segmentado, "Reiniciar"/"Sortear", "+ Nova mensagem", desvio por aba, alça de arrastar, `&& !dl`. Narrativa de lote
+(pedidos e relatos do operador, "(vX.Y.Z)") encurtada à regra; verbatim (59 blocos) na seção v1.13.23 do histórico.
+**Achado e não corrigido (SUSPEITAS, sem cenário medido):** o "baixar o vídeo" de uma linha de link termina em `currentId === item.id → send(rec.id)`
+(seleção, não `midiaNoAr`; mas o `send` de um link nunca escreve `currentId`, então o ramo é quase inalcançável); a estrela de uma mensagem decide
+pelo `cueFav` do desenho, e dois toques antes do redesenho (`PULSO_MS`) repetem a ação; `saveItin` engole a falha de gravação. Prosa longa que é REGRA com o porquê
+(as roletas, o "O operador escreveu 0 a 24", `acertarRoletas`, o itinerário múltiplo, a troca de vista animada). Réguas: a fatia não lê `midiaNoAr`/
+`cenaNoAr`/`haOQueParar` (só os `*Projecting()` das próprias sessões, coerentes). Timers: os quatro laços (`chronoPanelTimer`, `drawPanelTimer`,
+`itinPanelTimer`, `ferrGradeTimer`) param no `renderDiversos`/`fecharFerramentas`, e o da grade se desliga sozinho sem linha à vista; os
+`ResizeObserver` das roletas reconectam por render e o do horário desconecta no fecho. Nenhuma medida de layout por quadro (o tique só escreve texto).
+**Repasses:** nenhum.
+**Verificado:** "Sanidade da base web" (todo Node puro, `docs-coerentes`), `tokens`; Chromium (35 da vizinhança, Playwright local 1.63, três processos): 33 verdes (`hidratacao-perde-a-vez`, `ferramentas-folha`, `itinerario`, as `sorteio-*`, `mensagem-estilo`, `teclado-das-folhas`, `eixo-de-acao`, `cena`, `boot-nativo`, `smoke`, `display-smoke`, `tela-rede`, `destinos`…); `controles-layout` e `cifra-tela-cheia` reprovam IGUAL no commit anterior (`setViewportSize` em tela cheia, ambiente).
+**O operador:** nada a fazer; a v1.13.23 chega sozinha (só web). Mover um item do Cronograma enquanto um vídeo termina de baixar não o some mais.
