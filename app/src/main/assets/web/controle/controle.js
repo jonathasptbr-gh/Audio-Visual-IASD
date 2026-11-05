@@ -4037,10 +4037,10 @@ let favSeq = 0;
 // novo. Uma senha por chave: um giro em voo não pode pular o PREENCHIMENTO lido.
 let fitSeq = 0;
 let rotSeq = 0;
-// O QUINTO PAR: load × `toggleCronograma`/`togglePlaylist`. Os dois gravam e
-// releem a lista; um `load()` que a leu ANTES do toque aplicava a cópia velha
+// O QUINTO PAR: load × `toggleCronograma`/`togglePlaylist`/`replacePlaylistWith`
+// (o "Tocar agora"). Os três gravam a lista; um `load()` que a leu ANTES do toque aplicava a cópia velha
 // DEPOIS dele, e o item ficava no banco e fora de `cronoSet`/`libItems`/`plItems`
-// até o próximo `load()` (`hidratacao-perde-a-vez`, 9).
+// até o próximo `load()` (`hidratacao-perde-a-vez`, 9 e 10).
 let listasSeq = 0;
 /**
  * Redesenha a lista da aba atual.
@@ -19769,6 +19769,7 @@ async function zerarRepeticao() {
 
 // Trocar de música do zero: a playlist passa a ser SÓ este item.
 async function replacePlaylistWith(rec) {
+  ++listasSeq;   // ver `listasSeq`: antes do primeiro `await`
   await trocarFila([rec.id]);
   plItems = [rec];
   renderPlaylist();
