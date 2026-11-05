@@ -38,7 +38,8 @@
 //     aplicar nunca" passaria na 2.
 //
 // (O bloco 6 é a mesma classe na ESCRITA: a limpeza da seleção da abertura,
-// `clearCurrentSelection`, contra um `persistCurrent` que corre junto.)
+// `clearCurrentSelection`, contra um `persistCurrent` que corre junto. O 7 é o
+// GIRO e o PREENCHER tocados com um `load()` em voo — `fitSeq`/`rotSeq`.)
 //
 // E a quarta, que separa CENA de CONFIGURAÇÃO: durante a corrida a hidratação
 // pula a SELEÇÃO e aplica o resto. Sem ela, o conserto barato (um `return` no
@@ -299,6 +300,49 @@ try {
   }, ids);
   checar(!!so6 && so6.mediaId === null && so6.volume === 0.7,
     'e sozinha ela zera só a seleção: o volume da mesa fica', JSON.stringify(so6));
+
+  // ── 7. GIRAR E PREENCHER DURANTE UM `load()` EM VOO ───────────────────────
+  // A FASE 1 lê `fit` e `rotate`; um toque no vão grava o valor novo e o manda
+  // ao telão, e a FASE 2 aplicava o lido — o tile e a preview voltavam ao valor
+  // velho com o telão girado. A ordem é forçada: o espião avisa quando o
+  // `load()` JÁ leu `rotate` (a segunda das duas), e só então o operador toca.
+  const ajuste7 = await pg.evaluate(async () => {
+    await applyFit('contain'); await applyRotate(0);
+    const orig = AVDB.getState.bind(AVDB);
+    const passou = new Promise((pronto) => {
+      AVDB.getState = async (k) => {
+        const v = await orig(k);
+        if (k === 'rotate') { AVDB.getState = orig; pronto(); }
+        return v;
+      };
+    });
+    const emVoo = load();
+    await passou;                                  // o load() JÁ leu fit e rotate
+    const toques = Promise.all([applyFit('cover'), applyRotate(90)]);
+    await emVoo;
+    await toques;
+    return {
+      rot: mediaRot, fit: mediaFit,
+      tileRot: rotBtnEl.dataset.estado, tileFit: fitTileEl.dataset.estado,
+      pvRot: preview.getRotate(), pvFit: pvVideoEl.style.objectFit,
+    };
+  });
+  checar(ajuste7.rot === 90 && ajuste7.tileRot === '90' && ajuste7.pvRot === 90,
+    'GIRAR com um load() em voo: o giro FICA (variável, tile e preview com 90°)', JSON.stringify(ajuste7));
+  checar(ajuste7.fit === 'cover' && ajuste7.tileFit === 'cover' && ajuste7.pvFit === 'cover',
+    'PREENCHER com um load() em voo: o preenchimento FICA (variável, tile e preview em cover)', JSON.stringify(ajuste7));
+  // E SEM toque nenhum a hidratação CONTINUA trazendo os dois do banco — senão
+  // "nunca aplicar" passaria acima.
+  const so7 = await pg.evaluate(async () => {
+    await AVDB.setState('fit', 'cover'); await AVDB.setState('rotate', 180);
+    mediaFit = 'contain'; mediaRot = 0;            // a memória de uma página recém-carregada
+    await load();
+    const r = { rot: mediaRot, fit: mediaFit, pvRot: preview.getRotate() };
+    await applyFit('contain'); await applyRotate(0);
+    return r;
+  });
+  checar(so7.rot === 180 && so7.fit === 'cover' && so7.pvRot === 180,
+    'e sem toque nenhum o load() RESTAURA o giro e o preenchimento do banco', JSON.stringify(so7));
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
 }

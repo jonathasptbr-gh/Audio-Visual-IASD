@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.21** — revisão C2: RENDER, FILA, BÍBLIA E DESTINOS (o `controle.js` de `carregar + render` ao Cronômetro); o giro e o "Preencher" tocados com um `load()` em voo deixam de voltar sozinhos no Controle, `cenaDeRoteiroNoAr` deixa de reescrever a régua de `provedorDeTextoNoAr`, três `renderLibrary()` órfãos da Bíblia e ~30 lápides
 - **v1.13.20** — revisão C1: ABERTURA, PREVIEW E ÁUDIO (o `controle.js` até `carregar + render`); a limpeza da seleção da abertura deixa de desfazer um `persistCurrent` no vão, código morto da preview e ~20 lápides
 - **v1.13.19** — revisão W3: OS MÓDULOS PUROS; o pacote deixava passar as intenções de download do YouTube (grafia errada na lista de recusa), quatro funções que só o oráculo chamava saíram e o `funcao-sem-chamador` passa a ver a superfície dos módulos; `bible.test.mjs` novo
 - **v1.13.18** — revisão W2: MOTOR E TELÃO; o giro perdido do `enquadramento-da-camada` era o `load()` do Controle (repasse C2), não o `stage.js`; um export morto e comentários
@@ -633,6 +634,560 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.13.21 — revisão C2: RENDER, FILA, BÍBLIA E DESTINOS (o `controle.js` de `// ===== carregar + render =====` a `// ===== Cronômetro / Relógio / Timer`)
+
+**v1.13.21 (revisão C2; só web, sem Release)** — a etapa C2 da revisão profunda
+(`docs/REVISAO-PROFUNDA.md`): a segunda fatia do `controle.js` (`load()` e os
+renders, a notificação de mídia, a fila, a Bíblia inteira — versões, download,
+grades, leitura —, cenas de roteiro, destinos, letra avulsa, a camada visual, os
+provedores de texto e o rodapé das Ferramentas) pela lista comum e pelo
+específico das fatias C. Lida inteira; nenhum defeito que interrompa a projeção.
+
+**O DEFEITO (repasse W2, com o "Preencher" a pedido do operador).** `load()` lê
+`fit` e `rotate` na FASE 1 e os aplica na FASE 2 (`mediaFit`, `mediaRot`,
+`renderRotBtn`/`renderFitTile`, `preview.setFit`/`setRotate`). Um `applyRotate`
+ou `applyFit` no vão grava o valor novo e o manda ao telão; a FASE 2 então
+reaplicava o lido: o tile e a preview voltavam ao valor velho e o telão ficava
+girado/preenchido até o próximo `load()`. É o vermelho de 2229/2242 do
+`enquadramento-da-camada` (W2) com o `load()` do `init()`. Conserto: o QUARTO
+par da hidratação — `fitSeq` e `rotSeq`, incrementados por `applyFit`/
+`applyRotate` (o mínimo tocado na C8) e conferidos na FASE 2 como o `favSeq`;
+uma senha POR CHAVE, porque um giro em voo não pode pular o preenchimento lido
+(na primeira carga o módulo ainda tem o padrão). Asserção nova: bloco 7 do
+`hidratacao-perde-a-vez.test.mjs` — o espião avisa quando o `load()` já leu
+`rotate`, e só então `applyFit('cover')` e `applyRotate(90)`; variável, tile
+(`data-estado`) e preview ficam com o novo; e sem toque o `load()` restaura os
+dois do banco. Reversão: sem a guarda do giro reprova só a asserção do giro
+(`rot: 0`), sem a do fit só a do preenchimento (`fit: contain`).
+
+**DUPLICAÇÃO E CÓDIGO MORTO.** `cenaDeRoteiroNoAr` reescrevia, termo a termo, a
+régua de `provedorDeTextoNoAr` (as mesmas oito perguntas): passa a ser
+`!!provedorDeTextoNoAr()`. Três `renderLibrary()` da Bíblia eram órfãos da
+v1.5.0 (quando a Bíblia ganhou o host da folha, `#bibleBody`): o toque num
+capítulo redesenhava o CRONOGRAMA inteiro para "marcar o capítulo" — quem marca
+é o `loadBibleChapter`, que redesenha a Bíblia antes do primeiro `await` — e o
+`changeBibleVersion` sem sessão (ou com o capítulo sem rede) fazia o mesmo.
+
+**SÓ COMENTÁRIO (provas 1 e 2, commit à parte).** O repasse C1: o bloco de
+`DESTINOS` encurtado para a regra (a ordem e o ícone saem da tabela), e a frase
+repetida no `tools/destinos.test.mjs`. Fatos: o `criarCue` dizia que não
+redesenhava o Cronograma ao guardar um versículo — o código redesenha exatamente
+aí; o `renderBible` dizia "sem scroll" (a grade de livros rola desde a v1.8.60);
+o `visualSession` falava de uma lista zerada "a cada troca de aba"; o cabeçalho
+do `renderBibleReading` (seletor de versão "no topo"); o do
+`ensureBibleVersionDownloaded` ("na 1ª vez que ela é usada", progresso "na tela
+de livros"); "os quatro `hide*`" (são seis); o `adicionarNasListas` falava de um
+`load()` condicional; o `docs/arquitetura/CONTROLE.md` ainda mandava todo destino
+por `adicionarNaLista`. Lápides: `adicionarNaLista`, `renderTabs`,
+`renderFavHeader`, os ramos `mic`/Bíblia do `renderListTitle`, o microfone ao
+vivo (com a linha "ver a lápide acima" do `renderFoot`), o ✓ da versão escolhida,
+o seletor de versão da tela de livros, o lapso do `hideMessage`, a classe
+`has-items`. A narrativa que saiu, verbatim, bloco a bloco:
+
+*load: a lista da tela é o Cronograma:*
+
+```js
+  // A LISTA DA TELA É SEMPRE O CRONOGRAMA (v1.5.0). Ela era `listItems(activeTab)`
+  // dentro de uma guarda, porque a aba podia ser a Bíblia — e ali a leitura
+  // tinha de ser pulada: `'bible'` não é lista de mídia, e passá-la por
+  // `listItems` (um `getMedia` por id) lançaria `DataError` e derrubaria o
+  // `load()` inteiro. Com a Bíblia virando FOLHA, a lista de baixo não muda
+  // nunca, e a guarda deixou de ter o que guardar.
+```
+
+*load: a contagem de uso fora dos tiles:*
+
+```js
+  // A CONTAGEM DE USO não está aqui: ela saiu da grade na v1.4.41 (é uma linha
+  // do rodapé do Registro agora) e, mesmo antes, ficava de fora — é uma ida à
+  // ponte, e `load()` roda dezenas de vezes por culto. Quem a pinta é o
+  // `openFadePopup`, o único instante em que alguém olha para ela.
+```
+
+*convenção do riscado: a v5.47:*
+
+```js
+// A v5.47 tinha adotado o oposto ("o ícone mostra a AÇÃO que o toque executa"),
+// e a razão declarada era que estado e ação conviviam misturados na tela. O
+// problema era real, mas a solução escolhida gastava o riscado — o símbolo
+// universal de "cortado" — para dizer justamente que NÃO está cortado. Nada se
+// perde invertendo: a COR já carrega o estado sozinha (`.alternado`, `.muted` e
+// `.blocked` pintam o traço sobre a preview e o botão inteiro no Modo Fácil), o
+// `title` continua nomeando a ação, e o ícone volta a ser lido como todo mundo
+// lê um alto-falante riscado.
+//
+```
+
+*renderRepeat: o rótulo:*
+
+```js
+  // O RÓTULO DIZ O QUE ACONTECE NO FIM DA FILA (v1.8.77), e não se ela anda:
+  // desde aquele lote a fila anda nos quatro modos, e "Repetição desativada"
+  // passaria a prometer o oposto do que o `off` faz — que é justamente o
+  // comportamento que o operador procurava quando esquecia de armar o `all`.
+  // O RÓTULO USA AS PALAVRAS DO OPERADOR (v1.8.80) — "repetir a mídia atual" e
+  // "repetir a playlist inteira" —, que são as que ele escreveu ao pedir a
+  // ordem nova. "Repetir 1" era a abreviação do glifo `repeat_one`, e o glifo
+  // saiu.
+```
+
+*renderLeitorBadge: o pedido:*
+
+```js
+  // Pedido do operador: *"desative o botão (modo cinza mais claro, sem toque)
+  // de auxiliar de leitura quando não há nenhum conteúdo a ser exibido nele,
+  // como na abertura do app"*.
+  //
+  // A badge já dizia SE há (v1.4.31) — mas um ponto apagado sobre um botão
+  // aceso continua sendo um botão aceso, e o toque nele abria a folha para ler
+  // *"Nada em exibição com letra ou texto bíblico"*. É a terceira vez que este
+  // app troca EXPLICAR por NÃO OFERECER (o microfone sem TV na v1.2.21, a aba
+  // de cifra sem cifra na v1.8.28), e aqui a troca é mais barata que as duas:
+  // o botão continua no lugar, na mesma célula, e volta sozinho.
+  //
+```
+
+*renderLibToggle: renderTabs:*
+
+```js
+// (`renderTabs` era o realce da aba ativa mais o vazado deslizante. Com a faixa
+//  fora, o que ocupa o lugar dela é o desenho do botão da Biblioteca — SETA
+//  quando ela está fechada, ✕ quando aberta.)
+```
+
+*renderListTitle: lápides:*
+
+```js
+// O cabeçalho da LISTA (a faixa de cima da tela avançada). Desde a v5.247 ele
+// tem DOIS elementos — voltar e título —, e o que saiu foi a troca de modo: ela
+// é a mesma decisão do "Modo do app" em Configurações, a dois toques dali, e
+// aquela é a que GUARDA a escolha entre aberturas. Com ela foi embora também a
+// regra de "só no Cronograma" (v5.111) e o lugar reservado que a sustentava —
+// o botão que podia sumir e mover o título simplesmente não existe mais.
+// (O cabeçalho DA GAVETA — `renderFavHeader` — saiu com ela na v5.294.)
+function renderListTitle() {
+  // (O ramo de 'mic' saiu na v1.3.10: as Ferramentas deixaram de ser uma ABA e
+  //  viraram uma FOLHA do Cronograma, com título próprio. O cabeçalho da tela
+  //  continua dizendo "Cronograma", que é onde o operador de fato está.
+  //  As funções seguem `renderDiversos`/`refreshDiversos` e o `miscTool` segue
+  //  com os ids de sempre — renomeá-las não mudaria nada visível.)
+  // (O ramo da BÍBLIA saiu na v1.5.0, com a aba. O cabeçalho do app diz sempre
+  //  "Cronograma" porque é a tela única; o nome da Bíblia e o voltar DELA moram
+  //  na barra da folha, que é o lugar de quem está dentro de uma janela.)
+```
+
+*renderPlaylistCorpo: o selo:*
+
+```js
+  // ===== O SELO CONTA A FILA INTEIRA (v1.8.80) =====
+  //
+  // Revogação do operador, com o relato e a decisão juntos: *"o número no botão
+  // da playlist nos controles está indicando '1' quando há duas mídias na
+  // playlist. Isso foi uma decisão antiga, estou revogando ela, esse número deve
+  // representar o número total de itens na playlist. É claro, se houver apenas
+  // um item, ainda não precisa mostrar o número"*.
+  //
+  // A regra antiga contava os itens ALÉM do primeiro (2 → "1", 3 → "2"), sob o
+  // argumento de que a mídia em exibição não é fila. O preço era um número que
+  // não responde à única pergunta que se faz a um selo de contagem — *quantos
+  // itens há ali dentro?* —, e que discorda do contador da própria folha
+  // (`plPopupCountEl`, que sempre disse o total).
+  //
+  // O LIMIAR NÃO MUDA: com um item o selo continua vazio, e é a segunda metade
+  // do pedido.
+  //
+  // QUEM DIZ "HÁ FILA" É O SELO, E SÓ ELE. Havia aqui uma classe `has-items`
+  // que tingia o ícone de `--accent` junto; a regra dela saiu do `controle.css`
+  // na v1.5.0, com o rodapé, e a escrita sobreviveu sete meses sem consumidor —
+  // o ícone nunca acendeu, e a doc continuava dizendo que acendia. Devolvê-la
+  // seria acrescentar um SIGNIFICADO DE COR que a linguagem de estado do app
+  // não tem (ver o `CLAUDE.md`: escolhido · ligado · selecionado), para dizer o
+  // que o número ao lado já diz.
+```
+
+*renderPlaylistCorpo: o botão da folha:*
+
+```js
+  // ===== E O BOTÃO QUE ABRE ESTA FOLHA APAGA COM ELA VAZIA (v1.8.51) =====
+  //
+  // Relato do operador: *"o botão de playlist segue ativo nos controles, mesmo
+  // quando não há nenhum item na playlist"*. Ele revoga a exceção que a v1.8.50
+  // tinha escrito — *"a folha vazia é a resposta à pergunta 'o que tem na
+  // fila?'"* —, e a revogação é justa: a folha vazia responde àquela pergunta
+  // uma vez, e depois é um destino que não leva a lugar nenhum.
+  //
+  // **SÓ COM ZERO, e a decisão é do operador.** Ele chegou a pedir o apagado
+  // com UM item também (*"um item não é uma lista"*), e desistiu ao ver o
+  // preço: com um item a folha ainda é a ÚNICA porta para cinco coisas —
+  // remover da fila, favoritar pela linha, mandar ao Cronograma pela linha (as
+  // duas que a v1.4.25 pôs ali a pedido dele), "Limpar a playlist" e "Guardar
+  // como pacote". E UM ITEM É O ESTADO DOMINANTE: todo toque numa mídia passa
+  // por `replacePlaylistWith`, que faz `listSet('playlist', [id])`. Apagar ali
+  // tiraria as cinco durante quase todo o culto.
+  //
+  // O LIMIAR NÃO É O DA BADGE, e isso é de propósito: ela some com `count > 1`
+  // (um item não merece contagem), este apaga com `count === 0` (uma fila com
+  // um item ainda é uma folha com o que fazer). São duas perguntas diferentes
+  // sobre a mesma lista, e amarrá-las faria uma responder pela outra.
+  //
+  // A FRASE DE ENSINO MUDA DE CASA junto com o botão: ela morava na folha vazia
+  // (*"Segure um item da lista…"*) e era a única explicação do app sobre como
+  // montar uma fila — com o botão apagado, ninguém mais a abriria para lê-la.
+  // Ela passa a ser o `title`, que é o que um botão apagado deve a quem o
+  // encontra.
+```
+
+*renderPlaylistCorpo: o guardar:*
+
+```js
+  // ===== E O "GUARDAR" APAGA COM MENOS DE DOIS ITENS (v1.8.53) =====
+  //
+  // Pedido do operador: *"verifique o guardar no cronograma, pois este só deve
+  // existir se houver ao menos dois itens na Playlist, não faz sentido guardar
+  // uma playlist de um item só"*. A recusa já existia — `guardarPacote` devolve
+  // "Precisa de 2 itens ou mais" no próprio rótulo —, e o que muda é a TROCA que
+  // a v1.8.50 escreveu: explicar depois do toque é pior que não oferecer. O
+  // `title` é o que um botão apagado deve a quem o encontra.
+  //
+```
+
+*renderPlaylistCorpo: a folha vazia:*
+
+```js
+  // A FOLHA VAZIA NÃO TEM MAIS CORPO (v1.8.54), a pedido do operador: *"remova a
+  // mensagem que tem no corpo da playlist quando não há nenhum item, pois essa
+  // mensagem não tem mais utilidade… ele não tem acesso a janela se ela não tem
+  // nada"*. E a premissa dele é verdade POR CONSTRUÇÃO desde a v1.8.51, quando o
+  // botão que abre esta folha passou a nascer apagado com a fila vazia — e mais
+  // ainda desde este lote, em que ela FECHA sozinha quando o último item sai.
+  //
+  // A FRASE DE ENSINO NÃO SE PERDE: ela já tinha mudado de casa na v1.8.51 e é o
+  // `title` daquele botão apagado, que é onde ela alcança quem procura a fila e
+  // não a encontra. Este bloco era a segunda cópia dela.
+```
+
+*renderPlaylistCorpo: a miniatura:*
+
+```js
+    // ===== A MINIATURA (v1.8.55), e ela não é enfeite: é GEOMETRIA =====
+    //
+    // Relato do operador: *"na playlist os itens estão sem thumbnail, fazendo a
+    // gaveta de opções ficar faltando cobertura e deixando exposto um pedaço
+    // inútil do texto do card abaixo"*.
+    //
+    // A `.row-acoes` é posicionada CONTRA A MINIATURA — o KDoc dela diz por
+    // extenso que a miniatura *"é a única coisa que fica de fora"* —, e essa
+    // conta não sabe que esta lista não tinha nenhuma. MEDIDO a 390px: a gaveta
+    // abria 56px dentro da linha e o que aparecia naquela fatia era o TÍTULO,
+    // recortado no meio. Toda outra lista deste app põe a capa ali.
+    //
+    // `cueThumb` PARA CENA DE ROTEIRO, a mesma linha da Biblioteca: o comentário
+    // do rodapé desta função diz que um cue nunca entra na fila, e ele não entra
+    // pelo `onTap` — mas entra pela folha de destinos, e uma linha sem capa aqui
+    // seria o mesmo defeito de volta por outra porta.
+```
+
+*renderPlaylistCorpo: a lixeira:*
+
+```js
+    // ===== A LIXEIRA DO APP, E NÃO UMA SÓ DESTA LISTA (v5.301) =====
+    //
+    // Pedido do operador: *"na playlist, ajuste o botão de excluir para que
+    // represente o mesmo ícone de excluir que já usamos no resto do sistema"*.
+    // Era `playlist_remove` — a pilha de linhas com um "−" —, o único
+    // destrutivo do app desenhado por um símbolo próprio: o mesmo gesto tinha
+    // dois desenhos conforme a lista em que a linha por acaso morava.
+    //
+    // E COM O ÍCONE VEM A CONFIRMAÇÃO, pela régua que o excluir da linha já
+    // segue: um mesmo desenho com dois alcances conforme a tela (aqui apaga no
+    // toque, ali pergunta) é a pior forma de oferecer um destrutivo. A classe
+    // `row-excluir` é o que o inscreve em `ACOES_QUE_NAO_FECHAM`.
+    //
+```
+
+*renderPlaylistCorpo: a gaveta:*
+
+```js
+    // A GAVETA DO `⋮` CHEGOU AQUI NA v5.285, e ela é o que torna o par ↑↓
+    // possível nesta lista: até então a fila era a única com alça de arrastar e
+    // sem botão de opções. Tirar o gesto sem dar a gaveta deixaria a fila como a
+    // única lista do app sem como reordenar.
+    //
+    // ===== E A FILA GANHOU OS DOIS DESTINOS (v1.4.25) =====
+    //
+    // Pedido do operador: *"na lista da playlist, pode adicionar opções como:
+    // adicionar aos favoritos e adicionar ao cronograma"*.
+    //
+    // Ela era a única das três listas sem caminho para as outras duas: da linha
+    // daqui só se saía tirando da fila. E é o pior lugar para esse buraco — a
+    // fila é onde o bloco de louvores é montado, e "esta faixa merece ficar
+    // guardada" é a decisão que se toma justamente aí.
+    //
+    // A ORDEM É A DO CRONOGRAMA (v5.302), com a ressalva de não contar com o
+    // que não existe nesta lista: o que mexe no ITEM (tirar da fila), o que
+    // mexe em ONDE ele está (Cronograma, favoritar) e o que mexe na POSIÇÃO
+    // (↑↓). Falta o botão da PLAYLIST — esta LINHA é a playlist —, e o
+    // renomear, que nunca esteve aqui.
+    //
+    // E O PAR DE DESTINO SEGUE A ORDEM CANÔNICA (v1.8.56, ver `DESTINOS`):
+    // Cronograma, playlist, favoritos. Aqui a playlist não existe, então o que
+    // sobra é Cronograma antes de favoritar — o inverso do que estava.
+    //
+    // OS DOIS SÃO ALTERNADORES COM ESTADO À VISTA, como no Cronograma: a
+    // pergunta que se faz montando o culto é "está lá?", não "eu mandei?".
+    // UMA CENA DE ROTEIRO NÃO GANHA O DA FILA no Cronograma (*"um versículo não
+    // é uma fila de reprodução"*), e aqui a guarda não é necessária pelo motivo
+    // oposto — um cue não entra na playlist, então esta linha nunca é um.
+```
+
+*ensureBibleMeta: o des-completar:*
+
+```js
+  // UMA VERSÃO COMPLETA PASSOU A PODER "DES-COMPLETAR" (v1.8.83), e a frase que
+  // estava aqui dizendo o contrário virou a única guarda desse caso: quem
+  // exclui é `apagarVersaoBiblia`, e é ELE que tira a versão do Set no mesmo ato
+  // em que apaga a bandeira. Sem isso o cache seguraria "completa" para sempre —
+  // um Set que só cresce só pode ser cache do que nunca sai.
+```
+
+*renderBibleVerList: o estado:*
+
+```js
+    // ===== O ESTADO DIZ O QUE O APP FAZ (v1.8.83) =====
+    //
+    // A terceira linha dizia **"Baixa ao usar"**, e isso era falso desde a
+    // v5.242: `changeBibleVersion` chama `ensureBibleVersionDownloaded` no ato
+    // da escolha, e `enterBibleTab` a chama para a versão em uso. O operador leu
+    // a frase e pediu o comportamento que o app já tinha — *"ao invés de baixar
+    // ao usar, ajuste o método para baixar a bíblia inteira ao escolher aquela
+    // versão"*. Era o pior artefato que este projeto sabe produzir: uma linha
+    // que DISCORDA do aparelho, lida por quem não tem como conferir.
+    //
+    // E A QUARTA É NOVA: uma versão PELA METADE existia (a varredura desiste
+    // depois de 25 falhas seguidas, que é a rede da igreja fora) e não tinha
+    // como ser vista — ela se lia igual a uma que nunca foi tocada.
+```
+
+*renderBibleVerList: o ✓ da escolha:*
+
+```js
+    // (O ✓ DA LINHA ESCOLHIDA SAIU na v1.8.84, revogando a v1.8.83 — que o
+    //  tinha acabado de trocar do caractere cru pelo `checkIconSvg`. Pedido do
+    //  operador: *"remova o elemento 'check' da identificação do selecionado.
+    //  Já temos a coloração azul da linha como marcação, não precisamos do
+    //  check disputando espaço com a lixeira."* A marca da escolha continua
+    //  existindo — é o `--sel-fill` da `.bible-ver-row.selected` —, e o que se
+    //  ganha é a largura que o nome da versão perdia para um segundo sinal da
+    //  mesma coisa. O ✓ do "Completa offline" FICA: aquele diz outra coisa.)
+```
+
+*renderBibleVerList: o excluir:*
+
+```js
+    // ===== O EXCLUIR: OCULTO SEM NADA BAIXADO, APAGADO NA VERSÃO EM USO =====
+    //
+    // Pedido do operador (v1.8.84): *"ajuste para que oculte os icones de
+    // excluir, nos itens que ainda não foram baixados. Atualmente ele fica
+    // apenas esmaecido, mas pode deixar oculto quando não ainda não há nada
+    // baixado daquele item."*
+    //
+    // **OS DOIS CASOS DEIXARAM DE SER O MESMO, e a régua é o que o operador pode
+    // FAZER a respeito.** A regra da v1.8.50 (*"o que não tem função agora é
+    // apagado, não deixado inerte"*) existe para um botão cuja indisponibilidade
+    // é TEMPORÁRIA e reversível pelo próprio operador — é o caso da versão EM
+    // USO, onde ele escolhe outra e o botão acende, e é por isso que ela precisa
+    // ocupar o lugar e dizer por quê no `title`. Numa versão que nunca foi
+    // baixada não há função a recuperar: excluir o que não existe não é uma ação
+    // adiada, é uma ação que não existe.
+    //
+    // E o preço que a regra cobrava — mover os vizinhos debaixo do dedo — não se
+    // paga aqui: o excluir é o ÚLTIMO item da linha, então some sem empurrar
+    // ninguém, e a linha de uma versão não baixada nem sequer é um alvo de
+    // exclusão para o dedo errar.
+```
+
+*renderBible: sem scroll:*
+
+```js
+  // A tela de livros preenche a altura disponível (grade compacta, sem scroll);
+  // as demais rolam normalmente se precisarem (ex.: Salmos, 150 capítulos).
+  // Todas as telas preenchem a altura disponível e cabem sem scroll (ver
+  // .bible-wrap em controle.css).
+```
+
+*renderBible: o host:*
+
+```js
+  // O HOST É O DA FOLHA desde a v1.5.0 — era o `#library`, o mesmo `<ul>` do
+  // Cronograma, e por isso `renderLibrary` tinha um desvio por aba no topo. Com
+  // host próprio, as duas listas deixam de disputar um nó.
+```
+
+*renderBibleBooks: o seletor de versão:*
+
+```js
+  // (O seletor de versão e o status de download saíram daqui — moram na tela de
+  // leitura, dando mais espaço para a grade de livros. Ver renderBibleReading.)
+```
+
+*renderBibleReading: cabeçalho:*
+
+```js
+// Tela de LEITURA: seletor de versão + status offline no topo, versículo
+// anterior / atual / próximo empilhados (o anterior/próximo mostram também o
+// salto pro capítulo/livro vizinho nos limites, com indicador da mudança), e a
+// referência atual num botão que volta para a seleção de livros. Toque no
+// CENTRAL ativa a exibição; toque no anterior/próximo move pro central (só
+// exibe automaticamente depois de ativado — ver bibleSetIdx).
+```
+
+*renderBibleReading: o rótulo das pílulas:*
+
+```js
+  // ===== O RÓTULO SAIU DA TELA E FOI PARA O NOME DO BOTÃO (v1.8.83) =====
+  //
+  // Pedido do operador: *"Remova os títulos dos grupos na barra inferior durante
+  // a leitura. A largura da barra é definida por esses títulos, mas ocupa um
+  // espaço desnecessário na área dos capítulos e versículos em relação aos
+  // números e aperta na área dos livros… Essa barra não deve ter um modo de
+  // 'duas linhas'"*.
+  //
+  // Ele descreve o mecanismo com precisão, e a v1.7.9 já o tinha medido do outro
+  // lado: *"quem se dimensiona pelo RÓTULO são as três pílulas de número —
+  // 'CAPÍTULO' e 'VERSÍCULO' em caixa alta são muito mais largos que os valores
+  // ('3'), então é o rótulo que dita a largura"*. Aquele lote pagou o aperto
+  // encolhendo o rótulo; este tira a causa.
+  //
+  // O QUE SUBSTITUI A PALAVRA NA TELA É A TINTA, e ela já estava lá desde a
+  // v1.3.14: cada pílula veste a grade que abre — o livro na tinta do grupo
+  // canônico, o capítulo no tom frio, o versículo no quente. A palavra era a
+  // terceira escrita da mesma informação, depois da cor e da posição.
+  //
+  // E ELA NÃO SOME DO APP: vira `title` e `aria-label`, que é onde um botão sem
+  // rótulo diz o que é — a mesma regra dos três destinos da playlist automática.
+```
+
+*adicionarNasListas: o espelho:*
+
+```js
+    // O ESPELHO DO CRONOGRAMA (v1.4.25) anda ANTES do `load()` condicional: ele
+    // é o que responde ao botão da fila, e ele existe justamente para o caso em
+    // que a aba de trás NÃO é o Cronograma — que é o caso em que aquele `load()`
+    // não roda.
+```
+
+*adicionarNaLista: lápide:*
+
+```js
+// (`adicionarNaLista` — a forma de UM destino — SAIU: o comentário dela dizia
+// que era "o que a maior parte do app ainda usa" e ela não tinha um único
+// chamador. Os dois pontos que acrescentam item a lista (a gaveta de uma linha
+// e a folha de destinos de uma música) passam por `listasDosDestinos` e chamam
+// `adicionarNasListas` direto desde a v5.141, que é o lote que a tornou
+// supérflua. Quem a mantinha viva era o `tools/destinos.test.mjs` — um oráculo
+// exercitando um caminho que o app não percorre não é rede de segurança, é uma
+// segunda API mantida por engano, e ele passou a montar o fixture pela mesma
+// porta que o app usa.)
+```
+
+*criarCue: o redesenho:*
+
+```js
+  // Redesenha só quando a tela em cena é justamente a que acabou de receber o
+  // item — guardar um versículo estando na aba da Bíblia não precisa remontar
+  // o Cronograma, que ainda vai ser carregado ao voltar para ele.
+```
+
+*DESTINOS: a ordem:*
+
+```js
+// ===== A ORDEM É A DA TABELA, E ELA É CANÔNICA (v1.8.56) =====
+//
+// Pedido do operador: *"há casos em que o cronograma está a esquerda, e outros
+// ele está a direita… Padronize: a esquerda o cronograma, no meio a playlist e
+// por fim o favoritos. Tente aplicar essa ordem a todo o app como padrão onde
+// houver esses botões (é claro, há lugares que só há um ou dois deles)"*.
+//
+// A DIVERGÊNCIA NÃO ERA DECISÃO DE NINGUÉM: eram QUATRO listas escritas à mão
+// com a mesma tríade em ordens diferentes — as duas folhas de destino (a do
+// acervo e a do YouTube), o mapa `LINHA` da gaveta e o `DEST_ICONE` desta
+// folha —, mais duas fileiras de botão de linha. Uma tabela que só respondia
+// "quais existem?" deixava "em que ordem?" para cada chamador, e o quinto
+// chamador ia divergir também.
+//
+// Por isso `ico` e `acao` entraram AQUI, e as quatro listas saíram: quem monta
+// uma folha de destinos percorre esta tabela, e não pode mais escolher a
+// ordem. `rotulo` é o nome do lugar ("Cronograma"); `acao` é o que se FAZ com
+// ele ("Adicionar ao Cronograma") — as folhas usam um ou outro conforme a
+// linha seja uma MARCA ou um verbo, e escrever os dois no mesmo campo torceria
+// metade das telas.
+//
+// ONDE FALTA UM DELES A ORDEM SOBREVIVE, que é a ressalva do pedido: a linha
+// do Cronograma não oferece "Cronograma" (o item já está lá) e a da fila não
+// oferece "Playlist" (a linha É a fila) — em ambas o que resta continua na
+// ordem relativa desta tabela.
+```
+
+*visualSession: a troca de aba:*
+
+```js
+// O `rec` viaja DENTRO da sessão porque ele é o único lugar que sobrevive à
+// troca de aba: a imagem sobreposta costuma vir de `libItems`, e essa lista é
+// zerada a cada troca. Sem ele, um reenvio de cena (uma tela da rede que deu F5)
+// mandava `{type:'text',mode:'image'}` sem `__rec` e a tela pintava um cartão
+// PRETO sobre a projeção. Ver `await0Rec`.
+```
+
+*hideMessage: o lapso:*
+
+```js
+  marcarNoAr();   // o selo "● No ar" da linha só sai por aqui — ver `hideBibleVerse`
+  // Uma chamada só: a segunda (lapso — nenhum outro hide* do arquivo repete)
+  // remontava a aba inteira duas vezes no mesmo pulso.
+  refreshDiversos();
+```
+
+*microfone: lápide:*
+
+```js
+// (O MICROFONE AO VIVO saiu na v1.8.89, a pedido do operador: *"remova a opção
+// de microfone direto para o telão, que temos nas ferramentas"*. Ele era o
+// único caminho de CAPTURA do app — o rodapé da aba Ferramentas era a única
+// porta dele —, e com a porta fechada saíram junto o `renderMic`, o `sendMic`,
+// o `renderMicUI`, o diagnóstico (`micRegistrar`/`blocoMicrofone`) e o
+// `haOndeReproduzirMic`. Do outro lado saiu o `setMic` do `display.js`, que
+// ficaria sem quem lhe mandasse o comando.
+//
+// O KOTLIN FICA POR ORA, e é o lado seguro: `MicChromeClient`, `requestMic`,
+// `micDiag` e a permissão `RECORD_AUDIO` só saem instalando um APK, e um shell
+// que ainda serve método que ninguém chama não custa nada ao aparelho — é a
+// ordem inversa (base web nova contra APK velho) que precisa de `shellTag`.
+// `requestMic` e `micDiag` saíram do `native.js` no mesmo lote, que é o que a
+// regra pede de quem encolhe a ponte pelo web.)
+```
+
+*renderFoot: o microfone:*
+
+```js
+ *
+ * O microfone SAIU daqui na v1.8.89 (ver a lápide acima).
+ */
+```
+
+**Achado e não corrigido:** o `changeBibleVersion` que falha ao buscar o
+capítulo na versão nova (sem rede) deixa `bibleVersionId` novo com a sessão na
+versão velha — a pílula "Versão" da leitura mostra a sigla nova sobre o texto
+antigo (SUSPEITA de baixo alcance; a folha de versões só abre da leitura).
+`adicionarNasListas` faz `listHas` e `listAdd` em transações separadas — inócuo,
+o `listAdd` é idempotente. Prosa de lote longa ainda de pé, que é REGRA com o
+porquê: o "TERCEIRO PAR DA HIDRATAÇÃO", "A HIDRATAÇÃO PERDE A VEZ", a fila como
+host de miniaturas, a sobreposição visual (v5.312/v1.4.28), o rodapé das
+Ferramentas (v1.8.89/v1.8.94/v1.9.1/v1.9.2), o `scrollActiveIntoView` (v1.13.6) e
+a grade de livros (v1.8.60). As réguas `haOQueParar` × `cenaNoAr` × `midiaNoAr`
+estão coerentes com o que cada bloco nomeia; o `applyTitleMarquee` lê
+`scrollWidth` só por `renderNowPlaying`, nunca por `display-status`; o único timer
+da fatia (`refreshBibleDl`) é um prazo, não um intervalo.
 
 ## v1.13.20 — revisão C1: ABERTURA, PREVIEW E ÁUDIO (o `controle.js` até `// ===== carregar + render =====`)
 

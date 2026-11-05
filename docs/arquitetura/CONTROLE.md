@@ -110,7 +110,7 @@ Três detalhes que o mecanismo não pode dispensar:
   mesma especificidade de `.row-btn`/`.sel-btn` (0-1-0), então quem decide é a
   ordem. Declaradas antes, elas simplesmente não pintam nada.
 
-**Todo destino passa por `adicionarNaLista(lista, id, nome, btn)`**, que faz o
+**Todo destino passa por `adicionarNasListas(listas, id, nome, btn)`**, que faz o
 `listHas` antes do `listAdd` e escolhe entre `ok` e `dup`. Operações em lote
 (seleção múltipla, pasta) resolvem o tipo em `tipoLote`/`textoLote` — um pulso
 só na barra de seleção, em vez de quatro sinais piscando.

@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.20';
+const WEB_VERSION = '1.13.21';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4031,6 +4031,12 @@ let loadSeqCtl = 0;
 // MEDIDO no `boot-nativo.test.mjs` sob carga: `nosFavs: false` (saiu do banco)
 // com `naLista: true` (continua na tela) oito segundos depois.
 let favSeq = 0;
+// O QUARTO PAR: load × `applyFit`/`applyRotate`. A FASE 1 lê `fit`/`rotate` e a
+// FASE 2 os aplica; um toque no vão (gravado e já mandado ao telão) era desfeito
+// no Controle — o tile e a preview voltavam ao valor lido, o telão ficava com o
+// novo. Uma senha por chave: um giro em voo não pode pular o PREENCHIMENTO lido.
+let fitSeq = 0;
+let rotSeq = 0;
 /**
  * Redesenha a lista da aba atual.
  *
@@ -4097,6 +4103,8 @@ async function load(opts) {
   // A senha dos FAVORITOS, pela mesma razão e no mesmo lugar: quem relê a lista
   // enquanto esta função lê o banco chegou DEPOIS, e o que ela leu é velho.
   const senhaDosFavoritos = favSeq;
+  const senhaDoFit = fitSeq;
+  const senhaDoGiro = rotSeq;
 
   // ---- FASE 1: só leituras do IDB, em locais (nada de estado/DOM ainda) ----
   const cur = await AVDB.getState('current');
@@ -4129,12 +4137,7 @@ async function load(opts) {
   const permitirDadosMoveisV = !!(await AVDB.getState('permitirDadosMoveis'));
   const downloadOkV = !!(await AVDB.getState('downloadOk'));
   const ytAlturaV = await AVDB.getState('ytAltura');
-  // A LISTA DA TELA É SEMPRE O CRONOGRAMA (v1.5.0). Ela era `listItems(activeTab)`
-  // dentro de uma guarda, porque a aba podia ser a Bíblia — e ali a leitura
-  // tinha de ser pulada: `'bible'` não é lista de mídia, e passá-la por
-  // `listItems` (um `getMedia` por id) lançaria `DataError` e derrubaria o
-  // `load()` inteiro. Com a Bíblia virando FOLHA, a lista de baixo não muda
-  // nunca, e a guarda deixou de ter o que guardar.
+  // A lista da tela é sempre o Cronograma (`imports`).
   const libItemsV = await AVDB.listItems('imports');
   const curMediaId = cur && cur.mediaId ? cur.mediaId : null;
   const currentItemV = curMediaId ? (await AVDB.getMedia(curMediaId)) || null : null;
@@ -4171,9 +4174,13 @@ async function load(opts) {
   // Sem a migração, quem já o tinha escolhido continuaria com a mídia distorcida
   // no telão e sem nenhum botão na tela que explicasse por quê — o pior estado
   // possível: o defeito permanece e o controle dele some.
-  if (storedFit === 'fill') { mediaFit = 'contain'; AVDB.setState('fit', mediaFit); }
-  else if (storedFit) mediaFit = storedFit;
-  mediaRot = ROTACOES.includes(storedRot | 0) ? (storedRot | 0) : 0;
+  // O preenchimento e o giro só são aplicados se ninguém os mudou enquanto
+  // líamos o banco (ver `fitSeq`/`rotSeq`): o valor do módulo é o mais novo.
+  if (fitSeq === senhaDoFit) {
+    if (storedFit === 'fill') { mediaFit = 'contain'; AVDB.setState('fit', mediaFit); }
+    else if (storedFit) mediaFit = storedFit;
+  }
+  if (rotSeq === senhaDoGiro) mediaRot = ROTACOES.includes(storedRot | 0) ? (storedRot | 0) : 0;
   // O TAMANHO DA LETRA guardado. Como o `mediaRot` logo acima: valor fora da
   // escada cai no padrão, e não numa medida que ninguém escolheu — a escada pode
   // encolher numa versão futura, e o que estava salvo continua sendo lido.
@@ -4247,10 +4254,8 @@ async function load(opts) {
   // pintura escreveu — sem esta linha o `data-estado` fica `null` até a
   // primeira abertura de Configurações, e um estado ausente lido como "não
   // está preenchendo" é o tipo de mentira que não erra alto.
-  // A CONTAGEM DE USO não está aqui: ela saiu da grade na v1.4.41 (é uma linha
-  // do rodapé do Registro agora) e, mesmo antes, ficava de fora — é uma ida à
-  // ponte, e `load()` roda dezenas de vezes por culto. Quem a pinta é o
-  // `openFadePopup`, o único instante em que alguém olha para ela.
+  // A CONTAGEM DE USO não é pintada aqui: é uma ida à ponte, e `load()` roda
+  // dezenas de vezes por culto — quem a pinta é o `openFadePopup`.
   renderRotBtn();
   renderFitTile();
   renderTemaTile();
@@ -4275,14 +4280,8 @@ function rememberScroll() {
 // está desligada —, e a cor/borda confirma. Vale para os dois cortes do app: o
 // som (alto-falante riscado = mudo) e a imagem (imagem riscada = telão coberto).
 //
-// A v5.47 tinha adotado o oposto ("o ícone mostra a AÇÃO que o toque executa"),
-// e a razão declarada era que estado e ação conviviam misturados na tela. O
-// problema era real, mas a solução escolhida gastava o riscado — o símbolo
-// universal de "cortado" — para dizer justamente que NÃO está cortado. Nada se
-// perde invertendo: a COR já carrega o estado sozinha (`.alternado`, `.muted` e
-// `.blocked` pintam o traço sobre a preview e o botão inteiro no Modo Fácil), o
-// `title` continua nomeando a ação, e o ícone volta a ser lido como todo mundo
-// lê um alto-falante riscado.
+// A COR já carrega o estado sozinha (`.alternado`, `.muted`, `.blocked`), e o
+// `title` continua nomeando a ação.
 //
 // O ▶/⏸ segue sendo AÇÃO — ali a convenção é de plataforma (todo player do
 // mundo mostra ▶ quando está pausado) e o botão não tem cor de estado.
@@ -4365,14 +4364,8 @@ const REPEAT_ICO = {
 
 function renderRepeat() {
   const ico = REPEAT_ICO[repeat] || REPEAT_ICO.off;
-  // O RÓTULO DIZ O QUE ACONTECE NO FIM DA FILA (v1.8.77), e não se ela anda:
-  // desde aquele lote a fila anda nos quatro modos, e "Repetição desativada"
-  // passaria a prometer o oposto do que o `off` faz — que é justamente o
-  // comportamento que o operador procurava quando esquecia de armar o `all`.
-  // O RÓTULO USA AS PALAVRAS DO OPERADOR (v1.8.80) — "repetir a mídia atual" e
-  // "repetir a playlist inteira" —, que são as que ele escreveu ao pedir a
-  // ordem nova. "Repetir 1" era a abreviação do glifo `repeat_one`, e o glifo
-  // saiu.
+  // O RÓTULO DIZ O QUE ACONTECE NO FIM DA FILA (ela anda nos quatro modos), nas
+  // palavras do operador: "repetir a mídia atual", "repetir a playlist inteira".
   const label = repeat === 'off' ? 'Sem repetição — a fila toca em sequência e para no fim'
     : repeat === 'one' ? 'Repetir esta mídia' : repeat === 'shuffle' ? 'Aleatório'
     : 'Repetir a playlist inteira — ela recomeça no fim';
@@ -4430,16 +4423,8 @@ function renderLeitorBadge() {
   const fontes = lyricsViewSources();
   // ===== SEM O QUE LER, O BOTÃO FICA INDISPONÍVEL (v1.8.36) =================
   //
-  // Pedido do operador: *"desative o botão (modo cinza mais claro, sem toque)
-  // de auxiliar de leitura quando não há nenhum conteúdo a ser exibido nele,
-  // como na abertura do app"*.
-  //
-  // A badge já dizia SE há (v1.4.31) — mas um ponto apagado sobre um botão
-  // aceso continua sendo um botão aceso, e o toque nele abria a folha para ler
-  // *"Nada em exibição com letra ou texto bíblico"*. É a terceira vez que este
-  // app troca EXPLICAR por NÃO OFERECER (o microfone sem TV na v1.2.21, a aba
-  // de cifra sem cifra na v1.8.28), e aqui a troca é mais barata que as duas:
-  // o botão continua no lugar, na mesma célula, e volta sozinho.
+  // Não oferecer vale mais que explicar: sem o que ler, o toque abriria a folha
+  // para dizer "Nada em exibição". O botão fica no lugar e volta sozinho.
   //
   // `disabled` E NÃO UMA CLASSE: é o atributo que o `.t-btn:disabled` já veste
   // com `--op-inativo` — a linguagem do INDISPONÍVEL deste app, a mesma dos
@@ -4770,9 +4755,7 @@ function resyncScene() {
   pushNowPlaying();
 }
 
-// (`renderTabs` era o realce da aba ativa mais o vazado deslizante. Com a faixa
-//  fora, o que ocupa o lugar dela é o desenho do botão da Biblioteca — SETA
-//  quando ela está fechada, ✕ quando aberta.)
+// O botão da Biblioteca: SETA com ela fechada, ✕ aberta.
 function renderLibToggle() {
   if (!hymnSearchToggleEl) return;
   const aberta = !!hymnSearchPopupEl && hymnSearchPopupEl.classList.contains('open');
@@ -4785,22 +4768,10 @@ function renderLibToggle() {
   hymnSearchToggleEl.setAttribute('aria-label', hymnSearchToggleEl.title);
 }
 
-// O cabeçalho da LISTA (a faixa de cima da tela avançada). Desde a v5.247 ele
-// tem DOIS elementos — voltar e título —, e o que saiu foi a troca de modo: ela
-// é a mesma decisão do "Modo do app" em Configurações, a dois toques dali, e
-// aquela é a que GUARDA a escolha entre aberturas. Com ela foi embora também a
-// regra de "só no Cronograma" (v5.111) e o lugar reservado que a sustentava —
-// o botão que podia sumir e mover o título simplesmente não existe mais.
-// (O cabeçalho DA GAVETA — `renderFavHeader` — saiu com ela na v5.294.)
+// O cabeçalho da LISTA (a faixa de cima da tela avançada): o nome do Cronograma
+// ativo. O voltar fica sempre oculto — Bíblia e Ferramentas são FOLHAS, com o
+// voltar e o título na barra delas; a troca de modo mora em Configurações.
 function renderListTitle() {
-  // (O ramo de 'mic' saiu na v1.3.10: as Ferramentas deixaram de ser uma ABA e
-  //  viraram uma FOLHA do Cronograma, com título próprio. O cabeçalho da tela
-  //  continua dizendo "Cronograma", que é onde o operador de fato está.
-  //  As funções seguem `renderDiversos`/`refreshDiversos` e o `miscTool` segue
-  //  com os ids de sempre — renomeá-las não mudaria nada visível.)
-  // (O ramo da BÍBLIA saiu na v1.5.0, com a aba. O cabeçalho do app diz sempre
-  //  "Cronograma" porque é a tela única; o nome da Bíblia e o voltar DELA moram
-  //  na barra da folha, que é o lugar de quem está dentro de uma janela.)
   backBtnEl.hidden = true;
   listTitleEl.hidden = false;
   // O NOME DO CRONOGRAMA ATIVO (v1.12.54). O padrão continua "Cronograma".
@@ -4897,30 +4868,10 @@ function renderPlaylistCorpo() {
   // nomeia, um repintor acima.
   renderTransporteHabilitado();
   const count = plItems.length;
-  // ===== O SELO CONTA A FILA INTEIRA (v1.8.80) =====
-  //
-  // Revogação do operador, com o relato e a decisão juntos: *"o número no botão
-  // da playlist nos controles está indicando '1' quando há duas mídias na
-  // playlist. Isso foi uma decisão antiga, estou revogando ela, esse número deve
-  // representar o número total de itens na playlist. É claro, se houver apenas
-  // um item, ainda não precisa mostrar o número"*.
-  //
-  // A regra antiga contava os itens ALÉM do primeiro (2 → "1", 3 → "2"), sob o
-  // argumento de que a mídia em exibição não é fila. O preço era um número que
-  // não responde à única pergunta que se faz a um selo de contagem — *quantos
-  // itens há ali dentro?* —, e que discorda do contador da própria folha
-  // (`plPopupCountEl`, que sempre disse o total).
-  //
-  // O LIMIAR NÃO MUDA: com um item o selo continua vazio, e é a segunda metade
-  // do pedido.
-  //
-  // QUEM DIZ "HÁ FILA" É O SELO, E SÓ ELE. Havia aqui uma classe `has-items`
-  // que tingia o ícone de `--accent` junto; a regra dela saiu do `controle.css`
-  // na v1.5.0, com o rodapé, e a escrita sobreviveu sete meses sem consumidor —
-  // o ícone nunca acendeu, e a doc continuava dizendo que acendia. Devolvê-la
-  // seria acrescentar um SIGNIFICADO DE COR que a linguagem de estado do app
-  // não tem (ver o `CLAUDE.md`: escolhido · ligado · selecionado), para dizer o
-  // que o número ao lado já diz.
+  // ===== O SELO CONTA A FILA INTEIRA =====
+  // Quantos itens há ali dentro (o mesmo número do `plPopupCountEl`); com um
+  // item, vazio. QUEM DIZ "HÁ FILA" É O SELO, E SÓ ELE: tingir o ícone seria um
+  // significado de cor que a linguagem de estado do app não tem.
   plCountEl.textContent = count > 1 ? String(count) : '';
   plPopupCountEl.textContent = String(count);
   // COM A FILA VAZIA NÃO HÁ O QUE LIMPAR, e um botão que não faz nada é pior
@@ -4929,46 +4880,19 @@ function renderPlaylistCorpo() {
   // e leva junto qualquer pergunta que estivesse aberta nela.
   if (count === 0 && plClearFaixaEl.classList.contains('confirmando')) fecharConfirmacaoNaLinha();
   plClearFaixaEl.hidden = count === 0;
-  // ===== E O BOTÃO QUE ABRE ESTA FOLHA APAGA COM ELA VAZIA (v1.8.51) =====
-  //
-  // Relato do operador: *"o botão de playlist segue ativo nos controles, mesmo
-  // quando não há nenhum item na playlist"*. Ele revoga a exceção que a v1.8.50
-  // tinha escrito — *"a folha vazia é a resposta à pergunta 'o que tem na
-  // fila?'"* —, e a revogação é justa: a folha vazia responde àquela pergunta
-  // uma vez, e depois é um destino que não leva a lugar nenhum.
-  //
-  // **SÓ COM ZERO, e a decisão é do operador.** Ele chegou a pedir o apagado
-  // com UM item também (*"um item não é uma lista"*), e desistiu ao ver o
-  // preço: com um item a folha ainda é a ÚNICA porta para cinco coisas —
-  // remover da fila, favoritar pela linha, mandar ao Cronograma pela linha (as
-  // duas que a v1.4.25 pôs ali a pedido dele), "Limpar a playlist" e "Guardar
-  // como pacote". E UM ITEM É O ESTADO DOMINANTE: todo toque numa mídia passa
-  // por `replacePlaylistWith`, que faz `listSet('playlist', [id])`. Apagar ali
-  // tiraria as cinco durante quase todo o culto.
-  //
-  // O LIMIAR NÃO É O DA BADGE, e isso é de propósito: ela some com `count > 1`
-  // (um item não merece contagem), este apaga com `count === 0` (uma fila com
-  // um item ainda é uma folha com o que fazer). São duas perguntas diferentes
-  // sobre a mesma lista, e amarrá-las faria uma responder pela outra.
-  //
-  // A FRASE DE ENSINO MUDA DE CASA junto com o botão: ela morava na folha vazia
-  // (*"Segure um item da lista…"*) e era a única explicação do app sobre como
-  // montar uma fila — com o botão apagado, ninguém mais a abriria para lê-la.
-  // Ela passa a ser o `title`, que é o que um botão apagado deve a quem o
-  // encontra.
+  // ===== E O BOTÃO QUE ABRE ESTA FOLHA APAGA COM ELA VAZIA =====
+  // SÓ COM ZERO (decisão do operador): com UM item — o estado dominante, todo
+  // toque passa por `replacePlaylistWith` — a folha ainda é a única porta para
+  // remover, favoritar e mandar ao Cronograma pela linha, limpar e guardar como
+  // pacote. Não é o limiar do selo (`count > 1`): são duas perguntas. A frase de
+  // ensino ("segure um item…") é o `title` do botão apagado.
   plBtnEl.disabled = count === 0;
   plBtnEl.title = count === 0
     ? 'A fila está vazia — segure um item da lista para acrescentá-lo'
     : 'Playlist';
 
-  // ===== E O "GUARDAR" APAGA COM MENOS DE DOIS ITENS (v1.8.53) =====
-  //
-  // Pedido do operador: *"verifique o guardar no cronograma, pois este só deve
-  // existir se houver ao menos dois itens na Playlist, não faz sentido guardar
-  // uma playlist de um item só"*. A recusa já existia — `guardarPacote` devolve
-  // "Precisa de 2 itens ou mais" no próprio rótulo —, e o que muda é a TROCA que
-  // a v1.8.50 escreveu: explicar depois do toque é pior que não oferecer. O
-  // `title` é o que um botão apagado deve a quem o encontra.
+  // ===== E O "GUARDAR" APAGA COM MENOS DE DOIS ITENS =====
+  // Não oferecer em vez de recusar depois do toque; o `title` diz por quê.
   //
   // A PERGUNTA É A DE QUEM EXECUTA, LITERALMENTE, e não `plItems.length`: o
   // executor filtra as cenas de roteiro (`!isCue`), porque um pacote é uma FILA
@@ -4999,16 +4923,9 @@ function renderPlaylistCorpo() {
   }
 
   playlistEl.innerHTML = '';
-  // A FOLHA VAZIA NÃO TEM MAIS CORPO (v1.8.54), a pedido do operador: *"remova a
-  // mensagem que tem no corpo da playlist quando não há nenhum item, pois essa
-  // mensagem não tem mais utilidade… ele não tem acesso a janela se ela não tem
-  // nada"*. E a premissa dele é verdade POR CONSTRUÇÃO desde a v1.8.51, quando o
-  // botão que abre esta folha passou a nascer apagado com a fila vazia — e mais
-  // ainda desde este lote, em que ela FECHA sozinha quando o último item sai.
-  //
-  // A FRASE DE ENSINO NÃO SE PERDE: ela já tinha mudado de casa na v1.8.51 e é o
-  // `title` daquele botão apagado, que é onde ela alcança quem procura a fila e
-  // não a encontra. Este bloco era a segunda cópia dela.
+  // A FOLHA VAZIA NÃO TEM CORPO: o botão que a abre nasce apagado com a fila
+  // vazia, ela fecha sozinha quando o último item sai, e a frase de ensino é o
+  // `title` daquele botão.
   if (count === 0) return;
   plItems.forEach((item, i) => {
     const li = document.createElement('li');
@@ -5018,36 +4935,17 @@ function renderPlaylistCorpo() {
 
     const row = document.createElement('div');
     row.className = 'row';
-    // ===== A MINIATURA (v1.8.55), e ela não é enfeite: é GEOMETRIA =====
-    //
-    // Relato do operador: *"na playlist os itens estão sem thumbnail, fazendo a
-    // gaveta de opções ficar faltando cobertura e deixando exposto um pedaço
-    // inútil do texto do card abaixo"*.
-    //
-    // A `.row-acoes` é posicionada CONTRA A MINIATURA — o KDoc dela diz por
-    // extenso que a miniatura *"é a única coisa que fica de fora"* —, e essa
-    // conta não sabe que esta lista não tinha nenhuma. MEDIDO a 390px: a gaveta
-    // abria 56px dentro da linha e o que aparecia naquela fatia era o TÍTULO,
-    // recortado no meio. Toda outra lista deste app põe a capa ali.
-    //
-    // `cueThumb` PARA CENA DE ROTEIRO, a mesma linha da Biblioteca: o comentário
-    // do rodapé desta função diz que um cue nunca entra na fila, e ele não entra
-    // pelo `onTap` — mas entra pela folha de destinos, e uma linha sem capa aqui
-    // seria o mesmo defeito de volta por outra porta.
+    // ===== A MINIATURA não é enfeite: é GEOMETRIA =====
+    // A `.row-acoes` é posicionada CONTRA a miniatura ("a única coisa que fica de
+    // fora"); sem ela a gaveta abria 56px dentro da linha (MEDIDO a 390px) e
+    // deixava à vista o título recortado. `cueThumb` para cena de roteiro, que
+    // entra na fila pela folha de destinos.
     const thumb = isCue(item) ? cueThumb(item) : thumbEl(item);
     const name = document.createElement('span'); name.className = 'row-name'; name.textContent = item.name;
-    // ===== A LIXEIRA DO APP, E NÃO UMA SÓ DESTA LISTA (v5.301) =====
-    //
-    // Pedido do operador: *"na playlist, ajuste o botão de excluir para que
-    // represente o mesmo ícone de excluir que já usamos no resto do sistema"*.
-    // Era `playlist_remove` — a pilha de linhas com um "−" —, o único
-    // destrutivo do app desenhado por um símbolo próprio: o mesmo gesto tinha
-    // dois desenhos conforme a lista em que a linha por acaso morava.
-    //
-    // E COM O ÍCONE VEM A CONFIRMAÇÃO, pela régua que o excluir da linha já
-    // segue: um mesmo desenho com dois alcances conforme a tela (aqui apaga no
-    // toque, ali pergunta) é a pior forma de oferecer um destrutivo. A classe
-    // `row-excluir` é o que o inscreve em `ACOES_QUE_NAO_FECHAM`.
+    // ===== A LIXEIRA DO APP, E NÃO UMA SÓ DESTA LISTA =====
+    // O mesmo ícone e a mesma confirmação do excluir das outras listas: um
+    // desenho com dois alcances conforme a tela é a pior forma de oferecer um
+    // destrutivo. `row-excluir` o inscreve em `ACOES_QUE_NAO_FECHAM`.
     //
     // O QUE NÃO MUDA É A SEMÂNTICA, e por isso ele não é um
     // `botaoExcluirDaLinha`: sair da FILA não é sair de uma lista de acervo.
@@ -5094,36 +4992,10 @@ function renderPlaylistCorpo() {
         },
       });
     });
-    // A GAVETA DO `⋮` CHEGOU AQUI NA v5.285, e ela é o que torna o par ↑↓
-    // possível nesta lista: até então a fila era a única com alça de arrastar e
-    // sem botão de opções. Tirar o gesto sem dar a gaveta deixaria a fila como a
-    // única lista do app sem como reordenar.
-    //
-    // ===== E A FILA GANHOU OS DOIS DESTINOS (v1.4.25) =====
-    //
-    // Pedido do operador: *"na lista da playlist, pode adicionar opções como:
-    // adicionar aos favoritos e adicionar ao cronograma"*.
-    //
-    // Ela era a única das três listas sem caminho para as outras duas: da linha
-    // daqui só se saía tirando da fila. E é o pior lugar para esse buraco — a
-    // fila é onde o bloco de louvores é montado, e "esta faixa merece ficar
-    // guardada" é a decisão que se toma justamente aí.
-    //
-    // A ORDEM É A DO CRONOGRAMA (v5.302), com a ressalva de não contar com o
-    // que não existe nesta lista: o que mexe no ITEM (tirar da fila), o que
-    // mexe em ONDE ele está (Cronograma, favoritar) e o que mexe na POSIÇÃO
-    // (↑↓). Falta o botão da PLAYLIST — esta LINHA é a playlist —, e o
-    // renomear, que nunca esteve aqui.
-    //
-    // E O PAR DE DESTINO SEGUE A ORDEM CANÔNICA (v1.8.56, ver `DESTINOS`):
-    // Cronograma, playlist, favoritos. Aqui a playlist não existe, então o que
-    // sobra é Cronograma antes de favoritar — o inverso do que estava.
-    //
-    // OS DOIS SÃO ALTERNADORES COM ESTADO À VISTA, como no Cronograma: a
-    // pergunta que se faz montando o culto é "está lá?", não "eu mandei?".
-    // UMA CENA DE ROTEIRO NÃO GANHA O DA FILA no Cronograma (*"um versículo não
-    // é uma fila de reprodução"*), e aqui a guarda não é necessária pelo motivo
-    // oposto — um cue não entra na playlist, então esta linha nunca é um.
+    // A GAVETA: o que mexe no ITEM (tirar da fila), em ONDE ele está (Cronograma,
+    // favoritar — a ordem de `DESTINOS`; a playlist falta, a linha É a fila) e na
+    // POSIÇÃO (↑↓). Os destinos são alternadores com o estado à vista: montando o
+    // culto a pergunta é "está lá?". Um cue não entra na playlist pelo `onTap`.
     row.append(thumb, name, ...montarAcoesDaLinha(li, [
       rm,
       cronoBtnDaLinha(item),
@@ -5188,11 +5060,9 @@ async function ensureBibleMeta(force) {
   // são independentes, e em série este laço pagava uma ida ao IDB por versão a
   // cada entrada na aba.
   //
-  // UMA VERSÃO COMPLETA PASSOU A PODER "DES-COMPLETAR" (v1.8.83), e a frase que
-  // estava aqui dizendo o contrário virou a única guarda desse caso: quem
-  // exclui é `apagarVersaoBiblia`, e é ELE que tira a versão do Set no mesmo ato
-  // em que apaga a bandeira. Sem isso o cache seguraria "completa" para sempre —
-  // um Set que só cresce só pode ser cache do que nunca sai.
+  // Uma versão completa pode DES-COMPLETAR: quem exclui (`apagarVersaoBiblia`)
+  // tira a versão do Set no mesmo ato em que apaga a bandeira — sem isso o cache
+  // seguraria "completa" para sempre.
   await Promise.all(bibleVersions
     .filter((v) => !bibleCompleteVersions.has(v.id))
     .map(async (v) => {
@@ -5352,19 +5222,10 @@ function renderBibleVerList() {
     const st = document.createElement('span'); st.className = 'bible-ver-status';
     const baixando = !!(bibleDl && bibleDl.running && bibleDl.versionId === v.id);
     const noAparelho = bibleCachedCount[v.id] || 0;
-    // ===== O ESTADO DIZ O QUE O APP FAZ (v1.8.83) =====
-    //
-    // A terceira linha dizia **"Baixa ao usar"**, e isso era falso desde a
-    // v5.242: `changeBibleVersion` chama `ensureBibleVersionDownloaded` no ato
-    // da escolha, e `enterBibleTab` a chama para a versão em uso. O operador leu
-    // a frase e pediu o comportamento que o app já tinha — *"ao invés de baixar
-    // ao usar, ajuste o método para baixar a bíblia inteira ao escolher aquela
-    // versão"*. Era o pior artefato que este projeto sabe produzir: uma linha
-    // que DISCORDA do aparelho, lida por quem não tem como conferir.
-    //
-    // E A QUARTA É NOVA: uma versão PELA METADE existia (a varredura desiste
-    // depois de 25 falhas seguidas, que é a rede da igreja fora) e não tinha
-    // como ser vista — ela se lia igual a uma que nunca foi tocada.
+    // ===== O ESTADO DIZ O QUE O APP FAZ =====
+    // Escolher a versão a baixa inteira (nunca "Baixa ao usar"), e uma versão
+    // PELA METADE — a varredura desiste depois de 25 falhas seguidas — se lê
+    // diferente de uma nunca tocada.
     if (bibleCompleteVersions.has(v.id)) {
       st.innerHTML = checkIconSvg() + '<span>Completa offline</span>';
       st.classList.add('done');
@@ -5377,14 +5238,8 @@ function renderBibleVerList() {
     }
     main.append(name, st);
     row.appendChild(main);
-    // (O ✓ DA LINHA ESCOLHIDA SAIU na v1.8.84, revogando a v1.8.83 — que o
-    //  tinha acabado de trocar do caractere cru pelo `checkIconSvg`. Pedido do
-    //  operador: *"remova o elemento 'check' da identificação do selecionado.
-    //  Já temos a coloração azul da linha como marcação, não precisamos do
-    //  check disputando espaço com a lixeira."* A marca da escolha continua
-    //  existindo — é o `--sel-fill` da `.bible-ver-row.selected` —, e o que se
-    //  ganha é a largura que o nome da versão perdia para um segundo sinal da
-    //  mesma coisa. O ✓ do "Completa offline" FICA: aquele diz outra coisa.)
+    // A escolha é marcada só pelo `--sel-fill` da `.bible-ver-row.selected`; o ✓
+    // é do "Completa offline", que diz outra coisa.
     // A VERSÃO QUE PRECISA DO SERVIDOR, com ele fora: apagada, com o porquê.
     // A em uso e as completas continuam escolhíveis — elas não pedem nada a ele.
     const semFonte = fonteBloqueada() && !bibleCompleteVersions.has(v.id) && v.id !== bibleVersionId;
@@ -5404,25 +5259,9 @@ function renderBibleVerList() {
       changeBibleVersion(v.id); // troca + recarrega o capítulo atual na nova versão
     });
     // ===== O EXCLUIR: OCULTO SEM NADA BAIXADO, APAGADO NA VERSÃO EM USO =====
-    //
-    // Pedido do operador (v1.8.84): *"ajuste para que oculte os icones de
-    // excluir, nos itens que ainda não foram baixados. Atualmente ele fica
-    // apenas esmaecido, mas pode deixar oculto quando não ainda não há nada
-    // baixado daquele item."*
-    //
-    // **OS DOIS CASOS DEIXARAM DE SER O MESMO, e a régua é o que o operador pode
-    // FAZER a respeito.** A regra da v1.8.50 (*"o que não tem função agora é
-    // apagado, não deixado inerte"*) existe para um botão cuja indisponibilidade
-    // é TEMPORÁRIA e reversível pelo próprio operador — é o caso da versão EM
-    // USO, onde ele escolhe outra e o botão acende, e é por isso que ela precisa
-    // ocupar o lugar e dizer por quê no `title`. Numa versão que nunca foi
-    // baixada não há função a recuperar: excluir o que não existe não é uma ação
-    // adiada, é uma ação que não existe.
-    //
-    // E o preço que a regra cobrava — mover os vizinhos debaixo do dedo — não se
-    // paga aqui: o excluir é o ÚLTIMO item da linha, então some sem empurrar
-    // ninguém, e a linha de uma versão não baixada nem sequer é um alvo de
-    // exclusão para o dedo errar.
+    // A régua é o que o operador pode FAZER: na versão em uso ele escolhe outra e
+    // o botão acende (apagado, com o porquê no `title`); numa nunca baixada não há
+    // ação a recuperar. Ele é o último da linha: some sem empurrar ninguém.
     const emUso = v.id === bibleVersionId;
     const daParaExcluir = !!(noAparelho || baixando);
     if (daParaExcluir) {
@@ -5515,11 +5354,11 @@ function bibliaCapitulosLegiveis(versionId, todas) {
 // sessão — ver `ensureBibleVersionDownloaded`.
 const bibliaConferidaNaSessao = new Set();
 
-// Baixa a versão INTEIRA da Bíblia (todos os capítulos de todos os livros) na
-// 1ª vez que ela é usada — em segundo plano, resumível (pula o que já está em
-// cache), concorrência limitada (runLimited, 5). O texto de cada capítulo é
-// leve (só versículos, sem mídia), então o volume total é modesto. O progresso
-// (bibleDl) aparece na tela de livros; ao terminar sem falhas, marca
+// Baixa a versão INTEIRA da Bíblia (todos os capítulos de todos os livros) — na
+// abertura (`garantirBibliaBase`), ao escolher a versão e ao abrir a Bíblia —, em
+// segundo plano, resumível (pula o que já está em cache), concorrência limitada
+// (runLimited, 5). O texto de cada capítulo é leve (só versículos, sem mídia). O
+// progresso (bibleDl) aparece na folha de versões; ao terminar sem falhas, marca
 // state['bibleComplete:<v>'] — o cache que evita refazer, reconferido contra o
 // disco na primeira chamada de cada sessão. A leitura por capítulo
 // (loadBibleChapter) continua funcionando sob demanda se o operador abrir um
@@ -5677,8 +5516,8 @@ async function ensureBibleVersionDownloaded(versionId) {
 // de versão (`.bible-ver-status` por versão) — não disputa espaço com a leitura.
 // Enquanto o download roda, re-renderiza a lista se o popup estiver aberto.
 // ESTRANGULADO (v1.8.85): ele é chamado UMA VEZ POR CAPÍTULO baixado — 1189
-// por versão —, e cada chamada reconstrói a LISTA INTEIRA de versões, que desde
-// a v1.8.83 carrega por linha o botão de excluir e o ✓ em SVG. O número que
+// por versão —, e cada chamada reconstrói a LISTA INTEIRA de versões, com o
+// botão de excluir de cada linha. O número que
 // muda ali é um contador de progresso; repintá-lo a 60 Hz não o torna mais
 // verdadeiro, e o custo cai sobre o mesmo fio que serve a projeção.
 //
@@ -5717,17 +5556,13 @@ function gotoBibleScreen(screen) {
 
 function renderBible() {
   const wrap = document.createElement('div');
-  // A tela de livros preenche a altura disponível (grade compacta, sem scroll);
-  // as demais rolam normalmente se precisarem (ex.: Salmos, 150 capítulos).
-  // Todas as telas preenchem a altura disponível e cabem sem scroll (ver
-  // .bible-wrap em controle.css).
+  // Cada tela preenche a altura da folha; quem rola é o envelope de cada grade
+  // (`bible-books-rolo`, as metades `bible-half`), nunca o `wrap`.
   wrap.className = 'bible-wrap';
   if (bibleScreen === 'chapters') renderBibleChapters(wrap);
   else if (bibleScreen === 'reading') renderBibleReading(wrap);
   else renderBibleBooks(wrap);
-  // O HOST É O DA FOLHA desde a v1.5.0 — era o `#library`, o mesmo `<ul>` do
-  // Cronograma, e por isso `renderLibrary` tinha um desvio por aba no topo. Com
-  // host próprio, as duas listas deixam de disputar um nó.
+  // O host é o da FOLHA (`#bibleBody`), não o `#library` do Cronograma.
   bibleBodyEl.innerHTML = '';
   bibleBodyEl.appendChild(wrap);
   // O voltar é da NAVEGAÇÃO INTERNA (livros → capítulos → leitura), e por isso
@@ -5750,8 +5585,6 @@ function bibleCell(sym, opts) {
 }
 
 function renderBibleBooks(wrap) {
-  // (O seletor de versão e o status de download saíram daqui — moram na tela de
-  // leitura, dando mais espaço para a grade de livros. Ver renderBibleReading.)
   // ===== A GRADE DEIXOU DE SER O SCROLLER (v1.8.60) =====
   //
   // A marca `rola` morava NA GRADE, e ali ela não pintava nada: o pseudo de um
@@ -5823,8 +5656,7 @@ function renderBibleChapters(wrap) {
     cell.addEventListener('click', () => {
       if (bibleSel.chapter === c) return;
       bibleSel.chapter = c;
-      renderLibrary();          // marca o capítulo já; a metade de baixo mostra "Baixando…"
-      loadBibleChapter();
+      loadBibleChapter();       // redesenha já: marca o capítulo, e embaixo "Baixando…"
     });
     cGrid.appendChild(cell);
   }
@@ -6095,11 +5927,11 @@ async function changeBibleVersion(id) {
     ));
   } catch (_) {}
   ensureBibleVersionDownloaded(id);
-  if (!bibleSession) { renderLibrary(); return; }
+  if (!bibleSession) return;
   const s = bibleSession;
   let verses;
   try { verses = await fetchBibleChapterCached(id, s.bookIdx, s.chapter); }
-  catch (_) { renderLibrary(); return; }
+  catch (_) { return; }
   if (bibleSession !== s) return;
   s.versionId = id;
   s.verses = verses;
@@ -6286,12 +6118,10 @@ async function ensureAdjLoaded(ref) {
   return p;
 }
 
-// Tela de LEITURA: seletor de versão + status offline no topo, versículo
-// anterior / atual / próximo empilhados (o anterior/próximo mostram também o
-// salto pro capítulo/livro vizinho nos limites, com indicador da mudança), e a
-// referência atual num botão que volta para a seleção de livros. Toque no
-// CENTRAL ativa a exibição; toque no anterior/próximo move pro central (só
-// exibe automaticamente depois de ativado — ver bibleSetIdx).
+// Tela de LEITURA: um versículo atrás e dois à frente (nos limites, os vizinhos
+// mostram o salto de capítulo/livro) e, no rodapé, a referência em quatro
+// pílulas mais os dois destinos. Toque no CENTRAL exibe/tira do ar; nos vizinhos,
+// move o central (só exibe sozinho depois de ativado — ver bibleSetIdx).
 function renderBibleReading(wrap) {
   const s = bibleSession;
   if (!s) { gotoBibleScreen('books'); return; }
@@ -6362,27 +6192,10 @@ function renderBibleReading(wrap) {
   const foot = document.createElement('div'); foot.className = 'bible-read-foot';
   const v = s.verses[s.idx];
   const nav = document.createElement('div'); nav.className = 'bible-ref-nav';
-  // ===== O RÓTULO SAIU DA TELA E FOI PARA O NOME DO BOTÃO (v1.8.83) =====
-  //
-  // Pedido do operador: *"Remova os títulos dos grupos na barra inferior durante
-  // a leitura. A largura da barra é definida por esses títulos, mas ocupa um
-  // espaço desnecessário na área dos capítulos e versículos em relação aos
-  // números e aperta na área dos livros… Essa barra não deve ter um modo de
-  // 'duas linhas'"*.
-  //
-  // Ele descreve o mecanismo com precisão, e a v1.7.9 já o tinha medido do outro
-  // lado: *"quem se dimensiona pelo RÓTULO são as três pílulas de número —
-  // 'CAPÍTULO' e 'VERSÍCULO' em caixa alta são muito mais largos que os valores
-  // ('3'), então é o rótulo que dita a largura"*. Aquele lote pagou o aperto
-  // encolhendo o rótulo; este tira a causa.
-  //
-  // O QUE SUBSTITUI A PALAVRA NA TELA É A TINTA, e ela já estava lá desde a
-  // v1.3.14: cada pílula veste a grade que abre — o livro na tinta do grupo
-  // canônico, o capítulo no tom frio, o versículo no quente. A palavra era a
-  // terceira escrita da mesma informação, depois da cor e da posição.
-  //
-  // E ELA NÃO SOME DO APP: vira `title` e `aria-label`, que é onde um botão sem
-  // rótulo diz o que é — a mesma regra dos três destinos da playlist automática.
+  // ===== SEM RÓTULO NA TELA: ele vira o nome do botão =====
+  // Com a palavra ("CAPÍTULO", "VERSÍCULO") é ELA que dita a largura das pílulas,
+  // não o valor. O que a substitui é a TINTA — cada pílula veste a grade que abre —
+  // e a palavra vira `title`/`aria-label`. A barra não tem modo de duas linhas.
   const part = (label, value, onClick, cls) => {
     const b = document.createElement('button'); b.type = 'button';
     b.className = 'bible-ref-part' + (cls ? ' ' + cls : '');
@@ -6617,31 +6430,14 @@ const ROTULO_PADRAO = { em: 'na lista', para: 'à lista' };
 // explicar a própria navegação para quem já está navegando nela, e era metade
 // da altura desta folha.
 //
-// ===== A ORDEM É A DA TABELA, E ELA É CANÔNICA (v1.8.56) =====
+// ===== A ORDEM É A DA TABELA, E ELA É CANÔNICA =====
 //
-// Pedido do operador: *"há casos em que o cronograma está a esquerda, e outros
-// ele está a direita… Padronize: a esquerda o cronograma, no meio a playlist e
-// por fim o favoritos. Tente aplicar essa ordem a todo o app como padrão onde
-// houver esses botões (é claro, há lugares que só há um ou dois deles)"*.
-//
-// A DIVERGÊNCIA NÃO ERA DECISÃO DE NINGUÉM: eram QUATRO listas escritas à mão
-// com a mesma tríade em ordens diferentes — as duas folhas de destino (a do
-// acervo e a do YouTube), o mapa `LINHA` da gaveta e o `DEST_ICONE` desta
-// folha —, mais duas fileiras de botão de linha. Uma tabela que só respondia
-// "quais existem?" deixava "em que ordem?" para cada chamador, e o quinto
-// chamador ia divergir também.
-//
-// Por isso `ico` e `acao` entraram AQUI, e as quatro listas saíram: quem monta
-// uma folha de destinos percorre esta tabela, e não pode mais escolher a
-// ordem. `rotulo` é o nome do lugar ("Cronograma"); `acao` é o que se FAZ com
-// ele ("Adicionar ao Cronograma") — as folhas usam um ou outro conforme a
-// linha seja uma MARCA ou um verbo, e escrever os dois no mesmo campo torceria
-// metade das telas.
-//
-// ONDE FALTA UM DELES A ORDEM SOBREVIVE, que é a ressalva do pedido: a linha
-// do Cronograma não oferece "Cronograma" (o item já está lá) e a da fila não
-// oferece "Playlist" (a linha É a fila) — em ambas o que resta continua na
-// ordem relativa desta tabela.
+// Cronograma, playlist, favoritos: a ordem e o ícone (`ico`) de toda folha e
+// fileira de destinos saem daqui, nunca de uma lista escrita no chamador.
+// `rotulo` é o nome do lugar ("Cronograma"); `acao` é o que se FAZ com ele
+// ("Adicionar ao Cronograma") — as folhas usam um ou outro conforme a linha seja
+// uma MARCA ou um verbo. Onde falta um destino (a linha do Cronograma não oferece
+// "Cronograma"; a da fila, "Playlist"), o que resta segue a ordem relativa.
 const DESTINOS = [
   { chave: 'cronograma', lista: 'imports', rotulo: 'Cronograma', acao: 'Adicionar ao Cronograma', ico: 'cronoAdd' },
   { chave: 'playlist', lista: 'playlist', rotulo: 'Playlist', acao: 'Adicionar à playlist', ico: 'queue' },
@@ -6717,26 +6513,15 @@ async function adicionarNasListas(listas, id, nome, btn) {
   // apareceu". Um funil que cuida de dois dos três destinos é um convite a
   // isto no terceiro chamador que aparecer.
   if (alvos.includes('imports')) {
-    // O ESPELHO DO CRONOGRAMA (v1.4.25) anda ANTES do `load()` condicional: ele
-    // é o que responde ao botão da fila, e ele existe justamente para o caso em
-    // que a aba de trás NÃO é o Cronograma — que é o caso em que aquele `load()`
-    // não roda.
+    // O ESPELHO DO CRONOGRAMA anda ANTES do `load()`: os botões "ao Cronograma"
+    // das listas abertas por cima (a fila, a Biblioteca) acendem sem esperar a
+    // releitura do banco.
     cronoSet.add(id);
     marcarNoCronograma();
     await load();
   }
   return novas.length;
 }
-
-// (`adicionarNaLista` — a forma de UM destino — SAIU: o comentário dela dizia
-// que era "o que a maior parte do app ainda usa" e ela não tinha um único
-// chamador. Os dois pontos que acrescentam item a lista (a gaveta de uma linha
-// e a folha de destinos de uma música) passam por `listasDosDestinos` e chamam
-// `adicionarNasListas` direto desde a v5.141, que é o lote que a tornou
-// supérflua. Quem a mantinha viva era o `tools/destinos.test.mjs` — um oráculo
-// exercitando um caminho que o app não percorre não é rede de segurança, é uma
-// segunda API mantida por engano, e ele passou a montar o fixture pela mesma
-// porta que o app usa.)
 
 // A identidade de uma CENA: tipo + descritor. Duas cenas com a mesma chave são
 // a mesma coisa para o operador ("Salmo 23:1" é "Salmo 23:1"), ainda que sejam
@@ -6811,9 +6596,8 @@ async function criarCue(cue, data, nome, destino, btn) {
     ? rotuloItem(nome) + 'adicionado — já havia um igual no Cronograma'
     : rotuloItem(nome) + 'adicionado ' + onde.para);
   if (lista === 'favs') await recarregarFavoritos();
-  // Redesenha só quando a tela em cena é justamente a que acabou de receber o
-  // item — guardar um versículo estando na aba da Bíblia não precisa remontar
-  // o Cronograma, que ainda vai ser carregado ao voltar para ele.
+  // O Cronograma é a lista da tela: entrou nele, redesenha. Nos favoritos, o
+  // `recarregarFavoritos` acima já basta.
   if (lista === 'imports') await load();
   return rec;
 }
@@ -7160,11 +6944,10 @@ function lyricStep(delta) {
 // na escada do botão voltar. **O NOME É `visual` e não `imagem`** desde que a
 // apresentação entrou: um `imgSession` guardando um deck é a armadilha que este
 // projeto nomeia — quem o lesse procuraria uma imagem que não está lá.
-// O `rec` viaja DENTRO da sessão porque ele é o único lugar que sobrevive à
-// troca de aba: a imagem sobreposta costuma vir de `libItems`, e essa lista é
-// zerada a cada troca. Sem ele, um reenvio de cena (uma tela da rede que deu F5)
-// mandava `{type:'text',mode:'image'}` sem `__rec` e a tela pintava um cartão
-// PRETO sobre a projeção. Ver `await0Rec`.
+// O `rec` viaja DENTRO da sessão porque a imagem sobreposta nem sempre está numa
+// lista carregada (`libItems`/`plItems`): sem ele, um reenvio de cena (uma tela da
+// rede que deu F5) mandava `{type:'text',mode:'image'}` sem `__rec` e a tela
+// pintava um cartão PRETO sobre a projeção. Ver `await0Rec`.
 let visualSession = null;   // { id, nome, rec, projecting } | null
 function visualSobreProjetando() { return !!(visualSession && visualSession.projecting); }
 
@@ -7219,8 +7002,7 @@ function audioNoAr() {
   return !!(midiaNoAr && currentItem && currentItem.kind === 'audio');
 }
 
-// Encerra QUALQUER texto manual em cena (Bíblia, Mensagem, letra avulsa,
-// cronômetro ou sorteio) — só um por vez.
+// Quem entra no cartão de texto encerra todo OUTRO texto manual em cena.
 /**
  * UM PROVEDOR DE TEXTO POR VEZ — e a lista mora aqui, não em cada projetor.
  *
@@ -7267,6 +7049,7 @@ function soUmProvedorDeTexto(quem) {
   if (quem !== 'avulso') textoAvulsoNoAr = false;
 }
 
+// Encerra QUALQUER texto manual em cena, venha de qual provedor vier.
 function clearManualText() {
   clearBibleSession(); clearMsgSession(); clearLyricSession();
   clearChronoSession(); clearDrawSession(); clearVisualSession(); clearItinSession();
@@ -7369,7 +7152,7 @@ function encerrarCamadaDeCima() {
  * Há uma Camada de Texto NO AR? A pergunta é sobre PROJEÇÃO, nunca sobre a
  * existência da sessão.
  *
- * Os quatro `hide*` existem para tirar da tela SEM matar a sessão (o operador
+ * Os `hide*` existem para tirar da tela SEM matar a sessão (o operador
  * reexibe, e o cronômetro segue correndo por baixo): eles escrevem
  * `projecting = false` e deixam a sessão de pé. Testando a existência, esta
  * função respondia "está no ar" com o telão limpo — a linha da cena ficava com
@@ -7382,9 +7165,8 @@ function encerrarCamadaDeCima() {
  * e invisível para o resto do app.
  */
 function cenaDeRoteiroNoAr() {
-  return !!((bibleSession && bibleSession.projecting) || msgProjecting()
-    || lyricProjecting() || chronoProjecting() || drawProjecting() || itinProjecting()
-    || visualSobreProjetando() || textoAvulsoNoAr);
+  // A MESMA régua de `provedorDeTextoNoAr` — escrita duas vezes, divergiria.
+  return !!provedorDeTextoNoAr();
 }
 
 // Projeta a mensagem de índice `idx` (Display + preview). Encerra a Bíblia (só
@@ -7448,8 +7230,6 @@ function hideMessage() {
   renderNowPlaying();
   renderSlideNav();
   marcarNoAr();   // o selo "● No ar" da linha só sai por aqui — ver `hideBibleVerse`
-  // Uma chamada só: a segunda (lapso — nenhum outro hide* do arquivo repete)
-  // remontava a aba inteira duas vezes no mesmo pulso.
   refreshDiversos();
 }
 
@@ -7510,21 +7290,6 @@ async function deleteMessage(id) {
   refreshDiversos();
 }
 
-// (O MICROFONE AO VIVO saiu na v1.8.89, a pedido do operador: *"remova a opção
-// de microfone direto para o telão, que temos nas ferramentas"*. Ele era o
-// único caminho de CAPTURA do app — o rodapé da aba Ferramentas era a única
-// porta dele —, e com a porta fechada saíram junto o `renderMic`, o `sendMic`,
-// o `renderMicUI`, o diagnóstico (`micRegistrar`/`blocoMicrofone`) e o
-// `haOndeReproduzirMic`. Do outro lado saiu o `setMic` do `display.js`, que
-// ficaria sem quem lhe mandasse o comando.
-//
-// O KOTLIN FICA POR ORA, e é o lado seguro: `MicChromeClient`, `requestMic`,
-// `micDiag` e a permissão `RECORD_AUDIO` só saem instalando um APK, e um shell
-// que ainda serve método que ninguém chama não custa nada ao aparelho — é a
-// ordem inversa (base web nova contra APK velho) que precisa de `shellTag`.
-// `requestMic` e `micDiag` saíram do `native.js` no mesmo lote, que é o que a
-// regra pede de quem encolhe a ponte pelo web.)
-
 // ===== O ESTADO DO "PROJETAR NO TELÃO" =====
 // Ele saiu do fim de cada painel e foi para o rodapé fixo: tê-lo sempre no
 // mesmo lugar vale mais do que a proximidade com os controles que o
@@ -7583,8 +7348,6 @@ function miscProjectState() {
  * barra fixa de uma janela não pode morar dentro do scroller dela, senão ela
  * rola junto — que é o que o pedido nomeia. O corpo leva `flex: 1` e rola; o
  * rodapé fica.
- *
- * O microfone SAIU daqui na v1.8.89 (ver a lápide acima).
  */
 /**
  * ===== O QUE A FERRAMENTA OPERA VAI PARA O RODAPÉ (v1.8.94) =====
@@ -38528,6 +38291,7 @@ function renderWallTile() {
     customWallpaper ? 'Própria' : 'Padrão', true, !!customWallpaper);
 }
 async function applyFit(mode) {
+  fitSeq++;
   mediaFit = mode;
   renderFitTile();
   await AVDB.setState('fit', mediaFit);
@@ -38588,6 +38352,7 @@ function renderRotBtn() {
   }
 }
 async function applyRotate(graus) {
+  rotSeq++;
   mediaRot = ((graus | 0) % 360 + 360) % 360;
   if (!ROTACOES.includes(mediaRot)) mediaRot = 0;
   renderRotBtn();
