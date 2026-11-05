@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.21';
+const WEB_VERSION = '1.13.22';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -5931,7 +5931,25 @@ async function changeBibleVersion(id) {
   const s = bibleSession;
   let verses;
   try { verses = await fetchBibleChapterCached(id, s.bookIdx, s.chapter); }
-  catch (_) { return; }
+  catch (_) {
+    // O CAPÍTULO NÃO VEIO NA VERSÃO NOVA (v1.13.22): a escolha volta para a que a
+    // sessão MOSTRA. Mantida, a pílula e a folha diziam a nova sobre o texto (e a
+    // projeção) da velha, o `bibleGotoChapter` seguia em `s.versionId`, e tocar
+    // de novo na nova não tentava nada — o `bibleVersionId === id` acima. Só se
+    // a sessão e a escolha ainda são DESTA chamada; a varredura disparada acima
+    // segue, e escolher de novo quando ela chegar troca de verdade.
+    if (bibleSession !== s || bibleVersionId !== id) return;
+    const volta = s.versionId;
+    bibleVersionId = volta;
+    try { await AVDB.updateState('bibleVersion', (atual) => (atual === id ? volta : atual)); } catch (_) {}
+    if (bibleVerPopupEl.classList.contains('open')) renderBibleVerList();
+    bibleRenderReading();
+    const semRede = navigator.onLine === false || fonteVeredito.estado === 'sem-internet';
+    previewBusy('Versão', bibleVersionAbbr(id)).falhar(semRede
+      ? 'sem conexão — ' + bibleVersionAbbr(id) + ' ainda não está no aparelho'
+      : bibleVersionAbbr(id) + ': o capítulo não veio — tente de novo');
+    return;
+  }
   if (bibleSession !== s) return;
   s.versionId = id;
   s.verses = verses;

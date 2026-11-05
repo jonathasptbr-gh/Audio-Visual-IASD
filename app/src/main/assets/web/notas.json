@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.13.22",
+    "itens": [
+      "Bíblia: trocar a versão sem internet não deixa mais o nome de uma versão sobre o texto de outra.",
+      "Se a versão escolhida ainda não está no aparelho, o app avisa e continua na que estava aberta."
+    ]
+  },
+  {
     "versao": "1.13.21",
     "itens": [
       "Girar a mídia ou trocar Ajustar/Preencher logo ao abrir o app não volta mais sozinho na tela do celular."
