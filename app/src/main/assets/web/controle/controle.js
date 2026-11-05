@@ -4037,6 +4037,11 @@ let favSeq = 0;
 // novo. Uma senha por chave: um giro em voo não pode pular o PREENCHIMENTO lido.
 let fitSeq = 0;
 let rotSeq = 0;
+// O QUINTO PAR: load × `toggleCronograma`/`togglePlaylist`. Os dois gravam e
+// releem a lista; um `load()` que a leu ANTES do toque aplicava a cópia velha
+// DEPOIS dele, e o item ficava no banco e fora de `cronoSet`/`libItems`/`plItems`
+// até o próximo `load()` (`hidratacao-perde-a-vez`, 9).
+let listasSeq = 0;
 /**
  * Redesenha a lista da aba atual.
  *
@@ -4105,6 +4110,7 @@ async function load(opts) {
   const senhaDosFavoritos = favSeq;
   const senhaDoFit = fitSeq;
   const senhaDoGiro = rotSeq;
+  const senhaDasListas = listasSeq;
 
   // ---- FASE 1: só leituras do IDB, em locais (nada de estado/DOM ainda) ----
   const cur = await AVDB.getState('current');
@@ -4155,7 +4161,8 @@ async function load(opts) {
   muted = !!(cur && cur.muted);
   volume = (cur && typeof cur.volume === 'number') ? cur.volume : 1;
   repeat = repeatV;
-  plItems = plItemsV;
+  const listasSaoNossas = listasSeq === senhaDasListas;
+  if (listasSaoNossas) plItems = plItemsV;
   opfsFolders = opfsFoldersV;
   // OS FAVORITOS SÓ SÃO APLICADOS SE NINGUÉM OS RELEU (ver `favSeq`). Os dois
   // andam JUNTOS: aplicar um e não o outro é a divergência que o KDoc de
@@ -4164,7 +4171,7 @@ async function load(opts) {
     favSet = new Set(favIdsV);
     favItems = favItemsV;
   }
-  cronoSet = new Set(cronoIdsV);
+  if (listasSaoNossas) cronoSet = new Set(cronoIdsV);
   cronos = cronosV;
   messages = messagesV;
   applyChronoPrefs(chronoPrefsV);
@@ -4204,7 +4211,7 @@ async function load(opts) {
   // `lvTamanho` logo acima: valor fora da escada cai no padrão, e não numa
   // altura que ninguém escolheu.
   ytAlturaPreferida = YT_ALTURAS.includes(ytAlturaV | 0) ? (ytAlturaV | 0) : YT_ALTURA_PADRAO;
-  libItems = libItemsV;
+  if (listasSaoNossas) libItems = libItemsV;
   // A ESCOLHA DE GUARDAR TODAS AS CIFRAS (v1.12.60) e, com o Cronograma recém-
   // lido, as cifras DELE — ver `cifrasDoCronogramaAgendar`. Toda mudança do
   // Cronograma (acrescentar, trocar de cronograma, a abertura) passa por este
@@ -15147,6 +15154,7 @@ function cronogramaIconSvg(dentro) {
  */
 async function toggleCronograma(item, btn) {
   if (!item || !item.id) return;
+  ++listasSeq;   // ver `listasSeq`: antes do primeiro `await`
   const dentro = noCronograma(item.id);
   if (dentro) { await AVDB.listRemove('imports', item.id); cronoSet.delete(item.id); }
   else { await AVDB.listAdd('imports', item.id); cronoSet.add(item.id); }
@@ -15213,6 +15221,7 @@ function marcarFavoritos() {
  */
 async function togglePlaylist(item, btn) {
   if (!item || !item.id) return;
+  ++listasSeq;   // ver `listasSeq`: antes do primeiro `await`
   const dentro = naPlaylist(item.id);
   if (dentro) await AVDB.listRemove('playlist', item.id);
   else await AVDB.listAdd('playlist', item.id);

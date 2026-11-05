@@ -235,9 +235,12 @@ As quatro células:
   desde a v5.53 é uma **gaveta que desce do topo** (ver a seção própria),
   aberta pelo botão do **canto direito do cabeçalho** (v5.103 — antes era o
   botão ao lado de "Importar arquivos", no fim do Cronograma, e chegar lá
-  exigia rolar a lista inteira). O voltar e o sincronizar moram no cabeçalho DA
-  GAVETA; `renderTabs()` mantém o Cronograma aceso enquanto ela está aberta,
-  porque é ele que está atrás.
+  exigia rolar a lista inteira). **A gaveta também saiu (v5.294)**, e o
+  `renderTabs()` que mantinha o Cronograma aceso atrás dela saiu com a faixa
+  (v1.5.0): hoje os Favoritos são o grupo `GRUPO_FAVORITOS` no topo da
+  Biblioteca (só no modo avançado), desenhado por `renderFolderList` no corpo
+  `data-fav-corpo` (`favHost`) — os itens marcados e, no fim, as pastas do
+  aparelho.
 - **Mensagens** — foi para a aba **Ferramentas** (v5.31), como seção do
   acordeão. Antes era um botão flutuante sobre a preview; ver abaixo.
 
