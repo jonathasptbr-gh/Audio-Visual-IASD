@@ -575,9 +575,9 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   última linha na tela no instante `t1` — o fim da cifra lido bem antes do fim
   da música, que é a parte que mais se erra. **A ABERTURA saiu**, e saiu porque
   perdeu o referente: ela era *"a música acabou de começar"*, e não há mais
-  começo nenhum. A `fracaoDaRolagem` fica no módulo, **sem consumidor e com
-  oráculo**, para quem quiser reintroduzir o posicional ter a função e a razão da
-  saída. A duração vem da **barra de progresso**, a única fonte que cobre todos
+  começo nenhum. A função posicional (`fracaoDaRolagem`) saiu na revisão W3,
+  junto com a asserção dela: sem consumidor, o oráculo provava uma regra que o
+  app não roda (o git a guarda). A duração vem da **barra de progresso**, a única fonte que cobre todos
   os tipos de mídia, pela mesma razão que o `pushNowPlaying`.
 
   **MAS O COMEÇO TEM UMA RAMPA DE ARRANQUE, por outro motivo.** Pedido do

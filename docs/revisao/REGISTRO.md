@@ -20,7 +20,7 @@ abandonada → primeira pendente pelo `nº`).
 | 6 | A6 | feita | sem versão (só workflow, `tools/` e docs) | 2026-11-04 → 2026-11-05 | o `verificar` fixo em `ubuntu-24.04`: no 26.04 o Playwright do pin não instalava e a suíte de Chromium era PULADA com job verde (9 runs); `stub-da-ponte` novo (94 travas latentes em 40 fixtures consertadas); ponteiros do `apk.yml` e duplicata do `BUILD.md` |
 | 7 | W1 | feita | v1.13.17 (só web) | 2026-11-05 | `apkInstalar` que não respondia virava SUCESSO (consertado + asserção); `watchdog-modulos` novo; ~30 comentários corrigidos/reancorados nos dois arquivos; 3 RMW partidos no `controle.js` repassados |
 | 8 | W2 | feita | v1.13.18 (só web) | 2026-11-05 | nenhum defeito de culto na cerca; o giro perdido do `enquadramento-da-camada` MEDIDO: é o `load()` do Controle reaplicando rotação velha (repasse C2), não o `stage.js`; export morto e ~15 comentários |
-| 9 | W3 | em curso | | 2026-11-05 | |
+| 9 | W3 | feita | v1.13.19 (só web) | 2026-11-05 | a `FORA` do pacote com a grafia errada deixava as intenções do YouTube viajarem (consertado + asserção cruzada); 4 funções só-do-oráculo saíram e o `funcao-sem-chamador` vê a superfície dos módulos; `bible.test.mjs` novo |
 | 10 | C1 | pendente | | | |
 | 11 | C2 | pendente | | | |
 | 12 | C3 | pendente | | | |
@@ -329,3 +329,34 @@ webOS 4.x citado (o `display.js` já exige o mesmo — não é regressão).
 `mensagem-estilo`, `itinerario`, `parar-por-camada`, `apresentacao`, `tela-inteira`,
 `preview-volta-ao-wallpaper`, `ponte`, `registro` e os estáticos que leem a cerca.
 **O operador:** nada a fazer; a v1.13.18 chega sozinha (só web, nada que ele veja).
+
+### W3 · Módulos puros — feita (2026-11-05)
+
+Sem repasses endereçados à W3. Lidos os onze módulos inteiros (código sem comentário).
+**Corrigido (código):** `pacote.js` — a `FORA` dizia `'yt-intencoes'`, a chave é
+`'ytIntencoes'` (nunca foi outra): as intenções de download viajavam no `.avpkg` e o
+destino rebaixava, na abertura (dentro de 6 h), vídeos que nunca pediu. Asserção nova no
+`pacote.test.mjs`: toda entrada de `FORA` é literal na base (fora as órfãs do clone);
+reversão reprova. **Só-do-oráculo, removidas com a asserção:** `AVSorteio.sortear` (o app
+usa `baralhar`), `AVCifra.somenteLetra` (auditoria T8), `AVCifra.fracaoDaRolagem`,
+`AVHinario.ehInfantil` + `secaoDe`; `urlDeBusca` sem o `extra` (T9). O
+`funcao-sem-chamador` ganhou o bloco da superfície dos módulos puros (a exportação
+contava como uso); reversão: as quatro reprovam. **Duplicação:** `restanteDaAtual`
+→ `ritmoVivo` (equivalente), `ehAlfabetica` → `casa`.
+**Oráculo novo:** `bible.test.mjs` (Node puro, no workflow e no `ORACULOS.md`) — as duas
+guardas do `stripHtml`; reversão das duas reprova.
+**Só comentário (provas 1 e 2):** lápide do `GROUPS`, ponteiros para seções do
+`CLAUDE.md` que saíram, o bloco do `daOrigem` reancorado e a cópia dele no `fileUrl`.
+**Achado e não corrigido:** exportações de nomes só internos (não é código morto);
+o `ritmoDaRolagem` ainda desconta a ABERTURA que o comentário diz ter saído
+(comportamento visível — pergunta, não diff); prosa de lote longa no `fileUrl` e no
+`aindaNaoSaiu`; o bloco de PARÂMETRO do `funcao-sem-chamador` também não vê função
+exportada (o nome solto na exportação o faz desistir) — sem dono (A5 feita).
+**Verificado:** Node puro, `docs-coerentes` e "Sanidade da base web"; Chromium (24):
+`smoke`, `boot-nativo`, os quatro `pacote-*`, os quatro `sorteio-*`, os quatro `cifra-*`,
+`hinario-tela`, `louvorja-url`, as duas `biblia-*`, `lista-da-biblioteca`,
+`download-do-acervo`, `linha-da-preparacao`, `gaveta-no-download`, `pptx-video-na-pagina`,
+`serie-mantem-a-semana`, `aviso-de-importacao` — 23 verdes; `cifra-tela-cheia` reprova
+AQUI igual no HEAD (`setViewportSize` sobre janela em tela cheia, Playwright local fora do
+pin): ambiente, a prova é o CI.
+**O operador:** nada a fazer; a v1.13.19 chega sozinha (só web).

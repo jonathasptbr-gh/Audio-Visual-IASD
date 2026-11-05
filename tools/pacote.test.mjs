@@ -212,7 +212,7 @@ checar(!!P, 'o módulo publica `AVPacote`');
     + 'biblioteca que não pode ficar para trás em silêncio');
   for (const [chave, porque] of [
     ['ota-intencao', 'reabriria o instalador do APK no aparelho de destino'],
-    ['yt-intencoes', 'faria o destino reclamar downloads que nunca começaram nele'],
+    ['ytIntencoes', 'faria o destino reclamar downloads que nunca começaram nele'],
     ['opfs-folders', 'guarda concessões do SAF que não existem no outro aparelho'],
     ['current', 'trocaria a projeção de quem importa'],
     ['historico', 'misturaria dois cultos num diário só'],
@@ -220,6 +220,27 @@ checar(!!P, 'o módulo publica `AVPacote`');
     checar(!P.chaveViaja(chave), 'e `' + chave + '` NÃO atravessa: ' + porque);
   }
   checar(!P.chaveViaja('') && !P.chaveViaja(null), 'uma chave vazia ou ausente não atravessa');
+  // CADA ENTRADA DE `FORA` É UMA CHAVE QUE A BASE GRAVA (revisão W3). A lista
+  // compara por IGUALDADE, e uma grafia que nenhum escritor usa não recusa nada:
+  // a `FORA` dizia `'yt-intencoes'` e a chave é `'ytIntencoes'`, então as
+  // intenções de download viajavam e o aparelho de destino rebaixava, na
+  // abertura, vídeos que nunca pediu. A conferência é pelo LITERAL na base web
+  // (fora o próprio `pacote.js`); as duas do clone são órfãs declaradas.
+  const ORFAS = new Set(['clone-diario', 'clone-parcial']);
+  const base = [];
+  (function anda(d) {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) { if (e.name !== 'vendor') anda(p); } else if (/\.js$/.test(e.name)
+        && !p.endsWith(path.join('controle', 'pacote.js'))) base.push(fs.readFileSync(p, 'utf8'));
+    }
+  })(WEB);
+  const todaBase = base.join('\n');
+  const semEscritor = P.FORA.filter((k) => !ORFAS.has(k)
+    && !todaBase.includes("'" + k + "'") && !todaBase.includes('"' + k + '"'));
+  checar(P.FORA.length > 10 && !semEscritor.length,
+    'toda chave de `FORA` existe como literal na base web — uma grafia errada não recusa nada',
+    semEscritor);
 }
 
 // ---------------------------------------------------------------------------

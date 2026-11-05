@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.19** — revisão W3: OS MÓDULOS PUROS; o pacote deixava passar as intenções de download do YouTube (grafia errada na lista de recusa), quatro funções que só o oráculo chamava saíram e o `funcao-sem-chamador` passa a ver a superfície dos módulos; `bible.test.mjs` novo
 - **v1.13.18** — revisão W2: MOTOR E TELÃO; o giro perdido do `enquadramento-da-camada` era o `load()` do Controle (repasse C2), não o `stage.js`; um export morto e comentários
 - **v1.13.17** — revisão W1: O NÚCLEO COMPARTILHADO (`db.js` + `native.js`); o `apkInstalar` que não respondia virava sucesso, e o watchdog do OTA ganha oráculo
 - **revisão A6 (sem versão nova; só workflow, `tools/` e docs)** — CI E HIGIENE: o `verificar` fixo em `ubuntu-24.04` (no 26.04 o Playwright do pin não instala e a suíte de Chromium era PULADA com o job verde), o `stub-da-ponte` fecha a armadilha dos 60 s, ponteiros do `apk.yml` e duplicata do `BUILD.md`
@@ -631,6 +632,70 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.13.19 — revisão W3: OS MÓDULOS PUROS (`controle/` menos `controle.js`); a intenção de download atravessava o pacote
+
+**v1.13.19 (revisão W3; só web, sem Release)** — a etapa W3 da revisão profunda
+(`docs/REVISAO-PROFUNDA.md`): os onze módulos puros de `controle/` (`bible`,
+`louvorja`, `cifra`, `coletanea`, `deck`, `hinario`, `pacote`, `pptxzip`,
+`progresso`, `serie`, `sorteio`) pela lista comum. Sem repasses endereçados à W3.
+
+**O DEFEITO (pacote).** A lista de recusa `FORA` do `pacote.js` dizia
+`'yt-intencoes'`, e a chave que o `controle.js` grava é `YT_INTENCOES =
+'ytIntencoes'` — nunca foi outra (`git log -S`). A comparação é por IGUALDADE
+(`chaveViaja`), então a entrada não recusava NADA: as intenções de download do
+YouTube viajavam no `.avpkg`, a mescla (`pacoteMesclarValor`, lista local vazia
+perde) as gravava no destino, e o `resgatarDownloads` da abertura seguinte
+rebaixava, numa lista visível, vídeos que aquele aparelho nunca pediu — dentro
+das seis horas de validade, isto é, exatamente no "exporto agora e importo no
+outro celular". O `pacote.test.mjs` copiava a mesma grafia, e por isso passava.
+Conserto: `'ytIntencoes'` na `FORA` (que o import também consulta, então um
+pacote velho também é barrado) e uma asserção nova: **toda entrada de `FORA`
+existe como LITERAL na base web**, fora as duas órfãs do clone. Reversão: a
+grafia velha reprova as duas asserções.
+
+**SÓ O ORÁCULO (quatro funções) — e o furo que as escondia.** `AVSorteio.sortear`
+(o app usa `baralhar` e corta o próprio lote em `sorteioLista` desde a v1.8.84 —
+a lógica de verdade em outro lugar, o caso que o `funcao-sem-chamador` nomeia
+como pior que morta), `AVCifra.somenteLetra` (nunca teve chamador: auditoria
+2026-08 T8), `AVCifra.fracaoDaRolagem` (sem consumidor desde a v1.5.6, mantida
+"de propósito") e `AVHinario.ehInfantil` (e com ela `secaoDe`, que só ela usava —
+o comentário dizia que a lista do álbum a chamava por linha; quem é chamada é
+`comecaSecao`). Saíram com as asserções delas; as que provavam a REGRA foram
+para o que o app usa (`baralhar`; a amostra do hinário lê a tabela). O
+`funcao-sem-chamador` não as via porque a linha da exportação conta como uso — o
+mesmo furo que ele já fechava para o `AVDB` — e ganhou o sexto bloco, A
+SUPERFÍCIE DOS MÓDULOS PUROS: uma FUNÇÃO exportada é viva se usada dentro do
+módulo ou acessada como `.<nome>` no resto da base. Reversão: devolvê-las reprova
+as quatro. **T9 da mesma auditoria:** `urlDeBusca(termo, extra)` perdeu o
+`extra`, que nenhum chamador de produção supria (o `controle.js` monta a consulta
+com o álbum ele mesmo).
+
+**DUPLICAÇÃO:** o `restanteDaAtual` do `progresso.js` reescrevia a conta do
+`ritmoVivo` inteira (confiança + mistura + teto do silêncio) — agora a chama;
+equivalente porque o ramo já exige `primeiroLido >= 0`, a única condição a mais
+da outra. `AVColetanea.ehAlfabetica` reescrevia o `casa`.
+
+**COBERTURA:** `tools/bible.test.mjs` (Node puro, no workflow): o `bible.js` era o
+único módulo puro sem oráculo, e as duas guardas do `stripHtml` (o `fromCodePoint`
+acima de 0x10FFFF levava o capítulo inteiro; o `&amp;` primeiro desescapava em
+dobro) não tinham asserção. Reversão das duas: reprova.
+
+**SÓ COMENTÁRIO (provas 1 e 2):** a lápide do `GROUPS` no `bible.js`; ponteiros
+para seções do `CLAUDE.md` que saíram na A2 (`bible.js`, `louvorja.js` →
+`BIBLIA.md`/`CONTROLE-COLECOES.md`; `serie.js` → `SERIES.md`); no `louvorja.js` o
+bloco "Este host é da ORIGEM?" encabeçava o `CDN_HOSTS_CONHECIDOS` e foi para o
+`daOrigem`, e a cópia dele dentro do KDoc do `fileUrl` saiu; o `cifra.js` deixou de
+chamar a janela de "função da posição da música"; o `sorteio.js` deixou de dizer
+que o pool é embaralhado pelo `sortear`.
+
+**Achado e não corrigido:** a superfície EXPORTADA tem dezenas de nomes que só o
+próprio módulo usa (constantes de vocabulário e funções internas do `deck.js`,
+`pptxzip.js`, `progresso.js`) — removê-los da exportação não apaga código e não é
+defeito; o comentário do `ritmoDaRolagem` diz que a ABERTURA "sai", e a janela
+ainda a desconta do tempo útil (comportamento de rolagem, fora do que se muda sem
+pedido); prosa de lote longa no `louvorja.js` (`fileUrl`) e no `serie.js`
+(`aindaNaoSaiu`).
 
 ## v1.13.18 — revisão W2: MOTOR E TELÃO (`stage.js`, `display.js`, `tela.js` e as duas folhas); o giro perdido do `enquadramento-da-camada` não era do motor
 

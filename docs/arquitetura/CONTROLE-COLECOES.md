@@ -103,7 +103,7 @@ oráculo), transcrita do índice publicado pela CPB.
 
 | peça | onde | o quê |
 |---|---|---|
-| a tabela | `controle/hinario.js` | 35 faixas, `secaoDe`/`comecaSecao`/`indice`. PURA — não sabe nada de coleção, só traduz NÚMERO em SEÇÃO |
+| a tabela | `controle/hinario.js` | 35 faixas, `comecaSecao`/`indice`. PURA — não sabe nada de coleção, só traduz NÚMERO em SEÇÃO |
 | o índice | `indiceDeSecoes` | a barra no topo do card, **fechada por padrão**, e a grade de chips |
 | os títulos | `cabecalhoDeSecao` | um `<li class="hino-secao">` antes do primeiro hino de cada seção |
 | o salto | `irParaSecao` | estica a lista até o destino EXISTIR e rola até ele |

@@ -82,6 +82,10 @@
     { bloco: "A Doutrina dos Últimos Eventos", nome: "O Milênio e o Fim do Pecado", de: 477, ate: 490 },
     { bloco: "A Doutrina dos Últimos Eventos", nome: "A Nova Terra", de: 491, ate: 507 },
     // ---- Hinos Infantis ----
+    // O `sorteio.js` tem estes dois números escritos nele (`INFANTIL_DE`/
+    // `INFANTIL_ATE`), e isso é DELIBERADO: módulo puro não importa outro para
+    // ler duas constantes. Quem impede a divergência é o `hinario.test.mjs`,
+    // que compara os dois arquivos.
     { bloco: "Hinos Infantis", nome: "Infantis", de: 508, ate: 557 },
     // ---- Hinos Litúrgicos ----
     { bloco: "Hinos Litúrgicos", nome: "Introito", de: 558, ate: 571 },
@@ -99,24 +103,6 @@
     return acc;
   }, []);
 
-  const PRIMEIRO = SECOES[0].de;
-  const ULTIMO = SECOES[SECOES.length - 1].ate;
-
-  // A SEÇÃO DE UM NÚMERO. Busca linear numa tabela de 35 — um índice por número
-  // custaria 600 entradas e uma invalidação a mais para manter; a lista do álbum
-  // chama isto uma vez por linha desenhada, e uma linha custa muito mais que
-  // isto em DOM.
-  //
-  // Fora da faixa devolve `null`, e quem chama trata: um hinário que ganhe o
-  // hino 601 aparece sem cabeçalho, o que é infinitamente melhor que herdar o
-  // rótulo do vizinho.
-  function secaoDe(numero) {
-    const n = numero | 0;
-    if (n < PRIMEIRO || n > ULTIMO) return null;
-    for (const s of SECOES) if (n >= s.de && n <= s.ate) return s;
-    return null;
-  }
-
   // A seção que COMEÇA neste número — é ela que vira cabeçalho na listagem.
   // Perguntar "mudou de seção em relação à linha anterior?" daria o mesmo
   // resultado na lista inteira e o resultado ERRADO na primeira linha de uma
@@ -126,19 +112,6 @@
     const n = numero | 0;
     for (const s of SECOES) if (s.de === n) return s;
     return null;
-  }
-
-  // A FAIXA INFANTIL, para quem só precisa dela.
-  //
-  // O `sorteio.js` tem os mesmos dois números escritos nele, e isso é
-  // DELIBERADO: ele é puro e independente por contrato (capacidades injetadas,
-  // oráculo próprio), e fazer um módulo puro importar outro para ler duas
-  // constantes trocaria uma duplicação visível por um acoplamento invisível.
-  // Quem impede a divergência é o oráculo — `hinario.test.mjs` compara os dois
-  // arquivos e reprova se eles discordarem.
-  function ehInfantil(numero) {
-    const s = secaoDe(numero);
-    return !!s && s.bloco === 'Hinos Infantis';
   }
 
   // O ÍNDICE, agrupado por bloco — a forma que a tela desenha. Devolve cópias
@@ -151,5 +124,5 @@
     }));
   }
 
-  global.AVHinario = { SECOES, BLOCOS, secaoDe, comecaSecao, ehInfantil, indice };
+  global.AVHinario = { SECOES, BLOCOS, comecaSecao, indice };
 })(this);

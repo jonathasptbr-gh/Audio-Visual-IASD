@@ -87,9 +87,8 @@ for (let n = 1; n <= 600; n++) {
 checar(semSecao.length === 0,
   'e os 600 hinos caem em EXATAMENTE uma seção cada', semSecao.slice(0, 5));
 
-checar(H.secaoDe(0) === null && H.secaoDe(601) === null && H.secaoDe(-1) === null,
-  'fora da faixa devolve null — um hino 601 aparece SEM cabeçalho, que é muito '
-  + 'melhor que herdar o rótulo do vizinho');
+// A seção de um número, lida da TABELA (o app pergunta só `comecaSecao`).
+const secaoDe = (n) => S.find((s) => n >= s.de && n <= s.ate) || null;
 
 // Faixas nomeadas, contra a transcrição. São as pontas de cada bloco: se a
 // tabela inteira andar uma casa, é aqui que aparece.
@@ -102,8 +101,8 @@ const AMOSTRA = [
   [508, 'Infantis'], [557, 'Infantis'], [558, 'Introito'],
   [587, 'Oração Pastoral'], [588, 'Adoração Infantil'], [600, 'Despedida'],
 ];
-const erradas = AMOSTRA.filter(([n, nome]) => (H.secaoDe(n) || {}).nome !== nome)
-  .map(([n, nome]) => `${n} devia ser ${nome}, veio ${(H.secaoDe(n) || {}).nome}`);
+const erradas = AMOSTRA.filter(([n, nome]) => (secaoDe(n) || {}).nome !== nome)
+  .map(([n, nome]) => `${n} devia ser ${nome}, veio ${(secaoDe(n) || {}).nome}`);
 checar(erradas.length === 0,
   'e as pontas conferem com o índice publicado (18 números, um par por bloco)', erradas);
 
@@ -151,9 +150,6 @@ if (de && ate) {
     'e os dois arquivos concordam sobre a faixa infantil (a duplicação é '
     + 'deliberada; a divergência é o que não pode passar)',
     { sorteio: [Number(de[1]), Number(ate[1])], hinario: infantil && [infantil.de, infantil.ate] });
-  checar(H.ehInfantil(Number(de[1])) && H.ehInfantil(Number(ate[1]))
-    && !H.ehInfantil(Number(de[1]) - 1) && !H.ehInfantil(Number(ate[1]) + 1),
-    '`ehInfantil` é INCLUSIVO nas duas pontas, e só nelas');
 }
 
 console.log('');

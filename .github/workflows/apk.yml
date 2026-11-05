@@ -264,6 +264,7 @@ jobs:
           node tools/sorteio.test.mjs
           node tools/progresso.test.mjs
           node tools/hinario.test.mjs
+          node tools/bible.test.mjs
           node tools/coletanea.test.mjs
           node tools/faxina-online.test.mjs
           node tools/pptxzip.test.mjs

@@ -255,8 +255,7 @@
 
   /** Esta coletânea lista os álbuns dela em ordem alfabética? */
   function ehAlfabetica(nome) {
-    const n = normalizar(nome);
-    return ALFABETICAS.some((x) => normalizar(x) === n);
+    return casa(nome, ALFABETICAS);
   }
 
   global.AVColetanea = {

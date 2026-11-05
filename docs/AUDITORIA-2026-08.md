@@ -35,8 +35,8 @@ toca no `conferirLinkCopiado`. **Consertar é a etapa X2**; aqui só se conferiu
 | id | achado | hoje | evidência |
 |---|---|---|---|
 | K12 | `EspelhoMidiaCanal.soltar()` sem chamador | ABERTO | fora do arquivo só o construtor e o `instalar` (`MainActivity`); a thread `laco()` (`poll` 250 ms) vive pelo processo; `tokenAberto` só zera em `fim`/`cancelar` |
-| T8 | `AVCifra.somenteLetra` exportada sem chamador | ABERTO | único uso é o `tools/cifra.test.mjs`; o KDoc promete recurso que não existe; o `funcao-sem-chamador` conta a exportação como uso |
-| T9 | `urlDeBusca(termo, extra)`: `extra` sem chamador de produção | ABERTO | o `controle.js` compõe `nome + ' ' + album` e chama com UM argumento; o KDoc atribui o "segundo tento" a `extra` |
+| T8 | `AVCifra.somenteLetra` exportada sem chamador | RESOLVIDO (revisão W3) | a função e a asserção saíram; o `funcao-sem-chamador` ganhou o bloco da superfície dos módulos puros, que conta a exportação como o que ela é |
+| T9 | `urlDeBusca(termo, extra)`: `extra` sem chamador de produção | RESOLVIDO (revisão W3: o parâmetro e as asserções dele saíram) | o `controle.js` compõe `nome + ' ' + album` e chama com UM argumento; o KDoc atribui o "segundo tento" a `extra` |
 | M1 | `tools/pares-de-comentario.mjs` fora do CI | ABERTO em parte | o `maxBuffer` foi consertado; segue fora do workflow (o `CLAUDE.md` o exclui de propósito da lista) e o cabeçalho de todo `/**` vira `*` (19 blocos de `cifra.js` com o mesmo cabeçalho) |
 | M3 | `otaPending`/`apkProcurar` sem consumidor | FEITO no web (v1.8.71) | fora do `native.js`; o `@JavascriptInterface` fica entre os seis órfãos (etapa X1) |
 | `:5705` | `naoResta()` e as duas frases dela, inalcançáveis | ABERTO | `doDraw` só chega lá com `drawRemaining() <= 0`, e os dois caminhos até `doDraw` passam por botões com `disabled = drawGoApagado()`; as frases repetem o `go.title` |

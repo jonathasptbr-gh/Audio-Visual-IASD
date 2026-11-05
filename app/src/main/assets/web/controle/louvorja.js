@@ -1,6 +1,6 @@
 // Cliente mínimo da API pública do LouvorJA (app-ja), usado só pelo Controle
-// para sincronizar as coleções de mídia — hinários e álbuns (ver seção
-// "Coleções de mídia (LouvorJA)" no CLAUDE.md). Mesmas credenciais já
+// para sincronizar as coleções de mídia — hinários e álbuns (ver
+// docs/arquitetura/CONTROLE-COLECOES.md). Mesmas credenciais já
 // públicas no bundle do app-ja (VITE_URL_DATABASE/VITE_URL_FILES/VITE_API_TOKEN
 // de produção) — não é um segredo protegido, só reaproveitado aqui.
 //
@@ -13,8 +13,8 @@
   const FILE_URL = 'https://api.louvorja.com.br/file';
   const TOKEN = '02@v2nFB2Dc';
 
-  // Nomes de arquivos de lista usados pelo sistema de coleções (ver seção
-  // "Coleções de mídia (LouvorJA)" no CLAUDE.md e docs/FONTE-DE-DADOS-LOUVORJA.md).
+  // Nomes de arquivos de lista usados pelo sistema de coleções (ver
+  // docs/arquitetura/CONTROLE-COLECOES.md e docs/FONTE-DE-DADOS-LOUVORJA.md).
   // Os hinários são módulos "hymnal"/"hymnal_1996"; os álbuns são descobertos
   // via "pt_categories". fetchList aceita qualquer nome — estas constantes são
   // só conveniência/documentação.
@@ -84,10 +84,6 @@
   const FILE_HOST = new URL(FILE_URL).host;
   const DOMINIO_ORIGEM = FILE_HOST.split('.').slice(-3).join('.');
 
-  // "Este host é da ORIGEM?" — o PONTO é o que ancora a comparação. Sem ele,
-  // `endsWith('louvorja.com.br')` aceitaria `evillouvorja.com.br`, que é a
-  // invariante 2 do shell pelo outro lado do string.
-  //
   // ===== A ORIGEM SERVE AS FOTOS DO HINÁRIO 2022 POR UM CDN À PARTE (v1.10.9) =====
   //
   // Não é subdomínio de `louvorja.com.br` — é um bucket público da Cloudflare
@@ -111,6 +107,9 @@
     'pub-8c0e123c55a14cdfa0c52fa182688782.r2.dev',
   ];
 
+  // "Este host é da ORIGEM?" — o PONTO é o que ancora a comparação. Sem ele,
+  // `endsWith('louvorja.com.br')` aceitaria `evillouvorja.com.br`, que é a
+  // invariante 2 do shell pelo outro lado do string.
   function daOrigem(host) {
     const h = String(host || '').toLowerCase();
     if (h === DOMINIO_ORIGEM || h.endsWith('.' + DOMINIO_ORIGEM)) return true;
@@ -157,10 +156,6 @@
   // vindo com as imagens de fundo"*: o áudio chega, o FUNDO da letra não, e nada
   // na tela liga uma coisa à outra. O domínio da origem é a fronteira certa —
   // ele continua impedindo o JSON de escolher um terceiro.
-  //
-  // **O PONTO É O QUE ANCORA A COMPARAÇÃO**, e tirá-lo é a invariante 2 pelo
-  // outro lado: `endsWith('louvorja.com.br')` aceita `evillouvorja.com.br`, um
-  // domínio que qualquer um registra.
   //
   // **NADA DE `encodeURI` NEM `encodeURIComponent`.** O `fetch` já percent-encoda
   // espaço e acento pelo path percent-encode set (MEDIDO: idêntico ao

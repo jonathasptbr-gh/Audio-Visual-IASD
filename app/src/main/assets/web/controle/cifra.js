@@ -216,17 +216,13 @@
   // A BUSCA GENÉRICA — o "qualquer música". Sem catálogo e sem palpite de
   // slug: quem procura é o site.
   /**
-   * A busca do site. `extra` é o SEGUNDO tento (o álbum junto do nome), e ele
-   * não é o primeiro de propósito: o álbum do acervo não é o artista do site, e
-   * uma palavra a mais numa busca de texto pode ENCOLHER o resultado em vez de
-   * afiná-lo. Ele entra quando o primeiro tento não devolveu nada com
-   * parentesco — ali não há o que encolher.
+   * A busca do site, com o `termo` como veio. A consulta com o álbum colado (o
+   * segundo tento) é montada por quem chama (`controle.js`), e só ali.
    */
-  function urlDeBusca(termo, extra) {
+  function urlDeBusca(termo) {
     const t = String(termo == null ? '' : termo).trim();
     if (!t) return '';
-    const e = String(extra == null ? '' : extra).trim();
-    return BASE + '?q=' + encodeURIComponent(e ? t + ' ' + e : t);
+    return BASE + '?q=' + encodeURIComponent(t);
   }
 
   // ===== HTML =====
@@ -656,27 +652,6 @@
   }
 
   /**
-   * SÓ A LETRA — as linhas de acordes caem fora.
-   *
-   * A aba mostra a folha; esta função existe para o operador que quer a letra
-   * limpa da mesma requisição, sem uma segunda ida à rede. Linhas vazias
-   * seguidas colapsam numa só: sem os acordes, o que sobrava era o dobro de
-   * respiro entre as estrofes.
-   */
-  function somenteLetra(linhas) {
-    const saida = [];
-    (linhas || []).forEach((l) => {
-      if (l.tipo === 'acordes') return;
-      const t = l.tipo === 'vazio' ? '' : String(l.texto || '').trim();
-      if (!t && !saida.length) return;
-      if (!t && !saida[saida.length - 1]) return;
-      saida.push(t);
-    });
-    while (saida.length && !saida[saida.length - 1]) saida.pop();
-    return saida;
-  }
-
-  /**
    * Os RESULTADOS de uma busca — `[{ nome, artista, url }]`.
    *
    * Um resultado é um link de DOIS segmentos (`/artista/musica/`), que é a
@@ -939,10 +914,11 @@
   //
   // A folha de cifra rola no tempo da MÚSICA, não num cronômetro nosso: a mesma
   // folha serve a um hino de 2 min e a um de 6, e quem decide o ritmo da leitura
-  // é a gravação. O que mora aqui é a FUNÇÃO que traduz "onde a música está" em
-  // "onde a folha deve estar" — pura, injetável, exercitável.
+  // é a gravação. O que mora aqui é a JANELA da música em que a folha faz o
+  // percurso — pura, injetável, exercitável; o ritmo que sai dela é o
+  // `ritmoDaRolagem`, abaixo.
   //
-  // Ela não é a reta ingênua `f = t / duração`. Tem uma ABERTURA e um FECHO:
+  // Ela não é a música inteira. Tem uma ABERTURA e um FECHO:
   //
   //  - **ABERTURA**: o começo fica parado alguns segundos. Quem chega numa
   //    música quer VER o início — introdução, tom, primeira estrofe — antes de
@@ -977,25 +953,6 @@
     return { t0, t1 };
   }
 
-  /**
-   * Onde a folha deve estar, de 0 (topo) a 1 (fim), para a música em `t`.
-   *
-   * Sempre dentro de `[0, 1]`: `t` chega de um relógio que pode passar da
-   * duração por um quadro (ou vir negativo num seek em curso), e uma fração
-   * fora da faixa viraria um `scrollTop` fora da folha.
-   *
-   * **SEM CONSUMIDOR NO APP desde a v1.5.6**, e continua aqui de propósito: ela
-   * é a metade POSICIONAL da janela, e é o `ritmoDaRolagem` que hoje usa a
-   * outra. Quem quiser reintroduzir o `auto` posicional tem a função e o
-   * oráculo dela de pé — e tem, junto, a razão de ele ter saído (ver abaixo).
-   */
-  function fracaoDaRolagem(t, dur) {
-    const { t0, t1 } = janelaDeRolagem(dur);
-    if (!(t1 > t0)) return 0;
-    const x = Math.min(Number(dur) || 0, Math.max(0, Number(t) || 0));
-    return Math.min(1, Math.max(0, (x - t0) / (t1 - t0)));
-  }
-
   // ===== O `auto` VIROU UM RITMO, E NÃO UMA POSIÇÃO (v1.5.6) =====
   //
   // Pedido do operador: *"ajuste o sistema de rolagem automática de cifra para
@@ -1006,7 +963,7 @@
   // scroll"*.
   //
   // **Isto REVOGA a v1.1.20**, que fazia da folha uma FUNÇÃO da posição da
-  // música (`fracaoDaRolagem`). Aquela escolha resolvia três coisas de graça —
+  // música. Aquela escolha resolvia três coisas de graça —
   // pausar a música parava a folha, um seek a levava ao ponto certo, e um quadro
   // perdido não acumulava erro — e cada uma delas é um dos defeitos do relato,
   // vista do outro lado:
@@ -1218,10 +1175,10 @@
     ARTISTAS_PADRAO, urlsPadrao, urlDoAlbum,
     pareceAcorde, transporAcorde, transporLinha, transporTom,
     grafiaDoDestino, grafiaDaFolha, primeiraRaiz,
-    lerFolha, lerPagina, lerBusca, somenteLetra, varianteSemCifra,
+    lerFolha, lerPagina, lerBusca, varianteSemCifra,
     ordenarBusca, parentesco, ehCaminhoDeMusica, radiografia,
     quebrarPares, pontoDeQuebra,
-    janelaDeRolagem, fracaoDaRolagem, ritmoDaRolagem,
+    janelaDeRolagem, ritmoDaRolagem,
     rampaInicialDaRolagem, ritmoDaRampa,
   };
 })(this);

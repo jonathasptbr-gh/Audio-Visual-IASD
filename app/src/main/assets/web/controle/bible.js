@@ -1,5 +1,5 @@
 // Cliente da parte BÍBLICA do banco público do LouvorJA (ver
-// docs/FONTE-DE-DADOS-LOUVORJA.md §5.6 e a seção "Bíblia" no CLAUDE.md).
+// docs/FONTE-DE-DADOS-LOUVORJA.md §5.6 e docs/arquitetura/BIBLIA.md).
 // Reaproveita o transporte já pronto de louvorja.js (Louvorja.fetchList) —
 // mesmas credenciais públicas. Exposto como window.Bible.
 //
@@ -97,10 +97,6 @@
     { abbr: 'Jd', name: 'Judas', chapters: 1, t: 'nt', g: 'gerais' },
     { abbr: 'Ap', name: 'Apocalipse', chapters: 22, t: 'nt', g: 'apocalipse' },
   ];
-
-  // (O mapa GROUPS de rótulos legíveis saiu: o "se necessário" do comentário
-  // nunca aconteceu — zero usos na base inteira, confirmado por grep. Os `g`
-  // de BOOKS seguem aí para quem um dia precisar agrupar.)
 
   // Lista de versões/traduções disponíveis (pt_bible_version). Retorna
   // [{ id, name }] normalizado (o schema é 🔶 inferido — lê id_bible_version /

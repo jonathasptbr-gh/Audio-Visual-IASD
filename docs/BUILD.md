@@ -63,7 +63,7 @@ herdados por cópia em vez de escolhidos.
   oráculo pedi-la.
 - **`checar` mora em `tools/checar.mjs`, SEM uma linha de `import`**, e a
   separação NÃO é organização: o `arnes.mjs` importa o Playwright, e no workflow
-  os 24 oráculos de Node puro rodam no passo "Sanidade da base web", que vem
+  os 26 oráculos de Node puro rodam no passo "Sanidade da base web", que vem
   **antes** do `npm ci`. Um deles importando o arnês passaria na máquina de quem
   escreve (onde `node_modules/` existe) e falharia só no runner, no passo sem
   `continue-on-error` — "a atualização não chega", por um
@@ -107,7 +107,7 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os de Chromium são **132** e os de Node puro **24** — juntos, os 156 (contados na revisão A6). MEDIDO com
+Os de Chromium são **132** e os de Node puro **26** — juntos, os 158 (contados na revisão W3). MEDIDO com
 82 deles: **~13 min em série** e **~4,3 min nos três processos** (4 vCPU, o mesmo
 do runner); os de Node puro somam **8 s**. **Os números moram no `apk.yml`**, ao
 lado do passo que descrevem, e esta é a cópia — divergiram uma vez (79/99 aqui

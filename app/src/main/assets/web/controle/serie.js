@@ -4,7 +4,7 @@
 // Uma "série" é um canal que publica UM episódio por semana e organiza o ano em
 // playlists por PERÍODO. Nada aqui é sobre um canal específico: o módulo sabe
 // "prefixo + ano + período", e uma linha a mais no catálogo dá uma série nova
-// sem código novo. O desenho completo está em "Séries do YouTube" no CLAUDE.md.
+// sem código novo. O desenho completo está em docs/recursos/SERIES.md.
 //
 // ## Por que é um arquivo à parte, e PURO
 //
