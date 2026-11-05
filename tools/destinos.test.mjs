@@ -147,10 +147,9 @@ try {
     + 'faltando a ordem relativa sobrevive, e uma chave de fora dela (o `tocar`) '
     + 'não entra', JSON.stringify(reordenada));
 
-  // ---- A TABELA CARREGA O ÍCONE E O VERBO (v1.8.56) ----
-  // Eles moravam em QUATRO listas escritas à mão — as duas folhas de destino, o
-  // mapa `LINHA` da gaveta e o `DEST_ICONE` desta folha. Uma tabela que só
-  // dizia "quais existem" deixava "com que cara?" para cada chamador.
+  // ---- A TABELA CARREGA O ÍCONE E O VERBO ----
+  // A ordem e o ícone de toda folha de destinos saem dela, nunca de uma lista
+  // escrita no chamador.
   const campos = await pg.evaluate(() => DESTINOS.map((d) => [d.ico, d.acao, d.rotulo]));
   checar(JSON.stringify(campos) === JSON.stringify([
     ['cronoAdd', 'Adicionar ao Cronograma', 'Cronograma'],
