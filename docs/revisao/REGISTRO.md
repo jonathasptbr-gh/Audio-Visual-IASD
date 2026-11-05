@@ -259,5 +259,5 @@ política; nove pulos seguidos passaram despercebidos. Vale reprovar quando o `P
 Chromium` falha por recusa do PRÓPRIO Playwright (não rede)? **Resposta (2026-11-05):**
 *"não permite que pule testes, independente do motivo"* — o `Preparar o Chromium` perdeu
 o `continue-on-error`, o passo de AVISO do pulo saiu; falha reprova o job (rede inclusive).
-A válvula manual `ignorar_oraculos` ficou (não pula: roda tudo e publica assinando).
+A válvula manual `ignorar_oraculos` também saiu (pedido do operador, mesmo dia).
 **CI pós-merge** (`41998913449`): a suíte VOLTOU a rodar; 1ª tentativa 131/132 (`boot-nativo`, o instável da X3 — asserção lida e anotada no repasse X3), 2ª 132/132; o `site-grade` passou no Chromium do pin. **Repasses:** o vermelho do `boot-nativo` anexado à linha X3. **O operador:** nada a fazer.

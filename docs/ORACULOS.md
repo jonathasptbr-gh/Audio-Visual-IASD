@@ -49,11 +49,8 @@ o arnês, a campanha) · [`HISTORICO.md`](HISTORICO.md) (o lote que criou cada u
 
 **Chromium de verdade, em DOIS PASSOS, e NENHUM dos dois pula** (operador, 2026-11-05): `Preparar o Chromium` que falhe REPROVA o job; a tabela está em [`BUILD.md`](BUILD.md).
 
-**A escapatória é MANUAL e ASSINA**: o disparo de `Build APK` tem o campo
-`ignorar_oraculos`, que publica com oráculo reprovado e grava isso no resumo, ao
-lado do placar e dos `::error::`. Nenhum push a alcança. A diferença para o
-`continue-on-error` não é de grau — ele decidia por todo mundo, para sempre e
-sem registro.
+**Não há escapatória** (operador, 2026-11-05): a válvula manual
+`ignorar_oraculos` saiu. Oráculo reprovado segura o canal até ser consertado.
 
 **O `apk` NÃO depende do `verificar`**, e isso é escolha: o portão fecha o canal
 OTA (automático, a cada push em `main`, sem ninguém olhando) e não o APK
@@ -117,8 +114,8 @@ sentido; as duas merecem resposta, e nenhuma das duas é "mais prazo".
 `npm i`), e **subir o pin obriga a repetir a campanha**: quem decide altura de
 linha, ordem de evento e quanto tempo uma página leva para assentar é o
 navegador. Com o portão fechado, uma reprovação que não se reproduz fora do
-runner não tem conserto por inspeção — só pela válvula, o que devolveria o
-mundo anterior por outro caminho.
+runner não tem conserto por inspeção, e não há válvula: o canal fica parado
+até o pin voltar ou a campanha ser refeita.
 
 | oráculo | o que cobre, e por que existe |
 |---|---|

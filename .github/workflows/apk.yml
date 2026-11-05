@@ -37,23 +37,6 @@ on:
         type: boolean
         required: false
         default: false
-      # A VÁLVULA DO PORTÃO — ver "Oráculos em Chromium".
-      #
-      # Ela existe para o caso em que o canal precisa sair com um oráculo de
-      # navegador reprovado e uma PESSOA assume isso: uma reprovação que o lote
-      # não causou, um oráculo que envelheceu, uma urgência de sábado de manhã.
-      # É só no disparo MANUAL de propósito — nenhum push a alcança, e portanto
-      # não há como acioná-la por esquecimento.
-      #
-      # E ela NÃO silencia: o placar continua no resumo, o `::error::` de cada
-      # reprovado continua no log, e o resumo ganha uma linha dizendo que o
-      # portão foi aberto à mão. Uma válvula que não deixa rastro é o
-      # `continue-on-error` de volta, com outro nome.
-      ignorar_oraculos:
-        description: 'PUBLICAR MESMO COM ORÁCULO DE CHROMIUM REPROVADO (registrado no resumo)'
-        type: boolean
-        required: false
-        default: false
       # A VÁLVULA DA RENUMERAÇÃO, e ela existe por um caso só.
       #
       # A guarda anti-regressão recusa publicar um manifesto com versão MENOR
@@ -355,10 +338,8 @@ jobs:
       # execuções do `ota.test.mjs` a 4×, que é onde moravam quatro das cinco
       # classes. 64/64 e 20/20. A nota da versão tem o detalhe.
       #
-      # O que fica de escapatória é a válvula MANUAL (`ignorar_oraculos`, acima)
-      # e ela deixa rastro no resumo. A diferença entre as duas não é de grau: o
-      # `continue-on-error` decidia por todo mundo, para sempre e sem registro;
-      # a válvula é uma pessoa decidindo uma vez, e assinando.
+      # NÃO HÁ ESCAPATÓRIA (operador, 2026-11-05): a válvula manual
+      # `ignorar_oraculos` saiu. Oráculo reprovado se conserta, nunca se ignora.
       # ────────────────────────────────────────────────────────────────────
       # ---------- E ELE TEM PRAZO ----------
       # `continue-on-error` protege contra FALHAR, não contra TRAVAR — e os dois
@@ -433,8 +414,8 @@ jobs:
           # CONTRATO. Uma reprovação no passo de baixo — o dos ORÁCULOS, que já
           # não tem `continue-on-error` — deixou de ser aviso e passou a segurar
           # o canal. Reproduzi-la fora do runner deixou de ser conveniência e
-          # virou requisito — um portão que só fecha e não se abre por inspeção é um
-          # portão que se abre com a válvula, sempre. Daí a regra: **subir o pin
+          # virou requisito — um portão que só fecha e não se abre por inspeção
+          # deixa o canal parado (não há válvula). Daí a regra: **subir o pin
           # obriga a repetir a campanha de determinismo na versão nova**, porque
           # é o navegador que decide altura de linha, ordem de evento e quanto
           # tempo uma página leva para assentar. O placar da campanha vale para
@@ -480,8 +461,6 @@ jobs:
       # correr em fila.
       - name: Oráculos em Chromium
         timeout-minutes: 15
-        env:
-          IGNORAR: ${{ github.event.inputs.ignorar_oraculos }}
         run: |
           # SEM `-e`, e é o ponto do passo: um reprovado não pode calar os que
           # vêm depois. Quem guarda o desfecho é o laço do fim.
@@ -742,14 +721,6 @@ jobs:
           echo "Oráculos em Chromium: $passaram/$rodados passaram (em $PARALELO processos)." | tee -a "$GITHUB_STEP_SUMMARY"
           if [ ${#falhas[@]} -eq 0 ]; then exit 0; fi
           printf 'REPROVOU: %s\n' "${falhas[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
-          # A VÁLVULA, e ela ASSINA. O placar e os `::error::` acima já saíram —
-          # o que esta linha muda é só quem carrega a decisão, e ela fica
-          # escrita no resumo do run, ao lado do que foi ignorado.
-          if [ "${IGNORAR:-false}" = "true" ]; then
-            echo "::warning::PORTÃO ABERTO À MÃO — ${#falhas[@]} oráculo(s) reprovado(s), e o disparo pediu 'ignorar_oraculos'"
-            echo "> ⚠️ **Portão aberto à mão**: o disparo manual marcou \`ignorar_oraculos\`, então o bundle publica com ${#falhas[@]} oráculo(s) reprovado(s) acima." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
           exit 1
 
 
