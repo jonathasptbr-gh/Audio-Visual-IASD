@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.13.21",
+    "itens": [
+      "Girar a mídia ou trocar Ajustar/Preencher logo ao abrir o app não volta mais sozinho na tela do celular."
+    ]
+  },
+  {
     "versao": "1.13.20",
     "itens": [
       "Revisão interna da tela principal: nada muda no que você vê ou faz."

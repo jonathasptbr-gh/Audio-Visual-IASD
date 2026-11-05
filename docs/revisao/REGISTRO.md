@@ -22,7 +22,7 @@ abandonada → primeira pendente pelo `nº`).
 | 8 | W2 | feita | v1.13.18 (só web) | 2026-11-05 | nenhum defeito de culto na cerca; o giro perdido do `enquadramento-da-camada` MEDIDO: é o `load()` do Controle reaplicando rotação velha (repasse C2), não o `stage.js`; export morto e ~15 comentários |
 | 9 | W3 | feita | v1.13.19 (só web) | 2026-11-05 | a `FORA` do pacote com a grafia errada deixava as intenções do YouTube viajarem (consertado + asserção cruzada); 4 funções só-do-oráculo saíram e o `funcao-sem-chamador` vê a superfície dos módulos; `bible.test.mjs` novo |
 | 10 | C1 | feita | v1.13.20 (só web) | 2026-11-05 | nenhum defeito de culto na fatia; `clearCurrentSelection` em `updateState` (+ asserção com reversão); 2 trechos de código morto da preview/peso; ~20 lápides e fatos velhos nos comentários |
-| 11 | C2 | em curso | | 2026-11-05 | |
+| 11 | C2 | feita | v1.13.21 (só web) | 2026-11-05 | o giro e o "Preencher" tocados com um `load()` em voo deixavam de valer no Controle (consertado + asserção com reversão, os dois); `cenaDeRoteiroNoAr` sem a régua duplicada; 3 `renderLibrary()` órfãos da Bíblia; ~30 lápides e fatos velhos |
 | 12 | C3 | pendente | | | |
 | 13 | C4 | pendente | | | |
 | 14 | C5 | pendente | | | |
@@ -62,10 +62,10 @@ tratou.
 | K2 | W1 | `NativeBridge.kt`:`bgProgress` (~951) — linha de comentário duplicada ("Só o Controle, como os onze irmãos…" duas vezes) |
 | K2 | W1 | `NativeBridge.kt`:`apkInstalar` — roda na fila `transferencia` (UMA thread, a dos downloads do YouTube): o APK espera atrás de um download de minutos e o prazo de 15 min do web conta essa espera. Avaliar se a fila é a certa (o web já não mente quando o prazo vence: v1.13.17) |
 | K1 | W1 | `MainActivity.kt`:`pendingShare` (~169/731) — slot ÚNICO (`AtomicReference.set`): dois shares que chegam antes de o web bombear sobrescrevem o primeiro. SUSPEITA, sem medição |
-| C2 | W2 | `controle.js`:`load()` (~4186/4240/4307) — lê `state.rotate` (e `fit`) com `await` no começo e aplica `mediaRot`/`preview.setRotate` no fim: um `applyRotate` (C8, ~38654) que grava no vão é DESFEITO no Controle (botão e prévia voltam ao valor velho; o telão fica girado) até o próximo `load()`. **O operador pediu (2026-11-05) que a C2 cubra também o "Preencher"** (`mediaFit`/`applyFit`, o mesmo vão): MEDIR o cenário do fit com a mesma corrida, consertar os dois no mesmo lote e cobrir os dois na asserção. MEDIDO (W2): é o vermelho de 2229/2242 do `enquadramento-da-camada`, com o `load()` do `init()`. Conserto provável: reler o estado na hora de aplicar, ou `applyRotate`/`applyFit` aplicarem na preview e o `load()` não sobrescrever valor mais novo |
 | X3 | W2 | `tools/enquadramento-da-camada.test.mjs` — age (`applyRotate`, `send`) logo depois de `__avBack` existir, SEM `esperarCortina`: com o `init()` ainda em voo, o `load()` dele desfaz o giro (repasse C2). Reproduz com `Emulation.setCPUThrottlingRate` 20× (8× passa). Conserto do oráculo: `esperarCortina` depois do `goto`; a asserção do C2 é outra (girar DURANTE um `load()` em voo) |
 | C5 | W3 | `cifra.js`:`ritmoDaRolagem` (~998) — desconta a ABERTURA do tempo da rolagem, e o comentário diz que ela saiu. **DECIDIDO pelo operador (2026-11-05): a pausa FICA** ("é necessária para os tempos de introdução, antes de propriamente necessitar mover/iniciar a leitura"). O defeito é o COMENTÁRIO: corrigi-lo para descrever a pausa como regra intencional (e o porquê), sem tocar no cálculo |
-| C2 | C1 | `controle.js` (~6690, o bloco da tabela `DESTINOS`): a narrativa da v1.8.56 diz "o `DEST_ICONE` desta folha" — a lista saiu e "desta" já não aponta para nada (o `tools/destinos.test.mjs` ~152 repete a frase). Prosa de lote: encurtar para a regra (a ordem e o ícone saem da tabela) |
+| X2 | C2 | `controle.js` ~1397 (fatia C1): o comentário de `bibleCompleteVersions` diz que o Set existe "pra a tela de livros mostrar \"completa\"" — quem mostra é a folha de versões (`renderBibleVerList`); a C1 já está feita (uma linha de comentário, provas 1 e 2) |
+| C4 | C2 | `docs/arquitetura/CONTROLE-BIBLIOTECA.md` ~239: "`renderTabs()` mantém o Cronograma aceso enquanto ela está aberta" — `renderTabs` não existe (saiu com a faixa de abas); o parágrafo descreve a gaveta de favoritos antiga |
 
 ## Relatórios
 
@@ -386,3 +386,28 @@ todos verdes, Playwright local 1.63): `hidratacao-perde-a-vez`, `smoke`, `displa
 `boot-nativo`, `db-gc`, `db-estado`, `cena`, `transporte-sem-cena`, as de prévia, saída de áudio,
 telão, dados móveis, servidor, acervo, `enquadramento-da-camada`, `ota`, `destinos` e a letra/texto.
 **O operador:** nada a fazer; a v1.13.20 chega sozinha (só web, nada que ele veja).
+
+### C2 · Render, fila, Bíblia, destinos — feita (2026-11-05)
+
+Cerca: `controle.js` de `// ===== carregar + render =====` a antes de `// ===== Cronômetro / Relógio / Timer` (3.762 linhas), lida inteira.
+**Corrigido (código, commit à parte):** o repasse W2 com o "Preencher" (pedido do operador) — `load()` lia
+`fit`/`rotate` na FASE 1 e os reaplicava na FASE 2, desfazendo no Controle (tile e preview) um `applyFit`/
+`applyRotate` gravado no vão, com o telão no valor novo. Agora `fitSeq`/`rotSeq` (uma senha por chave, como o
+`favSeq`), incrementados nos dois `apply*` (C8, só a linha do `++`). Asserção: bloco 7 do `hidratacao-perde-a-vez`
+(tocar depois que o `load()` JÁ leu `rotate`; variável, `data-estado` do tile e preview) + a metade "sem toque
+restaura do banco". Reversão: sem a guarda do giro reprova só o giro (`rot: 0`); sem a do fit, só o fit.
+**Duplicação/código morto:** `cenaDeRoteiroNoAr` reescrevia termo a termo `provedorDeTextoNoAr` → `!!provedorDeTextoNoAr()`;
+três `renderLibrary()` da Bíblia órfãos da v1.5.0 (redesenhavam o Cronograma a cada toque de capítulo).
+**Só comentário (provas 1 e 2):** repasse C1 (`DESTINOS` → a regra; a frase no `destinos.test.mjs`); `criarCue`
+dizia o contrário do código; a Bíblia "sem scroll"; a lista "zerada a cada troca de aba" do `visualSession`;
+cabeçalhos do `renderBibleReading` e do `ensureBibleVersionDownloaded`; "os quatro `hide*`" (são seis); o
+`load()` "condicional" do `adicionarNasListas`; `adicionarNaLista` no `CONTROLE.md`. Lápides: `adicionarNaLista`,
+`renderTabs`, `renderFavHeader`, o microfone, o ✓ da versão escolhida, o lapso do `hideMessage`, `has-items`.
+Narrativa verbatim (31 blocos) na seção v1.13.21 do histórico.
+**Achado e não corrigido:** `changeBibleVersion` sem rede deixa `bibleVersionId` novo sobre a sessão na versão
+velha (SUSPEITA, baixo alcance); prosa longa que é REGRA com o porquê (os pares da hidratação, a fila como host de
+miniaturas, a camada visual, o rodapé das Ferramentas, `scrollActiveIntoView`). Réguas `haOQueParar` × `cenaNoAr`
+× `midiaNoAr` coerentes com o que cada bloco nomeia; nenhum timer/listener que não se desarme; o `applyTitleMarquee`
+não roda por `display-status`. **Repasses:** X2 (comentário da C1, ~1397), C4 (`CONTROLE-BIBLIOTECA.md`, `renderTabs`).
+**Verificado:** "Sanidade da base web" (todo Node puro, `docs-coerentes`), `tokens`; Chromium (51, Playwright local 1.63): 50 verdes (`smoke`, `display-smoke`, `destinos`, `enquadramento-da-camada`, `boot-nativo`, as `biblia-*`, `cena`, `hidratacao-perde-a-vez`, transporte, fila, letra, camadas, Ferramentas, sorteio, itinerário…); `controles-layout` reprova IGUAL no commit anterior (`setViewportSize` em tela cheia, ambiente).
+**O operador:** nada a fazer; a v1.13.21 chega sozinha (só web). O giro e o Ajustar/Preencher deixam de "voltar".

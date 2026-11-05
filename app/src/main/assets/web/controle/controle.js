@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.20';
+const WEB_VERSION = '1.13.21';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4031,6 +4031,12 @@ let loadSeqCtl = 0;
 // MEDIDO no `boot-nativo.test.mjs` sob carga: `nosFavs: false` (saiu do banco)
 // com `naLista: true` (continua na tela) oito segundos depois.
 let favSeq = 0;
+// O QUARTO PAR: load × `applyFit`/`applyRotate`. A FASE 1 lê `fit`/`rotate` e a
+// FASE 2 os aplica; um toque no vão (gravado e já mandado ao telão) era desfeito
+// no Controle — o tile e a preview voltavam ao valor lido, o telão ficava com o
+// novo. Uma senha por chave: um giro em voo não pode pular o PREENCHIMENTO lido.
+let fitSeq = 0;
+let rotSeq = 0;
 /**
  * Redesenha a lista da aba atual.
  *
@@ -4097,6 +4103,8 @@ async function load(opts) {
   // A senha dos FAVORITOS, pela mesma razão e no mesmo lugar: quem relê a lista
   // enquanto esta função lê o banco chegou DEPOIS, e o que ela leu é velho.
   const senhaDosFavoritos = favSeq;
+  const senhaDoFit = fitSeq;
+  const senhaDoGiro = rotSeq;
 
   // ---- FASE 1: só leituras do IDB, em locais (nada de estado/DOM ainda) ----
   const cur = await AVDB.getState('current');
@@ -4166,9 +4174,13 @@ async function load(opts) {
   // Sem a migração, quem já o tinha escolhido continuaria com a mídia distorcida
   // no telão e sem nenhum botão na tela que explicasse por quê — o pior estado
   // possível: o defeito permanece e o controle dele some.
-  if (storedFit === 'fill') { mediaFit = 'contain'; AVDB.setState('fit', mediaFit); }
-  else if (storedFit) mediaFit = storedFit;
-  mediaRot = ROTACOES.includes(storedRot | 0) ? (storedRot | 0) : 0;
+  // O preenchimento e o giro só são aplicados se ninguém os mudou enquanto
+  // líamos o banco (ver `fitSeq`/`rotSeq`): o valor do módulo é o mais novo.
+  if (fitSeq === senhaDoFit) {
+    if (storedFit === 'fill') { mediaFit = 'contain'; AVDB.setState('fit', mediaFit); }
+    else if (storedFit) mediaFit = storedFit;
+  }
+  if (rotSeq === senhaDoGiro) mediaRot = ROTACOES.includes(storedRot | 0) ? (storedRot | 0) : 0;
   // O TAMANHO DA LETRA guardado. Como o `mediaRot` logo acima: valor fora da
   // escada cai no padrão, e não numa medida que ninguém escolheu — a escada pode
   // encolher numa versão futura, e o que estava salvo continua sendo lido.
@@ -5644,8 +5656,7 @@ function renderBibleChapters(wrap) {
     cell.addEventListener('click', () => {
       if (bibleSel.chapter === c) return;
       bibleSel.chapter = c;
-      renderLibrary();          // marca o capítulo já; a metade de baixo mostra "Baixando…"
-      loadBibleChapter();
+      loadBibleChapter();       // redesenha já: marca o capítulo, e embaixo "Baixando…"
     });
     cGrid.appendChild(cell);
   }
@@ -5916,11 +5927,11 @@ async function changeBibleVersion(id) {
     ));
   } catch (_) {}
   ensureBibleVersionDownloaded(id);
-  if (!bibleSession) { renderLibrary(); return; }
+  if (!bibleSession) return;
   const s = bibleSession;
   let verses;
   try { verses = await fetchBibleChapterCached(id, s.bookIdx, s.chapter); }
-  catch (_) { renderLibrary(); return; }
+  catch (_) { return; }
   if (bibleSession !== s) return;
   s.versionId = id;
   s.verses = verses;
@@ -7154,9 +7165,8 @@ function encerrarCamadaDeCima() {
  * e invisível para o resto do app.
  */
 function cenaDeRoteiroNoAr() {
-  return !!((bibleSession && bibleSession.projecting) || msgProjecting()
-    || lyricProjecting() || chronoProjecting() || drawProjecting() || itinProjecting()
-    || visualSobreProjetando() || textoAvulsoNoAr);
+  // A MESMA régua de `provedorDeTextoNoAr` — escrita duas vezes, divergiria.
+  return !!provedorDeTextoNoAr();
 }
 
 // Projeta a mensagem de índice `idx` (Display + preview). Encerra a Bíblia (só
@@ -38281,6 +38291,7 @@ function renderWallTile() {
     customWallpaper ? 'Própria' : 'Padrão', true, !!customWallpaper);
 }
 async function applyFit(mode) {
+  fitSeq++;
   mediaFit = mode;
   renderFitTile();
   await AVDB.setState('fit', mediaFit);
@@ -38341,6 +38352,7 @@ function renderRotBtn() {
   }
 }
 async function applyRotate(graus) {
+  rotSeq++;
   mediaRot = ((graus | 0) % 360 + 360) % 360;
   if (!ROTACOES.includes(mediaRot)) mediaRot = 0;
   renderRotBtn();
