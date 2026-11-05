@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.13.20",
+    "itens": [
+      "Revisão interna da tela principal: nada muda no que você vê ou faz."
+    ]
+  },
+  {
     "versao": "1.13.19",
     "itens": [
       "Pacote do acervo: importar em outro celular não faz mais ele baixar sozinho vídeos do YouTube pedidos no primeiro."

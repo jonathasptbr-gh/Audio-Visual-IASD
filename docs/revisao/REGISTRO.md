@@ -21,7 +21,7 @@ abandonada → primeira pendente pelo `nº`).
 | 7 | W1 | feita | v1.13.17 (só web) | 2026-11-05 | `apkInstalar` que não respondia virava SUCESSO (consertado + asserção); `watchdog-modulos` novo; ~30 comentários corrigidos/reancorados nos dois arquivos; 3 RMW partidos no `controle.js` repassados |
 | 8 | W2 | feita | v1.13.18 (só web) | 2026-11-05 | nenhum defeito de culto na cerca; o giro perdido do `enquadramento-da-camada` MEDIDO: é o `load()` do Controle reaplicando rotação velha (repasse C2), não o `stage.js`; export morto e ~15 comentários |
 | 9 | W3 | feita | v1.13.19 (só web) | 2026-11-05 | a `FORA` do pacote com a grafia errada deixava as intenções do YouTube viajarem (consertado + asserção cruzada); 4 funções só-do-oráculo saíram e o `funcao-sem-chamador` vê a superfície dos módulos; `bible.test.mjs` novo |
-| 10 | C1 | em curso | | 2026-11-05 | |
+| 10 | C1 | feita | v1.13.20 (só web) | 2026-11-05 | nenhum defeito de culto na fatia; `clearCurrentSelection` em `updateState` (+ asserção com reversão); 2 trechos de código morto da preview/peso; ~20 lápides e fatos velhos nos comentários |
 | 11 | C2 | pendente | | | |
 | 12 | C3 | pendente | | | |
 | 13 | C4 | pendente | | | |
@@ -55,11 +55,9 @@ tratou.
 | K2 | A3 | `NativeBridge.kt` ~1350: o comentário diz que os métodos de certificado são guardados "como os cinco irmãos", mas a família do espelho tem 9 métodos com guarda `host` — conferir a conta |
 | X3 | A5 | (sem outra etapa em `tools/`; a X3 é a que mede no Chromium) `tools/configuracoes-janelas.test.mjs` D e `tools/boot-nativo.test.mjs` — instáveis no runner, SEM reprodução local (passaram na base e 5× cada a três processos). O `obtido` do D já diz o estado da seção (A1); o próximo vermelho do `boot-nativo` precisa ter a asserção lida no log (o log corta): sem ela, não há o que consertar. **A6 leu um:** run `41998913449` (1ª tentativa), única asserção vermelha *"o percurso dos Favoritos terminou sem exceção (page.evaluate: TypeError: Cannot read properties of null (reading 'click') at eval :41:35)"* — um `.click()` cru num `evaluate` dentro do `try` de 4437→5183 que ainda não nomeia o elemento ausente; a 2ª tentativa passou (132/132) e 5 rodadas locais passaram |
 | X2 | A4 | Os que sobraram da `AUDITORIA-2026-08.md` estão ENUMERADOS na tabela "Conferência da revisão A4" no topo dela (7 ids + 3 resíduos; o "26" eram listas brutas). E fora da cerca de qualquer etapa: a `AUDITORIA-2026-09-11.md` tem 23 achados sem RESOLVIDO (entre eles [5] e [33] VERIFICADOS) + 3 extras (imports mortos em `EspelhoServidor.kt` e `ShellUpdater.kt`, o `#bibleTitle`) — vários ([23] [25] [29] [33] [37]) citam linhas do `CLAUDE.md` antigo e devem ter caducado; a `AUDITORIA-EFICIENCIA-2026-09.md` tem #2, #5 e #9 abertos; a `AUDITORIA-ESTABILIDADE-AV.md` tem C2 e D2 abertos (cabeçalhos atualizados) |
-| C1 | A4 | `controle.js` (~linha 715, o comentário do achado `:469` da auditoria 2026-08): diz que "a ÚNICA porta dinâmica é `DEST_ICONE`", que saiu na v1.8.56 — hoje é `ICON[d.ico]`. Lápide |
 | K4 | A4 | `EspelhoServidor.servirMidia` — o KDoc diz que item em crescimento só sai em `chunked`; conferir contra o `alcanceDe`. O `EspelhoHttpRangeTest` cita o §6 do `TELAO-POR-COMANDOS.md`, que continua existindo (condensado). Não verificados na A4: `EspelhoPares.validar` aceitar token nu e o Cookie ser ignorado (saíram do doc por não terem prova) |
 | C3 | W1 | `controle.js`:`moverNaLista` (~12389) — `listIds` + `listSet(listName, ids)` em ARRAY: read-modify-write partido. Um download do YouTube que termina no vão (`addMediaToList` na mesma lista) some da lista e o `gcOrfaos` seguinte apaga o arquivo; dois toques rápidos em "Mover" perdem um movimento. Conserto: `AVDB.listSet(listName, (ids) => { …splice…; return ids; })` |
 | C8 | W1 | `controle.js`:`resgatarDownloads` (~39449) — `getState(YT_INTENCOES)` + `setState(YT_INTENCOES, [])`: uma intenção gravada por `lembrarIntencao` entre os dois é apagada (janela curta, na abertura). Conserto: `let pend = []; await AVDB.updateState(YT_INTENCOES, (a) => { pend = a \|\| []; return []; })` |
-| C1 | W1 | `controle.js`:`clearCurrentSelection` (~3926) — `getState('current')` + `setState({...cur, mediaId:null})`: par RMW sobre a chave do `persistCurrent`. Hoje só roda no `init()` antes do `load()` (risco baixo); trocar por `AVDB.updateState('current', …)` |
 | C5 | W1 | `controle.js`:`serieDiarioGravar` (~21990) — o comentário ainda cita o "Atualizar a lista" (saiu na v1.12.53) como a segunda varredura concorrente |
 | K2 | W1 | `NativeBridge.kt`:`bgProgress` (~951) — linha de comentário duplicada ("Só o Controle, como os onze irmãos…" duas vezes) |
 | K2 | W1 | `NativeBridge.kt`:`apkInstalar` — roda na fila `transferencia` (UMA thread, a dos downloads do YouTube): o APK espera atrás de um download de minutos e o prazo de 15 min do web conta essa espera. Avaliar se a fila é a certa (o web já não mente quando o prazo vence: v1.13.17) |
@@ -67,6 +65,7 @@ tratou.
 | C2 | W2 | `controle.js`:`load()` (~4186/4240/4307) — lê `state.rotate` (e `fit`) com `await` no começo e aplica `mediaRot`/`preview.setRotate` no fim: um `applyRotate` (C8, ~38654) que grava no vão é DESFEITO no Controle (botão e prévia voltam ao valor velho; o telão fica girado) até o próximo `load()`. **O operador pediu (2026-11-05) que a C2 cubra também o "Preencher"** (`mediaFit`/`applyFit`, o mesmo vão): MEDIR o cenário do fit com a mesma corrida, consertar os dois no mesmo lote e cobrir os dois na asserção. MEDIDO (W2): é o vermelho de 2229/2242 do `enquadramento-da-camada`, com o `load()` do `init()`. Conserto provável: reler o estado na hora de aplicar, ou `applyRotate`/`applyFit` aplicarem na preview e o `load()` não sobrescrever valor mais novo |
 | X3 | W2 | `tools/enquadramento-da-camada.test.mjs` — age (`applyRotate`, `send`) logo depois de `__avBack` existir, SEM `esperarCortina`: com o `init()` ainda em voo, o `load()` dele desfaz o giro (repasse C2). Reproduz com `Emulation.setCPUThrottlingRate` 20× (8× passa). Conserto do oráculo: `esperarCortina` depois do `goto`; a asserção do C2 é outra (girar DURANTE um `load()` em voo) |
 | C5 | W3 | `cifra.js`:`ritmoDaRolagem` (~998) — desconta a ABERTURA do tempo da rolagem, e o comentário diz que ela saiu. **DECIDIDO pelo operador (2026-11-05): a pausa FICA** ("é necessária para os tempos de introdução, antes de propriamente necessitar mover/iniciar a leitura"). O defeito é o COMENTÁRIO: corrigi-lo para descrever a pausa como regra intencional (e o porquê), sem tocar no cálculo |
+| C2 | C1 | `controle.js` (~6690, o bloco da tabela `DESTINOS`): a narrativa da v1.8.56 diz "o `DEST_ICONE` desta folha" — a lista saiu e "desta" já não aponta para nada (o `tools/destinos.test.mjs` ~152 repete a frase). Prosa de lote: encurtar para a regra (a ordem e o ícone saem da tabela) |
 
 ## Relatórios
 
@@ -361,3 +360,29 @@ exportada (o nome solto na exportação o faz desistir) — sem dono (A5 feita).
 AQUI igual no HEAD (`setViewportSize` sobre janela em tela cheia, Playwright local fora do
 pin): ambiente, a prova é o CI.
 **O operador:** nada a fazer; a v1.13.19 chega sozinha (só web).
+
+### C1 · Abertura, preview, áudio — feita (2026-11-05)
+
+Cerca: `controle.js` do início até `// ===== carregar + render =====` (4.074 linhas), lida inteira.
+**Corrigido (código, commit à parte):** `clearCurrentSelection` (repasse W1) — `getState` +
+`setState` sobre `current` desfazia um `persistCurrent` gravado no vão; agora `updateState` com
+`fn` síncrona. Asserção no bloco 6 do `hidratacao-perde-a-vez` (limpeza × `persistCurrent`
+juntos, e a limpeza sozinha); reversão: o par antigo reprova a 1ª (2/2), `fn` que nunca limpa a 2ª.
+**Código morto:** `medirColecao` sem `falta`/`exato` (ninguém lia; o comentário prometia o "~");
+o ramo `view`/`fit` do `aplicarNaPreview`, idêntico ao `preview.handle` do fim.
+**Só comentário (provas 1 e 2):** repasse A4 (`DEST_ICONE` → `ICON[d.ico]`); lápides do tema
+automático, `tabsEl`, badges, `#hymnSearchBtn`, ícones que saíram, `ehSerie`, `fmtBytesPar`, o
+diálogo de dados móveis e o player do YouTube da preview (3 casas); fatos: "CINCO" lugares do
+`ehLink` (são 4), índices "exibidos à parte" (só no Registro), o rodapé do `otaRow`, o
+`MediaRecorder` do `medirAudio`. Narrativa verbatim na seção v1.13.20 do histórico.
+**Achado e não corrigido:** o atraso da preview é SEMPRE zero (toda tela tem `comando: true`) —
+o bloco o declara rede de segurança, e removê-lo atravessa a C9; `tempoDaPreview` repete
+`alvoDaPreview` (gosto); `updateState` grava `current = undefined` numa instalação nova; prosa
+longa que é REGRA com o porquê ("UM NÚMERO SÓ", miniaturas, grupos, "O SOM NÃO VAZA", prévia).
+Réguas (`midiaNoAr`/`cenaNoAr`/`haDestinoDeProjecao`/`algumaTelaConectada`) coerentes com o que
+cada bloco nomeia; os timers da fatia se desarmam. **Repasses:** C2.
+**Verificado:** "Sanidade da base web" (todo Node puro, `docs-coerentes`), `tokens`; Chromium (43,
+todos verdes, Playwright local 1.63): `hidratacao-perde-a-vez`, `smoke`, `display-smoke`,
+`boot-nativo`, `db-gc`, `db-estado`, `cena`, `transporte-sem-cena`, as de prévia, saída de áudio,
+telão, dados móveis, servidor, acervo, `enquadramento-da-camada`, `ota`, `destinos` e a letra/texto.
+**O operador:** nada a fazer; a v1.13.20 chega sozinha (só web, nada que ele veja).

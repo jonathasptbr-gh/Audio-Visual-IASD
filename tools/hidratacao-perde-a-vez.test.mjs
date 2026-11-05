@@ -37,6 +37,9 @@
 //  3. Sem toque nenhum, a hidratação CONTINUA restaurando a cena — senão "não
 //     aplicar nunca" passaria na 2.
 //
+// (O bloco 6 é a mesma classe na ESCRITA: a limpeza da seleção da abertura,
+// `clearCurrentSelection`, contra um `persistCurrent` que corre junto.)
+//
 // E a quarta, que separa CENA de CONFIGURAÇÃO: durante a corrida a hidratação
 // pula a SELEÇÃO e aplica o resto. Sem ela, o conserto barato (um `return` no
 // topo da FASE 2) passa nas três acima e deixa o app com o tema, o corpo da
@@ -267,6 +270,35 @@ try {
   }, ids);
   checar(favSozinho.noSet === true && favSozinho.naLista === true,
     'e sem exclusao nenhuma o load() RESTAURA os favoritos do banco', JSON.stringify(favSozinho));
+
+  // ── 6. A LIMPEZA DA SELEÇÃO NA ABERTURA NÃO DESFAZ UM `persistCurrent` ────
+  // `clearCurrentSelection` zera o `mediaId` de `current`, a chave que o
+  // `persistCurrent` grava inteira (volume, mudo, cortina). Feita como
+  // `getState` + `setState`, um `persistCurrent` que entrasse no vão era
+  // desfeito: a releitura da limpeza era ANTERIOR a ele. A ordem é
+  // determinística — a leitura da limpeza abre a transação primeiro, e a
+  // escrita dela sai depois da do `persistCurrent`.
+  const cena6 = await pg.evaluate(async ({ a, b }) => {
+    await AVDB.setState('current', { mediaId: a, noAr: false, view: 'visual', muted: false, volume: 1, at: 1 });
+    const antes = { volume, currentId };
+    volume = 0.3; currentId = b;
+    const limpeza = clearCurrentSelection();   // a limpeza da abertura parte
+    const gravou = persistCurrent();           // e um persistCurrent corre junto
+    await Promise.all([limpeza, gravou]);
+    volume = antes.volume; currentId = antes.currentId;
+    return AVDB.getState('current');
+  }, ids);
+  checar(!!cena6 && cena6.volume === 0.3 && cena6.mediaId === ids.b,
+    'a limpeza da seleção corre junto de um persistCurrent sem desfazê-lo (volume e seleção dele ficam)',
+    JSON.stringify(cena6));
+  // E SOZINHA ela continua limpando — senão "nunca escrever" passaria acima.
+  const so6 = await pg.evaluate(async ({ a }) => {
+    await AVDB.setState('current', { mediaId: a, noAr: false, view: 'visual', muted: false, volume: 0.7, at: 1 });
+    await clearCurrentSelection();
+    return AVDB.getState('current');
+  }, ids);
+  checar(!!so6 && so6.mediaId === null && so6.volume === 0.7,
+    'e sozinha ela zera só a seleção: o volume da mesa fica', JSON.stringify(so6));
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
 }

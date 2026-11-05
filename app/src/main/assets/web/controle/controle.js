@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.19';
+const WEB_VERSION = '1.13.20';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1825,16 +1825,16 @@ function bytesPorSegundo(id) {
   return taxa;
 }
 
-// A medida completa de um álbum: `{ noAparelho, falta, total, exato }`.
-// `exato` só é verdadeiro quando NÃO falta nada — é ele que decide se a tela
-// escreve "48 MB" ou "~48 MB", e essa diferença é a honestidade do número.
+// A medida de um álbum: `{ noAparelho, total }` — o que está no disco (exato) e
+// isso mais a ESTIMATIVA do que falta. Quem decide se a tela mostra um ou a
+// fração dos dois é o `fracaoPeso`, pela `colecaoCompleta`.
 function medirColecao(id) {
   const u = ui(id);
   const l = levantarColecao(id);
   const bps = bytesPorSegundo(id);
   const falta = Math.round(bps * (l.segFalta + l.faltaSemTempo * SEG_PADRAO));
   const noAparelho = u.bytes || 0;
-  return { noAparelho, falta, total: noAparelho + falta, exato: l.falta === 0 };
+  return { noAparelho, total: noAparelho + falta };
 }
 
 // A FRAÇÃO QUE SE LÊ ANTES DE BAIXAR É DE PESO, NÃO DE FAIXAS (v5.94).
@@ -3206,10 +3206,6 @@ function aplicarNaPreview(obj, item) {
     applyPvLyricsBg();
     return;
   }
-  if (obj.type === 'view' || obj.type === 'fit') {
-    preview.handle(obj); // cortina/config compartilhada — sempre, independe do youtube
-    return;
-  }
   preview.handle(obj);
 }
 
@@ -3859,10 +3855,13 @@ function persistCurrent() {
 // navegador o Display é outra janela, que pode estar projetando — e uma recarga
 // do Controle (a do service worker, inclusive) apagaria a projeção no meio do
 // culto.
+//
+// NUMA TRANSAÇÃO SÓ (`updateState`): o par `getState` + `setState` deixava um vão
+// em que um `persistCurrent` gravado no meio era desfeito — volume, mudo e
+// cortina voltavam ao que estava no banco antes dele.
 async function clearCurrentSelection() {
-  const cur = (await AVDB.getState('current')) || {};
-  if (!cur.mediaId) return;
-  await AVDB.setState('current', { ...cur, mediaId: null, at: Date.now() });
+  await AVDB.updateState('current', (cur) => (cur && cur.mediaId)
+    ? { ...cur, mediaId: null, at: Date.now() } : cur);
 }
 
 // ===== miniaturas =====
