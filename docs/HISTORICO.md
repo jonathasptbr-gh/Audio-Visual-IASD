@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.24** — revisão C4: CRONOGRAMA, BIBLIOTECA, SÉRIES E FAVORITOS (o `controle.js` do rodapé flutuante à aba de cifra); pôr um item no Cronograma ou na playlist deixa de ser desfeito por um `load()` em voo (senha `listasSeq`), o parágrafo do `renderTabs` no capítulo da Biblioteca, e ~45 comentários (lápides, fatos velhos, narrativa ao histórico)
 - **v1.13.23** — revisão C3: FERRAMENTAS (o `controle.js` do Cronômetro à altura do rodapé flutuante); mover uma linha do Cronograma ou dos Favoritos deixa de desfazer um download que termina no vão (`moverNaLista` pela forma atômica do `listSet`), a saída das folhas lê o `--tools-anim` em vez de copiá-lo, e ~60 comentários (lápides, fatos velhos, narrativa ao histórico)
 - **v1.13.22** — complemento da revisão C2: trocar a versão da Bíblia sem o capítulo nem rede deixava a pílula e a folha na versão nova sobre o texto (e a projeção) da velha, a navegação na velha e o retoque sem efeito; a falha desfaz a escolha e avisa no cartão da preview, e uma troca atrasada não sobrescreve a mais nova
 - **v1.13.21** — revisão C2: RENDER, FILA, BÍBLIA E DESTINOS (o `controle.js` de `carregar + render` ao Cronômetro); o giro e o "Preencher" tocados com um `load()` em voo deixam de voltar sozinhos no Controle, `cenaDeRoteiroNoAr` deixa de reescrever a régua de `provedorDeTextoNoAr`, três `renderLibrary()` órfãos da Bíblia e ~30 lápides
@@ -634,6 +635,578 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.13.24 — revisão C4: CRONOGRAMA, BIBLIOTECA, SÉRIES E FAVORITOS (o `controle.js` de `A ALTURA DO RODAPÉ FLUTUANTE É LIDA` a `// ===== A ABA DE CIFRA (v1.1.7)`)
+
+**v1.13.24 (revisão C4; só web, sem Release)** — a etapa C4 da revisão profunda
+(`docs/REVISAO-PROFUNDA.md`): a quarta fatia do `controle.js` (o rodapé das
+portas e o Importar, a gaveta `⋮` da linha com a confirmação e o renomear na
+faixa, o par ↑↓, o acervo da Biblioteca — grupos, cards, paginação, índice e
+seções do hinário, acordeões —, a verificação da semana das séries e o destaque
+do sábado, os Favoritos com as pastas do aparelho, a tampa dos blocos de raiz e
+a escala do Modo Fácil, os botões de playlist/Cronograma/estrela da linha, o
+`send` e o transporte ⏮/⏭, o eixo do par de slides e a leitura auxiliar) pela
+lista comum e pelo específico das fatias C. Lida inteira; nenhum defeito que
+interrompa a projeção.
+
+**O DEFEITO (o quinto par da hidratação).** `toggleCronograma` e
+`togglePlaylist` (o botão da linha que põe e tira do Cronograma e da playlist)
+gravam (`listAdd`/`listRemove`) e releem a lista; um `load()` que já tinha lido
+`imports`/`playlist` ANTES do toque aplicava a cópia velha DEPOIS dele — o item
+ficava no banco e fora de `cronoSet`/`libItems`/`plItems`, isto é, fora da lista
+na tela e da fila do ⏭, até o próximo `load()`. É a classe do `favSeq` (v1.8.0),
+que só cobria os favoritos. Conserto: a senha `listasSeq`, incrementada pelos
+dois toques antes do primeiro `await`; o `load()` só aplica as três variáveis se
+ninguém a moveu. Asserção nova: bloco 9 do `hidratacao-perde-a-vez.test.mjs` — o
+espião segura o `load()` logo depois da leitura da lista, o toque acontece
+inteiro, e só então a hidratação continua; o item fica nas três variáveis, e sem
+toque o `load()` continua restaurando o banco. Reversão: sem o conserto as duas
+primeiras reprovam (`cronoSet: false, libItems: false, plItems: false` com o item
+no banco). Os outros escritores de `plItems` fora da fatia ficam como repasse.
+
+**REPASSE C2 (doc).** `docs/arquitetura/CONTROLE-BIBLIOTECA.md` citava um
+`renderTabs()` que mantinha o Cronograma aceso atrás da gaveta dos Favoritos: a
+gaveta saiu na v5.294 e a função com a faixa (v1.5.0); o parágrafo diz agora
+onde os Favoritos moram.
+
+**SÓ COMENTÁRIO (provas 1 e 2).** Fatos: o cabeçalho "OS FAVORITOS TÊM DUAS
+CASAS" contradizia o próprio corpo (uma casa desde a v5.294) e os comentários
+de `renderFoldersSeVisivel`, `toggleFav` (o "atalho" e a "gaveta") e
+`recarregarFavoritos` falavam das duas; "arrastando" e a "alça de arrastar" (o
+par ↑↓ desde a v5.285); no `send`, "as duas acima"/"a ÚLTIMA das três" e "as três
+guardas acima" (são quatro com o vídeo da semana); o "check (verde)". Lápides: a
+ORIGEM que o `send` derrubaria (não há código), `wifiIconEl`, o ✓ do renomear,
+`listIconSvg`, `gearIconSvg`, `voiceIconSvg`/`noteIconSvg`, a paleta das
+coleções, "BAIXAR TODA A BIBLIOTECA", `buildCollectionOptions`, `hymnalStat`, o
+painel de opções, "TRAZER UMA PASTA", `renderStorageUsage`, `fmtParBytes`, o
+"VER TODOS" (que ainda citava o vão, saído na v1.13.12). Bloco no símbolo
+errado: o da "seta para cima" encabeçava `chevronDirSvg` e foi, condensado, para
+`chevronUpIconSvg`. Os pedidos e relatos do operador citados no código saíram;
+a narrativa que saiu, verbatim, bloco a bloco:
+
+*botaoRenomearDaLinha:*
+
+```js
+ * Pedido do operador: *"adicione renomear nas opções individuais dos itens do
+ * cronograma"*. Renomear já existia, e só para UM item de cada vez — atrás do
+ * toque longo, do modo de seleção múltipla e de um botão no rodapé
+ * (`renameSelected`), isto é, quatro gestos para trocar uma palavra. É a mesma
+ * correção que o excluir recebeu na v5.272, pela mesma razão.
+```
+
+*acertarFaixaDaLinha:*
+
+```js
+ * Pedido do operador: *"Em telas menores permita as opções individuais do item no
+ * cronograma, sobreporem a thumbnail, mas de forma completa, aproveitando e
+ * distribuindo corretamente o espaço disponível. Atualmente em telas menores, ele
+ * sobrepõe apenas parte da thumbnail, ficando estranho"*.
+```
+
+*fecharConfirmacaoNaLinha:*
+
+```js
+ * Pedido do operador: *"remova os popups de confirmar exclusão, para que todas
+ * essas confirmações sejam inseridas direto na UI… no cronograma, coloque a
+ * confirmação na própria gaveta de opções, com um botão de cancelar e
+ * confirmar; durante o processo de exclusão pode trocar o ícone da thumbnail
+ * pela lixeira, para ilustrar que está confirmando uma exclusão"*.
+```
+
+*abrirNaFaixaDaLinha:*
+
+```js
+ * Pedido do operador: o `⋮` *"contradiz o fluxo dos botões, pois o processo de
+ * exclusão e o de renomear já devem ter métodos de retorno/cancelamento"*, e a
+ * capa deve sair junto *"para ter mais espaço tanto para a gaveta de opções
+ * como para a barra de renomeação"* — com a coluna dele virando o *"botão
+ * indicativo"* do processo.
+```
+
+*pedirRenomearNaLinha:*
+
+```js
+ * Pedido do operador: *"coloque o processo de renomear também dentro do item na
+ * lista do cronograma, não como um popup de tela inteira, assim como já é feito
+ * no processo de excluir"*.
+```
+
+*botaoExcluirDaLinha:*
+
+```js
+ * Pedido do operador: *"adicione a opção de excluir nas opções nos itens
+ * individuais das listas de cronograma e favoritos"*.
+```
+
+*renderCollectionsListMiolo:*
+
+```js
+    // Pedido do operador: *"pode manter uma seta como 'thumbnail' padrão, pois
+    // nas subdivisões, uma thumbnail é meio inútil, deixe apenas nos arquivos os
+    // ícones, nas raízes mais altas o ideal é a seta, pois ela representa que
+    // pode abrir mais listagens."*
+```
+
+*renderCollectionsListMiolo:*
+
+```js
+    // Pedido do operador: *"agora não mais são concorrentes com os favoritos…
+    // as coleções são concorrentes entre si, mas não com os favoritos"*. Ele
+    // está corrigindo uma consequência que a v5.273 não pesou: com os Favoritos
+    // no mesmo rodízio, abrir um hinário custava o atalho que o operador tinha
+    // deixado aberto — e reabri-lo custava fechar o hinário. Duas decisões
+    // diferentes disputando o mesmo interruptor.
+```
+
+*renderCollectionCard:*
+
+```js
+  // Pedido do operador: *"ajuste o elemento que descreve o peso dos arquivos e
+  // álbuns e coleções, para que ele seja um subtítulo abaixo do título, pois
+  // atualmente ele está apertando o espaço disponível para o título dos
+  // álbuns. Mas garanta que os cards não fiquem mais altos por causa disso."*
+```
+
+*indiceDeSecoes:*
+
+```js
+// Pedido do operador: *"um pequeno índice no início da lista do álbum do
+// hinário"*.
+```
+
+*ehHinarioNovo:*
+
+```js
+// Pedido do operador: *"adicionar pequenos títulos no meio da listagem dos
+// hinos, para demarcar as divisões de temas"*.
+```
+
+*destaqueDaSerie:*
+
+```js
+ * Pedido do operador: *"gostaria que fizesse um sistema de destaque que
+ * colocasse separado destacado no topo da lista o item referente ao sábado
+ * atual. Caso não tenha, deixe uma mensagem de Aguardando lançamento"*.
+```
+
+*favHost:*
+
+```js
+// Pedido do operador: *"coloque os favoritos dentro da biblioteca… Pode deixar
+// a seção de favoritos no topo da listagem."*
+```
+
+*renderFolderList:*
+
+```js
+    // Pedido do operador: *"ajuste o sistema de pastas dos favoritos, para que
+    // ele abra a lista de arquivos das pastas de forma visual sem ser um popup,
+    // para que abra a lista assim como abrem os álbuns com seus itens"*.
+```
+
+*linhaDeItem:*
+
+```js
+  // Pedido do operador: *"ponha o botão de confirmar as escolhas do play dos
+  // favoritos para que ele fique lado a lado … ajustado com a altura dos
+  // botões"*. (O LADO se inverteu na v5.307 e virou regra única na v1.4.7 —
+  // ver `destConfirmRow`.)
+```
+
+*destPadraoTocar:*
+
+```js
+ * Pedido do operador: *"nas opções de play, deixe que venha por padrão o check
+ * de tocar agora, pois é a opção que normalmente já se tem mais urgência"*.
+```
+
+*favAssinatura:*
+
+```js
+// Relato do operador: excluir uma PASTA (e os itens que ela leva junto) não
+// tirava nada da tela — a linha só sumia fechando e reabrindo a Biblioteca.
+```
+
+*scrollerDe:*
+
+```js
+// Relato do operador: *"na tela que temos para as coleções e álbuns [há
+// rolagem], mas que não temos para as opções de play … constantemente a
+// visualização das opções de play depende de rolar a tela manualmente para ver
+// elas"*.
+```
+
+*LIB_ESC_MIN:*
+
+```js
+// Relato do operador: *"Ajuste o cartão das coleções, o card do titulo, pois ele
+// está encolhendo ou modificando seu tamanho ao abrir sua listagem."*
+```
+
+*medirTampa:*
+
+```js
+  // Relato do operador: *"na biblioteca, o título das coleções se move ao abrir
+  // a lista de álbuns e itens… uma vez medido, os itens fiquem alinhados
+  // durante as interações"*.
+```
+
+*plBtnDaLinha:*
+
+```js
+ * Pedido do operador: *"faça com que o estado de adicionado à playlist seja um
+ * botão que visualmente responda se aquele item está ou não na playlist, não
+ * apenas a confirmação de 'enviado para playlist'"*.
+```
+
+*cronoBtnDaLinha:*
+
+```js
+ * Pedido do operador: *"na lista da playlist, pode adicionar opções como:
+ * adicionar aos favoritos e adicionar ao cronograma"*.
+```
+
+*send:*
+
+```js
+  // Pedido do operador: *"no modo simples, coloque a limitação de apenas um
+  // elemento ativo na mídia, assim no modo simples não há sobreposição e nem
+  // necessidade de multicontroles"*.
+```
+
+*send:*
+
+```js
+  // Pedido do operador, nas palavras dele: *"onplayer também deveria ser um
+  // elemento que mantém a existência de um item no sistema"*. Ele apagou do
+  // Cronograma um item que estava tocando, e a cena caiu.
+```
+
+*send:*
+
+```js
+  // Pedido do operador: *"que a busca da cifra seja automaticamente ao tocar a
+  // música e não ao abrir a aba de cifras"*.
+```
+
+*transportePode:*
+
+```js
+ * Relato do operador: *"o botão de proxima midia quando não há uma lista na
+ * playlist… nesse caso apenas o botão de midia anterior fica ativo, pois ele
+ * volta ao início da midia atual"*.
+```
+
+*slideTarget:*
+
+```js
+  // Pedido do operador: *"para o sorteio, cronômetro ou timer, quando eles
+  // estiverem sendo exibidos no telão, seja pela aba de ferramentas ou direto
+  // pelo cronograma, faça com que os botões de próximo slide e slide anterior,
+  // alterem seus ícones e funcionem como: esquerdo, resetar e direito, ação de
+  // playpause/sortear"*.
+```
+
+*slideTarget:*
+
+```js
+  // Relato do operador: *"enquanto uma música está em stop, os botões de
+  // anterior e próximo slide ficam ativos (isso está errado), e interagir com
+  // eles faz com que a próxima música pule slides já na sua abertura como se os
+  // toques anteriores fossem para ela"*.
+```
+
+*repeticaoPode:*
+
+```js
+// Pedido do operador: *"verifique botões que deveriam ter sua função inativa ao
+// toque em situações em que ele não deveria ser usado. Como é o caso de uma
+// playlist vazia… o botão de stop se não tem nada em play e etc… Isso evita
+// bugs por tentar fazer algo que não seria possível"*.
+```
+
+*repeticaoPode:*
+
+```js
+ * Relato do operador: *"ele não está sendo desativado quando não há nada
+ * selecionado. Verifique os momentos em que ele deveria ficar inativo"*.
+```
+
+*acervoAnimando:*
+
+```js
+// Relato do operador: *"O mesmo problema da coleção travando no último instante antes de
+// fechar, ocorre no modo simples com o provai e vede e o informativo das missões"*.
+```
+
+*LIB_ESC_MIN:*
+
+```js
+// Pedido do operador: *"agora com mais espaço vertical na biblioteca, o sistema tem de aumentar os
+// itens para aproveitar completamente esse vão … de forma responsiva"*. O CSS redeclara os tokens
+```
+
+*fecharFavoritosAnimando:*
+
+```js
+// Relato do operador: *"a coleção de favoritos, que ao fechar, encolhe, e dá uma
+// pequena travada antes de realmente fechar… uma diferença grande entre o
+// funcionamento visual das outras coleções que corretamente encolhem de forma
+// fluida"*.
+//
+```
+
+*tampaAlturaVista:*
+
+```js
+// Relato do operador, com o Registro: *"após dar stop … a biblioteca volta, e sua caixa cobre o vão
+// certo, mas seu interior, as coleções, ficam encolhidas … abrir uma coleção faz ele atualizar"*.
+```
+
+*slideTarget:*
+
+```js
+  // Pedido do operador: *"mudar o atraso via os botões de slide anterior e
+  // próximo, sempre de 5 em 5 minutos"*. Quem troca o ITEM continua sendo o
+```
+
+*send:*
+
+```js
+  // E a ORIGEM cai aqui, sempre: `send` é o ponto por onde todo play passa, e
+  // uma origem que sobrevivesse a um play normal deixaria a linha do link
+  // marcada como "no ar" enquanto outra mídia toca. Quem a repõe é o único
+  // caminho que precisa dela (`resolverLinkYoutube`), DEPOIS de projetar.
+```
+
+*favHost (cabeçalho):*
+
+```js
+// ===== OS FAVORITOS TÊM DUAS CASAS, E UMA IMPLEMENTAÇÃO SÓ (v5.237) =====
+//
+```
+
+*favHost:*
+
+```js
+// lista divergem no primeiro ajuste, e aqui divergiriam em gestos (o toque
+// longo que entra na seleção múltipla), na alça de arrastar e na estrela.
+```
+
+*renderFoldersSeVisivel:*
+
+```js
+  // A OUTRA CASA (v5.237): com o grupo Favoritos aberto dentro da Biblioteca, a
+  // mesma lista está na tela por outro caminho — e sem isto ela ficaria com a
+  // contagem de uma pasta que acabou de sincronizar, ou com um favorito que já
+  // saiu.
+```
+
+*isFav:*
+
+```js
+// organização opcional; a v5.254 os removeu, a pedido do operador. O que
+// organiza a lista hoje é a ORDEM, e quem a decide é ele, arrastando.
+```
+
+*toggleFav:*
+
+```js
+  // O redesenho continua sendo necessário — a estrela do mesmo item aparece no
+  // Cronograma, dentro de um atalho e na gaveta, e na gaveta a linha até some
+  // ao ser desmarcada. A DA FILA DA PLAYLIST (v1.4.25) não vem por aqui: ela
+```
+
+*recarregarFavoritos:*
+
+```js
+// E DESDE A v5.258 ELE TAMBÉM REDESENHA (relato do operador: *"se estou na
+// biblioteca e adiciono algo aos favoritos, ele só aparece na lista após fechar
+// e abrir novamente"*). Ele estava certo, e a causa é que os favoritos têm DUAS
+// casas desde a v5.237: quem redesenhava depois de favoritar era o
+// `renderLibrary` — a lista de baixo —, e a seção dentro da Biblioteca é
+// desenhada por `renderSearchResults`, que ninguém chamava. O estado estava em
+// dia; a tela é que não.
+```
+
+*send (as guardas):*
+
+```js
+  // A guarda mora AQUI pelo mesmo motivo das duas acima: `send` é o ponto por
+  // onde TODOS os caminhos passam. E ela é a ÚLTIMA das três porque as outras
+  // recusam o que nem é mídia; esta escolhe entre dois jeitos de projetar.
+```
+
+*countDownloaded (lápide):*
+
+```js
+// (O ícone de antena `wifiIconEl()` saiu na v5.73 com o chip "Rede" das opções
+// do álbum, seu único consumidor. Um chip permanente repetindo o estado da
+// rede em cada álbum aberto era ruído entre dados sobre o ÁLBUM. Quem decide
+// se a sincronização em massa espera o Wi-Fi é `redeLiberadaParaBaixar()`
+// desde a v1.11.0 — o diálogo por toque que existia até ali saiu junto com a
+// opção "Dados móveis" das Configurações, que é onde a decisão passou a
+// morar.)
+
+```
+
+*ACOES_QUE_NAO_FECHAM (lápide):*
+
+```js
+// (O ✓ do renomear saiu desta lista na v1.4.27, e não porque a razão dele
+// mudou: ele deixou de morar DENTRO da caixa — foi para a coluna do `⋮` —, e
+// este ouvinte só enxerga o que está dentro dela. A razão em si continua de pé
+// no código: ele fecha a pergunta SOZINHO, depois de ler o campo, e o inverso
+// perderia o nome digitado.)
+//
+```
+
+*chevronUpIconSvg (lápides e o bloco que estava acima de chevronDirSvg):*
+
+```js
+// (`listIconSvg` saiu: sem chamador desde que "Ver músicas" deixou as opções
+// do álbum — a lista é o toque no card.)
+// SVG inline de "seta para cima" — o MESMO botão da engrenagem enquanto as
+// opções estão à mostra (v5.73). A engrenagem acesa dizia "as opções estão
+// abertas" só pela cor; a seta diz o que o toque FAZ, que é recolher o painel
+// que está logo abaixo dela. É a convenção de qualquer gaveta, e aqui o alvo é
+// literalmente o teto do painel que ela fecha.
+```
+
+*checkIconSvg/chevronDirSvg (lápides):*
+
+```js
+// (`gearIconSvg` saiu na v5.95, com o botão de opções do card: as opções agora
+// aparecem sozinhas com o álbum aberto, e o único símbolo daquele canto é a
+// seta que fecha. O mesmo desenho continua no botão de Configurações que
+// flutua sobre a preview, que tem o seu.)
+// (Os desenhos de "voz" e "nota musical" — `voiceIconSvg`/`noteIconSvg` —
+// saíram com o último chamador: eles marcavam os botões de tocar CANTADA e
+// PLAYBACK na linha, e desde a v5.286 a variante é um SEGMENTO da gaveta, com
+// rótulo escrito. Um ícone sem chamador é um desenho que ninguém revisa.)
+
+```
+
+*renderCollectionsList (lápide):*
+
+```js
+// (A PALETA DAS COLEÇÕES saiu na v1.5.9, com o `tomDaVez`/`colTom` que a
+// carimbava. Ela dava a cada linha de topo uma matiz própria, e o operador
+// reprovou: *"está errado, reformule o sistema de coloração e organização de
+// grupos e subgrupos"*. O que a substitui é MOLDURA, e é tudo CSS — ver "A
+// HIERARQUIA DA BIBLIOTECA É DESENHADA COM MOLDURA" em controle.css.)
+```
+
+*"BAIXAR TODA A BIBLIOTECA" SAIU (seção sem código):*
+
+```js
+// ===== "BAIXAR TODA A BIBLIOTECA" SAIU (v5.258) =====
+//
+// Pedido do operador: *"remova a opção de download total de toda a biblioteca,
+// pois ele ficou muito grande e muito inconveniente. Pode inclusive remover o
+// botão e o indicador de peso total que ficam na barra do topo."*
+//
+// Ele está certo pela própria escala que o botão anunciava: com as séries e os
+// álbuns de hoje, "tudo" é dezenas de gigabytes — um toque cujo desfecho
+// razoável é sempre "não", e que ocupava o lugar de maior alcance da tela para
+// oferecer isso. O CONTADOR foi junto: ele era o peso do acervo INTEIRO, um
+// número que não responde nenhuma pergunta que o operador faça de fato (a que
+// ele faz é sobre UMA coleção, e essa continua na barra de cada card).
+//
+// O que FICA: o download por coleção (a barra de cada card) e o por CATEGORIA
+// (`montarResumoGrupo`, no cabeçalho de "Diversos", "CDs do ano"…). São os dois
+// que têm tamanho de decisão.
+
+```
+
+*destaqueDaSerie (lápide):*
+
+```js
+// (`buildCollectionOptions` e o painel `.coll-opts` saíram na v1.1.21, e as
+// três ações que ele teve terminaram na COLUNA DA DIREITA DA BARRA — ver
+// `renderCollectionCard`. A última a sair do painel foi o "Atualizar a lista" da
+// série, que virou botão puro ao lado dos irmãos — e saiu da barra também na
+// v1.12.53, quando abrir o card passou a verificar a semana; antes dele saíram o
+// "Verificar" (v1.1.16, a verificação virou automática na abertura) e o "Baixar",
+// que já existia na barra e era só repetido ali.
+//
+// O QUE ELE ENSINOU, e vale para o que vier ocupar aquele lugar: **nada dentro
+// do card repete o que a barra dele já diz.** Ele teve três chips, uma linha de
+// status, um chip de peso e um chip de rede — e o peso está na barra ANTES de
+// abrir (é ele que faz o operador decidir abrir), e o "Baixando 2 de 4…" está na
+// barra `sticky` dois centímetros acima.)
+
+```
+
+*COLL_REFRESH_MS (lápide):*
+
+```js
+// (`hymnalStat` — o construtor dos chips do painel — saiu na v5.232 com o
+// último chip que restava, o do peso: ele já estava na barra do card, antes
+// mesmo de abrir.)
+
+```
+
+*renderCollectionsNow (lápide):*
+
+```js
+  // (O painel de opções vive DENTRO do card desde a v5.72, então ele é
+  // redesenhado junto com o acervo — não há mais um popup a sincronizar à
+  // parte.)
+```
+
+*"TRAZER UMA PASTA DO APARELHO" (seção sem código):*
+
+```js
+// ===== "TRAZER UMA PASTA DO APARELHO" — UM BOTÃO, UMA ORIGEM (v5.254) =====
+//
+// A v5.239 unificou dois botões numa folha de duas escolhas ("criar uma pasta"
+// × "trazer uma pasta do aparelho"), e o argumento era o certo: os dois
+// respondiam à MESMA pergunta por caminhos diferentes. Agora a pergunta tem uma
+// resposta só — o operador pediu para o app não ter mais atalhos de pasta,
+// apenas as pastas sincronizadas do armazenamento do aparelho —, e uma folha
+// com uma opção é um toque cobrado para não escolher nada.
+//
+// (A folha `#songMenuPopup` continua sendo a de escolha do app; o que sai é
+// esta abertura dela.)
+
+```
+
+*fmtBytes (lápide):*
+
+```js
+// (`renderStorageUsage` saiu na v5.239 com os dois chamadores. `fmtBytes`
+// FICA: ele é o formatador de tamanho do app inteiro — o peso de cada coleção,
+// o total do acervo, o diálogo de confirmação antes de um download grande.)
+
+```
+
+*renderSelbar (lápide):*
+
+```js
+// (`fmtParBytes` — a forma por extenso, "3,7 de 18 MB" — saiu na v5.232 com o
+// chip de peso, seu único chamador. A forma curta, `fmtFracBytes`, é a das
+// barras e continua.)
+
+```
+
+*alinharGrupoNoTopo (lápide):*
+
+```js
+// (O BOTÃO "VER TODOS" viveu aqui da v5.273 à v5.281 e SAIU na v5.282, com o
+// `favExpandido` que ele governava — *"não tenha mais o sistema de ver mais.
+// Agora quando aberta ela mostra toda a listagem"*. Ele existia porque o vão
+// era uma altura EXATA e o corpo era um RECORTE; com o vão virando um PISO
+// (`min-height`), a seção cresce com a lista e não há mais nada cortado para
+// um botão revelar. Com ele foram embora a régua de "quantos itens ficaram de
+// fora" e a leitura adiada um quadro que ela exigia — o que restou desta
+// família é a MEDIDA do vão, logo abaixo, que continua sendo medida e nunca
+// deduzida de uma contagem fixa: quantos favoritos cabem depende de quantas
+// seções existem, de haver ou não pasta do aparelho, da altura da tela e do
+// teclado.)
+```
 
 ---
 

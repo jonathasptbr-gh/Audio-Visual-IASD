@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.23';
+const WEB_VERSION = '1.13.24';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -11203,14 +11203,6 @@ function countDownloaded(id) {
   return collSongs(id).filter((s) => s.fileIdFull).length;
 }
 
-// (O ícone de antena `wifiIconEl()` saiu na v5.73 com o chip "Rede" das opções
-// do álbum, seu único consumidor. Um chip permanente repetindo o estado da
-// rede em cada álbum aberto era ruído entre dados sobre o ÁLBUM. Quem decide
-// se a sincronização em massa espera o Wi-Fi é `redeLiberadaParaBaixar()`
-// desde a v1.11.0 — o diálogo por toque que existia até ali saiu junto com a
-// opção "Dados móveis" das Configurações, que é onde a decisão passou a
-// morar.)
-
 // ===== OS BOTÕES DA LINHA VIRAM UM SÓ =====
 //
 // Cada botão na linha era um pedaço a menos do nome — a única coisa dela que
@@ -11247,12 +11239,6 @@ function pencilIconSvg() {
 
 /**
  * RENOMEAR UM ITEM, na gaveta da própria linha (v5.288).
- *
- * Pedido do operador: *"adicione renomear nas opções individuais dos itens do
- * cronograma"*. Renomear já existia, e só para UM item de cada vez — atrás do
- * toque longo, do modo de seleção múltipla e de um botão no rodapé
- * (`renameSelected`), isto é, quatro gestos para trocar uma palavra. É a mesma
- * correção que o excluir recebeu na v5.272, pela mesma razão.
  *
  * NA PASTA DO APARELHO ELE NÃO ENTRA, como o excluir: ali a lista é derivada do
  * sistema de arquivos a cada sincronização, e um nome escrito só no registro
@@ -11371,11 +11357,6 @@ function alternarAcoesDaLinha(li) {
 /**
  * ===== SEM LUGAR AO LADO DA CAPA, A FAIXA TOMA A LINHA INTEIRA (v1.12.53) =====
  *
- * Pedido do operador: *"Em telas menores permita as opções individuais do item no
- * cronograma, sobreporem a thumbnail, mas de forma completa, aproveitando e
- * distribuindo corretamente o espaço disponível. Atualmente em telas menores, ele
- * sobrepõe apenas parte da thumbnail, ficando estranho"*.
- *
  * A caixa da v5.301 cresce para a esquerda SÓ O QUE PRECISA, e numa tela estreita
  * isso é um pedaço da capa coberto e o resto à vista — meia miniatura ao lado de um
  * botão. Agora a pergunta é binária: **os botões cabem entre a capa e o `⋮`?** Cabem,
@@ -11437,12 +11418,6 @@ document.addEventListener('pointerdown', (e) => {
 /**
  * ===== A CONFIRMAÇÃO DE EXCLUIR MORA NA PRÓPRIA LINHA (v5.301) =====
  *
- * Pedido do operador: *"remova os popups de confirmar exclusão, para que todas
- * essas confirmações sejam inseridas direto na UI… no cronograma, coloque a
- * confirmação na própria gaveta de opções, com um botão de cancelar e
- * confirmar; durante o processo de exclusão pode trocar o ícone da thumbnail
- * pela lixeira, para ilustrar que está confirmando uma exclusão"*.
- *
  * O modal fazia o que todo modal faz: TIRAVA O ALVO DE CENA. A pergunta era
  * "excluir este item?" e a tela que a fazia não mostrava mais item nenhum — o
  * operador confirmava de memória, num app cuja lista tem trinta linhas com
@@ -11500,12 +11475,6 @@ function fecharConfirmacaoNaLinha() {
  * botão não tem faixa (uma linha remontada sob o dedo).
  *
  * ===== E A COLUNA DO `⋮` É DO PROCESSO ENQUANTO ELE DURA (v1.4.27) =====
- *
- * Pedido do operador: o `⋮` *"contradiz o fluxo dos botões, pois o processo de
- * exclusão e o de renomear já devem ter métodos de retorno/cancelamento"*, e a
- * capa deve sair junto *"para ter mais espaço tanto para a gaveta de opções
- * como para a barra de renomeação"* — com a coluna dele virando o *"botão
- * indicativo"* do processo.
  *
  * Quem esconde as duas colunas é o CSS, por `:has(> .row-acoes.confirmando)`;
  * daqui sai só o ELEMENTO que ocupa a que sobrou. E ele não é enfeite: sem um
@@ -11718,10 +11687,6 @@ function aoSair(li) {
 /**
  * ===== RENOMEAR TAMBÉM MORA NA PRÓPRIA LINHA (v1.4.25) =====
  *
- * Pedido do operador: *"coloque o processo de renomear também dentro do item na
- * lista do cronograma, não como um popup de tela inteira, assim como já é feito
- * no processo de excluir"*.
- *
  * É o mesmo argumento da v5.301, e ele vale AQUI COM MAIS FORÇA que na
  * exclusão: um modal TIRA O ALVO DE CENA, e renomear é a única ação do app em
  * que o operador precisa ver o nome VELHO enquanto escreve o novo — a linha
@@ -11831,9 +11796,6 @@ function pedirRenomearNaLinha(botao, item, aoGravar) {
 
 /**
  * EXCLUIR ESTE ITEM DA LISTA — a ação que faltava no `⋮` (v5.271).
- *
- * Pedido do operador: *"adicione a opção de excluir nas opções nos itens
- * individuais das listas de cronograma e favoritos"*.
  *
  * Até aqui excluir era um caminho só, e era o de LOTE: toque longo → seleção
  * múltipla → a lixeira do rodapé. Para tirar UM item isso é três gestos e um
@@ -11985,12 +11947,6 @@ async function moverNaLista(listName, id, delta) {
 //  · `row-crono` — como a estrela e a playlist, é ALTERNADOR (v1.4.25): o
 //    desfecho dele é o próprio botão trocando `+` por `✓` sob o dedo.
 //
-// (O ✓ do renomear saiu desta lista na v1.4.27, e não porque a razão dele
-// mudou: ele deixou de morar DENTRO da caixa — foi para a coluna do `⋮` —, e
-// este ouvinte só enxerga o que está dentro dela. A razão em si continua de pé
-// no código: ele fecha a pergunta SOZINHO, depois de ler o campo, e o inverso
-// perderia o nome digitado.)
-//
 // E O `linha-sim` ENTROU NA v1.7.4, pelo motivo OPOSTO ao de todos os outros.
 // Relato do operador: *"ao tocar em excluir, na confirmação, o item se
 // transforma ao seu estado inicial sem os botões antes de desaparecer, isso
@@ -12098,17 +12054,11 @@ function closeIconSvg() {
     + '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'
     + '</svg>';
 }
-// SVG inline de "check" (verde), usado no status "Completo offline".
+// SVG inline de "check" (`currentColor`): o "Completa offline" da folha de versões da
+// Bíblia e o salvar do renomear.
 function checkIconSvg() {
   return '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
 }
-// (`listIconSvg` saiu: sem chamador desde que "Ver músicas" deixou as opções
-// do álbum — a lista é o toque no card.)
-// SVG inline de "seta para cima" — o MESMO botão da engrenagem enquanto as
-// opções estão à mostra (v5.73). A engrenagem acesa dizia "as opções estão
-// abertas" só pela cor; a seta diz o que o toque FAZ, que é recolher o painel
-// que está logo abaixo dela. É a convenção de qualquer gaveta, e aqui o alvo é
-// literalmente o teto do painel que ela fecha.
 // As setas do par de reordenar (v5.285). SVG inline, e NÃO um glifo da fonte:
 // `material-symbols.woff2` é um subset ESTÁTICO de ~32 codepoints, e um
 // codepoint que não está nele desenha um retângulo vazio sem erro nenhum — a
@@ -12118,18 +12068,11 @@ function chevronDirSvg(paraCima) {
   return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="'
     + (paraCima ? '18 15 12 9 6 15' : '6 9 12 15 18 9') + '"/></svg>';
 }
+// A seta para cima é o FECHO de um card ou seção aberta: diz o que o toque faz,
+// recolher o que está logo abaixo dela.
 function chevronUpIconSvg() {
   return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>';
 }
-// (`gearIconSvg` saiu na v5.95, com o botão de opções do card: as opções agora
-// aparecem sozinhas com o álbum aberto, e o único símbolo daquele canto é a
-// seta que fecha. O mesmo desenho continua no botão de Configurações que
-// flutua sobre a preview, que tem o seu.)
-// (Os desenhos de "voz" e "nota musical" — `voiceIconSvg`/`noteIconSvg` —
-// saíram com o último chamador: eles marcavam os botões de tocar CANTADA e
-// PLAYBACK na linha, e desde a v5.286 a variante é um SEGMENTO da gaveta, com
-// rótulo escrito. Um ícone sem chamador é um desenho que ninguém revisa.)
-
 // Lista de cards da aba Álbuns: hinários (fixos) + um card por álbum do
 // catálogo. Cada card é um "check do sistema" (não abre como pasta): símbolo,
 // status, estatísticas e ações.
@@ -12304,11 +12247,6 @@ function montarResumoGrupo(host, key, text, colls, gOpts) {
 // da busca (ver renderSearchResults). É uma função só de propósito — duas
 // cópias divergiriam no primeiro ajuste de categoria, e o operador veria dois
 // acervos diferentes conforme por onde entrou.
-// (A PALETA DAS COLEÇÕES saiu na v1.5.9, com o `tomDaVez`/`colTom` que a
-// carimbava. Ela dava a cada linha de topo uma matiz própria, e o operador
-// reprovou: *"está errado, reformule o sistema de coloração e organização de
-// grupos e subgrupos"*. O que a substitui é MOLDURA, e é tudo CSS — ver "A
-// HIERARQUIA DA BIBLIOTECA É DESENHADA COM MOLDURA" em controle.css.)
 function renderCollectionsList(alvo, redesenhar) {
   // ===== A LISTA DO ACERVO SE NOMEIA (v1.5.9) =====
   // A hierarquia por MOLDURA é escopada a esta lista e a mais nada — foi a
@@ -12405,11 +12343,6 @@ function renderCollectionsListMiolo(alvo, redesenhar) {
     bar.setAttribute('aria-expanded', aberto ? 'true' : 'false');
     // ===== A SETA É A THUMBNAIL DAS RAÍZES (v5.244) =====
     //
-    // Pedido do operador: *"pode manter uma seta como 'thumbnail' padrão, pois
-    // nas subdivisões, uma thumbnail é meio inútil, deixe apenas nos arquivos os
-    // ícones, nas raízes mais altas o ideal é a seta, pois ela representa que
-    // pode abrir mais listagens."*
-    //
     // A seção ganha o MESMO quadrado do card do álbum (`.coll-bar-icon`), e nos
     // dois ele carrega a mesma coisa: a seta que abre e fecha. O que sobrava
     // ali era identidade — e identidade de uma SEÇÃO ("Diversos", "CDs do ano")
@@ -12468,13 +12401,6 @@ function renderCollectionsListMiolo(alvo, redesenhar) {
     // e comparar dois deles é o que se faz numa tela de índice"*), porque
     // aquele argumento supunha que a tela cabe. O rodízio FICA; o que sai dele
     // são os FAVORITOS.
-    //
-    // Pedido do operador: *"agora não mais são concorrentes com os favoritos…
-    // as coleções são concorrentes entre si, mas não com os favoritos"*. Ele
-    // está corrigindo uma consequência que a v5.273 não pesou: com os Favoritos
-    // no mesmo rodízio, abrir um hinário custava o atalho que o operador tinha
-    // deixado aberto — e reabri-lo custava fechar o hinário. Duas decisões
-    // diferentes disputando o mesmo interruptor.
     //
     // FECHAR UMA COLEÇÃO deixa `grupoAberto` VAZIO, e isso deixou de ser um
     // estado a evitar: é o estado em que a Biblioteca ABRE (v1.1.4), e os
@@ -12776,11 +12702,6 @@ function renderCollectionCard(coll, ctx) {
   const barName = document.createElement('span'); barName.className = 'coll-bar-name'; barName.textContent = coll.name;
   info.appendChild(barName);
   // ===== O PESO É SUBTÍTULO, NÃO UMA COLUNA (v5.247) =====
-  //
-  // Pedido do operador: *"ajuste o elemento que descreve o peso dos arquivos e
-  // álbuns e coleções, para que ele seja um subtítulo abaixo do título, pois
-  // atualmente ele está apertando o espaço disponível para o título dos
-  // álbuns. Mas garanta que os cards não fiquem mais altos por causa disso."*
   //
   // Ele dividia a LINHA com o nome, e numa tela de celular isso é caro: "~1,2 GB"
   // come um terço da largura útil, e o nome de um álbum é a única coisa daquela
@@ -13153,9 +13074,6 @@ function fillSongList(lista, coll, u) {
 
 // ===== O ÍNDICE DE TEMAS, NO TOPO DO CARD DO HINÁRIO (v1.1.12) =====
 //
-// Pedido do operador: *"um pequeno índice no início da lista do álbum do
-// hinário"*.
-//
 // **ELE NASCE FECHADO**, como uma barra de uma linha, e essa é a decisão que o
 // mantém "pequeno": são 35 seções, e desenhá-las abertas empurraria os 600
 // hinos para baixo de um paredão que o operador teria de rolar TODA vez que
@@ -13247,9 +13165,6 @@ function irParaSecao(coll, u, lista, numero) {
 
 // ===== OS TÍTULOS DE SEÇÃO NO MEIO DA LISTAGEM (v1.1.12) =====
 //
-// Pedido do operador: *"adicionar pequenos títulos no meio da listagem dos
-// hinos, para demarcar as divisões de temas"*.
-//
 // Quem sabe a seção de um número é `AVHinario` (a tabela pura, com oráculo). O
 // que mora AQUI é só a decisão de desenhar, e ela tem três guardas:
 //
@@ -13315,8 +13230,6 @@ function semMovimento() {
 }
 
 // ===== O ACERVO NÃO É REDESENHADO NO MEIO DE UM ACORDEÃO (v1.12.57) =====
-// Relato do operador: *"O mesmo problema da coleção travando no último instante antes de
-// fechar, ocorre no modo simples com o provai e vede e o informativo das missões"*.
 // O redesenho do acervo (`renderSearchResults`) refaz os cards a partir do ESTADO — e no
 // fechamento o estado só muda no FIM da animação (o `aplicar`). Um redesenho no meio dela
 // (o tique de 400 ms do progresso, `refreshCollectionsIfVisible`, ou um `renderCollectionsNow`
@@ -13429,23 +13342,6 @@ function collapseAccordion(el, depois) {
 // e não têm como saber o alvo sozinhos.
 let redesenharAcervo = () => {};
 
-// ===== "BAIXAR TODA A BIBLIOTECA" SAIU (v5.258) =====
-//
-// Pedido do operador: *"remova a opção de download total de toda a biblioteca,
-// pois ele ficou muito grande e muito inconveniente. Pode inclusive remover o
-// botão e o indicador de peso total que ficam na barra do topo."*
-//
-// Ele está certo pela própria escala que o botão anunciava: com as séries e os
-// álbuns de hoje, "tudo" é dezenas de gigabytes — um toque cujo desfecho
-// razoável é sempre "não", e que ocupava o lugar de maior alcance da tela para
-// oferecer isso. O CONTADOR foi junto: ele era o peso do acervo INTEIRO, um
-// número que não responde nenhuma pergunta que o operador faça de fato (a que
-// ele faz é sobre UMA coleção, e essa continua na barra de cada card).
-//
-// O que FICA: o download por coleção (a barra de cada card) e o por CATEGORIA
-// (`montarResumoGrupo`, no cabeçalho de "Diversos", "CDs do ano"…). São os dois
-// que têm tamanho de decisão.
-
 // ===== Abrir o card de uma coleção =====
 // Abre o card sem passar pelo alternador da barra: é o caminho do toque numa
 // coleção SEM ÍNDICE. Ali não há lista para folhear, e o que resolve isso — o
@@ -13521,26 +13417,11 @@ function verificarSemanaAoAbrir(coll) {
     .catch(() => {});
 }
 
-// (`buildCollectionOptions` e o painel `.coll-opts` saíram na v1.1.21, e as
-// três ações que ele teve terminaram na COLUNA DA DIREITA DA BARRA — ver
-// `renderCollectionCard`. A última a sair do painel foi o "Atualizar a lista" da
-// série, que virou botão puro ao lado dos irmãos — e saiu da barra também na
-// v1.12.53, quando abrir o card passou a verificar a semana; antes dele saíram o
-// "Verificar" (v1.1.16, a verificação virou automática na abertura) e o "Baixar",
-// que já existia na barra e era só repetido ali.
-//
-// O QUE ELE ENSINOU, e vale para o que vier ocupar aquele lugar: **nada dentro
-// do card repete o que a barra dele já diz.** Ele teve três chips, uma linha de
-// status, um chip de peso e um chip de rede — e o peso está na barra ANTES de
-// abrir (é ele que faz o operador decidir abrir), e o "Baixando 2 de 4…" está na
-// barra `sticky` dois centímetros acima.)
+// NADA DENTRO DO CARD REPETE O QUE A BARRA DELE JÁ DIZ: o peso está na barra antes
+// de abrir, e o progresso na barra `sticky` logo acima.
 
 /**
  * ===== O DESTAQUE DO SÁBADO, NO TOPO DA LISTA DA SÉRIE (v1.1.21) =====
- *
- * Pedido do operador: *"gostaria que fizesse um sistema de destaque que
- * colocasse separado destacado no topo da lista o item referente ao sábado
- * atual. Caso não tenha, deixe uma mensagem de Aguardando lançamento"*.
  *
  * A pergunta "qual é o episódio deste sábado?" é do `AVSerie`
  * (`ehDoSabadoAtual`, puro e com oráculo). O que mora AQUI é a decisão de
@@ -13611,10 +13492,6 @@ function blocoDestaque(coll) {
   }
   return cx;
 }
-
-// (`hymnalStat` — o construtor dos chips do painel — saiu na v5.232 com o
-// último chip que restava, o do peso: ele já estava na barra do card, antes
-// mesmo de abrir.)
 
 // Só re-renderiza os cards de coleção se a aba Álbuns estiver de fato visível —
 // evita custo de DOM à toa enquanto o operador está em outra aba durante o download.
@@ -13713,9 +13590,6 @@ function renderCollectionsNow() {
   // tique coalescido, que se rearma até a animação acabar.
   if (acervoAVista() && acervoFechando > 0) { refreshCollectionsIfVisible(); return; }
   if (acervoAVista()) renderSearchResults(hymnSearchInputEl.value);
-  // (O painel de opções vive DENTRO do card desde a v5.72, então ele é
-  // redesenhado junto com o acervo — não há mais um popup a sincronizar à
-  // parte.)
 }
 
 // A tela de FAVORITOS: os caminhos curtos para o que o operador usa toda
@@ -13756,10 +13630,9 @@ function statusPasta(id, texto, ms) {
 // do `refreshCollectionsIfVisible`: uma sincronização de 600 arquivos rodando
 // com a gaveta fechada não pode remontar a lista a cada arquivo.
 function renderFoldersSeVisivel() {
-  // A OUTRA CASA (v5.237): com o grupo Favoritos aberto dentro da Biblioteca, a
-  // mesma lista está na tela por outro caminho — e sem isto ela ficaria com a
-  // contagem de uma pasta que acabou de sincronizar, ou com um favorito que já
-  // saiu.
+  // A lista de pastas mora no grupo Favoritos da Biblioteca: é o redesenho dela
+  // que tira a contagem velha de uma pasta que acabou de sincronizar, ou um
+  // favorito que já saiu.
   //
   // COALESCIDO, e não imediato. O único chamador de verdade é o `statusPasta`
   // do laço de cópia de uma pasta do aparelho — UMA VEZ POR ARQUIVO —, e a
@@ -13772,17 +13645,14 @@ function renderFoldersSeVisivel() {
   refreshCollectionsIfVisible();
 }
 
-// ===== OS FAVORITOS TÊM DUAS CASAS, E UMA IMPLEMENTAÇÃO SÓ (v5.237) =====
-//
-// Pedido do operador: *"coloque os favoritos dentro da biblioteca… Pode deixar
-// a seção de favoritos no topo da listagem."*
+// ===== OS FAVORITOS MORAM NA BIBLIOTECA (v5.237), E UMA IMPLEMENTAÇÃO SÓ =====
 //
 // A lista continua sendo montada por `renderFolderList`, e desde a v5.294 há
 // UM host só: o corpo `data-fav-corpo` da seção de Favoritos da Biblioteca (a
 // gaveta de tela cheia saiu). É o mesmo padrão do `favHost` logo acima, e a razão
 // é a de sempre: duas marcações para a mesma
 // lista divergem no primeiro ajuste, e aqui divergiriam em gestos (o toque
-// longo que entra na seleção múltipla), na alça de arrastar e na estrela.
+// longo que entra na seleção múltipla), no par ↑↓ e na estrela.
 //
 // Por VARIÁVEL DE MÓDULO e não por parâmetro em cada função: quem escreve na
 // lista são o item e a pasta do aparelho, e enfiar um `alvo` nas duas — e em
@@ -13897,10 +13767,6 @@ function renderFolderList() {
     row.append(icon, nameEl, countEl, syncBtn, rmBtn);
     li.appendChild(row);
     // ===== A PASTA ABRE INLINE, COMO UM ÁLBUM (v5.290) =====
-    //
-    // Pedido do operador: *"ajuste o sistema de pastas dos favoritos, para que
-    // ele abra a lista de arquivos das pastas de forma visual sem ser um popup,
-    // para que abra a lista assim como abrem os álbuns com seus itens"*.
     //
     // Ela abria uma GAVETA de tela cheia (`#favPopup`), que desde a v5.238 só
     // existia para isto — o botão de porta dela já tinha saído. Uma pasta é um
@@ -14135,11 +14001,6 @@ function linhaDeItem(item, opts) {
   gaveta.append(opcoes);
   // ===== A FAIXA DIVIDE A LINHA COM O CONFIRMAR (v5.302) =====
   //
-  // Pedido do operador: *"ponha o botão de confirmar as escolhas do play dos
-  // favoritos para que ele fique lado a lado … ajustado com a altura dos
-  // botões"*. (O LADO se inverteu na v5.307 e virou regra única na v1.4.7 —
-  // ver `destConfirmRow`.)
-  //
   // Ela era um bloco PRÓPRIO no pé da gaveta, logo abaixo da linha do confirmar
   // — duas faixas empilhadas para o que cabe numa, e a gaveta inteira mais alta
   // por isso, num acordeão cuja regra é manter a decisão sob o dedo.
@@ -14260,9 +14121,6 @@ function linhaDeItem(item, opts) {
 /**
  * ===== "TOCAR AGORA" NASCE MARCADO (v1.1.8) =====
  *
- * Pedido do operador: *"nas opções de play, deixe que venha por padrão o check
- * de tocar agora, pois é a opção que normalmente já se tem mais urgência"*.
- *
  * O que isso muda de fato é o caso de DOIS destinos: com o telão já marcado,
  * tocar em "Adicionar ao Cronograma" projeta E guarda no mesmo toque, sem
  * precisar marcar a caixa do "Tocar agora" antes. E a linha de CONFIRMAR nasce
@@ -14336,22 +14194,7 @@ async function projetarItem(item) {
   send(item.id);
 }
 
-// ===== "TRAZER UMA PASTA DO APARELHO" — UM BOTÃO, UMA ORIGEM (v5.254) =====
-//
-// A v5.239 unificou dois botões numa folha de duas escolhas ("criar uma pasta"
-// × "trazer uma pasta do aparelho"), e o argumento era o certo: os dois
-// respondiam à MESMA pergunta por caminhos diferentes. Agora a pergunta tem uma
-// resposta só — o operador pediu para o app não ter mais atalhos de pasta,
-// apenas as pastas sincronizadas do armazenamento do aparelho —, e uma folha
-// com uma opção é um toque cobrado para não escolher nada.
-//
-// (A folha `#songMenuPopup` continua sendo a de escolha do app; o que sai é
-// esta abertura dela.)
-
-// (`renderStorageUsage` saiu na v5.239 com os dois chamadores. `fmtBytes`
-// FICA: ele é o formatador de tamanho do app inteiro — o peso de cada coleção,
-// o total do acervo, o diálogo de confirmação antes de um download grande.)
-
+// `fmtBytes` é o formatador de tamanho do app inteiro.
 // Vírgula decimal (v5.93): o app é em português e o número aparece ao lado de
 // texto em português — "1.5 GB" lia como mil e quinhentos em pt-BR.
 //
@@ -14365,10 +14208,6 @@ function fmtBytes(n) {
   if (n >= 1024) return Math.round(n / 1024) + ' KB';
   return n + ' B';
 }
-
-// (`fmtParBytes` — a forma por extenso, "3,7 de 18 MB" — saiu na v5.232 com o
-// chip de peso, seu único chamador. A forma curta, `fmtFracBytes`, é a das
-// barras e continua.)
 
 function renderSelbar() {
   hostSelbar();
@@ -14390,7 +14229,7 @@ function renderSelbar() {
 // antigas PASTAS VIRTUAIS com um nome novo. A v5.102 criou o ato simples — a
 // estrela da linha marca e desmarca na hora — e deixou os atalhos como
 // organização opcional; a v5.254 os removeu, a pedido do operador. O que
-// organiza a lista hoje é a ORDEM, e quem a decide é ele, arrastando.
+// organiza a lista hoje é a ORDEM, e quem a decide é ele, pelo par ↑↓.
 //
 // A lista mora no banco (`favs`) e é um detentor de referência como qualquer
 // outra (ver LISTS em db.js): favoritar segura o blob, desfavoritar deixa o gc
@@ -14420,8 +14259,8 @@ async function toggleFav(id, nome, btn) {
   // remontada DEPOIS do pulso: `renderLibrary` recria as linhas, e recriar
   // agora arrancaria da tela justamente o botão que está confirmando.
   // O redesenho continua sendo necessário — a estrela do mesmo item aparece no
-  // Cronograma, dentro de um atalho e na gaveta, e na gaveta a linha até some
-  // ao ser desmarcada. A DA FILA DA PLAYLIST (v1.4.25) não vem por aqui: ela
+  // Cronograma e na seção de Favoritos, e ali a linha até some ao ser
+  // desmarcada. A DA FILA DA PLAYLIST (v1.4.25) não vem por aqui: ela
   // mora numa folha por cima desta lista, e quem a repinta é o `marcarFavoritos`
   // do `recarregarFavoritos`, chamado logo acima.
   if (btn) {
@@ -14439,13 +14278,8 @@ async function toggleFav(id, nome, btn) {
 // Relê a lista e os registros. Chamado depois de qualquer mudança — é o único
 // ponto que reconstrói `favSet`/`favItems`, para os dois nunca divergirem.
 //
-// E DESDE A v5.258 ELE TAMBÉM REDESENHA (relato do operador: *"se estou na
-// biblioteca e adiciono algo aos favoritos, ele só aparece na lista após fechar
-// e abrir novamente"*). Ele estava certo, e a causa é que os favoritos têm DUAS
-// casas desde a v5.237: quem redesenhava depois de favoritar era o
-// `renderLibrary` — a lista de baixo —, e a seção dentro da Biblioteca é
-// desenhada por `renderSearchResults`, que ninguém chamava. O estado estava em
-// dia; a tela é que não.
+// E ELE TAMBÉM REDESENHA a seção de Favoritos da Biblioteca: o `renderLibrary`
+// de quem favorita desenha só o Cronograma, e a seção é do `renderSearchResults`.
 //
 // Por SEÇÃO e não pela Biblioteca inteira: `renderSearchResults` refaz o
 // `innerHTML` da lista, e com ele a POSIÇÃO DE ROLAGEM — favoritar um item no
@@ -14498,9 +14332,6 @@ function redesenharFavoritosNaBiblioteca() {
 
 // ===== A SEÇÃO NÃO PODE FICAR PARA TRÁS DO BANCO (v5.292) =====
 //
-// Relato do operador: excluir uma PASTA (e os itens que ela leva junto) não
-// tirava nada da tela — a linha só sumia fechando e reabrindo a Biblioteca.
-//
 // A causa é estrutural e não daquele botão: `deleteOpfsFolder`, `syncDeviceFolder`
 // e a limpeza de catálogo terminam em `load()`, que é o funil onde `favItems`,
 // `favSet` e `opfsFolders` são reaplicados ao estado do módulo — e `load()`
@@ -14525,26 +14356,10 @@ function sincronizarFavoritosNaBiblioteca() {
   redesenharFavoritosNaBiblioteca();
 }
 
-// (O BOTÃO "VER TODOS" viveu aqui da v5.273 à v5.281 e SAIU na v5.282, com o
-// `favExpandido` que ele governava — *"não tenha mais o sistema de ver mais.
-// Agora quando aberta ela mostra toda a listagem"*. Ele existia porque o vão
-// era uma altura EXATA e o corpo era um RECORTE; com o vão virando um PISO
-// (`min-height`), a seção cresce com a lista e não há mais nada cortado para
-// um botão revelar. Com ele foram embora a régua de "quantos itens ficaram de
-// fora" e a leitura adiada um quadro que ela exigia — o que restou desta
-// família é a MEDIDA do vão, logo abaixo, que continua sendo medida e nunca
-// deduzida de uma contagem fixa: quantos favoritos cabem depende de quantas
-// seções existem, de haver ou não pasta do aparelho, da altura da tela e do
-// teclado.)
 // Rola `lista` até o topo da seção `nome` ficar no topo da área visível dela.
 // O `li` é reencontrado pelo `data-grupo` porque o redesenho que acabou de
 // rodar apagou o nó que o chamador tinha na mão.
 // ===== E O QUE ABRE DENTRO DE UMA LISTA PRECISA APARECER (v1.8.42) =====
-//
-// Relato do operador: *"na tela que temos para as coleções e álbuns [há
-// rolagem], mas que não temos para as opções de play … constantemente a
-// visualização das opções de play depende de rolar a tela manualmente para ver
-// elas"*.
 //
 // O `alinharGrupoNoTopo` (acima) responde a uma pergunta DIFERENTE, e é por
 // isso que ele não serve aqui: uma coleção que abre VIRA o assunto da tela, e
@@ -14608,9 +14423,6 @@ function alinharGrupoNoTopo(lista, nome) {
 
 // ===== A TAMPA DE UM BLOCO DE RAIZ NÃO MUDA DE ALTURA AO ABRIR (v1.5.19) =====
 //
-// Relato do operador: *"Ajuste o cartão das coleções, o card do titulo, pois ele
-// está encolhendo ou modificando seu tamanho ao abrir sua listagem."*
-//
 // A CAUSA é o crescimento da v1.5.17 visto pelo outro lado. Colapsado, o bloco
 // ganha `flex-grow` e cresce até a altura de encaixe (MEDIDO na captura dele,
 // 411×856 com 9 blocos: 51,00px) com a barra CENTRADA dentro; ao abrir, ele
@@ -14647,8 +14459,7 @@ function alinharGrupoNoTopo(lista, nome) {
 // ontem herdado sem a altura que o justifica pinta um vão em cima de uma barra
 // que já voltou ao tamanho natural.
 // ===== A BIBLIOTECA DO MODO FÁCIL É MAIOR (v1.13.9) =====
-// Pedido do operador: *"agora com mais espaço vertical na biblioteca, o sistema tem de aumentar os
-// itens para aproveitar completamente esse vão … de forma responsiva"*. O CSS redeclara os tokens
+// O CSS redeclara os tokens
 // de medida da lista no Modo Fácil (ver "A BIBLIOTECA DO MODO FÁCIL É MAIOR" em `controle.css`),
 // multiplicados pelos dois fatores que esta função escreve em `#hymnResults`:
 //   · `--lib-esc` (alvos, miniaturas, ícones — tudo em px) sai da ALTURA DA TELA em px —
@@ -14770,10 +14581,6 @@ function medirTampa(lista) {
   lista.style.setProperty('--tampa-h', h.toFixed(2) + 'px');
   // ===== E O RESPIRO ACIMA DA BARRA, PARA O TÍTULO NÃO SE MEXER (v1.8.50) =====
   //
-  // Relato do operador: *"na biblioteca, o título das coleções se move ao abrir
-  // a lista de álbuns e itens… uma vez medido, os itens fiquem alinhados
-  // durante as interações"*.
-  //
   // MEDIDO a 430×900 com três blocos de raiz (`--tampa-h` no teto de 66px):
   // abrindo um hinário, o título DELE ia de 24,0 para 34,4px do topo do próprio
   // card — um pulo de 10,4px no instante do toque, no único elemento que o olho
@@ -14843,11 +14650,6 @@ function acertarTampa(lista) {
 }
 
 // ===== OS FAVORITOS ABREM E FECHAM NUM MOVIMENTO SÓ (v1.12.56) =====
-// Relato do operador: *"a coleção de favoritos, que ao fechar, encolhe, e dá uma
-// pequena travada antes de realmente fechar… uma diferença grande entre o
-// funcionamento visual das outras coleções que corretamente encolhem de forma
-// fluida"*.
-//
 // A CAUSA ERA O PISO (o `--fav-vao`, que saiu na v1.13.12), e o acordeão anima
 // só o CORPO: o bloco encolhia até o vão e PARAVA nele (MEDIDO a
 // 430×900, 20 favoritos: 1201 → 401px em 90 ms e 401px parado por 130 ms; com
@@ -14930,8 +14732,6 @@ function abrirFavoritosAnimando(lista, li, aplicar) {
 }
 
 // ===== A TAMPA ACOMPANHA A ALTURA DA LISTA, não só o render (v1.12.14) =====
-// Relato do operador, com o Registro: *"após dar stop … a biblioteca volta, e sua caixa cobre o vão
-// certo, mas seu interior, as coleções, ficam encolhidas … abrir uma coleção faz ele atualizar"*.
 // `medirTampa` reparte a SOBRA da lista entre os blocos (até o teto de 66 px) e roda ao fim de
 // cada render. No Modo Fácil a Biblioteca volta (Parar) com o render DENTRO da janela que ainda
 // está fechada — a lista mede ~10 px, a sobra dá zero e cada coleção sai com a altura da barra
@@ -15005,10 +14805,6 @@ function starSvg(cheia) {
 /**
  * ===== O BOTÃO DA PLAYLIST DIZ SE O ITEM ESTÁ NELA (v5.302) =====
  *
- * Pedido do operador: *"faça com que o estado de adicionado à playlist seja um
- * botão que visualmente responda se aquele item está ou não na playlist, não
- * apenas a confirmação de 'enviado para playlist'"*.
- *
  * Ele nasceu na v5.301 como uma AÇÃO: tocava, respondia com o ✓ do `pulsar` e
  * voltava ao mesmo desenho. Um segundo depois a linha não dizia mais nada — e a
  * pergunta que o operador faz montando o culto não é "eu mandei?", é "**está
@@ -15071,9 +14867,6 @@ function playlistIconSvg(dentro) {
 
 /**
  * ===== O CRONOGRAMA GANHOU O IRMÃO DO BOTÃO DA PLAYLIST (v1.4.25) =====
- *
- * Pedido do operador: *"na lista da playlist, pode adicionar opções como:
- * adicionar aos favoritos e adicionar ao cronograma"*.
  *
  * A fila era a única das três listas sem caminho curto para as outras duas: da
  * linha dela só se saía tirando da fila. As outras duas já se alcançam
@@ -15344,9 +15137,10 @@ async function send(id, daFila, recPronto) {
   // tela — e foi a escolha do operador entre as três (*"automático: o toque já
   // sobrepõe"*).
   //
-  // A guarda mora AQUI pelo mesmo motivo das duas acima: `send` é o ponto por
-  // onde TODOS os caminhos passam. E ela é a ÚLTIMA das três porque as outras
-  // recusam o que nem é mídia; esta escolhe entre dois jeitos de projetar.
+  // A guarda mora AQUI pelo mesmo motivo das três acima: `send` é o ponto por
+  // onde TODOS os caminhos passam. E ela vem DEPOIS delas porque as outras
+  // desviam o que não vai ao telão como está; esta escolhe entre dois jeitos de
+  // projetar.
   //
   // **Não vale para o avanço automático da fila** (`autoAdvance`): ali a
   // imagem é o PRÓXIMO item da sequência, não um cartão que alguém pediu por
@@ -15367,10 +15161,6 @@ async function send(id, daFila, recPronto) {
   // operador já conhece esta.
   //
   // ===== E O MODO FÁCIL NÃO SOBREPÕE (v1.4.32) =====
-  //
-  // Pedido do operador: *"no modo simples, coloque a limitação de apenas um
-  // elemento ativo na mídia, assim no modo simples não há sobreposição e nem
-  // necessidade de multicontroles"*.
   //
   // A sobreposição é uma CENA COMPOSTA — duas coisas no ar ao mesmo tempo —, e
   // operá-la exige saber qual das duas cada controle governa: o ▶ é do áudio de
@@ -15411,10 +15201,6 @@ async function send(id, daFila, recPronto) {
   currentItem = alvo || currentItem;
   // ===== O PLAYER É UM DETENTOR (v1.3.13) =====
   //
-  // Pedido do operador, nas palavras dele: *"onplayer também deveria ser um
-  // elemento que mantém a existência de um item no sistema"*. Ele apagou do
-  // Cronograma um item que estava tocando, e a cena caiu.
-  //
   // O coletor só conhece LISTAS: `listRemove` pergunta se algum outro detentor
   // aponta o id e, não achando nenhum, apaga os bytes na MESMA transação. Estar
   // NO AR não era detenção nenhuma — então sair da última lista matava o
@@ -15431,7 +15217,7 @@ async function send(id, daFila, recPronto) {
   //
   // AQUI e não no toque da lista: `send` é o ponto por onde TODOS os caminhos
   // passam — o avanço automático da playlist, o ⏮/⏭ do transporte, a
-  // notificação nativa, o roteiro. É o mesmo argumento das três guardas acima,
+  // notificação nativa, o roteiro. É o mesmo argumento das quatro guardas acima,
   // e é o que faz a proteção valer para o excluir da LINHA, o da seleção
   // múltipla e qualquer caminho de remoção que venha depois.
   //
@@ -15442,9 +15228,6 @@ async function send(id, daFila, recPronto) {
   fixarAvulso(id).catch(() => { /* a prateleira é cache; falhar nela não derruba a cena */ });
   // ===== A CIFRA COMEÇA A SER BUSCADA AGORA, NÃO AO ABRIR A ABA (v1.1.16) =====
   //
-  // Pedido do operador: *"que a busca da cifra seja automaticamente ao tocar a
-  // música e não ao abrir a aba de cifras"*.
-  //
   // A rede deixa de estar no caminho crítico. Quem abre a aba está com o
   // instrumento na mão e a música já tocando — esperar ali um GET a um site de
   // terceiro é esperar no pior momento possível. Disparada aqui, a folha
@@ -15452,7 +15235,7 @@ async function send(id, daFila, recPronto) {
   //
   // AQUI e não no toque da lista: `send` é o ponto por onde TODOS os caminhos
   // passam (o avanço automático da playlist, o ⏮/⏭ do transporte, a notificação
-  // nativa, o roteiro). É o mesmo argumento das três guardas acima.
+  // nativa, o roteiro). É o mesmo argumento das quatro guardas acima.
   //
   // `cifraGarantir` é IDEMPOTENTE — a entrada no cache nasce no estado
   // `buscando` e é ela que impede uma segunda requisição —, então repetir a
@@ -15505,10 +15288,6 @@ async function send(id, daFila, recPronto) {
   // que o ▶ pode retomar em vez de recarregar (ver `midiaNoAr`).
   midiaNoAr = true;
   midiaNoArId = id;
-  // E a ORIGEM cai aqui, sempre: `send` é o ponto por onde todo play passa, e
-  // uma origem que sobrevivesse a um play normal deixaria a linha do link
-  // marcada como "no ar" enquanto outra mídia toca. Quem a repõe é o único
-  // caminho que precisa dela (`resolverLinkYoutube`), DEPOIS de projetar.
   // re-render leve de estados ativos
   marcarNoAr();
   renderNowPlaying();
@@ -15550,10 +15329,6 @@ async function send(id, daFila, recPronto) {
 // escolhe o cartão — ver a guarda de imagem sobre áudio em `send`.
 /**
  * ===== O QUE O PAR ⏮/⏭ PODE FAZER AGORA (v1.8.51) =====
- *
- * Relato do operador: *"o botão de proxima midia quando não há uma lista na
- * playlist… nesse caso apenas o botão de midia anterior fica ativo, pois ele
- * volta ao início da midia atual"*.
  *
  * COM FILA, NADA MUDA. É a régua de sempre — os dois andam na lista, e mesmo
  * com UM item eles têm função: iniciar a fila que ainda não começou (o
@@ -15626,12 +15401,6 @@ function slideTarget() {
   if (visualSobreProjetando()) return null;
   // ===== CRONÔMETRO E SORTEIO SÃO ALVOS DE AÇÃO (v1.9.4) =====
   //
-  // Pedido do operador: *"para o sorteio, cronômetro ou timer, quando eles
-  // estiverem sendo exibidos no telão, seja pela aba de ferramentas ou direto
-  // pelo cronograma, faça com que os botões de próximo slide e slide anterior,
-  // alterem seus ícones e funcionem como: esquerdo, resetar e direito, ação de
-  // playpause/sortear"*.
-  //
   // A guarda acima era TRIPLA e calava o par para os três; ela foi DIVIDIDA
   // porque só o terço da imagem sobreposta continua valendo — ali o cartão é
   // opaco e não tem para onde ir, e o `imagem-sobre-audio.test.mjs` cobra isso.
@@ -15645,8 +15414,7 @@ function slideTarget() {
   // para não deixar nascer.
   if (chronoProjecting()) return chrono.mode === 'clock' ? null : 'chrono';
   // ===== O ITINERÁRIO: O PAR É O AJUSTE, DE CINCO EM CINCO MINUTOS (v1.13.1) =====
-  // Pedido do operador: *"mudar o atraso via os botões de slide anterior e
-  // próximo, sempre de 5 em 5 minutos"*. Quem troca o ITEM continua sendo o
+  // Quem troca o ITEM continua sendo o
   // relógio; o que o par move é a programação inteira — ⏮ adianta 5 min e ⏭
   // atrasa 5 min, a mesma ordem do −5 … +5 do painel, da esquerda para a direita.
   // Isto revoga a v1.13.0, em que o par ficava apagado com ele no ar.
@@ -15656,11 +15424,6 @@ function slideTarget() {
   if (msgSession && msgSession.projecting) return 'message';
   if (bibleSession && bibleSession.projecting) return 'bible';
   // ===== SEM MÍDIA NO AR NÃO HÁ EIXO, e a pergunta é `midiaNoAr` (v1.8.50) =====
-  //
-  // Relato do operador: *"enquanto uma música está em stop, os botões de
-  // anterior e próximo slide ficam ativos (isso está errado), e interagir com
-  // eles faz com que a próxima música pule slides já na sua abertura como se os
-  // toques anteriores fossem para ela"*.
   //
   // As duas linhas abaixo leem `currentItem`, e ele **sobrevive ao stop de
   // propósito** — é o que faz o ▶ repetir a faixa. O que ele NÃO responde é se
@@ -15713,11 +15476,6 @@ function stepSlide(delta) {
 
 // ===== UM BOTÃO SEM FUNÇÃO FICA APAGADO, NÃO INERTE (v1.8.50) =====
 //
-// Pedido do operador: *"verifique botões que deveriam ter sua função inativa ao
-// toque em situações em que ele não deveria ser usado. Como é o caso de uma
-// playlist vazia… o botão de stop se não tem nada em play e etc… Isso evita
-// bugs por tentar fazer algo que não seria possível"*.
-//
 // Os três abaixo já eram INERTES — `step()` volta na primeira linha com a fila
 // vazia, `stopClear()` não tem o que parar, `togglePlay()` volta sem
 // `currentId`. Inerte e apagado não são a mesma coisa: um botão aceso que não
@@ -15741,9 +15499,6 @@ function stepSlide(delta) {
 //  · (a REPETIÇÃO saiu desta lista na v1.8.87 — ver `repeticaoPode` abaixo.)
 /**
  * ===== A REPETIÇÃO É UM MODO, MAS UM MODO DE QUÊ? (v1.8.87) =====
- *
- * Relato do operador: *"ele não está sendo desativado quando não há nada
- * selecionado. Verifique os momentos em que ele deveria ficar inativo"*.
  *
  * **ISTO REVOGA A EXCEÇÃO DA v1.8.50**, que o deixava aceso sempre sob o
  * argumento *"ela é um modo, e escolher o modo antes de montar a fila é o

@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.13.24",
+    "itens": [
+      "Pôr um item no Cronograma ou na playlist enquanto o app atualiza a lista não o deixa mais de fora da tela."
+    ]
+  },
+  {
     "versao": "1.13.23",
     "itens": [
       "Mover um item do Cronograma enquanto um vídeo termina de baixar não faz mais o vídeo sumir da lista."

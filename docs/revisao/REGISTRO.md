@@ -24,7 +24,7 @@ abandonada → primeira pendente pelo `nº`).
 | 10 | C1 | feita | v1.13.20 (só web) | 2026-11-05 | nenhum defeito de culto na fatia; `clearCurrentSelection` em `updateState` (+ asserção com reversão); 2 trechos de código morto da preview/peso; ~20 lápides e fatos velhos nos comentários |
 | 11 | C2 | feita | v1.13.21 + v1.13.22 (só web) | 2026-11-05 | o giro e o "Preencher" tocados com um `load()` em voo deixavam de valer no Controle (consertado + asserção com reversão, os dois); `cenaDeRoteiroNoAr` sem a régua duplicada; 3 `renderLibrary()` órfãos da Bíblia; ~30 lápides e fatos velhos |
 | 12 | C3 | feita | v1.13.23 (só web) | 2026-11-05 | nenhum defeito de culto na fatia; `moverNaLista` (repasse W1, fatia C4) pela forma atômica do `listSet` (+ asserção com reversão); `TOOLS_ANIM_MS` copiava o token que dizia ler; ~60 comentários (lápides, fatos velhos, um bloco no símbolo errado) |
-| 13 | C4 | em curso | | 2026-11-05 | |
+| 13 | C4 | feita | v1.13.24 (só web) | 2026-11-05 | nenhum defeito de culto na fatia; o botão do Cronograma/playlist desfeito por um `load()` em voo (`listasSeq` + asserção com reversão); repasse C2 do `renderTabs`; ~45 comentários (lápides, fatos velhos, um bloco no símbolo errado) |
 | 14 | C5 | pendente | | | |
 | 15 | C6 | pendente | | | |
 | 16 | C7 | pendente | | | |
@@ -64,8 +64,13 @@ tratou.
 | X3 | W2 | `tools/enquadramento-da-camada.test.mjs` — age (`applyRotate`, `send`) logo depois de `__avBack` existir, SEM `esperarCortina`: com o `init()` ainda em voo, o `load()` dele desfaz o giro (repasse C2). Reproduz com `Emulation.setCPUThrottlingRate` 20× (8× passa). Conserto do oráculo: `esperarCortina` depois do `goto`; a asserção do C2 é outra (girar DURANTE um `load()` em voo) |
 | C5 | W3 | `cifra.js`:`ritmoDaRolagem` (~998) — desconta a ABERTURA do tempo da rolagem, e o comentário diz que ela saiu. **DECIDIDO pelo operador (2026-11-05): a pausa FICA** ("é necessária para os tempos de introdução, antes de propriamente necessitar mover/iniciar a leitura"). O defeito é o COMENTÁRIO: corrigi-lo para descrever a pausa como regra intencional (e o porquê), sem tocar no cálculo |
 | X2 | C2 | `controle.js` ~1397 (fatia C1): o comentário de `bibleCompleteVersions` diz que o Set existe "pra a tela de livros mostrar \"completa\"" — quem mostra é a folha de versões (`renderBibleVerList`); a C1 já está feita (uma linha de comentário, provas 1 e 2) |
-| C4 | C2 | `docs/arquitetura/CONTROLE-BIBLIOTECA.md` ~239: "`renderTabs()` mantém o Cronograma aceso enquanto ela está aberta" — `renderTabs` não existe (saiu com a faixa de abas); o parágrafo descreve a gaveta de favoritos antiga |
 | X3 | C2 | `tools/pacote-importar-marcados.test.mjs` H/L — reprovou UMA vez no CI (run `42060562112`, 1ª tentativa, lote só da Bíblia, sem relação): `obtido: []` (nenhuma mídia no destino depois do Importar com só a série marcada). Passou 3× local e no run anterior. Suspeita no ORÁCULO: `importarPelaJanela` faz `pg.evaluate(() => window.__fim)` sem que nada atribua `__fim` (só o `null` da linha 421) — não espera a importação; quem espera é o `responderDialogo` (60 s), cujo `texto` ninguém confere: se o diálogo que ele respondeu não foi o "Acervo importado", o `lerDestino` lê antes do fim. Conserto provável: esperar o diálogo pelo TÍTULO "Acervo importado" (ou `!pacoteEmCurso`) e conferir o `texto` |
+| X2 | C4 | `controle.js`:`adicionarNasListas` (~6536) e `abrirPacote` (~6796), fatia C2 já feita — `plItems = await AVDB.listItems('playlist')` depois de gravar, sem a senha `listasSeq` (v1.13.24): um `load()` em voo que leu a fila antes aplica a cópia velha depois. Conserto: `++listasSeq` antes do primeiro `await`, como `togglePlaylist`. E o KDoc do `load` (~4070) diz que "todo `db-change`" dispara um `load` — não há `db-change` em lugar nenhum |
+| C5 | C4 | `controle.js`:`replacePlaylistWith` (~19773) — escreve `plItems` sem `++listasSeq` (v1.13.24): conferir se um `load()` em voo o desfaz (é o "Tocar agora") |
+| C6 | C4 | `controle.js`:`ytAcaoInterno` (~26045) — `plItems = await AVDB.listItems('playlist')` sem `++listasSeq` (v1.13.24) |
+| C7 | C4 | `controle.js`:`guardarSorteadas` (~29843) e `montarFilaSorteada` (~29980) — `plItems = await AVDB.listItems('playlist')` sem `++listasSeq` (v1.13.24) |
+| C8 | C4 | `controle.js`:`redesenharComMiniatura` (~38387) e `importShare` (~39823) — `plItems = await AVDB.listItems('playlist')` sem `++listasSeq` (v1.13.24) |
+| C9 | C4 | `controle.js`:`pedirSaidaDaFila` (~41103) e `edicaoRecarregarListas` (~42660) — `plItems` relido sem `++listasSeq` (v1.13.24); e o KDoc de ~41348 diz que "todo `db-change` dispara um `load`" (não há `db-change`) |
 
 ## Relatórios
 
@@ -436,3 +441,29 @@ pelo `cueFav` do desenho, e dois toques antes do redesenho (`PULSO_MS`) repetem 
 **Repasses:** nenhum.
 **Verificado:** "Sanidade da base web" (todo Node puro, `docs-coerentes`), `tokens`; Chromium (35 da vizinhança, Playwright local 1.63, três processos): 33 verdes (`hidratacao-perde-a-vez`, `ferramentas-folha`, `itinerario`, as `sorteio-*`, `mensagem-estilo`, `teclado-das-folhas`, `eixo-de-acao`, `cena`, `boot-nativo`, `smoke`, `display-smoke`, `tela-rede`, `destinos`…); `controles-layout` e `cifra-tela-cheia` reprovam IGUAL no commit anterior (`setViewportSize` em tela cheia, ambiente).
 **O operador:** nada a fazer; a v1.13.23 chega sozinha (só web). Mover um item do Cronograma enquanto um vídeo termina de baixar não o some mais.
+
+### C4 · Cronograma, Biblioteca, séries, favoritos — feita (2026-11-05)
+
+Cerca: `controle.js` de `A ALTURA DO RODAPÉ FLUTUANTE É LIDA` a antes de `// ===== A ABA DE CIFRA (v1.1.7)` (5.505 linhas), lida inteira; mais o repasse C2 (`renderTabs` no `CONTROLE-BIBLIOTECA.md`).
+**Corrigido (código, commit à parte):** `toggleCronograma`/`togglePlaylist` gravavam e reliam a lista; um `load()` que a leu ANTES do toque aplicava a
+cópia velha DEPOIS — o item no banco e fora de `cronoSet`/`libItems`/`plItems` (fora da tela e da fila do ⏭) até o próximo `load()`. Senha `listasSeq`
+(a classe do `favSeq`), incrementada pelos dois toques; o `load()` só aplica as três se ninguém a moveu. Asserção: bloco 9 do `hidratacao-perde-a-vez`
+(espião segura o `load()` depois da leitura da lista; o toque inteiro; a hidratação continua) + a metade "sem toque restaura". Reversão: sem o conserto
+as duas primeiras reprovam (`cronoSet/libItems/plItems: false` com o item no banco).
+**Doc:** o parágrafo do `renderTabs` diz onde os Favoritos moram (a gaveta saiu na v5.294, a função na v1.5.0).
+**Só comentário (provas 1 e 2):** fatos — "OS FAVORITOS TÊM DUAS CASAS" contra o próprio corpo (e os comentários de `renderFoldersSeVisivel`,
+`toggleFav`, `recarregarFavoritos`), "arrastando"/"alça de arrastar", as guardas do `send` ("duas"/"três" — são quatro), o "check (verde)". Lápides: a
+ORIGEM que o `send` derrubaria (sem código), `wifiIconEl`, ✓ do renomear, `listIconSvg`, `gearIconSvg`, voz/nota, paleta das coleções, "BAIXAR TODA A
+BIBLIOTECA", `buildCollectionOptions`, `hymnalStat`, painel de opções, "TRAZER UMA PASTA", `renderStorageUsage`, `fmtParBytes`, "VER TODOS". Bloco no
+símbolo errado: a "seta para cima" encabeçava `chevronDirSvg` (foi, condensado, para `chevronUpIconSvg`). 35 citações de pedido/relato do operador
+saíram; verbatim (56 blocos) na seção v1.13.24 do histórico.
+**Achado e não corrigido:** SUSPEITAS — `toggleCronograma`/`togglePlaylist` decidem pelo estado em memória, e dois toques antes do primeiro `await`
+fazem `listAdd` duas vezes (idempotente: fica dentro, sem divergir); `verificarSemanaAoAbrir` deixa o piso de 5 min armado se `syncCollection`
+LANÇAR (o `.catch` vazio), sem aviso. Prosa longa que é REGRA com o porquê (a faixa da linha, a confirmação, `interacaoAbertaNoAcervo`, a tampa, o
+`send`, `repeticaoPode`; ~35 citações do operador cuja frase seguinte depende delas ficaram). Réguas: o Parar e o Modo Fácil leem `haOQueParar`, o ▶
+`currentId || haOQueParar`, a repetição `plItems || currentId`, ⏮/⏭ `transportePode` — cada uma com o porquê escrito e coerente. Timers/listeners: o tique
+coalescido se rearma só com o acervo à vista; `segurarAcervo` solta por prazo; o `IntersectionObserver` da paginação desconecta; nenhuma medida de layout
+por quadro (o `ResizeObserver` da tampa espera a janela parar). Séries: a playlist prova, o título rotula — a fatia só desenha (`AVSerie`).
+**Repasses:** X2, C5, C6, C7, C8, C9 (os outros escritores de `plItems` sem `listasSeq`; o "todo `db-change`" de dois KDocs).
+**Verificado:** "Sanidade da base web" (todo Node puro, `docs-coerentes`), `tokens`; Chromium (58 da vizinhança, Playwright local 1.63, três processos): todos verdes (`hidratacao-perde-a-vez`, `smoke`, `display-smoke`, `boot-nativo`, `destinos`, `cena`, as de acervo/série/semana/favoritos/gaveta/tampa/transporte/fila/Modo Fácil…).
+**O operador:** nada a fazer; a v1.13.24 chega sozinha (só web). Um item posto no Cronograma ou na playlist durante uma atualização da lista não fica mais de fora.
