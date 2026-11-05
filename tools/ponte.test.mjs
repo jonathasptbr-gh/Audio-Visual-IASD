@@ -391,6 +391,27 @@ try {
     + 'nunca `null` cru, que obrigaria todo chamador a lembrar de checar antes de ler `.status`',
     JSON.stringify(semR2));
 
+  // ---- apkInstalar: a resposta que NÃO VEIO não é sucesso ----------------
+  //
+  // O `controle.js` lê `''` como "o instalador abriu" e qualquer outro texto
+  // como a frase do erro. O `null` do `call()` (prazo vencido, ponte que lançou)
+  // passava por sucesso: "Confirme a instalação" sem instalador nenhum, e a
+  // pergunta do APK calada pelo `apkEntregue`.
+  const apk = await pg.evaluate(async () => {
+    window.__AVBridge.apkInstalar = (id) => { window.__avResolve(id, null); };
+    const nulo = await AVNative.apkInstalar();
+    window.__AVBridge.apkInstalar = () => { throw new Error('ponte'); };
+    const lancou = await AVNative.apkInstalar();
+    window.__AVBridge.apkInstalar = (id) => { window.__avResolve(id, ''); };
+    const certo = await AVNative.apkInstalar();
+    return { nulo, lancou, certo };
+  });
+  checar(typeof apk.nulo === 'string' && apk.nulo.length > 0
+    && typeof apk.lancou === 'string' && apk.lancou.length > 0,
+    'apkInstalar: sem resposta do shell (null, ou a ponte lançou) resolve uma FRASE de erro, nunca o `null` que o chamador lê como sucesso',
+    JSON.stringify(apk));
+  checar(apk.certo === '', 'e o `\'\'` do shell continua sendo o "deu certo"', JSON.stringify(apk.certo));
+
   // ---- o RELAY do barramento, sem dreno nenhum (E7) -----------------------
   //
   // O papel `espelho` morreu com o espelho de pixels (docs/TELAO-POR-COMANDOS.md):

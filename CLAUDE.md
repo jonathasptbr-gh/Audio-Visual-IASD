@@ -1143,13 +1143,11 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.13.16 · APK v1.13.16** · `SHELL_VERSION` **83** ·
-bundle com `minShell: 83` e **`shellTag: "v1.13.16"`** — o shell 83 é o **PISO**:
-todo método da ponte existe, e não há guarda de versão no lado web. **Este lote
-pede Release** (a v1.13.16 mudou `java/`: o candidato
-`MediaRouter2.showSystemOutputSwitcher` na saída de áudio e a forma de retorno do
-`saidaDeAudioAlvo`). O que cada lote trouxe está no `docs/HISTORICO.md`, nunca
-aqui.
+**Versão atual: base web v1.13.17 · APK v1.13.16** · `SHELL_VERSION` **83** ·
+bundle com `minShell: 83` e **sem `shellTag`** — o shell 83 é o **PISO**: todo
+método da ponte existe, e não há guarda de versão no lado web. A Release
+v1.13.16 já saiu e carrega todo o Kotlin acumulado; a v1.13.17 é só web. O que
+cada lote trouxe está no `docs/HISTORICO.md`, nunca aqui.
 
 - **O `shellTag` ACOMPANHA A ÚLTIMA VERSÃO, NÃO A QUE MEXEU NO KOTLIN** — o CI
   exige `shellTag == 'v' + version`. Um lote só de web publicado DEPOIS de um

@@ -258,9 +258,8 @@
   // não é teórico em nenhum dos consumidores:
   //
   //  - o DIÁRIO da varredura das séries grava em duas metades (canal, vídeos) e
-  //    duas varreduras da mesma série correm juntas com facilidade — a abertura
-  //    dispara `autoRefreshCollections()` sem `await` e "Atualizar a lista" é um
-  //    toque por cima disso;
+  //    duas varreduras da mesma série podem correr juntas — a abertura dispara
+  //    `autoRefreshCollections()` sem `await`;
   //  - as INTENÇÕES de download são uma lista que ganha item no começo de cada
   //    download e perde item no `finally` de cada um.
   //
@@ -291,11 +290,6 @@
     await txDone(tx);
     return novo;
   }
-  // Chaves de `state` que começam com `prefix`, numa transação só e sem
-  // desserializar valor nenhum. Existe para testar PRESENÇA em massa: a Bíblia
-  // precisa saber quais dos 1189 capítulos já estão em cache, e fazer isso com
-  // 1189 `getState` significava 1189 transações lendo o capítulo inteiro (~30
-  // versículos de texto) só para descartar o conteúdo.
   /**
    * ESCREVE VÁRIAS CHAVES DE `state` NUMA TRANSAÇÃO SÓ, com a mesma mescla.
    *
@@ -369,6 +363,11 @@
     });
   }
 
+  // Chaves de `state` que começam com `prefix`, numa transação só e sem
+  // desserializar valor nenhum. Existe para testar PRESENÇA em massa: a Bíblia
+  // precisa saber quais dos 1189 capítulos já estão em cache, e fazer isso com
+  // 1189 `getState` significava 1189 transações lendo o capítulo inteiro (~30
+  // versículos de texto) só para descartar o conteúdo.
   async function stateKeys(prefix) {
     const s = await store(STORE_STATE, 'readonly');
     // '￿' é maior que qualquer caractere possível no sufixo, então o
@@ -1219,12 +1218,10 @@
   //                          ANTES, fora de transação, então é um
   //                          read-modify-write partido: um `listAdd` que
   //                          commite no meio é perdido, e o registro que o
-  //                          `addMediaToList` criou fica órfão para sempre.
-  //                          Hoje nenhum escritor de fundo mexe em listas (a
-  //                          sincronização usa `fileAdd`), então é fragilidade
-  //                          estrutural, não defeito em operação — mas o
-  //                          primeiro escritor de fundo sobre `listAdd` a
-  //                          transforma em perda de item.
+  //                          `addMediaToList` criou fica órfão (e o
+  //                          `gcOrfaos` seguinte o apaga). HÁ escritor de
+  //                          fundo em listas: o download do YouTube termina
+  //                          por `addMediaToList`, a qualquer instante.
   //
   //   listSet(name, fn)      forma ATÔMICA: `fn(listaAtual)` roda dentro da
   //                          MESMA transação que grava o resultado, igual ao
@@ -1344,6 +1341,15 @@
         for (const id of await readListIn(stateStore, 'folder_' + f.id)) donos.add(id);
       }
     }
+    // OS CRONOGRAMAS GUARDADOS (v1.12.54) seguram o que carregam, como o ativo
+    // (que é `imports`, já lido acima): trocar de cronograma não pode virar
+    // apagar o que ficou no outro. O `ids` do ativo é sempre vazio na chave.
+    const cronos = await asPromise(stateStore.get(CRONOS));
+    if (cronos && Array.isArray(cronos.itens)) {
+      for (const c of cronos.itens) {
+        if (c && Array.isArray(c.ids)) for (const id of c.ids) if (typeof id === 'string') donos.add(id);
+      }
+    }
     // A CENA TAMBÉM É DETENTORA. `state.current.mediaId` é o `currentId` do
     // Controle, gravado por `persistCurrent` ANTES de o `load` sair — logo a
     // mídia projetada já está aqui quando qualquer coletor pergunta.
@@ -1368,15 +1374,6 @@
     // comportamento de antes deste conserto, que é o lado seguro de errar aqui:
     // apagar cedo demais custa um download, prender para sempre custa o espaço
     // do aparelho e não tem porta de saída.
-    // OS CRONOGRAMAS GUARDADOS (v1.12.54) seguram o que carregam, como o ativo
-    // (que é `imports`, já lido acima): trocar de cronograma não pode virar
-    // apagar o que ficou no outro. O `ids` do ativo é sempre vazio na chave.
-    const cronos = await asPromise(stateStore.get(CRONOS));
-    if (cronos && Array.isArray(cronos.itens)) {
-      for (const c of cronos.itens) {
-        if (c && Array.isArray(c.ids)) for (const id of c.ids) if (typeof id === 'string') donos.add(id);
-      }
-    }
     const cena = await asPromise(stateStore.get('current'));
     if (cena && cena.noAr && cena.mediaId) donos.add(cena.mediaId);
     // UM CUE TAMBÉM É DETENTOR — do que ele carrega em `data.ids`. O cue
@@ -1389,11 +1386,8 @@
     // toca. O da fila aceita importados e downloads do YouTube, que vivem aqui.)
     //
     // Só desce nos cues que JÁ SÃO detidos — um pacote órfão não segura nada, e
-    // morre com os ids dele na mesma passada. Uma passada só, sobre o instantâneo
-    // de `donos`: um pacote não contém pacote (`guardarPacote` filtra cues), e se
-    // um dia contiver, o de dentro apenas vaza — que é o lado seguro de errar
-    // aqui. Testar `data.ids` e não o subtipo faz um cue novo com ids nascer
-    // protegido em vez de nascer destrutivo.
+    // morre com os ids dele na mesma passada. Testar `data.ids` e não o subtipo
+    // faz um cue novo com ids nascer protegido em vez de nascer destrutivo.
     //
     // Lê do store "media" da MESMA transação: todo chamador tem de abri-la com
     // STORE_MEDIA no escopo (todos já abrem — é lá que a mídia é apagada).
@@ -1412,19 +1406,11 @@
     // ÓRFÃOS — quem os recolhe é o `gcOrfaos` da abertura seguinte. Ninguém
     // precisa lembrar de apagá-los, e nada fica para sempre.
     const midias = stateStore.transaction.objectStore(STORE_MEDIA);
-    // O PERCURSO É DE DOIS NÍVEIS, E A CÓPIA O CORTAVA NO PRIMEIRO (v1.8.48).
-    //
-    // `Array.from(donos)` tira uma FOTO antes do laço, então o que é acrescentado
-    // aqui dentro entra no conjunto e nunca é VISITADO. Uma apresentação guardada
-    // num PACOTE (o `cue` de tipo `group`, que o Cronograma cria) é alcançada
-    // pelo ramo de cima e para ali: o ramo `deck` nunca roda para ela, os vídeos
-    // de dentro do `.pptx` nascem órfãos, e o `gcOrfaos` da abertura seguinte os
-    // apaga. A apresentação continua na lista, as páginas continuam desenhando, e
-    // o vídeo simplesmente não toca mais — que é, palavra por palavra, o desfecho
-    // que o parágrafo acima diz estar impedido.
-    //
-    // Iterar o `Set` DIRETO visita o que entra durante o percurso. Não há laço
-    // infinito: `add` de um id já presente não o reenfileira, e o grafo é finito.
+    // O PERCURSO DESCE EM PROFUNDIDADE: iterar o `Set` DIRETO visita o que entra
+    // durante o percurso — uma apresentação guardada num PACOTE segura os vídeos
+    // dela, e um item editado dentro de um pacote, o original. Uma cópia
+    // (`Array.from(donos)`) pararia no primeiro nível. Não há laço infinito:
+    // `add` de um id já presente não o reenfileira, e o grafo é finito.
     for (const id of donos) {
       const rec = await asPromise(midias.get(id));
       if (!rec) continue;
@@ -1453,9 +1439,6 @@
   async function isReferenced(stateStore, id) {
     return (await lerDetentores(stateStore)).has(id);
   }
-  // Remoção + gc na MESMA transação (state + media): sem isso, um listAdd
-  // concorrente entre a remoção e a checagem do gc poderia re-referenciar o
-  // id e o gc apagaria o blob mesmo assim (TOCTOU).
   // ===== O DIÁRIO DE SAÍDAS DOS FAVORITOS (v1.13.12) =====
   //
   // Um favorito sumiu sem o operador tê-lo removido, e nada no aparelho dizia
@@ -1482,6 +1465,9 @@
     await asPromise(st.put(lista.slice(-30), FAVS_SAIDAS));
   }
 
+  // Remoção + gc na MESMA transação (state + media): sem isso, um listAdd
+  // concorrente entre a remoção e a checagem do gc poderia re-referenciar o
+  // id e o gc apagaria o blob mesmo assim (TOCTOU).
   async function listRemove(name, id) {
     const db = await openDB();
     const tx = db.transaction([STORE_STATE, STORE_MEDIA], 'readwrite');

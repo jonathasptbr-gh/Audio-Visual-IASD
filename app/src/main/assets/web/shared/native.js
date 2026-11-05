@@ -25,8 +25,8 @@
   try { global.__SHELL_VERSION__ = B.shellVersion(); } catch (_) { global.__SHELL_VERSION__ = 0; }
   try { global.__AV_ROLE__ = B.role(); } catch (_) { global.__AV_ROLE__ = ''; }
   // versionName do APK — o índice de SHELL exibido ao operador (≠
-  // __SHELL_VERSION__, que é o contrato interno da ponte). Vazio num shell
-  // antigo, sem `appVersion()`: a UI então mostra só a versão da base web.
+  // __SHELL_VERSION__, que é o contrato interno da ponte). Vazio se a ponte
+  // lançar: a UI então mostra só a versão da base web.
   try { global.__SHELL_NAME__ = B.appVersion() || ''; } catch (_) { global.__SHELL_NAME__ = ''; }
 
   // ---- confirmação de boot (watchdog do OTA) ----
@@ -36,10 +36,10 @@
   //
   // `window.AVDB` no `load` NÃO basta. A ordem dos scripts do Controle é
   // native.js → db.js → stage.js → louvorja.js → bible.js → serie.js →
-  // cifra.js → sorteio.js → hinario.js → coletanea.js → pptxzip.js → deck.js →
-  // pacote.js → controle.js, e um erro em qualquer um dos TREZE últimos aborta só AQUELE
-  // script: o `load` dispara, `AVDB` continua lá, e o bundle quebrado é
-  // carimbado como bom PARA SEMPRE.
+  // cifra.js → sorteio.js → progresso.js → hinario.js → coletanea.js →
+  // pptxzip.js → deck.js → pacote.js → controle.js, e um erro em qualquer um
+  // dos QUATORZE últimos aborta só AQUELE script: o `load` dispara, `AVDB`
+  // continua lá, e o bundle quebrado é carimbado como bom PARA SEMPRE.
   //
   // O sinal é "o app está DE PÉ", e cada peça cobre o que a anterior não cobre:
   //
@@ -48,9 +48,9 @@
   //      outro, validando um bundle cujo Controle nunca rodou.
   //   2. `AVDB` (db.js) e `createStage` (stage.js) — os dois módulos
   //      compartilhados, cada um publicando seu global no fim do arquivo.
-  //   3. os dez módulos do Controle (`Louvorja`, `Bible`, `AVSerie`,
+  //   3. os onze módulos do Controle (`Louvorja`, `Bible`, `AVSerie`,
   //      `AVSorteio`, `AVCifra`, `AVHinario`, `AVColetanea`, `AVPptxZip`,
-  //      `AVDeck`, `AVPacote`) — todo uso deles no `controle.js`
+  //      `AVDeck`, `AVPacote`, `AVProgresso`) — todo uso deles no `controle.js`
   //      está DENTRO de função, então um erro de topo num deles NÃO aborta o
   //      `controle.js`: sem esta condição o app sobe, o watchdog confirma e o
   //      recurso daquele arquivo fica morto (ver docs/shell/OTA.md).
@@ -83,57 +83,21 @@
   function otaAppIsUp() {
     if (global.__AV_ROLE__ !== 'controle') return false;
     if (!global.AVDB || !global.createStage) return false;
-    // OS MÓDULOS DO CONTROLE, e eles eram o buraco declarado deste watchdog.
-    // Um erro de topo em qualquer um deles aborta
-    // só AQUELE script: o `controle.js` continua inteiro (todo uso de
-    // `AVSerie`/`AVSorteio` lá está DENTRO de função), `__avBack` existe, a
-    // playlist renderiza — e o bundle era carimbado como bom PARA SEMPRE, com a
-    // Playlist automática (ou a Biblioteca de séries, ou a Bíblia, ou o hinário)
-    // morta, sem erro na tela e sem recuo no lançamento seguinte.
-    //
-    // Cada um publica o próprio global na ÚLTIMA linha do arquivo, então exigi-lo
-    // é exigir que o arquivo tenha sido parseado inteiro — a mesma forma da
-    // condição acima, e o mesmo motivo.
+    // OS MÓDULOS DO CONTROLE (item 3 acima). Cada um publica o próprio global na
+    // ÚLTIMA linha do arquivo, então exigi-lo é exigir que o arquivo tenha sido
+    // parseado inteiro. Todo uso deles no `controle.js` está DENTRO de função:
+    // sem esta condição, um erro de topo num deles deixa o app de pé, o bundle é
+    // carimbado como bom PARA SEMPRE e o recurso daquele arquivo morre calado
+    // (Bíblia, hinário, séries, sorteio, cifra, coletânea, `.pptx`, pacote de
+    // transferência, a barra do "Tocar agora").
+    // MÓDULO NOVO DO CONTROLE ENTRA AQUI NO MESMO LOTE EM QUE O ARQUIVO NASCE.
     if (!global.Louvorja || !global.Bible || !global.AVSerie || !global.AVSorteio) return false;
-    // `AVCifra` entrou aqui NO MESMO LOTE em que o arquivo nasceu, e não numa
-    // faxina depois: a aba de cifra é lida DENTRO de função no `controle.js`,
-    // então um erro de topo em `cifra.js` não aborta nada visível — a playlist
-    // renderiza, `__avBack` existe, o watchdog carimbaria o bundle como bom
-    // para sempre e a aba ficaria muda sem erro na tela. É a armadilha exata
-    // que custou `AVSerie`/`AVSorteio` versões de atraso.
     if (!global.AVCifra) return false;
-    // `AVHinario` entra na MESMA linha de raciocínio, e entra JUNTO com o
-    // arquivo: um módulo novo do Controle que não esteja aqui é um buraco novo
-    // no watchdog, aberto no mesmo lote em que o arquivo nasce.
     if (!global.AVHinario) return false;
-    // `AVDeck` idem, e ele é o caso mais claro da regra: a apresentação é lida
-    // só dentro de `pptxImportar`, então um erro de topo em `deck.js` não
-    // aborta nada visível — o app sobe inteiro e o `.pptx` deixa de abrir, com
-    // um "não deu para abrir" que acusa o ARQUIVO do operador.
     if (!global.AVDeck) return false;
-    // `AVColetanea` (v1.5.16) fecha a lista pela MESMA razão dos irmãos, e o
-    // caso dele é o mais silencioso de todos: a regra é lida DENTRO do
-    // `renderCollectionsListMiolo`, então um erro de topo em `coletanea.js`
-    // não aborta nada — a Biblioteca desenharia o catálogo CRU, com a coletânea
-    // que o operador mandou dissolver de volta na tela, e o bundle seria
-    // carimbado como bom para sempre.
     if (!global.AVColetanea) return false;
-    // `AVPptxZip` (v1.6.2) entra pela mesma regra, e o caso dele é o do
-    // `AVDeck` levado ao extremo: ele só é lido dentro de `separarVideos`, que
-    // só roda ao importar um `.pptx`. Um erro de topo ali deixa o app inteiro
-    // de pé e tira do ar a única porta de apresentação com vídeo — que é o
-    // material do culto, descoberto no sábado.
     if (!global.AVPptxZip) return false;
-    // `AVPacote` (v1.7.0) fecha a lista, e o caso dele é o do `AVPptxZip` com
-    // um preço maior: a regra do pacote de transferência só é lida dentro de
-    // `exportarPacote`/`importarPacote`, então um erro de topo em `pacote.js`
-    // deixa o app inteiro de pé — e o que morre é o ÚNICO caminho de levar a
-    // biblioteca para outro aparelho, descoberto por quem estava justamente
-    // trocando de celular.
     if (!global.AVPacote) return false;
-    // `AVProgresso` (v1.12.36), pela mesma regra e no mesmo lote do arquivo: ele
-    // só é lido quando um download do YouTube começa, e um erro de topo ali
-    // deixaria o app de pé e o "Tocar agora" sem barra (e lançando no toque).
     if (!global.AVProgresso) return false;
     if (typeof global.__avBack !== 'function') return false;
     // O `init()` terminou (item 5 acima). `__avSplash` nasce no `<head>` do
@@ -297,12 +261,6 @@
     }
   };
 
-  // O DRENO do papel `espelho` viveu aqui até a E7 do telão por comandos:
-  // ele calava a segunda cópia do /display/ que o espelho de pixels punha
-  // no MESMO barramento. O papel morreu com o pipeline — a tela da rede
-  // roda noutro aparelho e noutra origem, e o dreno dela é do tela.js
-  // (lista de permissão na SUBIDA, docs/TELAO-POR-COMANDOS.md §3.9).
-
   global.__AVBus = {
     post(msg) {
       try { B.busPost(JSON.stringify(msg)); } catch (_) { /* ponte indisponível */ }
@@ -393,11 +351,9 @@
     // ponte (`ytFetchAudio`) em vez de num parâmetro a mais: a ponte casa o
     // método por NOME E ARIDADE, então cada destino é um método — e é essa
     // regra, não uma escolha de estilo, que mantém os três separados.
-    // `altura` (v5.118) é o TETO de resolução — TERCEIRO destino (`ytFetchAte`)
-    // pela mesma razão, e com um cuidado a mais: só é usado quando o teto é
-    // MENOR que o padrão do shell. Pedir 1080p continua saindo pelo `ytFetch`,
-    // que existe em toda versão — quem não mexeu no seletor nunca depende de um
-    // APK novo.
+    // `altura` é o TETO de resolução — TERCEIRO destino (`ytFetchAte`) pela
+    // mesma razão, e só quando o teto é MENOR que o padrão do shell (1080p):
+    // pedir 1080p sai pelo `ytFetch`.
     // `onFase(nome, info)` (shell 81) recebe as fases que só o shell vê —
     // `extraiu`, `baixou`, `juntando`, `juntou` — para o percentual do toque à
     // tela (`controle/progresso.js`). Opcional, e o percentual sobrevive sem ele.
@@ -415,8 +371,8 @@
     },
 
     // Busca no YouTube DENTRO do app: devolve
-    // `[{ id, url, name, author, seconds, thumb }]`. Lista vazia num shell
-    // antigo (o `call` resolve null) — quem chama já não desenha a seção.
+    // `[{ id, url, name, author, seconds, thumb }]`. Lista vazia quando o
+    // `call` resolve null (prazo vencido) — quem chama não desenha a seção.
     ytSearch: (termo) => call((id) => B.ytSearch(id, String(termo)), CALL_TIMEOUT_MS)
       .then((r) => r || []),
 
@@ -486,17 +442,13 @@
         descricao: String(r.descricao || ''),
       } : null)),
 
-    // O "Salvar como" do sistema (SAF `CREATE_DOCUMENT`), com o shell
-    // ESCREVENDO o texto: resolve o NOME gravado, ou `''` quando o operador
-    // desistiu ou a gravação falhou. Existe porque o WebView do app não tem
-    // `DownloadListener` — um `<a download>` sobre um `blob:` ali não faz NADA,
-    // sem erro e sem arquivo.
-    //
     // O REGISTRO COMPARTILHADO COMO ARQUIVO (shell 82): grava o texto num
     // arquivo do próprio app e abre o seletor de compartilhamento. Resolve
     // `true` quando o seletor abriu — o desfecho de um seletor é uma pessoa
     // escolhendo um app, e não há API que o entregue. Com prazo: aqui não há
-    // pessoa a esperar antes de responder.
+    // pessoa a esperar antes de responder. (Arquivo, e não `<a download>`: o
+    // WebView do app não tem `DownloadListener`, e ali um `blob:` baixado não
+    // faz NADA, sem erro e sem arquivo.)
     compartilharArquivoTexto: (nome, texto) => call((id) => B.compartilharArquivoTexto(id, String(nome), String(texto)), CALL_TIMEOUT_MS)
       .then((r) => r === true),
 
@@ -578,13 +530,6 @@
       try { B.pacoteDescartarPronto(); } catch (_) { /* ponte indisponível */ }
     },
 
-    // → string: o que o SHELL sabe do pacote (há pronto? no disco? o desfecho
-    // do último fecho e do último envio, com o nome da exceção quando houve).
-    //
-    // Ele existe porque o `-1` do `pacoteCompartilhar` colapsa TRÊS causas, e
-    // este lado não tem como separá-las — três rodadas de campo se gastaram
-    // nisso. Irmão do `otaDiag` e do `ytDiag`, e com o mesmo consumidor: a
-    // pessoa que lê o Registro.
     // APAGA o arquivo do pacote que a importação acabou de ler. Devolve `''`
     // (apagou) ou a FRASE do motivo. Quem decide é o `controle.js`, e só depois
     // de uma importação COMPLETA — o shell não sabe se ela terminou.
@@ -599,16 +544,21 @@
     // que um OTA aplicado ou a morte do renderer zeram. Mesmo papel do
     // `lerEspelho()` no `init()`, e pela mesma razão escrita lá.
     //
-    // REMONTADO campo a campo, como todo objeto desta ponte. `Number(...)` e
+    // REMONTADO campo a campo. `Number(...)` e
     // não `| 0`: um pacote passa dos 2 GB, e o `| 0` é Int32 COM SINAL — o
     // defeito que este arquivo já pagou duas vezes.
     pacoteProntoEstado: () => call((id) => B.pacoteProntoEstado(id), CALL_TIMEOUT_MS)
       .then((r) => (r ? {
         nome: String(r.nome || ''),
         bytes: Math.max(0, Number(r.bytes) || 0),
-      } : null))
-      .catch(() => null),
+      } : null)),
 
+    // → string: o que o SHELL sabe do pacote (há pronto? no disco? o desfecho
+    // do último fecho e do último envio, com o nome da exceção quando houve).
+    //
+    // Ele existe porque o `-1` do `pacoteCompartilhar` colapsa TRÊS causas, e
+    // este lado não tem como separá-las. Irmão do `otaDiag` e do `ytDiag`, e
+    // com o mesmo consumidor: a pessoa que lê o Registro.
     pacoteDiag: () => call((id) => B.pacoteDiag(id), CALL_TIMEOUT_MS)
       .then((r) => String(r || '')),
 
@@ -696,8 +646,7 @@
     //
     // Resolve `null` se a ponte não responder no prazo, e aí o chamador não
     // desenha pergunta nenhuma — meia pergunta é pior que nenhuma.
-    atualizacaoEstado: () => call((id) => B.atualizacaoEstado(id), CALL_TIMEOUT_MS)
-      .catch(() => null),
+    atualizacaoEstado: () => call((id) => B.atualizacaoEstado(id), CALL_TIMEOUT_MS),
 
 
     // BAIXA e abre o instalador do sistema. `''` = deu certo; qualquer outra
@@ -707,8 +656,13 @@
     // rede de igreja, e um timeout no meio resolveria `null` sobre um download
     // que continua — o pior desfecho possível, porque a tela diria "falhou"
     // enquanto o instalador abre sozinho minutos depois.
+    //
+    // O `null` do `call` (prazo vencido, ponte que lançou) vira FRASE: o
+    // chamador lê `''` como "o instalador abriu", e um `null` passaria por
+    // sucesso — "Confirme a instalação" sem instalador nenhum, e a pergunta do
+    // APK calada por `APK_ENTREGUE_MS`.
     apkInstalar: () => call((id) => B.apkInstalar(id), APK_TIMEOUT_MS)
-      .catch(() => 'este aparelho ainda nao sabe atualizar sozinho'),
+      .then((r) => (typeof r === 'string' ? r : 'o download do app não respondeu')),
 
     // O PROGRESSO chega por empurrão (`window.__avApk`), não por enquete: o
     // download roda na fila de IO do shell e o lado web não tem o que
@@ -719,19 +673,11 @@
     // o que ela deu e quantas falhas seguidas.
     otaDiag: () => call((id) => B.otaDiag(id), CALL_TIMEOUT_MS).then((r) => r || ''),
 
-    // (`micDiag` saiu na v1.8.89 com o MICROFONE AO VIVO — ver a lápide no
-    //  `controle.js`. O `@JavascriptInterface` continua no Kotlin, que é o lado
-    //  seguro de encolher a ponte: um APK que ainda serve método que ninguém
-    //  chama não custa nada ao aparelho.)
-
     // O FAROL: uma busca por dia, para o app poder responder "quantos aparelhos
     // usaram isto esta semana?" (shell 58).
     //
-    // `{ conta, ultimo, diag }` — REMONTADO campo a campo, como todo o resto
-    // desta ponte: um campo que o Kotlin passe a mandar e que não seja lido
-    // aqui some em silêncio, e do outro lado `optBoolean`/`optLong` leem
-    // ausente como `false`/`0`, que são valores legítimos. `tools/ponte.test.mjs`
-    // prende isso.
+    // `{ conta, ultimo, diag }` — REMONTADO campo a campo: um campo que o
+    // Kotlin passe a mandar só chega ao `controle.js` se entrar aqui também.
     //
     // `conta` é o VEREDITO, e desde o shell 61 o único motivo dele é o build
     // debuggável — a tela continua sem calcular essa resposta por conta
@@ -745,15 +691,9 @@
         diag: r.diag || '',
       } : null)),
 
-    // (`farolContar` saiu no shell 61 com o sistema de exclusão. Era a chave
-    //  "este aparelho entra na contagem", e o operador a descartou: a contagem
-    //  passou a ser SEMPRE ativa, e a única exclusão que sobrou é a do build
-    //  debuggável, que não tem chave nenhuma. O `farolEstado` acima FICA — ele
-    //  virou só leitura, e quem o consome é a linha "Alcance:" do Registro.)
-
     // DIAGNÓSTICO da última extração do YouTube: uma linha dizendo quantas
-    // faixas de cada tipo o extrator recebeu e qual venceu. Vazio num shell
-    // antigo (o `call` resolve null) e antes da primeira extração.
+    // faixas de cada tipo o extrator recebeu e qual venceu. Vazio antes da
+    // primeira extração e quando o `call` resolve null.
     ytDiag: () => call((id) => B.ytDiag(id), CALL_TIMEOUT_MS).then((r) => r || ''),
 
     // A MEDIDA do último download, em JSON (shell 79): extração, faixas,
@@ -773,9 +713,8 @@
     // SEM PRAZO, como o `pickFolder`: quem responde é uma PESSOA escolhendo um
     // arquivo, e um timeout resolveria null com o seletor ainda aberto.
     //
-    // CADA ITEM É `{ url, name, type, size }`, e este é o único método da ponte
-    // que NÃO remonta campo a campo — a lista vem do Kotlin já na forma final e
-    // passa direto. É deliberado: aqui o remonte seria a armadilha em vez da
+    // CADA ITEM É `{ url, name, type, size }`, e ele NÃO remonta campo a campo
+    // — a lista vem do Kotlin já na forma final e passa direto. É deliberado: aqui o remonte seria a armadilha em vez da
     // proteção, porque o campo novo de amanhã sumiria em silêncio e o de hoje
     // (`size`) é o que decide se um pacote de gigabytes pode ser lido.
     //
@@ -848,7 +787,7 @@
 
     // Para onde o botão vai abrir, em texto — os alvos variam por fabricante
     // e não são API documentada, então o popup de Exibição mostra isso.
-    // (num shell sem o método, `call` já resolve null — isto vira string vazia)
+    // (o `null` do `call` vira string vazia)
     castTarget: () => call((id) => B.castTarget(id), CALL_TIMEOUT_MS).then((r) => (r && r.label) || ''),
 
     // Para onde o tile de saída de áudio abre, em texto — só o REGISTRO o
@@ -964,9 +903,6 @@
 
     temaClaro(on) { try { B.temaClaro(!!on); } catch (_) { /* ponte indisponível */ } },
 
-    // (`requestMic` saiu na v1.8.89, com o `micDiag` e pela mesma razão.)
-
-
     // Downloads em andamento: sem isto o Android congela o processo quando o
     // app é minimizado e a sincronização para no meio — justamente o que
     // acontece no uso normal, já que ninguém fica olhando a tela enquanto um
@@ -980,11 +916,8 @@
       try {
         B.bgProgress(JSON.stringify({
           label: String((p && p.label) || ''),
-          // `inteiro()` e NÃO `| 0` (v5.137). O bitwise trunca para 32 bits com
-          // sinal: um vídeo de 1080p passa dos 2 GB, o valor VIRA NEGATIVO, o
-          // `Math.max(0, …)` o zera e a barra fica parada no começo do download
-          // mais longo que o app faz. O lado Kotlin já lia `Long` justamente
-          // por isso — a truncagem acontecia antes de ele ver o número.
+          // `inteiro()` e NÃO `| 0`: o bitwise trunca em Int32 COM SINAL, um
+          // vídeo de 1080p passa dos 2 GB e a barra pararia no começo.
           done: inteiro(p && p.done),
           total: inteiro(p && p.total),
           etaMs: inteiro(p && p.etaMs),
@@ -1000,11 +933,8 @@
           pct: (p && typeof p.pct === 'number' && p.pct >= 0) ? Math.min(100, Math.round(p.pct)) : -1,
           // O item em destaque agora (nome de música/capítulo/arquivo). Vem
           // como LISTA, mas o lado web manda UM de cada vez, consumindo uma
-          // FILA — ver
-          // bgItemStart/bgPacerTick em controle.js. Não é rodízio entre os
-          // itens em voo: o rodízio trazia o mesmo nome de volta várias vezes
-          // e a lista não ia a lugar nenhum; a fila consome cada nome UMA
-          // vez, em ordem.
+          // FILA (bgItemStart/bgPacerTick em controle.js): cada nome UMA vez,
+          // em ordem.
           items: (p && Array.isArray(p.items) ? p.items : []).map(String).slice(0, 6),
           // Há quanto tempo nada acontece: é o que faz a notificação
           // distinguir TRAVADO de lento.
@@ -1033,7 +963,7 @@
           titulo: String((c && c.titulo) || ''),
           texto: String((c && c.texto) || ''),
         }));
-      } catch (_) { /* shell antigo: sem cartão de conclusão */ }
+      } catch (_) { /* ponte indisponível */ }
     },
 
     // O que está no ar, para a notificação de controles e a sessão de mídia
@@ -1050,12 +980,8 @@
           // ⏮/⏭ passam ESTROFE em vez de mídia (letra, versículo, mensagem).
           slideMode: !!(s && s.slideMode),
           // COMO o operador chama o que ⏮/⏭ passam agora ("estrofe",
-          // "versículo", "página"). O campo existe desde a v5.97 no
-          // `pushNowPlaying` e é lido pelo `SessionService` desde então — mas
-          // ele NUNCA chegava lá: este objeto é montado campo a campo, e quem
-          // esquece de um aqui o descarta em silêncio, sem erro em lugar
-          // nenhum. Resultado: a notificação escrevia "(estrofe)" também
-          // durante uma APRESENTAÇÃO, onde o que passa é página.
+          // "versículo", "página"). Sem ele a notificação diz "(estrofe)"
+          // também numa APRESENTAÇÃO, onde o que passa é página.
           slideLabel: String((s && s.slideLabel) || ''),
           wallpaper: !!(s && s.wallpaper),
           // `inteiro()` e NÃO `| 0`, como no bgProgress acima — o defeito
@@ -1065,16 +991,11 @@
           // tempo, para a linha do tempo da sessão nunca andar para trás.
           positionMs: inteiro(s && s.positionMs),
           durationMs: inteiro(s && s.durationMs),
-          // OS BOTÕES DESTA CENA, na ordem (v5.231 / shell 42). Ver
-          // `acoesDaNotificacao` em controle.js: cinco fixos serviam à cena de
-          // mídia tocando, e com um cronômetro sozinho no ar ⏮/⏭ e o
-          // play/pause ocupavam o modo compacto sem ter o que fazer.
-          // Lista vazia = o conjunto clássico, que é o que o shell monta
-          // sozinho — e é o mesmo desfecho num shell 40, que ignora o campo.
-          // (CAMPO NOVO AQUI = CAMPO NOVO NO OBJETO DE `pushNowPlaying`,
-          // sempre: esta função remonta tudo campo a campo, e um esquecido
-          // some em silêncio — foi assim que o `slideLabel` acima passou cinco
-          // versões sem chegar ao Kotlin.)
+          // OS BOTÕES DESTA CENA, na ordem (ver `acoesDaNotificacao` em
+          // controle.js). Lista vazia = o conjunto clássico, que o shell monta
+          // sozinho. CAMPO NOVO NO `pushNowPlaying` = CAMPO NOVO AQUI, sempre:
+          // esta função remonta tudo campo a campo, e um esquecido some em
+          // silêncio.
           actions: (s && Array.isArray(s.actions) ? s.actions : []).map(String).slice(0, 5),
         }));
       } catch (_) { /* ignorado */ }

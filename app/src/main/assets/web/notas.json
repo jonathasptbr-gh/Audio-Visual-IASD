@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.13.17",
+    "itens": [
+      "Atualização do app: se o download não responder, o app avisa a falha em vez de pedir uma instalação que não vem."
+    ]
+  },
+  {
     "versao": "1.13.16",
     "itens": [
       "\"Saída de áudio\": o botão tenta primeiro a lista de aparelhos de som pelo caminho oficial do Android.",

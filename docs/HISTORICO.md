@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.17** — revisão W1: O NÚCLEO COMPARTILHADO (`db.js` + `native.js`); o `apkInstalar` que não respondia virava sucesso, e o watchdog do OTA ganha oráculo
 - **revisão A6 (sem versão nova; só workflow, `tools/` e docs)** — CI E HIGIENE: o `verificar` fixo em `ubuntu-24.04` (no 26.04 o Playwright do pin não instala e a suíte de Chromium era PULADA com o job verde), o `stub-da-ponte` fecha a armadilha dos 60 s, ponteiros do `apk.yml` e duplicata do `BUILD.md`
 - **revisão A5 (sem versão nova; só `tools/` e docs)** — O ARNÊS E OS ORÁCULOS: âncoras com o slug do GitHub e entre arquivos, o `display-smoke` sem o espelho de pixels, o `wav()` no arnês, o JUnit sem rede com o `EspelhoInterfacesTest`, tempos medidos
 - **revisão A4 (sem versão nova; só docs e o `docs-coerentes`)** — APÊNDICES E ARQUIVO MORTO: o índice deste arquivo vira uma linha por lote, as auditorias dizem o que segue aberto, e o `TELAO-POR-COMANDOS.md` vira especificação do que existe
@@ -627,6 +628,235 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.13.17 — revisão W1: O NÚCLEO COMPARTILHADO (`db.js` + `native.js`), E O `apkInstalar` QUE NÃO RESPONDIA VIRAVA SUCESSO
+
+**v1.13.17 (revisão W1; só web, sem Release)** — a etapa W1 da revisão profunda
+(`docs/REVISAO-PROFUNDA.md`): `shared/db.js` e `shared/native.js` revisados de ponta
+a ponta pela lista comum.
+
+**O DEFEITO (código, `native.js:AVNative.apkInstalar`).** O `call()` da ponte NUNCA
+rejeita — prazo vencido, ponte que lança ou runnable que morre sem `resolve`
+resolvem `null`. O `.catch(() => 'este aparelho ainda nao sabe…')` era morto, e o
+`null` chegava ao `controle.js` como `erro = null`: o `if (erro)` caía no ramo de
+SUCESSO, dizia "Confirme a instalação na tela do sistema" sem instalador nenhum e
+gravava `apkEntregue`, calando a pergunta do APK por `APK_ENTREGUE_MS`. O prazo
+vencido é plausível: o `apkInstalar` roda na fila `transferencia`, atrás de um
+download do YouTube (repasse K2). Agora `.then((r) => typeof r === 'string' ? r :
+'o download do app não respondeu')` — a superfície não muda (o Kotlin já devolve
+string; o wrapper continua `''` ou a frase). `atualizacaoEstado` e
+`pacoteProntoEstado` perderam o `.catch(() => null)` inalcançável pelo mesmo motivo.
+Asserção nova no `tools/ponte.test.mjs` (reversão: reprova com o `native.js` antigo).
+
+**O WATCHDOG GANHA PORTA.** `tools/watchdog-modulos.test.mjs` (Node puro): lê a
+ordem real dos `<script src>` do `controle/index.html`, tira de cada arquivo o
+último global publicado e exige `global.X` no corpo do `otaAppIsUp`. A regra
+"módulo novo entra na lista no mesmo lote" não tinha oráculo (o `AVSerie`/`AVSorteio`
+ficaram versões fora). Reversão: sem `AVProgresso` ou sem `createStage`, reprova.
+O cabeçalho do watchdog dizia TREZE scripts e dez módulos sem o `progresso.js`; são
+QUATORZE e onze — a lista de globais em si estava completa.
+
+**COMENTÁRIOS (prova 1: código do `db.js` idêntico ao HEAD; no `native.js` só os
+três hunks acima; prova 2: só os reancoramentos intencionais).** Blocos no símbolo
+errado: `pacoteDiag` (estava sobre o `pacoteConsumirOrigem`, item da
+AUDITORIA-2026-09-11), `stateKeys`, `listRemove` (TOCTOU), a CENA do
+`lerDetentores`. Fatos falsos corrigidos: "único método que não remonta" no `pickDoc`
+(item [31] da mesma auditoria), o `farolEstado` "coberto pelo `ponte.test.mjs`", o
+`listSet` "nenhum escritor de fundo mexe em listas" (o fim do download do YouTube
+faz `addMediaToList`), o `updateState` citando o "Atualizar a lista" (saiu na
+v1.12.53), a frase do "instantâneo de `donos`" que contradizia o laço. Lápides fora:
+dreno do papel `espelho`, `micDiag`, `farolContar`, `requestMic`, o parágrafo do
+`salvarTexto`. Premissas de "shell antigo" desfeitas (o piso é 83). A narrativa de
+lote dos comentários veio para cá, verbatim:
+
+#### app/src/main/assets/web/shared/native.js — `otaAppIsUp` (os comentários por módulo)
+
+```
+    // OS MÓDULOS DO CONTROLE, e eles eram o buraco declarado deste watchdog.
+    // Um erro de topo em qualquer um deles aborta
+    // só AQUELE script: o `controle.js` continua inteiro (todo uso de
+    // `AVSerie`/`AVSorteio` lá está DENTRO de função), `__avBack` existe, a
+    // playlist renderiza — e o bundle era carimbado como bom PARA SEMPRE, com a
+    // Playlist automática (ou a Biblioteca de séries, ou a Bíblia, ou o hinário)
+    // morta, sem erro na tela e sem recuo no lançamento seguinte.
+    //
+    // Cada um publica o próprio global na ÚLTIMA linha do arquivo, então exigi-lo
+    // é exigir que o arquivo tenha sido parseado inteiro — a mesma forma da
+    // condição acima, e o mesmo motivo.
+    // `AVCifra` entrou aqui NO MESMO LOTE em que o arquivo nasceu, e não numa
+    // faxina depois: a aba de cifra é lida DENTRO de função no `controle.js`,
+    // então um erro de topo em `cifra.js` não aborta nada visível — a playlist
+    // renderiza, `__avBack` existe, o watchdog carimbaria o bundle como bom
+    // para sempre e a aba ficaria muda sem erro na tela. É a armadilha exata
+    // que custou `AVSerie`/`AVSorteio` versões de atraso.
+    // `AVHinario` entra na MESMA linha de raciocínio, e entra JUNTO com o
+    // arquivo: um módulo novo do Controle que não esteja aqui é um buraco novo
+    // no watchdog, aberto no mesmo lote em que o arquivo nasce.
+    // `AVDeck` idem, e ele é o caso mais claro da regra: a apresentação é lida
+    // só dentro de `pptxImportar`, então um erro de topo em `deck.js` não
+    // aborta nada visível — o app sobe inteiro e o `.pptx` deixa de abrir, com
+    // um "não deu para abrir" que acusa o ARQUIVO do operador.
+    // `AVColetanea` (v1.5.16) fecha a lista pela MESMA razão dos irmãos, e o
+    // caso dele é o mais silencioso de todos: a regra é lida DENTRO do
+    // `renderCollectionsListMiolo`, então um erro de topo em `coletanea.js`
+    // não aborta nada — a Biblioteca desenharia o catálogo CRU, com a coletânea
+    // que o operador mandou dissolver de volta na tela, e o bundle seria
+    // carimbado como bom para sempre.
+    // `AVPptxZip` (v1.6.2) entra pela mesma regra, e o caso dele é o do
+    // `AVDeck` levado ao extremo: ele só é lido dentro de `separarVideos`, que
+    // só roda ao importar um `.pptx`. Um erro de topo ali deixa o app inteiro
+    // de pé e tira do ar a única porta de apresentação com vídeo — que é o
+    // material do culto, descoberto no sábado.
+    // `AVPacote` (v1.7.0) fecha a lista, e o caso dele é o do `AVPptxZip` com
+    // um preço maior: a regra do pacote de transferência só é lida dentro de
+    // `exportarPacote`/`importarPacote`, então um erro de topo em `pacote.js`
+    // deixa o app inteiro de pé — e o que morre é o ÚNICO caminho de levar a
+    // biblioteca para outro aparelho, descoberto por quem estava justamente
+    // trocando de celular.
+    // `AVProgresso` (v1.12.36), pela mesma regra e no mesmo lote do arquivo: ele
+    // só é lido quando um download do YouTube começa, e um erro de topo ali
+    // deixaria o app de pé e o "Tocar agora" sem barra (e lançando no toque).
+```
+
+#### app/src/main/assets/web/shared/native.js — barramento — antes de `global.__AVBus` (lápide do dreno do papel `espelho`)
+
+```
+  // O DRENO do papel `espelho` viveu aqui até a E7 do telão por comandos:
+  // ele calava a segunda cópia do /display/ que o espelho de pixels punha
+  // no MESMO barramento. O papel morreu com o pipeline — a tela da rede
+  // roda noutro aparelho e noutra origem, e o dreno dela é do tela.js
+  // (lista de permissão na SUBIDA, docs/TELAO-POR-COMANDOS.md §3.9).
+```
+
+#### app/src/main/assets/web/shared/native.js — `compartilharArquivoTexto` (o parágrafo descrevia o `salvarTexto`, que já não está na ponte web)
+
+```
+    // O "Salvar como" do sistema (SAF `CREATE_DOCUMENT`), com o shell
+    // ESCREVENDO o texto: resolve o NOME gravado, ou `''` quando o operador
+    // desistiu ou a gravação falhou. Existe porque o WebView do app não tem
+    // `DownloadListener` — um `<a download>` sobre um `blob:` ali não faz NADA,
+    // sem erro e sem arquivo.
+```
+
+#### app/src/main/assets/web/shared/native.js — `pacoteDiag`
+
+```
+    // este lado não tem como separá-las — três rodadas de campo se gastaram
+    // nisso.
+```
+
+#### app/src/main/assets/web/shared/native.js — `ytFetch` — `altura`
+
+```
+    // `altura` (v5.118) é o TETO de resolução — TERCEIRO destino (`ytFetchAte`)
+    // pela mesma razão, e com um cuidado a mais: só é usado quando o teto é
+    // MENOR que o padrão do shell. Pedir 1080p continua saindo pelo `ytFetch`,
+    // que existe em toda versão — quem não mexeu no seletor nunca depende de um
+    // APK novo.
+```
+
+#### app/src/main/assets/web/shared/native.js — lápide do `micDiag` (entre `otaDiag` e `farolEstado`)
+
+```
+    // (`micDiag` saiu na v1.8.89 com o MICROFONE AO VIVO — ver a lápide no
+    //  `controle.js`. O `@JavascriptInterface` continua no Kotlin, que é o lado
+    //  seguro de encolher a ponte: um APK que ainda serve método que ninguém
+    //  chama não custa nada ao aparelho.)
+```
+
+#### app/src/main/assets/web/shared/native.js — lápide do `farolContar` (depois de `farolEstado`)
+
+```
+    // (`farolContar` saiu no shell 61 com o sistema de exclusão. Era a chave
+    //  "este aparelho entra na contagem", e o operador a descartou: a contagem
+    //  passou a ser SEMPRE ativa, e a única exclusão que sobrou é a do build
+    //  debuggável, que não tem chave nenhuma. O `farolEstado` acima FICA — ele
+    //  virou só leitura, e quem o consome é a linha "Alcance:" do Registro.)
+```
+
+#### app/src/main/assets/web/shared/native.js — lápide do `requestMic` (depois de `temaClaro`)
+
+```
+    // (`requestMic` saiu na v1.8.89, com o `micDiag` e pela mesma razão.)
+```
+
+#### app/src/main/assets/web/shared/native.js — `bgProgress` — `done`/`total`/`etaMs`
+
+```
+          // `inteiro()` e NÃO `| 0` (v5.137). O bitwise trunca para 32 bits com
+          // sinal: um vídeo de 1080p passa dos 2 GB, o valor VIRA NEGATIVO, o
+          // `Math.max(0, …)` o zera e a barra fica parada no começo do download
+          // mais longo que o app faz. O lado Kotlin já lia `Long` justamente
+          // por isso — a truncagem acontecia antes de ele ver o número.
+```
+
+#### app/src/main/assets/web/shared/native.js — `bgProgress` — `items`
+
+```
+          // O item em destaque agora (nome de música/capítulo/arquivo). Vem
+          // como LISTA, mas o lado web manda UM de cada vez, consumindo uma
+          // FILA — ver
+          // bgItemStart/bgPacerTick em controle.js. Não é rodízio entre os
+          // itens em voo: o rodízio trazia o mesmo nome de volta várias vezes
+          // e a lista não ia a lugar nenhum; a fila consome cada nome UMA
+          // vez, em ordem.
+```
+
+#### app/src/main/assets/web/shared/native.js — `nowPlaying` — `slideLabel`
+
+```
+          // COMO o operador chama o que ⏮/⏭ passam agora ("estrofe",
+          // "versículo", "página"). O campo existe desde a v5.97 no
+          // `pushNowPlaying` e é lido pelo `SessionService` desde então — mas
+          // ele NUNCA chegava lá: este objeto é montado campo a campo, e quem
+          // esquece de um aqui o descarta em silêncio, sem erro em lugar
+          // nenhum. Resultado: a notificação escrevia "(estrofe)" também
+          // durante uma APRESENTAÇÃO, onde o que passa é página.
+```
+
+#### app/src/main/assets/web/shared/native.js — `nowPlaying` — `actions`
+
+```
+          // OS BOTÕES DESTA CENA, na ordem (v5.231 / shell 42). Ver
+          // `acoesDaNotificacao` em controle.js: cinco fixos serviam à cena de
+          // mídia tocando, e com um cronômetro sozinho no ar ⏮/⏭ e o
+          // play/pause ocupavam o modo compacto sem ter o que fazer.
+          // Lista vazia = o conjunto clássico, que é o que o shell monta
+          // sozinho — e é o mesmo desfecho num shell 40, que ignora o campo.
+          // (CAMPO NOVO AQUI = CAMPO NOVO NO OBJETO DE `pushNowPlaying`,
+          // sempre: esta função remonta tudo campo a campo, e um esquecido
+          // some em silêncio — foi assim que o `slideLabel` acima passou cinco
+          // versões sem chegar ao Kotlin.)
+```
+
+#### app/src/main/assets/web/shared/db.js — lerDetentores — o CUE (a frase do "instantâneo" contradizia o laço, que itera o Set direto)
+
+```
+    // morre com os ids dele na mesma passada. Uma passada só, sobre o instantâneo
+    // de `donos`: um pacote não contém pacote (`guardarPacote` filtra cues), e se
+    // um dia contiver, o de dentro apenas vaza — que é o lado seguro de errar
+    // aqui.
+```
+
+#### app/src/main/assets/web/shared/db.js — lerDetentores — o percurso
+
+```
+    // O PERCURSO É DE DOIS NÍVEIS, E A CÓPIA O CORTAVA NO PRIMEIRO (v1.8.48).
+    //
+    // `Array.from(donos)` tira uma FOTO antes do laço, então o que é acrescentado
+    // aqui dentro entra no conjunto e nunca é VISITADO. Uma apresentação guardada
+    // num PACOTE (o `cue` de tipo `group`, que o Cronograma cria) é alcançada
+    // pelo ramo de cima e para ali: o ramo `deck` nunca roda para ela, os vídeos
+    // de dentro do `.pptx` nascem órfãos, e o `gcOrfaos` da abertura seguinte os
+    // apaga. A apresentação continua na lista, as páginas continuam desenhando, e
+    // o vídeo simplesmente não toca mais — que é, palavra por palavra, o desfecho
+    // que o parágrafo acima diz estar impedido.
+    //
+    // Iterar o `Set` DIRETO visita o que entra durante o percurso. Não há laço
+    // infinito: `add` de um id já presente não o reenfileira, e o grafo é finito.
+```
 
 ---
 

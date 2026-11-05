@@ -18,7 +18,7 @@ abandonada → primeira pendente pelo `nº`).
 | 4 | A4 | feita | sem versão (só docs + `docs-coerentes`) | 2026-11-04 | índice do `HISTORICO.md` 1,2 MB → 58 kB (notas movidas verbatim às seções); auditorias com o estado conferido (os "26" da 2026-08 são 7 ids + 3 resíduos); `TELAO-POR-COMANDOS.md` 73 → 56 kB com ~25 fatos corrigidos; os repasses da A2/A3 |
 | 5 | A5 | feita (resíduo: as outras células em cadeia do `ORACULOS.md`, ver o relatório) | sem versão (só `tools/` + docs) | 2026-11-04 | `docs-coerentes` confere âncora com o slug do GitHub e entre arquivos; `display-smoke` sem a comparação morta do espelho; `wav()` no arnês; JUnit sem rede +14 testes; 4 células do `ORACULOS.md` colapsadas; tempos medidos arquivo a arquivo |
 | 6 | A6 | feita | sem versão (só workflow, `tools/` e docs) | 2026-11-04 → 2026-11-05 | o `verificar` fixo em `ubuntu-24.04`: no 26.04 o Playwright do pin não instalava e a suíte de Chromium era PULADA com job verde (9 runs); `stub-da-ponte` novo (94 travas latentes em 40 fixtures consertadas); ponteiros do `apk.yml` e duplicata do `BUILD.md` |
-| 7 | W1 | em curso | | 2026-11-05 | |
+| 7 | W1 | feita | v1.13.17 (só web) | 2026-11-05 | `apkInstalar` que não respondia virava SUCESSO (consertado + asserção); `watchdog-modulos` novo; ~30 comentários corrigidos/reancorados nos dois arquivos; 3 RMW partidos no `controle.js` repassados |
 | 8 | W2 | pendente | | | |
 | 9 | W3 | pendente | | | |
 | 10 | C1 | pendente | | | |
@@ -59,6 +59,13 @@ tratou.
 | C1 | A4 | `controle.js` (~linha 715, o comentário do achado `:469` da auditoria 2026-08): diz que "a ÚNICA porta dinâmica é `DEST_ICONE`", que saiu na v1.8.56 — hoje é `ICON[d.ico]`. Lápide |
 | W2 | A4 | `espelho/tela.js`: o cabeçalho cita `db.js:800-801` (número de linha), e "digitação do código" / "o código rotacionou" descrevem o pareamento por código de 3 dígitos, que não existe mais |
 | K4 | A4 | `EspelhoServidor.servirMidia` — o KDoc diz que item em crescimento só sai em `chunked`; conferir contra o `alcanceDe`. O `EspelhoHttpRangeTest` cita o §6 do `TELAO-POR-COMANDOS.md`, que continua existindo (condensado). Não verificados na A4: `EspelhoPares.validar` aceitar token nu e o Cookie ser ignorado (saíram do doc por não terem prova) |
+| C3 | W1 | `controle.js`:`moverNaLista` (~12389) — `listIds` + `listSet(listName, ids)` em ARRAY: read-modify-write partido. Um download do YouTube que termina no vão (`addMediaToList` na mesma lista) some da lista e o `gcOrfaos` seguinte apaga o arquivo; dois toques rápidos em "Mover" perdem um movimento. Conserto: `AVDB.listSet(listName, (ids) => { …splice…; return ids; })` |
+| C8 | W1 | `controle.js`:`resgatarDownloads` (~39449) — `getState(YT_INTENCOES)` + `setState(YT_INTENCOES, [])`: uma intenção gravada por `lembrarIntencao` entre os dois é apagada (janela curta, na abertura). Conserto: `let pend = []; await AVDB.updateState(YT_INTENCOES, (a) => { pend = a \|\| []; return []; })` |
+| C1 | W1 | `controle.js`:`clearCurrentSelection` (~3926) — `getState('current')` + `setState({...cur, mediaId:null})`: par RMW sobre a chave do `persistCurrent`. Hoje só roda no `init()` antes do `load()` (risco baixo); trocar por `AVDB.updateState('current', …)` |
+| C5 | W1 | `controle.js`:`serieDiarioGravar` (~21990) — o comentário ainda cita o "Atualizar a lista" (saiu na v1.12.53) como a segunda varredura concorrente |
+| K2 | W1 | `NativeBridge.kt`:`bgProgress` (~951) — linha de comentário duplicada ("Só o Controle, como os onze irmãos…" duas vezes) |
+| K2 | W1 | `NativeBridge.kt`:`apkInstalar` — roda na fila `transferencia` (UMA thread, a dos downloads do YouTube): o APK espera atrás de um download de minutos e o prazo de 15 min do web conta essa espera. Avaliar se a fila é a certa (o web já não mente quando o prazo vence: v1.13.17) |
+| K1 | W1 | `MainActivity.kt`:`pendingShare` (~169/731) — slot ÚNICO (`AtomicReference.set`): dois shares que chegam antes de o web bombear sobrescrevem o primeiro. SUSPEITA, sem medição |
 
 ## Relatórios
 
@@ -261,3 +268,35 @@ Chromium` falha por recusa do PRÓPRIO Playwright (não rede)? **Resposta (2026-
 o `continue-on-error`, o passo de AVISO do pulo saiu; falha reprova o job (rede inclusive).
 A válvula manual `ignorar_oraculos` também saiu (pedido do operador, mesmo dia).
 **CI pós-merge** (`41998913449`): a suíte VOLTOU a rodar; 1ª tentativa 131/132 (`boot-nativo`, o instável da X3 — asserção lida e anotada no repasse X3), 2ª 132/132; o `site-grade` passou no Chromium do pin. **Repasses:** o vermelho do `boot-nativo` anexado à linha X3. **O operador:** nada a fazer.
+
+### W1 · Núcleo compartilhado — feita (2026-11-05)
+
+**Corrigido (código, só `native.js`, três hunks):** `apkInstalar` — o `call()` nunca
+rejeita; prazo vencido/ponte que lança resolvia `null`, o `.catch` era morto, e o
+`controle.js` tratava `erro = null` como SUCESSO ("Confirme a instalação…" sem
+instalador, `apkEntregue` gravado, a pergunta do APK calada). Agora vira a frase "o
+download do app não respondeu". `atualizacaoEstado`/`pacoteProntoEstado` sem o
+`.catch` inalcançável. Asserção no `ponte.test.mjs` (reversão: reprova o antigo).
+**Oráculo novo:** `watchdog-modulos.test.mjs` (Node puro, no workflow e no
+`ORACULOS.md`): todo `<script>` do Controle tem o global no `otaAppIsUp` (reversão:
+sem `AVProgresso` ou `createStage`, reprova). A lista em si estava completa.
+**Só comentário (provas 1 e 2):** blocos no símbolo errado (`pacoteDiag`,
+`stateKeys`, `listRemove`, a CENA do `lerDetentores`), fatos falsos (`pickDoc`
+"único que não remonta", `farolEstado` "coberto", `listSet` "nenhum escritor de
+fundo", `updateState` citando o "Atualizar a lista", o "instantâneo de `donos`"),
+lápides (`espelho`, `micDiag`, `farolContar`, `requestMic`, `salvarTexto`),
+premissas de shell antigo; a narrativa foi verbatim à seção v1.13.17 do histórico.
+**Achado e não corrigido:** `openDB` deixa conexão órfã se o `onblocked` disparar
+e o `open` suceder depois (só navegador com duas abas num upgrade); `MID_PREFIX`
+sem `padEnd` (colisão ínfima); `lerDetentores` é O(acervo detido) por remoção (fora
+dos 4 Hz, não medido); `ytFetch`/`deckPages` sem prazo (decisão documentada);
+`espelhoCert*` sem consumidor (`SEM_UI_DE_PROPOSITO`).
+**Varredura `getState`→`setState`:** a base web inteira com janela de 60 linhas e
+chave textual igual — pares em funções separadas ou com chave em variável NÃO foram
+rastreados. Nenhuma `fn` de `updateState` tem `await`. Repasses: C1, C3, C5, C8, K1, K2.
+**Verificado:** "Sanidade da base web" (todo Node puro), `tokens`, `comm` dos dois
+sentidos; Chromium: `ponte`, `ota`, `ota-confirma`, `boot-nativo`, `db-estado`,
+`db-gc`, `listas-de-protecao`, `cronogramas-multiplos`, `pacote-compartilhar`,
+`abertura-e-transferencia`, `edicao-de-midia`, `excluir-em-cena`,
+`verificacao-completa`, `verificacao-do-sistema`, `registro`, `smoke`, `display-smoke`.
+**O operador:** nada a fazer; a v1.13.17 chega sozinha (só web).
