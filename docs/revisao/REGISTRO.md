@@ -23,7 +23,7 @@ abandonada → primeira pendente pelo `nº`).
 | 9 | W3 | feita | v1.13.19 (só web) | 2026-11-05 | a `FORA` do pacote com a grafia errada deixava as intenções do YouTube viajarem (consertado + asserção cruzada); 4 funções só-do-oráculo saíram e o `funcao-sem-chamador` vê a superfície dos módulos; `bible.test.mjs` novo |
 | 10 | C1 | feita | v1.13.20 (só web) | 2026-11-05 | nenhum defeito de culto na fatia; `clearCurrentSelection` em `updateState` (+ asserção com reversão); 2 trechos de código morto da preview/peso; ~20 lápides e fatos velhos nos comentários |
 | 11 | C2 | feita | v1.13.21 + v1.13.22 (só web) | 2026-11-05 | o giro e o "Preencher" tocados com um `load()` em voo deixavam de valer no Controle (consertado + asserção com reversão, os dois); `cenaDeRoteiroNoAr` sem a régua duplicada; 3 `renderLibrary()` órfãos da Bíblia; ~30 lápides e fatos velhos |
-| 12 | C3 | pendente | | | |
+| 12 | C3 | em curso | | 2026-11-05 | |
 | 13 | C4 | pendente | | | |
 | 14 | C5 | pendente | | | |
 | 15 | C6 | pendente | | | |
