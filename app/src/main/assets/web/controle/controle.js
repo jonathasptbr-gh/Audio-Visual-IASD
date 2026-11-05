@@ -4038,9 +4038,9 @@ let favSeq = 0;
 let fitSeq = 0;
 let rotSeq = 0;
 // O QUINTO PAR: load × `toggleCronograma`/`togglePlaylist`/`replacePlaylistWith`
-// (o "Tocar agora"). Os três gravam a lista; um `load()` que a leu ANTES do toque aplicava a cópia velha
-// DEPOIS dele, e o item ficava no banco e fora de `cronoSet`/`libItems`/`plItems`
-// até o próximo `load()` (`hidratacao-perde-a-vez`, 9 e 10).
+// (o "Tocar agora")/`addLyricCue` (a letra na playlist). Os quatro gravam a lista; um `load()` que a leu
+// ANTES do toque aplicava a cópia velha DEPOIS dele, e o item ficava no banco e fora de
+// `cronoSet`/`libItems`/`plItems` até o próximo `load()` (`hidratacao-perde-a-vez`, 9 a 11).
 let listasSeq = 0;
 /**
  * Redesenha a lista da aba atual.
@@ -26922,11 +26922,18 @@ function renderSongMenu() {
 // lista daria três cenas idênticas que o operador teria de apagar uma a uma.
 async function addLyricCue(coll, s, btn, listas) {
   const alvo = (listas && listas.length) ? listas : ['imports'];
+  if (alvo.includes('playlist')) ++listasSeq;   // ver `listasSeq`: antes do primeiro `await`
   const rec = await criarCue('songlyrics',
     { collId: coll.id, songId: s.id_music },
     songLabel(coll, s), alvo[0], btn);
   if (!rec) { responder(btn, 'erro', 'Não foi possível adicionar'); return; }
-  for (const l of alvo.slice(1)) await AVDB.listAdd(l, rec.id);
+  const resto = alvo.slice(1);
+  for (const l of resto) await AVDB.listAdd(l, rec.id);
+  // O ESPELHO EM MEMÓRIA: `criarCue` só relê a lista que recebeu, e só quando ela
+  // é o Cronograma ou os Favoritos. Sem isto a cena ficava no banco e fora de
+  // `plItems`/`favItems` (fora da fila do ⏭ e da tela) até o próximo `load()`.
+  if (alvo.includes('playlist')) { plItems = await AVDB.listItems('playlist'); renderPlaylist(); }
+  if (resto.includes('favs')) await recarregarFavoritos();
 }
 
 // A seta de download dentro do `.dl-ring` — o mesmo desenho que o `#pvBusy`
