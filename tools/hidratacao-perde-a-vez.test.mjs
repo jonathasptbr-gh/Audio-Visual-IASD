@@ -42,7 +42,7 @@
 // GIRO e o PREENCHER tocados com um `load()` em voo — `fitSeq`/`rotSeq`. O 8 é
 // o ↑↓ de uma linha, `moverNaLista`, contra um `listAdd` que corre junto. O 9
 // é o botão do Cronograma e o da playlist tocados com um `load()` em voo —
-// `listasSeq`.)
+// `listasSeq` —, e o 10 o "Tocar agora" (`replacePlaylistWith`), na mesma senha.)
 //
 // E a quarta, que separa CENA de CONFIGURAÇÃO: durante a corrida a hidratação
 // pula a SELEÇÃO e aplica o resto. Sem ela, o conserto barato (um `return` no
@@ -449,6 +449,42 @@ try {
     'pôr na playlist com um load() em voo: o item FICA em plItems', JSON.stringify(toque9));
   checar(toque9.soCrono && toque9.soPl,
     'e sem toque nenhum o load() RESTAURA o Cronograma e a playlist do banco', JSON.stringify(toque9));
+
+  // ── 10. O "TOCAR AGORA" (`replacePlaylistWith`) COM UM `load()` EM VOO ────
+  // A fila vira SÓ o item tocado; um `load()` que leu a fila ANTES aplicava a
+  // cópia velha DEPOIS — o banco com [B] e `plItems` com [A], e o ⏭/fim da faixa
+  // seguindo a fila que o toque acabou de trocar. Mesma ordem forçada do 9.
+  const toque10 = await pg.evaluate(async ({ a, b }) => {
+    await AVDB.listSet('playlist', [a]);
+    await load();
+    const recB = await AVDB.getMedia(b);
+    const orig = AVDB.listItems;
+    let liberar;
+    const portao = new Promise((p) => { liberar = p; });
+    const leu = new Promise((pronto) => {
+      AVDB.listItems = async (n) => {
+        const r = await orig(n);
+        if (n === 'playlist') { AVDB.listItems = orig; pronto(); await portao; }
+        return r;
+      };
+    });
+    const r = {};
+    try {
+      const emVoo = load();
+      await leu;
+      await replacePlaylistWith(recB);
+      liberar();
+      await emVoo;
+    } finally { AVDB.listItems = orig; }
+    r.plItems = plItems.map((m) => m.id);
+    r.banco = await AVDB.listIds('playlist');
+    await AVDB.listSet('playlist', []);
+    await load();
+    return r;
+  }, ids);
+  checar(toque10.banco.length === 1 && toque10.banco[0] === ids.b
+      && toque10.plItems.length === 1 && toque10.plItems[0] === ids.b,
+    'Tocar agora com um load() em voo: plItems FICA só com o item tocado', JSON.stringify(toque10));
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
 }

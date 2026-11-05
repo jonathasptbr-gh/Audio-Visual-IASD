@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.24';
+const WEB_VERSION = '1.13.25';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4037,10 +4037,10 @@ let favSeq = 0;
 // novo. Uma senha por chave: um giro em voo não pode pular o PREENCHIMENTO lido.
 let fitSeq = 0;
 let rotSeq = 0;
-// O QUINTO PAR: load × `toggleCronograma`/`togglePlaylist`. Os dois gravam e
-// releem a lista; um `load()` que a leu ANTES do toque aplicava a cópia velha
+// O QUINTO PAR: load × `toggleCronograma`/`togglePlaylist`/`replacePlaylistWith`
+// (o "Tocar agora"). Os três gravam a lista; um `load()` que a leu ANTES do toque aplicava a cópia velha
 // DEPOIS dele, e o item ficava no banco e fora de `cronoSet`/`libItems`/`plItems`
-// até o próximo `load()` (`hidratacao-perde-a-vez`, 9).
+// até o próximo `load()` (`hidratacao-perde-a-vez`, 9 e 10).
 let listasSeq = 0;
 /**
  * Redesenha a lista da aba atual.
@@ -16443,11 +16443,10 @@ async function cifraPedir(url, mudo) {
   if (r.status === 404) return { ok: false, motivo: AVCifra.MOTIVO_NAO_TEM };
   if (r.status < 200 || r.status > 299) return { ok: false, motivo: AVCifra.MOTIVO_RECUSOU };
   const pagina = AVCifra.lerPagina(r.html);
-  // A RADIOGRAFIA SÓ DO CASO QUE PRECISA DELA. `ilegivel` é o único desfecho em
-  // que o Registro fica devendo uma resposta: a página está lá, a rede está boa,
-  // e "não entendi" não diz O QUE era. Guardá-la também no caminho feliz
-  // sobrescreveria justamente a página que interessa — a última música do culto
-  // apagaria a que quebrou dez minutos antes.
+  // A RADIOGRAFIA SÓ DOS DESFECHOS SEM FOLHA (`ilegivel` e `sem-cifra`): ali a
+  // página está lá, a rede está boa, e o Registro fica devendo O QUE ela era.
+  // Guardá-la também no caminho feliz sobrescreveria justamente a página que
+  // interessa — a última música do culto apagaria a que quebrou antes.
   if (!pagina) {
     // DOIS DESFECHOS, e eles pedem ações opostas: `sem-cifra` é o site
     // respondendo que aquela música não TEM cifra ali (a página existe e é a
@@ -16456,16 +16455,10 @@ async function cifraPedir(url, mudo) {
     // rebater a mesma música toda sessão. Quem decide é o `cifra.js` (regra
     // pura); aqui só se traduz o veredito.
     const variante = AVCifra.varianteSemCifra(r.html);
-    // A RADIOGRAFIA VALE PARA OS DOIS. Ela era só do `ilegivel`, porque "já se
-    // sabia o que a página de letra era" — e foi a radiografia que resolveu a
-    // dúvida seguinte: `/ministerio-jovem/meu-senhor-minha-vida/` respondeu
-    // 449 kB de "partituras para teclado", com o `<h1>` da música certa e zero
-    // `<pre>`. Sem ver a FORMA da página não havia como separar "o endereço
-    // está errado" de "o site não tem cifra desta música".
+    // Só a FORMA da página separa "o endereço está errado" de "o site não tem
+    // cifra desta música" (MEDIDO: uma página de "partituras para teclado" com o
+    // `<h1>` da música certa e zero `<pre>`).
     if (!mudo) cifraGuardarEstrutura('página ' + url, r.html);
-    // O COLETOR é o segundo destino da radiografia: a BATERIA precisa da forma
-    // das páginas que ELA não entendeu, e não pode escrevê-la no slot
-    // compartilhado (é justamente o diagnóstico do operador que ela enterraria).
     // A VARIANTE viaja junto do motivo: ela é o que o Registro mostra e o que
     // permite descobrir, um dia, que o site passou a servir uma terceira.
     return variante
@@ -16483,10 +16476,10 @@ async function cifraPedir(url, mudo) {
  * escritas dela divergiriam no primeiro ajuste — com a varredura guardando no
  * aparelho um resultado que a aba nunca produziria.
  *
- * Devolve `{ ok, pagina, motivo, url, via, tentativas, crus, consulta }`.
+ * Devolve `{ ok, pagina, motivo, url, via, tentativas }`.
  *
- * **`via` é o degrau QUE VENCEU** (`''`, `fixada`, `aparelho`, `catalogo`,
- * `album`, `padrao`, `busca`). Ele não muda o que o app faz — quem o lê é o
+ * **`via` é o degrau QUE VENCEU** (`''`, `aparelho`, `catalogo`, `album`,
+ * `padrao`, `busca`). Ele não muda o que o app faz — quem o lê é o
  * oráculo, e é por ele que a ORDEM da cadeia fica travada: "achou" e "achou
  * pelo catálogo" respondem perguntas diferentes, e uma poda que pulasse um
  * degrau passaria despercebida sem este campo.
@@ -16503,8 +16496,6 @@ async function cifraProcurar(nome, coll, opts) {
   let desfecho = { ok: false, motivo: AVCifra.MOTIVO_NAO_TEM };
   let url = '';
   let via = '';
-  let crus = [];
-  let consulta = nome;
   // Um degrau só falha PARA A FRENTE se a página não existir. `ilegivel` é
   // "respondeu e o parser não entendeu", e insistir noutro endereço troca o
   // motivo certo (o site mudou de formato) por um errado (a música não existe).
@@ -16522,7 +16513,7 @@ async function cifraProcurar(nome, coll, opts) {
   let viuSemCifra = false;
   // A AUSÊNCIA GUARDADA ENCERRA a procura — refazer a cadeia que a produziu é
   // gastar as mesmas requisições para chegar à mesma resposta. Ela vence pelo
-  // PRAZO, não por um toque; o que a contorna é a escolha à mão (tentativa 0).
+  // PRAZO (`CIFRA_REVISITA_MS`), não por um toque.
   //
   // Declarado AQUI, com o resto do estado, e não junto do passo que o escreve:
   // o `segue()` logo abaixo o lê, e um `const` alcançado de cima é uma zona
@@ -16543,8 +16534,7 @@ async function cifraProcurar(nome, coll, opts) {
 
   // 0,5ª TENTATIVA: O QUE JÁ ESTÁ NO APARELHO. É a única que não toca na rede,
   // e por isso é a que faz a folha abrir no sábado com o Wi-Fi da igreja
-  // oscilando. Vem DEPOIS da escolha do operador (uma correção à mão vale
-  // mais que o automático guardado) e ANTES de todo o resto.
+  // oscilando. Vem ANTES de todo o resto.
   if (!desfecho.ok && !o.semDisco && coll && cifraGuardavel(coll)) {
     const disco = await cifraDiscoDe(coll.id);
     const g = disco[cifraChaveNoDisco(nome)];
@@ -16683,25 +16673,14 @@ async function cifraProcurar(nome, coll, opts) {
   };
 }
 
-// Garante que a cifra do item em cena está a caminho (ou já chegou). Idempotente
-// de propósito: `renderLyricsView` pode chamá-la a cada pulso, e o estado
-// `buscando` é o que impede uma segunda requisição para a mesma chave.
 /**
- * O QUE NÃO É RESPOSTA DO SITE NÃO VIRA VEREDITO DA SESSÃO (v1.8.45).
+ * O QUE NÃO É RESPOSTA DO SITE NÃO VIRA VEREDITO DA SESSÃO.
  *
- * `cifraGarantir` volta cedo pelo `cifraCache.has(chave)`, e o `Map` não tinha
- * `delete` nem `clear` em ponto nenhum: uma entrada `'falha'` era PERMANENTE
- * até o app ser fechado. Com a Wi-Fi da igreja oscilando — o cenário normal de
- * um sábado de manhã —, a primeira projeção de um louvor respondia `status 0`,
- * e a cifra daquela música ficava indisponível pelo resto do culto: a rede
- * voltava, `cifraTemFolha` continuava `false`, a aba não era desenhada, e
- * reprojetar não ajudava porque a procura nunca mais acontecia.
- *
- * A REGRA JÁ EXISTIA DO OUTRO LADO, e é dela que esta sai: o cache de DISCO
- * recusa gravar `sem-rede` e `recusou` porque *"não houve resposta do site"* —
- * só o que o site de fato respondeu (`nao-tem`, `sem-cifra`) é memória, e
- * mesmo essa vence em trinta dias. O cache de MEMÓRIA guardava os cinco
- * desfechos por igual, e era a única metade das duas sem essa distinção.
+ * `cifraGarantir` volta cedo pelo `cifraCache.has(chave)`: uma `'falha'` de rede
+ * guardada ali deixaria a cifra daquela música indisponível pelo resto do culto
+ * (a rede volta, `cifraTemFolha` continua `false`, a procura nunca mais
+ * acontece). A regra é a do cache de DISCO: `sem-rede` e `recusou` não são
+ * resposta do site, e saem; só o que o site respondeu fica.
  *
  * `ilegivel` FICA no cache de propósito: ali o site RESPONDEU e quem não
  * entendeu foi o nosso parser — repetir a mesma requisição na mesma sessão
@@ -16714,10 +16693,13 @@ function esquecerSeNaoFoiResposta(chave, entrada) {
       && entrada.motivo !== AVCifra.MOTIVO_RECUSOU) return;
   // Só se a entrada ainda for a NOSSA: uma procura mais nova já pode ter posto
   // outra no lugar, e apagá-la faria a música ficar em `buscando` para sempre —
-  // o desfecho que o comentário do `then` acima nomeia.
+  // o desfecho que o comentário do `then` em `cifraGarantir` nomeia.
   if (cifraCache.get(chave) === entrada) cifraCache.delete(chave);
 }
 
+// Garante que a cifra do item em cena está a caminho (ou já chegou). Idempotente
+// de propósito: `renderLyricsView` pode chamá-la a cada pulso, e o estado
+// `buscando` é o que impede uma segunda requisição para a mesma chave.
 function cifraGarantir(item) {
   const chave = cifraChave(item);
   if (!chave || cifraCache.has(chave)) return cifraCache.get(chave) || null;
@@ -16741,17 +16723,13 @@ function cifraGarantir(item) {
   cifraEstruturas = [];
   cifraProcurar(nome, coll).then((r) => {
     // O QUE É DA `entrada` ENTRA SEMPRE; O QUE É SLOT COMPARTILHADO, SÓ DO MAIS
-    // NOVO. Cada chave tem a entrada dela e ninguém a substitui no `cifraCache`
-    // — descartar a resposta inteira de uma procura vencida deixaria AQUELA
-    // música em `buscando` para sempre, porque `cifraGarantir` volta cedo pelo
-    // `has` e nunca mais pergunta. Já `cifraUltimoDiag` é UM só para o app
-    // todo: sem a guarda de sequência, a procura do louvor que SAIU de cena
-    // chega depois e o Registro passa a listar os endereços de outra música —
-    // o log que discorda do aparelho, lido a distância por quem não confere.
-    //
-    // A guarda anterior era `seq !== lvCifraSeq && cifraCache.get(chave) !==
-    // entrada`: o segundo termo é constante (nada troca nem apaga entrada do
-    // cache), então o `return` nunca rodava.
+    // NOVO. Cada chave tem a entrada dela (só `esquecerSeNaoFoiResposta` a tira,
+    // e só a própria) — descartar a resposta inteira de uma procura vencida
+    // deixaria AQUELA música em `buscando` para sempre, porque `cifraGarantir`
+    // volta cedo pelo `has` e nunca mais pergunta. Já `cifraUltimoDiag` é UM só
+    // para o app todo: sem a guarda de sequência, a procura do louvor que SAIU
+    // de cena chega depois e o Registro passa a listar os endereços de outra
+    // música — o log que discorda do aparelho.
     entrada.estado = r.ok ? 'ok' : 'falha';
     entrada.pagina = r.pagina;
     entrada.motivo = r.motivo;
@@ -16841,25 +16819,12 @@ function cifraDesfechoNaTela() {
 // que tudo existe, um buraco é sempre erro nosso.
 const CIFRA_LOTE = 20;          // hinos por gravação
 /**
- * ===== POR QUE NÃO HÁ MAIS UM TETO POR PASSADA (v1.2.21) =====
+ * ===== NÃO HÁ TETO POR PASSADA =====
  *
- * Houve um: uma passada dominada por "sem cifra" não gravava nada, na suspeita
- * de que o site tivesse mudado de marcação. **Ele custou caro e não protegia
- * nada.** MEDIDO: o Hinário 2022 fechou uma passada com `309 tentadas · 0
- * achadas · 309 recusadas`, e como nada era gravado a varredura recomeçava do
- * zero a cada abertura, para sempre.
- *
- * E a suspeita era falsa. O operador conferiu à mão as páginas que a
- * radiografia nomeou: aquele hino tem só a letra no site mesmo, e a outra não
- * tem cifra nenhuma. **O veredito estava certo; o teto é que não sabia disso.**
- *
- * Ele também é estruturalmente errado: a passada só cobre o que FALTA, então a
- * proporção de ausências tende a 100% conforme o acervo completa — um teto por
- * proporção acaba disparando num acervo saudável, que é exatamente o que
- * aconteceu.
- *
- * O que protege contra a mudança de marcação são as duas defesas que ficam, e
- * elas não têm esse defeito:
+ * Um teto por PROPORÇÃO de ausências é estruturalmente errado: a passada só
+ * cobre o que FALTA, então a proporção tende a 100% conforme o acervo completa,
+ * e ele dispara num acervo saudável. O que protege contra a mudança de marcação
+ * do site são as duas defesas que ficam:
  *
  *  1. o MARCADOR POSITIVO (`AVCifra.varianteSemCifra`): sem o `<title>`
  *     anunciando a variante, o desfecho volta a ser `ilegivel` e nada é gravado;
@@ -16903,13 +16868,10 @@ const CIFRA_FALTANDO_MAX = 20;
 
 
 /**
- * A VERSÃO DO DIÁRIO. GRAVADA, NÃO LIDA: ela nasceu para o prazo de uma semana
- * da passada recusada, que saiu na v1.2.21 — nenhum leitor a compara hoje, e o
- * comentário que dizia *"diário de versão diferente é IGNORADO"* prometia uma
- * regra que não existe. Ela fica no registro só para quem lê o estado cru saber
- * que código o escreveu. Os contadores de v1.11.6 (`semRede`, `adiadas`,
- * `excecoes`) NÃO a subiram, de propósito: a leitura (`cifraSemDesfecho`) trata
- * a ausência deles, e um diário antigo continua legível.
+ * A VERSÃO DO DIÁRIO. GRAVADA, NÃO LIDA: nenhum leitor a compara — ela fica no
+ * registro só para quem lê o estado cru saber que código o escreveu. Campo novo
+ * no diário NÃO a sobe: a leitura (`cifraSemDesfecho`) trata a ausência dele, e
+ * um diário antigo continua legível.
  */
 const CIFRA_PASSADA_VERSAO = 2;
 
@@ -16977,18 +16939,11 @@ async function cifraDiscoDe(collId) {
 /**
  * MESCLA as cifras novas no que já está guardado — nunca SUBSTITUI.
  *
- * **A versão anterior gravava o mapa INTEIRO a partir de um slot de módulo**
- * (`AVDB.setState('cifras:'+id, cifraDisco)`), e isso é a receita exata do
- * ler-calcular-gravar que o `CLAUDE.md` proíbe para o `state`: duas transações
- * com um vão entre elas, e quem lê primeiro grava por último. Pior: o que ia
- * para o disco era um GLOBAL, cuja identidade mora noutra variável
- * (`cifraDiscoColl`) — bastava outra coleção ser carregada no meio para o
- * mapa do 1996 (ou um `{}`) ser escrito por cima do 2022.
- *
- * MEDIDO num aparelho: `275 de 601` virou `0 de 601`, e a cada abertura o app
- * recomeçava o download do zero. Uma substituição pode produzir zero a partir
- * de 275; **uma mescla não pode**, e é essa a diferença que faz a correção ser
- * estrutural em vez de um remendo no interleaving que mordeu deste vez.
+ * Gravar o mapa INTEIRO a partir do slot de módulo (`cifraDisco`) é o
+ * ler-calcular-gravar que o `CLAUDE.md` proíbe, e com um agravante: a identidade
+ * do slot mora noutra variável (`cifraDiscoColl`), e outra coleção carregada no
+ * meio escreveria o mapa errado por cima. Uma substituição pode produzir zero a
+ * partir de 275 (MEDIDO num aparelho); **uma mescla não pode**.
  *
  * `fn` é SÍNCRONA (um `await` lá dentro deixaria a transação fechar sozinha e a
  * atomicidade sumiria em silêncio), e `novas` é ESVAZIADA depois do commit: o
@@ -17069,20 +17024,6 @@ function cifraGuardavel(coll) {
   return !!coll && temLetra(coll);
 }
 
-/**
- * As cifras de TODO acervo de música que o operador tem no aparelho — desde a
- * v1.12.60 só com a escolha ligada (ver "GUARDAR TODAS AS CIFRAS É UMA
- * ESCOLHA", logo abaixo); sem ela, só as do Cronograma ativo.
- *
- * O irmão do `syncLyrics`, e chamado do mesmo lugar: sem isto, o recurso só
- * existia para quem baixasse o acervo DEPOIS da versão que o trouxe — quem já o
- * tinha ficava em `0 de N` para sempre, e o Registro dizia isso sem que nada na
- * tela explicasse o quê fazer.
- *
- * **A coleção precisa ter algo BAIXADO** (`countDownloaded`): um álbum que o
- * operador nunca trouxe para o aparelho não é acervo dele, e varrer o catálogo
- * inteiro seria pagar rede por música que ninguém vai tocar.
- */
 // ===== A ROTINA DE ACERVO CEDE A VEZ AO QUE ESTÁ NO AR (v1.4.19) =====
 //
 // `syncLyrics` e `syncCifrasAcervo` saem da abertura SEM `await`, portanto
@@ -17114,10 +17055,9 @@ function rotinaDeAcervoPodeCorrer() { return !midiaNoAr; }
 
 // ===== GUARDAR TODAS AS CIFRAS É UMA ESCOLHA, E ELA NASCE DESLIGADA (v1.12.60) =====
 //
-// Pedido do operador: a varredura do acervo inteiro rodava em TODA abertura com
-// Wi-Fi, para todo mundo — e poucos de quem usa o app tocam instrumento. Ela é
-// longa (uma ou mais requisições por música, centenas por hinário) e cobra rede
-// de quem nunca vai abrir a aba de cifra.
+// A varredura do acervo inteiro é longa (uma ou mais requisições por música,
+// centenas por hinário) e cobraria rede de quem nunca vai abrir a aba de cifra
+// — e poucos de quem usa o app tocam instrumento.
 //
 // **O QUE SOBROU SEM ESCOLHA NENHUMA**, porque é o que quem toca usa de fato:
 //  1. **a música aberta** busca a cifra na hora, como sempre (`cifraGarantir`),
@@ -17185,6 +17125,16 @@ function cifrasDoCronogramaAgendar() {
   cifraCronoTimer = setTimeout(() => { cifraCronoTimer = 0; syncCifrasAcervo().catch(() => {}); }, CIFRA_CRONO_ESPERA_MS);
 }
 
+/**
+ * As cifras de TODO acervo de música que o operador tem no aparelho — só com a
+ * escolha ligada (ver "GUARDAR TODAS AS CIFRAS É UMA ESCOLHA", acima); sem ela,
+ * só as do Cronograma ativo. O irmão do `syncLyrics`, e chamado do mesmo lugar
+ * (a abertura): é o que alcança quem já tinha o acervo baixado.
+ *
+ * **A coleção precisa ter algo BAIXADO** (`countDownloaded`): um álbum que o
+ * operador nunca trouxe para o aparelho não é acervo dele, e varrer o catálogo
+ * inteiro seria pagar rede por música que ninguém vai tocar.
+ */
 // A ROTINA É UMA SÓ EM VOO. Um pedido que chega com ela correndo (o Cronograma
 // mudou, a escolha foi ligada) marca `cifraAcervoDeNovo`, e ela dá mais uma
 // volta no fim — é essa volta que alcança o que entrou no meio.
@@ -17223,9 +17173,8 @@ function syncCifrasAcervo() {
   return cifraAcervoVoo;
 }
 
-// UMA PASSADA POR VEZ. `cifraSyncRodando` é levantado de forma SÍNCRONA, antes
-// do primeiro `await` — com ele depois de uma leitura do disco, duas chamadas
-// passavam pela porta juntas. Quem vem de fora (o download de uma coleção) e a
+// UMA PASSADA POR VEZ. `cifraSyncRodando` é levantado de forma SÍNCRONA, sem
+// `await` entre a porta e ele — senão duas chamadas passam juntas. Quem vem de fora (o download de uma coleção) e a
 // acha ocupada VOLTA, como sempre voltou; a rotina acima ESPERA (`esperar`).
 let cifraPassadaFim = null;
 
@@ -17251,9 +17200,7 @@ async function syncCifrasColecao(coll, opts) {
 
 async function syncCifrasPassada(coll) {
   const agora = Date.now();
-  // NÃO HÁ MAIS PRAZO DE PASSADA (v1.2.21): ele existia para o caso em que o
-  // teto recusava tudo, e o teto saiu — quem impede a revarredura agora é o
-  // que sempre deveria: cada música tem uma resposta GRAVADA, com data.
+  // Quem impede a revarredura é a resposta GRAVADA de cada música, com data.
   const disco = await cifraDiscoDe(coll.id);
   // A FILA DEPENDE DA ESCOLHA (v1.12.60): o acervo inteiro só com ela ligada; o
   // Cronograma ativo SEMPRE. `doAcervo` marca o que entrou só pelo acervo — é o
@@ -17315,9 +17262,9 @@ async function syncCifrasPassada(coll) {
   // nada — é abrindo a página no navegador que se descobre se o erro é o nosso
   // endereço ou a nossa leitura.
   //
-  // Guardados no DIÁRIO e não no disco de cifras, porque o diário é escrito
-  // MESMO QUANDO O TETO RECUSA a passada: é justamente o caso em que nada mais
-  // sobrevive, e era o caso em que não havia como investigar.
+  // Guardados no DIÁRIO e não no disco de cifras: o que não saiu com folha não
+  // grava veredito (`ilegivel`, `recusou`), e o diário é o único lugar em que
+  // ele sobrevive para ser investigado.
   const exemplos = [];
   try {
     await withBgRotina(async () => {
@@ -17343,12 +17290,10 @@ async function syncCifrasPassada(coll) {
             // para não achar nada. Na aba ela FICA — lá é a última carta para a
             // música que está na frente do operador.
             // AS OPÇÕES VÃO NA TERCEIRA POSIÇÃO — `cifraProcurar(nome, coll,
-            // opts)`. Um argumento a mais aqui não erra alto: `opts` recebia a
-            // string do parâmetro que a v1.3.3 removeu, e `mudo`/`semDisco`/
-            // `semBusca` saíam `undefined`. A varredura voltava a bater na
-            // busca do site (MEDIDA em zero resultado, dois terços do acervo, a
-            // cada abertura) e a empurrar as radiografias do operador para fora
-            // do `CIFRA_ESTRUTURAS_MAX` — tudo sem uma linha no console.
+            // opts)`. Um argumento a mais aqui não erra alto: `mudo`/`semDisco`/
+            // `semBusca` sairiam `undefined`, e a varredura voltaria à busca do
+            // site e a empurrar as radiografias do operador para fora do
+            // `CIFRA_ESTRUTURAS_MAX` — sem uma linha no console.
             const d = await cifraProcurar(h.nome, coll, {
               mudo: true, semDisco: true, semBusca: true,
             });
@@ -17429,34 +17374,23 @@ async function syncCifrasPassada(coll) {
   }
 }
 
-// ===== A CIFRA É SÓ AUTOMÁTICA (v1.3.3) =====
+// ===== A CIFRA É SÓ AUTOMÁTICA =====
 //
-// Houve uma busca à mão aqui (v1.1.24 a v1.3.2): a aba desenhava a lista de
-// resultados do site, abria qualquer um em prévia e FIXAVA o endereço escolhido
-// para aquela música, que passava a ser a tentativa 0 nas aberturas seguintes.
-// Ela saiu inteira a pedido do operador — lista, prévia, campo de consulta,
-// atalhos e a escolha guardada (`cifraEscolhas`).
+// Não há escolha à mão: a cadeia é o recurso inteiro — disco → catálogo →
+// álbum-como-artista → artistas padrão → busca do site. O PREÇO: quando a regra
+// erra (uma versão simplificada, um homônimo) não há correção dentro do app;
+// resta o link "Ver no Cifra Club".
 //
-// O QUE ISSO CUSTA, para quem for reintroduzi-la saber o que está reintroduzindo:
-// a regra ADIVINHA a partir de um nome, e quando ela erra (uma versão
-// simplificada, um homônimo) não há mais correção dentro do app — resta o link
-// "Ver no Cifra Club". A cadeia automática é o recurso inteiro agora:
-// disco → catálogo → álbum-como-artista → artistas padrão → busca do site.
-//
-// UM RESTO FICA NO APARELHO, e é de propósito não mexer nele: a chave
-// `cifraEscolhas` do `state` continua gravada em quem já usou o recurso. Não é
-// lida por ninguém e não custa nada; apagá-la exigiria uma migração para
-// devolver bytes que não fazem falta, e ela é o que uma volta atrás reaproveita.
+// UM RESTO FICA NO APARELHO, de propósito: a chave `cifraEscolhas` do `state`
+// (a escolha guardada de antes) continua gravada em quem a usou. Ninguém a lê;
+// apagá-la exigiria uma migração para devolver bytes que não fazem falta.
 
 /**
  * As RADIOGRAFIAS desta procura, uma por endereço — para o Registro.
  *
- * **UMA SÓ NÃO BASTA, e este é o terceiro lugar do recurso onde isso mordeu**
- * (v1.2.6). Uma procura tenta vários endereços; a última escrita apagava as
- * anteriores, e o que sobrava era sempre a página menos interessante: o
- * `buscador` respondeu `HTTP 202` — a resposta anti-robô — e a estrutura dela
- * foi sobrescrita pela busca interna que rodou em seguida. O Registro dizia
- * "202" numa linha e mostrava OUTRA página embaixo.
+ * **UMA SÓ NÃO BASTA:** uma procura tenta vários endereços, e com um slot só a
+ * última escrita apaga as anteriores — o Registro diria o status de uma página
+ * numa linha e mostraria OUTRA embaixo.
  *
  * Um Registro não tem pressão de tamanho (ele existe para ser COPIADO, não
  * para caber numa tela), então o certo é guardar todas e imprimir todas. Uma
@@ -17468,21 +17402,17 @@ let cifraEstruturas = [];      // [{ rotulo, texto }]
 
 
 /**
- * Uma busca no site, já lida: `{ crus, ordenados, url }`.
+ * Uma busca no site, já lida: `{ crus, ordenados, url, rotulo, linhas }`.
  *
- * `crus` é TUDO que estruturalmente parece música — é o que o seletor mostra,
- * porque o ponto dele é justamente deixar ver o que a regra RECUSOU.
- * `ordenados` é o que a regra aceitaria, na ordem dela.
+ * `crus` é TUDO que estruturalmente parece música (a contagem vai à linha do
+ * Registro); `ordenados` é o que a regra aceitaria, na ordem dela.
  *
- * **TRÊS PARÂMETROS PORQUE SÃO TRÊS PAPÉIS**, e juntá-los foi um defeito real:
- * a primeira versão passava um `extra` que ia ao mesmo tempo para a consulta e
- * para o parentesco, e o seletor — que manda a consulta DIGITADA — acabava sem
- * álbum em lugar nenhum, nem na busca nem no desempate.
+ * **TRÊS PARÂMETROS PORQUE SÃO TRÊS PAPÉIS** — um só servindo à consulta e ao
+ * parentesco deixa o álbum de fora dos dois:
  *
  *  - `consulta` é o que vai no `?q=`, já montado por quem chama;
- *  - `alvo` é contra o que o PARENTESCO compara (o nome da música, ou o que o
- *    operador digitou — nunca a consulta com o álbum colado, senão nenhum
- *    resultado seria parente dela);
+ *  - `alvo` é contra o que o PARENTESCO compara (o nome da música — nunca a
+ *    consulta com o álbum colado, senão nenhum resultado seria parente dela);
  *  - `artista` é o DESEMPATE, e só isso.
  *
  * `mudo` cala a radiografia, pela mesma razão do `cifraPedir`: a varredura do
@@ -17490,30 +17420,16 @@ let cifraEstruturas = [];      // [{ rotulo, texto }]
  * apagaria a estrutura da página que o operador está diagnosticando.
  */
 async function cifraBuscarNoSite(consulta, alvo, artista, mudo) {
-  // UM MOTOR SÓ — o buscador externo saiu na v1.2.8.
-  //
-  // Ele entrou na v1.2.2 porque a busca interna nunca teve como funcionar
-  // (MEDIDO: `cifraclub.com.br/?q=` responde 425 kB cujos únicos links de duas
-  // partes são o índice A–Z — os resultados são desenhados por JavaScript, que
-  // o `cifraHtml` não executa), e saiu porque também não funcionou: o endpoint
-  // HTML do DuckDuckGo responde `HTTP 202` — a recusa anti-robô —, e uma recusa
-  // parseada como página vazia é uma requisição por procura para não devolver
-  // nada. Quem passou a achar as músicas foram os endereços DEDUZÍVEIS
-  // (catálogo, álbum-como-artista, artistas padrão), e é neles que o esforço
-  // vale: uma requisição, sem ranking de ninguém escolhendo por nós.
-  //
-  // A busca interna FICA, e é a última carta: ela não custa mais do que a
-  // requisição que já custava, e no dia em que o site voltar a desenhar no
-  // servidor volta a funcionar sozinha — com o Registro acumulando a resposta
-  // dela enquanto isso não acontece.
+  // UM MOTOR SÓ: a busca interna do site. MEDIDO, ela devolve zero (os
+  // resultados são desenhados por JavaScript, que o `cifraHtml` não executa) —
+  // quem acha as músicas são os endereços DEDUZÍVEIS. Ela FICA como a última
+  // carta: custa uma requisição, e no dia em que o site voltar a desenhar no
+  // servidor volta a funcionar sozinha, com o Registro mostrando a resposta.
   const motores = [
     { rotulo: 'busca', url: AVCifra.urlDeBusca(consulta), ler: AVCifra.lerBusca },
   ];
-  // CADA MOTOR VIRA UMA LINHA (v1.2.5). A primeira versão devolvia só o ÚLTIMO,
-  // e o Registro de um aparelho saiu com duas linhas `busca` e NENHUMA do
-  // `buscador` — que tinha sido tentado. Não dá para diagnosticar um motor que
-  // o diário não menciona, e este é o segundo lugar deste recurso em que um
-  // diagnóstico se calou justamente sobre o que se queria medir.
+  // CADA MOTOR VIRA UMA LINHA: não dá para diagnosticar um motor que o diário
+  // não menciona.
   let ultima = { crus: [], ordenados: [], url: '', linhas: [] };
   const linhas = [];
   for (const m of motores) {
@@ -17573,18 +17489,12 @@ function cifraEstado(item) {
 }
 
 /**
- * ===== HÁ CIFRA DE VERDADE PARA MOSTRAR? (v1.8.28) =====
+ * ===== HÁ CIFRA DE VERDADE PARA MOSTRAR? =====
  *
- * Pedido do operador: *"que ele não apresente o botão da aba de cifra se não
- * houver uma cifra de verdade para ser apresentada. não quero acesso a essa
- * seção se não tem esse conteúdo."*
- *
- * `cifraCabe` responde outra pergunta — *"vale a pena PROCURAR?"* —, e ela é
- * por CONTEÚDO MUSICAL: todo `kind: 'audio'` do acervo passa. MEDIDO, cerca de
- * dois terços dos álbuns não estão sob endereço deduzível nenhum, então a aba
- * era oferecida para a maioria das faixas só para dizer que não achou. É o
- * precedente do MICROFONE SEM TV (v1.2.20/v1.2.21) na terceira vez: explicar é
- * melhor que mentir, e **não oferecer é melhor que explicar**.
+ * A aba só existe com folha na mão: **não oferecer é melhor que explicar**.
+ * `cifraCabe` responde outra pergunta — *"vale a pena PROCURAR?"* —, por
+ * CONTEÚDO MUSICAL: todo `kind: 'audio'` passa, e MEDIDO cerca de dois terços
+ * dos álbuns não estão sob endereço deduzível nenhum.
  *
  * O veredito é o do CACHE, e ele não dispara busca nenhuma — quem a dispara é
  * `cifraGarantir`, no `send` (a música entrando em cena) e na abertura da folha
@@ -17649,14 +17559,10 @@ function cifraColunas(folha) {
   return Math.max(8, Math.floor(largura / porCaractere));
 }
 
-// ===== A CIFRA EM TELA CHEIA, DEITADA (v1.6.0) =====
+// ===== A CIFRA EM TELA CHEIA, DEITADA =====
 //
-// Pedido do operador: *"gostaria que criasse um sistema para visualização das
-// cifras em tela cheia, no modo paisagem. deixe visível em uma coluna vertical
-// na direita, os botões de controle de tom, automático, tamanho da fonte e
-// etc... e é claro, ao abrir esse modo em tela cheia, pode já deixar
-// automaticamente a fonte já um pouco maior, já que uma visualização com a
-// fonte maior é o objetivo desse método em tela cheia"*.
+// Paisagem, com os controles numa coluna à direita e a fonte maior — ler de
+// longe com o instrumento na mão é o objetivo do modo.
 //
 // O ELEMENTO É O `#lyricsPopup` INTEIRO, e a razão é o que NÃO acontece: nada
 // é reparentado. Mover o corpo para um contêiner novo zeraria o `scrollTop`,
@@ -17858,11 +17764,9 @@ function cifraFracaoDeLeitura() {
 function cifraRemedir(fracaoDada) {
   if (!lyricsPopupEl.classList.contains('open')) return;
   if (lvActiveSource() !== 'cifra') return;
-  // (A guarda de TECLADO saiu na v1.3.3, com o campo que ela protegia: esta aba
-  // não tem mais `<input>` nenhum. Ela existia porque o teclado do sistema é um
-  // `resize`: o redesenho refazia a aba, o campo com foco deixava de existir, e
-  // a perda do foco fechava o teclado — um teclado que piscava e sumia. Se um
-  // campo voltar a esta aba, a guarda tem de voltar com ele.)
+  // (Esta aba não tem `<input>`: um campo aqui precisaria de uma guarda de
+  // TECLADO, porque o teclado do sistema é um `resize` e o redesenho mataria o
+  // foco.)
   const el = lyricsViewBodyEl;
   const folha = el.querySelector('.lv-cifra-folha');
   // ===== A GUARDA É POR COLUNAS, NUNCA POR LARGURA (v1.6.0) =====
@@ -17940,28 +17844,8 @@ if (typeof ResizeObserver === 'function') {
 //
 //   ritmo = percurso rolável ÷ (t1 − t0)          `AVCifra.ritmoDaRolagem`
 //
-// **Isto REVOGA o desenho da v1.1.20**, em que a posição da folha era uma FUNÇÃO
-// da posição da música. Pedido do operador: *"ajuste o sistema de rolagem
-// automática de cifra para que ele não siga o tempo da música atual em exibição,
-// pois se a música não está tocando, ele não anda. Ou se eu quiser tocar de um
-// ponto específico em diante, ele fica voltando para onde a mídia estaria… Eu
-// quero que siga o progresso levando em conta: o tempo total da música e a
-// posição atual do scroll"*.
-//
-// **As três vantagens daquele desenho eram os três defeitos do relato**, vistas
-// do outro lado — e é por isso que a correção é uma troca de premissa e não um
-// remendo:
-//
-// | a v1.1.20 dizia | o operador viu |
-// |---|---|
-// | pausar a música PARA a folha | *"se a música não está tocando, ele não anda"* |
-// | um seek LEVA a folha ao ponto | *"ele fica voltando para onde a mídia estaria"* |
-// | um quadro perdido não acumula erro | (só isto sobrevive — e o teto de delta cobre) |
-//
-// O `cifraDesvio` da v1.1.20 era o remendo sobre a premissa errada: um
-// deslocamento somado ao alvo para dar ao dedo um lugar na briga com a música.
-// Ele SAIU, e com ele o alvo teórico e a perseguição suave — não há mais briga.
-// **A folha era da MÚSICA; ela passou a ser de quem lê.**
+// A posição da folha NÃO é função da posição da música: pausar a música não
+// para a folha, e um seek não a puxa de volta. **A folha é de quem lê.**
 //
 //   ┌ topo                                                    fim da folha ┐
 //   │╲                                                                     │
@@ -17972,17 +17856,15 @@ if (typeof ResizeObserver === 'function') {
 // **O que sobrevive da janela é o FECHO**, e sobrevive por construção: percorrer
 // o rolável em `t1 − t0` segundos põe a última linha na tela no instante `t1` —
 // o fim da cifra lido bem antes do fim da música, que é a parte que mais se
-// erra. **A RAMPA DE ARRANQUE ATRASA ESSE INSTANTE**, e sempre atrasou desde a
-// v1.5.20 (antes ela era uma espera parada): até 8 s, contra os 8 a 25 s que o
-// fecho reserva. MEDIDO numa música de 240 s: a última linha chega aos 223,0 s,
-// dezessete segundos antes do fim. **A ABERTURA saiu**, e saiu porque
-// perdeu o referente: ela era *"a música acabou de começar"*, e não há mais
-// começo nenhum — a origem é onde o scroll está.
+// erra. **A RAMPA DE ARRANQUE ATRASA ESSE INSTANTE**: até 8 s, contra os 8 a
+// 25 s que o fecho reserva. MEDIDO numa música de 240 s: a última linha chega
+// aos 223,0 s, dezessete segundos antes do fim. **A ABERTURA FICA DESCONTADA**
+// do tempo do percurso (`t1 − t0`, em `AVCifra.ritmoDaRolagem`), e é regra, não
+// resto: ela é o tempo da INTRODUÇÃO, antes de a leitura precisar andar
+// (decisão do operador, 2026-11-05).
 //
-// **A FOLHA NUNCA MEXE NO TEMPO DA MÍDIA**, e o operador pediu isso por extenso:
-// *"esse scroll das cifras não altera o tempo, seja parado ou tocando, da mídia
-// em exibição"*. Sempre foi verdade e nunca teve oráculo; hoje tem
-// (`cifra-rolagem.test.mjs`), porque uma ausência não tem sintoma — o dia em que
+// **A FOLHA NUNCA MEXE NO TEMPO DA MÍDIA**, seja parada ou tocando — e tem
+// oráculo (`cifra-rolagem.test.mjs`), porque uma ausência não tem sintoma — o dia em que
 // alguém ligar os dois eixos "para sincronizar", a folha passa a comandar a
 // projeção no meio do culto.
 //
@@ -17990,7 +17872,7 @@ if (typeof ResizeObserver === 'function') {
 //
 // Ensaio sem tocar a gravação, um item sem linha do tempo (imagem, mensagem),
 // um vídeo cuja duração ainda não chegou. Ali o sentinela `'auto'` não tem de
-// onde tirar o ritmo e cai no fixo — o botão continua dizendo `1×` (v1.6.1),
+// onde tirar o ritmo e cai no fixo — o botão continua dizendo `1×`,
 // que é a ESCOLHA, e o `title` diz o que está de fato acontecendo. Ele é a
 // única superfície que ainda distingue os dois regimes, porque o rótulo passou
 // a dizer só a posição na escala. Os degraus numéricos são a escolha explícita
@@ -18008,9 +17890,7 @@ if (typeof ResizeObserver === 'function') {
 // defeito por outro caminho.
 //
 // O delta tem TETO ([CIFRA_DT_MAX]) porque a página estrangulada em segundo
-// plano voltaria dando um salto. **Com o `auto` integrando, isso passou a valer
-// para os DOIS modos** — no desenho antigo o `auto` era imune por ser função do
-// tempo da música, e essa imunidade foi embora junto com o resto dela.
+// plano voltaria dando um salto — nos DOIS modos, porque os dois integram.
 //
 // ## O dedo NÃO briga com a rolagem, e não a desliga
 //
@@ -18020,26 +17900,14 @@ if (typeof ResizeObserver === 'function') {
 // frente, *"vale tanto para volta como para avanços"* — e a rolagem continua
 // dali. É a mesma linha que já cobria o modo livre: `cifraPos` reassume o
 // `scrollTop` sempre que alguém que não fomos nós o escreveu.
-// ===== O SENTINELA `'auto'` SE CHAMA "1×", E É ELE A BASE (v1.6.1) =====
+// ===== O SENTINELA `'auto'` SE CHAMA "1×", E É ELE A BASE =====
 //
-// Pedido do operador: *"ao invés de usar o botão com nome 'auto', use apenas
-// 0,5x, 1x, 1,5x… no caso o 'auto' seria o 1x, pois ele usa o tempo base como
-// padrão de comparação"* — e a correção dele, por extenso: *"não mude o
-// comportamento da escala, o comportamento estava correto, o nome auto que não
-// representava uma comparação de velocidade… as variações 1,5x ou 0,5x
-// representam mais rápido ou mais devagar em comparação com o 1x"*.
+// Os degraus dizem "mais rápido ou mais devagar que o 1×"; o valor interno do
+// 1× é o sentinela `'auto'` — ver a tensão declarada no `cifraVelTitulo`.
 //
-// **SÓ O RÓTULO E A ESCADA MUDAM.** O valor interno continua sendo o sentinela
-// `'auto'`, e `cifraRolarQuadro` não é tocado — ver a tensão declarada no
-// `cifraVelTitulo`.
-//
-// O `1` NUMÉRICO SAIU porque o rótulo o duplicava: dois botões escritos "1×" no
-// mesmo ciclo. E os dois eram o MESMO px/s no único regime em que um degrau
-// numérico existe para valer — sem duração, `ritmoDaRolagem` devolve 0 e os
-// dois ramos de `cifraRolarQuadro` terminam na mesma multiplicação
-// (`CIFRA_PX_POR_S * 1`). Não é "quase igual": é o mesmo `Number`.
-//
-// O `3` saiu a pedido: *"pode remover o 3x, não vamos precisar mais que isso"*.
+// NÃO HÁ `1` NUMÉRICO: o rótulo o duplicaria, e sem duração ele é o mesmo
+// `Number` que o `'auto'` (`ritmoDaRolagem` devolve 0 e os dois ramos de
+// `cifraRolarQuadro` terminam em `CIFRA_PX_POR_S * 1`).
 //
 // A ORDEM É A QUE O DEDO PERCORRE (o botão CICLA), e por isso é MONÓTONA, com o
 // `1×` no meio: a descontinuidade fica entre o maior e o menor, que é onde ela
@@ -18061,16 +17929,11 @@ let cifraRolando = false;
  * A RAMPA DE ARRANQUE ESTÁ CORRENDO — o estado que diz "ainda não é o compasso
  * pedido".
  *
- * ELE NÃO TEM CONSUMIDOR NA TELA, e isso é deliberado desde a v1.8.45: até a
- * v1.6.3 ele governava a NOTA da barra (some quando o ritmo cheio chega), e a
- * nota saiu. O que sobrou é o que os ORÁCULOS esperam — oito pontos do
- * `cifra-rolagem.test.mjs` fazem `esperar(pg, () => cifraRampando === false)`,
- * com a razão escrita lá: *"O FIM DA RAMPA É UM ESTADO DO APP, e é por ele que
- * se espera — nunca pelo resto do relógio"*. Apagá-lo devolve aqueles oito à
- * espera por prazo, que é a classe de defeito que este repositório nomeia.
- *
- * O que MORREU junto com a nota foi o `cifraPintarRolar()` que este bloco
- * chamava ao virar `false`: sem nota, ele repintava o mesmo botão.
+ * ELE NÃO TEM CONSUMIDOR NA TELA, e é deliberado: quem o lê são os ORÁCULOS —
+ * pontos do `cifra-rolagem.test.mjs` fazem `esperar(pg, () => cifraRampando ===
+ * false)`, porque *"O FIM DA RAMPA É UM ESTADO DO APP, e é por ele que se
+ * espera — nunca pelo resto do relógio"*. Apagá-lo devolve aqueles pontos à
+ * espera por prazo.
  */
 let cifraRampando = false;
 let cifraSegurando = false;
@@ -18096,22 +17959,10 @@ let cifraRampaTotalMs = -1;
  *  - o `dt` já vem com o teto de `CIFRA_DT_MAX`, então a página estrangulada em
  *    segundo plano não pula um pedaço da rampa — ela a retoma de onde parou;
  *  - o incremento mora DEPOIS do `return` de `cifraSegurando`, então a rampa
- *    CONGELA enquanto o dedo está na folha. É o certo (um arrasto é o leitor se
- *    reposicionando, e voltar a um ritmo que ele nunca viu subir é um salto) e
- *    conserta um defeito da v1.5.20: lá o fim da espera era um instante de
- *    relógio absoluto, e segurar a folha por 8 s consumia a espera inteira.
+ *    CONGELA enquanto o dedo está na folha — um arrasto é o leitor se
+ *    reposicionando, e voltar a um ritmo que ele nunca viu subir é um salto.
  */
 let cifraRampaMs = 0;
-/**
- * `true` enquanto a folha ainda NÃO chegou ao ritmo cheio — o arranque lento.
- * Não é o mesmo que "não anda": desde a v1.6.2 ela anda desde o primeiro quadro,
- * e o que este estado descreve é a LENTIDÃO deliberada, não a imobilidade.
- *
- * Vive FORA do DOM, no padrão de `linhasCarregando`: `renderLyricsView` refaz a
- * barra inteira (transpor, A+/A−, girar o aparelho), e uma marca escrita só num
- * nó sumiria no primeiro redesenho no meio da rampa. Quem ela governa é a NOTA
- * da barra.
- */
 /**
  * A POSIÇÃO DA FOLHA EM FRAÇÃO DE PIXEL — a nossa, não a do elemento.
  *
@@ -18135,7 +17986,7 @@ let cifraEscrito = -1;
  * O RITMO do modo `auto`, em pixels por segundo — ou 0 quando não há duração de
  * onde tirá-lo (e aí quem responde é o ritmo fixo do modo livre).
  *
- * **A POSIÇÃO DA MÍDIA NÃO ENTRA AQUI** (v1.5.6), e é essa ausência que é o
+ * **A POSIÇÃO DA MÍDIA NÃO ENTRA AQUI**, e é essa ausência que é o
  * recurso: a folha anda com a música parada, e um seek não a puxa de volta. O
  * que se toma da música é a DURAÇÃO TOTAL, e mais nada.
  *
@@ -18156,30 +18007,17 @@ function cifraRitmoDoRelogio(rolavel) {
  * instante em que é pintado, e a folha é desenhada muito antes de o laço de
  * rolagem existir. Um valor em cache responderia pelo culto passado.
  *
- * ===== "NO AR" É `midiaNoAr`, NUNCA A BARRA SOZINHA (v1.2.3) =====
- *
- * Relato do operador: *"o modo automático não está se movendo quando usado
- * apenas a letra da música"*.
+ * ===== "NO AR" É `midiaNoAr`, NUNCA A BARRA SOZINHA =====
  *
  * A barra de progresso responde "este ITEM tem linha do tempo?", que não é a
- * pergunta daqui — e as duas divergem no caso mais comum de quem só lê a letra:
- * `renderNowPlaying` termina em `seekEl.disabled = !isTimed`, com `isTimed`
- * saindo do `kind` do item ATUAL. Um louvor que já foi selecionado continua
- * sendo `currentItem` depois do Parar, depois do fim da faixa e durante uma
- * letra avulsa — então a barra seguia habilitada, com o `max` da faixa, sobre
- * um telão vazio.
+ * pergunta daqui: um louvor selecionado continua sendo `currentItem` depois do
+ * Parar, do fim da faixa e durante uma letra avulsa, e a barra segue habilitada,
+ * com o `max` da faixa, sobre um telão vazio — o `1×` tiraria o ritmo de uma
+ * música que não está no ar, em vez de cair no LIVRE.
  *
- * E o desfecho disso é justamente "não se move", não um erro: com duração o
- * modo `auto` vira uma FUNÇÃO de `authoritativeTime()`, que ali vale 0. A folha
- * é ancorada na abertura da janela de rolagem e fica parada para sempre — o
- * modo LIVRE, que deveria ter assumido, nunca é alcançado.
- *
- * `midiaNoAr` é a pergunta certa, e é a mesma que o reenvio de cena e o Parar
- * por camada já fazem. Ela continua VERDADEIRA com a mídia PAUSADA, e desde a
- * v1.5.6 é isso que faz a folha andar com a música parada: o que se lê daqui é a
- * DURAÇÃO, não a posição. (Até a v1.5.5 pausar a música parava a folha, e o
- * operador chamou isso de defeito: *"se a música não está tocando, ele não
- * anda"*.)
+ * `midiaNoAr` é a pergunta certa, a mesma do reenvio de cena e do Parar por
+ * camada. Ela continua VERDADEIRA com a mídia PAUSADA, e a folha anda com a
+ * música parada: o que se lê daqui é a DURAÇÃO, não a posição.
  */
 function cifraDuracaoNoAr() {
   // E COM UM ALVO DA BIBLIOTECA NÃO HÁ RELÓGIO NENHUM (v1.2.14). A folha aberta
@@ -18216,20 +18054,14 @@ function cifraVelRotulo() {
 /**
  * O que o botão de velocidade PROMETE, dito por extenso.
  *
- * ===== ELA É A ÚNICA QUE RESPONDE NOS TRÊS ESTADOS (v1.6.1) =====
+ * ===== ELA É A ÚNICA QUE RESPONDE NOS TRÊS ESTADOS =====
  *
- * Enquanto o degrau base se chamou `Auto`, o rótulo já respondia metade da
- * pergunta. Com ele chamado `1×`, o rótulo passou a dizer só a POSIÇÃO na
- * escala, e *"a folha está seguindo a música?"* passou a depender destas frases.
- * E DESDE A v1.6.3 ELA É A ÚNICA, sem meia resposta ao lado: a nota da barra
- * saiu junto com a barra, a pedido do operador. Num WebView Android não há
- * hover, então este texto vive para o LEITOR DE TELA — e é ele que carrega a
- * distinção entre "ritmo fixo" e "sem duração da música", que nenhum rótulo de
- * três caracteres tem como dizer.
- *
- * TRÊS estados, três frases, porque cada um pede uma leitura diferente. E o
- * caso numérico mudou de sentido: antes era "você escolheu um número", agora é
- * "você saiu da base" — e uma comparação sem o outro termo não é informação.
+ * O rótulo diz só a POSIÇÃO na escala; *"a folha está seguindo a música?"*
+ * depende destas frases, e só delas. Num WebView Android não há hover, então
+ * este texto vive para o LEITOR DE TELA — é ele que carrega a distinção entre
+ * "ritmo fixo" e "sem duração da música", que nenhum rótulo de três caracteres
+ * tem como dizer. TRÊS estados, três frases; o numérico diz "você saiu da
+ * base", com o outro termo da comparação.
  *
  * ===== A TENSÃO, DECLARADA E NÃO CONSERTADA =====
  *
@@ -18277,10 +18109,7 @@ function cifraPintarRolar() {
   const ico = msym(cifraRolando ? ICON.pause : ICON.play);
   ico.setAttribute('aria-hidden', 'true');
   cifraRolarBtnEl.appendChild(ico);
-  // O NOME DO BOTÃO É A AÇÃO DELE, e mais nada. Ele já disse "Lendo a introdução
-  // antes de rolar…" durante a espera da v1.5.20, o que era o estado e não a
-  // ação — e hoje seria uma segunda escrita do que a nota diz por extenso, em
-  // texto real que o leitor de tela alcança.
+  // O NOME DO BOTÃO É A AÇÃO DELE, e mais nada — nunca o estado da rampa.
   const rotulo = cifraRolando ? 'Parar a rolagem' : 'Rolar sozinho';
   cifraRolarBtnEl.title = rotulo;
   cifraRolarBtnEl.setAttribute('aria-label', rotulo);
@@ -18339,13 +18168,10 @@ function cifraRolarQuadro(t) {
     ? ritmo
     : CIFRA_PX_POR_S * (ehAuto ? 1 : CIFRA_VELOCIDADES[cifraVelIdx]);
 
-  // ===== A RAMPA DE ARRANQUE: começa devagar, nunca parada (v1.6.2) =====
+  // ===== A RAMPA DE ARRANQUE: começa devagar, nunca parada =====
   //
-  // Pedido do operador: *"ao invés de ficar parado esperando para se mover, faça
-  // com que haja nesse início, uma velocidade extremamente lenta por um tempo,
-  // mas ainda perceptível, para que o usuário entenda que começou, mas que no
-  // fim das contas, o texto inicial onde fica a introdução da música, fique
-  // realmente visível por um bom tempo."*
+  // Lenta, mas perceptível — quem toca vê que começou —, e o texto da
+  // introdução fica visível por um bom tempo.
   //
   // A REGRA é do módulo puro (o piso, o expoente, o teto e a conta da duração).
   // Daqui sai só o que existe no DOM — a altura da caixa e o `pxPorS` JÁ
@@ -18381,10 +18207,8 @@ function cifraRolarQuadro(t) {
   // scrollTop não andou": com fração de pixel, um quadro sem avanço visível é
   // normal, e mediria "está lento", não "acabou".
   //
-  // **Vale para os DOIS modos desde a v1.5.6.** No desenho antigo o `auto`
-  // seguia até o fim da música e "descansava" no fim da folha — o que ele
-  // descansava esperando era o relógio, e não há mais relógio a esperar: com a
-  // folha no fim, a rolagem cumpriu o que prometeu.
+  // **Vale para os DOIS modos:** com a folha no fim, a rolagem cumpriu o que
+  // prometeu, e não há relógio de música a esperar.
   if (cifraPos >= rolavel && antes >= rolavel - 1) { cifraRolarParar(); return; }
   cifraRaf = requestAnimationFrame(cifraRolarQuadro);
 }
@@ -18403,20 +18227,15 @@ function cifraAplicarPos(el) {
 function cifraRolarAlternar() {
   if (cifraRolando) { cifraRolarParar(); return; }
   cifraRolando = true;
-  // A CHAVE É DA FOLHA, NÃO DA CENA — e a distinção nasceu com o `lvAlvo`
-  // (v1.2.14). Enquanto ela era `cifraChave(currentItem)`, ler a folha de uma
-  // música da Biblioteca gravava a chave da música PROJETADA, e a guarda
-  // "música nova é folha nova" do `lvBuildCifra` — que compara com
-  // `cifraChave(lvItem())` — parava a rolagem no primeiro redesenho da folha.
-  // Transpor meio tom, tocar em A+/A− ou girar o aparelho bastavam: os três
-  // redesenham. Sem erro nenhum, e justamente no ENSAIO, que é o caso para o
-  // qual a folha sem telão existe. As duas pontas têm de perguntar a mesma
-  // coisa; quem responde "de que música é esta folha?" é `lvItem()`.
+  // A CHAVE É DA FOLHA, NÃO DA CENA (`lvItem()`, não `currentItem`): a guarda
+  // "música nova é folha nova" do `lvBuildCifra` compara com
+  // `cifraChave(lvItem())`, e com a chave da música PROJETADA a folha de um alvo
+  // da Biblioteca pararia no primeiro redesenho (transpor, A+/A−, girar). As
+  // duas pontas têm de perguntar a mesma coisa.
   cifraRolandoChave = cifraChave(lvItem());
   cifraQuadroT = 0;
-  // A ORIGEM É ONDE A FOLHA ESTÁ (v1.5.6): ligar a rolagem é pedir para andar
-  // DAQUI, e não para saltar ao ponto em que a música estaria — que era o que a
-  // v1.1.20 fazia, e é metade do relato que a trocou.
+  // A ORIGEM É ONDE A FOLHA ESTÁ: ligar a rolagem é pedir para andar DAQUI, e
+  // não para saltar ao ponto em que a música estaria.
   cifraPos = lyricsViewBodyEl.scrollTop;
   cifraEscrito = -1;
   // A RAMPA nasce ARMADA-PARA-ARMAR: o sentinel `-1` diz "ainda não sei quanto
@@ -18447,62 +18266,37 @@ function cifraAdotarVelocidade(v) {
 }
 
 /**
- * ===== E A GAVETA VIROU UM SLIDER, QUE DESLIZA (v1.8.80) =====
+ * ===== A GAVETA DA VELOCIDADE: UM SLIDER, QUE DESLIZA =====
  *
- * Pedido do operador: *"o botão de alterar velocidade de rolagem… está abrindo
- * uma lista de outros botões de opções de velocidade, mas primeiramente isso não
- * possue nenhuma animação. Então faça uma animação horizontal para essa gaveta.
- * Mantenha o botão de play e o botão de seletor de velocidade sempre visível,
- * agora a gaveta vai surgir a direita desses dois itens. E mude a lógica, não
- * mais uma gaveta com botões, mas um slider regulável, quando aberto, o botão
- * que abriu ele se torna um x para fechar a gaveta de ajuste de velocidade"*.
+ * Aberta, ela esconde só o −½/+½ (o play e o seletor ficam — é de onde ela
+ * sai), é UM `<input type=range>` sobre os cinco degraus, e o seletor vira ✕: a
+ * saída no lugar de onde a entrada foi.
  *
- * **TRÊS MUDANÇAS NUMA, e elas se sustentam:** quem some passou a ser só o
- * −½/+½ (o play e o seletor ficam, e é por ISSO que há de onde a gaveta sair),
- * os cinco botões viraram UM `<input type=range>` sobre os MESMOS cinco degraus,
- * e o seletor vira ✕ enquanto ela está aberta — a saída no lugar de onde a
- * entrada foi.
- *
- * O QUE O SLIDER NÃO MUDA é a escada: ele regula o ÍNDICE de
- * `CIFRA_VELOCIDADES` (0 a 4, passo 1), não um número contínuo. Um contínuo
- * pediria outra gramática de rótulo, outro estado gravado e outra conta no
- * `cifraRolarQuadro` — e o operador pediu um jeito de ESCOLHER, não uma escala
- * nova.
+ * O SLIDER REGULA O ÍNDICE de `CIFRA_VELOCIDADES` (0 a 4, passo 1), não um
+ * número contínuo — um contínuo pediria outra gramática de rótulo, outro estado
+ * gravado e outra conta no `cifraRolarQuadro`.
  *
  * A ANIMAÇÃO É DE LARGURA, e por isso a gaveta é uma CAIXA de verdade (não mais
  * `display: contents`): não há como transicionar o nada. Em tela cheia a fila é
  * uma COLUNA, e lá a mesma gaveta cresce em ALTURA com o slider na vertical —
  * ver o CSS, que declara os dois eixos.
  *
- * ===== A ESCADA VIROU UMA GAVETA, E NÃO UM CARROSSEL (v1.7.4) =====
+ * ===== UMA GAVETA, E NÃO UM CARROSSEL =====
  *
- * Pedido do operador: *"ajuste também a forma de seleção da velocidade do
- * scroll automático da seção de cifras… faça com que o botão de velocidade abra
- * uma gaveta, substituindo seus botões vizinhos, pela lista de botões com as
- * variações de velocidade, dessa forma, permitindo escolher as velocidades sem
- * passar por cada uma delas em carrocel"*.
- *
- * O CICLO ERA UM PREÇO, e ele estava escrito no código desde a v1.1.20 — *"com
- * CINCO degraus, dar a volta custa menos que um segundo botão"*. A conta muda
- * quando o alvo é ESPECÍFICO: ir do `2×` ao `0,5×` custa um toque na gaveta e
- * quatro no ciclo, e os três do meio ACONTECEM — a folha muda de ritmo em cada
- * um deles, com a música no ar. Um carrossel faz o operador atravessar estados
- * que ele não pediu, e este é um controle que se usa com o instrumento na mão.
+ * Num ciclo, ir do `2×` ao `0,5×` atravessa os três do meio, e eles ACONTECEM —
+ * a folha muda de ritmo em cada um, com a música no ar. A gaveta escolhe o alvo
+ * sem passar pelos outros.
  *
  * É O MECANISMO DA FAIXA DA LINHA, na fila da cifra: **a fila troca de conteúdo,
  * não de lugar** (ver `abrirNaFaixaDaLinha`). Nada é criado por cima, nada
  * empurra a folha, e a caixa continua com a mesma altura — o que muda são os
  * botões que estão nela.
  *
- * O ⛶ FICA, e é a única exceção à palavra "vizinhos" do pedido: ele é a SAÍDA da
- * tela cheia, e a invariante escrita no `lvBuildCifra` é *a fila da cifra sempre
- * tem a saída*. Com ele escondido, uma gaveta aberta em paisagem deixaria a
- * folha deitada sem nenhuma saída à vista.
+ * O ⛶ FICA À VISTA: ele é a SAÍDA da tela cheia, e a invariante escrita no
+ * `lvBuildCifra` é *a fila da cifra sempre tem a saída*.
  *
- * (O "todo botão da gaveta a fecha" daquele lote morreu com os botões: quem
- * fecha agora é o ✕, que é o mesmo alvo que abriu — regular a velocidade é um
- * ajuste que se faz OUVINDO, e fechar no primeiro arrasto tiraria a régua da
- * mão de quem ainda está procurando o ritmo.)
+ * QUEM FECHA É SÓ O ✕: regular a velocidade se faz OUVINDO, e fechar no
+ * primeiro arrasto tiraria a régua da mão de quem ainda procura o ritmo.
  */
 let cifraVelAberta = false;
 
@@ -18512,14 +18306,13 @@ function cifraVelFilaAlternar() {
 }
 
 /**
- * Aplica um degrau. **Não fecha a gaveta** (v1.8.80): quem fecha é o ✕.
+ * Aplica um degrau. **Não fecha a gaveta**: quem fecha é o ✕.
  */
 async function cifraVelEscolher(i) {
   const antes = cifraVelIdx;
   cifraVelIdx = Math.max(0, Math.min(CIFRA_VELOCIDADES.length - 1, i));
   // Nada a zerar: os dois modos integram a partir da posição atual, e o degrau
-  // só troca o px/s do próximo quadro. (A v1.1.20 zerava aqui o `cifraDesvio`,
-  // que era medido contra um alvo absoluto — ele saiu com o alvo.)
+  // só troca o px/s do próximo quadro.
   cifraPintarRolar();
   cifraPintarVels();
   // O MESMO degrau não gasta uma transação — e com o slider isso deixou de ser
@@ -18647,8 +18440,7 @@ function cifraEspera(frase) {
 /**
  * A FOLHA em si — as linhas medidas, quebradas e transpostas.
  *
- * Continua separada do `lvBuildCifra` (a PRÉVIA, que era o segundo desenho da
- * mesma coisa, saiu na v1.3.3) porque quem chama é quem decide o QUE desenhar,
+ * Separada do `lvBuildCifra` porque quem chama é quem decide o QUE desenhar,
  * e ela decide só COMO: a medida de colunas, a quebra do par acorde/letra e a
  * transposição são um assunto só, e é o assunto que este arquivo mais quebra
  * quando se mexe nele com pressa.
@@ -18736,19 +18528,13 @@ function lvBuildCifra(el) {
   ctl.classList.remove('escolhendo');
   cifraVelAberta = false;
 
-  // ===== OS DOIS RETORNOS CEDO, E O QUE SOBROU DELES (v1.8.28) ==============
+  // ===== OS DOIS RETORNOS CEDO ==============================================
   //
-  // A ESPERA é o único desfecho que ainda se desenha aqui, e ela só chega para
-  // quem ESCOLHEU a aba de cifra: desde a v1.8.28 a aba sai da lista enquanto
-  // não há folha (`cifraTemFolha`), e a exceção do `buscando` existe para não
-  // tirá-la de baixo do dedo do músico a cada troca de faixa.
-  //
-  // AS CINCO FRASES DE FALHA SAÍRAM. Elas eram a resposta inteira desta aba
-  // desde a v1.3.3, e o operador pediu o contrário: *"não quero acesso a essa
-  // seção se não tem esse conteúdo"*. Sem cifra a aba não existe mais, então
-  // não há mais superfície onde a frase caiba — é o MICROFONE SEM TV (v1.2.21)
-  // outra vez, e o diagnóstico continua inteiro no bloco "Cifra (última busca)"
-  // do Registro, que é onde este projeto guarda diagnóstico.
+  // A ESPERA é o único desfecho que se desenha aqui, e ela só chega para quem
+  // ESCOLHEU a aba de cifra: a aba sai da lista enquanto não há folha
+  // (`cifraTemFolha`), e a exceção do `buscando` existe para não tirá-la de
+  // baixo do dedo do músico a cada troca de faixa. Sem cifra a aba não existe,
+  // e o diagnóstico mora no bloco "Cifra (última busca)" do Registro.
   //
   // O `estado !== 'ok'` que sobrevive ao filtro é ESTADO IMPOSSÍVEL — a lista e
   // este desenho discordando. Ele não pode cair num `return` mudo: uma caixa
@@ -18828,16 +18614,11 @@ function lvBuildCifra(el) {
   cifraPintarRolar();
   cifraPintarVels();
 
-  // ===== O CABEÇALHO DA OBRA, DENTRO DA CAIXA (v1.6.3) =====
+  // ===== O CABEÇALHO DA OBRA, DENTRO DA CAIXA =====
   //
-  // Pedido do operador: *"antes do início do texto, coloque o título da obra, e
-  // o tom. tudo dentro da caixa do texto, um abaixo do outro com uma linha entre
-  // eles e duas entre o início da intro/cifras"*.
-  //
-  // E A RAZÃO DELE É A MARGEM, não o rótulo: *"mesmo o texto rolando devagar,
-  // pelo fato da intro estar colada no topo, ele acaba sempre cortando ela no
-  // início"*. A rampa da v1.6.2 fez a folha andar POUCO, e isso não bastava — a
-  // primeira linha começa no pixel zero, então QUALQUER deslocamento já a corta.
+  // O título e o tom, um abaixo do outro, antes da intro. A RAZÃO É A MARGEM,
+  // não o rótulo: com a primeira linha no pixel zero, QUALQUER deslocamento da
+  // rampa já corta a intro.
   // O bloco empurra a intro para baixo, e por isso ele tem de ROLAR JUNTO: fixo,
   // ele seria mais um rótulo cobrando altura, e a intro continuaria colada.
   //
@@ -18952,14 +18733,10 @@ function cifraPintarEscolhaDoAcervo() {
     () => cifraAcervoEscolher(false)));
 }
 
-// ===== O TÍTULO DA OBRA É A PRIMEIRA LINHA DO CORPO QUE ROLA (v1.11.21) =====
+// ===== O TÍTULO DA OBRA É A PRIMEIRA LINHA DO CORPO QUE ROLA =====
 //
-// Pedido do operador: *"no auxiliar de leitura, o título da música a qual pertence a
-// letra, também seja colocado dentro do auxiliar de leitura, no início. E pode remover
-// no modo avançado o título da música que fica fora do auxiliar de leitura, no topo da
-// janela … pode colocar apenas 'Auxiliar de leitura'"*.
-//
-// Só a FOLHA do modo avançado a escreve, e por isso ela NÃO mora no `lvBuildSong`: ele
+// O cabeçalho da folha diz só "Auxiliar de leitura"; o título da obra mora no
+// início do corpo. Só a FOLHA do modo avançado a escreve, e por isso ela NÃO mora no `lvBuildSong`: ele
 // é o MESMO construtor da zona de leitura do Modo Fácil, que não tem título (o nome da
 // mídia mora no card abaixo dela). A cifra já tinha o dela (`.lv-cifra-cab`, v1.6.3);
 // letra, Bíblia e apresentação passam a ter o mesmo, e o cabeçalho da folha deixa de
@@ -18982,13 +18759,9 @@ function lvTituloDaLetra(item) {
 
 // Desenha as estrofes da música em cena dentro de `el`, destacando `cur`.
 //
-// ===== O TÍTULO É A LINHA DE CAPA, E A PALAVRA "INÍCIO" SAIU (v1.11.22) =====
+// ===== O TÍTULO É A LINHA DE CAPA =====
 //
-// Pedido do operador: *"deixe duas linhas de espaço entre o título e o resto da letra … remover a
-// palavra 'início' desse auxiliar de leitura, mas transfira a formatação atual dessa palavra para o
-// título da música, assim fica claro que o título não é letra da música e sim o topo do texto"*.
-//
-// A linha de capa (`slide.cover`) JÁ ERA o topo do texto e uma posição real da música — é ela que
+// O título tem a formatação da capa — fica claro que ele não é letra, e sim o topo do texto. A linha de capa (`slide.cover`) JÁ ERA o topo do texto e uma posição real da música — é ela que
 // fica destacada durante a introdução —, então o título ocupa o lugar dela: a mesma linha, o mesmo
 // `data-i`, o mesmo destaque, com a formatação de `.lv-row--cover`. Sem linha de capa o título entra
 // como um bloco a mais com o MESMO desenho (`.lv-cab--letra`), que não é posição nenhuma.
@@ -19001,10 +18774,9 @@ function lvBuildSong(el, cur, titulo) {
     el.appendChild(cab);
   }
   lyrics.forEach((slide, i) => {
-    // O slide de capa não tem letra (no telão é o título do hino). Vira uma
-    // linha curta "Início": some do texto, mas continua sendo uma posição real
-    // da música — é ela que fica destacada durante a introdução, e ocultá-la
-    // faria o destaque sumir justo aí.
+    // O slide de capa não tem letra (no telão é o título do hino). Aqui ele é
+    // o TÍTULO, e continua sendo uma posição real da música — é ele que fica
+    // destacado durante a introdução, e ocultá-lo faria o destaque sumir justo aí.
     const row = document.createElement('div');
     // `lv-row--letra` é o MODIFICADOR que faltava (v1.8.33), irmão de
     // `--verse` e `--slide`: a letra era a única espécie de linha SEM nome
@@ -19023,16 +18795,10 @@ function lvBuildSong(el, cur, titulo) {
         aux.textContent = slide.auxText;
         row.appendChild(aux);
       }
-      // A DIVISÃO DENTRO DO SLIDE (v5.142).
-      //
-      // Um slide da API pode trazer mais de uma estrofe, separadas por uma
-      // LINHA EM BRANCO (`<br><br>` na origem, que o `normalizeLyricText`
-      // converte em `\n\n`). O visualizador desenhava tudo num nó só com
-      // `white-space: pre-line` — e é aí que a divisão se perdia: `pre-line`
-      // COLAPSA sequências de espaço em branco, então `\n\n` vira UMA quebra
-      // simples e as duas estrofes encostam uma na outra como se fossem um
-      // bloco só. Era literalmente o relato: "alguns hinos não estão dividindo,
-      // mesmo na realidade tendo divisões".
+      // A DIVISÃO DENTRO DO SLIDE. Um slide da API pode trazer mais de uma
+      // estrofe, separadas por uma LINHA EM BRANCO (`\n\n`, do
+      // `normalizeLyricText`) — e `white-space: pre-line` COLAPSA a sequência
+      // numa quebra simples, encostando as duas estrofes.
       //
       // Cada bloco vira um parágrafo próprio. A LINHA continua sendo UMA (o
       // mesmo `data-i`, o mesmo destaque, a mesma posição no tempo): o que se
@@ -19073,11 +18839,7 @@ function lvBuildBible(el, cur) {
   });
 }
 
-// ===== A APRESENTAÇÃO INTEIRA, EM PÁGINAS (v1.4.24) =====
-//
-// Pedido do operador: *"preciso de um visualizador futuro dos slides de toda a
-// apresentação e a referência do slide atual (do mesmo molde vertical que já
-// temos nos versos da bíblia na aba da bíblia)"*.
+// ===== A APRESENTAÇÃO INTEIRA, EM PÁGINAS =====
 //
 // É o MESMO molde do `lvBuildBible`, e de propósito: uma coluna de linhas
 // numeradas, com a que está no ar marcada e centralizada pelo `lvScroll` que já
@@ -19121,9 +18883,7 @@ function lvDeckSoltarUrls() { lvSoltarUrls(lvDeckUrls); }
 function lvBuildDeck(el, cur, urls) {
   const rec = lvDeckRec();
   const pages = (rec && rec.pages) || [];
-  // O TOQUE PULA PARA A PÁGINA (v1.4.26), a pedido do operador: *"preciso da
-  // capacidade de tocar nos slides para passar ou pular diretamente para um
-  // slide em específico"*.
+  // O TOQUE PULA PARA A PÁGINA.
   //
   // SÓ COM A APRESENTAÇÃO EM CENA. Com um alvo da Biblioteca não há para onde
   // pular — aquela apresentação não está projetando —, e a folha de um alvo é
@@ -19135,17 +18895,10 @@ function lvBuildDeck(el, cur, urls) {
     const row = document.createElement('div');
     row.className = 'lv-row lv-row--slide' + (tocavel ? ' lv-row--tocavel' : '');
     row.dataset.i = String(i);
-    // ===== O NÚMERO É SOBREPOSTO, E O "NO AR" MORA AO LADO DELE (v1.4.35) =====
+    // ===== O NÚMERO É SOBREPOSTO, E O "NO AR" MORA AO LADO DELE =====
     //
-    // Pedido do operador: *"coloque o número da página sobreposto ao slide, para
-    // o slide poder ficar centralizado, e use um 'no ar', ao lado do indicador
-    // de página para indicar a página atual, assim como já usamos em diversos
-    // elementos no app"*.
-    //
-    // O número ocupava uma COLUNA à esquerda (MEDIDO: 27px + o respiro, de 408),
-    // e era ela que empurrava a miniatura para fora do centro da linha. Fora do
-    // fluxo, a miniatura passa a ocupar a largura inteira e uma página 4:3
-    // aparece centrada pelo `object-fit` — sem nada a compensar.
+    // Fora do fluxo, o número não empurra a miniatura: ela ocupa a largura
+    // inteira e uma página 4:3 aparece centrada pelo `object-fit`.
     //
     // **O SELO NASCE EM TODA LINHA, e quem o revela é o CSS.** `lvMarkCurrent`
     // move a classe `.current` SEM redesenhar (é o que mantém as URLs de objeto
@@ -19214,18 +18967,10 @@ function refreshLyricsView() {
 // quer olhar enquanto a música toca. Só leitura (a Bíblia não existe neste
 // modo)...
 //
-// ===== ...E A APRESENTAÇÃO, QUE AQUI NÃO É SÓ LEITURA (v1.4.30) =====
+// ===== ...E A APRESENTAÇÃO, QUE AQUI NÃO É SÓ LEITURA =====
 //
-// Pedido do operador: *"verifique o modo simples e seu auxiliar de leitura. Ele
-// deve adquirir as funções para controle de slides também"*.
-//
-// MEDIDO antes de mexer: com uma apresentação em cena o Modo Fácil não a
-// operava de jeito NENHUM. A zona dizia *"A letra da música aparece aqui"* — a
-// projeção no ar negada pela única superfície que deveria descrevê-la —, e as
-// teclas eram play · parar · mudo, sem nada que virasse página. O eixo já
-// existia (`slideTarget()` respondia `'deck'`); o que faltava era alguém neste
-// modo ligado a ele. Uma apresentação entrava pelo compartilhamento, projetava,
-// e ficava presa na página 1 até o operador ir ao modo avançado.
+// Com uma apresentação em cena, a zona mostra as PÁGINAS e opera o deck — sem
+// isso o Modo Fácil não teria nada que virasse página.
 //
 // A ASSIMETRIA COM A LETRA É O PONTO. A letra anda sozinha, pelo relógio da
 // música: ali a zona ilustra e mais nada. Um deck não tem relógio — alguém
@@ -19344,16 +19089,9 @@ function resetAfterEnd() {
   curTimeEl.textContent = '0:00';
   seekEl.disabled = false;
   durTimeEl.textContent = fmtTime(preview.getDuration());
-  // E A LISTA PRECISA SABER (v5.301, relato do operador: *"ao encerrar a mídia no
-  // player, a demarcação em vermelho do próprio item no cronograma não
-  // desaparece, parecendo que o item ainda está no ar"*).
-  //
-  // Zerar `midiaNoAr` é só ESTADO; quem apaga o preenchimento e o selo "● No ar"
-  // da linha é `marcarNoAr` — e este era o único dos caminhos que baixam a
-  // bandeira sem chamá-lo (`stopClear` e `retirarDoAr` sempre chamaram, e
-  // `pararMidia` é o corpo dos dois). A faixa terminava, o telão voltava ao
-  // wallpaper e a linha continuava vermelha até um redesenho por outro motivo,
-  // que num culto pode nunca vir.
+  // E A LISTA PRECISA SABER: zerar `midiaNoAr` é só ESTADO; quem apaga o
+  // preenchimento e o selo "● No ar" da linha é `marcarNoAr` — todo caminho que
+  // baixa a bandeira o chama, senão a linha fica "no ar" sobre um telão vazio.
   //
   // SÓ ELE. `renderNowPlaying` termina em `seekEl.disabled = !isTimed`, com
   // `isTimed` saindo de um `cur` que pode ser nulo (item fora das duas listas):
@@ -19377,17 +19115,10 @@ function autoAdvance() {
   // meio do sermão, e com `repeat: 'one'` ele tocaria em laço para sempre.
   if (deckVideoVolta) { deckVideoVoltar(); return; }
   if (repeat === 'one') { if (currentId) send(currentId, true); return; }
-  // FILA VAZIA COM `repeat` LIGADO TAMBÉM É FIM DE CENA (v1.8.52). Este `return`
-  // era seco, e MEDIDO o estrago era permanente: a faixa acabava, o `<video>`
-  // ficava pausado, e `midiaNoAr` continuava `true` PARA O RESTO DA SESSÃO.
-  // Daí em diante `rotinaDeAcervoPodeCorrer()` respondia `false` para sempre (as
-  // rotinas de acervo nunca mais cediam a vez de volta) e — o caro —
-  // `resendSceneToDisplay` pergunta `midiaNoAr`: uma queda de dongle trazia de
+  // FILA VAZIA TAMBÉM É FIM DE CENA, nos QUATRO modos. Um `return` seco deixaria
+  // `midiaNoAr` em `true` para o resto da sessão: as rotinas de acervo nunca
+  // mais correriam, e uma queda de dongle (`resendSceneToDisplay`) traria de
   // volta ao telão a faixa que JÁ TINHA ACABADO.
-  //
-  // E DESDE A v1.8.77 `off` CHEGA AQUI TAMBÉM — ele deixou de ser o primeiro
-  // `return` desta função —, o que só torna esta linha mais necessária: é a
-  // única que responde pela fila vazia nos QUATRO modos.
   if (plItems.length === 0) { resetAfterEnd(); return; }
   if (repeat === 'shuffle') {
     if (plItems.length === 1) { send(plItems[0].id, true); return; }
@@ -19397,19 +19128,11 @@ function autoAdvance() {
     return;
   }
   const idx = plItems.findIndex((m) => m.id === ancoraDaFila());
-  // ===== `off` É "SEM REPETIÇÃO", NUNCA "SEM SEQUÊNCIA" (v1.8.77) =====
+  // ===== `off` É "SEM REPETIÇÃO", NUNCA "SEM SEQUÊNCIA" =====
   //
-  // Relato do operador: *"é normal o seletor estar desativado, tocar uma
-  // playlist automática, mas ele tocar apenas a primeira e parar, pois o
-  // usuário esquece de ativar o automático"*.
-  //
-  // O SELETOR RESPONDE PELO QUE ACONTECE NO FIM DA FILA, não por ela andar.
-  // Até aqui `off` era o primeiro `return` desta função — o fim de QUALQUER
-  // faixa era fim de cena —, e com isso a única forma de ouvir uma fila inteira
-  // era armar `all`, que é outra coisa: aquele RECOMEÇA no fim. Quem monta uma
-  // playlist já disse, ao montá-la, que quer as faixas em sequência; pedir um
-  // segundo gesto para isso é cobrar duas vezes pela mesma intenção, e o preço
-  // de esquecê-lo é o culto parando na primeira faixa.
+  // O SELETOR RESPONDE PELO QUE ACONTECE NO FIM DA FILA, não por ela andar: quem
+  // monta uma playlist já disse que quer as faixas em sequência, e o preço de
+  // um segundo gesto esquecido seria o culto parando na primeira faixa.
   //
   // E O FIM DA FILA CONTINUA SENDO FIM DE CENA: `off` avança até a última e
   // para ali (`resetAfterEnd`), que é a diferença inteira para o `all`. Um laço
@@ -19472,23 +19195,9 @@ async function toggleMute() {
     //  de mudo, que veste `.blocked` — ver `renderControls`.)
     return;
   }
-  // ===== O COMANDO VAI NA FRENTE DA GRAVAÇÃO (v1.5.6) =====
-  // Relato do operador: *"ativar o mudo durante a exibição de um vídeo online do
-  // YouTube está travando momentaneamente, engasgando a visualização"*.
-  //
-  // Este era o ÚNICO controle do app que punha uma transação de banco na frente
-  // do comando: `await persistCurrent()` é uma escrita no IndexedDB, e o `mute`
-  // só saía depois do commit dela. O irmão que mexe no mesmo áudio
-  // (`applyVolume`) sempre mandou primeiro — a assimetria não tinha razão.
-  //
-  // A gravação continua acontecendo, agora SEM prender o comando: o que ela
-  // guarda é o ajuste da mesa para a próxima sessão, e ninguém a espera.
-  // (`persistCurrent` já é usado assim em quatro outros pontos.)
-  //
-  // **O QUE ISTO NÃO PROVA, dito:** o engasgo do relato não foi reproduzido fora
-  // do aparelho — aqui a escrita mede ~2 ms num banco vazio. O que se corrige é
-  // uma latência REAL e mensurável no caminho exato do relato, não um defeito
-  // observado.
+  // ===== O COMANDO VAI NA FRENTE DA GRAVAÇÃO =====
+  // Como no `applyVolume`: o `mute` sai na hora, e a gravação (o ajuste da mesa
+  // para a próxima sessão) corre sem prender o comando — ninguém a espera.
   muted = !muted;
   cmd({ type: 'mute', muted });
   renderControls();
@@ -19529,16 +19238,11 @@ async function pararMidia(tipo) {
   playPauseEl.querySelector('.msym').textContent = ICON.play;
   seekEl.value = 0; seekEl.disabled = true;
   curTimeEl.textContent = '0:00';
-  // ===== E OS BOTÕES PRECISAM SABER QUE A CENA ACABOU (v1.8.50) =====
+  // ===== E OS BOTÕES PRECISAM SABER QUE A CENA ACABOU =====
   //
-  // `renderSlideNav` é quem escreve o eixo de slide e o apagado do transporte,
-  // e o ÚNICO ponto que o chamava por conta própria era o fim do `previewTick`
-  // — que volta na guarda `if (!midiaNoAr) return` DUAS linhas antes de chegar
-  // lá. Parar a mídia era portanto o único evento do app capaz de mudar todas
-  // essas respostas sem que ninguém as redesenhasse: o par de slide ficava
-  // aceso, com o rótulo da cena que saiu, e o Parar ficava aceso sobre um palco
-  // vazio. É a metade do relato que a guarda do `slideTarget()` não alcança —
-  // ela corrige a RESPOSTA, e esta linha é quem vai buscá-la.
+  // `renderSlideNav` escreve o eixo de slide e o apagado do transporte, e o
+  // `previewTick` que também o chama volta antes na guarda `if (!midiaNoAr)`:
+  // sem esta linha o par de slide e o Parar ficariam acesos sobre um palco vazio.
   renderSlideNav();
 }
 
@@ -19546,22 +19250,11 @@ async function pararMidia(tipo) {
  * Parar = limpar o display (volta ao wallpaper); mantém currentId para replay
  * com play.
  *
- * ===== COM AS DUAS CAMADAS NO AR, ELE FALA SÓ DA DE BAIXO (v1.2.0) =====
+ * ===== COM AS DUAS CAMADAS NO AR, ELE FALA SÓ DA DE BAIXO =====
  *
- * Pedido do operador: *"considerando que o preview tem um botão apenas para
- * remover as camadas superiores, ajuste o botão de stop para em caso onde há
- * mídia de fundo e mensagens ou sobreposição de elementos na tela como bíblia
- * e etc… o botão de stop funciona apenas para a mídia de fundo"*.
- *
- * O app já tinha as DUAS portas — `encerrarCamadaDeCima` (o selo `#pvCamadaBtn`
- * sobre a preview) para a de cima, `pararMidia('media-clear')` para a de baixo
- * —, e o Parar era o único controle que não escolhia nenhuma: ele derrubava as
- * duas de uma vez. Com um louvor de fundo sob um versículo (o uso normal, e o
- * que a independência áudio × texto existe para permitir), tirar a música
- * levava o versículo junto, e devolvê-lo custava reprojetar a cena na frente da
- * congregação.
- *
- * A regra é: **cada botão fala de UMA camada, e o Parar fala da mídia** — o
+ * A de cima tem porta própria (`encerrarCamadaDeCima`, o selo `#pvCamadaBtn`
+ * sobre a preview); com um louvor de fundo sob um versículo, o Parar tira só a
+ * música. A regra é: **cada botão fala de UMA camada, e o Parar fala da mídia** — o
  * mesmo desdobramento que o `retirarDoAr` da linha já faz. Com uma camada só no
  * ar não há o que escolher, e ele volta a ser o ponto final de sempre.
  *
@@ -19639,16 +19332,8 @@ function cederOPalco(nome) {
 
 
 // ===== gestos da biblioteca =====
-// **O deslize lateral da linha SAIU na v5.50.** Ele adicionava o item à
-// playlist (`dx <= -SWIPE`), e a pista disso era um ícone a 22% de opacidade
-// atrás da linha — um atalho que praticamente ninguém descobria e que, ainda
-// assim, reservava para si o eixo horizontal da maior parte da tela. Era ele
-// que impedia o carrossel de abas de funcionar onde o operador de fato desliza:
-// sobre a lista. Trocar um atalho invisível por uma navegação que todo aparelho
-// Android tem é a troca certa — e a playlist continua a UM toque, pelo botão
-// `+` de cada resultado do acervo e pelo popup da playlist.
-//
-// O que fica: toque (troca a cena) e toque longo (entra na seleção múltipla).
+// Toque (troca a cena) e toque longo (entra na seleção múltipla), e só: o eixo
+// horizontal é do carrossel de abas.
 // O movimento agora só CANCELA o gesto da linha, em qualquer direção: quem
 // estiver deslizando está falando com o carrossel ou com a rolagem, não com o
 // item.
@@ -19656,25 +19341,6 @@ const MOVE = 10, LONGPRESS = 450;
 
 function attachRowGestures(row, item) {
   let startX = 0, startY = 0, startT = 0, longFired = false, lp = null, pid = null;
-  // A opção `semSelecao` viveu aqui da v5.271 à v5.286, para os Favoritos: a
-  // lista não tem seleção múltipla, e o toque longo ligava um modo que ali não
-  // tinha o que operar. Ela saiu na v5.287 com o último chamador — a linha de
-  // favorito deixou de responder a estes gestos e passou a abrir a gaveta da
-  // Biblioteca. Quem usa isto agora é só a lista principal, que TEM o modo.
-  //
-  // **E A GUARDA DELA FICOU PARA TRÁS, lendo um nome que deixou de existir.**
-  // O parâmetro saiu da assinatura e o `if (semSelecao) return` continuou no
-  // corpo: num script clássico (sem `type=module` e sem `'use strict'`), LER um
-  // identificador não declarado lança `ReferenceError` — só a ATRIBUIÇÃO é que
-  // criaria uma global. Então todo `pointerdown` numa linha do Cronograma
-  // estourava ali, ANTES do `setTimeout`, e o toque longo simplesmente deixou
-  // de existir: com ele, a seleção múltipla — e o `deleteSelected`, que é o
-  // único excluir em lote do app — ficaram sem porta nenhuma.
-  //
-  // O modo de falhar é o pior desta base: o `pid` já tinha sido escrito na
-  // linha anterior, então o TOQUE CURTO continuava projetando normalmente e
-  // nada na tela mudava. O que sumia era só o gesto que ninguém usa todo dia —
-  // e um toque um pouco mais demorado que 450 ms passou a não fazer NADA.
 
   row.addEventListener('pointerdown', (e) => {
     // `.row-slot` (v1.4.27): a coluna do `⋮` emprestada ao processo fica FORA
@@ -19706,12 +19372,7 @@ function attachRowGestures(row, item) {
 }
 
 /**
- * ===== TROCAR A FILA ZERA O SELETOR DE REPETIÇÃO (v1.8.77) =====
- *
- * Pedido do operador: *"ao se tocar um item, seja do cronograma ou o que for,
- * resete o estado do seletor de repetição, para ele não repetir uma mídia que
- * não era intenção repetir e nem tocar a próxima mídia automática… que reflitam
- * a intenção do usuário e não um resquício de uma opção da mídia passada"*.
+ * ===== TROCAR A FILA ZERA O SELETOR DE REPETIÇÃO =====
  *
  * **A PERGUNTA É "A FILA FOI REDEFINIDA?", e não "o que foi tocado?"** — e é
  * por isso que a zeragem mora AQUI, no funil, e não em cada porta que projeta.
@@ -19720,24 +19381,16 @@ function attachRowGestures(row, item) {
  * EXISTENTE não passa por aqui (`renderPlaylist` chama `send` direto), e está
  * certo que não passe: escolher por onde começar não desfaz a sequência.
  *
- * O QUE ISTO REVOGA: até aqui só o `repeat='one'` caía, sob o argumento de que
- * `all`/`shuffle` são "comportamentos da FILA e voltam a valer quando o
- * operador acrescentar itens a ela". MEDIDO, o argumento não se sustentava no
- * caso dominante: `replacePlaylistWith` deixa a fila com UM item, e com ela
- * assim os dois viram `one` por outro caminho — `all` faz `(0 + 1) % 1 === 0` e
- * o `shuffle` tem o ramo `length === 1`. A mídia que o operador acabou de
- * escolher tocava em laço, que é literalmente o defeito que o `one` caindo
- * existia para evitar.
+ * TODOS OS MODOS CAEM, e não só o `one`: com a fila de UM item que o
+ * `replacePlaylistWith` deixa, `all` (`(0 + 1) % 1 === 0`) e `shuffle` (o ramo
+ * `length === 1`) também tocariam em laço a mídia que acabou de ser escolhida.
  *
- * **É A ÚNICA PORTA QUE REDEFINE A SEQUÊNCIA**, e o funil é esse — não "toda
- * escrita em array". São QUATRO as escritas de array na lista `playlist`: três
- * passam por aqui (o item avulso, o pacote e a playlist automática) e a quarta
- * é o `moverNaLista`, que um `grep "listSet('playlist'"` NÃO enxerga porque
- * escreve `listSet(listName, ids)` com o nome em variável. Ela fica de fora com
- * razão: reordenar não redefine sequência nenhuma, e derrubar a repetição ali
- * seria um efeito colateral de arrastar um item. As outras duas usam a forma
- * com FUNÇÃO — acrescentar aos selecionados e o "Limpar" —, e nenhuma delas
- * redefine uma sequência para tocar.
+ * **É A ÚNICA PORTA QUE REDEFINE A SEQUÊNCIA**, e o funil é esse. As escritas
+ * de ARRAY na lista `playlist` são três, e passam todas por aqui (o item
+ * avulso, o pacote e a playlist automática). As de FUNÇÃO ficam de fora com
+ * razão — nenhuma redefine uma sequência para tocar: o `moverNaLista` (que um
+ * `grep "listSet('playlist'"` NÃO enxerga, porque o nome vai em variável),
+ * acrescentar aos selecionados e o "Limpar".
  */
 async function trocarFila(ids) {
   await AVDB.listSet('playlist', ids);
@@ -19745,7 +19398,7 @@ async function trocarFila(ids) {
 }
 
 /**
- * O SELETOR VOLTA AO COMEÇO (v1.8.77). Separado do `trocarFila` por UM chamador
+ * O SELETOR VOLTA AO COMEÇO. Separado do `trocarFila` por UM chamador
  * que projeta sem fila nenhuma — o compartilhamento no Modo Fácil —, e ele é o
  * caso extremo da regra: ali a caixa de controles inteira não é desenhada
  * (`body.mode-simple .bottombar`), então um `one` herdado do modo avançado
@@ -19769,6 +19422,7 @@ async function zerarRepeticao() {
 
 // Trocar de música do zero: a playlist passa a ser SÓ este item.
 async function replacePlaylistWith(rec) {
+  ++listasSeq;   // ver `listasSeq`: antes do primeiro `await`
   await trocarFila([rec.id]);
   plItems = [rec];
   renderPlaylist();
@@ -19805,12 +19459,9 @@ async function retirarDoAr(item) {
     //
     // `clearManualText()` é BOOKKEEPING: as SEIS `clear*Session` zeram o
     // estado do Controle, re-renderizam a navegação e não mandam um único
-    // comando ao telão. Nos outros chamadores isso está certo, porque logo
-    // atrás vem um `load` (que esconde o texto no Display) ou um `clear`. Aqui
-    // não vem nada — e o resultado era o defeito que o operador relatou com
-    // todas as letras: o segundo toque "não remove no player". Ele removia a
-    // SESSÃO, e o versículo continuava projetado na frente da congregação, sem
-    // nenhuma linha na tela do operador que o dissesse.
+    // comando ao telão. Nos outros chamadores logo atrás vem um `load` ou um
+    // `clear`; aqui não vem nada, e sem o `text-hide` o versículo continuaria
+    // projetado.
     //
     // `text-hide` encerra só a Camada de Texto — é o mesmo comando do "tirar do
     // ar" da Bíblia e da Mensagem, e é justamente o que o `clear` NÃO é: o
@@ -19825,13 +19476,10 @@ async function retirarDoAr(item) {
     renderNowPlaying();
     return;
   }
-  // MÍDIA: sai SÓ ELA (v5.178). Até aqui este caminho chamava `stopClear()`, que
-  // é o Parar do transporte — ele encerra a CENA INTEIRA. Com um louvor de fundo
-  // sob a contagem regressiva de abertura (o uso normal, e o que a independência
-  // áudio × texto existe para permitir), tirar a música do ar levava o
-  // cronômetro junto, e a única saída era parar tudo e reprojetar a cena na
-  // frente da congregação. É o simétrico exato do `text-hide` acima: cada camada
-  // sai pela sua porta, e o botão de cada linha fala da camada DAQUELA linha.
+  // MÍDIA: sai SÓ ELA (`media-clear`, nunca o `stopClear` da cena inteira): um
+  // louvor de fundo sob a contagem regressiva sai sem levar o cronômetro. É o
+  // simétrico do `text-hide` acima: o botão de cada linha fala da camada DAQUELA
+  // linha.
   await pararMidia('media-clear');
   marcarNoAr();
   renderNowPlaying();
@@ -19957,16 +19605,6 @@ function linhaNoAr(id) {
 }
 
 /**
- * O SELO "● No ar" na segunda linha da linha — o MESMO desenho da Bíblia
- * (`renderBibleReading`), onde ele é prefixado à referência do versículo
- * central em `--live-strong`.
- *
- * Ele mora no subtítulo, e não numa faixa própria, porque essa linha já existe e
- * já é onde o operador procura o que o item É. Um selo em elemento novo
- * empurraria a altura de toda a lista para dizer algo que só vale em uma linha
- * de cada vez.
- */
-/**
  * A FALHA MORA NA LINHA QUE FOI TOCADA (v5.207).
  *
  * Projetar uma cena de roteiro pode não dar: o capítulo não está no aparelho, a
@@ -20029,6 +19667,16 @@ function pintarFaixaNoAr(li) {
   if (nome) pintarSubNoAr(nome, noAr);
 }
 
+/**
+ * O SELO "● No ar" na segunda linha da linha — o MESMO desenho da Bíblia
+ * (`renderBibleReading`), onde ele é prefixado à referência do versículo
+ * central em `--live-strong`.
+ *
+ * Ele mora no subtítulo, e não numa faixa própria, porque essa linha já existe e
+ * já é onde o operador procura o que o item É. Um selo em elemento novo
+ * empurraria a altura de toda a lista para dizer algo que só vale em uma linha
+ * de cada vez.
+ */
 function pintarSubNoAr(sub, noAr) {
   const antigo = sub.querySelector('.row-live');
   if (noAr === !!antigo) return;
@@ -20090,17 +19738,11 @@ async function onTap(item) {
   // Toque direto na biblioteca: define a playlist como este item apenas.
   // ACRESCENTAR à fila (sem substituir) é outra coisa: o `+` dos resultados do
   // acervo (`addSongToPlaylist`) e, para itens da biblioteca, o botão de
-  // playlist da barra de seleção (`addSelectedToPlaylist`) — que substituiu o
-  // deslize à esquerda na v5.50.
+  // playlist da barra de seleção (`addSelectedToPlaylist`).
   await replacePlaylistWith(item);
   send(item.id);
 }
 
-// Acrescenta os SELECIONADOS à playlist, sem substituir a fila. É o que o
-// deslize à esquerda na linha fazia até a v5.50, agora num botão da barra de
-// seleção: visível, e para vários itens de uma vez. Sem isto a única coisa que
-// um item da biblioteca sabia fazer era SUBSTITUIR a fila (o toque simples) —
-// montar uma sequência de culto dependeria de um gesto que a tela não anuncia.
 // Favoritar o CONJUNTO. Marca todos quando há algum desmarcado (a intenção de
 // quem selecionou cinco itens e toca na estrela é "quero estes cinco nos
 // favoritos"); com todos já marcados, o mesmo toque desmarca — é o alternador
@@ -20126,14 +19768,8 @@ async function favoritarSelecionados() {
   sairDaSelecaoDepois();
 }
 
-// A SELEÇÃO SOBREVIVE AO DESTINO (v5.141).
-//
-// Até aqui um destino encerrava a seleção: mandar cinco louvores para a playlist
-// E para os Favoritos exigia selecioná-los duas vezes, um por um, na mão. É o
-// mesmo defeito que a folha de destinos tinha — "só um caminho por vez" —, com
-// a diferença de que aqui não é preciso caixa de marcação nenhuma: os destinos
-// já são três botões lado a lado, e o único que os separava era a barra sumindo
-// no primeiro toque.
+// A SELEÇÃO SOBREVIVE AO DESTINO: os destinos são botões lado a lado, e mandar
+// cinco louvores à playlist E aos Favoritos não pede selecioná-los duas vezes.
 //
 // A barra continua sendo fechada pelo ✕ (`#selCancel`), pelo botão voltar do
 // aparelho e por desmarcar o último item — três saídas que já existiam. O que
@@ -20145,6 +19781,8 @@ function sairDaSelecaoDepois() {
   setTimeout(() => { load(); }, PULSO_MS);
 }
 
+// Acrescenta os SELECIONADOS à playlist, sem substituir a fila — o toque simples
+// SUBSTITUI, e sem isto montar uma sequência de culto não teria porta visível.
 // A conta é do LOTE: "3 de 4 adicionados" diz, numa linha, que um deles já
 // estava lá — com um aviso por item o operador veria quatro mensagens piscando
 // e não leria nenhuma.
@@ -20176,18 +19814,6 @@ function textoLote(novos, total, onde) {
   return novos + ' de ' + total + ' adicionados ' + onde.para + ' — o resto já estava lá';
 }
 
-// (===== ARRASTAR PARA REORDENAR — REMOVIDO NA v5.285 =====
-//
-// Saiu inteiro a pedido do operador: `attachHandle`, `measureDrag`,
-// `dropIndex`, `showDropLine`/`hideDropLine`, `endDrag`, `dragGeom` e o
-// `reorder` por índice de destino. Quem reordena agora é `botoesDeOrdem` →
-// `moverNaLista`, um par ↑↓ dentro da gaveta do `⋮`.
-//
-// O que a remoção leva junto, e vale saber que sumiu: a linha-guia absoluta
-// (com o bloco contendor garantido pelo JS, v5.272), a medição ÚNICA no
-// `pointerdown` com re-medição na rolagem, e o `data-fixa` das pastas do
-// aparelho — que existia só para elas não contarem como posição no arrasto.)
-
 // ===== seleção múltipla =====
 function enterSelection(id) {
   selectionMode = true;
@@ -20215,25 +19841,18 @@ async function deleteSelected() {
     const it = libItems.find((m) => m.id === id) || await AVDB.getMedia(id);
     if (it && it.youtubeId) setYtEstado(it.youtubeId, null);
   }
-  // (Os DOIS ramos de `'folders'` saíram na v5.294, com a gaveta: um apagava o
-  // ARQUIVO FÍSICO dos selecionados dentro de uma pasta do aparelho, o outro
-  // desmarcava favoritos na raiz dela. Nenhum dos dois era alcançável — a
-  // seleção múltipla só existe na lista principal desde a v5.290. Quem apaga
-  // arquivos de uma pasta hoje é o "Excluir pasta e arquivos sincronizados" da
-  // linha da própria pasta.)
+  // A seleção múltipla só existe na lista principal (o Cronograma).
   {
     for (const id of selected) { await AVDB.listRemove('imports', id); await soltarAvulso(id); }
   }
   exitSelection(); load();
 }
 
-// ===== LIMPAR O CRONOGRAMA INTEIRO (v1.8.66) =====
+// ===== LIMPAR O CRONOGRAMA INTEIRO =====
 //
-// Desde a v1.13.5 é o EXCLUIR DO ÚNICO cronograma, na linha dele na gaveta (ver
-// `excluirCronograma`): o botão próprio da barra do topo saiu a pedido do
-// operador — *"sua função basicamente se pode obter pelo botão de excluir
-// cronograma na lista de cronogramas"* —, e com UM cronograma só excluí-lo é
-// esvaziá-lo, porque o app nunca fica com zero. Só o ATIVO — que, sendo o único,
+// É o EXCLUIR DO ÚNICO cronograma, na linha dele na gaveta (ver
+// `excluirCronograma`): com UM cronograma só, excluí-lo é esvaziá-lo, porque o
+// app nunca fica com zero. Só o ATIVO — que, sendo o único,
 // é a lista à vista. Ele é a irmã do `deleteSelected` acima — mesma declaração de intenção, sobre
 // a lista toda em vez de uma seleção — e por isso repete as DUAS metades que
 // aquele tem e que o `listSet` sozinho não faz.
@@ -20263,9 +19882,9 @@ async function deleteSelected() {
 // Oráculo da regra: `tools/excluir-em-cena.test.mjs`.
 async function limparCronograma() {
   const ids = await AVDB.listIds('imports');
-  // A GUARDA É REAL, não defensiva: o botão nasce `disabled` com a lista vazia,
-  // mas o estado dele é pintado no render e o toque pode chegar entre um
-  // esvaziamento e o próximo `load()`.
+  // A GUARDA É REAL, não defensiva: o excluir do único nasce `disabled` com a
+  // lista vazia, mas o estado dele é pintado no render e o toque pode chegar
+  // entre um esvaziamento e o próximo `load()`.
   if (!ids.length) return;
   const nome = (cronoPorId(cronos.ativo) || {}).nome || 'Cronograma';
   // O MODAL, e não a pergunta na própria faixa (`pedirConfirmacaoNaLinha`), que
@@ -20277,24 +19896,13 @@ async function limparCronograma() {
   // exclusão porque *"o modal TIRAVA O ALVO DE CENA"*, e o `appConfirm` sobrevive
   // exatamente onde o alvo não é uma linha da lista — uma pasta, um álbum, e
   // agora a lista inteira.
-  // O VERBO É "LIMPAR", NUNCA "EXCLUIR" (v1.8.67), a pedido do operador:
-  // *"foque em chamar apenas de 'limpar cronograma' e use esses tipos de termos
-  // nos botões de confirmar, títulos e afins ao invés da palavra 'excluir'"*. E
-  // a distinção é REAL, não preferência de palavra: EXCLUIR é o que a seleção
-  // múltipla faz a um item, e LIMPAR é o que se faz a uma lista — o mesmo verbo
-  // que a fila já usa no `#plClear`. Um "excluir" aqui prometeria que os
-  // arquivos morrem, e o que morre é só o que não tiver outro detentor.
-  //
-  // E A FRASE PERDEU AS EXPLICAÇÕES (*"pode remover as explicações sobre os
-  // itens ainda ficarem em favoritos e sobre continuar tocando, não precisamos
-  // de todo esse texto explicativo"*). O que sobra é a PERGUNTA e a CONTA — que
-  // é a única metade que quem lê não tem como saber olhando a tela, já que a
-  // lista pode estar rolada. As duas promessas continuam VALENDO no código
-  // (`listSet` só coleta o que não tem detentor; a cena não é encerrada); o que
-  // saiu foi dizê-las toda vez.
-  // E A FRASE DIZ QUE ELE FICA (v1.13.5): o toque foi num EXCLUIR, e o que
-  // acontece é outra coisa — a lista esvazia e o cronograma continua lá, com o
-  // nome. O verbo do botão de confirmar é o do que de fato acontece.
+  // O VERBO É "LIMPAR", NUNCA "EXCLUIR": EXCLUIR é o que se faz a um item, e
+  // LIMPAR a uma lista (o `#plClear` da fila) — um "excluir" prometeria que os
+  // arquivos morrem, e o que morre é só o que não tiver outro detentor. A frase
+  // é a PERGUNTA e a CONTA (a lista pode estar rolada), e diz que o cronograma
+  // FICA, vazio: o toque foi num excluir, e o verbo do confirmar é o do que de
+  // fato acontece. As promessas não ditas continuam VALENDO no código (`listSet`
+  // só coleta o que não tem detentor; a cena não é encerrada).
   const n = ids.length;
   const ok = await appConfirm({
     title: 'Limpar o cronograma',
@@ -20317,13 +19925,10 @@ async function limparCronograma() {
   if (libraryEl) libraryEl.scrollTop = 0;
 }
 
-// ===== OS CRONOGRAMAS MÚLTIPLOS (v1.12.54) =====
+// ===== OS CRONOGRAMAS MÚLTIPLOS =====
 //
-// Pedido do operador: *"o sistema de múltiplos cronogramas na verdade vai
-// funcionar apenas como um 'atalho para alterar todo o cronograma de uma vez',
-// ao invés de criar cronogramas concorrentes ao mesmo tempo"*.
-//
-// UM ativo, e ele é `imports`: nenhum consumidor daqui para baixo sabe que há
+// Um ATALHO para trocar o cronograma inteiro de uma vez, nunca cronogramas
+// concorrentes. UM ativo, e ele é `imports`: nenhum consumidor daqui para baixo sabe que há
 // outros. Trocar é uma transação do `db.js` (`AVDB.cronoTrocar`) seguida de um
 // `load()` — a mesma releitura de toda escrita na lista. Ver o cabeçalho de
 // `cronoLerEm` em `db.js` para a forma da chave e a regra do coletor.
@@ -20373,18 +19978,14 @@ function fecharCronoGaveta() {
   setTimeout(fim, 260);
 }
 /**
- * A GAVETA (v1.12.54; as linhas refeitas na v1.12.55). Uma LINHA por
- * cronograma — renomear à esquerda, o nome (e a conta) no MEIO, excluir à
- * direita, os dois sempre à vista — e o "Novo cronograma" por último. Pedido do
- * operador: *"os demais botões individuais de cada cronograma, no caso,
- * renomear e excluir, deixe-os na própria lista um para cada item da lista,
- * sempre visíveis"*.
+ * A GAVETA. Uma LINHA por cronograma — renomear à esquerda, o nome (e a conta)
+ * no MEIO, excluir à direita, os dois sempre à vista — e o "Novo cronograma"
+ * por último.
  *
  * O miolo é um botão: tocar nele TROCA. O ativo é a linha em `--sel-fill`. O
- * EXCLUIR DO ÚNICO cronograma LIMPA (v1.13.5; até a v1.13.4 ele era apagado): o
- * app nunca fica com zero, e o limpar da barra do topo saiu — com o excluir
- * apagado, esvaziar o único deixaria de existir. Ele é apagado só com o único
- * VAZIO, que não tem o que limpar, e o `title` diz o que o toque faz.
+ * EXCLUIR DO ÚNICO cronograma LIMPA (o app nunca fica com zero, e esvaziar não
+ * tem outra porta); ele é apagado só com o único VAZIO, que não tem o que
+ * limpar, e o `title` diz o que o toque faz.
  */
 function renderCronoGaveta() {
   if (!cronoListaEl) return;
@@ -20494,7 +20095,7 @@ async function renomearCronograma(id) {
  * conteúdo de qualquer um. A GAVETA FICA ABERTA e é redesenhada.
  */
 async function excluirCronograma(id) {
-  // O ÚNICO NÃO SE EXCLUI, SE ESVAZIA (v1.13.5) — ver `limparCronograma`.
+  // O ÚNICO NÃO SE EXCLUI, SE ESVAZIA — ver `limparCronograma`.
   if (cronos.itens.length < 2) {
     await limparCronograma();
     if (cronoGavetaAberta()) renderCronoGaveta();
@@ -20560,12 +20161,6 @@ async function renameSelected() {
 }
 
 // ===== pastas =====
-//
-// (`garantirGaveta`, `openFavorites`, `closeFavorites`, `favVoltarPara` e o
-// `hostSelbar` de duas casas saíram na v5.294, com a gaveta `#favPopup` — ver o
-// bloco no topo do arquivo. A pasta do aparelho abre INLINE dentro da seção de
-// Favoritos da Biblioteca desde a v5.290, e era ela a única tela que a gaveta
-// ainda servia.)
 
 // A barra de seleção múltipla vive no RODAPÉ DA LISTA, fora do `<ul>` rolável e
 // por isso sempre à vista. Ela MUDA de casa com o `<input type="file">` que
@@ -20577,10 +20172,8 @@ async function renameSelected() {
 // mexe no que não é da seleção, e some com as abas justamente quando o operador
 // pode querer sair da tela.
 //
-// (Até a v5.292 esta função escolhia entre DUAS casas — o rodapé e a folha da
-// gaveta de Favoritos —, porque selecionar itens dentro de uma pasta deixaria a
-// barra invisível atrás dela. A gaveta saiu; sobrou uma casa, e a função ficou
-// para o `<input type="file">` não voltar a disputar a fatia com a `#selbar`.)
+// A função existe para o `<input type="file">` não voltar a disputar a fatia
+// com a `#selbar`.
 function hostSelbar() {
   if (selbarEl.parentElement !== listFootEl) listFootEl.appendChild(selbarEl);
 }
@@ -20591,11 +20184,9 @@ function navigateBack() {
     else if (bibleScreen === 'chapters') gotoBibleScreen('books');
     return;
   }
-  // A GAVETA SÓ EXISTE COMO TELA DE DENTRO (v5.238): ela deixou de ter porta
-  // própria — os favoritos são a primeira seção da Biblioteca —, e o único jeito
-  // de chegar aqui é entrando numa pasta. Então o voltar sempre FECHA, e a tela
-  // de trás é a Biblioteca, com a seção de onde o operador veio. Subir para uma
-  // "raiz" que ninguém mais alcança seria devolvê-lo a uma tela sem porta.
+  // FORA DA BÍBLIA NÃO HÁ TELA DE DENTRO (a pasta do aparelho abre INLINE nos
+  // Favoritos da Biblioteca): o voltar só refaz a lista, com a posição de onde o
+  // operador veio.
   rememberScroll();
   // A seleção pertence à lista que está sendo DEIXADA: sair de uma pasta com
   // itens marcados levaria as marcas para a lista de trás, onde a barra de
@@ -20604,11 +20195,10 @@ function navigateBack() {
   load({ restaurarScroll: true });
 }
 
-// ===== A MIGRAÇÃO DOS ATALHOS DE PASTA (v5.254) =====
+// ===== A MIGRAÇÃO DOS ATALHOS DE PASTA =====
 //
-// O operador pediu para o app não ter mais atalhos de pasta — só as pastas
-// sincronizadas do armazenamento do aparelho. Apagar o recurso e ir embora
-// seria PERDER MÍDIA: um item cujo único detentor era um atalho vira um
+// O app não tem atalhos de pasta — só as pastas sincronizadas do armazenamento
+// do aparelho. Apagar o recurso e ir embora seria PERDER MÍDIA: um item cujo único detentor era um atalho vira um
 // registro que nenhuma lista aponta, e o coletor de lixo (que existe
 // justamente para isso) o apagaria na varredura seguinte. Um vídeo grande
 // sumiria do app e do disco sem nada na tela que o explicasse.
@@ -20653,11 +20243,6 @@ async function migrarPastasParaFavoritos() {
 function uid() {
   return crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random());
 }
-
-// (`refreshOpfsFolderCount` SAIU: zero chamadores. A contagem de uma pasta é
-// mantida por quem a percorre — `syncDeviceFolder` a escreve junto com o
-// catálogo, no MESMO ponto em que grava a pasta —, e uma segunda função que
-// recontasse por fora seria uma segunda fonte de verdade sobre o mesmo número.)
 
 // Abre uma pasta do dispositivo e devolve uma FONTE uniforme, para que o
 // corpo da sincronização (abaixo) seja um só nos dois contextos:
@@ -20789,21 +20374,11 @@ async function syncDeviceFolder(existing, botao) {
     // re-sync sem pedir a pasta de novo.
     if (source.handle) folder.handle = source.handle;
     if (source.uri) folder.uri = source.uri;
-    // A PASTA É PERSISTIDA ANTES DO PRIMEIRO ARQUIVO, e isto é uma correção.
-    //
-    // Cada arquivo já era gravado de imediato (OPFS + um registro na store
-    // `files`, com `folder: folder.id`), mas o ÍNDICE DE PASTAS só ia para o
-    // banco depois do laço. Uma pasta de 600 vídeos interrompida na metade
-    // deixava 300 arquivos escritos e **nenhuma pasta que os apontasse**: eles
-    // ficavam órfãos, invisíveis na tela, ocupando gigabytes — e o coletor de
-    // lixo, que existe justamente para recolher registro sem dono, os apagava.
-    // Do lado de fora isso se lê como "não salvou progresso nenhum", que foi
-    // exatamente o relato.
-    //
-    // Gravar aqui custa uma escrita e transforma a interrupção em RETOMADA: o
-    // laço abaixo já pula o que está em dia (mesmo tamanho e mesma data), então
-    // rodar a sincronização de novo continua de onde parou. O mecanismo de
-    // retomada sempre existiu; o que faltava era ele ter o que retomar.
+    // A PASTA É PERSISTIDA ANTES DO PRIMEIRO ARQUIVO. Cada arquivo é gravado de
+    // imediato (OPFS + um registro em `files` com `folder: folder.id`); sem o
+    // índice de pastas no banco, uma cópia interrompida deixaria arquivos sem
+    // pasta que os aponte, e o coletor os apagaria. Gravado aqui, a interrupção
+    // vira RETOMADA: o laço pula o que está em dia (mesmo tamanho e data).
     await AVDB.setState('opfs-folders', opfsFolders);
 
     const existingRecs = await AVDB.filesByFolder(folder.id);
@@ -20834,7 +20409,7 @@ async function syncDeviceFolder(existing, botao) {
     folderNotifId = bgTaskStart('Pasta · ' + folder.name, entries.length);
     for (const [entry, type] of entries) {
       done++;
-      // O PROGRESSO NO CONTADOR DA PRÓPRIA PASTA (v5.207): é o número que esta
+      // O PROGRESSO NO CONTADOR DA PRÓPRIA PASTA: é o número que esta
       // cópia está mudando, na linha em que o operador tocou. Sem prazo — quem
       // o substitui é o desfecho, no fim do laço. (A notificação do sistema
       // continua sendo o canal de quando o app está minimizado.)
@@ -20885,19 +20460,14 @@ async function syncDeviceFolder(existing, botao) {
       }
     }
 
-    // A CONTAGEM VAI PARA A PASTA QUE ESTÁ NA LISTA AGORA (v1.10.7) — ver
-    // `pastaNaLista`. A referência `folder` atravessa centenas de `await`, e um
-    // `load()` no meio (a volta ao app, uma recarga) troca `opfsFolders` por
-    // objetos NOVOS lidos do disco: escrever na referência velha não chegava à
-    // lista, e o `setState` logo abaixo gravava a lista nova com a contagem do
-    // último ponto de controle. A pasta terminava inteira e a tela dizia que a
-    // cópia tinha parado no meio.
+    // A CONTAGEM VAI PARA A PASTA QUE ESTÁ NA LISTA AGORA — ver `pastaNaLista`.
+    // A referência `folder` atravessa centenas de `await`, e um `load()` no meio
+    // troca `opfsFolders` por objetos NOVOS: escrever na velha não chegaria à
+    // lista gravada logo abaixo.
     //
-    // **E A CONTAGEM VEM ANTES DE ACHAR A PASTA**: achada primeiro, a
-    // referência atravessava o `await` da contagem (que desserializa todos os
-    // registros da pasta), e um `load()` caindo ali repetia o defeito numa
-    // janela menor — MEDIDO, "mostra 25, tem 30". Sem `await` entre achar e
-    // entregar ao `setState`, a lista gravada é a que contém o `alvo`.
+    // **E A CONTAGEM VEM ANTES DE ACHAR A PASTA**: sem `await` entre achar e
+    // entregar ao `setState`, a lista gravada é a que contém o `alvo` (achada
+    // antes da contagem, MEDIDO: "mostra 25, tem 30").
     const n = (await AVDB.filesByFolder(folder.id)).length;
     const alvo = pastaNaLista(folder);
     if (alvo) {
@@ -20906,8 +20476,6 @@ async function syncDeviceFolder(existing, botao) {
       folder.count = alvo.count; folder.syncedAt = alvo.syncedAt;
       await AVDB.setState('opfs-folders', opfsFolders);
     }
-    // O desfecho é o que a faixa existe para dizer: "já em dia" é a resposta
-    // que evita re-sincronizar à toa, e ela precisa se distinguir de "entrou".
     // O desfecho vai para o CONTADOR da própria pasta: "já em dia" é a
     // resposta que evita re-sincronizar à toa, e ela precisa se distinguir de
     // "entrou". Some sozinho e o número volta.
@@ -20933,11 +20501,6 @@ async function syncDeviceFolder(existing, botao) {
   }
   load();
 }
-
-// (`openOpfsFolder` saiu na v5.290: a pasta do aparelho passou a abrir INLINE,
-// no corpo da própria linha, como um álbum — ver `renderFolderList`. Ele era o
-// ÚNICO caminho para a gaveta `#favPopup`, e a v5.294 a removeu por inteiro —
-// a lápide está no topo deste arquivo, junto da lista do que saiu com ela.)
 
 // Remove uma leva de registros do catálogo OPFS (store "files") e limpa as
 // referências que tenham sobrado nas listas. Usado ao excluir uma pasta OPFS
@@ -21012,9 +20575,9 @@ const MEDIA_MIME = {
   mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', aac: 'audio/aac',
   flac: 'audio/flac', m4a: 'audio/mp4', opus: 'audio/opus',
   // A apresentação entra como PDF e vira IMAGENS no aparelho (ver
-  // `deckImportar`). Os formatos de origem — .pptx, .odp — ficam de fora de
-  // propósito: não existe no Android quem os desenhe, e aceitar o arquivo para
-  // depois não conseguir projetá-lo é pior do que dizer na hora o que fazer.
+  // `deckImportar`). O `.pptx` fica de fora DESTA tabela: ele tem caminho
+  // próprio, desenhado no WebView (`pptxImportar`, decidido pelo nome do
+  // arquivo); o `.odp` não tem quem o desenhe.
   pdf: 'application/pdf',
 };
 function guessMediaType(filename) {
@@ -21298,8 +20861,8 @@ async function serieDiarioLer(id) {
 //
 // E A MESCLA É UMA TRANSAÇÃO SÓ (`AVDB.updateState`), nunca `getState` +
 // `setState`. DUAS varreduras da mesma série correm juntas com facilidade — a
-// abertura dispara `autoRefreshCollections()` sem `await`, e "Atualizar a
-// lista" é um toque por cima disso —, e com duas transações a que leu primeiro
+// abertura dispara `autoRefreshCollections()` sem `await`, e abrir o card da
+// série (`verificarSemanaAoAbrir`) refaz a lista por cima disso —, e com duas transações a que leu primeiro
 // grava por último e apaga a metade da outra. O que some é a metade dos
 // vídeos: sem `quandoVideos` o bloco perde as linhas derivadas dela (os nomes
 // na ordem, o que o canal anuncia e não veio, os futuros), e o Registro passa a
