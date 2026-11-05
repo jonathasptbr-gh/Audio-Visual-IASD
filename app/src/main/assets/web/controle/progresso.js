@@ -474,7 +474,9 @@
     }
 
     // O ritmo VIVO (bytes/ms): o medido na janela curta, misturado ao aprendido
-    // só no começo, com o teto do silêncio.
+    // só no começo, com o teto do silêncio. A confiança no medido: meia no
+    // primeiro intervalo entre avisos, inteira no segundo — um download de um
+    // segundo não tem tempo para mais.
     function ritmoVivo(t) {
       const medido = ritmoMedido(t);
       const conf = isFinite(medido) && medido > 0 && primeiroLido >= 0
@@ -530,13 +532,7 @@
         if (!(total > 0) || primeiroLido < 0) return peloRelogio(D, e);
         const falta = Math.max(0, total - lidos);
         if (falta <= 0) return RESTANTE_MIN + 0.3 * Math.max(0, t - tCheio);
-        const medido = ritmoMedido(t);
-        // A confiança no medido: meia no primeiro intervalo entre avisos, inteira
-        // no segundo — um download de um segundo não tem tempo para mais.
-        const conf = isFinite(medido) && medido > 0
-          ? Math.min(1, Math.max((ritmo[ritmo.length - 1][1] - ritmo[0][1]) / (2 * GRAO), (t - tPrimeiroByte) / 1500)) : 0;
-        const r = conf * (isFinite(medido) ? medido : 0) + (1 - conf) * m.bytesPorMs;
-        return falta / Math.max(1e-3, comSilencio(r, t));
+        return falta / Math.max(1e-3, ritmoVivo(t));
       }
       if (atual === 'juncao' && muxTotal > 0) {
         const f = Math.min(1, muxFeito / muxTotal);

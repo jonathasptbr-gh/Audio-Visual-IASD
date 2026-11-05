@@ -187,6 +187,50 @@ else nao('nenhuma função existe só para o oráculo chamar',
 }
 
 // ============================================================================
+// A SUPERFÍCIE DOS MÓDULOS PUROS — `global.AVxxx = { … }` em `controle/` (W3)
+//
+// O mesmo furo do bloco do `AVDB`, nos onze módulos puros: a linha da
+// exportação conta como uso, e uma função que só o oráculo chama passa pelos
+// dois blocos de cima. MEDIDO na revisão W3: quatro assim (`sortear`,
+// `somenteLetra`, `fracaoDaRolagem`, `ehInfantil`), uma delas — `sortear` — com
+// a lógica de verdade escrita em OUTRO lugar, que é o caso que este oráculo
+// existe para pegar.
+//
+// Só FUNÇÕES: uma constante exportada é parte de um vocabulário (os `MOTIVO_*`,
+// as `CAT_*`) e lê-la é opcional por natureza. Viva = usada DENTRO do módulo
+// (além da declaração) ou acessada como `.<nome>` no resto da base — o
+// `Z.lerDiretorio` do `deck.js` chega pelo segundo caminho.
+// ============================================================================
+{
+  const modulos = [...corpo.keys()].filter((f) => f.includes(join(WEB, 'controle') + '/')
+    && f.endsWith('.js') && !f.endsWith('controle.js'));
+  const orfas = [];
+  let lidas = 0;
+  for (const f of modulos) {
+    const txt = semComentario(corpo.get(f));
+    const m = txt.match(/global\.(AV[A-Za-z]+|Bible|Louvorja) = \{([\s\S]*?)\};/);
+    if (!m) { nao('o módulo ' + f.slice(WEB.length + 1) + ' publica um `global.X = { … }`'); continue; }
+    const dentro = txt.replace(m[0], '');
+    const resto = app.replace(semComentario(corpo.get(f)), '');
+    const funcoes = new Set([...dentro.matchAll(/^[ \t]*(?:async )?function ([A-Za-z_$][\w$]*)/gm)].map((x) => x[1]));
+    for (const nome of new Set([...m[2].matchAll(/([A-Za-z_$][\w$]*)/g)].map((x) => x[1]))) {
+      if (!funcoes.has(nome)) continue;
+      lidas++;
+      if (MORTAS_DE_PROPOSITO.has(nome)) continue;
+      const usosDentro = (dentro.match(new RegExp('(?<![\\w$.])' + nome + '\\b', 'g')) || []).length;
+      if (usosDentro > 1 || new RegExp('\\.' + nome + '\\b').test(resto)) continue;
+      orfas.push(nome + ' (' + f.slice(RAIZ.length + 1) + ')'
+        + (new RegExp('\\.' + nome + '\\b').test(oraculos) ? ' — SÓ O ORÁCULO usa' : ''));
+    }
+  }
+  if (modulos.length >= 11 && lidas >= 100) ok('a superfície dos módulos puros foi lida (' + modulos.length + ' módulos, ' + lidas + ' funções)');
+  else nao('a superfície dos módulos puros foi lida', modulos.length + ' módulo(s), ' + lidas + ' função(ões)');
+  if (!orfas.length) ok('e toda função exportada por eles é usada pelo app');
+  else nao('toda função exportada pelos módulos puros é usada pelo app', orfas.join('\n\t')
+    + '\n\tconserto: faça o APP usá-la, ou apague-a junto com a asserção');
+}
+
+// ============================================================================
 // UMA CONSTANTE SEM LEITOR (v1.8.47)
 //
 // A mesma pergunta do bloco de cima, na outra metade do que a base declara — e

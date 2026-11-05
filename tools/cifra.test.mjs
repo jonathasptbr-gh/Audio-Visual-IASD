@@ -351,26 +351,6 @@ checar(C.lerPagina('<pre>   \n\n  </pre>') === null,
   'um <pre> só de espaço também é null, não uma folha vazia');
 checar(C.lerPagina('') === null, 'HTML vazio devolve null');
 
-// ── 7. SÓ A LETRA ───────────────────────────────────────────────────────────
-secao('7. somenteLetra');
-{
-  const linhas = C.lerFolha([
-    '<b>C</b>      <b>G</b>',
-    'primeira de marcador',
-    '',
-    '<b>Am</b>',
-    'segunda de marcador',
-  ].join('\n'));
-  const letra = C.somenteLetra(linhas);
-  checar(letra.join('|') === 'primeira de marcador||segunda de marcador',
-    'as linhas de acorde caem fora e o respiro entre estrofes sobrevive', letra);
-  checar(!letra.some((l) => /^[A-G]/.test(l) && l.length <= 3), 'nenhum acorde solto sobrou');
-}
-{
-  const letra = C.somenteLetra(C.lerFolha('\n\n<b>C</b>\n\n\nlinha\n\n\n'));
-  checar(letra.join('|') === 'linha', 'vazios do começo e do fim são aparados', letra);
-}
-
 // ── 8. A BUSCA ──────────────────────────────────────────────────────────────
 // Um resultado é um link de DOIS segmentos (`/artista/musica/`). É o filtro que
 // separa música de navegação do site sem depender de classe CSS nenhuma.
@@ -507,7 +487,7 @@ secao('9. quebrarPares');
 // sentidos: uma abertura curta demais faz a folha fugir do começo antes de
 // alguém lê-lo, e um fecho curto demais entrega o último acorde depois de ele
 // ter passado — nos dois casos a rolagem continua funcionando, bonita e inútil.
-secao('10. janelaDeRolagem / fracaoDaRolagem / ritmoDaRolagem');
+secao('10. janelaDeRolagem / ritmoDaRolagem');
 {
   // O CASO NORMAL: um hino de 4 min. Abertura e fecho batem nos TETOS, porque é
   // aí que a fração pura passaria do razoável.
@@ -531,32 +511,6 @@ secao('10. janelaDeRolagem / fracaoDaRolagem / ritmoDaRolagem');
   }
   const nada = C.janelaDeRolagem(0);
   checar(nada.t0 === 0 && nada.t1 === 0, 'duração 0 devolve janela vazia', nada);
-
-  // A FRAÇÃO: parada no começo, parada no fim, monótona no meio.
-  const D = 240;
-  checar(C.fracaoDaRolagem(0, D) === 0, 'no segundo 0 a folha está no topo');
-  checar(C.fracaoDaRolagem(11, D) === 0, 'e ainda está no topo durante a abertura');
-  checar(C.fracaoDaRolagem(215, D) === 1, 'no início do fecho a folha já está no fim');
-  checar(C.fracaoDaRolagem(240, D) === 1, 'e continua no fim até a música acabar');
-  checar(Math.abs(C.fracaoDaRolagem((12 + 215) / 2, D) - 0.5) < 1e-9,
-    'no meio da janela a folha está na metade', C.fracaoDaRolagem((12 + 215) / 2, D));
-
-  let anterior = -1;
-  let monotona = true;
-  for (let t = 0; t <= D; t += 0.5) {
-    const f = C.fracaoDaRolagem(t, D);
-    if (f < anterior - 1e-12) monotona = false;
-    anterior = f;
-  }
-  checar(monotona, 'a folha nunca anda para trás com a música andando para a frente');
-
-  // FORA DA FAIXA. `t` chega de um relógio que pode passar da duração por um
-  // quadro, ou vir negativo no meio de um seek; uma fração fora de [0,1] viraria
-  // um `scrollTop` fora da folha.
-  for (const [t, d, esperado] of [[-10, D, 0], [1e6, D, 1], [NaN, D, 0], [10, 0, 0], [10, NaN, 0]]) {
-    const f = C.fracaoDaRolagem(t, d);
-    checar(f === esperado, 'fracaoDaRolagem(' + t + ', ' + d + ') = ' + esperado, f);
-  }
 
   // ===== O RITMO (v1.5.6): a MESMA janela, lida como velocidade =====
   //
@@ -858,13 +812,8 @@ secao('11. a busca escolhe por parentesco');
   checar(ord2.length === 2, 'os dois homônimos continuam na lista', ord2.length);
   checar(/missao-marcador/.test(ord2[0].url), 'e o do álbum que bate vem primeiro', ord2[0].url);
 
-  // A CONSULTA com o álbum é a SEGUNDA, e existe.
   checar(C.urlDeBusca('Em Oração').endsWith('?q=Em%20Ora%C3%A7%C3%A3o'),
-    'o primeiro tento leva só o nome', C.urlDeBusca('Em Oração'));
-  checar(C.urlDeBusca('Em Oração', 'Missão').includes('Miss%C3%A3o'),
-    'o segundo leva o álbum junto', C.urlDeBusca('Em Oração', 'Missão'));
-  checar(C.urlDeBusca('Em Oração', '  ') === C.urlDeBusca('Em Oração'),
-    'álbum em branco não muda a consulta');
+    'a busca leva o termo como veio', C.urlDeBusca('Em Oração'));
 }
 
 // ── 12. OS ARTISTAS PADRÃO (os CDs oficiais e os do ano) ────────────────────

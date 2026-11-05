@@ -99,9 +99,12 @@
   const FORA = [
     // TRANSITÓRIAS, e as duas fazem o aparelho de destino AGIR sozinho:
     // `ota-intencao` reabre o instalador do APK na primeira abertura, e
-    // `yt-intencoes` faz o app reclamar downloads que nunca começaram AQUI.
+    // `ytIntencoes` faz o app reclamar downloads que nunca começaram AQUI.
+    // O NOME é o literal da chave (`OTA_INTENCAO`/`YT_INTENCOES` no
+    // `controle.js`): uma grafia que não existe recusa NADA, calada, e o
+    // `pacote.test.mjs` confere cada entrada contra a base.
     'ota-intencao',
-    'yt-intencoes',
+    'ytIntencoes',
     // A PASTA DO APARELHO. Ela guarda `content://` do SAF, que são concessões
     // deste aparelho e não significam nada no outro — e o modo de falhar é o
     // PIOR do app: `listFolder` sobre uma URI que não se pode abrir devolve

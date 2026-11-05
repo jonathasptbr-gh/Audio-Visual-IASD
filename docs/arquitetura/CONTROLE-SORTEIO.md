@@ -188,7 +188,7 @@ busca; o `casou` que o Registro conta é `nome` ou `letra`.
 
 #### O que já está no aparelho vem PRIMEIRO, sempre
 
-`AVSorteio.sortear` particiona o pool em baixado × por baixar, embaralha **as
+`AVSorteio.baralhar` particiona o pool em baixado × por baixar, embaralha **as
 duas** e concatena. Não é otimização: uma fila de dez faixas por baixar é a
 congregação esperando a rede da igreja no meio do culto.
 

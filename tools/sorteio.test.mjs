@@ -291,20 +291,18 @@ checar(!chaves(poolPBLocal).includes('album-4:b1'),
 // poderia contar itens, e a ORDEM é justamente o que decide se o culto espera
 // um download.
 const rndFixo = (() => { let i = 0; const v = [0.9, 0.1, 0.5, 0.3, 0.7, 0.2, 0.8, 0.4]; return () => v[i++ % v.length]; })();
-const seis = S.sortear(poolTudo.itens, 4, rndFixo);
-checar(seis.length === 4, 'o sorteio devolve exatamente o teto pedido', seis.length);
+const seis = S.baralhar(poolTudo.itens, rndFixo);
+checar(seis.length === poolTudo.itens.length, 'o baralho é o pool INTEIRO, só reordenado', seis.length);
 checar(seis.slice(0, poolTudo.noAparelho).every((i) => i.noAparelho),
   'O QUE JÁ ESTÁ NO APARELHO VEM PRIMEIRO — a fila não faz o culto esperar a rede',
   seis.map((i) => [i.s.id_music, i.noAparelho]));
 const soDoisLocais = poolTudo.itens.filter((i) => i.noAparelho).slice(0, 2)
   .concat(poolTudo.itens.filter((i) => !i.noAparelho));
-const cinco = S.sortear(soDoisLocais, 5, rndFixo);
+const cinco = S.baralhar(soDoisLocais, rndFixo);
 checar(cinco.slice(0, 2).every((i) => i.noAparelho) && cinco.slice(2).some((i) => !i.noAparelho),
   'faltando baixadas para encher a fila, o resto vem do que precisa baixar');
-checar(S.sortear([], 5, rndFixo).length === 0,
-  'pool vazio devolve fila vazia — nunca um item indefinido a caminho do telão');
-checar(S.sortear(poolTudo.itens, 0, rndFixo).length === 1,
-  'quantidade zero ou negativa vira UMA — o botão nunca dispara para o nada');
+checar(S.baralhar([], rndFixo).length === 0 && S.baralhar(null, rndFixo).length === 0,
+  'pool vazio devolve baralho vazio — nunca um item indefinido a caminho do telão');
 
 // A SEGUNDA partição também embaralha. Sem isto o que completa a fila sai na
 // ordem do acervo, isto é, sempre o mesmo álbum, e o recurso deixa de sortear
@@ -312,7 +310,7 @@ checar(S.sortear(poolTudo.itens, 0, rndFixo).length === 1,
 const soRemotos = poolTudo.itens.filter((i) => !i.noAparelho);
 if (soRemotos.length >= 2) {
   const ordens = new Set();
-  for (let k = 0; k < 40; k++) ordens.add(S.sortear(soRemotos, soRemotos.length).map((i) => i.s.id_music).join(','));
+  for (let k = 0; k < 40; k++) ordens.add(S.baralhar(soRemotos).map((i) => i.s.id_music).join(','));
   checar(ordens.size > 1, 'a partição do que falta baixar TAMBÉM é embaralhada', [...ordens]);
 } else {
   checar(false, 'o acervo de mentira precisa de 2+ faixas não baixadas para provar o embaralhamento');
