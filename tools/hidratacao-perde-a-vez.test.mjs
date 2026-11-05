@@ -40,7 +40,9 @@
 // (O bloco 6 é a mesma classe na ESCRITA: a limpeza da seleção da abertura,
 // `clearCurrentSelection`, contra um `persistCurrent` que corre junto. O 7 é o
 // GIRO e o PREENCHER tocados com um `load()` em voo — `fitSeq`/`rotSeq`. O 8 é
-// o ↑↓ de uma linha, `moverNaLista`, contra um `listAdd` que corre junto.)
+// o ↑↓ de uma linha, `moverNaLista`, contra um `listAdd` que corre junto. O 9
+// é o botão do Cronograma e o da playlist tocados com um `load()` em voo —
+// `listasSeq`.)
 //
 // E a quarta, que separa CENA de CONFIGURAÇÃO: durante a corrida a hidratação
 // pula a SELEÇÃO e aplica o resto. Sem ela, o conserto barato (um `return` no
@@ -379,6 +381,74 @@ try {
     'e o mover andou uma casa (A depois de B)', JSON.stringify(mover8.ids));
   checar(mover8.depois[0] === ids.a && mover8.depois[1] === ids.b,
     'e sozinho o mover devolve A ao topo', JSON.stringify(mover8.depois));
+
+  // ── 9. O BOTÃO DO CRONOGRAMA E O DA PLAYLIST COM UM `load()` EM VOO ───────
+  // `toggleCronograma`/`togglePlaylist` gravam e releem a lista; um `load()` que
+  // já a leu ANTES do toque aplicava a cópia velha DEPOIS dele — o item ficava
+  // no banco e fora de `cronoSet`/`libItems`/`plItems` (fora da lista na tela e
+  // da fila do ⏭) até o próximo `load()`. A ordem é forçada: o espião segura o
+  // `load()` logo depois da leitura da lista, o toque acontece inteiro, e só
+  // então a hidratação continua.
+  const toque9 = await pg.evaluate(async ({ a, b }) => {
+    await AVDB.listSet('imports', [a]);
+    await AVDB.listSet('playlist', []);
+    await load();
+    const recB = await AVDB.getMedia(b);
+    const segurarDepoisDe = (lista) => {
+      const orig = AVDB.listItems;
+      let liberar;
+      const portao = new Promise((p) => { liberar = p; });
+      const leu = new Promise((pronto) => {
+        AVDB.listItems = async (n) => {
+          const r = await orig(n);
+          if (n === lista) { AVDB.listItems = orig; pronto(); await portao; }
+          return r;
+        };
+      });
+      return { leu, liberar, restaurar: () => { AVDB.listItems = orig; } };
+    };
+    const botao = () => document.createElement('button');
+    const r = {};
+    // O Cronograma: `listItems('imports')` é a ÚLTIMA leitura de lista do `load()`.
+    let g = segurarDepoisDe('imports');
+    try {
+      const emVoo = load();
+      await g.leu;
+      await toggleCronograma(recB, botao());
+      g.liberar();
+      await emVoo;
+    } finally { g.restaurar(); }
+    r.cronoSet = cronoSet.has(b);
+    r.libItems = libItems.some((m) => m.id === b);
+    r.cronoBanco = (await AVDB.listIds('imports')).includes(b);
+    // A playlist: `listItems('playlist')` é a PRIMEIRA.
+    g = segurarDepoisDe('playlist');
+    try {
+      const emVoo = load();
+      await g.leu;
+      await togglePlaylist(recB, botao());
+      g.liberar();
+      await emVoo;
+    } finally { g.restaurar(); }
+    r.plItems = plItems.some((m) => m.id === b);
+    r.plBanco = (await AVDB.listIds('playlist')).includes(b);
+    // E SEM toque nenhum o `load()` CONTINUA trazendo as duas do banco — senão
+    // "nunca aplicar" passaria acima.
+    cronoSet = new Set(); libItems = []; plItems = [];
+    await load();
+    r.soCrono = cronoSet.has(b) && libItems.some((m) => m.id === b);
+    r.soPl = plItems.some((m) => m.id === b);
+    await AVDB.listSet('playlist', []);
+    await AVDB.listSet('imports', [a, b]);
+    await load();
+    return r;
+  }, ids);
+  checar(toque9.cronoBanco && toque9.cronoSet && toque9.libItems,
+    'pôr no Cronograma com um load() em voo: o item FICA em cronoSet e libItems', JSON.stringify(toque9));
+  checar(toque9.plBanco && toque9.plItems,
+    'pôr na playlist com um load() em voo: o item FICA em plItems', JSON.stringify(toque9));
+  checar(toque9.soCrono && toque9.soPl,
+    'e sem toque nenhum o load() RESTAURA o Cronograma e a playlist do banco', JSON.stringify(toque9));
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
 }
