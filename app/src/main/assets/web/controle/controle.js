@@ -26536,8 +26536,7 @@ function renderSongMenu() {
   // seletor de destinos da importação (`escolherDestinos`), que não tem
   // `coll`/`s` — e o seletor de variante do topo chama isto de volta. A guarda
   // impede qualquer abertura sem `coll` de desestruturar o que não existe.
-  if (!songMenuFor || songMenuFor.yt || songMenuFor.destPrompt || songMenuFor.folha
-      || songMenuFor.item) return;
+  if (!songMenuFor || songMenuFor.yt || songMenuFor.destPrompt || songMenuFor.item) return;
   const { coll, s, origem } = songMenuFor;
   const temPlayback = !!s.has_instrumental_music;
   // ===== O ALVO PODE NÃO SER A FOLHA (v5.285) =====
