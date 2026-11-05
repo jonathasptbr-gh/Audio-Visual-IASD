@@ -12103,18 +12103,26 @@ function botoesDeOrdem(listName, id, pos, total) {
 // Move UMA casa. A troca é no array de ids e o desfecho é o mesmo `load()` que
 // o arrasto usava — o resto do app não sabe que o gesto mudou.
 //
+// A TROCA É A FORMA ATÔMICA do `listSet` (a função roda na transação que grava):
+// ler a lista antes e gravar o array depois desfazia um `listAdd` do vão — o
+// download do YouTube que termina por `addMediaToList` sumia da lista, e o
+// coletor do próprio `listSet` apagava o registro (`hidratacao-perde-a-vez`, 8).
+//
 // `reabrirAcoesEm` é o que faz o segundo toque cair no mesmo lugar: `load()`
 // reconstrói a lista inteira, o `li` que tinha a gaveta aberta deixa de existir,
 // e sem isso cada casa custaria reabrir a gaveta à mão.
 async function moverNaLista(listName, id, delta) {
-  const ids = await AVDB.listIds(listName);
-  const de = ids.indexOf(id);
-  if (de === -1) return;
-  const para = de + delta;
-  if (para < 0 || para >= ids.length) return;
-  ids.splice(de, 1);
-  ids.splice(para, 0, id);
-  await AVDB.listSet(listName, ids);
+  let andou = false;
+  await AVDB.listSet(listName, (ids) => {
+    const de = ids.indexOf(id);
+    const para = de + delta;
+    if (de === -1 || para < 0 || para >= ids.length) return ids;
+    ids.splice(de, 1);
+    ids.splice(para, 0, id);
+    andou = true;
+    return ids;
+  });
+  if (!andou) return;
   reabrirAcoesEm = listName + ':' + id;
   await load();
   // (O REDESENHO EXPLÍCITO DA SEÇÃO saiu na v5.292: `load()` passou a fazê-lo

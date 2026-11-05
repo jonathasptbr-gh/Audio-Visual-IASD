@@ -39,7 +39,8 @@
 //
 // (O bloco 6 é a mesma classe na ESCRITA: a limpeza da seleção da abertura,
 // `clearCurrentSelection`, contra um `persistCurrent` que corre junto. O 7 é o
-// GIRO e o PREENCHER tocados com um `load()` em voo — `fitSeq`/`rotSeq`.)
+// GIRO e o PREENCHER tocados com um `load()` em voo — `fitSeq`/`rotSeq`. O 8 é
+// o ↑↓ de uma linha, `moverNaLista`, contra um `listAdd` que corre junto.)
 //
 // E a quarta, que separa CENA de CONFIGURAÇÃO: durante a corrida a hidratação
 // pula a SELEÇÃO e aplica o resto. Sem ela, o conserto barato (um `return` no
@@ -343,6 +344,41 @@ try {
   });
   checar(so7.rot === 180 && so7.fit === 'cover' && so7.pvRot === 180,
     'e sem toque nenhum o load() RESTAURA o giro e o preenchimento do banco', JSON.stringify(so7));
+
+  // ── 8. MOVER UMA CASA NÃO DESFAZ UM `listAdd` DO VÃO ──────────────────────
+  // O ↑↓ de uma linha (`moverNaLista`) lia a lista e gravava o array depois: o
+  // download que termina por `addMediaToList` no meio sumia da lista, e o
+  // coletor do `listSet` apagava o registro. O espião põe o `listAdd` no vão
+  // da forma antiga (se ela ler a lista), e um segundo corre junto na nova.
+  const mover8 = await pg.evaluate(async ({ a, b }) => {
+    await AVDB.listSet('imports', [a, b]);
+    const c = await AVDB.addMedia(new Blob([new Uint8Array(64)], { type: 'video/mp4' }),
+      { name: 'Baixado no vão', type: 'video/mp4', kind: 'video', list: 'avulsos' });
+    const orig = AVDB.listIds;
+    AVDB.listIds = async (n) => {
+      AVDB.listIds = orig;
+      const r = await orig(n);
+      await AVDB.listAdd(n, c.id);   // o download termina enquanto o mover pensa
+      return r;
+    };
+    try {
+      const mover = moverNaLista('imports', a, 1);
+      const junto = AVDB.listAdd('imports', c.id);
+      await Promise.all([mover, junto]);
+    } finally { AVDB.listIds = orig; }
+    await AVDB.listRemove('avulsos', c.id);
+    const r = { ids: await AVDB.listIds('imports'), c: c.id, existe: !!(await AVDB.getMedia(c.id)) };
+    // E SOZINHO ele continua movendo — senão "nunca gravar" passaria acima.
+    await moverNaLista('imports', a, -1);
+    r.depois = await AVDB.listIds('imports');
+    return r;
+  }, ids);
+  checar(mover8.ids.includes(mover8.c) && mover8.existe,
+    'mover uma linha com um listAdd no vão: o item que chegou FICA na lista e no banco', JSON.stringify(mover8));
+  checar(mover8.ids.indexOf(ids.a) === mover8.ids.indexOf(ids.b) + 1,
+    'e o mover andou uma casa (A depois de B)', JSON.stringify(mover8.ids));
+  checar(mover8.depois[0] === ids.a && mover8.depois[1] === ids.b,
+    'e sozinho o mover devolve A ao topo', JSON.stringify(mover8.depois));
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
 }
