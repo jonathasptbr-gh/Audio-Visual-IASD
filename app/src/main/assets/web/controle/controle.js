@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.22';
+const WEB_VERSION = '1.13.23';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -7555,8 +7555,8 @@ function renderFoot() {
 }
 
 // ===== Cronômetro / Relógio / Timer (aba Ferramentas) =====
-// Terceiro provedor da Camada de Texto, ao lado da Bíblia e das Mensagens, e
-// pelo mesmo motivo: o que vai ao telão é um cartão de texto. A diferença é que
+// Um provedor da Camada de Texto, como a Bíblia e as Mensagens, e pelo mesmo
+// motivo: o que vai ao telão é um cartão de texto. A diferença é que
 // aqui o texto é DERIVADO do tempo, não digitado — ver chronoReading em
 // stage.js, e o laço em showText (display.js).
 //
@@ -7608,9 +7608,6 @@ const CHRONO_MODES = [
   { id: 'stopwatch', name: 'Cronômetro' },
   { id: 'timer', name: 'Timer' },
 ];
-// (Os PRESETS saíram na v1.8.89 — eram [1, 3, 5, 10, 15, 30], seis pílulas
-//  numa linha própria — e o par `\u2212`/`+` que os substituiu saiu na v1.8.92.
-//  Hoje o tempo se escolhe nas DUAS ROLETAS; ver `chronoRoletaEl`.)
 
 const CHRONO_PREFS_V = 2;   // 2 = relógio passou a nascer sem segundos
 
@@ -7628,10 +7625,6 @@ function applyChronoPrefs(p) {
   if (typeof p.secs === 'boolean' && !legado) chrono.secs = p.secs;
   if (typeof p.h12 === 'boolean') chrono.h12 = p.h12;
   if (typeof p.label === 'string') chrono.label = p.label;
-  // (A VISTA DO TEMPO — `p.vista`, o Itinerário reaberto onde foi deixado — deixou de
-  //  ser lida na v1.13.3: a folha abre SEMPRE na lista, e quem escolhe a vista é a
-  //  linha. O campo de um aparelho antigo fica no registro e ninguém o lê; a próxima
-  //  gravação já sai sem ele.)
 }
 
 function saveChronoPrefs() {
@@ -7742,9 +7735,8 @@ function chronoReset() {
   renderChronoEControles();
 }
 
-// A TROCA DE MODO — quem a faz é a linha da lista (v1.13.3, `abrirFerramenta`), que
-// escreve o modo ANTES de montar o painel; por isso ela não desenha nada. (O
-// `chronoSetMode`, que desenhava, saiu com o segmentado que era o único chamador.)
+// A TROCA DE MODO — quem a faz é a linha da lista (`abrirFerramenta`), que
+// escreve o modo ANTES de montar o painel; por isso ela não desenha nada.
 function chronoTrocarModo(mode) {
   if (chrono.mode === mode) return;
   chrono.mode = mode;
@@ -7824,16 +7816,10 @@ function stopChronoPanelTimer() {
   if (chronoPanelTimer) { clearInterval(chronoPanelTimer); chronoPanelTimer = null; }
 }
 
-// (O `chronoSegBtn` e o `itinSegBtn` — os quatro segmentos do Tempo — saíram na
-//  v1.13.3 com o segmentado: o toque numa linha da lista é quem escolhe o modo
-//  (`abrirFerramenta` → `chronoTrocarModo`) ou a vista do Itinerário, e voltar ao
-//  Itinerário continua não zerando a contagem das outras três.)
-
 /**
  * ===== AS TRÊS ROLETAS DO TEMPO (v1.8.94) =====
  *
- * Pedido do operador, em duas rodadas. A primeira (v1.8.92) trocou os botões
- * `−`/`+` do timer por duas listas verticais; esta amplia o mesmo desenho:
+ * O pedido do operador:
  * *"ajuste as dimensões do relógio e do cronômetro para o sistema de
  * aproveitamento máximo da janela, e usando o mesmo design compartilhado.
  * Ajuste também o timer para ir de 0 a 59, e voltar para o zero, sendo a roleta
@@ -7895,12 +7881,10 @@ function stopChronoPanelTimer() {
  * **`scrollend` não é usado.** Ele é de Chromium 114 e este arquivo declara
  * `:has()` e `cqw` (105) como piso.
  *
- * ## O TETO virou 23:59:59
+ * ## O TETO é 23:59:59
  *
- * Eram 600 minutos num campo numérico (v1.8.88), depois 60:59 em duas roletas.
- * Com a coluna das horas o alcance é o do relógio, e **a divergência de notação
- * com o telão ACABOU**: o `formatSpan` promove para `h:mm:ss` acima de 3600 s, e
- * agora o painel tem a mesma casa das horas para mostrar.
+ * O alcance é o do relógio, e a notação é a do telão: o `formatSpan` promove
+ * para `h:mm:ss` acima de 3600 s, e o painel tem a mesma casa das horas.
  */
 const ROLETA_VISIVEIS = 3;         // quantas células cabem na janela da roleta
 const ROLETA_ITEM_MIN = 22;        // px — o piso, para a lista não sumir
@@ -7921,13 +7905,9 @@ function repeticoesDe(ciclo) {
   return n % 2 ? n : n + 1;        // ÍMPAR: é o que faz existir banda do MEIO
 }
 
-// O ITEM em px, escrito pelo `acertarRoletas` e lido pelo CSS. Ele é a medida
-// de TUDO na roleta (altura da janela, do item, do recuo e do dígito), e é por
-// isso que a posição de um valor é `índice × item`, sem fração.
-// ÍNDICE ↔ VALOR, E ELES ANDAM EM SENTIDOS OPOSTOS (v1.8.95). O índice é o
-// `scrollTop`, que cresce para BAIXO; o valor cresce para CIMA, a pedido do
-// operador: *"faça com que os números cresçam para cima, pois atualmente eles
-// crescem para baixo"*. A inversão mora nestes dois pares e no TEXTO das
+// ÍNDICE ↔ VALOR, E ELES ANDAM EM SENTIDOS OPOSTOS. O índice é o `scrollTop`,
+// que cresce para BAIXO; o valor cresce para CIMA (pedido do operador). A
+// inversão mora nestes dois pares e no TEXTO das
 // células, e os três têm de concordar — divergindo, o mostrador acende uma
 // célula e devolve o número de outra, sem erro em lugar nenhum.
 function valorNaPista(indice, ciclo, inicio) {
@@ -7939,6 +7919,9 @@ function pistaDoValor(valor, ciclo, inicio) {
   return (ciclo - dentro) % ciclo;
 }
 
+// O ITEM em px, escrito pelo `acertarRoletas` e lido pelo CSS. Ele é a medida
+// de TUDO na roleta (altura da janela, do item, do recuo e do dígito), e é por
+// isso que a posição de um valor é `índice × item`, sem fração.
 function roletaItem(caixa) {
   const v = parseFloat(getComputedStyle(caixa).getPropertyValue('--roleta-item'));
   return Number.isFinite(v) && v > 0 ? v : 0;
@@ -8025,7 +8008,7 @@ function roletaAcender(el) {
   if (agora) agora.classList.add('roleta-item--sel');
 }
 
-// A ÚNICA ESCRITA DE POSIÇÃO DA ROLETA (v1.8.96), e ela existe para que o
+// A ÚNICA ESCRITA DE POSIÇÃO DA ROLETA, e ela existe para que o
 // SUAVE seja uma decisão de quem chama, e não uma propriedade da folha. Um
 // `scroll-behavior: smooth` no CSS animaria TODA escrita — inclusive a
 // recentragem, que salta uma volta inteira da pista e viraria um rolo de
@@ -8036,9 +8019,8 @@ function roletaIr(el, px, suave) {
   else el.scrollTop = px;
 }
 
-// A CONTAGEM ROLA, E SÓ ELA (v1.8.96). Pedido do operador: *"faça uma animação
-// de movimento da rolagem de verdade na contagem regressiva dos números"* — o
-// mostrador TROCAVA o dígito no lugar, e o que se via era ele piscando.
+// A CONTAGEM ROLA, E SÓ ELA: o Timer contando anima o passo — trocar o dígito
+// no lugar se lê como piscar.
 //
 // Três guardas, e cada uma fecha um jeito de a animação virar defeito:
 //
@@ -8119,11 +8101,9 @@ function roletaLevar(el, valor, animar) {
   // cruzasse o 0 — o número certo, chegando de um pulo que ninguém pediu.
   // Daqui, o vizinho é o vizinho.
   // A PRIMEIRA POSIÇÃO É A BANDA DO MEIO, e é a única que não usa o caminho
-  // curto (v1.8.95). Sem isto a lista abre onde NASCEU — `scrollTop` 0, o
-  // topo da pista —, e ali não existe célula acima: relato do operador,
-  // *"[a exibição inicial] só apresenta a roleta em uma das direções se
-  // iniciada na posição 0"*. E não havia conserto depois, porque a
-  // recentragem só roda atrás de um `scroll` e ali não houve rolagem nenhuma.
+  // curto. Sem isto a lista abre onde NASCEU — `scrollTop` 0, o topo da
+  // pista —, sem célula acima; e não há conserto depois, porque a recentragem
+  // só roda atrás de um `scroll` e ali não houve rolagem nenhuma.
   // O mesmo vale depois de a RÉGUA mudar: `acertarRoletas` apaga esta marca,
   // porque um `scrollTop` medido na célula velha não é índice na nova.
   const primeira = el.dataset.pos !== '1';
@@ -8133,15 +8113,10 @@ function roletaLevar(el, valor, animar) {
   // QUEM RECENTRA É O `roletaRecentrar`, e não esta função: escrever
   // `scrollTop` dispara um `scroll`, que agenda o assentamento, que recentra
   // 140 ms depois — inclusive durante a contagem, onde não há dedo nenhum.
-  // MEDIDO por reversão: um segundo retorno à banda do meio aqui não muda
-  // nada, e um comentário que credite a peça errada manda o próximo leitor
-  // proteger o lugar errado.
   //
-  // E O ALVO NÃO PODE FICAR NEGATIVO — sem piso, e é por CONSTRUÇÃO: da banda
-  // do meio (que começa em `base >= ciclo`) um passo move no máximo
-  // `ciclo - 1`, então o mínimo alcançável é 1. Um `Math.max(0, …)` aqui foi
-  // escrito, revertido e removido: ele não muda nada e diria que há um caso a
-  // proteger.
+  // E O ALVO NÃO FICA NEGATIVO, por CONSTRUÇÃO, e por isso não há piso: da
+  // banda do meio (que começa em `base >= ciclo`) um passo move no máximo
+  // `ciclo - 1`, então o mínimo alcançável é 1.
   const alvo = atual + (v - dentro);
   roletaIr(el, alvo * item, animar(alvo - atual));
   roletaAcender(el);
@@ -8162,7 +8137,7 @@ function roletaLevar(el, valor, animar) {
  * escreve a célula; a roleta nunca é maior que a caixa, logo não existe
  * transbordo a rolar.
  *
- * **E A LARGURA É O SEGUNDO TETO** (v1.8.94, com a terceira coluna): três
+ * **E A LARGURA É O SEGUNDO TETO**: três
  * colunas de dois dígitos mais dois `:` não cabem numa tela estreita se a célula
  * for escolhida só pela altura, e o que sai é o mostrador vazando de lado —
  * recortado pelo `overflow: hidden` da folha, sem erro nenhum.
@@ -8255,8 +8230,6 @@ function renderChrono() {
   if (!host) return;
   host.innerHTML = '';
 
-  // (O segmentado Relógio · Cronômetro · Timer · Itinerário saiu na v1.13.3: cada
-  //  um é uma linha da lista da folha — ver `FERRAMENTAS`.)
   host.classList.toggle('misc-panel--itin', tempoVista === 'itinerario');
   if (tempoVista === 'itinerario') {
     stopChronoPanelTimer();
@@ -8280,7 +8253,7 @@ function renderChrono() {
   // O SINAL DO ESTOURO é um elemento, não um caractere no número: com três
   // roletas não há string onde pendurá-lo, e um "−" que aparece e some entre
   // elas empurraria as colunas de lado a cada virada. Ele reserva o lugar
-  // (`visibility`), e desde a v1.8.95 reserva nas TRÊS ferramentas — só o timer
+  // (`visibility`), e reserva nas TRÊS ferramentas — só o timer
   // chega a acendê-lo, mas a largura que ele ocupa entra na conta da célula
   // (`acertarRoletas`), e desenhá-lo só aqui fazia o Cronômetro abrir com o
   // dígito 29% maior que o do Timer com as MESMAS três colunas. O pedido do
@@ -8335,11 +8308,8 @@ function renderChrono() {
   host.appendChild(linha);
 
   // ---- Sublinha do telão ----
-  // O rótulo mora DENTRO da caixa desde a v1.9.1, e o campo é o MESMO do
-  // Sorteio — ver `campoDeLegenda`. (O relato que trouxe o teclado sobrepondo
-  // para cá, *"ao tocar em digitar uma legenda… o teclado sobe, mas ele também
-  // leva o controle todo visível"*, virou a regra do app inteiro na v1.13.7 —
-  // ver `keyboardShift`.)
+  // O rótulo mora DENTRO da caixa, e o campo é o MESMO do Sorteio — ver
+  // `campoDeLegenda`. O teclado SOBREPÕE, como no app inteiro (`keyboardShift`).
   host.appendChild(campoDeLegenda(chrono.label, (v) => {
     chrono.label = v;
     saveChronoPrefs();
@@ -8921,15 +8891,10 @@ function itinDuracao(min) {
 }
 
 /**
- * O PAINEL DO ITINERÁRIO (v1.13.1) — a LISTA do app, e não um formulário.
+ * O PAINEL DO ITINERÁRIO — a LISTA do app, e não um formulário: as peças que
+ * o operador já sabe do Cronograma, de cima para baixo:
  *
- * Relato do operador: *"a posição e o design dos elementos interativos estão
- * totalmente diferentes do que se espera, comparado com o Cronograma e as
- * listas em geral"*. A v1.13.0 tinha campos de horário e título soltos embaixo
- * da lista e uma linha que se abria em formulário ali mesmo, com três botões
- * próprios. Hoje são as peças que o operador já sabe, de cima para baixo:
- *
- *  1. o AJUSTE (−5 · −1 · o atraso · +1 · +5 · ↺) — inalterado;
+ *  1. o AJUSTE (−5 · −1 · o atraso · +1 · +5 · ↺);
  *  2. a LISTA (`.lib-item > .row`, a linha do Cronograma e das Mensagens): a
  *     HORA no quadrado da capa, o título com o subtítulo embaixo, e o `⋮` com a
  *     faixa de ações (excluir, que pergunta NA LINHA, e editar). Tocar na linha
@@ -8941,13 +8906,12 @@ function itinDuracao(min) {
  * Adicionar e editar abrem a MESMA folha (`#itinPopup`), com as roletas de
  * hora e minuto do Tempo — sem diálogo do sistema (ver `abrirItinEditor`).
  *
- * O PAR ↑↓ MORA NA FAIXA, como no Cronograma (v1.13.2): mover TROCA o evento
- * de lugar com o vizinho e os horários ficam onde estão (ver `itinMover`).
+ * O PAR ↑↓ MORA NA FAIXA, como no Cronograma: mover TROCA o evento de lugar
+ * com o vizinho e os horários ficam onde estão (ver `itinMover`).
  *
- * O NOME DO ITINERÁRIO ATIVO não mora no painel: desde a v1.13.4 ele é o TÍTULO
- * DA FOLHA (`#itinTitulo`, no `.tools-head`), a porta da gaveta dos itinerários
- * — o `#cronoTitulo` do Cronograma. Era uma faixa no topo do painel (v1.13.2), e
- * a altura dela voltou para a lista.
+ * O NOME DO ITINERÁRIO ATIVO não mora no painel: ele é o TÍTULO DA FOLHA
+ * (`#itinTitulo`, no `.tools-head`), a porta da gaveta dos itinerários — o
+ * `#cronoTitulo` do Cronograma.
  *
  * O item de AGORA é marcado pela MESMA leitura do telão, e um laço de um segundo
  * (`itinMarcar`) só troca as marcas — reconstruir o painel a cada segundo
@@ -8956,7 +8920,7 @@ function itinDuracao(min) {
 function renderItinerario(host) {
   // A gaveta de uma linha não sobrevive ao redesenho (a regra do `renderMsg`).
   fecharAcoesDaLinha();
-  // O NOME DO ATIVO, a porta da gaveta, mora no TÍTULO DA FOLHA (v1.13.4): o
+  // O NOME DO ATIVO, a porta da gaveta, mora no TÍTULO DA FOLHA: o
   // painel é redesenhado a cada mudança, e o cabeçalho acompanha daqui.
   pintarCabecalhoDasFerramentas();
   // --- 1. o ajuste ---
@@ -9061,7 +9025,7 @@ function itinLinha(x, proximo, pos, total) {
   ed.innerHTML = pencilIconSvg();
   ed.addEventListener('click', (e) => { e.stopPropagation(); abrirItinEditor(x.id); });
   // A ORDEM É A DAS LISTAS: o excluir primeiro, o mais longe do `⋮`, e o par
-  // ↑↓ por último, como no Cronograma (v1.13.2).
+  // ↑↓ por último, como no Cronograma.
   const [caixa, mais] = montarAcoesDaLinha(li, [del, ed, ...itinBotoesDeOrdem(x.id, pos, total)], 'itin:' + x.id);
   row.append(thumb, texto, caixa, mais);
   li.appendChild(row);
@@ -9288,15 +9252,12 @@ async function excluirItinerario(id) {
   if (itinGavetaAberta()) renderItinGaveta();
 }
 
-// ===== A FOLHA DE UM HORÁRIO: adicionar e editar (v1.13.1) =====
+// ===== A FOLHA DE UM HORÁRIO: adicionar e editar =====
 //
-// Relato do operador: *"o seletor de horário de um item não funciona"* — no
-// aparelho o toque no campo não deixava escolher a hora. A v1.13.0 usava um
-// `<input type="time">`, cuja escolha NÃO é do app: o WebView a entrega a um
-// diálogo do sistema, que depende da versão do WebView e do fabricante — e a
-// folha ainda escondia o indicador do seletor. Nada disso se conserta daqui.
-//
-// O CONSERTO É NÃO DEPENDER DO SISTEMA: a hora e o minuto se escolhem nas
+// A HORA NÃO É UM `<input type="time">`: a escolha dele não é do app — o WebView
+// a entrega a um diálogo do sistema, que depende da versão do WebView e do
+// fabricante, e no aparelho o toque não deixava escolher a hora. Sem depender
+// do sistema, a hora e o minuto se escolhem nas
 // MESMAS roletas do Timer (`chronoRoletaEl`), o idioma de "escolher um tempo"
 // que o app já tem — com tudo o que elas já respondem: a lista infinita, a
 // banda do meio desde a primeira pintura, a célula medida pelo que sobra, sem a
@@ -9449,12 +9410,9 @@ function stopItinPanelTimer() {
   if (itinPanelTimer) { clearInterval(itinPanelTimer); itinPanelTimer = null; }
 }
 
-// UM BOTÃO DE ÍCONE para "guardar isto aqui" (v5.109). Os dois destinos de uma
-// cena de roteiro apareciam com rótulo em dois lugares ("Ao Cronograma" /
-// "Favoritar" na Bíblia, "Cronograma" / "Favoritos" nas Ferramentas) e com
-// ícone só em todos os outros (linha da lista, barra de seleção, folha das
-// músicas) — o mesmo par de ações desenhado de duas formas, e a forma com texto
-// era justamente a que não cabia na linha em que estava.
+// UM BOTÃO DE ÍCONE para "guardar isto aqui": os dois destinos de uma cena de
+// roteiro têm UMA forma em todo o app (a linha da lista, a barra de seleção, a
+// folha das músicas, a Bíblia e as Ferramentas).
 //
 // O rótulo vira `title` + `aria-label`: sem texto na tela, é ele que nomeia o
 // botão para o leitor de tela e para o toque longo.
@@ -9468,16 +9426,11 @@ function cueSaveBtn(icone, titulo, fn) {
 }
 
 /**
- * ===== O "GUARDAR ISTO" SUBIU PARA O RODAPÉ DA FOLHA (v1.8.89) =====
+ * ===== O "GUARDAR ISTO" MORA NO RODAPÉ DA FOLHA =====
  *
- * Pedido do operador: *"o botão de projetar no telão na esquerda, e em sua
- * direita, havera o botão de guardar no cronograma e guardar nos favoritos"*.
- *
- * Ele era uma LINHA dentro de cada painel (`cueSaveRow`), no fim dele, e por
- * isso descia conforme o painel crescia e rolava junto com ele — o mesmo
- * defeito que tinha tirado o "Projetar no telão" do fim dos painéis. As três
- * ações que SAEM da ferramenta (uma para o telão, duas para as listas) passam a
- * morar no mesmo lugar fixo, e o operador aprende UM ponto da tela.
+ * O projetar à esquerda e, à direita dele, o guardar no Cronograma e nos
+ * favoritos: as três ações que SAEM da ferramenta (uma para o telão, duas para
+ * as listas) num lugar fixo, que não desce nem rola com o painel.
  *
  * ISTO AQUI É O DESCRITOR, não o desenho: cada ferramenta diz COMO montar a
  * cena de roteiro dela, e quem desenha os dois botões é o `renderFoot`. Uma
@@ -9525,7 +9478,7 @@ function cueSaveDaFerramenta() {
 }
 
 // ===== Sorteio (aba Ferramentas) =====
-// Quarto provedor da Camada de Texto. Sorteia NÚMERO (faixa de/até) ou TEXTO
+// Um provedor da Camada de Texto. Sorteia NÚMERO (faixa de/até) ou TEXTO
 // (uma lista de opções — nomes, prêmios, perguntas).
 //
 // **Quem sorteia é só o Controle.** Se cada tela rodasse o próprio
@@ -9666,12 +9619,10 @@ function pushDraw() {
   cmd({ type: 'text', mode: 'draw', draw: drawDescriptor(), sub: draw.label || '', view });
 }
 
-// O SORTEIO FALA NO PRÓPRIO PAINEL (v5.207).
+// O SORTEIO FALA NO PRÓPRIO PAINEL.
 //
 // "Escreva as opções antes de sortear" e "todas já saíram" são respostas ao
-// botão de sortear, e ele mora num painel da aba Ferramentas que está inteiro
-// na tela. A frase ia para uma faixa flutuante no topo; agora ela ocupa o
-// lugar do VALOR sorteado — que é exatamente o que o operador está olhando
+// botão de sortear, e a frase ocupa o lugar do VALOR sorteado — que é exatamente o que o operador está olhando
 // quando toca em sortear, e o que ele teria recebido se houvesse o que sortear.
 function naoResta(texto) {
   // `#drawRead` é o mostrador do sorteio — o mesmo que exibe o número/nome
@@ -9840,10 +9791,9 @@ function renderDraw() {
   host.appendChild(read);
 
   const texto = draw.kind === 'text';
-  // O CORPO OCUPA A ALTURA QUE SOBRA (v1.9.2) — sem isso o painel media o conteúdo e
-  // deixava um vão morto embaixo. A LEGENDA fica FORA dele e por isso encosta na base:
-  // *"faça a caixa de texto da legenda ficar colada na base, logo acima dos botões de
-  // projetar no telão"*.
+  // O CORPO OCUPA A ALTURA QUE SOBRA — sem isso o painel media o conteúdo e deixava um
+  // vão morto embaixo. A LEGENDA fica FORA dele e por isso encosta na base, logo acima
+  // dos botões de projetar.
   const corpo = document.createElement('div');
   corpo.className = 'draw-corpo draw-cols';
   const esq = document.createElement('div');
@@ -9923,19 +9873,14 @@ function renderDraw() {
     ? left + ' de ' + (texto ? draw.pool.length : Math.max(0, draw.max - draw.min + 1)) + ' restantes'
     : (texto ? draw.pool.length + ' opções' : Math.max(0, draw.max - draw.min + 1) + ' números');
   opts.appendChild(info);
-  // (O chip "Reiniciar" saiu na v1.9.1: ele é um QUADRADO do rodapé, ao lado do
-  //  sortear — ver `renderFoot`.)
   esq.appendChild(opts);
 
   // Os já sorteados, à vista: numa rifa a pergunta seguinte é sempre "quem já
   // saiu?" — e o contador sozinho não responde.
   if (draw.used.length) {
     const hist = document.createElement('div');
-    // A MARCA `rola` entrou na v1.9.2, com a rolagem VERTICAL: enquanto ele
-    // rolava só na horizontal a sombra das bordas não descrevia nada (e o censo
-    // do `sombra-de-rolagem` o excluía por isso). Rolando no eixo em que a
-    // sombra fala, ele passou a ser um scroller como os outros — e a regra do
-    // app é que TODO scroller diz onde há conteúdo escondido.
+    // A MARCA `rola`: ele rola na VERTICAL, e todo scroller diz onde há
+    // conteúdo escondido.
     hist.className = 'draw-hist rola';
     draw.used.slice().reverse().forEach((u, i) => {
       const c = document.createElement('span');
@@ -9947,20 +9892,14 @@ function renderDraw() {
   }
 
   // ---- Legenda ----
-  // O RÓTULO MORA DENTRO DA CAIXA (v1.9.1), a pedido do operador: *"caixa essa
-  // que a identificação e explicação ficara dentro da caixa, não precisa do
-  // título legenda fora da caixa"*. O `aria-label` é obrigatório: sem o
-  // `<span>`, era ele ou um campo sem nome acessível nenhum.
+  // O RÓTULO MORA DENTRO DA CAIXA, sem `<span>` — e por isso o `aria-label` é
+  // obrigatório: era ele ou um campo sem nome acessível nenhum.
   //
-  // **E ELA É O ÚLTIMO FILHO DO PAINEL, NOS DOIS MODOS** (v1.9.2) — é o corpo
-  // acima que ocupa a sobra, então ela encosta na base, logo acima do rodapé.
-  // Dentro da coluna da esquerda ela subia junto com o conteúdo dela e ficava
-  // no meio da janela.
+  // **E ELA É O ÚLTIMO FILHO DO PAINEL, NOS DOIS MODOS** — é o corpo acima que
+  // ocupa a sobra, então ela encosta na base, logo acima do rodapé.
   host.appendChild(campoDeLegenda(draw.label, (v) => {
     draw.label = v; saveDrawPrefs(); pushDraw();
   }));
-
-  // (O botão "Sortear" de largura inteira saiu na v1.9.1 — ver `renderFoot`.)
 
   // O sorteio guardado é a CONFIGURAÇÃO (faixa ou lista de opções), nunca um
   // resultado: projetar a cena arma o sorteio e espera o toque em "Sortear" —
@@ -9971,21 +9910,16 @@ function renderDraw() {
 }
 
 /**
- * O CAMPO DE LEGENDA DOS DOIS PROVEDORES, num lugar só (v1.9.1). O Tempo e o
- * Sorteio tinham a mesma linha escrita duas vezes — rótulo fora, campo dentro —,
- * e o pedido do operador foi mover a identificação para DENTRO da caixa nos
- * dois. Duas cópias divergiriam no primeiro ajuste, e aqui "ajuste" é
- * literalmente o texto que o operador lê.
+ * O CAMPO DE LEGENDA DOS DOIS PROVEDORES (o Tempo e o Sorteio), num lugar só,
+ * com a identificação DENTRO da caixa. Duas cópias divergiriam no primeiro
+ * ajuste, e aqui "ajuste" é literalmente o texto que o operador lê.
  */
 function campoDeLegenda(valor, aoMudar) {
   const row = document.createElement('div');
   row.className = 'misc-row misc-row--legenda';
   const inp = document.createElement('input');
   inp.type = 'text'; inp.className = 'misc-text';
-  // SÓ "Legenda (opcional)" desde a v1.9.2, a pedido do operador. O exemplo
-  // ("ex: Sorteio dos visitantes") era a metade que o campo estreito cortava de
-  // qualquer jeito — escrevê-lo custava a leitura de todo mundo para servir
-  // ninguém.
+  // SÓ "Legenda (opcional)", sem exemplo: o campo estreito o cortaria.
   inp.placeholder = 'Legenda (opcional)';
   inp.setAttribute('aria-label', 'Legenda do telão (opcional)');
   inp.title = 'Sublinha do cartão no telão';
@@ -9997,18 +9931,16 @@ function campoDeLegenda(valor, aoMudar) {
 }
 
 // ===== Mensagens na aba Ferramentas =====
-// Deixou de ser um botão flutuante sobre a preview e passou a ser uma seção
-// como as outras. O FAB fazia sentido quando Mensagens era a única ferramenta
-// avulsa; com três delas, ter uma em cima da preview e duas numa aba era a
-// mesma pergunta ("que aviso eu ponho na tela?") respondida em dois lugares
-// diferentes. E o espaço sobre a preview é justamente o que menos sobra.
-// Qual mensagem tem a gaveta de ESTILO aberta (v1.9.1). UMA por vez, como a
+// Uma ferramenta como as outras, na folha: nada flutua sobre a preview, que é
+// o espaço que menos sobra.
+//
+// Qual mensagem tem a gaveta de ESTILO aberta. UMA por vez, como a
 // gaveta de uma linha de lista — e módulo, não do nó: `refreshDiversos` remonta
 // o painel inteiro a cada projeção, e uma marca no DOM não sobreviveria a isso.
 let msgEstiloAberto = null;
 
 /**
- * A GAVETA DE ESTILO DE UMA MENSAGEM (v1.9.1) — três eixos, um chip por opção.
+ * A GAVETA DE ESTILO DE UMA MENSAGEM — três eixos, um chip por opção.
  *
  * **A TABELA É A DO PALCO** (`createStage.CARTAO_ESTILO`): o rótulo que o
  * operador toca e o valor que o telão aplica saem da MESMA linha. Uma cópia aqui
@@ -10048,7 +9980,7 @@ function gavetaDeEstilo(m) {
 
 /**
  * REENVIA O CARTÃO SE A MENSAGEM ESTIVER NO AR — o irmão do `pushChrono`, e com
- * a MESMA armadilha (v1.9.4): a `view` VIGENTE, nunca `'visual'` literal. Isto é
+ * a MESMA armadilha: a `view` VIGENTE, nunca `'visual'` literal. Isto é
  * REENVIO, não projeção; com o telão coberto um literal aqui descobriria a
  * mídia que o operador acabou de cobrir.
  */
@@ -10059,21 +9991,12 @@ function pushMessage(m) {
 }
 
 /**
- * ===== A GAVETA DE ESTILO NÃO PISCA MAIS (v1.9.4) =====
+ * ===== ESCOLHER UM ESTILO NÃO REDESENHA NADA =====
  *
- * Relato do operador: *"verifique um glitch visual de piscar o card das opções
- * de fonte das mensagens"*.
- *
- * Era isto: escolher um chip com a mensagem NO AR chamava `projectMessage`, que
- * termina em `refreshDiversos()` — o painel inteiro esvaziado e remontado, a
- * gaveta junto. Fora do ar não era melhor: `renderMsg()` refaz a lista inteira.
- * Em qualquer dos dois a gaveta saía do documento e voltava no mesmo quadro, e
- * o que se vê é o cartão piscando debaixo do dedo.
- *
- * **O CONSERTO É NÃO REDESENHAR NADA.** O que muda na tela é UM chip (a linha
- * do eixo tocado), e o que muda no telão é o comando — que agora sai por
- * `pushMessage`, sem passar pela projeção. O `estilo` já viajava no comando
- * desde a v1.9.1, então não há um segundo caminho a manter.
+ * Reprojetar (`projectMessage` → `refreshDiversos()`) ou `renderMsg()` tirariam
+ * a gaveta do documento e a devolveriam no mesmo quadro — o cartão piscando
+ * debaixo do dedo. O que muda na tela é UM chip (a linha do eixo tocado), e o
+ * que muda no telão é o comando, por `pushMessage`, sem passar pela projeção.
  */
 async function escolherEstiloDaMensagem(m, eixo, id, opcs) {
   const e = Object.assign({}, createStage.CARTAO_PADRAO, m.estilo || {});
@@ -10094,33 +10017,20 @@ async function escolherEstiloDaMensagem(m, eixo, id, opcs) {
 }
 
 /**
- * ===== A LINHA DE MENSAGEM É UMA LINHA DE LISTA (v1.9.3) =====
+ * ===== A LINHA DE MENSAGEM É UMA LINHA DE LISTA =====
  *
- * Pedido do operador: *"ajuste a gaveta de opções das mensagens, para que ela
- * funcione igual a gaveta de opções do cronograma, que fica escondido em um
- * botão de 3 pontos"*, e *"coloque uma thumbnail nos itens dessa lista, e da
- * mesma forma que no cronograma, o stop vai ficar na thumbnail"*.
+ * A MESMA `.lib-item > .row` do Cronograma, dos Favoritos e da fila — miniatura
+ * à esquerda, nome no meio, o `⋮` à direita e a faixa de ações atrás dele
+ * (`montarAcoesDaLinha`) —, e com ela o que a faixa já faz: a entrada dos
+ * botões, o fecho ao tocar fora, o degrau do voltar, a reabertura depois de um
+ * redesenho e a pergunta da exclusão dentro da linha.
  *
- * **ELA DEIXOU DE SER UM COMPONENTE PRÓPRIO.** Era um `.msg-item` com os cinco
- * botões à vista e regras só dela; hoje é a MESMA `.lib-item > .row` do
- * Cronograma, dos Favoritos e da fila — miniatura à esquerda, nome no meio, o
- * `⋮` à direita e a faixa de ações escondida atrás dele (`montarAcoesDaLinha`).
- * O que isso apaga não é estilo: é a segunda implementação de um gesto que o
- * operador já sabe. Vieram de graça, e nenhuma delas teria sido escrita aqui —
- * a animação de entrada dos botões, o fechamento ao tocar fora, o degrau do
- * voltar, a reabertura da gaveta depois de um redesenho e a pergunta da
- * exclusão dentro da linha.
+ * **A MINIATURA NÃO É ENFEITE, É GEOMETRIA**: a `.row-acoes` é posicionada
+ * CONTRA a miniatura, e numa lista sem capa a gaveta abriria por cima do texto.
+ * Ela é o `cueThumb` da cena `message`, o desenho da mensagem no Cronograma.
  *
- * **A MINIATURA NÃO É ENFEITE, É GEOMETRIA** — o mesmo argumento da v1.8.55 na
- * fila: a `.row-acoes` é posicionada CONTRA a miniatura (*"a única coisa que
- * fica de fora"*), e numa lista sem capa a gaveta abria por cima do texto e
- * deixava uma fatia dele exposta. Ela é o `cueThumb` da cena `message`, o mesmo
- * desenho que a mensagem já tem quando entra no Cronograma.
- *
- * **E O PARAR MORA NELA** (`porParar`), como em toda linha deste app desde a
- * v5.259: com a mensagem no ar, tirá-la de lá é a única decisão que a linha
- * oferece, e o alvo passa a ser o quadrado inteiro em vez de um botão de fileira
- * atrás de um toque a mais. O `.no-ar` do `li` é o que troca o ícone pelo ⏹ —
+ * **E O PARAR MORA NELA** (`porParar`), como em toda linha deste app: com a
+ * mensagem no ar o alvo é o quadrado inteiro. O `.no-ar` do `li` é o que troca o ícone pelo ⏹ —
  * CSS, não JS.
  */
 // O `⋮` no estado "gaveta de estilo aberta" — mesma classe, logo mesma coluna e
@@ -10224,10 +10134,8 @@ function renderMsg() {
         manterAcoesAbertas();
         setTimeout(refreshDiversos, PULSO_MS);
       });
-      // ---- EXCLUIR PERGUNTA, como em toda lista deste app (v1.9.3) ----
-      // Ele apagava no toque, e era o único destrutivo do app sem pergunta —
-      // *"um mesmo desenho com dois alcances conforme a tela é a pior forma de
-      // oferecer um destrutivo"*. A pergunta é a MESMA
+      // ---- EXCLUIR PERGUNTA, como em toda lista deste app ----
+      // A pergunta é a MESMA
       // (`pedirConfirmacaoNaLinha`): a faixa troca de conteúdo, a miniatura vira
       // lixeira, e a linha SAI antes de a mensagem ser apagada.
       //
@@ -10248,10 +10156,8 @@ function renderMsg() {
           aoConfirmar: () => deleteMessage(m.id),
         });
       });
-      // ---- O ESTILO DESTA MENSAGEM (v1.9.1) ----
-      // Pedido do operador: *"crie um botão na gaveta de opções da mensagem, que
-      // permite configurar o tamanho da fonte, a fonte e o alinhamento daquela
-      // mensagem."* Ele é um ALTERNADOR de gaveta, e UMA por vez — duas abertas
+      // ---- O ESTILO DESTA MENSAGEM (tamanho, fonte e alinhamento) ----
+      // Ele é um ALTERNADOR de gaveta, e UMA por vez — duas abertas
       // na mesma lista fariam o operador perder de vista qual linha ele ajusta.
       //
       // ABRIR A GAVETA FECHA A FAIXA DE AÇÕES — a faixa cobre o nome e a gaveta
@@ -10282,15 +10188,9 @@ function renderMsg() {
       // A ORDEM DOS DESTINOS é a da tabela `DESTINOS` (Cronograma, favoritos), e
       // o excluir fecha a fileira — é o que as outras listas fazem.
       const [caixa, mais] = montarAcoesDaLinha(li, [est, add, fav, del], 'msg:' + m.id);
-      // ===== COM A GAVETA ABERTA, O `⋮` É O BOTÃO DE ESTILO (v1.9.4) =====
+      // ===== COM A GAVETA ABERTA, O `⋮` É O BOTÃO DE ESTILO =====
       //
-      // Relato do operador: *"verifique também para que o botão que abre as
-      // opções da mensagem, se transforme no botão de fonte quando as opções da
-      // fonte estiverem abertas, para poder tocar nele e fechar a aba das
-      // opções. Hoje a aba abre, e as opções fecham, removendo da tela um método
-      // de fechar a janela de opções de fonte."*
-      //
-      // Era exato: abrir a gaveta FECHA a faixa de ações (elas se cobririam), e
+      // Abrir a gaveta FECHA a faixa de ações (elas se cobririam), e
       // o botão que a abriu mora dentro dessa faixa — a única saída virava tocar
       // no `⋮` para reabrir a faixa e só então tocar no estilo. A coluna do `⋮`
       // é o único alvo que fica à vista, então é ela que carrega a volta.
@@ -10305,27 +10205,16 @@ function renderMsg() {
     });
   }
   host.appendChild(list);
-  // (O "+ Nova mensagem" saiu daqui na v1.9.2 e é o PRIMÁRIO do rodapé — ver
-  //  `renderFoot`. O corpo da janela fica para a lista, que é o que cresce.)
 }
 
-// ===== A FOLHA DE FERRAMENTAS ABRE NUMA LISTA (v1.13.3; lista vertical da v1.13.4) =====
-// Pedido do operador: *"ao invés de usar tabs e sub tabs, use uma grade inicial com
-// todas as ferramentas prontas no primeiro toque, por exemplo não separa por tempo,
-// sorteio e mensagens, mas já põe direto as subdivisões"*. Eram TRÊS abas no topo
-// (Mensagens · Tempo · Sorteio) e, dentro do Tempo, um segmentado de quatro (Relógio ·
-// Cronômetro · Timer · Itinerário) — dois níveis de escolha para chegar à ferramenta.
-// Hoje a folha abre na LISTA das seis, uma linha por ferramenta (`FERRAMENTAS`), e o
-// toque abre a ferramenta; o voltar do Android devolve a lista antes de a folha fechar
-// (na tela não há voltar desde a v1.13.6: dentro de uma ferramenta o cabeçalho tem o
-// título e o ✕, e na lista quem fecha é a seta na casa da porta, `#toolsFechar`).
-//
-// A v1.13.3 a desenhava numa GRADE de 3×2 tiles, e a v1.13.4 a trocou por uma LISTA
-// VERTICAL que divide a altura da folha: *"como temos poucas ferramentas, ao invés de
-// uma grade, faça apenas uma lista vertical, mantendo o tom de cores, mas aproveitando
-// e distribuindo toda a altura disponível para esses 6 itens. Use o icone a esquerda e
-// texto a direita"*. Os nomes internos (`ferrNaGrade`, `renderGradeDeFerramentas`,
-// `#ferrGrade`, `.ferr-tile`) ficaram — renomeá-los não muda um pixel.
+// ===== A FOLHA DE FERRAMENTAS ABRE NUMA LISTA =====
+// A LISTA das seis, uma linha por ferramenta (`FERRAMENTAS`), dividindo a altura da
+// folha — um nível de escolha só até a ferramenta. O toque abre a ferramenta; o voltar
+// do Android devolve a lista antes de a folha fechar. Na tela não há voltar: dentro de
+// uma ferramenta o cabeçalho tem o título e o ✕, e na lista quem fecha é a seta na
+// casa da porta (`#toolsFechar`). Os nomes internos (`ferrNaGrade`,
+// `renderGradeDeFerramentas`, `#ferrGrade`, `.ferr-tile`) são da GRADE que a lista
+// substituiu — renomeá-los não muda um pixel.
 //
 // **O ESTADO DOS PAINÉIS É O DE SEMPRE.** `miscTool` ('msg' · 'chrono' · 'draw'),
 // `tempoVista` e `chrono.mode` continuam dizendo QUAL painel está montado — as dezenas
@@ -10432,9 +10321,7 @@ function renderGradeDeFerramentas() {
 
 // ===== NA LISTA, A FOLHA TEM A LARGURA DA PORTA (v1.13.5) =====
 //
-// Pedido do operador: *"a largura da janela de ferramentas durante a listagem,
-// pode ser a mesma largura do botão que abre a janela de ferramentas"*. As duas
-// bordas da folha estreita (`#toolsSheet.estreita`) são as da porta `#toolsBtn`,
+// As duas bordas da folha estreita (`#toolsSheet.estreita`) são as da porta `#toolsBtn`,
 // LIDAS do layout como distância às bordas do `.list-body` (o bloco contêiner da
 // folha) — nunca um número. Quem chama é a abertura da folha e o
 // `medirRodapeDaLista`, que roda a cada mudança de tamanho do rodapé (giro,
@@ -10442,7 +10329,7 @@ function renderGradeDeFerramentas() {
 // múltipla toma o rodapé) a medida boa que já está lá é a resposta certa.
 // SÓ O QUE MUDOU, como no `acertarVeus`.
 //
-// E A PORTA VIRA SETA (v1.13.6): na lista não há cabeçalho, e quem fecha a folha é
+// E A PORTA VIRA SETA: na lista não há cabeçalho, e quem fecha a folha é
 // a `#toolsFechar`, no retângulo EXATO da porta que a folha cobre. As bordas dela
 // são as da folha estreita; a ALTURA (`--ferr-porta-h`) e a distância da base da
 // porta à do `.list-body` (`--ferr-porta-base`) são lidas aqui também, pelo
@@ -10564,16 +10451,12 @@ function acertarGradeDeFerramentas() {
   if (ferrNaGrade && ferramentasAbertas()) pintarGradeDeFerramentas();
 }
 
-// O CABEÇALHO SÓ EXISTE DENTRO DE UMA FERRAMENTA (v1.13.6), e diz qual é: o nome
-// dela no centro e o ✕ na ponta. Na LISTA ele não é desenhado — pedido do operador,
-// *"apenas para essa seção de lista de ferramentas, substitua a barra de topo com o
-// título 'ferramentas' e o botão de fechar, por um botão de seta que ficara na base
-// da lista"* —, e quem fecha é a `#toolsFechar` (ver `medirPortaDasFerramentas`).
+// O CABEÇALHO SÓ EXISTE DENTRO DE UMA FERRAMENTA, e diz qual é: o nome dela no
+// centro e o ✕ na ponta. Na LISTA ele não é desenhado, e quem fecha é a
+// `#toolsFechar` (ver `medirPortaDasFerramentas`).
 //
-// NO ITINERÁRIO O TÍTULO É O NOME DO ITINERÁRIO ATIVO (v1.13.4), e é a porta da
-// gaveta deles: pedido do operador, *"use o campo de título da barra superior
-// geral, para colocar o título editável dos nomes dos itinerários, para aproveitar
-// o espaço vertical"*. É o idioma do `#cronoTitulo` inteiro — o nome e a seta, o
+// NO ITINERÁRIO O TÍTULO É O NOME DO ITINERÁRIO ATIVO, e é a porta da gaveta
+// deles (o espaço vertical volta para a lista). É o idioma do `#cronoTitulo` inteiro — o nome e a seta, o
 // toque abre a gaveta e o RENOMEAR é o lápis da linha dela —, e não um campo de
 // texto no cabeçalho: um título que edita no toque não teria como abrir a gaveta,
 // e as duas folhas que têm "vários" passariam a responder ao mesmo gesto de formas
@@ -10789,31 +10672,29 @@ function trocarVistaDasFerramentas(desenhar, sentido, opcoes) {
   anims[0].finished.then(fim, () => {});
 }
 
-// ===== A FOLHA DE FERRAMENTAS (v1.3.10) =====
-// As Ferramentas eram uma ABA, ao lado do Cronograma e da Bíblia. Elas viraram
-// uma FOLHA do Cronograma a pedido do operador — e a mudança não é de navegação,
-// é de PARENTESCO: toda ferramenta daqui produz uma CENA que entra no roteiro (a
-// mensagem vira cue, o cronômetro e o sorteio são projetados no meio da ordem do
-// culto). Ser uma extensão do Cronograma é o que essa relação já era; a aba só a
-// escondia atrás de um passo lateral.
-//
-// (A faixa de abas que hospedava a porta delas saiu na v1.5.0, e com ela a
-//  última razão de haver "aba" alguma. O argumento que valia aqui — *a folha
-//  cobre a lista, não a substitui, então o Cronograma continua sendo a tela em
-//  que se está* — virou a regra do app inteiro: ele tem uma tela e duas folhas.)
+// ===== A FOLHA DE FERRAMENTAS =====
+// Uma FOLHA do Cronograma, e o motivo é PARENTESCO: toda ferramenta daqui produz
+// uma CENA que entra no roteiro (a mensagem vira cue, o cronômetro e o sorteio são
+// projetados no meio da ordem do culto). A folha COBRE a lista, não a substitui —
+// o Cronograma continua sendo a tela em que se está (uma tela e duas folhas).
 function ferramentasAbertas() { return !!toolsSheetEl && !toolsSheetEl.hidden; }
 
-// A DURAÇÃO DA ENTRADA E DA SAÍDA, e ela é UMA — lida do `--tools-anim` do CSS,
-// que é o dono. Um número repetido aqui divergiria do outro no primeiro ajuste,
-// e o que se veria é a folha sumindo no meio do caminho (ou uma faixa parada
-// depois de ela já ter descido).
-const TOOLS_ANIM_MS = 220;
+// A DURAÇÃO DA ENTRADA E DA SAÍDA das duas folhas, e ela é UMA — lida do
+// `--tools-anim` do CSS, que é o dono. Um número repetido aqui divergiria do
+// outro no primeiro ajuste, e o que se veria é a folha sumindo no meio do
+// caminho (ou uma faixa parada depois de ela já ter descido). Sem o token não
+// há animação (ela é `var(--tools-anim)`), e o zero é a resposta certa.
+function msDaToolsAnim() {
+  const v = getComputedStyle(document.documentElement).getPropertyValue('--tools-anim').trim();
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n * (/ms$/.test(v) ? 1 : 1000) : 0;
+}
 let toolsSaindoTimer = null;
 
 function abrirFerramentas() {
-  // A FOLHA AINDA DESCENDO CONTA COMO FECHADA (v1.13.3): ela só ganha o `hidden` no
-  // fim da saída, e até a v1.13.2 uma reabertura nesses 220 ms voltava daqui sem
-  // fazer nada — o toque engolido, e a folha sumindo logo depois.
+  // A FOLHA AINDA DESCENDO CONTA COMO FECHADA: ela só ganha o `hidden` no fim da
+  // saída, e uma reabertura nesse intervalo não pode voltar daqui sem fazer nada —
+  // o toque engolido, e a folha sumindo logo depois.
   if (!toolsSheetEl || (ferramentasAbertas() && !toolsSheetEl.classList.contains('saindo'))) return;
   // Uma saída em curso é CANCELADA: reabrir no meio dela deixaria a folha
   // entrando com a classe da descida ainda pendurada, e o `setTimeout` daquela
@@ -10841,10 +10722,8 @@ function fecharFerramentas() {
   stopItinPanelTimer();
   pararGradeTimer();
   fecharItinGaveta();
-  // A FOLHA DESCE POR ONDE SUBIU (v1.3.13, a pedido do operador). Ela aparecia
-  // deslizando e sumia no talo — duas coisas diferentes para o olho, e a
-  // segunda lendo como um erro justamente porque a primeira já ensinou a
-  // esperar o contrário.
+  // A FOLHA DESCE POR ONDE SUBIU: sumir no talo, depois de entrar deslizando,
+  // se lê como erro.
   //
   // O ESTADO CONTINUA SENDO O `hidden`, e ele só cai no FIM: uma folha "fora"
   // por estar transladada continuaria na árvore e capturando toque. A animação
@@ -10857,7 +10736,7 @@ function fecharFerramentas() {
   //
   // Sem `animationend`: um `prefers-reduced-motion` desliga a animação e o
   // evento nunca chega — a folha ficaria de pé para sempre. O relógio dispara do
-  // mesmo jeito, e com a animação desligada os 220 ms passam despercebidos.
+  // mesmo jeito, e com a animação desligada a duração passa despercebida.
   clearTimeout(toolsSaindoTimer);
   toolsSheetEl.classList.add('saindo');
   toolsSaindoTimer = setTimeout(() => {
@@ -10866,7 +10745,7 @@ function fecharFerramentas() {
     toolsSheetEl.hidden = true;
     toolsBodyEl.innerHTML = '';
     toolsFootEl.innerHTML = '';
-  }, TOOLS_ANIM_MS);
+  }, msDaToolsAnim());
 }
 
 // ===== A FOLHA DA BÍBLIA (v1.5.0) =====
@@ -10893,18 +10772,12 @@ function abrirBiblia() {
   fecharFerramentas();
   bibleSheetEl.hidden = false;
   bibliaNoAr = true;
-  // ===== ELA REABRE ONDE PAROU, DENTRO DA MESMA SESSÃO (v1.8.83) =====
+  // ===== ELA REABRE ONDE PAROU, DENTRO DA MESMA SESSÃO =====
   //
-  // Pedido do operador: *"faça a janela da bíblia lembrar de onde estava na
-  // próxima abertura durante uma mesma seção. Ao invés de voltar sempre para o
-  // seletor do livro"*.
-  //
-  // ISTO REVOGA a regra da v1.5.0 (*"entrar pela porta é começar do começo"*,
-  // pela analogia com o `resetarBiblioteca` do acervo), e a analogia era o
-  // defeito: a Biblioteca é uma BUSCA — voltar ao topo é o certo, porque o que
-  // se procura muda a cada abertura. A Bíblia numa pregação é UMA leitura,
-  // interrompida por um louvor e retomada dois minutos depois, e cada retomada
-  // custava livro → capítulo → versículo com o pregador falando.
+  // A Bíblia numa pregação é UMA leitura, interrompida por um louvor e retomada
+  // dois minutos depois, e voltar ao seletor custaria livro → capítulo →
+  // versículo com o pregador falando. (A Biblioteca, que é uma BUSCA, volta ao
+  // topo — `resetarBiblioteca`: lá o que se procura muda a cada abertura.)
   //
   // "MESMA SESSÃO" é literal e vem de graça: `bibleScreen` é um `let` de módulo,
   // e ele morre com a página — fechar o app devolve a tela de livros sem uma
@@ -10933,17 +10806,16 @@ function fecharBiblia() {
     bibleSheetEl.classList.remove('saindo');
     bibleSheetEl.hidden = true;
     bibleBodyEl.innerHTML = '';
-  }, TOOLS_ANIM_MS);
+  }, msDaToolsAnim());
 }
 
 // A mensagem está NO AR? Pela PROJEÇÃO, nunca pela existência da sessão — a
-// mesma pergunta dos outros cinco provedores de Camada de Texto.
+// mesma pergunta dos outros provedores de Camada de Texto (`provedorDeTextoNoAr`).
 function msgProjecting() { return !!(msgSession && msgSession.projecting); }
 
-// ELE PASSA PELO MESMO BALDE QUE A OUTRA CASA (v1.7.4). Antes ele trocava o
-// balde à mão, ANTES de desenhar — e com a varredura pela união isso publicaria
-// um host vazio no meio da própria passada dele. O `comBaldeDeMiniaturas` já
-// fazia a coisa certa para o segundo host; o que muda é este passar por ele.
+// ELE PASSA PELO MESMO BALDE QUE A OUTRA CASA (`comBaldeDeMiniaturas`): trocar
+// o balde à mão, antes de desenhar, publicaria um host vazio no meio da própria
+// passada dele (a varredura é pela união).
 //
 // Os `return` de dentro continuam funcionando: eles saem da arrow, e o
 // `finally` do balde roda do mesmo jeito.
@@ -10967,9 +10839,6 @@ function renderLibraryCorpo() {
   // embaixo da grade de livros da Bíblia.
   renderListFoot();
 
-  // (O DESVIO POR ABA saiu na v1.5.0: a Bíblia deixou de disputar este `<ul>` e
-  //  passou a desenhar no `#bibleBody` da folha dela. `renderLibrary` voltou a
-  //  ser o que o nome diz — o Cronograma, e só ele.)
   const items = libItems;
 
   // Lista vazia MAS com download em curso: a linha provisória é a única coisa
@@ -11001,9 +10870,8 @@ function renderLibraryCorpo() {
     // é indicada só pelo highlight azul (.lib-item.selected) — sem ícone de check.
     const thumb = isCue(item) ? cueThumb(item) : thumbEl(item);
 
-    // NOME + SUBTÍTULO numa coluna só (v5.118). O tipo do item era um selo ao
-    // lado do nome e disputava largura com ele — some no primeiro título
-    // comprido, que é justamente onde ele faz falta. Ver `subtituloItem`.
+    // NOME + SUBTÍTULO numa coluna só: um selo ao lado do nome disputaria largura
+    // com ele, e sumiria no primeiro título comprido. Ver `subtituloItem`.
     const textWrap = document.createElement('div'); textWrap.className = 'row-text';
     const name = document.createElement('span'); name.className = 'row-name'; name.textContent = item.name;
     const sub = document.createElement('span'); sub.className = 'row-sub';
@@ -11060,21 +10928,13 @@ function renderLibraryCorpo() {
         });
       }
     }
-    // ===== "ADICIONAR À PLAYLIST", NA GAVETA DA LINHA (v5.301) =====
-    //
-    // Pedido do operador: *"nas opções dos itens do cronograma, especificamente
-    // na gaveta de opções, adicione o botão de 'Adicionar a playlist'"*.
+    // ===== "ADICIONAR À PLAYLIST", NA GAVETA DA LINHA =====
     //
     // O Cronograma é a ORDEM do culto; a playlist é a FILA do momento — o bloco
-    // de louvores que toca em sequência. Mandar um item de uma para a outra era
-    // o único trajeto entre as três listas sem caminho curto: o Favorito já
-    // oferece o destino na gaveta dele (`renderItemMenu`), e daqui só se chegava
-    // lá por toque longo → seleção múltipla → botão do rodapé.
-    //
-    // ACRESCENTA, nunca substitui — quem TROCA a fila por este item é o toque no
-    // corpo da linha (`onTap` → `replacePlaylistWith`), e são ações opostas.
-    //
-    // E ELE É UM ALTERNADOR QUE MOSTRA O ESTADO (v5.302) — ver `plBtnDaLinha`.
+    // de louvores que toca em sequência. ACRESCENTA, nunca substitui — quem
+    // TROCA a fila por este item é o toque no corpo da linha (`onTap` →
+    // `replacePlaylistWith`), e são ações opostas. É um ALTERNADOR que mostra o
+    // estado — ver `plBtnDaLinha`.
     //
     // NÃO ENTRA NUMA CENA DE ROTEIRO (`isCue`), e a regra já estava escrita no
     // `onTap`: *"um versículo não é uma fila de reprodução"* — ali um cue projeta
@@ -11116,15 +10976,13 @@ function renderLibraryCorpo() {
     }
 
     const parts = [thumb, textWrap];
-    // TUDO ATRÁS DO `⋮` (v5.258) — ver `montarAcoesDaLinha`. A ordem dentro da
-    // caixa é a de sempre, da esquerda para a direita: o que se usa mais fica
-    // mais perto do dedo que acabou de tocar no `⋮`, que é a direita.
+    // TUDO ATRÁS DO `⋮` — ver `montarAcoesDaLinha`; a ordem da fileira está
+    // logo abaixo.
     //
     // Na SELEÇÃO MÚLTIPLA não há `⋮`: ali o alvo é o conjunto, e quem age é a
-    // barra do rodapé. (Antes a alça de arrastar continuava na linha; arrastar
-    // com meia lista marcada nunca foi uma operação que alguém quisesse.)
+    // barra do rodapé.
     //
-    // E COM UM TRABALHO EM CURSO A COLUNA É DELE (v1.7.4) — ver
+    // E COM UM TRABALHO EM CURSO A COLUNA É DELE — ver
     // `botaoCancelarDoTrabalho`. A fileira inteira sai de cena junto: ela abre
     // o que fazer com um item que está sendo ESCRITO neste instante, e o
     // "baixar o vídeo" desta linha em particular oferece a ação que já está em
@@ -11134,44 +10992,16 @@ function renderLibraryCorpo() {
       if (cancelar) parts.push(cancelar);
     } else if (!selectionMode) {
       parts.push(...montarAcoesDaLinha(li, [
-        // ===== O EXCLUIR É O PRIMEIRO, isto é, o MAIS LONGE do `⋮` (v5.288) =====
+        // ===== A ORDEM DA FILEIRA, da esquerda para a direita =====
         //
-        // Pedido do operador: *"coloque o botão de excluir mais à esquerda na
-        // lista de opções, já que excluir deve ficar o mais longe de um
-        // acidente de clique de fechar opções"*.
-        //
-        // O `⋮` fica colado na ponta direita da faixa e é o alvo que se toca
-        // repetidamente (abre e fecha) — errá-lo por alguns pixels caía
-        // justamente no destrutivo. Do outro lado o vizinho é o VAZIO da caixa,
-        // que também fecha; a diferença é que ele é uma área larga em que
-        // ninguém mira a borda, e não um botão de 40px que se procura.
-        //
-        // (Isto inverte a ordem que valia desde a v5.258 — "o que se usa mais
-        // fica mais perto do dedo que acabou de tocar no `⋮`". Ela continua
-        // valendo para o resto da fileira: o que muda é que o destrutivo deixa
-        // de disputar essa vizinhança.)
-        //
-        // ===== E A ORDEM DO RESTO É A QUE O OPERADOR DITOU (v5.302) =====
-        //
-        // *"Ajuste a ordem dos botões de opções do cronograma para, da esquerda
-        // para a direita: excluir, renomear, favoritar, adicionar à playlist,
-        // subir e descer."*
-        //
-        // Ela agrupa por NATUREZA, que é o que a ordem anterior não fazia: o que
-        // mexe no ITEM (excluir, renomear), o que mexe em ONDE ele está
-        // (playlist, favoritar) e o que mexe na POSIÇÃO dele (↑↓). Antes o
-        // renomear caía entre a playlist e o par de ordem, separando os dois
-        // pares que se parecem.
-        //
-        // O PAR DO MEIO INVERTEU NA v1.8.56, e é a única metade daquele pedido
-        // que não sobreviveu: a ordem canônica dos destinos passou a ser
-        // Cronograma · playlist · favoritos em TODO o app (ver `DESTINOS`), a
-        // pedido do mesmo operador — *"padronize: a esquerda o cronograma, no
-        // meio a playlist e por fim o favoritos"*. Nesta lista o Cronograma não
-        // aparece (o item já está nele), então o que resta é playlist antes da
-        // estrela.
+        // excluir · renomear · playlist · estrela · (baixar) · ↑↓ — por NATUREZA:
+        // o que mexe no ITEM, o que mexe em ONDE ele está (na ordem dos
+        // `DESTINOS`; o Cronograma não aparece, o item já está nele) e o que mexe
+        // na POSIÇÃO. O EXCLUIR é o MAIS LONGE do `⋮`: o `⋮` é o alvo que se toca
+        // repetidamente (abre e fecha), e errá-lo por alguns pixels não pode cair
+        // no destrutivo — o vizinho do excluir é o VAZIO da caixa, que também fecha.
         botaoExcluirDaLinha(item, 'imports', () => load()),
-        // RENOMEAR (v5.288), com a mesma guarda do excluir: na pasta do aparelho
+        // RENOMEAR, com a mesma guarda do excluir: na pasta do aparelho
         // o nome vem do arquivo, e um nome só no registro seria desfeito na
         // varredura seguinte.
         botaoRenomearDaLinha(item, () => load()),
@@ -11179,21 +11009,10 @@ function renderLibraryCorpo() {
         star,
         // O "baixar o vídeo" de uma linha de LINK não está na ordem pedida — ele
         // só existe nessa linha. Entra DEPOIS dela, para não partir ao meio a
-        // sequência que o operador ditou.
-        // (O `&& !dl` saiu na v1.7.4: com um trabalho em curso a fileira
-        // inteira não é desenhada, então a guarda passou a ser sempre
-        // verdadeira — e uma condição que nunca é falsa afirma uma regra que
-        // outra pessoa já garante.)
+        // sequência da fileira.
         ytDl,
-        // O PAR ↑↓ (v5.285), no lugar da alça de arrastar. Só onde há ordem a
-        // mexer: a pasta do aparelho não é uma lista reordenável.
+        // O PAR ↑↓ (`moverNaLista`).
         ...botoesDeOrdem('imports', item.id, i, items.length),
-        // (O EXCLUIR subiu para o começo desta lista na v5.288 — ver a nota lá.
-        // NA PASTA DO APARELHO ELE NÃO ENTRA, desde a v5.271: ali "excluir"
-        // apaga o ARQUIVO físico, e essa limpeza tem donos próprios
-        // (`deleteSelected`, com o `opfsDeleteFile` e o `purgeCatalogRecords`).
-        // Um mesmo ícone com dois alcances conforme a tela é a pior forma de
-        // oferecer um destrutivo.)
       ], 'imports:' + item.id));
     }
     row.append(...parts);
@@ -12103,18 +11922,26 @@ function botoesDeOrdem(listName, id, pos, total) {
 // Move UMA casa. A troca é no array de ids e o desfecho é o mesmo `load()` que
 // o arrasto usava — o resto do app não sabe que o gesto mudou.
 //
+// A TROCA É A FORMA ATÔMICA do `listSet` (a função roda na transação que grava):
+// ler a lista antes e gravar o array depois desfazia um `listAdd` do vão — o
+// download do YouTube que termina por `addMediaToList` sumia da lista, e o
+// coletor do próprio `listSet` apagava o registro (`hidratacao-perde-a-vez`, 8).
+//
 // `reabrirAcoesEm` é o que faz o segundo toque cair no mesmo lugar: `load()`
 // reconstrói a lista inteira, o `li` que tinha a gaveta aberta deixa de existir,
 // e sem isso cada casa custaria reabrir a gaveta à mão.
 async function moverNaLista(listName, id, delta) {
-  const ids = await AVDB.listIds(listName);
-  const de = ids.indexOf(id);
-  if (de === -1) return;
-  const para = de + delta;
-  if (para < 0 || para >= ids.length) return;
-  ids.splice(de, 1);
-  ids.splice(para, 0, id);
-  await AVDB.listSet(listName, ids);
+  let andou = false;
+  await AVDB.listSet(listName, (ids) => {
+    const de = ids.indexOf(id);
+    const para = de + delta;
+    if (de === -1 || para < 0 || para >= ids.length) return ids;
+    ids.splice(de, 1);
+    ids.splice(para, 0, id);
+    andou = true;
+    return ids;
+  });
+  if (!andou) return;
   reabrirAcoesEm = listName + ':' + id;
   await load();
   // (O REDESENHO EXPLÍCITO DA SEÇÃO saiu na v5.292: `load()` passou a fazê-lo

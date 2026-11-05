@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.13.23",
+    "itens": [
+      "Mover um item do Cronograma enquanto um vídeo termina de baixar não faz mais o vídeo sumir da lista."
+    ]
+  },
+  {
     "versao": "1.13.22",
     "itens": [
       "Bíblia: trocar a versão sem internet não deixa mais o nome de uma versão sobre o texto de outra.",
