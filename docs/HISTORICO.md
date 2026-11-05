@@ -680,6 +680,16 @@ motivo (o maior binário é o `pptx-renderer.js`, 1,5 MB, vendor declarado;
 `.git` 11 MB). Cache do Gradle (`setup-gradle`) e do npm/Chromium (restore +
 save) já existem.
 
+**O PULO SAIU (decisão do operador, 2026-11-05: *"não permite que pule testes,
+independente do motivo"*).** O `Preparar o Chromium` perdeu o
+`continue-on-error`, o `Oráculos em Chromium` perdeu o `if:
+steps.chromium.outcome == 'success'` e o passo `Oráculos em Chromium — PULADOS
+(aviso)` foi apagado: infraestrutura que falha (rede, CDN, imagem recusada,
+prazo de 10 min) agora REPROVA o `verificar`, e o bundle não sai. Revoga a
+política "infraestrutura AUSENTE não segura o canal" (v5.316). Só os dois
+passos de CACHE seguem `continue-on-error` — não pulam teste. A válvula manual
+`ignorar_oraculos` ficou: ela não pula oráculo, roda todos e publica assinando.
+
 ---
 
 ## revisão A5 — o arnês e os oráculos (sem versão nova; só `tools/` e docs)

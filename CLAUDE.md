@@ -761,8 +761,9 @@ Chromium, a rede externa bloqueada, o JUnit, a assinatura e o backup estão em
 - **Método novo na ponte entra na allowlist do fixture no mesmo lote** — um stub
   que não resolve trava 60 s calado (um arquivo que demore um múltiplo redondo de
   60 s é este defeito até prova em contrário).
-- **Node puro, "Oráculos em Chromium" e JUnit BARRAM o build**; só "Preparar o
-  Chromium" é `continue-on-error`. **A rede externa não entra num oráculo**
+- **Node puro, "Preparar o Chromium", "Oráculos em Chromium" e JUnit BARRAM o
+  build — NENHUM teste é pulado, por motivo nenhum** (operador, 2026-11-05):
+  infraestrutura que falha reprova o job e se resolve repetindo o run. **A rede externa não entra num oráculo**
   (`semRedeExterna(ctx)` depois de cada `newContext()`), e um servidor de mentira
   não diverge do de verdade.
 - **Assinatura:** keystore fixa por secrets, `-PrequireSigning=true` na Release e
