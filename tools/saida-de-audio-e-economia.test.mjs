@@ -87,7 +87,7 @@ const PONTE = `(() => {
     shellVersion: () => 73,
     role: () => 'controle',
     appVersion: () => '1.99-teste',
-    takeShare: () => '',
+    takeShare: (id) => { setTimeout(() => window.__avResolve(id, ''), 0); },
     busPost: (t) => { try { (window.__enviados = window.__enviados || []).push(JSON.parse(t)); } catch (_) {} },
     otaConfirm: () => {},
     abrirSaidaDeAudio: () => {

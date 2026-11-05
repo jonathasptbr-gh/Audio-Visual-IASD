@@ -17,7 +17,7 @@ abandonada → primeira pendente pelo `nº`).
 | 3 | A3 | feita (resíduo: as células do `ORACULOS.md` em cadeia só-acrescenta, repasse A5) | sem versão (só docs) | 2026-10-30 → 2026-11-04 | `CONTROLE.md` 770 kB → hub + 11 partes (verbatim provado); duplicatas da A2 fundidas nos 7 capítulos; narrativa do `ORACULOS.md` e da Biblioteca ao `HISTORICO.md`; ~20 fatos velhos corrigidos contra o código |
 | 4 | A4 | feita | sem versão (só docs + `docs-coerentes`) | 2026-11-04 | índice do `HISTORICO.md` 1,2 MB → 58 kB (notas movidas verbatim às seções); auditorias com o estado conferido (os "26" da 2026-08 são 7 ids + 3 resíduos); `TELAO-POR-COMANDOS.md` 73 → 56 kB com ~25 fatos corrigidos; os repasses da A2/A3 |
 | 5 | A5 | feita (resíduo: as outras células em cadeia do `ORACULOS.md`, ver o relatório) | sem versão (só `tools/` + docs) | 2026-11-04 | `docs-coerentes` confere âncora com o slug do GitHub e entre arquivos; `display-smoke` sem a comparação morta do espelho; `wav()` no arnês; JUnit sem rede +14 testes; 4 células do `ORACULOS.md` colapsadas; tempos medidos arquivo a arquivo |
-| 6 | A6 | em curso | | 2026-11-04 | |
+| 6 | A6 | feita | sem versão (só workflow, `tools/` e docs) | 2026-11-04 → 2026-11-05 | o `verificar` fixo em `ubuntu-24.04`: no 26.04 o Playwright do pin não instalava e a suíte de Chromium era PULADA com job verde (9 runs); `stub-da-ponte` novo (94 travas latentes em 40 fixtures consertadas); ponteiros do `apk.yml` e duplicata do `BUILD.md` |
 | 7 | W1 | pendente | | | |
 | 8 | W2 | pendente | | | |
 | 9 | W3 | pendente | | | |
@@ -55,7 +55,6 @@ tratou.
 | A3 | A2 | Os blocos movidos VERBATIM para `docs/arquitetura/DESIGN-SYSTEM.md` ("As regras da paleta como estavam no núcleo"), `docs/arquitetura/CONTROLE.md` (referência da preview; abertura), `docs/shell/PONTE.md`, `docs/TELAO-POR-COMANDOS.md`, `docs/arquitetura/DISPLAY.md`, `MODELO-DE-DADOS.md` e `MOTOR-STAGE.md` (seções "(do núcleo, revisão A2)" ao fim de cada um) DUPLICAM em parte o que o capítulo já tinha (medido: PONTE.md já cobria ~95% dos símbolos; DESIGN-SYSTEM ~53%). A A2 não deduplicou de propósito (mover sem perder era a cerca); fundir cada seção na casa certa do capítulo é trabalho de capítulo |
 | K2 | A3 | `NativeBridge.kt` ~1350: o comentário diz que os métodos de certificado são guardados "como os cinco irmãos", mas a família do espelho tem 9 métodos com guarda `host` — conferir a conta |
 | X3 | A5 | (sem outra etapa em `tools/`; a X3 é a que mede no Chromium) `tools/configuracoes-janelas.test.mjs` D e `tools/boot-nativo.test.mjs` — instáveis no runner, SEM reprodução local (passaram na base e 5× cada a três processos). O `obtido` do D já diz o estado da seção (A1); o próximo vermelho do `boot-nativo` precisa ter a asserção lida no log (o log corta): sem ela, não há o que consertar |
-| A6 | A5 | `docs/BUILD.md` "EM PARALELO, TRÊS DE CADA VEZ": o parágrafo "Os números moram no `apk.yml`… divergiram uma vez (79/99 aqui contra 82/101 lá)" está ESCRITO DUAS VEZES na mesma seção. E os stubs da ponte: `takeShare: () => ''` (13 oráculos) e `espelhoLigar` em `nomes` sem `comCallId` (12) são armadilhas de 60 s latentes (custo hoje: zero) — uma varredura de Node puro que cruze cada stub com o `native.js` fecharia a classe |
 | X2 | A4 | Os que sobraram da `AUDITORIA-2026-08.md` estão ENUMERADOS na tabela "Conferência da revisão A4" no topo dela (7 ids + 3 resíduos; o "26" eram listas brutas). E fora da cerca de qualquer etapa: a `AUDITORIA-2026-09-11.md` tem 23 achados sem RESOLVIDO (entre eles [5] e [33] VERIFICADOS) + 3 extras (imports mortos em `EspelhoServidor.kt` e `ShellUpdater.kt`, o `#bibleTitle`) — vários ([23] [25] [29] [33] [37]) citam linhas do `CLAUDE.md` antigo e devem ter caducado; a `AUDITORIA-EFICIENCIA-2026-09.md` tem #2, #5 e #9 abertos; a `AUDITORIA-ESTABILIDADE-AV.md` tem C2 e D2 abertos (cabeçalhos atualizados) |
 | C1 | A4 | `controle.js` (~linha 715, o comentário do achado `:469` da auditoria 2026-08): diz que "a ÚNICA porta dinâmica é `DEST_ICONE`", que saiu na v1.8.56 — hoje é `ICON[d.ico]`. Lápide |
 | W2 | A4 | `espelho/tela.js`: o cabeçalho cita `db.js:800-801` (número de linha), e "digitação do código" / "o código rotacionou" descrevem o pareamento por código de 3 dígitos, que não existe mais |
@@ -232,3 +231,30 @@ duas armadilhas latentes de stub (repasse A6). Os dois instáveis não reproduze
 (repasse X3). Comparação `comm` dos dois sentidos: limpa.
 **PONTO DE PARADA:** nenhum na cerca do cartão; o resíduo é o colapso das
 demais células do `ORACULOS.md`. **O operador:** nada a fazer.
+
+### A6 · CI e higiene do repositório — feita (2026-11-04, retomada 2026-11-05)
+
+**Corrigido:** (1) **o portão de Chromium estava aberto**: o `ubuntu-latest` virou Ubuntu
+26.04 e o Playwright 1.56.0 recusa a imagem; o `Preparar o Chromium` falhava em 2 s e os
+oráculos eram PULADOS com o job verde — nove runs de `main` (2026-11-04, `41916726776` →
+`41929548923`; o último com suíte é o `41123264801`, 132/132). Só lotes de docs/`tools/`
+passaram nesse vão (nada de `assets/web/` chegou à frota sem verificação). `verificar` →
+`runs-on: ubuntu-24.04` (o ambiente da campanha; subir o pin obrigaria repeti-la). (2)
+`tools/stub-da-ponte.test.mjs` (Node puro, no workflow, linha no `ORACULOS.md`, reversão nas
+duas formas): 94 travas latentes em 40 fixtures (`takeShare` constante nos 40; 54 nomes fora
+do `comCallId`, 28 no `Proxy` do `tela-inteira`), consertadas mecanicamente. (3) Seis
+ponteiros do `apk.yml` para seções que a A2 moveu; `BUILD.md` sem o parágrafo duplicado, com
+a contagem de Node puro (24) e a regra da imagem fixa; `checar.mjs` sem o "16".
+**Verificado:** Node puro, "Sanidade da base web", `docs-coerentes`, `tokens`, YAML e `comm`
+dos dois sentidos verdes; a suíte INTEIRA de Chromium local (os 132, 636 s a três processos,
+porque o CI não a rodava havia nove runs): 131/132. O vermelho, `site-grade-e-carrossel` F
+(desvio 3,7–3,8 px, teto 2), é determinístico aqui, fora do diff, e o Chromium local NÃO é o
+do pin (1243, sem CDN para baixar o do 1.56) — a prova é o primeiro `verificar` em 24.04.
+**Achado e não corrigido:** actions em Node 20 (`checkout@v4`, `setup-java@v4`
+"deprecated"…) rodam forçadas em Node 24 e funcionam — trocar major sem defeito não paga;
+`site/.nojekyll` versionado E criado no `pages.yml` (inofensivo); nada grande versionado sem
+motivo (`.git` 11 MB); caches de Gradle e npm/Chromium já existem.
+**Pergunta ao operador (não diff):** o pulo por infraestrutura não reprova o job por
+política; nove pulos seguidos passaram despercebidos. Vale reprovar quando o `Preparar o
+Chromium` falha por recusa do PRÓPRIO Playwright (não rede)?
+**Repasses:** nenhum novo. **O operador:** nada a fazer.

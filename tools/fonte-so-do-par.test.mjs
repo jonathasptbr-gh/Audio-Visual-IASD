@@ -83,7 +83,7 @@ const PONTE = `(() => {
     shellVersion: () => 50,
     role: () => 'controle',
     appVersion: () => '1.98-teste',
-    takeShare: () => '',
+    takeShare: (id) => { setTimeout(() => window.__avResolve(id, ''), 0); },
     busPost: () => {},
     otaConfirm: () => {},
     cifraHtml: (id, url) => {

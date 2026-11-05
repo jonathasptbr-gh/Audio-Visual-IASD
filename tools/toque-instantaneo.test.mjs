@@ -67,7 +67,7 @@ const PONTE = `(() => {
     shellVersion: () => 60,
     role: () => 'controle',
     appVersion: () => '1.99-teste',
-    takeShare: () => '',
+    takeShare: (id) => { setTimeout(() => window.__avResolve(id, ''), 0); },
     busPost: () => {},
     otaConfirm: () => {},
     // O DIAGNOSTICO DO SHELL, controlavel: e dele que sai a causa nomeada

@@ -103,7 +103,7 @@ const PONTE = `(() => {
     shellVersion: () => 72,
     role: () => 'controle',
     appVersion: () => '1.9.4-teste',
-    takeShare: () => '',
+    takeShare: (id) => { setTimeout(() => window.__avResolve(id, ''), 0); },
     busPost: () => {},
     otaConfirm: () => {},
     // O QUE O BLOCO I MEDE: o cartão que a notificação de mídia publica. Ele é

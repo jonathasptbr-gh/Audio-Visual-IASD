@@ -100,7 +100,16 @@ jobs:
     if: >-
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name != github.repository
-    runs-on: ubuntu-latest
+    # A IMAGEM É FIXA, e só neste job. O `ubuntu-latest` migrou para o Ubuntu
+    # 26.04 (aviso do GitHub: a partir de 2026-10-19), e o Playwright do pin
+    # (1.56.0) recusa a imagem nova — "Playwright does not support chromium on
+    # ubuntu26.04-x64". O `Preparar o Chromium` falhava, a política de
+    # infraestrutura AUSENTE pulava os oráculos, e de 2026-11-04 em diante NOVE
+    # runs de `main` publicaram sem oráculo de navegador nenhum, todos verdes
+    # (revisão A6). Subir o pin obriga a repetir a campanha de determinismo;
+    # fixar a imagem devolve o ambiente em que a campanha foi medida. Trocar
+    # para `ubuntu-latest` é decisão junto com subir o pin, nunca sozinha.
+    runs-on: ubuntu-24.04
     steps:
       # No evento `release` o `github.ref` é a TAG, e o que precisa ser
       # verificado é a base web de `main` — a mesma que o `web-ota` empacota.
@@ -214,8 +223,8 @@ jobs:
               assert isinstance(itens, list) and itens, f'v{v} sem itens'
               for t in itens:
                   assert isinstance(t, str) and t.strip(), f'v{v} tem item vazio'
-                  # CADA ITEM É UM TÓPICO (v1.4.12) — ver o CLAUDE.md, "As notas
-                  # viajam DENTRO do bundle". As duas regras abaixo são as
+                  # CADA ITEM É UM TÓPICO (v1.4.12) — ver docs/shell/OTA.md, "As
+                  # notas viajam DENTRO do bundle". As duas regras abaixo são as
                   # mecânicas do padrão; a terceira ("nomeia, não explica") é de
                   # julgamento e fica na prosa. Sem elas o estilo erode item a
                   # item, e ninguém percebe até o arquivo estar em 24 kB de novo.
@@ -262,6 +271,7 @@ jobs:
           node tools/notificacao-ids.test.mjs
           node tools/funcao-sem-chamador.test.mjs
           node tools/docs-coerentes.test.mjs
+          node tools/stub-da-ponte.test.mjs
 
           node tools/tipos-que-sobem.test.mjs
 
@@ -490,8 +500,10 @@ jobs:
           # menos de 2 s: apagá-los devolveria 8 s de parede e custaria a
           # cobertura inteira.
           # O que encarece este passo é uma DÚZIA de arquivos, e neles o tempo é
-          # de arnês, não de asserção — ver as duas armadilhas no CLAUDE.md
-          # ("o piso da cortina" e "um stub da ponte que não resolve").
+          # de arnês, não de asserção — ver docs/BUILD.md ("um stub da ponte que
+          # não resolve", travado pelo `stub-da-ponte.test.mjs`) e o
+          # `esperarCortina`, que não paga o piso da cortina (CLAUDE.md, "A
+          # abertura por trás dos panos").
           #
           # Rodar em paralelo é seguro por CONSTRUÇÃO, e isso foi conferido
           # antes de ligar: todos abrem o servidor com `listen(0)` (porta
@@ -514,7 +526,7 @@ jobs:
           # o `finally` do `syncLyrics` (que sai da abertura SEM `await`) o
           # anulava entre dois `evaluate`. Pool VAZIO com duas asserções verdes
           # antes da vermelha. Corrigido no ponto de USO e provado por reversão;
-          # a classe está na tabela do CLAUDE.md.
+          # a classe está no docs/ORACULOS.md.
           PARALELO=3
           saida="$(mktemp -d)"
           lista=()
@@ -539,7 +551,7 @@ jobs:
           # Então a lista é só a lista. Para saber o que um oráculo trava, abra
           # o arquivo — é uma linha de `head`, e lá a resposta está inteira e não
           # tem como divergir do que descreve. O mapa por assunto está no
-          # CLAUDE.md, em "Os oráculos".
+          # docs/ORACULOS.md.
           rodar tools/smoke.mjs
           rodar tools/boot-nativo.test.mjs
           rodar tools/abertura-e-transferencia.test.mjs
@@ -673,7 +685,7 @@ jobs:
           # v1.8.0 com o `clone-de-outro-celular`, a v1.8.2 com este). Os dois
           # foram conferidos verdes antes de entrar.
           # E A VARREDURA COMPLETA achou um terceiro, mais antigo: este está
-          # descrito na tabela de oráculos do CLAUDE.md desde que nasceu e nunca
+          # descrito na tabela de oráculos (hoje docs/ORACULOS.md) desde que nasceu e nunca
           # entrou aqui. Depois dele NÃO SOBRA NENHUM — conferido comparando
           # `tools/*.test.mjs` contra este arquivo, arquivo a arquivo.
           rodar tools/preview-volta-ao-wallpaper.test.mjs

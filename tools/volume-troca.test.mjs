@@ -38,7 +38,7 @@ const PONTE = `(() => {
   };
   const B = {
     shellVersion: () => 78, role: () => 'controle', appVersion: () => '1.98-teste',
-    takeShare: () => '', busPost: () => {}, otaConfirm: () => {},
+    takeShare: (id) => { setTimeout(() => window.__avResolve(id, ''), 0); }, busPost: () => {}, otaConfirm: () => {},
     espelhoEstado: (id) => { setTimeout(() => { try { window.__avResolve(id, window.__espelho || null); } catch (_) {} }, 0); },
     systemVolume: (s) => { window.__sysCalls.push(s | 0); passo(s | 0); },
     systemVolumeStep: (id, s) => {

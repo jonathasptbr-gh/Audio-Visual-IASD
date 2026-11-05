@@ -33,7 +33,7 @@ const erros = [];
 const PONTE = `(function () {
   window.__telaInteira = [];
   window.__displays = [];
-  const comCallId = new Set(['displays','listFolder','otaPending','otaDiag','espelhoEstado','espelhoDiag',
+  const comCallId = new Set(['pickFolder','ytFetchAudio','ytFetchAte','ytFetch','ytSearch','ytCanalPlaylists','ytPlaylist','ytDetalhes','compartilharArquivoTexto','pacoteCriar','pacoteFechar','pacoteCriarLocal','pacoteCompartilhar','pacoteConsumirOrigem','cifraHtml','r2Imagem','otaApply','atualizacaoEstado','apkInstalar','ytMedida','pickDoc','deckPages','espelhoLigarEm','espelhoLigar','espelhoDerrubar','espelhoCertImportar','espelhoCertApagar','systemVolumeStep','displays','listFolder','otaPending','otaDiag','espelhoEstado','espelhoDiag',
     'castTarget','saidaDeAudioAlvo','ytDiag','cifraDiag','farolEstado','pacoteEspaco','pacoteProntoEstado',
     'pacoteDiag','areaTransferencia','espelhoCertEstado','apkProcurar']);
   const vazio = { listFolder: [], otaPending: '', otaDiag: '',
@@ -42,7 +42,7 @@ const PONTE = `(function () {
     farolEstado: { conta: true, ultimo: 0, diag: 'de teste' } };
   const B = new Proxy({
     shellVersion: () => 80, role: () => 'controle', appVersion: () => '9.99-teste',
-    takeShare: () => '', busPost: () => {}, otaConfirm: () => {}, bgProgress: () => {},
+    takeShare: (id) => { setTimeout(() => window.__avResolve(id, ''), 0); }, busPost: () => {}, otaConfirm: () => {}, bgProgress: () => {},
     telaInteira: (on) => { window.__telaInteira.push(!!on); },
   }, {
     get(alvo, n) {

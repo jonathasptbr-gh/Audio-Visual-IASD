@@ -122,7 +122,7 @@ const ponteCom = (espelho, telas) => `(() => {
     // responde *"o farol chegou a acender?"*. Sem a entrada aqui, o genérico
     // devolve \`null\` e o Registro perderia a linha em silêncio.
     farolEstado: { conta: true, ultimo: 0, diag: 'de teste' } };
-  const comCallId = new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
+  const comCallId = new Set(['espelhoLigar','displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
     'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','castTarget','saidaDeAudioAlvo',
     'espelhoEstado','espelhoDiag','espelhoCertEstado','espelhoCertImportar','espelhoCertApagar',
     'apkProcurar','apkInstalar','otaPending','otaApply','otaCheck','otaDiag','ytDiag',
@@ -132,7 +132,7 @@ const ponteCom = (espelho, telas) => `(() => {
     shellVersion: () => 46,
     role: () => 'controle',
     appVersion: () => '1.98-teste',
-    takeShare: () => '',
+    takeShare: (id) => { setTimeout(() => window.__avResolve(id, ''), 0); },
     busPost: (t) => { try { (window.__enviados = window.__enviados || []).push(JSON.parse(t)); } catch (_) {} },
     otaConfirm: () => { window.__otaOk = (window.__otaOk || 0) + 1; },
     // AS SÉRIES (shell 41), com resposta POR URL — o genérico abaixo devolve um

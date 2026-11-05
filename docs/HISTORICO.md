@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **revisão A6 (sem versão nova; só workflow, `tools/` e docs)** — CI E HIGIENE: o `verificar` fixo em `ubuntu-24.04` (no 26.04 o Playwright do pin não instala e a suíte de Chromium era PULADA com o job verde), o `stub-da-ponte` fecha a armadilha dos 60 s, ponteiros do `apk.yml` e duplicata do `BUILD.md`
 - **revisão A5 (sem versão nova; só `tools/` e docs)** — O ARNÊS E OS ORÁCULOS: âncoras com o slug do GitHub e entre arquivos, o `display-smoke` sem o espelho de pixels, o `wav()` no arnês, o JUnit sem rede com o `EspelhoInterfacesTest`, tempos medidos
 - **revisão A4 (sem versão nova; só docs e o `docs-coerentes`)** — APÊNDICES E ARQUIVO MORTO: o índice deste arquivo vira uma linha por lote, as auditorias dizem o que segue aberto, e o `TELAO-POR-COMANDOS.md` vira especificação do que existe
 - **revisão A3 (sem versão nova; só docs)** — CAPÍTULOS GRANDES: o `CONTROLE.md`
@@ -626,6 +627,58 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## revisão A6 — CI e higiene do repositório (sem versão nova; só workflow, `tools/` e docs)
+
+**revisão A6 (sem versão nova; só workflow, `tools/` e docs)** — CI E HIGIENE.
+
+**O PORTÃO ESTAVA ABERTO HAVIA NOVE RUNS.** O GitHub migrou o `ubuntu-latest`
+para o Ubuntu 26.04 (aviso nos runs: "a partir de 2026-10-19"), e o Playwright
+do pin (1.56.0) recusa a imagem: `Playwright does not support chromium on
+ubuntu26.04-x64`. O `Preparar o Chromium` (`continue-on-error`) falhava em 2 s,
+o `if` pulava os oráculos, o passo de AVISO escrevia o pulo no resumo — e o job
+ficava VERDE. Medido pela API: o último run com a suíte é o `41123264801`
+(2026-10-30, 132/132, `verificar` 8m52s); do `41916726776` (2026-11-04 21:30)
+ao `41929548923`, nove runs de `main` publicaram com o `verificar` em ~22 s e
+nenhum oráculo de navegador. Os lotes nesse intervalo foram só docs e `tools/`
+(A3 final, A4, A5) — nenhum tocou `assets/web/`, então nada chegou à frota sem
+verificação; o que ficou sem prova no CI foram as mudanças da A5 nos oráculos.
+É exatamente o modo de falhar que o comentário do passo de aviso previa ("um
+`Preparar o Chromium` que passasse a falhar SEMPRE devolveria o mundo
+anterior"), e o aviso não bastou: ninguém lê um resumo verde.
+**Conserto:** `runs-on: ubuntu-24.04` só no `verificar` (o ambiente em que a
+campanha de determinismo foi medida). Subir o pin obrigaria a repetir a
+campanha; fixar a imagem não muda nada do que foi medido. Os outros jobs
+(`apk`, `web-ota`, `pages`, `dados`) rodam no 26.04 sem defeito.
+
+**`stub-da-ponte.test.mjs` (Node puro, novo).** O repasse da A5: a armadilha
+dos 60 s (`docs/BUILD.md`) tinha só a regra escrita. A varredura cruza os
+métodos que o `native.js` chama com id (`B.<nome>(id`, 44 hoje) contra os 45
+fixtures e achou 94 travas latentes em 40 arquivos: `takeShare: () => ''` nos
+40 (o `pumpShare` aguardava 60 s em segundo plano; custo zero só porque nada o
+esperava) e 54 nomes preenchidos pelo laço fora do `comCallId` (28 no `Proxy`
+do `tela-inteira`, onde todo método fora do conjunto era mudo; `espelhoLigar`
+em 12; `apkInstalar`, `deckPages`, `espelhoCert*`). Conserto mecânico: o
+`takeShare` resolve `''` (o `pumpShare` faz `if (share)`, desfecho igual) e os
+nomes entram no `comCallId` (resolvem `null`/`vazio`, o que a ponte de verdade
+faz sem resposta). Reversão: o oráculo reprova os 40 fixtures de antes.
+
+**Higiene:** seis ponteiros do `apk.yml` para seções do `CLAUDE.md` que a A2
+moveu (`ORACULOS.md`, `BUILD.md`, `shell/OTA.md`), entre eles "as duas
+armadilhas no CLAUDE.md" — a do piso da cortina não existe mais como seção;
+ficou o `esperarCortina`. `docs/BUILD.md`: o parágrafo "Os números moram no
+`apk.yml`… (79/99 aqui contra 82/101 lá)" escrito duas vezes (repasse A5) e a
+contagem de Node puro (21/23 → 24).
+**Achado e não corrigido:** as actions em Node 20 (`checkout@v4`,
+`setup-java@v4` "deprecated", `cache@v4`, `upload-artifact@v4`,
+`action-gh-release@v2`) rodam forçadas em Node 24 — funcionam; trocar o major
+sem defeito é risco sem ganho medido. `site/.nojekyll` versionado E criado pelo
+`pages.yml` (redundante, inofensivo). Nenhum arquivo grande versionado sem
+motivo (o maior binário é o `pptx-renderer.js`, 1,5 MB, vendor declarado;
+`.git` 11 MB). Cache do Gradle (`setup-gradle`) e do npm/Chromium (restore +
+save) já existem.
 
 ---
 

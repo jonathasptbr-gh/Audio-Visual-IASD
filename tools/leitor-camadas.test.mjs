@@ -66,7 +66,7 @@ const PONTE = `(() => {
     + '<b>Am</b>     <b>F</b>\\nsegunda linha da cifra</pre>';
   const B = {
     shellVersion: () => 60, role: () => 'controle', appVersion: () => '1.99-teste',
-    takeShare: () => '', busPost: () => {}, otaConfirm: () => {},
+    takeShare: (id) => { setTimeout(() => window.__avResolve(id, ''), 0); }, busPost: () => {}, otaConfirm: () => {},
     cifraHtml: (id, url) => {
       const nada = String(url || '').includes('sem-cifra');
       setTimeout(() => {

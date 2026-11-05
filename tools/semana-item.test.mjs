@@ -37,7 +37,7 @@ const raiz = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app'
 // A PONTE DE MENTIRA, mínima (a mesma do `serie-mantem-a-semana`): a lista de
 // episódios é PLANTADA, e o download é interceptado no `ytAcao` do app.
 const PONTE = `(() => {
-  const comCallId = new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
+  const comCallId = new Set(['apkInstalar','espelhoLigar','displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
     'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','castTarget','saidaDeAudioAlvo',
     'espelhoEstado','espelhoDiag','espelhoCertEstado','apkProcurar','otaPending','otaApply',
     'otaCheck','otaDiag','ytDiag','farolEstado','ytCanalPlaylists','ytPlaylist','ytDetalhes',
@@ -48,7 +48,7 @@ const PONTE = `(() => {
     farolEstado: { conta: true, ultimo: 0, diag: 'de teste' } };
   const B = {
     shellVersion: () => 82, role: () => 'controle', appVersion: () => '1.98-teste',
-    takeShare: () => '', busPost: () => {}, otaConfirm: () => {},
+    takeShare: (id) => { setTimeout(() => window.__avResolve(id, ''), 0); }, busPost: () => {}, otaConfirm: () => {},
   };
   const nomes = Object.keys(vazio).concat([...comCallId], ['apkInstalar','bgProgress',
     'bgConcluido','captureVolumeKeys','deckDiscard','espelhoDesligar','espelhoLigar','keepAlive',

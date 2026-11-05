@@ -70,7 +70,7 @@ const PONTE = `(function () {
   // é tocado hoje, e quem acrescentar a chamada pagaria o mesmo minuto sem uma
   // pista de onde ele saiu. Resolver \`null\` é o que a ponte de verdade faz
   // quando o shell não tem resposta.
-  const comCallId = new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
+  const comCallId = new Set(['espelhoLigar','displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
     'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','castTarget','saidaDeAudioAlvo',
     'espelhoEstado','espelhoDiag','espelhoCertEstado','apkProcurar','otaPending','otaApply',
     'otaCheck','otaDiag','ytDiag','cifraDiag','farolEstado','ytCanalPlaylists','ytPlaylist',
@@ -81,7 +81,7 @@ const PONTE = `(function () {
     shellVersion: () => 63,
     role: () => 'controle',
     appVersion: () => ${JSON.stringify(SHELL_NOME)},
-    takeShare: () => '',
+    takeShare: (id) => { setTimeout(() => window.__avResolve(id, ''), 0); },
     busPost: () => {},
     otaConfirm: () => {},
     compartilharTexto: (t) => { window.__ponte.compartilhado.push(String(t)); },

@@ -12,7 +12,11 @@ web", a reversão de asserção e a reversão por cópia) ficam no `CLAUDE.md`**
 ## Build e distribuição
 
 `.github/workflows/apk.yml` — o runner `ubuntu-latest` já traz JDK e Android SDK;
-nenhuma infraestrutura externa.
+nenhuma infraestrutura externa. **O `verificar` roda em `ubuntu-24.04` FIXO**
+(revisão A6): no Ubuntu 26.04 o Playwright do pin (1.56.0) se recusa a instalar o
+Chromium, o `Preparar o Chromium` falha, e a política de infraestrutura AUSENTE
+pula a suíte inteira com o job VERDE — foram nove runs de `main` assim. Voltar
+ao `ubuntu-latest` anda junto com subir o pin (e repetir a campanha).
 
 | Rota | Como | Observação |
 |---|---|---|
@@ -58,7 +62,7 @@ herdados por cópia em vez de escolhidos.
   oráculo pedi-la.
 - **`checar` mora em `tools/checar.mjs`, SEM uma linha de `import`**, e a
   separação NÃO é organização: o `arnes.mjs` importa o Playwright, e no workflow
-  os 21 oráculos de Node puro rodam no passo "Sanidade da base web", que vem
+  os 24 oráculos de Node puro rodam no passo "Sanidade da base web", que vem
   **antes** do `npm ci`. Um deles importando o arnês passaria na máquina de quem
   escreve (onde `node_modules/` existe) e falharia só no runner, no passo sem
   `continue-on-error` — "a atualização não chega", por um
@@ -102,7 +106,7 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os de Chromium são **132** e os de Node puro **23** — juntos, os 155 (contados na v1.13.16). MEDIDO com
+Os de Chromium são **132** e os de Node puro **24** — juntos, os 156 (contados na revisão A6). MEDIDO com
 82 deles: **~13 min em série** e **~4,3 min nos três processos** (4 vCPU, o mesmo
 do runner); os de Node puro somam **8 s**. **Os números moram no `apk.yml`**, ao
 lado do passo que descrevem, e esta é a cópia — divergiram uma vez (79/99 aqui
@@ -114,12 +118,11 @@ sobra é espera, com os quatro núcleos ociosos.
 **E O NÚMERO DE ORÁCULOS NÃO É O CUSTO — a distribuição é.** MEDIDO: os 52 mais
 baratos somam **161 s dos 783 s**, e VINTE E TRÊS deles rodam em menos de 2 s
 cada — apagar esses vinte e três devolveria **~9 s de parede** e custaria a
-cobertura inteira que eles carregam. **Os números moram no `apk.yml`**, ao lado
-do passo que eles descrevem, e esta é a cópia: divergiram uma vez (79/99 aqui
-contra 82/101 lá), e quem decide sobre o passo lê esta.
+cobertura inteira que eles carregam.
 O passo é caro por causa de uma DÚZIA de arquivos, e o que os encarece são
-defeitos de arnês, não asserções a mais — dois deles pagaram 130 s sozinhos (ver
-as duas armadilhas logo abaixo). **A pergunta diante de um passo lento é "onde
+defeitos de arnês, não asserções a mais — dois deles pagaram 130 s sozinhos (o
+stub da ponte, logo abaixo, e o piso da cortina, que o `esperarCortina` não paga —
+`CLAUDE.md`, "A abertura por trás dos panos"). **A pergunta diante de um passo lento é "onde
 está o tempo?", medida arquivo a arquivo, e nunca "quantos oráculos são?".**
 
 É seguro por CONSTRUÇÃO, e foi conferido antes de ligar: todos abrem o servidor
@@ -148,8 +151,11 @@ da badge chama `renderDiag()` (que o aguarda em `await`), e o arquivo gastava
 arquivo com as MESMAS 21 asserções roda em **10,5 s**.
 
 **A regra: método novo na ponte entra na allowlist do fixture no mesmo lote** —
-e a varredura que responde "falta algum?" é comparar quem o `native.js` resolve
-por `call()` contra a allowlist de cada oráculo. Um arquivo que demore um múltiplo
+e a varredura que responde "falta algum?" é o `tools/stub-da-ponte.test.mjs`
+(Node puro, revisão A6): cruza quem o `native.js` chama com id (`B.<nome>(id`)
+contra cada fixture e reprova o stub CONSTANTE (`takeShare: () => ''`) e o nome
+preenchido pelo laço FORA do `comCallId` (num `Proxy`, qualquer nome). Método
+AUSENTE do stub não trava: `B.x(id)` lança e o `call()` resolve `null` na hora. Um arquivo que demore um múltiplo
 redondo de 60 s é este defeito até prova em contrário.
 
 **As tabelas — o que cada oráculo trava — moram em
