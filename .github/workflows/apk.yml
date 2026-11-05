@@ -255,6 +255,7 @@ jobs:
           node tools/funcao-sem-chamador.test.mjs
           node tools/docs-coerentes.test.mjs
           node tools/stub-da-ponte.test.mjs
+          node tools/watchdog-modulos.test.mjs
 
           node tools/tipos-que-sobem.test.mjs
 
