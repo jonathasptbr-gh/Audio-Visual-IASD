@@ -24,7 +24,7 @@ import { servirEstatico, abrirNavegador, esperarCortina, esperar, checar } from 
 const ponte = (np) => `(() => {
   const B = {
     shellVersion: () => 83, role: () => 'controle', appVersion: () => '1.13.16-teste',
-    takeShare: () => '', busPost: () => {}, otaConfirm: () => {},
+    takeShare: (id) => { setTimeout(() => window.__avResolve(id, ''), 0); }, busPost: () => {}, otaConfirm: () => {},
     saidaDeAudioAlvo: (id) => { setTimeout(() => { try { window.__avResolve(id, {
       label: 'Seletor de saída (sistema) (MediaRouter2 (API pública))', candidatos: [], desfecho: 'nunca',
       saindoPor: [{ tipo: 8, nome: 'JBL Go' }], naoPerturbe: ${JSON.stringify(np)},

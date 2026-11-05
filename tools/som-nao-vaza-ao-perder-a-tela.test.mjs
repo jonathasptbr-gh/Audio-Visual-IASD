@@ -50,7 +50,7 @@ const PONTE = `(() => {
     shellVersion: () => 72,
     role: () => 'controle',
     appVersion: () => '1.99-teste',
-    takeShare: () => '',
+    takeShare: (id) => { setTimeout(() => window.__avResolve(id, ''), 0); },
     busPost: () => {},
     otaConfirm: () => {},
     displays: (id) => {

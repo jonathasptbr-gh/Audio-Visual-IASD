@@ -45,7 +45,7 @@ const PONTE = `(function () {
   const folha = '<h1>X</h1><pre><b>C</b>\\nlinha de marcador\\n</pre>';
   const B = new Proxy({
     shellVersion: () => 82, role: () => 'controle', appVersion: () => '9.99-teste',
-    takeShare: () => '', busPost: () => {}, otaConfirm: () => {}, bgProgress: () => {},
+    takeShare: (id) => { setTimeout(() => window.__avResolve(id, ''), 0); }, busPost: () => {}, otaConfirm: () => {}, bgProgress: () => {},
     cifraHtml: (id, url) => {
       window.__urls.push(url);
       const r = window.__semRede ? { status: 0, html: '' }

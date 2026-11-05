@@ -59,7 +59,7 @@ const PAGINAS = 9;
 const PONTE = `(() => {
   const B = {
     shellVersion: () => 60, role: () => 'controle', appVersion: () => '1.99-teste',
-    takeShare: () => '', busPost: () => {}, otaConfirm: () => {},
+    takeShare: (id) => { setTimeout(() => window.__avResolve(id, ''), 0); }, busPost: () => {}, otaConfirm: () => {},
   };
   const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','projecaoLocal',
     'castTarget','saidaDeAudioAlvo','cifraDiag','cifraHtml','deckDiscard','deckExportUrl','deckPages','displays',

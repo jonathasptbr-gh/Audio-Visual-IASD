@@ -66,7 +66,7 @@ const PONTE = `(function () {
     espelhoEstado: { ligado: false, telas: [], redes: [] }, espelhoDiag: {},
     castTarget: { label: '' }, apkProcurar: {}, ytDiag: '', cifraDiag: '',
     farolEstado: { conta: true, ultimo: 0, diag: 'de teste' } };
-  const comCallId = new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
+  const comCallId = new Set(['espelhoLigar','displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
     'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','castTarget','saidaDeAudioAlvo',
     'espelhoEstado','espelhoDiag','espelhoCertEstado','apkProcurar','otaPending','otaApply',
     'otaCheck','otaDiag','ytDiag','cifraDiag','farolEstado','ytCanalPlaylists','ytPlaylist',
@@ -96,7 +96,7 @@ const PONTE = `(function () {
   }
   const B = {
     shellVersion: () => 78, role: () => 'controle', appVersion: () => '9.99-teste',
-    takeShare: () => '', busPost: () => {}, otaConfirm: () => {}, bgProgress: () => {},
+    takeShare: (id) => { setTimeout(() => window.__avResolve(id, ''), 0); }, busPost: () => {}, otaConfirm: () => {}, bgProgress: () => {},
     ytFetch: (id, url) => baixar('ytFetch', id, url, 0),
     ytFetchAte: (id, url, teto) => baixar('ytFetchAte', id, url, teto),
     ytFetchAudio: (id, url) => baixar('ytFetchAudio', id, url, 0),

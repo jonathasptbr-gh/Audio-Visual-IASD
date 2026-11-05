@@ -35,7 +35,7 @@ const srv = servirEstatico(RAIZ_WEB, (req, res) => {
 });
 // A ponte falsa: o `ytFetch` avisa os bytes em 1 s e resolve logo depois.
 const PONTE = `(function(){
- const comCallId=new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch','ytFetchAte','ytFetchAudio','castTarget','saidaDeAudioAlvo','espelhoEstado','espelhoDiag','espelhoCertEstado','apkProcurar','otaPending','otaApply','otaCheck','otaDiag','ytDiag','cifraDiag','farolEstado','ytCanalPlaylists','ytPlaylist','ytDetalhes','areaTransferencia','salvarTexto','cifraHtml','pacoteEspaco','pacoteProntoEstado','pacoteDiag','ytMedida','atualizacaoEstado']);
+ const comCallId=new Set(['apkInstalar','deckPages','espelhoCertApagar','espelhoCertImportar','espelhoLigar','displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch','ytFetchAte','ytFetchAudio','castTarget','saidaDeAudioAlvo','espelhoEstado','espelhoDiag','espelhoCertEstado','apkProcurar','otaPending','otaApply','otaCheck','otaDiag','ytDiag','cifraDiag','farolEstado','ytCanalPlaylists','ytPlaylist','ytDetalhes','areaTransferencia','salvarTexto','cifraHtml','pacoteEspaco','pacoteProntoEstado','pacoteDiag','ytMedida','atualizacaoEstado']);
  const vazio={displays:[],listFolder:[],espelhoEstado:{ligado:false,telas:[],redes:[]},espelhoDiag:{},castTarget:{label:''},apkProcurar:{},ytDiag:'',cifraDiag:'',farolEstado:{conta:true,ultimo:0,diag:''}};
  let ultimoLink='';
  const MEDIDA=(link)=>({v:1,link,somenteAudio:false,teto:720,conexoes:4,blocoBytes:3145728,extracaoMs:2100,
@@ -46,7 +46,7 @@ const PONTE = `(function(){
    const passo=()=>{ if(i<10){i++; window.__avYtProgress(id,Math.round(tot*i/10),tot); setTimeout(passo,100);return;}
      setTimeout(()=>{ window.__avResolve(id,{url:location.origin+'/shell/x.wav',name:'v',size:tot,type:'video/mp4',audioOnly:false,height:720,seconds:20}); }, 200); };
    setTimeout(passo,200); }
- const B={shellVersion:()=>81,role:()=>'controle',appVersion:()=>'t',takeShare:()=>'',busPost:()=>{},otaConfirm:()=>{},bgProgress:()=>{},
+ const B={shellVersion:()=>81,role:()=>'controle',appVersion:()=>'t',takeShare: (id) => { setTimeout(() => window.__avResolve(id, ''), 0); },busPost:()=>{},otaConfirm:()=>{},bgProgress:()=>{},
   ytFetch:(id,u)=>{ultimoLink=u;baixar(id);},ytFetchAte:(id,u)=>{ultimoLink=u;baixar(id);},ytFetchAudio:(id,u)=>{ultimoLink=u;baixar(id);},ytCancel:()=>{},ytDiscard:()=>{},
   ytMedida:(id)=>{ setTimeout(()=>window.__avResolve(id,ultimoLink?MEDIDA(ultimoLink):null),0); }};
  const nomes=['apkInstalar','apkProcurar','captureVolumeKeys','castTarget','saidaDeAudioAlvo','deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar','espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado','espelhoLigar','keepAlive','listFolder','nowPlaying','openCast','abrirSaidaDeAudio','openExternal','otaApply','otaCheck','otaDiag','otaPending','pickFolder','pickDoc','systemVolume','temaClaro','ytCanalPlaylists','ytPlaylist','ytSearch','ytStream','farolEstado','projecaoLocal','cifraHtml','cifraDiag','areaTransferencia','salvarTexto','ytDetalhes','pacoteEspaco','pacoteProntoEstado','pacoteDiag','ytMedida','ytDiag','atualizacaoEstado','sessionState','telaInteira'];

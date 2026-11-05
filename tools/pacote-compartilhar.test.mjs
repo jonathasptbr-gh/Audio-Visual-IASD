@@ -80,7 +80,7 @@ const ponte = (opts) => `(function () {
     espelhoEstado: { ligado: false, telas: [], redes: [] }, espelhoDiag: {},
     castTarget: { label: '' }, apkProcurar: {}, ytDiag: '', cifraDiag: '',
     farolEstado: { conta: true, ultimo: 0, diag: 'de teste' } };
-  const comCallId = new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
+  const comCallId = new Set(['espelhoLigar','displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
     'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','castTarget','saidaDeAudioAlvo',
     'espelhoEstado','espelhoDiag','espelhoCertEstado','apkProcurar','otaPending','otaApply',
     'otaCheck','otaDiag','ytDiag','cifraDiag','farolEstado','ytCanalPlaylists','ytPlaylist',
@@ -99,7 +99,7 @@ const ponte = (opts) => `(function () {
     shellVersion: () => 67,
     role: () => 'controle',
     appVersion: () => '9.99-teste',
-    takeShare: () => '',
+    takeShare: (id) => { setTimeout(() => window.__avResolve(id, ''), 0); },
     busPost: () => {},
     otaConfirm: () => {},
     compartilharTexto: () => {},

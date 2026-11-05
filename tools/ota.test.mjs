@@ -120,7 +120,7 @@ const ponte = ({ web = '', shell = '', bytes = 0, espelho = false, shellName = '
     apkInstalar: '',
     otaPending: ${JSON.stringify(web)},
     otaDiag: '', apkProcurar: {} };
-  const comCallId = new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
+  const comCallId = new Set(['espelhoLigar','displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
     'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','castTarget','saidaDeAudioAlvo',
     'espelhoEstado','espelhoDiag','espelhoCertEstado','espelhoCertImportar','espelhoCertApagar',
     'apkProcurar','apkInstalar','otaPending','otaApply','otaDiag','ytDiag','atualizacaoEstado',
@@ -130,7 +130,7 @@ const ponte = ({ web = '', shell = '', bytes = 0, espelho = false, shellName = '
     shellVersion: () => 47,
     role: () => 'controle',
     appVersion: () => ${JSON.stringify(shellName)},
-    takeShare: () => '',
+    takeShare: (id) => { setTimeout(() => window.__avResolve(id, ''), 0); },
     busPost: () => {},
     otaConfirm: () => {},
   };

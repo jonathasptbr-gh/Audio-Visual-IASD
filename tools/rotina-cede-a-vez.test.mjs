@@ -44,7 +44,7 @@ const servidor = servirEstatico(RAIZ);
 const PONTE = `(() => {
   const B = {
     shellVersion: () => 60, role: () => 'controle', appVersion: () => '1.98-teste',
-    takeShare: () => '', busPost: () => {}, otaConfirm: () => {},
+    takeShare: (id) => { setTimeout(() => window.__avResolve(id, ''), 0); }, busPost: () => {}, otaConfirm: () => {},
   };
   const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','projecaoLocal',
     'castTarget','saidaDeAudioAlvo','cifraDiag','cifraHtml','deckDiscard','deckExportUrl','deckPages','displays',

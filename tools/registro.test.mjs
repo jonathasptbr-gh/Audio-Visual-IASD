@@ -92,7 +92,7 @@ const PONTE = `(() => {
     espelhoEstado: ${JSON.stringify(ESTADO)}, espelhoDiag: ${JSON.stringify(DIAG)},
     espelhoCertEstado: { temCert: false }, castTarget: { label: 'Tela de teste' },
     otaPending: '', otaDiag: 'ultima busca ha 11s: nada novo', ytDiag: '' };
-  const comCallId = new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
+  const comCallId = new Set(['espelhoLigar','displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
     'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','castTarget','saidaDeAudioAlvo',
     'espelhoEstado','espelhoDiag','espelhoCertEstado','espelhoCertImportar','espelhoCertApagar',
     'apkProcurar','apkInstalar','otaPending','otaApply','otaCheck','otaDiag','ytDiag',
@@ -101,7 +101,7 @@ const PONTE = `(() => {
     shellVersion: () => 46,
     role: () => 'controle',
     appVersion: () => '1.93-teste',
-    takeShare: () => '',
+    takeShare: (id) => { setTimeout(() => window.__avResolve(id, ''), 0); },
     busPost: () => {},
     otaConfirm: () => {},
   };

@@ -54,7 +54,7 @@ const PONTE = `(() => {
     shellVersion: () => 60,
     role: () => 'controle',
     appVersion: () => '1.99-teste',
-    takeShare: () => '',
+    takeShare: (id) => { setTimeout(() => window.__avResolve(id, ''), 0); },
     busPost: () => {},
     otaConfirm: () => {},
     // O que chega aqui é a STRING que o Kotlin recebe: o native.js remonta o
