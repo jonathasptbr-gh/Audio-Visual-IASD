@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.20** — revisão C1: ABERTURA, PREVIEW E ÁUDIO (o `controle.js` até `carregar + render`); a limpeza da seleção da abertura deixa de desfazer um `persistCurrent` no vão, código morto da preview e ~20 lápides
 - **v1.13.19** — revisão W3: OS MÓDULOS PUROS; o pacote deixava passar as intenções de download do YouTube (grafia errada na lista de recusa), quatro funções que só o oráculo chamava saíram e o `funcao-sem-chamador` passa a ver a superfície dos módulos; `bible.test.mjs` novo
 - **v1.13.18** — revisão W2: MOTOR E TELÃO; o giro perdido do `enquadramento-da-camada` era o `load()` do Controle (repasse C2), não o `stage.js`; um export morto e comentários
 - **v1.13.17** — revisão W1: O NÚCLEO COMPARTILHADO (`db.js` + `native.js`); o `apkInstalar` que não respondia virava sucesso, e o watchdog do OTA ganha oráculo
@@ -632,6 +633,113 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.13.20 — revisão C1: ABERTURA, PREVIEW E ÁUDIO (o `controle.js` até `// ===== carregar + render =====`)
+
+**v1.13.20 (revisão C1; só web, sem Release)** — a etapa C1 da revisão profunda
+(`docs/REVISAO-PROFUNDA.md`): a primeira fatia do `controle.js` (refs, modo e
+tema, atualização, estado, peso das coleções, servidor da LouvorJA, rede e "Dados
+móveis", a preview inteira — referência, saída de áudio, economia, fila do atraso,
+letra e Camada de Texto —, miniaturas) pela lista comum e pelo específico das
+fatias C. Lida inteira; nenhum defeito de CULTO confirmado na cerca.
+
+**O DEFEITO (repasse W1).** `clearCurrentSelection` era `getState('current')` +
+`setState({...cur, mediaId: null})` — duas transações sobre a chave que o
+`persistCurrent` grava INTEIRA (seleção, `noAr`, cortina, mudo, volume). Um
+`persistCurrent` que caísse no vão era desfeito: a escrita da limpeza levava a
+leitura ANTERIOR a ele. Hoje só roda no `init()`, antes do `load()` (risco baixo),
+mas é a classe que já mordeu duas vezes. Conserto: `AVDB.updateState('current',
+fn)` com `fn` síncrona (sem `mediaId`, devolve o valor como está). Asserção nova
+no bloco 6 do `hidratacao-perde-a-vez.test.mjs`: limpeza e `persistCurrent`
+disparados juntos — o volume e a seleção do `persistCurrent` ficam; e, sozinha, a
+limpeza zera só o `mediaId`. Reversão: o par antigo reprova a primeira (2/2, a
+ordem das transações é determinística) e um `fn` que nunca limpa reprova a segunda.
+
+**CÓDIGO MORTO.** `medirColecao` devolvia `falta` e `exato` que ninguém lê (o
+comentário dizia que `exato` decidia o "~48 MB", que saiu na v5.265); o ramo
+`view`/`fit` do `aplicarNaPreview` era idêntico ao `preview.handle(obj)` do fim
+(sobra do player do YouTube da preview, v5.212).
+
+**SÓ COMENTÁRIO (provas 1 e 2, commit à parte).** O repasse A4: o `ICON` dizia que
+a única porta dinâmica era o `DEST_ICONE` (saiu na v1.8.56) — é `ICON[d.ico]`, pelo
+campo `ico` de `DESTINOS`. Lápides: o tema automático (saiu na v1.8.64) ainda
+justificava o que o shell recebe; `tabsEl`, as badges de versão, `#hymnSearchBtn`,
+`image`/`imageOff`, `repeatAll`/`repeatOne`/`shuffle`, `ehSerie`, `fmtBytesPar`,
+o diálogo "Baixar usando dados móveis?" (duas casas) e o player do YouTube da preview
+(três casas: `cmd`, `aplicarNaPreview`, `showPvText`). Fatos: "CINCO lugares"
+perguntam por `ehLink` — são quatro, e o `serieAutoLigada` ainda pergunta; os
+índices de versão "exibidos à parte" (só no Registro); o rodapé do `otaRow` "quando
+a versão desce para a Verificação"; o `MediaRecorder` do `medirAudio` (o app não
+grava mais). A narrativa que saiu, verbatim:
+
+```js
+  // ELE RECEBE O TEMA EFETIVO, nunca a escolha: o `windowBackground` é pintado
+  // antes de existir JS, então o que ele precisa saber é de que cor a tela vai
+  // nascer — e no automático essa cor é a que o SISTEMA respondeu na última vez
+  // que o app abriu. Um aparelho que troca de tema com o app fechado abre uma
+  // vez na cor antiga e se corrige no primeiro quadro do documento; guardar a
+  // escolha ali daria o mesmo, com uma regra a mais.
+```
+
+```js
+// (O AUTOMÁTICO SAIU na v1.8.64, a pedido do operador: *"remova o auto, não
+//  está sendo eficaz essa opção"*. Com ele saíram o `data-tema-escolha`, o
+//  acompanhamento ao vivo do `prefers-color-scheme` e o terceiro estado do
+//  tile — que era o único da grade com TRÊS estados sobre DOIS desenhos, e
+//  cuja indicação na tela custou o lote inteiro da v1.8.63.)
+```
+
+```js
+  // ===== E O RODAPÉ VOLTOU AO NÚMERO SECO (v1.8.51) =====
+  //
+  // A v1.7.2 pusera o nome do app junto, a pedido do operador: *"ajuste a
+  // nomenclatura da versão, para que seja 'áudio visual IASD vx.x.x' com o nome
+  // do app, **para ter um melhor preenchimento do rodapé**"*. O MOTIVO daquele
+  // pedido é o que caducou: a faixa estava larga e vazia, e a marca a enchia.
+  //
+  // O pedido de agora é o oposto pela mesma porta — *"considere abreviar a
+  // versão para dar espaço a um botão mais claro em sua função"* —, e a conta
+  // fecha: o nome mede **153,0px** e o número seco **44,6px** (medidos a 360px),
+  // então tirá-lo devolve 108,4px, que é exatamente o que os dois rótulos novos
+  // ("Registro" e "Pedir ajuda") custam. Não é economia de texto: é a troca de
+  // uma palavra que ninguém lê por duas que dizem o que os botões fazem.
+  //
+  // E NOMEAR O APP DENTRO DELE ERA A PALAVRA MAIS DISPENSÁVEL DA FAIXA. Quem
+  // ainda precisa da marca é o que SAI daqui — o rascunho do WhatsApp e o
+  // `compartilharTexto` —, e os dois continuam a escrever por conta própria.
+```
+
+```js
+// AS DUAS BADGES DE VERSÃO (v1.7.0) — uma por modo, e as duas escritas pelo
+// MESMO `renderVersionLabel` que escreve o botão de versão. Elas nascem
+// AQUI, ao lado do `appVersionEl`, porque aquela função roda na CARGA do módulo:
+// declaradas junto do resto do cromo, centenas de linhas abaixo, seriam zona
+// morta temporal — o `ReferenceError` aborta o `controle.js` inteiro e o
+// watchdog do OTA descarta o bundle sem nada na tela dizer por quê.
+// (AS BADGES SAÍRAM: a do cabeçalho do Cronograma na v1.8.66 (a casa é hoje do IMPORTAR) e a
+//  do Modo Fácil na v1.11.15 (a pedido do operador, que pôs o NOME do app no topo dessa tela).
+//  O número mora no rótulo de versão do cabeçalho de Configurações (`#versaoBtn`, v1.12.50; foi
+//  o rodapé da folha e, na v1.12.49, a Verificação), escrito pelo `renderVersionLabel`.)
+```
+
+```js
+// (Ela era `fmtBytesPar(a, b, sep)`, com o separador em parâmetro porque as
+// duas formas diferiam só nele. A forma por extenso saiu na v5.232 e o "~" saiu
+// na v5.265: sobrou UM chamador com UM valor, isto é, uma constante disfarçada
+// de parâmetro.)
+```
+
+**Achado e não corrigido:** o atraso da preview (`recalcularAtrasoPreview`,
+`filaPreview`) é SEMPRE zero — toda tela que o shell relata tem `comando: true`
+(`EspelhoServidor.estado`), então `dePixels` é sempre vazio; o código fica por
+decisão escrita no próprio bloco ("rede de segurança") e a remoção atravessa a C9
+(`lerEspelho`). `tempoDaPreview`/`alvoDaPreview` são a mesma conta (uma linha;
+gosto). `updateState` sempre escreve, então numa instalação nova a limpeza grava
+`current = undefined` (a chave passa a contar no Registro uma projeção antes).
+Prosa de lote longa ainda de pé: o "UM NÚMERO SÓ", o "A OBJECT-URL DE UMA
+MINIATURA", o "OS GRUPOS DA BIBLIOTECA NASCEM FECHADOS", o "UMA RESOLUÇÃO EM VOO",
+o "O SOM NÃO VAZA", a "PRÉVIA RECOLHIDA" — são REGRA com o porquê, e encurtá-las
+pede uma passada própria.
 
 ## v1.13.19 — revisão W3: OS MÓDULOS PUROS (`controle/` menos `controle.js`); a intenção de download atravessava o pacote
 
