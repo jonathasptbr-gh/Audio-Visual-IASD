@@ -22,7 +22,7 @@ abandonada → primeira pendente pelo `nº`).
 | 8 | W2 | feita | v1.13.18 (só web) | 2026-11-05 | nenhum defeito de culto na cerca; o giro perdido do `enquadramento-da-camada` MEDIDO: é o `load()` do Controle reaplicando rotação velha (repasse C2), não o `stage.js`; export morto e ~15 comentários |
 | 9 | W3 | feita | v1.13.19 (só web) | 2026-11-05 | a `FORA` do pacote com a grafia errada deixava as intenções do YouTube viajarem (consertado + asserção cruzada); 4 funções só-do-oráculo saíram e o `funcao-sem-chamador` vê a superfície dos módulos; `bible.test.mjs` novo |
 | 10 | C1 | feita | v1.13.20 (só web) | 2026-11-05 | nenhum defeito de culto na fatia; `clearCurrentSelection` em `updateState` (+ asserção com reversão); 2 trechos de código morto da preview/peso; ~20 lápides e fatos velhos nos comentários |
-| 11 | C2 | pendente | | | |
+| 11 | C2 | em curso | | 2026-11-05 | |
 | 12 | C3 | pendente | | | |
 | 13 | C4 | pendente | | | |
 | 14 | C5 | pendente | | | |
