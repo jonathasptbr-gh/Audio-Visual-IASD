@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.18** — revisão W2: MOTOR E TELÃO; o giro perdido do `enquadramento-da-camada` era o `load()` do Controle (repasse C2), não o `stage.js`; um export morto e comentários
 - **v1.13.17** — revisão W1: O NÚCLEO COMPARTILHADO (`db.js` + `native.js`); o `apkInstalar` que não respondia virava sucesso, e o watchdog do OTA ganha oráculo
 - **revisão A6 (sem versão nova; só workflow, `tools/` e docs)** — CI E HIGIENE: o `verificar` fixo em `ubuntu-24.04` (no 26.04 o Playwright do pin não instala e a suíte de Chromium era PULADA com o job verde), o `stub-da-ponte` fecha a armadilha dos 60 s, ponteiros do `apk.yml` e duplicata do `BUILD.md`
 - **revisão A5 (sem versão nova; só `tools/` e docs)** — O ARNÊS E OS ORÁCULOS: âncoras com o slug do GitHub e entre arquivos, o `display-smoke` sem o espelho de pixels, o `wav()` no arnês, o JUnit sem rede com o `EspelhoInterfacesTest`, tempos medidos
@@ -628,6 +629,178 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.13.18 — revisão W2: MOTOR E TELÃO (`stage.js`, `display.js`, `tela.js` e as duas folhas); o giro perdido do `enquadramento-da-camada` não era do motor
+
+**v1.13.18 (revisão W2; só web, sem Release)** — a etapa W2 da revisão profunda
+(`docs/REVISAO-PROFUNDA.md`): `shared/stage.js`, `display/display.js`,
+`espelho/tela.js`, `display/display.css` e `espelho/tela.css` pela lista comum.
+Nenhum defeito de culto CONFIRMADO dentro da cerca; a entrega é o diagnóstico do
+repasse da A1, um export morto e comentários.
+
+**O REPASSE DA A1 (`aplicarGiroTudo`/`GIRO_TENTATIVAS`) — MEDIDO, e o motor é
+inocente.** O vermelho idêntico dos runs 2229/2242 (`pvTextImg` com `cover`, sem giro,
+caixa 669×376) foi REPRODUZIDO localmente com `Emulation.setCPUThrottlingRate` 20×
+(a 8× passa). Instrumentado: no instante do `reporGiro` a camada `#pvText` estava
+VISÍVEL (`clientWidth` 669, nenhum ancestral `display:none`) e o `rot` da preview era
+**0** — o teto de 60 quadros nunca entrou em jogo. Quem zerou foi o `load()` do
+`init()` do Controle (`preview.setRotate(mediaRot)`, `controle.js` ~4307): ele leu
+`state.rotate` (0) ANTES de o `applyRotate(90)` do oráculo gravar e aplicou o valor
+velho DEPOIS — `mediaRot` volta ao antigo, a preview desgira e o telão (que recebeu o
+`rotate` pelo barramento) fica girado. Dois repasses: C2 (o `load()` reaplicando
+`mediaRot`/`mediaFit` lidos antes de um `applyRotate`/`applyFit` concorrente — no
+aparelho, girar durante qualquer `load()` em voo devolve o botão e a prévia ao valor
+anterior até o próximo `load()`) e X3 (o oráculo não espera a cortina —
+`esperarCortina` — antes de agir, contra a regra do arnês). O `stage.js` não muda.
+
+**CÓDIGO MORTO:** `createStage.rampSteps` e `createStage.MUTE_RAMP_TIME` saíram da
+superfície (sem consumidor desde a v5.212 — o próprio comentário dizia "não leia isto
+como contrato"; grep na base e em `tools/`).
+
+**COMENTÁRIOS (prova 1: o código sem comentários é idêntico ao HEAD nos cinco
+arquivos, fora as duas linhas do export; prova 2: `pares-de-comentario` verde nos
+três `.js`).** Fatos falsos: o `camadaImg` do `display.js` creditava o giro a um
+`mostrarTextImg` que não existe (é o `pintarTextImg`); o `diag-ask` dizia que o
+Controle "lê só `linhas`" (lê `linhas` e `retomada`); o `reporGiro` dizia "sem prazo"
+(há o reenvio por quadro do `aplicarGiroTudo`); o pôster vazio mandava procurar o seek
+"abaixo" (está no `loadInner`); o `tela.js` citava `db.js:800-801` (número de linha) e
+descrevia o pareamento por código de 3 dígitos ("digitação do código", "o código
+rotacionou"), que não existe desde a v5.189 (repasse da A4). Lápides removidas — a
+narrativa que elas guardavam segue VERBATIM abaixo: o bloco gêmeo do `ESPELHO`, o
+microfone ao vivo (dois blocos), o desvio do `fit` pelo `ytHandle`, o service worker
+(condensado na regra que fica: o telão nunca recarrega no meio do culto), o papel
+`espelho` (E7), as camadas `.yt-frame`/`.yt-shield` da folha, o `mic-status` do dreno,
+o botão de canto da v5.216 e o histórico do "Ligar Sistema" escondido na entrada.
+
+**Achado e não corrigido (sem cenário confirmado):** o `tela.js` usa `async`/`class`
+(Chromium ≥ 55) e o cabeçalho cita webOS 4.x = Chromium 53 — o `display.js` já exige
+o mesmo, então não é regressão da casca; a ladeira de retentativa de imagem está
+escrita três vezes no `display.js` (fundo da letra, `pintarTextImg`, wallpaper da
+tela) com constantes iguais — duplicação estável, sem divergência medida.
+
+**Os trechos removidos, verbatim:**
+
+```
+### display/display.js
+// é o padrão, o novo é a exceção que se declara.
+//
+// (Aqui havia um bloco gêmeo descrevendo um `ESPELHO` — o papel do espelho de
+// PIXELS, removido na v5.187 junto com a constante. O comentário ficou de pé e
+// passou a afirmar, no presente, um identificador que não existe em lugar
+// nenhum. A história dele mora em passado no rodapé deste arquivo e no
+// `docs/HISTORICO.md`, v5.187.)
+const TELA
+
+### display/display.js
+// (O MICROFONE AO VIVO saiu na v1.8.89, a pedido do operador: *"remova a opção
+//  de microfone direto para o telão, que temos nas ferramentas"*. Ele nasceu
+//  AQUI, e não no Controle, porque um `MediaStream` não atravessa o
+//  BroadcastChannel — quem abria a captura tinha de ser quem a reproduzia.
+//  Foram junto `startMic`/`stopMic`, a escada de três degraus (a que fazia o
+//  `AudioRecord` abrir com o espelhamento ligado), o `micStatus` e o `setMic`,
+//  com a guarda `if (TELA) return` que impedia cada tela da rede de abrir o
+//  microfone DO APARELHO ONDE O NAVEGADOR RODA. Com o comando `mic` sem
+//  emissor, não sobra nada disso a defender.
+//
+//  O KOTLIN FICA: `MicChromeClient`, `requestMic`, `micDiag` e a permissão
+//  `RECORD_AUDIO` só saem instalando um APK — encolher pelo WEB primeiro é o
+//  lado seguro.)
+
+
+
+### display/display.js
+  // Preenchimento (object-fit): vai direto pro stage. (O desvio explícito
+  // nasceu para não cair no `ytHandle` do embed, que ignorava 'fit'; com o
+  // embed fora — v5.212 — ele continua sendo o caminho mais curto e o mais
+  // legível, então fica.)
+
+### display/display.js
+  // (O ramo `mic` saiu na v1.8.89 com o recurso — ver a lápide acima. Um
+  //  Controle de bundle ANTIGO ainda pode emitir o comando; ele cai no fim
+  //  desta função como qualquer tipo desconhecido, sem efeito.)
+
+
+
+### display/display.js
+// NÃO há auto-atualização por service worker aqui. Havia um bloco que
+// registrava `sw.js` e recarregava a página no `controllerchange` (adiando até
+// o telão ficar idle), mas o `sw.js` saiu do bundle junto com os andaimes dos
+// dois PWAs instaláveis: no navegador o register devolvia 404 e a promise era
+// engolida pelo .catch, e no app nativo o bloco nem chegava a rodar. Ou seja,
+// código morto nos dois contextos, sugerindo ao próximo leitor uma atualização
+// que não existia. Quem atualiza a base web agora é o OTA do shell, aplicado
+// no PRÓXIMO lançamento — justamente para nunca recarregar o WebView do telão
+// no meio de um culto.
+
+// ===== O papel `espelho` (o ESPELHO DE PIXELS) foi REMOVIDO (E7) =====
+//
+// O bloco inteiro do áudio do espelho (AudioWorklet → __avEspelhoAudio →
+// AAC) e o batimento de 8 Hz que forçava o SurfaceFlinger a recompor viviam
+// aqui — eram a metade web do pipeline de pixels. O substituto é o TELÃO
+// POR COMANDOS (docs/TELAO-POR-COMANDOS.md): as telas da rede rodam este
+// MESMO documento no papel `tela` e tocam a mídia com a própria faixa de
+// som — a sincronia A/V é do navegador de cada uma, e não há mais nada a
+// capturar, codificar ou pulsar deste lado.
+
+
+### shared/stage.js
+  // Rampa curta ao mutar/desmutar (evita corte abrupto de áudio). INTERNA: as
+  // duas outras rampas (`ytRampVolume` no Display, `ytPreviewRampVolume` no
+  // Controle) saíram na v5.212 com o embed, e hoje há um `<video>` só.
+
+### shared/stage.js
+  global.createStage = createStage;
+  // SEM CONSUMIDOR EXTERNO desde a v5.212 — não leia isto como contrato. Eles
+  // existiam para as rampas do embed do YouTube (`ytRampVolume` no Display,
+  // `ytPreviewRampVolume` no Controle), removidas junto com ele; hoje há um
+  // `<video>` só e a rampa é uma só. Ficam expostos como ponto de extensão.
+  createStage.rampSteps = rampSteps;
+  createStage.MUTE_RAMP_TIME = MUTE_RAMP_TIME;
+
+
+### display/display.css
+/* (SAIU NA v5.212: `.yt-frame` e `.yt-shield`, as duas camadas do embed do
+   YouTube. A primeira renderizava o iframe a 400% e o encolhia por transform,
+   para minimizar a marca do YouTube no telão; a segunda era o escudo que
+   cobria a tela de "vídeos relacionados" enquanto o player caía. As duas
+   existiam para consertar o que um player de TERCEIRO desenha por conta
+   própria — e o embed saiu inteiro: o que toca vídeo do YouTube agora é o
+   `<video>` do palco, alimentado pelo arquivo baixado. Não há UI alheia a
+   esconder.) */
+
+
+
+### espelho/tela.js
+// faz o Registro mostrar o diário de um sem dizer qual. (O `mic-status` era o
+// terceiro, e o mais perigoso — 'unsupported', porque não há getUserMedia em
+// http, apagava o estado do microfone VERDADEIRO. Ele saiu na v1.8.89 com o
+// recurso, e o dreno não muda por isso: ele é lista de PERMISSÃO, então um
+// emissor a menos não abre porta nenhuma.) Sobem DUAS coisas: `display-ready`
+// (o que faz o Controle
+// reenviar a cena)
+
+### espelho/tela.js
+  // O QUE SAIU DAQUI: até a v5.216 havia um botão discreto de canto que aparecia
+  // quando faltava som ou tela cheia. Ele existia para devolver o gesto perdido
+  // numa RECARGA — e a recarga passou a voltar para a entrada oficial (ver
+  // `iniciar`), que é o mesmo botão do primeiro acesso. Saíram com ele o
+  // `oQueFalta`/`oferecerGesto` (a pergunta que ninguém mais faz) e o
+  // `assentando` da v5.214, que era só o guarda daquela pergunta — a regra que
+  // ele protegia continua escrita no `telaCheia` acima.
+  //
+
+
+### espelho/tela.js
+    // O "Ligar Sistema" do display NÃO é escondido aqui (v5.216). Ele era, e o
+    // buraco estava justamente nisto: `montarEntrada()` só roda na PRIMEIRA
+    // carga — a recarga com sessão viva reconecta por trás, sem desenhar
+    // overlay nenhum —, então um F5 na tela da rede trazia o botão antigo de
+    // volta por cima da projeção, e o toque do visitante ia para ele em vez de
+    // ir para o nosso. Quem o esconde agora é o próprio `display.js`, que é o
+    // documento que o declara, e o faz pelo PAPEL — em toda carga.
+```
 
 ---
 

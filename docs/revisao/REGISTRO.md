@@ -19,7 +19,7 @@ abandonada → primeira pendente pelo `nº`).
 | 5 | A5 | feita (resíduo: as outras células em cadeia do `ORACULOS.md`, ver o relatório) | sem versão (só `tools/` + docs) | 2026-11-04 | `docs-coerentes` confere âncora com o slug do GitHub e entre arquivos; `display-smoke` sem a comparação morta do espelho; `wav()` no arnês; JUnit sem rede +14 testes; 4 células do `ORACULOS.md` colapsadas; tempos medidos arquivo a arquivo |
 | 6 | A6 | feita | sem versão (só workflow, `tools/` e docs) | 2026-11-04 → 2026-11-05 | o `verificar` fixo em `ubuntu-24.04`: no 26.04 o Playwright do pin não instalava e a suíte de Chromium era PULADA com job verde (9 runs); `stub-da-ponte` novo (94 travas latentes em 40 fixtures consertadas); ponteiros do `apk.yml` e duplicata do `BUILD.md` |
 | 7 | W1 | feita | v1.13.17 (só web) | 2026-11-05 | `apkInstalar` que não respondia virava SUCESSO (consertado + asserção); `watchdog-modulos` novo; ~30 comentários corrigidos/reancorados nos dois arquivos; 3 RMW partidos no `controle.js` repassados |
-| 8 | W2 | em curso | | 2026-11-05 | |
+| 8 | W2 | feita | v1.13.18 (só web) | 2026-11-05 | nenhum defeito de culto na cerca; o giro perdido do `enquadramento-da-camada` MEDIDO: é o `load()` do Controle reaplicando rotação velha (repasse C2), não o `stage.js`; export morto e ~15 comentários |
 | 9 | W3 | pendente | | | |
 | 10 | C1 | pendente | | | |
 | 11 | C2 | pendente | | | |
@@ -51,13 +51,11 @@ tratou.
 
 | para | de | achado (arquivo:símbolo — cenário) |
 |---|---|---|
-| W2 | A1 | `shared/stage.js`:`aplicarGiroTudo` — SUSPEITA com cenário: `enquadramento-da-camada` reprovou IDÊNTICO nos runs 2229 e 2242 (`pvTextImg` com `cover` mas sem giro, caixa = palco 669×376). Com a camada (`#pvText`) ainda `hidden` quando o `reporGiro` roda, o reenvio por `requestAnimationFrame` desiste em `GIRO_TENTATIVAS` (60 QUADROS, não tempo): se a revelação vier depois disso (runner lento), a imagem sobreposta fica SEM o giro para sempre — sem TV, isso é a projeção. Medir: forçar a revelação depois de 60 quadros; conserto provável: quem revela a camada chama `reporGiro` DEPOIS de revelar o ancestral, ou um `ResizeObserver` na própria `camadaImg`. O oráculo não foi mexido: esperar pelo giro esconderia o defeito |
 | A3 | A2 | Os blocos movidos VERBATIM para `docs/arquitetura/DESIGN-SYSTEM.md` ("As regras da paleta como estavam no núcleo"), `docs/arquitetura/CONTROLE.md` (referência da preview; abertura), `docs/shell/PONTE.md`, `docs/TELAO-POR-COMANDOS.md`, `docs/arquitetura/DISPLAY.md`, `MODELO-DE-DADOS.md` e `MOTOR-STAGE.md` (seções "(do núcleo, revisão A2)" ao fim de cada um) DUPLICAM em parte o que o capítulo já tinha (medido: PONTE.md já cobria ~95% dos símbolos; DESIGN-SYSTEM ~53%). A A2 não deduplicou de propósito (mover sem perder era a cerca); fundir cada seção na casa certa do capítulo é trabalho de capítulo |
 | K2 | A3 | `NativeBridge.kt` ~1350: o comentário diz que os métodos de certificado são guardados "como os cinco irmãos", mas a família do espelho tem 9 métodos com guarda `host` — conferir a conta |
 | X3 | A5 | (sem outra etapa em `tools/`; a X3 é a que mede no Chromium) `tools/configuracoes-janelas.test.mjs` D e `tools/boot-nativo.test.mjs` — instáveis no runner, SEM reprodução local (passaram na base e 5× cada a três processos). O `obtido` do D já diz o estado da seção (A1); o próximo vermelho do `boot-nativo` precisa ter a asserção lida no log (o log corta): sem ela, não há o que consertar. **A6 leu um:** run `41998913449` (1ª tentativa), única asserção vermelha *"o percurso dos Favoritos terminou sem exceção (page.evaluate: TypeError: Cannot read properties of null (reading 'click') at eval :41:35)"* — um `.click()` cru num `evaluate` dentro do `try` de 4437→5183 que ainda não nomeia o elemento ausente; a 2ª tentativa passou (132/132) e 5 rodadas locais passaram |
 | X2 | A4 | Os que sobraram da `AUDITORIA-2026-08.md` estão ENUMERADOS na tabela "Conferência da revisão A4" no topo dela (7 ids + 3 resíduos; o "26" eram listas brutas). E fora da cerca de qualquer etapa: a `AUDITORIA-2026-09-11.md` tem 23 achados sem RESOLVIDO (entre eles [5] e [33] VERIFICADOS) + 3 extras (imports mortos em `EspelhoServidor.kt` e `ShellUpdater.kt`, o `#bibleTitle`) — vários ([23] [25] [29] [33] [37]) citam linhas do `CLAUDE.md` antigo e devem ter caducado; a `AUDITORIA-EFICIENCIA-2026-09.md` tem #2, #5 e #9 abertos; a `AUDITORIA-ESTABILIDADE-AV.md` tem C2 e D2 abertos (cabeçalhos atualizados) |
 | C1 | A4 | `controle.js` (~linha 715, o comentário do achado `:469` da auditoria 2026-08): diz que "a ÚNICA porta dinâmica é `DEST_ICONE`", que saiu na v1.8.56 — hoje é `ICON[d.ico]`. Lápide |
-| W2 | A4 | `espelho/tela.js`: o cabeçalho cita `db.js:800-801` (número de linha), e "digitação do código" / "o código rotacionou" descrevem o pareamento por código de 3 dígitos, que não existe mais |
 | K4 | A4 | `EspelhoServidor.servirMidia` — o KDoc diz que item em crescimento só sai em `chunked`; conferir contra o `alcanceDe`. O `EspelhoHttpRangeTest` cita o §6 do `TELAO-POR-COMANDOS.md`, que continua existindo (condensado). Não verificados na A4: `EspelhoPares.validar` aceitar token nu e o Cookie ser ignorado (saíram do doc por não terem prova) |
 | C3 | W1 | `controle.js`:`moverNaLista` (~12389) — `listIds` + `listSet(listName, ids)` em ARRAY: read-modify-write partido. Um download do YouTube que termina no vão (`addMediaToList` na mesma lista) some da lista e o `gcOrfaos` seguinte apaga o arquivo; dois toques rápidos em "Mover" perdem um movimento. Conserto: `AVDB.listSet(listName, (ids) => { …splice…; return ids; })` |
 | C8 | W1 | `controle.js`:`resgatarDownloads` (~39449) — `getState(YT_INTENCOES)` + `setState(YT_INTENCOES, [])`: uma intenção gravada por `lembrarIntencao` entre os dois é apagada (janela curta, na abertura). Conserto: `let pend = []; await AVDB.updateState(YT_INTENCOES, (a) => { pend = a \|\| []; return []; })` |
@@ -66,6 +64,8 @@ tratou.
 | K2 | W1 | `NativeBridge.kt`:`bgProgress` (~951) — linha de comentário duplicada ("Só o Controle, como os onze irmãos…" duas vezes) |
 | K2 | W1 | `NativeBridge.kt`:`apkInstalar` — roda na fila `transferencia` (UMA thread, a dos downloads do YouTube): o APK espera atrás de um download de minutos e o prazo de 15 min do web conta essa espera. Avaliar se a fila é a certa (o web já não mente quando o prazo vence: v1.13.17) |
 | K1 | W1 | `MainActivity.kt`:`pendingShare` (~169/731) — slot ÚNICO (`AtomicReference.set`): dois shares que chegam antes de o web bombear sobrescrevem o primeiro. SUSPEITA, sem medição |
+| C2 | W2 | `controle.js`:`load()` (~4186/4240/4307) — lê `state.rotate` (e `fit`) com `await` no começo e aplica `mediaRot`/`preview.setRotate` no fim: um `applyRotate` (C8, ~38654) que grava no vão é DESFEITO no Controle (botão e prévia voltam ao valor velho; o telão fica girado) até o próximo `load()`. MEDIDO (W2): é o vermelho de 2229/2242 do `enquadramento-da-camada`, com o `load()` do `init()`. Conserto provável: reler o estado na hora de aplicar, ou `applyRotate`/`applyFit` aplicarem na preview e o `load()` não sobrescrever valor mais novo |
+| X3 | W2 | `tools/enquadramento-da-camada.test.mjs` — age (`applyRotate`, `send`) logo depois de `__avBack` existir, SEM `esperarCortina`: com o `init()` ainda em voo, o `load()` dele desfaz o giro (repasse C2). Reproduz com `Emulation.setCPUThrottlingRate` 20× (8× passa). Conserto do oráculo: `esperarCortina` depois do `goto`; a asserção do C2 é outra (girar DURANTE um `load()` em voo) |
 
 ## Relatórios
 
@@ -300,3 +300,32 @@ sentidos; Chromium: `ponte`, `ota`, `ota-confirma`, `boot-nativo`, `db-estado`,
 `abertura-e-transferencia`, `edicao-de-midia`, `excluir-em-cena`,
 `verificacao-completa`, `verificacao-do-sistema`, `registro`, `smoke`, `display-smoke`.
 **O operador:** nada a fazer; a v1.13.17 chega sozinha (só web).
+
+### W2 · Motor e telão — feita (2026-11-05)
+
+**Corrigido (código, só `stage.js`):** `createStage.rampSteps`/`MUTE_RAMP_TIME` saíram
+da superfície (sem consumidor desde a v5.212). Nada mais de código: na cerca não houve
+defeito de culto CONFIRMADO (lidos inteiros os três `.js`; folhas varridas por cor
+literal, contorno e seletor sem elemento — limpas).
+**Repasse da A1 (`aplicarGiroTudo`) — MEDIDO, motor inocente:** o vermelho reproduz com
+CPU 20× mais lenta; instrumentado, no `reporGiro` a camada estava visível e o `rot` da
+preview era 0 — quem o zerou foi o `load()` do `init()` do Controle, que leu a rotação
+antes de o `applyRotate(90)` gravar. Repasses C2 (a corrida no app) e X3 (o oráculo não
+espera a cortina). O teto de 60 quadros não entrou em jogo.
+**Repasse da A4 (`tela.js`):** o `db.js:800-801` e o pareamento por código de 3 dígitos
+saíram do cabeçalho e dos dois comentários que o citavam.
+**Só comentário (provas 1 e 2 nos cinco arquivos):** `mostrarTextImg` inexistente,
+"o Controle lê só `linhas`" (lê `retomada` também), "sem prazo" no `reporGiro`, o seek
+"abaixo"; lápides do `ESPELHO`, do microfone (2), do `ytHandle`, do service worker, do
+papel `espelho` (E7), das `.yt-frame`/`.yt-shield`, do `mic-status` e do botão de canto
+da v5.216 — a narrativa foi verbatim à seção v1.13.18 do histórico.
+**Achado e não corrigido:** a ladeira de retentativa de imagem escrita três vezes no
+`display.js` (iguais, sem divergência medida); `tela.js` com `async`/`class` contra o
+webOS 4.x citado (o `display.js` já exige o mesmo — não é regressão).
+**Verificado:** "Sanidade da base web" (todo Node puro), `docs-coerentes`; Chromium (27):
+`display-smoke`, `tela-rede`, `enquadramento-da-camada`, `telao-no-chao`, `stage-fade`,
+`smoke`, `cartao-preso-no-telao`, `imagem-sobre-audio`, `slides-sobre-audio`,
+`letra-avulsa`, `restaurar-letra-adiada`, `fundo-da-letra`, `troca-de-versiculo`,
+`mensagem-estilo`, `itinerario`, `parar-por-camada`, `apresentacao`, `tela-inteira`,
+`preview-volta-ao-wallpaper`, `ponte`, `registro` e os estáticos que leem a cerca.
+**O operador:** nada a fazer; a v1.13.18 chega sozinha (só web, nada que ele veja).

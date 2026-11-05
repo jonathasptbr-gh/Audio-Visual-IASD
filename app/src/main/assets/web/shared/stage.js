@@ -17,9 +17,7 @@
 (function (global) {
   'use strict';
 
-  // Rampa curta ao mutar/desmutar (evita corte abrupto de áudio). INTERNA: as
-  // duas outras rampas (`ytRampVolume` no Display, `ytPreviewRampVolume` no
-  // Controle) saíram na v5.212 com o embed, e hoje há um `<video>` só.
+  // Rampa curta ao mutar/desmutar (evita corte abrupto de áudio). INTERNA.
   const MUTE_RAMP_TIME = 0.25;
   // Transições são INERENTES ao sistema: sempre ligadas, duração fixa, sem UI
   // nem state. Fonte ÚNICA (via createStage.FADE) — antes o mesmo objeto estava
@@ -1419,7 +1417,7 @@
     //
     // Com a bandeira desligada o `poster` é IGNORADO por contrato: mantê-lo não
     // custa nada e cobre a janela em que importa. Para o quadro congelado
-    // aparecer, falta o seek — que a cena pausada faz abaixo, sempre. (Cada
+    // aparecer, falta o seek — que a cena pausada faz no `loadInner`, sempre. (Cada
     // `load` repõe o atributo antes de a fonte nova entrar.)
 
     // A MESMA guarda do handler interno (acima): com um load em voo, o fim
@@ -1451,8 +1449,9 @@
       // `img`/`video`. A camada não passa por `applyMedia` (quem a mostra é o
       // `showText`/`pintarPvTextImg`), então a reposição dela é PEDIDA.
       //
-      // Sem prazo e sem observer: um `ResizeObserver` na própria camada
-      // resolveria sozinho, e foi descartado porque `aplicarGiro` MEXE na caixa
+      // Sem observer na camada (quem tenta de novo é o `aplicarGiroTudo`, por
+      // quadro): um `ResizeObserver` nela resolveria sozinho, e foi descartado
+      // porque `aplicarGiro` MEXE na caixa
       // que ele observaria — um laço que converge, mas cujo aviso do Chromium
       // ("ResizeObserver loop") o `smoke.mjs` lê como erro de console.
       reporGiro: () => { if (rot) { giroTentativa = 0; aplicarGiroTudo(); } },
@@ -1515,12 +1514,6 @@
   }
 
   global.createStage = createStage;
-  // SEM CONSUMIDOR EXTERNO desde a v5.212 — não leia isto como contrato. Eles
-  // existiam para as rampas do embed do YouTube (`ytRampVolume` no Display,
-  // `ytPreviewRampVolume` no Controle), removidas junto com ele; hoje há um
-  // `<video>` só e a rampa é uma só. Ficam expostos como ponto de extensão.
-  createStage.rampSteps = rampSteps;
-  createStage.MUTE_RAMP_TIME = MUTE_RAMP_TIME;
   // Transições: config fixa do sistema + os fades de camada paralela, idênticos
   // nos dois apps (ver bloco no topo).
   createStage.FADE = FADE;

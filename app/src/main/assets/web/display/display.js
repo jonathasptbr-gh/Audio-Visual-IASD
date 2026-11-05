@@ -34,12 +34,6 @@ const INSTANCIA = 'd' + Math.random().toString(36).slice(2, 10).padEnd(8, '0');
 // Ela é falsa no telão e no navegador de desenvolvimento (sem a ponte não há
 // `__AV_ROLE__`), que é a regra de escrita do projeto: o comportamento de sempre
 // é o padrão, o novo é a exceção que se declara.
-//
-// (Aqui havia um bloco gêmeo descrevendo um `ESPELHO` — o papel do espelho de
-// PIXELS, removido na v5.187 junto com a constante. O comentário ficou de pé e
-// passou a afirmar, no presente, um identificador que não existe em lugar
-// nenhum. A história dele mora em passado no rodapé deste arquivo e no
-// `docs/HISTORICO.md`, v5.187.)
 const TELA = window.__AV_ROLE__ === 'tela';
 
 // Config de transições. INERENTE ao sistema: toda troca visual é animada com
@@ -155,7 +149,7 @@ const stage = createStage({
   // `imgEl`, projetadas por cima de um louvor de fundo em vez de no lugar dele
   // — e até este lote ficavam de fora do preenchimento e do giro, presas no
   // `contain` da folha. Entregar o elemento ao palco põe as duas sob a mesma
-  // regra; quem repõe o giro ao revelá-lo é o `mostrarTextImg`, logo abaixo.
+  // regra; quem repõe o giro ao revelá-lo é o `pintarTextImg`, logo abaixo.
   camadaImg: textImgEl,
   // A TELA DA REDE NASCE MUDA, e isso é a falha segura — não uma preferência.
   //
@@ -1075,20 +1069,6 @@ function reconcileCover(view) {
   else stage.coverOut();
 }
 
-// (O MICROFONE AO VIVO saiu na v1.8.89, a pedido do operador: *"remova a opção
-//  de microfone direto para o telão, que temos nas ferramentas"*. Ele nasceu
-//  AQUI, e não no Controle, porque um `MediaStream` não atravessa o
-//  BroadcastChannel — quem abria a captura tinha de ser quem a reproduzia.
-//  Foram junto `startMic`/`stopMic`, a escada de três degraus (a que fazia o
-//  `AudioRecord` abrir com o espelhamento ligado), o `micStatus` e o `setMic`,
-//  com a guarda `if (TELA) return` que impedia cada tela da rede de abrir o
-//  microfone DO APARELHO ONDE O NAVEGADOR RODA. Com o comando `mic` sem
-//  emissor, não sobra nada disso a defender.
-//
-//  O KOTLIN FICA: `MicChromeClient`, `requestMic`, `micDiag` e a permissão
-//  `RECORD_AUDIO` só saem instalando um APK — encolher pelo WEB primeiro é o
-//  lado seguro.)
-
 // ===== O ITINERÁRIO VESTE O WALLPAPER (v1.13.1) =====
 // O cartão é opaco (o `.layer` pinta o preto do palco) e cobre a mídia que toca
 // por baixo — no itinerário ele pinta o WALLPAPER no lugar do preto, e o texto
@@ -1550,18 +1530,15 @@ AVDB.onCommand(async (cmd) => {
   // O Controle pede a caixa-preta ao abrir Configurações.
   if (cmd.type === 'diag-ask') {
     // OS CONTADORES VÃO JUNTO com as linhas: o anel tem 60 e um culto inteiro
-    // não cabe nele. Campo novo aqui = campo novo no consumidor (`controle.js`),
-    // que hoje lê só `linhas` — a mesma regra da ponte, pelo mesmo motivo.
+    // não cabe nele. Campo novo aqui = campo novo no consumidor (`controle.js`,
+    // que lê `linhas` e `retomada`) — a mesma regra da ponte, pelo mesmo motivo.
     AVDB.sendCommand({
       type: 'diag-dump', linhas: diario.slice(-DIAG_MAX), retomada: Object.assign({}, retom),
     });
     return;
   }
 
-  // Preenchimento (object-fit): vai direto pro stage. (O desvio explícito
-  // nasceu para não cair no `ytHandle` do embed, que ignorava 'fit'; com o
-  // embed fora — v5.212 — ele continua sendo o caminho mais curto e o mais
-  // legível, então fica.)
+  // Preenchimento (object-fit): vai direto pro stage — o caminho mais curto.
   if (cmd.type === 'fit') {
     stage.setFit(cmd.fit);
     return;
@@ -1607,10 +1584,6 @@ AVDB.onCommand(async (cmd) => {
     applyWallpaper();
     return;
   }
-  // (O ramo `mic` saiu na v1.8.89 com o recurso — ver a lápide acima. Um
-  //  Controle de bundle ANTIGO ainda pode emitir o comando; ele cai no fim
-  //  desta função como qualquer tipo desconhecido, sem efeito.)
-
   // PARAR SÓ A MÍDIA — a outra metade da independência áudio × texto (v5.178).
   //
   // `clear` é o Parar do transporte e encerra a CENA INTEIRA. Faltava o
@@ -1824,24 +1797,7 @@ startBtnEl.addEventListener('click', () => {
   setTimeout(() => { startBtnEl.hidden = true; }, 300);
 }, { once: true });
 
-// NÃO há auto-atualização por service worker aqui. Havia um bloco que
-// registrava `sw.js` e recarregava a página no `controllerchange` (adiando até
-// o telão ficar idle), mas o `sw.js` saiu do bundle junto com os andaimes dos
-// dois PWAs instaláveis: no navegador o register devolvia 404 e a promise era
-// engolida pelo .catch, e no app nativo o bloco nem chegava a rodar. Ou seja,
-// código morto nos dois contextos, sugerindo ao próximo leitor uma atualização
-// que não existia. Quem atualiza a base web agora é o OTA do shell, aplicado
-// no PRÓXIMO lançamento — justamente para nunca recarregar o WebView do telão
-// no meio de um culto.
-
-// ===== O papel `espelho` (o ESPELHO DE PIXELS) foi REMOVIDO (E7) =====
-//
-// O bloco inteiro do áudio do espelho (AudioWorklet → __avEspelhoAudio →
-// AAC) e o batimento de 8 Hz que forçava o SurfaceFlinger a recompor viviam
-// aqui — eram a metade web do pipeline de pixels. O substituto é o TELÃO
-// POR COMANDOS (docs/TELAO-POR-COMANDOS.md): as telas da rede rodam este
-// MESMO documento no papel `tela` e tocam a mídia com a própria faixa de
-// som — a sincronia A/V é do navegador de cada uma, e não há mais nada a
-// capturar, codificar ou pulsar deste lado.
+// SEM SERVICE WORKER: quem atualiza a base web é o OTA do shell, aplicado no
+// PRÓXIMO lançamento — o WebView do telão nunca recarrega no meio de um culto.
 
 restore();
