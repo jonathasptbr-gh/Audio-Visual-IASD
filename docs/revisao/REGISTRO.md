@@ -26,7 +26,7 @@ abandonada → primeira pendente pelo `nº`).
 | 12 | C3 | feita | v1.13.23 (só web) | 2026-11-05 | nenhum defeito de culto na fatia; `moverNaLista` (repasse W1, fatia C4) pela forma atômica do `listSet` (+ asserção com reversão); `TOOLS_ANIM_MS` copiava o token que dizia ler; ~60 comentários (lápides, fatos velhos, um bloco no símbolo errado) |
 | 13 | C4 | feita | v1.13.24 (só web) | 2026-11-05 | nenhum defeito de culto na fatia; o botão do Cronograma/playlist desfeito por um `load()` em voo (`listasSeq` + asserção com reversão); repasse C2 do `renderTabs`; ~45 comentários (lápides, fatos velhos, um bloco no símbolo errado) |
 | 14 | C5 | feita | v1.13.25 (só web) | 2026-11-05 | nenhum defeito de culto na fatia; o "Tocar agora" desfeito por um `load()` em voo (`listasSeq` + asserção com reversão, repasse C4); a ABERTURA da rolagem da cifra descrita como regra (repasse W3, decisão do operador); 2 variáveis mortas; ~90 comentários (lápides, fatos velhos, 4 blocos no símbolo errado) |
-| 15 | C6 | pendente | | | |
+| 15 | C6 | em curso | | 2026-11-05 | |
 | 16 | C7 | pendente | | | |
 | 17 | C8 | pendente | | | |
 | 18 | C9 | pendente | | | |
