@@ -247,7 +247,7 @@ try {
   const trocou = await pg.evaluate(() => {
     abrirBiblia();
     // MEDIDO NO ATO: a folha COMEÇA a sair no mesmo turno. Ela leva os 220 ms da
-    // animação para deixar a árvore (ver `TOOLS_ANIM_MS`), e afirmar só o fim
+    // animação para deixar a árvore (ver `msDaToolsAnim`), e afirmar só o fim
     // não separaria "fechou" de "nunca fechou" — os dois acabam iguais depois
     // de um prazo generoso.
     return {

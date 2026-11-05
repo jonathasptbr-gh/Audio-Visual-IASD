@@ -87,10 +87,9 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      Dois degraus (controle × cartão) e três exceções nomeadas. Um raio literal
      solto é o que produz dois botões irmãos, na mesma linha, com cantos
      diferentes. */
-  /* A folha de Ferramentas sobe e desce nesta duração — UM valor, porque o JS
-     precisa do MESMO número para tirar a folha da tela no fim da saída (ver
-     `TOOLS_ANIM_MS` em controle.js). Dois lugares com o mesmo tempo divergem no
-     primeiro ajuste, e o que se vê é a folha sumindo no meio do caminho. */
+  /* As duas folhas (Ferramentas e Bíblia) sobem e descem nesta duração — UM
+     valor, e o JS o LÊ daqui para tirar a folha da tela no fim da saída (ver
+     `msDaToolsAnim` em controle.js). */
   --tools-anim: .22s;
   --radius-btn: 8px;
   --radius-card: 10px;

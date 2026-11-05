@@ -10803,11 +10803,16 @@ function trocarVistaDasFerramentas(desenhar, sentido, opcoes) {
 //  que se está* — virou a regra do app inteiro: ele tem uma tela e duas folhas.)
 function ferramentasAbertas() { return !!toolsSheetEl && !toolsSheetEl.hidden; }
 
-// A DURAÇÃO DA ENTRADA E DA SAÍDA, e ela é UMA — lida do `--tools-anim` do CSS,
-// que é o dono. Um número repetido aqui divergiria do outro no primeiro ajuste,
-// e o que se veria é a folha sumindo no meio do caminho (ou uma faixa parada
-// depois de ela já ter descido).
-const TOOLS_ANIM_MS = 220;
+// A DURAÇÃO DA ENTRADA E DA SAÍDA das duas folhas, e ela é UMA — lida do
+// `--tools-anim` do CSS, que é o dono. Um número repetido aqui divergiria do
+// outro no primeiro ajuste, e o que se veria é a folha sumindo no meio do
+// caminho (ou uma faixa parada depois de ela já ter descido). Sem o token não
+// há animação (ela é `var(--tools-anim)`), e o zero é a resposta certa.
+function msDaToolsAnim() {
+  const v = getComputedStyle(document.documentElement).getPropertyValue('--tools-anim').trim();
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n * (/ms$/.test(v) ? 1 : 1000) : 0;
+}
 let toolsSaindoTimer = null;
 
 function abrirFerramentas() {
@@ -10866,7 +10871,7 @@ function fecharFerramentas() {
     toolsSheetEl.hidden = true;
     toolsBodyEl.innerHTML = '';
     toolsFootEl.innerHTML = '';
-  }, TOOLS_ANIM_MS);
+  }, msDaToolsAnim());
 }
 
 // ===== A FOLHA DA BÍBLIA (v1.5.0) =====
@@ -10933,7 +10938,7 @@ function fecharBiblia() {
     bibleSheetEl.classList.remove('saindo');
     bibleSheetEl.hidden = true;
     bibleBodyEl.innerHTML = '';
-  }, TOOLS_ANIM_MS);
+  }, msDaToolsAnim());
 }
 
 // A mensagem está NO AR? Pela PROJEÇÃO, nunca pela existência da sessão — a
