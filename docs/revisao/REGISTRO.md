@@ -25,7 +25,7 @@ abandonada → primeira pendente pelo `nº`).
 | 11 | C2 | feita | v1.13.21 + v1.13.22 (só web) | 2026-11-05 | o giro e o "Preencher" tocados com um `load()` em voo deixavam de valer no Controle (consertado + asserção com reversão, os dois); `cenaDeRoteiroNoAr` sem a régua duplicada; 3 `renderLibrary()` órfãos da Bíblia; ~30 lápides e fatos velhos |
 | 12 | C3 | feita | v1.13.23 (só web) | 2026-11-05 | nenhum defeito de culto na fatia; `moverNaLista` (repasse W1, fatia C4) pela forma atômica do `listSet` (+ asserção com reversão); `TOOLS_ANIM_MS` copiava o token que dizia ler; ~60 comentários (lápides, fatos velhos, um bloco no símbolo errado) |
 | 13 | C4 | feita | v1.13.24 (só web) | 2026-11-05 | nenhum defeito de culto na fatia; o botão do Cronograma/playlist desfeito por um `load()` em voo (`listasSeq` + asserção com reversão); repasse C2 do `renderTabs`; ~45 comentários (lápides, fatos velhos, um bloco no símbolo errado) |
-| 14 | C5 | em curso | | 2026-11-05 | |
+| 14 | C5 | feita | v1.13.25 (só web) | 2026-11-05 | nenhum defeito de culto na fatia; o "Tocar agora" desfeito por um `load()` em voo (`listasSeq` + asserção com reversão, repasse C4); a ABERTURA da rolagem da cifra descrita como regra (repasse W3, decisão do operador); 2 variáveis mortas; ~90 comentários (lápides, fatos velhos, 4 blocos no símbolo errado) |
 | 15 | C6 | pendente | | | |
 | 16 | C7 | pendente | | | |
 | 17 | C8 | pendente | | | |
@@ -57,16 +57,13 @@ tratou.
 | X2 | A4 | Os que sobraram da `AUDITORIA-2026-08.md` estão ENUMERADOS na tabela "Conferência da revisão A4" no topo dela (7 ids + 3 resíduos; o "26" eram listas brutas). E fora da cerca de qualquer etapa: a `AUDITORIA-2026-09-11.md` tem 23 achados sem RESOLVIDO (entre eles [5] e [33] VERIFICADOS) + 3 extras (imports mortos em `EspelhoServidor.kt` e `ShellUpdater.kt`, o `#bibleTitle`) — vários ([23] [25] [29] [33] [37]) citam linhas do `CLAUDE.md` antigo e devem ter caducado; a `AUDITORIA-EFICIENCIA-2026-09.md` tem #2, #5 e #9 abertos; a `AUDITORIA-ESTABILIDADE-AV.md` tem C2 e D2 abertos (cabeçalhos atualizados) |
 | K4 | A4 | `EspelhoServidor.servirMidia` — o KDoc diz que item em crescimento só sai em `chunked`; conferir contra o `alcanceDe`. O `EspelhoHttpRangeTest` cita o §6 do `TELAO-POR-COMANDOS.md`, que continua existindo (condensado). Não verificados na A4: `EspelhoPares.validar` aceitar token nu e o Cookie ser ignorado (saíram do doc por não terem prova) |
 | C8 | W1 | `controle.js`:`resgatarDownloads` (~39449) — `getState(YT_INTENCOES)` + `setState(YT_INTENCOES, [])`: uma intenção gravada por `lembrarIntencao` entre os dois é apagada (janela curta, na abertura). Conserto: `let pend = []; await AVDB.updateState(YT_INTENCOES, (a) => { pend = a \|\| []; return []; })` |
-| C5 | W1 | `controle.js`:`serieDiarioGravar` (~21990) — o comentário ainda cita o "Atualizar a lista" (saiu na v1.12.53) como a segunda varredura concorrente |
 | K2 | W1 | `NativeBridge.kt`:`bgProgress` (~951) — linha de comentário duplicada ("Só o Controle, como os onze irmãos…" duas vezes) |
 | K2 | W1 | `NativeBridge.kt`:`apkInstalar` — roda na fila `transferencia` (UMA thread, a dos downloads do YouTube): o APK espera atrás de um download de minutos e o prazo de 15 min do web conta essa espera. Avaliar se a fila é a certa (o web já não mente quando o prazo vence: v1.13.17) |
 | K1 | W1 | `MainActivity.kt`:`pendingShare` (~169/731) — slot ÚNICO (`AtomicReference.set`): dois shares que chegam antes de o web bombear sobrescrevem o primeiro. SUSPEITA, sem medição |
 | X3 | W2 | `tools/enquadramento-da-camada.test.mjs` — age (`applyRotate`, `send`) logo depois de `__avBack` existir, SEM `esperarCortina`: com o `init()` ainda em voo, o `load()` dele desfaz o giro (repasse C2). Reproduz com `Emulation.setCPUThrottlingRate` 20× (8× passa). Conserto do oráculo: `esperarCortina` depois do `goto`; a asserção do C2 é outra (girar DURANTE um `load()` em voo) |
-| C5 | W3 | `cifra.js`:`ritmoDaRolagem` (~998) — desconta a ABERTURA do tempo da rolagem, e o comentário diz que ela saiu. **DECIDIDO pelo operador (2026-11-05): a pausa FICA** ("é necessária para os tempos de introdução, antes de propriamente necessitar mover/iniciar a leitura"). O defeito é o COMENTÁRIO: corrigi-lo para descrever a pausa como regra intencional (e o porquê), sem tocar no cálculo |
 | X2 | C2 | `controle.js` ~1397 (fatia C1): o comentário de `bibleCompleteVersions` diz que o Set existe "pra a tela de livros mostrar \"completa\"" — quem mostra é a folha de versões (`renderBibleVerList`); a C1 já está feita (uma linha de comentário, provas 1 e 2) |
 | X3 | C2 | `tools/pacote-importar-marcados.test.mjs` H/L — reprovou UMA vez no CI (run `42060562112`, 1ª tentativa, lote só da Bíblia, sem relação): `obtido: []` (nenhuma mídia no destino depois do Importar com só a série marcada). Passou 3× local e no run anterior. Suspeita no ORÁCULO: `importarPelaJanela` faz `pg.evaluate(() => window.__fim)` sem que nada atribua `__fim` (só o `null` da linha 421) — não espera a importação; quem espera é o `responderDialogo` (60 s), cujo `texto` ninguém confere: se o diálogo que ele respondeu não foi o "Acervo importado", o `lerDestino` lê antes do fim. Conserto provável: esperar o diálogo pelo TÍTULO "Acervo importado" (ou `!pacoteEmCurso`) e conferir o `texto` |
 | X2 | C4 | `controle.js`:`adicionarNasListas` (~6536) e `abrirPacote` (~6796), fatia C2 já feita — `plItems = await AVDB.listItems('playlist')` depois de gravar, sem a senha `listasSeq` (v1.13.24): um `load()` em voo que leu a fila antes aplica a cópia velha depois. Conserto: `++listasSeq` antes do primeiro `await`, como `togglePlaylist`. E o KDoc do `load` (~4070) diz que "todo `db-change`" dispara um `load` — não há `db-change` em lugar nenhum |
-| C5 | C4 | `controle.js`:`replacePlaylistWith` (~19773) — escreve `plItems` sem `++listasSeq` (v1.13.24): conferir se um `load()` em voo o desfaz (é o "Tocar agora") |
 | C6 | C4 | `controle.js`:`ytAcaoInterno` (~26045) — `plItems = await AVDB.listItems('playlist')` sem `++listasSeq` (v1.13.24) |
 | C7 | C4 | `controle.js`:`guardarSorteadas` (~29843) e `montarFilaSorteada` (~29980) — `plItems = await AVDB.listItems('playlist')` sem `++listasSeq` (v1.13.24) |
 | C8 | C4 | `controle.js`:`redesenharComMiniatura` (~38387) e `importShare` (~39823) — `plItems = await AVDB.listItems('playlist')` sem `++listasSeq` (v1.13.24) |
@@ -467,3 +464,28 @@ por quadro (o `ResizeObserver` da tampa espera a janela parar). Séries: a playl
 **Repasses:** X2, C5, C6, C7, C8, C9 (os outros escritores de `plItems` sem `listasSeq`; o "todo `db-change`" de dois KDocs).
 **Verificado:** "Sanidade da base web" (todo Node puro, `docs-coerentes`), `tokens`; Chromium (58 da vizinhança, Playwright local 1.63, três processos): todos verdes (`hidratacao-perde-a-vez`, `smoke`, `display-smoke`, `boot-nativo`, `destinos`, `cena`, as de acervo/série/semana/favoritos/gaveta/tampa/transporte/fila/Modo Fácil…).
 **O operador:** nada a fazer; a v1.13.24 chega sozinha (só web). Um item posto no Cronograma ou na playlist durante uma atualização da lista não fica mais de fora.
+
+### C5 · Cifra, leitura, transporte e seleção — feita (2026-11-05)
+
+Cerca: `controle.js` de `// ===== A ABA DE CIFRA (v1.1.7)` a antes de `// ===== Coleções de mídia (LouvorJA) — sincronização` (4.701 linhas), lida inteira; mais os três repasses (W1 e W3 fora da cerca, nominais).
+**Corrigido (código, commits à parte):** `replacePlaylistWith` (o toque numa linha e o "Tocar agora") gravava a fila sem `++listasSeq`: um `load()` que leu a
+playlist antes aplicava a fila VELHA depois (`plItems` com a de antes, banco com o item novo; o fim da faixa e o ⏭ seguiam a fila trocada). Senha antes do
+primeiro `await`. Asserção: bloco 10 do `hidratacao-perde-a-vez` (espião segura o `load()` depois da leitura da playlist). Reversão: sem o conserto reprova
+(`plItems` com o item antigo). `cifraProcurar`: `crus` e `consulta` declarados e nunca lidos (sobra da escolha à mão).
+**Repasses tratados:** W3 — `cifra.js` (`ritmoDaRolagem`, a janela) e o bloco da rolagem do `controle.js` diziam que a ABERTURA saiu; agora a descrevem como
+regra (o tempo da introdução, decisão do operador), cálculo intocado. W1 — `serieDiarioGravar` (fatia C6) cita o `verificarSemanaAoAbrir` no lugar do "Atualizar a lista".
+**Só comentário (provas 1 e 2; a 2 acusa os 4 movimentos, de propósito):** fatos — a radiografia "só do `ilegivel`", "nada apaga entrada do cache", o
+`then` "acima", o diário "com o TETO", o `crus` "do seletor", o "Início" da capa, as "quatro escritas de array" da fila (são três), o Limpar "disabled",
+a "GAVETA" do `navigateBack`, o `.pptx` "sem quem desenhe" no MIME, um desfecho de pasta duplicado. Lápides: coletor/bateria, tentativa 0, teto/prazo de
+passada, guarda de teclado, `cifraDesvio`, nota da barra (um bloco solto), prévia, cinco frases de falha, `semSelecao`, deslize, arrastar, `'folders'`,
+`garantirGaveta`, `refreshOpfsFolderCount`, `openOpfsFolder`. Blocos no símbolo errado: os do `cifraGarantir`, `syncCifrasAcervo`, do selo "● No ar"
+(`pintarSubNoAr`) e do "Acrescenta os SELECIONADOS" (`addSelectedToPlaylist`). Pedidos/relatos do operador saíram; verbatim (90 blocos) na seção v1.13.25 do histórico.
+**Achado e não corrigido (SUSPEITAS, sem cenário medido):** duas réguas de "esta linha está no ar" — `noArAgora` (`item.id === currentId && midiaNoAr`, decide
+projetar × retirar) e `linhaNoAr` (`midiaNoArId`, pinta o selo); divergem se `currentId` mudar com outra mídia no ar. O ramo não-Bíblia do `navigateBack` parece
+inalcançável (o `bibleBackEl` só aparece na Bíblia). A ABERTURA não é mais uma pausa parada (desde a rampa da v1.6.2): ela faz a folha percorrer em `t1 − t0`,
+isto é, mais depressa — o comentário diz o que a conta faz; se o operador espera uma folha PARADA no início, é pergunta. Réguas: `cifraDuracaoNoAr` e
+`rotinaDeAcervoPodeCorrer` leem `midiaNoAr` (coerentes). Timers/listeners: `cifraCronoTimer` coalesce; os timers de `falhaItem` se limpam; `fullscreenchange`,
+`resize`, `ResizeObserver` do corpo são um só cada; o laço rAF da rolagem lê `scrollHeight` por quadro (é a rolagem) e para no fim da folha e fora da aba.
+**Repasses:** nenhum novo.
+**Verificado:** "Sanidade da base web" (todo Node puro, `docs-coerentes`), `tokens`; Chromium (56 da vizinhança, Playwright local 1.63, três processos): 55 verdes (`hidratacao-perde-a-vez`, as `cifra-*` menos uma, as `leitor-*`, `smoke`, `display-smoke`, `boot-nativo`, `cena`, `destinos`, `repeticao-e-sequencia`, `parar-por-camada`, `limpar-cronograma`, `cronogramas-multiplos`, as de Modo Fácil…); `cifra-tela-cheia` reprova IGUAL à C3 (`setViewportSize` em tela cheia, ambiente local).
+**O operador:** nada a fazer; a v1.13.25 chega sozinha (só web). Tocar um item enquanto o app atualiza a lista não traz mais a fila antiga de volta.

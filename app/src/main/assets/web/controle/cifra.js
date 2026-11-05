@@ -920,9 +920,9 @@
   //
   // Ela não é a música inteira. Tem uma ABERTURA e um FECHO:
   //
-  //  - **ABERTURA**: o começo fica parado alguns segundos. Quem chega numa
-  //    música quer VER o início — introdução, tom, primeira estrofe — antes de
-  //    a folha começar a fugir dele.
+  //  - **ABERTURA**: o tempo da introdução, descontado do percurso. Quem chega
+  //    numa música quer VER o início — introdução, tom, primeira estrofe —
+  //    antes de a leitura precisar andar.
   //  - **FECHO**: a folha chega ao fim BEM ANTES de a música acabar. O final é
   //    a parte que mais se erra e a que mais precisa ser lida com antecedência;
   //    uma folha que mostra o último acorde depois de ele passar não serve para
@@ -981,9 +981,10 @@
   // v1.5.20: a rampa de arranque (antes, a espera parada) custa até 8 s, e o
   // fecho reserva de 8 a 25. Esta função é o CONTRATO da janela; o desconto de
   // quem começa devagar mora na `rampaInicialDaRolagem` e é MEDIDO lá.
-  // **A ABERTURA sai**, e sai porque perdeu o referente: ela era "a
-  // música ACABOU de começar", e não há mais começo nenhum — a origem é onde o
-  // scroll está.
+  // **A ABERTURA FICA, e é regra:** o percurso cabe em `t1 - t0`, não em `t1` —
+  // a reserva para os tempos de introdução, antes de a leitura propriamente
+  // precisar andar (decisão do operador, 2026-11-05). Não é resto do desenho
+  // antigo: não "consertar" a conta tirando o `t0`.
   //
   // A PROPRIEDADE que o oráculo prende: com a folha no topo e a música do
   // começo, esta regra e a antiga levam a folha ao fim no MESMO instante. O que
