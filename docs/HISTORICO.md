@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.22** — complemento da revisão C2: trocar a versão da Bíblia sem o capítulo nem rede deixava a pílula e a folha na versão nova sobre o texto (e a projeção) da velha, a navegação na velha e o retoque sem efeito; a falha desfaz a escolha e avisa no cartão da preview, e uma troca atrasada não sobrescreve a mais nova
 - **v1.13.21** — revisão C2: RENDER, FILA, BÍBLIA E DESTINOS (o `controle.js` de `carregar + render` ao Cronômetro); o giro e o "Preencher" tocados com um `load()` em voo deixam de voltar sozinhos no Controle, `cenaDeRoteiroNoAr` deixa de reescrever a régua de `provedorDeTextoNoAr`, três `renderLibrary()` órfãos da Bíblia e ~30 lápides
 - **v1.13.20** — revisão C1: ABERTURA, PREVIEW E ÁUDIO (o `controle.js` até `carregar + render`); a limpeza da seleção da abertura deixa de desfazer um `persistCurrent` no vão, código morto da preview e ~20 lápides
 - **v1.13.19** — revisão W3: OS MÓDULOS PUROS; o pacote deixava passar as intenções de download do YouTube (grafia errada na lista de recusa), quatro funções que só o oráculo chamava saíram e o `funcao-sem-chamador` passa a ver a superfície dos módulos; `bible.test.mjs` novo
@@ -632,6 +633,52 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.13.22 — complemento da revisão C2: TROCAR A VERSÃO DA BÍBLIA SEM REDE DESFAZ A ESCOLHA E AVISA
+
+**v1.13.22 (complemento da C2; só web, sem Release)** — a SUSPEITA que a C2
+deixou anotada (`docs/revisao/REGISTRO.md`), medida e consertada.
+
+**O DEFEITO, MEDIDO.** `changeBibleVersion(id)` gravava `bibleVersionId = id` e
+o `state` `bibleVersion` ANTES de buscar o capítulo da sessão aberta na versão
+nova; com `fetchBibleChapterCached` lançando (o capítulo não está no banco e a
+rede caiu, com o veredito da fonte ainda `ok` — com ele ruim a linha de uma versão
+incompleta nasce apagada e o toque não chega aqui), o `catch (_) { return; }`
+deixava a sessão na VELHA. Medido em Chromium pela porta (a linha da folha), ARA
+com o capítulo e NVI sem: (1) a escolha, o banco, a pílula "Versão" (no primeiro
+redesenho) e a linha `selected` da folha diziam NVI sobre o texto da ARA — e o
+projetado era o da ARA; (2) `bibleGotoChapter` usa `s.versionId`, então navegar
+de capítulo seguia na ARA sob o rótulo NVI; (3) tocar de novo na NVI, com a
+busca já funcionando, não fazia nada: `bibleVersionId === id` devolve cedo
+(`Bible.fetchChapter` chamado 0 vezes). Nenhum aviso.
+
+**O CONSERTO.** No ramo de falha, se a sessão e a escolha ainda são desta chamada
+(`bibleSession === s && bibleVersionId === id`), a escolha VOLTA para
+`s.versionId`, o banco por `AVDB.updateState('bibleVersion', …)` (só se ainda
+for `id`), a folha (se aberta) e a leitura se redesenham, e o cartão da preview
+diz `Não deu` com "sem conexão — NVI ainda não está no aparelho" (ou "NVI: o
+capítulo não veio — tente de novo" com rede e servidor no ar). A varredura da
+versão nova, já disparada por `ensureBibleVersionDownloaded`, segue; quando ela
+chega, escolher de novo troca. Sem sessão aberta nada muda (a escolha vale, e o
+`loadBibleChapter` mostra o próprio erro). O cartão é o canal que já existe para
+"o que aconteceria e não aconteceu"; no Modo Fácil sem tela ele é o stub mudo, e
+ali só a pílula e a folha passam a dizer a verdade.
+
+**O VIZINHO, também consertado (commit à parte):** o SUCESSO atrasado —
+escolher a NVI (busca lenta) e logo a ACF (no aparelho): a ACF entrava, e a NVI
+que chegava depois passava no `bibleSession === s` (a sessão é a MESMA, mudada no
+lugar) e escrevia `s.versionId` — medido: sessão e texto NVI sob a pílula e a
+folha ACF. O ramo de sucesso passa a devolver também em `bibleVersionId !== id`:
+a chamada mais nova já tratou a sessão (trocou, ou desfez na falha).
+
+**Asserção:** bloco H do `tools/biblia-versoes-e-retomada.test.mjs` — depois da
+falha, escolha, banco, sessão, pílula, folha e texto dizem ARA e o cartão nomeia
+a NVI; com `Bible.fetchChapter` respondendo, o segundo toque troca de verdade
+(sessão, pílula e texto NVI). Reversão (o `catch (_) { return; }` de volta):
+reprova as três. Bloco I: NVI lenta e logo ACF; ao fim sessão, pílula e texto
+dizem ACF. Reversão (sem o `bibleVersionId !== id` do sucesso): reprova.
 
 ---
 

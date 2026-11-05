@@ -44,6 +44,13 @@
 // pela porta: o cabeçalho do Cronograma parado e nenhum ancestral da folha rolado
 // enquanto ela sobe na tela de capítulo e versículo.
 //
+// **H · TROCAR DE VERSÃO SEM O CAPÍTULO NEM REDE DESFAZ A ESCOLHA (v1.13.22).**
+// A escolha, o banco, a pílula e a folha voltam à versão que a sessão mostra, o
+// cartão da preview avisa, e o segundo toque (com a busca respondendo) troca.
+//
+// **I · A TROCA ATRASADA NÃO SOBRESCREVE A MAIS NOVA (v1.13.22).** NVI lenta,
+// logo ACF: ao fim, sessão, pílula e texto dizem ACF.
+//
 // REVERSÃO MEDIDA, e ela reprova 9 das 22. Desfeitos os cinco pontos do lote —
 // o `bibleScreen = 'books'` no `abrirBiblia`, a frase "Baixa ao usar", a
 // varredura no toque, o `apagarVersaoBiblia` no botão e o `chk.textContent =
@@ -497,6 +504,126 @@ try {
   checar(sel.foraDaVista && sel.metadeRolou > 0 && sel.naVista,
     'G · (premissa) a célula marcada estava fora da vista da metade, e a METADE rolou até ela', sel);
   await pg.evaluate(() => fecharBiblia());
+  await pg.waitForTimeout(400);
+
+  // =======================================================================
+  // H · TROCAR DE VERSÃO SEM O CAPÍTULO NEM REDE DESFAZ A ESCOLHA (v1.13.22)
+  //
+  // `changeBibleVersion` gravava a escolha ANTES de buscar o capítulo da sessão
+  // na versão nova e, na falha, saía calado: a sessão seguia na VELHA (texto e
+  // projeção) com a pílula e a folha dizendo a NOVA, a navegação seguia em
+  // `s.versionId`, e tocar de novo na nova não tentava nada (`bibleVersionId ===
+  // id` devolve cedo). Pela PORTA (a linha da folha), com a rede externa
+  // bloqueada: a NVI não tem o capítulo no banco, a ARA tem.
+  // REVERSÃO: o `catch (_) { return; }` de volta reprova as três.
+  // =======================================================================
+  await pg.evaluate(async () => {
+    window.ensureBibleVersionDownloaded = () => Promise.resolve();
+    bibleVersions = [
+      { id: 'ara', name: 'Almeida Revista e Atualizada (ARA)' },
+      { id: 'nvi', name: 'Nova Versão Internacional (NVI)' },
+    ];
+    bibleVersionId = 'ara';
+    await AVDB.setState('bibleVersion', 'ara');
+    const vs = [{ n: 1, text: 'ARA um.' }, { n: 2, text: 'ARA dois.' }];
+    await AVDB.setState('bible:ara_' + bibleBookId(0) + '_1', { verses: vs, syncedAt: Date.now() });
+    await AVDB.stateApagarPrefixo('bible:nvi_');
+    abrirBiblia();
+    bibleSel = { bookIdx: 0, chapter: 1 };
+    bibleChapterData = { verses: vs };
+    startBibleReading(0);
+  });
+  // O VEREDITO DA FONTE FICA `ok`: é o caso do defeito — a rede cai e o app
+  // ainda não sabe. Com ele ruim, a linha de uma versão incompleta nasce apagada
+  // (`semFonte`) e o toque não chega ao `changeBibleVersion`.
+  const linhaDaVersao = (nome) => pg.evaluate((n) => {
+    fonteVeredito = { ...fonteVeredito, estado: 'ok' };
+    openBibleVerPopup();
+    const r = [...document.querySelectorAll('#bibleVerList .bible-ver-row')]
+      .find((x) => x.querySelector('.row-name').textContent === n);
+    r.click();
+  }, nome);
+  const fotoH = () => pg.evaluate(async () => {
+    openBibleVerPopup();
+    const sel = document.querySelector('#bibleVerList .bible-ver-row.selected .row-name');
+    closeBibleVerPopup();
+    return {
+      escolha: bibleVersionId,
+      banco: await AVDB.getState('bibleVersion'),
+      sessao: bibleSession && bibleSession.versionId,
+      pilula: (document.querySelector('.bible-ref-part--edic .bible-ref-value') || {}).textContent,
+      texto: (document.querySelector('.bible-vsec.cur .bible-vsec-text') || {}).textContent,
+      folha: sel ? sel.textContent : null,
+      cartao: pvBusyEl.classList.contains('falhou') ? pvBusyLabelEl.textContent : '',
+    };
+  });
+  await linhaDaVersao('Nova Versão Internacional (NVI)');
+  await esperarDb(pg, () => pvBusyEl.classList.contains('falhou'), null, 8000);
+  const falhou = await fotoH();
+  checar(falhou.escolha === 'ara' && falhou.banco === 'ara' && falhou.sessao === 'ara'
+    && falhou.pilula === 'ARA' && /ARA/.test(falhou.folha || '') && falhou.texto === 'ARA um.',
+    'H · sem o capítulo na versão nova, a escolha VOLTA para a que a sessão mostra — '
+    + 'em memória, no banco, na pílula e na folha; antes elas diziam NVI sobre o texto da ARA',
+    falhou);
+  checar(/NVI/.test(falhou.cartao) && /aparelho|não veio/.test(falhou.cartao),
+    'H · e o cartão sobre a preview DIZ que não deu, nomeando a versão — a falha era muda',
+    falhou);
+  await pg.evaluate(() => {
+    window.__fetchOrig = Bible.fetchChapter;
+    Bible.fetchChapter = async () => [{ n: 1, text: 'NVI um.' }, { n: 2, text: 'NVI dois.' }];
+  });
+  await linhaDaVersao('Nova Versão Internacional (NVI)');
+  await esperarDb(pg, () => !!bibleSession && bibleSession.versionId === 'nvi', null, 8000);
+  const trocou = await fotoH();
+  await pg.evaluate(() => { Bible.fetchChapter = window.__fetchOrig; fecharBiblia(); });
+  checar(trocou.escolha === 'nvi' && trocou.sessao === 'nvi' && trocou.pilula === 'NVI'
+    && trocou.texto === 'NVI um.',
+    'H · e tocar de novo na versão, agora com o capítulo vindo, TROCA de verdade — com a '
+    + 'escolha presa na nova, o `bibleVersionId === id` devolvia cedo e nada era tentado',
+    trocou);
+
+  // =======================================================================
+  // I · A TROCA ATRASADA NÃO SOBRESCREVE A MAIS NOVA (v1.13.22)
+  //
+  // NVI com a busca LENTA, e logo a ACF (no aparelho): a ACF entra primeiro, e a
+  // NVI que chegava depois passava no `bibleSession === s` (a sessão é a MESMA,
+  // mudada no lugar) e escrevia `s.versionId` — o texto da NVI sob a pílula ACF.
+  // REVERSÃO: sem o `bibleVersionId !== id` no ramo de sucesso, reprova.
+  // =======================================================================
+  await pg.waitForTimeout(400);
+  await pg.evaluate(async () => {
+    bibleVersions = [
+      { id: 'ara', name: 'Almeida Revista e Atualizada (ARA)' },
+      { id: 'nvi', name: 'Nova Versão Internacional (NVI)' },
+      { id: 'acf', name: 'Almeida Corrigida Fiel (ACF)' },
+    ];
+    bibleVersionId = 'ara';
+    await AVDB.setState('bibleVersion', 'ara');
+    await AVDB.stateApagarPrefixo('bible:nvi_');
+    const vs = [{ n: 1, text: 'ARA um.' }, { n: 2, text: 'ARA dois.' }];
+    await AVDB.setState('bible:acf_' + bibleBookId(0) + '_1',
+      { verses: [{ n: 1, text: 'ACF um.' }, { n: 2, text: 'ACF dois.' }], syncedAt: Date.now() });
+    window.__fetchOrig = Bible.fetchChapter;
+    window.__nviChegou = false;
+    Bible.fetchChapter = (v) => new Promise((ok) => setTimeout(() => {
+      window.__nviChegou = true;
+      ok([{ n: 1, text: 'NVI lenta.' }, { n: 2, text: 'NVI dois.' }]);
+    }, 800));
+    abrirBiblia();
+    bibleSel = { bookIdx: 0, chapter: 1 };
+    bibleChapterData = { verses: vs };
+    startBibleReading(0);
+  });
+  await linhaDaVersao('Nova Versão Internacional (NVI)');
+  await linhaDaVersao('Almeida Corrigida Fiel (ACF)');
+  await esperarDb(pg, () => window.__nviChegou === true, null, 8000);
+  await pg.waitForTimeout(300);
+  const atrasada = await fotoH();
+  await pg.evaluate(() => { Bible.fetchChapter = window.__fetchOrig; fecharBiblia(); });
+  checar(atrasada.escolha === 'acf' && atrasada.sessao === 'acf' && atrasada.pilula === 'ACF'
+    && atrasada.texto === 'ACF um.',
+    'I · a NVI que chega DEPOIS da ACF não sobrescreve a sessão — a escolha mais nova manda, '
+    + 'e pílula e texto continuam dizendo a mesma versão', atrasada);
 
   checar(erros.length === 0, 'nenhum erro de console', erros);
 } catch (e) {

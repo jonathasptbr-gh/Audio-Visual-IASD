@@ -22,7 +22,7 @@ abandonada → primeira pendente pelo `nº`).
 | 8 | W2 | feita | v1.13.18 (só web) | 2026-11-05 | nenhum defeito de culto na cerca; o giro perdido do `enquadramento-da-camada` MEDIDO: é o `load()` do Controle reaplicando rotação velha (repasse C2), não o `stage.js`; export morto e ~15 comentários |
 | 9 | W3 | feita | v1.13.19 (só web) | 2026-11-05 | a `FORA` do pacote com a grafia errada deixava as intenções do YouTube viajarem (consertado + asserção cruzada); 4 funções só-do-oráculo saíram e o `funcao-sem-chamador` vê a superfície dos módulos; `bible.test.mjs` novo |
 | 10 | C1 | feita | v1.13.20 (só web) | 2026-11-05 | nenhum defeito de culto na fatia; `clearCurrentSelection` em `updateState` (+ asserção com reversão); 2 trechos de código morto da preview/peso; ~20 lápides e fatos velhos nos comentários |
-| 11 | C2 | feita | v1.13.21 (só web) | 2026-11-05 | o giro e o "Preencher" tocados com um `load()` em voo deixavam de valer no Controle (consertado + asserção com reversão, os dois); `cenaDeRoteiroNoAr` sem a régua duplicada; 3 `renderLibrary()` órfãos da Bíblia; ~30 lápides e fatos velhos |
+| 11 | C2 | feita | v1.13.21 + v1.13.22 (só web) | 2026-11-05 | o giro e o "Preencher" tocados com um `load()` em voo deixavam de valer no Controle (consertado + asserção com reversão, os dois); `cenaDeRoteiroNoAr` sem a régua duplicada; 3 `renderLibrary()` órfãos da Bíblia; ~30 lápides e fatos velhos |
 | 12 | C3 | pendente | | | |
 | 13 | C4 | pendente | | | |
 | 14 | C5 | pendente | | | |
@@ -404,8 +404,9 @@ cabeçalhos do `renderBibleReading` e do `ensureBibleVersionDownloaded`; "os qua
 `load()` "condicional" do `adicionarNasListas`; `adicionarNaLista` no `CONTROLE.md`. Lápides: `adicionarNaLista`,
 `renderTabs`, `renderFavHeader`, o microfone, o ✓ da versão escolhida, o lapso do `hideMessage`, `has-items`.
 Narrativa verbatim (31 blocos) na seção v1.13.21 do histórico.
-**Achado e não corrigido:** `changeBibleVersion` sem rede deixa `bibleVersionId` novo sobre a sessão na versão
-velha (SUSPEITA, baixo alcance); prosa longa que é REGRA com o porquê (os pares da hidratação, a fila como host de
+**Corrigido na v1.13.22:** a SUSPEITA do `changeBibleVersion` sem rede, MEDIDA (pílula/folha na nova sobre o texto da velha, navegar na velha, retocar não tentava): a falha
+desfaz a escolha (`updateState`) e avisa no cartão da preview (bloco H, reversão 3 de 3); e o sucesso ATRASADO não sobrescreve a escolha mais nova (bloco I, reversão reprova).
+**Achado e não corrigido:** prosa longa que é REGRA com o porquê (os pares da hidratação, a fila como host de
 miniaturas, a camada visual, o rodapé das Ferramentas, `scrollActiveIntoView`). Réguas `haOQueParar` × `cenaNoAr`
 × `midiaNoAr` coerentes com o que cada bloco nomeia; nenhum timer/listener que não se desarme; o `applyTitleMarquee`
 não roda por `display-status`. **Repasses:** X2 (comentário da C1, ~1397), C4 (`CONTROLE-BIBLIOTECA.md`, `renderTabs`).
