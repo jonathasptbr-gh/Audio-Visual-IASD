@@ -14,9 +14,10 @@ web", a reversão de asserção e a reversão por cópia) ficam no `CLAUDE.md`**
 `.github/workflows/apk.yml` — o runner `ubuntu-latest` já traz JDK e Android SDK;
 nenhuma infraestrutura externa. **O `verificar` roda em `ubuntu-24.04` FIXO**
 (revisão A6): no Ubuntu 26.04 o Playwright do pin (1.56.0) se recusa a instalar o
-Chromium, o `Preparar o Chromium` falha, e a política de infraestrutura AUSENTE
-pula a suíte inteira com o job VERDE — foram nove runs de `main` assim. Voltar
-ao `ubuntu-latest` anda junto com subir o pin (e repetir a campanha).
+Chromium, o `Preparar o Chromium` falha, e a política (revogada) de
+infraestrutura AUSENTE pulava a suíte inteira com o job VERDE — foram nove runs
+de `main` assim. Voltar ao `ubuntu-latest` anda junto com subir o pin (e repetir
+a campanha).
 
 | Rota | Como | Observação |
 |---|---|---|
@@ -165,12 +166,16 @@ um novo, ou entender por que uma asserção existe antes de "consertá-la". O qu
 fica aqui é o MÉTODO, que vale para todos eles.
 
 **Node puro, SEM `continue-on-error`** — reprovar aqui barra o build. **Chromium
-de verdade, em DOIS PASSOS,** e a ASSIMETRIA entre eles é a política:
+de verdade, em DOIS PASSOS, e NENHUM dos dois pula** (decisão do operador,
+2026-11-05: *"não permite que pule testes, independente do motivo"*):
 
 | passo | `continue-on-error` | porque |
 |---|---|---|
-| `Preparar o Chromium` | **sim** | é o CDN de outra pessoa. Um download quebrado lá fora não pode calar a atualização de uma igreja — os oráculos são pulados (`if: steps.chromium.outcome == 'success'`) e um passo de AVISO escreve o pulo no resumo, senão ele fica indistinguível de um run em que tudo passou |
+| `Preparar o Chromium` | **não**, desde 2026-11-05 | falhou (rede, CDN, imagem que o Playwright recusa) ou estourou os 10 min, o job `verificar` REPROVA e o bundle não sai. Era `sim` ("infraestrutura AUSENTE não segura o canal"), com um passo de AVISO no resumo — e nove runs de `main` publicaram sem oráculo de navegador, verdes, sem ninguém notar. Vermelho de infraestrutura se resolve repetindo o run |
 | `Oráculos em Chromium` | **não**, desde a v5.316 | é o NOSSO código. Reprovar aqui derruba o job `verificar`, que é `needs` do `web-ota`: o bundle não chega à frota |
+
+Só os dois passos de CACHE do Chromium são `continue-on-error` — eles não pulam
+teste nenhum (cache frio = download).
 
 Ele roda **todos SEMPRE** — nenhum aborta o próximo —, emite `::error::` por
 reprovado e escreve o placar `N/M` no **resumo do run**. `N` e `M` são CONTADOS,

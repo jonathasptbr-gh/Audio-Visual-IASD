@@ -47,7 +47,8 @@ o arnês, a campanha) · [`HISTORICO.md`](HISTORICO.md) (o lote que criou cada u
 | `tipos-que-sobem.test.mjs` | **as DUAS metades do dreno da tela da rede**: a lista de permissão do `drenar()` (`espelho/tela.js`) e a do `TIPOS_QUE_SOBEM` (`EspelhoServidor.kt`). Duas listas sem oráculo divergem no primeiro esquecimento, e a divergência é MUDA nos dois sentidos |
 | `contexto-seguro.test.mjs` | `VideoDecoder`, `wakeLock`, `audioWorklet`, `randomUUID`, `crypto.subtle` **fora de guarda** em `espelho/`, `display/` **e `shared/`** — o `/display/` das telas da rede roda em `http://`, e ele carrega quatro arquivos de `shared/`: lá essas APIs vêm `undefined`. Guarda vale `isSecureContext` **ou** detecção de presença na mesma linha |
 
-**Chromium de verdade, em DOIS PASSOS, e a ASSIMETRIA entre eles é a política:**
+**Chromium de verdade, em DOIS PASSOS, e NENHUM dos dois pula** (operador, 2026-11-05): `Preparar o Chromium` que falhe REPROVA o job; a tabela está em [`BUILD.md`](BUILD.md).
+
 **A escapatória é MANUAL e ASSINA**: o disparo de `Build APK` tem o campo
 `ignorar_oraculos`, que publica com oráculo reprovado e grava isso no resumo, ao
 lado do placar e dos `::error::`. Nenhum push a alcança. A diferença para o
