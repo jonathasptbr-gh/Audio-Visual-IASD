@@ -14,21 +14,16 @@
 // Este arquivo entra em display/index.html DEPOIS de native.js (que numa
 // página sem __AVBridge retorna na primeira linha) e ANTES de db.js — porque
 // db.js captura `global.__AVBus` e o construtor do BroadcastChannel NA CARGA
-// (db.js:800-801), e as duas coisas precisam existir/estar neutralizadas antes
-// disso. É a mesma janela que o native.js usa para o papel espelho.
+// (o `channel`/`bus` do bloco do barramento), e as duas coisas precisam
+// existir/estar neutralizadas antes disso. É a mesma janela que o native.js usa para o papel espelho.
 //
 // ## O dreno de SUBIDA é lista de PERMISSÃO
 //
 // Cada /display/ emite display-status a ~4 Hz, media-ended e diag-dump, e N
 // telas mandando isso de volta ao celular quebra a suposição de que há UM
 // telão: media-ended dobrado dá um segundo load em repeat-one; diag-dump duplo
-// faz o Registro mostrar o diário de um sem dizer qual. (O `mic-status` era o
-// terceiro, e o mais perigoso — 'unsupported', porque não há getUserMedia em
-// http, apagava o estado do microfone VERDADEIRO. Ele saiu na v1.8.89 com o
-// recurso, e o dreno não muda por isso: ele é lista de PERMISSÃO, então um
-// emissor a menos não abre porta nenhuma.) Sobem DUAS coisas: `display-ready`
-// (o que faz o Controle
-// reenviar a cena) e `display-status` RENOMEADO `tela-status`, com o id desta
+// faz o Registro mostrar o diário de um sem dizer qual. Sobem DUAS coisas:
+// `display-ready` (o que faz o Controle reenviar a cena) e `display-status` RENOMEADO `tela-status`, com o id desta
 // tela. Tipo novo nasce mudo por construção.
 //
 // ## O que este arquivo NÃO faz
@@ -129,8 +124,8 @@
   // baixo) de "está no ar" (nada pode cobrir a projeção — ver `cairToken`).
   var gestoGasto = false;
   // O último display-ready que o display emitiu — guardado SEMPRE, mesmo antes
-  // de haver token: o init() do display corre em paralelo com a digitação do
-  // código, e é este cache que permite reanunciar a tela em TODA conexão (o
+  // de haver token: o init() do display corre em paralelo com a entrada (o
+  // `POST /par`), e é este cache que permite reanunciar a tela em TODA conexão (o
   // Controle responde com a cena endereçada; sem o reanúncio, uma reconexão
   // ficaria no wallpaper até o operador tocar em algo).
   var prontoUltimo = null;
@@ -298,8 +293,8 @@
     } catch (e) {
       return fioMudo ? 'fio mudo' : 'rede';
     }
-    // 404 uniforme = token inválido (o código rotacionou, a sessão venceu, o
-    // operador religou): derruba o token e volta ao pareamento — a regra de
+    // 404 uniforme = token inválido (a sessão venceu, foi derrubada, o
+    // operador religou): derruba o token e volta à reentrada — a regra de
     // sempre, mantida no endpoint novo para uma rota errada nunca apagar
     // tokens válidos em silêncio.
     if (resp.status === 404 || resp.status === 403) return 'token';
@@ -642,13 +637,10 @@
     el.entrada = raiz;
     el.msg = doc.getElementById('telaMsg');
     doc.getElementById('telaEntrar').addEventListener('click', ativar);
-    // O "Ligar Sistema" do display NÃO é escondido aqui (v5.216). Ele era, e o
-    // buraco estava justamente nisto: `montarEntrada()` só roda na PRIMEIRA
-    // carga — a recarga com sessão viva reconecta por trás, sem desenhar
-    // overlay nenhum —, então um F5 na tela da rede trazia o botão antigo de
-    // volta por cima da projeção, e o toque do visitante ia para ele em vez de
-    // ir para o nosso. Quem o esconde agora é o próprio `display.js`, que é o
-    // documento que o declara, e o faz pelo PAPEL — em toda carga.
+    // O "Ligar Sistema" do display NÃO é escondido aqui: quem o esconde é o
+    // próprio `display.js`, que é o documento que o declara, pelo PAPEL e em
+    // toda carga — uma regra que dependa desta função tem o buraco de toda
+    // carga que não a chame.
   }
 
   function mostrarEntrada(motivo) {
@@ -738,14 +730,6 @@
   // os dois já existem na cabeça de quem está ali: o TOQUE DUPLO (o que se tenta
   // primeiro num vídeo) e o F11 (num navegador de computador — e este recurso
   // roda, quase sempre, num PC ligado ao projetor).
-  //
-  // O QUE SAIU DAQUI: até a v5.216 havia um botão discreto de canto que aparecia
-  // quando faltava som ou tela cheia. Ele existia para devolver o gesto perdido
-  // numa RECARGA — e a recarga passou a voltar para a entrada oficial (ver
-  // `iniciar`), que é o mesmo botão do primeiro acesso. Saíram com ele o
-  // `oQueFalta`/`oferecerGesto` (a pergunta que ninguém mais faz) e o
-  // `assentando` da v5.214, que era só o guarda daquela pergunta — a regra que
-  // ele protegia continua escrita no `telaCheia` acima.
   //
   // `preventDefault` no F11 é deliberado: sem ele o navegador entra na tela
   // cheia DELE ao mesmo tempo em que pedimos a da API, e sair passa a exigir

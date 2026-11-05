@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.13.18",
+    "itens": [
+      "Revisão interna do telão: nada muda no que você vê ou faz."
+    ]
+  },
+  {
     "versao": "1.13.17",
     "itens": [
       "Atualização do app: se o download não responder, o app avisa a falha em vez de pedir uma instalação que não vem."
