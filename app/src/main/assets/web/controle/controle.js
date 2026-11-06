@@ -4038,9 +4038,10 @@ let favSeq = 0;
 let fitSeq = 0;
 let rotSeq = 0;
 // O QUINTO PAR: load × `toggleCronograma`/`togglePlaylist`/`replacePlaylistWith`
-// (o "Tocar agora")/`addLyricCue` (a letra na playlist). Os quatro gravam a lista; um `load()` que a leu
+// (o "Tocar agora")/`addLyricCue` (a letra na playlist)/`guardarSorteadas` e
+// `montarFilaSorteada` (a playlist automática). Todos gravam a lista; um `load()` que a leu
 // ANTES do toque aplicava a cópia velha DEPOIS dele, e o item ficava no banco e fora de
-// `cronoSet`/`libItems`/`plItems` até o próximo `load()` (`hidratacao-perde-a-vez`, 9 a 11).
+// `cronoSet`/`libItems`/`plItems` até o próximo `load()` (`hidratacao-perde-a-vez`, 9 a 12).
 let listasSeq = 0;
 /**
  * Redesenha a lista da aba atual.
@@ -29113,6 +29114,7 @@ async function guardarSorteadas(escolhidos, btn, f, destino) {
     // com o acervo pequeno repete faixas, e sem a distinção a segunda rodada
     // pareceria não ter feito nada.
     let novas = 0;
+    ++listasSeq;   // ver `listasSeq`: antes do primeiro `await` da escrita
     for (const id of ids) {
       if (await AVDB.listHas('playlist', id)) continue;
       await AVDB.listAdd('playlist', id);
@@ -29254,6 +29256,7 @@ async function montarFilaSorteada(escolhidos) {
     // transporte — ele sorteia e projeta. Com `one` herdado da faixa anterior a
     // fila recém-montada tocaria a primeira em laço; com `off`, ela anda até o
     // fim sozinha, que é o que "montar uma playlist" quer dizer.
+    ++listasSeq;   // ver `listasSeq`: antes do primeiro `await` da escrita
     await trocarFila(ids);
     plItems = await AVDB.listItems('playlist');
     renderPlaylist();

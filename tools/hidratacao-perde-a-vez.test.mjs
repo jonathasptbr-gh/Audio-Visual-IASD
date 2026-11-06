@@ -43,7 +43,8 @@
 // o ↑↓ de uma linha, `moverNaLista`, contra um `listAdd` que corre junto. O 9
 // é o botão do Cronograma e o da playlist tocados com um `load()` em voo —
 // `listasSeq` —, o 10 o "Tocar agora" (`replacePlaylistWith`), na mesma senha, e o
-// 11 a cena de letra (`addLyricCue`) mandada à playlist e aos Favoritos.)
+// 11 a cena de letra (`addLyricCue`) mandada à playlist e aos Favoritos, e o 12
+// a playlist automática (`guardarSorteadas`/`montarFilaSorteada`).)
 //
 // E a quarta, que separa CENA de CONFIGURAÇÃO: durante a corrida a hidratação
 // pula a SELEÇÃO e aplica o resto. Sem ela, o conserto barato (um `return` no
@@ -527,6 +528,58 @@ try {
     'a letra mandada à playlist (com um load() em voo) ENTRA em plItems', JSON.stringify(toque11));
   checar(toque11.favBanco.includes('Letra favorita') && toque11.favItems.includes('Letra favorita'),
     'a letra mandada ao Cronograma + Favoritos ENTRA em favItems', JSON.stringify(toque11));
+
+  // ── 12. A PLAYLIST AUTOMÁTICA COM UM `load()` EM VOO ──────────────────────
+  // `guardarSorteadas` (o sorteio guardado no fim da playlist) e
+  // `montarFilaSorteada` (o sorteio que vira a fila) gravam e releem `plItems`
+  // SEM `load()` depois: um `load()` que leu a fila ANTES aplicava a cópia velha
+  // DEPOIS, e o ⏭/fim da faixa seguia a fila de antes do sorteio. O download é
+  // trocado por um mapa (o caminho dele não é o que se mede); a ordem forçada é
+  // a do 9.
+  const toque12 = await pg.evaluate(async ({ a, b }) => {
+    await AVDB.listSet('playlist', [a]);
+    await load();
+    const origResolver = window.resolveSongMediaId;
+    window.resolveSongMediaId = async (_c, s) => (s.id_music === 1 ? a : b);
+    const coll = { id: 'album-oraculo', name: 'Álbum do oráculo', kind: 'album' };
+    const escolha = (n) => ({ coll, s: { id_music: n, name: 'Faixa ' + n, track: n }, variante: 'full', noAparelho: true });
+    const emVooDepoisDaFila = async (toque) => {
+      const orig = AVDB.listItems;
+      let liberar;
+      const portao = new Promise((p) => { liberar = p; });
+      const leu = new Promise((pronto) => {
+        AVDB.listItems = async (n) => {
+          const r = await orig(n);
+          if (n === 'playlist') { AVDB.listItems = orig; pronto(); await portao; }
+          return r;
+        };
+      });
+      try {
+        const emVoo = load();
+        await leu;
+        await toque();
+        liberar();
+        await emVoo;
+      } finally { AVDB.listItems = orig; }
+    };
+    const r = {};
+    try {
+      await emVooDepoisDaFila(() => guardarSorteadas([escolha(1), escolha(2)], document.createElement('button'), {}, 'playlist'));
+      r.guardar = plItems.map((m) => m.id);
+      r.guardarBanco = await AVDB.listIds('playlist');
+      await emVooDepoisDaFila(() => montarFilaSorteada([escolha(2)]));
+      r.montar = plItems.map((m) => m.id);
+      r.montarBanco = await AVDB.listIds('playlist');
+    } finally { window.resolveSongMediaId = origResolver; }
+    await AVDB.listSet('playlist', []);
+    await load();
+    return r;
+  }, ids);
+  checar(toque12.guardarBanco.length === 2 && toque12.guardar.join() === toque12.guardarBanco.join(),
+    'o sorteio guardado no fim da playlist (com um load() em voo) ENTRA em plItems', JSON.stringify(toque12));
+  checar(toque12.montarBanco.length === 1 && toque12.montarBanco[0] === ids.b
+      && toque12.montar.join() === toque12.montarBanco.join(),
+    'o sorteio que vira a fila (com um load() em voo): plItems FICA com a fila sorteada', JSON.stringify(toque12));
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
 }
