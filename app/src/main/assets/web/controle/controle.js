@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.28';
+const WEB_VERSION = '1.13.29';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -37841,13 +37841,9 @@ async function importShare(pending) {
       const nome = nomeSemExtensao((item && item.name) || 'Apresentação');
       let rec = null;
       if (ehPdf(item) && !item.url) {
-        // PDF sem URL servível: veio como `File` (o `<input type="file">` do
-        // navegador). Quem desenha o PDF é o shell, e ele precisa do ARQUIVO —
-        // não há caminho daqui.
-
-        deckUltimoErro = window.__NATIVE__
-          ? 'PDF precisa do seletor de arquivos do app (instale a versão nova)'
-          : 'o navegador não desenha PDF; use o app';
+        // PDF sem URL servível: só o navegador chega aqui (no app o share e o
+        // `pickDoc` sempre entregam `/saf/`). Quem desenha o PDF é o shell.
+        deckUltimoErro = 'o navegador não desenha PDF; use o app';
       } else if (ehPdf(item)) {
         // PDF: quem desenha é o shell, e ele precisa do ARQUIVO (a URL `/saf/`),
         // não de uma cópia já lida — por isso o desvio acontece ANTES da leitura.
@@ -41201,18 +41197,15 @@ fileEl.addEventListener('change', async () => {
   const files = Array.from(fileEl.files || []);
   let naoAbriu = null;
   for (const file of files) {
-    // APRESENTAÇÃO escolhida por aqui (navegador, ou shell antigo sem o seletor
-    // do sistema): vira páginas como qualquer outra. Sem este desvio um `.pptx`
-    // entraria como mídia 'other' — importada e impossível de projetar. O PDF
-    // não tem caminho AQUI: quem o desenha é o shell, que precisa do arquivo e
-    // não de um `File` já lido — e é justamente por isso que, no app, este
-    // botão abre o seletor do sistema.
+    // APRESENTAÇÃO escolhida por aqui (só o navegador: no app o botão abre o
+    // seletor do sistema, ver `importarArquivos`): vira páginas como qualquer
+    // outra. Sem este desvio um `.pptx` entraria como mídia 'other' — importada
+    // e impossível de projetar. O PDF não tem caminho AQUI: quem o desenha é o
+    // shell, que precisa do arquivo e não de um `File` já lido.
     if (ehApresentacao(file)) {
       let rec = null;
       if (ehPptx(file)) rec = await pptxImportar(file, nomeSemExtensao(file.name), {});
-      else deckUltimoErro = window.__NATIVE__
-        ? 'PDF precisa do seletor de arquivos do app (instale a versão nova)'
-        : 'o navegador não desenha PDF; use o app';
+      else deckUltimoErro = 'o navegador não desenha PDF; use o app';
       if (!rec) naoAbriu = nomeSemExtensao(file.name);
       continue;
     }

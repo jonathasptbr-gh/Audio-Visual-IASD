@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.29** — a frase "PDF precisa do seletor de arquivos do app (instale a versão nova)" saiu dos dois pontos do `controle.js` (o `importShare` e o `change` do `#file`): inalcançável com o piso 83, sobra só a frase do navegador
 - **v1.13.28** — revisão C8: TRANSFERIR, SHARE, VIA NATIVA E WALLPAPER (o `controle.js` do pacote de transferência ao diálogo padrão); o link compartilhado entra no Cronograma na hora (`load()` no fim do `importShare`), o resgate dos downloads lê e limpa as intenções numa transação, e ~270 comentários (8 blocos reancorados, fatos velhos, narrativa ao histórico)
 - **v1.13.27** — revisão C7: DOWNLOADS, PLAYLIST AUTOMÁTICA E REGISTRO (o `controle.js` do "Baixando" na linha ao pacote de transferência); o sorteio guardado ou que vira a fila entra na lista em memória (`listasSeq`), o lote do sorteio só sai com a ação feita, a Verificação confere o `progresso.js`, e ~220 comentários (8 blocos reancorados, fatos velhos, narrativa ao histórico)
 - **v1.13.26** — revisão C6: SINCRONIZAÇÃO DO ACERVO, BUSCA E YOUTUBE (o `controle.js` da sincronização das coleções ao "Baixando" na linha); a cena de letra mandada à playlist ou aos Favoritos entra na lista em memória (senha `listasSeq`), o repasse do `ytAcaoInterno` refutado por medida, e ~75 comentários (9 blocos reancorados, fatos velhos, narrativa ao histórico)
@@ -639,6 +640,21 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.13.29 — a frase de PDF "instale a versão nova" saiu
+
+**v1.13.29 (só web, sem Release)** — o `deckUltimoErro` tinha um ramo
+`window.__NATIVE__ ? 'PDF precisa do seletor de arquivos do app (instale a
+versão nova)' : …` em dois pontos do `controle.js`: o PDF sem `url` no
+`importShare` e o handler `change` do `#file`. Com o piso 83 os dois são
+inalcançáveis no app: `importarArquivos` desvia o nativo para `pickDoc` (o
+`#file` nunca é clicado ali), e `pickDoc` e o `ShareIntake` sempre entregam
+`url` = `/saf/<token>` (`SafRegistry.urlFor`). Ficou só a frase do navegador, e
+os comentários que falavam em "shell antigo sem o seletor do sistema" foram
+corrigidos. A revisão C8 (`docs/revisao/REGISTRO.md`) já a tinha anotado como
+inalcançável. Nenhum oráculo citava a frase.
 
 ---
 

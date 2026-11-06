@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.13.29",
+    "itens": [
+      "Some do app uma mensagem de erro de PDF que pedia para instalar a versão nova e não acontecia mais."
+    ]
+  },
+  {
     "versao": "1.13.28",
     "itens": [
       "Um link compartilhado com o app agora aparece no Cronograma na hora, sem precisar reabrir a lista."
