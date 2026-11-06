@@ -711,10 +711,18 @@ try {
     delete window.AVSorteio;                 // o módulo entregou os bytes e não rodou
     const semUm = await rodarUmaChecagem(achada);
     window.AVSorteio = guardado;
-    return { inteiro, semUm };
+    // E A LISTA ALCANÇA TODO MÓDULO DO `index.html`: o `progresso.js` ficava de
+    // fora, e sem ele a linha saía verde.
+    const prog = window.AVProgresso;
+    delete window.AVProgresso;
+    const semProgresso = await rodarUmaChecagem(achada);
+    window.AVProgresso = prog;
+    return { inteiro, semUm, semProgresso };
   });
   checar(modulos.inteiro.v === 'ok',
-    'L1 · com os doze módulos de pé a checagem passa', JSON.stringify(modulos.inteiro));
+    'L1 · com os treze módulos de pé a checagem passa', JSON.stringify(modulos.inteiro));
+  checar(modulos.semProgresso.v === 'falhou' && /progresso/.test(modulos.semProgresso.nota),
+    'L1 · e o módulo da barra de progresso (`AVProgresso`) também é conferido', JSON.stringify(modulos.semProgresso));
   checar(modulos.semUm.v === 'falhou' && /playlist autom/.test(modulos.semUm.nota),
     'L1 · e um módulo que CHEGOU e não RODOU reprova, com o nome do recurso que fica mudo — o '
     + 'arquivo continua íntegro e de tamanho cheio, então a linha de cima não tem como vê-lo',

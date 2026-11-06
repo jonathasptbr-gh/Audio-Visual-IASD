@@ -30889,6 +30889,7 @@ const TESTES = [
         ['controle/sorteio.js', 'a playlist automática'], ['controle/cifra.js', 'a cifra'],
         ['controle/pacote.js', 'o pacote'], ['controle/deck.js', 'a apresentação'],
         ['controle/pptxzip.js', 'o PowerPoint'], ['controle/hinario.js', 'as seções do hinário'],
+        ['controle/progresso.js', 'a barra de progresso'],
         ['controle/louvorja.js', 'a fonte das músicas'], ['controle/bible.js', 'a Bíblia'],
         ['espelho/tela.js', 'a tela pela rede'], ['display/display.js', 'o telão'],
         ['shared/wallpaper-padrao.svg', 'o fundo padrão'],
@@ -30930,6 +30931,7 @@ const TESTES = [
         ['AVSorteio', 'a playlist automática'], ['AVCifra', 'a cifra'],
         ['AVPacote', 'o pacote'], ['AVDeck', 'a apresentação'],
         ['AVPptxZip', 'o PowerPoint'], ['AVHinario', 'as seções do hinário'],
+        ['AVProgresso', 'a barra de progresso'],
       ];
       const mudos = globais.filter(([g]) => !window[g]).map(([, n]) => n);
       if (mudos.length) return tFalhou('não subiu: ' + mudos.join(', '));
