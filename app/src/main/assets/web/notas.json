@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.13.27",
+    "itens": [
+      "Na playlist automática, recusar o download não tira mais da lista as músicas que estavam marcadas.",
+      "O sorteio mandado para a playlist aparece na fila na hora, mesmo com o app atualizando a lista."
+    ]
+  },
+  {
     "versao": "1.13.26",
     "itens": [
       "Mandar só a letra de uma música para a playlist ou os Favoritos agora aparece na lista na hora."
