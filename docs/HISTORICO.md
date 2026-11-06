@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.36** — nos Favoritos a faixa excluir · renomear · ↑↓ vai para trás de um `⋮` (`.dest-opcoes`) na fileira de destinos, substituindo-os ao toque pelo mecanismo do Cronograma (`alternarAcoesDaLinha`); o "Ver a letra" só para registro com letra; `fecharOutrasGavetas`: uma gaveta aberta por vez na Biblioteca inteira (o destaque da série ficava aberto)
 - **v1.13.35** — a fileira de destinos da gaveta: os quatro quadrados JUNTOS (sem o `space-between`) e o quinto ("Ver a letra"/"Ver os detalhes") LARGO, com rótulo (`.dest-largo`, o desenho do antigo `.song-menu-letra`), crescendo no resto da linha; `destinos-diretos` mede a 360×1,25× e a 430×1×
 - **v1.13.34** — Pacotes 14, 15 e 13d: na gaveta da Biblioteca os destinos viram BOTÕES DIRETOS (`destBotoesRow`; Tocar · Cronograma · playlist · Favoritos · Auxiliar de leitura/detalhes), a miniatura diz o TIPO (`miniaturaDeTipo`, `#icoVideo`), o vídeo da semana vira o seletor "Este sábado"/"Atalho universal" do episódio, margem ao abrir seção e a barra fora de cena entre a tela cheia e a rotação
 - **v1.13.33** — `telaReenviarPreferencias` manda o wallpaper PADRÃO (`{ type: 'wallpaper', __wp: 'padrao' }`, a forma do "Padrão" no `telaEnriquecer`) quando o celular não tem imagem própria, e antes da guarda `telaCanal()` (é JSON); o `if (!blob) return` deixava uma tela que re-anuncia sem recarregar com a imagem antiga; asserção no `boot-nativo` com reversão
@@ -646,6 +647,45 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.13.36 — as opções do favorito atrás do `⋮`, o vídeo sem "Ver a letra", e uma gaveta por vez
+
+**v1.13.36 (só web, sem Release)** — três pedidos do operador, com captura de
+tela (um vídeo dos Favoritos: ▶ · Cronograma · playlist · "Ver a letra" largo e
+APAGADO, e uma segunda fileira com excluir e renomear):
+
+- **As opções atrás do `⋮`.** A `.fav-acoes-row` saiu: `renderItemMenu` põe a
+  `.fav-acoes` (o MESMO nó a cada remontagem, via `aoLado`) dentro da
+  `.dest-botoes`, escondida, mais um `.dest-btn.dest-opcoes` com o
+  `dotsIconSvg` do Cronograma na ponta direita (`margin-left: auto`). O toque
+  chama `alternarAcoesDaLinha(li)` — o mecanismo da linha do Cronograma: UMA
+  linha por vez (`linhaAcoesAberta`), o `pointerdown` fora fecha,
+  `interacaoAbertaNoAcervo` já conta `.acoes-abertas` —, e o CSS troca os
+  destinos pela faixa (`.acoes-abertas .dest-botoes`), na altura dos quadrados;
+  a pergunta de excluir e o campo de renomear nascem dentro da faixa
+  (`pedirConfirmacaoNaLinha`, sem mudança) e vestem `--quad-faixa`. Fechar a
+  gaveta fecha as opções.
+- **O "Ver a letra" apagado no vídeo NÃO era o caminho errado:** a gaveta de um
+  favorito é sempre `linhaDeItem` → `renderItemMenu`, e os "detalhes" do vídeo
+  só existem na linha do ACERVO (o índice da série/link). O defeito era
+  oferecer, apagado, o que um vídeo nunca tem: o quinto botão agora só aparece
+  num registro COM letra.
+- **Uma gaveta aberta por vez na Biblioteca inteira** (`fecharOutrasGavetas`): o
+  acordeão fechava só as irmãs da MESMA `<ul>`, e o episódio deste sábado mora
+  numa lista própria (o destaque), os Favoritos noutra — abrir um episódio
+  comum deixava o do sábado aberto. O escopo passou a ser o `#hymnResults`
+  (exceto a `.folder-opfs`, que é acordeão de coleção), nas três portas
+  (`hymnResultRow`, `linhaDeItem`, `semanaLinha`).
+
+`destinos-diretos.test.mjs` ganhou os blocos D (o `⋮` quadrado à direita, a
+substituição, a pergunta na fileira, o vídeo sem "Ver a letra", a 360×1,25× e a
+430×1×) e E (destaque → episódio → favorito → destaque: sempre UMA gaveta).
+Reversões: sem o escopo da Biblioteca reprova E; sem a regra que esconde os
+destinos reprovam as de substituição; com o "Ver a letra" apagado de volta
+reprova a do vídeo. `boot-nativo` e `toque-instantaneo` passaram a abrir as
+opções pelo `⋮`.
 
 ---
 

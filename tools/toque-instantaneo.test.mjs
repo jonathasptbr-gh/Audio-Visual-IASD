@@ -290,32 +290,37 @@ try {
   // entrar em lista nenhuma"). O contrato do seletor que sobrou — três degraus,
   // 720p de padrão, a escolha grudando — é medido no `boot-nativo.test.mjs`.
 
-  // ── 7. NA GAVETA, OS DESTINOS SÃO BOTÕES DIRETOS (v1.13.34) ─────────────
+  // ── 7. NA GAVETA, OS DESTINOS SÃO BOTÕES DIRETOS (v1.13.34; opções v1.13.36) ─
   // Pedido do operador: *"uma linha de botões quadrados, um toque = uma ação"*.
   // O Confirmar da gaveta SAIU (era ele que o bloco antigo punha no fim da faixa);
   // a ordem que sobra é a da fileira: "Tocar agora" na ponta esquerda, os
   // destinos na ordem da tabela e o quinto (o auxiliar de leitura) na direita —
   // e a faixa de ações de um favorito ganha fileira própria, abaixo.
   const ordem = await pg.evaluate(() => {
+    // A gaveta mora numa LINHA (`.lib-item`): é nela que o `⋮` liga as opções.
+    const li = document.createElement('li'); li.className = 'lib-item';
     const ul = document.createElement('ul');
-    document.body.appendChild(ul);
+    li.appendChild(ul);
+    document.body.appendChild(li);
     const acoes = document.createElement('div'); acoes.className = 'fav-acoes';
     acoes.appendChild(document.createElement('button'));
-    renderItemMenu({ id: 'x', name: 'X', kind: 'audio' }, ul, ['playlist', 'cronograma'], () => acoes);
+    renderItemMenu({ id: 'x', name: 'X', kind: 'audio', lyrics: [{ time: 0, text: 'a' }] }, ul,
+      ['playlist', 'cronograma'], () => acoes);
+    const fileira = ul.querySelector('.dest-botoes');
     const r = {
-      fileiras: [...ul.children].map((li) => li.className),
-      botoes: [...ul.querySelectorAll('.dest-botoes > button')].map((b) => b.dataset.dest),
+      fileiras: [...ul.children].map((x) => x.className),
+      botoes: [...ul.querySelectorAll('.dest-botoes > button')].map((b) => b.dataset.dest || b.className),
       confirmar: !!ul.querySelector('.song-menu-go'),
-      acoesNaUltima: ul.lastElementChild && ul.lastElementChild.contains(acoes),
+      acoesNaFileira: !!fileira && fileira.contains(acoes),
     };
-    ul.remove();
+    li.remove();
     return r;
   });
-  checar(ordem.botoes.join(' | ') === 'tocar | cronograma | playlist | leitura' && !ordem.confirmar,
+  checar(ordem.botoes.join(' | ') === 'tocar | cronograma | playlist | leitura | dest-btn dest-opcoes' && !ordem.confirmar,
     'a gaveta de um favorito tem os destinos em BOTÕES DIRETOS — "Tocar agora" na ponta, a ordem da '
-    + 'tabela, o auxiliar de leitura na outra ponta — e nenhum Confirmar', ordem);
-  checar(ordem.acoesNaUltima === true && ordem.fileiras.length === 2,
-    'e a faixa de ações (excluir, renomear, ↑↓) tem a FILEIRA dela, abaixo dos destinos', ordem);
+    + 'tabela, o "Ver a letra" e, por último, o botão de OPÇÕES — e nenhum Confirmar', ordem);
+  checar(ordem.acoesNaFileira === true && ordem.fileiras.length === 1,
+    'e a faixa de ações (excluir, renomear, ↑↓) mora NA MESMA fileira, atrás do botão de opções (v1.13.36)', ordem);
 
   // ── 8. O NOME NÃO TROCA NO MEIO DA ESPERA (v1.4.10) ─────────────────────
   //

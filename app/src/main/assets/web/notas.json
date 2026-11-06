@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.13.36",
+    "itens": [
+      "Nos Favoritos, excluir e renomear ficam num botão de opções na mesma linha dos destinos, como no Cronograma.",
+      "Um vídeo nos Favoritos não mostra mais o botão \"Ver a letra\" apagado.",
+      "Na Biblioteca, só uma lista de opções fica aberta por vez, também nas séries."
+    ]
+  },
+  {
     "versao": "1.13.35",
     "itens": [
       "Na Biblioteca, os botões de destino ficaram juntos, e o \"Ver a letra\" voltou a ser um botão largo, com o nome escrito."

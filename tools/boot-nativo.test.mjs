@@ -2274,7 +2274,7 @@ try {
         abaixo: !!cg && cg.top >= cx.bottom - 1 && cg.height > 0,
         // OS DESTINOS SÃO BOTÕES DIRETOS (v1.13.34): sem caixa de marcar e sem
         // Confirmar — cada quadrado executa o dele.
-        opcoes: [...gav.querySelectorAll('.hymn-opcoes .dest-botoes > button')].map((b) => b.dataset.dest),
+        opcoes: [...gav.querySelectorAll('.hymn-opcoes .dest-botoes > button[data-dest]')].map((b) => b.dataset.dest),
         semMarcar: !gav.querySelector('.hymn-opcoes .song-menu-check, .hymn-opcoes .song-menu-go'),
         acoesNaGaveta: !!gav.querySelector('.fav-acoes .row-ordem')
           && !!gav.querySelector('.fav-acoes .row-excluir'),
@@ -2464,9 +2464,9 @@ try {
   // O "Tocar agora" nascia marcado (v1.1.8) para o caso de DOIS destinos num
   // toque; com os botões diretos não há marca: cada quadrado executa o dele, e a
   // gaveta fica aberta para o segundo.
-  checar(favs.gaveta.opcoes.join(' | ') === 'tocar | cronograma | playlist | leitura' && favs.gaveta.semMarcar,
+  checar(favs.gaveta.opcoes.join(' | ') === 'tocar | cronograma | playlist' && favs.gaveta.semMarcar,
     'e a gaveta do FAVORITO tem os destinos em BOTÕES DIRETOS (v1.13.34) — telão, Cronograma e '
-    + 'playlist, mais o auxiliar de leitura —, sem marcar nem confirmar',
+    + 'playlist —, sem marcar nem confirmar (o "Ver a letra" só com letra, v1.13.36: este não tem)',
     JSON.stringify(favs.gaveta.opcoes));
   checar(favs.gaveta.foiPraCrono && favs.gaveta.tocarNaMesmaGaveta,
     'e o botão FAZ o que diz: um toque no do Cronograma põe o item nele — e a gaveta '
@@ -2534,7 +2534,7 @@ try {
     if (arq) {
       arq.querySelector('.row').click();
       await new Promise((res) => setTimeout(res, 400));
-      r.opcoes = [...arq.querySelectorAll('.hymn-opcoes .dest-botoes > button')]
+      r.opcoes = [...arq.querySelectorAll('.hymn-opcoes .dest-botoes > button[data-dest]')]
         .map((e) => e.getAttribute('aria-label'));
       r.semExcluir = !arq.querySelector('.row-excluir') && !arq.querySelector('.row-ordem');
     } else {
@@ -2556,7 +2556,7 @@ try {
     && pasta.nomes[0] === 'A audio.mp3',
     'e o corpo só é montado ao ABRIR (fechada não desenha arquivo nenhum), em '
     + 'ordem de NOME', JSON.stringify([pasta.fechada, pasta.nomes]));
-  checar(!pasta.erro && pasta.opcoes.length === 5
+  checar(!pasta.erro && pasta.opcoes.length === 4
     && pasta.opcoes[3] === 'Favoritar' && pasta.semExcluir,
     'e cada arquivo abre as MESMAS opções da Biblioteca — com "Favoritar", que é '
     + 'o caminho de promovê-lo, e sem excluir nem reordenar',
@@ -4735,33 +4735,32 @@ try {
       await Promise.all((gav ? gav.getAnimations() : []).map((an) => an.finished.catch(() => {})));
       await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
     }
-    // A FAIXA TEM FILEIRA PRÓPRIA DESDE A v1.13.34: o Confirmar ao lado dela saiu
-    // com os destinos em botões diretos, e ela desceu para baixo da fileira deles.
-    const linhaGo = li.querySelector('.fav-acoes-row');
+    // A FAIXA MORA ATRÁS DO `⋮` DA FILEIRA DE DESTINOS DESDE A v1.13.36: tocar
+    // nele a põe NO LUGAR dos destinos (o mecanismo da linha do Cronograma).
+    const linhaGo = li.querySelector('.hymn-opcoes > .dest-botoes');
     const fx = linhaGo && linhaGo.querySelector(':scope > .fav-acoes');
-    const destinos = li.querySelector('.hymn-opcoes > .dest-botoes');
-    if (!fx || !destinos) return { erro: 'faixa ou destinos fora do lugar' };
+    const mais = linhaGo && linhaGo.querySelector(':scope > .dest-opcoes');
+    if (!fx || !mais) return { erro: 'faixa ou opções fora do lugar' };
+    const escondidaAntes = fx.offsetWidth === 0;
+    mais.click();
+    await new Promise((f) => setTimeout(f, 60));
+    const destinos = linhaGo;
     const cx = (el) => el.getBoundingClientRect();
     const bs = [...fx.querySelectorAll('.row-btn')];
     // A RECEITA DE ALTURA, lida do layout: `--hit` mais o recuo vertical de uma
     // opção, a mesma do par da pergunta e do campo de renomear.
-    const receita = (() => {
-      const cs = getComputedStyle(li.querySelector('.hymn-gaveta'));
-      const hit = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hit'));
-      const v = parseFloat(cs.getPropertyValue('--opcao-recuo-v')) || 0;
-      const sp = document.createElement('div'); sp.style.height = 'var(--opcao-recuo-v)';
-      li.querySelector('.hymn-gaveta').appendChild(sp);
-      const vPx = sp.getBoundingClientRect().height; sp.remove();
-      return Math.round(hit + 2 * (vPx || v));
-    })();
+    // A ALTURA É A DO `⋮` VIZINHO (`--quad-faixa`), lida do layout.
+    const receita = Math.round(cx(mais).height);
     const r = {
-      // 1. FILEIRA PRÓPRIA, abaixo dos destinos — e não solta no pé da gaveta.
+      // 1. NA MESMA FILEIRA, no lugar dos destinos — e não solta no pé da gaveta.
       mesmaLinha: true,
       soltaNaGaveta: !!li.querySelector(':scope > .hymn-gaveta > .fav-acoes'),
-      abaixoDosDestinos: Math.round(cx(fx).top) >= Math.round(cx(destinos).bottom) - 1,
-      // 2. ENCOSTADA À DIREITA, como ficava ao lado do Confirmar.
-      aDireita: Math.abs(Math.round(cx(fx).right) - Math.round(cx(linhaGo).right)) <= 1,
-      // 3. UMA ALTURA SÓ, a da receita.
+      escondidaAntes,
+      noLugarDosDestinos: Math.abs(cx(fx).top - cx(mais).top) <= 1
+        && [...linhaGo.querySelectorAll('.dest-btn:not(.dest-opcoes), .dest-largo')].every((b) => b.offsetWidth === 0),
+      // 2. ENCOSTADA À DIREITA, colada no `⋮`.
+      aDireita: Math.abs(Math.round(cx(fx).right) - Math.round(cx(mais).left)) <= 10,
+      // 3. UMA ALTURA SÓ, a do `⋮`.
       alturaGo: receita,
       alturasBotoes: bs.map((b) => Math.round(cx(b).height)),
       // 4. E A LARGURA DOS QUADRADOS NÃO ENCOLHEU: medida contra a CAPA da
@@ -4776,7 +4775,7 @@ try {
     if (typeof destRemontar === 'function') {
       destRemontar();
       await new Promise((f) => setTimeout(f, 50));
-      r.sobreviveuAoRedesenho = li.querySelector('.fav-acoes-row > .fav-acoes') === fx
+      r.sobreviveuAoRedesenho = li.querySelector('.dest-botoes > .fav-acoes') === fx
         && !!fx.querySelector('.row-excluir');
     }
     // 6. ENQUANTO A LINHA PERGUNTA, a fileira dos destinos continua no lugar e a
@@ -4785,7 +4784,7 @@ try {
     await new Promise((f) => setTimeout(f, 250));
     const par = [...li.querySelectorAll('.linha-confirma-btn')];
     r.alturasDoPar = par.map((b) => Math.round(b.getBoundingClientRect().height));
-    r.destinosFicam = !!li.querySelector('.hymn-opcoes > .dest-botoes');
+    r.destinosFicam = !!li.querySelector('.hymn-opcoes > .dest-botoes > .dest-opcoes');
     li.querySelector('.linha-nao').click();
     await new Promise((f) => setTimeout(f, 250));
     // 7. E O CAMPO DE RENOMEAR TEM A MESMA ALTURA (v1.4.29).
@@ -4799,15 +4798,15 @@ try {
     await new Promise((f) => setTimeout(f, 200));
     return r;
   }, fav.ids);
-  checar(!faixa.erro && faixa.soltaNaGaveta === false && faixa.abaixoDosDestinos,
-    'A FAIXA DE AÇÕES TEM FILEIRA PRÓPRIA, abaixo dos destinos em botões diretos (v1.13.34) — '
-    + 'o Confirmar com que ela dividia a linha saiu', JSON.stringify(faixa));
+  checar(!faixa.erro && faixa.soltaNaGaveta === false && faixa.escondidaAntes && faixa.noLugarDosDestinos,
+    'A FAIXA DE AÇÕES MORA ATRÁS DO `⋮` DA FILEIRA DE DESTINOS (v1.13.36): escondida, e tocar no `⋮` '
+    + 'a põe NO LUGAR dos destinos, na mesma fileira', JSON.stringify(faixa));
   checar(!faixa.erro && faixa.aDireita,
-    'e ela encosta à DIREITA da fileira, como ficava ao lado do Confirmar', JSON.stringify(faixa));
+    'e ela encosta à DIREITA, colada no `⋮`', JSON.stringify(faixa));
   checar(!faixa.erro && faixa.alturasBotoes.length > 0
       && faixa.alturasBotoes.every((h) => Math.abs(h - faixa.alturaGo) <= 1),
-    'e TODOS na mesma altura (' + (faixa.alturaGo || 0) + 'px, `--hit` mais o recuo de uma '
-    + 'opção) — os botões traziam `--thumb` fixo e ficariam boiando no meio da linha',
+    'e TODOS na mesma altura (' + (faixa.alturaGo || 0) + 'px, a do `⋮` vizinho) — os botões '
+    + 'traziam `--thumb` fixo e ficariam boiando no meio da linha',
     JSON.stringify(faixa));
   checar(!faixa.erro && faixa.larguras.length > 0
       && faixa.larguras.every((w) => w === faixa.larguraDaCapa),
@@ -4823,7 +4822,7 @@ try {
     + 'ouvintes e apagaria uma confirmação de exclusão aberta',
     JSON.stringify(faixa));
   checar(!faixa.erro && faixa.destinosFicam === true,
-    'e enquanto a linha PERGUNTA a fileira de destinos continua no lugar', JSON.stringify(faixa));
+    'e enquanto a linha PERGUNTA o `⋮` continua na fileira (é ele que fecha)', JSON.stringify(faixa));
   checar(!faixa.erro && Math.abs(faixa.alturaCampo - faixa.alturaGo) <= 1
       && Math.abs(faixa.alturaOk - faixa.alturaGo) <= 1,
     'e o CAMPO DE RENOMEAR também (v1.4.29) mede a altura da faixa ('
@@ -4894,7 +4893,7 @@ try {
     await abrir(a);
     await marcar(a);
     const faixaDe = (li) => {
-      const fx = li.querySelector('.song-menu-go-row > .fav-acoes');
+      const fx = li.querySelector('.dest-botoes > .fav-acoes');
       return fx ? (fx.dataset.dono || '') : null;
     };
     const r = {
@@ -4924,7 +4923,7 @@ try {
     if (go && !go.disabled) { go.click(); await new Promise((f) => setTimeout(f, 350)); }
     const a2 = document.querySelector('[data-fav-corpo] .fav-itens > .lib-item');
     await marcar(a2);
-    const fx2 = a2.querySelector('.song-menu-go-row > .fav-acoes');
+    const fx2 = a2.querySelector('.dest-botoes > .fav-acoes');
     // POSSE de novo, e não presença: a faixa que sobrou tem de ser A DELA.
     r.faixaSobreviveuAoConfirmar = !!fx2 && !!fx2.querySelector('.row-excluir')
       && fx2.dataset.dono === a2.dataset.id;

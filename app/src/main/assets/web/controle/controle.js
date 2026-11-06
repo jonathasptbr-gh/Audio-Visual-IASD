@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.35';
+const WEB_VERSION = '1.13.36';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -13982,10 +13982,10 @@ function linhaDeItem(item, opts) {
     ...botoesDeOrdem(lista, item.id, pos, total),
   ] : []).filter(Boolean));
   gaveta.append(opcoes);
-  // ===== A FAIXA TEM FILEIRA PRÓPRIA, ABAIXO DOS DESTINOS (v1.13.34) =====
+  // ===== A FAIXA MORA ATRÁS DO `⋮` DA FILEIRA DE DESTINOS (v1.13.36) =====
   //
-  // Ela dividia a linha com o Confirmar, que saiu com os destinos em botões
-  // diretos (`destBotoesRow`). Quem a põe na gaveta é o `renderItemMenu`.
+  // Quem a põe na gaveta é o `renderItemMenu`, ao lado do botão de opções que a
+  // revela no lugar dos destinos (o mecanismo da linha do Cronograma).
   //
   // O NÓ É O MESMO A CADA REMONTAGEM, e isto não é economia: `renderItemMenu`
   // refaz a lista (`alvo.innerHTML = ''`), e devolver uma faixa NOVA perderia os
@@ -14000,12 +14000,7 @@ function linhaDeItem(item, opts) {
     // A gaveta que se fecha aqui pode estar PERGUNTANDO (v5.301) — e um "sim"
     // pendurado numa linha que saiu de cena é o que nenhum destrutivo pode ter.
     fecharConfirmacaoNaLinha();
-    const lista = li.parentElement;
-    if (lista) {
-      lista.querySelectorAll(':scope > .lib-item.expanded').forEach((el) => {
-        if (el !== li) el.classList.remove('expanded');
-      });
-    }
+    fecharOutrasGavetas(li);
     // ===== REABRIR REMONTA A GAVETA =====
     //
     // A gaveta vive em globais de MÓDULO (`songMenuFor`, `destRemontar`), e há
@@ -14043,12 +14038,14 @@ function linhaDeItem(item, opts) {
       retirarDoAr(item);
       if (li.classList.contains('expanded')) {
         fecharConfirmacaoNaLinha();
+        if (linhaAcoesAberta === li) fecharAcoesDaLinha();
         collapseAccordion(gaveta, () => li.classList.remove('expanded'));
       }
       return;
     }
     if (li.classList.contains('expanded')) {
       fecharConfirmacaoNaLinha();
+      if (linhaAcoesAberta === li) fecharAcoesDaLinha();
       collapseAccordion(gaveta, () => li.classList.remove('expanded'));
       return;
     }
@@ -14099,28 +14096,43 @@ function renderItemMenu(item, alvo, destinos, aoLado) {
     ? projetarItem(item)
     : adicionarNasListas([listaDoDestino(chave)], item.id, btn));
   // O AUXILIAR DE LEITURA de um registro com letra é a mesma folha do transporte,
-  // apontada para ELE e sem projetar nada.
+  // apontada para ELE e sem projetar nada. SÓ COM LETRA (v1.13.36): um vídeo, uma
+  // imagem ou uma apresentação NUNCA têm letra, e o "Ver a letra" apagado ali era
+  // uma promessa sobre algo que não existe (a captura do operador: um vídeo dos
+  // Favoritos com o botão largo morto). Não oferecer vale mais que explicar.
   const temLetraNoItem = Array.isArray(item.lyrics) && item.lyrics.some((l) => l && l.text);
   const desenhar = () => {
     alvo.innerHTML = '';
     destRemontar = desenhar;
     destExecutor = null;
-    alvo.appendChild(destBotoesRow([
+    const fileira = destBotoesRow([
       ...destBotoesPadrao(quais, fazer),
-      destBotaoLeitura(temLetraNoItem ? () => openLyricsPopup(item) : null, 'este item não tem letra'),
-    ]));
-    // A FAIXA DE AÇÕES (excluir, renomear, ↑↓) ganha a fileira dela, logo abaixo:
-    // ela dividia a linha com o Confirmar, que saiu. O NÓ É O MESMO a cada
-    // remontagem (o `aoLado` devolve sempre a mesma `.fav-acoes`): o
-    // `appendChild` o MOVE, e ouvintes e uma confirmação de exclusão aberta
-    // sobrevivem.
+      temLetraNoItem ? destBotaoLeitura(() => openLyricsPopup(item)) : null,
+    ]);
+    // ===== AS OPÇÕES DO ITEM ATRÁS DE UM `⋮`, NA MESMA FILEIRA (v1.13.36) =====
+    //
+    // Pedido do operador: a faixa excluir · renomear · ↑↓ tinha uma fileira própria
+    // embaixo; agora é o botão de OPÇÕES do Cronograma (o mesmo desenho, os três
+    // pontos), quadrado, na ponta direita — e tocá-lo SUBSTITUI os destinos pela
+    // faixa, como no Cronograma. O mecanismo é o dele: a linha ganha
+    // `.acoes-abertas` por `alternarAcoesDaLinha` (UMA por vez, o toque fora fecha,
+    // a confirmação de excluir e o campo de renomear nascem DENTRO da faixa por
+    // `pedirConfirmacaoNaLinha`). O NÓ da faixa é o MESMO a cada remontagem (o
+    // `aoLado` devolve sempre a mesma `.fav-acoes`): o `appendChild` o MOVE, e uma
+    // confirmação aberta sobrevive.
     const irmao = typeof aoLado === 'function' ? aoLado() : null;
-    if (irmao) {
-      const fileira = document.createElement('li');
-      fileira.className = 'song-menu-go-row fav-acoes-row';
-      fileira.appendChild(irmao);
-      alvo.appendChild(fileira);
+    const li = alvo.closest('.lib-item');
+    if (irmao && li) {
+      const mais = document.createElement('button');
+      mais.type = 'button';
+      mais.className = 'dest-btn dest-opcoes';
+      mais.title = 'Opções deste item';
+      mais.setAttribute('aria-label', 'Opções deste item');
+      mais.innerHTML = dotsIconSvg();
+      mais.addEventListener('click', (e) => { e.stopPropagation(); alternarAcoesDaLinha(li); });
+      fileira.append(irmao, mais);
     }
+    alvo.appendChild(fileira);
   };
   desenhar();
 }
@@ -21312,6 +21324,7 @@ function semanaLinha(coll) {
       collapseAccordion(gaveta, () => li.classList.remove('expanded'));
       return;
     }
+    fecharOutrasGavetas(li);
     openSemanaMenu(cat, opcoes);
     li.classList.add('expanded');
     expandAccordion(gaveta);
@@ -25680,6 +25693,28 @@ function miniaturaDeTipo(tipo) {
   return q;
 }
 
+/**
+ * ===== UMA GAVETA ABERTA POR VEZ, NA BIBLIOTECA INTEIRA (v1.13.36) =====
+ *
+ * Abrir uma linha fecha qualquer outra que esteja aberta — e o escopo é a
+ * BIBLIOTECA (`#hymnResults`), não a `<ul>` da linha: o episódio deste sábado
+ * mora numa lista própria (o destaque da série), os Favoritos noutra, e com o
+ * escopo da `<ul>` abrir um episódio comum deixava o do sábado aberto também.
+ * A PASTA do aparelho (`.folder-opfs`) fica de fora: ela é um acordeão de
+ * coleção, e a gaveta de um arquivo vive DENTRO dela. Fecha sem animar, como
+ * sempre fechou: quem anima é a linha tocada.
+ */
+function fecharOutrasGavetas(li) {
+  const raiz = (li && li.closest('#hymnResults')) || (li && li.parentElement);
+  if (!raiz) return;
+  raiz.querySelectorAll('.lib-item.expanded:not(.folder-opfs)').forEach((el) => {
+    if (el === li || el.contains(li)) return;
+    if (linhaAcoesAberta === el) fecharAcoesDaLinha();
+    if (el.querySelector('.confirmando')) fecharConfirmacaoNaLinha();
+    el.classList.remove('expanded');
+  });
+}
+
 // ===== UMA LINHA, UM TOQUE, UMA GAVETA =====
 //
 // A linha era `[▶] [nome / subtítulo] [+]` — dois botões, cada um abrindo uma
@@ -26020,12 +26055,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao, opts) {
     // escopo é a LISTA desta linha, não `hymnResultsEl`: as linhas de dentro do
     // card de um álbum vivem noutra `<ul>`, e ali a regra simplesmente não
     // valia — abrir a terceira faixa deixava as duas anteriores abertas.
-    const lista = li.parentElement;
-    if (lista) {
-      lista.querySelectorAll(':scope > .hymn-result.expanded').forEach((el) => {
-        if (el !== li) el.classList.remove('expanded');
-      });
-    }
+    if (!aberta) fecharOutrasGavetas(li);
     if (aberta) { collapseAccordion(gaveta, () => li.classList.remove('expanded')); return; }
     // ===== A MARCA DE "ABRINDO" É SÍNCRONA (v1.1.2) =====
     // Ela existe para o `interacaoAbertaNoAcervo` enxergar esta linha ANTES do

@@ -12,6 +12,9 @@
 //     vídeo de série — e o item da semana nas listas idem. Nenhum ▶.
 //  C. DOIS TOQUES NO MESMO VÍDEO NÃO BAIXAM DUAS VEZES: o `ytArquivo` divide o
 //     download em curso (pela forma: vídeo e só-áudio são downloads distintos).
+//  D. (v1.13.36) As opções de um favorito atrás de um `⋮` na fileira de destinos,
+//     substituindo-os ao toque; num vídeo sem letra, nada de "Ver a letra".
+//  E. (v1.13.36) Uma gaveta aberta por vez na Biblioteca inteira.
 //
 //   node tools/destinos-diretos.test.mjs
 // ============================================================================
@@ -178,6 +181,118 @@ try {
     + 'recebem o mesmo registro', c);
   checar(c.total === 3 && c.r3 !== c.depois,
     'C · só-áudio é OUTRO download, e acabado o primeiro um pedido novo não fica preso a ele', c);
+
+  // ── D. AS OPÇÕES DE UM FAVORITO ATRÁS DO `⋮`, NA MESMA FILEIRA (v1.13.36) ─
+  //
+  // O `⋮` é quadrado, fica na ponta direita da fileira de destinos, e tocá-lo
+  // SUBSTITUI os destinos pela faixa (excluir · renomear · ↑↓) — e a pergunta
+  // de excluir nasce ali dentro. Duas células, e num VÍDEO (sem letra) o "Ver a
+  // letra" não aparece: o `⋮` encosta à direita sozinho.
+  const medirD = (escala, largura, video) => pg.evaluate(async ({ escala, largura, video }) => {
+    document.documentElement.style.fontSize = (16 * escala) + 'px';
+    setAppMode('full');
+    const m = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: video ? 'video/mp4' : 'audio/mpeg' }),
+      { name: video ? 'QUERO OFERTAR' : 'Louvor', kind: video ? 'video' : 'audio', list: 'favs' });
+    const m2 = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
+      { name: 'Outro', kind: 'audio', list: 'favs' });
+    const item = await AVDB.getMedia(m.id);
+    // A letra no REGISTRO (o que o `renderItemMenu` lê), como a de uma faixa do acervo.
+    if (!video) item.lyrics = [{ time: 0, text: 'Primeira estrofe' }];
+    const ul = document.createElement('ul');
+    ul.className = 'fav-itens';
+    ul.style.cssText = 'position:fixed;top:0;left:0;width:' + largura + 'px;z-index:250';
+    document.getElementById('hymnResults').appendChild(ul);
+    const li = linhaDeItem(item, { lista: 'favs', pos: 0, total: 2, destinos: ['playlist', 'cronograma'] });
+    ul.appendChild(li);
+    li.querySelector('.row').click();
+    await new Promise((r) => setTimeout(r, 400));
+    const fileira = li.querySelector('.dest-botoes');
+    const fr = fileira.getBoundingClientRect();
+    const visiveis = () => [...fileira.children].filter((b) => b.offsetWidth > 0);
+    const mais = fileira.querySelector('.dest-opcoes');
+    const mr = mais.getBoundingClientRect();
+    const antes = {
+      ordem: visiveis().map((b) => b.dataset.dest || b.className.split(' ').pop()),
+      quadrado: Math.abs(mr.width - mr.height) <= 0.5 && mr.width >= 34,
+      aDireita: Math.abs(mr.right - fr.right) <= 1,
+      semFileiraPropria: !li.querySelector('.fav-acoes-row'),
+      faixaEscondida: fileira.querySelector('.fav-acoes').offsetWidth === 0,
+      cabem: visiveis().every((b) => b.scrollWidth <= b.clientWidth + 0.5),
+    };
+    mais.click();
+    await new Promise((r) => setTimeout(r, 100));
+    const faixa = fileira.querySelector('.fav-acoes');
+    const fx = faixa.getBoundingClientRect();
+    const depois = {
+      visiveis: visiveis().map((b) => b.className),
+      faixaNaFileira: fx.width > 0 && Math.abs(fx.top - mr.top) <= 1,
+      destinosSairam: [...fileira.querySelectorAll('.dest-btn:not(.dest-opcoes), .dest-largo')].every((b) => b.offsetWidth === 0),
+      botoes: [...faixa.querySelectorAll('.row-btn')].map((b) => (b.className.match(/row-(excluir|renomear|ordem)/) || [''])[0]),
+      maisLigado: li.classList.contains('acoes-abertas'),
+    };
+    faixa.querySelector('.row-excluir').click();
+    await new Promise((r) => setTimeout(r, 150));
+    const par = [...faixa.querySelectorAll('.linha-confirma-btn')];
+    depois.perguntaNaFileira = par.length === 2
+      && par.every((b) => Math.abs(b.getBoundingClientRect().top - mr.top) <= 6 && b.offsetWidth > 0);
+    fecharAcoesDaLinha();
+    ul.remove();
+    await AVDB.listRemove('favs', m.id); await AVDB.listRemove('favs', m2.id);
+    document.documentElement.style.fontSize = '';
+    return { antes, depois };
+  }, { escala, largura, video });
+  for (const [escala, largura, nome, video] of [[1.25, 360, '360×1,25×'], [1, 430, '430×1×'],
+    [1.25, 360, '360×1,25× · vídeo', true]]) {
+    const d = await medirD(escala, largura, video);
+    checar(d.antes.semFileiraPropria && d.antes.faixaEscondida && d.antes.quadrado && d.antes.aDireita && d.antes.cabem,
+      'D · ' + nome + ' · o favorito tem o botão de OPÇÕES quadrado na ponta direita da fileira de destinos, '
+      + 'sem a fileira própria de baixo, e nada cortado', d.antes);
+    checar(d.antes.ordem.join(' | ') === (video ? 'tocar | cronograma | playlist | dest-opcoes'
+      : 'tocar | cronograma | playlist | leitura | dest-opcoes'),
+      'D · ' + nome + ' · ' + (video ? 'num VÍDEO sem letra não há "Ver a letra" apagado' : 'com letra, o "Ver a letra" fica antes dele'),
+      d.antes.ordem);
+    checar(d.depois.maisLigado && d.depois.destinosSairam && d.depois.faixaNaFileira
+      && d.depois.botoes.join(',') === 'row-excluir,row-renomear,row-ordem,row-ordem',
+      'D · ' + nome + ' · tocar em opções SUBSTITUI os destinos pela faixa (excluir · renomear · ↑ · ↓) na mesma fileira', d.depois);
+    checar(d.depois.perguntaNaFileira,
+      'D · ' + nome + ' · e a pergunta de excluir nasce ali, no lugar da fileira', d.depois);
+  }
+
+  // ── E. UMA GAVETA ABERTA POR VEZ NA BIBLIOTECA INTEIRA (v1.13.36) ──────
+  //
+  // O episódio deste sábado mora numa lista PRÓPRIA (o destaque), e o acordeão
+  // fechava só as irmãs da mesma `<ul>`: abrir um episódio comum deixava o do
+  // sábado aberto. Três listas no `#hymnResults` — o destaque, os episódios e os
+  // Favoritos —, e a cada abertura só UMA gaveta fica aberta.
+  const e = await pg.evaluate(async () => {
+    setAppMode('full');
+    const host = document.getElementById('hymnResults');
+    const c = { id: 'serie-teste', kind: 'serie', name: 'Série de teste' };
+    const ep = (n) => ({ id_music: 'v' + n, name: 'Episódio ' + n, ytUrl: 'https://youtu.be/v' + n, serieData: { mes: 1, dia: n } });
+    const dest = document.createElement('ul'); dest.className = 'coll-songs serie-destaque-lista';
+    const lista = document.createElement('ul'); lista.className = 'coll-songs';
+    const favs = document.createElement('ul'); favs.className = 'fav-itens';
+    host.append(dest, lista, favs);
+    const a = hymnResultRow(c, ep(1), null, true, { destaque: true }); dest.appendChild(a);
+    const b = hymnResultRow(c, ep(2), null, true); lista.appendChild(b);
+    const m = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }), { name: 'F', kind: 'audio', list: 'favs' });
+    const f = linhaDeItem(await AVDB.getMedia(m.id), { lista: 'favs', pos: 0, total: 1, destinos: ['playlist', 'cronograma'] });
+    favs.appendChild(f);
+    const espera = () => new Promise((r) => setTimeout(r, 300));
+    const abertas = () => [a, b, f].map((x) => x.classList.contains('expanded'));
+    a.querySelector('.row').click(); await espera(); const r1 = abertas();
+    b.querySelector('.row').click(); await espera(); const r2 = abertas();
+    f.querySelector('.row').click(); await espera(); const r3 = abertas();
+    a.querySelector('.row').click(); await espera(); const r4 = abertas();
+    dest.remove(); lista.remove(); favs.remove();
+    await AVDB.listRemove('favs', m.id);
+    return { r1, r2, r3, r4 };
+  });
+  checar(JSON.stringify(e) === JSON.stringify({ r1: [true, false, false], r2: [false, true, false],
+    r3: [false, false, true], r4: [true, false, false] }),
+    'E · abrir o episódio deste sábado, depois um comum, depois um favorito e de novo o do sábado deixa '
+    + 'sempre UMA gaveta aberta na Biblioteca — o destaque e os Favoritos são listas próprias', e);
+
   await ctx.close();
 } finally {
   await navegador.close();

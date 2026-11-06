@@ -150,14 +150,19 @@ try {
       document.getElementById('plPopup')?.classList.remove('open'); await espera(120);
       // A GAVETA DE UM FAVORITO — o caminho SEM `⋮`, que é onde vive a única
       // exceção do quadrado. Ela só existe dentro da Biblioteca, no grupo dos
-      // Favoritos aberto: `renderItemMenu` monta a `.fav-acoes` como IRMÃO do
-      // confirmar, e nenhuma outra porta a desenha.
+      // Favoritos aberto: `renderItemMenu` monta a `.fav-acoes` na fileira de
+      // destinos, atrás do `⋮`, e nenhuma outra porta a desenha.
       openHymnSearch(false); await espera(320);
       document.querySelector('#hymnResults .coll-group--fav .coll-group-bar')?.click();
       await espera(320);
       document.querySelector('#hymnResults .coll-group--fav .lib-item .row')?.click();
       await espera(400);
       colher('gaveta de um favorito');
+      // A FAIXA MORA ATRÁS DO `⋮` DA FILEIRA DE DESTINOS (v1.13.36): é o toque
+      // nele que a põe à vista — e o `⋮` em si é um quadrado como os destinos.
+      document.querySelector('#hymnResults .coll-group--fav .lib-item .dest-opcoes')?.click();
+      await espera(120);
+      colher('opções de um favorito');
 
       // ── C. A FAIXA DA GAVETA DE UM FAVORITO ──────────────────────────
       // Ali as três regras não cabem juntas: a LARGURA é a capa da linha
