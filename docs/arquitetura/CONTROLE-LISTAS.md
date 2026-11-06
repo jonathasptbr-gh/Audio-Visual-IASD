@@ -682,12 +682,13 @@ a ESTRELA (aqui ela e a lixeira terminam no mesmo `listRemove('favs')` — ver
 acima) e o botão da PLAYLIST, que nesta gaveta é um BOTÃO da fileira de destinos
 logo acima (`destBotoesRow`, v1.13.34).
 
-#### E ela tem FILEIRA PRÓPRIA, abaixo dos destinos (v1.13.34)
+#### E ela mora atrás do `⋮` da fileira de destinos (v1.13.36)
 
-Ela dividiu a linha com o Confirmar da v5.302 à v1.13.32 (o hook `aoLado`, o lado
-decidido pelo DOM). Com os destinos em botões diretos o Confirmar saiu, e
-`renderItemMenu` põe a faixa numa `.fav-acoes-row` logo abaixo da fileira
-`.dest-botoes`, encostada à direita.
+Ela dividiu a linha com o Confirmar da v5.302 à v1.13.32 e teve fileira própria
+na v1.13.34–35. Hoje `renderItemMenu` a põe DENTRO da `.dest-botoes`, escondida,
+com um `.dest-opcoes` (o `dotsIconSvg` do Cronograma) na ponta direita: o toque
+chama `alternarAcoesDaLinha(li)` — o mecanismo da linha do Cronograma, uma por
+vez, o toque fora fecha — e a faixa toma o lugar dos destinos, na altura deles.
 
 - **O nó é O MESMO a cada remontagem.** `renderItemMenu` refaz a lista
   (`alvo.innerHTML = ''`), e devolver uma faixa NOVA perderia os ouvintes e —
@@ -698,8 +699,8 @@ decidido pelo DOM). Com os destinos em botões diretos o Confirmar saiu, e
   serve para o que não tem ALVO*): quem o consome é o `desenhar()` de UMA linha, e
   lê-lo do global já pôs a faixa de uma linha dentro da gaveta de outra — a
   lixeira de A excluindo o item B. Reabrir uma gaveta REMONTA (`abrir()`).
-- **Uma altura só:** a fileira mede `--hit + 2·--opcao-recuo-v`
-  (`.fav-acoes-row > .fav-acoes`), os botões `height: auto` + `stretch`, a LARGURA
+- **Uma altura só:** a faixa mede `--quad-faixa` (a dos destinos), os botões
+  `height: auto` + `stretch`, a LARGURA
   continua `--thumb`. O par Cancelar/Excluir e o campo de renomear vestem a MESMA
   receita, senão a gaveta pula sob o dedo no instante em que se mira um
   destrutivo.

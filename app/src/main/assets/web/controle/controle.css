@@ -9732,11 +9732,11 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    (A ESTRELA saiu desta faixa na v5.288: nesta lista ela e a lixeira faziam a
    mesma coisa — ver `favItemRow`. Ela continua inteira nas outras listas, onde
    alterna de verdade.) */
-/* ---------- FILEIRA PRÓPRIA, À DIREITA (v1.13.34) ----------
-   Ela dividia a linha com o Confirmar (v5.302/v5.307), que saiu com os destinos
-   em botões diretos: hoje é a `.fav-acoes-row`, abaixo deles. O `padding` é o da
-   `<ul>` das opções; a ALTURA é uma só (`align-items: stretch` mais a altura da
-   fileira, logo abaixo) — os botões traziam `--thumb` fixo (40px) e `height:
+/* ---------- ATRÁS DO `⋮` DA FILEIRA DE DESTINOS (v1.13.36) ----------
+   Ela mora na `.dest-botoes`, escondida até o botão de opções (`.dest-opcoes`)
+   pôr `.acoes-abertas` na linha — e aí ela toma o lugar dos destinos (ver a
+   regra junto da `.dest-botoes`). A ALTURA é uma só (`align-items: stretch` mais
+   a altura declarada lá) — os botões traziam `--thumb` fixo (40px) e `height:
    auto` desarma esse valor; a LARGURA continua `--thumb`. Com `.confirmando`
    quem preenche a faixa é a `.linha-confirma` (`flex: 1`), cujo par divide a
    faixa ao meio desde a v5.309. */
@@ -9760,11 +9760,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    é abrir um buraco: ele troca a asserção pela que de fato vale nesta faixa —
    TODA peça na MESMA altura. */
 .fav-acoes .row-btn { background: var(--gaveta-btn); height: auto; align-self: stretch; }
-/* ---------- E A ALTURA DA FILEIRA É A RECEITA DE UMA LINHA DE OPÇÃO (v1.13.34) ----
-   Com fileira própria (`.fav-acoes-row`) não há mais o Confirmar ao lado para
-   esticar os botões: quem dá a altura é a própria faixa, pela MESMA receita que o
-   par da pergunta usa logo abaixo — `--hit` mais o recuo vertical de uma opção. */
-.fav-acoes-row > .fav-acoes { min-height: calc(var(--hit) + 2 * var(--opcao-recuo-v)); }
 .fav-acoes.confirmando { flex: 1; }
 /* E O PAR VESTE A RECEITA DE ALTURA DO BOTÃO QUE ELE SUBSTITUI, não um número:
    `--hit` de conteúdo mais o recuo vertical de uma linha de opção, que desde a
@@ -13395,9 +13390,23 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
 .lib-item.vendo-letra > .hymn-gaveta .song-menu-letra-cx > span:first-child {
   visibility: hidden;
 }
-/* A FAIXA DE AÇÕES de um favorito (excluir, renomear, ↑↓) ganhou fileira própria
-   quando o Confirmar saiu, e encosta à direita como encostava ao lado dele. */
-.fav-acoes-row { justify-content: flex-end; }
+/* ---------- AS OPÇÕES DE UM FAVORITO, NO LUGAR DOS DESTINOS (v1.13.36) ----------
+   Pedido do operador: a faixa excluir · renomear · ↑↓ deixa a fileira própria e
+   vira o botão de OPÇÕES do Cronograma (os três pontos, `dotsIconSvg`), quadrado
+   como os destinos e na PONTA DIREITA (`margin-left: auto`: sem o "Ver a letra",
+   num vídeo, ele não fica grudado no último destino). Tocá-lo põe
+   `.acoes-abertas` na linha (`alternarAcoesDaLinha`, o mecanismo do Cronograma) e
+   a faixa SUBSTITUI os destinos, encostada à direita, na altura dos quadrados; o
+   `⋮` fica, LIGADO, para fechar. A confirmação de excluir e o campo de renomear
+   nascem DENTRO da faixa e vestem a mesma altura. */
+.dest-opcoes { margin-left: auto; }
+.acoes-abertas .dest-opcoes { background: var(--btn-accent); }
+.dest-botoes > .fav-acoes { display: none; height: var(--quad-faixa); }
+.acoes-abertas .dest-botoes > .fav-acoes { display: flex; flex: 1 1 auto; }
+.acoes-abertas .dest-botoes > :is(.dest-btn:not(.dest-opcoes), .dest-largo) { display: none; }
+.dest-botoes > .fav-acoes > .linha-confirma > :is(.linha-confirma-btn, .linha-renome-campo) {
+  min-height: var(--quad-faixa);
+}
 /* ---------- A BARRA DA BIBLIOTECA SAI DE CENA ENTRE A TELA CHEIA E A ROTAÇÃO (v1.13.34) ----------
    Ver `aoSairDaTelaCheiaGeral`: nos quadros em que o documento já saiu da tela
    cheia e a janela ainda é a deitada, a posição da barra (`100svh` menos a caixa)

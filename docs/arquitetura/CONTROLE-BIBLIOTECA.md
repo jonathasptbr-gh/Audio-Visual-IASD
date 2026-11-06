@@ -81,8 +81,12 @@ veste o desenho do antigo "Ver a letra" — rótulo ("Ver a letra", ou "Ver/Ocul
 os detalhes" empilhados na mesma célula), crescendo no resto da fileira —, e os
 quatro destinos ficam quadrados e juntos. A variante, a forma e a qualidade são lidas (o seletor remonta
 a gaveta, então o valor no fecho é o vigente). A faixa de ações de um favorito
-(excluir · renomear · ↑↓) tem fileira própria abaixo (`.fav-acoes-row`), com o
-MESMO nó a cada remontagem. **O que se perdeu:** mandar a vários destinos num
+(excluir · renomear · ↑↓) mora atrás de um `⋮` na ponta direita da fileira
+(`.dest-opcoes`, v1.13.36), que a troca pelos destinos com o mecanismo da linha
+do Cronograma (`alternarAcoesDaLinha`), com o MESMO nó a cada remontagem; o
+"Ver a letra" de um favorito só existe se o registro TEM letra. **Uma gaveta
+aberta por vez na Biblioteca inteira** (`fecharOutrasGavetas`, escopo
+`#hymnResults`): o destaque da série e os Favoritos são listas próprias. **O que se perdeu:** mandar a vários destinos num
 toque — e o download único do YouTube continua, porque o `ytArquivo` divide o
 download em curso (`ytArquivoEmVoo`, por `youtubeId` + forma).
 
