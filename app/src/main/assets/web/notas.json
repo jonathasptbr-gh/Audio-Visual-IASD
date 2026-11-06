@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.13.28",
+    "itens": [
+      "Um link compartilhado com o app agora aparece no Cronograma na hora, sem precisar reabrir a lista."
+    ]
+  },
+  {
     "versao": "1.13.27",
     "itens": [
       "Na playlist automática, recusar o download não tira mais da lista as músicas que estavam marcadas.",
