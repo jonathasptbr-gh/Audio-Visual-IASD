@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.25';
+const WEB_VERSION = '1.13.26';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -20827,12 +20827,13 @@ async function serieDiarioLer(id) {
 // E A MESCLA É UMA TRANSAÇÃO SÓ (`AVDB.updateState`), nunca `getState` +
 // `setState`. DUAS varreduras da mesma série correm juntas com facilidade — a
 // abertura dispara `autoRefreshCollections()` sem `await`, e abrir o card da
-// série (`verificarSemanaAoAbrir`) refaz a lista por cima disso —, e com duas transações a que leu primeiro
-// grava por último e apaga a metade da outra. O que some é a metade dos
-// vídeos: sem `quandoVideos` o bloco perde as linhas derivadas dela (os nomes
-// na ordem, o que o canal anuncia e não veio, os futuros), e o Registro passa a
-// responder como se a varredura nunca tivesse acontecido. Um diário que
-// discorda do aparelho é o pior artefato que este projeto sabe produzir.
+// série (`verificarSemanaAoAbrir`) refaz a lista por cima disso —, e com duas
+// transações a que leu primeiro grava por último e apaga a metade da outra. O que
+// some é a metade dos vídeos: sem `quandoVideos` o bloco perde as linhas
+// derivadas dela (os nomes na ordem, o que o canal anuncia e não veio, os
+// futuros), e o Registro passa a responder como se a varredura nunca tivesse
+// acontecido. Um diário que discorda do aparelho é o pior artefato que este
+// projeto sabe produzir.
 async function serieDiarioGravar(id, campos) {
   try {
     await AVDB.updateState(SERIE_DIARIO_KEY + id, (atual) => Object.assign(atual || {}, campos));
@@ -20981,7 +20982,8 @@ async function fetchSerieIndex(coll) {
     serieDiaEm: serieDiaLocal(hoje),
   };
   await AVDB.setState('coll:' + coll.id, collState[coll.id]);
-  // O QUE JÁ ESTAVA BAIXADO GANHA O NOME NOVO (v1.13.15) — ver `renomearEpisodiosGuardados`.
+  // O QUE JÁ ESTAVA BAIXADO GANHA O NOME NOVO (v1.13.15) — ver
+  // `renomearEpisodiosGuardados`.
   await renomearEpisodiosGuardados(songs).catch(() => {});
   refreshCollectionsIfVisible();
   // PELO GUARDA, nunca direto: `renderSearchResults` faz `hymnResultsEl
@@ -21378,7 +21380,8 @@ function semanaLinha(coll) {
 /**
  * ===== NO MODO FÁCIL O VÍDEO DA SEMANA MORA NA RAIZ (v1.13.15) =====
  *
- * No lugar dos cards das séries — abrir uma coleção para buscar sempre um único item.
+ * Ele substitui os cards das séries: abrir uma coleção para buscar sempre um único
+ * item era um passo a mais.
  *
  * UM BLOCO, e não um por série: as duas linhas respondem à MESMA pergunta ("o vídeo deste
  * sábado") e o cabeçalho "Este sábado · 17/Out" é o mesmo para as duas — dois cards o
@@ -21462,7 +21465,8 @@ let semanaPendente = null;   // { virtualId, yt }
 
 // ===== A FAIXA DE ÁLBUM NO AR (v1.13.14) =====
 //
-// Acende só o álbum de onde a mídia foi tocada. A faixa de um álbum é uma MÚSICA DE CATÁLOGO, não um item: ela não tem `data-id`,
+// Acende só o álbum de onde a mídia foi tocada. A faixa de um álbum é uma
+// MÚSICA DE CATÁLOGO, não um item: ela não tem `data-id`,
 // e a mesma música pode estar em dois álbuns. Por isso o que acende é a ORIGEM do
 // toque — a chave da linha (`songRowKey`, álbum + música) que pôs a mídia no ar —,
 // e só quando o toque nasceu DENTRO de um álbum (`data-album`). Tocada por outra
@@ -23517,10 +23521,11 @@ async function buildLyricSlides(meta, timeField, resolveImage) {
  * ressincronização forçada — o catálogo não mudou) e só apaga, POR FAIXA, os
  * ponteiros que a exclusão de fato invalidou: `fileIdFull`/`fileIdPlayback`
  * apontavam para os registros que `purgeCatalogRecords` acabou de remover do
- * catálogo OPFS. Sem isso, `levantarColecao` (que lê esses campos DIRETO, sem
- * ir ao IndexedDB) continuaria contando a faixa como baixada: a tela diria "completo" sobre um áudio que já
- * não existe. `semAudio`/`semPlayback` (a origem não publica a variante) NÃO
- * são tocados aqui: são fato sobre a ORIGEM, não sobre o download.
+ * catálogo OPFS. Sem isso, `levantarColecao` (que lê esses campos DIRETO, sem ir
+ * ao IndexedDB) continuaria contando a faixa como baixada: a tela diria
+ * "completo" sobre um áudio que já não existe. `semAudio`/`semPlayback` (a origem
+ * não publica a variante) NÃO são tocados aqui: são fato sobre a ORIGEM, não
+ * sobre o download.
  */
 async function deleteCollection(coll) {
   if (!(await appConfirm({ title: 'Excluir ' + coll.name, message: 'Excluir o que foi baixado de "' + coll.name + '" (áudios e capas)? A lista de músicas continua no aparelho, e o que estiver no Cronograma, nos Favoritos ou na playlist também fica.', okText: 'Excluir', perigo: true }))) return;
@@ -23940,13 +23945,14 @@ function acertarVeu(el) {
 }
 // ===== A SOMBRA DAS PORTAS SÓ EXISTE COM ITEM POR BAIXO DELAS (v1.12.19) =====
 //
-// A sombra descreve SOBREPOSIÇÃO ("o botão flutua sobre a lista"); sem
-// lista por baixo ela só suja o fundo liso. A pergunta é geométrica: o fim do ÚLTIMO item (a borda
-// de baixo, sem a folga que a margem dele reserva) passou do topo das portas? Lista vazia, lista
-// curta e lista rolada até o fim respondem NÃO — neste último o último item para uma folga ACIMA
-// das portas, de propósito (ver a margem do `> :last-child` em `controle.css`).
-// FALHA ABERTA: a marca é `livre`, a AUSÊNCIA de sombra, e sem JS a sombra é a de sempre.
-// Escreve só quando o booleano vira, como o `acertarVeu` — roda a cada quadro de rolagem.
+// A sombra descreve SOBREPOSIÇÃO ("o botão flutua sobre a lista"); sem lista por
+// baixo ela só suja o fundo liso. A pergunta é geométrica: o fim do ÚLTIMO item
+// (a borda de baixo, sem a folga que a margem dele reserva) passou do topo das
+// portas? Lista vazia, lista curta e lista rolada até o fim respondem NÃO — neste
+// último o último item para uma folga ACIMA das portas, de propósito (ver a
+// margem do `> :last-child` em `controle.css`). FALHA ABERTA: a marca é `livre`,
+// a AUSÊNCIA de sombra, e sem JS a sombra é a de sempre. Escreve só quando o
+// booleano vira, como o `acertarVeu` — roda a cada quadro de rolagem.
 function acertarSombraDasPortas() {
   if (!listFootEl || !libraryEl) return;
   const porta = listFootEl.querySelector('.portas-row');
@@ -24215,10 +24221,11 @@ function medirBarraDaBiblioteca() {
   // barra fica 92px abaixo do lugar dela, por cima do nome da mídia e da
   // preview, até alguma coisa mexer no tamanho da caixa.
   //
-  // O QUE FECHA É NÃO ESCREVER, e não remedir depois: a medida boa que já está
-  // na raiz é a resposta certa durante a tela cheia, e o `fullscreenchange` de
-  // saída (abaixo, junto dos `resize`) a reconfere quando a caixa volta. A tela inteira do vídeo
-  // (`pvInteira`) é a mesma situação sem o evento: a janela gira e o resto do app fica por baixo.
+  // O QUE FECHA É NÃO ESCREVER, e não remedir depois: a medida boa que já está na
+  // raiz é a resposta certa durante a tela cheia, e o `fullscreenchange` de saída
+  // (abaixo, junto dos `resize`) a reconfere quando a caixa volta. A tela inteira
+  // do vídeo (`pvInteira`) é a mesma situação sem o evento: a janela gira e o
+  // resto do app fica por baixo.
   if (document.fullscreenElement || pvInteira) return;
   // ===== E LOGO DEPOIS DELA A CAIXA AINDA NÃO ASSENTOU (v1.11.20) =====
   //
@@ -24357,12 +24364,13 @@ function closeHymnSearch(opts) {
   clearTimeout(hymnFocoTimer);
   hymnFocoTimer = null;
   // ===== ENCAIXADA, "FECHAR" É REINICIAR (v1.11.11) =====
-  // No Modo Fácil sem mídia no ar, ou com mídia sem leitura, a Biblioteca É a tela (`simplesBibliotecaDocada`),
-  // e quem fecha o acervo na pressa do toque — `ytAcao`, `projectSongLyricsOnly`,
-  // `montarFilaSorteada` — o faz ANTES de a mídia existir: fechar de verdade
-  // deixaria o corpo VAZIO (a leitura está escondida por baixo) durante o download,
-  // e para sempre se ele falhasse. Quem a tira de cena é `renderSimpleCorpo`,
-  // quando a mídia entra no ar e a pergunta muda.
+  // No Modo Fácil sem mídia no ar, ou com mídia sem leitura, a Biblioteca É a
+  // tela (`simplesBibliotecaDocada`), e quem fecha o acervo na pressa do toque —
+  // `ytAcao`, `projectSongLyricsOnly`, `montarFilaSorteada` — o faz ANTES de a
+  // mídia existir: fechar de verdade deixaria o corpo VAZIO (a leitura está
+  // escondida por baixo) durante o download, e para sempre se ele falhasse. Quem
+  // a tira de cena é `renderSimpleCorpo`, quando a mídia entra no ar e a pergunta
+  // muda.
   const docada = simplesBibliotecaDocada();
   if (!docada) {
     hymnSearchPopupEl.classList.remove('open');
@@ -24375,8 +24383,9 @@ function closeHymnSearch(opts) {
   // logo acima, pelo outro caminho.
   try { hymnSearchInputEl.blur(); } catch (_) {}
   // ===== E O CAMPO SE LIMPA AQUI, NÃO NA ABERTURA (v1.5.6) =====
-  // **A barra fica à vista o culto inteiro**, na caixa de controles — o filtro da busca anterior é a primeira coisa que o operador lê
-  // quando volta ao transporte, e ele descreve uma tela que não está mais lá.
+  // **A barra fica à vista o culto inteiro**, na caixa de controles — o filtro da
+  // busca anterior é a primeira coisa que o operador lê quando volta ao
+  // transporte, e ele descreve uma tela que não está mais lá.
   //
   // É a mesma razão que já trouxe o `resetarBiblioteca` para cá, e agora vale
   // para o texto pelo motivo oposto: aquele se faz no fechamento para não ser
@@ -24859,9 +24868,11 @@ function avisarResolucaoLimitada(entregue, teto) {
   // não liberou as melhores" corta ali (49px de texto numa caixa de 32), e o que
   // sobra é a metade sem a causa. Esta cabe nas duas larguras, com as duas
   // informações inteiras.
+  //
   // O CENSO É CONTADO AQUI, e não em quem chama: esta função é o único ponto
-  // que já sabe que a altura entregue é baixa, e todo download passa por ela. Contar do lado de fora seria escrever a regra
-  // duas vezes, e as duas divergiriam no primeiro ajuste.
+  // que já sabe que a altura entregue é baixa, e todo download passa por ela.
+  // Contar do lado de fora seria escrever a regra duas vezes, e as duas
+  // divergiriam no primeiro ajuste.
   ytCenso.limitadas++;
   if (!ytCenso.menor || h < ytCenso.menor) ytCenso.menor = h;
   const cap = 'Qualidade limitada';
@@ -25192,9 +25203,10 @@ async function resolverLinkInterno(rec) {
 // O "Tocar agora" espera o download inteiro, e essa espera é de minutos — é o
 // cartão e a barra de progresso que a tornam legível.
 //
-// ESTE INVÓLUCRO EXISTE PELA SAÍDA ÚNICA. `ytAcaoInterno` tem vários desfechos
-// — cancelado, o download falhou, guardado, no ar, perdeu a vez — e um deles sem a liberação prenderia o cartão sobre a preview para sempre.
-// Um `finally` cobre todos, e é por isso que a chamada não foi enfiada no corpo.
+// ESTE INVÓLUCRO EXISTE PELA SAÍDA ÚNICA. `ytAcaoInterno` tem vários desfechos —
+// cancelado, o download falhou, guardado, no ar, perdeu a vez — e um deles sem a
+// liberação prenderia o cartão sobre a preview para sempre. Um `finally` cobre
+// todos, e é por isso que a chamada não foi enfiada no corpo.
 //
 // Só no `tocar`: os outros destinos não vão ao telão, e interromper a cena para
 // guardar um vídeo numa lista seria o oposto do que o toque pediu.
@@ -25478,10 +25490,10 @@ function ytResultRow(r) {
     // toque nesta linha era inerte até ontem: quem tocar por reflexo não pode
     // perder um download de dez minutos por isso.
     if (li.classList.contains('baixando')) { cancelarDownloadYt(r); return; }
-    // O teto vai EXPLÍCITO (`ytAlturaPadrao()`, a preferência do operador), como no share do
-    // simplificado — deixá-lo implícito (undefined) fazia o mesmo "tocar"
-    // viajar ora com altura, ora sem, e a diferença só aparecia em quem lê o
-    // parâmetro lá na frente.
+    // O teto vai EXPLÍCITO (`ytAlturaPadrao()`, a preferência do operador), como
+    // no share do simplificado — deixá-lo implícito (undefined) fazia o mesmo
+    // "tocar" viajar ora com altura, ora sem, e a diferença só aparecia em quem
+    // lê o parâmetro lá na frente.
     if (appMode === 'simple') { simpleSelecionarLinha(li); simpleAcompanhar(ytAcao(r, 'tocar', null, false, ytAlturaPadrao())); return; }
     openYtMenu(r);
   });
@@ -25970,11 +25982,11 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
   // a descrição tem links, então o que chega aqui é texto e a tela não mostra
   // marcação literal.
   //
-  // SEM CLAMP E SEM "VER MAIS". O recorte em quatro linhas custava um toque a mais para ler o que o card foi
-  // buscar, e a gaveta já é um acordeão que se abre e se fecha inteiro — o
-  // segundo grau de revelação dentro dele não respondia a pergunta nenhuma.
-  // (O único teto que sobra é o do Kotlin, `DESCRICAO_MAX`, e ele é de
-  // TRANSPORTE — não é o que a tela mostra.)
+  // SEM CLAMP E SEM "VER MAIS". O recorte em quatro linhas custava um toque a
+  // mais para ler o que o card foi buscar, e a gaveta já é um acordeão que se
+  // abre e se fecha inteiro — o segundo grau de revelação dentro dele não
+  // respondia a pergunta nenhuma. (O único teto que sobra é o do Kotlin,
+  // `DESCRICAO_MAX`, e ele é de TRANSPORTE — não é o que a tela mostra.)
   function pintarDescricao(texto) {
     if (!conteudo.isConnected || conteudo.querySelector('.item-detalhe-desc')) return;
     const cx = document.createElement('div');

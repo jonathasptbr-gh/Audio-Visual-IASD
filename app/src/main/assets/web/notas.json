@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.13.26",
+    "itens": [
+      "Mandar só a letra de uma música para a playlist ou os Favoritos agora aparece na lista na hora."
+    ]
+  },
+  {
     "versao": "1.13.25",
     "itens": [
       "Tocar um item enquanto o app atualiza a lista não traz mais de volta a fila antiga no fim da música."

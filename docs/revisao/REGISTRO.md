@@ -26,7 +26,7 @@ abandonada → primeira pendente pelo `nº`).
 | 12 | C3 | feita | v1.13.23 (só web) | 2026-11-05 | nenhum defeito de culto na fatia; `moverNaLista` (repasse W1, fatia C4) pela forma atômica do `listSet` (+ asserção com reversão); `TOOLS_ANIM_MS` copiava o token que dizia ler; ~60 comentários (lápides, fatos velhos, um bloco no símbolo errado) |
 | 13 | C4 | feita | v1.13.24 (só web) | 2026-11-05 | nenhum defeito de culto na fatia; o botão do Cronograma/playlist desfeito por um `load()` em voo (`listasSeq` + asserção com reversão); repasse C2 do `renderTabs`; ~45 comentários (lápides, fatos velhos, um bloco no símbolo errado) |
 | 14 | C5 | feita | v1.13.25 (só web) | 2026-11-05 | nenhum defeito de culto na fatia; o "Tocar agora" desfeito por um `load()` em voo (`listasSeq` + asserção com reversão, repasse C4); a ABERTURA da rolagem da cifra descrita como regra (repasse W3, decisão do operador); 2 variáveis mortas; ~90 comentários (lápides, fatos velhos, 4 blocos no símbolo errado) |
-| 15 | C6 | em curso | | 2026-11-05 | |
+| 15 | C6 | feita | v1.13.26 (só web) | 2026-11-05 → 2026-11-06 | nenhum defeito de culto na fatia; a letra mandada à playlist/Favoritos ficava fora da lista em memória (consertado + asserção com reversão); o repasse do `ytAcaoInterno` refutado por medida; 9 blocos no símbolo errado e ~65 fatos velhos, lápides e relatos |
 | 16 | C7 | pendente | | | |
 | 17 | C8 | pendente | | | |
 | 18 | C9 | pendente | | | |
@@ -64,7 +64,7 @@ tratou.
 | X2 | C2 | `controle.js` ~1397 (fatia C1): o comentário de `bibleCompleteVersions` diz que o Set existe "pra a tela de livros mostrar \"completa\"" — quem mostra é a folha de versões (`renderBibleVerList`); a C1 já está feita (uma linha de comentário, provas 1 e 2) |
 | X3 | C2 | `tools/pacote-importar-marcados.test.mjs` H/L — reprovou UMA vez no CI (run `42060562112`, 1ª tentativa, lote só da Bíblia, sem relação): `obtido: []` (nenhuma mídia no destino depois do Importar com só a série marcada). Passou 3× local e no run anterior. Suspeita no ORÁCULO: `importarPelaJanela` faz `pg.evaluate(() => window.__fim)` sem que nada atribua `__fim` (só o `null` da linha 421) — não espera a importação; quem espera é o `responderDialogo` (60 s), cujo `texto` ninguém confere: se o diálogo que ele respondeu não foi o "Acervo importado", o `lerDestino` lê antes do fim. Conserto provável: esperar o diálogo pelo TÍTULO "Acervo importado" (ou `!pacoteEmCurso`) e conferir o `texto` |
 | X2 | C4 | `controle.js`:`adicionarNasListas` (~6536) e `abrirPacote` (~6796), fatia C2 já feita — `plItems = await AVDB.listItems('playlist')` depois de gravar, sem a senha `listasSeq` (v1.13.24): um `load()` em voo que leu a fila antes aplica a cópia velha depois. Conserto: `++listasSeq` antes do primeiro `await`, como `togglePlaylist`. E o KDoc do `load` (~4070) diz que "todo `db-change`" dispara um `load` — não há `db-change` em lugar nenhum |
-| C6 | C4 | `controle.js`:`ytAcaoInterno` (~26045) — `plItems = await AVDB.listItems('playlist')` sem `++listasSeq` (v1.13.24) |
+| C7 C8 C9 | C6 | Os repasses C4 de `plItems` relido sem `++listasSeq`: a C6 MEDIU que um escritor que chama `load()` logo depois (como `ytAcaoInterno`) NÃO tem o defeito — o `++loadSeqCtl` faz o `load()` em voo descartar o que leu. Conferir, em cada um, se há `load()` depois da releitura antes de mexer; só quem relê SEM `load()` (`toggle*`, `replacePlaylistWith`, `addLyricCue`) precisa da senha |
 | C7 | C4 | `controle.js`:`guardarSorteadas` (~29843) e `montarFilaSorteada` (~29980) — `plItems = await AVDB.listItems('playlist')` sem `++listasSeq` (v1.13.24) |
 | C8 | C4 | `controle.js`:`redesenharComMiniatura` (~38387) e `importShare` (~39823) — `plItems = await AVDB.listItems('playlist')` sem `++listasSeq` (v1.13.24) |
 | C9 | C4 | `controle.js`:`pedirSaidaDaFila` (~41103) e `edicaoRecarregarListas` (~42660) — `plItems` relido sem `++listasSeq` (v1.13.24); e o KDoc de ~41348 diz que "todo `db-change` dispara um `load`" (não há `db-change`) |
@@ -489,3 +489,27 @@ isto é, mais depressa — o comentário diz o que a conta faz; se o operador es
 **Repasses:** nenhum novo.
 **Verificado:** "Sanidade da base web" (todo Node puro, `docs-coerentes`), `tokens`; Chromium (56 da vizinhança, Playwright local 1.63, três processos): 55 verdes (`hidratacao-perde-a-vez`, as `cifra-*` menos uma, as `leitor-*`, `smoke`, `display-smoke`, `boot-nativo`, `cena`, `destinos`, `repeticao-e-sequencia`, `parar-por-camada`, `limpar-cronograma`, `cronogramas-multiplos`, as de Modo Fácil…); `cifra-tela-cheia` reprova IGUAL à C3 (`setViewportSize` em tela cheia, ambiente local).
 **O operador:** nada a fazer; a v1.13.25 chega sozinha (só web). Tocar um item enquanto o app atualiza a lista não traz mais a fila antiga de volta.
+
+### C6 · Sincronização do acervo, busca e YouTube — feita (2026-11-05 → 2026-11-06)
+
+Cerca: `controle.js` de `// ===== Coleções de mídia (LouvorJA) — sincronização` a antes de `// ===== "Baixando" na LINHA da música` (6.354 linhas), lida inteira; mais o repasse C4 (`ytAcaoInterno`).
+**Corrigido (código, commits à parte):** `addLyricCue` (a variante "Letra" mandada a listas) gravava a cena e não relia a lista em memória: com a playlist, a
+cena ficava fora de `plItems` (fora da tela e da fila do ⏭) até o próximo `load()`; com Cronograma + Favoritos, fora de `favItems`. Relê as duas e move
+`listasSeq` antes do 1º `await`. Asserção: bloco 11 do `hidratacao-perde-a-vez`. Reversão: sem o conserto as duas reprovam; sem só a senha, a da playlist.
+Código morto: a guarda `songMenuFor.folha` do `renderSongMenu` (nada a escreve desde a v5.254).
+**Repasse C4 REFUTADO (medido):** `ytAcaoInterno` relê `plItems` sem a senha, mas chama `load()` logo depois — o `++loadSeqCtl` faz o `load()` em voo
+descartar o que leu (sonda com a ordem forçada do bloco 9: `plItems` termina com o item). Comentário no ponto; nota aos repasses C7–C9.
+**Só comentário (provas 1 e 2; a 2 acusa os 9 movimentos, de propósito):** 9 blocos no símbolo errado (cabeçalho da fatia, índice de coleção/série,
+atualização automática, a ROTINA da semana, `downloadCollectionSong`, as duas causas do censo, `buildLyricSlides`, as duas portas da Biblioteca, a folha do
+YouTube, a gaveta de um vídeo). Fatos: transmissão e "Online" (v1.7.7) em 8 funções; "shell ≥ 23/25/28", "< 18", "antigo"; o teto que "nasce no padrão"
+(gruda); "1080p é o padrão"; a gaveta com a letra; a regra antiga dos destinos; o confirmar "só com algo marcado"; séries "marcadas" e o download "item a
+item"; "Nenhuma música encontrada"; `withBgWork`. Lápides: `serieAuto` e o seletor, `serieAutoEstado`, uso do disco, `modo`, `openSongMenu`, o mDNS do
+`closeSongMenu`. Pedidos/relatos do operador saíram; verbatim (74 blocos) na seção v1.13.26 do histórico.
+**Achado e não corrigido (SUSPEITAS, sem cenário de culto):** `resolverSemana` deixa `semanaPendente` armado se o download falha — o próximo `send` o
+consome (e só ancora se for o MESMO episódio). `acertarSombraDasPortas` lê dois `getBoundingClientRect` por evento de rolagem da Biblioteca (barato, e só
+escreve quando vira). `syncLyrics` (só `cellular` adia) e a rotina da semana e os fundos (Wi-Fi confirmado) leem a rede por réguas DIFERENTES de
+propósito, cada uma com o porquê escrito. Réguas de "no ar": a fatia lê `midiaNoAr`/`rotinaDeAcervoPodeCorrer` (coerentes). Timers/listeners: `ytAutoObs` desconecta
+a cada render; `ytRedesenhoTimer` rearma só com gaveta aberta; o `MutationObserver` do véu é um só (medido no próprio comentário).
+**Repasses:** C7 C8 C9 (a nota sobre `load()` depois da releitura).
+**Verificado:** "Sanidade da base web" (todo Node puro, `docs-coerentes`); Chromium (54 da vizinhança, três processos): todos verdes (`hidratacao-perde-a-vez`, `smoke`, `display-smoke`, `boot-nativo`, `cena`, `destinos`, `tokens`, as de acervo/série/semana/busca/gaveta/YouTube/link/pacote/Modo Fácil…).
+**O operador:** nada a fazer; a v1.13.26 chega sozinha (só web). Mandar só a letra para a playlist ou os Favoritos aparece na lista na hora.
