@@ -154,11 +154,9 @@ empurrariam a lista e tirariam do lugar o que o operador estava mirando.
  ┌────────────────────────┐
  │ [·] Ó Adorai o Senhor    │ ← 83% da linha para o nome
  ├────────────────────────┤
- │  Tocar agora           │
- │  [Cantada|Playback|Letra] │  as OPÇÕES
- │  Adicionar à playlist  │
- │  … + [Ver a letra]     │  → ABRE O LEITOR (numa MÚSICA)
- └────────────────────────┘
+ │  [Cantada|Playback|Letra] │  o QUÊ
+ │  [▶] [⏱] [♫] [★] [Aa]  │  o ONDE: botões diretos (v1.13.33)
+ └────────────────────────┘   o [Aa] ABRE O LEITOR (num VÍDEO: os detalhes)
 
  num VÍDEO, a metade de baixo continua:
  ├─────────────────────────────────────────┤
@@ -176,7 +174,8 @@ Um alvo só, e a lista inteira do outro lado. Com dois botões na linha (um ▶ 
 exigia primeiro decidir **qual dos dois era o dono da pergunta** — e essa é uma
 pergunta sobre a UI, não sobre o culto.
 
-- **NUMA MÚSICA A GAVETA É SÓ AS OPÇÕES** (v1.2.25), e "Ver a letra" abre o
+- **NUMA MÚSICA A GAVETA É SÓ AS OPÇÕES** (v1.2.25), e o quinto botão da
+  fileira (o "Auxiliar de leitura", v1.13.33; era "Ver a letra") abre o
   **leitor** — a mesma folha do transporte, apontada para aquela faixa
   (`lvItemDaBiblioteca`, ver "A folha não é mais de quem está no ar"). A caixa de
   texto que ficava aqui embaixo era uma SEGUNDA leitura, pior que a que o app já
@@ -1119,11 +1118,13 @@ Regras que sustentam isso:
 
 ### Séries do YouTube — coleções que NÃO vêm do LouvorJA (v5.228)
 
-> **O "VÍDEO DA SEMANA" COMO ITEM (v1.13.13).** O topo do card aberto de uma
-> série é a linha "Vídeo da semana (sempre o atual)" (`semanaLinha`, antes do
-> destaque, no avançado — no Modo Fácil o item mora na raiz, no bloco "Este sábado",
-> e o toque toca, v1.13.15), cuja gaveta põe um item VIRTUAL (`kind: 'semana'`)
-> no Cronograma, na playlist ou nos Favoritos. O `send` o resolve antes do `load`
+> **O "VÍDEO DA SEMANA" COMO ITEM (v1.13.13).** No avançado ele é uma OPÇÃO da
+> gaveta do episódio deste sábado desde a v1.13.33 — o seletor "Este sábado" ×
+> "Atalho universal" (`r.__semanaCat` em `openYtMenu`); sem episódio, a linha
+> "Aguardando lançamento" do destaque (`semanaLinha`) abre a gaveta do atalho. No
+> Modo Fácil o item mora na raiz, no bloco "Este sábado", e o toque toca
+> (v1.13.15). Os destinos põem um item VIRTUAL (`kind: 'semana'`) no Cronograma,
+> na playlist ou nos Favoritos. O `send` o resolve antes do `load`
 > (`resolverSemana`) e a fila o reconhece pela âncora (`ancoraDaFila`). O detalhe
 > está em `docs/recursos/SERIES.md`, "O vídeo da semana como ITEM".
 

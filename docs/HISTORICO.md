@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.33** — Pacotes 14, 15 e 13d: na gaveta da Biblioteca os destinos viram BOTÕES DIRETOS (`destBotoesRow`; Tocar · Cronograma · playlist · Favoritos · Auxiliar de leitura/detalhes), a miniatura diz o TIPO (`miniaturaDeTipo`, `#icoVideo`), o vídeo da semana vira o seletor "Este sábado"/"Atalho universal" do episódio, margem ao abrir seção e a barra fora de cena entre a tela cheia e a rotação
 - **v1.13.32** — `telaReenviarPreferencias` manda o `fit` SEM CONDIÇÃO, como o `lyricsbg`: o `if (mediaFit !== 'contain')` calava o "Ajustar" para uma tela que re-anuncia `display-ready` sem recarregar (suspeita da C9); asserção no `boot-nativo` com reversão
 - **v1.13.31** — revisão C9: CONFIGURAÇÕES, MODOS, VOLUME E TELÃO POR COMANDOS (o `controle.js` do diálogo padrão ao fim do arquivo); a folha de conexão nomeia a TV que projeta (`telaoNoAr`, a régua do Registro), os repasses de `plItems` refutados, código morto da transmissão, e ~290 comentários (narrativa ao histórico)
 - **v1.13.30** — o retorno de um botão é só o pulso, por decisão do operador: o terceiro argumento (frase descartada) saiu das 14 chamadas de `responder`, `textoLote` e as frases de `adicionarNasListas`/`criarCue`/`toggleFav` saíram, e o oráculo `responder-sem-frase` reprova quem o trouxer de volta
@@ -643,6 +644,64 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.13.33 — destinos em botões diretos, miniatura de tipo, o vídeo da semana na gaveta do episódio, e a posição no acervo
+
+**v1.13.33 (Pacotes 14, 15 e 13d de `docs/PEDIDOS-EM-ESPERA.md`; só web, sem
+Release)** — três pedidos do operador na mesma superfície (a linha do acervo e a
+gaveta que ela abre), mais os dois relatos de POSIÇÃO:
+
+- **Pacote 14a — destinos em botões diretos.** A gaveta de uma linha da
+  Biblioteca (o acervo em `renderSongMenu`, o episódio/link em `openYtMenu` com
+  `alvo`, os Favoritos e a pasta do aparelho em `renderItemMenu`) deixou de
+  MARCAR destinos e confirmar: `destBotoesRow` desenha uma fileira de quadrados
+  `--quad-faixa` (ícone `--icon-md`, sem rótulo, nome no `aria-label`/`title`),
+  um toque = uma ação, e a gaveta continua aberta para o segundo toque. A ordem
+  é `tocar` · `destinosNaOrdem` · quinto botão — o **Auxiliar de leitura**
+  (decisão do operador: *"o botão abre o auxiliar de leitura normalmente"*,
+  `openLyricsPopup(lvItemDaBiblioteca(…))`; num registro, só com `lyrics`; apagado
+  com o motivo onde não há letra) ou, num VÍDEO, **os detalhes** (o antigo
+  "Ver/Ocultar os detalhes", `r.__detalhes`, LIGADO = `--btn-accent`). A faixa de
+  ações de um favorito (excluir · renomear · ↑↓) ganhou fileira própria
+  (`.fav-acoes-row`, altura `--hit + 2·--opcao-recuo-v`). As FOLHAS (resultado da
+  busca do YouTube, link compartilhado, importação) seguem com caixas e
+  Confirmar: ali a folha fecha ao executar. **Dois toques num vídeo não baixam
+  duas vezes:** `ytArquivo` divide o download em curso (`ytArquivoEmVoo`, por
+  `youtubeId` + forma). Saíram `destPadraoTocar`, o irmão (`aoLado`) do
+  `destConfirmRow`, o botão `.song-menu-letra` e a regra do confirmar escondido
+  ao perguntar.
+- **Pacote 14b — miniatura sem ▶.** O quadrado da esquerda (`.hymn-play-thumb`,
+  nome mantido — os oráculos o leem pelo anel de download) é
+  `miniaturaDeTipo`: a nota numa música, a fita de filme (`#icoVideo`, símbolo
+  novo no sprite, `--icon-md`) num vídeo; o item `semana` no `thumbEl` também
+  (`--icon-lg`, o degrau da nota das outras miniaturas-ícone).
+- **Pacote 13d — o vídeo da semana como OPÇÃO.** A linha "Vídeo da semana
+  (sempre o atual)" saiu do topo do card da série; a gaveta do EPISÓDIO DESTE
+  SÁBADO (`hymnResultRow(…, { destaque: true })` → `r.__semanaCat`) ganhou o
+  seletor "Este sábado" × "Atalho universal" (`ytSegRow`), e os destinos levam o
+  escolhido (`ytAcao` de UM destino, ou `semanaAcao`). Sem episódio, o destaque
+  mostra a linha "Aguardando lançamento" (`semanaLinha`) com a gaveta do atalho e
+  "Este sábado" APAGADO com o motivo (`ytSegRow` ganhou `inativos`). Modo Fácil
+  sem mudança.
+- **Pacote 15 — posição.** (a) `alinharGrupoNoTopo` para com a BASE do bloco de
+  cima na borda: desconto = `max(vão real, --veu-h)` (medido: vão 9,59px, sombra
+  22px), zero sem vizinho. (b) A barra da Biblioteca **sai de cena**
+  (`body.lib-assentando`, `visibility`) entre o `fullscreenchange` de saída e a
+  rotação de volta — a posição dela é `100svh` menos a caixa, e na janela ainda
+  deitada ela era desenhada no lugar errado e SALTAVA; quem solta é o
+  `medirBarraDaBiblioteca` com a trava `libAssentando`, ou a rede de 1,5 s.
+
+Oráculos novos: `destinos-diretos.test.mjs` (fileira a 360×1,25×, tipo da
+miniatura, download dividido) e `biblioteca-posicao.test.mjs` (margem em duas
+telas; a barra por quadro com tela cheia EMULADA — o Playwright recusa
+redimensionar uma janela em tela cheia de verdade). Reversões medidas: sem o
+desconto, sem a classe, sem a divisão do download, com o ▶ de volta — cada uma
+reprova a sua. Atualizados para o desenho novo: `semana-item` (A/B/F2),
+`destinos`, `toque-instantaneo` (bloco 7), `smoke`, `boot-nativo`,
+`lista-da-biblioteca`, `faixa-no-ar`, `gaveta-no-download`,
+`serie-mantem-a-semana`, `pacote-importar-marcados`.
 
 ---
 

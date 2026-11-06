@@ -290,42 +290,32 @@ try {
   // entrar em lista nenhuma"). O contrato do seletor que sobrou — três degraus,
   // 720p de padrão, a escolha grudando — é medido no `boot-nativo.test.mjs`.
 
-  // ── 7. O CONFIRMAR É SEMPRE O ÚLTIMO DA FAIXA ───────────────────────────
-  // Relato do operador: *"nos favoritos o botão de confirmar play está na
-  // direita, mas no resto da biblioteca está na esquerda; pode padronizar na
-  // direita?"*. O lado era escolha de quem fornecia o irmão (`data-antes`), e
-  // quem não a fizesse caía do outro lado — a divergência era o padrão do
-  // esquecimento. A asserção é sobre a POSIÇÃO na faixa, não sobre o
-  // mecanismo: é ela que sobrevive a uma reescrita do `destConfirmRow`.
-  //
-  // Ele mede o `destConfirmRow` DIRETO, com um irmão de mentira, porque é ali
-  // que a decisão morava — montar as duas listas de verdade (uma música com
-  // letra na Biblioteca, um Favorito com faixa de ações) para comparar duas
-  // posições seria medir dois renderizadores para afirmar uma coisa de um.
+  // ── 7. NA GAVETA, OS DESTINOS SÃO BOTÕES DIRETOS (v1.13.33) ─────────────
+  // Pedido do operador: *"uma linha de botões quadrados, um toque = uma ação"*.
+  // O Confirmar da gaveta SAIU (era ele que o bloco antigo punha no fim da faixa);
+  // a ordem que sobra é a da fileira: "Tocar agora" na ponta esquerda, os
+  // destinos na ordem da tabela e o quinto (o auxiliar de leitura) na direita —
+  // e a faixa de ações de um favorito ganha fileira própria, abaixo.
   const ordem = await pg.evaluate(() => {
-    // `destExecutor` precisa existir: sem ele `destConfirmRow` devolve null.
-    openYtMenu({ id: 'vidY', url: 'https://www.youtube.com/watch?v=vidY', name: 'Louvor' });
-    const posicao = (irmao) => {
-      const li = destConfirmRow(() => irmao);
-      const filhos = [...li.children];
-      return {
-        total: filhos.length,
-        iConfirmar: filhos.findIndex((e) => e.classList.contains('song-menu-go')),
-      };
+    const ul = document.createElement('ul');
+    document.body.appendChild(ul);
+    const acoes = document.createElement('div'); acoes.className = 'fav-acoes';
+    acoes.appendChild(document.createElement('button'));
+    renderItemMenu({ id: 'x', name: 'X', kind: 'audio' }, ul, ['playlist', 'cronograma'], () => acoes);
+    const r = {
+      fileiras: [...ul.children].map((li) => li.className),
+      botoes: [...ul.querySelectorAll('.dest-btn')].map((b) => b.dataset.dest),
+      confirmar: !!ul.querySelector('.song-menu-go'),
+      acoesNaUltima: ul.lastElementChild && ul.lastElementChild.contains(acoes),
     };
-    const nu = () => { const b = document.createElement('button'); return b; };
-    const comMarca = () => { const b = nu(); b.dataset.antes = '1'; return b; };
-    const r = { simples: posicao(nu()), marcado: posicao(comMarca()) };
-    closeSongMenu();
+    ul.remove();
     return r;
   });
-  checar(ordem.simples.total === 2 && ordem.simples.iConfirmar === 1,
-    'com um IRMÃO na faixa, o CONFIRMAR é o ÚLTIMO — era este o caso que divergia: '
-    + 'o "Ver a letra" da Biblioteca não pedia lado e caía à esquerda do botão',
-    ordem.simples);
-  checar(ordem.marcado.total === 2 && ordem.marcado.iConfirmar === 1,
-    'e o antigo `data-antes` não muda mais nada: a escolha por chamador SAIU, que '
-    + 'é o que impede a divergência de voltar por esquecimento', ordem.marcado);
+  checar(ordem.botoes.join(' | ') === 'tocar | cronograma | playlist | leitura' && !ordem.confirmar,
+    'a gaveta de um favorito tem os destinos em BOTÕES DIRETOS — "Tocar agora" na ponta, a ordem da '
+    + 'tabela, o auxiliar de leitura na outra ponta — e nenhum Confirmar', ordem);
+  checar(ordem.acoesNaUltima === true && ordem.fileiras.length === 2,
+    'e a faixa de ações (excluir, renomear, ↑↓) tem a FILEIRA dela, abaixo dos destinos', ordem);
 
   // ── 8. O NOME NÃO TROCA NO MEIO DA ESPERA (v1.4.10) ─────────────────────
   //

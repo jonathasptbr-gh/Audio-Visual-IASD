@@ -3059,7 +3059,6 @@ try {
       }
       return c2.map(Math.round).join(', ');
     };
-    const rotulos = () => [...op.querySelectorAll('.song-menu-label')].map((e) => e.textContent);
     const r = {
       // 1 · OS MARCADORES DE LISTA (defeito da v5.285): a `<ul>` do corpo não
       // herdava `list-style: none` de ninguém, e o navegador desenhava os
@@ -3067,37 +3066,19 @@ try {
       marcador: getComputedStyle(op).listStyleType,
       // 2 · O SELETOR tem TRÊS segmentos, e "Letra" é um deles.
       seg: [...op.querySelectorAll('.song-menu-seg .fit-opt')].map((e) => e.textContent),
-      // 3 · "Tocar agora" é a PRIMEIRA selecionável, e as linhas "Tocar música
-      // cantada"/"Tocar playback" não existem mais: elas repetiam o seletor.
-      rotulos: rotulos(),
-      // O RÓTULO, e não o `textContent` do botão: ele traz o subtítulo colado
-      // (as duas `<span>` não têm quebra entre elas), e a comparação sairia
-      // sempre falsa por um motivo que não é o do caso.
-      primeiraSel: (() => {
-        const b = [...op.querySelectorAll('.song-menu-btn')]
-          .find((x) => x.querySelector('.song-menu-check'));
-        const t = b && b.querySelector('.song-menu-label');
-        return t ? t.textContent.trim() : null;
-      })(),
-      // 4 · TODA opção tem caixa, e ela se vê SEM estar marcada.
-      quantasCaixas: op.querySelectorAll('.song-menu-check').length,
-      quantosBotoesSel: [...op.querySelectorAll('.song-menu-btn')]
-        .filter((x) => x.querySelector('.song-menu-check')).length,
-      // A CAIXA VAZIA, COMPOSTA sobre o botão em que ela mora. `backgroundColor`
-      // de um `::before` com alfa devolve o alfa — medir a string crua compararia
-      // PRETO com o botão e daria uma razão enorme em qualquer estado, isto é,
-      // passaria sem medir nada (a mesma armadilha da v5.283, um nível abaixo).
-      caixaVazia: (() => {
-        const bruto = getComputedStyle(
-          op.querySelector('.song-menu-check'), '::before').backgroundColor;
-        const m = (bruto.match(/[\d.]+/g) || []).map(Number);
-        if (m.length < 3) return null;
-        const a = m.length > 3 ? m[3] : 1;
-        const base = (efetiva(op.querySelector('.song-menu-btn')) || '0, 0, 0')
-          .split(', ').map(Number);
-        return m.slice(0, 3).map((v, k) => Math.round(v * a + base[k] * (1 - a))).join(', ');
-      })(),
-      fundoBotao: efetiva(op.querySelector('.song-menu-btn')),
+      // 3 · OS DESTINOS SÃO BOTÕES DIRETOS (v1.13.33): uma fileira de quadrados,
+      // "Tocar agora" na ponta esquerda e o auxiliar de leitura na direita — sem
+      // caixa de marcar e sem Confirmar.
+      botoes: [...op.querySelectorAll('.dest-btn')].map((b) => b.dataset.dest),
+      rotulos: [...op.querySelectorAll('.dest-btn')].map((b) => b.getAttribute('aria-label')),
+      semMarcar: !op.querySelector('.song-menu-check, .song-menu-go'),
+      quadrados: [...op.querySelectorAll('.dest-btn')].map((b) => {
+        const q = b.getBoundingClientRect();
+        return [+q.width.toFixed(1), +q.height.toFixed(1)];
+      }),
+      umaFileira: new Set([...op.querySelectorAll('.dest-btn')]
+        .map((b) => Math.round(b.getBoundingClientRect().top))).size === 1,
+      fundoBotao: efetiva(op.querySelector('.dest-btn')),
       // 5 · O CONTRASTE DA GAVETA (v5.287), nos DOIS TEMAS — e são dois porque
       // o tom dela INVERTE de direção entre eles (poço no escuro, folha no
       // claro; a medição está em `tokens.css`). Medir um só aprovaria metade do
@@ -3109,7 +3090,7 @@ try {
           document.documentElement.setAttribute('data-tema', tema);
           out[tema] = {
             gaveta: efetiva(li.querySelector('.hymn-gaveta')),
-            botao: efetiva(op.querySelector('.song-menu-btn')),
+            botao: efetiva(op.querySelector('.dest-btn')),
             vizinha: efetiva(linhas[1]),
             card: efetiva(lista.querySelector('.hymnal-card')),
           };
@@ -3118,25 +3099,14 @@ try {
         else document.documentElement.removeAttribute('data-tema');
         return out;
       })(),
-      // 6 · A LETRA está atrás de um botão, LADO A LADO com o confirmar.
-      ladoALado: (() => {
-        const go = op.querySelector('.song-menu-go');
-        const ver = op.querySelector('.song-menu-letra');
-        if (!go || !ver) return null;
-        return Math.abs(go.getBoundingClientRect().top - ver.getBoundingClientRect().top) <= 2;
-      })(),
-      // ===== E NUMA MÚSICA ELE ABRE O LEITOR (v1.2.25) =====
-      //
-      // A metade de baixo da gaveta era uma SEGUNDA leitura da letra, pior que
-      // a que o app já tem: sem cifra, sem tom, sem corpo e sem rolagem. Hoje o
-      // mesmo botão aponta o leitor do transporte para esta faixa — e a caixa
-      // de texto não existe mais, o que esta medição afirma nas duas pontas
-      // (o `.hymn-lyrics` ausente E o popup aberto).
+      // 6 · E NUMA MÚSICA O QUINTO BOTÃO ABRE O LEITOR (v1.2.25 → v1.13.33): o
+      // auxiliar de leitura do transporte, apontado para esta faixa e sem levar
+      // nada ao telão. A caixa de texto da letra não existe mais aqui dentro.
       caixaDeLetra: !!li.querySelector('.hymn-lyrics'),
       leitor: await (async () => {
-        const ver = op.querySelector('.song-menu-letra');
+        const ver = op.querySelector('.dest-btn[data-dest="leitura"]');
         if (!ver) return null;
-        const rotulo = ver.textContent.trim();
+        const rotulo = ver.getAttribute('aria-label');
         const largura = Math.round(ver.getBoundingClientRect().width);
         ver.click();   // o ouvinte é `async`: monta o alvo antes de abrir
         for (let i = 0; i < 120 && !lyricsPopupEl.classList.contains('open'); i++) {
@@ -3150,7 +3120,7 @@ try {
           // A LARGURA NÃO MUDA (v5.287): aqui ela não pode mudar por
           // construção — há uma frase só —, e é isso que a asserção diz.
           larguraDepois: Math.round(
-            op.querySelector('.song-menu-letra').getBoundingClientRect().width),
+            op.querySelector('.dest-btn[data-dest="leitura"]').getBoundingClientRect().width),
         };
         // FECHADO antes de sair: a pressão de verdade lá fora mira a gaveta, e
         // um backdrop aberto por cima dela mediria o toque em outra coisa.
@@ -3174,7 +3144,7 @@ try {
   // está pressionado, que é exatamente o instante do relato.
   const press = await (async () => {
     const cx = await pg.evaluate(() => {
-      const b = window.__gaveta.op.querySelector('.song-menu-btn');
+      const b = window.__gaveta.op.querySelector('.dest-btn');
       const r2 = b.getBoundingClientRect();
       return { x: Math.round(r2.left + r2.width / 2), y: Math.round(r2.top + r2.height / 2) };
     });
@@ -3183,7 +3153,7 @@ try {
     const durante = await pg.evaluate(() => ({
       linha: getComputedStyle(window.__gaveta.li).transform,
       botao: getComputedStyle(
-        window.__gaveta.op.querySelector('.song-menu-btn')).transform,
+        window.__gaveta.op.querySelector('.dest-btn')).transform,
     }));
     await pg.mouse.up();
     return durante;
@@ -3292,25 +3262,13 @@ try {
   checar(g.seg.join(' · ') === 'Cantada · Playback · Letra',
     'o seletor tem as TRÊS variantes — "Apenas a letra" virou uma delas',
     JSON.stringify(g.seg));
-  checar(g.primeiraSel === 'Tocar agora'
-    && !g.rotulos.some((t) => /Tocar música cantada|Tocar playback/.test(t)),
-    'e "Tocar agora" é a PRIMEIRA selecionável, no lugar das duas linhas que '
-    + 'repetiam o seletor', JSON.stringify(g.rotulos));
-  checar(g.quantasCaixas === g.quantosBotoesSel && g.quantasCaixas === 4,
-    'as QUATRO opções são selecionáveis, e cada uma tem a sua caixa',
-    g.quantasCaixas + ' caixas para ' + g.quantosBotoesSel + ' opções');
-  // A caixa VAZIA precisa se ver contra o botão em que ela mora — era este o
-  // pedido ("para entender que não são botões, mas selecionáveis"), e o piso é
-  // o mesmo degrau que o app usa para separar duas superfícies.
-  const dCaixa = g.caixaVazia
-    ? razao2('rgb(' + g.caixaVazia + ')', 'rgb(' + g.fundoBotao + ')') : 0;
-  // O PISO É 1,25 e não 1,3, e a diferença tem causa: no tema escuro o recesso
-  // pousa sobre um botão JÁ escuro, e a razão WCAG comprime no pé da escala. O
-  // que a asserção guarda é a melhora medida — era 1,13:1 com o
-  // `--surface-2-sunk` da v5.285, que é o "não dá para ver" do relato.
-  checar(dCaixa >= 1.25,
-    'e a caixa VAZIA se vê contra o botão, sem estar marcada ('
-    + dCaixa.toFixed(2) + ':1 — rgb(' + g.caixaVazia + ') sobre rgb(' + g.fundoBotao + '))');
+  checar(g.botoes.join(' | ') === 'tocar | cronograma | playlist | favoritos | leitura' && g.semMarcar,
+    'os destinos são BOTÕES DIRETOS (v1.13.33): "Tocar agora", os três da tabela e o auxiliar de '
+    + 'leitura, sem caixa de marcar e sem Confirmar', JSON.stringify(g));
+  checar(g.rotulos.every(Boolean) && g.quadrados.length === 5
+      && g.quadrados.every(([w, h]) => w > 0 && Math.abs(w - h) <= 0.5) && g.umaFileira,
+    'e eles são QUADRADOS (sem rótulo, o nome vai no `aria-label`), numa fileira só',
+    JSON.stringify({ quadrados: g.quadrados, rotulos: g.rotulos }));
   // ===== A GAVETA SE SEPARA DA LISTA, E OS BOTÕES DELA (v5.287) =====
   //
   // Relato do operador: *"ainda está pouco o contraste entre os botões e pior,
@@ -3341,18 +3299,15 @@ try {
       '[' + tema + '] e do CARD do álbum, que é a cor que aparece nos vãos entre '
       + 'as linhas (' + par(t.gaveta, t.card).toFixed(2) + ':1)');
   }
-  checar(g.ladoALado === true && g.caixaDeLetra === false,
-    'e a LETRA fica atrás de um botão lado a lado com o confirmar — que numa '
-    + 'MÚSICA não revela mais caixa de texto nenhuma aqui dentro',
-    JSON.stringify({ ladoALado: g.ladoALado, caixaDeLetra: g.caixaDeLetra }));
-  checar(!!g.leitor && g.leitor.aberto && /Ver a letra/.test(g.leitor.rotulo),
+  checar(g.caixaDeLetra === false,
+    'numa MÚSICA a gaveta não revela caixa de letra nenhuma aqui dentro', JSON.stringify({ caixaDeLetra: g.caixaDeLetra }));
+  checar(!!g.leitor && g.leitor.aberto && /Auxiliar de leitura/.test(g.leitor.rotulo),
     'o toque nele abre o LEITOR — a mesma folha do transporte (letra, cifra, '
     + 'tom, corpo e rolagem), apontada para esta faixa e sem levar nada ao telão',
     JSON.stringify(g.leitor));
   checar(!!g.leitor && g.leitor.largura > 0 && g.leitor.largura === g.leitor.larguraDepois,
-    'e ele não muda de largura ao ser tocado: o confirmar ao lado não encolhe '
-    + 'debaixo do dedo (o pedido da v5.287 — a versão de duas frases sobrevive '
-    + 'no vídeo, medida no `boot-nativo`)', JSON.stringify(g.leitor));
+    'e ele não muda de largura ao ser tocado: nada na fileira se mexe debaixo do dedo',
+    JSON.stringify(g.leitor));
 } catch (e) {
   checar(false, 'a medição da gaveta de opções terminou sem exceção ('
     + (e && e.message) + ')');
@@ -3439,70 +3394,51 @@ try {
   checar(faixaNaoFecha,
     'mas um toque numa FAIXA não fecha o álbum: a guarda é o `.coll-open`, e sem '
     + 'ela subir o ouvinte para o card teria fechado o álbum debaixo do dedo');
-  // ===== E NEM UMA CAIXA DE MARCAÇÃO DAS OPÇÕES (v5.288, correção) =====
+  // ===== E NEM UM TOQUE NO SELETOR DAS OPÇÕES (v5.288, correção) =====
   //
   // Relato do operador logo depois do lote: tocar numa opção de play fechava o
   // álbum inteiro. A guarda perguntava `e.target.closest('.coll-open')` — uma
-  // consulta à árvore VIVA —, e o botão de destino é apagado pelo próprio
-  // handler que roda antes: marcar uma opção chama `renderSongMenu`, que faz
-  // `alvo.innerHTML = ''`. Quando o evento chega ao card, o `e.target` está
-  // DESANEXADO, `closest` devolve `null`, e o álbum fecha.
+  // consulta à árvore VIVA —, e o botão é apagado pelo próprio handler que roda
+  // antes: trocar a variante chama `renderSongMenu`, que faz `alvo.innerHTML =
+  // ''`. Quando o evento chega ao card, o `e.target` está DESANEXADO, `closest`
+  // devolve `null`, e o álbum fecha.
   //
-  // O caso exercita a DETACHMENT de verdade — abrir a gaveta de uma faixa e
-  // clicar numa opção marcável —, porque uma guarda escrita com `closest`
-  // passaria em qualquer clique que não apagasse o alvo.
+  // Desde a v1.13.33 os destinos são botões diretos e não remontam nada; quem
+  // ainda remonta é o SELETOR de variante, e é nele que o caso exercita a
+  // detachment de verdade.
   await prep(true);
   const marcou = await pg.evaluate(async () => {
     const li = document.querySelector('#hymnResults .coll-songs > .hymn-result');
     li.querySelector('.row').click();
     await new Promise((r) => setTimeout(r, 450));
-    const sels = [...li.querySelectorAll('.hymn-opcoes .song-menu-sel')];
-    // A SEGUNDA opção, e não a primeira: desde a v1.1.8 o "Tocar agora" nasce
-    // MARCADO, então tocar nele DESMARCA — e o caso mediria a ida ao contrário
-    // do que a asserção diz. A segunda é "Adicionar à playlist", que nasce
-    // limpa; o caminho de detachment exercitado é o MESMO (marcar chama
-    // `renderSongMenu`, que faz `alvo.innerHTML = ''` e apaga o `e.target`).
-    const b = sels[1];
+    const b = [...li.querySelectorAll('.hymn-opcoes .fit-opt')].find((x) => x.textContent === 'Letra');
     if (!b) return null;
     b.scrollIntoView({ block: 'center' });
     const r2 = b.getBoundingClientRect();
     return {
       x: Math.round(r2.left + r2.width / 2), y: Math.round(r2.top + r2.height / 2),
-      // O PADRÃO, lido antes de qualquer toque: quantas caixas já vêm marcadas e
-      // qual é o rótulo da que veio.
-      jaMarcadas: [...li.querySelectorAll('.hymn-opcoes .song-menu-check.on')].length,
-      rotuloMarcado: (sels.find((e) => e.querySelector('.song-menu-check.on'))
-        || {}).textContent || '',
-      confirmarAtivo: !(li.querySelector('.hymn-opcoes .song-menu-go') || {}).disabled,
+      semMarcas: !li.querySelector('.hymn-opcoes .song-menu-check, .hymn-opcoes .song-menu-go'),
     };
   });
   let opcaoNaoFecha = null; let opcaoMarcou = null;
   if (marcou) {
     await pg.mouse.click(marcou.x, marcou.y);
     await pg.waitForTimeout(400);
-    const dep = await pg.evaluate(() => ({
-      album: !!ui(window.__cid).expanded,
-      marcado: [...document.querySelectorAll('#hymnResults .song-menu-check.on')].length === 2,
-    }));
+    const dep = await pg.evaluate(() => {
+      const ativo = document.querySelector('#hymnResults .hymn-opcoes .fit-opt.active');
+      return { album: !!ui(window.__cid).expanded, marcado: !!ativo && ativo.textContent === 'Letra' };
+    });
     opcaoNaoFecha = dep.album; opcaoMarcou = dep.marcado;
   }
   await pg.evaluate(() => {
     ui(window.__cid).expanded = false; grupoAberto = ''; favAberto = true;
     songMenuFor = null; closeHymnSearch();
   });
-  // ===== "TOCAR AGORA" NASCE MARCADO (v1.1.8) =====
-  // Pedido do operador: é a opção de mais urgência, e o que ela compra é o caso
-  // de DOIS destinos — tocar em "Adicionar ao Cronograma" projeta E guarda no
-  // mesmo toque. O confirmar nascer ATIVO é a outra metade: a gaveta abre já
-  // respondível, em vez de com um botão morto pedindo uma escolha.
-  checar(!!marcou && marcou.jaMarcadas === 1 && /Tocar agora/.test(marcou.rotuloMarcado),
-    'a gaveta da Biblioteca abre com "Tocar agora" JÁ MARCADO, e só ele',
-    marcou && (marcou.jaMarcadas + ' marcada(s): ' + JSON.stringify(marcou.rotuloMarcado)));
-  checar(!!marcou && marcou.confirmarAtivo === true,
-    'e o CONFIRMAR nasce ativo — a gaveta abre respondível, sem um toque só para '
-    + 'destravar o botão');
+  checar(!!marcou && marcou.semMarcas === true,
+    'a gaveta da Biblioteca não tem o que marcar nem Confirmar: um toque é uma ação (v1.13.33)',
+    JSON.stringify(marcou));
   checar(opcaoNaoFecha === true && opcaoMarcou === true,
-    'e um toque numa CAIXA DE MARCAÇÃO das opções não fecha o álbum — a guarda '
+    'e um toque no SELETOR das opções não fecha o álbum — a guarda '
     + 'pergunta pelo CAMINHO do evento (fixado no disparo) e não pela árvore de '
     + 'agora, que o próprio handler acabou de desmontar',
     JSON.stringify({ album: opcaoNaoFecha, marcado: opcaoMarcou, ponto: marcou }));

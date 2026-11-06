@@ -694,7 +694,7 @@ abaixo é o mapa: navegador → app.
 | áudio bloqueado | no app a recuperação do `onBlocked` é desativada (falso positivo) |
 | pastas do aparelho | SAF no lugar de `showDirectoryPicker()` |
 | compartilhamento / link copiado | só no app (`ShareIntake.kt`, só `content://`); o link copiado vem com PERGUNTA antes |
-| destinos de um item | no app, vários destinos de uma vez; o vídeo do YouTube baixa UMA vez |
+| destinos de um item | na gaveta, um botão por destino (as folhas marcam vários); o vídeo do YouTube baixa UMA vez |
 | estado do telão · cast · saída de áudio | indicador ao vivo; `openCast()`; o tile "Saída de áudio" ABRE o seletor do sistema, não ROTEIA |
 | recolher a prévia | a seta vira uma linha do deck; marcação × geometria × veredito da decodificação são três coisas |
 | retomada do telão | reenvia só o que ESTAVA no ar (`midiaNoAr`, nunca `currentId`) |
@@ -1143,7 +1143,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.13.32 · APK v1.13.16** · `SHELL_VERSION` **83** ·
+**Versão atual: base web v1.13.33 · APK v1.13.16** · `SHELL_VERSION` **83** ·
 bundle com `minShell: 83` e **sem `shellTag`** — o shell 83 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. A Release
 v1.13.16 já saiu e carrega todo o Kotlin acumulado; os lotes depois dela são só web. O que

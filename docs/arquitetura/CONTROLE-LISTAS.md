@@ -679,57 +679,30 @@ registro seria desfeito na varredura seguinte.
 **A ORDEM É A DO CRONOGRAMA** (v5.302): **excluir · renomear · ↑ · ↓**, *"com a
 ressalva de não contar com os itens que não existem naquela lista"*. Faltam dois:
 a ESTRELA (aqui ela e a lixeira terminam no mesmo `listRemove('favs')` — ver
-acima) e o botão da PLAYLIST, que nesta gaveta é uma LINHA da folha de destinos,
-com caixa de marcação.
+acima) e o botão da PLAYLIST, que nesta gaveta é um BOTÃO da fileira de destinos
+logo acima (`destBotoesRow`, v1.13.33).
 
-#### E ela divide a linha com o CONFIRMAR (v5.302)
+#### E ela tem FILEIRA PRÓPRIA, abaixo dos destinos (v1.13.33)
 
-Pedido do operador: *"ponha o botão de confirmar as escolhas do play dos
-favoritos para que ele fique lado a lado … ajustado com a altura dos botões"*. A
-faixa era um bloco próprio no pé da gaveta, logo abaixo da linha do confirmar —
-duas faixas empilhadas para o que cabe numa, e a gaveta inteira mais alta por
-isso, num acordeão cuja regra é manter a decisão sob o dedo.
+Ela dividiu a linha com o Confirmar da v5.302 à v1.13.32 (o hook `aoLado`, o lado
+decidido pelo DOM). Com os destinos em botões diretos o Confirmar saiu, e
+`renderItemMenu` põe a faixa numa `.fav-acoes-row` logo abaixo da fileira
+`.dest-botoes`, encostada à direita.
 
-Quem a leva para lá é o hook **`aoLado`** que a v5.286 abriu para o "Ver a letra":
-a `.song-menu-go-row` já é um flex de dois filhos em que o confirmar CRESCE e o
-irmão fica com o que precisa. Nenhum mecanismo novo — `renderItemMenu` ganhou um
-quarto parâmetro e o repassa pelo estado (`songMenuFor.aoLado`), porque quem monta
-a linha de fecho é a folha, e ela não conhece o dono da gaveta.
-
-- **O nó é O MESMO a cada remontagem.** `renderItemMenu` refaz a lista a cada
-  marca (`alvo.innerHTML = ''`), e devolver uma faixa NOVA perderia os ouvintes
-  e — pior — apagaria uma confirmação de exclusão aberta, deixando a lixeira na
-  miniatura sem nenhum botão que a explique. Devolvendo o mesmo nó, o
-  `appendChild` apenas o MOVE.
-- **E O IRMÃO VEM POR ARGUMENTO, nunca do global `songMenuFor`.** É a regra que
-  este recurso comprou caro: *um slot global só serve para o que não tem ALVO*.
-  Quem consome o irmão é o `desenhar()` de UMA linha — um fecho que sobrevive ao
-  global por dois caminhos que já existiam: a gaveta é montada uma vez
-  (`gavetaMontada`), então reabrir uma linha não reescreve `songMenuFor`; e
-  `closeSongMenu()` o anula com a gaveta ainda aberta. Enquanto o irmão era uma
-  fábrica de botão descartável ("Ver a letra"), isso era invisível. Com um nó
-  vivo ligado a um item, virava a faixa de uma linha dentro da gaveta de outra —
-  **a lixeira de A excluindo o item B** — e, depois de um Confirmar, a faixa
-  simplesmente não reanexada. `destConfirmRow(aoLado)` recebe; o global ficou só
-  como caminho da Biblioteca, onde ele é fábrica. E reabrir uma gaveta reaponta
-  `songMenuFor`, para *"ele descreve a gaveta ABERTA"* voltar a ser verdade.
-- **DE QUE LADO O IRMÃO ENTRA É DECISÃO DE QUEM O FORNECE** (v5.307, pedido do
-  operador): a faixa de ações de um Favorito vem **antes** do confirmar, o "Ver a
-  letra" da Biblioteca continua **depois**. O sinal viaja no próprio nó
-  (`data-antes`) e o `destConfirmRow` só o consulta — ele não conhece nenhum dos
-  dois. **É DOM, não `order`/`row-reverse`:** os dois dariam o mesmo desenho com a
-  ordem de FOCO invertida, numa faixa cujo primeiro botão é a LIXEIRA. O oráculo
-  (`boot-nativo.test.mjs`) mede a geometria **e** exige que o DOM concorde com
-  ela, senão a próxima inversão volta por um `order` e passa.
-- **Uma altura só.** O confirmar mede `--hit` mais o padding dele (53px); os
-  botões traziam `--thumb` fixo (40px) e boiariam no meio. `height: auto` desarma
-  o valor fixo e o `stretch` da linha os iguala. A LARGURA continua `--thumb`: o
-  pedido era de altura, e estreitar o alvo trocaria um acerto por um erro.
-- **Enquanto a linha PERGUNTA, o confirmar da folha sai de cena.** Dois botões de
-  confirmar lado a lado diriam coisas opostas — "mande para onde marquei" e "tire
-  da lista". Ele volta inteiro no Cancelar, com as marcas onde estavam. E o par
-  Cancelar/Excluir veste a receita de altura do botão que substitui, senão a
-  gaveta encolhe 19px sob o dedo no instante em que se mira um destrutivo.
+- **O nó é O MESMO a cada remontagem.** `renderItemMenu` refaz a lista
+  (`alvo.innerHTML = ''`), e devolver uma faixa NOVA perderia os ouvintes e —
+  pior — apagaria uma confirmação de exclusão aberta, deixando a lixeira na
+  miniatura sem nenhum botão que a explique. O `aoLado` devolve sempre a mesma
+  `.fav-acoes`, e o `appendChild` apenas a MOVE.
+- **O irmão vem por ARGUMENTO, nunca do global `songMenuFor`** (*um slot global só
+  serve para o que não tem ALVO*): quem o consome é o `desenhar()` de UMA linha, e
+  lê-lo do global já pôs a faixa de uma linha dentro da gaveta de outra — a
+  lixeira de A excluindo o item B. Reabrir uma gaveta REMONTA (`abrir()`).
+- **Uma altura só:** a fileira mede `--hit + 2·--opcao-recuo-v`
+  (`.fav-acoes-row > .fav-acoes`), os botões `height: auto` + `stretch`, a LARGURA
+  continua `--thumb`. O par Cancelar/Excluir e o campo de renomear vestem a MESMA
+  receita, senão a gaveta pula sob o dedo no instante em que se mira um
+  destrutivo.
 - **A faixa passou a ser montada NO PRIMEIRO TOQUE**, com o resto da folha: ela é
   escrita por `renderItemMenu`, que só roda quando a gaveta abre. Antes existia no
   DOM desde o desenho da linha — quem medir sem abrir não a encontra.
