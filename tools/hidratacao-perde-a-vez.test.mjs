@@ -42,7 +42,8 @@
 // GIRO e o PREENCHER tocados com um `load()` em voo — `fitSeq`/`rotSeq`. O 8 é
 // o ↑↓ de uma linha, `moverNaLista`, contra um `listAdd` que corre junto. O 9
 // é o botão do Cronograma e o da playlist tocados com um `load()` em voo —
-// `listasSeq` —, e o 10 o "Tocar agora" (`replacePlaylistWith`), na mesma senha.)
+// `listasSeq` —, o 10 o "Tocar agora" (`replacePlaylistWith`), na mesma senha, e o
+// 11 a cena de letra (`addLyricCue`) mandada à playlist e aos Favoritos.)
 //
 // E a quarta, que separa CENA de CONFIGURAÇÃO: durante a corrida a hidratação
 // pula a SELEÇÃO e aplica o resto. Sem ela, o conserto barato (um `return` no
@@ -485,6 +486,47 @@ try {
   checar(toque10.banco.length === 1 && toque10.banco[0] === ids.b
       && toque10.plItems.length === 1 && toque10.plItems[0] === ids.b,
     'Tocar agora com um load() em voo: plItems FICA só com o item tocado', JSON.stringify(toque10));
+
+  // ── 11. A CENA DE LETRA (`addLyricCue`) NA PLAYLIST E NOS FAVORITOS ───────
+  // A variante "Letra" mandada à playlist entrava no banco e não em `plItems`
+  // (nem na tela, nem na fila do ⏭) até o próximo `load()`; mandada ao
+  // Cronograma + Favoritos, não entrava em `favItems`. A playlist é testada com
+  // um `load()` em voo segurado depois da leitura dela — a ordem forçada do 9.
+  const toque11 = await pg.evaluate(async () => {
+    await AVDB.listSet('playlist', []);
+    await load();
+    const coll = { id: 'album-oraculo', name: 'Álbum do oráculo', kind: 'album' };
+    const orig = AVDB.listItems;
+    let liberar;
+    const portao = new Promise((p) => { liberar = p; });
+    const leu = new Promise((pronto) => {
+      AVDB.listItems = async (n) => {
+        const r = await orig(n);
+        if (n === 'playlist') { AVDB.listItems = orig; pronto(); await portao; }
+        return r;
+      };
+    });
+    const r = {};
+    try {
+      const emVoo = load();
+      await leu;
+      await addLyricCue(coll, { id_music: 9101, name: 'Letra na fila', track: 1 }, null, ['playlist']);
+      liberar();
+      await emVoo;
+    } finally { AVDB.listItems = orig; }
+    r.plItems = plItems.map((m) => m.name);
+    r.plBanco = (await AVDB.listItems('playlist')).map((m) => m.name);
+    await addLyricCue(coll, { id_music: 9102, name: 'Letra favorita', track: 2 }, null, ['imports', 'favs']);
+    r.favItems = favItems.map((m) => m.name);
+    r.favBanco = (await AVDB.listItems('favs')).map((m) => m.name);
+    await AVDB.listSet('playlist', []);
+    await load();
+    return r;
+  });
+  checar(toque11.plBanco.includes('Letra na fila') && toque11.plItems.includes('Letra na fila'),
+    'a letra mandada à playlist (com um load() em voo) ENTRA em plItems', JSON.stringify(toque11));
+  checar(toque11.favBanco.includes('Letra favorita') && toque11.favItems.includes('Letra favorita'),
+    'a letra mandada ao Cronograma + Favoritos ENTRA em favItems', JSON.stringify(toque11));
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
 }
