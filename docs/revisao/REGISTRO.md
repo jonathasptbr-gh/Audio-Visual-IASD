@@ -29,7 +29,7 @@ abandonada → primeira pendente pelo `nº`).
 | 15 | C6 | feita | v1.13.26 (só web) | 2026-11-05 → 2026-11-06 | nenhum defeito de culto na fatia; a letra mandada à playlist/Favoritos ficava fora da lista em memória (consertado + asserção com reversão); o repasse do `ytAcaoInterno` refutado por medida; 9 blocos no símbolo errado e ~65 fatos velhos, lápides e relatos |
 | 16 | C7 | feita | v1.13.27 (só web) | 2026-11-06 | nenhum defeito de culto na fatia; o sorteio guardado/que vira a fila desfeito por um `load()` em voo (`listasSeq`, repasse C4 confirmado + asserção com reversão); o lote do sorteio consumido sem ação (+ asserção); a Verificação sem o `progresso.js` (+ asserção); ~220 comentários (8 blocos no símbolo errado) |
 | 17 | C8 | feita | v1.13.28 (só web) | 2026-11-06 | nenhum defeito de culto na fatia; o link compartilhado ficava fora do Cronograma até a próxima releitura (`load()` no fim do `importShare` + asserção com reversão); o resgate dos downloads em `updateState` (repasse W1 + asserção com reversão); repasse C4 do `redesenharComMiniatura` refutado; ~270 comentários (8 blocos no símbolo errado) |
-| 18 | C9 | em curso | | 2026-11-06 | |
+| 18 | C9 | feita | v1.13.31 (só web) | 2026-11-06 | nenhum defeito de culto na fatia; a folha de conexão nomeava a TV errada com duas telas (`telaoNoAr`, a régua do Registro + asserção com reversão); os repasses C4/C6 de `plItems` refutados; código morto da transmissão; ~290 comentários (1 bloco no símbolo errado) |
 | 19 | S1 | pendente | | | |
 | 20 | S2 | pendente | | | |
 | 21 | K1 | pendente | | | |
@@ -63,9 +63,7 @@ tratou.
 | X2 | C2 | `controle.js` ~1397 (fatia C1): o comentário de `bibleCompleteVersions` diz que o Set existe "pra a tela de livros mostrar \"completa\"" — quem mostra é a folha de versões (`renderBibleVerList`); a C1 já está feita (uma linha de comentário, provas 1 e 2) |
 | X3 | C2 | `tools/pacote-importar-marcados.test.mjs` H/L — reprovou UMA vez no CI (run `42060562112`, 1ª tentativa, lote só da Bíblia, sem relação): `obtido: []` (nenhuma mídia no destino depois do Importar com só a série marcada). Passou 3× local e no run anterior. Suspeita no ORÁCULO: `importarPelaJanela` faz `pg.evaluate(() => window.__fim)` sem que nada atribua `__fim` (só o `null` da linha 421) — não espera a importação; quem espera é o `responderDialogo` (60 s), cujo `texto` ninguém confere: se o diálogo que ele respondeu não foi o "Acervo importado", o `lerDestino` lê antes do fim. Conserto provável: esperar o diálogo pelo TÍTULO "Acervo importado" (ou `!pacoteEmCurso`) e conferir o `texto` |
 | X2 | C4 | `controle.js`:`adicionarNasListas` (~6536) e `abrirPacote` (~6796), fatia C2 já feita — `plItems = await AVDB.listItems('playlist')` depois de gravar, sem a senha `listasSeq` (v1.13.24): um `load()` em voo que leu a fila antes aplica a cópia velha depois. Conserto: `++listasSeq` antes do primeiro `await`, como `togglePlaylist`. E o KDoc do `load` (~4070) diz que "todo `db-change`" dispara um `load` — não há `db-change` em lugar nenhum |
-| C9 | C6 | Os repasses C4 de `plItems` relido sem `++listasSeq`: a C6 MEDIU que um escritor que chama `load()` logo depois (como `ytAcaoInterno`) NÃO tem o defeito — o `++loadSeqCtl` faz o `load()` em voo descartar o que leu. Conferir, em cada um, se há `load()` depois da releitura antes de mexer; só quem relê SEM `load()` (`toggle*`, `replacePlaylistWith`, `addLyricCue`) precisa da senha |
 | X2 | C7 | `docs/ORACULOS.md`, linha do `hidratacao-perde-a-vez`: descreve os blocos 1–7 e o 12 (entrou na C7), mas não os 8–11 (C3–C6). E as linhas do `sorteio-lista-de-resultados` e do `verificacao-do-sistema` não citam as asserções novas da C7 (a recusa no bloco C; o `AVProgresso` no L1) |
-| C9 | C4 | `controle.js`:`pedirSaidaDaFila` (~41103) e `edicaoRecarregarListas` (~42660) — `plItems` relido sem `++listasSeq` (v1.13.24); e o KDoc de ~41348 diz que "todo `db-change` dispara um `load`" (não há `db-change`) |
 
 ## Relatórios
 
@@ -555,3 +553,28 @@ notificação tem UM temporizador; o `pacotePedir` deixa o `setTimeout` do prazo
 **Repasses:** nenhum novo. Riscados: C8 de W1, C4 e C6 (o C6 segue para a C9).
 **Verificado:** "Sanidade da base web" (todo Node puro, `docs-coerentes`); Chromium (49 da vizinhança, três processos): todos verdes (`aviso-de-importacao`, `hidratacao-perde-a-vez`, os `pacote-*`, `apresentacao`, `boot-nativo`, `smoke`, `display-smoke`, `registro`, `ota`…).
 **O operador:** nada a fazer; a v1.13.28 chega sozinha (só web). Um link compartilhado ao Cronograma aparece na lista na hora.
+
+### C9 · Configurações, modos, volume e telão por comandos — feita (2026-11-06)
+
+Cerca: `controle.js` de `// ===== Diálogo padrão do app` ao fim do arquivo (7.330 linhas), lida inteira; mais os repasses C4 e C6.
+**Corrigido (código):** `renderCast` nomeava `lastDisplays[0]` no rótulo do botão de conectar: com duas telas e o telão na SEGUNDA, a folha dizia "o telão não subiu"
+sobre um telão no ar — a divergência que o `descreverTelao` já fechara (v1.8.42) pela régua `telaoNoAr()`. Agora as duas leem a mesma. Bloco 6 do `telao-no-chao`;
+reversão reprova (`obtido: Conectado a TV do templo — o telão não subiu…`).
+**Repasses C4 e C6 REFUTADOS (lidos):** `pedirSaidaDaFila` não relê nada — os dois `aoConfirmar` chamam `load()` depois de gravar (o `++loadSeqCtl` descarta o que estava
+em voo, a medida da C6). `edicaoRecarregarListas` chama `load()` ANTES e não grava lista: a releitura avulsa de `plItems` + `renderPlaylist` era redundante e saiu. O "todo
+`db-change` dispara um `load`" corrigido no KDoc do `encerrarCenaDaFila`.
+**Código morto:** `confirmarEspelhoComTv` (devolvia `true`, "como registro da decisão") e o `if (espelhoDisponivel())` do `abrirCast` com corpo só de comentário.
+**Só comentário (provas 1 e 2; a 2 acusa 1, movimento de propósito com cabeçalho genérico):** o KDoc do `encerrarCenaDaFila` estava sobre o de `fecharFilaVazia`. Fatos:
+"recolher a seção cancela tudo" (só oculta), `simpleDisplay` "não decide bloqueio" (decide a cortina), o tema automático no `renderTemaTile`, o `resize` do "vazado da faixa
+de abas", o APK "na fila de IO", a "confirmação" do ligar (2 blocos duplicados), o `castAlvo` em 2 blocos contraditórios, o deck em 2 parágrafos contraditórios no
+`telaEnriquecer`. ~30 lápides (abas, mesa de som, liberação de teste, `mic-status`, SW, QR, TLS, degraus do voltar…); pedidos/relatos do operador saíram; verbatim
+(293 blocos) na seção v1.13.31 do histórico. `ORACULOS.md` ganhou o bloco 6.
+**Achado e não corrigido (SUSPEITAS, sem cenário de culto):** `telaReenviarPreferencias` manda o `fit` só se ≠ `contain` — a mesma "coincidência com o nascimento da tela" que o
+bloco já recusou para o `lyricsbg` (hoje a tela nasce em `contain`, então não erra). O `telaPedir` deixa o `setTimeout` de 15 s armado depois da resposta (inofensivo:
+confere a identidade). A cobertura parcial da resposta atrasada de dois pedidos do mesmo tipo (`telaRespostaCombina`) depende de um `seq` no Kotlin (K4).
+Réguas de "no ar": a fatia lê `haOQueParar` (teclas, Biblioteca principal, pergunta da atualização), `midiaNoAr` (reenvio, status, troca de modo, tela cheia do vídeo) e
+`haDestinoDeProjecao` (tela cheia), cada uma igual à pergunta que o bloco nomeia. Timers/listeners: o vigia do Modo Fácil e a enquete da conexão têm dono único e
+desarmam; o `onCommand` não ganha ouvinte por rodada (o contador da Verificação pega carona).
+**Repasses:** nenhum novo. Riscados: C9 de C4 e C6.
+**Verificado:** "Sanidade da base web" (todo Node puro, `docs-coerentes`); Chromium (64 da vizinhança, três processos): todos verdes (`telao-no-chao`, `tela-rede`, `smoke`, `display-smoke`, `boot-nativo`, `edicao-de-midia`, `historico`, os de Configurações/Verificação/Modo Fácil/volume/tela cheia/OTA…).
+**O operador:** nada a fazer; a v1.13.31 chega sozinha (só web). Com duas TVs ligadas, a janela de conexão diz qual está projetando.
