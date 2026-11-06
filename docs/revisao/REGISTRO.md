@@ -27,7 +27,7 @@ abandonada → primeira pendente pelo `nº`).
 | 13 | C4 | feita | v1.13.24 (só web) | 2026-11-05 | nenhum defeito de culto na fatia; o botão do Cronograma/playlist desfeito por um `load()` em voo (`listasSeq` + asserção com reversão); repasse C2 do `renderTabs`; ~45 comentários (lápides, fatos velhos, um bloco no símbolo errado) |
 | 14 | C5 | feita | v1.13.25 (só web) | 2026-11-05 | nenhum defeito de culto na fatia; o "Tocar agora" desfeito por um `load()` em voo (`listasSeq` + asserção com reversão, repasse C4); a ABERTURA da rolagem da cifra descrita como regra (repasse W3, decisão do operador); 2 variáveis mortas; ~90 comentários (lápides, fatos velhos, 4 blocos no símbolo errado) |
 | 15 | C6 | feita | v1.13.26 (só web) | 2026-11-05 → 2026-11-06 | nenhum defeito de culto na fatia; a letra mandada à playlist/Favoritos ficava fora da lista em memória (consertado + asserção com reversão); o repasse do `ytAcaoInterno` refutado por medida; 9 blocos no símbolo errado e ~65 fatos velhos, lápides e relatos |
-| 16 | C7 | em curso | | 2026-11-06 | |
+| 16 | C7 | feita | v1.13.27 (só web) | 2026-11-06 | nenhum defeito de culto na fatia; o sorteio guardado/que vira a fila desfeito por um `load()` em voo (`listasSeq`, repasse C4 confirmado + asserção com reversão); o lote do sorteio consumido sem ação (+ asserção); a Verificação sem o `progresso.js` (+ asserção); ~220 comentários (8 blocos no símbolo errado) |
 | 17 | C8 | pendente | | | |
 | 18 | C9 | pendente | | | |
 | 19 | S1 | pendente | | | |
@@ -64,9 +64,9 @@ tratou.
 | X2 | C2 | `controle.js` ~1397 (fatia C1): o comentário de `bibleCompleteVersions` diz que o Set existe "pra a tela de livros mostrar \"completa\"" — quem mostra é a folha de versões (`renderBibleVerList`); a C1 já está feita (uma linha de comentário, provas 1 e 2) |
 | X3 | C2 | `tools/pacote-importar-marcados.test.mjs` H/L — reprovou UMA vez no CI (run `42060562112`, 1ª tentativa, lote só da Bíblia, sem relação): `obtido: []` (nenhuma mídia no destino depois do Importar com só a série marcada). Passou 3× local e no run anterior. Suspeita no ORÁCULO: `importarPelaJanela` faz `pg.evaluate(() => window.__fim)` sem que nada atribua `__fim` (só o `null` da linha 421) — não espera a importação; quem espera é o `responderDialogo` (60 s), cujo `texto` ninguém confere: se o diálogo que ele respondeu não foi o "Acervo importado", o `lerDestino` lê antes do fim. Conserto provável: esperar o diálogo pelo TÍTULO "Acervo importado" (ou `!pacoteEmCurso`) e conferir o `texto` |
 | X2 | C4 | `controle.js`:`adicionarNasListas` (~6536) e `abrirPacote` (~6796), fatia C2 já feita — `plItems = await AVDB.listItems('playlist')` depois de gravar, sem a senha `listasSeq` (v1.13.24): um `load()` em voo que leu a fila antes aplica a cópia velha depois. Conserto: `++listasSeq` antes do primeiro `await`, como `togglePlaylist`. E o KDoc do `load` (~4070) diz que "todo `db-change`" dispara um `load` — não há `db-change` em lugar nenhum |
-| C7 C8 C9 | C6 | Os repasses C4 de `plItems` relido sem `++listasSeq`: a C6 MEDIU que um escritor que chama `load()` logo depois (como `ytAcaoInterno`) NÃO tem o defeito — o `++loadSeqCtl` faz o `load()` em voo descartar o que leu. Conferir, em cada um, se há `load()` depois da releitura antes de mexer; só quem relê SEM `load()` (`toggle*`, `replacePlaylistWith`, `addLyricCue`) precisa da senha |
-| C7 | C4 | `controle.js`:`guardarSorteadas` (~29843) e `montarFilaSorteada` (~29980) — `plItems = await AVDB.listItems('playlist')` sem `++listasSeq` (v1.13.24) |
+| C8 C9 | C6 | Os repasses C4 de `plItems` relido sem `++listasSeq`: a C6 MEDIU que um escritor que chama `load()` logo depois (como `ytAcaoInterno`) NÃO tem o defeito — o `++loadSeqCtl` faz o `load()` em voo descartar o que leu. Conferir, em cada um, se há `load()` depois da releitura antes de mexer; só quem relê SEM `load()` (`toggle*`, `replacePlaylistWith`, `addLyricCue`) precisa da senha |
 | C8 | C4 | `controle.js`:`redesenharComMiniatura` (~38387) e `importShare` (~39823) — `plItems = await AVDB.listItems('playlist')` sem `++listasSeq` (v1.13.24) |
+| X2 | C7 | `docs/ORACULOS.md`, linha do `hidratacao-perde-a-vez`: descreve os blocos 1–7 e o 12 (entrou na C7), mas não os 8–11 (C3–C6). E as linhas do `sorteio-lista-de-resultados` e do `verificacao-do-sistema` não citam as asserções novas da C7 (a recusa no bloco C; o `AVProgresso` no L1) |
 | C9 | C4 | `controle.js`:`pedirSaidaDaFila` (~41103) e `edicaoRecarregarListas` (~42660) — `plItems` relido sem `++listasSeq` (v1.13.24); e o KDoc de ~41348 diz que "todo `db-change` dispara um `load`" (não há `db-change`) |
 
 ## Relatórios
@@ -513,3 +513,25 @@ a cada render; `ytRedesenhoTimer` rearma só com gaveta aberta; o `MutationObser
 **Repasses:** C7 C8 C9 (a nota sobre `load()` depois da releitura).
 **Verificado:** "Sanidade da base web" (todo Node puro, `docs-coerentes`); Chromium (54 da vizinhança, três processos): todos verdes (`hidratacao-perde-a-vez`, `smoke`, `display-smoke`, `boot-nativo`, `cena`, `destinos`, `tokens`, as de acervo/série/semana/busca/gaveta/YouTube/link/pacote/Modo Fácil…).
 **O operador:** nada a fazer; a v1.13.26 chega sozinha (só web). Mandar só a letra para a playlist ou os Favoritos aparece na lista na hora.
+
+### C7 · Downloads, playlist automática e Registro — feita (2026-11-06)
+
+Cerca: `controle.js` de `// ===== "Baixando" na LINHA da música` a antes do cabeçalho do pacote de transferência (6.783 linhas), lida inteira; mais o repasse C4.
+**Repasse C4 CONFIRMADO (medido):** `guardarSorteadas` (ramo da playlist) e `montarFilaSorteada` releem `plItems` SEM `load()` depois (o `send` não o chama): com a ordem
+forçada do bloco 9, o sorteio guardado ficava fora de `plItems` e o que vira a fila deixava a fila velha em memória. `++listasSeq` antes da 1ª escrita (o 1º `await` é o
+consentimento/download). Bloco 12 do `hidratacao-perde-a-vez`; reversão: sem o conserto as duas reprovam. O KDoc de `listasSeq` (fatia C2) ganhou os dois nomes.
+**Corrigido (código, commits à parte):** `executarSorteio` consumia o lote (`sorteioConsumir`) mesmo quando guardar/tocar desistia (download recusado, nada baixável,
+cancelar), contra o próprio comentário; os três devolvem se aconteceu. Asserção no bloco C do `sorteio-lista-de-resultados` (reversão reprova). A Verificação ("chegaram" e
+"RODARAM") listava os módulos à mão sem o `progresso.js`/`AVProgresso`: verde sem ele. Asserção L1 no `verificacao-do-sistema` (reversão reprova).
+**Só comentário (provas 1 e 2; a 2 acusa 6: 5 movimentos de propósito + 1 cabeçalho genérico):** 8 blocos no símbolo errado (o "Devolve" do `previewBusy`, o JSDoc
+órfão da pílula que partia o do `SORTEIO_ICONE`, AS COLETÂNEAS, OS FUNDOS DA LETRA, o `version.json` do bundle, O ÁUDIO DO APARELHO, dois órfãos que saíram). Fatos: o "botão
+de copiar" do Registro (é o arquivo), `pintarContaSorteio`, a pílula, o `.avpkg` da fila, `listSet` × `trocarFila`, a ordem dos blocos, "shell 31/45/59/69/79". ~15 lápides;
+pedidos/relatos do operador saíram; verbatim (222 blocos) na seção v1.13.27 do histórico.
+**Achado e não corrigido (SUSPEITAS, sem cenário de culto):** `rodarUmaChecagem` não limpa o `setTimeout` do prazo quando a checagem responde antes (inofensivo: resolve
+uma corrida já decidida). O Registro do download de teste ainda diz "APK anterior à v1.12.31" quando a medida do shell não vem (com o piso 83 a única causa é outro download
+por cima) — frase de log, deixada. `tocarSorteada` devolve `true` mesmo se `playSongVariant` falhar (ela não diz o desfecho): o lote sai como antes nesse caso.
+Réguas de "no ar": a fatia lê `midiaNoAr` (download de teste, Verificação) e `haOQueParar` (Registro da atualização), cada uma igual à porta que descreve. Timers/listeners:
+o aquecimento do sorteio desarma no fechar; o `qhObs` desconecta a cada roleta; nenhum ouvinte por rodada (o `testeDiagRecebidos`).
+**Repasses:** X2 (o `ORACULOS.md` sem os blocos 8–11 do `hidratacao-perde-a-vez` e sem as asserções novas). Riscados: C7 de C4 e C6.
+**Verificado:** "Sanidade da base web" (todo Node puro, `docs-coerentes`); Chromium da vizinhança, três processos: ver o placar no relatório final.
+**O operador:** nada a fazer; a v1.13.27 chega sozinha (só web). Na playlist automática, recusar o download não some com as marcadas.
