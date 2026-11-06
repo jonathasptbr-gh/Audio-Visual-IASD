@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.13.33",
+    "itens": [
+      "Um computador conectado volta ao fundo padrão ao reconectar, sem ficar com uma imagem antiga."
+    ]
+  },
+  {
     "versao": "1.13.32",
     "itens": [
       "Um computador conectado em Ajustar não fica mais em Preencher depois de reconectar."

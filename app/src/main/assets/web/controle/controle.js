@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.32';
+const WEB_VERSION = '1.13.33';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -45542,27 +45542,22 @@ function telaReenviarPreferencias(para) {
   // preenchimento, sem nada que o explique.
   //
   const mandar = (c) => { if (para) c.__para = para; AVDB.sendCommand(c); };
-  // ===== DUAS DAS TRÊS PREFERÊNCIAS NÃO DEPENDEM DO CANAL DE MÍDIA =====
+  // ===== AS TRÊS VÃO SEMPRE; SÓ A IMAGEM DEPENDE DO CANAL DE MÍDIA =====
   //
-  // `lyricsbg` e `fit` são JSON puro: viajam pelo MESMO SSE de todo comando do
-  // culto e não movem um byte. Só o WALLPAPER precisa do canal, porque só ele
-  // empurra uma imagem — e a guarda `if (!telaCanal()) return` mora só no bloco
-  // dele. No topo, ela derrubaria as três, calada: a tela não tem o IndexedDB
-  // do app para consultar, e sem o comando fica no valor com que NASCEU, para
-  // sempre.
-  //
-  // E os dois vão SEM CONDIÇÃO: um `if` pelo valor só acerta enquanto o caso
-  // omitido coincide com o estado da tela, e um `display-ready` não prova que
-  // ela acabou de nascer (re-anúncio sem recarga) — calaria o "Remover" no
-  // `lyricsbg` e o "Ajustar" (`contain`) no `fit`. Mandar sempre custa um
-  // objeto JSON e não depende do valor com que a tela nasce.
+  // Um `display-ready` não prova que a tela acabou de nascer (re-anúncio sem
+  // recarga), então nenhuma preferência é pulada por coincidir com o valor de
+  // nascimento: `lyricsbg`, `fit` e o wallpaper PADRÃO (`__wp: 'padrao'`, a
+  // forma do "Padrão" no funil acima) são JSON no mesmo SSE de todo comando e
+  // saem mesmo sem `telaCanal()`. Só a IMAGEM própria empurra bytes — a guarda
+  // do canal mora ali; no topo derrubaria as três, calada, e a tela ficaria no
+  // valor com que NASCEU (ou numa imagem antiga) para sempre.
   mandar({ type: 'lyricsbg', mode: lyricsBg });
   mandar({ type: 'fit', fit: mediaFit });
-  if (!telaCanal()) return;
   (async () => {
     let blob = null;
     try { blob = await AVDB.getState('wallpaper'); } catch (_) { /* padrão */ }
-    if (!blob) return;                       // sem wallpaper próprio: o padrão da tela já é o certo
+    if (!blob) { mandar({ type: 'wallpaper', __wp: 'padrao' }); return; }
+    if (!telaCanal()) return;
     const token = telaTokenDe('__wp');
     if (!token) return;
     telaGarantirEnvio({ id: '__wp', name: 'wallpaper', type: blob.type || 'image/jpeg', blob });
