@@ -581,6 +581,8 @@ jobs:
           rodar tools/telao-no-chao.test.mjs
           rodar tools/serie-mantem-a-semana.test.mjs
           rodar tools/semana-item.test.mjs
+          rodar tools/destinos-diretos.test.mjs
+          rodar tools/biblioteca-posicao.test.mjs
           rodar tools/som-nao-vaza-ao-perder-a-tela.test.mjs
           rodar tools/saida-de-audio-e-economia.test.mjs
           rodar tools/dados-moveis.test.mjs

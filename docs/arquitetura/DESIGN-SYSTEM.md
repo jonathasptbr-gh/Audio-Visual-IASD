@@ -2030,6 +2030,16 @@ caixas** — daí o resto desta seção.
   da capa × altura da faixa não fecham num quadrado — ali o oráculo TROCA a
   régua pela que vale (toda peça na mesma altura), em vez de calar.
 
+- **OS DESTINOS DA GAVETA SÃO QUADRADOS DE FAIXA** (v1.13.34, `.dest-btn`):
+  `--quad-faixa` nas duas dimensões, ícone `--icon-md` (na mesma lista do
+  transporte; o svg do auxiliar de leitura inclusive), `--gaveta-btn` + `--accent`,
+  LIGADO (os detalhes de um vídeo à vista) = `--btn-accent`, apagado =
+  `--op-inativo`, e entram na lista do `--press`. A fileira ESPALHA
+  (`space-between`) — cinco a 360×1,25× cabem numa linha (`destinos-diretos`). O
+  quadrado da esquerda de uma faixa diz o TIPO (`miniaturaDeTipo`: a nota, ou a
+  fita `#icoVideo` em `--icon-md`), nunca ▶ — ▶ num canto que não é alvo lê como
+  botão.
+
 ### A sombra das bordas (`rola`), as roletas e as grades
 
 - **TODO SCROLLER TEM A SOMBRA DAS BORDAS, e a marca é `rola`** (v1.8.58). Ela

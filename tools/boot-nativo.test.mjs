@@ -1091,12 +1091,13 @@ try {
     li.querySelector('.row').click();
     await new Promise((r) => setTimeout(r, 400));
     const op = li.querySelector('.hymn-opcoes');
-    const linhas = [...op.querySelectorAll('.song-menu-btn')]
-      .map((b) => b.textContent.trim().split('\n')[0].trim()).filter(Boolean);
+    // OS DESTINOS SÃO BOTÕES DIRETOS desde a v1.13.34: o nome de cada um mora no
+    // `aria-label` (são quadrados sem rótulo), e é por ele que o caso os lê.
+    const linhas = [...op.querySelectorAll('.dest-btn')].map((b) => b.getAttribute('aria-label'));
     const r = {
       aberta: li.classList.contains('expanded') && !!op && op.children.length > 0,
       naFolha: document.getElementById('songMenuPopup').classList.contains('open'),
-      texto: op.textContent,
+      texto: op.textContent + ' | ' + linhas.join(' | '),
       linhas,
     };
     lista.remove(); ui(c.id).expanded = false; songMenuFor = null;
@@ -1256,25 +1257,22 @@ try {
       texto: li.textContent,
       temThumb: !!li.querySelector('.item-detalhe-thumb'),
       duracaoGuardada: s.duration || '',
-      // ===== A LARGURA DO BOTÃO NÃO MUDA COM O ESTADO (v5.287) =====
+      // ===== O BOTÃO DOS DETALHES É UM QUADRADO DA FILEIRA (v1.13.34) =====
       //
-      // "Ocultar" é mais longo que "Ver", então o botão crescia ao ser tocado e
-      // o CONFIRMAR ao lado encolhia junto — um toque que muda a largura do
-      // vizinho é a coisa que mais parece defeito numa faixa de dois botões. As
-      // duas frases entram empilhadas na mesma célula de uma grade 1x1
-      // (`.song-menu-letra-cx`), e a largura passa a ser a da MAIOR.
-      //
-      // A medição mora AQUI desde a v1.2.25: o interruptor de duas frases só
-      // existe no VÍDEO — numa música o mesmo botão abre o leitor e tem uma
-      // frase só. O `smoke.mjs`, que roda sem ponte, nem chega a ver uma série.
+      // Ele era "Ver/Ocultar os detalhes", um botão de texto ao lado do
+      // Confirmar, com as duas frases empilhadas para a largura não mudar. Com os
+      // destinos em botões diretos ele virou o quinto quadrado da fileira — sem
+      // rótulo e LIGADO quando os detalhes estão à vista —, e a largura não muda
+      // por construção: o que se mede é que ele não se mexe, e que LIGA.
       larguras: (() => {
-        const ver = li.querySelector('.song-menu-letra');
+        const ver = li.querySelector('.dest-btn[data-dest="detalhes"]');
         if (!ver) return null;
         const antes = Math.round(ver.getBoundingClientRect().width);
         ver.click();   // no vídeo o ouvinte é síncrono: alterna `vendo-letra`
         const depois = Math.round(
-          li.querySelector('.song-menu-letra').getBoundingClientRect().width);
-        return { antes, depois, rotulo: ver.textContent };
+          li.querySelector('.dest-btn[data-dest="detalhes"]').getBoundingClientRect().width);
+        return { antes, depois, rotulo: ver.getAttribute('aria-label'),
+          ligado: ver.classList.contains('on') && ver.getAttribute('aria-pressed') === 'true' };
       })(),
     };
     // ===== A DESCRIÇÃO, DO TOQUE ATÉ A TELA (v1.5.21) =====
@@ -1344,8 +1342,8 @@ try {
     // a cada tecla da busca). Sem elas, olhar um episódio duas vezes gasta duas
     // requisições na fila que o "Tocar agora" divide.
     r.pedidosAntes = window.__nDetalhes || 0;
-    li.querySelector('.song-menu-letra').click();   // esconde
-    li.querySelector('.song-menu-letra').click();   // revela de novo
+    li.querySelector('.dest-btn[data-dest="detalhes"]').click();   // esconde
+    li.querySelector('.dest-btn[data-dest="detalhes"]').click();   // revela de novo
     await new Promise((res) => setTimeout(res, 60));
     r.pedidosDepois = window.__nDetalhes || 0;
 
@@ -1473,7 +1471,7 @@ try {
     // pelo FATO. Note que isto NÃO gasta extração nenhuma: o cache de módulo
     // guarda o objeto inteiro, e a asserção do `pedidosDepois` acima já o
     // provou para a descrição.
-    li2.querySelector('.song-menu-letra').click();
+    li2.querySelector('.dest-btn[data-dest="detalhes"]').click();
     for (let i = 0; i < 60 && !li2.querySelector('.item-detalhe-titulo'); i++) {
       await new Promise((res) => setTimeout(res, 25));
     }
@@ -1504,7 +1502,7 @@ try {
       && !(li4.querySelector('.item-detalhe-txt') && li4.classList.contains('expanded')); i++) {
       await new Promise((res) => setTimeout(res, 25));
     }
-    li4.querySelector('.song-menu-letra').click();
+    li4.querySelector('.dest-btn[data-dest="detalhes"]').click();
     // A espera é pela DESCRIÇÃO, que é o que prova que a resposta CHEGOU —
     // esperar pelo título seria esperar pelo que não deve existir, e um laço
     // que estoura aprovaria também um card em que nada chegou.
@@ -1720,10 +1718,9 @@ try {
     JSON.stringify(N.linhas));
 
   checar(!!gaveta.larguras && gaveta.larguras.antes > 0
-    && gaveta.larguras.antes === gaveta.larguras.depois,
-    'e o botão que a revela tem a MESMA LARGURA nos dois estados: "Ocultar" é '
-    + 'mais longo que "Ver", e ele crescia debaixo do dedo levando o confirmar '
-    + 'ao lado junto', JSON.stringify(gaveta.larguras));
+    && gaveta.larguras.antes === gaveta.larguras.depois && gaveta.larguras.ligado,
+    'e o botão que a revela (o quinto quadrado da fileira, v1.13.34) tem a MESMA '
+    + 'LARGURA nos dois estados e LIGA quando os detalhes estão à vista', JSON.stringify(gaveta.larguras));
 
   // ── A METADE DE BAIXO CABE NA CAIXA MÃE (v1.5.21) ──────────────────────
   // As duas metades são inseparáveis, e cada uma sozinha aprova um desenho
@@ -1775,10 +1772,11 @@ try {
     }
     const r = {
       abriu: li.classList.contains('expanded'),
-      temOpcoes: !!li.querySelector('.hymn-opcoes .song-menu-btn'),
+      temOpcoes: !!li.querySelector('.hymn-opcoes .dest-btn'),
       temCaixaDeLetra: !!li.querySelector('.hymn-lyrics'),
       temDetalhe: !!li.querySelector('.item-detalhe'),
-      rotuloDaLetra: (li.querySelector('.song-menu-letra') || {}).textContent || '',
+      rotuloDaLetra: (li.querySelector('.dest-btn[data-dest="leitura"]') || { getAttribute: () => '' })
+        .getAttribute('aria-label') || '',
     };
     lista.remove();
     setAppMode(modoAntes);
@@ -1793,8 +1791,8 @@ try {
   checar(!gavetaMusica.temCaixaDeLetra,
     'e SEM a caixa de letra: ela virou o leitor, que tem cifra, tom e rolagem',
     gavetaMusica.temCaixaDeLetra);
-  checar(/Ver a letra/.test(gavetaMusica.rotuloDaLetra),
-    'o botão continua se chamando "Ver a letra" — o que muda é PARA ONDE ele leva',
+  checar(/Auxiliar de leitura/.test(gavetaMusica.rotuloDaLetra),
+    'o botão da letra é o "Auxiliar de leitura" da fileira de destinos (v1.13.34) — ele abre o leitor',
     gavetaMusica.rotuloDaLetra);
   checar(!gavetaMusica.temDetalhe,
     'sem a gaveta do vídeo no meio — cada tipo abre a sua, e só a sua');
@@ -2274,18 +2272,10 @@ try {
         // nome. A faixa de ações antiga era `position: absolute` COM `top: 0` —
         // ela media exatamente o contrário disto.
         abaixo: !!cg && cg.top >= cx.bottom - 1 && cg.height > 0,
-        // Só as MARCÁVEIS: o confirmar mora na mesma `<ul>` e tem o mesmo
-        // rótulo de classe, e contá-lo aqui somaria uma "opção" que não é uma.
-        opcoes: [...gav.querySelectorAll('.hymn-opcoes .song-menu-sel .song-menu-label')]
-          .map((e) => e.textContent),
-        marcaveis: gav.querySelectorAll('.hymn-opcoes .song-menu-check').length,
-        confirmar: ((gav.querySelector('.song-menu-go .song-menu-label') || {}).textContent) || '',
-        // O PADRÃO, antes de qualquer toque (v1.1.8): "Tocar agora" nasce
-        // marcado, e SÓ ele.
-        jaMarcadas: gav.querySelectorAll('.hymn-opcoes .song-menu-check.on').length,
-        rotuloMarcado: ([...gav.querySelectorAll('.hymn-opcoes .song-menu-sel')]
-          .find((e) => e.querySelector('.song-menu-check.on')) || {}).textContent || '',
-        confirmarNasceAtivo: !(gav.querySelector('.song-menu-go') || {}).disabled,
+        // OS DESTINOS SÃO BOTÕES DIRETOS (v1.13.34): sem caixa de marcar e sem
+        // Confirmar — cada quadrado executa o dele.
+        opcoes: [...gav.querySelectorAll('.hymn-opcoes .dest-btn')].map((b) => b.dataset.dest),
+        semMarcar: !gav.querySelector('.hymn-opcoes .song-menu-check, .hymn-opcoes .song-menu-go'),
         acoesNaGaveta: !!gav.querySelector('.fav-acoes .row-ordem')
           && !!gav.querySelector('.fav-acoes .row-excluir'),
         // ===== UMA SAÍDA SÓ, E ELA PERGUNTA (v5.288) =====
@@ -2297,15 +2287,17 @@ try {
         semEstrela: !gav.querySelector('.fav-btn') && !li.querySelector('.fav-btn'),
         naoProjetou: (await AVDB.listIds('playlist')).join(',') === plAntes,
       };
-      // E O CONFIRMAR FAZ O QUE DIZ: marcar "Cronograma" e confirmar põe o item
-      // na lista. Sem esta metade, uma gaveta bonita e inerte passaria.
-      const alvoCrono = [...gav.querySelectorAll('.hymn-opcoes .song-menu-btn')]
-        .find((b) => /Cronograma/.test(b.textContent));
+      // E O BOTÃO FAZ O QUE DIZ: um toque no do Cronograma põe o item na lista.
+      // Sem esta metade, uma gaveta bonita e inerte passaria.
+      const alvoCrono = gav.querySelector('.hymn-opcoes .dest-btn[data-dest="cronograma"]');
       if (alvoCrono) alvoCrono.click();
-      await new Promise((res) => setTimeout(res, 60));
-      const go = gav.querySelector('.song-menu-go');
-      r.gaveta.confirmarAtivo = !!go && !go.disabled;
-      if (go && !go.disabled) go.click();
+      await new Promise((res) => setTimeout(res, 300));
+      // E O "TOCAR AGORA", no segundo toque da MESMA gaveta (ela não fecha): é o
+      // par que o Confirmar fazia de uma vez até a v1.13.32 — e a mídia que fica
+      // no ar é a do cenário dos blocos seguintes.
+      const alvoTocar = gav.querySelector('.hymn-opcoes .dest-btn[data-dest="tocar"]');
+      r.gaveta.tocarNaMesmaGaveta = !!alvoTocar && alvoTocar.isConnected;
+      if (alvoTocar) alvoTocar.click();
       await new Promise((res) => setTimeout(res, 300));
       r.gaveta.foiPraCrono = (await AVDB.listIds('imports')).includes(li.dataset.id);
       await AVDB.listRemove('imports', li.dataset.id);
@@ -2468,33 +2460,17 @@ try {
     + 'sobreposição relatada, e ela some por construção quando o corpo da linha '
     + 'deixa de ter outra ação',
     'abaixo: ' + favs.gaveta.abaixo);
-  // ===== "TOCAR AGORA" NASCE MARCADO (v1.1.8) =====
-  //
-  // Pedido do operador: *"nas opções de play, deixe que venha por padrão o check
-  // de tocar agora, pois é a opção que normalmente já se tem mais urgência"*. O
-  // que ela compra é o caso de DOIS destinos — tocar em "Adicionar ao
-  // Cronograma" projeta E guarda no mesmo toque —, e o confirmar nascer ATIVO é
-  // a outra metade: a gaveta abre respondível.
-  //
-  // A regra vale onde a mídia é LOCAL. A folha do YouTube fica de fora de
-  // propósito (lá "Tocar agora" TRANSMITE), e é por isso que ela é afirmada
-  // aqui, na lista de favoritos, e no `smoke` na gaveta da Biblioteca — as duas
-  // casas que a recebem.
-  checar(favs.gaveta.jaMarcadas === 1 && /Tocar agora/.test(favs.gaveta.rotuloMarcado),
-    'a gaveta do FAVORITO abre com "Tocar agora" já marcado, e só ele',
-    favs.gaveta.jaMarcadas + ' marcada(s): ' + JSON.stringify(favs.gaveta.rotuloMarcado));
-  checar(favs.gaveta.confirmarNasceAtivo === true,
-    'e o CONFIRMAR nasce ativo — sem um toque só para destravar o botão');
-  checar(favs.gaveta.opcoes.length === 3
-    && /Tocar agora/.test(favs.gaveta.opcoes[0])
-    && favs.gaveta.marcaveis === 3
-    && /Confirmar/.test(favs.gaveta.confirmar),
-    'e são as MESMAS opções marcáveis da Biblioteca — telão, playlist e '
-    + 'Cronograma —, com o confirmar sempre visível',
-    JSON.stringify(favs.gaveta.opcoes) + ' · ' + favs.gaveta.confirmar);
-  checar(favs.gaveta.confirmarAtivo && favs.gaveta.foiPraCrono,
-    'e o confirmar FAZ o que diz: marcado o Cronograma, o item entra nele',
-    JSON.stringify([favs.gaveta.confirmarAtivo, favs.gaveta.foiPraCrono]));
+  // ===== UM TOQUE, UMA AÇÃO (v1.13.34) =====
+  // O "Tocar agora" nascia marcado (v1.1.8) para o caso de DOIS destinos num
+  // toque; com os botões diretos não há marca: cada quadrado executa o dele, e a
+  // gaveta fica aberta para o segundo.
+  checar(favs.gaveta.opcoes.join(' | ') === 'tocar | cronograma | playlist | leitura' && favs.gaveta.semMarcar,
+    'e a gaveta do FAVORITO tem os destinos em BOTÕES DIRETOS (v1.13.34) — telão, Cronograma e '
+    + 'playlist, mais o auxiliar de leitura —, sem marcar nem confirmar',
+    JSON.stringify(favs.gaveta.opcoes));
+  checar(favs.gaveta.foiPraCrono && favs.gaveta.tocarNaMesmaGaveta,
+    'e o botão FAZ o que diz: um toque no do Cronograma põe o item nele — e a gaveta '
+    + 'continua ali para o segundo toque', JSON.stringify([favs.gaveta.foiPraCrono, favs.gaveta.tocarNaMesmaGaveta]));
   checar(favs.gaveta.acoesNaGaveta,
     'e as ações da linha (↑↓, excluir) descem para a faixa de baixo da gaveta, '
     + 'em vez de cobrirem o título');
@@ -2558,8 +2534,8 @@ try {
     if (arq) {
       arq.querySelector('.row').click();
       await new Promise((res) => setTimeout(res, 400));
-      r.opcoes = [...arq.querySelectorAll('.hymn-opcoes .song-menu-sel .song-menu-label')]
-        .map((e) => e.textContent);
+      r.opcoes = [...arq.querySelectorAll('.hymn-opcoes .dest-btn')]
+        .map((e) => e.getAttribute('aria-label'));
       r.semExcluir = !arq.querySelector('.row-excluir') && !arq.querySelector('.row-ordem');
     } else {
       r.opcoes = []; r.semExcluir = false;
@@ -2580,8 +2556,8 @@ try {
     && pasta.nomes[0] === 'A audio.mp3',
     'e o corpo só é montado ao ABRIR (fechada não desenha arquivo nenhum), em '
     + 'ordem de NOME', JSON.stringify([pasta.fechada, pasta.nomes]));
-  checar(!pasta.erro && pasta.opcoes.length === 4
-    && pasta.opcoes[pasta.opcoes.length - 1] === 'Favoritar' && pasta.semExcluir,
+  checar(!pasta.erro && pasta.opcoes.length === 5
+    && pasta.opcoes[3] === 'Favoritar' && pasta.semExcluir,
     'e cada arquivo abre as MESMAS opções da Biblioteca — com "Favoritar", que é '
     + 'o caminho de promovê-lo, e sem excluir nem reordenar',
     JSON.stringify(pasta.opcoes));
@@ -3629,6 +3605,7 @@ try {
       linhas: bloco ? bloco.querySelectorAll('.hymn-result').length : -1,
       texto: bloco ? bloco.textContent : '',
       vazio: bloco ? ((bloco.querySelector('.serie-destaque-vazio') || {}).textContent || '') : '',
+      atalho: bloco ? bloco.querySelectorAll('.serie-semana').length : 0,
     });
     const r = {};
     // (1) e (2): COM o episódio do sábado.
@@ -3658,7 +3635,9 @@ try {
     'e ele SAI da lista — "separado" é literal: duas linhas que fazem a mesma '
     + 'coisa, a dois centímetros uma da outra, é a de baixo que o operador toca '
     + 'por engano', JSON.stringify(dest.listaCom));
-  checar(dest.sem.existe && dest.sem.linhas === 0
+  // A LINHA QUE SOBRA É A DO ATALHO (v1.13.34), não um episódio: "Aguardando
+  // lançamento", com a gaveta do atalho universal.
+  checar(dest.sem.existe && dest.sem.linhas === 1 && dest.sem.atalho === 1
     && /Aguardando lançamento/.test(dest.sem.vazio),
     'sem o episódio da semana, o bloco diz "Aguardando lançamento" — sem ele, um '
     + 'card sem o vídeo do sábado fica indistinguível de um que não carregou',
@@ -4756,65 +4735,60 @@ try {
       await Promise.all((gav ? gav.getAnimations() : []).map((an) => an.finished.catch(() => {})));
       await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
     }
-    const linhaGo = li.querySelector('.song-menu-go-row');
-    const go = linhaGo && linhaGo.querySelector('.song-menu-go');
+    // A FAIXA TEM FILEIRA PRÓPRIA DESDE A v1.13.34: o Confirmar ao lado dela saiu
+    // com os destinos em botões diretos, e ela desceu para baixo da fileira deles.
+    const linhaGo = li.querySelector('.fav-acoes-row');
     const fx = linhaGo && linhaGo.querySelector(':scope > .fav-acoes');
-    if (!go || !fx) return { erro: 'confirmar ou faixa fora da linha de fecho' };
+    const destinos = li.querySelector('.hymn-opcoes > .dest-botoes');
+    if (!fx || !destinos) return { erro: 'faixa ou destinos fora do lugar' };
     const cx = (el) => el.getBoundingClientRect();
     const bs = [...fx.querySelectorAll('.row-btn')];
+    // A RECEITA DE ALTURA, lida do layout: `--hit` mais o recuo vertical de uma
+    // opção, a mesma do par da pergunta e do campo de renomear.
+    const receita = (() => {
+      const cs = getComputedStyle(li.querySelector('.hymn-gaveta'));
+      const hit = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hit'));
+      const v = parseFloat(cs.getPropertyValue('--opcao-recuo-v')) || 0;
+      const sp = document.createElement('div'); sp.style.height = 'var(--opcao-recuo-v)';
+      li.querySelector('.hymn-gaveta').appendChild(sp);
+      const vPx = sp.getBoundingClientRect().height; sp.remove();
+      return Math.round(hit + 2 * (vPx || v));
+    })();
     const r = {
-      // 1. MESMA LINHA — a faixa é irmã do confirmar, não um bloco solto no pé.
+      // 1. FILEIRA PRÓPRIA, abaixo dos destinos — e não solta no pé da gaveta.
       mesmaLinha: true,
       soltaNaGaveta: !!li.querySelector(':scope > .hymn-gaveta > .fav-acoes'),
-      // 2. O CONFIRMAR VEM DEPOIS (v5.307 — era antes), e cresce: ele é a
-      //    decisão principal, e a que se acha sem mirar é a do CANTO. A medida é
-      //    de GEOMETRIA e não de ordem no DOM de propósito: um `order` ou um
-      //    `row-reverse` passaria numa checagem de índice e continuaria com a
-      //    ordem de FOCO invertida numa faixa que tem um destrutivo.
-      confirmarADireita: Math.round(cx(go).left) >= Math.round(cx(bs[bs.length - 1]).right),
-      // E A ORDEM DO DOM CONCORDA com a da tela.
-      domConcorda: [...linhaGo.children].indexOf(fx) < [...linhaGo.children].indexOf(go),
-      confirmarCresce: Math.round(cx(go).width) > Math.round(cx(bs[0]).width),
-      // 3. UMA ALTURA SÓ.
-      alturaGo: Math.round(cx(go).height),
+      abaixoDosDestinos: Math.round(cx(fx).top) >= Math.round(cx(destinos).bottom) - 1,
+      // 2. ENCOSTADA À DIREITA, como ficava ao lado do Confirmar.
+      aDireita: Math.abs(Math.round(cx(fx).right) - Math.round(cx(linhaGo).right)) <= 1,
+      // 3. UMA ALTURA SÓ, a da receita.
+      alturaGo: receita,
       alturasBotoes: bs.map((b) => Math.round(cx(b).height)),
-      // 4. E A LARGURA DOS QUADRADOS NÃO ENCOLHEU: o pedido era de altura.
-      //    Medida contra a CAPA da própria linha, nunca contra um número: a
-      //    regra do app é "uma medida para os quadrados da linha (`--thumb`) —
-      //    capa, botões e `⋮`", e um piso em pixel aprovaria um encolhimento
-      //    silencioso (e ainda imprimiria o número errado na mensagem de ok).
+      // 4. E A LARGURA DOS QUADRADOS NÃO ENCOLHEU: medida contra a CAPA da
+      //    própria linha, nunca contra um número.
       larguras: bs.map((b) => Math.round(cx(b).width)),
       larguraDaCapa: Math.round(cx(li.querySelector(':scope > .row > .thumb')).width),
       ordem: bs.map((b) => (b.className.match(/row-(excluir|renomear|ordem)/) || [''])[0]),
     };
-    // 5. E ELA SOBREVIVE À REMONTAGEM DA FOLHA: `renderItemMenu` refaz a lista a
-    //    cada marca, e uma faixa NOVA perderia os ouvintes — e apagaria uma
-    //    confirmação de exclusão aberta, deixando a lixeira na miniatura sem
-    //    nenhum botão que a explicasse.
-    const opcao = [...li.querySelectorAll('.hymn-opcoes .song-menu-btn')]
-      .find((b) => /playlist/i.test(b.textContent));
-    if (opcao) {
-      opcao.click();
-      await new Promise((f) => setTimeout(f, 200));
-      r.sobreviveuAoRedesenho = !!li.querySelector('.song-menu-go-row > .fav-acoes .row-excluir');
+    // 5. E ELA SOBREVIVE À REMONTAGEM DA GAVETA: uma faixa NOVA perderia os
+    //    ouvintes — e apagaria uma confirmação de exclusão aberta, deixando a
+    //    lixeira na miniatura sem nenhum botão que a explicasse.
+    if (typeof destRemontar === 'function') {
+      destRemontar();
+      await new Promise((f) => setTimeout(f, 50));
+      r.sobreviveuAoRedesenho = li.querySelector('.fav-acoes-row > .fav-acoes') === fx
+        && !!fx.querySelector('.row-excluir');
     }
-    // 6. ENQUANTO A LINHA PERGUNTA, o confirmar da folha SAI: dois botões de
-    //    confirmar lado a lado diriam coisas opostas.
+    // 6. ENQUANTO A LINHA PERGUNTA, a fileira dos destinos continua no lugar e a
+    //    faixa não pula: o par mede a receita.
     li.querySelector('.fav-acoes .row-excluir').click();
     await new Promise((f) => setTimeout(f, 250));
-    const go2 = li.querySelector('.song-menu-go-row .song-menu-go');
-    r.confirmarSomeAoPerguntar = !go2 || getComputedStyle(go2).display === 'none';
     const par = [...li.querySelectorAll('.linha-confirma-btn')];
     r.alturasDoPar = par.map((b) => Math.round(b.getBoundingClientRect().height));
+    r.destinosFicam = !!li.querySelector('.hymn-opcoes > .dest-botoes');
     li.querySelector('.linha-nao').click();
     await new Promise((f) => setTimeout(f, 250));
-    const go3 = li.querySelector('.song-menu-go-row .song-menu-go');
-    r.confirmarVolta = !!go3 && getComputedStyle(go3).display !== 'none';
-    // 7. E O CAMPO DE RENOMEAR TEM A MESMA ALTURA (v1.4.29). Ele nasceu na
-    //    v1.4.25 e ficou de fora da regra que a v5.309 escreveu para o par:
-    //    MEDIDO, 34px contra os 53,2px do confirmar ao lado — o MESMO pulo de
-    //    19px sob o dedo, no caminho que nasceu depois. Medido como IGUALDADE
-    //    contra o confirmar, nunca contra um número escrito aqui.
+    // 7. E O CAMPO DE RENOMEAR TEM A MESMA ALTURA (v1.4.29).
     li.querySelector('.fav-acoes .row-renomear').click();
     await new Promise((f) => setTimeout(f, 250));
     const campoFav = li.querySelector('.linha-renome-campo');
@@ -4825,46 +4799,38 @@ try {
     await new Promise((f) => setTimeout(f, 200));
     return r;
   }, fav.ids);
-  checar(!faixa.erro && faixa.mesmaLinha && faixa.soltaNaGaveta === false,
-    'A FAIXA DE AÇÕES DIVIDE A LINHA COM O CONFIRMAR (v5.302) — ela era um bloco '
-    + 'próprio no pé da gaveta, duas faixas empilhadas para o que cabe numa',
-    JSON.stringify(faixa));
-  checar(!faixa.erro && faixa.confirmarADireita && faixa.domConcorda && faixa.confirmarCresce,
-    'com o confirmar À DIREITA dela (v5.307) e crescendo — e a ordem do DOM '
-    + 'concordando com a da tela, senão o foco anda ao contrário numa faixa que '
-    + 'tem um destrutivo', JSON.stringify(faixa));
+  checar(!faixa.erro && faixa.soltaNaGaveta === false && faixa.abaixoDosDestinos,
+    'A FAIXA DE AÇÕES TEM FILEIRA PRÓPRIA, abaixo dos destinos em botões diretos (v1.13.34) — '
+    + 'o Confirmar com que ela dividia a linha saiu', JSON.stringify(faixa));
+  checar(!faixa.erro && faixa.aDireita,
+    'e ela encosta à DIREITA da fileira, como ficava ao lado do Confirmar', JSON.stringify(faixa));
   checar(!faixa.erro && faixa.alturasBotoes.length > 0
-      && faixa.alturasBotoes.every((h) => h === faixa.alturaGo),
-    'e TODOS na mesma altura (' + (faixa.alturaGo || 0) + 'px) — os botões traziam '
-    + '`--thumb` fixo e ficariam boiando no meio da linha',
+      && faixa.alturasBotoes.every((h) => Math.abs(h - faixa.alturaGo) <= 1),
+    'e TODOS na mesma altura (' + (faixa.alturaGo || 0) + 'px, `--hit` mais o recuo de uma '
+    + 'opção) — os botões traziam `--thumb` fixo e ficariam boiando no meio da linha',
     JSON.stringify(faixa));
   checar(!faixa.erro && faixa.larguras.length > 0
       && faixa.larguras.every((w) => w === faixa.larguraDaCapa),
     'sem encolher a LARGURA deles: cada quadrado mede a CAPA da própria linha ('
     + (faixa.larguraDaCapa || 0) + 'px), que é a regra do app para os quadrados '
-    + 'da linha — o pedido era de altura, e estreitar o alvo trocaria um acerto '
-    + 'por um erro', JSON.stringify(faixa));
+    + 'da linha', JSON.stringify(faixa));
   checar(!faixa.erro && JSON.stringify(faixa.ordem)
       === JSON.stringify(['row-excluir', 'row-renomear', 'row-ordem', 'row-ordem']),
     'e a ORDEM é a mesma do Cronograma sem os que não existem nesta lista: '
     + 'excluir · renomear · ↑ · ↓', JSON.stringify(faixa.ordem));
   checar(!faixa.erro && faixa.sobreviveuAoRedesenho === true,
-    'a faixa é o MESMO nó a cada remontagem da folha — uma nova perderia os '
+    'a faixa é o MESMO nó a cada remontagem da gaveta — uma nova perderia os '
     + 'ouvintes e apagaria uma confirmação de exclusão aberta',
     JSON.stringify(faixa));
-  checar(!faixa.erro && faixa.confirmarSomeAoPerguntar === true && faixa.confirmarVolta === true,
-    'e enquanto a linha PERGUNTA o confirmar da folha sai de cena: dois botões '
-    + 'de confirmar lado a lado diriam coisas opostas (volta inteiro no Cancelar)',
-    JSON.stringify(faixa));
-  checar(!faixa.erro && faixa.alturaCampo === faixa.alturaGo
-      && faixa.alturaOk === faixa.alturaGo,
-    'e o CAMPO DE RENOMEAR também (v1.4.29) — ele nasceu na v1.4.25 fora desta '
-    + 'regra, com o MESMO pulo de 19px sob o dedo que a v5.309 tinha corrigido '
-    + 'para a pergunta da exclusão (' + faixa.alturaCampo + 'px contra '
-    + faixa.alturaGo + 'px do confirmar)', JSON.stringify(faixa));
+  checar(!faixa.erro && faixa.destinosFicam === true,
+    'e enquanto a linha PERGUNTA a fileira de destinos continua no lugar', JSON.stringify(faixa));
+  checar(!faixa.erro && Math.abs(faixa.alturaCampo - faixa.alturaGo) <= 1
+      && Math.abs(faixa.alturaOk - faixa.alturaGo) <= 1,
+    'e o CAMPO DE RENOMEAR também (v1.4.29) mede a altura da faixa ('
+    + faixa.alturaCampo + 'px contra ' + faixa.alturaGo + 'px) — sem pulo sob o dedo', JSON.stringify(faixa));
   checar(!faixa.erro && (faixa.alturasDoPar || []).length === 2
-      && faixa.alturasDoPar.every((h) => h === faixa.alturaGo),
-    'com o par Cancelar/Excluir na altura do botão que ele substitui — sem isso '
+      && faixa.alturasDoPar.every((h) => Math.abs(h - faixa.alturaGo) <= 1),
+    'com o par Cancelar/Excluir na altura da faixa — sem isso '
     + 'a gaveta dá um pulo sob o dedo ao perguntar. (A CONTAGEM entra na guarda: '
     + 'um `[].every()` é `true`, e sem ela o caso passaria justamente quando o '
     + 'par deixasse de existir.)', JSON.stringify(faixa.alturasDoPar));
@@ -4908,11 +4874,12 @@ try {
         await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
       }
     };
-    const marcar = async (li, texto) => {
-      const o = [...li.querySelectorAll('.hymn-opcoes .song-menu-btn')]
-        .find((x) => new RegExp(texto, 'i').test(x.textContent));
-      if (!o) return false;
-      o.click();
+    // "MEXER NA GAVETA" é REMONTÁ-LA: até a v1.13.32 era marcar um destino (que
+    // remontava); com os botões diretos, quem remonta é o `destRemontar` da
+    // gaveta aberta — o mesmo caminho, sem o efeito de mandar o item a uma lista.
+    const marcar = async () => {
+      if (typeof destRemontar !== 'function') return false;
+      destRemontar();
       await new Promise((f) => setTimeout(f, 200));
       return true;
     };
@@ -4925,7 +4892,7 @@ try {
     a.querySelector('.fav-acoes').dataset.dono = a.dataset.id;
     b.querySelector('.fav-acoes').dataset.dono = b.dataset.id;
     await abrir(a);
-    await marcar(a, 'playlist');
+    await marcar(a);
     const faixaDe = (li) => {
       const fx = li.querySelector('.song-menu-go-row > .fav-acoes');
       return fx ? (fx.dataset.dono || '') : null;
@@ -4950,14 +4917,13 @@ try {
     r.lixeiraEmB = !!b.querySelector('.fav-acoes .linha-confirma > .row-slot--del');
     a.querySelector('.linha-nao').click();
     await new Promise((f) => setTimeout(f, 220));
-    // ---- 2. CONFIRMAR e depois mexer na MESMA gaveta ----
+    // ---- 2. EXECUTAR UM DESTINO e depois mexer na MESMA gaveta ----
     // `closeSongMenu()` anula o global; a gaveta do acordeão continua aberta.
     await abrir(a);
-    await marcar(a, 'playlist');
-    const go = a.querySelector('.song-menu-go');
+    const go = a.querySelector('.dest-btn[data-dest="playlist"]');
     if (go && !go.disabled) { go.click(); await new Promise((f) => setTimeout(f, 350)); }
     const a2 = document.querySelector('[data-fav-corpo] .fav-itens > .lib-item');
-    await marcar(a2, 'Cronograma');
+    await marcar(a2);
     const fx2 = a2.querySelector('.song-menu-go-row > .fav-acoes');
     // POSSE de novo, e não presença: a faixa que sobrou tem de ser A DELA.
     r.faixaSobreviveuAoConfirmar = !!fx2 && !!fx2.querySelector('.row-excluir')
@@ -5179,7 +5145,7 @@ try {
       r.naPasta = !arqPasta.querySelector('.row-renomear');
       // E a metade NEGATIVA da metade negativa: a gaveta daquela linha ABRIU e
       // tem opções — sem isto, uma gaveta que não abrisse passaria.
-      r.pastaTemGaveta = arqPasta.querySelectorAll('.hymn-opcoes .song-menu-sel').length > 0;
+      r.pastaTemGaveta = arqPasta.querySelectorAll('.hymn-opcoes .dest-btn').length > 0;
     }
     closeHymnSearch();
     await load();

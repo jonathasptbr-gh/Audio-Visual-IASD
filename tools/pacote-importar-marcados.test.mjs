@@ -670,14 +670,14 @@ try {
   const j = await aparelho(saida);
   const jLista = await j.pg.evaluate(async () => {
     pacotePronto = { bytes: 1234 };            // exportado e ainda não enviado: a lista fica travada
-    destLimpar(); destPadraoTocar();           // o que abrir a gaveta de um item faz à folha de destinos
+    destLimpar(); destMarcados.add('tocar');   // uma folha de destinos com uma marca (a do YouTube)
     abrirSecao('pacote');
     return null;
   });
   await esperar(j.pg, () => !!document.querySelector('#pacoteLista li'), null, 60000);
   const jMarcas = await marcadas(j.pg);
   checar(Object.keys(jMarcas).length >= 4 && Object.values(jMarcas).every(Boolean),
-    'J · com um pacote PRONTO, abrir a gaveta de um item e depois o Transferir mostra a lista TODA marcada '
+    'J · com um pacote PRONTO, marcar uma folha de destinos e depois o Transferir mostra a lista TODA marcada '
     + '(a folha de destinos não tem como apagar as marcas da janela)', JSON.stringify({ jLista, jMarcas }));
   // descarta o pronto SEM reabrir a janela e importa: tudo marcado, o pacote inteiro entra
   await j.pg.evaluate(() => { pacotePronto = null; pacoteRenderTiles(); window.__fim = null; });

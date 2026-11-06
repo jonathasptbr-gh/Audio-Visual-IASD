@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.33';
+const WEB_VERSION = '1.13.34';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4813,8 +4813,10 @@ function thumbEl(item) {
     miniaturaDesenhadaPendente.add(item.id);
     t.classList.add('thumb--icon', 'thumb--espera');
   } else {
-    t.appendChild(msym(item.kind === 'audio' ? ICON.music
-      : (item.kind === 'semana' ? ICON.play : ICON.broken)));
+    // O ITEM DA SEMANA É UM VÍDEO, e a miniatura diz o TIPO (v1.13.34): o ▶ que
+    // ele vestia lia como um botão, num canto que não é alvo.
+    if (item.kind === 'semana') t.innerHTML = icoSprite('icoVideo');
+    else t.appendChild(msym(item.kind === 'audio' ? ICON.music : ICON.broken));
     t.classList.add('thumb--icon');
   }
   return t;
@@ -12947,9 +12949,8 @@ function renderCollectionCard(coll, ctx) {
     if (u.semanaAdiada && rotinaDeAcervoPodeCorrer()) setTimeout(() => verificarSemanaAoAbrir(coll), 0);
 
     // O DESTAQUE DO SÁBADO, acima da lista e só na série (ver `blocoDestaque`).
-    // A PORTA DO "VÍDEO DA SEMANA" (v1.13.13), no topo — ver `semanaLinha`.
-    const semana = semanaLinha(coll);
-    if (semana) aberto.appendChild(semana);
+    // É nele que mora o "vídeo da semana" desde a v1.13.34 — a OPÇÃO "Atalho
+    // universal" da gaveta do episódio deste sábado (`openYtMenu`).
     const dest = blocoDestaque(coll);
     if (dest) aberto.appendChild(dest);
 
@@ -13467,13 +13468,14 @@ function blocoDestaque(coll) {
     // alvo que a lista já define, sem uma segunda folha para manter em dia.
     const ul = document.createElement('ul');
     ul.className = 'coll-songs serie-destaque-lista';
-    ul.appendChild(hymnResultRow(coll, d.song, null, true));
+    ul.appendChild(hymnResultRow(coll, d.song, null, true, { destaque: true }));
     cx.appendChild(ul);
   } else {
-    const vazio = document.createElement('div');
-    vazio.className = 'serie-destaque-vazio';
-    vazio.textContent = 'Aguardando lançamento';
-    cx.appendChild(vazio);
+    // SEM O EPISÓDIO, A LINHA DIZ "Aguardando lançamento" e a gaveta dela é a do
+    // atalho universal — o único destino que já existe antes de o vídeo sair (é
+    // o que deixa o Cronograma ser montado durante a semana).
+    const linha = semanaLinha(coll);
+    if (linha) cx.appendChild(linha);
   }
   return cx;
 }
@@ -13969,39 +13971,29 @@ function linhaDeItem(item, opts) {
   // A ORDEM É A MESMA DA FILEIRA DO CRONOGRAMA (v5.302), *"com a ressalva de não
   // contar com os itens que não existem naquela lista"*: excluir · renomear ·
   // ↑ · ↓. Faltam a ESTRELA (nesta lista ela e a lixeira terminam no mesmo
-  // `listRemove('favs')` — ver acima) e o botão da PLAYLIST, que aqui é uma
-  // LINHA da folha de destinos logo acima, com caixa de marcação.
+  // `listRemove('favs')` — ver acima) e o botão da PLAYLIST, que aqui é um
+  // BOTÃO da fileira de destinos logo acima.
   const depoisDeMexer = cfg.depoisDeExcluir || (() => load());
   const acoes = document.createElement('div');
   acoes.className = 'fav-acoes';
-  // ELA FICA À ESQUERDA DO CONFIRMAR, que é onde TODO irmão fica desde a v1.4.7
-  // — ver `destConfirmRow`. Até lá o lado era escolha do dono da faixa
-  // (`data-antes`), e um irmão que não a fizesse caía do outro lado: era essa a
-  // divergência entre os Favoritos e o resto da Biblioteca.
   acoes.append(...(lista ? [
     botaoExcluirDaLinha(item, lista, depoisDeMexer),
     botaoRenomearDaLinha(item, depoisDeMexer),
     ...botoesDeOrdem(lista, item.id, pos, total),
   ] : []).filter(Boolean));
   gaveta.append(opcoes);
-  // ===== A FAIXA DIVIDE A LINHA COM O CONFIRMAR (v5.302) =====
+  // ===== A FAIXA TEM FILEIRA PRÓPRIA, ABAIXO DOS DESTINOS (v1.13.34) =====
   //
-  // Ela era um bloco PRÓPRIO no pé da gaveta, logo abaixo da linha do confirmar
-  // — duas faixas empilhadas para o que cabe numa, e a gaveta inteira mais alta
-  // por isso, num acordeão cuja regra é manter a decisão sob o dedo.
-  //
-  // Quem a leva para lá é o hook `aoLado` que a v5.286 abriu para o "Ver a
-  // letra": a `.song-menu-go-row` já é um flex de dois filhos em que o confirmar
-  // CRESCE e o irmão fica com o que precisa. Nenhum mecanismo novo.
+  // Ela dividia a linha com o Confirmar, que saiu com os destinos em botões
+  // diretos (`destBotoesRow`). Quem a põe na gaveta é o `renderItemMenu`.
   //
   // O NÓ É O MESMO A CADA REMONTAGEM, e isto não é economia: `renderItemMenu`
-  // refaz a lista a cada marca (`alvo.innerHTML = ''`), e devolver uma faixa
-  // NOVA perderia os ouvintes e, pior, apagaria uma confirmação de exclusão
-  // aberta — deixando a lixeira na miniatura sem nenhum botão que a explique.
-  // Devolvendo o mesmo nó, o `appendChild` apenas o MOVE.
+  // refaz a lista (`alvo.innerHTML = ''`), e devolver uma faixa NOVA perderia os
+  // ouvintes e, pior, apagaria uma confirmação de exclusão aberta — deixando a
+  // lixeira na miniatura sem nenhum botão que a explique. Devolvendo o mesmo nó,
+  // o `appendChild` apenas o MOVE.
   //
-  // Sem lista não há faixa: `null` faz o confirmar ocupar a linha sozinho, que é
-  // o desenho de sempre (a pasta do aparelho não tem o que oferecer aqui).
+  // Sem lista não há faixa (a pasta do aparelho não tem o que oferecer aqui).
   const aoLado = () => (acoes.childElementCount ? acoes : null);
 
   function abrir() {
@@ -14016,20 +14008,9 @@ function linhaDeItem(item, opts) {
     }
     // ===== REABRIR REMONTA A GAVETA =====
     //
-    // A folha inteira vive em globais de MÓDULO — `songMenuFor`, `destExecutor`,
-    // `destRemontar` e o Set `destMarcados` —, e há no máximo uma gaveta aberta
-    // por vez. Abrir a linha B reescreve os QUATRO. A v5.302 reapontava só o
-    // `songMenuFor` ao reabrir a linha A já montada, e os outros três seguiam
-    // sendo os de B: o DOM de A na tela, "Confirmar" na linha de A, e o
-    // `destExecutor` de B executando. Como "Tocar agora" nasce marcado
-    // (`destPadraoTocar`), bastava abrir A, espiar B e voltar a A — o item B ia
-    // ao Cronograma e ao TELÃO. Remontar repõe os quatro de uma vez.
-    //
-    // E é isto que torna verdadeira a regra escrita no `destMarcados`: *"o
-    // conjunto é da FOLHA ABERTA, não do item: ele nasce vazio a cada abertura"*.
-    // As marcas nunca foram por linha — o `destLimpar()` de `renderItemMenu` já
-    // as zerava ao abrir a vizinha; o que faltava era o DESENHO de A concordar
-    // com isso em vez de exibir caixas marcadas que não existiam mais.
+    // A gaveta vive em globais de MÓDULO (`songMenuFor`, `destRemontar`), e há
+    // no máximo uma aberta por vez: abrir a linha B os reescreve, e reabrir A sem
+    // remontar deixaria os de B valendo sob o DOM de A. Remontar repõe tudo.
     //
     // Remontar é seguro porque a faixa de ações é o MESMO nó a cada montagem (o
     // `aoLado` devolve `acoes`): o `alvo.innerHTML = ''` de `renderItemMenu` não
@@ -14053,9 +14034,8 @@ function linhaDeItem(item, opts) {
     // é "tira isto do telão". A gaveta só abre quando não há nada a desfazer.
     //
     // MAS ELE TAMBÉM COLAPSA A GAVETA JÁ ABERTA, e sem isto ela não tinha como
-    // fechar: o "Tocar agora" nasce marcado (`destPadraoTocar`), então confirmar
-    // na própria gaveta põe o item no ar SEM colapsá-la (`closeSongMenu` é da
-    // FOLHA, não da linha), e daí todo toque cai neste `return`. A marca
+    // fechar: o "Tocar agora" da própria gaveta põe o item no ar SEM colapsá-la,
+    // e daí todo toque cai neste `return`. A marca
     // `.lib-item.expanded` presa para sempre é o que `interacaoAbertaNoAcervo`
     // lê como "há interação aberta" — e o progresso do download deixava de
     // chegar à tela pelo resto da sessão.
@@ -14100,72 +14080,47 @@ function linhaDeItem(item, opts) {
 // favorito, e quem o tira de lá é a LIXEIRA da faixa de ações (a estrela saiu
 // dela na v5.288 — nesta lista as duas terminavam no mesmo `listRemove`).
 //
-// O resto é a MESMA maquinaria — `songMenuItem` com `destino`, `destExecutor`,
-// `destRemontar` e `destConfirmRow` —, pelo motivo de sempre: uma segunda lista
-// de destinos com a mesma anatomia divergiria da primeira no próximo ajuste.
-/**
- * ===== "TOCAR AGORA" NASCE MARCADO (v1.1.8) =====
- *
- * O que isso muda de fato é o caso de DOIS destinos: com o telão já marcado,
- * tocar em "Adicionar ao Cronograma" projeta E guarda no mesmo toque, sem
- * precisar marcar a caixa do "Tocar agora" antes. E a linha de CONFIRMAR nasce
- * na tela (ela aparece com pelo menos um marcado), então a gaveta abre já
- * respondível.
- *
- * **Só onde a mídia É LOCAL.** A folha do YouTube (`openYtMenu`) fica de fora de
- * propósito: ali "Tocar agora" BAIXA o vídeo inteiro antes de projetar
- * (`ytArquivo`, v1.7.7), e as três linhas de lista significam o mesmo download.
- * Marcado por padrão, um toque em "Favoritar" começaria uma transferência de
- * centenas de MB na frente da congregação por um destino que não pedia
- * projeção nenhuma. Aqui os bytes já
- * estão no aparelho e o pior caso é uma faixa entrando em cena, que é o que o
- * operador está fazendo de qualquer jeito.
- *
- * Desmarcar continua sendo um toque na linha, como em qualquer destino — o que
- * muda é de qual lado a gaveta começa.
- */
-function destPadraoTocar() { destMarcados.add('tocar'); }
+// O resto é a MESMA fileira de botões diretos do acervo (`destBotoesRow`), pelo
+// motivo de sempre: uma segunda anatomia divergiria da primeira no próximo ajuste.
 
 function renderItemMenu(item, alvo, destinos, aoLado) {
   destLimpar();
-  destPadraoTocar();
-  // `aoLado` é o irmão do confirmar (v5.286, hoje a faixa de ações da linha —
-  // ver `linhaDeItem`). Ele viaja no ESTADO, e não como argumento de
-  // `destConfirmRow`, porque quem monta a linha de fecho é a folha e ela não
-  // conhece o dono da gaveta.
-  songMenuFor = { item, alvo, aoLado };
+  // `aoLado` devolve a faixa de ações da linha (ver `linhaDeItem`).
+  songMenuFor = { item, alvo };
   // QUAIS destinos, e por que isto é parâmetro (v5.290): numa linha de FAVORITO
   // "Favoritar" seria uma opção que não muda nada — o item já está lá —, e numa
   // linha de arquivo da PASTA DO APARELHO ela é justamente o caminho de promover
   // o arquivo para os favoritos. Uma escolha que não faz nada é pior que escolha
   // nenhuma, e por isso quem sabe a resposta é quem monta a linha.
   const quais = destinos || ['playlist', 'cronograma'];
+  // UM TOQUE, UMA AÇÃO (v1.13.34) — ver `destBotoesRow`. "Tocar agora" projeta;
+  // cada destino põe o MESMO registro na lista dele.
+  const fazer = (chave, btn) => (chave === 'tocar'
+    ? projetarItem(item)
+    : adicionarNasListas([listaDoDestino(chave)], item.id, btn));
+  // O AUXILIAR DE LEITURA de um registro com letra é a mesma folha do transporte,
+  // apontada para ELE e sem projetar nada.
+  const temLetraNoItem = Array.isArray(item.lyrics) && item.lyrics.some((l) => l && l.text);
   const desenhar = () => {
     alvo.innerHTML = '';
     destRemontar = desenhar;
-    destExecutor = async (alvos, btn) => {
-      const marcados = alvos || [];
-      const listas = marcados.filter((a) => a !== 'tocar');
-      // O TELÃO VEM PRIMEIRO quando marcado, como em `renderSongMenu`: é a
-      // única metade que o operador está esperando ver acontecer.
-      if (marcados.includes('tocar')) await projetarItem(item);
-      if (listas.length) {
-        await adicionarNasListas(listasDosDestinos(listas), item.id, btn);
-      }
-    };
-    alvo.appendChild(songMenuItem(msym(ICON.play), 'Tocar agora',
-      'Sem entrar em lista nenhuma',
-      (vr, btn, alvos) => destExecutor(alvos, btn), 'tocar', desenhar));
-    // O QUE A GAVETA OFERECE VEM DE `cfg.destinos`; A ORDEM VEM DA TABELA
-    // (v1.8.56). Aqui morava a quarta cópia da tríade — um mapa `LINHA` com
-    // ícone e rótulo —, e era ela que fazia a gaveta divergir da folha ao lado.
-    destinosNaOrdem(quais).forEach((d) => {
-      alvo.appendChild(songMenuItem(msym(ICON[d.ico]), d.acao, '',
-        (vr, btn, alvos) => destExecutor(alvos, btn), d.chave, desenhar));
-    });
-    // O IRMÃO VEM DO FECHO, nunca do global — ver a nota em `destConfirmRow`.
-    const go = destConfirmRow(aoLado);
-    if (go) porFecho(alvo, go);
+    destExecutor = null;
+    alvo.appendChild(destBotoesRow([
+      ...destBotoesPadrao(quais, fazer),
+      destBotaoLeitura(temLetraNoItem ? () => openLyricsPopup(item) : null, 'este item não tem letra'),
+    ]));
+    // A FAIXA DE AÇÕES (excluir, renomear, ↑↓) ganha a fileira dela, logo abaixo:
+    // ela dividia a linha com o Confirmar, que saiu. O NÓ É O MESMO a cada
+    // remontagem (o `aoLado` devolve sempre a mesma `.fav-acoes`): o
+    // `appendChild` o MOVE, e ouvintes e uma confirmação de exclusão aberta
+    // sobrevivem.
+    const irmao = typeof aoLado === 'function' ? aoLado() : null;
+    if (irmao) {
+      const fileira = document.createElement('li');
+      fileira.className = 'song-menu-go-row fav-acoes-row';
+      fileira.appendChild(irmao);
+      alvo.appendChild(fileira);
+    }
   };
   desenhar();
 }
@@ -14395,7 +14350,23 @@ function alinharGrupoNoTopo(lista, nome) {
   if (!el) return;
   const topoLista = lista.getBoundingClientRect().top
     + parseFloat(getComputedStyle(lista).paddingTop || 0);
-  const dy = el.getBoundingClientRect().top - topoLista;
+  // ===== A BASE DO CARD DE CIMA PARA NA BORDA, NÃO O TOPO DESTE (v1.13.34) =====
+  //
+  // Pedido do operador: o card aberto ficava COLADO na fronteira da lista. O
+  // desconto é o VÃO real entre os dois cards, LIDO do layout (ele muda entre o
+  // Modo Fácil e o Avançado) — e nunca menor que a sombra de rolagem (`--veu-h`):
+  // rolado, a lista ganha a sombra do topo, e um vão mais baixo que ela some
+  // embaixo dela, com o topo do card de novo sob a sombra. No primeiro card não
+  // há vizinho: o desconto é zero e o topo vai à borda, como sempre.
+  const anterior = el.previousElementSibling;
+  let desconto = 0;
+  if (anterior && anterior.getBoundingClientRect().height) {
+    const vao = Math.max(0, el.getBoundingClientRect().top - anterior.getBoundingClientRect().bottom);
+    const sombra = lista.classList.contains('rola')
+      ? (parseFloat(getComputedStyle(lista).getPropertyValue('--veu-h')) || 0) : 0;
+    desconto = Math.max(vao, sombra);
+  }
+  const dy = el.getBoundingClientRect().top - topoLista - desconto;
   // Um pixel de folga: o arredondamento do layout produz sobras minúsculas, e
   // uma rolagem de meio pixel é um tranco sem destino.
   if (Math.abs(dy) <= 1) return;
@@ -21269,7 +21240,8 @@ async function semanaGuardar(cat, listas, btn) {
   return adicionarNasListas(listas, reg.id, btn);
 }
 
-// O que a folha da linha "Vídeo da semana" executa: as listas e/ou o "Tocar agora".
+// O que o atalho universal executa (a gaveta do episódio deste sábado, ou a do
+// "Aguardando lançamento"; o toque no Modo Fácil): as listas e/ou o "Tocar agora".
 async function semanaAcao(cat, alvos, btn) {
   const escolhas = [...new Set(typeof alvos === 'string' ? [alvos] : (alvos || []))];
   const listas = listasDosDestinos(escolhas.filter((d) => d !== 'tocar'));
@@ -21287,51 +21259,51 @@ async function semanaAcao(cat, alvos, btn) {
   }
 }
 
-// A FOLHA DA LINHA — a de um vídeo do YouTube (`openYtMenu`) sem os seletores de
-// forma e de qualidade: quem decide a forma é o episódio, na hora de tocar.
+// A GAVETA DO "AGUARDANDO LANÇAMENTO" — a do episódio deste sábado
+// (`openYtMenu`) com o seletor parado em "Atalho universal": "Este sábado" fica
+// APAGADO e diz por quê, e os destinos levam o item virtual. A mesma anatomia,
+// para a gaveta não mudar de cara entre a semana em que o vídeo saiu e a que não.
 function openSemanaMenu(cat, alvo) {
   if (!songMenuFor || songMenuFor.semana !== cat) {
     songMenuFor = { semana: cat, variant: 'full', alvo };
     destLimpar();
   }
   limparFolha(alvo);
-  const remontar = () => openSemanaMenu(cat, alvo);
-  destRemontar = remontar;
-  destExecutor = (alvos, btn) => semanaAcao(cat, alvos, btn);
-  alvo.appendChild(songMenuItem(msym(ICON.play), 'Tocar agora', 'O episódio desta semana',
-    (vr, btn, alvos) => semanaAcao(cat, alvos, btn), 'tocar', remontar));
-  DESTINOS.forEach((d) => {
-    alvo.appendChild(songMenuItem(msym(ICON[d.ico]), d.acao, '',
-      (vr, btn, alvos) => semanaAcao(cat, alvos, btn), d.chave, remontar));
-  });
-  const go = destConfirmRow();
-  if (go) porFecho(alvo, go);
+  destRemontar = () => openSemanaMenu(cat, alvo);
+  destExecutor = null;
+  alvo.appendChild(ytSegRow([['ep', 'Este sábado'], ['atalho', 'Atalho universal']], 'atalho',
+    () => {}, null, { ep: 'o episódio deste sábado ainda não saiu' }));
+  alvo.appendChild(destBotoesRow([
+    ...destBotoesPadrao(DESTINOS.map((d) => d.chave),
+      (chave, btn) => semanaAcao(cat, [chave], chave === 'tocar' ? null : btn)),
+    destBotaoDetalhes(null),
+  ]));
 }
 
 /**
- * A LINHA NO TOPO DO CARD DA SÉRIE: "Vídeo da semana (sempre o atual)". Abre a
- * gaveta de destinos — ela é a porta do item virtual no AVANÇADO. (No Modo Fácil o
- * card da série não existe desde a v1.13.15: o item mora na raiz, `blocoSemanasRaiz`,
- * e lá o toque toca.)
+ * A LINHA DO DESTAQUE QUANDO O EPISÓDIO DESTE SÁBADO AINDA NÃO SAIU (v1.13.34):
+ * "Aguardando lançamento", com a gaveta do atalho universal. Até a v1.13.32 o
+ * atalho era uma linha a mais no topo do card ("Vídeo da semana (sempre o
+ * atual)"); hoje ele é uma OPÇÃO da gaveta do episódio, e esta linha existe para
+ * ele continuar alcançável na semana em que não há episódio. (No Modo Fácil o card
+ * da série não existe desde a v1.13.15: o item mora na raiz, `blocoSemanasRaiz`.)
  */
 function semanaLinha(coll) {
   if (!coll || coll.kind !== 'serie' || !coll.serie || !window.AVSerie || !AVSerie.chaveDaSerie) return null;
   const cat = coll.serie;
   const ul = document.createElement('ul');
-  ul.className = 'coll-songs serie-semana-lista';
+  ul.className = 'coll-songs serie-destaque-lista';
   const li = document.createElement('li');
   li.className = 'lib-item hymn-result serie-semana';
   const row = document.createElement('div'); row.className = 'row hymn-row';
-  const play = document.createElement('span');
-  play.className = 'hymn-play-thumb'; play.setAttribute('aria-hidden', 'true');
-  play.appendChild(msym(ICON.play));
+  const tipo = miniaturaDeTipo('video');
   const info = document.createElement('div'); info.className = 'hymn-info';
-  const nome = document.createElement('span'); nome.className = 'row-name hymn-name';
-  nome.textContent = 'Vídeo da semana (sempre o atual)';
+  const nome = document.createElement('span'); nome.className = 'row-name hymn-name serie-destaque-vazio';
+  nome.textContent = 'Aguardando lançamento';
   const sub = document.createElement('span'); sub.className = 'hymn-sub';
-  sub.textContent = semanaSubtitulo(semanaRegistro(cat));
+  sub.textContent = 'Atalho universal: o episódio desta semana, quando sair';
   info.append(nome, sub);
-  row.append(play, info);
+  row.append(tipo, info);
   const gaveta = document.createElement('div'); gaveta.className = 'hymn-gaveta';
   const opcoes = document.createElement('ul'); opcoes.className = 'song-menu-list hymn-opcoes';
   gaveta.appendChild(opcoes);
@@ -21405,9 +21377,7 @@ function semanaLinhaRaiz(coll) {
   item.dataset.song = 'semana:' + reg.semana.chave;
   if (simpleLinhaSelecionada(item.dataset.song)) item.classList.add('selecionando');
   const row = document.createElement('div'); row.className = 'row hymn-row';
-  const play = document.createElement('span');
-  play.className = 'hymn-play-thumb'; play.setAttribute('aria-hidden', 'true');
-  play.appendChild(msym(ICON.play));
+  const play = miniaturaDeTipo('video');
   const info = document.createElement('div'); info.className = 'hymn-info';
   const nome = document.createElement('span'); nome.className = 'row-name hymn-name';
   nome.textContent = AVSerie.rotuloDaSerie(cat);
@@ -24214,6 +24184,7 @@ function medirBarraDaBiblioteca() {
     if (libOrientacaoMedida !== null && libEmPaisagem() !== libOrientacaoMedida) return;
     libAssentando = false;
     clearTimeout(libAssentarTimer);
+    document.body.classList.remove('lib-assentando');
   }
   const alturaDaBarra = libBarEl.offsetHeight;
   // Barra sem altura = folha ainda não montada, ou o app escondido. Escrever 0
@@ -24856,7 +24827,9 @@ function avisarResolucaoLimitada(entregue, teto) {
 // Cantada/Playback das músicas do acervo. Duas perguntas usam este formato
 // (forma e qualidade), e escrevê-lo duas vezes era garantir que a segunda
 // divergisse da primeira no primeiro ajuste de estilo.
-function ytSegRow(opcoes, atual, onPick, nota) {
+// `inativos` (opcional): `{ valor: motivo }` — o segmento fica APAGADO, com o
+// motivo no `title` (o "Este sábado" de uma semana sem episódio).
+function ytSegRow(opcoes, atual, onPick, nota, inativos) {
   const li = document.createElement('li'); li.className = 'song-menu-seg-row';
   // A LINHA PODE DIZER O QUE ELA GOVERNA, e uma delas precisa: a escala de
   // qualidade lê como "qualidade do download", e o operador não teria como saber
@@ -24872,7 +24845,9 @@ function ytSegRow(opcoes, atual, onPick, nota) {
     const b = document.createElement('button');
     b.className = 'fit-opt' + (atual === valor ? ' active' : '');
     b.textContent = rotulo;
-    b.addEventListener('click', () => onPick(valor));
+    const motivo = inativos && inativos[valor];
+    if (motivo) { b.disabled = true; b.title = rotulo + ' — ' + motivo; }
+    b.addEventListener('click', () => { if (!b.disabled) onPick(valor); });
     wrap.appendChild(b);
   });
   li.appendChild(wrap);
@@ -24887,7 +24862,8 @@ function openYtMenu(r, alvoDado) {
   // A qualidade nasce na PREFERÊNCIA do operador (`ytAlturaPadrao`, v1.7.7); a
   // forma nasce em "Vídeo" a cada item, como a variante das músicas.
   if (!songMenuFor || songMenuFor.yt !== r) {
-    songMenuFor = { yt: r, variant: 'full', audio: false, alt: ytAlturaPadrao(), alvo: alvoDado || null };
+    songMenuFor = { yt: r, variant: 'full', audio: false, alt: ytAlturaPadrao(), alvo: alvoDado || null,
+      semanaModo: 'ep' };
     // Item novo, folha nova: os destinos marcados são da FOLHA ABERTA e não
     // atravessam de um vídeo para o outro. (Os toques nos seletores de forma e
     // qualidade remontam a folha para o MESMO `r` e passam por aqui sem zerar
@@ -24900,6 +24876,21 @@ function openYtMenu(r, alvoDado) {
   const alvo = songMenuFor.alvo || songMenuListEl;
   if (!songMenuFor.alvo) songMenuTitleEl.textContent = r.name || 'Vídeo do YouTube';
   limparFolha(alvo);
+  // ===== O EPISÓDIO DESTE SÁBADO: "Este sábado" × "Atalho universal" (v1.13.34) =====
+  //
+  // Pedido do operador: o "vídeo da semana" deixou de ser uma linha a mais no
+  // topo do card da série e virou uma OPÇÃO da gaveta do episódio deste sábado.
+  // "Este sábado" é o arquivo deste episódio, como qualquer outro; "Atalho
+  // universal" é o item virtual (`semanaRegistro`), que resolve o episódio da
+  // semana NA HORA de tocar — um Cronograma montado hoje toca o da semana que
+  // vem. Os destinos levam o que estiver escolhido. A qualidade fica nos dois:
+  // escolher aqui é escolher o PADRÃO, e é ele que o atalho usa ao baixar.
+  const cat = r.__semanaCat || null;
+  if (cat && songMenuFor.alvo) {
+    alvo.appendChild(ytSegRow([['ep', 'Este sábado'], ['atalho', 'Atalho universal']],
+      songMenuFor.semanaModo || 'ep',
+      (v) => { songMenuFor.semanaModo = v; openYtMenu(r); }));
+  }
   // VÍDEO × SÓ ÁUDIO, no MESMO seletor de Cantada/Playback das músicas do
   // acervo — é a mesma pergunta ("qual faixa deste item?") e não havia por que
   // inventar um segundo desenho para ela. A escolha vale para as quatro ações
@@ -24969,6 +24960,20 @@ function openYtMenu(r, alvoDado) {
   // que é exatamente o que se faz com o louvor que acabou de chegar.
   const remontar = () => openYtMenu(r);
   destRemontar = remontar;
+  // NA GAVETA, UM TOQUE, UMA AÇÃO (v1.13.34) — ver `destBotoesRow`. O download é
+  // um só mesmo com toques separados: o `ytArquivo` divide o que está em curso.
+  if (songMenuFor.alvo) {
+    destExecutor = null;
+    const atalho = !!(cat && songMenuFor.semanaModo === 'atalho');
+    const fazer = (chave, btn) => (atalho
+      ? semanaAcao(cat, [chave], chave === 'tocar' ? null : btn)
+      : ytAcao(r, [chave], chave === 'tocar' ? null : btn, soAudio, altura));
+    alvo.appendChild(destBotoesRow([
+      ...destBotoesPadrao(DESTINOS.map((d) => d.chave), fazer),
+      destBotaoDetalhes(r.__detalhes || null),
+    ]));
+    return;
+  }
   destExecutor = (alvos, btn) => ytAcao(r, alvos, btn, soAudio, altura);
   // "Tocar agora" é o único desta folha que GUARDA NADA, e é isso que o rótulo
   // não diz — daí ele manter subtítulo enquanto os três destinos perderam o
@@ -25656,6 +25661,25 @@ async function detalhesDoVideo(id, url) {
   return det;
 }
 
+/**
+ * O QUADRADO DA ESQUERDA DE UMA FAIXA DIZ O TIPO, NUNCA "PLAY" (v1.13.34).
+ *
+ * Pedido do operador: o ▶ ali lia como BOTÃO, e o quadrado não é alvo desde a
+ * v5.285 — quem responde ao toque é a linha inteira. Ele fica porque hospeda o
+ * ANEL DE DOWNLOAD e segura a coluna que a lista alinha; o desenho passou a ser o
+ * do que a faixa É: a nota de uma música, o filme de um vídeo (episódio de série,
+ * link). `<span>` sem `title` e sem ouvinte, `aria-hidden`.
+ */
+function miniaturaDeTipo(tipo) {
+  const q = document.createElement('span');
+  q.className = 'hymn-play-thumb';
+  q.dataset.tipo = tipo;
+  q.setAttribute('aria-hidden', 'true');
+  if (tipo === 'musica') q.appendChild(msym(ICON.music));
+  else q.insertAdjacentHTML('beforeend', icoSprite('icoVideo'));
+  return q;
+}
+
 // ===== UMA LINHA, UM TOQUE, UMA GAVETA =====
 //
 // A linha era `[▶] [nome / subtítulo] [+]` — dois botões, cada um abrindo uma
@@ -25666,12 +25690,13 @@ async function detalhesDoVideo(id, url) {
 // 40 + 34 px mais os vãos numa linha de celular; o nome recebe isso de volta.
 //
 // A GAVETA É AS OPÇÕES, mais (num vídeo) o detalhe logo abaixo; numa música a
-// letra é o LEITOR, aberto pelo botão ao lado do confirmar — ver "A GAVETA DE
+// letra é o LEITOR, aberto pelo quinto botão da fileira — ver "A GAVETA DE
 // UMA MÚSICA É SÓ AS OPÇÕES" em `hymnResultRow`.
 //
 // `semColecao` = a linha já está DENTRO do card da coleção (acordeão do
 // acervo): repetir o nome do álbum em cada faixa é ruído.
-function hymnResultRow(coll, s, lyricHit, semColecao) {
+function hymnResultRow(coll, s, lyricHit, semColecao, opts) {
+  const opcs = opts || {};
   const li = document.createElement('li');
   li.className = 'lib-item hymn-result';
 
@@ -25695,11 +25720,9 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
   // altura e a coluna que a lista inteira alinha. `<span>`, sem `title` e sem
   // ouvinte: um alvo que não é alvo, num canto onde o dedo mira, seria pior que
   // não ter nada. Quem responde ao toque agora é a linha inteira.
-  const play = document.createElement('span');
-  play.className = 'hymn-play-thumb' + (songRowBusy.has(chave) ? ' busy' : '');
-  play.setAttribute('aria-hidden', 'true');
-  play.appendChild(msym(ICON.play));
-  // O anel de download convive com o ▶ no mesmo lugar: a classe `busy` troca
+  const play = miniaturaDeTipo(temLetra(coll) ? 'musica' : 'video');
+  if (songRowBusy.has(chave)) play.classList.add('busy');
+  // O anel de download convive com o ícone no mesmo lugar: a classe `busy` troca
   // qual dos dois aparece. Montá-lo aqui, e não na hora, é o que faz a marca
   // sobreviver ao redesenho da lista (o progresso da sincronização redesenha o
   // acervo a cada 400 ms).
@@ -25762,20 +25785,17 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
   if (!temLetra(coll)) gaveta.appendChild(conteudo);
   let gavetaMontada = false;
 
-  // AS OPÇÕES DA LINHA. Elas são exatamente as da folha que existia até a
-  // v5.284 — os mesmos executores, os mesmos destinos marcáveis, o mesmo
-  // confirmar —, escritas no corpo em vez de num popup. O que muda é o ALVO, e
-  // é por isso que nada aqui reimplementa nada: `renderSongMenu`/`openYtMenu`
-  // ganharam para onde escrever (`songMenuFor.alvo`).
+  // AS OPÇÕES DA LINHA: o seletor do QUÊ (variante, ou forma e qualidade num
+  // vídeo) e a fileira de botões diretos do ONDE (`destBotoesRow`, v1.13.34).
+  // Quem as monta é `renderSongMenu`/`openYtMenu`, com o corpo da linha por alvo
+  // (`songMenuFor.alvo`) — nada aqui reimplementa nada.
   //
   // UM EPISÓDIO DE SÉRIE desvia para a lista do YouTube (`openYtMenu`, v5.230):
-  // ali as escolhas são outras — o teto de qualidade — e o resto desta função
-  // monta justamente o que não se aplica a ele.
+  // ali as escolhas são outras — o teto de qualidade, e no episódio deste
+  // sábado o atalho universal.
   //
-  // `destLimpar()` a cada abertura: os destinos marcados são DESTA linha e não
-  // atravessam de um item para o outro. O acordeão fecha a linha anterior, então
-  // há no máximo uma gaveta aberta — é isso que deixa `songMenuFor`,
-  // `destExecutor` e `destRemontar` continuarem sendo um só.
+  // O acordeão fecha a linha anterior, então há no máximo uma gaveta aberta — é
+  // isso que deixa `songMenuFor` e `destRemontar` continuarem sendo um só.
   /**
    * Monta a metade de cima da gaveta. **Devolve `null` quando não há nada a
    * esperar, e uma Promise quando há** — e essa assimetria é deliberada.
@@ -25791,107 +25811,44 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
    */
   function montarOpcoes() {
     destLimpar();
-    // O BOTÃO IRMÃO do confirmar (v5.286): quem revela a metade de baixo da
-    // gaveta. Ele é recriado a cada remontagem da lista (o seletor de variante,
-    // cada marca de destino), então o ESTADO não pode morar nele — mora na
-    // classe do `li`, que sobrevive.
-    const aoLado = () => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'song-menu-btn song-menu-letra';
-      // NUMA MÚSICA O BOTÃO ABRE O LEITOR (v1.2.25), e não uma caixa de texto
-      // aqui embaixo: é a MESMA folha do transporte — letra, cifra, tom, corpo
-      // e rolagem —, apontada para esta faixa e SEM levar nada ao telão.
-      // Reusar, nunca reconstruir: uma segunda leitura divergiria da primeira
-      // no primeiro ajuste, e quem lesse por ela veria a versão de ontem.
-      if (temLetra(coll)) {
-        const cx = document.createElement('span');
-        cx.className = 'song-menu-label';
-        cx.textContent = 'Ver a letra';
-        b.appendChild(cx);
-        b.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          openLyricsPopup(await lvItemDaBiblioteca(coll, s));
-        });
-        return b;
-      }
-      // Num VÍDEO ele continua sendo o interruptor da metade de baixo da
-      // gaveta, que ali é a miniatura e o estado no aparelho.
-      const nome = 'os detalhes';
-      // ===== A LARGURA NÃO MUDA COM O ESTADO (v5.287) =====
-      //
-      // "Ocultar" é mais longo que
-      // "Ver", então o botão crescia ao ser tocado e o CONFIRMAR ao lado
-      // encolhia junto — um toque que muda a largura do vizinho é a coisa que
-      // mais parece defeito numa faixa de dois botões.
-      //
-      // As DUAS frases entram, empilhadas na mesma célula de uma grade 1×1: a
-      // largura passa a ser a da MAIOR e a troca só alterna qual delas se vê.
-      // Um `min-width` em `ch` seria um número a manter contra a fonte e contra
-      // a tradução; isto não tem número nenhum.
-      const cx2 = document.createElement('span');
-      cx2.className = 'song-menu-label song-menu-letra-cx';
-      const ver = document.createElement('span'); ver.textContent = 'Ver ' + nome;
-      const ocultar = document.createElement('span'); ocultar.textContent = 'Ocultar ' + nome;
-      cx2.append(ver, ocultar);
-      b.appendChild(cx2);
-      b.addEventListener('click', (e) => {
-        e.stopPropagation();
-        // ===== O GATILHO DOS DETALHES É A REVELAÇÃO, e não a abertura da linha =====
-        //
-        // Eles custam uma extração de rede na fila que o "Tocar agora" divide, e
-        // são a única parte do card que custa alguma coisa. Pendurá-la no toque
-        // na LINHA gastaria uma extração por gaveta aberta — inclusive nas que o
-        // operador abre só para mandar o episódio ao Cronograma —, e pendurá-la
-        // na montagem da LISTA gastaria uma por episódio do álbum, que é
-        // exatamente a varredura que a fila de extração proíbe.
-        //
-        // Aqui é uma por vídeo OLHADO, e só quando a metade de baixo entra em
-        // cena: é a mesma regra do `cifraCabe`, pelo mesmo motivo.
-        //
-        // E roda com o card JÁ VISÍVEL, o que resolve de graça o acordeão: ele
-        // já mediu e terminou muito antes, esta revelação não é animada, e a
-        // altura da gaveta é `auto` quando o texto chega.
-        if (li.classList.toggle('vendo-letra')) pedirDetalhes();
-      });
-      return b;
-    };
     if (ehLink(coll)) {
-      // O MESMO `r` nas duas chamadas, e isso é o que faz a segunda funcionar:
-      // `openYtMenu` só rearma o estado quando o item MUDA (`songMenuFor.yt !==
-      // r`), então repetir com o mesmo objeto preserva o `aoLado` que acabou de
-      // ser posto e apenas redesenha a lista com ele. Um `serieComoYoutube`
-      // novo seria outro objeto — o estado seria zerado e o irmão sumiria.
+      // O MESMO `r` em todas as remontagens: `openYtMenu` só rearma o estado
+      // quando o item MUDA (`songMenuFor.yt !== r`), e é no `r` que viajam os
+      // detalhes e a série deste sábado.
       const r = serieComoYoutube(coll, s);
       r.__origemFaixa = origem;
+      // O QUINTO BOTÃO DE UM VÍDEO SÃO OS DETALHES (v1.13.34): ele não tem letra,
+      // e a metade de baixo da gaveta é a miniatura, o canal, a duração e a
+      // descrição. O ESTADO mora na classe do `li`, que sobrevive à remontagem.
+      //
+      // ===== O GATILHO DOS DETALHES É A REVELAÇÃO, e não a abertura da linha =====
+      // Eles custam uma extração de rede na fila que o "Tocar agora" divide:
+      // pendurá-la na abertura gastaria uma por gaveta aberta, inclusive nas que o
+      // operador abre só para mandar o episódio ao Cronograma.
+      r.__detalhes = {
+        aberto: () => li.classList.contains('vendo-letra'),
+        alternar: () => {
+          const on = li.classList.toggle('vendo-letra');
+          if (on) pedirDetalhes();
+          return on;
+        },
+      };
+      // O EPISÓDIO DESTE SÁBADO GANHA O SELETOR "Este sábado" × "Atalho universal"
+      // (v1.13.34) — ver `openYtMenu`.
+      if (opcs.destaque && coll.serie) r.__semanaCat = coll.serie;
       // ===== JÁ ESTÁ NO APARELHO? A QUALIDADE SAI DA FOLHA (v1.8.87) =====
       //
       // A leitura é AQUI e não dentro do `openYtMenu` porque aquele é chamado de
-      // volta a cada toque num seletor e a cada marca de destino (é o
-      // `destRemontar`): um `await` lá dentro custaria uma leitura de IndexedDB
-      // por redesenho. Aqui é UMA por gaveta aberta — a guarda `gavetaMontada`
-      // do chamador —, e o `r` carrega a resposta pelas remontagens.
-      //
-      // A marca vale para TODO episódio com bytes no aparelho, não só para o da
-      // semana mantido pela rotina: a pergunta é *"há o que baixar?"*, e ela não
-      // depende de quem baixou.
-      //
-      // E ela é lida ANTES de montar, não depois: a folha remontada com o
-      // seletor sumindo faria a gaveta mudar de altura sozinha, um tique depois
-      // de abrir — e a animação do acordeão já mediu a caixa.
+      // volta a cada toque num seletor: um `await` lá dentro custaria uma leitura
+      // de IndexedDB por redesenho. Aqui é UMA por gaveta aberta. E ela é lida
+      // ANTES de montar: a folha remontada com o seletor sumindo faria a gaveta
+      // mudar de altura sozinha, um tique depois de abrir.
       return serieArquivoDoEpisodio(s).then((rec) => {
         r.semQualidade = !!rec;
         openYtMenu(r, opcoes);
-        if (songMenuFor) { songMenuFor.aoLado = aoLado; openYtMenu(r, opcoes); }
       });
     }
-    songMenuFor = { coll, s, variant: 'full', alvo: opcoes, aoLado, origem };
-    // A marca nasce AQUI e não em `renderSongMenu`: aquela função é também o
-    // `destRemontar` (o seletor Cantada/Playback e cada marca de destino a
-    // chamam de volta), e remarcar lá dentro tornaria o "Tocar agora"
-    // impossível de DESMARCAR — o toque tiraria a marca e o redesenho a
-    // devolveria, no mesmo quadro.
-    destPadraoTocar();
+    songMenuFor = { coll, s, variant: 'full', alvo: opcoes, origem };
     renderSongMenu();
     return null;   // nada a esperar — ver o KDoc
   }
@@ -26118,7 +26075,8 @@ let songMenuFor = null;   // { coll, s, variant } — `variant` é a escolha da 
 // Cada linha de DESTINO (o "Tocar agora" inclusive) marca ou desmarca, de corpo
 // inteiro, e a folha CONTINUA aberta; quem executa é o Confirmar, com a união
 // do que está marcado (`destUniao`). Ver `songMenuItem` e `destConfirmRow`
-// (v5.252). Vale para as duas folhas (acervo e YouTube) e para a gaveta.
+// (v5.252). Vale para as FOLHAS (o YouTube e a importação); a gaveta de uma
+// linha não marca desde a v1.13.34 — ver `destBotoesRow`.
 //
 // O conjunto é da FOLHA ABERTA, não do item: ele nasce vazio a cada abertura —
 // uma marcação que grudasse mandaria para os Favoritos, sem aviso, o vídeo que
@@ -26358,7 +26316,7 @@ function porFecho(alvo, li) {
 // desabilitado e DIZ o que falta, que é o mesmo desenho que o seletor de
 // destinos da importação (`renderDestPrompt`) já usava desde a v5.141: esta
 // mudança é as duas folhas convergindo num modelo só.
-function destConfirmRow(aoLado) {
+function destConfirmRow() {
   if (!destExecutor) return null;
   const alvos = destUniao(null);
   const li = document.createElement('li');
@@ -26390,53 +26348,74 @@ function destConfirmRow(aoLado) {
     if (exec) exec(alvos, btn, variante);
   });
   li.appendChild(btn);
-  // ===== O BOTÃO IRMÃO (v5.286) =====
-  //
-  // Um segundo botão LADO A LADO com o confirmar ("Ver a letra" ou "Ver os
-  // detalhes" na gaveta da Biblioteca; a faixa de ações de um Favorito), e não
-  // numa faixa própria: o que se abre a gaveta para fazer é DECIDIR. Quem o
-  // fornece é o DONO da lista; a folha não tem irmão, e ali nada muda.
-  //
-  // ===== ELE VEM POR ARGUMENTO, E ISSO NÃO É ESTILO (v5.302) =====
-  //
-  // `songMenuFor` é um slot GLOBAL e quem chama esta função é o `desenhar()` de
-  // UMA linha — um fecho que sobrevive ao global por dois caminhos: a gaveta da
-  // Biblioteca é montada UMA vez (`gavetaMontada`, em `hymnResultRow`), então
-  // reabrir uma linha DE LÁ não reescreve `songMenuFor`; e `closeSongMenu()` o
-  // ANULA com a gaveta ainda aberta. O segundo vale para todas — a gaveta de
-  // `linhaDeItem` inclusive, que REMONTA ao reabrir (ver `abrir()` lá).
-  //
-  // Enquanto o irmão era um botão NOVO a cada chamada ("Ver a letra"), a
-  // divergência era invisível. Desde que ele passou a ser um NÓ VIVO ligado a um
-  // item (a faixa de ações de um Favorito), lê-lo do global produzia as duas
-  // coisas que um destrutivo não pode ter: a faixa de uma linha MOVIDA para
-  // dentro da gaveta de outra — com a lixeira de uma excluindo o item da outra —
-  // e, depois de um Confirmar, a faixa simplesmente não reanexada, deixando uma
-  // exclusão em curso com a lixeira na miniatura e nenhum botão que a responda.
-  //
-  // O fallback para o global é o caminho da BIBLIOTECA (`renderSongMenu` e
-  // `openYtMenu`), que continua pondo o irmão em `songMenuFor` — ali ele é uma
-  // fábrica, e não tem alvo a trocar.
-  const dono = typeof aoLado === 'function'
-    ? aoLado
-    : (songMenuFor && typeof songMenuFor.aoLado === 'function' ? songMenuFor.aoLado : null);
-  if (dono) {
-    const irmao = dono();
-    // ===== O CONFIRMAR É SEMPRE O ÚLTIMO, e isso deixou de ser negociável =====
-    //
-    // O lado era DECISÃO DO IRMÃO (v5.307, `data-antes`), e um irmão que não a
-    // tomava caía no `appendChild` — isto é, no lado oposto. Duas portas para o
-    // mesmo botão primário, e a divergência era o padrão de quem esquecesse a
-    // marca. **A escolha some junto com a inconsistência**: quem entra antes é
-    // sempre o irmão, quem decide fica sempre na direita, e não há mais o que
-    // um chamador novo possa esquecer.
-    //
-    // Continua sendo o DOM, e não `order`/`row-reverse`: a ordem visual e a de
-    // foco precisam concordar numa faixa que hospeda um destrutivo (a lixeira da
-    // `.fav-acoes`).
-    if (irmao) li.insertBefore(irmao, btn);
-  }
   return li;
+}
+
+// ===== NA GAVETA, OS DESTINOS SÃO BOTÕES DIRETOS (v1.13.34) =====
+//
+// Pedido do operador: *"uma linha de botões quadrados, um toque = uma ação, como
+// já é no resto do app"*. A gaveta de uma linha da Biblioteca (o acervo, os
+// Favoritos, a pasta do aparelho, o episódio de série) deixou de MARCAR destinos
+// e confirmar: cada quadrado executa o dele, e a gaveta CONTINUA aberta — um
+// segundo toque manda o mesmo item a outro lugar. As FOLHAS (o resultado da busca
+// do YouTube, o link compartilhado, a importação) seguem com as caixas e o
+// Confirmar: ali a folha fecha ao executar, e marcar antes é o único jeito de
+// mandar a vários lugares de uma vez.
+//
+// A ORDEM: "Tocar agora" na ponta esquerda, os destinos na ordem da tabela
+// (`destinosNaOrdem`), e o quinto (o auxiliar de leitura, ou os detalhes de um
+// vídeo) na ponta direita. SEM RÓTULO, e por isso QUADRADOS (a regra da paleta):
+// o nome vai no `title` e no `aria-label`; os ícones são os mesmos das abas e do
+// transporte, que já nomeiam esses lugares.
+//
+// O VÍDEO DO YOUTUBE NÃO BAIXA DUAS VEZES com dois toques seguidos: quem baixa é
+// o `ytArquivo`, e ele divide o download em curso (`ytArquivoEmVoo`).
+//
+// Cada botão: `{ chave, rotulo, icone (HTML), acao(btn), disabled, motivo, on }`.
+function destBotoesRow(botoes) {
+  const li = document.createElement('li');
+  li.className = 'dest-botoes';
+  botoes.filter(Boolean).forEach((b) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'dest-btn' + (b.on ? ' on' : '');
+    btn.dataset.dest = b.chave;
+    btn.setAttribute('aria-label', b.rotulo);
+    // APAGADO, O `title` DIZ POR QUÊ — a regra do indisponível.
+    btn.title = b.disabled && b.motivo ? b.rotulo + ' — ' + b.motivo : b.rotulo;
+    if (typeof b.on === 'boolean') btn.setAttribute('aria-pressed', b.on ? 'true' : 'false');
+    btn.innerHTML = b.icone;
+    btn.disabled = !!b.disabled;
+    btn.addEventListener('click', () => { if (!btn.disabled) b.acao(btn); });
+    li.appendChild(btn);
+  });
+  return li;
+}
+const destIco = (code) => msym(code).outerHTML;
+// "Tocar agora" + os destinos pedidos, na ordem da tabela. `fazer(chave, btn)`
+// executa UM destino (`'tocar'` incluso).
+function destBotoesPadrao(quais, fazer) {
+  return [
+    { chave: 'tocar', rotulo: 'Tocar agora', icone: destIco(ICON.play), acao: (btn) => fazer('tocar', btn) },
+    ...destinosNaOrdem(quais).map((d) => ({
+      chave: d.chave, rotulo: d.acao, icone: destIco(ICON[d.ico]), acao: (btn) => fazer(d.chave, btn),
+    })),
+  ];
+}
+// O QUINTO: o auxiliar de leitura de uma música, ou os detalhes de um vídeo.
+function destBotaoLeitura(acao, motivo) {
+  return { chave: 'leitura', rotulo: 'Auxiliar de leitura', icone: icoSprite('icoTexto'),
+    acao: acao || (() => {}), disabled: !acao, motivo: motivo || '' };
+}
+function destBotaoDetalhes(det) {
+  const aberto = !!(det && det.aberto());
+  return { chave: 'detalhes', rotulo: 'Ver os detalhes do vídeo', icone: icoSprite('icoTexto'),
+    on: det ? aberto : undefined, disabled: !det, motivo: 'o episódio ainda não saiu',
+    acao: (btn) => {
+      const on = det.alternar();
+      btn.classList.toggle('on', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    } };
 }
 
 // ===== A MESMA FOLHA, COMO PERGUNTA (importação e compartilhamento) =====
@@ -26555,40 +26534,30 @@ function renderSongMenu() {
   alvo.appendChild(ytSegRow(variantes, songMenuFor.variant,
     (v) => { songMenuFor.variant = v; renderSongMenu(); }));
 
-  const remontar = () => renderSongMenu();
-  destRemontar = remontar;
-  // O EXECUTOR ÚNICO. Ele separa o TELÃO das listas (a chave `tocar` não é um
-  // destino de `DESTINOS`, é o "sem entrar em lista nenhuma") e a variante
-  // `letra` do resto: uma cena de letra não é a música noutra lista, é outro
-  // registro — sem áudio, e sem baixar nada.
+  destRemontar = () => renderSongMenu();
+  destExecutor = null;
+  // UM TOQUE, UMA AÇÃO (v1.13.34) — ver `destBotoesRow`. A variante é lida AQUI,
+  // na montagem: o seletor remonta a gaveta, então o valor no fecho é o vigente.
   //
-  // O TELÃO VEM PRIMEIRO quando marcado: ele é a única metade que o operador
-  // está esperando ver acontecer, e as listas podem terminar depois.
-  destExecutor = async (alvos, btn, vr) => {
-    const marcados = alvos || [];
-    const listas = marcados.filter((a) => a !== 'tocar');
-    const tocar = marcados.includes('tocar');
-    if (vr === 'letra') {
-      if (tocar) projectSongLyricsOnly(coll, s);
-      if (listas.length) await addLyricCue(coll, s, btn, listasDosDestinos(listas));
-      return;
+  // "LETRA" separa o resto: uma cena de letra não é a música noutra lista, é
+  // outro registro — sem áudio, e sem baixar nada.
+  const vr = songMenuFor.variant;
+  const fazer = (chave, btn) => {
+    if (chave === 'tocar') {
+      if (vr === 'letra') return projectSongLyricsOnly(coll, s);
+      return playSongVariant(coll, s, vr, origem);
     }
-    if (tocar) await playSongVariant(coll, s, vr, origem);
-    if (listas.length) await addSongToDestinos(coll, s, vr, listas, btn);
+    if (vr === 'letra') return addLyricCue(coll, s, btn, [listaDoDestino(chave)]);
+    return addSongToDestinos(coll, s, vr, [chave], btn);
   };
-  // "Tocar agora" é o único que NÃO guarda nada, e é isso que o rótulo não diz
-  // — daí ele manter subtítulo enquanto os três destinos perderam o deles
-  // (v5.195). É a mesma linha, com o mesmo texto, da folha do YouTube.
-  alvo.appendChild(songMenuItem(msym(ICON.play), 'Tocar agora',
-    'Sem entrar em lista nenhuma',
-    (vr, btn, alvos) => destExecutor(alvos, btn, vr), 'tocar', remontar));
-  // OS TRÊS DESTINOS SAEM DA TABELA, na ordem dela (v1.8.56) — ver `DESTINOS`.
-  DESTINOS.forEach((d) => {
-    alvo.appendChild(songMenuItem(msym(ICON[d.ico]), d.acao, '',
-      (vr, btn, alvos) => destExecutor(alvos, btn, vr), d.chave, remontar));
-  });
-  const go = destConfirmRow();
-  if (go) porFecho(alvo, go);
+  // O AUXILIAR DE LEITURA é a MESMA folha do transporte — letra, cifra, tom,
+  // corpo e rolagem —, apontada para esta faixa e SEM levar nada ao telão.
+  const leitura = temLetra(coll)
+    ? async () => openLyricsPopup(await lvItemDaBiblioteca(coll, s)) : null;
+  alvo.appendChild(destBotoesRow([
+    ...destBotoesPadrao(DESTINOS.map((d) => d.chave), fazer),
+    destBotaoLeitura(leitura, 'esta coleção não tem letra'),
+  ]));
 }
 
 // Cena de roteiro da LETRA de uma música do acervo.
@@ -28170,8 +28139,7 @@ function renderSorteio() {
   //
   // Mesma faixa de fecho da folha de destinos (`.song-menu-go-row`): é a mesma
   // gramática de folha, e o botão desabilitado com a conta acima explicando o
-  // porquê é o padrão que esta tela já usa. Ela já sabia hospedar um IRMÃO à
-  // direita (o "Ver a letra" da gaveta), então dois botões não custam CSS novo.
+  // porquê é o padrão que esta tela já usa.
   //
   // ===== TOCAR MAIS OS TRÊS DESTINOS DE SEMPRE =====
   //
@@ -37562,12 +37530,27 @@ async function ytArquivo(alvo, opts) {
   const soAudio = !!(opts && opts.somenteAudio);
   const ja = vid ? await AVDB.mediaByYoutube(vid, soAudio ? 'audio' : 'video') : null;
   if (ja && ja.blob) return ja;
+  // O DOWNLOAD EM CURSO É DIVIDIDO (v1.13.34). Com os destinos em botões diretos,
+  // "Cronograma" e logo depois "Favoritos" no mesmo vídeo são DUAS chamadas — e a
+  // segunda, sem isto, pediria o mesmo vídeo de novo à fila de transferência. Ela
+  // espera o primeiro e recebe o MESMO registro; quem a chamou o põe nas listas
+  // dela (o `listAdd` do `ytAcaoInterno` é idempotente). Pela FORMA, como o
+  // reaproveitamento acima.
+  const chave = vid ? vid + (soAudio ? ':audio' : ':video') : null;
+  if (chave && ytArquivoEmVoo.has(chave)) return ytArquivoEmVoo.get(chave);
   // O CANAL viaja por `opts` porque o `ytFetch` não o devolve (o shell manda
   // `name`, `type`, `height` e `seconds`, e mais nada): quem o tem é o `alvo`,
   // que já passou por aqui. Um ponto só, e todo chamador o herda sem saber.
-  return ytBaixarNativo(alvo.url, alvo.name,
+  const p = ytBaixarNativo(alvo.url, alvo.name,
     Object.assign({ youtubeId: vid, canal: (alvo && alvo.author) || null }, opts || {}));
+  if (chave) {
+    ytArquivoEmVoo.set(chave, p);
+    const soltar = () => { if (ytArquivoEmVoo.get(chave) === p) ytArquivoEmVoo.delete(chave); };
+    p.then(soltar, soltar);
+  }
+  return p;
 }
+const ytArquivoEmVoo = new Map();   // `<youtubeId>:<forma>` → Promise do registro
 
 // A prateleira da mídia avulsa — a que está em cena sem pertencer a lista
 // nenhuma. É o que permite "Tocar agora" (e o share no simplificado) não
@@ -42915,9 +42898,24 @@ window.addEventListener('orientationchange', libAoGirar);
 function aoSairDaTelaCheiaGeral() {
   if (document.fullscreenElement || pvInteira) return;
   libAssentando = true;
+  // ===== E ATÉ A JANELA GIRAR DE VOLTA, A BARRA NÃO APARECE (v1.13.34) =====
+  //
+  // Relato do operador: *"a barra de busca volta no lugar errado depois da tela
+  // cheia e depois se corrige com um salto"*. A medida já não era gravada na
+  // paisagem (a trava acima), mas a POSIÇÃO da barra é `100svh` menos a caixa, e
+  // nos quadros entre a saída e a rotação a janela ainda é a DEITADA: a barra é
+  // desenhada no lugar dela sobre um layout que não é o do retrato, e salta
+  // quando ele volta. Nada que se meça ali é verdade, então ela sai de cena
+  // (`lib-assentando`) até o primeiro `resize` na orientação de antes — quem a
+  // solta é o `medirBarraDaBiblioteca`, junto com a trava — ou a rede de
+  // segurança.
+  if (libOrientacaoMedida !== null && libEmPaisagem() !== libOrientacaoMedida) {
+    document.body.classList.add('lib-assentando');
+  }
   clearTimeout(libAssentarTimer);
   libAssentarTimer = setTimeout(() => {
     libAssentando = false;
+    document.body.classList.remove('lib-assentando');
     medirBarraDaBiblioteca();
   }, 1500);
   medirBarraDaBiblioteca();

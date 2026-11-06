@@ -353,27 +353,29 @@ try {
     songMenuFor = { coll, s, variant: 'full', alvo };
     destLimpar();
     renderSongMenu();
-    let capturado = null;
+    const capturados = [];
     const original = window.addSongToDestinos;
-    window.addSongToDestinos = (c, m, v, destinos) => { capturado = destinos; };
-    // Duas linhas MARCADAS pelo corpo, e só então o confirmar.
-    // POR RÓTULO, e não por índice (v5.286): a lista ganhou o "Tocar agora"
-    // como primeira selecionável, e um índice teria escorregado em silêncio
-    // para o vizinho — marcando playlist onde o caso diz Cronograma.
-    const porRotulo = (txt) => [...alvo.querySelectorAll('.song-menu-btn')]
-      .find((b) => b.querySelector('.song-menu-check')
-        && new RegExp(txt, 'i').test(b.textContent));
-    porRotulo('Cronograma').click();
-    porRotulo('Favoritar').click();
-    alvo.querySelector('.song-menu-go').click();
+    window.addSongToDestinos = (c, m, v, destinos) => { capturados.push(destinos); };
+    // NA GAVETA, UM TOQUE = UMA AÇÃO (v1.13.34): sem caixa de marcar e sem
+    // Confirmar. Dois toques são DUAS chamadas, cada uma com o destino dela, e a
+    // gaveta continua montada entre um e outro.
+    const botao = (d) => alvo.querySelector('.dest-btn[data-dest="' + d + '"]');
+    const semMarcar = !alvo.querySelector('.song-menu-check, .song-menu-go');
+    botao('cronograma').click();
+    const continuaMontada = !!botao('favoritos');
+    botao('favoritos').click();
     window.addSongToDestinos = original;
+    const ordem = [...alvo.querySelectorAll('.dest-btn')].map((b) => b.dataset.dest);
     alvo.remove();
     songMenuFor = null;
-    return capturado;
+    return { capturados, semMarcar, continuaMontada, ordem };
   });
-  checar(JSON.stringify(alvos) === JSON.stringify(['cronograma', 'favoritos']),
-    'no acervo, é o CONFIRMAR que entrega a união — e ela chega inteira mesmo '
-    + 'rodando depois de a folha fechar', JSON.stringify(alvos));
+  checar(JSON.stringify(alvos.capturados) === JSON.stringify([['cronograma'], ['favoritos']])
+      && alvos.semMarcar && alvos.continuaMontada,
+    'no acervo, cada BOTÃO executa o destino dele num toque (duas chamadas, uma por destino), sem '
+    + 'marcar nem confirmar, e a gaveta segue montada para o segundo toque', JSON.stringify(alvos));
+  checar(alvos.ordem.join(' | ') === 'tocar | cronograma | playlist | favoritos | leitura',
+    'e a ordem é "Tocar agora", os três destinos da tabela e o auxiliar de leitura', JSON.stringify(alvos.ordem));
 
   checar(await pg.$eval('#songMenuPopup', (el) => !el.classList.contains('open')),
     'e a FOLHA nem chega a abrir para um item do acervo: a lista dele mora no '
@@ -388,8 +390,8 @@ try {
   // (`songMenuFor`, `destExecutor`, `destRemontar` e o Set `destMarcados`), e
   // voltar para A tinha de repor todos. Repondo só o `songMenuFor`, o DOM de A
   // ficava na tela com o `destExecutor` de B por baixo: o "Confirmar" da linha A
-  // mandava B ao Cronograma e ao TELÃO. E ele não precisa de marca nenhuma para
-  // disparar — "Tocar agora" nasce marcado (`destPadraoTocar`).
+  // mandava B ao Cronograma e ao TELÃO. Desde a v1.13.34 o toque é no botão
+  // "Tocar agora" da linha A, e a pergunta é a mesma: sobre QUEM ele executa.
   //
   // MUDO nos dois sentidos: nada no console, e a tela mostra a linha certa. A
   // asserção é o que o EXECUTOR recebeu, nunca o que a gaveta desenha.
@@ -407,10 +409,10 @@ try {
     window.adicionarNasListas = async (l, id, nome) => { listados.push(nome); };
     const linhas = [...ul.children];
     const abrir = (i) => linhas[i].querySelector('.row').click();
-    abrir(0);   // A: a gaveta monta e "Tocar agora" nasce marcado
+    abrir(0);   // A: a gaveta monta
     abrir(1);   // B: reescreve os globais da folha
     abrir(0);   // volta para A — a gaveta dela JÁ está montada
-    linhas[0].querySelector('.song-menu-go').click();
+    linhas[0].querySelector('.dest-btn[data-dest="tocar"]').click();
     await new Promise((r) => setTimeout(r, 200));
     window.projetarItem = oProj; window.adicionarNasListas = oAdd;
     ul.remove();

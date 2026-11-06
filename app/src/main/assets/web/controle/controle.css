@@ -825,7 +825,9 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      deles e é ELE que responde"*), e o efeito na mão era o mesmo gesto
      respondendo ou não conforme onde o dedo caísse: a barra afunda, a seta a
      dois milímetros dali não. É o modo de falhar que o texto da lista nomeia. */
-  .coll-group-icon, .coll-bar-icon, .coll-bar-fechar
+  .coll-group-icon, .coll-bar-icon, .coll-bar-fechar,
+  /* Os destinos em botões diretos da gaveta (v1.13.34), no lote em que nascem. */
+  .dest-btn
 ):active { transform: var(--press); filter: var(--press-luz); }
 
 
@@ -868,7 +870,12 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    COR. A entrada é por CLASSE e não pelo id: dentro de um `:is()` a
    especificidade é a do argumento MAIS específico, então um `#sorteioBtn` aqui
    levaria a lista inteira a (1,0,1) e moveria a cascata dos outros cinco. */
-:is(.lib-toggle, .lib-quad, .t-btn, .ctl-btn, .settings-btn, .chrono-btn) svg {
+:is(.lib-toggle, .lib-quad, .t-btn, .ctl-btn, .settings-btn, .chrono-btn,
+  /* Os destinos da gaveta (v1.13.34) são o ícone do transporte e das abas que
+     nomeiam esses lugares, e no mesmo degrau. O tipo da faixa (a fita de filme)
+     é o degrau da nota musical ao lado dele (`.hymn-play-thumb .msym`). Pelo
+     FILHO direto: dentro do quadrado mora também a seta do anel de download. */
+  .dest-btn, .hymn-play-thumb) > svg {
   display: block; width: var(--icon-md); height: var(--icon-md);
 }
 /* Barra larga de ação (projetar): o ícone acompanha o alvo. */
@@ -4157,6 +4164,9 @@ main {
    download (`.baixando`) e, desde a v5.259, o "Tirar do ar". */
 .thumb { position: relative; width: var(--thumb); height: var(--thumb); flex-shrink: 0; border-radius: var(--radius-btn); overflow: hidden; background: var(--bg); display: flex; align-items: center; justify-content: center; }
 .thumb--icon .msym { font-size: var(--icon-lg); color: var(--muted); }
+/* O item da SEMANA desenha o TIPO (a fita de filme, v1.13.34) no lugar do ▶, no
+   degrau e no tom da nota musical das outras miniaturas-ícone. */
+.thumb--icon > svg { display: block; width: var(--icon-lg); height: var(--icon-lg); color: var(--muted); }
 
 /* NOME + SUBTÍTULO, numa coluna (v5.118).
    O tipo do item era um selo IRMÃO do nome, e num `flex` em que o nome tem
@@ -9465,7 +9475,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    forma: quem recebe o toque é a linha inteira. */
 .hymn-play-thumb .dl-ring { --dl-ring: 26px; display: none; }
 .hymn-play-thumb.busy .dl-ring { display: flex; }
-.hymn-play-thumb.busy .msym { display: none; }
+.hymn-play-thumb.busy .msym, .hymn-play-thumb.busy > svg { display: none; }
 /* (O ALVO EXPANDIDO DOS DOIS BOTÕES, v5.278, saiu na v5.285 com os botões. Ele
    existia porque errar por três pixels não devolvia "nada aconteceu" — devolvia
    a gaveta abrindo no lugar da ação. Hoje o alvo é a LINHA e não há como errar:
@@ -9722,38 +9732,14 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    (A ESTRELA saiu desta faixa na v5.288: nesta lista ela e a lixeira faziam a
    mesma coisa — ver `favItemRow`. Ela continua inteira nas outras listas, onde
    alterna de verdade.) */
-/* ---------- ELA DIVIDE A LINHA COM O CONFIRMAR (v5.302) ----------
-   Pedido do operador: *"ponha o botão de confirmar … lado a lado … ajustado com
-   a altura dos botões"*. A faixa era um bloco próprio no pé da gaveta, logo
-   abaixo da linha do confirmar — duas faixas empilhadas para o que cabe numa.
-   Hoje ela é o IRMÃO do confirmar dentro da `.song-menu-go-row` (o hook
-   `aoLado`, ver `linhaDeItem`), então:
-
-   · o `padding` sai — quem o dá agora é a `<ul>` das opções, que já recua tudo;
-   · `flex: none` porque quem CRESCE é o confirmar: a decisão principal é a que
-     se acha sem mirar, e estas são o que se faz com a linha.
-
-   E A ALTURA É UMA SÓ. A linha é um flex com `align-items: stretch`, e o
-   confirmar mede `--hit` mais o recuo de uma linha de opção (42px na gaveta
-   desde a v1.5.17, 53px onde o `--opcao-recuo-v` não é sobrescrito); os botões
-   traziam `--thumb` fixo (40px) e ficariam boiando no meio, que é justamente o
-   desalinhamento que o pedido nomeia. **A diferença encolheu com o aperto — de
-   13px para 2px —, e é por isso que a regra tem de continuar escrita:** o que a
-   justifica é o `stretch` valer, não o tamanho do desalinhamento que ele
-   corrige hoje. `height: auto` desarma o valor fixo — sem
-   ele o `stretch` não tem efeito — e a faixa vira uma banda sólida. A LARGURA
-   continua `--thumb`: o que se pediu foi a altura, e encolher o alvo horizontal
-   seria trocar um acerto por um erro. */
-/* ---------- E ELA FICA À ESQUERDA DELE (v5.307) ----------
-   Pedido do operador: *"o botão de confirmar as opções de play fica à esquerda
-   dos botões; deixe-o à direita, com as outras opções à esquerda"*. Quem inverte
-   é o DOM (`destConfirmRow` insere o irmão ANTES do botão), não um
-   `order`/`row-reverse`: a ordem visual e a de foco precisam concordar numa
-   faixa que tem um destrutivo. Desde a v1.4.7 vale para TODA lista — o lado
-   deixou de ser escolha de quem fornece o irmão.
-   `justify-content` não pesa aqui: com `flex: none` a caixa huga o conteúdo, e
-   com `.confirmando` quem a preenche é a `.linha-confirma` (`flex: 1`), cujo par
-   divide a faixa ao meio desde a v5.309. */
+/* ---------- FILEIRA PRÓPRIA, À DIREITA (v1.13.34) ----------
+   Ela dividia a linha com o Confirmar (v5.302/v5.307), que saiu com os destinos
+   em botões diretos: hoje é a `.fav-acoes-row`, abaixo deles. O `padding` é o da
+   `<ul>` das opções; a ALTURA é uma só (`align-items: stretch` mais a altura da
+   fileira, logo abaixo) — os botões traziam `--thumb` fixo (40px) e `height:
+   auto` desarma esse valor; a LARGURA continua `--thumb`. Com `.confirmando`
+   quem preenche a faixa é a `.linha-confirma` (`flex: 1`), cujo par divide a
+   faixa ao meio desde a v5.309. */
 .fav-acoes {
   display: flex; align-items: stretch; justify-content: flex-end; gap: var(--sp-3);
   flex: none; min-width: 0;
@@ -9774,14 +9760,11 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    é abrir um buraco: ele troca a asserção pela que de fato vale nesta faixa —
    TODA peça na MESMA altura. */
 .fav-acoes .row-btn { background: var(--gaveta-btn); height: auto; align-self: stretch; }
-/* ---------- ENQUANTO A LINHA PERGUNTA, A FOLHA CALA (v5.302) ----------
-   Com a faixa dentro da linha do confirmar, uma exclusão em curso punha DOIS
-   botões de confirmar lado a lado dizendo coisas opostas — o azul da folha de
-   destinos ("mande este item para onde eu marquei") e o vermelho da linha
-   ("tire este item da lista"). O primeiro sai de cena: enquanto a pergunta é
-   "excluir?", para onde o item vai não é decisão nenhuma. Ele volta inteiro no
-   Cancelar, porque as marcas continuam onde estavam. */
-.song-menu-go-row:has(> .fav-acoes.confirmando) > .song-menu-go { display: none; }
+/* ---------- E A ALTURA DA FILEIRA É A RECEITA DE UMA LINHA DE OPÇÃO (v1.13.34) ----
+   Com fileira própria (`.fav-acoes-row`) não há mais o Confirmar ao lado para
+   esticar os botões: quem dá a altura é a própria faixa, pela MESMA receita que o
+   par da pergunta usa logo abaixo — `--hit` mais o recuo vertical de uma opção. */
+.fav-acoes-row > .fav-acoes { min-height: calc(var(--hit) + 2 * var(--opcao-recuo-v)); }
 .fav-acoes.confirmando { flex: 1; }
 /* E O PAR VESTE A RECEITA DE ALTURA DO BOTÃO QUE ELE SUBSTITUI, não um número:
    `--hit` de conteúdo mais o recuo vertical de uma linha de opção, que desde a
@@ -10196,40 +10179,11 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    resposta. Aqui uma é: fechar a escolha. Sem nada marcado ela fica
    desabilitada e diz o que falta, em vez de sumir: uma folha cujo botão de
    concluir só nasce depois do primeiro acerto não se explica sozinha. */
-/* A FAIXA DE FECHO. Ela era o confirmar sozinho; desde a v5.286 pode ter um
-   IRMÃO no corpo da linha (a folha não o fornece, e ali o flex de um filho só é
-   um no-op). O confirmar CRESCE e o irmão fica com o que precisa: a decisão
-   principal é a que se acha sem mirar, e o outro é uma conferência. O IRMÃO VEM
-   SEMPRE ANTES (v1.4.7): o confirmar é o último da faixa em toda lista, e não há
-   mais o lado por chamador que fazia os Favoritos e o resto da Biblioteca
-   discordarem. */
+/* A FAIXA DE FECHO: um flex em que o botão primário CRESCE e os irmãos (os da
+   playlist automática, a faixa de ações de um favorito) ficam com o que
+   precisam. */
 .song-menu-go-row { padding-top: var(--sp-3); display: flex; gap: var(--sp-3); }
 .song-menu-go { flex: 1; min-width: 0; }
-/* O IRMÃO é SECUNDÁRIO por construção: recesso em vez do preenchimento em
-   accent, e sem crescer. Ele não decide nada — revela. */
-.song-menu-letra {
-  flex: none; width: auto; justify-content: center; text-align: center;
-  background: var(--surface); color: var(--accent);
-  white-space: nowrap;
-}
-/* ---------- A LARGURA NÃO MUDA COM O ESTADO (v5.287) ----------
-   Pedido do operador: *"fixe a largura do botão de ver/ocultar letra, para que
-   tenha o mesmo tamanho nos dois estados"*. "Ocultar" é mais longo que "Ver",
-   então o botão crescia ao ser tocado e o CONFIRMAR ao lado encolhia junto —
-   um toque que muda a largura do vizinho é o que mais parece defeito numa faixa
-   de dois botões.
-
-   AS DUAS FRASES OCUPAM A MESMA CÉLULA de uma grade 1×1: a largura passa a ser
-   a da MAIOR e a troca só alterna qual delas se vê. `visibility` e não
-   `display`, porque a escondida precisa continuar MEDINDO — é ela que reserva a
-   largura. Um `min-width` em `ch` seria um número a manter contra a fonte e
-   contra a tradução; isto não tem número nenhum. */
-.song-menu-letra-cx { display: grid; }
-.song-menu-letra-cx > span { grid-area: 1 / 1; }
-.lib-item:not(.vendo-letra) > .hymn-gaveta .song-menu-letra-cx > span:last-child,
-.lib-item.vendo-letra > .hymn-gaveta .song-menu-letra-cx > span:first-child {
-  visibility: hidden;
-}
 .song-menu-go {
   justify-content: center; text-align: center;
   background: var(--accent-fill);
@@ -10804,6 +10758,9 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   font-size: var(--fs-md); font-weight: var(--fw-medio); cursor: pointer;
 }
 .fit-opt.active { background: var(--btn-accent); color: var(--accent); }
+/* APAGADO = INDISPONÍVEL (o "Este sábado" de uma semana sem episódio), com o
+   motivo no `title`. */
+.fit-opt:disabled { opacity: var(--op-inativo); cursor: default; }
 
 /* ===== O MODO DO APP É UM INTERRUPTOR QUE DESLIZA (v1.4.43) =====
    Pedido do operador: *"simplifique o design do agrupamento e botões de fácil e
@@ -13387,3 +13344,38 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
    ver `acertarAvisoDaFonte`. Ele não rola e não encolhe: a lista é que fica mais
    baixa. */
 #fonteAvisoLib { flex: none; margin: var(--sp-4) var(--sp-5) 0; }
+
+/* ---------- OS DESTINOS DA GAVETA SÃO BOTÕES DIRETOS (v1.13.34) ----------
+   Pedido do operador: *"uma linha de botões quadrados, um toque = uma ação"*.
+   Tocar agora · Cronograma · playlist · Favoritos · Auxiliar de leitura (ou os
+   detalhes de um vídeo), a ordem de `destBotoesRow`. SEM RÓTULO, então QUADRADOS
+   e com as DUAS dimensões declaradas: `--quad-faixa`, a caixa de um botão de
+   símbolo numa faixa de ação. A fileira ESPALHA (`space-between`) para os
+   quadrados cobrirem a largura da gaveta em qualquer tela e com 4 ou 5 botões.
+   O tom é o dos blocos do poço (`--gaveta-btn`); o LIGADO (os detalhes à vista)
+   é a superfície de ação, a linguagem de estado do app; apagado é o
+   indisponível. */
+.dest-botoes {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: var(--sp-3); padding-top: var(--sp-3);
+}
+.dest-btn {
+  flex: none; width: var(--quad-faixa); height: var(--quad-faixa); padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-btn);
+  background: var(--gaveta-btn); color: var(--accent);
+  cursor: pointer; font-family: inherit;
+}
+.dest-btn .msym { font-size: var(--icon-md); }
+.dest-btn.on { background: var(--btn-accent); color: var(--accent); }
+.dest-btn:disabled { opacity: var(--op-inativo); cursor: default; }
+/* A FAIXA DE AÇÕES de um favorito (excluir, renomear, ↑↓) ganhou fileira própria
+   quando o Confirmar saiu, e encosta à direita como encostava ao lado dele. */
+.fav-acoes-row { justify-content: flex-end; }
+/* ---------- A BARRA DA BIBLIOTECA SAI DE CENA ENTRE A TELA CHEIA E A ROTAÇÃO (v1.13.34) ----------
+   Ver `aoSairDaTelaCheiaGeral`: nos quadros em que o documento já saiu da tela
+   cheia e a janela ainda é a deitada, a posição da barra (`100svh` menos a caixa)
+   descreve uma tela que não é a do retrato — ela aparecia ali e SALTAVA para o
+   lugar dela na rotação. `visibility` e não `display`: a folha continua medindo,
+   e é a medida dela que solta a classe. */
+body.lib-assentando .popup-sheet--lib { visibility: hidden; }
