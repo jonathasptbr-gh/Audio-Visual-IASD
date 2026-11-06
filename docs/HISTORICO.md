@@ -664,11 +664,17 @@ antigo `.song-menu-letra` (o tom do poço, rótulo centrado em `--accent`,
 declarada —, com o rótulo "Ver a letra" ou, num vídeo, "Ver os detalhes" /
 "Ocultar os detalhes" empilhados na mesma célula (a grade 1×1 da v5.287 voltou,
 `.song-menu-letra-cx`); `destBotoesRow` desenha o largo quando o botão traz
-`rotulos`. `destinos-diretos.test.mjs` reescreveu o bloco A em duas células
-(360×1,25× e 430×1×): quatro quadrados, juntos (vão = `gap`), o largo até a borda
-da gaveta, na altura deles e com o rótulo inteiro medido no BOTÃO. Reversão (o
-`space-between` de volta e o quinto quadrado com `overflow: hidden`): as três
-asserções novas reprovam. Os oráculos que contavam os cinco por `.dest-btn`
+`rotulos`. **Quando o rótulo não cabe ao lado dos quatro, a fileira QUEBRA**
+(`flex-wrap`) e o largo desce para uma linha só dele, de borda a borda: MEDIDO, a
+360×1,25× o "Ocultar os detalhes" de um vídeo não cabe, e o "Ver a letra" cabia
+com 8px de folga na fonte local e estourava a borda na do runner do CI (a
+primeira publicação desta versão reprovou ali). `destinos-diretos.test.mjs`
+reescreveu o bloco A em quatro células (música e vídeo, 360×1,25× e 430×1×):
+quatro quadrados, juntos (vão = `gap`), o largo até a borda da gaveta — ao lado
+deles ou numa linha própria de borda a borda —, na altura deles e com o rótulo
+inteiro medido no BOTÃO, nos dois estados do vídeo. Reversões: o `space-between`
+de volta com o quinto quadrado reprova três asserções; sem o `flex-wrap`, o vídeo
+a 360×1,25× estoura a borda e reprova. Os oráculos que contavam os cinco por `.dest-btn`
 passaram a ler `.dest-botoes > button`.
 
 ---

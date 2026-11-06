@@ -13355,7 +13355,7 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
    poder preencher os vãos"*). O tom é o dos blocos do poço (`--gaveta-btn`); o
    LIGADO é a superfície de ação; apagado é o indisponível. */
 .dest-botoes {
-  display: flex; align-items: center;
+  display: flex; flex-wrap: wrap; align-items: center;
   gap: var(--sp-3); padding-top: var(--sp-3);
 }
 .dest-btn {
@@ -13373,10 +13373,16 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
    preenchendo o espaço disponível"*). É o desenho do antigo "Ver a letra"
    (`.song-menu-letra`, até a v1.13.33): a linha de opção (`.song-menu-btn`, o
    `--gaveta-btn` do poço, o `--press`) com o rótulo centrado em `--accent` — mas
-   CRESCENDO no resto da fileira, na altura do quadrado vizinho. O rótulo não
-   corta: com `nowrap`, o `min-width: auto` de um item flex já é o texto inteiro. */
+   CRESCENDO no resto da fileira, na altura do quadrado vizinho. O rótulo NUNCA
+   corta: com `nowrap`, o `min-width: auto` de um item flex já é o texto inteiro,
+   e quando ele não cabe ao lado dos quatro (a 360 px com a fonte a 1,25× o "Ocultar
+   os detalhes" de um vídeo não cabe, e a fonte do aparelho decide o "Ver a
+   letra"), a fileira QUEBRA (`flex-wrap`) e ele desce para uma linha só dele, de
+   borda a borda. O que decide a quebra é o TIPO do item e a tela, nunca o estado:
+   as duas frases ocupam a mesma célula. */
 .dest-largo {
   flex: 1 1 auto; width: auto; height: var(--quad-faixa); padding-block: 0;
+  padding-inline: var(--sp-4);
   justify-content: center; text-align: center;
   color: var(--accent); white-space: nowrap;
 }
