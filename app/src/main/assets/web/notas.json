@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.13.32",
+    "itens": [
+      "Um computador conectado em Ajustar não fica mais em Preencher depois de reconectar."
+    ]
+  },
+  {
     "versao": "1.13.31",
     "itens": [
       "Com duas TVs ligadas, a janela de conexão diz certo qual delas está projetando."

@@ -570,7 +570,7 @@ de abas", o APK "na fila de IO", a "confirmação" do ligar (2 blocos duplicados
 `telaEnriquecer`. ~30 lápides (abas, mesa de som, liberação de teste, `mic-status`, SW, QR, TLS, degraus do voltar…); pedidos/relatos do operador saíram; verbatim
 (293 blocos) na seção v1.13.31 do histórico. `ORACULOS.md` ganhou o bloco 6.
 **Achado e não corrigido (SUSPEITAS, sem cenário de culto):** `telaReenviarPreferencias` manda o `fit` só se ≠ `contain` — a mesma "coincidência com o nascimento da tela" que o
-bloco já recusou para o `lyricsbg` (hoje a tela nasce em `contain`, então não erra). O `telaPedir` deixa o `setTimeout` de 15 s armado depois da resposta (inofensivo:
+bloco já recusou para o `lyricsbg` (hoje a tela nasce em `contain`, então não erra) — **resolvida na v1.13.32** (o `fit` vai sem condição). O `telaPedir` deixa o `setTimeout` de 15 s armado depois da resposta (inofensivo:
 confere a identidade). A cobertura parcial da resposta atrasada de dois pedidos do mesmo tipo (`telaRespostaCombina`) depende de um `seq` no Kotlin (K4).
 Réguas de "no ar": a fatia lê `haOQueParar` (teclas, Biblioteca principal, pergunta da atualização), `midiaNoAr` (reenvio, status, troca de modo, tela cheia do vídeo) e
 `haDestinoDeProjecao` (tela cheia), cada uma igual à pergunta que o bloco nomeia. Timers/listeners: o vigia do Modo Fácil e a enquete da conexão têm dono único e

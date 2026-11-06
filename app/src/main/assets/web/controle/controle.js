@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.31';
+const WEB_VERSION = '1.13.32';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -45551,12 +45551,13 @@ function telaReenviarPreferencias(para) {
   // do app para consultar, e sem o comando fica no valor com que NASCEU, para
   // sempre.
   //
-  // E o `lyricsbg` vai SEM CONDIÇÃO: um `if` pelo valor só acerta enquanto o
-  // caso omitido coincide com o nascimento da tela, e calaria o "Remover" (a
-  // tela com imagens e o telão sem, na mesma cena). Mandar sempre custa um
+  // E os dois vão SEM CONDIÇÃO: um `if` pelo valor só acerta enquanto o caso
+  // omitido coincide com o estado da tela, e um `display-ready` não prova que
+  // ela acabou de nascer (re-anúncio sem recarga) — calaria o "Remover" no
+  // `lyricsbg` e o "Ajustar" (`contain`) no `fit`. Mandar sempre custa um
   // objeto JSON e não depende do valor com que a tela nasce.
   mandar({ type: 'lyricsbg', mode: lyricsBg });
-  if (mediaFit !== 'contain') mandar({ type: 'fit', fit: mediaFit });
+  mandar({ type: 'fit', fit: mediaFit });
   if (!telaCanal()) return;
   (async () => {
     let blob = null;

@@ -4260,7 +4260,12 @@ try {
   await pg3.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
   await pg3.waitForFunction(() => !!window.__avBack, null, { timeout: 20000 });
   // O operador tem "imagens" ligado, persistido de um culto anterior.
-  await pg3.evaluate(() => window.AVDB.setState('lyricsBg', 'image'));
+  // E o preenchimento em "Ajustar" (`contain`), DECLARADO: é o valor que o
+  // reenvio calava, por coincidir com o nascimento da tela.
+  await pg3.evaluate(async () => {
+    await window.AVDB.setState('lyricsBg', 'image');
+    await window.AVDB.setState('fit', 'contain');
+  });
   await pg3.reload({ waitUntil: 'domcontentloaded' });
   await pg3.waitForFunction(() => !!window.__avBack, null, { timeout: 20000 });
   await pg3.waitForTimeout(600);
@@ -4276,6 +4281,15 @@ try {
   checar(mandados.includes('lyricsbg'),
     'o display-ready com __tela faz o Controle reenviar o fundo da letra',
     'emitiu: ' + JSON.stringify(mandados));
+  // O `fit` vai SEM CONDIÇÃO, como o `lyricsbg` (v1.13.32): um `display-ready`
+  // não prova que a tela acabou de nascer — uma que re-anuncia sem recarregar,
+  // ou que está em `cover` por qualquer caminho, ficaria no `cover` com o
+  // operador em "Ajustar", porque o reenvio pulava justamente o `contain`.
+  const fitMandado = await pg3.evaluate(() =>
+    (window.__enviados || []).find((m) => m && m.type === 'fit') || null);
+  checar(!!fitMandado && fitMandado.fit === 'contain' && fitMandado.__para === 'tela-1',
+    'e o preenchimento TAMBÉM em "Ajustar" (contain) — o valor padrão não é pulado',
+    'fit: ' + JSON.stringify(fitMandado));
 
   // E o CONTRÁRIO: o telão de verdade (sem `__tela`) não recebe esse reenvio —
   // ele lê tudo do IndexedDB sozinho, e mandar de novo seria ruído na conexão.

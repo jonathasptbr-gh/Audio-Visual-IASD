@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.32** — `telaReenviarPreferencias` manda o `fit` SEM CONDIÇÃO, como o `lyricsbg`: o `if (mediaFit !== 'contain')` calava o "Ajustar" para uma tela que re-anuncia `display-ready` sem recarregar (suspeita da C9); asserção no `boot-nativo` com reversão
 - **v1.13.31** — revisão C9: CONFIGURAÇÕES, MODOS, VOLUME E TELÃO POR COMANDOS (o `controle.js` do diálogo padrão ao fim do arquivo); a folha de conexão nomeia a TV que projeta (`telaoNoAr`, a régua do Registro), os repasses de `plItems` refutados, código morto da transmissão, e ~290 comentários (narrativa ao histórico)
 - **v1.13.30** — o retorno de um botão é só o pulso, por decisão do operador: o terceiro argumento (frase descartada) saiu das 14 chamadas de `responder`, `textoLote` e as frases de `adicionarNasListas`/`criarCue`/`toggleFav` saíram, e o oráculo `responder-sem-frase` reprova quem o trouxer de volta
 - **v1.13.29** — a frase "PDF precisa do seletor de arquivos do app (instale a versão nova)" saiu dos dois pontos do `controle.js` (o `importShare` e o `change` do `#file`): inalcançável com o piso 83, sobra só a frase do navegador
@@ -642,6 +643,23 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.13.32 — o `fit` vai sem condição no reenvio às telas da rede
+
+**v1.13.32 (só web, sem Release)** — a suspeita anotada no relatório C9:
+`telaReenviarPreferencias` mandava o `fit` só quando `mediaFit !== 'contain'`,
+a mesma "coincidência com o nascimento da tela" que o próprio bloco já recusava
+para o `lyricsbg`. Um `display-ready` com `__tela` não prova que a tela acabou de
+nascer: uma que re-anuncia sem recarregar (ou que está em `cover` por qualquer
+caminho) ficava no `cover` com o operador em "Ajustar". O `fit` passou a ir
+sempre (no `display.js`, `fit` → `stage.setFit`, que aceita `contain` e só
+escreve `object-fit`), e o comentário do bloco cobre os dois. Asserção nova no
+`boot-nativo.test.mjs` (metade consumidora do `__tela`): com `fit = 'contain'`
+declarado, o `display-ready` da tela produz `{ type: 'fit', fit: 'contain' }`
+endereçado; com o `if` de volta, reprova. O wallpaper tem a mesma forma (sem
+blob próprio, nada é mandado) e ficou fora deste lote.
 
 ---
 
