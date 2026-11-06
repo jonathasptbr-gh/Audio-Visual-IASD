@@ -82,7 +82,7 @@ procurar o aviso, e num culto isso não acontece — o operador toca e segue.
 ```js
 const PULSO_MS = 1100;
 pulsar(btn, 'ok' | 'dup' | 'erro')   // → true se de fato pulsou
-responder(btn, tipo, texto)          // pulsa; se o botão sumiu, avisa por texto
+responder(btn, tipo)                 // pulsa; false se o botão sumiu (o chamador decide)
 ```
 
 | `tipo` | Cor | Quando |
@@ -98,7 +98,8 @@ Três detalhes que o mecanismo não pode dispensar:
   documento. A pergunta certa é `offsetParent !== null` (nenhum ancestral em
   `display:none`) mais `!btn.closest('.popup-backdrop:not(.open)')` (a folha que
   o contém não está fechada). Pulsar um botão invisível é o mesmo que não dar
-  feedback nenhum, e é por isso que `responder()` cai no texto nesse caso.
+  feedback nenhum, e é por isso que `responder()` devolve `false` nesse caso —
+  quem decide o que fazer é o CHAMADOR.
 - **Quem re-renderiza a lista precisa ESPERAR o pulso.** `toggleFav` atualiza o
   próprio botão no lugar (classe `on`, `title`, `starSvg`) e adia o
   `renderLibrary` em `PULSO_MS` — chamar o render na hora destruiria o nó que
@@ -110,27 +111,17 @@ Três detalhes que o mecanismo não pode dispensar:
   mesma especificidade de `.row-btn`/`.sel-btn` (0-1-0), então quem decide é a
   ordem. Declaradas antes, elas simplesmente não pintam nada.
 
-**Todo destino passa por `adicionarNasListas(listas, id, nome, btn)`**, que faz o
+**Todo destino passa por `adicionarNasListas(listas, id, btn)`**, que faz o
 `listHas` antes do `listAdd` e escolhe entre `ok` e `dup`. Operações em lote
-(seleção múltipla, pasta) resolvem o tipo em `tipoLote`/`textoLote` — um pulso
-só na barra de seleção, em vez de quatro sinais piscando.
+(seleção múltipla) resolvem o tipo em `tipoLote` — um pulso só na barra de
+seleção, em vez de quatro sinais piscando.
 
-#### `avisar()`: o que sobra para o texto (v5.104)
-
-`avisar(texto, tipo)` continua existindo, mas só onde o pulso não alcança, e o
-que ele **não** é continua valendo: não é o toast de volta. Não flutua sobre os
-controles (fica no TOPO da tela — a base é onde mora o transporte, e foi por
-cobri-lo que o toast saiu), não pede toque para sair (`pointer-events: none`,
-some em 2,4 s) e não é usado por nada que já tenha estado próprio na tela.
-
-Dois casos, e só eles:
-
-1. **O botão sumiu** antes de a resposta chegar (a folha fechou, a lista
-   re-renderizou) — `responder()` detecta e cai no texto.
-2. **O motivo não cabe num botão.** Guardar um pacote com menos de dois itens
-   pulsa em vermelho **e** escreve "Monte a fila com dois ou mais itens antes de
-   guardar": a cor diz que não deu, a frase diz por quê, e sem a frase o
-   operador toca de novo esperando resultado diferente.
+**SÓ O PULSO, SEM FRASE** (decisão do operador, v1.13.30: *"deixar
+exclusivamente o sinal nos botões, sem mensagens extras"*). `responder` tem DOIS
+argumentos; o terceiro (uma frase que era descartada em silêncio) saiu de todas
+as chamadas, e `tools/responder-sem-frase.test.mjs` reprova quem o trouxer de
+volta. As contas que têm superfície própria (`notaNoItem` numa linha de lista,
+`falarNoSorteio` na folha do sorteio) continuam — elas não passam por `responder`.
 
 > **Armadilha do YouTube:** um vídeo baixado por `ytArquivo` **nasce na lista**
 > (o `addMedia` lá dentro já recebe o destino), então perguntar `listHas`

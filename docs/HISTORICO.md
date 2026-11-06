@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.30** — o retorno de um botão é só o pulso, por decisão do operador: o terceiro argumento (frase descartada) saiu das 14 chamadas de `responder`, `textoLote` e as frases de `adicionarNasListas`/`criarCue`/`toggleFav` saíram, e o oráculo `responder-sem-frase` reprova quem o trouxer de volta
 - **v1.13.29** — a frase "PDF precisa do seletor de arquivos do app (instale a versão nova)" saiu dos dois pontos do `controle.js` (o `importShare` e o `change` do `#file`): inalcançável com o piso 83, sobra só a frase do navegador
 - **v1.13.28** — revisão C8: TRANSFERIR, SHARE, VIA NATIVA E WALLPAPER (o `controle.js` do pacote de transferência ao diálogo padrão); o link compartilhado entra no Cronograma na hora (`load()` no fim do `importShare`), o resgate dos downloads lê e limpa as intenções numa transação, e ~270 comentários (8 blocos reancorados, fatos velhos, narrativa ao histórico)
 - **v1.13.27** — revisão C7: DOWNLOADS, PLAYLIST AUTOMÁTICA E REGISTRO (o `controle.js` do "Baixando" na linha ao pacote de transferência); o sorteio guardado ou que vira a fila entra na lista em memória (`listasSeq`), o lote do sorteio só sai com a ação feita, a Verificação confere o `progresso.js`, e ~220 comentários (8 blocos reancorados, fatos velhos, narrativa ao histórico)
@@ -640,6 +641,26 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.13.30 — só o pulso no botão, sem frase
+
+**v1.13.30 (só web, sem Release)** — decisão do operador (2026-11-06): *"deixar
+exclusivamente o sinal nos botões, sem mensagens extras, limpando esses
+resíduos"*. `responder(btn, tipo)` já engolia um terceiro argumento em silêncio
+(a faixa de texto saiu antes), e 14 chamadas ainda montavam uma frase para ele.
+Saíram: o terceiro argumento de todas; `textoLote` (só servia à frase);
+as frases de `adicionarNasListas` (`que`/`texto`), `criarCue`, `toggleFav`
+(`rotulo`) e do histórico; o parâmetro `nome` de `adicionarNasListas`,
+`toggleFav` e `favBtn`, que só alimentava a frase (chamadores e três oráculos
+acertados). Ficaram `rotuloItem`, `ondeDe`, `juntarFrases` e `LISTA_ROTULO`,
+que têm outros consumidores (`falarNoSorteio`, `notaNoItem`, as notas de
+destino). O comentário de `responder` passou a dizer a regra nova (antes dizia
+"NÃO SE CONSERTA APAGANDO OS ARGUMENTOS"), e o `docs/arquitetura/CONTROLE.md`
+perdeu a seção do `avisar()`, que descrevia um caminho de texto que não existe
+mais. Oráculo novo, Node puro: `tools/responder-sem-frase.test.mjs` (reversão
+contra o `controle.js` da v1.13.29: acusa as 14).
 
 ---
 

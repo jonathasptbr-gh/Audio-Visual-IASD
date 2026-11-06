@@ -2889,7 +2889,7 @@ try {
     const rec = await AVDB.addMedia(new Blob(['z'], { type: 'audio/mpeg' }),
       { name: 'Favorito ao vivo', list: 'avulsos' });
     // Pelo MESMO caminho do operador: a estrela de uma linha.
-    await toggleFav(rec.id, 'Favorito ao vivo', null);
+    await toggleFav(rec.id, null);
     await new Promise((r) => setTimeout(r, 1400));   // o pulso, e o redesenho depois dele
     const depois = !!secao() && /Favorito ao vivo/.test(secao().textContent);
     // A ROLAGEM não pode ter sido zerada: redesenhar a Biblioteca inteira

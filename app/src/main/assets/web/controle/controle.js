@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.29';
+const WEB_VERSION = '1.13.30';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -5007,7 +5007,7 @@ function renderPlaylistCorpo() {
     row.append(thumb, name, ...montarAcoesDaLinha(li, [
       rm,
       cronoBtnDaLinha(item),
-      favBtn(item.id, item.name),
+      favBtn(item.id),
       ...botoesDeOrdem('playlist', item.id, i, plItems.length),
     ], 'playlist:' + item.id));
     li.appendChild(row);
@@ -6418,11 +6418,12 @@ function subtituloItem(item) {
 //
 // Todo destino do app passa por aqui, e por dois motivos que andam juntos:
 //
-// 1. **O aviso.** Metade dos destinos não está na tela quando se manda algo
+// 1. **O sinal.** Metade dos destinos não está na tela quando se manda algo
 //    para eles (mandar ao Cronograma estando na Bíblia, favoritar de dentro do
 //    acervo), e sem resposta o operador toca de novo — que é como se duplica.
-// 2. **A duplicação.** A resposta precisa distinguir "entrou" de "já estava
-//    lá", porque é a segunda que evita o toque repetido.
+//    A resposta é o pulso do botão (`responder`), sem frase.
+// 2. **A duplicação.** O pulso distingue "entrou" (`ok`) de "já estava lá"
+//    (`dup`), porque é o segundo que evita o toque repetido.
 //
 // As listas são conjuntos de ids, então `listAdd` já é idempotente para MÍDIA:
 // o mesmo vídeo não entra duas vezes na mesma lista, por construção. O que não
@@ -6491,9 +6492,8 @@ function listasDosDestinos(chaves) {
   return [...new Set((chaves || []).map(listaDoDestino))];
 }
 
-// "à playlist e aos favoritos" — a lista de destinos escrita como se fala.
-// Sem isto o aviso do multi-destino sairia como "adicionado à playlist,
-// adicionado ao Cronograma", que é a mesma frase duas vezes.
+// "à playlist e aos favoritos" — a lista de destinos escrita como se fala
+// (a nota do link compartilhado, `notaNoItem`, e a contagem do sorteio).
 function juntarFrases(partes) {
   if (partes.length <= 1) return partes[0] || '';
   return partes.slice(0, -1).join(', ') + ' e ' + partes[partes.length - 1];
@@ -6509,17 +6509,9 @@ function rotuloItem(nome) {
   return '"' + (nome.length > 28 ? nome.slice(0, 28) + '…' : nome) + '" ';
 }
 
-// Acrescenta O MESMO id a VÁRIAS listas, com um aviso só.
-//
-// Um aviso por lista seria três faixas piscando uma por cima da outra para um
-// toque único — o mesmo argumento de `textoLote`, que já resolvia isto para
-// vários itens num destino só. Aqui é o espelho: um item em vários destinos.
-//
-// A frase separa o que ENTROU do que JÁ ESTAVA, porque é essa distinção que
-// impede o toque repetido (ver o cabeçalho acima). Com os dois casos presentes
-// ela diz os dois — "adicionado à playlist — já estava no Cronograma" —, e não
-// um resumo que esconderia metade.
-async function adicionarNasListas(listas, id, nome, btn) {
+// Acrescenta O MESMO id a VÁRIAS listas, com UM pulso só no botão: `ok` se
+// tudo entrou, `dup` se algum destino já o tinha (ver o cabeçalho acima).
+async function adicionarNasListas(listas, id, btn) {
   const alvos = [...new Set(listas)];
   const novas = [], antigas = [];
   for (const l of alvos) {
@@ -6527,12 +6519,7 @@ async function adicionarNasListas(listas, id, nome, btn) {
     await AVDB.listAdd(l, id);
     novas.push(l);
   }
-  const que = rotuloItem(nome);
-  let texto;
-  if (!novas.length) texto = que + 'já está ' + ondeDe(antigas, 'em');
-  else if (!antigas.length) texto = que + 'adicionado ' + ondeDe(novas, 'para');
-  else texto = que + 'adicionado ' + ondeDe(novas, 'para') + ' — já estava ' + ondeDe(antigas, 'em');
-  responder(btn, novas.length ? (antigas.length ? 'dup' : 'ok') : 'dup', texto);
+  responder(btn, novas.length && !antigas.length ? 'ok' : 'dup');
   if (alvos.includes('favs')) await recarregarFavoritos();
   if (alvos.includes('playlist')) { plItems = await AVDB.listItems('playlist'); renderPlaylist(); }
   // E O CRONOGRAMA TAMBÉM — ele ficava por conta do chamador, e dos dois que
@@ -6609,21 +6596,18 @@ async function criarCue(cue, data, nome, destino, btn) {
   //
   //  - **Favoritos não repetem.** Favoritar é marcar; dois "Salmo 23:1" na
   //    mesma gaveta são ruído puro, e ninguém consegue distingui-los. O item
-  //    que já existe é reaproveitado e o aviso diz isso.
+  //    que já existe é reaproveitado e o pulso sai `dup`.
   //  - **O Cronograma PODE repetir.** O mesmo versículo pode ser lido na
   //    abertura e no apelo, e a mesma contagem regressiva pode aparecer duas
-  //    vezes no culto. Aqui a duplicata é criada — mas o aviso avisa, que é o
-  //    que separa a repetição intencional do toque dado duas vezes.
+  //    vezes no culto. Aqui a duplicata é criada — mas o pulso sai `dup`, que
+  //    é o que separa a repetição intencional do toque dado duas vezes.
   const igual = await acharCueIgual(lista, cue, data);
-  const onde = LISTA_ROTULO[lista] || ROTULO_PADRAO;
   if (igual && lista !== 'imports') {
-    responder(btn, 'dup', rotuloItem(igual.name) + 'já está ' + onde.em);
+    responder(btn, 'dup');
     return igual;
   }
   const rec = await AVDB.addCue(cue, data, { name: nome, list: lista });
-  responder(btn, igual ? 'dup' : 'ok', igual
-    ? rotuloItem(nome) + 'adicionado — já havia um igual no Cronograma'
-    : rotuloItem(nome) + 'adicionado ' + onde.para);
+  responder(btn, igual ? 'dup' : 'ok');
   if (lista === 'favs') await recarregarFavoritos();
   // O Cronograma é a lista da tela: entrou nele, redesenha. Nos favoritos, o
   // `recarregarFavoritos` acima já basta.
@@ -7547,7 +7531,7 @@ function renderFoot() {
     const mk = (icone, titulo, destino) => {
       const b = cueSaveBtn(icone, titulo, async (bt) => {
         const rec = await montar(destino, bt);
-        if (!rec) responder(bt, 'erro', 'Não foi possível guardar');
+        if (!rec) responder(bt, 'erro');
       });
       // APAGADO COM O PORQUÊ, quando a ferramenta diz que não há o que guardar
       // (o itinerário vazio) — ver `cueSaveDaFerramenta`.
@@ -10114,7 +10098,7 @@ function renderMsg() {
         e.stopPropagation();
         const rec = await criarCue('message', { msgId: m.id, text: m.text },
           m.text.length > 40 ? m.text.slice(0, 40) + '…' : m.text, 'imports', add);
-        if (!rec) responder(add, 'erro', 'Não foi possível adicionar');
+        if (!rec) responder(add, 'erro');
       });
       // FAVORITAR uma mensagem (v5.104). Ela não tem id de mídia — o que se
       // favorita é a CENA dela —, então a estrela alterna a existência de um
@@ -10131,7 +10115,7 @@ function renderMsg() {
         if (cueFav) {
           await AVDB.listRemove('favs', cueFav.id);
           await recarregarFavoritos();
-          responder(fav, 'ok', 'Removido dos favoritos');
+          responder(fav, 'ok');
         } else {
           await criarCue('message', { msgId: m.id, text: m.text },
             m.text.length > 40 ? m.text.slice(0, 40) + '…' : m.text, 'favs', fav);
@@ -10956,7 +10940,7 @@ function renderLibraryCorpo() {
 
     // A ESTRELA, em toda linha: é ela que torna favoritar um toque só. Fica
     // fora da seleção múltipla porque ali o alvo é o conjunto, não a linha.
-    const star = selectionMode ? null : favBtn(item.id, item.name);
+    const star = selectionMode ? null : favBtn(item.id);
 
     // O PARAR MORA NA MINIATURA (v5.259) — ver `porParar`.
     if (!selectionMode) porParar(thumb, item);
@@ -14166,7 +14150,7 @@ function renderItemMenu(item, alvo, destinos, aoLado) {
       // única metade que o operador está esperando ver acontecer.
       if (marcados.includes('tocar')) await projetarItem(item);
       if (listas.length) {
-        await adicionarNasListas(listasDosDestinos(listas), item.id, item.name, btn);
+        await adicionarNasListas(listasDosDestinos(listas), item.id, btn);
       }
     };
     alvo.appendChild(songMenuItem(msym(ICON.play), 'Tocar agora',
@@ -14237,12 +14221,8 @@ function renderSelbar() {
 // decidir. Nenhuma regra de coleta nova.
 function isFav(id) { return favSet.has(id); }
 
-async function toggleFav(id, nome, btn) {
+async function toggleFav(id, btn) {
   if (!id) return;
-  // A estrela já muda de estado na hora — este aviso acrescenta O QUE foi
-  // marcado. Numa lista de trinta linhas, a estrela que acendeu está no meio
-  // da tela e o dedo a cobre no exato instante em que ela muda.
-  const rotulo = nome ? '"' + (nome.length > 24 ? nome.slice(0, 24) + '…' : nome) + '"' : 'Item';
   if (favSet.has(id)) {
     favSet.delete(id);
     // `listRemove` (e não um setState cru) porque é ele que roda o gc na MESMA
@@ -14254,7 +14234,7 @@ async function toggleFav(id, nome, btn) {
     await AVDB.listAdd('favs', id);
   }
   const marcado = favSet.has(id);
-  responder(btn, 'ok', rotulo + (marcado ? ' adicionado aos favoritos' : ' removido dos favoritos'));
+  responder(btn, 'ok');
   await recarregarFavoritos(PULSO_MS);
   // O BOTÃO SE ATUALIZA NO LUGAR (estrela cheia ↔ vazada) e a lista só é
   // remontada DEPOIS do pulso: `renderLibrary` recria as linhas, e recriar
@@ -15062,13 +15042,13 @@ function marcarNaPlaylist() {
   });
 }
 
-function favBtn(id, nome) {
+function favBtn(id) {
   const b = document.createElement('button');
   const on = isFav(id);
   b.className = 'row-btn fav-btn' + (on ? ' on' : '');
   b.title = on ? 'Remover dos favoritos' : 'Favoritar';
   b.innerHTML = starSvg(on);
-  b.addEventListener('click', (e) => { e.stopPropagation(); toggleFav(id, nome, b); });
+  b.addEventListener('click', (e) => { e.stopPropagation(); toggleFav(id, b); });
   return b;
 }
 
@@ -19759,10 +19739,7 @@ async function favoritarSelecionados() {
     if (marcar) { favSet.add(id); await AVDB.listAdd('favs', id); }
     else { favSet.delete(id); await AVDB.listRemove('favs', id); }
   }
-  const tipo = marcar ? tipoLote(mexidos, ids.length) : 'ok';
-  responder(selFavEl, tipo, marcar
-    ? textoLote(mexidos, ids.length, LISTA_ROTULO.favs)
-    : (ids.length === 1 ? 'Removido dos favoritos' : mexidos + ' removidos dos favoritos'));
+  responder(selFavEl, marcar ? tipoLote(mexidos, ids.length) : 'ok');
   await recarregarFavoritos();
   // A barra sai DEPOIS do pulso: `exitSelection` a esconde (`hidden`), e sair
   // na hora arrancaria da tela justamente o botão que está confirmando.
@@ -19802,18 +19779,12 @@ async function addSelectedToPlaylist() {
     }
     return atual;
   });
-  responder(selPlaylistEl, tipoLote(novos, total), textoLote(novos, total, LISTA_ROTULO.playlist));
+  responder(selPlaylistEl, tipoLote(novos, total));
   sairDaSelecaoDepois();
 }
 
-// O aviso de uma operação em lote (playlist, favoritos, atalho).
+// O pulso de uma operação em lote (playlist, favoritos): `dup` se algum já estava.
 function tipoLote(novos, total) { return novos === total ? 'ok' : 'dup'; }
-
-function textoLote(novos, total, onde) {
-  if (novos === total) return total === 1 ? 'Adicionado ' + onde.para : total + ' itens adicionados ' + onde.para;
-  if (novos === 0) return total === 1 ? 'Já está ' + onde.em : 'Todos já estavam ' + onde.em;
-  return novos + ' de ' + total + ' adicionados ' + onde.para + ' — o resto já estava lá';
-}
 
 // ===== seleção múltipla =====
 function enterSelection(id) {
@@ -21295,7 +21266,7 @@ async function semanaGuardar(cat, listas, btn) {
   const reg = semanaRegistro(cat);
   const ja = await AVDB.getMediaCru(reg.id).catch(() => null);
   if (!ja) await AVDB.mediaAdd(reg);
-  return adicionarNasListas(listas, reg.id, reg.name, btn);
+  return adicionarNasListas(listas, reg.id, btn);
 }
 
 // O que a folha da linha "Vídeo da semana" executa: as listas e/ou o "Tocar agora".
@@ -26635,7 +26606,7 @@ async function addLyricCue(coll, s, btn, listas) {
   const rec = await criarCue('songlyrics',
     { collId: coll.id, songId: s.id_music },
     songLabel(coll, s), alvo[0], btn);
-  if (!rec) { responder(btn, 'erro', 'Não foi possível adicionar'); return; }
+  if (!rec) { responder(btn, 'erro'); return; }
   const resto = alvo.slice(1);
   for (const l of resto) await AVDB.listAdd(l, rec.id);
   // O ESPELHO EM MEMÓRIA: `criarCue` só relê a lista que recebeu, e só quando ela
@@ -27249,7 +27220,7 @@ async function addSongToDestinos(coll, s, variant, destinos, btn) {
   // A RECUSA RESPONDE NO BOTÃO QUE FOI TOCADO: ele é o alvo de foco, e o pulso
   // vermelho é o mesmo vocabulário que o sucesso já usa nesta mesma folha.
   if (!id) { pulsar(btn, 'erro'); return; }
-  await adicionarNasListas(listasDosDestinos(alvos), id, songLabel(coll, s), btn);
+  await adicionarNasListas(listasDosDestinos(alvos), id, btn);
   // Cada destino redesenha o que ele mudou, e só isso: os Favoritos aparecem na
   // estrela de cada linha do acervo, e o Cronograma só precisa ser remontado se
   // ele for a lista em cena.
@@ -28661,10 +28632,10 @@ async function tocarSorteada(escolha) {
 // aqui o segundo sorteio é o uso normal — o operador acrescenta cinco, olha a
 // lista, acrescenta mais cinco. Fechar a folha cobraria três toques por rodada.
 //
-// A RESPOSTA NASCE NO BOTÃO TOCADO (`responder` + `textoLote`), que é a regra do
-// projeto para feedback, e a frase separa o que ENTROU do que JÁ ESTAVA — sem
-// isso, sortear duas vezes seguidas com o mesmo tema pareceria não ter feito
-// nada na segunda.
+// A RESPOSTA NASCE NO BOTÃO TOCADO (o pulso de `responder`), que é a regra do
+// projeto para feedback; a CONTA da folha (`falarNoSorteio`) separa o que
+// ENTROU do que JÁ ESTAVA — sem isso, sortear duas vezes seguidas com o mesmo
+// tema pareceria não ter feito nada na segunda.
 // `f` são os FILTROS SANEADOS da passada que decidiu, e não `sorteioPrefs`:
 // o nome do pacote e a cortina que ele guarda têm de descrever o sorteio que
 // de fato aconteceu. A folha continua aberta depois de guardar, então mexer
@@ -28735,11 +28706,10 @@ async function guardarSorteadas(escolhidos, btn, f, destino) {
     // pulso do botão prova que o toque valeu e não diz QUAL saiu — e a única
     // outra superfície que responderia isso é a lista de destino, que está
     // atrás desta folha. (No "Tocar agora" a pergunta não existe: a música vai
-    // ao telão.) A frase que `adicionarNasListas` monta viaja no terceiro
-    // argumento do `responder`, que é DESCARTADO; a folha do sorteio tem canal
-    // próprio, e é ele que fala.
+    // ao telão.) O botão só pulsa (`responder`, sem frase); a folha do sorteio
+    // tem canal próprio, e é ele que fala.
     const ja = await AVDB.listHas(lista, ids[0]);
-    await adicionarNasListas([lista], ids[0], nomes[0], btn);
+    await adicionarNasListas([lista], ids[0], btn);
     falarNoSorteio(rotuloItem(nomes[0])
       + (ja ? 'já estava ' + onde.em : 'adicionado ' + onde.para));
     return true;
@@ -28779,7 +28749,7 @@ async function guardarSorteadas(escolhidos, btn, f, destino) {
   // que os baixou, como antes.
   const rec = await criarCue('group', { ids, view: cortinaDoSorteio(f) },
     nomeDoPacoteSorteado(f, ids.length), lista, btn);
-  if (!rec) { responder(btn, 'erro', 'Não foi possível guardar o pacote'); return false; }
+  if (!rec) { responder(btn, 'erro'); return false; }
   falarNoSorteio(ids.length + ' músicas num pacote ' + onde.em);
   return true;
 }
@@ -32619,7 +32589,7 @@ async function copiarTexto(texto, btn) {
       ta.remove();
     } catch (__) { ok = false; }
   }
-  if (btn) responder(btn, ok ? 'ok' : 'erro', ok ? null : 'Não foi possível copiar');
+  if (btn) responder(btn, ok ? 'ok' : 'erro');
   return ok;
 }
 
@@ -32759,7 +32729,7 @@ if (contatoBtnEl) {
     const msg = 'Olá! Falo sobre o ' + AV_NOME + ' v' + WEB_VERSION + '.\n\n';
     const url = 'https://wa.me/' + AV_CONTATO_TEL + '?text=' + encodeURIComponent(msg);
     try { AVNative.openExternal(url); } catch (_) {
-      responder(contatoBtnEl, 'erro', 'Não deu para abrir');
+      responder(contatoBtnEl, 'erro');
     }
   });
 }
@@ -38232,18 +38202,11 @@ function pulsar(btn, tipo) {
 // fechada, lista redesenhada) — e é o CHAMADOR que decide o que fazer com
 // isso, porque só ele sabe qual é a interface de origem daquela ação.
 //
-// Não há `texto` nem faixa flutuante para a resposta órfã: ela levaria a
-// informação para longe do alvo de foco, e esconderia a pergunta que importa —
-// por que uma ação ficou sem interface em que responder.
-//
-// **UM TERCEIRO ARGUMENTO É ENGOLIDO EM SILÊNCIO**, e uma dúzia de chamadores
-// ainda passa um (`grep -n "responder("`): quem escreveu a chamada acha que
-// disse o motivo, e o operador vê um pulso sem frase nenhuma.
-//
-// **NÃO SE CONSERTA APAGANDO OS ARGUMENTOS**: cada uma daquelas frases é um motivo que
-// alguém quis dizer, e a pergunta certa é a mesma que derrubou o `avisar` —
-// QUAL superfície diz isto? Para uma linha de lista já existe resposta
-// (`notaNoItem`, o canal irmão do pulso); para um botão solto, não.
+// **O RETORNO É SÓ O PULSO NO BOTÃO, SEM FRASE** (decisão do operador,
+// 2026-11-06: "deixar exclusivamente o sinal nos botões, sem mensagens
+// extras"). Não há `texto` nem faixa flutuante, e a assinatura tem DOIS
+// argumentos — `tools/responder-sem-frase.test.mjs` reprova uma chamada com
+// terceiro, que seria uma frase que ninguém lê.
 function responder(btn, tipo) {
   return pulsar(btn, tipo);
 }
@@ -39705,11 +39668,11 @@ function histLinha(h, atual) {
     const alvo = await histResolver(h, 'imports');
     if (!alvo) { histMarcarSumido(li, add, true); return; }
     if (alvo.criado) {
-      responder(add, 'ok', rotuloItem(h.nome) + 'adicionado ao Cronograma');
+      responder(add, 'ok');
       await load();
       return;
     }
-    await adicionarNasListas(['imports'], alvo.rec.id, h.nome, add);
+    await adicionarNasListas(['imports'], alvo.rec.id, add);
   });
   row.appendChild(add);
 
@@ -40797,7 +40760,7 @@ async function edicaoCriar(e, chave, btn) {
     responder(btn || edicaoConfirmarEl, 'erro');
     return;
   }
-  await adicionarNasListas(listas, rec.id, rec.name, btn || edicaoConfirmarEl);
+  await adicionarNasListas(listas, rec.id, btn || edicaoConfirmarEl);
   try { await AVDB.listRemove('avulsos', rec.id); } catch (_) { /* fica na prateleira: sem dano */ }
   // O FORMULÁRIO FICA, AGORA SOBRE O ITEM NOVO (o rascunho segue valendo): mexer e confirmar de novo
   // o atualiza no lugar. Outro item a partir do mesmo original é escolher o original outra vez.
@@ -40827,7 +40790,7 @@ async function edicaoAplicarNoLugar(e, chave, btn) {
   }
   edicaoFixarNoItem(rec);
   await edicaoRecarregarListas();
-  if (chave) await adicionarNasListas(listasDosDestinos([chave]), rec.id, rec.name, btn || edicaoConfirmarEl);
+  if (chave) await adicionarNasListas(listasDosDestinos([chave]), rec.id, btn || edicaoConfirmarEl);
   else responder(btn || edicaoConfirmarEl, 'ok');
   edicaoSalvarJa();
   edicaoRender();

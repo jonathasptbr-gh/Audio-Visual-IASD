@@ -85,7 +85,7 @@ try {
   });
 
   // ---- O caminho de UM destino continua igual ----
-  await pg.evaluate((id) => adicionarNasListas(['imports'], id, 'Louvor de teste', null), idMidia);
+  await pg.evaluate((id) => adicionarNasListas(['imports'], id, null), idMidia);
   let onde = await pg.evaluate(async (id) => ({
     imports: await AVDB.listHas('imports', id),
     playlist: await AVDB.listHas('playlist', id),
@@ -94,7 +94,7 @@ try {
   checar(onde.imports && !onde.playlist && !onde.favs, 'um destino só continua indo para um lugar só');
 
   // ---- VÁRIOS de uma vez ----
-  await pg.evaluate((id) => adicionarNasListas(['playlist', 'favs'], id, 'Louvor de teste', null), idMidia);
+  await pg.evaluate((id) => adicionarNasListas(['playlist', 'favs'], id, null), idMidia);
   onde = await pg.evaluate(async (id) => ({
     imports: await AVDB.listHas('imports', id),
     playlist: await AVDB.listHas('playlist', id),

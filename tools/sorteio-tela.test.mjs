@@ -891,8 +891,8 @@ try {
   // E A CONTA DIZ O NOME. Guardando UMA SÓ, o pulso prova que o toque valeu e
   // não diz QUAL saiu — e a única outra superfície que responderia isso é a
   // lista de destino, atrás desta folha. (No "Tocar agora" a pergunta não
-  // existe: a música vai ao telão.) A frase que `adicionarNasListas` monta
-  // viaja no terceiro argumento do `responder`, que é DESCARTADO.
+  // existe: a música vai ao telão.) O botão só pulsa (`responder` não tem
+  // frase), e quem fala é a conta da folha.
   checar(solta.fala && solta.fala.includes(solta.nome)
     && /cronograma/i.test(solta.fala),
     'e a conta DIZ O NOME da que saiu e para onde foi — sortear é justamente '
