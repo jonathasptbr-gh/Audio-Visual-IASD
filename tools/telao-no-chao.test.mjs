@@ -352,6 +352,21 @@ try {
   checar(/tel[ãa]o SUBIU \(a TV j[áa] estava conectada\)/.test(linhas),
     'e registra a RECUPERAÇÃO — é ela que distingue uma escada que funcionou de '
     + 'uma tela que nunca projetou', linhas.slice(-400));
+
+  // ── 6. DUAS TELAS, O TELÃO NA SEGUNDA ───────────────────────────────────
+  // A folha e o Registro respondem pela MESMA régua (`telaoNoAr()`): ler só
+  // `lastDisplays[0]` diria "o telão não subiu" sobre um telão no ar.
+  await trocarTelas([
+    { id: 7, name: 'TV do templo', w: 1920, h: 1080, density: 320, telao: false },
+    { id: 9, name: 'TV do saguão', w: 1280, h: 720, density: 240, telao: true },
+  ]);
+  const duas = await ler();
+  const rotuloDuas = await rotulo();
+  checar(duas.telao === true && !duas.registro.includes('SEM TELÃO'),
+    'COM DUAS TELAS e o telão na segunda, o Registro diz "conectado", sem ressalva', duas.registro);
+  checar(rotuloDuas === 'Conectado: TV do saguão',
+    'e a folha de conexão diz o MESMO, nomeando a TV que projeta — a régua da '
+    + 'primeira listada diria "o telão não subiu" sobre um telão no ar', rotuloDuas);
 } finally {
   await navegador.close();
   await new Promise((r) => servidor.close(r));

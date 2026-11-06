@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.13.31",
+    "itens": [
+      "Com duas TVs ligadas, a janela de conexão diz certo qual delas está projetando."
+    ]
+  },
+  {
     "versao": "1.13.30",
     "itens": [
       "Os botões de guardar, favoritar e copiar respondem só com a cor no próprio botão, sem frase."

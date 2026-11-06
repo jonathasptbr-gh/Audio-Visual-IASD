@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.31** — revisão C9: CONFIGURAÇÕES, MODOS, VOLUME E TELÃO POR COMANDOS (o `controle.js` do diálogo padrão ao fim do arquivo); a folha de conexão nomeia a TV que projeta (`telaoNoAr`, a régua do Registro), os repasses de `plItems` refutados, código morto da transmissão, e ~290 comentários (narrativa ao histórico)
 - **v1.13.30** — o retorno de um botão é só o pulso, por decisão do operador: o terceiro argumento (frase descartada) saiu das 14 chamadas de `responder`, `textoLote` e as frases de `adicionarNasListas`/`criarCue`/`toggleFav` saíram, e o oráculo `responder-sem-frase` reprova quem o trouxer de volta
 - **v1.13.29** — a frase "PDF precisa do seletor de arquivos do app (instale a versão nova)" saiu dos dois pontos do `controle.js` (o `importShare` e o `change` do `#file`): inalcançável com o piso 83, sobra só a frase do navegador
 - **v1.13.28** — revisão C8: TRANSFERIR, SHARE, VIA NATIVA E WALLPAPER (o `controle.js` do pacote de transferência ao diálogo padrão); o link compartilhado entra no Cronograma na hora (`load()` no fim do `importShare`), o resgate dos downloads lê e limpa as intenções numa transação, e ~270 comentários (8 blocos reancorados, fatos velhos, narrativa ao histórico)
@@ -643,6 +644,2760 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.13.31 — revisão C9: CONFIGURAÇÕES, MODOS, VOLUME E TELÃO POR COMANDOS (o `controle.js` de `// ===== Diálogo padrão do app` ao fim do arquivo)
+
+**v1.13.31 (revisão C9; só web, sem Release)** — a etapa C9 da revisão profunda
+(`docs/REVISAO-PROFUNDA.md`): a nona e última fatia do `controle.js` (o diálogo
+padrão, a folha da playlist e o esvaziar da fila, o Histórico do culto, as
+seções de Configurações, o Editar mídia, a Verificação, os eventos, o par de
+eixos do transporte, o fader e a passagem do volume, o teclado virtual, os modos
+de uso e o tema, a barra de tempo, o portão e a Biblioteca do Modo Fácil, o
+sorteio do Modo Fácil, as medidas lidas do layout, a troca de modo, as teclas
+físicas e a notificação, a tela cheia e a tela inteira, o estado do telão, a
+folha de conexão e a transmissão, a tabela `POPUPS` e o `__avBack`, o reenvio de
+cena, o `onCommand`, o `init()`, a atualização e o enriquecimento das telas da
+rede) pela lista comum e pelo específico das fatias C. Lida inteira; nenhum
+defeito que interrompa a projeção.
+
+**O DEFEITO (a folha de conexão nomeava a TV errada).** `renderCast` lia
+`lastDisplays[0]` para o rótulo do botão de conectar: com duas telas listadas e
+o telão (a `Presentation`) na SEGUNDA, a folha dizia "Conectado a … — o telão
+não subiu, tentando de novo" sobre um telão no ar. O Registro (`descreverTelao`)
+já respondia por `telaoNoAr()` desde a v1.8.42, exatamente por essa divergência;
+a folha ficou com a régua velha. Conserto: o rótulo nomeia `telaoNoAr()` e, só
+sem ele, a primeira listada. Asserção nova: bloco 6 do
+`telao-no-chao.test.mjs`. Reversão: sem o conserto reprova (`obtido: Conectado a
+TV do templo — o telão não subiu…`).
+
+**OS REPASSES C4 E C6 (`plItems` relido sem `++listasSeq`) — REFUTADOS.** O
+`pedirSaidaDaFila` não relê nada: os dois `aoConfirmar` (a lixeira da linha e o
+`limparPlaylist`) chamam `load()` depois de gravar, e o `++loadSeqCtl` dele
+descarta qualquer `load()` em voo (a medida da C6). O `edicaoRecarregarListas`
+chama `load()` ANTES e não grava lista nenhuma: a releitura avulsa de `plItems`
+e o `renderPlaylist` eram redundantes (o `load()` relê e redesenha a fila) e
+saíram, como o `redesenharComMiniatura` da C8. O KDoc que dizia "todo
+`db-change` dispara um `load`" (não há `db-change`) foi corrigido no
+`encerrarCenaDaFila`, para onde ele foi reancorado.
+
+**CÓDIGO MORTO.** `confirmarEspelhoComTv` (devolvia `true`; existia "como
+registro da decisão de não perguntar" — a decisão virou comentário no
+`ligarEspelho`) e o `if (espelhoDisponivel()) { … }` do `abrirCast`, cujo corpo
+era só comentário.
+
+**SÓ COMENTÁRIO (provas 1 e 2; a 2 acusa UM, movimento de propósito com
+cabeçalho genérico `*`):** o KDoc de `encerrarCenaDaFila` ("A FILA ACABOU COM A
+CENA DENTRO") estava sobre o de `fecharFilaVazia`. Fatos velhos: "RECOLHER A
+SEÇÃO CANCELA TUDO" na Verificação (recolher só oculta desde a v1.12.52);
+`simpleDisplay` "não decide mais bloqueio nenhum" (decide a cortina desde a
+v5.203); o `renderTemaTile` falando do tema automático; o `resize` que "remede o
+vazado da faixa de abas" (só o título); o progresso do APK "na fila de IO" (é a
+de transferência); o `renderCast` com "pode pedir confirmação" (não pede) em dois
+blocos duplicados; o castAlvo "na folha de conexão" e "só no Registro" em dois
+blocos contraditórios; o rodapé de Configurações da atualização; os dois
+parágrafos contraditórios do deck no `telaEnriquecer`. Lápides: o rótulo
+emprestado, as abas, o carrossel, a liberação de teste (2×), a mesa de som, o
+`mic-status`, o `refreshDiversos`, o par de volume da tela cheia, o subtítulo e a
+frase de instrução da folha, o mDNS, o QR, o certificado TLS, `MIRROR_TEXTO`, o
+service worker, os degraus 4/6/7 do voltar, o `#folderPopup`, `collPopup`, a
+contagem de uso, o `it.token ||` do empurrão. Os pedidos e relatos do operador
+citados no código saíram; a narrativa que saiu, verbatim, bloco a bloco (o
+rótulo é o símbolo mais próximo abaixo do bloco):
+
+*appDialogFixo*:
+
+```js
+// O DIÁLOGO QUE NÃO SE PERDE NUM TOQUE FORA (v5.249).
+//
+// O padrão do app é o do navegador: tocar no fundo cancela, e para quase tudo
+// isso está certo — é a saída barata de quem abriu a coisa errada. Para a
+// ATUALIZAÇÃO não estava: aquele diálogo aparece sozinho, no meio do que o
+// operador estava fazendo, e um toque em qualquer lugar da tela o resolvia como
+// "Deixar para depois" — que silencia a pergunta pelo resto da sessão. O
+// operador perdia a atualização por um gesto que nem sabia ter dado.
+//
+// O que ele NÃO faz é prender ninguém: o "Deixar para depois" continua ali, e o
+// Esc/voltar continua valendo, porque os dois são a recusa DELIBERADA. O que
+// deixa de existir é a recusa por acidente.
+```
+
+*onAppDialogKey*:
+
+```js
+// Esc cancela TAMBÉM o confirm. O comentário de `appConfirm` sempre prometeu
+// isso, mas o único handler de Escape morava no keydown do INPUT — que só
+// existe (e só tem foco) no prompt. O handler vive no documento e só está
+// registrado enquanto o diálogo está aberto; resolve exatamente como o botão
+// Cancelar do tipo em cena (false no confirm, null no prompt). O Esc vindo do
+// input não resolve duas vezes: o `closeAppDialog` de lá remove este listener
+// antes de o evento borbulhar até o documento.
+```
+
+*vestirBotoesDeGuardar*:
+
+```js
+// DOIS DESTINOS DESDE A v1.8.54 (pedido do operador: *"sejam os mesmos dois
+// botões de salvar no cronograma ou salvar nos favoritos, pois este já é o
+// padrão do resto do sistema"*). Quem sabe a diferença entre eles é o
+// `criarCue`, e ela não é técnica: **Favoritos não repetem** (favoritar é
+// marcar, e dois iguais na mesma gaveta são ruído) enquanto **o Cronograma
+// pode** (o mesmo bloco de louvores pode voltar no apelo). Escrever a regra de
+// novo aqui seria a segunda cópia que diverge no primeiro ajuste.
+//
+// O RÓTULO EMPRESTADO MORREU COM O RÓTULO (v1.8.54). Da v5.207 até aqui o botão
+// dizia o motivo trocando o próprio texto por três segundos; sem texto, o que
+// responde é o pulso — que é o que TODO botão de símbolo deste app usa — e,
+// onde o pulso não basta, o diálogo de AVISO (`cancelText: null`).
+```
+
+*if (ids.length < 2) { pulsar(btn, 'erro'*:
+
+```js
+  // A GUARDA DA CORRIDA, e só isso: desde a v1.8.53 os dois botões nascem
+  // APAGADOS com menos de duas mídias (ver `renderPlaylist`), então este caminho
+  // só se alcança se a fila encolher entre o desenho e o dedo. Um botão
+  // `disabled` não emite `click`, logo não há como explicar aqui — e não é
+  // preciso: quem já não oferece não deve explicação.
+```
+
+*if (!rec) {*:
+
+```js
+  // FALHAR VAZIO É PROIBIDO, e sem rótulo para emprestar (v1.8.54) quem conta o
+  // que houve é o diálogo de AVISO — `cancelText: null`, que o próprio
+  // `openAppDialog` descreve como *"não pergunta nada, só conta o que
+  // aconteceu"*. Ele cabe aqui e não caberia numa falha corriqueira: guardar um
+  // pacote é uma decisão que o operador acabou de tomar e nomear, e um pulso
+  // vermelho sozinho o deixaria sem saber se a fila do culto foi guardada.
+```
+
+*limparPlaylist*:
+
+```js
+ * ESVAZIAR A FILA (v5.309), a pedido do operador: *"faça um botão para limpar
+ * toda a playlist tocando agora"*. Tirar item a item era o único caminho, e uma
+ * fila de culto tem oito ou dez linhas — cada uma com a própria pergunta.
+```
+
+*limparPlaylist*:
+
+```js
+ * O QUE ELA MEXE É A CENA, e só quando a cena era DELA (v1.8.52): a fila é a
+```
+
+*if (encerra) await encerrarCenaDaFila();*:
+
+```js
+  // A MESMA RESPOSTA DA LIXEIRA DA LINHA (v1.8.52). Esvaziar a fila pelo botão
+```
+
+*tirarDaFilaEncerraCena*:
+
+```js
+ * ===== TIRAR ISTO DA FILA VAI ENCERRAR A CENA? (v1.8.84) =====
+```
+
+*tirarDaFilaEncerraCena*:
+
+```js
+ * ===== E O "LIMPAR" DEIXOU DE PERGUNTAR PELA PROVENIÊNCIA =====
+```
+
+*tirarDaFilaEncerraCena*:
+
+```js
+ * Relato do operador: *"ao limpar um item da playlist, ele remove ele da
+ * exibição, mas quando limpo uma playlist inteira, ele mantém a midia no player
+ * ao inves de limpar corretamente"*.
+```
+
+*tirarDaFilaEncerraCena*:
+
+```js
+ * A condição era `plItems.some(noArAgora)` — *"o que está no ar é DA FILA?"* —,
+ * e ela deixa DOIS casos de fora, os dois MEDIDOS:
+ *
+ *  1. **o que está no player não está na fila.** Tocando A com a fila em [B],
+ *     "Limpar" esvaziava a fila e a mídia seguia tocando.
+ *  2. **`currentId` sem `midiaNoAr`** — a faixa acabou, ou o Parar foi tocado.
+ *     O `currentId` sobrevive de propósito (é ele que faz o ▶ repetir), então o
+ *     cartão continua anunciando o nome sobre uma fila vazia.
+ *
+ * A pergunta certa é `!!currentId`: **a fila é a única lista que o TRANSPORTE
+ * percorre**, e esvaziá-la não deixa sequência nenhuma para ele governar — de
+ * onde veio o que está no player deixa de importar quando não sobra fila. É a
+ * mesma frase da v1.8.52 (*"não é 'guardei noutro lugar', é ACABOU"*), agora sem
+ * a cláusula que a limitava.
+ *
+ * ISTO NÃO ALCANÇA A v1.3.13, e a fronteira é a LISTA: excluir do Cronograma ou
+ * dos Favoritos continua não tirando nada do ar. A exceção é da FILA, e continua
+ * sendo só dela.
+ *
+ * E A CAMADA DE TEXTO NÃO É ALCANÇADA por construção: um versículo sem mídia por
+ * baixo tem `currentId` nulo, e com um louvor de fundo quem sai é só o louvor —
+ * `encerrarCenaDaFila` escolhe `media-clear` por `cenaDeRoteiroNoAr()`.
+ *
+ * A LIXEIRA DA LINHA NÃO MUDOU: com fila sobrando nada é interrompido (v1.8.52
+ * — *"pausar o louvor porque o operador reorganizou a fila seria interrupção de
+ * culto"*), e é por isso que os dois ramos desta função são diferentes.
+```
+
+*pedirSaidaDaFila*:
+
+```js
+ * ===== A PERGUNTA SOBE PARA O DIÁLOGO QUANDO PRECISA DIZER ALGO (v1.8.84) =====
+```
+
+*pedirSaidaDaFila*:
+
+```js
+ * Pedido do operador: *"Coloque também uma mensagem de aviso ao excluir um item
+ * ou Playlist que tenha algo tocando no momento, avisando que a mídia será
+ * interrompida."*
+ *
+ * **A FAIXA DA LINHA NÃO TEM ONDE PÔR UMA FRASE, e é isso que escolhe o
+ * mecanismo.** A `pedirConfirmacaoNaLinha` divide a caixa em DOIS rótulos
+ * (Cancelar / Confirmar) e um terceiro filho os encolhe — é o desenho que a
+ * v5.309 pediu por extenso. A `dica` dela vai para o `title`, e um `title` **não
+ * existe num aparelho de toque**: escrever o aviso ali seria cumprir o pedido no
+ * papel e não na tela.
+ *
+ * Então a pergunta troca de superfície conforme o que ela tem a dizer, e o app
+ * já separava as duas assim: o par inline é o *"tem certeza?"* de um gesto cuja
+ * consequência a própria linha mostra; o `appConfirm` é a confirmação que
+ * carrega uma FRASE, e é o que "Limpar o Cronograma", "Excluir pasta" e o
+ * excluir de uma versão da Bíblia já usam.
+ *
+ * **E O AVISO É CONDICIONAL.** Ele só aparece onde a interrupção de fato
+ * acontece (`tirarDaFilaEncerraCena`, a mesma pergunta que a ação faz) — remover
+ * um item de uma fila que ainda tem outros não para nada, e prometer ali que a
+ * mídia será interrompida é uma frase sobre o que o aparelho NÃO vai fazer, com
+ * o dedo já no botão.
+```
+
+*fecharFilaVazia*:
+
+```js
+ * ===== A FILA ACABOU COM A CENA DENTRO: A CENA ACABA JUNTO (v1.8.52) =====
+ *
+ * Pedido do operador: *"verifique se a mídia ativa nos controles é removida para
+ * o estado de 'nada em exibição' quando eu excluo o único item da playlist, no
+ * caso a midia que estava em exibição. sendo assim o método de limpar de verdade
+ * o controle atual"*.
+ *
+ * MEDIDO no que havia: removida a única faixa da fila, ela CONTINUAVA TOCANDO,
+ * com `currentId` e `midiaNoAr` intactos e o cartão anunciando o nome — a fila
+ * vazia e o controle apontando para um item que já não está em lista visível
+ * nenhuma (ele sobrevive na prateleira `avulsos`, que o operador não vê).
+ *
+ * ISTO NÃO CONTRADIZ A v1.3.13, e a distinção é a NATUREZA DA LISTA. Aquele
+ * lote nasceu de *"ao apagar um item do cronograma enquanto ele está em
+ * execução, o item interrompe sua execução"* e vale para o ACERVO: excluir do
+ * Cronograma ou dos Favoritos tira o item de onde ele fica GUARDADO, e não fala
+ * do telão. A FILA é a única lista que o TRANSPORTE governa — é ela que o ⏭
+ * percorre e que o avanço automático consome. Tirar dela o que está no ar e não
+ * sobrar nada não é "guardei noutro lugar": é ACABOU.
+ *
+ * COM FILA SOBRANDO NADA MUDA — medido: remover o item no ar de uma fila de dois
+ * mantém a faixa andando e o outro item esperando. Pausar o louvor porque o
+ * operador reorganizou a fila seria interrupção de culto.
+ *
+ * E "LIMPAR DE VERDADE" EXIGE ZERAR O `currentId`. `stopClear` o preserva de
+ * propósito (é ele que faz o ▶ repetir a faixa), e `renderNowPlaying` só
+ * escreve "Nada em exibição" com ele nulo — a frase que o operador citou é
+ * inalcançável sem isso. E precisa ser PERSISTIDO: `load()` re-hidrata
+ * `currentId` de `state.current.mediaId`, e todo `db-change` dispara um `load`.
+ *
+ * O QUE SE PERDE está dito: o ▶ deixa de repetir AQUELA faixa. É o preço certo
+ * — o operador acabou de declarar que ela saiu da fila, e com a fila vazia não
+ * há mais linha nenhuma na tela apontando para ela. Ela continua no Histórico.
+ */
+/**
+ * A FOLHA FECHA QUANDO A FILA ACABA (v1.8.54), a pedido do operador: *"ajuste
+ * também após o esvaziamento da playlist, para que a janela dela seja fechada,
+ * já que não há mais nada ali"*.
+ *
+ * ELA MORA NUMA FUNÇÃO, e não nos dois chamadores: esvaziar pela lixeira da
+ * última linha e pelo "Limpar" são o MESMO estado, e duas escritas divergem no
+ * primeiro ajuste — é a razão que criou o `encerrarCenaDaFila`, aplicada de
+ * novo.
+ *
+ * E ELA NÃO MORA NO `renderPlaylist`. Ali a condição seria *"a fila está
+ * vazia"*, e isso é verdade também quando a folha é ABERTA vazia (o que os
+ * oráculos fazem, e o portão de geometria depende de fazer, para medir os
+ * botões do rodapé). A condição certa é *"a fila ACABOU DE esvaziar"*, que é um
+ * evento e tem dois donos conhecidos.
+```
+
+*HIST_MAX*:
+
+```js
+// O HISTÓRICO DO CULTO (v1.2.0)
+```
+
+*HIST_MAX*:
+
+```js
+// Pedido do operador: *"crie um botão de histórico, que lista todos os itens
+// que já tocaram naquela sessão. deve ser uma lista tipo a do cronograma, mas
+// sem opções de exclusão, mas com opções de enviar para o cronograma. essa
+// lista deve ter a hora de cada apresentação de cada item e deve ser apagada a
+// cada nova sessão do app"*.
+//
+// ## Por que ele resolve algo que nenhuma lista do app resolve
+//
+// O Cronograma é o que se PRETENDE tocar, a playlist é o que vem A SEGUIR, e as
+// duas são voláteis por natureza — um toque numa mídia da Biblioteca redefine a
+// fila inteira. Nenhuma das duas responde *"o que eu já toquei hoje?"*, e é essa
+// a pergunta de quem monta o culto seguinte ou precisa repetir um louvor que
+// entrou de improviso e não ficou guardado em lugar nenhum.
+```
+
+*HIST_MAX*:
+
+```js
+// lista (ver o KDoc de `LISTS` em `db.js`). Guardar só o id daria uma lista de
+// linhas em branco no fim de um culto normal. Por isso o nome e o subtítulo são
+// copiados NO INSTANTE da projeção — o histórico é um registro do que aconteceu,
+// e um registro não pode depender de o objeto ainda estar lá.
+```
+
+*HIST_MAX*:
+
+```js
+// ## ELE ATRAVESSA SESSÕES, E ELAS NÃO SE MISTURAM (v1.4.31)
+```
+
+*HIST_MAX*:
+
+```js
+// Pedido do operador: *"adicione um sistema extra, armazene os dados entre
+// sessões, separando as sessões. mantenha os itens usáveis apenas na categoria
+// da sessão atual. para as sessões antigas, deixe usáveis apenas itens padrões
+// do sistema, como músicas, textos, links e etc... que não dependem de um
+// arquivo que pode já ter sido excluído, para não ser obrigado a manter aquele
+// arquivo"*.
+```
+
+*HIST_MAX*:
+
+```js
+// Isto REVOGA o "apagada a cada nova sessão" do pedido original, e as duas
+// coisas não se contradizem porque o que substitui o apagamento é a SEPARAÇÃO:
+// a sessão de hoje continua sozinha no topo da folha, e as antigas ficam abaixo
+// dela, com cabeçalho próprio (ver `renderHistorico`).
+//
+// **Uma SESSÃO é uma carga do documento**, e essa continua sendo a única
+// definição que o lado web tem como observar — minimizar não abre sessão nova,
+```
+
+*HIST_MAX*:
+
+```js
+// aberto e fechado sem projetar nada não deixa uma sessão vazia na lista de
+// quem for consultá-la no sábado seguinte.
+```
+
+*HIST_MAX*:
+
+```js
+// caminho de projeção passa, e uma escrita no IndexedDB ali era o argumento
+// que manteve este artefato em memória por vinte e nove versões. Ela continua
+// fora: `historicoRegistrar` mexe só na memória e AGENDA a gravação
+// (`HIST_GRAVA_MS`), que coalesce a rajada de um culto inteiro em uma escrita a
+// cada dois segundos de silêncio. O preço, dito: os últimos segundos podem se
+// perder numa morte do renderer — e é por isso que a saída de cena
+// (`visibilitychange`) força a gravação pendente.
+```
+
+*HIST_MAX*:
+
+```js
+// em `db.js`). Um histórico que perde a última projeção porque a transação
+// ficou em voo é o defeito exato que este lote existe para não ter.
+```
+
+*histReceita*:
+
+```js
+ * E O ITEM EDITADO É O PRÓPRIO ITEM (v1.12.23): o resolvido herda `folder`/
+ * `srcName` do ORIGINAL (`resolverEdicao`), e a receita de acervo trazia de
+ * volta o HINO INTEIRO no lugar do trecho. A receita `item` só aponta para o
+ * id — estável, porque um editado nunca é rebaixado —, e sumido ele, falha
+ * FECHADA (`histResolver` devolve `null`).
+```
+
+*histAcionavel*:
+
+```js
+ * Numa sessão antiga, só o que tem RECEITA: é a linha exata do pedido — nada
+ * aqui pode obrigar o aparelho a guardar um arquivo para o histórico continuar
+ * funcionando.
+```
+
+*renderHistorico*:
+
+```js
+ *    fato não se edita. (Foi o pedido, e ele é o certo: um destrutivo aqui
+ *    apagaria o registro sem apagar nada do aparelho.) O que se apaga é a
+ *    SESSÃO inteira, ou o histórico todo — ver `histLimpar`.
+```
+
+*renderHistorico*:
+
+```js
+ * CADA SESSÃO É UM `<li>` DA MESMA LISTA (v1.4.31), e não um bloco FORA dela:
+ * a folha rola inteira, e um cabeçalho fora do `<ul>` ficaria parado sobre o
+ * conteúdo errado. Desde a v1.7.5 esse `<li>` é o BLOCO do dia, com a barra e
+ * o corpo dele dentro — o que muda é de quem cada linha é filha, não onde a
+ * lista rola.
+```
+
+*historico.forEach*:
+
+```js
+  // ===== UMA SESSÃO É UM BLOCO, COM BARRA E CORPO (v1.7.5) =====
+  //
+  // É a anatomia de uma SEÇÃO da Biblioteca (`.coll-group` = a barra mais o
+  // `.coll-group-corpo`), e ela veio inteira a pedido do operador: *"caso ache
+  // mais correto, utilize o design de corpo e lista que já temos na
+  // biblioteca"*. O que ela resolve é o relato — *"está difícil distinguir as
+  // sublistas"* —, e resolve porque a sublista passa a ter CORPO: as linhas de
+  // um dia moram DENTRO do bloco daquele dia, e não soltas entre dois
+  // cabeçalhos.
+  //
+  // O `<ul>` ANINHADO CONTINUA NO MESMO SCROLLER, que era a razão de o
+  // cabeçalho ser um `<li>` da lista de fora: um cabeçalho fora dela ficaria
+  // parado sobre o conteúdo errado. Aninhar não muda isso — muda só de quem
+  // cada linha é filha.
+```
+
+*bar*:
+
+```js
+  // A BARRA é a primeira faixa do bloco, e o corpo vem depois dela — a anatomia
+  // da `.coll-group` da Biblioteca. O `<li>` deixou de ser a barra e passou a
+  // ser o BLOCO: é ele que pinta o poço, e é dentro dele que a sublista mora.
+```
+
+*row.addEventListener*:
+
+```js
+  // ===== E O TOQUE NA LINHA PROJETA (v1.2.3) =====
+  //
+  // Pedido do operador: *"pode fazer o item do histórico ser executável
+  // diretamente no toque"*. A v1.2.0 tinha recusado isto — o argumento era
+  // que uma lista consultada durante o culto não podia mandar coisa ao telão
+  // por um toque de rolagem —, e ele **não se sustenta**: um `click` não sai
+  // de um gesto que rolou a lista (o navegador o cancela), que é a mesma
+  // proteção sob a qual a folha da playlist já projeta desde sempre.
+  //
+  // O que sobra é a razão de o histórico existir: ele é a lista de onde se
+  // repete um louvor que entrou de improviso e não ficou guardado em lista
+  // nenhuma. Obrigar a passar pelo Cronograma para tocá-lo de novo é cobrar
+  // dois toques e uma linha permanente por uma repetição.
+```
+
+*row.addEventListener*:
+
+```js
+  // direto ao `send`; uma mídia redefine a fila para si antes). Duplicar essa
+  // decisão aqui era garantir que as duas divergissem no primeiro ajuste.
+  //
+  // **E A FOLHA FECHA.** Ela cobre a preview e o transporte, que é onde a
+  // resposta ao toque aparece — projetar por trás dela seria o operador
+  // tocando e não vendo nada acontecer. É o mesmo desfecho do "Guardar como
+  // pacote" da playlist, pela mesma razão.
+```
+
+*closeFadePopup*:
+
+```js
+    // CONFIGURAÇÕES FECHA INTEIRA (v1.12.48): ela cobre a preview e o
+    // transporte, que é onde a resposta ao toque aparece — e fechá-la recolhe a
+    // seção junto.
+```
+
+*histConferirVivos*:
+
+```js
+// SÓ A SESSÃO ATUAL (v1.4.31), e não é economia: numa sessão antiga a linha sem
+```
+
+*linhas*:
+
+```js
+  // AS LINHAS SÃO FILHAS DO BLOCO desde a v1.7.5 (antes eram irmãs dele, e o
+  // percurso era um passeio por `nextElementSibling` até o cabeçalho seguinte).
+  // Com o corpo aninhado a pergunta é direta — e continua sendo só a PRIMEIRA
+  // sessão, que é a atual.
+```
+
+*histLimpar*:
+
+```js
+ * LIMPA. `inicio` é a sessão; sem ele, tudo — as duas metades do pedido
+ * *"limpar todo o histórico ou por sessões"*.
+```
+
+*secaoAnim*:
+
+```js
+// ===== AS SEÇÕES DE CONFIGURAÇÕES (v1.12.48) =====
+```
+
+*secaoAnim*:
+
+```js
+// Pedido do operador: *"ao invés das opções de configurações abrirem em uma nova
+// janela na base da tela, faça com que seus conteúdos abram dentro da janela
+// original das configurações"*. Uma seção aberta por vez, depois da grade.
+//
+// E A GRADE SOME (v1.12.50): *"faça com que a zona dos botões originais das
+// configurações seja oculta (pode manter a animação de deslizar para cima para
+// ocultar ela)"*. Abrir uma seção tira `#cfgTopo` (o modo e a grade) do layout, e o
+// cabeçalho da seção gruda no topo da folha (`.com-secao` na `.fade-opts`); quem a
+// recolhe é o chevron dele, o voltar ou o Cancelar da Verificação, e recolher
+// devolve a grade. Trocar entre seções não a devolve (hoje não há porta para isso,
+// mas a conta está aqui: `de && para` só cruza as seções).
+```
+
+*hFim*:
+
+```js
+    // O QUE MUDOU DURANTE A TROCA CONTINUA ANIMANDO (v1.12.52). Um gancho de abrir
+```
+
+*testeNaoVisto*:
+
+```js
+// A VERIFICAÇÃO RODA AO ABRIR. Um toque que abre uma lista vazia com um botão
+// "verificar" embaixo é dois toques para a mesma intenção — quem abriu esta
+// seção já pediu o teste. Desde a v1.12.44 a rodada é UMA só, com o download de
+// teste no fim.
+```
+
+*testeNaoVisto*:
+
+```js
+// RECOLHER A SEÇÃO SÓ A OCULTA (v1.12.52), pedido do operador: *"fazer um botão de
+// ocultar para o processo de verificação sem ser interrompido"*. O Ocultar, o
+// chevron, o voltar e fechar Configurações recolhem a seção e a rodada SEGUE; o
+// tile da grade mostra o andamento (o aro e o percentual) e, no fim, que há
+// resultado (`testeNaoVisto`). Só o CANCELAR interrompe. Reabrir no meio mostra a
+// barra no ponto em que está; reabrir com um resultado NÃO VISTO mostra esse
+// resultado, sem rodar de novo. Um resultado já visto roda de novo na reabertura,
+// como sempre.
+```
+
+*aoAbrirTela*:
+
+```js
+// A TELA E O TRANSFERIR (v1.11.7). NÃO RECOLHEM AO TOCAR NUM TILE: quem alterna
+```
+
+*edicaoTituloEl*:
+
+```js
+// ===== EDITAR MÍDIA (v1.12.0) =====
+```
+
+*edicaoTituloEl*:
+
+```js
+// Escolher um item JÁ EDITADO o edita NO LUGAR (v1.12.6): o mesmo registro e o mesmo id, então toda
+```
+
+*edicaoRender*:
+
+```js
+// A seção tem a altura do que mostra, e a troca de vista ANIMA a altura (v1.12.48).
+```
+
+*aoAbrirEdicao*:
+
+```js
+// A ABERTURA DESENHA NO ATO (v1.12.52). Relato do operador: *"ela abre grande, encolhe para
+// carregamento da lista e depois fica grande quando a lista está pronta"*. A troca de seção
+// mede a altura final LOGO DEPOIS de chamar este gancho, e o que havia na seção era o
+// desenho da ABERTURA ANTERIOR (a lista inteira, ou nada na primeira vez): a caixa animava
+// até ela, o spinner entrava por cima no meio da animação (sem animar, porque quem anima
+// ali é a troca) e a caixa PULAVA no fim. Agora o primeiro quadro já é o que esta abertura
+// vai mostrar — o formulário que está na memória, ou o spinner no lugar da lista, que
+// guarda a altura da última lista (`edicaoAlturaLista`) — e o resto chega depois, animado.
+```
+
+*compartilharRegistroDaVerificacao*:
+
+```js
+// O REGISTRO É COMPARTILHADO COMO ARQUIVO (v1.12.44, shell 82). Pedido do
+// operador: *"faça ele ser compartilhável e não apenas salvável na memória"*.
+// O texto é o MESMO `diagTexto` de sempre, com o resultado da verificação lá
+// dentro (`blocoAutoteste`) — continua sendo UM arquivo, agora entregue ao
+// seletor de compartilhamento do Android em vez do "Salvar como".
+```
+
+*testeCancelada*:
+
+```js
+// ===== UMA VERIFICAÇÃO SÓ (v1.12.44) =====
+```
+
+*testeCancelada*:
+
+```js
+// Pedido do operador: *"vamos ter apenas uma verificação, direta e completa"*.
+// A leve roda e, no fim dela, o download de teste roda por cima (as mesmas
+// duas funções de antes, encadeadas). RECOLHER A SEÇÃO CANCELA TUDO: a leve para
+// de começar checagens novas e descarta o resultado; o download é cancelado e
+// limpo pelo caminho que ele já tinha. Uma reabertura espera a rodada cancelada
+// terminar de se desfazer antes de começar a nova — duas rodadas dividiriam o
+// mesmo estado.
+```
+
+*pintarTileDoTeste*:
+
+```js
+// O TILE "VERIFICAR" É O SINAL DA RODADA OCULTA (v1.12.52) — a mecânica do
+```
+
+*TESTE_TEMPOS_PADRAO*:
+
+```js
+// O PERCENTUAL É DE TEMPO, NÃO DE ETAPAS (v1.12.46). Pedido do operador: a
+// fração parava na última etapa durante todo o download de teste, que dura
+// muito mais que as 41 checagens juntas. O anel anda pelo tempo PREVISTO de
+// cada parte (`testeTempos`, aprendido das rodadas anteriores), corrigido pelo
+// que de fato aconteceu (checagens respondidas, bytes baixados), e a exibição
+// é suavizada e nunca volta: um ritmo que dá para sentir quanto falta.
+```
+
+*TESTE_PROBLEMA*:
+
+```js
+// O TÍTULO DO PROBLEMA (v1.12.44). A tela só mostra o que deu errado, então o
+```
+
+*testeProblemas*:
+
+```js
+// aparecem: *"listar o que está funcionando não me é informação nenhuma"*.
+```
+
+*animarAlturaDasSecoes*:
+
+```js
+  // A SEÇÃO TEM A ALTURA DO QUE MOSTRA, e toda mudança dela ANIMA (v1.12.47,
+  // na seção desde a v1.12.48): a barra virando a lista de problemas, o
+  // Cancelar virando o fecho.
+```
+
+*anda*:
+
+```js
+  // O FECHO TEM DOIS ESTADOS (v1.12.48): enquanto anda, OCULTAR e CANCELAR
+  // (v1.12.52 — o chevron do cabeçalho fica, e também só oculta); no fim, Refazer
+  // e o Registro, que só existe no app.
+```
+
+*acertarFechoDoTeste*:
+
+```js
+// O OCULTAR CEDE AO CANCELAR pela mesma régua (v1.12.52): enquanto a rodada anda, o
+// irmão largo é o Cancelar.
+```
+
+*else if (midiaNoAr && preview.getCurrent*:
+
+```js
+  // não respondia isso: depois de um stop ele continua devolvendo o registro
+```
+
+*else if (midiaNoAr && preview.getCurrent*:
+
+```js
+  // nessa janela era apagado pelo `clear` que terminava logo atrás — o ▶ não
+  // fazia nada, e o operador aprendia a tocar em STOP DUAS VEZES para
+  // destravar. `midiaNoAr` cai no mesmo instante em que o stop é dado, então o
+  // primeiro toque no ▶ já cai no `send` e recarrega. (v5.142)
+```
+
+*attachTransportStep*:
+
+```js
+// ISTO NÃO VALE MAIS PARA O TRANSPORTE (v1.3.5). Lá o par voltou a ter um
+// significado só — MÍDIA anterior/próxima —, porque a preview passou a ser
+// flanqueada por dois botões de slide de altura inteira, e um eixo escondido
+// atrás do tempo do toque não se justifica quando o outro tem botão próprio a
+// dois centímetros dali. O que resta aqui são as DUAS superfícies em que não
+// há botão de slide nenhum e o par continua sendo tudo o que existe:
+```
+
+*attachTransportStep*:
+
+```js
+//     (`slideMode`/`slideLabel` em `pushNowPlaying`) — ali cabe rótulo, então
+//     o modo nunca precisa ser adivinhado.
+```
+
+*prevEl.addEventListener*:
+
+```js
+// O TRANSPORTE PASSA MÍDIA E MAIS NADA (v1.3.5): sem toque longo, sem eixo a
+```
+
+*settingsBtnEl.addEventListener*:
+
+```js
+// Configurações: a porta fixa no cabeçalho da tela (v1.2.0 — ela nasceu sobre a
+// preview, passou pelo topo da coluna do mixer e subiu para cá, o mesmo canto do
+// gêmeo do Modo Fácil). A engrenagem da preview sumia com um toque na
+// miniatura, e uma configuração escondida atrás de um estado de UI é a que
+```
+
+*histOpenRowEl.addEventListener*:
+
+```js
+// AS SEÇÕES (v1.12.48): o tile abre a dele, troca a aberta ou a recolhe (ver
+```
+
+*histOpenRowEl.addEventListener*:
+
+```js
+// recolher só OCULTA a rodada (v1.12.52); quem a interrompe é o Cancelar.
+```
+
+*if (testeCancelarEl) testeCancelarEl.add*:
+
+```js
+// O CANCELAR interrompe a rodada e recolhe; o OCULTAR só recolhe (v1.12.52).
+```
+
+*if (pvBusyCancelEl) {*:
+
+```js
+// O CANCELAR do cartão sobre a preview (v5.191). A preview inteira tem gestos
+```
+
+*lyricsViewBtnEl.addEventListener*:
+
+```js
+// A FOLHA DO TRANSPORTE É SEMPRE A CENA, e o parêntese vazio é quem diz isso.
+// `openLyricsPopup` ganhou `(item, fonte)` na v1.2.14, e um ouvinte registrado
+// POR REFERÊNCIA entrega o EVENTO no lugar do item: `lvAlvo` virava um
+// `PointerEvent`, `lvItem().lyrics` era `undefined`, `cifraCabe` recusava, e
+// `lvNaCena()` passava a ser falso — o que apagava também a reserva da Bíblia.
+// As três fontes sumiam de uma vez e a folha abria dizendo "Nada em exibição
+// com letra ou texto bíblico" para TODA música. Nada erra alto: a função que
+// decide continua certa, e só a tela denuncia.
+```
+
+*if (pvRecolherEl) {*:
+
+```js
+// processamento. Dois estados — sempre clicável desde a v1.10.10, mesmo sem
+// destino de projeção.
+```
+
+*VOL_ANIM*:
+
+```js
+// ===== O FADER É UMA ESPIADA, E SÓ (v1.3.9) =====
+// Ele não tem mais botão que o abra: a ÚNICA porta é a tecla física de volume,
+// e a única saída é o relógio dela. Isso é o que o operador pediu — o botão de
+// tela saiu, a espiada ficou —, e simplifica a máquina: `cancelVolPeek` e
+// `bumpVolPeek` existiam para o caso "aberto na mão", que deixou de existir.
+```
+
+*VOL_ANIM*:
+
+```js
+// POR QUE O APP CONTINUA CONSUMINDO A TECLA, que é o ponto do recurso: quem
+// não consome deixa o ANDROID desenhar o painel de volume dele — e com
+// espelhamento ativo esse painel aparece SOBRE A PROJEÇÃO, na frente da
+// congregação. O fader daqui é o que o substitui: ele mora no celular, some
+// sozinho, e nada disso chega ao telão.
+```
+
+*titleResizeTimer*:
+
+```js
+// Se a largura mudar (ex: rotação), remede o título rolante — e o vazado da
+// faixa de abas, que é posicionado em PIXELS medidos: numa rotação as células
+// mudam de largura e ele ficaria sobre a aba errada. Sem animação, porque isto
+// não é uma troca de aba: é a mesma aba num tamanho novo.
+```
+
+*temCampoEmFoco*:
+
+```js
+  // caixa de controles até o topo. É o relato do operador na importação de um
+  // `.pptx` (o palco de rasterização, hoje uma caixa 0×0 — ver `deck.js`).
+```
+
+*campoDesloca*:
+
+```js
+  // ===== O TECLADO SOBREPÕE: O PADRÃO DO APP (v1.13.7; exceção desde a v1.4.29) =====
+```
+
+*campoDesloca*:
+
+```js
+  // Relato do operador, depois de três lotes consertando campo a campo: *"o
+  // problema da caixa de texto da biblioteca subindo e descendo em todas as
+  // interações de texto do app persiste… edição do nome cronograma… edição de
+  // nome dos itens no cronograma… se movendo por causa do teclado"*. Com `--kb`
+  // escrito, o `<body>` encolhe e a caixa de controles — com a barra de busca da
+  // Biblioteca repousando nela — SOBE com o teclado e DESCE quando o campo perde
+  // o foco. A v1.4.29 declarou `sobrepoe` no renomear da linha, a v1.13.2 no
+  // título do itinerário, a v1.13.3 em mais quatro; o resto (o `appPrompt` de
+  // renomear o cronograma e o itinerário, a nova mensagem, o guardar pacote)
+  // continuava deslocando, porque o PADRÃO era deslocar.
+  //
+  // A REGRA INVERTEU: todo campo sobrepõe, e quem precisa do app encolhido o
+  // DECLARA (`data-teclado="desloca"`). A exceção é UMA, e tem nome: o campo da
+  // BIBLIOTECA (`#hymnSearchInput`). Ele é a cabeça de uma janela de tela cheia
+  // cuja LISTA tem de terminar onde o teclado começa — é por `--kb` que a caixa
+  // de controles sai de cena (`body.lib-aberta.teclado`), que a janela para no
+  // teclado e que o Modo Fácil recolhe as teclas ("DURANTE UMA BUSCA AS TECLAS
+  // SAEM"). Ali a barra SOBE com o teclado de propósito: ela é o campo.
+  //
+```
+
+*REVELA_FOLGA*:
+
+```js
+  // ===== O CAMPO NÃO FICA ATRÁS DO TECLADO (v1.13.7) =====
+```
+
+*document.documentElement.style.setProperty*:
+
+```js
+    // ===== `--kb-folha`: O TECLADO INTEIRO, MESMO QUANDO O CAMPO SOBREPÕE (v1.13.2) =====
+```
+
+*document.documentElement.style.setProperty*:
+
+```js
+    // dele). Com o `--kb` fazendo os dois papéis, o campo do título do itinerário
+    // encolhia o `<body>`: a caixa de controles e a barra de busca da Biblioteca
+    // SUBIAM com o teclado, e DESCIAM no confirmar — o relato do operador.
+```
+
+*document.body.classList.toggle*:
+
+```js
+    // ===== E O TECLADO GANHA NOME (v1.5.6) =====
+```
+
+*pedirVeus*:
+
+```js
+    // E O VÉU DAS BORDAS DA LISTA (v1.5.16). O teclado é a porta NORMAL da
+```
+
+*VOL_FINO_ATE*:
+
+```js
+ * ===== O PASSO É FINO ABAIXO DE 10 (v1.8.90) =====
+```
+
+*VOL_FINO_ATE*:
+
+```js
+ * Pedido do operador: *"ajuste o slider de volume para ele ser mais sensível
+ * abaixo do nível 10, para que ele vá de 1 e 1 abaixo desse ponto. E subindo
+ * ele também siga essa precisão"*.
+```
+
+*VOL_SIS_ALVO*:
+
+```js
+// ===== A PASSAGEM DO VOLUME: o sistema sobe, o app cede o mesmo (v1.12.18) =====
+// Pedido do operador: com os dois em 0, o app ia a 100% e DEPOIS o sistema subia — e quando o
+// sistema chegava a ~60% o som já estava no máximo, sem folga. Agora o app, no teto, entrega o
+// volume ao sistema em DOIS CICLOS, e em cada toque o sistema sobe um degrau e o app desce o MESMO
+// tanto (`volumePassa`): 1) até o sistema chegar a `VOL_SIS_ALVO` (60%); aí as teclas voltam a mexer
+// só no app, que sobe até o teto de novo; 2) do teto de novo até o sistema chegar ao máximo, com
+// o app cedendo outra vez; e as teclas voltam ao app. Uma passagem em curso (`volPassagem`) segue
+// a cada toque de cima, mesmo com o app abaixo de 100% — é ela que impede o recuo "a cada vez
+// menor" da v1.12.17. A conta usa o volume REAL do sistema (`AVNative.systemVolumeStep` devolve
+// antes/depois/max, shell 78); mexer no fader do app no meio dela (a tecla de baixo inclusive)
+// a encerra, e o próximo teto começa outra do volume que o sistema de fato tem.
+```
+
+*passagemAlcancaOSom*:
+
+```js
+// A PASSAGEM SÓ VALE ONDE O VOLUME DO SISTEMA ALCANÇA O SOM (v1.12.22). O som sai DESTE processo
+// quando toca a prévia ou o telão (a `Presentation`, que roda aqui e cuja saída o volume do sistema
+// governa). Sem TV no ar e com telas da rede recebendo, as telas SÃO a projeção (este aparelho fica
+// mudo, `somLocalDeveEstar`) e o comando `volume` desce para elas — o sistema daqui não as alcança, e
+// cada toque em "aumentar" as deixava mais BAIXAS (100 → 93 → … → 40%). A pergunta é a do campo
+```
+
+*simpleLimparSelecao*:
+
+```js
+  // A ESCOLHA EM CURSO É DO MODO FÁCIL (v1.12.30): trocar de modo a encerra — marca, vigia e saída.
+```
+
+*manterTocandoAqui*:
+
+```js
+  // ===== A EXCEÇÃO: A MÍDIA QUE ELE COLOCOU NO AR NÃO É INTERROMPIDA (v1.11.19) =====
+```
+
+*manterTocandoAqui*:
+
+```js
+  // Relato do operador: *"ao estar tocando algo, estando no modo avançado e ir
+  // para o modo simples, atualmente ele pausa o som e mostra as 3 opções
+  // iniciais do modo simples. Gostaria que ele não interrompesse a mídia, pois
+  // se está tocando é porque foi feito pelo usuário; nesse caso, se não houver
+  // tela conectada, apenas vá para o modo 'tocar neste celular', pois
+  // tecnicamente é isso que o usuário estava fazendo no modo avançado"*.
+  //
+```
+
+*acertarEscalaDaBiblioteca*:
+
+```js
+  // A ESCALA DA BIBLIOTECA é do Modo Fácil (v1.13.9): escrita ao entrar, apagada ao sair.
+```
+
+*if (appMode === 'full' && lvSimpleDeckUr*:
+
+```js
+  // E AS MINIATURAS DA APRESENTAÇÃO SAEM COM O MODO (v1.4.30). `refreshSimpleLyrics`
+```
+
+*}*:
+
+```js
+  // A caixa de controles fica oculta no simplificado, e medir um elemento
+  // escondido dá 0 — o vazado da faixa só pode ser posicionado quando ela
+  // aparece. Sem animação: aqui ele POUSA, não viaja.
+```
+
+*appModeSegEl.dataset.modo*:
+
+```js
+  // O `data-modo` É O ESTADO (v1.4.43), e a classe é aparência — a mesma
+```
+
+*setTema*:
+
+```js
+// DOIS ESTADOS desde a v1.8.64 (revogando a v1.8.49): escuro e claro, e o tile
+// é o interruptor que vai para o outro. O AUTOMÁTICO saiu a pedido do operador
+// — *"remova o auto, não está sendo eficaz essa opção"* —, e com ele a pergunta
+// "há escolha guardada?": agora há SEMPRE, e a ausência da chave é o ESCURO.
+```
+
+*renderTemaTile*:
+
+```js
+// metades de um par, e nenhuma delas é "o tema desligado". No AUTOMÁTICO o
+// rótulo diz o que o app está seguindo, e não só que ele segue — *"Automático"*
+// sozinho não responde "então está claro ou escuro AGORA?", e é essa a pergunta
+// de quem olha o tile.
+```
+
+*renderSimple*:
+
+```js
+// (A CHAVE "este aparelho entra na contagem" saiu na v1.4.42, a pedido do
+//  operador: *"descarte a opção de contagem de uso como opcional, deixe sempre
+//  ativo, não preciso do sistema de exclusividade"*. Ela foi um tile do painel
+//  rápido (v1.4.1–v1.4.40) e uma linha do rodapé do Registro (v1.4.41).
+//
+//  O QUE SOBRA É LEITURA: `farolDiag` alimenta a linha "Alcance:" do Registro,
+//  que responde *"o farol chegou a acender?"* — e essa pergunta não tem nada a
+//  ver com haver ou não uma chave.)
+```
+
+*if (pvFsNomeEl) pvFsNomeEl.textContent =*:
+
+```js
+  // O título da tela cheia vale nos DOIS modos (v1.12.42): é escrito antes da guarda do modo.
+```
+
+*simpleNivelEl.querySelector*:
+
+```js
+  // O botão espelhado deixou de ter glifo na v1.3.5 (subiu para a preview e
+  // virou SVG), então o que se copia agora é a CLASSE de estado — `.alternado`
+  // é a mesma chave que lá troca o desenho. O espelho continua LENDO o controle
+  // de verdade em vez de reler `muted`/`displayAudioBlocked` por conta própria:
+  // uma segunda leitura divergiria no primeiro caso de borda.
+  // A TECLA DE NÍVEL (v1.13.8) é o mudo e o mostrador do volume numa peça só: o glifo e as classes
+```
+
+*renderFsTempo*:
+
+```js
+// A LINHA DO TEMPO DA TELA CHEIA (v1.12.41 no Modo Fácil, nos DOIS modos desde a v1.12.42) é a
+// MESMA leitura do `#seek`, noutro lugar: some junto com a duração, e o dedo manda durante o arraste.
+```
+
+*simpleSeeking*:
+
+```js
+// ===== A BARRA DE TEMPO DO SIMPLIFICADO É INTERATIVA (v5.142) =====
+```
+
+*simpleSeeking*:
+
+```js
+// Ela nasceu como indicador — "neste modo não se arrasta nada; quem precisa
+// saltar no tempo usa o modo avançado". Só que saltar no tempo é a coisa mais
+// comum que se faz durante um louvor (voltar o refrão, pular a introdução), e
+// mandar o operador SAIR do modo para fazê-la é o oposto do que o modo existe
+// para dar. As teclas grandes continuam sendo a regra; o que muda é que a barra
+// deixou de ser um enfeite.
+```
+
+*ligarBarraDeTempo*:
+
+```js
+// UMA BARRA DE TEMPO TOCÁVEL (v1.12.41: o caminho do card, aproveitado pela linha do tempo da tela
+// cheia do Modo Fácil). `pintar(t)` escreve o que o DEDO está apontando; `aoComecar`/`aoTerminar`
+// são do dono (a tela cheia segura os controles acesos durante o arraste). O `seek` é UM, ao soltar,
+// e a fonte de verdade da posição continua sendo o `#seek` do avançado.
+```
+
+*renderCastBtn*:
+
+```js
+// O ÍCONE DE CAST SOBRE A PREVIEW — e ele vale nos DOIS modos (v5.142).
+//
+// Esta função morava dentro de `renderSimpleCast`, que começa com
+// `if (appMode !== 'simple') return`. O efeito era duplo e o segundo é o do
+// relato: no modo avançado o ícone NUNCA era repintado, então o estado de
+// "conectado" que o simplificado deixou aceso ficava para sempre — o operador
+// trocava de modo, a tela caía, e o ícone seguia dizendo que havia telão. O
+// estado da tela não é uma decoração de um dos modos; é o mesmo fato nos dois.
+```
+
+*naRede*:
+
+```js
+  // AS TELAS DA REDE CONTAM COMO CONEXÃO — e é o ÍCONE que passa a dizer isso
+  // (v5.176), no lugar do cartão na barra de notificações.
+  //
+  // A notificação do `EspelhoService` não pode sumir (um serviço em primeiro
+  // plano é obrigado a ter uma, e é ele que mantém o espelho no ar com o app
+  // minimizado), mas ela também não era o lugar certo para essa informação: o
+  // operador olha para o app, e o app já tem um ícone cujo trabalho é
+  // exatamente esse. O cartão foi para `IMPORTANCE_MIN` — sai da barra de
+  // status — e o fato subiu para cá.
+```
+
+*naRede*:
+
+```js
+  // Inventar um segundo estado visual para o mesmo fato seria pedir ao operador
+  // que aprendesse duas convenções para uma coisa só.
+```
+
+*pvCastBtnEl.classList.toggle*:
+
+```js
+  // `.connected` marca "há uma tela recebendo". (O terceiro estado, `.testing`
+  // da liberação de teste em `--warn`, saiu na v5.199 com a própria liberação.)
+```
+
+*if (simpleCastBtnEl) {*:
+
+```js
+  // O ÍCONE DO CABEÇALHO DO MODO FÁCIL (v1.11.11) espelha o da prévia: mesma
+```
+
+*renderSimpleCast*:
+
+```js
+// O QUE SOBROU DE "renderizar a conexão no Modo Fácil" (v5.197): o ícone de
+// cast da preview e o bloqueio. O cartão que esta função existia para pintar —
+// rótulo, subtítulo, estado, `title` do gesto de 5 s — saiu com o botão único,
+// que estava morto desde a v5.193 (escondido por duas regras de `display: none`
+// que juntas cobriam todos os estados).
+//
+// O nome fica: são treze chamadores, e a função continua sendo "acerte o que
+// depende de haver tela conectada" — só que hoje isso é o ícone e a cortina.
+```
+
+*simpleDisplay*:
+
+```js
+// (A LIBERAÇÃO DE TESTE — segurar 5 s para destravar sem tela — SAIU na v5.199,
+// junto com o bloqueio. Ela era uma porta de desenvolvimento cujo único
+// trabalho era derrotar a cortina, e uma porta sem parede não é uma porta: o
+// modo já abre usável. Com ela saíram `CAST_HOLD_MS`, `castTestUnlocked`, o
+// gesto na cortina e o estado `.testing` do ícone de cast.)
+```
+
+*simpleDisplay*:
+
+```js
+// HÁ ALGUMA TELA RECEBENDO? — e desde a v5.193 a resposta inclui as telas da
+// REDE, não só a TV pela `Presentation`.
+//
+// Ela não decide mais bloqueio nenhum (v5.199): decide QUEM ocupa a célula da
+// preview no Modo Fácil — a preview, quando há tela, ou a seção de conexão,
+// quando não há — e o estado do ícone de cast. "O telão" deixou de ser sinônimo
+// de "uma TV conectada por espelhamento" na v5.187: sem TV, as telas da rede
+// SÃO o que a congregação vê, e é por isso que elas contam aqui.
+```
+
+*tv*:
+
+```js
+  // O TELÃO NO AR, não a tela listada (shell 59): sem `Presentation` não há
+```
+
+*return e.telas.filter((t) => t && t.pron*:
+
+```js
+  // ===== "HÁ TELA" NUNCA FOI "HÁ PROJEÇÃO" — o irmão do `telaoNoAr` (v1.4.19) =====
+  //
+  // O telão de verdade já tinha esta distinção (o campo `telao`: a tela CONTINUA
+  // listada com a `Presentation` no chão, e as três perguntas que dependem de
+  // haver projeção leem a janela, não a lista). As telas da rede não tinham
+  // equivalente: bastava PAREAR para o `somLocalDeveEstar` calar este aparelho.
+```
+
+*return e.telas.filter((t) => t && t.pron*:
+
+```js
+  // (que já cria a sessão e o fio SSE) e esse anúncio, a tela não está
+  // projetando nada; e sem TV a tela É a projeção, então o celular ficava mudo
+  // com ninguém tocando do outro lado — silêncio nos dois lados, que é o
+  // desfecho exato que o campo `telao` existe para não ter.
+  //
+```
+
+*renderSimpleGate*:
+
+```js
+// **Ele saiu na v5.199 e voltou na v5.203, e a ida e a volta valem escritas**,
+// porque a remoção foi um diagnóstico errado e não uma mudança de gosto. O
+// operador relatava "o botão de conectar que persiste em existir e bloquear a
+// tela do modo simples"; a leitura foi de que o BLOQUEIO incomodava, e a v5.199
+// o derrubou inteiro. Não era isso: o que ele via era o botão ANTIGO — o
+// `#simpleCastBtn` da v5.192, servido pela base embutida no APK depois de um
+// recuo do watchdog que não limpava o cache do WebView (a causa real, corrigida
+// na v5.200/v1.91). Ele chegou a dizer, com todas as letras, que "essa parte
+// não era o problema".
+//
+// O argumento que sustenta o bloqueio continua o mesmo, e ficou mais forte com
+// o tempo: sem tela a projeção não existe, e desde a v5.189 a preview nem som
+// tem — um ▶ aqui não produz absolutamente nada. A saída é o "Modo avançado" do
+// cabeçalho, que fica por cima da cortina de propósito: o que se bloqueia é
+// este MODO, não o app.
+```
+
+*acertarTelaCheiaDoVideo*:
+
+```js
+  // Uma tela que entra fecha a tela cheia do vídeo (v1.12.26) — ver `videoDoModoFacil`.
+```
+
+*if (simpleVeilEl) simpleVeilEl.hidden = *:
+
+```js
+  // A CORTINA VOLTOU na v5.203 (ver o comentário do `.simple-veil`): sem tela
+  // este modo não projeta nada — nem imagem nem som, desde que a mesa saiu na
+  // v5.189 —, e o bloqueio é o que diz isso sem depender de ninguém ler um
+  // cartão. O elemento existe só no bundle novo, daí a guarda.
+```
+
+*acertarEnqueteDaConexao*:
+
+```js
+// A ENQUETE DE 2,5 s TEM UM DONO SÓ, e é a VISIBILIDADE do bloco (v5.199).
+//
+// Ela nasceu como enquete da FOLHA — `abrirCast` a ligava, `fecharCast` a
+// matava —, e a v5.193 deu ao bloco uma segunda casa (a tela do Modo Fácil sem
+// telão) sem dar um dono novo à enquete. Ficaram dois acionadores e um só
+// interruptor, com as duas metades erradas: `hostCastConn` a acendia e nunca a
+// apagava (uma tela entrando devolvia o bloco à folha e deixava a enquete
+// batendo na ponte a cada 2,5 s pelo resto da sessão), e `fecharCast` a apagava
+// mesmo quando quem a tinha acendido era a TELA — isto é, abrir e fechar a
+// folha uma vez cegava o Modo Fácil justamente para o evento que ele espera,
+// uma tela da rede entrando.
+```
+
+*simplesComBarra*:
+
+```js
+// ===== A PREVIEW É UM nó só, e desde a v1.11.11 ele NÃO MUDA MAIS DE CASA =====
+// Até a v1.11.10 ela era MOVIDA entre a faixa do deck (avançado) e a célula do
+// Modo Fácil. Sem prévia no Modo Fácil, ela fica sempre na casa do avançado, e o
+// `<main>` escondido por `body.mode-simple` a cala — o nó continua no documento
+// porque o `stage` dele é quem toca o áudio quando o som é deste aparelho
+```
+
+*simplesComBarra*:
+
+```js
+// v1.11.11, pedido do operador: *"sem mídia tocando, a biblioteca é a tela principal,
+// com mídia tocando, o auxiliar de leitura é a tela principal"*. v1.11.12: *"mantenha a
+// barra de buscas da biblioteca sempre visível no modo simples … quando o foco for
+// para a caixa de buscas, a tela principal muda do auxiliar de leitura para a
+// biblioteca. A caixa de buscas é o gatilho para abrir a biblioteca durante a exibição
+// de uma mídia"*.
+```
+
+*simplesSemLeitura*:
+
+```js
+// A MÍDIA NO AR NÃO USA O AUXILIAR DE LEITURA (v1.11.21): nem letra nem páginas — um vídeo, uma
+```
+
+*simplesSemLeitura*:
+
+```js
+// aparece aqui."), e uma seção sem conteúdo à vista é o que o operador pediu para não manter.
+```
+
+*simplesBibliotecaDocada*:
+
+```js
+// A BIBLIOTECA É A TELA PRINCIPAL quando não há leitura a mostrar: sem mídia no ar (v1.11.11) OU
+// com mídia que não usa o auxiliar (v1.11.21). É a MESMA janela nos dois casos, e por isso tudo
+```
+
+*simplesBuscando*:
+
+```js
+// ===== DURANTE UMA BUSCA AS TECLAS SAEM (v1.12.51) =====
+// Pedido do operador: *"Ocultar os botões de play, stop, e volumes no modo simples, durante uma
+// busca na caixa de texto da biblioteca … em alguns aparelhos de menor resolução de tela, ou por
+// tamanho de teclados diversos, a seção de resultados não tem mais de 20% de tela disponível"*.
+```
+
+*forma*:
+
+```js
+  // ===== SÓ REMEDE QUANDO A FORMA MUDA (v1.12.30) =====
+```
+
+*renderTeclasSimples*:
+
+```js
+// ===== SEM NADA NO AR AS TECLAS RECOLHEM (v1.13.8) =====
+// Pedido do operador: *"Esconder play pause e stop no modo simples, após um encerramento de mídia,
+// no caso também vale para quando feito stop pelo usuário. Lembre de animar o recolhimento e com
+// tempo suficiente para não desaparecer debaixo dos dedos do usuário."*
+```
+
+*simpleSelecionarLinha*:
+
+```js
+// ---- A ESCOLHA DE UMA MÚSICA: toque, saída e entrada, nessa ordem (v1.11.12) ----
+// Relato do operador: *"a tela muda rápido demais, sem nem sequer o feedback tátil para
+// a percepção de que tocou no item certo … faça o feedback do toque, com calma, depois
+// a animação de fechamento da tela da biblioteca e a animação de entrada do auxiliar de
+// leitura. Atualmente a tela está simplesmente piscando … a tela muda sobre seus dedos
+// sem entender nada"*.
+```
+
+*simpleMarcarEscolha*:
+
+```js
+// A ESCOLHA, com ou sem LINHA tocada. O sorteio do Modo Fácil (v1.12.53) é uma escolha sem
+```
+
+*clearTimeout*:
+
+```js
+  // UMA ESCOLHA NOVA CANCELA O FIM DA ANTERIOR (v1.12.30): o timer velho apagaria esta marca.
+```
+
+*simpleAcompanhar*:
+
+```js
+// A ESCOLHA AINDA ESTÁ A CAMINHO (v1.12.32): o download, a junção, a gravação e o `send`. Sem
+// tela conectada o cartão de "Baixando…" não existe neste modo (`previewBusy` devolve o stub),
+// e o vigia, que só olhava o cartão, achava que nada andava: passados os 4 s ele desfazia a
+// marca e REINICIAVA a Biblioteca no meio do download — a tela agindo como se a mídia
+// estivesse pronta, segundos antes de ela tocar. Quem diz "ainda não" é a promessa da
+// própria escolha; só a DESTA escolha (uma nova a substitui).
+```
+
+*sorteioSimplesPool*:
+
+```js
+// ===== O SORTEIO DO MODO FÁCIL (v1.12.53) =====
+```
+
+*sorteioSimplesPool*:
+
+```js
+// Pedido do operador: *"Adicionar o botão de sorteio no modo simples, mas bem simplificado, no
+// caso ele vai sortear apenas músicas do hinário 2022, sem infantis e sem opções, apenas tocar o
+// botão de sorteio escolhe uma música dessa categoria, sempre cantada."*
+```
+
+*reiniciar*:
+
+```js
+      // mais — o vigia só desfaz a marca e PARA (v1.12.30: ele ficava de pé o culto inteiro).
+      // SEM LEITURA (nada no ar, ou uma mídia que não usa o auxiliar — v1.11.21) a Biblioteca
+      // CONTINUA sendo a tela depois da escolha, e o vigia é quem a reinicia: a linha marcada
+      // não pode ficar marcada para sempre sobre uma tela que nunca vai sair.
+```
+
+*&& (hymnSearchInputEl.value === '' || hy*:
+
+```js
+        // O CAMPO É DO OPERADOR (v1.12.30): só se reinicia o que ainda é o termo da escolha (ou
+```
+
+*medirCorpoSimples*:
+
+```js
+// ===== LIDAS DO LAYOUT, NÃO DA PINTURA (v1.11.13) =====
+// Relato do operador: *"quando dou stop em uma música no modo simples e a biblioteca volta,
+// ela fica mais encolhida verticalmente do que deveria, deixando espaço sobrando abaixo. Mas
+// ao interagir na biblioteca, ela se atualiza e ocupa o tamanho correto"*. Três causas de
+// uma medida FORA DE LUGAR que só uma remedição conserta (e a interação do operador — o
+// teclado, a rotação — é justamente o que dispara uma):
+```
+
+*medirCorpoSimples*:
+
+```js
+//      entrada (`.simple-song.entrando`, `translateY`), a base saía 14 px menor e FICAVA assim
+//      — o `ResizeObserver` só vê tamanho, e uma transformação não muda nenhum. MEDIDO: a
+//      camada passava 14 px da base da zona de leitura, e a medida não voltava sozinha.
+//      Aqui se lê a geometria de LAYOUT (`offsetTop`/`offsetHeight`), que a animação não move.
+//   2. A referência era `window.innerHeight`, e a camada da Biblioteca se ancora na caixa
+//      FIXA do `.simple` (`inset: 0`). As duas coincidem — até uma viewport que o WebView
+//      reporta antes (ou depois) do layout, quando a diferença é o tamanho do teclado. Agora
+//      a conta sai da MESMA caixa em que a camada é posicionada.
+//   3. A remedição só rodava com `ResizeObserver`, no instante da mudança — e uma medida
+//      tirada no meio de uma sequência de renders ficava para sempre. Agora toda entrada de
+```
+
+*if (k === '--simple-corpo-base' && opts *:
+
+```js
+    // A BASE DA LEITURA só é o destino da janela ABERTA. Numa TROCA de tela (v1.12.12: Parar, ou a
+```
+
+*if (k === '--simple-corpo-base' && opts *:
+
+```js
+    // janela abre ou fecha — e desligar o tempo ali fazia a janela PULAR em um quadro, com a
+```
+
+*if (aplicarTeclado) aplicarTeclado();*:
+
+```js
+  // O TECLADO É RECONFERIDO ANTES (v1.12.13): um `--kb` alto sem teclado é a caixa "do tamanho de
+```
+
+*antes*:
+
+```js
+  // A MEDIDA VELHA SE REFAZ, em vez de só ser anotada (v1.12.13): a conferência tira `base` da
+```
+
+*if (previewEl.parentElement !== previewR*:
+
+```js
+  // A PRÉVIA NÃO TEM LUGAR NO MODO FÁCIL (v1.11.11). Pedido do operador: *"para
+  // um usuário simples, a própria tela conectada já será o visor, e para o uso
+  // próprio, já tem a letra em exibição ou no telão ou no leitor"*. O nó NÃO
+  // sai do documento — o `stage` dele continua sendo quem toca o áudio quando o
+  // som é deste aparelho (`tocarNoCelular`) — e fica sempre na casa do avançado,
+  // onde o `<main>` escondido o cala.
+```
+
+*simpleSettingsBtnEl.addEventListener*:
+
+```js
+// A engrenagem do Modo Fácil (v5.250) — o MESMO destino do gearbox do
+// avançado, e desde a v5.247 o único caminho para a troca de modo nos dois.
+```
+
+*modoTrocaTimer*:
+
+```js
+// ===== A TROCA DE MODO FECHA A FOLHA, DEPOIS DO POLEGAR (v1.12.29) =====
+```
+
+*modoTrocaTimer*:
+
+```js
+// Pedido do operador, revogando a v1.4.43 (a folha que FICAVA aberta): *"Ao
+// trocar entre o modo simples e o modo avançado, feche a janela de
+// configurações. Mas tome cuidado para que o fechamento da janela só aconteça
+// depois da animação de movimento do botão e etc... Para que a tela não pisque
+// de repente para mudar, mas que seja fluído."*
+```
+
+*temaTileEl.addEventListener*:
+
+```js
+// O TEMA ALTERNA (v1.4.38): o par escuro/claro é um tile, e um tile de dois
+// estados não escolhe — ele vai para o outro. Todo toque muda a cor, que é o
+// que o terceiro estado da v1.8.49 não conseguia prometer.
+```
+
+*simpleCastBtnEl.addEventListener*:
+
+```js
+// A PORTA DA TELA do Modo Fácil (v1.11.11): o MESMO `abrirCast()` do ícone da
+```
+
+*simpleSlidePrevEl.addEventListener*:
+
+```js
+// AS PÁGINAS SEGUEM A MESMA REGRA (v1.4.30): elas acionam as âncoras do modo
+```
+
+*setAppMode*:
+
+```js
+// (A LIBERAÇÃO DE TESTE — segurar 5 s — SAIU na v5.199. O alvo dela mudou duas
+// vezes em cinco versões: o botão grande (até a v5.192), a cortina (v5.193) e
+// nada (v5.199), porque o que ela destravava deixou de estar trancado. Ficasse,
+// seria um gesto secreto de 5 s cujo efeito é indistinguível do estado normal
+// da tela.)
+```
+
+*if (window.__NATIVE__) {*:
+
+```js
+// Mesa de som nasce desligada (não é persistida); o segmento precisa nascer
+// dizendo isso, senão a primeira abertura de Configurações mostra dois botões
+// apagados e nenhuma escolha marcada.
+```
+
+*if (step > 0 && passa && (volume >= 1 ||*:
+
+```js
+    // o mesmo tanto (v1.12.18, ver `volumePassa`); o resto do tempo as teclas mexem só no app.
+```
+
+*if (step > 0 && volume >= 1) {*:
+
+```js
+    // Projeção só pelas telas da rede: no teto o passo vai ao sistema SEM o app ceder (o de antes
+    // da v1.12.15) — o volume daqui não chega às telas, e baixar o fader as baixaria.
+```
+
+*prefersReducedMotion*:
+
+```js
+// Ordem das abas (esquerda→direita) — define a DIREÇÃO do deslize na animação
+// de troca de aba (ir pra uma aba à direita desliza a lista entrando pela
+// direita, e vice-versa).
+```
+
+*TAB_MOVE_MS*:
+
+```js
+const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+// ===== O DESLIZE LATERAL, o que sobrou do carrossel de abas (v1.5.0) =====
+//
+// A FAIXA DE ABAS SAIU e levou junto o mecanismo inteiro: o carrossel
+// horizontal (`setupTabCarousel`, com o ciclo próprio de `touch*` que três
+// tentativas custaram), o fantasma que segurava os nós da tela que saía
+// (`makeTabGhost`) e o `switchTab` que os orquestrava. Nada disso tem para onde
+// apontar: o Cronograma é a tela única, e a Bíblia virou uma FOLHA — deslizar
+// para uma folha não é navegação, é abrir uma janela.
+//
+// O QUE FICA é o deslize DENTRO da Bíblia (livros → capítulos → leitura), que é
+// o único movimento lateral que sobrou no app. Ele nunca precisou do fantasma:
+// ali as duas telas são o mesmo host redesenhado, e o que se anima é a ENTRADA
+// da nova — a antiga já não existe quando a animação começa.
+//
+```
+
+*ok: 'Confirmar',*:
+
+```js
+    // "CONFIRMAR", E NÃO "LIMPAR" DE NOVO (v1.8.54, pedido do operador: *"ajuste
+    // a confirmação do limpar para 'confirmar' ao invés de um 'limpar'
+    // novamente"*). A régua que sai daí: o botão do meio da pergunta REPETE o
+    // verbo só quando o botão que a abriu não o diz. Aqui ele diz — o rótulo é
+    // "Limpar" —, e o mesmo vale para o "Limpar todo o histórico"; já a lixeira
+    // de UMA sessão do histórico não tem rótulo nenhum, e lá a palavra na
+```
+
+*if (itinVeuEl) itinVeuEl.addEventListene*:
+
+```js
+// A GAVETA DOS ITINERÁRIOS (v1.13.2), pela mesma regra: o véu dela cobre só a
+```
+
+*if (bibleBackEl) bibleBackEl.addEventLis*:
+
+```js
+// (O `#backBtn` do cabeçalho perdeu o dono na v1.5.0: ele só servia à Bíblia,
+//  que virou folha e levou o voltar dela junto. O nó fica no HTML, sempre
+//  oculto, porque `renderListTitle` ainda o esconde explicitamente — e é essa
+//  linha que impede um bundle futuro de o revelar por acidente.)
+```
+
+*hymnSearchInputEl.addEventListener*:
+
+```js
+// ===== AS DUAS PORTAS, ligadas (v1.5.0) =====
+```
+
+*confirmarBusca*:
+
+```js
+// ===== O ENTER DO TECLADO FECHA O TECLADO (v1.12.51) =====
+// Pedido do operador: *"aceite o enter/pesquisar do teclado para fechar o teclado e permitir exibir
+// os resultados de forma a ter mais espaço visual"*. O campo declara `enterkeyhint="search"` (a
+```
+
+*libPaisagemVista*:
+
+```js
+// GIRAR A JANELA NÃO É ABRIR NEM FECHAR A BIBLIOTECA (v1.11.20). A posição de
+// repouso da barra é `translateY(100svh - …)`, e uma transição não distingue um
+// valor que muda porque a janela abriu de um que muda porque a ALTURA DA TELA
+// mudou: na volta da tela cheia (paisagem → retrato) a barra ficava DESLIZANDO
+// de onde estava na paisagem até o lugar certo — MEDIDO a 360×740, 380px em
+// 280 ms —, o "pequeno deslocamento" que o operador viu mesmo com a medida já
+// certa. Só a MUDANÇA DE ORIENTAÇÃO conta: o teclado também dispara `resize`, e
+// cortar a animação de fechar a Biblioteca quando ele recolhe seria um defeito
+// novo.
+```
+
+*libPaisagemVista*:
+
+```js
+//
+// Por que isto não aparecia antes: a medida de volta MUDAVA (o ouvinte de saída
+// gravava a altura da paisagem e depois a do retrato), e quem grava desarma a
+// transição de carona. O `libAssentando` acabou com a gravação errada — e com
+// ela, o disfarce.
+```
+
+*aoSairDaTelaCheiaGeral*:
+
+```js
+// A SAÍDA DA TELA CHEIA RECONFERE A CAIXA (v1.11.19), em três tempos: já, depois
+// de dois quadros e a 400 ms (o piso, para o aparelho que demora mais). Só
+// escreve o que mudou, então as três chamadas são baratas. Não é o
+// `ResizeObserver` que cobre isto — ver `medirBarraDaBiblioteca`. **E ELAS SÓ
+// VALEM NA ORIENTAÇÃO DE ANTES (v1.11.20)**: o evento chega antes da rotação de
+// volta, e a trava `libAssentando` segura a medida até o retrato voltar — quem a
+// faz é o `resize` da rotação, já com a caixa assentada.
+```
+
+*medirBarraDaBiblioteca*:
+
+```js
+// NA CARGA, e não só na abertura (v1.5.1): a barra fica à vista com a Biblioteca
+```
+
+*if (window.ResizeObserver && bottombarEl*:
+
+```js
+// ---- E A CAIXA DE CONTROLES É VIGIADA (v1.5.2) ----
+```
+
+*renderBuscaLimpar*:
+
+```js
+// O ✕ DO CAMPO (v1.11.10): aparece com texto, apaga e devolve o foco. Segue o
+```
+
+*renderBuscaSimples*:
+
+```js
+  // E A BUSCA DO MODO FÁCIL (v1.12.51) segue o MESMO valor, pelos mesmos caminhos.
+```
+
+*entrarTelaInteira*:
+
+```js
+// A TELA INTEIRA SEM TOQUE (v1.12.34, shell 80). Pedido do operador: *"não pode simplesmente fazer
+// uma pseudo tela cheia? … sem exigir a interação do usuário"*. O `requestFullscreen` só vale ~5 s
+// depois de um toque, e o vídeo que BAIXA antes de tocar chega tarde. Aqui a `.preview` sobe ao TOP
+// LAYER por `popover` (que não exige ativação e, como a tela cheia, escapa de todo ancestral) e o
+// shell faz o resto — paisagem e barras do sistema escondidas, como no `onShowCustomView`. O CSS
+// trata `.preview.pv-inteira` como `.preview:fullscreen`, e quem avisa os consumidores é o evento
+// `pvcheia` (o irmão do `fullscreenchange`). Sem `showPopover` (WebView muito antigo) a classe
+// sozinha ainda cobre a tela, por `position: fixed`.
+```
+
+*videoDoModoFacil*:
+
+```js
+// ===== O VÍDEO DO MODO FÁCIL ENTRA EM TELA CHEIA (v1.12.24) =====
+// Pedido do operador: *"no modo simples, quando tocar um vídeo … ligue o modo tela cheia, já que
+// não temos o auxiliar de leitura (não tem texto) e não temos o preview no modo simples"*. A tela
+// cheia é a MESMA do avançado (a `.preview` no top layer, paisagem nativa pelo `onShowCustomView`),
+// e vale SÓ SEM DESTINO DE PROJEÇÃO (v1.12.26, pedido do operador): a tela cheia existe porque
+// não há visor, e com uma TV ou uma tela da rede a tela conectada É o visor. A pergunta é
+```
+
+*videoDoModoFacil*:
+
+```js
+// (`simplesSemLeitura`): um vídeo com letra tem o auxiliar, e a premissa do pedido não vale.
+```
+
+*PV_VOLUME_MS*:
+
+```js
+// ===== A BARRA DE VOLUME DA TELA CHEIA (v1.12.24) — nos DOIS modos =====
+// Pedido do operador: *"em tela cheia, mostre uma barra momentânea quando o volume for alterado.
+// Hoje não há retorno visual"*. Fora da tela cheia quem responde é o fader que a tecla acende
+```
+
+*(function setupPreviewGestures() {*:
+
+```js
+// direito — v1.12.42), que o toque acende e 4s sem toque apagam. Ela substituiu um mapa de GESTOS
+// INVISÍVEIS (toque por terço, deslizes nos quatro sentidos, arrasto de volume)
+// que não tinha como se anunciar: quem não o decorasse não tinha como
+// descobri-lo, e um toque no lugar errado fazia outra coisa em cima da
+// projeção.
+//
+// O que a coluna preserva do desenho antigo é a razão dele: sem TV conectada a
+// preview em tela cheia É a projeção, e tudo o que se pinta aqui a congregação
+// vê. Daí ela ser PASSAGEIRA (só ao toque, some sozinha) e TRANSLÚCIDA.
+```
+
+*document.getElementById*:
+
+```js
+  // Antes as ações eram gestos invisíveis sobre a preview (toque = tela cheia,
+  // toque longo = popup de Exibição) — nada na tela dizia que existiam. Cada
+  // uma virou um botão num canto, e por um tempo o toque na preview os
+  // MOSTRAVA/ESCONDIA.
+  //
+  // **Esse toque saiu na v5.67: eles são permanentes.** Esconder era uma
+  // resposta ao desenho errado — dois retângulos de vidro empilhados numa
+  // coluna, que de fato tampavam a miniatura. Com os ícones sem moldura e nos
+  // CANTOS (cast em cima, tela cheia embaixo) não há mais o que atrapalhar, e o
+  // que sobrava era um estado escondido: uma preview sem botão nenhum não
+  // anuncia que basta tocar nela para trazê-los — é o problema dos gestos
+  // invisíveis de volta, com um passo a mais. Errar o alvo por 2px também
+  // deixou de custar caro: antes o toque caía no reconhecedor de gestos e
+  // sumia com a coluna inteira.
+  //
+  // São DOIS desde a v5.49 — a engrenagem virou o `#settingsBtn` fixo no topo
+  // do mixer.
+```
+
+*pvCastBtnEl.addEventListener*:
+
+```js
+  // (Havia aqui um ramo para TRANCAR de volta a liberação de teste. Ele saiu na
+  // v5.199 com ela.)
+```
+
+*if (pvGiroBtnEl) {*:
+
+```js
+  // O DESFAZER DO GIRO (v1.4.43) — mesma faixa, mesmo `stopPropagation`: a
+```
+
+*FSCTL_MS*:
+
+```js
+  // E ELA NASCE ACESA (v1.3.10, a pedido do operador: *"quando se chega no
+  // preview em tela cheia, eu preciso ver os botões, e depois eles
+  // desaparecem"*). Entrar na tela cheia com a coluna apagada devolvia o
+  // problema que ela veio resolver: um mapa de gestos invisíveis, agora com um
+  // passo a mais — nada na tela dizia que havia o que tocar, e a única
+  // descoberta possível era tocar no escuro. Mostrar UMA vez, e sumir, é o que
+  // ensina sem cobrar tela: os 4s seguintes já são a projeção limpa.
+```
+
+*fsJunto*:
+
+```js
+  // O TÍTULO E A LINHA DO TEMPO (v1.12.41; nos dois modos desde a v1.12.42) acendem e apagam
+```
+
+*previewEl.addEventListener*:
+
+```js
+  // O TOQUE É UM INTERRUPTOR (v1.3.10, a segunda metade do mesmo pedido: *"o
+  // toque para vê-los deve ser o mesmo toque em qualquer lugar que faz eles
+  // desaparecerem quando visíveis"*). Antes ele só ACENDIA, e sumir era coisa
+  // do relógio: quem quisesse a tela limpa antes dos 4s não tinha o que tocar,
+  // e tocar de novo só reiniciava a contagem — o gesto existia num sentido só.
+```
+
+*previewEl.addEventListener*:
+
+```js
+  // O TOQUE QUE ACENDE CONTINUA NÃO SENDO O QUE ACIONA, e é o que sustenta o
+  // interruptor: com a coluna apagada ela é `pointer-events: none`, então o
+  // toque atravessa até aqui e só acende. Com ela no ar, um toque NUM BOTÃO
+  // chega ao botão — e este `pointerdown`, que borbulha, precisa RENOVAR em vez
+  // de apagar, senão comandar a projeção fecharia a coluna a cada comando. Só o
+  // toque que cai FORA dela é que a esconde.
+```
+
+*previewEl.addEventListener*:
+
+```js
+  // DESDE A v1.12.42 OS BOTÕES MORAM ESPALHADOS PELA TELA, e a camada deles
+  // não recebe toque (só os botões, acesos): errar o alvo APAGA os controles —
+  // custa um toque, nunca uma ação que não se pediu.
+```
+
+*}*:
+
+```js
+    // (O par de VOLUME saiu daqui na v1.1.2. Ele é o único controle desta
+    // coluna com um alvo melhor FORA da tela: os botões físicos do aparelho,
+    // que `captureVolumeKeys` já entrega ao mesmo fader — se acham no escuro,
+    // não gastam os 4s de espera da coluna acender, e as duas vagas viraram vão
+    // entre os cinco que ficaram.)
+```
+
+*fitTileEl.addEventListener*:
+
+```js
+// PREENCHIMENTO: o mesmo par de sempre (Ajustar × Preencher — "Esticar" saiu na
+// v5.142 porque distorcia a proporção), agora alternado por um tile.
+```
+
+*castAlvo*:
+
+```js
+// Estado do telão, no rodapé do popup de Exibição.
+//
+// O Display NÃO é mais um app que se "abre": é a `Presentation` que o shell
+// cria sozinho na TV assim que uma tela de apresentação aparece — e recria
+// quando o dongle cai e volta (o WebView recarrega /display/, dispara
+// `display-ready` e o Controle reenvia o estado atual). Não há o que lançar,
+// então aqui só se informa o que está conectado, ao vivo, pela ponte.
+//
+// No navegador não existe Presentation: o rodapé volta a ser o atalho para a
+// tela do Display, útil para desenvolver a base web fora do app.
+// O alvo de espelhamento deste aparelho, guardado como DADO (v5.193). Ele saía
+// numa linha do rodapé de Configurações e o Registro a lia do DOM; a linha saiu
+// (é assunto da folha de conexão, onde ela continua, no subtítulo do botão de
+// espelhar) e o valor passou a morar aqui. Vazio no navegador.
+```
+
+*audioNaoPerturbe*:
+
+```js
+let audioSaindoPor = null;            // [{ tipo, nome }] da última leitura (shell 83)
+```
+
+*est*:
+
+```js
+  // QUEM RESPONDE É `telaoNoChao()`, e não um `tv.telao` escrito aqui (v1.8.42).
+  // Eram duas escritas da MESMA pergunta, e elas já divergiam: aquela olhava só
+  // `lastDisplays[0]`, esta varre a lista por `telaoNoAr()` — com duas telas
+  // listadas e o telão na segunda, o Registro acusava "SEM TELÃO NO AR" sobre um
+  // telão que estava no ar. Uma segunda opinião envelhece à parte, e num
+  // artefato que é LIDO A DISTÂNCIA por quem não pode conferir isso é o pior
+  // defeito que este projeto sabe produzir. De quebra a função deixa de existir
+  // só para o oráculo: até aqui `telaoNoChao` não tinha um chamador no app.
+```
+
+*tinhaTela*:
+
+```js
+    // A PRESENÇA DO TELÃO, não a da tela — e é o TELÃO desde o shell 59: uma
+```
+
+*recalcularAtrasoPreview*:
+
+```js
+    // (O `refreshDiversos()` na transição do telão saiu na v1.8.89 com o
+    //  microfone: ele existia para o botão dele APARECER quando a TV entrava no
+    //  meio do culto, e nada mais na folha de Ferramentas depende de haver
+    //  projeção. Mantê-lo custaria o que a guarda "só na transição" já evitava
+    //  — remontar o painel por baixo de quem está usando — sem nada a mostrar
+    //  em troca.)
+```
+
+*reconferirTelas*:
+
+```js
+  // E RECONFERE AO VOLTAR PARA A FRENTE (v5.142). O aviso do shell é um evento,
+```
+
+*castAlvo*:
+
+```js
+    // NA FOLHA DE CONEXÃO, que é onde o operador decide, e SÓ ali (v5.193). Os
+    // alvos de espelhamento variam por fabricante e não são API documentada:
+    // ver ANTES de tocar é a diferença entre "abriu a tela errada" e "eu sabia
+    // que ia abrir essa". O Registro continua tendo a linha, agora a partir
+    // desta variável — ver `cabecalhoDiag`.
+    // SÓ PARA O REGISTRO (v5.194). Ele já foi subtítulo do botão de espelhar
+    // ("Abre: Smart View") — mas o operador não escolhe entre dois caminhos
+    // pelo NOME do seletor que vai abrir, e quando o botão abre a tela errada a
+    // resposta está no Registro, que é o que se copia para diagnosticar.
+```
+
+*espelhoDisponivel*:
+
+```js
+// O piso de shell. Um método novo NÃO chega por OTA: num shell antigo a linha
+// simplesmente não é desenhada, e volta sozinha quando o APK novo for
+// instalado. É a mesma regra (e o mesmo motivo) do `appendYoutubeSearch`.
+// (`MIRROR_POLL_MS` subiu para o topo na v5.195, junto do resto do estado de
+// cena — ver o comentário de lá. Ele é lido na CARGA do módulo, e ficar aqui o
+// deixava em zona morta temporal no aparelho.)
+
+```
+
+*renderCast*:
+
+```js
+  // E A FOLHA DE CONECTAR TAMBÉM (v5.184). Ela estava fora daqui desde que
+  // nasceu: quem a redesenhava era só o `abrirCast`, então tudo o que ela
+  // mostra ao vivo — o endereço que aparece quando o servidor sobe, a lista de
+  // quem está vendo, a contagem no subtítulo — congelava no instante da
+  // abertura. A enquete de 2,5 s existe justamente para essa folha estar viva
+  // enquanto o operador olha para ela, e ela alimentava a outra.
+```
+
+*renderCastBtn*:
+
+```js
+  // O ÍCONE DE CONECTAR ACOMPANHA — ele é quem diz "há tela recebendo" desde
+  // que a notificação do espelho saiu da barra de status (v5.176). Sem esta
+  // linha ele só seria repintado quando o TELÃO mudasse, e uma tela da rede
+  // entrando não acenderia nada até a próxima troca de aba.
+```
+
+*renderSimpleGate*:
+
+```js
+  // E O BLOQUEIO DO MODO FÁCIL (v5.193): desde que as telas da rede contam como
+  // projeção (`simpleDisplay`), uma delas entrando é o que libera os controles
+  // — e é aqui, na enquete, que isso se descobre. Sem esta linha o operador
+  // ligava a transmissão, via a tela do saguão aparecer na lista e continuava
+  // atrás da cortina até trocar de modo.
+```
+
+*MIRROR_FUNDO_MS*:
+
+```js
+// Desde a v5.176 há um SEGUNDO consumidor, e ele é um indicador de estado: o
+// ícone de conectar, que passou a dizer "há tela recebendo" no lugar do cartão
+// na barra de notificações. Aquele cartão se atualizava a cada tela que entrava
+// ou saía; um ícone que levasse dez segundos para acender seria uma troca ruim.
+// Quatro segundos é a resposta que o operador lê como imediata, e o custo é uma
+// chamada de ponte com um JSON pequeno — só enquanto o espelho está no ar.
+```
+
+*confirmarEspelhoComTv*:
+
+```js
+
+// (`MIRROR_TEXTO` e `renderEspelho` saíram na v5.196, com a folha de ajustes.
+// O parágrafo de ressalvas virou UMA linha na folha de conexão, e o que o
+// `renderEspelho` de fato fazia — acertar a enquete de fundo — era uma chamada
+// só, que os chamadores passaram a fazer direto.)
+
+// (O CERTIFICADO TLS saiu na v5.196, com a folha de ajustes que era a única
+// porta dele — foram ~120 linhas: `CERT_SHELL`, `certDisponivel`,
+// `lerCertEspelho`, `renderCertEspelho`, `importarCertEspelho` e
+// `removerCertEspelho`. Ele nunca foi um interruptor: exige do operador um
+// subdomínio com wildcard por DNS-01, uma entrada estática de DNS no roteador
+// da igreja e renovação automática — e sem as três o espelho serve em HTTP
+// claro, que é o que ele sempre fez. Os três métodos da ponte
+// (`espelhoCertImportar`/`Estado`/`Apagar`) continuam no shell: voltar atrás é
+// desenhar uma folha, não publicar uma Release.)
+```
+
+*CAST_VEREDITO_JA_ENSINA*:
+
+```js
+// E O ENSINO NÃO REPETE O QUE O VEREDITO JÁ ENSINA (v1.13.11). A recusa
+// GENÉRICA do shell (`motivoSemRede`: "sem rede para transmitir — ligue o ponto
+// de acesso deste celular, ou entre numa Wi-Fi…") já traz a instrução, e as duas
+// frases saíam uma embaixo da outra dizendo a mesma coisa — o relato do
+// operador. O ensino fica para as recusas ESPECÍFICAS de rede (a Wi-Fi
+// associada sem endereço, por exemplo), que dizem o que falhou e não o que fazer.
+```
+
+*if (!r) {*:
+
+```js
+  // …E ELA MORA NA FOLHA DE CONEXÃO (v5.207), que é de onde o interruptor foi
+  // tocado. Antes saía numa faixa flutuante no topo da tela — sobre uma folha
+  // que estava aberta bem embaixo dela, com o dedo e o olho no interruptor.
+  // `#castMsg` já existia para as frases desta folha; a falha do espelho é uma
+  // frase desta folha.
+```
+
+*limparCastMsg*:
+
+```js
+  // O SUCESSO NÃO PRECISA DE FRASE (a regra da v5.194): o endereço aparecendo
+```
+
+*abrirCast*:
+
+```js
+// O botão de cast sempre significou "pôr isto noutra tela". Até a v5.156 ele
+// abria direto o espelhamento do fabricante, e o espelho na rede — que responde
+// exatamente a mesma intenção — vivia numa linha de Configurações que só quem
+// já sabia da existência dele iria procurar. São dois caminhos técnicos para
+// uma decisão só do operador, e quem escolhe entre eles tem de ser ele.
+```
+
+*abrirCast*:
+
+```js
+// A folha mostra os dois com a diferença DITA, porque ela é real: o
+// espelhamento manda a TELA INTEIRA do celular (e é o caminho da TV da igreja);
+// o espelho na rede manda SÓ O TELÃO, para navegadores, sem instalar nada.
+//
+// E elas têm FORMAS diferentes desde a v5.184, porque são coisas diferentes:
+// espelhar é uma AÇÃO que sai do app (abre o seletor do fabricante, e o assunto
+// termina ali); transmitir pelo site é um ESTADO que dura o culto inteiro e que
+// o operador precisa ver, ligar e desligar. Botão para a primeira, interruptor
+// para o segundo.
+```
+
+*hostCastConn*:
+
+```js
+  // O BLOCO PODE ESTAR NA OUTRA CASA (v5.193): no Modo Fácil sem tela ele vive
+```
+
+*gateTinhaTela*:
+
+```js
+  // RE-ARMA A MEMÓRIA DO FECHO AUTOMÁTICO (v5.217): a folha que ACABA de abrir
+```
+
+*if (castNetBtnEl) castNetBtnEl.hidden = *:
+
+```js
+  // O espelho na rede só existe no app, e só num shell que tenha os métodos.
+  // No navegador a folha degrada para uma escolha só, que é a honesta.
+```
+
+*}*:
+
+```js
+    // ABRIR A FOLHA NÃO LIGA MAIS NADA (v5.184), e isto DESFAZ a decisão da
+    // v5.171 de propósito, não por esquecimento.
+    //
+    // Aquela decisão fazia sentido enquanto a rede era um CARTÃO DE ESCOLHA:
+    // um cartão não tem como mostrar "ligado", então a folha ligava sozinha
+    // para que o endereço estivesse lá. O preço, que não estava dito, é que
+    // não havia como abrir esta tela para conferir o endereço, o alvo de
+    // espelhamento ou quem está vendo sem SUBIR UM SERVIDOR na rede da igreja
+    // — e, com o telão no ar, sem disparar a pergunta do custo dobrado.
+    //
+    // Com um interruptor o problema desaparece do outro lado: o estado é
+    // visível parado, e quem o muda é o operador. Um interruptor que já nasce
+    // ligado toda vez que a tela abre não é um interruptor, é um rótulo.
+    //
+    // (A enquete de 2,5 s deixou de ser ligada aqui na v5.199: quem a decide é
+    // a VISIBILIDADE do bloco, que tem duas casas — ver `acertarEnqueteDaConexao`.)
+```
+
+*acertarEnqueteDaConexao*:
+
+```js
+  // (Havia aqui um `clearInterval(mirrorTimer)` incondicional. Ele saiu na
+  // v5.199: fechar a FOLHA não pode apagar a enquete quando quem a acendeu foi
+  // a TELA do Modo Fácil — ver `acertarEnqueteDaConexao`.)
+```
+
+*texto2*:
+
+```js
+// Um `textContent` que aceita elemento nulo — a folha existe só no bundle novo.
+```
+
+*castConnVisivel*:
+
+```js
+// **Não dá para perguntar ao layout.** A primeira versão disto usava
+// `offsetParent === null`, e ela está errada por uma razão que não se vê lendo:
+// `.popup-backdrop` esconde por `opacity: 0` + `pointer-events: none`, NÃO por
+// `display: none` — então um popup fechado tem `offsetParent` normal e a guarda
+// nunca barrava nada. Perguntar por estado, e não por pixel, é o que funciona
+// nos dois casos.
+```
+
+*if (castNetBtnEl) {*:
+
+```js
+  // O INTERRUPTOR REFLETE O SHELL, nunca o toque. Ligar é assíncrono, pode
+  // pedir confirmação (o custo dobrado com o telão no ar) e pode ser recusado
+  // com uma frase — então quem escreve `checked` é sempre a leitura do estado,
+  // e o toque só PEDE. Sem isto, uma recusa deixaria a chave na posição de uma
+  // coisa que não aconteceu.
+```
+
+*castNetBtnEl.classList.toggle*:
+
+```js
+    // O BOTÃO REFLETE O SHELL, nunca o toque — a mesma regra que valia para o
+    // interruptor: ligar é assíncrono, pode pedir confirmação (o custo dobrado
+    // com o telão no ar) e pode ser recusado com uma frase. Quem escreve o
+    // estado é sempre a leitura, e o toque só PEDE; senão uma recusa deixaria o
+    // botão vermelho de uma coisa que não aconteceu.
+```
+
+*castNetLabelEl.textContent*:
+
+```js
+      // E ENQUANTO O SHELL RESPONDE ELE É O PRÓPRIO RECADO (v5.227). O "Ligando
+      // a transmissão…" saía numa linha de 0,78 rem ABAIXO do botão — o
+      // operador acabara de tocar ali, e a resposta aparecia noutro lugar, no
+      // menor texto da folha, ao mesmo tempo em que a folha inteira se
+      // reorganizava. O botão é onde o olho já está.
+      //
+```
+
+*tv*:
+
+```js
+  // O BOTÃO DE ESPELHAR DIZ QUAL TV ESTÁ NO AR (v5.196). Ele levava a folha de
+  // "Ajustes avançados" a existir com um botão de desligar dentro; agora o
+  // estado mora no próprio botão, que é onde a decisão é tomada.
+```
+
+*tv*:
+
+```js
+  // E O VERBO É "CONECTAR", NÃO "ESPELHAR" (v1.0.2). O botão abre o seletor de
+  // espelhamento do Android — mas é o telão que vai para a TV, não a tela do
+  // celular, e é justamente essa a diferença que o app inteiro existe para
+  // fazer. Chamar a ação de "espelhar" anunciava ao operador o oposto do que
+  // ele recebe. O que se lê no seletor do fabricante continua sendo o nome
+  // dele; aqui se diz o DESFECHO.
+```
+
+*if (castSomAjudaEl) castSomAjudaEl.hidde*:
+
+```js
+  // conectar. Desde a v1.8.87 o que aparece é o `?`; a frase mora atrás dele.
+```
+
+*renderCastRedes*:
+
+```js
+  // (O subtítulo do interruptor saiu na v5.194: desligado ele descrevia o
+  // recurso para quem já decidiu usá-lo, e ligado dizia "N tela(s) recebendo" —
+  // que é exatamente o que a LISTA logo abaixo mostra, com nome e tempo de
+  // cada uma. Contar o que já está listado é dizer duas vezes.)
+```
+
+*texto2*:
+
+```js
+  // UM ENDEREÇO SÓ (v5.185): o IP. O `av.local` saiu com o responder mDNS —
+  // ele não resolve no Chrome do Android nem na maioria das Smart TVs, que são
+  // exatamente as telas deste recurso.
+```
+
+*renderCastTelas*:
+
+```js
+  // (A FRASE DE INSTRUÇÃO SAIU na v5.194, e com ela o par "primeira tela × mais
+  // uma": as duas diziam a mesma coisa com palavras trocadas, e o que elas
+  // pediam agora está no rótulo do próprio endereço. O "toque em Ativar esta
+  // tela" também saiu daqui — quem precisa dessa instrução é quem está NA
+  // OUTRA TELA, e lá ela está escrita no botão, que é onde ela serve.)
+```
+
+*CAST_TELA_SAI_MS*:
+
+```js
+// A LISTA É UM DIFF, e não um `innerHTML = ''` (v5.226).
+//
+// Ela era refeita por inteiro a cada leitura do estado — e o estado é lido de
+// 2,5 em 2,5 segundos enquanto a folha está aberta. Duas consequências, e a
+// segunda é a que este lote existe para corrigir: o botão "Desconectar" era
+// recriado debaixo do dedo do operador (perdendo o `disabled` que o toque
+// acabara de escrever), e QUALQUER animação de entrada recomeçaria sozinha a
+// cada 2,5 s, para sempre.
+```
+
+*if (castMirrorBtnEl) {*:
+
+```js
+// Os ouvintes da seção de conexão. A guarda é o BOTÃO DE ESPELHAR (v5.196):
+// era o link "Ajustes avançados", que saiu com a folha dele — e uma guarda que
+// aponta para um elemento removido desliga EM SILÊNCIO tudo o que está dentro
+// dela, inclusive o interruptor da transmissão.
+```
+
+*if (castSomAjudaEl) {*:
+
+```js
+  // ===== O `?` DO SOM (v1.8.87) =====
+```
+
+*if (castSomAjudaEl) {*:
+
+```js
+  // A frase é do OPERADOR, quase ao pé da letra: *"apenas coloque que, exceto
+  // as notificações, todo o som do aparelho vai ser tocado na tela. Tome
+  // cuidado com mensagens de áudios e mídias de outros aplicativos"*.
+```
+
+*castNetBtnEl.addEventListener*:
+
+```js
+  // Ele é o IRMÃO do de espelhar desde a v5.224 — era um interruptor —, e a
+  // diferença de mecânica é uma só: um `change` de caixa de marcação já vem com
+  // a posição nova, e um clique não vem com nada. O que o operador pediu passa
+  // a ser DERIVADO do estado atual (`!espelhoLigado()`), que é a mesma fonte que
+  // o `renderCast` usa para pintar o botão — então não há duas versões da
+  // verdade a divergirem no meio de uma resposta lenta.
+```
+
+*castNetBtnEl.disabled*:
+
+```js
+    // O BOTÃO FECHA ENQUANTO O SHELL RESPONDE. Ligar espera uma confirmação e
+    // uma resposta da ponte; um segundo toque nesse intervalo cairia na guarda
+    // de `mirrorOcupado` e voltaria `false` — indistinguível, na tela, de uma
+    // recusa de verdade ("não deu para ligar") por um toque que o operador deu
+    // só porque o primeiro parecia não ter feito nada.
+```
+
+*ok*:
+
+```js
+      // (O "Ligando a transmissão…" saía aqui, no `#castMsg`. Ele virou o
+      // RÓTULO do botão na v5.227 — ver `renderCast`. A linha de baixo ficou
+      // com o que ela sempre soube dizer melhor: a FALHA, que é uma frase
+      // inteira vinda do shell e não caberia num botão.)
+```
+
+*if (ok) limparCastMsg();*:
+
+```js
+      // A frase da falha já saiu por `texto2(castMsgEl, …)` (ela vem pronta do
+      // Kotlin). Aqui fica a saída — e ela aponta para onde o operador pode agir.
+      // O SUCESSO NÃO PRECISA DE FRASE (v5.194): o endereço aparecendo logo
+      // abaixo, com o rótulo que diz o que fazer com ele, É o "deu certo". A
+      // falha continua falando, porque ali não há nada que apareça sozinho.
+      // (Até a v5.206 esta linha dizia "veja o aviso acima" e apontava para a
+      // faixa flutuante. Com o motivo escrito AQUI pelo `ligarEspelho`, mandar
+      // o operador olhar para outro lugar seria mandá-lo olhar para o lugar
+      // onde a mensagem deixou de estar — então ela só não sobrescreve.)
+```
+
+*POPUPS*:
+
+```js
+// (`collPopup`, as opções da coleção, saiu na v5.72: elas viraram um painel
+// DENTRO do card do álbum, e um painel não é uma camada — quem o fecha é o
+// mesmo toque na engrenagem que o abriu, ou o toque na barra que fecha o card.)
+```
+
+*[hymnSearchPopupEl, null, closeHymnSearc*:
+
+```js
+  // A BIBLIOTECA É A PRIMEIRA LINHA desde a v1.5.6, e a razão é a mesma do
+```
+
+*[castPopupEl, castCloseEl, fecharCast],*:
+
+```js
+  // (O Histórico, a Verificação, a Tela, o Transferir e o Editar mídia tinham
+  // linha aqui, depois de Configurações. Desde a v1.12.48 são SEÇÕES dela: o
+  // voltar as recolhe no degrau de Configurações, ver `__avBack`.)
+```
+
+*[lyricsPopupEl, lyricsPopupCloseEl, clos*:
+
+```js
+  // (A folha de "Ajustes avançados" do espelho e o leitor de QR tinham linha
+  // aqui; saíram na v5.196 e na v5.185.)
+```
+
+*[songMenuPopupEl, songMenuCloseEl, close*:
+
+```js
+  // empilham. (O `#folderPopup`, o seletor de atalhos, saiu na v5.254.)
+```
+
+*[itinPopupEl, itinPopupCloseEl, fecharIt*:
+
+```js
+  // A FOLHA DE UM HORÁRIO DO ITINERÁRIO (v1.13.1) abre de dentro da folha de
+```
+
+*if (itinTituloEl) itinTituloEl.addEventL*:
+
+```js
+// O TÍTULO DO ITINERÁRIO abre e fecha a gaveta deles (v1.13.4: ele mora no
+// cabeçalho da folha, e o ouvinte é ligado uma vez, aqui).
+```
+
+*__avBack*:
+
+```js
+// Até a v5.32 o voltar só mandava a tarefa para segundo plano — sair por engano
+// no meio de um culto derrubaria a projeção, e essa continua sendo a regra no
+// fim da fila. O que faltava era a fila: com um popup aberto, uma pasta aberta
+// ou a preview em tela cheia, o gesto que TODO usuário de Android conhece para
+// "fechar isto" minimizava o app inteiro.
+```
+
+*if (document.fullscreenElement === lyric*:
+
+```js
+  // (O passo 1.5 — a hierarquia DE DENTRO da gaveta de Favoritos — saiu na
+  //    v5.294 com a própria gaveta. O passo 5, genérico, continua cuidando da
+  //    seleção múltipla feita na lista.)
+  // 1.5. A TELA CHEIA DA CIFRA (v1.6.0). Ela é um MODO DA FOLHA: foi aberta
+```
+
+*if (cronoGavetaAberta()) { fecharCronoGa*:
+
+```js
+  // 1.7. A GAVETA DOS CRONOGRAMAS (v1.12.54). É a camada mais efêmera do
+```
+
+*if (itinGavetaAberta()) { fecharItinGave*:
+
+```js
+  // 1.8. A GAVETA DOS ITINERÁRIOS (v1.13.2), a irmã da de cima no painel do
+```
+
+*if (backdrop === fadePopupEl && secaoAbe*:
+
+```js
+    // A SEÇÃO ABERTA DE CONFIGURAÇÕES RECOLHE ANTES de a folha fechar (v1.12.48):
+```
+
+*if (ferramentasAbertas()) {*:
+
+```js
+  //    E ELA TEM UM DEGRAU DENTRO (v1.13.3): com uma ferramenta aberta, o voltar
+  //    devolve a LISTA antes de fechar a folha, como a Bíblia sobe por dentro dela
+  //    logo abaixo. É o ÚNICO caminho de volta à lista: na tela não há voltar
+  //    (v1.13.6) — o cabeçalho de uma ferramenta tem o título e o ✕.
+```
+
+*if (pvInteira) { sairTelaInteira(); retu*:
+
+```js
+  //    E ELA É NOMEADA (v1.6.0): desde que a cifra também pede tela cheia, um
+```
+
+*if (selectionMode) { exitSelection(); re*:
+
+```js
+  // (O degrau 4 era o fader de volume aberto na coluna do mixer. Ele saiu na
+  //  v1.3.8 com o fader; a numeração dos degraus abaixo é a original.)
+```
+
+*return false;*:
+
+```js
+  // (Os degraus 6 e 7 subiram para o 2.6 na v1.5.0. O 6 era o `#backBtn` do
+  //  cabeçalho, que só servia à Bíblia e hoje nasce sempre oculto; o 7 era
+  //  "fora do Cronograma, volta para ele", e não há mais fora — há uma tela e
+  //  duas folhas, e cada folha se fecha no degrau dela.)
+```
+
+*resendSceneToDisplay*:
+
+```js
+// `para` é o ENDEREÇO de quem pediu, e ele existe porque o barramento é um
+// broadcast: até a v5.139 esta função era chamada sem destinatário e reenviava
+// a cena para TODO MUNDO. Com um telão de verdade no ar, qualquer segunda
+// instância de `/display/` que abrisse, recarregasse ou fosse restaurada pelo
+// navegador fazia a TV rodar um `load` inteiro — fade de saída, releitura da
+// mídia, re-seek, fade de entrada — na frente da congregação, por um evento
+// que não tinha nada a ver com ela. Endereçado, o reenvio vai só para quem se
+// anunciou. `undefined` (telão antigo, sem `__de`) mantém o broadcast de
+// sempre: um bundle velho no telão continua reconectando igual.
+```
+
+*if (mediaRot) enviar({ type: 'rotate', r*:
+
+```js
+  // O GIRO VIAJA PRIMEIRO, antes do `load` (v5.142). Ele é preferência de
+```
+
+*if (midiaNoAr && currentId && !isCue(cur*:
+
+```js
+  // Reenvia SEMPRE que houver mídia carregada — não só a que está tocando.
+  // A condição anterior (`playing || isImage`) deixava de fora justamente o
+  // caso mais comum de uma queda de dongle: o louvor de fundo PAUSADO para a
+  // oração. Um vídeo pausado mostra o quadro congelado no telão e um áudio
+```
+
+*if (midiaNoAr && currentId && !isCue(cur*:
+
+```js
+  // projetado, e nos dois casos ele sumia para sempre.
+```
+
+*if (midiaNoAr && currentId && !isCue(cur*:
+
+```js
+  // `midiaNoAr` (v5.142) É A PERGUNTA CERTA, e `currentId` sozinho era a errada.
+```
+
+*if (msg.type === 'display-ready') {*:
+
+```js
+  // com bundle antigo não manda `__de`, e aí o reenvio volta a ser broadcast —
+  // exatamente o comportamento de antes desta versão.
+```
+
+*renderControls*:
+
+```js
+    // QUEM AVISA É O BOTÃO DE MUDO, e ele já avisava: `renderControls` o veste
+    // com `.blocked` (fundo `--warn-soft`, ícone em `--warn`, pulsando), e o
+    // toque nele é o atalho para liberar. A chamada que morava aqui era um
+    // `flash()` — no-op desde que o primeiro toast saiu, isto é, uma frase que
+    // ninguém via havia versões. O canal certo já estava de pé.
+```
+
+*if (!currentItem || msg.mediaId !== curr*:
+
+```js
+  // (O `mic-status` deixou de ser tratado na v1.8.89: sem quem mande o comando
+  //  `mic`, o telão não tem o que anunciar. Um telão de bundle ANTIGO pode
+  //  ainda emiti-lo — e cai no filtro por `mediaId` logo abaixo, como qualquer
+  //  mensagem que não é sobre o item em exibição.)
+```
+
+*if (!midiaNoAr) return;*:
+
+```js
+    // E A MÍDIA LOCAL TEM A MESMA REGRA (v5.179) — era ela o "o Parar só
+    // funciona no SEGUNDO toque".
+    //
+    // A guarda acima cobria só o YouTube. Um `clear`/`media-clear` de mídia
+```
+
+*if (!midiaNoAr) return;*:
+
+```js
+    // é de volume, não de pausa. Cada `display-status` do fade chegava aqui com
+    // `playing: true` e o tempo antigo e reescrevia, a ~4 Hz, exatamente a UI que
+    // `pararMidia` acabara de zerar — a barra voltava ao meio, o seek era
+    // reabilitado e o ▶ não aparecia. O segundo toque só "funcionava" porque a
+    // essa altura a mídia já saíra e ninguém mais reportava aquele `mediaId`.
+```
+
+*if (!midiaNoAr) return;*:
+
+```js
+    // `midiaNoAr` é a pergunta certa, e já existe desde a v5.142: ele cai no
+    // INSTANTE do stop, enquanto `currentId` sobrevive de propósito (é o que
+    // permite ao ▶ repetir a faixa) — e é por isso que o filtro por `mediaId`
+    // logo acima deixava tudo isto passar. Um status sobre uma mídia que não
+    // está mais em cena é passado, e passado não pinta transporte.
+```
+
+*if (!doTelao && !fimJaTratado && !playin*:
+
+```js
+      // ===== A REDE DE SEGURANÇA DO AVANÇO, sem TV (v1.8.48) =====
+```
+
+*if (pvLyrics && !pvLetraManual) pvLayerO*:
+
+```js
+    // A LETRA AVULSA NÃO É DESTA MÚSICA — ver o `onEnded` do telão (v1.9.8).
+```
+
+*preview.marcarFim*:
+
+```js
+    // E A PREVIEW VOLTA AO WALLPAPER (v1.7.7). Relato do operador: *"ao
+    // encerrar o tempo de uma música, a imagem no telão se encerra normalmente,
+    // e volta para o wallpaper, mas na preview, ele está parando em uma tela
+    // preta"* — com espelhamento para a TV.
+```
+
+*document.addEventListener*:
+
+```js
+// O service worker SAIU (v5.48). Este bloco registrava `sw.js` e recarregava a
+// página quando um SW novo assumisse — mas `sw.js` não existe no bundle desde
+// que os andaimes de PWA foram removidos: o `register` devolvia 404 em toda
+// abertura no navegador, `swReg` ficava eternamente null e o ramo de "checar
+// atualização ao retomar" nunca executava. Era código morto que ainda por cima
+// sujava o console justamente no ambiente onde a base é desenvolvida.
+// No app nativo ele já era desligado de propósito (os assets vêm do APK e a
+// atualização é o OTA do `WebUpdater`), então nada se perde nos dois contextos.
+
+```
+
+*document.addEventListener*:
+
+```js
+// dia). (A metade que "buscava a versão nova do service worker" saiu junto
+// com o SW, v5.48 — ver o bloco acima.)
+```
+
+*if (histGravaTimer) histGravar();*:
+
+```js
+    // E O HISTÓRICO PENDENTE VAI AO DISCO (v1.4.31). Sair da frente é o
+```
+
+*reconferirTelas*:
+
+```js
+  // aceso sobre uma TV que não está mais lá (v5.142).
+```
+
+*drenarPreview*:
+
+```js
+  // A PREVIEW VOLTA DO ESCURO, e ela volta ERRADA — é o defeito que a v5.173
+  // existe para fechar. Enquanto o app esteve fora da frente o `<video>` dela
+```
+
+*await migrarPastasParaFavoritos();*:
+
+```js
+  // OS ATALHOS DE PASTA, migrados para os favoritos (v5.254). ANTES do `load()`
+```
+
+*await histCarregar();*:
+
+```js
+  // O HISTÓRICO DAS SESSÕES ANTERIORES (v1.4.31). ANTES de qualquer projeção,
+```
+
+*if (window.__avSplash) window.__avSplash*:
+
+```js
+  // ===== A CORTINA LEVANTA AQUI (v1.7.0) =====
+```
+
+*if (window.__avSplash) window.__avSplash*:
+
+```js
+  // retângulo vazio no meio da tela — mais um dos "diversos outros
+  // carregamentos" do relato.
+```
+
+*acertarVeus*:
+
+```js
+  //
+  // AQUI, e não no bloco de teclas de volume, que é onde ela quase ficou: aquele
+  // bloco vive dentro de `if (window.__NATIVE__)`, e uma chamada ali NÃO RODA no
+  // navegador — isto é, não roda em oráculo nenhum. O defeito seria mudo dos
+  // dois lados: no CI a sombra nunca acenderia por render, e no aparelho ela
+  // acenderia, então nenhum teste veria a diferença. É a regra de escrita deste
+  // projeto pelo avesso (*"toda guarda é `if (!window.__NATIVE__)`"*).
+```
+
+*lerPacotePronto*:
+
+```js
+  // E O PACOTE PRONTO É SEMEADO PELO MESMO MOTIVO (v1.8.45), na linha de baixo
+  // de propósito: o irmão exato do `lerEspelho` acima.
+```
+
+*lerPacotePronto*:
+
+```js
+  // a morte do renderer ou uma recriação de Activity faziam a página renascer
+  // com `null`: o tile voltava a dizer "Exportar" com gigabytes prontos em
+  // `files/pacote/`, e tocar nele refazia minutos de medição e escrita do zero.
+  // Era o `docs/ACHADOS-EM-ABERTO.md` §0.
+```
+
+*if (fonteDependente()) apurarFonte('aber*:
+
+```js
+  // O SERVIDOR DA BIBLIOTECA (v1.12.43): numa instalação que ainda não tem a
+```
+
+*garantirBibliaBase*:
+
+```js
+  // A BÍBLIA BASE, garantida sozinha (v5.242) — metadados e, atrás deles, a
+```
+
+*curarPonteirosUmaVez*:
+
+```js
+  // OS PONTEIROS QUEBRADOS QUE A v1.8.23 DEIXOU, uma vez por aparelho. Ela
+  // passou a preencher os buracos do índice de uma coleção com os ponteiros do
+  // pacote, e o índice viaja INTEIRO enquanto os arquivos são cortados pela
+  // folha de escolha: quem importou entre ela e a v1.8.25 ficou com álbuns
+```
+
+*varrerRestos*:
+
+```js
+  // A FAXINA DOS RESTOS, por último e sem segurar nada (v5.131). Ver
+```
+
+*OTA_POLL_MS*:
+
+```js
+// A ATUALIZAÇÃO PERGUNTA, E ELA É UM EVENTO SÓ (shell 43)
+```
+
+*OTA_POLL_MS*:
+
+```js
+//    tornava a supressão permanente (foi o que fez a v5.151 desistir de
+//    perguntar). Instalar o APK, esse sim, espera os três.
+```
+
+*OTA_POLL_MS*:
+
+```js
+//    seguinte, e o botão do rodapé de Configurações aplica na hora.
+```
+
+*horaRuimParaPerguntar*:
+
+```js
+// download termina. O espelho não entra, e essa é a correção do lote: ele fica
+// ligado o culto inteiro, então incluí-lo (v5.141 → v5.151) transformava a
+// pergunta em algo que nunca aparecia — e foi por isso que a v5.151 desistiu de
+// perguntar. O espelho custa uma tela da rede com a página antiga em memória
+// até alguém recarregá-la; a cena e o download custam a projeção e o hinário
+// pela metade, que é outra ordem de grandeza.
+```
+
+*horaRuimParaPerguntar*:
+
+```js
+// **A CENA É `haOQueParar()`, E NÃO `cenaNoAr()`** (v1.11.6). Esta começa por
+```
+
+*horaRuimParaPerguntar*:
+
+```js
+// deixa o ▶ repetir a faixa) — lida aqui, a pergunta nunca voltava a ser boa
+// depois da primeira mídia da sessão, e o Registro dizia *"esperando a cena
+// sair do ar"* sobre um telão vazio. Um aparelho aberto de um sábado ao outro
+// ficava na versão antiga para sempre; só fechar e reabrir o app o soltava.
+```
+
+*horaRuimParaAtualizar*:
+
+```js
+// ficam sem nada. É o mesmo peso do `#otaRow` desde a v5.167 (`apkRow` até a
+// v5.242), e é o que o
+// Registro mostra.
+```
+
+*ingerirAtualizacao*:
+
+```js
+// Os dois caminhos (a enquete e o empurrão) leem a MESMA fotografia, e por três
+// versões cada um a desempacotou por conta própria — duas listas de campos, que
+```
+
+*otaNotas*:
+
+```js
+  // A LINHA DO TEMPO do que vem (shell 47). Vazia é o normal: bundle anterior a
+  // este lote, lote só de APK, ou `notas.json` que o shell não conseguiu ler.
+  // Em todos, a pergunta continua a mesma — só não se descreve.
+```
+
+*textoDaAtualizacao*:
+
+```js
+// Eram uma só, com a consequência colada na identidade por duas quebras de
+// linha. Com a lista no meio essa junção deixou de servir: um parágrafo sobre
+// telas recarregando separaria a versão das mudanças DELA.
+```
+
+*OTA_MAX_LINHAS*:
+
+```js
+// **O AVISO DO QUE SOBROU NÃO PODE MORAR NA LISTA.** Ele morou, e o desenho o
+// desmentiu na primeira medição: a lista tem teto de altura com rolagem (a rede
+// para uma fonte de sistema grande, sem a qual os botões saem da tela), e o
+// último item é justamente o primeiro a ser cortado — o "e mais 5 mudanças"
+// ficava escondido atrás da rolagem, e o que sobrava era uma lista truncada
+// afirmando ser tudo. Ele sai daqui e vai para o RODAPÉ, que não rola.
+```
+
+*fixo: true,*:
+
+```js
+      // Um toque fora NÃO responde por ele (v5.249, ver `appDialogFixo`): esta
+      // pergunta aparece sozinha, e a recusa acidental custava a atualização
+```
+
+*renderOtaRow*:
+
+```js
+    // NENHUMA FRASE AQUI (v5.249). Ela existia porque o rótulo de versão só
+    // sabia mostrar um ponto, e alguém precisava dizer onde tocar. Agora o
+    // botão de Configurações já diz "Atualizar: base v… e app v…" — que é a
+    // mesma informação e o próprio alvo. Uma frase por cima dele durante
+    // quatro segundos ESCONDERIA a resposta em vez de dá-la.
+```
+
+*__avApk*:
+
+```js
+// O PROGRESSO VEM POR EMPURRÃO do shell — o download roda na fila de IO dele e
+```
+
+*telaSanearRec*:
+
+```js
+// AS IMAGENS DE FUNDO DOS SLIDES VÃO JUNTO desde a v5.188 — cada estrofe com
+// `imageOpfsPath` ganha um `imageUrl` `/m/`, e os bytes são enfileirados pelo
+```
+
+*telaSanearRec*:
+
+```js
+// fotos). O texto deste comentário ainda descrevia a exclusão da v1 ("a letra
+// vai SEM as imagens de fundo"), que foi justamente o relato do operador
+// naquela versão e foi fechado nela: um registro que descreve a limitação
+// depois de ela ter caído manda o próximo leitor procurar o defeito no lugar
+// errado — foi o que aconteceu ao auditar a herança de preferências.
+```
+
+*imageUrl: sl.imageOpfsPath ? telaImagemL*:
+
+```js
+      // A IMAGEM DE FUNDO da estrofe (v5.188): `imageOpfsPath` continua NUNCA
+```
+
+*telaLetraAvulsa*:
+
+```js
+ * A LETRA AVULSA PARA AS TELAS DA REDE (v1.9.7) — o irmão do `telaEnriquecer`.
+```
+
+*token*:
+
+```js
+  //
+  // Havia um `|| telaTokenDe(it.id)` aqui, e ele era INALCANÇÁVEL — quem
+  // enfileira já recusou o item sem token (`if (!token) return`) e empilha uma
+  // CÓPIA com ele. Alcançado, faria exatamente o que o parágrafo acima proíbe.
+```
+
+*token*:
+
+```js
+  //
+  // O RAMO `it.token ||` SAIU (v1.8.48): ele tinha UM produtor, o CLONE celular
+  // a celular, em que quem cunhava era o SHELL e o outro aparelho já esperava
+  // naquele token. O clone foi cortado na v1.8.16 e nenhum dos seis chamadores
+  // desta função passa `token` — o ramo era inalcançável, e as onze linhas que o
+  // explicavam descreviam uma classe Kotlin (`AcervoCessao`) e uma rota
+  // (`/acervo/item/`) que não existem mais.
+  //
+  // O IRMÃO DELE, no `telaEmpurrarAgora`, CONTINUA VIVO e não é este caso: lá o
+  // `it` já saiu da fila com o token que ESTA função carimbou.
+```
+
+*if ((telaEmpurrando && mesmo(telaEmpurra*:
+
+```js
+  // enfileirava um empurrão que a deduplicação por id descartava, e o comando
+  // saía anunciando um `/m/<token>` que nunca receberia bytes — o wallpaper
+  // sumia da tela e a rota respondia 404, para sempre.
+```
+
+*if (it.kind === 'youtube' || (it.kind ==*:
+
+```js
+    // As cenas que NÃO vão para a rede (spec §5.6): o embed é iframe de
+    // terceiro (e a CSP das telas o barra por construção); o deck
+    // são Blobs por página (E4.1). O aviso sai LOGO DEPOIS do load — a tela
+    // sem __rec limpa a cena sozinha (getMedia nulo → clear).
+    // O DECK SAIU DAQUI (a dívida E4.1): as páginas viajam como uma `/m/` cada
+    // (ver `telaDeckUrls`). Continua caindo no aviso o deck de que não se
+    // consegue cunhar token — e o embed, que é iframe de terceiro e a CSP das
+    // telas barra por construção.
+```
+
+*it*:
+
+```js
+    // A IMAGEM SOBRE O ÁUDIO (v5.312) precisa do MESMO enriquecimento do
+```
+
+*if (isDeck(it)) {*:
+
+```js
+    // A APRESENTAÇÃO SOBREPOSTA empurra as PÁGINAS, não o item (v1.4.28) — o
+```
+
+*(async () => {*:
+
+```js
+    // `__wp` antes de saber cunhava uma URL sem bytes no caminho do "Padrão"
+    // (v5.188). O wallpaper é o id MUTÁVEL: cada troca com imagem cunha token
+    // novo (o shell substitui e mata o velho).
+```
+
+*telaReenviarPreferencias*:
+
+```js
+// AS PREFERÊNCIAS DE QUEM ACABOU DE CONECTAR (v5.188). O telão de verdade lê
+// wallpaper, fundo da letra e preenchimento do IndexedDB no arranque; uma TELA
+// DA REDE não tem esse IDB, e tudo que só viaja "na troca" simplesmente não
+// existia para quem entrasse depois — ela ficava no wallpaper padrão, com a
+// letra sobre preto e no preenchimento default para sempre. Este é o simétrico
+// do `resendSceneToDisplay`: roda no MESMO `display-ready`, e é ENDEREÇADO
+```
+
+*mandar*:
+
+```js
+  // A GUARDA NÃO PODE SER `telaAtiva()` (v5.208).
+```
+
+*mandar*:
+
+```js
+  // empurra uma imagem. A guarda `if (!telaCanal()) return` estava no TOPO da
+  // função e derrubava as três — e o preço é o defeito que este reenvio existe
+  // para fechar: a tela não tem o IndexedDB do app para consultar, ao contrário
+  // do telão de verdade, então sem o comando ela fica no valor com que NASCEU,
+  // para sempre — nada reexamina uma estrofe já renderizada.
+```
+
+*mandar*:
+
+```js
+  // Calado nos dois sentidos: sem o canal não há erro, não há linha no Registro,
+  // e o padrão do `fit` e do wallpaper é aceitável o bastante para ninguém
+  // reparar. Só o fundo da letra aparece — e aparece como "o app perdeu a
+  // configuração".
+  //
+  // A guarda desceu para o único bloco que de fato depende dela.
+  //
+  // E o `lyricsbg` vai SEM CONDIÇÃO. Enquanto o padrão era 'black' um
+  // `if (=== 'image')` acertava por coincidência — o caso omitido era igual ao
+  // nascimento da tela. Com as imagens como padrão a coincidência se inverte, e
+  // a condição passaria a calar justamente o "Remover": a tela com imagens e o
+  // telão sem, na mesma cena. Mandar sempre custa um objeto JSON e não depende
+  // do valor com que a tela nasce.
+```
 
 ## v1.13.30 — só o pulso no botão, sem frase
 
