@@ -40,25 +40,34 @@ try {
   // sem vão espalhado); o quinto ("Ver a letra") é LARGO, com rótulo, e cresce
   // no resto da linha até a borda da gaveta. O rótulo é medido no BOTÃO (o
   // pai), nunca no span: o span tem o tamanho do próprio texto.
-  const medirA = (escala, largura) => pg.evaluate(async ({ escala, largura }) => {
+  // QUANDO NÃO CABE AO LADO, ELE DESCE (`flex-wrap`): o rótulo nunca é cortado, e
+  // a régua aceita as duas formas — na linha dos quadrados até a borda, OU numa
+  // linha só dele de borda a borda. Medido também num VÍDEO, cujo "Ocultar os
+  // detalhes" é a frase mais longa da fileira.
+  const medirA = (escala, largura, video) => pg.evaluate(async ({ escala, largura, video }) => {
     document.documentElement.style.fontSize = (16 * escala) + 'px';
     setAppMode('full');
-    const c = allCollections().find((x) => x.kind === 'hymnal');
-    collState[c.id] = { indexSyncedAt: Date.now(), isHymnal: true, songs: [
+    const c = video ? { id: 'serie-teste', kind: 'serie', name: 'Série de teste' }
+      : allCollections().find((x) => x.kind === 'hymnal');
+    if (!video) collState[c.id] = { indexSyncedAt: Date.now(), isHymnal: true, songs: [
       { id_music: 'd1', name: 'Meu Lugar no Mundo', track: 1, has_instrumental_music: true, duration: '3:47' },
     ] };
+    const faixa = video ? { id_music: 'v1', name: 'Episódio', ytUrl: 'https://youtu.be/v1', serieData: { mes: 1, dia: 3 } }
+      : collSongs(c.id)[0];
     const lista = document.createElement('ul');
     lista.className = 'coll-songs';
     lista.style.cssText = 'position:fixed;top:0;left:0;width:' + largura + 'px;z-index:250';
     document.body.appendChild(lista);
-    const li = hymnResultRow(c, collSongs(c.id)[0], null, true);
+    const li = hymnResultRow(c, faixa, null, true);
     lista.appendChild(li);
     li.querySelector('.row').click();
+    for (let i = 0; i < 40 && !li.querySelector('.dest-botoes'); i++) await new Promise((r) => setTimeout(r, 25));
     await new Promise((r) => setTimeout(r, 400));
     const fileira = li.querySelector('.dest-botoes');
     const fr = fileira.getBoundingClientRect();
     const fcs = getComputedStyle(fileira);
     const dentroDireita = fr.right - (parseFloat(fcs.paddingRight) || 0);
+    const dentroEsquerda = fr.left + (parseFloat(fcs.paddingLeft) || 0);
     const gap = parseFloat(fcs.columnGap) || 0;
     const todos = [...fileira.querySelectorAll(':scope > button')];
     const cx = todos.map((b) => b.getBoundingClientRect());
@@ -67,17 +76,23 @@ try {
     const thumb = li.querySelector('.hymn-play-thumb');
     const r = {
       ordem: todos.map((b) => b.dataset.dest),
-      umaLinha: new Set(cx.map((q) => Math.round(q.top))).size === 1,
+      umaLinha: new Set(cx.slice(0, 4).map((q) => Math.round(q.top))).size === 1,
+      desceu: !!lr && lr.top >= cx[0].bottom - 0.5,
       quadrados: quad.every((q) => Math.abs(q.width - q.height) <= 0.5 && q.width >= 34),
       quadDeclarados: [...fileira.querySelectorAll('.dest-btn')].length === 4,
-      juntos: cx.every((q, i) => i === 0 || Math.abs((q.left - cx[i - 1].right) - gap) <= 1),
+      juntos: cx.slice(0, 4).every((q, i) => i === 0 || Math.abs((q.left - cx[i - 1].right) - gap) <= 1)
+        && (!lr || lr.top >= cx[0].bottom - 0.5 || Math.abs((lr.left - cx[3].right) - gap) <= 1),
       gap,
       largoLargo: !!lr && lr.width > quad[0].width * 1.5,
-      largoAteABorda: !!lr && Math.abs(lr.right - dentroDireita) <= 1,
+      largoAteABorda: !!lr && Math.abs(lr.right - dentroDireita) <= 1
+        && (lr.top < cx[0].bottom - 0.5 || Math.abs(lr.left - dentroEsquerda) <= 1),
       mesmaAltura: !!lr && Math.abs(lr.height - quad[0].height) <= 0.5,
-      rotulo: largo ? largo.textContent.trim() : '',
-      // O PAI: o botão não pode estar estourado pelo próprio texto.
-      cabe: !!largo && largo.scrollWidth <= largo.clientWidth + 0.5,
+      rotulo: largo ? [...largo.querySelectorAll('.song-menu-label > span')].map((x) => x.textContent).join(' / ')
+        || largo.textContent.trim() : '',
+      // O PAI: o botão não pode estar estourado pelo próprio texto — nos DOIS
+      // estados de um vídeo (a frase longa é a de "Ocultar").
+      cabe: !!largo && largo.scrollWidth <= largo.clientWidth + 0.5
+        && (!video || (largo.click(), largo.scrollWidth <= largo.clientWidth + 0.5)),
       icones: todos.slice(0, 4).map((b) => {
         const i = b.querySelector('svg, .msym');
         return Math.round(i ? i.getBoundingClientRect().width : 0);
@@ -87,22 +102,26 @@ try {
     lista.remove();
     document.documentElement.style.fontSize = '';
     return r;
-  }, { escala, largura });
-  for (const [escala, largura, nome] of [[1.25, 360, '360×1,25×'], [1, 430, '430×1×']]) {
-    const a = await medirA(escala, largura);
-    checar(a.ordem.join(' | ') === 'tocar | cronograma | playlist | favoritos | leitura' && a.umaLinha,
-      'A · ' + nome + ' · a fileira é "Tocar agora", os três destinos da tabela e o "Ver a letra", numa linha só', a);
+  }, { escala, largura, video });
+  for (const [escala, largura, nome, video] of [[1.25, 360, '360×1,25×'], [1, 430, '430×1×'],
+    [1.25, 360, '360×1,25× · vídeo', true], [1, 430, '430×1× · vídeo', true]]) {
+    const a = await medirA(escala, largura, video);
+    const quinto = video ? 'detalhes' : 'leitura';
+    checar(a.ordem.join(' | ') === 'tocar | cronograma | playlist | favoritos | ' + quinto && a.umaLinha,
+      'A · ' + nome + ' · a fileira é "Tocar agora" e os três destinos da tabela numa linha, e o quinto por último', a);
     checar(a.quadrados && a.quadDeclarados,
       'A · ' + nome + ' · os QUATRO destinos são QUADRADOS de alvo pleno (sem rótulo, ≥ `--hit`)', a);
     checar(a.juntos,
       'A · ' + nome + ' · e JUNTOS: o vão entre dois botões é o `gap` da fileira (' + a.gap + 'px), sem espalhar', a);
-    checar(a.largoLargo && a.largoAteABorda && a.mesmaAltura && a.rotulo === 'Ver a letra',
-      'A · ' + nome + ' · o "Ver a letra" é LARGO, com rótulo, vai até a borda da gaveta e tem a altura dos quadrados', a);
+    checar(a.largoLargo && a.largoAteABorda && a.mesmaAltura
+      && a.rotulo === (video ? 'Ver os detalhes / Ocultar os detalhes' : 'Ver a letra'),
+      'A · ' + nome + ' · o quinto é LARGO, com rótulo, vai até a borda da gaveta (ao lado dos quadrados, ou '
+      + 'numa linha só dele, de borda a borda) e tem a altura dos quadrados', a);
     checar(a.cabe,
       'A · ' + nome + ' · e o rótulo dele NÃO é cortado (medido no botão, não no texto)', a);
     checar(a.icones.every((w) => w === 22),
       'A · ' + nome + ' · com o ícone dos quadrados no degrau do transporte (`--icon-md`, 22px)', a.icones);
-    checar(a.tipoMusica.tipo === 'musica' && a.tipoMusica.glifo === '\ue3a1',
+    if (!video) checar(a.tipoMusica.tipo === 'musica' && a.tipoMusica.glifo === '\ue3a1',
       'B · ' + nome + ' · o quadrado da esquerda de uma MÚSICA é a nota musical — não o ▶, que lia como botão', a.tipoMusica);
   }
 

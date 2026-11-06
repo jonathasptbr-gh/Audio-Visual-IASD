@@ -2038,8 +2038,9 @@ caixas** — daí o resto desta seção.
   da fileira (v1.13.35: espalhados, os vãos eram buracos), e o QUINTO — "Ver a
   letra" / "Ver os detalhes", que não manda a mídia a lugar nenhum — é LARGO, com
   rótulo (`.dest-largo`, o desenho do antigo `.song-menu-letra`), crescendo no
-  resto da linha na altura dos quadrados; o rótulo cabe a 360×1,25× e a 430×1×,
-  medido no BOTÃO (`destinos-diretos`). O
+  resto da linha na altura dos quadrados; quando o rótulo não cabe ao lado, a
+  fileira QUEBRA e ele desce de borda a borda (o rótulo nunca corta, medido no
+  BOTÃO a 360×1,25× e a 430×1×, música e vídeo — `destinos-diretos`). O
   quadrado da esquerda de uma faixa diz o TIPO (`miniaturaDeTipo`: a nota, ou a
   fita `#icoVideo` em `--icon-md`), nunca ▶ — ▶ num canto que não é alvo lê como
   botão.
