@@ -213,7 +213,8 @@ const cartao = () => pg.evaluate((id) => {
     temCaixa: !!aberto.querySelector('[role="checkbox"], .song-menu-check'),
     temDestaque: !!dest,
     primeiro: aberto.firstElementChild ? aberto.firstElementChild.className : '',
-    // O SEGUNDO desde a v1.13.13: o primeiro é a porta do "vídeo da semana" como item.
+    // O "vídeo da semana" é uma OPÇÃO da gaveta do episódio deste sábado desde a
+    // v1.13.34: sem a linha a mais no topo, o primeiro filho é o destaque.
     segundo: aberto.children[1] ? aberto.children[1].className : '',
   };
 }, SERIE);
@@ -264,8 +265,8 @@ try {
   checar(cx && cx.temAuto === false && cx.temCaixa === false,
     'A · o card aberto da série NÃO tem mais a linha "Manter o … da semana '
     + 'baixado" — nem a classe dela, nem uma caixa de marcação', cx);
-  checar(cx.temDestaque && /serie-semana-lista/.test(cx.primeiro) && cx.segundo === 'serie-destaque',
-    'e o topo do card é a linha do "vídeo da semana" (v1.13.13) seguida do destaque do sábado', cx);
+  checar(cx.temDestaque && cx.primeiro === 'serie-destaque',
+    'e o topo do card é o destaque do sábado — o "vídeo da semana" mora na gaveta do episódio (v1.13.34)', cx);
   const semFuncoes = await pg.evaluate(() => ({
     linha: typeof serieAutoLinha, alterna: typeof alternarSerieAuto, conjunto: typeof serieAuto,
   }));

@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.13.34",
+    "itens": [
+      "Na Biblioteca, tocar, Cronograma, playlist, favoritos e letra viraram botões: um toque já faz.",
+      "O quadradinho à esquerda das músicas e vídeos mostra o tipo, e não um botão de play.",
+      "O vídeo da semana virou uma opção do episódio deste sábado: escolha \"Este sábado\" ou \"Atalho universal\".",
+      "Ao abrir uma seção da Biblioteca, ela não fica mais colada no topo da tela.",
+      "Ao sair da tela cheia, a barra de busca não aparece mais no lugar errado antes de voltar."
+    ]
+  },
+  {
     "versao": "1.13.33",
     "itens": [
       "Um computador conectado volta ao fundo padrão ao reconectar, sem ficar com uma imagem antiga."

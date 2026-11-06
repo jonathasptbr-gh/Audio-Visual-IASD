@@ -430,6 +430,12 @@
       <rect x="2.5" y="4" width="19" height="12.5" rx="2"/>
       <path d="M8 20.5h8M12 16.5v4"/>
     </symbol>
+    <!-- VÍDEO (v1.13.34): a fita de filme — o TIPO de uma faixa de vídeo (episódio
+         de série, link) no quadrado da esquerda, onde o ▶ lia como botão. -->
+    <symbol id="icoVideo" viewBox="0 0 24 24">
+      <rect x="3" y="4.5" width="18" height="15" rx="2"/>
+      <path d="M7.5 4.5v15M16.5 4.5v15M3 9.5h4.5M3 14.5h4.5M16.5 9.5H21M16.5 14.5H21"/>
+    </symbol>
     <!-- TRANSFERIR (v1.11.7): as duas setas opostas, uma para cada lado — leva e
          traz, que é o que o par exportar/importar faz. É um símbolo à parte dos
          dois (`#icoExportar` sobe, `#icoImportar` desce): este diz o PAR, e o
@@ -1978,7 +1984,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion" class="app-version">v1.13.33</span>
+          <span id="appVersion" class="app-version">v1.13.34</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>

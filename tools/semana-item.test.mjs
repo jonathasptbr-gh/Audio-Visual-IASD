@@ -7,9 +7,11 @@
 // (`kind: 'semana'`) que entra no Cronograma, na playlist e nos Favoritos e, ao
 // tocar, resolve para o episódio desta semana.
 //
-//  A. A LINHA no topo do card da série, nos DOIS modos, com a data de agora.
-//  B. Pela linha, ADICIONAR AO CRONOGRAMA: um registro `semana`, sem bytes, de id
-//     FIXO por série — mandar de novo é "já está", nunca um segundo item.
+//  A. O ATALHO É UMA OPÇÃO DA GAVETA DO EPISÓDIO DESTE SÁBADO (v1.13.34): sem a
+//     linha a mais no topo do card; o seletor "Este sábado" × "Atalho universal".
+//  B. Pela gaveta, com "Atalho universal", o botão do CRONOGRAMA: um registro
+//     `semana`, sem bytes, de id FIXO por série — mandar de novo é "já está",
+//     nunca um segundo item. Com "Este sábado", o mesmo botão leva o ARQUIVO.
 //  C. O RÓTULO na lista: o nome da série + "vídeo da semana", e embaixo a DATA
 //     do episódio que ele toca agora.
 //  D. TOCAR com o episódio BAIXADO: o `load` sai com o ARQUIVO do episódio; a
@@ -108,11 +110,9 @@ const montarCard = (modo) => pg.evaluate((a) => {
   hospede.appendChild(li);
   document.body.appendChild(hospede);
   const aberto = li.querySelector('.coll-open');
-  const linha = aberto && aberto.querySelector('.serie-semana');
   return {
     primeiro: aberto && aberto.firstElementChild ? aberto.firstElementChild.className : '',
-    nome: linha ? linha.querySelector('.hymn-name').textContent : null,
-    sub: linha ? linha.querySelector('.hymn-sub').textContent : null,
+    linhaAMais: !!(aberto && aberto.querySelector('.serie-semana-lista, .serie-semana')),
   };
 }, { modo, serie: SERIE });
 
@@ -133,30 +133,35 @@ try {
 
   // ── A. A LINHA NO TOPO DO CARD (no AVANÇADO: no Modo Fácil o card da série não
   // existe desde a v1.13.15 — ver o bloco I) ─────────────────────────────────
-  for (const modo of ['full']) {
-    const c = await montarCard(modo);
-    checar(/serie-semana-lista/.test(c.primeiro) && c.nome === 'Vídeo da semana (sempre o atual)',
-      'A · (' + modo + ') a PRIMEIRA linha do card da série é "Vídeo da semana (sempre o atual)"', c);
-    checar(c.sub === 'Episódio de ' + datas.rotulo,
-      'A · (' + modo + ') e embaixo dela a DATA do episódio que ela toca agora', { c, datas });
-  }
-
-  // ── B. PELA LINHA, ADICIONAR AO CRONOGRAMA ───────────────────────────────
-  await montarCard('full');
-  const adicionar = () => pg.evaluate(async () => {
-    const linha = document.querySelector('.__card-teste .serie-semana');
+  const cA = await montarCard('full');
+  checar(cA.primeiro === 'serie-destaque' && !cA.linhaAMais,
+    'A · o card da série abre pelo destaque do sábado, SEM a linha "Vídeo da semana" a mais', cA);
+  // A gaveta do episódio deste sábado: abre (a montagem espera o disco) e mostra o seletor.
+  const abrirEp = () => pg.evaluate(async () => {
+    const linha = document.querySelector('.__card-teste .serie-destaque-lista .hymn-result');
     if (!linha.classList.contains('expanded')) linha.querySelector('.hymn-row').click();
-    const rotulos = [...linha.querySelectorAll('.hymn-opcoes .song-menu-label')].map((n) => n.textContent);
-    const item = [...linha.querySelectorAll('.hymn-opcoes .song-menu-btn')]
-      .find((b) => /Cronograma/.test(b.textContent));
-    item.click();
-    linha.querySelector('.hymn-opcoes .song-menu-go').click();
-    return rotulos;
+    for (let i = 0; i < 50 && !linha.querySelector('.dest-botoes'); i++) await new Promise((r) => setTimeout(r, 20));
+    return {
+      seg: [...linha.querySelectorAll('.hymn-opcoes .song-menu-seg-row')]
+        .map((r) => [...r.querySelectorAll('.fit-opt')].map((b) => b.textContent + (b.classList.contains('active') ? '*' : ''))),
+      botoes: [...linha.querySelectorAll('.dest-botoes .dest-btn')].map((b) => b.dataset.dest),
+    };
   });
-  const rotulos = await adicionar();
-  checar(rotulos.slice(0, 4).join(' | ')
-      === 'Tocar agora | Adicionar ao Cronograma | Adicionar à playlist | Favoritar',
-    'B · a gaveta da linha tem os destinos de sempre, na ORDEM da tabela `DESTINOS`', rotulos);
+  const gA = await abrirEp();
+  checar(gA.seg.length >= 1 && gA.seg[0].join(' | ') === 'Este sábado* | Atalho universal',
+    'A · a gaveta do episódio deste sábado tem o seletor "Este sábado" × "Atalho universal", nascendo no episódio', gA);
+  checar(gA.botoes.join(' | ') === 'tocar | cronograma | playlist | favoritos | detalhes',
+    'A · e os destinos são BOTÕES DIRETOS, na ordem da tabela, com os detalhes do vídeo na ponta', gA);
+
+  // ── B. PELA GAVETA, COM O ATALHO, ADICIONAR AO CRONOGRAMA ────────────────
+  const adicionar = () => pg.evaluate(async () => {
+    const linha = document.querySelector('.__card-teste .serie-destaque-lista .hymn-result');
+    const atalho = [...linha.querySelectorAll('.fit-opt')].find((b) => b.textContent === 'Atalho universal');
+    atalho.click();
+    linha.querySelector('.dest-botoes [data-dest="cronograma"]').click();
+  });
+  await pg.evaluate(() => { window.__ytB = []; window.__ytAcaoB = window.ytAcao; window.ytAcao = async (r, d) => { window.__ytB.push(d); }; });
+  await adicionar();
   await esperar(pg, (id) => libItems.some((m) => m.id === id), VID, 8000);
   const noCrono = await pg.evaluate(async (id) => {
     const rec = await AVDB.getMediaCru(id);
@@ -166,6 +171,19 @@ try {
   checar(noCrono.ids === 1 && noCrono.kind === 'semana' && noCrono.blob === null
       && noCrono.chave === 'provaievedeoficial-provai-e-vede',
     'B · o Cronograma recebe UM registro `semana`, SEM bytes, de id fixo pela série (sem o ano)', noCrono);
+  const ytB = await pg.evaluate(() => { const v = window.__ytB.slice(); window.ytAcao = window.__ytAcaoB; return v; });
+  checar(ytB.length === 0, 'B · com o atalho escolhido, o botão NÃO baixa o episódio (quem resolve é o toque)', ytB);
+  const ytEp = await pg.evaluate(async () => {
+    const v = []; const antes = window.ytAcao;
+    window.ytAcao = async (r, d) => { v.push({ id: r && r.id, d }); };
+    const linha = document.querySelector('.__card-teste .serie-destaque-lista .hymn-result');
+    [...linha.querySelectorAll('.fit-opt')].find((b) => b.textContent === 'Este sábado').click();
+    linha.querySelector('.dest-botoes [data-dest="favoritos"]').click();
+    window.ytAcao = antes;
+    return v;
+  });
+  checar(ytEp.length === 1 && ytEp[0].id === 'semana' && JSON.stringify(ytEp[0].d) === '["favoritos"]',
+    'B · com "Este sábado", o mesmo tipo de botão leva o ARQUIVO do episódio (o `ytAcao` de UM destino)', ytEp);
   await adicionar();
   await pg.waitForTimeout(300);
   const deNovo = await pg.evaluate((id) => AVDB.listIds('imports').then((l) => l.filter((x) => x === id).length), VID);
@@ -252,6 +270,29 @@ try {
     'F · episódio desta semana AINDA NÃO PUBLICADO: avisa com frase clara e NÃO toca nem baixa', f);
   checar(f.verif === 1, 'F · antes de avisar, procura uma vez na lista do canal (ela pode ser de antes da publicação)', f);
   checar(/ainda não saiu/.test(f.sub), 'F · e o rótulo da lista diz que o desta semana ainda não saiu', f);
+  // F2 · SEM O EPISÓDIO, O ATALHO CONTINUA ALCANÇÁVEL (v1.13.34): a linha "Aguardando
+  // lançamento" do destaque abre a gaveta do atalho, com "Este sábado" APAGADO e dizendo por quê.
+  await montarCard('full');
+  const f2 = await pg.evaluate(() => {
+    const linha = document.querySelector('.__card-teste .serie-destaque .serie-semana');
+    if (!linha) return null;
+    linha.querySelector('.hymn-row').click();
+    const segs = [...linha.querySelectorAll('.fit-opt')];
+    return {
+      nome: linha.querySelector('.hymn-name').textContent,
+      segs: segs.map((b) => [b.textContent, b.classList.contains('active'), b.disabled, b.title]),
+      botoes: [...linha.querySelectorAll('.dest-btn')].map((b) => b.dataset.dest + (b.disabled ? '-' : '')),
+    };
+  });
+  checar(f2 && f2.nome === 'Aguardando lançamento'
+      && f2.segs.length === 2 && f2.segs[0][2] === true && /ainda não saiu/.test(f2.segs[0][3])
+      && f2.segs[1][1] === true
+      && f2.botoes.join(' | ') === 'tocar | cronograma | playlist | favoritos | detalhes-',
+    'F2 · sem o episódio, "Aguardando lançamento" abre a gaveta do ATALHO: "Este sábado" apagado, com o motivo', f2);
+  await pg.evaluate(() => { window.__yt = []; document.querySelector('.__card-teste .serie-semana [data-dest="playlist"]').click(); });
+  await esperar(pg, (id) => plItems.some((m) => m.id === id), VID, 5000);
+  const f3 = await pg.evaluate((id) => ({ naFila: plItems.some((m) => m.id === id), yt: window.__yt.length }), VID);
+  checar(f3.naFila && f3.yt === 0, 'F2 · e o botão da playlist põe o item VIRTUAL na fila, sem baixar nada', f3);
 
   // ── G. O VIRTUAL NÃO RETÉM O EPISÓDIO, E SOBREVIVE NA LISTA ─────────────
   const g = await pg.evaluate(async (id) => {

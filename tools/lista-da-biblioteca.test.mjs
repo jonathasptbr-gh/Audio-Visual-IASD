@@ -901,14 +901,14 @@ try {
         - li.getBoundingClientRect().top).toFixed(2),
       gaveta: gav ? cor(gav) : null,
       botao: (() => {
-        const b = gav && gav.querySelector('.song-menu-btn:not(.song-menu-go):not(.song-menu-sel)')
-          || (gav && gav.querySelector('.hymn-opcoes .song-menu-btn:not(.song-menu-go)'));
+        // Os destinos são BOTÕES DIRETOS desde a v1.13.34 (`.dest-btn`).
+        const b = gav && gav.querySelector('.hymn-opcoes .dest-btn');
         return b ? cor(b) : null;
       })(),
       // O papel em que a gaveta pousa os blocos dela.
       papel: getComputedStyle(document.documentElement).getPropertyValue('--gaveta-btn').trim(),
       alturaBotao: (() => {
-        const b = gav && gav.querySelector('.song-menu-btn:not(.song-menu-go)');
+        const b = gav && gav.querySelector('.hymn-opcoes .dest-btn');
         return b ? +b.getBoundingClientRect().height.toFixed(2) : null;
       })(),
       // A RÉGUA É UMA IRMÃ FECHADA, nunca o `<li>` aberto: aberto ele mede a
@@ -964,7 +964,7 @@ try {
   // A régua é a FAIXA VIZINHA e não um número: as duas têm de andar juntas.
   checar(aberta.alturaBotao !== null
     && Math.abs(aberta.alturaBotao - aberta.alturaFaixa) <= 6,
-    'D4 · uma linha de destino da gaveta tem a altura de uma faixa da lista em '
+    'D4 · um botão de destino da gaveta tem a altura de uma faixa da lista em '
     + 'que ela vive (±6px) — era 1,24× mais alta, com literais anteriores às '
     + 'escalas da v1.5.14', aberta);
   checar(aberta.alturaBotao >= 34,

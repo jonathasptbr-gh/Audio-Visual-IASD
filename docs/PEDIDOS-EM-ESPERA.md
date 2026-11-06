@@ -16,7 +16,7 @@ horário do relato.
 O operador pediu economia: *"não temos tokens então toda ação deve ser fracionada
 e controlada"* — um pacote por vez, cada um com o rito de entrega completo.
 
-**Ordem recomendada ao operador (2026-11-04):** **8 PRIMEIRO (urgente, pedido do operador)**, depois 13 (defeitos que o operador viu no culto), 15, 14, 16, 12, 9, 10, 11; o 6, o 17 (lives) e o 18 (Windows/paisagem) seguem como estudo. (A saída de áudio pela API pública e a dica do "Não Perturbe" saíram na v1.13.16; O Pacote 7 — a faixa de
+**Ordem recomendada ao operador (2026-11-06):** **8 PRIMEIRO (urgente, pedido do operador)**, depois 13 (defeitos que o operador viu no culto), 16, 12, 9, 10, 11; o 6, o 17 (lives) e o 18 (Windows/paisagem) seguem como estudo. (Os Pacotes 14 e 15 e o item d do 13 — o vídeo da semana como opção do episódio — saíram na v1.13.34; A saída de áudio pela API pública e a dica do "Não Perturbe" saíram na v1.13.16; O Pacote 7 — a faixa de
 álbum no ar destacada — saiu na v1.13.14; o Pacote 5 — o vídeo da semana como item — saiu na v1.13.13; o Pacote 1 — as quatro correções pequenas — saiu na v1.13.11, e a busca no computador foi refeita no servidor na v1.13.12; o Pacote 4 — a lista vertical das Ferramentas e o nome do itinerário no
 título da folha — saiu na v1.13.4; o Pacote 2 — o teclado sobrepondo em todo
 campo de texto — na v1.13.7; o Pacote 3 — a linha de controles do Modo Fácil —
@@ -97,8 +97,7 @@ as DUAS provas da seção "Documentação".
 
 ## Pacote 13 — Séries e vídeo da semana: contagem, retenção e playlist
 
-Três relatos do operador (2026-10-30 18:57; 2026-10-31 10:22 e 10:31) e uma
-pendência antiga (*"O vídeo da semana vira OPÇÃO…"*, abaixo) mexem no MESMO
+Três relatos do operador (2026-10-30 18:57; 2026-10-31 10:22 e 10:31) mexem no MESMO
 lugar — `controle/serie.js`, `serieEpisodioDaSemana`, `manterSeriesDaSemana`,
 `resolverSemana`/`semanaAncora` — e saem JUNTOS. Ler antes
 `docs/recursos/SERIES.md`. **Estudo preliminar (2026-11-04), sem medição em
@@ -109,62 +108,10 @@ aparelho:**
 | a | *"Provai e Vede diz 30 episódios, Informativo 44… quero que conte apenas as versões disponíveis que são mostradas ao usuário"* | a barra do card escreve `total` = `songsBaixaveis(coll.id).length` (`renderCollection`), isto é, TODO item do índice sem `semAudio`; a LISTA desenhada passa por `faixasDaLista` (tira o destaque) e o índice já chega filtrado pela regra de playlist (`serie.js`, espanhol/infantil/Libras). Hipótese: o índice do Informativo guarda itens que a regra aceita mas que não são "um por sábado" (versões curtas, trailers, duplicatas de dublagem) — ou a contagem e a lista leem fontes diferentes. Nenhum dos dois números foi conferido contra o canal | (1) puxar os dois índices num aparelho (o Registro tem o bloco da varredura) e classificar cada item; (2) a contagem passa a ser `faixasDaLista(coll).length` + o destaque — UMA função para lista e número; (3) se sobrar item que não é episódio, a regra entra em `serie.js` com caso no oráculo Node. O número "certo" é o de sábados até hoje no ano corrente — dá para afirmar no oráculo |
 | b | *"vi o vídeo sendo baixado e depois… um deles não estava disponível offline"* | o download pelo atalho universal (`resolverSemana` sem arquivo) vai por `ytAcao(…, 'tocar')` e só DEPOIS chama `manterSeriesDaSemana()` com `.catch(() => {})` — falha calada. Suspeitas: (i) o arquivo baixado para TOCAR não entra na lista `serie` de retenção a tempo e uma limpeza o solta; (ii) a rotina semanal decide "qual é o deste sábado" por data e solta o que ela julga passado (fuso/virada de sábado); (iii) o download da rotina cedeu à mídia no ar (`midiaNoAr`) e não foi retomado | reproduzir com o Registro na mão (a linha do tempo deve mostrar baixou → soltou); tirar o `.catch` mudo (vira linha no Registro, regra do `DIAGNOSTICO.md`); oráculo de Chromium: baixar pelo atalho, rodar a rotina, afirmar que o arquivo sobrevive |
 | c | *"toquei um Provai e Vede e quando fui adicionar na playlist… não havia o Provai e Vede tocando na lista"* | tocar uma mídia isolada substitui a playlist por ela; o atalho universal toca pelo item VIRTUAL (`kind: 'semana'`) e o arquivo resolvido entra por `send(arquivo.id, …)` com `semanaPendente`. Hipótese forte: a substituição da playlist acontece no caminho do "Tocar agora" de um item comum e o caminho `semanaAcao(…, ['tocar'])` / `resolverSemana` a pula — a fila fica a anterior | conferir em que função mora a "fila vira só esta mídia" e chamá-la também no caminho da semana, com o item VIRTUAL na fila (é ele que `ancoraDaFila` procura); oráculo: tocar o atalho → adicionar outra → a fila tem os dois, nessa ordem |
-| d | a pendência antiga do seletor *"Este sábado"/"Atalho universal"* | — | entra aqui, como estava escrita |
 
 Só web, salvo se (b) mostrar causa no `YoutubeGrab.kt`. Vizinho do **Pacote 10**
 (a pergunta "toca sem rede?" do `semana` usa a mesma lista `serie`) — fazer o
-13 antes.
-
-## Pacote 14 — Biblioteca: destinos em botões diretos e miniaturas sem "play"
-
-Dois pedidos (2026-10-31 18:50 e 18:52), mesma superfície — a linha do acervo e
-a gaveta que ela abre.
-
-- **Destinos em botões diretos.** Hoje a gaveta de destinos é MULTI-SELEÇÃO
-  (`destinosNaOrdem`, o "multi-destino" com um aviso só, linha ~14765). O pedido:
-  uma linha de botões quadrados, um toque = uma ação, *"como já é no resto do
-  app"* — **Tocar agora · Cronograma · playlist · Favoritos · Auxiliar de
-  leitura**. Estudo: a ordem dos três destinos é LEI da paleta (`DESTINOS`,
-  `destinosNaOrdem()`), e "Tocar agora" e "Auxiliar de leitura" ficam nas
-  pontas. Cinco botões quadrados (`--hit`) cabem a 360 px; medir a 360×1,25×.
-  "Auxiliar de leitura" precisa de definição: abrir a folha de letra/Bíblia do
-  item sem projetar? (perguntar ao operador antes). O que se perde: "pôr em
-  vários destinos num toque" e o YouTube que baixa UMA vez para vários destinos —
-  com toques separados, o segundo toque reusa o download em curso (conferir que
-  o `YoutubeGrab` não baixa duas vezes). A tabela de divergências cita o
-  multi-destino — muda junto. **Absorve** a parte da gaveta do seletor
-  *"Este sábado"/"Atalho universal"* (Pacote 13d): fazer o 14 ANTES ou no mesmo
-  lote, para não desenhar a gaveta duas vezes.
-- **Miniaturas sem símbolo de play.** O ícone de play nas miniaturas (o
-  `hymn-play-thumb`, o `ICON.play` do item `semana` em `thumbFor`) lê como
-  BOTÃO. Estudo: trocar por ícone de TIPO (nota musical, filme, livro, ícone de
-  série) ou pela capa; o play fica só onde TOCA. Ícone novo entra numa das três
-  escalas (`--icon-*`) — regra da paleta. Conferir os oráculos que procuram o
-  `.hymn-play-thumb` pelo nome.
-
-## Pacote 15 — Biblioteca: rolagem ao abrir coleção e posição depois da tela cheia
-
-Dois relatos (2026-10-30 18:42; 2026-10-31 09:23), ambos de POSIÇÃO no acervo.
-
-- **Margem acima da coleção aberta.** O alinhamento ao abrir (`alinharGrupoNoTopo`
-  e o vizinho `revelarNaLista`) leva o TOPO do card à borda da área de rolagem
-  (`dy = topo do card − topo da lista`), e o card fica colado na fronteira. O
-  pedido: parar com a BASE do card de cima na borda, deixando visível só o vão
-  entre os dois. Estudo: subtrair do `dy` o vão real entre cards (a `margin`/`gap`
-  lida do layout, nunca um número fixo — o vão muda entre Modo Fácil e Avançado);
-  no primeiro card da lista o desconto é zero. Conferir a sombra `rola` (ela
-  cobre os primeiros pixels; o vão precisa ser maior que ela ou a margem some
-  embaixo da sombra). Oráculo geométrico com reversão.
-- **A barra de busca volta no lugar errado depois da tela cheia** (Avançado,
-  com ou sem prévia recolhida) e depois se corrige com um salto. Há QUATRO
-  ouvintes de `fullscreenchange` no Controle (`aoSairDaTelaCheiaGeral`,
-  `aoSairDaPreviaCheia`, `aoMudarCheia` e o da linha ~18503) e o comentário da
-  linha ~25496 já registra que *"o `fullscreenchange` de saída chega ANTES da
-  rotação de volta ao retrato"*. Hipótese: alguém mede/restaura a posição nesse
-  instante (ainda em paisagem) e a correção vem no `resize` seguinte. Estudo:
-  achar quem escreve a posição na saída e adiar para o primeiro `resize` em
-  retrato (ou o fim da trava de paisagem nativa). Medir com Playwright simulando
-  a ordem real: `fullscreenchange` → um quadro → `resize`.
+13 antes. (O item d, o seletor "Este sábado"/"Atalho universal", saiu na v1.13.34.)
 
 ## Pacote 16 — Modo Fácil: indicador de volume flutuante e o botão de tela cheia
 
@@ -183,9 +130,12 @@ Biblioteca ou sem nada tocando as teclas físicas não mostram nada. Estudo:
   não — decidir se o indicador mostra o volume do APP (preview/telão) ou se a
   captura passa a valer sempre no Modo Fácil (com a válvula no zero e no teto);
 - o botão exclusivo de volume da linha de controles do Modo Fácil (Pacote 3,
-  v1.13.8) vira **tela cheia** da prévia. Conferir: o Modo Fácil não tem prévia
-  — "tela cheia" ali é a projeção-preview sem TV? Perguntar ao operador antes de
-  desenhar.
+  v1.13.8) vira **tela cheia** da prévia. **Resposta do operador (2026-11-06):** é
+  quando há algo em exibição e se vai para a tela cheia da preview, que ocupa a
+  tela toda, com os controles sobre a imagem — o mesmo modelo de controles da tela
+  cheia que já existe (play/pause no centro, sair no canto, nome e linha do tempo
+  nas faixas; ver `docs/DIVERGENCIAS-WEB-NATIVO.md`, "Fullscreen da preview").
+  Sem nada em exibição, o botão fica apagado com o motivo.
 
 Só web, salvo se a captura sempre ligada pedir mudança no `MainActivity`.
 
@@ -263,17 +213,5 @@ ganha a célula de paisagem). Liberar a rotação no Android é Release; o CSS �
   a grade não ficar com um buraco. Ao tirar: o tile, `abrirSaidaDeAudio` do web
   (o Kotlin pode ficar órfão, o lado seguro), e manter as linhas *"Mídia saindo
   agora por"* e *"Não Perturbe"* do Registro (o `saidaDeAudioAlvo` continua).
-- **O "vídeo da semana" vira OPÇÃO da linha do episódio deste sábado, não uma
-  linha a mais** (pedido do operador, 2026-10-30) — **agora parte do Pacote 13
-  (item d), com a gaveta desenhada pelo Pacote 14**. Hoje, no AVANÇADO, o card da série tem a
-  linha "Vídeo da semana (sempre o atual)" no topo (`semanaLinha` →
-  `openSemanaMenu`) ACIMA do episódio da semana. O pedido: tirá-la e pôr na
-  gaveta de destinos do EPISÓDIO DESTE SÁBADO um seletor segmentado com DUAS
-  opções, **"Este sábado"** (o arquivo do episódio, como hoje) e **"Atalho
-  universal"** (o item virtual `kind: 'semana'`, `semanaRegistro`), no MESMO
-  visual dos seletores Cantada/Playback e da qualidade do YouTube. Os destinos
-  (Tocar agora · Cronograma · playlist · Favoritos) levam o que estiver
-  escolhido. O Modo Fácil (bloco "Este sábado" da raiz) não muda. Ver
-  `docs/recursos/SERIES.md`, "O vídeo da semana como ITEM".
 - **Varrer a sobra de ~24 MB do cache do YouTube no shell** — Kotlin; entra
   num lote que já precise de Release, nunca sozinho.

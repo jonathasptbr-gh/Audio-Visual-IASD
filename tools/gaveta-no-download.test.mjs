@@ -173,7 +173,7 @@ try {
     return {
       aberta: !!(li && li.classList.contains('expanded')),
       mesmoNo: !!(li && li.dataset.carimbo === 'oraculo'),
-      temOpcoes: !!(li && li.querySelector('.hymn-opcoes .song-menu-btn')),
+      temOpcoes: !!(li && li.querySelector('.hymn-opcoes .dest-btn')),
     };
   });
 

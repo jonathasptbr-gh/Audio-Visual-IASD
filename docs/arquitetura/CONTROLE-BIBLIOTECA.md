@@ -65,56 +65,41 @@ também. **É por isso que `ico` e `acao` moram na tabela**, e que
 tabela. A lista dele diz QUAIS, nunca em que ordem. Oráculo:
 `destinos.test.mjs`, nos dois sentidos.
 
-**A gramática é uma só, e vale para todas as folhas:** toda opção — as três
-listas E o "Tocar agora" — é SELECIONÁVEL de corpo inteiro, e um botão de
-confirmar sempre visível é quem executa. A caixa de marcação é INDICADOR
-(`pointer-events: none`), senão o toque que cai nos 20px dela morreria num filho
-sem ouvinte. Desabilitado, o confirmar diz "Escolha uma opção".
+**NA GAVETA DE UMA LINHA, BOTÕES DIRETOS** (v1.13.34, Pacote 14, pedido do
+operador: *"uma linha de botões quadrados, um toque = uma ação, como já é no resto
+do app"*). A gaveta do acervo (`renderSongMenu`), a do episódio/link
+(`openYtMenu` com `alvo`) e a dos Favoritos/pasta do aparelho (`renderItemMenu`)
+desenham `destBotoesRow`: `tocar` · `destinosNaOrdem` · o quinto — o **Auxiliar
+de leitura** (`openLyricsPopup` apontado para a faixa, sem projetar; num registro,
+só com `lyrics`; apagado com o motivo onde não há letra) ou, num VÍDEO, **os
+detalhes** (`r.__detalhes`, ligado = `--btn-accent`). Quadrados `--quad-faixa`,
+sem rótulo (o nome no `aria-label`/`title`), ícone `--icon-md`. Cada toque
+executa UM destino e a gaveta fica aberta para o segundo; a variante (Cantada ·
+Playback · Letra), a forma e a qualidade são lidas NA MONTAGEM (o seletor remonta
+a gaveta, então o valor no fecho é o vigente). A faixa de ações de um favorito
+(excluir · renomear · ↑↓) tem fileira própria abaixo (`.fav-acoes-row`), com o
+MESMO nó a cada remontagem. **O que se perdeu:** mandar a vários destinos num
+toque — e o download único do YouTube continua, porque o `ytArquivo` divide o
+download em curso (`ytArquivoEmVoo`, por `youtubeId` + forma).
 
-**E O CONFIRMAR TEM A ALTURA DAS LINHAS QUE FECHA** (v5.301, relato do operador:
-*"parece menor que o padrão dos seus botões vizinhos"*). Estava, e por OMISSÃO:
-quem dita a altura de uma linha de opção não é o `padding` do `.song-menu-btn`
-(igual para todas), é o `.song-menu-check`, que reserva `--hit`. O confirmar não
-tem check — não há o que marcar nele — nem ícone, então sobrava só a linha de
-texto: 36px contra os 53px dos vizinhos. (Os 53px são os da FOLHA; dentro da
-gaveta a linha mede 42px desde a v1.5.17, e a igualdade continua valendo porque
-os dois leem `--opcao-recuo-v`.) A correção é o MESMO número dito no
-mesmo lugar (o conteúdo dele reserva `--hit`), nunca um `min-height` na caixa que
-teria de somar o padding à mão. O irmão "Ver a letra" acompanha de graça — a
-faixa é um flex com `align-items: stretch`. `destinos.test.mjs` mede a IGUALDADE
-das alturas, jamais um número: um piso em pixel aprovaria os dois errados juntos
-no dia em que `--hit` mudar.
+**NAS FOLHAS a gramática é a de marcar** (o resultado da busca do YouTube, o link
+compartilhado, a importação): toda opção — as três listas E o "Tocar agora" — é
+SELECIONÁVEL de corpo inteiro, e um botão de confirmar sempre visível executa e
+FECHA a folha. A caixa de marcação é INDICADOR (`pointer-events: none`), senão o
+toque que cai nos 20px dela morreria num filho sem ouvinte. Desabilitado, o
+confirmar diz "Escolha uma opção". **O confirmar tem a altura das linhas que
+fecha** (v5.301): quem dita a altura de uma linha de opção é o
+`.song-menu-check`, que reserva `--hit`, e o confirmar reserva o mesmo no
+conteúdo dele — nunca um `min-height` que somaria o padding à mão.
 
 **O conjunto é da FOLHA ABERTA, não do item** (`destMarcados`, zerado por
-`destLimpar()` na abertura e no fechamento). Pelo mesmo motivo que o teto de
-resolução nasce no padrão a cada item: uma marcação que grudasse mandaria para os
-Favoritos, sem aviso, o vídeo que se quis ver uma vez.
+`destLimpar()` na abertura e no fechamento): uma marcação que grudasse mandaria
+para os Favoritos, sem aviso, o vídeo que se quis ver uma vez. **A união é lida
+NO CLIQUE**, antes de `closeSongMenu()` — uma leitura feita DENTRO da ação
+encontraria o conjunto zerado. `tools/destinos.test.mjs` trava esse ponto.
 
-**"TOCAR AGORA" NASCE MARCADO ONDE A MÍDIA É LOCAL** (v1.1.8, `destPadraoTocar`).
-Ela compra duas coisas: o caso de DOIS destinos vira um toque (com o telão já
-marcado, tocar em "Adicionar ao Cronograma" projeta E guarda) e o CONFIRMAR nasce
-ativo — a gaveta abre respondível em vez de com um botão morto pedindo escolha.
-
-- **Só `renderSongMenu` (a faixa do acervo) e `renderItemMenu` (favoritos e
-  pastas do aparelho).** A folha do YouTube fica de fora **de propósito**: ali
-  "Tocar agora" TRANSMITE — abre rede, monta MSE e põe algo no telão — e as três
-  linhas de lista significam "espere o download". Marcado por padrão, um toque em
-  "Favoritar" começaria uma transmissão na frente da congregação por um destino
-  que não pedia projeção nenhuma.
-- **A marca nasce no ponto de ABERTURA, jamais no de render.** `renderSongMenu` é
-  também o `destRemontar`: remarcar lá dentro tornaria o "Tocar agora"
-  **impossível de desmarcar** — o toque tiraria a marca e o redesenho a
-  devolveria, no mesmo quadro.
-
-**A união é lida NO CLIQUE**, antes de `closeSongMenu()` — como a variante
-Cantada/Playback e o teto de resolução. Uma leitura feita DENTRO da ação
-encontraria o conjunto zerado e o item iria para UM destino em vez de dois, sem
-erro nenhum. `tools/destinos.test.mjs` trava esse ponto.
-
-**O redesenho da folha é um HOOK DE MÓDULO** (`destRemontar`), ao lado do
-`destExecutor`, e não um argumento que cada chamador precisa lembrar de passar —
-foi assim que o "Tocar agora" ficou uma versão inteira sem acender o check ao ser
-marcado: o estado ficava certo e só o desenho não acompanhava.
+**O redesenho é um HOOK DE MÓDULO** (`destRemontar`), ao lado do
+`destExecutor`, e não um argumento que cada chamador precisa lembrar de passar.
 
 Casos particulares:
 
