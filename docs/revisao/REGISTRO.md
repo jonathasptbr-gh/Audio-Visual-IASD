@@ -533,5 +533,5 @@ por cima) — frase de log, deixada. `tocarSorteada` devolve `true` mesmo se `pl
 Réguas de "no ar": a fatia lê `midiaNoAr` (download de teste, Verificação) e `haOQueParar` (Registro da atualização), cada uma igual à porta que descreve. Timers/listeners:
 o aquecimento do sorteio desarma no fechar; o `qhObs` desconecta a cada roleta; nenhum ouvinte por rodada (o `testeDiagRecebidos`).
 **Repasses:** X2 (o `ORACULOS.md` sem os blocos 8–11 do `hidratacao-perde-a-vez` e sem as asserções novas). Riscados: C7 de C4 e C6.
-**Verificado:** "Sanidade da base web" (todo Node puro, `docs-coerentes`); Chromium da vizinhança, três processos: ver o placar no relatório final.
+**Verificado:** "Sanidade da base web" (todo Node puro, `docs-coerentes`); Chromium (53 da vizinhança, três processos): todos verdes (`hidratacao-perde-a-vez`, `sorteio-*`, `playlist-automatica-estavel`, `verificacao-do-sistema`, `verificacao-completa`, `registro`, `smoke`, `display-smoke`, `boot-nativo`, `cena`, `destinos`, os de acervo/pacote/série/Modo Fácil…).
 **O operador:** nada a fazer; a v1.13.27 chega sozinha (só web). Na playlist automática, recusar o download não some com as marcadas.
