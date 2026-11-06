@@ -3069,14 +3069,14 @@ try {
       // 3 · OS DESTINOS SÃO BOTÕES DIRETOS (v1.13.34): uma fileira de quadrados,
       // "Tocar agora" na ponta esquerda e o auxiliar de leitura na direita — sem
       // caixa de marcar e sem Confirmar.
-      botoes: [...op.querySelectorAll('.dest-btn')].map((b) => b.dataset.dest),
-      rotulos: [...op.querySelectorAll('.dest-btn')].map((b) => b.getAttribute('aria-label')),
+      botoes: [...op.querySelectorAll('.dest-botoes > button')].map((b) => b.dataset.dest),
+      rotulos: [...op.querySelectorAll('.dest-botoes > button')].map((b) => b.getAttribute('aria-label')),
       semMarcar: !op.querySelector('.song-menu-check, .song-menu-go'),
-      quadrados: [...op.querySelectorAll('.dest-btn')].map((b) => {
+      quadrados: [...op.querySelectorAll('.dest-botoes > button')].map((b) => {
         const q = b.getBoundingClientRect();
         return [+q.width.toFixed(1), +q.height.toFixed(1)];
       }),
-      umaFileira: new Set([...op.querySelectorAll('.dest-btn')]
+      umaFileira: new Set([...op.querySelectorAll('.dest-botoes > button')]
         .map((b) => Math.round(b.getBoundingClientRect().top))).size === 1,
       fundoBotao: efetiva(op.querySelector('.dest-btn')),
       // 5 · O CONTRASTE DA GAVETA (v5.287), nos DOIS TEMAS — e são dois porque
@@ -3104,7 +3104,7 @@ try {
       // nada ao telão. A caixa de texto da letra não existe mais aqui dentro.
       caixaDeLetra: !!li.querySelector('.hymn-lyrics'),
       leitor: await (async () => {
-        const ver = op.querySelector('.dest-btn[data-dest="leitura"]');
+        const ver = op.querySelector('.dest-botoes > [data-dest="leitura"]');
         if (!ver) return null;
         const rotulo = ver.getAttribute('aria-label');
         const largura = Math.round(ver.getBoundingClientRect().width);
@@ -3120,7 +3120,7 @@ try {
           // A LARGURA NÃO MUDA (v5.287): aqui ela não pode mudar por
           // construção — há uma frase só —, e é isso que a asserção diz.
           larguraDepois: Math.round(
-            op.querySelector('.dest-btn[data-dest="leitura"]').getBoundingClientRect().width),
+            op.querySelector('.dest-botoes > [data-dest="leitura"]').getBoundingClientRect().width),
         };
         // FECHADO antes de sair: a pressão de verdade lá fora mira a gaveta, e
         // um backdrop aberto por cima dela mediria o toque em outra coisa.
@@ -3265,9 +3265,12 @@ try {
   checar(g.botoes.join(' | ') === 'tocar | cronograma | playlist | favoritos | leitura' && g.semMarcar,
     'os destinos são BOTÕES DIRETOS (v1.13.34): "Tocar agora", os três da tabela e o auxiliar de '
     + 'leitura, sem caixa de marcar e sem Confirmar', JSON.stringify(g));
+  // Os QUATRO que mandam a mídia a algum lugar são QUADRADOS; o quinto ("Ver a
+  // letra") é LARGO, com rótulo (v1.13.35) — o `destinos-diretos` mede a geometria.
   checar(g.rotulos.every(Boolean) && g.quadrados.length === 5
-      && g.quadrados.every(([w, h]) => w > 0 && Math.abs(w - h) <= 0.5) && g.umaFileira,
-    'e eles são QUADRADOS (sem rótulo, o nome vai no `aria-label`), numa fileira só',
+      && g.quadrados.slice(0, 4).every(([w, h]) => w > 0 && Math.abs(w - h) <= 0.5)
+      && g.quadrados[4][0] > g.quadrados[0][0] * 1.5 && g.umaFileira,
+    'e os destinos são QUADRADOS (sem rótulo, o nome no `aria-label`) e o "Ver a letra" LARGO, numa fileira só',
     JSON.stringify({ quadrados: g.quadrados, rotulos: g.rotulos }));
   // ===== A GAVETA SE SEPARA DA LISTA, E OS BOTÕES DELA (v5.287) =====
   //
@@ -3301,7 +3304,7 @@ try {
   }
   checar(g.caixaDeLetra === false,
     'numa MÚSICA a gaveta não revela caixa de letra nenhuma aqui dentro', JSON.stringify({ caixaDeLetra: g.caixaDeLetra }));
-  checar(!!g.leitor && g.leitor.aberto && /Auxiliar de leitura/.test(g.leitor.rotulo),
+  checar(!!g.leitor && g.leitor.aberto && /auxiliar de leitura/i.test(g.leitor.rotulo),
     'o toque nele abre o LEITOR — a mesma folha do transporte (letra, cifra, '
     + 'tom, corpo e rolagem), apontada para esta faixa e sem levar nada ao telão',
     JSON.stringify(g.leitor));

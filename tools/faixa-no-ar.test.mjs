@@ -122,7 +122,7 @@ try {
     li.querySelector('.hymn-row').click();
     await new Promise((r) => setTimeout(r, 50));
     // "Tocar agora" é um BOTÃO DIRETO desde a v1.13.34.
-    const go = li.querySelector('.hymn-opcoes .dest-btn[data-dest="tocar"]');
+    const go = li.querySelector('.hymn-opcoes .dest-botoes > [data-dest="tocar"]');
     go.click();
   }, faixa('album-77', 'm3'));
   await pg.waitForFunction((id) => midiaNoArId === id, midia, { timeout: 8000 });

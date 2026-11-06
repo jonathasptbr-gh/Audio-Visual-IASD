@@ -359,13 +359,13 @@ try {
     // NA GAVETA, UM TOQUE = UMA AÇÃO (v1.13.34): sem caixa de marcar e sem
     // Confirmar. Dois toques são DUAS chamadas, cada uma com o destino dela, e a
     // gaveta continua montada entre um e outro.
-    const botao = (d) => alvo.querySelector('.dest-btn[data-dest="' + d + '"]');
+    const botao = (d) => alvo.querySelector('.dest-botoes > [data-dest="' + d + '"]');
     const semMarcar = !alvo.querySelector('.song-menu-check, .song-menu-go');
     botao('cronograma').click();
     const continuaMontada = !!botao('favoritos');
     botao('favoritos').click();
     window.addSongToDestinos = original;
-    const ordem = [...alvo.querySelectorAll('.dest-btn')].map((b) => b.dataset.dest);
+    const ordem = [...alvo.querySelectorAll('.dest-botoes > button')].map((b) => b.dataset.dest);
     alvo.remove();
     songMenuFor = null;
     return { capturados, semMarcar, continuaMontada, ordem };
@@ -412,7 +412,7 @@ try {
     abrir(0);   // A: a gaveta monta
     abrir(1);   // B: reescreve os globais da folha
     abrir(0);   // volta para A — a gaveta dela JÁ está montada
-    linhas[0].querySelector('.dest-btn[data-dest="tocar"]').click();
+    linhas[0].querySelector('.dest-botoes > [data-dest="tocar"]').click();
     await new Promise((r) => setTimeout(r, 200));
     window.projetarItem = oProj; window.adicionarNasListas = oAdd;
     ul.remove();

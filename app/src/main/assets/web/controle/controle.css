@@ -13347,16 +13347,15 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
 
 /* ---------- OS DESTINOS DA GAVETA SÃO BOTÕES DIRETOS (v1.13.34) ----------
    Pedido do operador: *"uma linha de botões quadrados, um toque = uma ação"*.
-   Tocar agora · Cronograma · playlist · Favoritos · Auxiliar de leitura (ou os
-   detalhes de um vídeo), a ordem de `destBotoesRow`. SEM RÓTULO, então QUADRADOS
-   e com as DUAS dimensões declaradas: `--quad-faixa`, a caixa de um botão de
-   símbolo numa faixa de ação. A fileira ESPALHA (`space-between`) para os
-   quadrados cobrirem a largura da gaveta em qualquer tela e com 4 ou 5 botões.
-   O tom é o dos blocos do poço (`--gaveta-btn`); o LIGADO (os detalhes à vista)
-   é a superfície de ação, a linguagem de estado do app; apagado é o
-   indisponível. */
+   Tocar agora · Cronograma · playlist · Favoritos, a ordem de `destBotoesRow`.
+   SEM RÓTULO, então QUADRADOS e com as DUAS dimensões declaradas: `--quad-faixa`,
+   a caixa de um botão de símbolo numa FAIXA ao lado de um botão de rótulo (o
+   largo, abaixo, declara a mesma altura). JUNTOS, no `gap` da faixa (v1.13.35:
+   espalhados com `space-between`, os vãos eram buracos — *"grandes espaços para
+   poder preencher os vãos"*). O tom é o dos blocos do poço (`--gaveta-btn`); o
+   LIGADO é a superfície de ação; apagado é o indisponível. */
 .dest-botoes {
-  display: flex; justify-content: space-between; align-items: center;
+  display: flex; align-items: center;
   gap: var(--sp-3); padding-top: var(--sp-3);
 }
 .dest-btn {
@@ -13369,6 +13368,27 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
 .dest-btn .msym { font-size: var(--icon-md); }
 .dest-btn.on { background: var(--btn-accent); color: var(--accent); }
 .dest-btn:disabled { opacity: var(--op-inativo); cursor: default; }
+/* O QUINTO É LARGO (v1.13.35, pedido do operador: *"é um botão que não envia a
+   mídia para lugar nenhum, então pode ter design diferente: mais largo,
+   preenchendo o espaço disponível"*). É o desenho do antigo "Ver a letra"
+   (`.song-menu-letra`, até a v1.13.33): a linha de opção (`.song-menu-btn`, o
+   `--gaveta-btn` do poço, o `--press`) com o rótulo centrado em `--accent` — mas
+   CRESCENDO no resto da fileira, na altura do quadrado vizinho. O rótulo não
+   corta: com `nowrap`, o `min-width: auto` de um item flex já é o texto inteiro. */
+.dest-largo {
+  flex: 1 1 auto; width: auto; height: var(--quad-faixa); padding-block: 0;
+  justify-content: center; text-align: center;
+  color: var(--accent); white-space: nowrap;
+}
+.dest-largo:disabled { opacity: var(--op-inativo); cursor: default; }
+/* As duas frases do "Ver/Ocultar os detalhes" na MESMA célula (v5.287): a largura
+   é a da maior, e a classe do `li` escolhe qual se vê. */
+.song-menu-letra-cx { display: grid; }
+.song-menu-letra-cx > span { grid-area: 1 / 1; }
+.lib-item:not(.vendo-letra) > .hymn-gaveta .song-menu-letra-cx > span:last-child,
+.lib-item.vendo-letra > .hymn-gaveta .song-menu-letra-cx > span:first-child {
+  visibility: hidden;
+}
 /* A FAIXA DE AÇÕES de um favorito (excluir, renomear, ↑↓) ganhou fileira própria
    quando o Confirmar saiu, e encosta à direita como encostava ao lado dele. */
 .fav-acoes-row { justify-content: flex-end; }

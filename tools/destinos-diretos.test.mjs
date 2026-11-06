@@ -6,8 +6,8 @@
 // já é no resto do app"* — Tocar agora · Cronograma · playlist · Favoritos ·
 // Auxiliar de leitura —, e as miniaturas da lista sem o ▶, que lia como botão.
 //
-//  A. A FILEIRA CABE a 360 px com a fonte do sistema a 1,25×: cinco quadrados
-//     numa linha só, dentro da gaveta, sem se tocar.
+//  A. A FILEIRA: quatro QUADRADOS juntos e o "Ver a letra" LARGO no resto da
+//     linha, com o rótulo inteiro, a 360×1,25× e a 430×1× (v1.13.35).
 //  B. O QUADRADO DA ESQUERDA DIZ O TIPO: a nota numa música, a fita de filme num
 //     vídeo de série — e o item da semana nas listas idem. Nenhum ▶.
 //  C. DOIS TOQUES NO MESMO VÍDEO NÃO BAIXAM DUAS VEZES: o `ytArquivo` divide o
@@ -34,9 +34,14 @@ try {
   await esperarCortina(pg);
   await pg.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function', null, { timeout: 30000 });
 
-  // ── A + B. A GAVETA DE UMA MÚSICA, A 360×1,25× ─────────────────────────
-  const a = await pg.evaluate(async () => {
-    document.documentElement.style.fontSize = (16 * 1.25) + 'px';
+  // ── A + B. A GAVETA DE UMA MÚSICA, a 360×1,25× e a 430×1× ───────────────
+  //
+  // (v1.13.35) Os QUATRO destinos são QUADRADOS e JUNTOS (no `gap` da fileira,
+  // sem vão espalhado); o quinto ("Ver a letra") é LARGO, com rótulo, e cresce
+  // no resto da linha até a borda da gaveta. O rótulo é medido no BOTÃO (o
+  // pai), nunca no span: o span tem o tamanho do próprio texto.
+  const medirA = (escala, largura) => pg.evaluate(async ({ escala, largura }) => {
+    document.documentElement.style.fontSize = (16 * escala) + 'px';
     setAppMode('full');
     const c = allCollections().find((x) => x.kind === 'hymnal');
     collState[c.id] = { indexSyncedAt: Date.now(), isHymnal: true, songs: [
@@ -44,43 +49,62 @@ try {
     ] };
     const lista = document.createElement('ul');
     lista.className = 'coll-songs';
-    lista.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:250';
+    lista.style.cssText = 'position:fixed;top:0;left:0;width:' + largura + 'px;z-index:250';
     document.body.appendChild(lista);
     const li = hymnResultRow(c, collSongs(c.id)[0], null, true);
     lista.appendChild(li);
     li.querySelector('.row').click();
     await new Promise((r) => setTimeout(r, 400));
-    const gav = li.querySelector('.hymn-gaveta').getBoundingClientRect();
-    const bs = [...li.querySelectorAll('.dest-btn')];
-    const cx = bs.map((b) => b.getBoundingClientRect());
+    const fileira = li.querySelector('.dest-botoes');
+    const fr = fileira.getBoundingClientRect();
+    const fcs = getComputedStyle(fileira);
+    const dentroDireita = fr.right - (parseFloat(fcs.paddingRight) || 0);
+    const gap = parseFloat(fcs.columnGap) || 0;
+    const todos = [...fileira.querySelectorAll(':scope > button')];
+    const cx = todos.map((b) => b.getBoundingClientRect());
+    const quad = cx.slice(0, 4);
+    const largo = todos[4]; const lr = cx[4];
     const thumb = li.querySelector('.hymn-play-thumb');
     const r = {
-      ordem: bs.map((b) => b.dataset.dest),
-      dentro: cx.every((q) => q.left >= gav.left - 0.5 && q.right <= gav.right + 0.5),
+      ordem: todos.map((b) => b.dataset.dest),
       umaLinha: new Set(cx.map((q) => Math.round(q.top))).size === 1,
-      quadrados: cx.every((q) => Math.abs(q.width - q.height) <= 0.5 && q.width >= 34),
-      semToque: cx.every((q, i) => i === 0 || q.left >= cx[i - 1].right + 1),
-      icones: bs.map((b) => {
+      quadrados: quad.every((q) => Math.abs(q.width - q.height) <= 0.5 && q.width >= 34),
+      quadDeclarados: [...fileira.querySelectorAll('.dest-btn')].length === 4,
+      juntos: cx.every((q, i) => i === 0 || Math.abs((q.left - cx[i - 1].right) - gap) <= 1),
+      gap,
+      largoLargo: !!lr && lr.width > quad[0].width * 1.5,
+      largoAteABorda: !!lr && Math.abs(lr.right - dentroDireita) <= 1,
+      mesmaAltura: !!lr && Math.abs(lr.height - quad[0].height) <= 0.5,
+      rotulo: largo ? largo.textContent.trim() : '',
+      // O PAI: o botão não pode estar estourado pelo próprio texto.
+      cabe: !!largo && largo.scrollWidth <= largo.clientWidth + 0.5,
+      icones: todos.slice(0, 4).map((b) => {
         const i = b.querySelector('svg, .msym');
-        const q = i ? i.getBoundingClientRect() : { width: 0 };
-        return Math.round(q.width);
+        return Math.round(i ? i.getBoundingClientRect().width : 0);
       }),
       tipoMusica: { glifo: (thumb.querySelector('.msym') || {}).textContent || '', tipo: thumb.dataset.tipo },
     };
     lista.remove();
     document.documentElement.style.fontSize = '';
     return r;
-  });
-  checar(a.ordem.join(' | ') === 'tocar | cronograma | playlist | favoritos | leitura',
-    'A · a fileira é "Tocar agora", os três destinos na ordem da tabela e o auxiliar de leitura', a.ordem);
-  checar(a.dentro && a.umaLinha && a.semToque,
-    'A · a 360 px com a fonte a 1,25× os cinco cabem numa LINHA SÓ, dentro da gaveta e sem se tocar', a);
-  checar(a.quadrados,
-    'A · e são QUADRADOS de alvo pleno (sem rótulo, as duas dimensões declaradas, ≥ `--hit`)', a);
-  checar(a.icones.every((w) => w === 22),
-    'A · com o ícone no degrau do transporte (`--icon-md`, 22px) — o svg do auxiliar inclusive', a.icones);
-  checar(a.tipoMusica.tipo === 'musica' && a.tipoMusica.glifo === '\ue3a1',
-    'B · o quadrado da esquerda de uma MÚSICA é a nota musical — não o ▶, que lia como botão', a.tipoMusica);
+  }, { escala, largura });
+  for (const [escala, largura, nome] of [[1.25, 360, '360×1,25×'], [1, 430, '430×1×']]) {
+    const a = await medirA(escala, largura);
+    checar(a.ordem.join(' | ') === 'tocar | cronograma | playlist | favoritos | leitura' && a.umaLinha,
+      'A · ' + nome + ' · a fileira é "Tocar agora", os três destinos da tabela e o "Ver a letra", numa linha só', a);
+    checar(a.quadrados && a.quadDeclarados,
+      'A · ' + nome + ' · os QUATRO destinos são QUADRADOS de alvo pleno (sem rótulo, ≥ `--hit`)', a);
+    checar(a.juntos,
+      'A · ' + nome + ' · e JUNTOS: o vão entre dois botões é o `gap` da fileira (' + a.gap + 'px), sem espalhar', a);
+    checar(a.largoLargo && a.largoAteABorda && a.mesmaAltura && a.rotulo === 'Ver a letra',
+      'A · ' + nome + ' · o "Ver a letra" é LARGO, com rótulo, vai até a borda da gaveta e tem a altura dos quadrados', a);
+    checar(a.cabe,
+      'A · ' + nome + ' · e o rótulo dele NÃO é cortado (medido no botão, não no texto)', a);
+    checar(a.icones.every((w) => w === 22),
+      'A · ' + nome + ' · com o ícone dos quadrados no degrau do transporte (`--icon-md`, 22px)', a.icones);
+    checar(a.tipoMusica.tipo === 'musica' && a.tipoMusica.glifo === '\ue3a1',
+      'B · ' + nome + ' · o quadrado da esquerda de uma MÚSICA é a nota musical — não o ▶, que lia como botão', a.tipoMusica);
+  }
 
   // ── B. NUM VÍDEO DE SÉRIE, E NO ITEM DA SEMANA DAS LISTAS ──────────────
   const b = await pg.evaluate(() => {

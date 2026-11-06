@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.13.35",
+    "itens": [
+      "Na Biblioteca, os botões de destino ficaram juntos, e o \"Ver a letra\" voltou a ser um botão largo, com o nome escrito."
+    ]
+  },
+  {
     "versao": "1.13.34",
     "itens": [
       "Na Biblioteca, tocar, Cronograma, playlist, favoritos e letra viraram botões: um toque já faz.",

@@ -1093,7 +1093,7 @@ try {
     const op = li.querySelector('.hymn-opcoes');
     // OS DESTINOS SÃO BOTÕES DIRETOS desde a v1.13.34: o nome de cada um mora no
     // `aria-label` (são quadrados sem rótulo), e é por ele que o caso os lê.
-    const linhas = [...op.querySelectorAll('.dest-btn')].map((b) => b.getAttribute('aria-label'));
+    const linhas = [...op.querySelectorAll('.dest-botoes > button')].map((b) => b.getAttribute('aria-label'));
     const r = {
       aberta: li.classList.contains('expanded') && !!op && op.children.length > 0,
       naFolha: document.getElementById('songMenuPopup').classList.contains('open'),
@@ -1265,12 +1265,12 @@ try {
       // rótulo e LIGADO quando os detalhes estão à vista —, e a largura não muda
       // por construção: o que se mede é que ele não se mexe, e que LIGA.
       larguras: (() => {
-        const ver = li.querySelector('.dest-btn[data-dest="detalhes"]');
+        const ver = li.querySelector('.dest-botoes > [data-dest="detalhes"]');
         if (!ver) return null;
         const antes = Math.round(ver.getBoundingClientRect().width);
         ver.click();   // no vídeo o ouvinte é síncrono: alterna `vendo-letra`
         const depois = Math.round(
-          li.querySelector('.dest-btn[data-dest="detalhes"]').getBoundingClientRect().width);
+          li.querySelector('.dest-botoes > [data-dest="detalhes"]').getBoundingClientRect().width);
         return { antes, depois, rotulo: ver.getAttribute('aria-label'),
           ligado: ver.classList.contains('on') && ver.getAttribute('aria-pressed') === 'true' };
       })(),
@@ -1342,8 +1342,8 @@ try {
     // a cada tecla da busca). Sem elas, olhar um episódio duas vezes gasta duas
     // requisições na fila que o "Tocar agora" divide.
     r.pedidosAntes = window.__nDetalhes || 0;
-    li.querySelector('.dest-btn[data-dest="detalhes"]').click();   // esconde
-    li.querySelector('.dest-btn[data-dest="detalhes"]').click();   // revela de novo
+    li.querySelector('.dest-botoes > [data-dest="detalhes"]').click();   // esconde
+    li.querySelector('.dest-botoes > [data-dest="detalhes"]').click();   // revela de novo
     await new Promise((res) => setTimeout(res, 60));
     r.pedidosDepois = window.__nDetalhes || 0;
 
@@ -1471,7 +1471,7 @@ try {
     // pelo FATO. Note que isto NÃO gasta extração nenhuma: o cache de módulo
     // guarda o objeto inteiro, e a asserção do `pedidosDepois` acima já o
     // provou para a descrição.
-    li2.querySelector('.dest-btn[data-dest="detalhes"]').click();
+    li2.querySelector('.dest-botoes > [data-dest="detalhes"]').click();
     for (let i = 0; i < 60 && !li2.querySelector('.item-detalhe-titulo'); i++) {
       await new Promise((res) => setTimeout(res, 25));
     }
@@ -1502,7 +1502,7 @@ try {
       && !(li4.querySelector('.item-detalhe-txt') && li4.classList.contains('expanded')); i++) {
       await new Promise((res) => setTimeout(res, 25));
     }
-    li4.querySelector('.dest-btn[data-dest="detalhes"]').click();
+    li4.querySelector('.dest-botoes > [data-dest="detalhes"]').click();
     // A espera é pela DESCRIÇÃO, que é o que prova que a resposta CHEGOU —
     // esperar pelo título seria esperar pelo que não deve existir, e um laço
     // que estoura aprovaria também um card em que nada chegou.
@@ -1775,7 +1775,7 @@ try {
       temOpcoes: !!li.querySelector('.hymn-opcoes .dest-btn'),
       temCaixaDeLetra: !!li.querySelector('.hymn-lyrics'),
       temDetalhe: !!li.querySelector('.item-detalhe'),
-      rotuloDaLetra: (li.querySelector('.dest-btn[data-dest="leitura"]') || { getAttribute: () => '' })
+      rotuloDaLetra: (li.querySelector('.dest-botoes > [data-dest="leitura"]') || { getAttribute: () => '' })
         .getAttribute('aria-label') || '',
     };
     lista.remove();
@@ -1791,7 +1791,7 @@ try {
   checar(!gavetaMusica.temCaixaDeLetra,
     'e SEM a caixa de letra: ela virou o leitor, que tem cifra, tom e rolagem',
     gavetaMusica.temCaixaDeLetra);
-  checar(/Auxiliar de leitura/.test(gavetaMusica.rotuloDaLetra),
+  checar(/auxiliar de leitura/i.test(gavetaMusica.rotuloDaLetra),
     'o botão da letra é o "Auxiliar de leitura" da fileira de destinos (v1.13.34) — ele abre o leitor',
     gavetaMusica.rotuloDaLetra);
   checar(!gavetaMusica.temDetalhe,
@@ -2274,7 +2274,7 @@ try {
         abaixo: !!cg && cg.top >= cx.bottom - 1 && cg.height > 0,
         // OS DESTINOS SÃO BOTÕES DIRETOS (v1.13.34): sem caixa de marcar e sem
         // Confirmar — cada quadrado executa o dele.
-        opcoes: [...gav.querySelectorAll('.hymn-opcoes .dest-btn')].map((b) => b.dataset.dest),
+        opcoes: [...gav.querySelectorAll('.hymn-opcoes .dest-botoes > button')].map((b) => b.dataset.dest),
         semMarcar: !gav.querySelector('.hymn-opcoes .song-menu-check, .hymn-opcoes .song-menu-go'),
         acoesNaGaveta: !!gav.querySelector('.fav-acoes .row-ordem')
           && !!gav.querySelector('.fav-acoes .row-excluir'),
@@ -2289,13 +2289,13 @@ try {
       };
       // E O BOTÃO FAZ O QUE DIZ: um toque no do Cronograma põe o item na lista.
       // Sem esta metade, uma gaveta bonita e inerte passaria.
-      const alvoCrono = gav.querySelector('.hymn-opcoes .dest-btn[data-dest="cronograma"]');
+      const alvoCrono = gav.querySelector('.hymn-opcoes .dest-botoes > [data-dest="cronograma"]');
       if (alvoCrono) alvoCrono.click();
       await new Promise((res) => setTimeout(res, 300));
       // E O "TOCAR AGORA", no segundo toque da MESMA gaveta (ela não fecha): é o
       // par que o Confirmar fazia de uma vez até a v1.13.32 — e a mídia que fica
       // no ar é a do cenário dos blocos seguintes.
-      const alvoTocar = gav.querySelector('.hymn-opcoes .dest-btn[data-dest="tocar"]');
+      const alvoTocar = gav.querySelector('.hymn-opcoes .dest-botoes > [data-dest="tocar"]');
       r.gaveta.tocarNaMesmaGaveta = !!alvoTocar && alvoTocar.isConnected;
       if (alvoTocar) alvoTocar.click();
       await new Promise((res) => setTimeout(res, 300));
@@ -2534,7 +2534,7 @@ try {
     if (arq) {
       arq.querySelector('.row').click();
       await new Promise((res) => setTimeout(res, 400));
-      r.opcoes = [...arq.querySelectorAll('.hymn-opcoes .dest-btn')]
+      r.opcoes = [...arq.querySelectorAll('.hymn-opcoes .dest-botoes > button')]
         .map((e) => e.getAttribute('aria-label'));
       r.semExcluir = !arq.querySelector('.row-excluir') && !arq.querySelector('.row-ordem');
     } else {
@@ -4920,7 +4920,7 @@ try {
     // ---- 2. EXECUTAR UM DESTINO e depois mexer na MESMA gaveta ----
     // `closeSongMenu()` anula o global; a gaveta do acordeão continua aberta.
     await abrir(a);
-    const go = a.querySelector('.dest-btn[data-dest="playlist"]');
+    const go = a.querySelector('.dest-botoes > [data-dest="playlist"]');
     if (go && !go.disabled) { go.click(); await new Promise((f) => setTimeout(f, 350)); }
     const a2 = document.querySelector('[data-fav-corpo] .fav-itens > .lib-item');
     await marcar(a2);
@@ -5145,7 +5145,7 @@ try {
       r.naPasta = !arqPasta.querySelector('.row-renomear');
       // E a metade NEGATIVA da metade negativa: a gaveta daquela linha ABRIU e
       // tem opções — sem isto, uma gaveta que não abrisse passaria.
-      r.pastaTemGaveta = arqPasta.querySelectorAll('.hymn-opcoes .dest-btn').length > 0;
+      r.pastaTemGaveta = arqPasta.querySelectorAll('.hymn-opcoes .dest-botoes > button').length > 0;
     }
     closeHymnSearch();
     await load();
