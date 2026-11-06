@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.33** — `telaReenviarPreferencias` manda o wallpaper PADRÃO (`{ type: 'wallpaper', __wp: 'padrao' }`, a forma do "Padrão" no `telaEnriquecer`) quando o celular não tem imagem própria, e antes da guarda `telaCanal()` (é JSON); o `if (!blob) return` deixava uma tela que re-anuncia sem recarregar com a imagem antiga; asserção no `boot-nativo` com reversão
 - **v1.13.32** — `telaReenviarPreferencias` manda o `fit` SEM CONDIÇÃO, como o `lyricsbg`: o `if (mediaFit !== 'contain')` calava o "Ajustar" para uma tela que re-anuncia `display-ready` sem recarregar (suspeita da C9); asserção no `boot-nativo` com reversão
 - **v1.13.31** — revisão C9: CONFIGURAÇÕES, MODOS, VOLUME E TELÃO POR COMANDOS (o `controle.js` do diálogo padrão ao fim do arquivo); a folha de conexão nomeia a TV que projeta (`telaoNoAr`, a régua do Registro), os repasses de `plItems` refutados, código morto da transmissão, e ~290 comentários (narrativa ao histórico)
 - **v1.13.30** — o retorno de um botão é só o pulso, por decisão do operador: o terceiro argumento (frase descartada) saiu das 14 chamadas de `responder`, `textoLote` e as frases de `adicionarNasListas`/`criarCue`/`toggleFav` saíram, e o oráculo `responder-sem-frase` reprova quem o trouxer de volta
@@ -643,6 +644,27 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.13.33 — o wallpaper padrão também vai no reenvio às telas da rede
+
+**v1.13.33 (só web, sem Release)** — o mesmo defeito da v1.13.32, no terceiro
+campo: `telaReenviarPreferencias` fazia `if (!blob) return` no bloco do
+wallpaper, então sem imagem própria no celular nada ia à tela. Uma tela que
+re-anuncia `display-ready` com `__tela` SEM recarregar, ainda com uma imagem
+antiga, ficava com ela depois de o operador voltar ao "Padrão". Agora vai
+`{ type: 'wallpaper', __wp: 'padrao' }` — a MESMA forma que o `telaEnriquecer`
+emite no "Padrão" com a transmissão ligada; no `display.js`, papel `tela`, o
+sentinela `'padrao'` chama `telaWallpaperPadrao()` (sem `__wp` a tela não faz
+nada). O padrão sai ANTES da guarda `telaCanal()`: não move bytes, viaja no SSE
+como `lyricsbg` e `fit`; a guarda ficou só na imagem própria. O comentário do
+bloco passou a valer para as três preferências. Asserções novas no
+`boot-nativo` (parte do `__tela`): com premissa de celular sem wallpaper, o
+`display-ready` produz o padrão endereçado (`__para`), e sem o canal o padrão
+ainda viaja enquanto uma URL `/m/` não; a asserção antiga "sem canal não sai
+`wallpaper`" virou "não sai `/m/`". Reversão (`if (!blob) return`): as duas
+asserções novas reprovam.
 
 ---
 

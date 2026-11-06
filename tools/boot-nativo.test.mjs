@@ -4290,6 +4290,17 @@ try {
   checar(!!fitMandado && fitMandado.fit === 'contain' && fitMandado.__para === 'tela-1',
     'e o preenchimento TAMBÉM em "Ajustar" (contain) — o valor padrão não é pulado',
     'fit: ' + JSON.stringify(fitMandado));
+  // E o WALLPAPER PADRÃO também (v1.13.33): sem imagem própria no celular o
+  // reenvio CALAVA, e uma tela que re-anuncia sem recarregar ficava com a
+  // imagem antiga depois de o operador voltar ao "Padrão". Premissa: este
+  // contexto nunca gravou wallpaper.
+  const semWp = await pg3.evaluate(async () => (await window.AVDB.getState('wallpaper')) == null);
+  checar(semWp, 'premissa: o celular está sem wallpaper próprio', 'havia um wallpaper no estado');
+  const wpMandado = await pg3.evaluate(() =>
+    (window.__enviados || []).find((m) => m && m.type === 'wallpaper') || null);
+  checar(!!wpMandado && wpMandado.__wp === 'padrao' && wpMandado.__para === 'tela-1',
+    'e sem wallpaper próprio a tela recebe o PADRÃO (__wp: padrao) — não fica com uma imagem antiga',
+    'wallpaper: ' + JSON.stringify(wpMandado));
 
   // E o CONTRÁRIO: o telão de verdade (sem `__tela`) não recebe esse reenvio —
   // ele lê tudo do IndexedDB sozinho, e mandar de novo seria ruído na conexão.
@@ -4320,8 +4331,9 @@ try {
   // Só o fundo da letra aparece, e aparece como "o app perdeu a configuração".
   //
   // Os dois lados da asserção, porque nenhum basta: o `lyricsbg` TEM de sair, e
-  // o `wallpaper` NÃO pode — mandar a URL `/m/` de bytes que nunca serão
-  // empurrados dá à tela um endereço que responde 404.
+  // uma URL `/m/` de wallpaper NÃO pode — bytes que nunca serão empurrados dão à
+  // tela um endereço que responde 404. O PADRÃO (`__wp: 'padrao'`) sai: não move
+  // bytes (v1.13.33).
   await pg3.evaluate(() => {
     delete window.__avTelaMidia;
     window.__enviados = [];
@@ -4329,13 +4341,18 @@ try {
       { type: 'display-ready', __de: 'tela-2', __tela: 'tela-2', __mid: 'bn:3' });
   });
   await pg3.waitForTimeout(1200);
-  const semCanal = await pg3.evaluate(() => (window.__enviados || []).map((m) => m.type));
+  const semCanalCmds = await pg3.evaluate(() => (window.__enviados || []).map((m) =>
+    ({ type: m && m.type, wp: m && m.__wp, para: m && m.__para })));
+  const semCanal = semCanalCmds.map((m) => m.type);
   checar(semCanal.includes('lyricsbg'),
     'e SEM o canal de mídia o fundo da letra ainda viaja — ele é JSON, não bytes',
     'emitiu: ' + JSON.stringify(semCanal));
-  checar(!semCanal.includes('wallpaper'),
-    'mas o WALLPAPER não: sem canal, a URL /m/ apontaria para bytes que nunca chegam',
-    'emitiu: ' + JSON.stringify(semCanal));
+  checar(!semCanalCmds.some((m) => m.type === 'wallpaper' && String(m.wp || '').startsWith('/m/')),
+    'mas a IMAGEM do wallpaper não: sem canal, a URL /m/ apontaria para bytes que nunca chegam',
+    'emitiu: ' + JSON.stringify(semCanalCmds));
+  checar(semCanalCmds.some((m) => m.type === 'wallpaper' && m.wp === 'padrao' && m.para === 'tela-2'),
+    'e o wallpaper PADRÃO viaja mesmo sem o canal — é JSON, não bytes',
+    'emitiu: ' + JSON.stringify(semCanalCmds));
   await pg3.close();
 } catch (e) {
   checar(false, 'o percurso do __tela terminou sem exceção (' + (e && e.message) + ')');
