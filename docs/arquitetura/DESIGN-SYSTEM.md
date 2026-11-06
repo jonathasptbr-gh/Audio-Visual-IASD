@@ -2034,8 +2034,12 @@ caixas** — daí o resto desta seção.
   `--quad-faixa` nas duas dimensões, ícone `--icon-md` (na mesma lista do
   transporte; o svg do auxiliar de leitura inclusive), `--gaveta-btn` + `--accent`,
   LIGADO (os detalhes de um vídeo à vista) = `--btn-accent`, apagado =
-  `--op-inativo`, e entram na lista do `--press`. A fileira ESPALHA
-  (`space-between`) — cinco a 360×1,25× cabem numa linha (`destinos-diretos`). O
+  `--op-inativo`, e entram na lista do `--press`. Os quatro ficam JUNTOS, no `gap`
+  da fileira (v1.13.35: espalhados, os vãos eram buracos), e o QUINTO — "Ver a
+  letra" / "Ver os detalhes", que não manda a mídia a lugar nenhum — é LARGO, com
+  rótulo (`.dest-largo`, o desenho do antigo `.song-menu-letra`), crescendo no
+  resto da linha na altura dos quadrados; o rótulo cabe a 360×1,25× e a 430×1×,
+  medido no BOTÃO (`destinos-diretos`). O
   quadrado da esquerda de uma faixa diz o TIPO (`miniaturaDeTipo`: a nota, ou a
   fita `#icoVideo` em `--icon-md`), nunca ▶ — ▶ num canto que não é alvo lê como
   botão.

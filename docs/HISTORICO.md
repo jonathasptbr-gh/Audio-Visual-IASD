@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.35** — a fileira de destinos da gaveta: os quatro quadrados JUNTOS (sem o `space-between`) e o quinto ("Ver a letra"/"Ver os detalhes") LARGO, com rótulo (`.dest-largo`, o desenho do antigo `.song-menu-letra`), crescendo no resto da linha; `destinos-diretos` mede a 360×1,25× e a 430×1×
 - **v1.13.34** — Pacotes 14, 15 e 13d: na gaveta da Biblioteca os destinos viram BOTÕES DIRETOS (`destBotoesRow`; Tocar · Cronograma · playlist · Favoritos · Auxiliar de leitura/detalhes), a miniatura diz o TIPO (`miniaturaDeTipo`, `#icoVideo`), o vídeo da semana vira o seletor "Este sábado"/"Atalho universal" do episódio, margem ao abrir seção e a barra fora de cena entre a tela cheia e a rotação
 - **v1.13.33** — `telaReenviarPreferencias` manda o wallpaper PADRÃO (`{ type: 'wallpaper', __wp: 'padrao' }`, a forma do "Padrão" no `telaEnriquecer`) quando o celular não tem imagem própria, e antes da guarda `telaCanal()` (é JSON); o `if (!blob) return` deixava uma tela que re-anuncia sem recarregar com a imagem antiga; asserção no `boot-nativo` com reversão
 - **v1.13.32** — `telaReenviarPreferencias` manda o `fit` SEM CONDIÇÃO, como o `lyricsbg`: o `if (mediaFit !== 'contain')` calava o "Ajustar" para uma tela que re-anuncia `display-ready` sem recarregar (suspeita da C9); asserção no `boot-nativo` com reversão
@@ -645,6 +646,30 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.13.35 — os destinos juntos, e o "Ver a letra" largo de novo
+
+**v1.13.35 (só web, sem Release)** — correção da fileira da v1.13.34, a pedido
+do operador: *"os botões estão quadrados, com grandes espaços para poder
+preencher os vãos horizontais entre eles. Ajuste o botão de ver letra como era o
+'ver letra' antigo — é um botão que não envia a mídia para lugar nenhum, então
+pode ter design diferente: mais largo, preenchendo o espaço disponível, mantendo
+os outros botões quadrados"*. A `.dest-botoes` perdeu o `space-between`: os
+quatro destinos (`.dest-btn`, `--quad-faixa` nas duas dimensões) ficam no `gap`
+da fileira. O quinto passou a ser `.song-menu-btn.dest-largo` — o desenho do
+antigo `.song-menu-letra` (o tom do poço, rótulo centrado em `--accent`,
+`nowrap`, o `--press` da linha de opção), `flex: 1 1 auto` e a altura do quadrado
+declarada —, com o rótulo "Ver a letra" ou, num vídeo, "Ver os detalhes" /
+"Ocultar os detalhes" empilhados na mesma célula (a grade 1×1 da v5.287 voltou,
+`.song-menu-letra-cx`); `destBotoesRow` desenha o largo quando o botão traz
+`rotulos`. `destinos-diretos.test.mjs` reescreveu o bloco A em duas células
+(360×1,25× e 430×1×): quatro quadrados, juntos (vão = `gap`), o largo até a borda
+da gaveta, na altura deles e com o rótulo inteiro medido no BOTÃO. Reversão (o
+`space-between` de volta e o quinto quadrado com `overflow: hidden`): as três
+asserções novas reprovam. Os oráculos que contavam os cinco por `.dest-btn`
+passaram a ler `.dest-botoes > button`.
 
 ---
 

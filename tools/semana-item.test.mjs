@@ -144,7 +144,7 @@ try {
     return {
       seg: [...linha.querySelectorAll('.hymn-opcoes .song-menu-seg-row')]
         .map((r) => [...r.querySelectorAll('.fit-opt')].map((b) => b.textContent + (b.classList.contains('active') ? '*' : ''))),
-      botoes: [...linha.querySelectorAll('.dest-botoes .dest-btn')].map((b) => b.dataset.dest),
+      botoes: [...linha.querySelectorAll('.dest-botoes > button')].map((b) => b.dataset.dest),
     };
   });
   const gA = await abrirEp();
@@ -281,7 +281,7 @@ try {
     return {
       nome: linha.querySelector('.hymn-name').textContent,
       segs: segs.map((b) => [b.textContent, b.classList.contains('active'), b.disabled, b.title]),
-      botoes: [...linha.querySelectorAll('.dest-btn')].map((b) => b.dataset.dest + (b.disabled ? '-' : '')),
+      botoes: [...linha.querySelectorAll('.dest-botoes > button')].map((b) => b.dataset.dest + (b.disabled ? '-' : '')),
     };
   });
   checar(f2 && f2.nome === 'Aguardando lançamento'

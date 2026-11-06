@@ -304,7 +304,7 @@ try {
     renderItemMenu({ id: 'x', name: 'X', kind: 'audio' }, ul, ['playlist', 'cronograma'], () => acoes);
     const r = {
       fileiras: [...ul.children].map((li) => li.className),
-      botoes: [...ul.querySelectorAll('.dest-btn')].map((b) => b.dataset.dest),
+      botoes: [...ul.querySelectorAll('.dest-botoes > button')].map((b) => b.dataset.dest),
       confirmar: !!ul.querySelector('.song-menu-go'),
       acoesNaUltima: ul.lastElementChild && ul.lastElementChild.contains(acoes),
     };

@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.34';
+const WEB_VERSION = '1.13.35';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -26364,27 +26364,44 @@ function destConfirmRow() {
 //
 // A ORDEM: "Tocar agora" na ponta esquerda, os destinos na ordem da tabela
 // (`destinosNaOrdem`), e o quinto (o auxiliar de leitura, ou os detalhes de um
-// vídeo) na ponta direita. SEM RÓTULO, e por isso QUADRADOS (a regra da paleta):
-// o nome vai no `title` e no `aria-label`; os ícones são os mesmos das abas e do
-// transporte, que já nomeiam esses lugares.
+// vídeo) na ponta direita. OS QUE MANDAM A MÍDIA A ALGUM LUGAR são SEM RÓTULO, e
+// por isso QUADRADOS (a regra da paleta): o nome vai no `title` e no
+// `aria-label`; os ícones são os das abas e do transporte. O QUINTO NÃO MANDA NADA
+// A LUGAR NENHUM — ele revela —, e por isso tem outro desenho (v1.13.35, pedido do
+// operador): o botão LARGO com rótulo do antigo "Ver a letra", crescendo no resto
+// da fileira (`b.rotulos`).
 //
 // O VÍDEO DO YOUTUBE NÃO BAIXA DUAS VEZES com dois toques seguidos: quem baixa é
 // o `ytArquivo`, e ele divide o download em curso (`ytArquivoEmVoo`).
 //
-// Cada botão: `{ chave, rotulo, icone (HTML), acao(btn), disabled, motivo, on }`.
+// Cada botão: `{ chave, rotulo, icone (HTML), acao(btn), disabled, motivo, on }`,
+// ou, no LARGO, `rotulos` (uma frase, ou duas que alternam na MESMA célula) no
+// lugar do ícone.
 function destBotoesRow(botoes) {
   const li = document.createElement('li');
   li.className = 'dest-botoes';
   botoes.filter(Boolean).forEach((b) => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'dest-btn' + (b.on ? ' on' : '');
+    btn.className = (b.rotulos ? 'song-menu-btn dest-largo' : 'dest-btn') + (b.on ? ' on' : '');
     btn.dataset.dest = b.chave;
     btn.setAttribute('aria-label', b.rotulo);
     // APAGADO, O `title` DIZ POR QUÊ — a regra do indisponível.
     btn.title = b.disabled && b.motivo ? b.rotulo + ' — ' + b.motivo : b.rotulo;
     if (typeof b.on === 'boolean') btn.setAttribute('aria-pressed', b.on ? 'true' : 'false');
-    btn.innerHTML = b.icone;
+    if (b.rotulos) {
+      // ===== A LARGURA NÃO MUDA COM O ESTADO (v5.287) =====
+      // Duas frases ("Ver"/"Ocultar os detalhes") ocupam a MESMA célula de uma
+      // grade 1×1: a largura é a da MAIOR e a troca só alterna qual se vê (a
+      // classe `vendo-letra` do `li`). `visibility`, não `display`: a escondida
+      // continua medindo.
+      const cx = document.createElement('span');
+      cx.className = 'song-menu-label' + (b.rotulos.length > 1 ? ' song-menu-letra-cx' : '');
+      if (b.rotulos.length > 1) {
+        b.rotulos.forEach((t) => { const sp = document.createElement('span'); sp.textContent = t; cx.appendChild(sp); });
+      } else cx.textContent = b.rotulos[0];
+      btn.appendChild(cx);
+    } else btn.innerHTML = b.icone;
     btn.disabled = !!b.disabled;
     btn.addEventListener('click', () => { if (!btn.disabled) b.acao(btn); });
     li.appendChild(btn);
@@ -26404,12 +26421,12 @@ function destBotoesPadrao(quais, fazer) {
 }
 // O QUINTO: o auxiliar de leitura de uma música, ou os detalhes de um vídeo.
 function destBotaoLeitura(acao, motivo) {
-  return { chave: 'leitura', rotulo: 'Auxiliar de leitura', icone: icoSprite('icoTexto'),
+  return { chave: 'leitura', rotulo: 'Ver a letra no auxiliar de leitura', rotulos: ['Ver a letra'],
     acao: acao || (() => {}), disabled: !acao, motivo: motivo || '' };
 }
 function destBotaoDetalhes(det) {
   const aberto = !!(det && det.aberto());
-  return { chave: 'detalhes', rotulo: 'Ver os detalhes do vídeo', icone: icoSprite('icoTexto'),
+  return { chave: 'detalhes', rotulo: 'Ver os detalhes do vídeo', rotulos: ['Ver os detalhes', 'Ocultar os detalhes'],
     on: det ? aberto : undefined, disabled: !det, motivo: 'o episódio ainda não saiu',
     acao: (btn) => {
       const on = det.alternar();

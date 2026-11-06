@@ -75,7 +75,11 @@ só com `lyrics`; apagado com o motivo onde não há letra) ou, num VÍDEO, **os
 detalhes** (`r.__detalhes`, ligado = `--btn-accent`). Quadrados `--quad-faixa`,
 sem rótulo (o nome no `aria-label`/`title`), ícone `--icon-md`. Cada toque
 executa UM destino e a gaveta fica aberta para o segundo; a variante (Cantada ·
-Playback · Letra), a forma e a qualidade são lidas NA MONTAGEM (o seletor remonta
+Playback · Letra), a forma e a qualidade são lidas NA MONTAGEM. **O QUINTO É
+LARGO** (v1.13.35, `.dest-largo`): ele não manda a mídia a lugar nenhum, então
+veste o desenho do antigo "Ver a letra" — rótulo ("Ver a letra", ou "Ver/Ocultar
+os detalhes" empilhados na mesma célula), crescendo no resto da fileira —, e os
+quatro destinos ficam quadrados e juntos. A variante, a forma e a qualidade são lidas (o seletor remonta
 a gaveta, então o valor no fecho é o vigente). A faixa de ações de um favorito
 (excluir · renomear · ↑↓) tem fileira própria abaixo (`.fav-acoes-row`), com o
 MESMO nó a cada remontagem. **O que se perdeu:** mandar a vários destinos num
