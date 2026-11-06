@@ -44,7 +44,8 @@
 // é o botão do Cronograma e o da playlist tocados com um `load()` em voo —
 // `listasSeq` —, o 10 o "Tocar agora" (`replacePlaylistWith`), na mesma senha, e o
 // 11 a cena de letra (`addLyricCue`) mandada à playlist e aos Favoritos, e o 12
-// a playlist automática (`guardarSorteadas`/`montarFilaSorteada`).)
+// a playlist automática (`guardarSorteadas`/`montarFilaSorteada`). O 13 é o
+// resgate dos downloads da abertura contra um `lembrarIntencao` do vão.)
 //
 // E a quarta, que separa CENA de CONFIGURAÇÃO: durante a corrida a hidratação
 // pula a SELEÇÃO e aplica o resto. Sem ela, o conserto barato (um `return` no
@@ -580,6 +581,42 @@ try {
   checar(toque12.montarBanco.length === 1 && toque12.montarBanco[0] === ids.b
       && toque12.montar.join() === toque12.montarBanco.join(),
     'o sorteio que vira a fila (com um load() em voo): plItems FICA com a fila sorteada', JSON.stringify(toque12));
+
+  // ── 13. O RESGATE DOS DOWNLOADS NÃO APAGA UMA INTENÇÃO DO VÃO ─────────────
+  // `resgatarDownloads` (abertura, só no app) lê `ytIntencoes` e a limpa antes
+  // de tentar. Feito como `getState` + `setState`, um `lembrarIntencao` entre
+  // os dois era apagado sem ter sido lido: o download novo perdia o registro
+  // que o faria ser reclamado se o renderer morresse. O gancho põe a intenção
+  // nova logo DEPOIS da leitura do resgate (na forma atômica, depois da
+  // transação inteira); a velha vence o prazo e sai pelo caminho de sempre.
+  const r13 = await pg.evaluate(async () => {
+    const velha = { link: 'https://youtu.be/oraculo-velha', quando: 0, lista: 'imports' };
+    const nova = { link: 'https://youtu.be/oraculo-nova', quando: Date.now(), lista: 'imports' };
+    await AVDB.setState('ytIntencoes', [velha]);
+    const origGet = AVDB.getState;
+    const origUpd = AVDB.updateState;
+    const depois = (orig) => async (...a) => {
+      const r = await orig(...a);
+      if (a[0] === 'ytIntencoes') {
+        AVDB.getState = origGet; AVDB.updateState = origUpd;
+        await lembrarIntencao(nova);
+      }
+      return r;
+    };
+    AVDB.getState = depois(origGet);
+    AVDB.updateState = depois(origUpd);
+    const nativo = window.__NATIVE__;
+    window.__NATIVE__ = true;
+    try { await resgatarDownloads(); } finally {
+      window.__NATIVE__ = nativo;
+      AVDB.getState = origGet; AVDB.updateState = origUpd;
+    }
+    const fim = ((await AVDB.getState('ytIntencoes')) || []).map((i) => i.link);
+    await AVDB.setState('ytIntencoes', []);
+    return fim;
+  });
+  checar(r13.length === 1 && r13[0] === 'https://youtu.be/oraculo-nova',
+    'o resgate da abertura limpa a intenção velha sem apagar a que entrou no vão', JSON.stringify(r13));
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
 }

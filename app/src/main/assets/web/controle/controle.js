@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.27';
+const WEB_VERSION = '1.13.28';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -32897,7 +32897,21 @@ async function pacoteBloco(c, ab) {
 }
 
 /**
- * O ESCRITOR — ele JUNTA os registros pequenos num bloco só (v1.7.2).
+ * QUANTOS BYTES UM CORPO TEM, e ele é a fonte ÚNICA dos dois escritores.
+ *
+ * `Uint8Array` responde `length`, `Blob` responde `size`, e qualquer outra
+ * coisa — um `undefined`, uma string, um valor antigo do banco — responde ZERO,
+ * que é o único número que mantém cabeçalho e corpo de acordo: nada é escrito,
+ * e o cabeçalho diz que nada foi escrito.
+ */
+function tamanhoDe(x) {
+  if (!x) return 0;
+  if (x instanceof Uint8Array) return x.length;
+  return Number.isInteger(x.size) && x.size > 0 ? x.size : 0;
+}
+
+/**
+ * O ESCRITOR — ele JUNTA os registros pequenos num bloco só.
  *
  * ===== O QUE ELE CONSERTA, e o número é o argumento =====
  *
@@ -32906,14 +32920,11 @@ async function pacoteBloco(c, ab) {
  * necessário (`postMessage` não tem backpressure), mas ele custa o mesmo para
  * 50 bytes e para 512 kB.
  *
- * A versão anterior mandava UM bloco por cabeçalho e UM por corpo, sem juntar
- * nada — e o acervo tem milhares de registros MINÚSCULOS: a Bíblia mora em
- * `state` com **uma chave por capítulo**, 1189 por versão (`bible:<v>_<livro>_
- * <cap>`, ver `ensureBibleVersionDownloaded`). Com duas ou três versões
- * baixadas são ~3.600 chaves × 2 idas e voltas = **~7.200 viagens** para
- * escrever poucos megabytes. Era essa a "exportação absurdamente lenta" — e
- * como nenhum registro de `state` reportava progresso, ela acontecia inteira
- * com a notificação parada em **0%**.
+ * E o acervo tem milhares de registros MINÚSCULOS: a Bíblia mora em `state`
+ * com **uma chave por capítulo**, 1189 por versão (`bible:<v>_<livro>_<cap>`,
+ * ver `ensureBibleVersionDownloaded`). Um bloco por cabeçalho e um por corpo
+ * seriam, com duas ou três versões baixadas, ~3.600 chaves × 2 idas e voltas =
+ * **~7.200 viagens** para escrever poucos megabytes.
  *
  * Juntando, os mesmos megabytes viram ~20 blocos. O FORMATO não muda em nada:
  * o arquivo é uma sequência de bytes, e em quantos pedaços ela atravessa o
@@ -32933,7 +32944,7 @@ async function pacoteBloco(c, ab) {
  * os cabeçalhos junto faria a barra passar de 100% num acervo com muitos
  * registros pequenos — e o plano não tem como prevê-los sem montá-los.
  *
- * ===== O SUMIDOURO É INJETADO (v1.8.0) =====
+ * ===== O SUMIDOURO É INJETADO =====
  *
  * `enviar(ab)` recebe cada bloco. A exportação para arquivo o liga ao canal
  * `__avPacote`; o CLONE celular a celular o liga a um array em memória, porque
@@ -32941,20 +32952,6 @@ async function pacoteBloco(c, ab) {
  * MESMO escritor nos dois — um segundo seria um segundo lugar para errar o
  * formato, e o formato é o que o outro aparelho vai ler.
  */
-/**
- * QUANTOS BYTES UM CORPO TEM, e ele é a fonte ÚNICA dos dois escritores.
- *
- * `Uint8Array` responde `length`, `Blob` responde `size`, e qualquer outra
- * coisa — um `undefined`, uma string, um valor antigo do banco — responde ZERO,
- * que é o único número que mantém cabeçalho e corpo de acordo: nada é escrito,
- * e o cabeçalho diz que nada foi escrito.
- */
-function tamanhoDe(x) {
-  if (!x) return 0;
-  if (x instanceof Uint8Array) return x.length;
-  return Number.isInteger(x.size) && x.size > 0 ? x.size : 0;
-}
-
 function pacoteEscritor(enviar, aoAndar, parou) {
   const buf = new Uint8Array(PACOTE_BLOCO);
   let n = 0;
@@ -33010,13 +33007,10 @@ function pacoteEscritor(enviar, aoAndar, parou) {
   /**
    * Um registro inteiro: cabeçalho + corpo (opcional).
    *
-   * O `bytes` DO CABEÇALHO SAI DO CORPO, sempre (v1.8.14). Ele vinha do
-   * chamador, e chamador e corpo decidiam por caminhos separados: `bytes:
-   * rec.thumb.size` sobre uma miniatura que não é um `Blob` dá `undefined`, e o
-   * corpo — que pergunta `x.size` — não escreve nada. O arquivo sai com um
-   * cabeçalho sem tamanho e o leitor para com "registro sem tamanho", que foi
-   * exatamente o que o campo mostrou. Aqui os dois não têm como discordar:
-   * quem responde é o mesmo `tamanhoDe`.
+   * O `bytes` DO CABEÇALHO SAI DO CORPO, sempre, pelo mesmo `tamanhoDe`: vindo
+   * do chamador, `rec.thumb.size` sobre uma miniatura que não é um `Blob` dava
+   * `undefined`, o corpo não escrevia nada e o leitor parava com "registro sem
+   * tamanho".
    */
   async function registro(cab, body) {
     conferirParada();
@@ -33033,10 +33027,9 @@ function pacoteEscritor(enviar, aoAndar, parou) {
 // ---------------------------------------------------------------------------
 
 /**
- * O PLANO — e desde a v1.7.2 ele é montado ANTES da folha de escolha.
- *
- * A ordem mudou porque a folha precisa dos TAMANHOS para o operador escolher, e
- * medi-los duas vezes seria medir o aparelho duas vezes. Ele é montado uma vez,
+ * O PLANO — montado ANTES da folha de escolha, porque a folha precisa dos
+ * TAMANHOS para o operador escolher, e medi-los duas vezes seria medir o
+ * aparelho duas vezes. Ele é montado uma vez,
  * fica no `pacotePlanoAtual` enquanto a folha está aberta e enquanto o SAF
  * pergunta onde salvar, e é solto no `finally` da exportação.
  *
@@ -33065,33 +33058,11 @@ function pacoteEscritor(enviar, aoAndar, parou) {
  */
 let pacotePlanoAtual = null;
 
-// AS LISTAS QUE VIRAM GRUPO NA FOLHA (v1.8.38).
-//
-// Pedido do operador: *"analise para termos um dos seletores de coleção para a
-// exportação, o item favoritos, pois em alguns casos, ele pode conter vários
-// arquivos com peso para serem exportados"*.
-//
-// Até aqui a store de mídia era UM grupo só ("Itens importados e vídeos"), e o
-// peso dos favoritos — que num acervo real são vídeos do YouTube guardados um a
-// um — não tinha como ser visto nem tirado sem levar o resto junto.
-//
-// A ordem é a da folha; os rótulos são os das listas que o operador conhece.
-// `avulsos` é a prateleira do Modo Fácil, que não tem lista visível — o nome
-// diz o que ela é para quem lê a folha, e não o identificador interno.
-// SÓ OS FAVORITOS (v1.8.40). A v1.8.38 abriu um grupo por lista; o operador
-// pediu de volta *"remover a playlist, como sendo uma das opções de exportação,
-// o cronograma também"*.
-//
-// O QUE ELES ERAM: listas de TRABALHO, não de acervo. O Cronograma é o que vai
-// ser projetado neste culto e a playlist é a fila da vez — as duas se esvaziam
-// e se refazem toda semana, e escolher se elas viajam não é uma decisão sobre o
-// que o outro aparelho vai TER, é sobre um estado que não sobrevive ao sábado.
-// Os Favoritos são o contrário: é ali que um vídeo pesado fica guardado de
-// propósito, e é essa a pergunta que o operador de fato faz.
-//
-// OS ITENS DELES CONTINUAM VIAJANDO: sem grupo próprio eles caem no de escape
-// ("Outros itens"), que segue marcado por padrão como todo o resto. O que sai é
-// a LINHA na folha, não os bytes.
+// AS LISTAS QUE VIRAM GRUPO NA FOLHA: SÓ OS FAVORITOS (a ordem é a da folha).
+// É ali que um vídeo pesado fica guardado de propósito, e o peso dele precisa
+// poder ser visto e tirado sem levar o resto. O Cronograma e a playlist são
+// listas de TRABALHO (esvaziam e se refazem toda semana) e não viram grupo; os
+// itens delas continuam viajando, no grupo de escape ("Outros itens").
 const PACOTE_LISTAS = [
   { lista: 'favs', rotulo: 'Favoritos' },
 ];
@@ -33109,12 +33080,9 @@ const PACOTE_LISTAS = [
  * número que decide "cabe no cartão?" tem de ser o do arquivo, não o da
  * aritmética.
  *
- * E DESDE A v1.8.40 SOBROU UM GRUPO SÓ, o que muda o alcance dessa promessa —
- * o KDoc afirmava até a v1.8.45 que *"desmarcar Favoritos nunca tira do pacote
- * um item que o Cronograma também pede"*, e isso deixou de ser verdade quando o
- * Cronograma e a Playlist saíram do `PACOTE_LISTAS`. Um item que está nos dois
- * entra em `cobertos` pelos Favoritos, portanto NÃO cai no grupo de escape: o
- * único grupo dele é "Favoritos", e desmarcá-lo o deixa de fora.
+ * COM UM GRUPO DE LISTA SÓ, desmarcar os Favoritos TIRA do pacote um item que
+ * também está no Cronograma: ele entra em `cobertos` pelos Favoritos, portanto
+ * NÃO cai no grupo de escape — o único grupo dele é "Favoritos".
  *
  * ISSO É DELIBERADO e tem oráculo (`pacote-por-grupos.test.mjs`, bloco D:
  * *"com só os Favoritos, um item favoritado tem UM grupo, e desmarcá-lo o deixa
@@ -33141,7 +33109,7 @@ async function pacoteGruposDeMidia(midia) {
     for (const id of ids) if (bytes.has(id)) { s.add(id); cobertos.add(id); }
     if (s.size) porGrupo.set(AVPacote.GRUPO_LISTA + L.lista, s);
   }
-  // ===== O GRUPO DE UMA SÉRIE É O VÍDEO DA SEMANA DELA (v1.11.14) =====
+  // ===== O GRUPO DE UMA SÉRIE É O VÍDEO DA SEMANA DELA =====
   // `col:<id>` de uma série não mede o álbum (que nunca é baixado): mede o episódio que ela
   // retém, e esse episódio SAI de "Outros itens" — senão desmarcar a série não o tiraria do
   // pacote. Ele se sobrepõe aos Favoritos como todo grupo de mídia (viaja se QUALQUER um
@@ -33173,7 +33141,7 @@ async function pacoteGruposDeMidia(midia) {
       try { ids = await AVDB.listIds(nome); } catch (_) { ids = []; }
       for (const id of ids) origens.delete(id);
     }
-    // Um cronograma GUARDADO também é lista do operador (v1.12.54).
+    // Um cronograma GUARDADO também é lista do operador.
     let guardados = [];
     try { guardados = await AVDB.cronoIdsGuardados(); } catch (_) { guardados = []; }
     for (const id of guardados) origens.delete(id);
@@ -33185,7 +33153,7 @@ async function pacoteGruposDeMidia(midia) {
 }
 
 /**
- * OS ORIGINAIS DOS ITENS EDITADOS QUE VÃO NO PACOTE — escondidos (v1.12.0).
+ * OS ORIGINAIS DOS ITENS EDITADOS QUE VÃO NO PACOTE — escondidos.
  *
  * Um item editado não guarda bytes: sem o original ele não toca. Então o original viaja
  * SEMPRE com o editado, mesmo que o grupo dele (um hinário, a lista onde ele estava) esteja
@@ -33233,11 +33201,10 @@ async function pacotePlano(aoAndar) {
   // AS CHAVES DE `state`, lidas e codificadas de uma vez. Uma chave que não
   // possa ser lida ou serializada é PULADA aqui — e some do plano inteiro, o
   // que é o certo: ela não vai ser escrita depois.
-  // UM CURSOR, e não um `getState` por chave (v1.8.24). É a mesma correção que o
-  // `mediaResumo` já era para a store de mídia, e pelo mesmo motivo: a Bíblia
-  // mora em `state` com uma chave POR CAPÍTULO (1189 por versão), então pedir os
-  // valores um a um são milhares de transações em fila — na PORTA da folha, com
-  // o operador olhando "Medindo o acervo".
+  // UM CURSOR, e não um `getState` por chave, como o `mediaResumo` na store de
+  // mídia: a Bíblia mora em `state` com uma chave POR CAPÍTULO (1189 por
+  // versão), e pedir os valores um a um são milhares de transações em fila — na
+  // PORTA da folha, com o operador olhando "Medindo o acervo".
   //
   // MEDIDO em Chromium, sobre 3.600 chaves de tamanho real (11,8 MB de JSON):
   // 525 ms por chave contra 275 ms por cursor; só serializar, sem tocar no
@@ -33276,12 +33243,10 @@ async function pacotePlano(aoAndar) {
   const nomes = new Map(cols.map((c) => [c.id, c.name || c.id]));
   const ids = new Set(cols.map((c) => c.id));
 
-  // EM ORDEM (v1.8.25). A varredura do OPFS devolve o que o sistema de arquivos
-  // entrega, que não tem ordem nenhuma — e é essa lista que decide a ordem em
-  // que os bytes são escritos, e portanto a ordem em que os nomes aparecem na
-  // notificação de quem importa. Relato do operador: *"o hinário vai de 0 a 600
-  // e é muito incoerente os hinos terem uma ordem aleatória … como não há uma
-  // ordem, ele parece que está sorteando"*.
+  // EM ORDEM. A varredura do OPFS devolve o que o sistema de arquivos entrega,
+  // sem ordem nenhuma — e é essa lista que decide a ordem em que os bytes são
+  // escritos, e portanto a ordem em que os nomes aparecem na notificação de
+  // quem importa (um hinário fora de ordem parece sorteado).
   //
   // A comparação é NUMÉRICA (`numeric: true`), e não alfabética crua: os
   // caminhos são `folders/<coleção>/<número>-<variante>.<ext>`, e como texto o
@@ -33301,7 +33266,7 @@ async function pacotePlano(aoAndar) {
     porGrupo.set(g, atual);
   }
 
-  // A SÉRIE NÃO LEVA ARQUIVOS DE PASTA (v1.11.14): o que ela leva é o vídeo da semana, que é
+  // A SÉRIE NÃO LEVA ARQUIVOS DE PASTA: o que ela leva é o vídeo da semana, que é
   // mídia (`pacoteGruposDeMidia`). Uma pasta `folders/<série>/` que sobrou de uma versão
   // antiga não entra na conta nem na escrita — nem o catálogo dela (`seriesIds`).
   const seriesIds = new Set(cols.filter((c) => c.kind === 'serie').map((c) => c.id));
@@ -33321,13 +33286,9 @@ async function pacotePlano(aoAndar) {
 }
 
 /**
- * A FOLHA SEM MEDIR NADA — o que a Biblioteca já sabe, na hora.
- *
- * Pedido do operador: *"você não pode simplesmente usar a medição superficial
- * que já temos na biblioteca? essa medição dos arquivos e peso total da
- * exportação não é importante, apenas arredonde para cima e chame de
- * aproximadamente … dessa forma não atrasa o processo, e os processos reais
- * necessários acontecem após o pedido confirmado"*.
+ * A FOLHA SEM MEDIR NADA — o que a Biblioteca já sabe, na hora (decisão do
+ * operador: o peso da folha é aproximado, arredondado para cima, e o trabalho
+ * real acontece depois do pedido confirmado).
  *
  * O peso de cada coleção já está em MEMÓRIA (`ui(id).bytes`, guardado em
  * `state` e reconferido uma vez por sessão pelo `conferirPesoSeFaltar`), e o
@@ -33341,20 +33302,15 @@ async function pacotePlano(aoAndar) {
  * padrão todo grupo que a folha não chegou a oferecer — errar para o lado de
  * levar demais é recuperável; para o lado de deixar bytes para trás, não.
  *
- * ===== E ELA NÃO TOCA NO CATÁLOGO (v1.8.30) =====
+ * ===== E ELA NÃO TOCA NO CATÁLOGO =====
  *
- * Relato do operador: *"ele está tendo um delay para abrir o popup das opções,
- * verifique esse delay, ele não deve existir"*.
+ * Nada de cursor sobre a store `files` inteira no caminho do toque: MEDIDO em
+ * Chromium com 2.228 registros (um hinário completo mais álbuns), **135 ms**,
+ * contra 2,3 ms do `mediaResumo` e 6 ms de um `getAllKeys` — o custo é
+ * DESSERIALIZAR cada registro, com a miniatura e a letra dentro. Num aparelho
+ * isso é um atraso visível para abrir a folha.
  *
- * A v1.8.26 tirou a VARREDURA DO DISCO do caminho do toque e deixou para trás
- * um `AVDB.filesResumo()` — um cursor sobre a store `files` inteira, usado como
- * plano B do peso e como única fonte do grupo "sem coleção". MEDIDO em Chromium
- * com 2.228 registros (um hinário completo mais álbuns, o número que o oráculo
- * de ida e volta viu num aparelho): **135 ms**, contra 2,3 ms do `mediaResumo`
- * e 6 ms de um `getAllKeys` — o custo é DESSERIALIZAR cada registro, com a
- * miniatura e a letra dentro. Num aparelho isso é o atraso que se vê.
- *
- * O plano B não era necessário: `collUI[id].bytes` sobe a cada arquivo baixado
+ * E não é preciso: `collUI[id].bytes` sobe a cada arquivo baixado
  * e PERSISTE em `state` (`coll-bytes`), então toda coleção que já foi baixada
  * tem peso em memória desde o `carregarPesos()` da abertura.
  *
@@ -33426,28 +33382,22 @@ async function pacotePlanoAproximado() {
   let midia = [];
   try { midia = await AVDB.mediaResumo(); } catch (_) { midia = []; }
   const { porGrupo: midiaPorGrupo, bytes: midiaBytes, serieSub } = await pacoteGruposDeMidia(midia);
-  // ===== O ESTADO DEIXOU DE VALER ZERO (v1.8.40) =====
+  // ===== O PESO DO ESTADO É ESTIMADO, NUNCA ZERO =====
   //
-  // Relato do operador: *"verifique o sistema de peso dos arquivos para
-  // exportação … mesmo com o arredondamento para cima, ele está apresentando um
-  // número bem menor que a realidade … se ele fosse errar, que erre para cima"*.
-  //
-  // O `bytesEstado: 0` era a maior parte do erro, e ele não é pequeno: MEDIDO
-  // num acervo sintético com mil capítulos de Bíblia, a folha mostrava
-  // **14,7%** da realidade — 700 kB contra 4,77 MB —, porque as milhares de
-  // chaves de `state` (a Bíblia mora aqui com uma POR CAPÍTULO) não entravam.
+  // Sem ele a folha mostrava **14,7%** da realidade (MEDIDO num acervo
+  // sintético com mil capítulos de Bíblia: 700 kB contra 4,77 MB) — as
+  // milhares de chaves de `state` (a Bíblia mora aqui com uma POR CAPÍTULO).
   //
   // MEDI-LAS DE VERDADE ESTÁ FORA DE QUESTÃO no caminho do toque: `stateVarrer`
   // custou **144,6 ms** para 1.003 chaves contra 12,2 ms da folha inteira, e
-  // num acervo real (3.600 chaves) isso é meio segundo — exatamente o atraso
-  // que a v1.8.30 tirou daqui, de volta.
+  // num acervo real (3.600 chaves) isso é meio segundo.
   //
   // O que resta é ESTIMAR pelo que é barato: a CONTAGEM das chaves
   // (`getAllKeys`, sem desserializar valor nenhum). O tamanho médio por chave
   // vem de duas medições independentes deste repositório — 11,8 MB para 3.600
   // chaves reais (3,3 kB) e 4,07 MB para 1.003 sintéticas (4,1 kB) —, e o
-  // número adotado é o MAIOR dos dois, arredondado para cima, porque o pedido é
-  // explícito: entre errar para baixo e errar para cima, erra para cima.
+  // número adotado é o MAIOR dos dois, arredondado para cima: entre errar para
+  // baixo e errar para cima, erra para cima (decisão do operador).
   let chavesEstado = 0;
   try { chavesEstado = (await AVDB.stateKeys('')).length; } catch (_) { chavesEstado = 0; }
   const { grupos, folha } = pacoteMontarFolha({
@@ -33458,13 +33408,11 @@ async function pacotePlanoAproximado() {
   // perderia no próximo grupo que alguém acrescentasse à montagem, e o que sai
   // disso é um número estimado sem a palavra que diz que ele é estimado.
   for (const g of grupos) g.aprox = true;
-  // `midiaPorGrupo`/`midiaBytes` VÃO JUNTO (v1.8.46), e é o que faz o total do
-  // confirmar ser a UNIÃO. Sem eles o `pacoteBytesDe` cai no ramo `t += g.bytes`
-  // — a SOMA —, e a folha é desenhada com ESTE plano, não com o exato. Hoje o
-  // número saía certo por acidente: a v1.8.40 deixou o `PACOTE_LISTAS` com uma
-  // entrada só, e `lst:favs` mais o escape formam uma partição disjunta. A
-  // segunda lista que voltar (a v1.8.38 tinha três) faz o total passar do
-  // arquivo, exatamente na tela que responde *"cabe no cartão?"*.
+  // `midiaPorGrupo`/`midiaBytes` VÃO JUNTO, e é o que faz o total do confirmar
+  // ser a UNIÃO. Sem eles o `pacoteBytesDe` cai no ramo `t += g.bytes` — a
+  // SOMA —, e a folha é desenhada com ESTE plano, não com o exato. Com um grupo
+  // de lista só a soma coincide com a união; um segundo grupo que se sobreponha
+  // faria o total passar do arquivo, na tela que responde *"cabe no cartão?"*.
   return { grupos, folha, aprox: true, midiaPorGrupo, midiaBytes };
 }
 
@@ -33476,8 +33424,8 @@ function pacoteColecaoDeBase(c) {
 /**
  * A MONTAGEM DA FOLHA — a mesma para a medida APROXIMADA e para a EXATA.
  *
- * Ela existe porque a folha passou a ser desenhada ANTES da medição (v1.8.26):
- * duas montagens divergiriam no primeiro ajuste, e a divergência apareceria
+ * Ela existe porque a folha é desenhada ANTES da medição: duas montagens
+ * divergiriam no primeiro ajuste, e a divergência apareceria
  * como um grupo que existe na tela e não no arquivo (ou o contrário).
  *
  * `porGrupo` pode vir com a lista de arquivos VAZIA e só o peso — é assim que a
@@ -33490,18 +33438,11 @@ function pacoteMontarFolha({ cols, porGrupo, bytesEstado, midiaPorGrupo, midiaBy
   // o operador as procura ali), a mídia, e "outros" por último, que é o grupo
   // de escape.
   //
-  // A LINHA "Ajustes e catálogos" SAIU DA FOLHA (v1.8.25), e o que ela
-  // carregava CONTINUA no pacote. Decisão do operador: *"elementos essenciais
-  // para uso da biblioteca, como listas atualizadas, e dados de base, coloque
-  // eles no pacote de importação, mas não precisa citar eles, são bases para o
-  // funcionamento da importação"*.
-  //
-  // Ela nunca foi escolha — nasceu marcada e sem ouvinte, porque desmarcá-la
-  // faria a mídia chegar ÓRFÃ ao destino e o coletor da abertura seguinte a
-  // apagaria. Uma linha que não decide nada numa folha cujo trabalho INTEIRO é
-  // decidir é ruído; o que ela explicava agora está no `FORA` do `pacote.js`,
-  // que é onde a regra mora. O grupo continua existindo em `plano.grupos`
-  // porque é dele que sai o peso do estado no total.
+  // "Ajustes e catálogos" NÃO É LINHA DA FOLHA, e o que carrega viaja SEMPRE
+  // (decisão do operador): desmarcá-lo faria a mídia chegar ÓRFÃ ao destino e o
+  // coletor da abertura seguinte a apagaria, e uma linha que não decide nada é
+  // ruído. O grupo existe em `plano.grupos` porque é dele que sai o peso do
+  // estado no total (`fixo: true`).
   const grupos = [{
     chave: AVPacote.GRUPO_AJUSTES,
     rotulo: 'Ajustes e catálogos',
@@ -33514,12 +33455,12 @@ function pacoteMontarFolha({ cols, porGrupo, bytesEstado, midiaPorGrupo, midiaBy
     const g = porGrupo.get(AVPacote.GRUPO_COL + c.id);
     // SEM LISTA DE ARQUIVOS mas COM PESO é a versão aproximada: ela sai do que
     // a Biblioteca já tem em memória, e não da varredura do disco.
-    // OS HINÁRIOS E AS SÉRIES ENTRAM SEMPRE, mesmo sem um byte baixado (v1.11.12):
-    // a seleção da janela agora vale também para IMPORTAR, e num aparelho novo —
+    // OS HINÁRIOS E AS SÉRIES ENTRAM SEMPRE, mesmo sem um byte baixado: a
+    // seleção da janela vale também para IMPORTAR, e num aparelho novo —
     // o caso de uso da importação — a lista seria vazia e não haveria o que
     // marcar. Eles são o que o app SEMPRE conhece; os álbuns do catálogo, que são
     // centenas, só entram quando têm o que levar.
-    // A SÉRIE É OUTRA CONTA (v1.11.14): a linha dela é o VÍDEO DA SEMANA — peso, frase e
+    // A SÉRIE É OUTRA CONTA: a linha dela é o VÍDEO DA SEMANA — peso, frase e
     // "vazio" saem da mídia que ela retém (`pacoteGruposDeMidia`), nunca da pasta do álbum.
     if (c.kind === 'serie') {
       const chave = AVPacote.GRUPO_COL + c.id;
@@ -33558,7 +33499,7 @@ function pacoteMontarFolha({ cols, porGrupo, bytesEstado, midiaPorGrupo, midiaBy
     grupos.push(item);
     porColecao.set(c.id, item);
   }
-  // A STORE DE MÍDIA, UM GRUPO POR LISTA (v1.8.38) — ver `pacoteGruposDeMidia`.
+  // A STORE DE MÍDIA, UM GRUPO POR LISTA DO `PACOTE_LISTAS` — ver `pacoteGruposDeMidia`.
   // Eles SE SOBREPÕEM: um item nos Favoritos e no Cronograma conta nos dois, e
   // o `sub` diz isso, porque a soma dos pesos passa do total e quem olha a
   // folha precisa saber por quê.
@@ -33609,39 +33550,29 @@ function pacoteMontarFolha({ cols, porGrupo, bytesEstado, midiaPorGrupo, midiaBy
     });
   }
 
-  // ===== A FOLHA É A ÁRVORE DA BIBLIOTECA (v1.7.3) =====
-  //
-  // Pedido do operador: *"opções de agrupamentos das coleções da mesma forma que
-  // já existe na biblioteca, podendo marcar um grupo inteiro de uma vez só"*.
+  // ===== A FOLHA É A ÁRVORE DA BIBLIOTECA (marcar um grupo inteiro de uma vez) =====
   //
   // A ORDEM E O AGRUPAMENTO SAEM DA MESMA FONTE que a Biblioteca desenha — as
   // coletâneas do `AVColetanea.aplicar`, com os hinários e as séries na RAIZ e
   // os álbuns sem categoria em "Outros álbuns". Uma segunda leitura do catálogo
-  // aqui divergiria da tela em que o operador aprendeu onde cada coleção mora,
-  // que é justamente o que ele pediu para NÃO acontecer.
+  // aqui divergiria da tela em que o operador aprendeu onde cada coleção mora.
   //
   // `plano.grupos` continua PLANO — é ele que o laço de escrita e o
   // `pacoteBytesDe` consomem, e nenhum dos dois tem o que fazer com uma árvore.
   // `plano.folha` é a árvore, e ela existe só para a folha desenhar.
   const naFolha = new Set();
   const folha = [];
-  // A PERGUNTA É "ESTE GRUPO EXISTE?", E NÃO "ELE TEM ARQUIVOS NO OPFS"
-  // (v1.8.38). O guarda consultava o `porGrupo`, que é o mapa dos arquivos do
-  // DISCO — as chaves dele são `col:<id>` e `outros`, e mais nada. O grupo da
-  // store de mídia nunca esteve ali, então `linha('midia')` era um no-op: o
-  // grupo existia em `plano.grupos` (contava no total, e o `exportarPacote`
-  // marcava por padrão todo grupo que a folha não ofereceu), e **nunca aparecia
-  // na folha**. Os itens importados e os vídeos viajavam sempre, sem chance de
-  // serem desmarcados — que é o pedido do operador visto pelo outro lado.
+  // A PERGUNTA É "ESTE GRUPO EXISTE?" (`plano.grupos`), E NÃO "ELE TEM ARQUIVOS
+  // NO OPFS": o `porGrupo` é o mapa dos arquivos do DISCO (só `col:<id>` e
+  // `outros`), e por ele os grupos da store de mídia nunca apareceriam na
+  // folha — viajariam sempre, sem chance de serem desmarcados.
   const existe = new Set(grupos.map((g) => g.chave));
   const linha = (chave) => {
     if (!chave || naFolha.has(chave) || !existe.has(chave)) return;
     naFolha.add(chave);
     folha.push({ tipo: 'linha', chave });
   };
-  // A ORDEM É A DA BIBLIOTECA, DE PONTA A PONTA (v1.8.40). Pedido do operador:
-  // *"cuide para que a ordem dos elementos dessa lista para exportação esteja na
-  // mesma ordem que temos na biblioteca"*. Lá o `renderCollectionsList` monta,
+  // A ORDEM É A DA BIBLIOTECA, DE PONTA A PONTA. Lá o `renderCollectionsList` monta,
   // nesta sequência: FAVORITOS, as séries e os hinários da raiz, as coletâneas,
   // e "Outros álbuns" no fim. O que esta folha tem a mais — os itens que não
   // estão em lista nenhuma e os arquivos sem coleção — não existe na
@@ -33663,7 +33594,7 @@ function pacoteMontarFolha({ cols, porGrupo, bytesEstado, midiaPorGrupo, midiaBy
   const reivindicados = new Set();
   for (const cat of coletaneas.categorias) {
     for (const a of cat.albums) reivindicados.add('album-' + a.id_album);
-    // PELA MESMA FUNÇÃO DA BIBLIOTECA (v1.8.40): é ela que decide a ORDEM (a
+    // PELA MESMA FUNÇÃO DA BIBLIOTECA: é ela que decide a ORDEM (a
     // alfabética das coletâneas nomeadas) e o que fica de fora (um álbum de
     // hinário não é card de coletânea). Lendo `cat.albums` por conta própria,
     // esta folha reescrevia as duas regras e divergia da tela em que o
@@ -33688,11 +33619,16 @@ function pacoteMontarFolha({ cols, porGrupo, bytesEstado, midiaPorGrupo, midiaBy
   return { grupos, folha };
 }
 
+// A MARGEM DO NÚMERO ESTIMADO: 10% sobre o que a folha conseguiu
+// somar. Ela cobre o que a versão aproximada sabidamente NÃO vê — uma coleção
+// com bytes no disco e sem peso guardado, os arquivos de uma pasta que saiu do
+// catálogo, e o cabeçalho de cada registro do pacote — e cobre para o lado que
+// o operador pediu. Um erro para cima custa uma exportação que ele acha que não
+// cabe e cabia; para baixo custa um cartão que enche no meio do trabalho.
+const PACOTE_MARGEM = 1.1;
 /**
- * O PESO NA FOLHA, e ele DIZ que é um TETO.
- *
- * Pedido do operador, na v1.8.40: *"se ele fosse errar, que erre para cima.
- * Questão de espaço deve ser algo que tem certeza de caber"*.
+ * O PESO NA FOLHA, e ele DIZ que é um TETO (decisão do operador: questão de
+ * espaço tem de ser certeza de caber).
  *
  * ARREDONDA PARA CIMA na própria unidade em que vai ser mostrado, depois da
  * margem: 1,21 GB vira "até 1,4 GB". É o lado certo do erro numa tela cujo
@@ -33702,13 +33638,6 @@ function pacoteMontarFolha({ cols, porGrupo, bytesEstado, midiaPorGrupo, midiaBy
  * A PALAVRA É OBRIGATÓRIA quando o número é estimado. Sem ela o operador leria
  * um valor exato e o compararia com o arquivo que sai, que é outro.
  */
-// A MARGEM DO NÚMERO ESTIMADO (v1.8.40): 10% sobre o que a folha conseguiu
-// somar. Ela cobre o que a versão aproximada sabidamente NÃO vê — uma coleção
-// com bytes no disco e sem peso guardado, os arquivos de uma pasta que saiu do
-// catálogo, e o cabeçalho de cada registro do pacote — e cobre para o lado que
-// o operador pediu. Um erro para cima custa uma exportação que ele acha que não
-// cabe e cabia; para baixo custa um cartão que enche no meio do trabalho.
-const PACOTE_MARGEM = 1.1;
 function pacotePeso(bytes, aprox) {
   if (!aprox) return fmtBytes(bytes);
   const K = 1024;
@@ -33717,15 +33646,15 @@ function pacotePeso(bytes, aprox) {
   while (v >= K && u < 3) { v /= K; u++; }
   // Uma casa decimal, para cima — a mesma resolução que o `fmtBytes` mostra.
   const arred = Math.ceil(v * 10) / 10;
-  // "ATÉ" E NÃO "APROX.", e a palavra é o pedido: *"questão de espaço deve ser
-  // algo que tem certeza de caber"*. "aprox." descreve um número que erra para
+  // "ATÉ" E NÃO "APROX.": "aprox." descreve um número que erra para
   // os dois lados; este erra só para cima, e dizer isso é o que o torna
   // utilizável para decidir se cabe.
   return 'até ' + fmtBytes(arred * Math.pow(K, u));
 }
 
 /** Os bytes que os grupos escolhidos vão escrever — o total da barra. */
-// O TOTAL É A UNIÃO, E NÃO A SOMA (v1.8.38).
+// O TOTAL É A UNIÃO, E NÃO A SOMA.
+
 //
 // Os grupos de mídia SE SOBREPÕEM por decisão do operador (ver
 // `pacoteGruposDeMidia`): um item nos Favoritos e no Cronograma conta nos dois.
@@ -33761,27 +33690,18 @@ function pacoteMidiaSelecionada(plano, sel) {
   return ids;
 }
 
-// ===== A LISTA DO TRANSFERIR (v1.7.2 → v1.11.9) =====
+// ===== A LISTA DO TRANSFERIR =====
 //
-// Pedido do operador (v1.7.2): *"caso o usuário não queira levar toda a
-// biblioteca … permita um popup com um check list de grupos para a exportação"*.
-// Era uma FOLHA que subia depois do toque em Exportar, e a v1.11.7 deu à
-// importação a mesma lista em leitura. A v1.11.9 desfez a duplicação a pedido
-// do operador: *"em ambos os casos a lista será vista, então já pode tornar ela
-// visível diretamente e ter apenas os dois botões de ações na base"*. Hoje a
-// lista É a seção (`#pacoteLista`, uma seção de Configurações desde a
-// v1.12.48), e Exportar e Importar são os dois botões da base dela.
+// A lista de grupos É a seção (`#pacoteLista`, em Configurações), e Exportar e
+// Importar são os dois botões da base dela. As caixas dizem o que LEVAR ao
+// exportar e o que TRAZER ao importar.
 //
 // As linhas são as do seletor de destinos (`songMenuItem`): a mesma caixa como
-// INDICADOR, mas o Set é PRÓPRIO (`pacoteMarcados`). As caixas dizem o que LEVAR
-// ao exportar e o que TRAZER ao importar (v1.11.12).
-//
-// O SET NÃO É O DA FOLHA DE DESTINOS (v1.12.22). Ele foi o mesmo `destMarcados`
-// até aqui, e a outra folha o deixa com `{'tocar'}` ou `{'cronograma'}` ao abrir
-// (`renderItemMenu`, `escolherDestinos`): com um pacote pronto, abrir a gaveta de
-// qualquer item e voltar ao Transferir encontrava o Set "não vazio", não
-// remarcava, e a lista abria SEM marca nenhuma — o Importar montava
-// `['tocar', 'ajustes']`, só os ajustes entravam e o arquivo era consumido.
+// INDICADOR, mas o Set é PRÓPRIO (`pacoteMarcados`). NÃO pode ser o
+// `destMarcados`: a outra folha o deixa com `{'tocar'}` ou `{'cronograma'}` ao
+// abrir (`renderItemMenu`, `escolherDestinos`), e a lista do Transferir
+// encontraria o Set "não vazio", não remarcaria, e o Importar montaria
+// `['tocar', 'ajustes']` — só os ajustes entrariam e o arquivo seria consumido.
 const pacoteMarcados = new Set();
 //
 // O plano aproximado que a lista desenha — o que a Biblioteca já tem em
@@ -33891,32 +33811,19 @@ function renderPacoteGrupos(plano) {
   // os dois botões da janela, e a `limparFolha` o esvaziaria junto.
   pacoteListaEl.innerHTML = '';
   // COM TRABALHO ANDANDO OU UM PACOTE PRONTO a lista é só para olhar: as marcas
-  // apagam (INDISPONÍVEL, a regra da v1.8.50) e as seções continuam abrindo.
+  // apagam (INDISPONÍVEL) e as seções continuam abrindo.
   const travada = pacoteOcupado();
   pacoteListaEl.classList.toggle('travada', travada);
   const remontar = () => renderPacoteGrupos(plano);
   const porChave = new Map(plano.grupos.map((g) => [g.chave, g]));
 
-  // ===== NÃO HÁ LINHA DE "TUDO", E ELA EXISTIU (v1.7.3 → v1.7.9) =====
-  //
-  // Ela era um ALTERNADOR na primeira linha ("Selecionar tudo" / "Limpar a
-  // seleção"), e saiu a pedido do operador: *"O seletor de 'tudo' no processo
-  // de seleção de exportação está inútil agora que temos o agrupamento, então
-  // não precisa dele, deixe tudo selecionado por padrão e o usuário
-  // seleciona/desseleciona os poucos itens."*
-  //
-  // **O AGRUPAMENTO É QUEM A TORNOU INÚTIL**, e isso é o pedido da v1.7.3
-  // chegando ao fim: "marcar tudo" já é o ESTADO EM QUE A FOLHA NASCE, e
-  // "limpar tudo" para depois remarcar quase tudo é mais toques que tirar as
-  // duas ou três coleções que não vão. A barra de um GRUPO cobre o caso de
-  // massa que sobrava — uma seção inteira num toque.
-  //
-  // O que ela dizia e não se perdeu: o PESO do que está marcado continua no
-  // botão de confirmar, que é onde a pergunta ("cabe no cartão?") é feita.
+  // NÃO HÁ LINHA DE "TUDO" (decisão do operador): "marcar tudo" é o ESTADO EM
+  // QUE A LISTA NASCE, e a barra de um GRUPO cobre o caso de massa — uma seção
+  // inteira num toque.
 
   const linhaDeGrupo = (g) => {
     const peso = g.vazio ? '' : pacotePeso(g.bytes, g.aprox);
-    // O AVISO DA SOBREPOSIÇÃO (v1.8.38). Os grupos por lista se sobrepõem, e o
+    // O AVISO DA SOBREPOSIÇÃO. Os grupos por lista se sobrepõem, e o
     // peso deles pode contar o mesmo item duas vezes — o que a folha NÃO pode
     // fazer é mostrar dois números que não somam e calar sobre isso. O total do
     // confirmar continua sendo a UNIÃO, e é ele que responde "cabe no cartão?".
@@ -33927,12 +33834,12 @@ function renderPacoteGrupos(plano) {
       g.rotulo, sub, () => {}, g.chave, remontar, pacoteMarcados);
     const btnLinha = li.querySelector('button');
     if (btnLinha) btnLinha.disabled = travada;
-    // AS CLASSES QUE LEVAM O DESENHO DA BIBLIOTECA (v1.8.40) — ver o CSS. Elas
+    // AS CLASSES QUE LEVAM O DESENHO DA BIBLIOTECA — ver o CSS. Elas
     // são PRÓPRIAS desta folha (a `#songMenuList` é a mesma da folha de
     // destinos e do menu de uma música), e é isso que escopa o tom novo sem uma
     // bandeira global que alguém possa esquecer de limpar.
     li.classList.add('pacote-linha');
-    // O QUADRADO DO ÍCONE É O DA BIBLIOTECA (v1.8.41), pela classe e não por
+    // O QUADRADO DO ÍCONE É O DA BIBLIOTECA, pela classe e não por
     // cópia — o mesmo `.coll-bar-icon` que a barra de um álbum veste lá. Na
     // Biblioteca os DOIS níveis têm o quadrado de `--hit`, e é isso que põe o
     // nome de uma seção e o de um álbum na mesma coluna; aqui a seção já ganhou
@@ -33967,15 +33874,7 @@ function renderPacoteGrupos(plano) {
     if (travada) bar.setAttribute('aria-disabled', 'true');
     bar.setAttribute('role', 'button');
     bar.setAttribute('tabindex', '0');
-    // A SETA É A DA BIBLIOTECA, E É LITERALMENTE A DELA (v1.8.41).
-    //
-    // Pedido do operador: *"a seta de abertura do acordeão está diferente … eu
-    // quero o mesmo design da biblioteca, cores e ícones — o padrão da
-    // biblioteca já temos, não precisamos de algo diferente"*. MEDIDO no
-    // renderizado, os dois desenhos não tinham nada em comum: lá um quadrado de
-    // `--hit` em `--btn-accent` com raio de 8px e um chevron de traço 2,4; aqui
-    // um chevron de traço 2 solto numa caixa de 24px, transparente.
-    //
+    // A SETA É A DA BIBLIOTECA, E É LITERALMENTE A DELA (decisão do operador).
     // A CLASSE É A `.coll-group-icon`, e não uma cópia dela: uma segunda
     // descrição do mesmo objeto divergiria no primeiro ajuste da Biblioteca, e
     // a divergência apareceria como as duas telas discordando sobre o que é uma
@@ -33987,11 +33886,9 @@ function renderPacoteGrupos(plano) {
     seta.innerHTML = chevronUpIconSvg();
     seta.setAttribute('aria-label', (aberta ? 'Fechar ' : 'Abrir ') + item.nome);
     seta.setAttribute('aria-expanded', aberta ? 'true' : 'false');
-    // ===== ABRIR E FECHAR ANIMA, COMO NA BIBLIOTECA (v1.8.42) =====
+    // ===== ABRIR E FECHAR ANIMA, COMO NA BIBLIOTECA =====
     //
-    // Pedido do operador: *"na biblioteca temos animações de abertura e
-    // fechamento das listas e grupos, faça essa animação ali no exportar
-    // também"*. São as MESMAS funções (`expandAccordion`/`collapseAccordion`) e
+    // São as MESMAS funções (`expandAccordion`/`collapseAccordion`) e
     // o mesmo desenho da `alternar` da Biblioteca — inclusive a assimetria, que
     // é o ponto: FECHANDO anima ANTES de remontar, porque o redesenho apaga o
     // nó e um nó apagado não tem como sair deslizando; ABRINDO remonta
@@ -34011,7 +33908,7 @@ function renderPacoteGrupos(plano) {
         // O FECHO CHEGA DEPOIS DA ANIMAÇÃO (ACC_MS) e pode achar OUTRA seção aberta no meio
         // tempo — o toque na seta seguinte não espera. Ele só vale se esta continua a aberta:
         // sem a guarda, o fecho atrasado fechava a seção que o operador acabou de abrir
-        // (MEDIDO sob carga, v1.12.22: o `pacote-por-grupos` lia a seção vazia).
+        // (MEDIDO sob carga: o `pacote-por-grupos` lia a seção vazia).
         collapseAccordion(corpo, () => { if (pacoteSecaoAberta === item.nome) aplicar(); });
         return;
       }
@@ -34021,12 +33918,11 @@ function renderPacoteGrupos(plano) {
     const t = document.createElement('span'); t.className = 'song-menu-label';
     t.textContent = item.nome;
     const d = document.createElement('span'); d.className = 'song-menu-sub';
-    // O PESO DA SEÇÃO SEGUE A SELEÇÃO E LEVA A PALAVRA (v1.8.46). Ele somava
-    // TODAS as chaves e saía em formato EXATO — ao lado de linhas que dizem
-    // "até X" e que mudam quando o operador desmarca. Na mesma tela, um total
-    // de seção que não soma com as partes e não responde ao dedo.
+    // O PESO DA SEÇÃO SEGUE A SELEÇÃO E LEVA A PALAVRA ("até X"), como as
+    // linhas dela: um total de seção que não soma com as partes e não responde
+    // ao dedo é o que se evita.
     //
-    // Pelo `pacoteBytesDe` e não pelo `pacotePesoDe`: aquele é o que sabe a
+    // Pelo `pacoteBytesDe`: é ele que sabe a
     // UNIÃO, e é o mesmo que o confirmar usa — dois jeitos de somar a mesma
     // coisa divergem no primeiro grupo que se sobrepuser.
     const marcadas = item.chaves.filter((k) => pacoteMarcados.has(k));
@@ -34047,12 +33943,9 @@ function renderPacoteGrupos(plano) {
     bar.addEventListener('keydown', (ev) => {
       if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); marcarGrupo(); }
     });
-    // O CORPO MORA DENTRO DO BLOCO (v1.8.40), e não como irmão dele.
-    //
-    // Pedido do operador: *"os grupos estão iguais às listas de itens dentro
-    // deles, não deixando identificar o que é topo e o que é item … use o mesmo
-    // design que já temos na biblioteca"*. A alternância da Biblioteca é
-    // POÇO → PAPEL (v1.5.14), e ela só pode ser escrita se o bloco CONTIVER o
+    // O CORPO MORA DENTRO DO BLOCO, e não como irmão dele: o topo e os itens
+    // precisam se distinguir, e a alternância da Biblioteca é
+    // POÇO → PAPEL, que só pode ser escrita se o bloco CONTIVER o
     // que é dele: com as linhas soltas como irmãs, "dentro" não existe para o
     // CSS, e o degrau de tom não tem onde pousar. É a mesma forma da
     // `.coll-group--drop` mais a `.coll-group-corpo`.
@@ -34060,11 +33953,8 @@ function renderPacoteGrupos(plano) {
     li.appendChild(bar);
     if (aberta) {
       const corpo = document.createElement('ul');
-      // NADA MARCA UMA LINHA COMO "DE DENTRO" (v1.8.41): quem diz isso é este
-      // corpo, por CONTÊ-LA. Houve um recuo de texto (`.song-menu-dentro`) e
-      // uma classe no `<li>` enquanto as linhas eram IRMÃS da barra — sem
-      // bloco, o recuo era a única coisa que dizia a quem uma linha pertencia.
-      // Reintroduzi-lo é somar dois recuos: MEDIDO, com ele o nome de uma linha
+      // NADA MARCA UMA LINHA COMO "DE DENTRO": quem diz isso é este corpo, por
+      // CONTÊ-LA. Um recuo de texto a mais somaria dois recuos: MEDIDO, com ele o nome de uma linha
       // ficava 39,2px à direita do nome da seção, contra 6,4px na Biblioteca; o
       // do corpo sozinho dá 5,59px.
       corpo.className = 'pacote-grupo-corpo';
@@ -34108,7 +33998,7 @@ function renderPacoteGrupos(plano) {
 const PACOTE_CANCELADO = 'cancelado';
 
 // A FOLGA que o caminho de COMPARTILHAR exige no armazenamento próprio, além do
-// tamanho medido do pacote (shell 67).
+// tamanho medido do pacote.
 //
 // 512 MB, e o número é do APARELHO e não do pacote: compartilhar escreve uma
 // SEGUNDA cópia do acervo em `files/pacote/`, e um Android que fica sem espaço
@@ -34119,7 +34009,7 @@ const PACOTE_CANCELADO = 'cancelado';
 const PACOTE_FOLGA_BYTES = 512 * 1024 * 1024;
 
 
-// O PACOTE FECHADO QUE ESPERA SER MANDADO (v1.8.19) — `{ nome, bytes }`, ou
+// O PACOTE FECHADO QUE ESPERA SER MANDADO — `{ nome, bytes }`, ou
 // `null`.
 //
 // Ele é o que faz o tile de exportar virar um botão de ENVIAR: a exportação
@@ -34136,11 +34026,9 @@ let pacotePronto = null;
 
 // O DIÁRIO DO PACOTE — o que aconteceu na última exportação e no último envio.
 //
-// Ele existe porque este caminho já produziu DUAS falhas cujo relato foi
-// indistinguível a distância: *"o arquivo tem 0kb"* (v1.8.18) e *"tocar nele
-// não faz nada"* (v1.8.20). Nos dois, a pergunta que resolveria em um minuto —
-// **o toque chegou a pedir o envio, e o que o shell respondeu?** — não tinha
-// resposta em lugar nenhum, e a investigação virou dedução sobre o código.
+// Ele responde, no Registro, a pergunta que separa as falhas deste caminho a
+// distância ("o arquivo tem 0 kB", "tocar nele não faz nada"): **o toque
+// chegou a pedir o envio, e o que o shell respondeu?**
 //
 // EM MEMÓRIA e sem carimbo de disco, como o resto do estado do pacote: ele
 // descreve ESTA sessão, que é o que o operador acabou de fazer antes de copiar
@@ -34160,29 +34048,18 @@ async function exportarPacote() {
   const c = pacoteCanal();
   if (!c || pacoteEmCurso) return;
   pacoteOuvirCanal(c);
-  // A BANDEIRA SOBE AQUI, e não depois do "Salvar como" (v1.8.15).
+  // A BANDEIRA SOBE AQUI, e não depois do "Salvar como": entre o toque e o
+  // `pacoteCriar` corre a MEDIÇÃO (segundos num acervo grande), e um segundo
+  // toque nesse vão chegaria ao SAF — o `PacoteCanal.adotar` fecharia o stream
+  // VIVO da primeira exportação e trocaria a `uri`, deixando o parcial dela para
+  // sempre. O mesmo vale para tocar em Importar no meio da medição.
   //
-  // Entre o toque e o `pacoteCriar` correm a MEDIÇÃO (segundos num acervo
-  // grande) e a folha de grupos, e nesse vão o guarda de cima não guardava
-  // nada: um segundo toque chegava ao SAF, o `PacoteCanal.adotar` chamava
-  // `fechar()` no stream VIVO da primeira exportação e trocava a `uri` — daí
-  // em diante o `descartarPacote` apagava o arquivo NOVO, **o parcial da
-  // primeira ficava para sempre**, e os blocos que ela ainda empurrava caíam no
-  // documento da segunda. O mesmo valia para tocar em Importar no meio da
-  // medição: o `finally` de lá zerava a bandeira com a exportação escrevendo.
-  //
-  // Ela desce em TODA saída — as três de baixo (medição falhou, desistiu na
-  // folha, desistiu no seletor) e o `finally` da escrita.
+  // Ela desce em TODA saída — as de baixo (esboço ou medição falhou, desistiu
+  // no seletor) e o `finally` da escrita.
   pacoteEmCurso = true;
   pacoteRenderTiles();
 
-  // ===== A MEDIÇÃO VEM ANTES DE TUDO, E ELA APARECE NO PRÓPRIO BOTÃO =====
-  // Ela varre o OPFS inteiro, percorre a store de mídia e lê as chaves de
-  // `state` — segundos num acervo grande. Até a v1.7.2 ela acontecia DEPOIS do
-  // "Salvar como", em silêncio absoluto; a v1.7.2 a mostrou no cartão sobre a
-  // PREVIEW, e a v1.7.3 a trouxe para cá: a ação acontece no botão, e é nele
-  // que ela responde (ver `falarNoTile`).
-  // A LISTA JÁ ESTÁ NA SEÇÃO (v1.11.9), com o peso que a Biblioteca já tem, e a
+  // A LISTA JÁ ESTÁ NA SEÇÃO, com o peso que a Biblioteca já tem, e a
   // escolha é a marca que ela mostra. Sem a seção aberta (um oráculo, ou a
   // própria função chamada de fora) o plano sai agora e entra TUDO MARCADO — o
   // padrão da lista. A varredura do disco corre DEPOIS — ver
@@ -34207,16 +34084,14 @@ async function exportarPacote() {
 
   // ===== AGORA A MEDIÇÃO DE VERDADE =====
   // Ela varre o OPFS inteiro, percorre a store de mídia e lê as chaves de
-  // `state` — segundos num acervo grande. Até a v1.8.25 ela acontecia ANTES da
-  // folha, e era o operador esperando para poder escolher; hoje ela roda com a
-  // escolha já feita, que é onde o trabalho de verdade começa. O número aparece
-  // no PRÓPRIO BOTÃO, como todo o resto deste caminho (ver `falarNoTile`).
+  // `state` — segundos num acervo grande —, e roda com a escolha já feita. O
+  // número aparece no PRÓPRIO BOTÃO, como todo o resto deste caminho (ver
+  // `falarNoTile`).
   let plano = null;
-  // SEM A PALAVRA "Medindo…" (v1.8.27). Pedido do operador: *"não precisa usar
-  // 'medindo' após a seleção, apenas inclua isso na contagem de porcentagem do
-  // processo. afinal, isso é só parte do processo como um todo"*. Ele está
-  // certo, e é o que ela é: a medição ocupa a primeira FATIA da barra do
-  // processo inteiro (ver `PACOTE_FATIA_MEDIDA`), e a escrita continua dali.
+  // SEM A PALAVRA "Medindo…" (decisão do operador): a medição ocupa a primeira
+  // FATIA da barra do processo inteiro (ver `PACOTE_FATIA_MEDIDA`), e a escrita
+  // continua dali.
+
   // A BANDEIRA DE "dá para parar" NÃO sobe aqui, e é de propósito: durante a
   // medição não há escrita para interromper — o `pacoteCancelar` só é lido pelo
   // escritor. Um cancelar aceito agora ficaria pendurado até o seletor de
@@ -34302,30 +34177,18 @@ async function exportarPacote() {
       bgItemOnly(tarefa, nome);
       let feitos = 0;
       let etapa = '';
-      // O NÚMERO VAI NO RÓTULO DO BOTÃO (v1.7.3), e é a única coisa que cabe
+      // O NÚMERO VAI NO RÓTULO DO BOTÃO, e é a única coisa que cabe
       // lá: o tile tem uma linha de texto, e a ETAPA — o nome do grupo que está
       // sendo escrito — é longa demais para ela. A etapa continua indo para a
       // NOTIFICAÇÃO, que é a superfície com espaço e a que existe com o app
       // minimizado, que é onde uma exportação de gigabytes de fato acontece.
       // A ESCRITA CONTINUA DE ONDE A MEDIÇÃO PAROU — ver `PACOTE_FATIA_MEDIDA`.
       //
-      // AS DUAS SUPERFÍCIES DIZEM O MESMO NÚMERO, E POR CONSTRUÇÃO (v1.8.35).
-      // Até aqui a fração era calculada DUAS vezes: o botão recebia a do
-      // processo inteiro (a medição mais a escrita) e a notificação recebia a
-      // da ESCRITA CRUA — um desvio SISTEMÁTICO de `PACOTE_FATIA_MEDIDA × (1 −
-      // f)`, isto é, os 5% inteiros no começo, fechando em zero só no fim. Era
-      // o relato do operador: *"o número do progresso na notificação não está
-      // se atualizando corretamente, há muito atraso em relação à realidade, ao
-      // menos 5%"* — e ele não estava vendo atraso de RELÓGIO, estava vendo
-      // duas contas diferentes sobre o mesmo trabalho.
-      //
-      // O argumento que sustentava a divergência respondia outra pergunta: a
-      // notificação de fato só EXISTE a partir daqui (é ela que segura o
-      // processo em primeiro plano), e daí se concluiu que o número dela
-      // começa aqui. Não segue: QUANDO uma superfície nasce não decide O QUE
-      // ela mede. A IMPORTAÇÃO já fazia o certo e já dizia a regra por escrito
-      // (*"o `done` continua em BYTES DO PACOTE, e a fração é a do processo
-      // INTEIRO"*); isto é a mesma regra do outro lado.
+      // AS DUAS SUPERFÍCIES DIZEM O MESMO NÚMERO, E POR CONSTRUÇÃO: o botão e a
+      // notificação recebem a fração do processo INTEIRO (a medição mais a
+      // escrita). A notificação só existe a partir daqui, mas QUANDO uma
+      // superfície nasce não decide O QUE ela mede — com a fração da escrita
+      // crua ela ficava 5% atrás do botão. É a mesma regra da importação.
       //
       // O PREÇO ESTÁ DITO e é o mesmo que a importação já paga: a linha "X de
       // Y" da notificação passa a contar os bytes da BARRA, não os bytes
@@ -34344,10 +34207,9 @@ async function exportarPacote() {
         await esc.bytes(AVPacote.assinatura());
         // O CABEÇALHO HUMANO. Ele não é lido para decidir nada — quem decide é
         // a assinatura —, e existe para o pacote poder ser inspecionado por
-        // fora e para a tela de importação dizer de onde ele veio. Desde a
-        // v1.7.2 ele diz também QUE GRUPOS este arquivo traz: um pacote
-        // parcial é o caso normal agora, e "o que tem aqui dentro?" passou a
-        // ser uma pergunta com resposta.
+        // fora e para a tela de importação dizer de onde ele veio. Ele diz
+        // também QUE GRUPOS este arquivo traz: um pacote parcial é o caso
+        // normal, e "o que tem aqui dentro?" é uma pergunta com resposta.
         const escolhidos = plano.grupos.filter((g) => sel.has(g.chave));
         const info = new Blob([JSON.stringify({
           app: 'audio-visual-iasd',
@@ -34378,9 +34240,9 @@ async function exportarPacote() {
         // O ACERVO. A ordem — registro, miniatura, páginas — é CONTRATO com o
         // importador: ele monta o item enquanto lê, e por isso a miniatura e as
         // páginas de um item vêm coladas nele.
-        // A UNIÃO DOS GRUPOS MARCADOS, e não `sel.has('midia')`: desde a
-        // v1.8.38 a store de mídia é vários grupos que se sobrepõem, e o item
-        // viaja se QUALQUER um deles estiver marcado.
+        // A UNIÃO DOS GRUPOS MARCADOS, e não `sel.has('midia')`: a store de
+        // mídia é vários grupos que se sobrepõem, e o item viaja se QUALQUER um
+        // deles estiver marcado.
         const idsMidia = pacoteMidiaSelecionada(plano, sel);
         if (idsMidia.size) {
           etapa = 'Itens importados e vídeos';
@@ -34445,7 +34307,7 @@ async function exportarPacote() {
           if (rec.opfsPath && !plano.caminhoViaja(rec.opfsPath)) continue;
           const gDoArquivo = rec.opfsPath ? AVPacote.grupoDoCaminho(rec.opfsPath, plano.ids) : '';
           if (rec.opfsPath && !sel.has(gDoArquivo)) continue;
-          // O catálogo de uma pasta de SÉRIE não viaja: os bytes dela também não (v1.11.14).
+          // O catálogo de uma pasta de SÉRIE não viaja: os bytes dela também não.
           if (gDoArquivo && plano.seriesIds && plano.seriesIds.has(AVPacote.colecaoDoGrupo(gDoArquivo))) continue;
           await esc.registro({ t: 'arquivo', rec: AVPacote.sanearArquivo(rec), bytes: 0 });
           if (rec.thumb) await esc.registro({ t: 'arquivo-thumb', bytes: rec.thumb.size }, rec.thumb);
@@ -34458,8 +34320,8 @@ async function exportarPacote() {
         for (const g of plano.grupos) {
           // OS GRUPOS DE MÍDIA JÁ FORAM ESCRITOS acima, pela união: eles não
           // têm arquivos no OPFS. O `porGrupo` não os conhece, então o `continue`
-          // abaixo bastaria — a guarda é explícita porque desde a v1.8.38 são
-          // VÁRIOS, e "o `midia` é a exceção" deixou de ser verdade.
+          // abaixo bastaria — a guarda é explícita porque eles são VÁRIOS, e
+          // "o `midia` é a exceção" não é verdade.
           if (g.fixo || !sel.has(g.chave)) continue;
           if (plano.midiaPorGrupo && plano.midiaPorGrupo.has(g.chave)) continue;
           const pacote = plano.porGrupo.get(g.chave);
@@ -34487,7 +34349,7 @@ async function exportarPacote() {
         bgTaskEnd(tarefa);
       }
     });
-    // FECHAR NÃO É ENVIAR (v1.8.19). Os dois caminhos fecham pelo MESMO
+    // FECHAR NÃO É ENVIAR. Os dois caminhos fecham pelo MESMO
     // método; o que muda é o que vem depois — no local o arquivo fica PRONTO e
     // o operador manda quando quiser, no SAF ele já é do operador. O número é
     // o `length()` do disco, e é ele que descobre o cartão cheio.
@@ -34521,26 +34383,15 @@ async function exportarPacote() {
     await openAppDialog({ title: 'Não deu para exportar', message: erro, okText: 'Entendi', cancelText: null });
     return;
   }
-  // ===== O DESFECHO MORA NO BOTÃO, E SÓ NELE (v1.8.19) =====
+  // ===== O DESFECHO MORA NO BOTÃO, E SÓ NELE (decisão do operador) =====
   //
-  // Pedido do operador: *"pode remover o popup de 'acervo exportado'. faça com
-  // que após a conclusão da preparação do arquivo, o botão de exportar fica
-  // 100% e permita tocar nele para compartilhar o arquivo de exportação, no
-  // caso permitindo controlar quando vai exportar, após terminar os processos,
-  // e também permitindo compartilhar o mesmo arquivo pronto, quantas vezes
-  // quiser"*.
-  //
-  // O DIÁLOGO ERA UM PASSO A MAIS NO MEIO DE UMA AÇÃO QUE JÁ TINHA ACABADO, e
-  // ele existia para dizer duas coisas: o tamanho e o que fazer em seguida. O
-  // tamanho continua no botão; o "o que fazer" virou o PRÓPRIO BOTÃO — ele
-  // para em 100% e o toque manda. (Desde a v1.11.7 os dois botões moram numa
-  // janela, e o desfecho vai também para o tile da grade — `pacotePulsar`.)
+  // Sem diálogo: o tamanho fica no botão, e o "o que fazer" é o PRÓPRIO BOTÃO —
+  // ele para em 100% e o toque manda, quantas vezes o operador quiser. O
+  // desfecho vai também para o tile da grade (`pacotePulsar`).
   pacotePulsar(pacoteExportarTileEl, 'ok');
-  // ===== O CARTÃO DE CONCLUSÃO, COM O CHECK (v1.8.31) =====
+  // ===== O CARTÃO DE CONCLUSÃO, COM O CHECK na barra do sistema =====
   //
-  // Pedido do operador: *"ao terminar o processo de exportar ou importar, o
-  // ícone não desapareça na barra, mas vire um ícone de check, para não ter a
-  // impressão de falha ou erro"*. SÓ NO SUCESSO — quem cancelou ou falhou já
+  // SÓ NO SUCESSO — quem cancelou ou falhou já
   // tem o diálogo que diz o que houve, e um check ali seria a barra
   // contradizendo a tela.
   bgConcluido('Acervo exportado', fmtBytes(gravados));
@@ -34563,23 +34414,19 @@ async function exportarPacote() {
 // IMPORTAR
 // ---------------------------------------------------------------------------
 
-// ===== A FONTE DE UM PACOTE, E POR QUE ELA NÃO É UM `Blob` (v1.7.9) =====
+// ===== A FONTE DE UM PACOTE, E POR QUE ELA NÃO É UM `Blob` =====
 //
-// Relato do operador: *"Não estou conseguindo importar os dados, 'failed to
-// fetch' era um arquivo de 15GB. Tentei em um arquivo de 3,52GB e ele deu erro
-// como se o arquivo estivesse corrompido."*
+// Dois limites, um em cada camada, e os dois só aparecem no tamanho:
 //
-// Eram DOIS defeitos, um em cada camada, e os dois só aparecem no tamanho:
-//
-//  1. **`resp.blob()` materializava o arquivo INTEIRO** antes do primeiro byte
+//  1. **`resp.blob()` materializaria o arquivo INTEIRO** antes do primeiro byte
 //     ser lido. Quinze gigabytes não cabem em lugar nenhum — nem na memória,
 //     nem no armazenamento de blobs, que é uma SEGUNDA cópia ao lado da
-//     primeira num aparelho que já está cheio. O `Failed to fetch` é isso.
+//     primeira num aparelho que já está cheio (`Failed to fetch`).
 //  2. **o caminho `/saf/` tem teto de 2 GB, e ele é estrutural**: o Chromium
 //     dimensiona toda resposta interceptada pelo `available()` do
 //     `InputStream`, que é um `int` (ver a invariante 8 e o `SafJanela.kt`).
 //     Acima de `Integer.MAX_VALUE` o web recebe um arquivo CORTADO, sem erro
-//     nenhum, e o cursor tropeça no meio de um registro. É o segundo relato.
+//     nenhum, e o cursor tropeça no meio de um registro.
 //
 // A FONTE é a resposta aos dois: ela entrega FATIAS e nunca o arquivo. O
 // formato do pacote já era sequencial e por deslocamento — o que faltava era
@@ -34628,9 +34475,9 @@ const PACOTE_PEDACO = 8 * 1024 * 1024;
  * (dobra, até 1 MB); um salto maior que isso é um corpo pulado (volta ao
  * mínimo). Os dois regimes do formato, cada um no tamanho dele.
  *
- * **A PERGUNTA NÃO PODE SER UMA IGUALDADE**, e isso é MEDIDO. Da v1.7.9 até
- * aqui ela foi `ini === bufIni + buf.length` — "começou exatamente onde o
- * buffer acabou" —, e essa coincidência quase nunca acontece: as leituras do
+ * **A PERGUNTA NÃO PODE SER UMA IGUALDADE**, e isso é MEDIDO: com
+ * `ini === bufIni + buf.length` — "começou exatamente onde o buffer acabou" —
+ * a coincidência quase nunca acontece: as leituras do
  * cursor são contíguas mas de tamanhos irregulares (4 bytes de prefixo, depois
  * o cabeçalho, depois um corpo pulado), então a borda do buffer cai DENTRO de
  * uma leitura ou o pedido seguinte pousa alguns bytes DEPOIS dela. Resultado
@@ -34697,16 +34544,13 @@ function pacoteFonteDaUrl(url, size) {
         // silêncio de minutos na barra — ver o `aoLer` do cursor.
         if (aoLer) aoLer(lidos);
       }
-      // A GUARDA QUE O IRMÃO `bytes()` SEMPRE TEVE, e que faltava aqui — no
-      // caminho que traz os CORPOS (v1.8.15).
-      //
-      // Uma janela pode devolver MENOS do que se pediu: o `SafJanela.ler` corta
-      // no que conseguiu (`buf.copyOf(lidos)`), e o caso que torna isso provável
-      // é o novo caminho de uso — o arquivo chega por Quick Share e APARECE em
-      // Downloads antes de terminar de ser escrito. O `size` já responde o valor
-      // final, as janelas do fim voltam curtas, e o cursor avança pelo `bytes`
-      // DECLARADO no cabeçalho: um vídeo de 300 MB era gravado TRUNCADO, sem
-      // erro em lugar nenhum dos dois lados, e o defeito só aparecia ao projetar.
+      // A GUARDA DO IRMÃO `bytes()`, no caminho que traz os CORPOS. Uma janela
+      // pode devolver MENOS do que se pediu: o `SafJanela.ler` corta no que
+      // conseguiu (`buf.copyOf(lidos)`), e o caso provável é o arquivo que chega
+      // por Quick Share e APARECE em Downloads antes de terminar de ser escrito.
+      // O `size` já responde o valor final e o cursor avança pelo `bytes`
+      // DECLARADO no cabeçalho: sem a guarda, o vídeo seria gravado TRUNCADO,
+      // sem erro em lugar nenhum, e o defeito só apareceria ao projetar.
       if (lidos !== fim - ini) throw new Error('pacote: acabou no meio de um registro');
       return new Blob(partes, { type: tipo || '' });
     },
@@ -34722,9 +34566,7 @@ function pacoteFonteDaUrl(url, size) {
  * usar seria ler gigabytes duas vezes.
  */
 function pacoteCursor(fonte) {
-  // O CURSOR COMEÇA DEPOIS DA ASSINATURA, que é onde o `.avpkg` começa. O
-  // início chegou a ser PARÂMETRO (v1.8.0), para o corpo de um item do CLONE —
-  // um fluxo de registros NU, sem assinatura —, e saiu com ele na v1.8.16.
+  // O CURSOR COMEÇA DEPOIS DA ASSINATURA, que é onde o `.avpkg` começa.
   let pos = AVPacote.ASSINATURA_BYTES;
   return {
     get pos() { return pos; },
@@ -34737,7 +34579,7 @@ function pacoteCursor(fonte) {
       const cab = AVPacote.cabecalhoDeBytes(await fonte.bytes(cabIni, cabIni + n));
       const corpoIni = cabIni + n;
       if (corpoIni + cab.bytes > fonte.size) throw new Error('pacote: acabou no meio de um registro');
-      // `comCorpo` também pode ser uma FUNÇÃO da cabeça (v1.11.12): a importação
+      // `comCorpo` também pode ser uma FUNÇÃO da cabeça: a importação
       // por seleção decide pelo registro se vale buscar o corpo, e um registro
       // que ficou de fora é PULADO pelo `bytes` — o mesmo caminho da conferência.
       const ler = typeof comCorpo === 'function' ? comCorpo(cab) !== false : comCorpo !== false;
@@ -34751,50 +34593,7 @@ function pacoteCursor(fonte) {
 }
 
 /**
- * A MESCLA DE UMA CHAVE DE `state`, e ela é a promessa do recurso escrita em
- * quatro linhas: **o local nunca perde**.
- *
- *  1. a chave não existe aqui → entra inteira (é o caso do aparelho NOVO, que é
- *     o caso de uso);
- *  2. as duas são listas de ids (`imports`, `playlist`, `favs`, `folder_<id>`)
- *     → UNIÃO, na ordem local primeiro — a playlist de quem importa não é
- *     reordenada por um arquivo;
- *  3. as duas são mapas (as cifras de uma coleção, o cache de letras) → mescla
- *     RECURSIVA: cada chave em disputa volta para esta função, e é nas FOLHAS
- *     que o local vence;
- *  4. qualquer outra coisa (um número, um texto, um Blob) → nada muda.
- *
- * A regra é por FORMA e não por nome de chave, e isso é escolha: uma tabela de
- * nomes envelheceria em silêncio a cada chave nova, e o modo de falhar dela
- * seria justamente o pior — uma chave desconhecida caindo no ramo errado e
- * apagando o que o operador tem.
- *
- * ## A RECURSÃO É O RECURSO (v1.8.23), e a falta dela apagava o acervo inteiro
- *
- * A regra 3 era `Object.assign({}, vindo, local)` — RASA. Numa chave cujo
- * conteúdo todo mora sob UMA chave aninhada, "mesclar" degenera em "o local
- * vence inteiro", e foi exatamente o que aconteceu com o índice de uma coleção:
- *
- *     coll:hymnal-2022 = { indexSyncedAt, songs: [ … , fileIdFull, … ] }
- *
- * `songs` é o único lugar onde mora o PONTEIRO de cada hino para o arquivo dele.
- * O aparelho de destino já tinha esse índice — todo celular que abriu o app com
- * internet o tem, porque o `autoRefreshCollections` o busca sozinho —, com
- * `fileIdFull: null` em tudo. Os registros de `files` e os bytes do OPFS
- * chegavam; o índice que apontava para eles era descartado no `Object.assign`.
- *
- * O desfecho é o pior formato que este recurso sabe produzir: a importação
- * termina, anuncia os milhares de itens que entraram, o hino APARECE na
- * Biblioteca — e tocar nele vai à rede, porque para o app não há arquivo. Sem
- * internet, "falha por não ter internet" sobre um acervo que está no disco.
- *
- * A recursão conserta isso sem uma linha sobre `coll:`, `songs` ou
- * `fileIdFull`: descendo até as folhas, `fileIdFull: null` cai na REGRA 1 — o
- * local não tem valor, então o de fora entra. **O local continua nunca
- * perdendo**; ele só deixa de vencer com um buraco.
- */
-/**
- * O APARELHO FICOU SEM ESPAÇO — e ele precisa de resposta PRÓPRIA (v1.8.15).
+ * O APARELHO FICOU SEM ESPAÇO — e ele precisa de resposta PRÓPRIA.
  *
  * O IndexedDB recusa uma escrita que não cabe com `QuotaExceededError`; alguns
  * navegadores usam o nome legado `NS_ERROR_DOM_QUOTA_REACHED`. A pergunta é
@@ -34834,10 +34633,49 @@ function pacoteIdentDaLista(v) {
   return '';
 }
 
+/**
+ * A MESCLA DE UMA CHAVE DE `state`, e ela é a promessa do recurso escrita em
+ * quatro linhas: **o local nunca perde**.
+ *
+ *  1. a chave não existe aqui → entra inteira (é o caso do aparelho NOVO, que é
+ *     o caso de uso);
+ *  2. as duas são listas de ids (`imports`, `playlist`, `favs`, `folder_<id>`)
+ *     → UNIÃO, na ordem local primeiro — a playlist de quem importa não é
+ *     reordenada por um arquivo;
+ *  3. as duas são mapas (as cifras de uma coleção, o cache de letras) → mescla
+ *     RECURSIVA: cada chave em disputa volta para esta função, e é nas FOLHAS
+ *     que o local vence;
+ *  4. qualquer outra coisa (um número, um texto, um Blob) → nada muda.
+ *
+ * A regra é por FORMA e não por nome de chave, e isso é escolha: uma tabela de
+ * nomes envelheceria em silêncio a cada chave nova, e o modo de falhar dela
+ * seria justamente o pior — uma chave desconhecida caindo no ramo errado e
+ * apagando o que o operador tem.
+ *
+ * ## A RECURSÃO É O RECURSO, e sem ela o acervo inteiro se perdia
+ *
+ * Com uma regra 3 RASA (`Object.assign({}, vindo, local)`), numa chave cujo
+ * conteúdo todo mora sob UMA chave aninhada, "mesclar" degenera em "o local
+ * vence inteiro" — é o caso do índice de uma coleção:
+ *
+ *     coll:hymnal-2022 = { indexSyncedAt, songs: [ … , fileIdFull, … ] }
+ *
+ * `songs` é o único lugar onde mora o PONTEIRO de cada hino para o arquivo dele.
+ * O aparelho de destino já tinha esse índice — todo celular que abriu o app com
+ * internet o tem, porque o `autoRefreshCollections` o busca sozinho —, com
+ * `fileIdFull: null` em tudo. Os registros de `files` e os bytes do OPFS
+ * chegariam, e o índice que aponta para eles seria descartado: o hino APARECE
+ * na Biblioteca — e tocar nele vai à rede, porque para o app não há arquivo.
+ *
+ * A recursão conserta isso sem uma linha sobre `coll:`, `songs` ou
+ * `fileIdFull`: descendo até as folhas, `fileIdFull: null` cai na REGRA 1 — o
+ * local não tem valor, então o de fora entra. **O local continua nunca
+ * perdendo**; ele só deixa de vencer com um buraco.
+ */
 function pacoteMesclarValor(local, vindo) {
   if (local === undefined || local === null) return vindo;
   if (vindo === undefined || vindo === null) return local;
-  // LISTA LOCAL VAZIA NÃO É UM LADO A PRESERVAR (v1.8.42), e sem esta linha o
+  // LISTA LOCAL VAZIA NÃO É UM LADO A PRESERVAR, e sem esta linha o
   // vazio VENCIA. A promessa desta função é "o local nunca perde"; uma lista
   // vazia não tem o que perder, e as três regras abaixo não a alcançam: um
   // `[]` satisfaz `listaDeIds` por VACUIDADE (`[].every()` é `true`), mas o
@@ -34845,16 +34683,10 @@ function pacoteMesclarValor(local, vindo) {
   // devolve `''` pelo `!v.length`; e `mapa([])` é falso por ser Array. Sobrava
   // o `return local` do fim — o vazio comendo a lista que chegou.
   //
-  // MEDIDO, e o caminho era o uso normal do recurso: até a v1.11.4,
-  // `deleteCollection` gravava `{indexSyncedAt: 0, songs: []}` no `state`
-  // (ela preserva `songs` desde então — ver o KDoc de `deleteCollection`),
-  // então "apago a coleção para liberar espaço, depois importo o pacote"
-  // fazia entrar os BYTES e os registros e descartar o ÍNDICE. A coleção
-  // aparecia VAZIA na Biblioteca, nada tocava, o `gcOrfaos` da abertura
-  // seguinte recolhia os gigabytes, e o relatório nem a mencionava
-  // (`if (!songs.length) continue`). Zero erro. A REGRA FICA: `messages` e
-  // `folders` também são gravados vazios por outros caminhos, e um objeto
-  // novo qualquer que zere uma lista tem o mesmo risco no primeiro merge.
+  // Sem ela, um índice local com `songs: []` faria entrar os BYTES e os
+  // registros e descartaria o ÍNDICE: a coleção apareceria VAZIA, nada tocaria
+  // e o `gcOrfaos` da abertura seguinte recolheria os gigabytes, sem erro.
+  // `messages` e `folders` também são gravados vazios por outros caminhos.
   //
   // Devolve `local` quando os DOIS estão vazios: a identidade é o que diz
   // "nada mudou" ao chamador, e um objeto novo faria a chave ser reescrita e
@@ -34868,23 +34700,19 @@ function pacoteMesclarValor(local, vindo) {
     const novos = vindo.filter((x) => !tem.has(x));
     return novos.length ? local.concat(novos) : local;
   }
-  // LISTA DE OBJETOS COM `id` — e ela é a metade que faltava (v1.8.15).
-  //
-  // `messages` é `[{id, text, estilo?}]` e `folders` tem a mesma forma: não são lista de
-  // strings (regra 2) nem mapa (regra 3), então caíam na regra 4 e **o local
-  // vencia inteiro**. Num aparelho que já salvou uma mensagem, as mensagens do
-  // pacote eram descartadas em silêncio — o recurso só funcionava no aparelho
-  // virgem, que é justamente onde nenhuma regra de mescla é exercitada.
+  // LISTA DE OBJETOS COM `id`. `messages` é `[{id, text, estilo?}]` e `folders`
+  // tem a mesma forma: não são lista de strings (regra 2) nem mapa (regra 3), e
+  // na regra 4 **o local venceria inteiro** — as mensagens do pacote seriam
+  // descartadas em silêncio num aparelho que já salvou uma.
   //
   // A união é POR `id`, e o local continua vencendo: o que já existe aqui não é
   // tocado, e o que vem de fora só acrescenta o que não colide.
   const identL = pacoteIdentDaLista(local);
   if (identL && identL === pacoteIdentDaLista(vindo)) {
-    // O QUE COLIDE É MESCLADO, não descartado (v1.8.23). Até aqui o item local
-    // vencia INTEIRO, e é essa linha que segurava o índice de uma coleção: cada
-    // hino existia dos dois lados, então o de fora — o único com o ponteiro para
-    // o arquivo — era jogado fora por já haver um homônimo. A recursão faz o
-    // local continuar vencendo campo a campo, e preencher só o que está vazio.
+    // O QUE COLIDE É MESCLADO, não descartado: no índice de uma coleção cada
+    // hino existe dos dois lados, e o de fora é o único com o ponteiro para o
+    // arquivo. A recursão faz o local continuar vencendo campo a campo, e
+    // preencher só o que está vazio.
     const chave = (x) => String(x[identL]);
     const porId = new Map(vindo.map((x) => [chave(x), x]));
     const usados = new Set();
@@ -34908,13 +34736,10 @@ function pacoteMesclarValor(local, vindo) {
     // existe dos dois lados nunca era mesclado — ver o KDoc acima.
     const tem = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
     const saida = Object.assign({}, vindo);
-    // "NADA MUDOU" TEM DE SER DIZÍVEL POR IDENTIDADE (v1.8.23), e não é
-    // cosmética: o chamador conta a chave e DECIDE SE ESCREVE por
-    // `depois !== antes`. Enquanto a mescla devolvia sempre um objeto novo,
-    // toda chave de mapa era reescrita e contada — e a Bíblia mora em `state`
-    // com UMA CHAVE POR CAPÍTULO (1189 por versão). Num aparelho que já tem a
-    // mesma versão, são milhares de transações para gravar exatamente o que já
-    // estava lá, e milhares de "ajustes" anunciados que ninguém ajustou.
+    // "NADA MUDOU" TEM DE SER DIZÍVEL POR IDENTIDADE, e não é cosmética: o
+    // chamador conta a chave e DECIDE SE ESCREVE por `novo === atual`. Um
+    // objeto novo sempre faria toda chave de mapa ser reescrita e contada — e a
+    // Bíblia mora em `state` com UMA CHAVE POR CAPÍTULO (1189 por versão).
     let mudou = Object.keys(vindo).some((k) => !tem(local, k));
     for (const k of Object.keys(local)) {
       const v = tem(vindo, k) ? pacoteMesclarValor(local[k], vindo[k]) : local[k];
@@ -34929,19 +34754,16 @@ function pacoteMesclarValor(local, vindo) {
 /**
  * O APLICADOR — o laço que transforma um fluxo de registros em acervo.
  *
- * ELE TEVE DUAS FONTES ATÉ A v1.8.16 — o arquivo `.avpkg` e o corpo de um item
- * do clone celular a celular, que saiu. O que sobra da forma é de propósito:
- * `contagem` continua sendo mutada no lugar (o chamador soma), e a função
- * continua devolvendo `true` só quando viu o registro `fim`, que é o que separa
- * um pacote inteiro de um cortado no meio. Quem exige esse `true` é o
- * `importarPacote`.
+ * `contagem` é mutada no lugar (o chamador soma), e a função devolve `true` só
+ * quando viu o registro `fim`, que é o que separa um pacote inteiro de um
+ * cortado no meio. Quem exige esse `true` é o `importarPacote`.
  */
 async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
   let viuFim = false;
   let cronosDoPacote = null;
   let itinDoPacote = null;
-  // AS CHAVES DE `state` VÃO EM LOTE (v1.8.25). Uma transação por chave era o
-  // que a Bíblia cobrava caro: ela mora aqui com uma chave POR CAPÍTULO, e
+  // AS CHAVES DE `state` VÃO EM LOTE. Uma transação por chave é o que a
+  // Bíblia cobraria caro: ela mora aqui com uma chave POR CAPÍTULO, e
   // MEDIDO em Chromium sobre 1189 capítulos de tamanho real são 596 ms uma a
   // uma contra 153 ms em lote. É a mesma correção do `pacoteEscritor` do outro
   // lado — lá o que se junta são blocos do canal, aqui são transações.
@@ -34964,7 +34786,7 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
   };
   // O NOME DE UM ARQUIVO DO OPFS vem do registro de CATÁLOGO dele, que o
   // exportador escreve ANTES dos bytes. Ver o porquê em `nomeDoRegistro`.
-  // A SELEÇÃO DA JANELA (v1.11.12): com `filtro`, só entra o que está marcado — os
+  // A SELEÇÃO DA JANELA: com `filtro`, só entra o que está marcado — os
   // registros de fora são PULADOS pelo cabeçalho e as miniaturas e páginas vão
   // atrás da mãe. `pulando` guarda isso entre dois registros.
   let pulando = false;
@@ -35009,13 +34831,10 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
     const p = pendente;
     pendente = null;
     if (!p) return;
-    // DISCO CHEIO NÃO É "JÁ ESTAVA AQUI" (v1.8.15). O `mediaAdd` usa `add`, e é
-    // a FALHA dele que vira "já está aqui" — mas ele falha por DOIS motivos, e
-    // só um deles é esse. Um `QuotaExceededError` no item 900 de um pacote de
-    // 12 GB fazia os 3.000 seguintes caírem em `repetidos`, e o diálogo final
-    // saía verde dizendo *"0 entraram, 4.000 já estavam aqui e foram mantidos"* —
-    // a frase mais tranquilizadora possível sobre a falha mais destrutiva
-    // possível. O ramo do OPFS, dez linhas abaixo, já fazia o certo.
+    // DISCO CHEIO NÃO É "JÁ ESTAVA AQUI". O `mediaAdd` usa `add`, e é a FALHA
+    // dele que vira "já está aqui" — mas ele falha por DOIS motivos: um
+    // `QuotaExceededError` contado como `repetidos` faria o diálogo final sair
+    // verde sobre a falha mais destrutiva possível.
     if (p.tipo === 'media') {
       try {
         await AVDB.mediaAdd(p.rec);
@@ -35040,21 +34859,16 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
     // O CANCELAR É LIDO A CADA REGISTRO, como no laço do `YoutubeGrab` e no do
     // escritor: o que se quer parar é justamente o laço que está ocupado.
     if (pacoteCancelarImport) break;
-    // A BARRA ANDA DENTRO DE UM REGISTRO GRANDE (v1.8.38).
-    //
-    // `aoAndar` era chamado UMA vez por registro, depois de o corpo inteiro ter
-    // sido lido e gravado — e um vídeo de 300 MB é UM registro. Num pacote de
-    // 16 GB o número ficava imóvel por minutos, logo depois da conferência,
-    // parado nos 15% que são o fim dela (`PACOTE_FATIA_CONFERE`). Relato do
-    // operador: *"ele ficou travado por muito tempo em 15%, e agora está
-    // progredindo"* — não estava travado, estava lendo um vídeo.
+    // A BARRA ANDA DENTRO DE UM REGISTRO GRANDE: um vídeo de 300 MB é UM
+    // registro, e um `aoAndar` só no fim dele deixaria o número imóvel por
+    // minutos (parado nos 15% do fim da conferência, `PACOTE_FATIA_CONFERE`).
     //
     // O que vem ANTES dos vídeos são as milhares de chaves de `state`, que
     // somam pouco: MEDIDO neste repositório, 3.600 chaves de tamanho real são
     // 11,8 MB, ou 0,07% de um pacote de 16 GB. Elas levam tempo e não movem a
     // barra por construção — a régua é BYTES DO PACOTE, e essa escolha está
     // certa pelo motivo de sempre (contar ITENS faria a barra saltar nas chaves
-    // e rastejar nos hinos). O que faltava era a barra andar DURANTE o corpo.
+    // e rastejar nos hinos).
     //
     // A base é a posição do começo do registro: o `aoLer` conta os bytes do
     // CORPO, e o cabeçalho — dezenas de bytes — fica de fora sem que isso
@@ -35078,17 +34892,11 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
       if (aoAndar) aoAndar(cursor.pos, null);
       continue;
     }
-    // O NOME SAI DE QUEM CARREGA OS BYTES (v1.8.25), e é aqui que a v1.8.23
-    // errou. Ela nomeava os registros de CATÁLOGO — que têm `bytes: 0` —, então
-    // os 1200 nomes de um hinário passavam num piscar, durante a fração de
-    // segundo em que os metadados são lidos, e a linha CONGELAVA no último
-    // durante a cópia dos gigabytes, que é o trabalho inteiro. Relato do
-    // operador: *"mostrou vários nomes rapidamente e após um tempo, parou em um
-    // nome e não mudou mais … ele passou nomes bem mais rápido do que o
-    // progresso parecia ir"*, com a suposição certa ao lado — a lista rodava
-    // independente do progresso real.
+    // O NOME SAI DE QUEM CARREGA OS BYTES. Os registros de CATÁLOGO têm
+    // `bytes: 0`: nomeados, os 1200 nomes de um hinário passariam num piscar e
+    // a linha CONGELARIA no último durante a cópia dos gigabytes.
     //
-    // Hoje quem nomeia é o registro `opfs`, que É o byte. O nome dele vem do
+    // Quem nomeia é o registro `opfs`, que É o byte. O nome dele vem do
     // catálogo pelo `opfsPath` — o registro de catálogo vem ANTES dos bytes,
     // por contrato do exportador —, e por isso o mapa está pronto quando os
     // corpos chegam.
@@ -35140,13 +34948,9 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
       continue;
     }
     if (cab.t === 'state' || cab.t === 'state-blob') {
-      // A CHAVE É CONFERIDA NA ENTRADA TAMBÉM (v1.8.15).
-      //
-      // `AVPacote.chaveViaja` tinha UM chamador — o plano da EXPORTAÇÃO —, e a
-      // lista `FORA` valia só na saída. Enquanto o arquivo veio do cartão do
-      // próprio operador isso era teórico; **com o compartilhamento ele passa a
-      // vir do aparelho de outra pessoa**, por um canal que qualquer um na sala
-      // oferece. As seis chaves que a saída recusa entravam pela porta da
+      // A CHAVE É CONFERIDA NA ENTRADA TAMBÉM, e não só na saída: o arquivo
+      // pode vir do aparelho de outra pessoa, por um canal que qualquer um na
+      // sala oferece. Sem isso as chaves do `FORA` entrariam pela porta da
       // frente: um `current` forjado é lido pelo `lerDetentores` e prende mídia
       // contra o coletor; um `historico` mistura dois cultos num diário só.
       //
@@ -35161,30 +34965,20 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
       } else {
         try { valor = JSON.parse(await corpo.text()); } catch (_) { continue; }
       }
-      // OS CRONOGRAMAS GUARDADOS (v1.12.54) não passam pela mescla genérica: ela
+      // OS CRONOGRAMAS GUARDADOS não passam pela mescla genérica: ela
       // uniria por `id` e deixaria o lado de cá vencer o `ativo`, mas o que se
       // promete é outra coisa — cada guardado de lá entra como um guardado NOVO
       // daqui, com o nome dele, e nunca substitui um daqui. Fica para o FIM do
       // fluxo, quando a seleção (`filtro.admitidos`) já sabe quem entrou.
       if (cab.t === 'state' && cab.chave === 'cronogramas') { cronosDoPacote = valor; continue; }
-      // OS ITINERÁRIOS (v1.13.2) também não: a mescla genérica UNIRIA os horários
+      // OS ITINERÁRIOS também não: a mescla genérica UNIRIA os horários
       // do ativo de lá aos do ativo daqui — duas programações embaralhadas numa.
       // A regra é a dos cronogramas guardados (`itinMesclarPacote`).
       if (cab.t === 'state' && cab.chave === 'itinerario') { itinDoPacote = valor; continue; }
-      // UMA TRANSAÇÃO POR CHAVE, e não duas (v1.8.23). Havia um `getState`
-      // antes do `updateState` só para decidir se contava — dois `await` no
-      // IndexedDB e a mescla calculada DUAS vezes, por chave. A Bíblia sozinha
-      // são 1189 chaves por versão, então isso eram milhares de transações a
-      // mais numa importação. Quem responde "mudou?" agora é a própria `fn`,
-      // que já tem o antes e o depois na mão.
-      //
-      // `updateState` e não `setState`: read-modify-write de `state` numa
-      // transação só, com o commit confirmado antes de seguir. A `fn` é
-      // SÍNCRONA — um `await` lá dentro deixa a transação fechar sozinha.
-      //
-      // `depois === atual` é a mescla devolvendo o LOCAL por IDENTIDADE: nada
-      // mudou. Contá-lo faria a tela anunciar ajustes que não entraram, e
-      // gravá-lo seria reescrever no disco exatamente o que já estava lá.
+      // A CHAVE ENTRA NO LOTE (`escoarEstado` → `updateStateLote`): a mescla
+      // roda dentro da transação, com a `fn` SÍNCRONA, e `novo === atual` — a
+      // mescla devolvendo o LOCAL por IDENTIDADE — não escreve nem conta.
+
       if (filtro && Array.isArray(valor)) {
         // As listas do PACOTE dizem a que grupo cada mídia pertence (o estado vem
         // antes das mídias no arquivo): é daqui que `pacoteMidiaEntra` lê.
@@ -35234,26 +35028,6 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
   return viuFim;
 }
 
-/**
- * A CONFERÊNCIA, ANTES DE ESCREVER O PRIMEIRO BYTE.
- *
- * Ela percorre o pacote inteiro lendo SÓ os cabeçalhos — os corpos são
- * PULADOS pelo `bytes` que cada um declara, então nenhum byte de mídia é lido
- * aqui — e só devolve quando alcança o registro `fim`.
- *
- * **Por que ela existe:** sem ela, um pacote cortado no meio (cartão cheio, o
- * app fechado no meio da exportação, uma cópia interrompida entre os dois
- * aparelhos) seria APLICADO até o ponto em que os bytes acabam, e a recusa
- * chegaria depois — com meia biblioteca já dentro e a tela dizendo "não deu
- * para importar". Um pacote é ou não é: com a conferência à frente, ele é
- * recusado INTEIRO, e o aparelho fica exatamente como estava.
- *
- * **E ela é barata**, que é o que a torna aceitável: ela pede `proximo(false)`
- * e o que se lê são alguns milhares de fatias de duzentos bytes — não os
- * gigabytes que vêm depois. Sobre um `Blob` isso é de graça (o `slice` é
- * preguiçoso); sobre um documento do aparelho, a fonte lê por JANELAS de 4 MB
- * e serve os cabeçalhos em sequência de dentro delas.
- */
 // AS DUAS FRASES DE UM PACOTE QUE NÃO ABRE, e elas pedem ações opostas:
 // "incompleto" manda copiar o arquivo de novo (a cópia entre os dois aparelhos
 // foi interrompida, ou a exportação foi); "danificado" diz que o conteúdo não é
@@ -35278,36 +35052,22 @@ function pacoteDanificadoEm(pos) {
   return PACOTE_DANIFICADO + ' (a leitura parou no byte ' + fmtBytes(pos) + ')';
 }
 
-/**
- * O PERCENTUAL NO PRÓPRIO BOTÃO — as duas etapas da importação falam por ele.
- *
- * Existe porque as duas o escreviam com a mesma conta copiada, e a conferência
- * não escrevia nada: uma delas ficava muda, que é a metade do "parecendo
- * parado". Fonte sem tamanho não escreve nada em vez de escrever `NaN%`.
- */
-// ===== UMA CONTAGEM SÓ PARA O PROCESSO INTEIRO (v1.8.27) =====
+// ===== UMA CONTAGEM SÓ PARA O PROCESSO INTEIRO =====
 //
-// Pedido do operador, sobre a exportação: *"não precisa usar 'medindo' após a
-// seleção, apenas inclua isso na contagem de porcentagem do processo … mas
-// coloque ela sendo a mesma porcentagem do trabalho completo e não um 0 a 100,
-// anterior e depois outro 0 a 100 para a exportação de verdade"*. E sobre a
-// importação: *"de nada adianta um 100% apenas da verificação do pacote, isso
-// dá a falsa sensação de conclusão"*.
-//
-// As duas tinham DUAS barras de 0 a 100 em sequência, e a primeira mentia ao
-// fechar. Agora cada etapa ocupa uma FATIA da única barra.
+// Exportar e importar têm UMA barra de 0 a 100, e cada etapa ocupa uma FATIA
+// dela: duas barras em sequência fariam a primeira mentir ao fechar (um 100% da
+// conferência é a falsa sensação de conclusão).
 //
 // AS FATIAS SÃO FIXAS, e as duas alternativas foram consideradas:
 //
 //  · **por bytes lidos** — a conferência só lê cabeçalhos, então ela valeria
-//    ~1% e ficaria parada durante todo o tempo que leva. É a queixa original;
+//    ~1% e ficaria parada durante todo o tempo que leva;
 //  · **meio a meio** — as duas passadas percorrem o arquivo inteiro, mas a
 //    segunda copia os bytes e leva muito mais tempo. A barra correria até 50%
 //    e depois rastejaria: a mesma falsa sensação, num número menor.
 //
 // O que sobra é uma fatia escolhida pelo CUSTO aproximado de cada etapa. Ela
-// não precisa ser exata — precisa ser MONOTÔNICA e nunca voltar a zero, que é
-// o que o pedido nomeia.
+// não precisa ser exata — precisa ser MONOTÔNICA e nunca voltar a zero.
 const PACOTE_FATIA_MEDIDA = 0.05;    // exportação: medir o acervo
 const PACOTE_FATIA_CONFERE = 0.15;   // importação: conferir o pacote
 // O TAMANHO MÉDIO DE UMA CHAVE DE `state`, para a folha estimar sem medir.
@@ -35316,18 +35076,15 @@ const PACOTE_FATIA_CONFERE = 0.15;   // importação: conferir o pacote
 const PACOTE_ESTADO_POR_CHAVE = 4200;
 
 /**
- * A SELEÇÃO DA JANELA VALE TAMBÉM PARA IMPORTAR (v1.11.12). Pedido do operador:
- * *"os itens selecionados são os itens que ele de fato vai importar. Mesmo que o
- * pacote tenha a biblioteca inteira … se eu selecionar apenas o hinário, ele vai
- * importar apenas o hinário desse pacote e, como sempre, vai consumir o arquivo.
- * Assim a listagem tem função em ambos os processos"*.
+ * A SELEÇÃO DA JANELA VALE TAMBÉM PARA IMPORTAR (decisão do operador): o que
+ * está marcado é o que entra, e o arquivo é consumido como sempre.
  *
  * Devolve `null` — o pacote INTEIRO, o comportamento de sempre — quando a lista
  * não está à vista (os oráculos chamam `importarPacote()` direto) ou quando TUDO
  * está marcado, que é o padrão da janela. Só há filtro quando o operador tirou
  * alguma marca, e aí ele é ESTRITO: o que não está marcado não entra, inclusive
  * o grupo que a lista nem oferecia (ele estreitou a escolha; trazer o que ele não
- * viu seria o contrário do pedido). "Ajustes e catálogos" é fixo e sempre entra:
+ * viu seria o contrário da escolha). "Ajustes e catálogos" é fixo e sempre entra:
  * é ele que faz os arquivos importados aparecerem na Biblioteca.
  */
 function pacoteFiltroDeImportacao() {
@@ -35345,13 +35102,13 @@ function pacoteFiltroDeImportacao() {
 }
 
 /**
- * O ORIGINAL DE UM EDITADO ADMITIDO ENTRA SEMPRE (v1.12.22).
+ * O ORIGINAL DE UM EDITADO ADMITIDO ENTRA SEMPRE.
  *
  * `base: true` cobre só o original ESCONDIDO. O que viaja pelo caminho normal — uma mídia de
- * um grupo marcado na exportação, ou o `arquivo`/`opfs` de uma coleção marcada — era julgado
- * pelos GRUPOS dele: com o Cronograma (ou o hinário) desmarcado na importação, o editado
- * entrava, o original não, `resolverEdicao` devolvia `null` e o item sumia calado (contado
- * como "1 entrou"). E a ordem do arquivo não ajuda: a mídia sai na ordem das chaves, e o
+ * um grupo marcado na exportação, ou o `arquivo`/`opfs` de uma coleção marcada — julgado só
+ * pelos GRUPOS dele ficaria de fora com o grupo desmarcado na importação: o editado entraria,
+ * `resolverEdicao` devolveria `null` e o item sumiria calado (contado como "1 entrou"). E a
+ * ordem do arquivo não ajuda: a mídia sai na ordem das chaves, e o
  * original pode vir ANTES do editado. Por isso a conferência — que já lê o pacote inteiro
  * pelos cabeçalhos antes de uma linha ser gravada — junta os originais dos editados que vão
  * entrar (`pacotePreverBase`), e a decisão de cada registro os consulta.
@@ -35369,7 +35126,7 @@ function pacotePreverBase(filtro, cab, corpoTexto) {
     }
     return;
   }
-  // OS QUE ENTRAM PELAS PRÓPRIAS MARCAS (v1.12.23) — é por eles que as LISTAS do pacote são
+  // OS QUE ENTRAM PELAS PRÓPRIAS MARCAS — é por eles que as LISTAS do pacote são
   // filtradas ao aplicar (ver `pacoteListaAdmitida`). O original que entra só como vínculo de
   // um editado (`bases`) fica fora daqui: ele chega sem lista, como `pacoteBases` promete.
   if (!filtro.admitidos) filtro.admitidos = new Set();
@@ -35380,10 +35137,10 @@ function pacotePreverBase(filtro, cab, corpoTexto) {
   if (cab.t === 'arquivo' && cab.rec && pacoteArquivoEntra(filtro, cab.rec)) filtro.admitidos.add(cab.rec.id);
 }
 /**
- * UMA LISTA DO PACOTE (Cronograma, playlist, favoritos, séries, avulsos) SÓ TRAZ O QUE ENTROU
- * (v1.12.23). O `state` dela viajava inteiro: com o grupo desmarcado o item ficava de fora e o
- * id entrava na lista do destino, pendurado — invisível hoje, e reaparecendo no dia em que uma
- * importação futura trouxesse o item. A conferência já leu o pacote inteiro e sabe quem entra.
+ * UMA LISTA DO PACOTE (Cronograma, playlist, favoritos, séries, avulsos) SÓ TRAZ O QUE ENTROU.
+ * Inteira, com o grupo desmarcado, o id entraria na lista do destino pendurado — invisível
+ * hoje, e reaparecendo no dia em que uma importação futura trouxesse o item. A conferência
+ * já leu o pacote inteiro e sabe quem entra.
  */
 function pacoteListaAdmitida(filtro, chave, valor) {
   if (!filtro || !filtro.admitidos || !Array.isArray(valor) || !AVDB.LISTS.includes(chave)) return valor;
@@ -35402,7 +35159,7 @@ function pacoteLembrarCaminhosBase(filtro, rec) {
 function pacoteMidiaEntra(filtro, rec, doPacote) {
   const id = rec && rec.id;
   const grupos = new Set();
-  // OS GRUPOS QUE O PACOTE NOMEOU (v1.11.14) — o vídeo de uma série só tem este caminho. Um
+  // OS GRUPOS QUE O PACOTE NOMEOU — o vídeo de uma série só tem este caminho. Um
   // pacote antigo não traz o campo, e aí vale só o que as listas do `state` dizem.
   if (Array.isArray(doPacote)) for (const g of doPacote) if (typeof g === 'string') grupos.add(g);
   for (const [chave, ids] of filtro.listas) if (ids.has(id)) grupos.add(chave);
@@ -35422,19 +35179,19 @@ function pacoteFatia(inicio, tamanho, pos, total) {
   return inicio + tamanho * Math.min(1, Math.max(0, pos / total));
 }
 
-// A IMPORTAÇÃO PASSOU A SABER PARAR (v1.8.27), e isso REVOGA a decisão da
-// v1.7.3 — *"sem cancelar, e a diferença é de natureza: parar uma importação no
-// meio deixaria metade do acervo no aparelho e nada apagaria a outra metade"*.
-//
-// O argumento de lá provava outra coisa: que não dá para DESFAZER. Ninguém
-// pediu desfazer — o que faltava era PARAR, e parar é seguro exatamente pela
-// razão que aquele texto dá: **o que já entrou está certo**, e importar de novo
-// continua de onde ficou (o que já existe é pulado). Um trabalho de minutos sem
-// saída é o que não se justifica, e é o que fazia o tile irmão existir só para
-// ficar cinza.
+// A IMPORTAÇÃO SABE PARAR (`pacoteCancelarImport`). Não dá para DESFAZER, e
+// ninguém pede isso: parar é seguro porque **o que já entrou está certo**, e
+// importar de novo continua de onde ficou (o que já existe é pulado).
 let pacoteImportando = false;
 let pacoteCancelarImport = false;
 let pacotePercentualDito = -1;
+/**
+ * O PERCENTUAL NO PRÓPRIO BOTÃO — as duas etapas da importação falam por ele.
+ *
+ * Existe porque as duas o escreviam com a mesma conta copiada, e a conferência
+ * não escrevia nada: uma delas ficava muda, que é a metade do "parecendo
+ * parado". Fonte sem tamanho não escreve nada em vez de escrever `NaN%`.
+ */
 function pacoteFalarPercentual(el, fracao) {
   const pct = Math.min(100, Math.max(0, Math.round(fracao * 100)));
   // SÓ QUANDO O NÚMERO MUDA. Ela é chamada por REGISTRO — milhares de vezes num
@@ -35446,7 +35203,7 @@ function pacoteFalarPercentual(el, fracao) {
   pacoteFalar(el, pct + '%', 0);
 }
 
-// ===== O FEEDBACK DE EXPORTAR/IMPORTAR TAMBÉM VAI PARA O TILE DA GRADE (v1.11.7)
+// ===== O FEEDBACK DE EXPORTAR/IMPORTAR TAMBÉM VAI PARA O TILE DA GRADE =====
 //
 // Os dois botões moram numa seção, e ela pode estar RECOLHIDA durante os minutos
 // de uma exportação: `pulsar` recusa um nó fora da tela (`visivelNaTela`) e a
@@ -35469,6 +35226,25 @@ function pacotePulsar(el, tipo) {
   return dele || daGrade;
 }
 
+/**
+ * A CONFERÊNCIA, ANTES DE ESCREVER O PRIMEIRO BYTE.
+ *
+ * Ela percorre o pacote inteiro lendo SÓ os cabeçalhos — os corpos são
+ * PULADOS pelo `bytes` que cada um declara, então nenhum byte de mídia é lido
+ * aqui — e só devolve quando alcança o registro `fim`.
+ *
+ * **Por que ela existe:** sem ela, um pacote cortado no meio (cartão cheio, o
+ * app fechado no meio da exportação, uma cópia interrompida entre os dois
+ * aparelhos) seria APLICADO até o ponto em que os bytes acabam, e a recusa
+ * chegaria depois — com meia biblioteca já dentro e a tela dizendo "não deu
+ * para importar". Um pacote é ou não é: com a conferência à frente, ele é
+ * recusado INTEIRO, e o aparelho fica exatamente como estava.
+ *
+ * **E ela é barata**, que é o que a torna aceitável: o que se lê são alguns
+ * milhares de fatias de duzentos bytes — não os gigabytes que vêm depois —, e
+ * a fonte serve os cabeçalhos em sequência de dentro das JANELAS dela (ver
+ * `pacoteFonteDaUrl`).
+ */
 async function pacoteConferir(fonte, aoAndar, filtro) {
   const cursor = pacoteCursor(fonte);
   // Com `filtro` ela também lê o corpo das LISTAS do pacote (são poucos ids): é delas que
@@ -35476,18 +35252,16 @@ async function pacoteConferir(fonte, aoAndar, filtro) {
   const lerLista = (cab) => !!filtro && cab.t === 'state' && PACOTE_LISTAS.some((L) => L.lista === cab.chave);
   try {
     for (;;) {
-      // SEM CORPO: ela lê cabeçalhos e PULA os bytes de cada um. Sobre um
-      // `Blob` isso já era de graça (o `slice` é preguiçoso); sobre uma fonte
-      // lida por JANELAS, buscar um corpo que ninguém vai usar leria o pacote
-      // inteiro duas vezes.
+      // SEM CORPO (salvo as listas, acima): ela lê cabeçalhos e PULA os bytes
+      // de cada um — numa fonte lida por JANELAS, buscar um corpo que ninguém
+      // vai usar leria o pacote inteiro duas vezes.
       if (pacoteCancelarImport) return;
       const r = await cursor.proximo(lerLista);
       if (!r) break;               // os bytes acabaram sem o registro `fim`
       if (filtro) pacotePreverBase(filtro, r.cab, r.corpo ? await r.corpo.text() : null);
-      // ELA ANDA (v1.8.23). A conferência percorre o arquivo INTEIRO pelos
-      // cabeçalhos — minutos num acervo grande — e não reportava nada: o
-      // operador via a palavra "Conferindo…" parada, que é indistinguível de
-      // travado. Ela é a primeira metade do "processo parecendo parado".
+      // ELA ANDA: a conferência percorre o arquivo INTEIRO pelos cabeçalhos —
+      // minutos num acervo grande —, e uma palavra parada é indistinguível de
+      // travado.
       if (aoAndar) aoAndar(cursor.pos);
       if (r.cab.t === 'fim') return;
     }
@@ -35509,85 +35283,10 @@ async function pacoteConferir(fonte, aoAndar, filtro) {
  * Seis, e não quatro: com quatro, o acervo de vinte e três álbuns nomeava
  * menos de um quinto e o "e mais N" respondia pelo grosso — o oposto do
  * pedido, que é ver o nome do que entrou. Seis linhas curtas cabem num diálogo
- * sem virar o muro que a v1.8.27 veio desfazer, e as incompletas vêm primeiro,
- * então o teto nunca corta justamente o que pede ação.
+ * sem virar um muro de texto.
  */
 const PACOTE_COLECOES_MAX = 6;
 
-/**
- * O RELATÓRIO DO FIM — e ele responde UMA pergunta: *chegou tudo?*
- *
- * Ele dizia *"4 item(ns), 2228 arquivo(s) e 172 ajuste(s)"*, e nenhum dos três
- * números é o que se quer saber ao importar um hinário. Relato do operador:
- * *"o que quero saber é o número de músicas ou mídias reais que foram
- * importados … quero saber se todos os 600 hinos foram importados, e não sobre
- * milhares de itens sem nome e que eu esperava 600. milhares não é um número
- * esperado para poder se confirmar o sucesso"*.
- *
- * Os três eram unidades INTERNAS: "itens" era a store de mídia (o Cronograma),
- * "arquivos" eram os arquivos do OPFS (um hino tem áudio, playback e as imagens
- * de fundo da letra — daí 2228 para 601 hinos) e "ajustes" eram chaves de
- * `state`, que desde a v1.8.25 nem são mais escolha do operador.
- *
- * O QUE ELE DIZ É O ESTADO, não o delta: *"Hinário Adventista 2022: 601 de 601
- * músicas"*. É de propósito — a pergunta do operador é sobre o ACERVO, não
- * sobre a passada: importar de novo depois de uma queda tem de responder
- * "601 de 601", e um relatório de delta diria "0 entraram" sobre um hinário
- * completo.
- *
- * ## E ELE É UM RESUMO, NÃO UMA LISTAGEM (v1.8.27)
- *
- * A v1.8.25 dava UMA FRASE POR COLEÇÃO, coladas num parágrafo só: com vinte e
- * três álbuns o que saiu na tela foi um muro de texto que ninguém audita.
- * Relato do operador: *"o resumo da importação não está ok, ele tem de ser mais
- * sucinto, números auditáveis e organizados … eu preciso de dados
- * simplificados, para entender se a importação deu certo, e não para saber se
- * uma música específica está no sistema"*.
- *
- * A forma é a que este repositório já usa para todo bloco de diagnóstico: **o
- * TOTAL responde, e só a EXCEÇÃO é nomeada**. Vinte linhas de "10 de 10" não
- * são auditoria — a informação inteira delas é o total. O que precisa de nome é
- * o que ficou incompleto, que é onde a resposta "deu certo?" muda.
- *
- * E UMA COLEÇÃO SÓ GANHA O NOME DELA, pela outra metade do pedido: *"talvez
- * pode fazer o relatório separado dos álbuns quando a importação é de apenas
- * uma coleção"*. Ali o nome não é ruído — é a confirmação.
- *
- * UMA LINHA POR ASSUNTO, e não um parágrafo: o `\n` é o que separa números
- * auditáveis de um muro.
- *
- * A CONTA SAI DE `countDownloaded`, a MESMA que a Biblioteca usa para dizer o
- * que está no aparelho — uma segunda conta divergiria da tela em que o operador
- * vai conferir. Ela é lida do BANCO e não do `collState` em memória, que foi
- * carregado no `init()` e está desatualizado por definição depois de importar.
- */
-/**
- * O PONTEIRO QUE NÃO LEVA A LUGAR NENHUM É APAGADO — e é o destino que decide.
- *
- * O ÍNDICE de uma coleção (`coll:<id>`) é uma chave de `state`, e por isso ele
- * viaja INTEIRO. Os ARQUIVOS não: a folha de escolha os corta por grupo. Então
- * um pacote só do hinário leva, junto, o índice de todos os OUTROS álbuns —
- * com o `fileIdFull` que o aparelho de ORIGEM tinha.
- *
- * Enquanto a mescla era rasa (até a v1.8.22) isso não aparecia: o índice de
- * fora era descartado inteiro. A v1.8.23 passou a preencher os buracos, e com
- * eles passou a preencher ponteiros para arquivos que nunca chegaram —
- * `colecaoCompleta` conta `fileIdFull`, então o álbum passava a parecer
- * baixado e **o botão de baixar sumia**. Relato do operador: *"ele importa o
- * hinário, mas as outras coleções por algum motivo, perdem seus botões de
- * download, mesmo elas não estando baixadas"*.
- *
- * **QUEM CONSERTA É O DESTINO, e não o exportador.** O exportador só saberia
- * adivinhar o que vai chegar; o destino sabe as duas coisas que importam — o
- * que chegou E o que ele já tinha. É a mesma regra do `AVDB.opfsTodosOsArquivos`
- * num lugar novo: **pergunta-se ao disco, não ao catálogo**.
- *
- * E é isso que a torna capaz de CURAR um aparelho já quebrado, que é o estado
- * em que a v1.8.23 deixou quem importou entre ela e esta versão — daí ela
- * rodar também uma vez na abertura (ver `PACOTE_PONTEIROS_MARCA`).
- *
- * Devolve quantos ponteiros caíram.
- */
 const PACOTE_PONTEIROS_MARCA = 'ponteiros-conferidos';
 
 async function curarPonteirosUmaVez() {
@@ -35599,26 +35298,40 @@ async function curarPonteirosUmaVez() {
   } catch (_) { /* a abertura não pode falhar por causa disto */ }
 }
 
+/**
+ * O PONTEIRO QUE NÃO LEVA A LUGAR NENHUM É APAGADO — e é o destino que decide.
+ *
+ * O ÍNDICE de uma coleção (`coll:<id>`) é uma chave de `state`, e por isso ele
+ * viaja INTEIRO. Os ARQUIVOS não: a folha de escolha os corta por grupo. Então
+ * um pacote só do hinário leva, junto, o índice de todos os OUTROS álbuns —
+ * com o `fileIdFull` que o aparelho de ORIGEM tinha.
+ *
+ * A mescla recursiva preenche os buracos, e com eles preencheria ponteiros
+ * para arquivos que nunca chegaram — `colecaoCompleta` conta `fileIdFull`,
+ * então o álbum passaria a parecer baixado e **o botão de baixar sumiria**.
+ *
+ * **QUEM CONSERTA É O DESTINO, e não o exportador.** O exportador só saberia
+ * adivinhar o que vai chegar; o destino sabe as duas coisas que importam — o
+ * que chegou E o que ele já tinha. É a mesma regra do `AVDB.opfsTodosOsArquivos`
+ * num lugar novo: **pergunta-se ao disco, não ao catálogo**.
+ *
+ * E é isso que a torna capaz de CURAR um aparelho já quebrado — daí ela rodar
+ * também uma vez na abertura (`curarPonteirosUmaVez`).
+ *
+ * Devolve quantos ponteiros caíram.
+ */
 async function pacoteAcertarPonteiros() {
   let ids;
   try { ids = new Set(await AVDB.filesChaves()); } catch (_) { return 0; }
   let chaves;
   try { chaves = await AVDB.stateKeys('coll:'); } catch (_) { return 0; }
   let limpos = 0;
-  // PELO LOTE, E NÃO POR CHAVE (v1.8.45), e a diferença é que a promessa do
-  // comentário abaixo passa a ser CUMPRIDA.
+  // PELO LOTE, E NÃO POR CHAVE: o `updateState` faz `put` INCONDICIONAL e
+  // reescreveria todos os índices examinados; o `updateStateLote` não escreve
+  // quando `novo === atual`, e é UMA transação no lugar de uma por coleção.
   //
-  // A identidade sempre esteve certa aqui — devolver `atual` quando nada mudou
-  // —, mas quem consumia era o `updateState`, e ele faz `put` INCONDICIONAL: a
-  // varredura reescrevia no disco todos os índices que examinou, inclusive os
-  // que não tinham um ponteiro quebrado sequer. Quem tem a guarda de identidade
-  // é o `updateStateLote` (*"`novo === atual` não escreve e não conta"*), que
-  // nasceu depois e para a Bíblia. De quebra ele faz UMA transação no lugar de
-  // uma por coleção.
-  //
-  // O `try` POR CHAVE virou um `try` DENTRO da `fn`: o lote é tudo-ou-nada, e
-  // uma exceção escapando pararia a varredura inteira — o oposto do que a linha
-  // que ele substitui garantia ("um índice ruim não para a varredura").
+  // O `try` mora DENTRO da `fn`: o lote é tudo-ou-nada, e uma exceção
+  // escapando pararia a varredura inteira.
   try {
     await AVDB.updateStateLote(chaves.map((chave) => ({ chave, valor: null })), (atual) => {
       try {
@@ -35646,12 +35359,8 @@ async function pacoteAcertarPonteiros() {
 }
 
 /**
- * OS BALDES DO RELATÓRIO — a classificação que o operador VÊ (v1.8.40).
- *
- * Pedido do operador: *"gostaria que você apenas se preocupasse em apresentar
- * os resultados agrupados, no caso dos grupos de classificação que temos na
- * biblioteca, não exatamente o que o LouvorJA já classificou como 'coleções',
- * mas a nossa classificação … em uma ordem que ele já vê dos grupos maiores"*.
+ * OS BALDES DO RELATÓRIO — a classificação que o operador VÊ na Biblioteca, e
+ * não a das "coleções" do LouvorJA.
  *
  * A ORDEM É A DO `renderCollectionsList`, e a divisão também: as séries e os
  * hinários são cards de RAIZ e por isso cada um é um balde próprio (é assim que
@@ -35685,6 +35394,34 @@ function pacoteBaldesDoAcervo() {
   return { baldes, dono };
 }
 
+/**
+ * O RELATÓRIO DO FIM — e ele responde UMA pergunta: *chegou tudo?*
+ *
+ * MÚSICAS, e não as unidades INTERNAS: arquivos do OPFS (um hino tem áudio,
+ * playback e as imagens de fundo da letra — 2228 arquivos para 601 hinos) e
+ * chaves de `state` não respondem "chegaram os 600 hinos?".
+ *
+ * O QUE ELE DIZ É O ESTADO, não o delta: *"Hinário Adventista 2022: 601 de 601
+ * músicas"*. É de propósito — a pergunta do operador é sobre o ACERVO, não
+ * sobre a passada: importar de novo depois de uma queda tem de responder
+ * "601 de 601", e um relatório de delta diria "0 entraram" sobre um hinário
+ * completo.
+ *
+ * ## E ELE É UM RESUMO, NÃO UMA LISTAGEM
+ *
+ * Os grupos da Biblioteca (`pacoteBaldesDoAcervo`), os primeiros NOMEADOS e o
+ * resto CONTADO (`PACOTE_COLECOES_MAX`), e o total quando há mais de um: uma
+ * frase por coleção, com vinte e três álbuns, é um muro de texto que ninguém
+ * audita.
+ *
+ * UMA LINHA POR ASSUNTO, e não um parágrafo: o `\n` é o que separa números
+ * auditáveis de um muro.
+ *
+ * A CONTA SAI DE `countDownloaded`, a MESMA que a Biblioteca usa para dizer o
+ * que está no aparelho — uma segunda conta divergiria da tela em que o operador
+ * vai conferir. Ela é lida do BANCO e não do `collState` em memória, que foi
+ * carregado no `init()` e está desatualizado por definição depois de importar.
+ */
 async function pacoteRelatorio(contagem, consumo) {
   const nomes = new Map(allCollections().map((c) => [c.id, c.name || c.id]));
   const linhas = [];
@@ -35707,28 +35444,14 @@ async function pacoteRelatorio(contagem, consumo) {
   // coletânea que este arquivo não trouxe, e listá-la seria ruído.
   const vistas = baldes.filter((b) => b.de > 0).concat(soltas);
 
-  // ===== A COLEÇÃO TEM NOME, E O NOME É O QUE SE CONFERE (v1.8.28) =====
+  // ===== O GRUPO TEM NOME, E O NOME É O QUE SE CONFERE =====
   //
-  // Pedido do operador: *"verifique que ao menos eu preciso do nome da coleção
-  // importada, além dos dados fundamentais de quantos deveriam ter, quantos
-  // importaram corretamente e etc"*.
-  //
-  // A v1.8.27 tinha ido longe demais na direção certa: ela nomeava só a
-  // EXCEÇÃO, e o total respondia pelo resto. O total responde *"deu certo?"* e
-  // não responde *"deu certo COM O QUÊ?"* — quem acabou de mandar o hinário de
-  // um celular para o outro quer ler o nome dele.
-  //
-  // O TETO CONTINUA, porque a queixa que criou o resumo era um MURO de texto
-  // com vinte e três álbuns (foto do aparelho). A forma que serve às duas
-  // coisas é a de todo bloco de diagnóstico deste repositório: as primeiras
-  // NOMEADAS, o resto CONTADO, e o que está incompleto sempre entre as
-  // nomeadas — é ele que pede ação.
+  // O total responde *"deu certo?"* e não *"deu certo COM O QUÊ?"*. As
+  // primeiras NOMEADAS, o resto CONTADO (um MURO de texto não se audita).
   if (vistas.length) {
-    // A ORDEM É A DA BIBLIOTECA (v1.8.40) e não mais "incompletas primeiro":
-    // agrupado, o relatório tem um punhado de linhas em vez de vinte e três, e
-    // o que a ordem por incompletude comprava — pôr o que pede ação no topo —
-    // deixou de valer o preço de o operador procurar um grupo onde ele não
-    // está. O que estiver incompleto continua visível pelo próprio número.
+    // A ORDEM É A DA BIBLIOTECA, e não "incompletas primeiro": agrupado, o
+    // relatório tem um punhado de linhas, e o operador procura um grupo onde
+    // ele está. O que estiver incompleto continua visível pelo próprio número.
     const ordenadas = vistas;
     const mostra = ordenadas.slice(0, PACOTE_COLECOES_MAX);
     for (const c of mostra) linhas.push(c.rotulo + ': ' + c.n + ' de ' + c.de + ' músicas');
@@ -35752,19 +35475,15 @@ async function pacoteRelatorio(contagem, consumo) {
   }
   // ===== A RECUSA SAI NA FRASE, e ela é a ÚNICA contagem interna que sai =====
   //
-  // A v1.8.15 fechou o `chaveViaja` na ENTRADA com um argumento explícito —
-  // recusar em silêncio é o mesmo defeito que aceitar em silêncio —, e as
-  // reescritas do relatório (v1.8.25 → v1.8.28 → v1.8.40) levaram junto a única
-  // frase que dizia isso: o contador era incrementado e ninguém o lia. Quem
-  // importasse um pacote com `current`, `historico` ou `ota-intencao` forjados
-  // recebia um diálogo idêntico ao de um pacote limpo.
+  // Recusar em silêncio é o mesmo defeito que aceitar em silêncio: um pacote
+  // com `current`, `historico` ou `ota-intencao` forjados não pode render um
+  // diálogo idêntico ao de um pacote limpo.
   //
   // OS OUTROS QUATRO CONTADORES CONTINUAM MUDOS DE PROPÓSITO (`arquivos`,
-  // `chaves`, `opfs`, `repetidos`): eles são UNIDADE INTERNA, e foi por pedido
-  // do operador que elas saíram daqui — *"o propósito da exportação não é
-  // copiar o app de um usuário … o propósito é para dados massivos da
-  // biblioteca"*. Este não é unidade: é o aviso de que o arquivo trazia coisa
+  // `chaves`, `opfs`, `repetidos`): eles são UNIDADE INTERNA (decisão do
+  // operador). Este não é unidade: é o aviso de que o arquivo trazia coisa
   // que este aparelho não aceita.
+
   if (contagem.recusadas) {
     linhas.push(contagem.recusadas + ' ajuste(s) do outro aparelho foram recusados');
   }
@@ -35795,7 +35514,7 @@ async function lerPacotePronto() {
 }
 
 async function importarPacote() {
-  // `pacotePronto` ENTRA NA GUARDA (v1.8.42), e sem ele um toque fazia DUAS
+  // `pacotePronto` ENTRA NA GUARDA, e sem ele um toque faria DUAS
   // coisas. O tile de importar tem um ouvinte PERMANENTE (`addEventListener`,
   // no fim deste arquivo) e, no estado "pronto para enviar", `pacoteIrmaoCancela`
   // acrescenta um `onclick` que o transforma no DESCARTAR — os dois são
@@ -35803,13 +35522,10 @@ async function importarPacote() {
   // `stopImmediatePropagation()`: MEDIDO em Chromium, um clique roda os dois, e
   // o do `addEventListener` roda PRIMEIRO (foi registrado antes).
   //
-  // Nos outros dois estados isso era inofensivo porque `pacoteEmCurso` é `true`
-  // e esta linha já barrava. No estado da v1.8.29 ele é FALSE — o `finally` de
-  // `exportarPacote` o zera ANTES de `pacotePronto` ser atribuído —, então
-  // tocar em "Descartar" abria o seletor de documentos do Android POR CIMA do
-  // diálogo de confirmação, e escolher um `.avpkg` ali começava uma importação
-  // de gigabytes que ninguém pediu. É a regressão da própria v1.8.28, que
-  // tornou o rótulo honesto e deixou o ouvinte antigo disparando.
+  // Nos outros estados `pacoteEmCurso` é `true` e já barra; com um pacote
+  // pronto ele é FALSE — o `finally` de `exportarPacote` o zera ANTES de
+  // `pacotePronto` ser atribuído —, e tocar em "Descartar" abriria o seletor de
+  // documentos do Android POR CIMA do diálogo de confirmação.
   //
   // A guarda é a leitura literal do desenho: com um pacote pronto na mão,
   // aquele botão NÃO é o importador — ele é a saída para fazer outro.
@@ -35831,14 +35547,12 @@ async function importarPacote() {
   let erro = '';
   const contagem = { media: 0, arquivos: 0, chaves: 0, opfs: 0, repetidos: 0, recusadas: 0 };
   try {
-    // ===== NADA DE `resp.blob()` (v1.7.9) =====
+    // ===== NADA DE `resp.blob()` =====
     //
-    // Ele materializava o arquivo INTEIRO antes do primeiro byte ser lido, e é
-    // metade do relato do operador: quinze gigabytes não cabem em lugar nenhum.
-    // A outra metade é o teto de 2 GB do caminho `/saf/` — as duas estão
-    // explicadas em `pacoteFonteDaUrl` e no `SafJanela.kt`.
+    // Quinze gigabytes não cabem em lugar nenhum, e o caminho `/saf/` tem teto
+    // de 2 GB — ver `pacoteFonteDaUrl` e o `SafJanela.kt`.
     //
-    // O TAMANHO VEM DO `pickDoc` (shell 64) e é obrigatório: sem ele não há
+    // O TAMANHO VEM DO `pickDoc` e é obrigatório: sem ele não há
     // como saber onde o arquivo acaba, e um leitor por janelas sem fim é um
     // laço infinito. `-1` é "o provedor não disse" — diferente de `0`, que é um
     // arquivo vazio —, e os dois param aqui com frases próprias.
@@ -35850,37 +35564,24 @@ async function importarPacote() {
       await fonte.bytes(0, AVPacote.ASSINATURA_BYTES),
     );
     if (!assinatura.ok) throw new Error(assinatura.erro);
-    // A CONFERÊNCIA ENTROU NA PROTEÇÃO DE SEGUNDO PLANO (v1.8.15).
-    //
-    // Ela percorre o arquivo INTEIRO pelos cabeçalhos — milhares de janelas
-    // sobre gigabytes, minutos num acervo grande — e rodava FORA do
-    // `withBgWork`: sem serviço em primeiro plano, sem wake lock, sem
-    // notificação e sem percentual, com a palavra "Conferindo…" parada no botão.
-    // É exatamente o instante em que o operador minimiza o app, e é o achado da
-    // v1.8.13 (o lado que CEDE não pedia proteção) repetido do outro lado.
+    // A CONFERÊNCIA RODA DENTRO DA PROTEÇÃO DE SEGUNDO PLANO: ela percorre o
+    // arquivo INTEIRO pelos cabeçalhos — minutos num acervo grande —, e é
+    // exatamente o instante em que o operador minimiza o app.
     //
     // A tarefa é a MESMA do laço de aplicação, e não uma segunda: o operador vê
     // uma importação só, em duas etapas, e a notificação não pisca entre elas.
     await withBgWork(async () => {
-      // A ETAPA É O RÓTULO, E OS ITENS SÃO A LISTA (v1.8.23).
-      //
-      // Era `bgTaskStart('Importando o acervo', 1)` com o NOME DO ARQUIVO como
-      // item único: a notificação anunciava uma importação de UM item, com uma
-      // barra em bytes e uma linha que nunca trocava. Relato do operador —
-      // *"evite classificar a importação como 'importando um acervo' … o que eu
-      // quero é ver os itens serem adicionados na biblioteca"*.
-      //
-      // O rótulo passa a dizer a ETAPA (conferir, importar), e a linha de baixo
-      // passa a mostrar cada item que entra, pelo nome com que ele aparece na
-      // Biblioteca. O nome do arquivo sai: quem escolheu o pacote acabou de
-      // vê-lo no seletor, e ele é a única coisa ali que não muda.
+      // A ETAPA É O RÓTULO, E OS ITENS SÃO A LISTA: o rótulo diz a ETAPA
+      // (conferir, importar), e a linha de baixo mostra cada item que entra,
+      // pelo nome com que ele aparece na Biblioteca — não o nome do arquivo,
+      // que quem escolheu o pacote acabou de ver e que nunca muda.
       const tarefa = bgTaskStart('Conferindo o pacote', 1, 'baixar');
       pacotePercentualDito = -1;
-      // UMA BARRA SÓ PARA AS DUAS ETAPAS (v1.8.27) — ver `PACOTE_FATIA_CONFERE`.
+      // UMA BARRA SÓ PARA AS DUAS ETAPAS — ver `PACOTE_FATIA_CONFERE`.
       // O `done` continua em BYTES DO PACOTE, e a fração é a do processo
       // INTEIRO: durante a conferência ele não diz "copiei tantos bytes", diz
       // "andei tanto do trabalho, medido no tamanho do arquivo". É monotônico e
-      // nunca volta a zero, que é o que o pedido nomeia.
+      // nunca volta a zero.
       const andarNaBarra = (fracao) => {
         bgTaskBytes(tarefa, Math.round(fracao * fonte.size), fonte.size);
         pacoteFalarPercentual(pacoteImportarTileEl, fracao);
@@ -35891,20 +35592,15 @@ async function importarPacote() {
       await pacoteConferir(fonte, (pos) => {
         andarNaBarra(pacoteFatia(0, PACOTE_FATIA_CONFERE, pos, fonte.size));
       }, filtro);
-      // O NÚMERO MORA NO PRÓPRIO BOTÃO (v1.7.3), aqui como na exportação: a
-      // ação nasceu nele. O NOME do arquivo vai para a notificação, que é a
-      // superfície com espaço.
-      // Sem CANCELAR, e a diferença é de natureza: parar uma importação no meio
-      // deixaria metade do acervo no aparelho e nada apagaria a outra metade —
-      // ela só ACRESCENTA, então o que já entrou está certo, e desfazê-lo seria
-      // apagar o que o operador foi buscar.
+      // O NÚMERO MORA NO PRÓPRIO BOTÃO, aqui como na exportação: a ação nasceu
+      // nele. O NOME de cada item vai para a notificação, que é a superfície
+      // com espaço. PARAR é o `pacoteCancelarImport`, lido a cada registro.
       try {
-        // A RÉGUA CONTINUA EM BYTES, e isso é resposta a metade do pedido: o
+        // A RÉGUA CONTINUA EM BYTES: o
         // acervo tem 600 hinos de megabytes ao lado de milhares de chaves
         // minúsculas da Bíblia, então CONTAR ITENS faria a barra saltar para
         // 85% nas chaves e rastejar nos hinos — um número que anda mais rápido
-        // e mente. O que o pedido quer ("sentir um progresso real", "ver os
-        // hinos serem importados") é a LISTA, e é ela que passa a andar.
+        // e mente. O que anda item a item é a LISTA.
         // A ETAPA MUDA O RÓTULO E NÃO A BARRA: o `done` que o `bgTaskStep`
         // escreve é o ponto em que a conferência parou, e não zero — é isso que
         // faz a segunda etapa CONTINUAR de onde a primeira ficou.
@@ -35958,22 +35654,18 @@ async function importarPacote() {
     await openAppDialog({ title: 'Não deu para importar', message: erro, okText: 'Entendi', cancelText: null });
     return;
   }
-  // ===== O ARQUIVO É CONSUMIDO (v1.8.28) =====
+  // ===== O ARQUIVO É CONSUMIDO (decisão do operador) =====
   //
-  // Pedido do operador: *"você consegue apagar/consumir o arquivo original da
-  // importação? não precisamos dele após esse processo, isso evita ficar
-  // ocupando espaço no aparelho do usuário"*. Um pacote é o acervo inteiro —
-  // deixá-lo em Downloads dobra o que a biblioteca ocupa, e quem mais recebe
-  // pacote é justamente o aparelho apertado.
+  // Um pacote é o acervo inteiro — deixá-lo em Downloads dobra o que a
+  // biblioteca ocupa, e quem mais recebe pacote é justamente o aparelho apertado.
   //
   // SÓ AQUI, e por isso este ponto e não o `finally`: as duas outras saídas
   // (cancelou, falhou) voltam ANTES, e nas duas o arquivo é a única forma de
   // continuar de onde parou. Apagá-lo ali seria destruir o que a próxima
   // tentativa precisa.
   //
-  // O DESFECHO É DITO no relatório, nos dois sentidos — o operador pediu o
-  // espaço de volta, e "não deu para apagar" é a resposta que ele precisa ter
-  // para ir apagar à mão.
+  // O DESFECHO É DITO no relatório, nos dois sentidos — "não deu para apagar" é
+  // a resposta que o operador precisa ter para ir apagar à mão.
   let consumo = '';
   try {
     const motivo = await AVNative.pacoteConsumirOrigem(alvo.url);
@@ -35988,15 +35680,12 @@ async function importarPacote() {
 
   pacotePulsar(pacoteImportarTileEl, 'ok');
   bgConcluido('Acervo importado', 'A biblioteca já está no aparelho.');
-  // A REHIDRATAÇÃO VEM ANTES DO RELATÓRIO (v1.8.43), e a ordem é o que o
-  // relatório diz. Ele nomeia as coleções por `allCollections()`, que lê o
-  // `albumCatalog` do MÓDULO; quem o repõe do banco é o `loadCollections()`
-  // daqui de baixo. Montado antes, ele lia o catálogo VELHO — e no caso de uso
-  // declarado do recurso (aparelho novo, sem internet, que é o motivo de o
-  // pacote existir) esse catálogo está VAZIO: `pacoteBaldesDoAcervo` não monta
-  // coletânea nenhuma, todo álbum cai em "soltas", e o diálogo escreve
-  // `album-57: 10 de 10 músicas` em vez de `Missão: …`, sem agrupamento e fora
-  // da ordem da Biblioteca. Justo o que a v1.8.40 arrumou, desfeito pela ordem.
+  // A REHIDRATAÇÃO VEM ANTES DO RELATÓRIO, e a ordem é o que o relatório diz.
+  // Ele nomeia as coleções por `allCollections()`, que lê o `albumCatalog` do
+  // MÓDULO; quem o repõe do banco é o `loadCollections()` daqui de baixo.
+  // Montado antes, ele leria o catálogo VELHO — VAZIO no aparelho novo e sem
+  // internet, que é o caso de uso —, e o diálogo escreveria
+  // `album-57: 10 de 10 músicas` em vez de `Missão: …`, sem agrupamento.
   //
   // O preço, dito: a rehidratação tem `location.reload()` como saída de falha,
   // e agora ela roda ANTES do diálogo — numa falha o relatório se perde junto.
@@ -36006,29 +35695,19 @@ async function importarPacote() {
   await openAppDialog({
     title: 'Acervo importado',
     message: await pacoteRelatorio(contagem, consumo),
-    // "OK", E NÃO "Ver a biblioteca" (v1.8.39). Relato do operador: *"o botão
-    // de 'ver na biblioteca' não faz nada após a conclusão da importação"*. Ele
-    // estava certo — este é o `okText` de um `appConfirm`, e o desfecho dele é
-    // FECHAR o diálogo; nunca houve nada atrás dele que abrisse a Biblioteca.
-    // Um rótulo que promete uma navegação e entrega um fechar é pior que um
-    // rótulo neutro: o operador toca, nada acontece, e ele conclui que o app
-    // travou no fim de um trabalho de minutos.
+    // "OK", E NÃO "Ver a biblioteca": o desfecho deste botão é FECHAR o
+    // diálogo, e um rótulo que promete uma navegação e entrega um fechar leria
+    // como o app travado no fim de um trabalho de minutos.
     okText: 'OK',
     cancelText: null,
     fixo: true,
   });
 }
 
-// ===== A IMPORTAÇÃO NÃO RECARREGA MAIS O APP (v1.8.28) =====
+// ===== A IMPORTAÇÃO NÃO RECARREGA O APP =====
 //
-// Pedido do operador: *"veja se precisa realmente um botão de recarregar o app
-// inteiro … pois idealmente eu não quero o app todo sendo reiniciado e o
-// usuário se perdendo no fluxo"*.
-//
-// A recarga estava lá desde a v1.7.0 com um argumento que ENVELHECEU: *"não há
-// um caminho de invalidação que alcance as dezenas de lugares"*. Ele nunca foi
-// medido, e a lista é curta e enumerável — são as MESMAS chamadas que o
-// `init()` faz, menos as que não têm nada com uma importação:
+// A rehidratação é curta e enumerável — são as MESMAS chamadas que o `init()`
+// faz, menos as que não têm nada com uma importação:
 //
 // | do `init()`                  | aqui | por quê |
 // |---|---|---|
@@ -36041,8 +35720,8 @@ async function importarPacote() {
 // | `clearCurrentSelection()`    | NUNCA | ela ESVAZIA a cena, e pode haver louvor no ar |
 //
 // A última linha é a que torna a rehidratação melhor que a recarga, e não só
-// mais discreta: `location.reload()` derruba a projeção junto. Importar durante
-// um culto — o caso de quem chega com o acervo num pendrive — apagava o telão.
+// mais discreta: `location.reload()` derruba a projeção junto, e importar
+// durante um culto apagaria o telão.
 //
 // A RECARGA FICA COMO SAÍDA DE FALHA. Se a rehidratação lançar, o app está num
 // estado que ninguém enumerou, e aí reabrir o documento é a única coisa que
@@ -36077,37 +35756,16 @@ const pacoteExportarTileEl = document.getElementById('pacoteExportarTile');
 const pacoteImportarTileEl = document.getElementById('pacoteImportarTile');
 
 /**
- * Os três tiles, num escritor só (a regra do `pintarTile`).
+ * `podeParar` mantém o tile TOCÁVEL enquanto trabalha, e o toque CANCELA.
  *
- * CADA UM É `hidden` FORA DO APP, e não um bloco inteiro (v1.7.2): o rótulo
- * "Este aparelho" que os agrupava saiu a pedido do operador, e os três agora
- * moram na grade única. Eles continuam dependendo da ponte — o chooser do
- * Android, o "Salvar como" do SAF e o canal de bytes —, e um botão que só sabe
- * não funcionar é pior que botão nenhum.
- *
- * O TRABALHO EM CURSO É O ARO, e não uma palavra: a `.qs-estado` saiu no mesmo
- * lote, e era ela que mostrava o "42%". `.qs-trabalhando` troca o ícone pelo
- * `.dl-ring` — o mesmo aro da linha e do cartão, SEM SETA, porque exportar não
- * baixa byte nenhum (a regra da v1.4.19). O NÚMERO continua existindo, nas duas
- * superfícies que sobrevivem ao app minimizado: o cartão sobre a preview e a
- * notificação do sistema.
+ * A saída de um trabalho de minutos mora no mesmo lugar em que a ação nasceu:
+ * o botão. É o gesto que quem opera tenta primeiro — tocar de novo no botão
+ * que está trabalhando —, e ele é seguro porque exportar é refazível: o
+ * parcial é apagado e o arquivo escolhido some. A IMPORTAÇÃO para pelo próprio
+ * tile, que vira o Cancelar (`pacoteIrmaoCancela`, ver `pacoteRenderPar`).
  *
  * A LUZ NÃO MUDA com o trabalho: aceso, neste painel, responde *"a função está
  * ligada?"*, e apagar um tile em curso diria INDISPONÍVEL, que é o oposto.
- */
-/**
- * `podeParar` mantém o tile TOCÁVEL enquanto trabalha, e o toque CANCELA.
- *
- * A exportação perdeu o cartão sobre a preview na v1.7.3, e com ele o ✕ que era
- * a única saída de um trabalho de minutos. A saída volta para o mesmo lugar em
- * que a ação nasceu: o botão. É o gesto que quem opera tenta primeiro — tocar
- * de novo no botão que está trabalhando —, e ele é seguro porque exportar é
- * refazível: o parcial é apagado e o arquivo escolhido some.
- *
- * A IMPORTAÇÃO NÃO TEM ISSO, e a diferença é de natureza: ela só ACRESCENTA, e
- * parar no meio deixaria metade do acervo dentro sem nada para apagar a outra
- * metade. O que já entrou está certo; desfazê-lo seria apagar o que o operador
- * foi buscar. Lá o tile fica `disabled` mesmo.
  */
 function pacoteTrabalhando(el, ligado, rotulo, podeParar) {
   if (!el) return;
@@ -36117,19 +35775,12 @@ function pacoteTrabalhando(el, ligado, rotulo, podeParar) {
 }
 
 /**
- * O TILE OCIOSO VIRA O CANCELAR DO IRMÃO (v1.8.27).
- *
- * Relato do operador: *"quando exportando, o botão de importação fica com um
- * spinner, o que está certo no conceito de deixar ele inutilizado, mas errado
- * no visual, pois ele indica um trabalho, trabalho esse que não é
- * importação … talvez se transforme em um botão auxiliar de 'cancelar' … dessa
- * forma os dois botões são irmãos e se completam nas ações"*.
+ * O TILE OCIOSO VIRA O CANCELAR DO IRMÃO (decisão do operador).
  *
  * O aro é o desenho do TRABALHO EM CURSO, e pintá-lo num botão que não está
- * fazendo nada é a tela afirmando o que não é. Agora o que trabalha mostra o
- * aro e o número; o outro oferece a SAÍDA, com o ✕ no lugar do ícone da função
- * e o rótulo dizendo o que o toque faz — o estado no DESENHO, que é a regra
- * desta grade desde a v1.7.6.
+ * fazendo nada é a tela afirmando o que não é. O que trabalha mostra o aro e o
+ * número; o outro oferece a SAÍDA, com o ✕ no lugar do ícone da função e o
+ * rótulo dizendo o que o toque faz — o estado no DESENHO, a regra desta grade.
  */
 function pacoteIrmaoCancela(el, acao, rotulo, descricao) {
   if (!el) return;
@@ -36141,7 +35792,7 @@ function pacoteIrmaoCancela(el, acao, rotulo, descricao) {
 }
 
 // Os dois botões da seção (a coreografia inteira) e o sinal do tile da grade:
-// QUEM PINTA UM, PINTA O OUTRO — são 15 chamadores, e um chamador que esquecesse
+// QUEM PINTA UM, PINTA O OUTRO — são muitos chamadores, e um que esquecesse
 // o tile da grade deixaria um trabalho de minutos sem sinal nenhum com a seção
 // recolhida. O corpo é o de sempre, e `pacoteRenderPar` é o nome dele. A lista da
 // seção acompanha o mesmo estado (`pacoteOcupado`): com trabalho andando ela só
@@ -36153,7 +35804,7 @@ function pacoteRenderTiles() {
 }
 
 /**
- * O TILE DA GRADE É O SINAL, não só a porta (v1.11.7).
+ * O TILE DA GRADE É O SINAL, não só a porta.
  *
  * Ele diz, com a seção recolhida, as duas coisas que a coreografia dos botões
  * dizia: HÁ TRABALHO ANDANDO (o aro, no lugar do ícone) e HÁ UM PACOTE PRONTO
@@ -36161,9 +35812,9 @@ function pacoteRenderTiles() {
  * abrir a seção, onde o botão certo espera: o Exportar que envia, o Importar
  * que descarta, o que cancela.
  *
- * O ARO GIRA ONDE HÁ TRABALHO, e não onde há `pacoteEmCurso` (a regra da
- * v1.8.28: ele sobe no primeiro toque, antes da medição e durante a folha de
- * escolha, quando nada está andando). A importação TAMBÉM ganha aro aqui — no
+ * O ARO GIRA ONDE HÁ TRABALHO, e não onde há `pacoteEmCurso` (ele sobe no
+ * primeiro toque, antes do esboço e do seletor do sistema, quando nada está
+ * andando). A importação TAMBÉM ganha aro aqui — no
  * botão dela ela vira o Cancelar, mas o tile da grade não tem irmão, e o
  * trabalho precisa de uma cara.
  *
@@ -36186,44 +35837,39 @@ function pacoteSinal() {
       : 'Levar a biblioteca e os ajustes para outro aparelho, ou trazê-los de um arquivo');
 }
 
+/**
+ * Os tiles que dependem da ponte, num escritor só (a regra do `pintarTile`).
+ *
+ * CADA UM É `hidden` FORA DO APP: eles dependem da ponte — o seletor de saída
+ * de áudio, o chooser do Android, o "Salvar como" do SAF e o canal de bytes —,
+ * e um botão que só sabe não funcionar é pior que botão nenhum. Um segundo
+ * lugar escrevendo `hidden` por tile divergiria no primeiro tile novo.
+ *
+ * O TRABALHO EM CURSO É O ARO, e não uma palavra: `.qs-trabalhando` troca o
+ * ícone pelo `.dl-ring` — o mesmo aro da linha e do cartão, SEM SETA, porque
+ * exportar não baixa byte nenhum. O NÚMERO mora no rótulo do tile e na
+ * notificação do sistema, a superfície que sobrevive ao app minimizado.
+ */
 function pacoteRenderPar() {
   const fora = !window.__NATIVE__;
-  // A SAÍDA DE ÁUDIO ENTRA NESTA LISTA (v1.9.9) e não numa função própria: a
-  // pergunta é a MESMA — *"este tile depende da ponte?"* —, e a resposta dela é
-  // sim pelo mesmo motivo dos três seguintes. Um segundo lugar escrevendo
-  // `hidden` por tile divergiria no primeiro tile novo.
   for (const el of [saidaAudioTileEl, shareAppTileEl, pacoteTileEl, pacoteExportarTileEl, pacoteImportarTileEl]) {
     if (el) el.hidden = fora;
   }
   if (shareAppTileEl) pintarTile(shareAppTileEl, 'app', 'O app', true, false);
 
-  // ===== O ARO SÓ GIRA ONDE HÁ TRABALHO DE VERDADE (v1.8.28) =====
-  //
-  // Pedido do operador: *"ajuste os spinners dos botões de exportar e importar,
-  // durante a seleção das coleções para exportações. nesse momento ainda nada
-  // foi feito ou processado, então esses botões não devem rodar"*.
+  // ===== O ARO SÓ GIRA ONDE HÁ TRABALHO DE VERDADE =====
   //
   // `pacoteEmCurso` responde *"a ponte está ocupada?"* e sobe no PRIMEIRO toque
-  // — antes da medição e da folha de escolha —, porque é ele que impede um
-  // segundo toque de trocar o destino de uma exportação viva (v1.8.15). Ele
-  // nunca foi a pergunta que o ARO responde, que é *"há trabalho andando?"*, e
-  // usá-lo para as duas fazia a grade girar durante uma folha em que nada
-  // acontece. São duas perguntas, e agora são duas variáveis.
+  // — antes do esboço e do seletor do sistema —, porque é ele que impede um
+  // segundo toque de trocar o destino de uma exportação viva. O ARO responde
+  // *"há trabalho andando?"*: são duas perguntas, e duas variáveis.
   const trabalhando = pacoteExportando || pacoteImportando;
 
-  // ===== COM UM PACOTE PRONTO, O IRMÃO É O DESCARTAR (v1.8.28) =====
+  // ===== COM UM PACOTE PRONTO, O IRMÃO É O DESCARTAR =====
   //
-  // Relato: *"verifique o botão de importar quando um arquivo de exportação
-  // está pronto, ele tem nome de cancelar, mas está agindo como importador
-  // normal"*. Os dois lados eram verdade: o rótulo emprestado com prazo `0`
-  // ficava até alguém o calar, e só o tile de EXPORTAR era calado; o `onclick`
-  // do irmão voltava a `null`, isto é, ao importador de sempre. Um botão que
-  // diz uma coisa e faz outra é pior que qualquer um dos dois.
-  //
-  // A saída não é calar o rótulo: é fazer o botão CUMPRI-LO. Com um pacote
-  // pronto o par fica coerente — o exportar ENVIA, o importar DESCARTA —, e é
-  // isso que aposenta o toque longo: ele existia porque não havia onde pôr o
-  // "quero fazer outro" (v1.8.20), e agora há um botão inteiro.
+  // Com um pacote pronto o par fica coerente — o exportar ENVIA, o importar
+  // DESCARTA —, e o rótulo emprestado de cada um é CUMPRIDO pelo toque: um
+  // botão que diz uma coisa e faz outra é pior que qualquer um dos dois.
   if (pacotePronto && !trabalhando) {
     pacoteExportarTileEl.classList.remove('qs-trabalhando');
     pacoteExportarTileEl.disabled = false;
@@ -36250,11 +35896,9 @@ function pacoteRenderPar() {
     return;
   }
   if (pacoteImportando) {
-    // ===== IMPORTAR NÃO TEM ARO: ELE VIRA O CANCELAR (v1.8.28) =====
+    // ===== IMPORTAR NÃO TEM ARO: ELE VIRA O CANCELAR (decisão do operador) =====
     //
-    // Pedido do operador: *"o botão de importar nem chega a ter um spinner no
-    // processo de importação, pois assim que inicia, ele se torna um botão de
-    // cancelar"*. E a assimetria com o exportar é honesta: importar não tem o
+    // A assimetria com o exportar é honesta: importar não tem o
     // que oferecer no próprio botão além da saída — quem já tocou nele não
     // pode tocar de novo para importar, e o número anda na NOTIFICAÇÃO, que é
     // a superfície que sobrevive ao app minimizado (que é onde uma importação
@@ -36284,8 +35928,8 @@ function pacoteRenderPar() {
     return;
   }
 
-  // NADA ANDANDO. `pacoteEmCurso` ainda pode estar de pé (a folha de
-  // escolha, o seletor do sistema): os tiles ficam PARADOS e indisponíveis, que
+  // NADA ANDANDO. `pacoteEmCurso` ainda pode estar de pé (o esboço, o seletor
+  // do sistema): os tiles ficam PARADOS e indisponíveis, que
   // é a verdade — não há trabalho a mostrar e não há toque a aceitar.
   pacoteImportarTileEl.onclick = null;
   pacoteExportarTileEl.onclick = null;
@@ -36309,20 +35953,10 @@ if (shareAppTileEl) {
   });
 }
 if (pacoteExportarTileEl) {
-  // ===== O TOQUE LONGO SAIU, E O IRMÃO O SUBSTITUI (v1.8.28) =====
-  //
-  // Ele existiu da v1.8.20 até aqui, e existia por falta de lugar: com um
-  // pacote PRONTO o toque curto ENVIA, e quem quisesse fazer outro na mesma
-  // sessão ficava sem porta. O toque longo era a resposta cara — 900 ms para
-  // não destruir um pacote de minutos por engano, mais uma pergunta depois do
-  // gesto, porque num TOQUE não existe abortar um toque longo já começado (a
-  // captura implícita do ponteiro não emite `pointerleave`).
-  //
-  // Hoje o botão de IMPORTAR é o descartar enquanto há um pacote pronto (ver
-  // `pacoteRenderTiles`), e um botão inteiro dispensa um gesto escondido. A
-  // PERGUNTA fica — ela é o que protege, não o tempo do dedo.
+  // Com um pacote PRONTO o toque curto ENVIA; fazer outro é o DESCARTAR do
+  // botão de importar (ver `pacoteRenderPar`), que PERGUNTA antes.
   pacoteExportarTileEl.addEventListener('click', () => {
-    // O TOQUE NO BOTÃO QUE TRABALHA É O CANCELAR (v1.7.3). Ele é o gesto que
+    // O TOQUE NO BOTÃO QUE TRABALHA É O CANCELAR. Ele é o gesto que
     // quem opera tenta primeiro, e é seguro porque exportar é refazível: o
     // parcial é apagado e o arquivo escolhido some.
     if (pacoteExportando) {
@@ -36330,8 +35964,9 @@ if (pacoteExportarTileEl) {
       pacoteFalar(pacoteExportarTileEl, 'Parando…', 0);
       return;
     }
-    // A MEDIÇÃO e a folha de escolha caem aqui: não escreveram byte nenhum,
-    // não há o que cancelar, e o tile está `disabled` de qualquer forma.
+    // O ESBOÇO, a MEDIÇÃO e o seletor do sistema caem aqui: não escreveram
+    // byte nenhum, não há o que cancelar, e o tile está `disabled` de qualquer
+    // forma.
     if (pacoteEmCurso) return;
     if (pacotePronto) { enviarPacotePronto(); return; }
     exportarPacote();
@@ -36371,19 +36006,16 @@ async function enviarPacotePronto() {
 // DESCARTAR O PACOTE PRONTO — e ele PERGUNTA antes.
 //
 // Com um pacote pronto o par de tiles fica coerente: o exportar ENVIA e o
-// importar DESCARTA (v1.8.28). Antes disso esta ação morava num TOQUE LONGO
-// sobre o exportar, e o relato do operador é o que aquela escolha custava: um
-// toque um pouco mais demorado destruía um pacote de minutos e recomeçava a
-// medição, sem nada perguntar.
+// importar DESCARTA.
 //
-// A PERGUNTA FICA, e ela é a guarda de verdade — não o tempo do dedo. Destruir
+// A PERGUNTA é a guarda de verdade. Destruir
 // o resultado de minutos de trabalho é a mesma classe de decisão que excluir
 // uma pasta, e usa o mesmo `appConfirm({ perigo: true })`.
 //
 // ELE NÃO REEXPORTA. Descartar deixa o par no estado de repouso, com o botão de
 // exportar oferecendo "Exportar" — que é o que ele faz. Encadear as duas coisas
-// num toque só (o que o toque longo fazia) tira do operador a chance de mudar
-// de ideia sobre O QUE levar, que é a folha inteira de escolha de coleções.
+// num toque só tiraria do operador a chance de mudar de ideia sobre O QUE
+// levar, que é a lista de grupos do Transferir.
 async function descartarPacotePronto() {
   if (!pacotePronto || pacoteEmCurso) return;
   const bytes = pacotePronto.bytes;
@@ -36407,41 +36039,35 @@ function pacoteDescartarPronto() {
   pacoteRenderTiles();
 }
 if (pacoteImportarTileEl) pacoteImportarTileEl.addEventListener('click', () => { importarPacote(); });
-// Na CARGA, e não só ao abrir a folha: é este toque que revela (ou esconde) o
-// bloco inteiro, e uma folha aberta antes dele mostraria um rótulo sozinho.
+// Na CARGA, e não só ao abrir a seção: é esta chamada que revela (ou esconde)
+// os tiles que dependem da ponte.
 pacoteRenderTiles();
 
-// ===== PINTAR UM TILE DO PAINEL RÁPIDO (v1.4.38) =====
+// ===== PINTAR UM TILE DO PAINEL RÁPIDO =====
 //
 // Um ponto só escreve as QUATRO coisas que um tile mostra, e é isso que impede
 // que elas divirjam: o `data-estado` (o valor em vigor — é por ele que os
 // oráculos perguntam, e nunca pela classe, que é aparência), a palavra do
 // estado, o desenho e o aceso.
 //
-// `aceso` E `alt` SÃO DUAS PERGUNTAS, e não uma (v1.4.40). `alt` é *"qual dos
-// dois desenhos?"*; `aceso` é *"a função está ligada?"*. Enquanto as duas foram
-// a mesma classe, um tile sempre aceso ficava preso no desenho alternativo para
-// sempre. Ver as três regras do tile no `index.html`.
+// `aceso` E `alt` SÃO DUAS PERGUNTAS, e não uma. `alt` é *"qual dos dois
+// desenhos?"*; `aceso` é *"a função está ligada?"*. Ver as três regras do tile
+// no `index.html`.
 //
-// E HOJE TODO TILE PASSA `aceso: true` (v1.7.6) — o parâmetro sobrevive porque
-// a distinção acima é real e porque ele é o que escreve a classe; o que morreu
-// foi a POLÍTICA de usá-lo para dizer estado. Pedido do operador: *"todos os
-// botões devem ter o mesmo azul de ativo, não temos mais essa diferença, toda
-// diferença de estado é pelo icone, não pela cor"*. A grade tem UMA cor, e o
-// estado mora no desenho — o que sobra da luz é a única coisa que ela já
-// significava sem ambiguidade: apagado é INDISPONÍVEL (v1.4.25).
-// Quem passar `false` aqui está dizendo isso, e é assim que se lê.
+// TODO TILE PASSA `aceso: true`: a grade tem UMA cor e o estado mora no
+// desenho (decisão do operador). O que sobra da luz é apagado = INDISPONÍVEL —
+// quem passar `false` aqui está dizendo isso.
 function pintarTile(el, estado, rotulo, aceso, alt) {
   if (!el) return;
   el.dataset.estado = String(estado);
-  // A PALAVRA DO ESTADO SAIU DA TELA (v1.7.2) e NÃO saiu da função: ela vira o
+  // A PALAVRA DO ESTADO NÃO VAI À TELA, e NÃO saiu da função: ela vira o
   // `aria-label`, que é onde ela continua sendo verdade sem ocupar linha.
   // Quem lê a grade com os olhos tem o ícone; quem a lê por leitor de tela
   // tinha o título sozinho ("Tema"), que não responde nada. É o mesmo par do
   // botão da cortina na notificação — o desenho mostra o ESTADO, e o texto que
   // acompanha diz o que ele é por extenso.
   //
-  // O NOME VEM DO `data-nome`, e não do texto que está na tela (v1.7.3): com o
+  // O NOME VEM DO `data-nome`, e não do texto que está na tela: com o
   // tile FALANDO (ver `falarNoTile`) o título é a frase emprestada, e lê-la
   // aqui faria o `aria-label` virar "42%: em curso".
   const titulo = el.querySelector('.qs-titulo');
@@ -36451,38 +36077,25 @@ function pintarTile(el, estado, rotulo, aceso, alt) {
   el.classList.toggle('qs-alt', !!alt);
 }
 
-// ===== O TILE EMPRESTA O PRÓPRIO RÓTULO (v1.7.3) =====
+// ===== O TILE EMPRESTA O PRÓPRIO RÓTULO =====
 //
-// Pedido do operador: *"ajuste o feedback da ui sobre a preparação da
-// exportação, que hoje está sendo exibida sobre o preview, para que seja
-// exibida sobre o próprio botão de exportar. já que a ação acontece ali e não
-// na tela ou controle. o mesmo vale para feedbacks visuais das ações das
-// configurações, eles devem notificar ali mesmo"*.
+// O feedback de uma ação de Configurações mora no botão em que ela nasceu — a
+// mecânica do `#otaRow` (`falarNoOta`) e a regra dos canais de resposta deste
+// arquivo: *"o rótulo do controle empresta a si mesmo por alguns segundos e
+// volta"*. O cartão sobre a preview é o canal do que ACONTECERIA NELA.
 //
-// ELE ESTÁ CERTO E O APP JÁ TINHA A MECÂNICA: o `#otaRow` (`falarNoOta`) — e o
-// "Guardar como pacote", que a usou da v5.207 à v1.8.53 e a perdeu junto com o
-// próprio rótulo, quando virou um botão de símbolo. A regra está escrita desde a
-// v5.207 na lista de canais de resposta deste arquivo — *"o
-// rótulo do controle empresta a si mesmo por alguns segundos e volta"* —, e o
-// cartão sobre a preview é o canal do que ACONTECERIA NELA. Uma exportação não
-// acontece na preview: ela acontece no botão.
-//
-// E ISSO NÃO REABRE A SEGUNDA LINHA que a v1.7.2 removeu. Aquela era PERMANENTE
-// e descrevia o estado em repouso; esta é o próprio TÍTULO, por alguns
-// segundos, e volta. O tile continua com uma linha de texto — a diferença é o
-// que ela diz enquanto o trabalho corre.
+// É o próprio TÍTULO, por alguns segundos, e volta: o tile continua com uma
+// linha de texto — a diferença é o que ela diz enquanto o trabalho corre.
 //
 // O RÓTULO DE ORIGEM MORA NO PRÓPRIO NÓ (`data-nome`), guardado na PRIMEIRA
 // fala — lê-lo do HTML a cada vez pegaria a frase emprestada de uma fala
 // anterior que ainda não voltou.
 //
-// E ELE NÃO É UM `WeakMap` DE MÓDULO, que foi a primeira escrita e não durou um
-// teste: `pacoteRenderTiles()` roda no TOPO deste arquivo, na carga, e chama o
-// `pintarTile` — que leria a constante ANTES da linha que a declara. Zona morta
-// temporal, `ReferenceError` na carga, e o app inteiro parado. É a mesma
-// armadilha que o `cifraAdotarVelocidade` documenta, e o atributo a fecha por
-// construção: não há ordem de declaração a respeitar. O prazo continua num
-// campo do nó pelo mesmo motivo.
+// E ELE NÃO É UM `WeakMap` DE MÓDULO: `pacoteRenderTiles()` roda na carga,
+// ACIMA desta função, e leria a constante ANTES da linha que a declara — zona
+// morta temporal, `ReferenceError` na carga, e o app inteiro parado. O
+// atributo fecha isso por construção; o prazo mora num campo do nó pelo mesmo
+// motivo.
 function falarNoTile(el, texto, ms) {
   if (!el) return;
   const titulo = el.querySelector('.qs-titulo');
@@ -36515,7 +36128,7 @@ function renderFitTile() {
 // O WALLPAPER É SEMPRE ACESO — há um wallpaper no telão nos DOIS estados, e
 // "Padrão" não é o recurso desligado; apagá-lo diria INDISPONÍVEL, que é a
 // outra palavra desta paleta. Quem diz QUAL é o desenho: o rolo vazio contra o
-// rolo cheio (v1.7.2, quando a palavra do estado saiu — ver o `<symbol>`).
+// rolo cheio (ver o `<symbol>`).
 function renderWallTile() {
   pintarTile(wallTileEl, customWallpaper ? 'propria' : 'padrao',
     customWallpaper ? 'Própria' : 'Padrão', true, !!customWallpaper);
@@ -36528,7 +36141,7 @@ async function applyFit(mode) {
   cmd({ type: 'fit', fit: mediaFit });
 }
 
-// ===== GIRAR A MÍDIA (v5.142) =====
+// ===== GIRAR A MÍDIA =====
 //
 // Vídeo gravado de lado no celular chega DEITADO no telão. Não havia nada a
 // fazer: a mídia é do operador, reencodar no meio de um culto não existe, e
@@ -36546,17 +36159,10 @@ async function applyFit(mode) {
 const ROTACOES = [0, 90, 180, 270];
 let mediaRot = 0;
 function renderRotBtn() {
-  // O ÍCONE GIRA COM A MÍDIA (v1.7.2), e desde a v1.7.6 ele é O QUADRO
-  // (`#icoPaisagem`). O ângulo era a palavra do estado deste tile e saiu com as
-  // outras; a resposta não é um par de desenhos — a v1.4.38 mediu que quatro
-  // desenhos parecidos não se distinguem a 22px —, é o MESMO desenho na posição
-  // que ele descreve. Quem o gira é o CSS, pelo `data-estado` que o
-  // `pintarTile` acabou de escrever, e o que vira sob o dedo é a própria
-  // paisagem: deitada, de pé, de cabeça para baixo, de pé do outro lado.
-  // ACESO SEMPRE, inclusive a 0° (v1.7.6). Ele era o único tile em que o
-  // apagado ainda tentava dizer "esta função está no padrão", e o operador
-  // encerrou a distinção: *"toda diferença de estado é pelo icone, não pela
-  // cor"*. Aqui o ícone É o estado — o quadro na posição em que a mídia está.
+  // O ÍCONE GIRA COM A MÍDIA: é O QUADRO (`#icoPaisagem`), o MESMO desenho na
+  // posição que ele descreve (quatro desenhos parecidos não se distinguem a
+  // 22px, MEDIDO). Quem o gira é o CSS, pelo `data-estado` que o `pintarTile`
+  // acabou de escrever. ACESO SEMPRE, inclusive a 0°: o ícone É o estado.
   pintarTile(rotBtnEl, mediaRot, mediaRot + '°', true, false);
   if (rotBtnEl) {
     // A FRASE DIZ ONDE, nas duas pontas: o rótulo do tile já diz "no telão", e
@@ -36565,7 +36171,7 @@ function renderRotBtn() {
       ? 'A mídia está girada ' + mediaRot + '° no telão — tocar gira mais 90°'
       : 'Girar a mídia no telão — não gira o app nem a tela do celular';
   }
-  // ---- E O DESFAZER APARECE NA PREVIEW (v1.4.43) ----
+  // ---- E O DESFAZER APARECE NA PREVIEW ----
   // Quem o mostra é o render do ESTADO que ele desfaz, e não um render próprio:
   // é a única disciplina que impede o botão de sobreviver ao fato que ele
   // nomeia — `applyRotate` passa por aqui SEMPRE, inclusive na carga (`load`) e
@@ -36625,9 +36231,9 @@ function detectUrlKind(url) {
   return mime ? AVDB.kindFromType(mime) : 'url';
 }
 
-// ===== O PERCENTUAL DO TOQUE À TELA (v1.12.36) =====
+// ===== O PERCENTUAL DO TOQUE À TELA =====
 //
-// Pedido do operador: o percentual de um download do YouTube mede do TOQUE até
+// O percentual de um download do YouTube mede do TOQUE até
 // a mídia TOCAR — preparo, bytes, junção, cópia, gravação e abertura —, não os
 // bytes do arquivo. Contínuo, sem voltar e sem congelar, e 100 só com a mídia
 // pronta (no "Tocar agora", tocando; num destino que guarda, gravada).
@@ -36640,8 +36246,9 @@ function detectUrlKind(url) {
 // cada fase no aparelho DESTE operador.
 //
 // A barra só segura a REVELAÇÃO, e no máximo `AVProgresso.SEGURA_MAX` (o fim
-// segurado, v1.12.39); nenhum outro passo do trabalho espera por ela. Durante os
-// bytes ela é PRESA a eles (v1.12.40, `posicaoDosBytes` no `progresso.js`).
+// segurado); nenhum outro passo do trabalho espera por ela. Durante os bytes ela
+// é PRESA a eles (`posicaoDosBytes` no `progresso.js`).
+
 const YT_TEMPOS = 'ytTempos';
 const YT_BARRA_TIQUE_MS = 100;
 let ytTempos = null;
@@ -36662,7 +36269,7 @@ function ytTemposAprender(amostra, origem) {
     .catch(() => { /* aprender é ganho; falhar nele não derruba o download */ });
 }
 
-// O DIAGNÓSTICO DA BARRA (v1.12.37): o `relatorio()` de cada trabalho que
+// O DIAGNÓSTICO DA BARRA: o `relatorio()` de cada trabalho que
 // terminou, num anel de `YT_BARRA_DIAG_MAX` GRAVADO (`ytBarraDiag` no `state`) —
 // um Registro copiado depois do culto ainda o traz. O texto é montado aqui
 // (`blocoBarraYt`); a regra só devolve números.
@@ -36685,7 +36292,7 @@ const segsBarra = (ms) => (ms == null ? '?' : (ms / 1000).toFixed(1).replace('.'
 const mbBarra = (b) => (b / 1048576).toFixed(1).replace('.', ',') + ' MB';
 const mbsBarra = (bpms) => (bpms * 1000 / 1048576).toFixed(1).replace('.', ',') + ' MB/s';
 const TAMANHO_FONTE = { real: 'o do shell', duracao: 'pela duração', historico: 'do histórico', padrao: 'o padrão' };
-// A MEDIDA DO SHELL de cada download (v1.12.40): o `ytMedida` (o
+// A MEDIDA DO SHELL de cada download: o `ytMedida` (o
 // `YoutubeGrab.ultimaMedida`), RESUMIDO — o anel é gravado no banco, e só entra
 // o que responde "por que os bytes demoraram?". Todo campo é opcional.
 const YT_MEDIDA_ESPERA_MS = 1500;
@@ -36796,7 +36403,7 @@ function blocoBarraYt() {
       return FASE_ROTULO[f] + ' ' + segsBarra(x.realMs) + '/' + segsBarra(x.previstoMs) + (x.mostrado == null ? '' : ' →' + x.mostrado + '%');
     });
     if (partes.length) linhas.push('    real/previsto: ' + partes.join(' · '));
-    // O QUE DECIDIU O CAMINHO E O TAMANHO (v1.12.38): o primeiro aviso de bytes
+    // O QUE DECIDIU O CAMINHO E O TAMANHO: o primeiro aviso de bytes
     // contra o que o ritmo medido explica, e de onde veio o tamanho previsto.
     const pa = r.primeiroAviso;
     const extra = [];
@@ -36807,7 +36414,7 @@ function blocoBarraYt() {
     if (r.ritmoBytesPorMs) extra.push('rede medida ' + mbsBarra(r.ritmoBytesPorMs));
     if (r.tamanhoPrevisto) extra.push('tamanho previsto ' + mbBarra(r.tamanhoPrevisto) + ' (' + (TAMANHO_FONTE[r.tamanhoFonte] || r.tamanhoFonte || '?') + ')');
     if (extra.length) linhas.push('    ' + extra.join(' · '));
-    // OS AVISOS NO TEMPO (v1.12.40): o maior vão entre dois avisos de bytes e a
+    // OS AVISOS NO TEMPO: o maior vão entre dois avisos de bytes e a
     // pior janela de 2 s — "lenta" e "parada" são coisas diferentes.
     const av = [];
     if (r.avisosMaiorVaoMs != null) av.push('maior vão entre avisos ' + segsBarra(r.avisosMaiorVaoMs));
@@ -36964,7 +36571,7 @@ function esperarTocando(id) {
   });
 }
 
-// A MINIATURA FORA DO CAMINHO (v1.12.39, aprovado pelo operador). O vídeo do
+// A MINIATURA FORA DO CAMINHO (decisão do operador). O vídeo do
 // YouTube é gravado SEM miniatura e ela é extraída DEPOIS — `quando` é a
 // promessa de quem tem a mídia entrando em cena (o "Tocar agora" a cumpre com a
 // mídia já TOCANDO, mais `MINIATURA_FOLGA_MS`: decodificar um segundo vídeo
@@ -36997,56 +36604,43 @@ function miniaturaDepois(id, blob, quando, medida) {
     return gravou;
   });
 }
-// Quem mostra o item volta a lê-lo do banco: o Cronograma (`load`), a fila e os
-// Favoritos — cada um só se o item está nele.
+// Quem mostra o item volta a lê-lo do banco: o Cronograma e a fila (`load`) e
+// os Favoritos, só se o item está neles.
 async function redesenharComMiniatura(id) {
   try {
     await load();
-    if (plItems.some((x) => x && x.id === id)) { plItems = await AVDB.listItems('playlist'); renderPlaylist(); }
     if (favSet.has(id)) await recarregarFavoritos();
   } catch (_) { /* a capa é ilustração; falhar aqui não derruba nada */ }
 }
 
 // ===== A via NATIVA: o aparelho extrai e baixa o vídeo sozinho =====
 //
-// É o caminho principal desde a v5.81, e o que finalmente cumpre "sem
-// configurar nada": quem extrai é o shell (`YoutubeGrab.kt`), com a
-// requisição saindo do IP do próprio celular. Servidor público — Cobalt,
-// Invidious, Piped — roda em IP de datacenter, que é exatamente o que o
-// YouTube bloqueia; foi por isso que a via anterior não funcionou, e é por isso
-// que ela saiu do app na v5.82 em vez de ficar como alternativa morta.
+// Quem extrai é o shell (`YoutubeGrab.kt`), com a requisição saindo do IP do
+// próprio celular: servidor público — Cobalt, Invidious, Piped — roda em IP de
+// datacenter, que é exatamente o que o YouTube bloqueia.
 //
 // O nativo entrega uma URL SERVÍVEL (`/saf/<token>`), não bytes: daqui para a
 // frente o caminho é o mesmo de um arquivo compartilhado — `fetch` + `Blob` +
 // `addMedia`. O arquivo intermediário é apagado logo depois; sem isso o vídeo
-// ficaria duas vezes no aparelho.
+// ficaria duas vezes no aparelho. Fora do app devolve `null` na hora.
 //
-// Exige shell ≥ 16. Num anterior o método não existe e a função devolve null
-// na hora, sem custo: o link vira item de player embutido, que é o
-// comportamento de sempre e continua sendo o plano B.
 // `opts.naPreview` decide ONDE o aviso aparece — e a pergunta que ele responde
 // é "isto vai entrar em cena a seguir?". Tocar: sim, o cartão vai sobre a
 // preview. Só entrar na lista: não, o aviso vai na linha do Cronograma, que é
 // onde o resultado vai aparecer. Ver `libBusy`.
 async function ytBaixarNativo(link, nome, opts) {
   if (!window.__NATIVE__) return null;
-  // SÓ O ÁUDIO exige shell ≥ 23 (o método `ytFetchAudio` da ponte). Num
-  // anterior, pedir áudio devolveria null e o operador ficaria sem nada — e ele
-  // pediu o louvor, não o formato: cai no vídeo, que toca igual. Quem desenha a
-  // escolha na tela já a esconde nesse shell (ver `openYtMenu`); esta guarda é
-  // para o caminho que não passa pela tela.
+  // SÓ O ÁUDIO sai pelo `ytFetchAudio` da ponte (ver `AVNative.ytFetch`).
   const soAudio = !!(opts && opts.somenteAudio);
-  // A LEGENDA DE ABERTURA, numa variável e não em dois literais: desde a
-  // v1.7.1 ela vai para as DUAS superfícies (o cartão e a linha), e é dela que
+  // A LEGENDA DE ABERTURA, numa variável e não em dois literais: ela vai para
+  // as DUAS superfícies (o cartão e a linha), e é dela que
   // sai a decisão de desenhar ou não a seta na miniatura
   // (`legendaEhDownload`). Duas cópias seriam duas chances de o cartão e a
   // linha discordarem sobre o mesmo trabalho.
   const LEGENDA_PREPARANDO = soAudio ? 'Preparando áudio' : 'Preparando vídeo';
-  // O TETO DE RESOLUÇÃO escolhido pelo operador (v5.118). Ausente = o padrão do
-  // shell (1080p), que é o caminho que funciona em qualquer versão: o `ytFetch`
-  // do `native.js` só usa o método novo da ponte quando o teto pedido é MENOR
-  // que o padrão. Nenhuma guarda de shell aqui, portanto — quem não pode
-  // escolher simplesmente não escolhe, e baixa como sempre.
+  // O TETO DE RESOLUÇÃO escolhido pelo operador. Ausente = o padrão do shell
+  // (1080p): o `ytFetch` do `native.js` só usa o `ytFetchAte` quando o teto
+  // pedido é MENOR que o padrão.
   const altura = (opts && opts.altura) | 0;
   // O nome CRU de quem pediu, sem o genérico: é ele que decide o nome do
   // registro (ver o `addMedia` lá embaixo), e ali um genérico venceria o título
@@ -37061,12 +36655,9 @@ async function ytBaixarNativo(link, nome, opts) {
   // que nunca vai aparecer lá. Ali quem mostra o andamento é a própria linha
   // do resultado (`onPct`) mais a notificação do sistema.
   const aviso = (opts && opts.aviso) || (naPreview ? 'preview' : 'lib');
-  // A ALÇA DE CANCELAMENTO (v5.191), entregue a QUEM ESTÁ MOSTRANDO o download.
-  //
-  // Até aqui só a linha do resultado da busca sabia cancelar — e ela é
-  // justamente a que some quando o operador fecha a busca. O cartão sobre a
-  // preview e a linha provisória do Cronograma mostravam minutos de download
-  // sem oferecer saída nenhuma; a única forma de parar era esperar.
+  // A ALÇA DE CANCELAMENTO, entregue a QUEM ESTÁ MOSTRANDO o download (o
+  // cartão sobre a preview e a linha provisória do Cronograma, não só a linha
+  // do resultado da busca, que some quando o operador fecha a busca).
   //
   // `terminado` fecha a janela do fim: um toque no botão depois de o download
   // acabar mandaria ao shell um cancelamento que ficaria armado contra o
@@ -37085,7 +36676,7 @@ async function ytBaixarNativo(link, nome, opts) {
     if (parou) { cancelado = true; bg.soltar(); }
   };
   // O CARTÃO DA PREVIEW É DE UMA TENTATIVA DE PROJEÇÃO, e por isso ele entra no
-  // `palcoEmVoo` (v1.7.7): quem ganhar a vez o derruba junto com o do toque. Só
+  // `palcoEmVoo`: quem ganhar a vez o derruba junto com o do toque. Só
   // o da preview — o `libBusy` mora na LINHA da Biblioteca, que é onde ele deve
   // ficar mesmo com outra coisa no ar.
   const bg = aviso === 'preview'
@@ -37093,7 +36684,7 @@ async function ytBaixarNativo(link, nome, opts) {
     : aviso === 'lib' ? libBusy(LEGENDA_PREPARANDO, rotulo, opts && opts.chave, cancelar)
       : { visivel: false, atualizar() {}, soltar() {} };
   const notif = bgTaskStart(rotuloBaixando, 1);
-  // O PERCENTUAL DO TOQUE À TELA (v1.12.36): UMA barra para o trabalho inteiro
+  // O PERCENTUAL DO TOQUE À TELA: UMA barra para o trabalho inteiro
   // (ver `novaBarraYt`). Quem chama pode trazer a dele — o "Tocar agora", que
   // continua depois daqui até a mídia tocar —; sem ela, esta função é a dona e a
   // fecha no fim da gravação (a rotina das séries, a Verificação completa).
@@ -37111,7 +36702,7 @@ async function ytBaixarNativo(link, nome, opts) {
   // é a única tela que existe. Uma tarefa de um item só nunca chega a trocar de
   // nome, então o compasso não tem o que fazer aqui — vai direto.
   bgItemOnly(notif, rotulo);
-  // A RÉGUA DA VERIFICAÇÃO COMPLETA (v1.12.27): `opts.medida` é um objeto que
+  // A RÉGUA DA VERIFICAÇÃO COMPLETA: `opts.medida` é um objeto que
   // esta função CARIMBA em cada fase (o primeiro byte, cada megabyte, o fim no
   // shell, a cópia, a miniatura, a gravação) — o download é o MESMO de um
   // "Tocar agora", só observado. `opts.semResgate` tira a intenção: um teste
@@ -37119,7 +36710,8 @@ async function ytBaixarNativo(link, nome, opts) {
   const medida = (opts && opts.medida) || null;
   const semResgate = !!(opts && opts.semResgate);
   if (medida) { medida.tInicio = Date.now(); medida.amostras = medida.amostras || []; }
-  // A VISIBILIDADE DO APP durante a medida (v1.12.31): o WebView do Controle é
+  // A VISIBILIDADE DO APP durante a medida: o WebView do Controle é
+
   // estrangulado minimizado, e a cópia para a biblioteca roda NELE — sem esta
   // linha do tempo, uma cópia lenta com o app no fundo seria indistinguível de
   // uma cópia lenta com o app na frente, e as duas pedem consertos diferentes.
@@ -37150,7 +36742,7 @@ async function ytBaixarNativo(link, nome, opts) {
       const r = await AVNative.ytFetch(link, (lidos, total) => {
         if (medida && medida.amostras.length < 20000) medida.amostras.push([Date.now(), lidos, total]);
         // OS BYTES ALIMENTAM A BARRA, não a tela: o número mostrado é o do toque
-        // à tela (v1.12.36), que segue andando pela junção, pela cópia e pela
+        // à tela, que segue andando pela junção, pela cópia e pela
         // gravação — fases em que nenhum byte se move.
         barra.bytes(lidos, total);
         // Os MESMOS bytes vão para o TEXTO da notificação ("X MB de Y MB"); a
@@ -37167,7 +36759,7 @@ async function ytBaixarNativo(link, nome, opts) {
       }
       if (!r || !r.url) return null;
       barra.anotar({ nome: rotulo, altura: r.height | 0, soAudio });
-      // A MEDIDA DO SHELL vai com o diagnóstico da barra (v1.12.40): POR QUE os
+      // A MEDIDA DO SHELL vai com o diagnóstico da barra: POR QUE os
       // bytes demoraram — todos os pedaços lentos (a rede) ou um preso. Sem
       // `await`: o "Tocar agora" não espera por ela; quem espera, com prazo, é
       // o `concluir()` da barra.
@@ -37202,8 +36794,8 @@ async function ytBaixarNativo(link, nome, opts) {
         if (medida) { medida.tCopia = Date.now(); medida.bytes = blob.size; }
         if (!blob.size) return null;
         barra.sinal('gravacao');
-        // O AVISO MORA ONDE O RESULTADO VAI APARECER — a régua da v5.84, e ela
-        // decide este `if`. `aviso === 'preview'` é o download que vai ENTRAR EM
+        // O AVISO MORA ONDE O RESULTADO VAI APARECER, e essa régua decide este
+        // `if`. `aviso === 'preview'` é o download que vai ENTRAR EM
         // CENA; nos outros destinos o resultado é uma LINHA, e ali a altura já
         // aparece no subtítulo dela ("Vídeo · 360p") sem cartaz nenhum. Um
         // cartão sobre a preview para um vídeo que só está sendo guardado
@@ -37224,8 +36816,8 @@ async function ytBaixarNativo(link, nome, opts) {
           name: (nome || r.name || rotulo) + (soAudio ? ' (áudio)' : ''),
           type: r.type || (soAudio ? 'audio/mp4' : 'video/mp4'),
           kind: soAudio ? 'audio' : 'video',
-          // SEM MINIATURA AQUI (v1.12.39): extraí-la decodifica o vídeo, e ela
-          // segurava a gravação — 1,5 e 1,9 s no aparelho do operador, quase
+          // SEM MINIATURA AQUI: extraí-la decodifica o vídeo, e ela
+          // seguraria a gravação — 1,5 e 1,9 s MEDIDOS no aparelho do operador, quase
           // metade do "Tocar agora". Ela chega DEPOIS (`miniaturaDepois`, logo
           // abaixo). Só áudio nunca tem: a "capa" de um áudio não pode existir —
           // é o `kind` que faz o telão manter o wallpaper (`semVisual`).
@@ -37237,10 +36829,8 @@ async function ytBaixarNativo(link, nome, opts) {
           // que veio foi outra coisa. Descobrir isso depois exigiria decodificar
           // o arquivo.
           height: (r.height | 0) || null,
-          // A DURAÇÃO REAL, pelo mesmo argumento e do mesmo lugar (v1.5.21): o
-          // shell já a devolvia no `ytFetch` e ela era jogada fora aqui, então
-          // um vídeo baixado ficava sem o dado que o áudio ao lado já mostra no
-          // subtítulo. Custo zero — nem uma requisição a mais.
+          // A DURAÇÃO REAL, pelo mesmo argumento e do mesmo lugar (o `ytFetch`
+          // a devolve): ela vai ao subtítulo da linha. Custo zero.
           seconds: (r.seconds | 0) || null,
           canal: (opts && opts.canal) || null,
           // O id do vídeo fica GRAVADO no registro: é ele que faz o próximo
@@ -37286,7 +36876,7 @@ async function ytBaixarNativo(link, nome, opts) {
 }
 
 // ---------------------------------------------------------------------------
-// O DOWNLOAD QUE O RENDERER LEVOU JUNTO (v5.133 · shell 30)
+// O DOWNLOAD QUE O RENDERER LEVOU JUNTO
 //
 // O download roda no shell; quem o espera é um `fetch` DESTA página. Quando o
 // renderer morre — dois WebViews, um vídeo grande e o player do YouTube dividem
@@ -37303,7 +36893,7 @@ async function ytBaixarNativo(link, nome, opts) {
 //
 // Reclamar é pedir o MESMO download outra vez: o shell devolve o resultado
 // guardado na hora (sem rede), ou — se o processo inteiro tiver morrido — baixa
-// de novo, agora com a fila de IO livre. O registro fica no `state` do banco,
+// de novo. O registro fica no `state` do banco,
 // que é o único lugar que sobrevive à morte da página.
 // ---------------------------------------------------------------------------
 const YT_INTENCOES = 'ytIntencoes';
@@ -37350,10 +36940,9 @@ const LISTAS_VISIVEIS = ['imports', 'playlist', 'favs'];
  *
  * O resgate REGISTRA a intenção de novo (é o `lembrarIntencao` do começo de
  * todo download), então um download que nunca termina — o app fechado no meio,
- * outra vez, e outra — voltava a cada abertura pelas seis horas inteiras de
- * validade. Foi o que o operador relatou: "mesmo depois de fechar o app ele
- * fica sempre querendo baixar o vídeo". Duas tentativas cobrem o caso real (um
- * OOM do renderer) e fecham o laço.
+ * outra vez, e outra — voltaria a cada abertura pelas seis horas inteiras de
+ * validade. Duas tentativas cobrem o caso real (um OOM do renderer) e fecham o
+ * laço.
  */
 const INTENCAO_MAX_TENTATIVAS = 2;
 
@@ -37376,14 +36965,17 @@ async function desistirDaIntencao(p, porque) {
 // normal.
 async function resgatarDownloads() {
   if (!window.__NATIVE__) return;
+  // Lê e limpa o registro numa transação só, ANTES de tentar: um resgate que
+  // falhe não pode ficar tentando de novo a cada abertura, e quem der certo já
+  // reescreve a lista pelo caminho normal (`lembrarIntencao` no começo do
+  // download). Com `getState` + `setState`, um `lembrarIntencao` no vão era
+  // apagado sem ter sido lido (`hidratacao-perde-a-vez`, 13).
   let pendentes = [];
-  try { pendentes = (await AVDB.getState(YT_INTENCOES)) || []; } catch (_) { return; }
+  try {
+    await AVDB.updateState(YT_INTENCOES, (atuais) => { pendentes = atuais || []; return []; });
+  } catch (_) { /* sem leitura, `pendentes` fica vazio; sem escrita, segue */ }
   if (!pendentes.length) return;
   const agora = Date.now();
-  // Limpa o registro ANTES de tentar: um resgate que falhe não pode ficar
-  // tentando de novo a cada abertura, e quem der certo já reescreve a lista
-  // pelo caminho normal (`lembrarIntencao` no começo do download).
-  try { await AVDB.setState(YT_INTENCOES, []); } catch (_) { /* segue */ }
   for (const p of pendentes) {
     if (!p || !p.link) continue;
     if ((agora - (p.quando || 0)) > INTENCAO_VALIDA_MS) {
@@ -37393,8 +36985,7 @@ async function resgatarDownloads() {
     // SEM DESTINO VISÍVEL, NÃO SE RESGATA. Um "Tocar agora" é do INSTANTE em
     // que o operador tocou: reclamá-lo num lançamento seguinte baixa minutos de
     // vídeo para uma cena que já passou, e o item não aparece em lista nenhuma
-    // para ser achado depois. Era o caso exato do relato — "esse vídeo não está
-    // mais indo para o player e ele continua querendo baixar".
+    // para ser achado depois.
     if (LISTAS_VISIVEIS.indexOf(p.lista) < 0) {
       await desistirDaIntencao(p, 'sem destino');
       continue;
@@ -37411,10 +37002,8 @@ async function resgatarDownloads() {
           lista: p.lista,
           somenteAudio: p.soAudio,
           altura: p.altura,
-          // O RESGATE APARECE, e na linha da lista de destino: até aqui ele era
-          // `aviso: 'nenhum'` — dez minutos de download invisíveis, sem nada
-          // que o operador pudesse tocar para parar. Com a linha provisória ele
-          // vê o que está acontecendo e tem onde cancelar (v5.191).
+          // O RESGATE APARECE, na linha da lista de destino: com a linha
+          // provisória o operador vê o que está acontecendo e tem onde cancelar.
           aviso: 'lib',
           // A CONTAGEM ATRAVESSA o novo `lembrarIntencao` de dentro do
           // `ytArquivo`: sem ela o contador nasceria zerado a cada resgate e o
@@ -37495,11 +37084,7 @@ function nomeSemExtensao(n) { return String(n || '').replace(/\.[^.]+$/, ''); }
 // já exportado. O que o app guarda é uma IMAGEM POR PÁGINA: daí para a frente
 // a apresentação é mídia comum, com fade, cortina, `MediaSession` e o telão
 // que já existem. Ver SlideDeck.kt para por que o desenho é nativo e por que o
-// formato de entrada é PDF e não `.pptx`.
-//
-// Exige shell >= 19. Num anterior o método não existe e a função devolve null
-// na hora: o PDF volta a ser um arquivo qualquer e o link, um item de URL —
-// exatamente o comportamento de antes.
+// formato de entrada é PDF (o `.pptx` é desenhado no WebView, `deck.js`).
 let deckPagina = 0;   // página em cena da apresentação atual
 
 function isDeck(rec) {
@@ -37544,9 +37129,9 @@ function deckIr(alvo) {
 
 function deckStep(delta) {
   // COM O VÍDEO DE UM SLIDE NO AR, o par de botões PULA o vídeo: ele é o
-  // conteúdo daquela página, e "próximo slide" quer dizer sair dele. É o pedido
-  // do operador — *"eu não consigo pular o vídeo"* —, e é o mesmo movimento que
-  // o fim do vídeo faz sozinho, só que com um passo escolhido por ele.
+  // conteúdo daquela página, e "próximo slide" quer dizer sair dele — o mesmo
+  // movimento que o fim do vídeo faz sozinho, com um passo escolhido.
+
   if (deckVideoVolta) { deckVideoVoltar(delta); return; }
   if (!deckNoAr()) return;
   deckIr(deckPagina + delta);
@@ -37556,9 +37141,8 @@ function deckStep(delta) {
 //
 // Um `.pptx` com vídeo embutido chega aqui já separado: as páginas são imagens
 // e cada vídeo é uma mídia própria, presa à PÁGINA em que ele estava (ver
-// `separarVideos`, no `deck.js`). A automação é o pedido do operador ao pé da
-// letra — *"iniciar e voltar para a apresentação prosseguindo para o próximo
-// slide"* —, e ela mora AQUI e não no `stage.js` de propósito: o motor de
+// `separarVideos`, no `deck.js`). A automação — tocar o vídeo e voltar à
+// apresentação no slide seguinte — mora AQUI e não no `stage.js` de propósito: o motor de
 // projeção é o caminho que desenha na frente da congregação, e tudo o que este
 // recurso precisa já existe como comando. Chegar na página manda um `load` do
 // vídeo; o fim dele manda um `load` da apresentação. Fade, cortina, telas da
@@ -37574,12 +37158,9 @@ let deckVideoVolta = null;
 // EM QUE PÁGINA UMA APRESENTAÇÃO DEVE ABRIR, quando não é a primeira. −1 é
 // "na primeira", que é a regra de sempre e continua sendo o padrão.
 //
-// Ela existe para a VOLTA de um vídeo de slide, e o que ela conserta é o relato
-// do operador: *"ao voltar de um vídeo, estou vendo o mesmo slide inicial da
-// apresentação"*. A volta ia ao ar por DOIS comandos — um `load` com `page: 0`
-// (a regra do `send`) e um `page` logo depois —, e o telão pintava a CAPA entre
-// os dois. Nada saía de ordem e nenhuma página era consumida; o que havia era um
-// piscar, na frente da congregação. Com a dica, a página certa viaja DENTRO do
+// Ela existe para a VOLTA de um vídeo de slide: por DOIS comandos — um `load`
+// com `page: 0` (a regra do `send`) e um `page` logo depois — o telão pintaria
+// a CAPA entre os dois. Com a dica, a página certa viaja DENTRO do
 // `load`, que é o mesmo contrato que a posição de uma mídia já usa e pela mesma
 // razão: o `onCommand` do Display não serializa.
 let deckAbrirNaPagina = -1;
@@ -37601,10 +37182,9 @@ function deckVideoDaPagina(d, n) {
  * A APRESENTAÇÃO E A PÁGINA QUE O OPERADOR ESTÁ VENDO — inclusive quando o que
  * está em cena é o vídeo de um slide.
  *
- * Os dois defeitos que isto conserta são o mesmo defeito: com o vídeo no ar,
- * `currentItem` é o VÍDEO, então `deckNoAr()` devolve null, `slideTarget()` não
- * acha eixo nenhum e o par de botões nasce DESABILITADO — o operador não
- * consegue pular o vídeo. Para quem opera, porém, a cena continua sendo *"a
+ * Com o vídeo no ar, `currentItem` é o VÍDEO, então `deckNoAr()` devolve null,
+ * e sem este par `slideTarget()` não acharia eixo nenhum e o ⏮/⏭ nasceria
+ * DESABILITADO. Para quem opera, porém, a cena continua sendo *"a
  * página N da apresentação"*: o vídeo é o conteúdo daquela página, não um item
  * à parte.
  *
@@ -37630,13 +37210,10 @@ function paginaDoSlide() {
  * ambíguo e a escolha é a conservadora: sobreposta, a página com vídeo mostra
  * o pôster e mais nada.
  *
- * SÃO DOIS CHAMADORES, e a regra de "só por navegação" foi REVOGADA na v1.6.6.
- * Ela dizia que só o `deckIr` chamava — abrir a apresentação não contaria como
- * chegar na página —, e o operador pediu o contrário por extenso: *"no caso do
- * primeiro slide ser um vídeo, pode fazer um autoplay para ele"*. Hoje o `send`
- * também chama, no fim do `load` da apresentação, e é esse segundo chamador que
- * faz a VOLTA de um vídeo de slide encadear: `deckVideoVoltar` pousa pelo `send`
- * com a dica `deckAbrirNaPagina`.
+ * SÃO DOIS CHAMADORES: o `deckIr` (navegação) e o `send`, no fim do `load` da
+ * apresentação — abrir numa página com vídeo também o toca (decisão do
+ * operador), e é esse segundo chamador que faz a VOLTA de um vídeo de slide
+ * encadear: `deckVideoVoltar` pousa pelo `send` com a dica `deckAbrirNaPagina`.
  *
  * O que continua valendo é o `deckVideoSemGatilho`: a volta de um vídeo NÃO
  * pode reprojetá-lo na mesma página, senão ele toca em laço para sempre.
@@ -37650,9 +37227,9 @@ async function deckVideoTalvezTocar(d, n) {
   //
   // O vídeo embutido não está em `plItems`, `libItems` nem `favItems`, então
   // lê-lo é ler o BLOB INTEIRO do banco — segundos no aparelho. Feita essa
-  // espera DENTRO do `send`, o comando `load` já saiu e é irrevogável: o
-  // operador que tocasse num louvor durante a leitura via o louvor entrar e,
-  // um a três segundos depois, o vídeo do slide entrar POR CIMA dele. Lida
+  // espera DENTRO do `send`, o comando `load` já teria saído e seria
+  // irrevogável: o operador que tocasse num louvor durante a leitura veria o
+  // vídeo do slide entrar POR CIMA dele segundos depois. Lida
   // aqui, a mesma espera acontece antes de qualquer coisa ir ao telão, e a
   // senha decide se ainda vale projetar. O registro é passado adiante
   // (`recPronto`) para o `send` não reler o mesmo blob.
@@ -37662,7 +37239,7 @@ async function deckVideoTalvezTocar(d, n) {
   if (!rec || cenaSeq !== senha) return;
   // A SENHA É A DO SLOT DE MÍDIA (`cenaSeq`), NUNCA `projecaoSeq`. Aquela sobe
   // também em toda Camada de Texto (`soUmProvedorDeTexto`), e com ela o
-  // operador que subisse o cronômetro enquanto o vídeo era lido desarmava a
+  // operador que subisse o cronômetro enquanto o vídeo era lido desarmaria a
   // volta para sempre — a MESMA ação com desfecho oposto conforme a leitura
   // tivesse terminado ou não. Camada de texto não toma o slot de mídia, logo
   // não pode cancelar a volta da apresentação. Ver `cenaSeq`.
@@ -37748,16 +37325,12 @@ async function deckVideoVoltar(passo) {
 // `legendaEhDownload`.
 const LEGENDA_DECK = 'Preparando apresentação';
 
-// ===== DESISTIR DE UMA PREPARAÇÃO (v1.7.4) =====
+// ===== DESISTIR DE UMA PREPARAÇÃO =====
 //
-// Pedido do operador, sobre o botão que passou a ocupar a coluna do `⋮`: *"esse
-// botão só tem uma função durante um preparo ou download. Esse botão cancela o
-// processo e apaga o item."*
-//
-// Um botão que às vezes não está lá é pior que botão nenhum, e até aqui só o
-// DOWNLOAD sabia parar: a preparação de uma apresentação — a espera mais longa
-// deste app, dezenas de páginas rasterizadas uma a uma — não tinha saída
-// nenhuma. Esta alça é o que a dá, e ela é a MESMA nos dois caminhos do deck.
+// O botão da coluna do `⋮`, durante um preparo ou download, cancela o processo
+// e apaga o item (decisão do operador). A preparação de uma apresentação — a
+// espera mais longa deste app, dezenas de páginas rasterizadas uma a uma — usa
+// esta alça, a MESMA nos dois caminhos do deck.
 //
 // ELA SOLTA A LINHA NA HORA, e o trabalho morre onde der. É a diferença entre
 // os dois caminhos, e ela está dita porque é a única parte assimétrica:
@@ -37767,9 +37340,8 @@ const LEGENDA_DECK = 'Preparando apresentação';
 //  · no PDF quem rasteriza é o SHELL, e `deckPages` não tem cancelamento. O que
 //    se cancela ali é o DESFECHO: nada é criado, e o `finally` que já existia
 //    descarta as páginas do cache (`deckDiscard`). O shell termina de desenhar
-//    para o lixo, e isso é o preço — soltar a linha na hora é o que o operador
-//    pediu, e mantê-la de pé por minutos depois do toque seria o defeito que
-//    este botão existe para não ter.
+//    para o lixo, e isso é o preço — mantê-la de pé por minutos depois do toque
+//    seria o defeito que este botão existe para não ter.
 //
 // Devolve `{ cancelado(), cancelar }` — a função é a alça que vai ao `libBusy`,
 // e o predicado é o que os laços consultam.
@@ -37811,13 +37383,11 @@ async function pptxImportar(file, nome, opts) {
       const feito = await AVDeck.paginasDoPptx(file, (feitas, total) => {
         const pct = total ? Math.floor((feitas / total) * 100) : -1;
         bg.atualizar('Preparando página ' + feitas + (total ? ' de ' + total : '') + '…', null, pct);
-        // E OS MESMOS NÚMEROS VÃO PARA A NOTIFICAÇÃO. Até aqui só o cartão na
-        // tela andava: a tarefa nascia com `total = 1` e ninguém a fazia
-        // avançar, então a barra ficava em 0% do começo ao fim e a estimativa
-        // em zero — exatamente o defeito que o download de vídeo teve até a
-        // v5.117, e no caso em que a notificação MAIS importa (app minimizado,
-        // dezenas de páginas, minutos de espera). A página é a unidade certa
-        // aqui, e o total só existe depois que o arquivo abre.
+        // E OS MESMOS NÚMEROS VÃO PARA A NOTIFICAÇÃO: a tarefa nasce com
+        // `total = 1`, e sem isto a barra ficaria em 0% do começo ao fim — no
+        // caso em que a notificação MAIS importa (app minimizado, dezenas de
+        // páginas). A página é a unidade certa aqui, e o total só existe depois
+        // que o arquivo abre.
         bgTaskStep(notif, feitas, null, total);
       }, alca.cancelado);
       // DESISTIR NÃO É FALHAR: o `deckUltimoErro` alimenta o Registro, e escrever
@@ -37865,10 +37435,9 @@ async function pptxImportar(file, nome, opts) {
       // não existem mais. Depois do `addDeck` quem os segura é a apresentação,
       // e ficar nos dois lugares faria o vídeo sobreviver a ela.
       //
-      // **ESTAR NELA NÃO BASTA**, e o comentário aqui afirmou o contrário até a
-      // v1.8.75: ela é RODÍZIO de três, e um `send` do operador nesta janela
-      // despejava o vídeo mais antigo — o blob morria sem dono. Quem fecha isso
-      // é o `avulsosEmMontagem`, e não esta lista.
+      // **ESTAR NELA NÃO BASTA**: ela é RODÍZIO de três, e um `send` do
+      // operador nesta janela despejaria o vídeo mais antigo — o blob morreria
+      // sem dono. Quem fecha isso é o `avulsosEmMontagem`, e não esta lista.
       for (const p in videos) await AVDB.listRemove('avulsos', videos[p]);
       // O CORTE É DITO, e pela mesma porta do PDF (ver `deckImportar`): uma
       // apresentação cortada sem aviso leria como "o arquivo era assim", e o
@@ -37930,8 +37499,6 @@ async function deckImportar(origem, nome, opts) {
         bgTaskStep(notif, feitas, null, total + 1);
       });
       if (!r || !Array.isArray(r.pages) || !r.pages.length) {
-        // Num shell < 22 não vem `erro` nenhum: o aviso sai sem detalhe, que é
-        // exatamente o que ele já fazia.
         deckUltimoErro = (r && r.erro) ? String(r.erro) : 'o shell não devolveu páginas';
         return null;
       }
@@ -37942,11 +37509,10 @@ async function deckImportar(origem, nome, opts) {
       // devolver as páginas ao lixo (`deckDiscard`) — sair antes dela deixaria
       // o cache do aparelho com um deck que ninguém mais tem como apagar.
       if (alca.cancelado()) return null;
-      // TRUNCADA PELO SHELL (`truncado`, campo que o shell novo passa a
-      // enviar): um deck cortado sem aviso leria como "o arquivo era assim", e
-      // o operador só descobriria na frente da congregação, na página que não
-      // existe. Campo ausente (shell antigo) = sem aviso, como sempre.
-      // A NOTA VAI PARA A LINHA DO ITEM QUE VAI NASCER (v5.207), e por isso ela
+      // TRUNCADA PELO SHELL (`truncado`): um deck cortado sem aviso leria como
+      // "o arquivo era assim", e o operador só descobriria na frente da
+      // congregação, na página que não existe.
+      // A NOTA VAI PARA A LINHA DO ITEM QUE VAI NASCER, e por isso ela
       // é guardada aqui e aplicada lá embaixo, quando o registro já tem id: uma
       // apresentação cortada é um fato SOBRE AQUELE ITEM, e o lugar de um fato
       // sobre um item é a linha dele — não uma faixa no topo da tela, que já
@@ -37955,12 +37521,9 @@ async function deckImportar(origem, nome, opts) {
       // Uma página de cada vez: as imagens já estão no cache do aparelho, e
       // buscar as dezenas de uma vez só encheria a memória sem ganhar tempo.
       //
-      // E ESTA FASE FALAVA COM NINGUÉM. O cartão da tela ficava na última
-      // mensagem da rasterização e a notificação parava de receber eventos —
-      // e parar de receber eventos não é neutro: `idleMs` cresce, e passado
-      // `BG_STALL_MS` a notificação troca a estimativa por "sem resposta há
-      // X". Ou seja, o trecho em que tudo está indo bem era o único capaz de
-      // anunciar que travou.
+      // E ESTA FASE TAMBÉM FALA: sem eventos, `idleMs` cresce, e passado
+      // `BG_STALL_MS` a notificação trocaria a estimativa por "sem resposta há
+      // X" justo no trecho em que tudo está indo bem.
       const pages = [];
       bg.atualizar('Guardando as páginas…', null, -1);
       // A TROCA DE RÓTULO VAI COM `force`, pela regra que o primeiro nome já
@@ -37991,9 +37554,7 @@ async function deckImportar(origem, nome, opts) {
       const criado = await AVDB.addDeck(pages, {
         name: r.name || rotulo, thumb, list: (opts && opts.lista) || 'imports',
       });
-      // Um deck cortado sem aviso leria como "o arquivo era assim", e o
-      // operador só descobriria na frente da congregação, na página que não
-      // existe. (Campo ausente = shell antigo = sem aviso, como sempre.)
+      // A nota do corte (ver `truncadaEm` acima), na linha do item que nasceu.
       if (truncadaEm && criado) falharNoItem(criado.id, 'truncada em ' + truncadaEm + ' páginas');
       return criado;
     });
@@ -38012,11 +37573,10 @@ async function deckImportar(origem, nome, opts) {
 
 // O arquivo do vídeo: o que JÁ está no aparelho, ou um download novo.
 //
-// Até a v5.86 cada destino baixava por conta própria — tocar agora, adicionar
-// à playlist e adicionar ao Cronograma eram três downloads do MESMO vídeo, de
-// dezenas de MB, muito provavelmente em rede de celular. O registro guarda o
-// `youtubeId` desde que é criado, então a pergunta "já tenho isto?" custa uma
-// leitura de índice (`AVDB.mediaByYoutube`), sem desserializar blob nenhum.
+// Cada destino baixando por conta própria seriam três downloads do MESMO vídeo
+// (tocar agora, playlist, Cronograma). O registro guarda o `youtubeId` desde
+// que é criado, então a pergunta "já tenho isto?" custa uma leitura de índice
+// (`AVDB.mediaByYoutube`), sem desserializar blob nenhum.
 //
 // Só reaproveita quem tem BLOB — arquivo de verdade no aparelho. Um item de
 // PLAYER (o link, sem bytes) carrega o mesmo `youtubeId` e é justamente o que
@@ -38024,7 +37584,8 @@ async function deckImportar(origem, nome, opts) {
 // da linha do Cronograma devolver o próprio link e parecer que não fez nada.
 async function ytArquivo(alvo, opts) {
   const vid = alvo && alvo.id ? alvo.id : null;
-  // O REAPROVEITAMENTO É POR FORMA (v5.112): quem pediu só o áudio não pode
+  // O REAPROVEITAMENTO É POR FORMA: quem pediu só o áudio não pode
+
   // receber o vídeo de 80 MB que já estava aqui — e quem pediu o vídeo não pode
   // receber um arquivo sem imagem. As duas formas convivem no banco com o mesmo
   // `youtubeId`, e é o `kind` que as separa.
@@ -38043,8 +37604,7 @@ async function ytArquivo(alvo, opts) {
 // encostar no Cronograma sem deixar registro órfão, que o gc nunca alcançaria.
 //
 // Ela é PEQUENA e tem tamanho fixo, porque os dois extremos são ruins: com um
-// lugar só, voltar ao vídeo anterior baixa tudo de novo — exatamente o
-// desperdício que a v5.87 existe para acabar; sem limite, a mídia que a tela
+// lugar só, voltar ao vídeo anterior baixaria tudo de novo; sem limite, a mídia que a tela
 // não mostra vira uma pilha de centenas de MB que o operador não tem como
 // apagar (não há tela de liberar espaço). Três cobre o uso real — alternar
 // entre dois ou três vídeos num mesmo culto — e para por aí.
@@ -38066,11 +37626,11 @@ const AVULSO_MAX = 3;
 //
 // A prateleira NÃO protege esse vão — ela é RODÍZIO, e essa é a razão de ser
 // dela. Todo `send` passa por aqui; com três vídeos estacionados, `cabem = 2` e
-// o excedente leva os mais antigos, que são justamente eles. Ninguém mais os
-// aponta, então o `listRemove` do `db.js` APAGA o blob (`isReferenced` não acha
-// dono), e o `addDeck` seguinte nasce com `videos[pagina]` apontando para um id
-// que já não existe: chegar naquela página não projeta nada, sem erro no
-// console — descoberto no culto. MEDIDO: 2 de 3 vídeos sobreviviam.
+// o excedente levaria os mais antigos, que são justamente eles. Ninguém mais os
+// aponta, então o `listRemove` do `db.js` APAGARIA o blob (`isReferenced` não
+// acha dono), e o `addDeck` seguinte nasceria com `videos[pagina]` apontando
+// para um id que já não existe — chegar naquela página não projetaria nada, sem
+// erro no console (MEDIDO sem este Set: 2 de 3 vídeos sobreviviam).
 //
 // Entra e sai por LOTE do importador (cada um apaga só os SEUS ids no `finally`,
 // para um segundo import não soltar os do primeiro), e a saída é garantida nos
@@ -38108,15 +37668,9 @@ async function handleSharedUrl(url, title) {
   if (!url) return null;
   const ytId = extractYouTubeId(url);
   if (ytId) {
-    // NO AVANÇADO, AS MESMAS QUATRO ESCOLHAS DA BUSCA (v5.137).
-    //
-    // Um link compartilhado e um resultado da busca são o MESMO item — um vídeo
-    // do YouTube que o operador quer no app —, e as duas portas davam em
-    // lugares diferentes: a busca PERGUNTA (tocar · playlist · Cronograma ·
-    // Favoritos, mais vídeo/só-áudio e o teto de resolução) e o share DECIDIA
-    // sozinho, sempre vídeo, sempre no Cronograma, sempre no padrão de
-    // qualidade. Quem compartilha um louvor de 40 min para tocar no fundo
-    // recebia 1080p inteiro, sem ter como dizer que só queria o áudio.
+    // NO AVANÇADO, AS MESMAS ESCOLHAS DA BUSCA: um link compartilhado e um
+    // resultado da busca são o MESMO item, e a folha pergunta o destino, a
+    // forma (vídeo/só áudio) e o teto de resolução.
     //
     // NO SIMPLIFICADO continua sem pergunta, e não por esquecimento: ali não
     // existe Cronograma nem playlist, o item vai direto ao telão, e uma folha
@@ -38138,13 +37692,9 @@ async function handleSharedUrl(url, title) {
     // ao telão, não entra em lista visível nenhuma e ninguém pediu para guardar
     // nada. O MEIO é o download de sempre, logo abaixo, que projeta quando os
     // bytes chegam.
-    // O link vira ARQUIVO — é a via que toca em segundo plano e não depende da
-    // rede durante o culto. Falhando (vídeo restrito, shell antigo), cai no
-    // item de player de sempre: um link compartilhado nunca se perde.
-    // A via NATIVA — extração no próprio aparelho, sem servidor nenhum no meio
-    // (ver `ytBaixarNativo` e YoutubeGrab.kt). Não pede configuração, não
-    // depende de instância de terceiro e sai do IP do chip do operador, que é
-    // justamente o que o YouTube não bloqueia.
+    // O link vira ARQUIVO, pela via NATIVA (`ytBaixarNativo`). Falhando (vídeo
+    // restrito, sem rede), cai no item de LINK, que o `send` resolve por
+    // download no toque: um link compartilhado nunca se perde.
     // No simplificado o item vai DIRETO ao telão (ver focarImportado), então o
     // aviso pertence à preview; no avançado ele só entra no Cronograma.
     // Compartilhar DE NOVO o mesmo vídeo não baixa de novo: `ytArquivo`
@@ -38205,15 +37755,14 @@ async function handleSharedUrl(url, title) {
 // arquivos vão à prateleira e à projeção, sem passar pelo Cronograma.
 function simplificado() { return appMode === 'simple'; }
 
-// OS DESTINOS DO LOTE QUE ESTÁ ENTRANDO (v5.141). No avançado quem os escolhe é
+// OS DESTINOS DO LOTE QUE ESTÁ ENTRANDO. No avançado quem os escolhe é
 // o operador, na folha (ver `escolherDestinos`); no simplificado a pergunta não
 // existe e o valor é ignorado, porque lá tudo vai para a prateleira avulsa.
 //
 // Uma variável de módulo, e não um parâmetro carregado por dez funções: o
 // caminho do share atravessa `handleSharedUrl`, `deckImportar`, `pptxImportar` e
-// `AVDB.addMedia`, todos já recebendo `lista` como um nome só. O que mudou é
-// quantas listas existem DEPOIS da primeira — e essa parte é sempre a mesma
-// (`espalharShare`).
+// `AVDB.addMedia`, todos já recebendo `lista` como um nome só. As listas
+// DEPOIS da primeira são sempre o mesmo passo (`espalharShare`).
 let shareDestinos = ['cronograma'];
 function destinoDoShare() {
   return simplificado() ? 'avulsos' : listaDoDestino(shareDestinos[0]);
@@ -38239,7 +37788,7 @@ async function guardarShare(rec) {
 }
 
 // Importa um share já normalizado. Aceita as DUAS formas de arquivo:
-//   - `File` (navegador: o SW gravou o POST multipart em pending-share);
+//   - `File` (o `<input type="file">` do navegador);
 //   - `{ name, type, url }` (app nativo: a ponte entrega URL servível e os
 //     bytes vêm por fetch, nunca base64).
 // Daqui pra baixo o caminho é o mesmo dos arquivos importados à mão.
@@ -38249,14 +37798,12 @@ async function importShare(pending) {
   let primeiro = null;   // o 1º item que entrou: é ele que o foco vai buscar
   // A RESPOSTA VEM PRIMEIRO. Um link do YouTube vira arquivo em minutos e um
   // vídeo compartilhado leva segundos para ser copiado; sair do acervo (ou da
-  // Bíblia, ou de uma pasta) só no fim disso deixava o operador olhando a tela
-  // que ele já tinha deixado, sem sinal de que algo chegou. O cartão de
-  // progresso aparece sobre a preview — que agora está à vista justamente
-  // porque saímos das camadas antes, e não depois.
+  // Bíblia, ou de uma pasta) só no fim disso deixaria o operador olhando a tela
+  // que ele já tinha deixado, sem sinal de que algo chegou.
   await sairDasCamadas();
 
   const files = pending.files || [];
-  // PARA ONDE VAI ISTO? (v5.141) — a pergunta que o app respondia sozinho.
+  // PARA ONDE VAI ISTO?
   //
   // Ela não vale para TUDO o que chega: um link do YouTube abre a folha própria
   // dele logo abaixo (com os mesmos destinos, mais a forma e a qualidade), e
@@ -38274,8 +37821,8 @@ async function importShare(pending) {
     const escolha = await escolherDestinos(titulo, ['cronograma']);
     if (escolha && escolha.length) shareDestinos = escolha;
   }
-  // No simplificado NADA de um share vai para lista visível — arquivo inclusive
-  // (v5.89): a tela não tem Cronograma nem playlist, e o que chega ali chega
+  // No simplificado NADA de um share vai para lista visível — arquivo
+  // inclusive: a tela não tem Cronograma nem playlist, e o que chega ali chega
   // para ir ao telão. Os ids do lote são fixados JUNTOS no fim, senão o quinto
   // arquivo empurraria o primeiro para fora — e o primeiro é justamente o que
   // vai ser projetado.
@@ -38295,8 +37842,9 @@ async function importShare(pending) {
       let rec = null;
       if (ehPdf(item) && !item.url) {
         // PDF sem URL servível: veio como `File` (o `<input type="file">` do
-        // navegador, ou de um shell antigo). Quem desenha o PDF é o shell, e
-        // ele precisa do ARQUIVO — não há caminho daqui.
+        // navegador). Quem desenha o PDF é o shell, e ele precisa do ARQUIVO —
+        // não há caminho daqui.
+
         deckUltimoErro = window.__NATIVE__
           ? 'PDF precisa do seletor de arquivos do app (instale a versão nova)'
           : 'o navegador não desenha PDF; use o app';
@@ -38437,10 +37985,10 @@ async function importShare(pending) {
   // cada linha vem de `favSet`, e a fila da playlist de `plItems`.
   const listasEscolhidas = simplificado() ? [] : listasDosDestinos(shareDestinos);
   if (listasEscolhidas.includes('favs')) await recarregarFavoritos();
-  if (listasEscolhidas.includes('playlist')) {
-    plItems = await AVDB.listItems('playlist');
-    renderPlaylist();
-  }
+  // O Cronograma e a fila, por um `load()` DEPOIS das escritas: o link comum
+  // (`addUrlMedia`) não abre linha provisória, cujo `soltar()` é o que relê a
+  // lista nos outros ramos; e um `load()` que leu antes do share é descartado.
+  if (listasEscolhidas.length) await load();
   if (added && !tratado) await focarImportado(primeiro);
   // DIZER PARA ONDE FOI, e só quando não for óbvio. `focarImportado` leva o
   // operador ao Cronograma — a resposta visual de sempre —, mas um item que foi
@@ -38511,9 +38059,6 @@ async function focarImportado(id) {
   if (appMode === 'simple' && id) { await zerarRepeticao(); await send(id); }
 }
 
-// (A leitura do estado `pending-share` saiu: quem o escrevia era o service
-// worker dos dois PWAs, removido do bundle na v5.48 — era uma chave que
-// ninguém escreve desde então.)
 function registrarShareNativo() {
   // App nativo: o share chega por intent (AVNative.onShare) — o intent-filter
   // entrega o conteúdo direto, sem depender de um POST interceptado.
@@ -38543,12 +38088,10 @@ function registrarShareNativo() {
 }
 
 
-// ===== O LINK DO YOUTUBE QUE ESTÁ NA ÁREA DE TRANSFERÊNCIA (v1.1.8) =====
+// ===== O LINK DO YOUTUBE QUE ESTÁ NA ÁREA DE TRANSFERÊNCIA =====
 //
-// Pedido do operador: *"ao entrar no app com um link do YouTube copiado, ele
-// ofereça a mesma opção de quando se compartilha um link via share normal"*.
-//
-// **A DIFERENÇA ENTRE COPIAR E COMPARTILHAR É QUE COPIAR NÃO É UM PEDIDO.** Um
+// Ao entrar no app com um link do YouTube copiado, ele oferece o mesmo caminho
+// do compartilhamento. **A DIFERENÇA ENTRE COPIAR E COMPARTILHAR É QUE COPIAR NÃO É UM PEDIDO.** Um
 // share é um ato dirigido a ESTE app; um link na área de transferência pode
 // estar ali por qualquer razão, inclusive nenhuma. Por isso o caminho não é o
 // do share: aqui há uma PERGUNTA antes, e só o "sim" entrega o link ao
@@ -38637,9 +38180,9 @@ async function conferirLinkCopiado() {
 //    aconteceria nela e não aconteceu.
 //  · `statusPasta(id, texto)` — o contador da própria pasta.
 //  · `falarNoOta` / `#otaRow` — o rótulo do controle empresta a si mesmo por
-//    alguns segundos e volta. **Ele exige rótulo**, e é por isso que o "Guardar
-//    como pacote" saiu desta linha na v1.8.54: virou botão de símbolo, e um
-//    símbolo não tem o que emprestar.
+//    alguns segundos e volta (o tile de Configurações faz o mesmo:
+//    `falarNoTile`). **Ele exige rótulo**: um botão de símbolo não tem o que
+//    emprestar.
 //  · `#castMsg` — a linha de estado da folha de conexão.
 //  · `appConfirm` — o ÚNICO caso sem interface de origem (compartilhamento que
 //    chega de fora e falha inteiro). Toma o foco e exige um toque.
@@ -38647,7 +38190,7 @@ async function conferirLinkCopiado() {
 // Caminho novo sem onde responder: a pergunta certa não é "qual camada uso?" —
 // é "por que esta ação não tem uma interface?".
 
-// ===== O PULSO NO PRÓPRIO BOTÃO (v5.106) =====
+// ===== O PULSO NO PRÓPRIO BOTÃO =====
 // É este o feedback de adicionar/favoritar, e não a faixa de aviso: o dedo já
 // está no botão e o olho também, e com dois destinos lado a lado (as
 // Ferramentas têm "Cronograma" e "Favoritos") uma mensagem genérica não diria
@@ -38660,7 +38203,7 @@ async function conferirLinkCopiado() {
 // Quando o botão tocado já saiu de cena — a folha do acervo, por exemplo, que
 // fecha porque o download pode levar minutos —, `responder` devolve `false` e
 // QUEM CHAMOU decide onde a frase aparece: o cartão sobre a preview ou a folha
-// de origem. (A faixa flutuante `avisar()` saiu na v5.207.)
+// de origem.
 const PULSO_MS = 1100;
 
 // "Está na tela?" não é `isConnected`: as folhas deste app fecham por
@@ -38693,21 +38236,15 @@ function pulsar(btn, tipo) {
 // fechada, lista redesenhada) — e é o CHAMADOR que decide o que fazer com
 // isso, porque só ele sabe qual é a interface de origem daquela ação.
 //
-// Até a v5.206 havia aqui um `else avisar(texto)`: um ponto único de decisão
-// que mandava toda resposta órfã para a faixa flutuante. Era cômodo e era
-// justamente o mecanismo que levava a informação para longe do alvo de foco —
-// e ele escondia a pergunta que importa, que é por que uma ação ficou sem
-// interface em que responder. O parâmetro `texto` saiu com ele.
+// Não há `texto` nem faixa flutuante para a resposta órfã: ela levaria a
+// informação para longe do alvo de foco, e esconderia a pergunta que importa —
+// por que uma ação ficou sem interface em que responder.
 //
-// **E A FRASE SEGUINTE ERA FALSA** (corrigida na v1.8.55). Ela dizia *"nenhum
-// dos catorze chamadores o passava"* — e hoje QUINZE passam um terceiro
-// argumento que esta função não declara (5230, 5326, 5330, 6581, 7037, 7054,
-// 10675, 15688, 15734, 20330, 21764, 23320, 23383, 23419, 29681). Eles são
-// engolidos em silêncio: quem escreveu a chamada acha que disse o motivo, e o
-// operador vê um pulso sem frase nenhuma.
+// **UM TERCEIRO ARGUMENTO É ENGOLIDO EM SILÊNCIO**, e uma dúzia de chamadores
+// ainda passa um (`grep -n "responder("`): quem escreveu a chamada acha que
+// disse o motivo, e o operador vê um pulso sem frase nenhuma.
 //
-// **NÃO SE CONSERTA APAGANDO OS ARGUMENTOS**, e é por isso que a linha fica
-// aqui em vez de virar uma varredura: cada uma daquelas frases é um motivo que
+// **NÃO SE CONSERTA APAGANDO OS ARGUMENTOS**: cada uma daquelas frases é um motivo que
 // alguém quis dizer, e a pergunta certa é a mesma que derrubou o `avisar` —
 // QUAL superfície diz isto? Para uma linha de lista já existe resposta
 // (`notaNoItem`, o canal irmão do pulso); para um botão solto, não.
@@ -38727,18 +38264,8 @@ function responder(btn, tipo) {
 // aconteceu.
 const ECO_MS = 420;
 // ===== QUEM RECEBE O ECO: TODO BOTÃO CUJO RESULTADO MORA NO TELÃO =====
-// Ele valia para `.transport .t-btn, .mixer-mid button` — e `.mixer-mid` NÃO
-// EXISTE desde a v1.3.8, quando o mixer saiu (o próprio CSS lista
-// `.mixer-top/mid/bottom` entre o que foi removido). Isto é: na prática o eco
-// era exclusivo dos seis botões do transporte, e foi assim que o operador o
-// leu — *"o feedback único dos botões de play, com bordas flutuantes
-// totalmente exclusivo no app"*.
-//
-// Ele está certo sobre a exclusividade e o conserto não é apagar o sinal: a
-// razão dele continua valendo, e vale IGUAL para os outros botões que mandam
-// alguma coisa para a projeção. O que faltava era a REGRA — um anel que
-// aparece em seis botões e em nenhum outro parece enfeite daqueles seis; o
-// mesmo anel em todos os que falam com o telão é um sinal do app.
+// Um anel que aparece em seis botões e em nenhum outro parece enfeite daqueles
+// seis; o mesmo anel em todos os que falam com o telão é um sinal do app.
 //
 // A regra: **o eco é de quem MANDA ALGO PARA A PROJEÇÃO.** Ele não se
 // confunde com a resposta de toque (`--press`, o recuo mais a luz), que diz
@@ -38752,9 +38279,7 @@ const ECO_MS = 420;
 const ECO_SELETOR = [
   '.transport .t-btn',        // repetir, playlist, ⏮, ▶, ■, ⏭
   '.slide-btn',               // os dois que flanqueiam a preview: passam slide NO telão
-  // A CORTINA E O MUDO SAÍRAM DAQUI (v1.4.36) — eles entraram na v1.3.14 e o
-  // operador os devolveu: *"ainda estou vendo a onda azulada de feedback de
-  // toque tanto no botão de mudo quanto no botão da cortina"*. Duas razões
+  // A CORTINA E O MUDO NÃO ENTRAM (decisão do operador). Duas razões
   // independentes, e cada uma bastaria:
   //
   //  · **Eles TROCAM O DESENHO.** São alternadores: no mesmo instante do toque
@@ -38765,7 +38290,7 @@ const ECO_SELETOR = [
   //    existe lá.
   //  · **Eles não têm CAIXA.** O eco desenha `inset: 0` + `border-radius:
   //    inherit` — a caixa do botão. Um `.t-btn` tem uma; um `.pv-fab` tem
-  //    `background: none` e é só o traço sobre a projeção. O que aparecia era um
+  //    `background: none` e é só o traço sobre a projeção. O que apareceria é um
   //    retângulo AZUL (`--accent`, um token de cromo) materializando-se em volta
   //    de um ícone solto, em cima da imagem no ar — a mesma classe de erro que a
   //    família `--stage-*` existe para impedir (ver "O PALCO NÃO TEM TEMA").
@@ -38789,10 +38314,6 @@ document.addEventListener('click', (ev) => {
   alvo.classList.add('btn-eco');
   alvo._ecoTimer = setTimeout(() => { alvo.classList.remove('btn-eco'); }, ECO_MS);
 }, true);
-
-// (`avisar()` SAIU na v5.207, com a faixa flutuante que ela desenhava. Ver o
-//  bloco "O FEEDBACK MORA NA INTERFACE DE ORIGEM", acima, para onde foi cada
-//  uma das mensagens que passavam por aqui.)
 
 // ===== Proporção da preview =====
 // A preview é uma MINIATURA FIEL do telão, e isso só se sustenta se ela tiver a
@@ -38843,7 +38364,7 @@ let pvWallpaperUrl = null;
 // estado desmarcado em vez de uma ação.
 let customWallpaper = false;
 
-// O ITINERÁRIO VESTE O WALLPAPER, na preview como no telão (v1.13.1) — a gêmea
+// O ITINERÁRIO VESTE O WALLPAPER, na preview como no telão — a gêmea
 // do `pintarFundoDoCartao` do `display.js`: a imagem escolhida é copiada da
 // cortina da preview, e todo ponto que a troca chama esta função.
 function pintarFundoDoPvCartao() {
@@ -38920,21 +38441,20 @@ async function setWallpaper(file) {
 // No NAVEGADOR tudo isto é no-op: a aba já continua baixando em segundo plano.
 let bgWorkCount = 0;
 
-// ===== E QUANTO DELE É ROTINA, e não pedido do operador (v1.2.28) =====
+// ===== E QUANTO DELE É ROTINA, e não pedido do operador =====
 //
 // `bgWorkCount` responde ao SISTEMA: *"o processo pode ser congelado?"*. Para
 // isso ele está certo do jeito que está — a varredura de cifras é rede, e rede
 // congelada morre no meio como qualquer outra.
 //
-// Mas ele passou a responder uma segunda pergunta, e para essa ele está errado:
+// Mas ele não responde uma segunda pergunta:
 // *"é hora de perguntar sobre a atualização?"* (`horaRuimParaPerguntar`). A
 // varredura de cifras e a de letras rodam SOZINHAS na abertura, sobre o acervo
 // inteiro — MEDIDO num aparelho: 309 hinos num hinário e 145 no outro, mais
 // dezenas de álbuns, numa passada só. Enquanto ela corre, a pergunta não
 // aparece; e ela corre justamente na janela em que o operador abre o app.
 //
-// É a MESMA armadilha que a v5.151 já pagou com o espelho: uma condição quase
-// sempre verdadeira não adia a pergunta, ela a APAGA. E o desfecho aqui é o
+// Uma condição quase sempre verdadeira não adia a pergunta, ela a APAGA. E o desfecho aqui é o
 // pior que este canal sabe produzir — com o shell abaixo do `minShell`, a
 // válvula recusa toda base web e o APK é a única saída; suprimir a pergunta
 // deixa o aparelho preso, em silêncio, sem nunca ser avisado do que o destrava.
@@ -38964,12 +38484,10 @@ function bgWorkEnd(rotina) {
     // defeito que esta separação existe para tirar.
     bgRotinaCount = 0;
     // O `clear()` é a rede de segurança para uma tarefa que ficou órfã, mas
-    // ele SOZINHO deixava o compasso ligado para sempre: com o `bgTasks` já
-    // vazio, o `bgTaskEnd` que vinha depois achava o Map vazio, o `delete`
-    // devolvia false e nem o `bgPacerSync()` nem o envio final rodavam — o
-    // `setInterval` de 250 ms vazava pelo resto da sessão, batendo na ponte a
-    // cada 2 s com uma tarefa vazia (notificação "Baixando mídias" presa) e,
-    // pior, fazendo o próximo `bgTaskStart` reusar um pacer órfão.
+    // ele SOZINHO deixaria o compasso ligado para sempre: com o `bgTasks` já
+    // vazio, o `bgTaskEnd` que viesse depois acharia o Map vazio e nem o
+    // `bgPacerSync()` nem o envio final rodariam — o `setInterval` de 250 ms
+    // vazaria pelo resto da sessão, com uma notificação "Baixando mídias" presa.
     // Sincronizar aqui torna `bgWorkEnd` idempotente: a ordem entre ele e o
     // `bgTaskEnd` deixa de importar.
     bgTasks.clear();
@@ -38994,16 +38512,14 @@ async function withBgRotina(fn) {
 }
 
 // ===== progresso na notificação do sistema =====
-// A notificação do serviço em primeiro plano era estática ("Baixando mídias").
-// Com o app minimizado — o uso normal durante uma sincronização — ela é a ÚNICA
-// janela para o download, e não dizia quanto falta nem se ainda anda.
+// Com o app minimizado — o uso normal durante uma sincronização — a
+// notificação do serviço em primeiro plano é a ÚNICA janela para o download, e
+// ela diz quanto falta e se ainda anda.
 //
 // REGISTRO de tarefas, não um slot único: o app tem downloads SIMULTÂNEOS (é
-// por isso que `bgWorkCount` conta, em vez de ser um booleano) — entrar na aba
-// Bíblia enquanto um lote de álbuns baixa dispara os dois ao mesmo tempo. Com
-// um slot só, as duas tarefas escreviam uma por cima da outra: o `done` de uma
-// aparecia com o `total` e o `startedAt` da outra, e a estimativa pulava de
-// 1h30 para 2h40 e voltava. Cada tarefa agora tem seu próprio registro.
+// por isso que `bgWorkCount` conta, em vez de ser um booleano). Com um slot só,
+// duas tarefas escreveriam uma por cima da outra (o `done` de uma com o `total`
+// e o `startedAt` da outra). Cada tarefa tem seu próprio registro.
 const bgTasks = new Map();
 let bgTaskSeq = 0;
 
@@ -39019,7 +38535,8 @@ let bgTaskSeq = 0;
  */
 function bgConcluido(titulo, texto) {
   if (!window.__NATIVE__) return;
-  try { AVNative.bgConcluido({ titulo, texto }); } catch (_) { /* shell antigo */ }
+  try { AVNative.bgConcluido({ titulo, texto }); } catch (_) { /* ponte */ }
+
 }
 
 function bgTaskStart(label, total, icone) {
@@ -39031,9 +38548,8 @@ function bgTaskStart(label, total, icone) {
     // `processar`. Ele é do REGISTRO da tarefa e não do envio porque um lote de
     // músicas pode correr ao lado de uma exportação, e cada um tem o seu.
     //
-    // `false` continua sendo aceito e vira `processar`: era a forma da v1.8.27
-    // (um booleano "isto baixa?"), e traduzi-la aqui é o que permite ao campo
-    // ganhar um terceiro valor sem varrer todos os chamadores.
+    // `false` continua sendo aceito e vira `processar` (a forma antiga, um
+    // booleano "isto baixa?"): traduzi-la aqui poupa varrer os chamadores.
     icone: icone === false ? 'processar' : (icone || 'baixar'),
     // FILA de exibição: nomes que entraram em download e ainda não passaram
     // pela linha da notificação. É um buffer, não o conjunto do que está no ar
@@ -39084,7 +38600,7 @@ const BG_SPIN_MIN = 400;       // abaixo disso ninguém consegue ler
 const BG_SPIN_MAX = 5000;      // acima disso parece parado
 const BG_SPIN_PADRAO = 1200;   // antes do 1º item concluído não há média
 const BG_FILA_FOLGA = 3;       // itens em espera tolerados sem acelerar
-// TETO DA FILA DE EXIBIÇÃO (v1.8.23). Ela nasceu para um DOWNLOAD, em que os 6
+// TETO DA FILA DE EXIBIÇÃO. Ela nasceu para um DOWNLOAD, em que os 6
 // trabalhadores entregam um item a cada poucos segundos e o compasso escoa no
 // mesmo ritmo. Uma IMPORTAÇÃO produz milhares de nomes em minutos, e o
 // compasso mostra no máximo um a cada BG_SPIN_MIN: sem teto, a fila guarda
@@ -39150,19 +38666,16 @@ function bgTaskStep(id, done, label, total) {
   if (!window.__NATIVE__) return;
   const t = bgTasks.get(id);
   if (!t) return;
-  // TROCAR DE ETAPA CHEGA NA HORA, E **NÃO** RECOMEÇA A MÉDIA (v1.8.27).
+  // TROCAR DE ETAPA CHEGA NA HORA, E **NÃO** RECOMEÇA A MÉDIA.
   //
   // O rótulo é o que diz QUAL trabalho está correndo, e ele é a mesma classe do
   // primeiro nome e da troca de régua: passar pelo freio de 700 ms deixaria a
   // notificação dizendo "Conferindo o pacote" enquanto o app já importa.
   //
-  // O RECOMEÇO DA MÉDIA SAIU, e a razão dele morreu junto. Ele foi escrito na
-  // v1.8.23, quando cada etapa tinha a PRÓPRIA barra de 0 a 100: ali carregar o
-  // tempo da anterior fazia a seguinte nascer com o dobro do tempo restante.
-  // Desde a v1.8.27 as etapas dividem UMA barra — o `done` da segunda começa
-  // onde a primeira parou —, e zerar o relógio com o `done` já adiantado daria
-  // o defeito oposto: uma estimativa pequena demais, subindo. E uma contagem
-  // regressiva que AUMENTA parece quebrada, que é a regra deste arquivo.
+  // As etapas dividem UMA barra — o `done` da segunda começa onde a primeira
+  // parou —, e zerar o relógio com o `done` já adiantado daria uma estimativa
+  // pequena demais, subindo: uma contagem regressiva que AUMENTA parece
+  // quebrada.
   const trocouEtapa = !!label && label !== t.label;
   if (!t.firstStepAt) t.firstStepAt = Date.now();
   if (total > 1) t.total = total;
@@ -39173,22 +38686,14 @@ function bgTaskStep(id, done, label, total) {
 }
 
 // Progresso em BYTES — a tarefa passa a ser medida em bytes transferidos, não
-// em itens concluídos (v5.118).
+// em itens concluídos.
 //
-// O registro nasceu contando ITENS, e para um lote é a unidade certa: 54
-// músicas, 1189 capítulos. Mas o download de UM vídeo do YouTube abria a tarefa
-// com `total = 1`, e aí os dois números que a notificação existe para dar
-// simplesmente não existiam: a barra ficava em 0% do começo ao fim, e
-// `bgTaskEta` devolvia ZERO porque ela precisa de pelo menos um item concluído
-// para ter uma média. Ou seja, o caso em que a notificação é a ÚNICA janela —
-// app minimizado, centenas de MB, minutos de espera — era o caso em que ela não
-// dizia nada.
-//
-// Os bytes sempre estiveram à mão: o shell os reporta a cada MB pelo
-// `onProgresso` do `ytFetch`. Faltava um canal para eles. Como percentual e ETA
-// são RAZÕES, toda a matemática que já existe vale sem mudar uma linha — trocar
-// a unidade é só isto. Quem muda é a apresentação, e essa é a bandeira `bytes`
-// que viaja até o `SyncService`.
+// Para um lote ITENS são a unidade certa (54 músicas, 1189 capítulos); para UM
+// vídeo do YouTube, com `total = 1`, a barra ficaria em 0% do começo ao fim e
+// `bgTaskEta` devolveria ZERO (ela precisa de um item concluído para ter
+// média). Como percentual e ETA são RAZÕES, toda a matemática vale sem mudar
+// uma linha; quem muda é a apresentação, e essa é a bandeira `bytes` que viaja
+// até o `SyncService`.
 //
 // O `total` vem AQUI e não no `bgTaskStart` porque ele só é conhecido na
 // primeira resposta do servidor. Pelo mesmo motivo o `firstStepAt` é marcado no
@@ -39198,14 +38703,11 @@ function bgTaskBytes(id, lidos, total) {
   if (!window.__NATIVE__) return;
   const t = bgTasks.get(id);
   if (!t || !(total > 0)) return;
-  // TROCAR A RÉGUA NÃO É ANDAR NELA (v1.7.2). A unidade (`bytes`) e o
-  // DENOMINADOR (`total`) são estado, não progresso — e o freio de 700 ms existe
-  // para o Android não descartar uma enxurrada de tiques, que é outra coisa.
-  // Enquanto a troca passava pelo freio, a notificação de uma exportação
-  // anunciava "0 de 1" por quase um segundo antes de dizer o que ela de fato
-  // era; num pacote de gigabytes é o primeiro número que o operador lê, e ele
-  // estava errado. É a mesma regra do primeiro nome e do estado final: o que
-  // precisa chegar na hora passa `force`.
+  // TROCAR A RÉGUA NÃO É ANDAR NELA. A unidade (`bytes`) e o DENOMINADOR
+  // (`total`) são estado, não progresso — e o freio de 700 ms existe para o
+  // Android não descartar uma enxurrada de tiques, que é outra coisa. Pelo
+  // freio, a notificação de uma exportação anunciaria "0 de 1" por quase um
+  // segundo. O que precisa chegar na hora passa `force`.
   const regua = !t.bytes || t.total !== total;
   t.bytes = true;
   t.total = total;
@@ -39213,15 +38715,14 @@ function bgTaskBytes(id, lidos, total) {
   t.done = Math.min(lidos, total);
   t.lastEventAt = Date.now();
   // O 100% É ESTADO FINAL, e estado final passa `force` — a mesma classe do
-  // primeiro nome e da troca de régua. Sem isto o último passo caía no freio e
-  // a tarefa acabava logo depois: a notificação era recolhida mostrando o
-  // penúltimo número, e o que o operador via como último era, por exemplo, 87%
-  // num trabalho que terminou. (MEDIDO pelo oráculo: num pacote pequeno a
-  // exportação inteira cabe DENTRO da janela de 700 ms, e nem o 100% saía.)
+  // primeiro nome e da troca de régua. Sem isto o último passo cairia no freio
+  // e a notificação seria recolhida mostrando o penúltimo número (MEDIDO pelo
+  // oráculo: num pacote pequeno a exportação inteira cabe DENTRO da janela de
+  // 700 ms, e nem o 100% sairia).
   bgTaskSend(regua || t.done >= t.total);
 }
 
-// O PERCENTUAL PRONTO (v1.12.36 · shell 81): o do toque à tela num download do
+// O PERCENTUAL PRONTO: o do toque à tela num download do
 // YouTube, que segue andando pela junção, pela cópia e pela gravação — fases sem
 // byte. Ele vale para a barra e o número da notificação; o texto continua em
 // bytes (`bgTaskBytes`). Só o 100 passa `force`, como no irmão de cima.
@@ -39320,26 +38821,15 @@ function bgTaskEta(t) {
 // atualização de ROTINA (`bgTaskStep`, em que só o contador andou); tudo o que
 // precisa chegar na hora passa `force`.
 //
-// HOUVE um segundo piso (250 ms) "escolhido pelo chamador" por um parâmetro
-// `destaque`. Ele foi REMOVIDO porque nenhum dos cinco chamadores o passava —
-// era código morto, e mexer na constante não produzia efeito nenhum no
-// aparelho. Quem de fato dá o ritmo do item que entra em download é o compasso
-// (`bgPacerTick`, BG_TICK_MS = 250 ms), que envia com `force` sempre que o
-// nome na linha troca; o resultado na tela é o mesmo, e agora só há um
-// mecanismo para entender. Repor o piso curto aqui seria PIOR que o `force`:
-// o primeiro nome de uma tarefa nasce a poucos ms do envio de abertura e
-// ficaria retido até o batimento de 2 s.
+// Quem dá o ritmo do item que entra em download é o compasso (`bgPacerTick`,
+// BG_TICK_MS = 250 ms), que envia com `force` sempre que o nome na linha troca.
 const BG_NOTIF_MIN_MS = 700;        // rotina: só o contador andou
 let bgLastSentAt = 0;
-// O FREIO ADIA, NUNCA DESCARTA (v1.8.35).
-//
-// Ele era um `return` seco: um passo que caísse dentro da janela de 700 ms era
-// PERDIDO, e nada o reenviava. Num laço apertado isso custa pouco (o passo
-// seguinte chega logo), mas o ÚLTIMO passo antes de uma quietação ficava para
-// trás até o batimento de `BG_REENVIO_MS` — 2 s de número velho na única
-// superfície que existe com o app minimizado. Com o adiamento a defasagem tem
-// TETO de 700 ms, e a taxa de envio não muda: o temporizador é UM só, marcado
-// para o instante em que a janela fecha.
+// O FREIO ADIA, NUNCA DESCARTA. Um passo perdido dentro da janela de 700 ms
+// deixaria o ÚLTIMO número antes de uma quietação para trás até o batimento de
+// `BG_REENVIO_MS` (2 s). Com o adiamento a defasagem tem TETO de 700 ms, e a
+// taxa de envio não muda: o temporizador é UM só, marcado para o instante em
+// que a janela fecha.
 let bgReenvioAdiado = null;
 function bgTaskSend(force) {
   const now = Date.now();
@@ -39388,7 +38878,8 @@ function bgTaskSend(force) {
       // "esta faixa é grande" — sem isso os dois casos são a mesma tela parada.
       idleMs: alvo.lastEventAt ? Math.max(0, now - alvo.lastEventAt) : 0,
     });
-  } catch (_) { /* shell antigo: a notificação segue estática */ }
+  } catch (_) { /* ponte: a notificação segue como estava */ }
+
 }
 
 // ===== Diálogo padrão do app (confirmações / prompts) =====

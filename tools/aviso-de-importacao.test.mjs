@@ -150,6 +150,26 @@ try {
   checar(orfa === 0,
     'um arquivo que não abre também solta a linha — o `soltar()` mora num `finally`', orfa);
 
+  // ── 4. UM LINK COMPARTILHADO ENTRA NA LISTA NA HORA ─────────────────────
+  //
+  // Um link que não é do YouTube nem de apresentação vira item por
+  // `addUrlMedia`, que não abre linha provisória — e era a linha provisória
+  // (o `load()` do `soltar()`) que redesenhava a lista nos outros ramos. Sem
+  // um `load()` no fim do `importShare`, o item ficava no banco e fora do
+  // Cronograma até a próxima releitura (revisão C8).
+  await pg.evaluate((url) => {
+    window.__imp3 = importShare({ url, title: 'Link Compartilhado' });
+  }, base + '/shared/wallpaper-padrao.svg');
+  await pg.waitForSelector('#songMenuPopup .song-menu-go', { timeout: 10000 });
+  await pg.evaluate(() => document.querySelector('#songMenuPopup .song-menu-go').click());
+  await pg.evaluate(() => window.__imp3);
+  const link = await pg.evaluate(async () => ({
+    banco: (await AVDB.listItems('imports')).some((m) => m.name === 'Link Compartilhado'),
+    tela: [...document.querySelectorAll('.lib-item:not(.baixando) .row-name')].some((e) => e.textContent.includes('Link Compartilhado')),
+  }));
+  checar(link.banco && link.tela,
+    'um link compartilhado ao Cronograma aparece na lista assim que o import termina', link);
+
   checar(erros.length === 0, 'nenhum erro de página', erros);
 } finally {
   await navegador.close();

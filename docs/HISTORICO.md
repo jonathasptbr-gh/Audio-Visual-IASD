@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.28** — revisão C8: TRANSFERIR, SHARE, VIA NATIVA E WALLPAPER (o `controle.js` do pacote de transferência ao diálogo padrão); o link compartilhado entra no Cronograma na hora (`load()` no fim do `importShare`), o resgate dos downloads lê e limpa as intenções numa transação, e ~270 comentários (8 blocos reancorados, fatos velhos, narrativa ao histórico)
 - **v1.13.27** — revisão C7: DOWNLOADS, PLAYLIST AUTOMÁTICA E REGISTRO (o `controle.js` do "Baixando" na linha ao pacote de transferência); o sorteio guardado ou que vira a fila entra na lista em memória (`listasSeq`), o lote do sorteio só sai com a ação feita, a Verificação confere o `progresso.js`, e ~220 comentários (8 blocos reancorados, fatos velhos, narrativa ao histórico)
 - **v1.13.26** — revisão C6: SINCRONIZAÇÃO DO ACERVO, BUSCA E YOUTUBE (o `controle.js` da sincronização das coleções ao "Baixando" na linha); a cena de letra mandada à playlist ou aos Favoritos entra na lista em memória (senha `listasSeq`), o repasse do `ytAcaoInterno` refutado por medida, e ~75 comentários (9 blocos reancorados, fatos velhos, narrativa ao histórico)
 - **v1.13.25** — revisão C5: CIFRA, LEITURA, TRANSPORTE E SELEÇÃO (o `controle.js` da aba de cifra à sincronização das coleções); o "Tocar agora" deixa de ser desfeito por um `load()` em voo (senha `listasSeq`), a ABERTURA da rolagem da cifra descrita como regra (decisão do operador), e ~90 comentários (lápides, fatos velhos, narrativa ao histórico)
@@ -638,6 +639,2594 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.13.28 — revisão C8: TRANSFERIR, SHARE, VIA NATIVA E WALLPAPER (o `controle.js` do cabeçalho do pacote de transferência a antes de `// ===== Diálogo padrão do app`)
+
+**v1.13.28 (revisão C8; só web, sem Release)** — a etapa C8 da revisão profunda
+(`docs/REVISAO-PROFUNDA.md`): a oitava fatia do `controle.js` (o pacote de
+transferência inteiro — escritor, plano, folha, lista do Transferir, exportar,
+fonte por janelas, cursor, mescla, aplicador, conferência, relatório, ponteiros,
+tiles e o pronto —, os tiles de Configurações, o giro e o preenchimento, a barra
+do YouTube e o diagnóstico dela, a miniatura fora do caminho, a via nativa do
+YouTube e o resgate das intenções, as apresentações e o vídeo do slide, a
+prateleira avulsa, o compartilhamento e o link copiado, o pulso e o eco, a
+proporção da preview, o wallpaper e o trabalho em segundo plano com a
+notificação) pela lista comum e pelo específico das fatias C. Lida inteira;
+nenhum defeito que interrompa a projeção.
+
+**O DEFEITO (o link compartilhado ficava fora do Cronograma).** No modo
+avançado, um link que não é do YouTube nem de apresentação vira item por
+`addUrlMedia`, que não abre linha provisória — e era a linha provisória (o
+`load()` do `soltar()` do `libBusy`) que relia a lista nos ramos de arquivo e de
+deck. O `importShare` relia só a fila (`plItems`) e os Favoritos: o item ficava
+no banco e fora de `libItems`/`cronoSet`, e a tela não o mostrava até a próxima
+releitura. MEDIDO no Chromium (`banco: true, tela: false`). Conserto: um
+`load()` no fim do `importShare` sempre que há lista escolhida (no lugar da
+releitura avulsa de `plItems`); ele também descarta, pelo `loadSeqCtl`, um
+`load()` que tenha lido as listas antes das escritas — o que fecha o repasse C4
+do `importShare` sem `listasSeq`. Asserção nova: bloco 4 do
+`aviso-de-importacao.test.mjs`. Reversão: sem o conserto reprova.
+
+**O REPASSE W1 (`resgatarDownloads`) — CONSERTADO.** O resgate da abertura lia
+`ytIntencoes` com `getState` e a zerava com `setState`: um `lembrarIntencao` no
+vão (um download pedido durante a abertura) era apagado sem ter sido lido, e o
+download perdia o registro que o faria ser reclamado se o renderer morresse.
+Agora é um `updateState` só (a `fn` síncrona captura a lista e devolve `[]`).
+Asserção nova: bloco 13 do `hidratacao-perde-a-vez.test.mjs` (o gancho põe a
+intenção nova logo depois da leitura do resgate). Reversão: sem o conserto
+reprova (`obtido: []`).
+
+**O REPASSE C4 (`redesenharComMiniatura`) — REFUTADO, e a linha saiu.** Ela
+chama `load()` ANTES de reler `plItems` e não grava lista nenhuma: o `load()`
+descarta o que estava em voo e já aplica a fila nova com `renderPlaylist`. A
+releitura avulsa era só uma segunda leitura do IndexedDB, e saiu.
+
+**SÓ COMENTÁRIO (provas 1 e 2; a 2 acusa oito, todos movimentos de propósito
+com cabeçalho genérico `*`).** Blocos no símbolo errado, reancorados: o KDoc do
+escritor (sobre `tamanhoDe`) foi para `pacoteEscritor`; o de `pacotePeso`
+(sobre `PACOTE_MARGEM`) para a função; "A MESCLA" (sobre `pacoteSemEspaco`) para
+`pacoteMesclarValor`; "A CONFERÊNCIA" (sobre `PACOTE_INCOMPLETO`) para
+`pacoteConferir`; "O PERCENTUAL NO PRÓPRIO BOTÃO" (sobre `PACOTE_FATIA_*`) para
+`pacoteFalarPercentual`; "O RELATÓRIO DO FIM" (sobre o KDoc dos ponteiros) para
+`pacoteRelatorio`; "O PONTEIRO" (sobre `PACOTE_PONTEIROS_MARCA`) para
+`pacoteAcertarPonteiros`; "Os três tiles" (órfão sobre o KDoc do
+`pacoteTrabalhando`) virou o KDoc do `pacoteRenderPar` (são cinco tiles). Fatos
+velhos: "a importação não tem cancelar" (dois lugares; ela para desde a v1.8.27);
+a chave de `state` aplicada por `updateState` (vai no lote, `updateStateLote`);
+"as incompletas vêm primeiro" no relatório (a ordem é a da Biblioteca); a fonte
+"sobre um `Blob`" e as "janelas de 4 MB" (há uma fonte só, de 8 kB a 1 MB); "A
+MEDIÇÃO VEM ANTES DE TUDO" sobre o esboço; a "folha de escolha" (é a seção do
+Transferir) em cinco lugares; o "cartão sobre a preview" da exportação; o SW
+que gravava o `pending-share`; "no TOPO deste arquivo" do `pacoteRenderTiles()`;
+"a fila de IO livre" do resgate; os QUINZE números de linha do `responder`;
+"shell 16/19/22/23/30/64/67/81" e "shell antigo" (o piso é 83). Lápides: o
+parâmetro de início do cursor, o clone, o toque longo, a linha "tudo", a
+recarga da importação, `avisar()`, o piso `destaque`, o `pending-share`. Os
+pedidos e relatos do operador citados no código saíram; a narrativa que saiu,
+verbatim, bloco a bloco (o rótulo é o símbolo mais próximo abaixo do bloco):
+
+*tamanhoDe*:
+
+```js
+ * O ESCRITOR — ele JUNTA os registros pequenos num bloco só (v1.7.2).
+```
+
+*tamanhoDe*:
+
+```js
+ * A versão anterior mandava UM bloco por cabeçalho e UM por corpo, sem juntar
+ * nada — e o acervo tem milhares de registros MINÚSCULOS: a Bíblia mora em
+ * `state` com **uma chave por capítulo**, 1189 por versão (`bible:<v>_<livro>_
+ * <cap>`, ver `ensureBibleVersionDownloaded`). Com duas ou três versões
+ * baixadas são ~3.600 chaves × 2 idas e voltas = **~7.200 viagens** para
+ * escrever poucos megabytes. Era essa a "exportação absurdamente lenta" — e
+ * como nenhum registro de `state` reportava progresso, ela acontecia inteira
+ * com a notificação parada em **0%**.
+```
+
+*tamanhoDe*:
+
+```js
+ * ===== O SUMIDOURO É INJETADO (v1.8.0) =====
+```
+
+*registro*:
+
+```js
+   * O `bytes` DO CABEÇALHO SAI DO CORPO, sempre (v1.8.14). Ele vinha do
+   * chamador, e chamador e corpo decidiam por caminhos separados: `bytes:
+   * rec.thumb.size` sobre uma miniatura que não é um `Blob` dá `undefined`, e o
+   * corpo — que pergunta `x.size` — não escreve nada. O arquivo sai com um
+   * cabeçalho sem tamanho e o leitor para com "registro sem tamanho", que foi
+   * exatamente o que o campo mostrou. Aqui os dois não têm como discordar:
+   * quem responde é o mesmo `tamanhoDe`.
+```
+
+*pacotePlanoAtual*:
+
+```js
+ * O PLANO — e desde a v1.7.2 ele é montado ANTES da folha de escolha.
+ *
+ * A ordem mudou porque a folha precisa dos TAMANHOS para o operador escolher, e
+ * medi-los duas vezes seria medir o aparelho duas vezes. Ele é montado uma vez,
+```
+
+*PACOTE_LISTAS*:
+
+```js
+// AS LISTAS QUE VIRAM GRUPO NA FOLHA (v1.8.38).
+//
+// Pedido do operador: *"analise para termos um dos seletores de coleção para a
+// exportação, o item favoritos, pois em alguns casos, ele pode conter vários
+// arquivos com peso para serem exportados"*.
+//
+// Até aqui a store de mídia era UM grupo só ("Itens importados e vídeos"), e o
+// peso dos favoritos — que num acervo real são vídeos do YouTube guardados um a
+// um — não tinha como ser visto nem tirado sem levar o resto junto.
+//
+// A ordem é a da folha; os rótulos são os das listas que o operador conhece.
+// `avulsos` é a prateleira do Modo Fácil, que não tem lista visível — o nome
+// diz o que ela é para quem lê a folha, e não o identificador interno.
+// SÓ OS FAVORITOS (v1.8.40). A v1.8.38 abriu um grupo por lista; o operador
+// pediu de volta *"remover a playlist, como sendo uma das opções de exportação,
+// o cronograma também"*.
+//
+// O QUE ELES ERAM: listas de TRABALHO, não de acervo. O Cronograma é o que vai
+// ser projetado neste culto e a playlist é a fila da vez — as duas se esvaziam
+// e se refazem toda semana, e escolher se elas viajam não é uma decisão sobre o
+// que o outro aparelho vai TER, é sobre um estado que não sobrevive ao sábado.
+// Os Favoritos são o contrário: é ali que um vídeo pesado fica guardado de
+// propósito, e é essa a pergunta que o operador de fato faz.
+//
+// OS ITENS DELES CONTINUAM VIAJANDO: sem grupo próprio eles caem no de escape
+// ("Outros itens"), que segue marcado por padrão como todo o resto. O que sai é
+// a LINHA na folha, não os bytes.
+```
+
+*pacoteGruposDeMidia*:
+
+```js
+ * E DESDE A v1.8.40 SOBROU UM GRUPO SÓ, o que muda o alcance dessa promessa —
+ * o KDoc afirmava até a v1.8.45 que *"desmarcar Favoritos nunca tira do pacote
+ * um item que o Cronograma também pede"*, e isso deixou de ser verdade quando o
+ * Cronograma e a Playlist saíram do `PACOTE_LISTAS`. Um item que está nos dois
+ * entra em `cobertos` pelos Favoritos, portanto NÃO cai no grupo de escape: o
+ * único grupo dele é "Favoritos", e desmarcá-lo o deixa de fora.
+```
+
+*serieSub*:
+
+```js
+  // ===== O GRUPO DE UMA SÉRIE É O VÍDEO DA SEMANA DELA (v1.11.14) =====
+```
+
+*guardados*:
+
+```js
+    // Um cronograma GUARDADO também é lista do operador (v1.12.54).
+```
+
+*pacoteBases*:
+
+```js
+ * OS ORIGINAIS DOS ITENS EDITADOS QUE VÃO NO PACOTE — escondidos (v1.12.0).
+```
+
+*codificador*:
+
+```js
+  // UM CURSOR, e não um `getState` por chave (v1.8.24). É a mesma correção que o
+  // `mediaResumo` já era para a store de mídia, e pelo mesmo motivo: a Bíblia
+  // mora em `state` com uma chave POR CAPÍTULO (1189 por versão), então pedir os
+  // valores um a um são milhares de transações em fila — na PORTA da folha, com
+  // o operador olhando "Medindo o acervo".
+```
+
+*arquivos*:
+
+```js
+  // EM ORDEM (v1.8.25). A varredura do OPFS devolve o que o sistema de arquivos
+  // entrega, que não tem ordem nenhuma — e é essa lista que decide a ordem em
+  // que os bytes são escritos, e portanto a ordem em que os nomes aparecem na
+  // notificação de quem importa. Relato do operador: *"o hinário vai de 0 a 600
+  // e é muito incoerente os hinos terem uma ordem aleatória … como não há uma
+  // ordem, ele parece que está sorteando"*.
+```
+
+*seriesIds*:
+
+```js
+  // A SÉRIE NÃO LEVA ARQUIVOS DE PASTA (v1.11.14): o que ela leva é o vídeo da semana, que é
+```
+
+*pacotePlanoAproximado*:
+
+```js
+ * A FOLHA SEM MEDIR NADA — o que a Biblioteca já sabe, na hora.
+ *
+ * Pedido do operador: *"você não pode simplesmente usar a medição superficial
+ * que já temos na biblioteca? essa medição dos arquivos e peso total da
+ * exportação não é importante, apenas arredonde para cima e chame de
+ * aproximadamente … dessa forma não atrasa o processo, e os processos reais
+ * necessários acontecem após o pedido confirmado"*.
+```
+
+*pacotePlanoAproximado*:
+
+```js
+ * ===== E ELA NÃO TOCA NO CATÁLOGO (v1.8.30) =====
+```
+
+*pacotePlanoAproximado*:
+
+```js
+ * Relato do operador: *"ele está tendo um delay para abrir o popup das opções,
+ * verifique esse delay, ele não deve existir"*.
+```
+
+*pacotePlanoAproximado*:
+
+```js
+ * A v1.8.26 tirou a VARREDURA DO DISCO do caminho do toque e deixou para trás
+ * um `AVDB.filesResumo()` — um cursor sobre a store `files` inteira, usado como
+ * plano B do peso e como única fonte do grupo "sem coleção". MEDIDO em Chromium
+ * com 2.228 registros (um hinário completo mais álbuns, o número que o oráculo
+ * de ida e volta viu num aparelho): **135 ms**, contra 2,3 ms do `mediaResumo`
+ * e 6 ms de um `getAllKeys` — o custo é DESSERIALIZAR cada registro, com a
+ * miniatura e a letra dentro. Num aparelho isso é o atraso que se vê.
+ *
+ * O plano B não era necessário: `collUI[id].bytes` sobe a cada arquivo baixado
+```
+
+*chavesEstado*:
+
+```js
+  // ===== O ESTADO DEIXOU DE VALER ZERO (v1.8.40) =====
+```
+
+*chavesEstado*:
+
+```js
+  // Relato do operador: *"verifique o sistema de peso dos arquivos para
+  // exportação … mesmo com o arredondamento para cima, ele está apresentando um
+  // número bem menor que a realidade … se ele fosse errar, que erre para cima"*.
+  //
+  // O `bytesEstado: 0` era a maior parte do erro, e ele não é pequeno: MEDIDO
+  // num acervo sintético com mil capítulos de Bíblia, a folha mostrava
+  // **14,7%** da realidade — 700 kB contra 4,77 MB —, porque as milhares de
+  // chaves de `state` (a Bíblia mora aqui com uma POR CAPÍTULO) não entravam.
+```
+
+*chavesEstado*:
+
+```js
+  // num acervo real (3.600 chaves) isso é meio segundo — exatamente o atraso
+  // que a v1.8.30 tirou daqui, de volta.
+```
+
+*chavesEstado*:
+
+```js
+  // número adotado é o MAIOR dos dois, arredondado para cima, porque o pedido é
+  // explícito: entre errar para baixo e errar para cima, erra para cima.
+```
+
+*return { grupos, folha, aprox: true, midiaPorGrupo*:
+
+```js
+  // `midiaPorGrupo`/`midiaBytes` VÃO JUNTO (v1.8.46), e é o que faz o total do
+  // confirmar ser a UNIÃO. Sem eles o `pacoteBytesDe` cai no ramo `t += g.bytes`
+  // — a SOMA —, e a folha é desenhada com ESTE plano, não com o exato. Hoje o
+  // número saía certo por acidente: a v1.8.40 deixou o `PACOTE_LISTAS` com uma
+  // entrada só, e `lst:favs` mais o escape formam uma partição disjunta. A
+  // segunda lista que voltar (a v1.8.38 tinha três) faz o total passar do
+  // arquivo, exatamente na tela que responde *"cabe no cartão?"*.
+```
+
+*pacoteMontarFolha*:
+
+```js
+ * Ela existe porque a folha passou a ser desenhada ANTES da medição (v1.8.26):
+ * duas montagens divergiriam no primeiro ajuste, e a divergência apareceria
+```
+
+*grupos*:
+
+```js
+  // A LINHA "Ajustes e catálogos" SAIU DA FOLHA (v1.8.25), e o que ela
+  // carregava CONTINUA no pacote. Decisão do operador: *"elementos essenciais
+  // para uso da biblioteca, como listas atualizadas, e dados de base, coloque
+  // eles no pacote de importação, mas não precisa citar eles, são bases para o
+  // funcionamento da importação"*.
+  //
+  // Ela nunca foi escolha — nasceu marcada e sem ouvinte, porque desmarcá-la
+  // faria a mídia chegar ÓRFÃ ao destino e o coletor da abertura seguinte a
+  // apagaria. Uma linha que não decide nada numa folha cujo trabalho INTEIRO é
+  // decidir é ruído; o que ela explicava agora está no `FORA` do `pacote.js`,
+  // que é onde a regra mora. O grupo continua existindo em `plano.grupos`
+  // porque é dele que sai o peso do estado no total.
+```
+
+*if (c.kind === 'serie') {*:
+
+```js
+    // OS HINÁRIOS E AS SÉRIES ENTRAM SEMPRE, mesmo sem um byte baixado (v1.11.12):
+    // a seleção da janela agora vale também para IMPORTAR, e num aparelho novo —
+```
+
+*if (c.kind === 'serie') {*:
+
+```js
+    // A SÉRIE É OUTRA CONTA (v1.11.14): a linha dela é o VÍDEO DA SEMANA — peso, frase e
+```
+
+*L*:
+
+```js
+  // A STORE DE MÍDIA, UM GRUPO POR LISTA (v1.8.38) — ver `pacoteGruposDeMidia`.
+```
+
+*naFolha*:
+
+```js
+  // ===== A FOLHA É A ÁRVORE DA BIBLIOTECA (v1.7.3) =====
+  //
+  // Pedido do operador: *"opções de agrupamentos das coleções da mesma forma que
+  // já existe na biblioteca, podendo marcar um grupo inteiro de uma vez só"*.
+```
+
+*naFolha*:
+
+```js
+  // aqui divergiria da tela em que o operador aprendeu onde cada coleção mora,
+  // que é justamente o que ele pediu para NÃO acontecer.
+```
+
+*existe*:
+
+```js
+  // A PERGUNTA É "ESTE GRUPO EXISTE?", E NÃO "ELE TEM ARQUIVOS NO OPFS"
+  // (v1.8.38). O guarda consultava o `porGrupo`, que é o mapa dos arquivos do
+  // DISCO — as chaves dele são `col:<id>` e `outros`, e mais nada. O grupo da
+  // store de mídia nunca esteve ali, então `linha('midia')` era um no-op: o
+  // grupo existia em `plano.grupos` (contava no total, e o `exportarPacote`
+  // marcava por padrão todo grupo que a folha não ofereceu), e **nunca aparecia
+  // na folha**. Os itens importados e os vídeos viajavam sempre, sem chance de
+  // serem desmarcados — que é o pedido do operador visto pelo outro lado.
+```
+
+*L*:
+
+```js
+  // A ORDEM É A DA BIBLIOTECA, DE PONTA A PONTA (v1.8.40). Pedido do operador:
+  // *"cuide para que a ordem dos elementos dessa lista para exportação esteja na
+  // mesma ordem que temos na biblioteca"*. Lá o `renderCollectionsList` monta,
+```
+
+*secao(cat.name, categoryCards(cat)*:
+
+```js
+    // PELA MESMA FUNÇÃO DA BIBLIOTECA (v1.8.40): é ela que decide a ORDEM (a
+```
+
+*PACOTE_MARGEM*:
+
+```js
+ * O PESO NA FOLHA, e ele DIZ que é um TETO.
+ *
+ * Pedido do operador, na v1.8.40: *"se ele fosse errar, que erre para cima.
+ * Questão de espaço deve ser algo que tem certeza de caber"*.
+```
+
+*return 'até ' + fmtBytes(arred * Math.pow(K, u));*:
+
+```js
+  // "ATÉ" E NÃO "APROX.", e a palavra é o pedido: *"questão de espaço deve ser
+  // algo que tem certeza de caber"*. "aprox." descreve um número que erra para
+```
+
+*pacoteBytesDe*:
+
+```js
+// O TOTAL É A UNIÃO, E NÃO A SOMA (v1.8.38).
+```
+
+*pacoteMarcados*:
+
+```js
+// ===== A LISTA DO TRANSFERIR (v1.7.2 → v1.11.9) =====
+```
+
+*pacoteMarcados*:
+
+```js
+// Pedido do operador (v1.7.2): *"caso o usuário não queira levar toda a
+// biblioteca … permita um popup com um check list de grupos para a exportação"*.
+// Era uma FOLHA que subia depois do toque em Exportar, e a v1.11.7 deu à
+// importação a mesma lista em leitura. A v1.11.9 desfez a duplicação a pedido
+// do operador: *"em ambos os casos a lista será vista, então já pode tornar ela
+// visível diretamente e ter apenas os dois botões de ações na base"*. Hoje a
+// lista É a seção (`#pacoteLista`, uma seção de Configurações desde a
+// v1.12.48), e Exportar e Importar são os dois botões da base dela.
+```
+
+*pacoteMarcados*:
+
+```js
+// INDICADOR, mas o Set é PRÓPRIO (`pacoteMarcados`). As caixas dizem o que LEVAR
+// ao exportar e o que TRAZER ao importar (v1.11.12).
+//
+// O SET NÃO É O DA FOLHA DE DESTINOS (v1.12.22). Ele foi o mesmo `destMarcados`
+// até aqui, e a outra folha o deixa com `{'tocar'}` ou `{'cronograma'}` ao abrir
+// (`renderItemMenu`, `escolherDestinos`): com um pacote pronto, abrir a gaveta de
+// qualquer item e voltar ao Transferir encontrava o Set "não vazio", não
+// remarcava, e a lista abria SEM marca nenhuma — o Importar montava
+// `['tocar', 'ajustes']`, só os ajustes entravam e o arquivo era consumido.
+```
+
+*travada*:
+
+```js
+  // apagam (INDISPONÍVEL, a regra da v1.8.50) e as seções continuam abrindo.
+```
+
+*linhaDeGrupo*:
+
+```js
+  // ===== NÃO HÁ LINHA DE "TUDO", E ELA EXISTIU (v1.7.3 → v1.7.9) =====
+  //
+  // Ela era um ALTERNADOR na primeira linha ("Selecionar tudo" / "Limpar a
+  // seleção"), e saiu a pedido do operador: *"O seletor de 'tudo' no processo
+  // de seleção de exportação está inútil agora que temos o agrupamento, então
+  // não precisa dele, deixe tudo selecionado por padrão e o usuário
+  // seleciona/desseleciona os poucos itens."*
+  //
+  // **O AGRUPAMENTO É QUEM A TORNOU INÚTIL**, e isso é o pedido da v1.7.3
+  // chegando ao fim: "marcar tudo" já é o ESTADO EM QUE A FOLHA NASCE, e
+  // "limpar tudo" para depois remarcar quase tudo é mais toques que tirar as
+  // duas ou três coleções que não vão. A barra de um GRUPO cobre o caso de
+  // massa que sobrava — uma seção inteira num toque.
+  //
+  // O que ela dizia e não se perdeu: o PESO do que está marcado continua no
+  // botão de confirmar, que é onde a pergunta ("cabe no cartão?") é feita.
+```
+
+*sub*:
+
+```js
+    // O AVISO DA SOBREPOSIÇÃO (v1.8.38). Os grupos por lista se sobrepõem, e o
+```
+
+*li.classList.add('pacote-linha');*:
+
+```js
+    // AS CLASSES QUE LEVAM O DESENHO DA BIBLIOTECA (v1.8.40) — ver o CSS. Elas
+```
+
+*ic*:
+
+```js
+    // O QUADRADO DO ÍCONE É O DA BIBLIOTECA (v1.8.41), pela classe e não por
+```
+
+*seta*:
+
+```js
+    // A SETA É A DA BIBLIOTECA, E É LITERALMENTE A DELA (v1.8.41).
+    //
+    // Pedido do operador: *"a seta de abertura do acordeão está diferente … eu
+    // quero o mesmo design da biblioteca, cores e ícones — o padrão da
+    // biblioteca já temos, não precisamos de algo diferente"*. MEDIDO no
+    // renderizado, os dois desenhos não tinham nada em comum: lá um quadrado de
+    // `--hit` em `--btn-accent` com raio de 8px e um chevron de traço 2,4; aqui
+    // um chevron de traço 2 solto numa caixa de 24px, transparente.
+    //
+```
+
+*seta.addEventListener('click', (ev) => {*:
+
+```js
+    // ===== ABRIR E FECHAR ANIMA, COMO NA BIBLIOTECA (v1.8.42) =====
+```
+
+*seta.addEventListener('click', (ev) => {*:
+
+```js
+    // Pedido do operador: *"na biblioteca temos animações de abertura e
+    // fechamento das listas e grupos, faça essa animação ali no exportar
+    // também"*. São as MESMAS funções (`expandAccordion`/`collapseAccordion`) e
+```
+
+*collapseAccordion(corpo, () => { if (pacoteSecaoAb*:
+
+```js
+        // (MEDIDO sob carga, v1.12.22: o `pacote-por-grupos` lia a seção vazia).
+```
+
+*marcadas*:
+
+```js
+    // O PESO DA SEÇÃO SEGUE A SELEÇÃO E LEVA A PALAVRA (v1.8.46). Ele somava
+    // TODAS as chaves e saía em formato EXATO — ao lado de linhas que dizem
+    // "até X" e que mudam quando o operador desmarca. Na mesma tela, um total
+    // de seção que não soma com as partes e não responde ao dedo.
+```
+
+*marcadas*:
+
+```js
+    // Pelo `pacoteBytesDe` e não pelo `pacotePesoDe`: aquele é o que sabe a
+```
+
+*li.className = 'pacote-grupo' + (aberta ? ' aberto*:
+
+```js
+    // O CORPO MORA DENTRO DO BLOCO (v1.8.40), e não como irmão dele.
+    //
+    // Pedido do operador: *"os grupos estão iguais às listas de itens dentro
+    // deles, não deixando identificar o que é topo e o que é item … use o mesmo
+    // design que já temos na biblioteca"*. A alternância da Biblioteca é
+    // POÇO → PAPEL (v1.5.14), e ela só pode ser escrita se o bloco CONTIVER o
+```
+
+*corpo.className = 'pacote-grupo-corpo';*:
+
+```js
+      // NADA MARCA UMA LINHA COMO "DE DENTRO" (v1.8.41): quem diz isso é este
+      // corpo, por CONTÊ-LA. Houve um recuo de texto (`.song-menu-dentro`) e
+      // uma classe no `<li>` enquanto as linhas eram IRMÃS da barra — sem
+      // bloco, o recuo era a única coisa que dizia a quem uma linha pertencia.
+      // Reintroduzi-lo é somar dois recuos: MEDIDO, com ele o nome de uma linha
+```
+
+*PACOTE_FOLGA_BYTES*:
+
+```js
+// tamanho medido do pacote (shell 67).
+```
+
+*pacotePronto*:
+
+```js
+// O PACOTE FECHADO QUE ESPERA SER MANDADO (v1.8.19) — `{ nome, bytes }`, ou
+```
+
+*pacoteDiario*:
+
+```js
+// Ele existe porque este caminho já produziu DUAS falhas cujo relato foi
+// indistinguível a distância: *"o arquivo tem 0kb"* (v1.8.18) e *"tocar nele
+// não faz nada"* (v1.8.20). Nos dois, a pergunta que resolveria em um minuto —
+// **o toque chegou a pedir o envio, e o que o shell respondeu?** — não tinha
+// resposta em lugar nenhum, e a investigação virou dedução sobre o código.
+```
+
+*pacoteEmCurso = true;*:
+
+```js
+  // A BANDEIRA SOBE AQUI, e não depois do "Salvar como" (v1.8.15).
+```
+
+*pacoteEmCurso = true;*:
+
+```js
+  // Entre o toque e o `pacoteCriar` correm a MEDIÇÃO (segundos num acervo
+  // grande) e a folha de grupos, e nesse vão o guarda de cima não guardava
+  // nada: um segundo toque chegava ao SAF, o `PacoteCanal.adotar` chamava
+  // `fechar()` no stream VIVO da primeira exportação e trocava a `uri` — daí
+  // em diante o `descartarPacote` apagava o arquivo NOVO, **o parcial da
+  // primeira ficava para sempre**, e os blocos que ela ainda empurrava caíam no
+  // documento da segunda. O mesmo valia para tocar em Importar no meio da
+  // medição: o `finally` de lá zerava a bandeira com a exportação escrevendo.
+  //
+  // Ela desce em TODA saída — as três de baixo (medição falhou, desistiu na
+  // folha, desistiu no seletor) e o `finally` da escrita.
+```
+
+*esboco*:
+
+```js
+  // ===== A MEDIÇÃO VEM ANTES DE TUDO, E ELA APARECE NO PRÓPRIO BOTÃO =====
+  // Ela varre o OPFS inteiro, percorre a store de mídia e lê as chaves de
+  // `state` — segundos num acervo grande. Até a v1.7.2 ela acontecia DEPOIS do
+  // "Salvar como", em silêncio absoluto; a v1.7.2 a mostrou no cartão sobre a
+  // PREVIEW, e a v1.7.3 a trouxe para cá: a ação acontece no botão, e é nele
+  // que ela responde (ver `falarNoTile`).
+  // A LISTA JÁ ESTÁ NA SEÇÃO (v1.11.9), com o peso que a Biblioteca já tem, e a
+```
+
+*plano*:
+
+```js
+  // `state` — segundos num acervo grande. Até a v1.8.25 ela acontecia ANTES da
+  // folha, e era o operador esperando para poder escolher; hoje ela roda com a
+  // escolha já feita, que é onde o trabalho de verdade começa. O número aparece
+  // no PRÓPRIO BOTÃO, como todo o resto deste caminho (ver `falarNoTile`).
+```
+
+*pacoteCancelar = false;*:
+
+```js
+  // SEM A PALAVRA "Medindo…" (v1.8.27). Pedido do operador: *"não precisa usar
+  // 'medindo' após a seleção, apenas inclua isso na contagem de porcentagem do
+  // processo. afinal, isso é só parte do processo como um todo"*. Ele está
+  // certo, e é o que ela é: a medição ocupa a primeira FATIA da barra do
+  // processo inteiro (ver `PACOTE_FATIA_MEDIDA`), e a escrita continua dali.
+```
+
+*andou*:
+
+```js
+      // O NÚMERO VAI NO RÓTULO DO BOTÃO (v1.7.3), e é a única coisa que cabe
+```
+
+*andou*:
+
+```js
+      // AS DUAS SUPERFÍCIES DIZEM O MESMO NÚMERO, E POR CONSTRUÇÃO (v1.8.35).
+      // Até aqui a fração era calculada DUAS vezes: o botão recebia a do
+      // processo inteiro (a medição mais a escrita) e a notificação recebia a
+      // da ESCRITA CRUA — um desvio SISTEMÁTICO de `PACOTE_FATIA_MEDIDA × (1 −
+      // f)`, isto é, os 5% inteiros no começo, fechando em zero só no fim. Era
+      // o relato do operador: *"o número do progresso na notificação não está
+      // se atualizando corretamente, há muito atraso em relação à realidade, ao
+      // menos 5%"* — e ele não estava vendo atraso de RELÓGIO, estava vendo
+      // duas contas diferentes sobre o mesmo trabalho.
+      //
+      // O argumento que sustentava a divergência respondia outra pergunta: a
+      // notificação de fato só EXISTE a partir daqui (é ela que segura o
+      // processo em primeiro plano), e daí se concluiu que o número dela
+      // começa aqui. Não segue: QUANDO uma superfície nasce não decide O QUE
+      // ela mede. A IMPORTAÇÃO já fazia o certo e já dizia a regra por escrito
+      // (*"o `done` continua em BYTES DO PACOTE, e a fração é a do processo
+      // INTEIRO"*); isto é a mesma regra do outro lado.
+```
+
+*escolhidos*:
+
+```js
+        // fora e para a tela de importação dizer de onde ele veio. Desde a
+        // v1.7.2 ele diz também QUE GRUPOS este arquivo traz: um pacote
+        // parcial é o caso normal agora, e "o que tem aqui dentro?" passou a
+        // ser uma pergunta com resposta.
+```
+
+*idsMidia*:
+
+```js
+        // A UNIÃO DOS GRUPOS MARCADOS, e não `sel.has('midia')`: desde a
+        // v1.8.38 a store de mídia é vários grupos que se sobrepõem, e o item
+        // viaja se QUALQUER um deles estiver marcado.
+```
+
+*if (gDoArquivo && plano.seriesIds && plano.seriesI*:
+
+```js
+          // O catálogo de uma pasta de SÉRIE não viaja: os bytes dela também não (v1.11.14).
+```
+
+*if (g.fixo || !sel.has(g.chave)) continue;*:
+
+```js
+          // abaixo bastaria — a guarda é explícita porque desde a v1.8.38 são
+          // VÁRIOS, e "o `midia` é a exceção" deixou de ser verdade.
+```
+
+*gravados = await AVNative.pacoteFechar();*:
+
+```js
+    // FECHAR NÃO É ENVIAR (v1.8.19). Os dois caminhos fecham pelo MESMO
+```
+
+*pacotePulsar(pacoteExportarTileEl, 'ok');*:
+
+```js
+  // ===== O DESFECHO MORA NO BOTÃO, E SÓ NELE (v1.8.19) =====
+```
+
+*pacotePulsar(pacoteExportarTileEl, 'ok');*:
+
+```js
+  // Pedido do operador: *"pode remover o popup de 'acervo exportado'. faça com
+  // que após a conclusão da preparação do arquivo, o botão de exportar fica
+  // 100% e permita tocar nele para compartilhar o arquivo de exportação, no
+  // caso permitindo controlar quando vai exportar, após terminar os processos,
+  // e também permitindo compartilhar o mesmo arquivo pronto, quantas vezes
+  // quiser"*.
+```
+
+*PACOTE_LOTE_ESTADO*:
+
+```js
+// ===== A FONTE DE UM PACOTE, E POR QUE ELA NÃO É UM `Blob` (v1.7.9) =====
+```
+
+*PACOTE_LOTE_ESTADO*:
+
+```js
+// Relato do operador: *"Não estou conseguindo importar os dados, 'failed to
+// fetch' era um arquivo de 15GB. Tentei em um arquivo de 3,52GB e ele deu erro
+// como se o arquivo estivesse corrompido."*
+```
+
+*PACOTE_LOTE_ESTADO*:
+
+```js
+// Eram DOIS defeitos, um em cada camada, e os dois só aparecem no tamanho:
+//
+//  1. **`resp.blob()` materializava o arquivo INTEIRO** antes do primeiro byte
+```
+
+*PACOTE_LOTE_ESTADO*:
+
+```js
+//     primeira num aparelho que já está cheio. O `Failed to fetch` é isso.
+```
+
+*PACOTE_LOTE_ESTADO*:
+
+```js
+//     nenhum, e o cursor tropeça no meio de um registro. É o segundo relato.
+```
+
+*pacoteFonteDaUrl*:
+
+```js
+ * **A PERGUNTA NÃO PODE SER UMA IGUALDADE**, e isso é MEDIDO. Da v1.7.9 até
+ * aqui ela foi `ini === bufIni + buf.length` — "começou exatamente onde o
+ * buffer acabou" —, e essa coincidência quase nunca acontece: as leituras do
+```
+
+*if (lidos !== fim - ini) throw new Error('pacote: *:
+
+```js
+      // A GUARDA QUE O IRMÃO `bytes()` SEMPRE TEVE, e que faltava aqui — no
+      // caminho que traz os CORPOS (v1.8.15).
+      //
+      // Uma janela pode devolver MENOS do que se pediu: o `SafJanela.ler` corta
+      // no que conseguiu (`buf.copyOf(lidos)`), e o caso que torna isso provável
+      // é o novo caminho de uso — o arquivo chega por Quick Share e APARECE em
+      // Downloads antes de terminar de ser escrito. O `size` já responde o valor
+      // final, as janelas do fim voltam curtas, e o cursor avança pelo `bytes`
+      // DECLARADO no cabeçalho: um vídeo de 300 MB era gravado TRUNCADO, sem
+      // erro em lugar nenhum dos dois lados, e o defeito só aparecia ao projetar.
+```
+
+*pos*:
+
+```js
+  // O CURSOR COMEÇA DEPOIS DA ASSINATURA, que é onde o `.avpkg` começa. O
+  // início chegou a ser PARÂMETRO (v1.8.0), para o corpo de um item do CLONE —
+  // um fluxo de registros NU, sem assinatura —, e saiu com ele na v1.8.16.
+```
+
+*ler*:
+
+```js
+      // `comCorpo` também pode ser uma FUNÇÃO da cabeça (v1.11.12): a importação
+```
+
+*pacoteSemEspaco*:
+
+```js
+ * A MESCLA DE UMA CHAVE DE `state`, e ela é a promessa do recurso escrita em
+ * quatro linhas: **o local nunca perde**.
+ *
+ *  1. a chave não existe aqui → entra inteira (é o caso do aparelho NOVO, que é
+ *     o caso de uso);
+ *  2. as duas são listas de ids (`imports`, `playlist`, `favs`, `folder_<id>`)
+ *     → UNIÃO, na ordem local primeiro — a playlist de quem importa não é
+ *     reordenada por um arquivo;
+ *  3. as duas são mapas (as cifras de uma coleção, o cache de letras) → mescla
+ *     RECURSIVA: cada chave em disputa volta para esta função, e é nas FOLHAS
+ *     que o local vence;
+ *  4. qualquer outra coisa (um número, um texto, um Blob) → nada muda.
+ *
+ * A regra é por FORMA e não por nome de chave, e isso é escolha: uma tabela de
+ * nomes envelheceria em silêncio a cada chave nova, e o modo de falhar dela
+ * seria justamente o pior — uma chave desconhecida caindo no ramo errado e
+ * apagando o que o operador tem.
+ *
+ * ## A RECURSÃO É O RECURSO (v1.8.23), e a falta dela apagava o acervo inteiro
+ *
+ * A regra 3 era `Object.assign({}, vindo, local)` — RASA. Numa chave cujo
+ * conteúdo todo mora sob UMA chave aninhada, "mesclar" degenera em "o local
+ * vence inteiro", e foi exatamente o que aconteceu com o índice de uma coleção:
+ *
+ *     coll:hymnal-2022 = { indexSyncedAt, songs: [ … , fileIdFull, … ] }
+ *
+ * `songs` é o único lugar onde mora o PONTEIRO de cada hino para o arquivo dele.
+ * O aparelho de destino já tinha esse índice — todo celular que abriu o app com
+ * internet o tem, porque o `autoRefreshCollections` o busca sozinho —, com
+ * `fileIdFull: null` em tudo. Os registros de `files` e os bytes do OPFS
+ * chegavam; o índice que apontava para eles era descartado no `Object.assign`.
+ *
+ * O desfecho é o pior formato que este recurso sabe produzir: a importação
+ * termina, anuncia os milhares de itens que entraram, o hino APARECE na
+ * Biblioteca — e tocar nele vai à rede, porque para o app não há arquivo. Sem
+ * internet, "falha por não ter internet" sobre um acervo que está no disco.
+ *
+ * A recursão conserta isso sem uma linha sobre `coll:`, `songs` ou
+ * `fileIdFull`: descendo até as folhas, `fileIdFull: null` cai na REGRA 1 — o
+ * local não tem valor, então o de fora entra. **O local continua nunca
+ * perdendo**; ele só deixa de vencer com um buraco.
+ */
+/**
+ * O APARELHO FICOU SEM ESPAÇO — e ele precisa de resposta PRÓPRIA (v1.8.15).
+```
+
+*if (Array.isArray(local) && !local.length && Array*:
+
+```js
+  // LISTA LOCAL VAZIA NÃO É UM LADO A PRESERVAR (v1.8.42), e sem esta linha o
+```
+
+*if (Array.isArray(local) && !local.length && Array*:
+
+```js
+  // MEDIDO, e o caminho era o uso normal do recurso: até a v1.11.4,
+  // `deleteCollection` gravava `{indexSyncedAt: 0, songs: []}` no `state`
+  // (ela preserva `songs` desde então — ver o KDoc de `deleteCollection`),
+  // então "apago a coleção para liberar espaço, depois importo o pacote"
+  // fazia entrar os BYTES e os registros e descartar o ÍNDICE. A coleção
+  // aparecia VAZIA na Biblioteca, nada tocava, o `gcOrfaos` da abertura
+  // seguinte recolhia os gigabytes, e o relatório nem a mencionava
+  // (`if (!songs.length) continue`). Zero erro. A REGRA FICA: `messages` e
+  // `folders` também são gravados vazios por outros caminhos, e um objeto
+  // novo qualquer que zere uma lista tem o mesmo risco no primeiro merge.
+```
+
+*identL*:
+
+```js
+  // LISTA DE OBJETOS COM `id` — e ela é a metade que faltava (v1.8.15).
+  //
+  // `messages` é `[{id, text, estilo?}]` e `folders` tem a mesma forma: não são lista de
+  // strings (regra 2) nem mapa (regra 3), então caíam na regra 4 e **o local
+  // vencia inteiro**. Num aparelho que já salvou uma mensagem, as mensagens do
+  // pacote eram descartadas em silêncio — o recurso só funcionava no aparelho
+  // virgem, que é justamente onde nenhuma regra de mescla é exercitada.
+```
+
+*chave*:
+
+```js
+    // O QUE COLIDE É MESCLADO, não descartado (v1.8.23). Até aqui o item local
+    // vencia INTEIRO, e é essa linha que segurava o índice de uma coleção: cada
+    // hino existia dos dois lados, então o de fora — o único com o ponteiro para
+    // o arquivo — era jogado fora por já haver um homônimo. A recursão faz o
+    // local continuar vencendo campo a campo, e preencher só o que está vazio.
+```
+
+*mudou*:
+
+```js
+    // "NADA MUDOU" TEM DE SER DIZÍVEL POR IDENTIDADE (v1.8.23), e não é
+    // cosmética: o chamador conta a chave e DECIDE SE ESCREVE por
+    // `depois !== antes`. Enquanto a mescla devolvia sempre um objeto novo,
+    // toda chave de mapa era reescrita e contada — e a Bíblia mora em `state`
+    // com UMA CHAVE POR CAPÍTULO (1189 por versão). Num aparelho que já tem a
+    // mesma versão, são milhares de transações para gravar exatamente o que já
+    // estava lá, e milhares de "ajustes" anunciados que ninguém ajustou.
+```
+
+*pacoteAplicarFluxo*:
+
+```js
+ * ELE TEVE DUAS FONTES ATÉ A v1.8.16 — o arquivo `.avpkg` e o corpo de um item
+ * do clone celular a celular, que saiu. O que sobra da forma é de propósito:
+ * `contagem` continua sendo mutada no lugar (o chamador soma), e a função
+ * continua devolvendo `true` só quando viu o registro `fim`, que é o que separa
+ * um pacote inteiro de um cortado no meio. Quem exige esse `true` é o
+ * `importarPacote`.
+```
+
+*loteEstado*:
+
+```js
+  // AS CHAVES DE `state` VÃO EM LOTE (v1.8.25). Uma transação por chave era o
+  // que a Bíblia cobrava caro: ela mora aqui com uma chave POR CAPÍTULO, e
+```
+
+*pulando*:
+
+```js
+  // A SELEÇÃO DA JANELA (v1.11.12): com `filtro`, só entra o que está marcado — os
+```
+
+*if (p.tipo === 'media') {*:
+
+```js
+    // DISCO CHEIO NÃO É "JÁ ESTAVA AQUI" (v1.8.15). O `mediaAdd` usa `add`, e é
+    // a FALHA dele que vira "já está aqui" — mas ele falha por DOIS motivos, e
+    // só um deles é esse. Um `QuotaExceededError` no item 900 de um pacote de
+    // 12 GB fazia os 3.000 seguintes caírem em `repetidos`, e o diálogo final
+    // saía verde dizendo *"0 entraram, 4.000 já estavam aqui e foram mantidos"* —
+    // a frase mais tranquilizadora possível sobre a falha mais destrutiva
+    // possível. O ramo do OPFS, dez linhas abaixo, já fazia o certo.
+```
+
+*base*:
+
+```js
+    // A BARRA ANDA DENTRO DE UM REGISTRO GRANDE (v1.8.38).
+    //
+    // `aoAndar` era chamado UMA vez por registro, depois de o corpo inteiro ter
+    // sido lido e gravado — e um vídeo de 300 MB é UM registro. Num pacote de
+    // 16 GB o número ficava imóvel por minutos, logo depois da conferência,
+    // parado nos 15% que são o fim dela (`PACOTE_FATIA_CONFERE`). Relato do
+    // operador: *"ele ficou travado por muito tempo em 15%, e agora está
+    // progredindo"* — não estava travado, estava lendo um vídeo.
+```
+
+*base*:
+
+```js
+    // e rastejar nos hinos). O que faltava era a barra andar DURANTE o corpo.
+```
+
+*if (cab.t === 'arquivo' && cab.rec && cab.rec.opfs*:
+
+```js
+    // O NOME SAI DE QUEM CARREGA OS BYTES (v1.8.25), e é aqui que a v1.8.23
+    // errou. Ela nomeava os registros de CATÁLOGO — que têm `bytes: 0` —, então
+    // os 1200 nomes de um hinário passavam num piscar, durante a fração de
+    // segundo em que os metadados são lidos, e a linha CONGELAVA no último
+    // durante a cópia dos gigabytes, que é o trabalho inteiro. Relato do
+    // operador: *"mostrou vários nomes rapidamente e após um tempo, parou em um
+    // nome e não mudou mais … ele passou nomes bem mais rápido do que o
+    // progresso parecia ir"*, com a suposição certa ao lado — a lista rodava
+    // independente do progresso real.
+```
+
+*if (cab.t === 'arquivo' && cab.rec && cab.rec.opfs*:
+
+```js
+    // Hoje quem nomeia é o registro `opfs`, que É o byte. O nome dele vem do
+```
+
+*if (!AVPacote.chaveViaja(cab.chave)) { contagem.re*:
+
+```js
+      // A CHAVE É CONFERIDA NA ENTRADA TAMBÉM (v1.8.15).
+      //
+      // `AVPacote.chaveViaja` tinha UM chamador — o plano da EXPORTAÇÃO —, e a
+      // lista `FORA` valia só na saída. Enquanto o arquivo veio do cartão do
+      // próprio operador isso era teórico; **com o compartilhamento ele passa a
+      // vir do aparelho de outra pessoa**, por um canal que qualquer um na sala
+      // oferece. As seis chaves que a saída recusa entravam pela porta da
+```
+
+*if (cab.t === 'state' && cab.chave === 'cronograma*:
+
+```js
+      // OS CRONOGRAMAS GUARDADOS (v1.12.54) não passam pela mescla genérica: ela
+```
+
+*if (cab.t === 'state' && cab.chave === 'itinerario*:
+
+```js
+      // OS ITINERÁRIOS (v1.13.2) também não: a mescla genérica UNIRIA os horários
+```
+
+*if (filtro && Array.isArray(valor)) {*:
+
+```js
+      // UMA TRANSAÇÃO POR CHAVE, e não duas (v1.8.23). Havia um `getState`
+      // antes do `updateState` só para decidir se contava — dois `await` no
+      // IndexedDB e a mescla calculada DUAS vezes, por chave. A Bíblia sozinha
+      // são 1189 chaves por versão, então isso eram milhares de transações a
+      // mais numa importação. Quem responde "mudou?" agora é a própria `fn`,
+      // que já tem o antes e o depois na mão.
+      //
+      // `updateState` e não `setState`: read-modify-write de `state` numa
+      // transação só, com o commit confirmado antes de seguir. A `fn` é
+      // SÍNCRONA — um `await` lá dentro deixa a transação fechar sozinha.
+      //
+      // `depois === atual` é a mescla devolvendo o LOCAL por IDENTIDADE: nada
+      // mudou. Contá-lo faria a tela anunciar ajustes que não entraram, e
+      // gravá-lo seria reescrever no disco exatamente o que já estava lá.
+```
+
+*PACOTE_INCOMPLETO*:
+
+```js
+/**
+ * A CONFERÊNCIA, ANTES DE ESCREVER O PRIMEIRO BYTE.
+ *
+ * Ela percorre o pacote inteiro lendo SÓ os cabeçalhos — os corpos são
+ * PULADOS pelo `bytes` que cada um declara, então nenhum byte de mídia é lido
+ * aqui — e só devolve quando alcança o registro `fim`.
+ *
+ * **Por que ela existe:** sem ela, um pacote cortado no meio (cartão cheio, o
+ * app fechado no meio da exportação, uma cópia interrompida entre os dois
+ * aparelhos) seria APLICADO até o ponto em que os bytes acabam, e a recusa
+ * chegaria depois — com meia biblioteca já dentro e a tela dizendo "não deu
+ * para importar". Um pacote é ou não é: com a conferência à frente, ele é
+ * recusado INTEIRO, e o aparelho fica exatamente como estava.
+ *
+ * **E ela é barata**, que é o que a torna aceitável: ela pede `proximo(false)`
+ * e o que se lê são alguns milhares de fatias de duzentos bytes — não os
+ * gigabytes que vêm depois. Sobre um `Blob` isso é de graça (o `slice` é
+ * preguiçoso); sobre um documento do aparelho, a fonte lê por JANELAS de 4 MB
+ * e serve os cabeçalhos em sequência de dentro delas.
+ */
+```
+
+*PACOTE_FATIA_MEDIDA*:
+
+```js
+/**
+ * O PERCENTUAL NO PRÓPRIO BOTÃO — as duas etapas da importação falam por ele.
+ *
+ * Existe porque as duas o escreviam com a mesma conta copiada, e a conferência
+ * não escrevia nada: uma delas ficava muda, que é a metade do "parecendo
+ * parado". Fonte sem tamanho não escreve nada em vez de escrever `NaN%`.
+ */
+// ===== UMA CONTAGEM SÓ PARA O PROCESSO INTEIRO (v1.8.27) =====
+```
+
+*PACOTE_FATIA_MEDIDA*:
+
+```js
+// Pedido do operador, sobre a exportação: *"não precisa usar 'medindo' após a
+// seleção, apenas inclua isso na contagem de porcentagem do processo … mas
+// coloque ela sendo a mesma porcentagem do trabalho completo e não um 0 a 100,
+// anterior e depois outro 0 a 100 para a exportação de verdade"*. E sobre a
+// importação: *"de nada adianta um 100% apenas da verificação do pacote, isso
+// dá a falsa sensação de conclusão"*.
+//
+// As duas tinham DUAS barras de 0 a 100 em sequência, e a primeira mentia ao
+// fechar. Agora cada etapa ocupa uma FATIA da única barra.
+```
+
+*PACOTE_FATIA_MEDIDA*:
+
+```js
+//    ~1% e ficaria parada durante todo o tempo que leva. É a queixa original;
+```
+
+*PACOTE_FATIA_MEDIDA*:
+
+```js
+// não precisa ser exata — precisa ser MONOTÔNICA e nunca voltar a zero, que é
+// o que o pedido nomeia.
+```
+
+*pacoteFiltroDeImportacao*:
+
+```js
+ * A SELEÇÃO DA JANELA VALE TAMBÉM PARA IMPORTAR (v1.11.12). Pedido do operador:
+ * *"os itens selecionados são os itens que ele de fato vai importar. Mesmo que o
+ * pacote tenha a biblioteca inteira … se eu selecionar apenas o hinário, ele vai
+ * importar apenas o hinário desse pacote e, como sempre, vai consumir o arquivo.
+ * Assim a listagem tem função em ambos os processos"*.
+```
+
+*pacoteFiltroDeImportacao*:
+
+```js
+ * viu seria o contrário do pedido). "Ajustes e catálogos" é fixo e sempre entra:
+```
+
+*pacotePreverBase*:
+
+```js
+ * O ORIGINAL DE UM EDITADO ADMITIDO ENTRA SEMPRE (v1.12.22).
+```
+
+*pacotePreverBase*:
+
+```js
+ * um grupo marcado na exportação, ou o `arquivo`/`opfs` de uma coleção marcada — era julgado
+ * pelos GRUPOS dele: com o Cronograma (ou o hinário) desmarcado na importação, o editado
+ * entrava, o original não, `resolverEdicao` devolvia `null` e o item sumia calado (contado
+ * como "1 entrou"). E a ordem do arquivo não ajuda: a mídia sai na ordem das chaves, e o
+```
+
+*if (!filtro.admitidos) filtro.admitidos = new Set(*:
+
+```js
+  // OS QUE ENTRAM PELAS PRÓPRIAS MARCAS (v1.12.23) — é por eles que as LISTAS do pacote são
+```
+
+*pacoteListaAdmitida*:
+
+```js
+ * UMA LISTA DO PACOTE (Cronograma, playlist, favoritos, séries, avulsos) SÓ TRAZ O QUE ENTROU
+ * (v1.12.23). O `state` dela viajava inteiro: com o grupo desmarcado o item ficava de fora e o
+ * id entrava na lista do destino, pendurado — invisível hoje, e reaparecendo no dia em que uma
+ * importação futura trouxesse o item. A conferência já leu o pacote inteiro e sabe quem entra.
+```
+
+*g*:
+
+```js
+  // OS GRUPOS QUE O PACOTE NOMEOU (v1.11.14) — o vídeo de uma série só tem este caminho. Um
+```
+
+*pacoteImportando*:
+
+```js
+// A IMPORTAÇÃO PASSOU A SABER PARAR (v1.8.27), e isso REVOGA a decisão da
+// v1.7.3 — *"sem cancelar, e a diferença é de natureza: parar uma importação no
+// meio deixaria metade do acervo no aparelho e nada apagaria a outra metade"*.
+//
+// O argumento de lá provava outra coisa: que não dá para DESFAZER. Ninguém
+// pediu desfazer — o que faltava era PARAR, e parar é seguro exatamente pela
+// razão que aquele texto dá: **o que já entrou está certo**, e importar de novo
+// continua de onde ficou (o que já existe é pulado). Um trabalho de minutos sem
+// saída é o que não se justifica, e é o que fazia o tile irmão existir só para
+// ficar cinza.
+```
+
+*pacoteFalar*:
+
+```js
+// ===== O FEEDBACK DE EXPORTAR/IMPORTAR TAMBÉM VAI PARA O TILE DA GRADE (v1.11.7)
+```
+
+*if (pacoteCancelarImport) return;*:
+
+```js
+      // SEM CORPO: ela lê cabeçalhos e PULA os bytes de cada um. Sobre um
+      // `Blob` isso já era de graça (o `slice` é preguiçoso); sobre uma fonte
+      // lida por JANELAS, buscar um corpo que ninguém vai usar leria o pacote
+      // inteiro duas vezes.
+```
+
+*if (aoAndar) aoAndar(cursor.pos);*:
+
+```js
+      // ELA ANDA (v1.8.23). A conferência percorre o arquivo INTEIRO pelos
+      // cabeçalhos — minutos num acervo grande — e não reportava nada: o
+      // operador via a palavra "Conferindo…" parada, que é indistinguível de
+      // travado. Ela é a primeira metade do "processo parecendo parado".
+```
+
+*PACOTE_COLECOES_MAX*:
+
+```js
+ * sem virar o muro que a v1.8.27 veio desfazer, e as incompletas vêm primeiro,
+ * então o teto nunca corta justamente o que pede ação.
+```
+
+*PACOTE_PONTEIROS_MARCA*:
+
+```js
+/**
+ * O RELATÓRIO DO FIM — e ele responde UMA pergunta: *chegou tudo?*
+ *
+ * Ele dizia *"4 item(ns), 2228 arquivo(s) e 172 ajuste(s)"*, e nenhum dos três
+ * números é o que se quer saber ao importar um hinário. Relato do operador:
+ * *"o que quero saber é o número de músicas ou mídias reais que foram
+ * importados … quero saber se todos os 600 hinos foram importados, e não sobre
+ * milhares de itens sem nome e que eu esperava 600. milhares não é um número
+ * esperado para poder se confirmar o sucesso"*.
+ *
+ * Os três eram unidades INTERNAS: "itens" era a store de mídia (o Cronograma),
+ * "arquivos" eram os arquivos do OPFS (um hino tem áudio, playback e as imagens
+ * de fundo da letra — daí 2228 para 601 hinos) e "ajustes" eram chaves de
+ * `state`, que desde a v1.8.25 nem são mais escolha do operador.
+ *
+ * O QUE ELE DIZ É O ESTADO, não o delta: *"Hinário Adventista 2022: 601 de 601
+ * músicas"*. É de propósito — a pergunta do operador é sobre o ACERVO, não
+ * sobre a passada: importar de novo depois de uma queda tem de responder
+ * "601 de 601", e um relatório de delta diria "0 entraram" sobre um hinário
+ * completo.
+ *
+ * ## E ELE É UM RESUMO, NÃO UMA LISTAGEM (v1.8.27)
+ *
+ * A v1.8.25 dava UMA FRASE POR COLEÇÃO, coladas num parágrafo só: com vinte e
+ * três álbuns o que saiu na tela foi um muro de texto que ninguém audita.
+ * Relato do operador: *"o resumo da importação não está ok, ele tem de ser mais
+ * sucinto, números auditáveis e organizados … eu preciso de dados
+ * simplificados, para entender se a importação deu certo, e não para saber se
+ * uma música específica está no sistema"*.
+ *
+ * A forma é a que este repositório já usa para todo bloco de diagnóstico: **o
+ * TOTAL responde, e só a EXCEÇÃO é nomeada**. Vinte linhas de "10 de 10" não
+ * são auditoria — a informação inteira delas é o total. O que precisa de nome é
+ * o que ficou incompleto, que é onde a resposta "deu certo?" muda.
+ *
+ * E UMA COLEÇÃO SÓ GANHA O NOME DELA, pela outra metade do pedido: *"talvez
+ * pode fazer o relatório separado dos álbuns quando a importação é de apenas
+ * uma coleção"*. Ali o nome não é ruído — é a confirmação.
+ *
+ * UMA LINHA POR ASSUNTO, e não um parágrafo: o `\n` é o que separa números
+ * auditáveis de um muro.
+ *
+ * A CONTA SAI DE `countDownloaded`, a MESMA que a Biblioteca usa para dizer o
+ * que está no aparelho — uma segunda conta divergiria da tela em que o operador
+ * vai conferir. Ela é lida do BANCO e não do `collState` em memória, que foi
+ * carregado no `init()` e está desatualizado por definição depois de importar.
+ */
+/**
+ * O PONTEIRO QUE NÃO LEVA A LUGAR NENHUM É APAGADO — e é o destino que decide.
+ *
+ * O ÍNDICE de uma coleção (`coll:<id>`) é uma chave de `state`, e por isso ele
+ * viaja INTEIRO. Os ARQUIVOS não: a folha de escolha os corta por grupo. Então
+ * um pacote só do hinário leva, junto, o índice de todos os OUTROS álbuns —
+ * com o `fileIdFull` que o aparelho de ORIGEM tinha.
+ *
+ * Enquanto a mescla era rasa (até a v1.8.22) isso não aparecia: o índice de
+ * fora era descartado inteiro. A v1.8.23 passou a preencher os buracos, e com
+ * eles passou a preencher ponteiros para arquivos que nunca chegaram —
+ * `colecaoCompleta` conta `fileIdFull`, então o álbum passava a parecer
+ * baixado e **o botão de baixar sumia**. Relato do operador: *"ele importa o
+ * hinário, mas as outras coleções por algum motivo, perdem seus botões de
+ * download, mesmo elas não estando baixadas"*.
+ *
+ * **QUEM CONSERTA É O DESTINO, e não o exportador.** O exportador só saberia
+ * adivinhar o que vai chegar; o destino sabe as duas coisas que importam — o
+ * que chegou E o que ele já tinha. É a mesma regra do `AVDB.opfsTodosOsArquivos`
+ * num lugar novo: **pergunta-se ao disco, não ao catálogo**.
+ *
+ * E é isso que a torna capaz de CURAR um aparelho já quebrado, que é o estado
+ * em que a v1.8.23 deixou quem importou entre ela e esta versão — daí ela
+ * rodar também uma vez na abertura (ver `PACOTE_PONTEIROS_MARCA`).
+ *
+ * Devolve quantos ponteiros caíram.
+ */
+```
+
+*try {*:
+
+```js
+  // PELO LOTE, E NÃO POR CHAVE (v1.8.45), e a diferença é que a promessa do
+  // comentário abaixo passa a ser CUMPRIDA.
+```
+
+*try {*:
+
+```js
+  // A identidade sempre esteve certa aqui — devolver `atual` quando nada mudou
+  // —, mas quem consumia era o `updateState`, e ele faz `put` INCONDICIONAL: a
+  // varredura reescrevia no disco todos os índices que examinou, inclusive os
+  // que não tinham um ponteiro quebrado sequer. Quem tem a guarda de identidade
+  // é o `updateStateLote` (*"`novo === atual` não escreve e não conta"*), que
+  // nasceu depois e para a Bíblia. De quebra ele faz UMA transação no lugar de
+  // uma por coleção.
+  //
+  // O `try` POR CHAVE virou um `try` DENTRO da `fn`: o lote é tudo-ou-nada, e
+  // uma exceção escapando pararia a varredura inteira — o oposto do que a linha
+  // que ele substitui garantia ("um índice ruim não para a varredura").
+```
+
+*pacoteBaldesDoAcervo*:
+
+```js
+ * OS BALDES DO RELATÓRIO — a classificação que o operador VÊ (v1.8.40).
+ *
+ * Pedido do operador: *"gostaria que você apenas se preocupasse em apresentar
+ * os resultados agrupados, no caso dos grupos de classificação que temos na
+ * biblioteca, não exatamente o que o LouvorJA já classificou como 'coleções',
+ * mas a nossa classificação … em uma ordem que ele já vê dos grupos maiores"*.
+```
+
+*if (vistas.length) {*:
+
+```js
+  // ===== A COLEÇÃO TEM NOME, E O NOME É O QUE SE CONFERE (v1.8.28) =====
+```
+
+*if (vistas.length) {*:
+
+```js
+  // Pedido do operador: *"verifique que ao menos eu preciso do nome da coleção
+  // importada, além dos dados fundamentais de quantos deveriam ter, quantos
+  // importaram corretamente e etc"*.
+  //
+  // A v1.8.27 tinha ido longe demais na direção certa: ela nomeava só a
+  // EXCEÇÃO, e o total respondia pelo resto. O total responde *"deu certo?"* e
+  // não responde *"deu certo COM O QUÊ?"* — quem acabou de mandar o hinário de
+  // um celular para o outro quer ler o nome dele.
+  //
+  // O TETO CONTINUA, porque a queixa que criou o resumo era um MURO de texto
+  // com vinte e três álbuns (foto do aparelho). A forma que serve às duas
+  // coisas é a de todo bloco de diagnóstico deste repositório: as primeiras
+  // NOMEADAS, o resto CONTADO, e o que está incompleto sempre entre as
+  // nomeadas — é ele que pede ação.
+```
+
+*ordenadas*:
+
+```js
+    // A ORDEM É A DA BIBLIOTECA (v1.8.40) e não mais "incompletas primeiro":
+    // agrupado, o relatório tem um punhado de linhas em vez de vinte e três, e
+    // o que a ordem por incompletude comprava — pôr o que pede ação no topo —
+    // deixou de valer o preço de o operador procurar um grupo onde ele não
+    // está. O que estiver incompleto continua visível pelo próprio número.
+```
+
+*if (contagem.recusadas) {*:
+
+```js
+  // A v1.8.15 fechou o `chaveViaja` na ENTRADA com um argumento explícito —
+  // recusar em silêncio é o mesmo defeito que aceitar em silêncio —, e as
+  // reescritas do relatório (v1.8.25 → v1.8.28 → v1.8.40) levaram junto a única
+  // frase que dizia isso: o contador era incrementado e ninguém o lia. Quem
+  // importasse um pacote com `current`, `historico` ou `ota-intencao` forjados
+  // recebia um diálogo idêntico ao de um pacote limpo.
+```
+
+*if (contagem.recusadas) {*:
+
+```js
+  // `chaves`, `opfs`, `repetidos`): eles são UNIDADE INTERNA, e foi por pedido
+  // do operador que elas saíram daqui — *"o propósito da exportação não é
+  // copiar o app de um usuário … o propósito é para dados massivos da
+  // biblioteca"*. Este não é unidade: é o aviso de que o arquivo trazia coisa
+```
+
+*if (!window.__NATIVE__ || pacoteEmCurso || pacoteP*:
+
+```js
+  // `pacotePronto` ENTRA NA GUARDA (v1.8.42), e sem ele um toque fazia DUAS
+```
+
+*if (!window.__NATIVE__ || pacoteEmCurso || pacoteP*:
+
+```js
+  // Nos outros dois estados isso era inofensivo porque `pacoteEmCurso` é `true`
+  // e esta linha já barrava. No estado da v1.8.29 ele é FALSE — o `finally` de
+  // `exportarPacote` o zera ANTES de `pacotePronto` ser atribuído —, então
+  // tocar em "Descartar" abria o seletor de documentos do Android POR CIMA do
+  // diálogo de confirmação, e escolher um `.avpkg` ali começava uma importação
+  // de gigabytes que ninguém pediu. É a regressão da própria v1.8.28, que
+  // tornou o rótulo honesto e deixou o ouvinte antigo disparando.
+```
+
+*tam*:
+
+```js
+    // ===== NADA DE `resp.blob()` (v1.7.9) =====
+```
+
+*tam*:
+
+```js
+    // Ele materializava o arquivo INTEIRO antes do primeiro byte ser lido, e é
+    // metade do relato do operador: quinze gigabytes não cabem em lugar nenhum.
+    // A outra metade é o teto de 2 GB do caminho `/saf/` — as duas estão
+    // explicadas em `pacoteFonteDaUrl` e no `SafJanela.kt`.
+```
+
+*tam*:
+
+```js
+    // O TAMANHO VEM DO `pickDoc` (shell 64) e é obrigatório: sem ele não há
+```
+
+*await withBgWork(async () => {*:
+
+```js
+    // A CONFERÊNCIA ENTROU NA PROTEÇÃO DE SEGUNDO PLANO (v1.8.15).
+    //
+    // Ela percorre o arquivo INTEIRO pelos cabeçalhos — milhares de janelas
+    // sobre gigabytes, minutos num acervo grande — e rodava FORA do
+    // `withBgWork`: sem serviço em primeiro plano, sem wake lock, sem
+    // notificação e sem percentual, com a palavra "Conferindo…" parada no botão.
+    // É exatamente o instante em que o operador minimiza o app, e é o achado da
+    // v1.8.13 (o lado que CEDE não pedia proteção) repetido do outro lado.
+```
+
+*tarefa*:
+
+```js
+      // A ETAPA É O RÓTULO, E OS ITENS SÃO A LISTA (v1.8.23).
+      //
+      // Era `bgTaskStart('Importando o acervo', 1)` com o NOME DO ARQUIVO como
+      // item único: a notificação anunciava uma importação de UM item, com uma
+      // barra em bytes e uma linha que nunca trocava. Relato do operador —
+      // *"evite classificar a importação como 'importando um acervo' … o que eu
+      // quero é ver os itens serem adicionados na biblioteca"*.
+      //
+      // O rótulo passa a dizer a ETAPA (conferir, importar), e a linha de baixo
+      // passa a mostrar cada item que entra, pelo nome com que ele aparece na
+      // Biblioteca. O nome do arquivo sai: quem escolheu o pacote acabou de
+      // vê-lo no seletor, e ele é a única coisa ali que não muda.
+```
+
+*andarNaBarra*:
+
+```js
+      // UMA BARRA SÓ PARA AS DUAS ETAPAS (v1.8.27) — ver `PACOTE_FATIA_CONFERE`.
+```
+
+*andarNaBarra*:
+
+```js
+      // nunca volta a zero, que é o que o pedido nomeia.
+```
+
+*try {*:
+
+```js
+      // O NÚMERO MORA NO PRÓPRIO BOTÃO (v1.7.3), aqui como na exportação: a
+      // ação nasceu nele. O NOME do arquivo vai para a notificação, que é a
+      // superfície com espaço.
+      // Sem CANCELAR, e a diferença é de natureza: parar uma importação no meio
+      // deixaria metade do acervo no aparelho e nada apagaria a outra metade —
+      // ela só ACRESCENTA, então o que já entrou está certo, e desfazê-lo seria
+      // apagar o que o operador foi buscar.
+```
+
+*bgTaskStep(tarefa, Math.round(PACOTE_FATIA_CONFERE*:
+
+```js
+        // A RÉGUA CONTINUA EM BYTES, e isso é resposta a metade do pedido: o
+```
+
+*bgTaskStep(tarefa, Math.round(PACOTE_FATIA_CONFERE*:
+
+```js
+        // e mente. O que o pedido quer ("sentir um progresso real", "ver os
+        // hinos serem importados") é a LISTA, e é ela que passa a andar.
+```
+
+*consumo*:
+
+```js
+  // ===== O ARQUIVO É CONSUMIDO (v1.8.28) =====
+```
+
+*consumo*:
+
+```js
+  // Pedido do operador: *"você consegue apagar/consumir o arquivo original da
+  // importação? não precisamos dele após esse processo, isso evita ficar
+  // ocupando espaço no aparelho do usuário"*. Um pacote é o acervo inteiro —
+  // deixá-lo em Downloads dobra o que a biblioteca ocupa, e quem mais recebe
+  // pacote é justamente o aparelho apertado.
+```
+
+*consumo*:
+
+```js
+  // O DESFECHO É DITO no relatório, nos dois sentidos — o operador pediu o
+  // espaço de volta, e "não deu para apagar" é a resposta que ele precisa ter
+  // para ir apagar à mão.
+```
+
+*await reidratarDepoisDaImportacao();*:
+
+```js
+  // A REHIDRATAÇÃO VEM ANTES DO RELATÓRIO (v1.8.43), e a ordem é o que o
+  // relatório diz. Ele nomeia as coleções por `allCollections()`, que lê o
+  // `albumCatalog` do MÓDULO; quem o repõe do banco é o `loadCollections()`
+  // daqui de baixo. Montado antes, ele lia o catálogo VELHO — e no caso de uso
+  // declarado do recurso (aparelho novo, sem internet, que é o motivo de o
+  // pacote existir) esse catálogo está VAZIO: `pacoteBaldesDoAcervo` não monta
+  // coletânea nenhuma, todo álbum cai em "soltas", e o diálogo escreve
+  // `album-57: 10 de 10 músicas` em vez de `Missão: …`, sem agrupamento e fora
+  // da ordem da Biblioteca. Justo o que a v1.8.40 arrumou, desfeito pela ordem.
+```
+
+*okText: 'OK',*:
+
+```js
+    // "OK", E NÃO "Ver a biblioteca" (v1.8.39). Relato do operador: *"o botão
+    // de 'ver na biblioteca' não faz nada após a conclusão da importação"*. Ele
+    // estava certo — este é o `okText` de um `appConfirm`, e o desfecho dele é
+    // FECHAR o diálogo; nunca houve nada atrás dele que abrisse a Biblioteca.
+    // Um rótulo que promete uma navegação e entrega um fechar é pior que um
+    // rótulo neutro: o operador toca, nada acontece, e ele conclui que o app
+    // travou no fim de um trabalho de minutos.
+```
+
+*reidratarDepoisDaImportacao*:
+
+```js
+// ===== A IMPORTAÇÃO NÃO RECARREGA MAIS O APP (v1.8.28) =====
+```
+
+*reidratarDepoisDaImportacao*:
+
+```js
+// Pedido do operador: *"veja se precisa realmente um botão de recarregar o app
+// inteiro … pois idealmente eu não quero o app todo sendo reiniciado e o
+// usuário se perdendo no fluxo"*.
+//
+// A recarga estava lá desde a v1.7.0 com um argumento que ENVELHECEU: *"não há
+// um caminho de invalidação que alcance as dezenas de lugares"*. Ele nunca foi
+// medido, e a lista é curta e enumerável — são as MESMAS chamadas que o
+// `init()` faz, menos as que não têm nada com uma importação:
+```
+
+*reidratarDepoisDaImportacao*:
+
+```js
+// mais discreta: `location.reload()` derruba a projeção junto. Importar durante
+// um culto — o caso de quem chega com o acervo num pendrive — apagava o telão.
+```
+
+*pacoteTrabalhando*:
+
+```js
+ * Os três tiles, num escritor só (a regra do `pintarTile`).
+```
+
+*pacoteTrabalhando*:
+
+```js
+ * CADA UM É `hidden` FORA DO APP, e não um bloco inteiro (v1.7.2): o rótulo
+ * "Este aparelho" que os agrupava saiu a pedido do operador, e os três agora
+ * moram na grade única. Eles continuam dependendo da ponte — o chooser do
+ * Android, o "Salvar como" do SAF e o canal de bytes —, e um botão que só sabe
+ * não funcionar é pior que botão nenhum.
+ *
+ * O TRABALHO EM CURSO É O ARO, e não uma palavra: a `.qs-estado` saiu no mesmo
+ * lote, e era ela que mostrava o "42%". `.qs-trabalhando` troca o ícone pelo
+ * `.dl-ring` — o mesmo aro da linha e do cartão, SEM SETA, porque exportar não
+ * baixa byte nenhum (a regra da v1.4.19). O NÚMERO continua existindo, nas duas
+ * superfícies que sobrevivem ao app minimizado: o cartão sobre a preview e a
+ * notificação do sistema.
+```
+
+*pacoteTrabalhando*:
+
+```js
+ */
+/**
+ * `podeParar` mantém o tile TOCÁVEL enquanto trabalha, e o toque CANCELA.
+ *
+ * A exportação perdeu o cartão sobre a preview na v1.7.3, e com ele o ✕ que era
+ * a única saída de um trabalho de minutos. A saída volta para o mesmo lugar em
+ * que a ação nasceu: o botão. É o gesto que quem opera tenta primeiro — tocar
+ * de novo no botão que está trabalhando —, e ele é seguro porque exportar é
+ * refazível: o parcial é apagado e o arquivo escolhido some.
+ *
+ * A IMPORTAÇÃO NÃO TEM ISSO, e a diferença é de natureza: ela só ACRESCENTA, e
+ * parar no meio deixaria metade do acervo dentro sem nada para apagar a outra
+ * metade. O que já entrou está certo; desfazê-lo seria apagar o que o operador
+ * foi buscar. Lá o tile fica `disabled` mesmo.
+```
+
+*pacoteIrmaoCancela*:
+
+```js
+ * O TILE OCIOSO VIRA O CANCELAR DO IRMÃO (v1.8.27).
+ *
+ * Relato do operador: *"quando exportando, o botão de importação fica com um
+ * spinner, o que está certo no conceito de deixar ele inutilizado, mas errado
+ * no visual, pois ele indica um trabalho, trabalho esse que não é
+ * importação … talvez se transforme em um botão auxiliar de 'cancelar' … dessa
+ * forma os dois botões são irmãos e se completam nas ações"*.
+```
+
+*pacoteIrmaoCancela*:
+
+```js
+ * fazendo nada é a tela afirmando o que não é. Agora o que trabalha mostra o
+ * aro e o número; o outro oferece a SAÍDA, com o ✕ no lugar do ícone da função
+ * e o rótulo dizendo o que o toque faz — o estado no DESENHO, que é a regra
+ * desta grade desde a v1.7.6.
+```
+
+*pacoteRenderTiles*:
+
+```js
+// QUEM PINTA UM, PINTA O OUTRO — são 15 chamadores, e um chamador que esquecesse
+```
+
+*pacoteSinal*:
+
+```js
+ * O TILE DA GRADE É O SINAL, não só a porta (v1.11.7).
+```
+
+*pacoteSinal*:
+
+```js
+ * O ARO GIRA ONDE HÁ TRABALHO, e não onde há `pacoteEmCurso` (a regra da
+ * v1.8.28: ele sobe no primeiro toque, antes da medição e durante a folha de
+ * escolha, quando nada está andando). A importação TAMBÉM ganha aro aqui — no
+```
+
+*el*:
+
+```js
+  // A SAÍDA DE ÁUDIO ENTRA NESTA LISTA (v1.9.9) e não numa função própria: a
+  // pergunta é a MESMA — *"este tile depende da ponte?"* —, e a resposta dela é
+  // sim pelo mesmo motivo dos três seguintes. Um segundo lugar escrevendo
+  // `hidden` por tile divergiria no primeiro tile novo.
+```
+
+*trabalhando*:
+
+```js
+  // ===== O ARO SÓ GIRA ONDE HÁ TRABALHO DE VERDADE (v1.8.28) =====
+  //
+  // Pedido do operador: *"ajuste os spinners dos botões de exportar e importar,
+  // durante a seleção das coleções para exportações. nesse momento ainda nada
+  // foi feito ou processado, então esses botões não devem rodar"*.
+```
+
+*trabalhando*:
+
+```js
+  // — antes da medição e da folha de escolha —, porque é ele que impede um
+  // segundo toque de trocar o destino de uma exportação viva (v1.8.15). Ele
+  // nunca foi a pergunta que o ARO responde, que é *"há trabalho andando?"*, e
+  // usá-lo para as duas fazia a grade girar durante uma folha em que nada
+  // acontece. São duas perguntas, e agora são duas variáveis.
+```
+
+*if (pacotePronto && !trabalhando) {*:
+
+```js
+  // ===== COM UM PACOTE PRONTO, O IRMÃO É O DESCARTAR (v1.8.28) =====
+```
+
+*if (pacotePronto && !trabalhando) {*:
+
+```js
+  // Relato: *"verifique o botão de importar quando um arquivo de exportação
+  // está pronto, ele tem nome de cancelar, mas está agindo como importador
+  // normal"*. Os dois lados eram verdade: o rótulo emprestado com prazo `0`
+  // ficava até alguém o calar, e só o tile de EXPORTAR era calado; o `onclick`
+  // do irmão voltava a `null`, isto é, ao importador de sempre. Um botão que
+  // diz uma coisa e faz outra é pior que qualquer um dos dois.
+  //
+  // A saída não é calar o rótulo: é fazer o botão CUMPRI-LO. Com um pacote
+  // pronto o par fica coerente — o exportar ENVIA, o importar DESCARTA —, e é
+  // isso que aposenta o toque longo: ele existia porque não havia onde pôr o
+  // "quero fazer outro" (v1.8.20), e agora há um botão inteiro.
+```
+
+*pacoteIrmaoCancela(pacoteImportarTileEl, () => {*:
+
+```js
+    // ===== IMPORTAR NÃO TEM ARO: ELE VIRA O CANCELAR (v1.8.28) =====
+```
+
+*pacoteIrmaoCancela(pacoteImportarTileEl, () => {*:
+
+```js
+    // Pedido do operador: *"o botão de importar nem chega a ter um spinner no
+    // processo de importação, pois assim que inicia, ele se torna um botão de
+    // cancelar"*. E a assimetria com o exportar é honesta: importar não tem o
+```
+
+*pacoteImportarTileEl.onclick = null;*:
+
+```js
+  // NADA ANDANDO. `pacoteEmCurso` ainda pode estar de pé (a folha de
+  // escolha, o seletor do sistema): os tiles ficam PARADOS e indisponíveis, que
+```
+
+*pacoteExportarTileEl.addEventListener('click', () *:
+
+```js
+  // ===== O TOQUE LONGO SAIU, E O IRMÃO O SUBSTITUI (v1.8.28) =====
+  //
+  // Ele existiu da v1.8.20 até aqui, e existia por falta de lugar: com um
+  // pacote PRONTO o toque curto ENVIA, e quem quisesse fazer outro na mesma
+  // sessão ficava sem porta. O toque longo era a resposta cara — 900 ms para
+  // não destruir um pacote de minutos por engano, mais uma pergunta depois do
+  // gesto, porque num TOQUE não existe abortar um toque longo já começado (a
+  // captura implícita do ponteiro não emite `pointerleave`).
+  //
+  // Hoje o botão de IMPORTAR é o descartar enquanto há um pacote pronto (ver
+  // `pacoteRenderTiles`), e um botão inteiro dispensa um gesto escondido. A
+  // PERGUNTA fica — ela é o que protege, não o tempo do dedo.
+```
+
+*if (pacoteExportando) {*:
+
+```js
+    // O TOQUE NO BOTÃO QUE TRABALHA É O CANCELAR (v1.7.3). Ele é o gesto que
+```
+
+*if (pacoteEmCurso) return;*:
+
+```js
+    // A MEDIÇÃO e a folha de escolha caem aqui: não escreveram byte nenhum,
+    // não há o que cancelar, e o tile está `disabled` de qualquer forma.
+```
+
+*descartarPacotePronto*:
+
+```js
+// importar DESCARTA (v1.8.28). Antes disso esta ação morava num TOQUE LONGO
+// sobre o exportar, e o relato do operador é o que aquela escolha custava: um
+// toque um pouco mais demorado destruía um pacote de minutos e recomeçava a
+// medição, sem nada perguntar.
+```
+
+*descartarPacotePronto*:
+
+```js
+// A PERGUNTA FICA, e ela é a guarda de verdade — não o tempo do dedo. Destruir
+```
+
+*descartarPacotePronto*:
+
+```js
+// num toque só (o que o toque longo fazia) tira do operador a chance de mudar
+// de ideia sobre O QUE levar, que é a folha inteira de escolha de coleções.
+```
+
+*pacoteRenderTiles();*:
+
+```js
+// Na CARGA, e não só ao abrir a folha: é este toque que revela (ou esconde) o
+// bloco inteiro, e uma folha aberta antes dele mostraria um rótulo sozinho.
+```
+
+*pintarTile*:
+
+```js
+// ===== PINTAR UM TILE DO PAINEL RÁPIDO (v1.4.38) =====
+```
+
+*pintarTile*:
+
+```js
+// `aceso` E `alt` SÃO DUAS PERGUNTAS, e não uma (v1.4.40). `alt` é *"qual dos
+// dois desenhos?"*; `aceso` é *"a função está ligada?"*. Enquanto as duas foram
+// a mesma classe, um tile sempre aceso ficava preso no desenho alternativo para
+// sempre. Ver as três regras do tile no `index.html`.
+```
+
+*pintarTile*:
+
+```js
+// E HOJE TODO TILE PASSA `aceso: true` (v1.7.6) — o parâmetro sobrevive porque
+// a distinção acima é real e porque ele é o que escreve a classe; o que morreu
+// foi a POLÍTICA de usá-lo para dizer estado. Pedido do operador: *"todos os
+// botões devem ter o mesmo azul de ativo, não temos mais essa diferença, toda
+// diferença de estado é pelo icone, não pela cor"*. A grade tem UMA cor, e o
+// estado mora no desenho — o que sobra da luz é a única coisa que ela já
+// significava sem ambiguidade: apagado é INDISPONÍVEL (v1.4.25).
+// Quem passar `false` aqui está dizendo isso, e é assim que se lê.
+```
+
+*titulo*:
+
+```js
+  // A PALAVRA DO ESTADO SAIU DA TELA (v1.7.2) e NÃO saiu da função: ela vira o
+```
+
+*titulo*:
+
+```js
+  // O NOME VEM DO `data-nome`, e não do texto que está na tela (v1.7.3): com o
+```
+
+*falarNoTile*:
+
+```js
+// ===== O TILE EMPRESTA O PRÓPRIO RÓTULO (v1.7.3) =====
+```
+
+*falarNoTile*:
+
+```js
+// Pedido do operador: *"ajuste o feedback da ui sobre a preparação da
+// exportação, que hoje está sendo exibida sobre o preview, para que seja
+// exibida sobre o próprio botão de exportar. já que a ação acontece ali e não
+// na tela ou controle. o mesmo vale para feedbacks visuais das ações das
+// configurações, eles devem notificar ali mesmo"*.
+```
+
+*falarNoTile*:
+
+```js
+// ELE ESTÁ CERTO E O APP JÁ TINHA A MECÂNICA: o `#otaRow` (`falarNoOta`) — e o
+// "Guardar como pacote", que a usou da v5.207 à v1.8.53 e a perdeu junto com o
+// próprio rótulo, quando virou um botão de símbolo. A regra está escrita desde a
+// v5.207 na lista de canais de resposta deste arquivo — *"o
+// rótulo do controle empresta a si mesmo por alguns segundos e volta"* —, e o
+// cartão sobre a preview é o canal do que ACONTECERIA NELA. Uma exportação não
+// acontece na preview: ela acontece no botão.
+//
+// E ISSO NÃO REABRE A SEGUNDA LINHA que a v1.7.2 removeu. Aquela era PERMANENTE
+// e descrevia o estado em repouso; esta é o próprio TÍTULO, por alguns
+// segundos, e volta. O tile continua com uma linha de texto — a diferença é o
+// que ela diz enquanto o trabalho corre.
+```
+
+*falarNoTile*:
+
+```js
+// E ELE NÃO É UM `WeakMap` DE MÓDULO, que foi a primeira escrita e não durou um
+// teste: `pacoteRenderTiles()` roda no TOPO deste arquivo, na carga, e chama o
+// `pintarTile` — que leria a constante ANTES da linha que a declara. Zona morta
+// temporal, `ReferenceError` na carga, e o app inteiro parado. É a mesma
+// armadilha que o `cifraAdotarVelocidade` documenta, e o atributo a fecha por
+// construção: não há ordem de declaração a respeitar. O prazo continua num
+// campo do nó pelo mesmo motivo.
+```
+
+*renderWallTile*:
+
+```js
+// rolo cheio (v1.7.2, quando a palavra do estado saiu — ver o `<symbol>`).
+```
+
+*ROTACOES*:
+
+```js
+// ===== GIRAR A MÍDIA (v5.142) =====
+```
+
+*pintarTile(rotBtnEl, mediaRot, mediaRot + '°', tru*:
+
+```js
+  // O ÍCONE GIRA COM A MÍDIA (v1.7.2), e desde a v1.7.6 ele é O QUADRO
+  // (`#icoPaisagem`). O ângulo era a palavra do estado deste tile e saiu com as
+  // outras; a resposta não é um par de desenhos — a v1.4.38 mediu que quatro
+  // desenhos parecidos não se distinguem a 22px —, é o MESMO desenho na posição
+  // que ele descreve. Quem o gira é o CSS, pelo `data-estado` que o
+  // `pintarTile` acabou de escrever, e o que vira sob o dedo é a própria
+  // paisagem: deitada, de pé, de cabeça para baixo, de pé do outro lado.
+  // ACESO SEMPRE, inclusive a 0° (v1.7.6). Ele era o único tile em que o
+  // apagado ainda tentava dizer "esta função está no padrão", e o operador
+  // encerrou a distinção: *"toda diferença de estado é pelo icone, não pela
+  // cor"*. Aqui o ícone É o estado — o quadro na posição em que a mídia está.
+```
+
+*if (pvGiroBtnEl) {*:
+
+```js
+  // ---- E O DESFAZER APARECE NA PREVIEW (v1.4.43) ----
+```
+
+*YT_TEMPOS*:
+
+```js
+// ===== O PERCENTUAL DO TOQUE À TELA (v1.12.36) =====
+```
+
+*YT_TEMPOS*:
+
+```js
+// Pedido do operador: o percentual de um download do YouTube mede do TOQUE até
+```
+
+*YT_TEMPOS*:
+
+```js
+// segurado, v1.12.39); nenhum outro passo do trabalho espera por ela. Durante os
+// bytes ela é PRESA a eles (v1.12.40, `posicaoDosBytes` no `progresso.js`).
+```
+
+*YT_BARRA_DIAG*:
+
+```js
+// O DIAGNÓSTICO DA BARRA (v1.12.37): o `relatorio()` de cada trabalho que
+```
+
+*YT_MEDIDA_ESPERA_MS*:
+
+```js
+// A MEDIDA DO SHELL de cada download (v1.12.40): o `ytMedida` (o
+```
+
+*pa*:
+
+```js
+    // O QUE DECIDIU O CAMINHO E O TAMANHO (v1.12.38): o primeiro aviso de bytes
+```
+
+*av*:
+
+```js
+    // OS AVISOS NO TEMPO (v1.12.40): o maior vão entre dois avisos de bytes e a
+```
+
+*MINIATURA_ESPERA_MAX_MS*:
+
+```js
+// A MINIATURA FORA DO CAMINHO (v1.12.39, aprovado pelo operador). O vídeo do
+```
+
+*redesenharComMiniatura*:
+
+```js
+// Quem mostra o item volta a lê-lo do banco: o Cronograma (`load`), a fila e os
+// Favoritos — cada um só se o item está nele.
+```
+
+*ytBaixarNativo*:
+
+```js
+// É o caminho principal desde a v5.81, e o que finalmente cumpre "sem
+// configurar nada": quem extrai é o shell (`YoutubeGrab.kt`), com a
+// requisição saindo do IP do próprio celular. Servidor público — Cobalt,
+// Invidious, Piped — roda em IP de datacenter, que é exatamente o que o
+// YouTube bloqueia; foi por isso que a via anterior não funcionou, e é por isso
+// que ela saiu do app na v5.82 em vez de ficar como alternativa morta.
+```
+
+*ytBaixarNativo*:
+
+```js
+// Exige shell ≥ 16. Num anterior o método não existe e a função devolve null
+// na hora, sem custo: o link vira item de player embutido, que é o
+// comportamento de sempre e continua sendo o plano B.
+```
+
+*soAudio*:
+
+```js
+  // SÓ O ÁUDIO exige shell ≥ 23 (o método `ytFetchAudio` da ponte). Num
+  // anterior, pedir áudio devolveria null e o operador ficaria sem nada — e ele
+  // pediu o louvor, não o formato: cai no vídeo, que toca igual. Quem desenha a
+  // escolha na tela já a esconde nesse shell (ver `openYtMenu`); esta guarda é
+  // para o caminho que não passa pela tela.
+```
+
+*LEGENDA_PREPARANDO*:
+
+```js
+  // A LEGENDA DE ABERTURA, numa variável e não em dois literais: desde a
+  // v1.7.1 ela vai para as DUAS superfícies (o cartão e a linha), e é dela que
+```
+
+*altura*:
+
+```js
+  // O TETO DE RESOLUÇÃO escolhido pelo operador (v5.118). Ausente = o padrão do
+  // shell (1080p), que é o caminho que funciona em qualquer versão: o `ytFetch`
+  // do `native.js` só usa o método novo da ponte quando o teto pedido é MENOR
+  // que o padrão. Nenhuma guarda de shell aqui, portanto — quem não pode
+  // escolher simplesmente não escolhe, e baixa como sempre.
+```
+
+*terminado*:
+
+```js
+  // A ALÇA DE CANCELAMENTO (v5.191), entregue a QUEM ESTÁ MOSTRANDO o download.
+  //
+  // Até aqui só a linha do resultado da busca sabia cancelar — e ela é
+  // justamente a que some quando o operador fecha a busca. O cartão sobre a
+  // preview e a linha provisória do Cronograma mostravam minutos de download
+  // sem oferecer saída nenhuma; a única forma de parar era esperar.
+```
+
+*bg*:
+
+```js
+  // `palcoEmVoo` (v1.7.7): quem ganhar a vez o derruba junto com o do toque. Só
+```
+
+*barraPropria*:
+
+```js
+  // O PERCENTUAL DO TOQUE À TELA (v1.12.36): UMA barra para o trabalho inteiro
+```
+
+*medida*:
+
+```js
+  // A RÉGUA DA VERIFICAÇÃO COMPLETA (v1.12.27): `opts.medida` é um objeto que
+```
+
+*aoMudarVisibilidade*:
+
+```js
+  // A VISIBILIDADE DO APP durante a medida (v1.12.31): o WebView do Controle é
+```
+
+*barra.bytes(lidos, total);*:
+
+```js
+        // à tela (v1.12.36), que segue andando pela junção, pela cópia e pela
+```
+
+*if (!medida) {*:
+
+```js
+      // A MEDIDA DO SHELL vai com o diagnóstico da barra (v1.12.40): POR QUE os
+```
+
+*if (!soAudio && aviso === 'preview') avisarResoluc*:
+
+```js
+        // O AVISO MORA ONDE O RESULTADO VAI APARECER — a régua da v5.84, e ela
+        // decide este `if`. `aviso === 'preview'` é o download que vai ENTRAR EM
+```
+
+*thumb: null,*:
+
+```js
+          // SEM MINIATURA AQUI (v1.12.39): extraí-la decodifica o vídeo, e ela
+          // segurava a gravação — 1,5 e 1,9 s no aparelho do operador, quase
+```
+
+*seconds: (r.seconds | 0) || null,*:
+
+```js
+          // A DURAÇÃO REAL, pelo mesmo argumento e do mesmo lugar (v1.5.21): o
+          // shell já a devolvia no `ytFetch` e ela era jogada fora aqui, então
+          // um vídeo baixado ficava sem o dado que o áudio ao lado já mostra no
+          // subtítulo. Custo zero — nem uma requisição a mais.
+```
+
+*YT_INTENCOES*:
+
+```js
+// O DOWNLOAD QUE O RENDERER LEVOU JUNTO (v5.133 · shell 30)
+```
+
+*YT_INTENCOES*:
+
+```js
+// de novo, agora com a fila de IO livre. O registro fica no `state` do banco,
+```
+
+*INTENCAO_MAX_TENTATIVAS*:
+
+```js
+ * outra vez, e outra — voltava a cada abertura pelas seis horas inteiras de
+ * validade. Foi o que o operador relatou: "mesmo depois de fechar o app ele
+ * fica sempre querendo baixar o vídeo". Duas tentativas cobrem o caso real (um
+ * OOM do renderer) e fecham o laço.
+```
+
+*if (LISTAS_VISIVEIS.indexOf(p.lista) < 0) {*:
+
+```js
+    // para ser achado depois. Era o caso exato do relato — "esse vídeo não está
+    // mais indo para o player e ele continua querendo baixar".
+```
+
+*aviso: 'lib',*:
+
+```js
+          // O RESGATE APARECE, e na linha da lista de destino: até aqui ele era
+          // `aviso: 'nenhum'` — dez minutos de download invisíveis, sem nada
+          // que o operador pudesse tocar para parar. Com a linha provisória ele
+          // vê o que está acontecendo e tem onde cancelar (v5.191).
+```
+
+*deckPagina*:
+
+```js
+// formato de entrada é PDF e não `.pptx`.
+//
+// Exige shell >= 19. Num anterior o método não existe e a função devolve null
+// na hora: o PDF volta a ser um arquivo qualquer e o link, um item de URL —
+// exatamente o comportamento de antes.
+```
+
+*if (deckVideoVolta) { deckVideoVoltar(delta); retu*:
+
+```js
+  // conteúdo daquela página, e "próximo slide" quer dizer sair dele. É o pedido
+  // do operador — *"eu não consigo pular o vídeo"* —, e é o mesmo movimento que
+  // o fim do vídeo faz sozinho, só que com um passo escolhido por ele.
+```
+
+*deckVideoVolta*:
+
+```js
+// `separarVideos`, no `deck.js`). A automação é o pedido do operador ao pé da
+// letra — *"iniciar e voltar para a apresentação prosseguindo para o próximo
+// slide"* —, e ela mora AQUI e não no `stage.js` de propósito: o motor de
+```
+
+*deckAbrirNaPagina*:
+
+```js
+// Ela existe para a VOLTA de um vídeo de slide, e o que ela conserta é o relato
+// do operador: *"ao voltar de um vídeo, estou vendo o mesmo slide inicial da
+// apresentação"*. A volta ia ao ar por DOIS comandos — um `load` com `page: 0`
+// (a regra do `send`) e um `page` logo depois —, e o telão pintava a CAPA entre
+// os dois. Nada saía de ordem e nenhuma página era consumida; o que havia era um
+// piscar, na frente da congregação. Com a dica, a página certa viaja DENTRO do
+```
+
+*deckDoSlide*:
+
+```js
+ * Os dois defeitos que isto conserta são o mesmo defeito: com o vídeo no ar,
+ * `currentItem` é o VÍDEO, então `deckNoAr()` devolve null, `slideTarget()` não
+ * acha eixo nenhum e o par de botões nasce DESABILITADO — o operador não
+ * consegue pular o vídeo. Para quem opera, porém, a cena continua sendo *"a
+```
+
+*deckVideoTalvezTocar*:
+
+```js
+ * SÃO DOIS CHAMADORES, e a regra de "só por navegação" foi REVOGADA na v1.6.6.
+ * Ela dizia que só o `deckIr` chamava — abrir a apresentação não contaria como
+ * chegar na página —, e o operador pediu o contrário por extenso: *"no caso do
+ * primeiro slide ser um vídeo, pode fazer um autoplay para ele"*. Hoje o `send`
+ * também chama, no fim do `load` da apresentação, e é esse segundo chamador que
+ * faz a VOLTA de um vídeo de slide encadear: `deckVideoVoltar` pousa pelo `send`
+ * com a dica `deckAbrirNaPagina`.
+```
+
+*senha*:
+
+```js
+  // espera DENTRO do `send`, o comando `load` já saiu e é irrevogável: o
+  // operador que tocasse num louvor durante a leitura via o louvor entrar e,
+  // um a três segundos depois, o vídeo do slide entrar POR CIMA dele. Lida
+```
+
+*projetando*:
+
+```js
+  // operador que subisse o cronômetro enquanto o vídeo era lido desarmava a
+```
+
+*alcaDeCancelamento*:
+
+```js
+// ===== DESISTIR DE UMA PREPARAÇÃO (v1.7.4) =====
+```
+
+*alcaDeCancelamento*:
+
+```js
+// Pedido do operador, sobre o botão que passou a ocupar a coluna do `⋮`: *"esse
+// botão só tem uma função durante um preparo ou download. Esse botão cancela o
+// processo e apaga o item."*
+//
+// Um botão que às vezes não está lá é pior que botão nenhum, e até aqui só o
+// DOWNLOAD sabia parar: a preparação de uma apresentação — a espera mais longa
+// deste app, dezenas de páginas rasterizadas uma a uma — não tinha saída
+// nenhuma. Esta alça é o que a dá, e ela é a MESMA nos dois caminhos do deck.
+```
+
+*alcaDeCancelamento*:
+
+```js
+//    para o lixo, e isso é o preço — soltar a linha na hora é o que o operador
+//    pediu, e mantê-la de pé por minutos depois do toque seria o defeito que
+//    este botão existe para não ter.
+```
+
+*bgTaskStep(notif, feitas, null, total);*:
+
+```js
+        // E OS MESMOS NÚMEROS VÃO PARA A NOTIFICAÇÃO. Até aqui só o cartão na
+        // tela andava: a tarefa nascia com `total = 1` e ninguém a fazia
+        // avançar, então a barra ficava em 0% do começo ao fim e a estimativa
+        // em zero — exatamente o defeito que o download de vídeo teve até a
+        // v5.117, e no caso em que a notificação MAIS importa (app minimizado,
+        // dezenas de páginas, minutos de espera). A página é a unidade certa
+        // aqui, e o total só existe depois que o arquivo abre.
+```
+
+*p*:
+
+```js
+      // **ESTAR NELA NÃO BASTA**, e o comentário aqui afirmou o contrário até a
+      // v1.8.75: ela é RODÍZIO de três, e um `send` do operador nesta janela
+      // despejava o vídeo mais antigo — o blob morria sem dono. Quem fecha isso
+      // é o `avulsosEmMontagem`, e não esta lista.
+```
+
+*deckUltimoErro = (r && r.erro) ? String(r.erro) : *:
+
+```js
+        // Num shell < 22 não vem `erro` nenhum: o aviso sai sem detalhe, que é
+        // exatamente o que ele já fazia.
+```
+
+*truncadaEm = r.truncado ? r.pages.length : 0;*:
+
+```js
+      // TRUNCADA PELO SHELL (`truncado`, campo que o shell novo passa a
+      // enviar): um deck cortado sem aviso leria como "o arquivo era assim", e
+      // o operador só descobriria na frente da congregação, na página que não
+      // existe. Campo ausente (shell antigo) = sem aviso, como sempre.
+      // A NOTA VAI PARA A LINHA DO ITEM QUE VAI NASCER (v5.207), e por isso ela
+```
+
+*pages*:
+
+```js
+      // E ESTA FASE FALAVA COM NINGUÉM. O cartão da tela ficava na última
+      // mensagem da rasterização e a notificação parava de receber eventos —
+      // e parar de receber eventos não é neutro: `idleMs` cresce, e passado
+      // `BG_STALL_MS` a notificação troca a estimativa por "sem resposta há
+      // X". Ou seja, o trecho em que tudo está indo bem era o único capaz de
+      // anunciar que travou.
+```
+
+*if (truncadaEm && criado) falharNoItem(criado.id, *:
+
+```js
+      // Um deck cortado sem aviso leria como "o arquivo era assim", e o
+      // operador só descobriria na frente da congregação, na página que não
+      // existe. (Campo ausente = shell antigo = sem aviso, como sempre.)
+```
+
+*ytArquivo*:
+
+```js
+// Até a v5.86 cada destino baixava por conta própria — tocar agora, adicionar
+// à playlist e adicionar ao Cronograma eram três downloads do MESMO vídeo, de
+// dezenas de MB, muito provavelmente em rede de celular. O registro guarda o
+// `youtubeId` desde que é criado, então a pergunta "já tenho isto?" custa uma
+// leitura de índice (`AVDB.mediaByYoutube`), sem desserializar blob nenhum.
+```
+
+*soAudio*:
+
+```js
+  // O REAPROVEITAMENTO É POR FORMA (v5.112): quem pediu só o áudio não pode
+```
+
+*AVULSO_MAX*:
+
+```js
+// lugar só, voltar ao vídeo anterior baixa tudo de novo — exatamente o
+// desperdício que a v5.87 existe para acabar; sem limite, a mídia que a tela
+```
+
+*avulsosEmMontagem*:
+
+```js
+// o excedente leva os mais antigos, que são justamente eles. Ninguém mais os
+// aponta, então o `listRemove` do `db.js` APAGA o blob (`isReferenced` não acha
+// dono), e o `addDeck` seguinte nasce com `videos[pagina]` apontando para um id
+// que já não existe: chegar naquela página não projeta nada, sem erro no
+// console — descoberto no culto. MEDIDO: 2 de 3 vídeos sobreviviam.
+```
+
+*if (!simplificado()) {*:
+
+```js
+    // NO AVANÇADO, AS MESMAS QUATRO ESCOLHAS DA BUSCA (v5.137).
+    //
+    // Um link compartilhado e um resultado da busca são o MESMO item — um vídeo
+    // do YouTube que o operador quer no app —, e as duas portas davam em
+    // lugares diferentes: a busca PERGUNTA (tocar · playlist · Cronograma ·
+    // Favoritos, mais vídeo/só-áudio e o teto de resolução) e o share DECIDIA
+    // sozinho, sempre vídeo, sempre no Cronograma, sempre no padrão de
+    // qualidade. Quem compartilha um louvor de 40 min para tocar no fundo
+    // recebia 1080p inteiro, sem ter como dizer que só queria o áudio.
+```
+
+*nativo*:
+
+```js
+    // O link vira ARQUIVO — é a via que toca em segundo plano e não depende da
+    // rede durante o culto. Falhando (vídeo restrito, shell antigo), cai no
+    // item de player de sempre: um link compartilhado nunca se perde.
+    // A via NATIVA — extração no próprio aparelho, sem servidor nenhum no meio
+    // (ver `ytBaixarNativo` e YoutubeGrab.kt). Não pede configuração, não
+    // depende de instância de terceiro e sai do IP do chip do operador, que é
+    // justamente o que o YouTube não bloqueia.
+```
+
+*shareDestinos*:
+
+```js
+// OS DESTINOS DO LOTE QUE ESTÁ ENTRANDO (v5.141). No avançado quem os escolhe é
+```
+
+*shareDestinos*:
+
+```js
+// `AVDB.addMedia`, todos já recebendo `lista` como um nome só. O que mudou é
+// quantas listas existem DEPOIS da primeira — e essa parte é sempre a mesma
+// (`espalharShare`).
+```
+
+*importShare*:
+
+```js
+//   - `File` (navegador: o SW gravou o POST multipart em pending-share);
+```
+
+*await sairDasCamadas();*:
+
+```js
+  // Bíblia, ou de uma pasta) só no fim disso deixava o operador olhando a tela
+  // que ele já tinha deixado, sem sinal de que algo chegou. O cartão de
+  // progresso aparece sobre a preview — que agora está à vista justamente
+  // porque saímos das camadas antes, e não depois.
+```
+
+*shareDestinos = ['cronograma'];*:
+
+```js
+  // PARA ONDE VAI ISTO? (v5.141) — a pergunta que o app respondia sozinho.
+```
+
+*lote*:
+
+```js
+  // No simplificado NADA de um share vai para lista visível — arquivo inclusive
+  // (v5.89): a tela não tem Cronograma nem playlist, e o que chega ali chega
+```
+
+*deckUltimoErro = window.__NATIVE__*:
+
+```js
+        // navegador, ou de um shell antigo). Quem desenha o PDF é o shell, e
+        // ele precisa do ARQUIVO — não há caminho daqui.
+```
+
+*registrarShareNativo*:
+
+```js
+// (A leitura do estado `pending-share` saiu: quem o escrevia era o service
+// worker dos dois PWAs, removido do bundle na v5.48 — era uma chave que
+// ninguém escreve desde então.)
+```
+
+*CLIP_ESTADO*:
+
+```js
+// ===== O LINK DO YOUTUBE QUE ESTÁ NA ÁREA DE TRANSFERÊNCIA (v1.1.8) =====
+```
+
+*CLIP_ESTADO*:
+
+```js
+// Pedido do operador: *"ao entrar no app com um link do YouTube copiado, ele
+// ofereça a mesma opção de quando se compartilha um link via share normal"*.
+//
+// **A DIFERENÇA ENTRE COPIAR E COMPARTILHAR É QUE COPIAR NÃO É UM PEDIDO.** Um
+```
+
+*PULSO_MS*:
+
+```js
+//    alguns segundos e volta. **Ele exige rótulo**, e é por isso que o "Guardar
+//    como pacote" saiu desta linha na v1.8.54: virou botão de símbolo, e um
+//    símbolo não tem o que emprestar.
+```
+
+*PULSO_MS*:
+
+```js
+// ===== O PULSO NO PRÓPRIO BOTÃO (v5.106) =====
+```
+
+*PULSO_MS*:
+
+```js
+// de origem. (A faixa flutuante `avisar()` saiu na v5.207.)
+```
+
+*responder*:
+
+```js
+// Até a v5.206 havia aqui um `else avisar(texto)`: um ponto único de decisão
+// que mandava toda resposta órfã para a faixa flutuante. Era cômodo e era
+// justamente o mecanismo que levava a informação para longe do alvo de foco —
+// e ele escondia a pergunta que importa, que é por que uma ação ficou sem
+// interface em que responder. O parâmetro `texto` saiu com ele.
+```
+
+*responder*:
+
+```js
+// **E A FRASE SEGUINTE ERA FALSA** (corrigida na v1.8.55). Ela dizia *"nenhum
+// dos catorze chamadores o passava"* — e hoje QUINZE passam um terceiro
+// argumento que esta função não declara (5230, 5326, 5330, 6581, 7037, 7054,
+// 10675, 15688, 15734, 20330, 21764, 23320, 23383, 23419, 29681). Eles são
+// engolidos em silêncio: quem escreveu a chamada acha que disse o motivo, e o
+// operador vê um pulso sem frase nenhuma.
+```
+
+*responder*:
+
+```js
+// **NÃO SE CONSERTA APAGANDO OS ARGUMENTOS**, e é por isso que a linha fica
+// aqui em vez de virar uma varredura: cada uma daquelas frases é um motivo que
+```
+
+*ECO_SELETOR*:
+
+```js
+// Ele valia para `.transport .t-btn, .mixer-mid button` — e `.mixer-mid` NÃO
+// EXISTE desde a v1.3.8, quando o mixer saiu (o próprio CSS lista
+// `.mixer-top/mid/bottom` entre o que foi removido). Isto é: na prática o eco
+// era exclusivo dos seis botões do transporte, e foi assim que o operador o
+// leu — *"o feedback único dos botões de play, com bordas flutuantes
+// totalmente exclusivo no app"*.
+//
+// Ele está certo sobre a exclusividade e o conserto não é apagar o sinal: a
+// razão dele continua valendo, e vale IGUAL para os outros botões que mandam
+// alguma coisa para a projeção. O que faltava era a REGRA — um anel que
+// aparece em seis botões e em nenhum outro parece enfeite daqueles seis; o
+// mesmo anel em todos os que falam com o telão é um sinal do app.
+```
+
+*'.pv-fsctl .pv-fab',        // a coluna da tela ch*:
+
+```js
+  // A CORTINA E O MUDO SAÍRAM DAQUI (v1.4.36) — eles entraram na v1.3.14 e o
+  // operador os devolveu: *"ainda estou vendo a onda azulada de feedback de
+  // toque tanto no botão de mudo quanto no botão da cortina"*. Duas razões
+```
+
+*'.pv-fsctl .pv-fab',        // a coluna da tela ch*:
+
+```js
+  //    `background: none` e é só o traço sobre a projeção. O que aparecia era um
+```
+
+*PV_AR_MIN*:
+
+```js
+
+// (`avisar()` SAIU na v5.207, com a faixa flutuante que ela desenhava. Ver o
+//  bloco "O FEEDBACK MORA NA INTERFACE DE ORIGEM", acima, para onde foi cada
+//  uma das mensagens que passavam por aqui.)
+```
+
+*pintarFundoDoPvCartao*:
+
+```js
+// O ITINERÁRIO VESTE O WALLPAPER, na preview como no telão (v1.13.1) — a gêmea
+```
+
+*bgRotinaCount*:
+
+```js
+// ===== E QUANTO DELE É ROTINA, e não pedido do operador (v1.2.28) =====
+```
+
+*bgRotinaCount*:
+
+```js
+// Mas ele passou a responder uma segunda pergunta, e para essa ele está errado:
+```
+
+*bgRotinaCount*:
+
+```js
+// É a MESMA armadilha que a v5.151 já pagou com o espelho: uma condição quase
+// sempre verdadeira não adia a pergunta, ela a APAGA. E o desfecho aqui é o
+```
+
+*bgTasks.clear();*:
+
+```js
+    // ele SOZINHO deixava o compasso ligado para sempre: com o `bgTasks` já
+    // vazio, o `bgTaskEnd` que vinha depois achava o Map vazio, o `delete`
+    // devolvia false e nem o `bgPacerSync()` nem o envio final rodavam — o
+    // `setInterval` de 250 ms vazava pelo resto da sessão, batendo na ponte a
+    // cada 2 s com uma tarefa vazia (notificação "Baixando mídias" presa) e,
+    // pior, fazendo o próximo `bgTaskStart` reusar um pacer órfão.
+```
+
+*bgTasks*:
+
+```js
+// A notificação do serviço em primeiro plano era estática ("Baixando mídias").
+// Com o app minimizado — o uso normal durante uma sincronização — ela é a ÚNICA
+// janela para o download, e não dizia quanto falta nem se ainda anda.
+```
+
+*bgTasks*:
+
+```js
+// por isso que `bgWorkCount` conta, em vez de ser um booleano) — entrar na aba
+// Bíblia enquanto um lote de álbuns baixa dispara os dois ao mesmo tempo. Com
+// um slot só, as duas tarefas escreviam uma por cima da outra: o `done` de uma
+// aparecia com o `total` e o `startedAt` da outra, e a estimativa pulava de
+// 1h30 para 2h40 e voltava. Cada tarefa agora tem seu próprio registro.
+```
+
+*icone: icone === false ? 'processar' : (icone || '*:
+
+```js
+    // `false` continua sendo aceito e vira `processar`: era a forma da v1.8.27
+    // (um booleano "isto baixa?"), e traduzi-la aqui é o que permite ao campo
+    // ganhar um terceiro valor sem varrer todos os chamadores.
+```
+
+*BG_FILA_MAX*:
+
+```js
+// TETO DA FILA DE EXIBIÇÃO (v1.8.23). Ela nasceu para um DOWNLOAD, em que os 6
+```
+
+*trocouEtapa*:
+
+```js
+  // TROCAR DE ETAPA CHEGA NA HORA, E **NÃO** RECOMEÇA A MÉDIA (v1.8.27).
+```
+
+*trocouEtapa*:
+
+```js
+  // O RECOMEÇO DA MÉDIA SAIU, e a razão dele morreu junto. Ele foi escrito na
+  // v1.8.23, quando cada etapa tinha a PRÓPRIA barra de 0 a 100: ali carregar o
+  // tempo da anterior fazia a seguinte nascer com o dobro do tempo restante.
+  // Desde a v1.8.27 as etapas dividem UMA barra — o `done` da segunda começa
+  // onde a primeira parou —, e zerar o relógio com o `done` já adiantado daria
+  // o defeito oposto: uma estimativa pequena demais, subindo. E uma contagem
+  // regressiva que AUMENTA parece quebrada, que é a regra deste arquivo.
+```
+
+*bgTaskBytes*:
+
+```js
+// em itens concluídos (v5.118).
+```
+
+*bgTaskBytes*:
+
+```js
+// O registro nasceu contando ITENS, e para um lote é a unidade certa: 54
+// músicas, 1189 capítulos. Mas o download de UM vídeo do YouTube abria a tarefa
+// com `total = 1`, e aí os dois números que a notificação existe para dar
+// simplesmente não existiam: a barra ficava em 0% do começo ao fim, e
+// `bgTaskEta` devolvia ZERO porque ela precisa de pelo menos um item concluído
+// para ter uma média. Ou seja, o caso em que a notificação é a ÚNICA janela —
+// app minimizado, centenas de MB, minutos de espera — era o caso em que ela não
+// dizia nada.
+//
+// Os bytes sempre estiveram à mão: o shell os reporta a cada MB pelo
+// `onProgresso` do `ytFetch`. Faltava um canal para eles. Como percentual e ETA
+// são RAZÕES, toda a matemática que já existe vale sem mudar uma linha — trocar
+// a unidade é só isto. Quem muda é a apresentação, e essa é a bandeira `bytes`
+// que viaja até o `SyncService`.
+```
+
+*regua*:
+
+```js
+  // TROCAR A RÉGUA NÃO É ANDAR NELA (v1.7.2). A unidade (`bytes`) e o
+  // DENOMINADOR (`total`) são estado, não progresso — e o freio de 700 ms existe
+  // para o Android não descartar uma enxurrada de tiques, que é outra coisa.
+  // Enquanto a troca passava pelo freio, a notificação de uma exportação
+  // anunciava "0 de 1" por quase um segundo antes de dizer o que ela de fato
+  // era; num pacote de gigabytes é o primeiro número que o operador lê, e ele
+  // estava errado. É a mesma regra do primeiro nome e do estado final: o que
+  // precisa chegar na hora passa `force`.
+```
+
+*bgTaskSend(regua || t.done >= t.total);*:
+
+```js
+  // primeiro nome e da troca de régua. Sem isto o último passo caía no freio e
+  // a tarefa acabava logo depois: a notificação era recolhida mostrando o
+  // penúltimo número, e o que o operador via como último era, por exemplo, 87%
+  // num trabalho que terminou. (MEDIDO pelo oráculo: num pacote pequeno a
+  // exportação inteira cabe DENTRO da janela de 700 ms, e nem o 100% saía.)
+```
+
+*bgTaskPct*:
+
+```js
+// O PERCENTUAL PRONTO (v1.12.36 · shell 81): o do toque à tela num download do
+```
+
+*BG_NOTIF_MIN_MS*:
+
+```js
+// HOUVE um segundo piso (250 ms) "escolhido pelo chamador" por um parâmetro
+// `destaque`. Ele foi REMOVIDO porque nenhum dos cinco chamadores o passava —
+// era código morto, e mexer na constante não produzia efeito nenhum no
+// aparelho. Quem de fato dá o ritmo do item que entra em download é o compasso
+// (`bgPacerTick`, BG_TICK_MS = 250 ms), que envia com `force` sempre que o
+// nome na linha troca; o resultado na tela é o mesmo, e agora só há um
+// mecanismo para entender. Repor o piso curto aqui seria PIOR que o `force`:
+// o primeiro nome de uma tarefa nasce a poucos ms do envio de abertura e
+// ficaria retido até o batimento de 2 s.
+```
+
+*bgReenvioAdiado*:
+
+```js
+// O FREIO ADIA, NUNCA DESCARTA (v1.8.35).
+//
+// Ele era um `return` seco: um passo que caísse dentro da janela de 700 ms era
+// PERDIDO, e nada o reenviava. Num laço apertado isso custa pouco (o passo
+// seguinte chega logo), mas o ÚLTIMO passo antes de uma quietação ficava para
+// trás até o batimento de `BG_REENVIO_MS` — 2 s de número velho na única
+// superfície que existe com o app minimizado. Com o adiamento a defasagem tem
+// TETO de 700 ms, e a taxa de envio não muda: o temporizador é UM só, marcado
+// para o instante em que a janela fecha.
+```
 
 ---
 
