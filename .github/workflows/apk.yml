@@ -253,6 +253,7 @@ jobs:
           node tools/manifest-provedores.test.mjs
           node tools/notificacao-ids.test.mjs
           node tools/funcao-sem-chamador.test.mjs
+          node tools/responder-sem-frase.test.mjs
           node tools/docs-coerentes.test.mjs
           node tools/stub-da-ponte.test.mjs
           node tools/watchdog-modulos.test.mjs

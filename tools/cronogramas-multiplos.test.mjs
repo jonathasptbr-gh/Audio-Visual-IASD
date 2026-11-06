@@ -337,7 +337,7 @@ try {
     const [m] = await pg.evaluate(async () => {
       const r = await AVDB.addMedia(new Blob(['d'], { type: 'audio/mpeg' }),
         { name: 'Do destino', type: 'audio/mpeg', kind: 'audio', list: 'avulsos' });
-      await adicionarNasListas(['imports'], r.id, 'Do destino', null);
+      await adicionarNasListas(['imports'], r.id, null);
       return [r.id];
     });
     idGuardado = m;
