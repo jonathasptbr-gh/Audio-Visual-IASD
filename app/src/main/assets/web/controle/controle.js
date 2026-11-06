@@ -28927,21 +28927,23 @@ async function executarSorteio(btn, desfecho) {
     // tocam em nada do que está no ar — mexer no telão ali seria o oposto do
     // que aqueles botões prometem. (O pacote guardado leva a cortina DENTRO
     // dele, para aplicá-la quando for aberto — ver `cortinaDoSorteio`.)
+    let aconteceu;
     if (desfecho !== 'tocar') {
-      await guardarSorteadas(escolhidos, btn, f, desfecho);
+      aconteceu = await guardarSorteadas(escolhidos, btn, f, desfecho);
     } else if (escolhidos.length === 1) {
       await acertarCortinaDoSorteio(f);
-      await tocarSorteada(escolhidos[0]);
+      aconteceu = await tocarSorteada(escolhidos[0]);
     } else {
       await acertarCortinaDoSorteio(f);
-      await montarFilaSorteada(escolhidos);
+      aconteceu = await montarFilaSorteada(escolhidos);
     }
     // O LOTE SAI DO BARALHO — *"após jogar para tocar, essa lista marcada é
     // removida, e os itens de baixo são levados para cima, criando a próxima
-    // lista selecionada"*. Depois da ação, nunca antes: um lote que falhou (o
-    // consentimento de download recusado, nenhuma faixa baixável) apagaria da
-    // tela músicas que ninguém ouviu.
-    sorteioConsumir(escolhidos);
+    // lista selecionada"*. Depois da ação, e só se ela ACONTECEU (os três
+    // devolvem `true`): um lote que falhou (o consentimento de download
+    // recusado, nenhuma faixa baixável, o cancelar) apagaria da tela músicas que
+    // ninguém ouviu.
+    if (aconteceu) sorteioConsumir(escolhidos);
     // E A LISTA MOSTRA O QUE SOBROU, no mesmo instante. Consumir sem redesenhar
     // deixa na tela o lote que já foi usado — e nos três destinos a folha FICA
     // aberta, então o próximo toque sairia por cima do mesmo lote. É
@@ -29007,9 +29009,10 @@ function acertarTravaSorteio(pool) {
 // espera sobre a preview, baixa se faltar, substitui a fila e envia. O que sobra
 // aqui é fechar ESTA folha antes, para a resposta aparecer numa tela livre.
 async function tocarSorteada(escolha) {
-  if (!escolha.noAparelho && !(await ensureDownloadConsent())) return;
+  if (!escolha.noAparelho && !(await ensureDownloadConsent())) return false;
   fecharSorteio();
   await playSongVariant(escolha.coll, escolha.s, escolha.variante);
+  return true;
 }
 
 // GUARDAR. É essa a diferença que justifica os três botões ao lado do primário:
@@ -29038,7 +29041,7 @@ async function guardarSorteadas(escolhidos, btn, f, destino) {
   const lista = listaDoDestino(destino);
   const onde = LISTA_ROTULO[lista] || ROTULO_PADRAO;
   const faltam = escolhidos.filter((i) => !i.noAparelho).length;
-  if (faltam && !(await ensureDownloadConsent())) return;
+  if (faltam && !(await ensureDownloadConsent())) return false;
 
   sorteioCancelado = false;
   const total = escolhidos.length;
@@ -29073,7 +29076,7 @@ async function guardarSorteadas(escolhidos, btn, f, destino) {
   // download que já custou rede seria o desperdício que ninguém pediu.
   if (!ids.length) {
     bg.falhar(sorteioCancelado ? 'sorteio cancelado' : 'não foi possível baixar nenhuma faixa');
-    return;
+    return false;
   }
   bg.soltar();
   // ===== AS TRÊS FORMAS DE POUSAR, E A ESCOLHA NÃO É DE ESTILO =====
@@ -29105,7 +29108,7 @@ async function guardarSorteadas(escolhidos, btn, f, destino) {
     await adicionarNasListas([lista], ids[0], nomes[0], btn);
     falarNoSorteio(rotuloItem(nomes[0])
       + (ja ? 'já estava ' + onde.em : 'adicionado ' + onde.para));
-    return;
+    return true;
   }
   if (lista === 'playlist') {
     // NO FIM DA FILA, e `listAdd` já faz exatamente isso — ele é APPEND e é
@@ -29126,7 +29129,7 @@ async function guardarSorteadas(escolhidos, btn, f, destino) {
     falarNoSorteio(novas
       ? novas + (novas === 1 ? ' música acrescentada' : ' músicas acrescentadas') + ' ao fim da playlist'
       : 'todas as ' + ids.length + ' já estavam na playlist');
-    return;
+    return true;
   }
   // UM PACOTE, NÃO N LINHAS (v5.313), a pedido do operador: *"ajuste o envio ao
   // cronograma para que ele não envie um por um, mas sim um item que seja um
@@ -29150,8 +29153,9 @@ async function guardarSorteadas(escolhidos, btn, f, destino) {
   // que os baixou, como antes.
   const rec = await criarCue('group', { ids, view: cortinaDoSorteio(f) },
     nomeDoPacoteSorteado(f, ids.length), lista, btn);
-  if (!rec) { responder(btn, 'erro', 'Não foi possível guardar o pacote'); return; }
+  if (!rec) { responder(btn, 'erro', 'Não foi possível guardar o pacote'); return false; }
   falarNoSorteio(ids.length + ' músicas num pacote ' + onde.em);
+  return true;
 }
 
 /**
@@ -29203,7 +29207,7 @@ function calarSorteio() { clearTimeout(sorteioFalaTimer); sorteioFala = ''; }
 async function montarFilaSorteada(escolhidos) {
   const faltam = escolhidos.filter((i) => !i.noAparelho).length;
   // UM consentimento para o lote, nunca um por faixa.
-  if (faltam && !(await ensureDownloadConsent())) return;
+  if (faltam && !(await ensureDownloadConsent())) return false;
   fecharSorteio();
   closeHymnSearch();
 
@@ -29241,10 +29245,10 @@ async function montarFilaSorteada(escolhidos) {
   // resposta oposta à que ele pediu — com o agravante de já ter apagado o que
   // estava lá. O que baixou fica no aparelho e o próximo sorteio o encontra
   // pronto: nada do trabalho se perde, só o efeito.
-  if (sorteioCancelado) { bg.falhar('sorteio cancelado — a fila não foi trocada'); return; }
+  if (sorteioCancelado) { bg.falhar('sorteio cancelado — a fila não foi trocada'); return false; }
   if (!ids.length) {
     bg.falhar('não foi possível baixar nenhuma faixa');
-    return;
+    return false;
   }
   try {
     // O CAMINHO DO `abrirPacote`: a fila do player passa a ser esta, e o
@@ -29264,6 +29268,7 @@ async function montarFilaSorteada(escolhidos) {
   } finally {
     bg.soltar();
   }
+  return true;
 }
 
 // ===== transições (fade in/out) =====

@@ -70,6 +70,7 @@
 //   o seletor de quantidade fora do toque              → 1  (B, a roleta)
 //   sem o piso de uma marcada no `sorteioAlternar`     → 1  (B, o piso)
 //   sem o `sorteioConsumir`                            → 2  (C)
+//   `sorteioConsumir` sem conferir se a ação aconteceu  → 2  (C, a recusa; e o bloco seguinte perde o estado)
 //   o baralho refeito a cada passada                   → 13 (A, B, C, D, H)
 //   `sorteioSemear` no lugar do `sorteioAjustarLote`    → 2  (B e H, a marca manual)
 //   sem a memória do que já saiu (`sorteioUsadas`)      → 2  (C)
@@ -343,6 +344,34 @@ try {
     + 'próxima lista selecionada para playlist"*. O tamanho é o do lote que '
     + 'saiu, não a pílula guardada: tirar uma na mão antes de tocar é pedir '
     + 'quatro, não cinco', c1.map((l) => l.nome + (l.marcada ? '*' : '')));
+
+  // C · E O LOTE QUE NÃO ACONTECEU NÃO SAI. Recusar o "Baixar a música?" desiste
+  // sem guardar nada — consumir ali apagaria da tela músicas que ninguém guardou.
+  // O lote ganha à mão uma faixa que NÃO está no aparelho, para a pergunta vir.
+  const recusa = await pg.evaluate(async () => {
+    sorteioPrefs.soNoAparelho = false;
+    renderSorteio();
+    const longe = [...document.querySelectorAll('#sorteioList .sorteio-res-btn:not(.vai)')]
+      .find((b) => /vai baixar/.test(b.textContent));
+    if (!longe) return { erro: 'nenhuma faixa fora do aparelho na lista' };
+    longe.click();
+    const nomes = () => [...document.querySelectorAll('#sorteioList .sorteio-res-btn')]
+      .map((b) => b.querySelector('.song-menu-label').textContent + (b.classList.contains('vai') ? '*' : ''));
+    const antes = nomes();
+    const origConfirm = window.appConfirm;
+    const consentia = downloadConsent;
+    downloadConsent = false;
+    window.appConfirm = async () => false;
+    try {
+      await executarSorteio(document.querySelector('#sorteioPopup .sorteio-dest[data-dest="favoritos"]'), 'favoritos');
+    } finally { window.appConfirm = origConfirm; downloadConsent = consentia; }
+    const depois = nomes();
+    sorteioPrefs.soNoAparelho = true;   // o estado de partida dos blocos seguintes
+    renderSorteio();
+    return { antes, depois };
+  });
+  checar(!recusa.erro && recusa.depois.join() === recusa.antes.join(),
+    'C · recusado o download, o lote NÃO sai da lista (nada foi guardado)', recusa);
 
   // =======================================================================
   // E · CADA ABERTURA É UM SORTEIO NOVO, COM AS MARCAS ZERADAS
