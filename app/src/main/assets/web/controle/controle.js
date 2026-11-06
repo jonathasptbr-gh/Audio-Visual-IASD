@@ -40556,12 +40556,11 @@ async function edicaoConfirmar(chave, btn) {
 }
 
 // Recarrega as três listas: um item editado no lugar muda em TODAS as que o têm, e quem desenha
-// cada uma leu o registro antes.
+// cada uma leu o registro antes. O `load()` relê a fila e a redesenha; os Favoritos da Biblioteca
+// são do `recarregarFavoritos`.
 async function edicaoRecarregarListas() {
   await load();
   await recarregarFavoritos();
-  plItems = await AVDB.listItems('playlist');
-  renderPlaylist();
 }
 
 // Passa a editar NO LUGAR o item que acabou de nascer (ou de ser salvo): o próximo "Confirmar"
@@ -43441,7 +43440,7 @@ if (window.__NATIVE__) {
 // esta tela: ela NUNCA se desliga sozinha.** Liga por ação do operador e
 // desliga por ação do operador, pelo fechamento do app, ou por uma falha que o
 // app nomeia em texto. Uma TV que conecta não a derruba, e ligar com o telão no
-// ar não pede confirmação nenhuma (ver `confirmarEspelhoComTv`, abaixo).
+// ar não pede confirmação nenhuma (ver `ligarEspelho`).
 // Regra invertida seria pior que regra nenhuma: sem TV, as telas da rede SÃO o
 // que a congregação vê, e um desligamento automático apagaria a projeção no
 // meio do louvor.
@@ -43524,14 +43523,6 @@ function acertarEnqueteDeFundo() {
   }
 }
 
-// LIGAR COM A TV NO AR não pede confirmação: a transmissão por comandos custa
-// JSON e rajadas de arquivo — não há segunda projeção sendo desenhada e
-// codificada no aparelho. A função abaixo fica (UM chamador, `ligarEspelho`)
-// como registro da decisão de não perguntar.
-async function confirmarEspelhoComTv() {
-  return true;
-}
-
 // O QUE FAZER quando a recusa é de REDE, e SÓ nesses casos.
 //
 // O teste é por PALAVRA, nunca por igualdade com um literal: a frase é do
@@ -43570,7 +43561,9 @@ function limparCastMsg() {
 // Ver `docs/TELAO-POR-COMANDOS.md`.
 async function ligarEspelho(ip) {
   if (mirrorOcupado) return false;
-  if (!(await confirmarEspelhoComTv())) return false;
+  // LIGAR COM A TV NO AR não pede confirmação: a transmissão por comandos custa
+  // JSON e rajadas de arquivo — não há segunda projeção sendo desenhada e
+  // codificada no aparelho.
   mirrorOcupado = true;
   acertarEnqueteDeFundo();
   // O BOTÃO VIRA O RECADO agora, e não no próximo giro da enquete: é ele quem
@@ -43667,13 +43660,10 @@ function abrirCast() {
   // escolha só, que é a honesta.
   if (castNetBtnEl) castNetBtnEl.hidden = !espelhoDisponivel();
   renderCast();
-  if (espelhoDisponivel()) {
-    // ABRIR A FOLHA NÃO LIGA NADA: com um interruptor o estado é visível
-    // parado, e quem o muda é o operador. Conferir o endereço, o alvo de
-    // espelhamento ou quem está vendo não pode SUBIR UM SERVIDOR na rede da
-    // igreja. A enquete de 2,5 s é da VISIBILIDADE do bloco — ver
-    // `acertarEnqueteDaConexao`.
-  }
+  // ABRIR A FOLHA NÃO LIGA NADA: o estado é visível parado, e quem o muda é o
+  // operador. Conferir o endereço, o alvo de espelhamento ou quem está vendo
+  // não pode SUBIR UM SERVIDOR na rede da igreja. A enquete de 2,5 s é da
+  // VISIBILIDADE do bloco — ver `acertarEnqueteDaConexao`.
   acertarEnqueteDaConexao();
 }
 
@@ -43780,7 +43770,10 @@ function renderCast() {
   // espelhamento do Android, mas é o telão que vai para a TV, não a tela do
   // celular — a diferença que o app inteiro existe para fazer. O que se lê no
   // seletor do fabricante continua sendo o nome dele; aqui se diz o DESFECHO.
-  const tv = window.__NATIVE__ ? (lastDisplays[0] || null) : null;
+  // A TV QUE PROJETA é a do `telaoNoAr()`, e só sem ela a primeira listada: com
+  // duas telas e o telão na segunda, ler `lastDisplays[0].telao` diria "o telão
+  // não subiu" sobre um telão no ar — a régua do `descreverTelao`, a mesma aqui.
+  const tv = window.__NATIVE__ ? (telaoNoAr() || lastDisplays[0] || null) : null;
   if (castMirrorLabelEl) {
     // "Conectado" descrevia a TELA e era lido como "o telão está lá". Com a
     // `Presentation` no chão o operador via o rótulo verde sobre uma TV que não
