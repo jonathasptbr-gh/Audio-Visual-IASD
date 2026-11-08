@@ -160,6 +160,12 @@ das dependências**.
   (`./gradlew` exige o Android SDK): quem responde por ele e pelo `CifraFonteTest` é o `verificar` do run da v1.13.46.
 - **O operador:** instalar a v1.13.46 quando ela aparecer (chega sozinha). Depois dela, nada muda no uso normal: a cifra não
   lê mais um endereço fora do site dela, e exportar a biblioteca não faz a finalização do arquivo na tela do aparelho.
+- **Desfecho do CI (2026-11-08):** o run #2354 REPROVOU — e o defeito era meu, não do app: um `image/*` dentro de um KDoc
+  abria comentário ANINHADO em Kotlin e derrubava a compilação do módulo inteiro (`R2ImagemFonte.kt: Unclosed comment`).
+  Consertado em `027fbe57`; os runs #2357 (push) e #2358 (`release_tag: v1.13.46`) fecharam VERDES nos três jobs —
+  `verificar` (Sanidade + os 32 de Node puro + os de Chromium), `apk` (o `CifraFonteTest` incluso) e `web-ota`, que publicou
+  o manifesto **1.13.46** com o link do APK (5.314.481 bytes). A Release `v1.13.46` existe, e a página do site já a anuncia.
+  Lição para quem repetir: a prova 1 (código sem comentário) é CEGA a isso — só compilador pega, e aqui não há Android SDK.
 
 ### K5 · Serviços e atualização — feita (2026-11-08)
 
