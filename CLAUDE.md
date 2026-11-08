@@ -67,7 +67,7 @@ capítulo, e o capítulo tem o resto:
 
 | arquivo | o que é |
 |---|---|
-| [`docs/ACHADOS-EM-ABERTO.md`](docs/ACHADOS-EM-ABERTO.md) | os defeitos CONFIRMADOS e ainda não corrigidos, com cenário e correção proposta — **leia antes de mexer no que ele nomeia**. Hoje tem TRÊS (os dois do áudio do espelhamento e o CLIENTE de onde sai a escada da transmissão); é arquivo para esvaziar, não para crescer |
+| [`docs/ACHADOS-EM-ABERTO.md`](docs/ACHADOS-EM-ABERTO.md) | os defeitos CONFIRMADOS e ainda não corrigidos, com cenário e correção proposta — **leia antes de mexer no que ele nomeia**. Hoje tem **UM** (a chamada telefônica, §2); os outros dois saíram na revisão X2 (2026-11-08) por resposta do operador, e ficam lá como registro. É arquivo para esvaziar, não para crescer |
 | [`docs/shell/README.md`](docs/shell/README.md) | o HUB do **Kotlin**: um capítulo por subsistema, e onde cada `.kt` é explicado |
 | [`docs/ARQUITETURA-WEB.md`](docs/ARQUITETURA-WEB.md) | o HUB da base web: regras gerais e o mapa dos capítulos em `docs/arquitetura/` |
 | [`docs/TELAO-POR-COMANDOS.md`](docs/TELAO-POR-COMANDOS.md) | o contrato das telas da rede — inclusive o celular como PONTO DE ACESSO (código desde a v1.4.1) |
@@ -1152,7 +1152,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.13.47 · APK v1.13.47** · `SHELL_VERSION` **85** ·
+**Versão atual: base web v1.13.48 · APK v1.13.47** · `SHELL_VERSION` **85** ·
 bundle com `minShell: 83` e `shellTag: v1.13.44` — a v1.13.44 é a revisão K4,
 que mexe no Kotlin (o certificado do espelho passa a devolver o desfecho, o teto
 das entregas de mídia, o prazo total da requisição e o token carimbado no bloco

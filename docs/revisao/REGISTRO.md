@@ -39,7 +39,7 @@ abandonada → primeira pendente pelo `nº`).
 | 25 | K5 | feita | v1.13.45 (APK + web) | 2026-11-08 | o APK truncado ia ao instalador e as TRÊS recusas pós-download rebaixavam o mesmo zip de 15 em 15 s; a transmissão não republicava com cena no ar; oráculos novos `servico-em-primeiro-plano` + `ota-ativacao` (34 asserções, 16 reversões) |
 | 26 | K6 | feita | v1.13.46 (APK + web) | 2026-11-08 | a cifra seguia redirecionamento para fora da allowlist; o `deckPaginas` baixava de QUALQUER host e vazava as páginas quando falhava no meio; a foto acima do teto virava `200` cortado; o `fim` do pacote fazia `flush` de `content://` na main; JUnit novo `CifraFonteTest` (9 casos, reversão 7/9); o pin do NewPipe conferido contra a v0.27.0 e mantido, com o porquê escrito |
 | 27 | X1 | feita | v1.13.47 (APK + web) | 2026-11-08 | os SEIS órfãos saíram do Kotlin (76 → 70 servidos; 64 · 70 · 70); `SHELL_VERSION` 85; `StreamProxy` e a rota `/s/` ficam latentes |
-| 28 | X2 | em curso (2026-11-08) | | | |
+| 28 | X2 | parcial (ponto de parada: os achados de WEB fechados; a metade que toca Kotlin é o lote seguinte) | v1.13.48 (só web) | 2026-11-08 | os dois chamadores que faltavam da `listasSeq` (gaveta e pacote); o ACK atrasado do canal de mídia (mídia maior que a fonte no telão); o share > 2 GB recusado com nome; o cancelamento da verificação depois do último byte; `ACHADOS-EM-ABERTO` de três para um; oráculo novo `tela-ack-cumulativo` |
 | 29 | X3 | pendente | | | |
 | 30 | X4 | pendente (opcional: só com o "sim" do operador) | | | |
 
@@ -48,6 +48,8 @@ abandonada → primeira pendente pelo `nº`).
 Achados FORA da cerca de quem os achou, endereçados à etapa dona. A etapa dona
 lê as linhas dela ao começar e risca (ou move para o relatório dela) o que
 tratou.
+
+**A X2 (v1.13.48, 2026-11-08) FECHOU, das linhas abaixo:** o comentário do `bibleCompleteVersions` (C2), a `listasSeq` da gaveta e do pacote (C4), os ids do HTML (S2 — `#bibleTitle` **REFUTADO**: três oráculos o leem, o porquê ficou no HTML), o ACK do canal de mídia (K4), o `parar` da verificação (K3), o índice do `HISTORICO` (K6), o denominador da pasta que falha (A4) e o share acima de 2 GB (K2, agora RECUSADO com nome). **REFUTADO:** o `instalarApk` do K2 — o `native.js` já traduz o `null` do prazo numa FRASE desde a W1, e o `ponte.test.mjs` trava isso. **MORTO:** o `micDiag` na fila `io` (o arquivo saiu na X1). O que segue aberto fica na tabela e no relatório da X2.
 
 | para | de | achado (arquivo:símbolo — cenário) |
 |---|---|---|
@@ -93,6 +95,22 @@ tratou.
 Um bloco por etapa executada, ≤ 25 linhas: corrigido · achado e não corrigido
 (com o porquê) · repasses · ponto de parada · o que o operador confere no
 aparelho.
+
+### X2 · Achados em aberto — PARCIAL (2026-11-08)
+
+**Feito (v1.13.48, só web; `SHELL_VERSION` 85 e `minShell` 83 não mudam).**
+
+- **A senha das listas nos DOIS chamadores que faltavam** (`adicionarNasListas`, a gaveta; e `abrirPacote`, cujo `trocarFila` não é toque de lista): um `load()` em voo aplicava a cópia velha por cima do toque. Blocos 14 e 15 do `hidratacao-perde-a-vez`.
+- **O ACK atrasado do canal de mídia** (`tela-ack-cumulativo.test.mjs`, novo, no CI): o `{r}` é o total cumulativo, e a resposta do bloco vencido resolvia o seguinte — `pos` voltava e o shell ANEXAVA os bytes, então o item ia ao telão maior que a fonte. `telaPedir` ganhou `aceita`.
+- **O share acima de 2 GB é recusado com nome** (`avisarGrandeDemais`) em vez de entrar cortado e calado. A leitura por janelas ficou de fora: exigiria materializar gigabytes no WebView.
+- **O cancelamento da Verificação Completa só vale com download em voo** (flag `baixando`) — antes o relatório dizia "cancelado" para um arquivo que baixou inteiro.
+- O denominador da pasta que falha (`3/300 falharam`); 3 comentários que mentiam; `#testeFecho` fora; `ACHADOS-EM-ABERTO` de TRÊS para UM (os dois do áudio fecharam por resposta do operador em 2026-10-30); as duas linhas que faltavam no índice do `HISTORICO`; o `ORACULOS.md` com os blocos 8–11 e o oráculo novo.
+
+**Achado e NÃO corrigido (é o lote seguinte, e é Kotlin — pede APK + Release):** as três cópias da invariante 2 (`WebViewFactory`/`StreamProxy`/`SafPathHandler`); o renderer que morre no meio de uma exportação não fecha o destino (`pacoteCancelar` no `onRenderProcessGone`); os quatro resíduos do `YoutubeGrab` (slot único do `resgate`, `cache/yt` sem teto, o nome que ignora o `teto`, o `"403"` literal duas vezes); o `ShareIntake.describe` que engole a exceção; o JUnit do `SafJanela`; as asserções do `SlideDeck`/`R2ImagemRegistry`, do `SessionService.updateFromDisplay` e do `otaRecusadas`. **Dois repasses morreram na medição:** o `instalarApk` (o `native.js` já traduz o `null`) e o `micDiag` na fila `io` (o arquivo saiu na X1).
+
+**Ponto de parada:** os achados de WEB fecharam; **o próximo lote da X2 é o Kotlin, inteiro**, com `shellTag` e Release. Ficam para depois dele: o §2 do `ACHADOS-EM-ABERTO` (a chamada telefônica — a correção proposta custa um método de ponte e o cético diz que só aparelho decide) e a remoção do `StreamProxy`/`servirTransmissao` latentes (**decisão do operador**: arrasta a invariante 8, o `webview-range` e seis capítulos).
+
+**O que o operador confere no aparelho:** nada a fazer — o bundle chega pelo aviso de atualização. O que ele vê: um vídeo compartilhado gigante avisa em vez de entrar quebrado, e um item recém-adicionado à lista não some mais da tela.
 
 ### X1 · O contrato da ponte — feita (2026-11-08)
 

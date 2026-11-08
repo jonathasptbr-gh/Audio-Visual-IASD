@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.13.48",
+    "itens": [
+      "A revisão interna dos achados em aberto: nada muda no uso normal.",
+      "Um vídeo compartilhado maior que 2 GB agora avisa, em vez de entrar quebrado.",
+      "Adicionar um item à lista, ou tocar um bloco de louvores, não some mais da tela.",
+      "A verificação não diz mais \"cancelado\" para um download que terminou inteiro.",
+      "A tela conectada não recebe mais uma mídia maior que o arquivo.",
+      "A pasta que falha diz quantos arquivos falharam, de quantos."
+    ]
+  },
+  {
     "versao": "1.13.47",
     "itens": [
       "A revisão interna dos métodos do app: nada muda no uso normal.",

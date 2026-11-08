@@ -1,23 +1,29 @@
 # Achados em aberto
 
-**Três** — os dois do áudio do espelhamento e o CLIENTE de onde sai a escada de
-faixas do YouTube (v1.4.5; as outras duas hipóteses daquele relato morreram, uma
-por construção e a outra por correção). (A faixa da Biblioteca que nunca era
-marcada como no ar, v1.5.16, saiu na v1.13.14: ela acende pela ORIGEM do toque.)
-(Houve outro, e ele já saiu — *"mídia baixada pausa
-quando eu minimizo"* — durou um lote: o operador deu a cena que faltava
-(*"ocorre quando não há telas conectadas"*), e ela era a segunda das três
-hipóteses. Corrigido na v1.3.12, com a resposta que `DISPLAY.md` já tinha
-escrita para o dia.) O que era "o telão pausa sozinho?"
-foi MEDIDO (sim, e por qualquer app de mídia) e **corrigido na v1.1.11**; o que
-sobrou dele é o caso que a correção não sabe distinguir — a chamada telefônica. Os 21 da auditoria de
+**UM** — a retomada por roubo de foco não sabe distinguir uma CHAMADA telefônica
+(§2), e é o único defeito CONFIRMADO que ainda não foi corrigido. Os outros DOIS
+que moravam aqui saíram em 2026-11-08, na revisão X2, por RESPOSTA DO OPERADOR —
+ficam como registro, e o porquê está no título de cada um: o do fone/Bluetooth
+(§1), porque o Bluetooth É o destino desejado do som do espelhamento, e o "só o
+cliente pode fazer o app escolher baixo" (§3), que ele desconsiderou por não ser
+defeito nosso. **Arquivo para esvaziar, não para crescer.**
+
+O que já saiu antes: a faixa da Biblioteca que nunca era marcada como no ar
+(v1.5.16) saiu na v1.13.14 — ela acende pela ORIGEM do toque. Houve outro, e ele
+já saiu — *"mídia baixada pausa quando eu minimizo"* —, e durou um lote: o
+operador deu a cena que faltava (*"ocorre quando não há telas conectadas"*), e
+ela era a segunda das três hipóteses; corrigido na v1.3.12, com a resposta que
+`DISPLAY.md` já tinha escrita para o dia. O que era "o telão pausa sozinho?" foi
+MEDIDO (sim, e por qualquer app de mídia) e **corrigido na v1.1.11**; o que
+sobrou dele é justamente o caso que a correção não sabe distinguir — a chamada
+telefônica, que é o §2 e o motivo de este arquivo existir. Os 21 da auditoria de
 2026-08-20 e os dois da campanha de determinismo da v5.316 foram corrigidos nos
 lotes em que foram achados; a nota de cada um está em
 [`HISTORICO.md`](HISTORICO.md).
 
 ---
 
-## 1. O fone/Bluetooth desvia o áudio da TV? (RESPONDIDO PELO OPERADOR)
+## 1. O fone/Bluetooth desvia o áudio da TV? (FECHADO em 2026-11-08 — RESPONDIDO PELO OPERADOR)
 
 **Resposta do operador (2026-10-30):** *"o fone bluetooth pode carregar o som do
 espelhamento. Inclusive esse é o método que o controle de saída de som tem como
@@ -86,7 +92,7 @@ dois celulares. Só teste em aparelho decide se o veto é necessário.
 
 ---
 
-## 3. Só o CLIENTE pode fazer o app escolher baixo (DESCONSIDERADO PELO OPERADOR)
+## 3. Só o CLIENTE pode fazer o app escolher baixo (FECHADO em 2026-11-08 — DESCONSIDERADO PELO OPERADOR)
 
 **Resposta do operador (2026-10-30):** *"é raro, pois depende da fonte do vídeo,
 mas não é um defeito nosso, então desconsidere também"*. Fica como registro;

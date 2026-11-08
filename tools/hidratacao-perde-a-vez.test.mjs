@@ -45,7 +45,9 @@
 // `listasSeq` —, o 10 o "Tocar agora" (`replacePlaylistWith`), na mesma senha, e o
 // 11 a cena de letra (`addLyricCue`) mandada à playlist e aos Favoritos, e o 12
 // a playlist automática (`guardarSorteadas`/`montarFilaSorteada`). O 13 é o
-// resgate dos downloads da abertura contra um `lembrarIntencao` do vão.)
+// resgate dos downloads da abertura contra um `lembrarIntencao` do vão. O 14 é
+// a GAVETA (`adicionarNasListas`) e o 15 o PACOTE (`abrirPacote`) — os dois
+// chamadores da lista que ficaram sem a senha até a revisão X2.)
 //
 // E a quarta, que separa CENA de CONFIGURAÇÃO: durante a corrida a hidratação
 // pula a SELEÇÃO e aplica o resto. Sem ela, o conserto barato (um `return` no
@@ -617,6 +619,84 @@ try {
   });
   checar(r13.length === 1 && r13[0] === 'https://youtu.be/oraculo-nova',
     'o resgate da abertura limpa a intenção velha sem apagar a que entrou no vão', JSON.stringify(r13));
+  // ── 14. A GAVETA DE UM ITEM (`adicionarNasListas`) COM UM `load()` EM VOO ──
+  // A gaveta da Biblioteca grava em mais de uma lista e relê `plItems` — e era
+  // um dos dois chamadores que faltavam da senha do bloco 9: um `load()` que leu
+  // a playlist ANTES do toque aplicava a cópia velha DEPOIS, e o item ficava no
+  // banco e fora de `plItems` (fora da lista e da fila do ⏭) até o próximo
+  // desenho por outro motivo. A ordem é a forçada do 9.
+  //
+  // SÓ A PLAYLIST, e o motivo é de MÉTODO: o destino Cronograma faz a gaveta
+  // terminar num `load()` próprio, que sobe o `loadSeqCtl` e faz o `load()` de
+  // fora se descartar sozinho — a asserção passaria com e sem o conserto
+  // (tautologia). A metade do Cronograma é o bloco 2, com a outra senha.
+  const toque14 = await pg.evaluate(async ({ a, b }) => {
+    await AVDB.listSet('playlist', [a]);
+    await AVDB.listSet('favs', []);
+    await load();
+    const orig = AVDB.listItems;
+    let liberar;
+    const portao = new Promise((p) => { liberar = p; });
+    const leu = new Promise((pronto) => {
+      AVDB.listItems = async (n) => {
+        const r = await orig(n);
+        if (n === 'playlist') { AVDB.listItems = orig; pronto(); await portao; }
+        return r;
+      };
+    });
+    const r = {};
+    try {
+      const emVoo = load();
+      await leu;
+      await adicionarNasListas(['playlist'], b, document.createElement('button'));
+      liberar();
+      await emVoo;
+    } finally { AVDB.listItems = orig; }
+    r.plItems = plItems.map((m) => m.id);
+    r.banco = await AVDB.listIds('playlist');
+    await AVDB.listSet('playlist', []);
+    await load();
+    return r;
+  }, ids);
+  checar(toque14.banco.includes(ids.b) && toque14.plItems.includes(ids.b),
+    'a gaveta põe na playlist (com um load() em voo): o item FICA em plItems', JSON.stringify(toque14));
+
+  // ── 15. O PACOTE (`abrirPacote`) COM UM `load()` EM VOO ────────────────────
+  // O pacote troca a fila inteira por `trocarFila`, que NÃO sobe a senha (não é
+  // um toque de lista). Sem a senha no `abrirPacote`, um `load()` em voo
+  // aplicava a fila de ANTES por cima do pacote: `plItems` com a fila velha, o
+  // ⏭ seguindo a errada, e o bloco de louvores da abertura indo ao telão fora
+  // de ordem depois da primeira faixa.
+  const toque15 = await pg.evaluate(async ({ a, b }) => {
+    await AVDB.listSet('playlist', [a]);
+    await load();
+    const orig = AVDB.listItems;
+    let liberar;
+    const portao = new Promise((p) => { liberar = p; });
+    const leu = new Promise((pronto) => {
+      AVDB.listItems = async (n) => {
+        const r = await orig(n);
+        if (n === 'playlist') { AVDB.listItems = orig; pronto(); await portao; }
+        return r;
+      };
+    });
+    const r = {};
+    try {
+      const emVoo = load();
+      await leu;
+      await abrirPacote({ ids: [b] }, null);
+      liberar();
+      await emVoo;
+    } finally { AVDB.listItems = orig; }
+    r.plItems = plItems.map((m) => m.id);
+    r.banco = await AVDB.listIds('playlist');
+    await AVDB.listSet('playlist', []);
+    await load();
+    return r;
+  }, ids);
+  checar(toque15.banco.length === 1 && toque15.banco[0] === ids.b
+      && toque15.plItems.length === 1 && toque15.plItems[0] === ids.b,
+    'abrir um pacote com um load() em voo: plItems FICA só com a fila do pacote', JSON.stringify(toque15));
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
 }

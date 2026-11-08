@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.47';
+const WEB_VERSION = '1.13.48';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1403,7 +1403,8 @@ let bibleDlSeq = 0;
 // dos 1189 capítulos que um lançamento offline pagaria à toa.
 const BIBLE_DL_DESISTE = 25;
 // Versões já totalmente baixadas (offline) — cache em memória de
-// state['bibleComplete:<v>'], pra a tela de livros mostrar "completa" sem async.
+// state['bibleComplete:<v>'], pra a FOLHA DE VERSÕES (`renderBibleVerList`)
+// mostrar "completa" sem async.
 const bibleCompleteVersions = new Set();
 
 // ===== Mensagens (texto puro personalizado) =====
@@ -4077,8 +4078,8 @@ async function load(opts) {
   //
   // `loadSeqCtl` logo acima resolve load × load. O que faltava é load × SEND:
   // esta função lê o banco por uma dezena de `await`s e só então escreve as
-  // variáveis do módulo, e ninguém a chama com `await` — todo `db-change`
-  // dispara uma. Um `send()` que rode nesse intervalo escreve `currentId` e
+  // variáveis do módulo, e quase ninguém a chama com `await` — cada caminho que
+  // grava dispara uma. Um `send()` que rode nesse intervalo escreve `currentId` e
   // `currentItem` de forma síncrona, e o RABO desta função os sobrescrevia com
   // o que o banco dizia ANTES do toque: *lost update* clássico.
   //
@@ -6523,6 +6524,13 @@ function rotuloItem(nome) {
 // Acrescenta O MESMO id a VÁRIAS listas, com UM pulso só no botão: `ok` se
 // tudo entrou, `dup` se algum destino já o tinha (ver o cabeçalho acima).
 async function adicionarNasListas(listas, id, btn) {
+  // A SENHA DAS LISTAS, e aqui ela faltava: as escritas abaixo e as releituras
+  // que vêm depois correm contra um `load()` que já leu a playlist/Cronograma
+  // ANTES delas — e a FASE 2 dele aplicaria a cópia velha DEPOIS, deixando o
+  // item no banco e fora de `plItems`/`cronoSet`/`libItems` até o próximo
+  // redesenho por outro motivo (o "adicionei e não apareceu"). Ver `listasSeq`:
+  // a senha sobe antes do primeiro `await`, sempre.
+  ++listasSeq;
   const alvos = [...new Set(listas)];
   const novas = [], antigas = [];
   for (const l of alvos) {
@@ -6777,6 +6785,12 @@ function projetarSorteioCue(d) {
 // semana. Os ids que não existirem mais são simplesmente pulados (uma mídia
 // excluída não pode impedir o resto do bloco de tocar).
 async function abrirPacote(d, cueId) {
+  // A SENHA DAS LISTAS, pela mesma razão do `adicionarNasListas`: o
+  // `trocarFila` abaixo grava a playlist e NÃO sobe a senha (ele não é um toque
+  // de lista, é a fila inteira), então um `load()` em voo aplicava a fila de
+  // ANTES por cima do pacote — `plItems` com a fila velha e o ⏭ seguindo a
+  // errada. Ver `listasSeq`: antes do primeiro `await`.
+  ++listasSeq;
   const ids = Array.isArray(d.ids) ? d.ids : [];
   const recs = (await Promise.all(ids.map((id) => AVDB.getMedia(id)))).filter(Boolean);
   if (!recs.length) { falharNoItem(cueId, 'as mídias saíram do aparelho'); return; }
@@ -20461,8 +20475,12 @@ async function syncDeviceFolder(existing, botao) {
     // FALHA VENCE OS DOIS, e fica na tela o mesmo tempo que o `catch` externo
     // reserva (9 s): é ela que o operador precisa LER. `+N` sobre uma pasta em
     // que 300 arquivos não entraram descreve o culto pela metade certa.
+    //
+    // E ELA LEVA O DENOMINADOR, como o progresso acima: "3 falharam" numa pasta
+    // de 300 é outra coisa de "3 falharam" numa de 4, e sem o segundo número a
+    // linha obriga o operador a lembrar quantos arquivos ele tem ali.
     statusPasta(folder.id,
-      falhou ? falhou + ' falharam: ' + causa : (added > 0 ? '+' + added : 'em dia'),
+      falhou ? falhou + '/' + entries.length + ' falharam: ' + causa : (added > 0 ? '+' + added : 'em dia'),
       falhou ? 9000 : 4000);
   } catch (e) {
     // A CAUSA VAI JUNTO. "Erro" sozinho não distingue disco cheio de permissão
@@ -31842,8 +31860,14 @@ async function testeDownloadCompleto() {
   m.diagAntes = '';
   let rec = null;
   let relogio = null; let vigia = null;
+  // O CANCELAMENTO VALE SÓ ENQUANTO HÁ DOWNLOAD. O prazo e o vigia continuam
+  // armados durante a miniatura e a medida — DEPOIS do último byte —, e o
+  // "cancelar" chegava a um download já terminado: registrava a intenção,
+  // mandava o shell cancelar o que não existia mais, e o relatório saía dizendo
+  // "cancelado" para um arquivo que baixou INTEIRO.
+  let baixando = false;
   const parar = (porque) => {
-    if (m.cancelado) return;
+    if (m.cancelado || !baixando) return;
     m.cancelado = porque;
     ytCancelados.add(vid);
     try { AVNative.ytCancel(s.ytUrl); } catch (_) {}
@@ -31854,6 +31878,7 @@ async function testeDownloadCompleto() {
     // SE UMA MÍDIA ENTRA NO AR, o teste sai da frente: centenas de megabytes
     // disputando a rede com a projeção é o oposto de não atrapalhar um culto.
     vigia = setInterval(() => { if (midiaNoAr) parar('mídia no ar'); }, 1000);
+    baixando = true;
     rec = await ytBaixarNativo(s.ytUrl, s.name || '', {
       youtubeId: vid, canal: s.canal || null, lista: 'avulsos', somenteAudio: false,
       altura: m.teto, aviso: 'nenhum', medida: m, semResgate: true,
@@ -31861,6 +31886,7 @@ async function testeDownloadCompleto() {
       // à toa, e o resto da folha não muda enquanto o download anda.
       onPct: () => { if (testeRodando) atualizarLinhaDoTeste({ id: TESTE_DL.id }); },
     });
+    baixando = false;
     // A MINIATURA chega depois da gravação (`miniaturaDepois`): a medida e a
     // limpeza esperam por ela, senão o registro seria apagado no meio dela.
     if (m.esperarMiniatura) { try { await m.esperarMiniatura; } catch (_) { /* medida */ } }
@@ -31886,6 +31912,8 @@ async function testeDownloadCompleto() {
     }
   } finally {
     clearTimeout(relogio); clearInterval(vigia);
+    // A SAÍDA POR EXCEÇÃO também desarma o cancelamento (ver `baixando`).
+    baixando = false;
     testeDlCancelar = null;
     ytCancelados.delete(vid);
     m.redeFim = testeRede();
@@ -37072,6 +37100,29 @@ let deckUltimoErro = '';
 // Arquivo que o app aceitou mas não conseguiu abrir. DIÁLOGO, e não um aviso
 // que some sozinho: o operador acabou de escolher (ou compartilhar) um arquivo,
 // e nada acontecer leria como "importou".
+// O TETO DO CAMINHO `/saf/`, e ele é ESTRUTURAL: o Chromium dimensiona toda
+// resposta interceptada pelo `available()` do `InputStream`, que é um `int` —
+// acima de `Integer.MAX_VALUE` o web recebe o arquivo CORTADO, sem erro nenhum
+// (a invariante 8, pelo lado de dentro). Ver `SafJanela.kt`.
+const TETO_DO_SAF = 2147483647;
+
+// O compartilhamento de um arquivo que o `/saf/` não consegue entregar inteiro.
+// Antes desta guarda ele entrava no acervo CORROMPIDO e calado: o `fetch` lia o
+// corte como fim do arquivo, o `addMedia` gravava, e o vídeo tocava o começo e
+// morria no meio — o pior desfecho que uma importação sabe produzir, porque ela
+// diz que deu certo. Recusar COM NOME é a regra dos cinco motivos da cifra num
+// lugar novo.
+function avisarGrandeDemais(nome, bytes) {
+  return appConfirm({
+    title: 'Arquivo grande demais',
+    message: '"' + nome + '" tem ' + fmtBytes(bytes) + ', e o app copia até 2 GB de '
+      + 'uma vez. Para ele entrar, exporte uma cópia menor — em resolução menor, '
+      + 'ou só o trecho que vai ser usado.',
+    okText: 'Entendi',
+    cancelText: null,
+  });
+}
+
 function avisarNaoAbriu(nome) {
   const motivo = deckUltimoErro;
   deckUltimoErro = '';
@@ -37868,6 +37919,7 @@ async function importShare(pending) {
   // vai ser projetado.
   const lote = [];
   let naoAbriu = null;   // o último arquivo que o app não conseguiu abrir
+  let grandeDemais = null;   // { nome, bytes }: passou do teto do `/saf/`
   let ok = 0;
   for (const item of files) {
     // DOCUMENTO (PDF ou PowerPoint): vira uma imagem por página, e cada formato
@@ -37961,6 +38013,13 @@ async function importShare(pending) {
         blob = item;
         name = item.name;
       } else if (item && item.url) {
+        // O TETO DO `/saf/`, conferido ANTES de ler (ver `TETO_DO_SAF`): acima
+        // dele o `fetch` receberia um arquivo pela metade, sem erro, e o
+        // `addMedia` o gravaria como se fosse inteiro.
+        if (Number(item.size) > TETO_DO_SAF) {
+          grandeDemais = { nome: item.name || 'Arquivo', bytes: Number(item.size) };
+          continue;
+        }
         try {
           const res = await fetch(item.url, { signal: corte.signal });
           if (!res.ok) continue;
@@ -38046,6 +38105,7 @@ async function importShare(pending) {
     notaNoItem(primeiro, quantos + ondeDe(listasEscolhidas, 'para'), 'ok');
   }
   if (naoAbriu) await avisarNaoAbriu(naoAbriu);
+  if (grandeDemais) await avisarGrandeDemais(grandeDemais.nome, grandeDemais.bytes);
   return added;
 }
 
@@ -45392,6 +45452,10 @@ function telaOuvirCanal(c) {
     const p = telaResposta;
     if (!p) return;
     if (!telaRespostaCombina(p.tipo, r)) return;   // é do pedido que venceu
+    // E A SEGUNDA PERGUNTA é o CONTEÚDO, quando o pedido sabe qual resposta é a
+    // dele (o ACK cumulativo do bloco): a que não fechar fica sem resolver,
+    // como a de tipo trocado.
+    if (p.aceita && !p.aceita(r)) return;
     telaResposta = null;
     p.resolve(r);
   };
@@ -45405,9 +45469,11 @@ function telaOuvirCanal(c) {
 // e uma que não combine com o pendente só pode ser do vencido. Descartá-la
 // deixa a verdadeira — que vem logo atrás — resolver o pedido certo.
 //
-// COBERTURA PARCIAL, e é preciso dizer: dois pedidos do MESMO tipo em sequência
-// (um `abrir` vencido seguido de outro `abrir`) têm respostas indistinguíveis.
-// Fechar isso é o `seq` do lado Kotlin — ver o achado 9.
+// COBERTURA: a de uma resposta de tipo trocado é total; a de dois pedidos do
+// MESMO tipo em sequência é a do ACK CUMULATIVO, e ela mora no chamador — o
+// `telaPedir` aceita um predicado de conteúdo (`aceita`) para o `bloco`, que
+// confere `r === pos + bytes`. Sem ele, o ACK do bloco vencido resolvia o
+// seguinte e fazia `pos` voltar.
 function telaRespostaCombina(tipo, r) {
   if (!r || typeof r !== 'object') return false;
   if (typeof r.r === 'number') return tipo === 'bloco';
@@ -45418,9 +45484,9 @@ function telaRespostaCombina(tipo, r) {
   // qualquer pedido: não há o que conferir, e recusá-los travaria o empurrão.
   return true;
 }
-function telaPedir(c, msg, tipo) {
+function telaPedir(c, msg, tipo, aceita) {
   return new Promise((resolve) => {
-    const p = { tipo, resolve };
+    const p = { tipo, resolve, aceita };
     telaResposta = p;
     setTimeout(() => {
       if (telaResposta === p) { telaResposta = null; resolve(null); }
@@ -45437,7 +45503,6 @@ async function telaEmpurrarAgora(it) {
   telaOuvirCanal(c);
   // O TOKEN VEM DO ITEM ENFILEIRADO, nunca relido agora: entre a fila e este
   // ponto o `__wp` pode ter sido recunhado (ver `telaGarantirEnvio`), e reler
-  // mandaria os bytes do wallpaper ANTIGO sob o token do NOVO.
   // mandaria os bytes do wallpaper ANTIGO sob o token do NOVO.
   const token = it.token;
   if (!token) return;
@@ -45460,7 +45525,20 @@ async function telaEmpurrarAgora(it) {
   while (pos < arquivo.size) {
     if (!telaAtiva()) { await telaPedir(c, JSON.stringify({ cancelar: true }), 'cancelar'); return; }
     const fatia = await arquivo.slice(pos, Math.min(pos + PASSO, arquivo.size)).arrayBuffer();
-    const r = await telaPedir(c, fatia, 'bloco');
+    // O ACK É CUMULATIVO E É A IDENTIDADE DO BLOCO. O `{r}` do shell diz
+    // "quantos bytes deste token já estão no disco", não "recebi o seu": um ACK
+    // ATRASADO do bloco anterior chega com o total de ANTES e, sem esta
+    // conferência, resolvia ESTE pedido — `pos` voltava, um bloco já gravado era
+    // reenviado e o `escrever` do shell (que posiciona em `recebido` e ANEXA)
+    // punha os mesmos bytes no FIM do arquivo. O item ia ao telão maior que a
+    // fonte, e o `fim` ainda o marcava completo.
+    //
+    // O que não casa fica sem resolver e é descartado, como a resposta de tipo
+    // trocado; a verdadeira vem logo atrás. A recusa (`{r:-1}`) e o erro de fila
+    // cheia, que não têm `r`, seguem o caminho de sempre.
+    const esperado = pos + fatia.byteLength;
+    const r = await telaPedir(c, fatia, 'bloco',
+      (x) => typeof x.r !== 'number' || x.r < 0 || x.r === esperado);
     if (!r) return;                                   // prazo: o próximo load retoma
     if (r.erro === 'fila cheia') {                    // o disco engasgou: mesmo bloco de novo
       await new Promise((x) => setTimeout(x, 200));
@@ -45476,7 +45554,6 @@ function telaGarantirEnvio(it) {
   if (!it || !it.id) return;
   // O TOKEN É CARIMBADO AQUI, no item que entra na fila. O `__wp` é o único id
   // MUTÁVEL do acervo — cada troca de wallpaper descarta o token e cunha outro —,
-  // e é por isso que a deduplicação logo abaixo é por id + TOKEN.
   // e é por isso que a deduplicação logo abaixo é por id + TOKEN. Nenhum
   // chamador passa `token`: quem o carimba é sempre esta função.
   const token = telaTokenDe(it.id);

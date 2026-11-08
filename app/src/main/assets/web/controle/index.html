@@ -1196,6 +1196,10 @@
              veio junto com ela: um voltar na faixa do app apontando para dentro
              de uma folha é o botão do app dizendo que a folha É o app. -->
         <button id="bibleBack" class="back-btn" type="button" title="Voltar" aria-label="Voltar" hidden><span class="msym" aria-hidden="true">&#xe5c4;</span></button>
+        <!-- `bibleTitle` NÃO é um id sem dono, ainda que nenhum `.js`/`.css` o
+             leia: três oráculos o usam como âncora do título da folha
+             (`barra-do-topo-e-titulos`, `ferramentas-folha`, `smoke`). Tirá-lo
+             quebra a suíte em silêncio. -->
         <span class="tools-title" id="bibleTitle">Bíblia</span>
         <button id="bibleClose" class="popup-close" type="button" title="Fechar" aria-label="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
@@ -1964,7 +1968,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.13.47</span>
+          <span id="appVersion">v1.13.48</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
@@ -2531,7 +2535,7 @@
                  resultado dentro); sem ponte ele não existe. Quem escolhe o estado é
                  `desenharTesteJa`, e cada mudança de altura ANIMA
                  (`animarAlturaDasSecoes`). -->
-            <div class="popup-fecho" id="testeFecho">
+            <div class="popup-fecho">
               <div class="song-menu-go-row">
                 <!-- O OCULTAR (v1.12.52): recolhe a seção e a rodada SEGUE — o tile
                      "Verificar" mostra o andamento e, no fim, o desfecho. O chevron do
