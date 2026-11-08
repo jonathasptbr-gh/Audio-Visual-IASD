@@ -67,6 +67,7 @@ capítulo, e o capítulo tem o resto:
 
 | arquivo | o que é |
 |---|---|
+| [`docs/METODO-DE-TRABALHO.md`](docs/METODO-DE-TRABALHO.md) | **o MÉTODO do agente**: como trabalhar sem desperdiçar esforço nem refazer — lido antes de QUALQUER tarefa |
 | [`docs/ACHADOS-EM-ABERTO.md`](docs/ACHADOS-EM-ABERTO.md) | os defeitos CONFIRMADOS e ainda não corrigidos, com cenário e correção proposta — **leia antes de mexer no que ele nomeia**. Hoje tem TRÊS (os dois do áudio do espelhamento e o CLIENTE de onde sai a escada da transmissão); é arquivo para esvaziar, não para crescer |
 | [`docs/shell/README.md`](docs/shell/README.md) | o HUB do **Kotlin**: um capítulo por subsistema, e onde cada `.kt` é explicado |
 | [`docs/ARQUITETURA-WEB.md`](docs/ARQUITETURA-WEB.md) | o HUB da base web: regras gerais e o mapa dos capítulos em `docs/arquitetura/` |
