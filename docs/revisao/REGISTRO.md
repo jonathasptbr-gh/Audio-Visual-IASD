@@ -32,7 +32,7 @@ abandonada → primeira pendente pelo `nº`).
 | 18 | C9 | feita | v1.13.31 (só web) | 2026-11-06 | nenhum defeito de culto na fatia; a folha de conexão nomeava a TV errada com duas telas (`telaoNoAr`, a régua do Registro + asserção com reversão); os repasses C4/C6 de `plItems` refutados; código morto da transmissão; ~290 comentários (1 bloco no símbolo errado) |
 | 19 | S1 | feita | v1.13.39 (só web) | 2026-11-08 | nenhum seletor morto nem token órfão; ~67 lápides "saiu na vX" removidas/condensadas (regras intocadas, prova 1 do CLAUDE.md) |
 | 20 | S2 | feita | v1.13.40 (só web) | 2026-11-08 | nenhum defeito de culto; 4 regras mortas e 3 classes mortas do HTML fora; ~31 lápides removidas/condensadas (regras intocadas, prova 1); visuais não capturados (sem Chromium) |
-| 21 | K1 | pendente | | | |
+| 21 | K1 | em curso (2026-11-08) | | | |
 | 22 | K2 | pendente | | | |
 | 23 | K3 | pendente | | | |
 | 24 | K4 | pendente | | | |
