@@ -222,7 +222,11 @@ durante todo culto com Miracast), `TrilhaAudioTest`
 (qual trilha de áudio vai ao telão — o defeito mais silencioso deste caminho:
 tudo funciona, e o testemunho está em inglês na frente da congregação; doze casos
 **em pares**, o que a regra passou a recusar e o que ela não pode ter recusado
-junto).
+junto), `R2ImagemFonteTest` (a allowlist do bucket das fotos por COMPONENTE do
+`URI`: sufixo, prefixo, subdomínio, `http` e URL ilegível — a invariante 2 pelo
+lado do `fetch` que não manda CORS) e `CifraFonteTest` (a mesma invariante no
+transporte da cifra, que confere o host na entrada E no destino FINAL depois dos
+redirecionamentos; a reversão do predicado reprova 7 dos 9 casos).
 
 ## Assinatura
 
