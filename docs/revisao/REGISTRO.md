@@ -33,7 +33,7 @@ abandonada → primeira pendente pelo `nº`).
 | 19 | S1 | feita | v1.13.39 (só web) | 2026-11-08 | nenhum seletor morto nem token órfão; ~67 lápides "saiu na vX" removidas/condensadas (regras intocadas, prova 1 do CLAUDE.md) |
 | 20 | S2 | feita | v1.13.40 (só web) | 2026-11-08 | nenhum defeito de culto; 4 regras mortas e 3 classes mortas do HTML fora; ~31 lápides removidas/condensadas (regras intocadas, prova 1); visuais não capturados (sem Chromium) |
 | 21 | K1 | feita | v1.13.41 (APK + web) | 2026-11-08 | invariantes 1–9 provadas e com oráculo novo (`invariantes-shell`, 8 reversões); 2 defeitos corrigidos (os dois shares que se comiam; as teclas de volume na recarga do OTA); ~11 lápides/KDoc empilhados |
-| 22 | K2 | pendente | | | |
+| 22 | K2 | em curso (2026-11-08) | | 2026-11-08 | |
 | 23 | K3 | pendente | | | |
 | 24 | K4 | pendente | | | |
 | 25 | K5 | pendente | | | |
