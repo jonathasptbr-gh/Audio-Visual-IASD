@@ -677,6 +677,7 @@ apagada da que a criou.
 - **Os oráculos:** o `ponte-guarda-host` passou a afirmar **70 métodos, 44 com recusa explícita e 26 com declaração conferida contra o corpo** (era 76/50/26), e o `docs-coerentes`, o `tokens` e a Sanidade da base web rodaram. O Kotlin NÃO compila neste aparelho — quem responde por ele é o `verificar` do run.
 - **A documentação que descrevia os órfãos foi junto:** o catálogo do `PONTE.md` (64 · 70 · 70), o `CLAUDE.md` (o shell serve 70; 32 arquivos Kotlin), o mapa do `docs/shell/README.md` e da `ESTRUTURA.md`, e o `SEGUNDO-PLANO.md`.
 - **O operador:** instalar a v1.13.47 quando ela aparecer. Nada muda no uso: os métodos removidos já não tinham tela nem chamador desde a v1.8.71, a v1.8.89 e a v1.12.44.
+- **O CI (desfecho):** os runs #2360 (main) e #2361 (tag) verdes nos três jobs — `verificar`, `apk` e `web-ota`. A Release `v1.13.47` saiu com o `.apk` de 5.307.041 bytes, e o manifesto do canal publicou `1.13.47` com o bloco `shell` apontando para ela.
 
 ## v1.13.45 — revisão K5 (serviços e atualização)
 

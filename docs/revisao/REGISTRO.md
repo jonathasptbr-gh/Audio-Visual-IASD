@@ -104,6 +104,8 @@ aparelho.
 
 **Repasses:** X2 — o `StreamProxy`/`/s/` acima. Tratados: os de K1 (`requestMicPermission`), K3 (a cadeia da transmissão), K5 (`apkProcurar` + `procurar`) e os dois de K6 (`soltar` e `MicDiag`).
 
+**O CI (desfecho):** runs #2360 (main) e #2361 (tag) verdes — `verificar`, `apk` e `web-ota`; Release `v1.13.47` (APK 5.307.041 B) e manifesto do canal em `1.13.47` com o `shell` apontando para ela.
+
 **Ponto de parada:** nenhum.
 
 **O operador:** instalar a v1.13.47 quando ela aparecer (chega sozinha). Nada muda no uso — os métodos removidos já não tinham tela nem chamador.
