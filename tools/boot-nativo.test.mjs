@@ -1004,15 +1004,16 @@ try {
     'e os dois cabeçalhos que os agrupavam deixaram de existir',
     JSON.stringify(naTela.grupos));
   // A ORDEM é a do uso: as séries são o material DATADO do sábado que vem; o
-  // hinário é o acervo permanente. Medida, e não deduzida — ela só existe na
-  // ordem de uma linha do `renderCollectionsListMiolo` e some se alguém a
-  // reordenar sem querer.
+  // hinário é o acervo permanente — e, entre as duas séries, o Informativo vem
+  // antes do Provai e Vede (v1.13.37, pedido do operador). Medida, e não
+  // deduzida — ela só existe na ordem de uma linha do `renderCollectionsListMiolo`
+  // e some se alguém a reordenar sem querer.
   checar(/Favoritos/.test(naTela.linhas[0] || '')
-    && /Provai e Vede 2026/.test(naTela.linhas[1] || '')
-    && /Informativo Mundial/.test(naTela.linhas[2] || '')
+    && /Informativo Mundial/.test(naTela.linhas[1] || '')
+    && /Provai e Vede 2026/.test(naTela.linhas[2] || '')
     && /Hinário Adventista 2022/.test(naTela.linhas[3] || '')
     && /Hinário Adventista 1996/.test(naTela.linhas[4] || ''),
-    'nesta ordem: Favoritos, as duas séries e os dois hinários, antes de qualquer álbum',
+    'nesta ordem: Favoritos, as duas séries (Informativo, Provai e Vede) e os dois hinários, antes de qualquer álbum',
     JSON.stringify(naTela.linhas.slice(0, 6)));
 
   // ── O ÍNDICE NÃO PODE FICAR PRESO NUMA REGRA VELHA (v5.233) ────────────

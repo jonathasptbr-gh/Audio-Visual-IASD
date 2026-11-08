@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.37** — o "Tocar agora" do vídeo da semana põe o item virtual na fila (`replacePlaylistWith(reg)` no `semanaAcao`); a Biblioteca ordena as séries por nome (Informativo antes de Provai e Vede); a contagem do card é a da lista (`serieTotalVisivel` = `faixasDaLista` + destaque); os `.catch` mudos da retenção viram linha no Registro
 - **v1.13.36** — nos Favoritos a faixa excluir · renomear · ↑↓ vai para trás de um `⋮` (`.dest-opcoes`) na fileira de destinos, substituindo-os ao toque pelo mecanismo do Cronograma (`alternarAcoesDaLinha`); o "Ver a letra" só para registro com letra; `fecharOutrasGavetas`: uma gaveta aberta por vez na Biblioteca inteira (o destaque da série ficava aberto)
 - **v1.13.35** — a fileira de destinos da gaveta: os quatro quadrados JUNTOS (sem o `space-between`) e o quinto ("Ver a letra"/"Ver os detalhes") LARGO, com rótulo (`.dest-largo`, o desenho do antigo `.song-menu-letra`), crescendo no resto da linha; `destinos-diretos` mede a 360×1,25× e a 430×1×
 - **v1.13.34** — Pacotes 14, 15 e 13d: na gaveta da Biblioteca os destinos viram BOTÕES DIRETOS (`destBotoesRow`; Tocar · Cronograma · playlist · Favoritos · Auxiliar de leitura/detalhes), a miniatura diz o TIPO (`miniaturaDeTipo`, `#icoVideo`), o vídeo da semana vira o seletor "Este sábado"/"Atalho universal" do episódio, margem ao abrir seção e a barra fora de cena entre a tela cheia e a rotação
@@ -647,6 +648,38 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.13.37 — a fila do vídeo da semana, a ordem das séries, a contagem da lista e o log da retenção
+
+**v1.13.37 (só web, sem Release)** — a Área 1 da fila de pedidos (séries, vídeo
+da semana e as coleções da Biblioteca):
+
+- **O "Tocar agora" do vídeo da semana põe o item virtual na fila.** Até aqui
+  `semanaAcao` com `['tocar']` só fixava o registro na prateleira `avulsos` e
+  tocava; a fila ficava a anterior, e o item tocado não aparecia nela (o relato:
+  tocar o Provai e Vede e não achá-lo na playlist ao acrescentar outra mídia).
+  Agora, com só "Tocar agora" (sem destinos), `semanaAcao` chama
+  `replacePlaylistWith(reg)` — o mesmo funil de um item comum (`projetarItem`) —,
+  e é o item virtual (`kind: 'semana'`) que `ancoraDaFila` já procura.
+- **A ordem das coleções da Biblioteca** (`serieCollections`): Informativo antes
+  de Provai e Vede, por NOME (`localeCompare` pt-BR), a pedido do operador
+  ("deixe primeiro o informativo e depois o provai e vede"). Reordenar aqui, e
+  não no catálogo de `serie.js`, poupa o `impressao` de refazer o índice por uma
+  decisão que é só de desenho.
+- **A contagem do card é a da lista** (`serieTotalVisivel`): o número de
+  episódios que a barra mostra passa a sair de `faixasDaLista` + o destaque —
+  UMA função para a lista e o número ("conte apenas as versões disponíveis que
+  são mostradas ao usuário"). Hoje coincide com `songsBaixaveis` (uma série não
+  tem `semAudio`), mas o vínculo a mantém certa por construção. A raiz do
+  "30 vs 44 / meses faltando" é o ÍNDICE (extração/validade), não a conta — o
+  `docs/PEDIDOS-EM-ESPERA.md` guarda o caminho de classificar no Registro.
+- **A retenção deixa de falhar muda.** Os quatro `.catch(() => {})` /
+  `.catch(() => null)` do caminho da semana (`resolverSemana`,
+  `verificarSemanaAoAbrir`, o download e o `listSet` de `manterSeriesDaSemana`)
+  agora escrevem linha no Registro (`diagC('séries: …')`) com a mensagem do erro
+  — a regra do `DIAGNOSTICO.md`.
 
 ---
 

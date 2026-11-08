@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.13.37",
+    "itens": [
+      "Ao tocar o vídeo da semana, ele passa a aparecer na fila, como as outras mídias.",
+      "Na Biblioteca, o Informativo vem antes do Provai e Vede.",
+      "O número de episódios de uma série agora sai da própria lista.",
+      "Se baixar ou manter o vídeo da semana der errado, o Registro mostra o motivo."
+    ]
+  },
+  {
     "versao": "1.13.36",
     "itens": [
       "Nos Favoritos, excluir e renomear ficam num botão de opções na mesma linha dos destinos, como no Cronograma.",

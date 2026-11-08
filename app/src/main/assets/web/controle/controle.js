@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.36';
+const WEB_VERSION = '1.13.37';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -985,9 +985,18 @@ function serieDisponivel() {
 }
 function serieCollections() {
   if (!serieDisponivel()) return [];
-  return AVSerie.SERIES.map((s) => ({
-    id: s.id, name: s.name, kind: 'serie', serie: s, source: s.canal,
-  }));
+  // A ORDEM DE EXIBIÇÃO (v1.13.37): Informativo antes de Provai e Vede, a
+  // pedido do operador ("deixe primeiro o informativo e depois o provai e vede
+  // na ordem de coleções"). O catálogo de `serie.js` fica na ordem de PUBLICAÇÃO
+  // (a ordem em que cada série entrou); a ordem da Biblioteca é esta — por NOME,
+  // que hoje põe o Informativo na frente e continua legível quando entrar uma
+  // terceira série. Reordenar aqui, e não no catálogo, poupa o `impressao` de
+  // refazer o índice por uma decisão que é só de desenho.
+  return AVSerie.SERIES.slice()
+    .sort((a, b) => String(a.name).localeCompare(String(b.name), 'pt-BR'))
+    .map((s) => ({
+      id: s.id, name: s.name, kind: 'serie', serie: s, source: s.canal,
+    }));
 }
 
 function allCollections() {
@@ -12637,7 +12646,7 @@ function acertarAvisoDaFonte(noAcervo) {
 // `ctx` = a entrada do álbum DENTRO da categoria sendo renderizada (o pivô:
 // subtitle/order). Nulo para hinários e órfãos.
 function renderCollectionCard(coll, ctx) {
-  const total = songsBaixaveis(coll.id).length;
+  const total = ehLink(coll) ? serieTotalVisivel(coll) : songsBaixaveis(coll.id).length;
   // (Havia aqui um `countDownloaded(coll.id)` calculado e nunca lido — resto de
   // quando a fração vinha dele. Quem responde "quanto já está no aparelho?" é
   // `fracaoPeso`, e "está inteiro?" é `colecaoCompleta`. A varredura custava
@@ -13400,7 +13409,9 @@ function verificarSemanaAoAbrir(coll) {
       refreshCollectionsIfVisible();
       return null;
     })
-    .catch(() => {});
+    .catch((e) => {
+      diagC('séries: verificar a semana falhou (' + (e && e.message || e) + ')');
+    });
 }
 
 // NADA DENTRO DO CARD REPETE O QUE A BARRA DELE JÁ DIZ: o peso está na barra antes
@@ -13447,6 +13458,18 @@ function faixasDaLista(coll) {
   const d = destaqueDaSerie(coll);
   if (!d || !d.song) return todas;
   return todas.filter((s) => s !== d.song);
+}
+
+// O NÚMERO que a barra do card mostra para uma SÉRIE: os episódios que o
+// operador VÊ ao abrir — a lista (`faixasDaLista`) mais o destaque do sábado,
+// quando há. UMA função para a lista e o número, que é o que o pedido cobra
+// ("conte apenas as versões disponíveis que são mostradas ao usuário"): duas
+// contagens escritas à parte divergem, e a divergência foi o defeito relatado.
+// Hoje ela coincide com `songsBaixaveis` (uma série não tem `semAudio`), mas o
+// vínculo é o que a mantém certa por construção.
+function serieTotalVisivel(coll) {
+  const d = destaqueDaSerie(coll);
+  return faixasDaLista(coll).length + (d && d.song ? 1 : 0);
 }
 
 function blocoDestaque(coll) {
@@ -21258,14 +21281,24 @@ async function semanaAcao(cat, alvos, btn) {
   const escolhas = [...new Set(typeof alvos === 'string' ? [alvos] : (alvos || []))];
   const listas = listasDosDestinos(escolhas.filter((d) => d !== 'tocar'));
   const reg = semanaRegistro(cat);
+  const tocar = escolhas.includes('tocar');
   if (listas.length) await semanaGuardar(cat, listas, btn);
+  else if (tocar) {
+    // Só "Tocar agora": como um item comum (`projetarItem`), a fila vira SÓ o
+    // item virtual — é ele que `ancoraDaFila` procura para o avanço da fila e o
+    // "no ar" continuarem certos. Antes a fila ficava a anterior, e o item
+    // tocado não aparecia nela (o relato: tocar o Provai e Vede e não achá-lo na
+    // playlist ao acrescentar outra mídia).
+    if (!(await AVDB.getMediaCru(reg.id).catch(() => null))) await AVDB.mediaAdd(reg);
+    await replacePlaylistWith(reg);
+  }
   else if (!(await AVDB.getMediaCru(reg.id).catch(() => null))) {
-    // Só "Tocar agora": o registro mora na prateleira avulsa, que é o lugar do que
-    // está em cena sem pertencer a lista nenhuma (`fixarAvulso`).
+    // Sem "Tocar agora" nem destinos: o registro mora na prateleira avulsa, que é
+    // o lugar do que está em cena sem pertencer a lista nenhuma (`fixarAvulso`).
     await AVDB.mediaAdd(reg);
     await fixarAvulso(reg.id);
   }
-  if (escolhas.includes('tocar')) {
+  if (tocar) {
     closeHymnSearch();
     await send(reg.id);
   }
@@ -21479,7 +21512,9 @@ async function resolverSemana(rec, daFila) {
     await ytAcao(serieComoYoutube(coll, epi), 'tocar', null, false, ytAlturaPadrao());
   } finally { marcarCarregando(rec.id, false); }
   // O episódio novo entra na lista de RETENÇÃO já agora (a rotina só reescreve a lista).
-  manterSeriesDaSemana().catch(() => {});
+  manterSeriesDaSemana().catch((e) => {
+    diagC('séries: manter o episódio da semana falhou (' + (e && e.message || e) + ')');
+  });
   return true;
 }
 
@@ -21635,7 +21670,10 @@ async function manterSeriesDaSemana() {
           // o download automático de toda semana ensina a barra do "Tocar agora"
           // tanto quanto um toque — menos a abertura, que ele não tem.
           origem: 'serie',
-        })).catch(() => null);
+        })).catch((e) => {
+          diagC('séries: baixar o episódio da semana falhou (' + (e && e.message || e) + ')');
+          return null;
+        });
         setYtEstado(r.id, rec ? 'pronto' : null);
         setCollStatus(coll.id, rec ? 'Episódio desta semana baixado' : '', rec ? 4000 : 0);
       }
@@ -21648,7 +21686,9 @@ async function manterSeriesDaSemana() {
     // `listRemove` por item) porque é ele que coleta o que saiu na MESMA
     // transação — e porque a lista é pequena e conhecida por construção: um id
     // por série, no máximo.
-    await AVDB.listSet(SERIE_LISTA, guardar).catch(() => {});
+    await AVDB.listSet(SERIE_LISTA, guardar).catch((e) => {
+      diagC('séries: gravar a retenção da semana falhou (' + (e && e.message || e) + ')');
+    });
     renderCollectionsNow();
   } finally { serieAutoRodando = false; }
 }
