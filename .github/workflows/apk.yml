@@ -93,6 +93,12 @@ jobs:
     # fixar a imagem devolve o ambiente em que a campanha foi medida. Trocar
     # para `ubuntu-latest` é decisão junto com subir o pin, nunca sozinha.
     runs-on: ubuntu-24.04
+    # O passo "Veredito dos oráculos" publica um status do commit, e isso exige
+    # `statuses: write` no GITHUB_TOKEN — declarado aqui porque a permissão
+    # não-declarada vira "none" (o checkout precisa de `contents: read`).
+    permissions:
+      contents: read
+      statuses: write
     steps:
       # No evento `release` o `github.ref` é a TAG, e o que precisa ser
       # verificado é a base web de `main` — a mesma que o `web-ota` empacota.
@@ -776,9 +782,13 @@ jobs:
             *) estado="success" ;;
           esac
           desc="${VEREDITO_ORACULOS:0:140}"
-          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
-            -f state="$estado" -f context="oraculos" -f description="$desc" \
-            >/dev/null 2>&1 && echo "status publicado: $desc" || echo "status não publicado (sem permissão?)"
+          if gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
+               -f state="$estado" -f context="oraculos" -f description="$desc" \
+               >"$RUNNER_TEMP/veredito-gh.out" 2>&1; then
+            echo "status publicado: $desc"
+          else
+            echo "status NÃO publicado — erro:"; head -c 400 "$RUNNER_TEMP/veredito-gh.out"; echo
+          fi
 
 
   # Publica a base web como bundle OTA: um push em `main` chega sozinho aos
