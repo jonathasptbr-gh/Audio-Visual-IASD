@@ -390,6 +390,12 @@ object SlideDeck {
     /**
      * Baixa o PDF e devolve o arquivo — ou LANÇA, com o motivo na mensagem.
      *
+     * O REDIRECIONAMENTO FICA LIGADO DE PROPÓSITO, ao contrário do
+     * [R2ImagemFonte]: o `export/pdf` do Google responde com um `Location` para
+     * `*.googleusercontent.com`, e desligá-lo quebraria TODA importação de
+     * apresentação. A trava aqui é na URL de ENTRADA (ver [HOST_EXPORTACAO]),
+     * que é a única que o lado web escolhe.
+     *
      * Lançar em vez de devolver `null` é o contrato de [paginas]: o motivo tem
      * de chegar ao `{ erro }` do operador, e um `null` transforma "HTTP 403 do
      * Google" (link sem permissão) e "a rede caiu" na mesma frase — foi o par
