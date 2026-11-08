@@ -37,7 +37,7 @@ abandonada → primeira pendente pelo `nº`).
 | 23 | K3 | feita | v1.13.43 (APK + web) | 2026-11-08 | o cancelamento que chegava tarde matava o próximo download do mesmo vídeo; a barra recuava no último número; 7 `diagnostico +=` por fora do `anotar()`; oráculo novo `slot-do-download` (9 reversões); 9 KDocs no símbolo certo e a "fila de IO" corrigida para `transferencia`/`extracao` |
 | 24 | K4 | feita | v1.13.44 (APK + web) | 2026-11-08 | a entrega de mídia sem teto (e a subtração que a escondia), a mensagem que nunca termina prendendo a vaga, o token no `logcat`, o "apagado" que mentia e o bloco do canal gravado no item seguinte; oráculo novo `espelho-fronteira` (16 reversões) |
 | 25 | K5 | feita | v1.13.45 (APK + web) | 2026-11-08 | o APK truncado ia ao instalador e as TRÊS recusas pós-download rebaixavam o mesmo zip de 15 em 15 s; a transmissão não republicava com cena no ar; oráculos novos `servico-em-primeiro-plano` + `ota-ativacao` (34 asserções, 16 reversões) |
-| 26 | K6 | pendente | | | |
+| 26 | K6 | em curso (2026-11-08) | | | |
 | 27 | X1 | pendente | | | |
 | 28 | X2 | pendente | | | |
 | 29 | X3 | pendente | | | |
