@@ -53,6 +53,35 @@ class EspelhoHttpTest {
         }
     }
 
+    /**
+     * Um `InputStream` que entrega UM byte por chamada e DORME [esperaMs] antes
+     * de cada uma — o cliente que nunca termina, sem prazo de CPU.
+     *
+     * É o instrumento do prazo TOTAL: com o `Gotejante` puro a mensagem inteira
+     * é parseada em microssegundos, e um prazo curto no teste passa a medir a
+     * VELOCIDADE DA MÁQUINA em vez da regra (foi assim que este teste reprovou
+     * no CI na primeira tentativa, com 1 ms e 6 KB de cabeçalho).
+     */
+    private class Lento(private val dados: ByteArray, private val esperaMs: Long) : InputStream() {
+        private var pos = 0
+
+        override fun read(): Int = if (pos >= dados.size) -1 else dados[pos++].toInt() and 0xFF
+
+        override fun read(b: ByteArray, off: Int, len: Int): Int {
+            if (len == 0) return 0
+            if (pos >= dados.size) return -1
+            try {
+                Thread.sleep(esperaMs)
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
+            val n = minOf(len, 1, dados.size - pos)
+            System.arraycopy(dados, pos, b, off, n)
+            pos += n
+            return n
+        }
+    }
+
     /** Monta uma requisição crua. O corpo entra literal, sem `Content-Length`. */
     private fun cru(
         linha: String = "GET /v HTTP/1.1",
@@ -543,26 +572,28 @@ class EspelhoHttpTest {
      * de um culto — a tela que recarregar recebe conexão recusada, sem nada que
      * ligue uma coisa à outra.
      *
-     * A prova usa o MESMO fluxo duas vezes: com o prazo de produção ele é
-     * aceito byte a byte (o laço de leitura dá conta), e com 1 ms ele morre como
+     * A prova é a mesma mensagem, duas vezes: byte a byte ela é ACEITA (o
+     * parser está certo, e o que a derruba abaixo é o relógio), e com um cliente
+     * que dorme 40 ms entre bytes e um prazo total de 100 ms ela morre como
      * [EspelhoHttp.Erro.Truncado] — a mesma resposta de um socket que morreu no
-     * meio, porque é isso que aconteceu do ponto de vista do parser.
+     * meio, que é o que de fato aconteceu do ponto de vista do parser.
+     *
+     * **A CONTA É DE TEMPO, não de bytes**: por isso o fluxo DORME
+     * ([Lento]) em vez de ser só picado — com bytes sem pausa, 6 KB de
+     * cabeçalho são parseados em microssegundos e o teste mediria a velocidade
+     * da máquina.
      */
     @Test
     fun aMensagemQueNaoTerminaAMortoMorreNoPrazoTotal() {
-        val bruto = cru(
-            linha = "GET /v HTTP/1.1",
-            cabecalhos = listOf("Host: 192.168.0.42:8787") +
-                List(30) { i -> "X-$i: ${"a".repeat(200)}" },
-        )
-        // Premissa: sem prazo apertado, o gotejo byte a byte PARSELA.
+        val bruto = cru(linha = "GET /v HTTP/1.1")
+        // Premissa: a mensagem é VÁLIDA — o que a derruba adiante é o relógio.
         assertTrue(ler(bruto, porRead = 1).isSuccess)
         assertSame(
             EspelhoHttp.Erro.Truncado,
             EspelhoHttp.lerRequisicao(
-                Gotejante(bruto.toByteArray(Charsets.ISO_8859_1), 1),
+                Lento(bruto.toByteArray(Charsets.ISO_8859_1), 40),
                 hosts,
-                prazoTotalMs = 1,
+                prazoTotalMs = 100,
             ).exceptionOrNull(),
         )
     }
