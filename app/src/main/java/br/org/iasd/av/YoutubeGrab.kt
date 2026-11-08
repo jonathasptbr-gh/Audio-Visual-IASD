@@ -6,6 +6,9 @@ import android.os.Build
 import android.os.SystemClock
 import android.text.Html
 import android.util.Log
+import com.grack.nanojson.JsonArray
+import com.grack.nanojson.JsonObject
+import com.grack.nanojson.JsonWriter
 import org.json.JSONArray
 import org.json.JSONObject
 import org.schabi.newpipe.extractor.Extractor
@@ -14,10 +17,10 @@ import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.Page
 import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.channel.ChannelInfo
-import org.schabi.newpipe.extractor.channel.tabs.ChannelTabInfo
 import org.schabi.newpipe.extractor.channel.tabs.ChannelTabs
 import org.schabi.newpipe.extractor.playlist.PlaylistInfo
-import org.schabi.newpipe.extractor.playlist.PlaylistInfoItem
+import org.schabi.newpipe.extractor.services.youtube.YoutubeChannelHelper
+import org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper
 import org.schabi.newpipe.extractor.downloader.Downloader
 import org.schabi.newpipe.extractor.downloader.Request
 import org.schabi.newpipe.extractor.downloader.Response
@@ -1709,6 +1712,9 @@ object YoutubeGrab {
     /** Teto de páginas ao varrer a aba de playlists de um canal. */
     private const val PAG_CANAL_MAX = 6
 
+    /** Os parâmetros INNERTUBE da aba "Playlists" de um canal. */
+    private const val PARAMS_PLAYLISTS = "EglwbGF5bGlzdHPyBgQKAkIA"
+
     /**
      * As playlists que um canal publica — `[{ name, url, count }]`.
      *
@@ -1719,12 +1725,20 @@ object YoutubeGrab {
      * playlist a menos, nunca um vídeo de outra pessoa na projeção do culto.
      *
      * **A paginação não é enfeite:** o canal tem uma playlist por mês E a
-     * versão em Libras de cada uma, mais os anos anteriores. Uma página do
-     * NewPipe traz algumas dezenas, então sem o laço os meses mais antigos
-     * simplesmente não existiriam para o app — o modo de falhar mais mudo
-     * possível, porque a lista aparece, só que incompleta. O teto de
-     * [PAG_CANAL_MAX] existe para um canal enorme não segurar a fila de IO
-     * indefinidamente.
+     * versão em Libras de cada uma, mais os anos anteriores. Uma página traz
+     * algumas dezenas, então sem o laço os meses mais antigos simplesmente não
+     * existiriam para o app — o modo de falhar mais mudo possível, porque a
+     * lista aparece, só que incompleta. O teto de [PAG_CANAL_MAX] existe para um
+     * canal enorme não segurar a fila de IO indefinidamente.
+     *
+     * **POR QUE LER O JSON CRU, EM VEZ DO `ChannelTabInfo.getInfo`?** (v1.13.38)
+     * O extrator de aba de canal do NewPipe descarta, na aba Playlists, todo
+     * item cujo `contentType` não seja `LOCKUP_CONTENT_TYPE_PLAYLIST` ou
+     * `_PODCAST` — e o YouTube passou a entregar alguns meses do Provai e Vede
+     * (julho/agosto/setembro de 2026) como `LOCKUP_CONTENT_TYPE_COURSE`, com o
+     * mesmo shape dos demais (título, `contentId` "PL…", badge de contagem).
+     * Eles somem **sem erro nenhum**: a lista aparece, só que incompleta. Ler o
+     * JSON cru e aceitar os dois tipos é o que devolve esses meses.
      */
     fun playlistsDoCanal(canalUrl: String): JSONArray {
         val out = JSONArray()
@@ -1740,39 +1754,145 @@ object YoutubeGrab {
         val cEx = svc.getChannelExtractor(svc.channelLHFactory.fromUrl(canalUrl))
         aportuguesar(cEx)
         cEx.fetchPage()
-        val aba = ChannelInfo.getInfo(cEx).tabs
-            .firstOrNull { it.contentFilters.contains(ChannelTabs.PLAYLISTS) } ?: return out
+        val canal = ChannelInfo.getInfo(cEx)
+        val canalId = canal.id
+        if (canalId.isNullOrBlank()) return out
+        if (canal.tabs.none { it.contentFilters.contains(ChannelTabs.PLAYLISTS) }) return out
 
-        val ex = svc.getChannelTabExtractor(aba)
-        aportuguesar(ex)
-        ex.fetchPage()
-        val info = ChannelTabInfo.getInfo(ex)
-        info.relatedItems.forEach { item -> anexarPlaylist(out, item) }
+        // A PRIMEIRA PÁGINA vem do helper público do NewPipe (mesmo request que
+        // o extrator de aba faria), e o `aportuguesar` vira o par
+        // `IDIOMA`/`PAIS` passado direto — os títulos continuam em português.
+        val primeira = YoutubeChannelHelper.getChannelResponse(canalId, PARAMS_PLAYLISTS, IDIOMA, PAIS)
+        val pagina0 = playlistGridDe(primeira.jsonResponse) ?: return out
+        anexarPlaylists(out, pagina0)
+        var token = tokenContinuacao(pagina0)
 
-        // As páginas seguintes saem do MESMO extrator, e não do
-        // `getMoreItems(service, …)`: aquele monta um extrator novo por dentro,
-        // que nasceria sem o `forceLocalization` — os meses do fim da lista
-        // voltariam em inglês enquanto os do começo vêm em português.
-        var pagina = info.nextPage
+        // As páginas seguintes repetem o MESMO request de continuação, com o
+        // mesmo `prepareDesktopJsonBuilder` do extrator — sem isso os meses do
+        // fim da lista voltariam em inglês.
         var n = 1
-        while (pagina != null && Page.isValid(pagina) && n < PAG_CANAL_MAX) {
-            val mais = ex.getPage(pagina)
-            mais.items.forEach { item -> anexarPlaylist(out, item) }
-            pagina = mais.nextPage
+        while (token != null && n < PAG_CANAL_MAX) {
+            // Qualquer falha aqui PROPAGA (não vira `break`): uma lista incompleta
+            // faria o índice da série nascer sem os anos antigos, e o contrato do
+            // caminho é "falhou → exceção → preserva o índice anterior".
+            val corpo = JsonWriter.string(
+                YoutubeParsingHelper.prepareDesktopJsonBuilder(IDIOMA, PAIS)
+                    .value("continuation", token).done(),
+            ).toByteArray(Charsets.UTF_8)
+            val ajax = YoutubeParsingHelper.getJsonPostResponse("browse", corpo, IDIOMA)
+            val mais = playlistContinuacaoDe(ajax)
+                ?: throw IllegalStateException("continuação da aba Playlists veio sem itens")
+            anexarPlaylists(out, mais)
+            token = tokenContinuacao(mais)
             n++
         }
         return out
     }
 
-    private fun anexarPlaylist(out: JSONArray, item: InfoItem) {
-        if (item !is PlaylistInfoItem) return
-        val url = item.url ?: return
-        out.put(
-            JSONObject()
-                .put("name", item.name ?: "")
-                .put("url", url)
-                .put("count", item.streamCount),
-        )
+    /**
+     * A grade de playlists da resposta inicial da aba Playlists, ou `null`.
+     *
+     * Só `null` por FALTA de grade (chave ausente); um JSON de tipo errado lança
+     * `JsonParserException`, que propaga — o mesmo "falhou → preserva" do laço.
+     */
+    private fun playlistGridDe(json: JsonObject): JsonArray? {
+        val tabs = json.getObject("contents")?.getObject("twoColumnBrowseResultsRenderer")
+            ?.getArray("tabs")
+        var itens: JsonArray? = null
+        if (tabs != null) {
+            for (i in 0 until tabs.size()) {
+                val tr = tabs.getObject(i)?.getObject("tabRenderer") ?: continue
+                val url = tr.getObject("endpoint")?.getObject("commandMetadata")
+                    ?.getObject("webCommandMetadata")?.getString("url") ?: ""
+                if (url.endsWith("/playlists")) {
+                    itens = tr.getObject("content")?.getObject("sectionListRenderer")
+                        ?.getArray("contents")?.getObject(0)?.getObject("itemSectionRenderer")
+                        ?.getArray("contents")?.getObject(0)?.getObject("gridRenderer")
+                        ?.getArray("items")
+                    break
+                }
+            }
+        }
+        return itens
+    }
+
+    /** Os itens de uma resposta de CONTINUAÇÃO da aba Playlists, ou `null`. */
+    private fun playlistContinuacaoDe(json: JsonObject): JsonArray? {
+        val acoes = json.getArray("onResponseReceivedActions")
+        var itens: JsonArray? = null
+        if (acoes != null) {
+            for (i in 0 until acoes.size()) {
+                val acao = acoes.getObject(i) ?: continue
+                if (acao.has("appendContinuationItemsAction")) {
+                    itens = acao.getObject("appendContinuationItemsAction")
+                        ?.getArray("continuationItems")
+                    break
+                }
+            }
+        }
+        return itens
+    }
+
+    /** O token da próxima página, lido do `continuationItemRenderer` da lista. */
+    private fun tokenContinuacao(itens: JsonArray?): String? {
+        if (itens == null || itens.isEmpty()) return null
+        return itens.getObject(itens.size() - 1)?.getObject("continuationItemRenderer")
+            ?.getObject("continuationEndpoint")?.getObject("continuationCommand")
+            ?.getString("token")
+    }
+
+    /** Adiciona ao `out` cada `lockupViewModel` de playlist (PLAYLIST ou COURSE). */
+    private fun anexarPlaylists(out: JSONArray, itens: JsonArray?) {
+        if (itens == null) return
+        for (i in 0 until itens.size()) {
+            val lv = itens.getObject(i)?.getObject("lockupViewModel") ?: continue
+            anexarPlaylistLockup(out, lv)
+        }
+    }
+
+    /** Extrai `{ name, url, count }` de um `lockupViewModel` de playlist. */
+    private fun anexarPlaylistLockup(out: JSONArray, lv: JsonObject) {
+        try {
+            var id = lv.getString("contentId")
+            if (id.isNullOrBlank()) {
+                id = lv.getObject("rendererContext")?.getObject("commandContext")
+                    ?.getObject("watchEndpoint")?.getString("playlistId")
+            }
+            if (id.isNullOrBlank() || !id.startsWith("PL")) return
+            val nome = lv.getObject("metadata")?.getObject("lockupMetadataViewModel")
+                ?.getObject("title")?.getString("content")
+            if (nome.isNullOrBlank()) return
+            out.put(
+                JSONObject()
+                    .put("name", nome)
+                    .put("url", "https://www.youtube.com/playlist?list=$id")
+                    .put("count", contagemLockup(lv)),
+            )
+        } catch (_: Exception) {
+            // um lockup malformado não derruba a lista inteira
+        }
+    }
+
+    /** A contagem de vídeos do badge ("4 vídeos"/"4 lições" → 4), ou 0. */
+    private fun contagemLockup(lv: JsonObject): Long {
+        return try {
+            val overlays = lv.getObject("contentImage")?.getObject("collectionThumbnailViewModel")
+                ?.getObject("primaryThumbnail")?.getObject("thumbnailViewModel")
+                ?.getArray("overlays") ?: return 0L
+            for (i in 0 until overlays.size()) {
+                val badges = overlays.getObject(i)?.getObject("thumbnailOverlayBadgeViewModel")
+                    ?.getArray("thumbnailBadges") ?: continue
+                for (j in 0 until badges.size()) {
+                    val texto = badges.getObject(j)?.getObject("thumbnailBadgeViewModel")
+                        ?.getString("text") ?: continue
+                    val digitos = texto.filter { it.isDigit() }
+                    if (digitos.isNotEmpty()) return digitos.toLong()
+                }
+            }
+            0L
+        } catch (_: Exception) {
+            0L
+        }
     }
 
     /**

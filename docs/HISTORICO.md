@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.38** — o extrator de canal do NewPipe descarta playlists `LOCKUP_CONTENT_TYPE_COURSE` (é como o YouTube entregou jul/ago/set de 2026 no Provai e Vede); `playlistsDoCanal` lê o JSON cru da aba e aceita os dois tipos (APK, `shellTag: "v1.13.38"`)
 - **v1.13.37** — o "Tocar agora" do vídeo da semana põe o item virtual na fila (`replacePlaylistWith(reg)` no `semanaAcao`); a Biblioteca ordena as séries por nome (Informativo antes de Provai e Vede); a contagem do card é a da lista (`serieTotalVisivel` = `faixasDaLista` + destaque); os `.catch` mudos da retenção viram linha no Registro
 - **v1.13.36** — nos Favoritos a faixa excluir · renomear · ↑↓ vai para trás de um `⋮` (`.dest-opcoes`) na fileira de destinos, substituindo-os ao toque pelo mecanismo do Cronograma (`alternarAcoesDaLinha`); o "Ver a letra" só para registro com letra; `fecharOutrasGavetas`: uma gaveta aberta por vez na Biblioteca inteira (o destaque da série ficava aberto)
 - **v1.13.35** — a fileira de destinos da gaveta: os quatro quadrados JUNTOS (sem o `space-between`) e o quinto ("Ver a letra"/"Ver os detalhes") LARGO, com rótulo (`.dest-largo`, o desenho do antigo `.song-menu-letra`), crescendo no resto da linha; `destinos-diretos` mede a 360×1,25× e a 430×1×
@@ -648,6 +649,17 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.13.38 — o Provai e Vede volta a mostrar julho, agosto e setembro
+
+**v1.13.38** — (APK: `shellTag: "v1.13.38"`, `SHELL_VERSION` 83, `minShell: 83`; degrau CORREÇÃO; **Kotlin puro**, sem mudança de ponte). O canal oficial do Provai e Vede passou a entregar as playlists de julho, agosto e setembro de 2026 com `contentType` **`LOCKUP_CONTENT_TYPE_COURSE`** (badge "4 lições" em vez de "4 vídeos") — mesmo `contentId` "PL…", mesmo título e mesma contagem dos demais. O extrator de aba do NewPipe (`YoutubeChannelTabExtractor.commitLockup`) só aceita `PLAYLIST`/`PODCAST`/`VIDEO` e **descarta o COURSE em silêncio**, então os três meses sumiam da lista (32 episódios em vez de ~46), sem erro nenhum.
+
+- **`playlistsDoCanal` passa a ler o JSON cru da aba, não o `ChannelTabInfo.getInfo`.** A primeira página vem de `YoutubeChannelHelper.getChannelResponse(canalId, params, IDIOMA, PAIS)` — o mesmo request que o extrator de aba faria, e público —; as continuações de `YoutubeParsingHelper.getJsonPostResponse` com o mesmo `prepareDesktopJsonBuilder`. O `aportuguesar` vira o par `IDIOMA`/`PAIS` passado direto, então os títulos continuam em português.
+- **A leitura aceita os DOIS tipos.** `playlistGridDe` acha a grade pelo sufixo `/playlists`; `anexarPlaylistLockup` extrai `{ name, url, count }` de qualquer `lockupViewModel` com `contentId` "PL…" (o `contentType` nem é lido), e a contagem sai do badge do thumbnail ("N vídeos"/"N lições"). O `gridPlaylistRenderer` (formato antigo) não é tratado: os dois canais do catálogo já usam `lockupViewModel`.
+- **O modo de falhar continua "exceção → preserva o índice".** Falha de rede/parse em QUALQUER página propaga (o laço não vira `break`); uma continuação sem itens lança `IllegalStateException`. Só o item malformado é tolerado (`anexarPlaylistLockup`/`contagemLockup` engolem por item), nunca a estrutura.
+- **Sem degrau de `SHELL_VERSION`** (a forma de `ytCanalPlaylists` não muda: `{ name, url, count }` continua), e sem mudança de web — o `serie.js` já aceitava esses meses; quem não os entregava era o shell.
 
 ---
 

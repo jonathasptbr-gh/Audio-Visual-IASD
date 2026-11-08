@@ -90,12 +90,15 @@ os meses faltando, a suspeita é a mesma regra de pertencimento (a playlist
 prova, o título é rótulo) derrubando os episódios, ou o índice chegando
 incompleto.
 
-**A fazer:** (1) puxar os dois índices num aparelho (o Registro tem o bloco da
-varredura) e classificar cada item; a descoberta é a **ABA DO CANAL**, nunca
-busca por texto (autoridade). (2) a contagem passa a ser `faixasDaLista(coll).length`
-+ o destaque — **UMA função** para lista e número. (3) se sobrar item que não é
-episódio, a regra entra em `serie.js` com caso no oráculo Node. O número "certo"
-é o de sábados até hoje no ano corrente — dá para afirmar no oráculo.
+**Resolvido (v1.13.38).** A classificação em aparelho (Registro de 08/11 08:05)
++ a leitura da aba do canal mostraram a causa: o YouTube entregou as playlists de
+julho, agosto e setembro de 2026 com `contentType` `LOCKUP_CONTENT_TYPE_COURSE`
+(badge "4 lições"), e o extrator de aba do NewPipe descarta esse tipo — os meses
+sumiam **sem erro**, e a contagem (32) estava certa para a lista que chegava. A
+v1.13.37 já tinha corrigido a CONTA (a barra passa a ler `faixasDaLista` + o
+destaque); a v1.13.38 corrige a EXTRAÇÃO (`playlistsDoCanal` lê o JSON cru da aba
+e aceita `PLAYLIST` + `COURSE`). É APK (`shellTag: "v1.13.38"`, sem degrau de
+ponte).
 
 ### 1.2 O episódio baixado que some do offline
 
