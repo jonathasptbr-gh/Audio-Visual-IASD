@@ -3,7 +3,7 @@
 > Capítulo do **shell nativo**. Mapa em [`README.md`](README.md); as regras do
 > app inteiro, em [`../../CLAUDE.md`](../../CLAUDE.md).
 
-Arquivos: `WebUpdater.kt` (1.059 linhas) · `ShellUpdater.kt` (340) ·
+Arquivos: `WebUpdater.kt` (1.259 linhas) · `ShellUpdater.kt` (371) ·
 `WebPathHandler.kt` (88) · o bloco de OTA em `shared/native.js` e em
 `controle/controle.js` · `.github/workflows/apk.yml`.
 Oráculo: **`tools/ota.test.mjs`** (Chromium + ponte de mentira).
