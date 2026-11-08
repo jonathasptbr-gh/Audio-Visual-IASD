@@ -66,6 +66,7 @@ tratou.
 | X2 | C7 | `docs/ORACULOS.md`, linha do `hidratacao-perde-a-vez`: descreve os blocos 1–7 e o 12 (entrou na C7), mas não os 8–11 (C3–C6). E as linhas do `sorteio-lista-de-resultados` e do `verificacao-do-sistema` não citam as asserções novas da C7 (a recusa no bloco C; o `AVProgresso` no L1) |
 | S2 | S1 | ~~`controle.css` 2ª metade: as lápides `.bible-ref-label` ("SAIU na v1.8.83", ~L6761) e "MICROFONE AO VIVO … saiu na v1.8.89" (~L6785)~~ — **tratadas na S2**: a primeira virou a regra viva do `currentColor`; a segunda saiu inteira |
 | X2 | S2 | `controle/index.html`: `#testeFecho` e `#bibleTitle` são ids sem leitor (o `#testeCorpo` NÃO — é gancho do `verificacao-do-sistema`); classificar junto com os demais achados da auditoria. E a varredura de id/`<symbol>` sem consumidor do HTML continua valendo para quem tiver o DOM. |
+| X3 | S2 | `tools/pares-de-comentario.mjs` não entende comentário CSS de várias linhas: `ehComentario` só reconhece linha iniciada por `//`, `/*`, `*` ou `#`, então um bloco `/* … */` com continuação sem `*` termina na 1ª linha e o `alvo` vira a 2ª linha do PRÓPRIO comentário — na S2, 7 blocos reescritos acusaram "mudou de alvo" sem trocar de destino (confirmado: HEAD×HEAD passa com 1169 blocos, e cada bloco acusado continuava antes da MESMA regra). Conserto: estado de "bloco aberto" até `*/`; reversão = HEAD×HEAD verde e um bloco deslocado de propósito reprovar (o caso JSDoc da `AUDITORIA-2026-08` M1 já era conhecido). |
 
 ## Relatórios
 
