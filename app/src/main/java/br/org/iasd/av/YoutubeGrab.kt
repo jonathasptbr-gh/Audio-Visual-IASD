@@ -1800,7 +1800,7 @@ object YoutubeGrab {
             ?.getArray("tabs")
         var itens: JsonArray? = null
         if (tabs != null) {
-            for (i in 0 until tabs.size()) {
+            for (i in 0 until tabs.size) {
                 val tr = tabs.getObject(i)?.getObject("tabRenderer") ?: continue
                 val url = tr.getObject("endpoint")?.getObject("commandMetadata")
                     ?.getObject("webCommandMetadata")?.getString("url") ?: ""
@@ -1821,7 +1821,7 @@ object YoutubeGrab {
         val acoes = json.getArray("onResponseReceivedActions")
         var itens: JsonArray? = null
         if (acoes != null) {
-            for (i in 0 until acoes.size()) {
+            for (i in 0 until acoes.size) {
                 val acao = acoes.getObject(i) ?: continue
                 if (acao.has("appendContinuationItemsAction")) {
                     itens = acao.getObject("appendContinuationItemsAction")
@@ -1836,7 +1836,7 @@ object YoutubeGrab {
     /** O token da próxima página, lido do `continuationItemRenderer` da lista. */
     private fun tokenContinuacao(itens: JsonArray?): String? {
         if (itens == null || itens.isEmpty()) return null
-        return itens.getObject(itens.size() - 1)?.getObject("continuationItemRenderer")
+        return itens.getObject(itens.size - 1)?.getObject("continuationItemRenderer")
             ?.getObject("continuationEndpoint")?.getObject("continuationCommand")
             ?.getString("token")
     }
@@ -1844,7 +1844,7 @@ object YoutubeGrab {
     /** Adiciona ao `out` cada `lockupViewModel` de playlist (PLAYLIST ou COURSE). */
     private fun anexarPlaylists(out: JSONArray, itens: JsonArray?) {
         if (itens == null) return
-        for (i in 0 until itens.size()) {
+        for (i in 0 until itens.size) {
             val lv = itens.getObject(i)?.getObject("lockupViewModel") ?: continue
             anexarPlaylistLockup(out, lv)
         }
@@ -1879,10 +1879,10 @@ object YoutubeGrab {
             val overlays = lv.getObject("contentImage")?.getObject("collectionThumbnailViewModel")
                 ?.getObject("primaryThumbnail")?.getObject("thumbnailViewModel")
                 ?.getArray("overlays") ?: return 0L
-            for (i in 0 until overlays.size()) {
+            for (i in 0 until overlays.size) {
                 val badges = overlays.getObject(i)?.getObject("thumbnailOverlayBadgeViewModel")
                     ?.getArray("thumbnailBadges") ?: continue
-                for (j in 0 until badges.size()) {
+                for (j in 0 until badges.size) {
                     val texto = badges.getObject(j)?.getObject("thumbnailBadgeViewModel")
                         ?.getString("text") ?: continue
                     val digitos = texto.filter { it.isDigit() }
