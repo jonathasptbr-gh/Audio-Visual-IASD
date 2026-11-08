@@ -31,7 +31,7 @@ abandonada → primeira pendente pelo `nº`).
 | 17 | C8 | feita | v1.13.28 (só web) | 2026-11-06 | nenhum defeito de culto na fatia; o link compartilhado ficava fora do Cronograma até a próxima releitura (`load()` no fim do `importShare` + asserção com reversão); o resgate dos downloads em `updateState` (repasse W1 + asserção com reversão); repasse C4 do `redesenharComMiniatura` refutado; ~270 comentários (8 blocos no símbolo errado) |
 | 18 | C9 | feita | v1.13.31 (só web) | 2026-11-06 | nenhum defeito de culto na fatia; a folha de conexão nomeava a TV errada com duas telas (`telaoNoAr`, a régua do Registro + asserção com reversão); os repasses C4/C6 de `plItems` refutados; código morto da transmissão; ~290 comentários (1 bloco no símbolo errado) |
 | 19 | S1 | feita | v1.13.39 (só web) | 2026-11-08 | nenhum seletor morto nem token órfão; ~67 lápides "saiu na vX" removidas/condensadas (regras intocadas, prova 1 do CLAUDE.md) |
-| 20 | S2 | pendente | | | |
+| 20 | S2 | em curso | | 2026-11-08 | |
 | 21 | K1 | pendente | | | |
 | 22 | K2 | pendente | | | |
 | 23 | K3 | pendente | | | |
