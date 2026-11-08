@@ -187,6 +187,16 @@ dependencies {
     // isso que a escolha em `YoutubeGrab.tentarJuntar` virou uma fila de
     // candidatos em vez de "a de maior altura".
     implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.4")
+    // O nanojson é a biblioteca de JSON do NewPipe, e a API PÚBLICA dele devolve
+    // esses tipos: `YoutubeChannelHelper.getChannelResponse` →
+    // `ChannelResponseData.jsonResponse`, `YoutubeParsingHelper.prepareDesktopJsonBuilder`
+    // → `JsonBuilder<JsonObject>` e `getJsonPostResponse` → `JsonObject`. O NewPipe
+    // declara o nanojson como `implementation` (não `api`), então ele chega no
+    // RUNTIME mas não no COMPILE — e o `YoutubeGrab.playlistsDoCanal` (v1.13.38)
+    // lê o JSON cru da aba de playlists exatamente por esses helpers. Promover a
+    // dependência transiente a direta (a MESMA versão pinada pelo NewPipe, que o
+    // JitPack já resolve) é o que põe o tipo no classpath de compilação.
+    implementation("com.github.TeamNewPipe:nanojson:e9d656ddb49a412a5a0a5d5ef20ca7ef09549996")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.2")
 
     // A TERCEIRA EXCEÇÃO à regra de zero dependência, e a primeira que **não põe
