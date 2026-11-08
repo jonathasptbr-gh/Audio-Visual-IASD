@@ -267,6 +267,8 @@ jobs:
           node tools/ponte-guarda-host.test.mjs
           node tools/slot-do-download.test.mjs
           node tools/espelho-fronteira.test.mjs
+          node tools/servico-em-primeiro-plano.test.mjs
+          node tools/ota-ativacao.test.mjs
 
           node tools/tipos-que-sobem.test.mjs
 

@@ -54,6 +54,14 @@ object WebUpdater {
      * o mesmo que o workflow escreve no campo `assets` do `version.json`
      * (`$GITHUB_REPOSITORY`).
      *
+     * **É a ÚNICA cópia no Kotlin desde a K5** — o [ShellUpdater] e o [Farol]
+     * referenciam esta constante em vez de digitá-la. Eram três, e o contrato
+     * (o `docs/shell/OTA.md` e o `CLAUDE.md`) só nomeava duas: renomear o
+     * repositório seguindo o contrato ao pé da letra deixaria a terceira
+     * apontando para o nome velho, com o `GET` devolvendo 404 e o farol parando
+     * de contar em silêncio. A outra cópia que sobra é a da página do site
+     * (`site/registro/index.html`), que é um link — falha à vista, não muda.
+     *
      * Ficou apontando para o nome ANTIGO (`APP-Audio-Visual-IASD`) depois que
      * o repositório foi renomeado, e continuou funcionando por um acaso: o
      * GitHub redireciona o nome antigo para o novo. É um acaso frágil, e o
@@ -63,7 +71,7 @@ object WebUpdater {
      * redirecionamento simplesmente sumir, o `check()` engole o erro em
      * `Log.i` e o OTA fica INERTE, sem sinal nenhum no aparelho.
      */
-    private const val REPO = "jonathasptbr-gh/Audio-Visual-IASD"
+    internal const val REPO = "jonathasptbr-gh/Audio-Visual-IASD"
     private const val VERSION_URL =
         "https://github.com/$REPO/releases/download/web-latest/version.json"
 
@@ -365,10 +373,17 @@ object WebUpdater {
      * não se descreve.
      */
     fun notasPendentes(ctx: Context): JSONArray {
-        val vazio = JSONArray()
         val p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val active = p.getString(KEY_ACTIVE, null) ?: return vazio
-        if (active == sessionRoot?.name) return vazio
+        val active = p.getString(KEY_ACTIVE, null) ?: return JSONArray()
+        return notasDe(ctx, active, currentVersion(ctx))
+    }
+
+    /** O corpo do [notasPendentes] com o que o chamador já leu — o [estado]
+     *  pede as duas coisas na mesma fotografia, e reler o `version.json` aqui
+     *  era a terceira leitura do mesmo arquivo por chamada. */
+    private fun notasDe(ctx: Context, active: String?, atual: String): JSONArray {
+        val vazio = JSONArray()
+        if (active == null || active == sessionRoot?.name) return vazio
         val f = File(File(baseDir(ctx), active), "web/notas.json")
         if (!f.isFile) return vazio
         // TETO DE LEITURA: este arquivo vem de um zip baixado da rede, e ler um
@@ -378,7 +393,6 @@ object WebUpdater {
             Log.w(TAG, "notas.json grande demais (${f.length()} B) — ignorado")
             return vazio
         }
-        val atual = currentVersion(ctx)
         return try {
             val lidas = JSONArray(f.readText())
             val out = JSONArray()
@@ -509,7 +523,9 @@ object WebUpdater {
     /**
      * O piso do CUTUCÃO DE ROTINA DA TELA (`otaCheck(false)`) — o da ronda.
      *
-     * A enquete do lado web bate a cada 10 s (`OTA_POLL_MS`), então
+     * A enquete do lado web bate a cada 10 s (`OTA_POLL_MS` **do
+     * `controle.js`** — o `OTA_POLL_MS` do `native.js` vale 250 ms e é o do
+     * watchdog, outro relógio), então
      * [MIN_ENTRE_CHECKS_MS] **nunca a reprova**: a rotina que se anunciava como
      * "lê o disco" virava uma consulta à rede a cada dez segundos, para sempre,
      * por cima das quatro por minuto que a [RONDA_MS] orça.
@@ -752,7 +768,13 @@ object WebUpdater {
                     if (nova != null || ShellUpdater.temNovidade()) {
                         aoChegar?.invoke(nova ?: "")
                     }
-                } catch (e: Exception) {
+                } catch (e: Throwable) {
+                    // `Throwable`, e não `Exception`, pela mesma razão do
+                    // `catch` da ronda e do `Thread.start()` logo abaixo: o
+                    // desfecho que interessa aqui é um `Error` (a extração do
+                    // bundle é o maior consumidor de memória do processo), e
+                    // deixá-lo escapar mata a thread — e com ela o processo dos
+                    // dois WebViews e da `Presentation`.
                     ultimoInstante = SystemClock.elapsedRealtime()
                     ultimoResultado = "falhou (${e.message})"
                     // RETENTAR SOZINHO, com espera crescente. Sem isto, uma
@@ -805,21 +827,42 @@ object WebUpdater {
      * exige um shell mais novo, ou a pergunta está esperando o telão esvaziar.
      * Sem isto, a única resposta possível era um palpite.
      */
-    fun diag(ctx: Context): String {
-        // O mesmo relógio monotônico dos marcos que ele lê (ver acima).
-        val agora = SystemClock.elapsedRealtime()
-        val quando = if (ultimoInstante == 0L) "nunca"
-        else "há " + ((agora - ultimoInstante) / 1000) + "s"
-        val pend = pendingVersion(ctx)
+    fun diag(ctx: Context): String = diagDe(
+        pend = pendingVersion(ctx),
+        webAtual = currentVersion(ctx),
         // O APK entra na MESMA linha porque a pergunta é a mesma. Desde a
         // v5.234 os dois canais são um só evento — o manifesto que traz a base
         // web traz o link da Release —, e um diagnóstico que só falasse de um
         // deles mandaria quem o lê procurar o outro em algum lugar que não
         // existe.
-        val apk = ShellUpdater.novidade(ctx)
-        return "web v" + currentVersion(ctx) +
+        apk = ShellUpdater.novidade(ctx),
+        shellAtual = ShellUpdater.versaoInstalada(ctx),
+    )
+
+    /**
+     * A linha, montada com o que o CHAMADOR já leu.
+     *
+     * O [estado] e o [diag] respondem sobre as MESMAS quatro coisas
+     * (`pendingVersion`, `currentVersion`, `novidade`, `versaoInstalada`), e o
+     * `estado` chamava `diag`, que as lia todas DE NOVO: eram ~5 leituras de
+     * `version.json` e 3 `getPackageInfo` por fotografia — e a fotografia é
+     * pedida pela enquete de 10 s do `controle.js`, na fila `io` do
+     * [NativeBridge], que é declarada de milissegundos e dividida com
+     * `listFolder` e `otaPending`.
+     */
+    private fun diagDe(
+        pend: String?,
+        webAtual: String,
+        apk: ShellUpdater.Achado?,
+        shellAtual: String,
+    ): String {
+        // O mesmo relógio monotônico dos marcos que ele lê (ver acima).
+        val agora = SystemClock.elapsedRealtime()
+        val quando = if (ultimoInstante == 0L) "nunca"
+        else "há " + ((agora - ultimoInstante) / 1000) + "s"
+        return "web v" + webAtual +
             (pend?.let { " · v$it esperando" } ?: "") +
-            " · shell v" + ShellUpdater.versaoInstalada(ctx) +
+            " · shell v" + shellAtual +
             (apk?.let { " · v${it.versao} publicada" } ?: "") +
             " · última busca $quando: $ultimoResultado" +
             (if (falhasSeguidas > 0) " · $falhasSeguidas falha(s) seguida(s)" else "")
@@ -844,22 +887,43 @@ object WebUpdater {
      * descrever; ver [notasPendentes]) e `diag`.
      */
     fun estado(ctx: Context): JSONObject {
-        val o = JSONObject()
-        o.put("web", pendingVersion(ctx) ?: "")
-        o.put("webAtual", currentVersion(ctx))
+        // UMA leitura de cada coisa, e o diagnóstico montado com elas: ver
+        // [diagDe]. Antes, o `diag` relia tudo — e o custo é a enquete de 10 s.
+        val web = pendingVersion(ctx)
+        val webAtual = currentVersion(ctx)
         val achado = ShellUpdater.novidade(ctx)
+        val shellAtual = ShellUpdater.versaoInstalada(ctx)
+        val o = JSONObject()
+        o.put("web", web ?: "")
+        o.put("webAtual", webAtual)
         o.put("shell", achado?.versao ?: "")
         o.put("shellBytes", achado?.bytes ?: 0L)
-        o.put("shellAtual", ShellUpdater.versaoInstalada(ctx))
-        o.put("webNotas", notasPendentes(ctx))
-        o.put("diag", diag(ctx))
+        o.put("shellAtual", shellAtual)
+        o.put("webNotas", notasDe(ctx, web, webAtual))
+        o.put("diag", diagDe(web, webAtual, achado, shellAtual))
         return o
     }
 
-    /** Devolve a versão baixada agora, ou `null` se não havia nada novo. */
+    /**
+     * Devolve a versão baixada agora, ou `null` se não havia nada novo (ou se a
+     * válvula `minShell` recusou o bundle).
+     *
+     * **FALHA É EXCEÇÃO, não `null`.** `null` carimba a tentativa como
+     * bem-sucedida no [checkAsync]; por isso toda recusa que NÃO seja "nada
+     * novo"/"exige shell N" — sha reprovado, zip sem o Controle, ativação que
+     * não deu, `version` malformada — sai por `error(...)`.
+     */
     private fun check(ctx: Context): String? {
         val meta = JSONObject(fetchText(versionUrl()))
         val version = meta.getString("version")
+        // A FORMA, ANTES de qualquer uso — `version` entra em NOME DE CAMINHO
+        // (`v$version`, `staging-$version-$stamp`) e este arquivo é paranoico
+        // com caminho e teto em todo o resto. O CI já confere a forma do bundle
+        // publicado; esta é a mesma conta do lado que não confia no manifesto.
+        // Malformada é FALHA (com espera crescente), nunca "nada novo".
+        if (!version.matches(Regex("^[0-9]+(\\.[0-9]+)*$"))) {
+            error("version malformada no manifesto: $version")
+        }
         val minShell = meta.optInt("minShell", 0)
 
         // ── O BLOCO `shell` VEM PRIMEIRO, e a ordem é a decisão ──────────────
@@ -977,29 +1041,35 @@ object WebUpdater {
             unzip(tmpZip, staging)
 
             // Um bundle sem o index do Controle é inútil: não vale ativar.
+            //
+            // E É **FALHA**, não "nada novo" — a mesma regra do `sha256` logo
+            // acima, aplicada às TRÊS recusas que vêm DEPOIS do download. O
+            // `return null` delas carimbava a tentativa como bem-sucedida
+            // (`ultimoOk` renovado, `falhasSeguidas` zerado, sem espera
+            // crescente) e a ronda seguinte baixava os mesmos 5,6 MB de novo:
+            // um lote cujo zip viesse com a raiz trocada virava megabytes por
+            // minuto, para sempre, no Wi-Fi onde o espelho serve as telas. A
+            // frase quem escreve é o `catch` do [checkAsync].
             if (!File(staging, "web/controle/index.html").isFile) {
-                Log.w(TAG, "bundle sem web/controle/index.html — descartando")
                 staging.deleteRecursively()
-                ultimoResultado = "v$version sem o Controle dentro"
-                return null
+                error("v$version sem web/controle/index.html dentro")
             }
 
             val target = File(baseDir(ctx), "v$version")
-            // NUNCA apagar o que está no ar. A comparação acima já torna isto
-            // inalcançável (só se chega aqui com uma versão maior que a
-            // servida), mas o custo de errar aqui é o app perdendo os arquivos
-            // debaixo dos dois WebViews no meio de um culto.
+            // NUNCA apagar o que está no ar: uma trava, não um caminho. A
+            // comparação acima já torna isto inalcançável (só se chega aqui com
+            // uma versão maior que a servida), e o custo de errar seria o app
+            // perdendo os arquivos debaixo dos dois WebViews no meio de um
+            // culto. Se um dia alcançar — manifesto e `version.json` de dentro
+            // do zip discordando —, é FALHA, não "nada novo".
             if (target == sessionRoot) {
                 staging.deleteRecursively()
-                ultimoResultado = "v$version já é a que está no ar"
-                return null
+                error("v$version já é a que está no ar")
             }
             target.deleteRecursively()
             if (!staging.renameTo(target)) {
                 staging.deleteRecursively()
-                Log.w(TAG, "não foi possível ativar o bundle $version")
-                ultimoResultado = "v$version não pôde ser ativada"
-                return null
+                error("não foi possível ativar o bundle $version")
             }
 
             val p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -1015,7 +1085,11 @@ object WebUpdater {
             // do culto. O diretório velho sai no `beginSession()` do próximo
             // lançamento, que é o único ponto que decide o que a sessão vai servir.
             cleanup(ctx, keep = setOfNotNull(target.name, sessionRoot?.name))
-            Log.i(TAG, "base web $version pronta — entra no próximo lançamento")
+            // "Entra no próximo lançamento" deixou de ser o caminho ÚNICO na
+            // v5.234: com o operador à vista ele pode ser aplicado ao vivo pelo
+            // [applyNow], e este log é o que diz que a base está pronta, não
+            // QUANDO ela entra.
+            Log.i(TAG, "base web $version pronta (entra no próximo lançamento, ou ao vivo pelo applyNow)")
             ultimoResultado = "v$version baixada"
             return version
         } finally {

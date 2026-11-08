@@ -268,12 +268,16 @@ class SessionService : Service() {
             return
         }
         val s = scene ?: Scene()
-        // SEM CENA a sessão de mídia é ZERADA, e não preenchida com o placeholder
-        // "Nada em exibição": com um `PlaybackState` pausado o sistema promove a
-        // sessão ao painel de mídia das configurações rápidas, e o operador
-        // ganharia um player fantasma para controlar coisa nenhuma. `STATE_NONE`
-        // sem ações é o que diz "não há mídia aqui" — o cartão dessa hora é o da
-        // transmissão, montado abaixo.
+        // SEM CENA quem é zerado é o `PlaybackState` — `STATE_NONE` e sem ações,
+        // que é o que o sistema desenha a partir do Android 13: com um estado
+        // pausado ele promove a sessão ao painel de mídia das configurações
+        // rápidas e o operador ganha um player fantasma para controlar nada.
+        //
+        // **A `MediaMetadata` NÃO é zerada**, e isso é o que o código faz, não o
+        // que ele dizia: o título do último louvor fica na sessão até a morte
+        // dela. Para o painel de mídia quem decide é o `STATE_NONE`; se algum
+        // aparelho exibir o título velho apesar dele, o conserto é zerar a
+        // metadata aqui — é medição de aparelho, não leitura de código.
         if (scene == null) {
             session?.setPlaybackState(
                 PlaybackState.Builder().setState(PlaybackState.STATE_NONE, 0L, 0f).build(),
@@ -553,12 +557,22 @@ class SessionService : Service() {
         /** Há cena no ar: sobe o serviço (se preciso) e atualiza a notificação. */
         fun update(ctx: Context, s: Scene) {
             synchronized(trava) { scene = s }
+            republicarOuIniciar(ctx)
+        }
+
+        /**
+         * A REGRA DE "PUBLICAR OU RELIGAR", num lugar só.
+         *
+         * Era a mesma linha escrita em CINCO pontos, e já tinha divergido num
+         * deles — o do telão ([updateFromDisplay]): sem o `running`, a thread do
+         * `display-status` podia ler `instance` não-nulo na faixa entre
+         * `running = false` e `instance = null` do `onDestroy` e cair em
+         * `publish()`, cujo ramo de serviço morto chama [iniciar] — isto é,
+         * ressuscitar o serviço que estava sendo destruído.
+         */
+        private fun republicarOuIniciar(ctx: Context) {
             val inst = instance
-            if (running && inst != null) {
-                inst.publish()
-                return
-            }
-            iniciar(ctx)
+            if (running && inst != null) inst.publish() else iniciar(ctx)
         }
 
         /**
@@ -627,17 +641,12 @@ class SessionService : Service() {
                 if (playing == s.playing && dur == s.durationMs && !saltou) return
                 scene = s.copy(playing = playing, positionMs = positionMs, durationMs = dur)
             }
-            val inst = instance
-            if (inst != null) {
-                inst.publish()
-            } else {
-                // Cena viva sem serviço: é a mesma janela que o [publish] fecha
-                // — e o telão emitindo status é a prova de que há o que mostrar.
-                // Religar aqui é o que dá a esta fonte (a única que sobrevive ao
-                // estrangulamento do Controle) o poder de recuperar a
-                // notificação, e é para isto que o `ctx` existe na assinatura.
-                iniciar(ctx)
-            }
+            // Cena viva sem serviço: é a mesma janela que o [publish] fecha —
+            // e o telão emitindo status é a prova de que há o que mostrar.
+            // Religar aqui é o que dá a esta fonte (a única que sobrevive ao
+            // estrangulamento do Controle) o poder de recuperar a notificação,
+            // e é para isto que o `ctx` existe na assinatura.
+            republicarOuIniciar(ctx)
         }
 
         /**
@@ -681,8 +690,7 @@ class SessionService : Service() {
                 // Sobrou razão: o cartão só troca de cara. E se o serviço tiver
                 // morrido nesse meio-tempo, ele volta — a razão viva é a prova
                 // de que há o que proteger.
-                val inst = instance
-                if (running && inst != null) inst.publish() else iniciar(ctx)
+                republicarOuIniciar(ctx)
                 return
             }
             if (!foregrounded) return
@@ -698,8 +706,7 @@ class SessionService : Service() {
         /** O servidor das telas subiu: o cartão passa a existir mesmo sem cena. */
         fun transmissaoLigada(ctx: Context, endereco: String) {
             synchronized(trava) { transmissao = Transmissao(endereco = endereco, telas = 0) }
-            val inst = instance
-            if (running && inst != null) inst.publish() else iniciar(ctx)
+            republicarOuIniciar(ctx)
         }
 
         /** O servidor desceu: sem cena, o cartão vai junto. */
@@ -737,16 +744,20 @@ class SessionService : Service() {
         }
 
         /**
-         * Republica por causa da transmissão — e **só quando ela é a cara
-         * visível**. Com uma cena no ar o cartão é o player, e o endereço não
-         * aparece nele: republicar ali seria gastar uma atualização de
-         * notificação (que o Android limita) para redesenhar exatamente a mesma
-         * coisa.
+         * Republica por causa da transmissão.
+         *
+         * **E republica TAMBÉM com cena no ar** (K5): a linha da transmissão é
+         * o SUBTEXTO do cartão do player desde a v5.231 ([buildNotification]),
+         * e a guarda que existia aqui — *"com uma cena o cartão é o player, e o
+         * endereço não aparece nele"* — descrevia o cartão de antes. Com ela, o
+         * operador punha um louvor, ligava a TV e o cartão continuava dizendo
+         * "nenhuma tela ainda" (ou o IP que não atendia mais) até a cena mudar.
+         * Quem evita a republicação inútil é a deduplicação de quem chama:
+         * [transmissaoTelas] e [transmissaoEndereco] só chegam aqui quando o
+         * valor muda.
          */
         private fun atualizarTransmissao(ctx: Context) {
-            if (scene != null) return
-            val inst = instance
-            if (running && inst != null) inst.publish() else iniciar(ctx)
+            republicarOuIniciar(ctx)
         }
 
         private fun actionIntent(ctx: Context, action: String): PendingIntent {

@@ -501,9 +501,11 @@ mexer no `WebUpdater.kt` ou no fluxo da atualização.
   quebrado ser carimbado como bom **para sempre**.
 - **Guarda de versão no lado web é PROIBIDA:** o que separa navegador de app é
   `if (!window.__NATIVE__)`, e nada mais. Quem protege é o `minShell`.
-- **O nome do repositório aparece nos DOIS lados e eles têm de bater** — o
-  workflow usa `$GITHUB_REPOSITORY`, e `WebUpdater.REPO` é digitado à mão.
-  Renomear o repositório exige mexer nessa constante **e** publicar um APK.
+- **O nome do repositório mora numa constante SÓ** (`WebUpdater.REPO`, que o
+  `ShellUpdater` e o `Farol` referenciam — eram três literais digitados à mão e
+  este texto nomeava dois), e ela tem de bater com o `$GITHUB_REPOSITORY` do
+  workflow. Renomear o repositório exige mexer nela, no link do `site/registro/`
+  **e** publicar um APK.
 
 ## Telão por comandos (o telão nas telas da rede local)
 
@@ -1149,7 +1151,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.13.44 · APK v1.13.44** · `SHELL_VERSION` **84** ·
+**Versão atual: base web v1.13.45 · APK v1.13.45** · `SHELL_VERSION` **84** ·
 bundle com `minShell: 83` e `shellTag: v1.13.44` — a v1.13.44 é a revisão K4,
 que mexe no Kotlin (o certificado do espelho passa a devolver o desfecho, o teto
 das entregas de mídia, o prazo total da requisição e o token carimbado no bloco

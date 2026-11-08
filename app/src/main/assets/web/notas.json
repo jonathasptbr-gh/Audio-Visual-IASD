@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.13.45",
+    "itens": [
+      "A revisão interna dos downloads e da atualização: nada muda no uso normal.",
+      "Um download do app que chega cortado não abre mais o instalador num arquivo quebrado.",
+      "Uma atualização que falha ao instalar não fica baixando o mesmo pacote a cada 15 segundos.",
+      "O cartão de controles mostra a contagem de telas certa mesmo com um louvor no ar.",
+      "A notificação de download não fica presa na gaveta depois que o trabalho termina."
+    ]
+  },
+  {
     "versao": "1.13.44",
     "itens": [
       "A revisão interna do telão nas telas da rede: nada muda de propósito.",

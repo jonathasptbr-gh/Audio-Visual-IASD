@@ -39,8 +39,10 @@ menos óbvio:
 - **`play`/`pause` ≠ `playpause`.** Tela de bloqueio, fone e Android Auto mandam
   intenção explícita; o botão da notificação é alternador. Tratar tudo como
   alternador faria um `onPlay` recebido com o áudio tocando PAUSAR o louvor.
-- **⏮/⏭ mudam de eixo conforme a cena** (`slideMode`, de `slideTarget()`): com
-  letra, versículo ou mensagem em cena é a estrofe que o operador passa. O rótulo
+- **⏮/⏭ mudam de eixo conforme a cena** (`slideMode`, de `eixoForaDoPainel()`:
+  o `slideTarget()` MENOS os eixos que só existem no painel — cronômetro e
+  sorteio. Com eles em cena o par volta a ser mídia, e o rótulo mostra isso):
+  com letra, versículo ou mensagem em cena é a estrofe que o operador passa. O rótulo
   diz qual é o modo, para não virar adivinhação — e é por CABER rótulo aqui que
   o eixo duplo continua fazendo sentido neste cartão. **A COLUNA DA TELA CHEIA
   segue a mesma regra** (toque curto passa estrofe, toque longo passa mídia —

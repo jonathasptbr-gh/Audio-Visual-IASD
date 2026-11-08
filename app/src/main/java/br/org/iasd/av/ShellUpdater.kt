@@ -46,9 +46,12 @@ object ShellUpdater {
 
     private const val TAG = "ShellUpdater"
 
-    /** O mesmo repositório do [WebUpdater] — e a mesma armadilha: renomeá-lo
-     *  exige mexer nas DUAS constantes **e** publicar um APK. */
-    private const val REPO = "jonathasptbr-gh/Audio-Visual-IASD"
+    /** O mesmo repositório do [WebUpdater], e agora por REFERÊNCIA: eram três
+     *  constantes digitadas à mão (aqui, no [WebUpdater] e no [Farol]) e o
+     *  contrato só nomeava duas. Renomear o repositório seguindo o contrato ao
+     *  pé da letra deixaria a terceira falando de um nome que não existe mais —
+     *  o `GET` viraria 404 e o farol pararia de contar em silêncio. */
+    private const val REPO = WebUpdater.REPO
 
     private const val API = "https://api.github.com/repos/$REPO/releases/latest"
 
@@ -60,8 +63,6 @@ object ShellUpdater {
     private const val TETO_BYTES = 300L * 1024 * 1024
 
     private const val TEMPO_MS = 20000
-
-    @Volatile private var baixando = false
 
     /** O que a última procura achou. `null` = nunca procuramos, ou não há nada. */
     @Volatile private var achado: Achado? = null
@@ -226,11 +227,15 @@ object ShellUpdater {
      * O progresso vai por [onProgresso] (0..100), que o lado web empurra na
      * faixa de aviso: o download é de dezenas de MB numa rede de igreja, e uma
      * tela parada por dois minutos sem número é indistinguível de travamento.
+     *
+     * **UM DOWNLOAD POR VEZ É REGRA DA PONTE, não deste objeto.** Quem recusa o
+     * segundo toque é o `apkEmCurso` do [NativeBridge], no fio do WebView, e a
+     * `apk` de uma thread que serializa o resto. Havia aqui um `baixando` com a
+     * MESMA frase do `NativeBridge`: ele era inalcançável (o único chamador está
+     * dentro daquela fila) e a regra ficava escrita duas vezes, com dois donos.
      */
     fun baixarEInstalar(app: Context, onProgresso: (Int) -> Unit): String {
         val a = achado ?: return "nao ha versao nova para baixar"
-        if (baixando) return "ja ha um download em curso"
-        baixando = true
         // O ARQUIVO VIVE NO CACHE, e num nome FIXO por versão: um download
         // interrompido não pode virar lixo permanente, e o cache é o único
         // diretório que o sistema recolhe sozinho sob pressão de disco.
@@ -253,8 +258,6 @@ object ShellUpdater {
             Log.w(TAG, "download do APK falhou", e)
             parcial.delete()
             return (e.message ?: "falha no download").take(140)
-        } finally {
-            baixando = false
         }
     }
 
@@ -275,16 +278,31 @@ object ShellUpdater {
         app.startActivity(i)
     }
 
+    /**
+     * O download do APK, com a CONTA FECHADA no fim.
+     *
+     * O laço sai quando a leitura devolve `-1`, e até a K5 isso era tomado por
+     * "acabou": um corpo TRUNCADO (a publicação cortada, um proxy que encerra o
+     * corpo, a conexão que fecha limpa no meio) era aceito como completo, o
+     * progresso ia a 100 e o instalador abria sobre um pacote inválido —
+     * *"Não foi possível analisar o pacote"*, sem uma linha que dissesse por quê.
+     * A conferência de tamanho já existia, aplicada só ao REUSO do arquivo
+     * (`alvo.length() != a.bytes`); quem acabou de baixar não passava por ela.
+     *
+     * `total > 0` é o caso em que há o que conferir: o tamanho anunciado pelo
+     * manifesto, ou o `Content-Length`. Sem nenhum dos dois, a conta fica com o
+     * `TETO_BYTES`, que é o limite honesto.
+     */
     private fun baixar(url: String, destino: File, esperado: Long, onProgresso: (Int) -> Unit) {
         val c = abrir(url)
         try {
             if (c.responseCode !in 200..299) throw IllegalStateException("HTTP ${c.responseCode}")
             val total = if (esperado > 0) esperado else c.contentLengthLong
             if (total > TETO_BYTES) throw IllegalStateException("arquivo grande demais")
+            var lidos = 0L
             destino.outputStream().use { saida ->
                 c.inputStream.use { entrada ->
                     val buf = ByteArray(64 * 1024)
-                    var lidos = 0L
                     var ultimo = -1
                     while (true) {
                         val n = entrada.read(buf)
@@ -298,6 +316,9 @@ object ShellUpdater {
                         }
                     }
                 }
+            }
+            if (total > 0 && lidos != total) {
+                throw IllegalStateException("download incompleto ($lidos de $total bytes)")
             }
         } finally {
             c.disconnect()

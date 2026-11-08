@@ -88,12 +88,16 @@ object Farol {
     private const val TAG = "Farol"
 
     /**
-     * O mesmo repositório do [WebUpdater], e digitado à mão pelo mesmo motivo:
-     * a URL está compilada no shell. Renomear o repositório exige mexer aqui
-     * **e** publicar um APK — e o modo de falhar é mudo, então o Registro
-     * mostra a última tentativa ([diagnostico]).
+     * O MESMO repositório do [WebUpdater], por REFERÊNCIA desde a K5.
+     *
+     * Eram três constantes digitadas à mão (aqui, no [WebUpdater] e no
+     * [ShellUpdater]) e o contrato só nomeava duas: renomear o repositório
+     * seguindo o contrato ao pé da letra deixaria esta apontando para o nome
+     * velho — o `GET` viraria 404, o `acender` engoliria em `Log.i` e a
+     * contagem de alcance pararia **em silêncio**, que é o modo de falhar que
+     * este arquivo inteiro existe para não ter.
      */
-    private const val REPO = "jonathasptbr-gh/Audio-Visual-IASD"
+    private const val REPO = WebUpdater.REPO
 
     /**
      * Tag PRÓPRIA, separada de `web-latest`, e isso é invariante e não
@@ -220,8 +224,18 @@ object Farol {
             // conexão abandonada antes do corpo pode ser cortada antes de o
             // GitHub registrar a entrega. São poucos bytes de propósito — o
             // asset existe para ser contado, não para ser lido.
+            //
+            // **E LIDO EM TRÂNSITO, nunca de uma vez** (K5): `readBytes()`
+            // materializava o corpo INTEIRO na memória deste processo — o do
+            // `largeHeap`, dos dois WebViews e de um vídeo — para depois jogar
+            // fora. Era o único caminho de rede do app sem teto (o OTA tem
+            // `MAX_TEXT_BYTES` e `MAX_ZIP_BYTES`, o APK tem `TETO_BYTES`), e o
+            // que o descaracteriza é justamente o conteúdo que não importa.
             val codigo = conn.responseCode
-            conn.inputStream.use { it.readBytes() }
+            conn.inputStream.use { entrada ->
+                val buf = ByteArray(8 * 1024)
+                while (entrada.read(buf) > 0) Unit
+            }
             diagnostico = "$asset · HTTP $codigo · " + carimbo(System.currentTimeMillis())
             Log.i(TAG, "farol aceso: $asset HTTP $codigo")
         } catch (e: Exception) {

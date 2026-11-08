@@ -99,6 +99,12 @@ class SyncService : Service() {
         running = false
         foregrounded = false
         instance = null
+        // O PROGRESSO MORRE COM O SERVIÇO (K5). Sem esta linha, o próximo
+        // serviço a subir montava o PRIMEIRO cartão com o rótulo, o percentual e
+        // os bytes do trabalho ANTERIOR — até o primeiro `bgProgress` —, e a
+        // cota de FGS é justamente um dos caminhos que matam o serviço no meio
+        // de um lote.
+        progress = null
         releaseWakeLock()
         // O sistema remove a notificação do serviço em primeiro plano ao
         // destruí-lo, mas o cancelamento explícito cobre o caso em que ela foi
@@ -214,8 +220,8 @@ class SyncService : Service() {
          * check"* —, e ele acontecia por dois caminhos: com cena no ar, este
          * `notify` SUBSTITUÍA o cartão da sessão de mídia (que é `ongoing` e de
          * um FGS) e o `publish()` seguinte dela o substituía de volta; sem cena,
-         * o `cancel(NOTIF_ID)` do `SessionService.stop` o apagava. Nos dois o
-         * check some sem erro em lugar nenhum.
+         * o `cancel(NOTIF_ID)` do `onDestroy` do [SessionService] — que cancela
+         * o id 2 — o apagava. Nos dois o check some sem erro em lugar nenhum.
          */
         private const val NOTIF_FIM_ID = 3
         private const val WAKELOCK_TIMEOUT_MS = 2 * 60 * 60 * 1000L // 2 h
@@ -411,10 +417,14 @@ class SyncService : Service() {
         @Volatile
         var onGone: (() -> Unit)? = null
 
+        /** A main thread — onde a publicação do progresso acontece e onde a
+         *  guarda `running` é reconferida (ver [updateProgress]). */
+        private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
         /**
          * Atualiza a notificação com o progresso real (ver
-         * `NativeBridge.bgProgress`). Chamado de uma thread do WebView, então
-         * não toca em nada de UI — `NotificationManager.notify` é seguro.
+         * `NativeBridge.bgProgress`). Chamado de uma thread do WebView, e
+         * PUBLICA NA MAIN, reconferindo `running` lá — ver o corpo.
          *
          * Não chama `startForeground`: quando o serviço está de pé ele já é o
          * dono da notificação (quem o liga é `keepAlive`, antes de qualquer
@@ -462,19 +472,31 @@ class SyncService : Service() {
                 icone = icone,
                 pct = pct,
             )
-            val nm = ctx.getSystemService(NotificationManager::class.java) ?: return
-            try {
-                if (!running) {
-                    nm.cancel(NOTIF_ID)
-                    return
+            // A PUBLICAÇÃO SALTA PARA A MAIN, e a guarda é RECONFERIDA LÁ
+            // (K5). Conferir `running` na thread de quem chama e publicar logo
+            // em seguida é um "conferir-depois-agir": o `onDestroy` roda na main
+            // e faz `running = false` + `cancel(NOTIF_ID)` no meio do caminho,
+            // e o `notify` desta thread chegava DEPOIS dele — um cartão
+            // `setOngoing(true)` na gaveta, sem download por trás e sem
+            // ninguém para cancelá-lo. É a mesma janela que o
+            // [SessionService.publish] fecha do outro lado, e ela importa
+            // justamente no fim do trabalho, quando `bgWorkEnd` e o último
+            // `bgProgress` se cruzam.
+            mainHandler.post {
+                val nm = ctx.getSystemService(NotificationManager::class.java) ?: return@post
+                try {
+                    if (!running) {
+                        nm.cancel(NOTIF_ID)
+                        return@post
+                    }
+                    nm.notify(NOTIF_ID, buildNotification(ctx, progress))
+                    // Progresso real chegando = download vivo: renova o wake
+                    // lock, para um download LEGÍTIMO de mais de 2 h não perder
+                    // a proteção em silêncio (ver [renewWakeLock]).
+                    instance?.renewWakeLock()
+                } catch (e: Exception) {
+                    Log.w(TAG, "não foi possível atualizar a notificação", e)
                 }
-                nm.notify(NOTIF_ID, buildNotification(ctx, progress))
-                // Progresso real chegando = download vivo: renova o wake lock,
-                // para um download LEGÍTIMO de mais de 2 h não perder a
-                // proteção em silêncio (ver [renewWakeLock]).
-                instance?.renewWakeLock()
-            } catch (e: Exception) {
-                Log.w(TAG, "não foi possível atualizar a notificação", e)
             }
         }
 
@@ -685,8 +707,15 @@ class SyncService : Service() {
                 criarCanal(ctx)
                 val open = Intent(ctx, MainActivity::class.java)
                     .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                // REQUEST CODE PRÓPRIO (1), e não o 0 do cartão de trabalho. A
+                // igualdade de um `PendingIntent` compara o `filterEquals` do
+                // Intent — ação, dado, tipo, classe, categorias — e as FLAGS não
+                // entram. Com os dois no 0 e sem `FLAG_UPDATE_CURRENT`, esta
+                // chamada devolvia o PendingIntent do OUTRO cartão, com as
+                // flags dele: este toque abria com `SINGLE_TOP|NEW_TASK`, nunca
+                // com o `CLEAR_TOP` escrito aqui.
                 val pending = android.app.PendingIntent.getActivity(
-                    ctx, 0, open, android.app.PendingIntent.FLAG_IMMUTABLE,
+                    ctx, 1, open, android.app.PendingIntent.FLAG_IMMUTABLE,
                 )
                 val b = NotificationCompat.Builder(ctx, CHANNEL_ID)
                     // O CHECK DO SISTEMA. `stat_sys_download_done` é o desenho

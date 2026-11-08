@@ -163,8 +163,8 @@ não confirme é descartado no lançamento seguinte e o app volta ao embutido.
 
 Ordem dos scripts do Controle: `native.js` → `db.js` → `stage.js` →
 `louvorja.js` → `bible.js` → `serie.js` → `cifra.js` → `sorteio.js` →
-`hinario.js` → `coletanea.js` → `pptxzip.js` → `deck.js` → `pacote.js` →
-`controle.js`.
+`progresso.js` → `hinario.js` → `coletanea.js` → `pptxzip.js` → `deck.js` →
+`pacote.js` → `controle.js` (15, conferidos contra o `controle/index.html`).
 
 As CINCO condições: papel `controle` · `AVDB`/`createStage` ·
 `__avBack` · o fim do `init()` (`__avSplash.terminou`) · **os onze módulos do Controle**
@@ -306,11 +306,15 @@ o botão de Configurações (`#otaRow`) não passa por `decidirAtualizacao`.
 **Sem `WorkManager` nem alarme.** Atualizar a base de um app FECHADO não serve
 para nada: ela entra ao abrir, e ao abrir a procura acontece.
 
-> **O nome do repositório aparece nos DOIS lados e eles têm de bater**: o
-> workflow usa `$GITHUB_REPOSITORY`, e `WebUpdater.REPO` é digitado à mão.
-> Renomear o repositório exige mexer nessa constante **e** publicar um APK (a URL
-> está compilada no shell). O modo de falhar é mudo: o `check()` engole tudo em
-> `Log.i`.
+> **O nome do repositório mora numa constante SÓ, e ela tem de bater com o
+> workflow**: o workflow usa `$GITHUB_REPOSITORY`, e o `WebUpdater.REPO` é a
+> **única** cópia no Kotlin — o `ShellUpdater` e o `Farol` a referenciam (eram
+> TRÊS constantes digitadas à mão até a K5, e este texto nomeava duas: renomear
+> seguindo o contrato ao pé da letra deixaria a do farol falando de um nome que
+> não existe). Renomear o repositório exige mexer nela, no link do
+> `site/registro/index.html` **e** publicar um APK (a URL está compilada no
+> shell). O modo de falhar é mudo: o `check()` engole tudo em `Log.i`, e o farol
+> — que acende uma vez por dia, sem retentativa — pararia de contar sem sintoma.
 
 ---
 
@@ -600,9 +604,9 @@ sintoma é "a atualização não chega".
 
 `window.AVDB` no `load` não bastava: a ordem dos scripts do Controle é
 `native.js` → `db.js` → `stage.js` → `louvorja.js` → `bible.js` →
-`serie.js` → `cifra.js` → `sorteio.js` → `hinario.js` → `coletanea.js` →
-`pptxzip.js` → `deck.js` → `pacote.js` → `controle.js`, e um erro
-em qualquer um dos **treze** últimos aborta só AQUELE script — o `load` dispara, `AVDB` continua lá, e o
+`serie.js` → `cifra.js` → `sorteio.js` → `progresso.js` → `hinario.js` →
+`coletanea.js` → `pptxzip.js` → `deck.js` → `pacote.js` → `controle.js`, e um
+erro em qualquer um deles (menos o `native.js`, que é quem faz a checagem) aborta só AQUELE script — o `load` dispara, `AVDB` continua lá, e o
 bundle quebrado era carimbado como bom **para sempre**. As cinco condições,
 cada uma cobrindo o que a anterior não cobre:
 
