@@ -109,11 +109,9 @@ object EspelhoPares {
      *
      * 45 s, e o número é uma volta inteira de recuperação do cliente: o vigia de
      * fio dele aborta com 20 s sem bytes, mais a escada de reconexão de até 8 s,
-     * mais a abertura do SSE novo e o primeiro ping. (O `csd` e o quadro-chave
-     * que este cálculo citava eram do espelho de PIXELS, que saiu na v5.187 —
-     * a folga continua valendo, agora pelo que de fato acontece.) Menos que isso trocaria um
-     * fantasma por uma tela VIVA expulsa no meio da própria recuperação — que é
-     * o defeito oposto, e pior, porque atinge quem estava funcionando.
+     * mais a abertura do SSE novo e o primeiro ping. Menos que isso trocaria
+     * um fantasma por uma tela VIVA expulsa no meio da própria recuperação —
+     * que é o defeito oposto, e pior, porque atinge quem estava funcionando.
      */
     const val PRAZO_SEM_CONEXAO_MS = 45_000L
 
@@ -215,11 +213,10 @@ object EspelhoPares {
      * de autorizar. Falha fechada é a única postura possível num controle de
      * acesso, e ela sai de graça desta forma.
      *
-     * (Saíram na v5.185, com a fila de aprovação: `Espera`, `Pendente` e
-     * `Desconhecida`. Elas eram as três formas de dizer "ainda não" a uma tela
-     * que tinha acertado o segredo — e agora acertar o código É entrar, porque o
-     * gesto que o visitante gasta no botão é o mesmo que libera o som e a tela
-     * cheia. Ver a invariante 5.)
+     * **Nenhuma variante diz "ainda não"**: com a entrada imediata (invariante
+     * 5) não há fila a esperar — o gesto que o visitante gasta no botão é o
+     * mesmo que libera o som e a tela cheia, e uma aprovação posterior
+     * encontraria o gesto já gasto.
      */
     sealed class Veredito {
         /** Vaga livre: o token, uma vez. `200 {"t": token}`. */
@@ -369,17 +366,9 @@ object EspelhoPares {
         c.ate = agora + BLOQUEIO_DERRUBADA_MS
     }
 
-    // (Saíram na v5.185, com a fila de aprovação: `esperaQr`, `abrirVagaQr`,
-    // `despejar`, `consultar`, `pendentes`, `esperandoQr`, `aprovar` e
-    // `recusar`. O QR existia para inverter quem mostra e quem lê o segredo, e
-    // ele deixou de ter o que resolver quando o segredo virou um código de três
-    // dígitos que a TELA digita — a inversão já não é necessária, e a página do
-    // cliente não desenha mais nada. Ver a invariante 5.
-    //
-    // O que tomou o lugar deles é `derrubar`, acima: com a entrada imediata, o
-    // controle do operador deixou de ser "quem eu deixo entrar" e passou a ser
-    // "quem eu tiro do ar" — que é a pergunta que ele de fato faz durante um
-    // culto, e a única que a lista de telas sabe responder.)
+    // O controle do operador é "quem eu TIRA do ar", não "quem eu deixo
+    // entrar": com a entrada imediata não há fila de aprovação a preencher, e
+    // `derrubar` é a única pergunta que a lista de telas sabe responder.
 
     // --------------------------------------------------------------- sessões
 
@@ -390,9 +379,18 @@ object EspelhoPares {
      * (`Bearer <token>`, com o esquema sem caixa, como manda o RFC 7235) e o
      * token já extraído — porque há dois chamadores legítimos e eles têm coisas
      * diferentes na mão: a rota, que tem o cabeçalho, e o vigia das conexões, que
-     * só guardou o token. Tolerar as duas não afrouxa nada: um token é base64url
+     * guarda só o token. Tolerar as duas não afrouxa nada: um token é base64url
      * e **não tem espaço**, então `Basic xyz` (ou qualquer outro esquema) nunca
      * casa com sessão nenhuma.
+     *
+     * **O token NU (sem `Bearer`) é aceito de propósito**, e não é um relaxamento
+     * que alguém tenha esquecido de apertar: ele chega assim pelo segundo
+     * chamador, e rejeitá-lo derrubaria a única conexão viva da tela no meio de
+     * um culto. O que NÃO existe é outra porta de entrada — o `EspelhoHttp` lê
+     * `Host`, `Origin`, `Authorization`, `Range`, `Content-Length` e mais nada:
+     * `Cookie` não é lido, e a query não é consultada por rota nenhuma, então um
+     * token em `?t=` ou num cookie falha FECHADO (404), como qualquer requisição
+     * sem credencial. (Conferido na K4.)
      *
      * O token NUNCA viaja numa URL (invariante 2) — isto aqui é o outro lado
      * daquela regra, e é o único ponto do projeto que lê um `Bearer`.

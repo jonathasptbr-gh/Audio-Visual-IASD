@@ -140,8 +140,7 @@ class EspelhoServidor(
     @Volatile private var marcoRebind = 0L
 
     /** As telas do telão por comandos (`GET /e`), chaveadas por token de
-     *  sessão. (O KDoc órfão do `csd` que morava aqui saiu na v5.212 com o
-     *  resto do vocabulário do encoder.) */
+     *  sessão. */
     private val telasSse = ConcurrentHashMap<String, TelaSse>()
 
     /** O cache que a rota `/m/` serve (E4) — ligado pela MainActivity junto
@@ -261,12 +260,11 @@ class EspelhoServidor(
         // barra (DNS rebinding: `evil.com` resolvendo para o nosso IP) continua
         // barrado, porque `evil.com` não é nenhuma das duas.
         //
-        // (O nome mDNS `av.local` entrava aqui pela mesma porta até a v5.185.
-        // Ele saiu com o responder inteiro — ver [montarHosts] —, e a armadilha
-        // que ele documentava continua valendo para o `hostTls`: um endereço
-        // por onde o servidor atende e que NÃO esteja nesta lista recebe o 404
-        // idêntico de sempre, isto é, "não funciona" sem uma linha em lugar
-        // nenhum que o explique.)
+        // A ARMADILHA que isto documenta vale para TODO endereço por onde o
+        // servidor atende: um que NÃO esteja nesta lista recebe o 404 idêntico
+        // de sempre, isto é, "não funciona" sem uma linha em lugar nenhum que o
+        // explique. Quem acrescentar uma porta de entrada nova (o `hostTls` foi
+        // uma) acrescenta a entrada correspondente aqui, no mesmo lote.
         hostTlsServido = hostTls
         viaServida = rede.via
         ifaceServida = rede.iface
@@ -298,11 +296,11 @@ class EspelhoServidor(
      * onde ESTE servidor de fato atende — o IP e, quando há TLS, o nome do
      * certificado.
      *
-     * **`av.local` saiu na v5.185, junto com o responder mDNS inteiro.** Ele
-     * nunca resolveu no Chrome do Android nem na maioria das Smart TVs — que
-     * são exatamente as telas deste recurso —, então o IP sempre foi o endereço
-     * que de fato funcionava, e o nome ao lado dele era um segundo caminho que
-     * dava errado numa fração dos casos sem dizer por quê.
+     * **NÃO HÁ NOME mDNS entre estas entradas, e não deve haver:** um nome
+     * `av.local` nunca resolveu no Chrome do Android nem na maioria das Smart
+     * TVs — que são exatamente as telas deste recurso —, então o IP é o
+     * endereço que de fato funciona, e um segundo caminho só acrescentaria um
+     * jeito de dar errado numa fração dos casos sem dizer por quê.
      */
     private fun montarHosts(comNome: Boolean): Set<String> {
         val lista = HashSet<String>()
@@ -594,13 +592,22 @@ class EspelhoServidor(
      * memória: três telas puxando 380 MB pelo molde do StreamProxy
      * derrubariam o processo da projeção.
      *
-     * Item EM CRESCIMENTO (o empurrão do Controle ainda anda) sai por chunked
-     * progressivo — o <video> começa a tocar sem esperar o fim — e o Range só
-     * vale para item completo, que é a regra simples declarada na spec §5.3.
+     * TRÊS SAÍDAS, e a diferença entre elas é o que a tela vê:
      *
-     * **Só a entrega que alcançou `item.esperado` escreve o terminador do
-     * chunked**; as outras saídas do laço fecham a conexão sem ele, para o
-     * cliente ver o erro de rede que de fato houve.
+     * - item COMPLETO: Range de verdade sobre o arquivo (`alcanceDe`), sem
+     *   espera nenhuma;
+     * - item EM CRESCIMENTO **com tamanho anunciado** (`esperado`, o `size` do
+     *   Blob que o Controle manda): a MESMA Range, anunciada sobre o tamanho
+     *   final, e a cópia ESPERA o empurrão alcançar cada byte pedido
+     *   (`copiarCrescendo`) — v1.13.12, e a medida está no §5.3: o chunked sem
+     *   faixa deixava a fonte NÃO BUSCÁVEL pela vida da URL;
+     * - item em crescimento **sem tamanho**: chunked progressivo do byte 0, o
+     *   `<video>` começa a tocar sem esperar o fim.
+     *
+     * **Só a entrega que alcançou o fim anunciado escreve o terminador do
+     * chunked** (e, no caso com tamanho, só a que chegou a `esperado` escreve o
+     * último byte dito no `Content-Length`); as outras saídas fecham a conexão
+     * no meio, para o cliente ver o erro de rede que de fato houve.
      */
     private fun servirMidia(token: String, r: EspelhoHttp.Req, saida: OutputStream) {
         val cache = midia
@@ -627,7 +634,24 @@ class EspelhoServidor(
             }
             return responder(saida, naoAchei())
         }
-        midiaEmVoo.incrementAndGet()
+        // TETO DE ENTREGAS DE MÍDIA EM VOO, e ele é NOVO na K4.
+        //
+        // O `emVoo` de cima subtrai as entregas de mídia (elas são fluxos
+        // longos, não conexões mudas), então uma entrega de mídia não gastava
+        // vaga nenhuma — e nada a contava. Cada `GET /m/` segura uma thread e um
+        // fd pelo tempo da faixa (até [TETO_MIDIA_PARADA_MS] num item em
+        // crescimento), e a rota é ANÔNIMA por token: a tela de um visitante tem
+        // os tokens `__rec` que o SSE lhe entregou e pode abrir quantas faixas
+        // quiser. Sem teto, um curioso esgota threads/fds do processo — que é o
+        // mesmo dos dois WebViews e da `Presentation` — e a projeção cai.
+        val midias = midiaEmVoo.incrementAndGet()
+        if (midias > TETO_MIDIA_EM_VOO) {
+            midiaEmVoo.decrementAndGet()
+            registrar("mídia recusada: $midias entregas simultâneas (teto $TETO_MIDIA_EM_VOO)")
+            // 503 e não o 404 uniforme: aqui não se esconde existência, se diz
+            // "agora não" — a rota é anônima e o token já foi validado acima.
+            return responder(saida, EspelhoHttp.resposta(503, "application/json", OCUPADO))
+        }
         try {
             if (item.completo) {
                 val tamanho = item.recebido
@@ -752,7 +776,7 @@ class EspelhoServidor(
         } catch (e: InterruptedException) {
             Thread.currentThread().interrupt()
         } catch (e: IOException) {
-            Log.i(TAG, "mídia $token interrompida: ${e.message}")
+            Log.i(TAG, "mídia ${item.nome} interrompida: ${e.message}")
         } finally {
             midiaEmVoo.decrementAndGet()
         }
@@ -802,7 +826,7 @@ class EspelhoServidor(
             }
             val status = conn.responseCode
             if (status !in 200..299) {
-                Log.i(TAG, "transmissao $token: o CDN respondeu $status")
+                Log.i(TAG, "transmissao: o CDN respondeu $status")
                 return responder(saida, naoAchei())
             }
             val tipo = conn.contentType?.let { EspelhoHttp.semQuebraPublica(it) } ?: "application/octet-stream"
@@ -838,9 +862,9 @@ class EspelhoServidor(
             }
             saida.flush()
         } catch (e: IOException) {
-            Log.i(TAG, "transmissao $token interrompida: ${e.message}")
+            Log.i(TAG, "transmissao interrompida: ${e.message}")
         } catch (e: Exception) {
-            Log.w(TAG, "transmissao $token falhou", e)
+            Log.w(TAG, "transmissao falhou", e)
         } finally {
             try { conn?.disconnect() } catch (e: Exception) { /* já foi */ }
             midiaEmVoo.decrementAndGet()
@@ -858,7 +882,6 @@ class EspelhoServidor(
         }
     }
 
-    /** Copia `[ini..fim]` do arquivo para a saída, em blocos de 64 kB. */
     /**
      * Copia `[ini, fim]` de um item EM CRESCIMENTO, esperando o empurrão
      * alcançar cada byte. Para no cancelamento, no item completo sem os bytes
@@ -894,6 +917,8 @@ class EspelhoServidor(
         return pos
     }
 
+    /** Copia `[ini, fim]` de um arquivo COMPLETO para a saída, em blocos de
+     *  64 kB — sem espera nenhuma: o item já tem todos os bytes. */
     private fun copiarFaixa(arquivo: java.io.File, ini: Long, fim: Long, saida: OutputStream) {
         val buf = ByteArray(64 * 1024)
         java.io.RandomAccessFile(arquivo, "r").use { raf ->
@@ -1029,12 +1054,6 @@ class EspelhoServidor(
      * dois inertes por construção: `alive` só atualiza números que vão para o
      * Registro, e `st` sobe ao barramento — **um de dois tipos, e nada mais**
      * (ver [TIPOS_QUE_SOBEM]).
-     *
-     * (Este KDoc descrevia `key` e `audio`, os verbos do espelho de PIXELS —
-     * quadro-chave e entrega de AAC —, que saíram com o encoder na v5.187. É a
-     * mesma classe de registro obsoleto que a v5.206 catalogou: um comentário
-     * que nomeia um mecanismo morto manda o próximo leitor procurar o defeito
-     * no lugar errado.)
      */
     private fun retorno(r: EspelhoHttp.Req, saida: OutputStream, sessao: EspelhoPares.Sessao) {
         val corpo = try {
@@ -1424,22 +1443,6 @@ class EspelhoServidor(
     }
 
     /**
-     * A rede PARECE ter caído — e o espelho **não** desliga por causa disso
-     * ainda.
-     *
-     * O Android reavalia a Wi-Fi o tempo todo (revalidação, roaming entre
-     * pontos de acesso, um `onCapabilitiesChanged` durante o handover), e o
-     * caminho antigo — que assinava a rede PADRÃO — lia esse piscar como "a rede
-     * sumiu" e **derrubava a transmissão inteira** no meio do culto, com as
-     * telas caindo e o operador sem nenhuma explicação na mão. A assinatura
-     * passou a ser de `TRANSPORT_WIFI` (v5.183); esta graça é a segunda
-     * defesa.
-     *
-     * Suspeita não é veredito: o motivo fica anotado, o [vigiar] confirma
-     * [GRACA_REDE_MS] depois consultando o estado de verdade, e só então a queda
-     * acontece. Uma oscilação some sozinha e não custa nada.
-     */
-    /**
      * O PONTO DE ACESSO CAIU? — a enquete que existe porque o callback não a faz.
      *
      * [observarRede] assina `TRANSPORT_WIFI`, e **em modo ponto de acesso puro
@@ -1468,6 +1471,22 @@ class EspelhoServidor(
         if (!ipAindaEServivel(app, ipServido)) suspeitarDaRede("o ponto de acesso foi desligado")
     }
 
+    /**
+     * A rede PARECE ter caído — e o espelho **não** desliga por causa disso
+     * ainda.
+     *
+     * O Android reavalia a Wi-Fi o tempo todo (revalidação, roaming entre
+     * pontos de acesso, um `onCapabilitiesChanged` durante o handover), e o
+     * caminho antigo — que assinava a rede PADRÃO — lia esse piscar como "a rede
+     * sumiu" e **derrubava a transmissão inteira** no meio do culto, com as
+     * telas caindo e o operador sem nenhuma explicação na mão. A assinatura
+     * passou a ser de `TRANSPORT_WIFI` (v5.183); esta graça é a segunda
+     * defesa.
+     *
+     * Suspeita não é veredito: o motivo fica anotado, o [vigiar] confirma
+     * [GRACA_REDE_MS] depois consultando o estado de verdade, e só então a queda
+     * acontece. Uma oscilação some sozinha e não custa nada.
+     */
     private fun suspeitarDaRede(motivo: String) {
         if (servidor == null || redeSuspeitaDesde != 0L) return
         redeSuspeitaDesde = SystemClock.elapsedRealtime()
@@ -2005,6 +2024,20 @@ class EspelhoServidor(
          */
         private const val TETO_EM_VOO = 16
 
+        /**
+         * Entregas de MÍDIA (`GET /m/`) em voo, ao mesmo tempo — ver
+         * [servirMidia].
+         *
+         * Doze, e o número sai de duas contas: as três telas de [TETO_TELAS] com
+         * até TRÊS faixas cada uma (um `<video>` que procura e um que já toca
+         * convivem, e o `stage.js` reabre a mesma mídia numa URL nova quando o
+         * seek cai fora do `seekable`), mais três de folga para o próximo
+         * `load`. Abaixo disso uma tela legítima levaria 503 no meio de um
+         * culto; acima, um curioso com os tokens do SSE abre threads até o
+         * processo — o mesmo dos dois WebViews e da projeção — desistir.
+         */
+        private const val TETO_MIDIA_EM_VOO = 12
+
 
 
         /**
@@ -2028,8 +2061,10 @@ class EspelhoServidor(
          * → 400, e desde que o vigia passou a exigir sinal de vida
          * ([TETO_SEM_RELATO_MS]) isso deixaria de ser um relato perdido para
          * virar uma tela derrubada por causa de um timer apertado. Dez segundos
-         * é o número que o KDoc do [EspelhoHttp] já anunciava, e um socket mudo
-         * continua limitado pelo [TETO_EM_VOO].
+         * é o teto POR LEITURA; o prazo TOTAL da mensagem — o que fecha a porta
+         * do cliente que pinga um byte de cada vez — é o
+         * [EspelhoHttp.PRAZO_TOTAL_REQ_MS], e um socket mudo continua limitado
+         * pelo [TETO_EM_VOO].
          */
         private const val PRAZO_LINHA_MS = 10_000
         private const val TETO_ESCRITA_MS = 20_000L
@@ -2186,6 +2221,7 @@ class EspelhoServidor(
         private const val MARCA_TELA = "<meta name=\"av-tela\" content=\"1\">"
 
         private val OK_CURTO = "{\"ok\":true}".toByteArray(Charsets.US_ASCII)
+        private val OCUPADO = "{\"estado\":\"ocupado\"}".toByteArray(Charsets.US_ASCII)
         private val RECUSADA = "{\"estado\":\"recusada\"}"
         private val LOTADO_JSON = "{\"estado\":\"lotado\"}"
         private val LOTADO = LOTADO_JSON.toByteArray(Charsets.US_ASCII)

@@ -266,6 +266,7 @@ jobs:
           node tools/invariantes-shell.test.mjs
           node tools/ponte-guarda-host.test.mjs
           node tools/slot-do-download.test.mjs
+          node tools/espelho-fronteira.test.mjs
 
           node tools/tipos-que-sobem.test.mjs
 

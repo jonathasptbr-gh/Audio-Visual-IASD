@@ -350,7 +350,7 @@ regras abaixo por extenso estão em [`docs/shell/PONTE.md`](docs/shell/PONTE.md)
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **83** e é o **PISO**: o bundle declara `minShell: 83`, todo método
+Hoje vale **84**, e o **PISO** é 83: o bundle declara `minShell: 83`, todo método
 existe sempre e **não há guarda de versão no lado web** — o que separa navegador
 de app é `if (!window.__NATIVE__)`, e nada mais. "Superfície" inclui **forma de
 retorno e comportamento**. Sem guarda, mudança de ponte é lote **APK + web
@@ -1149,12 +1149,14 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.13.43 · APK v1.13.43** · `SHELL_VERSION` **83** ·
-bundle com `minShell: 83` e `shellTag: v1.13.41` — a v1.13.41 é a revisão K1,
-que mexe no Kotlin (a fila de shares, a captura das teclas de volume na recarga e
-os comentários do shell), então a Release sai junto. O shell
-83 é o **PISO**: todo método da ponte existe, e não há guarda de versão no lado
-web. O que cada lote trouxe está no `docs/HISTORICO.md`, nunca aqui.
+**Versão atual: base web v1.13.44 · APK v1.13.44** · `SHELL_VERSION` **84** ·
+bundle com `minShell: 83` e `shellTag: v1.13.44` — a v1.13.44 é a revisão K4,
+que mexe no Kotlin (o certificado do espelho passa a devolver o desfecho, o teto
+das entregas de mídia, o prazo total da requisição e o token carimbado no bloco
+do canal), então a Release sai junto. O shell 84 é o degrau da superfície; o
+**PISO** continua **83** porque nenhuma chamada nova é exigida do web — o
+`espelhoCertApagar` só deixou de mentir, e ninguém no web lê esse retorno. O que
+cada lote trouxe está no `docs/HISTORICO.md`, nunca aqui.
 
 - **O `shellTag` ACOMPANHA A ÚLTIMA VERSÃO, NÃO A QUE MEXEU NO KOTLIN** — o CI
   exige `shellTag == 'v' + version`. Um lote só de web publicado DEPOIS de um

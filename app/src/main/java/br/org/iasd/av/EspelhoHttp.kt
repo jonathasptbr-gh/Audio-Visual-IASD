@@ -35,12 +35,15 @@ import java.io.InputStream
  *    [TETO_CORPO]. Fora do teto ⇒ resposta curta e `close`, sem drenar o resto:
  *    [Erro.CorpoLongo] é lançado ANTES de ler um byte do corpo, então
  *    `Content-Length: 4000000` não nos faz ler 4 MB. (O `setSoTimeout` é do
- *    servidor, porque é do socket.)
+ *    servidor, porque é do socket.) **E há um teto de TEMPO** — o
+ *    [PRAZO_TOTAL_REQ_MS], que o `setSoTimeout` não dá: ele é por `read()`, e
+ *    um cliente que pinga um byte de cada vez fica abaixo dele para sempre.
  * 2. **`read()` NUNCA é tratado como se entregasse a mensagem inteira** — toda
  *    leitura passa pelo laço de [Fonte]. Sem isso o parser desanda só quando a
  *    rede está ruim: nunca na bancada, sempre no salão.
- * 3. **Allowlist EXATA de `Host`** (`<ip>:<porta>`, mais o nome TLS quando
- *    existir), montada em runtime pelo servidor; qualquer outro ⇒ 404. É a
+ * 3. **Allowlist EXATA de `Host`** — a porta e o endereço, montados em runtime
+ *    pelo servidor: `<ip>:<porta>` e `<ip>`, mais `<nome>:<porta>` e `<nome>`
+ *    quando há certificado TLS. Qualquer outro ⇒ 404. É a
  *    defesa contra **DNS rebinding**: uma página da internet aberta por um
  *    visitante NA REDE DA IGREJA pode fazer `evil.com` resolver para o nosso IP
  *    privado e virar same-origin. O LNA do Chromium mitiga a partir de origem
@@ -112,6 +115,26 @@ object EspelhoHttp {
      * mexer nisto de novo.
      */
     const val TETO_CORPO_RETORNO = 4 * 1024
+
+    /**
+     * O prazo TOTAL da requisição inteira — cabeçalho e corpo, contados do
+     * instante em que ela chega ao parser.
+     *
+     * **O `setSoTimeout` do servidor é por `read()`, e nunca foi o mesmo
+     * relógio que este.** Ele impede um socket MUDO de segurar a thread; ele não
+     * impede um socket LENTO de segurá-la para sempre: um byte a cada 9 s cabe
+     * folgado num teto de 10 s por leitura, e um cabeçalho de 4 KiB vale ~10
+     * horas assim — 16 desses fecham o teto de conexões em voo do servidor e toda tela
+     * que recarregar recebe conexão recusada, num culto, sem nada no Registro
+     * que ligue uma coisa à outra.
+     *
+     * Vinte segundos cobrem com folga o pior caso legítimo (Wi-Fi congestionada
+     * com três telas recebendo mídia), e o teto de cabeçalhos de 32 × 4 KiB não
+     * tem como ser entregue por um cliente de verdade nesse tempo. Quem estourar
+     * leva [Erro.Truncado] — 400 e `close`, que é a mesma resposta de um socket
+     * que morreu no meio.
+     */
+    const val PRAZO_TOTAL_REQ_MS = 20_000L
 
     /**
      * Uma requisição já validada.
@@ -249,6 +272,12 @@ object EspelhoHttp {
         entrada: InputStream,
         hostsAceitos: Set<String>,
         /**
+         * O prazo TOTAL da mensagem — ver [PRAZO_TOTAL_REQ_MS]. Ele vem ANTES do
+         * `tetoCorpo` de propósito: aquele é o lambda final, e a chamada do
+         * servidor usa a forma de lambda à direita.
+         */
+        prazoTotalMs: Long = PRAZO_TOTAL_REQ_MS,
+        /**
          * O teto do corpo, **decidido por quem conhece as rotas** — que não é
          * este arquivo (ver o KDoc do objeto: "nada aqui sabe o que é uma rota
          * do espelho"). O `EspelhoServidor` passa [TETO_CORPO_RETORNO] para o
@@ -262,7 +291,7 @@ object EspelhoHttp {
         tetoCorpo: (String) -> Int = { TETO_CORPO },
     ): Result<Req> =
         try {
-            Result.success(analisar(Fonte(entrada), hostsAceitos, tetoCorpo))
+            Result.success(analisar(Fonte(entrada, prazoTotalMs), hostsAceitos, tetoCorpo))
         } catch (e: Erro) {
             Result.failure(e)
         } catch (_: IOException) {
@@ -869,7 +898,18 @@ object EspelhoHttp {
      * devolvesse 0 num laço "tente de novo" prenderia a thread para sempre — e
      * este é um laço que roda com um desconhecido do outro lado.
      */
-    private class Fonte(private val entrada: InputStream) {
+    private class Fonte(private val entrada: InputStream, prazoTotalMs: Long = Long.MAX_VALUE) {
+
+        /**
+         * O INSTANTE limite da mensagem inteira — ver [PRAZO_TOTAL_REQ_MS].
+         *
+         * `System.nanoTime()` e não `currentTimeMillis()`: o relógio de parede
+         * pode saltar (NTP, fuso) no meio de uma requisição, e um prazo que salta
+         * para trás não expira nunca. `nanoTime` é monotônico.
+         */
+        private val limiteNs: Long =
+            if (prazoTotalMs >= Long.MAX_VALUE / 2) Long.MAX_VALUE
+            else System.nanoTime() + prazoTotalMs * 1_000_000L
 
         private val buf = ByteArray(2048)
         private var ini = 0
@@ -877,6 +917,11 @@ object EspelhoHttp {
 
         private fun encher(): Boolean {
             if (ini < fim) return true
+            // ENTRE DUAS LEITURAS, e não dentro de uma: um `read` bloqueado ainda
+            // é limitado pelo `setSoTimeout` do servidor (10 s por leitura). Os
+            // dois relógios se somam, e é essa soma que fecha a porta do cliente
+            // que pinga um byte de cada vez.
+            if (System.nanoTime() > limiteNs) throw Erro.Truncado
             ini = 0
             fim = 0
             val n = entrada.read(buf, 0, buf.size)

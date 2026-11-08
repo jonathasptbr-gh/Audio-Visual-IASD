@@ -2966,10 +2966,18 @@ class MainActivity : ComponentActivity(), BridgeHost {
         }
     }
 
-    override fun mirrorCertRemove(onResult: () -> Unit) {
+    override fun mirrorCertRemove(onResult: (Boolean) -> Unit) {
         thread(name = "av-cert", isDaemon = true) {
-            EspelhoCert.apagar(this)
-            runOnUiThread { onResult() }
+            // O DESFECHO sobe: `false` é "o arquivo não saiu" (FS somente-leitura,
+            // arquivo aberto), e a ponte publica isso em vez de dizer `true`
+            // sempre — ver o KDoc do `EspelhoCert.apagar`.
+            val saiu = try {
+                EspelhoCert.apagar(this)
+            } catch (e: Exception) {
+                Log.w(TAG, "falha apagando o certificado do espelho", e)
+                false
+            }
+            runOnUiThread { onResult(saiu) }
         }
     }
 

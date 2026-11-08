@@ -75,7 +75,7 @@ class EspelhoHttpTest {
         // fio, inclusive os de controle que os casos negativos injetam.
         Gotejante(texto.toByteArray(Charsets.ISO_8859_1), porRead),
         aceitos,
-        tetoCorpo,
+        tetoCorpo = tetoCorpo,
     )
 
     private fun passa(texto: String, aceitos: Set<String> = hosts): EspelhoHttp.Req =
@@ -534,6 +534,39 @@ class EspelhoHttpTest {
         )
     }
 
+    /**
+     * O PRAZO TOTAL da mensagem — o que o `setSoTimeout` do servidor NÃO dá.
+     *
+     * Ele é por `read()`, e um cliente que pinga um byte de cada vez fica
+     * abaixo dele para sempre: 4 KiB de cabeçalho a 1 byte por 9 s valem ~10 h
+     * com a thread presa, e 16 dessas fecham o teto de conexões em voo no meio
+     * de um culto — a tela que recarregar recebe conexão recusada, sem nada que
+     * ligue uma coisa à outra.
+     *
+     * A prova usa o MESMO fluxo duas vezes: com o prazo de produção ele é
+     * aceito byte a byte (o laço de leitura dá conta), e com 1 ms ele morre como
+     * [EspelhoHttp.Erro.Truncado] — a mesma resposta de um socket que morreu no
+     * meio, porque é isso que aconteceu do ponto de vista do parser.
+     */
+    @Test
+    fun aMensagemQueNaoTerminaAMortoMorreNoPrazoTotal() {
+        val bruto = cru(
+            linha = "GET /v HTTP/1.1",
+            cabecalhos = listOf("Host: 192.168.0.42:8787") +
+                List(30) { i -> "X-$i: ${"a".repeat(200)}" },
+        )
+        // Premissa: sem prazo apertado, o gotejo byte a byte PARSELA.
+        assertTrue(ler(bruto, porRead = 1).isSuccess)
+        assertSame(
+            EspelhoHttp.Erro.Truncado,
+            EspelhoHttp.lerRequisicao(
+                Gotejante(bruto.toByteArray(Charsets.ISO_8859_1), 1),
+                hosts,
+                prazoTotalMs = 1,
+            ).exceptionOrNull(),
+        )
+    }
+
     @Test
     fun truncadoNoMeioDosCabecalhos() {
         assertSame(
@@ -546,8 +579,7 @@ class EspelhoHttpTest {
     }
 
     @Test
-    fun truncadoNoMeioDoCorpo() {
-        assertSame(
+    fun truncadoNoMeioDoCorpo() {        assertSame(
             EspelhoHttp.Erro.Truncado,
             falha(
                 cru(

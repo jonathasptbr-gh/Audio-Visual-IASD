@@ -156,11 +156,32 @@ object EspelhoCert {
         return ""
     }
 
-    /** Apaga o certificado — o espelho volta a HTTP claro no próximo ligar. */
-    fun apagar(ctx: Context) {
-        arquivo(ctx).delete()
+    /**
+     * Apaga o certificado — o espelho volta a HTTP claro no próximo ligar.
+     *
+     * **Devolve o que ACONTECEU, não o que se pediu**, e a diferença é uma
+     * chave privada que fica no disco: `File.delete()` devolve `false` e não
+     * lança (sistema de arquivos somente-leitura, arquivo aberto, diretório
+     * sem permissão). Ignorar esse retorno, como se fazia até a K4, fazia a
+     * ponte resolver `true` SEMPRE — e quem pergunta "apagou?" recebia "sim"
+     * com o `.p12` no lugar.
+     *
+     * As preferências (a senha nossa, o host, a validade) saem mesmo quando o
+     * arquivo não sai: elas descrevem um certificado que ninguém mais vai
+     * servir, e a folha passa a dizer a verdade — "não há certificado" — em
+     * vez de anunciar um que o `material()` já não encontra. O que NÃO pode
+     * acontecer é o contrário: dizer que apagou com o arquivo ali.
+     */
+    fun apagar(ctx: Context): Boolean {
+        val f = arquivo(ctx)
+        val saiu = !f.exists() || f.delete()
+        if (!saiu) {
+            Log.w(TAG, "o certificado do espelho NAO pode ser apagado: ${f.absolutePath}")
+        }
         prefs(ctx).edit().clear().apply()
-        Log.i(TAG, "certificado do espelho removido")
+        val restou = f.exists()
+        if (!restou) Log.i(TAG, "certificado do espelho removido")
+        return !restou
     }
 
     fun estado(ctx: Context): Estado {

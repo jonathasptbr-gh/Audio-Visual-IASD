@@ -52,10 +52,29 @@ class EspelhoMidiaCanal(
     @Volatile private var instalado = false
 
     /** O item aberto — UM por vez: a fila de empurrões é serializada do lado
-     *  web. */
+     *  web. É a LEITURA do [quandoChega] (o `abrir` que está chegando agora). */
     @Volatile private var tokenAberto: String? = null
 
-    private class Trabalho(val bytes: ByteArray, val resposta: JavaScriptReplyProxy)
+    /**
+     * UM BLOCO, COM O ITEM A QUE ELE PERTENCE CARIMBADO NA CHEGADA.
+     *
+     * O `token` NÃO é lido do campo volátil na hora de escrever, e a diferença
+     * é uma mídia corrompida: o laço de escrita roda noutra thread, e entre o
+     * `offer` e o `write` o lado web pode ter aberto OUTRO item. Na web isso
+     * acontece depois de um prazo vencido — o `telaPedir` devolve `null` e a
+     * fila de empurrões segue para o item seguinte com o bloco anterior ainda
+     * no nosso buffer. O bloco chegou para o item A; escrevê-lo no B põe bytes
+     * de uma imagem no meio de outra, e a tela da rede mostra um retalho com o
+     * tamanho certo e o conteúdo errado.
+     *
+     * É o mesmo raciocínio do `SafRegistry`: o token acompanha o dado desde a
+     * porta de entrada, e não é reconsultado no caminho.
+     */
+    private class Trabalho(
+        val bytes: ByteArray,
+        val resposta: JavaScriptReplyProxy,
+        val token: String,
+    )
 
     fun instalar(web: WebView?): Boolean {
         val w = web ?: return false
@@ -82,6 +101,10 @@ class EspelhoMidiaCanal(
         thread?.interrupt()
         thread = null
         fila.clear()
+        // O ITEM ABERTO MORRE COM O CANAL: o WebView é remontado depois de uma
+        // morte de renderer, e um token de antes ficaria dono dos primeiros
+        // blocos do recomeço (ver [Trabalho]).
+        tokenAberto = null
         val w = web
         if (w != null && instalado) {
             val remover = Runnable {
@@ -137,7 +160,11 @@ class EspelhoMidiaCanal(
             // ainda assim encher (o disco engasgou), a recusa volta como erro
             // retentável e o lado web re-envia o MESMO bloco — o controle de
             // fluxo fecha sem descartar byte nenhum.
-            if (!fila.offer(Trabalho(bytes, resposta))) {
+            // O `abrir` anterior é que dá o dono deste bloco (ver [Trabalho]):
+            // fora de um item aberto não há onde escrever, e `-1` é a resposta
+            // de recusa que o lado web já conhece.
+            val dono = tokenAberto ?: ""
+            if (!fila.offer(Trabalho(bytes, resposta, dono))) {
                 responder(resposta, JSONObject().put("ok", false).put("erro", "fila cheia"))
             }
             return
@@ -189,8 +216,7 @@ class EspelhoMidiaCanal(
                 break
             } ?: continue
             val c = cache()
-            val token = tokenAberto
-            val total = if (c != null && token != null) c.escrever(token, t.bytes) else -1L
+            val total = if (c != null && t.token.isNotEmpty()) c.escrever(t.token, t.bytes) else -1L
             // O ACK volta pela main (JavaScriptReplyProxy é do WebView): é ele
             // que libera o próximo bloco do lado web.
             responder(t.resposta, JSONObject().put("r", total))

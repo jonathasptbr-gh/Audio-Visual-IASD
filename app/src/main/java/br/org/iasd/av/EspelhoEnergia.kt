@@ -64,7 +64,7 @@ object EspelhoEnergia {
     /**
      * Os dois locks são escritos no [ligar]/[desligar] (main); o do wake é
      * também LIDO das threads de escrita do [EspelhoServidor], por [progresso]
-     * — daí o `@Volatile`, como nos sete irmãos abaixo.
+     * — daí o `@Volatile`, como nos campos de estado deste objeto.
      *
      * **`@Volatile` dá VISIBILIDADE, e só ela.** O par ler-e-usar do
      * [renovarWakeLock] (`val wl = wakeLock`, depois `wl.acquire`) não fica

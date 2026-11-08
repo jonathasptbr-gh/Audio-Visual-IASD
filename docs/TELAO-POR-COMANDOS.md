@@ -98,6 +98,14 @@ protegida por um código curto** — e ninguém no prédio teria como perceber.
 3. `registerNetworkCallback` → `onLost` / `onCapabilitiesChanged` que perca o Wi-Fi **desliga o
    servidor**. Um endereço que sumiu não pode continuar escutando.
 
+> **Estado hoje (o verbatim acima é a decisão de 2025; este parágrafo é o que o código faz desde a
+> v1.4.1 e a v5.183).** As três regras seguem de pé, com duas emendas: (1) a lista de endereços
+> servíveis é maior que a Wi-Fi — o **ponto de acesso do próprio celular** entra por
+> `EspelhoInterfaces` (§7-B), e o que nunca entra é `rmnet`/VPN/p2p; (2) a perda do Wi-Fi não desliga
+> mais no primeiro aviso: ela vira **suspeita**, que sobrevive `GRACA_REDE_MS` (6 s) e é confirmada
+> contra `ipAindaEServivel` — com o endereço trocado e a Wi-Fi presente, o socket é **religado no IP
+> novo** (`religarNoIp`) em vez de derrubar a projeção. Ver `EspelhoServidor.confirmarRede`.
+
 Isto reinstala, com mais rigor, a regra do plano original ("sem Wi-Fi, não desenhar o
 endereço nem o QR"), que a versão intermediária tinha perdido.
 
@@ -354,9 +362,14 @@ português passam INTACTOS — o caminho de comandos não passa por `sanear()`
 
 ### 5.3 Mídia (`GET /m/<token>`)
 Range RFC 7233 faixa única (`EspelhoHttp.alcanceDe`); sem Range → 200 inteiro;
-malformado (inclusive `Range` duplicado e multi-faixa) → **IGNORADO, 200
-inteiro**, nunca adivinhado e nunca 400 (um 400 quebraria um player legítimo);
-só a faixa VÁLIDA que não cabe no recurso (`ini >= tamanho`, sufixo `-0`) → 416.
+**multi-faixa e valor malformado** (`a > b`, dígito quebrado, espaço dentro da
+faixa, unidade que não é `bytes`) → **IGNORADO, 200 inteiro**, nunca adivinhado
+e nunca 400 (um 400 quebraria um player legítimo); só a faixa VÁLIDA que não
+cabe no recurso (`ini >= tamanho`, sufixo `-0`) → 416. **`Range` REPETIDO é
+outra coisa e leva 400**: dois valores para o mesmo campo é a ambiguidade que o
+parser recusa em qualquer cabeçalho que ele lê (ver `camposDuplicadosRecusados`
+no `EspelhoHttpTest`), e atender um dos dois seria escolher por conta própria
+entre dois programas discordando.
 `Accept-Ranges: bytes`, `Content-Type` do registro. Token de serviço opaco
 por recurso+sessão. **Enquanto o arquivo ainda está sendo empurrado** pelo canal
 ArrayBuffer, a rota responde COMO SE ESTIVESSE COMPLETO, pelo tamanho anunciado

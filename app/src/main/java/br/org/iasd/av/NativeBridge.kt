@@ -277,8 +277,15 @@ interface BridgeHost {
      */
     fun mirrorCertState(onResult: (JSONObject) -> Unit)
 
-    /** Apaga o certificado: o espelho volta a HTTP claro no próximo ligar. */
-    fun mirrorCertRemove(onResult: () -> Unit)
+    /**
+     * Apaga o certificado: o espelho volta a HTTP claro no próximo ligar.
+     *
+     * **Devolve o desfecho** (`true` = não há mais `.p12`), e não um "pedi" —
+     * um `File.delete()` que falha deixava a folha dizer "apagado" com a chave
+     * privada ainda no disco. Fechado na K4; ver o KDoc do
+     * [EspelhoCert.apagar].
+     */
+    fun mirrorCertRemove(onResult: (Boolean) -> Unit)
 
     /** Bytes livres no armazenamento PRÓPRIO do app — é lá que o pacote a
      *  compartilhar é escrito, e ele não tem como pedir o cartão do operador. */
@@ -371,7 +378,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 83
+        const val SHELL_VERSION = 84
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -1386,7 +1393,7 @@ class NativeBridge(
     fun espelhoCertApagar(callId: String) {
         val h = host
         if (h == null) { resolve(callId, "false"); return }
-        h.mirrorCertRemove { resolve(callId, "true") }
+        h.mirrorCertRemove { saiu -> resolve(callId, saiu.toString()) }
     }
 
     // ---------- vídeo do YouTube como ARQUIVO ----------
