@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.13.41",
+    "itens": [
+      "Compartilhar dois arquivos em sequência agora importa os dois; antes, o segundo apagava o primeiro.",
+      "Depois de aplicar uma atualização, as teclas de volume do celular não ficam mais sem efeito."
+    ]
+  },
+  {
     "versao": "1.13.40",
     "itens": [
       "Revisão interna do visual (segunda metade): nada muda no que você vê ou faz."

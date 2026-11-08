@@ -157,17 +157,22 @@ class MainActivity : ComponentActivity(), BridgeHost {
     }
 
     /**
-     * Share recebido por intent, aguardando o lado web consumir.
+     * Os shares recebidos por intent, na ORDEM em que chegaram, aguardando o
+     * lado web consumir.
      *
-     * `AtomicReference`, e não um campo comum: quem escreve é a main thread
-     * (`onCreate`/`onNewIntent`), mas quem lê é [takePendingShare], chamado da
-     * thread do WebView pela ponte — sem uma aresta de visibilidade a leitura
-     * podia enxergar `null` (ou um objeto pela metade) por sorte de cache. O
-     * `getAndSet(null)` do take também fecha, de graça, a janela de consumo
-     * duplo entre duas chamadas concorrentes.
+     * `ConcurrentLinkedQueue`, e não um campo comum nem um slot: quem escreve é
+     * a main thread (`onCreate`/`onNewIntent`), mas quem lê é
+     * [takePendingShare], chamado da thread do WebView pela ponte — a fila dá a
+     * aresta de visibilidade entre as duas.
+     *
+     * **E ela é FILA porque um SLOT PERDIA ARQUIVO.** Dois `ACTION_SEND` que
+     * chegassem antes do primeiro `take` — o operador compartilhando dois PDFs
+     * em sequência — faziam o segundo `set` apagar o primeiro, sem log e sem
+     * aviso: o primeiro arquivo simplesmente não era importado. O `poll()` do
+     * take devolve UM por chamada, e o `pumpShare` do `native.js` esvazia a
+     * fila até receber `null`.
      */
-    private val pendingShare =
-        java.util.concurrent.atomic.AtomicReference<JSONObject?>(null)
+    private val pendingShare = java.util.concurrent.ConcurrentLinkedQueue<JSONObject>()
 
     /** Há download em curso? (evita start/stop repetido do serviço) */
     private var backgroundWork = false
@@ -458,7 +463,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // integral do arquivo, sem aviso e sem desfazer. `savedInstanceState`
         // não-nulo é exatamente "isto é uma recriação".
         if (savedInstanceState == null) {
-            pendingShare.set(ShareIntake.parse(this, intent))
+            ShareIntake.parse(this, intent)?.let { pendingShare.offer(it) }
         }
         // E marca o intent como consumido, para o caso de o sistema recriar a
         // Activity SEM estado salvo: um ACTION_SEND que já foi lido nunca mais
@@ -503,16 +508,10 @@ class MainActivity : ComponentActivity(), BridgeHost {
             runOnUiThread { web?.evaluateJavascript(js, null) }
         }
 
-        // (A APLICAÇÃO AUTOMÁTICA SAIU AQUI, na v5.234.) Da v1.68 até aqui este
-        // ponto tinha um `WebUpdater.aplicarSozinho` que trocava a base no
-        // instante em que ela ficava pronta, sem perguntar. Ele nasceu contra um
-        // defeito real — "entra no próximo lançamento" nunca chegava, porque o
-        // processo não morre — e o diagnóstico continua válido; o remédio é que
-        // era largo demais. Quem decide QUANDO o telão pisca é o operador, e
-        // agora ele é perguntado: o `controle.js` desenha o aviso e chama
-        // `otaApply()`. O que tornou isso possível foi consertar a CAUSA — a
-        // detecção ficou rápida e a supressão do lado web perdeu o espelho, que
-        // era permanente e travava tudo. Ver o KDoc de `WebUpdater.aoChegar`.
+        // QUEM DECIDE QUANDO O TELÃO PISCA É O OPERADOR: o shell só AVISA, e o
+        // `controle.js` desenha a pergunta e chama `otaApply()` — é a primeira
+        // das três garantias do OTA. Nada aqui troca a base sozinho, de
+        // propósito.
 
         // Notificação de controles / tela de bloqueio / botões de mídia: o
         // sistema entrega a ação aqui e ela vai para o MESMO caminho dos botões
@@ -728,7 +727,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // um intent inútil não ficar pendurado como o intent da Activity.
         consumeShareIntent()
         if (share == null) return
-        pendingShare.set(share)
+        pendingShare.offer(share)
         // App já aberto: empurra o share na hora, sem esperar um novo init.
         web?.evaluateJavascript("window.__avShareArrived && window.__avShareArrived();", null)
     }
@@ -929,10 +928,9 @@ class MainActivity : ComponentActivity(), BridgeHost {
      */
     private fun telasExternas(): List<Display> {
         val dm = displayManager ?: return emptyList()
-        // A exclusão por displayId saiu com a tela virtual do espelho de pixels
-        // (E6/E7); o filtro de FLAG_PRIVATE fica — é o cinto contra o Android
-        // 14+ ter removido a ordenação por tipo de getDisplays, e contra
-        // qualquer display privado que apareça aqui no futuro.
+        // O filtro fica mesmo sem excluir nada hoje (ver o KDoc): é o cinto
+        // contra o Android 14+ ter removido a ordenação por tipo de
+        // getDisplays, e contra qualquer display privado que apareça no futuro.
         return dm.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION).filter { d ->
             (d.flags and Display.FLAG_PRIVATE) == 0
         }
@@ -1393,20 +1391,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
     private var pacoteUltimoConsumo: String = ""
 
     /**
-     * O QUE O SHELL SABE do pacote, em texto, para o Registro.
-     *
-     * Ele existe porque este caminho já gastou TRÊS rodadas de campo — *"o
-     * arquivo tem 0kb"*, *"não faz nada"* e *"engatilha um Refaça"* — em que a
-     * única informação que sairia do aparelho era o desfecho visível, e o `-1`
-     * do [pacoteShare] colapsa TRÊS causas distintas: não há pronto, o arquivo
-     * sumiu, ou o seletor recusou. Separá-las por dedução sobre o código é o
-     * que essas rodadas foram.
-     *
-     * TEXTO E NÃO JSON, ao contrário do [espelhoDiag]: aqui não há frase a
-     * montar do lado web — o consumidor é uma pessoa lendo o Registro, e o que
-     * ela precisa é do nome da exceção.
-     */
-    /**
      * O pronto que o lado web precisa reencontrar depois de uma recarga.
      *
      * OS BYTES SAEM DO DISCO, nunca de memória: é o `length()` do caminho que
@@ -1422,6 +1406,20 @@ class MainActivity : ComponentActivity(), BridgeHost {
         return JSONObject().put("nome", alvo.name).put("bytes", n)
     }
 
+    /**
+     * O QUE O SHELL SABE do pacote, em texto, para o Registro.
+     *
+     * Ele existe porque este caminho já gastou TRÊS rodadas de campo — *"o
+     * arquivo tem 0kb"*, *"não faz nada"* e *"engatilha um Refaça"* — em que a
+     * única informação que sairia do aparelho era o desfecho visível, e o `-1`
+     * do [pacoteShare] colapsa TRÊS causas distintas: não há pronto, o arquivo
+     * sumiu, ou o seletor recusou. Separá-las por dedução sobre o código é o
+     * que essas rodadas foram.
+     *
+     * TEXTO E NÃO JSON, ao contrário do [espelhoDiag]: aqui não há frase a
+     * montar do lado web — o consumidor é uma pessoa lendo o Registro, e o que
+     * ela precisa é do nome da exceção.
+     */
     override fun pacoteDiag(): String {
         val alvo = pacotePronto
         val onde = if (alvo == null) "nenhum pacote pronto no shell" else {
@@ -1735,15 +1733,12 @@ class MainActivity : ComponentActivity(), BridgeHost {
     }
 
     /**
-     * As telas que o lado web vê. É o escritor ÚNICO de `lastDisplays`, então o
-     * filtro de [telasExternas] aqui é o que impede um display PRIVADO de
-     * aparecer no app como se fosse uma TV — inclusive destravando o modo
-     * simplificado, que se considera "conectado" pela primeira entrada da lista.
-     * (Quem o produzia era a tela virtual do espelho de pixels, removida na
-     * v5.187; ver o KDoc de [telasExternas] para por que o filtro fica.)
-     */
-    /**
      * As telas externas, e para cada uma **se o telão está de fato no ar nela**.
+     *
+     * É o escritor ÚNICO do `lastDisplays` do lado web, então o filtro de
+     * [telasExternas] aqui é o que impede um display PRIVADO de aparecer no app
+     * como se fosse uma TV — inclusive destravando o modo simplificado, que se
+     * considera "conectado" pela primeira entrada da lista.
      *
      * O campo `telao` é a correção de um desencontro que durava desde o começo:
      * esta lista responde pelo DisplayManager e o lado web decidia por ela quem
@@ -2356,6 +2351,18 @@ class MainActivity : ComponentActivity(), BridgeHost {
                     // Ver `StagePresentation.recarregar`: sem limpar o cache, a
                     // página nova pode ser montada com pedaços da antiga.
                     it.clearCache(true)
+                    // E O DOCUMENTO ANTIGO MORREU AQUI TAMBÉM. A recarga é no
+                    // MESMO renderer — não passa por `buildControleWebView`, que
+                    // é quem zera o estado do documento que morreu —, e
+                    // `captureVolumeKeys` continuava ligado enquanto o documento
+                    // novo não tinha `__avVolumeKey`: as teclas eram consumidas e
+                    // não mexiam em nada, e se a carga da página falhasse o
+                    // aparelho ficava sem NENHUM controle de volume (o mesmo
+                    // desfecho que a morte de renderer fecha em
+                    // `buildControleWebView`). Fechar a captura devolve os botões
+                    // ao sistema, que é o estado de uma página que ainda não
+                    // pediu — e ela pede no `init()`.
+                    captureVolumeKeys = false
                     it.loadUrl(WebViewFactory.URL_CONTROLE)
                 }
             }
@@ -2577,7 +2584,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
         }
     }
 
-    override fun takePendingShare(): JSONObject? = pendingShare.getAndSet(null)
+    override fun takePendingShare(): JSONObject? = pendingShare.poll()
 
     /**
      * O LINK COPIADO, e só quando ele é novo — ver [BridgeHost.readClipboardUrl].
@@ -2744,10 +2751,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
             // rede são COMANDOS. O que a assinatura carrega hoje é o `ip`
             // escolhido — a REDE, não um modo de transmitir: continua havendo
             // um só.
-            //
-            // (Saiu na v5.206: `espelhoDiag.novaSessao()`. Ela zerava a âncora
-            // do atraso captura→fio do anel de `ritmo`, e aquele anel morreu com
-            // o encoder que o alimentava — ver o KDoc do [EspelhoDiag].)
             espelhoDiag.registrar("transmissao por comandos ligada em " + endereco)
             espelhoSrv = srv
             // O TAP DA LAN (telão por comandos, E2): todo comando que o web
@@ -2782,27 +2785,22 @@ class MainActivity : ComponentActivity(), BridgeHost {
     }
 
     /**
-     * Solta as três peças da transmissão: servidor, pareamento e serviço.
+     * Solta as três peças da transmissão — servidor, pareamento e serviço — E
+     * DIZ POR QUÊ.
      *
      * Separado do [stopMirror] porque ele tem DOIS chamadores com origens
      * opostas — o operador desligando, e o serviço morrendo por conta própria
      * (`onGone`). Idempotente de propósito: `desligar()` de servidor e
      * pareamento já o são, e o `stopService` de um serviço que não está de pé é
      * um no-op.
-     */
-    /**
-     * DESMONTAR DIZ POR QUÊ, e isso não é zelo de log.
      *
-     * Este método era MUDO no [espelhoDiag]. O Registro que o operador copia
-     * saía com a última linha em *"cessao da biblioteca ligada"* e o estado em
+     * O `motivo` é obrigatório porque o Registro que o operador copia saía com
+     * a última linha em *"cessao da biblioteca ligada"* e o estado em
      * *"servidor: desligado"*, sem nada entre as duas — e as causas possíveis
      * pedem ações OPOSTAS: o operador desligou, o app foi fechado, ou o Android
      * encerrou o serviço. A distância entre elas é a diferença entre "toque de
-     * novo" e "não deixe o app ser fechado durante a cópia", e nenhuma delas
-     * era dizível a distância.
-     *
-     * O `motivo` é obrigatório de propósito: um chamador novo tem de escolher
-     * uma frase, e não herdar silêncio.
+     * novo" e "não deixe o app ser fechado durante a cópia", e nenhuma delas era
+     * dizível a distância.
      */
     private fun desmontarEspelho(motivo: String) {
         if (espelhoSrv != null) espelhoDiag.registrar("transmissao desligada: " + motivo)
@@ -3154,6 +3152,13 @@ class MainActivity : ComponentActivity(), BridgeHost {
 
         /** As esperas da escada de retomada do telão — ver [agendarRetomadaDoTelao]. */
         private val TELAO_ESPERAS = longArrayOf(400, 1000, 2000, 4000, 8000)
+        /** A memória do diálogo de saída bloqueado — ver `dialogoDeSaidaBloqueado`. */
+        private const val SAIDA_PREFS = "saida-audio"
+        private const val SAIDA_BLOQUEADO_KEY = "dialogoBloqueadoNaVersao"
+        private const val SAIDA_ROTEADOR_BLOQUEADO_KEY = "roteadorBloqueadoNaVersao"
+        /** Não é ação de `Intent` nenhuma: é a CHAVE do candidato [CandidatoDeAudio.roteador]. */
+        private const val ACAO_SELETOR_DO_SISTEMA = "android.media.MediaRouter2#showSystemOutputSwitcher"
+
         /**
          * O tema escolhido, guardado só para o `windowBackground` do PRÓXIMO
          * lançamento (ver [setTemaClaro]). A fonte de verdade é o
@@ -3164,13 +3169,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
          * CÓDIGO) e o tema é preferência do operador, que deve viajar na troca
          * de aparelho como qualquer outra.
          */
-        /** A memória do diálogo de saída bloqueado — ver `dialogoDeSaidaBloqueado`. */
-        private const val SAIDA_PREFS = "saida-audio"
-        private const val SAIDA_BLOQUEADO_KEY = "dialogoBloqueadoNaVersao"
-        private const val SAIDA_ROTEADOR_BLOQUEADO_KEY = "roteadorBloqueadoNaVersao"
-        /** Não é ação de `Intent` nenhuma: é a CHAVE do candidato [CandidatoDeAudio.roteador]. */
-        private const val ACAO_SELETOR_DO_SISTEMA = "android.media.MediaRouter2#showSystemOutputSwitcher"
-
         private const val TEMA_PREFS = "tema"
         private const val TEMA_CLARO_KEY = "claro"
 
@@ -3202,11 +3200,11 @@ class MainActivity : ComponentActivity(), BridgeHost {
         private const val SAMSUNG_VENDOR = "samsung"
 
         /**
-         * O diálogo de SAÍDA DE ÁUDIO do sistema e o extra que diz de quem é a
-         * sessão de mídia. Literais porque **não são API documentada** —
-         * `MediaOutputConstants` é interno ao app de Configurações. Faltando, a
-         * cadeia do [audioOutputCandidates] segue para o painel de volume.
+         * Quanto se espera para saber se o diálogo do SystemUI subiu. Ver
+         * [conferirDialogoDeSaida] — é uma aposta, e ela está dita como tal.
          */
+        private const val ESPERA_DIALOGO_MS = 800L
+
         /**
          * O DIÁLOGO DE SAÍDA DO SystemUI — a lista de aparelhos que o ícone da
          * notificação de mídia abre. **É um BROADCAST**, tratado pelo
@@ -3214,15 +3212,15 @@ class MainActivity : ComponentActivity(), BridgeHost {
          * porque `MediaOutputConstants` é interno; faltando o receptor, a cadeia
          * do [audioOutputCandidates] segue para o candidato seguinte.
          */
-        /**
-         * Quanto se espera para saber se o diálogo do SystemUI subiu. Ver
-         * [conferirDialogoDeSaida] — é uma aposta, e ela está dita como tal.
-         */
-        private const val ESPERA_DIALOGO_MS = 800L
-
         private const val ACTION_SYSTEMUI_MEDIA_OUTPUT = "com.android.systemui.action.LAUNCH_MEDIA_OUTPUT_DIALOG"
         private const val EXTRA_SYSTEMUI_PACKAGE = "package_name"
 
+        /**
+         * O diálogo de SAÍDA DE ÁUDIO do sistema e o extra que diz de quem é a
+         * sessão de mídia. Literais porque **não são API documentada** —
+         * `MediaOutputConstants` é interno ao app de Configurações. Faltando, a
+         * cadeia do [audioOutputCandidates] segue para o painel de volume.
+         */
         private const val ACTION_MEDIA_OUTPUT_PANEL = "com.android.settings.panel.action.MEDIA_OUTPUT"
         private const val EXTRA_MEDIA_OUTPUT_PACKAGE = "com.android.settings.panel.extra.PACKAGE_NAME"
 
@@ -3293,22 +3291,14 @@ class MainActivity : ComponentActivity(), BridgeHost {
          * recriação de Activity — [pacoteShare], [pacoteDiag] e a faxina do
          * lançamento continuam enxergando o arquivo depois dela.
          *
-         * O QUE ELE **NÃO** IMPEDE, e o KDoc afirmava que sim até a v1.8.43:
-         * o tile voltar a oferecer "Exportar" com gigabytes prontos no disco.
-         * Quem decide o que o tile oferece é o LADO WEB, e lá `pacotePronto` é
-         * estado de PÁGINA (`let`, em `controle.js`) que nada semeia a partir
-         * daqui — não há método de ponte que responda "há pronto?"
-         * ([pacoteDiag] devolve TEXTO para uma pessoa ler no Registro, não um
-         * estado consumível). Um OTA aplicado, a morte do renderer ou uma
-         * recriação de Activity recarregam a página, ela nasce com `null`, e o
-         * arquivo fica em `files/pacote/` até a faxina do lançamento seguinte.
-         *
-         * O CONSERTO É O DO `mirrorEstado` (ver `lerEspelho()` no `init()` do
-         * `controle.js`, que existe por este MESMO motivo — "o servidor vive no
-         * SHELL e sobrevive ao documento"): um método de ponte que devolva nome
-         * e `length()` do disco, semeado na abertura. Custa `SHELL_VERSION`,
-         * `minShell`, `shellTag` e Release, e por isso está em
-         * `docs/ACHADOS-EM-ABERTO.md` em vez de aqui.
+         * O QUE ELE GARANTE, e é o [pacoteProntoEstado] (v1.8.45, shell 72): o
+         * tile continua oferecendo o ENVIO depois de um OTA aplicado, da morte
+         * do renderer ou de uma recriação de Activity. Quem decide o que o tile
+         * oferece é o LADO WEB, onde `pacotePronto` é estado de PÁGINA — a
+         * página nova nasce com `null` e PERGUNTA ao shell, que responde do
+         * `length()` do DISCO (e `null` se o arquivo sumiu). É o par do
+         * `lerEspelho()` do `init()` do `controle.js`, pela mesma razão: o
+         * arquivo vive no SHELL e sobrevive ao documento.
          *
          * É o par do `pacoteLocal`, que é de INSTÂNCIA de propósito: aquele é o
          * parcial EM CURSO, e quem o alimentava morre com a Activity.

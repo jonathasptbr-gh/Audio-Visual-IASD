@@ -282,10 +282,13 @@ WebViews e um vídeo grande dividem o mesmo processo.
 
 **`KeepVisibleWebView` (só o telão).** O Chromium marca a página como `hidden`
 quando a janela da View some — o que acontece com a `Presentation` no instante em
-que o app é minimizado. `onWindowVisibilityChanged` reporta sempre `VISIBLE`: o
-telão é a projeção, continua no ar com o app minimizado de propósito, e não há
-razão para desacelerar o renderer dele. O WebView do **Controle** segue o ciclo
-normal — ali ser estrangulado em segundo plano é o certo, e é justamente o que o
+que o app é minimizado. `onWindowVisibilityChanged` (e o irmão
+`onVisibilityChanged`, a segunda metade) reportam `VISIBLE` **enquanto
+`manterVisivel` estiver ligado**: o telão nasce com ele, e o **Controle** o recebe
+EM RUNTIME (`setProjecaoLocal`) só enquanto a preview É a projeção — sem nenhuma
+tela no ar. O telão continua no ar com o app minimizado de propósito, e não há
+razão para desacelerar o renderer dele; com tela lá fora, o Controle volta ao
+ciclo normal, porque ali ser estrangulado em segundo plano é o certo — é o que o
 `snoopDisplayStatus` existe para contornar.
 
 ### Reconexão e morte do renderer
@@ -1143,9 +1146,10 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.13.40 · APK v1.13.38** · `SHELL_VERSION` **83** ·
-bundle com `minShell: 83` — a v1.13.40 é um lote só de web (a revisão S2, CSS),
-então não declara `shellTag` (a Release da v1.13.38 já está publicada). O shell
+**Versão atual: base web v1.13.41 · APK v1.13.41** · `SHELL_VERSION` **83** ·
+bundle com `minShell: 83` e `shellTag: v1.13.41` — a v1.13.41 é a revisão K1,
+que mexe no Kotlin (a fila de shares, a captura das teclas de volume na recarga e
+os comentários do shell), então a Release sai junto. O shell
 83 é o **PISO**: todo método da ponte existe, e não há guarda de versão no lado
 web. O que cada lote trouxe está no `docs/HISTORICO.md`, nunca aqui.
 

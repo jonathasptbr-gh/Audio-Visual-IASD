@@ -19,7 +19,7 @@
         custa reemitir e reimportar, que é exatamente o custo certo: ela sai dos
         DOIS destinos, inclusive da transferência direta.
      3. `files/pacote/` é o `.avpkg` que espera o seletor de compartilhamento
-        (shell 67). Ele é uma CÓPIA do que os itens 3 e 4 já cobrem, com o
+        (shell 67). Ele é uma CÓPIA do acervo que o item 4 já cobre, com o
         tamanho do acervo inteiro, e existe por minutos — restaurá-lo noutro
         aparelho seria carregar gigabytes de um arquivo temporário que ninguém
         vai importar. A faxina do próprio app o apaga no lançamento seguinte.

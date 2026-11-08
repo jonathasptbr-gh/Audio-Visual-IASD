@@ -9,9 +9,11 @@
          CPU não pode dormir no meio de uma sincronização. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
-    <!-- Microfone: a função de "falar no telão" (push-to-talk) captura o
-         microfone no WebView do Display e o reproduz ao vivo. Só é usada
-         enquanto o operador segura o botão; nada é gravado. -->
+    <!-- Microfone: a permissão FICA, mas não há caminho de captura. A função de
+         "falar no telão" (push-to-talk) saiu na v1.8.89 a pedido do operador, e
+         o Kotlin que a serviria continua no app — quem a trouxer de volta traz
+         também a escada e a guarda de papel, e o `tools/sem-captura.test.mjs` é
+         a porta que cobra as duas. Nada no app grava. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <!-- E ESTA É A QUE FAZ O MICROFONE ABRIR. Ela não é exigida pelo Android:

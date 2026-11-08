@@ -271,26 +271,28 @@
   // ---- compartilhamento recebido por intent ----
   let shareCb = null;
   let sharePumping = false;
-  // Um `__avShareArrived` chegou COM o pump em voo: sem esta bandeira o
-  // segundo share era simplesmente ignorado (o early-return de baixo) e
-  // ficava no Kotlin esperando um próximo gatilho que podia nunca vir — o
-  // operador compartilhava dois arquivos em sequência e só o primeiro
-  // aparecia. A bandeira faz o finally rebombear uma vez.
-  let shareDeNovo = false;
 
+  // ESVAZIA A FILA, e não pega um só. O lado Kotlin guarda os shares numa
+  // fila: o operador que compartilha dois PDFs em sequência tem de receber os
+  // DOIS, na ordem. Uma chamada só por gatilho deixava o segundo na fila até
+  // um próximo `__avShareArrived` que podia nunca vir — e um slot único no
+  // Kotlin (antes disto) fazia pior: o segundo APAGAVA o primeiro.
+  //
+  // A segunda chamada devolvendo `null` é o que encerra o laço, e é também o
+  // que torna este laço compatível com um APK antigo (slot único): lá ele para
+  // na primeira iteração, como sempre parou.
   async function pumpShare() {
     if (!shareCb) return;
-    if (sharePumping) { shareDeNovo = true; return; }
+    if (sharePumping) return;
     sharePumping = true;
     try {
-      const share = await call((id) => B.takeShare(id), CALL_TIMEOUT_MS);
-      if (share) shareCb(share);
+      for (;;) {
+        const share = await call((id) => B.takeShare(id), CALL_TIMEOUT_MS);
+        if (!share) break;
+        shareCb(share);
+      }
     } finally {
       sharePumping = false;
-      if (shareDeNovo) {
-        shareDeNovo = false;
-        pumpShare();
-      }
     }
   }
 

@@ -22,10 +22,9 @@
          ganhou a SATURAÇÃO que faltava (o DENIM PROFUNDO): a matiz já era a
          certa, mas a 20% de saturação o resultado se lia como cinza, e a
          identidade acabava vivendo só no tema claro.
-         E DESDE A v1.5.14 O BUILD DETECTA A DIVERGÊNCIA: `tools/tokens.test.mjs`
-         compara este valor com o `bg` de tokens.css nos dois temas. A frase
-         acima — "nada no build detecta a divergência" — foi verdade por vinte e
-         duas versões e deixou de ser. -->
+         E O BUILD DETECTA A DIVERGÊNCIA: `tools/tokens.test.mjs` compara este
+         valor com o `bg` de tokens.css nos dois temas — desde a v1.5.14, e nos
+         dois blocos. É a asserção que sustenta tudo o que está escrito acima. -->
     <color name="app_bg">#0b1219</color>
     <!-- O MESMO papel, no TEMA CLARO (v5.192): espelha o `bg` do bloco
          :root[data-tema="claro"] de tokens.css. Quem escolhe entre os dois é a
