@@ -594,6 +594,32 @@ class NativeBridge(
         }
 
         /**
+         * A fila do APK — o download do pacote de atualização e a entrega dele
+         * ao instalador do sistema ([apkInstalar]).
+         *
+         * Própria, e NÃO a [transferencia]: aquela é de uma thread porque o
+         * resgate do [YoutubeGrab] é um slot único, e o APK não compartilha
+         * estado nenhum com ele. Enfileirado ali, o download do app começava
+         * depois de um vídeo de centenas de megabytes — e os 15 min do
+         * `APK_TIMEOUT_MS` do lado web contavam essa ESPERA. Quando o APK
+         * enfim começava, o web já tinha resolvido `null` e declarado "não
+         * deu", enquanto o pacote terminava e o instalador abria sozinho
+         * minutos depois: o desfecho que o prazo longo existe para evitar.
+         */
+        private val apk = Executors.newSingleThreadExecutor { r ->
+            Thread(r, "av-bridge-apk").apply { isDaemon = true }
+        }
+
+        /**
+         * Há um download de APK EM CURSO — ligado no fio do WebView, ANTES de
+         * enfileirar. Sem ele, dois toques em "Atualizar" viram duas tarefas:
+         * a segunda acha o `.apk` já baixado, não baixa nada e abre o
+         * instalador DE NOVO. Vive no `companion` porque a ponte é
+         * reconstruída a cada morte de renderer e a fila é uma só.
+         */
+        private val apkEmCurso = java.util.concurrent.atomic.AtomicBoolean(false)
+
+        /**
          * A fila do DESVIO DE CORS das fotos de fundo ([r2Imagem]) — mesmo
          * motivo da [cifra], pelo mesmo argumento: o trabalho dela é de MASSA
          * (a varredura automática dos fundos busca até `NET_CONCURRENCY` — 6 —
@@ -842,8 +868,7 @@ class NativeBridge(
      */
     @JavascriptInterface
     fun apkProcurar(callId: String) {
-        val h = host
-        if (h == null) { resolve(callId, "null"); return }
+        if (host == null) { resolve(callId, "null"); return }
         extracao.execute { resolve(callId, ShellUpdater.procurar(ctx).toString()) }
     }
 
@@ -862,12 +887,22 @@ class NativeBridge(
      */
     @JavascriptInterface
     fun apkInstalar(callId: String) {
-        val h = host
-        if (h == null) { resolve(callId, JSONObject.quote("indisponivel")); return }
-        transferencia.execute {
-            val erro = ShellUpdater.baixarEInstalar(ctx) { pct ->
-                val w = webRef()
-                w?.post { w.evaluateJavascript("window.__avApk && window.__avApk($pct);", null) }
+        if (host == null) { resolve(callId, JSONObject.quote("indisponivel")); return }
+        // A GUARDA É AQUI, no fio do WebView — ver [apkEmCurso]: a fila de uma
+        // thread serializa as tarefas, mas duas delas seriam duas INSTALAÇÕES,
+        // uma atrás da outra.
+        if (!apkEmCurso.compareAndSet(false, true)) {
+            resolve(callId, JSONObject.quote("ja ha um download em curso"))
+            return
+        }
+        apk.execute {
+            val erro = try {
+                ShellUpdater.baixarEInstalar(ctx) { pct ->
+                    val w = webRef()
+                    w?.post { w.evaluateJavascript("window.__avApk && window.__avApk($pct);", null) }
+                }
+            } finally {
+                apkEmCurso.set(false)
             }
             resolve(callId, JSONObject.quote(erro))
         }
@@ -948,8 +983,7 @@ class NativeBridge(
      */
     @JavascriptInterface
     fun bgProgress(json: String) {
-        // Só o Controle, como os onze irmãos que já recusam com `host == null`:
-        // Só o Controle, como os onze irmãos que já recusam com `host == null`:
+        // Só o Controle, como os irmãos que já recusam com `host == null`:
         // a notificação de download não pode ser FALSIFICÁVEL a partir do
         // WebView do telão — é o Controle quem baixa, então é só dele que o
         // progresso pode vir.
@@ -1041,7 +1075,7 @@ class NativeBridge(
      */
     @JavascriptInterface
     fun nowPlaying(json: String) {
-        // Só o Controle, como os onze irmãos com guarda de `host`. O WebView do
+        // Só o Controle, como os irmãos que já recusam com `host == null`. O WebView do
         // telão carrega script de terceiro por design, e este método DERRUBA o
         // [SessionService] com um `active:false` — justamente o serviço
         // `mediaPlayback` que impede o processo (e a Presentation) de ser morto
@@ -1128,6 +1162,23 @@ class NativeBridge(
     }
 
     /**
+     * O REGISTRO COMPARTILHADO COMO ARQUIVO (shell 82). Ele não cabe no
+     * [compartilharTexto]: um Registro passa de 100 kB, e um `EXTRA_TEXT` desse
+     * tamanho é cortado por quem recebe ou estoura o `Intent`. Vai como
+     * arquivo, pelo mesmo `FileProvider` do pacote.
+     *
+     * FILA `io`: é a escrita de um texto, na casa dos milissegundos.
+     */
+    @JavascriptInterface
+    fun compartilharArquivoTexto(callId: String, nome: String, texto: String) {
+        val h = host
+        if (h == null) { resolve(callId, "false"); return }
+        io.execute {
+            h.shareTextFile(nome, texto) { ok -> resolve(callId, if (ok) "true" else "false") }
+        }
+    }
+
+    /**
      * O SELETOR DE COMPARTILHAMENTO DO ANDROID, com um texto (shell 63).
      *
      * Nasceu para o link da página de download: até a v1.7.0 não havia, DE
@@ -1151,23 +1202,6 @@ class NativeBridge(
      *
      * O WebView do telão recebe a ponte com `host = null` e não chega aqui.
      */
-    /**
-     * O REGISTRO COMPARTILHADO COMO ARQUIVO (shell 82). Ele não cabe no
-     * [compartilharTexto]: um Registro passa de 100 kB, e um `EXTRA_TEXT` desse
-     * tamanho é cortado por quem recebe ou estoura o `Intent`. Vai como
-     * arquivo, pelo mesmo `FileProvider` do pacote.
-     *
-     * FILA `io`: é a escrita de um texto, na casa dos milissegundos.
-     */
-    @JavascriptInterface
-    fun compartilharArquivoTexto(callId: String, nome: String, texto: String) {
-        val h = host
-        if (h == null) { resolve(callId, "false"); return }
-        io.execute {
-            h.shareTextFile(nome, texto) { ok -> resolve(callId, if (ok) "true" else "false") }
-        }
-    }
-
     @JavascriptInterface
     fun compartilharTexto(texto: String) {
         val t = texto.trim()
@@ -1269,12 +1303,11 @@ class NativeBridge(
 
     /**
      * O estado do espelho para a folha do Controle. O produtor é
-     * [MainActivity.mirrorJson], e ele põe exatamente
-     * `{ ligado, endereco, erro, telas[] }` — sem `codigo` desde o shell 38 (a
-     * porta é o ENDEREÇO) e sem pendentes desde o shell 36 (não há fila de
-     * aprovação). Cada tela: `{ rotulo, comando, conectadaMs, telaAcesaMin,
-     * aviso, eventos, pronta, fila }` — os seis campos de capacidade saíram no
-     * shell 44, por terem ficado sem produtor.
+     * [MainActivity.mirrorJson], e ele põe
+     * `{ ligado, endereco, erro, via, redes[], telas[] }` — `via` e `redes`
+     * são as DUAS vias (Wi-Fi cliente × ponto de acesso) que a folha desenha
+     * para o operador escolher. Cada tela: `{ rotulo, comando, conectadaMs,
+     * telaAcesaMin, aviso, eventos, pronta, fila }`.
      *
      * DADO, não frase — a mesma regra do [otaDiag] e do [ytDiag] levada ao
      * limite: aqui o Kotlin devolve JSON e quem escreve o texto é o
@@ -1327,7 +1360,8 @@ class NativeBridge(
      * exatamente o tipo de API que o próprio `espelhoDerrubar` evita ter: ele
      * faz UMA coisa, e o nome diz qual. Aqui são três atos.
      *
-     * **Privilégio do Controle** (`host != null`), como os cinco irmãos: o
+     * **Privilégio do Controle** (`host != null`), como os irmãos que já
+     * recusam com `host == null`: o
      * telão e o espelho carregam código de terceiro por design, e importar uma
      * chave privada é a última coisa que eles deveriam poder pedir.
      *
@@ -1337,7 +1371,7 @@ class NativeBridge(
     @JavascriptInterface
     fun espelhoCertImportar(callId: String, origem: String, senha: String) {
         val h = host
-        if (h == null) { resolve(callId, "\"sem host\"") ; return }
+        if (h == null) { resolve(callId, JSONObject.quote("sem host")); return }
         h.mirrorCertImport(origem, senha) { erro -> resolve(callId, JSONObject.quote(erro)) }
     }
 
@@ -1454,7 +1488,10 @@ class NativeBridge(
                     onProgresso = { lidos, total -> ytProgresso(callId, lidos, total) },
                     onFase = { nome, info -> ytFase(callId, nome, info) },
                 )
-            } catch (_: Exception) { null }
+                // `Throwable` pelo mesmo motivo do [deckPages]: este download
+                // não tem prazo do lado web, e uma morte da tarefa que não passe
+                // por aqui deixa o cartão girando para sempre.
+            } catch (_: Throwable) { null }
             resolve(callId, r?.toString() ?: "null")
         }
     }
@@ -1757,7 +1794,12 @@ class NativeBridge(
                 SlideDeck.paginas(ctx, origem, nome) { feitas, total ->
                     deckProgresso(callId, feitas, total)
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
+                // `Throwable`, e não `Exception`: esta chamada NÃO tem prazo do
+                // lado web, e um `OutOfMemoryError` na rasterização de uma
+                // apresentação grande mata a tarefa sem passar pelo `catch` —
+                // a promise ficaria pendurada PARA SEMPRE, com o cartão
+                // "Importando…" girando (nem erro, nem 60 s).
                 JSONObject().put("erro", "ponte: " + e.javaClass.simpleName)
             }
             resolve(callId, r.toString())
@@ -2096,25 +2138,32 @@ class NativeBridge(
         if (h == null) { resolve(callId, "[]"); return }
         val mimes = mimesCsv.split(',').map { it.trim() }.filter { it.isNotBlank() }
         h.requestDocPick(if (mimes.isEmpty()) arrayOf("*/*") else mimes.toTypedArray()) { uris ->
-            val arr = JSONArray()
-            for (uri in uris) {
-                arr.put(
-                    JSONObject()
-                        .put("url", SafRegistry.urlFor(uri))
-                        .put("name", nomeDoDocumento(uri))
-                        // O TAMANHO ENTROU NO SHELL 64, e ele é o que torna a
-                        // leitura por JANELA possível: quem lê um pacote de
-                        // gigabytes precisa saber onde o arquivo acaba, e o
-                        // caminho antigo (`resp.blob()`) só tinha essa resposta
-                        // depois de materializar o arquivo inteiro — que é
-                        // justamente o que não cabe. `-1` = o provedor não
-                        // respondeu; é diferente de `0` (arquivo vazio), e quem
-                        // chama tem de distinguir os dois.
-                        .put("size", tamanhoDoDocumento(uri))
-                        .put("type", ctx.contentResolver.getType(uri) ?: "application/octet-stream"),
-                )
+            // A MONTAGEM RODA NA `io`, e isso é culto: este callback chega na
+            // MAIN THREAD (é o `ActivityResultRegistry`), e cada arquivo custa
+            // dois `query` e um `openFileDescriptor().statSize` — IPC de
+            // binder que, com o telão no ar, trava a main do processo que
+            // hospeda o WebView do Controle E a `Presentation`.
+            io.execute {
+                val arr = JSONArray()
+                for (uri in uris) {
+                    arr.put(
+                        JSONObject()
+                            .put("url", SafRegistry.urlFor(uri))
+                            .put("name", nomeDoDocumento(uri))
+                            // O TAMANHO ENTROU NO SHELL 64, e ele é o que torna a
+                            // leitura por JANELA possível: quem lê um pacote de
+                            // gigabytes precisa saber onde o arquivo acaba, e o
+                            // caminho antigo (`resp.blob()`) só tinha essa resposta
+                            // depois de materializar o arquivo inteiro — que é
+                            // justamente o que não cabe. `-1` = o provedor não
+                            // respondeu; é diferente de `0` (arquivo vazio), e quem
+                            // chama tem de distinguir os dois.
+                            .put("size", tamanhoDoDocumento(uri))
+                            .put("type", ctx.contentResolver.getType(uri) ?: "application/octet-stream"),
+                    )
+                }
+                resolve(callId, arr.toString())
             }
-            resolve(callId, arr.toString())
         }
     }
 
@@ -2341,7 +2390,8 @@ class NativeBridge(
      * como separá-las. Três rodadas de campo se gastaram nessa distinção.
      *
      * SÓ LEITURA e SÍNCRONO: é um `toString` de estado, e mora na fila [io]
-     * como o `otaDiag` e o `ytDiag` — os irmãos dele.
+     * como o `otaDiag`. (O `ytDiag` NASCE fora de fila: é `buildString` de
+     * campos já em memória, e o `otaDiag` vai à [io] porque lê disco.)
      */
     @JavascriptInterface
     fun pacoteDiag(callId: String) {

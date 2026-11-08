@@ -10,7 +10,9 @@ import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Registro de URIs do Storage Access Framework expostas ao lado web.
+ * Registro de URIs de arquivos expostos ao lado web — os do Storage Access
+ * Framework e os que o próprio app grava em disco
+ * (`uri = Uri.fromFile` do [YoutubeGrab] e do [SlideDeck]).
  *
  * PRINCÍPIO DA PONTE: entregamos ao JavaScript **URLs servíveis**, nunca
  * bytes. O lado web continua usando `fetch()` + `Blob` exatamente como já faz
@@ -69,7 +71,7 @@ object SafRegistry {
     }
 }
 
-/** Serve os bytes de um documento do SAF em streaming, sob `/saf/<token>`. */
+/** Serve os bytes de um arquivo do aparelho em streaming, sob `/saf/<token>`. */
 class SafPathHandler(private val ctx: Context) : WebViewAssetLoader.PathHandler {
 
     override fun handle(path: String): WebResourceResponse? {
@@ -113,13 +115,13 @@ class SafPathHandler(private val ctx: Context) : WebViewAssetLoader.PathHandler 
  * 1. o lado web fazia `resp.blob()` — o arquivo INTEIRO materializado antes do
  *    primeiro byte ser lido. Quinze gigabytes não cabem em lugar nenhum, e o
  *    desfecho é o `Failed to fetch` do relato;
- * 2. **o [SafPathHandler] tem teto de 2 GB, e ele é estrutural.** O Chromium
- *    dimensiona toda resposta interceptada pelo `available()` do `InputStream`
- *    (é ele que vira o `Content-Length` — ver a invariante 8 e o KDoc do
- *    [StreamProxy]), e `InputStream.available()` devolve `int`. Acima de
- *    `Integer.MAX_VALUE` não há número a devolver: o que o web recebe é um
- *    arquivo CORTADO, sem erro nenhum, e o cursor do pacote tropeça no meio de
- *    um registro. É o segundo relato.
+ * 2. **o [SafPathHandler] não consegue servir mais de 2 GB, e o teto é
+ *    estrutural.** O Chromium dimensiona toda resposta interceptada pelo
+ *    `available()` do `InputStream` (é ele que vira o `Content-Length` — ver a
+ *    invariante 8 e o KDoc do [StreamProxy]), e `InputStream.available()`
+ *    devolve `int`: acima de `Integer.MAX_VALUE` não há número a devolver, e o
+ *    que o web recebe é um arquivo CORTADO, sem erro nenhum, com o cursor do
+ *    pacote tropeçando no meio de um registro. É o segundo relato.
  *
  * ===== A FORMA É A DO `StreamProxy`, E PELO MESMO MOTIVO =====
  *
@@ -127,9 +129,10 @@ class SafPathHandler(private val ctx: Context) : WebViewAssetLoader.PathHandler 
  * `ParseRange` do WebView aplicaria o deslocamento uma SEGUNDA vez sobre o que
  * já é uma fatia — a armadilha que a invariante 8 descreve inteira. Sem
  * cabeçalho não há `ParseRange`, não há `Seek` e não há `ComputeBounds`: a
- * resposta é um **200 seco** com exatamente os bytes pedidos, e o `available()`
- * do array é o tamanho da JANELA, não o do arquivo. O teto de 2 GB deixa de
- * existir porque nenhuma resposta chega perto dele.
+ * resposta é um **200 seco** com os bytes pedidos (menos que isso só no fim do
+ * arquivo, ver [ler]), e o `available()` do array é o tamanho da JANELA, não o
+ * do arquivo. O teto de 2 GB deixa de existir porque nenhuma resposta chega
+ * perto dele.
  *
  * **E ela É SEEK, não `skip`.** `openFileDescriptor` + `FileChannel.position`
  * salta em O(1); pular quatorze gigabytes com `skip()` LÊ os quatorze, e a
@@ -223,18 +226,24 @@ object SafJanela {
     private fun posicionar(ctx: Context, uri: Uri, ini: Long): java.io.InputStream {
         if (ini > 0) {
             var pfd: android.os.ParcelFileDescriptor? = null
+            var fis: android.os.ParcelFileDescriptor.AutoCloseInputStream? = null
             try {
                 pfd = ctx.contentResolver.openFileDescriptor(uri, "r")
                 if (pfd != null) {
-                    val fis = android.os.ParcelFileDescriptor.AutoCloseInputStream(pfd)
-                    fis.channel.position(ini)
-                    return fis
+                    // `val` local e não o `var` de fora: o smart cast de um
+                    // `var` capturado é frágil, e aqui não há o que o compilador
+                    // tenha de adivinhar.
+                    val entrada = android.os.ParcelFileDescriptor.AutoCloseInputStream(pfd)
+                    fis = entrada
+                    entrada.channel.position(ini)
+                    return entrada
                 }
             } catch (_: Exception) {
                 // Provedor sem descritor posicionável (nuvem, pipe): o `skip`
                 // abaixo continua correto, só lento. Fechar aqui é obrigatório
-                // — a exceção pode ter vindo DEPOIS do `open`.
-                try { pfd?.close() } catch (_: Exception) {}
+                // — a exceção pode ter vindo DEPOIS do `open` —, e quem é dono
+                // do descritor é o stream `AutoClose`; fechá-lo fecha os dois.
+                try { if (fis != null) fis.close() else pfd?.close() } catch (_: Exception) {}
             }
         }
         val s = ctx.contentResolver.openInputStream(uri)

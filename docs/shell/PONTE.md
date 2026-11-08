@@ -156,17 +156,19 @@ arbitrário rodando no origin privilegiado.
 
 ---
 
-## As QUATRO filas — escolher a errada é uma regressão muda
+## As SEIS filas — escolher a errada é uma regressão muda
 
-Quatro executores de **uma thread cada**, no `companion` do `NativeBridge` e
+Seis executores de **uma thread cada**, no `companion` do `NativeBridge` e
 portanto **compartilhados por todas as instâncias**. Todos daemon.
 
 | fila | o que roda nela |
 |---|---|
 | **`io`** | só o que responde em MILISSEGUNDOS: `version.json`, estado do OTA, `listFolder` pelo `ContentResolver`. **Nada de rede** — é a fila de que tudo mais depende |
-| **`transferencia`** | as transferências de MINUTOS: download do YouTube, download do APK, `ytDiscard` |
+| **`transferencia`** | o download do YouTube e o `ytDiscard` |
+| **`apk`** | o download do APK de atualização ([apkInstalar]) |
 | **`extracao`** | metadados de rede (busca, playlists de canal, o manifesto do `ytStream`, os detalhes de um vídeo do `ytDetalhes`, `apkProcurar`) e a rasterização de PDF — coisas de SEGUNDOS |
 | **`cifra`** | só o `cifraHtml` — o GET da página do Cifra Club |
+| **`r2img`** | só o `r2Imagem` — o desvio de CORS das fotos de fundo |
 
 - **Um executor por INSTÂNCIA vazava.** `newSingleThreadExecutor` cria uma
   thread de core sem timeout e não-daemon, viva até um `shutdown` que nunca
@@ -184,6 +186,12 @@ portanto **compartilhados por todas as instâncias**. Todos daemon.
   minutos.** Atrás de um download, o "Tocar agora" de um vídeo esperaria o
   hinário terminar — e, vencido o prazo, cairia no download sem que nada
   explicasse por quê.
+- **O APK tem fila própria porque o prazo dele conta a ESPERA.** Enfileirado na
+  `transferencia`, o download do app começava depois de um vídeo de centenas de
+  megabytes — e os 15 min do `APK_TIMEOUT_MS` começam no toque: o web declarava
+  "não deu" enquanto o pacote terminava e o instalador abria sozinho minutos
+  depois. O APK não compartilha estado nenhum com o `YoutubeGrab`, então a
+  invariante de uma thread da `transferencia` não se aplica a ele.
 - **UMA thread em `transferencia` é invariante, não economia:** o resgate de
   download do `YoutubeGrab` é um slot único e o mapa de parciais supõe **um
   download por vez**. `ytDiscard` mora aqui pelo mesmo motivo — fora desta fila
@@ -619,7 +627,10 @@ de terceiro ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
 - Os dois consumidores de arquivo do aparelho (`importShare`, `syncDeviceFolder`)
   rodam no **Controle** e copiam para o OPFS antes de qualquer coisa chegar ao
   telão. **O Display nunca busca um `/saf/`.**
-- Quem trava isso é `tools/ponte.test.mjs`.
+- Quem trava isso é `tools/invariantes-shell.test.mjs` (as três metades: `host = null`, `withSaf = false`, `role = "display"`); o `ponte.test.mjs` trava o dreno e a remontagem de campos, que são outra pergunta.
+- E a guarda de CADA método (`host == null`) é do `tools/ponte-guarda-host.test.mjs`:
+  76 métodos, 50 com recusa explícita e 26 com motivo declarado — método novo sem
+  guarda reprova até alguém escrever por que ele não precisa.
 
 > A guarda **não** depende do embed do YouTube. Ele carregava script de terceiro
 > ali por design e saiu na v5.212; a razão viva é a lista de métodos acima.

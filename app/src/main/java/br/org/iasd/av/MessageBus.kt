@@ -19,7 +19,8 @@ import java.util.concurrent.CopyOnWriteArrayList
  * identicamente com ou sem BroadcastChannel, sem nenhuma detecção.
  *
  * O custo é desprezível: os comandos são objetos JSON pequenos, e o mais
- * frequente (`display-status`) já roda a 2 Hz.
+ * frequente (`display-status`) roda a ~4 Hz — é o `timeupdate` do `<video>`,
+ * e é com esse número que a janela de dedupe do `__mid` foi dimensionada.
  */
 object MessageBus {
 

@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.13.42",
+    "itens": [
+      "A revisão interna da ponte: nada muda no que você vê.",
+      "O app baixa a própria atualização mesmo com um vídeo baixando.",
+      "Importar vários arquivos de uma vez não trava mais a tela enquanto lê os tamanhos.",
+      "Tocar duas vezes em Atualizar não abre o instalador duas vezes."
+    ]
+  },
+  {
     "versao": "1.13.41",
     "itens": [
       "Compartilhar dois arquivos em sequência agora importa os dois; antes, o segundo apagava o primeiro.",

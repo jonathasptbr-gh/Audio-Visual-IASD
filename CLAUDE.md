@@ -266,12 +266,13 @@ silêncio**:
    ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
    `espelhoLigar` — este último abre um servidor na rede da igreja.
 
-   **NÃO HÁ ORÁCULO PARA ELA.** O `ponte.test.mjs` afirma o dreno e a remontagem
-   de campos, não a superfície privilegiada no papel `display`; a invariante mora
-   só no `StagePresentation.kt` (`host = null` e `assetLoader(…, withSaf = false)`)
-   mais as guardas `host == null` de cada método. Escrevê-la é carregar o
-   `native.js` com um `__AVBridge` cujo `role()` devolva `'display'` e afirmar
-   que os cinco métodos privilegiados resolvem o desfecho inofensivo.
+   **QUEM A TRAVA É O `tools/invariantes-shell.test.mjs`** (revisão K1): ele lê
+   o `StagePresentation.kt` só nas linhas de código e afirma as três metades —
+   `host = null`, `withSaf = false` e `role = "display"`. O `ponte.test.mjs`
+   afirma outra coisa (o dreno e a remontagem de campos), e as guardas
+   `host == null` de cada método — a outra metade da invariante — é o
+   `tools/ponte-guarda-host.test.mjs` (revisão K2): 76 métodos, 50 com recusa
+   explícita e 26 com motivo declarado e CONFERIDO contra o corpo.
 
 **No `AndroidManifest.xml`:** `hardwareAccelerated` e `largeHeap` — os dois
 WebViews e um vídeo grande dividem o mesmo processo.
@@ -358,17 +359,19 @@ publicado JUNTO**, com `shellTag` no `version.json`; **mudar a FORMA de um méto
 aparelho recusar todo bundle, para sempre (o CI confere o teto lendo o Kotlin).
 A tabela dos degraus está no `docs/HISTORICO.md`.
 
-### As QUATRO filas da ponte — escolher a errada é uma regressão muda
+### As SEIS filas da ponte — escolher a errada é uma regressão muda
 
-Quatro executores de UMA thread, no `companion` do `NativeBridge` (compartilhados
+Seis executores de UMA thread, no `companion` do `NativeBridge` (compartilhados
 por todas as instâncias; daemon):
 
 | fila | o que roda | a regra |
 |---|---|---|
 | `io` | só o que responde em MILISSEGUNDOS | **nada de rede**: ali `listFolder`, `otaPending` e `atualizacaoEstado` "mentem baixinho" atrás de um download |
-| `transferencia` | downloads de MINUTOS e o `ytDiscard` | UMA thread é invariante: o resgate do `YoutubeGrab` supõe um download por vez |
+| `transferencia` | o download do YouTube e o `ytDiscard` | UMA thread é invariante: o resgate do `YoutubeGrab` supõe um download por vez |
+| `apk` | o download do APK e a entrega ao instalador | própria, e não a `transferencia`: o APK não toca estado do `YoutubeGrab`, e enfileirado ali os 15 min do prazo do web contavam a espera atrás de um vídeo |
 | `extracao` | metadados de rede (NewPipe, `apkProcurar`) e PDF, de SEGUNDOS | separada de `transferencia` (segundos não esperam minutos); uma thread pela inicialização global do NewPipe |
 | `cifra` | só o `cifraHtml` | é MASSA e a `extracao` é TOQUE; uma thread porque `CifraFonte.ultimaTentativa` é o veredito da última busca |
+| `r2img` | só o desvio de CORS das fotos (`r2Imagem`) | mesma regra da `cifra` (a varredura dos fundos busca até 6 fotos de uma vez); separada dela porque são hosts e cargas diferentes (binário × HTML) |
 
 Fora das filas: os cinco métodos do espelho rodam na **main thread**, e
 `ytCancel` só escreve um `@Volatile`.
@@ -1146,7 +1149,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.13.41 · APK v1.13.41** · `SHELL_VERSION` **83** ·
+**Versão atual: base web v1.13.42 · APK v1.13.42** · `SHELL_VERSION` **83** ·
 bundle com `minShell: 83` e `shellTag: v1.13.41` — a v1.13.41 é a revisão K1,
 que mexe no Kotlin (a fila de shares, a captura das teclas de volume na recarga e
 os comentários do shell), então a Release sai junto. O shell

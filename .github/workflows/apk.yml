@@ -264,6 +264,7 @@ jobs:
           node tools/stub-da-ponte.test.mjs
           node tools/watchdog-modulos.test.mjs
           node tools/invariantes-shell.test.mjs
+          node tools/ponte-guarda-host.test.mjs
 
           node tools/tipos-que-sobem.test.mjs
 

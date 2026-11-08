@@ -19,7 +19,11 @@ import org.json.JSONObject
  * O formato produzido é o MESMO que `checkPendingShare()` já consome
  * (`{ files:[…], url, title }`), com uma diferença deliberada: os arquivos
  * chegam como URL servível em vez de `File`, e o lado web faz `fetch()` para
- * materializar o Blob — nunca base64.
+ * materializar o Blob — nunca base64. O consumidor aceita as duas formas,
+ * porque no navegador o `<input type="file">` entrega `File`; ler por JANELA
+ * (o `?r=` do [SafJanela]) é o que resolveria o arquivo grande, e ele hoje só
+ * é usado pelo pacote de transferência — o vídeo de 3,5 GB compartilhado
+ * continua chegando CORTADO no teto de 2 GB do [SafPathHandler].
  */
 object ShareIntake {
 
@@ -56,14 +60,17 @@ object ShareIntake {
             Intent.ACTION_SEND ->
                 listOfNotNull(extraStream(intent)).ifEmpty { clipUris(intent) }
             Intent.ACTION_SEND_MULTIPLE ->
-                extraStreams(intent).ifEmpty { clipUris(intent) }
+                // `filterNotNull` NÃO é zelo: o `ArrayList` vem de um `Parcel`,
+                // que grava um elemento nulo como `VAL_NULL` e o devolve nulo
+                // aqui. Sem isto, um único item nulo no lote lança em
+                // `aceitavel` (o `uri.scheme`), a guarda do [parse] engole, e o
+                // LOTE INTEIRO some calado — com o intent já consumido.
+                extraStreams(intent).filterNotNull().ifEmpty { clipUris(intent) }
             else -> emptyList()
         }.filter { aceitavel(ctx, it) }
 
         val text = intent.getStringExtra(Intent.EXTRA_TEXT)
         val title = intent.getStringExtra(Intent.EXTRA_SUBJECT)
-
-        if (uris.isEmpty() && text.isNullOrBlank()) return null
 
         val files = JSONArray()
         for (uri in uris) {
