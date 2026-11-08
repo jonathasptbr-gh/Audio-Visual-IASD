@@ -30,7 +30,7 @@ abandonada → primeira pendente pelo `nº`).
 | 16 | C7 | feita | v1.13.27 (só web) | 2026-11-06 | nenhum defeito de culto na fatia; o sorteio guardado/que vira a fila desfeito por um `load()` em voo (`listasSeq`, repasse C4 confirmado + asserção com reversão); o lote do sorteio consumido sem ação (+ asserção); a Verificação sem o `progresso.js` (+ asserção); ~220 comentários (8 blocos no símbolo errado) |
 | 17 | C8 | feita | v1.13.28 (só web) | 2026-11-06 | nenhum defeito de culto na fatia; o link compartilhado ficava fora do Cronograma até a próxima releitura (`load()` no fim do `importShare` + asserção com reversão); o resgate dos downloads em `updateState` (repasse W1 + asserção com reversão); repasse C4 do `redesenharComMiniatura` refutado; ~270 comentários (8 blocos no símbolo errado) |
 | 18 | C9 | feita | v1.13.31 (só web) | 2026-11-06 | nenhum defeito de culto na fatia; a folha de conexão nomeava a TV errada com duas telas (`telaoNoAr`, a régua do Registro + asserção com reversão); os repasses C4/C6 de `plItems` refutados; código morto da transmissão; ~290 comentários (1 bloco no símbolo errado) |
-| 19 | S1 | em curso | | 2026-11-08 | |
+| 19 | S1 | feita | v1.13.39 (só web) | 2026-11-08 | nenhum seletor morto nem token órfão; ~67 lápides "saiu na vX" removidas/condensadas (regras intocadas, prova 1 do CLAUDE.md) |
 | 20 | S2 | pendente | | | |
 | 21 | K1 | pendente | | | |
 | 22 | K2 | pendente | | | |
@@ -64,6 +64,7 @@ tratou.
 | X3 | C2 | `tools/pacote-importar-marcados.test.mjs` H/L — reprovou UMA vez no CI (run `42060562112`, 1ª tentativa, lote só da Bíblia, sem relação): `obtido: []` (nenhuma mídia no destino depois do Importar com só a série marcada). Passou 3× local e no run anterior. Suspeita no ORÁCULO: `importarPelaJanela` faz `pg.evaluate(() => window.__fim)` sem que nada atribua `__fim` (só o `null` da linha 421) — não espera a importação; quem espera é o `responderDialogo` (60 s), cujo `texto` ninguém confere: se o diálogo que ele respondeu não foi o "Acervo importado", o `lerDestino` lê antes do fim. Conserto provável: esperar o diálogo pelo TÍTULO "Acervo importado" (ou `!pacoteEmCurso`) e conferir o `texto` |
 | X2 | C4 | `controle.js`:`adicionarNasListas` (~6536) e `abrirPacote` (~6796), fatia C2 já feita — `plItems = await AVDB.listItems('playlist')` depois de gravar, sem a senha `listasSeq` (v1.13.24): um `load()` em voo que leu a fila antes aplica a cópia velha depois. Conserto: `++listasSeq` antes do primeiro `await`, como `togglePlaylist`. E o KDoc do `load` (~4070) diz que "todo `db-change`" dispara um `load` — não há `db-change` em lugar nenhum |
 | X2 | C7 | `docs/ORACULOS.md`, linha do `hidratacao-perde-a-vez`: descreve os blocos 1–7 e o 12 (entrou na C7), mas não os 8–11 (C3–C6). E as linhas do `sorteio-lista-de-resultados` e do `verificacao-do-sistema` não citam as asserções novas da C7 (a recusa no bloco C; o `AVProgresso` no L1) |
+| S2 | S1 | `controle.css` 2ª metade: as lápides `.bible-ref-label` ("SAIU na v1.8.83", ~L6761) e "MICROFONE AO VIVO … saiu na v1.8.89" (~L6785) ficaram de fora da cerca da S1 — aplicar a mesma regra de remoção/condensação |
 
 ## Relatórios
 
@@ -578,3 +579,15 @@ desarmam; o `onCommand` não ganha ouvinte por rodada (o contador da Verificaç�
 **Repasses:** nenhum novo. Riscados: C9 de C4 e C6.
 **Verificado:** "Sanidade da base web" (todo Node puro, `docs-coerentes`); Chromium (64 da vizinhança, três processos): todos verdes (`telao-no-chao`, `tela-rede`, `smoke`, `display-smoke`, `boot-nativo`, `edicao-de-midia`, `historico`, os de Configurações/Verificação/Modo Fácil/volume/tela cheia/OTA…).
 **O operador:** nada a fazer; a v1.13.31 chega sozinha (só web). Com duas TVs ligadas, a janela de conexão diz qual está projetando.
+
+### S1 · CSS — primeira metade — feita (2026-11-08)
+
+Cerca: `controle.css` do início à metade (linha ~6711) + `shared/tokens.css` inteiro, lidos por agente.
+**`tokens.css` limpo.** Nenhum token declarado sem leitor (o `tokens.test.mjs` já trava, reconferido à mão: 73 tokens, todos lidos), nenhum duplicado, nenhum não-cor, nenhum `!important`.
+**Nenhum seletor morto.** 417 classes + 42 ids cruzados contra JS/HTML: toda ausência é classe construída em runtime (`bg-<grupo>` da Bíblia, `row-nota--<tipo>`) ou menção só em comentário (lápide). Nenhuma regra casava com nada.
+**Conferidos e deixados (legítimos):** os 9 `!important` (o `user-select` global, o `[hidden]`, o `display:none` da tela cheia), as 6 sombras `rgba(0,0,0,…)` + `transparent` (exceção NOMEADA em `tokens.css`) e ~6 regras ordem-dependentes deliberadas (`z-index` da `.pv-text`, o `color` das portas). Nenhum é defeito.
+**~67 lápides "saiu na vX" removidas ou condensadas** (faixa de abas `.tab*`, `#favHeadBtn`, `.fav-section`, selos `.url-badge`/`.yt-badge`/`.cue-badge`, `.net-badge`, `.coll-bar-*`, `.bible-ver-check`, a lápide autorreferente `.col-1`…`.col-8`, dezenas de parentéticos). Onde o "saiu" trazia razão que ainda vale, virou regra no presente. Prova 1 do CLAUDE.md: o arquivo sem comentário é byte-idêntico ao HEAD (3.703 linhas não-comentário cada).
+**Limitação (não correção):** o "seletor que aparece no JS mas não casa com nada" — a metade que só a MEDIDA no DOM pega — não foi avaliado: esta sessão roda sem Chromium. A direção conservadora (literal ausente de JS/HTML = morto) ficou completa; a outra fica como resíduo para quem rodar com navegador.
+**Repasses:** S2 (as lápides `.bible-ref-label` e "MICROFONE AO VIVO" na 2ª metade).
+**Verificado:** `tokens.test.mjs` verde antes e depois; a Sanidade da base web e os oráculos de Node puro rodam no CI.
+**O operador:** nada a fazer; a v1.13.39 chega sozinha (só web, nada que ele veja).
