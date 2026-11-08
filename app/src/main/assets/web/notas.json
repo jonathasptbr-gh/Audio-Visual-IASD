@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.13.43",
+    "itens": [
+      "A revisão interna do download do YouTube: nada muda no que você vê.",
+      "Cancelar um download não faz o próximo pedido do mesmo vídeo falhar sozinho.",
+      "A barra do download não recua mais no último número."
+    ]
+  },
+  {
     "versao": "1.13.42",
     "itens": [
       "A revisão interna da ponte: nada muda no que você vê.",

@@ -199,8 +199,8 @@ object YoutubeGrab {
      * recurso: a única forma de saber se as faixas adaptativas chegam a ESTE
      * aparelho é olhar o que chegou nele.
      *
-     * `@Volatile` porque quem escreve é a fila de IO e quem lê é a thread do
-     * WebView.
+     * `@Volatile` porque quem escreve é a fila `transferencia` e quem lê é a
+     * thread do WebView.
      */
     @Volatile
     var diagnostico: String = ""
@@ -440,8 +440,8 @@ object YoutubeGrab {
      * as pastas do dispositivo já usam — o lado web faz `fetch` + `Blob`
      * exatamente como faz com um arquivo compartilhado, sem saber de onde veio.
      *
-     * **BLOQUEANTE**: rede e parsing. Só pode ser chamado da fila de IO da
-     * ponte, nunca da thread principal.
+     * **BLOQUEANTE**: rede e parsing. Só pode ser chamado da fila
+     * `transferencia` da ponte, nunca da thread principal.
      *
      * Devolve `null` em qualquer falha — quem chama cai no player embutido.
      */
@@ -475,19 +475,21 @@ object YoutubeGrab {
         onProgresso: (Long, Long) -> Unit,
     ): JSONObject? {
         baixandoLink = link
-        // Um cancel só vale para download EM VOO. Um que sobrou de um download
-        // já terminado — chegou depois do teste do `finally` — ficaria armado e
-        // mataria ESTE no primeiro bloco copiado, que é justamente o download
-        // que o operador pediria em seguida.
+        // A CATRACA DE UM LADO SÓ, e as duas metades:
         //
-        // MAS SÓ O QUE NOMEIA OUTRO LINK. `cancelar()` é o único método da ponte
-        // que NÃO passa pela fila de IO, e de propósito: a fila é de uma thread
-        // só e está ocupada justamente pelo download que se quer parar. Só que
-        // ela também é a fila em que o download ESPERA — e um cancel que chegue
-        // enquanto ele ainda está enfileirado era apagado aqui, no instante em
-        // que a vez dele chegava. O operador tocava em cancelar, nada acontecia,
-        // e os ~300 MB baixavam assim mesmo. Preservar o pedido que nomeia ESTE
-        // link honra as duas coisas: o resto continua sendo descartado.
+        // 1. o pedido que nomeia OUTRO link não vale para este, e é descartado
+        //    aqui — ele nasceu para outro download;
+        // 2. o pedido que nomeia ESTE link é PRESERVADO, porque a
+        //    `transferencia` é de uma thread só e o `cancelar()` não passa por
+        //    fila nenhuma: um cancel que chegue com este item AINDA ENFILEIRADO
+        //    era apagado no instante em que a vez dele chegava. O operador
+        //    tocava em cancelar, nada acontecia, e os ~300 MB baixavam assim
+        //    mesmo.
+        //
+        // O caso "chegou tarde, o download já tinha terminado" NÃO chega até
+        // aqui: ele morre no próprio `cancelar()`, que só arma com um download
+        // em voo (ver [cancelar]). Era ele que fazia o próximo download deste
+        // mesmo vídeo morrer no primeiro bloco, sem rede e sem motivo.
         if (cancelarLink != link) cancelarLink = null
         val med = Medida(link, somenteAudio, teto)
         medidaAtual = med
@@ -569,7 +571,7 @@ object YoutubeGrab {
                     )
                 } catch (e: Exception) {
                     Log.w(TAG, "falhou baixando ${alvo.faixa.etiqueta} de $link", e)
-                    diagnostico += " · ${alvo.faixa.etiqueta} " + motivo(e)
+                    anotar(" · ${alvo.faixa.etiqueta} " + motivo(e))
                     destino.delete()
                     // CANCELAMENTO ABORTA A FILA, não só esta tentativa: o
                     // próximo candidato custaria outra conexão real depois do
@@ -578,8 +580,10 @@ object YoutubeGrab {
                     continue
                 }
                 fase("baixou", JSONObject().put("bytes", destino.length()).put("juntar", false))
-                diagnostico += " → veio ${alvo.faixa.ext} ${alvo.faixa.etiqueta}" +
-                    (if (alvo.faixa.altura > 0) " (${alvo.faixa.altura}p)" else "")
+                anotar(
+                    " → veio ${alvo.faixa.ext} ${alvo.faixa.etiqueta}" +
+                        (if (alvo.faixa.altura > 0) " (${alvo.faixa.altura}p)" else ""),
+                )
                 entregue = destino.path
                 med.desfecho = "veio"
                 return JSONObject()
@@ -607,7 +611,7 @@ object YoutubeGrab {
                     // existe, já que altura ali é sempre 0.
                     .put("seconds", info.duration)
             }
-            diagnostico += " → NADA baixou"
+            anotar(" → NADA baixou")
             med.desfecho = if (cancelado()) "cancelado" else "nada baixou"
             Log.w(TAG, "nenhum stream utilizável para $link ($diagnostico)")
             null
@@ -644,8 +648,8 @@ object YoutubeGrab {
     // thread mataria também a extração e o `HttpURLConnection` no meio, com
     // socket meio fechado e um arquivo parcial sem dono conhecido.
     //
-    // UM download por vez, e isso não é suposição: a fila de IO da ponte é
-    // `newSingleThreadExecutor` (ver `NativeBridge`), então o `diagnostico`
+    // UM download por vez, e isso não é suposição: a fila `transferencia` da
+    // ponte é de uma thread só (ver `NativeBridge`), então o `diagnostico`
     // deste mesmo arquivo já depende dessa serialização. Daí dois campos
     // simples bastarem, sem registro por chave.
     //
@@ -655,8 +659,26 @@ object YoutubeGrab {
     @Volatile private var baixandoLink: String? = null
     @Volatile private var cancelarLink: String? = null
 
-    /** Pede que o download deste link pare. Barato: só escreve um campo. */
-    fun cancelar(link: String) { cancelarLink = link }
+    /**
+     * Pede que o download deste link pare. Barato: só escreve um campo.
+     *
+     * **SÓ COM DOWNLOAD EM VOO** (`baixandoLink != null`). Sem ninguém baixando,
+     * o pedido não tem alvo — e ele CHEGA assim mesmo: a cópia do blob para a
+     * biblioteca e a miniatura levam segundos depois de o último byte entrar, e
+     * o vigia da Verificação completa pergunta de segundo em segundo se há mídia
+     * no ar. Armado sem download, o campo sobrevivia ao próximo `ytFetch` do
+     * MESMO link (`buscarInterno` preserva de propósito o cancel que o nomeia,
+     * que é o que honra o pedido feito com o item ainda enfileirado) e aquele
+     * download morria no primeiro bloco: cartão vermelho em dois segundos, sem
+     * rede, sem motivo, com o diagnóstico dizendo "cancelado pelo operador" —
+     * para um pedido que o operador nunca fez.
+     *
+     * O ENFILEIRADO continua funcionando: nessa hora `baixandoLink` é o link
+     * ANTERIOR, ou seja, não é nulo.
+     */
+    fun cancelar(link: String) {
+        if (baixandoLink != null) cancelarLink = link
+    }
 
     // ------------------------------------------------------------------------
     // AS FASES DO DOWNLOAD (shell 81)
@@ -685,7 +707,7 @@ object YoutubeGrab {
     // nada explica o que houve.
     //
     // A saída é o shell GUARDAR o desfecho até alguém reclamá-lo. Um slot só,
-    // e não um registro por link: a fila de IO da ponte é de uma thread só,
+    // e não um registro por link: a fila `transferencia` é de uma thread só,
     // então existe no máximo um download por vez (é a mesma premissa do
     // cancelamento e do `diagnostico`).
     //
@@ -893,15 +915,6 @@ object YoutubeGrab {
     }
 
     /**
-     * "vídeo mp4 6 (init 6 · índice 0 · codec 6)" — quantas faixas passam em
-     * CADA pré-requisito da transmissão.
-     *
-     * Existe porque "sem par DASH" é um diagnóstico inútil: ele diz que não deu,
-     * não o que faltou. Com as contas separadas, uma leitura em aparelho
-     * responde de uma vez se o problema é o YouTube não mandar os byte-ranges,
-     * a biblioteca não preencher o codec, ou simplesmente não haver faixa mp4.
-     */
-    /**
      * A MAIOR altura mp4 de fato transmissível da lista inteira, sob [teto] —
      * **ignorando o cliente**, que é justamente o que [candidatosVideo] não
      * ignora.
@@ -924,6 +937,15 @@ object YoutubeGrab {
             .filter { it.ext == "mp4" && it.dash && it.altura in 1..teto }
             .maxOfOrNull { it.altura } ?: 0
 
+    /**
+     * "vídeo mp4 6 (init 6 · índice 0 · codec 6)" — quantas faixas passam em
+     * CADA pré-requisito da transmissão.
+     *
+     * Existe porque "sem par DASH" é um diagnóstico inútil: ele diz que não deu,
+     * não o que faltou. Com as contas separadas, uma leitura em aparelho
+     * responde de uma vez se o problema é o YouTube não mandar os byte-ranges,
+     * a biblioteca não preencher o codec, ou simplesmente não haver faixa mp4.
+     */
     private fun porQueNaoDash(nome: String, fs: List<Faixa>): String {
         if (fs.isEmpty()) return "$nome 0"
         val init = fs.count { it.initFim > it.initIni }
@@ -993,7 +1015,7 @@ object YoutubeGrab {
         onProgresso: (Long, Long) -> Unit,
     ): JSONObject? {
         if (adaptativoBloqueado()) {
-            diagnostico += " · adaptativo em quarentena (403 em série há pouco)"
+            anotar(" · adaptativo em quarentena (403 em série há pouco)")
             return null
         }
 
@@ -1003,7 +1025,7 @@ object YoutubeGrab {
         val piso = melhorProgressivo(info, teto)?.let { alturaDe(it.getResolution()) } ?: 0
         val candidatos = candidatosVideo(info, piso, teto)
         if (candidatos.isEmpty()) {
-            diagnostico += " · sem vídeo-só acima de ${piso}p"
+            anotar(" · sem vídeo-só acima de ${piso}p")
             return null
         }
         val nome = tituloLimpo(info.name, info.uploaderName)
@@ -1026,14 +1048,14 @@ object YoutubeGrab {
                 // candidato seguinte abriria conexão real de novo — espera
                 // DEPOIS de o operador pedir para parar.
                 if (cancelado()) {
-                    diagnostico += " · cancelado, fila abortada"
+                    anotar(" · cancelado, fila abortada")
                     break
                 }
                 // O teto é conferido ANTES de qualquer byte: parar depois de já
                 // ter baixado o áudio do contêiner seguinte seria pagar por uma
                 // tentativa que nunca vai acontecer.
                 if (montagens >= TETO_MONTAGENS) {
-                    diagnostico += " · montagens no teto"
+                    anotar(" · montagens no teto")
                     break
                 }
                 val extAudio = if (v.webm) "webm" else "m4a"
@@ -1165,7 +1187,16 @@ object YoutubeGrab {
             vLidos = lidos; vTotal = total
             emitir()
         }
-        @Synchronized fun fechar(bytes: Long) { onProgresso(bytes, bytes) }
+        @Synchronized fun fechar(bytes: Long) {
+            // A MESMA RÉGUA da [emitir], e não um `onProgresso(bytes, bytes)`
+            // direto: o fecho da junção é a soma das partes e o do arquivo
+            // montado é o tamanho REAL dele — que é tipicamente MENOR, porque o
+            // muxer escreve sem as caudas e os cabeçalhos das duas faixas. Sem
+            // o `maior`, o último número que o operador vê andava para trás.
+            val mostrar = maxOf(bytes, maior)
+            maior = mostrar
+            onProgresso(mostrar, mostrar)
+        }
 
         private fun emitir() {
             val lidos = aLidos + vLidos
@@ -1615,7 +1646,9 @@ object YoutubeGrab {
      * recusado pelo `X-Frame-Options` do YouTube, e a API oficial exigiria uma
      * chave embutida no APK com cota diária dividida por toda a frota.
      *
-     * **BLOQUEANTE** — fila de IO da ponte, como [buscar].
+     * **BLOQUEANTE** — fila `extracao` da ponte. Não a do download: a busca é
+     * rede de SEGUNDOS, e enfileirá-la atrás de um vídeo de 300 MB deixaria a
+     * lista de resultados esperando o louvor terminar.
      *
      * A miniatura é montada a partir do ID (`i.ytimg.com/vi/<id>/mqdefault.jpg`)
      * em vez de vir da biblioteca: é uma URL estável há mais de uma década, e
@@ -1729,7 +1762,7 @@ object YoutubeGrab {
      * algumas dezenas, então sem o laço os meses mais antigos simplesmente não
      * existiriam para o app — o modo de falhar mais mudo possível, porque a
      * lista aparece, só que incompleta. O teto de [PAG_CANAL_MAX] existe para um
-     * canal enorme não segurar a fila de IO indefinidamente.
+     * canal enorme não segurar a fila `extracao` indefinidamente.
      *
      * **POR QUE LER O JSON CRU, EM VEZ DO `ChannelTabInfo.getInfo`?** (v1.13.38)
      * O extrator de aba de canal do NewPipe descarta, na aba Playlists, todo
@@ -2095,14 +2128,14 @@ object YoutubeGrab {
         } catch (_: Exception) { /* o cache some sozinho no pior caso */ }
     }
 
-    private fun pasta(ctx: Context) = File(ctx.cacheDir, "yt").apply { mkdirs() }
-
     /**
      * No CACHE, não em `files/`: estes arquivos são intermediários (viram um
      * blob no IndexedDB em seguida) e o cache é o único lugar que o Android
      * limpa sozinho sob pressão de espaço — e que as regras de backup já
      * ignoram sem precisar de linha nova em `backup_rules.xml`.
      */
+    private fun pasta(ctx: Context) = File(ctx.cacheDir, "yt").apply { mkdirs() }
+
     /**
      * Nomes distintos para vídeo e áudio do MESMO id: baixar as duas formas do
      * mesmo link (o operador muda de ideia, ou quer as duas) não pode fazer uma
@@ -2153,10 +2186,17 @@ object YoutubeGrab {
         Regex("(\\d+)").find(res ?: "")?.groupValues?.get(1)?.toIntOrNull() ?: 0
 
     /**
-     * Baixa em streaming, reportando o andamento. Um louvor tem centenas de MB
-     * e o percentual é a única coisa que separa "baixando" de "travado" na tela
-     * do operador.
+     * O `User-Agent` que combina com esta URL, lido do `c=` que o CDN carimbou
+     * nela.
+     *
+     * Público porque o [StreamProxy] precisa exatamente da mesma decisão: ele
+     * serve as MESMAS URLs, e pedi-las anunciando outro cliente é o caminho
+     * conhecido para um 403. Uma segunda tabela lá envelheceria em silêncio na
+     * primeira vez que a biblioteca trocasse de cliente.
      */
+    fun uaPara(url: String): String =
+        if (clienteDe(url) == "VISIONOS") UA_VISIONOS else UA
+
     /**
      * Baixa tentando os perfis de cliente, e devolve o que funcionou
      * ("V" = visionOS, "A" = Android/Chrome) — o rótulo entra no diagnóstico.
@@ -2172,18 +2212,6 @@ object YoutubeGrab {
      * ([garantirInit]) nenhuma URL sai carimbada com ele, e mantê-lo fazia toda
      * falha real pagar uma requisição extra com um UA que o CDN nunca pediu.
      */
-    /**
-     * O `User-Agent` que combina com esta URL, lido do `c=` que o CDN carimbou
-     * nela.
-     *
-     * Público porque o [StreamProxy] precisa exatamente da mesma decisão: ele
-     * serve as MESMAS URLs, e pedi-las anunciando outro cliente é o caminho
-     * conhecido para um 403. Uma segunda tabela lá envelheceria em silêncio na
-     * primeira vez que a biblioteca trocasse de cliente.
-     */
-    fun uaPara(url: String): String =
-        if (clienteDe(url) == "VISIONOS") UA_VISIONOS else UA
-
     private fun baixarTentando(
         url: String,
         destino: File,
@@ -2374,6 +2402,11 @@ object YoutubeGrab {
         Uri.parse(url).getQueryParameter("clen")?.toLongOrNull()?.takeIf { it > 0 } ?: -1L
     } catch (_: Exception) { -1L }
 
+    /**
+     * Baixa em streaming, reportando o andamento. Um louvor tem centenas de MB
+     * e o percentual é a única coisa que separa "baixando" de "travado" na tela
+     * do operador.
+     */
     private fun baixarEmBlocos(
         est: Pedacos,
         destino: File,
