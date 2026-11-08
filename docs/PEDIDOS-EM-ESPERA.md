@@ -84,12 +84,11 @@ Na lista de Favoritos, o botão de opções (o `⋮`) fica sempre visível, como
 no Cronograma. Conferir o alvo de toque da linha (`row-slot`) e o oráculo que
 mede a coluna do `⋮`. Só web.
 
-> ⚠ **A v1.13.36 — que moveu as opções do favorito para trás do `⋮` — NÃO FOI
-> AO AR.** O run #2309 (merge da v1.13.36, 2026-11-06 21:04) reprovou no passo
-> "Oráculos em Chromium" (`smoke.mjs`, `destinos-diretos.test.mjs`,
-> `teclado-das-folhas.test.mjs`) e o `web-ota` foi PULADO — o canal OTA segue na
-> **v1.13.35**. Conferir o estado VIVO dos favoritos antes de mexer: o pedido
-> pode ser a reversão de um `⋮` que nunca chegou, ou um ajuste sobre a 1.13.35.
+> **A v1.13.36 — as opções do favorito atrás do `⋮` — FOI AO AR em 2026-11-08.**
+> Os três oráculos que a seguravam (`smoke.mjs`, `destinos-diretos.test.mjs`,
+> `teclado-das-folhas.test.mjs`) foram consertados. O pedido acima agora é sobre
+> o `⋮` JÁ NO AR: conferir se "sempre visível, como no cronograma" já é o estado
+> atual (o `⋮` do favorito é o mesmo desenho do Cronograma) ou se pede ajuste fino.
 
 ## Pacote 23 — A playlist: o item que não entra ao trocar de modo
 
