@@ -162,10 +162,13 @@ object R2ImagemFonte {
      * opcional, mentível e ausente em `chunked` — quem para é o laço.
      *
      * PASSAR DO TETO É FALHA, e não um `break` (revisão K6): a imagem cortada
-     * seguia 200 com `image/*` válido, era gravada no OPFS pelo `controle.js` e
-     * virava um fundo de letra com a metade de baixo corrompida — sem uma linha
-     * que dissesse por quê. Uma foto de fundo vive na casa das centenas de kB;
-     * oito megabytes é trava, e trava que dispara tem de aparecer como falha.
+     * seguia com 200 e o tipo de imagem certo, era gravada no OPFS pelo
+     * `controle.js` e virava um fundo de letra com a metade de baixo corrompida
+     * — sem uma linha que dissesse por quê. Uma foto de fundo vive na casa das
+     * centenas de kB; oito megabytes é trava, e trava que dispara tem de
+     * aparecer como falha. (Nada de `image` barra asterisco AQUI dentro: dentro
+     * de um comentário de bloco isso abre um comentário ANINHADO, e o arquivo
+     * inteiro deixa de compilar — foi o que a K6 levou ao CI.)
      */
     private fun lerAteOTeto(c: HttpURLConnection): ByteArray {
         val saida = ByteArrayOutputStream()
