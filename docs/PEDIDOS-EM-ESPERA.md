@@ -25,6 +25,127 @@ na v1.13.7, e a Biblioteca maior do Modo Fácil, na v1.13.9.)
 
 ---
 
+## Pedidos de 2026-11-07 (a priorizar)
+
+Dez relatos do operador em 2026-11-07, catalogados nos Pacotes 19–26. Nenhum
+tem ordem definida ainda — a resposta de "qual pacote seguir" é do operador.
+
+## Pacote 19 — A Verificação também procura atualização
+
+Pedido do operador (2026-11-07 08:55): *"O verificar deve também procurar por
+atualizações, se estiver disponível, oferecer a atualização."*
+
+A Verificação do Sistema ganha uma checagem que lê o estado de atualização do
+OTA (`otaPending` / `atualizacaoEstado` da ponte) e, havendo base nova, oferece
+o "Atualizar agora" — o MESMO diálogo do OTA (o shell só AVISA, quem aplica é o
+web; regra de `docs/shell/OTA.md`). Respeitar `docs/DIAGNOSTICO.md`: uma checagem
+não baixa megabytes — ela só aponta para o fluxo que já existe; o desfecho é
+`não se aplica` quando não há nada pendente. Só web.
+
+## Pacote 20 — A folha do vídeo: sem o aviso de teto e sem a linha do botão
+
+Pedido do operador (2026-11-07 09:12): *"Remova a mensagem 'teto de qualidade,
+vale para o tocar agora e fica como padrão' que temos nos vídeos. Também
+verifique se não está desperdiçando espaço criando uma outra linha apenas para o
+botão de detalhes... Talvez apenas faça uma versão de título mais curta como
+apenas 'Detalhes'."*
+
+Dois ajustes na folha do vídeo:
+
+- **(a)** tirar a mensagem do "teto de qualidade" (o texto que explica que a
+  qualidade vale para o "Tocar agora" e fica como padrão) — localizar e remover;
+- **(b)** o botão de DETALHES (o quinto botão do vídeo, v1.13.34 —
+  `destBotaoDetalhes` / `r.__detalhes`) não pode custar uma linha própria:
+  encurtar o rótulo para "Detalhes" e/ou acomodá-lo na linha existente. Conferir
+  o oráculo de geometria da folha (regra: uma folha não muda de tamanho entre
+  estados).
+
+Só web.
+
+## Pacote 21 — Séries: os meses que faltam e a ordem das coleções
+
+Dois relatos (2026-11-07 10:35) mexem na Biblioteca e em `controle/serie.js`:
+
+| # | relato | a fazer |
+|---|---|---|
+| a | *"Julho, agosto e setembro do Provai e Vede são os itens faltando na lista"* | conferir a ABA DO CANAL (autoridade; nunca busca por texto) contra a regra de playlist de `serie.js`: os meses jul/ago/set não aparecem. Suspeita: a regra de pertencimento (a playlist prova, o título é rótulo) os derruba, ou o índice chega incompleto. Reproduzir num aparelho (o Registro tem o bloco da varredura) e classificar cada episódio |
+| b | *"Altera a ordem na biblioteca, deixe primeiro o informativo e depois o provai e vede na ordem de coleções"* | reordenar as coleções da Biblioteca: Informativo antes de Provai e Vede. Conferir `renderCollectionsList` e o oráculo de desenho da Biblioteca |
+
+Só web. Ler antes `docs/recursos/SERIES.md`. Vizinho do **Pacote 13** (mesma
+área, `serie.js`) — conferir se os meses faltando têm a mesma raiz dos índices
+daquele pacote.
+
+## Pacote 22 — Favoritos: o botão de opções sempre visível
+
+Pedido do operador (2026-11-07 10:37): *"O botão de opções nos itens dos
+favoritos, ficará sempre visível, como no cronograma."*
+
+Na lista de Favoritos, o botão de opções (o `⋮`) fica sempre visível, como já é
+no Cronograma. Conferir o alvo de toque da linha (`row-slot`) e o oráculo que
+mede a coluna do `⋮`. Só web.
+
+> ⚠ **A v1.13.36 — que moveu as opções do favorito para trás do `⋮` — NÃO FOI
+> AO AR.** O run #2309 (merge da v1.13.36, 2026-11-06 21:04) reprovou no passo
+> "Oráculos em Chromium" (`smoke.mjs`, `destinos-diretos.test.mjs`,
+> `teclado-das-folhas.test.mjs`) e o `web-ota` foi PULADO — o canal OTA segue na
+> **v1.13.35**. Conferir o estado VIVO dos favoritos antes de mexer: o pedido
+> pode ser a reversão de um `⋮` que nunca chegou, ou um ajuste sobre a 1.13.35.
+
+## Pacote 23 — A playlist: o item que não entra ao trocar de modo
+
+Pedido do operador (2026-11-07 10:38): *"O problema do item que não entra
+limpando a playlist, é quando o item é iniciado no modo simples e depois se vai
+para o modo avançado."*
+
+Defeito relatado (a confirmar): um item iniciado no Modo Fácil e, depois da
+troca para o Modo Avançado, não entra na playlist ao "limpar" (a substituição da
+fila). Suspeita: a troca de modo reconstrói a playlist e o item em curso perde o
+vínculo com a fila (caminhos `simple*` × o `send`/fila do avançado). Reproduzir
+a sequência exata (iniciar no Fácil → trocar para o Avançado → limpar a playlist
+→ o item não aparece) e achar onde a fila é remontada na troca. Oráculo de
+Chromium com essa sequência.
+
+## Pacote 24 — O cronograma: segurar move, e sai a seleção múltipla
+
+Pedido do operador (2026-11-07 11:34): *"Vamos remover a seleção múltipla do
+cronograma, agora segurar vai servir para mover o item em questão. Assim sendo
+mais fluido que os nossos botões de mover, que são muito lentos em organizar os
+itens."*
+
+No Cronograma, remover a SELEÇÃO MÚLTIPLA; o toque longo (segurar) passa a
+ARRASTAR o item para reordenar, no lugar dos botões ↑↓ (v1.13.2, na faixa do
+`⋮`). Conferir o caminho de reordenação e o que a seleção múltipla libera hoje;
+medir o gesto de arrastar contra o `row-slot` e o alvo de toque. Só web.
+
+## Pacote 25 — O link do YouTube chega com os detalhes do vídeo
+
+Pedido do operador (2026-11-07 19:00): *"Ao acessar o app com um link do YouTube
+copiado, ele oferece para usar o link, mas nesse oferecimento, ele não dá
+detalhes sobre o vídeo do link, então ajuste para que nesse oferecimento ele dê
+os Detalhes como thumbnail, título, duração e canal."*
+
+No oferecimento do link copiado (`ShareIntake.kt` → a PERGUNTA antes de usar),
+mostrar os detalhes do vídeo: miniatura, título, duração e canal. Os detalhes já
+existem pela ponte (`ytDetalhes` → `{ titulo, canal, descricao }`, cache
+`ytDetalhesCache` / `detalhesDoVideo`); faltam a DURAÇÃO e a MINIATURA, e
+desenhá-los na folha do oferecimento. Conferir o que `ytDetalhes` devolve hoje e
+estender (Kotlin) se faltar duração/miniatura. Só web se a ponte já devolver
+tudo; senão, Kotlin (Release).
+
+## Pacote 26 — Modo Fácil: as coleções e as opções de Configurações
+
+Dois relatos (2026-11-07) sobre o Modo Fácil:
+
+| # | relato | a fazer |
+|---|---|---|
+| a | *"Revisar quais opções das configurações aparecem no modo simples"* (19:24) | levantar quais tiles/opções de Configurações aparecem no Modo Fácil e cortar o que não cabe (regra: apagado = indisponível, nunca inerte; o que não tem função agora some). Conferir a grade de Configurações no Modo Fácil |
+| b | *"No modo simples, além da coleção de cds do ano, o resto ficará na coleção de diversos. Assim terá mais espaço para deixar mais elementos fixos após os vídeos da semana. Coisas como ofertório e abertura para a adoração infantil."* (19:33) | reorganizar as coleções do Modo Fácil: só a coleção dos CDs do ano fica separada; o resto cai em "Diversos". O espaço liberado abre vaga para ELEMENTOS FIXOS depois dos vídeos da semana (ex.: ofertório, abertura para a adoração infantil). Planejar quais elementos fixos e onde moram |
+
+Só web. Vizinho do **Pacote 16** (Modo Fácil). Conferir a ordem de coleções do
+Modo Fácil (`simple*` em `controle.js`) e o bloco "Este sábado".
+
+---
+
 ## Pacote 8 — URGENTE: os oráculos instáveis do CI
 
 > **Tratado pela etapa A1 da revisão (2026-10-30)** — o relatório e o resíduo (`configuracoes-janelas`, instrumentado) estão em `docs/revisao/REGISTRO.md`.
