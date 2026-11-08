@@ -223,9 +223,13 @@ try {
     await new Promise((r) => setTimeout(r, 100));
     const faixa = fileira.querySelector('.fav-acoes');
     const fx = faixa.getBoundingClientRect();
+    // O `⋮` MOVE quando a faixa abre: na tela estreita (360×1,25×) a fileira de
+    // destinos quebra e o `⋮` desce de linha; a régua do "na MESMA fileira" lê a
+    // posição DELE depois de aberto, não a capturada antes do toque.
+    const mrAberto = mais.getBoundingClientRect();
     const depois = {
       visiveis: visiveis().map((b) => b.className),
-      faixaNaFileira: fx.width > 0 && Math.abs(fx.top - mr.top) <= 1,
+      faixaNaFileira: fx.width > 0 && Math.abs(fx.top - mrAberto.top) <= 1,
       destinosSairam: [...fileira.querySelectorAll('.dest-btn:not(.dest-opcoes), .dest-largo')].every((b) => b.offsetWidth === 0),
       botoes: [...faixa.querySelectorAll('.row-btn')].map((b) => (b.className.match(/row-(excluir|renomear|ordem)/) || [''])[0]),
       maisLigado: li.classList.contains('acoes-abertas'),
@@ -234,7 +238,7 @@ try {
     await new Promise((r) => setTimeout(r, 150));
     const par = [...faixa.querySelectorAll('.linha-confirma-btn')];
     depois.perguntaNaFileira = par.length === 2
-      && par.every((b) => Math.abs(b.getBoundingClientRect().top - mr.top) <= 6 && b.offsetWidth > 0);
+      && par.every((b) => Math.abs(b.getBoundingClientRect().top - mrAberto.top) <= 6 && b.offsetWidth > 0);
     fecharAcoesDaLinha();
     ul.remove();
     await AVDB.listRemove('favs', m.id); await AVDB.listRemove('favs', m2.id);
