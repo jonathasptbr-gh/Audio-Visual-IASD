@@ -6,13 +6,12 @@ import android.net.Uri
 import android.os.Build
 import android.util.Log
 import androidx.core.content.FileProvider
-import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * O APK SE ATUALIZA SOZINHO — procurar, baixar e entregar ao instalador.
+ * O APK SE ATUALIZA SOZINHO — achar, baixar e entregar ao instalador.
  *
  * O [WebUpdater] já fazia isto para a base web, e a assimetria era o atrito:
  * um ajuste de JS chegava sozinho, e qualquer mudança de Kotlin obrigava o
@@ -53,8 +52,6 @@ object ShellUpdater {
      *  o `GET` viraria 404 e o farol pararia de contar em silêncio. */
     private const val REPO = WebUpdater.REPO
 
-    private const val API = "https://api.github.com/repos/$REPO/releases/latest"
-
     /** Hosts permitidos, pelo mesmo motivo do [WebUpdater.HOSTS_OK]. */
     private val HOSTS_OK = setOf("api.github.com", "github.com", "objects.githubusercontent.com")
 
@@ -67,43 +64,23 @@ object ShellUpdater {
     /** O que a última procura achou. `null` = nunca procuramos, ou não há nada. */
     @Volatile private var achado: Achado? = null
 
-    /**
-     * `doManifesto` diz DE ONDE o achado veio, e não é enfeite: só o que veio
-     * do manifesto pode ser desmentido por um manifesto seguinte
-     * ([esquecerAnuncio]). Deduzir a origem pelo campo `notas` estar vazio
-     * quase funciona — e falha calada no dia em que uma Release for publicada
-     * sem corpo de texto.
-     */
     data class Achado(
         val versao: String,
         val url: String,
         val bytes: Long,
         val notas: String,
-        val doManifesto: Boolean = false,
     )
 
     // ---------- o achado que vem PELO MANIFESTO (v5.234) ----------
     //
-    // ## Por que não perguntar à API, já que ela existe logo abaixo
-    //
-    // Porque a resposta autoritária que o operador pediu exige perguntar
-    // DEPRESSA, e a API do GitHub não autenticada permite **60 requisições por
-    // hora por IP**. A ronda do [WebUpdater] bate a cada 15 s — 240 por hora —,
-    // então acoplar o APK a ela esgotaria o limite em quinze minutos e a
-    // detecção passaria a falhar com 403 pelo resto da hora. Seria uma
-    // detecção MAIS lenta e mais imprevisível do que a de 30 minutos que
-    // existia antes: exatamente o defeito que este lote existe para acabar.
-    //
-    // O manifesto do canal OTA é um asset de release. Baixá-lo **não consome
-    // limite nenhum**, e desde a v5.234 ele carrega o bloco `shell` com a
+    // A partir da X1 ele é o ÚNICO caminho: a procura pela API do GitHub (o
+    // `apkProcurar` da ponte e o `procurar` daqui) saiu com os órfãos. O
+    // manifesto do canal OTA é um asset de release, baixá-lo não consome
+    // limite nenhum, e desde a v5.234 ele carrega o bloco `shell` com a
     // versão, o link e o tamanho do APK — porque o workflow SEGURA a publicação
-    // do bundle até a Release existir. Ou seja: a mesma requisição que já
-    // acontecia responde as duas perguntas, e as responde juntas, que é o que
-    // permite a tela falar de um lote em vez de dois eventos soltos.
-    //
-    // A API continua viva em [procurar], e continua sendo o caminho certo para
-    // o que ela sabe e o manifesto não: uma Release publicada SEM base web nova
-    // (correção só de Kotlin), e o toque do operador que quer conferir agora.
+    // do bundle até a Release existir. A mesma requisição que já acontecia
+    // responde as duas perguntas, e as responde juntas, que é o que permite a
+    // tela falar de um lote em vez de dois eventos soltos.
 
     /**
      * O manifesto anunciou um APK. **Transporte puro**: quem decide se ele é
@@ -131,19 +108,17 @@ object ShellUpdater {
         }
         val anterior = achado
         if (anterior?.versao == v && anterior.url == url) return
-        achado = Achado(versao = v, url = url, bytes = bytes, notas = "", doManifesto = true)
+        achado = Achado(versao = v, url = url, bytes = bytes, notas = "")
         Log.i(TAG, "APK v$v anunciado pelo manifesto (instalado: ${versaoInstalada(app)})")
     }
 
     /**
      * O manifesto veio SEM o bloco `shell`: esta base web não acompanha APK.
      *
-     * Só apaga o que veio do manifesto — um achado da [procurar] (a Release
-     * publicada sem base web nova) sobrevive, porque ele não é sobre este
-     * manifesto e nada nele foi desmentido.
+     * Desde a X1 TODO achado vem do manifesto, então esquecer é apagar.
      */
     fun esquecerAnuncio() {
-        if (achado?.doManifesto == true) achado = null
+        achado = null
     }
 
     /** Há APK publicado e mais novo que o instalado? */
@@ -166,58 +141,6 @@ object ShellUpdater {
             return null
         }
         return a
-    }
-
-    /**
-     * PROCURA — devolve o JSON que o `controle.js` desenha, e nunca lança.
-     *
-     * `{}` vazio quer dizer "nada novo", que é o caso normal e não é erro. O
-     * campo `erro` só aparece quando a procura de fato falhou, porque "não
-     * apareceu nada" e "não deu para perguntar" são leituras diferentes — é a
-     * mesma lição da linha "Procura:" do Registro.
-     */
-    fun procurar(app: Context): JSONObject {
-        val fora = JSONObject()
-        try {
-            val txt = pegarTexto(API) ?: return fora.put("erro", "sem resposta do GitHub")
-            val o = JSONObject(txt)
-            val tag = o.optString("tag_name").trim()
-            if (tag.isEmpty()) return fora.put("erro", "release sem tag")
-            // A tag do GitHub vem com o `v` (`limpar` existe só por isso), e
-            // TUDO que este arquivo guarda ou compara vive no domínio LIMPO.
-            val v = limpar(tag)
-            val minha = versaoInstalada(app)
-            // A comparação é NUMÉRICA por componente, como a do [WebUpdater]:
-            // "1.9" é MAIOR que "1.76" como texto, e menor como versão.
-            if (WebUpdater.compareVersions(v, limpar(minha)) <= 0) return fora
-            val assets = o.optJSONArray("assets") ?: return fora.put("erro", "release sem arquivo")
-            var url = ""
-            var bytes = 0L
-            for (i in 0 until assets.length()) {
-                val a = assets.optJSONObject(i) ?: continue
-                if (!a.optString("name").endsWith(".apk", true)) continue
-                url = a.optString("browser_download_url")
-                bytes = a.optLong("size", 0L)
-                break
-            }
-            if (url.isEmpty()) return fora.put("erro", "release sem .apk")
-            if (!hostOk(url)) return fora.put("erro", "endereco do arquivo fora do GitHub")
-            // GUARDAR A TAG CRUA aqui é o achado que se apaga sozinho: a
-            // leitura seguinte de [novidade] compararia "v1.3.12" com
-            // "1.3.11", leria o `v` como componente ZERO e concluiria que a
-            // Release é mais velha que o instalado — `achado = null`, e o
-            // canal do APK volta a dizer que não há nada. O `versao` do JSON
-            // continua cru de propósito: ali é RÓTULO de tela, não domínio de
-            // comparação.
-            achado = Achado(versao = v, url = url, bytes = bytes, notas = o.optString("body").take(600))
-            return fora
-                .put("versao", tag)
-                .put("bytes", bytes)
-                .put("notas", achado?.notas ?: "")
-        } catch (e: Exception) {
-            Log.i(TAG, "procura do APK falhou", e)
-            return fora.put("erro", (e.message ?: "falha").take(120))
-        }
     }
 
     /**
@@ -320,16 +243,6 @@ object ShellUpdater {
             if (total > 0 && lidos != total) {
                 throw IllegalStateException("download incompleto ($lidos de $total bytes)")
             }
-        } finally {
-            c.disconnect()
-        }
-    }
-
-    private fun pegarTexto(url: String): String? {
-        val c = abrir(url)
-        return try {
-            if (c.responseCode !in 200..299) null
-            else c.inputStream.bufferedReader().use { it.readText() }
         } finally {
             c.disconnect()
         }

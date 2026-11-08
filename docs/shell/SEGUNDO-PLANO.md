@@ -151,15 +151,14 @@ campos `stream` do `db.js` (com `addStreamMedia`/`setMediaStream`), o ramo
 preview, o `diagMse` do Registro e o `telaManifestoDaRede`. Um registro legado é
 hoje o que ele de fato é: uma cena sem bytes, que o palco esvazia.
 
-**O que FICA, e por quê — tudo no KOTLIN:**
+**O que FICOU, e por quê — tudo no KOTLIN:**
 
-- **O `ytStream` e o `StreamProxy.kt`.** Tirá-los é um degrau de
-  `SHELL_VERSION` e uma Release, e um método de ponte sem chamador não custa
-  nada ao aparelho. **O embrulho do lado WEB saiu na v1.8.71** — encolher pelo
-  web é o lado seguro e dispensa Release —, então hoje nada no app os alcança.
-- **A rota `/s/<token>` das telas da rede.** Ela repassa a faixa do googlevideo
-  para uma tela da LAN, e o que a alimentava era o mesmo manifesto — hoje ela
-  não tem o que servir. Cai no mesmo lote em que o `StreamProxy` cair.
+- **O `StreamProxy.kt` e a rota `/s/<token>` das telas da rede** continuam no
+  shell, LATENTES. A X1 (shell 85) tirou o `ytStream` e a cadeia do manifesto
+  no `YoutubeGrab`, mas a rota e a aplicação de `Range` no socket arrastam a
+  invariante 8 e os capítulos que a explicam — é um lote à parte. Hoje nada
+  registra token, então as duas respondem 404.
+
 - **O `k === 'stream'` do `controle/pacote.js`** — a ÚNICA pergunta que o web
   ainda faz pelo campo, e ela é sobre o passado: um registro legado não deve
   exportar um manifesto morto para outro aparelho.

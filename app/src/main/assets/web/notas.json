@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.13.47",
+    "itens": [
+      "A revisão interna dos métodos do app: nada muda no uso normal.",
+      "Saíram dois diagnósticos que já não tinham tela: o do microfone e o da busca de versão.",
+      "O aviso de atualização e a instalação do app continuam chegando como antes."
+    ]
+  },
+  {
     "versao": "1.13.46",
     "itens": [
       "A revisão interna de arquivos, cifra e apresentações: nada muda no uso normal.",

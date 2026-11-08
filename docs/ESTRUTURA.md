@@ -107,11 +107,10 @@ app/src/main/
 │   │                            #   automática do YouTube) — PURO, com JUnit
 │   ├── MuxMp4.kt                # junta as faixas de vídeo e áudio (1080p) — MediaMuxer
 │   ├── StreamProxy.kt           # /stream/<token>: serve o googlevideo pelo NOSSO origin
+│   │                            #   LATENTE desde a X1: a rota não tem produtor
 │   ├── SlideDeck.kt             # apresentação (PDF/Google) → uma imagem por página
 │   ├── MicChromeClient.kt       # onPermissionRequest: microfone no WebView do telão
-│   ├── MicDiag.kt               # POR QUE o microfone não abre — o que só o SHELL
-│   │                            #   sabe (permissão, AppOps, modo, entradas).
-│   │                            #   LEITURA PURA: não abre nada, não pede nada
+│   │                            #   (o pedido de permissão e o MicDiag saíram na X1)
 │   ├── PacoteProvider.kt        # o FileProvider do PACOTE — subclasse VAZIA, e
 │   │                            #   ela É a correção do "0 KB": duas autoridades
 │   │                            #   sobre a MESMA classe compartilham a instância
@@ -189,7 +188,7 @@ docs/
 └── AUDITORIA-ESTABILIDADE-AV.md # APÊNDICE: o que pode INTERROMPER áudio/vídeo
 ```
 
-**33 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
+**32 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
 AndroidX oficial (`core-ktx`, `activity-ktx`, `webkit`). O que sustenta essa
 proporção Kotlin × JavaScript é a invariante 5; ela é o argumento contra
 Capacitor/Cordova, que arrastariam npm e um build system inteiro e ainda assim

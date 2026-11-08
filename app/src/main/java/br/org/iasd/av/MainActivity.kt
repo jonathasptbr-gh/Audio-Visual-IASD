@@ -217,21 +217,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
         ActivityResultContracts.RequestPermission(),
     ) { /* concedida ou não, o app segue igual */ }
 
-    /**
-     * Permissão do microfone (push-to-talk). Pedida **sob demanda**, quando o
-     * operador abre a função — e não na abertura do app: um pedido de gravar
-     * áudio logo no primeiro lançamento, sem contexto, é o tipo de coisa que
-     * as pessoas negam por reflexo, e aí o recurso fica quebrado sem motivo.
-     */
-    private var pendingMicPermission: ((Boolean) -> Unit)? = null
-    private val micPermission = registerForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        val cb = pendingMicPermission
-        pendingMicPermission = null
-        cb?.invoke(granted)
-    }
-
     /** Callback do `AVNative.pickDoc()` em andamento. */
     private var pendingDocPick: ((List<Uri>) -> Unit)? = null
 
@@ -285,52 +270,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
                 .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
     }
 
-    /** Callback do `AVNative.salvarTexto()` em andamento, com o texto a gravar. */
-    private var pendingTextSave: Pair<String, (String) -> Unit>? = null
-
-    /**
-     * "Salvar como" do sistema. `CreateDocument` devolve um `content://` no
-     * qual este processo pode ESCREVER — é o único caminho de gravação do app,
-     * e ele existe porque o WebView não tem `DownloadListener` (ver
-     * `NativeBridge.salvarTexto`).
-     */
-    private val textSaver = registerForActivityResult(
-        ActivityResultContracts.CreateDocument("text/plain"),
-    ) { uri ->
-        val pend = pendingTextSave
-        pendingTextSave = null
-        if (pend == null) return@registerForActivityResult
-        val (texto, cb) = pend
-        if (uri == null) { cb(""); return@registerForActivityResult }
-        val nome = try {
-            // "wt" E NUNCA "w" — o `t` é TRUNCAR, e sem ele o provedor de
-            // documentos escreve POR CIMA do começo e deixa a cauda do arquivo
-            // antigo. Salvar um Registro sobre o da vez anterior devolvia o
-            // texto novo grudado num pedaço do velho, no meio de uma linha.
-            //
-            // O DEFEITO É PIOR DO QUE PARECE, e é por isso que ele não é um
-            // detalhe de escrita: o Registro existe para ser lido A DISTÂNCIA
-            // por quem não pode conferir nada no aparelho, e o resto do arquivo
-            // antigo é conteúdo PLAUSÍVEL — blocos inteiros, bem formatados,
-            // descrevendo um estado que já não existe. É a definição de um log
-            // que discorda do aparelho.
-            //
-            // O caminho do PACOTE já usava "wt" desde a v1.7.0; este ficou para
-            // trás. Ver `pacoteCriar`.
-            contentResolver.openOutputStream(uri, "wt")
-                ?.use { it.write(texto.toByteArray(Charsets.UTF_8)) }
-                ?: throw java.io.IOException("provedor não abriu o documento")
-            uri.lastPathSegment?.substringAfterLast('/') ?: "registro.txt"
-        } catch (e: Exception) {
-            // Falhar aqui é o operador ficar sem o arquivo, não o app quebrar —
-            // e a string vazia é o mesmo desfecho de ter desistido, que é o que
-            // a tela sabe explicar.
-            Log.w(TAG, "não consegui gravar o texto", e)
-            ""
-        }
-        cb(nome)
-    }
-
     /** Callback do `AVNative.pacoteCriar()` em andamento. */
     private var pendingPacoteCreate: ((String) -> Unit)? = null
 
@@ -344,7 +283,8 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * (ver `AVPacote.lerAssinatura`), nunca o nome. É a mesma disciplina do
      * `SafRegistry`: o que vale é o conteúdo, não o rótulo.
      *
-     * Ao contrário do [textSaver], que grava e fecha na hora, aqui o destino
+     * Ao contrário do antigo `textSaver` (aposentado no shell 85, com o
+     * `salvarTexto`), que gravava e fechava na hora, aqui o destino
      * fica ABERTO: o que vem depois são gigabytes em blocos de 1 MiB pelo
      * [PacoteCanal].
      */
@@ -1143,26 +1083,9 @@ class MainActivity : ComponentActivity(), BridgeHost {
         }
     }
 
-    override fun requestTextSave(nome: String, texto: String, onResult: (String) -> Unit) {
-        runOnUiThread {
-            // Mesmo padrão do [requestDocPick]: o pendente resolve vazio antes
-            // de ser sobrescrito, senão a Promise sem prazo do lado web fica
-            // pendurada para sempre.
-            pendingTextSave?.second?.invoke("")
-            pendingTextSave = texto to onResult
-            try {
-                textSaver.launch(nome)
-            } catch (e: Exception) {
-                Log.w(TAG, "seletor de gravação indisponível", e)
-                pendingTextSave = null
-                onResult("")
-            }
-        }
-    }
-
     override fun requestPacoteCreate(nome: String, onResult: (String) -> Unit) {
         runOnUiThread {
-            // Mesmo padrão do [requestTextSave]: o pendente resolve vazio antes
+            // Mesmo padrão dos outros seletores: o pendente resolve vazio antes
             // de ser sobrescrito, senão a Promise sem prazo do lado web fica
             // pendurada para sempre.
             pendingPacoteCreate?.invoke("")
@@ -2365,23 +2288,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
                     captureVolumeKeys = false
                     it.loadUrl(WebViewFactory.URL_CONTROLE)
                 }
-            }
-        }
-    }
-
-    override fun requestMicPermission(onResult: (Boolean) -> Unit) {
-        runOnUiThread {
-            if (MicChromeClient.hasRecordAudio(this)) { onResult(true); return@runOnUiThread }
-            // Mesmo padrão do [requestFolderPick]: o pedido anterior resolve
-            // negado antes de ser sobrescrito — Promise sem prazo do lado web.
-            pendingMicPermission?.invoke(false)
-            pendingMicPermission = onResult
-            try {
-                micPermission.launch(android.Manifest.permission.RECORD_AUDIO)
-            } catch (e: Exception) {
-                Log.w(TAG, "não foi possível pedir a permissão de microfone", e)
-                pendingMicPermission = null
-                onResult(false)
             }
         }
     }

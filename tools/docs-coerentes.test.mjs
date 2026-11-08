@@ -124,6 +124,8 @@ const docs = [];
     // O player DASH da TRANSMISSÃO DIRETA, removido na v1.8.82 — o capítulo do
     // segundo plano explica a AUSÊNCIA, que é o que o nome sustenta lá.
     ['mse.js', 'o player da transmissão direta saiu na v1.8.82'],
+    // O DIAGNÓSTICO DO MICROFONE, removido na X1 com os órfãos da ponte.
+    ['MicDiag.kt', 'saiu na X1 (shell 85) com o micDiag da ponte; os docs explicam a ausência'],
     // Oráculos que saíram com o recurso que mediam.
     ['cifra-teclado.test.mjs', 'saiu na v1.3.3 com a busca à mão da cifra'],
     ['clone-de-outro-celular.test.mjs', 'saiu na v1.8.16 com o clone pela rede'],

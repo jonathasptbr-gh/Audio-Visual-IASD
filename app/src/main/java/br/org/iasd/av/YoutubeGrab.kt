@@ -207,22 +207,6 @@ object YoutubeGrab {
         private set
 
     /**
-     * O mesmo, para a TRANSMISSÃO DIRETA — e separado de propósito.
-     *
-     * Quando o `manifesto()` desiste, quem chama cai no [buscar], e o `buscar`
-     * começa com `diagnostico = resumo(info)`: o motivo da desistência era
-     * APAGADO pela linha do download que veio logo atrás. Na prática o log
-     * nunca conseguia dizer por que a transmissão não entrou — só mostrava o
-     * download que a substituiu, o que parecia "nem tentou".
-     *
-     * Dois campos, dois caminhos, nenhum sobrescreve o outro. [ytDiag] entrega
-     * os dois.
-     */
-    @Volatile
-    var diagnosticoStream: String = ""
-        private set
-
-    /**
      * QUANDO toda faixa adaptativa foi recusada (403) pela última vez — `0` =
      * nunca. Enquanto a marca é recente ([adaptativoBloqueado]), o caminho
      * adaptativo nem tenta.
@@ -785,196 +769,6 @@ object YoutubeGrab {
      * diferença entre "o CDN recusou" e "o operador desistiu" é tudo.
      */
     const val CANCELADO = "cancelado pelo operador"
-
-    /**
-     * O MANIFESTO da transmissão direta: as duas melhores faixas adaptativas,
-     * com URLs já servíveis pelo nosso origin ([StreamProxy]) e com os
-     * byte-ranges que o `MediaSource` do lado web precisa.
-     *
-     * ## Por que isto existe ao lado do [buscar]
-     *
-     * Baixar resolve a projeção mas cobra a ESPERA: centenas de MB antes do
-     * primeiro quadro. O caminho alternativo era o player embutido do YouTube,
-     * que traz a UI dele junto (rodinha, botão grande na pausa, tela final —
-     * coisas que `controls: 0` não desliga porque não são controles).
-     *
-     * Transmitindo, o vídeo vira um `<video>` COMUM alimentado por MSE: fade,
-     * cortina, `MediaSession`, barra e segundo plano continuam os mesmos, e não
-     * há um pixel de YouTube no telão.
-     *
-     * ## Só mp4/AVC + m4a/AAC
-     *
-     * O par WebM (VP9 + Opus) existe e o Chromium o toca, mas o `MediaSource`
-     * de um WebView é território de fabricante e o AVC/AAC decodifica em
-     * qualquer aparelho. A recusa é barata: sem par transmissível cai no
-     * download, que aceita os dois contêineres.
-     *
-     * **BLOQUEANTE** — rede e parsing. `null` quando não há par adaptativo.
-     */
-    fun manifesto(link: String, teto: Int = TETO_ALTURA): JSONObject? {
-        return try {
-            garantirInit()
-            val ex = ServiceList.YouTube.getStreamExtractor(link)
-            aportuguesar(ex)
-            val info = StreamInfo.getInfo(ex)
-            // NO CAMPO DA TRANSMISSÃO, não no do download. Escrever em
-            // `diagnostico` aqui fazia o Registro exibir uma linha "download:"
-            // para uma extração em que download NENHUM aconteceu — e ela vinha
-            // sem desfecho, o que se lê como um download travado.
-            diagnosticoStream = resumo(info) + " · "
-            // A MESMA fila de candidatos do download, e não uma segunda regra:
-            // a ordem por cliente (visionOS primeiro) é o que faz a faixa
-            // escolhida ser uma que o CDN de fato serve.
-            //
-            // A ELEGIBILIDADE (mp4/m4a) VEM ANTES DO TETO de candidatos: um
-            // par transmissível na 3ª posição por ordem era descartado por
-            // dois inelegíveis à frente do `take` — "SEM PAR DASH" com par bom
-            // na lista. No áudio não há teto nenhum: o teto é orçamento de
-            // TENTATIVA de download, e aqui não se tenta nada — escolhe-se UM.
-            // O filtro de `dash` fica DEPOIS, e as contas saem das listas que
-            // o `firstOrNull` de fato varre: é a diferença entre elas e o que
-            // sobra que diz o que faltou.
-            val videos = candidatosVideo(info, 0, teto) { !it.webm }
-            // A nota do corte por contêiner entra DEPOIS das contas, não no
-            // meio delas: aqui `diagnosticoStream` ainda é só o prefixo, e
-            // escrever direto partiria a linha em dois pedaços fora de ordem.
-            var semPt = ""
-            val audios = candidatosAudio(info, "m4a", Int.MAX_VALUE) { semPt = it }
-            val v = videos.firstOrNull { it.dash }
-            val a = audios.firstOrNull { it.dash }
-            val contas = porQueNaoDash("vídeo mp4", videos) + " · " +
-                porQueNaoDash("áudio m4a", audios) + semPt
-            if (v == null || a == null) {
-                diagnosticoStream += contas + " → SEM PAR DASH, caindo no download"
-                return null
-            }
-            // O QUE HAVIA, ao lado do que foi ESCOLHIDO — e a linha só sai
-            // quando os dois DIFEREM. Ela responde a única pergunta que o
-            // Registro não sabia responder sobre resolução: *"o app escolheu
-            // baixo, ou só havia baixo?"*.
-            //
-            // A rede NÃO é resposta possível aqui, e é preciso estar dito:
-            // nada neste caminho faz ABR. Hoje o vídeo é BAIXADO INTEIRO antes
-            // de projetar (`ytArquivo`, v1.7.7), então uma rede fraca atrasa o
-            // download e não muda um pixel da imagem; antes disso, com a
-            // transmissão direta (que saiu na v1.8.82), ela produzia TRAVAMENTO,
-            // nunca resolução menor. Nos dois casos sobram três
-            // causas para uma imagem ruim, e esta linha separa a primeira:
-            // a faixa que escolhemos, o teto que o operador pediu, e o encoder
-            // do espelhamento, que fica fora do alcance do app.
-            //
-            // SOB O MESMO TETO, senão um "480p" pedido pelo operador acusaria o
-            // app de ter deixado 1080p na mesa. O teto entra na linha pelo mesmo
-            // motivo: é ele que distingue escolha de escassez.
-            val possivel = maiorTransmissivel(info, teto)
-            diagnosticoStream += contas + " · teto ${teto}p" +
-                " → transmitindo ${v.altura}p (${v.etiqueta} + ${a.etiqueta})" +
-                (if (possivel > v.altura) " · HAVIA ${possivel}p transmissível (outro cliente)" else "") +
-                " · v=${v.mime};${v.codec} a=${a.mime};${a.codec}"
-            // ===== A ESCADA, e não uma faixa só =====
-            //
-            // NADA AQUI FAZ ABR, e é justamente por isso que a escolha tem de
-            // ser boa: ela é feita uma vez e vale o louvor inteiro. Enquanto o
-            // manifesto trouxe UMA faixa, ela era feita CEGA — sempre o teto.
-            // Com a escada, quem escolhe é o lado web. **O consumidor que
-            // escolhia pela banda medida saiu na v1.8.82** (era o leitor de
-            // MSE); hoje quem recebe a escada é o download, que pega a faixa
-            // sob o teto do operador — a lista continua servindo, e é ela que
-            // torna o teto de 720p/480p exato em vez de um palpite.
-            //
-            // A decisão fica no JS por três razões, e a terceira é a que decide:
-            // é a invariante 5; ela precisa da MEDIÇÃO, que só existe depois dos
-            // primeiros bytes; e uma regra de escolha erra — no web ela se
-            // conserta por OTA em minutos, em Kotlin custa uma Release.
-            //
-            // `video` CONTINUA sendo o topo, e isso é o que mantém a mudança
-            // aditiva: tudo que já lia `man.video` (o `suportado`, o descarte do
-            // "só áudio", o `telaEnriquecer`) segue lendo a mesma coisa.
-            //
-            // UMA POR ALTURA: o YouTube publica 1080p e 1080p60 como faixas
-            // distintas, e dois degraus da mesma altura não são degraus — são a
-            // mesma escolha duas vezes, ocupando a vaga da que estava abaixo.
-            val escada = JSONArray()
-            val alturasVistas = HashSet<Int>()
-            for (f in videos) {
-                if (!f.dash) continue
-                if (!alturasVistas.add(f.altura)) continue
-                escada.put(faixaJson(f))
-            }
-            JSONObject()
-                .put("name", tituloLimpo(info.name, info.uploaderName))
-                .put("seconds", info.duration)
-                .put("height", v.altura)
-                .put("video", faixaJson(v))
-                .put("videos", escada)
-                .put("audio", faixaJson(a))
-        } catch (e: Exception) {
-            Log.w(TAG, "não deu para montar o manifesto de $link", e)
-            // Mesma regra do download: uma extração que lança não pode deixar
-            // no rodapé o resumo — bem-sucedido — do vídeo anterior.
-            diagnosticoStream = "extração falhou: " + motivo(e) + " · " + link
-            null
-        }
-    }
-
-    /**
-     * A MAIOR altura mp4 de fato transmissível da lista inteira, sob [teto] —
-     * **ignorando o cliente**, que é justamente o que [candidatosVideo] não
-     * ignora.
-     *
-     * Existe só para o diagnóstico, e para uma pergunta só: o app escolheu
-     * baixo, ou só havia baixo? `candidatosVideo` ordena por `ordemCliente`
-     * ANTES da altura (é do visionOS que vêm as URLs que o CDN serve), então em
-     * tese um vídeo cujo visionOS não tenha faixa alta sai numa resolução menor
-     * que a disponível — e nada no Registro dizia isso. **MEDIDO em aparelho na
-     * v5.127**, o caso normal é `137@VISIONOS`, que É 1080p; esta linha é o que
-     * mostra o dia em que deixar de ser.
-     *
-     * Não muda escolha nenhuma: reordenar por altura entre clientes é trocar
-     * uma imagem pior por um 403 na frente da congregação, e isso não se decide
-     * sem a medição que esta linha produz.
-     */
-    private fun maiorTransmissivel(info: StreamInfo, teto: Int): Int =
-        info.videoOnlyStreams
-            .mapNotNull { faixaDe(it) }
-            .filter { it.ext == "mp4" && it.dash && it.altura in 1..teto }
-            .maxOfOrNull { it.altura } ?: 0
-
-    /**
-     * "vídeo mp4 6 (init 6 · índice 0 · codec 6)" — quantas faixas passam em
-     * CADA pré-requisito da transmissão.
-     *
-     * Existe porque "sem par DASH" é um diagnóstico inútil: ele diz que não deu,
-     * não o que faltou. Com as contas separadas, uma leitura em aparelho
-     * responde de uma vez se o problema é o YouTube não mandar os byte-ranges,
-     * a biblioteca não preencher o codec, ou simplesmente não haver faixa mp4.
-     */
-    private fun porQueNaoDash(nome: String, fs: List<Faixa>): String {
-        if (fs.isEmpty()) return "$nome 0"
-        val init = fs.count { it.initFim > it.initIni }
-        val idx = fs.count { it.idxFim > it.idxIni }
-        val cod = fs.count { it.codec.isNotEmpty() }
-        return "$nome ${fs.size} (init $init · índice $idx · codec $cod)"
-    }
-
-    /**
-     * Uma faixa do manifesto. O `mime` sai COMPLETO (`video/mp4;
-     * codecs="avc1.640028"`) porque é assim que o `MediaSource.isTypeSupported`
-     * e o `addSourceBuffer` o exigem — sem o `codecs`, o navegador recusa.
-     */
-    private fun faixaJson(f: Faixa): JSONObject = JSONObject()
-        .put("url", StreamProxy.urlFor(f.url))
-        // A ALTURA VIAJA (shell 60): é ela que o lado web imprime ao dizer em
-        // que degrau parou, e sem ela o Registro teria de deduzir a resolução do
-        // itag — uma segunda tabela para envelhecer à parte.
-        .put("altura", f.altura)
-        .put("mime", f.mime + "; codecs=\"" + f.codec + "\"")
-        .put("initStart", f.initIni)
-        .put("initEnd", f.initFim)
-        .put("indexStart", f.idxIni)
-        .put("indexEnd", f.idxFim)
-        .put("size", f.tamanho)
-        .put("itag", f.etiqueta)
 
     /**
      * Baixa uma faixa de vídeo (até 1080p) mais a de áudio do mesmo contêiner e
@@ -1575,10 +1369,10 @@ object YoutubeGrab {
      * aportuguesado).
      *
      * [anotar] existe porque esse desfecho seria MUDO, e não é um campo fixo
-     * porque cada chamador escreve no SEU (`diagnostico` é do download,
-     * `diagnosticoStream` é da transmissão; trocá-los põe uma linha de download
-     * no Registro por uma extração em que download nenhum houve). Com [ext]
-     * nulo — o "só áudio" — nada disso acontece, e o padrão é o silêncio.
+     * porque cada chamador escreve no SEU (`diagnostico` é do download, e
+     * misturá-los põe uma linha de download no Registro por uma extração em
+     * que download nenhum houve). Com [ext] nulo — o "só áudio" — nada disso
+     * acontece, e o padrão é o silêncio.
      */
     private fun candidatosAudio(info: StreamInfo, ext: String?, teto: Int, anotar: (String) -> Unit = {}): List<Faixa> {
         val todas = info.audioStreams.mapNotNull { faixaDe(it) }
@@ -2048,12 +1842,11 @@ object YoutubeGrab {
             // em português.
             aportuguesar(ex)
             val info = StreamInfo.getInfo(ex)
-            // NENHUM DOS DOIS DIAGNÓSTICOS É TOCADO AQUI. `diagnostico` é do
-            // caminho do download e `diagnosticoStream` é do manifesto; escrever
-            // num deles faria o Registro descrever uma extração que não
-            // aconteceu — o defeito exato que a v5.176 corrigiu no `manifesto`,
-            // e que aqui seria pior, porque este caminho é o mais frequente dos
-            // três (um toque por episódio olhado).
+            // O DIAGNÓSTICO DO DOWNLOAD NÃO É TOCADO AQUI. Escrever nele faria
+            // o Registro descrever uma extração que não aconteceu — o defeito
+            // exato que a v5.176 corrigiu no antigo `manifesto`, e que aqui
+            // seria pior, porque este caminho é o mais frequente dos três (um
+            // toque por episódio olhado).
             JSONObject()
                 .put("titulo", info.name ?: "")
                 .put("canal", info.uploaderName ?: "")

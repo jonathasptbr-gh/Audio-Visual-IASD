@@ -179,14 +179,14 @@ app/src/main/
 │   ├── SafPathHandler (+ SafJanela) · ShareIntake · WebPathHandler · StreamProxy
 │   ├── SyncService · SessionService · WebUpdater · ShellUpdater · Farol
 │   ├── YoutubeGrab · TrilhaAudio · MuxMp4 · SlideDeck · CifraFonte · R2ImagemFonte
-│   ├── MicChromeClient · MicDiag · PacoteProvider · PacoteCanal
+│   ├── MicChromeClient · PacoteProvider · PacoteCanal
 │   └── Espelho{Http,Pares,Servidor,MidiaCache,MidiaCanal,Energia,Interfaces,Cert,Diag}
 └── res/                     # drawable (ícones em vetor) · mipmap-anydpi-v26 · values
                              # (colors.xml ESPELHA tokens) · xml (backup_rules)
 docs/                        # ver o Índice; a árvore inteira em docs/ESTRUTURA.md
 ```
 
-**33 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
+**32 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
 AndroidX oficial (`core-ktx`, `activity-ktx`, `webkit`). O que sustenta essa
 proporção Kotlin × JavaScript é a invariante 5; ela é o argumento contra
 Capacitor/Cordova, que arrastariam npm e um build system inteiro e ainda assim
@@ -271,8 +271,8 @@ silêncio**:
    `host = null`, `withSaf = false` e `role = "display"`. O `ponte.test.mjs`
    afirma outra coisa (o dreno e a remontagem de campos), e as guardas
    `host == null` de cada método — a outra metade da invariante — é o
-   `tools/ponte-guarda-host.test.mjs` (revisão K2): 76 métodos, 50 com recusa
-   explícita e 26 com motivo declarado e CONFERIDO contra o corpo.
+   `tools/ponte-guarda-host.test.mjs` (revisão K2, remedida na X1): 70 métodos,
+   44 com recusa explícita e 26 com motivo declarado e CONFERIDO contra o corpo.
 
 **No `AndroidManifest.xml`:** `hardwareAccelerated` e `largeHeap` — os dois
 WebViews e um vídeo grande dividem o mesmo processo.
@@ -327,8 +327,8 @@ Definida em `shared/native.js` (web) sobre `__AVBridge` (Kotlin,
 navegador nada é definido, nem `__NATIVE__`. **O catálogo dos 64 métodos e as
 regras abaixo por extenso estão em [`docs/shell/PONTE.md`](docs/shell/PONTE.md).**
 
-- **Superfície: 64 métodos**; o shell serve **76**. A conta (64 − 3 callbacks sem
-  par + 9 internos = 70 chamados, + 6 órfãos = 76) é MEDIDA por varredura
+- **Superfície: 64 métodos**; o shell serve **70**. A conta (64 − 3 callbacks sem
+  par + 9 internos = 70, sem órfão nenhum desde a X1) é MEDIDA por varredura
   (`@JavascriptInterface` + `fun <nome>` no `NativeBridge.kt` contra `B.<nome>(`
   no `native.js`), nunca de memória. Fora do `native.js`, tocar em `__AVBridge`
   é acoplamento indevido; o `funcao-sem-chamador.test.mjs` exige consumidor.
@@ -350,7 +350,7 @@ regras abaixo por extenso estão em [`docs/shell/PONTE.md`](docs/shell/PONTE.md)
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **84**, e o **PISO** é 83: o bundle declara `minShell: 83`, todo método
+Hoje vale **85**, e o **PISO** é 83: o bundle declara `minShell: 83`, todo método
 existe sempre e **não há guarda de versão no lado web** — o que separa navegador
 de app é `if (!window.__NATIVE__)`, e nada mais. "Superfície" inclui **forma de
 retorno e comportamento**. Sem guarda, mudança de ponte é lote **APK + web
@@ -366,10 +366,10 @@ por todas as instâncias; daemon):
 
 | fila | o que roda | a regra |
 |---|---|---|
-| `io` | só o que responde em MILISSEGUNDOS | **nada de rede**: ali `listFolder`, `otaPending` e `atualizacaoEstado` "mentem baixinho" atrás de um download |
+| `io` | só o que responde em MILISSEGUNDOS | **nada de rede**: ali `listFolder` e `atualizacaoEstado` "mentem baixinho" atrás de um download |
 | `transferencia` | o download do YouTube e o `ytDiscard` | UMA thread é invariante: o resgate do `YoutubeGrab` supõe um download por vez |
 | `apk` | o download do APK e a entrega ao instalador | própria, e não a `transferencia`: o APK não toca estado do `YoutubeGrab`, e enfileirado ali os 15 min do prazo do web contavam a espera atrás de um vídeo |
-| `extracao` | metadados de rede (NewPipe, `apkProcurar`) e PDF, de SEGUNDOS | separada de `transferencia` (segundos não esperam minutos); uma thread pela inicialização global do NewPipe |
+| `extracao` | metadados de rede (NewPipe) e PDF, de SEGUNDOS | separada de `transferencia` (segundos não esperam minutos); uma thread pela inicialização global do NewPipe |
 | `cifra` | só o `cifraHtml` | é MASSA e a `extracao` é TOQUE; uma thread porque `CifraFonte.ultimaTentativa` é o veredito da última busca |
 | `r2img` | só o desvio de CORS das fotos (`r2Imagem`) | mesma regra da `cifra` (a varredura dos fundos busca até 6 fotos de uma vez); separada dela porque são hosts e cargas diferentes (binário × HTML) |
 
@@ -726,8 +726,9 @@ O que se quebra sem abrir o capítulo:
 - **`ACTION_SEND` é público:** o `ShareIntake` aceita **só `content://`** (fora a
   autoridade do próprio app), e o intent é **CONSUMIDO** depois de lido, com o
   parse só em `savedInstanceState == null`.
-- **O microfone ao vivo SAIU (v1.8.89);** o Kotlin ficou. Quem trouxer captura de
-  volta traz a escada de três degraus, a guarda de papel e o dreno do
+- **O microfone ao vivo SAIU (v1.8.89), e na X1 saiu também o que restava no
+  shell** (`requestMic`, `requestMicPermission` e o `MicDiag`). Quem trouxer
+  captura de volta traz a escada de três degraus, a guarda de papel e o dreno do
   `mic-status` — o `tools/sem-captura.test.mjs` é a porta que cobra. A câmera
   continua negada, com log.
 - **O voltar nunca encerra a Activity:** quem decide é `window.__avBack` (a
@@ -1151,7 +1152,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.13.46 · APK v1.13.46** · `SHELL_VERSION` **84** ·
+**Versão atual: base web v1.13.47 · APK v1.13.47** · `SHELL_VERSION` **85** ·
 bundle com `minShell: 83` e `shellTag: v1.13.44` — a v1.13.44 é a revisão K4,
 que mexe no Kotlin (o certificado do espelho passa a devolver o desfecho, o teto
 das entregas de mídia, o prazo total da requisição e o token carimbado no bloco

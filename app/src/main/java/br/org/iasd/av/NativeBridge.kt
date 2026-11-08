@@ -30,17 +30,6 @@ interface BridgeHost {
     fun requestDocPick(mimes: Array<String>, onResult: (List<Uri>) -> Unit)
 
     /**
-     * Abre o "Salvar como" do sistema (ACTION_CREATE_DOCUMENT) e ESCREVE o
-     * texto no arquivo escolhido. Devolve o nome gravado, ou `""` se o operador
-     * desistir.
-     *
-     * Quem escreve é o shell, e não a página, porque o WebView deste app não
-     * tem `DownloadListener`: um `<a download>` sobre um `blob:` simplesmente
-     * não faz nada ali — sem erro, sem arquivo, sem nada na tela.
-     */
-    fun requestTextSave(nome: String, texto: String, onResult: (String) -> Unit)
-
-    /**
      * Declara ao sistema que há download em andamento, para o processo não
      * ser congelado com o app minimizado (ver [SyncService]).
      */
@@ -127,9 +116,10 @@ interface BridgeHost {
      * ABERTO para escrita — ver [PacoteCanal], que é quem escreve nele.
      *
      * Devolve o nome escolhido, ou `""` se o operador desistir (ou se nada
-     * pôde ser aberto). É o gêmeo do [requestTextSave] para o caso em que os
-     * bytes não cabem numa string: o pacote de transferência do acervo passa
-     * de gigabytes, e é por isso que ele não pode entrar por aqui de uma vez.
+     * pôde ser aberto). É o herdeiro do `salvarTexto` (aposentado no shell 85)
+     * para o caso em que os bytes não cabem numa string: o pacote de
+     * transferência do acervo passa de gigabytes, e é por isso que ele não
+     * pode entrar por aqui de uma vez.
      */
     fun requestPacoteCreate(nome: String, onResult: (String) -> Unit)
 
@@ -183,9 +173,6 @@ interface BridgeHost {
      * alcança nem os ícones das barras de sistema nem o `windowBackground`.
      */
     fun setTemaClaro(claro: Boolean)
-
-    /** Pede a permissão de microfone ao Android (push-to-talk). */
-    fun requestMicPermission(onResult: (Boolean) -> Unit)
 
     /** Consome (uma única vez) um compartilhamento recebido por intent. */
     fun takePendingShare(): JSONObject?
@@ -378,7 +365,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 84
+        const val SHELL_VERSION = 85
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -500,11 +487,12 @@ class NativeBridge(
          * trabalho LONGO mora em [transferencia] e [extracao] — ver o porquê
          * lá.
          *
-         * **NADA DE REDE AQUI, nem uma consulta "rápida".** O `apkProcurar`
-         * morou nesta fila e é a lição: uma pergunta à API do GitHub com 20 s
-         * de connect mais 20 s de read trava, no pior caso, por 40 s a fila de
-         * que `otaPending`, `atualizacaoEstado` e `listFolder` dependem — e os
-         * três não erram, mentem baixinho (o `call()` do lado web resolve
+         * **NADA DE REDE AQUI, nem uma consulta "rápida".** O antigo
+         * `apkProcurar` morou nesta fila (até a X1 o remover) e é a lição: uma
+         * pergunta à API do GitHub com 20 s de connect mais 20 s de read
+         * trava, no pior caso, por 40 s a fila de que `atualizacaoEstado` e
+         * `listFolder` dependem — e os dois não erram, mentem baixinho (o
+         * `call()` do lado web resolve
          * `null` aos 60 s, e a lista vazia do `listFolder` o `controle.js` lê
          * como "a pasta sumiu do aparelho"). Rede lendo metadados é a
          * definição da [extracao].
@@ -528,8 +516,8 @@ class NativeBridge(
          * transferência de minutos bloquear tudo o mais que passa pela ponte.
          * Do lado web `CALL_TIMEOUT_MS` é de 60 s e o `call()` resolve `null` ao
          * vencer — então, com um vídeo de 300 MB baixando, `listFolder` devolvia
-         * lista vazia, `otaPending` dizia que não há atualização e
-         * `atualizacaoEstado` respondia nada. Nenhum deles erra: todos mentem
+         * lista vazia e `atualizacaoEstado` respondia nada. Nenhum deles erra:
+         * todos mentem
          * baixinho, e o pior é o `listFolder`, cuja lista vazia o `controle.js`
          * lê como "a pasta sumiu do aparelho".
          *
@@ -545,8 +533,8 @@ class NativeBridge(
 
         /**
          * A fila das EXTRAÇÕES — o que vai à rede ler metadados (busca do
-         * YouTube, playlists de um canal, o manifesto da transmissão direta, a
-         * procura por APK novo na API do GitHub) e a rasterização de um PDF.
+         * YouTube, playlists de um canal, os detalhes de um vídeo) e a
+         * rasterização de um PDF.
          *
          * Separada da [transferencia] porque estas são de SEGUNDOS e aquela é de
          * minutos: enfileirá-las atrás de um download deixaria o "Tocar agora"
@@ -555,13 +543,7 @@ class NativeBridge(
          *
          * Também de uma thread só: as extrações compartilham a inicialização
          * global do NewPipe, e serializá-las é mais barato que auditar a
-         * biblioteca inteira. O `apkProcurar` não toca no NewPipe (é um
-         * `HttpURLConnection` avulso) e entra aqui pela outra metade da regra —
-         * é rede lendo metadados —, aceitando o preço declarado desta fila: o
-         * pior caso dele é um "Tocar agora" esperando, que é o desfecho que
-         * esta fila já sabe ter. Os DIAGNÓSTICOS não colidem — `diagnostico` é
-         * escrito só pelo caminho do download e `diagnosticoStream` só pelo do
-         * manifesto, que é justamente por que eles são dois campos.
+         * biblioteca inteira.
          *
          * **E é a fila de um TOQUE, nunca de uma varredura.** O preço acima é
          * aceitável para UMA pergunta esporádica na frente do operador; trabalho
@@ -582,11 +564,10 @@ class NativeBridge(
          * baixado e com SEIS requisições concorrentes do lado web, então
          * enquanto ela corre há sempre ~6 tarefas de cifra à frente de quem
          * chegar depois — cada uma com o prazo do [CifraFonte] valendo para
-         * connect E para read. Compartilhando a fila, o `ytStream` de um "Tocar
-         * agora" esperava essa cabeça inteira e podia vencer os 60 s do
-         * `call()`: a promessa resolve `null`, a transmissão direta falha e a
-         * cena cai no download de centenas de MB, sem nada na tela que
-         * explique.
+         * connect E para read. Compartilhando a fila, um "Tocar agora"
+         * esperava essa cabeça inteira e podia vencer os 60 s do `call()`: a
+         * promessa resolve `null` e a cena cai no download de centenas de MB,
+         * sem nada na tela que explique.
          *
          * Sair da [extracao] é seguro porque o que obriga AQUELA fila a ser de
          * uma thread só é a inicialização global do NewPipe, e o [CifraFonte]
@@ -687,23 +668,6 @@ class NativeBridge(
         WebUpdater.confirmBoot(ctx)
     }
 
-    /**
-     * A versão da base web que já está BAIXADA e esperando o próximo lançamento
-     * — string vazia quando não há nada novo.
-     *
-     * Na fila de IO porque lê o `version.json` do bundle staged: é um arquivo
-     * minúsculo, mas disco na thread do WebView é disco na thread do WebView.
-     */
-    @JavascriptInterface
-    fun otaPending(callId: String) {
-        // Só o Controle, a mesma guarda dos três irmãos otaApply/otaCheck/
-        // otaDiag: o telão não pergunta por atualização, e não há por que este
-        // ser o único método do bloco a responder a qualquer papel.
-        if (host == null) { resolve(callId, JSONObject.quote("")); return }
-        io.execute {
-            resolve(callId, JSONObject.quote(WebUpdater.pendingVersion(ctx) ?: ""))
-        }
-    }
 
     /**
      * APLICA a atualização agora e recarrega as duas páginas — a pedido
@@ -755,25 +719,6 @@ class NativeBridge(
     fun otaDiag(callId: String) {
         io.execute {
             resolve(callId, JSONObject.quote(if (host == null) "" else WebUpdater.diag(ctx)))
-        }
-    }
-
-    /**
-     * POR QUE O MICROFONE NÃO ABRE — o que só o shell sabe (shell 53).
-     *
-     * Ver [MicDiag]: `AppOps`, mudo global, modo de áudio, sessões de gravação
-     * ativas e as entradas que o SISTEMA enxerga. Tudo leitura, tudo API
-     * pública, nada de permissão nova — e nada que abra o microfone.
-     *
-     * Na fila `io` porque é isso mesmo: consultas de milissegundos a serviços do
-     * sistema, sem rede. Sem `host` devolve `{}` — a superfície privilegiada é
-     * do Controle (invariante 9), e o telão não tem o que fazer com ela.
-     */
-    @JavascriptInterface
-    fun micDiag(callId: String) {
-        io.execute {
-            if (host == null) { resolve(callId, "{}"); return@execute }
-            resolve(callId, runCatching { MicDiag.paraJson(ctx).toString() }.getOrDefault("{}"))
         }
     }
 
@@ -854,30 +799,6 @@ class NativeBridge(
     }
 
     // ---------- atualização do PRÓPRIO APK (shell 35) ----------
-
-    /**
-     * Há APK novo publicado? → `{}` (nada), `{versao, bytes, notas}` ou
-     * `{erro}`.
-     *
-     * `{}` e `{erro}` são leituras DIFERENTES, e é por isso que o vazio não
-     * carrega mensagem: "não há versão nova" é o caso normal, "não deu para
-     * perguntar" é a rede. Confundi-los foi o que a linha "Procura:" do
-     * Registro existe para não deixar acontecer com o OTA da base web.
-     *
-     * **Privilégio do Controle** (invariante 9). O telão hospeda código de
-     * terceiro por design, e um método que baixa e instala um pacote é o mais
-     * poderoso da ponte inteira — ele não pode existir naquele documento.
-     *
-     * Roda na fila de EXTRAÇÃO, nunca na de [io]: é uma consulta à API do
-     * GitHub com 20 s de connect mais 20 s de read, e na [io] ela travava por
-     * até 40 s a fila de `otaPending`, `atualizacaoEstado` e `listFolder` —
-     * ver o KDoc de [io].
-     */
-    @JavascriptInterface
-    fun apkProcurar(callId: String) {
-        if (host == null) { resolve(callId, "null"); return }
-        extracao.execute { resolve(callId, ShellUpdater.procurar(ctx).toString()) }
-    }
 
     /**
      * Baixa o APK e ABRE O INSTALADOR do sistema. `''` = deu certo, senão a
@@ -1504,41 +1425,6 @@ class NativeBridge(
     }
 
     /**
-     * O MANIFESTO da transmissão direta de um vídeo do YouTube: as duas faixas
-     * adaptativas e seus byte-ranges, com URLs servíveis pelo próprio origin do
-     * app (ver [StreamProxy]).
-     *
-     * Devolve `null` quando não há par adaptativo transmissível — e aí o lado
-     * web cai no que já existia (baixar, ou o player embutido). É esse `null`
-     * que torna o recurso inteiro opcional: nenhum caminho que funciona hoje
-     * depende dele.
-     *
-     * **Privilégio do Controle**, como toda a superfície com `host`. O telão
-     * não monta manifesto: ele recebe o já montado pelo registro da mídia, do
-     * mesmo IndexedDB compartilhado, e só CONSOME os `/stream/` — que é o que
-     * ele precisa para projetar.
-     *
-     * `altura <= 0` significa "o padrão" ([YoutubeGrab.TETO_ALTURA]) — a mesma
-     * convenção do [ytFetch], em que não pedir teto nenhum é pedir o máximo.
-     */
-    @JavascriptInterface
-    fun ytStream(callId: String, url: String, altura: Int) {
-        if (host == null) { resolve(callId, "null"); return }
-        extracao.execute {
-            // `altura <= 0` é "o padrão", como no [ytFetch]: um `coerceIn`
-            // sozinho fazia de um 0 vindo do JavaScript um TETO de 144p — o
-            // oposto do pedido, e um caminho que pareceria "vídeo péssimo" em
-            // vez de erro.
-            val alvo = if (altura <= 0) YoutubeGrab.TETO_ALTURA
-            else altura.coerceIn(144, YoutubeGrab.TETO_ALTURA)
-            val r = try {
-                YoutubeGrab.manifesto(url, alvo)
-            } catch (_: Exception) { null }
-            resolve(callId, r?.toString() ?: "null")
-        }
-    }
-
-    /**
      * Busca no YouTube, de dentro do app — devolve uma lista de
      * `{ id, url, name, author, seconds, thumb }`. Ver [YoutubeGrab.pesquisar]
      * para por que isto não pode ser um iframe nem a API oficial.
@@ -1641,23 +1527,11 @@ class NativeBridge(
         // `JSONObject.quote` e não uma concatenação com aspas: o texto é montado
         // a partir do que o YouTube devolveu, e é ele que vai INLINE dentro de
         // um `evaluateJavascript` (ver `resolve`).
-        // OS DOIS CAMINHOS, em linhas separadas. A transmissão direta e o
-        // download escrevem em campos diferentes de propósito (ver
-        // `diagnosticoStream`): quando a primeira desiste, o segundo roda em
-        // seguida, e com um campo só o motivo da desistência era apagado pela
-        // linha do download — o log dizia o que aconteceu depois, nunca por quê.
-        //
-        // Multi-linha não incomoda ninguém: do lado web isto vai para dentro de
+        // UMA LINHA SÓ desde a X1: a transmissão direta (que escrevia em
+        // `diagnosticoStream`) saiu do shell com o `ytStream`, e o único
+        // caminho que resta é o download. Do lado web isto vai para dentro de
         // um `<pre>` que rola (o "Registro" de Configurações).
-        val texto = if (host == null) "" else buildString {
-            YoutubeGrab.diagnosticoStream.takeIf { it.isNotEmpty() }?.let {
-                append("transmissão: ").append(it)
-            }
-            YoutubeGrab.diagnostico.takeIf { it.isNotEmpty() }?.let {
-                if (isNotEmpty()) append('\n')
-                append("download: ").append(it)
-            }
-        }
+        val texto = if (host == null) "" else YoutubeGrab.diagnostico
         resolve(callId, JSONObject.quote(texto))
     }
 
@@ -1694,11 +1568,11 @@ class NativeBridge(
      * baixinho.
      *
      * Na fila [cifra], que é dela e de mais ninguém. Em `io` ela travaria a
-     * fila de que `listFolder`, `otaPending` e `atualizacaoEstado` dependem;
-     * em `transferencia` ela esperaria um download de minutos para responder a
-     * um toque numa aba; e na [extracao] a VARREDURA do acervo põe seis
-     * páginas na frente do `ytStream` de um "Tocar agora", que assim vence os
-     * 60 s do `call()` e cai no download, calado. Ver o KDoc das duas filas.
+     * fila de que `listFolder` e `atualizacaoEstado` dependem; em
+     * `transferencia` ela esperaria um download de minutos para responder a um
+     * toque numa aba; e na [extracao] a VARREDURA do acervo põe seis páginas
+     * na frente de um "Tocar agora", que assim vence os 60 s do `call()` e cai
+     * no download, calado. Ver o KDoc das duas filas.
      *
      * **Privilégio do Controle** (`host == null` no telão): sem a guarda,
      * qualquer script no documento do Display ganharia um cliente HTTP de
@@ -2044,21 +1918,6 @@ class NativeBridge(
         host?.setTemaClaro(on)
     }
 
-    // ---------- microfone (push-to-talk) ----------
-
-    /**
-     * Garante a permissão `RECORD_AUDIO` do Android antes de o lado web
-     * chamar `getUserMedia`. Sem ela, o [MicChromeClient] nega o pedido do
-     * WebView de propósito — conceder ao WebView uma permissão que o processo
-     * não tem só adiaria a falha para um ponto sem sinal claro.
-     */
-    @JavascriptInterface
-    fun requestMic(callId: String) {
-        val h = host
-        if (h == null) { resolve(callId, "false"); return }
-        h.requestMicPermission { granted -> resolve(callId, if (granted) "true" else "false") }
-    }
-
     // ---------- compartilhamento (substitui o share_target do SW) ----------
 
     @JavascriptInterface
@@ -2137,7 +1996,7 @@ class NativeBridge(
      *
      * SEM PRAZO no lado web: quem responde aqui é uma PESSOA escolhendo um
      * arquivo, e um timeout resolveria null com o seletor ainda aberto — a
-     * mesma regra do [pickFolder] e do [requestMic].
+     * mesma regra do [pickFolder].
      */
     @JavascriptInterface
     fun pickDoc(callId: String, mimesCsv: String) {
@@ -2174,41 +2033,6 @@ class NativeBridge(
         }
     }
 
-    /**
-     * SALVA UM TEXTO NUM ARQUIVO ESCOLHIDO PELO OPERADOR (shell 55).
-     *
-     * O Registro deixou de caber numa cópia: com o acervo inteiro varrido ele
-     * passa de 70 linhas só na seção de cifras, e o caminho de sempre — copiar
-     * e colar — é o que corta o texto no meio sem avisar. Um arquivo não corta.
-     *
-     * **Por que não um `<a download>` na página:** o WebView deste app não
-     * define `DownloadListener`, e sem ele um clique num `blob:` com `download`
-     * não faz absolutamente nada — nem erro, nem arquivo. Pôr um listener
-     * genérico seria abrir um caminho de gravação para QUALQUER coisa que a
-     * página venha a apontar; este método grava UM texto, no arquivo que a
-     * pessoa acabou de escolher, e nada mais.
-     *
-     * SEM PRAZO no lado web: quem responde é uma PESSOA no seletor do sistema —
-     * a mesma regra do [pickFolder], do [pickDoc] e do [requestMic].
-     *
-     * **E É JUSTAMENTE POR NÃO TER PRAZO QUE O NOME PRECISA DE `JSONObject.quote`.**
-     * [resolve] injeta o segundo argumento como EXPRESSÃO JavaScript; um nome
-     * cru vira `__avResolve("e:1", registro-av-20260823-1030.txt)`, que é
-     * `SyntaxError`. O `evaluateJavascript` engole o erro (callback `null`), e
-     * sem prazo a promise fica pendurada PARA SEMPRE: o arquivo é gravado e o
-     * botão nunca responde — nem ✓, nem "Não foi salvo". O `""` da guarda de
-     * host tem o mesmo defeito por outro caminho (`__avResolve("e:1", )` só não
-     * quebra porque vírgula final é legal, e resolve `undefined`).
-     * Como o nome vem do seletor SAF, ele também é texto de fora: sem as aspas
-     * qualquer nome escolhido é JavaScript arbitrário neste origin.
-     */
-    @JavascriptInterface
-    fun salvarTexto(callId: String, nome: String, texto: String) {
-        val h = host
-        if (h == null) { resolve(callId, JSONObject.quote("")); return }
-        h.requestTextSave(nome, texto) { salvo -> resolve(callId, JSONObject.quote(salvo)) }
-    }
-
     // ---------- O PACOTE DE TRANSFERÊNCIA (shell 63) ----------
     //
     // Três métodos e um canal, e a divisão entre eles é a mesma que separa
@@ -2226,7 +2050,8 @@ class NativeBridge(
     // é exatamente o que o princípio da ponte proíbe ("URLs servíveis, nunca
     // bytes"). E por que não um `<a download>` sobre um Blob: o WebView deste
     // app não tem `DownloadListener`, e ali um clique desses não faz NADA (é a
-    // mesma razão que criou o `salvarTexto`, um degrau acima).
+    // mesma razão que criou o antigo `salvarTexto` (aposentado no shell 85),
+    // um degrau acima).
     //
     // A IMPORTAÇÃO NÃO PRECISOU DE MÉTODO NENHUM, e isso é o princípio da ponte
     // pagando: `pickDoc` já devolve uma `/saf/<token>` servível, e o lado web a
@@ -2237,7 +2062,8 @@ class NativeBridge(
      * Abre o "Salvar como" para o pacote e deixa o destino ABERTO.
      *
      * Devolve o NOME gravado ou `""` (desistiu, ou nada pôde ser aberto) —
-     * mesma forma do [salvarTexto], e pela mesma razão: o vazio é a resposta
+     * mesma forma do `salvarTexto` (aposentado no shell 85), e pela mesma
+     * razão: o vazio é a resposta
      * que a tela sabe explicar.
      *
      * SEM PRAZO no `native.js`, como `pickFolder`: um timeout resolveria `null`
@@ -2469,7 +2295,7 @@ class NativeBridge(
      *
      * **Só com host** (ou seja, só no Controle). O WebView do telão recebe a
      * ponte com `host = null` justamente para não ter poderes de Activity, e
-     * `pickFolder`/`requestMic` já honravam isso; esta era a exceção, porque lê
+     * `pickFolder` já honrava isso; esta era a exceção, porque lê
      * o `ContentResolver` direto. Sem a guarda, qualquer script rodando no
      * documento do Display lia o índice inteiro — nome, tamanho e token
      * servível — de toda pasta que o operador já concedeu, num WebView que por

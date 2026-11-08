@@ -49,7 +49,6 @@ class EspelhoMidiaCanal(
 
     @Volatile private var thread: Thread? = null
     @Volatile private var rodando = false
-    @Volatile private var instalado = false
 
     /** O item aberto — UM por vez: a fila de empurrões é serializada do lado
      *  web. É a LEITURA do [quandoChega] (o `abrir` que está chegando agora). */
@@ -87,36 +86,12 @@ class EspelhoMidiaCanal(
         return try {
             WebViewCompat.addWebMessageListener(w, OBJETO_JS, setOf(WebViewFactory.ORIGIN), ouvinte)
             ligar()
-            instalado = true
             true
         } catch (e: Exception) {
             registrar("midia: nao foi possivel abrir o canal (${e.javaClass.simpleName})")
             Log.w(TAG, "addWebMessageListener falhou", e)
             false
         }
-    }
-
-    fun soltar(web: WebView?) {
-        rodando = false
-        thread?.interrupt()
-        thread = null
-        fila.clear()
-        // O ITEM ABERTO MORRE COM O CANAL: o WebView é remontado depois de uma
-        // morte de renderer, e um token de antes ficaria dono dos primeiros
-        // blocos do recomeço (ver [Trabalho]).
-        tokenAberto = null
-        val w = web
-        if (w != null && instalado) {
-            val remover = Runnable {
-                try {
-                    WebViewCompat.removeWebMessageListener(w, OBJETO_JS)
-                } catch (e: Exception) {
-                    Log.w(TAG, "removeWebMessageListener falhou", e)
-                }
-            }
-            if (Looper.myLooper() == Looper.getMainLooper()) remover.run() else main.post(remover)
-        }
-        instalado = false
     }
 
     private fun ligar() {

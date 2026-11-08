@@ -166,7 +166,7 @@ portanto **compartilhados por todas as instâncias**. Todos daemon.
 | **`io`** | só o que responde em MILISSEGUNDOS: `version.json`, estado do OTA, `listFolder` pelo `ContentResolver`. **Nada de rede** — é a fila de que tudo mais depende |
 | **`transferencia`** | o download do YouTube e o `ytDiscard` |
 | **`apk`** | o download do APK de atualização ([apkInstalar]) |
-| **`extracao`** | metadados de rede (busca, playlists de canal, o manifesto do `ytStream`, os detalhes de um vídeo do `ytDetalhes`, `apkProcurar`) e a rasterização de PDF — coisas de SEGUNDOS |
+| **`extracao`** | metadados de rede (busca, playlists de canal, os detalhes de um vídeo do `ytDetalhes`) e a rasterização de PDF — coisas de SEGUNDOS |
 | **`cifra`** | só o `cifraHtml` — o GET da página do Cifra Club |
 | **`r2img`** | só o `r2Imagem` — o desvio de CORS das fotos de fundo |
 
@@ -176,12 +176,12 @@ portanto **compartilhados por todas as instâncias**. Todos daemon.
   de desconexão/reconexão do dongle, cada uma retendo a `NativeBridge` inteira
   e, por ela, a Activity/Presentation antigas.
 - **Rede em `io` é o defeito que a separação corrigiu — e "curta" não salva.**
-  Com um vídeo de 300 MB baixando, `listFolder` devolvia lista vazia,
-  `otaPending` dizia que não há atualização e `atualizacaoEstado` não respondia
-  nada. **Nenhum deles erra: os três mentem baixinho** — e o pior é o
-  `listFolder`, cuja lista vazia o `controle.js` lê como "a pasta sumiu do
-  aparelho". O `apkProcurar` repetiu isso em escala menor: um GET à API do
-  GitHub com 20 s de connect + 20 s de read trava a mesma fila por até 40 s.
+  Com um vídeo de 300 MB baixando, `listFolder` devolvia lista vazia e
+  `atualizacaoEstado` não respondia nada. **Nenhum dos dois erra: os dois mentem
+  baixinho** — e o pior é o `listFolder`, cuja lista vazia o `controle.js` lê
+  como "a pasta sumiu do aparelho". O antigo `apkProcurar` repetiu isso em
+  escala menor (até a X1 o remover): um GET à API do GitHub com 20 s de connect
+  + 20 s de read travava a mesma fila por até 40 s.
 - **`extracao` é separada de `transferencia` porque segundos não esperam
   minutos.** Atrás de um download, o "Tocar agora" de um vídeo esperaria o
   hinário terminar — e, vencido o prazo, cairia no download sem que nada
@@ -197,19 +197,15 @@ portanto **compartilhados por todas as instâncias**. Todos daemon.
   download por vez**. `ytDiscard` mora aqui pelo mesmo motivo — fora desta fila
   poderia apagar o parcial de um download em curso.
 - **`extracao` também é de uma thread só**, porque as extrações compartilham a
-  inicialização global do NewPipe. Os diagnósticos não colidem: `diagnostico` é
-  escrito só pelo caminho do download e `diagnosticoStream` só pelo do
-  manifesto — que é justamente por que eles são dois campos. O `apkProcurar` não
-  toca no NewPipe (é `HttpURLConnection` avulso) e entra pela outra metade da
-  regra — rede lendo metadados —, pagando o preço já declarado desta fila: o
-  pior caso dele é um "Tocar agora" esperando.
+  inicialização global do NewPipe. O diagnóstico não colide: `diagnostico` é
+  escrito só pelo caminho do download.
 - **A `cifra` é própria porque ela é MASSA e a `extracao` é TOQUE.** O preço
   acima só é aceitável para UMA pergunta esporádica: a varredura do acervo roda
   na ABERTURA com seis requisições concorrentes do lado web (a do acervo
   inteiro só com a escolha ligada, v1.12.60; sem ela, a do Cronograma), e o
   prazo do `CifraFonte` vale para connect E para read — havia sempre ~6 páginas à frente
-  do `ytStream` de um "Tocar agora", que assim podia vencer os 60 s do `call()`
-  e cair no download, calado. Sair da `extracao` é seguro porque o que a obriga
+  de um "Tocar agora", que assim podia vencer os 60 s do `call()` e cair no
+  download, calado. Sair da `extracao` é seguro porque o que a obriga
   a ser serial é a inicialização do NewPipe, e o `CifraFonte` não o toca
   (`HttpURLConnection` avulso); esta continua de uma thread pelo motivo dela —
   `CifraFonte.ultimaTentativa` é o veredito da ÚLTIMA busca, e escritas
@@ -355,20 +351,13 @@ pronta, fila }`.
 **Ele não acrescenta poder, acrescenta COERÊNCIA DE INSTANTE:** três promessas
 independentes desenhavam o diálogo pela metade.
 
-### `apkProcurar()` — três desfechos, e nenhum deles é `null`
+### `apkProcurar()` — saiu na X1
 
-> **SEM CONSUMIDOR NO WEB desde a v1.8.71** (o embrulho do `native.js` saiu; o
-> `@JavascriptInterface` ficou). A seção fica porque descreve o que o SHELL
-> ainda serve — quem voltar a precisar dele reescreve o embrulho e lê isto.
-
-| desfecho | quando |
-|---|---|
-| `{}` | não há versão nova |
-| `{ versao, bytes, notas }` | há — `bytes` é o TAMANHO do `.apk` |
-| `{ erro }` | a pergunta falhou |
-
-**NÃO existe campo `url`.** Quem guarda a URL é o `ShellUpdater`, do achado da
-última `apkProcurar` — é por isso que `apkInstalar()` não recebe URL nenhuma.
+> O método ficou SEM CONSUMIDOR NO WEB desde a v1.8.71 (o embrulho do
+> `native.js` saiu), e na X1 saiu também do Kotlin, com o `ShellUpdater.procurar`
+> e o `pegarTexto`. O achado do APK passou a vir SÓ do manifesto do canal OTA
+> (`ShellUpdater.anunciar`), que é o que `apkInstalar()` usa — ele continua sem
+> receber URL.
 
 ### `ytDetalhes(url)` — e o `null` dele NÃO é achatado (shell 62)
 
@@ -538,7 +527,7 @@ PESSOA, ou precisa de um VEREDITO, entra pela ponte; BYTES entram pelo canal.*
 STRINGS, e o acervo passa de gigabytes — base64 sobre isso é exatamente o que o
 princípio "URLs servíveis, nunca bytes" proíbe. E por que não um `<a download>`:
 o WebView deste app não tem `DownloadListener`, e ali um clique desses não faz
-NADA — a mesma parede que criou o `salvarTexto`.
+NADA — a mesma parede que criou o `salvarTexto` (aposentado na X1).
 
 **A IMPORTAÇÃO CONTINUA SEM MÉTODO PRÓPRIO** — `pickDoc` já devolve uma
 `/saf/<token>` servível —, **mas o `fetch` + `Blob.slice()` da v1.7.0 não
@@ -629,7 +618,7 @@ de terceiro ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
   telão. **O Display nunca busca um `/saf/`.**
 - Quem trava isso é `tools/invariantes-shell.test.mjs` (as três metades: `host = null`, `withSaf = false`, `role = "display"`); o `ponte.test.mjs` trava o dreno e a remontagem de campos, que são outra pergunta.
 - E a guarda de CADA método (`host == null`) é do `tools/ponte-guarda-host.test.mjs`:
-  76 métodos, 50 com recusa explícita e 26 com motivo declarado — método novo sem
+  70 métodos, 44 com recusa explícita e 26 com motivo declarado — método novo sem
   guarda reprova até alguém escrever por que ele não precisa.
 
 > A guarda **não** depende do embed do YouTube. Ele carregava script de terceiro
@@ -654,27 +643,25 @@ de terceiro ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
 
 ## O CATÁLOGO COMPLETO — os 64 métodos, um a um
 
-> **O SHELL SERVE 76.** Os SEIS ÓRFÃOS foram encolhidos pelo LADO WEB, que é o
-> lado seguro (um APK que ainda serve métodos que ninguém chama não custa nada
-> ao aparelho; é a ordem inversa — base web nova contra APK velho — que precisa
-> do `shellTag`): o `@JavascriptInterface` de cada um continua em
-> `NativeBridge.kt`, e nenhuma dessas remoções pediu Release por si.
-> `ytStream`, `otaPending` e `apkProcurar` perderam o consumidor em duas fusões
-> (a transmissão direta na v1.7.7; o `atualizacaoEstado` absorvendo as leituras
-> separadas do OTA) e saíram na **v1.8.71**; `requestMic` e `micDiag` saíram na
-> **v1.8.89** com o MICROFONE AO VIVO; o `salvarTexto` saiu na **v1.12.44**
-> (shell 82: o Registro passou a ser compartilhado por `compartilharArquivoTexto`).
-> Voltar a usar qualquer um é escrever o embrulho de novo no `native.js` — nada
-> do shell precisa mudar.
+> **O SHELL SERVE 70.** Os SEIS ÓRFÃOS saíram do Kotlin na X1 (shell 85): o
+> `@JavascriptInterface` de `ytStream`, `otaPending`, `apkProcurar`,
+> `requestMic`, `micDiag` e `salvarTexto` foi removido, junto com o que só
+> existia por eles — o `MicDiag.kt` inteiro, o `requestMicPermission` da
+> Activity, o "Salvar como" de texto, o `ShellUpdater.procurar` (e o `API`/`pegarTexto`)
+> e a cadeia da transmissão no `YoutubeGrab` (manifesto, faixa, escada e
+> diagnóstico). Os embrulhos do `native.js` já tinham saído bem antes — v1.8.71
+> (`ytStream`, `otaPending`, `apkProcurar`), v1.8.89 (`requestMic`, `micDiag`)
+> e v1.12.44 (`salvarTexto`) —, sempre pelo lado web, que é o seguro; a remoção
+> do lado Kotlin é que pede `SHELL_VERSION` novo e Release, e foi o que a X1
+> entregou.
 >
 > **A conta fecha, e é MEDIDA:** 64 de superfície − 3 callbacks sem par no
-> Kotlin (`onShare`, `onRemote`, `onDisplayChange`) + 9 internos (as nove coisas
-> acima) = 70 chamados, + 6 órfãos = 76 servidos. Números envelhecem a cada lote
-> de ponte — a varredura que os refaz é a mesma do `CLAUDE.md`:
+> Kotlin (`onShare`, `onRemote`, `onDisplayChange`) + 9 internos = 70 chamados,
+> **70 servidos, zero órfão**. Números envelhecem a cada lote de ponte — a
+> varredura que os refaz é a mesma do `CLAUDE.md`:
 > `@JavascriptInterface` + `fun <nome>` no `NativeBridge.kt` contra `B.<nome>(`
-> no `native.js` (as três ocorrências de `@JavascriptInterface` em comentário do
-> arquivo não contam — por isso o `grep -c` cru dá 79). Remedida na revisão A3
-> (2026-10-30, shell 83): 64 · 70 · 76.
+> no `native.js` (as ocorrências de `@JavascriptInterface` em comentário do
+> arquivo não contam). Remedida na X1 (2026-11-08, shell 85): 64 · 70 · 70.
 
 <!-- Extraído do `CLAUDE.md` na faxina de 2026-09-07. -->
 
@@ -784,7 +771,6 @@ window.AVNative = {
                        //   argumento do mesmo, e a contagem da superfície não muda
   ytDiscard(url),      //   e apaga o arquivo depois que os bytes foram copiados
   ytCancel(url),       // PARA o download em curso deste link
-  // otaPending()      // só no SHELL desde a v1.8.71: sem consumidor no web (absorvido pelo `atualizacaoEstado`)
   otaApply(),          // APLICA-a agora: as duas páginas recarregam
   otaCheck(forcar),    // PROCURA agora; `forcar` pula o piso do shell
   otaDiag(),           // → string: quando foi a última busca e o que ela deu
@@ -797,13 +783,9 @@ window.AVNative = {
                        //   primeiro, JÁ FILTRADA pelo shell para o que este
                        //   aparelho não tem. Lida do `notas.json` do PRÓPRIO
                        //   bundle baixado, nunca do manifesto
-  // apkProcurar()     // só no SHELL desde a v1.8.71: sem consumidor no web (idem)
-                       //   `bytes` é o TAMANHO do .apk; NÃO há campo `url` (quem
-                       //   guarda a URL é o `ShellUpdater`) e o vazio é `{}`,
-                       //   nunca `null`
   apkInstalar(),       // baixa e abre o diálogo de instalação do sistema
                        //   (sem URL: quem a escolhe é o `ShellUpdater`, do
-                       //    achado da última `apkProcurar`)
+                       //    achado que o manifesto anunciou)
   ytDiag(),            // → string: o que o extrator recebeu na última extração
                        //   (diagnóstico do rodapé de Configurações)
   ytMedida(),          // → objeto|null: a MEDIDA do último download (shell 79) —
@@ -812,18 +794,6 @@ window.AVNative = {
                        //   `juncao`, `audioEVideoJuntos`, `desfecho`,
                        //   `sobraNoCache`. Vale também para a FALHA. Só a
                        //   Verificação completa a lê
-  // ytStream()        // só no SHELL desde a v1.8.71: sem consumidor no web (a transmissão direta saiu na v1.7.7)
-                       //   `{ video, videos, audio, seconds, height }`.
-                       //   `videos` é a ESCADA (shell 60): as faixas mp4
-                       //   transmissíveis sob o teto, UMA POR ALTURA, da mais
-                       //   alta para a mais baixa. `video` continua sendo o
-                       //   TOPO — a mudança é ADITIVA de propósito, e tudo que
-                       //   já lia `man.video` segue lendo o mesmo. Quem ESCOLHIA
-                       //   o degrau era o WEB, porque a escolha depende da BANDA
-                       //   MEDIDA, que só existe depois dos primeiros bytes — e
-                       //   porque uma regra de escolha erra, e no web ela se
-                       //   conserta por OTA. Essa regra saiu com o player, na
-                       //   v1.8.82
   ytSearch(termo),     // → [{ id, url, name, author, seconds, thumb }] do YouTube
   ytCanalPlaylists(canalUrl), // → [{ name, url, count }] da ABA do canal
   ytPlaylist(url),     // → { name, author, items:[{id,url,name,seconds,thumb}] }
@@ -870,13 +840,6 @@ window.AVNative = {
                        //   degraus de STREAM_MUSIC. É o que deixa o web decidir quanto o app cede
                        //   (`volumePassa`, controle.js) pelo volume REAL — sem contar degraus às cegas
   temaClaro(bool),     // o TEMA escolhido: ícones das barras + windowBackground
-  // requestMic() e micDiag() — SERVIDOS PELO KOTLIN, SEM CHAMADOR desde a
-  // v1.8.89: o MICROFONE AO VIVO saiu pelo lado WEB e os dois deixaram o
-  // `native.js` no mesmo lote. Encolher pelo WEB primeiro é o lado seguro (um
-  // APK que ainda serve método que ninguém chama não custa nada ao aparelho), e
-  // por isso o `SHELL_VERSION` NÃO subiu e o lote não pediu Release. Tirá-los
-  // do Kotlin, junto com o `MicChromeClient` e a permissão `RECORD_AUDIO`, é um
-  // lote de shell — e aí sim um degrau e uma Release.
   keepAlive(bool),     // download em curso — ver "Trabalho em segundo plano"
   bgConcluido({titulo, texto}), // O CARTÃO QUE FICA quando um trabalho longo
                        //   termina BEM. A notificação de progresso é do SERVIÇO
@@ -1024,7 +987,7 @@ window.AVNative = {
                        //   abre o seletor de compartilhamento com o arquivo
                        //   (FileProvider do pacote). É a porta do Registro
                        //   desde a v1.12.44. O `salvarTexto` (SAF) que ela
-                       //   substituiu saiu do web e ficou ÓRFÃO no Kotlin
+                       //   substituiu saiu do web na v1.12.44 e do Kotlin na X1
   cifraDiag(),         // → string: o que a última busca de cifra recebeu
   // ---- O DESVIO DE CORS DAS FOTOS DE FUNDO — ver "A ponte" no CLAUDE.md ----
   r2Imagem(url),       // → { status, url }: busca uma imagem de um host da

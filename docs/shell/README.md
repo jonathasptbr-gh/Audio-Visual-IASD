@@ -5,7 +5,7 @@ para a TV com `android.app.Presentation`.
 
 > **Este diretório é o irmão de [`../arquitetura/`](../arquitetura/).** Aquele
 > cobre a base web (`assets/web/`); este cobre o Kotlin
-> (`app/src/main/java/br/org/iasd/av/`, 33 arquivos). As regras que valem para
+> (`app/src/main/java/br/org/iasd/av/`, 32 arquivos). As regras que valem para
 > o app inteiro — invariantes, paleta, entrega, divergências web × nativo —
 > ficam em [`../../CLAUDE.md`](../../CLAUDE.md), que continua sendo a **leitura
 > obrigatória**; aqui está o detalhe que ela aponta.
@@ -24,7 +24,7 @@ para a TV com `android.app.Presentation`.
 > [`../BUILD.md`](../BUILD.md) (build, assinatura, backup) e no
 > [`../DIVERGENCIAS-WEB-NATIVO.md`](../DIVERGENCIAS-WEB-NATIVO.md), mais o KDoc dos arquivos.
 
-## Os 33 arquivos, e onde cada um é explicado
+## Os 32 arquivos, e onde cada um é explicado
 
 | arquivo | linhas | onde |
 |---|---|---|
@@ -44,15 +44,14 @@ para a TV com `android.app.Presentation`.
 | `EspelhoCert.kt` | 298 | idem (TLS opcional; **sem UI desde a v5.196**) |
 | `EspelhoDiag.kt` | 116 | idem |
 | `YoutubeGrab.kt` | 2.745 | `CLAUDE.md` — "Trabalho em segundo plano"; [`../DIVERGENCIAS-WEB-NATIVO.md`](../DIVERGENCIAS-WEB-NATIVO.md) |
-| `StreamProxy.kt` | 560 | `CLAUDE.md` — invariante 8 |
+| `StreamProxy.kt` | 560 | `CLAUDE.md` — invariante 8; **latente desde a X1** (a rota `/stream/` não tem produtor — ver `PONTE.md`) |
 | `MuxMp4.kt` | 215 | [`../DIVERGENCIAS-WEB-NATIVO.md`](../DIVERGENCIAS-WEB-NATIVO.md) (acima de 720p o YouTube entrega vídeo sem som; o `MediaMuxer` junta as duas faixas por CÓPIA de amostras, sem recodificar, e pares de contêineres diferentes o muxer recusa DEPOIS de tudo baixado) |
 | `TrilhaAudio.kt` | 138 | `CLAUDE.md` — "Séries do YouTube" |
 | `SessionService.kt` | 991 | `CLAUDE.md` — "Notificação de controles" |
 | `SyncService.kt` | 773 | `CLAUDE.md` — "Trabalho em segundo plano" |
 | `MainActivity.kt` | 3.346 | [`../DIVERGENCIAS-WEB-NATIVO.md`](../DIVERGENCIAS-WEB-NATIVO.md) — voltar, volume, cast, saída de áudio, fullscreen |
 | `StagePresentation.kt` | 188 | [`../arquitetura/DISPLAY.md`](../arquitetura/DISPLAY.md) — "Reconexão e morte do renderer" (resumo no `CLAUDE.md`) |
-| `MicChromeClient.kt` | 81 | [`../DIVERGENCIAS-WEB-NATIVO.md`](../DIVERGENCIAS-WEB-NATIVO.md) — "O microfone ao vivo SAIU" (**sem consumidor desde a v1.8.89**: o recurso saiu pelo lado WEB e o Kotlin ficou, que é o lado seguro de encolher a ponte) |
-| `MicDiag.kt` | 181 | [`../DIVERGENCIAS-WEB-NATIVO.md`](../DIVERGENCIAS-WEB-NATIVO.md) — "O microfone ao vivo SAIU" (idem: o `micDiag` da ponte é servido e ninguém o chama. Leitura PURA — não abre nada, não pede nada) |
+| `MicChromeClient.kt` | 81 | [`../DIVERGENCIAS-WEB-NATIVO.md`](../DIVERGENCIAS-WEB-NATIVO.md) — "O microfone ao vivo SAIU" (o `onPermissionRequest` segue armado para o dia em que a captura voltar; o `requestMic`/`requestMicPermission` e o `MicDiag` saíram na X1) |
 | `PacoteProvider.kt` | 39 | `CLAUDE.md` — "O pacote de transferência" (subclasse VAZIA do `FileProvider`, e ela É a correção do "0 KB": duas autoridades sobre a MESMA classe compartilham a instância — e a tabela de caminhos — da primeira, porque o `ActivityThread` as guarda por `ComponentName`. Oráculo: `manifest-provedores.test.mjs`) |
 | `PacoteCanal.kt` | 326 | `CLAUDE.md` — "O pacote de transferência" (o SEGUNDO canal de `ArrayBuffer` do shell; abrir e fechar o destino entram pela ponte, porque envolvem uma PESSOA) |
 | `MessageBus.kt` | 54 | `CLAUDE.md` — "Barramento de comandos" |

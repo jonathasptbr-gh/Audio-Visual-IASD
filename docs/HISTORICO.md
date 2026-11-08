@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.47** — revisão X1 (o contrato da ponte): os SEIS órfãos saíram do Kotlin (`ytStream`, `otaPending`, `apkProcurar`, `requestMic`, `micDiag` e `salvarTexto`) com o que só existia por eles; a conta medida fica 64 · 70 · 70; `SHELL_VERSION` 85; o `StreamProxy` e a rota `/s/` ficam latentes (APK, `shellTag: "v1.13.47"`)
 - **v1.13.46** — revisão K6 (o resto do shell e o build): a cifra confere o destino FINAL depois de redirecionamento (a allowlist valia só para o primeiro salto); o fim do pacote não faz `flush` de `content://` na main; JUnit novo `CifraFonteTest` (9 casos, reversão medida); o pin do NewPipe conferido contra a v0.27.0, e fica (APK, `shellTag: "v1.13.46"`)
 - **v1.13.43** — revisão K3 (YouTube): o download não morre mais calado depois de um cancelamento que chegou tarde (o `cancelar()` só arma com download em voo); a barra não anda para trás no último número; `diagnostico` só por `anotar()`; oráculo novo `slot-do-download` (9 reversões); ~9 KDocs no símbolo certo e "fila de IO" → `transferencia`/`extracao` (APK, `shellTag: "v1.13.43"`)
 - **v1.13.42** — revisão K2 (a ponte): o APK ganhou fila própria (o prazo do web contava a espera atrás de um download) e guarda de duplo toque; `pickDoc` fora da main thread; `Throwable` nas promises sem prazo; lote de share com item nulo não some mais; oráculo novo `ponte-guarda-host` (76 métodos, 4 reversões); as filas documentadas agora são SEIS (APK, `shellTag: "v1.13.42"`)
@@ -657,6 +658,25 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.13.46 — revisão K6 (o resto do shell e o build)
+
+**v1.13.46** — (APK + web, `shellTag: "v1.13.46"`; `SHELL_VERSION` 84, `minShell` 83 — nenhum método da ponte mudou). Revisão K6: `SlideDeck.kt`, `CifraFonte.kt`, `R2ImagemFonte.kt`, `PacoteCanal.kt`, `PacoteProvider.kt`, `MicChromeClient.kt`, `MicDiag.kt` e o `app/build.gradle.kts`.
+
+- A cifra confere o destino FINAL depois do redirecionamento (a allowlist valia só para o primeiro salto) e ganhou o JUnit `CifraFonteTest` (9 casos, reversão medida em 7).
+- O `deckPaginas` recusa origem fora do `docs.google.com` e apaga as páginas quando falha no meio; a foto acima do teto falha em vez de virar `200` cortado; o `fim` do pacote não faz mais `flush` de `content://` na main.
+- O pin do NewPipe foi conferido contra a v0.27.0 e **mantido** (a v0.27.0 mexe no YouTube de verdade, e o que ela destrava só se mede baixando um vídeo no aparelho).
+- **A nota longa desta versão foi publicada só no índice e no commit** — este parágrafo foi acrescentado na X1 para a seção existir.
+
+## v1.13.47 — revisão X1 (o contrato da ponte)
+
+**v1.13.47** — (APK + web, `shellTag: "v1.13.47"`; degrau CORREÇÃO; `SHELL_VERSION` **85** e `minShell` **83** — a superfície ENCOLHEU, e nenhum dos métodos removidos tinha chamador no web). Revisão X1: o contrato da ponte, medido pela varredura de sempre (`@JavascriptInterface` + `fun <nome>` no `NativeBridge.kt` contra `B.<nome>(` no `native.js`). **Antes: 64 de superfície · 70 chamados · 76 servidos. Depois: 64 · 70 · 70** — zero órfão.
+
+- **Os SEIS órfãos saíram do Kotlin, com o que só existia por eles.** `ytStream` (e o `YoutubeGrab.manifesto`, o `faixaJson`, o `maiorTransmissivel`, o `porQueNaoDash` e o campo `diagnosticoStream`), `otaPending`, `apkProcurar` (e o `ShellUpdater.procurar`, o `API` e o `pegarTexto`), `requestMic` (e o `requestMicPermission` com o `micPermission`/`pendingMicPermission` da Activity), `micDiag` (e o `MicDiag.kt` inteiro) e `salvarTexto` (e o `requestTextSave` com o `textSaver`/`pendingTextSave`). Os embrulhos do `native.js` já tinham saído entre a v1.8.71 e a v1.12.44; a remoção do lado Kotlin é que pede `SHELL_VERSION` e Release. Saíram também os dois `soltar` sem chamador (`PacoteCanal` e `EspelhoMidiaCanal`) e o campo `instalado` deles — o `removeWebMessageListener` que nunca rodava.
+- **O que FICOU, e por quê.** O `StreamProxy.kt` e a rota `/s/<token>` do `EspelhoServidor` seguem no shell, LATENTES: sem o `ytStream` nada registra token, então as duas respondem 404. Tirá-las arrasta a invariante 8, o `webview-range.test.mjs` e os capítulos que explicam o `Range` — é lote à parte. O `uaPara` continua (o download o usa); o `urlFor` e o `urlDoToken` ficaram sem chamador vivo.
+- **Os oráculos:** o `ponte-guarda-host` passou a afirmar **70 métodos, 44 com recusa explícita e 26 com declaração conferida contra o corpo** (era 76/50/26), e o `docs-coerentes`, o `tokens` e a Sanidade da base web rodaram. O Kotlin NÃO compila neste aparelho — quem responde por ele é o `verificar` do run.
+- **A documentação que descrevia os órfãos foi junto:** o catálogo do `PONTE.md` (64 · 70 · 70), o `CLAUDE.md` (o shell serve 70; 32 arquivos Kotlin), o mapa do `docs/shell/README.md` e da `ESTRUTURA.md`, e o `SEGUNDO-PLANO.md`.
+- **O operador:** instalar a v1.13.47 quando ela aparecer. Nada muda no uso: os métodos removidos já não tinham tela nem chamador desde a v1.8.71, a v1.8.89 e a v1.12.44.
 
 ## v1.13.45 — revisão K5 (serviços e atualização)
 

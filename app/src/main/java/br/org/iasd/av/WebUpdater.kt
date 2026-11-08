@@ -326,7 +326,8 @@ object WebUpdater {
      * A versão do bundle que já está BAIXADO e esperando o próximo lançamento —
      * `null` quando não há nada além do que esta sessão já serve.
      *
-     * Existe para o app poder AVISAR (ver `NativeBridge.otaPending`). Até aqui a
+     * Existe para o app poder AVISAR (o `atualizacaoEstado` da ponte a entrega
+     * ao lado web). Até aqui a
      * atualização era invisível por completo: ela chegava calada e entrava na
      * abertura seguinte, então quem quisesse a correção do dia tinha de saber,
      * por fora, que precisava fechar e reabrir o app.
@@ -465,9 +466,10 @@ object WebUpdater {
     // ---------- vigilância: procurar de verdade, e não uma vez só ----------
     //
     // ATÉ A v1.60 A PROCURA ERA UMA SÓ, no `onCreate`. O lado web pergunta de
-    // minuto em minuto se há bundle esperando (`otaPending`), mas essa pergunta
-    // só lê o DISCO — quem põe algo lá é o `check()`, que rodava uma vez por
-    // lançamento: **o web enquetava um valor que ninguém atualizava.** Com o app
+    // minuto em minuto se há bundle esperando (hoje pelo `atualizacaoEstado`;
+    // à época, pelo `otaPending`), mas essa pergunta só lê o DISCO — quem põe
+    // algo lá é o `check()`, que rodava uma vez por lançamento: **o web
+    // enquetava um valor que ninguém atualizava.** Com o app
     // aberto o dia inteiro (o normal), uma versão publicada depois da abertura
     // não existia para o aparelho — nenhum aviso, ausência total. E uma
     // tentativa que caísse sem rede não era retentada até o próximo lançamento.
@@ -848,7 +850,7 @@ object WebUpdater {
      * `version.json` e 3 `getPackageInfo` por fotografia — e a fotografia é
      * pedida pela enquete de 10 s do `controle.js`, na fila `io` do
      * [NativeBridge], que é declarada de milissegundos e dividida com
-     * `listFolder` e `otaPending`.
+     * `listFolder` e `atualizacaoEstado`.
      */
     private fun diagDe(
         pend: String?,
@@ -874,7 +876,8 @@ object WebUpdater {
      *
      * Existe porque a pergunta do operador é UMA ("tem atualização?") e a
      * resposta morava em três chamadas assíncronas independentes
-     * (`otaPending`, `apkProcurar`, `otaDiag`). Três respostas que chegam em
+     * (`otaPending`, `apkProcurar`, `otaDiag` — todas aposentadas na X1, e é
+     * por isso que a fotografia única ficou). Três respostas que chegam em
      * momentos diferentes não formam um estado: a tela desenhava "só web" e
      * meio segundo depois virava "web + app", ou pior, desenhava a pergunta com
      * metade do que ela precisava dizer. Aqui elas são lidas no mesmo instante,

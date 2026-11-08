@@ -70,7 +70,6 @@ class PacoteCanal {
 
     @Volatile private var thread: Thread? = null
     @Volatile private var rodando = false
-    @Volatile private var instalado = false
 
     /**
      * O destino aberto. `@Volatile` porque a [MainActivity] o troca na main e a
@@ -95,7 +94,6 @@ class PacoteCanal {
         return try {
             WebViewCompat.addWebMessageListener(w, OBJETO_JS, setOf(WebViewFactory.ORIGIN), ouvinte)
             ligar()
-            instalado = true
             true
         } catch (e: Exception) {
             Log.w(TAG, "addWebMessageListener falhou", e)
@@ -103,24 +101,6 @@ class PacoteCanal {
         }
     }
 
-    fun soltar(web: WebView?) {
-        rodando = false
-        thread?.interrupt()
-        thread = null
-        fila.clear()
-        val w = web
-        if (w != null && instalado) {
-            val remover = Runnable {
-                try {
-                    WebViewCompat.removeWebMessageListener(w, OBJETO_JS)
-                } catch (e: Exception) {
-                    Log.w(TAG, "removeWebMessageListener falhou", e)
-                }
-            }
-            if (Looper.myLooper() == Looper.getMainLooper()) remover.run() else main.post(remover)
-        }
-        instalado = false
-    }
 
     // ---------- o destino, dirigido pela Activity ----------
 

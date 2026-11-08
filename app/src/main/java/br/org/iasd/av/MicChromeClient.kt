@@ -13,7 +13,8 @@ import android.webkit.WebChromeClient
  * Ele é instalado de todo modo: é o `WebChromeClient` do TELÃO, e o
  * `onConsoleMessage` abaixo é a outra metade do arquivo. A captura ao vivo
  * saiu do lado web na v1.8.89 (o `AVNative.requestMic` e o `micDiag` saíram do
- * `native.js`, e o `tools/sem-captura.test.mjs` cobra a porta), então hoje
+ * `native.js`, e o `tools/sem-captura.test.mjs` cobra a porta; na X1 os dois
+ * saíram também do shell), então hoje
  * nenhum caminho do app abre microfone — o `onPermissionRequest` fica armado
  * para o dia em que a captura voltar, com as três regras já de pé.
  *
