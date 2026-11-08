@@ -175,10 +175,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      `--hit` é o piso de qualquer botão só-de-ícone; `--hit-foot` é a fatia do
      rodapé FIXO da lista, dividida por "Importar arquivos" e pela barra de
      seleção múltipla — os dois PRECISAM medir o mesmo, ou a caixa da lista
-     muda de tamanho ao entrar na seleção e a lista pula debaixo do dedo.
-     (O `--hit-nav`, a faixa de NAVEGAÇÃO, saiu na v1.8.81: os consumidores
-     dele eram `.tab` e `.tab-add`, e a faixa de abas inteira saiu na v1.5.0.
-     Ele sobreviveu vinte e nove lotes declarado e sem um único leitor.) */
+     muda de tamanho ao entrar na seleção e a lista pula debaixo do dedo. */
   --hit: 34px;
   /* O PISO DE UMA GRADE DENSA — a exceção NOMEADA ao `--hit` (v1.8.1).
      A grade de livros da Bíblia é 66 alvos numa folha só, e 66 alvos de 34px
@@ -257,7 +254,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      tem 582px, dos quais 569,2 sobram depois do recuo de base; a barra media
      51,59px (passo de 61,19 com o `gap`): com uma coletânea a menos sobravam
      28,09px, e a barra de enchimento EXATO seria 54,71px. (O argumento de então era o
-     vão dos Favoritos, que saiu na v1.13.12.) Somem-se os `env(safe-area-inset-bottom)`, que valem
+     vão dos Favoritos.) Somem-se os `env(safe-area-inset-bottom)`, que valem
      ZERO em todo oráculo e são positivos no aparelho: com 24px de inset a
      sobra de hoje já é de 4px, e não há 28px para encher.
 
@@ -397,10 +394,8 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      os dois quadrados ao lado. Um número para as três peças, porque quem manda
      na linha é o campo e uma altura por peça divergiria dele no primeiro ajuste
      de padding ou de fonte.
-     Ela FOI TAMBÉM O LADO dos quadrados (v5.277 → v1.5.4). A LARGURA deles saiu
-     daqui na v1.5.5 e virou `--deck-col`, a coluna da grade do transporte:
-     pedido do operador, e as duas coisas não podiam valer juntas — um lado fixo
-     não alinha com uma grade proporcional. */
+     A LARGURA dos quadrados é `--deck-col`, a coluna da grade do transporte:
+     um lado fixo não alinharia com uma grade proporcional. */
   --campo-alt: 40px;
   /* O TEMPO DA JANELA DA BIBLIOTECA (v1.5.0). Ele viajava como `var(--pop-anim,
      .28s)` em dois lugares e NUNCA foi definido — um `var()` que só existe pelo
@@ -512,9 +507,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      superfícies são claras e não há para onde subir. */
   --press-luz: brightness(1.35);
 
-  /* (`--tab-move` saiu na v1.5.0 com a faixa de abas: ele sincronizava o vazado
-     deslizante — uma transição CSS — com a lista que entrava pelo lado, uma Web
-     Animation. Nenhum dos dois existe.) */
+
 
   /* Escala de ícones, três degraus. Governa os GLIFOS (`.msym`, por
      `font-size`) E os SVGs inline (ver a regra logo abaixo do feedback de
@@ -566,13 +559,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    `--panel` que no tema CLARO é branco pleno, isto é, 1,00:1. */
 .fav-itens,
 /* O bloco de nível 1 da Biblioteca: ele pinta uma superfície opaca, logo é um
-   cartão pela definição desta regra e o que estiver dentro dele afunda.
-   (`#hymnSearchPopup .hymn-search-bar` saiu daqui na v1.5.14: a peça morreu na
-   v1.5.0, quando a barra da Biblioteca virou a `.lib-bar` da caixa de controles
-   — fora deste popup. O seletor sobreviveu quatorze lotes sem casar com nada, e
-   o comentário que o justificava seguia descrevendo um campo que já não morava
-   aqui; quem o herdou foi a regra do tema claro em `:root[data-tema="claro"]
-   .lib-bar`.) */
+   cartão pela definição desta regra e o que estiver dentro dele afunda. */
 .coll-group--drop,
 /* A LINHA DE DENTRO DA FOLHA DE EXPORTAÇÃO (v1.8.40). Ela veste `--panel` pela
    alternância nova, logo é um cartão pela definição desta regra — e o que ela
@@ -586,13 +573,10 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    ocupava a base dela: `--surface-2` FLUTUANTE (branco a 92%) sobre um
    `--panel` que ali é branco pleno — **1,00:1**, o controle simplesmente não
    existia na tela. (No escuro o mesmo botão ficava a 12,62:1 da folha: claro
-   demais, o outro lado do mesmo erro.) O botão medido saiu na v1.8.89 com o
-   microfone; a folha fica, e os moradores dela hoje são o rodapé e os painéis.
-
-   (A `.sorteio-barra` esteve aqui da v1.8.84 à v1.11.17, pelo MESMO motivo: ela
-   era `sticky` e pintava `--panel` sobre uma lista que rola. Ela voltou ao
-   `.popup-fecho` e não pinta mais nada — o `--surface` afundado dos botões dela
-   vem agora do `.popup-sheet`, que já está na lista de cima.) */
+   demais, o outro lado do mesmo erro.) A folha fica, e os moradores dela hoje
+   são o rodapé e os painéis. (A `.sorteio-barra` não pinta mais nada: o
+   `--surface` afundado dos botões dela vem do `.popup-sheet`, que já está na
+   lista de cima.) */
 .tools-sheet {
   --surface: var(--surface-sunk);
   --surface-2: var(--surface-2-sunk);
@@ -743,9 +727,8 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    recuo. Duas respostas ao mesmo gesto, e a segunda cobre trezentos pixels. */
 .lib-item:has(:is(.hymn-gaveta, .folder-itens, .row-acoes, .msg-estilo) :active),
 .lib-item:has(.lib-item:active) { transform: none; filter: none; }
-/* (A guarda das duas BARRAS saiu na v1.7.4 com elas: quem responde ao toque numa
-   tampa é o BLOCO, e a guarda dele — que é a mesma regra, um nível acima — mora
-   junto da resposta, em "O BLOCO RESPONDE POR LUZ".) */
+/* (Quem responde ao toque numa tampa é o BLOCO; a guarda dele mora junto da
+   resposta, em "O BLOCO RESPONDE POR LUZ".) */
 /* ---------- E A REGRA VALE PARA A `.row` DELE TAMBÉM (v1.2.27) ----------
    Relato do operador: *"ao encolher, as bordas do card de título ficam com uma
    marca de encolhimento nas laterais direita e esquerda"*.
@@ -779,20 +762,13 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      na tela dizer por quê. Nenhum ancestral dele responde ao toque. */
   .lv-cheia-btn,
   .coll-bar-dl, .coll-group-btn, .coll-more-btn,
-  /* (AS DUAS BARRAS QUE ABREM UM BLOCO saíram desta lista na v1.7.4. Elas
-     entraram na v1.3.14 e o defeito estava no ARGUMENTO: uma barra é a TAMPA de
-     um bloco, não um controle folha — e a regra escrita duas telas abaixo, na
-     `.coll-bar`, já dizia isso ("`--press` é para CONTROLE FOLHA. Um contêiner
-     que hospeda um controle nunca escala"). O que se via era o pedido do
-     operador: *"Há um efeito de encolhimento que distorce os elementos"* — a
-     barra é TRANSPARENTE, então o `--press-luz` acendia só o texto e os ícones
-     dentro dela, e o `translateY(2px)` deslizava esse conteúdo dentro de um
-     card que não se mexia. Quem responde agora é o BLOCO, com a luz e por
-     inteiro: ver "O BLOCO RESPONDE POR LUZ".) */
+  /* (As barras que abrem um bloco não respondem ao toque aqui: uma barra é a
+     TAMPA de um bloco, não um controle folha. Quem responde é o BLOCO, com a
+     luz e por inteiro — ver "O BLOCO RESPONDE POR LUZ".) */
   .bible-cell, .bible-ref-part, .bible-vsec, .bible-ver-row,
   .song-menu-btn, .msg-add-btn,
   .misc-chip, .chrono-btn, .misc-project,
-  /* (`.lib-item` saiu na v1.7.4, pela regra do bloco — ver "O BLOCO RESPONDE
+  /* (`.lib-item` não entra aqui, pela regra do bloco — ver "O BLOCO RESPONDE
      POR LUZ". Ela é a linha de lista deste app, isto é, o outro CONTÊINER que
      hospeda controles: o `⋮`, o "Tirar do ar" na capa, a gaveta inteira.) */
   .fit-opt, .dialog-btn, .coll-group-acao,
@@ -1840,11 +1816,9 @@ body.mode-simple .pv-fsctl :is(#fsView, #fsPrev, #fsNext) { display: none; }
    linha da mesma coluna, e um corpo diferente ali faria a linha mudar de altura
    quando o trabalho começasse.
 
-   O TRILHO SAIU NA v1.7.4 — *"a barra de progresso ficou ruim, tire ela"*. Ele
-   desenhava, num filete de 4px, o mesmo número que a frase ao lado já diz por
-   extenso; o que sobra é a informação sem a repetição. A barra continua onde
-   ela é a única resposta: a NOTIFICAÇÃO do sistema, que é a janela do trabalho
-   com o app minimizado. */
+   O progresso não tem trilho: a frase ao lado já diz por extenso o número que
+   ele repetia num filete de 4px. A barra continua onde ela é a única resposta:
+   a NOTIFICAÇÃO do sistema, que é a janela do trabalho com o app minimizado. */
 .dl-prog {
   display: block; min-width: 0;
   font-size: var(--fs-xs); line-height: 1.25; color: var(--muted);
@@ -1937,7 +1911,7 @@ body.mode-simple .pv-fsctl :is(#fsView, #fsPrev, #fsNext) { display: none; }
 }
 /* O ARO — UMA declaração, DOIS consumidores (v1.7.2). O segundo é o tile de
    Configurações que está exportando ou importando: ele também precisa dizer
-   "estou trabalhando" e não pode dizer por palavra, porque a `.qs-estado` saiu.
+   "estou trabalhando" e não tem como dizer por palavra.
    Escrever o anel de novo lá seria uma SEGUNDA OPINIÃO sobre o mesmo desenho —
    e a primeira a divergir seria a que ninguém relê. Cada consumidor põe só a
    GEOMETRIA dele; a tinta é esta. */
@@ -2401,18 +2375,16 @@ main {
 
 /* ---------- Aviso de salvamento (v5.104) ---------- */
 /* NO TOPO DA TELA, e é a posição que resolve os dois problemas de uma vez:
-   - o toast anterior saiu por COBRIR O TRANSPORTE, na base; aqui em cima ele
-     não encosta em controle nenhum;
+   - o toast fica no topo para não COBRIR O TRANSPORTE, na base; aqui em cima
+     ele não encosta em controle nenhum;
    - metade dos salvamentos parte de DENTRO de uma folha (o acervo, a folha da
      música, a gaveta de Favoritos), e um aviso ancorado na lista ficaria atrás
      dela — justamente nos casos em que ele é mais necessário. Daí `fixed` e um
      z-index acima das folhas (que vão até 300).
    `pointer-events: none` — é um aviso, não um controle: o toque atravessa. */
-/* (`.save-hint*` SAIU na v5.207, com a faixa flutuante.) Ela era um TOAST:
-   `position: fixed`, ancorada no topo da tela, por cima do que estivesse ali —
-   e respondia a toques dados em qualquer lugar da interface. O feedback agora
-   mora onde a ação nasce; ver `.row-nota` (a linha do item), `.folder-count--st`
-   (o contador da pasta) e `.pv-busy.falhou` (o cartão da preview). */
+/* (O feedback mora onde a ação nasce: ver `.row-nota` (a linha do item),
+   `.folder-count--st` (o contador da pasta) e `.pv-busy.falhou` (o cartão da
+   preview).) */
 
 /* ---------- Título da lista ativa: TRÊS COLUNAS FIXAS (v5.309) ----------
    Pedido do operador: *"ajuste o título da aba Bíblia, que está se deslocando
@@ -2732,8 +2704,7 @@ main {
    cabeçalho ela é vizinha do `#backBtn`, e o accent é o que este app usa para
    "isto leva a outro lugar" — era `--muted` na coluna do mixer porque lá o
    vizinho era o grupo que opera o culto, e a diferença de tom é que os
-   separava. (Quem herdou o `--muted` de lá foi o `#historyBtn`, que saiu do
-   deck na v1.4.31 — o histórico virou uma linha de Configurações.) */
+   separava. */
 .simple-head .settings-btn,
 .list-header .settings-btn {
   flex: 0 0 auto; margin-left: auto;
@@ -2754,18 +2725,10 @@ main {
 .back-btn { background: none; color: var(--accent); }
 .back-btn .msym { font-size: var(--icon-sm); }
 
-/* (O botão de FAVORITOS do cabeçalho saiu na v5.238, com o `#favHeadBtn`: os
-   favoritos são a primeira seção da Biblioteca, sempre aberta, e uma segunda
-   porta para a mesma lista era um segundo lugar para ela divergir. A caixa dele
-   era literalmente a da troca de modo — a declaração era uma só, na regra
-   agrupada acima —, e o que os distinguia era a cor do ícone.) */
 
-/* ===== A BARRA DA BIBLIOTECA, no lugar da faixa de abas (v1.5.0) =====
-   A faixa saiu inteira, e com ela o vazado deslizante (`.tab-ind`, a transição
-   `--tab-move` e o `--tab-x`/`--tab-w` que o JS media), o `.tab`, o `.tab-add`
-   e o `.tab-pl`. Sobrou o que a barra da Biblioteca já era lá dentro: três
-   elementos numa linha, na ordem que a v5.305 fixou — *sortear* · *procurar* ·
-   *sair*.
+/* ===== A BARRA DA BIBLIOTECA =====
+   Três elementos numa linha, na ordem que a v5.305 fixou — *sortear* ·
+   *procurar* · *sair*.
 
    ELA ENCOSTA NO TOPO DA CAIXA, como a faixa encostava (o `.bottombar` zera o
    padding de cima só por causa disto), e ganha o respiro lateral de volta: a
@@ -2869,7 +2832,7 @@ main {
    Pedido do operador: *"padronize os botões de biblia, importar e ferramentas
    da aba de cronograma, para que tenham uma cor mais proxima a cor de fundo,
    para que não se destaquem … preciso que sejam opções discretas, mescladas ao
-   fundo."* (A tinta deste bloco foi revogada pelos dois seguintes; fica o
+   fundo."* (A tinta deste bloco é sobrescrita pelos dois seguintes; fica o
    raciocínio de por que a faixa NÃO veste o `--btn-accent` de "ligado".)
 
    A DO MEIO ERA A QUE SALTAVA, E NÃO POR CLARIDADE. MEDIDO no tema CLARO — o da
@@ -2912,8 +2875,8 @@ main {
 
    O PREÇO, dito: no tema ESCURO o `--press-luz` fica INERTE nas três (Δ1 nível
    contra os Δ30 que a do meio tinha), porque `brightness(1.35)` não move tinta
-   branca. Sobram os 2px de `translateY`, que é a metade que o `.pv-fab` da
-   v1.4.33 NÃO tinha quando saiu da lista. Não é bloqueio; é o custo de
+   branca. Sobram os 2px de `translateY`, que é a metade que o `.pv-fab` não
+   tem. Não é bloqueio; é o custo de
    padronizar, e ele está escrito.
 
    A `.selbar` NÃO ENTRA. Ela é a outra inquilina da fatia e continua em
@@ -2944,8 +2907,8 @@ main {
    que estava certa. Um valor que o app pinta e o oráculo não enxerga é a
    medição cega que este projeto gasta lotes inteiros fechando.
 
-   A ESCADA DE FALHA ABERTA SAIU COM O `color-mix`: o token é uma cor literal,
-   que todo motor entende. */
+   Sem escada de falha aberta: o token é uma cor literal, que todo motor
+   entende. */
 /* ---------- E ELAS SÃO O DENIM CHEIO, CADA UMA COM A PRÓPRIA SOMBRA (v1.8.62)
    Pedido do operador, nas duas metades: *"quero eles em azul, o mesmo azul de
    ativado dos botões das configurações… mas aqui devem ser sólidos"* e *"coloque
@@ -3014,9 +2977,9 @@ main {
    regra agrupada do `--surface-porta`, acima). */
 .tools-btn, .lib-foot-btn {
   /* `padding: 0 .3rem` desde a v1.5.19 — ver "AS PORTAS FICAM QUIETAS". O
-     recuo VERTICAL saiu porque era ele, e não o `--hit-foot`, o termo que
+     recuo VERTICAL não existe porque era ele, e não o `--hit-foot`, o termo que
      mandava na altura: MEDIDO, a pilha pedia 51,77px contra os 44 do token, e o
-     token ficava INERTE. Com ele fora, "mais baixo" volta a ser um número num
+     token ficava INERTE. Sem ele, "mais baixo" volta a ser um número num
      lugar só — e é a MESMA forma que a `.selbar` já tem (`min-height:
      var(--hit-foot); padding: 0 .5rem`), que é o que faz as duas inquilinas da
      fatia medirem o mesmo. */
@@ -3026,8 +2989,8 @@ main {
      o `font-size` abaixo). */
   gap: var(--sp-3);
   border: 0; border-radius: var(--radius-btn);
-  /* (O `color: var(--accent)` saiu na v1.8.62 — o traço das portas mora na
-     regra agrupada do `--surface-porta`, e repeti-lo aqui o faria VENCER.) */
+  /* (O traço das portas mora na regra agrupada do `--surface-porta`; repeti-lo
+     aqui o faria VENCER.) */
   /* `font-family: inherit` porque elas são `<button>`, e a folha do agente de
      usuário entrega a família do botão — que o `font-size` sobrescreve e a
      `font-family` não. MEDIDO no arnês: `Arial` contra `system-ui`, 14% de
@@ -3056,14 +3019,6 @@ main {
 .tools-btn span, .lib-foot-btn span {
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-/* (A regra `:active` própria destes dois saiu na v1.5.14: as duas classes já
-   estão na lista `:is()` do `--press`, com o mesmo valor e a mesma pseudo-classe.
-   Uma segunda escrita da mesma coisa só cria a chance de as duas divergirem.) */
-/* (`.fav-section` saiu na v5.254: os favoritos são UMA lista, na ordem que o
-   operador der a ela. Os cabeçalhos por tipo eram doze rótulos disputando a
-   altura da primeira tela, e a ordenação manual desmente o pressuposto deles —
-   que o operador procura pela categoria, e não pelo lugar onde ele mesmo pôs o
-   item.) */
 
 /* ---------- A gaveta de Favoritos é uma LISTAGEM, e listagem é densa ---------- */
 /* A gaveta NÃO herda a métrica do Cronograma, e as duas não fazem a mesma
@@ -3080,9 +3035,8 @@ main {
    mensagem" e "Guardar como pacote". Borda e raio numa regra só, para os
    quatro não divergirem no primeiro ajuste (era uma cópia por botão); em cada
    regra fica só o que difere (fundo, cor, medidas). Tracejado no PRÓPRIO
-   accent: o valor literal que já esteve aqui era o azul #2f81f7 aposentado há
-   versões — o mesmo papel do token, congelado numa cópia que nenhuma troca de
-   paleta alcançaria. */
+   accent: é o token, e não um literal congelado que nenhuma troca de paleta
+   alcançaria. */
 /* O TRACEJADO VIROU PREENCHIMENTO (v5.267). A moldura pontilhada em `--accent`
    era a convenção deste app para "espaço a preencher", e ela cai com todas as
    outras linhas. O que a substitui diz a mesma coisa por contraste: uma
@@ -3101,17 +3055,15 @@ main {
 /* A COR SE PARTIU POR HABITAT (v1.5.19), e não por botão. O `--btn-accent`
    continua sendo o preenchimento de `+ Nova mensagem`, que vive sobre `--panel`
    (onde ele mede 1,21:1, a faixa normal de um controle de folha) e é de fato a
-   única ação do bloco dela — o argumento em que ele nasceu. Quem saiu primeiro
-   foi a porta do meio do RODAPÉ, que vive sobre `--bg`: ver "AS PORTAS FICAM
+   única ação do bloco dela — o argumento em que ele nasceu. A porta do meio do
+   RODAPÉ, que vive sobre `--bg`, não veste `--btn-accent`: ver "AS PORTAS FICAM
    QUIETAS".
 
-   E O `Guardar como pacote` SAIU NA v1.8.53, pelo MESMO argumento caindo pela
-   segunda vez: ele era pintado por ser *"a única ação do bloco dela"*, e o
-   pedido do operador pôs o `Limpar` ao lado — o bloco passou a ter duas. Some
-   a razão que decide: com menos de dois itens ele é APAGADO, e um item é o
-   estado dominante da fila (todo toque numa mídia faz `listSet('playlist',
-   [id])`), de modo que o azul cheio estaria esmaecido quase o culto inteiro.
-   Ver a `.pl-pack`. */
+   E O `Guardar como pacote` NÃO VESTE `--btn-accent`: o bloco tem DUAS ações (o
+   `Limpar` está ao lado), e some a razão que decide — com menos de dois itens
+   ele é APAGADO, e um item é o estado dominante da fila (todo toque numa mídia
+   faz `listSet('playlist', [id])`), de modo que o azul cheio estaria esmaecido
+   quase o culto inteiro. Ver a `.pl-pack`. */
 /* ---------- E A `.selbar` LARGOU O AZUL (v1.8.63) ----------
    Ela é a outra inquilina do MESMO retângulo do rodapé, e com as portas vestindo
    `--btn-accent` as duas ficariam em ΔE00 **0,00** — não parecidas, IDÊNTICAS.
@@ -3133,13 +3085,11 @@ main {
 .msg-add-btn {
   background: var(--btn-accent);
 }
-/* (A regra do `.tab-add` — a porta do acervo na faixa de abas — saiu na v1.5.0
-   com a faixa. O que ela dizia sobrevive na `.lib-toggle`: numa linha em que o
-   resto não tem fundo, a porta da Biblioteca é a única superfície de AÇÃO, e o
-   tom dela é `--btn-accent` + `--accent`, o mesmo do "Importar arquivos".
-   A regra geral que ela criou também sobrevive, e mora no DESIGN-SYSTEM:
-   *quando ação e escolha dividem a mesma faixa, o CHEIO fica com a ESCOLHA* —
-   é ela que desenha o trilho do modo do app em Configurações.) */
+/* (A `.lib-toggle` é a única superfície de AÇÃO numa linha em que o resto não
+   tem fundo: o tom dela é `--btn-accent` + `--accent`, o mesmo do "Importar
+   arquivos". A regra geral mora no DESIGN-SYSTEM: *quando ação e escolha
+   dividem a mesma faixa, o CHEIO fica com a ESCOLHA* — é ela que desenha o
+   trilho do modo do app em Configurações.) */
 
 /* ---------- Barra de seleção múltipla ---------- */
 /* SEM PREENCHIMENTO PRÓPRIO. Ela já foi um bloco em `--accent-soft` com
@@ -3184,7 +3134,7 @@ main {
    então declarar isso entrega o eixo horizontal ao app. Sem a declaração o
    navegador acha que o gesto é dele (`manipulation`, do `*` no topo) e engole
    qualquer arrasto horizontal com um `pointercancel` ao primeiro movimento.
-   (A regra nasceu para o carrossel de abas, que saiu na v1.5.0; ela FICA pelo
+   (A regra nasceu para o carrossel de abas; ela FICA pelo
    parágrafo abaixo, que é o consumidor que sobrou.)
 
    INCLUSIVE na Ferramentas, apesar do histórico do sorteio (`.draw-hist`), que
@@ -3204,9 +3154,8 @@ main {
    O `gap` repete o do `<main>`, de onde os dois filhos saíram. */
 .list-body {
   flex: 1; min-height: 0; position: relative;
-  /* (O `gap: var(--sp-5)` saiu na v1.8.61: com o rodapé fora do fluxo sobrou um
-     filho em fluxo só, e o número que separava os dois passou a viver dentro do
-     `padding-bottom` da lista — escrito duas vezes, ele divergiria no primeiro
+  /* (O `gap` não mora aqui: o número que separava os dois vive no
+     `padding-bottom` da lista — escrito duas vezes, divergiria no primeiro
      ajuste.) */
   display: flex; flex-direction: column;
 }
@@ -3746,9 +3695,8 @@ main {
 }
 .row-stop .msym { font-size: var(--icon-lg); }
 .lib-item.no-ar .row-stop { display: flex; }
-/* (As regras que ESCONDIAM a alça e a estrela na linha no ar saíram na v5.258:
-   os outros três moram dentro do menu `⋮` agora, e lá não há disputa de
-   lugar.) */
+/* (A alça e a estrela na linha no ar moram dentro do menu `⋮`, e lá não há
+   disputa de lugar.) */
 /* Na seleção múltipla nada disso vale: o alvo é o conjunto, e a linha volta a
    ser uma caixa de escolha. (O JS já não põe `.no-ar` ali — cinto e
    suspensório, como a regra de cima.)
@@ -3861,9 +3809,8 @@ main {
    ocupa a faixa inteira, e a capa mais o vão dela são ~96px. O par
    Cancelar/Excluir são dois rótulos curtos e cabem sem tomar coluna nenhuma.
 
-   (`.row-lixo` — o símbolo desenhado POR CIMA da capa — saiu com este bloco: o
-   caminho B da lixeira passou a ser o mesmo do ✓ do renomear, dentro da própria
-   faixa. Ver `pedirConfirmacaoNaLinha`.) */
+   (O caminho B da lixeira é o mesmo do ✓ do renomear, dentro da própria faixa
+   — ver `pedirConfirmacaoNaLinha`.) */
 
 /* ---------- O `⋮` CEDE A COLUNA AO PROCESSO (v1.4.27) ----------
    Pedido do operador: *"durante a renomeação e durante a confirmação de
@@ -3987,11 +3934,9 @@ main {
   background: var(--surface-2); color: var(--text);
 }
 .linha-renome-campo::placeholder { color: var(--muted); }
-/* (O `.linha-renome-ok` saiu na v1.4.27: o ✓ é QUADRADO como todo botão da
-   fileira — e agora ele mora na COLUNA DO `⋮`, vestindo `.row-slot--ok`, que já
-   é essa caixa. O argumento que o desenhou continua valendo e mudou de lugar:
-   ali só existe um desfecho, e a largura vale mais no campo, que é o texto que
-   se está lendo enquanto se digita.) */
+/* (O ✓ do renomear é QUADRADO como todo botão da fileira, e mora na COLUNA DO
+   `⋮`, vestindo `.row-slot--ok`. Ali só existe um desfecho, e a largura vale
+   mais no campo, que é o texto que se lê enquanto se digita.) */
 
 /* ---------- O MENU DA LINHA ----------
    Caixa ABSOLUTA sobre a `.row` (que já é `position: relative`), da MINIATURA
@@ -4191,15 +4136,7 @@ main {
 .row-name { flex: 1; min-width: 0; font-size: var(--fs-lg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row-text > .row-name { flex: none; }
 .row-sub { min-width: 0; font-size: var(--fs-xs); line-height: 1.25; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* (O `#favList .row-sub { display: none }` saiu na v5.254. Ele existia porque a
-   gaveta agrupava por tipo em seções e o cabeçalho já dizia o que o subtítulo
-   diria; sem as seções, ele é a única coisa da linha que distingue um vídeo de
-   um versículo.) */
 
-/* (Os selos de tipo `.url-badge`/`.yt-badge`/`.cue-badge` saíram de uso na
-   v5.118, quando o tipo do item virou o subtítulo `.row-sub` — nenhum JS os
-   desenhava mais, e com eles os tokens `--yt`/`--yt-soft` perderam o único
-   consumidor e saíram de tokens.css.) */
 
 .row-btn { background: var(--surface); color: var(--text); }
 .row-btn .msym { font-size: var(--icon-sm); }
@@ -4248,9 +4185,9 @@ main {
    o botão inteiro, o que dá a impressão de que não está disponível a opção"*.
 
    Ele está certo, e o defeito tinha nome nesta folha: os dois vestiam o
-   `--line`, a cor de LINHA daquela paleta (2,65:1 contra o fundo, medido
-   quando ele ainda existia — o token SAIU na v1.5.14), e o `↑`/`↓` INERTE das
-   pontas da lista lia como desabilitado por `opacity: .3`, que é literalmente
+   `--line`, a cor de LINHA daquela paleta (2,65:1 contra o fundo), e o `↑`/`↓`
+   INERTE das pontas da lista lia como desabilitado por `opacity: .3`, que é
+   literalmente
    como este app desenha "desabilitado". Dois alternadores VIVOS estavam com a
    tinta de um botão morto, numa fileira em que todos os vizinhos vestem
    `--text`.
@@ -4276,8 +4213,7 @@ main {
 .row-playlist.on, .row-crono.on { background: var(--btn-accent); color: var(--accent); }
 
 /* A miniatura da CENA DE ROTEIRO em ouro: ela diz "isto não é mídia, é uma
-   cena" numa lista onde todo o resto tem bytes. (O selo `.cue-badge` saiu com
-   os irmãos de URL/YT — ver a lápide acima.) */
+   cena" numa lista onde todo o resto tem bytes. */
 .thumb--cue { color: var(--brand); }
 .thumb--cue svg { width: 22px; height: 22px; }
 .thumb--cue .msym { color: var(--brand); }
@@ -4320,17 +4256,10 @@ main {
    com o mesmo recurso que o app usa para marcar em toda parte. */
 .folder-opfs.expanded > .row .row-name { color: var(--accent); }
 .folder-itens > .lib-item { --linha: var(--surface); }
-/* (A regra que dava tom PRÓPRIO ao arquivo de uma pasta aberta saiu na v1.5.18:
-   a tampa de TODA lista passou a vestir o poço da gaveta, por `background` na
-   `.row` — ver "UM ITEM ABERTO É UMA SUPERFÍCIE SÓ". Aquela regra escrevia
-   `--linha`, que a nova atravessa, e ficaria como um valor sem efeito
-   explicando um desenho que já não existe.) */
 .folder-itens > .empty { padding: .5rem .6rem; }
 
-/* (Não há mais indicador de rede em lugar nenhum do acervo: as regras
-   `.net-badge`/`.net-badge--warn` que viviam aqui já eram inalcançáveis, e o
-   chip `.hymnal-stat.net` que as substituíra saiu com as opções condensadas da
-   v5.73 — quem pergunta sobre dados móveis é o diálogo da sincronização.) */
+/* (O acervo não tem indicador de rede: quem pergunta sobre dados móveis é o
+   diálogo da sincronização.) */
 
 /* ---------- Card de coleção (álbum / hinário) ---------- */
 /* Uma linha só, e ela É o álbum: tocar abre a LISTA DE MÚSICAS. A manutenção
@@ -4343,9 +4272,8 @@ main {
    desenhado, e o que o olho via primeiro eram as linhas — não os nomes. Um
    preenchimento sólido separa igual (o cartão contra o fundo do app já é um
    degrau de elevação) sem desenhar nada.
-   A faixa de cor saiu junto: era a mesma linha vertical repetida em toda a
-   lista. Se ela fizer falta, o lugar natural para a cor do álbum passa a ser o
-   quadrado do ícone, que já existe e não acrescenta traço nenhum. */
+   A cor do álbum não tem faixa própria: se fizer falta, o lugar natural dela é
+   o quadrado do ícone, que já existe e não acrescenta traço nenhum. */
 .hymnal-card {
   flex-shrink: 0;
   border-radius: var(--radius-card);
@@ -4408,8 +4336,8 @@ main {
                 mesmo valor de antes, então nada do que foi medido regride.
 
      E o degrau que aparece ao abrir NÃO é decoração: ele é o sinal de "isto
-     levantou", e é ele que ocupa o lugar do nome em accent que saiu daqui (ver
-     `.coll-bar-name`) — elevação em vez da cor de seleção.
+     levantou", e é ele que ocupa o lugar do nome em accent — elevação em vez
+     da cor de seleção.
 
      ELA NÃO REVOGA "quem declara o tom é o CONTÊINER": o card só declara
      `--camada` quando ABERTO, e aí ele quer o MESMO degrau para si e para a
@@ -4429,8 +4357,8 @@ main {
      não. O mesmo pixel respondendo ou não conforme o estado.
 
      Agora o recuo mora em quem PINTA (a barra e o corpo aberto) e o card é só a
-     caixa: colapsado ele mede exatamente a barra. As margens negativas saíram
-     junto — existiam só para desfazer isto. */
+     caixa: colapsado ele mede exatamente a barra. Sem margens negativas:
+     existiam só para desfazer isto. */
   padding: 0;
 }
 
@@ -4480,9 +4408,8 @@ main {
   flex-shrink: 0;
   display: flex; align-items: center; gap: var(--sp-4);
   /* A direita reserva o MESMO espaço que o card gasta depois do botão de
-     baixar — hoje só o padding dele (.7rem), já que a moldura e a seta do
-     acordeão saíram na v5.71. Sem isso os dois botões de baixar, que ficam um
-     sobre o outro, não alinhariam. */
+     baixar — hoje só o padding dele (.7rem). Sem isso os dois botões de
+     baixar, que ficam um sobre o outro, não alinhariam. */
   padding: .7rem .7rem .1rem .2rem;
 }
 .coll-group:first-child { padding-top: .2rem; }
@@ -4520,9 +4447,8 @@ main {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .coll-group-name + .coll-group-count { flex: 0 1 auto; }
-/* (`.coll-group-count.done` saiu na v5.263 — ver "O verde sai dos
-   indicadores", abaixo. O verde continua existindo no app; o que ele deixou de
-   fazer é repetir em cor um número que já se lê.) */
+/* (O verde não repete em cor um número que já se lê — ver "O verde sai dos
+   indicadores", abaixo.) */
 .coll-group-count.busy { color: var(--accent); }
 .coll-group-btn {
   /* `--hit`, o mesmo alvo do `.coll-bar-dl` do card: alinhados na coluna, os
@@ -4595,8 +4521,8 @@ main {
    par de vizinhas já tem, e ninguém tinha voltado a respondê-la).
 
    **Aqui SIM vira margem**, ao contrário do que esta regra dizia até a
-   v1.5.19: aquele veto era sobre a MOLDURA da v1.5.9 (revogada na v1.5.14 — a
-   Biblioteca não tem mais moldura, tem alternância de tom) e sobre o CONTEÚDO
+   v1.5.19: aquele veto era sobre a MOLDURA da v1.5.9 (a Biblioteca não tem
+   moldura, tem alternância de tom) e sobre o CONTEÚDO
    da caixa, nunca sobre o scroller — `margin-top` continua FORA do retângulo
    do bloco. O preço que o comentário antigo cobrava —
    `medirTampa` ignorando esse respiro na conta da sobra —
@@ -4743,20 +4669,11 @@ main {
    Escopado em `#hymnResults`, nunca no `.popup-list`: a mesma classe é a fila
    da playlist e os itens de uma pasta, onde .35rem é a medida certa. */
 #hymnResults { gap: var(--sp-5); }
-/* ---------- A ESCALA DE TONS DA BIBLIOTECA SAIU (v1.5.14) ----------
-   O bloco que morava aqui descrevia a regra da v5.241/v5.267: DOIS tons, com
-   `--panel-2` como "o tom de CONTÊINER" e o aninhamento nunca invertendo a
-   direção. Ele já não descrevia o app desde a v1.5.10 (quando `--panel-2` saiu
-   da Biblioteca inteira) e continuava afirmando a receita antiga com a medição
-   dela ao lado — o formato de comentário que este projeto proíbe, porque ele
-   não envelhece calado: ele responde, e responde errado.
-
-   A regra que vale hoje é a ALTERNÂNCIA papel → poço → papel, e ela está
-   escrita uma vez só, no bloco `.acervo` (procure "A HIERARQUIA DA BIBLIOTECA").
-   O que sobrevive daquele texto é a metade que nunca dependeu do número de
-   tons: dentro de um contêiner o conteúdo NÃO ganha caixa — a faixa é uma
-   linha —, e estado (aberto, no ar, selecionado) é preenchimento, nunca um tom
-   novo na escada. */
+/* ---------- A ESCALA DE TONS DA BIBLIOTECA ----------
+   A regra é a ALTERNÂNCIA papel → poço → papel, escrita uma vez só no bloco
+   `.acervo` (procure "A HIERARQUIA DA BIBLIOTECA"). Dentro de um contêiner o
+   conteúdo NÃO ganha caixa — a faixa é uma linha —, e estado (aberto, no ar,
+   selecionado) é preenchimento, nunca um tom novo na escada. */
 .coll-group-bar {
   /* ---------- O RÓTULO INTEIRO MORA AQUI ----------
      Estas quatro linhas e a cor viviam na `.coll-group`, que é o BLOCO — e o
@@ -4771,7 +4688,7 @@ main {
      declaram os seus; quem muda de verdade é o nome de um favorito
      (`.row-name` não declara peso), que volta ao 400 das outras listas.
 
-     ---------- E A CAIXA ALTA SAIU (v1.5.11) ----------
+     ---------- E A FORMATAÇÃO É NORMAL (SEM CAIXA ALTA) ----------
      Pedido do operador: *"Nessas coleções, padronize em caixa alta, ou em
      formatação normal"*. Na RAIZ da Biblioteca uma seção e um card fixo são
      LINHAS IRMÃS (ver as colunas, logo abaixo), e saíam em caixas diferentes:
@@ -4872,12 +4789,9 @@ main {
    quê. MEDIDO: `matrix(-1, 0, 0, -1, 0, -2)` contra o `(…, 0, 2)` desta ordem. */
 .coll-group--drop:not(.aberto) > .coll-group-bar > .coll-group-icon:active,
 .hymnal-card:not(.expanded) .coll-bar-fechar:active { transform: var(--press) rotate(180deg); }
-/* (`.coll-group-icon.vago` e `.coll-group--drop.fixo` saíram na v5.262: a seção
-   dos Favoritos deixou de ser a única que não colapsa — ela nasce aberta por
-   `grupoAberto`, e a partir daí é uma seção como as outras. Um lugar reservado
-   sem seta não existe mais nesta lista. Desde a v5.273 o toque nela ABERTA não
-   a fecha: ela só se recolhe quando outra abre — e a seta continua ali, e
-   continua sendo a mesma, porque é ela que abre as outras.) */
+/* (A seção dos Favoritos nasce aberta por `grupoAberto`, e o toque nela ABERTA
+   não a fecha — ela só se recolhe quando outra abre. A seta continua ali,
+   porque é ela que abre as outras.) */
 /* As AÇÕES da seção, na barra dela (v5.239). O espaçador empurra os botões para
    a direita — o nome fica com `flex: 1` só quando há um contador ao lado, e num
    cabeçalho sem contador ele encolhe ao próprio texto. */
@@ -4955,14 +4869,8 @@ main {
    mesmo motivo pelo qual o ouvinte deste card mora no `li` e não aqui (ver
    `renderCollectionCard`): aquela correção salvou o alvo da BARRA e deixou de
    pé o do botão que mora dentro dela. */
-/* (O overlay `background-image: linear-gradient(--surface, --surface)` que
-   respondia por esta barra SAIU na v1.3.14. Ele existia porque a barra do card
-   ABERTO pinta `background: var(--camada)` numa regra de especificidade maior,
-   e o atalho `background` zera o `background-image` — então o toque não pintava
-   nada justamente onde se toca para FECHAR, e a saída era uma segunda seletora
-   só para vencer aquela. A luz do toque (`--press-luz`, um `filter`) não
-   disputa propriedade nenhuma com o fundo: uma regra a menos e o caso do card
-   aberto resolvido por construção.) */
+/* (A luz do toque (`--press-luz`, um `filter`) não disputa propriedade com o
+   fundo da barra aberta — o caso do card aberto é resolvido por construção.) */
 /* Coluna nome + subtítulo das linhas de lista (coleção, versão da Bíblia,
    resultado de busca): a mesma receita, num lugar só. */
 .coll-bar-info, .bible-ver-main, .hymn-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -4997,8 +4905,7 @@ main {
 .coll-bar-name { line-height: 1.25; }
 .coll-bar-meta { line-height: 1.05; }
 /* (A caixa de `.coll-bar-icon` é declarada junto com a da seção — ver "A seta é
-   a thumbnail das raízes". O `.msym` dela saiu com o glifo da coleção: a thumb
-   do card é a seta desde a v5.244.) */
+   a thumbnail das raízes". A thumb do card é a seta.) */
 /* O DEGRAU DO MEIO da escala (ver "A escala de títulos da Biblioteca"): era
    .95rem, o mesmo do item que ele contém. */
 .coll-bar-name { font-size: var(--fs-lg); font-weight: var(--fw-forte); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -5007,17 +4914,11 @@ main {
    principal. Meio ponto de fonte a menos devolve um caractere de nome sem
    comprometer a leitura de um número secundário. */
 .coll-bar-sync { flex-shrink: 0; font-size: var(--fs-xs); font-weight: var(--fw-forte); color: var(--muted); font-variant-numeric: tabular-nums; }
-/* (`.coll-bar-sync.done` saiu na v5.70: com o álbum completo o resumo não é
-   mais desenhado — ver renderCollectionCard. O verde de "concluído" continua
-   nos CONTADORES DE GRUPO, que somam várias coleções e ali ainda respondem
-   alguma coisa.) */
-/* Sincronizando: o resumo vira o progresso ao vivo. O teto de largura saiu com
-   a coluna da direita (v5.247) — aqui ele tem a linha inteira, e quem cede
-   espaço é o subtítulo ao lado. */
+/* (O verde de "concluído" fica nos CONTADORES DE GRUPO, que somam várias
+   coleções.) */
+/* Sincronizando: o resumo vira o progresso ao vivo. Aqui ele tem a linha
+   inteira, e quem cede espaço é o subtítulo ao lado. */
 .coll-bar-sync.busy { color: var(--accent); font-weight: var(--fw-medio); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* (`.coll-bar-peso` durou uma versão: na v5.94 o resumo da barra PASSOU A SER o
-   peso em todos os estados — ver `fracaoPeso` —, e um segundo elemento só para
-   o álbum completo virou a mesma coisa com outro nome.) */
 
 /* ----- Coleção aberta no próprio card (acordeão do acervo, v5.45) ----- */
 /* Baixar/cancelar a coleção, na barra. Alvo próprio (`--hit`) e `stopPropagation`
@@ -5032,25 +4933,17 @@ main {
   border-radius: var(--radius-btn);
   background: var(--btn-accent); color: var(--accent); cursor: pointer;
 }
-/* (`.coll-bar-dl.done` saiu na v5.263: era código morto desde a v5.135, em que
-   o botão de baixar SAI da barra com a coleção completa — nada nunca voltou a
-   acrescentar `done` a ele.) */
+/* (Com a coleção completa o botão de baixar sai da barra.) */
 /* Baixando: o toque CANCELA. Mesma família de aviso do OUTRO botão de
    cancelar (ver `.coll-group-btn.busy`). O ícone estava em `--danger`, que é
    escuro por construção, sobre a superfície de um botão DENTRO de um cartão —
    2,32:1 medidos, o pior contraste do app inteiro, justamente no controle que
    anuncia "toque para cancelar". */
 .coll-bar-dl.busy { background: var(--btn-warn); color: var(--warn); }
-/* (A seta do acordeão saiu na v5.71, junto com as molduras: numa lista em que
-   TODO card abre, ela dizia o mesmo em todas as linhas — e o que anuncia a
-   abertura agora é o próprio movimento, que a v5.63 passou a animar.)
-   E ABERTO DEIXOU DE SER COR (v1.3.14). O nome do card ficava em `--accent` —
-   o mesmo recurso com que o app marca ESCOLHIDO —, e três coisas já dizem
-   "aberto" ali sem gastar a linguagem de seleção: a seta que gira, a lista de
-   músicas à vista e a sombra da tampa grudada no topo. O que decidiu foi a
-   irmã: uma SEÇÃO aberta nunca pintou o nome dela, e na raiz as duas são
-   linhas do mesmo nível — o mesmo estado saía de duas cores conforme o tipo
-   do bloco. */
+/* (Aberto não é cor: a seta que gira, a lista de músicas à vista e a sombra da
+   tampa já dizem "aberto" sem gastar a linguagem de seleção. E uma SEÇÃO aberta
+   não pinta o nome — na raiz as duas são linhas do mesmo nível, e o mesmo
+   estado não pode sair de duas cores conforme o tipo do bloco.) */
 /* A barra da coleção ABERTA gruda no topo enquanto se percorre as músicas dela.
    Sem isto, um hinário de 600 faixas empurrava a própria barra muito acima da
    tela: a barra é o que FECHA a coleção, e a única à vista passava a ser a de
@@ -5069,10 +4962,8 @@ main {
 .hymnal-card.expanded .coll-bar {
   position: sticky; top: 0; z-index: 3;
   background: var(--camada);   /* o mesmo do cartão: ela é a tampa dele */
-  /* (As margens negativas que havia aqui saíram na v5.288: elas desfaziam o
-     padding do card para a tampa sangrar até a borda — e o padding do card
-     saiu, porque era ele que fazia a faixa em volta da barra não abrir o
-     álbum.) */
+  /* (Sem margens negativas: o card não tem padding próprio, então a tampa já
+     sangra até a borda.) */
   border-radius: var(--radius-card) var(--radius-card) 0 0;
   box-shadow: 0 6px 12px -8px var(--shadow-ink);
 }
@@ -5084,8 +4975,7 @@ main {
 
    `.coll-bar-icon` já dá a caixa, o tom e o raio: aqui fica só o que um botão
    precisa a mais. O `--icon-sm` é o mesmo do glifo que ela substitui, para a
-   troca não mudar o peso visual daquele canto.
-   (`.coll-bar-cfg` saiu com o botão que a usava.) */
+   troca não mudar o peso visual daquele canto. */
 
 /* O LUGAR RESERVADO na coluna da direita: com o álbum aberto e parado, quem
    baixa é o botão do painel logo abaixo — que tem o estado e o progresso. O
@@ -5094,11 +4984,9 @@ main {
 /* OS DOIS BOTÕES DA COLUNA DA DIREITA dividem a geometria de `.coll-bar-dl` —
    centros ou tamanhos que discordem num par colado é a coisa que mais parece
    defeito numa linha. O que os distingue é a COR e o modificador:
-   `.coll-bar-dl` puro = baixar/cancelar · `.coll-bar-rm` = remover. (O terceiro,
-   `.coll-bar-at` — atualizar a lista de uma série — saiu na v1.12.53: abrir o card
-   da série verifica a semana sozinho.) Só o destrutivo muda de cor.
-   (`.coll-bar-dl.vago` saiu junto: ela escondia o botão de baixar com o card
-   aberto porque o painel de dentro repetia a ação. O painel saiu.)
+   `.coll-bar-dl` puro = baixar/cancelar · `.coll-bar-rm` = remover. (Abrir o
+   card da série verifica a semana sozinho.) Só o destrutivo muda de cor. (Com o
+   card aberto, o painel de dentro repete a ação de baixar.)
 
    O DESTRUTIVO FICA SEM RÓTULO porque é CONFIRMADO: quem nomeia o dano é o
    diálogo que ele abre, e o `title`/`aria-label` guarda a frase para o ponteiro
@@ -5121,9 +5009,7 @@ main {
    atravessar a largura toda. Sem filete nenhum (v5.267), o que separa as faixas
    é o espaço, e sangrar até a borda só faria a primeira e a última faixa
    encostarem no canto arredondado do cartão.) */
-/* O RECUO DO CONTEÚDO ABERTO (v5.288): ele vinha do padding do card, que saiu
-   para a faixa em volta da barra deixar de ser margem morta. Aqui ele volta
-   como o que sempre foi — o inset das músicas e o rodapé do cartão. */
+/* O RECUO DO CONTEÚDO ABERTO: é o inset das músicas e o rodapé do cartão. */
 /* ---------- E O RECUO DE CIMA NÃO PODE ESCAPAR (v1.5.17) ----------
    Relato do operador: *"os cards que ficam no topo das listas, como o cards de
    este sábado do informativo, ou das seções do hinário … estão se sobrepondo de
@@ -5539,24 +5425,19 @@ main {
    porque são iguais em forma e conteúdo, e é essa diferença que responde "em
    qual metade estou tocando". */
 .bible-half + .bible-half { padding-top: .55rem; }
-/* (A barra SEMPRE VISÍVEL destas duas grades saiu daqui na v1.8.60 e virou o
-   padrão de todo scroller — a declaração mora na marca `.rola`, junto da tira
-   de sombra. A razão dela nasceu aqui e continua valendo: no Android a barra é
-   "overlay", só aparece durante o gesto e some, e nada indicava que havia mais
-   capítulos ou versículos abaixo.) */
+/* (A barra SEMPRE VISÍVEL destas grades é a da marca `.rola`: no Android a
+   barra é "overlay" — só aparece durante o gesto e some —, e nada indicaria
+   que há mais capítulos ou versículos abaixo.) */
 /* linha de uma versão no popup. ELA É UMA LINHA DE LISTA, e a escolhida veste
    o que toda linha escolhida deste app veste — `--sel-fill`, opaco (v1.3.14).
    Era só cor de TEXTO, o mesmo defeito do `#repeat`; duas listas do mesmo app
    marcando a linha corrente de dois jeitos é a inconsistência que aquela
    passada existiu para fechar.
 
-   **E DESDE A v1.8.84 O FILL É A MARCA INTEIRA.** Havia um `✓` ao lado
-   (`.bible-ver-check`), e o operador o tirou: *"já temos a coloração azul da
-   linha como marcação, não precisamos do check disputando espaço com a
-   lixeira"*. O que ele ocupava volta para o NOME da versão, que é o campo de
-   largura imprevisível desta lista. O ✓ do "Completa offline" não é o mesmo
-   sinal e fica: aquele responde *"está no aparelho?"*, este respondia
-   *"é a escolhida?"* — e essa o fill já responde. */
+   **O FILL É A MARCA INTEIRA.** Sem o ✓ ao lado, o espaço volta para o NOME
+   da versão, o campo de largura imprevisível desta lista. O ✓ do "Completa
+   offline" não é o mesmo sinal e fica: aquele responde *"está no aparelho?"*,
+   e *"é a escolhida?"* o fill já responde. */
 .bible-ver-row.selected { --linha: var(--sel-fill); color: var(--accent); }
 .bible-ver-row .row-name { font-weight: var(--fw-medio); }
 /* `inline-flex` porque o estado COMPLETA carrega um ✓ DESENHADO ao lado do
@@ -5573,9 +5454,7 @@ main {
    mesmo azul do resto (era `--ok`). Na linha selecionada quem carrega a seleção
    é o FILL (`--sel-fill`) e não a cor: ali a linha inteira já é accent por
    herança, e o status era a única peça fora do tom. MEDIDO: 6,63 · 7,70 sobre o
-   painel e 4,92 · 5,87 sobre `--sel-fill` (escuro · claro), acima do verde que
-   saiu. (A `.bible-ver-check` que dividia a linha com ele saiu na v1.8.84 —
-   ver a regra da `.bible-ver-row.selected`.) */
+   painel e 4,92 · 5,87 sobre `--sel-fill` (escuro · claro). */
 .bible-ver-status.done { color: var(--accent); }
 /* ---------- EXCLUIR O TEXTO BAIXADO DE UMA VERSÃO (v1.8.83) ----------
    Pedido do operador: *"faça uma opção para excluir uma determinada versão que
@@ -5688,8 +5567,7 @@ main {
    rótulo passa com folga em todas: pior par 8,72:1 no escuro e 6,46:1 no
    claro.
 
-   Tirar a segunda banda não perde informação nenhuma; perde só o ruído. Os
-   dez `--bt-*` saíram de `tokens.css` com ela — eram os únicos consumidores. */
+   Tirar a segunda banda não perde informação nenhuma; perde só o ruído. */
 .bible-cell {
   position: relative; aspect-ratio: 1; min-width: 0;
   border-radius: var(--radius-btn);
@@ -5746,13 +5624,6 @@ main {
 .bg-gerais     { background-color: var(--b-gerais); }     /* Cartas Gerais   */
 .bg-apocalipse { background-color: var(--b-apocalipse); } /* Apocalipse      */
 
-/* (O bloco que descrevia os OITO TONS DAS COLEÇÕES — `.col-1`…`.col-8`, v1.5.7 —
-   saiu na v1.5.14. As regras que ele explicava tinham sido revogadas na v1.5.9,
-   onze linhas ABAIXO dele, e o comentário sobreviveu à própria revogação
-   afirmando que os nomes "não são código morto". Eram: `grep '\.col-[0-9]'`
-   nesta folha não devolvia nada desde então. É a lápide que o CLAUDE.md proíbe —
-   um comentário que promete um mecanismo que não existe mais faz o próximo
-   leitor procurá-lo, ou reintroduzi-lo.) */
 /* =====================================================================
    A HIERARQUIA DA BIBLIOTECA: PAPEL → POÇO → PAPEL (v1.5.14)
    =====================================================================
@@ -6260,7 +6131,7 @@ main {
    playlist, biblioteca, favoritos auxiliar de leitura e qualquer outro scroll.
    Faça esse o padrão de efeito para os scrolls"*.
 
-   ---------- O BORRÃO SAIU, E O QUE O DERRUBOU FOI O CUSTO ----------
+   ---------- O BORRÃO NÃO SE USA: O QUE O DERRUBA É O CUSTO ----------
    A v1.5.16 usava `backdrop-filter: blur(5px)` e escopou o véu a UMA lista, com
    a razão escrita: *"o `.open` no seletor não é escopo: é custo"*. Ela mediu 4
    camadas compostas e declarou que o custo de GPU no WebView do aparelho NÃO
@@ -6397,9 +6268,9 @@ main {
    calha**, então nada que seja filho dele pinta ali, por margem nenhuma —
    somar a calha à margem negativa deixava o vão em 10,0px, igual.
 
-   DESDE A v1.8.61 A PERGUNTA NÃO SE FAZ MAIS: a barra saiu (`scrollbar-width:
-   none`), e sem barra não há calha em motor nenhum. A nota fica porque a
-   armadilha volta com qualquer barra que volte — e porque ela é a metade
+   A barra não existe (`scrollbar-width: none`), e sem barra não há calha em
+   motor nenhum. A nota fica porque a armadilha volta com qualquer barra que
+   volte — e porque ela é a metade
    negativa da prova que decidiu aquele lote: de dentro do scroller a tira cobre
    149 de 240 linhas do polegar; de fora, 240 de 240. */
 /* E O `top` NEGATIVO É O PAR DO `bottom` DA TIRA DE BAIXO. O ponto em que um
@@ -6642,8 +6513,8 @@ main {
 
    MEDIDO — pior par de texto, entre os dez grupos e as duas grades:
    valor 8,72:1 no escuro e 6,46:1 no claro; rótulo (a .9 de opacidade)
-   6,16:1 e 5,05:1. O `--surface-2` que saiu daqui era o mesmo overlay que
-   compõe uma cor diferente em cada camada — o defeito que `--btn-*` fechou. */
+   6,16:1 e 5,05:1. O fundo não usa `--surface-2`: ele compõe uma cor
+   diferente em cada camada, o defeito que `--btn-*` fechou. */
 /* ---------- A BARRA CABE ENCOLHENDO, NUNCA PINTANDO POR CIMA (v1.7.9) ----------
    Relato do operador: *"na base, onde tem o livro capítulo e versículo
    selecionado, está sobrepondo os elementos na sua direita, por falta de espaço
@@ -6656,10 +6527,8 @@ main {
    cedia; batido o `min-width` dela, o conteúdo saía da caixa e a nav não tem
    `overflow` — e o que sai de uma caixa flex pinta por cima do irmão.
 
-   A CAUSA ERA O RÓTULO, e ele SAIU na v1.8.83: quem se dimensionava por ele
-   eram as três pílulas de número — "CAPÍTULO" e "VERSÍCULO" em caixa alta são
-   muito mais largos que os valores ("3"). Aquele lote pagou o aperto encolhendo
-   a palavra (270px → 222px); este tirou a palavra (→ 117,7px no pior caso).
+   A CAUSA ERA O RÓTULO: "CAPÍTULO" e "VERSÍCULO" em caixa alta são muito mais
+   largos que os valores ("3"). Sem o rótulo, 117,7px no pior caso.
 
    E A ORDEM DE CEDER FICA, agora como barreira que não se alcança. O livro é o
    único campo de largura imprevisível ("1 Tessalonicenses") e o único cujo valor
@@ -6668,9 +6537,9 @@ main {
    de um botão que continua tocável por baixo, e é isso que a ordem garante no
    dia em que uma pílula nova chegar. */
 .bible-ref-part {
-  /* UMA LINHA SÓ desde a v1.8.83: o rótulo saiu e o que restou é o valor. A
-     coluna fica porque é ela que centra o valor nos DOIS eixos com a altura
-     vindo do esticamento contra os botões de guardar. */
+  /* UMA LINHA SÓ: o que há é o valor. A coluna fica porque é ela que centra o
+     valor nos DOIS eixos, com a altura vinda do esticamento contra os botões
+     de guardar. */
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   color: var(--text);
   padding: .3rem .38rem; cursor: pointer; appearance: none; -webkit-appearance: none;
@@ -6704,8 +6573,7 @@ main {
    vem do esticamento contra os botões de guardar — quem encolheu foi a largura. */
 .bible-ref-part--cap, .bible-ref-part--vers { min-width: var(--hit); }
 /* O LIVRO não declara fundo: a tinta do grupo vem do `.bg-<grupo>` que o JS
-   acrescenta. (A faixa de 3px que havia aqui saiu com a do ladrilho — ver
-   "UMA COR POR LADRILHO".) */
+   acrescenta. */
 .bible-ref-part--cap  { background-color: var(--cell-chapter); color: var(--cell-chapter-text); }
 .bible-ref-part--vers { background-color: var(--cell-verse);   color: var(--cell-verse-text); }
 /* A VERSÃO não abre grade nenhuma — abre uma lista. Fica no neutro que a

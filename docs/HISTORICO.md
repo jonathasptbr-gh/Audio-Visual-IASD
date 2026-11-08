@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.39** — revisão S1: CSS PRIMEIRA METADE (o `controle.css` até a metade + `tokens.css`); nenhum seletor morto, `!important`/cores literais/ordem-dependência conferidos como legítimos, e ~67 lápides de "saiu na vX" removidas ou condensadas (regras intocadas)
 - **v1.13.38** — o extrator de canal do NewPipe descarta playlists `LOCKUP_CONTENT_TYPE_COURSE` (é como o YouTube entregou jul/ago/set de 2026 no Provai e Vede); `playlistsDoCanal` lê o JSON cru da aba e aceita os dois tipos (APK, `shellTag: "v1.13.38"`)
 - **v1.13.37** — o "Tocar agora" do vídeo da semana põe o item virtual na fila (`replacePlaylistWith(reg)` no `semanaAcao`); a Biblioteca ordena as séries por nome (Informativo antes de Provai e Vede); a contagem do card é a da lista (`serieTotalVisivel` = `faixasDaLista` + destaque); os `.catch` mudos da retenção viram linha no Registro
 - **v1.13.36** — nos Favoritos a faixa excluir · renomear · ↑↓ vai para trás de um `⋮` (`.dest-opcoes`) na fileira de destinos, substituindo-os ao toque pelo mecanismo do Cronograma (`alternarAcoesDaLinha`); o "Ver a letra" só para registro com letra; `fecharOutrasGavetas`: uma gaveta aberta por vez na Biblioteca inteira (o destaque da série ficava aberto)
@@ -649,6 +650,18 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.13.39 — revisão S1 (CSS, primeira metade)
+
+**v1.13.39** — (só web, sem `shellTag`: a Release da v1.13.38 já está publicada; degrau CORREÇÃO; `SHELL_VERSION` 83, `minShell: 83`). Revisão S1: a PRIMEIRA METADE do `controle.css` (do início à linha ~6711) mais o `shared/tokens.css` inteiro.
+
+- **`tokens.css` limpo.** Nenhum token declarado sem leitor (a varredura do `tokens.test.mjs` já o trava, reconferida à mão: 73 tokens, todos com `var(--x)` ou leitor em JS), nenhum duplicado, nenhum não-cor, nenhum `!important`.
+- **Nenhum seletor morto.** Os 417 `.classe`/42 `#id` da cerca foram cruzados contra JS/HTML: toda ausência é classe construída em tempo de execução (`bg-<grupo>` da Bíblia, `row-nota--<tipo>`) ou menção só em comentário (já lápide). Não havia regra casando com nada.
+- **`!important` (9), cores literais (6 sombras `rgba(0,0,0,…)` + `transparent`) e regras ordem-dependentes (~6) conferidos e deixados**: são as exceções NOMEADAS da paleta (sombra do `.pv-fab`, documentada em `tokens.css`) e ordenações deliberadas (a `z-index` da `.pv-text` sobre a `.pv-layer`, o `color` das portas em `--surface-porta`), não defeitos.
+- **~67 lápides removidas ou condensadas.** Os comentários `(X saiu na vY)` que descreviam mecanismo removido (faixa de abas `.tab*`, `#favHeadBtn`, `.fav-section`, selos `.url-badge`/`.yt-badge`/`.cue-badge`, `.net-badge`, `.coll-bar-peso`/`.coll-bar-cfg`/`.coll-bar-at`, `.bible-ver-check`, a lápide autorreferente `.col-1`…`.col-8`, e dezenas de parentéticos) saíram; onde o "saiu" carregava razão que ainda vale para o código de HOJE, ela virou regra no presente ("Aberto não é cor", "o verde não repete o número", "sem faixa própria para a cor do álbum"). Prova 1 do CLAUDE.md: o arquivo SEM comentário é byte-idêntico ao HEAD (3.703 linhas não-comentário cada).
+- **Nada muda no que o operador vê ou faz.** Só comentário; nenhuma regra, seletor ou declaração foi tocada.
 
 ---
 
