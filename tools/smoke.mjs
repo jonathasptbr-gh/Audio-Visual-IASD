@@ -4188,7 +4188,13 @@ try {
       r.parLarguras = parFila.map((b) => Math.round(b.width)).join(' + ')
         + ' de ' + Math.round(faixaFila.width);
       li.querySelector('.linha-sim').click();
-      await new Promise((f) => setTimeout(f, 400));
+      // O FATO, não o prazo: a saída anima (`aoSair`) ANTES de `aoConfirmar`
+      // remover, e sob carga 400 ms medem o runner, não o desfecho (a campanha de
+      // determinismo da v5.316). Espera a fila ESVAZIAR, com teto.
+      for (let i = 0; i < 40; i++) {
+        await new Promise((f) => setTimeout(f, 100));
+        if (!(await AVDB.listHas('playlist', m.id))) break;
+      }
       r.saiuDaFila = !(await AVDB.listHas('playlist', m.id));
     }
     await AVDB.listRemove('playlist', m.id);

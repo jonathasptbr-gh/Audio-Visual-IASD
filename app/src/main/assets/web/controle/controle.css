@@ -13403,6 +13403,12 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
 .acoes-abertas .dest-opcoes { background: var(--btn-accent); }
 .dest-botoes > .fav-acoes { display: none; height: var(--quad-faixa); }
 .acoes-abertas .dest-botoes > .fav-acoes { display: flex; flex: 1 1 auto; }
+/* Aberta, a faixa SUBSTITUI os destinos e tem de ficar NA MESMA fileira do `⋮`
+   (a altura dos quadrados). O `flex-wrap` da `.dest-botoes` existe para o
+   `.dest-largo` descer sozinho; com a faixa aberta ele derrubaria a faixa para
+   uma segunda linha na tela estreita (360×1,25×) — o que o `destinos-diretos`
+   cobra em `faixaNaFileira`. */
+.acoes-abertas .dest-botoes { flex-wrap: nowrap; }
 .acoes-abertas .dest-botoes > :is(.dest-btn:not(.dest-opcoes), .dest-largo) { display: none; }
 .dest-botoes > .fav-acoes > .linha-confirma > :is(.linha-confirma-btn, .linha-renome-campo) {
   min-height: var(--quad-faixa);

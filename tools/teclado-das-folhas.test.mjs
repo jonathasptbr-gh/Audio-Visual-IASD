@@ -405,6 +405,8 @@ try {
       res.scrollTop = res.scrollHeight;
       if (!li.classList.contains('expanded')) { li.querySelector('.row').click(); await new Promise((f) => setTimeout(f, 300)); }
       res.scrollTop = res.scrollHeight;
+      li.querySelector('.hymn-gaveta .dest-opcoes').click();
+      await new Promise((f) => setTimeout(f, 150));
       li.querySelector('.hymn-gaveta .fav-acoes .row-renomear').click();
       await new Promise((f) => setTimeout(f, 250));
       res.scrollTop = res.scrollHeight;
