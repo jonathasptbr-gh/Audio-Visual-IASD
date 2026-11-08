@@ -30,7 +30,7 @@ abandonada → primeira pendente pelo `nº`).
 | 16 | C7 | feita | v1.13.27 (só web) | 2026-11-06 | nenhum defeito de culto na fatia; o sorteio guardado/que vira a fila desfeito por um `load()` em voo (`listasSeq`, repasse C4 confirmado + asserção com reversão); o lote do sorteio consumido sem ação (+ asserção); a Verificação sem o `progresso.js` (+ asserção); ~220 comentários (8 blocos no símbolo errado) |
 | 17 | C8 | feita | v1.13.28 (só web) | 2026-11-06 | nenhum defeito de culto na fatia; o link compartilhado ficava fora do Cronograma até a próxima releitura (`load()` no fim do `importShare` + asserção com reversão); o resgate dos downloads em `updateState` (repasse W1 + asserção com reversão); repasse C4 do `redesenharComMiniatura` refutado; ~270 comentários (8 blocos no símbolo errado) |
 | 18 | C9 | feita | v1.13.31 (só web) | 2026-11-06 | nenhum defeito de culto na fatia; a folha de conexão nomeava a TV errada com duas telas (`telaoNoAr`, a régua do Registro + asserção com reversão); os repasses C4/C6 de `plItems` refutados; código morto da transmissão; ~290 comentários (1 bloco no símbolo errado) |
-| 19 | S1 | pendente | | | |
+| 19 | S1 | em curso | | 2026-11-08 | |
 | 20 | S2 | pendente | | | |
 | 21 | K1 | pendente | | | |
 | 22 | K2 | pendente | | | |
