@@ -34,7 +34,7 @@ abandonada → primeira pendente pelo `nº`).
 | 20 | S2 | feita | v1.13.40 (só web) | 2026-11-08 | nenhum defeito de culto; 4 regras mortas e 3 classes mortas do HTML fora; ~31 lápides removidas/condensadas (regras intocadas, prova 1); visuais não capturados (sem Chromium) |
 | 21 | K1 | feita | v1.13.41 (APK + web) | 2026-11-08 | invariantes 1–9 provadas e com oráculo novo (`invariantes-shell`, 8 reversões); 2 defeitos corrigidos (os dois shares que se comiam; as teclas de volume na recarga do OTA); ~11 lápides/KDoc empilhados |
 | 22 | K2 | feita | v1.13.42 (APK + web) | 2026-11-08 | as SEIS filas (o APK saiu da `transferencia`), guarda de duplo toque, `pickDoc` fora da main, `Throwable` nas promises sem prazo, share com item nulo; oráculo novo `ponte-guarda-host` (4 reversões); ~12 comentários |
-| 23 | K3 | pendente | | | |
+| 23 | K3 | em curso (2026-11-08) | | | |
 | 24 | K4 | pendente | | | |
 | 25 | K5 | pendente | | | |
 | 26 | K6 | pendente | | | |
