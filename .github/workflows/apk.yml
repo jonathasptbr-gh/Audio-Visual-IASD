@@ -274,6 +274,30 @@ jobs:
           node tools/cifra.test.mjs
           node tools/louvorja-url.test.mjs
 
+      # ---------- O ORÁCULO QUE NÃO ESTÁ NA LISTA NÃO PROTEGE ----------
+      # A varredura que antes era feita À MÃO (a linha `comm -3` do CLAUDE.md)
+      # vira um passo. O defeito que ela trava é o mais caro do rito: um
+      # *.test.mjs novo no disco que ninguém roda — quatro vezes em nove lotes,
+      # e o modo de falhar é o run ficar verde porque ninguém o executa. A
+      # comparação é nos DOIS sentidos (arquivo sem linha, linha sem arquivo), e
+      # os dois smoke — que medem o RENDERIZADO e não têm sufixo .test — são
+      # cobrados à parte, porque um filtro por .test.mjs os pulava em silêncio
+      # (o defeito da v1.8.50).
+      - name: Oráculo fora da lista (varredura)
+        run: |
+          set -uo pipefail
+          disco=$(ls tools/*.test.mjs 2>/dev/null | sort)
+          workflow=$(grep -oE 'tools/[a-z0-9.-]+\.test\.mjs' .github/workflows/apk.yml | sort -u)
+          sobra=$(comm -3 <(printf '%s\n' "$disco") <(printf '%s\n' "$workflow"))
+          if [ -n "$sobra" ]; then
+            printf 'ORÁCULO FORA DA LISTA (arquivo sem linha, ou linha sem arquivo):\n%s\n' "$sobra"
+            exit 1
+          fi
+          for f in tools/smoke.mjs tools/display-smoke.mjs; do
+            grep -q "rodar $f" .github/workflows/apk.yml || { echo "FALTA NA LISTA: $f"; exit 1; }
+          done
+          echo "varredura OK: $(printf '%s\n' "$disco" | wc -l) .test.mjs na lista, smoke e display-smoke presentes"
+
       - name: Tokens de CSS que não existem (Node puro)
         run: |
           # Um `var(--nao-existe)` SEM fallback computa para o valor INICIAL da
@@ -724,9 +748,37 @@ jobs:
 
           passaram=$((rodados - ${#falhas[@]}))
           echo "Oráculos em Chromium: $passaram/$rodados passaram (em $PARALELO processos)." | tee -a "$GITHUB_STEP_SUMMARY"
+          # O PLACAR VIRA UMA LINHA para o passo seguinte (o status do commit):
+          # "134/134" ou "134/134 REPROVOU: tools/x tools/y".
+          veredito="$passaram/$rodados"
+          [ ${#falhas[@]} -eq 0 ] || veredito="$veredito REPROVOU:${falhas[*]}"
+          echo "VEREDITO_ORACULOS=$veredito" >> "$GITHUB_ENV"
           if [ ${#falhas[@]} -eq 0 ]; then exit 0; fi
           printf 'REPROVOU: %s\n' "${falhas[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
           exit 1
+
+      # ---------- O VEREDITO VIRA STATUS DO COMMIT ----------
+      # O placar sai do log e vira UMA linha publicada no commit ("134/134" ou
+      # "REPROVOU: tools/x"), lida sem abrir log nem vigiar o run. INFORMATIVO:
+      # o portão continua sendo o código de saída do passo acima — este nunca
+      # reprova o job por si (melhor-esforço; sem permissão, cala).
+      - name: Veredito dos oráculos (status do commit)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -z "${VEREDITO_ORACULOS:-}" ]; then
+            echo "oráculos não chegaram a rodar — sem status a publicar"
+            exit 0
+          fi
+          case "$VEREDITO_ORACULOS" in
+            *REPROVOU*) estado="failure" ;;
+            *) estado="success" ;;
+          esac
+          desc="${VEREDITO_ORACULOS:0:140}"
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
+            -f state="$estado" -f context="oraculos" -f description="$desc" \
+            >/dev/null 2>&1 && echo "status publicado: $desc" || echo "status não publicado (sem permissão?)"
 
 
   # Publica a base web como bundle OTA: um push em `main` chega sozinho aos
