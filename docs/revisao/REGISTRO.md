@@ -39,7 +39,7 @@ abandonada → primeira pendente pelo `nº`).
 | 25 | K5 | feita | v1.13.45 (APK + web) | 2026-11-08 | o APK truncado ia ao instalador e as TRÊS recusas pós-download rebaixavam o mesmo zip de 15 em 15 s; a transmissão não republicava com cena no ar; oráculos novos `servico-em-primeiro-plano` + `ota-ativacao` (34 asserções, 16 reversões) |
 | 26 | K6 | feita | v1.13.46 (APK + web) | 2026-11-08 | a cifra seguia redirecionamento para fora da allowlist; o `deckPaginas` baixava de QUALQUER host e vazava as páginas quando falhava no meio; a foto acima do teto virava `200` cortado; o `fim` do pacote fazia `flush` de `content://` na main; JUnit novo `CifraFonteTest` (9 casos, reversão 7/9); o pin do NewPipe conferido contra a v0.27.0 e mantido, com o porquê escrito |
 | 27 | X1 | feita | v1.13.47 (APK + web) | 2026-11-08 | os SEIS órfãos saíram do Kotlin (76 → 70 servidos; 64 · 70 · 70); `SHELL_VERSION` 85; `StreamProxy` e a rota `/s/` ficam latentes |
-| 28 | X2 | pendente | | | |
+| 28 | X2 | em curso (2026-11-08) | | | |
 | 29 | X3 | pendente | | | |
 | 30 | X4 | pendente (opcional: só com o "sim" do operador) | | | |
 
