@@ -6626,12 +6626,7 @@ main {
 }
 .bible-ref-part:first-child { border-radius: var(--radius-btn) 0 0 var(--radius-btn); }
 .bible-ref-part:last-child { border-radius: 0 var(--radius-btn) var(--radius-btn) 0; }
-/* (A `.bible-ref-label` SAIU na v1.8.83 com os rótulos que ela vestia — ver o
-   `part()` no `renderBibleReading`. O que a palavra dizia, a TINTA da pílula já
-   dizia desde a v1.3.14, e o `title`/`aria-label` do botão diz para quem não
-   enxerga a tinta.)
-
-   O valor herda a cor da PÍLULA (`currentColor`), senão as quatro voltariam a
+/* O valor herda a cor da PÍLULA (`currentColor`), senão as quatro voltariam a
    ter o mesmo traço sobre quatro fundos diferentes — e um `--accent` sobre a
    tinta quente do versículo não é a mesma leitura que sobre a fria do
    capítulo. */
@@ -6648,11 +6643,7 @@ main {
 
    `:empty` porque o rodapé só existe quando há o que pôr nele: a folha da
    Bíblia não o tem, e um `margin-top` sobre uma caixa vazia seria um vão sem
-   dono no fim do corpo.
-
-   (O MICROFONE AO VIVO morava aqui, ao lado do projetar, e saiu na v1.8.89 —
-   ver a lápide no `controle.js`. Com ele foram `.mic-wrap`, `.mic-btn`,
-   `.mic-btn-label`, `.mic-note` e o `@keyframes mic-pulse`.) */
+   dono no fim do corpo. */
 .tools-foot { flex-shrink: 0; margin-top: var(--sp-4); }
 .tools-foot:empty { display: none; }
 
@@ -6856,9 +6847,6 @@ main {
   display: flex; flex-direction: column;
 }
 .ferr-saindo-corpo { flex: none; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
-/* (O SELETOR DE FERRAMENTAS — `.misc-switch`/`.misc-tab`, a faixa de três abas com o
-   ponto de "no ar" — saiu na v1.13.3: a folha abre numa LISTA, ver `.ferr-grade`. O
-   ponto mudou de casa com ele, para a ponta da linha.) */
 /* O painel da ferramenta ativa ocupa toda a altura restante.
    `touch-action: pan-y` PRECISA estar aqui, e não bastava na `.lib-list`: o
    valor de um ANCESTRAL não governa um toque que começa dentro de um scroller
@@ -6925,9 +6913,6 @@ main {
   position: relative;
   display: flex; flex-direction: column; gap: var(--sp-3);
 }
-/* (O SEGMENTADO DE DENTRO das ferramentas — `.misc-modes`/`.misc-seg`: Relógio ·
-   Cronômetro · Timer · Itinerário, e Número · Texto — saiu na v1.13.3. Os quatro do
-   Tempo são tiles da grade; o do Sorteio virou o chip "Números".) */
 /* ---------- UMA LINHA SÓ PARA O TEMPO (v1.8.89) ----------
    O mostrador e o transporte na MESMA faixa — quatro linhas viraram uma, e é o
    que tirou a rolagem da folha. Ver `renderChrono`.
@@ -6947,11 +6932,6 @@ main {
    compartilhada isso se inverteu: o pedido do operador é *"ajuste as dimensões
    do relógio e do cronômetro para o sistema de aproveitamento máximo da
    janela"*, e quem aproveita é justamente quem cresce. */
-/* (O `.chrono-read` — o mostrador de TEXTO — saiu na v1.8.94: as três
-   ferramentas passaram a usar a mesma roleta, e com ela foram embora as regras
-   que dimensionavam aquele número, inclusive o teto por `cqw` que existia
-   porque o texto podia estourar a caixa de lado. A roleta responde a mesma
-   pergunta por medição — ver `acertarRoletas`.) */
 
 /* ---------- AS DUAS ROLETAS DO TIMER (v1.8.92) ----------
    Pedido do operador: *"uma roleta/lista vertical de 0 a 60 para os minutos e
@@ -7103,8 +7083,6 @@ main {
    ESCOPADO à legenda: os outros `.misc-text` são listas e faixas numéricas, que
    se leem alinhadas à esquerda. */
 .misc-row--legenda .misc-text { text-align: center; }
-.misc-row--save { flex-wrap: wrap; }
-.misc-save-btns { display: flex; gap: var(--sp-3); margin-left: auto; }
 .misc-num, .misc-text {
   flex: 1; min-width: 0; padding: .42rem .55rem;
   border-radius: var(--radius-btn);
@@ -7372,17 +7350,10 @@ main {
      que rola: a resposta honesta de uma janela que não cabe. */
   flex: 1 1 auto; min-height: 2.2rem; overflow-y: auto;
   gap: var(--sp-2); padding-bottom: .2rem;
-  /* ELE É UM `.rola` DESDE A v1.9.2, e antes não era — a marca entrou com a
-     rolagem VERTICAL. Enquanto ele rolava só na horizontal a sombra das bordas
-     não descrevia nada (é ela que diz "há conteúdo acima/abaixo"), e o censo do
-     `sombra-de-rolagem` o excluía justamente por isso. Rolando no eixo em que a
-     sombra fala, ele virou um scroller como os outros.
-     A `scrollbar-width` fica declarada aqui porque a marca também a declara
-     desde a v1.8.61: as duas coincidem, e a coincidência é acidente, não
-     herança.
-     (O `::-webkit-scrollbar { display: none }` que acompanhava saiu na v1.8.60,
-     pela prova que matou os outros nove: o Chromium desliga os pseudos WebKit
-     quando `scrollbar-width` é diferente de `auto`, e aqui ele é `none`.) */
+/* ELE É UM `.rola`: no eixo vertical a sombra das bordas diz "há conteúdo
+     acima/abaixo", e é por isso que o censo do `sombra-de-rolagem` o inclui.
+     A `scrollbar-width` é declarada aqui e na marca — a coincidência é
+     acidente, não herança. */
   scrollbar-width: none;
 }
 .draw-hist-chip {
@@ -7394,10 +7365,6 @@ main {
 /* O ÚLTIMO sorteado em destaque: é o que acabou de ser anunciado, e a lista
    está em ordem inversa justamente para ele ficar à mão. */
 .draw-hist-chip.last { background: var(--btn-accent); color: var(--text); }
-/* (O `.draw-go` — o "Sortear" de largura inteira no fim do painel — saiu na
-   v1.9.1: sortear e reiniciar viraram DOIS QUADRADOS no rodapé, ao lado do
-   primário, e quem os veste é o `.chrono-btn` das abas irmãs. Ver
-   `.misc-foot-esq`.) */
 
 /* ---------- Mensagens (texto puro) ---------- */
 /* O "+ Nova mensagem" É O PRIMÁRIO DO RODAPÉ desde a v1.9.2 — a única ação da
@@ -7422,28 +7389,16 @@ main {
   padding: .7rem; font-size: var(--fs-lg); font-weight: var(--fw-forte);
   cursor: pointer; appearance: none; -webkit-appearance: none;
 }
-/* ---------- A LINHA DE MENSAGEM É UMA `.lib-item` (v1.9.3) ----------
-   Ela tinha componente próprio — `.msg-item`, `.msg-text`, `.msg-acoes`,
-   `.msg-parar` e o envelope `.msg-row` — e virou a MESMA linha de lista do
-   Cronograma: miniatura, nome, `⋮` e a faixa de ações atrás dele. Saíram junto
-   as cinco regras e o que elas resolviam à mão, porque a `.lib-item` já
-   resolve: o cartão, o `--linha`, o `overflow: hidden` que recorta a gaveta nos
-   cantos, o "no ar" em `--live-fill` e a caixa de `--thumb` dos botões.
+/* ---------- A LINHA DE MENSAGEM É UMA `.lib-item` ----------
+   Miniatura, nome, `⋮` e a faixa de ações atrás dele — a MESMA linha de lista do
+   Cronograma já resolve o cartão, o `--linha`, o recorte da gaveta nos cantos, o
+   "no ar" em `--live-fill` e a caixa de `--thumb` dos botões.
 
-   **O QUE FICOU SEM DONO E SAIU JUNTO:** a quebra da fileira (`flex: 1 1 12rem`
-   no texto mais o grupo `.msg-acoes`, v1.9.2) era o conserto de cinco botões
-   disputando a linha com o texto — com eles escondidos atrás do `⋮` não há
-   fileira para quebrar, e a linha tem duas colunas fixas de `--thumb` como
-   qualquer outra. Uma regra que resolve um problema que deixou de existir é
-   armadilha: ela responde "isto está protegido?" com um sim que não descreve
-   nada.
-
-   **E NÃO HÁ REGRA DE COR AQUI**, o que fica dito porque foi escrita e
-   revogada no mesmo lote: um `.msg-list > .lib-item { --linha: var(--camada) }`
-   parece inofensivo (é o valor que a `.lib-item` já tem) e MATA o "no ar" —
-   ele empata em especificidade com `.lib-item.no-ar` e vence por vir depois.
-   MEDIDO: a linha da mensagem projetada saía em `--camada` em vez do
-   `--live-fill`, e o único sinal de que ela estava no telão era o ⏹ na capa. */
+   **E NÃO HÁ REGRA DE COR AQUI**, o que fica dito porque foi escrita e revogada
+   no mesmo lote: um `.msg-list > .lib-item { --linha: var(--camada) }` parece
+   inofensivo (é o valor que a `.lib-item` já tem) e MATA o "no ar" — ele empata
+   em especificidade com `.lib-item.no-ar` e vence por vir depois. MEDIDO: a
+   linha da mensagem projetada saía em `--camada` em vez do `--live-fill`. */
 /* ---------- O NOME DA MENSAGEM CABE EM DUAS LINHAS ----------
    É a ÚNICA coisa em que esta linha se afasta das outras, e a razão é o que ela
    mostra: no Cronograma o `.row-name` é o TÍTULO de uma mídia — "Hino 15",
@@ -7499,11 +7454,10 @@ main {
 /* ABERTA = LIGADO, e ligado é o par de sempre (`--btn-accent` + `--accent`) — a
    MESMA linguagem do `.fav-btn.on` na fileira ao lado. */
 .msg-estilo-btn.on { background: var(--btn-accent); color: var(--accent); }
-/* Indicador de salto pro capítulo/livro vizinho (preview anterior/próximo). A
-   moldura TRACEJADA saiu na v5.267: quem diz que aquela seção é de outro
-   capítulo é o rótulo `.bible-vsec-cross` em `--brand` — uma palavra, que é
-   mais do que um estilo de linha jamais disse — somada ao `.adj`, que já
-   esmaece as duas seções de contexto. */
+/* Indicador de salto pro capítulo/livro vizinho (preview anterior/próximo).
+   Quem diz que aquela seção é de outro capítulo é o rótulo `.bible-vsec-cross`
+   em `--brand` — uma palavra — somado ao `.adj`, que já esmaece as duas seções
+   de contexto. */
 .bible-vsec-cross { font-size: var(--fs-2xs); font-weight: var(--fw-forte); letter-spacing: .04em; text-transform: uppercase; color: var(--brand); }
 /* `flex: 1 1 0` com `min-height: 0`: as seções dividem a altura disponível em
    vez de somarem a altura do próprio texto (que é imprevisível — um versículo
@@ -7739,11 +7693,7 @@ main {
   .pv-text-content .itin-linha, .pv-text-content .itin-hora { transition: none; }
 }
 
-/* (O fundo de ação do deslize — `.swipe-bg`/`.swipe-hint` — saiu na v5.50 com
-   o próprio gesto: ver "gestos da biblioteca" em controle.js. O eixo horizontal
-   da lista pertence agora ao carrossel de abas.) */
 
-/* (A linha-guia de reordenação saiu na v5.285, com o arrasto inteiro.) */
 
 /* ---------- Popup de playlist (bottom sheet) ---------- */
 .popup-backdrop {
@@ -7822,9 +7772,7 @@ main {
    outro popup. Com o mesmo z-index de todos, quem decidiria seria a ordem do
    documento — e é justamente o tipo de acaso que já cobriu um popup por
    inteiro aqui (o toque parecia não fazer nada). Um degrau acima diz a
-   intenção, e o voltar acompanha (ver POPUPS, ordenada de baixo para cima).
-   (O `#collPopup` que dividia esta regra saiu na v5.72: as opções da coleção
-   viraram um painel dentro do próprio card.) */
+   intenção, e o voltar acompanha (ver POPUPS, ordenada de baixo para cima). */
 #songMenuPopup { z-index: 210; }
 /* CONFIGURAÇÕES PODE IR QUASE ATÉ A BASE (v1.12.49), pedido do operador: *"permita
    essa janela de configurações ficar maior em altura se necessário para que abrigue
@@ -7872,10 +7820,6 @@ main {
    CONFIGURAÇÕES TEM A MESMA FORMA (uma folha do teto com campos: a busca e o nome do
    Editar mídia), e por isso a mesma exceção ao `inset: 0` do `.popup-backdrop`. */
 #fadePopup { inset: var(--vv-top, 0px) 0 var(--kb-folha, 0px) 0; }
-/* (O `#folderPopup` — o seletor de atalhos, que abria de dentro da folha da
-   música e por isso pedia mais um degrau (220) — saiu na v5.254 com os atalhos
-   de pasta. O 220 fica LIVRE: é o degrau do próximo popup que abrir de dentro
-   do `#songMenuPopup`.) */
 /* ===== A BIBLIOTECA É UMA JANELA DE TELA CHEIA QUE SOBE (v1.5.1 → v1.5.2) =====
    Pedidos do operador, nesta ordem: *"ela é um popup de tela inteira, ela surge
    da base da tela e vai levantando a barra de buscas, de modo que a barra de
@@ -8515,10 +8459,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 }
 .popup-acao.popup-acao--rotulo.compacto { width: var(--hit); padding: 0; }
 .popup-acao.popup-acao--rotulo.compacto > span { display: none; }
-/* (O `.popup-total` — o contador de peso do acervo inteiro e o botão de baixar
-   tudo, no cabeçalho — saiu na v5.258, a pedido do operador. O `flex-shrink: 0`
-   do ✕ que ele justificava continua valendo: o cabeçalho é uma linha flex, e um
-   vizinho que se recusa a encolher empurra o último item para fora do sheet.) */
 
 /* ---------- A ROLAGEM PARA AQUI DENTRO ----------
    `overscroll-behavior: contain` corta o ENCADEAMENTO para a página. Sem ele, a
@@ -8810,11 +8750,9 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   flex: 0 0 var(--faixa-alt);
   display: flex; align-items: center; justify-content: center;
   padding: 0;
-  /* A MESMA CAIXA DO IRMÃO (v1.8.53), e a COR é o que os separa: `--accent`
-     aqui, `--danger-text` no limpar. Ele saiu da regra agrupada do
-     `--btn-accent` — ver lá o porquê, que é o argumento da v1.5.19 caindo pela
-     segunda vez. O raio continua vindo da regra do `--radius-btn`, que ele
-     divide com a `.selbar`. */
+/* A MESMA CAIXA DO IRMÃO, e a COR é o que os separa: `--accent` aqui,
+     `--danger-text` no limpar. O raio continua vindo da regra do
+     `--radius-btn`, que ele divide com a `.selbar`. */
   background: var(--surface); color: var(--accent);
   font-size: var(--fs-md); font-weight: var(--fw-medio); font-family: inherit; cursor: pointer;
   appearance: none; -webkit-appearance: none;
@@ -9019,13 +8957,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .display-status.connected {
   background: var(--ok-fill); color: var(--ok);
 }
-/* (A faixa da versão — `.versao-faixa`, dois `.diag-btn` preenchidos em partes
-   iguais, v1.8.65 — saiu na v1.12.50: a versão e o pedir ajuda moram no cabeçalho
-   de Configurações, ver `.versao-txt` e `.popup-acao`.) */
 
-/* (`.folder-pick-btn` saiu na v5.254, com o popup de seleção de pasta: os
-   atalhos de pasta deixaram de existir, e uma pasta do APARELHO não recebe
-   itens um a um — ela vem inteira.) */
 
 /* ---------- Busca (pasta e Hinário) ---------- */
 /* appearance:none mata o visual NATIVO do sistema que o `type="search"` ganha
@@ -9047,11 +8979,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .lib-search::-webkit-search-results-button,
 .lib-search::-webkit-search-results-decoration { -webkit-appearance: none; appearance: none; display: none; }
 
-/* (A GAVETA DOS FAVORITOS saiu na v5.294, com as regras que a desciam do topo,
-   o degrau de `z-index` que a punha acima da Biblioteca e a margem da `.selbar`
-   movida para dentro dela. Ela era a tela de DENTRO de uma pasta do aparelho, e
-   a v5.290 — ao fazer a pasta abrir INLINE, como um álbum — tirou o último
-   caminho até lá. Ver o bloco no topo do `controle.js`.) */
 
 /* ---------- A BIBLIOTECA É UMA TELA, NÃO UM POPUP (v5.263) ---------- */
 /* ===== A JANELA DA BIBLIOTECA VOLTOU A DESLIZAR (v1.5.0 → v1.5.1) =====
@@ -9075,11 +9002,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 /* Barra de busca do Hinário ocupando toda a largura da bandeja: display:flex faz
    o input (.lib-search, flex:1) esticar de lado a lado (sem isso o input ficava
    no tamanho nativo, pequeno). Campo mais alto/legível que o de busca da pasta. */
-/* (O CABEÇALHO DA BIBLIOTECA saiu na v5.258 — ele tinha virado uma faixa
-   repetindo o nome do botão que abre a tela —, e as duas regras que o pintavam
-   e centravam o título dele sobreviveram sem alvo até a v1.5.2. Com elas foi o
-   último consumidor do `--field-bar`, o tom que a barra de busca usava como
-   faixa própria: hoje a barra não pinta nada. O token saiu do `tokens.css`.) */
 /* ---------- A BARRA DA BIBLIOTECA FICA NO TOPO ----------
    Ela já morou na BASE, por ALCANCE (no topo, corrigir a busca com o teclado
    aberto custa a tela inteira de percurso do polegar). O que desmentiu esse
@@ -9101,10 +9023,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    O ESCOPO EM `#hymnSearchPopup` FICA mesmo com uma barra só: a classe é o nome
    de "barra de busca de uma folha", e escopar impede a próxima de nascer
    herdando esta geometria. */
-/* (`.hymn-search-bar` SAIU na v1.5.0: a barra da Biblioteca virou a `.lib-bar`
-   da caixa de controles, fora dela. Com ela saíram o `--field-bar` de fundo e a
-   sombra para baixo, que existiam porque ali a barra flutuava sobre uma lista
-   que rola por baixo — na caixa de controles não passa nada atrás dela.) */
 /* ---------- A LUPA DENTRO DO CAMPO (v5.264) ----------
    Ela é o rótulo do campo: o placeholder é a única outra coisa que diz o que
    aquela caixa faz, e ele some no primeiro caractere digitado. (Ela nasceu com
@@ -9203,11 +9121,8 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
      A ALTURA continua sendo a do campo: quem manda na linha é ele. */
   width: var(--deck-col); height: var(--campo-alt); flex-shrink: 0;
   border-radius: var(--radius-btn);
-  /* O TOM DOS BOTÕES DO CONTROLE (v1.5.2): `--surface`, o mesmo do `.t-btn` e
-     do `.ctl-btn` que ficam logo abaixo. Eles vestiam `--field-bg` (branco
-     literal) com elevação, e isso era consequência da faixa `--field-bar` que
-     saiu: sobre uma faixa escura um botão em `--surface` daria 2,09:1 no glifo.
-     Sem faixa, o argumento inverte — o que separa a peça do fundo é o mesmo
+/* O TOM DOS BOTÕES DO CONTROLE: `--surface`, o mesmo do `.t-btn` e do
+     `.ctl-btn` que ficam logo abaixo. O que separa a peça do fundo é o mesmo
      degrau que separa os botões do transporte. A SOMBRA sai junto: ela existia
      para separar branco de branco no tema claro, e não há mais branco. */
   background: var(--surface); color: var(--text);
@@ -9344,10 +9259,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .hymn-play-thumb .dl-ring { --dl-ring: 26px; display: none; }
 .hymn-play-thumb.busy .dl-ring { display: flex; }
 .hymn-play-thumb.busy .msym, .hymn-play-thumb.busy > svg { display: none; }
-/* (O ALVO EXPANDIDO DOS DOIS BOTÕES, v5.278, saiu na v5.285 com os botões. Ele
-   existia porque errar por três pixels não devolvia "nada aconteceu" — devolvia
-   a gaveta abrindo no lugar da ação. Hoje o alvo é a LINHA e não há como errar:
-   os dois desfechos viraram um.) */
 /* `flex:none` desfaz o `flex:1` de .row-name: aqui o pai é uma coluna, e
    crescer significaria esticar na VERTICAL (o nome descolaria do subtítulo). */
 /* MESMA ESCALA DO TÍTULO DO ÁLBUM (v5.240): a faixa era 1.02rem e o cartão que
@@ -9372,10 +9283,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   padding-left: .4rem; margin-top: .12rem;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 }
-/* (A duração saiu da linha na v5.63: ela ocupava a única sobra de largura para
-   dizer um número que não decide nada — ver hymnResultRow. O lugar é do botão
-   de adicionar. As regras `.hymn-actions`/`.hymn-variant`/`.hymn-time` que
-   descreviam os seis botões antigos saíram junto.) */
 /* ---------- UM ITEM ABERTO É UMA SUPERFÍCIE SÓ (v1.5.17) ----------
    Relato do operador: *"o tom do item selecionado, pois a zona do título e
    thumbnail está ficando diferente da cor do corpo desse item ao abrir as
@@ -9557,9 +9464,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    nenhum. */
 .hymn-gaveta > .hymn-opcoes {
   list-style: none; margin: 0;
-  /* O RECUO SUBIU PARA A GAVETA (v1.5.21) — ver a regra dela. Aqui ele era
-     METADE do respiro da caixa: a outra metade era a `margin` do `.item-detalhe`,
-     e era ela que colapsava para fora do poço. Zerado, e não removido: a
+/* O RECUO DA CAIXA ZERADO — ver a regra da gaveta. Zerado, e não removido: a
      `.song-menu-list` do mesmo `<ul>` declara `padding` e vem DEPOIS na folha. */
   padding: 0;
   display: flex; flex-direction: column; gap: var(--sp-2);
@@ -9664,14 +9569,13 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
      construção, dentro da gaveta e fora dela. */
   min-height: calc(var(--hit) + 2 * var(--opcao-recuo-v));
 }
-/* A METADE DE BAIXO da gaveta só aparece com `vendo-letra` (v5.286) — ver o
-   botão irmão do confirmar em `montarOpcoes`. Ela é a mais alta das duas, e
-   aberta por padrão empurrava as opções para longe do dedo em toda abertura,
-   quando o que se abre a gaveta para fazer é decidir.
+/* A METADE DE BAIXO da gaveta só aparece com `vendo-letra` — ver o botão irmão
+   do confirmar em `montarOpcoes`. Ela é a mais alta das duas, e aberta por
+   padrão empurrava as opções para longe do dedo em toda abertura, quando o que
+   se abre a gaveta para fazer é decidir.
 
-   Hoje ela só existe num VÍDEO: numa música a metade de baixo era a letra numa
-   caixa de texto, e ela saiu na v1.2.25 — quem quer ler abre o LEITOR, com
-   cifra, tom, corpo e rolagem. */
+   Ela só existe num VÍDEO: quem quer ler abre o LEITOR, com cifra, tom, corpo e
+   rolagem. */
 .lib-item:not(.vendo-letra) > .hymn-gaveta > .item-detalhe { display: none; }
 
 /* ---------- A gaveta de um VÍDEO (v5.236) ---------- */
@@ -9973,12 +9877,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    escopar pela `.pacote-linha` é (0,2,0) e não toca nas outras folhas. Sem ela
    o que sai é um quadrado de 24px sob uma seta de 34, e os nomes fora de prumo. */
 .pacote-linha .song-menu-icon { width: var(--hit); height: var(--hit); }
-/* A LINHA EM LEITURA (a listagem antes de importar, v1.11.7) é um `<div>` e não
-   responde a toque: sem a mão do ponteiro e sem o recuo de feedback, que é o
-   que diria "aperte aqui" sobre uma linha que não faz nada. O recuo vem de uma
-   lista de guardas por `:is(…):active` (0,2,0); este vale (0,3,0). */
-.song-menu-btn.pacote-leitura { cursor: default; }
-.song-menu-btn.pacote-leitura:active { transform: none; filter: none; }
 :is(.pacote-grupo, .pacote-linha) > .song-menu-btn.song-menu-sel:is(
   :has(.song-menu-check.on), :has(.song-menu-check.parcial)
 ),
@@ -10114,10 +10012,9 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
      cortada. */
   display: flex; align-items: center; justify-content: center;
   text-align: center; line-height: 1.15;
-  /* E AS DE UMA MESMA LINHA TÊM UMA ALTURA SÓ, por ESTICAMENTO — que é o padrão
-     de um item flex (`align-items: normal`) e não precisa ser declarado: um
-     `align-items: stretch` escrito na fileira foi MEDIDO INERTE e removido, na
-     regra da v1.8.65. O que quebra a igualdade é declarar `center` ali. */
+/* E AS DE UMA MESMA LINHA TÊM UMA ALTURA SÓ, por ESTICAMENTO — que é o padrão
+     de um item flex (`align-items: normal`) e não precisa ser declarado. O que
+     quebra a igualdade é declarar `center` ali. */
 }
 
 /* ===== A ROLETA HORIZONTAL DA QUANTIDADE (v1.8.96) =====
@@ -10279,19 +10176,13 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    acrescenta um degrau à escada, é o chão da folha aparecendo onde a lista
    passa. A exceção é NOMEADA no `tokens.test.mjs`, uma a uma, como as dos
    contornos. */
-/* ELA SAIU DE DENTRO DO SCROLLER (v1.8.98), e com ela saíram o `sticky`, o
-   `z-index` e o fundo opaco que só existiam para ela sobreviver à rolagem.
-   Relato do operador: *"o texto de número de resultados disponíveis está com
-   uma sombra em sua caixa, que parece que deveria ser da caixa do scroll da
-   lista de resultados, pois ela está sem sombra de corte por rolagem"*. A tira
-   do `.rola` é `z-index: 5` e mede 22px sobre uma linha de 19,5: rolada a
-   lista, ela pintava POR CIMA da contagem, e a fronteira de verdade — a
-   primeira linha cortada, logo abaixo — ficava sem marca. Fora do scroller a
-   tira volta a descrever o corte, e a contagem deixa de ser conteúdo rolável.
+/* A CONTAGEM DE RESULTADOS É RÓTULA DA LISTA, FORA DO SCROLLER: dentro dele a
+   tira do `.rola` (`z-index: 5`, 22px sobre uma linha de 19,5) pintava por cima
+   da contagem, e a fronteira de verdade — a primeira linha cortada — ficava sem
+   marca.
 
-   A MARGEM NEGATIVA cola as duas: elas são irmãs numa lista com `gap`, e a
-   contagem RÓTULA a lista — um vão de folha inteira entre as duas as leria como
-   dois blocos. */
+   A MARGEM NEGATIVA cola as duas: são irmãs numa lista com `gap`, e um vão de
+   folha inteira as leria como dois blocos. */
 .sorteio-res-cab {
   padding: var(--sp-1) var(--sp-2) 0;
   margin-bottom: calc(2px - var(--sp-3));
@@ -10409,12 +10300,10 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    mais escuro do app ele não produz degrau (a razão está no `.hymn-opcoes`). A
    linha MARCADA (`.vai`) continua em `--sel-fill`. */
 .sorteio-res:not(.vazio) .sorteio-res-btn:not(.vai) { background: var(--gaveta-btn); }
-/* AQUECENDO ELA JÁ OCUPA O LUGAR DA LISTA, e centra o aro (v1.8.100). O piso
-   grande não é enfeite: o aquecimento só existe quando o pool passa de UMA
-   página (ver `sorteioAquecer`). A ALTURA DA FOLHA não é mais segurada aqui
-   (a regra `#sorteioPopup.aquecendo .popup-sheet { height: 80vh }` saiu na
-   v1.11.18): ela é fixa em qualquer estado, ver `#sorteioPopup .popup-sheet`
-   acima. O que sobra desta regra é só o lugar do aro dentro da lista. */
+/* AQUECENDO ELA JÁ OCUPA O LUGAR DA LISTA, e centra o aro. O piso grande não é
+   enfeite: o aquecimento só existe quando o pool passa de UMA página (ver
+   `sorteioAquecer`). O que sobra desta regra é o lugar do aro dentro da
+   lista. */
 .popup-list > .sorteio-res.aquecendo {
   /* `flex: 1` só AQUI: ela toma o mesmo lugar que a lista vai tomar, e o aro
      fica no meio dele. Com o `0 1 auto` de sempre a caixa ficava no piso de
@@ -10604,13 +10493,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    e `--col` (rótulo + campos/caixas de largura inteira, como o Registro: um
    conteúdo espremido ao lado do rótulo não se lê) — são a MESMA pilha, numa
    declaração só: eram duas cópias idênticas esperando divergir. */
-/* (`.fade-row--col` saiu: nenhum ponto do app a escrevia — era a metade de um
-   par cujo irmão, `--fit`, é o único que o `index.html` usa. Uma classe que só
-   existe na folha é uma regra que ninguém revisa contra o que a tela mostra.) */
 .fade-row--fit { flex-direction: column; align-items: stretch; gap: var(--sp-4); cursor: default; }
-/* (A linha de diagnóstico `.fade-hint` saiu: o que ela dizia — o desfecho da
-   última tentativa de download — consolidou-se no Registro (`#diagBox`) na
-   v5.121, e nenhum JS a desenhava mais.) */
 .fit-seg { display: flex; gap: var(--sp-3); }
 .fit-opt {
   /* PISO — MEDIDO antes: 31px no segmentado da playlist automática. Na grade
@@ -10680,10 +10563,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   background: none;
   padding: 0;
 }
-/* (O RÓTULO SOLTO saiu na v1.7.2 — a palavra "Modo" desceu para dentro das duas
-   metades, a pedido do operador. A v1.4.44 gastou um lote centrando-o; o que o
-   fecha é que ele repetia o que os dois controles abaixo dele passaram a dizer,
-   e era o único texto solto desta folha.) */
 .qs-modo {
   --modo-folga: 3px;
   position: relative;
@@ -10902,11 +10781,10 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    da lista colava no campo). A lista não rola mais sozinha (v1.12.48), e a folga
    fica: é o respiro entre o campo e a primeira linha. */
 .edicao-busca:not([hidden]) + #edicaoLista { margin-top: var(--sp-5); }
-/* O FECHO DA ESCOLHA TEM UM BOTÃO SÓ: o "Voltar" saiu na v1.12.6 — o card do item no formulário já é a
-   porta de ida e volta. Desde a v1.12.7 ele é UM BOTÃO DA BARRA (o primário da `.sorteio-barra`), na altura
-   dos botões do formulário (`--quad-faixa`) e com o ÍCONE AO LADO do texto: a v1.12.6 o deixara um tile de
-   duas linhas (ícone em cima), bem mais alto que o resto. Sozinho na faixa, o `:has(> … ~ …)` da altura única
-   não o alcança, então a altura vem daqui. */
+/* O FECHO DA ESCOLHA TEM UM BOTÃO SÓ, o primário da `.sorteio-barra`, na altura
+   dos botões do formulário (`--quad-faixa`) e com o ÍCONE AO LADO do texto.
+   Sozinho na faixa, o `:has(> … ~ …)` da altura única não o alcança, então a
+   altura vem daqui. */
 .edicao-importar { height: var(--quad-faixa); padding: 0; }
 .edicao-importar .song-menu-text { min-height: 0; flex-direction: row; gap: var(--sp-3); }
 .edicao-importar svg { width: var(--icon-sm); height: var(--icon-sm); flex: none; }
@@ -11021,17 +10899,9 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    `--surface` afundada dentro da folha (219,219,219) ele dá **6,40:1**, acima
    do piso de 4,5 para texto pequeno, que é o tamanho de todo texto daqui.
 
-   (A `.qs-estado` — a segunda linha, com o estado por extenso — saiu na v1.7.2
-   a pedido do operador: *"remova o subtítulo dos botões das configurações, todo
-   tipo de informação além do nome deve ser representada pelo ícone"*. Ela existe
-   agora como `aria-label`, escrito pelo `pintarTile`: fora da tela, e ainda
-   assim verdade para quem lê a grade por leitor de tela.
-
-   ELA VOLTOU UMA VEZ, e a volta durou um lote: a v1.8.63 a deu ao `#temaTile`
-   para indicar o automático, e a v1.8.64 tirou os dois juntos. O que a
-   justificava era ARITMÉTICA — três estados sobre dois desenhos —, e com o
-   tema em dois estados a conta não existe mais. A regra volta sem exceção: um
-   tile cujo estado não caiba num desenho não cabe nesta grade.) */
+   UM TILE CUJO ESTADO NÃO CAIBA NUM DESENHO NÃO CABE NESTA GRADA: o estado por
+   extenso existe só como `aria-label`, escrito pelo `pintarTile` — fora da tela,
+   e ainda assim verdade para quem lê a grade por leitor de tela. */
 .qs-titulo { font-size: var(--fs-sm); font-weight: var(--fw-medio); color: var(--text); line-height: 1.15; }
 
 /* ---------- O GIRO GIRA O PRÓPRIO ÍCONE (v1.7.2) ----------
@@ -11060,11 +10930,10 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 #rotBtn[data-estado="270"] svg { transform: rotate(270deg); }
 @media (prefers-reduced-motion: reduce) { #rotBtn svg { transition: none; } }
 
-/* ---------- O TRABALHO EM CURSO É O ARO (v1.7.2) ----------
-   Exportar e importar mostravam o andamento na palavra do estado ("42%"), e ela
-   saiu. O aro é o mesmo `.dl-ring` da linha da lista e do cartão da preview —
-   e SEM SETA, porque nenhum dos dois baixa byte nenhum (a regra da v1.4.19: o
-   desenho segue o que está acontecendo).
+/* ---------- O TRABALHO EM CURSO É O ARO ----------
+   O aro é o mesmo `.dl-ring` da linha da lista e do cartão da preview — e SEM
+   SETA, porque nenhum dos dois baixa byte nenhum (a regra da v1.4.19: o desenho
+   segue o que está acontecendo).
 
    Ele é o `::before` do PRÓPRIO tile, e não um nó novo no HTML: o markup dos
    dois botões é idêntico ao dos outros sete, e um `<span>` a mais que só existe
@@ -11145,9 +11014,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .qs-tile .ico-alt { display: none; }
 .qs-tile.qs-alt .ico-base { display: none; }
 .qs-tile.qs-alt .ico-alt { display: block; }
-/* (O TERCEIRO DESENHO — a marca do automático — saiu na v1.8.64 com o estado
-   que ele indicava. O tile do tema voltou a ser o par lua/sol, e a grade voltou
-   a não ter exceção nenhuma: todo tile diz o estado pelo DESENHO.) */
 
 /* ---------- O TILE OCIOSO VIRA O CANCELAR DO IRMÃO (v1.8.27) ----------
    Relato do operador: *"quando exportando, o botão de importação fica com um
@@ -11233,9 +11099,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   border-radius: var(--radius-btn);
   display: flex; flex-direction: column; gap: var(--lv-estrofe-gap);
   overscroll-behavior: contain;
-  /* (A BARRA VISÍVEL saiu daqui na v1.8.60 — virou o padrão da marca `.rola`.
-     A frase que a justificou nasceu neste bloco e vale para todos: *"a caixa
-     diz que há um dentro, a barra diz ONDE se está nele"*.) */
 }
 /* UM bloco de texto, não uma pilha de cartões. Cada estrofe/versículo é um
    parágrafo: sem fundo, sem moldura e sem o padding que cada cartão cobrava —
@@ -11420,11 +11283,9 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    (MEDIDO: 27px de 408), e era ela que tirava a miniatura do centro da linha.
    Fora do fluxo, a miniatura ocupa a largura inteira e uma página 4:3 aparece
    centrada pelo `object-fit`, sem nada a compensar. */
-/* O `padding-left: 0` que morava aqui SAIU na v1.8.33, junto com a razão dele: a
-   classe base deixou de reservar a faixa do versículo, então não há mais recuo a
-   desfazer. O que ele evitava continua valendo como fato — a miniatura fora do
-   centro e o selo empurrado para dentro da imagem —, e hoje sai de graça. Quem
-   marca a página no ar aqui é o SELO, nunca uma barra. */
+/* A PÁGINA NO AR SE MARCA PELO SELO, nunca por uma barra, e a miniatura fica
+   fora do centro com o selo empurrado para dentro da imagem — de graça, porque a
+   classe base não reserva mais a faixa do versículo. */
 .lv-row--slide { position: relative; display: block; }
 /* O respiro é FIXO e não o `--lv-estrofe-gap`: aquele é uma LINHA da letra, e
    com o corpo grande ele abria um vão maior que a própria miniatura. Aqui o que
@@ -11492,12 +11353,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   background: var(--live-fill); color: var(--live-strong);
 }
 .lv-row--slide.current .row-live { display: inline; }
-/* A DESFEITA DA BARRA DE ACENTO TAMBÉM SAIU na v1.8.33: ela é do
-   `.lv-row--verse.current` agora, e nunca chegou a uma linha de slide. O motivo
-   fica registrado porque ele volta a valer se alguém a devolver à base — numa
-   linha de slide o traço ficaria atrás da imagem, visível só pela faixa que o
-   `object-fit: contain` deixa numa página 4:3, e o que sairia é um acento ao
-   lado de um selo vermelho: duas cores dizendo a mesma coisa na mesma linha. */
 
 /* No ar agora: o texto em acento. Sem cartão, o contraste da cor é o que separa
    — e continua legível de relance. A BARRA na margem é do VERSÍCULO (v1.8.33):
@@ -11579,16 +11434,13 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    que põe a estrofe acima do respiro entre pares, em vez de empatar com ele. */
 .lv-cifra-vazio { height: .9em; }
 
-/* A FILA DE CONTROLES DA CIFRA, HOJE NO CABEÇALHO (v1.6.3). Os QUATRO da escada
-   reusam `.lv-fonte-btn` porque é o mesmo gesto (um passo por toque numa escada)
-   e duas aparências para o mesmo gesto seria ruído.
+/* A FILA DE CONTROLES DA CIFRA, HOJE NO CABEÇALHO. Os QUATRO da escada reusam
+   `.lv-fonte-btn` porque é o mesmo gesto (um passo por toque numa escada) e duas
+   aparências para o mesmo gesto seria ruído.
 
-   ELA MOROU NUMA BARRA PRÓPRIA da v1.1.22 à v1.6.2, e a razão da barra SOBREVIVE
-   à mudança de casa: os controles ficavam DENTRO da caixa que rola e saíam de
-   cena em segundos com a rolagem ligada — *"um controle que some é um controle
-   que não existe no momento em que ele importa"*. O cabeçalho também está fora
-   do scroller, então a propriedade continua valendo. O que deixou de existir foi
-   a BARRA, quando o tom desceu para dentro da caixa e ela ficou só com botões. */
+   OS CONTROLES FICAM FORA DO QUE ROLA: dentro da caixa eles saíam de cena em
+   segundos com a rolagem — *"um controle que some é um controle que não existe
+   no momento em que ele importa"*. */
 .lv-cifra-ctl {
   display: flex; gap: var(--sp-2); flex: none;
   /* ===== A GAVETA COBRE, E PARA COBRIR ELA SAI DO FLUXO (v1.8.83) =====
@@ -11988,11 +11840,11 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   grid-template-columns: 1fr var(--cifra-coluna);
   grid-template-rows: auto 1fr;
 }
-/* A COLUNA É O CABEÇALHO INTEIRO (v1.6.3): a barra saiu, e com ela a linha 2 do
-   grid — o cabeçalho passou a ocupar as duas. O `space-between` de dentro dele
-   distribui pela altura toda, com a fila da cifra no topo (a SAÍDA como último
-   botão dela) e o A+/A− no pé — os dois extremos são o alcance do polegar de
-   quem segura o aparelho deitado, a mesma distribuição da coluna da preview. */
+/* A COLUNA É O CABEÇALHO INTEIRO: ele ocupa as duas linhas do grid, e o
+   `space-between` distribui pela altura toda — a fila da cifra no topo (a SAÍDA
+   como último botão dela) e o A+/A− no pé. Os dois extremos são o alcance do
+   polegar de quem segura o aparelho deitado, a mesma distribuição da coluna da
+   preview. */
 #lyricsPopup:fullscreen .popup-header,
 #lyricsPopup:-webkit-full-screen .popup-header {
   grid-area: 1 / 2 / 3 / 3;
@@ -12007,8 +11859,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 /* `flex-wrap: nowrap` DESFAZ o wrap do retrato: numa COLUNA o wrap não quebra
    linha, ele abre uma SEGUNDA COLUNA dentro de uma trilha de 66px, e faria isso
    calado no dia em que um sexto controle não coubesse. */
-/* (O respiro próprio da saída saiu nos DOIS eixos na v1.8.83 — ver a nota no
-   lugar da regra do retrato. Esta existia só para trocar o eixo daquela.) */
 /* `align-items: center` para os botões ficarem na largura DELES em vez de
    esticar para a trilha inteira: cinco botões, uma largura só (`--hit`). Sem
    ele o `stretch` padrão de uma coluna flex os levaria aos 56,4px úteis.
@@ -12064,18 +11914,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 }
 .lv-cifra-erro { display: block; }
 
-/* (O SELETOR DE CIFRA saiu na v1.3.3, e com ele estas classes: `.lv-cifra-usar`,
-   `.lv-cifra-busca`, `.lv-cifra-campo`, `.lv-cifra-chips`/`-chip`,
-   `.lv-cifra-res`/`-nome`/`-art` e `.lv-cifra-previa`/`-nome`. Eram a lista de
-   resultados dentro do app, o campo de consulta, os atalhos e a prévia. A aba de
-   cifra é só automática agora — ver "A CIFRA É SÓ AUTOMÁTICA" no `controle.js`.
-
-   `.lv-cifra-cab` ESTAVA nesta lista e NÃO pode estar: o NOME voltou na v1.6.3,
-   e hoje ele é o CABEÇALHO DA OBRA — a margem natural que impede a rolagem de
-   cortar a intro, com regra viva vinte linhas acima e asserção própria no
-   `cifra-rolagem.test.mjs`. Uma lápide que nomeia código VIVO é o pior formato
-   de comentário errado que este repositório sabe produzir: quem procurasse a
-   regra encontraria esta linha, concluiria que é resto, e apagaria a margem.) */
 
 /* A ORIGEM, no rodapé da folha e à DIREITA — texto, não botão. Ela é a ação
    menos principal desta aba (quem a abre quer LER a cifra), e com corpo de
@@ -12112,9 +11950,9 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 }
 .lv-cifra-acervo-estado { color: var(--muted); font-size: var(--fs-sm); }
 
-/* Nota: o antigo "toast" flutuante foi removido — as informações agora são
-   transmitidas pela própria interface (ver flash() em controle.js, hoje um
-   no-op, e o indicador de sincronização no texto da linha do Hinário 2022). */
+/* O retorno é da própria interface: `flash()` em `controle.js` é um no-op, e
+   quem informa é o indicador de sincronização no texto da linha do Hinário
+   2022. */
 
 /* ---------- Diálogo padrão do app (confirmações / prompts) ---------- */
 /* Substitui os confirm()/prompt() nativos por um modal no tema do app —
@@ -12323,18 +12161,9 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
    Mais alta que antes porque agora carrega quatro blocos em vez de um; ainda é
    uma caixa que rola, e o botão de copiar entrega o conjunto de qualquer
    jeito. */
-/* (`.diag-box` SAIU na v5.207, com o visor do Registro.) A caixa tinha 240px de
-   altura máxima no meio de Configurações e empurrava para fora da tela as
-   linhas que o operador de fato ajusta — para mostrar um log em fonte de
-   0,68rem que ninguém lê no celular. O Registro continua sendo montado; o que
-   saiu é a vitrine dele. Ver o bloco do `#diagCopy` no `index.html`. */
 /* O rótulo e o botão de copiar na mesma linha, acima da caixa. O botão fica
    FORA do `<pre>` de propósito: dentro de uma área que rola, ele sairia de
    cena junto com o texto. */
-/* (`.log-head` SAIU na v5.207, com o visor.) Ele era o cabeçalho de uma caixa
-   que não existe mais; hoje o rótulo e o botão de copiar são os dois filhos
-   diretos de uma `.fade-row`, que já faz `space-between` — um invólucro a
-   menos, e a linha volta a ocupar a largura toda. */
 /* ----- Sem tela conectada (ver renderSimpleGate) ----- */
 /* ----- Bloqueio sem tela conectada (ver renderSimpleGate) -----
    A cortina cobre a tela inteira e é o que embaça: `backdrop-filter` age sobre
@@ -12401,13 +12230,6 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
    em cada estado é um elemento que nunca aparece, e o CSS de um elemento que
    nunca aparece não tem como ser notado errado.) */
 
-/* (A LIBERAÇÃO DE TESTE — segurar 5 s — SAIU na v5.199, junto com a cortina.)
-   Ela era uma porta de desenvolvimento para destravar o app SEM tela, e o
-   único trabalho dela era derrotar o bloqueio. Sem bloqueio não há porta a
-   abrir: o modo já abre usável, que é o que a liberação simulava. Com ela
-   saíram `.simple-veil.segurando::after`, o `@keyframes cast-hold` e o
-   `.pv-fab.testing` em `--warn` — este último dizia "destravado por teste, e
-   isto NÃO é uma conexão", uma distinção que deixou de existir. */
 
 /* Letra da música em cena — ocupa o espaço que sobra entre as ações e as
    teclas. Mesmas linhas da leitura auxiliar do modo avançado (.lv-row). */
@@ -12505,11 +12327,6 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
   /* Mesma regra das teclas: superfície sólida, sem contorno. */
   padding: .7rem .6rem; border: none; border-radius: var(--radius-card);
   background: var(--panel);
-  /* (A BARRA VISÍVEL saiu daqui na v1.8.60 — virou o padrão da marca `.rola`.
-     Ela importa mais nesta zona que em qualquer outra: no Modo Fácil esta é a
-     coluna de PÁGINAS, e saber a posição é o recurso inteiro. A pista fica
-     `transparent` desde a v1.4.37 — *"uma pista da cor do próprio fundo não é
-     pista nenhuma"*.) */
 }
 .simple-lyrics .lv-empty { margin: auto; color: var(--muted); font-size: var(--fs-md); text-align: center; line-height: 1.5; }
 /* ===== AS PÁGINAS EM DUAS COLUNAS, SÓ AQUI (v1.4.35) =====
@@ -12624,9 +12441,6 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
    (As irmãs `.log-line`/`.log-text` descreviam as linhas de log avulsas que o
    `#diagBox` unificou na v5.121 — nenhum JS as desenhava mais.) */
 .log-copy { background: var(--surface-2); color: var(--muted); }
-/* (A `.copiado` saiu na v1.8.55: nenhum JS escrevia a classe desde que o botão
-   passou a responder pelo `.btn-pulso` — `copiarTexto` chama `responder(btn,
-   'ok')`. Era regra morta declarando o verde de confirmação que este lote tirou.) */
 
 /* ---------- Pulso de confirmação NO BOTÃO (v5.106) ---------- */
 /* O feedback de "adicionei" mora no botão TOCADO, nunca numa faixa em outro
@@ -12752,11 +12566,6 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
    Configurações e uma FOLHA — ver o comentário no HTML para por que são as
    duas coisas e não uma.
 
-   (O cabeçalho dizia "Espelho de pixels (v5.141)" até a v1.2.29. Aquele recurso
-   foi REMOVIDO na v5.187 e o que ficou aqui é a folha do telão por comandos —
-   um cabeçalho que nomeia um mecanismo que não existe mais manda o próximo
-   leitor procurar o que não está lá.)
-
    A folha de CONECTAR UMA TELA abre da tela principal (o botão de cast), então
    ela fica no 200 padrão. O degrau acima dele existe para quem abre DE DENTRO
    de outra folha: com o mesmo z-index de todos, quem decidiria seria a ordem do
@@ -12808,9 +12617,6 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
 }
 .cast-acao-txt { min-width: 0; }
 .cast-acao-txt b { font-size: var(--fs-lg); }
-/* (A linha auxiliar `.cast-acao-txt small` saiu na v1.8.87: o aviso do som
-   virou o `?` ao lado — ver `.cast-ajuda`. Ela era o único `<small>` deste
-   botão, e a regra saiu junto com ela.) */
 
 /* ---------- O `?` DO AVISO DO SOM (v1.8.87) ----------
    Ele é IRMÃO do botão de conectar, não filho: um `<button>` não aninha outro,
@@ -12936,9 +12742,7 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
    sempre — só fala durante um ligar/desligar e quando ele falha —, e um `<p>`
    vazio não tem altura mas o `gap` do corpo em coluna se aplica dos dois lados
    dele: um elemento sem conteúdo abria um vão de dois gaps entre o interruptor
-   e o endereço, que se lê como seção faltando. Daí o `:empty`.
-   (O nome vem da folha de ajustes que saiu na v5.196, onde ela era o parágrafo
-   de ressalvas; aqui ela é só o recado.) */
+   e o endereço, que se lê como seção faltando. Daí o `:empty`. */
 .mirror-lead {
   margin: 0; font-size: var(--fs-md); line-height: 1.5; color: var(--muted);
   white-space: pre-line;
@@ -12985,9 +12789,6 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
   cursor: default;
 }
 
-/* (A `.fit-linha` — preenchimento e giro dividindo uma faixa, v5.169 — saiu na
-   v1.4.38 com a folha em faixas: os dois viraram tiles vizinhos na grade, que é
-   a mesma vizinhança dita pelo layout em vez de por uma classe própria.) */
 
 /* ---------- A folha de conectar, num degrau só (v5.171) ----------
    ENDEREÇO E CÓDIGO são os dois maiores elementos da folha porque são os

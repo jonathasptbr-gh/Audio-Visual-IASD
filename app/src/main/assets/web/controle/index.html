@@ -184,7 +184,7 @@
        `aria-hidden`: ela não é conteúdo e não tem nada a anunciar; quem chegar
        por leitor de tela encontra o app pronto do outro lado. -->
   <div id="splash" aria-hidden="true">
-    <svg class="splash-marca" viewBox="0 0 108 108" width="96" height="96" aria-hidden="true">
+    <svg viewBox="0 0 108 108" width="96" height="96" aria-hidden="true">
       <path class="splash-trilhas" d="M72.5,32.5 L72.5,75.5 A2.5,2.5 0 0 1 67.5,75.5 L67.5,32.5 A2.5,2.5 0 0 1 72.5,32.5 Z M56.5,32.5 L56.5,75.5 A2.5,2.5 0 0 1 51.5,75.5 L51.5,32.5 A2.5,2.5 0 0 1 56.5,32.5 Z M40.5,32.5 L40.5,75.5 A2.5,2.5 0 0 1 35.5,75.5 L35.5,32.5 A2.5,2.5 0 0 1 40.5,32.5 Z"/>
       <path class="splash-cabos" d="M64.5,40.5 H75.5 A3.5,3.5 0 0 1 79,44 V48 A3.5,3.5 0 0 1 75.5,51.5 H64.5 A3.5,3.5 0 0 1 61,48 V44 A3.5,3.5 0 0 1 64.5,40.5 Z M48.5,60.5 H59.5 A3.5,3.5 0 0 1 63,64 V68 A3.5,3.5 0 0 1 59.5,71.5 H48.5 A3.5,3.5 0 0 1 45,68 V64 A3.5,3.5 0 0 1 48.5,60.5 Z M32.5,36.5 H43.5 A3.5,3.5 0 0 1 47,40 V44 A3.5,3.5 0 0 1 43.5,47.5 H32.5 A3.5,3.5 0 0 1 29,44 V40 A3.5,3.5 0 0 1 32.5,36.5 Z"/>
     </svg>
@@ -589,17 +589,11 @@
       <line x1="7.3" y1="12.4" x2="13.5" y2="12.4"/>
       <line x1="3.5" y1="19.4" x2="20.5" y2="19.4"/>
     </symbol>
-    <!-- (O `#icoParar` — o quadrado cheio — saiu na v1.9.3 com o botão que o
-         usava: o PARAR das mensagens desceu para a MINIATURA da linha, e lá
-         quem desenha é o `porParar`, com o glifo `stop` do transporte.
-         **ELE NUNCA PRECISOU EXISTIR**, e isso fica registrado porque o
-         argumento que o criou (v1.9.1) era FALSO: o comentário dele afirmava
-         que `stop` não está no subset da fonte, e está — o `porParar` o escreve
-         por escape (`\ue047`) desde a v5.259, e o `glifos.test.mjs` confere
-         codepoint a codepoint que ele existe. Desenhar em SVG o que a fonte já
-         traz é duas fontes de verdade para o mesmo símbolo. Antes de acrescentar
-         um `<symbol>` para um glifo de transporte: procure o codepoint no
-         `index.html` primeiro. -->
+    <!-- AO ACRESCENTAR UM `<symbol>` PARA UM GLIFO DE TRANSPORTE: procure o
+         codepoint no `index.html` primeiro. O `stop` está no subset da fonte (o
+         `porParar` o escreve por escape, `\ue047`, e o `glifos.test.mjs` confere
+         codepoint a codepoint) — desenhar em SVG o que a fonte já traz é duas
+         fontes de verdade para o mesmo símbolo. -->
     <symbol id="icoZerar" viewBox="0 0 24 24">
       <path d="M20 12a8 8 0 1 1-2.34-5.66"/>
       <polyline points="20 3 20 8 15 8"/>
@@ -720,10 +714,9 @@
       <path d="M16 6.25h3.4a1.6 1.6 0 0 1 1.6 1.6v2.9a1.6 1.6 0 0 1-1.6 1.6H12"/>
       <rect x="10" y="12.35" width="4" height="8.15" rx="1.4"/>
     </symbol>
-    <!-- (`icoMedicao`/`icoMedicaoOff` saíram na v1.4.42 com o sistema de
-         exclusão da contagem de uso. Um `<symbol>` sem consumidor não erra
-         alto — ele viaja no bundle do OTA em todo aparelho e não desenha nada
-         em lugar nenhum —, e este arquivo apaga o desenho junto com o recurso.) -->
+    <!-- UM `<symbol>` SEM CONSUMIDOR não erra alto — ele viaja no bundle do OTA
+         em todo aparelho e não desenha nada —, daí o desenho sair junto com o
+         recurso que o usava. -->
     <!-- OS DOIS MODOS DO APP, no seletor em destaque. A diferença entre eles é
          a DENSIDADE de controles, e é isso que os dois desenhos mostram: o
          Fácil é uma tecla grande sozinha, o Avançado é a mesa de som (três
@@ -1019,21 +1012,10 @@
            ele apontava para o meio do próprio cabeçalho. O título ao centro é o
            que sobra: ele é o único elemento que não é ação, e no meio ele deixa
            de disputar a leitura com o botão que estivesse ao lado. -->
-      <!-- (A VOLTA PARA O MODO FÁCIL SAIU DAQUI na v5.247, a pedido do
-           operador: "como já temos nas configurações o botão de acesso ao modo
-           simples, então pode remover o botão que temos no cabeçalho do app".
-           A engrenagem → "Modo do app" é o mesmo destino, e é ela que GUARDA a
-           escolha entre aberturas — o botão do cabeçalho não guardava nada.
-           Dois controles para uma decisão só, e o do cabeçalho ocupava a
-           esquerda de uma faixa de largura de celular.
-
-           E na v5.250 o gêmeo do Modo Fácil saiu também, substituído por uma
-           ENGRENAGEM no mesmo lugar: agora o caminho é o mesmo nos dois modos,
-           e não sobrou nenhum `.mode-switch` no app. Ele não podia sair antes
-           dela — daquele modo não havia como chegar a Configurações, porque a
-           engrenagem do avançado morava então na coluna do mixer, que ele
-           esconde por inteiro (`body.mode-simple .bottombar`). Desde a v1.2.0
-           ela mora AQUI, no mesmo canto da dele.) -->
+      <!-- A ENGRENAGEM → "Modo do app" é o ÚNICO controle da escolha entre modos,
+           e é ela que GUARDA a escolha entre aberturas. No avançado ela mora
+           AQUI, no mesmo canto da do Modo Fácil: o caminho é o mesmo nos dois
+           modos, e não existe `.mode-switch` no app.) -->
       <!-- O TÍTULO É O NOME DO CRONOGRAMA ATIVO, e é a porta da gaveta dos
            cronogramas (v1.12.54): *"tocar nele (também haverá uma pequena seta
            apontando para baixo … a direita desse título) abre uma pequena
@@ -1065,12 +1047,10 @@
       <button id="settingsBtn" class="settings-btn" title="Configurações" aria-label="Configurações">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoGear"/></svg>
       </button>
-      <!-- (O botão de FAVORITOS saiu do cabeçalho na v5.238, a pedido do
-           operador: "tudo agora será dentro da biblioteca". Os favoritos são a
-           primeira seção da Biblioteca, sempre aberta, e a gaveta `#favPopup`
-           deixou de ter porta própria — ela é a tela de DENTRO de uma pasta, e
-           só isso. Duas portas para a mesma lista eram dois lugares para ela
-           divergir, e o cabeçalho tem largura de celular.) -->
+      <!-- OS FAVORITOS NÃO TÊM PORTA NO CABEÇALHO: são a primeira seção da
+           Biblioteca, sempre aberta, e a gaveta `#favPopup` é a tela de DENTRO
+           de uma pasta, e só isso. Duas portas para a mesma lista são dois
+           lugares para ela divergir, e o cabeçalho tem largura de celular.) -->
     </div>
 
     <!-- O CORPO DA LISTA (v1.3.10). Ele existe para dar OFFSET PARENT à folha
@@ -1984,7 +1964,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion" class="app-version">v1.13.39</span>
+          <span id="appVersion">v1.13.40</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
@@ -2346,9 +2326,8 @@
               </button>
             </div>
             <div class="qs-grade-folha">
-              <!-- PREENCHIMENTO. "Esticar" saiu na v5.142 — ele distorcia a
-                   proporção, e distorção não é uma escolha de exibição: é o defeito
-                   que as outras duas existem para evitar. Sobraram DUAS, e duas é
+              <!-- PREENCHIMENTO: DUAS opções. Distorção não é uma escolha de exibição — é
+                   o defeito que as outras duas existem para evitar —, e duas é
                    exatamente o que um tile alterna. -->
               <button type="button" class="qs-tile" id="fitTile" title="Como a mídia ocupa o telão">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -2558,7 +2537,7 @@
                      "Verificar" mostra o andamento e, no fim, o desfecho. O chevron do
                      cabeçalho, o voltar e fechar Configurações fazem o mesmo; só o
                      Cancelar interrompe. -->
-                <button type="button" id="testeOcultar" class="song-menu-btn teste-refazer teste-ocultar"
+                <button type="button" id="testeOcultar" class="song-menu-btn teste-refazer"
                         title="Ocultar — a verificação continua, e o botão Verificar mostra o andamento" hidden>
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoExpandir"/></svg>
                   <span>Ocultar</span>
@@ -2848,21 +2827,15 @@
     </div>
   </div>
 
-  <!-- (A FOLHA "Ajustes avançados" SAIU na v5.196.) Ela tinha três coisas, e
-       nenhuma sobreviveu à pergunta "isto muda o que o operador faz?":
-
-       • um parágrafo de ressalvas — que continua existindo, em UMA linha, na
-         própria folha de conexão;
-       • o botão "Ligar/Desligar o espelho" — o MESMO estado que o interruptor
-         de conectar um computador, a dois centímetros dali, na folha de onde
-         esta era aberta. Dois controles para um estado é a forma mais direta
-         de eles discordarem;
-       • o certificado TLS (.p12), um degrau opcional que exige do operador um
-         subdomínio com wildcard por DNS-01, uma entrada estática de DNS no
-         roteador da igreja e renovação automática — três coisas que o app não
-         adivinha e que ninguém aqui montou. Os três métodos da ponte
-         (`espelhoCertImportar`/`Estado`/`Apagar`) FICAM no shell: o dia em que
-         alguém os quiser de volta é uma folha nova, não uma Release.
+  <!-- NÃO HÁ FOLHA "Ajustes avançados", e cada peça dela tem casa melhor: o
+       parágrafo de ressalvas vive em UMA linha na própria folha de conexão;
+       "Ligar/Desligar o espelho" é o MESMO estado do interruptor de conectar
+       um computador, a dois centímetros dali; e o certificado TLS (.p12) exige
+       do operador um subdomínio com wildcard por DNS-01, entrada estática de
+       DNS no roteador da igreja e renovação automática — três coisas que o app
+       não adivinha. Os três métodos da ponte
+       (`espelhoCertImportar`/`Estado`/`Apagar`) FICAM no shell: o dia em que
+       alguém os quiser de volta é uma folha nova, não uma Release.
 
        Desconectar uma TELA DA REDE continua onde sempre esteve: na lista de
        quem está vendo, na folha de conexão. Desconectar a TV é do seletor do
@@ -2969,19 +2942,14 @@
     </div>
   </div>
 
-  <!-- (As opções de uma coleção — sincronizar, excluir, estado do download —
-       eram um bottom-sheet aqui. Desde a v5.72 elas são um PAINEL dentro do
-       próprio card do álbum, aberto pela engrenagem da barra dele; um popup
-       sobre o acervo, que já é um popup de tela cheia, era uma camada a mais
-       para ver o peso de um álbum que já estava aberto na tela. Ver
-       `buildCollectionOptions` em controle.js.) -->
+  <!-- AS OPÇÕES DE UMA COLEÇÃO (sincronizar, excluir, estado do download) são
+       um PAINEL dentro do próprio card do álbum, aberto pela engrenagem da
+       barra dele — um popup sobre o acervo, que já é um popup de tela cheia,
+       seria uma camada a mais. Ver `buildCollectionOptions` em controle.js. -->
 
-  <!-- (A GAVETA `#favPopup` SAIU na v5.294. Ela era a tela de DENTRO de uma
-       pasta do aparelho, e a v5.290 — ao fazer a pasta abrir INLINE, como um
-       álbum — tirou o último caminho até ela. Com ela foram o `#favList`, o
-       `#favSearchBar` e o `#libSearch`: a busca dentro de uma pasta não existe
-       mais, e a barra da Biblioteca varre `allCollections()`, que não alcança o
-       catálogo de pastas. Ver o bloco no topo do `controle.js`.) -->
+  <!-- NÃO HÁ BUSCA DENTRO DE UMA PASTA: a barra da Biblioteca varre
+       `allCollections()`, que não alcança o catálogo de pastas; a pasta abre
+       INLINE, como um álbum. Ver o bloco no topo do `controle.js`. -->
 
   <!-- O ACERVO: hinários e álbuns por categoria, com as músicas de cada um
        dentro do próprio acordeão, e a busca por nome/número/trecho no mesmo
@@ -3155,10 +3123,9 @@
     </div>
   </div>
 
-  <!-- (O popup de seleção de PASTA saiu na v5.254, com os atalhos de pasta: o
-       app guarda os favoritos numa lista única, e as únicas pastas que restam
-       são as sincronizadas do armazenamento do aparelho, que não recebem itens
-       um a um — elas vêm inteiras.) -->
+  <!-- AS PASTAS QUE RESTAM são as sincronizadas do armazenamento do aparelho:
+       elas não recebem itens um a um — vêm inteiras —, e os favoritos moram
+       numa lista única. -->
 
   <!-- diálogo padrão do app (confirmações e prompts) — no tema do app, substitui
        os confirm()/prompt() nativos em todas as interações do tipo (excluir etc.) -->
@@ -3167,13 +3134,9 @@
        (`display: none`), o que levaria o aviso junto. Aqui, como camada de
        tela, ele aparece nos dois modos e por cima de qualquer folha aberta —
        que é de onde partem metade dos salvamentos. -->
-  <!-- (A FAIXA DE AVISO SAIU na v5.207.) Ela era `position: fixed; top: .5rem;
-       z-index: 400` — isto é, um TOAST, apesar de o comentário dela afirmar o
-       contrário ("não flutua; mora no fim da área de lista"). Trinta e cinco
-       pontos do app respondiam por ela, sempre no topo da tela, para toques
-       dados no rodapé, no meio de uma lista ou dentro de uma folha aberta.
-       Agora cada resposta nasce na interface de origem — ver o bloco
-       "O FEEDBACK MORA NA INTERFACE DE ORIGEM" em controle.js. -->
+  <!-- TODA RESPOSTA NASCE NA INTERFACE DE ORIGEM — ver o bloco "O FEEDBACK MORA
+       NA INTERFACE DE ORIGEM" em controle.js. Não há toast: um aviso fixo no
+       topo da tela fica longe do toque que o pediu. -->
 
   <div id="appDialog" class="dialog-backdrop">
     <!-- aria-labelledby/-describedby: sem eles um `role="dialog"` abre mudo no
