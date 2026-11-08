@@ -653,6 +653,22 @@ apagada da que a criou.
 
 ---
 
+## v1.13.40 — revisão S2 (CSS, segunda metade)
+
+**v1.13.40** — (só web, sem `shellTag`: a Release da v1.13.38 já está publicada; degrau CORREÇÃO; `SHELL_VERSION` 83, `minShell: 83`). Revisão S2: a SEGUNDA METADE do `controle.css` (da linha ~6849 ao fim), o `controle/index.html` inteiro e o repasse que a S1 deixou.
+
+- **Nenhum defeito de culto na cerca.** Prova 1 do CLAUDE.md: sem comentários, o `controle.css` difere do HEAD exatamente nas 4 linhas das regras mortas (3.703 → 3.699 linhas de código) e o `index.html` exatamente nas 3 classes mortas. Nenhuma regra de layout, cor, camada ou estado foi tocada.
+- **4 regras mortas fora:** `.misc-row--save`, `.misc-save-btns` e `.song-menu-btn.pacote-leitura` (mais o `:active`) — cruzadas contra todo o JS/HTML, nenhuma é construída em tempo de execução (a listagem do pacote virou `<button>`, não `<div>`).
+- **~31 lápides de "saiu na vX" removidas ou condensadas.** Onde a razão ainda vale para o código de hoje ela virou regra no presente: o 220 livre do `#songMenuPopup`, o `flex-shrink: 0` do ✕ do sheet, o `.lv-cifra-cab` protegido contra a própria lápide (é a margem da obra, com asserção no `cifra-rolagem`), o respiro da faixa da cifra, o `align-items: stretch` inerte, a contagem de resultados fora do scroller, o recuo zerado da caixa da gaveta. No `index.html`, 10 lápides de seção viraram a regra viva (o `<symbol>` sem consumidor, o Modo do app, os Favoritos no cabeçalho, as duas opções de preenchimento, os "Ajustes avançados", as opções da coleção, a busca dentro de pasta, o toast).
+- **`index.html`:** 3 classes sem CSS nem JS saíram do markup (`app-version`, `splash-marca`, `teste-ocultar`).
+- **Conferidos e deixados (legítimos):** o único `!important` da metade (a guarda `.simple-time[hidden]`, que segura a caixa com o texto invisível), os `#000` de `mask-image` (canal de alfa, não cor) e as repetições de seletor com `animation`/`transition: none` em `body.mode-simple` e nos blocos de estado — ordem declarada, não acidente.
+- **Limitação (não correção):** a varredura no DOM (o seletor que aparece no JS e não casa com nada) e a captura antes/depois nos dois temas não rodaram — esta sessão não tem Chromium. A direção conservadora (literal ausente de JS/HTML = morto) ficou completa.
+- **Repasse:** X2 — `#testeFecho` e `#bibleTitle` seguem como ids sem leitor no `index.html` (o `#testeCorpo` NÃO: é gancho do `verificacao-do-sistema`).
+- **Verificado:** `tokens` e a Sanidade da base web (todo Node puro, `docs-coerentes` incluso) verdes. O `pares-de-comentario` acusa 7 blocos, todos artefato da reescrita do cabeçalho (ele casa por cabeçalho e, em CSS, compara a 2ª linha do próprio comentário); conferido um a um que cada bloco continua imediatamente antes da MESMA regra, e que a contagem de comentários fecha sem `*/` solto.
+- **O operador:** nada a fazer — a v1.13.40 chega sozinha (só web, nada que ele veja).
+
+---
+
 ## v1.13.39 — revisão S1 (CSS, primeira metade)
 
 **v1.13.39** — (só web, sem `shellTag`: a Release da v1.13.38 já está publicada; degrau CORREÇÃO; `SHELL_VERSION` 83, `minShell: 83`). Revisão S1: a PRIMEIRA METADE do `controle.css` (do início à linha ~6711) mais o `shared/tokens.css` inteiro.

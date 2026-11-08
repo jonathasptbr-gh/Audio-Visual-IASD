@@ -31,7 +31,7 @@ abandonada → primeira pendente pelo `nº`).
 | 17 | C8 | feita | v1.13.28 (só web) | 2026-11-06 | nenhum defeito de culto na fatia; o link compartilhado ficava fora do Cronograma até a próxima releitura (`load()` no fim do `importShare` + asserção com reversão); o resgate dos downloads em `updateState` (repasse W1 + asserção com reversão); repasse C4 do `redesenharComMiniatura` refutado; ~270 comentários (8 blocos no símbolo errado) |
 | 18 | C9 | feita | v1.13.31 (só web) | 2026-11-06 | nenhum defeito de culto na fatia; a folha de conexão nomeava a TV errada com duas telas (`telaoNoAr`, a régua do Registro + asserção com reversão); os repasses C4/C6 de `plItems` refutados; código morto da transmissão; ~290 comentários (1 bloco no símbolo errado) |
 | 19 | S1 | feita | v1.13.39 (só web) | 2026-11-08 | nenhum seletor morto nem token órfão; ~67 lápides "saiu na vX" removidas/condensadas (regras intocadas, prova 1 do CLAUDE.md) |
-| 20 | S2 | em curso | | 2026-11-08 | |
+| 20 | S2 | feita | v1.13.40 (só web) | 2026-11-08 | nenhum defeito de culto; 4 regras mortas e 3 classes mortas do HTML fora; ~31 lápides removidas/condensadas (regras intocadas, prova 1); visuais não capturados (sem Chromium) |
 | 21 | K1 | pendente | | | |
 | 22 | K2 | pendente | | | |
 | 23 | K3 | pendente | | | |
@@ -64,7 +64,8 @@ tratou.
 | X3 | C2 | `tools/pacote-importar-marcados.test.mjs` H/L — reprovou UMA vez no CI (run `42060562112`, 1ª tentativa, lote só da Bíblia, sem relação): `obtido: []` (nenhuma mídia no destino depois do Importar com só a série marcada). Passou 3× local e no run anterior. Suspeita no ORÁCULO: `importarPelaJanela` faz `pg.evaluate(() => window.__fim)` sem que nada atribua `__fim` (só o `null` da linha 421) — não espera a importação; quem espera é o `responderDialogo` (60 s), cujo `texto` ninguém confere: se o diálogo que ele respondeu não foi o "Acervo importado", o `lerDestino` lê antes do fim. Conserto provável: esperar o diálogo pelo TÍTULO "Acervo importado" (ou `!pacoteEmCurso`) e conferir o `texto` |
 | X2 | C4 | `controle.js`:`adicionarNasListas` (~6536) e `abrirPacote` (~6796), fatia C2 já feita — `plItems = await AVDB.listItems('playlist')` depois de gravar, sem a senha `listasSeq` (v1.13.24): um `load()` em voo que leu a fila antes aplica a cópia velha depois. Conserto: `++listasSeq` antes do primeiro `await`, como `togglePlaylist`. E o KDoc do `load` (~4070) diz que "todo `db-change`" dispara um `load` — não há `db-change` em lugar nenhum |
 | X2 | C7 | `docs/ORACULOS.md`, linha do `hidratacao-perde-a-vez`: descreve os blocos 1–7 e o 12 (entrou na C7), mas não os 8–11 (C3–C6). E as linhas do `sorteio-lista-de-resultados` e do `verificacao-do-sistema` não citam as asserções novas da C7 (a recusa no bloco C; o `AVProgresso` no L1) |
-| S2 | S1 | `controle.css` 2ª metade: as lápides `.bible-ref-label` ("SAIU na v1.8.83", ~L6761) e "MICROFONE AO VIVO … saiu na v1.8.89" (~L6785) ficaram de fora da cerca da S1 — aplicar a mesma regra de remoção/condensação |
+| S2 | S1 | ~~`controle.css` 2ª metade: as lápides `.bible-ref-label` ("SAIU na v1.8.83", ~L6761) e "MICROFONE AO VIVO … saiu na v1.8.89" (~L6785)~~ — **tratadas na S2**: a primeira virou a regra viva do `currentColor`; a segunda saiu inteira |
+| X2 | S2 | `controle/index.html`: `#testeFecho` e `#bibleTitle` são ids sem leitor (o `#testeCorpo` NÃO — é gancho do `verificacao-do-sistema`); classificar junto com os demais achados da auditoria. E a varredura de id/`<symbol>` sem consumidor do HTML continua valendo para quem tiver o DOM. |
 
 ## Relatórios
 
@@ -591,3 +592,14 @@ Cerca: `controle.css` do início à metade (linha ~6711) + `shared/tokens.css` i
 **Repasses:** S2 (as lápides `.bible-ref-label` e "MICROFONE AO VIVO" na 2ª metade).
 **Verificado:** `tokens.test.mjs` verde antes e depois; a Sanidade da base web e os oráculos de Node puro rodam no CI.
 **O operador:** nada a fazer; a v1.13.39 chega sozinha (só web, nada que ele veja).
+
+### S2 · CSS — segunda metade — feita (2026-11-08)
+
+Cerca: `controle.css` da metade (linha ~6849) ao fim + `controle/index.html` inteiro, lidos por agente; repasse da S1 tratado.
+**Nenhum defeito de culto.** Prova 1: sem comentário, o CSS difere do HEAD só nas 4 linhas das regras mortas (3.703 → 3.699 linhas de código); o HTML, só nas 3 classes mortas. 860 seletores cruzados contra JS/HTML: 20 ausências, todas construídas em tempo de execução (menos as 4 abaixo).
+**Corrigido (código, prova 1):** `.misc-row--save`, `.misc-save-btns` e `.song-menu-btn.pacote-leitura` (+`:active`) — regras sem alvo; a listagem do pacote virou `<button>`. No HTML, 3 classes sem CSS nem JS: `app-version`, `splash-marca`, `teste-ocultar`.
+**~31 lápides removidas/condensadas** (o que descrevia mecanismo removido saiu; o que ainda é regra virou presente: o 220 livre, o `flex-shrink` do ✕, o `.lv-cifra-cab`, a contagem fora do scroller, o respiro da gaveta). No HTML, 10 lápides de seção viraram a regra viva. Repasse S1 aplicado (as duas lápides da 2ª metade).
+**Conferidos e deixados:** o único `!important` (guarda do `.simple-time[hidden]`), os `#000` de `mask-image` (alfa) e as repetições com `animation`/`transition: none` (estado, não acidente).
+**Achado e não corrigido:** a varredura no DOM e a captura antes/depois nos dois temas não rodaram — sem Chromium nesta sessão (mesma limitação da S1). `#testeFecho`/`#bibleTitle` sem leitor → repasse X2.
+**Verificado:** `tokens` e a Sanidade da base web verdes (Node puro + `docs-coerentes`); `pares-de-comentario` com 7 avisos, todos artefato de cabeçalho reescrito, conferidos um a um (cada bloco antes da MESMA regra; comentários fechados, sem `*/` solto).
+**O operador:** nada a fazer; a v1.13.40 chega sozinha (só web). A próxima da fila é a K1 (shell: Activity e invariantes — pede Release).
