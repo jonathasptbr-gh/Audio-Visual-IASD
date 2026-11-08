@@ -821,7 +821,7 @@ try {
     // posicional, e é a ORDEM COMPLETA da folha, sem o confirmar.
     const ordem = folhaE.filter((l) => !/^Salvar/.test(l.rotulo)).map((l) => l.rotulo);
     checar(JSON.stringify(ordem)
-      === JSON.stringify(['Favoritos', 'Provai e Vede 2026', 'Informativo Mundial das Missões 2026',
+      === JSON.stringify(['Favoritos', 'Informativo Mundial das Missões 2026', 'Provai e Vede 2026',
         'Hinário Adventista 2022', 'Hinário Adventista 1996', 'Adoradores', 'Diversas', 'Outros itens']),
       'E · com os FAVORITOS na frente (a primeira seção da Biblioteca), a raiz '
       + '(séries e hinários, sempre listados desde a v1.11.12) e o que ela NÃO tem '

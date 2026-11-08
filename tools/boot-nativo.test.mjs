@@ -378,7 +378,7 @@ try {
   // pura já tem oráculo próprio (`serie.test.mjs`), o que faltava era provar
   // que ela está de fato LIGADA ao provedor de coleção.
   const serie = await pg.evaluate(async () => {
-    const c = allCollections().find((x) => x.kind === 'serie');
+    const c = allCollections().find((x) => x.id === 'serie-provai-vede-2026');
     if (!c) return { achou: false };
     await fetchCollectionIndex(c);
     const st = collState[c.id];
@@ -898,7 +898,7 @@ try {
   const venc = await pg.evaluate(() => {
     // `indiceVencido` é a MESMA função que o `autoRefreshCollections` chama —
     // reescrevê-la aqui provaria só que o teste concorda consigo mesmo.
-    const c = allCollections().find((x) => x.kind === 'serie');
+    const c = allCollections().find((x) => x.id === 'serie-provai-vede-2026');
     const st = collState[c.id];
     const agora = Date.now();
     st.indexSyncedAt = agora;               // fresco pelo TTL, que é o caso do relato
@@ -1028,7 +1028,7 @@ try {
   // não mudou continua sem custar extração nenhuma. Sem a segunda, "refazer
   // sempre" passaria — e seriam doze idas ao YouTube por retomada do app.
   const preso = await pg.evaluate(async () => {
-    const c = allCollections().find((x) => x.kind === 'serie');
+    const c = allCollections().find((x) => x.id === 'serie-provai-vede-2026');
     const st = collState[c.id];
     const antes = window.__nPlaylist || 0;
     // COMO O APARELHO DO OPERADOR ESTAVA, e a fidelidade aqui é o teste
@@ -1076,7 +1076,7 @@ try {
   // única forma de continuar provando que um episódio recebe as opções do
   // YouTube, agora que quem decide isso é `montarOpcoes`.
   const folha = await pg.evaluate(async () => {
-    const c = allCollections().find((x) => x.kind === 'serie');
+    const c = allCollections().find((x) => x.id === 'serie-provai-vede-2026');
     const s = collSongs(c.id)[0];
     // O modo é GLOBAL: deixá-lo trocado quebra os casos seguintes (o do Modo
     // Fácil mede a cortina). Restaurado no fim, como os outros casos fazem.
@@ -1212,7 +1212,7 @@ try {
     // rodou assim e reprovou por isso — a lição da v5.208 numa terceira roupa.
     const modoAntes = document.body.classList.contains('mode-simple') ? 'simple' : 'full';
     setAppMode('full');
-    const c = allCollections().find((x) => x.kind === 'serie');
+    const c = allCollections().find((x) => x.id === 'serie-provai-vede-2026');
     // O EPISÓDIO QUE TEM MINIATURA. A ordem do álbum é cronológica, e o
     // primeiro item é o de julho, que no harness não tem `thumb` — medir nele
     // reprovaria uma gaveta que está certa.
@@ -3557,7 +3557,7 @@ try {
     try { await syncLyrics(); } catch (_) { /* o que interessa é o que ela PEDIU */ }
     Louvorja.fetchList = antes;
     const ids = new Set(collSongs(
-      (allCollections().find((x) => x.kind === 'serie') || {}).id).map((s) => s.id_music));
+      (allCollections().find((x) => x.id === 'serie-provai-vede-2026') || {}).id).map((s) => s.id_music));
     return { pedidos, deVideo: pedidos.filter((n) => ids.has(String(n).replace(/^music_/, ''))) };
   });
   checar(letras.deVideo.length === 0,
@@ -3694,7 +3694,7 @@ try {
     ] }];
     albumCatalog.albums = albumCatalog.categories[0].albums;
     const albuns = allCollections().filter((c) => c.kind === 'album');
-    const serie = allCollections().find((c) => c.kind === 'serie');
+    const serie = allCollections().find((c) => c.id === 'serie-provai-vede-2026');
     if (albuns.length < 2 || !serie) {
       albumCatalog.categories = catAntes; albumCatalog.albums = albAntes;
       return { insuficiente: true, albuns: albuns.length, serie: !!serie };

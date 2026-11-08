@@ -341,11 +341,11 @@ try {
     'I1 · no MODO FÁCIL nenhum card de coleção do Provai e Vede ou do Informativo na raiz', iFacil);
   checar(/semana-raiz/.test(iFacil.primeiro) && iFacil.rot === 'Este sábado' && iFacil.data === datas.sab,
     'I2 · no lugar deles, o PRIMEIRO bloco da raiz diz "Este sábado" e a DATA do sábado', { iFacil, datas });
-  checar(iFacil.linhas.length === 2 && iFacil.linhas[0].nome === 'Provai e Vede'
-      && iFacil.linhas[1].nome === 'Informativo Mundial das Missões',
+  checar(iFacil.linhas.length === 2 && iFacil.linhas[0].nome === 'Informativo Mundial das Missões'
+      && iFacil.linhas[1].nome === 'Provai e Vede',
     'I3 · com UMA linha por série — o vídeo da semana de cada uma, direto na raiz', iFacil.linhas);
-  checar(iFacil.linhas.length === 2 && iFacil.linhas[0].sub === 'Episódio de ' + datas.rotulo
-      && iFacil.linhas[1].sub === 'Aguardando lançamento',
+  checar(iFacil.linhas.length === 2 && iFacil.linhas[0].sub === 'Aguardando lançamento'
+      && iFacil.linhas[1].sub === 'Episódio de ' + datas.rotulo,
     'I4 · e embaixo de cada uma a data do episódio, ou "Aguardando lançamento" quando ele não saiu',
     iFacil.linhas);
   checar(iFacil.hinarios === 2, 'I5 · os dois hinários continuam cards da raiz', iFacil);
@@ -366,7 +366,9 @@ try {
     lista.className = 'popup-list acervo';
     renderCollectionsList(lista, () => {}, { semTotal: true });
     document.body.appendChild(lista);
-    const row = lista.querySelector('.semana-raiz-item .hymn-row');
+    const provai = [...lista.querySelectorAll('.semana-raiz-item')]
+      .find((li) => li.querySelector('.hymn-name').textContent === 'Provai e Vede');
+    const row = provai.querySelector('.hymn-row');
     const gaveta = !!lista.querySelector('.semana-raiz-item .hymn-gaveta');
     row.click();
     for (let i = 0; i < 50 && !window.__cmds.some((c) => c.type === 'load'); i++) {
