@@ -36,7 +36,7 @@ abandonada → primeira pendente pelo `nº`).
 | 22 | K2 | feita | v1.13.42 (APK + web) | 2026-11-08 | as SEIS filas (o APK saiu da `transferencia`), guarda de duplo toque, `pickDoc` fora da main, `Throwable` nas promises sem prazo, share com item nulo; oráculo novo `ponte-guarda-host` (4 reversões); ~12 comentários |
 | 23 | K3 | feita | v1.13.43 (APK + web) | 2026-11-08 | o cancelamento que chegava tarde matava o próximo download do mesmo vídeo; a barra recuava no último número; 7 `diagnostico +=` por fora do `anotar()`; oráculo novo `slot-do-download` (9 reversões); 9 KDocs no símbolo certo e a "fila de IO" corrigida para `transferencia`/`extracao` |
 | 24 | K4 | feita | v1.13.44 (APK + web) | 2026-11-08 | a entrega de mídia sem teto (e a subtração que a escondia), a mensagem que nunca termina prendendo a vaga, o token no `logcat`, o "apagado" que mentia e o bloco do canal gravado no item seguinte; oráculo novo `espelho-fronteira` (16 reversões) |
-| 25 | K5 | pendente | | | |
+| 25 | K5 | em curso (2026-11-08) | | | |
 | 26 | K6 | pendente | | | |
 | 27 | X1 | pendente | | | |
 | 28 | X2 | pendente | | | |
