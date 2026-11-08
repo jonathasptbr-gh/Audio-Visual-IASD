@@ -673,8 +673,11 @@ object YoutubeGrab {
      * rede, sem motivo, com o diagnóstico dizendo "cancelado pelo operador" —
      * para um pedido que o operador nunca fez.
      *
-     * O ENFILEIRADO continua funcionando: nessa hora `baixandoLink` é o link
-     * ANTERIOR, ou seja, não é nulo.
+     * O item ENFILEIRADO ATRÁS DE OUTRO DOWNLOAD continua cancelável: nessa
+     * hora `baixandoLink` é o link ANTERIOR, ou seja, não é nulo. O caso que se
+     * perde é o de um item enfileirado com a fila VAZIA — que é a janela de
+     * microssegundos entre enfileirar e começar, e cujo desfecho é um download a
+     * mais, nunca um pedido de parar ignorado no meio de centenas de MB.
      */
     fun cancelar(link: String) {
         if (baixandoLink != null) cancelarLink = link
