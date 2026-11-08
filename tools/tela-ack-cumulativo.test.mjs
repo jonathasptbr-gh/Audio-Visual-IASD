@@ -51,30 +51,36 @@ try {
   );
 
   // ── 1 e 2. O ACK ATRASADO, SEM E COM O PREDICADO ──────────────────────────
+  // As duas rodadas são SEPARADAS e cada uma DRENA a própria fila antes de a
+  // seguinte começar. Sem isso a asserção 2 era TAUTOLOGIA, e isto foi MEDIDO
+  // por reversão: o ACK verdadeiro que sobrava da rodada 1 chegava com o pedido
+  // da rodada 2 já pendente, casava por forma (`bloco`) e o resolvia com o valor
+  // certo — a asserção passava com o predicado REMOVIDO do `telaOuvirCanal`.
   const ack = await pg.evaluate(async () => {
     const PASSO = 512 * 1024;
     const bloco = new Uint8Array(PASSO).buffer;
-    // Uma ponta faz de SHELL: ao receber o bloco, responde primeiro o total de
-    // ANTES (o ACK do bloco vencido) e depois o total deste.
-    const canal = () => {
+    const certo = PASSO;
+    const dormir = () => new Promise((r) => setTimeout(r, 30));
+    // Uma rodada = uma ponta de SHELL que responde primeiro o total de ANTES
+    // (o ACK do bloco vencido) e depois o deste bloco.
+    const rodada = async (comPredicado) => {
       const { port1, port2 } = new MessageChannel();
-      let total = 0;
       port2.onmessage = () => {
-        total += PASSO;
-        port2.postMessage(JSON.stringify({ r: total - PASSO }));   // o atrasado
-        port2.postMessage(JSON.stringify({ r: total }));           // o verdadeiro
+        port2.postMessage(JSON.stringify({ r: 0 }));
+        port2.postMessage(JSON.stringify({ r: certo }));
       };
       telaOuvirCanal(port1);
-      return port1;
+      telaResposta = null;   // nada pendente de outra rodada
+      const r = comPredicado
+        ? await telaPedir(port1, bloco, 'bloco',
+          (x) => typeof x.r !== 'number' || x.r < 0 || x.r === certo)
+        : await telaPedir(port1, bloco, 'bloco');
+      await dormir();        // o que sobrou da fila escorre AQUI, não na próxima
+      return r && r.r;
     };
-    // A FORMA ANTIGA: sem predicado, quem resolve é a PRIMEIRA resposta que
-    // casar por forma — e a atrasada casa.
-    const semPredicado = await telaPedir(canal(), bloco, 'bloco');
-    // A FORMA NOVA, com a conferência do cumulativo que o chamador monta.
-    const esperado = PASSO;
-    const comPredicado = await telaPedir(canal(), bloco, 'bloco',
-      (x) => typeof x.r !== 'number' || x.r < 0 || x.r === esperado);
-    return { semPredicado: semPredicado && semPredicado.r, comPredicado: comPredicado && comPredicado.r, esperado };
+    const semPredicado = await rodada(false);
+    const comPredicado = await rodada(true);
+    return { semPredicado, comPredicado, esperado: certo };
   });
   checar(ack.semPredicado === 0,
     'sem o predicado, o ACK do bloco vencido RESOLVE o seguinte (o defeito)', JSON.stringify(ack));
@@ -95,8 +101,13 @@ try {
       telaOuvirCanal(port1);
       return port1;
     };
+    const dormir = () => new Promise((r) => setTimeout(r, 20));
+    telaResposta = null;
     const recusa = await telaPedir(comResposta({ r: -1 }), bloco, 'bloco', aceita);
+    await dormir();
+    telaResposta = null;
     const cheia = await telaPedir(comResposta({ ok: false, erro: 'fila cheia' }), bloco, 'bloco', aceita);
+    await dormir();
     return { recusa: recusa && recusa.r, cheia: cheia && cheia.erro };
   });
   checar(erros.recusa === -1, 'a recusa do shell ({r:-1}) continua resolvendo o pedido', JSON.stringify(erros));
