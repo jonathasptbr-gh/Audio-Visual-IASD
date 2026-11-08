@@ -142,8 +142,9 @@ android {
     androidResources {
         // Comprimir .js/.css/.html no APK é bom; a fonte woff2 já vem
         // comprimida e recomprimi-la só gastaria CPU na instalação. Só ela:
-        // png/jpg já estão na lista padrão do AAPT, e não há imagem nenhuma em
-        // assets de qualquer forma — as entradas extras eram no-op.
+        // png/jpg já estão na lista padrão do AAPT e não há nenhum em assets (o
+        // único vetor, `shared/wallpaper-padrao.svg`, é texto e comprime como
+        // texto) — as entradas extras eram no-op.
         noCompress += listOf("woff2")
     }
 
@@ -186,6 +187,18 @@ dependencies {
     // dele chegam MISTURADAS com as do cliente antigo na mesma lista — é por
     // isso que a escolha em `YoutubeGrab.tentarJuntar` virou uma fila de
     // candidatos em vez de "a de maior altura".
+    //
+    // O PIN FOI CONFERIDO NA REVISÃO K6 (2026-11-08) E FICA. A v0.26.5 é só o
+    // conserto de live do media.ccc.de (nada de YouTube). A v0.27.0, de
+    // 2026-11-07, mexe no YouTube de verdade: sobe o alvo de Java de 11 para 17
+    // (o deste módulo já é 17) e REMOVE os clientes com poToken
+    // (`forceFetchIosClient`, `getAndroidUserAgent`, `getIosUserAgent`,
+    // `InnertubeClientRequestInfo.ofAndroidClient`…). Nenhum dos doze nomes
+    // removidos é usado aqui — conferido por varredura, zero —, então ela
+    // COMPILA. Mas o que este pin destrava é a EXTRAÇÃO medida no aparelho, e
+    // "compila" não é a pergunta: subir é um lote que exige baixar um vídeo de
+    // verdade e conferir a altura que chega, no mesmo dia em que se mexe. Até
+    // essa medida existir, o pin não se mexe por número de versão.
     implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.4")
     // O nanojson é a biblioteca de JSON do NewPipe, e a API PÚBLICA dele devolve
     // esses tipos: `YoutubeChannelHelper.getChannelResponse` →

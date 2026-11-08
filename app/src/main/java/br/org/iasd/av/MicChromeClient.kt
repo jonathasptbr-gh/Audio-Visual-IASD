@@ -10,6 +10,13 @@ import android.webkit.WebChromeClient
 /**
  * Concede ao WebView o uso do microfone — e **só** o microfone.
  *
+ * Ele é instalado de todo modo: é o `WebChromeClient` do TELÃO, e o
+ * `onConsoleMessage` abaixo é a outra metade do arquivo. A captura ao vivo
+ * saiu do lado web na v1.8.89 (o `AVNative.requestMic` e o `micDiag` saíram do
+ * `native.js`, e o `tools/sem-captura.test.mjs` cobra a porta), então hoje
+ * nenhum caminho do app abre microfone — o `onPermissionRequest` fica armado
+ * para o dia em que a captura voltar, com as três regras já de pé.
+ *
  * Um WebView nega `getUserMedia` em silêncio se ninguém tratar
  * `onPermissionRequest`: a promise é rejeitada e não há erro no console que
  * explique o motivo. É o mesmo padrão do `onShowFileChooser` (ver os
@@ -25,8 +32,7 @@ import android.webkit.WebChromeClient
  * - **Só se o APP já tiver a permissão do Android.** Sem `RECORD_AUDIO`
  *   concedido em runtime, `grant()` daria ao WebView uma permissão que o
  *   processo não tem — a captura falharia de qualquer forma, e mais adiante,
- *   sem sinal claro. Negar aqui devolve o erro na hora, e o lado web sabe
- *   pedir a permissão antes (`AVNative.requestMic()`).
+ *   sem sinal claro. Negar aqui devolve o erro na hora.
  * - **Só da própria origem.** Defesa em profundidade, e ela NÃO depende de o
  *   telão carregar conteúdo de terceiro (o embed do YouTube saiu na v5.212;
  *   hoje o vídeo é baixado e entra num `<video>` comum). O que a

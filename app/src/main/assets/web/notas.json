@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.13.46",
+    "itens": [
+      "A revisão interna de arquivos, cifra e apresentações: nada muda no uso normal.",
+      "A cifra deixou de aceitar que o site a mande para outro endereço no meio do caminho.",
+      "Exportar a biblioteca não faz mais a finalização do arquivo na tela do aparelho."
+    ]
+  },
+  {
     "versao": "1.13.45",
     "itens": [
       "A revisão interna dos downloads e da atualização: nada muda no uso normal.",

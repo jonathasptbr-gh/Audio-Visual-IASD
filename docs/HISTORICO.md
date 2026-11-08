@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.46** — revisão K6 (o resto do shell e o build): a cifra confere o destino FINAL depois de redirecionamento (a allowlist valia só para o primeiro salto); o fim do pacote não faz `flush` de `content://` na main; JUnit novo `CifraFonteTest` (9 casos, reversão medida); o pin do NewPipe conferido contra a v0.27.0, e fica (APK, `shellTag: "v1.13.46"`)
 - **v1.13.43** — revisão K3 (YouTube): o download não morre mais calado depois de um cancelamento que chegou tarde (o `cancelar()` só arma com download em voo); a barra não anda para trás no último número; `diagnostico` só por `anotar()`; oráculo novo `slot-do-download` (9 reversões); ~9 KDocs no símbolo certo e "fila de IO" → `transferencia`/`extracao` (APK, `shellTag: "v1.13.43"`)
 - **v1.13.42** — revisão K2 (a ponte): o APK ganhou fila própria (o prazo do web contava a espera atrás de um download) e guarda de duplo toque; `pickDoc` fora da main thread; `Throwable` nas promises sem prazo; lote de share com item nulo não some mais; oráculo novo `ponte-guarda-host` (76 métodos, 4 reversões); as filas documentadas agora são SEIS (APK, `shellTag: "v1.13.42"`)
 - **v1.13.41** — revisão K1 (Activity e invariantes): as 1–9 provadas no código; o primeiro de dois arquivos compartilhados não some mais (fila de shares no shell + `pumpShare` esvaziando até `null`); as teclas de volume voltam ao sistema na recarga do OTA; oráculo novo `invariantes-shell` (8 reversões medidas); ~11 lápides e KDoc empilhados (APK, `shellTag: "v1.13.41"`)

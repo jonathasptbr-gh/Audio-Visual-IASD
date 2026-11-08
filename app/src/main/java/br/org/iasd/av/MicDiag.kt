@@ -12,6 +12,14 @@ import org.json.JSONObject
 /**
  * POR QUE O MICROFONE NÃO ABRE — as perguntas que só o SHELL sabe responder.
  *
+ * **SEM CONSUMIDOR DESDE A v1.8.89** (revisão K6): o único caminho até aqui é o
+ * `NativeBridge.micDiag`, que saiu do `native.js` junto com a captura — e o
+ * `tools/sem-captura.test.mjs` cobra a porta do lado web. O arquivo fica pelo
+ * que ele MEDE (a contradição entre `checkSelfPermission` e o `AppOps` vale
+ * para qualquer diagnóstico de microfone) e porque quem religar a captura
+ * encontra a leitura pronta, como o `MicChromeClient`; apagar de vez é decisão
+ * de um lote de órfãos (repasse X1, junto com o `requestMic`).
+ *
  * ## O que este arquivo existe para acabar
  *
  * Quatro rodadas de investigação pelo lado web terminaram no mesmo lugar:

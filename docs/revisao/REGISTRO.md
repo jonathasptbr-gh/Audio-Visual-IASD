@@ -37,7 +37,7 @@ abandonada → primeira pendente pelo `nº`).
 | 23 | K3 | feita | v1.13.43 (APK + web) | 2026-11-08 | o cancelamento que chegava tarde matava o próximo download do mesmo vídeo; a barra recuava no último número; 7 `diagnostico +=` por fora do `anotar()`; oráculo novo `slot-do-download` (9 reversões); 9 KDocs no símbolo certo e a "fila de IO" corrigida para `transferencia`/`extracao` |
 | 24 | K4 | feita | v1.13.44 (APK + web) | 2026-11-08 | a entrega de mídia sem teto (e a subtração que a escondia), a mensagem que nunca termina prendendo a vaga, o token no `logcat`, o "apagado" que mentia e o bloco do canal gravado no item seguinte; oráculo novo `espelho-fronteira` (16 reversões) |
 | 25 | K5 | feita | v1.13.45 (APK + web) | 2026-11-08 | o APK truncado ia ao instalador e as TRÊS recusas pós-download rebaixavam o mesmo zip de 15 em 15 s; a transmissão não republicava com cena no ar; oráculos novos `servico-em-primeiro-plano` + `ota-ativacao` (34 asserções, 16 reversões) |
-| 26 | K6 | em curso (2026-11-08) | | | |
+| 26 | K6 | feita | v1.13.46 (APK + web) | 2026-11-08 | a cifra seguia redirecionamento para fora da allowlist; o `deckPaginas` baixava de QUALQUER host e vazava as páginas quando falhava no meio; a foto acima do teto virava `200` cortado; o `fim` do pacote fazia `flush` de `content://` na main; JUnit novo `CifraFonteTest` (9 casos, reversão 7/9); o pin do NewPipe conferido contra a v0.27.0 e mantido, com o porquê escrito |
 | 27 | X1 | pendente | | | |
 | 28 | X2 | pendente | | | |
 | 29 | X3 | pendente | | | |
@@ -79,12 +79,87 @@ tratou.
 | X1 | K5 | `docs/shell/PONTE.md` documenta o `apkProcurar` como método VIVO numa tabela e como ÓRFÃO na outra (a segunda é a verdadeira desde a v1.8.71: o botão de Configurações faz `otaCheck(true)`). O `ShellUpdater.procurar` (43 linhas), o `API` e o `pegarTexto` existem só por ele — o lote que apagar o `apkProcurar` leva os três |
 | X2 | K5 | Sem asserção, e valendo uma cada: o `SessionService.updateFromDisplay` (o caminho do `display-status` a 4 Hz, a ÚNICA fonte que sobrevive ao estrangulamento do Controle) e a supressão do OTA pelo `otaRecusadas` (o `Set` que impede a enquete de pedir aplicação a cada 10 s depois de o shell recusar o bundle). O primeiro é forma de Kotlin (cabe no `servico-em-primeiro-plano`); o segundo é comportamento do `controle.js` (cabe no `ota.test.mjs`: stub de `otaApply` resolvendo `null`, duas voltas da enquete, UM pedido) |
 | X3 | K5 | Três coisas só medidas em APARELHO: (1) o `ServiceCompat.startForeground` está fora de `try/catch` nos dois serviços, e a cota de `dataSync` do Android 15 recusa NOVOS `dataSync` — a doc não diz se a exceção sai do `startForegroundService` (já coberto pelo `catch` da Activity) ou do `startForeground` (que mataria o processo dos dois WebViews na main); (2) com `STATE_NONE` a `MediaMetadata` anterior fica retida — SUSPEITA de player fantasma no painel do Android 13+; (3) `MediaStyle.setShowActionsInCompactView(IntArray(0))` quando o web manda só ids desconhecidos — SUSPEITA de exceção em API antiga. E a fraqueza do `pares-de-comentario` que a K5 mediu: ele casa bloco pelo CABEÇALHO, e em KDoc o cabeçalho de quase todo bloco é uma linha `*` (dez acusações, nenhuma real) — a mesma classe já registrada para os blocos de CSS |
-| X2 | K4 | `controle.js`:`telaRespostaCombina` (~45411) — a cobertura continua PARCIAL: dois pedidos do MESMO tipo em sequência têm respostas indistinguíveis, e a K4 MEDIU que o `seq` não tem onde viajar no canal de mídia (o bloco é `ArrayBuffer`, sem envelope; só o `abrir`/`fim`/`cancelar` são texto). O fecho barato é do lado WEB e não pede Kotlin: o ACK do bloco carrega o total CUMULATIVO (`{r:n}`), que o `telaEmpurrarAgora` já recebe e ignora — conferir `r.r === pos + fatia.byteLength` (aceitando `r.r < 0`, que é recusa) e, no `telaPedir`, só resolver quando `p.aceita(r)` fechar, deixando o ACK atrasado chegar e ser descartado. Hoje o ACK velho resolve o bloco seguinte e faz `pos = r.r` voltar, reenviando bytes que o Kotlin ANEXA (o arquivo fica maior que a fonte) |
+| X2 | K4 | `controle.js`:`telaRespostaCombina` (~45411) — a cobertura continua PARCIAL: dois pedidos do MESMO tipo em sequência têm respostas indistinguíveis, e a K4 MEDIU que o `seq` não tem onde viajar no canal de mídia (o bloco é `ArrayBuffer`, sem envelope; só o `abrir`/`fim`/`cancelar` são texto). O fecho barato é do lado WEB e não pede Kotlin: o ACK do bloco carrega o total CUMULATIVO (`{r:n}`), que o `telaEmpurrarAgora` já recebe e ignora — conferir `r.r === pos + fatia.byteLength` (aceitando `r.r < 0`, que é recusa) e, no `telaPedir`, só resolver quando `p.aceita(r)` fechar, deixando o ACK atrasado chegar e ser descartado. Hoje o ACK velho resolve o bloco seguinte e faz `pos = r.r` voltar, reenviando bytes que o Kotlin ANEXA (o arquivo fica maior que a fonte) || X1 | K6 | `PacoteCanal.soltar` NÃO tem chamador em parte alguma (e o irmão `EspelhoMidiaCanal.soltar` também não): `removeWebMessageListener` e a parada da thread nunca rodam, e o `instalado` nunca volta a `false` — o KDoc da classe descreve a remontagem por morte de renderer como se estivesse ligada. O lote de órfãos leva os dois métodos, e o campo vai junto |
+| X1 | K6 | `MicDiag.kt` (181 linhas, cinco leituras de sistema) só é alcançável pelo `NativeBridge.micDiag`, e esse saiu do `native.js` na v1.8.89: é órfão de órfão. Apagar é decisão do operador num lote APK + web; o arquivo já traz essa nota no topo |
+| X2 | K6 | O renderer que morre NO MEIO de uma exportação não fecha o destino: o `finally` do `controle.js` não roda sem JS, e ninguém no shell cancela o canal no `onRenderProcessGone` — o descritor aberto fica até o pacote seguinte. Conserto do lado da `MainActivity` (fatia K1): `pacoteCancelar`/`fechar` na morte do renderer |
+| X2 | K6 | O `micDiag` (órfão) roda na fila `io` — a que promete milissegundos e divide com `listFolder`/`otaPending` — e faz TRÊS binders ao system_server (`unsafeCheckOpNoThrow`, `activeRecordingConfigurations`, `getDevices`). Se voltar a ter chamador, vai para a `extracao`, ou o KDoc declara a exceção |
+| X2 | K6 | O índice do `docs/HISTORICO.md` não tem a linha da v1.13.44 nem a da v1.13.45 (as seções existem logo abaixo dele, e é por isso que o `docs-coerentes` passa): um `grep` no índice não acha nenhuma das duas |
+| X2 | K6 | `SlideDeck.urlDeExportacao` é PURA (regex + string) e não tem asserção, e `SlideDeck.descartar` — o único ponto do arquivo que APAGA arquivo — também não. E o `R2ImagemRegistry.take` consome no PRIMEIRO pedido: um segundo `fetch` do MESMO token (retry do Chromium, folha refeita) recebe 404 e a varredura acusaria a FONTE. SUSPEITA, não medida |
+| X3 | K6 | O `pares-de-comentario` acusou 1 bloco: cabeçalho `*` (todo `/**` vira isso) passou a encabeçar `hostPermitido` porque a K6 criou um KDoc NOVO — conferido, o bloco está sobre o símbolo dele. É a fraqueza já registrada pela K5 (bloco casado pelo cabeçalho), agora no caso do KDoc criado do zero |
+
 ## Relatórios
 
 Um bloco por etapa executada, ≤ 25 linhas: corrigido · achado e não corrigido
 (com o porquê) · repasses · ponto de parada · o que o operador confere no
 aparelho.
+
+### K6 · O resto do shell e o build — feita (2026-11-08)
+
+Cerca: `SlideDeck.kt` (455), `CifraFonte.kt` (211), `R2ImagemFonte.kt` (249), `PacoteCanal.kt` (331), `PacoteProvider.kt` (39),
+`MicChromeClient.kt` (87), `MicDiag.kt` (181) e `app/build.gradle.kts` (243) — os sete `.kt` lidos inteiros por agente
+delegado e conferidos aqui; os consumidores web e a ponte, por varredura. O foco do cartão: **o resto do shell, mais a versão
+das dependências**.
+
+- **DEFEITO 1, corrigido — a cifra seguia o redirecionamento sem reconferir o host.** O `CifraFonte.buscar` usava
+  `instanceFollowRedirects = true` e conferia a allowlist só na URL de ENTRADA: um `Location` mandado por
+  `cifraclub.com.br` podia apontar para qualquer host (inclusive um `http://192.168…`), e o app lia a resposta com o IP do
+  aparelho — a invariante 2 pelo lado do salto. O arquivo irmão já a tinha fechado (o `R2ImagemFonte` desliga os
+  redirecionamentos e o KDoc dele diz o porquê). Agora a regra é uma função PURA (`hostPermitido`) chamada na entrada E no
+  destino final (`c.url`, já depois dos saltos), com motivo no `ultimaTentativa`; o redirecionamento legítimo (`www` ↔ raiz)
+  continua, porque os dois hosts estão na lista.
+- **DEFEITO 2, corrigido — o `fim` do pacote fazia `flush` de `content://` na MAIN.** O `PacoteCanal.quandoChega` responde ao
+  `{"fim":true}` no `onPostMessage` (main thread) e descarregava o destino ali — o MESMO trabalho que o `fecharDepois` existe
+  para tirar da main desde a v1.8.72 (um provedor de nuvem finalizando gigabytes; 5 s na main é ANR no processo dos dois
+  WebViews). O `flush` saiu: quem descarrega e fecha é o `pacoteFechar`, fora da main, e é o número DELE que descobre cartão
+  cheio. O lado web nunca leu o `ok` daquele ACK (o `controle.js` descarta a resposta do `fim`), então nada muda no visível.
+- **DEFEITO 3, corrigido — o `deckPaginas` vazava as páginas quando falhava no meio.** O `SlideDeck.paginas` apagava o PDF
+  temporário no `finally`, mas não a pasta das páginas já rasterizadas: o lado web só chama o `deckDiscard` com a PRIMEIRA
+  página de um resultado bem-sucedido (`if (primeira)`), e um `{erro}` não tem página nenhuma. Uma apresentação que falhasse na
+  150ª de 200 deixava ~30 MB no cache — e cada tentativa criava uma subpasta NOVA (o `seq`). Agora ela é apagada em todo
+  desfecho que não devolve `pages`.
+- **DEFEITO 4, corrigido — o `SlideDeck` era o único cliente de rede do shell sem trava de host.** O ramo `https` baixava o
+  que a ponte mandasse: o `urlDeExportacao` é o CONTRATO do lado web, e contrato não é guarda. Agora o host é conferido por
+  COMPONENTE do `URI` (`docs.google.com`, numa constante que o `urlDeExportacao` também usa) e o caminho tem de conter
+  `/presentation/d/`. O caminho legítimo sempre passa — nada muda no visível.
+- **DEFEITO 5, corrigido — a foto acima do teto virava `200` CORTADO.** O `R2ImagemFonte.lerAteOTeto` parava no `MAX_BYTES` e
+  devolvia o que tinha lido: meia imagem com tipo válido ia para o OPFS e virava fundo de letra corrompido, sem uma linha no
+  Registro. Passar do teto agora LANÇA (o `catch` já devolve `status 0`, com o motivo no log). E o campo `ultimaTentativa`
+  do arquivo — que só ele escrevia, sem `r2Diag` na ponte — saiu junto: era código morto com cara de diagnóstico.
+- **HIGIENE:** o `flush`/`close`/`-1` do `PacoteCanal` estava escrito DUAS vezes (`fechar` e o `fecharDepois`) e virou
+  `fecharNesteFio`: a regra "fecho que falha devolve `-1`, nunca um número plausível" agora mora num lugar só.
+- **ORÁCULO NOVO — `CifraFonteTest` (JUnit 4, 9 casos).** A regra da cifra não tinha asserção nenhuma (o `tools/cifra.test.mjs`
+  prova o PARSER, não o transporte). Os casos vêm em PARES, no molde do `R2ImagemFonteTest`: o host exato dos dois lados, `http`,
+  sufixo, prefixo, subdomínio, destino interno, URL ilegível e vazia. **A reversão foi medida em Node com o mesmo predicado**
+  (aqui não há Android SDK para rodar o JUnit): com a regra real passam 9/9; mutada para `return true`, 7 dos 9 reprovam.
+- **DEPENDÊNCIAS:** o pin do NewPipe foi conferido contra o CHANGELOG, como o cartão manda. A v0.26.5 é só o live do
+  media.ccc.de; a **v0.27.0** (2026-11-07) mexe no YouTube de verdade — Java 11→17 e REMOÇÃO dos clientes com poToken — e
+  nenhum dos doze nomes removidos é usado aqui (varredura: zero). Ela compila, mas o que o pin destrava é a extração MEDIDA
+  no aparelho: fica, e o motivo está escrito no `build.gradle.kts` para quem for subir.
+- **Só comentário (provas 1 e 2; a 2 acusa 1, KDoc criado do zero com o cabeçalho `*` de sempre):** o `MicChromeClient`
+  mandava o leitor chamar `AVNative.requestMic()`, que saiu do `native.js` na v1.8.89 (e o `sem-captura` proíbe que volte) —
+  agora diz o que é verdade: captura fora, guarda de pé para quem a trouxer; o "não há imagem nenhuma em assets" do
+  `build.gradle.kts` esquecia o `wallpaper-padrao.svg`; o `MicDiag` ganhou a primeira linha que faltava ("sem consumidor
+  desde a v1.8.89", repasse X1); o `CifraFonte` perdeu a lápide do buscador externo (v1.2.8) e o "pior caso cabe em 60 s"
+  (a fila `cifra` é UMA thread e o lado web enfileira até seis — o `PONTE.md` já sabia, o comentário não); o KDoc do
+  `R2ImagemFonte` passou a dizer que passar do teto é FALHA.
+- **Conferido e deixado (não é defeito):** `SlideDeck` pinta fundo branco antes do `PdfRenderer`, recicla o bitmap por página,
+  limita a 300 páginas e DIZ o corte (`truncado`, que dispensa bump de `SHELL_VERSION`), e o `descartar` só apaga dentro do
+  nosso cache (`parentFile.parentFile == raiz`). `PacoteProvider` é subclasse VAZIA de propósito (a correção do "0 KB" é a
+  classe separada; o `manifest-provedores` roda no CI). `PacoteCanal`: teto de 1 MiB por bloco, ACK por bloco, recusa `-1` sem
+  destino, e a fila de fecho que só roda com a de blocos vazia. `MicDiag` só LÊ (AppOps, mudo global, modo, sessões,
+  entradas) e o `MODE_FOREGROUND` está no ramo certo. `MicChromeClient` concede só `RESOURCE_AUDIO_CAPTURE`.
+- **Achado e NÃO corrigido:** (1) o renderer que morre no meio de uma exportação não fecha o destino — **repasse X2**, conserto
+  na `MainActivity` (K1); (2) `PacoteCanal.soltar` e `EspelhoMidiaCanal.soltar` sem chamador, e o `MicDiag` inteiro só pelo
+  `micDiag` órfão — **repasse X1**; (3) `micDiag` na fila `io` com três binders — **repasse X2**; (4) SUSPEITA não medida: um
+  segundo `fetch` do mesmo `/r2img/<token>` recebe 404 (o `take` consome) e a varredura acusaria a fonte; (5)
+  `SlideDeck.urlDeExportacao`/`descartar` sem oráculo — **repasse X2**; (6) o índice do `HISTORICO.md` sem as linhas da
+  v1.13.44/45 — **repasse X2**.
+- **Verificado:** a Sanidade da base web inteira (o `node --check` do bundle, as asserções do `version.json`/`notas.json` e os
+  32 oráculos de Node puro, `docs-coerentes` incluso), a varredura `comm` dos dois sentidos e as duas provas dos comentários
+  (a 1: código sem comentário igual ao HEAD, menos as cinco correções nomeadas). **O Kotlin não compila neste aparelho**
+  (`./gradlew` exige o Android SDK): quem responde por ele e pelo `CifraFonteTest` é o `verificar` do run da v1.13.46.
+- **O operador:** instalar a v1.13.46 quando ela aparecer (chega sozinha). Depois dela, nada muda no uso normal: a cifra não
+  lê mais um endereço fora do site dela, e exportar a biblioteca não faz a finalização do arquivo na tela do aparelho.
 
 ### K5 · Serviços e atualização — feita (2026-11-08)
 

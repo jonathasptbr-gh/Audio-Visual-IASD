@@ -45,14 +45,24 @@ import java.net.URL
  *    uso geral pendurado num WebView privilegiado: qualquer script que
  *    chegasse ali leria a rede interna da igreja com o IP do aparelho.
  *  - **`https` obrigatório.**
+ *  - **O destino FINAL também é conferido**, porque a conexão segue
+ *    redirecionamento: um `Location` mandado pelo host permitido pode apontar
+ *    para qualquer outro (inclusive um `http://` da rede interna), e sem essa
+ *    segunda conferência a lista de permissão valeria só para o PRIMEIRO salto.
+ *    É a mesma razão pela qual o [R2ImagemFonte] desliga os redirecionamentos
+ *    de vez; aqui eles ficam (o Cifra Club redireciona entre `www` e raiz) e o
+ *    preço é esta linha.
  *  - **Teto de bytes** ([MAX_BYTES]). A resposta é lida para a memória de um
  *    processo que já divide o espaço com dois WebViews e um vídeo; uma URL que
  *    devolvesse um arquivo grande derrubaria o app, e o `largeHeap` não é
  *    licença para ler o que vier.
- *  - **Prazos curtos** ([TEMPO_MS]). O `call()` do lado web desiste em 60 s e
- *    resolve `null`; o pior caso daqui (conexão + leitura) tem de caber
- *    folgado dentro disso, senão a aba mente "não achei" quando o certo era
- *    "a rede não respondeu".
+ *  - **Prazos curtos** ([TEMPO_MS]), e a conta é a da FILA, não a de uma
+ *    busca: a fila `cifra` é UMA thread (é o [ultimaTentativa] que dá o
+ *    veredito) e o lado web enfileira até seis buscas de uma vez, então o pior
+ *    caso real de quem entrou por último é a soma delas. O `call()` do lado web
+ *    desiste em 60 s e resolve `null` — vencido o prazo, a aba diz `sem-rede`,
+ *    que é a frase honesta; a mentira que este prazo evita é a OUTRA, a de
+ *    desistir antes e dizer "não achei" com a resposta já a caminho.
  *
  * Nada aqui persiste. O cache é um `Map` em memória no `controle.js`, morto ao
  * fechar o app — que é o contrato do recurso, não um detalhe de implementação.
@@ -78,10 +88,9 @@ object CifraFonte {
      * O `User-Agent`.
      *
      * O do app basta no Cifra Club e está em uso desde o começo — trocá-lo
-     * mexeria no único caminho que hoje funciona. A escolha POR HOST saiu com o
-     * buscador externo (v1.2.8): sobrou um host, e um `if` sobre um conjunto de
-     * um elemento é uma bifurcação que só existe para o leitor procurar o outro
-     * ramo.
+     * mexeria no único caminho que hoje funciona. Não há escolha POR HOST:
+     * sobrou um host, e um `if` sobre um conjunto de um elemento seria uma
+     * bifurcação só para o leitor procurar o outro ramo.
      */
     private const val AGENTE = "AudioVisualIASD"
 
@@ -102,6 +111,23 @@ object CifraFonte {
         private set
 
     /**
+     * `https` + host na allowlist, por COMPONENTE do `URI` — nunca por
+     * prefixo/sufixo de string (a invariante 2 do shell). PURA e sem import de
+     * Android de propósito: é a única metade deste arquivo testável sem
+     * mockar `android.util.Log` ou abrir um socket de verdade, e é a que mais
+     * importa provar — falhar aberto aqui é este método virar um proxy HTTP de
+     * uso geral pendurado num WebView privilegiado. Ver `CifraFonteTest`.
+     *
+     * Ela é chamada DUAS vezes por busca: na entrada, e no destino FINAL depois
+     * dos redirecionamentos (ver [buscar]).
+     */
+    internal fun hostPermitido(url: String): Boolean {
+        val alvo = try { URI(url) } catch (_: Exception) { null }
+        val host = alvo?.host ?: ""
+        return alvo?.scheme == "https" && host in HOSTS_PERMITIDOS
+    }
+
+    /**
      * `GET url` e devolve o corpo cru.
      *
      * O par `(status, html)` é o retorno inteiro, e os dois campos existem
@@ -114,9 +140,7 @@ object CifraFonte {
      * Nunca lança: toda falha vira `status 0` com `html` vazio.
      */
     fun buscar(url: String): Pair<Int, String> {
-        val alvo = try { URI(url) } catch (_: Exception) { null }
-        val host = alvo?.host ?: ""
-        if (alvo?.scheme != "https" || host !in HOSTS_PERMITIDOS) {
+        if (!hostPermitido(url)) {
             ultimaTentativa = "destino não permitido ($url)"
             Log.w(TAG, ultimaTentativa)
             return 0 to ""
@@ -134,6 +158,17 @@ object CifraFonte {
                 setRequestProperty("Accept-Language", "pt-BR,pt")
             }
             val status = c.responseCode
+            // O DESTINO FINAL DEPOIS DOS REDIRECIONAMENTOS, e antes de qualquer
+            // byte do corpo: `c.url` é a URL de onde a resposta veio de fato, e
+            // um `Location` para outro host (ou para `http://`) faria a
+            // allowlist valer só para o primeiro salto. O `ultimaTentativa`
+            // registra o destino recusado — sem ele, o Registro diria "não
+            // achei" sobre um desvio que o app recusou de propósito.
+            if (!hostPermitido(c.url.toString())) {
+                ultimaTentativa = "redirecionado para fora da lista (${c.url})"
+                Log.w(TAG, ultimaTentativa)
+                return 0 to ""
+            }
             // 4xx/5xx respondem pelo `errorStream`; o corpo deles não interessa
             // (quem decide o que dizer é a aba), mas o STATUS interessa muito.
             if (status !in 200..299) {

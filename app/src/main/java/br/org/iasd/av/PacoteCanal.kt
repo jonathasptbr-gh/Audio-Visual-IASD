@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit
  * | o que o JS manda | o que acontece |
  * |---|---|
  * | `ArrayBuffer` | um bloco; a resposta `{"r":total}` é o ACK que segura o próximo — `postMessage` não tem backpressure, e sem o ack a main viraria fila de megabytes |
- * | `{"fim":true}` | descarrega o que estiver em buffer; responde `{"ok":true}` |
+ * | `{"fim":true}` | fim do canal: responde `{"ok":true,"r":<escritos>}` — quem descarrega e fecha é o `pacoteFechar`, fora da main |
  *
  * ABRIR E FECHAR NÃO ESTÃO AQUI, e isso é a divisão de trabalho da ponte, não
  * uma omissão: os dois envolvem uma PESSOA (o seletor do SAF) ou um veredito
@@ -151,16 +151,26 @@ class PacoteCanal {
         uri = null
         val n = escritos
         escritos = 0L
-        return try {
+        return fecharNesteFio(s, n)
+    }
+
+    /**
+     * O `flush` + `close` de um destino, com o desfecho — a regra escrita UMA
+     * vez, porque ela mora em dois caminhos (o fecho na main e o fecho fora
+     * dela) e é o contrato inteiro do arquivo: **fecho que falha devolve `-1`,
+     * nunca um número plausível.** Achatar o erro no contador faria o app
+     * anunciar um pacote inteiro sobre um arquivo truncado.
+     */
+    private fun fecharNesteFio(s: OutputStream, gravados: Long): Long =
+        try {
             s.flush()
             s.close()
-            n
+            gravados
         } catch (e: Exception) {
             Log.w(TAG, "não consegui fechar o pacote", e)
             try { s.close() } catch (_: Exception) {}
             -1L
         }
-    }
 
     /**
      * O MESMO FECHO DE [fechar], com o `flush`/`close` FORA da main thread
@@ -192,15 +202,7 @@ class PacoteCanal {
         // `Handler.post`, que devolve `Boolean` — sem a anotação a lambda vira
         // `() -> Boolean` e não entra numa fila de `() -> Unit`.
         val tarefa: () -> Unit = {
-            val r = try {
-                s.flush()
-                s.close()
-                n
-            } catch (e: Exception) {
-                Log.w(TAG, "não consegui fechar o pacote", e)
-                try { s.close() } catch (_: Exception) {}
-                -1L
-            }
+            val r = fecharNesteFio(s, n)
             main.post { aoTerminar(r) }
         }
         ligar()
@@ -256,13 +258,18 @@ class PacoteCanal {
         if (texto.length > TETO_TEXTO) return
         val json = try { JSONObject(texto) } catch (e: Exception) { return }
         if (json.optBoolean("fim", false)) {
-            // O `flush` aqui é o que faz o `{"ok":true}` significar alguma
-            // coisa: sem ele a resposta diria "gravei" sobre bytes ainda no
-            // buffer, e o `pacoteFechar` que vem em seguida é quem descobriria.
-            val ok = try { saida?.flush(); true } catch (e: Exception) {
-                Log.w(TAG, "flush do pacote falhou", e); false
-            }
-            responder(resposta, JSONObject().put("ok", ok).put("r", escritos))
+            // AQUI NÃO SE DESCARREGA NADA, e isso é conserto (revisão K6):
+            // `flush()` de um `content://` é trabalho da MESMA classe do
+            // `close` — cartão SD, provedor FUSE, nuvem finalizando gigabytes —,
+            // e é por isso que [fecharDepois] existe. Este `quandoChega` roda na
+            // MAIN thread (o `onPostMessage`), então o `flush` que morava aqui
+            // punha na main exatamente o trabalho que a classe inteira evita;
+            // num pacote de gigabytes ele era um ANR à espera do provedor certo.
+            // Quem descarrega e fecha é o `pacoteFechar`, que o lado web chama
+            // logo depois e que roda FORA da main — e é o número DELE que
+            // descobre o cartão cheio. O `ok` responde o que este canal sabe:
+            // todo bloco enviado teve o ack, e `escritos` é a contagem dele.
+            responder(resposta, JSONObject().put("ok", true).put("r", escritos))
         }
     }
 

@@ -63,6 +63,17 @@ object SlideDeck {
     private const val TAG = "SlideDeck"
 
     /**
+     * O ÚNICO host de onde este arquivo baixa, e ele é comparado por COMPONENTE
+     * do `URI` (a invariante 2 do shell) — a mesma trava do [CifraFonte] e do
+     * [R2ImagemFonte]. O `origem` chega pela ponte como TEXTO, e este é o
+     * único cliente de rede do shell que não perguntava o host: com ele, um
+     * link colado ou um bug do lado web que mandasse outro endereço
+     * transformava o `deckPaginas` num proxy de download de qualquer coisa,
+     * com o IP do aparelho e a memória dos dois WebViews.
+     */
+    private const val HOST_EXPORTACAO = "docs.google.com"
+
+    /**
      * Lado maior de cada página, em pixels.
      *
      * O telão de uma igreja é 1080p; renderizar acima disso só engorda o
@@ -118,7 +129,7 @@ object SlideDeck {
     /** A apresentação do Google vira PDF por esta URL, ou `null` se não for uma. */
     fun urlDeExportacao(link: String): String? {
         val id = SLIDES_ID.find(link)?.groupValues?.get(1) ?: return null
-        return "https://docs.google.com/presentation/d/$id/export/pdf"
+        return "https://$HOST_EXPORTACAO/presentation/d/$id/export/pdf"
     }
 
     /**
@@ -146,6 +157,14 @@ object SlideDeck {
         onProgresso: (Int, Int) -> Unit,
     ): JSONObject {
         var temporario: File? = null
+        // AS PÁGINAS JÁ RASTERIZADAS, enquanto a rasterização não chega ao fim.
+        // Elas são intermediárias e ninguém mais tem o token delas: o lado web
+        // só chama o `deckDiscard` com a PRIMEIRA página de um resultado que deu
+        // certo (o `finally` do `importarApresentacao`), e um `{erro}` não tem
+        // página nenhuma para passar. Sem esta variável, uma apresentação de 200
+        // páginas que falha na 150 deixava ~30 MB no cache — e cada tentativa
+        // criava uma subpasta NOVA (o `seq`), então o cache só crescia.
+        var paginasGravadas: File? = null
         return try {
             val u = Uri.parse(origem)
             // O ARQUIVO LOCAL VEM PRIMEIRO, e a pergunta é pelo HOST — não por
@@ -185,6 +204,12 @@ object SlideDeck {
                     }
                 }
                 u.scheme == "https" -> {
+                    // A URL DE EXPORTAÇÃO TEM UM HOST SÓ (ver [HOST_EXPORTACAO]),
+                    // e o caminho também: o `urlDeExportacao` é o contrato do
+                    // lado web, e esta é a porta que o cobra de verdade.
+                    if (u.host != HOST_EXPORTACAO || !u.path.orEmpty().contains("/presentation/d/")) {
+                        return erro("origem não é a exportação do Google")
+                    }
                     // [baixar] LANÇA com o motivo (código HTTP, teto, rede) em
                     // vez de devolver `null` mudo: "HTTP 403 do Google" e uma
                     // queda de rede são diagnósticos OPOSTOS — um manda
@@ -204,6 +229,7 @@ object SlideDeck {
                     val total = minOf(pdf.pageCount, MAX_PAGINAS)
                     if (total <= 0) return erro("PDF sem páginas")
                     val destino = pasta(ctx, chaveDe(origem))
+                    paginasGravadas = destino
                     val urls = JSONArray()
                     for (i in 0 until total) {
                         val arquivo = renderizar(pdf, i, destino)
@@ -221,6 +247,9 @@ object SlideDeck {
                     // manda continua degradando para o comportamento de sempre
                     // — é o que dispensa bump de versão.
                     if (pdf.pageCount > MAX_PAGINAS) resultado.put("truncado", true)
+                    // SÓ AQUI as páginas são do lado web: elas viajam nas URLs.
+                    // Daqui para baixo o `finally` não apaga mais a pasta.
+                    paginasGravadas = null
                     resultado
                 }
             }
@@ -233,6 +262,8 @@ object SlideDeck {
             erro(e.javaClass.simpleName + (e.message?.let { ": $it" } ?: ""))
         } finally {
             temporario?.delete()
+            // FALHA NO MEIO: as páginas já rasterizadas não têm dono nenhum.
+            paginasGravadas?.deleteRecursively()
         }
     }
 

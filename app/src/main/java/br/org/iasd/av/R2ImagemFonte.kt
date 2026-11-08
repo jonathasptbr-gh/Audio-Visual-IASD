@@ -66,7 +66,9 @@ import java.util.concurrent.ConcurrentHashMap
  *    centenas de kB (a mesma régua de `PAGINA_LEVE` do `controle/deck.js`); um
  *    bucket comprometido ou mal configurado devolvendo um arquivo enorme não
  *    pode encher a memória de um processo que já divide espaço com dois
- *    WebViews e um vídeo.
+ *    WebViews e um vídeo. E passar do teto é FALHA (`status 0`), nunca corte:
+ *    a metade da imagem seguia com `200` e tipo válido e virava fundo de letra
+ *    corrompido no acervo, sem uma linha que dissesse por quê.
  *  - **Prazos curtos** ([TEMPO_MS]), bem abaixo do `CALL_TIMEOUT_MS` (60 s) do
  *    lado web — o pior caso (connect + read) tem de caber folgado, senão a
  *    varredura automática mente "não respondeu" quando o certo seria só mais
@@ -97,14 +99,6 @@ object R2ImagemFonte {
     private const val MAX_BYTES = 8 * 1024 * 1024
 
     /**
-     * A última tentativa, em texto — mesmo papel do `CifraFonte.ultimaTentativa`,
-     * escrita só por [buscar] (sem segundo escritor, sem trava).
-     */
-    @Volatile
-    var ultimaTentativa: String = ""
-        private set
-
-    /**
      * `https` + host na allowlist, por COMPONENTE do `URI` — nunca por
      * prefixo/sufixo de string (a invariante 2 do shell). PURA e sem import de
      * Android, de propósito: é a única metade deste arquivo testável sem
@@ -128,8 +122,10 @@ object R2ImagemFonte {
      */
     fun buscar(url: String): Triple<Int, ByteArray?, String?> {
         if (!hostPermitido(url)) {
-            ultimaTentativa = "destino não permitido ($url)"
-            Log.w(TAG, ultimaTentativa)
+            // O motivo vai para o LOG e não para um campo: não há `r2Diag` na
+            // ponte (o irmão `CifraFonte` tem o dele), e um campo que só o
+            // próprio arquivo escreve é código morto que parece diagnóstico.
+            Log.w(TAG, "destino não permitido ($url)")
             return Triple(0, null, null)
         }
 
@@ -145,17 +141,16 @@ object R2ImagemFonte {
             }
             val status = c.responseCode
             if (status !in 200..299) {
-                ultimaTentativa = "HTTP $status em $url"
+                Log.i(TAG, "HTTP $status em $url")
                 return Triple(status, null, null)
             }
             val corpo = lerAteOTeto(c)
             val mime = c.contentType?.substringBefore(';')?.trim()?.ifBlank { null }
                 ?: adivinharMime(url)
-            ultimaTentativa = "HTTP $status, ${corpo.size} byte(s) em $url"
+            Log.i(TAG, "HTTP $status, ${corpo.size} byte(s) em $url")
             Triple(status, corpo, mime)
         } catch (e: Exception) {
-            ultimaTentativa = "falhou (${e.javaClass.simpleName}) em $url"
-            Log.i(TAG, ultimaTentativa)
+            Log.i(TAG, "falhou (${e.javaClass.simpleName}: ${e.message}) em $url")
             Triple(0, null, null)
         } finally {
             try { c?.disconnect() } catch (_: Exception) { /* já fechada */ }
@@ -165,6 +160,12 @@ object R2ImagemFonte {
     /**
      * Lê o corpo respeitando [MAX_BYTES]. O `Content-Length` NÃO é a régua —
      * opcional, mentível e ausente em `chunked` — quem para é o laço.
+     *
+     * PASSAR DO TETO É FALHA, e não um `break` (revisão K6): a imagem cortada
+     * seguia 200 com `image/*` válido, era gravada no OPFS pelo `controle.js` e
+     * virava um fundo de letra com a metade de baixo corrompida — sem uma linha
+     * que dissesse por quê. Uma foto de fundo vive na casa das centenas de kB;
+     * oito megabytes é trava, e trava que dispara tem de aparecer como falha.
      */
     private fun lerAteOTeto(c: HttpURLConnection): ByteArray {
         val saida = ByteArrayOutputStream()
@@ -174,7 +175,11 @@ object R2ImagemFonte {
                 val n = entrada.read(bloco)
                 if (n <= 0) break
                 saida.write(bloco, 0, n)
-                if (saida.size() >= MAX_BYTES) break
+                if (saida.size() > MAX_BYTES) {
+                    throw java.io.IOException(
+                        "imagem acima de ${MAX_BYTES / (1024 * 1024)} MB",
+                    )
+                }
             }
         }
         return saida.toByteArray()
