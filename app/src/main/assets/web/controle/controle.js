@@ -4243,7 +4243,6 @@ async function load(opts) {
   // de reaplicar (`favItems`/`favSet`/`opfsFolders`), e ninguém a redesenhava —
   // ver `sincronizarFavoritosNaBiblioteca`.
   sincronizarFavoritosNaBiblioteca();
-  renderSelbar();
   renderSlideNav();
 
   // mantém a preview alinhada (sem recarregar a mídia). NÃO mexe na cortina
