@@ -1001,10 +1001,10 @@ controles inteira e um modo herdado não teria por onde ser desfeito.
 ### O contrato do `shouldInterceptRequest` (a invariante 8)
 
 > **O CLIENTE DESTE PROXY ERA A TRANSMISSÃO DIRETA, e ela saiu do lado web na
-> v1.8.82.** A regra abaixo NÃO saiu com ela: ela vale para **toda** resposta
-> interceptada, e é a próxima coisa deste app que sirva bytes por faixa que vai
-> pagá-la de novo. O `StreamProxy.kt` continua no shell, sem quem o chame — ver
-> `docs/shell/SEGUNDO-PLANO.md`.
+> v1.8.82; o próprio proxy saiu na v1.13.49 (revisão X2).** A regra abaixo NÃO
+> saiu com ele: vale para **toda** resposta interceptada, e mora hoje em
+> [`docs/shell/WEBVIEW-RANGE.md`](../shell/WEBVIEW-RANGE.md), com o oráculo
+> `tools/webview-range.test.mjs`.
 
 **O `InputStream` devolvido não é "a resposta": o Chromium o lê como o recurso
 INTEIRO a partir do byte 0, e é ele quem aplica o `Range`** — incondicionalmente,

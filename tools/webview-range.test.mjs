@@ -18,7 +18,7 @@
 //
 // A regra NÃO dependia do proxy que a servia: ele saiu na v1.13.49, e o que ele
 // documentava continua valendo para toda resposta interceptada — hoje o asset
-// loader e a janela do `/saf/?r=`. O capítulo é `docs/shell/WEBVIEW-RANGE.md`.
+// loader e a janela `/saf/?r=`. O capítulo é `docs/shell/WEBVIEW-RANGE.md`.
 //
 // ## Por que um ORÁCULO transcrito, e não um teste de aparelho
 //
