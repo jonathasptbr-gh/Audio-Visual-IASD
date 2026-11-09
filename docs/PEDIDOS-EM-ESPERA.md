@@ -1,170 +1,198 @@
 # Pedidos em espera (fila do operador)
 
-Registro dos pedidos do operador **ainda não implementados**, agrupados por
-**ÁREA** (o lugar do app/código que cada um toca). Existe para sobreviver a uma
-limpeza de contexto da sessão: quem retomar lê este arquivo e pergunta ao
-operador **qual área seguir** — nada aqui está autorizado para execução sem essa
+Registro dos pedidos do operador **ainda não implementados**, em **pacotes**: um
+pacote é o conjunto de pedidos que tocam a MESMA área de código/recurso e **saem
+juntos**, num lote só, com o rito de entrega completo. Existe para sobreviver a
+uma limpeza de contexto: quem retomar lê este arquivo e pergunta ao operador
+**qual pacote seguir** — nada aqui está autorizado para execução sem essa
 resposta.
 
-**Regra do arquivo:** ele ESVAZIA. Uma área entregue sai daqui (a nota vai ao
+**Edição de 2026-11-09.** A lista foi relida contra o que já saiu (v1.13.36 a
+v1.13.50), **renumerada do zero** (o Pacote 1 é o de maior prioridade) e
+**recatalogada por importância × urgência** — o índice é a primeira tabela, e a
+nota é item a item. Nesta revisão três pedidos saíram inteiros (os antigos 1.1,
+1.3 e 1.4), um foi reduzido (o antigo 4.1 virou o 11.1 de hoje), o antigo 11.1
+ficou só com o que as revisões não cobriram, e o cache do antigo 9.3 já tinha
+saído na v1.13.50. O rastro está ao fim.
+
+**Regra do arquivo:** ele ESVAZIA. Um pacote entregue sai daqui (a nota vai ao
 `docs/HISTORICO.md`, como sempre); um pedido revogado sai com uma linha dizendo
 quem revogou. Não é log, e não é `docs/ACHADOS-EM-ABERTO.md` (lá moram defeitos
 CONFIRMADOS por auditoria; aqui, pedidos).
 
-**Regra nova de agrupamento (2026-11-08):** pedidos que mexem na MESMA área de
-código/recurso moram no MESMO bloco e **saem juntos** — um lote por área, cada um
-com o rito de entrega completo. É a resposta a *"todos os pedidos como uma lista
-só, reagrupando por categorias e pacotes que tocam a mesma área, para poder ser
-atualizada junta"*. A contagem dos vídeos da semana/séries e os meses faltando
-do Provai e Vede são o MESMO defeito (o índice chega errado/incompleto) e foram
-fundidos na Área 1.
-
-Contexto da entrega: base web **v1.13.36** em `main`, APK **v1.13.16**,
-`SHELL_VERSION` **83** — conferido em 2026-11-08. O operador pediu economia:
-*"não temos tokens então toda ação deve ser fracionada e controlada"* — uma área
-por vez, cada uma com o rito de entrega completo.
-
-**O que já saiu (nota de rastro — não é log de trabalho):** a v1.13.36 levou as
-opções do favorito atrás do `⋮`; a v1.13.34, os destinos em botões diretos, a
-miniatura de tipo, o vídeo da semana na gaveta do episódio, a posição no acervo e
-o item d do antigo Pacote 13 (o seletor "Este sábado"/atalho universal); a
-v1.13.16, a saída de áudio pela API pública e a dica do "Não Perturbe"; a
-v1.13.14, a faixa de álbum no ar destacada; a v1.13.13, o vídeo da semana como
-item; a v1.13.11, as quatro correções pequenas (e a busca no computador refeita
-no servidor na v1.13.12); a v1.13.9, a Biblioteca maior do Modo Fácil; a
-v1.13.8, a linha de controles do Modo Fácil; a v1.13.7, o teclado sobrepondo e
-as portas do rodapé maiores/em negrito; a v1.13.4, a lista vertical das
-Ferramentas e o nome do itinerário no título da folha.
+**Contexto da entrega:** base web **v1.13.50**, APK **v1.13.50**, `SHELL_VERSION`
+**85**, `minShell` **83** — conferido em 2026-11-09. O operador pediu economia:
+*"não temos tokens então toda ação deve ser fracionada e controlada"* — um pacote
+por vez, cada um com o rito de entrega completo.
 
 ---
 
-## Mapa das áreas
+## Como esta lista se lê
 
-| área | o que cobre | pedidos originais |
+**Tipo.** `defeito` (comportamento errado, relatado), `pedido` (função ou ajuste
+que o operador quer), `resíduo` (o que uma revisão deixou pendente) ou `estudo`
+(a entrega é uma DECISÃO, não código).
+
+**Nota = I × U**, de 1 a 25. As duas escalas respondem perguntas diferentes:
+
+| | Importância (I) — o que se perde se NÃO fizer | Urgência (U) — o que se perde se ESPERAR |
 |---|---|---|
-| 1 | Séries, vídeo da semana e as coleções da Biblioteca | Pacotes 13 e 21 |
-| 2 | Modo Fácil | Pacotes 16 e 26 |
-| 3 | Cronograma | Pacotes 10 e 24 |
-| 4 | Favoritos | Pacote 22 |
-| 5 | Folha do vídeo | Pacote 20 |
-| 6 | Playlist | Pacote 23 |
-| 7 | Link do YouTube (oferecimento) | Pacote 25 |
-| 8 | Verificação / Diagnóstico | Pacote 19 |
-| 9 | Configurações e Ferramentas | Pacote 9 + pendências antigas |
-| 10 | Itinerário | Pacote 11 |
-| 11 | Limpeza e otimização do repositório | Pacote 12 |
-| 12 | Estudos (sem implementação decidida) | Pacotes 6, 17 e 18 |
-| 13 | CI / oráculos (residual) | Pacote 8 |
+| **5** | falta mídia ou conteúdo no culto: é a promessa do app | pode estragar o PRÓXIMO sábado |
+| **4** | atrapalha o preparo da semana, sempre | defeito relatado em produção; pode repetir a qualquer sábado |
+| **3** | atrito real, contornável | o operador está esperando para trabalhar melhor |
+| **2** | polimento visível, sem atrapalhar | espera um lote tranquilo |
+| **1** | manutenção interna, invisível no uso | quando houver folga |
 
-**Ordem sugerida ao operador:** Área 1 primeiro (ela alimenta a Área 3 — o
-alerta do Cronograma usa a mesma lista `serie`), depois 2, 3, 4–8 (ajustes de
-interface pequenos, na ordem que o operador preferir), 9, 10, 11. As Áreas 12 e
-13 seguem à parte: 12 é estudo para decidir, 13 é residual da revisão A1.
+**Faixas:** Agora (20–25) · Próximo (12–19) · Na fila (6–11) · Folga (2–5) ·
+Estudo (à parte, não é fila de execução).
+
+**Empate:** defeito antes de pedido, antes de resíduo, antes de estudo; depois o
+que destrava outro item; depois o lote menor.
+
+**A nota é julgamento, não medida** — ela olha o que o operador já disse e o que o
+código mostra, e os dois vêm datados em cada item. O operador pode inverter a
+ordem; a fila é dele.
 
 ---
 
-## Área 1 — Séries, vídeo da semana e as coleções da Biblioteca
+## O índice — 2026-11-09
 
-Tudo em torno de `controle/serie.js`, `serieEpisodioDaSemana`,
-`manterSeriesDaSemana`, `resolverSemana`/`semanaAncora` e `renderCollectionsList`.
-Ler antes `docs/recursos/SERIES.md`. Sai num lote só.
+| # | pacote · pedido | tipo | I | U | nota | entrega |
+|---|---|---|---|---|---|---|
+| **1** | **Séries: o episódio baixado que some do offline** | defeito | 5 | 4 | **20** | web |
+| 1.1 | o arquivo baixado não sobrevive à rotina da semana | | 5 | 4 | 20 | web |
+| **2** | **Cronograma: o alerta de "não está pronto" e o arrasto** | pedido | 5 | 3 | **15** | web |
+| 2.1 | o alerta + "Baixar tudo" | | 5 | 3 | 15 | web |
+| 2.2 | segurar arrasta; sai a seleção múltipla | | 4 | 2 | 8 | web |
+| **3** | **Playlist: o item que não entra ao trocar de modo** | defeito | 4 | 3 | **12** | web |
+| 3.1 | o item iniciado no Fácil não entra na fila no Avançado | | 4 | 3 | 12 | web |
+| **4** | **Modo Fácil: volume, coleções e Configurações** | pedido | 4 | 2 | **8** | web |
+| 4.1 | indicador de volume flutuante + botão de tela cheia | | 4 | 2 | 8 | web |
+| 4.2 | as coleções em "Diversos" e os elementos fixos | | 3 | 2 | 6 | web |
+| 4.3 | revisar as opções de Configurações que aparecem | | 3 | 1 | 3 | web |
+| **5** | **Itinerário: a abertura antes do primeiro evento** | pedido | 4 | 2 | **8** | web |
+| 5.1 | contagem regressiva + música + avisos | | 4 | 2 | 8 | web |
+| **6** | **Link do YouTube: os detalhes no oferecimento** | pedido | 3 | 2 | **6** | Kotlin + web |
+| 6.1 | miniatura, título, duração e canal antes de usar | | 3 | 2 | 6 | Kotlin + web |
+| **7** | **Verificação: procurar atualização** | pedido | 3 | 2 | **6** | web |
+| 7.1 | a checagem que oferece o "Atualizar agora" | | 3 | 2 | 6 | web |
+| **8** | **CI: os oráculos instáveis (residual)** | resíduo | 3 | 2 | **6** | tools |
+| 8.1 | `configuracoes-janelas` D, instrumentado | | 3 | 2 | 6 | tools |
+| **9** | **Folha do vídeo: o teto e o botão "Detalhes"** | pedido | 2 | 2 | **4** | web |
+| 9.1 | sem o aviso do teto; o quinto botão sem linha própria | | 2 | 2 | 4 | web |
+| **10** | **Configurações e Ferramentas: o editor e o tile** | pedido | 2 | 2 | **4** | web |
+| 10.1 | "Editar mídia" vai para a lista das Ferramentas | | 2 | 2 | 4 | web |
+| 10.2 | sai o tile "Saída de áudio" (no mesmo lote) | | 2 | 2 | 4 | web |
+| **11** | **Favoritos: o `⋮` sempre visível** | pedido | 3 | 1 | **3** | web |
+| 11.1 | o `⋮` na linha, sem abrir a gaveta antes | | 3 | 1 | 3 | web |
+| **12** | **Limpeza e otimização do repositório (residual)** | pedido | 2 | 1 | **2** | docs |
+| 12.1 | a lista dos mortos da auditoria de eficiência | | 2 | 1 | 2 | docs |
+| **13** | **Estudos — não são fila de execução** | estudo | 4 | 1 | **4** | decisão |
+| 13.1 | controle de slides + compartilhar itinerário/cronograma | | 4 | 1 | 4 | estudo |
+| 13.2 | transmissão ao vivo | | 3 | 1 | 3 | estudo |
+| 13.3 | app no Windows + layout de paisagem | | 3 | 1 | 3 | estudo |
 
-### 1.1 A contagem e os meses que faltam (MESMO defeito)
+---
 
-Dois relatos, uma raiz — o **índice da série chega errado/incompleto**, e a
-contagem e a lista leem dele:
+## Pacote 1 — Séries: o episódio baixado que some do offline
 
-- *"Provai e Vede diz 30 episódios, Informativo 44… quero que conte apenas as
-  versões disponíveis que são mostradas ao usuário"* (2026-10-31).
-- *"Julho, agosto e setembro do Provai e Vede são os itens faltando na lista"*
-  (2026-11-07 10:35).
+**Nota 20 (I5 × U4) · defeito · só web, salvo se a causa estiver no `YoutubeGrab.kt`**
 
-**O que o código sugere (estudo 2026-11-04, sem medição em aparelho):** a barra
-do card escreve `total` = `songsBaixaveis(coll.id).length` (`renderCollection`),
-isto é, TODO item do índice sem `semAudio`; a LISTA desenhada passa por
-`faixasDaLista` (tira o destaque) e o índice já chega filtrado pela regra de
-playlist (`serie.js`, espanhol/infantil/Libras). Hipótese: o índice guarda itens
-que a regra aceita mas que não são "um por sábado" (versões curtas, trailers,
-duplicatas de dublagem) — ou a contagem e a lista leem fontes diferentes. Para
-os meses faltando, a suspeita é a mesma regra de pertencimento (a playlist
-prova, o título é rótulo) derrubando os episódios, ou o índice chegando
-incompleto.
+**Onde:** `controle/serie.js`, `resolverSemana`, `manterSeriesDaSemana` e a lista
+`serie` do `db.js`. Ler antes `docs/recursos/SERIES.md`.
+**Estado:** o `.catch` mudo do caminho já foi resolvido (v1.13.37) — o que falta é
+a CAUSA. O índice da série, que a Área 1 antiga consertava, está estável desde a
+v1.13.38: este pacote não espera mais nada.
 
-**Resolvido (v1.13.38).** A classificação em aparelho (Registro de 08/11 08:05)
-+ a leitura da aba do canal mostraram a causa: o YouTube entregou as playlists de
-julho, agosto e setembro de 2026 com `contentType` `LOCKUP_CONTENT_TYPE_COURSE`
-(badge "4 lições"), e o extrator de aba do NewPipe descarta esse tipo — os meses
-sumiam **sem erro**, e a contagem (32) estava certa para a lista que chegava. A
-v1.13.37 já tinha corrigido a CONTA (a barra passa a ler `faixasDaLista` + o
-destaque); a v1.13.38 corrige a EXTRAÇÃO (`playlistsDoCanal` lê o JSON cru da aba
-e aceita `PLAYLIST` + `COURSE`). É APK (`shellTag: "v1.13.38"`, sem degrau de
-ponte).
-
-### 1.2 O episódio baixado que some do offline
+### 1.1 O arquivo baixado não sobrevive à rotina da semana
 
 *"vi o vídeo sendo baixado e depois… um deles não estava disponível offline"*
-(2026-10-31 10:22). O download pelo atalho universal (`resolverSemana` sem
-arquivo) vai por `ytAcao(…, 'tocar')` e só DEPOIS chama `manterSeriesDaSemana()`
-com `.catch(() => {})` — falha calada. Suspeitas: (i) o arquivo baixado para
-TOCAR não entra na lista `serie` de retenção a tempo e uma limpeza o solta; (ii)
-a rotina semanal decide "qual é o deste sábado" por data e solta o que ela julga
-passado (fuso/virada de sábado); (iii) o download da rotina cedeu à mídia no ar
-(`midiaNoAr`) e não foi retomado.
+(2026-10-31 10:22).
+
+O download pelo atalho universal (`resolverSemana` sem arquivo) vai por
+`ytAcao(…, 'tocar')` e só DEPOIS chama `manterSeriesDaSemana()`. Suspeitas, na
+ordem em que o Registro deve desempatá-las:
+
+- (i) o arquivo baixado para TOCAR não entra na lista `serie` de retenção a tempo
+  e uma limpeza o solta;
+- (ii) a rotina semanal decide "qual é o deste sábado" por data e solta o que ela
+  julga passado (fuso, virada do sábado);
+- (iii) o download da rotina cedeu à mídia no ar (`midiaNoAr`) e não foi
+  retomado.
 
 **A fazer:** reproduzir com o Registro na mão (a linha do tempo deve mostrar
-baixou → soltou); tirar o `.catch` mudo (vira linha no Registro, regra do
-`DIAGNOSTICO.md`); oráculo de Chromium: baixar pelo atalho, rodar a rotina,
-afirmar que o arquivo sobrevive. Só web, salvo se a causa estiver no
-`YoutubeGrab.kt`.
-
-### 1.3 O item da semana na playlist
-
-*"toquei um Provai e Vede e quando fui adicionar na playlist… não havia o Provai
-e Vede tocando na lista"* (2026-10-31 10:31). Tocar uma mídia isolada substitui a
-playlist por ela; o atalho universal toca pelo item VIRTUAL (`kind: 'semana'`) e
-o arquivo resolvido entra por `send(arquivo.id, …)` com `semanaPendente`.
-Hipótese forte: a substituição da playlist acontece no caminho do "Tocar agora"
-de um item comum e o caminho `semanaAcao(…, ['tocar'])`/`resolverSemana` a pula —
-a fila fica a anterior.
-
-**A fazer:** conferir em que função mora a "fila vira só esta mídia" e chamá-la
-também no caminho da semana, com o item VIRTUAL na fila (é ele que `ancoraDaFila`
-procura); oráculo: tocar o atalho → adicionar outra → a fila tem os dois, nessa
-ordem.
-
-### 1.4 A ordem das coleções da Biblioteca
-
-*"Altera a ordem na biblioteca, deixe primeiro o informativo e depois o provai e
-vede na ordem de coleções"* (2026-11-07 10:35). Reordenar as coleções da
-Biblioteca: Informativo antes de Provai e Vede. Conferir `renderCollectionsList`
-e o oráculo de desenho da Biblioteca.
+baixou → soltou); consertar a causa; oráculo de Chromium: baixar pelo atalho,
+rodar a rotina, afirmar que o arquivo sobrevive. A nota é a mais alta da fila
+porque o desfecho dela é o operador descobrindo no sábado que o vídeo do culto
+não está lá.
 
 ---
 
-## Área 2 — Modo Fácil
+## Pacote 2 — Cronograma: o alerta de "não está pronto" e o arrasto
 
-Tudo em `simple*` de `controle.js` e no bloco "Este sábado". Sai num lote só.
-Vizinho da Área 1 (as coleções do Modo Fácil) — conferir a ordem de coleções
-simples junto com a 1.4.
+**Nota 15 (I5 × U3) · pedido · só web**
 
-### 2.1 As opções de Configurações no Modo Fácil
+**Onde:** `#cronoTitulo`, a folha do alerta e o caminho de download que o botão
+reusa; a reordenação da linha (`row-slot`, os botões ↑↓ da v1.13.2).
+**Saem juntos:** a área é a mesma (a linha do Cronograma), e a dependência antiga
+— a lista `serie` — caiu na v1.13.37/38.
 
-*"Revisar quais opções das configurações aparecem no modo simples"*
-(2026-11-07 19:24). Levantar quais tiles/opções de Configurações aparecem no Modo
-Fácil e cortar o que não cabe (regra: apagado = indisponível, nunca inerte; o que
-não tem função agora some). Conferir a grade de Configurações no Modo Fácil.
+### 2.1 O alerta de "não está pronto" + "Baixar tudo"
 
-### 2.2 As coleções em "Diversos" e os elementos fixos
+Pedido do operador (2026-10-30), recusando um AVISO: *"um ícone de alerta ao lado
+do nome do cronograma, que ao tocado avisa e dê a opção de baixar tudo para
+deixar pronto"*.
 
-*"No modo simples, além da coleção de cds do ano, o resto ficará na coleção de
-diversos. Assim terá mais espaço para deixar mais elementos fixos após os vídeos
-da semana. Coisas como ofertório e abertura para a adoração infantil."*
-(2026-11-07 19:33). Reorganizar as coleções do Modo Fácil: só a coleção dos CDs
-do ano fica separada; o resto cai em "Diversos". O espaço liberado abre vaga para
-ELEMENTOS FIXOS depois dos vídeos da semana (ex.: ofertório, abertura para a
-adoração infantil). Planejar quais elementos fixos e onde moram.
+O ícone aparece ao lado de `#cronoTitulo` quando algum item do cronograma ATIVO
+não toca sem rede (hino sem variante baixada, link do YouTube sem arquivo,
+`semana` cujo episódio não está na lista `serie`). Tocar abre uma folha que diz o
+que falta (contagem por tipo) e um botão "Baixar tudo", que reusa os caminhos de
+download existentes (nada de baixador novo). A pergunta "toca sem rede?" tem de
+ser UMA função usada também pelo botão. Sem automação: nada baixa sozinho.
 
-### 2.3 Indicador de volume flutuante e o botão de tela cheia
+### 2.2 Segurar arrasta; sai a seleção múltipla
+
+*"Vamos remover a seleção múltipla do cronograma, agora segurar vai servir para
+mover o item em questão. Assim sendo mais fluido que os nossos botões de mover,
+que são muito lentos em organizar os itens."* (2026-11-07 11:34).
+
+No Cronograma, remover a SELEÇÃO MÚLTIPLA; o toque longo (segurar) passa a
+ARRASTAR o item para reordenar, no lugar dos botões ↑↓. Conferir o caminho de
+reordenação e o que a seleção múltipla libera hoje; medir o gesto de arrastar
+contra o `row-slot` e o alvo de toque. Só web.
+
+---
+
+## Pacote 3 — Playlist: o item que não entra ao trocar de modo
+
+**Nota 12 (I4 × U3) · defeito a confirmar · só web**
+
+**Onde:** os caminhos `simple*` × o `send`/fila do modo avançado; a remontagem da
+playlist na troca de modo.
+
+### 3.1 O item iniciado no Fácil não entra na fila no Avançado
+
+*"O problema do item que não entra limpando a playlist, é quando o item é
+iniciado no modo simples e depois se vai para o modo avançado."* (2026-11-07
+10:38).
+
+Defeito relatado (a confirmar): um item iniciado no Modo Fácil e, depois da troca
+para o Modo Avançado, não entra na playlist ao "limpar" (a substituição da fila).
+Suspeita: a troca de modo reconstrói a playlist e o item em curso perde o vínculo
+com a fila. Reproduzir a sequência exata (iniciar no Fácil → trocar para o
+Avançado → limpar a playlist → o item não aparece) e achar onde a fila é
+remontada na troca. Oráculo de Chromium com essa sequência.
+
+---
+
+## Pacote 4 — Modo Fácil: volume, coleções e Configurações
+
+**Nota 8 (I4 × U2) · pedido · só web, salvo se a captura sempre ligada pedir o
+`MainActivity`**
+
+**Onde:** `simple*` de `controle.js` e o bloco "Este sábado".
+
+### 4.1 Indicador de volume flutuante e o botão de tela cheia
 
 Pedido (2026-10-31 09:02). Hoje o volume só tem retorno visual em parte dos
 estados (`mostrarVolumeDaTelaCheia` existe para a tela cheia); na busca da
@@ -188,157 +216,38 @@ Biblioteca ou sem nada tocando as teclas físicas não mostram nada. Estudo:
   faixas; ver `docs/DIVERGENCIAS-WEB-NATIVO.md`, "Fullscreen da preview"). Sem
   nada em exibição, o botão fica apagado com o motivo.
 
-Só web, salvo se a captura sempre ligada pedir mudança no `MainActivity`.
+### 4.2 As coleções em "Diversos" e os elementos fixos
+
+*"No modo simples, além da coleção de cds do ano, o resto ficará na coleção de
+diversos. Assim terá mais espaço para deixar mais elementos fixos após os vídeos
+da semana. Coisas como ofertório e abertura para a adoração infantil."*
+(2026-11-07 19:33).
+
+Reorganizar as coleções do Modo Fácil: só a coleção dos CDs do ano fica separada;
+o resto cai em "Diversos". O espaço liberado abre vaga para ELEMENTOS FIXOS
+depois dos vídeos da semana (ex.: ofertório, abertura para a adoração infantil).
+Planejar quais elementos fixos e onde moram. A ORDEM das coleções simples entra
+aqui — a 1.4 antiga fixou só a ordem da Biblioteca.
+
+### 4.3 As opções de Configurações no Modo Fácil
+
+*"Revisar quais opções das configurações aparecem no modo simples"* (2026-11-07
+19:24).
+
+Levantar quais tiles/opções de Configurações aparecem no Modo Fácil e cortar o
+que não cabe (regra: apagado = indisponível, nunca inerte; o que não tem função
+agora some). Conferir a grade de Configurações no Modo Fácil.
 
 ---
 
-## Área 3 — Cronograma
+## Pacote 5 — Itinerário: a abertura antes do primeiro evento
 
-### 3.1 O alerta de "não está pronto"
+**Nota 8 (I4 × U2) · pedido · só web, depois de planejar**
 
-Pedido do operador (2026-10-30), recusando um AVISO: *"um ícone de alerta ao
-lado do nome do cronograma, que ao tocado avisa e dê a opção de baixar tudo para
-deixar pronto"*. O ícone aparece ao lado de `#cronoTitulo` quando algum item do
-cronograma ATIVO não toca sem rede (hino sem variante baixada, link do YouTube
-sem arquivo, `semana` cujo episódio não está na lista `serie`). Tocar abre uma
-folha que diz o que falta (contagem por tipo) e um botão "Baixar tudo", que reusa
-os caminhos de download existentes (nada de baixador novo). A pergunta "toca sem
-rede?" tem de ser UMA função usada também pelo botão. Sem automação: nada baixa
-sozinho. **Depende da Área 1** (o `semana` usa a mesma lista `serie`) — fazer a
-1 antes.
+**Onde:** o Itinerário como provedor por descritor, a Camada de Texto e a regra
+do `sorteio.js`.
 
-### 3.2 Remover a seleção múltipla; segurar arrasta
-
-*"Vamos remover a seleção múltipla do cronograma, agora segurar vai servir para
-mover o item em questão. Assim sendo mais fluido que os nossos botões de mover,
-que são muito lentos em organizar os itens."* (2026-11-07 11:34). No Cronograma,
-remover a SELEÇÃO MÚLTIPLA; o toque longo (segurar) passa a ARRASTAR o item para
-reordenar, no lugar dos botões ↑↓ (v1.13.2, na faixa do `⋮`). Conferir o caminho
-de reordenação e o que a seleção múltipla libera hoje; medir o gesto de arrastar
-contra o `row-slot` e o alvo de toque. Só web.
-
----
-
-## Área 4 — Favoritos
-
-### 4.1 O botão de opções sempre visível
-
-*"O botão de opções nos itens dos favoritos, ficará sempre visível, como no
-cronograma."* (2026-11-07 10:37). Na lista de Favoritos, o botão de opções (o
-`⋮`) fica sempre visível, como já é no Cronograma. Conferir o alvo de toque da
-linha (`row-slot`) e o oráculo que mede a coluna do `⋮`. Só web.
-
-> A v1.13.36 — as opções do favorito atrás do `⋮` — FOI AO AR em 2026-11-08. Os
-> três oráculos que a seguravam foram consertados. O pedido acima agora é sobre o
-> `⋮` JÁ NO AR: conferir se "sempre visível, como no cronograma" já é o estado
-> atual (o `⋮` do favorito é o mesmo desenho do Cronograma) ou se pede ajuste fino.
-
----
-
-## Área 5 — Folha do vídeo
-
-### 5.1 Sem o aviso de teto e sem a linha do botão
-
-*"Remova a mensagem 'teto de qualidade, vale para o tocar agora e fica como
-padrão' que temos nos vídeos. Também verifique se não está desperdiçando espaço
-criando uma outra linha apenas para o botão de detalhes... Talvez apenas faça uma
-versão de título mais curta como apenas 'Detalhes'."* (2026-11-07 09:12). Dois
-ajustes na folha do vídeo:
-
-- **(a)** tirar a mensagem do "teto de qualidade" (o texto que explica que a
-  qualidade vale para o "Tocar agora" e fica como padrão) — localizar e remover;
-- **(b)** o botão de DETALHES (o quinto botão do vídeo, v1.13.34 —
-  `destBotaoDetalhes` / `r.__detalhes`) não pode custar uma linha própria:
-  encurtar o rótulo para "Detalhes" e/ou acomodá-lo na linha existente. Conferir
-  o oráculo de geometria da folha (regra: uma folha não muda de tamanho entre
-  estados).
-
-Só web.
-
----
-
-## Área 6 — Playlist
-
-### 6.1 O item que não entra ao trocar de modo
-
-*"O problema do item que não entra limpando a playlist, é quando o item é
-iniciado no modo simples e depois se vai para o modo avançado."*
-(2026-11-07 10:38). Defeito relatado (a confirmar): um item iniciado no Modo
-Fácil e, depois da troca para o Modo Avançado, não entra na playlist ao "limpar"
-(a substituição da fila). Suspeita: a troca de modo reconstrói a playlist e o
-item em curso perde o vínculo com a fila (caminhos `simple*` × o `send`/fila do
-avançado). Reproduzir a sequência exata (iniciar no Fácil → trocar para o
-Avançado → limpar a playlist → o item não aparece) e achar onde a fila é
-remontada na troca. Oráculo de Chromium com essa sequência.
-
----
-
-## Área 7 — Link do YouTube (oferecimento)
-
-### 7.1 Os detalhes do vídeo no oferecimento
-
-*"Ao acessar o app com um link do YouTube copiado, ele oferece para usar o link,
-mas nesse oferecimento, ele não dá detalhes sobre o vídeo do link, então ajuste
-para que nesse oferecimento ele dê os Detalhes como thumbnail, título, duração e
-canal."* (2026-11-07 19:00). No oferecimento do link copiado (`ShareIntake.kt` →
-a PERGUNTA antes de usar), mostrar os detalhes do vídeo: miniatura, título,
-duração e canal. Os detalhes já existem pela ponte (`ytDetalhes` →
-`{ titulo, canal, descricao }`, cache `ytDetalhesCache` / `detalhesDoVideo`);
-faltam a DURAÇÃO e a MINIATURA, e desenhá-los na folha do oferecimento. Conferir
-o que `ytDetalhes` devolve hoje e estender (Kotlin) se faltar duração/miniatura.
-Só web se a ponte já devolver tudo; senão, Kotlin (Release).
-
----
-
-## Área 8 — Verificação / Diagnóstico
-
-### 8.1 A Verificação também procura atualização
-
-*"O verificar deve também procurar por atualizações, se estiver disponível,
-oferecer a atualização."* (2026-11-07 08:55). A Verificação do Sistema ganha uma
-checagem que lê o estado de atualização do OTA (`otaPending` /
-`atualizacaoEstado` da ponte) e, havendo base nova, oferece o "Atualizar agora" —
-o MESMO diálogo do OTA (o shell só AVISA, quem aplica é o web; regra de
-`docs/shell/OTA.md`). Respeitar `docs/DIAGNOSTICO.md`: uma checagem não baixa
-megabytes — ela só aponta para o fluxo que já existe; o desfecho é `não se
-aplica` quando não há nada pendente. Só web.
-
----
-
-## Área 9 — Configurações e Ferramentas
-
-### 9.1 O editor de mídia vai para as Ferramentas
-
-Pedido do operador (2026-10-30). "Editar mídia" é seção de Configurações
-(`#cfgSecoes`, v1.12.48) e passa a ser uma ferramenta da LISTA das Ferramentas
-(`FERRAMENTAS`, `abrirFerramenta`). A grade de Configurações perde um tile — é a
-vaga que o tile "Saída de áudio" esperava (ver 9.2): os dois saem no MESMO lote,
-para a grade não ficar com buraco. Conferir o voltar do Android (a lista das
-Ferramentas, degrau 2.5) e o rascunho `edicaoRascunho`.
-
-### 9.2 Tirar o tile "Saída de áudio" (pendência antiga)
-
-Decisão do operador (2026-10-30): o projeto da janela da Samsung foi ABANDONADO —
-não há caminho documentado (a One UI não expõe a dela; a única via pública,
-`MediaRouter2.showSystemOutputSwitcher`, abre a do Android, e é o que o tile faz
-desde a v1.13.16). O operador usa o atalho do próprio aparelho. O tile FICA até a
-próxima função nova de Configurações — que é o 9.1, saindo JUNTO. Ao tirar: o
-tile, `abrirSaidaDeAudio` do web (o Kotlin pode ficar órfão, o lado seguro), e
-manter as linhas *"Mídia saindo agora por"* e *"Não Perturbe"* do Registro (o
-`saidaDeAudioAlvo` continua).
-
-### 9.3 Varrer o cache do YouTube (~24 MB)
-
-Kotlin (`YoutubeGrab.kt`); varrer a sobra de ~24 MB do cache do YouTube no shell.
-Entra num lote que já precise de Release, nunca sozinho — cabe com qualquer
-entrega de Área que já exija Kotlin (7.1, 12.1), ou com um degrau de
-`SHELL_VERSION`.
-
----
-
-## Área 10 — Itinerário
-
-### 10.1 A abertura antes do primeiro evento
+### 5.1 A contagem regressiva, a música e os avisos
 
 Pedido do operador (2026-10-30): uma OPÇÃO do Itinerário (um interruptor só,
 *"com tudo automatizado"*) que, antes do primeiro evento do itinerário ativo, põe
@@ -352,34 +261,194 @@ já é provedor por descritor), e o que acontece se o operador tocar algo no mei
 
 ---
 
-## Área 11 — Limpeza e otimização do repositório
+## Pacote 6 — Link do YouTube: os detalhes no oferecimento
 
-### 11.1 Poda de documentação e do histórico
+**Nota 6 (I3 × U2) · pedido · Kotlin + web (APK/Release)**
 
-Pedido do operador (2026-10-30): *"realmente estamos a muito tempo sem"*. Abrir
-pela `docs/AUDITORIA-EFICIENCIA-2026-09.md` (a lista dos achados mortos
-inclusive). O alvo nº 1 segue o `CLAUDE.md`: o bloco *"Versão atual"* voltou a
-ser LOG de lote (dezenas de *"A v1.x.y FAZ…"*), contra a regra *"ESTE ARQUIVO
-NÃO GUARDA LOG DE LOTE"* — deve ficar a linha do presente e o resto sair (o
-conteúdo já mora no `HISTORICO.md`; conferir antes de apagar). Também: a tabela
-de divergências (linhas de 2 kB), `ACHADOS-EM-ABERTO.md` (o achado 3 foi
-desconsiderado pelo operador e o 1 respondido — sair), e poda de comentário com
-as DUAS provas da seção "Documentação".
+**Onde:** `ShareIntake.kt` → a PERGUNTA antes de usar; `YoutubeGrab.detalhes` e o
+`ytDetalhes` da ponte.
+
+### 6.1 Miniatura, título, duração e canal antes de usar o link
+
+*"Ao acessar o app com um link do YouTube copiado, ele oferece para usar o link,
+mas nesse oferecimento, ele não dá detalhes sobre o vídeo do link, então ajuste
+para que nesse oferecimento ele dê os Detalhes como thumbnail, título, duração e
+canal."* (2026-11-07 19:00).
+
+No oferecimento do link copiado, mostrar os detalhes do vídeo: miniatura, título,
+duração e canal. **Medido em 2026-11-09:** o `detalhes` já devolve `titulo`,
+`canal`, `seconds` (a DURAÇÃO já vem) e `descricao`; o que falta é a MINIATURA — a
+lista de miniaturas que o extrator carrega não é lida hoje (zero ocorrências de
+`thumbnails` no Kotlin), e o web não conhece `i.ytimg.com` (zero ocorrências).
+Isto é Kotlin pequeno (acrescentar o campo ao `JSONObject`) mais o desenho da
+folha do oferecimento — no mesmo lote, com `shellTag`.
 
 ---
 
-## Área 12 — Estudos (sem implementação decidida)
+## Pacote 7 — Verificação: procurar atualização
 
-Três estudos preliminares; nada sai para código sem decisão do operador.
+**Nota 6 (I3 × U2) · pedido · só web**
 
-### 12.1 Controle remoto de slides e compartilhamento de itinerários
+**Onde:** a Verificação do Sistema; a ponte `atualizacaoEstado` e `otaCheck`; o
+diálogo do OTA.
+
+### 7.1 A checagem que oferece o "Atualizar agora"
+
+*"O verificar deve também procurar por atualizações, se estiver disponível,
+oferecer a atualização."* (2026-11-07 08:55).
+
+A Verificação do Sistema ganha uma checagem que LÊ o estado do OTA e, havendo
+base nova, oferece o "Atualizar agora" — o MESMO diálogo do OTA (o shell só
+AVISA, quem aplica é o web; regra de `docs/shell/OTA.md`). **Medido em
+2026-11-09:** o `otaPending` que esta lista citava não existe desde a v1.13.47
+(órfão removido na X1); o que há é `atualizacaoEstado()` (os quatro campos que a
+tela já lê), `otaCheck(forcar)` e `otaApply`. Respeitar `docs/DIAGNOSTICO.md`:
+uma checagem não baixa megabytes — ela só aponta para o fluxo que já existe; o
+desfecho é `não se aplica` quando não há nada pendente.
+
+---
+
+## Pacote 8 — CI: os oráculos instáveis (residual)
+
+**Nota 6 (I3 × U2) · resíduo · só `tools/` + workflow**
+**Gatilho:** só volta ao primeiro plano se o CI reprovar de novo num oráculo de
+tempo.
+
+### 8.1 O que a A1 deixou instrumentado
+
+> **Tratado pela etapa A1 da revisão (2026-10-30)** — o relatório está em
+> `docs/revisao/REGISTRO.md` (A1, "feita com um resíduo"). Fica aqui como
+> residual, não como trabalho aberto em primeiro plano.
+
+Pedido do operador (2026-10-30): *"Urgente. Coloque em prioridade."* O lote
+v1.13.16 reprovou TRÊS rodadas seguidas, cada uma num oráculo DIFERENTE, todos de
+tempo e nenhum tocado pelo lote; todos passam na máquina local. Cinco foram
+consertados; um ficou INSTRUMENTADO, não consertado: `configuracoes-janelas` D
+(repasse A5). O método de conserto é o da campanha de determinismo da v5.316
+(`grep -n "v5.316" docs/HISTORICO.md`): achar em cada um a espera que mede o
+RUNNER e trocá-la pelo FATO (`esperar`/`esperarDb`), nunca subir prazo; rodar sob
+carga (3 processos + `stress`) até reprovar localmente antes de consertar, e
+repetir depois. Isto protege o canal: um vermelho no `verificar` segura o bundle.
+
+---
+
+## Pacote 9 — Folha do vídeo: o teto e o botão "Detalhes"
+
+**Nota 4 (I2 × U2) · pedido · só web**
+
+**Onde:** `openYtMenu` (a legenda que o `ytSegRow` recebe), `destBotaoDetalhes` e
+a régua do rótulo no `destinos-diretos`.
+
+### 9.1 Sem o aviso de teto e sem uma linha só para o quinto botão
+
+*"Remova a mensagem 'teto de qualidade, vale para o tocar agora e fica como
+padrão' que temos nos vídeos. Também verifique se não está desperdiçando espaço
+criando uma outra linha apenas para o botão de detalhes... Talvez apenas faça uma
+versão de título mais curta como apenas 'Detalhes'."* (2026-11-07 09:12).
+
+- **(a)** tirar a legenda do teto: ela é o último argumento do `ytSegRow` em
+  `openYtMenu` (`'Teto de qualidade — vale para o "Tocar agora" e fica como
+  padrão'`). Conferir a altura da fileira depois — a legenda ocupa uma linha.
+- **(b)** o botão de DETALHES (o quinto da fileira, v1.13.34) não pode custar uma
+  linha própria: hoje o `destBotaoDetalhes` alterna
+  `['Ver os detalhes', 'Ocultar os detalhes']`, e é esse rótulo largo que o
+  operador vê descer sozinho numa linha na célula estreita (360×1,25×). Encurtar
+  para "Detalhes" nos dois estados, com o aberto/fechado no `on`/`aria-pressed`
+  que o botão já alterna. A asserção do `destinos-diretos` A mede o rótulo — muda
+  no mesmo lote.
+
+---
+
+## Pacote 10 — Configurações e Ferramentas: o editor e o tile
+
+**Nota 4 (I2 × U2) · pedido · só web**
+
+**Saem juntos:** a saída do editor abre a vaga que o tile ocupava — tirar os dois
+no mesmo lote evita a grade com buraco.
+
+### 10.1 O editor de mídia vai para as Ferramentas
+
+Pedido do operador (2026-10-30). "Editar mídia" é seção de Configurações
+(`#cfgSecoes`, v1.12.48) e passa a ser uma ferramenta da LISTA das Ferramentas
+(`FERRAMENTAS`, `abrirFerramenta`). A grade de Configurações perde um tile — é a
+vaga que o tile "Saída de áudio" esperava (ver 10.2). Conferir o voltar do Android
+(a lista das Ferramentas, degrau 2.5) e o rascunho `edicaoRascunho`.
+
+### 10.2 Tirar o tile "Saída de áudio"
+
+Decisão do operador (2026-10-30): o projeto da janela da Samsung foi ABANDONADO —
+não há caminho documentado (a One UI não expõe a dela; a única via pública,
+`MediaRouter2.showSystemOutputSwitcher`, abre a do Android, e é o que o tile faz
+desde a v1.13.16). O operador usa o atalho do próprio aparelho. O tile sai JUNTO
+com o 10.1: o tile, o `abrirSaidaDeAudio` do web (o Kotlin pode ficar órfão, o
+lado seguro), e as linhas *"Mídia saindo agora por"* e *"Não Perturbe"* do
+Registro ficam (o `saidaDeAudioAlvo` continua).
+
+---
+
+## Pacote 11 — Favoritos: o `⋮` sempre visível
+
+**Nota 3 (I3 × U1) · pedido · só web**
+
+**Onde:** `linhaDeItem`/`renderItemMenu` (o `dest-opcoes` nasce DENTRO da gaveta)
+× a coluna `.row-slot` do Cronograma.
+
+### 11.1 O `⋮` na linha, sem abrir a gaveta antes
+
+*"O botão de opções nos itens dos favoritos, ficará sempre visível, como no
+cronograma."* (2026-11-07 10:37).
+
+**O que a v1.13.36 já fez:** a faixa excluir · renomear · ↑↓ saiu da fileira
+própria e foi para trás de um `⋮` na fileira de destinos — o mesmo mecanismo do
+Cronograma (`alternarAcoesDaLinha`), com o "Ver a letra" só para registro com
+letra. **O que falta:** esse `⋮` é criado pelo `renderItemMenu`, então ele só
+existe DEPOIS de a gaveta abrir (um toque na linha); no Cronograma o `⋮` é a
+coluna `.row-slot` da própria linha, sempre à vista. Subir o `⋮` para a linha do
+favorito, abrindo a faixa de ações por cima (o `.acoes-abertas`) sem depender de a
+gaveta estar aberta. Conferir o alvo de toque da linha e os oráculos que medem a
+coluna do `⋮` (`cronograma-acoes-cheias`, `destinos-diretos` D).
+
+---
+
+## Pacote 12 — Limpeza e otimização do repositório (residual)
+
+**Nota 2 (I2 × U1) · pedido · só docs**
+
+**Onde:** `docs/AUDITORIA-EFICIENCIA-2026-09.md` (a lista dos mortos) e o que as
+revisões S/K/C/X não tocaram.
+
+### 12.1 A poda que sobrou
+
+Pedido do operador (2026-10-30): *"realmente estamos a muito tempo sem"*.
+
+**O que já foi feito:** o alvo nº 1 que abriu o pedido — o bloco *"Versão atual"*
+do `CLAUDE.md` voltou a ser três linhas (medido em 2026-11-09); o
+`ACHADOS-EM-ABERTO.md` está vazio desde 2026-11-09; a tabela de divergências
+virou o mapa compacto do `CLAUDE.md` mais o capítulo
+`docs/DIVERGENCIAS-WEB-NATIVO.md`; e as revisões S1/S2, K1–K6, C2–C9 e X1–X2
+podaram comentário em CSS, Kotlin e `controle.js`.
+
+**O que resta:** a lista dos MORTOS da auditoria de eficiência
+(`AUDITORIA-EFICIENCIA-2026-09.md`), a conferência dos `docs/` que nenhuma
+revisão tocou, e a poda de comentário com as DUAS provas da seção "Documentação"
+do `CLAUDE.md` — no arquivo que ainda não passou por ela.
+
+---
+
+## Pacote 13 — Estudos (não são fila de execução)
+
+Três estudos preliminares; nada sai para código sem decisão do operador. A nota
+deles mede o valor da RESPOSTA, não de uma entrega — por isso ficam fora das
+faixas.
+
+### 13.1 Controle remoto de slides e compartilhamento de itinerários
 
 | hora | pedido | o que já se sabe |
 |---|---|---|
 | 2026-10-30 | *"controle remoto de slides para o pregador, algum link de site, endereço ou código que não requer internet… onde ele pode controlar os slides pelo próprio aparelho dele, seja vendo os slides. Ou… integração com aparelhos de passagem de slides bluetooth"* | ESTUDO. Duas vias. **(a) Passador Bluetooth:** quase todo passador é um TECLADO HID (manda PageDown/PageUp, setas, às vezes B/F5); pareado com o celular, as teclas chegam à `MainActivity.onKeyDown` como chegam as de volume — o caminho já existe (`captureVolumeKeys` → `__avVolumeKey`), e ligar `KEYCODE_PAGE_DOWN/UP`, `DPAD_RIGHT/LEFT` ao ⏮/⏭ de slide é Kotlin pequeno + Release. Medir: quais teclas os passadores comuns mandam, e se o pareado como teclado esconde o teclado virtual. **(b) Pelo celular do pregador:** o servidor das telas da rede (sem internet, Wi-Fi ou ponto de acesso) já serve páginas; uma página de CONTROLE (anterior/próximo, e opcionalmente a página atual em miniatura) por uma rota nova com o mesmo pareamento e teto de sessões. Cuidado: hoje a rota de subida aceita só `TIPOS_QUE_SOBEM` (lista de permissão) — um comando de slide vindo da rede é uma porta nova de CONTROLE, não só de exibição, e pede decisão de segurança (código de entrada? só no ponto de acesso?). Ver `docs/TELAO-POR-COMANDOS.md` |
 | 10:34 | *"Vamos estudar e planejar um sistema de compartilhar itinerários e ou cronogramas de forma mais facilitada… compartilhar no whatsapp… um simples link, que ao tocar, abre o app, e busca/baixa oque for necessário inclusive baixando diretamente do aparelho de origem… Talvez precisamos de um servidor? Estude as opções para o menor atrito possível…"* | entregável é um ESTUDO para o operador decidir, não código. Eixos: link de app (App Links no domínio `audiovisualiasd.com.br`, que já é nosso — exige o arquivo de associação de domínio (Digital Asset Links) no `site/` e `intent-filter` no manifesto, logo Release) vs. arquivo `.avpkg` pequeno só com a LISTA; de onde vem a mídia (LouvorJA e YouTube já são re-baixáveis por id; mídia própria do aparelho é o problema difícil — sem servidor, só com os dois aparelhos online ao mesmo tempo); e o que NÃO viajar (privacidade, `docs/MEDICAO-DE-ALCANCE.md`). Comparar com o `.avpkg` atual (`docs/recursos/PACOTE.md`) |
 
-### 12.2 Transmissão ao vivo (câmera fixa → YouTube)
+### 13.2 Transmissão ao vivo (câmera fixa → YouTube)
 
 Pedido (2026-10-31 11:53): um segundo celular dedicado é a CÂMERA (720p/30 na
 tomada); manda o vídeo pela rede local ao celular de CONTROLE, com ~1 s de
@@ -400,12 +469,12 @@ transmissão").
 
 **Recomendação do estudo:** começar pela via "câmera manda RTMP direto, o
 Controle comanda e mostra a prévia" — é a única que não põe o vídeo da live
-dentro do processo do telão. Vizinho do 12.1 (controle remoto do pregador pelo
+dentro do processo do telão. Vizinho do 13.1 (controle remoto do pregador pelo
 mesmo servidor): as duas são PORTAS NOVAS DE SUBIDA e a decisão de segurança
 (código de entrada? só no ponto de acesso?) é UMA só para as duas. Pede Release
 (Kotlin) e decisão sobre a invariante de captura.
 
-### 12.3 O app no Windows, e o layout de paisagem
+### 13.3 O app no Windows, e o layout de paisagem
 
 Pedido (2026-10-31). **Estudo preliminar.** O fato que decide quase tudo: a base
 web JÁ roda no navegador (o PWA de origem); o que o app Android acrescenta é a
@@ -431,23 +500,56 @@ landscape) and (min-width: …)` em DUAS colunas (Biblioteca/Cronograma à esque
 prévia + transporte + letra à direita), sem duplicar DOM; folhas viram painéis
 laterais. Riscos: a escada de camadas, as folhas que "não mudam de tamanho entre
 estados", e os oráculos geométricos medidos só em retrato (cada um ganha a célula
-de paisagem). Liberar a rotação no Android é Release; o CSS é OTA.
+de paisagem). Liberar a rotação no Android é Release; o CSS é OTA. Se o operador
+quiser só a paisagem, ela é um lote de web — e não espera o estudo do Windows.
 
 ---
 
-## Área 13 — CI / oráculos (residual)
+## O que saiu desta lista (rastro, não log)
 
-### 13.1 Os oráculos instáveis do CI
+Saíram entre a edição anterior (2026-11-08) e esta, com a nota em
+`docs/HISTORICO.md`:
 
-> **Tratado pela etapa A1 da revisão (2026-10-30)** — o relatório e o resíduo
-> (`configuracoes-janelas`, instrumentado) estão em `docs/revisao/REGISTRO.md`.
-> Fica aqui só como residual, não como trabalho aberto em primeiro plano.
+- **v1.13.37/38 — a Área 1 inteira, menos o episódio offline (o antigo 1.2,
+  hoje o Pacote 1):** a contagem do card pela lista
+  (`serieTotalVisivel`), a extração das playlists
+  `LOCKUP_CONTENT_TYPE_COURSE` (`playlistsDoCanal`), o item virtual do "Tocar
+  agora" na fila (`replacePlaylistWith` no `semanaAcao`), a ordem Informativo →
+  Provai e Vede (`serieCollections`) e os `.catch` mudos da retenção virando
+  linha no Registro.
+- **v1.13.50 — a 9.3:** o `varrerCache` do `YoutubeGrab` apaga o que está em
+  `cache/yt` sem dono há mais de 1 h, poupando os arquivos que o registro de
+  desfechos aponta.
+- **v1.13.36 — metade da 4.1:** as opções do favorito foram para trás do `⋮`; o
+  que faltava virou o Pacote 11.
 
-Pedido do operador (2026-10-30): *"Urgente. Coloque em prioridade."* O lote
-v1.13.16 reprovou TRÊS rodadas seguidas, cada uma num oráculo DIFERENTE, todos
-de tempo e nenhum tocado pelo lote; todos passam na máquina local. O método de
-conserto é o da campanha de determinismo da v5.316
-(`grep -n "v5.316" docs/HISTORICO.md`): achar em cada um a espera que mede o
-RUNNER e trocá-la pelo FATO (`esperar`/`esperarDb`), nunca subir prazo; rodar sob
-carga (3 processos + `stress`) até reprovar localmente antes de consertar, e
-repetir depois.
+O rastro anterior (v1.13.4 a v1.13.36) está no `docs/HISTORICO.md`; esta lista
+não o repete.
+
+---
+
+## Mapa da numeração antiga
+
+A numeração foi refeita do zero em 2026-11-09. Para decifrar referências
+anteriores (o `docs/REVISAO-PROFUNDA.md` cita "Pacote 8" e "pacotes 9–12"; o
+`docs/ACHADOS-EM-ABERTO.md` citava "Pacote 6"):
+
+| até 2026-11-08 (Área) | antes disso (Pacote) | hoje (Pacote) |
+|---|---|---|
+| 1 — Séries | 13 e 21 | 1 (só o 1.1) |
+| 2 — Modo Fácil | 16 e 26 | 4 |
+| 3 — Cronograma | 10 e 24 | 2 |
+| 4 — Favoritos | 22 | 11 |
+| 5 — Folha do vídeo | 20 | 9 |
+| 6 — Playlist | 23 | 3 |
+| 7 — Link do YouTube | 25 | 6 |
+| 8 — Verificação | 19 | 7 |
+| 9 — Configurações e Ferramentas | 9 | 10 |
+| 10 — Itinerário | 11 | 5 |
+| 11 — Limpeza | 12 | 12 |
+| 12 — Estudos | 6, 17 e 18 | 13 |
+| 13 — CI | 8 | 8 |
+
+O "Pacote 6" antigo (o estudo de abrir a lista de aparelhos de áudio) NÃO existe
+mais: o operador abandonou o projeto da janela da Samsung em 2026-10-30, e o
+tile passou a abrir a API pública na v1.13.16 — o que sobrou dele é o 10.2.
