@@ -20,7 +20,6 @@
 │  │  item 2                                           │  │     (área scrollável)
 │  └───────────────────────────────────────────────────┘  │
 │  [  📖 Bíblia  ]  [  ⠿ Ferramentas  ]                    │ ← #listFoot (fixo, não rola)
-│   ↑ na seleção múltipla, a #selbar ocupa esta mesma fatia │
 │   ↑ Ferramentas abre a FOLHA, que sobe cobrindo a .lib-list│
 │     e o #listFoot — e só eles; na LISTA ela tem a largura │
 │     da porta (v1.13.5)                                    │

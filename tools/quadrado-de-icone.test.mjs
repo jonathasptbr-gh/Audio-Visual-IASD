@@ -204,7 +204,7 @@ try {
   // para as folhas que ele não alcança, e trava a CAUSA em vez do sintoma.
   const css = fs.readFileSync(path.join(RAIZ, 'controle', 'controle.css'), 'utf8');
   // as famílias que o esqueleto de botão de ícone dimensiona (controle.css ~2168)
-  const FAMILIAS = /(\.row-btn|\.row-slot|\.cue-save-btn|\.popup-close|\.log-copy|\.back-btn|\.sel-btn|\.lv-cheia-btn|\.pl-pack|\.sorteio-dest|\.fav-btn)/;
+  const FAMILIAS = /(\.row-btn|\.row-slot|\.cue-save-btn|\.popup-close|\.log-copy|\.back-btn|\.lv-cheia-btn|\.pl-pack|\.sorteio-dest|\.fav-btn)/;
   const linhas = css.split('\n');
   const suspeitos = [];
   for (let i = 0; i < linhas.length; i++) {

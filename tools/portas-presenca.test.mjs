@@ -17,7 +17,7 @@
 //  B. ele NÃO é cortado: nem reticências, nem serra (a régua mede o SPAN contra a
 //     própria caixa, que é o que o `text-overflow` corta);
 //  C. a ALTURA da porta é a de sempre (`--hit-foot`, 42px) e igual nas duas — é
-//     ela que a seta `#toolsFechar` copia, e é ela que a `.selbar` empata;
+//     ela que a seta `#toolsFechar` copia;
 //  D. o par de tinta não mudou: `--accent` sobre `--surface-porta`.
 //  (Células: 430×900, 360×640, 360×640 a 1,25× e 1,3×, e 360×740 a 1,5×.)
 //
@@ -97,7 +97,7 @@ try {
       'B · ' + t.nome + ' · e o rótulo cabe inteiro, sem reticências ("Ferramentas" é o mais longo)', m.portas);
     checar(m.portas.every((p) => p.h === m.hitFoot) && m.portas[0].h === m.portas[1].h,
       'C · ' + t.nome + ' · e a porta mantém a altura do `--hit-foot`, igual nas duas (a seta das Ferramentas a '
-      + 'copia, e a `.selbar` empata com ela)', { hitFoot: m.hitFoot, alturas: m.portas.map((p) => p.h) });
+      + 'copia)', { hitFoot: m.hitFoot, alturas: m.portas.map((p) => p.h) });
     checar(m.portas.every((p) => p.cor === m.par.cor && p.fundo === m.par.fundo),
       'D · ' + t.nome + ' · e o par de tinta é o de sempre: `--accent` sobre `--surface-porta`', { par: m.par, portas: m.portas });
     await ctx.close();

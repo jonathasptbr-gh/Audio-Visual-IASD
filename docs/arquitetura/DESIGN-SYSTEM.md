@@ -191,13 +191,13 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
 | `--fw-normal` / `--fw-medio` / `--fw-forte` / `--fw-max` | `400` / `600` / `700` / `800` | **os quatro pesos** (v1.5.14). Eram cinco valores para quatro papéis — o `500`, com três usos, não se distinguia do `600`. Nomeados, a escolha deixa de ser um número e passa a ser um papel |
 | `--bar-secao-h` | `calc(var(--hit) + .7rem)` | a altura da barra de uma seção da Biblioteca. É token porque DUAS regras precisam do mesmo número (a barra gruda em `top: 0`, a do álbum logo abaixo dela); escrito duas vezes divergiria, e o sintoma seria o cabeçalho de dentro cobrindo o de fora. Determinístico: o nome é `nowrap` e o recuo é fixo — nada de medição em JS, que a v1.5.3 ensinou a desconfiar. **Era `+ 1.1rem` até a v1.5.16**, e quem o apertou foi o ORÇAMENTO da lista colapsada — não o desenho da barra |
 | `--faixa-coluna-texto` | `calc(.5rem + 38px + var(--sp-4))` | onde a coluna do NOME de uma faixa começa — o recuo da linha, mais a miniatura, mais o vão. É token porque é o que RECUA a `--divisoria`, e é isso que a torna *"não borda inteira"*: ela começa no texto, nunca sob a miniatura. Aritmético, não medido — a miniatura tem lado fixo. **SOBRESCRITO na `.fav-itens`** (v1.5.18): lá a miniatura é `--thumb` (40px) e não a `.hymn-play-thumb` de 38 — o valor entra por herança de custom property, nunca copiado para uma segunda regra |
-| `--hit-foot` | `42px` | **a fatia do rodapé fixo da lista** — e ela é dividida por DUAS inquilinas: as portas (Bíblia · Ferramentas; três até a v1.13.4, com o Importar no meio) e a barra de seleção múltipla, que toma o lugar delas. Os dois PRECISAM medir o mesmo, senão a lista pula debaixo do dedo ao entrar na seleção. **Era 44px e estava INERTE** (v1.5.19): MEDIDO, o termo que mandava na altura das portas era o `padding: .45rem`, e varrer o token de 48 a 36px não mudava um pixel — o `#listFoot` pulava **7,77px** ao entrar na seleção, contra a promessa escrita do próprio token. Com `padding: 0 .3rem` nas portas (a forma que a `.selbar` já tinha), o termo vertical passa a ser um só. **PISO do token: 38px** — abaixo disso o conteúdo empilhado (ícone 20 + `--sp-1` + a linha do rótulo = 37,40px) volta a mandar. **VAZAMENTO declarado:** ele governa também o `.yt-search-btn`, alcançável de DENTRO do Modo Fácil, num habitat SUNK |
+| `--hit-foot` | `42px` | **a fatia do rodapé fixo da lista**, onde moram as duas portas (Bíblia · Ferramentas; três até a v1.13.4, com o Importar no meio). Ela foi dividida com a barra de seleção múltipla até a v1.13.52, e a régua de lá continua valendo para o que ficou: é o token que segura a altura do rodapé, para a lista não pular quando o número de linhas muda. **Era 44px e estava INERTE** (v1.5.19): MEDIDO, o termo que mandava na altura das portas era o `padding: .45rem`, e varrer o token de 48 a 36px não mudava um pixel. Com `padding: 0 .3rem` nas portas, o termo vertical passa a ser um só — e é o I2 do `ferramentas-folha` que cobra. **PISO do token: 38px** — abaixo disso o conteúdo empilhado (ícone 20 + `--sp-1` + a linha do rótulo = 37,40px) volta a mandar. **VAZAMENTO declarado:** ele governa também o `.yt-search-btn`, alcançável de DENTRO do Modo Fácil, num habitat SUNK |
 | `--tampa-h` | escrito em JS | **a altura de um bloco de raiz da Biblioteca com tudo FECHADO** (v1.5.19) — a irmã exata do `--fav-vao`: mesma caixa, mesma régua (a BARRA de cada vizinha é a altura fechada dela), mesmo lugar de chamada. Ela existe porque a tampa de uma coleção MUDAVA de altura ao abrir (MEDIDO na captura do operador, −11,2%), e o teorema fecha as saídas em CSS puro: a tampa só pode ser constante no valor MÍNIMO dela, e a altura de encaixe é função da TELA e do NÚMERO de blocos — não existe como valor. O CSS a lê nos DOIS estados (`height` no fechado, `padding-top` acima da barra no aberto). **Não é uma COORDENADA guardada, é uma ALTURA recomposta a cada render** — a classe de defeito da v1.5.3 não se aplica |
 | `--lib-fade-h` | `22px` | a altura de cada véu da borda do scroll da Biblioteca (v1.5.16) |
 | `--bar-raiz-max` | `calc(var(--hit) + 2rem)` | **o teto do bloco de raiz que cresce** (v1.5.17). Os blocos colapsados da Biblioteca ganharam `flex-grow` para preencher a altura da tela — o navegador reparte a sobra quando o conteúdo cabe e o crescimento é inerte quando ele transborda. O teto existe porque a lista pode ter POUCOS blocos: sem ele, três coleções dão 183,28px cada, que é o defeito oposto. Anda com `min-height: min-content`, senão um card com subtítulo é RECORTADO (MEDIDO, 45,19 → 40,00 com um teto de 40) |
 | `--opcao-recuo-v` / `--opcao-recuo-h` | `.6rem` / `.7rem`, e `--sp-2` / `--sp-5` dentro de `.hymn-gaveta` | **o recuo de uma linha de opção** (v1.5.17). O `.song-menu-btn` é a linha da gaveta E de três folhas modais (destinos, vídeo do YouTube, playlist automática); o operador pediu a densidade *"das listas que temos na biblioteca"*, e apertar o seletor cru levava as três folhas junto (MEDIDO: a de destinos caía de 312,30 para 267,55px). Com o par no `:root` e a GAVETA sobrescrevendo, o alcance é o que o pedido nomeia — quem declara a medida dos filhos é o PAI, a mesma regra da casa do `--camada`. Ele também fecha a duplicação que a folha reclamava: o `min-height` da faixa de confirmação lia o número do botão COPIADO, e um aperto fazia a linha PULAR +11,19px sob o dedo ao perguntar *"excluir?"* |
 | `--lib-lista-base` | `var(--sp-5)` | o recuo de baixo da lista da Biblioteca — o MESMO `gap` que separa dois blocos de raiz (v1.5.18): com o crescimento preenchendo o resto, qualquer outro número põe o último bloco a uma distância da borda que nenhum par de vizinhos tem. É token porque o véu de baixo precisa ANULÁ-LO (`bottom: calc(-1 * var(--lib-lista-base))`): sem isso ele gruda acima do recuo e deixa uma faixa de conteúdo nítido embaixo dele. A `env(safe-area-inset-bottom)` entra **só** em `body.mode-simple` e `body.lib-aberta.teclado` — os dois casos em que a janela encosta na base; desde a v1.5.4 ela para na linha dos controles, e a barra de gestos fica abaixo DELES |
-| `--op-inativo` | `.35` | **o véu de INATIVO** (v1.5.15). Ele estava escrito em três `:disabled` (`.slide-btn`, `.t-btn`, `.sel-btn`) e ganhou um quarto consumidor que não é um controle: o cartão da linha do tempo, que o operador mandou vestir *"o mesmo cinza claro dos botões inativos de próximo e anterior slide"*. O cartão o consome por `color-mix` sobre `--surface` JÁ RESOLVIDO ali — um token de cor novo teria de repetir a bifurcação inteira do R1 para dizer a mesma coisa |
+| `--op-inativo` | `.35` | **o véu de INATIVO** (v1.5.15). Ele estava escrito em três `:disabled` (`.slide-btn`, `.t-btn` e um terceiro já removido) e ganhou um quarto consumidor que não é um controle: o cartão da linha do tempo, que o operador mandou vestir *"o mesmo cinza claro dos botões inativos de próximo e anterior slide"*. O cartão o consome por `color-mix` sobre `--surface` JÁ RESOLVIDO ali — um token de cor novo teria de repetir a bifurcação inteira do R1 para dizer a mesma coisa |
 | `--kb` | `0px` | altura coberta pelo teclado virtual, escrita pelo JS (ver "Deslocamento com o teclado virtual") |
 
 ### Métodos/convenções visuais padronizados
@@ -205,7 +205,7 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
 - **Feedback de toque: RECUO ABSOLUTO + LUZ, nunca uma fração** (v1.3.14). A
   regra é **UMA SÓ**, um `:is(...)` com a lista de seletores logo depois do
   bloco `:root` — antes ela estava repetida em 17 lugares e, ainda assim, nove
-  controles ficavam de fora (voltar, abas, seleção múltipla, botões de linha,
+  controles ficavam de fora (voltar, abas, botões de linha,
   fechar popup…): como o `*` zera o tap-highlight, esses ficavam **totalmente
   mudos ao toque** no aparelho. Com a lista única, um botão novo entra
   acrescentando um nome.
@@ -387,13 +387,13 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
   degrau, `--hit-nav` (38px), era a faixa de NAVEGAÇÃO — `.tab` e `.tab-add` —,
   e saiu na v1.8.81: a faixa de abas inteira saiu na v1.5.0 e o token sobreviveu
   vinte e nove lotes declarado e sem um único leitor. O piso
-  de 34px vale para `.row-btn`, `.row-handle`, `.popup-close`, `.back-btn`,
-  `.add-dir-btn`, `.sel-btn`, `.coll-bar-dl`, `.coll-group-btn` e `.pv-fab`.
+  de 34px vale para `.row-btn`, `.popup-close`, `.back-btn`,
+  `.add-dir-btn`, `.coll-bar-dl`, `.coll-group-btn` e `.pv-fab`.
   Nada abaixo disso — o `.back-btn` já teve 20×20 px sendo a única saída da tela
   de Favoritos e da navegação da Bíblia, com o `#addDirBtn` (que abre o SAF)
   logo ao lado. Antes o 34 estava escrito literal em sete regras e, ainda assim,
-  dois controles ficavam fora da escala por descuido: `.sel-btn` com 36px e o
-  botão do acervo com 42×38 — sete literais é o que faz uma escala de duas
+  um controle ficava fora da escala por descuido — o botão do acervo com
+  42×38 —, e sete literais é o que faz uma escala de duas
   medidas render quatro tamanhos na mesma tela. Os dois botões de baixar
   (`.coll-bar-dl` no card e `.coll-group-btn` no cabeçalho de grupo) têm o
   **mesmo** alvo de propósito: alinhados na mesma coluna, tamanhos diferentes
@@ -740,16 +740,16 @@ encenar cada estado.
 
 | Era | Virou |
 |---|---|
-| linha `.active`/`.selected` de uma linha de lista | `--sel-fill`, um fundo OPACO |
+| linha `.active` de uma linha de lista | `--sel-fill`, um fundo OPACO |
 | linha `.no-ar` (vermelha) | `--live-fill`, idem |
 | `--ok` contornando "já conectado" | `--ok-fill`, idem |
-| tracejado de "espaço a preencher" (`.import-btn`, `.selbar`, `.pl-pack`) | preenchimento em `--accent-soft` |
+| tracejado de "espaço a preencher" (`.msg-add-btn`, `.pl-pack`) | preenchimento em `--accent-soft` |
 
 > **O DESFECHO DE UMA AÇÃO SAIU DO VERDE NA v1.8.55**, a pedido do operador (*"padronize todos com o efeito de fundo azul claro e ícone em azul sólido, sem nada verde"*). O pulso do botão e a nota na linha vestem `--btn-accent` + `--accent` — o par do `.fav-btn.on`, que o próprio pedido citou como referência —, e MEDIDO o contraste MELHOROU: **5,37:1** no escuro e **6,37:1** no claro, contra 4,89 e 5,74 do verde que saiu. **O que ele viu não era decisão de ninguém: era especificidade.** As variantes do `.btn-pulso` são `(0,1,0)` e perdiam para `.fav-btn.on`, `.row-playlist.on`/`.row-crono.on`, `.qs-tile.qs-on` e `.fav-acoes .row-btn` (o CINZA da queixa) — de modo que acrescentar a uma lista pulsava azul e retirar pulsava verde. A classe DOBRADA as leva a `(0,2,0)` sem `!important`. **O âmbar e o vermelho ficam**: são outras mensagens.
 
 > **E OS DOIS ÚLTIMOS INDICADORES SAÍRAM NA v1.8.56**, pela régua que o operador deu ao ver o resultado: *"verde é para sinal de 'ligado', nesses casos são mensagem de conclusão, não de atividade"*. Ela REVOGA a leitura da v1.8.55, que deixara o ✓ do download do YouTube (`.yt-result .yt-ok`) e o "Completa offline" da Bíblia (`.bible-ver-status.done`) verdes por lê-los como ESTADO — e a régua nova é melhor, porque separa o que dura enquanto a coisa está no ar do que anuncia algo que ACABOU. O contraste melhorou nos dois: o ✓ vai de 4,89/5,74 para **5,37:1 · 6,37:1**, e o "Completa offline" de 6,10/6,81 para **6,63:1 · 7,70:1** sobre o painel (4,92 · 5,87 sobre `--sel-fill`, que é a linha selecionada). O segundo divide a linha com o `.bible-ver-check` — o ✓ que marca a versão ESCOLHIDA, também `--accent` —, e os dois só coexistem na linha selecionada, onde quem carrega a seleção é o FILL e a linha inteira já é accent por herança. (Desde a v1.12.36 o `.yt-result .yt-ok` não é mais um véu sobre a miniatura: é o rótulo `✓ No aparelho` na linha do canal, no MESMO par azul.) **O QUE SOBRA VERDE É ATIVIDADE, e são dois** (eram, na v1.8.56; hoje são quatro — o `#simpleCastBtn.connected` da v1.11.11 e o `.pv-fab.connected` da v1.12.53, este em `--stage-ok` porque mora no palco): a TV no ar (`.cast-acao.connected`, mais o ícone dela) e o ponto do Auxiliar de Leitura (`.lv-badge`). A lista é nomeada no `feedback-de-confirmacao.test.mjs` **nos dois sentidos** — um seletor novo consumindo `--ok` reprova, e um NOME que já não descreve seletor nenhum reprova também: uma lista de permissão que envelhece deixa de dizer o que está permitido.
 >
-> **E as TRÊS PORTAS do rodapé saíram do `--btn-accent` na v1.5.19**, a pedido do operador (*"discretas, mescladas ao fundo"*): elas vestem `color-mix(in srgb, var(--surface) 70%, transparent)`, com `--surface` como piso de falha aberta. A `.selbar` e o `.msg-add-btn` FICAM — a cor se partiu por HABITAT (sobre `--bg` × sobre `--panel`), não por botão. Ver o capítulo das três portas em `CONTROLE-NAVEGACAO.md`.
+> **E as TRÊS PORTAS do rodapé saíram do `--btn-accent` na v1.5.19**, a pedido do operador (*"discretas, mescladas ao fundo"*): elas vestem `color-mix(in srgb, var(--surface) 70%, transparent)`, com `--surface` como piso de falha aberta. O `.msg-add-btn` FICA — ele vive sobre `--panel`, e é o caso em que o `--btn-accent` nasceu. Ver o capítulo das três portas em `CONTROLE-NAVEGACAO.md`.
 >
 > **O `.pl-pack` saiu na v1.8.53**, e pelo mesmo argumento caindo pela segunda vez. Ele era pintado por ser *"a única ação do bloco dela"*; o operador pôs o "Limpar" ao lado, e o bloco passou a ter duas — num idioma em que `--btn-accent` + `--accent` quer dizer **LIGADO**, o par lia-se como *"Guardar está ligado, Limpar é neutro"*, uma hierarquia que não existe. Some a razão que decide: com menos de dois itens ele é APAGADO, e **um item é o estado dominante da fila**, de modo que o azul cheio ficaria esmaecido quase o culto inteiro. Hoje os dois vestem a mesma caixa (`--surface`) e a COR os separa — `--accent` × `--danger-text`, MEDIDO 7,66:1 e 6,47:1 no escuro, 5,58:1 e 5,35:1 no claro.
 | segmentado/chip marcado (`--accent-soft` + borda) | PREENCHIDO — o denim até a v1.8.94, `--btn-accent` + `--accent` desde a v1.8.95 |
@@ -2107,12 +2107,6 @@ caixas** — daí o resto desta seção.
   a diferença entre dois pontos dela é ruído que passa (0,0130 contra 0,0137).
   Medido nos quatro estados — 0,248 · 0,290 para baixo contra 0,051 · 0,050 para
   cima, piso em 0,15.
-  **E A `.selbar` LARGOU ESSE AZUL NO MESMO LOTE** — ela é a outra inquilina da
-  MESMA fatia do rodapé, e as duas ficariam em ΔE00 **0,00**. Ela volta à base
-  (`--bg`), que é a que já veste na gaveta dos Favoritos, e a remoção atravessa
-  um piso de carona: o ícone do EXCLUIR estava em **2,48:1** no escuro (abaixo
-  do piso de 3:1) e foi a **4,26:1**. Pintá-la de denim fazia o oposto: 1,88:1
-  no ícone e 1,00:1 no contador.
 - **MAS ELA NÃO ALCANÇA O SCROLLER INTEIRO: A CAIXA TEM DE ALCANÇAR PRIMEIRO**
   (v1.8.60). `overflow-y: auto` COMPUTA `overflow-x: auto`, então a margem
   negativa é RECORTADA pela caixa do scroller — MEDIDO no Cronograma, forçar

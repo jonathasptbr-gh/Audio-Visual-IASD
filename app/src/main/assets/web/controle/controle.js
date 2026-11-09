@@ -362,8 +362,7 @@ const bibleBackEl = document.getElementById('bibleBack');
 const bibleCloseEl = document.getElementById('bibleClose');
 const libraryEl = document.getElementById('library');
 // O rodapé FIXO da caixa da lista: fora do `<ul>` rolável, e por isso sempre à
-// vista. Hospeda as portas (Bíblia · Ferramentas) e, durante a seleção múltipla, a `#selbar`
-// (ver `renderListFoot` e `hostSelbar`) — nunca os dois ao mesmo tempo.
+// vista. Hospeda as portas (Bíblia · Ferramentas) — ver `renderListFoot`.
 const listFootEl = document.getElementById('listFoot');
 // A FOLHA DE FERRAMENTAS (v1.3.10) — ver `abrirFerramentas`. Quem a ancora é o
 // `.list-body`, e ele não tem handle aqui: nada no JS o mede. A razão de ele
@@ -394,6 +393,9 @@ const appVersionEl = document.getElementById('appVersion');
 // que aborta o `controle.js` inteiro e faz o watchdog do OTA descartar o bundle
 // sem nada na tela dizer por quê.
 const cronoTituloEl = document.getElementById('cronoTitulo');
+// O ALERTA DE "NÃO ESTÁ PRONTO" (v1.13.52), ao lado do nome: ele não é a porta
+// da gaveta (o `#cronoTitulo` é), e é por isso que ele é um botão IRMÃO.
+const cronoAlertaEl = document.getElementById('cronoAlerta');
 const cronoGavetaEl = document.getElementById('cronoGaveta');
 const cronoListaEl = document.getElementById('cronoLista');
 const cronoVeuEl = document.getElementById('cronoVeu');
@@ -413,7 +415,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.51';
+const WEB_VERSION = '1.13.52';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -614,14 +616,6 @@ if (otaRowEl) {
 renderOtaRow();
 
 
-const selbarEl = document.getElementById('selbar');
-const selCountEl = document.getElementById('selCount');
-const selCancelEl = document.getElementById('selCancel');
-const selPlaylistEl = document.getElementById('selPlaylist');
-const selFavEl = document.getElementById('selFav');
-const selRenameEl = document.getElementById('selRename');
-const selDeleteEl = document.getElementById('selDelete');
-
 const backBtnEl = document.getElementById('backBtn');
 const fadePopupEl = document.getElementById('fadePopup');
 const fadePopupCloseEl = document.getElementById('fadePopupClose');
@@ -758,8 +752,6 @@ let repeat = 'all';
 // animação de saída (ver `fecharBiblia`), e durante esses 220 ms os redesenhos
 // da Bíblia continuariam sendo pedidos para uma folha que já saiu de cena.
 let bibliaNoAr = false;
-let selectionMode = false;
-const selected = new Set();
 // ===== A `object-URL` DE UMA MINIATURA É DO BLOB, NÃO DO RENDER (v1.7.4) =====
 //
 // Relato do operador: *"Os itens da lista de favoritos têm suas thumbnails
@@ -10842,6 +10834,9 @@ function renderLibrary() {
   // (apagado com a lista vazia) leem `libItems`, e todo caminho que a muda passa
   // por aqui — inclusive o `toggleCronograma`, que não chama `load()`.
   if (cronoGavetaAberta()) renderCronoGaveta();
+  // O ALERTA DO "NÃO ESTÁ PRONTO" é conferido DEPOIS do desenho: a pergunta
+  // "toca sem rede?" lê o banco, e o desenho da lista é síncrono.
+  agendarConferenciaDoCronograma();
 }
 
 function renderLibraryCorpo() {
@@ -10872,19 +10867,14 @@ function renderLibraryCorpo() {
 
   items.forEach((item, i) => {
     const li = document.createElement('li');
-    // Bug fix: active highlight only when not in selection mode
-    const isActive = !selectionMode && linhaAtiva(item.id);
-    // NO AR é outra coisa que "atual" — ver `linhaNoAr`. Na seleção múltipla ele
-    // some junto com o realce: ali a tela fala de escolha, não de projeção.
-    const noAr = !selectionMode && linhaNoAr(item.id);
-    li.className = 'lib-item' + (isActive ? ' active' : '') + (noAr ? ' no-ar' : '')
-      + (selected.has(item.id) ? ' selected' : '');
+    const isActive = linhaAtiva(item.id);
+    // NO AR é outra coisa que "atual" — ver `linhaNoAr`.
+    const noAr = linhaNoAr(item.id);
+    li.className = 'lib-item' + (isActive ? ' active' : '') + (noAr ? ' no-ar' : '');
     li.dataset.id = item.id;
 
     const row = document.createElement('div'); row.className = 'row';
 
-    // A miniatura é o primeiro elemento (flush à esquerda). A seleção múltipla
-    // é indicada só pelo highlight azul (.lib-item.selected) — sem ícone de check.
     const thumb = isCue(item) ? cueThumb(item) : thumbEl(item);
 
     // NOME + SUBTÍTULO numa coluna só: um selo ao lado do nome disputaria largura
@@ -10915,31 +10905,10 @@ function renderLibraryCorpo() {
           if (ytDl.disabled) return;
           ytDl.disabled = true;
           // A linha JÁ existe: o aviso vai nela, com a chave do próprio item.
-          // Se o arquivo desse vídeo já existir (baixado por outro caminho), o
-          // `ytArquivo` o devolve e não há download nenhum.
-          const rec = await ytArquivo(
-            { id: item.youtubeId || extractYouTubeId(item.url), url: item.url, name: item.name },
-            { chave: item.id, lista: 'imports' },
-          );
+          const rec = await baixarLinkDaLinha(item, item.youtubeId || extractYouTubeId(item.url), false);
           if (!rec) { ytDl.disabled = false; return; }
-          // O arquivo TOMA O LUGAR do link, NA MESMA POSIÇÃO: duas linhas com o
-          // mesmo nome deixariam o operador adivinhando qual das duas é a que
-          // toca em segundo plano. `addMedia` já pendurou o novo no fim do
-          // Cronograma, então a troca é "tira a cópia do fim, substitui no
-          // lugar do antigo".
-          await AVDB.listSet('imports', (ids) => {
-            const sem = ids.filter((x) => x !== rec.id);
-            const i = sem.indexOf(item.id);
-            if (i >= 0) sem[i] = rec.id; else sem.push(rec.id);
-            return sem;
-          });
-          // Agora o Cronograma o segura: sai do slot avulso (no-op se ele nunca
-          // esteve lá).
-          await AVDB.listRemove('avulsos', rec.id);
-          // `gc` decide sozinho se o link some: ele só apaga o que não estiver
-          // referenciado em nenhuma outra lista nem num Favorito — se o item
-          // antigo também estiver na playlist, ele fica lá, inteiro.
-          await AVDB.gc(item.id);
+          // SE O ITEM ESTÁ NO AR, ele passa a tocar do ARQUIVO: o link que
+          // estava projetado não é o que a lista guarda agora.
           if (currentId === item.id) await send(rec.id);
           await load();
         });
@@ -10961,14 +10930,13 @@ function renderLibraryCorpo() {
     // (O `+` de "Adicionar ao Cronograma" não tem par nesta fileira: aqui o item
     // JÁ está no Cronograma. Ele continua na gaveta de um Favorito e na de um
     // arquivo da pasta do aparelho, que é onde a pergunta faz sentido.)
-    const addBtn = (!selectionMode && !isCue(item)) ? plBtnDaLinha(item) : null;
+    const addBtn = !isCue(item) ? plBtnDaLinha(item) : null;
 
-    // A ESTRELA, em toda linha: é ela que torna favoritar um toque só. Fica
-    // fora da seleção múltipla porque ali o alvo é o conjunto, não a linha.
-    const star = selectionMode ? null : favBtn(item.id);
+    // A ESTRELA, em toda linha: é ela que torna favoritar um toque só.
+    const star = favBtn(item.id);
 
     // O PARAR MORA NA MINIATURA (v5.259) — ver `porParar`.
-    if (!selectionMode) porParar(thumb, item);
+    porParar(thumb, item);
 
     // Item que JÁ existe e está sendo baixado (converter um link em arquivo):
     // o aviso vai nele mesmo, não na preview.
@@ -10996,27 +10964,25 @@ function renderLibraryCorpo() {
     // TUDO ATRÁS DO `⋮` — ver `montarAcoesDaLinha`; a ordem da fileira está
     // logo abaixo.
     //
-    // Na SELEÇÃO MÚLTIPLA não há `⋮`: ali o alvo é o conjunto, e quem age é a
-    // barra do rodapé.
-    //
     // E COM UM TRABALHO EM CURSO A COLUNA É DELE — ver
     // `botaoCancelarDoTrabalho`. A fileira inteira sai de cena junto: ela abre
     // o que fazer com um item que está sendo ESCRITO neste instante, e o
     // "baixar o vídeo" desta linha em particular oferece a ação que já está em
     // curso. O que sobra é a única decisão que cabe ali — parar.
-    if (!selectionMode && dl) {
+    if (dl) {
       const cancelar = botaoCancelarDoTrabalho(dl);
       if (cancelar) parts.push(cancelar);
-    } else if (!selectionMode) {
+    } else {
       parts.push(...montarAcoesDaLinha(li, [
         // ===== A ORDEM DA FILEIRA, da esquerda para a direita =====
         //
-        // excluir · renomear · playlist · estrela · (baixar) · ↑↓ — por NATUREZA:
-        // o que mexe no ITEM, o que mexe em ONDE ele está (na ordem dos
-        // `DESTINOS`; o Cronograma não aparece, o item já está nele) e o que mexe
-        // na POSIÇÃO. O EXCLUIR é o MAIS LONGE do `⋮`: o `⋮` é o alvo que se toca
-        // repetidamente (abre e fecha), e errá-lo por alguns pixels não pode cair
-        // no destrutivo — o vizinho do excluir é o VAZIO da caixa, que também fecha.
+        // excluir · renomear · playlist · estrela · (baixar) — por NATUREZA: o
+        // que mexe no ITEM e o que mexe em ONDE ele está (na ordem dos
+        // `DESTINOS`; o Cronograma não aparece, o item já está nele). A POSIÇÃO
+        // saiu daqui na v1.13.52: quem reordena é o ARRASTO da linha. O EXCLUIR
+        // é o MAIS LONGE do `⋮`: o `⋮` é o alvo que se toca repetidamente
+        // (abre e fecha), e errá-lo por alguns pixels não pode cair no
+        // destrutivo — o vizinho do excluir é o VAZIO da caixa, que também fecha.
         botaoExcluirDaLinha(item, 'imports', () => load()),
         // RENOMEAR, com a mesma guarda do excluir: na pasta do aparelho
         // o nome vem do arquivo, e um nome só no registro seria desfeito na
@@ -11028,8 +10994,6 @@ function renderLibraryCorpo() {
         // só existe nessa linha. Entra DEPOIS dela, para não partir ao meio a
         // sequência da fileira.
         ytDl,
-        // O PAR ↑↓ (`moverNaLista`).
-        ...botoesDeOrdem('imports', item.id, i, items.length),
       ], 'imports:' + item.id));
     }
     row.append(...parts);
@@ -11044,12 +11008,9 @@ function renderLibraryCorpo() {
 }
 
 // O RODAPÉ FIXO da caixa da lista (`#listFoot`), fora da rolagem: as PORTAS
-// (Bíblia · Ferramentas) ou a barra de seleção. O IMPORTAR morou aqui da v5.107
-// à v1.13.4 e foi para a barra do topo (`#cronoImportar`).
-//
-// A função reconstrói só o que é DELA: o rodapé é dividido com a barra de
-// seleção (ver `hostSelbar`), e um `innerHTML = ''` aqui tiraria a `#selbar` do
-// documento — o nó é um só, movido, e perdê-lo significa perder os listeners.
+// (Bíblia · Ferramentas). O IMPORTAR morou aqui da v5.107 à v1.13.4 e foi para a
+// barra do topo (`#cronoImportar`); a barra de seleção múltipla morava aqui até
+// a v1.13.52.
 // O MOLDE DAS PORTAS do rodapé (v1.5.0): ícone e rótulo na caixa (o ícone à
 // ESQUERDA desde a v1.13.5), `title` igual ao `aria-label`. Uma função e não
 // duas cópias — elas nasceram iguais e a próxima porta nasce igual também.
@@ -11110,15 +11071,9 @@ function medirRodapeDaLista() {
 function renderListFoot() {
   const antiga = listFootEl.querySelector('.portas-row');
   if (antiga) antiga.remove();
-  // O rodapé some quando não tem inquilino nenhum. Não dá para deixar isso com
-  // um `:empty` no CSS: a `#selbar` MORA aqui mesmo fora da seleção (escondida
-  // pelo `hidden`), então o rodapé nunca fica de fato vazio — e um filho de
-  // altura zero ainda consome o `gap` do `<main>`, que viraria uma faixa de ar
-  // acima da caixa de controles em toda aba sem rodapé.
-  const temPortas = !selectionMode;
-  const temSelbar = selectionMode && selbarEl.parentElement === listFootEl;
-  listFootEl.hidden = !temPortas && !temSelbar;
-  if (!temPortas) return;
+  // O rodapé some quando não tem inquilino nenhum, e hoje o inquilino é sempre
+  // a faixa das portas — o `#listFoot` inteiro sai de cena na Bíblia, que é a
+  // única tela que não é a lista.
   const li = document.createElement('div');
   li.className = 'portas-row';
 
@@ -11158,8 +11113,8 @@ function renderListFoot() {
   li.appendChild(ferr);
 
   listFootEl.appendChild(li);
-  // O INQUILINO ACABOU DE TROCAR, e a altura é dele: a `.selbar` e a
-  // `.portas-row` medem o mesmo hoje (42,00 nas duas), mas é medida, não regra.
+  // A altura do rodapé é LIDA do desenho (e reobservada quando ele muda): é ela
+  // que cobra a folga do último item da lista.
   medirRodapeDaLista();
 }
 
@@ -11813,10 +11768,10 @@ function pedirRenomearNaLinha(botao, item, aoGravar) {
  * `favItemRow`). O `⋮` já é a gaveta de decisões daquela linha; a exclusão é
  * uma delas.
  *
- * A SEMÂNTICA É A MESMA DO LOTE, e de propósito: sai da LISTA (`listRemove`) e
- * o coletor decide o resto — se o item também estiver nos Favoritos, ou na
- * playlist, ele continua lá e os bytes ficam. Duas definições de "excluir" no
- * mesmo app seriam a divergência que `deleteSelected` já evitou uma vez.
+ * A SEMÂNTICA É A MESMA DO "LIMPAR O CRONOGRAMA", e de propósito: sai da LISTA
+ * (`listRemove`) e o coletor decide o resto — se o item também estiver nos
+ * Favoritos, ou na playlist, ele continua lá e os bytes ficam. Duas definições
+ * de "excluir" no mesmo app seriam a divergência que o LOTE já evitou uma vez.
  *
  * A CONFIRMAÇÃO não é zelo: é a condição para um destrutivo caber num ícone —
  * sem ela, a lixeira sozinha seria uma aposta. Desde a v5.301 ela mora NA
@@ -11930,6 +11885,27 @@ async function moverNaLista(listName, id, delta) {
   // CONSUMIDO pelo primeiro, então o segundo reconstruía a linha sem a gaveta
   // aberta — o botão saía de baixo do dedo, que é exatamente o que ele existe
   // para evitar.)
+}
+
+// MOVE PARA UMA POSIÇÃO (v1.13.52) — o desfecho do ARRASTO. `destino` é o
+// índice ENTRE OS DEMAIS itens (é o que a linha-guia desenha): a remoção vem
+// antes, e a inserção usa o mesmo número.
+//
+// A troca mora dentro do `listSet` pela razão escrita em `moverNaLista`
+// (atomicidade contra um `listAdd` do vão), e o desenho é o MESMO `load()` —
+// o app não precisa saber que existem dois gestos para a mesma decisão.
+async function moverNaListaPara(listName, id, destino) {
+  let andou = false;
+  await AVDB.listSet(listName, (ids) => {
+    const de = ids.indexOf(id);
+    if (de === -1 || destino === de) return ids;
+    ids.splice(de, 1);
+    ids.splice(Math.max(0, Math.min(destino, ids.length)), 0, id);
+    andou = true;
+    return ids;
+  });
+  if (!andou) return;
+  await load();
 }
 
 // OS BOTÕES DA FAIXA QUE NÃO A FECHAM. A régua é a mesma desde a v5.289 — *a
@@ -14196,19 +14172,6 @@ function fmtBytes(n) {
   if (n >= 1048576) return num(n / 1048576) + ' MB';
   if (n >= 1024) return Math.round(n / 1024) + ' KB';
   return n + ' B';
-}
-
-function renderSelbar() {
-  hostSelbar();
-  selbarEl.hidden = !selectionMode;
-  // As ABAS NÃO SOMEM MAIS durante a seleção (v5.107): a barra passou a ocupar
-  // o rodapé da lista, não a faixa de navegação. Quem cede o lugar é o
-  // faixa das portas, e é `renderListFoot` (pela guarda de `selectionMode`)
-  // que cuida disso.
-  renderListFoot();
-  if (!selectionMode) return;
-  selCountEl.textContent = String(selected.size);
-  selRenameEl.disabled = selected.size !== 1;
 }
 
 // ===== FAVORITOS: a marcação de UM TOQUE =====
@@ -19333,43 +19296,388 @@ function cederOPalco(nome) {
 
 
 // ===== gestos da biblioteca =====
-// Toque (troca a cena) e toque longo (entra na seleção múltipla), e só: o eixo
-// horizontal é do carrossel de abas.
-// O movimento agora só CANCELA o gesto da linha, em qualquer direção: quem
-// estiver deslizando está falando com o carrossel ou com a rolagem, não com o
-// item.
+// Toque (troca a cena) e toque longo (SEGURA E ARRASTA, para reordenar) — e só:
+// quem desliza está falando com a rolagem da lista, não com o item.
+//
+// O ARRASTO VOLTOU NA v1.13.52, e com outra porta: era uma alça (`row-handle`)
+// por linha, mais o par ↑↓ na gaveta; hoje é o CORPO da linha, e o par de
+// botões saiu do Cronograma. A máquina é a que a v1.13.25 descreveu e a
+// v5.285 apagou — UMA medição por arrasto, o item movido por `transform` (que
+// não altera o layout) e a linha-guia `absolute` dentro da própria `<ul>` —,
+// com a metade que faltava: a ROLAGEM DE BORDA, sem a qual arrastar numa lista
+// de trinta linhas não alcança o fim dela.
 const MOVE = 10, LONGPRESS = 450;
+const ARRASTO_BORDA = 48;   // px do topo/base em que a lista começa a rolar sozinha
+const ARRASTO_PASSO = 12;   // px por tique dessa rolagem
+
+let arrasto = null;        // { li, id, pid, y0, rolagem0, dy, y }
+let arrastoGeom = null;    // a medição do arrasto em curso
+let arrastoRolando = 0;    // id do intervalo da rolagem de borda
+
+// As medidas dos itens, UMA vez por arrasto (e refeitas quando a lista rola,
+// que é o único evento que as invalida). Cada `getBoundingClientRect` custa um
+// reflow, e `pointermove` chega a 60–120 por segundo.
+function medirArrasto(ul, li) {
+  const itens = [];
+  for (const el of ul.children) {
+    if (el === li || el.tagName !== 'LI' || el.classList.contains('drop-line')) continue;
+    const r = el.getBoundingClientRect();
+    itens.push({ meio: r.top + r.height / 2, topo: r.top, base: r.bottom });
+  }
+  arrastoGeom = { ul, itens, topo: ul.getBoundingClientRect().top, rolagem: ul.scrollTop };
+}
+
+// Índice de destino a partir da altura do dedo, ENTRE OS DEMAIS itens — é o
+// mesmo número que a linha-guia desenha e o que `moverNaListaPara` recebe.
+function indiceDoArrasto(y) {
+  const itens = (arrastoGeom && arrastoGeom.itens) || [];
+  for (let i = 0; i < itens.length; i++) if (y < itens[i].meio) return i;
+  return itens.length;
+}
+
+function pintarGuia() {
+  if (!arrastoGeom || !arrasto) return;
+  const { ul, itens, topo, rolagem } = arrastoGeom;
+  let guia = ul.querySelector('.drop-line');
+  if (!guia) {
+    guia = document.createElement('li');
+    guia.className = 'drop-line';
+    guia.setAttribute('aria-hidden', 'true');
+  }
+  const idx = indiceDoArrasto(arrasto.y);
+  const alvo = idx < itens.length ? itens[idx].topo
+    : itens.length ? itens[itens.length - 1].base : topo;
+  guia.style.top = ((alvo - topo) + rolagem) + 'px';
+  if (!guia.isConnected) ul.appendChild(guia);
+}
+
+function aplicarArrasto() {
+  if (!arrasto) return;
+  arrasto.li.style.transform = 'translateY(' + arrasto.dy + 'px)';
+  pintarGuia();
+}
+
+function pararRolagemDeBorda() {
+  if (arrastoRolando) { clearInterval(arrastoRolando); arrastoRolando = 0; }
+}
+
+// A lista rola sozinha enquanto o dedo estiver perto de uma das pontas. O
+// passo entra no `dy` do item: a lista anda por baixo dele e ele continua
+// debaixo do dedo.
+function rolarNaBorda() {
+  if (!arrasto) { pararRolagemDeBorda(); return; }
+  const ul = arrasto.li.parentElement;
+  const r = ul.getBoundingClientRect();
+  const dir = arrasto.y < r.top + ARRASTO_BORDA ? -1
+    : (arrasto.y > r.bottom - ARRASTO_BORDA ? 1 : 0);
+  if (!dir) { pararRolagemDeBorda(); return; }
+  if (arrastoRolando) return;
+  arrastoRolando = setInterval(() => {
+    if (!arrasto) { pararRolagemDeBorda(); return; }
+    const alvo = arrasto.li.parentElement;
+    const antes = alvo.scrollTop;
+    alvo.scrollTop = antes + dir * ARRASTO_PASSO;
+    if (alvo.scrollTop === antes) { pararRolagemDeBorda(); return; }
+    arrasto.dy += alvo.scrollTop - antes;
+    medirArrasto(alvo, arrasto.li);
+    aplicarArrasto();
+  }, 16);
+}
+
+function moverArrasto(y) {
+  if (!arrasto) return;
+  const ul = arrasto.li.parentElement;
+  arrasto.y = y;
+  arrasto.dy = (y - arrasto.y0) + (ul.scrollTop - arrasto.rolagem0);
+  aplicarArrasto();
+  rolarNaBorda();
+}
+
+function limparArrasto() {
+  pararRolagemDeBorda();
+  if (arrasto) {
+    const ul = arrasto.li.parentElement;
+    arrasto.li.style.transform = '';
+    arrasto.li.classList.remove('arrastando');
+    if (ul) {
+      ul.classList.remove('arrastando-lista');
+      const guia = ul.querySelector('.drop-line');
+      if (guia) guia.remove();
+    }
+  }
+  arrasto = null;
+  arrastoGeom = null;
+}
+
+function comecarArrasto(li, item, pid, y) {
+  if (!li || arrasto) return;
+  const ul = li.parentElement;
+  arrasto = { li, id: item.id, pid, y0: y, rolagem0: ul.scrollTop, dy: 0, y };
+  li.classList.add('arrastando');
+  ul.classList.add('arrastando-lista');
+  medirArrasto(ul, li);
+  pintarGuia();
+}
+
+function terminarArrasto() {
+  if (!arrasto) return;
+  const { id } = arrasto;
+  const destino = indiceDoArrasto(arrasto.y);
+  limparArrasto();
+  moverNaListaPara('imports', id, destino);
+}
 
 function attachRowGestures(row, item) {
-  let startX = 0, startY = 0, startT = 0, longFired = false, lp = null, pid = null;
+  let startX = 0, startY = 0, startT = 0, lp = null, pid = null;
+
+  // O TOQUE LONGO ARRASTA (v1.13.52). Ele começa no CORPO da linha, e a alça
+  // que a v1.13.25 tinha saiu com o par ↑↓: o operador pediu o gesto na linha.
+  const segurar = () => {
+    lp = null;
+    const li = row.closest('li');
+    if (!li || pid === null) return;
+    comecarArrasto(li, item, pid, startY);
+    // A CAPTURA é o que faz o dedo continuar falando com ESTA linha mesmo
+    // saindo dela; sem ela, o primeiro desvio entregaria o gesto à rolagem.
+    try { row.setPointerCapture(pid); } catch (_) { /* sem captura: o gesto segue */ }
+  };
 
   row.addEventListener('pointerdown', (e) => {
     // `.row-slot` (v1.4.27): a coluna do `⋮` emprestada ao processo fica FORA
     // da faixa, e o que existe por baixo dela é esta linha — cujo toque
     // PROJETA. Sem a guarda, tocar na lixeira da pergunta poria no ar a mídia
-    // que se está perguntando se apaga; e o toque longo abriria a seleção
-    // múltipla por cima de uma confirmação aberta.
+    // que se está perguntando se apaga; e o toque longo começaria um arrasto
+    // por cima de uma confirmação aberta.
     if (e.target.closest('.row-btn,.row-acoes,.row-slot')) return;
-    pid = e.pointerId; startX = e.clientX; startY = e.clientY; startT = Date.now(); longFired = false;
-    lp = setTimeout(() => { longFired = true; enterSelection(item.id); }, LONGPRESS);
+    if (e.button !== undefined && e.button !== 0) return;
+    pid = e.pointerId; startX = e.clientX; startY = e.clientY; startT = Date.now();
+    lp = setTimeout(segurar, LONGPRESS);
   });
   row.addEventListener('pointermove', (e) => {
+    if (arrasto && arrasto.pid === pid) { e.preventDefault(); moverArrasto(e.clientY); return; }
     if (pid === null) return;
     // Saiu do lugar? O toque deixou de ser um toque. `pid = null` encerra o
-    // gesto DESTA linha sem tocar no evento — ele segue subindo para o
-    // carrossel de abas e para a rolagem da lista, que são de quem o dedo está
-    // falando agora.
+    // gesto DESTA linha sem tocar no evento — ele segue subindo para a rolagem
+    // da lista, que é de quem o dedo está falando agora.
     if (Math.abs(e.clientX - startX) > MOVE || Math.abs(e.clientY - startY) > MOVE) {
-      clearTimeout(lp); pid = null;
+      clearTimeout(lp); lp = null; pid = null;
     }
   });
   row.addEventListener('pointerup', (e) => {
+    if (arrasto && arrasto.pid === pid) { moverArrasto(e.clientY); terminarArrasto(); pid = null; return; }
     if (pid === null) return;
-    clearTimeout(lp);
-    if (!longFired && Date.now() - startT < LONGPRESS) onTap(item);
+    clearTimeout(lp); lp = null;
+    if (Date.now() - startT < LONGPRESS) onTap(item);
     pid = null;
   });
-  row.addEventListener('pointercancel', () => { clearTimeout(lp); pid = null; });
+  row.addEventListener('pointercancel', () => {
+    clearTimeout(lp); lp = null;
+    if (arrasto && arrasto.pid === pid) limparArrasto();
+    pid = null;
+  });
+}
+
+// ===== "O CRONOGRAMA TOCA SEM REDE?" (v1.13.52) =====
+//
+// Pedido do operador: *"um ícone de alerta ao lado do nome do cronograma, que ao
+// tocado avisa e dê a opção de baixar tudo para deixar pronto"*.
+//
+// UMA função responde "isto toca sem rede?", e é ela que o ALERTA usa para
+// contar e o BAIXAR TUDO usa para escolher o que pedir — duas réguas para a
+// mesma pergunta divergiriam no primeiro ajuste. A resposta não é "existe
+// registro": é **existe BYTE neste aparelho**, que é o que decide entre tocar e
+// depender da rede.
+//
+// Cada família de item do Cronograma tem o seu caminho de download, e todos os
+// três JÁ EXISTEM (nada de baixador novo):
+//   · MÍDIA com bytes (blob, arquivo do acervo no OPFS, páginas da
+//     apresentação) → toca sem rede, e não entra na conta;
+//   · LINK do YouTube sem arquivo → `ytArquivo` (o mesmo do botão da linha),
+//     e o link é trocado pelo arquivo NA POSIÇÃO (`trocarLinkPeloArquivo`);
+//   · VÍDEO DA SEMANA (`kind: 'semana'`) → precisa do episódio do sábado, e
+//     baixá-lo é `downloadSerieItem` + `serieReterBaixado`, a dupla da rotina
+//     da semana;
+//   · CENA DE LETRA (`cue: 'songlyrics'`) e faixa sem os bytes → a letra vem
+//     junto com o áudio (`lyricSlidesFor`), e quem o traz é
+//     `ensureSongDownloaded`, o caminho do próprio "Tocar agora".
+//
+// SEM AUTOMAÇÃO: nada aqui roda sozinho. Quem baixa é o botão.
+const FALTA_ROTULO = {
+  video: 'vídeo do YouTube sem arquivo',
+  audio: 'vídeo do YouTube sem o áudio',
+  hino: 'faixa sem o áudio no aparelho',
+  letra: 'letra de louvor sem o áudio no aparelho',
+  semana: 'vídeo da semana sem o episódio baixado',
+};
+
+// O `null` é "toca sem rede"; a string é o QUE falta, e é ela que agrupa a
+// lista do aviso.
+async function faltaParaTocarSemRede(rec) {
+  if (!rec) return null;
+  if (isCue(rec)) {
+    // Só a LETRA depende de bytes: o texto das outras cenas mora no banco
+    // (mensagem, versículo do cache, cronômetro, sorteio).
+    if (rec.cue !== 'songlyrics') return null;
+    const d = rec.data || {};
+    const coll = allCollections().find((c) => c.id === d.collId) || null;
+    const s = coll ? collSongs(coll.id).find((x) => x.id_music === d.songId) : null;
+    if (!coll || !s) return 'letra';
+    return (await lyricSlidesFor(coll, s)).length ? null : 'letra';
+  }
+  if (ehSemana(rec)) {
+    const coll = semanaColecao(rec);
+    const epi = coll ? serieEpisodioDaSemana(coll) : null;
+    if (!epi) return 'semana';
+    return (await serieArquivoDoEpisodio(epi)) ? null : 'semana';
+  }
+  // OS BYTES. `opfsPath` conta como presente sem conferir o arquivo: a
+  // varredura do OPFS a cada desenho custaria uma leitura por linha, e quem
+  // apaga o arquivo por fora é o coletor, que leva o registro junto.
+  if (rec.blob || rec.opfsPath) return null;
+  if (Array.isArray(rec.pages) && rec.pages.length) return null;
+  if (rec.youtubeId) return rec.kind === 'audio' ? 'audio' : 'video';
+  return 'hino';
+}
+
+async function itensQueNaoTocamSemRede() {
+  const out = [];
+  // A lista À VISTA é o cronograma ATIVO: `libItems` é o que a tela desenhou.
+  for (const item of libItems) {
+    const tipo = await faltaParaTocarSemRede(item);
+    if (tipo) out.push({ item, tipo });
+  }
+  return out;
+}
+
+// A CONFERÊNCIA é assíncrona (lê o banco por item) e o desenho da lista é
+// síncrono: ela roda DEPOIS do desenho e pinta só o ícone. A chave evita
+// reconferir quando o que está à vista não mudou (o `load()` é o funil de toda
+// mudança da lista, e ele chama isto a cada passo).
+let cronoProntoSeq = 0;
+let cronoFalta = null;
+let cronoFaltaChave = null;
+
+function chaveDoCronograma() {
+  return libItems.map((it) => it.id + (it.blob ? '+' : it.opfsPath ? '*' : '')).join(',');
+}
+
+function agendarConferenciaDoCronograma() {
+  const chave = chaveDoCronograma();
+  if (chave === cronoFaltaChave) { pintarAlertaDoCronograma(); return; }
+  const seq = ++cronoProntoSeq;
+  setTimeout(async () => {
+    let falta;
+    try { falta = await itensQueNaoTocamSemRede(); } catch (_) { falta = null; }
+    // PERDEU A VEZ: uma conferência mais nova assumiu (a lista mudou de novo).
+    if (seq !== cronoProntoSeq) return;
+    cronoFalta = falta;
+    cronoFaltaChave = falta ? chave : null;
+    pintarAlertaDoCronograma();
+  }, 0);
+}
+
+function pintarAlertaDoCronograma() {
+  const falta = cronoFalta || [];
+  if (!cronoAlertaEl) return;
+  cronoAlertaEl.hidden = falta.length === 0;
+  if (!falta.length) { cronoAlertaEl.removeAttribute('title'); return; }
+  const frase = falta.length === 1
+    ? '1 item do cronograma não toca sem rede'
+    : falta.length + ' itens do cronograma não tocam sem rede';
+  cronoAlertaEl.title = frase;
+  cronoAlertaEl.setAttribute('aria-label', frase);
+}
+
+// A FOLHA: o que falta, contado por tipo, e o botão que baixa — o diálogo do
+// app, que já é lista + rodapé + um botão (o do OTA usa a mesma forma).
+async function abrirFaltaDoCronograma() {
+  const falta = await itensQueNaoTocamSemRede();
+  cronoFalta = falta;
+  cronoFaltaChave = falta.length ? chaveDoCronograma() : null;
+  pintarAlertaDoCronograma();
+  if (!falta.length) return;
+  const porTipo = new Map();
+  for (const { tipo } of falta) porTipo.set(tipo, (porTipo.get(tipo) || 0) + 1);
+  const itens = [...porTipo].map(([tipo, n]) => (n === 1 ? '1 ' : n + ' ') + FALTA_ROTULO[tipo]);
+  const ok = await appConfirm({
+    title: 'Falta baixar',
+    message: falta.length === 1
+      ? 'Um item do cronograma precisa de internet para tocar.'
+      : falta.length + ' itens do cronograma precisam de internet para tocar.',
+    itens,
+    rodape: 'Nada baixa sozinho: quem baixa é este botão.',
+    okText: 'Baixar tudo',
+    cancelText: 'Agora não',
+  });
+  if (!ok) return;
+  await baixarTudoQueFalta(falta);
+}
+
+// O DOWNLOAD DE UM ITEM, pelo caminho que já existe para ele.
+async function baixarUmFaltante(rec, tipo) {
+  if (tipo === 'video' || tipo === 'audio') {
+    const vid = rec.youtubeId || extractYouTubeId(rec.url || '');
+    if (!vid || !window.__NATIVE__) return false;
+    return baixarLinkDaLinha(rec, vid, tipo === 'audio');
+  }
+  if (tipo === 'semana') {
+    const coll = semanaColecao(rec);
+    const epi = coll ? serieEpisodioDaSemana(coll) : null;
+    if (!coll || !epi) return false;
+    if (!(await downloadSerieItem(coll, epi))) return false;
+    return !!(await serieReterBaixado(epi));
+  }
+  // 'letra' (a cena guarda coll+song) e 'hino' (o registro guarda de onde veio:
+  // `folder` + `srcName`, escritos por `downloadCollectionFile`).
+  let coll = null, s = null;
+  if (tipo === 'letra') {
+    const d = rec.data || {};
+    coll = allCollections().find((c) => c.id === d.collId) || null;
+    s = coll ? collSongs(coll.id).find((x) => x.id_music === d.songId) : null;
+  } else {
+    coll = allCollections().find((c) => c.id === rec.folder) || null;
+    const idMusic = String(rec.srcName || '').split('-')[0];
+    s = coll ? collSongs(coll.id).find((x) => String(x.id_music) === idMusic) : null;
+  }
+  if (!coll || !s) return false;
+  const antesFull = s.fileIdFull, antesPlayback = s.fileIdPlayback;
+  await ensureSongDownloaded(coll, s);
+  if (tipo === 'letra') return (await lyricSlidesFor(coll, s)).length > 0;
+  // A faixa baixada ganha um id NOVO: o da lista passa a apontar para ele.
+  const novo = s.fileIdFull !== antesFull ? s.fileIdFull
+    : (s.fileIdPlayback !== antesPlayback ? s.fileIdPlayback : null);
+  if (novo) { await trocarLinkPeloArquivo(rec.id, novo); return true; }
+  const atual = await AVDB.fileGet(rec.id).catch(() => null);
+  return !!(atual && (atual.blob || atual.opfsPath));
+}
+
+// A CONTA É DO QUE CHEGOU AO DISCO, não do que foi tentado: quem decide é a
+// MESMA função do alerta, relida no fim, e o denominador é o que a folha
+// prometeu baixar. É ela que fecha a frase — e é por isso que ela não pode
+// contar os `return` do laço.
+async function baixarTudoQueFalta(falta) {
+  const alvos = falta || await itensQueNaoTocamSemRede();
+  if (!alvos.length) return;
+  for (const { item, tipo } of alvos) {
+    try { await baixarUmFaltante(item, tipo); } catch (e) { console.warn('[crono] baixar faltante falhou:', e); }
+  }
+  await load();
+  const restam = await itensQueNaoTocamSemRede();
+  cronoFalta = restam;
+  cronoFaltaChave = restam.length ? chaveDoCronograma() : null;
+  pintarAlertaDoCronograma();
+  const baixados = Math.max(0, alvos.length - restam.length);
+  await appConfirm({
+    title: restam.length ? 'Faltou baixar' : 'Pronto',
+    message: restam.length
+      ? 'Chegaram ' + baixados + ' de ' + alvos.length + ' ao aparelho.'
+        + (restam.length === 1 ? ' Ainda falta 1 item' : ' Ainda faltam ' + restam.length + ' itens')
+        + ' — toque no alerta do cronograma para ver quais.'
+      : baixados + (baixados === 1 ? ' item está' : ' itens estão')
+        + ' no aparelho: o cronograma toca sem rede.',
+    cancelText: null,
+    okText: 'OK',
+  });
 }
 
 /**
@@ -19728,7 +20036,6 @@ function noArAgora(item) {
 }
 
 async function onTap(item) {
-  if (selectionMode) { toggleSelect(item.id); return; }
   // O SEGUNDO TOQUE RETIRA — ver `retirarDoAr`.
   if (noArAgora(item)) { await retirarDoAr(item); return; }
   // Cena de roteiro: PROJETA, e não mexe na playlist. Um versículo não é uma
@@ -19737,117 +20044,20 @@ async function onTap(item) {
   // deixa tocando de propósito) morreria junto.
   if (isCue(item)) { await send(item.id); return; }
   // Toque direto na biblioteca: define a playlist como este item apenas.
-  // ACRESCENTAR à fila (sem substituir) é outra coisa: o `+` dos resultados do
-  // acervo (`addSongToPlaylist`) e, para itens da biblioteca, o botão de
-  // playlist da barra de seleção (`addSelectedToPlaylist`).
+  // ACRESCENTAR à fila (sem substituir) é outra coisa, e tem porta própria em
+  // cada linha (o `+` da fileira do `⋮` e o dos resultados do acervo).
   await replacePlaylistWith(item);
   send(item.id);
-}
-
-// Favoritar o CONJUNTO. Marca todos quando há algum desmarcado (a intenção de
-// quem selecionou cinco itens e toca na estrela é "quero estes cinco nos
-// favoritos"); com todos já marcados, o mesmo toque desmarca — é o alternador
-// de sempre, aplicado ao conjunto.
-async function favoritarSelecionados() {
-  const ids = [...selected];
-  if (!ids.length) return;
-  const marcar = ids.some((id) => !favSet.has(id));
-  let mexidos = 0;
-  for (const id of ids) {
-    if (marcar === favSet.has(id)) continue;
-    mexidos++;
-    if (marcar) { favSet.add(id); await AVDB.listAdd('favs', id); }
-    else { favSet.delete(id); await AVDB.listRemove('favs', id); }
-  }
-  responder(selFavEl, marcar ? tipoLote(mexidos, ids.length) : 'ok');
-  await recarregarFavoritos();
-  // A barra sai DEPOIS do pulso: `exitSelection` a esconde (`hidden`), e sair
-  // na hora arrancaria da tela justamente o botão que está confirmando.
-  sairDaSelecaoDepois();
-}
-
-// A SELEÇÃO SOBREVIVE AO DESTINO: os destinos são botões lado a lado, e mandar
-// cinco louvores à playlist E aos Favoritos não pede selecioná-los duas vezes.
-//
-// A barra continua sendo fechada pelo ✕ (`#selCancel`), pelo botão voltar do
-// aparelho e por desmarcar o último item — três saídas que já existiam. O que
-// muda é ela não decidir sozinha que o operador terminou.
-//
-// O redesenho espera o pulso do botão pelo mesmo motivo de sempre: remontar a
-// lista agora arrancaria da tela justamente o botão que está confirmando.
-function sairDaSelecaoDepois() {
-  setTimeout(() => { load(); }, PULSO_MS);
-}
-
-// Acrescenta os SELECIONADOS à playlist, sem substituir a fila — o toque simples
-// SUBSTITUI, e sem isto montar uma sequência de culto não teria porta visível.
-// A conta é do LOTE: "3 de 4 adicionados" diz, numa linha, que um deles já
-// estava lá — com um aviso por item o operador veria quatro mensagens piscando
-// e não leria nenhuma.
-async function addSelectedToPlaylist() {
-  if (!selected.size) return;
-  const total = selected.size;
-  // A forma ATÔMICA do `listSet` (a fn roda dentro da MESMA transação que
-  // grava — a forma que o db.js manda preferir): o laço anterior pagava duas
-  // transações por item (`listHas` + `listAdd`), e a contagem de novos sai da
-  // própria fn, sobre a MESMA lista que foi gravada.
-  let novos = 0;
-  await AVDB.listSet('playlist', (atual) => {
-    for (const id of selected) {
-      if (atual.includes(id)) continue;
-      atual.push(id); novos++;
-    }
-    return atual;
-  });
-  responder(selPlaylistEl, tipoLote(novos, total));
-  sairDaSelecaoDepois();
-}
-
-// O pulso de uma operação em lote (playlist, favoritos): `dup` se algum já estava.
-function tipoLote(novos, total) { return novos === total ? 'ok' : 'dup'; }
-
-// ===== seleção múltipla =====
-function enterSelection(id) {
-  selectionMode = true;
-  selected.clear();
-  selected.add(id);
-  renderLibrary(); renderSelbar();
-}
-function toggleSelect(id) {
-  if (selected.has(id)) selected.delete(id); else selected.add(id);
-  if (selected.size === 0) exitSelection();
-  else { renderLibrary(); renderSelbar(); }
-}
-function exitSelection() {
-  selectionMode = false; selected.clear();
-  renderLibrary(); renderSelbar();
-}
-async function deleteSelected() {
-  // O ✓ "já está aqui" da busca do YouTube vive num Map em memória
-  // (`ytEstado`) e nunca é recalculado enquanto a entrada existir — excluir a
-  // mídia sem invalidá-lo deixava a busca prometendo, pela sessão inteira, um
-  // download que não existe mais. A marca cai ANTES da remoção porque depois
-  // do gc o registro pode já não existir para dizer QUAL era o vídeo; se ele
-  // sobreviver em outra lista, `marcarYtProntos` remarca a partir do IDB.
-  for (const id of selected) {
-    const it = libItems.find((m) => m.id === id) || await AVDB.getMedia(id);
-    if (it && it.youtubeId) setYtEstado(it.youtubeId, null);
-  }
-  // A seleção múltipla só existe na lista principal (o Cronograma).
-  {
-    for (const id of selected) { await AVDB.listRemove('imports', id); await soltarAvulso(id); }
-  }
-  exitSelection(); load();
 }
 
 // ===== LIMPAR O CRONOGRAMA INTEIRO =====
 //
 // É o EXCLUIR DO ÚNICO cronograma, na linha dele na gaveta (ver
 // `excluirCronograma`): com UM cronograma só, excluí-lo é esvaziá-lo, porque o
-// app nunca fica com zero. Só o ATIVO — que, sendo o único,
-// é a lista à vista. Ele é a irmã do `deleteSelected` acima — mesma declaração de intenção, sobre
-// a lista toda em vez de uma seleção — e por isso repete as DUAS metades que
-// aquele tem e que o `listSet` sozinho não faz.
+// app nunca fica com zero. Só o ATIVO — que, sendo o único, é a lista à vista.
+// A declaração de intenção é a do EXCLUIR de uma linha (`botaoExcluirDaLinha`),
+// aplicada à lista toda, e por isso ele repete as DUAS metades que aquele tem e
+// que o `listSet` sozinho não faz.
 //
 // `listSet('imports', () => [])` E NÃO UM LAÇO DE `listRemove`: é UMA transação
 // com a coleta dentro (`db.js`, `lerDetentores` uma vez só), contra N
@@ -19910,9 +20120,6 @@ async function limparCronograma() {
   }
   for (const id of ids) await soltarAvulso(id);
   await AVDB.listSet('imports', () => []);
-  // A SELEÇÃO MÚLTIPLA MORRE JUNTO: ela aponta para ids que acabaram de sair da
-  // lista, e o `load()` a re-hidrataria sobre linhas que já não existem.
-  if (typeof exitSelection === 'function') exitSelection();
   await load();
   if (libraryEl) libraryEl.scrollTop = 0;
 }
@@ -20036,10 +20243,9 @@ function renderCronoGaveta() {
   li.appendChild(b);
   cronoListaEl.appendChild(li);
 }
-// O QUE MORRE COM UMA TROCA: a seleção múltipla e a gaveta de uma linha apontam
-// para linhas da lista que acabou de sair de cena.
+// O QUE MORRE COM UMA TROCA: a gaveta de uma linha aponta para linhas da lista
+// que acabou de sair de cena.
 function cronoAntesDeTrocar() {
-  if (typeof exitSelection === 'function' && selectionMode) exitSelection();
   fecharAcoesDaLinha();
 }
 async function trocarCronograma(id) {
@@ -20143,32 +20349,7 @@ async function soltarAvulso(id) {
   if (!id || id === currentId) return;
   await AVDB.listRemove('avulsos', id);
 }
-async function renameSelected() {
-  if (selected.size !== 1) return;
-  const id = [...selected][0];
-  const item = libItems.find((m) => m.id === id);
-  const name = await appPrompt({ title: 'Renomear', message: 'Novo nome:', value: item ? item.name : '', okText: 'Renomear' });
-  if (name && name.trim()) await AVDB.renameMedia(id, name.trim());
-  exitSelection(); load();
-}
-
 // ===== pastas =====
-
-// A barra de seleção múltipla vive no RODAPÉ DA LISTA, fora do `<ul>` rolável e
-// por isso sempre à vista. Ela MUDA de casa com o `<input type="file">` que
-// ocupa a mesma fatia (ver `renderListFoot`): um nó só, movido, em vez de dois
-// que divergem.
-//
-// A casa dela era a caixa de controles, no lugar da faixa de ABAS (v5.107 tirou
-// de lá). As ações são da LISTA; trocar a navegação de lugar para mostrá-las
-// mexe no que não é da seleção, e some com as abas justamente quando o operador
-// pode querer sair da tela.
-//
-// A função existe para o `<input type="file">` não voltar a disputar a fatia
-// com a `#selbar`.
-function hostSelbar() {
-  if (selbarEl.parentElement !== listFootEl) listFootEl.appendChild(selbarEl);
-}
 
 function navigateBack() {
   if (bibliaAberta()) {
@@ -20180,10 +20361,6 @@ function navigateBack() {
   // Favoritos da Biblioteca): o voltar só refaz a lista, com a posição de onde o
   // operador veio.
   rememberScroll();
-  // A seleção pertence à lista que está sendo DEIXADA: sair de uma pasta com
-  // itens marcados levaria as marcas para a lista de trás, onde a barra de
-  // seleção passaria a agir sobre ids que não estão à vista.
-  if (selectionMode) exitSelection();
   load({ restaurarScroll: true });
 }
 
@@ -37780,6 +37957,32 @@ async function ytArquivo(alvo, opts) {
   }
   return p;
 }
+// O LINK VIRA ARQUIVO **NA POSIÇÃO** (v1.13.52). Duas linhas com o mesmo nome
+// deixariam o operador adivinhando qual das duas toca em segundo plano, então
+// o registro novo toma o lugar do antigo — e o antigo só morre se o coletor
+// disser (ele fica inteiro se o link também estiver na playlist ou num
+// Favorito). É o MESMO caminho no botão da linha e no "Baixar tudo" do alerta
+// do cronograma: um segundo baixador divergiria do primeiro no próximo ajuste.
+async function baixarLinkDaLinha(item, vid, soAudio) {
+  const rec = await ytArquivo(
+    { id: vid, url: 'https://www.youtube.com/watch?v=' + vid, name: item.name || '' },
+    { chave: item.id, lista: 'imports', somenteAudio: !!soAudio },
+  );
+  if (!rec) return null;
+  await AVDB.listSet('imports', (ids) => {
+    const sem = ids.filter((x) => x !== rec.id);
+    const i = sem.indexOf(item.id);
+    if (i >= 0) sem[i] = rec.id; else sem.push(rec.id);
+    return sem;
+  });
+  // Agora o Cronograma o segura: sai do slot avulso (no-op se nunca esteve lá).
+  await AVDB.listRemove('avulsos', rec.id);
+  // `gc` decide sozinho se o LINK some — ele só apaga o que não estiver
+  // referenciado em nenhuma outra lista nem num Favorito.
+  await AVDB.gc(item.id);
+  return rec;
+}
+
 const ytArquivoEmVoo = new Map();   // `<youtubeId>:<forma>` → Promise do registro
 
 // A prateleira da mídia avulsa — a que está em cena sem pertencer a lista
@@ -38221,7 +38424,6 @@ async function importShare(pending) {
 async function sairDasCamadas() {
   // 1. Sai de tudo que está POR CIMA da lista, em qualquer modo: um acervo em
   //    tela cheia esconderia tanto o Cronograma quanto a tela simplificada.
-  if (selectionMode) exitSelection();
   POPUPS.forEach(([backdrop, , close]) => {
     if (backdrop.classList.contains('open')) close();
   });
@@ -43000,9 +43202,6 @@ function deslizarNaFolha(host, dir) {
     { duration: TAB_MOVE_MS, easing: TAB_MOVE_EASE, fill: 'both' });
 }
 
-selCancelEl.addEventListener('click', exitSelection);
-selPlaylistEl.addEventListener('click', addSelectedToPlaylist);
-selFavEl.addEventListener('click', favoritarSelecionados);
 plPackEl.addEventListener('click', () => guardarPacote('imports', plPackEl));
 plPackFavEl.addEventListener('click', () => guardarPacote('favs', plPackFavEl));
 // A PERGUNTA NASCE NA CAIXA DO BOTÃO (`pedirConfirmacaoNaLinha` olha o pai dele)
@@ -43023,11 +43222,17 @@ plClearEl.addEventListener('click', (e) => {
     aoConfirmar: limparPlaylist,
   });
 });
-selDeleteEl.addEventListener('click', deleteSelected);
 if (cronoImportarEl) cronoImportarEl.addEventListener('click', () => { fecharCronoGaveta(); importarArquivos(); });
 if (cronoTituloEl) cronoTituloEl.addEventListener('click', () => {
   if (cronoGavetaEl && !cronoGavetaEl.hidden && cronoGavetaEl.classList.contains('aberta')) fecharCronoGaveta();
   else abrirCronoGaveta();
+});
+// O ALERTA abre a folha do que falta — e NÃO a gaveta dos cronogramas: dois
+// alvos vizinhos, dois assuntos (o nome troca de cronograma; o ícone diz o que
+// ainda depende da rede).
+if (cronoAlertaEl) cronoAlertaEl.addEventListener('click', (e) => {
+  e.stopPropagation();
+  abrirFaltaDoCronograma();
 });
 if (cronoVeuEl) cronoVeuEl.addEventListener('click', () => fecharCronoGaveta());
 // O TOQUE FORA QUE O VÉU NÃO ALCANÇA: a barra da Biblioteca e as folhas moram
@@ -43053,7 +43258,6 @@ document.addEventListener('pointerdown', (e) => {
   if ([itinGavetaEl, itinTituloEl, appDialogEl].some((el) => el && el.contains(t))) return;
   fecharItinGaveta();
 }, true);
-selRenameEl.addEventListener('click', renameSelected);
 
 // O `#backBtn` do cabeçalho fica no HTML, sempre oculto: `renderListTitle` o
 // esconde explicitamente, e é essa linha que impede um bundle de o revelar por
@@ -44374,8 +44578,6 @@ window.__avBack = function () {
     try { document.exitFullscreen(); } catch (_) {}
     return true;
   }
-  // 5. Seleção múltipla: o voltar cancela a seleção, não o app.
-  if (selectionMode) { exitSelection(); return true; }
   // Nada aberto: a Activity minimiza (a projeção segue viva).
   return false;
 };

@@ -137,7 +137,7 @@ uma ferramenta aberta, o voltar devolve a LISTA delas antes de fechá-la — v1.
 ÚNICO caminho de volta à lista desde a v1.13.6, que tirou o voltar da tela) →
 **2.6. a folha da Bíblia** (que SOBE dentro dela — livros ← capítulos ← leitura —
 antes de fechar) → 3. preview em tela cheia (que, sem telão, **é** a projeção) →
-*(o degrau 4 era o fader do mixer, e saiu na v1.3.8)* → 5. seleção múltipla →
+*(o degrau 4 era o fader do mixer, e saiu na v1.3.8; o 5 era a seleção múltipla, que saiu do app na v1.13.52)* →
 *(os degraus 6 e 7 subiram para o 2.6 na v1.5.0: o `#backBtn` do cabeçalho só
 servia à Bíblia, e não há mais "fora do Cronograma" — há uma tela e duas folhas)*
 → 8. nada aberto → `moveTaskToBack`.

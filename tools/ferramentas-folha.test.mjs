@@ -39,9 +39,9 @@
 //    para "fechar isto" minimiza o app no meio do culto.
 //  - **o DESENHO das portas** (v1.5.19, bloco 9; duas desde a v1.13.5). Elas são a navegação
 //    inteira do app e vivem sobre a página o culto todo: a faixa voltar a ter um
-//    destaque, a discrição virar desaparecimento, o rodapé PULAR ao entrar na
-//    seleção múltipla, e a `.selbar` ser "padronizada" junto — nenhum dos quatro
-//    dá erro, e o terceiro é um defeito LATENTE que este lote fecha.
+//    destaque, a discrição virar desaparecimento, e a altura delas deixar de
+//    seguir o `--hit-foot` — nada disso dá erro, e o rodapé é a navegação
+//    inteira do app.
 //
 //   node tools/ferramentas-folha.test.mjs
 import path from 'node:path';
@@ -498,17 +498,9 @@ try {
   //    sozinho quando as três ganharam rótulo. Um lote futuro que reabra esse
   //    argumento não erra alto — ele devolve UMA cor a UM botão, e a palavra do
   //    pedido ("padronize") morre sem nada na tela dizendo por quê.
-  //  - **o rodapé PULAR ao entrar na seleção.** É um defeito LATENTE que este
-  //    lote fecha: MEDIDO antes dele, `#listFoot` ia de 51,77px (as portas) para
-  //    44,00 (a `.selbar`) — 7,77px de pulo debaixo do dedo que segura um item,
-  //    exatamente o que o comentário do `--hit-foot` promete por escrito que não
-  //    acontece. Ninguém relata isso: ele acontece no mesmo quadro em que a
-  //    lista inteira troca de aparência.
-  //  - **a `.selbar` ser "padronizada" junto.** Ela é a outra inquilina da
-  //    fatia, e os `.sel-btn` moram EM CIMA dela: sobre uma superfície quieta o
-  //    par habilitado × desabilitado cai abaixo do limiar de percepção, e o app
-  //    perde a distinção entre disponível e INDISPONÍVEL na barra que hospeda o
-  //    EXCLUIR.
+  //  - **a altura da faixa deixar de seguir o `--hit-foot`.** MEDIDO antes da
+  //    v1.5.19, o termo que mandava era o `padding` e o token ficava INERTE:
+  //    varrê-lo de 48 a 36px não movia um pixel. É o I2 que cobra.
   //  - **o ícone das três divergir.** Hoje eles coincidem por ACIDENTE (o
   //    atributo `width="20"` que o `botaoDoRodape` escreve vale exatamente
   //    `--icon-sm`), e a divergência é MUDA duas vezes: a `.portas-row` é
@@ -623,11 +615,10 @@ try {
     window.__texto = (el) => (el ? rgba(getComputedStyle(el).color).slice(0, 3) : null);
   });
 
-  // UM ITEM DE VERDADE NO CRONOGRAMA, porque a seleção múltipla é o segundo
-  // inquilino da fatia e não existe sem lista. `fileAdd` + `listAdd` é a MESMA
-  // forma que o download de coleção grava — `addMedia` é a porta do IMPORT.
-  // REVERSÃO: semear sem o `listAdd('imports', …)` — a lista fica vazia, a
-  // seleção não tem em que entrar e o D deixa de medir o que promete.
+  // UM ITEM DE VERDADE NO CRONOGRAMA: a faixa do rodapé convive com a lista, e
+  // medir o rodapé sobre uma tela vazia não é medir a tela do culto.
+  // `fileAdd` + `listAdd` é a MESMA forma que o download de coleção grava —
+  // `addMedia` é a porta do IMPORT.
   const itens = await pg.evaluate(new Function(`return (async () => {
     const sr = 8000, n = sr * 5;
     const buf = new ArrayBuffer(44 + n * 2), dv = new DataView(buf);
@@ -637,9 +628,8 @@ try {
     dv.setUint32(24, sr, true); dv.setUint32(28, sr * 2, true);
     dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
     wr(36, 'data'); dv.setUint32(40, n * 2, true);
-    // DOIS itens, e o segundo não é enfeite: com UM selecionado nenhum
-    // \`.sel-btn\` fica desabilitado (\`selRename.disabled = selected.size !== 1\`),
-    // e é o par habilitado × DESABILITADO que o 9-E mede.
+    // DOIS itens: a lista do culto tem mais de um, e é sobre ela que a fatia
+    // do rodapé é medida.
     for (const n of [1, 2]) {
       const caminho = 'folders/rodape/porta-' + n + '.wav';
       await AVDB.opfsWriteFile(caminho, new Blob([buf], { type: 'audio/wav' }));
@@ -653,8 +643,8 @@ try {
     return document.querySelectorAll('#library li').length;
   })()`));
   checar(itens >= 2,
-    'ponto de partida: há dois itens no Cronograma — um para a seleção tomar a '
-    + 'fatia do rodapé, dois para ela DESABILITAR um `.sel-btn`', itens);
+    'ponto de partida: há dois itens no Cronograma — a fatia do rodapé é medida '
+    + 'sobre a tela real, com lista', itens);
 
   const temaOriginal = await pg.evaluate(() => document.documentElement.getAttribute('data-tema'));
 
@@ -666,7 +656,7 @@ try {
       // ele fechado a cor computada sai certa sobre nada na tela, e a largura
       // sai ZERO. Aberto e fechado dentro desta mesma passada: o resto do bloco
       // 9 mede a faixa do rodapé, e uma folha aberta por cima mudaria o que ele
-      // vê (a 9-D entra em seleção logo abaixo).
+      // vê.
       openFadePopup();
       await z(320);
       const bib = document.getElementById('bibleBtn');
@@ -677,7 +667,7 @@ try {
         cores: tres.map((e) => window.__efetivo(e).map((v) => Math.round(v * 100) / 100)),
         // A MESMA COR, SEM ARREDONDAR: `cores` é arredondado para a comparação
         // de igualdade do 9-A (e para caber no log), e a aritmética de ΔE do
-        // 9-B/9-C não pode usá-lo — um centésimo de diferença entre as duas
+        // 9-B não pode usá-lo — um centésimo de diferença entre as duas
         // réguas transformava um EMPATE
         // (que é o que a reversão do 9-B produz) num "passou" por acidente.
         base: window.__efetivo(bib),
@@ -775,139 +765,12 @@ try {
     // Baixar a faixa foi metade do pedido, e o `--hit` é o chão que ela não
     // pode furar. A conta é contra o TOKEN resolvido, nunca contra 34 digitado
     // aqui — um literal envelhece parecendo correto.
-    // REVERSÃO: `--hit: 34px` → `44px` em `controle.css`, prendendo a `.sel-btn`
-    // em `34px` no mesmo patch. A segunda linha não é cerimônia: `--hit` é a
-    // altura da `.sel-btn`, e a fatia do rodapé é COMUM às duas inquilinas —
-    // sem prendê-la, subir o piso do app move a `.selbar` e reprova o 9-D
-    // junto, que é outra asserção sobre o mesmo número.
+    // REVERSÃO: `--hit: 34px` → `44px` em `controle.css` — a porta sobe com o
+    // token, e é ele que o G mede.
     checar(Math.min(...m.alturas) >= m.hit,
       '[' + tema + '] G · as portas continuam com pelo menos `--hit` de altura — a '
       + 'faixa ficou mais baixa, não menor que o piso de alvo do app',
       JSON.stringify(m.alturas) + ' vs --hit ' + m.hit);
-
-    // ── 9-D · O RODAPÉ NÃO PULA AO ENTRAR NA SELEÇÃO ────────────────────
-    //
-    // As duas inquilinas da fatia PRECISAM medir o mesmo — está escrito no
-    // comentário do `--hit-foot` —, e MEDIDO antes deste lote elas não mediam:
-    // 51,77px de portas contra 44,00 da barra, 7,77px de pulo debaixo do dedo
-    // que segura um item. O termo que mandava na altura era o `padding`
-    // VERTICAL, e o token ficava INERTE.
-    // A entrada é pelo CAMINHO REAL (`enterSelection`, o mesmo que o toque
-    // longo chama), e não por um `hidden` mexido à mão: é ele que passa pelo
-    // `renderSelbar` → `renderListFoot`, onde a troca de inquilino acontece.
-    // REVERSÃO: devolver `padding: .45rem .3rem` à regra das portas
-    // (`.tools-btn, .lib-foot-btn`) — o rodapé passa a medir o conteúdo fora da
-    // seleção e 42,00 dentro.
-    //
-    // ── 9-E · A `.selbar` NÃO FICOU DISCRETA ────────────────────────────
-    // ── 9-F · O RAIO CONTINUA UM SÓ PARA AS QUATRO ──────────────────────
-    const sel = await pg.evaluate(() => {
-      const foot = document.getElementById('listFoot');
-      const h = () => Math.round(foot.getBoundingClientRect().height * 100) / 100;
-      const fora = h();
-      const foraRaio = getComputedStyle(document.getElementById('toolsBtn')).borderRadius;
-      enterSelection('porta-1');
-      const sb = document.getElementById('selbar');
-      const r = {
-        fora,
-        foraRaio,
-        dentro: h(),
-        naFatia: sb.parentElement === foot && !sb.hidden,
-        conta: document.getElementById('selCount').textContent,
-        selbarRaio: getComputedStyle(sb).borderRadius,
-        selbar: window.__efetivo(sb),
-        selbarCru: getComputedStyle(sb).backgroundColor,
-      };
-      // O SEGUNDO item entra pelo caminho real (`toggleSelect`), que é o toque
-      // seguinte do operador: com dois na mão o "Renomear" não faz sentido e o
-      // app o desabilita. É esse par que o 9-E mede.
-      toggleSelect('porta-2');
-      const hab = document.getElementById('selPlaylist');
-      const des = document.getElementById('selRename');
-      r.conta2 = document.getElementById('selCount').textContent;
-      r.habilitado = window.__efetivo(hab);
-      r.desabilitado = window.__efetivo(des);
-      r.parCoerente = !hab.disabled && des.disabled;
-      r.dentroDois = h();
-      exitSelection();
-      r.depois = h();
-      return r;
-    });
-    checar(sel.naFatia && sel.conta === '1' && sel.conta2 === '2' && sel.parCoerente,
-      '[' + tema + '] D · ponto de partida: a seleção múltipla entra pelo caminho '
-      + 'real, a `.selbar` toma a fatia do rodapé, e com DOIS itens na mão o '
-      + '"Renomear" fica desabilitado', sel);
-    checar(Math.abs(sel.dentro - sel.fora) <= 0.5 && Math.abs(sel.dentroDois - sel.fora) <= 0.5
-      && Math.abs(sel.depois - sel.fora) <= 0.5,
-      '[' + tema + '] D · e o rodapé NÃO PULA: a fatia mede o mesmo com as '
-      + 'portas e com a barra de seleção — era 51,77 → 42,00, um pulo de 7,77px '
-      + 'debaixo do dedo que segura um item',
-      JSON.stringify([sel.fora, sel.dentro, sel.depois]));
-    // O RAIO É GEOMETRIA, não cor, e é por isso que ele ficou na regra agrupada
-    // quando o preenchimento se partiu por habitat: a `.selbar` base declara
-    // `--radius-card` (10px), e é aquela linha que a põe em `--radius-btn`.
-    // REVERSÃO: tirar `.list-foot > .selbar` do grupo do raio — ela volta a
-    // 10px, sem erro e sem nada mais na tela mudando.
-    // ── 9-C · AS DUAS INQUILINAS DA FATIA NÃO PINTAM IGUAL (v1.8.63) ────
-    //
-    // ESTA É A ASSERÇÃO COM DENTE, e ela substitui o piso que o 9-C cobrava
-    // desde a v1.5.19 (*"mesmo assim elas não somem"*, medido contra o tom do
-    // `--op-inativo`). Aquele piso caiu junto com a régua de discrição: com o
-    // azul de "ativado" ele reprova por 0,0006 no tema claro, sobre uma tela
-    // que está certa — e "mais claro que um controle desabilitado" deixou de
-    // descrever a pergunta desta faixa.
-    //
-    // A PERGUNTA QUE FICOU é a que o azul novo abriu: as portas e a `.selbar`
-    // são as DUAS inquilinas do MESMO retângulo, e a `.selbar` pintava
-    // `--btn-accent` — o mesmo token que as portas passaram a vestir. MEDIDO,
-    // as duas ficariam em ΔE00 **0,00** nos dois temas: não parecidas,
-    // idênticas, e a troca de modo perderia o único sinal de COR que tinha.
-    //
-    // POR ΔE00 e não por razão de luminância: a `.selbar` largou o azul e caiu
-    // no `--bg`, e no tema claro `--bg` (#dfe3e7) e o azul (#dcebfe) medem
-    // 1,07:1 de luminância — o que os separa é o CROMA. Medido depois:
-    // **15,63 no escuro e 6,69 no claro**, contra 9,16/48,51 de antes deste
-    // lote (no escuro a distinção MELHOROU).
-    // REVERSÃO: devolver `.list-foot > .selbar` ao grupo do `--btn-accent` —
-    // ΔE00 vai a 0,00 nos dois temas e esta asserção reprova sozinha.
-    checar(dE00(m.base, sel.selbar) >= 3,
-      '[' + tema + '] C · a porta e a `.selbar` NÃO pintam a mesma cor — elas '
-      + 'são as duas inquilinas da mesma fatia do rodapé, e a troca de modo é o '
-      + 'que essa diferença anuncia',
-      'ΔE00 ' + n2(dE00(m.base, sel.selbar)));
-    checar(sel.selbarRaio === sel.foraRaio && m.raios.every((r) => r === sel.selbarRaio),
-      '[' + tema + '] F · o raio é UM SÓ para as inquilinas da fatia (as '
-      + 'portas e a `.selbar`) — a base dela declara `--radius-card`, e '
-      + 'quem a puxa para `--radius-btn` é a regra agrupada',
-      JSON.stringify([m.raios, sel.selbarRaio]));
-    if (tema === 'claro') {
-      // ── 9-E · A `.selbar` NÃO FICOU DISCRETA ──────────────────────────
-      //
-      // O PAR É habilitado × DESABILITADO, e não o botão contra a barra. Os
-      // dois são a MESMA superfície (`--surface-2`, branco a .92); o que
-      // separa um do outro é o VÉU do `:disabled`, que compõe contra a barra —
-      // logo é o tom DA BARRA que decide se o par sobrevive. MEDIDO sob a
-      // reversão: o par habilitado × barra fica em 2,96 (acima do limiar, não
-      // morde) e o par habilitado × desabilitado cai a 1,91, abaixo dos 2,3.
-      // Afirmar o primeiro seria escrever uma asserção que passa nas duas
-      // versões.
-      //
-      // E O TEMA CLARO É O ÚNICO QUE FECHA A CONTA — é o da captura do
-      // operador: sobre uma superfície quase branca o véu quase não tem para
-      // onde ir. MEDIDO no escuro, o mesmo par vai de 8,06 para 8,42 sob a
-      // reversão, isto é, ele nem sente. Afirmar "nos dois temas" seria
-      // afirmar onde não morde.
-      // REVERSÃO: mover `.list-foot > .selbar` da regra do `--btn-accent` para
-      // a regra da superfície das portas (`.tools-btn, .lib-foot-btn`) — a
-      // "padronização" que o pedido não pediu.
-      const eSel = dE00(sel.habilitado, sel.desabilitado);
-      checar(eSel >= 2.3,
-        '[claro] E · a `.selbar` NÃO entrou na padronização: sobre ela o par '
-        + '`.sel-btn` habilitado × DESABILITADO continua acima do limiar de '
-        + 'percepção — é a barra que hospeda o EXCLUIR, e sobre uma superfície '
-        + 'quieta o app perderia a distinção entre disponível e INDISPONÍVEL',
-        n2(eSel));
-    }
   }
   await pg.evaluate((t) => {
     if (t === null) document.documentElement.removeAttribute('data-tema');
@@ -971,12 +834,9 @@ try {
 
   // ── 9-I2 · A FATIA SEGUE O TOKEN, E ISSO É OUTRA PERGUNTA ──────────────
   //
-  // A asserção do PULO (9-D) diz que as duas inquilinas da fatia medem o mesmo.
-  // Ela não tem teto: MEDIDO, devolvendo `padding: .45rem .3rem` às portas E
-  // subindo `--hit-foot` para 51,77px, o bloco inteiro fica VERDE com a faixa de
-  // volta ao tamanho que este lote existiu para derrubar. Isto é: ela guarda
-  // *"pararam de pular"* e não *"pararam de ser altas"*.
-  //
+  // A régua do G diz que a porta cabe no piso; ela não tem TETO, e por isso o
+  // bloco inteiro ficava VERDE com a faixa de volta ao tamanho que a v1.5.19
+  // existiu para derrubar. O que responde por isso é
   // O que falta é a afirmação sobre o TOKEN, e ela é a razão escrita da
   // correção: *"o recuo VERTICAL saiu porque era ele, e não o `--hit-foot`, o
   // termo que mandava na altura — varrê-lo de 48 a 36px não mudava um pixel"*.
@@ -986,16 +846,11 @@ try {
   // token — que é justamente o que acontecia antes do lote.
   // REVERSÃO: `padding: .45rem .3rem` de volta nas duas regras das portas. Com
   // ela o conteúdo volta a mandar e as portas ficam em 51,77 nas duas sondas,
-  // enquanto a `.selbar` segue o token — que é o defeito, dito por inteiro.
+  // enquanto o token segue sem mandar — que é o defeito, dito por inteiro.
   const fatia = await pg.evaluate(async () => {
     const de = document.documentElement;
-    const li = [...document.querySelectorAll('#library li')].find((n) => n.dataset.id);
     const alturas = () => ['#bibleBtn', '#toolsBtn']
       .map((sel) => Math.round(document.querySelector(sel).getBoundingClientRect().height * 100) / 100);
-    const daSelbar = () => {
-      const sb = document.querySelector('.list-foot > .selbar');
-      return sb ? Math.round(sb.getBoundingClientRect().height * 100) / 100 : null;
-    };
     const sondar = (v) => {
       de.style.setProperty('--hit-foot', v);
       return { token: v, portas: alturas() };
@@ -1003,27 +858,13 @@ try {
     const p42 = sondar('42px');
     const p56 = sondar('56px');
     de.style.removeProperty('--hit-foot');
-    // A `.selbar` na MESMA sonda: ela é a outra inquilina, e o token só amarra
-    // as duas enquanto for o termo que manda dos DOIS lados.
-    if (li) enterSelection(li.dataset.id);
-    await new Promise((f) => setTimeout(f, 200));
-    de.style.setProperty('--hit-foot', '56px');
-    const s56 = daSelbar();
-    de.style.removeProperty('--hit-foot');
-    const sPadrao = daSelbar();
-    if (typeof exitSelection === 'function') exitSelection();
-    await new Promise((f) => setTimeout(f, 200));
-    return { p42, p56, s56, sPadrao, depois: alturas() };
+    return { p42, p56, depois: alturas() };
   });
   checar(fatia.p42.portas.every((h) => Math.abs(h - 42) <= 0.5)
     && fatia.p56.portas.every((h) => Math.abs(h - 56) <= 0.5),
     'I2 · as portas SEGUEM o `--hit-foot`: forçado o token, elas o medem — '
     + 'antes deste lote o termo que mandava era o `padding`, e varrer o token de '
     + '48 a 36px não movia um pixel', JSON.stringify(fatia));
-  checar(fatia.s56 !== null && Math.abs(fatia.s56 - 56) <= 0.5,
-    'I2 · e a `.selbar` segue o MESMO token — é essa igualdade que faz as duas '
-    + 'inquilinas da fatia medirem o mesmo, e é por ela que o rodapé não pula',
-    JSON.stringify(fatia));
   checar(fatia.depois.every((h) => Math.abs(h - 42) <= 0.5),
     'I2 · e a folha volta ao valor dela depois da sonda, para o resto do arquivo '
     + 'não medir uma tela adulterada', JSON.stringify(fatia));

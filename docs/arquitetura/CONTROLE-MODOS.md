@@ -505,7 +505,7 @@ agora" e competiria com a mídia que a miniatura está mostrando.
 conectado — é o que faz esta faixa existir — e a projeção está nele.
 
 **O nó da preview é O MESMO do modo avançado**, movido de um pai para o outro
-(`hostPreview`), pelo padrão do `#selbar` e do `<input type=file>`: duas previews
+(`hostPreview`), pelo padrão do `<input type=file>`: duas previews
 divergiriam no primeiro ajuste, e dois `createStage` decodificariam o MESMO vídeo
 duas vezes num aparelho que já roda dois WebViews.
 

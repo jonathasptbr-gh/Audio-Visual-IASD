@@ -424,21 +424,6 @@ try {
   checar(!reabrir.listados.includes('ITEM B'),
     'e nada da linha vizinha entra em lista nenhuma', JSON.stringify(reabrir));
 
-  // ---- A SELEÇÃO MÚLTIPLA SOBREVIVE AO DESTINO ----
-  // Os três botões da barra (playlist, favoritos, pasta) já eram destinos lado a
-  // lado; o que os separava era a barra sumindo no primeiro toque. Mandar cinco
-  // louvores para a playlist E para os Favoritos exigia selecioná-los duas vezes.
-  const selecao = await pg.evaluate(async (id) => {
-    enterSelection(id);
-    await favoritarSelecionados();
-    await new Promise((r) => setTimeout(r, 500));   // além do PULSO_MS
-    const vivo = selectionMode && selected.has(id);
-    exitSelection();
-    return { vivo, saiu: !selectionMode };
-  }, idMidia);
-  checar(selecao.vivo, 'mandar a seleção a um destino NÃO a encerra (dá para mandar a outro)');
-  checar(selecao.saiu, 'e o ✕ / voltar continua encerrando-a');
-
   // ---- A MESMA FOLHA COMO PERGUNTA (importação e compartilhamento) ----
   // O SIMPLIFICADO não pergunta, e é a resposta certa: ali não existe
   // Cronograma nem playlist, e uma folha com destinos que a tela não tem seria

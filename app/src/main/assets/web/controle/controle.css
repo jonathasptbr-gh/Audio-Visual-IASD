@@ -95,7 +95,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   --radius-card: 10px;
   /* ---------- O VÉU DE INATIVO (v1.5.15) ----------
      `opacity: .35` estava escrito em TRÊS `:disabled` (`.slide-btn`, `.t-btn`,
-     `.sel-btn`) e passou a ter um quarto consumidor que não é um controle: o
+     e um terceiro já removido) e passou a ter um quarto consumidor que não é um controle: o
      cartão da linha do tempo, que o operador mandou vestir *"o mesmo cinza
      claro dos botões inativos de próximo e anterior slide"*. Quatro escritas
      do mesmo número, uma delas em outra parte do arquivo, é a receita de o
@@ -173,9 +173,9 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 
   /* ---------- Alvos de toque ----------
      `--hit` é o piso de qualquer botão só-de-ícone; `--hit-foot` é a fatia do
-     rodapé FIXO da lista, dividida por "Importar arquivos" e pela barra de
-     seleção múltipla — os dois PRECISAM medir o mesmo, ou a caixa da lista
-     muda de tamanho ao entrar na seleção e a lista pula debaixo do dedo. */
+     rodapé FIXO da lista, onde moram as duas portas (Bíblia · Ferramentas) —
+     é ele que segura a altura do rodapé para a lista não pular quando o
+     número de linhas muda. */
   --hit: 34px;
   /* O PISO DE UMA GRADE DENSA — a exceção NOMEADA ao `--hit` (v1.8.1).
      A grade de livros da Bíblia é 66 alvos numa folha só, e 66 alvos de 34px
@@ -683,7 +683,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    O `.display-status` fica FORA — o indicador do telão é `disabled` no app.
 
    NA LISTA QUEM ENCOLHE É O CARTÃO INTEIRO, não a `.row` de dentro: com a borda
-   do cartão VISÍVEL (`.no-ar`, `.active`, `.selected`) o miolo se afastava de
+   do cartão VISÍVEL (`.no-ar`, `.active`) o miolo se afastava de
    uma moldura parada e abria uma fresta dos dois lados.
 
    MAS uma linha NÃO dá feedback por um toque dentro de um bloco que ela apenas
@@ -751,12 +751,12 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    que não recebe o dedo. */
 :is(
   .ctl-btn, .t-btn, .settings-btn,
-  .tools-btn, .lib-foot-btn, .back-btn, .sel-btn,
+  .tools-btn, .lib-foot-btn, .back-btn,
   .row-btn, .popup-close, .popup-acao, .versao-txt,
   /* O IMPORTAR (v1.13.5) e o TÍTULO do Cronograma, e o "Novo cronograma" da
      gaveta (v1.12.54/v1.12.55). Os dois quadrados de cada linha da gaveta já
      entram por `.row-btn`; a LINHA responde por luz (ver `.crono-item:active`). */
-  .crono-importar, .crono-titulo, .crono-novo,
+  .crono-importar, .crono-titulo, .crono-alerta, .crono-novo,
   /* O ⛶ da cifra (v1.6.0): ele nasce no MESMO lote em que entra aqui, que é a
      regra desta lista — um controle novo fora dela fica mudo ao toque sem nada
      na tela dizer por quê. Nenhum ancestral dele responde ao toque. */
@@ -816,7 +816,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    `display: block` entra aqui de uma vez — sem ele o SVG é inline, ganha a
    folga de linha de base e descentraliza o ícone dentro do botão flex. */
 :is(
-  .row-btn, .row-slot, .back-btn, .sel-btn, .popup-close, .popup-acao,
+  .row-btn, .row-slot, .back-btn, .popup-close, .popup-acao,
   .coll-bar-dl, .coll-group-btn,
   /* As portas do rodapé entraram juntas na v1.5.19: só a do meio (o Importar de
      então) estava aqui, e o ícone das laterais vivia do atributo `width="20"`
@@ -2506,8 +2506,24 @@ main {
    CHAPADO (sem `background`), como a engrenagem: o esqueleto do botão
    só-de-ícone dá caixa, raio e alvo; o que sobra aqui é a cor. */
 .crono-importar { background: none; color: var(--accent); }
+/* ---------- O ALERTA DE "NÃO ESTÁ PRONTO" (v1.13.52) ----------
+   Ícone só, na mesma caixa quadrada do voltar e da engrenagem (ver o esqueleto
+   do botão só-de-ícone, mais abaixo) e chapado como eles: o esqueleto dá caixa,
+   raio e alvo; aqui sobra a cor.
+
+   A TINTA é `--warn` — o token de ÍCONE/borda, com piso de 3:1 —, e não
+   `--danger`: "falta baixar" é um aviso a resolver, não um erro. O `--accent`
+   das duas pontas da faixa fica reservado a AÇÃO, e o alerta não é uma delas
+   enquanto não há o que fazer.
+
+   O DESENHO É SVG inline porque o triângulo de alerta não está no subset da
+   fonte (`msym`), e codepoint ausente desenha um retângulo vazio. */
+.crono-alerta { background: none; color: var(--warn); }
 .list-header > .crono-importar { grid-column: 1; justify-self: start; }
-.list-header > .crono-titulo { grid-column: 2; }
+/* O PAR nome + alerta ocupa a trilha do meio; o título sozinho continua
+   centrado nela quando o alerta está escondido (o caso normal). */
+.list-header > .crono-par { grid-column: 2; justify-self: center; min-width: 0; }
+.crono-par { display: flex; align-items: center; justify-content: center; gap: var(--sp-1); min-width: 0; }
 /* ---------- O TÍTULO É UM BOTÃO: o nome e a seta (v1.12.54) ----------
    Pedido do operador: *"o título 'cronograma' vai ser um título que pode ser
    modificado, e tocar nele (também haverá uma pequena seta apontando para
@@ -2677,7 +2693,7 @@ main {
    (fundo, cor e, no `.cue-save-btn`, a borda). O voltar tinha só ~20×20 px —
    o menor alvo do app inteiro, e é a única saída da gaveta de pasta e da
    navegação da Bíblia. */
-.back-btn, .sel-btn, .row-btn, .row-slot, .crono-importar,
+.back-btn, .row-btn, .row-slot, .crono-importar, .crono-alerta,
 .cue-save-btn, .popup-close, .popup-acao, .log-copy, .lv-cheia-btn {
   flex-shrink: 0; width: var(--hit); height: var(--hit); padding: 0;
   border: none; border-radius: var(--radius-btn);
@@ -2879,13 +2895,8 @@ main {
    tem. Não é bloqueio; é o custo de
    padronizar, e ele está escrito.
 
-   A `.selbar` NÃO ENTRA. Ela é a outra inquilina da fatia e continua em
-   `--btn-accent`: os `.sel-btn` que moram EM CIMA dela são `--surface-2`
-   (branco a .92), e sobre uma superfície quieta o par habilitado × desabilitado
-   cai a ΔE **2,11** no tema claro — abaixo do limiar de percepção, isto é, o app
-   perderia a distinção entre disponível e INDISPONÍVEL na barra que hospeda o
-   excluir. Entrar em seleção É trocar de modo, e a fatia trocar de tom ali é o
-   desenho, não um resíduo. */
+   A tecla inerte deste app é o `--op-inativo` sobre a superfície de sempre — não
+   há caso em que a fatia troque de tom. */
 /* ---------- E ELAS SÃO OPACAS DESDE QUE FLUTUAM (v1.8.61) ----------
    Com a lista correndo POR BAIXO das portas, a tinta translúcida delas deixou
    de ser decoração e virou um vazamento: `--surface` já tem alfa (no escuro,
@@ -2980,9 +2991,7 @@ main {
      recuo VERTICAL não existe porque era ele, e não o `--hit-foot`, o termo que
      mandava na altura: MEDIDO, a pilha pedia 51,77px contra os 44 do token, e o
      token ficava INERTE. Sem ele, "mais baixo" volta a ser um número num
-     lugar só — e é a MESMA forma que a `.selbar` já tem (`min-height:
-     var(--hit-foot); padding: 0 .5rem`), que é o que faz as duas inquilinas da
-     fatia medirem o mesmo. */
+     lugar só — o `min-height: var(--hit-foot)` é o PISO desta fatia. */
   flex: 1 1 0; min-width: 0; min-height: var(--hit-foot); padding: 0 .3rem;
   display: flex; flex-direction: row; align-items: center; justify-content: center;
   /* `--sp-3` e não `--sp-4` desde a v1.13.7: é o vão que paga o rótulo maior (ver
@@ -3029,105 +3038,22 @@ main {
    TEXTO nem os ALVOS: os botões continuam em `--hit` (34px), o piso de toque do
    app, e é esse piso que limita o resto. Medido: o passo de uma linha cai de
    ~57px para ~49px. */
-/* ---------- A moldura TRACEJADA em accent: "espaço a preencher" ----------
-   A MESMA receita nos quatro lugares em que uma lista oferece uma ação sobre
-   si mesma — "Importar arquivos", a barra de seleção no rodapé, "+ Nova
-   mensagem" e "Guardar como pacote". Borda e raio numa regra só, para os
-   quatro não divergirem no primeiro ajuste (era uma cópia por botão); em cada
-   regra fica só o que difere (fundo, cor, medidas). Tracejado no PRÓPRIO
-   accent: é o token, e não um literal congelado que nenhuma troca de paleta
-   alcançaria. */
-/* O TRACEJADO VIROU PREENCHIMENTO (v5.267). A moldura pontilhada em `--accent`
-   era a convenção deste app para "espaço a preencher", e ela cai com todas as
-   outras linhas. O que a substitui diz a mesma coisa por contraste: uma
-   superfície em `--accent-soft`, que é justamente o "isto é ação, não conteúdo"
-   que os botões de baixar da Biblioteca já usam. E o argumento da v5.108
-   sobrevive intacto — o que fazia a barra de seleção parecer um ITEM
-   SELECIONADO era a silhueta "preenchimento + contorno sólido", e continua não
-   havendo contorno nenhum aqui. */
-/* O RAIO CONTINUA UM SÓ PARA AS QUATRO — e ele é GEOMETRIA, não cor. Ele fica
-   agrupado de propósito: a `.selbar` base declara `--radius-card` (10px) e é
-   esta linha, mais específica, que a põe em `--radius-btn` (8px). Tirá-la daqui
-   junto com a cor devolveria 10px à barra de seleção sem erro e sem oráculo. */
-.list-foot > .selbar, .msg-add-btn, .pl-pack {
+/* ---------- O RAIO das ações que dividem um bloco ----------
+   Uma regra só para as duas (o `+ Nova mensagem` e o `Guardar como pacote`), e
+   em cada regra fica só o que difere: fundo, cor e medidas. */
+.msg-add-btn, .pl-pack {
   border-radius: var(--radius-btn);
 }
-/* A COR SE PARTIU POR HABITAT (v1.5.19), e não por botão. O `--btn-accent`
-   continua sendo o preenchimento de `+ Nova mensagem`, que vive sobre `--panel`
-   (onde ele mede 1,21:1, a faixa normal de um controle de folha) e é de fato a
-   única ação do bloco dela — o argumento em que ele nasceu. A porta do meio do
-   RODAPÉ, que vive sobre `--bg`, não veste `--btn-accent`: ver "AS PORTAS FICAM
-   QUIETAS".
-
-   E O `Guardar como pacote` NÃO VESTE `--btn-accent`: o bloco tem DUAS ações (o
-   `Limpar` está ao lado), e some a razão que decide — com menos de dois itens
-   ele é APAGADO, e um item é o estado dominante da fila (todo toque numa mídia
-   faz `listSet('playlist', [id])`), de modo que o azul cheio estaria esmaecido
-   quase o culto inteiro. Ver a `.pl-pack`. */
-/* ---------- E A `.selbar` LARGOU O AZUL (v1.8.63) ----------
-   Ela é a outra inquilina do MESMO retângulo do rodapé, e com as portas vestindo
-   `--btn-accent` as duas ficariam em ΔE00 **0,00** — não parecidas, IDÊNTICAS.
-   O que se perde aí é o único sinal de COR da troca de modo, que este arquivo
-   registra como desenho medido duas seções acima.
-
-   A SAÍDA NÃO É UMA COR NOVA, É UMA REMOÇÃO: sem esta declaração sobra a base
-   `.selbar { background: var(--bg) }`, que é a que ela já veste na gaveta dos
-   Favoritos. E ela é a única das três saídas que ATRAVESSA um piso em vez de só
-   restaurar a distinção — MEDIDO no tema escuro, o ícone do EXCLUIR sobre o
-   `.sel-btn` estava em **2,48:1**, abaixo do piso de 3:1 de ícone, e vai a
-   **4,26:1**; o `.sel-count` (`--accent`) sobe de 5,37 para **9,14:1**. Pintar a
-   barra de denim (a troca de lugar com as portas) fazia o oposto: 1,88:1 no
-   ícone e 1,00:1 no contador, que no tema claro é o denim sobre o denim.
-
-   O RAIO, o `--hit-foot` e o `padding` FICAM onde estão — eles moram na regra
-   agrupada logo acima, e a fatia continua medindo 42,00px nos dois estados (é o
-   que o 9-F do `ferramentas-folha.test.mjs` cobra). O que sai é só a tinta. */
+/* A AÇÃO CHEIA da folha da fila é `+ Nova mensagem`: é a única ação do bloco,
+   e vive sobre `--panel` — o caso em que o `--btn-accent` nasceu.
+   E o `Guardar como pacote` NÃO veste `--btn-accent`: o bloco tem DUAS ações
+   (o `Limpar` está ao lado), e some a razão que decide — com menos de dois
+   itens ele é APAGADO, e um item é o estado dominante da fila (todo toque numa
+   mídia faz `listSet('playlist', [id])`), de modo que o azul cheio estaria
+   esmaecido quase o culto inteiro. Ver a `.pl-pack`. */
 .msg-add-btn {
   background: var(--btn-accent);
 }
-/* (A `.lib-toggle` é a única superfície de AÇÃO numa linha em que o resto não
-   tem fundo: o tom dela é `--btn-accent` + `--accent`, o mesmo do "Importar
-   arquivos". A regra geral mora no DESIGN-SYSTEM: *quando ação e escolha
-   dividem a mesma faixa, o CHEIO fica com a ESCOLHA* — é ela que desenha o
-   trilho do modo do app em Configurações.) */
-
-/* ---------- Barra de seleção múltipla ---------- */
-/* SEM PREENCHIMENTO PRÓPRIO. Ela já foi um bloco em `--accent-soft` com
-   contorno em `--accent` — e assim tinha a silhueta exata de um ITEM
-   SELECIONADO da lista logo acima, lendo-se como mais uma linha marcada em vez
-   de como a barra de ações delas.
-   O fundo é o corpo da tela (`--bg`) com os botões `--surface-2` flutuando. No
-   rodapé da lista ela ganha a caixa do "Importar arquivos" (ver
-   `.list-foot > .selbar`); na gaveta dos Favoritos é uma barra sobre o painel,
-   sem moldura — ali a folha já é a moldura.
-   O sinal de "você está em outro modo" é o CONTADOR em accent: cor de texto,
-   não uma placa. */
-.selbar {
-  flex-shrink: 0; display: flex; align-items: center; gap: var(--sp-5);
-  background: var(--bg); border-radius: var(--radius-card);
-  padding: .35rem .6rem;
-}
-/* NO RODAPÉ DA LISTA ela ocupa a fatia do "Importar arquivos" que substitui, e
-   veste a MESMA CAIXA dele (preenchimento, `--hit-foot`, raio): as duas são a
-   mesma fatia com inquilinos diferentes — muda o conteúdo, não o lugar.
-   O preenchimento em `--accent-soft` não recria o problema acima: o que fazia a
-   barra parecer um item selecionado era o conjunto "preenchimento + contorno
-   sólido", e sem contorno em lugar nenhum do app essa silhueta não existe.
-   Sem a altura fixa a caixa da lista mudava de tamanho ao entrar e sair da
-   seleção, e a lista dava um pulo debaixo do dedo que segurava um item. */
-.list-foot > .selbar {
-  /* O preenchimento vem da regra agrupada, junto de "Importar arquivos" — e
-     vence o `background` da `.selbar` base por especificidade, não pela
-     ordem. */
-  min-height: var(--hit-foot);
-  padding: 0 .5rem;
-}
-.sel-count { font-weight: var(--fw-forte); color: var(--accent); }
-.sel-spacer { flex: 1; }
-.sel-btn { background: var(--surface-2); color: var(--text); }
-.sel-btn:disabled { opacity: var(--op-inativo); }
-.sel-btn.danger { color: var(--danger-strong); }
-.sel-btn .msym { font-size: var(--icon-sm); }
 
 /* ---------- Itens (biblioteca) ---------- */
 /* `touch-action: pan-y` em TODA lista de conteúdo: ela só rola na vertical,
@@ -3527,6 +3453,28 @@ main {
    e o app não depende de lê-la para nada. É a mesma licença do `--op-inativo`,
    e por isso é `opacity` e não uma cor nova — quem vier medir contraste
    encontra o número junto do motivo. */
+/* ---------- ARRASTAR PARA REORDENAR (v1.13.52) ----------
+   O item levantado anda por `transform`, que NÃO altera o layout — é o que
+   permite medir a lista uma vez por arrasto e não a cada evento do dedo. Ele
+   sobe de camada e veste a sombra de cartão: o vocabulário de "pegou".
+
+   A LINHA-GUIA é `absolute` dentro da própria `<ul>` (que já é
+   `position: relative`), então ela rola junto com o conteúdo e fica no mesmo
+   sistema de coordenadas dos itens.
+
+   `touch-action: none` enquanto o arrasto dura: sem isso o navegador trata o
+   movimento vertical como rolagem da lista e o item fica parado sob o dedo. */
+#library.arrastando-lista { touch-action: none; }
+#library > .lib-item.arrastando {
+  z-index: 3; transition: none;
+  box-shadow: 0 8px 20px var(--shadow-card);
+}
+#library > .drop-line {
+  display: block; list-style: none; pointer-events: none;
+  position: absolute; left: 0; right: 0; height: 2px;
+  border-radius: var(--radius-pill); background: var(--accent);
+}
+
 #library > .empty {
   flex: 1; display: grid; place-content: center;
   padding: 0 var(--sp-5);
@@ -3535,24 +3483,22 @@ main {
 }
 
 /* ---------- A LINHA DE LISTA, e o ESTADO dela é um PREENCHIMENTO ----------
-   `--linha` é o preenchimento DESTA linha, e é ele que os três estados
-   (`.active`, `.selected`, `.no-ar`) trocam. Existe como PROPRIEDADE e não como
+   `--linha` é o preenchimento DESTA linha, e é ele que os dois estados
+   (`.active`, `.no-ar`) trocam. Existe como PROPRIEDADE e não como
    três regras de `background` porque a `.row` e a faixa de ações (`.row-acoes`)
    precisam da MESMA cor OPACA por baixo — um `background: inherit` copia o
    VALOR, e o valor de uma linha no ar tinha alfa (a faixa deixava o título
    aparecer atrás dos botões).
    Os fundos de estado são OPACOS por medição: `--accent-soft` a 16% sobre o
-   painel compõe #3d4959, que é o `--panel-2` deste app — uma linha selecionada
-   ficaria com a cor exata do nível de baixo da árvore.
-   A seleção múltipla VENCE o "no ar": ali a tela fala de escolha, e o conjunto
-   marcado é o que o operador está usando naquele instante. */
+   painel compõe #3d4959, que é o `--panel-2` deste app — uma linha escolhida
+   ficaria com a cor exata do nível de baixo da árvore. */
 .row-item, .lib-item {
   position: relative; border-radius: var(--radius-card);
   --linha: var(--camada);
   background: var(--linha);
   overflow: hidden; flex-shrink: 0;
 }
-.row-item.active, .lib-item.active, .lib-item.selected { --linha: var(--sel-fill); }
+.row-item.active, .lib-item.active { --linha: var(--sel-fill); }
 
 /* ---------- A LINHA QUE ESTÁ SENDO APAGADA SAI DE CENA (v1.7.4) ----------
    Relato do operador: *"ao tocar em excluir, na confirmação, o item se
@@ -3642,13 +3588,6 @@ main {
 .row-nota--dup { color: var(--warn-text); }
 .row-nota--erro { color: var(--danger-text); }
 .lib-item.no-ar .row-sub { color: var(--live-strong); }
-/* A seleção múltipla tem precedência VISUAL: ali a tela fala de escolha, não de
-   projeção, e o contorno de seleção é o que o operador está usando naquele
-   instante. (O JS já não põe `.no-ar` durante a seleção; esta linha é o
-   cinto e suspensório de quem reordenar as classes um dia.) */
-.lib-item.selected.no-ar { --linha: var(--sel-fill); }
-.lib-item.selected.no-ar .row-name { color: var(--text); font-weight: var(--fw-normal); }
-
 /* ---------- e os BOTÕES DA LINHA trocam junto (v5.177) ----------
    No ar, a única decisão que aquela linha oferece é tirá-la do ar: o toque no
    corpo já faz isso desde a v5.165 e o selo já diz o estado — mas a direita
@@ -3710,7 +3649,7 @@ main {
    `:is()` para o par medir 0,3,0 e vencer o `display: flex` do `.no-ar` logo
    acima — sem isso a regra de cima (0,2,0 mas escrita depois) continuaria
    valendo. */
-:is(.lib-item.selected, .lib-item.excluindo) .row-stop { display: none; }
+.lib-item.excluindo .row-stop { display: none; }
 
 /* ---------- A PERGUNTA DA EXCLUSÃO MORA NA LINHA (v5.301) ----------
    Pedido do operador: *"remova os popups de confirmar exclusão… coloque a
@@ -4658,7 +4597,7 @@ main {
   --camada: transparent;
 }
 #hymnResults > .coll-group--fav.aberto .fav-itens
-  > .lib-item:not(.no-ar):not(.active):not(.selected) { --linha: transparent; }
+  > .lib-item:not(.no-ar):not(.active) { --linha: transparent; }
 /* ---------- AS SEÇÕES RESPIRAM (v5.273) ----------
    Pedido do operador: *"aumentar ligeiramente o espaço entre as outras
    coleções, elas estão muito coladas entre si"*. Elas herdavam o `gap` de
@@ -8752,7 +8691,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   padding: 0;
 /* A MESMA CAIXA DO IRMÃO, e a COR é o que os separa: `--accent` aqui,
      `--danger-text` no limpar. O raio continua vindo da regra do
-     `--radius-btn`, que ele divide com a `.selbar`. */
+     `--radius-btn`, que ele divide com o `.msg-add-btn`. */
   background: var(--surface); color: var(--accent);
   font-size: var(--fs-md); font-weight: var(--fw-medio); font-family: inherit; cursor: pointer;
   appearance: none; -webkit-appearance: none;
@@ -9334,7 +9273,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    PREENCHIMENTO — que é a regra já escrita ao lado do `--divisoria`. Quem a apaga
    é a regra "A ESCOLHA NÃO TEM DIVISÓRIA" (v1.13.9): o traço mora no
    `padding-top` da faixa, ACIMA da `.row`, e a `.row` não o cobre. */
-.lib-item.expanded:not(.no-ar):not(.active):not(.selected) > .row {
+.lib-item.expanded:not(.no-ar):not(.active) > .row {
   background: var(--gaveta-bg);
 }
 /* ---------- E A CAIXA PINTA JUNTO, SENÃO O TOPO FICA CORTADO (v1.8.39) ------
@@ -9358,7 +9297,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    os dois defeitos. A cor é a MESMA da `.row` e da gaveta, então nada mais muda
    de tom; o que muda é a tinta alcançar o topo. Os três `:not()` são os mesmos,
    pela mesma razão: uma linha NO AR que o operador abra continua vermelha. */
-.lib-item.expanded:not(.no-ar):not(.active):not(.selected) {
+.lib-item.expanded:not(.no-ar):not(.active) {
   background: var(--gaveta-bg);
 }
 /* Letra completa, abaixo da linha aberta. Rola por DENTRO, com teto de altura:
@@ -9742,7 +9681,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   pointer-events: none;
 }
 /* A linha selecionável ganha o PREENCHIMENTO de escolhido quando marcada — o
-   mesmo `--sel-fill` de `.lib-item.selected` (v5.267). Sem isso o único sinal
+   mesmo `--sel-fill` de `.lib-item.active` (v5.267). Sem isso o único sinal
    seria o quadradinho, e num alvo do tamanho da linha inteira o estado precisa
    ser lido da linha inteira. */
 .song-menu-btn.song-menu-sel:has(.song-menu-check.on) {

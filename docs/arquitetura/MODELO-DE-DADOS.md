@@ -117,7 +117,7 @@ caminhos passam (o toque na lista, o avanço da playlist, o ⏮/⏭, a notifica�
 nativa). Três consequências, e a terceira é a que mantém a regra antiga de pé:
 
 - **o player é um detentor** para qualquer caminho de remoção — o excluir da
-  linha, o da seleção múltipla e o que vier depois;
+  linha, o "limpar o cronograma" e o que vier depois;
 - **o rodízio de três continua valendo**, então tocar o culto inteiro não empilha
   nada: a mídia sai da prateleira três cenas depois;
 - **excluir continua sendo uma DECLARAÇÃO DE INTENÇÃO.** `soltarAvulso` roda em
@@ -140,8 +140,9 @@ marcado como "já está aqui" (✓) na lista de resultados do YouTube — e não
 onde removê-lo.
 
 A causa é o encontro de duas peças que estavam certas separadamente.
-`deleteSelected` chama `listRemove(activeTab, id)` — só da aba ATIVA, o que é o
-comportamento correto (excluir do Cronograma não pode tirar da playlist). E
+A exclusão de um item chama `listRemove` só da lista em que o toque nasceu, o
+que é o comportamento correto (excluir do Cronograma não pode tirar da
+playlist). E
 `avulsos` conta para o `isReferenced`, o que também é correto — é o que impede o
 gc de apagar a mídia projetada. Juntas: quem tocasse "Tocar agora" e depois
 adicionasse o mesmo vídeo ao Cronograma ficava com DOIS detentores, e excluir
