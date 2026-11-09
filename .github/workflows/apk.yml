@@ -765,11 +765,12 @@ jobs:
           # limite do passo (15 min) — e o que se perde é justamente o NOME. MEDIDO
           # na v1.13.52: o passo morreu no teto com três processos vivos e nenhuma
           # linha de placar, e a única pista de qual travou seria o log de cada um.
-          # O teto é 600 s por arquivo — acima do maior oráculo medido e muito
-          # abaixo do passo; o 137 (SIGKILL) entra no placar como reprovado, com o
-          # nome do arquivo, que é o que este passo existe para dizer.
+          # O teto é 300 s por arquivo — acima do maior oráculo medido e muito
+          # abaixo do passo (o de 600 s ainda deixava o limite de 15 min vencer
+          # primeiro); o 137 (SIGKILL) entra no placar como reprovado, com o nome
+          # do arquivo, que é o que este passo existe para dizer.
           printf '%s\n' "${lista[@]}" | nl -ba -w1 -s' ' |
-            xargs -P "$PARALELO" -L1 sh -c 'PW_CHROMIUM="" timeout --signal=KILL 600 node "$2" > "$0/$1.log" 2>&1; echo $? > "$0/$1.rc"' "$saida"
+            xargs -P "$PARALELO" -L1 sh -c 'PW_CHROMIUM="" timeout --signal=KILL 300 node "$2" > "$0/$1.log" 2>&1; echo $? > "$0/$1.rc"' "$saida"
 
           rodados=0
           falhas=()
