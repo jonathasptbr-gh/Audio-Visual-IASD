@@ -6524,6 +6524,13 @@ function rotuloItem(nome) {
 // Acrescenta O MESMO id a VÁRIAS listas, com UM pulso só no botão: `ok` se
 // tudo entrou, `dup` se algum destino já o tinha (ver o cabeçalho acima).
 async function adicionarNasListas(listas, id, btn) {
+  // A SENHA DAS LISTAS, e aqui ela faltava: as escritas abaixo e as releituras
+  // que vêm depois correm contra um `load()` que já leu a playlist/Cronograma
+  // ANTES delas — e a FASE 2 dele aplicaria a cópia velha DEPOIS, deixando o
+  // item no banco e fora de `plItems`/`cronoSet`/`libItems` até o próximo
+  // redesenho por outro motivo (o "adicionei e não apareceu"). Ver `listasSeq`:
+  // a senha sobe antes do primeiro `await`, sempre.
+  ++listasSeq;
   const alvos = [...new Set(listas)];
   const novas = [], antigas = [];
   for (const l of alvos) {
@@ -6778,6 +6785,12 @@ function projetarSorteioCue(d) {
 // semana. Os ids que não existirem mais são simplesmente pulados (uma mídia
 // excluída não pode impedir o resto do bloco de tocar).
 async function abrirPacote(d, cueId) {
+  // A SENHA DAS LISTAS, pela mesma razão do `adicionarNasListas`: o
+  // `trocarFila` abaixo grava a playlist e NÃO sobe a senha (ele não é um toque
+  // de lista, é a fila inteira), então um `load()` em voo aplicava a fila de
+  // ANTES por cima do pacote — `plItems` com a fila velha e o ⏭ seguindo a
+  // errada. Ver `listasSeq`: antes do primeiro `await`.
+  ++listasSeq;
   const ids = Array.isArray(d.ids) ? d.ids : [];
   const recs = (await Promise.all(ids.map((id) => AVDB.getMedia(id)))).filter(Boolean);
   if (!recs.length) { falharNoItem(cueId, 'as mídias saíram do aparelho'); return; }
@@ -45442,6 +45455,7 @@ function telaOuvirCanal(c) {
     // E A SEGUNDA PERGUNTA é o CONTEÚDO, quando o pedido sabe qual resposta é a
     // dele (o ACK cumulativo do bloco): a que não fechar fica sem resolver,
     // como a de tipo trocado.
+    if (p.aceita && !p.aceita(r)) return;
     telaResposta = null;
     p.resolve(r);
   };
