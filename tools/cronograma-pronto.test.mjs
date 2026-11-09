@@ -468,6 +468,20 @@ try {
           (e) => { reg.erro = 'reler: ' + e; }),
         (e) => { reg.erro = 'gravar: ' + (e && e.message ? e.message : e); });
     };
+    // E O `listSet`, com o array que ele REALMENTE recebe e devolve.
+    window.__set = null;
+    const origSet = AVDB.listSet.bind(AVDB);
+    AVDB.listSet = function (nome, ids) {
+      const reg = { nome, tipo: typeof ids, antes: null, depois: null, erro: null };
+      window.__set = reg;
+      const alvo = typeof ids === 'function'
+        ? (arr) => { reg.antes = arr.slice(); const r = ids(arr); reg.depois = Array.isArray(r) ? r.slice() : r; return r; }
+        : ids;
+      return origSet(nome, alvo).then(
+        (r) => r,
+        (e) => { reg.erro = String((e && e.message) || e); throw e; });
+    };
+    window.__origSet = origSet;
     // Na CAPTURA, portanto ANTES do handler da linha: o estado do gesto — é o
     // diagnóstico que diz se o dedo andou e para onde o app achou que ia.
     window.addEventListener('pointerup', () => {
@@ -505,11 +519,14 @@ try {
   await pg.mouse.up();
   const semPisca = await pg.evaluate(() => Object.assign(
     window.__noSusto || { erro: 'o observador não viu o soltar' },
-    { antes: window.__antesDoSoltar, chamada: window.__chamada }));
+    { antes: window.__antesDoSoltar, chamada: window.__chamada, set: window.__set }));
   semPisca.gesto = gesto;
   // O wrapper do diagnóstico sai do caminho: os blocos seguintes leem o app
   // como ele é.
-  await pg.evaluate(() => { if (window.__origMover) window.moverNaListaPara = window.__origMover; });
+  await pg.evaluate(() => {
+    if (window.__origMover) window.moverNaListaPara = window.__origMover;
+    if (window.__origSet) AVDB.listSet = window.__origSet;
+  });
   checar(!semPisca.erro && semPisca.classe === true && semPisca.preso === false,
     'B5 · no instante do soltar a lista CONTINUA em modo de arrasto (ela não volta à ordem antiga) '
     + 'e o item já não está preso ao dedo',
@@ -534,7 +551,7 @@ try {
     JSON.stringify({
       id: geoB5.id, antes: antesB5.indexOf(geoB5.id),
       depois: typeof subiu === 'number' ? subiu - 1 : subiu,
-      gesto: semPisca.gesto, antesDoGesto: semPisca.antes, chamada: semPisca.chamada,
+      gesto: semPisca.gesto, antesDoGesto: semPisca.antes, chamada: semPisca.chamada, set: semPisca.set,
       nos: geoB5.nos, banco: antesB5,
     }));
 
