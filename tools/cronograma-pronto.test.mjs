@@ -331,15 +331,19 @@ try {
     'B2 · e soltar GRAVA a ordem nova: o item foi para a casa de cima, no banco (não só no desenho)',
     JSON.stringify(await pg.evaluate(async () => await AVDB.listIds('imports'))));
 
-  // O gesto não pode deixar rastro: nem classe, nem vão, nem transform.
+  // O gesto não pode deixar rastro: nem classe, nem vão, nem transform. A
+  // ESPERA é do estado, não um sono: a gravação no banco acontece ANTES do
+  // redesenho, e ler no instante em que ela aparece pegaria o gesto ainda vivo.
+  const desligou = await esperar(pg,
+    () => !document.getElementById('library').classList.contains('arrastando-lista'), null, 5000);
   const limpo = await pg.evaluate(() => ({
     arrastando: !!document.querySelector('.arrastando'),
     classe: document.getElementById('library').classList.contains('arrastando-lista'),
     transform: [].some.call(document.querySelectorAll('#library > .lib-item'), (li) => li.style.transform),
   }));
-  checar(!limpo.arrastando && !limpo.classe && !limpo.transform,
+  checar(desligou === true && !limpo.arrastando && !limpo.classe && !limpo.transform,
     'B2 · e o desenho volta ao normal no fim (sem classe e sem `transform` pendurado — o vão fecha)',
-    JSON.stringify(limpo));
+    JSON.stringify({ desligou: porque(desligou), limpo }));
 
   // ---- B3 · O TOQUE CURTO CONTINUA PROJETANDO ----
   //
@@ -452,8 +456,11 @@ try {
           return;
         }
         clearInterval(espera);
-        // Sobe dois vãos: vai para o TOPO da lista.
-        const y1 = Math.round(r.top - r.height * 2.2);
+        // Sobe até ACIMA do primeiro item — o destino certo para qualquer
+        // rolagem da lista, porque a régua é a posição medida agora, e não um
+        // número de pixels chutado a partir da linha que se arrasta.
+        const primeiro = lis[0].getBoundingClientRect();
+        const y1 = Math.round(primeiro.top + primeiro.height / 2 - 6);
         ev('pointermove', { clientY: y1 });
         ev('pointerup', { clientY: y1, buttons: 0 });
         // LIDO AQUI — o instante que a v1.13.54 mostrava na ordem velha.

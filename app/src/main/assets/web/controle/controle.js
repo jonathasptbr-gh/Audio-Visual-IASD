@@ -10843,6 +10843,10 @@ function renderLibraryCorpo() {
   // `renderFolderList`, mesmo motivo.
   fecharAcoesDaLinha();
   const host = libraryEl;
+  // UM DESENHO NOVO NÃO ESTÁ ARRASTANDO NADA (v1.13.55): a marca do gesto fica
+  // no `<ul>`, que sobrevive ao `innerHTML = ''` — deixada para trás, ela
+  // seguraria o `touch-action: none` e a transição do vão na lista seguinte.
+  host.classList.remove('arrastando-lista');
   host.innerHTML = '';
   // ANTES do desvio por aba, e não no fim: a Bíblia e a raiz dos Favoritos saem
   // por `return` daqui, e o rodapé é da CAIXA da lista, não da lista — deixado
