@@ -836,6 +836,6 @@ Cerca: `controle.css` da metade (linha ~6849) ao fim + `controle/index.html` int
 
 **Achado e NÃO corrigido (com o porquê):** a atribuição das leituras de estilo pede instrumentar o HANDLER e não a página — o script mede o total, e inventar a divisão seria pior que medi-la (repassado à próxima etapa que mexer no caminho quente). Os três itens de APARELHO da K5 (`startForeground` fora de `try/catch`, `STATE_NONE` com metadado retido, `MediaStyle` com ids desconhecidos) seguem sem resposta: nenhum é alcançável por Chromium. O `configuracoes-janelas` D continua instável no runner sem reprodução local (A1/A5).
 
-**Verificado:** o run `42595965197` fechou **verde nos três jobs**, com **135/135** oráculos de Chromium — os quatro arquivos tocados rodaram nele — e a medição no passo 9. A Sanidade da base web e o `docs-coerentes` rodaram localmente antes do commit; o `tokens` é o passo 5 do mesmo job, verde.
+**Verificado:** o run `42595965197` fechou **verde nos três jobs**, com **135/135** oráculos de Chromium — os dois oráculos tocados (`enquadramento-da-camada` e `pacote-importar-marcados`) rodaram nele — e a medição no passo 9. A Sanidade da base web e o `docs-coerentes` rodaram localmente antes do commit; o `tokens` é o passo 5 do mesmo job, verde.
 
 **O operador:** nada a fazer. O app não mudou; a etapa mediu e não achou o que valha mexer.
