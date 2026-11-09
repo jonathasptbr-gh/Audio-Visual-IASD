@@ -426,12 +426,21 @@ try {
   // A prova é lida NO MESMO TIQUE do `pointerup`, dentro da página e antes de
   // qualquer `await` do app: com o conserto, a lista continua na ordem FINAL
   // (os outros deslocados, o item no vão) enquanto a gravação corre.
-  const antesB5 = await pg.evaluate(async () => await AVDB.listIds('imports'));
-  // O GESTO É O DE VERDADE (mouse), como no B2: evento sintético esbarra no
-  // redesenho da lista, que troca o nó debaixo do dedo no meio do ensaio.
+  // ---- B5 · AO SOLTAR, NADA PISCA NA ORDEM ANTIGA ----
+  //
+  // Relato do operador sobre a v1.13.54: *"ao soltar na nova posição, a lista,
+  // por uma fração de segundo, pisca na ordem antiga, antes de piscar na
+  // posição correta"*. A causa era apagar os deslocamentos ANTES de a gravação
+  // terminar: a tela voltava à ordem velha até o redesenho.
+  //
+  // O FIXTURE É PRÓPRIO: a ordem de partida é reescrita aqui, para o ensaio não
+  // depender do que o bloco anterior deixou na lista — e a gravação é conferida
+  // com o mesmo `esperarDb` do B2.
+  const idsB5 = [quatro[0], quatro[1], quatro[2], quatro[3]];
+  await pg.evaluate(async (ids) => { await AVDB.listSet('imports', () => ids.slice()); await load(); }, idsB5);
   const geoB5 = await pg.evaluate(() => {
     const lis = [...document.querySelectorAll('#library > .lib-item')];
-    if (lis.length < 3) return { erro: 'lista curta demais para o ensaio' };
+    if (lis.length < 4) return { erro: 'lista curta demais para o ensaio' };
     const alvo = lis[lis.length - 1];              // o ÚLTIMO da lista
     const r = alvo.getBoundingClientRect();
     const primeira = lis[0].getBoundingClientRect();
@@ -440,7 +449,6 @@ try {
       x: Math.round(r.left + r.width / 2),
       y: Math.round(r.top + r.height / 2),
       yTopo: Math.round(primeira.top + primeira.height / 2 - 6),
-      nos: lis.map((el) => el.dataset.id),
     };
   });
   // O OBSERVADOR DO INSTANTE: um ouvinte do `window` na fase de BORBULHA roda
@@ -449,49 +457,6 @@ try {
   await pg.evaluate((idAlvo) => {
     window.__alvoId = idAlvo;
     window.__noSusto = null;
-    window.__antesDoSoltar = null;
-    // DIAGNÓSTICO DA GRAVAÇÃO: o que o app pediu, e o que o banco respondeu
-    // antes e depois. Sem isto, "não mudou" no banco não distingue três coisas
-    // muito diferentes: não foi chamada, foi chamada com outro destino, ou a
-    // escrita falhou em silêncio.
-    window.__chamada = null;
-    const origMover = moverNaListaPara;
-    window.__origMover = origMover;
-    window.moverNaListaPara = function (lista, id, destino) {
-      const reg = { lista, id, destino, antes: null, depois: null, erro: null };
-      window.__chamada = reg;
-      return AVDB.listIds(lista)
-        .then((ids) => { reg.antes = ids; }, (e) => { reg.erro = 'ler: ' + e; })
-        .then(() => origMover.call(null, lista, id, destino))
-        .then(() => AVDB.listIds(lista).then(
-          (ids) => { reg.depois = ids; },
-          (e) => { reg.erro = 'reler: ' + e; }),
-        (e) => { reg.erro = 'gravar: ' + (e && e.message ? e.message : e); });
-    };
-    // E O `listSet`, com o array que ele REALMENTE recebe e devolve.
-    window.__set = null;
-    const origSet = AVDB.listSet.bind(AVDB);
-    AVDB.listSet = function (nome, ids) {
-      const reg = { nome, tipo: typeof ids, antes: null, depois: null, erro: null };
-      window.__set = reg;
-      const alvo = typeof ids === 'function'
-        ? (arr) => { reg.antes = arr.slice(); const r = ids(arr); reg.depois = Array.isArray(r) ? r.slice() : r; return r; }
-        : ids;
-      return origSet(nome, alvo).then(
-        (r) => r,
-        (e) => { reg.erro = String((e && e.message) || e); throw e; });
-    };
-    window.__origSet = origSet;
-    // Na CAPTURA, portanto ANTES do handler da linha: o estado do gesto — é o
-    // diagnóstico que diz se o dedo andou e para onde o app achou que ia.
-    window.addEventListener('pointerup', () => {
-      window.__antesDoSoltar = arrasto ? {
-        y: Math.round(arrasto.y), y0: Math.round(arrasto.y0), dy: Math.round(arrasto.dy),
-        de: arrastoGeom ? arrastoGeom.de : null,
-        destino: indiceDoArrasto(arrasto.y),
-        primeiroMeio: arrastoGeom && arrastoGeom.itens[0] ? Math.round(arrastoGeom.itens[0].meio) : null,
-      } : 'sem arrasto';
-    }, { capture: true, once: true });
     window.addEventListener('pointerup', () => {
       const ul = document.getElementById('library');
       if (!ul) return;
@@ -509,24 +474,8 @@ try {
   await pg.mouse.down();
   await esperar(pg, () => !!document.querySelector('#library > .lib-item.arrastando'), null, 4000);
   await pg.mouse.move(geoB5.x, geoB5.yTopo, { steps: 4 });
-  const gesto = await pg.evaluate((yTopo) => ({
-    y: arrasto ? Math.round(arrasto.y) : null,
-    dy: arrasto ? Math.round(arrasto.dy) : null,
-    alvo: window.__alvoId && document.querySelector('#library > .lib-item[data-id="' + window.__alvoId + '"]')
-      ? Math.round(document.querySelector('#library > .lib-item[data-id="' + window.__alvoId + '"]').getBoundingClientRect().top) : null,
-    yTopo,
-  }), geoB5.yTopo);
   await pg.mouse.up();
-  const semPisca = await pg.evaluate(() => Object.assign(
-    window.__noSusto || { erro: 'o observador não viu o soltar' },
-    { antes: window.__antesDoSoltar, chamada: window.__chamada, set: window.__set }));
-  semPisca.gesto = gesto;
-  // O wrapper do diagnóstico sai do caminho: os blocos seguintes leem o app
-  // como ele é.
-  await pg.evaluate(() => {
-    if (window.__origMover) window.moverNaListaPara = window.__origMover;
-    if (window.__origSet) AVDB.listSet = window.__origSet;
-  });
+  const semPisca = await pg.evaluate(() => window.__noSusto || { erro: 'o observador não viu o soltar' });
   checar(!semPisca.erro && semPisca.classe === true && semPisca.preso === false,
     'B5 · no instante do soltar a lista CONTINUA em modo de arrasto (ela não volta à ordem antiga) '
     + 'e o item já não está preso ao dedo',
@@ -536,24 +485,21 @@ try {
     + 'já está no vão — nenhum quadro com a ordem de antes',
     JSON.stringify(semPisca));
 
-  // A CONTA FECHA NO BANCO: o item que estava no fim SUBIU de posição. O número
-  // exato da casa depende da geometria do ensaio (a lista pode estar rolada), e
-  // quem prova a ordem exata é o B2 — aqui o que se prova é que o soltar gravou.
-  const subiu = await esperar(pg, async (id) => {
+  const ordemB5 = [idsB5[3], idsB5[0], idsB5[1], idsB5[2]];
+  const gravouB5 = await esperarDb(pg, async (esperado) => {
     const atuais = await AVDB.listIds('imports');
-    const depois = atuais.indexOf(id);
-    // +1 porque o índice 0 é FALSO e o `esperar` para no primeiro valor
-    // verdadeiro — sem isto, cair na PRIMEIRA casa seria lido como "não veio".
-    return atuais.length === antesB5.length && depois >= 0 && depois < antesB5.indexOf(id) ? depois + 1 : null;
-  }, geoB5.id, 8000);
-  checar(!geoB5.erro && typeof subiu === 'number',
-    'B5 · e a gravação fecha a conta: o item que saiu do fim subiu de posição no banco, com a lista inteira',
-    JSON.stringify({
-      id: geoB5.id, antes: antesB5.indexOf(geoB5.id),
-      depois: typeof subiu === 'number' ? subiu - 1 : subiu,
-      gesto: semPisca.gesto, antesDoGesto: semPisca.antes, chamada: semPisca.chamada, set: semPisca.set,
-      nos: geoB5.nos, banco: antesB5,
-    }));
+    return atuais.join(',') === esperado.join(',');
+  }, ordemB5, 8000);
+  checar(!geoB5.erro && gravouB5 === true,
+    'B5 · e a gravação fecha a conta: o item que saiu do fim virou o primeiro, no banco',
+    JSON.stringify({ id: geoB5.id, esperado: ordemB5, obtido: await pg.evaluate(async () => await AVDB.listIds('imports')) }));
+
+  // O gesto desligou: o desenho volta ao normal também aqui.
+  const desligouB5 = await esperar(pg,
+    () => !document.getElementById('library').classList.contains('arrastando-lista'), null, 5000);
+  checar(desligouB5 === true,
+    'B5 · e a lista sai do modo de arrasto quando o desenho novo chega',
+    porque(desligouB5));
 
   // ==========================================================================
   // C. A SELEÇÃO MÚLTIPLA SAIU INTEIRA
