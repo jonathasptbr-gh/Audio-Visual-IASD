@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.50** — revisão X2, o resto do lote Kotlin: a invariante 2 num predicado só (`WebViewFactory.ehDoApp`), os quatro resíduos do `YoutubeGrab` (registro de desfechos, varredura do cache, teto no nome, o 403 numa escrita), o arquivo ilegível do share avisado com nome, o registro das fotos sem consumir, e JUnit novos `SafJanelaTest`/`SlideDeckTest` (APK, `shellTag: "v1.13.50"`)
 - **v1.13.49** — revisão X2, metade Kotlin: o resíduo da transmissão direta APAGADO (o proxy, a rota `/stream/`, a `servirTransmissao` e a `/s/`), a invariante 8 mudou de casa para `docs/shell/WEBVIEW-RANGE.md`; `SHELL_VERSION` 85 e `minShell` 83 ficam (APK, `shellTag: "v1.13.49"`)
 - **v1.13.48** — revisão X2 (os achados em aberto): a senha das listas nos dois chamadores que faltavam (a gaveta e o pacote), o ACK cumulativo do canal de mídia, o compartilhamento acima de 2 GB recusado com nome, o cancelamento da verificação depois do último byte; só web
 - **v1.13.47** — revisão X1 (o contrato da ponte): os SEIS órfãos saíram do Kotlin (`ytStream`, `otaPending`, `apkProcurar`, `requestMic`, `micDiag` e `salvarTexto`) com o que só existia por eles; a conta medida fica 64 · 70 · 70; `SHELL_VERSION` 85; o `StreamProxy` e a rota `/s/` ficam latentes (APK, `shellTag: "v1.13.47"`)
@@ -662,6 +663,20 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.13.50 — revisão X2, o resto do lote Kotlin (a invariante 2 num lugar só)
+
+**v1.13.50** — (APK + web, degrau CORREÇÃO; `SHELL_VERSION` **85** e `minShell` **83** não mudam — a ponte não mudou; `shellTag: "v1.13.50"`). Revisão X2, o lote que fecha o ponto de parada da v1.13.49.
+
+- **A INVARIANTE 2 PASSOU A TER UM LUGAR SÓ.** O predicado virou `WebViewFactory.ehDoApp(url)` (esquema `https` E `url.host == ORIGIN_HOST`, sobre o MESMO `Uri`) e as quatro cópias passaram a chamá-lo: a navegação, a janela do `/saf/`, o `EspelhoCert.importar` e o `SlideDeck.paginas` (as duas últimas perguntavam só o HOST). O `invariantes-shell` ganhou quatro asserções — o predicado existe com essa forma, NENHUM outro `.kt` compara o `host` com o `ORIGIN_HOST`, e há dois chamadores; **reversão medida** (devolver a cópia do `SlideDeck` reprova 1).
+- **`YoutubeGrab`, os quatro resíduos da K3.** O `resgate` deixa de ser um SLOT: baixar o vídeo B apagava o desfecho do A e a página que ainda ia reclamá-lo pedia o download de novo — agora é um registro de quatro, chaveado por link + forma + teto, com o mais antigo despejado. `varrerCache` roda no começo de cada download e apaga o intermediário sem dono com mais de uma hora, poupando os que o registro aponta. O TETO ENTRA NO NOME do arquivo (`arquivoDestino` → `-<teto>p`, a montagem `$id-<teto>-v.ext` e o áudio do par `$id-<teto>-a.ext`): o mesmo vídeo pedido a 1080p e depois a 480p truncava o arquivo que o pedido anterior ainda devia. E o `"403"` literal de quatro pontos virou `recusa403`/`quarentenaSeUnanime`, com a constante `CDN_403`.
+- **O `ShareIntake.describe` que engolia a exceção agora NOMEIA o arquivo.** O provedor que não deixa nem consultar (nuvem sem permissão, provedor que morreu) sai no campo `ignorados`, e o `controle.js` avisa (`avisarIgnorados`) — antes o lote inteiro virava "nada", sem diálogo e sem Registro. O KDoc do arquivo perdeu um fato velho: o vídeo grande não é mais "cortado em silêncio" desde a v1.13.48, ele é recusado com nome.
+- **O `R2ImagemRegistry.take` deixou de consumir.** O segundo `fetch` do MESMO token — o retry do Chromium, a folha de fundos refeita — recebia 404, e a varredura acusava a FONTE. O que limita a memória agora é teto (24 entradas / 16 MB, despejo do mais antigo), não a remoção.
+- **JUnit novos.** `SafJanelaTest`: o `?r=` malformado, invertido e acima de 24 MB, a leitura curta no MEIO, a faixa além do EOF e o `skip` parcial/que não anda — as três funções puras saíram para `janelaDe`/`lerJanela`/`posicionarPorSkip`. `SlideDeckTest`: `urlDeExportacao` nas três formas do botão do Google, e `pastaParaDescartar` só apaga a subpasta do NOSSO cache (é o único ponto do arquivo que apaga arquivo; `descartar` ganhou o helper puro). O `R2ImagemFonteTest` ganhou o registro: o mesmo token serve duas vezes, o desconhecido devolve `null`, e o registro não cresce sem teto.
+- **As asserções que faltavam.** `servico-em-primeiro-plano` +3 para o `updateFromDisplay` (lê a cena DENTRO do monitor e sai sem cena; grava só o transporte com `POS_TOL_MS`; publica DEPOIS do monitor) — **reversão medida** (publicar dentro do `synchronized` reprova 1). `aviso-de-importacao` +1 cenário (`ignorados` nomeado no aviso). `ota` +1 cenário (o lote que o shell RECUSA não volta a perguntar), com CONTROLE que apaga a marca e prova que a pergunta volta.
+- **REPASSE MORTO NA MEDIÇÃO (K6).** "O renderer que morre no meio de uma exportação não fecha o destino" — ele fecha: o `onRendererGone` do `buildControleWebView` chama `descartarPacote(naMain = true)` desde o shell 63.
+- **Docs.** O `CONTROLE-YOUTUBE` perdeu a linha do codec (não há `canPlayType`/`avc1` em base nenhuma desde o player que saiu na v1.8.82); a da `PAUSA ESPONTÂNEA` fica, é viva em `display.js`.
+- **O operador:** instalar a v1.13.50 quando o aviso aparecer. **O que ele vê:** um arquivo compartilhado que o app não conseguia ler passa a avisar, e o download não deixa mais resto ocupando espaço.
 
 ## v1.13.49 — revisão X2, metade Kotlin (o resíduo da transmissão direta)
 

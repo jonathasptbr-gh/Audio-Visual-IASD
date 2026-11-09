@@ -106,6 +106,39 @@ const regra = janela(SESS, 'private fun republicarOuIniciar(', 300);
 checar(/if \(running && inst != null\) inst\.publish\(\) else iniciar\(ctx\)/.test(regra),
 'a regra "publica se o serviço está de pé, senão religa" mora num helper, com `running` E `instance` na mesma guarda: ela estava escrita em cinco pontos e já tinha divergido num deles (o do telão, sem o `running`), onde a faixa entre `running = false` e `instance = null` do `onDestroy` ressuscitava o serviço que estava morrendo');
 
+// ===== A FONTE QUE SOBREVIVE AO ESTRANGULAMENTO (revisão X2) =====
+//
+// O `display-status` a ~4 Hz é a ÚNICA fonte que continua chegando com o
+// Controle estrangulado em segundo plano, e é ela que mantém o cartão de
+// controles com o play/pause e a posição certos. Ela chegava sem asserção
+// nenhuma (só a de passar pelo `republicarOuIniciar`), e o que a torna segura
+// é a FORMA de três coisas — nenhuma delas visível num teste de comportamento
+// sem aparelho:
+//
+//  1. ler e gravar `scene` DENTRO do monitor, saindo sem publicar quando não
+//     há cena (o telão pode estar emitindo status de uma reprodução que o
+//     Controle nem reportou);
+//  2. gravar SÓ o transporte (play/pause, posição, duração), com a tolerância
+//     do salto — reenviar a cada quadro seria uma republicação por quadro;
+//  3. publicar DEPOIS de o monitor fechar: `publish()` salta para a main e
+//     volta a chamar para cá, e segurar o monitor nesse caminho transforma a
+//     correção de corrida numa fila.
+const ufd = janela(SESS, 'fun updateFromDisplay(', 2600);
+checar(ufd.length > 500,
+  'PREMISSA: o `updateFromDisplay` foi lido (o método existe e tem corpo)',
+  ufd.length + ' bytes');
+checar(/synchronized\(trava\)\s*\{[\s\S]*?val s = scene \?: return/.test(ufd),
+  'o `updateFromDisplay` lê a cena DENTRO do monitor e sai sem publicar sem cena (`scene ?: return`) — o `display-status` pode chegar de uma reprodução que o Controle não reportou');
+checar(/POS_TOL_MS/.test(ufd)
+  && /scene = s\.copy\(playing = playing, positionMs = positionMs, durationMs = dur\)/.test(ufd),
+  'e grava só o TRANSPORTE (play/pause, posição, duração), com a tolerância do salto (`POS_TOL_MS`): a sessão extrapola o tempo sozinha, e só um salto precisa de reenvio');
+{
+  const iTrava = ufd.indexOf('synchronized(trava)');
+  const iPub = ufd.indexOf('republicarOuIniciar(ctx)');
+  checar(iPub > iTrava && /\n {12}\}\n/.test(ufd.slice(iTrava, iPub)),
+    'e o `republicarOuIniciar` vem DEPOIS de o monitor fechar: publicar salta para a main e volta a chamar para cá, e segurar o monitor nesse caminho transforma a correção de corrida numa fila');
+}
+
 for (const [nome, assinatura] of [
   ['update', 'fun update(ctx: Context, s: Scene)'],
   ['updateFromDisplay', 'fun updateFromDisplay('],

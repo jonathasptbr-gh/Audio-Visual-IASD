@@ -1,6 +1,10 @@
 package br.org.iasd.av
 
+import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -67,5 +71,48 @@ class R2ImagemFonteTest {
     @Test
     fun recusaStringVaziaSemLancar() {
         assertFalse(R2ImagemFonte.hostPermitido(""))
+    }
+
+    // ===== o registro efêmero (revisão X2) =====
+
+    @Test
+    fun oMesmoTokenServeMaisDeUmaVez() {
+        // O RETRY DO CHROMIUM: o `take` removia a entrada, e o segundo pedido
+        // do MESMO token recebia 404 — a varredura então acusava a FONTE por
+        // uma imagem que ela tinha entregado.
+        val bytes = byteArrayOf(1, 2, 3, 4)
+        val url = R2ImagemRegistry.store(bytes, "image/png")
+        val token = url.substringAfterLast('/')
+        val primeira = R2ImagemRegistry.take(token)
+        val segunda = R2ImagemRegistry.take(token)
+        assertNotNull("o primeiro pedido encontra o registro", primeira)
+        assertNotNull("e o segundo TAMBÉM", segunda)
+        assertArrayEquals(bytes, segunda!!.first)
+        assertEquals("image/png", segunda.second)
+        assertTrue(
+            "a URL servível nasce no origin do app",
+            url.startsWith("https://appassets.androidplatform.net/r2img/"),
+        )
+    }
+
+    @Test
+    fun tokenDesconhecidoDevolveNull() {
+        assertNull(R2ImagemRegistry.take("nao-existe"))
+    }
+
+    @Test
+    fun oRegistroNaoCresceSemTeto() {
+        // O teto de ENTRADAS é o que impede a varredura do hinário inteiro de
+        // acumular bytes em memória (o teto de bytes é o outro). Despeja-se o
+        // mais ANTIGO — a inserção é a ordem de chegada.
+        var primeiro = ""
+        var ultimo = ""
+        for (i in 0 until 40) {
+            val url = R2ImagemRegistry.store(byteArrayOf(i.toByte()), "image/jpeg")
+            if (i == 0) primeiro = url.substringAfterLast('/')
+            ultimo = url.substringAfterLast('/')
+        }
+        assertNull("o primeiro token já saiu do registro", R2ImagemRegistry.take(primeiro))
+        assertNotNull("e o último continua servível", R2ImagemRegistry.take(ultimo))
     }
 }

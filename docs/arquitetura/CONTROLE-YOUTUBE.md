@@ -1049,8 +1049,6 @@ dela (a janela `/saf/` em [`PACOTE.md`](../recursos/PACOTE.md), o `/r2img/` em
 
 Regras que sustentam isso:
 
-- **Codec recusado imprime as STRINGS testadas** (`video/mp4; codecs="avc1.640028"`)
-  e o veredito de cada uma.
 - **`PAUSA ESPONTÂNEA` não é vídeo travando**: um `<video>` sem dados emite
   `waiting`, não `pause`. O que emite `pause` é o `video.pause()` no topo do
   `load()` — isto é, mídia NOVA entrando.

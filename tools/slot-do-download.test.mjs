@@ -3,7 +3,7 @@
 //
 // ## Por que este oráculo existe
 //
-// O `YoutubeGrab` guarda o desfecho de UM download (`resgate`), o pedido de
+// O `YoutubeGrab` guarda os desfechos de download (`resgates`), o pedido de
 // cancelamento em UM campo (`cancelarLink`) e os pedaços de UM arquivo em curso
 // (`parciais`) — três estados SEM chave, e todos eles partem da mesma premissa:
 // **existe no máximo um download por vez**. Quem sustenta a premissa não é o
@@ -154,15 +154,34 @@ checar(
   'a retomada exige a MESMA URL — sem esta conferência, o parcial do itag 137 era emendado com o 136 e saía um vídeo de dois pedaços, sem erro nenhum',
 );
 
-// ===== O DESFECHO GUARDADO: forma conferida antes de devolver =====
+// ===== O DESFECHO GUARDADO: um registro POR PEDIDO (X2, v1.13.50) =====
+//
+// Era um SLOT ÚNICO, e isso era um defeito: baixar o vídeo B apagava o
+// desfecho do A, e a página que ainda ia reclamá-lo pedia o download de novo —
+// com o arquivo do A ficando no cache sem dono. Hoje é um registro podado,
+// chaveado pelo PEDIDO (link, forma e teto); devolver o m4a de ontem para quem
+// pediu vídeo continuaria sendo entregar o formato errado com sucesso.
+const chave = janela(GRAB, 'private fun chaveDeResgate(', 400);
+checar(
+  /"\$link\|\$soAudio\|\$teto"/.test(chave),
+  'a chave do desfecho guardado é o PEDIDO inteiro — link, forma (`soAudio`) e teto',
+);
 const resgatar = janela(GRAB, 'fun resgatar(', 900);
 checar(
-  /r\.link != link \|\| r\.soAudio != soAudio \|\| r\.teto != teto/.test(resgatar),
-  'o desfecho guardado só é devolvido para o MESMO pedido (link, forma e teto): devolver o m4a de ontem para quem pediu vídeo é entregar o formato errado com sucesso',
+  /val chave = chaveDeResgate\(link, soAudio, teto\)/.test(resgatar)
+  && /resgates\[chave\] \?: return null/.test(resgatar),
+  'e a consulta é feita POR essa chave — não há mais um slot que o download seguinte sobrescreve',
 );
 checar(
-  /if \(!File\(r\.arquivo\)\.isFile\) \{ resgate = null; return null \}/.test(resgatar),
+  /if \(!File\(r\.arquivo\)\.isFile\) \{ resgates\.remove\(chave\); return null \}/.test(resgatar),
   'e o desfecho guardado MORRE se o arquivo sumiu (a faxina do sistema apaga o cache): um resultado apontando para arquivo inexistente é pior que resultado nenhum',
+);
+const guardar = janela(GRAB, 'private fun guardarResgate(', 600);
+checar(
+  /resgates\[chaveDeResgate\(link, soAudio, teto\)\] = Resgate\(json, caminho\)/.test(guardar)
+  && /while \(resgates\.size > RESGATES_MAX\)/.test(guardar)
+  && /private const val RESGATES_MAX = 4/.test(GRAB),
+  'o registro é PODADO no mais antigo (`RESGATES_MAX`): sem teto, uma sessão de culto o faria crescer sem limite — e o despejo NÃO apaga o arquivo, que pode estar sendo copiado pelo `fetch` da página',
 );
 
 // ===== A BARRA: o último número que o operador vê não anda para trás =====

@@ -150,13 +150,32 @@ object SafJanela {
     /** O maior pedaço que uma janela entrega. Trava, não economia: sem ela um
      *  erro de conta faz o processo que hospeda os dois WebViews tentar segurar
      *  um arquivo inteiro. */
-    private const val TETO_JANELA = 24L * 1024 * 1024
+    internal const val TETO_JANELA = 24L * 1024 * 1024
 
     private val FAIXA = Regex("""^(\d{1,15})-(\d{1,15})$""")
 
+    /** O que um `?r=` pede: a janela, ou o motivo de recusar. PURA — e é a
+     *  fronteira onde um pedido malformado ou gigante para ANTES de virar
+     *  memória, por isso ela tem oráculo de JUnit ([SafJanelaTest]). */
+    internal sealed interface Janela {
+        data class Pedido(val ini: Long, val n: Int) : Janela
+        data class Recusa(val codigo: Int, val razao: String) : Janela
+    }
+
+    /** `r` JÁ SEM o nulo (quem não tem `r=` não é conosco: ver [tryHandle]). */
+    internal fun janelaDe(r: String): Janela {
+        val m = FAIXA.find(r) ?: return Janela.Recusa(codigo = 416, razao = "faixa malformada")
+        val ini = m.groupValues[1].toLongOrNull() ?: return Janela.Recusa(codigo = 416, razao = "faixa malformada")
+        val fim = m.groupValues[2].toLongOrNull() ?: return Janela.Recusa(codigo = 416, razao = "faixa malformada")
+        if (fim < ini) return Janela.Recusa(codigo = 416, razao = "faixa invertida")
+        val n = fim - ini + 1
+        if (n > TETO_JANELA) return Janela.Recusa(codigo = 416, razao = "janela acima de 24 MB")
+        return Janela.Pedido(ini = ini, n = n.toInt())
+    }
+
     fun tryHandle(ctx: Context, request: WebResourceRequest): WebResourceResponse? {
         val u = request.url
-        if (u.scheme != "https" || u.host != WebViewFactory.ORIGIN_HOST) return null
+        if (!WebViewFactory.ehDoApp(u)) return null
         val path = u.path ?: return null
         if (!path.startsWith("/saf/")) return null
         // SEM `r=` não é conosco: o caminho de sempre (o arquivo inteiro) segue
@@ -166,17 +185,14 @@ object SafJanela {
         // a string casaria `r=` no meio de OUTRO parâmetro, e o que sairia daí
         // seria uma faixa lida de onde ninguém a escreveu.
         val r = try { u.getQueryParameter("r") } catch (_: Exception) { null } ?: return null
-        val m = FAIXA.find(r) ?: return erro(416, "faixa malformada")
-        val ini = m.groupValues[1].toLongOrNull() ?: return erro(416, "faixa malformada")
-        val fim = m.groupValues[2].toLongOrNull() ?: return erro(416, "faixa malformada")
-        if (fim < ini) return erro(416, "faixa invertida")
-        val n = fim - ini + 1
-        if (n > TETO_JANELA) return erro(416, "janela acima de 24 MB")
+        val janela = janelaDe(r)
+        if (janela is Janela.Recusa) return erro(janela.codigo, janela.razao)
+        val pedido = janela as Janela.Pedido
 
         val token = path.removePrefix("/saf/").trim('/')
         val uri = SafRegistry.get(token) ?: return erro(404, "token desconhecido")
         return try {
-            val bytes = ler(ctx, uri, ini, n.toInt())
+            val bytes = ler(ctx, uri, pedido.ini, pedido.n)
             WebResourceResponse(
                 "application/octet-stream",
                 null,
@@ -192,6 +208,9 @@ object SafJanela {
         }
     }
 
+    private fun ler(ctx: Context, uri: Uri, ini: Long, n: Int): ByteArray =
+        posicionar(ctx, uri, ini).use { entrada -> lerJanela(entrada, n) }
+
     /**
      * Os bytes de `[ini, ini+n)`. Devolve MENOS que `n` só no fim do arquivo —
      * quem confere se sobrou é o chamador, pelo tamanho que o `pickDoc` deu.
@@ -200,16 +219,17 @@ object SafJanela {
      * curto sobre um `content://` é normal, e tratá-lo como fim de arquivo
      * entregaria uma janela com um buraco no meio — a corrupção silenciosa que
      * este arquivo inteiro existe para não ter.
+     *
+     * PURA de propósito: é o defeito que o JUnit trava com um `InputStream`
+     * que devolve um byte por vez ([SafJanelaTest]).
      */
-    private fun ler(ctx: Context, uri: Uri, ini: Long, n: Int): ByteArray {
+    internal fun lerJanela(entrada: java.io.InputStream, n: Int): ByteArray {
         val buf = ByteArray(n)
         var lidos = 0
-        posicionar(ctx, uri, ini).use { entrada ->
-            while (lidos < n) {
-                val r = entrada.read(buf, lidos, n - lidos)
-                if (r <= 0) break
-                lidos += r
-            }
+        while (lidos < n) {
+            val r = entrada.read(buf, lidos, n - lidos)
+            if (r <= 0) break
+            lidos += r
         }
         return if (lidos == n) buf else buf.copyOf(lidos)
     }
@@ -248,13 +268,25 @@ object SafJanela {
         }
         val s = ctx.contentResolver.openInputStream(uri)
             ?: throw java.io.IOException("documento nao abre")
+        posicionarPorSkip(s, ini)
+        return s
+    }
+
+    /**
+     * Avança `ini` bytes. PURA, e o plano B do [posicionar] — no provedor que
+     * não entrega descritor posicionável, pular gigabytes é LENTO mas correto.
+     *
+     * O laço, e não um `skip(ini)` só: `skip` não promete pular tudo, e um
+     * `skip` curto tratado como completo entregaria a janela com o
+     * deslocamento ERRADO — bytes de outro trecho do arquivo, sem erro.
+     */
+    internal fun posicionarPorSkip(entrada: java.io.InputStream, ini: Long) {
         var falta = ini
         while (falta > 0) {
-            val p = s.skip(falta)
+            val p = entrada.skip(falta)
             if (p <= 0) throw java.io.IOException("nao deu para posicionar em $ini")
             falta -= p
         }
-        return s
     }
 
     private fun redigir(e: Throwable): String =

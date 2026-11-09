@@ -99,7 +99,8 @@ object EspelhoCert {
      */
     fun importar(ctx: Context, origem: String, senha: String): String {
         val u = try { Uri.parse(origem) } catch (e: Exception) { return "endereço inválido" }
-        if (u.host != WebViewFactory.ORIGIN_HOST) return "escolha o arquivo pelo seletor do aparelho"
+        // "É uma URL do app?" pela invariante 2 (esquema E host, num lugar só).
+        if (!WebViewFactory.ehDoApp(u)) return "escolha o arquivo pelo seletor do aparelho"
         val token = u.lastPathSegment ?: return "arquivo sem token"
         val uri = SafRegistry.get(token) ?: return "o arquivo escolhido não está mais disponível"
 

@@ -97,7 +97,7 @@ const porque = (r) => (r === true ? undefined : r);
 // desenha: gravar a intenção antes de aplicar o OTA, e chamar `apkInstalar`
 // na abertura seguinte, são exatamente os dois pontos em que o fluxo já
 // falhou calado.
-const ponte = ({ web = '', shell = '', bytes = 0, espelho = false, shellName = '1.98', notas = [] }) => `(() => {
+const ponte = ({ web = '', shell = '', bytes = 0, espelho = false, shellName = '1.98', notas = [], recusa = false }) => `(() => {
   window.__chamadas = [];
   const estado = { web: ${JSON.stringify(web)}, webAtual: '5.230',
     shell: ${JSON.stringify(shell)}, shellBytes: ${bytes}, shellAtual: ${JSON.stringify(shellName)},
@@ -116,7 +116,7 @@ const ponte = ({ web = '', shell = '', bytes = 0, espelho = false, shellName = '
     // volta. Aqui ela resolve com a versão, que é o desfecho documentado do
     // caso "não havia o que aplicar" — e é o único que deixa a página viva
     // para ser inspecionada.
-    otaApply: ${JSON.stringify(web || null)},
+    otaApply: ${JSON.stringify(recusa ? null : (web || null))},
     apkInstalar: '',
     otaPending: ${JSON.stringify(web)},
     otaDiag: '', apkProcurar: {} };
@@ -926,6 +926,62 @@ try {
     } finally {
       await navMidia.close();
     }
+  }
+
+  // ── 10. O LOTE QUE O SHELL RECUSOU NÃO VOLTA A PERGUNTAR (revisão X2) ────
+  //
+  // O `otaRecusadas` guarda a versão que o shell RECUSOU aplicar (um bundle sem
+  // o index do Controle, por exemplo). Sem ele a enquete de dez segundos pedia a
+  // aplicação de novo, para sempre, e o operador via a pergunta reaparecer
+  // sozinha depois de ter dito sim. A guarda não tinha asserção nenhuma.
+  {
+    const { ctx, pg } = await abrir({ web: '5.999', recusa: true });
+    checar(await empurrar(pg, { web: '5.999' }),
+      '10 · o shell tem para quem empurrar o estado (`window.__avAtualizacao`)');
+    const d = await dialogo(pg);
+    checar(!!d, '10 · PREMISSA: o lote aparece para ser aceito');
+    await tocar(pg, 'appDialogOk');
+    const aplicou = await esperar(pg,
+      () => window.__chamadas.filter((n) => n === 'otaApply').length === 1, null, PRAZO_CURTO_MS);
+    checar(aplicou === true, '10 · PREMISSA: "Atualizar agora" chega ao `otaApply` (que RECUSA)',
+      porque(aplicou));
+    // DUAS voltas da decisão, como a enquete faz. A pergunta NÃO pode voltar —
+    // e o controle da medição é o passo seguinte: apagada a marca, ela volta.
+    const voltas = await pg.evaluate(() => {
+      const out = { reabriu: null, marcado: false, controle: false };
+      decidirAtualizacao();
+      decidirAtualizacao();
+      const d1 = document.getElementById('appDialog');
+      out.reabriu = !!(d1 && d1.classList.contains('open'));
+      out.marcado = typeof otaRecusadas !== 'undefined' && otaRecusadas.has('5.999');
+      if (typeof otaRecusadas !== 'undefined') {
+        // O CONTROLE: sem a marca a pergunta tem de voltar. Sem isto, uma
+        // decisão que nunca pergunta passaria na asserção de cima.
+        otaRecusadas.delete('5.999');
+        decidirAtualizacao();
+        const d2 = document.getElementById('appDialog');
+        out.controle = !!(d2 && d2.classList.contains('open'));
+      }
+      return out;
+    });
+    checar(voltas.marcado === true,
+      '10 · o shell recusou a versão e ela fica MARCADA (`otaRecusadas`)', JSON.stringify(voltas));
+    checar(voltas.reabriu === false,
+      '10 · e a decisão seguinte NÃO reabre a pergunta — sem a marca ela voltava a cada dez segundos, para sempre',
+      JSON.stringify(voltas));
+    checar(voltas.controle === true,
+      '10 · CONTROLE DA MEDIÇÃO: apagada a marca, a MESMA decisão pergunta de novo (é ela que a calava, e não uma decisão morta)',
+      JSON.stringify(voltas));
+    // Fecha o diálogo do controle pelo "depois", que é o caminho do operador.
+    await pg.evaluate(() => {
+      const b = document.getElementById('appDialogCancel');
+      if (b) b.click();
+    });
+    const pedidos = await pg.evaluate(() => window.__chamadas.filter((n) => n === 'otaApply').length);
+    checar(pedidos === 1,
+      '10 · e nada disso aplicou a base de novo (`otaApply` chamado uma vez só)',
+      'otaApply ' + pedidos + '×');
+    await ctx.close();
   }
 
 } finally {

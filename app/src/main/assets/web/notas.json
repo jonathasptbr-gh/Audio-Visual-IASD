@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.13.50",
+    "itens": [
+      "A revisão interna do app: nada muda no uso normal.",
+      "Um arquivo compartilhado que o app não conseguia abrir agora avisa, em vez de sumir calado.",
+      "O download de um vídeo não deixa mais resto ocupando espaço no aparelho.",
+      "A versão nova do app chega pelo aviso; instale quando ele aparecer."
+    ]
+  },
+  {
     "versao": "1.13.49",
     "itens": [
       "A revisão interna do app: nada muda no uso normal.",

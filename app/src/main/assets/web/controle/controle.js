@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.49';
+const WEB_VERSION = '1.13.50';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -37123,6 +37123,25 @@ function avisarGrandeDemais(nome, bytes) {
   });
 }
 
+// O ARQUIVO QUE O SHELL NÃO CONSEGUIU NEM DESCREVER (revisão X2). O provedor
+// recusou a consulta (nuvem sem permissão, provedor que morreu) e o `describe`
+// do shell devolveu `null`; até aqui o lote inteiro virava "nada" — sem
+// diálogo e sem Registro, com o operador tendo escolhido um arquivo. O nome
+// vem do shell, e a causa é sempre a mesma porta: quem compartilhou não
+// entregou o arquivo.
+function avisarIgnorados(nomes) {
+  const lista = nomes.slice(0, 3).map((n) => '"' + n + '"').join(', ');
+  const mais = nomes.length > 3 ? ' e mais ' + (nomes.length - 3) : '';
+  return appConfirm({
+    title: nomes.length === 1 ? 'Arquivo não lido' : 'Arquivos não lidos',
+    message: lista + mais + (nomes.length === 1 ? ' não pôde' : ' não puderam')
+      + ' ser lido: o app que compartilhou não entregou o arquivo ao aparelho. '
+      + 'Tente compartilhar de novo, ou salve o arquivo antes de enviar.',
+    okText: 'Entendi',
+    cancelText: null,
+  });
+}
+
 function avisarNaoAbriu(nome) {
   const motivo = deckUltimoErro;
   deckUltimoErro = '';
@@ -38106,6 +38125,10 @@ async function importShare(pending) {
   }
   if (naoAbriu) await avisarNaoAbriu(naoAbriu);
   if (grandeDemais) await avisarGrandeDemais(grandeDemais.nome, grandeDemais.bytes);
+  // O ARQUIVO QUE O SHELL NÃO CONSEGUIU NEM DESCREVER: ele vem em `ignorados`,
+  // e sem esta linha o lote inteiro virava "nada" (revisão X2).
+  const ignorados = pending.ignorados || [];
+  if (ignorados.length) await avisarIgnorados(ignorados);
   return added;
 }
 

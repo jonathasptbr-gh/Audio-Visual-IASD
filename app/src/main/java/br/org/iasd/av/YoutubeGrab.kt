@@ -236,10 +236,35 @@ object YoutubeGrab {
      *  novo em seguida" sem condenar o download seguinte do culto. */
     private const val BLOQUEIO_ADAPTATIVO_MS = 15 * 60 * 1000L
 
+    /** O 403 como o `motivo()` o devolve — ver [recusa403]. */
+    private const val CDN_403 = "403"
+
     /** O caminho adaptativo está em quarentena agora? */
     private fun adaptativoBloqueado(): Boolean {
         val em = adaptativoBloqueadoEm
         return em > 0L && SystemClock.elapsedRealtime() - em < BLOQUEIO_ADAPTATIVO_MS
+    }
+
+    /**
+     * A recusa do CDN, escrita UMA vez.
+     *
+     * O `403` é o único motivo que conta para a quarentena, e ele aparecia como
+     * string literal em quatro pontos (dois no vídeo, dois no áudio) — o
+     * `motivo()` devolve o CÓDIGO como texto, e um ponto que passasse a
+     * comparar outra coisa deixaria a quarentena de fora sem erro nenhum.
+     */
+    private fun recusa403(motivo: String): Boolean = motivo == CDN_403
+
+    /**
+     * A QUARENTENA EXIGE UNANIMIDADE — ver [adaptativoBloqueadoEm]. Com o pool
+     * misturado, um 403 isolado é o comportamento NORMAL de uma faixa
+     * envenenada com uma boa logo atrás na fila; desligar o caminho inteiro por
+     * causa dele seria o autogol. Menos de duas tentativas não é unanimidade.
+     */
+    private fun quarentenaSeUnanime(tentados: Int, recusas403: Int) {
+        if (tentados >= 2 && recusas403 == tentados) {
+            adaptativoBloqueadoEm = SystemClock.elapsedRealtime()
+        }
     }
 
     /**
@@ -438,6 +463,10 @@ object YoutubeGrab {
         onFase: (String, JSONObject) -> Unit = { _, _ -> },
     ): JSONObject? {
         aoFase = onFase
+        // A VARREDURA VEM ANTES DA REDE, e no começo: é o único ponto em que a
+        // `transferencia` está com a palavra e nenhum download está escrevendo
+        // (ver [varrerCache]).
+        varrerCache(ctx)
         val r = try {
             buscarInterno(ctx, link, somenteAudio, teto, onProgresso)
         } finally {
@@ -547,7 +576,7 @@ object YoutubeGrab {
                 // na fila do progressivo depois dele seria abrir mais conexões
                 // para um download que o operador já recusou.
                 if (cancelado()) return null
-                val destino = arquivoDestino(ctx, id, alvo.faixa.ext, alvo.soAudio)
+                val destino = arquivoDestino(ctx, id, alvo.faixa.ext, alvo.soAudio, teto)
                 try {
                     baixarTentando(
                         alvo.faixa.url, destino,
@@ -693,25 +722,31 @@ object YoutubeGrab {
     // recebê-lo. Do lado do operador, dez minutos de download viram nada — e
     // nada explica o que houve.
     //
-    // A saída é o shell GUARDAR o desfecho até alguém reclamá-lo. Um slot só,
-    // e não um registro por link: a fila `transferencia` é de uma thread só,
-    // então existe no máximo um download por vez (é a mesma premissa do
-    // cancelamento e do `diagnostico`).
+    // A saída é o shell GUARDAR o desfecho até alguém reclamá-lo. Um REGISTRO
+    // por pedido, e não um slot só: a fila `transferencia` é de uma thread,
+    // mas dois pedidos do operador cabem na mesma sessão — e o slot único
+    // apagava o desfecho do primeiro quando o segundo baixava, então a página
+    // que ainda ia reclamá-lo pedia o download DE NOVO (e o arquivo do
+    // primeiro ficava no cache sem dono). O registro é pequeno e podado.
     //
     // Quem reclama é a página nova, pedindo o MESMO download de novo: o
     // resultado guardado é devolvido na hora, sem rede. E quem o descarta é o
     // `descartar()` — o mesmo ponto em que os bytes já foram copiados para a
     // biblioteca e o arquivo intermediário deixa de existir.
     // ------------------------------------------------------------------------
-    private class Resgate(
-        val link: String,
-        val soAudio: Boolean,
-        val teto: Int,
-        val json: JSONObject,
-        val arquivo: String,
-    )
+    private class Resgate(val json: JSONObject, val arquivo: String)
 
-    @Volatile private var resgate: Resgate? = null
+    /** Quantos desfechos ficam guardados. Quatro cobrem uma sessão de culto
+     *  (o louvor, o vídeo do momento e dois toques de ensaio) sem crescer. */
+    private const val RESGATES_MAX = 4
+
+    /** A chave do registro: o MESMO pedido, nas três coisas que o definem. */
+    private fun chaveDeResgate(link: String, soAudio: Boolean, teto: Int) =
+        "$link|$soAudio|$teto"
+
+    /** Inserção = ordem de chegada; o despejo da frente é o mais antigo. Tudo
+     *  aqui roda na `transferencia` (uma thread), inclusive o `descartar`. */
+    private val resgates = LinkedHashMap<String, Resgate>()
 
     /**
      * O desfecho guardado deste MESMO pedido, se houver.
@@ -721,20 +756,26 @@ object YoutubeGrab {
      * nada — o operador receberia silenciosamente o formato errado.
      */
     fun resgatar(link: String, soAudio: Boolean, teto: Int): JSONObject? {
-        val r = resgate ?: return null
-        if (r.link != link || r.soAudio != soAudio || r.teto != teto) return null
+        val chave = chaveDeResgate(link, soAudio, teto)
+        val r = resgates[chave] ?: return null
         // O arquivo pode ter sumido (faxina do sistema, cache limpo): um
         // resultado apontando para um arquivo que não existe é pior que
         // resultado nenhum, porque o lado web tentaria copiá-lo e falharia sem
         // saber por quê.
-        if (!File(r.arquivo).isFile) { resgate = null; return null }
+        if (!File(r.arquivo).isFile) { resgates.remove(chave); return null }
         Log.i(TAG, "resgatando download concluído de $link")
         return r.json
     }
 
     private fun guardarResgate(link: String, soAudio: Boolean, teto: Int, json: JSONObject) {
         val caminho = caminhoDe(json.optString("url")) ?: return
-        resgate = Resgate(link, soAudio, teto, json, caminho)
+        resgates[chaveDeResgate(link, soAudio, teto)] = Resgate(json, caminho)
+        // DESPEJO DO MAIS ANTIGO, e não do arquivo: o desfecho sai do registro
+        // e o intermediário fica no cache até a varredura de idade (ele pode
+        // estar sendo copiado pelo `fetch` da página agora).
+        while (resgates.size > RESGATES_MAX) {
+            resgates.remove(resgates.keys.first())
+        }
     }
 
     /** O arquivo por trás de uma URL `/saf/<token>` — a mesma leitura do [descartar]. */
@@ -869,6 +910,7 @@ object YoutubeGrab {
                         // -1 (o YouTube nem sempre informa), e aí "não sei".
                         v.tamanho,
                         barra,
+                        teto,
                     )
                 }
                 // O ÁUDIO AINDA É A SONDA (v1.12.31), mas não espera mais o fim:
@@ -882,10 +924,10 @@ object YoutubeGrab {
                     continue
                 }
                 tentados++
-                when (val d = montar(ctx, id, nome, v, segundos, emVoo, barra)) {
+                when (val d = montar(ctx, id, nome, v, segundos, emVoo, barra, teto)) {
                     is Desfecho.Pronto -> return d.json
                     is Desfecho.Recusado -> {
-                        if (d.motivo == "403") recusas403++
+                        if (recusa403(d.motivo)) recusas403++
                         if (emVoo.arquivoSeHouver() == null) audioDe[extAudio] = null
                     }
                     Desfecho.NaoMontou -> montagens++
@@ -897,13 +939,9 @@ object YoutubeGrab {
             audioDe.values.forEach { it?.esperar(); it?.destino?.delete() }
         }
 
-        // A QUARENTENA EXIGE UNANIMIDADE — ver [adaptativoBloqueadoEm]. Com o
-        // pool misturado, um 403 isolado é o comportamento NORMAL de uma faixa
-        // envenenada com uma boa logo atrás na fila; desligar o caminho
-        // inteiro por causa dele seria o autogol.
-        if (tentados >= 2 && recusas403 == tentados) {
-            adaptativoBloqueadoEm = SystemClock.elapsedRealtime()
-        }
+        // A QUARENTENA EXIGE UNANIMIDADE — a régua mora em
+        // [quarentenaSeUnanime], e o áudio usa a MESMA.
+        quarentenaSeUnanime(tentados, recusas403)
         return null
     }
 
@@ -928,8 +966,13 @@ object YoutubeGrab {
         private val candidatos: List<Faixa>,
         private val previsaoVideo: Long,
         private val barra: BarraDoPar,
+        // O TETO DO PEDIDO vai no NOME: o mesmo vídeo baixado com dois tetos
+        // são dois pedidos, e com o nome antigo o segundo download truncava o
+        // arquivo que o primeiro ainda devia ao `resgates` (ver
+        // [arquivoDestino]).
+        teto: Int,
     ) {
-        val destino = File(pasta(ctx), "$id-a.$ext")
+        val destino = File(pasta(ctx), "$id-$teto-a.$ext")
         private val respondeuSinal = java.util.concurrent.CountDownLatch(1)
         @Volatile private var aceito = false
         @Volatile private var pronto: File? = null
@@ -1048,7 +1091,7 @@ object YoutubeGrab {
                     return null
                 }
                 tentadas++
-                if (motivo(e) == "403") recusas403++
+                if (recusa403(motivo(e))) recusas403++
             }
             destino.delete()
         }
@@ -1056,9 +1099,7 @@ object YoutubeGrab {
         // unanimidade do vídeo ([adaptativoBloqueadoEm]): sem isto, um vídeo
         // com todo áudio adaptativo recusado fazia a sessão refazer as sondas
         // condenadas a cada download.
-        if (tentadas >= 2 && recusas403 == tentadas) {
-            adaptativoBloqueadoEm = SystemClock.elapsedRealtime()
-        }
+        quarentenaSeUnanime(tentadas, recusas403)
         return null
     }
 
@@ -1077,9 +1118,10 @@ object YoutubeGrab {
         segundos: Long,
         audio: AudioEmVoo,
         barra: BarraDoPar,
+        teto: Int,
     ): Desfecho {
-        val parteVideo = File(pasta(ctx), "$id-v.${v.ext}")
-        val saida = arquivoDestino(ctx, id, v.ext, false)
+        val parteVideo = File(pasta(ctx), "$id-$teto-v.${v.ext}")
+        val saida = arquivoDestino(ctx, id, v.ext, false, teto)
         try {
             val perfil = baixarTentando(v.url, parteVideo, "video", v.etiqueta, { lidos, total ->
                 barra.video(lidos, total)
@@ -1914,8 +1956,11 @@ object YoutubeGrab {
         // O DESFECHO GUARDADO MORRE AQUI, e este é o ponto certo: quem chama
         // acabou de copiar os bytes para a biblioteca, ou seja, o download foi
         // reclamado. Guardá-lo além disso apontaria para um arquivo que este
-        // mesmo método está apagando.
-        if (resgate != null && caminhoDe(url) == resgate?.arquivo) resgate = null
+        // mesmo método está apagando — e são TODOS os registros que apontam
+        // para este arquivo (o mesmo vídeo pedido com outro teto dá outro
+        // nome, mas o mesmo pedido repetido reaproveita o caminho).
+        val caminho = caminhoDe(url)
+        if (caminho != null) resgates.entries.removeAll { it.value.arquivo == caminho }
         try {
             val token = Uri.parse(url).lastPathSegment ?: return
             val alvo = SafRegistry.get(token) ?: return
@@ -1942,13 +1987,53 @@ object YoutubeGrab {
      * seguia o contêiner ("tudo que não é mp4 é áudio"), um download só-áudio em
      * WebM e uma montagem em WebM do mesmo vídeo disputavam exatamente o mesmo
      * nome — que é o caso que este sufixo existe para impedir.
+     *
+     * **E o TETO entra no nome** (revisão X2): o mesmo vídeo pedido a 1080p e
+     * depois a 480p são DOIS pedidos, e o registro do primeiro ([resgates])
+     * continuava apontando para um caminho que o segundo download truncava —
+     * o `fetch` do web lia bytes de outra qualidade, ou de um arquivo pela
+     * metade, sem erro nenhum. O `teto` no nome mantém "um nome por pedido".
      */
-    private fun arquivoDestino(ctx: Context, id: String, ext: String, soAudio: Boolean): File =
+    private fun arquivoDestino(ctx: Context, id: String, ext: String, soAudio: Boolean, teto: Int): File =
         File(
             pasta(ctx),
             id.replace(Regex("[^A-Za-z0-9_-]"), "_")
-                + (if (soAudio) "-audio" else "") + "." + ext,
+                + (if (soAudio) "-audio" else "") + "-" + teto + "p." + ext,
         )
+
+    /**
+     * Idade a partir da qual um intermediário no `cache/yt` é LIXO: a cópia
+     * para o OPFS leva segundos, então um arquivo que ninguém reclamou em uma
+     * hora é resto de uma página que morreu no meio (ou de um download que o
+     * operador cancelou).
+     */
+    private const val CACHE_MAX_MS = 60 * 60 * 1000L
+
+    /**
+     * Apaga os intermediários que ficaram SEM DONO.
+     *
+     * O `descartar` limpa o arquivo de cada pedido reclamado, mas ele só roda
+     * quando a página copia os bytes: renderer que morreu, aba recarregada ou
+     * `fetch` cancelado deixam o arquivo para trás, e nada mais o olhava — o
+     * cache crescia até o Android recolher por pressão de espaço, com o
+     * processo que hospeda os dois WebViews pagando o disco.
+     *
+     * Roda no começo de cada download, na `transferencia` (uma thread): ninguém
+     * está escrevendo aqui enquanto ela varre, e os arquivos que o [resgates]
+     * ainda aponta são POUPADOS — eles podem ser reclamados a qualquer momento.
+     */
+    private fun varrerCache(ctx: Context) {
+        val agora = System.currentTimeMillis()
+        val vivos = resgates.values.map { it.arquivo }.toSet()
+        try {
+            pasta(ctx).listFiles()?.forEach { f ->
+                if (!f.isFile || f.path in vivos) return@forEach
+                if (agora - f.lastModified() > CACHE_MAX_MS) f.delete()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "não deu para varrer o cache de downloads", e)
+        }
+    }
 
     /**
      * O melhor MP4 **progressivo** (vídeo + áudio no mesmo arquivo).
@@ -2159,10 +2244,10 @@ object YoutubeGrab {
      * Os PEDAÇOS de um arquivo em curso — a trava que impede a retomada de
      * emendar faixas DIFERENTES.
      *
-     * O destino é nomeado por vídeo + contêiner (`arquivoDestino`), não por
-     * faixa: dois itags do mesmo contêiner (137 e 136, ambos mp4) escrevem no
-     * MESMO caminho. Sem a conferência da URL, um parcial do 137 deixado por um
-     * app morto seria "retomado" por um download do 136 — e o arquivo
+     * O destino é nomeado por vídeo + contêiner + teto (`arquivoDestino`), não
+     * por faixa: dois itags do mesmo contêiner (137 e 136, ambos mp4) escrevem
+     * no MESMO caminho. Sem a conferência da URL, um parcial do 137 deixado por
+     * um app morto seria "retomado" por um download do 136 — e o arquivo
      * resultante teria dois vídeos emendados, sem erro nenhum, aparecendo só na
      * hora de projetar.
      *

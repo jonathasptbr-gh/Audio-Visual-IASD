@@ -10,7 +10,6 @@ import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
 import java.security.SecureRandom
-import java.util.concurrent.ConcurrentHashMap
 
 /**
  * A FOTO DE FUNDO NUM BUCKET R2 QUE NÃO MANDA CORS — a metade de TRANSPORTE.
@@ -208,26 +207,55 @@ object R2ImagemFonte {
  *
  * DIFERENÇA DELIBERADA CONTRA O `SafRegistry`: aquele guarda um `Uri` do SAF
  * para SEMPRE (o documento pode ser relido a qualquer momento, por
- * `listFolder`/`syncDeviceFolder`); este guarda os BYTES JÁ BAIXADOS de uma
- * imagem que só existe para ser lida UMA vez, imediatamente — então cada
- * token é consumido e REMOVIDO no primeiro `take()`. Sem o descarte, uma
- * varredura de centenas de fotos acumularia todas em memória até o processo
- * morrer, no mesmo processo que já divide espaço com dois WebViews e um
- * vídeo grande.
+ * `listFolder`/`syncDeviceFolder`); este guarda os BYTES JÁ BAIXADOS, que são
+ * caros em memória — e é por isso que ele tem TETO, e não remoção no primeiro
+ * `take()`.
+ *
+ * **Por que não consumir** (revisão X2): o `take` removia a entrada, e o
+ * primeiro pedido que falhasse por fora — o retry do Chromium, a folha de
+ * fundos refeita, o `fetch` que morreu com o renderer — recebia 404 e a
+ * varredura acusava a FONTE por uma imagem que ela tinha entregado. Um
+ * registro é barato de manter; acusar a fonte errada manda o operador
+ * procurar defeito no lugar errado.
  */
 object R2ImagemRegistry {
-    private val porToken = ConcurrentHashMap<String, Pair<ByteArray, String>>()
+    /** Entradas em memória. A varredura busca até SEIS fotos de uma vez; 24
+     *  cobre uma folha refeita sem crescer com o tamanho do hinário. */
+    private const val MAX_ENTRADAS = 24
+
+    /** O teto que de fato manda: uma foto de fundo vive na casa das centenas de
+     *  kB, e 16 MB é a trava contra um bucket que devolva o teto de 8 MB por
+     *  pedido em todas as fotos. */
+    private const val MAX_BYTES = 16 * 1024 * 1024
+
+    private class Par(val bytes: ByteArray, val mime: String)
+
+    private val porToken = LinkedHashMap<String, Par>()
+    private var total = 0
     private val rnd = SecureRandom()
 
     /** Registra os bytes e devolve a URL servível pelo loader do Controle. */
     fun store(bytes: ByteArray, mime: String): String {
         val token = newToken()
-        porToken[token] = bytes to mime
+        synchronized(porToken) {
+            porToken[token] = Par(bytes, mime)
+            total += bytes.size
+            // DESPEJO DO MAIS ANTIGO — a inserção é a ordem de chegada — e
+            // sempre sobrando UMA: o pedido que acabou de ser feito não pode
+            // nascer já despejado.
+            while (porToken.size > 1 && (porToken.size > MAX_ENTRADAS || total > MAX_BYTES)) {
+                val velho = porToken.keys.first()
+                total -= porToken.getValue(velho).bytes.size
+                porToken.remove(velho)
+            }
+        }
         return "${WebViewFactory.ORIGIN}/r2img/$token"
     }
 
-    /** Consome UMA vez — a entrada não sobrevive a esta chamada. */
-    fun take(token: String): Pair<ByteArray, String>? = porToken.remove(token)
+    /** Os bytes de um token — NÃO consome (ver o KDoc do objeto). */
+    fun take(token: String): Pair<ByteArray, String>? = synchronized(porToken) {
+        porToken[token]?.let { it.bytes to it.mime }
+    }
 
     /** 128 bits em base64url, como o [SafRegistry] — opaco e não adivinhável. */
     private fun newToken(): String {
@@ -249,8 +277,10 @@ class R2ImagemPathHandler : WebViewAssetLoader.PathHandler {
             null,
             200,
             "OK",
-            // Consumido uma vez só: guardar em cache não economizaria nada e
-            // um segundo pedido para o MESMO token já não acha o registro.
+            // O WebView não guarda cópia: o registro já tem os bytes, e um
+            // segundo pedido do MESMO token — o retry do Chromium, a folha
+            // refeita — volta aqui e acha o registro (ver o KDoc do
+            // [R2ImagemRegistry]).
             mapOf("Cache-Control" to "no-store"),
             ByteArrayInputStream(bytes),
         )

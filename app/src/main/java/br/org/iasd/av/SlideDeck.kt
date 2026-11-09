@@ -180,7 +180,7 @@ object SlideDeck {
             // `?: return` no fim do bloco deixa o descritor anulável para o
             // compilador — e aí é o `PdfRenderer` que não compila.
             val bruto: ParcelFileDescriptor? = when {
-                u.host == WebViewFactory.ORIGIN_HOST -> {
+                WebViewFactory.ehDoApp(u) -> {
                     val token = u.lastPathSegment ?: return erro("url /saf/ sem token")
                     val uri = SafRegistry.get(token) ?: return erro("token /saf/ desconhecido")
                     val aberto = ctx.contentResolver.openFileDescriptor(uri, "r")
@@ -456,12 +456,23 @@ object SlideDeck {
         try {
             val token = Uri.parse(url).lastPathSegment ?: return
             val alvo = SafRegistry.get(token) ?: return
-            val f = alvo.path?.let { File(it) } ?: return
-            // Só dentro do NOSSO cache: um token de `/saf/` também aponta para
-            // arquivos do operador (pastas do dispositivo), e apagar um deles
-            // seria destruir o original em vez de um intermediário.
-            if (f.parentFile?.parentFile == raiz(ctx)) f.parentFile?.deleteRecursively()
+            pastaParaDescartar(raiz(ctx), alvo.path)?.deleteRecursively()
         } catch (_: Exception) { /* o cache some sozinho no pior caso */ }
+    }
+
+    /**
+     * A subpasta a apagar para um arquivo do NOSSO cache, ou `null` quando ela
+     * não é nossa.
+     *
+     * PURA (a raiz é parâmetro) para o JUnit poder provar a regra que APAGA —
+     * é o único ponto do arquivo que apaga arquivo, e apagar o original do
+     * operador em vez do intermediário é o erro que ela existe para impedir:
+     * um token de `/saf/` também aponta para as pastas do dispositivo.
+     */
+    internal fun pastaParaDescartar(raiz: File, caminho: String?): File? {
+        val f = caminho?.let { File(it) } ?: return null
+        val pasta = f.parentFile ?: return null
+        return if (pasta.parentFile == raiz) pasta else null
     }
 
     private fun raiz(ctx: Context) = File(ctx.cacheDir, "slides").apply { mkdirs() }

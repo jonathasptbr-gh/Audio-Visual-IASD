@@ -92,6 +92,27 @@ checar(comPrefixo.length === 0,
   'nenhum ponto do shell pergunta "é do origin?" por `startsWith` — `…androidplatform.net.evil.com` começa igual',
   comPrefixo.join(', '));
 
+// E A INVARIANTE 2 TEM UM LUGAR SÓ (revisão X2). Ela já esteve escrita em três
+// cópias — a navegação, a janela do `/saf/` e o proxy da transmissão, apagado na
+// v1.13.49 — com a MESMA pergunta em formas diferentes. Três escritas da mesma
+// cerca divergem no primeiro ajuste, e a que ficar para trás fura a porta que a
+// outra fecha, em silêncio: o `startsWith` acima é o teste do PADRÃO errado, e
+// este é o teste de a pergunta ser UMA. É a única forma de travar a DIVERGÊNCIA
+// sem aparelho: o `invariantes-shell` antigo aceitava as três cópias.
+checar(/fun ehDoApp\(url: Uri\): Boolean\s*=\s*url\.scheme == "https" && url\.host == ORIGIN_HOST/.test(wvf),
+  'a invariante 2 mora num predicado só, `WebViewFactory.ehDoApp` (esquema E host do `Uri`, na mesma expressão)');
+const copias = CODIGO_KOTLIN
+  .filter(([f]) => f !== 'WebViewFactory.kt')
+  .filter(([, t]) => /\.host\s*[!=]=\s*(WebViewFactory\.)?ORIGIN_HOST/.test(t))
+  .map(([f]) => f);
+checar(copias.length === 0,
+  'e nenhum outro arquivo do shell repete a comparação do host do origin — quem precisa dela chama `WebViewFactory.ehDoApp` (uma cópia a mais é uma porta a mais para divergir)',
+  copias.join(', '));
+const chamadores = CODIGO_KOTLIN.filter(([, t]) => /\behDoApp\(/.test(t)).map(([f]) => f).sort();
+checar(chamadores.length >= 2,
+  'a navegação E a janela do `/saf/` perguntam pelo MESMO predicado (as duas portas que a invariante 2 fecha)',
+  chamadores.join(', '));
+
 // ===== INVARIANTE 4 — o que o WebView pode abrir =====
 for (const [decl, por] of [
   ['allowFileAccess = false', 'sem `file://` direto: tudo entra pelo asset loader'],

@@ -20,10 +20,15 @@ import org.json.JSONObject
  * (`{ files:[…], url, title }`), com uma diferença deliberada: os arquivos
  * chegam como URL servível em vez de `File`, e o lado web faz `fetch()` para
  * materializar o Blob — nunca base64. O consumidor aceita as duas formas,
- * porque no navegador o `<input type="file">` entrega `File`; ler por JANELA
- * (o `?r=` do [SafJanela]) é o que resolveria o arquivo grande, e ele hoje só
- * é usado pelo pacote de transferência — o vídeo de 3,5 GB compartilhado
- * continua chegando CORTADO no teto de 2 GB do [SafPathHandler].
+ * porque no navegador o `<input type="file">` entrega `File`.
+ *
+ * **O arquivo GRANDE é recusado com nome, e não cortado**: acima do teto de
+ * 2 GB do `/saf/` o lado web avisa ANTES de ler (`TETO_DO_SAF` +
+ * `avisarGrandeDemais`, v1.13.48) — o `size` que este arquivo já entregava,
+ * finalmente lido. Ler por JANELA (o `?r=` do [SafJanela]) não serve ao share
+ * por outro motivo: ele materializa o Blob inteiro no WebView, e o caminho do
+ * pacote não materializa. O que o teto não cobre é o arquivo que o provedor
+ * NÃO deixa nem descrever — esse sai em `ignorados` (ver [interpretar]).
  */
 object ShareIntake {
 
@@ -73,8 +78,16 @@ object ShareIntake {
         val title = intent.getStringExtra(Intent.EXTRA_SUBJECT)
 
         val files = JSONArray()
+        val ignorados = JSONArray()
         for (uri in uris) {
-            files.put(describe(ctx, uri) ?: continue)
+            val f = describe(ctx, uri)
+            if (f != null) files.put(f)
+            // O ARQUIVO QUE NEM SE DESCREVE VIRA NOME, e a frase é do lado web
+            // (revisão X2): o `describe` devolvia `null` e o lote inteiro virava
+            // "nada" — sem diálogo e sem Registro, o operador tinha escolhido um
+            // arquivo e o app fingia não ter visto. O `name` sai daqui porque é
+            // AQUI que o `lastPathSegment` ainda existe.
+            else ignorados.put(uri.lastPathSegment ?: "arquivo")
         }
 
         // O texto compartilhado pode vir com um link no meio de uma frase
@@ -82,13 +95,17 @@ object ShareIntake {
         // classificar a URL — aqui só isolamos o primeiro link, se houver.
         val url = text?.let { firstUrl(it) }
 
-        if (files.length() == 0 && url == null) return null
+        if (files.length() == 0 && url == null && ignorados.length() == 0) return null
 
-        return JSONObject()
+        val payload = JSONObject()
             .put("files", files)
             .put("url", url ?: JSONObject.NULL)
             .put("title", title ?: JSONObject.NULL)
             .put("ts", System.currentTimeMillis())
+        // SÓ QUANDO HÁ: o campo viaja para um bundle que pode estar rodando num
+        // shell mais velho do que ele, e a ausência continua sendo "nenhum".
+        if (ignorados.length() > 0) payload.put("ignorados", ignorados)
+        return payload
     }
 
     /**
@@ -123,6 +140,14 @@ object ShareIntake {
         return (0 until clip.itemCount).mapNotNull { clip.getItemAt(it).uri }
     }
 
+    /**
+     * Metro de um arquivo compartilhado, ou `null` quando o provedor não deixa
+     * nem consultar (nuvem sem permissão, provedor que morreu).
+     *
+     * O `runCatching` do [parse] engoliria a exceção daqui junto com o lote
+     * inteiro, e por isso este método tem o seu próprio `try`: quem chama é que
+     * decide o que fazer com o `null` — hoje, `ignorados` (ver [interpretar]).
+     */
     private fun describe(ctx: Context, uri: Uri): JSONObject? = try {
         var name: String? = null
         var size = 0L

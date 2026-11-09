@@ -3,6 +3,7 @@ package br.org.iasd.av
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
+import android.net.Uri
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
@@ -43,6 +44,22 @@ object WebViewFactory {
     const val ORIGIN = "https://$ORIGIN_HOST"
     const val URL_CONTROLE = "$ORIGIN/web/controle/index.html"
     const val URL_DISPLAY = "$ORIGIN/web/display/index.html"
+
+    /**
+     * "Esta URL é do origin do app?" — pelo HOST do `Uri`, nunca por prefixo.
+     *
+     * **É o predicado da invariante 2, e mora num lugar só.** Ele já esteve
+     * escrito em três pontos (a navegação, a janela do `/saf/` e o proxy da
+     * transmissão, apagado na v1.13.49), e três escritas da mesma cerca
+     * divergem no primeiro ajuste — a que ficar para trás fura a porta que o
+     * [shouldOverrideUrlLoading] fecha, e dentro de um WebView que injeta
+     * `__AVBridge` em TODA página carregada. O `tools/invariantes-shell.test.mjs`
+     * confere que continua havendo UM lugar.
+     *
+     * Compara `scheme` e `host` DO `Uri`: `appassets.androidplatform.net.evil.com`
+     * tem o mesmo prefixo e não é o app, e um `startsWith` o autorizaria.
+     */
+    fun ehDoApp(url: Uri): Boolean = url.scheme == "https" && url.host == ORIGIN_HOST
 
     /**
      * Loader dos WebViews.
@@ -271,15 +288,10 @@ object WebViewFactory {
                 // segue no WebView; qualquer outra coisa é link externo e
                 // não deve sequestrar a tela de projeção.
                 //
-                // A comparação é por COMPONENTE do Uri, nunca por prefixo da
-                // string: `https://appassets.androidplatform.net.evil.com/x`
-                // começa com o origin, é um domínio que qualquer um registra, e
-                // com um `startsWith` a navegação era autorizada — dentro de um
-                // WebView que injeta `__AVBridge` em TODA página que carregar
-                // (o `addJavascriptInterface` é por-WebView, não por-origem).
-                // Este é o único ponto que impede conteúdo estranho de entrar
-                // aqui, então ele não pode falhar ABERTO.
-                return !(url.scheme == "https" && url.host == ORIGIN_HOST)
+                // A checagem é a [ehDoApp] — a invariante 2 escrita UMA vez,
+                // que é o que impede esta porta e a da janela do `/saf/` de
+                // divergirem.
+                return !ehDoApp(url)
             }
 
             /**

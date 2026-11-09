@@ -170,6 +170,31 @@ try {
   checar(link.banco && link.tela,
     'um link compartilhado ao Cronograma aparece na lista assim que o import termina', link);
 
+  // ── 5. O ARQUIVO QUE O SHELL NÃO CONSEGUIU NEM DESCREVER AVISA ──────────
+  //
+  // O `describe` do `ShareIntake` devolve `null` quando o provedor recusa a
+  // consulta (nuvem sem permissão, provedor que morreu), e o arquivo saía do
+  // lote em SILÊNCIO: o operador tinha escolhido um arquivo, o app fingia não
+  // ter visto, e não havia nem diálogo nem linha no Registro (revisão X2). O
+  // shell passou a mandar `ignorados: ["nome"]` e o `importShare` a dizer o
+  // nome — é a única coisa que o operador tem para agir.
+  await pg.evaluate(() => {
+    window.__imp4 = importShare({ files: [], ignorados: ['foto-do-drive.jpg'] });
+  });
+  const aviso = await pg.waitForFunction(() => {
+    const d = document.getElementById('appDialog');
+    if (!d || !d.classList.contains('open')) return null;
+    return {
+      titulo: document.getElementById('appDialogTitle').textContent,
+      msg: document.getElementById('appDialogMsg').textContent,
+    };
+  }, null, { timeout: 8000 }).then((h) => h.jsonValue()).catch(() => null);
+  checar(!!aviso && aviso.msg.includes('foto-do-drive.jpg'),
+    'o arquivo que o app não conseguiu ler aparece NOMEADO num aviso — antes o share inteiro sumia calado',
+    aviso);
+  await pg.evaluate(() => { const b = document.getElementById('appDialogOk'); if (b) b.click(); });
+  await pg.evaluate(() => window.__imp4);
+
   checar(erros.length === 0, 'nenhum erro de página', erros);
 } finally {
   await navegador.close();

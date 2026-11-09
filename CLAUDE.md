@@ -209,7 +209,10 @@ saber qual para conferi-las.
    O contexto seguro é o que faz OPFS e IndexedDB funcionarem. Não é opcional.
 2. **Um único origin para os dois WebViews** — é o que preserva
    IDB/OPFS/BroadcastChannel compartilhados. Comparado por **componente do
-   `Uri`** (`url.host == ORIGIN_HOST`), **nunca** por prefixo de string:
+   `Uri`** (`url.host == ORIGIN_HOST`), **num predicado só**
+   (`WebViewFactory.ehDoApp`, que a navegação, a janela do `/saf/`, o
+   `SlideDeck` e o `EspelhoCert` chamam — o `invariantes-shell` reprova cópia
+   nova), **nunca** por prefixo de string:
    `appassets.androidplatform.net.evil.com` começa com o origin, é um domínio que
    qualquer um registra, e um `startsWith` autorizaria a navegação — dentro de um
    WebView que injeta `__AVBridge` em **toda** página que carregar
@@ -1153,8 +1156,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.13.49 · APK v1.13.49** · `SHELL_VERSION` **85** ·
-bundle com `minShell: 83` e `shellTag: v1.13.49`. O **PISO** continua **83**:
+**Versão atual: base web v1.13.50 · APK v1.13.50** · `SHELL_VERSION` **85** ·
+bundle com `minShell: 83` e `shellTag: v1.13.50`. O **PISO** continua **83**:
 nada novo é exigido do web, e a superfície não mudou desde a X1 — a X2 apagou o
 proxy da transmissão direta sem tocar no contrato da ponte. O que cada lote
 trouxe está no `docs/HISTORICO.md`, nunca aqui.
