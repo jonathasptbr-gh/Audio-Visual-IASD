@@ -40,7 +40,7 @@ abandonada → primeira pendente pelo `nº`).
 | 26 | K6 | feita | v1.13.46 (APK + web) | 2026-11-08 | a cifra seguia redirecionamento para fora da allowlist; o `deckPaginas` baixava de QUALQUER host e vazava as páginas quando falhava no meio; a foto acima do teto virava `200` cortado; o `fim` do pacote fazia `flush` de `content://` na main; JUnit novo `CifraFonteTest` (9 casos, reversão 7/9); o pin do NewPipe conferido contra a v0.27.0 e mantido, com o porquê escrito |
 | 27 | X1 | feita | v1.13.47 (APK + web) | 2026-11-08 | os SEIS órfãos saíram do Kotlin (76 → 70 servidos; 64 · 70 · 70); `SHELL_VERSION` 85; `StreamProxy` e a rota `/s/` ficam latentes |
 | 28 | X2 | feita (resíduo: o §2 do `ACHADOS-EM-ABERTO` — a chamada telefônica, decisão de aparelho —, e os achados da `AUDITORIA-2026-09-11`/`EFICIENCIA`, fora da cerca de qualquer etapa) | v1.13.48 (só web) + v1.13.49 + v1.13.50 (APK + web) | 2026-11-08 | os dois chamadores que faltavam da `listasSeq` (gaveta e pacote); o ACK atrasado do canal de mídia; o share > 2 GB recusado com nome; o cancelamento da verificação depois do último byte; o resíduo da transmissão direta APAGADO; **e o resto do lote Kotlin:** a invariante 2 num predicado só (`WebViewFactory.ehDoApp`), os quatro resíduos do `YoutubeGrab`, o arquivo ilegível do share avisado com nome, o registro das fotos sem consumir, JUnit novos (`SafJanelaTest`, `SlideDeckTest`) e as asserções que faltavam |
-| 29 | X3 | pendente | | | |
+| 29 | X3 | em curso (2026-11-09) | | | medição no Chromium (abertura, heap sob status a 4 Hz, `getComputedStyle` por render, busca com o acervo cheio) + os repasses de oráculo A5/W2/C2/S2/K5/K6 |
 | 30 | X4 | pendente (opcional: só com o "sim" do operador) | | | |
 
 ## Repasses
