@@ -760,8 +760,16 @@ jobs:
           # ORDEM da lista: em paralelo os `::group::` sairiam intercalados, e um
           # log que não se lê não é rede de segurança — que é a lição do arranjo
           # anterior a v5.213, em que o primeiro reprovado calava os outros onze.
+          # CADA ORÁCULO TEM TETO DE TEMPO, e não é zelo: o `xargs` espera o
+          # último filho, então UM oráculo que trave segura a suíte inteira até o
+          # limite do passo (15 min) — e o que se perde é justamente o NOME. MEDIDO
+          # na v1.13.52: o passo morreu no teto com três processos vivos e nenhuma
+          # linha de placar, e a única pista de qual travou seria o log de cada um.
+          # O teto é 600 s por arquivo — acima do maior oráculo medido e muito
+          # abaixo do passo; o 137 (SIGKILL) entra no placar como reprovado, com o
+          # nome do arquivo, que é o que este passo existe para dizer.
           printf '%s\n' "${lista[@]}" | nl -ba -w1 -s' ' |
-            xargs -P "$PARALELO" -L1 sh -c 'PW_CHROMIUM="" node "$2" > "$0/$1.log" 2>&1; echo $? > "$0/$1.rc"' "$saida"
+            xargs -P "$PARALELO" -L1 sh -c 'PW_CHROMIUM="" timeout --signal=KILL 600 node "$2" > "$0/$1.log" 2>&1; echo $? > "$0/$1.rc"' "$saida"
 
           rodados=0
           falhas=()
