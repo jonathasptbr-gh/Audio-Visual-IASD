@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.50';
+const WEB_VERSION = '1.13.51';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -21190,7 +21190,9 @@ function serieTemODaSemana(c, agora) {
 //  3. **UMA POR VEZ** (`serieAutoRodando`). A fila de transferência do shell é
 //     de uma thread só — é invariante, não economia (o resgate de download é um
 //     slot único) —, então duas séries disparadas juntas seriam uma esperando a
-//     outra de qualquer jeito, com duas notificações disputando a barra.
+//     outra de qualquer jeito, com duas notificações disputando a barra. **MAS
+//     NENHUMA CHAMADA SE PERDE (v1.13.51):** a que chega durante outra roda
+//     depois (`serieAutoRefazer`), em vez de virar no-op.
 //
 // ## O que NÃO está aqui
 //
@@ -21205,6 +21207,15 @@ function serieTemODaSemana(c, agora) {
 const SERIE_LISTA = 'serie';
 
 let serieAutoRodando = false;
+
+// A RODADA PEDIDA DURANTE OUTRA NÃO PODE SER DESCARTADA. Ela era um `return`
+// calado, e é a segunda metade do buraco que perdia o episódio baixado pelo
+// atalho da semana: a rotina da abertura pode estar no meio de um download de
+// minutos quando o arquivo do outro sábado chega, e a chamada de quem chegou —
+// `resolverSemana`, `verificarSemanaAoAbrir`, o `visibilitychange` — virava no-op.
+// A reivindicação imediata (`serieReterBaixado`) fecha o caso do atalho; esta
+// fila fecha TODOS os outros, e é uma rodada a mais no fim, nunca uma a menos.
+let serieAutoRefazer = false;
 
 // A rotina vale para TODA série (v1.11.10). A pergunta é a mesma das outras
 // capacidades do calendário semanal: `ehLink` — com uma só família de vídeo,
@@ -21235,6 +21246,35 @@ async function serieArquivoDoEpisodio(s) {
   if (!s || !s.id_music) return null;
   const rec = await AVDB.mediaByYoutube(s.id_music, 'video').catch(() => null);
   return rec && rec.blob ? rec : null;
+}
+
+/**
+ * O EPISÓDIO QUE ACABOU DE DESCER ENTRA NA RETENÇÃO **NO INSTANTE**.
+ *
+ * O caminho do atalho universal (`resolverSemana`) baixa por `ytAcao(…, 'tocar')`,
+ * e um download sem destino de guarda nasce na prateleira `avulsos` — que é
+ * RODÍZIO de três (`fixarAvulso`), não depósito. A rotina da semana é quem move o
+ * arquivo para `serie`, e era só isso que o segurava: pedida durante OUTRA rodada,
+ * a chamada era descartada em silêncio (`serieAutoRodando`), e o arquivo ficava no
+ * rodízio — o quarto item posto em cena o despejava, o `listRemove` do `db.js` não
+ * achava outro detentor e os bytes MORRIAM. O desfecho é o do relato do operador
+ * (*"vi o vídeo sendo baixado e depois… um deles não estava disponível offline"*):
+ * ele só descobre no sábado, sem internet.
+ *
+ * Por isso a ordem aqui é: **reivindicar agora, normalizar depois.** O `listAdd` é
+ * idempotente e a rotina continua sendo a dona da lista (o `listSet` dela
+ * recalcula tudo, e a regra "só encolhe com o substituto na mão" segue valendo) —
+ * o que não pode é a sobrevivência do arquivo depender de quando aquela rodada
+ * passa. Um id reivindicado a mais é o PIOR CASO BARATO: ele sai na rodada
+ * seguinte; o arquivo perdido é o caro.
+ */
+async function serieReterBaixado(epi) {
+  const rec = await serieArquivoDoEpisodio(epi);
+  if (!rec) return null;
+  await AVDB.listAdd(SERIE_LISTA, rec.id).catch((e) => {
+    diagC('séries: reter o episódio baixado falhou (' + ((e && e.message) || e) + ')');
+  });
+  return rec;
 }
 
 // ============================================================================
@@ -21529,7 +21569,10 @@ async function resolverSemana(rec, daFila) {
   try {
     await ytAcao(serieComoYoutube(coll, epi), 'tocar', null, false, ytAlturaPadrao());
   } finally { marcarCarregando(rec.id, false); }
-  // O episódio novo entra na lista de RETENÇÃO já agora (a rotina só reescreve a lista).
+  // O episódio novo entra na lista de RETENÇÃO já agora — e não "pela rotina", que
+  // só reescreve a lista (ver `serieReterBaixado`: a rodada enfileirada pode
+  // demorar minutos, e o rodízio `avulsos` não espera).
+  await serieReterBaixado(epi);
   manterSeriesDaSemana().catch((e) => {
     diagC('séries: manter o episódio da semana falhou (' + (e && e.message || e) + ')');
   });
@@ -21645,9 +21688,26 @@ async function serieVideosDoPacote(coll, retidos) {
  * ELA É CHAMADA pelo `autoRefreshCollections`, sempre, e é o passo 2 que a
  * mantém viva a cada abertura: a lista de retenção é recalculada a partir da
  * semana corrente, e é isso que solta o que saiu.
+ *
+ * ===== E NENHUMA CHAMADA SE PERDE (v1.13.51) =====
+ *
+ * O `if (serieAutoRodando) return` fazia a rodada pedida durante outra SUMIR, e
+ * rodada perdida é arquivo sem dono: o download que termina no meio dela fica só
+ * no rodízio `avulsos`, que despeja na quarta cena. Hoje a chamada concorrente
+ * ENFILEIRA uma rodada (o `serieAutoRefazer`), que roda no `finally` desta e
+ * enxerga o arquivo que a primeira leu como ausente. Foi o segundo conserto do
+ * mesmo defeito: o primeiro é o `serieReterBaixado`, no atalho da semana.
  */
 async function manterSeriesDaSemana() {
-  if (serieAutoRodando) return;
+  if (serieAutoRodando) {
+    // UMA POR VEZ, mas nenhuma perdida: a chamada de agora é uma rodada a mais
+    // quando a de dentro terminar (ver `serieAutoRefazer`).
+    if (!serieAutoRefazer) {
+      diagC('séries: rotina pedida durante outra rodada — refazendo no fim');
+    }
+    serieAutoRefazer = true;
+    return;
+  }
   const series = allCollections().filter((c) => c.kind === 'serie');
   if (!series.length) return;
   serieAutoRodando = true;
@@ -21708,7 +21768,20 @@ async function manterSeriesDaSemana() {
       diagC('séries: gravar a retenção da semana falhou (' + (e && e.message || e) + ')');
     });
     renderCollectionsNow();
-  } finally { serieAutoRodando = false; }
+  } finally {
+    serieAutoRodando = false;
+    // A RODADA PEDIDA DURANTE ESTA (ver `serieAutoRefazer`): refaz agora, e a
+    // segunda enxerga o arquivo que a primeira já tinha lido como ausente.
+    if (serieAutoRefazer) {
+      serieAutoRefazer = false;
+      // Sem `await`: quem chamou não espera por esta rodada (o `resolverSemana`
+      // chama e segue), e a promessa é a mesma de sempre — o que não pode é ela
+      // morrer calada.
+      manterSeriesDaSemana().catch((e) => {
+        diagC('séries: a rodada de reforço falhou (' + ((e && e.message) || e) + ')');
+      });
+    }
+  }
 }
 
 // O ÍNDICE DE UMA COLEÇÃO PRECISA SER REFEITO?

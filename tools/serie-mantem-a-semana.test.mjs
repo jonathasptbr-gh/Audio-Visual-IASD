@@ -245,14 +245,13 @@ try {
     + 'veredito do `ehDoSabadoAtual`, nunca de um calendário escrito aqui',
     datas);
 
-  // A ROTINA É UMA SÓ POR VEZ (`if (serieAutoRodando) return`), e a de ABERTURA
-  // do app (fase 5 do `autoRefreshCollections`) corre sozinha: numa máquina
-  // carregada ela ainda está de pé quando o oráculo chama a dele, e a chamada vira
-  // um no-op calado — o `baixados` fica vazio e o bloco reprova por PRAZO (medido: 1
-  // em 8 com oito processos em paralelo; no CI, uma reprovação). Esperar a de
-  // abertura acabar e chamar no MESMO turno do JS (sem `await` entre a pergunta e a
-  // chamada) fecha a janela. Sem isso, os blocos "não baixa" também passariam por
-  // acaso: a rotina nem teria rodado.
+  // A ROTINA É UMA SÓ POR VEZ (`serieAutoRodando`), e a de ABERTURA do app (fase 5
+  // do `autoRefreshCollections`) corre sozinha: numa máquina carregada ela ainda
+  // está de pé quando o oráculo chama a dele, e os downloads dos blocos se
+  // entrelaçam com os dela (MEDIDO: 1 em 8 com oito processos em paralelo; no CI,
+  // uma reprovação). Esperar a de abertura acabar e chamar no MESMO turno do JS
+  // (sem `await` entre a pergunta e a chamada) mantém cada bloco medindo o
+  // PRÓPRIO download. A chamada em si não se perde mais — ver o bloco L2 (v1.13.51).
   const rodarRotina = () => pg.evaluate(async () => {
     for (let i = 0; i < 400 && serieAutoRodando; i++) await new Promise((r) => setTimeout(r, 50));
     await manterSeriesDaSemana();
@@ -521,8 +520,12 @@ try {
         ok(window.__respostaVerif);
       }; });
     };
+    // A rotina de verdade fica guardada: o bloco L a restaura (a espia daqui é
+    // só para contar CHAMADAS desta metade).
+    window.__manterReal = window.manterSeriesDaSemana;
     window.manterSeriesDaSemana = async () => { window.__rotina++; };
   });
+
   // A BARRA, e o card ABERTO PELO TOQUE na barra — o caminho do operador
   // (`alternarAcordeao`), nos dois modos.
   const barra = (abrir, modo) => pg.evaluate((a) => {
@@ -592,7 +595,119 @@ try {
   checar(/Sem conexão/.test(semRede.resumo) && semRede.rotina === 1,
     'K10 · e quando ela FALHA o subtítulo diz que a semana não foi verificada — '
     + 'sem o botão, esta linha é a única que conta — e a rotina não roda', semRede);
-  await pg.evaluate(() => { window.syncCollection = window.__syncReal; });
+  await pg.evaluate(() => {
+    window.syncCollection = window.__syncReal;
+    window.manterSeriesDaSemana = window.__manterReal;
+  });
+
+  // ── L. O EPISÓDIO BAIXADO NÃO PODE FICAR SEM DONO (v1.13.51) ────────────
+  //
+  // RELATO DO OPERADOR (2026-10-31): *"vi o vídeo sendo baixado e depois… um
+  // deles não estava disponível offline"*. O atalho da semana baixa por
+  // `ytAcao(…, 'tocar')`, e um download SEM destino de guarda nasce na prateleira
+  // `avulsos` — que é RODÍZIO de três, não depósito. Quem o movia para a lista
+  // `serie` era a rotina da semana, e ela tinha um furo: pedida durante OUTRA
+  // rodada, a chamada era DESCARTADA (`if (serieAutoRodando) return`). O arquivo
+  // ficava no rodízio, a quarta cena o despejava e o `listRemove` do `db.js`
+  // apagava o blob — sem dono, sem erro, e o operador só descobre no sábado.
+  //
+  // São DUAS metades, e cada bloco isola uma:
+  //  L1: o download do atalho se reivindica SOZINHO (a rotina é espiã e não roda);
+  //  L2: a chamada feita durante outra rodada ENFILEIRA uma rodada — a de dentro
+  //      termina antes de ver o arquivo, e a de fora o encontra.
+
+  // ── L1. A REIVINDICAÇÃO IMEDIATA, sem depender da rotina ────────────────
+  const l1 = await pg.evaluate(async (id) => {
+    // Premissa limpa: nada retido e nenhum arquivo desta semana no aparelho.
+    await AVDB.listSet('avulsos', []);
+    await AVDB.listSet('serie', []);
+    const coll = allCollections().find((c) => c.id === id);
+    const epi = serieEpisodioDaSemana(coll);
+    const antes = await serieArquivoDoEpisodio(epi);
+    const realYtAcao = window.ytAcao;
+    const realRotina = window.manterSeriesDaSemana;
+    let plantado = null;
+    let pediu = 0;
+    // O DOWNLOAD PELO MESMO SEAM DOS OUTROS BLOCOS: `ytAcao` é interceptado e faz
+    // o que o de verdade faz no caminho "só Tocar agora" — a mídia nasce em
+    // `avulsos`, que é a lista que o `ytAcaoInterno` escolhe sem destino de guarda.
+    window.ytAcao = async (alvo) => {
+      plantado = await window.__plantarMidia(alvo.id, 'semana', 'avulsos');
+      return true;
+    };
+    // A ROTINA NÃO RODA: se a retenção só viesse dela, `serie` ficaria vazia.
+    window.manterSeriesDaSemana = async () => { pediu++; };
+    let ok = false;
+    try { ok = await resolverSemana(semanaRegistro(coll.serie), false); }
+    finally {
+      window.ytAcao = realYtAcao;
+      window.manterSeriesDaSemana = realRotina;
+    }
+    const retidos = await AVDB.listIds('serie');
+    const avulsos = await AVDB.listIds('avulsos');
+    const salvo = plantado ? await AVDB.getMedia(plantado.id) : null;
+    return { antes: !!antes, ok, pediu, id: plantado && plantado.id,
+      nasceuAvulso: !!(plantado && avulsos.includes(plantado.id)),
+      retidos, vivo: !!(salvo && salvo.blob) };
+  }, SERIE);
+  checar(l1.antes === false && l1.ok === true && l1.nasceuAvulso,
+    'L1 · A PREMISSA: o atalho da semana baixou o episódio e o arquivo NASCEU em '
+    + '`avulsos` — é a lista do "só Tocar agora", e ela é rodízio de três', l1);
+  checar(l1.retidos.includes(l1.id) && l1.vivo,
+    'L1 · e ele entra na RETENÇÃO na hora, sem a rotina: `serieReterBaixado` '
+    + 'reivindica o arquivo NO PRÓPRIO caminho do atalho. Depender da rotina era o '
+    + 'defeito — o rodízio despeja na quarta cena e o blob morre sem dono', l1);
+  checar(l1.pediu === 1,
+    'e a rotina continua sendo PEDIDA em seguida — ela é quem normaliza a lista '
+    + 'com a semana corrente, e não deixa de ser a dona dela', l1);
+
+  // ── L2. A CHAMADA DURANTE OUTRA RODADA NÃO SE PERDE ─────────────────────
+  const l2 = await pg.evaluate(async () => {
+    await AVDB.listSet('serie', []);
+    await AVDB.listSet('avulsos', []);
+    window.__chamadas = [];
+    let n = 0;
+    const realYtArquivo = window.ytArquivo;
+    // A RODADA SEGURA NO PRIMEIRO DOWNLOAD — é a rotina da abertura, que leva
+    // minutos. Depois do portão o "download" falha (o caso normal de segunda a
+    // sexta: o canal ainda não liberou o vídeo).
+    window.ytArquivo = async (alvo) => {
+      window.__chamadas.push(alvo && alvo.id);
+      n++;
+      if (n === 1) {
+        window.__alvoDaRodada = alvo && alvo.id;
+        await new Promise((ok) => { window.__portao = ok; });
+      }
+      return null;
+    };
+    const rodada = manterSeriesDaSemana();
+    for (let i = 0; i < 200 && !window.__portao; i++) await new Promise((r) => setTimeout(r, 25));
+    const bloqueou = !!window.__portao;
+    // O ARQUIVO CHEGA COM A RODADA VIVA — é o que o atalho da semana produz.
+    const rec = await window.__plantarMidia(window.__alvoDaRodada, 'semana', 'avulsos');
+    // A CHAMADA DE QUEM CHEGOU: era aqui que ela morria calada.
+    manterSeriesDaSemana().catch(() => {});
+    const enfileirou = serieAutoRefazer === true;
+    if (window.__portao) window.__portao();
+    await rodada;
+    // A rodada de reforço nasce no `finally` da de dentro — espera as duas.
+    for (let i = 0; i < 400 && serieAutoRodando; i++) await new Promise((r) => setTimeout(r, 25));
+    await new Promise((r) => setTimeout(r, 50));
+    const retidos = await AVDB.listIds('serie');
+    const salvo = await AVDB.getMedia(rec.id);
+    window.ytArquivo = realYtArquivo;
+    return { bloqueou, enfileirou, chamadas: window.__chamadas.slice(),
+      id: rec.id, retidos, vivo: !!(salvo && salvo.blob) };
+  });
+  checar(l2.bloqueou && l2.chamadas.length >= 1,
+    'L2 · A PREMISSA: uma rodada está VIVA e parada no download da primeira série '
+    + '— é a rotina da abertura, que pode levar minutos', l2);
+  checar(l2.enfileirou,
+    'e a chamada feita nesse meio-tempo ENFILEIRA uma rodada (`serieAutoRefazer`) '
+    + 'em vez de sumir: era o `return` calado que apagava o pedido', l2);
+  checar(l2.retidos.includes(l2.id) && l2.vivo,
+    'L2 · e a rodada de reforço RETÉM o arquivo que chegou quando a de dentro já o '
+    + 'tinha lido como ausente — nenhuma rodada pedida se perde', l2);
 
 } finally {
   await navegador.close();

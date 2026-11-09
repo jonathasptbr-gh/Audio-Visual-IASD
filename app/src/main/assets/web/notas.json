@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.13.51",
+    "itens": [
+      "O vídeo da semana baixado não some mais sozinho do aparelho.",
+      "Ele continua disponível sem internet até chegar o episódio seguinte.",
+      "A atualização chega pelo aviso de sempre; não precisa fazer nada."
+    ]
+  },
+  {
     "versao": "1.13.50",
     "itens": [
       "A revisão interna do app: nada muda no uso normal.",

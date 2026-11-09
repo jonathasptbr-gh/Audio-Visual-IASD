@@ -284,8 +284,18 @@ ser diagnosticável.
   - **E a folha de um episódio JÁ BAIXADO omite a qualidade** (`semQualidade`),
     pela mesma régua que já a tira no caminho de só-áudio: com bytes no aparelho
     o `ytArquivo` reaproveita o registro e o teto não é consultado.
+  - **O ARQUIVO BAIXADO NÃO DEPENDE DE A RODADA PASSAR** (v1.13.51). O atalho da
+    semana baixa com `ytAcao(…, 'tocar')`, e um download SEM destino de guarda
+    nasce em `avulsos` — rodízio de três (`fixarAvulso`), não depósito. A rotina
+    é quem o move para `serie`, e ela DESCARTAVA a chamada feita durante outra
+    rodada (`if (serieAutoRodando) return`): o arquivo ficava no rodízio, a
+    quarta cena o despejava e o `listRemove` do `db.js` levava o blob. Hoje o
+    caminho do atalho o reivindica na hora (`serieReterBaixado`, `listAdd`
+    idempotente) e a chamada concorrente ENFILEIRA uma rodada
+    (`serieAutoRefazer`). A lista continua sendo da rotina: o `listSet` dela
+    recalcula tudo pela semana corrente.
 
-  Oráculo: `serie-mantem-a-semana.test.mjs`.
+  Oráculo: `serie-mantem-a-semana.test.mjs` (blocos L1 e L2).
 - **O CARD DA SÉRIE NÃO TEM BOTÃO NENHUM NA BARRA** (v1.12.53). Ele teve UM, o de
   **atualizar a lista** (v1.1.21, `syncCollection(coll, { soIndice: true })`), e ele
   saiu a pedido do operador: *"Remover o botão de atualizar e verificar o

@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.51** — séries: o episódio baixado pelo atalho da semana entra na retenção NA HORA (`serieReterBaixado`) e a rodada pedida durante outra não se perde (`serieAutoRefazer`); oráculo `serie-mantem-a-semana` +2 blocos (só web)
 - **v1.13.50** — revisão X2, o resto do lote Kotlin: a invariante 2 num predicado só (`WebViewFactory.ehDoApp`), os quatro resíduos do `YoutubeGrab` (registro de desfechos, varredura do cache, teto no nome, o 403 numa escrita), o arquivo ilegível do share avisado com nome, o registro das fotos sem consumir, e JUnit novos `SafJanelaTest`/`SlideDeckTest` (APK, `shellTag: "v1.13.50"`)
 - **v1.13.49** — revisão X2, metade Kotlin: o resíduo da transmissão direta APAGADO (o proxy, a rota `/stream/`, a `servirTransmissao` e a `/s/`), a invariante 8 mudou de casa para `docs/shell/WEBVIEW-RANGE.md`; `SHELL_VERSION` 85 e `minShell` 83 ficam (APK, `shellTag: "v1.13.49"`)
 - **v1.13.48** — revisão X2 (os achados em aberto): a senha das listas nos dois chamadores que faltavam (a gaveta e o pacote), o ACK cumulativo do canal de mídia, o compartilhamento acima de 2 GB recusado com nome, o cancelamento da verificação depois do último byte; só web
@@ -663,6 +664,17 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.13.51 — séries: o episódio baixado não fica sem dono
+
+**v1.13.51** — (só web, **sem `shellTag`** — a Release da v1.13.50 já saiu; `SHELL_VERSION` **85** e `minShell` **83** não mudam). O Pacote 1 da fila do operador: *"vi o vídeo sendo baixado e depois… um deles não estava disponível offline"* (2026-10-31).
+
+- **A CAUSA, e ela é o LUGAR ONDE O ARQUIVO NASCE.** O atalho universal (`resolverSemana`) baixa por `ytAcao(…, 'tocar')`, e um download SEM destino de guarda nasce na prateleira `avulsos` — que é RODÍZIO de três (`fixarAvulso`), não depósito. Quem o movia para a lista `serie` era a rotina da semana.
+- **E A ROTINA DESCARTAVA O PEDIDO.** `if (serieAutoRodando) return`: a rodada de abertura pode estar no meio de um download de minutos quando o arquivo chega, e a chamada de `resolverSemana` virava no-op. O arquivo ficava no rodízio, a quarta cena o despejava, o `listRemove` do `db.js` não achava outro detentor e os bytes MORRIAM — sem erro, sem linha na tela, e o operador só descobre no sábado, sem internet.
+- **O CONSERTO, NAS DUAS METADES.** (1) `serieReterBaixado(epi)`: o arquivo que acabou de descer entra na lista `serie` no PRÓPRIO caminho do atalho, por `listAdd` idempotente — a sobrevivência deixa de depender de quando a rodada passa. (2) `serieAutoRefazer`: a rodada pedida durante outra ENFILEIRA uma rodada, que roda no `finally` desta e enxerga o que a primeira leu como ausente; UMA linha no Registro (`diagC`) quando o pedido é enfileirado.
+- **A ROTINA CONTINUA DONA DA LISTA.** O `listSet` dela segue recalculando tudo pela semana corrente, e a regra "só encolhe com o substituto na mão" não mudou: um id reivindicado a mais é o pior caso barato, e ele sai na rodada seguinte.
+- **Oráculo `serie-mantem-a-semana`, blocos L1 e L2.** L1 afirma a reivindicação com a rotina ESPIÃ (ela não roda); L2 segura uma rodada num portão e prova que a chamada concorrente a enfileira. A reversão foi conferida pelo CAMINHO, não por execução: esta máquina não tem Chromium (o oráculo roda no `verificar` do CI), e nos dois blocos não existe outro escritor de `serie` que não a peça nova — sem cada metade, o bloco dela não tem como passar.
+- **O operador:** nada a fazer — a correção chega pelo aviso de atualização do app.
 
 ## v1.13.50 — revisão X2, o resto do lote Kotlin (a invariante 2 num lugar só)
 

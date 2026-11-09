@@ -13,14 +13,16 @@ v1.13.50), **renumerada do zero** (o Pacote 1 é o de maior prioridade) e
 nota é item a item. Nesta revisão três pedidos saíram inteiros (os antigos 1.1,
 1.3 e 1.4), um foi reduzido (o antigo 4.1 virou o 11.1 de hoje), o antigo 11.1
 ficou só com o que as revisões não cobriram, e o cache do antigo 9.3 já tinha
-saído na v1.13.50. O rastro está ao fim.
+saído na v1.13.50. O rastro está ao fim. **O Pacote 1 saiu na v1.13.51** (2026-11-09); os que
+ficam MANTÊM a numeração — renumerar de novo custaria mais que o buraco, e o
+"Mapa da numeração antiga" continua valendo para as referências velhas.
 
 **Regra do arquivo:** ele ESVAZIA. Um pacote entregue sai daqui (a nota vai ao
 `docs/HISTORICO.md`, como sempre); um pedido revogado sai com uma linha dizendo
 quem revogou. Não é log, e não é `docs/ACHADOS-EM-ABERTO.md` (lá moram defeitos
 CONFIRMADOS por auditoria; aqui, pedidos).
 
-**Contexto da entrega:** base web **v1.13.50**, APK **v1.13.50**, `SHELL_VERSION`
+**Contexto da entrega:** base web **v1.13.51**, APK **v1.13.50**, `SHELL_VERSION`
 **85**, `minShell` **83** — conferido em 2026-11-09. O operador pediu economia:
 *"não temos tokens então toda ação deve ser fracionada e controlada"* — um pacote
 por vez, cada um com o rito de entrega completo.
@@ -59,8 +61,6 @@ ordem; a fila é dele.
 
 | # | pacote · pedido | tipo | I | U | nota | entrega |
 |---|---|---|---|---|---|---|
-| **1** | **Séries: o episódio baixado que some do offline** | defeito | 5 | 4 | **20** | web |
-| 1.1 | o arquivo baixado não sobrevive à rotina da semana | | 5 | 4 | 20 | web |
 | **2** | **Cronograma: o alerta de "não está pronto" e o arrasto** | pedido | 5 | 3 | **15** | web |
 | 2.1 | o alerta + "Baixar tudo" | | 5 | 3 | 15 | web |
 | 2.2 | segurar arrasta; sai a seleção múltipla | | 4 | 2 | 8 | web |
@@ -91,40 +91,6 @@ ordem; a fila é dele.
 | 13.1 | controle de slides + compartilhar itinerário/cronograma | | 4 | 1 | 4 | estudo |
 | 13.2 | transmissão ao vivo | | 3 | 1 | 3 | estudo |
 | 13.3 | app no Windows + layout de paisagem | | 3 | 1 | 3 | estudo |
-
----
-
-## Pacote 1 — Séries: o episódio baixado que some do offline
-
-**Nota 20 (I5 × U4) · defeito · só web, salvo se a causa estiver no `YoutubeGrab.kt`**
-
-**Onde:** `controle/serie.js`, `resolverSemana`, `manterSeriesDaSemana` e a lista
-`serie` do `db.js`. Ler antes `docs/recursos/SERIES.md`.
-**Estado:** o `.catch` mudo do caminho já foi resolvido (v1.13.37) — o que falta é
-a CAUSA. O índice da série, que a Área 1 antiga consertava, está estável desde a
-v1.13.38: este pacote não espera mais nada.
-
-### 1.1 O arquivo baixado não sobrevive à rotina da semana
-
-*"vi o vídeo sendo baixado e depois… um deles não estava disponível offline"*
-(2026-10-31 10:22).
-
-O download pelo atalho universal (`resolverSemana` sem arquivo) vai por
-`ytAcao(…, 'tocar')` e só DEPOIS chama `manterSeriesDaSemana()`. Suspeitas, na
-ordem em que o Registro deve desempatá-las:
-
-- (i) o arquivo baixado para TOCAR não entra na lista `serie` de retenção a tempo
-  e uma limpeza o solta;
-- (ii) a rotina semanal decide "qual é o deste sábado" por data e solta o que ela
-  julga passado (fuso, virada do sábado);
-- (iii) o download da rotina cedeu à mídia no ar (`midiaNoAr`) e não foi
-  retomado.
-
-**A fazer:** reproduzir com o Registro na mão (a linha do tempo deve mostrar
-baixou → soltou); consertar a causa; oráculo de Chromium: baixar pelo atalho,
-rodar a rotina, afirmar que o arquivo sobrevive. A nota é a mais alta da fila
-porque o desfecho dela é o operador descobrindo no sábado que o vídeo do culto
-não está lá.
 
 ---
 
@@ -506,6 +472,11 @@ quiser só a paisagem, ela é um lote de web — e não espera o estudo do Windo
 ---
 
 ## O que saiu desta lista (rastro, não log)
+
+**v1.13.51 (2026-11-09), DEPOIS desta edição:** o **Pacote 1** — o episódio
+baixado pelo atalho da semana não se perde mais (`serieReterBaixado` +
+`serieAutoRefazer`), com a nota em `docs/HISTORICO.md`. Ele sai do índice e da
+seção; os números dos outros não se movem.
 
 Saíram entre a edição anterior (2026-11-08) e esta, com a nota em
 `docs/HISTORICO.md`:
