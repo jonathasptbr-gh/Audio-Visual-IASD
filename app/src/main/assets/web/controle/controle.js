@@ -19424,6 +19424,7 @@ function pararRolagemDeBorda() {
 function rolarNaBorda() {
   if (!arrasto) { pararRolagemDeBorda(); return; }
   const ul = arrasto.li.parentElement;
+  if (!ul) { pararRolagemDeBorda(); return; }
   const r = ul.getBoundingClientRect();
   const dir = arrasto.y < r.top + ARRASTO_BORDA ? -1
     : (arrasto.y > r.bottom - ARRASTO_BORDA ? 1 : 0);
@@ -19432,6 +19433,7 @@ function rolarNaBorda() {
   arrastoRolando = setInterval(() => {
     if (!arrasto) { pararRolagemDeBorda(); return; }
     const alvo = arrasto.li.parentElement;
+    if (!alvo) { pararRolagemDeBorda(); return; }
     const antes = alvo.scrollTop;
     alvo.scrollTop = antes + dir * ARRASTO_PASSO;
     if (alvo.scrollTop === antes) { pararRolagemDeBorda(); return; }
@@ -19444,6 +19446,7 @@ function rolarNaBorda() {
 function moverArrasto(y) {
   if (!arrasto) return;
   const ul = arrasto.li.parentElement;
+  if (!ul) { pararRolagemDeBorda(); arrasto = null; arrastoGeom = null; return; }
   arrasto.y = y;
   arrasto.dy = (y - arrasto.y0) + (ul.scrollTop - arrasto.rolagem0);
   aplicarArrasto();
@@ -19455,6 +19458,11 @@ function moverArrasto(y) {
 function comecarArrasto(li, item, pid, y) {
   if (!li || arrasto) return;
   const ul = li.parentElement;
+  // A LINHA PODE TER SIDO REDESENHADA DEBAIXO DO DEDO (v1.13.55): o toque longo
+  // dispara 450 ms depois, e uma gravação que chegue nesse meio tempo troca os
+  // nós da lista. Sem esta guarda o pai é nulo e o gesto estoura, em vez de
+  // simplesmente morrer com a linha que ele pegou.
+  if (!ul) return;
   arrasto = { li, id: item.id, pid, y0: y, rolagem0: ul.scrollTop, dy: 0, y };
   li.classList.add('arrastando');
   ul.classList.add('arrastando-lista');

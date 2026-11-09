@@ -424,38 +424,48 @@ try {
   // (os outros deslocados, o item no vão) enquanto a gravação corre.
   const antesB5 = await pg.evaluate(async () => await AVDB.listIds('imports'));
   const semPisca = await pg.evaluate(() => new Promise((ok) => {
-    const ul = document.getElementById('library');
-    const lis = [...ul.children].filter((el) => el.classList.contains('lib-item'));
-    if (lis.length < 3) return ok({ erro: 'lista curta demais para o ensaio' });
-    const alvo = lis[lis.length - 1];              // o ÚLTIMO da lista
-    const row = alvo.querySelector('.row');
-    const r = alvo.getBoundingClientRect();
-    const x = Math.round(r.left + r.width / 2);
-    const y0 = Math.round(r.top + r.height / 2);
-    const ev = (t, extra) => row.dispatchEvent(new PointerEvent(t, Object.assign({
-      bubbles: true, cancelable: true, pointerId: 11, pointerType: 'touch',
-      clientX: x, clientY: y0, button: 0, buttons: 1,
-    }, extra || {})));
-    let tentativas = 0;
-    ev('pointerdown');
-    const espera = setInterval(() => {
-      if (!alvo.classList.contains('arrastando')) {
-        if (++tentativas > 66) { clearInterval(espera); ok({ erro: 'o arrasto não começou' }); }
-        return;
-      }
-      clearInterval(espera);
-      // Sobe dois vãos: vai para o TOPO da lista.
-      const y1 = Math.round(r.top - r.height * 2.2);
-      ev('pointermove', { clientY: y1 });
-      ev('pointerup', { clientY: y1, buttons: 0 });
-      // LIDO AQUI — o instante que a v1.13.54 mostrava na ordem velha.
-      ok({
-        classe: ul.classList.contains('arrastando-lista'),
-        deslocados: [...ul.children].filter((el) => el.classList.contains('lib-item') && el.style.transform).length,
-        doAlvo: alvo.style.transform || '',
-        preso: !!document.querySelector('.lib-item.arrastando'),
-      });
-    }, 30);
+    // A LISTA PODE SER REDESENHADA ENTRE O BLOCO ANTERIOR E ESTE (a gravação do
+    // B4 dispara um `load`), e o nó que se pega aqui pode sair do documento.
+    // Por isso o alvo é escolhido NA HORA, e a investida é refeita se ele cair.
+    const tentada = (n) => {
+      const ul = document.getElementById('library');
+      const lis = [...ul.children].filter((el) => el.classList.contains('lib-item'));
+      if (lis.length < 3) return ok({ erro: 'lista curta demais para o ensaio' });
+      const alvo = lis[lis.length - 1];              // o ÚLTIMO da lista
+      const row = alvo.querySelector('.row');
+      const r = alvo.getBoundingClientRect();
+      const x = Math.round(r.left + r.width / 2);
+      const y0 = Math.round(r.top + r.height / 2);
+      const ev = (t, extra) => row.dispatchEvent(new PointerEvent(t, Object.assign({
+        bubbles: true, cancelable: true, pointerId: 11, pointerType: 'touch',
+        clientX: x, clientY: y0, button: 0, buttons: 1,
+      }, extra || {})));
+      let tiques = 0;
+      ev('pointerdown');
+      const espera = setInterval(() => {
+        if (!alvo.isConnected) {
+          clearInterval(espera);
+          return n < 3 ? tentada(n + 1) : ok({ erro: 'a lista foi redesenhada três vezes no meio' });
+        }
+        if (!alvo.classList.contains('arrastando')) {
+          if (++tiques > 66) { clearInterval(espera); ok({ erro: 'o arrasto não começou' }); }
+          return;
+        }
+        clearInterval(espera);
+        // Sobe dois vãos: vai para o TOPO da lista.
+        const y1 = Math.round(r.top - r.height * 2.2);
+        ev('pointermove', { clientY: y1 });
+        ev('pointerup', { clientY: y1, buttons: 0 });
+        // LIDO AQUI — o instante que a v1.13.54 mostrava na ordem velha.
+        ok({
+          classe: ul.classList.contains('arrastando-lista'),
+          deslocados: [...ul.children].filter((el) => el.classList.contains('lib-item') && el.style.transform).length,
+          doAlvo: alvo.style.transform || '',
+          preso: !!document.querySelector('.lib-item.arrastando'),
+        });
+      }, 30);
+    };
+    tentada(0);
   }));
   checar(!semPisca.erro && semPisca.classe === true && semPisca.preso === false,
     'B5 · no instante do soltar a lista CONTINUA em modo de arrasto (ela não volta à ordem antiga) '
