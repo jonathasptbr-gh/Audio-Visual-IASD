@@ -50,9 +50,9 @@ a trocar, e cada um que escapasse leria o cronograma errado calado.
   `.lib-item`. O miolo é transparente. A dobra `.crono-item > .crono-excluir` não é
   zelo: o `.row-btn { background: var(--surface) }` vem depois na folha e venceria.
 - **NOVO** cria um vazio "Cronograma N" (o primeiro número livre, a partir de 2) e
-  troca para ele. **TROCAR** é `AVDB.cronoTrocar` + `load()`; a seleção múltipla e
-  a gaveta de uma linha morrem antes (`cronoAntesDeTrocar`), porque apontam para
-  linhas que saem de cena. **A CENA NO AR NÃO É TOCADA** por trocar, limpar ou
+  troca para ele. **TROCAR** é `AVDB.cronoTrocar` + `load()`; a gaveta de uma
+  linha morre antes (`cronoAntesDeTrocar`), porque aponta para linhas que saem de
+  cena. **A CENA NO AR NÃO É TOCADA** por trocar, limpar ou
   excluir — a regra da v1.3.13: o Cronograma é acervo.
 - **RENOMEAR** (o quadrado da ESQUERDA da linha, `renomearCronograma(id)`) é o
   `appPrompt` dos itens, e vale para QUALQUER cronograma, não só o ativo. O nome é
@@ -376,81 +376,42 @@ primeiro era garantir que um dos dois esquecesse uma das cinco coisas.
 >
 > A régua: *ofuscar não diz "desligado", diz "indisponível"* — e o app já tem
 > uma linguagem para isso (`opacity: .3` + `disabled`, no `↑↓` das pontas).
-| Pressionar e segurar | Entra no modo de seleção múltipla |
+| Pressionar e segurar | ARRASTA o item (só no Cronograma; as outras listas usam o par ↑↓) |
 
-**O ARRASTAR SAIU NA v5.285**, das três listas de uma vez (Cronograma,
-Favoritos e a fila da playlist), a pedido do operador. Com ele saíram
-`attachHandle`, a medição única do `pointerdown`, a linha-guia absoluta e o
-`data-fixa` das pastas. O argumento: um arrasto é um gesto CONTÍNUO com captura
-de ponteiro, disputando o eixo vertical com a lista que rola por baixo. O preço
-está dito — mover dez posições passou de um gesto a dez toques —, e
-`reabrirAcoesEm` (a chave `lista:id`, nunca o id nu, porque o mesmo item vive em
-duas listas) devolve a gaveta ao item que se moveu, com o botão sob o mesmo
-dedo.
+**O ARRASTAR É DO CRONOGRAMA, e voltou na v1.13.52** — o operador pediu o gesto na
+LINHA: *"vamos remover a seleção múltipla do cronograma, agora segurar vai servir
+para mover o item em questão"*. As outras duas listas (Favoritos e a fila)
+continuam com o par ↑↓ da gaveta do `⋮`; no Cronograma ele saiu.
 
-**O deslize lateral da linha saiu na v5.50.** Ele adicionava o item à playlist
-(`dx <= -SWIPE`), e a única pista de que existia era um ícone a 22% de opacidade
-atrás da linha (`.swipe-bg`/`.swipe-hint`, removidos junto). Um atalho que quase
-ninguém descobre não justifica reservar para si o eixo horizontal da maior parte
-da tela — que é o que impedia o **carrossel de abas** de funcionar sobre a
-lista. A playlist continua a um toque, pelo `+` de cada resultado do acervo e
-pelo popup da playlist.
+- **A porta é o CORPO da linha**, e o gesto começa no toque LONGO (450 ms): antes
+  disso o `pointerup` é um toque de projetar, como sempre foi. A alça
+  `row-handle` da v1.13.25 saiu junto com o par — ela cobrava altura e um
+  controle a mais em toda linha.
+- **A medição é UMA por arrasto** (`medirArrasto`, no início do gesto; o evento
+  de rolagem remede, e o fim limpa tudo). Antes, cada `pointermove` — 60 a 120
+  por segundo — media a lista inteira, logo depois de escrever
+  `li.style.transform`: um **reflow síncrono por evento**, com o arrasto
+  engasgando num Cronograma grande. As posições não mudam durante o arrasto (o
+  item se move por `transform`, que não altera o layout), então medir uma vez
+  basta. `pintarGuia` e `indiceDoArrasto` leem o mesmo cache — a linha-guia e o
+  destino real nunca discordam.
+- **A ROLAGEM DE BORDA** (`rolarNaBorda`): a 48px do topo ou da base a lista anda
+  sozinha (12px por tique), e o deslocamento entra no `dy` do item para ele
+  continuar debaixo do dedo. Sem ela um arrasto não alcança o fim de uma lista
+  de trinta linhas — é a metade que faltava na versão antiga.
+- **O DESTINO é gravado por `moverNaListaPara`** — a forma atômica do `listSet`
+  (a mesma de `moverNaLista`, com a posição no lugar do delta) e o mesmo
+  `load()` no fim: o app não tem dois caminhos para "isto mudou de lugar".
+- **O que o arrasto NÃO faz:** não tira o item do ar, não abre a gaveta de ações e
+  não seleciona nada. A captura de ponteiro é da linha durante o gesto, e o
+  `touch-action: none` de `#library.arrastando-lista` é o que impede o
+  navegador de tratá-lo como rolagem.
 
-Com ele saiu também o `setPointerCapture` da linha: o `pointermove` agora só
-CANCELA o gesto do item quando o dedo anda mais de 10px em qualquer direção —
-sem tocar no evento, que segue subindo para o carrossel e para a rolagem, que
-são de quem o dedo está falando naquele momento.
-
-**O arrasto mede a lista UMA vez** (`measureDrag`, no `pointerdown`; um listener
-de `scroll` remede se a lista rolar, e `endDrag` limpa tudo no fim). Antes, cada
-`pointermove` — 60 a 120 por segundo — fazia um `querySelectorAll` da lista
-inteira e um `getBoundingClientRect` por item, logo depois de escrever
-`li.style.transform`: um **reflow síncrono por evento**, com o arrasto
-engasgando num Cronograma grande. As posições não mudam durante o arrasto (o
-item se move por `transform`, que não altera o layout), então medir uma vez
-basta. `showDropLine` e `dropIndex` leem o mesmo cache — a linha-guia e o
-destino real nunca discordam.
-
-**Modo de seleção múltipla:** barra substitui as abas, com contagem e botões de
-**acrescentar à playlist**, favoritar, adicionar a uma pasta, renomear (1 item)
-e excluir.
-
-> **A barra não tem preenchimento** (v5.105). Ela era um bloco em
-> `--accent-soft` com contorno SÓLIDO em `--accent` — a mancha âmbar mais forte
-> da tela, num app cuja regra é "âmbar é navegação e marca". E, preenchida e
-> contornada, ela tinha exatamente a silhueta de um ITEM SELECIONADO da lista
-> logo acima (`.lib-item.selected` também é borda accent + fundo), então lia-se
-> como mais uma linha marcada em vez de como a barra de ações delas. Hoje é o
-> fundo que já está atrás com os botões `--surface-2` flutuando. O sinal de
-> "outro modo" fica no CONTADOR em accent: uma cor de texto, não uma placa.
->
-> **No rodapé ela vestia a moldura TRACEJADA do "Importar arquivos"** (v5.108; o
-> tracejado saiu na v5.267 e a porta do Importar na v1.13.5) —
-> mesma linha pontilhada em `--accent`, mesmo raio, mesma caixa. As duas são a
-> mesma fatia do rodapé com inquilinos diferentes, e o contorno é o que diz
-> isso. Não recria o problema acima: o que fazia a barra parecer um item
-> selecionado era o CONJUNTO "preenchimento âmbar + contorno sólido"; uma linha
-> pontilhada sobre o fundo do corpo não se parece com item nenhum da lista — é
-> a convenção que o app já usa para "espaço a preencher". Na gaveta dos
-> Favoritos ela segue sem moldura: ali a folha já é a moldura.
->
-> **E ela saiu da caixa de controles** (v5.107): mora no rodapé fixo da lista
-> (`#listFoot`), na fatia das portas — as abas não somem mais para
-> abrir espaço a ela. Ali ocupa `--hit-foot` (44px), a mesma altura do botão que
-> substitui; os `.sel-btn` continuam em `--hit` (34px), e é a folga de 5px de
-> cada lado que os faz parecer flutuando dentro da moldura em vez de
-> preenchê-la. Ver "O rodapé fixo da caixa da lista".
->
-> O primeiro é da v5.50 e é onde foi parar a função do deslize à
-esquerda: para itens da biblioteca, o toque simples SUBSTITUI a fila, então sem
-ele montar uma sequência dependeria de um gesto que a tela não anunciava. No
-botão, a mesma ação ficou visível e passou a valer para vários itens de uma vez
-(`addSelectedToPlaylist`). Os itens selecionados são
-indicados **só pelo realce** (`.lib-item.selected` — borda `--accent` + fundo
-`--panel-2`), sem
-ícone de check; a miniatura fica sempre encostada à esquerda (não há coluna
-reservada). Excluir dentro de pasta virtual só remove da pasta; nas demais abas
-usa `listRemove` (com gc).
+**A SELEÇÃO MÚLTIPLA SAIU NA v1.13.52** com a barra dela (`#selbar`), os seis
+botões e o estado (`selectionMode`/`selected`): no Cronograma ela era um segundo
+caminho para excluir, renomear e mandar à playlist, e todas essas decisões moram
+no `⋮` de cada linha. A ação de CONJUNTO que ficou é o "limpar o cronograma" da
+gaveta, porque ela é sobre a lista inteira.
 
 #### A linha da fila tem os DOIS destinos (v1.4.25)
 
@@ -628,15 +589,15 @@ arquivo apagado de uma pasta sincronizada volta na varredura seguinte, e quem
 apaga de verdade é o "Excluir pasta e arquivos sincronizados" da própria linha.
 
 **Não existem pastas VIRTUAIS.** O que havia (`folders`/`folder_<id>`, o seletor
-`#folderPopup`, o `#selFolder` da seleção múltipla, `renderVirtualFolders`,
-`addToFolder`) saiu, e o conteúdo delas não se perdeu:
+`#folderPopup`, o `#selFolder`, `renderVirtualFolders`, `addToFolder`) saiu, e o conteúdo delas não se perdeu:
 `migrarPastasParaFavoritos` sobe cada item para `favs` e **só então** derruba o
 atalho. A ordem das duas metades é a garantia inteira — `folderDrop` apaga a
 mídia que ficou sem detentor, e depois do `listAdd` ela tem um; invertida, um
 item cujo único dono era um atalho sumiria do app **e do disco**, calado.
 
 **A organização não é hierarquia, é ORDEM:** a lista é a `favs` (ordem de
-chegada até alguém mexer nela), com o mesmo par ↑↓ do Cronograma. **As pastas
+chegada até alguém mexer nela), com o par ↑↓ da gaveta (o Cronograma não tem par
+desde a v1.13.52: lá o item se arrasta). **As pastas
 sincronizadas ficam no TOPO** — a lista de favoritos cresce por baixo delas, e no
 fim cada favorito novo as empurraria para longe.
 
@@ -831,18 +792,18 @@ de referência de verdade), a **estrela em toda linha** e as **cenas de roteiro*
   deliberado: o que se espera de um favorito num domingo de manhã é que ele
   TOQUE, inclusive com a rede da igreja fora do ar. O que mudou é o destino (a
   lista `favs`, direto), não o custo.
-- **Excluir na RAIZ é desmarcar**, e isso precisa de um ramo próprio
-  em `deleteSelected`: sem ele o `else` genérico caía em
-  `listRemove('folders', id)` — a chave do ÍNDICE de pastas, que guarda objetos
-  e não ids. Um no-op silencioso, com o operador vendo o item continuar na lista
-  depois de mandar excluí-lo.
+- **Excluir na RAIZ é desmarcar**, e isso precisa de um ramo próprio no excluir
+  da linha: sem ele o `else` genérico caía na chave do ÍNDICE de pastas, que
+  guarda objetos e não ids — um no-op silencioso, com o operador vendo o item
+  continuar na lista depois de mandar excluí-lo.
 
 > **A GAVETA DE TELA CHEIA SAIU (v5.294).** Os Favoritos foram para dentro da
 > Biblioteca como a **primeira seção** dela, e a pasta do aparelho passou a
 > abrir **INLINE** (v5.290) — foi isso que tirou o último caminho até a gaveta.
 > Saíram com ela `#favPopup`, `#favList`, `renderFavHeader`, `favVoltarPara`,
-> `garantirGaveta`, `openFavorites`/`closeFavorites`, o `listHost()` de dois
-> containers e o `hostSelbar` de duas casas. **Hoje há UM host**: o corpo
+> `garantirGaveta`, `openFavorites`/`closeFavorites` e o `listHost()` de dois
+> containers. (O `hostSelbar`, que também morava em duas casas, saiu na
+> v1.13.52 com a seleção múltipla.) **Hoje há UM host**: o corpo
 > marcado com `data-fav-corpo` dentro de `#hymnResults`, desenhado pelo mesmo
 > `renderFolderList` via `favHost`/`favAlvo()`, dentro de
 > `comBaldeDeMiniaturas('fav-biblioteca', …)`. O `__avBack` perdeu o degrau da
@@ -942,8 +903,7 @@ do OPFS sob demanda.
   `confirm()` nativo na base) apaga o diretório OPFS inteiro, os registros do
   catálogo e as referências em listas.
 
-**Favoritos (`favs`)** — a lista plana, marcada pela estrela de cada linha ou
-pela estrela da seleção múltipla (`#selFav`). É onde as CENAS DE ROTEIRO também
+**Favoritos (`favs`)** — a lista plana, marcada pela estrela de cada linha. É onde as CENAS DE ROTEIRO também
 podem morar: um versículo, um preset de cronômetro ou um sorteio guardado é um id
 como qualquer outro.
 

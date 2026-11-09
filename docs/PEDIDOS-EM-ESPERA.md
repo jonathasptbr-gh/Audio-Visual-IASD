@@ -13,7 +13,7 @@ v1.13.50), **renumerada do zero** (o Pacote 1 é o de maior prioridade) e
 nota é item a item. Nesta revisão três pedidos saíram inteiros (os antigos 1.1,
 1.3 e 1.4), um foi reduzido (o antigo 4.1 virou o 11.1 de hoje), o antigo 11.1
 ficou só com o que as revisões não cobriram, e o cache do antigo 9.3 já tinha
-saído na v1.13.50. O rastro está ao fim. **O Pacote 1 saiu na v1.13.51** (2026-11-09); os que
+saído na v1.13.50. O rastro está ao fim. **Os Pacotes 1 e 2 saíram** — o 1 na v1.13.51 e o 2 na v1.13.52 (2026-11-09); os que
 ficam MANTÊM a numeração — renumerar de novo custaria mais que o buraco, e o
 "Mapa da numeração antiga" continua valendo para as referências velhas.
 
@@ -61,9 +61,6 @@ ordem; a fila é dele.
 
 | # | pacote · pedido | tipo | I | U | nota | entrega |
 |---|---|---|---|---|---|---|
-| **2** | **Cronograma: o alerta de "não está pronto" e o arrasto** | pedido | 5 | 3 | **15** | web |
-| 2.1 | o alerta + "Baixar tudo" | | 5 | 3 | 15 | web |
-| 2.2 | segurar arrasta; sai a seleção múltipla | | 4 | 2 | 8 | web |
 | **3** | **Playlist: o item que não entra ao trocar de modo** | defeito | 4 | 3 | **12** | web |
 | 3.1 | o item iniciado no Fácil não entra na fila no Avançado | | 4 | 3 | 12 | web |
 | **4** | **Modo Fácil: volume, coleções e Configurações** | pedido | 4 | 2 | **8** | web |
@@ -91,41 +88,6 @@ ordem; a fila é dele.
 | 13.1 | controle de slides + compartilhar itinerário/cronograma | | 4 | 1 | 4 | estudo |
 | 13.2 | transmissão ao vivo | | 3 | 1 | 3 | estudo |
 | 13.3 | app no Windows + layout de paisagem | | 3 | 1 | 3 | estudo |
-
----
-
-## Pacote 2 — Cronograma: o alerta de "não está pronto" e o arrasto
-
-**Nota 15 (I5 × U3) · pedido · só web**
-
-**Onde:** `#cronoTitulo`, a folha do alerta e o caminho de download que o botão
-reusa; a reordenação da linha (`row-slot`, os botões ↑↓ da v1.13.2).
-**Saem juntos:** a área é a mesma (a linha do Cronograma), e a dependência antiga
-— a lista `serie` — caiu na v1.13.37/38.
-
-### 2.1 O alerta de "não está pronto" + "Baixar tudo"
-
-Pedido do operador (2026-10-30), recusando um AVISO: *"um ícone de alerta ao lado
-do nome do cronograma, que ao tocado avisa e dê a opção de baixar tudo para
-deixar pronto"*.
-
-O ícone aparece ao lado de `#cronoTitulo` quando algum item do cronograma ATIVO
-não toca sem rede (hino sem variante baixada, link do YouTube sem arquivo,
-`semana` cujo episódio não está na lista `serie`). Tocar abre uma folha que diz o
-que falta (contagem por tipo) e um botão "Baixar tudo", que reusa os caminhos de
-download existentes (nada de baixador novo). A pergunta "toca sem rede?" tem de
-ser UMA função usada também pelo botão. Sem automação: nada baixa sozinho.
-
-### 2.2 Segurar arrasta; sai a seleção múltipla
-
-*"Vamos remover a seleção múltipla do cronograma, agora segurar vai servir para
-mover o item em questão. Assim sendo mais fluido que os nossos botões de mover,
-que são muito lentos em organizar os itens."* (2026-11-07 11:34).
-
-No Cronograma, remover a SELEÇÃO MÚLTIPLA; o toque longo (segurar) passa a
-ARRASTAR o item para reordenar, no lugar dos botões ↑↓. Conferir o caminho de
-reordenação e o que a seleção múltipla libera hoje; medir o gesto de arrastar
-contra o `row-slot` e o alvo de toque. Só web.
 
 ---
 
@@ -477,6 +439,11 @@ quiser só a paisagem, ela é um lote de web — e não espera o estudo do Windo
 baixado pelo atalho da semana não se perde mais (`serieReterBaixado` +
 `serieAutoRefazer`), com a nota em `docs/HISTORICO.md`. Ele sai do índice e da
 seção; os números dos outros não se movem.
+
+**v1.13.52 (2026-11-09), o lote seguinte:** o **Pacote 2** — o alerta de "não
+está pronto" com o "Baixar tudo" (`faltaParaTocarSemRede` + `baixarTudoQueFalta`)
+e o segurar-arrasta em lugar do par ↑↓, com a seleção múltipla saindo inteira. A
+nota está em `docs/HISTORICO.md`; o oráculo é o `cronograma-pronto`.
 
 Saíram entre a edição anterior (2026-11-08) e esta, com a nota em
 `docs/HISTORICO.md`:

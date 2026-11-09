@@ -4504,17 +4504,22 @@ try {
     const reabriu = !!reaberta && reaberta.dataset.id === ids[0];
 
     // ---- O TOQUE LONGO não liga modo nenhum ----
+    //
+    // A SELEÇÃO MÚLTIPLA SAIU DO APP na v1.13.52 (o Cronograma passou a
+    // ARRASTAR), então o que se mede aqui é a ausência dos DOIS efeitos que um
+    // toque longo poderia ter: nenhum modo de seleção e nenhum arrasto nesta
+    // lista (o arrasto é do Cronograma, e é lá que o oráculo dele mora).
     const row = li.querySelector('.row');
     const ev = (t) => row.dispatchEvent(new PointerEvent(t,
       { bubbles: true, clientX: 10, clientY: 10, pointerId: 1 }));
     ev('pointerdown');
     await new Promise((r) => setTimeout(r, 900));   // bem além do LONGPRESS
-    const modo = selectionMode;
+    const arrastando = !!document.querySelector('.lib-item.arrastando');
     ev('pointercancel');
 
     return {
       ordemDepois, reabriu,
-      modo,
+      arrastando,
       temExcluir: !!li.querySelector('.row-excluir'),
       ids,
     };
@@ -4526,9 +4531,9 @@ try {
   checar(fav.reabriu,
     'e a gaveta REABRE no item que se moveu: o botão continua sob o mesmo dedo '
     + 'para a casa seguinte');
-  checar(fav.modo === false,
-    'e o toque longo NÃO liga a seleção múltipla aqui: ela nunca se desenhou '
-    + 'nesta lista, e a barra dela ia parar na tela do Cronograma');
+  checar(fav.arrastando === false,
+    'e o toque longo NÃO faz nada aqui: a lista dos Favoritos não arrasta (o '
+    + 'arrasto é do Cronograma) e a seleção múltipla saiu do app na v1.13.52');
   checar(fav.temExcluir,
     'o que aquele modo daria — excluir sem sair da lista — está na gaveta, um toque');
 

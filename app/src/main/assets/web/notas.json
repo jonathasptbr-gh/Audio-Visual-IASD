@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.13.52",
+    "itens": [
+      "O cronograma ganhou um aviso ao lado do nome: ele diz o que ainda depende da internet, e um botão baixa tudo de uma vez.",
+      "Segurar um item do cronograma agora arrasta para reordenar, no lugar das setinhas.",
+      "A seleção múltipla saiu do cronograma: excluir, renomear e mandar para a playlist continuam no menu de cada linha."
+    ]
+  },
+  {
     "versao": "1.13.51",
     "itens": [
       "O vídeo da semana baixado não some mais sozinho do aparelho.",

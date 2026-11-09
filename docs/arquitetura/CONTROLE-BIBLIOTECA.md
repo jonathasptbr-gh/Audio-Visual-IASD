@@ -125,8 +125,6 @@ Casos particulares:
   compartilhado abre a folha própria dele (destinos + forma + qualidade), e
   perguntar duas vezes seria pior que não perguntar. No simplificado a pergunta
   nem é feita: ali não existe Cronograma nem playlist.
-- **A seleção múltipla sobrevive ao destino:** a `#selbar` só redesenha a lista,
-  e quem a fecha é o ✕, o voltar do aparelho ou desmarcar o último item.
 - **As cenas de roteiro não precisaram de nada**: ⊞ e ★ são botões visíveis ao
   mesmo tempo e nenhum fecha a tela.
 
@@ -535,8 +533,6 @@ divergirem. As decisões:
 - **O ícone é SVG inline.** `more_vert` (U+E5D4) **não está** no subset de 31
   codepoints de `material-symbols.woff2`, e glifo ausente desenha um retângulo
   vazio sem erro nenhum.
-- **Na seleção múltipla não há `⋮`**: ali o alvo é o conjunto, e a linha volta a
-  ser uma caixa de escolha.
 - **UMA medida para os quadrados da linha** (`--thumb`): capa, botões da linha e
   `⋮`. Miniatura de 40px com botões de 34px são dois quadrados vizinhos com 6px
   de diferença que ninguém decidiu, e um alvo no PISO do app justamente na lista
@@ -595,8 +591,8 @@ divergirem. As decisões:
 
 O feedback tem de ser `transform` no `.lib-item`, que é quem carrega a BORDA, e
 não na `.row`: enquanto ela é transparente dá no mesmo, mas com ela visível
-(`.no-ar`, `.active`, `.selected`) o miolo se afasta de uma moldura parada e abre
-uma fresta dos dois lados.
+(`.no-ar`, `.active`) o miolo se afasta de uma moldura parada e abre uma fresta
+dos dois lados.
 
 MAS uma linha NÃO dá feedback por um toque dentro de um bloco que ela apenas
 HOSPEDA (o `⋮`, a gaveta, a pasta aberta inline): ali já existe outra resposta, e
@@ -1382,38 +1378,24 @@ rolagem sobrevive.
 #### O rodapé fixo da caixa da lista (`#listFoot`)
 
 `<main>` é uma coluna de três faixas: cabeçalho, `<ul id="library">` que rola, e
-o **rodapé**, que não rola. O rodapé tem dois inquilinos e **nunca os dois ao
-mesmo tempo**:
+o **rodapé**, que não rola. Ele tem UM inquilino: as portas Bíblia ·
+Ferramentas (`.portas-row`, montadas por `renderListFoot()`). A barra de seleção
+múltipla (`#selbar`) foi a segunda até a v1.13.52, e saiu com o modo que ela
+servia.
 
-| Inquilino | Quem monta | Quando |
-|---|---|---|
-| **as portas** Bíblia · Ferramentas (`.portas-row`) | `renderListFoot()` | fora da seleção |
-| **barra de seleção múltipla** (`#selbar`) | `hostSelbar()` | seleção múltipla ligada |
+O lugar das portas foi decidido pelo que ele custa em outro: o "Importar
+arquivos" (v5.107 a v1.13.4 — hoje na barra do topo) como último `<li>` do
+`<ul>` exigia rolar trinta itens para alcançar a ação mais frequente da tela.
 
-Os dois vestem a MESMA caixa: é uma fatia só, com inquilinos diferentes.
+Dois detalhes que o mecanismo exige:
 
-O lugar de cada um foi decidido pelo que ele custa em outro: o "Importar arquivos"
-(o primeiro inquilino, v5.107 a v1.13.4 — hoje na barra do topo) como último `<li>`
-do `<ul>` exigia rolar trinta itens para alcançar a ação mais frequente da tela; a
-barra de seleção no lugar da faixa de ABAS mexia no que não é da seleção e sumia
-com a navegação justamente quando o operador pode querer sair da tela.
-
-Três detalhes que o mecanismo exige:
-
-- **Os dois medem `--hit-foot` (44px)**, e é por isso que a medida é token: com
-  alturas diferentes a caixa da lista muda de tamanho ao entrar e sair da
-  seleção, e a lista dá um pulo debaixo do dedo que estava segurando o item.
-- **`renderListFoot()` reconstrói só o que é dela.** Um `innerHTML = ''` tiraria
-  a `#selbar` do documento: o nó é UM só, movido entre hosts, e perdê-lo é perder
-  os listeners.
-- **Quem esconde o rodapé vazio é o JS, não um `:empty`.** A `#selbar` mora ali
-  mesmo fora da seleção (escondida por `hidden`), então o rodapé nunca fica de
-  fato vazio — e um filho de altura zero ainda consome o `gap` do `<main>`, que
-  viraria uma faixa de ar acima da caixa de controles em toda aba sem rodapé. E
-  a chamada é **antes** do desvio por aba em `renderLibrary()`: Bíblia e
-  Ferramentas saem por `return`, e deixada para o fim ela desenhava a faixa das
-  portas embaixo da grade de livros da Bíblia.
-
+- **A fatia mede `--hit-foot` (44px)**, e é por isso que a medida é token: é ele
+  que segura a altura do rodapé para a lista não pular quando o número de
+  linhas muda.
+- **`renderListFoot()` reconstrói só o que é dela**, e a chamada é **antes** do
+  desvio por aba em `renderLibrary()`: Bíblia e Ferramentas saem por `return`,
+  e deixada para o fim ela desenhava a faixa das portas embaixo da grade de
+  livros da Bíblia.
 O `<input type="file" multiple>` (`#file`, com o listener já registrado) mora solto
 e FIXO no `<main>` desde a v1.13.5: quem o abre é o `#cronoImportar` da barra, por
 `fileEl.click()` dentro do toque (no navegador; no app o seletor é o do sistema).
@@ -1468,7 +1450,7 @@ dedo anda `TAB_SWIPE_MIN` (60px) na horizontal com o eixo X dominando o Y em
   entre o alvo e a superfície que escuta, existe alguém que de fato ROLE na
   horizontal? Um trilho de pílulas cheio responde sim; o mesmo com três pílulas
   responde não. Campos de texto ficam fora por outro motivo (ali o eixo é do
-  cursor) e são nomeáveis por serem conceito do HTML. A seleção múltipla também.
+  cursor) e são nomeáveis por serem conceito do HTML. A gaveta de ações também.
 - **O `click` do fim do gesto é engolido** por um listener de CAPTURA no
   `<main>`, senão deslizar sobre a grade de livros trocava de aba **e** abria um
   livro. A trava é uma **flag desarmada no `pointerdown` seguinte**, nunca um

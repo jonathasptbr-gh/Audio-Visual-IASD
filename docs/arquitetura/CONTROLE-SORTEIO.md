@@ -404,7 +404,7 @@ selecionando de forma manual."*
 linhas (*"esta entra na consideração?"*) e o preenchimento em algumas (*"esta vai
 tocar?"*). Duas perguntas, dois sinais — e o operador leu uma pergunta só. Ele
 está certo: **marcar é escolher**, que é o vocabulário do resto do app (a folha
-de destinos, a seleção múltipla).
+de destinos, os toggles de Configurações).
 
 | peça | o que é |
 |---|---|

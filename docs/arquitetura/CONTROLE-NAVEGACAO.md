@@ -140,22 +140,9 @@ nas TRÊS, com a soma de ΔE00 caindo 44% e 39%. **Falha ABERTA**: um WebView se
 
 **A ALTURA: 51,77 → 42,00px (−18,9%), e ela corrige um defeito LATENTE.** MEDIDO,
 o termo que mandava não era o `--hit-foot` (44px) e sim o `padding: .45rem` —
-varrer o token de 48 a 36px **não mudava um pixel**. Isto é: as duas inquilinas
-da fatia do rodapé **não mediam o mesmo**, e o `#listFoot` PULAVA **7,77px** ao
-entrar na seleção múltipla — exatamente o que o comentário do `--hit-foot`
-promete por escrito que não acontece (*"a lista dava um pulo debaixo do dedo"*).
-Com `padding: 0 .3rem` — a forma que a `.selbar` já tinha — o termo vertical
-passa a ser um só, e "mais baixo" vira **um número num lugar só**.
-
-**A `.selbar` NÃO ENTROU NA COR, e a razão é um nível abaixo.** Os `.sel-btn`
-que moram EM CIMA dela são `--surface-2` (branco a .92) e só são legíveis porque
-a barra debaixo é TINTA: sobre uma superfície quieta, o par habilitado ×
-desabilitado cai a ΔE **2,11** no tema claro — abaixo do limiar de percepção, e o
-app perderia a distinção entre disponível e INDISPONÍVEL na barra que hospeda o
-EXCLUIR. Entrar em seleção **é** trocar de modo, e a fatia trocar de tom ali é o
-desenho. (O `border-radius` continua UM SÓ para as quatro peças: a `.selbar` base
-declara `--radius-card` e é a regra agrupada que a põe em `--radius-btn` — tirá-la
-de lá junto com a cor devolveria 10px sem erro e sem oráculo.)
+varrer o token de 48 a 36px **não mudava um pixel**. Com `padding: 0 .3rem` o
+termo vertical passa a ser um só, e "mais baixo" vira **um número num lugar
+só**: a fatia segue o token, e é isso que o I2 do `ferramentas-folha` cobra.
 
 **E "PADRONIZE" COBROU DOIS EIXOS QUE NINGUÉM TINHA OLHADO:**
 
@@ -634,8 +621,7 @@ conta que põe a barra no lugar.
   (`barra-em-qualquer-tela.test.mjs`).
 - **E A CAIXA DE CONTROLES É VIGIADA** (`ResizeObserver`). O lugar da barra é o
   topo dela, e ela muda de altura por caminhos que não passam pela medida: a
-  proporção da preview, o nome da mídia em duas linhas, a seleção múltipla, o
-  modo do app. Enumerá-los seria uma lista para envelhecer, e o modo de falhar é
+  proporção da preview, o nome da mídia em duas linhas, o modo do app. Enumerá-los seria uma lista para envelhecer, e o modo de falhar é
   a barra pousando fora do lugar. O laço que o observador poderia criar (a medida
   muda o `padding-top`, que muda a caixa) é fechado do outro lado: a função só
   escreve **o que mudou**.

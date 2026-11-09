@@ -703,7 +703,7 @@ try {
     // existe com a gaveta ou o menu do Cronograma abertos, para engolir o toque
     // de fora — sem ele esse toque projetaria a linha de baixo.
     const OK = ['popup-backdrop', 'popup-sheet', 'simple', 'simple-veil', 'bottombar',
-      'appDialog', 'dialog-card', 'tab-ghost', 'selbar', 'crono-veu'];
+      'appDialog', 'dialog-card', 'tab-ghost', 'crono-veu'];
     const achados = [];
     document.querySelectorAll('body *').forEach((el) => {
       const cs = getComputedStyle(el);
@@ -4340,7 +4340,7 @@ try {
   checar(false, 'a medição do limpar a fila terminou sem exceção (' + (e && e.message) + ')');
 }
 
-// ── O TOQUE LONGO AINDA ENTRA NA SELEÇÃO MÚLTIPLA ────────────────────────
+// ── O TOQUE NA LINHA NÃO ESTOURA, E O LONGO ARRASTA ──────────────────────
 //
 // **Nenhum teste deste repositório tinha tocado numa linha da lista**, e foi
 // por aí que passou o defeito que este caso existe para prender: a v5.287 tirou
@@ -4351,55 +4351,51 @@ try {
 //
 // O modo de falhar é o pior que esta base sabe produzir: o `pid` já tinha sido
 // escrito na linha acima, então o toque CURTO continuava projetando e nada na
-// tela mudava. O que sumia era a seleção múltipla inteira — e com ela o
-// `deleteSelected`, que é o único excluir em lote do app.
+// tela mudava. O que sumia era o gesto inteiro — na v5.287 a seleção múltipla,
+// e desde a v1.13.52 é o ARRASTO que tomou o lugar dela.
 //
-// São DUAS metades, e a negativa não é enfeite: sem ela, um toque longo que
-// ligasse a seleção em QUALQUER duração passaria — e aí o toque comum de
-// projetar teria virado um seletor.
+// O que se mede aqui é o CICLO do gesto, e não o efeito de cada metade: curto
+// não levanta a linha, longo levanta (com a linha-guia do destino), e cancelar
+// devolve tudo ao lugar.
 try {
   const sel = await pg.evaluate(async () => {
     setAppMode('full');
-    activeTab = 'imports';
     await load();
     const li = document.querySelector('#library .lib-item');
     if (!li) return { erro: 'a linha do Cronograma não foi desenhada' };
-    const corpo = li.querySelector('.row-name') || li;
+    const corpo = li.querySelector('.row') || li;
     const bateu = (tipo, extra) => corpo.dispatchEvent(new PointerEvent(tipo,
-      Object.assign({ pointerId: 7, clientX: 40, clientY: 40, bubbles: true }, extra || {})));
+      Object.assign({ pointerId: 7, clientX: 40, clientY: 40, bubbles: true, cancelable: true }, extra || {})));
     const r = {};
-    // ---- a metade NEGATIVA primeiro: um toque curto NÃO seleciona ----
+    // ---- a metade NEGATIVA primeiro: um toque curto não levanta nada ----
     bateu('pointerdown');
     await new Promise((f) => setTimeout(f, 90));
     bateu('pointerup');
     await new Promise((f) => setTimeout(f, 60));
-    r.curtoNaoSeleciona = selectionMode === false;
-    // ---- e o toque LONGO entra na seleção, com o item marcado ----
+    r.curtoNaoArrasta = !document.querySelector('.lib-item.arrastando');
+    r.semSelecao = document.getElementById('selbar') === null
+      && typeof enterSelection === 'undefined';
+    // ---- e o toque LONGO levanta a linha, com a guia ----
     bateu('pointerdown');
-    await new Promise((f) => setTimeout(f, 700));
-    r.longoSeleciona = selectionMode === true;
-    r.itemMarcado = selected instanceof Set ? selected.has(li.dataset.id) : null;
-    bateu('pointerup');
+    await new Promise((f) => setTimeout(f, 700));   // além do LONGPRESS
+    r.longoArrasta = !!document.querySelector('.lib-item.arrastando');
+    r.guia = !!document.querySelector('.drop-line');
+    bateu('pointercancel');
     await new Promise((f) => setTimeout(f, 60));
-    // E a barra de seleção — a porta do excluir em lote — está na tela.
-    const barra = document.getElementById('selbar');
-    r.barraVisivel = !!barra && !barra.hidden
-      && getComputedStyle(barra).display !== 'none';
-    if (selectionMode) exitSelection();
-    await new Promise((f) => setTimeout(f, 60));
+    r.depois = !document.querySelector('.lib-item.arrastando');
     return r;
   });
-  checar(!sel.erro && sel.curtoNaoSeleciona,
-    'um toque CURTO na linha não entra na seleção múltipla', JSON.stringify(sel));
-  checar(!sel.erro && sel.longoSeleciona && sel.itemMarcado === true,
-    'e o TOQUE LONGO entra, com o item já marcado — o único caminho para o '
-    + 'excluir em lote (a v5.287 o tinha derrubado com um `ReferenceError` '
-    + 'mudo em todo `pointerdown`)', JSON.stringify(sel));
-  checar(!sel.erro && sel.barraVisivel,
-    'e a barra de seleção aparece: é ela que hospeda o excluir em lote',
+  checar(!sel.erro && sel.curtoNaoArrasta,
+    'um toque CURTO na linha não levanta o item', JSON.stringify(sel));
+  checar(!sel.erro && sel.longoArrasta && sel.guia,
+    'e o TOQUE LONGO levanta a linha para reordenar, com a linha-guia no lugar do '
+    + 'destino (na v1.13.52 o gesto deixou de ser seleção múltipla e virou arrasto)',
+    JSON.stringify(sel));
+  checar(!sel.erro && sel.depois && sel.semSelecao,
+    'cancelar devolve a linha ao lugar — e a barra de seleção não existe mais',
     JSON.stringify(sel));
 } catch (e) {
-  checar(false, 'a medição do toque longo terminou sem exceção (' + (e && e.message) + ')');
+  checar(false, 'a medição do toque na linha terminou sem exceção (' + (e && e.message) + ')');
 }
 
 // ── A LINHA DEPOIS DO RELATO: uma caixa só, o Parar na capa (v5.259) ──────

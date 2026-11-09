@@ -103,18 +103,16 @@ Três detalhes que o mecanismo não pode dispensar:
 - **Quem re-renderiza a lista precisa ESPERAR o pulso.** `toggleFav` atualiza o
   próprio botão no lugar (classe `on`, `title`, `starSvg`) e adia o
   `renderLibrary` em `PULSO_MS` — chamar o render na hora destruiria o nó que
-  está pulsando e o sinal duraria um quadro. Mesmo padrão em `refreshDiversos`,
-  `exitSelection` (via `sairDaSelecaoDepois()`) e `closePlPopup`: a folha só
-  fecha depois de o operador ver a cor. (`closeFolderPicker` era o quarto e saiu
+  está pulsando e o sinal duraria um quadro. Mesmo padrão em `refreshDiversos` e
+  `closePlPopup`: a folha só fecha depois de o operador ver a cor. (`closeFolderPicker` era o quarto e saiu
   na v5.254, com as pastas virtuais e a folha de duas origens.)
 - **As regras do pulso ficam no FIM de `controle.css`.** `.btn-pulso--ok` tem a
-  mesma especificidade de `.row-btn`/`.sel-btn` (0-1-0), então quem decide é a
-  ordem. Declaradas antes, elas simplesmente não pintam nada.
+  mesma especificidade de `.row-btn` (0-1-0), então quem decide é a ordem. Declaradas antes, elas simplesmente não pintam nada.
 
 **Todo destino passa por `adicionarNasListas(listas, id, btn)`**, que faz o
-`listHas` antes do `listAdd` e escolhe entre `ok` e `dup`. Operações em lote
-(seleção múltipla) resolvem o tipo em `tipoLote` — um pulso só na barra de
-seleção, em vez de quatro sinais piscando.
+`listHas` antes do `listAdd` e escolhe entre `ok` e `dup`. Quem escreve em
+VÁRIAS listas de uma vez (o `ytAcao` com dois destinos) resolve o tipo numa
+conta só, em vez de um pulso por destino.
 
 **SÓ O PULSO, SEM FRASE** (decisão do operador, v1.13.30: *"deixar
 exclusivamente o sinal nos botões, sem mensagens extras"*). `responder` tem DOIS
@@ -165,8 +163,8 @@ neutro. É **assíncrono** (retorna uma Promise): `appConfirm({title, message,
 okText, cancelText})` → `true`/`false`; `appPrompt({title, message, value,
 placeholder, okText})` → string (OK) ou `null` (cancelar/fora/Esc). Um só
 diálogo reutilizável (o DOM é estático no `index.html`); abrir um novo enquanto
-outro está aberto resolve o anterior como cancelado. Usam isto: **renomear em
-LOTE** (o botão do rodapé da seleção múltipla), excluir uma **pasta do
+outro está aberto resolve o anterior como cancelado. Usam isto: renomear um
+**cronograma** (o lápis da gaveta), excluir uma **pasta do
 aparelho** ou o que foi baixado de um **álbum** (as duas apagam BYTES, e a frase
 é o que diz quantos), o aviso de "sem Wi-Fi" da sincronização em massa, o
 cancelamento de um download em curso e a pergunta do OTA.
@@ -177,8 +175,8 @@ LINHA — ver "A confirmação de excluir mora na linha", abaixo. **E NA v1.4.25
 saiu o RENOMEAR de uma linha**, pela mesma porta e pelo mesmo argumento.
 
 A régua que ficou: o modal é para o que **apaga bytes** e precisa dizer QUANTOS,
-ou para o que age sobre um CONJUNTO (a seleção múltipla, onde não há uma linha
-sob o dedo); o que age sobre UMA linha se resolve onde a linha está.
+ou para o que age sobre a LISTA inteira (limpar o cronograma); o que age sobre
+UMA linha se resolve onde a linha está.
 
 ### Deslocamento com o teclado virtual
 

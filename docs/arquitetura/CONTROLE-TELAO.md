@@ -55,8 +55,8 @@ corpo para o botão, apenas o icone, que é o padrão dessa top bar"*.
 
 - **A OPERAÇÃO é `AVDB.listSet('imports', () => [])`**, e não um laço de
   `listRemove`: uma transação com a coleta dentro, contra N transações e N
-  varreduras de detentores. Mas ela repete as DUAS metades do `deleteSelected`
-  que o `listSet` sozinho não faz, e nenhuma tem sintoma — a marca `ytEstado`
+  varreduras de detentores. Mas ela repete as DUAS metades do EXCLUIR de uma
+  linha que o `listSet` sozinho não faz, e nenhuma tem sintoma — a marca `ytEstado`
   do ✓ "já está aqui" da busca (que nunca é recalculada enquanto a entrada
   existir) e o `soltarAvulso` da prateleira invisível (que é detentora, e sem
   soltá-la o que já tocou fica preso nela).
@@ -84,7 +84,7 @@ corpo para o botão, apenas o icone, que é o padrão dessa top bar"*.
 - **O VERBO É LIMPAR, NUNCA EXCLUIR** (v1.8.67): *"foque em chamar apenas de
   'limpar cronograma' e use esses tipos de termos nos botões de confirmar,
   títulos e afins"*. A distinção é real e não preferência de palavra — EXCLUIR é
-  o que a seleção múltipla faz a um ITEM, LIMPAR é o que se faz a uma LISTA, e é
+  o que o EXCLUIR de uma linha faz a um ITEM, LIMPAR é o que se faz a uma LISTA, e é
   o verbo que a fila já usa no `#plClear`. Um "excluir" aqui prometeria que os
   arquivos morrem, e o que morre é só o que não tiver outro detentor. A asserção
   varre os TRÊS lugares onde a palavra apareceria: o título, o botão que confirma

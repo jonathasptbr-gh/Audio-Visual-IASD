@@ -1153,7 +1153,7 @@ equipe saberem em que momento estão e o que vem a seguir.
   NA LINHA, `pedirConfirmacaoNaLinha`) · editar; o item de agora é a linha
   `.active` — e "Adicionar horário" embaixo, fora do scroller (o `.crono-novo`
   da gaveta dos cronogramas). Tocar na linha EDITA. O PAR ↑↓ (v1.13.2, revogando
-  o "não há ↑↓" da v1.13.1) é o do Cronograma — `row-btn row-ordem`, por último
+  o "não há ↑↓" da v1.13.1) nasceu copiado do Cronograma — `row-btn row-ordem`, por último
   na faixa do `⋮`, pontas apagadas, a faixa REABRE na linha que andou
   (`reabrirAcoesEm`) — e mover TROCA o evento com o vizinho deixando os HORÁRIOS
   no lugar (`itinMover`): a grade da programação não muda, a lista continua em

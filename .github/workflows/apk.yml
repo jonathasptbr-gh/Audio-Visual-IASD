@@ -669,6 +669,7 @@ jobs:
           rodar tools/sombra-das-portas.test.mjs
           rodar tools/portas-presenca.test.mjs
           rodar tools/cronograma-acoes-cheias.test.mjs
+          rodar tools/cronograma-pronto.test.mjs
           rodar tools/transporte-sem-cena.test.mjs
           rodar tools/eixo-de-acao.test.mjs
           rodar tools/rodape-da-playlist.test.mjs

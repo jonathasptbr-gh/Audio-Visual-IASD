@@ -912,8 +912,8 @@ Um compartilhamento é um pedido explícito e imediato, e o app pode estar em
 qualquer lugar quando ele chega. `focarImportado(id)` roda depois de todo import
 bem-sucedido:
 
-1. **Sai do que está por cima**, nos dois modos: `exitSelection()` e o fechamento
-   de TODOS os popups abertos, percorrendo a MESMA tabela `POPUPS` que o ✕, o
+1. **Sai do que está por cima**, nos dois modos: o fechamento de TODOS os popups
+   abertos, percorrendo a MESMA tabela `POPUPS` que o ✕, o
    toque no fundo e o botão voltar já usam — um popup novo entra numa linha e
    passa a ser fechado também por aqui.
 2. **A preview em tela cheia só sai quando há TELÃO.** Sem telão ela É a
