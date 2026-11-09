@@ -26,23 +26,72 @@ import { execFileSync } from 'node:child_process';
 const ehComentario = (l) => /^\s*(\/\/|\/\*|\*|#)/.test(l);
 const ehVazia = (l) => /^\s*$/.test(l);
 
+// ===== O BLOCO `/* … */` ABERTO ATÉ O `*/` (revisão X3, 2026-11-09) =====
+//
+// A regra era "linha iniciada por `//`, `/*`, `*` ou `#`", e ela supõe a
+// convenção de que toda continuação de bloco começa por `*`. O CSS deste
+// repositório NÃO a segue em 855 blocos do `controle.css` (medido): a
+// continuação entra sem `*`, e o bloco terminava na PRIMEIRA linha — a
+// continuação virava o `alvo` do par.
+//
+// O modo de falhar é o pior para uma prova de comentário: os dois lados da
+// comparação são parseados pelo MESMO código, então HEAD×HEAD fecha verde e o
+// defeito só aparece quando um bloco é REESCRITO — aí o `alvo` (a 2ª linha do
+// próprio comentário) muda junto, e a prova acusa "mudou de alvo" sem que nada
+// tenha saído do lugar. ACONTECEU na revisão S2: sete blocos reescritos, sete
+// acusações falsas, todas conferidas uma a uma à mão.
+//
+// Aqui o estado de "bloco aberto" vale até o `*/`. Continua valendo a forma
+// curta, de uma linha só (`/* nota */`), que segue reconhecida pelo marcador.
+function linhasDeBloco(L) {
+  const dentro = new Array(L.length).fill(false);
+  let aberto = false;
+  for (let i = 0; i < L.length; i++) {
+    if (aberto) { dentro[i] = true; if (L[i].includes('*/')) aberto = false; continue; }
+    const t = L[i].trim();
+    if (t.startsWith('/*') && !t.includes('*/')) { dentro[i] = true; aberto = true; }
+  }
+  return dentro;
+}
+
+// ===== O CABEÇALHO É A PRIMEIRA LINHA DE CONTEÚDO, SEM MARCADOR (X3) =====
+//
+// A extração antiga tirava UM marcador por linha, e o `/**` do KDoc escapava:
+// a alternância casava `/*` primeiro e sobrava um `*`, então TODO bloco de KDoc
+// tinha por cabeçalho a string `"*"`. A chave colidia entre centenas de blocos,
+// e a comparação virava "aprova se o alvo casar com QUALQUER bloco de KDoc do
+// arquivo" — que é o mesmo que não comparar. MEDIDO do outro lado: a K5 viu dez
+// acusações falsas e a K6 uma (um KDoc criado NAQUELE lote, acusado de ter
+// mudado de alvo).
+//
+// Aqui o `*`/`/**` sai inteiro, o `*/` da mesma linha também, e o que fica é o
+// texto do resumo — a chave que o arquivo realmente tem.
+function linhaDeCabecalho(l) {
+  let t = l.replace(/^\s*\/\*+\s?/, '').replace(/^\s*\/\/\s?/, '');
+  t = t.replace(/^\s*\*+\s?/, '').replace(/^\s*#\s?/, '');
+  return t.replace(/\*\/\s*$/, '').trim();
+}
+
 export function paresDe(texto) {
   const L = texto.split('\n');
+  const dentro = linhasDeBloco(L);  const ehCom = (l, i) => dentro[i] || ehComentario(l);
   const out = [];
   let i = 0;
   while (i < L.length) {
-    if (!ehComentario(L[i])) { i++; continue; }
+    if (!ehCom(L[i], i)) { i++; continue; }
     const ini = i;
-    while (i < L.length && (ehComentario(L[i]) || ehVazia(L[i]))) {
-      if (ehVazia(L[i]) && !(i + 1 < L.length && ehComentario(L[i + 1]))) break;
+    while (i < L.length && (ehCom(L[i], i) || ehVazia(L[i]))) {
+      // Linha vazia DENTRO de um bloco `/* … */` é comentário como as outras:
+      // não termina o bloco. Sem o `!dentro[i]`, o `break` a deixava parada e o
+      // laço de fora girava para sempre (o `ehCom` dela é verdadeiro).
+      if (ehVazia(L[i]) && !dentro[i]
+          && !(i + 1 < L.length && ehCom(L[i + 1], i + 1))) break;
       i++;
     }
     let j = i;
     while (j < L.length && ehVazia(L[j])) j++;
     const alvo = j < L.length ? L[j].trim() : '(fim do arquivo)';
-    const cab = (L.slice(ini, i)
-      .map((l) => l.replace(/^\s*(\/\/|\/\*|\*|#)\s?/, '').trim())
-      .find(Boolean)) || '';
+    const cab = (L.slice(ini, i).map(linhaDeCabecalho).find(Boolean)) || '';
     if (cab) out.push({ linha: ini + 1, cab, alvo });
   }
   return out;

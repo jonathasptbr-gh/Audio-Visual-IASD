@@ -481,6 +481,24 @@ jobs:
             ~/.cache/ms-playwright
           key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
+      # ===== A MEDIÇÃO DA X3, E SÓ QUANDO O COMMIT A PEDE =====
+      #
+      # Ela NÃO é portão: não afirma comportamento, não reprova o lote e não
+      # entra na lista de oráculos. Devolve números (abertura, heap sob status
+      # a 4 Hz, getComputedStyle por render, busca com o acervo cheio) para a
+      # etapa seguinte escolher onde vale mexer — docs/REVISAO-PROFUNDA.md, X3.
+      #
+      # Daí o marcador na mensagem do commit, e não um passo sempre ligado: um
+      # push comum não paga os ~4 min de pulsação, e um lote de medição não
+      # precisa de um workflow próprio para rodar UMA vez. O `[medicao]` fica
+      # na história e é a pista de por que aquele commit existe.
+      - name: Medição de desempenho (X3, só com [medicao])
+        if: contains(github.event.head_commit.message, '[medicao]')
+        timeout-minutes: 20
+        run: |
+          set -euo pipefail
+          PW_CHROMIUM="" node tools/medicao-desempenho.mjs
+
       # FUMAÇA DO CONTROLE e os demais oráculos, num Chromium de verdade. Os
       # passos acima provam que os arquivos são PARSEÁVEIS; estes provam que o
       # app SOBE e responde ao toque. A distinção não é acadêmica: a v5.121 saiu

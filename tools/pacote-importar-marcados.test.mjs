@@ -303,18 +303,20 @@ async function fimDaExportacao(pg) {
 }
 
 // O FIM DA IMPORTAÇÃO. Ela deixou de terminar em `location.reload()` (v1.8.28),
-// e o que se espera é a Promise que o `importarPacote` devolve — ela só resolve
-// depois da REHIDRATAÇÃO (`loadCollections` + `load`).
+// e a régua passou a ser o `pacoteEmCurso`: quem o solta é o `finally` do
+// `importarPacote`, DEPOIS da rehidratação — e é isso que o bloco seguinte
+// precisa esperar antes de ler o destino.
 //
-// O `catch` NÃO é frouxidão: é o que faz a REVERSÃO ser limpa. Com o
-// `location.reload()` de volta, a página navega no meio deste `evaluate` e o
-// Playwright lança — sem o catch o oráculo MORRE aqui, num bloco que não é o
-// dele, e quem lê o log vê um `ReferenceError` em vez da asserção que reprovou.
-// Engolindo a navegação, o percurso segue e quem acusa é o bloco 16, que é de
-// quem essa regra é.
+// A versão anterior esperava `window.__fim`, uma Promise que NADA atribui
+// (medido na X3: só há `window.__fim = null` daqui e da J). O `evaluate`
+// devolvia `null` no mesmo tick e o `lerDestino` podia ler ANTES do fim — é a
+// instabilidade H/L que o CI pegou (run 42060562112) com `obtido: []`, num lote
+// que nem tocava no pacote. O `catch` da navegação fica: com o
+// `location.reload()` de volta a página navega no meio, e sem o catch o oráculo
+// MORRE aqui em vez de reprovar no bloco que é dele.
 async function fimDaImportacao(pg) {
   try {
-    await pg.evaluate(() => window.__fim);
+    await esperar(pg, () => typeof pacoteEmCurso !== 'undefined' && !pacoteEmCurso, null, 60000);
   } catch (_) {
     // NAVEGOU — é a REVERSÃO (o `location.reload()` de volta). Espera-se o
     // documento novo assentar, senão o `evaluate` seguinte cai no vão entre as
@@ -328,13 +330,26 @@ async function fimDaImportacao(pg) {
     null, 30000);
 }
 
-async function responderDialogo(pg) {
+// O DIÁLOGO DA IMPORTAÇÃO, PELO TÍTULO (revisão X3, repasse C2). Antes ele
+// clicava em QUALQUER `appDialog` aberto e devolvia a mensagem: se o app
+// mostrasse outro diálogo (a recusa de um arquivo, um erro), o OK era dado
+// nele e o percurso seguia como se a importação tivesse acontecido.
+// `tituloEsperado` é o nome que o app dá ao desfecho; divergir NÃO é motivo
+// para clicar — devolve a frase com o título inesperado e a asserção do bloco
+// diz o que apareceu.
+async function responderDialogo(pg, tituloEsperado) {
   const abriu = await esperar(pg, () => {
     const d = document.getElementById('appDialog');
     return !!d && d.classList.contains('open');
   }, null, 60000);
   if (abriu !== true) return abriu;
-  const texto = await pg.evaluate(() => document.getElementById('appDialogMsg').textContent);
+  const { titulo, texto } = await pg.evaluate(() => ({
+    titulo: ((document.getElementById('appDialogTitle') || {}).textContent || '').trim(),
+    texto: (document.getElementById('appDialogMsg') || {}).textContent || '',
+  }));
+  if (tituloEsperado && titulo !== tituloEsperado) {
+    return '[diálogo inesperado: "' + titulo + '"] ' + texto;
+  }
   await pg.click('#appDialogOk');
   return texto;
 }
@@ -418,10 +433,9 @@ async function importarPelaJanela(pg, aoMarcar) {
   if (abriu !== true) return { erro: porque(abriu) };
   if (aoMarcar) await aoMarcar();
   const antes = await marcadas(pg);
-  await pg.evaluate(() => { window.__fim = null; });
   await pg.click('#pacoteImportarTile');
-  const texto = await responderDialogo(pg);
-  await pg.evaluate(() => window.__fim);
+  const texto = await responderDialogo(pg, 'Acervo importado');
+  await fimDaImportacao(pg);
   return { antes, texto };
 }
 
@@ -680,9 +694,10 @@ try {
     'J · com um pacote PRONTO, marcar uma folha de destinos e depois o Transferir mostra a lista TODA marcada '
     + '(a folha de destinos não tem como apagar as marcas da janela)', JSON.stringify({ jLista, jMarcas }));
   // descarta o pronto SEM reabrir a janela e importa: tudo marcado, o pacote inteiro entra
-  await j.pg.evaluate(() => { pacotePronto = null; pacoteRenderTiles(); window.__fim = null; });
+  await j.pg.evaluate(() => { pacotePronto = null; pacoteRenderTiles(); });
   await j.pg.click('#pacoteImportarTile');
-  const jTexto = await responderDialogo(j.pg);
+  const jTexto = await responderDialogo(j.pg, 'Acervo importado');
+  await fimDaImportacao(j.pg);
   const dJ = await lerDestino(j.pg);
   checar(dJ.h22Arquivo && dJ.h96Arquivo && dJ.midia.join() === 'epi-inf,epi-pv,fav-item,solto-item'
       && !/ficaram de fora/.test(jTexto || ''),

@@ -60,7 +60,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, esperarCortina, checar, falhas } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 
@@ -154,6 +154,14 @@ try {
   ouvir(pg, 'controle');
   await pg.goto(base + '/controle/', { waitUntil: 'load' });
   await pg.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function', null, { timeout: 20000 });
+  // A CORTINA TAMBÉM, e não só o `__avBack` (revisão X3, repasse W2): são dois
+  // sinais de instantes diferentes. O `__avBack` existe logo no começo do
+  // `controle.js`, com o `init()` ainda EM VOO; agir ali deixava o `load()` do
+  // próprio `init()` reaplicar a rotação velha por cima do giro que este
+  // oráculo pediu — reprovava com o CPU freado 20× e passava sem o freio
+  // (medido na W2). O `esperarCortina` espera o `__avPronto`, que é a última
+  // linha do `init()` que muda o que se vê.
+  await esperarCortina(pg);
 
   const ids = await pg.evaluate(new Function('return (async () => {'
     + 'setAppMode("full");' + SEMEAR + 'await load(); return { audio: a.id, imagem: i.id }; })()'));
