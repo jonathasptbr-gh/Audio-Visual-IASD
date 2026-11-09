@@ -4464,6 +4464,16 @@ try {
     //    alternador apagado com tinta própria é o "ofuscado" voltando por outra
     //    porta.
     const daFaixa = [...caixa.querySelectorAll('.row-btn')];
+    // O "LIGADO" É DO FIXTURE, e não herdado de outro bloco (v1.13.53). Até
+    // aqui ele vinha do estado que o bloco anterior tinha deixado, e qualquer
+    // coisa que remontasse a lista no meio deixava a fileira toda APAGADA — a
+    // régua abaixo media o ambiente, não o desenho. A estrela repinta NO LUGAR
+    // a partir de `favSet` (`marcarFavoritos`), sem tocar no banco e sem
+    // redesenhar a lista: o nó medido é o mesmo que o app acabou de pintar.
+    const idDaLinha = li.dataset.id;
+    const jaEraFavorito = favSet.has(idDaLinha);
+    favSet.add(idDaLinha);
+    marcarFavoritos();
     r.fundosDaFaixa = daFaixa.map((b) => getComputedStyle(b).backgroundColor);
     r.fundosApagados = daFaixa.filter((b) => !b.classList.contains('on'))
       .map((b) => getComputedStyle(b).backgroundColor);
@@ -4478,6 +4488,9 @@ try {
     r.tracoApagado = apagado ? getComputedStyle(apagado).color : null;
     r.tracoVizinho = vizinho ? getComputedStyle(vizinho).color : null;
     r.temEstrela = !!caixa.querySelector('.fav-btn');
+    // E O FIXTURE DESFAZ O QUE ELE MESMO LIGOU — o resto do arquivo lê o estado
+    // real dos favoritos, e uma marca plantada aqui apareceria lá.
+    if (!jaEraFavorito) { favSet.delete(idDaLinha); marcarFavoritos(); }
     return r;
   });
 // ── A GAVETA DA LINHA: o que fecha e o que não fecha (v5.288) ────────────

@@ -11894,6 +11894,13 @@ async function moverNaLista(listName, id, delta) {
 // (atomicidade contra um `listAdd` do vão), e o desenho é o MESMO `load()` —
 // o app não precisa saber que existem dois gestos para a mesma decisão.
 async function moverNaListaPara(listName, id, destino) {
+  // SOLTAR ONDE ESTAVA NÃO É MUDANÇA DE ORDEM, e a leitura vem ANTES da escrita
+  // de propósito (v1.13.53): gravar a mesma lista emite `db-change`, o app
+  // redesenha a lista inteira, e a gaveta de ações que estava aberta fecha
+  // debaixo do dedo. Quem solta no mesmo lugar não pediu nada.
+  const antes = await AVDB.listIds(listName);
+  const deAgora = antes.indexOf(id);
+  if (deAgora === -1 || destino === deAgora) return;
   let andou = false;
   await AVDB.listSet(listName, (ids) => {
     const de = ids.indexOf(id);
