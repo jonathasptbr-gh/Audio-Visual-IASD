@@ -10,11 +10,14 @@
 // O que este arquivo trava, e cada uma falha CALADA:
 //  A. LARGO (430×1): os botões cabem entre a capa e o `⋮` — a capa fica à vista,
 //     intocada, e a faixa começa DEPOIS dela (nada muda em relação a antes);
-//  B. ESTREITO (360×1 e 320×1,25): não cabem — a capa SAI DE VISTA, a faixa vai da
-//     borda do cartão ao `⋮`, e os botões se DISTRIBUEM por ela (o primeiro onde a
-//     capa começava, o último colado à borda direita da faixa). A 320×1,25 nem a
-//     linha inteira comporta seis quadrados de 40px: eles descem ao piso de 34px
-//     (`.acoes-justas`) e continuam todos dentro da faixa;
+//  B. ESTREITO: a célula em que NÃO cabem é a 320×1,25 — lá a capa SAI DE VISTA, a
+//     faixa vai da borda do cartão ao `⋮`, e os botões se DISTRIBUEM por ela (o
+//     primeiro onde a capa começava, o último colado à borda direita da faixa).
+//     Nem a linha inteira comporta QUATRO quadrados de 40px ali: eles descem ao
+//     piso de 34px (`.acoes-justas`) e continuam todos dentro da faixa.
+//     A 360×1 eles CABEM — e essa é a metade que a v1.13.52 mudou: a fileira do
+//     Cronograma passou de seis botões a quatro quando o par ↑↓ saiu (a posição
+//     virou o arrasto da linha), e a linha de 360 deixou de ser estreita demais;
 //  C. NUNCA PELA METADE: em toda célula, ou a faixa não toca a capa, ou a capa está
 //     escondida — a meia capa debaixo de um botão é o defeito do relato;
 //  D. a CONFIRMAÇÃO de excluir devolve a capa (é nela que mora a lixeira) e a faixa
@@ -108,15 +111,29 @@ try {
 
   // A · LARGO: tudo como antes.
   const largo = await medir(430, 1);
-  checar(largo.prazo === true && largo.n >= 6,
-    'A · PREMISSA: a faixa da linha do meio abriu, com a fileira de um culto de verdade (6+ botões)',
+  checar(largo.prazo === true && largo.n >= 4,
+    'A · PREMISSA: a faixa da linha do meio abriu, com a fileira do Cronograma de '
+    + 'hoje — quatro botões (excluir · renomear · playlist · estrela), desde que o '
+    + 'par ↑↓ saiu (v1.13.52)',
     JSON.stringify(largo));
   checar(!largo.cheia && largo.capaVisivel && largo.sobreposicao === 0 && largo.faixa.esq >= largo.capa.dir,
     'A · a 430 os botões cabem ao lado da capa: ela continua à vista e a faixa começa DEPOIS dela',
     JSON.stringify(largo));
 
-  // B · ESTREITO: a faixa toma a linha.
-  for (const [w, e] of [[360, 1], [320, 1.25]]) {
+  // B · A 360×1 AINDA CABE (v1.13.52): com quatro botões a faixa não precisa
+  // tomar a linha, e a capa continua à vista. É a célula que prova o ENCOLHIMENTO
+  // da fileira — sem ela, "a faixa toma a linha" passaria a valer para qualquer
+  // tela e o defeito do relato (a meia capa) ficaria sem régua.
+  const media = await medir(360, 1);
+  checar(media.prazo === true && !media.cheia && media.capaVisivel
+    && media.sobreposicao === 0 && media.faixa.esq >= media.capa.dir,
+    'B · a 360×1 os QUATRO botões ainda cabem ao lado da capa — ela fica à vista e '
+    + 'a faixa começa depois dela (eram seis até a v1.13.52, e por isso a 360×1 '
+    + 'entrava na faixa)',
+    JSON.stringify(media));
+
+  // B · ESTREITO DE VERDADE: a 320×1,25 a faixa toma a linha.
+  for (const [w, e] of [[320, 1.25]]) {
     const r = await medir(w, e);
     checar(r.prazo === true && r.cheia && !r.capaVisivel,
       'B · a ' + w + '×' + e + ' os botões não cabem ao lado da capa: a CAPA SAI DE VISTA',
@@ -128,7 +145,7 @@ try {
       'B · e os botões se DISTRIBUEM pela largura toda: o primeiro na ponta esquerda, o último na direita',
       JSON.stringify(r));
     checar(r.menor >= 33.5,
-      'B · e nenhum quadrado fica abaixo do PISO de toque (34px) — com seis botões, nem a 320×1,25',
+      'B · e nenhum quadrado fica abaixo do PISO de toque (34px) — com quatro botões, nem a 320×1,25',
       JSON.stringify(r));
     // C · nunca pela metade
     checar(r.sobreposicao === 0 || !r.capaVisivel,

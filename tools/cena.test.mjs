@@ -452,8 +452,10 @@ try {
 
   await abrirGaveta(audioId);
   const aberta = await botoes(audioId);
-  checar(!!aberta && aberta.estrela && aberta.arrasta,
-    'a gaveta aberta traz a estrela e o par ↑↓ de reordenar (o Parar não está nela: ele é da capa)',
+  checar(!!aberta && aberta.estrela && !aberta.arrasta,
+    'a gaveta aberta traz a estrela e NÃO traz par ↑↓ — a fileira do Cronograma '
+    + 'perdeu o par na v1.13.52, quando a POSIÇÃO virou o arrasto da linha (o '
+    + 'Parar também não está nela: ele é da capa)',
     JSON.stringify(aberta));
   await pg.evaluate(() => { if (typeof fecharAcoesDaLinha === 'function') fecharAcoesDaLinha(); });
   // E o botão faz o que diz: é o mesmo `retirarDoAr` do segundo toque.
