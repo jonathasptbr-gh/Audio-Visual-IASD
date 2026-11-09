@@ -945,6 +945,18 @@ try {
       () => window.__chamadas.filter((n) => n === 'otaApply').length === 1, null, PRAZO_CURTO_MS);
     checar(aplicou === true, '10 · PREMISSA: "Atualizar agora" chega ao `otaApply` (que RECUSA)',
       porque(aplicou));
+    // ESPERA PELO FATO, NÃO PELO DESPACHO. O `otaApply` entra em `__chamadas` na
+    // CHAMADA; a recusa (o `.add` no `otaRecusadas` e a frase na linha) vem
+    // depois de a promise resolver. A primeira versão desta asserção media ali,
+    // e no run #2377 ela reprovou as duas linhas de baixo: a marca ainda não
+    // existia e as duas voltas da decisão abriram a pergunta.
+    const recusou = await esperar(pg, () => {
+      const linha = document.getElementById('otaRow');
+      return !!linha && /Não deu para aplicar a versão 5\.999/.test(linha.textContent || '');
+    }, null, PRAZO_CURTO_MS);
+    checar(recusou === true,
+      '10 · a recusa chega à LINHA do botão ("Não deu para aplicar a versão…") — é o desfecho que o operador lê',
+      porque(recusou));
     // DUAS voltas da decisão, como a enquete faz. A pergunta NÃO pode voltar —
     // e o controle da medição é o passo seguinte: apagada a marca, ela volta.
     const voltas = await pg.evaluate(() => {
