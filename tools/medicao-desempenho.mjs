@@ -328,9 +328,66 @@ async function medirBusca() {
   await ctx.close();
 }
 
+// ===== E · OS DOWNLOADS AUTOMÁTICOS DA ABERTURA =====
+//
+// A pergunta que o plano não listava e o operador cobrou depois: QUANTOS
+// downloads o app dispara sozinho ao abrir? A resposta útil não é "alguns" —
+// é a conta, com o acervo cheio.
+//
+// **O que dá para medir aqui, e o que NÃO dá.** A varredura de LETRAS é do web
+// (um `music_<id_music>` por faixa DISTINTA sem letra, `NET_CONCURRENCY` = 6) e
+// roda inteira neste arnês. A de CIFRAS sai por `if (!window.__NATIVE__)` —
+// é do app, e num Chromium ela nem parte; fica declarada, não medida. Os
+// FUNDOS e o EPISÓDIO DA SEMANA dependem de `isConfirmedWifi()`, que no
+// navegador responde o que o aparelho responder — idem.
+//
+// O pedido é COUNTADO na origem (`page.on('request')`) e a resposta é abortada
+// pelo `semRedeExterna`: o que se mede é a DECISÃO de pedir, não a banda. Sem
+// isso a conta dependeria do servidor de terceiro estar de pé.
+async function medirDownloads() {
+  const ctx = await abrirContexto();
+  const pg = await ctx.newPage();
+  const externas = [];
+  pg.on('request', (r) => { const u = r.url(); if (!u.startsWith(base) && !u.startsWith('data:')) externas.push(u); });
+  const subiu = await subirApp(pg);
+  if (subiu !== true) { linha('MEDICAO downloads: NÃO SUBIU (' + subiu + ')'); await ctx.close(); return; }
+
+  // O BOOT FALA SOZINHO: `autoRefreshCollections()` parte sem `await`, e são os
+  // índices dos hinários, os catálogos e as versões da Bíblia. A janela é de
+  // 6 s porque a promessa não é esperada por ninguém.
+  await new Promise((r) => setTimeout(r, 6000));
+  const noBoot = [...externas];
+  const so = (u) => u.replace(/^https?:\/\//, '').slice(0, 70);
+
+  // O ACERVO CHEIO E SEM LETRA: a primeira abertura de quem já indexou o
+  // hinário. É o pior caso, e é o que a pergunta nomeia.
+  const n = await pg.evaluate(() => {
+    const songs = [];
+    for (let i = 1; i <= 800; i++) {
+      songs.push({ id_music: 'm' + i, track: i, name: 'Hino ' + i + ' — Louvor',
+        duration: '3:00', fileIdFull: null });
+    }
+    collState['hymnal-2022'] = { indexSyncedAt: Date.now(), isHymnal: true, songs };
+    return collSongs('hymnal-2022').length;
+  });
+  const antes = externas.length;
+  const ms = await pg.evaluate(async () => {
+    const t = performance.now();
+    await syncLyrics();
+    return Math.round(performance.now() - t);
+  });
+  const letras = externas.slice(antes).filter((u) => /music_/.test(u));
+  const unicas = new Set(letras.map((u) => u.replace(/[?&].*$/, '')));
+  linha('MEDICAO downloads: boot=' + noBoot.length + ' tentativas ' + JSON.stringify(noBoot.slice(0, 8).map(so))
+    + ' | acervo=' + n
+    + ' | letras=' + letras.length + ' pedidos (' + unicas.size + ' endereços únicos) em ' + ms + 'ms'
+    + ' | ms_por_pedido=' + arred((ms / Math.max(letras.length, 1)), 2));
+  await ctx.close();
+}
+
 // UMA MEDIDA QUE FALHA NÃO CALA AS OUTRAS: o relatório sai parcial e diz qual
 // bloco morreu — silêncio aqui viraria "não há o que medir", que é falso.
-for (const [nome, fn] of [['abertura', medirAbertura], ['status', medirStatus], ['busca', medirBusca]]) {
+for (const [nome, fn] of [['abertura', medirAbertura], ['status', medirStatus], ['busca', medirBusca], ['downloads', medirDownloads]]) {
   try {
     await fn();
   } catch (e) {
