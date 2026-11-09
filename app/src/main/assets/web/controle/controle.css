@@ -3462,8 +3462,11 @@ main {
    `position: relative`), então ela rola junto com o conteúdo e fica no mesmo
    sistema de coordenadas dos itens.
 
-   `touch-action: none` enquanto o arrasto dura: sem isso o navegador trata o
-   movimento vertical como rolagem da lista e o item fica parado sob o dedo. */
+   `touch-action: none` no cabeçalho da lista vale para o PRÓXIMO gesto — o
+   valor é lido no começo do toque, e não de novo quando o arrasto nasce.
+   Quem desliga a rolagem do gesto em curso é o `touchmove` cancelado em
+   `controle.js` (ver o bloco do arrasto); esta declaração fica porque, com um
+   arrasto em curso, o toque seguinte da lista também não deve rolar. */
 #library.arrastando-lista { touch-action: none; }
 #library > .lib-item.arrastando {
   z-index: 3; transition: none;

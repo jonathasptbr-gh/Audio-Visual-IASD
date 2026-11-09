@@ -44,6 +44,9 @@
 //    número de linhas da lista).
 //  · B (o arrasto) — devolver a chamada que o toque longo fazia antes
 //    (`enterSelection`): a ordem não muda e o `.arrastando` nunca nasce.
+//  · B4 (o gesto tomado pelo sistema) — tirar o `touchmove` que cancela a
+//    rolagem: a metade (a) reprova. E trocar o `pointercancel` por
+//    `limparArrasto()`: a ordem fica a de antes e a metade (b) reprova.
 //  · C (a remoção) — reintroduzir o `#selbar` no HTML: o bloco C acusa.
 //
 //   node tools/cronograma-pronto.test.mjs
@@ -345,6 +348,55 @@ try {
   checar(!tocou.arrastando && noArPeloToque === true,
     'B3 · um toque CURTO não arrasta e continua pondo o item no ar (o gesto novo não roubou o toque)',
     JSON.stringify({ tocou, noArPeloToque: porque(noArPeloToque) }));
+
+  // ---- B4 · O SISTEMA PODE TOMAR O GESTO, E O ITEM NÃO PODE VOLTAR ATRÁS ----
+  //
+  // Relato do operador sobre a v1.13.52: *"ele tenta arrastar, aparecem as
+  // marcas, mas a qualquer movimento ele desseleciona e desliga o sistema de
+  // reposicionamento"*. O toque longo funcionava (a marca aparecia); quem
+  // morria era o MOVIMENTO: o navegador tomava o dedo para ROLAGEM e mandava
+  // `pointercancel` no primeiro pixel. As duas metades do conserto se medem
+  // aqui — (a) a rolagem é cancelada enquanto o arrasto dura, e (b) se o
+  // cancelamento chegar mesmo assim, o item CAI onde a guia está.
+  const geoD = await pg.evaluate((id) => {
+    const li = document.querySelector('#library > .lib-item[data-id="' + id + '"]');
+    const r = li.getBoundingClientRect();
+    return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), alt: r.height };
+  }, quatro[3]);
+  await pg.mouse.move(geoD.x, geoD.y);
+  await pg.mouse.down();
+  const levantou2 = await esperar(pg, () => !!document.querySelector('#library > .lib-item.arrastando'), null, 4000);
+  checar(levantou2 === true,
+    'B4 · ponto de partida: a segunda linha levanta no toque longo', porque(levantou2));
+  await pg.mouse.move(geoD.x, Math.round(geoD.y - geoD.alt * 1.5), { steps: 3 });
+
+  const rolagem = await pg.evaluate(() => {
+    const alvo = document.getElementById('library');
+    // O `TouchEvent` não carrega toques de verdade — o que se mede é se ALGUÉM
+    // cancelou o evento, que é exatamente a pergunta que o navegador faz antes
+    // de decidir se rola.
+    const ev = new TouchEvent('touchmove', { bubbles: true, cancelable: true });
+    alvo.dispatchEvent(ev);
+    return { cancelado: ev.defaultPrevented };
+  });
+  checar(rolagem.cancelado === true,
+    'B4 · durante o arrasto a ROLAGEM é CANCELADA — é isso que impede o navegador '
+    + 'de tomar o dedo (e mandar `pointercancel`) no primeiro movimento', JSON.stringify(rolagem));
+
+  // E O CANCELAMENTO NÃO DESFAZ O MOVIMENTO: ele entrega onde a guia está.
+  await pg.evaluate(() => {
+    const row = document.querySelector('#library > .lib-item.arrastando .row');
+    if (row) row.dispatchEvent(new PointerEvent('pointercancel', { bubbles: true, pointerId: 1 }));
+  });
+  const ordemCancelada = [quatro[0], quatro[2], quatro[3], quatro[1]];
+  const caiu = await esperarDb(pg, async (esperado) => {
+    const atuais = await AVDB.listIds('imports');
+    return atuais.join(',') === esperado.join(',');
+  }, ordemCancelada, 8000);
+  checar(caiu === true,
+    'B4 · e um `pointercancel` do sistema NÃO joga o item de volta: ele cai onde a '
+    + 'linha-guia mostrou (reverter calado era o defeito do relato)',
+    JSON.stringify(await pg.evaluate(async () => await AVDB.listIds('imports'))));
 
   // ==========================================================================
   // C. A SELEÇÃO MÚLTIPLA SAIU INTEIRA

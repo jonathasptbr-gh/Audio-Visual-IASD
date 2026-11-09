@@ -415,7 +415,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.52';
+const WEB_VERSION = '1.13.53';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -19309,6 +19309,25 @@ const MOVE = 10, LONGPRESS = 450;
 const ARRASTO_BORDA = 48;   // px do topo/base em que a lista começa a rolar sozinha
 const ARRASTO_PASSO = 12;   // px por tique dessa rolagem
 
+/* ===== O ARRASTO DESLIGA A ROLAGEM ENQUANTO DURA (v1.13.53) =====
+   O RELATO: *"ele tenta arrastar, aparecem as marcas, mas a qualquer movimento
+   ele desseleciona e desliga o sistema"*. A marca aparecia porque o toque longo
+   funcionava; quem morria era o MOVIMENTO.
+
+   A causa é o navegador tomar o gesto para si. `touch-action` é lido no INÍCIO
+   do toque e não de novo quando o arrasto nasce — pôr `none` na lista depois é
+   tarde —, então o `pan-y` de `.lib-list` deixava o dedo vertical ser ROLAGEM:
+   o compositor começava a rolar e mandava `pointercancel`, e o arrasto terminava
+   no primeiro pixel de movimento, sem erro nenhum.
+
+   Quem desliga a rolagem de verdade é o `touchmove` cancelado. O listener é um
+   só, do documento, e passa o tempo todo: um por linha seria um por item da
+   lista. Fora do arrasto ele não faz nada — e é o `{ passive: false }` que dá o
+   direito de cancelar. */
+document.addEventListener('touchmove', (e) => {
+  if (arrasto && e.cancelable) e.preventDefault();
+}, { passive: false });
+
 let arrasto = null;        // { li, id, pid, y0, rolagem0, dy, y }
 let arrastoGeom = null;    // a medição do arrasto em curso
 let arrastoRolando = 0;    // id do intervalo da rolagem de borda
@@ -19469,9 +19488,14 @@ function attachRowGestures(row, item) {
     if (Date.now() - startT < LONGPRESS) onTap(item);
     pid = null;
   });
+  // O CANCELAMENTO DO SISTEMA NÃO DESFAZ O QUE O OPERADOR JÁ FEZ (v1.13.53):
+  // se o navegador tomar o gesto apesar de tudo (um atalho de acessibilidade,
+  // uma chamada chegando), o item CAI onde a linha-guia mostrou. Reverter em
+  // silêncio é o defeito que este lote corrige — e ele não pode voltar por
+  // outra porta.
   row.addEventListener('pointercancel', () => {
     clearTimeout(lp); lp = null;
-    if (arrasto && arrasto.pid === pid) limparArrasto();
+    if (arrasto && arrasto.pid === pid) terminarArrasto();
     pid = null;
   });
 }

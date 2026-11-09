@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.13.53",
+    "itens": [
+      "Arrastar no cronograma voltou a funcionar: o item acompanha o dedo até o lugar de destino.",
+      "Se o sistema tomar o gesto no meio, o item fica onde você soltou — não volta sozinho para o lugar de antes."
+    ]
+  },
+  {
     "versao": "1.13.52",
     "itens": [
       "O cronograma ganhou um aviso ao lado do nome: ele diz o que ainda depende da internet, e um botão baixa tudo de uma vez.",

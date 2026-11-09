@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.53** — o arrasto do Cronograma não morre no primeiro movimento: a rolagem é cancelada enquanto ele dura (o `touch-action` só vale para o próximo gesto) e um `pointercancel` do sistema ENTREGA o item onde a guia está; oráculo `cronograma-pronto` bloco B4 (só web)
 - **v1.13.52** — Cronograma, o Pacote 2: o alerta de "não está pronto" ao lado do nome (conta por família de item e "Baixar tudo" pelos três caminhos que já existiam) e o segurar-arrasta no lugar do par ↑↓; a seleção múltipla sai inteira; oráculo novo `cronograma-pronto` (só web)
 - **v1.13.51** — séries: o episódio baixado pelo atalho da semana entra na retenção NA HORA (`serieReterBaixado`) e a rodada pedida durante outra não se perde (`serieAutoRefazer`); oráculo `serie-mantem-a-semana` +2 blocos (só web)
 - **v1.13.50** — revisão X2, o resto do lote Kotlin: a invariante 2 num predicado só (`WebViewFactory.ehDoApp`), os quatro resíduos do `YoutubeGrab` (registro de desfechos, varredura do cache, teto no nome, o 403 numa escrita), o arquivo ilegível do share avisado com nome, o registro das fotos sem consumir, e JUnit novos `SafJanelaTest`/`SlideDeckTest` (APK, `shellTag: "v1.13.50"`)
@@ -665,6 +666,16 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.13.53 — o arrasto não morre no primeiro movimento
+
+**v1.13.53** — (só web, **sem `shellTag`**; `SHELL_VERSION` **85** e `minShell` **83** não mudam). Conserto do lote anterior, pelo relato do operador sobre o aparelho: *"o sistema de reposicionamento não está funcionando, ele tenta arrastar, aparecem as marcas, mas ao qualquer movimento ele desseleciona e desliga o sistema de reposicionamento"*.
+
+- **A CAUSA É O NAVEGADOR TOMANDO O GESTO, e ela é invisível no oráculo antigo.** O toque longo funcionava (a linha-guia aparecia na hora certa); quem morria era o MOVIMENTO. `.lib-list` declara `touch-action: pan-y`, que PERMITE a rolagem vertical — e `touch-action` é lido no INÍCIO do toque, não de novo quando o arrasto nasce. Pôr `none` na lista depois (o que a v1.13.52 fazia com `#library.arrastando-lista`) é tarde: no primeiro pixel de movimento o compositor começava a rolar, tomava o gesto para si e mandava `pointercancel`; o handler chamava `limparArrasto` e o item voltava. Sem erro, sem aviso — o arrasto terminava no primeiro movimento.
+- **O CONSERTO (1): a rolagem é cancelada enquanto o arrasto dura.** Um `touchmove` não-passivo no documento (`{ passive: false }`) chama `preventDefault` quando há arrasto em curso; é o único caminho que impede a rolagem de COMEÇAR — e, com ela, o `pointercancel`. Um listener só, do documento: um por linha seria um por item da lista.
+- **O CONSERTO (2): o cancelamento do sistema ENTREGA o movimento.** Se o navegador tomar o gesto apesar de tudo (um atalho de acessibilidade, uma chamada chegando), o `pointercancel` agora chama `terminarArrasto()` em vez de `limparArrasto()`: o item cai onde a linha-guia mostrou. Reverter em silêncio é o defeito do relato, e ele não pode voltar por outra porta.
+- **O oráculo ganhou o bloco B4**, com as duas metades medidas: durante o arrasto um `TouchEvent('touchmove', { cancelable: true })` sai com `defaultPrevented === true` (a rolagem foi negada), e um `PointerEvent('pointercancel')` depois de mover GRAVA a ordem em que a guia estava. Reversões: tirar o `touchmove` reprova a primeira; trocar `terminarArrasto` por `limparArrasto` no cancelamento reprova a segunda.
+- **O QUE O ORÁCULO ANTERIOR NÃO VIA, e por quê:** ele dirigia o arrasto com o MOUSE do Playwright, e o mouse não tem rolagem por toque — o compositor nunca toma o gesto. O caminho que falhava era o do DEDO. É a mesma classe de "o oráculo mede o ambiente errado" que o repositório já nomeia: a asserção passa porque o instrumento não alcança a decisão.
 
 ## v1.13.52 — Cronograma: o alerta de "não está pronto" e o arrasto
 
