@@ -17,9 +17,11 @@
 //   node tools/pares-de-comentario.mjs <arquivo>          # lista os pares
 //   node tools/pares-de-comentario.mjs <arquivo> <ref>    # compara com o ref
 //
-// Na comparação, casa os blocos pelo CABEÇALHO (a primeira linha com conteúdo)
-// e reprova quando o mesmo cabeçalho passou a encabeçar outro símbolo. Blocos
-// condensados/removidos não acusam: só a MUDANÇA DE ALVO acusa.
+// Na comparação, casa os blocos pelo CABEÇALHO (a primeira linha com conteúdo,
+// sem marcador) e reprova quando o mesmo cabeçalho passou a encabeçar outro
+// símbolo. Blocos condensados/removidos não acusam: só a MUDANÇA DE ALVO acusa.
+// O bloco `/* … */` vale até o `*/`, com ou sem o `*` da convenção em cada
+// linha — ver o porquê logo abaixo (revisão X3).
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
@@ -74,7 +76,8 @@ function linhaDeCabecalho(l) {
 
 export function paresDe(texto) {
   const L = texto.split('\n');
-  const dentro = linhasDeBloco(L);  const ehCom = (l, i) => dentro[i] || ehComentario(l);
+  const dentro = linhasDeBloco(L);
+  const ehCom = (l, i) => dentro[i] || ehComentario(l);
   const out = [];
   let i = 0;
   while (i < L.length) {
