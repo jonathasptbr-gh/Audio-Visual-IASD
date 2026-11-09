@@ -4478,6 +4478,13 @@ try {
     const jaEraFavorito = favSet.has(idDaLinha);
     favSet.add(idDaLinha);
     marcarFavoritos();
+    // E a fileira precisa das DUAS metades ao mesmo tempo: a régua do traço
+    // abaixo procura um alternador APAGADO, e o `fav-btn` acabou de acender.
+    // Quem cede é o "à playlist", apagado só NA MEMÓRIA (`plItems`), sem tocar
+    // no banco — e devolvido no fim.
+    const foraDaFila = plItems.filter((m) => m.id === idDaLinha);
+    plItems = plItems.filter((m) => m.id !== idDaLinha);
+    marcarNaPlaylist();
     r.fundosDaFaixa = daFaixa.map((b) => getComputedStyle(b).backgroundColor);
     r.fundosApagados = daFaixa.filter((b) => !b.classList.contains('on'))
       .map((b) => getComputedStyle(b).backgroundColor);
@@ -4493,8 +4500,9 @@ try {
     r.tracoVizinho = vizinho ? getComputedStyle(vizinho).color : null;
     r.temEstrela = !!caixa.querySelector('.fav-btn');
     // E O FIXTURE DESFAZ O QUE ELE MESMO LIGOU — o resto do arquivo lê o estado
-    // real dos favoritos, e uma marca plantada aqui apareceria lá.
+    // real dos favoritos e da fila, e uma marca plantada aqui apareceria lá.
     if (!jaEraFavorito) { favSet.delete(idDaLinha); marcarFavoritos(); }
+    if (foraDaFila.length) { plItems = plItems.concat(foraDaFila); marcarNaPlaylist(); }
     return r;
   });
 // ── A GAVETA DA LINHA: o que fecha e o que não fecha (v5.288) ────────────

@@ -19450,6 +19450,18 @@ function moverArrasto(y) {
   rolarNaBorda();
 }
 
+// O GESTO NASCE AQUI: levanta a linha, põe a lista em modo de arrasto, mede e
+// abre o vão da posição de partida (que é o dela mesma — nada se desloca).
+function comecarArrasto(li, item, pid, y) {
+  if (!li || arrasto) return;
+  const ul = li.parentElement;
+  arrasto = { li, id: item.id, pid, y0: y, rolagem0: ul.scrollTop, dy: 0, y };
+  li.classList.add('arrastando');
+  ul.classList.add('arrastando-lista');
+  medirArrasto(ul, li);
+  ajustarVaos(indiceDoArrasto(y));
+}
+
 /* ===== SOLTAR NÃO PISCA NA ORDEM ANTIGA (v1.13.55) =====
    Relato do operador sobre a v1.13.54: *"ao soltar na nova posição, a lista, por
    uma fração de segundo, pisca na ordem antiga, antes de piscar na posição
