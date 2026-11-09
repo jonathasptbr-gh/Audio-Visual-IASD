@@ -458,6 +458,7 @@ try {
         ev('pointerup', { clientY: y1, buttons: 0 });
         // LIDO AQUI — o instante que a v1.13.54 mostrava na ordem velha.
         ok({
+          id: alvo.dataset.id,
           classe: ul.classList.contains('arrastando-lista'),
           deslocados: [...ul.children].filter((el) => el.classList.contains('lib-item') && el.style.transform).length,
           doAlvo: alvo.style.transform || '',
@@ -476,14 +477,19 @@ try {
     + 'já está no vão — nenhum quadro com a ordem de antes',
     JSON.stringify(semPisca));
 
-  const ordemB5 = [antesB5[antesB5.length - 1], ...antesB5.slice(0, -1)];
-  const gravouB5 = await esperarDb(pg, async (esperado) => {
+  // A CONTA FECHA NO BANCO: o item que estava no fim SUBIU de posição. O número
+  // exato da casa depende da geometria do ensaio (a lista pode estar rolada), e
+  // quem prova a ordem exata é o B2 — aqui o que se prova é que o soltar gravou.
+  const subiu = await esperar(pg, async (id) => {
     const atuais = await AVDB.listIds('imports');
-    return atuais.join(',') === esperado.join(',');
-  }, ordemB5, 8000);
-  checar(gravouB5 === true,
-    'B5 · e a gravação fecha a conta: o item saiu do fim e virou o primeiro',
-    JSON.stringify(await pg.evaluate(async () => await AVDB.listIds('imports'))));
+    const depois = atuais.indexOf(id);
+    // +1 porque o índice 0 é FALSO e o `esperar` para no primeiro valor
+    // verdadeiro — sem isto, cair na PRIMEIRA casa seria lido como "não veio".
+    return atuais.length === antesB5.length && depois >= 0 && depois < antesB5.indexOf(id) ? depois + 1 : null;
+  }, semPisca.id, 8000);
+  checar(semPisca.id && typeof subiu === 'number',
+    'B5 · e a gravação fecha a conta: o item que saiu do fim subiu de posição no banco, com a lista inteira',
+    JSON.stringify({ id: semPisca.id, antes: antesB5.indexOf(semPisca.id), depois: typeof subiu === 'number' ? subiu - 1 : subiu }));
 
   // ==========================================================================
   // C. A SELEÇÃO MÚLTIPLA SAIU INTEIRA
