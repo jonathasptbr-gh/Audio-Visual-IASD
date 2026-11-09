@@ -39,7 +39,7 @@ abandonada → primeira pendente pelo `nº`).
 | 25 | K5 | feita | v1.13.45 (APK + web) | 2026-11-08 | o APK truncado ia ao instalador e as TRÊS recusas pós-download rebaixavam o mesmo zip de 15 em 15 s; a transmissão não republicava com cena no ar; oráculos novos `servico-em-primeiro-plano` + `ota-ativacao` (34 asserções, 16 reversões) |
 | 26 | K6 | feita | v1.13.46 (APK + web) | 2026-11-08 | a cifra seguia redirecionamento para fora da allowlist; o `deckPaginas` baixava de QUALQUER host e vazava as páginas quando falhava no meio; a foto acima do teto virava `200` cortado; o `fim` do pacote fazia `flush` de `content://` na main; JUnit novo `CifraFonteTest` (9 casos, reversão 7/9); o pin do NewPipe conferido contra a v0.27.0 e mantido, com o porquê escrito |
 | 27 | X1 | feita | v1.13.47 (APK + web) | 2026-11-08 | os SEIS órfãos saíram do Kotlin (76 → 70 servidos; 64 · 70 · 70); `SHELL_VERSION` 85; `StreamProxy` e a rota `/s/` ficam latentes |
-| 28 | X2 | parcial (ponto de parada: os achados de WEB fechados; a metade que toca Kotlin é o lote seguinte) | v1.13.48 (só web) | 2026-11-08 | os dois chamadores que faltavam da `listasSeq` (gaveta e pacote); o ACK atrasado do canal de mídia (mídia maior que a fonte no telão); o share > 2 GB recusado com nome; o cancelamento da verificação depois do último byte; `ACHADOS-EM-ABERTO` de três para um; oráculo novo `tela-ack-cumulativo` |
+| 28 | X2 | em curso (retomada 2026-11-08: o lote Kotlin, começando pela remoção do `StreamProxy` que o operador autorizou) | v1.13.48 (só web) | 2026-11-08 | os dois chamadores que faltavam da `listasSeq` (gaveta e pacote); o ACK atrasado do canal de mídia (mídia maior que a fonte no telão); o share > 2 GB recusado com nome; o cancelamento da verificação depois do último byte; `ACHADOS-EM-ABERTO` de três para um; oráculo novo `tela-ack-cumulativo` |
 | 29 | X3 | pendente | | | |
 | 30 | X4 | pendente (opcional: só com o "sim" do operador) | | | |
 
@@ -96,7 +96,7 @@ Um bloco por etapa executada, ≤ 25 linhas: corrigido · achado e não corrigid
 (com o porquê) · repasses · ponto de parada · o que o operador confere no
 aparelho.
 
-### X2 · Achados em aberto — PARCIAL (2026-11-08)
+### X2 · Achados em aberto — EM CURSO (retomada 2026-11-08)
 
 **Feito (v1.13.48, só web; `SHELL_VERSION` 85 e `minShell` 83 não mudam).**
 
