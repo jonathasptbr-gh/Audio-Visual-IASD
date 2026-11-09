@@ -448,6 +448,17 @@ try {
   await pg.evaluate((idAlvo) => {
     window.__alvoId = idAlvo;
     window.__noSusto = null;
+    window.__antesDoSoltar = null;
+    // Na CAPTURA, portanto ANTES do handler da linha: o estado do gesto — é o
+    // diagnóstico que diz se o dedo andou e para onde o app achou que ia.
+    window.addEventListener('pointerup', () => {
+      window.__antesDoSoltar = arrasto ? {
+        y: Math.round(arrasto.y), y0: Math.round(arrasto.y0), dy: Math.round(arrasto.dy),
+        de: arrastoGeom ? arrastoGeom.de : null,
+        destino: indiceDoArrasto(arrasto.y),
+        primeiroMeio: arrastoGeom && arrastoGeom.itens[0] ? Math.round(arrastoGeom.itens[0].meio) : null,
+      } : 'sem arrasto';
+    }, { capture: true, once: true });
     window.addEventListener('pointerup', () => {
       const ul = document.getElementById('library');
       if (!ul) return;
@@ -465,8 +476,18 @@ try {
   await pg.mouse.down();
   await esperar(pg, () => !!document.querySelector('#library > .lib-item.arrastando'), null, 4000);
   await pg.mouse.move(geoB5.x, geoB5.yTopo, { steps: 4 });
+  const gesto = await pg.evaluate((yTopo) => ({
+    y: arrasto ? Math.round(arrasto.y) : null,
+    dy: arrasto ? Math.round(arrasto.dy) : null,
+    alvo: window.__alvoId && document.querySelector('#library > .lib-item[data-id="' + window.__alvoId + '"]')
+      ? Math.round(document.querySelector('#library > .lib-item[data-id="' + window.__alvoId + '"]').getBoundingClientRect().top) : null,
+    yTopo,
+  }), geoB5.yTopo);
   await pg.mouse.up();
-  const semPisca = await pg.evaluate(() => window.__noSusto || { erro: 'o observador não viu o soltar' });
+  const semPisca = await pg.evaluate(() => Object.assign(
+    window.__noSusto || { erro: 'o observador não viu o soltar' },
+    { antes: window.__antesDoSoltar }));
+  semPisca.gesto = gesto;
   checar(!semPisca.erro && semPisca.classe === true && semPisca.preso === false,
     'B5 · no instante do soltar a lista CONTINUA em modo de arrasto (ela não volta à ordem antiga) '
     + 'e o item já não está preso ao dedo',
