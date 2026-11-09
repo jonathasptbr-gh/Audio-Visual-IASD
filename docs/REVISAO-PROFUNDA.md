@@ -19,8 +19,8 @@ sozinha, por esta regra, sem perguntar:
    morreu no meio; conferir no `git log` o que dela chegou a `main` e retomar
    dali como `parcial`;
 3. senão, a primeira `pendente` na ORDEM da fila (a coluna `nº`);
-4. a X4 (opcional) só entra com um "sim" do operador escrito no registro;
-   sem ele, é pulada pela regra 3 e a sessão diz que a fila acabou;
+4. a X4 foi RETIRADA em 2026-11-09 (o operador fará uma revisão de eficiência
+   própria, mais abrangente, como ELEMENTO ÚNICO): a fila termina na X3;
 5. o operador pode sempre nomear uma etapa ("faça a C4"): aí vale a dele.
 
 **O primeiro ato da sessão** é marcar a etapa escolhida como `em curso` com a
@@ -130,7 +130,7 @@ pede APK. Ordem recomendada = a ordem da tabela.
 | **X1** | transversal | o contrato da ponte | a superfície web × Kotlin: órfãos, `SHELL_VERSION`, os 64/76 | — | sim |
 | **X2** | transversal | achados em aberto | os de `docs/ACHADOS-EM-ABERTO.md` + os que sobraram da auditoria 2026-08 (enumerados no topo dela pela A4) | — | depende |
 | **X3** | transversal | medição de desempenho | abertura, memória, trabalho por status — medido no Chromium, sem mudar código | — | não |
-| **X4** | transversal | partir o `controle.js` (OPCIONAL) | dividir o arquivo de 48,8 mil linhas em módulos | 48.796 | não |
+| **X4** | transversal | partir o `controle.js` (RETIRADA em 2026-11-09) | dividir o arquivo de 48,8 mil linhas em módulos — vira a revisão de eficiência do operador, elemento único | 48.796 | não |
 
 **Por que essa ordem.** A1 primeiro porque um CI que reprova por acaso segura
 TODA entrega seguinte. A2 em seguida porque o `CLAUDE.md` é carregado inteiro
@@ -276,10 +276,15 @@ de status a 4 Hz, quantos `getComputedStyle` por render, custo da busca na
 Biblioteca com o acervo cheio. Sai uma lista ORDENADA por ganho, que alimenta
 etapas futuras (ou repasses).
 
-**X4 · Partir o `controle.js` (OPCIONAL, e por último).** É a mudança mais
+**X4 · Partir o `controle.js` (RETIRADA em 2026-11-09).** É a mudança mais
 arriscada da lista (ordem dos `<script>`, as globais do `otaAppIsUp`, os
 oráculos que leem o arquivo). Só com as fatias C já revisadas, e só se o
 operador quiser — o ganho é de manutenção, não algo que ele vê.
+
+**RETIRADA em 2026-11-09, por decisão do operador:** ele fará uma revisão
+focada em eficiência, mais abrangente que esta, como ELEMENTO ÚNICO — fora
+desta fila. O que está escrito acima fica como o terreno que essa revisão vai
+enfrentar.
 
 ---
 

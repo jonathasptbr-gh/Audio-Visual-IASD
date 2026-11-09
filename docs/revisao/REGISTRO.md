@@ -41,7 +41,12 @@ abandonada → primeira pendente pelo `nº`).
 | 27 | X1 | feita | v1.13.47 (APK + web) | 2026-11-08 | os SEIS órfãos saíram do Kotlin (76 → 70 servidos; 64 · 70 · 70); `SHELL_VERSION` 85; `StreamProxy` e a rota `/s/` ficam latentes |
 | 28 | X2 | feita (resíduo: os achados da `AUDITORIA-2026-09-11`/`EFICIENCIA`, fora da cerca de qualquer etapa; o §2 do `ACHADOS-EM-ABERTO` foi FECHADO pelo operador em 2026-11-09 e o arquivo está vazio) | v1.13.48 (só web) + v1.13.49 + v1.13.50 (APK + web) | 2026-11-08 | os dois chamadores que faltavam da `listasSeq` (gaveta e pacote); o ACK atrasado do canal de mídia; o share > 2 GB recusado com nome; o cancelamento da verificação depois do último byte; o resíduo da transmissão direta APAGADO; **e o resto do lote Kotlin:** a invariante 2 num predicado só (`WebViewFactory.ehDoApp`), os quatro resíduos do `YoutubeGrab`, o arquivo ilegível do share avisado com nome, o registro das fotos sem consumir, JUnit novos (`SafJanelaTest`, `SlideDeckTest`) e as asserções que faltavam |
 | 29 | X3 | feita | sem versão (só `tools/`, workflow e docs) | 2026-11-09 | a medição no Chromium do CI (abertura 153/167 ms, heap estável sob 4 Hz, 15 `getComputedStyle` por mensagem sem atribuição, busca 3 ms com 800 faixas) e a conta da PRIMEIRA abertura (**~13,5 MB em ~1.928 pedidos**: catálogo, 67 índices de álbum, 666 letras e 1.189 capítulos da Bíblia — mais 2 episódios de ~300 MB no Wi-Fi): nenhum ganho de CPU acima do ruído; e os repasses de oráculo fechados — o `pares-de-comentario` lia 855 blocos de CSS pela 1ª linha e todo KDoc pela chave `"*"`, e o pacote lia o destino antes do fim |
-| 30 | X4 | pendente (opcional: só com o "sim" do operador) | | | |
+**A FILA ACABOU NA X3 (2026-11-09).** A X4 (partir o `controle.js`) saiu por
+decisão do operador: a eficiência será uma revisão própria, focada e mais
+abrangente, tratada como ELEMENTO ÚNICO — não é item desta fila. Palavras dele:
+*"futuramente vou fazer uma revisão focada em eficiência, então será mais
+abrangente que ela, mas vai ser um elemento único, portanto não será um item de
+lista"*.
 
 ## Repasses
 
