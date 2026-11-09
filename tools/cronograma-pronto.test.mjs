@@ -440,6 +440,7 @@ try {
       x: Math.round(r.left + r.width / 2),
       y: Math.round(r.top + r.height / 2),
       yTopo: Math.round(primeira.top + primeira.height / 2 - 6),
+      nos: lis.map((el) => el.dataset.id),
     };
   });
   // O OBSERVADOR DO INSTANTE: um ouvinte do `window` na fase de BORBULHA roda
@@ -509,7 +510,12 @@ try {
   }, geoB5.id, 8000);
   checar(!geoB5.erro && typeof subiu === 'number',
     'B5 · e a gravação fecha a conta: o item que saiu do fim subiu de posição no banco, com a lista inteira',
-    JSON.stringify({ id: geoB5.id, antes: antesB5.indexOf(geoB5.id), depois: typeof subiu === 'number' ? subiu - 1 : subiu }));
+    JSON.stringify({
+      id: geoB5.id, antes: antesB5.indexOf(geoB5.id),
+      depois: typeof subiu === 'number' ? subiu - 1 : subiu,
+      gesto: semPisca.gesto, antesDoGesto: semPisca.antes,
+      nos: geoB5.nos, banco: antesB5,
+    }));
 
   // ==========================================================================
   // C. A SELEÇÃO MÚLTIPLA SAIU INTEIRA
