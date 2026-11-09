@@ -5258,13 +5258,13 @@ try {
     return r;
   });
   checar(!ordem.erro && JSON.stringify(ordem.cronograma)
-      === JSON.stringify(['row-excluir', 'row-renomear', 'row-playlist', 'fav-btn',
-        'row-ordem', 'row-ordem']),
+      === JSON.stringify(['row-excluir', 'row-renomear', 'row-playlist', 'fav-btn']),
     'A ORDEM DA FILEIRA DO CRONOGRAMA agrupa por NATUREZA (v5.302): o que mexe '
-    + 'no ITEM (excluir, renomear), o que mexe em ONDE ele está (playlist, '
-    + 'favoritar) e o que mexe na POSIÇÃO (↑↓). O PAR DO MEIO inverteu na '
-    + 'v1.8.56, pela ordem canônica dos destinos — aqui o Cronograma não '
-    + 'aparece porque o item já está nele', JSON.stringify(ordem.cronograma));
+    + 'no ITEM (excluir, renomear) e o que mexe em ONDE ele está (playlist, '
+    + 'favoritar). O PAR DO MEIO inverteu na v1.8.56, pela ordem canônica dos '
+    + 'destinos — aqui o Cronograma não aparece porque o item já está nele. E '
+    + 'NÃO HÁ PAR ↑↓: a POSIÇÃO saiu desta fileira na v1.13.52, quando o item '
+    + 'passou a se arrastar (é a lista que arrasta, não as outras)', JSON.stringify(ordem.cronograma));
 } catch (e) {
   checar(false, 'a medição do "à playlist" terminou sem exceção ('
     + (e && e.message) + ')');

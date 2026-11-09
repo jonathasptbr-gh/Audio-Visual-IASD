@@ -4993,19 +4993,21 @@ try {
     await load();
     return r;
   });
-  checar(!linkYt.erro && linkYt.n === 7
+  checar(!linkYt.erro && linkYt.n === 5
       && JSON.stringify(linkYt.ordem) === JSON.stringify(['row-excluir', 'row-renomear',
-        'row-playlist', 'fav-btn', 'baixar', 'row-ordem', 'row-ordem']),
-    'A LINHA DE LINK DO YOUTUBE tem os SETE botões, com o "baixar o vídeo" DEPOIS '
+        'row-playlist', 'fav-btn', 'baixar']),
+    'A LINHA DE LINK DO YOUTUBE tem os CINCO botões, com o "baixar o vídeo" DEPOIS '
     + 'da sequência ditada — ele só existe nesta linha, e no meio dela a partiria '
     + 'ao meio. (O par playlist/estrela INVERTEU na v1.8.56, pela ordem canônica '
     + 'dos destinos: Cronograma · playlist · favoritos, e aqui o Cronograma não '
-    + 'aparece porque o item já está nele.)', JSON.stringify(linkYt.ordem));
+    + 'aparece porque o item já está nele. E o par ↑↓ saiu na v1.13.52, com o '
+    + 'arrasto: é a fileira do CRONOGRAMA que ele deixou.)',
+    JSON.stringify(linkYt.ordem));
   checar(!linkYt.erro && linkYt.soma <= linkYt.caixa
       && linkYt.larguras.every((w) => w === linkYt.larguras[0]) && linkYt.larguras[0] >= 34,
     'e ela CABE na caixa (' + (linkYt.soma || 0) + 'px em ' + (linkYt.caixa || 0)
-    + 'px), com os quadrados no piso de toque — é a única linha para a qual a '
-    + 'regra dos sete existe, e a única que nenhum oráculo abria',
+    + 'px), com os quadrados no piso de toque — é a linha mais cheia do app, e a '
+    + 'única que nenhum oráculo abria',
     JSON.stringify(linkYt));
 
   checar(!roubo.erro && roubo.faixaSobreviveuAoConfirmar === true,

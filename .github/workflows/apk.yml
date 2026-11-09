@@ -521,10 +521,7 @@ jobs:
       # pior caso, que é a paralelização não pegar por qualquer razão e a lista
       # correr em fila.
       - name: Oráculos em Chromium
-        env:
-          DIAG: "1"
-
-        timeout-minutes: 40
+        timeout-minutes: 15
         run: |
           # SEM `-e`, e é o ponto do passo: um reprovado não pode calar os que
           # vêm depois. Quem guarda o desfecho é o laço do fim.
@@ -772,10 +769,6 @@ jobs:
           # abaixo do passo (o de 600 s ainda deixava o limite de 15 min vencer
           # primeiro); o 137 (SIGKILL) entra no placar como reprovado, com o nome
           # do arquivo, que é o que este passo existe para dizer.
-          # DIAGNÓSTICO TEMPORÁRIO (v1.13.52, remover): só a vizinhança do lote.
-          if [ "${DIAG:-}" = "1" ]; then
-            lista=(tools/smoke.mjs tools/boot-nativo.test.mjs tools/ferramentas-folha.test.mjs tools/destinos.test.mjs tools/cronograma-pronto.test.mjs tools/cronogramas-multiplos.test.mjs tools/barra-do-topo-e-titulos.test.mjs tools/itinerario.test.mjs tools/rodape-da-playlist.test.mjs tools/portas-presenca.test.mjs)
-          fi
           printf '%s\n' "${lista[@]}" | nl -ba -w1 -s' ' |
             xargs -P "$PARALELO" -L1 sh -c 'i=$(date +%s); PW_CHROMIUM="" timeout --signal=KILL 300 node "$2" > "$0/$1.log" 2>&1; echo $? > "$0/$1.rc"; echo $(( $(date +%s) - i )) > "$0/$1.seg"' "$saida"
 
