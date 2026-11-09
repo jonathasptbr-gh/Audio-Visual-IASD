@@ -494,6 +494,10 @@ jobs:
       # na história e é a pista de por que aquele commit existe.
       - name: Medição de desempenho (X3, só com [medicao])
         if: contains(github.event.head_commit.message, '[medicao]')
+        # NÃO SEGURA O CANAL: isto não afirma comportamento e não reprova lote
+        # nenhum — se o script de medição quebrar, o vermelho aparece no passo
+        # e o bundle de um commit que também conserta sai do mesmo jeito.
+        continue-on-error: true
         timeout-minutes: 20
         run: |
           set -euo pipefail

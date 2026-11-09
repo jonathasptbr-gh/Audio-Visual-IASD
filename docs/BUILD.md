@@ -177,6 +177,14 @@ de verdade, em DOIS PASSOS, e NENHUM dos dois pula** (decisão do operador,
 Só os dois passos de CACHE do Chromium são `continue-on-error` — eles não pulam
 teste nenhum (cache frio = download).
 
+**E há um TERCEIRO passo que usa o Chromium e NÃO é oráculo:** a medição da
+revisão X3 (`tools/medicao-desempenho.mjs`), que roda só quando a mensagem do
+commit carrega `[medicao]` e é `continue-on-error: true`. Ela mede (abertura,
+heap sob status a 4 Hz, `getComputedStyle` por desenho, busca com o acervo
+cheio) e devolve números para a etapa seguinte escolher onde mexer — não afirma
+comportamento, então uma falha dela não pode segurar o canal de um lote que
+também conserta. O porquê de cada medida está no topo do próprio arquivo.
+
 Ele roda **todos SEMPRE** — nenhum aborta o próximo —, emite `::error::` por
 reprovado e escreve o placar `N/M` no **resumo do run**. `N` e `M` são CONTADOS,
 nunca digitados: um número fixo envelheceria no primeiro oráculo novo, e

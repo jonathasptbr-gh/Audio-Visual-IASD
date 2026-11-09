@@ -311,18 +311,12 @@ async function fimDaExportacao(pg) {
 // (medido na X3: só há `window.__fim = null` daqui e da J). O `evaluate`
 // devolvia `null` no mesmo tick e o `lerDestino` podia ler ANTES do fim — é a
 // instabilidade H/L que o CI pegou (run 42060562112) com `obtido: []`, num lote
-// que nem tocava no pacote. O `catch` da navegação fica: com o
-// `location.reload()` de volta a página navega no meio, e sem o catch o oráculo
-// MORRE aqui em vez de reprovar no bloco que é dele.
+// que nem tocava no pacote. A navegação da REVERSÃO não precisa mais de
+// `try/catch` próprio: o `esperar` devolve a frase do prazo quando o contexto
+// é destruído, e a espera do APP DE PÉ, logo abaixo, é quem reata no documento
+// novo — sem o que o `evaluate` seguinte cairia no vão entre as duas páginas.
 async function fimDaImportacao(pg) {
-  try {
-    await esperar(pg, () => typeof pacoteEmCurso !== 'undefined' && !pacoteEmCurso, null, 60000);
-  } catch (_) {
-    // NAVEGOU — é a REVERSÃO (o `location.reload()` de volta). Espera-se o
-    // documento novo assentar, senão o `evaluate` seguinte cai no vão entre as
-    // duas páginas e o oráculo morre num bloco que não é o dele.
-    await pg.waitForLoadState('domcontentloaded').catch(() => {});
-  }
+  await esperar(pg, () => typeof pacoteEmCurso !== 'undefined' && !pacoteEmCurso, null, 60000);
   // O APP DE PÉ, e não só o DOM: a régua é o `AVDB`, que é o que os blocos
   // consultam. Sem ela a espera passa no vão em que o documento existe e o
   // script ainda não rodou.
