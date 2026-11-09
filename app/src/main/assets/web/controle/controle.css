@@ -3453,14 +3453,16 @@ main {
    e o app não depende de lê-la para nada. É a mesma licença do `--op-inativo`,
    e por isso é `opacity` e não uma cor nova — quem vier medir contraste
    encontra o número junto do motivo. */
-/* ---------- ARRASTAR PARA REORDENAR (v1.13.52) ----------
+/* ---------- ARRASTAR PARA REORDENAR (v1.13.52 → v1.13.54) ----------
    O item levantado anda por `transform`, que NÃO altera o layout — é o que
    permite medir a lista uma vez por arrasto e não a cada evento do dedo. Ele
    sobe de camada e veste a sombra de cartão: o vocabulário de "pegou".
 
-   A LINHA-GUIA é `absolute` dentro da própria `<ul>` (que já é
-   `position: relative`), então ela rola junto com o conteúdo e fica no mesmo
-   sistema de coordenadas dos itens.
+   E O DESTINO É O PRÓPRIO ESPAÇO (v1.13.54): a lista responde ao movimento
+   abrindo o vão por onde o item vai entrar, e não há marca nenhuma além dele.
+   Quem se move são os OUTROS itens, também por `transform` — a transição
+   abaixo é o que faz o vão abrir e fechar animado. O arrastado fica FORA dela
+   (`.arrastando` desliga a transição): ele segue o dedo sem atraso.
 
    `touch-action: none` no cabeçalho da lista vale para o PRÓXIMO gesto — o
    valor é lido no começo do toque, e não de novo quando o arrasto nasce.
@@ -3472,10 +3474,9 @@ main {
   z-index: 3; transition: none;
   box-shadow: 0 8px 20px var(--shadow-card);
 }
-#library > .drop-line {
-  display: block; list-style: none; pointer-events: none;
-  position: absolute; left: 0; right: 0; height: 2px;
-  border-radius: var(--radius-pill); background: var(--accent);
+#library.arrastando-lista > .lib-item:not(.arrastando) { transition: transform .16s ease; }
+@media (prefers-reduced-motion: reduce) {
+  #library.arrastando-lista > .lib-item:not(.arrastando) { transition: none; }
 }
 
 #library > .empty {

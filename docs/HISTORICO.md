@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.54** — o arrasto abre o VÃO em tempo real: a lista se rearruma animada (`transform` nos outros itens, 160 ms) e a linha-guia colorida sai — o espaço é a única marca do destino; `cronograma-pronto` B2 e o `smoke` passam a medir o vão (só web)
 - **v1.13.53** — o arrasto do Cronograma não morre no primeiro movimento: a rolagem é cancelada enquanto ele dura (o `touch-action` só vale para o próximo gesto) e um `pointercancel` do sistema ENTREGA o item onde a guia está; oráculo `cronograma-pronto` bloco B4 (só web)
 - **v1.13.52** — Cronograma, o Pacote 2: o alerta de "não está pronto" ao lado do nome (conta por família de item e "Baixar tudo" pelos três caminhos que já existiam) e o segurar-arrasta no lugar do par ↑↓; a seleção múltipla sai inteira; oráculo novo `cronograma-pronto` (só web)
 - **v1.13.51** — séries: o episódio baixado pelo atalho da semana entra na retenção NA HORA (`serieReterBaixado`) e a rodada pedida durante outra não se perde (`serieAutoRefazer`); oráculo `serie-mantem-a-semana` +2 blocos (só web)
@@ -666,6 +667,19 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.13.54 — o vão é a lista respondendo
+
+**v1.13.54** — (só web, **sem `shellTag`**; `SHELL_VERSION` **85** e `minShell` **83** não mudam). Ajuste pedido pelo operador depois de usar o arrasto da v1.13.53: *"quero que a lista responda de forma dinâmica conforme o movimento do item, abrindo espaço para a posição em que ele estará ficando… sem inserir nenhum elemento visual do posicionamento além do próprio espaço"*.
+
+- **A LINHA-GUIA SAIU.** O `<li class="drop-line">` absoluto — o traço em `--accent` que marcava o destino — foi REMOVIDO do código e do CSS. O que indica a posição agora é o vão que a lista abre, e nada mais.
+- **A LISTA SE REARRANJA EM TEMPO REAL, e a mecânica é `transform` nos OUTROS itens** (`ajustarVaos`): o layout não muda — é o que mantém a promessa de medir uma vez por arrasto — e a transição do CSS (`#library.arrastando-lista > .lib-item:not(.arrastando)`, 160 ms) é o que faz o vão abrir e fechar animado. O item arrastado fica FORA da transição: ele segue o dedo.
+- **A CONTA, e ela se apoia no fato de que o arrastado NUNCA sai do fluxo** (o `translateY` não o tira de lá): indo para BAIXO, tudo entre a ORIGEM e o destino sobe um passo — o lugar dele é o que fica vago; indo para CIMA, tudo entre o destino e a origem desce um passo. O passo é a ALTURA dele mais o `row-gap` da lista, que é o que o flex cobra por uma linha a mais.
+- **A MEDIDA DESCONTA O DESLOCAMENTO** (`shift` por item na geometria): sem isso, a remedida — que a rolagem de borda dispara a cada tique — leria a posição deslocada como se fosse a de repouso, e o vão oscilaria sozinho. O `medirArrasto` guarda o shift aplicado e subtrai do `top` lido; o `indiceDoArrasto` continua respondendo sobre as posições de REPOUSO, que são os lugares reais da lista.
+- **O fim do gesto limpa TUDO**: `limparArrasto` zera o `transform` de todos os filhos da lista (não só o do arrastado) e tira a classe; o `moverNaListaPara` grava e redesenha, como antes.
+- **`prefers-reduced-motion` desliga a transição** — o vão continua abrindo, mas sem animação.
+- **Oráculos:** o `cronograma-pronto` B2 trocou a régua (era "existe uma linha-guia"; agora é **UM item deslocado, com o deslocamento igual à altura do arrastado mais o vão da lista, e NENHUMA marca no DOM**), e o B2/B4/B3 do `smoke` trocaram `guia` por `espaco` + `semMarca`. O `transform` é lido do INLINE (o alvo), nunca do computado: com a transição em curso o computado devolve um valor intermediário e a asserção dependeria do relógio.
+- **A reversão:** devolver o `<li class="drop-line">` e o `pintarGuia` faz o B2 reprovar em `marca` (o elemento existe); tirar o `ajustarVaos` o reprova em `movidos` (nenhum item deslocado) e no tamanho do vão.
 
 ## v1.13.53 — o arrasto não morre no primeiro movimento
 

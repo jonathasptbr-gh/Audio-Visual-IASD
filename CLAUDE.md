@@ -1156,8 +1156,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.13.53 · APK v1.13.50** · `SHELL_VERSION` **85** ·
-bundle com `minShell: 83` e **sem `shellTag`** — a v1.13.53 é só web, e a Release
+**Versão atual: base web v1.13.54 · APK v1.13.50** · `SHELL_VERSION` **85** ·
+bundle com `minShell: 83` e **sem `shellTag`** — a v1.13.54 é só web, e a Release
 da v1.13.50 já está publicada. O **PISO** continua **83**:
 nada novo é exigido do web, e a superfície não mudou desde a X1 — a X2 apagou o
 proxy da transmissão direta sem tocar no contrato da ponte. O que cada lote

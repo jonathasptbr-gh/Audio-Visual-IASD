@@ -4355,7 +4355,7 @@ try {
 // e desde a v1.13.52 é o ARRASTO que tomou o lugar dela.
 //
 // O que se mede aqui é o CICLO do gesto, e não o efeito de cada metade: curto
-// não levanta a linha, longo levanta (com a linha-guia do destino), e cancelar
+// não levanta a linha, longo levanta (com o vão aberto no destino), e cancelar
 // devolve tudo ao lugar.
 try {
   const sel = await pg.evaluate(async () => {
@@ -4375,11 +4375,15 @@ try {
     r.curtoNaoArrasta = !document.querySelector('.lib-item.arrastando');
     r.semSelecao = document.getElementById('selbar') === null
       && typeof enterSelection === 'undefined';
-    // ---- e o toque LONGO levanta a linha, com a guia ----
+    // ---- e o toque LONGO levanta a linha, e a lista abre o lugar ----
     bateu('pointerdown');
     await new Promise((f) => setTimeout(f, 700));   // além do LONGPRESS
     r.longoArrasta = !!document.querySelector('.lib-item.arrastando');
-    r.guia = !!document.querySelector('.drop-line');
+    // O DESTINO É O VÃO (v1.13.54): algum outro item foi deslocado para abrir
+    // espaço, e não existe marca nenhuma além dele.
+    r.espaco = [].some.call(document.querySelectorAll('#library > .lib-item:not(.arrastando)'),
+      (el) => /translateY\(-?[\d.]+px\)/.test(el.style.transform || ''));
+    r.semMarca = !document.querySelector('.drop-line');
     bateu('pointercancel');
     await new Promise((f) => setTimeout(f, 60));
     r.depois = !document.querySelector('.lib-item.arrastando');
@@ -4387,9 +4391,9 @@ try {
   });
   checar(!sel.erro && sel.curtoNaoArrasta,
     'um toque CURTO na linha não levanta o item', JSON.stringify(sel));
-  checar(!sel.erro && sel.longoArrasta && sel.guia,
-    'e o TOQUE LONGO levanta a linha para reordenar, com a linha-guia no lugar do '
-    + 'destino (na v1.13.52 o gesto deixou de ser seleção múltipla e virou arrasto)',
+  checar(!sel.erro && sel.longoArrasta && sel.espaco && sel.semMarca,
+    'e o TOQUE LONGO levanta a linha para reordenar, e a lista abre o VÃO do '
+    + 'destino — sem nenhuma marca além do próprio espaço (v1.13.54)',
     JSON.stringify(sel));
   checar(!sel.erro && sel.depois && sel.semSelecao,
     'cancelar devolve a linha ao lugar — e a barra de seleção não existe mais',

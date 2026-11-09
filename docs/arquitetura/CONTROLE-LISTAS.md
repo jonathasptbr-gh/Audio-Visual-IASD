@@ -393,8 +393,15 @@ continuam com o par ↑↓ da gaveta do `⋮`; no Cronograma ele saiu.
   `li.style.transform`: um **reflow síncrono por evento**, com o arrasto
   engasgando num Cronograma grande. As posições não mudam durante o arrasto (o
   item se move por `transform`, que não altera o layout), então medir uma vez
-  basta. `pintarGuia` e `indiceDoArrasto` leem o mesmo cache — a linha-guia e o
-  destino real nunca discordam.
+  basta.
+- **O DESTINO É O VÃO, e não há marca nenhuma** (v1.13.54): a lista se rearruma
+  em tempo real, com os OUTROS itens deslocados por `transform` (a transição do
+  CSS faz a animação) e o arrastado fora dela, seguindo o dedo. Indo para baixo,
+  o que está entre a origem e o destino sobe um passo; indo para cima, o que
+  está entre o destino e a origem desce — `ajustarVaos` e `indiceDoArrasto` leem
+  o mesmo cache, e é por isso que o desenho e o destino real nunca discordam. A
+  medida desconta o próprio deslocamento (`shift`), senão a remedida da rolagem
+  leria o vão como se fosse a posição de repouso.
 - **A ROLAGEM DE BORDA** (`rolarNaBorda`): a 48px do topo ou da base a lista anda
   sozinha (12px por tique), e o deslocamento entra no `dy` do item para ele
   continuar debaixo do dedo. Sem ela um arrasto não alcança o fim de uma lista

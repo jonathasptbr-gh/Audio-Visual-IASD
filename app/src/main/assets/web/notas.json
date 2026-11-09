@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.13.54",
+    "itens": [
+      "Arrastar no cronograma agora abre o espaço na hora: a lista se rearruma conforme o dedo move o item.",
+      "A linha colorida saiu — o próprio espaço é o que mostra onde o item vai ficar."
+    ]
+  },
+  {
     "versao": "1.13.53",
     "itens": [
       "Arrastar no cronograma voltou a funcionar: o item acompanha o dedo até o lugar de destino.",

@@ -294,16 +294,31 @@ try {
   await pg.mouse.move(geo.x, Math.round(geo.y - geo.alt * 1.5), { steps: 6 });
   const noAr = await pg.evaluate(() => {
     const li = document.querySelector('#library > .lib-item.arrastando');
-    const guia = document.querySelector('#library > .drop-line');
+    const outros = [...document.querySelectorAll('#library > .lib-item:not(.arrastando)')];
+    // O VÃO: os itens que a lista deslocou para abrir o lugar. Lido do
+    // `transform` INLINE (o alvo), e não do computado — ali a transição dá um
+    // valor intermediário e a medida dependeria do relógio.
+    const movidos = outros
+      .filter((el) => /translateY\(-?[\d.]+px\)/.test(el.style.transform || ''))
+      .map((el) => ({ id: el.dataset.id, dy: parseFloat(/translateY\((-?[\d.]+)px\)/.exec(el.style.transform)[1]) }));
+    const passo = li ? li.getBoundingClientRect().height
+      + (parseFloat(getComputedStyle(document.getElementById('library')).rowGap) || 0) : 0;
     return {
       deslocou: !!li && /translateY\(-?\d/.test(li.style.transform || ''),
-      guia: !!guia,
-      guiaTopo: guia ? Math.round(guia.getBoundingClientRect().top) : null,
-      guiaVermelha: guia ? getComputedStyle(guia).backgroundColor : null,
+      movidos,
+      passo: Math.round(passo * 10) / 10,
+      // NENHUMA marca de posição: o vão é a única resposta.
+      marca: !!document.querySelector('#library > .drop-line'),
     };
   });
-  checar(noAr.deslocou && noAr.guia,
-    'B2 · o item acompanha o dedo e uma linha-guia mostra onde ele vai cair',
+  checar(noAr.deslocou && noAr.movidos.length === 1 && !noAr.marca,
+    'B2 · o item acompanha o dedo e a LISTA abre o lugar — UM item deslocado, e '
+    + 'nenhum elemento de marcação do destino (o espaço é a resposta)',
+    JSON.stringify(noAr));
+  checar(noAr.movidos.length === 1
+      && Math.abs(Math.abs(noAr.movidos[0].dy) - noAr.passo) <= 1,
+    'B2 · e o vão tem o TAMANHO do item arrastado mais o vão da lista — é o '
+    + 'espaço exato que ele vai ocupar',
     JSON.stringify(noAr));
 
   await pg.mouse.up();
@@ -316,15 +331,14 @@ try {
     'B2 · e soltar GRAVA a ordem nova: o item foi para a casa de cima, no banco (não só no desenho)',
     JSON.stringify(await pg.evaluate(async () => await AVDB.listIds('imports'))));
 
-  // O gesto não pode deixar rastro: nem classe, nem guia, nem transform.
+  // O gesto não pode deixar rastro: nem classe, nem vão, nem transform.
   const limpo = await pg.evaluate(() => ({
     arrastando: !!document.querySelector('.arrastando'),
-    guia: !!document.querySelector('.drop-line'),
     classe: document.getElementById('library').classList.contains('arrastando-lista'),
     transform: [].some.call(document.querySelectorAll('#library > .lib-item'), (li) => li.style.transform),
   }));
-  checar(!limpo.arrastando && !limpo.guia && !limpo.classe && !limpo.transform,
-    'B2 · e o desenho volta ao normal no fim (sem classe, sem guia, sem `transform` pendurado)',
+  checar(!limpo.arrastando && !limpo.classe && !limpo.transform,
+    'B2 · e o desenho volta ao normal no fim (sem classe e sem `transform` pendurado — o vão fecha)',
     JSON.stringify(limpo));
 
   // ---- B3 · O TOQUE CURTO CONTINUA PROJETANDO ----
@@ -357,7 +371,7 @@ try {
   // morria era o MOVIMENTO: o navegador tomava o dedo para ROLAGEM e mandava
   // `pointercancel` no primeiro pixel. As duas metades do conserto se medem
   // aqui — (a) a rolagem é cancelada enquanto o arrasto dura, e (b) se o
-  // cancelamento chegar mesmo assim, o item CAI onde a guia está.
+  // cancelamento chegar mesmo assim, o item CAI onde o vão está.
   const geoD = await pg.evaluate((id) => {
     const li = document.querySelector('#library > .lib-item[data-id="' + id + '"]');
     const r = li.getBoundingClientRect();
@@ -383,7 +397,7 @@ try {
     'B4 · durante o arrasto a ROLAGEM é CANCELADA — é isso que impede o navegador '
     + 'de tomar o dedo (e mandar `pointercancel`) no primeiro movimento', JSON.stringify(rolagem));
 
-  // E O CANCELAMENTO NÃO DESFAZ O MOVIMENTO: ele entrega onde a guia está.
+  // E O CANCELAMENTO NÃO DESFAZ O MOVIMENTO: ele entrega onde o VÃO está.
   await pg.evaluate(() => {
     const row = document.querySelector('#library > .lib-item.arrastando .row');
     if (row) row.dispatchEvent(new PointerEvent('pointercancel', { bubbles: true, pointerId: 1 }));
@@ -394,8 +408,8 @@ try {
     return atuais.join(',') === esperado.join(',');
   }, ordemCancelada, 8000);
   checar(caiu === true,
-    'B4 · e um `pointercancel` do sistema NÃO joga o item de volta: ele cai onde a '
-    + 'linha-guia mostrou (reverter calado era o defeito do relato)',
+    'B4 · e um `pointercancel` do sistema NÃO joga o item de volta: ele cai onde o '
+    + 'vão estava aberto (reverter calado era o defeito do relato)',
     JSON.stringify(await pg.evaluate(async () => await AVDB.listIds('imports'))));
 
   // ==========================================================================

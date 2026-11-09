@@ -415,7 +415,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.53';
+const WEB_VERSION = '1.13.54';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -19342,44 +19342,76 @@ let arrastoRolando = 0;    // id do intervalo da rolagem de borda
 // As medidas dos itens, UMA vez por arrasto (e refeitas quando a lista rola,
 // que é o único evento que as invalida). Cada `getBoundingClientRect` custa um
 // reflow, e `pointermove` chega a 60–120 por segundo.
+//
+// O `shift` de cada item é o deslocamento que JÁ está aplicado nele — o vão que
+// a lista abriu. Ele é DESCONTADO na medida: sem isso, a remedida leria a
+// posição deslocada como se fosse a de repouso, e o vão oscilaria sozinho.
 function medirArrasto(ul, li) {
+  const antes = new Map();
+  if (arrastoGeom && arrastoGeom.ul === ul) {
+    for (const it of arrastoGeom.itens) antes.set(it.el, it.shift);
+  }
   const itens = [];
   for (const el of ul.children) {
-    if (el === li || el.tagName !== 'LI' || el.classList.contains('drop-line')) continue;
+    if (el === li || el.tagName !== 'LI') continue;
     const r = el.getBoundingClientRect();
-    itens.push({ meio: r.top + r.height / 2, topo: r.top, base: r.bottom });
+    const shift = antes.get(el) || 0;
+    itens.push({ el, altura: r.height, shift, meio: (r.top - shift) + r.height / 2 });
   }
-  arrastoGeom = { ul, itens, topo: ul.getBoundingClientRect().top, rolagem: ul.scrollTop };
+  const rli = li.getBoundingClientRect();
+  const cs = getComputedStyle(ul);
+  const gap = parseFloat(cs.rowGap || cs.gap) || 0;
+  arrastoGeom = {
+    ul, itens, gap, rolagem: ul.scrollTop,
+    // A ALTURA DO ARRASTADO manda no tamanho do vão. `translateY` não a muda.
+    altura: rli.height,
+    // A posição dele NO FLUXO, que é o que a conta do vão usa.
+    de: [...ul.children].indexOf(li),
+  };
 }
 
 // Índice de destino a partir da altura do dedo, ENTRE OS DEMAIS itens — é o
-// mesmo número que a linha-guia desenha e o que `moverNaListaPara` recebe.
+// mesmo número que o VÃO desenha e o que `moverNaListaPara` recebe.
 function indiceDoArrasto(y) {
   const itens = (arrastoGeom && arrastoGeom.itens) || [];
   for (let i = 0; i < itens.length; i++) if (y < itens[i].meio) return i;
   return itens.length;
 }
 
-function pintarGuia() {
-  if (!arrastoGeom || !arrasto) return;
-  const { ul, itens, topo, rolagem } = arrastoGeom;
-  let guia = ul.querySelector('.drop-line');
-  if (!guia) {
-    guia = document.createElement('li');
-    guia.className = 'drop-line';
-    guia.setAttribute('aria-hidden', 'true');
-  }
-  const idx = indiceDoArrasto(arrasto.y);
-  const alvo = idx < itens.length ? itens[idx].topo
-    : itens.length ? itens[itens.length - 1].base : topo;
-  guia.style.top = ((alvo - topo) + rolagem) + 'px';
-  if (!guia.isConnected) ul.appendChild(guia);
+/* ===== O VÃO É A LISTA RESPONDENDO (v1.13.54) =====
+   Pedido do operador: *"quero que a lista responda de forma dinâmica conforme o
+   movimento do item, abrindo espaço para a posição em que ele estará ficando…
+   sem inserir nenhum elemento visual do posicionamento além do próprio
+   espaço"*. Saiu a linha-guia colorida; o que fala agora é a própria lista
+   abrindo o lugar — e nada mais.
+
+   A mecânica é `transform` nos OUTROS itens: o layout não muda (é o que deixa a
+   medida ser feita uma vez só) e a transição do CSS faz a animação. O item
+   arrastado NÃO se move por aqui — ele segue o dedo.
+
+   A CONTA: o arrastado ocupa um lugar no fluxo mesmo levantado (o `translateY`
+   não o tira de lá). Quando ele vai para BAIXO, tudo entre a ORIGEM e o destino
+   sobe um passo — é o lugar dele que fica vago. Indo para CIMA, tudo entre o
+   destino e a origem desce um passo. O passo é a altura dele mais o vão da
+   lista, que é o que o flex cobra por uma linha a mais. */
+function ajustarVaos(k) {
+  if (!arrastoGeom) return;
+  const { itens, de, altura, gap } = arrastoGeom;
+  const passo = altura + gap;
+  itens.forEach((it, j) => {
+    const desce = k < de && j >= k && j < de;
+    const sobe = k > de && j >= de && j < k;
+    const s = desce ? passo : (sobe ? -passo : 0);
+    if (it.shift === s) return;
+    it.shift = s;
+    it.el.style.transform = s ? 'translateY(' + s + 'px)' : '';
+  });
 }
 
 function aplicarArrasto() {
   if (!arrasto) return;
   arrasto.li.style.transform = 'translateY(' + arrasto.dy + 'px)';
-  pintarGuia();
+  ajustarVaos(indiceDoArrasto(arrasto.y));
 }
 
 function pararRolagemDeBorda() {
@@ -19426,8 +19458,8 @@ function limparArrasto() {
     arrasto.li.classList.remove('arrastando');
     if (ul) {
       ul.classList.remove('arrastando-lista');
-      const guia = ul.querySelector('.drop-line');
-      if (guia) guia.remove();
+      // O VÃO FECHA JUNTO: todo deslocamento aplicado volta a zero.
+      for (const el of ul.children) if (el.style.transform) el.style.transform = '';
     }
   }
   arrasto = null;
@@ -19441,7 +19473,7 @@ function comecarArrasto(li, item, pid, y) {
   li.classList.add('arrastando');
   ul.classList.add('arrastando-lista');
   medirArrasto(ul, li);
-  pintarGuia();
+  ajustarVaos(indiceDoArrasto(y));
 }
 
 function terminarArrasto() {
