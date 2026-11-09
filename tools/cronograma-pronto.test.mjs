@@ -412,6 +412,69 @@ try {
     + 'vão estava aberto (reverter calado era o defeito do relato)',
     JSON.stringify(await pg.evaluate(async () => await AVDB.listIds('imports'))));
 
+  // ---- B5 · AO SOLTAR, NADA PISCA NA ORDEM ANTIGA ----
+  //
+  // Relato do operador sobre a v1.13.54: *"ao soltar na nova posição, a lista,
+  // por uma fração de segundo, pisca na ordem antiga, antes de piscar na
+  // posição correta"*. A causa era apagar os deslocamentos ANTES de a gravação
+  // terminar: a tela voltava à ordem velha até o redesenho.
+  //
+  // A prova é lida NO MESMO TIQUE do `pointerup`, dentro da página e antes de
+  // qualquer `await` do app: com o conserto, a lista continua na ordem FINAL
+  // (os outros deslocados, o item no vão) enquanto a gravação corre.
+  const antesB5 = await pg.evaluate(async () => await AVDB.listIds('imports'));
+  const semPisca = await pg.evaluate(() => new Promise((ok) => {
+    const ul = document.getElementById('library');
+    const lis = [...ul.children].filter((el) => el.classList.contains('lib-item'));
+    if (lis.length < 3) return ok({ erro: 'lista curta demais para o ensaio' });
+    const alvo = lis[lis.length - 1];              // o ÚLTIMO da lista
+    const row = alvo.querySelector('.row');
+    const r = alvo.getBoundingClientRect();
+    const x = Math.round(r.left + r.width / 2);
+    const y0 = Math.round(r.top + r.height / 2);
+    const ev = (t, extra) => row.dispatchEvent(new PointerEvent(t, Object.assign({
+      bubbles: true, cancelable: true, pointerId: 11, pointerType: 'touch',
+      clientX: x, clientY: y0, button: 0, buttons: 1,
+    }, extra || {})));
+    let tentativas = 0;
+    ev('pointerdown');
+    const espera = setInterval(() => {
+      if (!alvo.classList.contains('arrastando')) {
+        if (++tentativas > 66) { clearInterval(espera); ok({ erro: 'o arrasto não começou' }); }
+        return;
+      }
+      clearInterval(espera);
+      // Sobe dois vãos: vai para o TOPO da lista.
+      const y1 = Math.round(r.top - r.height * 2.2);
+      ev('pointermove', { clientY: y1 });
+      ev('pointerup', { clientY: y1, buttons: 0 });
+      // LIDO AQUI — o instante que a v1.13.54 mostrava na ordem velha.
+      ok({
+        classe: ul.classList.contains('arrastando-lista'),
+        deslocados: [...ul.children].filter((el) => el.classList.contains('lib-item') && el.style.transform).length,
+        doAlvo: alvo.style.transform || '',
+        preso: !!document.querySelector('.lib-item.arrastando'),
+      });
+    }, 30);
+  }));
+  checar(!semPisca.erro && semPisca.classe === true && semPisca.preso === false,
+    'B5 · no instante do soltar a lista CONTINUA em modo de arrasto (ela não volta à ordem antiga) '
+    + 'e o item já não está preso ao dedo',
+    JSON.stringify(semPisca));
+  checar(!semPisca.erro && semPisca.deslocados >= 1 && /translateY\(-?\d/.test(semPisca.doAlvo),
+    'B5 · e o que se vê nesse instante é a ordem FINAL: os outros seguem deslocados e o item '
+    + 'já está no vão — nenhum quadro com a ordem de antes',
+    JSON.stringify(semPisca));
+
+  const ordemB5 = [antesB5[antesB5.length - 1], ...antesB5.slice(0, -1)];
+  const gravouB5 = await esperarDb(pg, async (esperado) => {
+    const atuais = await AVDB.listIds('imports');
+    return atuais.join(',') === esperado.join(',');
+  }, ordemB5, 8000);
+  checar(gravouB5 === true,
+    'B5 · e a gravação fecha a conta: o item saiu do fim e virou o primeiro',
+    JSON.stringify(await pg.evaluate(async () => await AVDB.listIds('imports'))));
+
   // ==========================================================================
   // C. A SELEÇÃO MÚLTIPLA SAIU INTEIRA
   // ==========================================================================

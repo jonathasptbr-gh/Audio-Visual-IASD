@@ -409,6 +409,11 @@ continuam com o par ↑↓ da gaveta do `⋮`; no Cronograma ele saiu.
 - **O DESTINO é gravado por `moverNaListaPara`** — a forma atômica do `listSet`
   (a mesma de `moverNaLista`, com a posição no lugar do delta) e o mesmo
   `load()` no fim: o app não tem dois caminhos para "isto mudou de lugar".
+- **E SOLTAR NÃO DESFAZ NADA ANTES DE GRAVAR** (v1.13.55): o item desliza para o
+  vão e a lista fica na ordem FINAL enquanto a gravação corre (`soltarNoVao`);
+  desfazer os deslocamentos primeiro era um quadro com a ordem antiga na tela —
+  o "pisca" que o operador viu. O `load()` seguinte encontra o mesmo desenho, e
+  `assentarArrasto` fecha o gesto quando não há redesenho.
 - **O que o arrasto NÃO faz:** não tira o item do ar, não abre a gaveta de ações e
   não seleciona nada. A captura de ponteiro é da linha durante o gesto, e o
   `touch-action: none` de `#library.arrastando-lista` é o que impede o

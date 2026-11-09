@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.55** — soltar não pisca mais na ordem antiga: o item desliza para o vão e a lista fica na ordem FINAL enquanto a gravação corre (`soltarNoVao` + `assentarArrasto`); `cronograma-pronto` bloco B5 mede o instante do `pointerup` (só web)
 - **v1.13.54** — o arrasto abre o VÃO em tempo real: a lista se rearruma animada (`transform` nos outros itens, 160 ms) e a linha-guia colorida sai — o espaço é a única marca do destino; `cronograma-pronto` B2 e o `smoke` passam a medir o vão (só web)
 - **v1.13.53** — o arrasto do Cronograma não morre no primeiro movimento: a rolagem é cancelada enquanto ele dura (o `touch-action` só vale para o próximo gesto) e um `pointercancel` do sistema ENTREGA o item onde a guia está; oráculo `cronograma-pronto` bloco B4 (só web)
 - **v1.13.52** — Cronograma, o Pacote 2: o alerta de "não está pronto" ao lado do nome (conta por família de item e "Baixar tudo" pelos três caminhos que já existiam) e o segurar-arrasta no lugar do par ↑↓; a seleção múltipla sai inteira; oráculo novo `cronograma-pronto` (só web)
@@ -667,6 +668,15 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.13.55 — soltar não pisca na ordem antiga
+
+**v1.13.55** — (só web, **sem `shellTag`**; `SHELL_VERSION` **85** e `minShell` **83** não mudam). Conserto do lote anterior pelo relato do operador: *"ao soltar na nova posição, a lista, por uma fração de segundo, pisca na ordem antiga, antes de piscar na posição correta"*.
+
+- **A CAUSA ERA A ORDEM DAS DUAS METADES NO SOLTAR.** `terminarArrasto` chamava `limparArrasto` — que zera os deslocamentos e devolve a tela à ordem ANTIGA — e só depois a gravação, assíncrona, redesenhava. Entre as duas havia um quadro com a ordem velha: é o pisca.
+- **O CONSERTO É NÃO DESFAZER NADA NO SOLTAR** (`soltarNoVao`): o item desliza para o vão que a guia abriu, os outros continuam deslocados, e a lista fica EXATAMENTE na ordem final. O `load()` do fim encontra o mesmo desenho — o que se vê é uma coisa só. Só o arrastado ganha transição nesse instante (a dos outros já foi usada durante o gesto), e `prefers-reduced-motion` a dispensa.
+- **E O FIM DO GESTO GANHOU UM LUGAR SÓ** (`assentarArrasto`): sem mudança de ordem não há `load()`, e o `then` do `moverNaListaPara` zera os deslocamentos, tira `arrastando-lista` e limpa a transição inline — o `limparArrasto` da v1.13.54 saiu.
+- **Oráculo: o bloco B5 do `cronograma-pronto`.** Ele mede o desenho **no mesmo tique do `pointerup`**, dentro da página e antes de qualquer `await` do app: a lista continua em modo de arrasto, os outros seguem deslocados e o item já está no vão. Depois disso a ordem gravada é conferida. Reversão: devolver o `limparArrasto` ao soltar reprova as duas asserções (a classe e o deslocamento já não estão lá). É o tipo de defeito que o oráculo da v1.13.54 não via porque media o estado DEPOIS do redesenho — onde tudo já está certo.
 
 ## v1.13.54 — o vão é a lista respondendo
 

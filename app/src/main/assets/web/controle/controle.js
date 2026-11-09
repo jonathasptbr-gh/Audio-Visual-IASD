@@ -415,7 +415,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.54';
+const WEB_VERSION = '1.13.55';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -19450,38 +19450,65 @@ function moverArrasto(y) {
   rolarNaBorda();
 }
 
-function limparArrasto() {
+/* ===== SOLTAR NÃO PISCA NA ORDEM ANTIGA (v1.13.55) =====
+   Relato do operador sobre a v1.13.54: *"ao soltar na nova posição, a lista, por
+   uma fração de segundo, pisca na ordem antiga, antes de piscar na posição
+   correta"*.
+
+   A causa era a ordem das duas metades no soltar: `limparArrasto` apagava os
+   deslocamentos — e com isso a tela voltava à ordem ANTIGA — e só depois a
+   gravação (assíncrona) redesenhava a lista. Entre uma coisa e outra havia um
+   quadro com a ordem velha, que é o pisca.
+
+   O CONSERTO é não desfazer nada no soltar: o item desliza para o VÃO em que a
+   guia o colocou, os outros continuam deslocados, e a lista fica EXATAMENTE na
+   ordem final. O `load()` do fim encontra o mesmo desenho — e o que se vê é uma
+   coisa só, sem ordem velha nenhuma no meio. */
+function soltarNoVao(destino) {
+  if (!arrasto || !arrastoGeom) return;
+  const { li } = arrasto;
+  const { itens, altura, gap } = arrastoGeom;
+  // O topo DE FLUXO do item: o retângulo inclui o `translateY` que ele leva.
+  const topoDeFluxo = li.getBoundingClientRect().top - arrasto.dy;
+  // O vão fica na POSIÇÃO DE REPOUSO do item que hoje ocupa aquele lugar — os
+  // da frente já estão deslocados, e é justamente o buraco que eles deixaram.
+  let alvo;
+  if (destino <= 0) alvo = itens.length ? itens[0].topo : topoDeFluxo;
+  else if (destino >= itens.length) alvo = itens.length ? itens[itens.length - 1].base + gap : topoDeFluxo;
+  else alvo = itens[destino].topo;
+  li.classList.remove('arrastando');
+  // ELE DESLIZA ATÉ LÁ, e é o único que ganha transição agora: os outros já
+  // estão parados no lugar definitivo.
+  if (!prefersReducedMotion) li.style.transition = 'transform .16s ease';
+  li.style.transform = 'translateY(' + Math.round((alvo - topoDeFluxo) * 100) / 100 + 'px)';
+  // A partir daqui o gesto não existe mais: o que falta é a GRAVAÇÃO.
   pararRolagemDeBorda();
-  if (arrasto) {
-    const ul = arrasto.li.parentElement;
-    arrasto.li.style.transform = '';
-    arrasto.li.classList.remove('arrastando');
-    if (ul) {
-      ul.classList.remove('arrastando-lista');
-      // O VÃO FECHA JUNTO: todo deslocamento aplicado volta a zero.
-      for (const el of ul.children) if (el.style.transform) el.style.transform = '';
-    }
-  }
   arrasto = null;
   arrastoGeom = null;
 }
 
-function comecarArrasto(li, item, pid, y) {
-  if (!li || arrasto) return;
-  const ul = li.parentElement;
-  arrasto = { li, id: item.id, pid, y0: y, rolagem0: ul.scrollTop, dy: 0, y };
-  li.classList.add('arrastando');
-  ul.classList.add('arrastando-lista');
-  medirArrasto(ul, li);
-  ajustarVaos(indiceDoArrasto(y));
+// O fim de qualquer arrasto que NÃO vira ordem nova (o toque cancelado, a
+// gravação que não mudou nada): zera os deslocamentos e devolve a lista ao
+// repouso. Com `load()` no caminho, os nós já foram trocados e isto é no-op.
+function assentarArrasto() {
+  const ul = document.getElementById('library');
+  if (!ul) return;
+  ul.classList.remove('arrastando-lista');
+  for (const el of ul.children) {
+    if (el.style.transform) el.style.transform = '';
+    if (el.style.transition) el.style.transition = '';
+  }
 }
 
 function terminarArrasto() {
   if (!arrasto) return;
   const { id } = arrasto;
   const destino = indiceDoArrasto(arrasto.y);
-  limparArrasto();
-  moverNaListaPara('imports', id, destino);
+  soltarNoVao(destino);
+  // A gravação vem DEPOIS de o desenho já estar na ordem final; o `load()` que
+  // ela dispara encontra a tela como ela está. Sem mudança de ordem não há
+  // `load()` — e aí o `assentarArrasto` fecha o gesto no lugar.
+  moverNaListaPara('imports', id, destino).then(assentarArrasto, assentarArrasto);
 }
 
 function attachRowGestures(row, item) {

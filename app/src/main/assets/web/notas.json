@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.13.55",
+    "itens": [
+      "Soltar o item no cronograma não pisca mais na ordem antiga: ele desliza para o lugar e a lista já está na ordem final."
+    ]
+  },
+  {
     "versao": "1.13.54",
     "itens": [
       "Arrastar no cronograma agora abre o espaço na hora: a lista se rearruma conforme o dedo move o item.",
