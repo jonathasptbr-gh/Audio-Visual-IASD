@@ -1,12 +1,14 @@
 # Achados em aberto
 
-**UM** — a retomada por roubo de foco não sabe distinguir uma CHAMADA telefônica
-(§2), e é o único defeito CONFIRMADO que ainda não foi corrigido. Os outros DOIS
-que moravam aqui saíram em 2026-11-08, na revisão X2, por RESPOSTA DO OPERADOR —
-ficam como registro, e o porquê está no título de cada um: o do fone/Bluetooth
-(§1), porque o Bluetooth É o destino desejado do som do espelhamento, e o "só o
-cliente pode fazer o app escolher baixo" (§3), que ele desconsiderou por não ser
-defeito nosso. **Arquivo para esvaziar, não para crescer.**
+**NENHUM** — não há defeito CONFIRMADO em aberto. O arquivo fica pelo registro
+dos três que moraram aqui, e os três fecharam por RESPOSTA DO OPERADOR: o do
+fone/Bluetooth (§1) e o "só o cliente pode fazer o app escolher baixo" (§3), em
+2026-11-08; e o da CHAMADA telefônica, em 2026-11-09 — palavras dele: *"não é um
+problema e não precisamos lidar com isso; se futuramente houver um relato de
+problema, então ela será criada e resolvida"*. **Arquivo para esvaziar, não para
+crescer:** relato novo abre item novo, com a cena que ele der.
+O §2 (a chamada) saiu inteiro em 2026-11-09 — a numeração dos outros fica
+como estava, porque os registros antigos citam §1 e §3.
 
 O que já saiu antes: a faixa da Biblioteca que nunca era marcada como no ar
 (v1.5.16) saiu na v1.13.14 — ela acende pela ORIGEM do toque. Houve outro, e ele
@@ -14,9 +16,7 @@ já saiu — *"mídia baixada pausa quando eu minimizo"* —, e durou um lote: o
 operador deu a cena que faltava (*"ocorre quando não há telas conectadas"*), e
 ela era a segunda das três hipóteses; corrigido na v1.3.12, com a resposta que
 `DISPLAY.md` já tinha escrita para o dia. O que era "o telão pausa sozinho?" foi
-MEDIDO (sim, e por qualquer app de mídia) e **corrigido na v1.1.11**; o que
-sobrou dele é justamente o caso que a correção não sabe distinguir — a chamada
-telefônica, que é o §2 e o motivo de este arquivo existir. Os 21 da auditoria de
+MEDIDO (sim, e por qualquer app de mídia) e **corrigido na v1.1.11**; o que sobrou dele é justamente o caso que a correção não sabia distinguir — a chamada telefônica —, fechado em 2026-11-09 por decisão do operador (ver o topo). Os 21 da auditoria de
 2026-08-20 e os dois da campanha de determinismo da v5.316 foram corrigidos nos
 lotes em que foram achados; a nota de cada um está em
 [`HISTORICO.md`](HISTORICO.md).
@@ -59,36 +59,6 @@ pública, sem permissão) responderia isso — mas custa um método de ponte,
 **Ressalva do cético:** a evidência de que fone/A2DP vence o submix do
 espelhamento é de fórum, não de fonte AOSP. Pode não valer no Samsung do
 operador.
-
----
-
-## 2. A retomada não sabe distinguir uma CHAMADA telefônica (SEM VETO)
-
-**Cenário.** A retomada por roubo de foco entrou na v1.1.11 (revisada na v1.1.14) e cobre o caso
-medido: outro app de mídia toma o foco, o telão para, e ele volta sozinho. Mas
-**uma chamada telefônica também tira o foco** — e ali a retomada não deveria
-disparar: a perda é TRANSITÓRIA, o Chromium já retoma sozinho no fim da ligação,
-e do lado JS **não há sinal que nomeie a chamada** (a Media Session API é
-desligada no WebView; `visibilityState` é sempre `visible` no telão por causa do
-`KeepVisibleWebView`).
-
-**Resposta do operador (2026-10-30):** não foi testado. Segue aberto.
-
-**O que limita o estrago hoje:** o teto de três tentativas (`RETOM_ESPERAS`, ~15 s)
-e a desistência definitiva até um comando humano. O pior caso é três tentativas
-falhas durante a ligação e depois silêncio. **Não medido em aparelho.**
-
-**Correção proposta:** `AVNative.audioModo()` → `AudioManager.getMode()` (API 1,
-pública, sem permissão) como VETO de pré-voo: a retomada nem agenda em
-`MODE_IN_CALL` / `MODE_IN_COMMUNICATION` / `MODE_RINGTONE`. Ponto de mudança:
-`NativeBridge.kt` (fila `io` — é leitura de milissegundos) + `podeRetomar` em
-`display.js`. **Custa `SHELL_VERSION` 50, `minShell: 50`, `shellTag` e Release**,
-por isso ficou de fora do lote que entregou a retomada.
-
-**Ressalva do cético:** duas flags do Chromium (`kAllowDelayedAudioFocusGain`,
-`kDeferAudioFocusUntilAudible`) mudam o desfecho durante a chamada e estão
-sujeitas a Finch — o MESMO APK, no mesmo Android, pode responder diferente em
-dois celulares. Só teste em aparelho decide se o veto é necessário.
 
 ---
 

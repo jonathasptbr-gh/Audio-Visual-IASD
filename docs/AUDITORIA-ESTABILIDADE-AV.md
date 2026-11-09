@@ -364,8 +364,7 @@ Estes caminhos foram lidos linha a linha procurando interrupção, e estão cobe
   de memória.
 - **Roubo de foco de áudio.** A escada de retomada (`display.js`) tem guardas,
   crédito, teto e censo, e a guarda do fim natural existe **duas vezes** de
-  propósito. O caso aberto (chamada telefônica) já está em
-  `ACHADOS-EM-ABERTO.md` §2.
+  propósito. O caso da chamada telefônica foi FECHADO pelo operador em 2026-11-09 (não é problema; relato novo abre item novo) e saiu de `ACHADOS-EM-ABERTO.md`.
 - **O compasso do MSE em segundo plano.** `EVENTOS_DO_COMPASSO` resolve o
   estrangulamento do `setInterval`; o intervalo ficou como piso. Correto.
 - **Concorrência de `load`.** `loadSeq` + `loadsEmVoo` cobrem a corrida entre o

@@ -1139,7 +1139,7 @@ itens."*
   `z-index: 1` e pinta `--linha`, então o traço SOME quando aquela faixa ganha um
   preenchimento opaco de estado — ali quem separa é o preenchimento, e duas
   linguagens sobre o mesmo par seriam ruído. Dentro de um álbum o caso não
-  acontece hoje: a faixa não recebe estado (ver `docs/ACHADOS-EM-ABERTO.md` §4) e
+  acontece hoje: a faixa não recebe estado (o `ACHADOS-EM-ABERTO.md` está vazio desde 2026-11-09, e a faixa de álbum segue sem estado) e
   o único `--linha` possível é translúcido, que o traço atravessa.
 - **O raio apara a ponta direita**: com `border-radius: 8px` e
   `overflow: hidden`, os ~8px finais somem na curva — o mesmo canto que o
