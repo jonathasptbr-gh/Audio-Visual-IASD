@@ -543,7 +543,7 @@ corrompido"*. Dois defeitos, um em cada camada:
   o web recebe o arquivo CORTADO, sem erro nenhum.
 
 Hoje o web lê por JANELAS — `/saf/<token>?r=<ini>-<fim>`, servidas pelo
-`SafJanela` — e o `pickDoc` devolve o `size` que diz onde o arquivo acaba. A
+`SafJanela` — e o `pickDoc` devolve o `size` que diz onde o arquivo acaba. A janela tem JUnit próprio (`SafJanelaTest`, shell 64): o `?r=` malformado, invertido e acima de 24 MB, a leitura curta NO MEIO da faixa e o `skip` parcial — as três funções puras (`janelaDe`, `lerJanela`, `posicionarPorSkip`) rodam sem `ContentResolver`. A
 faixa vai na QUERY e nunca num cabeçalho `Range`, pela razão da invariante 8 (`WEBVIEW-RANGE.md`):
 com o cabeçalho, o `ParseRange` do WebView aplicaria o deslocamento uma SEGUNDA
 vez sobre o que já é uma fatia.

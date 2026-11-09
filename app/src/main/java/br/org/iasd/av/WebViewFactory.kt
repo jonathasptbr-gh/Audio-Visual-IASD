@@ -291,7 +291,7 @@ object WebViewFactory {
                 // A checagem é a [ehDoApp] — a invariante 2 escrita UMA vez,
                 // que é o que impede esta porta e a da janela do `/saf/` de
                 // divergirem.
-                return !ehDoApp(url)
+                return !WebViewFactory.ehDoApp(url)
             }
 
             /**

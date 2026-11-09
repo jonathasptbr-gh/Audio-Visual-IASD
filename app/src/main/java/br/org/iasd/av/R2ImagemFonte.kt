@@ -1,7 +1,7 @@
 package br.org.iasd.av
 
 import android.util.Log
-import android.util.Base64
+import java.util.Base64
 import android.webkit.WebResourceResponse
 import androidx.webkit.WebViewAssetLoader
 import java.io.ByteArrayInputStream
@@ -257,11 +257,18 @@ object R2ImagemRegistry {
         porToken[token]?.let { it.bytes to it.mime }
     }
 
-    /** 128 bits em base64url, como o [SafRegistry] — opaco e não adivinhável. */
+    /**
+     * 128 bits em base64url, como o [SafRegistry] — opaco e não adivinhável.
+     *
+     * `java.util.Base64` (API 26, o `minSdk` do app) e não o `android.util`:
+     * aquele é o que deixa o registro testável no JVM, onde TODO método do
+     * `android.jar` responde `RuntimeException: Method … not mocked` — e foi
+     * assim que o JUnit novo do registro reprovou no CI antes de rodar.
+     */
     private fun newToken(): String {
         val b = ByteArray(16)
         rnd.nextBytes(b)
-        return Base64.encodeToString(b, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(b)
     }
 }
 

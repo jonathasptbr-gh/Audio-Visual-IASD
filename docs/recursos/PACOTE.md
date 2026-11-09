@@ -28,7 +28,7 @@ arquivo diretamente de um smartphone para o outro é extremamente útil"*.
  │   └─ blocos de 512 kB ─────┼─ __avPacote ──► │   + size (shell 64)   │
  │      (ArrayBuffer)         │  PacoteCanal.kt │   └─ JANELAS:         │
  │ AVNative.pacoteCriar()  ───┼─► SAF, destino  │      /saf/<t>?r=a-b   │
- │ AVNative.pacoteFechar() ───┼─► ABERTO        │      (SafJanela.kt)   │
+ │ AVNative.pacoteFechar() ───┼─► ABERTO        │      (SafJanela)        │
  └────────────────────────────┘                 └───────────────────────┘
 ```
 
@@ -670,7 +670,7 @@ nas quatro:
 
 - **A FONTE PODE DEVOLVER MENOS DO QUE SE PEDIU, e o `blob()` não conferia.** O
   irmão `bytes()` sempre conferiu; o caminho que traz os CORPOS, não. O
-  `SafJanela.ler` corta no que conseguiu, e o caso que torna isso provável é o
+  `SafJanela.lerJanela` corta no que conseguiu, e o caso que torna isso provável é o
   arquivo chegando por compartilhamento: ele APARECE em Downloads antes de
   terminar de ser escrito, o `size` já responde o valor final, e o cursor avança
   pelo `bytes` DECLARADO — um vídeo de 300 MB gravado truncado, sem erro nos dois
