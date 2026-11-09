@@ -427,54 +427,46 @@ try {
   // qualquer `await` do app: com o conserto, a lista continua na ordem FINAL
   // (os outros deslocados, o item no vão) enquanto a gravação corre.
   const antesB5 = await pg.evaluate(async () => await AVDB.listIds('imports'));
-  const semPisca = await pg.evaluate(() => new Promise((ok) => {
-    // A LISTA PODE SER REDESENHADA ENTRE O BLOCO ANTERIOR E ESTE (a gravação do
-    // B4 dispara um `load`), e o nó que se pega aqui pode sair do documento.
-    // Por isso o alvo é escolhido NA HORA, e a investida é refeita se ele cair.
-    const tentada = (n) => {
-      const ul = document.getElementById('library');
-      const lis = [...ul.children].filter((el) => el.classList.contains('lib-item'));
-      if (lis.length < 3) return ok({ erro: 'lista curta demais para o ensaio' });
-      const alvo = lis[lis.length - 1];              // o ÚLTIMO da lista
-      const row = alvo.querySelector('.row');
-      const r = alvo.getBoundingClientRect();
-      const x = Math.round(r.left + r.width / 2);
-      const y0 = Math.round(r.top + r.height / 2);
-      const ev = (t, extra) => row.dispatchEvent(new PointerEvent(t, Object.assign({
-        bubbles: true, cancelable: true, pointerId: 11, pointerType: 'touch',
-        clientX: x, clientY: y0, button: 0, buttons: 1,
-      }, extra || {})));
-      let tiques = 0;
-      ev('pointerdown');
-      const espera = setInterval(() => {
-        if (!alvo.isConnected) {
-          clearInterval(espera);
-          return n < 3 ? tentada(n + 1) : ok({ erro: 'a lista foi redesenhada três vezes no meio' });
-        }
-        if (!alvo.classList.contains('arrastando')) {
-          if (++tiques > 66) { clearInterval(espera); ok({ erro: 'o arrasto não começou' }); }
-          return;
-        }
-        clearInterval(espera);
-        // Sobe até ACIMA do primeiro item — o destino certo para qualquer
-        // rolagem da lista, porque a régua é a posição medida agora, e não um
-        // número de pixels chutado a partir da linha que se arrasta.
-        const primeiro = lis[0].getBoundingClientRect();
-        const y1 = Math.round(primeiro.top + primeiro.height / 2 - 6);
-        ev('pointermove', { clientY: y1 });
-        ev('pointerup', { clientY: y1, buttons: 0 });
-        // LIDO AQUI — o instante que a v1.13.54 mostrava na ordem velha.
-        ok({
-          id: alvo.dataset.id,
-          classe: ul.classList.contains('arrastando-lista'),
-          deslocados: [...ul.children].filter((el) => el.classList.contains('lib-item') && el.style.transform).length,
-          doAlvo: alvo.style.transform || '',
-          preso: !!document.querySelector('.lib-item.arrastando'),
-        });
-      }, 30);
+  // O GESTO É O DE VERDADE (mouse), como no B2: evento sintético esbarra no
+  // redesenho da lista, que troca o nó debaixo do dedo no meio do ensaio.
+  const geoB5 = await pg.evaluate(() => {
+    const lis = [...document.querySelectorAll('#library > .lib-item')];
+    if (lis.length < 3) return { erro: 'lista curta demais para o ensaio' };
+    const alvo = lis[lis.length - 1];              // o ÚLTIMO da lista
+    const r = alvo.getBoundingClientRect();
+    const primeira = lis[0].getBoundingClientRect();
+    return {
+      id: alvo.dataset.id,
+      x: Math.round(r.left + r.width / 2),
+      y: Math.round(r.top + r.height / 2),
+      yTopo: Math.round(primeira.top + primeira.height / 2 - 6),
     };
-    tentada(0);
-  }));
+  });
+  // O OBSERVADOR DO INSTANTE: um ouvinte do `window` na fase de BORBULHA roda
+  // DEPOIS do handler da linha e ANTES de os `await` do app virarem
+  // microtasks. É exatamente o quadro que a v1.13.54 mostrava na ordem antiga.
+  await pg.evaluate((idAlvo) => {
+    window.__alvoId = idAlvo;
+    window.__noSusto = null;
+    window.addEventListener('pointerup', () => {
+      const ul = document.getElementById('library');
+      if (!ul) return;
+      const li = document.querySelector('#library > .lib-item[data-id="' + window.__alvoId + '"]');
+      window.__noSusto = {
+        classe: ul.classList.contains('arrastando-lista'),
+        deslocados: [...ul.children]
+          .filter((el) => el.classList.contains('lib-item') && el.style.transform).length,
+        doAlvo: li ? (li.style.transform || '') : 'sumiu do documento',
+        preso: !!document.querySelector('.lib-item.arrastando'),
+      };
+    }, { once: true });
+  }, geoB5.id);
+  await pg.mouse.move(geoB5.x, geoB5.y);
+  await pg.mouse.down();
+  await esperar(pg, () => !!document.querySelector('#library > .lib-item.arrastando'), null, 4000);
+  await pg.mouse.move(geoB5.x, geoB5.yTopo, { steps: 4 });
+  await pg.mouse.up();
+  const semPisca = await pg.evaluate(() => window.__noSusto || { erro: 'o observador não viu o soltar' });
   checar(!semPisca.erro && semPisca.classe === true && semPisca.preso === false,
     'B5 · no instante do soltar a lista CONTINUA em modo de arrasto (ela não volta à ordem antiga) '
     + 'e o item já não está preso ao dedo',
@@ -493,10 +485,10 @@ try {
     // +1 porque o índice 0 é FALSO e o `esperar` para no primeiro valor
     // verdadeiro — sem isto, cair na PRIMEIRA casa seria lido como "não veio".
     return atuais.length === antesB5.length && depois >= 0 && depois < antesB5.indexOf(id) ? depois + 1 : null;
-  }, semPisca.id, 8000);
-  checar(semPisca.id && typeof subiu === 'number',
+  }, geoB5.id, 8000);
+  checar(!geoB5.erro && typeof subiu === 'number',
     'B5 · e a gravação fecha a conta: o item que saiu do fim subiu de posição no banco, com a lista inteira',
-    JSON.stringify({ id: semPisca.id, antes: antesB5.indexOf(semPisca.id), depois: typeof subiu === 'number' ? subiu - 1 : subiu }));
+    JSON.stringify({ id: geoB5.id, antes: antesB5.indexOf(geoB5.id), depois: typeof subiu === 'number' ? subiu - 1 : subiu }));
 
   // ==========================================================================
   // C. A SELEÇÃO MÚLTIPLA SAIU INTEIRA
