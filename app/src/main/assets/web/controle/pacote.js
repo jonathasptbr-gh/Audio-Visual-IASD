@@ -253,8 +253,8 @@
    * Sai o que carrega bytes (eles viajam como corpo dos registros) e sai o
    * `stream`: o app não o escreve mais, mas um registro gravado antes da
    * remoção da transmissão direta ainda o carrega no IndexedDB — um manifesto
-   * de URLs do googlevideo expiradas, com tokens de um `StreamProxy` que só
-   * existia no aparelho de origem. **Este é o único lugar do app que ainda
+   * de URLs do googlevideo expiradas, com tokens de um proxy que só existia no
+   * aparelho de origem. **Este é o único lugar do app que ainda
    * pergunta por ele**, e é aqui que ele morre: sem o campo, o item é um LINK
    * do YouTube, que é o que ele de fato é — o destino o resolve no primeiro
    * toque, pelo caminho que já existe.

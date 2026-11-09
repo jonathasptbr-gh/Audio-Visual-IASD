@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.49** — revisão X2, metade Kotlin: o resíduo da transmissão direta APAGADO (o proxy, a rota `/stream/`, a `servirTransmissao` e a `/s/`), a invariante 8 mudou de casa para `docs/shell/WEBVIEW-RANGE.md`; `SHELL_VERSION` 85 e `minShell` 83 ficam (APK, `shellTag: "v1.13.49"`)
 - **v1.13.48** — revisão X2 (os achados em aberto): a senha das listas nos dois chamadores que faltavam (a gaveta e o pacote), o ACK cumulativo do canal de mídia, o compartilhamento acima de 2 GB recusado com nome, o cancelamento da verificação depois do último byte; só web
 - **v1.13.47** — revisão X1 (o contrato da ponte): os SEIS órfãos saíram do Kotlin (`ytStream`, `otaPending`, `apkProcurar`, `requestMic`, `micDiag` e `salvarTexto`) com o que só existia por eles; a conta medida fica 64 · 70 · 70; `SHELL_VERSION` 85; o `StreamProxy` e a rota `/s/` ficam latentes (APK, `shellTag: "v1.13.47"`)
 - **v1.13.46** — revisão K6 (o resto do shell e o build): a cifra confere o destino FINAL depois de redirecionamento (a allowlist valia só para o primeiro salto); o fim do pacote não faz `flush` de `content://` na main; JUnit novo `CifraFonteTest` (9 casos, reversão medida); o pin do NewPipe conferido contra a v0.27.0, e fica (APK, `shellTag: "v1.13.46"`)
@@ -661,6 +662,19 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.13.49 — revisão X2, metade Kotlin (o resíduo da transmissão direta)
+
+**v1.13.49** — (APK + web, degrau CORREÇÃO; `SHELL_VERSION` **85** e `minShell` **83** não mudam — nenhuma superfície da ponte mudou; `shellTag: "v1.13.49"`). Revisão X2, o lote que a metade web não podia fazer: **a remoção do resíduo da transmissão direta, autorizada pelo operador em 2026-11-08** (*"pode por na lista para apagar junto na próxima etapa de revisão, não precisamos desse resíduo"*).
+
+- **Saiu o `StreamProxy.kt` inteiro** (560 linhas): `registrar`, `urlFor`, `urlDoToken`, `uaDaUrl`, `tryHandle`, a `FatiaComoTodo` e o teto de 24 MB.
+- **Saiu a rota `/stream/<token>`** do interceptador do `WebViewFactory`, a **`servirTransmissao`** do `EspelhoServidor` com a rota **`/s/<token>`** das telas da rede, e o que só existia por elas: `copiarPara`, `EspelhoHttp.cabecalhoComTamanhoPublico` e `EspelhoHttp.semQuebraPublica`.
+- **Saiu o `YoutubeGrab.uaPara`** — era público porque o proxy precisava da mesma leitura do `c=` para o User-Agent, e ficou sem consumidor.
+- **A INVARIANTE 8 NÃO SAIU.** Ela vale para toda resposta interceptada, e o conhecimento que morava no KDoc do proxy mudou-se para **`docs/shell/WEBVIEW-RANGE.md`**: o contrato (a cadeia do Chromium), a tabela dos três casos da faixa, o corpo vazio que não chega, a razão que precisa ser ASCII, o teto como trava e a inversão num `ServerSocket`. O oráculo `tools/webview-range.test.mjs` continua no CI e passou a apontar para o capítulo.
+- **A varredura de referências:** o `CLAUDE.md` (invariante 8, a árvore e a conta de 32 → 31 arquivos Kotlin), o `ESTRUTURA.md`, o `shell/README.md` (com a linha nova do capítulo), o `shell/PONTE.md`, o `shell/SEGUNDO-PLANO.md`, o `TELAO-POR-COMANDOS.md` (§7 e a tabela do §0), o `MODELO-DE-DADOS.md`, o `CONTROLE-YOUTUBE.md` (o contrato e a tabela de mensagens), o `PACOTE.md`, o `ORACULOS.md`, o `REVISAO-PROFUNDA.md` (a cerca da K3) e os comentários de `pacote.js`/`controle.js` — uma tabela que descrevia o proxy morto no `CONTROLE-YOUTUBE` saiu junto, e as duas regras dela que continuam valendo (o motivo viaja no texto; o codec recusado imprime as strings) ficaram.
+- **Suíte:** `webview-range` verde (a regra não dependia do proxy), JUnit do `EspelhoHttp` intacto (as duas funções removidas não tinham teste), e as três funções novas de nenhuma — este lote remove, não acrescenta asserção.
+- **O que NÃO mudou:** `SHELL_VERSION` 85, `minShell` 83, a superfície da ponte (64 · 70), e o comportamento visível — a rota estava sem produtor desde a X1 e sem cliente desde a v1.8.82.
+- **O operador:** nada a fazer; o aviso de atualização traz o lote (a metade Kotlin exige o APK, que o app instala sozinho depois do aviso). **O que ele vê: nada** — este lote não tem tela.
 
 ## v1.13.46 — revisão K6 (o resto do shell e o build)
 

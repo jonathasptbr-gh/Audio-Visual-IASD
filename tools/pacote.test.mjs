@@ -173,7 +173,7 @@ checar(!!P, 'o módulo publica `AVPacote`');
     'os campos que carregam BYTES saem do cabeçalho — eles viajam como corpo de registros próprios',
     Object.keys(s).join(','));
   // A ARMADILHA QUE ESTE CAMPO É: um `stream` que atravessa chega ao destino
-  // como um manifesto do googlevideo expirado, com tokens de um `StreamProxy`
+  // como um manifesto do googlevideo expirado, com tokens de um proxy
   // que só existe na origem — a cena não toca, e nada aponta para cá. Sem o
   // campo, o item é o LINK que ele sempre foi, resolvido no primeiro toque.
   checar(!('stream' in s), 'e o `stream` também sai: ele é de outro aparelho E de outra hora');

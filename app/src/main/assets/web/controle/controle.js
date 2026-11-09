@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.48';
+const WEB_VERSION = '1.13.49';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -34552,7 +34552,7 @@ function pacoteFonteDaUrl(url, size) {
   let janelaAtual = PACOTE_JANELA_MIN;
   const janela = async (ini, fim) => {
     const r = await fetch(url + '?r=' + ini + '-' + (fim - 1), { cache: 'no-store' });
-    // O MOTIVO VIAJA NA RAZÃO HTTP (a receita do `StreamProxy`): sem ele o que
+    // O MOTIVO VIAJA NA RAZÃO HTTP (a receita da janela `/saf/`): sem ele o que
     // chega ao operador é um número solto, e uma faixa recusada e um documento
     // que sumiu do aparelho pedem ações opostas.
     if (!r.ok) throw new Error('pacote: janela ' + r.status + ' ' + (r.statusText || ''));

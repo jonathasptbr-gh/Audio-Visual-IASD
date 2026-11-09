@@ -176,7 +176,7 @@ app/src/main/
 │   └── display/             #   o telão (sem sw.js / manifest / icons)
 ├── java/br/org/iasd/av/     # o shell — um .kt por subsistema (mapa: docs/shell/README.md)
 │   ├── MainActivity · StagePresentation · WebViewFactory · NativeBridge · MessageBus
-│   ├── SafPathHandler (+ SafJanela) · ShareIntake · WebPathHandler · StreamProxy
+│   ├── SafPathHandler (+ SafJanela) · ShareIntake · WebPathHandler
 │   ├── SyncService · SessionService · WebUpdater · ShellUpdater · Farol
 │   ├── YoutubeGrab · TrilhaAudio · MuxMp4 · SlideDeck · CifraFonte · R2ImagemFonte
 │   ├── MicChromeClient · PacoteProvider · PacoteCanal
@@ -186,7 +186,7 @@ app/src/main/
 docs/                        # ver o Índice; a árvore inteira em docs/ESTRUTURA.md
 ```
 
-**32 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
+**31 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
 AndroidX oficial (`core-ktx`, `activity-ktx`, `webkit`). O que sustenta essa
 proporção Kotlin × JavaScript é a invariante 5; ela é o argumento contra
 Capacitor/Cordova, que arrastariam npm e um build system inteiro e ainda assim
@@ -249,14 +249,15 @@ silêncio**:
    é a única em que isso é no-op, então ela passa e esconde o defeito atrás de
    si. **Corolário: um erro com corpo VAZIO não chega** quando a faixa está fora
    do zero (`ComputeBounds` reprova com `size == 0`), o que apaga a mensagem e
-   deixa só um erro de rede sem status. Ver `StreamProxy.kt` e
-   `tools/webview-range.test.mjs`.
+   deixa só um erro de rede sem status. **O capítulo é
+   [`docs/shell/WEBVIEW-RANGE.md`](docs/shell/WEBVIEW-RANGE.md)**, e o oráculo
+   é o `tools/webview-range.test.mjs`.
 
    > **E ela SE INVERTE num `ServerSocket`.** No servidor das telas da rede quem
    > aplica o `Range` somos NÓS: a rota `/m/<token>` faz RFC 7233 de verdade
-   > (`EspelhoHttp.alcanceDe`, com JUnit). **Copiar o `StreamProxy` para lá é o
+   > (`EspelhoHttp.alcanceDe`, com JUnit). **Copiar aquele molde para lá é o
    > erro exato**, e é por isso que o `EspelhoHttp` é um arquivo à parte, puro, e
-   > não uma parametrização daquele.
+   > não uma parametrização do interceptador.
 
 **No WebView do TELÃO:**
 
@@ -1152,14 +1153,11 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.13.48 · APK v1.13.47** · `SHELL_VERSION` **85** ·
-bundle com `minShell: 83` e `shellTag: v1.13.44` — a v1.13.44 é a revisão K4,
-que mexe no Kotlin (o certificado do espelho passa a devolver o desfecho, o teto
-das entregas de mídia, o prazo total da requisição e o token carimbado no bloco
-do canal), então a Release sai junto. O shell 84 é o degrau da superfície; o
-**PISO** continua **83** porque nenhuma chamada nova é exigida do web — o
-`espelhoCertApagar` só deixou de mentir, e ninguém no web lê esse retorno. O que
-cada lote trouxe está no `docs/HISTORICO.md`, nunca aqui.
+**Versão atual: base web v1.13.49 · APK v1.13.49** · `SHELL_VERSION` **85** ·
+bundle com `minShell: 83` e `shellTag: v1.13.49`. O **PISO** continua **83**:
+nada novo é exigido do web, e a superfície não mudou desde a X1 — a X2 apagou o
+proxy da transmissão direta sem tocar no contrato da ponte. O que cada lote
+trouxe está no `docs/HISTORICO.md`, nunca aqui.
 
 - **O `shellTag` ACOMPANHA A ÚLTIMA VERSÃO, NÃO A QUE MEXEU NO KOTLIN** — o CI
   exige `shellTag == 'v' + version`. Um lote só de web publicado DEPOIS de um

@@ -101,13 +101,11 @@ app/src/main/
 │   ├── CifraFonte.kt            # o GET da página de cifra — host travado,
 │   │                            #   sem parse, sem gravar nada em disco
 │   ├── R2ImagemFonte.kt         # /r2img/<token>: as fotos do bucket R2 pelo NOSSO
-│   │                            #   origin (o desvio de CORS; a classe do StreamProxy)
+│   │                            #   origin (o desvio de CORS)
 │   ├── YoutubeGrab.kt           # extrai e baixa o vídeo do YouTube NO APARELHO
 │   ├── TrilhaAudio.kt           # QUAL trilha de áudio vai ao telão (a dublagem
 │   │                            #   automática do YouTube) — PURO, com JUnit
 │   ├── MuxMp4.kt                # junta as faixas de vídeo e áudio (1080p) — MediaMuxer
-│   ├── StreamProxy.kt           # /stream/<token>: serve o googlevideo pelo NOSSO origin
-│   │                            #   LATENTE desde a X1: a rota não tem produtor
 │   ├── SlideDeck.kt             # apresentação (PDF/Google) → uma imagem por página
 │   ├── MicChromeClient.kt       # onPermissionRequest: microfone no WebView do telão
 │   │                            #   (o pedido de permissão e o MicDiag saíram na X1)
@@ -188,7 +186,7 @@ docs/
 └── AUDITORIA-ESTABILIDADE-AV.md # APÊNDICE: o que pode INTERROMPER áudio/vídeo
 ```
 
-**32 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
+**31 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
 AndroidX oficial (`core-ktx`, `activity-ktx`, `webkit`). O que sustenta essa
 proporção Kotlin × JavaScript é a invariante 5; ela é o argumento contra
 Capacitor/Cordova, que arrastariam npm e um build system inteiro e ainda assim

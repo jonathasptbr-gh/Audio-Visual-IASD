@@ -118,12 +118,12 @@ class SafPathHandler(private val ctx: Context) : WebViewAssetLoader.PathHandler 
  * 2. **o [SafPathHandler] não consegue servir mais de 2 GB, e o teto é
  *    estrutural.** O Chromium dimensiona toda resposta interceptada pelo
  *    `available()` do `InputStream` (é ele que vira o `Content-Length` — ver a
- *    invariante 8 e o KDoc do [StreamProxy]), e `InputStream.available()`
+ *    invariante 8, em `docs/shell/WEBVIEW-RANGE.md`), e `InputStream.available()`
  *    devolve `int`: acima de `Integer.MAX_VALUE` não há número a devolver, e o
  *    que o web recebe é um arquivo CORTADO, sem erro nenhum, com o cursor do
  *    pacote tropeçando no meio de um registro. É o segundo relato.
  *
- * ===== A FORMA É A DO `StreamProxy`, E PELO MESMO MOTIVO =====
+ * ===== A FAIXA VAI NA QUERY, E PELO MOTIVO DA INVARIANTE 8 =====
  *
  * A faixa vai na QUERY e **nunca num cabeçalho `Range`**: com o cabeçalho, o
  * `ParseRange` do WebView aplicaria o deslocamento uma SEGUNDA vez sobre o que
@@ -147,9 +147,9 @@ class SafPathHandler(private val ctx: Context) : WebViewAssetLoader.PathHandler 
  */
 object SafJanela {
 
-    /** O maior pedaço que uma janela entrega. Trava, não economia — ver o teto
-     *  do [StreamProxy]: sem ele um erro de conta faz o processo que hospeda os
-     *  dois WebViews tentar segurar um arquivo inteiro. */
+    /** O maior pedaço que uma janela entrega. Trava, não economia: sem ela um
+     *  erro de conta faz o processo que hospeda os dois WebViews tentar segurar
+     *  um arquivo inteiro. */
     private const val TETO_JANELA = 24L * 1024 * 1024
 
     private val FAIXA = Regex("""^(\d{1,15})-(\d{1,15})$""")
@@ -261,7 +261,7 @@ object SafJanela {
         (e.message ?: e.javaClass.simpleName)
             .map { if (it.code in 0x20..0x7e) it else '?' }.joinToString("").take(120)
 
-    /** CORPO NÃO VAZIO, pela mesma razão do [StreamProxy]: uma resposta de erro
+    /** CORPO NÃO VAZIO, pela mesma razão da invariante 8: uma resposta de erro
      *  sem corpo pode nem chegar, e um erro que não chega é erro nenhum. */
     private fun erro(codigo: Int, razao: String): WebResourceResponse {
         val texto = razao.ifBlank { "erro" }

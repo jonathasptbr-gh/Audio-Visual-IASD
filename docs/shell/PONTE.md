@@ -544,7 +544,7 @@ corrompido"*. Dois defeitos, um em cada camada:
 
 Hoje o web lê por JANELAS — `/saf/<token>?r=<ini>-<fim>`, servidas pelo
 `SafJanela` — e o `pickDoc` devolve o `size` que diz onde o arquivo acaba. A
-faixa vai na QUERY e nunca num cabeçalho `Range`, pela razão do `StreamProxy`:
+faixa vai na QUERY e nunca num cabeçalho `Range`, pela razão da invariante 8 (`WEBVIEW-RANGE.md`):
 com o cabeçalho, o `ParseRange` do WebView aplicaria o deslocamento uma SEGUNDA
 vez sobre o que já é uma fatia.
 

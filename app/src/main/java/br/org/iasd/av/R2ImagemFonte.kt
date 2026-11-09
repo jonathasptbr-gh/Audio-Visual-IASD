@@ -39,9 +39,10 @@ import java.util.concurrent.ConcurrentHashMap
  * ## Por que a resposta é a MESMA do `CifraFonte`
  *
  * CORS é uma restrição do NAVEGADOR — não existe em requisições HTTP feitas
- * por código nativo Android. `StreamProxy.kt` já documentou a MESMA classe de
- * defeito para o googlevideo (que também não manda CORS): a saída de lá foi
- * um proxy nativo que serve os bytes pelo PRÓPRIO origin do app, eliminando o
+ * por código nativo Android. A transmissão direta (v1.8.82) já documentou a
+ * MESMA classe de defeito para o googlevideo (que também não manda CORS): a
+ * saída de lá foi um proxy nativo que serve os bytes pelo PRÓPRIO origin do
+ * app, eliminando o
  * cross-origin em vez de tentar convencer o navegador a liberá-lo. Este
  * arquivo faz a metade do `CifraFonte` (GET travado por host, sem parse); o
  * `R2ImagemRegistry`/`R2ImagemPathHandler` abaixo fazem a metade do

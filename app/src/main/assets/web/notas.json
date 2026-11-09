@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.13.49",
+    "itens": [
+      "A revisão interna do app: nada muda no uso normal.",
+      "Saíram os restos de um recurso desligado há meses: a transmissão direta de vídeo.",
+      "A atualização chega pelo aviso de sempre; não precisa fazer nada."
+    ]
+  },
+  {
     "versao": "1.13.48",
     "itens": [
       "A revisão interna dos achados em aberto: nada muda no uso normal.",

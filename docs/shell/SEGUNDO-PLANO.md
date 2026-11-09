@@ -153,11 +153,12 @@ hoje o que ele de fato é: uma cena sem bytes, que o palco esvazia.
 
 **O que FICOU, e por quê — tudo no KOTLIN:**
 
-- **O `StreamProxy.kt` e a rota `/s/<token>` das telas da rede** continuam no
-  shell, LATENTES. A X1 (shell 85) tirou o `ytStream` e a cadeia do manifesto
-  no `YoutubeGrab`, mas a rota e a aplicação de `Range` no socket arrastam a
-  invariante 8 e os capítulos que a explicam — é um lote à parte. Hoje nada
-  registra token, então as duas respondem 404.
+- **Saíram na revisão X2 (v1.13.49):** o `StreamProxy.kt` inteiro (a rota
+  `/stream/<token>`), a `servirTransmissao` do `EspelhoServidor` (a rota
+  `/s/<token>` das telas da rede) e, na X1, a cadeia do manifesto no
+  `YoutubeGrab`. A **invariante 8 ficou**, em
+  [`WEBVIEW-RANGE.md`](WEBVIEW-RANGE.md): ela vale para o asset loader e para
+  a janela `/saf/`.
 
 - **O `k === 'stream'` do `controle/pacote.js`** — a ÚNICA pergunta que o web
   ainda faz pelo campo, e ela é sobre o passado: um registro legado não deve

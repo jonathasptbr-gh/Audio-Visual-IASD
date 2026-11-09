@@ -254,8 +254,7 @@ object EspelhoPares {
      * zero, e é isso que faz o token não sobreviver ao culto anterior.
      *
      * [aleatorio] entra por parâmetro para o teste poder fixar a fonte do TOKEN;
-     * em produção é um `SecureRandom` novo, como no `SafRegistry` e no
-     * [StreamProxy].
+     * em produção é um `SecureRandom` novo, como no `SafRegistry`.
      */
     @Synchronized
     fun ligar(agora: Long, aleatorio: SecureRandom = SecureRandom()) {
@@ -604,7 +603,7 @@ object EspelhoPares {
 
     /**
      * 128 bits em base64url sem padding — 22 caracteres, sem `/` nem `=`, os
-     * mesmos do `SafRegistry` e do [StreamProxy].
+     * mesmos do `SafRegistry`.
      */
     private fun novoToken(): String {
         val b = ByteArray(16)

@@ -24,10 +24,11 @@ import java.io.InputStream
  * ## A invariante 8 do `CLAUDE.md` SE INVERTE aqui
  *
  * No `shouldInterceptRequest` o `InputStream` devolvido é o recurso INTEIRO e
- * quem aplica o `Range` é o WebView (ver [StreamProxy]). **Num `ServerSocket`
- * quem o aplica somos NÓS** — é o que [alcanceDe] faz, com a gramática do RFC
- * 7233 e JUnit próprio. Copiar o [StreamProxy] para cá é o erro exato: aquele
- * devolve a fatia como se fosse o todo para o WebView refatiar por cima.
+ * quem aplica o `Range` é o WebView (invariante 8,
+ * `docs/shell/WEBVIEW-RANGE.md`). **Num `ServerSocket` quem o aplica somos
+ * NÓS** — é o que [alcanceDe] faz, com a gramática do RFC 7233 e JUnit
+ * próprio. Copiar aquele molde para cá é o erro exato: ele devolve a fatia
+ * como se fosse o todo para o WebView refatiar por cima.
  *
  * ## As oito invariantes
  *
@@ -398,10 +399,9 @@ object EspelhoHttp {
      * O terminador do corpo `chunked` — num corpo sem `Content-Length` ele **É**
      * a afirmação "o recurso acabou aqui", e não há nada que o desminta.
      *
-     * Três chamadores, todos no `EspelhoServidor`: o fim do SSE
-     * (`servirEventos`), o fim da transmissão direta de tamanho desconhecido
-     * (`servirTransmissao`) e o fim da mídia em crescimento (`servirMidia`) —
-     * este último SÓ quando os bytes anunciados chegaram todos. Escrevê-lo numa
+     * Dois chamadores, todos no `EspelhoServidor`: o fim do SSE
+     * (`servirEventos`) e o fim da mídia em crescimento (`servirMidia`) — este
+     * último SÓ quando os bytes anunciados chegaram todos. Escrevê-lo numa
      * saída que não seja essa entrega MEIA MÍDIA como se fosse inteira, sem erro
      * em lugar nenhum; a conta que decide está no `servirMidia`, e é lá que ela
      * se audita.
@@ -415,8 +415,8 @@ object EspelhoHttp {
     // (`docs/TELAO-POR-COMANDOS.md` §5.3) muda isso — e num `ServerSocket` o
     // Range é NOSSO por inteiro (a inversão da invariante 8, escrita no topo
     // deste arquivo): 206 com `Content-Range` de verdade, nunca o 200 seco do
-    // StreamProxy, que existe para o refatiamento do WebView e aqui seria o
-    // erro exato.
+    // molde do interceptador, que existe para o refatiamento do WebView e aqui
+    // seria o erro exato.
 
     /** Uma faixa RESOLVIDA contra o tamanho do recurso: `ini..fim`, inclusivos,
      *  sempre `0 <= ini <= fim < tamanho`. */
@@ -443,7 +443,7 @@ object EspelhoHttp {
         object Insatisfazivel : Alcance()
     }
 
-    /** Dígitos no máximo neste tanto — a mesma disciplina do StreamProxy: um
+    /** Dígitos no máximo neste tanto — a mesma disciplina do `SafJanela`: um
      *  número de 16+ dígitos não é uma posição de arquivo, é um estouro. */
     private const val RANGE_DIGITOS = 15
 
@@ -511,8 +511,9 @@ object EspelhoHttp {
     /**
      * Só o CABEÇALHO de uma resposta com `Content-Length` — para corpos que o
      * servidor vai ESCREVER EM SEGUIDA, direto do arquivo, sem carregar na
-     * memória (o StreamProxy lê o pedaço inteiro em RAM; três telas puxando um
-     * vídeo de 380 MB por esse molde derrubariam o processo da projeção).
+     * memória (o molde do `shouldInterceptRequest` lê o pedaço inteiro em RAM;
+     * três telas puxando um vídeo de 380 MB por ele derrubariam o processo da
+     * projeção).
      * `Accept-Ranges: bytes` vai sempre: é ele que faz o `<video>` pedir
      * faixas em vez de recomeçar do zero a cada seek.
      */
@@ -547,38 +548,6 @@ object EspelhoHttp {
         "416".toByteArray(Charsets.US_ASCII),
         listOf("Content-Range: bytes */$total"),
     )
-
-    /**
-     * O mesmo cabeçalho, para quem ESPELHA a resposta de outro servidor (a
-     * rota `/s/` da transmissão direta, v5.189): ali o status e o
-     * `Content-Range` vêm do CDN, não de um cálculo nosso, e as duas outras
-     * portas ([cabecalhoConteudo] e [cabecalhoParcial]) presumem o contrário.
-     */
-    fun cabecalhoComTamanhoPublico(
-        status: Int,
-        tipo: String,
-        tamanho: Long,
-        extra: List<String> = emptyList(),
-    ): ByteArray = cabecalhoComTamanho(status, tipo, tamanho, extra)
-
-    /**
-     * O funil de cabeçalho VINDO DE FORA — a rota `/s/` repassa o
-     * `Content-Type` e o `Content-Range` que o CDN mandou, e uma linha de
-     * resposta de outro servidor não pode carregar `\r\n` para dentro da nossa
-     * (injeção de cabeçalho).
-     *
-     * Ele **filtra**, ao contrário do [semQuebra] interno, que LANÇA. A
-     * diferença é a origem do texto e ela é a regra do projeto inteiro: um
-     * caractere inválido num cabeçalho que nós montamos é defeito de
-     * programação (e uma exceção é a resposta certa); num cabeçalho que veio
-     * da rede é só dado sujo, e derrubar a projeção por causa dele seria
-     * deixar um terceiro escolher quando o culto para.
-     */
-    fun semQuebraPublica(s: String): String {
-        val sb = StringBuilder(s.length)
-        for (c in s) if (c >= ' ' && c <= '~') sb.append(c)
-        return sb.toString()
-    }
 
     private fun cabecalhoComTamanho(
         status: Int,

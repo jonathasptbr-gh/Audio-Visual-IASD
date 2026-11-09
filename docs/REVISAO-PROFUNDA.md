@@ -123,7 +123,7 @@ pede APK. Ordem recomendada = a ordem da tabela.
 | **S2** | estilo | CSS — segunda metade | `controle.css` 6.849 – fim + `controle/index.html` | 9.790 | não |
 | **K1** | shell | Activity e invariantes | `MainActivity.kt`, `StagePresentation.kt`, `WebViewFactory.kt`, `AndroidManifest.xml`, `res/` | 3.880 | sim |
 | **K2** | shell | a ponte | `NativeBridge.kt`, `MessageBus.kt`, `SafPathHandler.kt`, `ShareIntake.kt` | 2.990 | sim |
-| **K3** | shell | YouTube | `YoutubeGrab.kt`, `MuxMp4.kt`, `TrilhaAudio.kt`, `StreamProxy.kt` | 3.660 | sim |
+| **K3** | shell | YouTube | `YoutubeGrab.kt`, `MuxMp4.kt`, `TrilhaAudio.kt` (e o `StreamProxy.kt`, apagado na X2/v1.13.49) | 3.660 | sim |
 | **K4** | shell | telão por comandos | os nove `Espelho*.kt` | 5.130 | sim |
 | **K5** | shell | serviços e atualização | `SyncService.kt`, `SessionService.kt`, `WebUpdater.kt`, `ShellUpdater.kt`, `Farol.kt`, `WebPathHandler.kt` | 3.590 | sim |
 | **K6** | shell | o resto do shell + build | `SlideDeck.kt`, `CifraFonte.kt`, `R2ImagemFonte.kt`, `PacoteCanal.kt`, `PacoteProvider.kt`, `MicChromeClient.kt`, `MicDiag.kt`, `app/build.gradle.kts` | 1.900 | sim |

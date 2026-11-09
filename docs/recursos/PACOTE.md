@@ -327,7 +327,7 @@ botão" vale para eles, na seção; o que mudou é a porta e o sinal:
 - **O `stream` de um registro é RETIRADO na exportação.** O app não escreve mais
   esse campo (a transmissão direta saiu na v1.8.82), mas um registro gravado
   antes dela ainda o carrega no aparelho: um manifesto de URLs do googlevideo já
-  expiradas, com tokens de um `StreamProxy` que só existia na origem. **Esta é a
+  expiradas, com tokens de um proxy que só existia na origem. **Esta é a
   única pergunta que o web ainda faz pelo campo**, e é aqui que ele morre — sem
   ele, o item é o LINK do YouTube que ele sempre foi, resolvido no primeiro
   toque.

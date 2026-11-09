@@ -93,10 +93,11 @@ import kotlin.concurrent.thread
  * ## A invariante 8 do `CLAUDE.md` se INVERTE aqui
  *
  * Num `shouldInterceptRequest` quem aplica o `Range` é o WebView, sobre o que o
- * app devolveu. **Num `ServerSocket` quem aplica é o servidor**, e é o que a
- * rota `/m/` faz: RFC 7233 de verdade, por [EspelhoHttp.alcanceDe] (com JUnit).
- * Copiar o [StreamProxy] para cá é o erro exato — aquele devolve a fatia como
- * se fosse o todo, porque do outro lado há um WebView que refatia.
+ * app devolveu (invariante 8, `docs/shell/WEBVIEW-RANGE.md`). **Num
+ * `ServerSocket` quem aplica é o servidor**, e é o que a rota `/m/` faz: RFC
+ * 7233 de verdade, por [EspelhoHttp.alcanceDe] (com JUnit). Copiar aquele molde
+ * para cá é o erro exato — ele devolve a fatia como se fosse o todo, porque do
+ * outro lado há um WebView que refatia.
  *
  * @param registrar linha crua para o diário (`EspelhoDiag`). O Kotlin devolve
  *   DADO; quem monta a frase é o `controle.js`.
@@ -573,25 +574,15 @@ class EspelhoServidor(
             // o token de serviço leva o 404 idêntico de sempre.
             r.metodo == "GET" && rota.startsWith("/m/") ->
                 servirMidia(rota.substring(3), r, saida)
-            // A TRANSMISSÃO DIRETA (v5.189) — SEM CLIENTE desde a v1.8.82: o
-            // leitor de MSE saiu do bundle, e na X1 o PRODUTOR (o `ytStream`
-            // da ponte e o `YoutubeGrab.manifesto`) saiu do shell. A rota fica
-            // LATENTE: nada registra token, então ela responde 404 — e tirá-la
-            // arrasta a invariante 8 e os capítulos que a explicam, que é um
-            // lote à parte. Era ANÔNIMA pelo mesmo motivo do `/m/`: o token
-            // opaco na rota é a capacidade, e quem buscava não sabia de sessão
-            // nenhuma.
-            r.metodo == "GET" && rota.startsWith("/s/") ->
-                servirTransmissao(rota.substring(3), r, saida)
             else -> responder(saida, naoAchei())
         }
     }
 
     /**
      * A rota de mídia — Range DE VERDADE, nosso (a inversão da invariante 8:
-     * não há WebView no caminho, e o 200 seco do StreamProxy aqui seria o
-     * erro exato). Streaming do arquivo em blocos, nunca o corpo inteiro em
-     * memória: três telas puxando 380 MB pelo molde do StreamProxy
+     * não há WebView no caminho, e o 200 seco do molde do interceptador aqui
+     * seria o erro exato). Streaming do arquivo em blocos, nunca o corpo
+     * inteiro em memória: três telas puxando 380 MB por aquele molde
      * derrubariam o processo da projeção.
      *
      * TRÊS SAÍDAS, e a diferença entre elas é o que a tela vê:
@@ -781,106 +772,6 @@ class EspelhoServidor(
             Log.i(TAG, "mídia ${item.nome} interrompida: ${e.message}")
         } finally {
             midiaEmVoo.decrementAndGet()
-        }
-    }
-
-    /**
-     * A TRANSMISSÃO DIRETA nas telas da rede (v5.189, a dívida §7 do contrato).
-     *
-     * Sem esta rota, "Tocar agora" num link do YouTube com a transmissão ligada
-     * e sem TV era obrigado a BAIXAR o vídeo inteiro antes de projetar (o
-     * `pularTransmissao` do `controle.js`). O motivo estava certo: o manifesto
-     * aponta para `/stream/<token>` no origin do WebView, e uma tela da rede não
-     * tem WebView no caminho. A saída é servir a MESMA faixa por aqui.
-     *
-     * ## Ela é um REPASSE, não um servidor de faixas
-     *
-     * O `Range` do cliente sobe CRU para o googlevideo e a resposta é espelhada
-     * de volta (status, `Content-Type`, `Content-Length`, `Content-Range`). Não
-     * se usa [EspelhoHttp.alcanceDe] aqui, e não é inconsistência com o `/m/`:
-     * lá o recurso é um arquivo NOSSO, de tamanho conhecido; aqui o dono é o
-     * CDN, e reimplementar a aritmética dele sobre um corpo que chega por
-     * streaming seria inventar um segundo contrato para errar. (Nem vale o molde
-     * do [StreamProxy]: aquele devolve a fatia como se fosse o todo porque o
-     * WebView aplica o `Range` por cima — armadilha que num socket não existe.)
-     *
-     * ## O UA importa e o token é a capacidade
-     *
-     * Pedir uma faixa do visionOS anunciando um Chrome de Android é caminho
-     * conhecido para 403, e por isso o UA sai do [StreamProxy.uaDaUrl], num
-     * ponto só. O token é opaco (128 bits) e vive enquanto o processo viver; a
-     * URL por trás expira sozinha em horas, e é ela que manda.
-     */
-    private fun servirTransmissao(token: String, r: EspelhoHttp.Req, saida: OutputStream) {
-        if (!EspelhoMidiaCache.tokenValido(token)) return responder(saida, naoAchei())
-        val alvo = StreamProxy.urlDoToken(token) ?: return responder(saida, naoAchei())
-        midiaEmVoo.incrementAndGet()
-        var conn: java.net.HttpURLConnection? = null
-        try {
-            conn = (java.net.URL(alvo).openConnection() as java.net.HttpURLConnection).apply {
-                connectTimeout = 15_000
-                readTimeout = 30_000
-                instanceFollowRedirects = true
-                setRequestProperty("User-Agent", StreamProxy.uaDaUrl(alvo))
-                // Sem `Range` do cliente pedimos do zero: as URLs adaptativas do
-                // googlevideo costumam recusar quem não pede faixa.
-                setRequestProperty("Range", r.intervalo ?: "bytes=0-")
-            }
-            val status = conn.responseCode
-            if (status !in 200..299) {
-                Log.i(TAG, "transmissao: o CDN respondeu $status")
-                return responder(saida, naoAchei())
-            }
-            val tipo = conn.contentType?.let { EspelhoHttp.semQuebraPublica(it) } ?: "application/octet-stream"
-            val tamanho = conn.getHeaderField("Content-Length")?.toLongOrNull() ?: -1L
-            val contentRange = conn.getHeaderField("Content-Range")
-            val extra = if (contentRange.isNullOrEmpty()) emptyList()
-                else listOf("Content-Range: " + EspelhoHttp.semQuebraPublica(contentRange))
-            // Tamanho conhecido ⇒ espelha o 206/200 com `Content-Length`; sem
-            // ele (o CDN não disse), sai por chunked, que é o único framing
-            // honesto para um corpo de tamanho desconhecido.
-            if (tamanho >= 0) {
-                saida.write(
-                    EspelhoHttp.cabecalhoComTamanhoPublico(
-                        if (status == 206) 206 else 200, tipo, tamanho,
-                        listOf("Accept-Ranges: bytes") + extra,
-                    ),
-                )
-                conn.inputStream.use { ent -> copiarPara(ent, saida) }
-            } else {
-                saida.write(EspelhoHttp.cabecalhoChunked(200, tipo))
-                saida.flush()
-                val buf = ByteArray(64 * 1024)
-                conn.inputStream.use { ent ->
-                    while (true) {
-                        val n = ent.read(buf)
-                        if (n <= 0) break
-                        saida.write(EspelhoHttp.chunk(buf, 0, n))
-                        saida.flush()
-                        EspelhoEnergia.progresso()
-                    }
-                }
-                saida.write(EspelhoHttp.chunkFinal())
-            }
-            saida.flush()
-        } catch (e: IOException) {
-            Log.i(TAG, "transmissao interrompida: ${e.message}")
-        } catch (e: Exception) {
-            Log.w(TAG, "transmissao falhou", e)
-        } finally {
-            try { conn?.disconnect() } catch (e: Exception) { /* já foi */ }
-            midiaEmVoo.decrementAndGet()
-        }
-    }
-
-    /** Bombeia um fluxo de entrada para a saída, em blocos de 64 kB. */
-    private fun copiarPara(entrada: java.io.InputStream, saida: OutputStream) {
-        val buf = ByteArray(64 * 1024)
-        while (true) {
-            val n = entrada.read(buf)
-            if (n <= 0) break
-            saida.write(buf, 0, n)
-            EspelhoEnergia.progresso()
         }
     }
 

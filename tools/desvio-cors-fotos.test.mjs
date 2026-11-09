@@ -18,7 +18,7 @@
 // e falha SEMPRE dentro do WebView, com ou sem cabeçalhos extras no pedido.
 //
 // CORS é regra do NAVEGADOR: não existe em requisições HTTP feitas por código
-// nativo Android. `StreamProxy.kt` já resolveu a MESMA classe de defeito para
+// nativo Android. A transmissão direta já resolveu a MESMA classe de defeito para
 // o googlevideo (que também não manda CORS) com um proxy nativo servindo pelo
 // próprio origin do app. Este lote aplica a mesma receita: o shell busca a
 // imagem (`R2ImagemFonte`, sem CORS) e devolve uma URL SERVÍVEL do próprio

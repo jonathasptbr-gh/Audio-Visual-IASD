@@ -244,7 +244,7 @@ object WebViewFactory {
             // degradação. (Nasceu para o embed do YouTube, que saiu na v5.212 —
             // a linha ficou porque o UA vale para TODA requisição do WebView,
             // não só para aquele player. O UA que o googlevideo enxerga é outro:
-            // quem o escolhe é `YoutubeGrab.uaPara`/`StreamProxy`.)
+            // quem o escolhe é `YoutubeGrab.baixarTentando`.)
             userAgentString = userAgentString.replace("; wv", "")
         }
 
@@ -253,24 +253,11 @@ object WebViewFactory {
                 view: WebView,
                 request: WebResourceRequest,
             ): WebResourceResponse? {
-                // O PROXY DE TRANSMISSÃO vem ANTES do asset loader, e tem de
-                // vir: ele é o único ponto do app que enxerga os CABEÇALHOS da
-                // requisição, e a transmissão direta é feita de pedidos por
-                // faixa de bytes (`Range`). Um `PathHandler` recebe só o
-                // caminho — ver o KDoc do [StreamProxy].
-                //
-                // Ele vale para os DOIS WebViews, ao contrário do handler
-                // `/saf/`: aqui quem projeta é o telão, então negá-lo ao
-                // Display seria negar o recurso inteiro. A exposição é
-                // diferente da do `/saf/` — um token de stream aponta para uma
-                // faixa do vídeo que já está em cena, não para o índice de uma
-                // pasta do aparelho.
-                StreamProxy.tryHandle(request)?.let { return it }
-                // A JANELA DO `/saf/` (shell 64) vem antes do loader pela MESMA
-                // razão do proxy acima — ela precisa da QUERY, e um
-                // `PathHandler` recebe só o caminho. E só onde o `/saf/` existe:
-                // sem o `withSaf`, um script no documento do telão leria
-                // qualquer arquivo já concedido (invariante 9).
+                // A JANELA DO `/saf/` (shell 64) vem antes do loader: ela
+                // precisa da QUERY, e um `PathHandler` recebe só o caminho —
+                // ele não vê os cabeçalhos. E só onde o `/saf/` existe: sem o
+                // `withSaf`, um script no documento do telão leria qualquer
+                // arquivo já concedido (invariante 9).
                 if (withSaf) SafJanela.tryHandle(ctx, request)?.let { return it }
                 return loader.shouldInterceptRequest(request.url)
             }

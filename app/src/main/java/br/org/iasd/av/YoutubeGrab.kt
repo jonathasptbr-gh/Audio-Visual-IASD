@@ -1982,18 +1982,6 @@ object YoutubeGrab {
         Regex("(\\d+)").find(res ?: "")?.groupValues?.get(1)?.toIntOrNull() ?: 0
 
     /**
-     * O `User-Agent` que combina com esta URL, lido do `c=` que o CDN carimbou
-     * nela.
-     *
-     * Público porque o [StreamProxy] precisa exatamente da mesma decisão: ele
-     * serve as MESMAS URLs, e pedi-las anunciando outro cliente é o caminho
-     * conhecido para um 403. Uma segunda tabela lá envelheceria em silêncio na
-     * primeira vez que a biblioteca trocasse de cliente.
-     */
-    fun uaPara(url: String): String =
-        if (clienteDe(url) == "VISIONOS") UA_VISIONOS else UA
-
-    /**
      * Baixa tentando os perfis de cliente, e devolve o que funcionou
      * ("V" = visionOS, "A" = Android/Chrome) — o rótulo entra no diagnóstico.
      *

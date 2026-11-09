@@ -340,7 +340,7 @@ object SlideDeck {
     }
 
     /**
-     * Teto do PDF baixado. Como o `TETO_PEDACO` do [StreamProxy], é TRAVA e não
+     * Teto do PDF baixado. Como o `TETO_JANELA` do [SafJanela], é TRAVA e não
      * economia: sem ele, um link que responde algo gigante (ou infinito) enche
      * o cache do processo que também hospeda os dois WebViews e a Presentation
      * — e falha sem dizer por quê. Um roteiro de culto exportado em PDF não

@@ -126,6 +126,9 @@ const docs = [];
     ['mse.js', 'o player da transmissão direta saiu na v1.8.82'],
     // O DIAGNÓSTICO DO MICROFONE, removido na X1 com os órfãos da ponte.
     ['MicDiag.kt', 'saiu na X1 (shell 85) com o micDiag da ponte; os docs explicam a ausência'],
+    // O PROXY DA TRANSMISSÃO DIRETA, apagado na X2 (v1.13.49) com a rota `/stream/`
+    // e a `servirTransmissao`; a invariante 8 mudou de casa para o WEBVIEW-RANGE.md.
+    ['StreamProxy.kt', 'saiu na X2 (v1.13.49); a invariante 8 mora em docs/shell/WEBVIEW-RANGE.md'],
     // Oráculos que saíram com o recurso que mediam.
     ['cifra-teclado.test.mjs', 'saiu na v1.3.3 com a busca à mão da cifra'],
     ['clone-de-outro-celular.test.mjs', 'saiu na v1.8.16 com o clone pela rede'],

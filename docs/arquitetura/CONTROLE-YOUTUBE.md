@@ -1007,64 +1007,16 @@ controles inteira e um modo herdado não teria por onde ser desfeito.
 > `docs/shell/SEGUNDO-PLANO.md`.
 
 **O `InputStream` devolvido não é "a resposta": o Chromium o lê como o recurso
-INTEIRO a partir do byte 0, e é ELE quem aplica o `Range`** — incondicionalmente,
-para toda resposta interceptada. A cadeia, na fonte:
-
-```
-AndroidStreamReaderURLLoader::Start           → ParseRange(resource_request_.headers)  ← incondicional
-AndroidStreamReaderURLLoader::OnInputStreamOpened → InputStreamReader::Seek(byte_range_)
-InputStreamReader::Seek                       → VerifyRequestedRange + SkipToRequestedRange
-net::HttpByteRange::ComputeBounds             → confere contra InputStream.available()
-```
-
-Devolver só a fatia pedida aplica o deslocamento **duas vezes**:
-
-| faixa pedida | o que acontece |
-|---|---|
-| `bytes=0-…` | pular 0 é no-op → **funciona**, e esconde o resto atrás de si |
-| `A ≥ tamanho da fatia` | `ComputeBounds` reprova → `ERR_FAILED` **antes de qualquer cabeçalho** |
-| `A < tamanho da fatia` | pula `A` DENTRO da fatia e entrega o offset absoluto `2A` — o `fetch` RESOLVE e o vídeo não toca |
-
-Como todo fragmento de mídia começa a megabytes do início, **só a primeira
-requisição de cada faixa podia funcionar**.
-
-**A correção é sair do contrato, não emulá-lo.** Do shell 27 em diante o
-cliente pede `/stream/<token>?r=<ini>-<fim>` **sem cabeçalho `Range`
-nenhum**: sem cabeçalho, `ParseRange` não acha nada, o seek não acontece, e a
-fatia chega inteira. A resposta é um **200 seco** — sem 206, sem
-`Content-Range`, sem `Accept-Ranges`, e sem `Content-Length` nosso (o loader
-escreve o dele a partir do `available()`).
-
-- **`FatiaComoTodo`** atende o ramo do cabeçalho (bundle antigo em shell novo):
-  soma o prefixo que não existe no `available()`, absorve o primeiro `skip` e
-  zera o fantasma na primeira leitura real — a maquinaria do WebView produz o
-  resultado certo, e se um dia ela deixar de refatiar, a fatia sai crua e
-  correta.
-- **Erro precisa de corpo NÃO VAZIO.** Com `available() == 0` e faixa fora do
-  zero, `ComputeBounds` reprova e a resposta inteira vira erro de rede sem
-  status: **toda a tabela de mensagens abaixo é indeliverável** para qualquer
-  requisição que não seja a primeira.
-- **E a razão é saneada para ASCII:** `WebResourceResponse` lança
-  `IllegalArgumentException` para qualquer caractere fora de `0x20..0x7E` —
-  `IOException("pedaço acima de 24 MB")` tem cedilha, e estourar o teto produzia
-  uma segunda exceção de dentro do `catch` em vez de um 502 legível.
-- **O teto de 24 MB é TRAVA, não economia:** existe para o dia em que alguém
-  apontar este proxy para uma faixa aberta e um vídeo inteiro tentar caber na
-  memória do processo que hospeda os dois WebViews e a `Presentation`. O custo
-  normal é a memória de UM pedaço (init: centenas de bytes; índice: poucos kB;
-  um fragmento por vez).
-
-`tools/webview-range.test.mjs` **transcreve** a regra do Chromium (com
-`arquivo:função` de cada trecho) e roda os dois modelos de `InputStream` contra
-ela, sobre um recurso em que o byte `i` vale `i % 251` — primo de propósito: um
-deslocamento errado sai como **bytes errados**, não como tamanho errado, que é o
-único jeito de enxergar a corrupção silenciosa do terceiro ramo. Se o Chromium
-mudar essa regra, o lugar de descobrir é o CI, não o culto.
-
-> **O caminho FELIZ não é testável aqui** (exige um fMP4 de verdade, e não há
-> ffmpeg no ambiente). O que se trava é a REGRA, e o `webview-range` a prova.
-> O oráculo que media o FIO (a faixa na URL, sem cabeçalho) era do player do lado
-> web, e saiu com ele na v1.8.82.
+INTEIRO a partir do byte 0, e é ele quem aplica o `Range`** — incondicionalmente,
+para toda resposta interceptada. Devolver só a fatia pedida aplica o
+deslocamento duas vezes, e a requisição que começa no byte 0 é a única em que
+isso é no-op — daí o defeito se esconder atrás de si. **O texto inteiro — a
+cadeia no Chromium, a tabela dos três casos, o corpo vazio que não chega e a
+inversão num `ServerSocket` — está em
+[`docs/shell/WEBVIEW-RANGE.md`](../shell/WEBVIEW-RANGE.md)**, e o oráculo é o
+`tools/webview-range.test.mjs`. A implementação que pagou essa conta (a faixa na
+query e a `FatiaComoTodo`) saiu na v1.13.49; o porquê está no
+`docs/HISTORICO.md`.
 
 #### O pôster padrão do WebView
 
@@ -1087,29 +1039,16 @@ operador, num WebView, e **não há como depurar de fora** — a única coisa qu
 atravessa essa distância é a linha do Registro, e ela só serve se disser em que
 passo morreu e com que resposta.
 
-O que o `StreamProxy` responde (KOTLIN; sem cliente no web desde a v1.8.82):
-
-| Resposta | Significa |
-|---|---|
-| `404 (token desconhecido)` | o proxy foi alcançado e não achou o token |
-| `502 (<texto da exceção>)` | o proxy falhou falando com o CDN |
-| `403 (googlevideo: Forbidden)` | o CDN recusou — o proxy chegou lá |
-| `404` **sem** razão | o proxy NEM foi consultado (respondeu o asset loader) |
+**O motivo viaja no TEXTO da resposta, nunca só no número.** Uma faixa recusada
+e um documento que sumiu do aparelho pedem ações opostas, e o único lugar onde
+essa diferença chega ao operador é a linha do Registro — é essa a regra que
+sobreviveu ao proxy. O contrato de resposta de cada rota viva está no capítulo
+dela (a janela `/saf/` em [`PACOTE.md`](../recursos/PACOTE.md), o `/r2img/` em
+[`PONTE.md`](../shell/PONTE.md), a mídia do telão em
+[`TELAO-POR-COMANDOS.md`](../TELAO-POR-COMANDOS.md)).
 
 Regras que sustentam isso:
 
-- **`diagnostico` e `diagnosticoStream` são campos SEPARADOS.** `buscar()` começa
-  com `diagnostico = resumo(info)`, e como a desistência da transmissão é
-  justamente o que dispara o download, o motivo durava até a linha seguinte.
-- **`porQueNaoDash` conta, por tipo de faixa, quantas passam em CADA
-  pré-requisito** — `vídeo mp4 6 (init 6 · índice 0 · codec 6)`. "Não deu" não
-  leva a lugar nenhum; essa linha responde de uma vez se o problema é o YouTube
-  não mandar os byte-ranges, a biblioteca não preencher o codec, ou não haver
-  faixa mp4.
-- **`Faixa.dash` exige init + índice, e NÃO tamanho.** O `contentLength` do
-  `ItagItem` nasce em `-1` quando o YouTube não informa, e quem diz onde cada
-  fragmento começa é o `sidx` — a transmissão inteira já foi barrada por um campo
-  que o player nem usa.
 - **Codec recusado imprime as STRINGS testadas** (`video/mp4; codecs="avc1.640028"`)
   e o veredito de cada uma.
 - **`PAUSA ESPONTÂNEA` não é vídeo travando**: um `<video>` sem dados emite

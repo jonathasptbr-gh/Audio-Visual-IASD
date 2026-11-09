@@ -26,7 +26,6 @@ declarado:
 | o quê | estado |
 |---|---|
 | **pré-busca da playlist** (a E4.1 restante: ligar a transmissão empurraria o item no ar e o Cronograma) | não existe — cada mídia é empurrada no `load` que a projeta (`telaGarantirEnvio`) |
-| **a rota `/s/<token>`** (§7) | no Kotlin, SEM CLIENTE desde a v1.8.82 |
 | **diagnóstico fino por tela** (eco de `__mid`, atraso medido) | não existe; o Registro lê `eventos`/`pronta`/`fila` (§9) |
 
 ---
@@ -257,7 +256,7 @@ As decisões, cada uma com o porquê e com o fato que a sustenta:
    autenticados por `Authorization`.
 7. **Range de verdade, nosso.** No `ServerSocket` a invariante 8 se inverte:
    quem aplica Range somos nós, com `206`/`Content-Range`/`416` reais —
-   copiar o StreamProxy (200 seco, fatia-como-todo, pedaço inteiro em memória)
+   copiar o molde do `shouldInterceptRequest` (200 seco, fatia-como-todo, pedaço inteiro em memória)
    é o erro exato. Parsing puro no `EspelhoHttp` (`alcanceDe`), com JUnit.
    Faixa única. `Connection: close` fica (a premissa anti-smuggling não cai):
    por tela, 1 SSE + 1 mídia + POSTs curtos cabem nas 6 conexões do Chromium —
@@ -463,14 +462,14 @@ O que cada uma deixou no código:
 | **E5** — status, referência, preview | o ramo `st` do `/r`, a eleição no `controle.js`, `dePixels` no atraso da preview |
 | **E6/E7** — corte e remoção (um lote só, v5.187) | a raiz `/` → tela; o espelho de pixels apagado (§2). A "volta por constante" do plano não existe — a volta seria o revert do lote |
 
-## §7 FASE OPCIONAL — FECHADA na v5.189 e SEM CLIENTE desde a v1.8.82
-Transmissão direta na LAN: rota proxy (`/s/<token>`) com a lógica do
-`StreamProxy` (UA casado, upstream googlevideo) mas com **Range de verdade e
+## §7 FASE OPCIONAL — FECHADA, e o resíduo APAGADO na v1.13.49
+Transmissão direta na LAN: rota proxy (`/s/<token>`) com a lógica do proxy do
+WebView (UA casado, upstream googlevideo) mas com **Range de verdade e
 streaming real**, mais o manifesto reescrito para o host do celular. Ela foi
-entregue e usada até a transmissão direta sair do lado web; a rota continua no
-Kotlin, sem quem a chame. **Registrada para não se perder**: quem for tirá-la do
-shell paga um degrau de `SHELL_VERSION` e uma Release, e quem for trazer a
-transmissão de volta não precisa reescrevê-la.
+entregue e usada até a transmissão direta sair do lado web; a rota ficou no
+Kotlin, sem quem a chame, e foi apagada na revisão X2 (v1.13.49) junto com o
+proxy e a `servirTransmissao`. **O que fica é a inversão** — num `ServerSocket`
+o `Range` é nosso —, em [`shell/WEBVIEW-RANGE.md`](shell/WEBVIEW-RANGE.md).
 
 ## §7-B O CELULAR COMO PONTO DE ACESSO (v1.4.1)
 A transmissão **nunca precisou de internet** — ela precisava que o celular fosse
@@ -810,8 +809,8 @@ via e a enquete do AP estão na §7-B.
   `somLocalDeveEstar()` desmuta a preview por cima das telas.
 
 O tap no `busPost` (§3.2), o `__rec` no comando (§3.5), o embed que não vai à
-rede e a apresentação por páginas (§5.6), e a rota `/s/<token>` sem cliente (§7)
-estão nas seções da especificação, conferidas na revisão A3.
+rede e a apresentação por páginas (§5.6) estão nas seções da especificação,
+conferidas na revisão A3.
 
 ### As inversões que precisam estar ditas
 

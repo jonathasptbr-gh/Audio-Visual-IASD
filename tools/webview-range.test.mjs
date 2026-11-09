@@ -11,10 +11,14 @@
 //   InputStreamReader::Seek                      → VerifyRequestedRange + SkipToRequestedRange
 //   net::HttpByteRange::ComputeBounds            → confere contra available()
 //
-// Devolver só a fatia pedida (o que o `StreamProxy` fazia até a v1.54) aplica o
-// deslocamento DUAS vezes. E o mais cruel: a requisição que começa no byte 0 —
-// o segmento de inicialização, sempre o primeiro — é a única em que pular é um
-// no-op, então ela passa e esconde o defeito atrás dela.
+// Devolver só a fatia pedida aplica o deslocamento DUAS vezes. E o mais cruel: a
+// requisição que começa no byte 0 — o segmento de inicialização, sempre o
+// primeiro — é a única em que pular é um no-op, então ela passa e esconde o
+// defeito atrás dela.
+//
+// A regra NÃO dependia do proxy que a servia: ele saiu na v1.13.49, e o que ele
+// documentava continua valendo para toda resposta interceptada — hoje o asset
+// loader e a janela do `/saf/?r=`. O capítulo é `docs/shell/WEBVIEW-RANGE.md`.
 //
 // ## Por que um ORÁCULO transcrito, e não um teste de aparelho
 //
@@ -98,7 +102,7 @@ function fatiaCrua(corpo) {
   };
 }
 
-// O ramo de compatibilidade (StreamProxy.FatiaComoTodo): a fatia se comporta
+// O ramo de compatibilidade (a fatia-como-todo): a fatia se comporta
 // como o recurso inteiro, absorvendo o primeiro `skip`.
 function fatiaComoTodo(corpo, deslocamento) {
   let fantasma = Math.max(0, deslocamento);
@@ -140,7 +144,7 @@ const CASOS = [
   ['fragmento fundo ', 150000, 199999],
 ];
 
-console.log('— hoje (fatia crua + cabeçalho Range): o defeito ————————————————');
+console.log('— o defeito (fatia crua + cabeçalho Range) ————————————————————');
 for (const [nome, a, b] of CASOS) {
   const r = servir(fatiaCrua(Buffer.from(fatiaDe(a, b))), faixaDe(a, b));
   const certo = !r.erro && r.corpo.equals(fatiaDe(a, b));

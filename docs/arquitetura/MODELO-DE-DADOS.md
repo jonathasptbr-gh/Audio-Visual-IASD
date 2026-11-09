@@ -489,13 +489,14 @@ aqui.
 - **Não há `addStreamMedia`/`setMediaStream` nem campo `stream`** em registro
   novo. O `controle/pacote.js` ainda descarta um `stream` de registro LEGADO ao
   exportar — é a única pergunta que o web faz pelo campo.
-- **`StreamProxy.kt` NÃO é um `PathHandler`, e a razão vale para o próximo.** O
+- **O proxy da transmissão NÃO era um `PathHandler`, e a razão vale para o próximo.** O
   `WebViewAssetLoader.PathHandler` recebe só o caminho — os cabeçalhos não
   chegam lá —, e uma faixa de bytes é feita de `Range`: sem repassá-lo, cada
   pedido traria o arquivo inteiro para usar 200 kB. Por isso ele é chamado de
   dentro do `shouldInterceptRequest`, que recebe o `WebResourceRequest`
   completo, ANTES de o asset loader ver a URL — **o único ponto do app que
-  enxerga os cabeçalhos de uma requisição**. Ver a invariante 8 no `CLAUDE.md`.
+  enxerga os cabeçalhos de uma requisição**. Ver a invariante 8 em
+  [`../shell/WEBVIEW-RANGE.md`](../shell/WEBVIEW-RANGE.md).
 - **Um proxy não era opcional, e os três motivos são independentes:** CORS (o
   googlevideo não manda `Access-Control-Allow-Origin`), o **User-Agent** (uma
   faixa do visionOS pedida com o UA do WebView responde 403) e a **invariante
