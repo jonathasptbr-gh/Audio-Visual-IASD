@@ -112,6 +112,8 @@ aparelho.
 
 **O que o operador confere no aparelho:** nada a fazer — o bundle chega pelo aviso de atualização. O que ele vê: um vídeo compartilhado gigante avisa em vez de entrar quebrado, e um item recém-adicionado à lista não some mais da tela.
 
+**O CI (desfecho):** o run `42534360092` fechou verde nos três jobs (`verificar`, `apk`, `web-ota`) com **135/135** oráculos de Chromium, e o manifesto do canal publicou `1.13.48` com o `shell` ainda apontando o APK da v1.13.47 (este lote não toca Kotlin). **A MEDIÇÃO DAS ASSERÇÕES NOVAS, e ela achou uma TAUTOLOGIA:** o run `42535289604`, com os três consertos DESFEITOS, reprovou as duas asserções do `hidratacao-perde-a-vez` e PASSOU a do `tela-ack-cumulativo` — o ACK verdadeiro que sobrava de uma rodada resolvia a rodada seguinte, então a asserção media a si mesma. O oráculo foi reescrito (canal, `telaResposta` zerado e drenagem por rodada, commit `fe7f013`) e o run `42537242893`, ainda com os consertos fora, reprovou as TRÊS asserções (133/135). O run `42538091551`, com os consertos de volta, fechou **135/135** de novo.
+
 ### X1 · O contrato da ponte — feita (2026-11-08)
 
 **Cerca:** `NativeBridge.kt`, `MainActivity.kt`, `MicDiag.kt` (removido), `ShellUpdater.kt`, `WebUpdater.kt` (só KDoc), `YoutubeGrab.kt`, `PacoteCanal.kt`, `EspelhoMidiaCanal.kt`, `docs/shell/PONTE.md`, `CLAUDE.md`, `Estrutura`/`README` do shell, e o `tools/ponte-guarda-host.test.mjs`. **A conta medida, antes e depois:** 64 de superfície · 70 chamados · **76 servidos → 70 servidos** — zero órfão.
