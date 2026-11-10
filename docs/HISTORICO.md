@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **a tela de destinos voltou (sem versão nova; só `site/`)** — a captura que faltava chegou no mesmo dia e entrou no carrossel, entre a busca e o Hinário; a folha é a mesma em toda porta de entrada (inclusive o link compartilhado), e a foto é a variante do YouTube
 - **as capturas novas do app (sem versão nova; só `site/`)** — as 14 telas do carrossel foram trocadas pelas do app na v1.13.62 (enviadas pelo operador), em WebP 800×1632; saíram as quatro sem captura nova (destinos, série, sorteio, tempo) e entraram Liturgia, Hinário por tema, Ferramentas e Transferir a biblioteca; o cartão do link foi refeito com a tela nova
 - **o site redesenhado (sem versão nova; só `site/`)** — página nova, mobile-first: hero em duas colunas, 12 recursos, carrossel de telas com pontos, dois modos e o passo a passo; o texto foi revisto contra o código (entra a Liturgia, entra o Cronograma com arrasto, sai a contagem que não existe) e o cartão do link foi refeito no desenho novo
 - **revisão da fachada (sem versão nova; só docs e site)** — o README perde o manual (compilar e índice de docs saem), o `CLAUDE.md` fica com uma árvore só e lista os apêndices, e o site ganha o cartão do link e volta a aparecer sem JavaScript
@@ -678,6 +679,17 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## a tela de destinos voltou (sem versão nova; só `site/`)
+
+**A QUINTA TELA QUE FALTAVA.** A folha de destinos é a mesma em TODA porta de
+entrada — o acervo, a busca do YouTube, o link compartilhado e a importação de
+arquivos (é o que a tabela `DESTINOS` do `controle.js` diz): ela pergunta "para
+onde?" e aceita mais de um destino de uma vez. A captura que o operador mandou
+é a variante do YOUTUBE, com vídeo/só áudio e o teto de qualidade — e é por
+isso que ela serve às duas leituras ao mesmo tempo: a escolha do destino e o
+que chega pelo link compartilhado. Entrou entre a busca e o Hinário; o
+carrossel fica com 15 telas, e a original foi para `capturas/entrada/`.
 
 ## as capturas novas do app (sem versão nova; só `site/`)
 
