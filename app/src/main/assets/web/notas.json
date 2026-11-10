@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.13.58",
+    "itens": [
+      "Os dois elementos fixos do Modo Fácil agora são os itens 572 (Ofertório) e 533 (abertura infantil) do Hinário 2022."
+    ]
+  },
+  {
     "versao": "1.13.57",
     "itens": [
       "Tecla de volume acende uma pílula em qualquer tela, e ela mesma muda o volume arrastando.",

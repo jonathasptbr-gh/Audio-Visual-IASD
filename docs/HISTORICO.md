@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.58** — os elementos fixos do Modo Fácil são ITENS do Hinário 2022: 572 (Ofertório) e 533 (abertura para a adoração infantil), cada um uma linha que TOCA o hino; o casamento por nome de álbum da v1.13.57 saiu; bloco 12 do `lista-da-biblioteca` (só web)
 - **v1.13.57** — Modo Fácil, o Pacote 4: a pílula de volume única nos dois modos (o fader do deck e a barra da tela cheia saem), as coleções em duas (CDs do ano e "Diversas"), os dois lugares de elemento fixo, a terceira tecla virando tela cheia e as Configurações enxutas; `controles-layout`, `video-tela-cheia`, `modo-simples-teclas` e o bloco 12 do `lista-da-biblioteca` (só web)
 - **v1.13.56** — o "Tocar agora" de um vídeo entra na fila: o funil do `projetarItem` no `ytAcao` (a fila não fica mais a anterior) e o `naFila: false` que preserva o item virtual do vídeo da semana; `tocar-agora-na-fila`
 - **v1.13.55** — soltar não pisca mais na ordem antiga: o item desliza para o vão e a lista fica na ordem FINAL enquanto a gravação corre (`soltarNoVao` + `assentarArrasto`); `cronograma-pronto` bloco B5 mede o instante do `pointerup` (só web)
@@ -670,6 +671,30 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.13.58 — os elementos fixos são ITENS do Hinário 2022
+
+**Correção do operador sobre o Pacote 4**, no mesmo dia, **só web**: `SHELL_VERSION` 85, `minShell`
+83, **sem `shellTag`**. Degrau CORREÇÃO.
+
+A v1.13.57 pendurou os dois elementos fixos do Modo Fácil por NOME DE ÁLBUM do catálogo
+(`Ofertório`, `Abertura da adoração infantil`) e registrou que nenhum álbum com esses nomes existe
+no banco do LouvorJA. O operador corrigiu o pedido: *"O ofertório é o item 572 do hinário adventista
+de 2022. E a abertura para adoração infantil é 533. São itens e não álbuns ou coleções."*
+
+`ELEMENTOS_FIXOS_SIMPLES` passa a ser `[{ numero: 572, rotulo: 'Ofertório' }, { numero: 533,
+rotulo: 'Abertura da adoração infantil' }]`, e as linhas saem de `hinoFixoDoSimples(numero)`:
+`allCollections()` acha o `HYMNAL_2022_ID` e `faixasDaLista(coll)` acha o hino por `(x.track | 0)
+=== numero` — o mesmo idioma de `irParaSecao`. A linha é a mesma forma da do vídeo da semana
+(`li.lib-item.hymn-result.semana-raiz-item`, agora com `bloco-fixo` para ficar fora da repartição
+da tampa): o nome do momento em cima, `572 · <nome do hino>` embaixo, e o toque faz
+`simpleMarcarEscolha` + `simpleAcompanhar(simplePlaySong(coll, s))` — o caminho de tocar de sempre,
+que baixa o que falta. Sem o hino no índice do aparelho a linha NÃO nasce: não se acende o que não
+tem o que abrir. Saíram `chaveDeNome` e `elementosFixosDoSimples` (o casamento por nome).
+
+**Oráculo:** o bloco 12 do `lista-da-biblioteca` passa a semear o índice do Hinário 2022 com os
+dois itens e a medir as linhas (nome do momento, `572 · …`/`533 · …`, ordem antes dos grupos, e
+ausência no avançado).
 
 ## v1.13.57 — Modo Fácil: a pílula de volume, duas coleções e a terceira tecla
 
