@@ -855,6 +855,21 @@ try {
         .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Favoritos');
       return getComputedStyle(li.querySelector('.song-menu-btn')).backgroundColor;
     });
+    // DIAGNÓSTICO TEMPORÁRIO — remover.
+    console.log('DIAG MARCADO:', JSON.stringify(await e.pg.evaluate(() => {
+      const cor = (el) => (el ? getComputedStyle(el).backgroundColor : null);
+      const rot = (x) => ((x.querySelector('.song-menu-label') || {}).textContent || '');
+      const lis = [...document.querySelectorAll('#pacoteLista li')];
+      const bloco = lis.find((x) => x.classList.contains('pacote-grupo') && rot(x).indexOf('Diversas') === 0);
+      const barra = bloco && bloco.querySelector('.song-menu-grupo');
+      const raiz = lis.find((x) => x.classList.contains('pacote-linha') && rot(x) === 'Favoritos');
+      return {
+        bloco: cor(bloco), barra: cor(barra), barraTxt: cor(barra && barra.querySelector('.song-menu-text')),
+        raiz: cor(raiz && raiz.querySelector('.song-menu-btn')),
+        raizTxt: cor(raiz && raiz.querySelector('.song-menu-text')),
+        estadoGrupo: (bloco && bloco.querySelector('.song-menu-check') || {}).className,
+      };
+    })));
     await tocar(e.pg, 'Diversas');
     await tocar(e.pg, 'Favoritos');
     await tocar(e.pg, 'Diversas', 'seta');
@@ -881,13 +896,31 @@ try {
       ul.style.cssText = 'width:390px;position:absolute;left:-9999px;top:0';
       document.body.appendChild(ul);
       const des = () => { ul.innerHTML = ''; renderCollectionsList(ul, des, { semTotal: true }); };
+      // ===== A RÉGUA É A "Diversas" DE LÁ, E O NOME DELA MUDOU NA v1.13.57 =====
+      //
+      // MEDIDO (2026-11-10, Modo Fácil — o modo desta página): a raiz da
+      // Biblioteca tem UMA seção só, `[data-grupo]` = "Diversas", porque
+      // "Adoradores" e "Cantores" são DISSOLVIDAS nela (`DISSOLVIDAS_EM_DIVERSAS`)
+      // e os hinários são cards da raiz. Pedir "Adoradores" lia `undefined` e o
+      // `par` morria num TypeError no `card.querySelector`, ANTES de medir tom
+      // nenhum — não era a linha dos Favoritos que sumia. A régua continua sendo
+      // o desenho da Biblioteca, medido nesta mesma página: a "Diversas" de lá é
+      // o mesmo par barra × card que o bloco da folha veste.
       const antes = grupoAberto;
-      grupoAberto = 'Adoradores'; des();
-      const sec = [...ul.querySelectorAll('[data-grupo]')].find((n) => n.dataset.grupo === 'Adoradores');
+      grupoAberto = 'Diversas'; des();
+      const sec = [...ul.querySelectorAll('[data-grupo]')].find((n) => n.dataset.grupo === 'Diversas');
       const secBar = sec && sec.querySelector('.coll-group-bar');
       const card = sec && sec.querySelector('.coll-group-corpo .hymnal-card');
       const secIcone = sec && sec.querySelector('.coll-group-icon');
       const cardIcone = card && card.querySelector('.coll-bar-icon');
+      // O PRIMEIRO CARD DENTRO DO GRUPO, PELO NOME — é a PREMISSA da régua. O
+      // fixture põe o "Zeta" na categoria "Adoradores", que vem antes de
+      // "Diversas" no catálogo; só o desenho que JUNTA as categorias o traz para
+      // dentro desta seção. No desenho antigo — uma seção por categoria — o
+      // primeiro card daqui é o "Beta" (a "Diversas" do fixture é alfabética):
+      // é a asserção da premissa que REPROVA aquele app, em vez de comparar com
+      // o objeto errado, calada.
+      const cardDentro = sec && sec.querySelector('.coll-group-corpo .hymnal-card .coll-bar-name');
       const caixa = (el) => {
         if (!el) return null;
         const c = cs(el);
@@ -898,25 +931,45 @@ try {
       };
       const r = {
         folha: {
-          bloco: cor(bloco), barra: cor(barra), dentro: cor(dentro), raiz: cor(raiz.querySelector('.song-menu-btn')),
+          bloco: cor(bloco), barra: cor(barra), dentro: cor(dentro),
+          // `raiz &&` e não `raiz.`: um nó que sumiu tem de REPROVAR com o
+          // número na mão, e não estourar o evaluate inteiro no meio — foi o
+          // que aconteceu com a régua da Biblioteca (ver abaixo).
+          raiz: cor(raiz && raiz.querySelector('.song-menu-btn')),
           seta: caixa(seta),
           icone: caixa(dentro && dentro.querySelector('.song-menu-icon')),
           // O RECUO de quem está dentro, contra o nome da seção — a distância
           // que o bloco cobrava por conter, e que a v1.8.41 devolveu.
-          recuo: bloco.querySelector('.pacote-grupo-corpo .song-menu-label').getBoundingClientRect().x
-            - barra.querySelector('.song-menu-label').getBoundingClientRect().x,
+          recuo: bloco && barra
+            ? bloco.querySelector('.pacote-grupo-corpo .song-menu-label').getBoundingClientRect().x
+              - barra.querySelector('.song-menu-label').getBoundingClientRect().x
+            : null,
         },
         lib: {
           bloco: cor(sec), barra: cor(secBar), dentro: cor(card),
           seta: caixa(secIcone),
           icone: caixa(cardIcone),
-          recuo: card.querySelector('.coll-bar-name').getBoundingClientRect().x
-            - secBar.querySelector('.coll-group-name').getBoundingClientRect().x,
+          // O NOME do primeiro card de dentro: a premissa de que esta é a seção
+          // que JUNTA as categorias (o fixture põe "Zeta" na "Adoradores").
+          conjunto: cardDentro ? cardDentro.textContent : '',
+          recuo: card && secBar
+            ? card.querySelector('.coll-bar-name').getBoundingClientRect().x
+              - secBar.querySelector('.coll-group-name').getBoundingClientRect().x
+            : null,
         },
       };
       ul.remove(); grupoAberto = antes;
       return r;
     });
+    // A PREMISSA DA RÉGUA, e ela não é cerimônia: sem ela, um app que volte a
+    // desenhar uma seção por categoria teria uma "Diversas" de MESMOS tons (a
+    // comparação passaria) contendo outros álbuns — a régua mediria o objeto
+    // errado, calada. Com ela, aquele desenho reprova aqui, pelo nome.
+    checar(par.lib.conjunto === 'Zeta',
+      'E · PREMISSA: a régua é a seção "Diversas" do Modo Fácil e ela LEVA a '
+      + 'categoria Adoradores junto — o primeiro card de dentro é o "Zeta", e '
+      + 'não o de uma categoria vizinha (no desenho antigo, "Beta")',
+      JSON.stringify(par.lib));
     checar(par.folha.bloco === par.lib.bloco && par.folha.dentro === par.lib.dentro
       && par.folha.bloco !== par.folha.dentro,
       'E · o BLOCO e a linha DE DENTRO vestem AS MESMAS superfícies que a seção '

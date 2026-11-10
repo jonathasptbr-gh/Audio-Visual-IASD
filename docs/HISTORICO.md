@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.59** — "Diversas" leva só Adoradores e Cantores: os hinários voltam a ser cards da raiz e cada outra categoria tem o grupo dela (`DISSOLVIDAS_EM_DIVERSAS`); um grupo só de Diversas, sem álbum repetido; bloco 12 do `lista-da-biblioteca` (só web)
 - **v1.13.58** — os elementos fixos do Modo Fácil são ITENS do Hinário 2022: 572 (Ofertório) e 533 (abertura para a adoração infantil), cada um uma linha que TOCA o hino; o casamento por nome de álbum da v1.13.57 saiu; bloco 12 do `lista-da-biblioteca` (só web)
 - **v1.13.57** — Modo Fácil, o Pacote 4: a pílula de volume única nos dois modos (o fader do deck e a barra da tela cheia saem), as coleções em duas (CDs do ano e "Diversas"), os dois lugares de elemento fixo, a terceira tecla virando tela cheia e as Configurações enxutas; `controles-layout`, `video-tela-cheia`, `modo-simples-teclas` e o bloco 12 do `lista-da-biblioteca` (só web)
 - **v1.13.56** — o "Tocar agora" de um vídeo entra na fila: o funil do `projetarItem` no `ytAcao` (a fila não fica mais a anterior) e o `naFila: false` que preserva o item virtual do vídeo da semana; `tocar-agora-na-fila`
@@ -671,6 +672,31 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.13.59 — "Diversas" leva só Adoradores e Cantores
+
+**Correção do operador sobre a v1.13.57**, no mesmo dia, **só web**: `SHELL_VERSION` 85, `minShell`
+83, **sem `shellTag`**. Degrau CORREÇÃO.
+
+O pedido original — *"além da coleção de cds do ano, o resto ficará na coleção de diversos"* — foi
+lido ao pé da letra: a v1.13.57 juntou TUDO (as outras categorias, os dois hinários e os órfãos)
+num grupo só. O operador corrigiu: *"era pra por em diversos apenas os 'adoradores' e os
+'cantores', que antes tinham uma coleção própria, mas que na realidade são diversos"*.
+
+O QUE VALE AGORA, no Modo Fácil: o bloco "Este sábado"; o bloco das duas linhas fixas (572 e 533);
+os DOIS HINÁRIOS como cards da raiz, como no avançado; e UMA CATEGORIA POR GRUPO — com as duas
+exceções em `DISSOLVIDAS_EM_DIVERSAS = /^(adoradores|cantores)$/i`, cujos álbuns entram no grupo
+"Diversas" junto com os da categoria dele. `GRUPO_CDS_DO_ANO` saiu (não precisa de régua: os CDs
+do ano simplesmente são uma categoria como as outras). O grupo "Diversas" é desenhado UMA vez — a
+categoria dele sai do laço, senão saíam dois grupos com o mesmo nome — e o `vistos` passou a ser da
+RAIZ inteira: um álbum que já saiu no grupo dos CDs do ano não se repete dentro do "Diversas" (o
+catálogo é N:N, e o `Celebra SP` que a regra editorial dissolve cai ali também).
+
+**Oráculos:** os seis que a v1.13.57/58 tinham adaptado ao modelo errado voltaram a medir o desenho
+certo — `boot-nativo`, `semana-item` (I5: os dois hinários continuam cards da raiz),
+`serie-no-modo-facil`, `pacote-por-grupos`, `modo-simples-corpo` e `modo-simples-biblioteca-tamanho`
+—, e o bloco 12 do `lista-da-biblioteca` passa a travar a regra corrigida: hinários na raiz,
+"Adoradores" e "Cantores" dentro do "Diversas", o álbum em duas categorias UMA vez.
 
 ## v1.13.58 — os elementos fixos são ITENS do Hinário 2022
 
