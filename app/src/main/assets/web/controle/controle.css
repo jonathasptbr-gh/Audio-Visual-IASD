@@ -5181,7 +5181,14 @@ main {
      nele) e a linha larga o dela (o `.5rem` da `.hymn-row`). O cabeçalho fica na mesma coluna. */
   padding: .55rem .55rem .45rem;
 }
-.semana-raiz-cab { padding: 0 0 .35rem; }
+.semana-raiz-cab {
+  /* O TÍTULO E A DATA NA COLUNA DO TEXTO (v1.13.61), pedido do operador: *"título e data na coluna
+     do texto"*. Antes eles pousavam no recuo do bloco (`.55rem`) e o nome das linhas começava
+     `--faixa-coluna-texto` adiante, então a barra parecia colada nas bordas. O token é o mesmo que
+     a linha usa para o texto, e ele muda de valor no Modo Fácil (a miniatura cresce) — por isso é
+     token e não número. */
+  padding: 0 calc(var(--faixa-coluna-texto) - .5rem) .35rem;
+}
 .semana-raiz-item > .hymn-row { padding-inline: 0; }
 /* A divisória começa na coluna do TEXTO, que aqui está `.5rem` antes (a linha largou o recuo). */
 .acervo .coll-songs.semana-raiz-lista > .hymn-result + .hymn-result::before {

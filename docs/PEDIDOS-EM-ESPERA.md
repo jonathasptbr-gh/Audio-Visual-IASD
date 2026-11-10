@@ -44,7 +44,6 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **10** — Configurações e Ferramentas: o editor e o tile | 4 (I2×U2) | pedido | só web |
 | **11** — Favoritos: o `⋮` sempre visível | 3 (I3×U1) | pedido | só web |
 | **12** — Limpeza e otimização do repositório (residual) | 2 (I2×U1) | pedido | só docs |
-| **14** — Liturgia: as margens do título e da data | 2 (I2×U1) | pedido | só web, de carona no próximo lote da Biblioteca |
 | **13** — Estudos (não são fila de execução) | — | estudo | nenhuma entrega |
 
 ---
@@ -304,29 +303,6 @@ do `CLAUDE.md` — no arquivo que ainda não passou por ela.
 
 ---
 
-## Pacote 14 — Liturgia: as margens do título e da data
-
-**Nota 2 (I2 × U1) · pedido · só web, de carona no próximo lote que tocar a
-Biblioteca do Modo Fácil** (o operador pediu para NÃO fazer agora: *"não faça
-agora apenas deixe registrado na documentação"*).
-
-**Onde:** o cabeçalho do bloco da Liturgia — `blocoLiturgia`, com o
-`.semana-raiz-cab` (o `.serie-destaque-rot` "Liturgia" e o
-`.serie-destaque-data`) — e as regras de `.semana-raiz` em `controle.css`.
-
-Pedido (2026-11-10 12:54, verbatim): *"ajustarmos as margens do título de
-liturgia e da data do grupo da liturgia, pois toda essa barra de título está com
-as margens esquerda e direita muito pequenas, nem sequer se alinhando com a
-margem da thumbnail desses itens"*.
-
-**A régua:** a barra do título não pode ter recuo MENOR que a coluna da miniatura
-das linhas do próprio bloco — "Liturgia" e a data têm de alinhar com o ▶ das
-linhas, à esquerda e à direita, nas duas larguras de referência (390×844 e
-430×900) e nos dois temas. É ajuste de MARGEM, não de estrutura: nada muda de
-lugar, só de recuo.
-
----
-
 ## Pacote 13 — Estudos (não são fila de execução)
 
 Três estudos preliminares; nada sai para código sem decisão do operador. A nota
@@ -398,6 +374,8 @@ quiser só a paisagem, ela é um lote de web — e não espera o estudo do Windo
 ---
 
 ## O que saiu desta lista (rastro, não log)
+
+**v1.13.61 (2026-11-10):** o **Pacote 14** — a barra da Liturgia na coluna do texto (título em 85 px, alinhado com o nome das linhas). O pedido foi feito para ficar na fila e o operador decidiu executá-lo na hora.
 
 **v1.13.57 (2026-11-10), o lote seguinte:** o **Pacote 4** — a pílula de volume única nos dois modos, as coleções do Modo Fácil em duas (CDs do ano e "Diversas"), os dois lugares de elemento fixo depois dos vídeos da semana, a terceira tecla do Modo Fácil virando tela cheia e as Configurações dele enxutas. A nota está em `docs/HISTORICO.md`; os oráculos são o `controles-layout`, o `video-tela-cheia`, o `modo-simples-teclas` e o bloco novo do `acervo`.
 

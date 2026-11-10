@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.61** — a barra da Liturgia na COLUNA DO TEXTO: título e data recuam `calc(var(--faixa-coluna-texto) - .5rem)`, alinhados com o nome das linhas (só web)
 - **v1.13.60** — a LITURGIA no Modo Fácil (um bloco só, na ordem Informativo · abertura infantil 533 · Provai e Vede · ofertório 572, no lugar do "Este sábado" e do bloco dos fixos) e a fusão do "Diversas" valendo também no MODO AVANÇADO; bloco 12 do `lista-da-biblioteca` (só web)
 - **v1.13.59** — "Diversas" leva só Adoradores e Cantores: os hinários voltam a ser cards da raiz e cada outra categoria tem o grupo dela (`DISSOLVIDAS_EM_DIVERSAS`); um grupo só de Diversas, sem álbum repetido; bloco 12 do `lista-da-biblioteca` (só web)
 - **v1.13.58** — os elementos fixos do Modo Fácil são ITENS do Hinário 2022: 572 (Ofertório) e 533 (abertura para a adoração infantil), cada um uma linha que TOCA o hino; o casamento por nome de álbum da v1.13.57 saiu; bloco 12 do `lista-da-biblioteca` (só web)
@@ -673,6 +674,22 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.13.61 — a barra da Liturgia na coluna do texto
+
+**Ajuste pedido pelo operador**, **só web**: `SHELL_VERSION` 85, `minShell` 83, **sem `shellTag`**.
+Degrau CORREÇÃO.
+
+Relato: *"toda essa barra de título está com as margens esquerda e direita muito pequenas, nem
+sequer se alinhando com a margem da thumbnail desses itens"*. Escolha dele entre as leituras
+medidas: **título e data na coluna do TEXTO**.
+
+O `.semana-raiz-cab` passa a ter `padding-inline: calc(var(--faixa-coluna-texto) - .5rem)`. O token
+é o MESMO que a linha usa para o nome, e não um número: ele cresce no Modo Fácil (a miniatura é
+maior lá). O `.5rem` é subtraído porque `.semana-raiz-item > .hymn-row` já o zera — sem a conta, o
+título caía 8 px à direita do nome. MEDIDO a 430×900: o título começa em **85 px**, que é o x do
+`.hymn-name` (85), e a data fecha em **345** (o espelho do recuo). Antes: título em 20, data em 410
+— colados nas bordas do bloco.
 
 ## v1.13.60 — a Liturgia no Modo Fácil, e o "Diversas" no avançado
 
