@@ -22,10 +22,31 @@ ficam MANTÊM a numeração — renumerar de novo custaria mais que o buraco, e 
 quem revogou. Não é log, e não é `docs/ACHADOS-EM-ABERTO.md` (lá moram defeitos
 CONFIRMADOS por auditoria; aqui, pedidos).
 
-**Contexto da entrega:** base web **v1.13.51**, APK **v1.13.50**, `SHELL_VERSION`
-**85**, `minShell` **83** — conferido em 2026-11-09. O operador pediu economia:
+**Contexto da entrega:** medido por `tools/estado.sh` — **não escreva número de versão aqui**; ele envelhece em horas (este parágrafo dizia v1.13.51 quando a base já era a 1.13.55). O operador pediu economia:
 *"não temos tokens então toda ação deve ser fracionada e controlada"* — um pacote
 por vez, cada um com o rito de entrega completo.
+
+---
+
+## Os pacotes, em uma linha
+
+**Leia SÓ o pacote escolhido** — esta tabela responde "qual"; o resto
+do arquivo responde "o quê". `tools/estado.sh` imprime a mesma lista.
+Nada aqui está autorizado: **pergunte ao operador qual seguir**.
+
+| pacote | nota | tipo | área |
+|---|---|---|---|
+| **3** — Playlist: o item que não entra ao trocar de modo | 12 (I4×U3) | defeito a confirmar | só web |
+| **4** — Modo Fácil: volume, coleções e Configurações | 8 (I4×U2) | pedido | só web, salvo se a captura sempre ligada pedir o `MainActivity` |
+| **5** — Itinerário: a abertura antes do primeiro evento | 8 (I4×U2) | pedido | só web, depois de planejar |
+| **6** — Link do YouTube: os detalhes no oferecimento | 6 (I3×U2) | pedido | Kotlin + web (APK/Release) |
+| **7** — Verificação: procurar atualização | 6 (I3×U2) | pedido | só web |
+| **8** — CI: os oráculos instáveis (residual) | 6 (I3×U2) | resíduo | só `tools/` + workflow |
+| **9** — Folha do vídeo: o teto e o botão "Detalhes" | 4 (I2×U2) | pedido | só web |
+| **10** — Configurações e Ferramentas: o editor e o tile | 4 (I2×U2) | pedido | só web |
+| **11** — Favoritos: o `⋮` sempre visível | 3 (I3×U1) | pedido | só web |
+| **12** — Limpeza e otimização do repositório (residual) | 2 (I2×U1) | pedido | só docs |
+| **13** — Estudos (não são fila de execução) | — | estudo | nenhuma entrega |
 
 ---
 

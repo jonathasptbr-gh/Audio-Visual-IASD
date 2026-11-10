@@ -5,81 +5,64 @@ App Android nativo do sistema de projeção de mídia para culto (IASD). É uma
 `android.app.Presentation` para mandar **só o Display** para a TV — sem
 espelhar o celular.
 
-> **Este repositório é autossuficiente.** A base web (`app/src/main/assets/web/`)
-> foi copiada do PWA original e **agora vive aqui**: não há checkout cruzado,
-> submódulo nem qualquer dependência de build do repositório do PWA. A
-> arquitetura completa dessa base está em
-> [`docs/ARQUITETURA-WEB.md`](docs/ARQUITETURA-WEB.md) (o hub, com um capítulo
-> por arquivo em `docs/arquitetura/`) — **leia antes de mexer
-> em qualquer coisa dentro de `assets/web/`.**
+> **Este repositório é autossuficiente.** A base web
+> (`app/src/main/assets/web/`) foi copiada do PWA original e **agora vive
+> aqui**: não há checkout cruzado, submódulo nem dependência de build do
+> repositório do PWA. A arquitetura completa está em
+> [`docs/ARQUITETURA-WEB.md`](docs/ARQUITETURA-WEB.md).
+>
+> **Caminhos neste arquivo são relativos à RAIZ do clone.** O bundle web mora
+> em `app/src/main/assets/web/` e o Kotlin em
+> `app/src/main/java/br/org/iasd/av/`; onde um caminho aparecer curto
+> (`controle/controle.js`), a raiz dele é `app/src/main/assets/web/`.
 
 ## Índice
 
-**Este arquivo é o NÚCLEO: o que vale para QUALQUER tarefa.** Ele é lido INTEIRO
-em toda sessão, antes de qualquer trabalho, e por isso cada seção guarda só o que
-se quebra sem abrir o capítulo — mais o link para o capítulo, onde mora o resto.
-A divisão é de 2026-09-07; a dieta da revisão A2 (2026-10-30) a levou até o fim,
-e o mapa de para onde foi cada bloco está em
-[`docs/revisao/A2-INVENTARIO.md`](docs/revisao/A2-INVENTARIO.md).
+**Este arquivo é o CONTRATO: o que se decide antes de tocar em nada.** Ele é
+lido inteiro em toda sessão; o que é de uma ÁREA (shell, ponte, OTA, telão,
+paleta) mora em [`docs/NUCLEO-TECNICO.md`](docs/NUCLEO-TECNICO.md), e cada
+seção daqui diz quando abri-lo. A dieta anterior — e o mapa do que saiu — está
+em [`docs/revisao/A2-INVENTARIO.md`](docs/revisao/A2-INVENTARIO.md).
+
+**As três primeiras e as regras de desenvolvimento são leitura de toda
+sessão; o resto é consulta, aberta quando a tarefa pede.**
 
 | # | seção | quando abrir |
 |---|---|---|
-| 1 | [O ganho: Presentation em vez de espelhamento](#o-ganho-presentation-em-vez-de-espelhamento) | o modelo em uma tela |
-| 2 | [Estrutura do repositório](#estrutura-do-repositório) | achar o arquivo |
-| 3 | [Invariantes do shell](#invariantes-do-shell-não-quebrar) | **antes de mexer no Kotlin** |
-| 4 | [A ponte `window.AVNative`](#a-ponte-windowavnative) | usar ou mudar um método nativo |
-| 5 | [Barramento de comandos](#barramento-de-comandos-e-o-plano-b-do-broadcastchannel) | comandos, dreno do papel `tela`, referência de tempo |
-| 6 | [OTA da base web](#ota-da-base-web-atualização-sem-apk) | publicar, watchdog de boot, detecção |
-| 7 | [Telão por comandos](#telão-por-comandos-o-telão-nas-telas-da-rede-local) | as telas da rede local |
-| 8 | [A abertura por trás dos panos](#a-abertura-por-trás-dos-panos) | a cortina, o tema no primeiro quadro |
-| 9 | [A paleta](#a-paleta) | **antes de escrever qualquer cor** |
-| 10 | [Divergências web × nativo](#divergências-entre-o-caminho-web-e-o-nativo) | o que muda entre navegador e app |
-| 11 | [Build e distribuição](#build-e-distribuição) | CI, o portão, o MÉTODO dos oráculos |
-| 12 | [Regras de desenvolvimento](#regras-de-desenvolvimento) | **antes de commitar** |
+| 1 | [A conversa com o operador](#a-conversa-com-o-operador) | **sempre** |
+| 2 | [O estado se mede, não se cita](#o-estado-se-mede-não-se-cita) | ao começar a sessão |
+| 3 | [O ganho: Presentation em vez de espelhamento](#o-ganho-presentation-em-vez-de-espelhamento) | entender o app em uma tela |
+| 4 | [Estrutura do repositório](#estrutura-do-repositório) | achar o arquivo |
+| 5 | [Build e distribuição](#build-e-distribuição) | CI, Release, o portão |
+| 6 | [Os oráculos — o MÉTODO](#os-oráculos--o-método) | escrever ou consertar oráculo |
+| 7 | [Regras de desenvolvimento](#regras-de-desenvolvimento) | **antes de commitar** |
 
-**A [conversa com o operador](#a-conversa-com-o-operador) não entra na tabela:
-ela não tem "quando abrir" — vale SEMPRE, desde a primeira linha da sessão.**
+**O que é de uma área — abra só a área da tarefa:**
 
-**Onde mora o detalhe** — o resumo tem o que se pode quebrar sem abrir o
-capítulo, e o capítulo tem o resto:
-
-| assunto | resumo | capítulo |
+| área | onde | quando |
 |---|---|---|
-| a árvore anotada do repositório | [§](#estrutura-do-repositório) | [`docs/ESTRUTURA.md`](docs/ESTRUTURA.md) |
-| o catálogo dos 64 métodos, as regras da ponte por extenso | [§](#a-ponte-windowavnative) | [`docs/shell/PONTE.md`](docs/shell/PONTE.md) |
-| reconexão do telão, "há tela" ≠ "há telão", morte do renderer | [§](#reconexão-e-morte-do-renderer) | [`docs/arquitetura/DISPLAY.md`](docs/arquitetura/DISPLAY.md) |
-| o relay · o dreno do papel `tela` · a referência da preview · o `load` | [§](#barramento-de-comandos-e-o-plano-b-do-broadcastchannel) | [`MODELO-DE-DADOS`](docs/arquitetura/MODELO-DE-DADOS.md) · [`TELAO-POR-COMANDOS`](docs/TELAO-POR-COMANDOS.md) · [`CONTROLE-TELAO`](docs/arquitetura/CONTROLE-TELAO.md) · [`MOTOR-STAGE`](docs/arquitetura/MOTOR-STAGE.md) |
-| download minimizado, `SyncService`, notificação de progresso | [§](#trabalho-em-segundo-plano-downloads-com-o-app-minimizado) | [`docs/shell/SEGUNDO-PLANO.md`](docs/shell/SEGUNDO-PLANO.md) |
-| `MediaSession`, transporte fora do app | [§](#notificação-de-controles-sessão-de-mídia) | [`docs/shell/SESSAO-DE-MIDIA.md`](docs/shell/SESSAO-DE-MIDIA.md) |
-| os dois canais, a detecção, o watchdog, a pergunta | [§](#ota-da-base-web-atualização-sem-apk) | [`docs/shell/OTA.md`](docs/shell/OTA.md) |
-| o telão nas telas da rede: peças, decisões, inversões | [§](#telão-por-comandos-o-telão-nas-telas-da-rede-local) | [`docs/TELAO-POR-COMANDOS.md`](docs/TELAO-POR-COMANDOS.md) |
-| os álbuns oficiais da Biblioteca | [§](#séries-do-youtube-os-álbuns-oficiais-da-biblioteca) | [`docs/recursos/SERIES.md`](docs/recursos/SERIES.md) |
-| acordes sobre a letra, sob demanda | [§](#a-aba-de-cifra-acordes-ao-lado-da-letra) | [`docs/recursos/CIFRA.md`](docs/recursos/CIFRA.md) |
-| o acervo num arquivo `.avpkg` | [§](#o-pacote-de-transferência-o-acervo-num-arquivo) | [`docs/recursos/PACOTE.md`](docs/recursos/PACOTE.md) |
-| a cortina da abertura, o piso e o prazo | [§](#a-abertura-por-trás-dos-panos) | [`docs/arquitetura/CONTROLE-TELAO.md`](docs/arquitetura/CONTROLE-TELAO.md) |
-| cada par de cor medido, os pisos, o revogado, as regras da paleta por extenso | [§](#a-paleta) | [`docs/arquitetura/DESIGN-SYSTEM.md`](docs/arquitetura/DESIGN-SYSTEM.md) |
-| cada ponto web × nativo por extenso; share, microfone, voltar, volume, cast, som do espelhamento | [§](#divergências-entre-o-caminho-web-e-o-nativo) | [`docs/DIVERGENCIAS-WEB-NATIVO.md`](docs/DIVERGENCIAS-WEB-NATIVO.md) |
-| arnês, prazos, paralelismo, stub de 60 s, passos do CI, JUnit, assinatura, backup, a página do site, as dependências | [§](#build-e-distribuição) | [`docs/BUILD.md`](docs/BUILD.md) |
-| a Verificação do Sistema, o Registro, as regras de diagnóstico | [§](#diagnóstico) | [`docs/DIAGNOSTICO.md`](docs/DIAGNOSTICO.md) |
-| o que cada oráculo trava | (o MÉTODO fica em [Build](#build-e-distribuição)) | [`docs/ORACULOS.md`](docs/ORACULOS.md) |
+| invariantes do shell, ponte, filas | [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#invariantes-do-shell-não-quebrar) | **antes de mexer no Kotlin** |
+| OTA, atualização sem APK | [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#ota-da-base-web-atualização-sem-apk) | mexer no `WebUpdater` |
+| telão nas telas da rede | [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#telão-por-comandos-o-telão-nas-telas-da-rede-local) | as telas da igreja |
+| paleta, cor, toque, camadas | [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#a-paleta) | **antes de escrever qualquer cor** |
+| divergências web × nativo | [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#divergências-entre-o-caminho-web-e-o-nativo) | o que muda entre navegador e app |
+| séries, cifra, pacote, abertura | [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md) | esses recursos |
+| Verificação do Sistema, Registro | [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#diagnóstico) · [`DIAGNOSTICO`](docs/DIAGNOSTICO.md) | diagnóstico |
 
-**Fora daqui:**
+**Fora daqui** (o resumo tem o que se quebra sem abrir o capítulo; o capítulo
+tem o resto):
 
 | arquivo | o que é |
 |---|---|
-| [`docs/ACHADOS-EM-ABERTO.md`](docs/ACHADOS-EM-ABERTO.md) | os defeitos CONFIRMADOS e ainda não corrigidos, com cenário e correção proposta — **leia antes de mexer no que ele nomeia**. Hoje **não tem nenhum**: os três que moraram lá fecharam por resposta do operador (dois em 2026-11-08, a chamada telefônica em 2026-11-09), e ficam lá como registro. É arquivo para esvaziar, não para crescer |
-| [`docs/shell/README.md`](docs/shell/README.md) | o HUB do **Kotlin**: um capítulo por subsistema, e onde cada `.kt` é explicado |
-| [`docs/ARQUITETURA-WEB.md`](docs/ARQUITETURA-WEB.md) | o HUB da base web: regras gerais e o mapa dos capítulos em `docs/arquitetura/` |
-| [`docs/TELAO-POR-COMANDOS.md`](docs/TELAO-POR-COMANDOS.md) | o contrato das telas da rede — inclusive o celular como PONTO DE ACESSO (código desde a v1.4.1) |
-| [`docs/FONTE-DE-DADOS-LOUVORJA.md`](docs/FONTE-DE-DADOS-LOUVORJA.md) | o banco de hinos/Bíblia |
-| [`docs/MEDICAO-DE-ALCANCE.md`](docs/MEDICAO-DE-ALCANCE.md) | o CONTRATO da contagem de uso: o que é contado, o que nunca é, por que o uso próprio sai por construção, e a MEDIÇÃO ainda pendente de que o farol depende |
-| [`docs/HISTORICO.md`](docs/HISTORICO.md) | **apêndice**: a nota de cada versão, para consultar por `grep`, nunca por leitura integral |
-| [`docs/AUDITORIA-2026-08.md`](docs/AUDITORIA-2026-08.md) | **apêndice**: a varredura da v1.4 (75 achados, o método de refutação, 26 por aplicar) — por `grep` |
-| [`docs/AUDITORIA-ESTABILIDADE-AV.md`](docs/AUDITORIA-ESTABILIDADE-AV.md) | **apêndice**: o que pode INTERROMPER a transmissão ou a mídia no ar — dez achados (um é MEDIÇÃO, não conserto) |
-| [`docs/AUDITORIA-2026-09-11.md`](docs/AUDITORIA-2026-09-11.md) | **apêndice**: a varredura da v1.5.19 à v1.8.69 |
-| [`docs/AUDITORIA-EFICIENCIA-2026-09.md`](docs/AUDITORIA-EFICIENCIA-2026-09.md) | o custo de MANTER o repositório (contexto, retrabalho, rito, CI), já refutado; a lista dos MORTOS, com a razão de cada um, economiza a sessão de quem for reachá-los |
-
----
+| [`docs/ESTRUTURA.md`](docs/ESTRUTURA.md) | a árvore anotada do repositório |
+| [`docs/shell/README.md`](docs/shell/README.md) | o HUB do **Kotlin**, um capítulo por subsistema |
+| [`docs/ARQUITETURA-WEB.md`](docs/ARQUITETURA-WEB.md) | o HUB da base web e o mapa dos capítulos |
+| [`docs/BUILD.md`](docs/BUILD.md) | arnês, prazos, CI, assinatura, backup, a página do site |
+| [`docs/ORACULOS.md`](docs/ORACULOS.md) | **referência**: o que cada oráculo trava |
+| [`docs/HISTORICO.md`](docs/HISTORICO.md) | **apêndice**: a nota de cada versão, por `grep` |
+| [`docs/revisao/CASOS-MEDIDOS.md`](docs/revisao/CASOS-MEDIDOS.md) | **apêndice**: os casos que criaram as regras do portão |
+| [`docs/ACHADOS-EM-ABERTO.md`](docs/ACHADOS-EM-ABERTO.md) | defeitos CONFIRMADOS em aberto — hoje **nenhum** |
+| [`docs/PEDIDOS-EM-ESPERA.md`](docs/PEDIDOS-EM-ESPERA.md) | a fila do operador, em pacotes |
 
 ## A conversa com o operador
 
@@ -196,560 +179,82 @@ exigiriam código nativo próprio para a `Presentation`.
 > `wc -l app/src/main/java/br/org/iasd/av/*.kt` ·
 > `find app/src/main/assets/web -name '*.js' -not -path '*/vendor/*' | xargs wc -l`
 
----
+## O estado se mede, não se cita
+
+Número congelado em prosa envelhece em horas — e a sessão que o lê decide com
+dado velho. **Meça antes de citar:**
+
+```bash
+tools/estado.sh          # HEAD, árvore, as quatro casas da versão, CI, fila
+```
+
+Ele imprime o que muda sozinho (versão, HEAD, CI, token) e é a única fonte
+desses números numa sessão. O que **não** muda sozinho, e por isso vale
+escrever em prosa, está nas seções abaixo.
 
 ## Invariantes do shell (não quebrar)
 
-São o que sustenta a base web. **Cada uma mora num lugar diferente**, e é preciso
-saber qual para conferi-las.
-
-**Em `WebViewFactory.kt`** (o KDoc do arquivo lista as quatro):
-
-1. **Servir por `https://appassets.androidplatform.net/`, JAMAIS por `file://`.**
-   O contexto seguro é o que faz OPFS e IndexedDB funcionarem. Não é opcional.
-2. **Um único origin para os dois WebViews** — é o que preserva
-   IDB/OPFS/BroadcastChannel compartilhados. Comparado por **componente do
-   `Uri`** (`url.host == ORIGIN_HOST`), **num predicado só**
-   (`WebViewFactory.ehDoApp`, que a navegação, a janela do `/saf/`, o
-   `SlideDeck` e o `EspelhoCert` chamam — o `invariantes-shell` reprova cópia
-   nova), **nunca** por prefixo de string:
-   `appassets.androidplatform.net.evil.com` começa com o origin, é um domínio que
-   qualquer um registra, e um `startsWith` autorizaria a navegação — dentro de um
-   WebView que injeta `__AVBridge` em **toda** página que carregar
-   (`addJavascriptInterface` é por-WebView, não por-origem). **Este ponto não
-   pode falhar ABERTO.**
-3. **Um único processo/perfil de WebView.** Nada de processo isolado para o
-   Display.
-4. `mediaPlaybackRequiresUserGesture = false`, `domStorageEnabled`,
-   `javaScriptEnabled` — e `allowFileAccess`/`allowContentAccess` **desligados**:
-   tudo entra pelo asset loader.
-
-**Regra de projeto, não de código:**
-
-5. **Não reimplementar em Kotlin nada que já exista em JS.** Transporte,
-   playlist, letra sincronizada, Bíblia, Camada de Texto e fades ficam no web.
-
-**Em `MainActivity.ControleChromeClient`** — e é por estarem aqui, não na
-factory, que um segundo `WebChromeClient` criado sem elas as perde **em
-silêncio**:
-
-6. **`onShowFileChooser`.** Sem esse override o WebView **ignora
-   `<input type="file">` por completo**: o toque não faz nada, sem erro no
-   console. Dele dependem a importação para o Cronograma e a escolha do
-   wallpaper.
-7. **`onShowCustomView`/`onHideCustomView`.** Sem eles `requestFullscreen()`
-   falha silenciosamente — e a preview em tela cheia é a projeção quando não há
-   TV. É aqui que mora a trava de paisagem nativa.
-
-**No `shouldInterceptRequest`** — a que custou três rodadas de APK:
-
-8. **O `InputStream` que você devolve é o RECURSO INTEIRO a partir do byte 0.**
-   Não é "a resposta": quem aplica o `Range` é o **próprio WebView**, sobre o que
-   o app entregou (`AndroidStreamReaderURLLoader::Start` → `ParseRange` →
-   `InputStreamReader::Seek` → `ComputeBounds` contra `available()`),
-   incondicionalmente e para toda resposta interceptada. Devolver só a fatia
-   pedida aplica o deslocamento DUAS vezes — e a requisição que começa no byte 0
-   é a única em que isso é no-op, então ela passa e esconde o defeito atrás de
-   si. **Corolário: um erro com corpo VAZIO não chega** quando a faixa está fora
-   do zero (`ComputeBounds` reprova com `size == 0`), o que apaga a mensagem e
-   deixa só um erro de rede sem status. **O capítulo é
-   [`docs/shell/WEBVIEW-RANGE.md`](docs/shell/WEBVIEW-RANGE.md)**, e o oráculo
-   é o `tools/webview-range.test.mjs`.
-
-   > **E ela SE INVERTE num `ServerSocket`.** No servidor das telas da rede quem
-   > aplica o `Range` somos NÓS: a rota `/m/<token>` faz RFC 7233 de verdade
-   > (`EspelhoHttp.alcanceDe`, com JUnit). **Copiar aquele molde para lá é o
-   > erro exato**, e é por isso que o `EspelhoHttp` é um arquivo à parte, puro, e
-   > não uma parametrização do interceptador.
-
-**No WebView do TELÃO:**
-
-9. **A ponte nasce com `host = null`, e o loader é montado SEM o handler
-   `/saf/`.** É o que separa "uma segunda janela do Display" de um
-   comprometimento do aparelho: com `host != null`, qualquer script de terceiro
-   ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
-   `espelhoLigar` — este último abre um servidor na rede da igreja.
-
-   **QUEM A TRAVA É O `tools/invariantes-shell.test.mjs`** (revisão K1): ele lê
-   o `StagePresentation.kt` só nas linhas de código e afirma as três metades —
-   `host = null`, `withSaf = false` e `role = "display"`. O `ponte.test.mjs`
-   afirma outra coisa (o dreno e a remontagem de campos), e as guardas
-   `host == null` de cada método — a outra metade da invariante — é o
-   `tools/ponte-guarda-host.test.mjs` (revisão K2, remedida na X1): 70 métodos,
-   44 com recusa explícita e 26 com motivo declarado e CONFERIDO contra o corpo.
-
-**No `AndroidManifest.xml`:** `hardwareAccelerated` e `largeHeap` — os dois
-WebViews e um vídeo grande dividem o mesmo processo.
-
-> O WebView do telão usa outro `WebChromeClient` (`MicChromeClient`), **não
-> recebe** o handler `/saf/` e é a única instância criada com
-> `keepVisible = true`.
-
-**`KeepVisibleWebView` (só o telão).** O Chromium marca a página como `hidden`
-quando a janela da View some — o que acontece com a `Presentation` no instante em
-que o app é minimizado. `onWindowVisibilityChanged` (e o irmão
-`onVisibilityChanged`, a segunda metade) reportam `VISIBLE` **enquanto
-`manterVisivel` estiver ligado**: o telão nasce com ele, e o **Controle** o recebe
-EM RUNTIME (`setProjecaoLocal`) só enquanto a preview É a projeção — sem nenhuma
-tela no ar. O telão continua no ar com o app minimizado de propósito, e não há
-razão para desacelerar o renderer dele; com tela lá fora, o Controle volta ao
-ciclo normal, porque ali ser estrangulado em segundo plano é o certo — é o que o
-`snoopDisplayStatus` existe para contornar.
+**Movido.** As nove invariantes — e **quem** trava cada uma — estão em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#invariantes-do-shell-não-quebrar). A que mais custa: servir por `https://appassets.androidplatform.net/`, **nunca** `file://`, e um único origin para os dois WebViews.
 
 ### Reconexão e morte do renderer
 
-**Por extenso em
-[`docs/arquitetura/DISPLAY.md`](docs/arquitetura/DISPLAY.md)** (seção
-"Reconexão e morte do renderer", ao fim). O que se quebra sem abrir:
-
-- **Reconexão vem de graça:** o dongle volta → o Android recria a
-  `Presentation` → `/display/` recarrega e dispara `display-ready` → o Controle
-  reenvia a cena (`resendSceneToDisplay`). **Não invente um mecanismo paralelo.**
-- **MAS "HÁ TELA" NÃO É "HÁ TELÃO".** O que depende de haver projeção
-  (`somLocalDeveEstar`, `simpleDisplay`) lê o campo `telao` (a `Presentation` DE
-  FATO no ar); o que descreve a CONEXÃO lê a lista crua. Nas telas da rede o
-  irmão é `pronta` em `telasDaRede()`. A tela CONTINUA na lista; a escada
-  `agendarRetomadaDoTelao` (0,4 s → 8 s, cinco degraus) retenta e é cancelada
-  quando a tela some de verdade; com o telão no chão o som volta ao celular
-  (`tools/telao-no-chao.test.mjs`).
-- **O reenvio é ENDEREÇADO** (`__de` no anúncio, `__para` na resposta,
-  conferido antes de tudo no `onCommand` do Display); comando sem `__para` vale
-  para todos (`tools/display-smoke.mjs` trava a regra).
-- **A cena é toda mídia CARREGADA** (a pausada também), com posição e estado
-  (`time`/`playing`), e depois o `text` projetado — cronômetro e sorteio pelo
-  DESCRITOR (`startAt`), nessa ordem.
-- **Morte do renderer é recuperável** (`onRenderProcessGone` devolve `true`;
-  cada dono remonta o próprio WebView), e `buildControleWebView` **zera o
-  trabalho de segundo plano** e desfaz a tela cheia ao remontar.
-
----
+**Movido.** Em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#reconexão-e-morte-do-renderer). A regra que se esquece: **"há tela" não é "há telão"**.
 
 ## A ponte `window.AVNative`
 
-Definida em `shared/native.js` (web) sobre `__AVBridge` (Kotlin,
-`NativeBridge.kt`); **só existe quando `window.__AVBridge` existe** — no
-navegador nada é definido, nem `__NATIVE__`. **O catálogo dos 64 métodos e as
-regras abaixo por extenso estão em [`docs/shell/PONTE.md`](docs/shell/PONTE.md).**
-
-- **Superfície: 64 métodos**; o shell serve **70**. A conta (64 − 3 callbacks sem
-  par + 9 internos = 70, sem órfão nenhum desde a X1) é MEDIDA por varredura
-  (`@JavascriptInterface` + `fun <nome>` no `NativeBridge.kt` contra `B.<nome>(`
-  no `native.js`), nunca de memória. Fora do `native.js`, tocar em `__AVBridge`
-  é acoplamento indevido; o `funcao-sem-chamador.test.mjs` exige consumidor.
-- **Encolher no WEB primeiro é o lado seguro**; a ordem inversa (base web nova
-  contra APK velho) precisa do `shellTag`.
-- **Quatro globais sem Promise:** `__NATIVE__`, `__AV_ROLE__`
-  (`'controle'`/`'display'`; `'tela'` é escrito pelo `espelho/tela.js`),
-  `__SHELL_VERSION__` (o contrato) e `__SHELL_NAME__` (o `versionName`, mostrado
-  só no Registro).
-- **A ponte entrega URLs SERVÍVEIS, não bytes** (`/saf/<token>`, `fetch` +
-  `Blob`). O token é opaco, aleatório (128 bits) e estável por URI — e é do
-  MESMO origin: "é local?" se pergunta pelo **host**, nunca por
-  `startsWith("https://")`.
-- **Superfície nativa é privilégio do Controle:** o telão recebe `host = null`
-  e loader sem `/saf/`; `listFolder` devolve vazio sem host.
-- **As Promises têm ÉPOCA por carga** (`EPOCH:seq`). Chamada que espera MÁQUINA
-  tem prazo de 60 s; a que espera PESSOA (`pickFolder`, `pickDoc`,
-  `pacoteCriar`) não tem.
+**Movido.** O catálogo, os quatro globais, as filas e as regras estão em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#a-ponte-windowavnative). O contrato que se paga caro: **superfície é privilégio do Controle** — o telão nasce com `host = null` e sem o `/saf/`.
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **85**, e o **PISO** é 83: o bundle declara `minShell: 83`, todo método
-existe sempre e **não há guarda de versão no lado web** — o que separa navegador
-de app é `if (!window.__NATIVE__)`, e nada mais. "Superfície" inclui **forma de
-retorno e comportamento**. Sem guarda, mudança de ponte é lote **APK + web
-publicado JUNTO**, com `shellTag` no `version.json`; **mudar a FORMA de um método
-é pior que acrescentar um**. `minShell` acima do `SHELL_VERSION` instalado faz o
-aparelho recusar todo bundle, para sempre (o CI confere o teto lendo o Kotlin).
-A tabela dos degraus está no `docs/HISTORICO.md`.
+**Movido.** O degrau corrente e o piso estão em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#shell_version--subir-sempre-que-a-superfície-mudar). A regra do rito: mudou a superfície (forma de retorno conta), sobe o degrau e o lote é **APK + web juntos**, com `shellTag`.
 
 ### As SEIS filas da ponte — escolher a errada é uma regressão muda
 
-Seis executores de UMA thread, no `companion` do `NativeBridge` (compartilhados
-por todas as instâncias; daemon):
-
-| fila | o que roda | a regra |
-|---|---|---|
-| `io` | só o que responde em MILISSEGUNDOS | **nada de rede**: ali `listFolder` e `atualizacaoEstado` "mentem baixinho" atrás de um download |
-| `transferencia` | o download do YouTube e o `ytDiscard` | UMA thread é invariante: o resgate do `YoutubeGrab` supõe um download por vez |
-| `apk` | o download do APK e a entrega ao instalador | própria, e não a `transferencia`: o APK não toca estado do `YoutubeGrab`, e enfileirado ali os 15 min do prazo do web contavam a espera atrás de um vídeo |
-| `extracao` | metadados de rede (NewPipe) e PDF, de SEGUNDOS | separada de `transferencia` (segundos não esperam minutos); uma thread pela inicialização global do NewPipe |
-| `cifra` | só o `cifraHtml` | é MASSA e a `extracao` é TOQUE; uma thread porque `CifraFonte.ultimaTentativa` é o veredito da última busca |
-| `r2img` | só o desvio de CORS das fotos (`r2Imagem`) | mesma regra da `cifra` (a varredura dos fundos busca até 6 fotos de uma vez); separada dela porque são hosts e cargas diferentes (binário × HTML) |
-
-Fora das filas: os cinco métodos do espelho rodam na **main thread**, e
-`ytCancel` só escreve um `@Volatile`.
-
----
+**Movido.** A tabela das seis filas (`io`, `transferencia`, `apk`, `extracao`, `cifra`, `r2img`) está em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#as-seis-filas-da-ponte--escolher-a-errada-é-uma-regressão-muda).
 
 ## Barramento de comandos e o plano B do BroadcastChannel
 
-O **relay nativo roda SEMPRE em paralelo**: cada comando sai por
-`BroadcastChannel` **e** `MessageBus`, e a cópia repetida é descartada em `db.js`
-pelo `__mid`. Por extenso: o relay em
-[`MODELO-DE-DADOS.md`](docs/arquitetura/MODELO-DE-DADOS.md), o dreno em
-[`TELAO-POR-COMANDOS.md`](docs/TELAO-POR-COMANDOS.md), a referência da preview em
-[`CONTROLE-TELAO.md`](docs/arquitetura/CONTROLE-TELAO.md) e o `load` em
-[`MOTOR-STAGE.md`](docs/arquitetura/MOTOR-STAGE.md) (seções ao fim de cada um; no
-`CONTROLE-TELAO.md`, "A referência da preview").
-
-- **O DRENO do papel `tela` é lista de PERMISSÃO** (`espelho/tela.js`): sobe só
-  `display-ready` com `__tela` (dispara `telaReenviarPreferencias`; `anuncio()` é
-  o dono ÚNICO do carimbo) e `display-status` RENOMEADO `tela-status` — o
-  Controle ELEGE uma tela como referência, e `NativeBridge.snoopStatusDeFora` faz
-  a mesma eleição. Tipo novo em `display.js` nasce mudo. O `BroadcastChannel` é
-  neutralizado no ENVIO (subclasse, antes de `db.js`), nunca apagado.
-- **A preview ILUSTRA, nunca mede:** a referência é o telão → a tela eleita →
-  (sem nenhum) a própria preview. `authoritativeTime()` responde "o que está no
-  ar?"; `tempoDaPreview()`, "o que a ilustração desenha?". O realinhamento mira
-  `projeção − atraso`; tolerância de 0,5 s (`RESYNC_EXATO` ao retomar);
-  escondida, a preview não atrasa nem é tocada (`preverPodeMexer`).
-- **O `load` carrega `time` e `playing` no próprio comando**, porque o
-  `onCommand` do Display não serializa; o `startAt` entra num `loadedmetadata`
-  protegido pelo `loadSeq`. **Não há segundo caminho:** toda mídia é
-  `<video>`/`<img>`, e um link do YouTube é resolvido (baixado) no Controle antes
-  do `load`.
-- O comando mais frequente é o `display-status` (~4 Hz), a fonte de
-  sincronização enquanto existir.
-
----
+**Movido.** Relay, dreno do papel `tela`, a preview que ILUSTRA e o `load` em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#barramento-de-comandos-e-o-plano-b-do-broadcastchannel).
 
 ## Trabalho em segundo plano (downloads com o app minimizado)
 
-Minimizado, o Android pode **congelar** o processo — a sincronização de hinos,
-Bíblia ou pastas parava no meio. **Detalhe em
-[`docs/shell/SEGUNDO-PLANO.md`](docs/shell/SEGUNDO-PLANO.md)** — abra antes de
-mexer no `SyncService.kt`, no `bgProgress` ou nas rotinas de acervo.
-
-O que vale sem abrir o capítulo:
-
-- **Quem liga e desliga é o LADO WEB**, que é quem sabe o que está em curso
-  (`bgWorkBegin`/`bgWorkEnd` contam as tarefas e só acionam o `keepAlive` no
-  primeiro início e no último término). O `finally` de `withBgWork()` é o ponto
-  crítico: uma falha de rede não pode deixar serviço e wake lock ligados.
-- **`startForeground` SEMPRE, antes de qualquer decisão de parar.** Um serviço
-  iniciado por `startForegroundService` que morre sem chamá-lo **derruba o app
-  inteiro** — e o processo é o dos dois WebViews e da `Presentation`.
-- **Cota de FGS do Android 15:** `dataSync` tem teto de 6 h em 24 h, e atingido
-  o sistema mata por ANR. Parar é a única resposta — mas o Kotlin precisa
-  **esquecer** que protegia, senão o download seguinte fica sem proteção nenhuma.
-- **Campo novo no objeto = campo novo no `native.js`, sempre.** Ele REMONTA o
-  objeto campo a campo, e do lado Kotlin `optBoolean`/`optLong` leem ausente
-  como `false`/`0` — valores legítimos, sem exceção e sem log.
-- **As rotinas de acervo CEDEM A VEZ ao que está no ar** (`midiaNoAr`), e cedem
-  SAINDO, não esperando: elas são retomáveis e quem as rearma já existe.
+**Movido.** FGS, wake lock, cota do Android 15 e as rotinas que cedem a vez em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#trabalho-em-segundo-plano-downloads-com-o-app-minimizado). O que não se pode esquecer: **`startForeground` SEMPRE**, antes de qualquer decisão de parar.
 
 ## Notificação de controles (sessão de mídia)
 
-O `SessionService.kt` publica um `MediaSession` e uma notificação `MediaStyle`.
-**Detalhe em [`docs/shell/SESSAO-DE-MIDIA.md`](docs/shell/SESSAO-DE-MIDIA.md)** —
-abra antes de mexer no transporte fora do app ou no `pushNowPlaying`.
-
-O que vale sem abrir o capítulo:
-
-- **Dois ganhos, e o segundo é o menos óbvio:** controlar sem abrir o app (o
-  celular fica no suporte, provavelmente bloqueado) e **a projeção deixar de ser
-  descartável** — sem ele, num culto normal não há serviço em primeiro plano
-  nenhum, e o processo segue candidato a ser morto sob pressão de memória,
-  levando a `Presentation` junto.
-- **Nenhuma decisão de transporte em Kotlin** (invariante 5): o sistema entrega
-  uma string e o web aciona os **mesmos botões da tela** por `.click()`. Por isso
-  nenhuma ação é desabilitada do lado nativo — quem sabe se "estrofe anterior"
-  faz sentido é o web, e a cópia em Kotlin envelheceria.
-- **`play`/`pause` ≠ `playpause`.** Tela de bloqueio, fone e Android Auto mandam
-  intenção explícita; tratar tudo como alternador faz um `onPlay` recebido com o
-  áudio tocando PAUSAR o louvor.
-- **Campo novo em `pushNowPlaying` = campo novo em `AVNative.nowPlaying`**,
-  sempre — e **sem** subir `SHELL_VERSION`, porque o Kotlin não muda.
-- **`publish()` sempre na main thread**, e a guarda `running` fecha a janela que
-  o salto de thread abre.
-- **A notificação NÃO pode depender do JS do Controle:** minimizado, aquele
-  WebView é estrangulado, e quem corrige play/pause e posição é o
-  `snoopDisplayStatus`, que lê o `display-status` que o telão já emite.
+**Movido.** O `MediaSession` e a notificação em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#notificação-de-controles-sessão-de-mídia). **`play`/`pause` ≠ `playpause`**: tratar tudo como alternador pausa o louvor.
 
 ## OTA da base web (atualização sem APK)
 
-O job `web-ota` (todo push em `main`) empacota `assets/web/` num
-`web-<versão>.zip` e publica, com um `version.json`, na release de tag fixa
-**`web-latest`** — URL estável porque está compilada no shell. O app consulta o
-manifesto, baixa quando há versão nova e passa a servi-la.
-
-**O mecanismo inteiro — os dois canais como UM evento, a detecção por quatro
-gatilhos, a pergunta que DIZ o que vem, o watchdog de boot e as defesas do
-download — está em [`docs/shell/OTA.md`](docs/shell/OTA.md).** Abra-o antes de
-mexer no `WebUpdater.kt` ou no fluxo da atualização.
-
-**O que vale sem abrir o capítulo:**
-
-- **AS TRÊS GARANTIAS (isto roda em culto).** (1) A base NÃO troca sozinha: o
-  shell só AVISA, e quem aplica é o web, no "Atualizar agora" do diálogo.
-  (2) **A válvula `minShell`:** um bundle que exija ponte mais nova que o
-  `SHELL_VERSION` instalado é recusado INTEIRO, no shell, e não em runtime no
-  meio de um culto. (3) **O watchdog de boot:** servir um bundle arma um
-  `pending` que o web desarma (`otaConfirm`); bundle que não confirme é
-  descartado no lançamento seguinte e o app volta ao embutido.
-- **`shellTag` no `version.json` é o ACOPLAMENTO com a Release.** Declarado, o
-  `web-ota` **segura a publicação do bundle** até a Release existir, e então
-  republica o manifesto com o link do `.apk` dentro — o app pergunta UMA vez
-  sobre o lote inteiro. **O modo de falhar é o caro:** uma tag declarada cuja
-  Release nunca sai segura o canal PARA SEMPRE, em silêncio, e a única pista é
-  a linha no resumo do run. Sem `shellTag` o bundle sai na hora, que é o certo
-  para um lote só de web.
-- **TROCAR A BASE SERVIDA OBRIGA A LIMPAR O CACHE DO WEBVIEW.** As URLs não
-  mudam de nome entre versões e o WebView roda com `cacheMode = LOAD_DEFAULT`:
-  servir um bundle diferente do anterior faz a página nascer **com metade de
-  cada bundle** — e o modo de falhar SE REALIMENTA, porque uma página remendada
-  não satisfaz o `otaAppIsUp` e o bundle seguinte também é descartado.
-- **O `otaAppIsUp` é "o app está DE PÉ", e a lista de globais dele é o
-  contrato:** um script novo do Controle sem global na lista faz um bundle
-  quebrado ser carimbado como bom **para sempre**.
-- **Guarda de versão no lado web é PROIBIDA:** o que separa navegador de app é
-  `if (!window.__NATIVE__)`, e nada mais. Quem protege é o `minShell`.
-- **O nome do repositório mora numa constante SÓ** (`WebUpdater.REPO`, que o
-  `ShellUpdater` e o `Farol` referenciam — eram três literais digitados à mão e
-  este texto nomeava dois), e ela tem de bater com o `$GITHUB_REPOSITORY` do
-  workflow. Renomear o repositório exige mexer nela, no link do `site/registro/`
-  **e** publicar um APK.
+**Movido.** O canal, o watchdog e as três garantias em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#ota-da-base-web-atualização-sem-apk). A que segura a frota: **`shellTag` declarada sem Release segura o canal para sempre, em silêncio** — e a Release se dispara depois do merge.
 
 ## Telão por comandos (o telão nas telas da rede local)
 
-O telão inteiro em até **três navegadores da rede da igreja**, sem instalar nada
-e sem internet: a tela carrega o próprio bundle (servido pelo celular, com a
-resolução OTA→APK) e roda o MESMO `/web/display/` (papel `tela`). Viajam
-**comandos** (os JSON do barramento, verbatim, por SSE) e **mídia sob demanda**
-(`/m/<token>`, com `Range` RFC 7233 feito por NÓS — a inversão da invariante 8).
-**O contrato é [`docs/TELAO-POR-COMANDOS.md`](docs/TELAO-POR-COMANDOS.md) — leia
-antes de mexer**; o mapa, as peças, as decisões e as inversões que moravam aqui
-estão na seção final dele. O que se quebra sem abrir:
-
-- **AUXILIAR por contrato:** liga e desliga só pelo operador, pelo fechamento do
-  app ou por uma falha nomeada em texto. Uma TV que conecta **não** a derruba.
-- **Duas vias** (o `via` do estado): `WIFI` (cliente, com ou sem uplink) e
-  `PONTO_DE_ACESSO` (o celular é o roteador — a resposta ao AP isolation). Com as
-  duas de pé quem escolhe é o operador; quem serve não migra sozinho
-  (`confirmarRede` religa na mesma via); o AP é vigiado por enquete
-  (`vigiarPontoDeAcesso`, 5 s), porque em modo AP o callback de rede nunca dispara.
-- **É a primeira fronteira de rede do projeto:** o `EspelhoServidor` serve só
-  `PREFIXOS_BUNDLE` (nunca `web/controle/`), abre num IPv4 SERVÍVEL
-  (`EspelhoInterfaces.kt`, nunca `0.0.0.0`) com allowlist de `Host`; o token
-  nunca viaja numa URL; o controle real é o teto de 3 sessões + o derrubar com
-  castigo; só `TIPOS_QUE_SOBEM` sobem, e a lista existe nos DOIS lados.
-- **UMA página só:** o toque de entrada gasta o único gesto em tudo de uma vez;
-  depois de ativada NADA cobre a tela (reentra em silêncio; o gesto volta por
-  toque duplo e F11), mas a RECARGA volta à entrada oficial, carregando o token.
-- **O tap é no `busPost`**, e a injeção de volta entra por
-  `MessageBus.post(null,…)` — sem eco por construção. `__rec` viaja NO `load`
-  (registro saneado; nunca blob, `opfsPath` ou `youtubeId`); a apresentação vai
-  uma `/m/` por página; o embed do YouTube vira `tela-aviso`.
-- **O `mirrorEstado` é SEMEADO na abertura** (`lerEspelho()` no `init()`): sem
-  isso `telaAtiva()` mente e a projeção volta ao wallpaper, calada.
-- **Comando de DESCIDA que a tela não deve executar nasce com GUARDA no
-  consumidor**, nunca confiando no ambiente dela (proteção emprestada do
-  navegador se desfaz sozinha).
-- **A tela executa CÓDIGO nosso:** o watchdog do OTA não a cobre; quem cobre é o
-  `tela-rede.test.mjs` e o telão rodar o MESMO `display.js`.
-- **Regra de calendário:** a primeira ligada em rede de verdade é **num dia SEM
-  culto** — segunda, terça, quinta ou sexta (a agenda é sábado de manhã, mais
-  domingo e quarta à noite). O que ela protege é ter folga para desfazer.
-
----
+**Movido.** O contrato inteiro em [`docs/TELAO-POR-COMANDOS.md`](docs/TELAO-POR-COMANDOS.md); o resumo das peças em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#telão-por-comandos-o-telão-nas-telas-da-rede-local).
 
 ## Séries do YouTube (os álbuns oficiais da Biblioteca)
 
-Um canal que publica **um episódio por semana** e organiza o ano em playlists
-vira um **álbum da Biblioteca**. São duas hoje (Provai e Vede, Informativo
-Mundial das Missões). **Detalhe em
-[`docs/recursos/SERIES.md`](docs/recursos/SERIES.md)** — abra antes de mexer no
-`controle/serie.js` ou no catálogo de séries.
-
-O que vale sem abrir o capítulo:
-
-- **MANTER O EPISÓDIO DA SEMANA BAIXADO** (v1.8.87; **SEM SELETOR e sempre
-  ligado desde a v1.11.10**): uma rotina que baixa o do sábado no Wi-Fi (ou com
-  "Dados móveis" ligado), na qualidade do operador, e **solta as semanas
-  passadas**. O álbum de série continua não
-  retendo arquivo — o que retém é um detentor novo de tamanho UM por série (a
-  lista `serie` de `db.js`), e **a lista só encolhe com o substituto na mão**.
-- **ABRIR O CARD DA SÉRIE VERIFICA A SEMANA, E A BARRA NÃO TEM BOTÃO** (v1.12.53;
-  no Modo Fácil, onde a série não é card desde a v1.13.15, quem verifica é o DESENHO
-  do bloco "Este sábado" da raiz): o "Atualizar a lista" saiu, e `verificarSemanaAoAbrir` refaz a
-  lista (`soIndice`, nunca um download) e roda a rotina da semana. Piso de 5 min,
-  uma por vez, e **cede à mídia no ar** (o subtítulo diz "adiada" e o próximo
-  desenho do card aberto a retoma). O subtítulo da barra é o estado.
-- **A regra de ouro: a PLAYLIST prova o pertencimento, o título é só RÓTULO.**
-  Um vídeo entra por estar numa playlist aceita, jamais por casar um padrão de
-  título. Errar para um nome feio é recuperável; errar para um episódio ausente
-  é o operador descobrindo no sábado que o vídeo do culto não está lá.
-- **A descoberta é a ABA DO CANAL, nunca busca por texto** — é AUTORIDADE: numa
-  busca quem escolhe é o ranking do YouTube, e qualquer um pode nomear uma
-  playlist "Provai e Vede 2026".
-- **A REGRA mora no web** (`controle/serie.js`, PURA, com oráculo Node) e o
-  shell entrega listas CRUAS: a nomenclatura de um canal muda sem avisar, e no
-  web um ajuste chega por OTA em minutos.
-- **O ÁUDIO em português é outra pergunta, e é do SHELL** (`TrilhaAudio.kt`): o
-  YouTube dubla sozinho e a dublagem não muda o título.
+**Movido.** Em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#séries-do-youtube-os-álbuns-oficiais-da-biblioteca) e [`docs/recursos/SERIES.md`](docs/recursos/SERIES.md). A regra de ouro: **a playlist prova o pertencimento, o título é só rótulo.**
 
 ## A aba de cifra (acordes ao lado da letra)
 
-A folha de letra do Controle tem uma terceira fonte, ao lado de *Letra* e
-*Bíblia*: a **cifra** do hino em cena. **Detalhe em
-[`docs/recursos/CIFRA.md`](docs/recursos/CIFRA.md)** — abra antes de mexer no
-`controle/cifra.js`, no `CifraFonte.kt` ou na folha de letra.
-
-O que vale sem abrir o capítulo:
-
-- **Ela é para quem TOCA, e nunca vai ao telão.** O que a congregação vê
-  continua sendo a letra, pelo caminho de sempre.
-- **SOB DEMANDA é o contrato, não uma otimização.** Nada é baixado em lote,
-  **nada entra no bundle do OTA**, e o que o aparelho guarda ele buscou sozinho.
-  Trocar isso muda o recurso de natureza: o app deixaria de LER conteúdo de
-  terceiro e passaria a DISTRIBUIR uma cópia dele.
-- **A ABA SÓ EXISTE COM FOLHA NA MÃO** (v1.8.28) — não oferecer é melhor que
-  explicar, a mesma regra do microfone sem TV.
-- **Só o TRANSPORTE sai em Kotlin.** O `CifraFonte.kt` faz um `GET` e mais nada;
-  quem lê o HTML é `controle/cifra.js`. A marcação de um site de terceiro muda
-  quando o dono dele quiser, e nesse dia o conserto tem de chegar **por OTA em
-  minutos** — em Kotlin custaria um degrau de `SHELL_VERSION` e uma Release.
-- **Falhar VAZIO é proibido:** são cinco motivos (`sem-rede`, `nao-tem`,
-  `recusou`, `ilegivel`, `sem-cifra`), porque cada um pede uma ação diferente de
-  quem lê o Registro.
+**Movido.** Em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#a-aba-de-cifra-acordes-ao-lado-da-letra) e [`docs/recursos/CIFRA.md`](docs/recursos/CIFRA.md). **Sob demanda é o contrato, não uma otimização.**
 
 ## O pacote de transferência (o acervo num arquivo)
 
-A biblioteca inteira de um aparelho — mídia, arquivos do OPFS, catálogos — num
-`.avpkg`, para entrar noutro celular por cabo, Bluetooth ou cartão. **Detalhe em
-[`docs/recursos/PACOTE.md`](docs/recursos/PACOTE.md)** — abra antes de mexer no
-`controle/pacote.js`, no `PacoteCanal.kt` ou no fluxo de exportar/importar.
-
-O que vale sem abrir o capítulo:
-
-- **A REGRA é do web** (`controle/pacote.js`, PURA, com oráculo Node); os
-  **BYTES são do Kotlin** (`PacoteCanal.kt`). É a divisão do `pptxzip.js` ×
-  `deck.js`, e pelo mesmo motivo — a regra é o que erra, e ela se conserta por
-  OTA em minutos.
-- **O formato é SEQUENCIAL, não zip**, e o último registro é `fim`. É ele — e
-  não o tamanho do arquivo — que separa um pacote inteiro de um que acabou no
-  meio. **Meia biblioteca importando em silêncio é o pior desfecho que este
-  recurso sabe produzir.**
-- **IMPORTAR SÓ ACRESCENTA.** Nada que já esteja no aparelho é substituído, e é
-  essa promessa que faz "importar de novo" ser inofensivo — que é o que de fato
-  acontece quando alguém não tem certeza se deu certo da primeira vez.
-- **O LEITOR NUNCA MATERIALIZA O ARQUIVO.** Ele lê por JANELAS
-  (`/saf/<token>?r=<ini>-<fim>`), porque quinze gigabytes não cabem em lugar
-  nenhum **e porque o caminho `/saf/` tem teto de 2 GB** — acima disso o web
-  recebe o arquivo CORTADO, sem erro nenhum (a invariante 8, pelo lado de
-  dentro).
+**Movido.** Em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#o-pacote-de-transferência-o-acervo-num-arquivo) e [`docs/recursos/PACOTE.md`](docs/recursos/PACOTE.md). **Importar só acrescenta** — e é o `fim`, não o tamanho, que separa pacote inteiro de cortado.
 
 ## A abertura por trás dos panos
 
-O lado nativo já nasce na cor do tema guardado; o que piscava era o DOCUMENTO.
-**Por extenso, com o oráculo (`abertura-e-transferencia.test.mjs`), em
-[`docs/arquitetura/CONTROLE-TELAO.md`](docs/arquitetura/CONTROLE-TELAO.md)** (seção "A
-abertura por trás dos panos"). O que se quebra sem abrir:
-
-- O **tema** é escrito por um `<script>` inline no `<head>` do
-  `controle/index.html`, a ÚNICA leitura de `av.tema`; o resto é a **cortina**
-  (`#splash`), que levanta na última linha do `init()` que muda o que se vê.
-- O **prazo de 12 s é armado no `<head>`**, não no `controle.js`; há um **piso
-  de 1,8 s** contado do INÍCIO da página; a cortina sai por **remoção do nó**,
-  nunca por opacidade.
-- **Todo oráculo que toca na tela espera a cortina depois de CADA carga**
-  (`esperarCortina`, que espera `__avPronto` e NÃO paga o piso — e não é
-  detector de app quebrado).
-
----
+**Movido.** Em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#a-abertura-por-trás-dos-panos). Todo oráculo que toca na tela espera a cortina **depois de CADA carga**.
 
 ## A paleta
 
-Mora em **`assets/web/shared/tokens.css`**, fonte única carregada pelos dois
-`index.html` **antes** da folha do app: a identidade oficial da IASD, em **DOIS
-TEMAS**, com o denim `#2F557F` (PMS 302) no núcleo. **Cada par medido, os pisos,
-o que foi revogado — e as regras abaixo por extenso — estão em
-[`docs/arquitetura/DESIGN-SYSTEM.md`](docs/arquitetura/DESIGN-SYSTEM.md).** Abra-o
-antes de mexer em hierarquia, toque, camadas, rolagem, ícone ou folha. As regras
-duras:
-
-- **Só COR entra em `tokens.css`**; raio, escala de ícone, curva de toque e medidas ficam no `:root` de `controle.css`.
-- **Três blocos, nesta ordem:** o que não muda, o ESCURO (padrão, sem atributo) e `[data-tema="claro"]` como DELTA — token só no claro não existe no padrão (`tokens.test.mjs`).
-- **O PALCO NÃO TEM TEMA:** nada pintado no palco lê token redeclarado em `[data-tema]` (a preview existe para espelhar o telão).
-- **Não há contorno em lugar nenhum**, salvo as quatro exceções NOMEADAS uma a uma no oráculo.
-- **Nunca branco literal** (`#fff`) em `controle.css`/`display.css`; as três exceções estão declaradas em `tokens.css`.
-- **Fundos de ESTADO e superfícies de AÇÃO são OPACOS**; tinta com alfa empilha. Os `-soft` são só wash.
-- **Uma linguagem de estado:** ESCOLHIDO e LIGADO = `--btn-accent` + `--accent`; SELECIONADO numa lista = `--sel-fill`; ABERTO não é cor; o denim `--accent-fill` + `--on-accent` é só dos BOTÕES. Cor de texto nunca carrega estado sozinha.
-- **Apagado = INDISPONÍVEL** (`--op-inativo` .35 + `disabled`, com `title` dizendo por quê), nunca "desligado"; o que não tem função agora é apagado, não inerte; abaixo de 2:1 é AUSENTE.
-- **O desfecho de uma ação é AZUL, nunca verde**; o verde é ATIVIDADE, e os quatro consumidores de `--ok` são nomeados no oráculo, nos dois sentidos.
-- **Os três destinos têm uma ordem só:** Cronograma · playlist · favoritos — a tabela `DESTINOS` e `destinosNaOrdem()`.
-- **Ícone novo entra numa das TRÊS listas de escala** (`--icon-sm`/`--icon-md`/`--icon-lg`) ou ganha regra própria com a razão; o oráculo mede o `<svg>`. Desenho esparso ganha DEGRAU, nunca espessura.
-- **Botão sem rótulo é QUADRADO**, com as DUAS dimensões declaradas (`--hit`, `--thumb`, `--quad-faixa`).
-- **Todo scroller leva `rola`** (sombra das bordas em `linear-gradient`, medidas lidas do layout, sem barra de rolagem); seletor-roleta e carrossel horizontal não; grade que rola nasce dentro de um envelope.
-- **Uma folha não muda de tamanho entre estados alcançáveis**; a faixa de fecho mora no `.popup-fecho` e não rola; rodapé flutuante é OPACO e cobra folga no último item.
-- **Toque = `translateY(2px)`**; bloco que hospeda controles responde só com a LUZ e entra na lista de guardas no lote em que nasce.
-- **Escada de camadas de TRÊS degraus**; o tom é decisão do PAI (`--camada`); mais fundo que três, ALTERNA-SE.
-- **`res/values/colors.xml` espelha `--bg` à mão**, em dois valores (com oráculo); o ícone do app é vetor e não segue o tema.
-- **Tema: dois estados, o tile é ALTERNADOR**; sem `av.tema` é o escuro. **Oráculo de cor DECLARA o tema** (`comTema`) e abre com asserção de PREMISSA.
-- **Não há teste de contraste absoluto:** ao mexer num token, meça — e são DOIS temas.
+**Movido.** Os pares medidos e as regras duras em [`NUCLEO-TECNICO.md#a-paleta`](docs/NUCLEO-TECNICO.md#a-paleta) e em [`docs/arquitetura/DESIGN-SYSTEM.md`](docs/arquitetura/DESIGN-SYSTEM.md). **Cor nova entra em `tokens.css`, nunca literal na folha.**
 
 ## Divergências entre o caminho web e o nativo
 
-**Regra de escrita:** toda guarda é `if (!window.__NATIVE__) { …web… }`, nunca o
-inverso como caminho principal — o navegador é o padrão e o nativo é a exceção
-que se declara. **Cada ponto por extenso — o porquê, os nomes, as medidas, as
-seções de compartilhamento, microfone, voltar, volume, cast e som do
-espelhamento — está em
-[`docs/DIVERGENCIAS-WEB-NATIVO.md`](docs/DIVERGENCIAS-WEB-NATIVO.md).** A tabela
-abaixo é o mapa: navegador → app.
-
-| ponto | o que difere |
-|---|---|
-| `sw.js` | não existe no bundle; atualizar é papel do OTA |
-| `#startBtn` | oculto no app (sem política de gesto) e no papel `tela` (o gesto é do "Ativar esta tela"); quem o esconde é `display.js` |
-| áudio bloqueado | no app a recuperação do `onBlocked` é desativada (falso positivo) |
-| pastas do aparelho | SAF no lugar de `showDirectoryPicker()` |
-| compartilhamento / link copiado | só no app (`ShareIntake.kt`, só `content://`); o link copiado vem com PERGUNTA antes |
-| destinos de um item | na gaveta, um botão por destino (as folhas marcam vários); o vídeo do YouTube baixa UMA vez |
-| estado do telão · cast · saída de áudio | indicador ao vivo; `openCast()`; o tile "Saída de áudio" ABRE o seletor do sistema, não ROTEIA |
-| recolher a prévia | a seta vira uma linha do deck; marcação × geometria × veredito da decodificação são três coisas |
-| retomada do telão | reenvia só o que ESTAVA no ar (`midiaNoAr`, nunca `currentId`) |
-| Modo Fácil | sem prévia; a Biblioteca é a tela principal sem mídia no ar; abre SEMPRE no Modo Fácil (`sessionStorage`) |
-| som da preview | sem tela, sai deste aparelho; com tela, mudo; PERDER a projeção com mídia no ar a PAUSA (`haDestinoDeProjecao()`) |
-| PDF · `.pptx` | uma IMAGEM por página (PNG ou WebP por `PAGINA_LEVE`); o vídeo embutido toca |
-| YouTube | só no app, BAIXADO pelo aparelho (`YoutubeGrab.kt`); "Tocar agora" espera o download; padrão 720p é do operador; até 1080p montando faixas (`MuxMp4.kt`) |
-| séries · episódio da semana | só no app; a rotina é sempre ligada e só roda em Wi-Fi confirmado ou com "Dados móveis" |
-| cifra | só no app (CORS); a aba só existe com folha na mão |
-| link para fora | `openExternal(url)` (o WebView recusa outro origin) |
-| tela cheia da preview · teclas de volume | trava de paisagem nativa; as teclas são CONSUMIDAS para o painel do Android não ir à projeção |
-| captura de áudio/vídeo | não existe caminho nenhum; o `onPermissionRequest` nega COM log |
-| navegação · voltar | uma tela e duas folhas; o voltar fecha o que estiver aberto antes de minimizar |
-| downloads minimizados · controles fora do app | FGS + wake lock; `MediaSession` |
-| levar a biblioteca · compartilhar o link do app | `.avpkg` (só ACRESCENTA); `compartilharTexto` |
-| abertura · OTA · APK · tema · contagem | cortina + tema no `<head>`; OTA; o app baixa e instala; o tema vira o cromo do sistema; o farol (sempre ativo) |
-| telão nas telas da rede · `__AV_ROLE__` | servidor no celular; terceiro papel `'tela'`, e nenhum caminho testa `=== 'display'` |
-
-O que se quebra sem abrir o capítulo:
-
-- **`ACTION_SEND` é público:** o `ShareIntake` aceita **só `content://`** (fora a
-  autoridade do próprio app), e o intent é **CONSUMIDO** depois de lido, com o
-  parse só em `savedInstanceState == null`.
-- **O microfone ao vivo SAIU (v1.8.89), e na X1 saiu também o que restava no
-  shell** (`requestMic`, `requestMicPermission` e o `MicDiag`). Quem trouxer
-  captura de volta traz a escada de três degraus, a guarda de papel e o dreno do
-  `mic-status` — o `tools/sem-captura.test.mjs` é a porta que cobra. A câmera
-  continua negada, com log.
-- **O voltar nunca encerra a Activity:** quem decide é `window.__avBack` (a
-  tabela `POPUPS`), com prazo de 350 ms (`BACK_JS_TIMEOUT_MS`); no fim,
-  `moveTaskToBack`.
-- **As teclas de volume são consumidas só depois que o web pede**
-  (`captureVolumeKeys(true)`); no zero e no teto há válvula para o sistema, e a
-  passagem de dois ciclos só vale onde o volume do sistema alcança o som
-  (`passagemAlcancaOSom`).
-- **Espelhamento ≠ Google Cast:** `pickCastIntent()` filtra o Play Services e o
-  bloco `<queries>` do manifesto é o que deixa a cadeia resolver.
-- **O espelhamento leva o som do APARELHO INTEIRO** (`REMOTE_SUBMIX`) e **não há
-  conserto no app**; `requestAudioFocus` no Kotlin seria REGRESSÃO (despejaria o
-  WebView e pausaria o telão). A saída é estrutural: o áudio não nascer no
-  celular.
-
----
+**Movido.** A tabela navegador → app está em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#divergências-entre-o-caminho-web-e-o-nativo); cada ponto por extenso em [`docs/DIVERGENCIAS-WEB-NATIVO.md`](docs/DIVERGENCIAS-WEB-NATIVO.md). Toda guarda é `if (!window.__NATIVE__)`: o navegador é o padrão.
 
 ## Build e distribuição
 
@@ -788,110 +293,87 @@ Chromium, a rede externa bloqueada, o JUnit, a assinatura e o backup estão em
 ### Os oráculos — o MÉTODO
 
 **As tabelas — o que cada oráculo trava — moram em
-[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 127 linhas de REFERÊNCIA: ninguém as
-lê inteiras, e ninguém deveria. Abra o capítulo para mexer num oráculo, escrever
-um novo, ou entender por que uma asserção existe antes de "consertá-la". O que
-fica aqui é o MÉTODO, que vale para todos eles.
-
-**As regras de método, que ficam aqui:**
+[`docs/ORACULOS.md`](docs/ORACULOS.md);** é REFERÊNCIA pura: consulte por
+`grep` ao mexer num oráculo, ao escrever um novo, ou antes de "consertar" uma
+asserção. O que fica aqui é o MÉTODO, que vale para todos.
 
 - **LOCALMENTE SE RODA SÓ A VIZINHANÇA DO LOTE; A SUÍTE INTEIRA É DO CI**
   (decisão do operador, 2026-10-15). Antes do commit: os oráculos de Chromium
   que tocam o que o lote mexeu (e os vizinhos que leem o mesmo estado), TODOS
-  os de Node puro (somam ~8 s) e a *"Sanidade da base web"* (o bloco abaixo).
-  A suíte de Chromium completa NÃO roda na máquina de quem escreve: ela roda
-  no `verificar` de `main`, que já é o portão do `web-ota` — um vermelho ali
-  segura o bundle, não o publica. **Reprovou no CI, o lote não acabou:**
-  conserta, repete a vizinhança e empurra de novo, até o manifesto do canal
-  mostrar a versão. A reversão de asserção nova continua valendo inteira.
+  os de Node puro (~8 s) e a *"Sanidade da base web"*. A suíte de Chromium
+  completa roda no `verificar` de `main`, que já é o portão do `web-ota` — um
+  vermelho ali segura o bundle, não o publica. **Reprovou no CI, o lote não
+  acabou:** conserta, repete a vizinhança e empurra de novo.
 
-- **Teste que não está no workflow é documentação, não rede de segurança** — e
-  a linha do `rodar` entra no MESMO lote que o arquivo. Isto deixou de ser
-  higiene e virou passo do rito: **quatro vezes em nove lotes** — a v1.8.0 com o
-  `clone-de-outro-celular.test.mjs`, a v1.8.2 com o
-  `clone-lista-de-aparelhos.test.mjs`, um terceiro de meses atrás que a
-  varredura da v1.8.4 achou (`preview-volta-ao-wallpaper.test.mjs`) e, o mais
-  caro deles, a v1.8.8 com o `kotlin-simbolo-importado.test.mjs`. O modo de
-  falhar é sempre o mesmo — o run fica verde porque ninguém o roda, e o oráculo
-  novo passa a existir só no repositório.
-
-  **O QUARTO É O QUE MOSTRA O CUSTO.** Ele foi escrito para impedir que um
-  símbolo sem `import` derrubasse a `main` — que é o que a v1.8.6 tinha acabado
-  de fazer —, ficou fora do workflow, e por um lote inteiro o repositório teve
-  a linha na tabela, o arquivo no disco, e **nenhuma proteção**. *Um oráculo que
-  não roda é pior que oráculo nenhum: ele responde a pergunta "isso está
-  coberto?" com um sim que não existe.*
-
-  A comparação é `tools/*.test.mjs` contra o workflow, arquivo a arquivo, **nos
-  dois sentidos** — a segunda direção achou o `clone-lista-de-aparelhos`, que
-  rodava no CI sem linha em tabela nenhuma. É essa varredura, não a memória, que
-  responde à pergunta, e ela é uma linha:
-  `comm -3 <(ls tools/*.test.mjs | sort) <(grep -oE 'tools/[a-z0-9.-]+\.test\.mjs' .github/workflows/apk.yml | sort -u)`
-- **E A LISTA DO CI NÃO É `tools/*.test.mjs`.** Dois oráculos não têm esse
-  sufixo — o `smoke.mjs` e o `display-smoke.mjs` —, e são justamente os dois
-  que medem o RENDERIZADO. Um runner local que filtre por esse sufixo os pula
-  em silêncio e devolve um placar cheio: aconteceu na v1.8.50, e o que ele
-  escondeu foi uma regra de CSS que subia o corpo de uma coleção por cima da
-  própria barra. A lista certa é a do workflow, e ela sai daqui:
-  `grep -oE 'tools/[a-z0-9._-]+\.mjs' .github/workflows/apk.yml | sort -u | grep -vE 'arnes|checar|sem-rede|pares-de-comentario'`
-- **E OS ORÁCULOS NÃO SÃO O PASSO INTEIRO.** Antes deles o `verificar` roda a
-  *"Sanidade da base web"*, que é um bloco de shell DENTRO do workflow — e o que
-  ele trava não está em `tools/` nenhum: a forma do `version.json`, o `minShell`
-  contra o `SHELL_VERSION` lido do próprio Kotlin, o `shellTag` batendo com a
-  versão, as três casas do número, e o **teto de 120 caracteres por item do
-  `notas.json`** (*"a lista do diálogo é uma linha do tempo, não um texto"*).
-  Rodar só os oráculos devolve placar cheio e reprova no CI — aconteceu na
-  v1.8.51, com 98/98 locais e o `web-ota` PULADO por um item de 127 caracteres.
-  **Rodar o mesmo texto, sem copiá-lo** (copiar seria a divergência que o arnês
-  existe para fechar):
+- **O PORTÃO É UM COMANDO, e ele roda o texto do workflow sem copiá-lo:**
 
   ```bash
-  python3 - <<'PY' > /tmp/sanidade.sh
-  s = open('.github/workflows/apk.yml', encoding='utf-8').read()
-  i = s.index('      - name: Sanidade da base web (sintaxe do JS)')
-  b = s[i:s.index('\n      - name:', i + 10)]
-  c = b[b.index('        run: |\n') + len('        run: |\n'):]
-  print('\n'.join(l[10:] if l.startswith(' ' * 10) else l for l in c.split('\n')))
-  PY
-  bash /tmp/sanidade.sh
+  tools/portao.sh                       # Node puro + Sanidade + a lista do CI
+  tools/portao.sh controle/controle.js  # + a vizinhança que cita o arquivo
   ```
+
+  Copiar o bloco da Sanidade seria a divergência que o arnês existe para fechar:
+  o script o extrai do próprio `.github/workflows/apk.yml` a cada execução.
+
+- **Teste que não está no workflow é documentação, não rede de segurança** — a
+  linha do `rodar` entra no MESMO lote que o arquivo. O modo de falhar é sempre
+  o mesmo: o run fica verde porque ninguém o roda, e o oráculo novo passa a
+  existir só no repositório. *Um oráculo que não roda é pior que oráculo
+  nenhum: ele responde a pergunta "isso está coberto?" com um sim que não
+  existe.* A varredura é arquivo a arquivo, **nos dois sentidos** (o
+  `portao.sh` imprime esta conta):
+
+  ```bash
+  comm -3 <(ls tools/*.test.mjs | sort) \
+          <(grep -oE 'tools/[a-z0-9.-]+\.test\.mjs' .github/workflows/apk.yml | sort -u)
+  ```
+
+- **E A LISTA DO CI NÃO É `tools/*.test.mjs`.** O `smoke.mjs` e o
+  `display-smoke.mjs` medem o RENDERIZADO e não têm esse sufixo: um runner que
+  filtre por ele os pula em silêncio e devolve placar cheio. A lista certa sai
+  do workflow, e o `portao.sh` usa exatamente esta:
+
+  ```bash
+  grep -oE 'tools/[a-z0-9._-]+\.mjs' .github/workflows/apk.yml | sort -u \
+    | grep -vE 'arnes|checar|sem-rede|pares-de-comentario'
+  ```
+
+- **E OS ORÁCULOS NÃO SÃO O PASSO INTEIRO.** A *"Sanidade da base web"* é um
+  bloco de shell DENTRO do workflow e trava o que não está em `tools/` nenhum: a
+  forma do `version.json`, o `minShell` contra o `SHELL_VERSION` lido do próprio
+  Kotlin, o `shellTag` batendo com a versão, as três casas do número e o **teto
+  de 120 caracteres por item do `notas.json`** (*"a lista do diálogo é uma linha
+  do tempo, não um texto"*). Rodar só os oráculos devolve placar cheio e reprova
+  no CI.
+
 - **A REVERSÃO É UM PASSO, NÃO UMA BOA PRÁTICA.** Toda asserção nova roda
-  **duas vezes** antes do commit: com o conserto, e com ele desfeito. Sem isso a
-  asserção pode ser uma TAUTOLOGIA — passar nas duas versões —, e isso não é
-  hipótese: aconteceu DUAS vezes na revisão de 2026-09-07, e uma delas passou
-  porque o prazo de 8 s era maior que a duração da faixa do cenário, então a
-  preview chegava ao fim sozinha e o app avançava pelo caminho de sempre. **Uma
-  asserção que não pode reprovar o defeito que ela nomeia é pior que asserção
-  nenhuma:** ela responde *"isso está coberto?"* com um sim que não existe.
+  **duas vezes** antes do commit: com o conserto, e com ele desfeito. Sem isso
+  ela pode ser uma TAUTOLOGIA — passar nas duas versões. **Uma asserção que não
+  pode reprovar o defeito que ela nomeia é pior que asserção nenhuma:** ela
+  responde *"isso está coberto?"* com um sim que não existe.
 
-  **E É A REVERSÃO QUE ESCOLHE A CÉLULA E A RÉGUA, não o bom senso** (v1.8.65,
-  onde ela pegou DUAS tautologias num lote só). Uma asserção geométrica mede
-  numa largura e numa escala de fonte, e a maioria delas não alcança a decisão:
-  medido, o rodapé de Configurações cabe folgado a 430×1× e a 390×1×, e a
-  asserção do recuo passava ali com e sem o conserto — só a 360×1,25× ela
-  reprova. **A RÉGUA tem o mesmo problema:** medir `scrollWidth` do `<span>`
-  para provar que um rótulo não é cortado nunca acusa nada, porque o span é do
-  tamanho do próprio texto e quem é estourado é o PAI. Quando a reversão passa,
-  a pergunta não é *"a asserção está errada?"* — é *"que célula, e medindo o
-  quê?"*.
+  **A reversão escolhe a CÉLULA e a RÉGUA, não o bom senso.** A maioria das
+  asserções geométricas não alcança a decisão em qualquer largura — e medir
+  `scrollWidth` de um `<span>` para provar que o rótulo não é cortado nunca
+  acusa nada: o span é do tamanho do texto, e quem estoura é o PAI. Quando a
+  reversão passa, a pergunta não é *"a asserção está errada?"* — é *"que célula,
+  e medindo o quê?"*. E ela também acha declaração que não faz nada: um
+  `min-width: max-content` que não movia um pixel, porque um item flex já nasce
+  com `min-width: auto` e o `white-space: nowrap` já É o rótulo inteiro.
 
-  **E ELA TAMBÉM ACHA DECLARAÇÃO QUE NÃO FAZ NADA.** No mesmo lote, um
-  `min-width: max-content` foi escrito para segurar o rótulo, ganhou comentário
-  e asserção, e a reversão mostrou que removê-lo não move um pixel: um item flex
-  já nasce com `min-width: auto`, o tamanho mínimo automático, e com
-  `white-space: nowrap` isso É o rótulo inteiro. **Saiu a declaração, a asserção
-  e o comentário, os três juntos** — um comentário que credita a peça errada
-  manda o próximo leitor proteger o lugar errado, que é o defeito mais caro que
-  este repositório sabe produzir em documentação.
 - **A REVERSÃO SE DESFAZ COM UMA CÓPIA, NUNCA COM O GIT.** `git checkout
   <arquivo>` restaura do HEAD e **apaga o trabalho não commitado do lote inteiro
-  naquele arquivo** — aconteceu, e custou refazer quatro edições. `cp` de um
-  backup feito antes da reversão, e pronto.
-- `node --check` prova que o arquivo é PARSEÁVEL, não que o app funciona — a
-  v5.121 saiu com um botão chamando função apagada, sintaxe perfeita e CI verde.
-  O canal OTA publica direto para a frota e o watchdog **não evita o primeiro
+  naquele arquivo**. `cp` de um backup feito antes, e pronto.
+
+- `node --check` prova que o arquivo é PARSEÁVEL, não que o app funciona. O
+  canal OTA publica direto para a frota e o watchdog **não evita o primeiro
   estrago** (`beginSession()` arma o `pending` e SERVE o bundle; só o lançamento
   seguinte descarta): um lançamento quebrado por aparelho, garantido.
+
+> **Os casos que criaram estas regras** — os quatro oráculos esquecidos, o
+> `notas.json` de 127 caracteres, as tautologias, o `min-width` — estão em
+> [`docs/revisao/CASOS-MEDIDOS.md`](docs/revisao/CASOS-MEDIDOS.md). É apêndice,
+> como o `HISTORICO.md`: consulta-se por `grep`, não por leitura.
 
 ---
 
@@ -1001,40 +483,7 @@ fica aqui é o MÉTODO, que vale para todos eles.
 
 ### Diagnóstico
 
-**As regras por extenso — com os casos medidos que as criaram — estão em
-[`docs/DIAGNOSTICO.md`](docs/DIAGNOSTICO.md).** Abra-o antes de mexer na
-Verificação do Sistema, no Registro ou numa rotina de massa. O que se quebra sem
-abrir:
-
-- **A Verificação tem QUATRO desfechos** (`funcionou` · `não funcionou` ·
-  `não respondeu` · `não se aplica`): o quarto evita a parede vermelha, e "não
-  respondeu" nunca vira "não funcionou". **O aparelho é a última palavra.**
-  Checagem nova é UMA linha na tabela `TESTES` e responde: falso vermelho? falso
-  verde? visível num culto? Uma checagem nunca muda a cena, chama `play()`, liga
-  servidor, pede permissão, abre tela do sistema, lê a área de transferência,
-  baixa megabytes ou deixa rastro — a ÚNICA exceção é o download de teste
-  (`TESTE_DL`), pedido pelo operador. Só emite `diag-ask`; com mídia no ar cede a
-  VEZ, não a rodada; o resultado é UM objeto.
-- **Rotina de massa conta o que chegou ao DISCO**, nunca o que tentou — a falha
-  sobe pela cadeia de retorno inteira até a frase. **Um contador de desfechos
-  fecha a conta**, e todo contador de falha leva o DENOMINADOR.
-- **Campo de endereço de terceiro aceita as DUAS formas e trava no DOMÍNIO** (o
-  ponto ancora a comparação; nunca re-encodar); a extensão sai do NOME do
-  arquivo, validada. **Conserto de campo derivado no download traz o BACKFILL
-  junto**, e um conserto cuja porta é um botão confere que o botão existe no
-  estado em que o defeito mora.
-- **A porta de um bloco do Registro pergunta pelo que ele descreve**; um bloco
-  não se contradiz na própria altura; falha da FONTE não é a rede de quem opera;
-  a frase final NOMEIA a causa; duas réguas para a mesma pergunta divergem.
-- **Kotlin devolve JSON; quem monta a FRASE é o `controle.js`.** Desligar diz
-  POR QUÊ (`desmontarEspelho(motivo)`).
-- **O Registro é UM só**, sem visor, feito para ser COPIADO: comprimento não
-  custa, ENTERRAR custa (a linha do tempo vem logo depois do cabeçalho e é
-  montada na hora de desenhar). Ele é sobre o CULTO; número responde "com que
-  frequência?", linha responde "da última vez?"; um bloco guarda o VEREDITO da
-  mesma função que decidiu, com o dado CRU. **Uma porta só: a Verificação** —
-  porta nova é porta para o mesmo arquivo, e ela recusa o vazio. Campo de log
-  nasce com porta de saída.
+**Movido.** As regras da Verificação do Sistema e do Registro estão em [`NUCLEO-TECNICO.md#diagnóstico`](docs/NUCLEO-TECNICO.md#diagnóstico) e em [`docs/DIAGNOSTICO.md`](docs/DIAGNOSTICO.md). **O aparelho é a última palavra.**
 
 ### Documentação
 
@@ -1204,4 +653,3 @@ trouxe está no `docs/HISTORICO.md`, nunca aqui.
 | a Verificação do Sistema e o Registro | `docs/DIAGNOSTICO.md` |
 | o que o operador pediu e ainda não foi feito? | `docs/PEDIDOS-EM-ESPERA.md` — pacotes; perguntar qual seguir antes de começar |
 | "faça uma das etapas de revisão" / a revisão profunda em etapas | `docs/REVISAO-PROFUNDA.md` (o plano e a regra que ESCOLHE a etapa) e `docs/revisao/REGISTRO.md` (a fila e o andamento) — uma etapa por sessão, a sessão escolhe sozinha |
-

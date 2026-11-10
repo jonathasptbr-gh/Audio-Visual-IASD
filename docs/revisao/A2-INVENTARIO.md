@@ -51,3 +51,54 @@ link. As linhas `L…` são do arquivo antigo.
 | "Versão atual": a quarta casa tem oráculo; renumerar mexe nas quatro casas + `notas.json` | fica no núcleo (condensada); verbatim → HISTORICO revisão A2 |
 | "Versão atual": `apk` reprovado não pula o `web-ota` (o HOLD) | núcleo: 1 ponto; verbatim → `docs/BUILD.md` e HISTORICO revisão A2 |
 | Onde procurar (3503–fim), com a linha da revisão profunda | fica no núcleo, + linhas para os arquivos novos |
+
+---
+
+## A3 — 2026-11-09: o núcleo vira CONTRATO (e o corpo técnico sai inteiro)
+
+A A2 encolheu o `CLAUDE.md` de 315 KB para 80 KB, mas ele continuou sendo lido
+**inteiro em toda sessão** — e 60% dele era capítulo comprimido (invariantes,
+ponte, OTA, telão, paleta). Uma sessão de revisão mediu o custo e separou o que
+se decide ANTES de tocar em nada do que se abre POR ÁREA.
+
+**Método, e a prova:** cada faixa foi copiada **byte a byte** (script, não
+transcrição) para `docs/NUCLEO-TECNICO.md`, e a conferência foi feita contra o
+arquivo antigo: das **1.042 linhas não vazias**, as únicas 59 que não aparecem
+nos dois arquivos novos são as do **índice antigo** (substituído) e as do aviso
+de abertura (reescrito). **Zero linhas de regra perdidas fora do índice.**
+
+| bloco (linhas do `CLAUDE.md` de 1.207) | destino |
+|---|---|
+| índice: 4 tabelas que se sobrepunham (16–81) | **reposto**: 2 tabelas + a régua "leia as três primeiras e a última" |
+| a conversa com o operador (84–122) | fica, inteira |
+| o ganho · a estrutura do repositório (125–198) | ficam, inteiros |
+| invariantes 1–9 · `KeepVisibleWebView` · reconexão (201–323) | `docs/NUCLEO-TECNICO.md`; no contrato, resumo de 2 linhas |
+| a ponte · `SHELL_VERSION` · as seis filas (327–381) | idem; no contrato, o que se paga caro (`host = null`) |
+| barramento · segundo plano · sessão de mídia (385–468) | idem |
+| OTA · telão por comandos (470–553) | idem |
+| séries · cifra · pacote · abertura (557–658) | idem |
+| paleta · divergências web × nativo (662–750) | idem |
+| build e distribuição (754–787) | fica |
+| o MÉTODO dos oráculos (788–895) | fica **sem a narrativa**: os seis casos foram para `docs/revisao/CASOS-MEDIDOS.md`, e o bloco de shell que extraía a Sanidade virou `tools/portao.sh` |
+| entrega · código (898–1001) | ficam |
+| diagnóstico (1002–1037) | `docs/NUCLEO-TECNICO.md`; no contrato, 2 linhas |
+| documentação · o número · a versão (1039–1207) | ficam, inteiros |
+
+**O que mudou de natureza, não só de lugar:**
+
+1. **Número congelado saiu do texto.** O estado (HEAD, versão, CI, token) agora
+   é medido por `tools/estado.sh` — e a regra "número que ele não imprimiu nesta
+   sessão não se cita" substitui a tabela que dizia "token ausente" com o token
+   na mão e um HEAD de dois commits atrás.
+2. **O portão virou comando.** `tools/portao.sh` roda os oráculos de Node puro,
+   extrai a Sanidade do próprio workflow (sem copiar, sem `/tmp`) e confere a
+   cobertura nos dois sentidos. O `/tmp` do texto antigo contradizia a armadilha
+   registrada no manual do ambiente.
+3. **A fila ganhou índice** (`docs/PEDIDOS-EM-ESPERA.md`): lê-se o pacote
+   escolhido, não os 30 KB.
+4. **As cópias divergentes morreram.** O `AGENTS.md` do ambiente virou 90 linhas
+   (só o que não mora em repositório) e o `PACOTE-DE-CONTINUIDADE.md` virou o
+   bootstrap portátil — os dois apontam para cá em vez de repetir o rito.
+
+**O que NÃO mudou:** nenhuma regra de comportamento, nenhum número de versão
+(esta revisão é só de documentação e ferramentas) e nenhum oráculo de app.
