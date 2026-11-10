@@ -412,7 +412,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.57';
+const WEB_VERSION = '1.13.58';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -951,29 +951,53 @@ const FIXED_COLLECTIONS = [
 const GRUPO_CDS_DO_ANO = /cds?\s+(oficiais|do\s*ano)/i;
 const GRUPO_DIVERSAS = 'Diversas';
 
-// ===== OS ELEMENTOS FIXOS DO MODO FÁCIL (v1.13.57) =====
-// O operador: *"coisas como ofertório e abertura para a adoração infantil"*, logo depois dos
-// vídeos da semana. Cada um é um ÁLBUM DO CATÁLOGO, achado pelo NOME (sem acento e sem caixa):
-// sem álbum com o nome, a linha NÃO existe — não se acende o que não tem o que abrir. Quando o
-// catálogo ganhar os dois, eles aparecem aqui sozinhos, sem lote novo.
-const ELEMENTOS_FIXOS_SIMPLES = ['Ofertório', 'Abertura da adoração infantil'];
+// ===== OS DOIS ELEMENTOS FIXOS DO MODO FÁCIL (v1.13.58) =====
+// O operador (2026-11-10): *"O ofertório é o item 572 do hinário adventista de 2022. E a abertura
+// para adoração infantil é 533. São itens e não álbuns ou coleções."* São DUAS linhas de um
+// toque na raiz do Modo Fácil, logo depois dos vídeos da semana: cada uma é um ITEM do Hinário
+// 2022, e o toque toca pelo caminho de sempre (`simplePlaySong`, que baixa o que falta).
+// Sem o hino no índice do aparelho a linha NÃO nasce — não se acende o que não tem o que abrir.
+const ELEMENTOS_FIXOS_SIMPLES = [
+  { numero: 572, rotulo: 'Ofertório' },
+  { numero: 533, rotulo: 'Abertura da adoração infantil' },
+];
 
-// O nome comparável: sem acento, sem caixa, com os espaços colapsados.
-function chaveDeNome(s) {
-  return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase().replace(/\s+/g, ' ').trim();
+// O hino do Hinário 2022 que o número pede, ou null enquanto o índice não estiver aqui.
+function hinoFixoDoSimples(numero) {
+  const coll = allCollections().find((c) => c.id === HYMNAL_2022_ID);
+  if (!coll) return null;
+  const s = faixasDaLista(coll).find((x) => (x.track | 0) === numero);
+  return s ? { coll, s } : null;
 }
-// Os álbuns que o Modo Fácil fixa na raiz, na ordem de `ELEMENTOS_FIXOS_SIMPLES`.
-function elementosFixosDoSimples(byId) {
-  const achados = [];
-  for (const alvo of ELEMENTOS_FIXOS_SIMPLES.map(chaveDeNome)) {
-    const coll = albumCatalog.albums
-      .map((a) => byId.get('album-' + a.id_album))
-      .find((c) => c && chaveDeNome(c.name) === alvo);
-    if (coll && !achados.includes(coll)) achados.push(coll);
-  }
-  return achados;
+
+// A LINHA do elemento fixo: o nome do momento em cima, "572 · <nome do hino>" embaixo, e o
+// toque que toca — o mesmo par `simpleMarcarEscolha` + `simpleAcompanhar` das outras linhas.
+// `bloco-fixo` a tira da repartição da tampa (`calcularTampa`): é altura de conteúdo.
+function linhaFixoDoSimples(numero, rotulo) {
+  const achado = hinoFixoDoSimples(numero);
+  if (!achado) return null;
+  const { coll, s } = achado;
+  const li = document.createElement('li');
+  li.className = 'lib-item hymn-result semana-raiz-item bloco-fixo';
+  li.dataset.song = 'fixo:' + numero;
+  if (simpleLinhaSelecionada(li.dataset.song)) li.classList.add('selecionando');
+  const row = document.createElement('div'); row.className = 'row hymn-row';
+  const info = document.createElement('div'); info.className = 'hymn-info';
+  const nome = document.createElement('span'); nome.className = 'row-name hymn-name';
+  nome.textContent = rotulo;
+  const sub = document.createElement('span'); sub.className = 'hymn-sub';
+  sub.textContent = numero + ' · ' + s.name;
+  info.append(nome, sub);
+  row.append(miniaturaDeTipo('audio'), info);
+  row.title = 'Tocar ' + rotulo + ' — ' + numero + ', ' + s.name;
+  row.addEventListener('click', () => {
+    simpleMarcarEscolha(li.dataset.song, li);
+    simpleAcompanhar(simplePlaySong(coll, s));
+  });
+  li.appendChild(row);
+  return li;
 }
+
 // Índice (metadados leves) de cada coleção, por coll.id → { indexSyncedAt,
 // songs:[{ id_music, track, name, duration, has_instrumental_music,
 // fileIdFull, fileIdPlayback }] }. Fonte de verdade em memória (carregada no
@@ -12647,10 +12671,13 @@ function renderCollectionsListMiolo(alvo, redesenhar) {
     }
   } else {
     // (a) OS ELEMENTOS FIXOS, logo depois dos vídeos da semana — as duas linhas que o operador
-    // pediu (ver `ELEMENTOS_FIXOS_SIMPLES`); sem o álbum no catálogo, a linha não existe.
-    for (const coll of elementosFixosDoSimples(byId)) {
+    // pediu, itens do Hinário 2022 (ver `ELEMENTOS_FIXOS_SIMPLES`); sem o hino no índice, a linha
+    // não existe.
+    for (const el of ELEMENTOS_FIXOS_SIMPLES) {
+      const li = linhaFixoDoSimples(el.numero, el.rotulo);
+      if (!li) continue;
       any = true;
-      alvo.appendChild(renderCollectionCard(coll));
+      alvo.appendChild(li);
     }
     // (b) OS CDS DO ANO, sozinhos.
     const cds = categorias.find((c) => GRUPO_CDS_DO_ANO.test(String(c.name)));

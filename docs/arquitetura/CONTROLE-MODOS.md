@@ -189,11 +189,13 @@ recolhidas sem nada no ar).
   por modo: no avançado cada categoria do catálogo é um grupo; no Modo Fácil a raiz
   fica com os **CDs do ano** (`GRUPO_CDS_DO_ANO`) e **um** grupo, "Diversas"
   (`GRUPO_DIVERSAS`), com as outras categorias, os dois hinários e os álbuns órfãos.
-  Um álbum em duas categorias (o catálogo é N:N) entra UMA vez. **Elementos fixos:**
-  `ELEMENTOS_FIXOS_SIMPLES` (`Ofertório`, `Abertura da adoração infantil`) casa por
-  NOME normalizado contra os álbuns do catálogo e pendura o card logo depois do bloco
-  "Este sábado"; sem álbum com o nome, a linha não nasce. Oráculo: bloco 12 do
-  `lista-da-biblioteca`.
+  Um álbum em duas categorias (o catálogo é N:N) entra UMA vez. **Elementos fixos
+  (v1.13.58):** `ELEMENTOS_FIXOS_SIMPLES` são ITENS do Hinário 2022 — 572 (Ofertório)
+  e 533 (Abertura da adoração infantil) —, e cada um vira uma LINHA logo depois do
+  bloco "Este sábado" (`linhaFixoDoSimples`, `hinoFixoDoSimples`: `faixasDaLista` do
+  `HYMNAL_2022_ID` por `(x.track | 0)`), com `bloco-fixo` para ficar fora da tampa. O
+  toque toca o hino (`simplePlaySong`); sem o hino no índice, a linha não nasce.
+  Oráculo: bloco 12 do `lista-da-biblioteca`.
 - **Configurações enxutas (v1.13.57):** no Modo Fácil ficam Tema, Tela, Saída de
   áudio, Dados móveis e Compartilhar; Editar mídia, Histórico, Verificar e Transferir
   somem da grade (`body.mode-simple`).
