@@ -78,8 +78,6 @@ const SERIE = {
     'web-1.4': 9,
   },
 };
-const TOTAL_APK = 12 + 2 + 1 + 1 + 3 + 2 + 3 + 4 + 5;   // 33
-
 const navegador = await abrirNavegador();
 try {
   // =================================================================
@@ -116,60 +114,37 @@ try {
     await pg.waitForSelector('.kpi');
 
     const kpis = await pg.locator('.kpi-n').allInnerTexts();
-    // Da MARCA D'ÁGUA (`visto`) e não da última amostra: é ela que sobrevive à
-    // faxina do `web-ota` — e, desde a v1.4.3, às Releases antigas apagadas à
-    // mão. **E ela soma TUDO**, inclusive as versões que o gráfico abaixo
-    // agrupa: esconder um número é uma coisa, deixar de contá-lo é outra, e a
-    // segunda faria o painel mentir.
-    checar(kpis[0] === String(TOTAL_APK),
-      'o total soma TUDO — inclusive o que o gráfico agrupa em "anteriores"', kpis[0]);
     // 18 − 13 = 5 aparelhos no último dia.
-    checar(kpis[1] === '5', 'aparelhos no dia = a DIFERENÇA do contador entre dois dias', kpis[1]);
-    // 55 − 47 = 8 visitas.
-    checar(kpis[2] === '8', 'e o mesmo para as visitas', kpis[2]);
+    checar(kpis[0] === '5', 'aparelhos no dia = a DIFERENÇA do contador entre dois dias', kpis[0]);
+    // (3 + 5) / 2 = 4 — a média ignora o dia sem amostra em vez de contá-lo zero.
+    checar(kpis[1] === '4', 'a média por dia é a dos dias COM dado', kpis[1]);
+    // A base atual: a contagem da última amostra.
+    checar(kpis[2] === '9', 'a base atual vem da última amostra', kpis[2]);
 
-    // ---- as barras: geometria RENDERIZADA, não o HTML ----
-    const larguras = await pg.$$eval('.barra-f', (es) => es.map((e) => Math.round(e.getBoundingClientRect().width)));
-    // seis versões + a linha do passado
-    checar(larguras.length === 7, 'seis versões ganham barra, e o passado vira UMA linha', larguras);
-    const porRotulo = await pg.$$eval('.barra', (es) => {
-      const o = {};
-      es.forEach((e) => {
-        o[e.querySelector('.barra-t').textContent.trim()] =
-          Math.round(e.querySelector('.barra-f').getBoundingClientRect().width);
-      });
-      return o;
-    });
-    checar(porRotulo['v1.4.2'] > porRotulo['v1.4.1'] + 8,
-      'a barra de 12 é VISIVELMENTE maior que a de 2 — `<span>` inline ignora `width`', porRotulo);
-    // ZERO DESENHA UM TRAÇO, não o nada: a linha existe (a versão foi
-    // publicada) e a barra tem de dizer que ela não teve download nenhum.
-    checar(porRotulo['v1.5'] > 0 && porRotulo['v1.5'] < 8,
-      'e a versão em zero desenha um traço mínimo, não uma barra e não o vazio', porRotulo);
-    const cor = await pg.$eval('.barra-f', (e) => getComputedStyle(e).backgroundColor);
-    checar(cor === 'rgb(46, 109, 231)', 'e ela está pintada (bluejay), não só o trilho', cor);
+    // ---- a tabela da base: versão, contagem e tempo até a metade ----
+    // `v1.4` aparece com 2 no primeiro dia, 5 no segundo (>= metade de 9) e 9
+    // no terceiro: a metade é alcançada um dia depois da primeira amostra.
+    const bases = await pg.$$eval('table.bases tbody tr', (trs) =>
+      trs.map((tr) => [].map.call(tr.children, (td) => td.textContent.trim())));
+    checar(bases.length === 1 && bases[0][0] === 'v1.4' && bases[0][1] === '9',
+      'a tabela da base mostra a versão e a contagem da última amostra', bases);
+    checar(/1 dia/.test(bases[0].join(' ')),
+      'e o tempo até a metade é medido entre a primeira amostra e a metade', bases[0]);
 
-    // ---- a ordem é por VERSÃO, e a mais nova vem primeiro ----
-    const rotulos = await pg.$$eval('.barra-t', (es) => es.map((e) => e.textContent.trim()));
-    // A RECÉM-PUBLICADA APARECE MESMO EM ZERO. Ela vive só na amostra, não na
-    // marca d'água — e um painel que a omite não tem como responder "onde está
-    // a versão que acabei de publicar?".
-    checar(rotulos[0] === 'v1.5',
-      'a versão recém-publicada aparece mesmo com ZERO download', rotulos[0]);
-    checar(rotulos[1] === 'v1.4.2',
-      'e a ordem segue por versão, não por contagem', rotulos[1]);
-    checar(/^4 anteriores$/.test(rotulos[rotulos.length - 1]),
-      'e a última linha nomeia quantas versões ela agrupa', rotulos[rotulos.length - 1]);
+    // ---- o "quando": a série de 24 h não tem amostra horária, e o painel diz ----
+    const quando = await pg.locator('.q').count();
+    checar(quando === 2, 'o "quando" tem as duas leituras: dia da semana e hora', quando);
+    const vazioHora = await pg.locator('.q').nth(1).innerText();
+    checar(/Sem amostras horárias/.test(vazioHora),
+      'e diz que a hora não existe quando a série é diária', vazioHora);
 
-    // ---- o passado agrupado SOMA, e a régua o comporta ----
-    // 3 + 4 + 5 = 12, o mesmo da maior barra: as duas têm de sair do mesmo
-    // tamanho, e nenhuma pode estourar a caixa.
-    // com a `v1.5` entrando na frente, o passado agrupa 2+3+4+5 = 14
-    const nums = await pg.$$eval('.barra-n', (es) => es.map((e) => e.textContent.trim()));
-    checar(nums[nums.length - 1] === '14', 'a linha do passado SOMA as versões que ela esconde', nums);
-    const maior = Math.max.apply(null, larguras);
-    checar(larguras[larguras.length - 1] <= maior + 1,
-      'e a régua a comporta — a soma do passado não estoura a caixa', larguras);
+    // ---- o funil: visitas e downloads da janela ----
+    // 40 → 47 → 55 de visitas: a janela começa no primeiro dia com aparelho
+    // (dia 2), então soma (47−40) + (55−47) = 15. E os dias-aparelho são 3+5=8.
+    const funil = await pg.$$eval('.funil .f b', (es) => es.map((e) => e.textContent.trim()));
+    checar(funil.length === 3, 'o funil tem os três números', funil);
+    checar(funil[0] === '15', 'visitas da janela = SOMA das diferenças dos dias', funil[0]);
+    checar(funil[2] === '8', 'e os dias-aparelho somam a coluna de aparelhos', funil[2]);
 
     // ======================================================================
     // NÃO HÁ MAIS EXCLUSÃO — E O PAINEL DIZ ISSO (v1.4.42)

@@ -335,22 +335,28 @@ com outro custo de privacidade.
 | farol por SESSÃO em vez de por dia | quem abre o app quarenta vezes numa manhã de trabalho viraria quarenta. Por dia, o pior caso de um aparelho é contribuir com 1 — e a diferença entre dois dias passa a ser "aparelhos", que é a métrica de alcance |
 | retentar o farol que falhou | um dia perdido custa um ponto numa série; insistir custa fio e bateria no meio de um culto. É a única coisa deste projeto que pode falhar sem consequência, e falha calada de propósito |
 
-## §13 O PAINEL DE 2026-11-10 — três linhas e o que elas não respondem
+## §13 O PAINEL DE 2026-11-10 — só o que é sólido
 
-O painel passou a desenhar **três séries na mesma unidade (contagem por dia)**:
-**Baixaram** (delta dos APKs), **Usaram** (delta do farol) e **Visitaram** (delta
-do `v.txt`). As três já existiam na série; o que faltava era lê-las juntas, e a
-regra do §6 (nunca dois eixos) continua valendo.
+O painel foi reescrito em torno da **única métrica que este desenho entrega
+limpa**: aparelhos que abriram o app no dia (o farol), com a média de 7 dias
+tracejada. Em volta dela, quatro leituras que saem da mesma série:
 
-**"Instalados" não ganhou linha, e não é esquecimento:** sem identificar o
-aparelho ele não existe — o mais perto é a adoção da base atual (o 4º número),
-que é o que um aparelho instalado e atualizado faz. **"Quanto agora"** virou um
-cartão de estimativa que só aparece quando a última amostra tem ≤ 3 h: é o
-contador do OTA dividido por 240 (primeiro plano) e por 30 (segundo), e o
-resultado é sempre um INTERVALO.
+- **Agora** — o contador do OTA dividido por 240 (primeiro plano) e 30 (segundo),
+  sempre um intervalo, e só quando a última amostra tem até 3 h;
+- **Quando** — média por dia da semana (o sábado aparece) e por hora do dia,
+  esta última como faixa;
+- **A base atual** — adoção por versão e em quantos dias cada uma chegou à
+  metade do que tem hoje (o "o OTA está chegando?" medível);
+- **Funil dos últimos 7 dias** — visitas, downloads e dias-aparelho na mesma
+  janela, com a conversão da página para o download.
 
-**Para ter o que falta — únicos, instalados, "agora" de verdade, GB de
-biblioteca — o caminho é o §3-B:** um endpoint que receba um identificador
-aleatório por instalação. Ele continua parado, e o preço continua o mesmo: o
-endpoint vê o IP, e um id — mesmo sorteado — transforma contagem agregada em
-rastreamento. É decisão do operador, não do instrumento.
+**SAIU O QUE SÓ FAZIA RUÍDO:** as barras de download por versão do APK, o total
+de downloads desde a v1.0 e a leitura de downloads/visitas como linha do tempo.
+Download é EVENTO (reinstalação, robô, segunda tentativa) e não sustenta um
+número de topo; ele ficou onde é lido como ordem de grandeza — no funil, ao lado
+das visitas, com o aviso de que são eventos diferentes.
+
+**O QUE CONTINUA FORA, e é o mesmo de sempre:** aparelhos únicos, instalados e
+retenção não existem sem identificar o aparelho; "instalados" continua sendo
+aproximado pela adoção da base atual. GB de biblioteca o app sabe no aparelho e
+não reporta a lugar nenhum.

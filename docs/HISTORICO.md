@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o painel enxuto (sem versão nova; só `site/` e docs)** — uma linha sólida (aparelhos ativos + média de 7 dias) e quatro leituras: agora, quando (dia da semana e hora), base atual com o tempo até a metade, e o funil de 7 dias; saíram as barras por versão e o total de downloads
 - **o painel de alcance, redesenhado (sem versão nova; só `site/` e docs)** — três linhas no mesmo eixo (baixaram, usaram, visitaram), o cartão "agora" que sai da consulta do OTA, e as definições de cada número; o rodapé do site passa a linká-lo
 - **o download leva ao guia (sem versão nova; só `site/`)** — o botão do topo baixa e rola até os três passos; a instalação perdeu a explicação longa, o passo 3 manda aceitar a verificação do Google, e o selo "funciona sem internet" saiu de cima do telefone (ficou o "Funciona offline" nos selos)
 - **a tela de destinos voltou (sem versão nova; só `site/`)** — a captura que faltava chegou no mesmo dia e entrou no carrossel, entre a busca e o Hinário; a folha é a mesma em toda porta de entrada (inclusive o link compartilhado), e a foto é a variante do YouTube
@@ -682,6 +683,26 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## o painel enxuto (sem versão nova; só `site/` e docs)
+
+**FICOU SÓ O QUE É SÓLIDO.** A linha principal é a de sempre — aparelhos que
+abriram o app no dia, com a média de 7 dias tracejada —, e em volta dela
+entraram quatro leituras que a mesma série sustenta: **Agora** (o contador do
+OTA como intervalo), **Quando** (média por dia da semana e por hora do dia),
+**A base atual** (adoção por versão e em quantos dias cada uma chegou à metade)
+e o **funil dos últimos 7 dias** (visitas, downloads e dias-aparelho na mesma
+janela).
+
+**SAIU O QUE FAZIA RUÍDO:** as barras de download por versão do APK, o total de
+downloads desde a v1.0 e as linhas de downloads/visitas como série principal.
+Download é evento — reinstalação, robô e segunda tentativa contam igual — e não
+sustenta número de topo; ele ficou no funil, ao lado das visitas, com o aviso de
+que são eventos diferentes.
+
+**O QUE CONTINUA FORA:** únicos, instalados e retenção não existem sem
+identificar o aparelho; a adoção da base atual segue sendo o mais perto de
+"instalado". O contrato ganhou o §13 reescrito.
 
 ## o painel de alcance, redesenhado (sem versão nova; só `site/` e docs)
 
