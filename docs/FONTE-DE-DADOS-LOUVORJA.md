@@ -82,6 +82,21 @@ async function fetchList(file) {                 // file: "pt_hymnal", "music_12
 function fileUrl(path) { return FILE_URL + path; } // path vem de url_music, url_image…
 ```
 
+### 1.1 Repositório de origem — onde atualizar o contrato
+
+| Campo | Valor |
+|---|---|
+| **Original** | [`louvorja/app`](https://github.com/louvorja/app) — Vue 3 + Vuetify, branch `main` |
+| **Fork usado na engenharia reversa** | `jonathasptbr-gh/app-ja` — **removido em 2026-11-09** |
+| **Estado do fork** | 0 commits próprios, 37 commits atrás do original |
+| **Dependência em tempo de execução** | nenhuma — o Audio Visual fala com `api.louvorja.com.br` direto |
+
+Quando o backend mudar, conferir no **original**: `src/helpers/Database.js`
+(URLs e token), `Path.js` (montagem dos caminhos), `Media.js`, os módulos
+`core/*` e `.env.production`. Atualizar **este documento** e
+`public/controle/louvorja.js` no mesmo lote. Não é preciso recriar o fork: um
+clone raso do original basta.
+
 ---
 
 ## 2. As duas superfícies de API
