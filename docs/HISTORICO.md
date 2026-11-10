@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **as capturas novas do app (sem versão nova; só `site/`)** — as 14 telas do carrossel foram trocadas pelas do app na v1.13.62 (enviadas pelo operador), em WebP 800×1632; saíram as quatro sem captura nova (destinos, série, sorteio, tempo) e entraram Liturgia, Hinário por tema, Ferramentas e Transferir a biblioteca; o cartão do link foi refeito com a tela nova
 - **o site redesenhado (sem versão nova; só `site/`)** — página nova, mobile-first: hero em duas colunas, 12 recursos, carrossel de telas com pontos, dois modos e o passo a passo; o texto foi revisto contra o código (entra a Liturgia, entra o Cronograma com arrasto, sai a contagem que não existe) e o cartão do link foi refeito no desenho novo
 - **revisão da fachada (sem versão nova; só docs e site)** — o README perde o manual (compilar e índice de docs saem), o `CLAUDE.md` fica com uma árvore só e lista os apêndices, e o site ganha o cartão do link e volta a aparecer sem JavaScript
 - **v1.13.62** — desfaz o alinhamento da barra da Liturgia (volta o recuo de antes) e iguala o TAMANHO do título ao das coleções (`var(--fs-xl)`, o da `.coll-group-bar`); medido 20,368px = 20,368px (só web)
@@ -677,6 +678,28 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## as capturas novas do app (sem versão nova; só `site/`)
+
+**AS DEZESSETE CAPTURAS DO OPERADOR** (v1.13.62, 1255×2560) foram triadas, e
+catorze viraram as telas do carrossel — as antigas eram de 2026-09-07 (v1.8.49)
+e mostravam o app de três versões atrás. Conversão por canvas do Chromium para
+WebP 800×1632 (3× do cartão de 269px no celular, 2× do de 304px no computador),
+~783 kB no total, todas `loading="lazy"` como antes. O cartão do link foi
+refeito com a tela nova.
+
+**O QUE FICOU DE FORA, e por quê:** `busca-letra` (a busca por trecho conta a
+mesma história da `busca`, que mostra o YouTube embaixo), `cronogramas` (vários
+cronogramas — o recurso existe, mas o carrossel já tem o Cronograma) e
+`editar-midia` (trecho e fades: recurso de quem já opera, não de quem instala).
+As quatro telas SEM captura nova — destinos, série, sorteio, tempo — saíram do
+carrossel: misturar v1.8.49 com v1.13.62 no mesmo rol era pior que perder o
+slide. O que elas mostravam continua nos cartões (Ferramentas cobre sorteio e
+relógio; a Biblioteca mostra as séries) e no texto — o cartão do YouTube passou
+a dizer "vídeo ou só áudio", que era o que o slide de destinos mostrava.
+
+As dezessete originais ficam em `capturas/entrada/`, fora do `site/` (não vão
+para o Pages).
 
 ## o site redesenhado (sem versão nova; só `site/`)
 
