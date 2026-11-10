@@ -504,7 +504,10 @@
     if (v > 0) {
       h.push('<p class="conv">Conversão da página para o download: <b>'
         + Math.round(100 * d / v) + '%</b>. Cada número conta eventos diferentes — '
-        + 'leia como ordem de grandeza.</p>');
+        + 'leia como ordem de grandeza.</p>'
+        + '<p class="conv">O topo do funil é o número MENOS confiável: as visitas '
+        + 'incluem robôs e os testes de quem publica (cada navegador novo conta '
+        + 'uma vez). Leia como teto, não como gente.</p>');
     }
     return h.join('');
   }
