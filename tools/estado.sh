@@ -15,6 +15,9 @@ RAIZ=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$RAIZ" || { echo "sem repositório em $RAIZ"; exit 1; }
 
 g() { git -c safe.directory='*' "$@"; }
+# O `--ci` é guardado AQUI, antes de qualquer `set --` dos blocos abaixo: um
+# `set --` reescreve os posicionais, e o pedido de CI se perderia em silêncio.
+CI=0; [ "${1:-}" = "--ci" ] && CI=1
 p() { printf '\n== %s\n' "$1"; }
 
 p "repositório"
@@ -77,7 +80,7 @@ else
 fi
 echo "  gh CLI:      $(gh auth status >/dev/null 2>&1 && echo logado || echo 'sem login (use a API pelo token)')"
 
-if [ "${1:-}" = "--ci" ] && [ -f "$HOME/.dsh-github/token" ]; then
+if [ "$CI" -eq 1 ] && [ -f "$HOME/.dsh-github/token" ]; then
   p "CI do HEAD"
   node -e '
     const fs = require("fs");
@@ -94,7 +97,7 @@ if [ "${1:-}" = "--ci" ] && [ -f "$HOME/.dsh-github/token" ]; then
       if (!(j.check_runs || []).length) console.log("  (nenhum check ainda)");
     }).catch(() => console.log("  (API indisponível agora)"));
   ' "$(g rev-parse HEAD)"
-elif [ "${1:-}" = "--ci" ]; then
+elif [ "$CI" -eq 1 ]; then
   echo "  (sem token: CI não consultado)"
 fi
 

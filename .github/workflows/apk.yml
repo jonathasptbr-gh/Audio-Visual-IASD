@@ -321,6 +321,16 @@ jobs:
           # esquecido no `bgProgress`. Determinístico: sem `continue-on-error`.
           node tools/tokens.test.mjs
 
+      - name: Ferramentas do repositório (estado e portão) — Node puro
+        run: |
+          # `tools/estado.sh` e `tools/portao.sh` são o caminho de ENTRADA do
+          # trabalho; um deles perdia o `--ci` em silêncio (um `set --`
+          # reescrevia os posicionais). Este passo prova que as duas parseiam,
+          # que o estado roda, e que o portão continua apontando para o bloco
+          # CERTO do workflow — renomear o passo da Sanidade faria o portão
+          # extrair outro bloco, e a falha apareceria longe da causa.
+          node tools/ferramentas.test.mjs
+
       # ────────────────────────────────────────────────────────────────────
       # OS ORÁCULOS DE CHROMIUM, EM DOIS PASSOS (v5.213)
       #
