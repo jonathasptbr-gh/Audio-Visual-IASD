@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o download leva ao guia (sem versão nova; só `site/`)** — o botão do topo baixa e rola até os três passos; a instalação perdeu a explicação longa, o passo 3 manda aceitar a verificação do Google, e o selo "funciona sem internet" saiu de cima do telefone (ficou o "Funciona offline" nos selos)
 - **a tela de destinos voltou (sem versão nova; só `site/`)** — a captura que faltava chegou no mesmo dia e entrou no carrossel, entre a busca e o Hinário; a folha é a mesma em toda porta de entrada (inclusive o link compartilhado), e a foto é a variante do YouTube
 - **as capturas novas do app (sem versão nova; só `site/`)** — as 14 telas do carrossel foram trocadas pelas do app na v1.13.62 (enviadas pelo operador), em WebP 800×1632; saíram as quatro sem captura nova (destinos, série, sorteio, tempo) e entraram Liturgia, Hinário por tema, Ferramentas e Transferir a biblioteca; o cartão do link foi refeito com a tela nova
 - **o site redesenhado (sem versão nova; só `site/`)** — página nova, mobile-first: hero em duas colunas, 12 recursos, carrossel de telas com pontos, dois modos e o passo a passo; o texto foi revisto contra o código (entra a Liturgia, entra o Cronograma com arrasto, sai a contagem que não existe) e o cartão do link foi refeito no desenho novo
@@ -679,6 +680,23 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## o download leva ao guia (sem versão nova; só `site/`)
+
+**O BOTÃO DO TOPO AGORA FAZ AS DUAS COISAS:** baixa e leva o olho para os
+passos. O clique não é interceptado — o download começa igual — e 60 ms depois a
+página desliza até `#instalar`, que ganhou `scroll-margin-top` para o título não
+nascer atrás da barra fixa. Vale para o botão do hero e o da barra.
+
+**A INSTALAÇÃO FICOU CURTA:** o subtítulo é uma linha ("é um .apk: o Android
+pede uma confirmação"), o passo 2 perdeu a explicação do atalho, o passo 3
+passou a mandar **aceitar a verificação do Google** em vez de caçar o "instalar
+assim mesmo" (que fica escondido atrás de "mais detalhes" em boa parte dos
+aparelhos), e a nota final virou uma linha.
+
+**E O SELO SAIU DE CIMA DA IMAGEM:** "Funciona sem internet" flutuava sobre o
+print do Cronograma; a afirmação já está em "Funciona offline", na linha de
+selos logo abaixo. Ficou uma vez, e o print ficou inteiro.
 
 ## a tela de destinos voltou (sem versão nova; só `site/`)
 

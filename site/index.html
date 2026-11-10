@@ -113,6 +113,7 @@
 
   .env { width:100%; max-width:46rem; margin:0 auto; padding:0 1.15rem; }
   .sobra { padding:clamp(3.2rem,11vw,5.5rem) 0; }
+  #instalar { scroll-margin-top:4.6rem; }
   .faixa { background:var(--bg-2); }
 
   /* ── o rótulo pequeno que abre cada seção ── */
@@ -210,7 +211,7 @@
     pointer-events:none;
   }
   .hero-grade { position:relative; z-index:1; display:flow-root; }
-  .selos-faixa { padding-top:clamp(5.2rem,11vw,5.8rem); }
+  .selos-faixa { padding-top:clamp(4.4rem,9vw,5rem); }
   .hero .logo {
     width:66px; height:66px; display:block; margin:0 auto 1.1rem;
     border-radius:17px; box-shadow:0 12px 30px -10px rgba(0,0,0,.6);
@@ -250,17 +251,6 @@
     width:100%; height:auto; display:block; border-radius:24px;
     background:#0e1215;
   }
-  /* O SELO. Ele flutua sobre o canto do telefone e é o argumento que mais
-     pesa num sábado sem Wi-Fi — por isso é curto e fica ali, não no texto. */
-  .selo-fone {
-    position:absolute; left:50%; transform:translateX(-50%); bottom:-15px; z-index:2;
-    display:flex; align-items:center; gap:.4rem;
-    background:#fff; color:var(--titulo); font-size:.72rem; font-weight:800;
-    padding:.45rem .7rem; border-radius:100px; white-space:nowrap;
-    box-shadow:0 10px 24px -10px rgba(0,0,0,.6), 0 0 0 1px rgba(15,27,40,.05);
-  }
-  .selo-fone svg { width:13px; height:13px; stroke:var(--accent); fill:none; stroke-width:2.4; }
-
   /* OS SELOS DE CONFIANÇA: três frases curtas que respondem às três objeções
      que precedem o toque em "Baixar". */
   .selos {
@@ -513,7 +503,7 @@
      `visibility:hidden` já a tira da árvore e do Tab quando escondida. -->
 <div class="topo" id="topo">
   <a class="marca" href="#"><img src="icone.svg" alt="" width="26" height="26"> Áudio Visual IASD</a>
-  <a class="baixar baixar--mini so-android" href="{{URL_APK}}">Baixar</a>
+  <a class="baixar baixar--mini so-android" href="{{URL_APK}}" data-guia>Baixar</a>
 </div>
 
 <header class="hero">
@@ -531,7 +521,7 @@
          dela na página. O `.so-android` some no não-Android; o `.aviso-plat`
          só aparece lá. Sem JS, nenhum dos dois some: o download fica à vista. -->
     <div class="acao">
-      <a class="baixar so-android" href="{{URL_APK}}">Baixar grátis</a>
+      <a class="baixar so-android" href="{{URL_APK}}" data-guia>Baixar grátis</a>
       <p class="depois so-android"><b>{{TAMANHO}}</b> · Android 8+ · versão {{VERSAO}}</p>
       <div class="aviso-plat">
         <div class="aviso">
@@ -547,7 +537,6 @@
   <div class="fone">
     <img src="telas/cronograma.webp" width="480" height="979" fetchpriority="high" decoding="async"
          alt="A tela do Cronograma do app: os itens do culto em ordem e, embaixo, o player do hino com a letra.">
-    <span class="selo-fone"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg> Funciona sem internet</span>
   </div>
   </div>
 </header>
@@ -770,26 +759,23 @@
     <div class="env">
       <p class="olho">Em três passos</p>
       <h2 id="t-instalar">Instalar no celular</h2>
-      <p class="linha-fina">É um arquivo <strong>.apk</strong>: não passa pela
-        Play Store, e o Android pede confirmação antes de instalar.</p>
+      <p class="linha-fina">É um arquivo <strong>.apk</strong>: o Android pede
+        uma confirmação.</p>
       <ol class="passos">
         <li class="passo-item"><div class="passo-baixar"><div><b>Baixe o app</b>
           <span>{{TAMANHO}}</span></div>
           <a class="baixar baixar--linha" href="{{URL_APK}}">Baixar</a></div></li>
         <li class="passo-item"><div><b>Permita a instalação</b><span>O Android
-          barra o arquivo e oferece um atalho para <strong>Configurações</strong>.
-          Toque nele, ligue <strong>Permitir desta fonte</strong> para o
-          navegador que você está usando e volte — a instalação continua de onde
-          parou.</span></div></li>
-        <li class="passo-item"><div><b>Confirme com o Play Protect</b><span>O
-          Google confere o arquivo e pode avisar que ele não vem da Play Store.
-          Toque em <strong>Instalar assim mesmo</strong> para concluir.</span></div></li>
+          avisa que o arquivo não vem da Play Store. Toque em
+          <strong>Configurações</strong>, ligue <strong>Permitir desta
+          fonte</strong> e volte.</span></div></li>
+        <li class="passo-item"><div><b>Aceite a verificação</b><span>O Play
+          Protect confere o arquivo antes de instalar. Aceite a verificação do
+          Google e toque em <strong>Instalar</strong>.</span></div></li>
       </ol>
       <p class="depois-de-instalar">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
-        <span><b>Depois de instalar, o app se atualiza sozinho.</b> A versão desta
-          página é a da base web, que chega ao aparelho ao abrir — não é preciso
-          baixar o APK de novo a cada versão.</span>
+        <span>Instalado uma vez, o app se atualiza sozinho.</span>
       </p>
     </div>
   </section>
@@ -832,6 +818,23 @@
   } catch (_) {
     document.querySelectorAll('.reveal').forEach(function (el) { el.classList.add('on'); });
   }
+
+  // ===================================================================
+  // 1b. BAIXAR TAMBÉM MOSTRA O GUIA
+  // ===================================================================
+  // O toque no botão do topo baixa o arquivo E leva o olho para os passos: o
+  // download começa, a página desliza, e quem volta do aviso do Android está
+  // no lugar certo. `scrollIntoView` sem `behavior` respeita o
+  // `scroll-behavior` do CSS — que o movimento reduzido já desliga.
+  try {
+    var guia = document.getElementById('instalar');
+    document.querySelectorAll('[data-guia]').forEach(function (a) {
+      a.addEventListener('click', function () {
+        if (!guia) return;
+        setTimeout(function () { guia.scrollIntoView({ block: 'start' }); }, 60);
+      });
+    });
+  } catch (_) { /* sem o atalho: o botão baixa como antes */ }
 
   // ===================================================================
   // 2. A BARRA FIXA ENTRA DEPOIS DO HERO
