@@ -363,7 +363,8 @@ asserção. O que fica aqui é o MÉTODO, que vale para todos.
 
 - **A REVERSÃO SE DESFAZ COM UMA CÓPIA, NUNCA COM O GIT.** `git checkout
   <arquivo>` restaura do HEAD e **apaga o trabalho não commitado do lote inteiro
-  naquele arquivo**. `cp` de um backup feito antes, e pronto.
+  naquele arquivo**. `tools/reverter.sh --guardar <arquivos>` antes de mexer, e
+  `--restaurar <dir>` para desfazer — a cópia é mais barata que a tentação.
 
 - `node --check` prova que o arquivo é PARSEÁVEL, não que o app funciona. O
   canal OTA publica direto para a frota e o watchdog **não evita o primeiro
@@ -451,6 +452,25 @@ asserção. O que fica aqui é o MÉTODO, que vale para todos.
   download só existe no Android (classificação BINÁRIA no `<head>`, com falha
   ABERTA). **Por extenso em [`docs/BUILD.md`](docs/BUILD.md)**, seção "A página
   do site".
+
+### A entrega delegada
+
+**Toda tarefa substantiva nasce delegada** — e o que decide o custo dela é o
+briefing, não o agente:
+
+- **Teto e ponto de parada.** O briefing declara o escopo, um teto de passos e,
+  quando o pedido chega como **suspeita** ("defeito a confirmar"), a parada
+  obrigatória: voltar com a causa achada **antes** de consertar. No Pacote 3
+  (2026-11-10) a suspeita era falsa e o agente escreveu 348 linhas de oráculo no
+  caminho errado — 205 passos e US$ 1,5–3,6 para uma correção de 31 linhas.
+- **Saída de ferramenta magra** é regra, não estilo: `head`/`tail` no que pode
+  ser longo, UM caso do oráculo em vez do arquivo inteiro, log só de erro. O
+  resultado de ferramenta é o maior item do contexto e é RELIDO a cada passo —
+  no Pacote 3, 582 kB de `bash` contra 107 kB de `read`, em 189 chamadas.
+- **Custo ≈ passos × contexto médio**, e 99% do que entra é cache: cortar PASSO
+  vale mais que escrever menos. O anexo técnico do lote fecha com a medição
+  (`node ~/.dsh-github/uso.mjs` — passos, cache lido, faixa); sem ela o gasto só
+  aparece quando o operador pergunta.
 
 ### Código
 
