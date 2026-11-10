@@ -755,6 +755,7 @@ jobs:
           rodar tools/playlist-automatica-estavel.test.mjs
           rodar tools/biblia-versoes-e-retomada.test.mjs
           rodar tools/fila-limpa-a-cena.test.mjs
+          rodar tools/tocar-agora-na-fila.test.mjs
           rodar tools/sorteio-lista-de-resultados.test.mjs
           rodar tools/mensagem-estilo.test.mjs
           rodar tools/itinerario.test.mjs

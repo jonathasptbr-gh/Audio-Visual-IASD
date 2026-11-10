@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.56** — o "Tocar agora" de um vídeo entra na fila: o funil do `projetarItem` no `ytAcao` (a fila não fica mais a anterior) e o `naFila: false` que preserva o item virtual do vídeo da semana; `tocar-agora-na-fila`
 - **v1.13.55** — soltar não pisca mais na ordem antiga: o item desliza para o vão e a lista fica na ordem FINAL enquanto a gravação corre (`soltarNoVao` + `assentarArrasto`); `cronograma-pronto` bloco B5 mede o instante do `pointerup` (só web)
 - **v1.13.54** — o arrasto abre o VÃO em tempo real: a lista se rearruma animada (`transform` nos outros itens, 160 ms) e a linha-guia colorida sai — o espaço é a única marca do destino; `cronograma-pronto` B2 e o `smoke` passam a medir o vão (só web)
 - **v1.13.53** — o arrasto do Cronograma não morre no primeiro movimento: a rolagem é cancelada enquanto ele dura (o `touch-action` só vale para o próximo gesto) e um `pointercancel` do sistema ENTREGA o item onde a guia está; oráculo `cronograma-pronto` bloco B4 (só web)
@@ -666,6 +667,21 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.13.56 — o vídeo do "Tocar agora" entra na fila
+
+**v1.13.56** — (só web, **sem `shellTag`**; `SHELL_VERSION` **85** e `minShell` **83** não mudam). O defeito relatado em 2026-11-07, que chegou como suspeita:
+
+*"O problema do item que não entra limpando a playlist, é quando o item é iniciado no modo simples e depois se vai para o modo avançado."*
+
+- **A SUSPEITA NÃO SE CONFIRMOU.** A troca de modo NÃO remonta a fila: `setAppMode` escreve classes, o gate do Modo Fácil, o host da preview, a saída de áudio e os renders do modo — não toca em `plItems` nem no banco. MEDIDO: a fila que o Avançado mostra é exatamente a que existia antes da troca.
+- **A CAUSA ESTÁ NO TOQUE, e o funil já existia.** O "Tocar agora" de um vídeo do YouTube — o caminho do episódio de série e o que o Modo Fácil usa para tocar um vídeo com UM toque (`simplePlaySong` e o toque na linha em `ytAcao(r, 'tocar')`) — baixava o arquivo, fixava-o na prateleira `avulsos` e chamava `send`: a fila ficava a ANTERIOR. O item tocava e não estava na fila; no Modo Fácil não há fila na tela, então o desencontro só aparecia no Avançado — e "limpar a playlist" ali interrompia um item que nunca tinha pertencido a ela. A regra do `projetarItem` (*todo toque numa mídia deixa a fila com exatamente um*, v1.8.51) já era a do app, e a v1.13.37 a tinha aplicado ao vídeo da semana.
+- **O CONSERTO É O FUNIL, e a exceção é DECLARADA.** `ytAcaoInterno`, no desfecho que ganha a cena, chama `replacePlaylistWith(rec)` — o mesmo caminho de `projetarItem` e de `semanaAcao` —, e `ytAcao` ganhou o `opts` que atravessa para o `extra`. O caminho do vídeo da semana passa `{ naFila: false }`: ali a fila JÁ tem o item VIRTUAL (é ele que `ancoraDaFila` procura, v1.13.13), e trocá-lo pelo ARQUIVO do episódio quebraria o "no ar" e o ⏭. O `naFila` é declarado pelo CHAMADOR, não adivinhado pelo estado, para dois toques concorrentes não se contaminarem.
+- **Oráculo novo `tocar-agora-na-fila.test.mjs` (A–E).** **A** o vídeo iniciado pelo caminho do Modo Fácil, com uma fila do culto passado plantada (banco + `plItems` + `currentId`); **B** a sequência do relato — trocar para o Avançado, abrir a folha e a linha do item em curso estar lá, marcada `.no-ar`, com a contagem 1; **C** o "Limpar" do relato — avisa que a mídia será interrompida, esvazia a fila e encerra a cena (o desenho da v1.8.84); **D** o controle positivo — a música do acervo pelo mesmo funil continua entrando na fila; **E** a exceção — o vídeo da semana baixa e projeta o arquivo, e a fila continua com o virtual, com `ancoraDaFila()` apontando ele. **Reversões medidas**: sem o `replacePlaylistWith`, 4 reprovadas, TODAS em A e B (C, D e E passam inteiros — e o cabeçalho do oráculo diz por quê); sem o `naFila: false`, E reprova e A–D passam.
+- **E o PORTÃO ganhou a exclusão que faltava.** A vizinhança de um arquivo do web roda todo `tools/*.mjs` que o cita por nome — e `tools/pares-de-comentario.mjs` é FERRAMENTA manual: exige `<arquivo> [ref]` e, sem argumento, imprime o uso e sai 2. O portão lia isso como vizinho reprovado em TODO lote que tocasse um arquivo citado no texto dela. A lista de oráculos do CI já a excluía (CLAUDE.md, §Os oráculos); agora o portão também, pela mesma régua.
+- **Fora de escopo, e dito:** o compartilhamento que projeta no Modo Fácil continua sem redefinir a fila (`focarImportado`, decisão da v1.8.77) — outro caminho, com outro dono do registro (a prateleira avulsa), e o pedido era o item INICIADO.
 
 ---
 

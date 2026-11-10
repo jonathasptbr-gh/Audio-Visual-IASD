@@ -100,6 +100,14 @@ resultados e eles entram **na mesma lista**, abaixo do acervo, com miniatura
   `ytAcao` e entregue ao `addMedia`, que grava registro e entrada na MESMA
   transação — a lista passou a ser ESCOLHIDA, não dispensada, para o registro
   nunca nascer órfão. "Tocar agora" vai para `avulsos`.
+  **E o registro que vai ao telão VIRA A FILA** (v1.13.56, `replacePlaylistWith`
+  no `ytAcaoInterno`, o mesmo funil do `projetarItem`): a fila passa a ser SÓ
+  ele, e é isso que faz o item em curso aparecer nela no Modo Avançado — antes
+  a fila ficava a anterior e o item tocava fora dela. **A exceção é declarada
+  pelo chamador, não adivinhada**: o caminho do vídeo da semana
+  (`resolverSemana`) passa `{ naFila: false }` no `ytAcao`, porque ali a fila
+  já tem o item VIRTUAL, e é ele que `ancoraDaFila` procura para o "no ar" e o
+  ⏭ (v1.13.13).
 - **O mesmo vídeo não baixa duas vezes** (`ytArquivo`): o registro guarda o
   `youtubeId` desde que nasce, então "já tenho isto?" é uma leitura do índice
   (`AVDB.mediaByYoutube`). Só vale para quem tem **blob** — um item de LINK
