@@ -22,18 +22,14 @@
 //  A. MAIOR QUE O AVANÇADO, em cada célula: a barra de um bloco de raiz, a seta, a linha de uma
 //     faixa, a miniatura e o nome. O avançado é a régua porque ele é o "antes" — o Modo Fácil
 //     usava os mesmos tokens até este lote.
-//  B. PREENCHE: sem nada no ar, os blocos de raiz crescem até o TETO da tampa (ou a lista já está
-//     cheia/transbordando). O teto é a régua desde a v1.13.57: a raiz do Modo Fácil passou a ter
-//     POUCOS blocos (dois fixos e dois grupos), e `calcularTampa` para no teto justamente nesse caso
-//     — nos lugares em que a sobra por grupo passa dele o vão que sobra é a consequência declarada.
-//     Não há "antes" a comparar no avançado — lá a seção dos Favoritos ocupa o vão —; quem prova que
-//     o B distingue algo é a REVERSÃO (sem a escala, `--lib-teto-px` não existe e o teto lido é 0).
+//  B. PREENCHE: sem nada no ar, os blocos de raiz vão até a base da lista (ou ela já transborda).
+//     Não há "antes" a comparar no avançado — lá a seção dos Favoritos ocupa o vão —; quem prova
+//     que o B distingue algo é a REVERSÃO (com o teto do avançado sobram 75px a 390×844).
 //  C. O ALVO: dentro de um álbum aberto, toda linha e todo botão têm ≥ 44px nos dois eixos.
 //  D. NADA TRANSBORDA na horizontal, em nenhum estado.
 //  E. O AVANÇADO NÃO MUDA: os tokens dele são os de sempre, e voltar do Modo Fácil apaga a escala.
 //  F. A LINHA DE CONTROLES QUE RECOLHE (v1.13.8) NÃO DÁ UM SEGUNDO PULO: a escala é a mesma antes
-//     e depois, e os blocos crescem para a lista nova pela curva, nunca num quadro. Medido a
-//     360×640, que é a célula em que o teto da tampa ainda não morde (ver o bloco F).
+//     e depois, e os blocos crescem para a lista nova pela curva, nunca num quadro.
 //  H. COM MÍDIA NO AR a Biblioteca aberta sobre a leitura tem a mesma escala, o alvo e nada transborda.
 //  G. A ESCOLHA (e o ABERTO do avançado) NÃO TEM DIVISÓRIA: por PIXEL, na faixa de cima da linha
 //     marcada e logo abaixo dela, a coluna do texto tem a mesma cor da borda esquerda do card.
@@ -56,28 +52,18 @@ const navegador = await abrirNavegador();
 const erros = [];
 
 // O ACERVO: as duas séries, os dois hinários e três seções de coletâneas — 7 blocos de raiz no
-// avançado e 4 no Modo Fácil: os dois vitrais fixos (o "Este sábado" e o bloco dos itens 572/533,
-// ambos de altura de conteúdo desde a v1.13.15/58) e DOIS grupos, "CDs Oficiais/Ano" e "Diversas"
-// (v1.13.57). A categoria dos CDs casa `GRUPO_CDS_DO_ANO` de propósito: sem ela o Modo Fácil ficava
-// com um grupo só, que é um estado que o desenho não tem.
+// avançado e 6 no Modo Fácil (lá as duas séries são UM bloco, "Este sábado", desde a v1.13.15),
+// o suficiente para a lista preencher sem transbordar a 390×844 (é onde o F mede o crescimento).
 const SEMEAR = ({ modo, series = true }) => {
   if (series) window.serieDisponivel = () => true;
   if (series) for (const s of AVSerie.SERIES) collState[s.id] = { indexSyncedAt: Date.now(), serieDiarioEm: Date.now(), songs: [] };
   const nomes = ['Cristo vem breve, glória a Deus', 'Faixa', 'Santo, santo, santo'];
   const faixas = (n, pre) => Array.from({ length: n }, (_, i) => ({ id_music: pre + (i + 1), track: i + 1,
     name: nomes[i % 3] + ' ' + (i + 1), duration: '3:00', has_instrumental_music: false }));
-  // E OS DOIS ELEMENTOS FIXOS DA v1.13.58 são ITENS do Hinário 2022 (572 e 533): sem eles o bloco
-  // fixo não nasce, e a raiz do Modo Fácil ficaria com um filho a menos do que o aparelho tem.
-  collState['hymnal-2022'] = { indexSyncedAt: Date.now(), isHymnal: true, songs: faixas(12, 'h').concat([
-    { id_music: '572', track: 572, name: 'Ofertas de amor', duration: '3:00', has_instrumental_music: false },
-    { id_music: '533', track: 533, name: 'Vinde, meninos', duration: '2:00', has_instrumental_music: false },
-  ]) };
+  collState['hymnal-2022'] = { indexSyncedAt: Date.now(), isHymnal: true, songs: faixas(12, 'h') };
   collState['hymnal-1996'] = { indexSyncedAt: Date.now(), isHymnal: true, songs: faixas(12, 'g') };
-  // A CATEGORIA DOS "CDS DO ANO" PRECISA CASAR `GRUPO_CDS_DO_ANO` desde a v1.13.57: no Modo Fácil
-  // ela é um grupo PRÓPRIO na raiz e todo o resto cai no "Diversas" — é por isso que a raiz tem
-  // quatro blocos e não seis, e é isso que a régua de B e a célula de F precisam respeitar.
   albumCatalog.categories = [
-    { name: 'CDs Oficiais/Ano', albums: [{ id_album: 77, name: 'Álbum de teste' }, { id_album: 78, name: 'Outro álbum' }] },
+    { name: 'CDs Jovem', albums: [{ id_album: 77, name: 'Álbum de teste' }, { id_album: 78, name: 'Outro álbum' }] },
     { name: 'Infantis', albums: [{ id_album: 79, name: 'Cantando para Jesus' }] },
     { name: 'Datas especiais', albums: [{ id_album: 80, name: 'Natal em família' }] },
   ];
@@ -105,25 +91,18 @@ async function abrir(W, H, E, modo) {
   const pronto = await esperar(pg, () => window.AVDB && window.AVSerie && !!document.querySelector('.lib-bar'), null, 30000);
   if (pronto !== true) throw new Error('o app não subiu: ' + pronto);
   await pg.evaluate(SEMEAR, { modo });
-  await assentar(pg, modo);
+  await assentar(pg);
   return { ctx, pg };
 }
 
-// A janela parada, a tampa medida E a raiz do MODO montada — o FATO que as medidas esperam, nunca um
-// prazo. A RAIZ MUDOU NA v1.13.57: no Modo Fácil são dois blocos fixos e dois grupos, e o número de
-// filhos deixou de ser 6 (eram os 6 cards de coleção da raiz antiga). A régua passou a ser o que a
-// medida precisa do lado de cada modo: o grupo "Diversas" no Fácil, os cards e as categorias no
-// avançado.
-const assentar = (pg, modo) => esperar(pg, (m) => {
+// A janela parada E a tampa medida — o FATO que as medidas esperam, nunca um prazo.
+const assentar = (pg) => esperar(pg, () => {
   const j = document.getElementById('hymnSearchPopup');
   const l = document.getElementById('hymnResults');
-  const raizMontada = m === 'simple'
-    ? !!l.querySelector('[data-grupo="Diversas"]')
-    : l.querySelectorAll('.hymnal-card, [data-grupo]').length >= 6;
   return j.classList.contains('open') && !j.getAnimations().some((a) => a.playState === 'running')
     && !l.getAnimations({ subtree: true }).some((a) => a.playState === 'running')
-    && !!l.style.getPropertyValue('--tampa-h') && raizMontada;
-}, modo, 10000);
+    && !!l.style.getPropertyValue('--tampa-h') && l.children.length >= 6;
+}, null, 10000);
 
 // O que uma tela diz: os blocos de raiz, a barra, a seta, e — com um álbum aberto — as faixas e os
 // botões da barra dele. Tudo do RENDERIZADO.
@@ -134,15 +113,12 @@ const medir = (pg) => pg.evaluate(() => {
   const cs = getComputedStyle(lista);
   const blocos = [...lista.children].filter((n) => n.nodeType === 1);
   const vis = (el) => { const b = r(el); const c = getComputedStyle(el); return b.width > 0 && b.height > 0 && c.visibility !== 'hidden'; };
-  // A BARRA COMPARÁVEL nos dois modos é a de um GRUPO DE RAIZ (`.coll-group-bar`), e não mais a do
-  // card do Hinário 2022: desde a v1.13.57 o Modo Fácil NÃO tem card de coleção na raiz — os hinários
-  // moram DENTRO do "Diversas", que nasce FECHADO (`grupo()` devolve `null` e o card nem é
-  // construído), e a única `.coll-group-bar` da raiz é a dele. No avançado as categorias do catálogo
-  // são grupos, então o MESMO elemento é medido dos dois lados.
-  const grupoRaiz = blocos.filter((b) => b.classList.contains('coll-group--drop')).pop() || blocos[0];
-  const barra = grupoRaiz.querySelector('.coll-group-bar');
-  const seta = barra.querySelector('.coll-group-icon');
-  const nomeBarra = barra.querySelector('.coll-group-name');
+  // A BARRA COMPARÁVEL nos dois modos é a do Hinário 2022 (o primeiro bloco do avançado é a seção
+  // dos Favoritos, que o Modo Fácil não tem).
+  const hino = blocos.find((b) => /Hinário Adventista 2022/.test(b.textContent)) || blocos[0];
+  const barra = hino.querySelector('.coll-bar, .coll-group-bar');
+  const seta = barra.querySelector('.coll-bar-fechar, .coll-group-icon, .coll-bar-icon');
+  const nomeBarra = barra.querySelector('.coll-bar-name, .coll-group-name');
   // As FAIXAS DE UM ÁLBUM — as linhas do bloco "Este sábado" (`.semana-raiz-item`, v1.13.15) também
   // são `.coll-songs > .hymn-result`, e ficam fora: o que se mede aqui é o álbum aberto.
   const faixas = [...lista.querySelectorAll('.coll-songs > .hymn-result:not(.semana-raiz-item)')].filter(vis);
@@ -161,9 +137,6 @@ const medir = (pg) => pg.evaluate(() => {
     tampa: parseFloat(lista.style.getPropertyValue('--tampa-h')) || 0,
     n: blocos.length,
     alturas: blocos.map((b) => +r(b).height.toFixed(2)),
-    // Só os grupos FECHADOS: é o que a tampa reparte (os blocos fixos têm altura de conteúdo).
-    grupos: blocos.filter((b) => b.classList.contains('coll-group--drop') && !b.classList.contains('aberto'))
-      .map((b) => +r(b).height.toFixed(2)),
     barra: +r(barra).height.toFixed(2),
     seta: [+r(seta).width.toFixed(2), +r(seta).height.toFixed(2)],
     setaSvg: +r(seta.querySelector('svg')).width.toFixed(2),
@@ -187,11 +160,8 @@ const medir = (pg) => pg.evaluate(() => {
   };
 });
 
-// O GRUPO QUE GUARDA O ÁLBUM tem o MESMO NOME nos dois modos desde a v1.13.57: no avançado ele é a
-// categoria do catálogo e no Modo Fácil ele é um dos dois grupos da raiz — é o mesmo
-// `grupo(cat.name, …)` e a mesma categoria (a que casa `GRUPO_CDS_DO_ANO`).
 const abrirAlbum = (pg) => pg.evaluate(() => {
-  grupoAberto = 'CDs Oficiais/Ano'; ui('album-77').expanded = true; ui('album-77').shown = 1000;
+  grupoAberto = 'CDs Jovem'; ui('album-77').expanded = true; ui('album-77').shown = 1000;
   renderSearchResults('');
 });
 const esperarFaixas = (pg) => esperar(pg, () => {
@@ -237,18 +207,11 @@ try {
       { faixa: [sAlb.nomeFaixaFs, aAlb.nomeFaixaFs], barra: [sRaiz.nomeBarraFs, aRaiz.nomeBarraFs], escFs: sRaiz.escFs });
 
     // ── B · PREENCHE ──
-    // A régua é o TETO da lista (`--lib-teto-px` = `--bar-raiz-max` escalado), que é o que a tampa
-    // reparte: um grupo fechado cresce até ele, e para de crescer ali — `calcularTampa` tem o teto
-    // justamente porque a lista pode ter POUCOS blocos ("três coleções dariam 183px cada", diz ele).
-    // No desenho da v1.13.57 a raiz do Modo Fácil tem QUATRO blocos, dois deles fixos: com dois
-    // grupos a sobra por grupo passa do teto em 390×844 e 430×900, e os dois param nele — o vão que
-    // resta é a consequência declarada do teto, não falta de preenchimento. Onde a sobra por grupo
-    // é menor que o teto (360×640), os grupos encolhem e a lista fecha na base (sobra ≈ 0).
-    const noTeto = sRaiz.grupos.length > 0 && sRaiz.grupos.every((h) => Math.abs(h - sRaiz.teto) <= 0.5);
-    checar(sRaiz.esc !== '' && sRaiz.teto > 66
-      && (Math.abs(sRaiz.sobra) <= 2 || sRaiz.rola || noTeto),
-      `B · ${cel} · sem nada no ar os blocos de raiz crescem até o TETO da lista (ou ela já está cheia)`,
-      { sobra: sRaiz.sobra, grupos: sRaiz.grupos, alturas: sRaiz.alturas, teto: sRaiz.teto, tampa: sRaiz.tampa, rola: sRaiz.rola });
+    // Com SEIS blocos: ou eles chegam à base da lista, ou a lista já transborda (360×640). O teto
+    // da raiz do avançado (`--hit` + 2rem) deixava 75px de lista vazia a 390×844 — MEDIDO por reversão.
+    checar(sRaiz.esc !== '' && sRaiz.teto > 66 && (Math.abs(sRaiz.sobra) <= 2 || sRaiz.rola),
+      `B · ${cel} · sem nada no ar os blocos de raiz vão até a base da lista`,
+      { sobra: sRaiz.sobra, alturas: sRaiz.alturas, teto: sRaiz.teto, tampa: sRaiz.tampa, rola: sRaiz.rola });
 
     // ── C · O ALVO ──
     checar(sAlb.faixasBaixas === 0 && sAlb.faixaRow >= 44 && sAlb.botoes.length >= 2
@@ -293,7 +256,7 @@ try {
   // ── E2 · VOLTAR AO AVANÇADO APAGA A ESCALA (a mesma página) ──
   {
     const { ctx, pg } = await abrir(390, 844, 1, 'simple');
-    await pg.evaluate(() => { setAppMode('full'); openHymnSearch(false); grupoAberto = 'CDs Oficiais/Ano';
+    await pg.evaluate(() => { setAppMode('full'); openHymnSearch(false); grupoAberto = 'CDs Jovem';
       ui('album-77').expanded = true; ui('album-77').shown = 1000; renderSearchResults(''); });
     await esperarFaixas(pg);
     const e2 = await pg.evaluate(() => {
@@ -307,14 +270,8 @@ try {
   }
 
   // ── F · A LINHA DE CONTROLES QUE RECOLHE NÃO DÁ UM SEGUNDO PULO ──
-  //
-  // A CÉLULA DESCEU DE 390×844 PARA 360×640 na v1.13.57, e é obrigatório: o F mede o bloco
-  // CRESCER para a lista que ficou maior. A 390×844 os dois grupos da raiz já estão no teto da
-  // tampa (131,96 de 131,96 — MEDIDO), e o espaço que a linha deixa vira vão em vez de altura; a
-  // 360×640 a sobra por grupo é menor que o teto (97,36 de 120,4 — MEDIDO), então os blocos ainda
-  // têm para onde crescer e a regra da v1.13.8 é observável.
   {
-    const { ctx, pg } = await abrir(360, 640, 1, 'simple');
+    const { ctx, pg } = await abrir(390, 844, 1, 'simple');
     const id = await pg.evaluate(async () => (await AVDB.addMedia(new Blob(['x'], { type: 'audio/wav' }),
       { name: 'Louvor de Fundo', type: 'audio/wav', kind: 'audio', list: 'imports' })).id);
     await pg.evaluate(async (i) => {

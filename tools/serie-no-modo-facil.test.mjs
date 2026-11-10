@@ -119,18 +119,7 @@ async function abrir({ tema = 'escuro', avancado = false } = {}) {
       songs: [faixa('passada', desloca(-7)), faixa('semana', desloca(0)), faixa('seguinte', desloca(7))] };
     collState['hymnal-2022'] = { indexSyncedAt: Date.now(), isHymnal: true,
       songs: Array.from({ length: 4 }, (_, i) => ({ id_music: 'h' + (i + 1), track: i + 1, name: 'Hino ' + (i + 1),
-        duration: '3:00', has_instrumental_music: false }))
-        // OS DOIS ITENS FIXOS do Modo Fácil (v1.13.58): são hinos de VERDADE do
-        // Hinário 2022, e sem eles no índice a linha não nasce — o que C3 mede é
-        // justamente essa ordem na raiz.
-        .concat([
-          { id_music: '572', track: 572, name: 'Ofertas de amor', duration: '3:00', has_instrumental_music: false },
-          { id_music: '533', track: 533, name: 'Vinde, meninos', duration: '3:00', has_instrumental_music: false },
-        ]) };
-    // A RAIZ DO MODO FÁCIL (v1.13.57): os hinários e as categorias moram no grupo
-    // "Diversas", que nasce FECHADO — o card do Hinário 2022 só existe com ele aberto.
-    // No avançado ele continua na raiz, sem grupo.
-    if (appMode === 'simple') grupoAberto = 'Diversas';
+        duration: '3:00', has_instrumental_music: false })) };
     // A rotina da semana não roda no oráculo: o redesenho que ela provoca é PROVOCADO à mão.
     ui(id).semanaProxima = Date.now() + 3600e3;
     renderSearchResults('');
@@ -155,9 +144,7 @@ const tocar = (pg, nome, redesenharEm, tiqueEm) => pg.evaluate(async ({ nome, re
     };
     try { refreshCollectionsIfVisible(); } finally { window.setTimeout = orig; }
   }
-  // O CARD pode estar na RAIZ (avançado) ou dentro do grupo "Diversas"
-  // (fácil, v1.13.57) — o que não muda é ele ser o card da coleção pelo nome.
-  const achar = () => [...hymnResultsEl.querySelectorAll('.hymnal-card')].find((b) => {
+  const achar = () => [...hymnResultsEl.children].find((b) => {
     const bar = b.querySelector('.coll-bar'); return bar && bar.textContent.includes(nome);
   });
   const out = [[0, achar().getBoundingClientRect().height]];
@@ -237,56 +224,23 @@ try {
       };
       const bloco = hymnResultsEl.querySelector(':scope > .semana-raiz');
       const semana = bloco && bloco.querySelector('.semana-raiz-item');
-      // O card do Hinário 2022 mora dentro do grupo "Diversas" no Modo Fácil
-      // (v1.13.57) — o `tocar`/`abrir` já o abriu. No avançado ele segue na raiz.
-      const card = [...hymnResultsEl.querySelectorAll('.hymnal-card')].find((b) => {
+      const card = [...hymnResultsEl.children].find((b) => {
         const bar = b.querySelector('.coll-bar'); return bar && bar.textContent.includes('Hinário Adventista 2022');
       });
-      // A COLUNA DO ▶ NO DESENHO NOVO (v1.13.58): os cards migraram para dentro dos grupos, então
-      // a referência da raiz é a LINHA FIXA do Hinário 2022 — as duas famílias de linha do topo.
-      const fixa = [...hymnResultsEl.querySelectorAll('.semana-raiz .semana-raiz-item')]
-        .find((li) => li !== semana && (li.querySelector('.hymn-name') || {}).textContent !== '');
-      const icone = fixa && fixa.querySelector('.hymn-play-thumb');
+      const icone = card.querySelector('.coll-bar .coll-bar-fechar, .coll-bar .coll-bar-icon');
       const thumb = semana && semana.querySelector('.hymn-play-thumb');
-      // A ORDEM DA RAIZ (v1.13.57/58): o bloco "Este sábado", as DUAS linhas fixas
-      // do Hinário 2022 e só então os grupos (no Fácil, os dois da v1.13.57).
-      const raiz = [...hymnResultsEl.children].map((li) => {
-        if (li.classList.contains('semana-raiz')) return 'semana';
-        if (li.classList.contains('bloco-fixo')) {
-          const n = li.querySelector('.hymn-name');
-          return 'fixo:' + (n ? n.textContent : '?');
-        }
-        return li.classList.contains('coll-group') ? 'grupo:' + (li.dataset.grupo || '?') : 'outro';
-      });
       return {
         tema: document.documentElement.dataset.tema || 'escuro',
         atrasSemana: semana ? fundo(semana) : null, card: getComputedStyle(card).backgroundColor,
-        bloco: bloco ? getComputedStyle(bloco).backgroundColor : null,
         esq: [thumb ? Math.round(thumb.getBoundingClientRect().left) : -1, Math.round(icone.getBoundingClientRect().left)],
-        raiz,
-        fixos: [...hymnResultsEl.querySelectorAll('.semana-raiz')]
-          .map((b) => [...b.querySelectorAll('.semana-raiz-item .hymn-name')].map((n) => n.textContent))
-          .find((nomes) => nomes.length === 2 && !/Vede|Informativo/.test(nomes.join(' '))) || [],
       };
     });
     checar(c.tema === tema, 'C0 · PREMISSA (' + tema + '): o tema é o que se pediu', c);
-    // A TINTA agora é a do BLOCO (v1.13.58): os cards migraram para dentro dos grupos, e a
-    // referência da raiz é o próprio bloco — a linha não pode ter cartão azul próprio.
-    checar(c.atrasSemana && /semana-raiz/.test(c.atrasSemana.cls) && c.atrasSemana.bg === c.bloco,
+    checar(c.atrasSemana && /semana-raiz/.test(c.atrasSemana.cls) && c.atrasSemana.bg === c.card,
       'C1 · (' + tema + ') a linha da semana pousa direto no bloco "Este sábado", sobre a MESMA tinta '
-      + 'dele — sem um cartão próprio no meio', c);
+      + 'de um card de coleção fechado — sem um cartão azul no meio', c);
     checar(Math.abs(c.esq[0] - c.esq[1]) <= 1,
       'C2 · (' + tema + ') e o ▶ dela fica na coluna do ícone da barra de um card', c);
-    // C3 · O QUE VEM LOGO DEPOIS DO BLOCO (v1.13.58): as duas linhas fixas do
-    // Hinário 2022 — e ANTES de qualquer grupo. Reversão: sem elas (ou com elas
-    // depois dos grupos) a raiz volta a ter o "Este sábado" sozinho no topo.
-    // Os dois fixos moram num BLOCO próprio (a mesma caixa do "Este sábado", v1.13.58), por
-    // isso a raiz mostra `semana` duas vezes: o bloco da semana e o das linhas fixas.
-    checar(JSON.stringify(c.raiz.slice(0, 2)) === JSON.stringify(['semana', 'semana'])
-      && JSON.stringify(c.fixos) === JSON.stringify(['Ofertório', 'Abertura da adoração infantil'])
-      && /^grupo:/.test(c.raiz[2] || ''),
-      'C3 · (' + tema + ') e logo depois do bloco vêm as DUAS linhas fixas do Hinário 2022 '
-      + '("Ofertório" e "Abertura da adoração infantil"), antes dos grupos', c.raiz);
     await ctx.close();
   }
 

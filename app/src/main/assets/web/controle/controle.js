@@ -942,14 +942,22 @@ const FIXED_COLLECTIONS = [
   { id: 'hymnal-1996',  name: 'Hinário Adventista 1996', kind: 'hymnal', source: Louvorja.HYMNAL_1996_FILE },
 ];
 
-// ===== OS DOIS GRUPOS DO MODO FÁCIL (v1.13.57) =====
+// ===== O QUE É "DIVERSAS" NO MODO FÁCIL (v1.13.59) =====
 // Pedido do operador: *"além da coleção de cds do ano, o resto ficará na coleção de diversos"*.
 // A categoria dos CDs do ano é a ÚNICA que fica separada na raiz; todo o resto — os hinários,
 // as outras categorias e os álbuns órfãos — entra no "Diversas". A régua do nome aceita as duas
 // formas que o catálogo já usou ("CDs Oficiais/Ano" hoje); sem casar, tudo cai em "Diversas",
 // que é a degradação certa: nada some, só deixa de estar em destaque.
-const GRUPO_CDS_DO_ANO = /cds?\s+(oficiais|do\s*ano)/i;
+// AS DUAS CATEGORIAS QUE SÃO "DIVERSAS" DE VERDADE, na palavra do operador (2026-11-10): eram
+// coleção própria e não são. Elas entram no grupo "Diversas"; as OUTRAS categorias continuam com o
+// grupo delas, e os CDs do ano seguem separados sem precisar de régua nenhuma.
+const DISSOLVIDAS_EM_DIVERSAS = /^(adoradores|cantores)$/i;
 const GRUPO_DIVERSAS = 'Diversas';
+// O nome comparável: sem acento, sem caixa, com os espaços colapsados.
+function chaveDeNome(x) {
+  return String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/\s+/g, ' ').trim();
+}
 
 // ===== OS DOIS ELEMENTOS FIXOS DO MODO FÁCIL (v1.13.58) =====
 // O operador (2026-11-10): *"O ofertório é o item 572 do hinário adventista de 2022. E a abertura
@@ -12693,32 +12701,46 @@ function renderCollectionsListMiolo(alvo, redesenhar) {
     // não existe.
     const blocoFixo = blocoFixosDoSimples();
     if (blocoFixo) { any = true; alvo.appendChild(blocoFixo); }
-    // (b) OS CDS DO ANO, sozinhos.
-    const cds = categorias.find((c) => GRUPO_CDS_DO_ANO.test(String(c.name)));
-    if (cds) {
-      const cards = categoryCards(cds);
-      if (cards.length) {
-        const corpo = grupo(cds.name, cards.map((x) => x.coll));
-        if (corpo) cards.forEach(({ coll, ctx }) => corpo.appendChild(renderCollectionCard(coll, ctx)));
-      }
+    // (b) OS HINÁRIOS CONTINUAM CARDS DA RAIZ. O operador corrigiu o pedido (2026-11-10):
+    // *"era pra por em diversos apenas os 'adoradores' e os 'cantores', que antes tinham uma
+    // coleção própria, mas que na realidade são diversos"* — não era "todo o resto".
+    const fixas = FIXED_COLLECTIONS.filter((c) => byId.has(c.id));
+    if (fixas.length) {
+      any = true;
+      fixas.forEach((coll) => alvo.appendChild(renderCollectionCard(coll)));
     }
-    // (c) TODO O RESTO num grupo só. Um álbum que está em duas categorias entra UMA vez — no
-    // primeiro lugar em que aparece, que é a ordem do catálogo.
+    // (c) UMA CATEGORIA POR GRUPO, como no avançado — menos as que são "diversas" de verdade:
+    // elas entram no grupo "Diversas" junto com os álbuns dele, e um álbum que está em duas
+    // categorias entra UMA vez (o catálogo é N:N).
     const vistos = new Set();
-    const resto = [];
+    const divers = [];
     const juntar = (coll, ctx) => {
       if (!coll || vistos.has(coll.id)) return;
-      vistos.add(coll.id); resto.push({ coll, ctx });
+      vistos.add(coll.id); divers.push({ coll, ctx });
     };
+    // O GRUPO "DIVERSAS" É UM SÓ, e ele é desenhado no FIM (com os dissolvidos dentro): a
+    // categoria dele não pode ser desenhada no laço também — era o defeito de dois grupos com
+    // o mesmo nome.
+    const catDiversas = categorias.find((c) => chaveDeNome(c.name) === chaveDeNome(GRUPO_DIVERSAS));
     for (const cat of categorias) {
-      if (cat === cds) continue;
-      for (const x of categoryCards(cat)) juntar(x.coll, x.ctx);
+      if (cat === catDiversas) continue;
+      if (DISSOLVIDAS_EM_DIVERSAS.test(String(cat.name))) {
+        for (const x of categoryCards(cat)) juntar(x.coll, x.ctx);
+        continue;
+      }
+      const cards = categoryCards(cat);
+      if (!cards.length) continue;
+      // O ÁLBUM QUE JÁ SAIU NUM GRUPO NÃO ENTRA DE NOVO NO "DIVERSAS" (o catálogo é N:N): o
+      // `vistos` é da RAIZ inteira, e não do grupo.
+      cards.forEach((x) => { if (x.coll) vistos.add(x.coll.id); });
+      const corpo = grupo(cat.name, cards.map((x) => x.coll));
+      if (corpo) cards.forEach(({ coll, ctx }) => corpo.appendChild(renderCollectionCard(coll, ctx)));
     }
-    for (const coll of FIXED_COLLECTIONS) if (byId.has(coll.id)) juntar(coll, null);
-    for (const coll of orphans) juntar(coll, null);
-    if (resto.length) {
-      const corpo = grupo(GRUPO_DIVERSAS, resto.map((x) => x.coll));
-      if (corpo) resto.forEach(({ coll, ctx }) => corpo.appendChild(renderCollectionCard(coll, ctx)));
+    if (catDiversas) for (const x of categoryCards(catDiversas)) juntar(x.coll, x.ctx);
+    if (divers.length) {
+      const nome = catDiversas ? catDiversas.name : GRUPO_DIVERSAS;
+      const corpo = grupo(nome, divers.map((x) => x.coll));
+      if (corpo) divers.forEach(({ coll, ctx }) => corpo.appendChild(renderCollectionCard(coll, ctx)));
     }
   }
 

@@ -1776,14 +1776,14 @@ try {
       JSON.stringify(g));
   }
 
-  // ── 12. O MODO FÁCIL: DUAS COLEÇÕES E DOIS ELEMENTOS FIXOS (v1.13.57/58) ──
+  // ── 12. O MODO FÁCIL: OS HINÁRIOS NA RAIZ E "ADORADORES"/"CANTORES" EM "DIVERSAS" ──
   //
-  // Pedido do operador: *"além da coleção de cds do ano, o resto ficará na coleção de
-  // diversos"* e *"O ofertório é o item 572 do hinário adventista de 2022. E a abertura para
-  // adoração infantil é 533. São itens e não álbuns ou coleções."*. O que este bloco trava, e
-  // cada item falha CALADO: a raiz do Modo Fácil tem DOIS grupos; os dois elementos fixos vêm
-  // ANTES deles, como ITEM do hinário (número + nome do hino); um álbum que o catálogo põe em
-  // duas categorias entra UMA vez no "Diversas"; e o modo AVANÇADO continua categoria a categoria.
+  // O pedido do operador, já corrigido por ele (2026-11-10): *"era pra por em diversos apenas
+  // os 'adoradores' e os 'cantores', que antes tinham uma coleção própria, mas que na realidade
+  // são diversos"*. O que este bloco trava, e cada item falha CALADO: no Modo Fácil os dois
+  // hinários continuam CARDS da raiz; cada categoria do catálogo tem o grupo dela, EXCETO
+  // Adoradores e Cantores, que entram no grupo "Diversas" junto com os álbuns dele; um álbum
+  // que está em duas categorias entra UMA vez; e os dois elementos fixos vêm antes de tudo.
   const acervoSimples = (modo) => pg.evaluate(async (m) => {
     setAppMode(m);
     const nomes = ['CDs Oficiais/Ano', 'Adoradores', 'Cantores', 'Celebra SP', 'Diversas'];
@@ -1808,62 +1808,47 @@ try {
       const card = li.querySelector('.coll-bar-name');
       return 'card:' + (card ? card.textContent : (li.className || '?'));
     });
-    const desenhar = () => {
-      hymnResultsEl.innerHTML = '';
-      renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
-      return ler();
-    };
     grupoAberto = ''; favAberto = false;
-    const fechado = desenhar();
+    hymnResultsEl.innerHTML = '';
+    renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
+    const fechado = ler();
     grupoAberto = 'Diversas';
-    const aberto = desenhar();
+    hymnResultsEl.innerHTML = '';
+    renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
     const divers = [...hymnResultsEl.querySelectorAll('.coll-group')]
       .find((g) => g.dataset.grupo === 'Diversas');
     const dentro = divers
       ? [...divers.querySelectorAll('.coll-bar-name')].map((n) => n.textContent) : [];
-    const subs = [...hymnResultsEl.querySelectorAll('.semana-raiz-item .hymn-sub')]
-      .map((n) => n.textContent);
     const fixos = [...hymnResultsEl.querySelectorAll('.semana-raiz .semana-raiz-item .hymn-name')]
       .map((n) => n.textContent);
     setAppMode('full');
     grupoAberto = ''; favAberto = false;
-    return { fechado, aberto, dentro, subs, fixos };
+    return { fechado, dentro, fixos };
   }, modo);
 
   const simplesG = await acervoSimples('simple');
   const gruposSimples = simplesG.fechado.filter((x) => x.startsWith('grupo:'));
-  checar(JSON.stringify(gruposSimples) === JSON.stringify(['grupo:CDs Oficiais/Ano', 'grupo:Diversas']),
-    'no Modo Fácil a raiz tem DOIS grupos: os CDs do ano e o "Diversas"', gruposSimples);
-  // Os dois fixos moram num BLOCO próprio, com a mesma caixa do "Este sábado" (v1.13.58) —
-  // por isso a raiz mostra dois `semana`: o bloco da semana e o das linhas fixas.
-  // Os dois fixos moram num BLOCO com a mesma caixa do "Este sábado" (v1.13.58). Neste cenário
-  // não há série, então esse bloco é o PRIMEIRO filho — o que a asserção cobra é a POSIÇÃO:
-  // antes de qualquer grupo.
+  // "Celebra SP" é dissolvida pela regra EDITORIAL do catálogo (`AVColetanea.aplicar`), que é
+  // do app e não deste lote — por isso ela não vira grupo e os álbuns dela caem no "Diversas".
+  checar(JSON.stringify(gruposSimples)
+      === JSON.stringify(['grupo:CDs Oficiais/Ano', 'grupo:Diversas']),
+    'no Modo Fácil cada categoria tem o grupo dela, menos Adoradores e Cantores', gruposSimples);
+  checar(simplesG.fechado.filter((x) => x.startsWith('card:')).length === 2
+      && simplesG.fechado.includes('card:Hinário Adventista 2022')
+      && simplesG.fechado.includes('card:Hinário Adventista 1996'),
+    'os DOIS hinários continuam cards da raiz do Modo Fácil', simplesG.fechado);
+  // O `900` (o álbum que o catálogo põe em CDs E em Cantores) NÃO se repete: ele já saiu no
+  // grupo dos CDs do ano, e o `vistos` da raiz inteira o segura.
+  checar(JSON.stringify(simplesG.dentro)
+      === JSON.stringify(['Álbum Adoradores', 'Álbum Cantores', 'Álbum Celebra SP', 'Álbum Diversas']),
+    'e "Adoradores" e "Cantores" caem dentro do "Diversas", cada álbum uma vez só',
+    simplesG.dentro);
   const primeiroGrupo = simplesG.fechado.findIndex((x) => x.startsWith('grupo:'));
   const blocoFixo = simplesG.fechado.indexOf('semana');
   checar(blocoFixo >= 0 && primeiroGrupo > blocoFixo
       && JSON.stringify(simplesG.fixos) === JSON.stringify(['Ofertório', 'Abertura da adoração infantil']),
-    'e os dois elementos fixos vêm ANTES dos grupos, num bloco próprio logo depois dos vídeos da semana',
+    'e os dois elementos fixos vêm ANTES de tudo, num bloco próprio logo depois dos vídeos da semana',
     simplesG.fechado);
-  checar(simplesG.subs[0] === '572 · Ofertas de amor'
-      && simplesG.subs[1] === '533 · Vinde, meninos',
-    'cada linha diz o NÚMERO e o nome do hino do Hinário 2022 — é um ITEM, não um álbum',
-    simplesG.subs);
-  const conta900 = simplesG.dentro.filter((n) => n === 'Álbum CDs Oficiais/Ano').length;
-  checar(conta900 === 1,
-    'no "Diversas" o álbum que está em duas categorias entra UMA vez', simplesG.dentro);
-  checar(simplesG.dentro.includes('Hinário Adventista 2022')
-      && simplesG.dentro.includes('Hinário Adventista 1996'),
-    'e os hinários cabem lá dentro, sem card próprio na raiz', simplesG.dentro);
-
-  const fullG = await acervoSimples('full');
-  const gruposFull = fullG.fechado.filter((x) => x.startsWith('grupo:'));
-  checar(gruposFull.includes('grupo:Adoradores') && gruposFull.includes('grupo:Cantores')
-      && gruposFull.length > gruposSimples.length,
-    'no modo AVANÇADO essas mesmas categorias voltam a ter grupo próprio — o recolhimento é do Modo Fácil',
-    gruposFull);
-  checar(!fullG.fechado.some((x) => x.startsWith('linha:')),
-    'e os elementos fixos são do Modo Fácil: no avançado eles não existem', fullG.fechado);
 
   checar(erros.length === 0, 'nenhum erro de console', erros.slice(0, 5));
 } catch (e) {

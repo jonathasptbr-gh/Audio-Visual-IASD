@@ -2345,58 +2345,21 @@ try {
   // Modo Fácil, e é o par deles: um sozinho aprova a metade errada.
   const facil = await pg.evaluate(async () => {
     const antes = appMode;
-    const grupoAntes = grupoAberto;
     setAppMode('simple');
-    // O CATÁLOGO DO CENÁRIO: no Modo Fácil a raiz tem os DOIS grupos (v1.13.57)
-    // — a categoria dos CDs do ano e o "Diversas", que leva os hinários, as
-    // outras categorias e os órfãos. O aparelho de mentira não tem catálogo, e
-    // sem uma categoria não há grupo dos CDs para medir; os dois hinários são
-    // fixos e caem no "Diversas" em qualquer catálogo.
-    const catAntes = albumCatalog.categories;
-    const albAntes = albumCatalog.albums;
-    albumCatalog.categories = ['CDs oficiais/ano', 'Adoradores'].map((nome, i) => ({
-      name: nome, albums: [{ id_album: 800 + i, name: 'Álbum ' + nome }],
-    }));
-    albumCatalog.albums = albumCatalog.categories.map((c) => c.albums[0]);
-    const montar = () => {
-      const ul = document.createElement('ul');
-      ul.className = 'hymnal-list';
-      ul.style.width = '390px';
-      document.body.appendChild(ul);
-      renderCollectionsList(ul, () => {}, { semTotal: true });
-      return ul;
-    };
-    const lista = montar();
+    const lista = document.createElement('ul');
+    lista.className = 'hymnal-list';
+    lista.style.width = '390px';
+    document.body.appendChild(lista);
+    renderCollectionsList(lista, () => {}, { semTotal: true });
     const nomes = [...lista.querySelectorAll('.coll-group-name')].map((e) => e.textContent.trim());
     const out = {
       secoes: nomes,
       temFavoritos: nomes.some((n) => /Favoritos/i.test(n)),
+      // E O RESTO DA BIBLIOTECA CONTINUA INTEIRO: a guarda tira UMA seção, não
+      // a lista. Sem esta metade, apagar a Biblioteca inteira passaria aqui.
+      cards: lista.querySelectorAll('.hymnal-card').length,
     };
     lista.remove();
-    // E O RESTO DA BIBLIOTECA CONTINUA INTEIRO: a guarda tira UMA seção, não a
-    // lista. No desenho novo o "resto" NÃO é uma contagem de cards na RAIZ: o
-    // `grupo()` só constrói os cards do grupo ABERTO, e os dois nascem fechados
-    // — fechada, a raiz tem ZERO card por desenho. A prova de que a lista
-    // continua inteira é o grupo existir e, aberto, ter os cards DENTRO dele.
-    grupoAberto = '';
-    const fechada = montar();
-    out.cardsNaRaiz = fechada.querySelectorAll(':scope > .hymnal-card').length;
-    out.gruposFechados = fechada.querySelectorAll('.coll-group--drop').length;
-    const gfech = fechada.querySelector('.coll-group[data-grupo="Diversas"]');
-    out.diversasFechada = !!gfech && !gfech.classList.contains('aberto');
-    fechada.remove();
-    grupoAberto = 'Diversas';
-    const aberta = montar();
-    const gdiv = aberta.querySelector('.coll-group[data-grupo="Diversas"]');
-    out.cardsNoDiversas = gdiv ? gdiv.querySelectorAll('.hymnal-card').length : 0;
-    out.hinariosNoDiversas = gdiv
-      ? [...gdiv.querySelectorAll('.hymnal-card')].filter((n) => /Hinário Adventista/.test(n.textContent)).length
-      : 0;
-    out.cardsForaDosGrupos = aberta.querySelectorAll(':scope > .hymnal-card').length;
-    aberta.remove();
-    grupoAberto = grupoAntes;
-    albumCatalog.categories = catAntes;
-    albumCatalog.albums = albAntes;
     // A folha do sorteio, em modo PLAYLIST — é só nele que o segundo desfecho
     // existe. `abrirSorteio` reescreve as prefs, então o modo é posto DEPOIS
     // dele e a folha é redesenhada.
@@ -2416,16 +2379,9 @@ try {
   checar(!facil.temFavoritos,
     'NO MODO FÁCIL a Biblioteca não desenha a seção de Favoritos',
     JSON.stringify(facil.secoes));
-  checar(facil.cardsNaRaiz === 0 && facil.diversasFechada && facil.gruposFechados === 2,
-    'NO MODO FÁCIL a raiz nasce nos DOIS grupos FECHADOS — nem os hinários são cards dela',
-    JSON.stringify({ secoes: facil.secoes, cardsNaRaiz: facil.cardsNaRaiz,
-      grupos: facil.gruposFechados, diversasFechada: facil.diversasFechada }));
-  checar(facil.cardsNoDiversas >= 3 && facil.hinariosNoDiversas === 2
-      && facil.cardsForaDosGrupos === 0,
-    'e o resto dela continua inteiro — a guarda tira UMA seção, não a lista: '
-    + 'abrindo o "Diversas", os DOIS hinários e a categoria que não é dos CDs estão lá DENTRO',
-    JSON.stringify({ cardsNoDiversas: facil.cardsNoDiversas,
-      hinariosNoDiversas: facil.hinariosNoDiversas, cardsForaDosGrupos: facil.cardsForaDosGrupos }));
+  checar(facil.cards > 0,
+    'e o resto dela continua inteiro — a guarda tira UMA seção, não a lista',
+    facil.cards + ' card(s)');
   checar(facil.destinos === 0 && !facil.acoes.some((t) => /cronograma/i.test(t)),
     'e a playlist automática perde o "Ao Cronograma": ali não há Cronograma para ver',
     JSON.stringify(facil.acoes));
