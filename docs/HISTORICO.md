@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o painel de alcance, redesenhado (sem versão nova; só `site/` e docs)** — três linhas no mesmo eixo (baixaram, usaram, visitaram), o cartão "agora" que sai da consulta do OTA, e as definições de cada número; o rodapé do site passa a linká-lo
 - **o download leva ao guia (sem versão nova; só `site/`)** — o botão do topo baixa e rola até os três passos; a instalação perdeu a explicação longa, o passo 3 manda aceitar a verificação do Google, e o selo "funciona sem internet" saiu de cima do telefone (ficou o "Funciona offline" nos selos)
 - **a tela de destinos voltou (sem versão nova; só `site/`)** — a captura que faltava chegou no mesmo dia e entrou no carrossel, entre a busca e o Hinário; a folha é a mesma em toda porta de entrada (inclusive o link compartilhado), e a foto é a variante do YouTube
 - **as capturas novas do app (sem versão nova; só `site/`)** — as 14 telas do carrossel foram trocadas pelas do app na v1.13.62 (enviadas pelo operador), em WebP 800×1632; saíram as quatro sem captura nova (destinos, série, sorteio, tempo) e entraram Liturgia, Hinário por tema, Ferramentas e Transferir a biblioteca; o cartão do link foi refeito com a tela nova
@@ -680,6 +681,25 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## o painel de alcance, redesenhado (sem versão nova; só `site/` e docs)
+
+**A PÁGINA GANHOU UMA PERGUNTA SÓ, e três linhas para respondê-la:** *quem
+baixou, quem usou e quem visitou* — todas contagem por dia, no mesmo eixo (a
+regra do §6: nunca dois eixos). A linha de downloads faltava: ela é a soma dos
+deltas de cada APK entre dois dias, com o asset novo contando inteiro e o asset
+recolhido pela faxina simplesmente fora (em vez de virar um delta negativo).
+
+**"AGORA" VIROU UM CARTÃO, e com data de validade:** ele só aparece quando a
+última amostra tem até 3 h, e é o contador do OTA dividido por 240 (primeiro
+plano) e por 30 (segundo) — sempre um intervalo, por construção. Com amostras
+diárias, o cartão diz "sem leitura recente" em vez de inventar.
+
+**O QUE NÃO VIROU LINHA, e o painel diz por quê:** "instalados" não existe sem
+identificar o aparelho; o mais perto é a adoção da base atual, que já era o 4º
+número. E o rodapé do site passou a linkar a página (`registro/#alcance`) — a
+chave viaja no link, então a obscuridade continua sendo o que sempre foi. O
+contrato ganhou o §13.
 
 ## o download leva ao guia (sem versão nova; só `site/`)
 

@@ -22,7 +22,7 @@ sai por construção, e a medição de que o farol ainda depende (§10).
 | o farol do app | `app/src/main/java/br/org/iasd/av/Farol.kt` | uma busca por dia, na carona da ronda do OTA |
 | a leitura do farol | `NativeBridge.farolEstado` (shell 58; SÓ LEITURA desde o 61) | alimenta a linha *"Alcance:"* do Registro — *"o farol chegou a acender?"* |
 | a série no tempo | `.github/workflows/dados.yml` | fotografa os contadores de hora em hora na branch órfã `dados` |
-| o painel | `site/registro/index.html` | caminho não listado, exige `#alcance` |
+| o painel | `site/registro/index.html` | alcançável pelo rodapé do site (`registro/#alcance`), fora dos buscadores |
 | o farol de visita | o rodapé de `site/index.html` | uma por navegador por dia |
 | o oráculo | `tools/registro-alcance.test.mjs` | a tranca, a aritmética, o desenho, e a AUSÊNCIA da exclusão |
 
@@ -181,7 +181,10 @@ armazenamento limpo conta de novo.
 ## §7 O "SEGREDO": O QUE UMA PÁGINA ESTÁTICA PODE E NÃO PODE ESCONDER
 
 **O QUE ESTÁ NO AR É A OBSCURIDADE, por escolha do operador:** `site/registro/`
-não é linkado de lugar nenhum, leva `noindex` e exige `#alcance` no endereço.
+leva `noindex` e exige `#alcance` no endereço. Desde 2026-11-10 ele é alcançável
+por um link discreto no rodapé do site — a chave viaja no próprio link, então a
+"tranca" continua sendo o que sempre foi: um filtro contra quem cai de paraquedas,
+não uma credencial.
 A chave é uma constante no topo do `<script>` — trocá-la é trocar aquela linha,
 e nada mais depende dela.
 
@@ -331,3 +334,23 @@ com outro custo de privacidade.
 | cifrar o painel (AES-GCM + frase) | §7 — escolha do operador pela obscuridade. Continua disponível, e o que ele mudaria (a ANÁLISE, nunca os números) está escrito lá |
 | farol por SESSÃO em vez de por dia | quem abre o app quarenta vezes numa manhã de trabalho viraria quarenta. Por dia, o pior caso de um aparelho é contribuir com 1 — e a diferença entre dois dias passa a ser "aparelhos", que é a métrica de alcance |
 | retentar o farol que falhou | um dia perdido custa um ponto numa série; insistir custa fio e bateria no meio de um culto. É a única coisa deste projeto que pode falhar sem consequência, e falha calada de propósito |
+
+## §13 O PAINEL DE 2026-11-10 — três linhas e o que elas não respondem
+
+O painel passou a desenhar **três séries na mesma unidade (contagem por dia)**:
+**Baixaram** (delta dos APKs), **Usaram** (delta do farol) e **Visitaram** (delta
+do `v.txt`). As três já existiam na série; o que faltava era lê-las juntas, e a
+regra do §6 (nunca dois eixos) continua valendo.
+
+**"Instalados" não ganhou linha, e não é esquecimento:** sem identificar o
+aparelho ele não existe — o mais perto é a adoção da base atual (o 4º número),
+que é o que um aparelho instalado e atualizado faz. **"Quanto agora"** virou um
+cartão de estimativa que só aparece quando a última amostra tem ≤ 3 h: é o
+contador do OTA dividido por 240 (primeiro plano) e por 30 (segundo), e o
+resultado é sempre um INTERVALO.
+
+**Para ter o que falta — únicos, instalados, "agora" de verdade, GB de
+biblioteca — o caminho é o §3-B:** um endpoint que receba um identificador
+aleatório por instalação. Ele continua parado, e o preço continua o mesmo: o
+endpoint vê o IP, e um id — mesmo sorteado — transforma contagem agregada em
+rastreamento. É decisão do operador, não do instrumento.
