@@ -91,10 +91,10 @@ try {
       await recarregarFavoritos();
     }
     window.resolveSongMediaId = async () => window.__midia;
-    // A RAIZ DO MODO FÁCIL MUDOU (v1.13.57): as categorias não têm mais grupo
-    // próprio — os cards moram todos no grupo "Diversas", que nasce FECHADO —, e
-    // é ele que o operador abre. (No avançado continua uma categoria por grupo.)
-    grupoAberto = appMode === 'simple' ? 'Diversas' : secao;
+    // A RAIZ DO MODO FÁCIL (v1.13.59): cada categoria continua com o grupo dela — o que mudou
+    // foi só Adoradores e Cantores, que caem no "Diversas". A categoria deste cenário não é
+    // nenhuma das duas, então o grupo a abrir é o dela, nos dois modos.
+    grupoAberto = secao;
     favAberto = true;
     for (const id of ['album-77', 'album-78', 'hymnal-2022']) { ui(id).expanded = true; ui(id).shown = 1000; }
     openHymnSearch(false);
@@ -134,7 +134,7 @@ try {
   const redesenhar = () => pg.evaluate(async (secao) => {
     // O `closeHymnSearch` do toque fecha a Biblioteca e recolhe a seção.
     openHymnSearch(false);
-    grupoAberto = appMode === 'simple' ? 'Diversas' : secao;
+    grupoAberto = secao;   // v1.13.59: cada categoria tem o grupo dela (só Adoradores/Cantores vão para "Diversas")
     favAberto = true;
     for (const id of ['album-77', 'album-78', 'hymnal-2022']) { ui(id).expanded = true; ui(id).shown = 1000; }
     hymnResultsEl.innerHTML = '';

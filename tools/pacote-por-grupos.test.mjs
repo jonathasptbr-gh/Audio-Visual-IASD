@@ -855,21 +855,6 @@ try {
         .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Favoritos');
       return getComputedStyle(li.querySelector('.song-menu-btn')).backgroundColor;
     });
-    // DIAGNÓSTICO TEMPORÁRIO — remover.
-    console.log('DIAG MARCADO:', JSON.stringify(await e.pg.evaluate(() => {
-      const cor = (el) => (el ? getComputedStyle(el).backgroundColor : null);
-      const rot = (x) => ((x.querySelector('.song-menu-label') || {}).textContent || '');
-      const lis = [...document.querySelectorAll('#pacoteLista li')];
-      const bloco = lis.find((x) => x.classList.contains('pacote-grupo') && rot(x).indexOf('Diversas') === 0);
-      const barra = bloco && bloco.querySelector('.song-menu-grupo');
-      const raiz = lis.find((x) => x.classList.contains('pacote-linha') && rot(x) === 'Favoritos');
-      return {
-        bloco: cor(bloco), barra: cor(barra), barraTxt: cor(barra && barra.querySelector('.song-menu-text')),
-        raiz: cor(raiz && raiz.querySelector('.song-menu-btn')),
-        raizTxt: cor(raiz && raiz.querySelector('.song-menu-text')),
-        estadoGrupo: (bloco && bloco.querySelector('.song-menu-check') || {}).className,
-      };
-    })));
     await tocar(e.pg, 'Diversas');
     await tocar(e.pg, 'Favoritos');
     await tocar(e.pg, 'Diversas', 'seta');

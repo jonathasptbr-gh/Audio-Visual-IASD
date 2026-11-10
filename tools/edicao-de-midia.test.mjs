@@ -948,7 +948,9 @@ const noAvancado = await facil.evaluate(() => {
     grupos: [...document.querySelectorAll('#edicaoLista [data-grupo]')].map((e) => e.dataset.grupo) };
 });
 checar(aceso === true && abriuAvancado === true && noAvancado.mesmoNo === true && noAvancado.modo === false
-    && noAvancado.display !== 'none' && noAvancado.caixa === true && noAvancado.hidden === false
+    // A CAIXA do tile é medida ANTES do toque (`aceso`): aberta a seção, a grade some da tela por
+    // desenho, e exigir caixa depois do toque seria exigir que a grade ficasse à vista junto.
+    && noAvancado.display !== 'none' && noAvancado.hidden === false
     && noAvancado.titulo === 'Escolher a mídia'
     && ['lst:imports', 'lst:playlist', 'lst:favs'].every((g) => noAvancado.grupos.includes(g)),
   'C · e no MODO AVANÇADO o MESMO nó do tile volta aceso e abre a folha de edição normalmente (o seletor em grupos)',
