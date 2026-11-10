@@ -1831,9 +1831,17 @@ try {
     // Até aqui elas vinham de graça dos dois grupos fixos ("Arquivos oficiais"
     // e "Hinários"); com as coleções fixas na RAIZ sobrava só "Favoritos", e o
     // caso passava a medir o vazio. Restauradas no fim.
+    //
+    // TRÊS CATEGORIAS, DUAS SEÇÕES (v1.13.60): "Adoradores" é uma das que a
+    // regra nova dissolve dentro do "Diversas", e ela entra no cenário DE
+    // PROPÓSITO — é a diferença entre o desenho de ontem e o de hoje: ontem
+    // ela era uma seção, e o rodízio corria entre "CDs oficiais/ano" e ela;
+    // hoje sobram "CDs oficiais/ano" e "Diversas", e é entre as duas que ele
+    // corre. A GUARDA logo abaixo é quem cobra a fusão: um app que volte a
+    // desenhar uma seção por categoria reprova ali, com o par antigo na mão.
     const catAntes = albumCatalog.categories;
     const albAntes = albumCatalog.albums;
-    albumCatalog.categories = ['Adoradores', 'Diversas'].map((nome, i) => ({
+    albumCatalog.categories = ['CDs oficiais/ano', 'Adoradores', 'Diversas'].map((nome, i) => ({
       name: nome, albums: [{ id_album: 700 + i, name: 'Álbum ' + nome }],
     }));
     albumCatalog.albums = albumCatalog.categories.map((c) => c.albums[0]);
@@ -1960,6 +1968,16 @@ try {
     JSON.stringify(indice.fechado.grupos) + ' · ' + indice.fechado.cards + ' card(s) de grupo');
   checar(indice.fechado.grupos[0] === 'Favoritos',
     'e o primeiro deles é FAVORITOS, no topo da listagem',
+    JSON.stringify(indice.fechado.grupos));
+  // A GUARDA DO DESENHO NOVO (v1.13.60): "Adoradores" NÃO é uma seção — ela
+  // cai dentro do "Diversas", junto com os álbuns dele. Sem esta linha o
+  // cenário do rodízio mediria o desenho de ontem sem acusar: aberto numa
+  // seção por categoria, o par descoberto seria outro ("Adoradores"), e o
+  // rodízio passaria entre DUAS seções antigas, sem nunca tocar na fusão.
+  checar(JSON.stringify(indice.fechado.grupos)
+      === JSON.stringify(['Favoritos', 'CDs oficiais/ano', 'Diversas']),
+    'e "Adoradores" NÃO é uma seção: a fusão da v1.13.60 a leva para dentro do '
+    + '"Diversas", e é entre as duas coleções que sobraram que o rodízio corre',
     JSON.stringify(indice.fechado.grupos));
   // ── AS COLEÇÕES FAZEM RODÍZIO; OS FAVORITOS, NÃO (v5.262 → v5.273 → v5.276) ─
   // Pedido do operador: *"agora não mais são concorrentes com os favoritos… o
@@ -3368,6 +3386,16 @@ try {
     'A COLETÂNEA DISSOLVIDA NÃO É DESENHADA — a regra do `coletanea.js` chega '
     + 'à tela, e não só ao oráculo dela',
     JSON.stringify(dissolve.secoes));
+  // A SEGUNDA COLETÂNEA DISSOLVIDA, e ela é de OUTRA regra (v1.13.60): as
+  // categorias "Adoradores" e "Cantores" não têm seção própria NOS DOIS MODOS —
+  // os álbuns delas entram no grupo "Diversas", junto com os da categoria
+  // dele. Antes de a regra valer aqui (o caso roda no modo AVANÇADO), estas
+  // duas eram desenhadas, e os seis álbuns ficavam espalhados em três seções.
+  checar(!dissolve.secoes.includes('Adoradores')
+    && !dissolve.secoes.includes('Cantores'),
+    'e ADORADORES e CANTORES também não têm seção: a fusão da v1.13.60 vale '
+    + 'no modo avançado, e não só no fácil',
+    JSON.stringify(dissolve.secoes));
   // A METADE QUE CARREGA O CASO. Sem ela, DROPAR a categoria em vez de FUNDIR
   // passa: os álbuns viram órfãos e voltam como "Outros álbuns", com os mesmos
   // cards, o mesmo número de blocos e o pedido do operador não atendido.
@@ -3376,25 +3404,28 @@ try {
     'e NÃO nasce um bloco de órfãos no lugar dela: dissolver é FUNDIR, e um '
     + '"Outros álbuns" com os mesmos álbuns devolveria o bloco pela porta dos '
     + 'fundos', JSON.stringify(dissolve.secoes));
-  // A POSIÇÃO NO DOM, e não a contagem: os quatro álbuns — os dois do destino e
-  // os dois que a coletânea dissolvida trouxe — são FILHOS do corpo do destino.
-  // A régua é ONDE eles estão na árvore, e é ela que separa FUNDIR de dropar.
+  // A POSIÇÃO NO DOM, e não a contagem: os SEIS álbuns — os dois do destino,
+  // os dois que a Celebra SP trouxe e os dois das categorias que a v1.13.60
+  // funde (Adoradores e Cantores) — são FILHOS do corpo do destino. A régua é
+  // ONDE eles estão na árvore, e é ela que separa FUNDIR de dropar.
   //
   // A ORDEM saiu desta asserção na v1.8.40 e virou a de baixo: `Diversas` é uma
   // das coletâneas alfabéticas, então quem a decide passou a ser
   // `AVColetanea.ehAlfabetica` e não mais a ordem de chegada. Afirmar as duas
   // coisas numa asserção só faria a MOVE reprovar por um ajuste de ordenação.
-  checar([...dissolve.noDestino].sort((a, b) => a - b).join(',') === '40,41,50,51',
+  checar([...dissolve.noDestino].sort((a, b) => a - b).join(',')
+      === '20,30,40,41,50,51',
     'e OS CARDS DELA SÃO FILHOS DO CORPO DO DESTINO — a régua é onde eles '
     + 'estão na árvore, nunca quantos são',
     JSON.stringify(dissolve.noDestino));
-  // E A ORDEM DENTRO DELE É ALFABÉTICA (v1.8.40), porque `Diversas` está na
-  // lista do `ehAlfabetica`. Os nomes do fixture são "Álbum <id>", então o
-  // alfabético e o numérico coincidem — é de propósito: assim a asserção lê
-  // como o operador lê a tela. REVERSÃO: sem a ordenação do `categoryCards` o
-  // que sai é `50,51,40,41` (o destino primeiro, os movidos no fim), que era
-  // exatamente o que esta linha afirmava até aqui.
-  checar(dissolve.noDestino.join(',') === '40,41,50,51',
+  // E A ORDEM DENTRO DELE (v1.8.40/v1.13.60) é a do desenho: os das categorias
+  // dissolvidas (20, 30) entram primeiro, na ordem do catálogo, e o corpo do
+  // destino (40, 41, 50, 51) sai em ordem alfabética. "Álbum <id>" faz o
+  // alfabético e o numérico coincidirem de propósito, para a asserção ler como
+  // o operador lê a tela. REVERSÃO: sem a ordenação do `categoryCards` o que
+  // sai é `20,30,50,51,40,41` — o destino primeiro, os movidos no fim —, que é
+  // o desenho que esta linha recusa.
+  checar(dissolve.noDestino.join(',') === '20,30,40,41,50,51',
     'e ELES SAEM EM ORDEM ALFABÉTICA, misturados aos do destino: numa '
     + 'coletânea que o operador percorre por NOME, "os que já estavam" e "os '
     + 'que chegaram" não são duas listas',

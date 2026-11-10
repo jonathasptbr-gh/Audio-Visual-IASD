@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.60** — a LITURGIA no Modo Fácil (um bloco só, na ordem Informativo · abertura infantil 533 · Provai e Vede · ofertório 572, no lugar do "Este sábado" e do bloco dos fixos) e a fusão do "Diversas" valendo também no MODO AVANÇADO; bloco 12 do `lista-da-biblioteca` (só web)
 - **v1.13.59** — "Diversas" leva só Adoradores e Cantores: os hinários voltam a ser cards da raiz e cada outra categoria tem o grupo dela (`DISSOLVIDAS_EM_DIVERSAS`); um grupo só de Diversas, sem álbum repetido; bloco 12 do `lista-da-biblioteca` (só web)
 - **v1.13.58** — os elementos fixos do Modo Fácil são ITENS do Hinário 2022: 572 (Ofertório) e 533 (abertura para a adoração infantil), cada um uma linha que TOCA o hino; o casamento por nome de álbum da v1.13.57 saiu; bloco 12 do `lista-da-biblioteca` (só web)
 - **v1.13.57** — Modo Fácil, o Pacote 4: a pílula de volume única nos dois modos (o fader do deck e a barra da tela cheia saem), as coleções em duas (CDs do ano e "Diversas"), os dois lugares de elemento fixo, a terceira tecla virando tela cheia e as Configurações enxutas; `controles-layout`, `video-tela-cheia`, `modo-simples-teclas` e o bloco 12 do `lista-da-biblioteca` (só web)
@@ -672,6 +673,34 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.13.60 — a Liturgia no Modo Fácil, e o "Diversas" no avançado
+
+**Dois ajustes pedidos pelo operador**, **só web**: `SHELL_VERSION` 85, `minShell` 83, **sem
+`shellTag`**. Degrau CORREÇÃO.
+
+**(1) A LITURGIA.** *"Ajunte o informativo mundial das missões, aberto adoração infantil, provai e
+vede e ofertório (nessa ordem) em um único grupo chamado 'Liturgia'. Isso é apenas para o modo
+simples, vai substituir o 'este sábado' e juntar as duas seções. Isso deve ter o mesmo visual, e não
+colocar dentro de uma coleção … mantenha todos a mostra como já é hoje"*.
+
+`blocoSemanasRaiz` virou `blocoLiturgia`: UM bloco (`.semana-raiz.bloco-fixo`, a mesma caixa de
+sempre) com o cabeçalho **"Liturgia"** e a data do sábado, e as linhas na ordem do culto —
+`series[0]` (Informativo), o item 533 (abertura da adoração infantil), `series[1..]` (Provai e Vede)
+e o item 572 (ofertório). Todas à vista, sem acordeão; a segunda linha fixa entra ENTRE os dois
+vídeos e a primeira fecha a lista. `blocoFixosDoSimples` saiu (o bloco dele foi absorvido) e
+`ELEMENTOS_FIXOS_SIMPLES` continua sendo a fonte dos números e rótulos — a Liturgia só diz qual vem
+antes.
+
+**(2) O "DIVERSAS" NO MODO AVANÇADO.** *"a mesma aglomeração que você fez sobre a coletânea de
+diversos, quero que aplique ela no modo avançado também"*. `desenharCategorias` passou a ser UMA
+função para os dois ramos: uma categoria por grupo, com `DISSOLVIDAS_EM_DIVERSAS` (Adoradores e
+Cantores) e os álbuns dela indo para o grupo "Diversas" — desenhado UMA vez, com o `vistos` da raiz
+inteira (o catálogo é N:N). Só a LITURGIA é do Modo Fácil; a fusão vale nos dois.
+
+**Oráculos:** bloco 12 do `lista-da-biblioteca` (a Liturgia antes de todo grupo, os dois fixos na
+ordem 533/572, e a fusão medida no AVANÇADO), `semana-item` I2 ("Liturgia" no lugar de "Este
+sábado"), mais `boot-nativo` e `pacote-por-grupos` (as seções que deixaram de existir com a fusão).
 
 ## v1.13.59 — "Diversas" leva só Adoradores e Cantores
 

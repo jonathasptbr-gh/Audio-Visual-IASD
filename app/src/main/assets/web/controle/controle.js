@@ -412,7 +412,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.59';
+const WEB_VERSION = '1.13.60';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -976,24 +976,6 @@ function hinoFixoDoSimples(numero) {
   if (!coll) return null;
   const s = faixasDaLista(coll).find((x) => (x.track | 0) === numero);
   return s ? { coll, s } : null;
-}
-
-// O BLOCO dos elementos fixos: a MESMA caixa do "Este sábado" (`.semana-raiz`, `--poco`), para as
-// linhas pousarem na mesma coluna e na mesma tinta — sem cabeçalho, porque o bloco de cima já
-// nomeia o sábado e estes dois são o que vem DEPOIS dele. `null` quando nenhum dos dois existe.
-function blocoFixosDoSimples() {
-  const linhas = [];
-  for (const el of ELEMENTOS_FIXOS_SIMPLES) {
-    const li = linhaFixoDoSimples(el.numero, el.rotulo);
-    if (li) linhas.push(li);
-  }
-  if (!linhas.length) return null;
-  const li = document.createElement('li');
-  li.className = 'semana-raiz bloco-fixo';
-  const ul = document.createElement('ul'); ul.className = 'coll-songs semana-raiz-lista';
-  linhas.forEach((l) => ul.appendChild(l));
-  li.appendChild(ul);
-  return li;
 }
 
 // A LINHA do elemento fixo: o nome do momento em cima, "572 · <nome do hino>" embaixo, e o
@@ -12656,19 +12638,13 @@ function renderCollectionsListMiolo(alvo, redesenhar) {
   // acrescentada AQUI também, ou ela é construída, conta no peso e não aparece
   // em lugar nenhum — sem erro.
   //
-  // NO MODO FÁCIL AS SÉRIES NÃO SÃO COLEÇÃO (v1.13.15): os dois cards dão lugar a UM bloco,
-  // "Este sábado", com o vídeo da semana de cada série como linha — ver `blocoSemanasRaiz`.
+  // NO MODO FÁCIL AS SÉRIES NÃO SÃO COLEÇÃO (v1.13.15): os dois cards dão lugar a UM bloco —
+  // hoje o da LITURGIA (v1.13.60), com os vídeos da semana e os dois elementos fixos.
   //
-  // E AS COLEÇÕES ENCOLHEM PARA DUAS (v1.13.57, pedido do operador: *"além da coleção de cds do
-  // ano, o resto ficará na coleção de diversos"*): a dos CDs do ano continua separada e TODO o
-  // resto — os hinários, as outras categorias do catálogo e os órfãos — cai num grupo só,
-  // "Diversas". O espaço que isso devolve é o que dá lugar aos ELEMENTOS FIXOS logo abaixo dos
-  // vídeos da semana. É só do Modo Fácil: no avançado a lista continua inteira, categoria a
-  // categoria.
+  // E "ADORADORES" E "CANTORES" CAEM NO "DIVERSAS" NOS DOIS MODOS (v1.13.59/60) — ver
+  // `desenharCategorias`, que é quem desenha as categorias para os dois ramos.
   const simples = appMode === 'simple';
   const seriesNaRaiz = serieCollections().filter((c) => byId.has(c.id));
-  const semanasNaRaiz = simples ? blocoSemanasRaiz(seriesNaRaiz) : null;
-  if (semanasNaRaiz) { any = true; alvo.appendChild(semanasNaRaiz); }
 
   const categorias = coletaneas.categorias;
   // Álbuns conhecidos que nenhuma categoria reivindicou (catálogo antigo,
@@ -12685,12 +12661,10 @@ function renderCollectionsListMiolo(alvo, redesenhar) {
       any = true;
       fixasNaRaiz.forEach((coll) => alvo.appendChild(renderCollectionCard(coll)));
     }
-    for (const cat of categorias) {
-      const cards = categoryCards(cat);
-      if (!cards.length) continue;
-      const corpo = grupo(cat.name, cards.map((x) => x.coll));
-      if (corpo) cards.forEach(({ coll, ctx }) => corpo.appendChild(renderCollectionCard(coll, ctx)));
-    }
+    // AS CATEGORIAS DO CATÁLOGO — com "Adoradores" e "Cantores" dentro do "Diversas", a MESMA
+    // regra do Modo Fácil (v1.13.60, pedido do operador: *"a mesma aglomeração que você fez sobre
+    // a coletânea de diversos, quero que aplique ela no modo avançado também"*).
+    desenharCategorias(alvo, categorias, grupo, categoryCards, renderCollectionCard);
     if (orphans.length) {
       const corpo = grupo(categorias.length ? 'Outros álbuns' : 'Álbuns', orphans);
       if (corpo) orphans.forEach((coll) => corpo.appendChild(renderCollectionCard(coll)));
@@ -12699,8 +12673,13 @@ function renderCollectionsListMiolo(alvo, redesenhar) {
     // (a) OS ELEMENTOS FIXOS, logo depois dos vídeos da semana — as duas linhas que o operador
     // pediu, itens do Hinário 2022 (ver `ELEMENTOS_FIXOS_SIMPLES`); sem o hino no índice, a linha
     // não existe.
-    const blocoFixo = blocoFixosDoSimples();
-    if (blocoFixo) { any = true; alvo.appendChild(blocoFixo); }
+    //
+    // (a) A LITURGIA (v1.13.60): os vídeos da semana e os dois elementos fixos num bloco SÓ, na
+    // ordem do culto — Informativo, abertura da adoração infantil, Provai e Vede, ofertório. Ela
+    // substitui o "Este sábado" e os dois blocos separados; as linhas continuam todas à vista,
+    // como antes, e a caixa é a mesma de sempre.
+    const blocoLit = blocoLiturgia(seriesNaRaiz);
+    if (blocoLit) { any = true; alvo.appendChild(blocoLit); }
     // (b) OS HINÁRIOS CONTINUAM CARDS DA RAIZ. O operador corrigiu o pedido (2026-11-10):
     // *"era pra por em diversos apenas os 'adoradores' e os 'cantores', que antes tinham uma
     // coleção própria, mas que na realidade são diversos"* — não era "todo o resto".
@@ -12709,39 +12688,9 @@ function renderCollectionsListMiolo(alvo, redesenhar) {
       any = true;
       fixas.forEach((coll) => alvo.appendChild(renderCollectionCard(coll)));
     }
-    // (c) UMA CATEGORIA POR GRUPO, como no avançado — menos as que são "diversas" de verdade:
-    // elas entram no grupo "Diversas" junto com os álbuns dele, e um álbum que está em duas
-    // categorias entra UMA vez (o catálogo é N:N).
-    const vistos = new Set();
-    const divers = [];
-    const juntar = (coll, ctx) => {
-      if (!coll || vistos.has(coll.id)) return;
-      vistos.add(coll.id); divers.push({ coll, ctx });
-    };
-    // O GRUPO "DIVERSAS" É UM SÓ, e ele é desenhado no FIM (com os dissolvidos dentro): a
-    // categoria dele não pode ser desenhada no laço também — era o defeito de dois grupos com
-    // o mesmo nome.
-    const catDiversas = categorias.find((c) => chaveDeNome(c.name) === chaveDeNome(GRUPO_DIVERSAS));
-    for (const cat of categorias) {
-      if (cat === catDiversas) continue;
-      if (DISSOLVIDAS_EM_DIVERSAS.test(String(cat.name))) {
-        for (const x of categoryCards(cat)) juntar(x.coll, x.ctx);
-        continue;
-      }
-      const cards = categoryCards(cat);
-      if (!cards.length) continue;
-      // O ÁLBUM QUE JÁ SAIU NUM GRUPO NÃO ENTRA DE NOVO NO "DIVERSAS" (o catálogo é N:N): o
-      // `vistos` é da RAIZ inteira, e não do grupo.
-      cards.forEach((x) => { if (x.coll) vistos.add(x.coll.id); });
-      const corpo = grupo(cat.name, cards.map((x) => x.coll));
-      if (corpo) cards.forEach(({ coll, ctx }) => corpo.appendChild(renderCollectionCard(coll, ctx)));
-    }
-    if (catDiversas) for (const x of categoryCards(catDiversas)) juntar(x.coll, x.ctx);
-    if (divers.length) {
-      const nome = catDiversas ? catDiversas.name : GRUPO_DIVERSAS;
-      const corpo = grupo(nome, divers.map((x) => x.coll));
-      if (corpo) divers.forEach(({ coll, ctx }) => corpo.appendChild(renderCollectionCard(coll, ctx)));
-    }
+    // (c) UMA CATEGORIA POR GRUPO, como no avançado, com "Adoradores" e "Cantores" dissolvidos
+    // no grupo "Diversas" — ver `desenharCategorias`.
+    desenharCategorias(alvo, categorias, grupo, categoryCards, renderCollectionCard);
   }
 
   if (!any) {
@@ -21877,26 +21826,88 @@ function semanaLinha(coll) {
  * sempre): no Modo Fácil não há mais card a abrir, e a abertura da Biblioteca é o gesto
  * equivalente.
  */
-function blocoSemanasRaiz(colls) {
+/**
+ * O BLOCO DA LITURGIA (v1.13.60) — no Modo Fácil, os vídeos da semana e os dois elementos fixos
+ * num lugar só, na ordem do culto: Informativo, abertura da adoração infantil, Provai e Vede,
+ * ofertório. Pedido do operador: *"ajunte … em um único grupo chamado 'Liturgia'. … Isso deve ter
+ * o mesmo visual, e não colocar dentro de uma coleção … mantenha todos a mostra como já é hoje"*.
+ *
+ * Ele SUBSTITUI o "Este sábado" e o bloco separado dos fixos: uma caixa, um cabeçalho, todas as
+ * linhas à vista (nada de acordeão). A segunda linha fixa (533) entra entre o primeiro e o segundo
+ * vídeo; a de baixo (572) fecha a lista — é a ordem que o operador pediu.
+ */
+function blocoLiturgia(colls) {
   const series = (colls || []).filter((c) => c && c.kind === 'serie' && c.serie);
-  if (!series.length || !window.AVSerie || !AVSerie.chaveDaSerie) return null;
+  const linhas = [];
+  // A ORDEM DOS FIXOS É A DA LITURGIA, e o número mora em `ELEMENTOS_FIXOS_SIMPLES` — a fonte é
+  // uma só: aqui só se diz QUAL dos dois vem antes e qual fecha.
+  const fixo = (numero) => {
+    const el = ELEMENTOS_FIXOS_SIMPLES.find((e) => e.numero === numero);
+    return el ? linhaFixoDoSimples(el.numero, el.rotulo) : null;
+  };
+  const abertura = fixo(533);
+  const ofertorio = fixo(572);
+  if (series[0]) linhas.push(semanaLinhaRaiz(series[0]));
+  if (abertura) linhas.push(abertura);
+  for (const c of series.slice(1)) linhas.push(semanaLinhaRaiz(c));
+  if (ofertorio) linhas.push(ofertorio);
+  if (!linhas.length) return null;
   const li = document.createElement('li');
   li.className = 'semana-raiz bloco-fixo';
   const cab = document.createElement('div'); cab.className = 'serie-destaque-cab semana-raiz-cab';
   const rot = document.createElement('span'); rot.className = 'serie-destaque-rot';
-  rot.textContent = 'Este sábado';
+  rot.textContent = 'Liturgia';
   const dia = document.createElement('span'); dia.className = 'serie-destaque-data';
-  dia.textContent = AVSerie.rotuloData(AVSerie.sabadoDaSemana());
+  const data = window.AVSerie && AVSerie.sabadoDaSemana ? AVSerie.sabadoDaSemana() : null;
+  dia.textContent = data ? AVSerie.rotuloData(data) : '';
+  if (!dia.textContent) dia.hidden = true;
   cab.append(rot, dia);
   const ul = document.createElement('ul'); ul.className = 'coll-songs semana-raiz-lista';
+  for (const l of linhas) ul.appendChild(l);
+  li.append(cab, ul);
+  // Adiada (mídia no ar), a verificação não é repedida a cada desenho: o pedido adiado redesenha
+  // o acervo, e repedir aqui faria disso um laço de 400 ms enquanto a mídia tocar.
   for (const coll of series) {
-    ul.appendChild(semanaLinhaRaiz(coll));
-    // Adiada (mídia no ar), ela não é repedida a cada desenho: o pedido adiado redesenha o
-    // acervo, e repedir aqui faria disso um laço de 400 ms enquanto a mídia tocar.
     if (!ui(coll.id).semanaAdiada || rotinaDeAcervoPodeCorrer()) verificarSemanaAoAbrir(coll);
   }
-  li.append(cab, ul);
   return li;
+}
+
+/**
+ * AS CATEGORIAS DO CATÁLOGO, nos DOIS modos (v1.13.60): uma por grupo, EXCETO as que são
+ * "diversas" de verdade — `DISSOLVIDAS_EM_DIVERSAS` (Adoradores e Cantores) —, que entram no
+ * grupo "Diversas" junto com os álbuns da categoria dele.
+ *
+ * Duas regras que se pagam caro se esquecidas: o grupo "Diversas" é desenhado UMA vez (a
+ * categoria dele sai do laço, senão saem dois grupos com o mesmo nome), e o `vistos` é da RAIZ
+ * inteira — um álbum que já saiu num grupo não se repete dentro do "Diversas" (o catálogo é N:N).
+ */
+function desenharCategorias(alvo, categorias, grupo, categoryCards, renderCollectionCard) {
+  const vistos = new Set();
+  const divers = [];
+  const juntar = (coll, ctx) => {
+    if (!coll || vistos.has(coll.id)) return;
+    vistos.add(coll.id); divers.push({ coll, ctx });
+  };
+  const catDiversas = categorias.find((c) => chaveDeNome(c.name) === chaveDeNome(GRUPO_DIVERSAS));
+  for (const cat of categorias) {
+    if (cat === catDiversas) continue;
+    if (DISSOLVIDAS_EM_DIVERSAS.test(String(cat.name))) {
+      for (const x of categoryCards(cat)) juntar(x.coll, x.ctx);
+      continue;
+    }
+    const cards = categoryCards(cat);
+    if (!cards.length) continue;
+    cards.forEach((x) => { if (x.coll) vistos.add(x.coll.id); });
+    const corpo = grupo(cat.name, cards.map((x) => x.coll));
+    if (corpo) cards.forEach(({ coll, ctx }) => corpo.appendChild(renderCollectionCard(coll, ctx)));
+  }
+  if (catDiversas) for (const x of categoryCards(catDiversas)) juntar(x.coll, x.ctx);
+  if (divers.length) {
+    const nome = catDiversas ? catDiversas.name : GRUPO_DIVERSAS;
+    const corpo = grupo(nome, divers.map((x) => x.coll));
+    if (corpo) divers.forEach(({ coll, ctx }) => corpo.appendChild(renderCollectionCard(coll, ctx)));
+  }
 }
 
 function semanaLinhaRaiz(coll) {

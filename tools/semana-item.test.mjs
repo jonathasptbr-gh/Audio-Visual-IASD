@@ -339,8 +339,10 @@ try {
   const iFacil = await raizDo('simple');
   checar(!iFacil.serieCard,
     'I1 · no MODO FÁCIL nenhum card de coleção do Provai e Vede ou do Informativo na raiz', iFacil);
-  checar(/semana-raiz/.test(iFacil.primeiro) && iFacil.rot === 'Este sábado' && iFacil.data === datas.sab,
-    'I2 · no lugar deles, o PRIMEIRO bloco da raiz diz "Este sábado" e a DATA do sábado', { iFacil, datas });
+  // O BLOCO É O DA LITURGIA (v1.13.60): ele substituiu o "Este sábado" e leva, na mesma caixa,
+  // os vídeos da semana e os dois elementos fixos.
+  checar(/semana-raiz/.test(iFacil.primeiro) && iFacil.rot === 'Liturgia' && iFacil.data === datas.sab,
+    'I2 · no lugar deles, o PRIMEIRO bloco da raiz diz "Liturgia" e a DATA do sábado', { iFacil, datas });
   checar(iFacil.linhas.length === 2 && iFacil.linhas[0].nome === 'Informativo Mundial das Missões'
       && iFacil.linhas[1].nome === 'Provai e Vede',
     'I3 · com UMA linha por série — o vídeo da semana de cada uma, direto na raiz', iFacil.linhas);

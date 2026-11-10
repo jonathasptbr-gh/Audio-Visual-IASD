@@ -1843,12 +1843,26 @@ try {
       === JSON.stringify(['Álbum Adoradores', 'Álbum Cantores', 'Álbum Celebra SP', 'Álbum Diversas']),
     'e "Adoradores" e "Cantores" caem dentro do "Diversas", cada álbum uma vez só',
     simplesG.dentro);
+  // A LITURGIA (v1.13.60) é UM bloco só, e é o primeiro da raiz: os vídeos da semana e os dois
+  // fixos, na ordem do culto — a abertura infantil (533) entre os vídeos e o ofertório (572) no
+  // fim. Sem série neste cenário, sobra a ordem dos dois fixos.
   const primeiroGrupo = simplesG.fechado.findIndex((x) => x.startsWith('grupo:'));
   const blocoFixo = simplesG.fechado.indexOf('semana');
   checar(blocoFixo >= 0 && primeiroGrupo > blocoFixo
-      && JSON.stringify(simplesG.fixos) === JSON.stringify(['Ofertório', 'Abertura da adoração infantil']),
-    'e os dois elementos fixos vêm ANTES de tudo, num bloco próprio logo depois dos vídeos da semana',
+      && JSON.stringify(simplesG.fixos)
+        === JSON.stringify(['Abertura da adoração infantil', 'Ofertório']),
+    'e os dois elementos fixos moram no bloco da LITURGIA, antes de todo grupo',
     simplesG.fechado);
+
+  // NO MODO AVANÇADO A FUSÃO DO "DIVERSAS" TAMBÉM VALE (v1.13.60, pedido do operador).
+  const avancadoG = await acervoSimples('full');
+  const gruposAv = avancadoG.fechado.filter((x) => x.startsWith('grupo:'));
+  checar(JSON.stringify(gruposAv)
+      === JSON.stringify(['grupo:Favoritos', 'grupo:CDs Oficiais/Ano', 'grupo:Diversas'])
+      && JSON.stringify(avancadoG.dentro)
+        === JSON.stringify(['Álbum Adoradores', 'Álbum Cantores', 'Álbum Celebra SP', 'Álbum Diversas']),
+    'e no modo AVANÇADO "Adoradores" e "Cantores" também caem dentro do "Diversas"',
+    { gruposAv, dentro: avancadoG.dentro });
 
   checar(erros.length === 0, 'nenhum erro de console', erros.slice(0, 5));
 } catch (e) {

@@ -885,7 +885,7 @@
     </div>
 
     <!-- O "controle remoto": teclas grandes, nada de arrastar. TRÊS teclas: o Parar, o Play/Pausa
-         e a TELA CHEIA (v1.13.59 — a terceira era o NÍVEL, que saiu junto com o volume da linha:
+         e a TELA CHEIA (v1.13.60 — a terceira era o NÍVEL, que saiu junto com o volume da linha:
          quem mexe no volume agora é a pílula flutuante, que a tecla física acende, e o ajuste fino
          é o das teclas físicas, `volumeProximo`). A tela cheia é a porta manual da prévia, para
          QUALQUER mídia no ar; sem nada em exibição ela fica APAGADA com o motivo no rótulo.
@@ -905,7 +905,7 @@
              alcançado só depois de `load()` e de dezenas de leituras do
              IndexedDB — e o modo simplificado é a primeira tela que o operador vê. -->
         <button type="button" id="simplePlay" class="simple-key simple-key--big" title="Play/Pause"><span class="msym" aria-hidden="true">&#xe037;</span></button>
-        <!-- A TELA CHEIA (v1.13.59): assume a casa e o desenho da tecla de NÍVEL, que existia
+        <!-- A TELA CHEIA (v1.13.60): assume a casa e o desenho da tecla de NÍVEL, que existia
              desde a v1.13.8. O desenho é o mesmo `⛶` do botão que ela substitui (o
              `#simpleFsBtn` do card do nome, que saiu), e o `disabled` é escrito por
              `renderTeclaTela` — apagada ela não responde ao toque. -->
@@ -1909,7 +1909,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.13.59</span>
+          <span id="appVersion">v1.13.60</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
@@ -3112,7 +3112,7 @@
 
   <!-- native.js PRIMEIRO: define window.__NATIVE__/AVNative antes que
        qualquer outro script consulte essas guardas. No navegador é no-op. -->
-  <!-- ===== A PÍLULA DE VOLUME (v1.13.59) =====
+  <!-- ===== A PÍLULA DE VOLUME (v1.13.60) =====
        O retorno visual da tecla física de volume — UM só, nos dois modos e em toda tela
        (o fader vertical do deck e a barra da tela cheia saíram neste lote; as duas eram
        lugares diferentes para a mesma pergunta).
@@ -3127,7 +3127,7 @@
        O número fica ao lado e não dentro do cap: a cápsula é baixa demais para um número no
        meio do traço. -->
   <div class="vol-pill" id="volPill">
-    <!-- O ÍCONE É O MUDO (v1.13.59): o toque na tecla de NÍVEL do Modo Fácil mutava, e essa
+    <!-- O ÍCONE É O MUDO (v1.13.60): o toque na tecla de NÍVEL do Modo Fácil mutava, e essa
          tecla virou a tela cheia — o mudo ficou aqui, no mesmo comando e no mesmo estado do
          `#muteToggle` (`.click()`), que é o mudo do avançado. -->
     <button type="button" class="vol-pill-mute" id="volPillMute" title="Mutar" aria-label="Mutar">

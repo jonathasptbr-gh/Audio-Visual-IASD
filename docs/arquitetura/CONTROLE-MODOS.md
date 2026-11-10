@@ -177,25 +177,22 @@ recolhidas sem nada no ar).
   ícone de cast é o `#simpleCastBtn` (espelha classe e `title` do `#pvCastBtn`
   em `renderCastBtn`, e chama o mesmo `abrirCast`).
 - **Aceito:** o selo de camadas não existe no Modo Fácil (o Parar encerra tudo).
-- **Séries:** no Modo Fácil Provai e Vede e Informativo Mundial NÃO são coleção
-  (v1.13.15): a raiz da Biblioteca abre com UM bloco, "Este sábado" e a data
-  (`blocoSemanasRaiz`, `.semana-raiz.bloco-fixo`), com uma linha por série — o item
-  virtual "vídeo da semana" — que TOCA no toque (sem gaveta de destinos). Ele tem a
-  altura do conteúdo e fica fora da repartição da tampa (`calcularTampa` desconta o
-  `bloco-fixo` da sobra e da média, como os Favoritos abertos). Ver
-  `docs/recursos/SERIES.md`.
-- **Coleções em DUAS (v1.13.57), pedido do operador:** *"além da coleção de cds do
-  ano, o resto ficará na coleção de diversos"*. `renderCollectionsListMiolo` ramifica
-  por modo: no avançado cada categoria do catálogo é um grupo; no Modo Fácil a raiz
-  fica com os **CDs do ano** (`GRUPO_CDS_DO_ANO`) e **um** grupo, "Diversas"
-  (`GRUPO_DIVERSAS`), com as outras categorias, os dois hinários e os álbuns órfãos.
-  Um álbum em duas categorias (o catálogo é N:N) entra UMA vez. **Elementos fixos
-  (v1.13.58):** `ELEMENTOS_FIXOS_SIMPLES` são ITENS do Hinário 2022 — 572 (Ofertório)
-  e 533 (Abertura da adoração infantil) —, e cada um vira uma LINHA logo depois do
-  bloco "Este sábado" (`linhaFixoDoSimples`, `hinoFixoDoSimples`: `faixasDaLista` do
-  `HYMNAL_2022_ID` por `(x.track | 0)`), com `bloco-fixo` para ficar fora da tampa. O
-  toque toca o hino (`simplePlaySong`); sem o hino no índice, a linha não nasce.
+- **A LITURGIA (v1.13.60), no Modo Fácil:** as séries não são coleção (v1.13.15) e a
+  raiz abre com UM bloco — `blocoLiturgia`, `.semana-raiz.bloco-fixo` — que substituiu o
+  "Este sábado" e o bloco dos fixos: cabeçalho "Liturgia" com a data do sábado, e as
+  linhas na ordem do culto — Informativo, abertura da adoração infantil (533), Provai e
+  Vede, ofertório (572) —, TODAS à vista (sem acordeão) e tocando no toque (sem gaveta de
+  destinos). Altura do conteúdo, fora da repartição da tampa (`calcularTampa` desconta o
+  `bloco-fixo`). Ver `docs/recursos/SERIES.md`.
+- **"Adoradores" e "Cantores" no "Diversas" (v1.13.59/60), nos DOIS modos:**
+  `desenharCategorias` desenha uma categoria por grupo, menos as de
+  `DISSOLVIDAS_EM_DIVERSAS = /^(adoradores|cantores)$/i`, cujos álbuns entram no grupo
+  "Diversas" — desenhado UMA vez, com o `vistos` da raiz inteira (o catálogo é N:N).
   Oráculo: bloco 12 do `lista-da-biblioteca`.
+- **Os dois elementos fixos da Liturgia:** `ELEMENTOS_FIXOS_SIMPLES` são ITENS do
+  Hinário 2022 — 533 (Abertura da adoração infantil) e 572 (Ofertório) —, achados por
+  `hinoFixoDoSimples`/`linhaFixoDoSimples` (`faixasDaLista` do `HYMNAL_2022_ID` por
+  `(x.track | 0)`); sem o hino no índice, a linha não nasce.
 - **Configurações enxutas (v1.13.57):** no Modo Fácil ficam Tema, Tela, Saída de
   áudio, Dados móveis e Compartilhar; Editar mídia, Histórico, Verificar e Transferir
   somem da grade (`body.mode-simple`).

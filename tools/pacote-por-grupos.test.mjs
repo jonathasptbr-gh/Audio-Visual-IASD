@@ -881,31 +881,23 @@ try {
       ul.style.cssText = 'width:390px;position:absolute;left:-9999px;top:0';
       document.body.appendChild(ul);
       const des = () => { ul.innerHTML = ''; renderCollectionsList(ul, des, { semTotal: true }); };
-      // ===== A RÉGUA É A "Diversas" DE LÁ, E O NOME DELA MUDOU NA v1.13.57 =====
+      // ===== A RÉGUA É A "Diversas" DE LÁ, E ELA VALE NOS DOIS MODOS (v1.13.60) =====
       //
-      // MEDIDO (2026-11-10, Modo Fácil — o modo desta página): a raiz da
-      // Biblioteca tem UMA seção só, `[data-grupo]` = "Diversas", porque
-      // "Adoradores" e "Cantores" são DISSOLVIDAS nela (`DISSOLVIDAS_EM_DIVERSAS`)
-      // e os hinários são cards da raiz. Pedir "Adoradores" lia `undefined` e o
-      // `par` morria num TypeError no `card.querySelector`, ANTES de medir tom
-      // nenhum — não era a linha dos Favoritos que sumia. A régua continua sendo
-      // o desenho da Biblioteca, medido nesta mesma página: a "Diversas" de lá é
-      // o mesmo par barra × card que o bloco da folha veste.
-      const antes = grupoAberto;
-      grupoAberto = 'Diversas'; des();
-      const sec = [...ul.querySelectorAll('[data-grupo]')].find((n) => n.dataset.grupo === 'Diversas');
-      const secBar = sec && sec.querySelector('.coll-group-bar');
-      const card = sec && sec.querySelector('.coll-group-corpo .hymnal-card');
-      const secIcone = sec && sec.querySelector('.coll-group-icon');
-      const cardIcone = card && card.querySelector('.coll-bar-icon');
-      // O PRIMEIRO CARD DENTRO DO GRUPO, PELO NOME — é a PREMISSA da régua. O
-      // fixture põe o "Zeta" na categoria "Adoradores", que vem antes de
-      // "Diversas" no catálogo; só o desenho que JUNTA as categorias o traz para
-      // dentro desta seção. No desenho antigo — uma seção por categoria — o
-      // primeiro card daqui é o "Beta" (a "Diversas" do fixture é alfabética):
-      // é a asserção da premissa que REPROVA aquele app, em vez de comparar com
-      // o objeto errado, calada.
-      const cardDentro = sec && sec.querySelector('.coll-group-corpo .hymnal-card .coll-bar-name');
+      // MEDIDO (2026-11-10): a raiz da Biblioteca tem UMA seção de coletânea,
+      // `[data-grupo]` = "Diversas", porque "Adoradores" e "Cantores" são
+      // DISSOLVIDAS nela (`DISSOLVIDAS_EM_DIVERSAS`) e os hinários são cards da
+      // raiz. Pedir "Adoradores" lia `undefined` e o `par` morria num TypeError
+      // no `card.querySelector`, ANTES de medir tom nenhum — não era a linha dos
+      // Favoritos que sumia. A régua continua sendo o desenho da Biblioteca,
+      // medido nesta mesma página: a "Diversas" de lá é o mesmo par barra × card
+      // que o bloco da folha veste.
+      //
+      // E ELA É MEDIDA NOS DOIS MODOS (v1.13.60), porque a fusão deixou de ser
+      // só do Modo Fácil e é no AVANÇADO que ela é NOVA: um app que ainda
+      // desenhe uma seção por categoria ali põe o "Beta" como primeiro card
+      // desta seção, e a premissa abaixo reprova pelo nome. Antes deste lote o
+      // caso media só o fácil — o único modo em que a regra existia.
+      const modoAntes = appMode;
       const caixa = (el) => {
         if (!el) return null;
         const c = cs(el);
@@ -914,6 +906,44 @@ try {
           bg: c.backgroundColor, cor: c.color, raio: c.borderRadius,
         };
       };
+      const medirBiblioteca = () => {
+        const antes = grupoAberto;
+        grupoAberto = 'Diversas'; des();
+        const sec = [...ul.querySelectorAll('[data-grupo]')].find((n) => n.dataset.grupo === 'Diversas');
+        const secBar = sec && sec.querySelector('.coll-group-bar');
+        const card = sec && sec.querySelector('.coll-group-corpo .hymnal-card');
+        const secIcone = sec && sec.querySelector('.coll-group-icon');
+        const cardIcone = card && card.querySelector('.coll-bar-icon');
+        // O PRIMEIRO CARD DENTRO DO GRUPO, PELO NOME — é a PREMISSA da régua.
+        // O fixture põe o "Zeta" na categoria "Adoradores", que vem antes de
+        // "Diversas" no catálogo; só o desenho que JUNTA as categorias o traz
+        // para dentro desta seção. No desenho antigo — uma seção por categoria
+        // — o primeiro card daqui é o "Beta" (a "Diversas" do fixture é
+        // alfabética): é a asserção da premissa que REPROVA aquele app, em vez
+        // de comparar com o objeto errado, calada.
+        const cardDentro = sec && sec.querySelector('.coll-group-corpo .hymnal-card .coll-bar-name');
+        const medido = {
+          bloco: cor(sec), barra: cor(secBar), dentro: cor(card),
+          seta: caixa(secIcone),
+          icone: caixa(cardIcone),
+          // O NOME do primeiro card de dentro: a premissa de que esta é a seção
+          // que JUNTA as categorias (o fixture põe "Zeta" na "Adoradores").
+          conjunto: cardDentro ? cardDentro.textContent : '',
+          recuo: card && secBar
+            ? card.querySelector('.coll-bar-name').getBoundingClientRect().x
+              - secBar.querySelector('.coll-group-name').getBoundingClientRect().x
+            : null,
+        };
+        grupoAberto = antes;
+        return medido;
+      };
+      // O MODO VOLTA AO QUE ERA: a folha deste caso é a mesma nos dois, e os
+      // toques abaixo não podem medir um app que o oráculo deixou trocado.
+      setAppMode('simple');
+      const lib = medirBiblioteca();
+      setAppMode('full');
+      const libAvancado = medirBiblioteca();
+      setAppMode(modoAntes);
       const r = {
         folha: {
           bloco: cor(bloco), barra: cor(barra), dentro: cor(dentro),
@@ -930,31 +960,24 @@ try {
               - barra.querySelector('.song-menu-label').getBoundingClientRect().x
             : null,
         },
-        lib: {
-          bloco: cor(sec), barra: cor(secBar), dentro: cor(card),
-          seta: caixa(secIcone),
-          icone: caixa(cardIcone),
-          // O NOME do primeiro card de dentro: a premissa de que esta é a seção
-          // que JUNTA as categorias (o fixture põe "Zeta" na "Adoradores").
-          conjunto: cardDentro ? cardDentro.textContent : '',
-          recuo: card && secBar
-            ? card.querySelector('.coll-bar-name').getBoundingClientRect().x
-              - secBar.querySelector('.coll-group-name').getBoundingClientRect().x
-            : null,
-        },
+        lib,
+        libAvancado,
       };
-      ul.remove(); grupoAberto = antes;
+      ul.remove();
       return r;
     });
     // A PREMISSA DA RÉGUA, e ela não é cerimônia: sem ela, um app que volte a
     // desenhar uma seção por categoria teria uma "Diversas" de MESMOS tons (a
     // comparação passaria) contendo outros álbuns — a régua mediria o objeto
-    // errado, calada. Com ela, aquele desenho reprova aqui, pelo nome.
-    checar(par.lib.conjunto === 'Zeta',
-      'E · PREMISSA: a régua é a seção "Diversas" do Modo Fácil e ela LEVA a '
+    // errado, calada. Com ela, aquele desenho reprova aqui, pelo nome. E são
+    // DUAS metades desde a v1.13.60: o Modo Fácil, onde a regra já valia, e o
+    // AVANÇADO, onde ela passou a valer — no desenho de ontem a segunda devolve
+    // "Beta" e a asserção reprova.
+    checar(par.lib.conjunto === 'Zeta' && par.libAvancado.conjunto === 'Zeta',
+      'E · PREMISSA: a régua é a seção "Diversas" NOS DOIS MODOS e ela LEVA a '
       + 'categoria Adoradores junto — o primeiro card de dentro é o "Zeta", e '
       + 'não o de uma categoria vizinha (no desenho antigo, "Beta")',
-      JSON.stringify(par.lib));
+      JSON.stringify({ simples: par.lib.conjunto, avancado: par.libAvancado.conjunto }));
     checar(par.folha.bloco === par.lib.bloco && par.folha.dentro === par.lib.dentro
       && par.folha.bloco !== par.folha.dentro,
       'E · o BLOCO e a linha DE DENTRO vestem AS MESMAS superfícies que a seção '
