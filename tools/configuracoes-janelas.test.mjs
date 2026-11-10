@@ -183,7 +183,11 @@ async function aparelho(opts, antesDaCarga, viewport = { width: 430, height: 900
 }
 
 async function abrirConfiguracoes(pg) {
-  await pg.evaluate(() => { document.getElementById('simpleSettingsBtn').click(); });
+  // AS SEÇÕES DAQUI SÃO DO MODO AVANÇADO (v1.13.57): Editar mídia, Histórico, Verificar e
+  // Transferir saíram da grade do Modo Fácil, e tile apagado não recebe toque — a engrenagem
+  // que abre a folha no avançado é a `#settingsBtn`.
+  await pg.evaluate(() => setAppMode('full'));
+  await pg.evaluate(() => { document.getElementById('settingsBtn').click(); });
   return esperar(pg, () => document.getElementById('fadePopup').classList.contains('open'), null, 10000);
 }
 

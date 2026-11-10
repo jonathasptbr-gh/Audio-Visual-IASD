@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================================
-// O VÍDEO DO MODO FÁCIL EM TELA CHEIA, E A BARRA DE VOLUME DA TELA CHEIA (v1.12.24)
+// O VÍDEO DO MODO FÁCIL EM TELA CHEIA, E A PÍLULA DE VOLUME (v1.13.57)
 //
 // Pedido do operador, verbatim:
 //   *"no modo simples, quando tocar um vídeo, como o Provai e Vede, Informativo, vídeo do
@@ -18,23 +18,30 @@
 //     os cinco continuam — e um vídeo no avançado NÃO abre tela cheia sozinho.
 //  C. O FIM do vídeo (o `autoAdvance` com a fila vazia, o ponto por onde os dois caminhos de fim
 //     passam), o Parar e a troca por mídia que não é vídeo FECHAM a tela cheia.
-//  D. Pedido recusado (sem toque recente — o vídeo que baixa antes de tocar): o botão do card do
-//     nome aparece e é a porta para a tela cheia.
-//  F. (v1.12.26) COM TELA CONECTADA NÃO HÁ TELA CHEIA: o vídeo não a abre, o botão não existe, e
-//     uma tela que ENTRA com ela aberta a fecha.
-//  G. (v1.12.26) O BOTÃO É UMA COLUNA À DIREITA DAS DUAS LINHAS do card, quadrado, e o card tem a
-//     mesma altura com e sem ele.
-//  E. A BARRA DE VOLUME: em tela cheia, nos dois modos, uma mudança de volume a mostra com o
-//     número e o nível, e ela some sozinha; fora da tela cheia ela não existe.
+//  D. Pedido recusado (sem toque recente — o vídeo que baixa antes de tocar): a PORTA manual da
+//     tela cheia no Modo Fácil é a TERCEIRA TECLA da linha (`#simpleTela`), e o botão do card do
+//     nome, que era essa porta até a v1.13.56, não existe mais.
+//  F. (v1.12.26) COM TELA CONECTADA NÃO HÁ TELA CHEIA: o vídeo não a abre, a tecla fica APAGADA
+//     com o motivo no rótulo, e uma tela que ENTRA com ela aberta a fecha.
+//  G. (v1.13.57) A TECLA é a terceira das três da linha, do mesmo tamanho das outras duas — e o
+//     card do nome voltou a ter as duas linhas INTEIRAS (a coluna do botão que existia desde a
+//     v1.12.26 saiu).
+//  E. (v1.13.57) A PÍLULA DE VOLUME, UMA PEÇA SÓ: em tela cheia ela é MOVIDA para dentro da
+//     `.preview` (a classe `na-previa`, `casaDaPilula`), acende com o número (`#volValue`) quando
+//     o volume muda — pela tecla física (`peekVolume`) ou pelo fader — e some sozinha em 1,5 s;
+//     fora da tela cheia a casa é o `body`. A barra da tela cheia (`#pvVolume`) e o fader vertical
+//     do deck saíram neste lote: quem responde pelo volume é ela, nos dois modos e em toda tela.
 //  I. (v1.12.42) UM MODELO SÓ PARA OS DOIS MODOS, medido em PAISAGEM (740×360 e 900×420): o
 //     play/pause GRANDE no centro (⏮/⏭ ao lado dele, só no avançado), o SAIR no canto inferior
 //     direito na linha do tempo, a CORTINA no canto superior direito na faixa do título (só no
-//     avançado), o volume vertical à esquerda — nada sobre nada. E com os controles APAGADOS um
-//     toque no meio da tela só os acende: o play/pause escondido ali não é acionado.
+//     avançado), e a pílula de volume HORIZONTAL e centrada entre o título e a linha do tempo
+//     (v1.13.57; era a barra vertical da borda esquerda) — nada sobre nada. E com os controles
+//     APAGADOS um toque no meio da tela só os acende: o play/pause escondido ali não é acionado.
 //  H. (v1.12.41) NO MODO FÁCIL o NOME da mídia numa faixa no topo e a LINHA DO TEMPO na base,
 //     acendendo e apagando junto com a coluna; arrastar a linha até a metade leva a mídia à
 //     metade (um `seek` ao soltar) e segura os controles acesos durante o arraste; sem duração
-//     ela some; o volume é VERTICAL na borda esquerda, entre os dois. No avançado nada disso.
+//     ela some; o volume é a pílula DENTRO da prévia, entre os dois (v1.13.57). No avançado nada
+//     disso — fora a pílula, que é a mesma.
 //
 //   node tools/video-tela-cheia.test.mjs
 // ============================================================================
@@ -75,15 +82,37 @@ const lerFs = (pg) => pg.evaluate(() => {
     exit: vis('fsExit'), play: vis('fsPlay'), view: vis('fsView'), prev: vis('fsPrev'), next: vis('fsNext'),
   };
 });
-const lerBarra = (pg) => pg.evaluate(() => {
-  const el = document.getElementById('pvVolume');
+// A PÍLULA DE VOLUME (v1.13.57) — a barra `#pvVolume` da tela cheia e o fader vertical do deck
+// SAÍRAM: quem responde pelo volume é ela, nos dois modos e em toda tela. Em tela cheia ela é
+// MOVIDA para dentro da `.preview` (`casaDaPilula`: só o elemento em tela cheia e os filhos dele
+// são pintados) e ganha a classe `na-previa`; fora dela a casa é o `body`.
+//
+// AUSENTE devolve `{ existe: false }` em vez de estourar um TypeError no meio da medição: a
+// reprovação tem de chegar com o dado que a explica, e não derrubar as asserções seguintes.
+const lerPilula = (pg) => pg.evaluate(() => {
+  const el = document.getElementById('volPill');
+  const num = document.getElementById('volValue');
+  if (!el) {
+    return { existe: false,
+      barraDaTelaCheia: !!document.getElementById('pvVolume'),
+      faderDoDeck: !!document.querySelector('.fader-wrap') };
+  }
   const cs = getComputedStyle(el);
   const r = el.getBoundingClientRect();
+  const pai = el.parentNode;
   return {
-    visivel: el.classList.contains('visivel'), display: cs.display, opacidade: parseFloat(cs.opacity),
-    num: document.getElementById('pvVolumeNum').textContent,
-    nivel: document.getElementById('pvVolumeNivel').style.getPropertyValue('--nivel'), w: Math.round(r.width),
-    h: Math.round(r.height), l: Math.round(r.left), t: Math.round(r.top), b: Math.round(r.bottom), r: Math.round(r.right),
+    existe: true,
+    visivel: el.classList.contains('visivel'), naPrevia: el.classList.contains('na-previa'),
+    casa: pai === document.getElementById('preview') ? 'previa' : pai === document.body ? 'corpo' : 'outra',
+    display: cs.display, opacidade: parseFloat(cs.opacity), visibilidade: cs.visibility,
+    num: num ? num.textContent : null, vw: innerWidth,
+    w: Math.round(r.width), h: Math.round(r.height), l: Math.round(r.left), r: Math.round(r.right),
+    t: Math.round(r.top), b: Math.round(r.bottom),
+    // UMA peça só: a barra da tela cheia e o fader do deck não podem existir em lugar nenhum.
+    umaSo: document.querySelectorAll('.vol-pill').length === 1,
+    barraDaTelaCheia: !!document.getElementById('pvVolume') || !!document.getElementById('pvVolumeNivel')
+      || !!document.getElementById('pvVolumeNum'),
+    faderDoDeck: !!document.querySelector('.fader-wrap'),
   };
 });
 // O título e a linha do tempo da tela cheia do Modo Fácil (v1.12.41).
@@ -131,23 +160,36 @@ try {
     'B1 · no Modo Fácil a coluna da tela cheia tem SAIR e PLAY/PAUSE; a cortina, ⏮ e ⏭ não existem',
     JSON.stringify(a));
 
-  // E · a barra de volume no Modo Fácil (o mesmo passo das teclas físicas, sem o `peekVolume`)
-  const e0 = await lerBarra(pg);
-  checar(e0.display !== 'none' && e0.visivel === false,
-    'E1 · em tela cheia a barra existe, apagada até o volume mudar', JSON.stringify(e0));
+  // E · (v1.13.57) A PÍLULA DE VOLUME EM TELA CHEIA, DENTRO DA PRÉVIA. A barra `#pvVolume` que
+  // existia aqui saiu: quem responde pelo volume é a pílula única do documento, e em tela cheia
+  // ela é MOVIDA para dentro da `.preview` no momento em que aparece.
+  const e0 = await lerPilula(pg);
+  checar(e0.existe === true && e0.visivel === false && e0.opacidade === 0 && e0.umaSo === true
+    && e0.barraDaTelaCheia === false,
+    'E1 · em tela cheia existe UMA pílula de volume, apagada até o volume mudar — e a barra `#pvVolume` saiu',
+    JSON.stringify(e0));
   await pg.evaluate(() => { applyVolume(volumeProximo(volume, -1)); });
-  const e1 = await lerBarra(pg);
+  const e1 = await lerPilula(pg);
   const esperado = await pg.evaluate(() => String(Math.round(volume * 100)));
-  checar(e1.visivel && e1.num === esperado && e1.nivel === esperado + '%' && e1.w > 0,
-    'E2 · mudar o volume ACENDE a barra com o número e o nível do app', JSON.stringify({ e1, esperado }));
-  const apagou = await esperar(pg, () => !document.getElementById('pvVolume').classList.contains('visivel'), null, 5000);
-  checar(apagou === true, 'E3 · e ela some sozinha (2 s)', porque(apagou));
+  checar(e1.visivel && e1.casa === 'previa' && e1.naPrevia === true && e1.num === esperado
+    && e1.w > 0 && e1.l >= 0 && e1.r <= e1.vw,
+    'E2 · mudar o volume ACENDE a pílula DENTRO da prévia (`na-previa`), com o número do app',
+    JSON.stringify({ e1, esperado }));
+  await pg.waitForTimeout(900);   // TEMPO DE PAREDE: o relógio da pílula é de 1,5 s
+  const e2 = await lerPilula(pg);
+  const apagou = await esperar(pg, () => !document.getElementById('volPill').classList.contains('visivel'), null, 4000);
+  const invisivel = await esperar(pg, () => getComputedStyle(document.getElementById('volPill')).visibility === 'hidden', null, 3000);
+  checar(e2.visivel === true && apagou === true && invisivel === true,
+    'E3 · e ela some sozinha (1,5 s): acesa em 0,9 s, apagada e invisível depois',
+    JSON.stringify({ e2, apagou, invisivel }));
   // A tecla que vai ao SISTEMA (teto/zero) não muda o número do app — e ainda assim responde.
   await pg.evaluate(() => { peekVolume(); });
-  const e4 = await lerBarra(pg);
-  checar(e4.visivel === true, 'E4 · a tecla física acende a barra mesmo sem mudar o número (`peekVolume`)', JSON.stringify(e4));
+  const e4 = await lerPilula(pg);
+  checar(e4.visivel === true && e4.casa === 'previa' && e4.num === esperado,
+    'E4 · a tecla física a acende de novo sem mudar o número (`peekVolume`), e a casa é a prévia',
+    JSON.stringify(e4));
 
-  // H · (v1.12.41) O TÍTULO NO TOPO, A LINHA DO TEMPO NA BASE, O VOLUME NA BORDA ESQUERDA.
+  // H · (v1.12.41) O TÍTULO NO TOPO, A LINHA DO TEMPO NA BASE, O VOLUME ENTRE OS DOIS.
   // A mídia plantada não tem duração: a premissa a escreve no `#seek`, como o `display-status`.
   await pg.evaluate(() => {
     seekEl.disabled = false; seekEl.max = '120'; seekEl.value = '10'; renderSimpleTime();
@@ -187,18 +229,25 @@ try {
     'H5 · e soltar na metade leva a mídia à METADE da duração (um `seek` só, pelo caminho do card)', JSON.stringify(h4));
   const h6 = await esperar(pg, () => !document.getElementById('pvFsCtl').classList.contains('visivel'), null, 6000);
   checar(h6 === true, 'H6 · e solto o dedo o relógio volta a correr: tudo apaga sozinho', porque(h6));
-  // H7 · o volume VERTICAL na borda esquerda, sem tocar no título
+  // H7 · (v1.13.57) A PÍLULA DENTRO DA PRÉVIA, HORIZONTAL E CENTRADA, entre o título e a linha do
+  // tempo — o lugar da barra vertical da borda esquerda (v1.12.41) neste lote.
   // A geometria não depende de estar aceso: a premissa da duração é reescrita NO MESMO quadro
   // (sob carga, um status da prévia com a mídia de 64 bytes a zera e a linha do tempo some).
   const [v7, f7] = await pg.evaluate(() => {
     seekEl.disabled = false; seekEl.max = '120'; seekEl.value = '10'; renderSimpleTime();
     applyVolume(volumeProximo(volume, 1));
-    const r = (id) => { const x = document.getElementById(id).getBoundingClientRect(); return { t: Math.round(x.top), b: Math.round(x.bottom), l: Math.round(x.left), w: Math.round(x.width), h: Math.round(x.height) }; };
-    const v = r('pvVolume');
-    return [Object.assign(v, { visivel: document.getElementById('pvVolume').classList.contains('visivel') }), { nome: r('pvFsNome'), hit: r('pvFsTempoHit') }];
+    const r = (id) => { const x = document.getElementById(id).getBoundingClientRect(); return { t: Math.round(x.top), b: Math.round(x.bottom), l: Math.round(x.left), r: Math.round(x.right), w: Math.round(x.width), h: Math.round(x.height) }; };
+    const pil = document.getElementById('volPill');
+    const v = pil ? r('volPill') : { t: 0, b: 0, l: 0, r: 0, w: 0, h: 0 };
+    return [Object.assign(v, {
+      visivel: !!pil && pil.classList.contains('visivel'),
+      naPrevia: !!pil && pil.classList.contains('na-previa'),
+      casa: pil && pil.parentNode === document.getElementById('preview') ? 'previa' : 'outra',
+      vw: innerWidth }), { nome: r('pvFsNome'), hit: r('pvFsTempoHit') }];
   });
-  checar(v7.visivel && v7.h > v7.w * 2 && v7.l <= 24 && v7.t >= f7.nome.b && v7.b <= f7.hit.t,
-    'H7 · no Modo Fácil a barra de volume é VERTICAL, na borda ESQUERDA, entre o título e a linha do tempo',
+  checar(v7.visivel && v7.casa === 'previa' && v7.naPrevia && v7.w > v7.h
+    && Math.abs((v7.l + v7.r) / 2 - v7.vw / 2) <= 2 && v7.t >= f7.nome.b && v7.b <= f7.hit.t,
+    'H7 · no Modo Fácil a pílula de volume mora DENTRO da prévia: HORIZONTAL, centrada, entre o título e a linha do tempo',
     JSON.stringify({ v7, nome: f7.nome, hit: f7.hit }));
   // H8 · sem duração conhecida, a linha do tempo some
   await pg.evaluate(() => { seekEl.disabled = true; seekEl.max = '0'; renderSimpleTime(); });
@@ -209,8 +258,15 @@ try {
   await pg.evaluate(() => { autoAdvance(); });
   const c1 = await esperar(pg, fora, null, 5000);
   checar(c1 === true, 'C1 · o FIM do vídeo (fila vazia) fecha a tela cheia do Modo Fácil', porque(c1));
-  const c1b = await lerBarra(pg);
-  checar(c1b.display === 'none' && c1b.visivel === false, 'C1b · e fora dela a barra de volume não existe', JSON.stringify(c1b));
+  // C1b · e fora dela a casa da pílula é o CORPO outra vez (o nó é MOVIDO, e não recriado): uma
+  // pílula que ficasse dentro de uma `.preview` que já não está no top layer seria pintada fora
+  // da vista.
+  await pg.evaluate(() => { peekVolume(); });
+  const c1b = await lerPilula(pg);
+  checar(c1b.existe === true && c1b.casa === 'corpo' && c1b.naPrevia === false && c1b.visivel === true
+    && c1b.umaSo === true && c1b.barraDaTelaCheia === false,
+    'C1b · saindo da tela cheia a pílula volta para o CORPO, e a barra `#pvVolume` não existe em lugar nenhum',
+    JSON.stringify(c1b));
 
   // C · a troca por uma mídia que não é vídeo fecha também
   await pg.evaluate((id) => send(id), ids.video);
@@ -219,8 +275,15 @@ try {
   await pg.evaluate((id) => send(id), ids.audio);
   const c2 = await esperar(pg, fora, null, 5000);
   checar(c2 === true, 'C2 · trocar o vídeo por um ÁUDIO fecha a tela cheia', porque(c2));
-  const c2b = await pg.evaluate(() => document.getElementById('simpleFsBtn').hidden);
-  checar(c2b === true, 'C2b · e com um áudio no ar o botão de tela cheia do card não existe', String(c2b));
+  // C2b · (v1.13.57) A porta manual vale para QUALQUER mídia no ar (`haOQueParar`), e não só para
+  // o vídeo sem leitura que o automático cobre.
+  const c2b = await pg.evaluate(() => {
+    const b = document.getElementById('simpleTela');
+    return b ? { existe: true, disabled: b.disabled, title: b.title, midiaNoAr } : { existe: false };
+  });
+  checar(c2b.existe === true && c2b.disabled === false && c2b.midiaNoAr === true,
+    'C2b · e com um ÁUDIO no ar a tecla da tela cheia do Modo Fácil está HABILITADA (a porta manual vale para qualquer mídia)',
+    JSON.stringify(c2b));
 
   // C · o Parar fecha também
   await pg.evaluate((id) => send(id), ids.video);
@@ -229,62 +292,78 @@ try {
   await pg.evaluate(() => { document.getElementById('simpleStop').click(); });
   const c3 = await esperar(pg, fora, null, 5000);
   checar(c3 === true, 'C3 · o PARAR fecha a tela cheia do vídeo', porque(c3));
+  const c3b = await pg.evaluate(() => {
+    const b = document.getElementById('simpleTela');
+    return b ? { existe: true, disabled: b.disabled, title: b.title, midiaNoAr } : { existe: false };
+  });
+  checar(c3b.existe === true && c3b.disabled === true && c3b.midiaNoAr === false && c3b.title !== 'Ver em tela cheia',
+    'C3b · sem nada no ar a tecla fica APAGADA, com o motivo no rótulo (apagada, nunca inerte)', JSON.stringify(c3b));
 
-  // D · o pedido recusado (sem toque recente) deixa a PORTA no card do nome
+  // D · o pedido recusado (sem toque recente) deixa a PORTA da tela cheia à mão — e ela agora é a
+  // TERCEIRA TECLA da linha, não um botão no card do nome (v1.13.57).
   await pg.evaluate(() => {
     document.getElementById('preview').requestFullscreen = () => Promise.reject(new TypeError('sem ativação'));
   });
   await pg.evaluate((id) => send(id), ids.video);
   await pg.waitForTimeout(300);   // o pedido recusado é uma AUSÊNCIA: espera-se a rejeição assentar
   const d1 = await pg.evaluate(() => {
-    const b = document.getElementById('simpleFsBtn');
+    const b = document.getElementById('simpleTela');
+    if (!b) return { existe: false, botaoDoCard: !!document.getElementById('simpleFsBtn') };
     const r = b.getBoundingClientRect();
     const alvo = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-    return { fs: !!document.fullscreenElement, hidden: b.hidden, alcanca: !!alvo && b.contains(alvo) };
+    return { existe: true, fs: !!document.fullscreenElement, disabled: b.disabled, hidden: b.hidden,
+      alcanca: !!alvo && b.contains(alvo), botaoDoCard: !!document.getElementById('simpleFsBtn') };
   });
-  checar(d1.fs === false && d1.hidden === false && d1.alcanca === true,
-    'D1 · recusado o pedido, o card do nome ganha o botão de tela cheia, à vista e tocável', JSON.stringify(d1));
-  // G · A PORTA É UMA COLUNA À DIREITA DAS DUAS LINHAS (v1.12.26), e o card não muda de altura
+  checar(d1.existe === true && d1.fs === false && d1.disabled === false && d1.hidden === false
+    && d1.alcanca === true && d1.botaoDoCard === false,
+    'D1 · recusado o pedido, a tecla da tela cheia fica à vista e tocável — e o botão do card do nome não existe mais',
+    JSON.stringify(d1));
+  // G · (v1.13.57) A TECLA É A TERCEIRA DA LINHA, e o card voltou a ter as duas linhas inteiras.
   const g = await pg.evaluate(() => {
-    const r = (el) => el.getBoundingClientRect();
+    const r = (el) => (el ? el.getBoundingClientRect() : null);
+    const cx = (x) => (x ? [x.left, x.top, x.width, x.height] : null);
     const card = document.querySelector('.simple-nowplaying');
-    const b = r(document.getElementById('simpleFsBtn'));
-    const np = r(document.getElementById('simpleNpName'));
-    const tm = r(document.getElementById('simpleTime'));
-    const comBotao = r(card).height;
-    const btn = document.getElementById('simpleFsBtn');
-    btn.hidden = true;
-    const semBotao = card.getBoundingClientRect().height;
-    renderSimpleFsBtn();
-    return { b: [b.left, b.top, b.right, b.bottom, b.width, b.height], npDir: np.right, tmDir: tm.right,
-      npTopo: np.top, tmBase: tm.bottom, npCentro: (np.top + np.bottom) / 2, tmCentro: (tm.top + tm.bottom) / 2,
-      comBotao, semBotao, voltou: !btn.hidden };
+    const nome = r(document.getElementById('simpleNpName'));
+    const c = r(card);
+    return { stop: cx(r(document.getElementById('simpleStop'))), play: cx(r(document.getElementById('simplePlay'))),
+      tela: cx(r(document.getElementById('simpleTela'))), nomeDir: nome && nome.right, cardDir: c && c.right,
+      filhos: Array.from(card.children).map((e) => e.id || e.className),
+      botaoDoCard: !!document.getElementById('simpleFsBtn') };
   });
-  const [bl, bt, , bb, bw, bh] = g.b;
-  const bc = (bt + bb) / 2;
-  checar(bl >= Math.max(g.npDir, g.tmDir) - 0.5,
-    'G1 · o botão fica À DIREITA das DUAS linhas (nome e barra), não ao lado do nome só', JSON.stringify(g));
-  checar(bc > g.npCentro && bc < g.tmCentro && bt >= g.npTopo - 0.5 && bb <= g.tmBase + 0.5,
-    'G2 · e ocupa a coluna das duas linhas: centrado entre elas, dentro da faixa que elas formam', JSON.stringify(g));
-  checar(Math.abs(bw - bh) < 0.5 && Math.abs(g.comBotao - g.semBotao) < 0.5 && g.voltou,
-    'G3 · é QUADRADO e o card tem a MESMA altura com e sem ele (a regra da v1.12.11)', JSON.stringify(g));
+  checar(!!g.tela && !!g.stop && !!g.play
+    && g.stop[0] < g.play[0] && g.play[0] < g.tela[0]
+    && g.stop[1] === g.play[1] && g.play[1] === g.tela[1]
+    && g.stop[3] === g.tela[3] && g.play[3] === g.tela[3]
+    && Math.abs(g.stop[2] - g.tela[2]) < 0.5 && Math.abs(g.play[2] - g.tela[2]) < 0.5,
+    'G1 · a tecla da tela cheia é a TERCEIRA da linha: mesma altura e mesma largura do Parar e do Play/Pausa',
+    JSON.stringify(g));
+  checar(!!g.tela && g.botaoDoCard === false && g.cardDir - g.nomeDir <= 16,
+    'G2 · e o card do nome voltou a ter as duas linhas INTEIRAS: a coluna do botão de tela cheia não existe mais',
+    JSON.stringify(g));
   await pg.evaluate(() => { delete document.getElementById('preview').requestFullscreen; });
-  if (d1.alcanca) await pg.click('#simpleFsBtn');
-  else await pg.evaluate(() => document.getElementById('simpleFsBtn').click());
+  if (d1.alcanca) await pg.click('#simpleTela');
+  else await pg.evaluate(() => { const b = document.getElementById('simpleTela'); if (b) b.click(); });
   const d2 = await esperar(pg, naTelaCheia, null, 5000);
-  checar(d2 === true, 'D2 · e o toque nele põe o vídeo em tela cheia', porque(d2));
+  checar(d2 === true, 'D2 · e o toque nela põe o vídeo em tela cheia', porque(d2));
+  const d2b = await pg.evaluate(() => window.__fsAssentado);
   await pg.evaluate(() => { autoAdvance(); });
   const d3 = await esperar(pg, fora, null, 5000);
-  checar(d3 === true, 'D3 · e a tela cheia aberta pelo botão também sai sozinha no fim', porque(d3));
+  checar(d2b === 'preview' && d3 === true,
+    'D3 · e a tela cheia aberta pela tecla também sai sozinha no fim', JSON.stringify({ d2b, d3 }));
 
   // F · COM TELA CONECTADA NÃO HÁ TELA CHEIA (v1.12.26): a tela conectada é o visor
   await pg.evaluate(() => { webDisplayWin = { closed: false }; renderSimpleCast(); });
   await pg.evaluate((id) => send(id), ids.video);
   await pg.waitForTimeout(500);   // AUSÊNCIA: nada deve abrir a tela cheia
-  const f1 = await pg.evaluate(() => ({ fs: !!document.fullscreenElement,
-    botao: document.getElementById('simpleFsBtn').hidden, midia: midiaNoAr }));
-  checar(f1.midia === true && f1.fs === false && f1.botao === true,
-    'F1 · com uma tela conectada o vídeo NÃO abre a tela cheia, e o botão do card não existe', JSON.stringify(f1));
+  const f1 = await pg.evaluate(() => {
+    const b = document.getElementById('simpleTela');
+    return { fs: !!document.fullscreenElement, existe: !!b, disabled: b ? b.disabled : null,
+      title: b ? b.title : null, botaoDoCard: !!document.getElementById('simpleFsBtn'), midia: midiaNoAr };
+  });
+  checar(f1.midia === true && f1.fs === false && f1.existe === true && f1.disabled === true
+    && f1.botaoDoCard === false,
+    'F1 · com uma tela conectada o vídeo NÃO abre a tela cheia, e a tecla fica APAGADA (o visor é a TV)',
+    JSON.stringify(f1));
   // a tela sai: sem destino, o vídeo seguinte volta a abrir a tela cheia…
   await pg.evaluate(() => { webDisplayWin = null; renderSimpleCast(); setTocarNoCelular(true); });
   await pg.evaluate((id) => send(id), ids.video);
@@ -320,46 +399,73 @@ try {
   checar(b3.exit && b3.play && b3.view && b3.prev && b3.next,
     'B3 · no avançado a coluna continua com os CINCO botões', JSON.stringify(b3));
 
-  // E · a barra no avançado (o fader)
-  await pa.evaluate(() => {
-    const s = document.getElementById('volSlider') || document.querySelector('input[type=range].vol-slider');
-    s.value = '35'; s.dispatchEvent(new Event('input', { bubbles: true }));
-  });
-  const e5 = await lerBarra(pa);
-  checar(e5.visivel && e5.num === '35' && e5.nivel === '35%',
-    'E5 · no avançado a mudança de volume em tela cheia também acende a barra', JSON.stringify(e5));
-  const f5 = await lerFaixas(pa);
-  checar(e5.h > e5.w * 2 && e5.l <= 24 && f5.topo.display !== 'none' && f5.texto === 'Provai e Vede',
-    'H9 · (v1.12.42) no avançado o MESMO modelo do Modo Fácil: a barra VERTICAL na borda esquerda e o NOME no topo',
-    JSON.stringify({ e5, topo: f5.topo.display, texto: f5.texto }));
-  const opac = await esperar(pa, () => parseFloat(getComputedStyle(document.getElementById('pvVolume')).opacity) > 0.9, null, 3000);
-  checar(opac === true, 'E6 · e ela é VISTA (opacidade cheia), não só marcada', porque(opac));
+  // H9 · (v1.13.57) O MESMO modelo do Modo Fácil: no avançado, EM TELA CHEIA, a pílula também é
+  // MOVIDA para dentro da prévia — é UMA peça, e o nome no topo continua onde estava.
+  await pa.evaluate(() => { peekVolume(); });
+  const h9 = await lerPilula(pa);
+  const h9f = await lerFaixas(pa);
+  checar(h9.existe === true && h9.visivel === true && h9.casa === 'previa' && h9.naPrevia === true
+    && h9.w > h9.h && h9.umaSo === true && h9.barraDaTelaCheia === false
+    && h9f.topo.display !== 'none' && h9f.texto === 'Provai e Vede',
+    'H9 · (v1.13.57) no avançado a MESMA pílula é movida para dentro da prévia, e o NOME segue no topo',
+    JSON.stringify({ h9, topo: h9f.topo.display, texto: h9f.texto }));
   // O FIM no avançado NÃO fecha a tela cheia que o operador abriu
   await pa.evaluate(() => { autoAdvance(); });
   await pa.waitForTimeout(400);   // AUSÊNCIA
   const b4 = await pa.evaluate(() => document.fullscreenElement === document.getElementById('preview'));
   checar(b4 === true, 'B4 · no avançado o fim da mídia NÃO fecha a tela cheia aberta pelo operador', String(b4));
-  await pa.evaluate(() => document.exitFullscreen());
+
+  // E · (v1.13.57) A PÍLULA NO AVANÇADO, FORA DA PRÉVIA: o fader vertical do deck saiu, e o
+  // retorno do volume fora da tela cheia é a MESMA pílula, agora no CORPO — logo acima do deck.
+  await pa.evaluate(() => { document.exitFullscreen(); });
+  const saiu = await esperar(pa, () => !document.fullscreenElement, null, 4000);
+  checar(saiu === true, 'premissa · o ⛶ sai da tela cheia antes da medida da pílula fora dela', porque(saiu));
+  await pa.evaluate(() => {
+    const s = document.getElementById('volSlider');
+    s.value = '35'; s.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  const e5 = await lerPilula(pa);
+  const deck = await pa.evaluate(() => {
+    const r = document.querySelector('.deck').getBoundingClientRect();
+    return { topo: Math.round(r.top), base: Math.round(r.bottom) };
+  });
+  checar(e5.existe === true && e5.visivel === true && e5.casa === 'corpo' && e5.naPrevia === false
+    && e5.num === '35' && e5.w > e5.h && e5.faderDoDeck === false && e5.umaSo === true,
+    'E5 · no avançado, fora da tela cheia, mudar o volume acende a pílula NO CORPO (o fader do deck saiu), com o número',
+    JSON.stringify(e5));
+  const opac = await esperar(pa, () => parseFloat(getComputedStyle(document.getElementById('volPill')).opacity) > 0.9, null, 3000);
+  checar(opac === true, 'E6 · e ela é VISTA (opacidade cheia), não só marcada', porque(opac));
+  checar(e5.b <= deck.topo - 2 && e5.b >= deck.topo - 14,
+    'E7 · e flutua ACIMA do transporte (o deck), sem cobrir botão nenhum', JSON.stringify({ e5: [e5.t, e5.b], deck }));
+  const e8 = await esperar(pa, () => !document.getElementById('volPill').classList.contains('visivel'), null, 4000);
+  checar(e8 === true, 'E8 · e some sozinha (1,5 s), como no Modo Fácil', porque(e8));
   await ctx2.close();
 
   // ======================= I · O MODELO ÚNICO, EM PAISAGEM (v1.12.42) =======================
   // A premissa da duração e o volume são escritos NO MESMO quadro da medida (sob carga um status
-  // da prévia, com a mídia de 64 bytes, zera o `#seek` e a linha do tempo some).
+  // da prévia, com a mídia de 64 bytes, zera o `#seek` e a linha do tempo some). O volume é
+  // acendido por `peekVolume()`, que é o caminho da tecla física — a barra `#pvVolume` da tela
+  // cheia saiu na v1.13.57 e quem responde é a pílula única.
   const lerGeo = (pg) => pg.evaluate(() => {
     seekEl.disabled = false; seekEl.max = '120'; seekEl.value = '30'; renderSimpleTime();
-    mostrarVolumeDaTelaCheia();
+    peekVolume();
     const r = (id) => {
       const el = document.getElementById(id);
+      if (!el) return null;   // ausente devolve `null`: a reprovação chega com o dado que a explica
       const x = el.getBoundingClientRect();
       return { vis: getComputedStyle(el).display !== 'none', l: x.left, t: x.top, r: x.right, b: x.bottom,
         w: x.width, h: x.height, cx: x.left + x.width / 2, cy: x.top + x.height / 2 };
     };
     const exit = r('fsExit');
     const alvo = document.elementFromPoint(exit.cx, exit.cy);
+    const pil = document.getElementById('volPill');
     return { vw: innerWidth, vh: innerHeight, modo: appMode,
       play: r('fsPlay'), prev: r('fsPrev'), next: r('fsNext'), exit, view: r('fsView'),
       nome: r('pvFsNome'), topo: r('pvFsTopo'), base: r('pvFsBase'), hit: r('pvFsTempoHit'),
-      dur: r('pvFsTempoDur'), vol: r('pvVolume'), nomeTxt: document.getElementById('pvFsNome').textContent,
+      dur: r('pvFsTempoDur'), vol: r('volPill'), nomeTxt: document.getElementById('pvFsNome').textContent,
+      volCasa: pil && pil.parentNode === document.getElementById('preview') ? 'previa' : 'outra',
+      volNaPrevia: !!pil && pil.classList.contains('na-previa'),
+      volUmaSo: document.querySelectorAll('.vol-pill').length === 1,
       exitNoTopo: !!alvo && document.getElementById('fsExit').contains(alvo) };
   });
   const sobre = (a, b) => a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
@@ -392,12 +498,15 @@ try {
         `I2 · ${rot} · o SAIR fica no canto INFERIOR DIREITO`, j);
       checar(g.base.vis && g.exit.cy > g.base.t && g.exit.cy < g.base.b && g.hit.r <= g.exit.l && g.dur.r <= g.exit.l && g.exitNoTopo,
         `I3 · ${rot} · na linha do tempo, sem ser coberto por ela e sem cobrir a duração`, j);
-      checar(g.vol.vis && g.vol.h > g.vol.w * 2 && g.vol.l <= 24 && g.vol.t >= g.nome.b && g.vol.b <= g.hit.t
+      checar(!!g.vol && g.vol.vis && g.volCasa === 'previa' && g.volNaPrevia === true && g.volUmaSo === true
+        && g.vol.w > g.vol.h && Math.abs(g.vol.cx - g.vw / 2) <= 1
+        && g.vol.t >= g.nome.b && g.vol.b <= g.hit.t
         && g.nomeTxt === 'Provai e Vede' && g.nome.h > 0,
-        `I4 · ${rot} · o NOME no topo e o volume VERTICAL na borda esquerda, entre o título e a linha do tempo`, j);
+        `I4 · ${rot} · o NOME no topo e a PÍLULA de volume DENTRO da prévia, horizontal e centrada, entre o título e a linha do tempo`,
+        j);
       const centro = modo === 'simple' ? [g.play] : [g.prev, g.play, g.next];
-      checar(centro.every((c) => !sobre(c, g.vol) && !sobre(c, g.base) && !sobre(c, g.nome) && c.t >= g.nome.b && c.b <= g.hit.t),
-        `I5 · ${rot} · o centro não toca o volume, o título nem a linha do tempo`, j);
+      checar(!!g.vol && centro.every((c) => !sobre(c, g.vol) && !sobre(c, g.base) && !sobre(c, g.nome) && c.t >= g.nome.b && c.b <= g.hit.t),
+        `I5 · ${rot} · o centro não toca a pílula, o título nem a linha do tempo`, j);
       if (modo === 'simple') {
         checar(!g.view.vis && !g.prev.vis && !g.next.vis,
           `I6 · ${rot} · sem cortina e sem ⏮/⏭ no Modo Fácil`, j);

@@ -32,16 +32,13 @@ const previewEl = document.getElementById('preview');
 const previewRowEl = document.querySelector('.preview-row');
 const volSliderEl = document.getElementById('volSlider');
 const volValueEl = document.getElementById('volValue');
-const faderWrapEl = document.querySelector('.fader-wrap');
-// O deck inteiro: é nele que mora a classe `vol-open` (o fader é um item da
-// grade dele desde a v1.3.9, não mais de um `#mixer` que já não existe).
+// A PÍLULA DE VOLUME (v1.13.57): o `--vol` (o preenchimento da barra) mora nela, o pai do
+// input e do número — ver `syncFader` e `peekVolume`.
+const volPillEl = document.getElementById('volPill');
+const volPillMuteEl = document.getElementById('volPillMute');
 const deckEl = document.querySelector('.deck');
 const pvCastBtnEl = document.getElementById('pvCastBtn');
 const fsCtlEl = document.getElementById('pvFsCtl');
-// A BARRA DE VOLUME DA TELA CHEIA (v1.12.24) e a porta da tela cheia do vídeo no Modo Fácil.
-const pvVolumeEl = document.getElementById('pvVolume');
-const pvVolumeNivelEl = document.getElementById('pvVolumeNivel');
-const pvVolumeNumEl = document.getElementById('pvVolumeNum');
 // O título e a linha do tempo da tela cheia do Modo Fácil (v1.12.41).
 const pvFsTopoEl = document.getElementById('pvFsTopo');
 const pvFsNomeEl = document.getElementById('pvFsNome');
@@ -50,12 +47,12 @@ const pvFsTempoCurEl = document.getElementById('pvFsTempoCur');
 const pvFsTempoDurEl = document.getElementById('pvFsTempoDur');
 const pvFsTempoFillEl = document.getElementById('pvFsTempoFill');
 const pvFsTempoHitEl = document.getElementById('pvFsTempoHit');
-const simpleFsBtnEl = document.getElementById('simpleFsBtn');
 const simpleNpNameEl = document.getElementById('simpleNpName');
 const simplePlayEl = document.getElementById('simplePlay');
 const simpleStopEl = document.getElementById('simpleStop');
-const simpleNivelEl = document.getElementById('simpleNivel');
-const simpleNivelNumEl = document.getElementById('simpleNivelNum');
+// A TECLA DA TELA CHEIA (v1.13.57): era a tecla de NÍVEL até aqui, e assumiu a porta da tela
+// cheia da prévia — ver `renderSimple` e `abrirTelaCheiaDoModoFacil`.
+const simpleTelaEl = document.getElementById('simpleTela');
 const simpleLyricsEl = document.getElementById('simpleLyrics');
 const simpleTimeEl = document.getElementById('simpleTime');
 const simpleTimeCurEl = document.getElementById('simpleTimeCur');
@@ -415,7 +412,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.56';
+const WEB_VERSION = '1.13.57';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -674,7 +671,7 @@ const ICON = {
   pause: '', // pause
   // Nomes pelo GLIFO, não pelo estado: os botões mostram a AÇÃO
   // (`renderControls`), então "viewOn" apareceria com a view DESLIGADA.
-  // O par do volume é do `#simpleNivel` do Modo Fácil, que segue sendo glifo.
+  // O par do volume é da pílula flutuante (`#volPill`), que segue sendo glifo.
   volOn: '', // volume_up
   volOff: '', // volume_off
   music: '', // music_note
@@ -944,6 +941,39 @@ const FIXED_COLLECTIONS = [
   { id: HYMNAL_2022_ID, name: 'Hinário Adventista 2022', kind: 'hymnal', source: Louvorja.HYMNAL_2022_FILE },
   { id: 'hymnal-1996',  name: 'Hinário Adventista 1996', kind: 'hymnal', source: Louvorja.HYMNAL_1996_FILE },
 ];
+
+// ===== OS DOIS GRUPOS DO MODO FÁCIL (v1.13.57) =====
+// Pedido do operador: *"além da coleção de cds do ano, o resto ficará na coleção de diversos"*.
+// A categoria dos CDs do ano é a ÚNICA que fica separada na raiz; todo o resto — os hinários,
+// as outras categorias e os álbuns órfãos — entra no "Diversas". A régua do nome aceita as duas
+// formas que o catálogo já usou ("CDs Oficiais/Ano" hoje); sem casar, tudo cai em "Diversas",
+// que é a degradação certa: nada some, só deixa de estar em destaque.
+const GRUPO_CDS_DO_ANO = /cds?\s+(oficiais|do\s*ano)/i;
+const GRUPO_DIVERSAS = 'Diversas';
+
+// ===== OS ELEMENTOS FIXOS DO MODO FÁCIL (v1.13.57) =====
+// O operador: *"coisas como ofertório e abertura para a adoração infantil"*, logo depois dos
+// vídeos da semana. Cada um é um ÁLBUM DO CATÁLOGO, achado pelo NOME (sem acento e sem caixa):
+// sem álbum com o nome, a linha NÃO existe — não se acende o que não tem o que abrir. Quando o
+// catálogo ganhar os dois, eles aparecem aqui sozinhos, sem lote novo.
+const ELEMENTOS_FIXOS_SIMPLES = ['Ofertório', 'Abertura da adoração infantil'];
+
+// O nome comparável: sem acento, sem caixa, com os espaços colapsados.
+function chaveDeNome(s) {
+  return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/\s+/g, ' ').trim();
+}
+// Os álbuns que o Modo Fácil fixa na raiz, na ordem de `ELEMENTOS_FIXOS_SIMPLES`.
+function elementosFixosDoSimples(byId) {
+  const achados = [];
+  for (const alvo of ELEMENTOS_FIXOS_SIMPLES.map(chaveDeNome)) {
+    const coll = albumCatalog.albums
+      .map((a) => byId.get('album-' + a.id_album))
+      .find((c) => c && chaveDeNome(c.name) === alvo);
+    if (coll && !achados.includes(coll)) achados.push(coll);
+  }
+  return achados;
+}
 // Índice (metadados leves) de cada coleção, por coll.id → { indexSyncedAt,
 // songs:[{ id_music, track, name, duration, has_instrumental_music,
 // fileIdFull, fileIdPlayback }] }. Fonte de verdade em memória (carregada no
@@ -1991,9 +2021,10 @@ let fimJaTratado = false;
 //
 // Uma variável, três defeitos: o estado que faltava era esse.
 let midiaNoAr = false;
-// A TELA CHEIA ATUAL DA PRÉVIA É DO VÍDEO DO MODO FÁCIL (v1.12.24) — aberta por
-// `acertarTelaCheiaDoVideo` ou pelo `#simpleFsBtn`, e por isso é ela que SAI sozinha quando o vídeo
-// acaba ou é trocado. Aqui no topo pelo motivo do bloco abaixo: `renderSimple` roda na carga.
+// A TELA CHEIA ATUAL DA PRÉVIA É DO MODO FÁCIL (v1.12.24): aberta pela tecla da tela cheia
+// (`abrirTelaCheiaDoModoFacil`) ou pelo automático do vídeo, e por isso é ela que SAI sozinha
+// quando a mídia acaba ou é trocada. Aqui no topo pelo motivo do bloco abaixo: `renderSimple`
+// roda na carga.
 let fsDoVideo = false;
 // A TELA INTEIRA DA PRÉVIA SEM A API DE TELA CHEIA (v1.12.34, shell 80): a `.preview` no top layer
 // por `popover`, e o shell gira para paisagem e esconde as barras (`AVNative.telaInteira`). Só no
@@ -2001,7 +2032,6 @@ let fsDoVideo = false;
 // "a prévia está ocupando a tela?", que vale para as duas.
 let pvInteira = false;
 function previaCheia() { return pvInteira || document.fullscreenElement === previewEl; }
-let pvVolumeTimer = null;
 // ===== A COREOGRAFIA DA ESCOLHA NO MODO FÁCIL (v1.11.12) — o estado mora AQUI, no topo,
 // porque `closeHymnSearch` roda durante a CARGA do módulo (via `renderSimpleGate`) e um
 // `let` declarado depois dela seria zona morta temporal. `simpleSel` é a linha que o
@@ -4346,7 +4376,7 @@ let volArrastando = false;
 // devem seguir o dedo.
 function syncFader(pct) {
   if (!volArrastando) volSliderEl.value = pct;
-  faderWrapEl.style.setProperty('--vol', String(pct / 100));
+  if (volPillEl) volPillEl.style.setProperty('--vol', String(pct / 100));
   volValueEl.textContent = String(pct);
 }
 
@@ -12578,33 +12608,77 @@ function renderCollectionsListMiolo(alvo, redesenhar) {
   //
   // NO MODO FÁCIL AS SÉRIES NÃO SÃO COLEÇÃO (v1.13.15): os dois cards dão lugar a UM bloco,
   // "Este sábado", com o vídeo da semana de cada série como linha — ver `blocoSemanasRaiz`.
+  //
+  // E AS COLEÇÕES ENCOLHEM PARA DUAS (v1.13.57, pedido do operador: *"além da coleção de cds do
+  // ano, o resto ficará na coleção de diversos"*): a dos CDs do ano continua separada e TODO o
+  // resto — os hinários, as outras categorias do catálogo e os órfãos — cai num grupo só,
+  // "Diversas". O espaço que isso devolve é o que dá lugar aos ELEMENTOS FIXOS logo abaixo dos
+  // vídeos da semana. É só do Modo Fácil: no avançado a lista continua inteira, categoria a
+  // categoria.
+  const simples = appMode === 'simple';
   const seriesNaRaiz = serieCollections().filter((c) => byId.has(c.id));
-  const semanasNaRaiz = appMode === 'simple' ? blocoSemanasRaiz(seriesNaRaiz) : null;
-  const fixasNaRaiz = [...(semanasNaRaiz ? [] : seriesNaRaiz), ...FIXED_COLLECTIONS]
-    .filter((c) => byId.has(c.id));
+  const semanasNaRaiz = simples ? blocoSemanasRaiz(seriesNaRaiz) : null;
   if (semanasNaRaiz) { any = true; alvo.appendChild(semanasNaRaiz); }
-  if (fixasNaRaiz.length) {
-    any = true;
-    fixasNaRaiz.forEach((coll) => alvo.appendChild(renderCollectionCard(coll)));
-  }
 
-  for (const cat of coletaneas.categorias) {
-    const cards = categoryCards(cat);
-    if (!cards.length) continue;
-    const corpo = grupo(cat.name, cards.map((x) => x.coll));
-    if (corpo) cards.forEach(({ coll, ctx }) => corpo.appendChild(renderCollectionCard(coll, ctx)));
-  }
-
+  const categorias = coletaneas.categorias;
   // Álbuns conhecidos que nenhuma categoria reivindicou (catálogo antigo,
   // migrado de uma versão sem categorias, ou álbum removido de todas elas).
   const claimed = new Set();
-  for (const cat of coletaneas.categorias) for (const a of cat.albums) claimed.add('album-' + a.id_album);
+  for (const cat of categorias) for (const a of cat.albums) claimed.add('album-' + a.id_album);
   const orphans = albumCatalog.albums
     .map((a) => byId.get('album-' + a.id_album))
     .filter((c) => c && !claimed.has(c.id) && !isHymnalAlbum(c));
-  if (orphans.length) {
-    const corpo = grupo(coletaneas.categorias.length ? 'Outros álbuns' : 'Álbuns', orphans);
-    if (corpo) orphans.forEach((coll) => corpo.appendChild(renderCollectionCard(coll)));
+
+  if (!simples) {
+    const fixasNaRaiz = [...seriesNaRaiz, ...FIXED_COLLECTIONS].filter((c) => byId.has(c.id));
+    if (fixasNaRaiz.length) {
+      any = true;
+      fixasNaRaiz.forEach((coll) => alvo.appendChild(renderCollectionCard(coll)));
+    }
+    for (const cat of categorias) {
+      const cards = categoryCards(cat);
+      if (!cards.length) continue;
+      const corpo = grupo(cat.name, cards.map((x) => x.coll));
+      if (corpo) cards.forEach(({ coll, ctx }) => corpo.appendChild(renderCollectionCard(coll, ctx)));
+    }
+    if (orphans.length) {
+      const corpo = grupo(categorias.length ? 'Outros álbuns' : 'Álbuns', orphans);
+      if (corpo) orphans.forEach((coll) => corpo.appendChild(renderCollectionCard(coll)));
+    }
+  } else {
+    // (a) OS ELEMENTOS FIXOS, logo depois dos vídeos da semana — as duas linhas que o operador
+    // pediu (ver `ELEMENTOS_FIXOS_SIMPLES`); sem o álbum no catálogo, a linha não existe.
+    for (const coll of elementosFixosDoSimples(byId)) {
+      any = true;
+      alvo.appendChild(renderCollectionCard(coll));
+    }
+    // (b) OS CDS DO ANO, sozinhos.
+    const cds = categorias.find((c) => GRUPO_CDS_DO_ANO.test(String(c.name)));
+    if (cds) {
+      const cards = categoryCards(cds);
+      if (cards.length) {
+        const corpo = grupo(cds.name, cards.map((x) => x.coll));
+        if (corpo) cards.forEach(({ coll, ctx }) => corpo.appendChild(renderCollectionCard(coll, ctx)));
+      }
+    }
+    // (c) TODO O RESTO num grupo só. Um álbum que está em duas categorias entra UMA vez — no
+    // primeiro lugar em que aparece, que é a ordem do catálogo.
+    const vistos = new Set();
+    const resto = [];
+    const juntar = (coll, ctx) => {
+      if (!coll || vistos.has(coll.id)) return;
+      vistos.add(coll.id); resto.push({ coll, ctx });
+    };
+    for (const cat of categorias) {
+      if (cat === cds) continue;
+      for (const x of categoryCards(cat)) juntar(x.coll, x.ctx);
+    }
+    for (const coll of FIXED_COLLECTIONS) if (byId.has(coll.id)) juntar(coll, null);
+    for (const coll of orphans) juntar(coll, null);
+    if (resto.length) {
+      const corpo = grupo(GRUPO_DIVERSAS, resto.map((x) => x.coll));
+      if (corpo) resto.forEach(({ coll, ctx }) => corpo.appendChild(renderCollectionCard(coll, ctx)));
+    }
   }
 
   if (!any) {
@@ -41757,61 +41831,84 @@ if (saidaAudioTileEl) {
     AVNative.abrirSaidaDeAudio();
   });
 }
-// ===== O FADER É UMA ESPIADA, E SÓ =====
-// Ele não tem botão que o abra: a ÚNICA porta é a tecla física de volume, e a
-// única saída é o relógio dela.
+// ===== A PÍLULA DE VOLUME: UMA PEÇA SÓ, EM TODA TELA (v1.13.57) =====
+// Quem não consome a tecla física deixa o ANDROID desenhar o painel de volume dele — e com
+// espelhamento ativo esse painel aparece SOBRE A PROJEÇÃO, na frente da congregação. A pílula
+// é o que o substitui: mora no celular, é OPACA (rodapé flutuante nunca deixa passar imagem),
+// some sozinha — e é o CONTROLE, não só o aviso: arrastar nela muda o volume do app, o mesmo
+// que vai ao telão e às telas da rede.
 //
-// POR QUE O APP CONSOME A TECLA, que é o ponto do recurso: quem não consome
-// deixa o ANDROID desenhar o painel de volume dele — e com espelhamento ativo
-// esse painel aparece SOBRE A PROJEÇÃO, na frente da congregação. O fader daqui
-// o substitui: ele mora no celular, some sozinho, e nada disso chega ao telão.
-const VOL_ANIM = 190;   // ms — casa com as durações das animações no CSS
-const VOL_PEEK_MS = 2800;
-let volAnimTimer = null;
-let volPeekTimer = null;
+// UMA peça para os dois modos e para todas as telas (o fader vertical do deck e a barra da
+// tela cheia saíram neste lote). O lugar é medido no momento de aparecer, logo ACIMA do
+// transporte que estiver à vista — as teclas do Modo Fácil ou o deck —, porque o rodapé não
+// pode cobrir botão nenhum.
+const VOL_PILL_MS = 1500;
+let volPillTimer = null;
 
-function abrirFader() {
-  clearTimeout(volAnimTimer);
-  deckEl.classList.remove('vol-closing');
-  deckEl.classList.add('vol-open');
+function lugarDaPilula() {
+  // EM TELA CHEIA a casa é a `.preview` e o lugar é a faixa acima do transporte dela — só o
+  // elemento em tela cheia e os filhos dele são pintados (a prévia inteira é um popover no top
+  // layer), então nem medir adianta: o CSS resolve (`--pill-bottom` fica de fora).
+  if (previaCheia()) return;
+  const barra = appMode === 'simple' ? simpleRemoteEl : deckEl;
+  if (!volPillEl || !barra) return;
+  const r = barra.getBoundingClientRect();
+  // Barra recolhida (sem nada no ar) tem altura zero: a pílula desce até o rodapé.
+  const base = r.height > 0 ? window.innerHeight - r.top : 0;
+  volPillEl.style.setProperty('--pill-bottom', Math.round(base + 10) + 'px');
 }
-function fecharFader() {
-  if (!deckEl.classList.contains('vol-open')) return;
-  clearTimeout(volAnimTimer);
-  deckEl.classList.add('vol-closing');
-  volAnimTimer = setTimeout(() => {
-    deckEl.classList.remove('vol-open', 'vol-closing');
-  }, VOL_ANIM);
+// A CASA da pílula: o corpo, ou a `.preview` quando há tela cheia. Mover o NÓ (e não criar um
+// segundo) é o que a mantém uma peça só — e é o mesmo motivo pelo qual ela mora no documento e
+// não dentro de uma barra.
+function casaDaPilula() {
+  if (!volPillEl) return;
+  const alvo = previaCheia() ? previewEl : document.body;
+  if (volPillEl.parentNode !== alvo) alvo.appendChild(volPillEl);
+  volPillEl.classList.toggle('na-previa', alvo === previewEl);
 }
-
-// A tecla física ESPIA o fader: sem isso ela mexeria no volume de forma
-// INVISÍVEL — o operador mudaria sem ver quanto ficou nem quanto ainda cabe.
-// Mexer no fader enquanto ele está no ar reinicia a contagem (`peekVolume` é
-// chamada de novo): recolher debaixo do dedo seria o oposto do que ela faz.
+function mostrarPilula() {
+  if (!volPillEl) return;
+  casaDaPilula();
+  lugarDaPilula();
+  volPillEl.classList.toggle('mudo', !!muted);
+  volPillEl.classList.add('visivel');
+  clearTimeout(volPillTimer);
+  volPillTimer = setTimeout(() => { volPillTimer = null; volPillEl.classList.remove('visivel'); }, VOL_PILL_MS);
+}
+function esconderPilula() {
+  clearTimeout(volPillTimer); volPillTimer = null;
+  if (volPillEl) volPillEl.classList.remove('visivel');
+}
+// O MUDO mora no ícone: um `.click()` no botão do avançado — o mesmo comando, o mesmo estado,
+// e uma segunda verdade sobre o mudo não nasce aqui.
+if (volPillMuteEl) {
+  volPillMuteEl.addEventListener('click', () => {
+    muteToggleEl.click();
+    // O DESENHO acompanha NA HORA: `.mudo` é escrito por `mostrarPilula`, e sem esta chamada o
+    // glifo ficaria defasado até a pílula acender de novo (achado do oráculo).
+    mostrarPilula();
+  });
+}
+// A tecla física ESPIA o volume: sem isso ela mexeria no volume de forma INVISÍVEL — o
+// operador mudaria sem ver quanto ficou nem quanto ainda cabe. Vale TAMBÉM quando o passo vai
+// ao SISTEMA (o teto e o zero são justamente a resposta) e quando nada está tocando.
 function peekVolume() {
-  // EM TELA CHEIA o fader não está à vista: quem responde é a barra da prévia — também quando a
-  // tecla vai ao SISTEMA e o número do app não muda (o teto e o zero são justamente a resposta).
-  mostrarVolumeDaTelaCheia();
-  // No Modo Fácil o número mora na tecla de NÍVEL (com mídia no ar): não há o
-  // que espiar, e mexer numa classe do deck escondido não teria efeito nenhum.
-  if (appMode === 'simple') return;
-  abrirFader();
-  clearTimeout(volPeekTimer);
-  volPeekTimer = setTimeout(() => { volPeekTimer = null; fecharFader(); }, VOL_PEEK_MS);
+  mostrarPilula();
 }
 
-// O fader continua sendo ARRASTÁVEL enquanto está no ar — ele é o mesmo
-// `<input type=range>` de sempre. Quem impede `syncFader` de reescrever o valor
-// debaixo do dedo é `volArrastando`, declarada JUNTO DELA lá em cima: um `let`
-// aqui embaixo seria uma zona morta esperando a ordem de chamada mudar, e
-// `renderControls` roda muito antes desta linha na leitura do arquivo.
-volSliderEl.addEventListener('pointerdown', () => { volArrastando = true; peekVolume(); });
-volSliderEl.addEventListener('pointerup', () => { volArrastando = false; });
+// O arrasto é o mesmo `<input type=range>` de sempre. Quem impede `syncFader` de reescrever o
+// valor debaixo do dedo é `volArrastando`, declarada JUNTO dela lá em cima. Enquanto o dedo
+// está nela o relógio fica parado: sumir no meio do movimento seria perder o ponto que ele
+// procura.
+volSliderEl.addEventListener('pointerdown', () => {
+  volArrastando = true;
+  clearTimeout(volPillTimer); volPillTimer = null;
+});
+volSliderEl.addEventListener('pointerup', () => { volArrastando = false; mostrarPilula(); });
 volSliderEl.addEventListener('input', () => {
   applyVolume(parseFloat(volSliderEl.value) / 100);
-  peekVolume();
 });
-volSliderEl.addEventListener('change', () => { volArrastando = false; persistCurrent(); });
+volSliderEl.addEventListener('change', () => { volArrastando = false; persistCurrent(); mostrarPilula(); });
 
 // Se a largura mudar (ex: rotação), remede o título rolante.
 let titleResizeTimer = null;
@@ -42011,7 +42108,7 @@ function applyVolume(v) {
   if (volume > 0 && muted) { muted = false; cmd({ type: 'mute', muted }); }
   cmd({ type: 'volume', volume });
   renderControls();   // e por ele o fader e a leitura do Modo Fácil
-  mostrarVolumeDaTelaCheia();
+  mostrarPilula();
 }
 
 /**
@@ -42231,25 +42328,9 @@ function renderSimple() {
   // O título da tela cheia vale nos DOIS modos: é escrito antes da guarda do modo.
   if (pvFsNomeEl) pvFsNomeEl.textContent = npNameInnerEl.textContent || '';
   if (appMode !== 'simple') return;
-  renderSimpleFsBtn();
+  renderTeclaTela();
   simpleNpNameEl.textContent = npNameInnerEl.textContent || 'Nada tocando';
   simplePlayEl.querySelector('.msym').textContent = playPauseEl.querySelector('.msym').textContent;
-  // O que se copia do mudo é a CLASSE de estado — `.alternado` é a mesma chave
-  // que lá troca o desenho. O espelho LÊ o controle de verdade em vez de reler
-  // `muted`/`displayAudioBlocked` por conta própria: uma segunda leitura
-  // divergiria no primeiro caso de borda.
-  // A TECLA DE NÍVEL é o mudo e o mostrador do volume numa peça só: o glifo e as classes
-  // vêm do `#muteToggle`, o número e o traço de curso (`--curso`, ver `.simple-key--nivel::after`)
-  // vêm do mesmo `volume` que o fader do avançado mostra.
-  simpleNivelEl.querySelector('.msym').textContent =
-    muteToggleEl.classList.contains('alternado') ? ICON.volOff : ICON.volOn;
-  simpleNivelEl.classList.toggle('muted', muteToggleEl.classList.contains('muted'));
-  simpleNivelEl.classList.toggle('blocked', muteToggleEl.classList.contains('blocked'));
-  const pct = Math.round(volume * 100);
-  simpleNivelNumEl.textContent = String(pct);
-  simpleNivelEl.style.setProperty('--curso', String(pct / 100));
-  simpleNivelEl.title = muteToggleEl.title;
-  simpleNivelEl.setAttribute('aria-label', 'Volume ' + pct + ' — ' + muteToggleEl.title);
   renderSimpleTime();
   refreshSimpleLyrics();
 }
@@ -43227,7 +43308,10 @@ simpleCastBtnEl.addEventListener('click', () => abrirCast());
 // lugar só.
 simplePlayEl.addEventListener('click', () => playPauseEl.click());
 simpleStopEl.addEventListener('click', () => stopEl.click());
-simpleNivelEl.addEventListener('click', () => muteToggleEl.click());
+simpleTelaEl.addEventListener('click', () => {
+  if (!telaCheiaDoModoFacilCabe() || previaCheia()) return;
+  abrirTelaCheiaDoModoFacil();
+});
 // AS PÁGINAS SEGUEM A MESMA REGRA: elas acionam as âncoras do modo
 // completo, e não `stepSlide` direto. Um `.click()` num botão `disabled` é
 // no-op natural, e é o que faz o limite (que `applySlideLimits` já calculou uma
@@ -43631,30 +43715,42 @@ function videoDoModoFacil() {
 function telaCheiaDoVideoCabe() {
   return videoDoModoFacil() && !haDestinoDeProjecao();
 }
-function renderSimpleFsBtn() {
-  if (!simpleFsBtnEl) return;
-  simpleFsBtnEl.hidden = !(telaCheiaDoVideoCabe()
-    && (window.__NATIVE__ || previewEl.requestFullscreen || previewEl.webkitRequestFullscreen));
+// A TECLA DA TELA CHEIA (v1.13.57): era a tecla de NÍVEL e assumiu a porta MANUAL da tela
+// cheia, para QUALQUER mídia no ar — não só o vídeo sem letra que o automático cobre. A
+// pergunta é a do Parar (`haOQueParar`): sem nada em exibição não há o que mostrar, e a tecla
+// fica APAGADA com o motivo no rótulo (apagado = indisponível, nunca inerte).
+function telaCheiaDoModoFacilCabe() {
+  return appMode === 'simple' && haOQueParar() && !haDestinoDeProjecao();
+}
+function renderTeclaTela() {
+  if (!simpleTelaEl) return;
+  const cabe = telaCheiaDoModoFacilCabe();
+  simpleTelaEl.disabled = !cabe;
+  const motivo = cabe ? 'Ver em tela cheia'
+    : haDestinoDeProjecao() ? 'Com tela conectada, o visor é a TV'
+      : 'A tela cheia abre com uma mídia no ar';
+  simpleTelaEl.title = motivo;
+  simpleTelaEl.setAttribute('aria-label', motivo);
 }
 // O CAMINHO DA ENTRADA: no app, a tela inteira (sem toque); no navegador, a API de tela cheia.
-function abrirTelaCheiaDoVideo() {
+function abrirTelaCheiaDoModoFacil() {
   fsDoVideo = true;
   if (window.__NATIVE__) { entrarTelaInteira(); return; }
   entrarTelaCheiaDaPrevia().then((ok) => {
     if (!ok && document.fullscreenElement !== previewEl) fsDoVideo = false;
-    if (!ok) diagC('tela cheia do vídeo: o pedido foi recusado (sem toque recente) — fica o botão');
+    if (!ok) diagC('tela cheia: o pedido foi recusado (sem toque recente) — fica a tecla');
   });
 }
 /** [entrar] só no `send` — a cena NOVA. Os outros chamadores (fim, parar) só podem SAIR: uma
  *  tela cheia que o operador fechou não volta sozinha por um redesenho. */
 function acertarTelaCheiaDoVideo(entrar) {
-  renderSimpleFsBtn();
+  renderTeclaTela();
   const nela = previaCheia();
   if (telaCheiaDoVideoCabe()) {
-    if (entrar && !document.fullscreenElement && !pvInteira) abrirTelaCheiaDoVideo();
+    if (entrar && !document.fullscreenElement && !pvInteira) abrirTelaCheiaDoModoFacil();
     return;
   }
-  // A SAÍDA AUTOMÁTICA é só da tela cheia que ESTA regra (ou o botão do Modo Fácil) abriu: a do
+  // A SAÍDA AUTOMÁTICA é só da tela cheia que ESTA regra (ou a tecla do Modo Fácil) abriu: a do
   // avançado, pedida pelo ⛶ da prévia, continua do operador.
   if (nela && fsDoVideo) {
     fsDoVideo = false;
@@ -43662,16 +43758,10 @@ function acertarTelaCheiaDoVideo(entrar) {
     else { try { document.exitFullscreen(); } catch (_) {} }
   }
 }
-if (simpleFsBtnEl) {
-  simpleFsBtnEl.addEventListener('click', () => {
-    if (!telaCheiaDoVideoCabe() || previaCheia()) return;
-    abrirTelaCheiaDoVideo();
-  });
-}
 function aoSairDaPreviaCheia() {
   if (previaCheia()) return;
   fsDoVideo = false;
-  esconderVolumeDaTelaCheia();
+  esconderPilula();
   // A VOLTA AO RETRATO remede o corpo do Modo Fácil: a caixa da Biblioteca se mede na zona de
   // leitura, e a rotação de volta chega depois deste evento (o `resize` dela também remede).
   if (appMode === 'simple') { medirCorpoSimplesDepois(); setTimeout(() => { if (simplesComBarra()) medirCorpoSimples(); }, 600); }
@@ -43679,27 +43769,6 @@ function aoSairDaPreviaCheia() {
 document.addEventListener('fullscreenchange', aoSairDaPreviaCheia);
 document.addEventListener('pvcheia', aoSairDaPreviaCheia);
 
-// ===== A BARRA DE VOLUME DA TELA CHEIA — nos DOIS modos =====
-// O retorno visual do volume em tela cheia. Fora dela quem responde é o fader que a tecla acende
-// (`peekVolume`) ou o número do Modo Fácil; dentro dela o deck não existe à vista. A barra mora
-// DENTRO da `.preview` (só o elemento em tela cheia e os filhos dele são pintados) e some sozinha.
-// O número é o do APP (`volume`, o mesmo do fader), não o do sistema: é ele que vai ao telão e às
-// telas da rede. Sem TV a tela cheia É a projeção — daí ela ser PASSAGEIRA e pequena, no topo.
-const PV_VOLUME_MS = 2000;
-function mostrarVolumeDaTelaCheia() {
-  if (!pvVolumeEl || !previaCheia()) return;
-  const pct = muted ? 0 : Math.round(volume * 100);
-  pvVolumeNivelEl.style.setProperty('--nivel', pct + '%');
-  pvVolumeNumEl.textContent = String(pct);
-  pvVolumeEl.classList.toggle('mudo', !!muted);
-  pvVolumeEl.classList.add('visivel');
-  clearTimeout(pvVolumeTimer);
-  pvVolumeTimer = setTimeout(esconderVolumeDaTelaCheia, PV_VOLUME_MS);
-}
-function esconderVolumeDaTelaCheia() {
-  clearTimeout(pvVolumeTimer); pvVolumeTimer = null;
-  if (pvVolumeEl) pvVolumeEl.classList.remove('visivel');
-}
 
 // Preview: FORA do fullscreen — toque simples coloca a PRÓPRIA preview em tela
 // cheia (landscape); pressionar longo (~500 ms) abre as configurações de

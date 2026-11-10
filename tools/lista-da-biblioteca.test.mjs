@@ -1776,6 +1776,72 @@ try {
       JSON.stringify(g));
   }
 
+  // ── 12. O MODO FÁCIL TEM DUAS COLEÇÕES: OS CDS DO ANO E "DIVERSAS" (v1.13.57) ──
+  //
+  // Pedido do operador: *"além da coleção de cds do ano, o resto ficará na coleção de
+  // diversos"*. O que este bloco trava, e cada item falha CALADO: a raiz do Modo Fácil tem DOIS
+  // grupos só; um álbum que o catálogo põe em duas categorias entra UMA vez no "Diversas"; o
+  // elemento fixo que o Modo Fácil pendura pelo nome ("Ofertório") vem ANTES dos grupos; e o
+  // modo AVANÇADO continua com uma categoria por grupo.
+  const gruposDoAcervo = (modo) => pg.evaluate(async (m) => {
+    setAppMode(m);
+    const nomes = ['CDs Oficiais/Ano', 'Adoradores', 'Cantores', 'Celebra SP', 'Diversas'];
+    albumCatalog.categories = nomes.map((n, i) => ({
+      name: n, albums: [{ id_album: 900 + i, name: 'Álbum ' + n }],
+    }));
+    // O MESMO álbum em DUAS categorias — o catálogo é N:N, e o "Diversas" não pode repetir.
+    albumCatalog.categories[2].albums.push({ id_album: 900, name: 'Álbum CDs Oficiais/Ano' });
+    albumCatalog.albums = [
+      ...new Map(albumCatalog.categories.flatMap((c) => c.albums)
+        .map((a) => [a.id_album, a])).values(),
+      { id_album: 999, name: 'Ofertório' },
+    ];
+    const raiz = () => [...hymnResultsEl.children].map((li) => {
+      if (li.classList.contains('coll-group')) return 'grupo:' + (li.dataset.grupo || '');
+      const n = li.querySelector('.coll-bar-name');
+      return 'card:' + (n ? n.textContent : (li.className || '?'));
+    });
+    const desenhar = () => {
+      hymnResultsEl.innerHTML = '';
+      renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
+      return raiz();
+    };
+    grupoAberto = ''; favAberto = false;
+    const fechado = desenhar();
+    grupoAberto = 'Diversas';
+    const aberto = desenhar();
+    const divers = [...hymnResultsEl.querySelectorAll('.coll-group')]
+      .find((g) => g.dataset.grupo === 'Diversas');
+    const dentro = divers
+      ? [...divers.querySelectorAll('.coll-bar-name')].map((n) => n.textContent) : [];
+    setAppMode('full');
+    grupoAberto = ''; favAberto = false;
+    return { fechado, aberto, dentro };
+  }, modo);
+
+  const simplesG = await gruposDoAcervo('simple');
+  const gruposSimples = simplesG.fechado.filter((x) => x.startsWith('grupo:'));
+  checar(JSON.stringify(gruposSimples) === JSON.stringify(['grupo:CDs Oficiais/Ano', 'grupo:Diversas']),
+    'no Modo Fácil a raiz tem DOIS grupos: os CDs do ano e o "Diversas"', gruposSimples);
+  checar(simplesG.fechado[0] === 'card:Ofertório',
+    'e o elemento fixo que o catálogo tem por nome vem ANTES deles, logo depois dos vídeos da semana',
+    simplesG.fechado);
+  const conta900 = simplesG.dentro.filter((n) => n === 'Álbum CDs Oficiais/Ano').length;
+  checar(conta900 === 1,
+    'no "Diversas" o álbum que está em duas categorias entra UMA vez', simplesG.dentro);
+  checar(simplesG.dentro.includes('Hinário Adventista 2022')
+      && simplesG.dentro.includes('Hinário Adventista 1996'),
+    'e os hinários cabem lá dentro, sem card próprio na raiz', simplesG.dentro);
+
+  const fullG = await gruposDoAcervo('full');
+  const gruposFull = fullG.fechado.filter((x) => x.startsWith('grupo:'));
+  checar(gruposFull.includes('grupo:Adoradores') && gruposFull.includes('grupo:Cantores')
+      && gruposFull.length > gruposSimples.length,
+    'no modo AVANÇADO essas mesmas categorias voltam a ter grupo próprio — o recolhimento é do Modo Fácil',
+    gruposFull);
+  checar(!fullG.fechado.some((x) => x === 'card:Ofertório'),
+    'e o elemento fixo é do Modo Fácil: no avançado ele não existe', fullG.fechado);
+
   checar(erros.length === 0, 'nenhum erro de console', erros.slice(0, 5));
 } catch (e) {
   checar(false, 'o oráculo rodou até o fim', String(e && e.stack ? e.stack : e));

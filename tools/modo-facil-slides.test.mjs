@@ -108,7 +108,7 @@ try {
       return cs.display !== 'none' && cs.visibility !== 'hidden' && el.offsetParent !== null;
     };
     return {
-      play: vis('#simplePlay'), nivel: vis('#simpleNivel'), parar: vis('#simpleStop'),
+      play: vis('#simplePlay'), tela: vis('#simpleTela'), parar: vis('#simpleStop'),
       paginas: vis('.simple-slidesrow'),
       rotuloParar: vis('.simple-key-label--parar'),
       fileiras: [...document.querySelectorAll('.simple-remote > *')]
@@ -142,9 +142,9 @@ try {
   // repete), então a cena que desfaz um deck é outra cena, não o Parar.
   // Sem esta metade, "esconder o que atrapalha" passaria no caso do deck.
   const cMidia = await verControles();
-  checar(cMidia.play && cMidia.nivel && cMidia.parar
+  checar(cMidia.play && cMidia.tela && cMidia.parar
     && !cMidia.paginas && cMidia.fileiras === 1,
-    '  ↳ e a área de controle é a da MÍDIA: parar, play e nível, sem a '
+    '  ↳ e a área de controle é a da MÍDIA: parar, play e tela cheia, sem a '
     + 'linha de páginas', cMidia);
 
   // ── 2. A APRESENTAÇÃO ENTRA ───────────────────────────────────────────────
@@ -171,9 +171,9 @@ try {
   // responde ao toque como qualquer outro — ele só não muda nada —, e por isso
   // a composição é medida.
   const cDeck = await verControles();
-  checar(cDeck.paginas && cDeck.parar && !cDeck.play && !cDeck.nivel,
-    'COM UM DECK NO AR a área de controle mostra o transporte DA CENA: páginas e '
-    + '"Parar", e mais nada — play e nível governariam o silêncio', cDeck);
+  checar(cDeck.paginas && cDeck.parar && !cDeck.play && cDeck.tela,
+    'COM UM DECK NO AR a área de controle mostra o transporte DA CENA: páginas, '
+    + '"Parar" e a tela cheia — o play governaria o silêncio, a tela cheia não', cDeck);
   checar(cDeck.fileiras === 2,
     '  ↳ e são DUAS fileiras: o "Parar" sozinho e as páginas', cDeck.fileiras);
   checar(cDeck.rotuloParar,

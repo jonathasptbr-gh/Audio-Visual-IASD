@@ -36,7 +36,6 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 
 | pacote | nota | tipo | área |
 |---|---|---|---|
-| **4** — Modo Fácil: volume, coleções e Configurações | 8 (I4×U2) | pedido | só web, salvo se a captura sempre ligada pedir o `MainActivity` |
 | **5** — Itinerário: a abertura antes do primeiro evento | 8 (I4×U2) | pedido | só web, depois de planejar |
 | **6** — Link do YouTube: os detalhes no oferecimento | 6 (I3×U2) | pedido | Kotlin + web (APK/Release) |
 | **7** — Verificação: procurar atualização | 6 (I3×U2) | pedido | só web |
@@ -106,61 +105,6 @@ ordem; a fila é dele.
 | 13.1 | controle de slides + compartilhar itinerário/cronograma | | 4 | 1 | 4 | estudo |
 | 13.2 | transmissão ao vivo | | 3 | 1 | 3 | estudo |
 | 13.3 | app no Windows + layout de paisagem | | 3 | 1 | 3 | estudo |
-
----
-
-## Pacote 4 — Modo Fácil: volume, coleções e Configurações
-
-**Nota 8 (I4 × U2) · pedido · só web, salvo se a captura sempre ligada pedir o
-`MainActivity`**
-
-**Onde:** `simple*` de `controle.js` e o bloco "Este sábado".
-
-### 4.1 Indicador de volume flutuante e o botão de tela cheia
-
-Pedido (2026-10-31 09:02). Hoje o volume só tem retorno visual em parte dos
-estados (`mostrarVolumeDaTelaCheia` existe para a tela cheia); na busca da
-Biblioteca ou sem nada tocando as teclas físicas não mostram nada. Estudo:
-
-- um indicador FLUTUANTE único (uma pílula opaca com a barra e o número), que
-  aparece só quando as teclas físicas são usadas (`__avVolumeKey`) e some sozinho
-  em ~1,5 s — o mesmo em toda tela; substitui o indicador atual e o da tela cheia
-  (uma peça só). Ele não pode cobrir o transporte; rodapé flutuante é opaco
-  (regra da paleta);
-- **a pergunta a resolver:** o que a tecla controla sem nada tocando? Hoje ela só
-  é capturada depois que o web pede (`captureVolumeKeys(true)`); se a captura
-  estiver desligada nesse estado, o painel do sistema aparece e o nosso não —
-  decidir se o indicador mostra o volume do APP (preview/telão) ou se a captura
-  passa a valer sempre no Modo Fácil (com a válvula no zero e no teto);
-- o botão exclusivo de volume da linha de controles do Modo Fácil (v1.13.8) vira
-  **tela cheia** da prévia. **Resposta do operador (2026-11-06):** é quando há
-  algo em exibição e se vai para a tela cheia da preview, que ocupa a tela toda,
-  com os controles sobre a imagem — o mesmo modelo de controles da tela cheia que
-  já existe (play/pause no centro, sair no canto, nome e linha do tempo nas
-  faixas; ver `docs/DIVERGENCIAS-WEB-NATIVO.md`, "Fullscreen da preview"). Sem
-  nada em exibição, o botão fica apagado com o motivo.
-
-### 4.2 As coleções em "Diversos" e os elementos fixos
-
-*"No modo simples, além da coleção de cds do ano, o resto ficará na coleção de
-diversos. Assim terá mais espaço para deixar mais elementos fixos após os vídeos
-da semana. Coisas como ofertório e abertura para a adoração infantil."*
-(2026-11-07 19:33).
-
-Reorganizar as coleções do Modo Fácil: só a coleção dos CDs do ano fica separada;
-o resto cai em "Diversos". O espaço liberado abre vaga para ELEMENTOS FIXOS
-depois dos vídeos da semana (ex.: ofertório, abertura para a adoração infantil).
-Planejar quais elementos fixos e onde moram. A ORDEM das coleções simples entra
-aqui — a 1.4 antiga fixou só a ordem da Biblioteca.
-
-### 4.3 As opções de Configurações no Modo Fácil
-
-*"Revisar quais opções das configurações aparecem no modo simples"* (2026-11-07
-19:24).
-
-Levantar quais tiles/opções de Configurações aparecem no Modo Fácil e cortar o
-que não cabe (regra: apagado = indisponível, nunca inerte; o que não tem função
-agora some). Conferir a grade de Configurações no Modo Fácil.
 
 ---
 
@@ -430,6 +374,8 @@ quiser só a paisagem, ela é um lote de web — e não espera o estudo do Windo
 ---
 
 ## O que saiu desta lista (rastro, não log)
+
+**v1.13.57 (2026-11-10), o lote seguinte:** o **Pacote 4** — a pílula de volume única nos dois modos, as coleções do Modo Fácil em duas (CDs do ano e "Diversas"), os dois lugares de elemento fixo depois dos vídeos da semana, a terceira tecla do Modo Fácil virando tela cheia e as Configurações dele enxutas. A nota está em `docs/HISTORICO.md`; os oráculos são o `controles-layout`, o `video-tela-cheia`, o `modo-simples-teclas` e o bloco novo do `acervo`.
 
 **v1.13.51 (2026-11-09), DEPOIS desta edição:** o **Pacote 1** — o episódio
 baixado pelo atalho da semana não se perde mais (`serieReterBaixado` +

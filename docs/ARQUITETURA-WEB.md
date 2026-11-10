@@ -19,7 +19,7 @@ para uma pergunta sobre a Bíblia não custar a leitura do Controle inteiro.
 |---|---|---|
 | Controle — o HUB | [`arquitetura/CONTROLE.md`](arquitetura/CONTROLE.md) | o mapa das partes abaixo, o índice por assunto e as regras do Controle inteiro (feedback, diálogo, teclado virtual) |
 | Controle — modos | [`arquitetura/CONTROLE-MODOS.md`](arquitetura/CONTROLE-MODOS.md) | Modo Fácil × avançado, o modo pela sessão, o modo sem tela, o vídeo do Modo Fácil em tela cheia |
-| Controle — layout | [`arquitetura/CONTROLE-LAYOUT.md`](arquitetura/CONTROLE-LAYOUT.md) | layout geral, transporte, fader, os dois botões de slide, os controles dentro do fullscreen |
+| Controle — layout | [`arquitetura/CONTROLE-LAYOUT.md`](arquitetura/CONTROLE-LAYOUT.md) | layout geral, transporte, a pílula de volume, os dois botões de slide, os controles dentro do fullscreen |
 | Controle — navegação | [`arquitetura/CONTROLE-NAVEGACAO.md`](arquitetura/CONTROLE-NAVEGACAO.md) | uma tela, duas folhas e uma janela: as portas do rodapé, a folha da Bíblia, a barra da Biblioteca |
 | Controle — Configurações | [`arquitetura/CONTROLE-CONFIGURACOES.md`](arquitetura/CONTROLE-CONFIGURACOES.md) | tema, painel rápido e seções, rodapé, Registro, wallpaper, girar a mídia, histórico do culto |
 | Controle — telão | [`arquitetura/CONTROLE-TELAO.md`](arquitetura/CONTROLE-TELAO.md) | abertura (cortina, versão), retomada do telão, a referência da preview, a saída de áudio, a prévia recolhível |

@@ -717,9 +717,9 @@ que ela ganhou GEOMETRIA.
 - **Efeitos que o operador vê:** a caixa de controles encolhe (304 → 204px em
   430×900) e a lista do Cronograma ganha a diferença (`--lib-caixa-h` acompanha
   pelo `ResizeObserver` que já existia); os botões de passar slide, que têm a
-  altura da faixa da prévia, caem de 88–241px para a altura do transporte (36,4px a 1×); o
-  fader fica com ~12px de curso — serve para MOSTRAR o número na espiada da tecla
-  física, e arrastar com o dedo deixa de ser prático.
+  altura da faixa da prévia, caem de 88–241px para a altura do transporte (36,4px a 1×). O
+  volume não entra nessa conta desde a v1.13.57: a pílula é flutuante, mede o próprio lugar
+  contra o transporte e não pertence à faixa da prévia.
 - **A escolha é GUARDADA e o veredito é DERIVADO**, a separação do
   `tocarNoCelular` × `somLocalDeveEstar`. `economiaAtiva()` exige três coisas: a
   marcação, `haDestinoDeProjecao()` e **não estar em tela cheia**.

@@ -184,6 +184,19 @@ recolhidas sem nada no ar).
   altura do conteúdo e fica fora da repartição da tampa (`calcularTampa` desconta o
   `bloco-fixo` da sobra e da média, como os Favoritos abertos). Ver
   `docs/recursos/SERIES.md`.
+- **Coleções em DUAS (v1.13.57), pedido do operador:** *"além da coleção de cds do
+  ano, o resto ficará na coleção de diversos"*. `renderCollectionsListMiolo` ramifica
+  por modo: no avançado cada categoria do catálogo é um grupo; no Modo Fácil a raiz
+  fica com os **CDs do ano** (`GRUPO_CDS_DO_ANO`) e **um** grupo, "Diversas"
+  (`GRUPO_DIVERSAS`), com as outras categorias, os dois hinários e os álbuns órfãos.
+  Um álbum em duas categorias (o catálogo é N:N) entra UMA vez. **Elementos fixos:**
+  `ELEMENTOS_FIXOS_SIMPLES` (`Ofertório`, `Abertura da adoração infantil`) casa por
+  NOME normalizado contra os álbuns do catálogo e pendura o card logo depois do bloco
+  "Este sábado"; sem álbum com o nome, a linha não nasce. Oráculo: bloco 12 do
+  `lista-da-biblioteca`.
+- **Configurações enxutas (v1.13.57):** no Modo Fácil ficam Tema, Tela, Saída de
+  áudio, Dados móveis e Compartilhar; Editar mídia, Histórico, Verificar e Transferir
+  somem da grade (`body.mode-simple`).
 
 Oráculo: `modo-simples-corpo.test.mjs`.
 
@@ -250,7 +263,7 @@ do app e o `:active` que afunda.
 | **Cartão de download** (`#simpleBusySlot`) | o `#pvBusy` movido para cá no Modo Fácil — a única porta de cancelar um download; vazio, não ocupa lugar |
 | **Linha do tempo** (`#simpleTime`) | decorrido · barra · duração, espelhando a `#seek` do avançado; some quando o item não tem duração. **Interativa**: tocar salta, arrastar procura — voltar o refrão é a coisa mais comum num louvor, e mandar o operador SAIR do modo para isso é o oposto do que o modo dá. O alvo é a FAIXA (`.simple-time-hit`), não o traço de 4px. O comando sai no `pointerup` (um `seek` por quadro engasgaria a mídia) e `simpleSeeking` impede o `timeupdate` de puxar o preenchimento debaixo do dedo |
 | **Letra** (`#simpleLyrics`) | a letra INTEIRA da música em cena, com o mesmo destaque da leitura auxiliar do avançado |
-| **Parar · Play/Pausa · Nível** (v1.13.8) | `.click()` em `#stop` / `#playpause` / `#muteToggle`. O parar é a outra metade do transporte — sem ele, tirar a mídia do telão obrigava a ir ao avançado, que é o que se faz no fim de cada louvor. O NÍVEL é o número do volume e o toque MUTA — ver "As três teclas e a linha que recolhe" |
+| **Parar · Play/Pausa · Tela cheia** (v1.13.57; a terceira era o Nível da v1.13.8) | `.click()` em `#stop` / `#playpause`; a terceira é `#simpleTela`, a porta manual da tela cheia da prévia (`abrirTelaCheiaDoModoFacil`), APAGADA sem mídia no ar ou com destino de projeção, com o motivo no `title` (`renderTeclaTela`). O parar é a outra metade do transporte — sem ele, tirar a mídia do telão obrigava a ir ao avançado, que é o que se faz no fim de cada louvor. O volume e o mudo saíram da linha: moram na pílula (`#volPill`) |
 | **Configurações** (`#simpleSettingsBtn`) | `openFadePopup()` — e é de lá que se troca de modo |
 
 **Sem escolha de variante.** O toque na linha da busca chama `simplePlaySong()`,
@@ -265,7 +278,7 @@ pergunta a cada música viraria ruído no meio do culto. A verificação usa
 
 **Não há volume na tela do Modo Fácil (v1.13.8).** O − e o + saíram a pedido do
 operador; o ajuste fino neste modo são as TECLAS FÍSICAS do aparelho, na grade
-de `volumeProximo` (abaixo), e o número aparece na tecla de NÍVEL.
+de `volumeProximo` (abaixo), e o número aparece na pílula (`#volPill`).
 
 **A GRADE TEM DOIS TRECHOS** (v1.8.90): de 5 em 5 acima de 10, de 1 em 1 abaixo
 — o volume não é linear no ouvido, e de 95 para 100 quase não se nota enquanto
@@ -362,20 +375,18 @@ saltar).
   volta cedo fora do simplificado, então ninguém mais passaria por elas — e sem
   zerar o `sig` a volta ao modo acharia tudo igual e deixaria a zona vazia para
   sempre.
-- **`--curso` e não `--vol`**: o traço de curso tem dois donos (o mostrador da
-  página e a tecla de NÍVEL), e o nome tem de descrever o que ele desenha. O
-  fader do modo avançado continua com `--vol`, que ali é volume de verdade.
+- **`--curso` e não `--vol`**: o traço de curso é do mostrador da página, e o
+  nome tem de descrever o que ele desenha. O volume é o `--vol` da pílula
+  (`#volPill`), nos dois modos.
 - **Com uma LETRA em cena a linha nem existe.** A estrofe anda sozinha pelo
   relógio da música, e um par de teclas oferecendo um controle que ninguém
   precisa exercer é o que este app não faz.
 
 Oráculo: `tools/modo-facil-slides.test.mjs`.
 
-A espiada do volume pelos botões físicos (`peekVolume`) **não roda aqui**: com
-algo no ar o número está na tecla de NÍVEL, escrito pelo mesmo `renderControls`
-que escreve o fader. **Sem nada no ar a linha está recolhida e a tecla física
-muda o número sem mostrá-lo** — aceito: não há som a ajustar, e o número aparece
-com a linha na próxima mídia.
+A espiada do volume pelos botões físicos (`peekVolume`) **roda aqui também**
+desde a v1.13.57: é a pílula (`#volPill`) que acende, em qualquer tela e com a
+linha recolhida ou não — o número é escrito pelo mesmo `renderControls`.
 
 #### As três teclas e a linha que recolhe (v1.13.8)
 
@@ -390,7 +401,7 @@ desaparecer debaixo dos dedos do usuário."*
 | peça | o quê |
 |---|---|
 | `.simple-keys` | **Parar · Play/Pausa · Nível**, nessa ordem, `repeat(3, 1fr)`. Com um deck no ar sobra só o Parar (`.simple-remote.deck`) |
-| `#simpleNivel` | o glifo do som em cima e o número do volume (`#simpleNivelNum`) embaixo, na cor de TECLA (`--panel`, a das vizinhas — o mostrador antigo era `--surface`), com o traço de curso (`--curso`, `::after`) na base. O toque é `#muteToggle.click()`: o mesmo `toggleMute`, o mesmo comando `mute`, a mesma linha do Registro. `renderSimple` copia `.muted`/`.blocked`, o glifo (`ICON.volOn`/`volOff`) e o `title` do botão do avançado. **O mudo se lê pelo DESENHO**: o alto-falante riscado e o traço que some — a cor (`--btn-danger`/`--btn-warn`, a do mudo antigo) vem junto, nunca sozinha |
+| `#simpleTela` | a tecla da tela cheia (v1.13.57): o mesmo desenho de `⛶` do `#simpleFsBtn` que ela substituiu, e `disabled` quando `telaCheiaDoModoFacilCabe()` é falso. O mudo do Modo Fácil é o ícone da pílula (`#volPillMute` → `#muteToggle.click()`), e o número do volume é o `#volValue` dela |
 | `renderTeclasSimples` | chamada por `renderSimpleCorpo`, ANTES da medida da troca. A pergunta é a do Parar (`haOQueParar`): o fim natural e o Parar recolhem, a pausa não. Recolher espera `SIMPLE_TECLAS_ESPERA_MS` (1,5 s — o dedo que tocou o Parar, ou ia tocar a Pausa no fim do louvor, ainda está ali; e a troca de faixa de uma fila derruba o "no ar" por um instante) e reconfere; a saída (`recolherTeclasSimples`) é só opacidade e 16 px para baixo em `SIMPLE_TECLAS_ANIM_MS` — nada muda de tamanho no meio dela —, e só no FIM a linha sai do layout (`.recolhida`, `display: none`). A volta é imediata, com o fade inverso. Sem movimento, as duas são secas. Fora do Modo Fácil e na passada em que o modo muda o estado ASSENTA, sem espera nem animação (a abertura sem nada no ar já nasce recolhida) |
 | a caixa da Biblioteca | sem nada no ar a Biblioteca é a tela principal e se mede na zona de leitura, que CRESCE quando a linha sai. Por isso a medida do fim da saída é a de TROCA (`medirCorpoSimples({ troca: true })`): a janela ANIMA até a base nova em vez de pular (`semAnimarAJanela`). Animar a ALTURA da linha seria pior: cada quadro dispararia o `ResizeObserver` da leitura, e a medida comum desliga a transição da janela — inclusive a que recolhe a Biblioteca quando uma música entra. Na volta a linha entra no layout no MESMO pulso em que o card do nome aparece, e uma medida de troca só pega as duas |
 
