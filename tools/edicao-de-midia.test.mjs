@@ -9,7 +9,8 @@
 //       fade de entrada e saída DOBRAM o fade da tela na ponta que nomeiam (v1.12.25);
 //   C · a JANELA (v1.12.1): seletor em grupos, faixa de duas pontas, rascunho que
 //       PERSISTE (inclusive depois de criar), importar arquivo só para o editor, e o
-//       tile também no Modo Fácil. v1.12.6: o fecho é "Confirmar" + os quadrados dos
+//       tile — MANUTENÇÃO desde a v1.13.57: apagado no Modo Fácil e aceso no avançado,
+//       o mesmo nó. v1.12.6: o fecho é "Confirmar" + os quadrados dos
 //       destinos; o X vermelho do card cancela; e escolher um item JÁ EDITADO o edita
 //       NO LUGAR (o mesmo id, em todas as listas onde ele está).
 //
@@ -880,7 +881,12 @@ await app.evaluate(async () => {
   for (const m of await A.listItems('playlist')) if (m.edicao) await A.listRemove('playlist', m.id);
 });
 
-// C8 · MODO FÁCIL: o tile existe e a janela abre (sem a pergunta de destino).
+// C8 · MODO FÁCIL × AVANÇADO NO TILE (v1.13.57). O pedido do operador: *"revisar quais
+// opções das configurações aparecem no modo simples"*. Editar mídia virou MANUTENÇÃO —
+// no Modo Fácil o `body.mode-simple` o APAGA (`display: none`), junto com Histórico,
+// Verificar e Transferir, e a grade do culto fica com os cinco do que se decide no
+// culto (Tema, Tela, Saída de áudio, Dados móveis, Compartilhar). Ele não sai do HTML:
+// no avançado é o MESMO nó, aceso, e a folha abre normalmente.
 const ctx4 = await navegador.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true });
 await semRedeExterna(ctx4);
 const facil = await ctx4.newPage();
@@ -888,16 +894,33 @@ facil.on('pageerror', (e) => erros.push('facil: ' + e.message));
 await facil.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
 await esperarCortina(facil);
 const modo = await facil.evaluate(() => document.body.classList.contains('mode-simple'));
-const visivel = await facil.evaluate(async () => {
+const apagado = await facil.evaluate(async () => {
   (document.getElementById('settingsBtn') || document.getElementById('simpleSettingsBtn')).click();
   await new Promise((r) => setTimeout(r, 600));
-  const t = document.getElementById('edicaoTile');
-  return !!t && !t.hidden && t.getBoundingClientRect().width > 0 && getComputedStyle(t).display !== 'none';
+  // O nó fica GUARDADO aqui para a outra ponta provar que é o mesmo depois da troca de modo.
+  window.__noEdicao = document.getElementById('edicaoTile');
+  const lido = (id) => {
+    const t = document.getElementById(id);
+    const b = t.getBoundingClientRect();
+    return { existe: !!t, display: getComputedStyle(t).display, caixa: b.width > 0 && b.height > 0, hidden: !!t.hidden };
+  };
+  return { folhaAberta: document.getElementById('fadePopup').classList.contains('open'),
+    // O TEMA fica em qualquer modo: é a prova de que a folha está DESENHADA e só a
+    // manutenção saiu — uma grade vazia por outro motivo passaria no resto.
+    tema: lido('temaTile'),
+    edicao: lido('edicaoTile'), hist: lido('histOpenRow'), teste: lido('testeTile'),
+    // `#pacoteTile` não serve de régua neste contexto: sem ponte ele já é `hidden`.
+    modos: document.body.classList.contains('mode-simple') };
 });
-checar(modo === true && visivel === true, 'C · no MODO FÁCIL o tile "Editar mídia" está à vista em Configurações', JSON.stringify({ modo, visivel }));
-await facil.click('#edicaoTile');
-const abriuFacil = await esperar(facil, () => document.getElementById('edicaoSecao').classList.contains('open'), null, 10000);
-checar(abriuFacil === true, 'C · e abre a seção do editor no Modo Fácil', porque(abriuFacil));
+checar(modo === true && apagado.modos === true && apagado.folhaAberta === true
+    && apagado.tema.caixa === true
+    && [apagado.edicao, apagado.hist, apagado.teste].every((t) => t.existe && t.display === 'none' && t.caixa === false && t.hidden === false),
+  'C · no MODO FÁCIL o tile "Editar mídia" NÃO está à vista em Configurações: ele e os outros de '
+  + 'MANUTENÇÃO (Histórico, Verificar) ficam `display: none` por `body.mode-simple` — sem caixa e sem '
+  + '`hidden`, isto é, o mesmo nó que o avançado mostra', JSON.stringify(apagado));
+// (a outra metade do Modo Fácil é do FORMULÁRIO, e segue valendo: sem Cronograma nem
+// favoritos à vista, os quadrados de destino não aparecem — a seção pode ser aberta
+// por dentro, ainda que o tile não seja mais a porta dela aqui.)
 const semQuad = await facil.evaluate(() => {
   edicaoAtualizarBotoes(null);              // o que o desenho do formulário faz a cada passada
   const q = [...document.querySelectorAll('#edicaoFechoForm .sorteio-dest')];
@@ -905,6 +928,31 @@ const semQuad = await facil.evaluate(() => {
 });
 checar(semQuad.n === 3 && semQuad.escondidos,
   'C · no Modo Fácil os quadrados de destino NÃO aparecem (não há Cronograma nem favoritos à vista): só o "Confirmar"', JSON.stringify(semQuad));
+// E NO AVANÇADO o MESMO NÓ volta aceso e a folha de edição abre normalmente. Sem o
+// `setAppMode` o teste estaria medindo o fácil; e a metade do avançado sozinha NÃO
+// reprova no código de antes da v1.13.57 — ali ele também estava aceso (é guarda de
+// não-regressão; quem discrimina a mudança é a asserção de cima).
+await facil.evaluate(() => { setAppMode('full'); });
+const aceso = await esperar(facil, () => !document.body.classList.contains('mode-simple')
+  && getComputedStyle(document.getElementById('edicaoTile')).display !== 'none'
+  && document.getElementById('edicaoTile').getBoundingClientRect().width > 0, null, 10000);
+await facil.click('#edicaoTile');
+const abriuAvancado = await esperar(facil, () => document.getElementById('edicaoSecao').classList.contains('open')
+  && !!document.querySelector('#edicaoLista [data-grupo="lst:imports"]'), null, 15000);
+const noAvancado = await facil.evaluate(() => {
+  const t = document.getElementById('edicaoTile');
+  return { mesmoNo: window.__noEdicao === t, display: getComputedStyle(t).display,
+    caixa: t.getBoundingClientRect().width > 0, hidden: !!t.hidden,
+    modo: document.body.classList.contains('mode-simple'),
+    titulo: document.getElementById('edicaoTitulo').textContent,
+    grupos: [...document.querySelectorAll('#edicaoLista [data-grupo]')].map((e) => e.dataset.grupo) };
+});
+checar(aceso === true && abriuAvancado === true && noAvancado.mesmoNo === true && noAvancado.modo === false
+    && noAvancado.display !== 'none' && noAvancado.caixa === true && noAvancado.hidden === false
+    && noAvancado.titulo === 'Escolher a mídia'
+    && ['lst:imports', 'lst:playlist', 'lst:favs'].every((g) => noAvancado.grupos.includes(g)),
+  'C · e no MODO AVANÇADO o MESMO nó do tile volta aceso e abre a folha de edição normalmente (o seletor em grupos)',
+  porque(aceso) || porque(abriuAvancado) || JSON.stringify(noAvancado));
 await ctx4.close();
 
 

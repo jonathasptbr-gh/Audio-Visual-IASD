@@ -702,8 +702,12 @@ try {
     // O VÉU DA GAVETA DOS CRONOGRAMAS (v1.12.54) também: ele não pinta nada e só
     // existe com a gaveta ou o menu do Cronograma abertos, para engolir o toque
     // de fora — sem ele esse toque projetaria a linha de baixo.
+    // A PÍLULA DE VOLUME (v1.13.57) entra pelo mesmo motivo do véu: ela não é uma faixa que
+    // passa por cima da interface — é um aviso de 1,5 s que a tecla física acende, mora no
+    // `body` fora de qualquer barra e nasce `visibility: hidden`. A camada 350 é necessária
+    // para ela aparecer sobre a tela do Modo Fácil e sobre a janela da Biblioteca.
     const OK = ['popup-backdrop', 'popup-sheet', 'simple', 'simple-veil', 'bottombar',
-      'appDialog', 'dialog-card', 'tab-ghost', 'crono-veu'];
+      'appDialog', 'dialog-card', 'tab-ghost', 'crono-veu', 'vol-pill'];
     const achados = [];
     document.querySelectorAll('body *').forEach((el) => {
       const cs = getComputedStyle(el);

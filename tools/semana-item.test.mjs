@@ -329,7 +329,6 @@ try {
       nome: n.querySelector('.hymn-name').textContent, sub: n.querySelector('.hymn-sub').textContent })) : [];
     return {
       serieCard: cards.some((t) => /Provai e Vede|Informativo Mundial/.test(t)),
-      hinarios: cards.filter((t) => /Hinário Adventista/.test(t)).length,
       primeiro: lista.firstElementChild ? lista.firstElementChild.className : '',
       rot: bloco ? bloco.querySelector('.serie-destaque-rot').textContent : null,
       data: bloco ? bloco.querySelector('.serie-destaque-data').textContent : null,
@@ -348,7 +347,64 @@ try {
       && iFacil.linhas[1].sub === 'Episódio de ' + datas.rotulo,
     'I4 · e embaixo de cada uma a data do episódio, ou "Aguardando lançamento" quando ele não saiu',
     iFacil.linhas);
-  checar(iFacil.hinarios === 2, 'I5 · os dois hinários continuam cards da raiz', iFacil);
+  // ===== I5 · OS HINÁRIOS DEIXARAM DE SER CARDS DA RAIZ (v1.13.57) =====
+  //
+  // Pedido do operador: *"além da coleção de cds do ano, o resto ficará na coleção de
+  // diversos"*. No Modo Fácil a raiz passou a ter DOIS grupos — a categoria dos CDs do
+  // ano e o "Diversas", que leva junto os hinários, as outras categorias e os órfãos —
+  // e o `grupo()` só CONSTRÓI os cards do grupo aberto: fechado, a raiz tem ZERO card
+  // por desenho. A prova de que os hinários não sumiram é abrir o "Diversas".
+  //
+  // AS DUAS METADES, e são inseparáveis: medir só o fechado aprovaria um desenho que
+  // apagasse os hinários de vez; medir só o aberto não provaria que a raiz nasce sem
+  // eles (o código anterior os punha na raiz, e a raiz continuaria com dois cards).
+  const i5 = await pg.evaluate(() => {
+    const antes = { modo: appMode, grupo: grupoAberto };
+    const montar = () => {
+      const lista = document.createElement('ul');
+      lista.className = 'popup-list acervo';
+      renderCollectionsList(lista, () => {}, { semTotal: true });
+      return lista;
+    };
+    const ehHinario = (n) => /Hinário Adventista/.test(n.textContent);
+    setAppMode('simple');
+    grupoAberto = '';
+    const fechada = montar();
+    const grupoFechado = fechada.querySelector('.coll-group[data-grupo="Diversas"]');
+    const r = {
+      fechado: {
+        grupo: !!grupoFechado,
+        aberto: grupoFechado ? grupoFechado.classList.contains('aberto') : null,
+        cardsNaRaiz: fechada.querySelectorAll(':scope > .hymnal-card').length,
+        hinariosNoGrupo: grupoFechado
+          ? [...grupoFechado.querySelectorAll('.hymnal-card')].filter(ehHinario).length : 0,
+      },
+    };
+    fechada.remove();
+    grupoAberto = 'Diversas';
+    const aberta = montar();
+    const grupoAbertoEl = aberta.querySelector('.coll-group[data-grupo="Diversas"]');
+    const dentro = grupoAbertoEl ? [...grupoAbertoEl.querySelectorAll('.hymnal-card')] : [];
+    r.aberto = {
+      grupo: !!grupoAbertoEl,
+      abertoClasse: grupoAbertoEl ? grupoAbertoEl.classList.contains('aberto') : false,
+      cardsDentro: dentro.length,
+      hinariosDentro: dentro.filter(ehHinario).length,
+      hinariosFora: [...aberta.querySelectorAll(':scope > .hymnal-card')].filter(ehHinario).length,
+    };
+    aberta.remove();
+    grupoAberto = antes.grupo;
+    setAppMode(antes.modo);
+    return r;
+  });
+  checar(i5.fechado.grupo && i5.fechado.aberto === false
+      && i5.fechado.cardsNaRaiz === 0 && i5.fechado.hinariosNoGrupo === 0,
+    'I5 · fechado, o "Diversas" nasce FECHADO e a raiz do Modo Fácil não tem card nenhum — '
+    + 'os dois hinários não são mais cards da raiz', i5.fechado);
+  checar(i5.aberto.grupo && i5.aberto.abertoClasse && i5.aberto.hinariosDentro === 2
+      && i5.aberto.hinariosFora === 0,
+    'I5 · e abrindo o "Diversas" os DOIS hinários estão DENTRO dele, e nenhum fora',
+    i5.aberto);
   const iAvancado = await raizDo('full');
   checar(iAvancado.serieCard && !/semana-raiz/.test(iAvancado.primeiro) && iAvancado.linhas.length === 0,
     'I6 · no AVANÇADO as duas séries continuam COLEÇÕES, e o bloco da raiz não existe', iAvancado);

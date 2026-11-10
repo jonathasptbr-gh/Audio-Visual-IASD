@@ -22,11 +22,14 @@
 // resposta possível a distância — e ela some sem sintoma, porque o Registro é
 // lido por alguém que não tem o aparelho na mão.
 //
-// A FILEIRA DO APARELHO (A8/A9): `shareAppTile` e `pacoteTile` fecham a grade de
-// Configurações e começam fileira nova abaixo das preferências. A aritmética
-// (6 preferências em 3 colunas) já os põe lá sozinha, e é por isso que a regra
-// de CSS (`grid-column: 1`) só se prova numa célula em que a aritmética falha —
-// uma preferência a menos (A9b).
+// A GRADE, EM DOIS DESENHOS (A8f/A8a/A8/A9, v1.13.57): no MODO FÁCIL a folha de
+// Configurações fica com CINCO tiles — os do culto —, e os quatro de MANUTENÇÃO
+// (Editar mídia, Histórico, Verificar, Transferir) são apagados pelo
+// `body.mode-simple`; no AVANÇADO os nove voltam inteiros, em TRÊS fileiras por
+// assunto, com Verificar/Compartilhar/Transferir fechando a base. As duas pontas
+// se medem na MESMA página, e o nó guardado entre elas prova que é o mesmo tile.
+// É no avançado que a regra de desenho se mede: no fácil não há as três fileiras
+// para medir.
 //
 // ## 2. A SETA QUE RECOLHE A PRÉVIA — as seis metades, e por que nenhuma basta
 //
@@ -424,26 +427,60 @@ try {
     + 'um tile que só sabe não funcionar é pior que tile nenhum',
     noNavegador);
 
-  // A FILEIRA DO APARELHO, com a grade em NOVE tiles (v1.12.1): três fileiras por assunto —
-  // aparência e saída (tema, tela, saída de áudio), dados e mídia (dados móveis, editar mídia,
-  // histórico) e o aparelho (verificar, compartilhar, transferir). Sem coluna forçada: 9 em 3
-  // colunas se fecham sozinhos. A régua é o TOPO de cada caixa.
-  const topos = () => pg.evaluate(() => {
-    const t = (id) => Math.round(document.getElementById(id).getBoundingClientRect().top);
-    const grade = document.querySelector('.qs-grade');
-    const ids = [...grade.querySelectorAll('.qs-tile')]
-      .filter((e) => !e.hidden && e.getBoundingClientRect().width > 0).map((e) => e.id);
+  // A GRADE DE CONFIGURAÇÕES TEM DOIS DESENHOS (v1.13.57), e o de sempre é o do AVANÇADO:
+  // NOVE tiles em TRÊS fileiras por assunto — aparência e saída (tema, tela, saída de
+  // áudio), dados e mídia (dados móveis, editar mídia, histórico) e o aparelho (verificar,
+  // compartilhar, transferir). Sem coluna forçada: 9 em 3 colunas se fecham sozinhos.
+  //
+  // NO MODO FÁCIL, que é onde o app ABRE, ficam CINCO — os do culto (Tema, Tela, Saída de
+  // áudio, Dados móveis, Compartilhar) —, e os quatro de MANUTENÇÃO (Editar mídia,
+  // Histórico, Verificar, Transferir) são apagados por `body.mode-simple`: continuam no
+  // HTML (é o MESMO nó), e o apagado diz "indisponível" em vez de deixar buraco inerte na
+  // grade. As duas pontas se medem aqui, e a régua das fileiras é o TOPO de cada caixa.
+  const grade = () => pg.evaluate(() => {
+    const g = document.querySelector('#fadePopup .qs-grade');
+    const caixa = (e) => { const b = e.getBoundingClientRect(); return b.width > 0 && b.height > 0; };
+    const top = (id) => Math.round(document.getElementById(id).getBoundingClientRect().top);
+    const lido = (id) => {
+      const e = document.getElementById(id);
+      return { existe: !!e, display: getComputedStyle(e).display, caixa: !!e && caixa(e), oculto: !!e && !!e.hidden };
+    };
+    const manut = ['edicaoTile', 'histOpenRow', 'testeTile', 'pacoteTile'];
+    const culto = ['temaTile', 'telaTile', 'saidaAudioTile', 'dadosMoveisTile', 'shareAppTile'];
     return {
-      compartilhar: t('shareAppTile'), transferir: t('pacoteTile'), verificar: t('testeTile'),
-      saida: t('saidaAudioTile'), dados: t('dadosMoveisTile'), edicao: t('edicaoTile'),
-      tema: t('temaTile'), tela: t('telaTile'), hist: t('histOpenRow'),
-      ids,
+      modoSimples: document.body.classList.contains('mode-simple'),
+      noDom: g.querySelectorAll('.qs-tile').length,
+      ids: [...g.querySelectorAll('.qs-tile')].filter((e) => !e.hidden && caixa(e)).map((e) => e.id),
+      compartilhar: top('shareAppTile'), transferir: top('pacoteTile'), verificar: top('testeTile'),
+      saida: top('saidaAudioTile'), dados: top('dadosMoveisTile'), edicao: top('edicaoTile'),
+      tema: top('temaTile'), tela: top('telaTile'), hist: top('histOpenRow'),
+      manutencao: Object.fromEntries(manut.map((id) => [id, lido(id)])),
+      culto: Object.fromEntries(culto.map((id) => [id, lido(id)])),
+      mesmoNo: window.__noEdicao === document.getElementById('edicaoTile'),
     };
   });
-  const fileira = await topos();
-  checar(fileira.ids.length === 9,
-    'A8a · a grade de Configurações tem os NOVE tiles que o desenho pede (os '
-    + 'ajustes do telão e o exportar/importar moram nas janelas)', fileira.ids);
+  // A PRIMEIRA PONTA, no MODO FÁCIL (o app abre nele): cinco à vista, quatro apagados SEM
+  // `hidden` — nesta ponte os quatro existem com ponte, então quem os apaga é o MODO.
+  const facil = await grade();
+  checar(facil.modoSimples === true && facil.noDom === 9
+      && facil.ids.join() === 'temaTile,telaTile,saidaAudioTile,dadosMoveisTile,shareAppTile'
+      && Object.values(facil.manutencao).every((t) => t.existe && t.display === 'none' && t.caixa === false && t.oculto === false)
+      && Object.values(facil.culto).every((t) => t.display !== 'none' && t.caixa === true),
+    'A8f · no MODO FÁCIL a grade fica com os CINCO tiles do culto (Tema, Tela, Saída de áudio, Dados '
+    + 'móveis e Compartilhar), e os quatro de MANUTENÇÃO — Editar mídia, Histórico, Verificar e '
+    + 'Transferir — estão apagados por `body.mode-simple`: sem caixa, e sem `hidden`, porque são o '
+    + 'MESMO nó que o avançado mostra', JSON.stringify(facil));
+  // A OUTRA PONTA: o MESMO nó devolve o desenho de TRÊS FILEIRAS no avançado.
+  await pg.evaluate(() => { window.__noEdicao = document.getElementById('edicaoTile'); setAppMode('full'); });
+  const virou = await esperar(pg, () => !document.body.classList.contains('mode-simple')
+    && document.getElementById('edicaoTile').getBoundingClientRect().width > 0, null, 5000);
+  const fileira = await grade();
+  checar(virou === true && fileira.modoSimples === false && fileira.mesmoNo === true
+      && fileira.noDom === 9
+      && fileira.ids.join() === 'temaTile,telaTile,saidaAudioTile,dadosMoveisTile,edicaoTile,histOpenRow,testeTile,shareAppTile,pacoteTile',
+    'A8a · no MODO AVANÇADO a grade de Configurações tem os NOVE tiles que o desenho pede, e é o MESMO '
+    + 'nó do Modo Fácil (os ajustes do telão e o exportar/importar moram nas janelas)',
+    JSON.stringify([virou, fileira.ids]));
   checar(fileira.compartilhar === fileira.transferir && fileira.verificar === fileira.transferir,
     'A8 · Verificar, Compartilhar e Transferir fecham a grade na MESMA fileira '
     + '(*"compartilhar, exportar e importar devem ser os itens da base"*)', fileira);

@@ -881,13 +881,27 @@ try {
       ul.style.cssText = 'width:390px;position:absolute;left:-9999px;top:0';
       document.body.appendChild(ul);
       const des = () => { ul.innerHTML = ''; renderCollectionsList(ul, des, { semTotal: true }); };
+      // A SEÇÃO DA RAIZ MUDOU DE NOME NA v1.13.57, e é POR ISSO que este oráculo
+      // quebrava: até ele, a raiz da Biblioteca tinha uma seção por CATEGORIA do
+      // catálogo ("Adoradores", "Diversas", …); desde o lote, no Modo Fácil — que é
+      // o modo desta página — as categorias, os dois hinários e os órfãos caem
+      // TODOS no grupo "Diversas" (o "CDs Oficiais/Ano" fica com o dele). Pedir
+      // "Adoradores" lia `undefined` e a asserção morria na PREMISSA, não na
+      // altura. A régua continua sendo o desenho da Biblioteca, medido na mesma
+      // página; a "Diversas" de lá é o mesmo par barra × card que a folha veste.
       const antes = grupoAberto;
-      grupoAberto = 'Adoradores'; des();
-      const sec = [...ul.querySelectorAll('[data-grupo]')].find((n) => n.dataset.grupo === 'Adoradores');
+      grupoAberto = 'Diversas'; des();
+      const sec = [...ul.querySelectorAll('[data-grupo]')].find((n) => n.dataset.grupo === 'Diversas');
       const secBar = sec && sec.querySelector('.coll-group-bar');
       const card = sec && sec.querySelector('.coll-group-corpo .hymnal-card');
       const secIcone = sec && sec.querySelector('.coll-group-icon');
       const cardIcone = card && card.querySelector('.coll-bar-icon');
+      // O PRIMEIRO CARD DENTRO DO GRUPO, pelo NOME: o fixture o põe na categoria
+      // "Adoradores" (o catálogo é semeado com Adoradores antes de Diversas), então
+      // só o desenho novo — que junta as categorias — traz "Zeta" ali. É a
+      // premissa que impede a régua de ser a seção de OUTRA categoria, que é o
+      // que a versão anterior desta asserção lia sem perceber.
+      const cardDentro = sec && sec.querySelector('.coll-group-corpo .hymnal-card .coll-bar-name');
       const caixa = (el) => {
         if (!el) return null;
         const c = cs(el);
@@ -910,6 +924,9 @@ try {
           bloco: cor(sec), barra: cor(secBar), dentro: cor(card),
           seta: caixa(secIcone),
           icone: caixa(cardIcone),
+          // O NOME do primeiro card de dentro: a premissa que diz que esta é a seção que
+          // JUNTA as categorias (o fixture põe "Zeta" na "Adoradores", que vem antes).
+          conjunto: cardDentro ? cardDentro.textContent : '',
           recuo: card.querySelector('.coll-bar-name').getBoundingClientRect().x
             - secBar.querySelector('.coll-group-name').getBoundingClientRect().x,
         },
@@ -917,6 +934,15 @@ try {
       ul.remove(); grupoAberto = antes;
       return r;
     });
+    // A PREMISSA DA RÉGUA, e ela não é cerimônia: a "Diversas" da Biblioteca é a seção que JUNTA as
+    // categorias desde a v1.13.57, e o primeiro card de dentro dela é o "Zeta" — o primeiro álbum da
+    // categoria "Adoradores", que vem antes no catálogo do fixture. Se ela voltar a ser uma seção de
+    // categoria só (o desenho antigo), o card de dentro é o "Beta" (a "Diversas" do fixture é
+    // alfabética) e as medidas abaixo estariam comparando com o objeto errado, caladas.
+    checar(par.lib.conjunto === 'Zeta',
+      'E · PREMISSA: a régua é a seção "Diversas" do Modo Fácil e ela LEVA a categoria Adoradores '
+      + 'junto — o primeiro card de dentro é o "Zeta", e não a coleção de outra categoria',
+      JSON.stringify(par.lib));
     checar(par.folha.bloco === par.lib.bloco && par.folha.dentro === par.lib.dentro
       && par.folha.bloco !== par.folha.dentro,
       'E · o BLOCO e a linha DE DENTRO vestem AS MESMAS superfícies que a seção '

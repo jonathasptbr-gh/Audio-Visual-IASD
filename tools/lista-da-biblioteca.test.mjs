@@ -1804,8 +1804,7 @@ try {
     };
     const ler = () => [...hymnResultsEl.children].map((li) => {
       if (li.classList.contains('coll-group')) return 'grupo:' + (li.dataset.grupo || '');
-      const linha = li.querySelector('.hymn-name');
-      if (linha && li.classList.contains('semana-raiz-item')) return 'linha:' + linha.textContent;
+      if (li.classList.contains('semana-raiz')) return 'semana';
       const card = li.querySelector('.coll-bar-name');
       return 'card:' + (card ? card.textContent : (li.className || '?'));
     });
@@ -1824,18 +1823,27 @@ try {
       ? [...divers.querySelectorAll('.coll-bar-name')].map((n) => n.textContent) : [];
     const subs = [...hymnResultsEl.querySelectorAll('.semana-raiz-item .hymn-sub')]
       .map((n) => n.textContent);
+    const fixos = [...hymnResultsEl.querySelectorAll('.semana-raiz .semana-raiz-item .hymn-name')]
+      .map((n) => n.textContent);
     setAppMode('full');
     grupoAberto = ''; favAberto = false;
-    return { fechado, aberto, dentro, subs };
+    return { fechado, aberto, dentro, subs, fixos };
   }, modo);
 
   const simplesG = await acervoSimples('simple');
   const gruposSimples = simplesG.fechado.filter((x) => x.startsWith('grupo:'));
   checar(JSON.stringify(gruposSimples) === JSON.stringify(['grupo:CDs Oficiais/Ano', 'grupo:Diversas']),
     'no Modo Fácil a raiz tem DOIS grupos: os CDs do ano e o "Diversas"', gruposSimples);
-  checar(JSON.stringify(simplesG.fechado.slice(0, 2))
-      === JSON.stringify(['linha:Ofertório', 'linha:Abertura da adoração infantil']),
-    'e os dois elementos fixos vêm ANTES deles, logo depois dos vídeos da semana',
+  // Os dois fixos moram num BLOCO próprio, com a mesma caixa do "Este sábado" (v1.13.58) —
+  // por isso a raiz mostra dois `semana`: o bloco da semana e o das linhas fixas.
+  // Os dois fixos moram num BLOCO com a mesma caixa do "Este sábado" (v1.13.58). Neste cenário
+  // não há série, então esse bloco é o PRIMEIRO filho — o que a asserção cobra é a POSIÇÃO:
+  // antes de qualquer grupo.
+  const primeiroGrupo = simplesG.fechado.findIndex((x) => x.startsWith('grupo:'));
+  const blocoFixo = simplesG.fechado.indexOf('semana');
+  checar(blocoFixo >= 0 && primeiroGrupo > blocoFixo
+      && JSON.stringify(simplesG.fixos) === JSON.stringify(['Ofertório', 'Abertura da adoração infantil']),
+    'e os dois elementos fixos vêm ANTES dos grupos, num bloco próprio logo depois dos vídeos da semana',
     simplesG.fechado);
   checar(simplesG.subs[0] === '572 · Ofertas de amor'
       && simplesG.subs[1] === '533 · Vinde, meninos',

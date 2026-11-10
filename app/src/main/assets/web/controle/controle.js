@@ -970,6 +970,24 @@ function hinoFixoDoSimples(numero) {
   return s ? { coll, s } : null;
 }
 
+// O BLOCO dos elementos fixos: a MESMA caixa do "Este sábado" (`.semana-raiz`, `--poco`), para as
+// linhas pousarem na mesma coluna e na mesma tinta — sem cabeçalho, porque o bloco de cima já
+// nomeia o sábado e estes dois são o que vem DEPOIS dele. `null` quando nenhum dos dois existe.
+function blocoFixosDoSimples() {
+  const linhas = [];
+  for (const el of ELEMENTOS_FIXOS_SIMPLES) {
+    const li = linhaFixoDoSimples(el.numero, el.rotulo);
+    if (li) linhas.push(li);
+  }
+  if (!linhas.length) return null;
+  const li = document.createElement('li');
+  li.className = 'semana-raiz bloco-fixo';
+  const ul = document.createElement('ul'); ul.className = 'coll-songs semana-raiz-lista';
+  linhas.forEach((l) => ul.appendChild(l));
+  li.appendChild(ul);
+  return li;
+}
+
 // A LINHA do elemento fixo: o nome do momento em cima, "572 · <nome do hino>" embaixo, e o
 // toque que toca — o mesmo par `simpleMarcarEscolha` + `simpleAcompanhar` das outras linhas.
 // `bloco-fixo` a tira da repartição da tampa (`calcularTampa`): é altura de conteúdo.
@@ -978,7 +996,7 @@ function linhaFixoDoSimples(numero, rotulo) {
   if (!achado) return null;
   const { coll, s } = achado;
   const li = document.createElement('li');
-  li.className = 'lib-item hymn-result semana-raiz-item bloco-fixo';
+  li.className = 'lib-item hymn-result semana-raiz-item';
   li.dataset.song = 'fixo:' + numero;
   if (simpleLinhaSelecionada(li.dataset.song)) li.classList.add('selecionando');
   const row = document.createElement('div'); row.className = 'row hymn-row';
@@ -12673,12 +12691,8 @@ function renderCollectionsListMiolo(alvo, redesenhar) {
     // (a) OS ELEMENTOS FIXOS, logo depois dos vídeos da semana — as duas linhas que o operador
     // pediu, itens do Hinário 2022 (ver `ELEMENTOS_FIXOS_SIMPLES`); sem o hino no índice, a linha
     // não existe.
-    for (const el of ELEMENTOS_FIXOS_SIMPLES) {
-      const li = linhaFixoDoSimples(el.numero, el.rotulo);
-      if (!li) continue;
-      any = true;
-      alvo.appendChild(li);
-    }
+    const blocoFixo = blocoFixosDoSimples();
+    if (blocoFixo) { any = true; alvo.appendChild(blocoFixo); }
     // (b) OS CDS DO ANO, sozinhos.
     const cds = categorias.find((c) => GRUPO_CDS_DO_ANO.test(String(c.name)));
     if (cds) {

@@ -76,7 +76,10 @@ const ler = (pg) => pg.evaluate(() => {
     fs: !!document.fullscreenElement, w: Math.round(r.width), h: Math.round(r.height),
     vw: innerWidth, vh: innerHeight, cobre: !!topo && p.contains(topo),
     acesa: document.getElementById('pvFsCtl').classList.contains('visivel'),
-    exit: vis('fsExit'), play: vis('fsPlay'), prev: vis('fsPrev'), volume: vis('pvVolume'),
+    exit: vis('fsExit'), play: vis('fsPlay'), prev: vis('fsPrev'),
+    // A BARRA DE VOLUME DA TELA CHEIA SAIU (v1.13.57): o aviso é a pílula única, que a tecla
+    // física acende e que é MOVIDA para dentro da prévia (medido em B1b).
+    semBarra: !document.getElementById('pvVolume'),
     shell: window.__telaInteira.slice(),
   };
 });
@@ -116,8 +119,20 @@ try {
   checar(pediu === 0, 'A4 · no app a API de tela cheia nem é chamada para o vídeo', String(pediu));
 
   // B
-  checar(a.exit && a.play && !a.prev && a.volume && a.acesa,
-    'B1 · a coluna do Modo Fácil (sair + play/pause, sem ⏮) NASCE ACESA, e a barra de volume existe nela', JSON.stringify(a));
+  checar(a.exit && a.play && !a.prev && a.semBarra && a.acesa,
+    'B1 · a coluna do Modo Fácil (sair + play/pause, sem ⏮) NASCE ACESA — e a barra de volume da tela cheia saiu', JSON.stringify(a));
+  // A PÍLULA ACOMPANHA: acendida pela tecla física, ela passa a MORAR dentro da prévia — é a
+  // única forma de ela ser pintada em tela cheia (o top layer pinta só a subárvore da prévia).
+  await pg.evaluate(() => peekVolume());
+  await pg.waitForTimeout(150);
+  const pil = await pg.evaluate(() => {
+    const q = document.getElementById('volPill');
+    return { vis: q.classList.contains('visivel'),
+      naPrevia: q.parentElement === document.getElementById('preview'),
+      antiga: !!document.getElementById('pvVolume') };
+  });
+  checar(pil.vis && pil.naPrevia && !pil.antiga,
+    'B1b · a tecla física acende a pílula DENTRO da prévia em tela cheia, e a barra antiga não existe', JSON.stringify(pil));
   await pg.evaluate(() => { document.getElementById('pvFsCtl').classList.remove('visivel'); });
   await pg.touchscreen.tap(195, 390);
   const b2 = await pg.evaluate(() => document.getElementById('pvFsCtl').classList.contains('visivel'));
@@ -142,10 +157,14 @@ try {
   const c1b = await ler(pg);
   checar(c1 === true && !c1b.aberto && c1b.shell.at(-1) === false,
     'C1 · o SAIR da coluna desfaz a tela inteira e devolve o retrato ao shell', JSON.stringify(c1b));
-  // o botão do card reabre, sem gesto (evaluate não é o que conta aqui: a API recusa tudo)
-  const c2a = await pg.evaluate(() => !document.getElementById('simpleFsBtn').hidden);
-  checar(c2a === true, 'C2 · fora dela, o botão do card do nome está à vista', String(c2a));
-  await pg.evaluate(() => { document.getElementById('simpleFsBtn').click(); });
+  // a TECLA da tela cheia reabre, sem gesto (evaluate não é o que conta aqui: a API recusa tudo).
+  // Ela é a porta desde a v1.13.57 — o `#simpleFsBtn` do card do nome saiu.
+  const c2a = await pg.evaluate(() => {
+    const b = document.getElementById('simpleTela');
+    return !!b && !b.disabled;
+  });
+  checar(c2a === true, 'C2 · fora dela, a tecla da tela cheia está apagada? NÃO — com mídia no ar ela acende', String(c2a));
+  await pg.evaluate(() => { document.getElementById('simpleTela').click(); });
   const c2 = await esperar(pg, dentro, null, 3000);
   checar(c2 === true, 'C3 · e ele reabre a tela inteira mesmo com a API de tela cheia recusando', porque(c2));
   // o voltar do Android
@@ -153,7 +172,7 @@ try {
   const c4b = await esperar(pg, fora, null, 3000);
   checar(c4 === true && c4b === true, 'C4 · o VOLTAR do Android sai da tela inteira (e não minimiza)', porque(c4b));
   // o fim do vídeo
-  await pg.evaluate(() => { document.getElementById('simpleFsBtn').click(); });
+  await pg.evaluate(() => { document.getElementById('simpleTela').click(); });
   await esperar(pg, dentro, null, 3000);
   await pg.evaluate(() => { autoAdvance(); });
   const c5 = await esperar(pg, fora, null, 3000);

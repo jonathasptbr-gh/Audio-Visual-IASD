@@ -91,7 +91,11 @@ try {
       await recarregarFavoritos();
     }
     window.resolveSongMediaId = async () => window.__midia;
-    grupoAberto = secao; favAberto = true;
+    // A RAIZ DO MODO FÁCIL MUDOU (v1.13.57): as categorias não têm mais grupo
+    // próprio — os cards moram todos no grupo "Diversas", que nasce FECHADO —, e
+    // é ele que o operador abre. (No avançado continua uma categoria por grupo.)
+    grupoAberto = appMode === 'simple' ? 'Diversas' : secao;
+    favAberto = true;
     for (const id of ['album-77', 'album-78', 'hymnal-2022']) { ui(id).expanded = true; ui(id).shown = 1000; }
     openHymnSearch(false);
     hymnResultsEl.innerHTML = '';
@@ -130,7 +134,8 @@ try {
   const redesenhar = () => pg.evaluate(async (secao) => {
     // O `closeHymnSearch` do toque fecha a Biblioteca e recolhe a seção.
     openHymnSearch(false);
-    grupoAberto = secao; favAberto = true;
+    grupoAberto = appMode === 'simple' ? 'Diversas' : secao;
+    favAberto = true;
     for (const id of ['album-77', 'album-78', 'hymnal-2022']) { ui(id).expanded = true; ui(id).shown = 1000; }
     hymnResultsEl.innerHTML = '';
     renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
