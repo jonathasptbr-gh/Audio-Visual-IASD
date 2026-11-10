@@ -1,24 +1,30 @@
 #!/usr/bin/env node
 // ============================================================================
-// MODO FÁCIL: TRÊS TECLAS (PARAR · PLAY/PAUSA · NÍVEL) E A LINHA QUE RECOLHE SEM
-// NADA NO AR (v1.13.8)
+// MODO FÁCIL: TRÊS TECLAS (PARAR · PLAY/PAUSA · TELA CHEIA) E A PÍLULA DO VOLUME
+// (v1.13.8 → v1.13.57)
 //
 // Pedidos do operador, verbatim:
 //  · *"Vamos remover o botão de mais e menos de volume e o de mute do modo simples.
 //    Adicione a função de mute ao próprio botão que indica o nivel de volume (… cor
 //    do botão normal…). Então fica assim: botão de stop, botão de play/pause e botão
-//    de nivel de volume/mute"*;
+//    de nivel de volume/mute"* (v1.13.8 — a tecla de volume na linha nasceu aqui);
 //  · *"Esconder play pause e stop no modo simples, após um encerramento de mídia, no
 //    caso também vale para quando feito stop pelo usuário. Lembre de animar o
 //    recolhimento e com tempo suficiente para não desaparecer debaixo dos dedos do
 //    usuário."*
 //
+// A v1.13.57 DESFEZ a metade "volume" daquela tecla: ela virou TELA CHEIA, e o volume
+// do app — que saiu da barra — mora numa pílula flutuante, acesa pela tecla física.
 // O que este arquivo trava, e cada uma falha CALADA:
-//  A. A COMPOSIÇÃO: três teclas, nesta ordem (no DOM e na tela), e o −, o + e o mudo
-//     próprio não existem mais.
-//  B. O NÍVEL: mostra o número do volume na cor de tecla das vizinhas, e o toque MUTA de
-//     verdade (`muted`, o comando `mute` no barramento) — e o estado se lê pelo DESENHO
-//     (o glifo riscado e o traço de curso que some), não só pela cor.
+//  A. A COMPOSIÇÃO: três teclas, nesta ordem (no DOM e na tela): Parar · Play/Pausa ·
+//     TELA CHEIA. O −, o +, o mudo próprio, a tecla de NÍVEL e o `#simpleFsBtn` do
+//     card do nome não existem mais.
+//  B. A TELA CHEIA E A PÍLULA: a terceira tecla é a porta da prévia, e é a pergunta do
+//     Parar que a apaga — SEM mídia no ar ela está DESABILITADA, apagada, com o motivo
+//     no rótulo; com mídia no ar e SEM destino de projeção fica habilitada e o toque
+//     abre a tela cheia (com uma tela conectada volta a apagar: o visor é a TV). E o
+//     VOLUME mora na `#volPill`, no corpo, com o `#volSlider` e o `#volValue` — o mudo
+//     dela aciona o `#muteToggle`, e `peekVolume()` a acende e ela some sozinha.
 //  C. O FIM NATURAL (`media-ended` pelo barramento): a linha FICA durante a espera, a
 //     saída começa só depois de `SIMPLE_TECLAS_ESPERA_MS` (≥ 1 s), e no fim ela sai do
 //     layout — a leitura cresce e a Biblioteca termina na base nova.
@@ -59,7 +65,9 @@ async function abrir(opts = {}) {
   await esperarCortina(pg);
   // A TELA CONECTADA (a janela do Display de mentira): é com ela que a Biblioteca é a tela
   // principal sem nada no ar, e é a caixa dela que a linha recolhida tem de deixar certa.
-  await pg.evaluate(() => { webDisplayWin = { closed: false }; renderSimpleCast(); });
+  // `semTela` abre o outro cenário do Modo Fácil — o "tocar neste celular", sem destino de
+  // projeção —, e é o ÚNICO em que a tecla de tela cheia pode ficar habilitada (ver B).
+  if (!opts.semTela) await pg.evaluate(() => { webDisplayWin = { closed: false }; renderSimpleCast(); });
   // O ESPIÃO: cada comando do barramento, e o instante em que a linha começa a sair.
   await pg.evaluate(() => {
     window.__cmds = [];
@@ -129,66 +137,202 @@ try {
     const vis = (el) => { const cs = getComputedStyle(el); const r = el.getBoundingClientRect();
       return cs.display !== 'none' && cs.visibility !== 'hidden' && r.width > 0 && r.height > 0; };
     const teclas = [...document.querySelectorAll('.simple-keys > button')];
+    const esqPorId = {};
+    for (const b of teclas) esqPorId[b.id] = Math.round(b.getBoundingClientRect().left);
+    const tela = document.getElementById('simpleTela');
     return {
       ids: teclas.map((b) => b.id),
       visiveis: teclas.filter(vis).map((b) => b.id),
-      esq: teclas.map((b) => Math.round(b.getBoundingClientRect().left)),
-      fora: ['simpleMute', 'simpleVolUp', 'simpleVolDown', 'simpleVolWrap', 'simpleVolValue']
+      esqPorId,
+      fora: ['simpleMute', 'simpleVolUp', 'simpleVolDown', 'simpleVolWrap', 'simpleVolValue',
+        'simpleNivel', 'simpleNivelNum', 'simpleFsBtn']
         .filter((x) => document.getElementById(x)),
       volrow: !!document.querySelector('.simple-volrow'),
       fileiras: [...document.querySelectorAll('.simple-remote > *')].filter(vis).length,
+      telaDisabled: tela ? tela.disabled : null,
+      telaTitle: tela ? tela.title : null,
+      telaAria: tela ? tela.getAttribute('aria-label') : null,
     };
   });
-  checar(JSON.stringify(a.ids) === JSON.stringify(['simpleStop', 'simplePlay', 'simpleNivel'])
+  checar(JSON.stringify(a.ids) === JSON.stringify(['simpleStop', 'simplePlay', 'simpleTela'])
     && JSON.stringify(a.visiveis) === JSON.stringify(a.ids),
-    'A1 · com mídia no ar a linha tem TRÊS teclas, nesta ordem: Parar · Play/Pausa · Nível', JSON.stringify(a));
-  checar(a.esq[0] < a.esq[1] && a.esq[1] < a.esq[2],
-    'A2 · e a ordem é a da TELA, da esquerda para a direita (não só a do DOM)', JSON.stringify(a.esq));
+    'A1 · com mídia no ar a linha tem TRÊS teclas, nesta ordem: Parar · Play/Pausa · Tela cheia', JSON.stringify(a));
+  checar(a.esqPorId.simpleStop < a.esqPorId.simplePlay && a.esqPorId.simplePlay < a.esqPorId.simpleTela,
+    'A2 · e a ordem é a da TELA, da esquerda para a direita (não só a do DOM)', JSON.stringify(a.esqPorId));
   checar(a.fora.length === 0 && !a.volrow && a.fileiras === 1,
-    'A3 · o −, o + e a tecla de mudo própria não existem mais: uma fileira só', JSON.stringify(a));
+    'A3 · o −, o +, o mudo próprio, a tecla de NÍVEL e o `#simpleFsBtn` não existem mais: uma fileira só',
+    JSON.stringify(a));
+  // A OUTRA METADE DA PERGUNTA (`!haDestinoDeProjecao()`): com uma tela conectada a tela cheia
+  // não é a do celular — quem mostra é a TV, e a tecla tem de dizer isso, não ficar inerte.
+  checar(a.telaDisabled === true && a.telaTitle === 'Com tela conectada, o visor é a TV'
+    && a.telaAria === a.telaTitle,
+    'A4 · com uma TELA conectada a tecla fica DESABILITADA — o visor é a TV, e o motivo está no rótulo',
+    JSON.stringify({ telaDisabled: a.telaDisabled, telaTitle: a.telaTitle, telaAria: a.telaAria }));
 
-  // ======================= B · O NÍVEL =======================
-  const b0 = await pg.evaluate(() => {
-    const n = document.getElementById('simpleNivel');
-    const p = document.getElementById('simpleStop');
-    return {
-      num: document.getElementById('simpleNivelNum').textContent,
-      volume: String(Math.round(volume * 100)),
-      bg: getComputedStyle(n).backgroundColor, bgParar: getComputedStyle(p).backgroundColor,
-      glifo: n.querySelector('.msym').textContent, volOn: ICON.volOn,
-      traco: getComputedStyle(n, '::after').display, muted,
-    };
-  });
-  checar(b0.num === b0.volume && !b0.muted,
-    'B1 · o NÍVEL mostra o número do volume (o mesmo `volume` do fader do avançado)', JSON.stringify(b0));
-  checar(b0.bg === b0.bgParar,
-    'B2 · na COR DE TECLA de sempre: o mesmo fundo do Parar ao lado', JSON.stringify(b0));
-  checar(b0.glifo === b0.volOn && b0.traco !== 'none',
-    'B3 · com som: o alto-falante inteiro e o traço de curso na base', JSON.stringify(b0));
-  await pg.click('#simpleNivel');
-  const b1 = await pg.evaluate(() => {
-    const n = document.getElementById('simpleNivel');
-    return {
-      muted, muteMarcado: document.getElementById('muteToggle').classList.contains('muted'),
-      cmd: window.__cmds.filter((c) => c.type === 'mute').slice(-1)[0] || null,
-      glifo: n.querySelector('.msym').textContent, volOff: ICON.volOff,
-      traco: getComputedStyle(n, '::after').display, classe: n.classList.contains('muted'),
-      num: document.getElementById('simpleNivelNum').textContent,
-    };
-  });
-  checar(b1.muted === true && b1.muteMarcado && b1.cmd && b1.cmd.muted === true,
-    'B4 · o TOQUE no nível MUTA de verdade: `muted`, o botão do avançado e o comando `mute` no barramento',
-    JSON.stringify(b1));
-  checar(b1.glifo === b1.volOff && b1.traco === 'none' && b1.classe,
-    'B5 · e o mudo se lê pelo DESENHO: o alto-falante riscado e o traço de curso some (não só a cor)',
-    JSON.stringify(b1));
-  checar(b1.num === b0.num,
-    'B6 · o número fica — é o volume que volta ao tirar o mudo', JSON.stringify(b1));
-  await pg.click('#simpleNivel');
-  const b2 = await pg.evaluate(() => ({ muted,
-    cmd: window.__cmds.filter((c) => c.type === 'mute').slice(-1)[0] || null }));
-  checar(b2.muted === false && b2.cmd && b2.cmd.muted === false,
-    'B7 · e o segundo toque tira o mudo', JSON.stringify(b2));
+  // ======================= B · A TELA CHEIA E A PÍLULA DO VOLUME =======================
+  // CONTEXTO PRÓPRIO, e o motivo é a pergunta da tecla: `telaCheiaDoModoFacilCabe()` = há o
+  // que parar E não há destino de projeção. Com a janela do Display de mentira do `abrir()`
+  // a segunda metade é sempre falsa (A4), então o estado HABILITADO só existe no Modo Fácil
+  // do "tocar neste celular" — sem destino, quando a tela cheia da prévia É a projeção.
+  {
+    const r = await abrir({ semTela: true });
+    const tela = () => r.pg.evaluate(() => {
+      const t = document.getElementById('simpleTela');
+      if (!t) return null;
+      return { disabled: t.disabled, title: t.title, aria: t.getAttribute('aria-label'),
+        opacidade: +getComputedStyle(t).opacity };
+    });
+    // SEM MÍDIA NO AR: nada a mostrar, e a tecla não pode parecer uma escolha de alguém.
+    const b1 = await tela();
+    checar(!!b1 && b1.disabled === true && b1.opacidade < 1
+      && b1.title === 'A tela cheia abre com uma mídia no ar' && b1.aria === b1.title,
+      'B1 · SEM mídia no ar a tecla de TELA CHEIA está DESABILITADA, apagada, com o motivo no rótulo',
+      JSON.stringify(b1));
+    // DESTRAVAR O MODO não a acende: a pergunta é a do Parar, não a do portão.
+    await r.pg.evaluate(() => setTocarNoCelular(true));
+    const b2 = await tela();
+    checar(!!b2 && b2.disabled === true && b2.title === 'A tela cheia abre com uma mídia no ar',
+      'B2 · e destravar o Modo Fácil não a acende: sem nada no ar não há o que mostrar', JSON.stringify(b2));
+    await r.pg.evaluate(async (i) => { await send(i); }, r.id);
+    await assentar(r.pg);
+    const b3 = await tela();
+    checar(!!b3 && b3.disabled === false && b3.opacidade === 1
+      && b3.title === 'Ver em tela cheia' && b3.aria === b3.title,
+      'B3 · com mídia no ar e SEM tela conectada ela fica HABILITADA, e o rótulo passa a dizer a AÇÃO',
+      JSON.stringify(b3));
+    // O VOLUME DO APP SAIU DA LINHA E MORA NA PÍLULA — e a pílula não pertence a barra nenhuma.
+    const b4 = await r.pg.evaluate(() => {
+      const pill = document.getElementById('volPill');
+      const slider = document.getElementById('volSlider');
+      const valor = document.getElementById('volValue');
+      const mudo = document.getElementById('volPillMute');
+      return {
+        pill: !!pill,
+        noCorpo: !!pill && pill.parentElement === document.body,
+        sliderDentro: !!pill && !!slider && pill.contains(slider),
+        valorDentro: !!pill && !!valor && pill.contains(valor),
+        mudoDentro: !!pill && !!mudo && pill.contains(mudo),
+        foraDaBarra: !!slider && !slider.closest('.simple-remote')
+          && !slider.closest('.simple-keys') && !slider.closest('.fader-wrap'),
+      };
+    });
+    checar(b4.pill && b4.noCorpo && b4.sliderDentro && b4.valorDentro && b4.mudoDentro,
+      'B4 · o volume do app mora na PÍLULA: `#volPill` no corpo, com o `#volSlider`, o `#volValue` e o mudo dentro',
+      JSON.stringify(b4));
+    checar(b4.foraDaBarra,
+      'B5 · e ele SAIU da barra: o `#volSlider` não está no `.simple-remote` nem no antigo `.fader-wrap`',
+      JSON.stringify(b4));
+    // O NÚMERO E O FADER SÃO O VOLUME DO APP (o mesmo que vai ao telão e às telas da rede).
+    const b6 = await r.pg.evaluate(() => {
+      const pill = document.getElementById('volPill');
+      return {
+        volume: Math.round(volume * 100),
+        valor: document.getElementById('volValue').textContent,
+        slider: document.getElementById('volSlider').value,
+        dentro: !!pill && pill.contains(document.getElementById('volValue'))
+          && pill.contains(document.getElementById('volSlider')),
+      };
+    });
+    checar(b6.dentro && b6.valor === String(b6.volume) && b6.slider === String(b6.volume),
+      'B6 · e o número e o fader da PÍLULA mostram o MESMO volume do app', JSON.stringify(b6));
+    const b7 = await r.pg.evaluate(() => {
+      const s = document.getElementById('volSlider');
+      s.value = '42';
+      s.dispatchEvent(new Event('input', { bubbles: true }));
+      const pill = document.getElementById('volPill');
+      return {
+        volume: Math.round(volume * 100), valor: document.getElementById('volValue').textContent,
+        slider: s.value, cmd: window.__cmds.filter((c) => c.type === 'volume').slice(-1)[0] || null,
+        acendeu: !!pill && pill.classList.contains('visivel'),
+      };
+    });
+    checar(b7.volume === 42 && b7.valor === '42' && b7.slider === '42'
+      && !!b7.cmd && Math.abs(b7.cmd.volume - 0.42) < 0.005 && b7.acendeu,
+      'B7 · e mexer nela muda o volume do APP e ACENDE a pílula — o mesmo comando `volume` do barramento',
+      JSON.stringify(b7));
+    // `peekVolume()` ACENDE a pílula: é ele que a tecla física chama.
+    const b8 = await r.pg.evaluate(() => {
+      const el = document.getElementById('volPill');
+      if (!el) return null;
+      window.__pilulaT = performance.now();
+      peekVolume();
+      return { classe: el.className, vis: getComputedStyle(el).visibility,
+        pe: getComputedStyle(el).pointerEvents };
+    });
+    checar(!!b8 && /\bvisivel\b/.test(b8.classe) && b8.vis === 'visible' && b8.pe === 'auto',
+      'B8 · `peekVolume()` ACENDE a pílula (classe `visivel`, visível e tocável)', JSON.stringify(b8));
+    await esperar(r.pg, () => {
+      const el = document.getElementById('volPill');
+      return !!el && +getComputedStyle(el).opacity > 0.9;
+    }, null, 1200);
+    const b9 = await r.pg.evaluate(() => {
+      const pill = document.getElementById('volPill');
+      if (!pill) return null;
+      const p = pill.getBoundingClientRect();
+      const k = document.getElementById('simplePlay').getBoundingClientRect();
+      return { topo: p.top, base: p.bottom, larg: p.width, teclasTopo: k.top, vh: innerHeight };
+    });
+    checar(!!b9 && b9.larg > 0 && b9.topo >= 0 && b9.base <= b9.vh && b9.base <= b9.teclasTopo + 0.6,
+      'B9 · e ela pousa ACIMA das teclas, inteira na tela — não cobre botão nenhum', JSON.stringify(b9));
+    // O MUDO: o ícone da pílula aciona o MESMO `#muteToggle` do avançado.
+    const b10 = await r.pg.evaluate(() => {
+      const b = document.getElementById('volPillMute');
+      if (!b) return null;
+      b.click();
+      return { muted, toggle: document.getElementById('muteToggle').classList.contains('muted'),
+        cmd: window.__cmds.filter((c) => c.type === 'mute').slice(-1)[0] || null };
+    });
+    checar(!!b10 && b10.muted === true && b10.toggle === true
+      && !!b10.cmd && b10.cmd.muted === true,
+      'B10 · o MUDO da pílula aciona o `#muteToggle`: `muted` liga, o botão do avançado marca e o comando sai',
+      JSON.stringify(b10));
+    const b11 = await r.pg.evaluate(() => {
+      const b = document.getElementById('volPillMute');
+      if (!b) return null;
+      b.click();
+      return { muted, cmd: window.__cmds.filter((c) => c.type === 'mute').slice(-1)[0] || null };
+    });
+    checar(!!b11 && b11.muted === false && !!b11.cmd && b11.cmd.muted === false,
+      'B11 · e o segundo toque tira o mudo', JSON.stringify(b11));
+    // E ELA SOME SOZINHA: não há botão que a feche.
+    const b12 = await r.pg.evaluate(() => {
+      if (typeof VOL_PILL_MS !== 'number') return 0;
+      window.__pilulaT = performance.now();
+      peekVolume();
+      return VOL_PILL_MS;
+    });
+    const sumiu = await esperar(r.pg, () => {
+      const el = document.getElementById('volPill');
+      return !!el && !el.classList.contains('visivel');
+    }, null, 4000);
+    const b13 = await r.pg.evaluate(() => ({ ms: performance.now() - (window.__pilulaT || 0) }));
+    const escondeu = await esperar(r.pg, () => {
+      const el = document.getElementById('volPill');
+      return !!el && getComputedStyle(el).visibility === 'hidden';
+    }, null, 1500);
+    checar(b12 >= 1000,
+      'B12 · a pílula acende por pelo menos 1 s antes de se apagar (VOL_PILL_MS)', String(b12));
+    checar(b12 >= 1000 && sumiu === true && escondeu === true && b13.ms >= b12 - 20,
+      'B13 · e SOME SOZINHA, sem botão que a feche (medido dentro da página: ' + Math.round(b13.ms) + ' ms)',
+      JSON.stringify({ b12, b13 }));
+    // E A TECLA NÃO É SÓ UM RÓTULO: o toque nela abre a tela cheia da prévia.
+    const habilitada = await r.pg.evaluate(() => {
+      const t = document.getElementById('simpleTela');
+      return !!t && !t.disabled;
+    });
+    if (habilitada) {
+      await r.pg.click('#simpleTela');
+      const fs = await r.pg.evaluate(() => ({
+        fullscreen: document.fullscreenElement === document.getElementById('preview'),
+        previa: previaCheia(),
+      }));
+      checar(fs.fullscreen && fs.previa,
+        'B14 · e o TOQUE nela abre a tela cheia da prévia', JSON.stringify(fs));
+    } else {
+      checar(false, 'B14 · e o TOQUE nela abre a tela cheia da prévia', 'a tecla não está habilitada');
+    }
+    await r.ctx.close();
+  }
 
   // ======================= C · O FIM NATURAL =======================
   const espera = await pg.evaluate(() => SIMPLE_TECLAS_ESPERA_MS);

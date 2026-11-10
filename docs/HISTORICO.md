@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.57** — Modo Fácil, o Pacote 4: a pílula de volume única nos dois modos (o fader do deck e a barra da tela cheia saem), as coleções em duas (CDs do ano e "Diversas"), os dois lugares de elemento fixo, a terceira tecla virando tela cheia e as Configurações enxutas; `controles-layout`, `video-tela-cheia`, `modo-simples-teclas` e o bloco 12 do `lista-da-biblioteca` (só web)
 - **v1.13.56** — o "Tocar agora" de um vídeo entra na fila: o funil do `projetarItem` no `ytAcao` (a fila não fica mais a anterior) e o `naFila: false` que preserva o item virtual do vídeo da semana; `tocar-agora-na-fila`
 - **v1.13.55** — soltar não pisca mais na ordem antiga: o item desliza para o vão e a lista fica na ordem FINAL enquanto a gravação corre (`soltarNoVao` + `assentarArrasto`); `cronograma-pronto` bloco B5 mede o instante do `pointerup` (só web)
 - **v1.13.54** — o arrasto abre o VÃO em tempo real: a lista se rearruma animada (`transform` nos outros itens, 160 ms) e a linha-guia colorida sai — o espaço é a única marca do destino; `cronograma-pronto` B2 e o `smoke` passam a medir o vão (só web)
@@ -669,6 +670,81 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.13.57 — Modo Fácil: a pílula de volume, duas coleções e a terceira tecla
+
+**Pacote 4 da fila do operador** (`docs/PEDIDOS-EM-ESPERA.md`, 2026-11-10), **só web**:
+`SHELL_VERSION` segue 85, `minShell` 83, **sem `shellTag`**. Degrau CORREÇÃO. Três pedidos
+datados de 2026-10-31 a 2026-11-07, que é o que o pacote chama de 4.1, 4.2 e 4.3.
+
+**(4.1) A PÍLULA DE VOLUME — UMA PEÇA, EM TODA TELA.** O relato: *"na busca da Biblioteca ou
+sem nada tocando as teclas físicas não mostram nada"*. Havia TRÊS retornos diferentes para a
+mesma pergunta: o fader vertical do deck (só no avançado, e só quando a tecla abria a espiada), o
+número na tecla de NÍVEL do Modo Fácil (que a v1.13.57 transformou em outra coisa) e a barra
+`#pvVolume` dentro da prévia, só em tela cheia. Agora é **uma** `#volPill`, filha do `body`,
+`position: fixed`, **opaca** (`--bar`; rodapé flutuante não deixa passar imagem), acesa por
+`peekVolume()` — que é o que `__avVolumeKey` chama — e escondida em `VOL_PILL_MS` = 1,5 s. O lugar
+é MEDIDO na hora de aparecer (`lugarDaPilula`): a base da barra do transporte que estiver à vista
+(`simpleRemoteEl` no Modo Fácil, `deckEl` no avançado), nunca um número escrito. **E ela é o
+CONTROLE, não o aviso:** o `<input type=range>` que mora dentro dela é o volume do app (o mesmo
+que vai ao telão e às telas da rede), arrastável — decisão do operador em 2026-11-10 —, e por isso
+o fader do deck (`.fader-wrap`, `#volSlider` na grade, `abrirFader`/`fecharFader`, a classe
+`vol-open` e as `@keyframes vol-slide-*`) **saiu inteiro** junto com a barra `#pvVolume` e os dois
+`mostrar/esconderVolumeDaTelaCheia`. O EIXO mudou junto: `.fader` nasceu vertical
+(`writing-mode: vertical-lr; direction: rtl`) e a pílula o reescreve horizontal
+(`horizontal-tb`/`ltr`, trilho em gradiente para a direita); `syncFader` não mudou de assinatura.
+**Em tela cheia a pílula é MOVIDA para dentro da `.preview`** (`casaDaPilula`, classe
+`na-previa`): só o elemento em tela cheia e os filhos dele são pintados — a prévia inteira é um
+`popover` no top layer —, e um `fixed` no corpo ficaria invisível exatamente onde o aviso é mais
+necessário. O MUDO foi junto: o toque no ícone da pílula (`#volPillMute`) faz
+`muteToggleEl.click()`, o mesmo comando e o mesmo estado do avançado — sem isso a tecla de NÍVEL
+levaria o único mudo do Modo Fácil embora. **A tecla física sem nada tocando** já mexia no volume
+(a captura é pedida no `init` e fica: `captureVolumeKeys(true)`), e o que faltava era só o aviso.
+
+**(4.2) DUAS COLEÇÕES NO MODO FÁCIL.** Pedido: *"além da coleção de cds do ano, o resto ficará
+na coleção de diversos"*. `renderCollectionsListMiolo` agora ramifica por modo: no avançado a
+lista continua uma categoria por grupo; no Modo Fácil a raiz tem **os CDs do ano** (a categoria
+cujo nome casa `GRUPO_CDS_DO_ANO = /cds?\s+(oficiais|do\s*ano)/i` — hoje "CDs Oficiais/Ano") e
+**um grupo só, "Diversas"**, com TODAS as outras categorias, os dois hinários e os álbuns órfãos.
+Um álbum que o catálogo põe em duas categorias entra UMA vez (o primeiro lugar, na ordem do
+catálogo) — o catálogo é N:N e a repetição seria o defeito silencioso. **Os elementos fixos**
+pedidos (`"coisas como ofertório e abertura para a adoração infantil"`) entram logo depois do
+bloco "Este sábado", como card de coleção: `ELEMENTOS_FIXOS_SIMPLES` casa por NOME normalizado
+(`chaveDeNome`: sem acento, sem caixa, espaços colapsados) contra os álbuns do catálogo. **Não
+existe álbum com nenhum dos dois nomes no catálogo de hoje** (conferido no banco do LouvorJA em
+2026-11-10: 5 categorias, 67 álbuns) — sem o álbum, a linha NÃO nasce (apagado = indisponível) e
+o lugar passa a existir sozinho quando o catálogo ganhar os dois.
+
+**(4.3) AS CONFIGURAÇÕES DO MODO FÁCIL.** *"Revisar quais opções das configurações aparecem no
+modo simples"*: ficam Tema, Tela, Saída de áudio, Dados móveis e Compartilhar; saem Editar mídia,
+Histórico, Verificar e Transferir (`body.mode-simple #edicaoTile, #histOpenRow, #testeTile,
+#pacoteTile { display: none }`) — manutenção continua inteira no avançado.
+
+**(4.1-b) A TERCEIRA TECLA.** *"O botão exclusivo de volume da linha de controles do Modo Fácil
+vira tela cheia da prévia… sem nada em exibição, o botão fica apagado com o motivo"* (resposta
+de 2026-11-06). `#simpleNivel` → **`#simpleTela`** (`renderTeclaTela`): porta MANUAL da tela
+cheia para QUALQUER mídia no ar (`haOQueParar()`), `disabled` com o motivo no `title` quando não
+há o que mostrar ou quando há destino de projeção. O `#simpleFsBtn` (a coluna à direita do card
+do nome, v1.12.24) saiu com ele: era a mesma porta, num lugar pior. `abrirTelaCheiaDoVideo` virou
+`abrirTelaCheiaDoModoFacil`; o automático do vídeo (`telaCheiaDoVideoCabe` + `acertarTelaCheiaDoVideo`)
+continua como estava. Com um deck no ar a fileira fica Parar + tela cheia (2 colunas), porque
+passar slide e ir para a tela cheia são as duas ações que restam.
+
+**ORÁCULOS.** `controles-layout` bloco 6 reescrito (a pílula fora do deck, opaca, acima do
+transporte, some sozinha) e o bloco B (com a prévia recolhida); `video-tela-cheia` e
+`modo-simples-teclas` atualizados; **bloco 12 novo no `lista-da-biblioteca`** (dois grupos no
+Modo Fácil, o fixo antes deles, o N:N uma vez só, os hinários dentro do "Diversas" e as categorias
+de volta no avançado). Cada asserção nova foi escrita para REPROVAR o comportamento anterior.
+
+**DOIS DEFEITOS DO PRÓPRIO LOTE, achados pelo oráculo e consertados nele**: (1) a pílula nascia com
+`z-index: 40` e ficava ATRÁS da tela do Modo Fácil (`.simple`, 90) — invisível na captura e sem
+receber o dedo; a camada é **350**, acima da tela e da janela da Biblioteca (300), abaixo só da
+cortina de abertura (500), porque é justamente com a busca aberta que o operador pediu o retorno do
+volume; (2) o glifo do mudo na pílula só era reescrito em `mostrarPilula`, então o toque no ícone
+deixava o desenho defasado — o ouvinte chama `mostrarPilula()` depois do `.click()`.
+
+**NÃO TESTADO EM APARELHO.** Medido em Chromium de mesa (o `pv-inteira` é `popover`, e o teste não
+roda a tela inteira nativa); a pílula em tela cheia foi medida no caminho do navegador.
 
 ## v1.13.56 — o vídeo do "Tocar agora" entra na fila
 

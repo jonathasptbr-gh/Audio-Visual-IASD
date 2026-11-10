@@ -1102,13 +1102,55 @@ body {
    sermão inteiro, com a mão parada no mesmo ponto da tela; voltar é a
    correção, que se faz olhando. O fader come 2,8 s da célula que ele cobre, e
    cobrir a célula do gesto repetido é interromper o sermão a cada espiada. */
-.fader-wrap { display: none; grid-column: 1; grid-row: 2; min-height: 0; position: relative; }
-.deck.vol-open .fader-wrap { display: block; }
-.deck.vol-open .slide-side:not(.slide-side--dir) { display: none; }
-.deck.vol-open:not(.vol-closing) .fader-wrap { animation: vol-slide-in .2s ease both; }
-.deck.vol-closing .fader-wrap { animation: vol-slide-out .2s ease both; }
-@keyframes vol-slide-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes vol-slide-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(10px); } }
+/* ===== A PÍLULA DE VOLUME (v1.13.57) =====
+   Uma peça só, nos dois modos e em toda tela: aqui morreu o fader vertical do deck e, com ele, a
+   barra separada da tela cheia. Ela nasce no corpo, flutua ACIMA do transporte e some sozinha
+   (ver `mostrarPilula`). OPACA de propósito: rodapé flutuante não deixa passar imagem.
+   Em tela cheia ela é MOVIDA para dentro da `.preview` (`casaDaPilula`): só o elemento em tela
+   cheia e os filhos dele são pintados — a prévia inteira é um popover no top layer —, e lá o
+   rodapé dela é a faixa acima do transporte da projeção. */
+.vol-pill {
+  /* A CAMADA É 350 (v1.13.57): acima da tela do Modo Fácil (`.simple`, 90) e ACIMA da janela da
+     Biblioteca e dos diálogos (300) — é justamente com a busca aberta que o operador pediu o
+     retorno do volume ("na busca da Biblioteca … as teclas físicas não mostram nada").
+     ABAIXO só a cortina de abertura (500), que é dona do boot. Com 40 ela ficava atrás da
+     tela do Modo Fácil — invisível e sem receber o dedo (achado do oráculo). */
+  position: fixed; left: 50%; bottom: var(--pill-bottom, 1rem); z-index: 350;
+  display: flex; align-items: center; gap: var(--sp-4);
+  padding: .55rem .9rem;
+  background: var(--bar); color: var(--text);
+  border-radius: var(--radius-pill); box-shadow: 0 6px 18px var(--shadow-card);
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transform: translate(-50%, .4rem);
+  transition: opacity .14s ease, transform .14s ease, visibility 0s linear .14s;
+}
+.vol-pill.visivel {
+  opacity: 1; visibility: visible; pointer-events: auto;
+  transform: translate(-50%, 0); transition-delay: 0s;
+}
+.vol-pill.na-previa { bottom: calc(env(safe-area-inset-bottom, 0px) + 5.5rem); }
+.vol-pill svg { display: block; flex: none; width: 18px; height: 18px; color: var(--accent); }
+/* O ÍCONE É UM BOTÃO (o mudo). Sem moldura: numa cápsula, um quadrado dentro de outro quadrado
+   é a moldura da moldura — o que diz que ele é tocável é a cor de acento e o `:active`. */
+.vol-pill-mute { border: 0; background: none; padding: 0; margin: 0; display: flex; cursor: pointer; }
+.vol-pill .ico-alt { display: none; }
+.vol-pill.mudo .ico-base { display: none; }
+.vol-pill.mudo .ico-alt { display: block; }
+.vol-pill-trilho { position: relative; flex: 0 1 9rem; width: 9rem; height: var(--fader-cap); }
+/* O MESMO `<input>` de sempre, com o eixo trocado: HORIZONTAL, e o preenchimento corre da
+   esquerda para a direita (a conta do `--fader-stop` é a mesma, só muda o eixo). */
+.vol-pill .fader { writing-mode: horizontal-tb; direction: ltr; }
+.vol-pill .fader::-webkit-slider-runnable-track {
+  background: linear-gradient(to right,
+    var(--accent) 0 var(--fader-stop), var(--surface) var(--fader-stop) 100%);
+}
+.vol-pill .fader::-webkit-slider-thumb {
+  width: var(--fader-cap); height: var(--fader-cap); border-radius: 50%;
+}
+.vol-pill .fader-value {
+  position: static; flex: none; width: 2.4ch; height: auto; color: var(--text);
+  justify-content: flex-end; font-variant-numeric: tabular-nums;
+}
 /* O FADER OCUPA A COLUNA INTEIRA, como o botão que ele substitui: a coluna não
    muda de espessura ao acender, só de conteúdo. Isso exige desenhar o trilho
    (`appearance: none`), porque a espessura do trilho NATIVO é fixa e não
@@ -1636,48 +1678,8 @@ body {
 .pv-fsctl #fsExit { right: var(--fs-dir); bottom: max(10px, env(safe-area-inset-bottom)); }
 .pv-fsctl #fsView { right: var(--fs-dir); top: max(10px, env(safe-area-inset-top)); }
 /* NO MODO FÁCIL SÃO DOIS BOTÕES (v1.12.24): sair e play/pause. A cortina e o par ⏮/⏭
-   saem a pedido do operador — lá a tela cheia é a do VÍDEO (`acertarTelaCheiaDoVideo`). */
+   saem a pedido do operador. */
 body.mode-simple .pv-fsctl :is(#fsView, #fsPrev, #fsNext) { display: none; }
-
-/* ===== A BARRA DE VOLUME DA TELA CHEIA (v1.12.24) =====
-   Ela só existe em tela cheia e só aparece por `.visivel`, que `mostrarVolumeDaTelaCheia` escreve a
-   cada mudança de volume e tira 2 s depois. VERTICAL, NA BORDA ESQUERDA (v1.12.41 no Modo Fácil,
-   nos dois modos desde a v1.12.42): o topo é do título, a base da linha do tempo e o centro do
-   play/pause. Sem TV esta tela É a projeção — por isso pequena e passageira.
-   É DO PALCO, e o palco não tem tema: `--scrim` sob `--stage-text`, o nível em `--stage-accent`
-   (9,75:1 sobre o preto). O trilho é o mesmo branco do palco com `opacity`, e não um token com
-   alfa a mais. `pointer-events: none`: um toque nela é um toque na projeção.
-   O nível cresce de BAIXO para cima (o `--nivel` que o JS escreve), o ícone embaixo e o número em
-   cima. A altura cabe entre o título e a linha do tempo em qualquer paisagem (`max-height`), e o
-   recuo esquerdo respeita o recorte da câmera (`safe-area-inset-left`). */
-.pv-volume {
-  position: absolute; top: 50%; left: max(14px, env(safe-area-inset-left)); z-index: 7;
-  display: none; flex-direction: column-reverse; align-items: center; gap: var(--sp-4);
-  height: min(220px, calc(100% - 9rem)); padding: .7rem .45rem;
-  transform: translateY(-50%);
-  background: var(--scrim); color: var(--stage-text); border-radius: var(--radius-pill);
-  opacity: 0; pointer-events: none; transition: opacity var(--dur-media) ease;
-}
-.preview:fullscreen .pv-volume,
-.preview:-webkit-full-screen .pv-volume,
-.preview.pv-inteira .pv-volume { display: flex; }
-.pv-volume.visivel { opacity: 1; }
-.pv-volume svg { display: block; flex: none; width: 22px; height: 22px; }
-.pv-volume .ico-alt { display: none; }
-.pv-volume.mudo .ico-base { display: none; }
-.pv-volume.mudo .ico-alt { display: block; }
-.pv-volume-trilho { position: relative; flex: 1; width: 6px; border-radius: var(--radius-pill); overflow: hidden; }
-.pv-volume-trilho::before {
-  content: ""; position: absolute; inset: 0; background: var(--stage-text); opacity: .3;
-}
-.pv-volume-nivel { position: absolute; left: 0; right: 0; bottom: 0; height: var(--nivel, 0%); background: var(--stage-accent); border-radius: inherit; }
-.pv-volume-num {
-  flex: none; text-align: center;
-  font-size: var(--fs-sm); font-weight: var(--fw-forte); font-variant-numeric: tabular-nums;
-}
-@media (prefers-reduced-motion: reduce) {
-  .pv-volume { transition: none; }
-}
 
 /* ===== O TÍTULO E A LINHA DO TEMPO DA TELA CHEIA (v1.12.41; nos DOIS modos desde a v1.12.42) =====
    Pedido do operador (aprovado): o NOME da mídia numa faixa no topo e a linha do tempo
@@ -8126,6 +8128,15 @@ body.mode-simple #sorteioBtn { display: none; }
 body:not(.mode-simple) #sorteioSimplesBtn { display: none; }
 #sorteioSimplesBtn:disabled { opacity: var(--op-inativo); cursor: default; }
 body.simples-barra .lib-toggle { display: none; }
+/* ===== AS CONFIGURAÇÕES DO MODO FÁCIL (v1.13.57) =====
+   Pedido do operador: *"revisar quais opções das configurações aparecem no modo simples"*.
+   Ficam Tema, Tela, Saída de áudio, Dados móveis e Compartilhar — o que se decide no culto.
+   Editar mídia, Histórico, Verificar e Transferir são MANUTENÇÃO: continuam inteiros no
+   avançado, e apagados aqui não deixam buraco inerte na grade (apagado = indisponível). */
+body.mode-simple #edicaoTile,
+body.mode-simple #histOpenRow,
+body.mode-simple #testeTile,
+body.mode-simple #pacoteTile { display: none; }
 body.simples-barra:not(.simples-principal) .popup-backdrop--lib.open .lib-toggle { display: flex; }
 body.simples-barra { --lib-lista-base: var(--sp-5); }
 .simple.corpo-biblioteca .simple-song { visibility: hidden; }
@@ -12204,8 +12215,8 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
    "Nada tocando" embaixo dela é ruído. `display: none` e não `visibility`: ele não pode
    reservar altura nem o vão do `gap`. */
 .simple-nowplaying {
-  /* GRADE e não flex em coluna (v1.12.26): a porta da tela cheia é uma coluna ao lado das duas
-     linhas — ver `#simpleFsBtn` abaixo. Sem ela é UMA coluna, e o `row-gap` é o `gap` de antes. */
+  /* GRADE de UMA coluna (v1.12.26 → v1.13.57): a porta da tela cheia saiu deste card e virou
+     tecla da linha de controles, então o card não tem mais coluna lateral. */
   flex: none; display: grid; grid-template-columns: minmax(0, 1fr);
   row-gap: var(--sp-2); column-gap: var(--sp-4);
   padding: .5rem .8rem;
@@ -12226,19 +12237,6 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
 /* Nome ainda vazio (a troca de mídia escreve o texto depois): uma div vazia tem altura ZERO e o
    card encolhia uma linha inteira (18 px) até o nome chegar. O espaço de largura zero dá a linha. */
 .simple-np:empty::before { content: "\200b"; }
-/* A PORTA DA TELA CHEIA DO VÍDEO (v1.12.24 → v1.12.26): uma COLUNA à DIREITA das DUAS linhas
-   (nome e barra), e não ao lado do nome — pedido do operador. O card é grade de UMA coluna; o
-   botão pede a segunda, que nasce IMPLÍCITA (`auto`, a largura dele) só enquanto ele existe —
-   escondido (`display: none`) ele não gera coluna nenhuma, e nome e barra voltam à largura toda.
-   Ele ocupa as duas linhas e se centra nelas. A ALTURA do card não muda (a regra da v1.12.11):
-   o `row-gap` é o `gap` de antes, e o quadrado (`--hit`) é menor que as duas linhas somadas. Só
-   existe sem destino de projeção — com TV ou tela da rede, a tela conectada é o visor. */
-.simple-nowplaying > .simple-np, .simple-nowplaying > .simple-time { grid-column: 1; }
-.simple-nowplaying #simpleFsBtn {
-  grid-column: 2; grid-row: 1 / 3; align-self: center;
-  width: var(--hit); height: var(--hit); color: var(--accent);
-}
-.simple-nowplaying #simpleFsBtn[hidden] { display: none; }
 /* Linha do tempo: fina, sem alça e sem alvo de toque — é um indicador, não um
    controle (ver o comentário no index.html). Os números flanqueiam a barra
    para não roubarem altura da letra. */
@@ -12310,29 +12308,11 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
 .simple-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-5); }
 .simple-key--big { height: 76px; }
 .simple-key--big .msym { font-size: 34px; }
-/* Os mesmos dois estados do mudo do modo avançado, na tecla de NÍVEL. Aqui o botão TEM moldura,
-   então o estado é o par fundo-suave + cor — sobre a preview ele é cor de traço (ver
-   `.pv-fab--mute`), porque lá não há fundo a pintar: mudo é alerta (o vermelho SATURADO,
-   `--danger-strong`), áudio bloqueado no telão é aviso. E a cor nunca carrega o estado sozinha:
-   o glifo vira o alto-falante riscado e o traço de curso some (regra abaixo). */
-.simple-key--big.muted { background: var(--btn-danger); color: var(--danger-strong); }
-.simple-key--big.blocked { background: var(--btn-warn); color: var(--warn-text); animation: mute-blocked-pulse 1.2s ease-in-out infinite; }
-/* O NÍVEL (v1.13.8): o glifo do som em cima e o número do volume embaixo, na cor de TECLA de
-   sempre (`--panel`, a das vizinhas) — e o traço fino na base diz quanto do curso está usado, de
-   relance. Sem som (mudo ou bloqueado) o traço some: o desenho diz "não sai som", não só a cor. */
-.simple-key--nivel { position: relative; overflow: hidden; gap: var(--sp-1); }
-.simple-key--nivel .msym { font-size: 28px; }
-.simple-nivel-num {
-  font-size: var(--fs-lg); font-weight: var(--fw-max); line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-.simple-key--nivel::after {
-  content: ''; position: absolute; left: 0; bottom: 0; height: 4px;
-  width: calc(var(--curso, 1) * 100%);
-  background: var(--accent);
-}
-.simple-key--nivel.muted::after,
-.simple-key--nivel.blocked::after { display: none; }
+/* A TECLA DA TELA CHEIA (v1.13.57): assume o desenho e a casa da antiga tecla de NÍVEL. APAGADA
+   quando não há o que mostrar (`renderTeclaTela`): apagado é indisponível, e o motivo vai no
+   rótulo — a tecla não pode parecer uma escolha de alguém. */
+.simple-key:disabled { opacity: var(--op-inativo); cursor: default; }
+.simple-key--tela svg { color: var(--accent); }
 /* AS PÁGINAS DA APRESENTAÇÃO (v1.4.30): três células, as teclas nas pontas e o mostrador no meio
    (`.simple-pag-read`). Este modo é "teclas grandes, nada de arrastar", e o número no meio
    responde "onde estou?" sem exigir mira. Só existe com um deck no ar (`hidden`, escrito por
@@ -12344,9 +12324,8 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
    silêncio. A doutrina do próprio modo: UM elemento no ar, UM jogo de controles. Com um deck
    sobra o "Parar" (a única ação que ainda faz sentido — é ela que tira a apresentação do telão)
    e as páginas. */
-.simple-remote.deck .simple-keys { grid-template-columns: 1fr; }
-.simple-remote.deck #simplePlay,
-.simple-remote.deck #simpleNivel { display: none; }
+.simple-remote.deck .simple-keys { grid-template-columns: repeat(2, 1fr); }
+.simple-remote.deck #simplePlay { display: none; }
 /* Sozinha e larga, a tecla deixa de se explicar pelo contexto das vizinhas —
    um quadrado com um ícone no meio da tela não diz o que ele para. O rótulo só
    existe aqui: nas outras cenas as três teclas se explicam em conjunto. */

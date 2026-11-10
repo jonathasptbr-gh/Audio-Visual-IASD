@@ -16,7 +16,7 @@ títulos e os links mudaram). **Abra só a parte da pergunta** — nunca todas.
 | parte | o que tem |
 |---|---|
 | [`CONTROLE-MODOS.md`](CONTROLE-MODOS.md) | Modo Fácil × avançado: o modo pela SESSÃO, a coluna de páginas, as três teclas, o modo bloqueado sem tela, a preview no lugar da conexão; o vídeo do Modo Fácil em tela cheia, a Biblioteca maior, a troca leitura ↔ Biblioteca, o card do nome |
-| [`CONTROLE-LAYOUT.md`](CONTROLE-LAYOUT.md) | layout geral (o vão, as sete células, a coluna da direita, o fader, a barra de progresso), o par de botões e os dois botões de slide (a região fora do padrão, a coluna de operação, o selo de camadas, o layout de player), os controles DENTRO do fullscreen, onde o Display roda |
+| [`CONTROLE-LAYOUT.md`](CONTROLE-LAYOUT.md) | layout geral (o vão, as sete células, a coluna da direita, a pílula de volume, a barra de progresso), o par de botões e os dois botões de slide (a região fora do padrão, a coluna de operação, o selo de camadas, o layout de player), os controles DENTRO do fullscreen, onde o Display roda |
 | [`CONTROLE-NAVEGACAO.md`](CONTROLE-NAVEGACAO.md) | uma tela, duas folhas e uma janela: as portas do rodapé, a folha da Bíblia, a barra da Biblioteca e a janela que sobe |
 | [`CONTROLE-CONFIGURACOES.md`](CONTROLE-CONFIGURACOES.md) | o tema, o PAINEL RÁPIDO e as seções (tela, transferir), o rodapé de três botões, a contagem de uso, o Registro (UM registro só), o wallpaper, girar a mídia, o histórico do culto |
 | [`CONTROLE-TELAO.md`](CONTROLE-TELAO.md) | a abertura (cortina, badge de versão), o que o telão retoma ao reconectar, o toque que responde no instante, todo carregamento é do Controle, a referência da preview, a saída de áudio (o atalho do sistema, a prévia recolhível) |

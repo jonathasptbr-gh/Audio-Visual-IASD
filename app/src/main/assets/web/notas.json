@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.13.57",
+    "itens": [
+      "Tecla de volume acende uma pílula em qualquer tela, e ela mesma muda o volume arrastando.",
+      "Modo Fácil: só os CDs do ano ficam separados; todo o resto foi para uma coleção só, Diversas.",
+      "A terceira tecla do Modo Fácil agora abre a tela cheia; as Configurações dele ficaram enxutas."
+    ]
+  },
+  {
     "versao": "1.13.56",
     "itens": [
       "Vídeo iniciado no Modo Fácil agora entra na fila: antes ele tocava sem aparecer na playlist no Modo Avançado."

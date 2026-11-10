@@ -1234,94 +1234,54 @@ try {
   checar(semAlvo.titulo === 'Próximo slide',
     'e com o nome genérico: um nome específico ali prometeria uma cena que não está no ar', semAlvo.titulo);
 
-  // ── 6. O FADER FICOU; O BOTÃO QUE O ABRIA É QUE SAIU ───────────────────
+  // ── 6. A PÍLULA DE VOLUME: UMA PEÇA, ACIMA DO TRANSPORTE (v1.13.57) ────
   //
-  // A distinção é o recurso inteiro, e ela já foi entendida ao contrário uma
-  // vez: o operador dispensou o BOTÃO DE TELA que abria o fader, não o fader.
-  // Ele é o que mantém o painel de volume do ANDROID fora da projeção — o app
-  // consome a tecla, e quem não consome deixa o sistema desenhar o painel dele
-  // SOBRE o que a congregação está vendo.
-  //
-  // As três metades: o botão não existe, o fader existe e nasce escondido, e a
-  // TECLA o acende. Mais a que o operador pediu na v1.8.87 — quem cede a célula
-  // é o de VOLTAR, e o de PASSAR slide fica no ar durante a espiada.
-  //
-  // O LADO É ASSERÇÃO PRÓPRIA, e não decorre da faixa: a v1.3.8 e a v1.8.87
-  // põem o fader na MESMA faixa vertical (a da preview) e em colunas OPOSTAS,
-  // então medir só topo e base aprova as duas. Quem separa é a horizontal
-  // contra a preview.
-  const faderCx = () => pg.evaluate(() => {
-    const cx = (sel) => {
-      const el = document.querySelector(sel);
-      if (!el) return null;
-      const r = el.getBoundingClientRect();
-      const cs = getComputedStyle(el);
-      return {
-        vis: cs.display !== 'none' && cs.visibility !== 'hidden' && r.width > 0,
-        topo: +r.top.toFixed(2), base: +r.bottom.toFixed(2),
-        esq: +r.left.toFixed(2), dir: +r.right.toFixed(2),
-      };
-    };
+  // O fader vertical do deck e a barra da tela cheia saíram: a tecla física acende UMA pílula
+  // flutuante, opaca, que É o controle (arrastar nela muda o volume) e some sozinha. Cada item
+  // abaixo falha CALADO: a pílula existe fora de qualquer barra, nasce escondida, ACENDE pela
+  // tecla física, pousa ACIMA do transporte (não cobre botão nenhum) e sai sozinha.
+  const pilula = () => pg.evaluate(() => {
+    const el = document.getElementById('volPill');
+    if (!el) return { existe: false };
+    const r = el.getBoundingClientRect();
+    const cs = getComputedStyle(el);
+    const tr = document.querySelector('.transport');
+    const rt = tr ? tr.getBoundingClientRect() : null;
     return {
-      fader: cx('.fader-wrap'), prox: cx('#slideNextBtn'), ant: cx('#slidePrevBtn'),
-      pv: cx('.preview'), hist: cx('#lyricsViewBtn'),
-      // O BOTÃO que abria o fader — este sim tinha de sair.
-      botoes: ['#volToggle', '#volClose'].filter((sel) => document.querySelector(sel)),
-      temFader: !!document.querySelector('#volSlider'),
+      existe: true,
+      vis: cs.visibility !== 'hidden' && +cs.opacity > 0.5 && r.width > 0,
+      topo: +r.top.toFixed(2), base: +r.bottom.toFixed(2), larg: +r.width.toFixed(2),
+      trTopo: rt ? +rt.top.toFixed(2) : null,
+      opaca: !/rgba\(0, 0, 0, 0\)|transparent/.test(cs.backgroundColor),
+      valor: document.getElementById('volValue').textContent,
+      noDeck: !!el.closest('.deck'),
+      temFader: !!document.getElementById('volSlider'),
     };
   });
-  const fechado = await faderCx();
-  checar(fechado.botoes.length === 0,
-    'não há botão de tela que abra o fader — era só ele que o operador dispensou', fechado.botoes);
-  checar(fechado.temFader && fechado.fader.vis === false,
-    'o fader EXISTE e nasce escondido: a única porta dele é a tecla física', fechado);
-  // FECHADO OS DOIS ESTÃO NO AR, e esta linha vale por isso e não por qual dos
-  // dois cede: MEDIDO na reversão, ela passa nas duas colunas. É a PREMISSA do
-  // bloco (o par inteiro existe antes da espiada); quem decide o lado são as
-  // três asserções com o fader aberto, e essas três reprovam na reversão.
-  checar(fechado.ant.vis && fechado.prox.vis,
-    'com ele escondido, os DOIS botões de slide estão no ar', fechado);
-
-  // A TECLA ACENDE. `peekVolume` é o que `__avVolumeKey` chama; medir por ela é
-  // medir o caminho de verdade, não um estado forçado à mão.
+  const fechada = await pilula();
+  checar(fechada.existe && fechada.noDeck === false,
+    'a pílula não mora no deck: o fader da barra de baixo saiu', fechada);
+  checar(fechada.temFader && fechada.vis === false,
+    'e ela EXISTE e nasce escondida: a única porta é a tecla física', fechada);
   await pg.evaluate(() => peekVolume());
-  await pg.waitForFunction(() => {
-    const t = getComputedStyle(document.querySelector('.fader-wrap')).transform;
-    return t === 'none' || t === 'matrix(1, 0, 0, 1, 0, 0)';
-  }, null, { timeout: 5000 }).catch(() => {});
-  const aberto = await faderCx();
-  checar(aberto.fader.vis,
-    'a tecla física ACENDE o fader (`peekVolume`)', aberto.fader);
-  checar(perto(aberto.fader.topo, aberto.pv.topo) && perto(aberto.fader.base, aberto.pv.base),
-    'e ele ocupa exatamente a faixa da preview',
-    { fader: [aberto.fader.topo, aberto.fader.base], pv: [aberto.pv.topo, aberto.pv.base] });
-  // O LADO (v1.8.87). Ele está À ESQUERDA da preview, que é a coluna do
-  // `#slidePrevBtn` — a asserção que reprova a volta à coluna 3.
-  checar(aberto.fader.dir <= aberto.pv.esq + 1,
-    'e à ESQUERDA da preview: a coluna do VOLTAR slide, não a do passar',
-    { fader: [aberto.fader.esq, aberto.fader.dir], pv: [aberto.pv.esq, aberto.pv.dir] });
-  checar(aberto.ant.vis === false,
-    'o botão de VOLTAR slide dá lugar a ele — os dois dividem a célula', aberto.ant);
-  // ESTA É A ASSERÇÃO DO PEDIDO: o de PASSAR não some junto — *"assim ele não
-  // interrompe a passagem dos slides"*. E o par nunca some INTEIRO, que é o
-  // relato que a v1.3.8 consertou e que esta continua honrando.
-  checar(aberto.prox.vis,
-    'e o de PASSAR slide FICA no ar — é o gesto repetido do sermão', aberto.prox);
-  checar(aberto.hist.vis,
-    'a sétima célula também fica: ela não tem nada a ver com volume', aberto.hist);
-
-  // E SOME SOZINHO. Sem botão que feche, o relógio é a única saída — se ele
-  // falhar, o fader fica no lugar do botão de passar slide para sempre.
-  await pg.evaluate(() => {
-    // Encurta a espera SEM tocar na máquina: fecha pelo mesmo caminho do
-    // relógio, que é o que `peekVolume` agenda.
-    fecharFader();
-  });
-  await pg.waitForFunction(() => !document.querySelector('.deck').classList.contains('vol-open'),
-    null, { timeout: 5000 }).catch(() => {});
-  const devolta = await faderCx();
-  checar(devolta.fader.vis === false && devolta.ant.vis && devolta.prox.vis,
-    'fechado, o par inteiro volta ao ar', devolta);
+  await pg.waitForTimeout(150);
+  const aberta = await pilula();
+  checar(aberta.vis, 'a tecla física ACENDE a pílula (`peekVolume`)', aberta);
+  checar(aberta.opaca,
+    'e ela é OPACA: rodapé flutuante não deixa passar imagem', aberta);
+  checar(aberta.base <= aberta.trTopo + 0.6,
+    'e flutua ACIMA do transporte — não cobre botão nenhum',
+    { pilula: aberta.base, transporte: aberta.trTopo });
+  checar(/^\d+$/.test(String(aberta.valor)),
+    'e mostra o número do volume do app', aberta.valor);
+  // E SOME SOZINHA. Sem botão que a feche, o relógio é a única saída.
+  await pg.waitForFunction(() => !document.getElementById('volPill').classList.contains('visivel'),
+    null, { timeout: 4000 }).catch(() => {});
+  // A saída é FADE (140 ms) + `visibility` — a classe sai primeiro; medir no mesmo instante leria
+  // a pílula ainda opaca e reprovaria um sumiço que está acontecendo.
+  await pg.waitForTimeout(260);
+  const devolta = await pilula();
+  checar(devolta.vis === false, 'e some sozinha, sem botão que a feche', devolta);
 
   // ── 6b. A ORDEM DA LINHA DE BAIXO, E A CAIXA DO HISTÓRICO ──────────────
   const linha = await pg.evaluate(() => {
@@ -1367,7 +1327,7 @@ try {
       selo: vis('.pv-fabs--base'),
       seta: vis('#pvRecolherBtn'),
       castDaPrevia: vis('#pvCastBtn'),
-      teclaPropria: vis('#simpleNivel'),
+      teclaPropria: vis('#simpleTela'),
       semFaixaDePrevia: document.getElementById('simpleStage') === null,
       semBuscar: document.getElementById('simpleSearchBtn') === null,
       previaFora: document.querySelector('.preview').closest('.simple') === null,
@@ -1524,22 +1484,20 @@ try {
   }
   await pg.setViewportSize({ width: 430, height: 900 });
 
-  // B · O FADER, recolhida.
+  // B · A PÍLULA, com a prévia RECOLHIDA (v1.13.57).
+  //
+  // A prévia recolhida muda a FAIXA da prévia, e o fader de antes era um item dela — obrigava a
+  // caber numa tira de 43 px. A pílula não pertence a essa faixa: o lugar dela é medido contra o
+  // transporte, e é isso que esta metade trava.
   await recolher(true);
   await pg.evaluate(() => peekVolume());
-  await pg.waitForFunction(() => {
-    const t = getComputedStyle(document.querySelector('.fader-wrap')).transform;
-    return t === 'none' || t === 'matrix(1, 0, 0, 1, 0, 0)';
-  }, null, { timeout: 5000 }).catch(() => {});
-  const fa = await faderCx();
-  checar(fa.fader.vis && perto(fa.fader.topo, fa.pv.topo) && perto(fa.fader.base, fa.pv.base),
-    'RECOLHIDA, o fader ocupa exatamente a faixa da prévia — a tira, não a altura de antes',
-    { fader: [fa.fader.topo, fa.fader.base], pv: [fa.pv.topo, fa.pv.base] });
-  checar(fa.fader.dir <= fa.pv.esq + 1 && fa.ant.vis === false && fa.prox.vis,
-    'e continua À ESQUERDA, no lugar do voltar, com o passar slide no ar', fa);
-  await pg.evaluate(() => fecharFader());
-  await pg.waitForFunction(() => !document.querySelector('.deck').classList.contains('vol-open'),
-    null, { timeout: 5000 }).catch(() => {});
+  await pg.waitForTimeout(150);
+  const fa = await pilula();
+  checar(fa.vis && fa.noDeck === false,
+    'RECOLHIDA a prévia, a pílula acende no mesmo lugar — ela não pertence à faixa da prévia', fa);
+  checar(fa.base <= fa.trTopo + 0.6,
+    'e continua acima do transporte', { pilula: fa.base, transporte: fa.trTopo });
+  await pg.evaluate(() => esconderPilula());
   await recolher(false);
 
   // C · O MODO FÁCIL NÃO TEM A SETA (v1.11.11): sem prévia não há o que recolher,

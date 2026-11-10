@@ -732,8 +732,10 @@ toque, some sozinha) e **translúcida** (`.72`).
 **E O MODELO TEM TRÊS COMPANHEIRAS, nos dois modos** (v1.12.41 no Modo Fácil,
 v1.12.42 no avançado): o NOME da mídia numa faixa no topo (`#pvFsTopo`), a LINHA
 DO TEMPO numa faixa na base (`#pvFsBase`, o mesmo `ligarBarraDeTempo` da barra do
-card, escrita por `renderFsTempo`) e o VOLUME em pé na borda esquerda
-(`#pvVolume`). As duas faixas reservam à direita o recuo do botão do canto
+card, escrita por `renderFsTempo`). O VOLUME não é mais uma quarta peça da tela
+cheia: desde a v1.13.57 quem responde é a PÍLULA única (`#volPill`), que em tela
+cheia é movida para dentro da `.preview` (`casaDaPilula`) acima do transporte da
+projeção. As duas faixas reservam à direita o recuo do botão do canto
 (`--fs-recuo`), e é por isso que o sair e a cortina moram NA LINHA delas sem
 cobrir nada. Pedido do operador: *"unificar o modelo do modo de tela cheia do
 modo simples, também para o modo avançado … botões como anterior e próximo vão
