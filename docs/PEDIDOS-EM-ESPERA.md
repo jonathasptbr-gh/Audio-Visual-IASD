@@ -13,7 +13,7 @@ v1.13.50), **renumerada do zero** (o Pacote 1 é o de maior prioridade) e
 nota é item a item. Nesta revisão três pedidos saíram inteiros (os antigos 1.1,
 1.3 e 1.4), um foi reduzido (o antigo 4.1 virou o 11.1 de hoje), o antigo 11.1
 ficou só com o que as revisões não cobriram, e o cache do antigo 9.3 já tinha
-saído na v1.13.50. O rastro está ao fim. **Os Pacotes 1 e 2 saíram** — o 1 na v1.13.51 e o 2 na v1.13.52 (2026-11-09); os que
+saído na v1.13.50. O rastro está ao fim. **Os Pacotes 1, 2 e 3 saíram** — o 1 na v1.13.51, o 2 na v1.13.52 (2026-11-09) e o 3 na v1.13.56; os que
 ficam MANTÊM a numeração — renumerar de novo custaria mais que o buraco, e o
 "Mapa da numeração antiga" continua valendo para as referências velhas.
 
@@ -36,7 +36,6 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 
 | pacote | nota | tipo | área |
 |---|---|---|---|
-| **3** — Playlist: o item que não entra ao trocar de modo | 12 (I4×U3) | defeito a confirmar | só web |
 | **4** — Modo Fácil: volume, coleções e Configurações | 8 (I4×U2) | pedido | só web, salvo se a captura sempre ligada pedir o `MainActivity` |
 | **5** — Itinerário: a abertura antes do primeiro evento | 8 (I4×U2) | pedido | só web, depois de planejar |
 | **6** — Link do YouTube: os detalhes no oferecimento | 6 (I3×U2) | pedido | Kotlin + web (APK/Release) |
@@ -82,8 +81,6 @@ ordem; a fila é dele.
 
 | # | pacote · pedido | tipo | I | U | nota | entrega |
 |---|---|---|---|---|---|---|
-| **3** | **Playlist: o item que não entra ao trocar de modo** | defeito | 4 | 3 | **12** | web |
-| 3.1 | o item iniciado no Fácil não entra na fila no Avançado | | 4 | 3 | 12 | web |
 | **4** | **Modo Fácil: volume, coleções e Configurações** | pedido | 4 | 2 | **8** | web |
 | 4.1 | indicador de volume flutuante + botão de tela cheia | | 4 | 2 | 8 | web |
 | 4.2 | as coleções em "Diversos" e os elementos fixos | | 3 | 2 | 6 | web |
@@ -109,28 +106,6 @@ ordem; a fila é dele.
 | 13.1 | controle de slides + compartilhar itinerário/cronograma | | 4 | 1 | 4 | estudo |
 | 13.2 | transmissão ao vivo | | 3 | 1 | 3 | estudo |
 | 13.3 | app no Windows + layout de paisagem | | 3 | 1 | 3 | estudo |
-
----
-
-## Pacote 3 — Playlist: o item que não entra ao trocar de modo
-
-**Nota 12 (I4 × U3) · defeito a confirmar · só web**
-
-**Onde:** os caminhos `simple*` × o `send`/fila do modo avançado; a remontagem da
-playlist na troca de modo.
-
-### 3.1 O item iniciado no Fácil não entra na fila no Avançado
-
-*"O problema do item que não entra limpando a playlist, é quando o item é
-iniciado no modo simples e depois se vai para o modo avançado."* (2026-11-07
-10:38).
-
-Defeito relatado (a confirmar): um item iniciado no Modo Fácil e, depois da troca
-para o Modo Avançado, não entra na playlist ao "limpar" (a substituição da fila).
-Suspeita: a troca de modo reconstrói a playlist e o item em curso perde o vínculo
-com a fila. Reproduzir a sequência exata (iniciar no Fácil → trocar para o
-Avançado → limpar a playlist → o item não aparece) e achar onde a fila é
-remontada na troca. Oráculo de Chromium com essa sequência.
 
 ---
 

@@ -49,7 +49,15 @@ if [ ${#arquivos[@]} -gt 0 ]; then
   done
   for f in "${arquivos[@]}"; do
     base=$(basename "$f")
-    vizinhos=$(grep -lF "$base" tools/*.mjs 2>/dev/null | grep -vE '/(arnes|checar|sem-rede)\.mjs$' || true)
+    # OS MÓDULOS DE APOIO E A FERRAMENTA MANUAL FICAM DE FORA. `arnes`, `checar`
+    # e `sem-rede` não são oráculos; `pares-de-comentario` é FERRAMENTA e exige
+    # argumento (`<arquivo> [ref]`) — rodada sem nenhum ela imprime o uso e sai
+    # 2, o que o portão leria como vizinho reprovado em TODO lote que tocasse um
+    # arquivo citado no texto dela. É a mesma exclusão que a "lista do CI" já faz
+    # (CLAUDE.md, §Os oráculos), e ela mora aqui pelo mesmo motivo de sempre: a
+    # régua é uma só.
+    vizinhos=$(grep -lF "$base" tools/*.mjs 2>/dev/null \
+      | grep -vE '/(arnes|checar|sem-rede|pares-de-comentario)\.mjs$' || true)
     for v in $vizinhos; do
       if timeout 300 node "$v" >/dev/null 2>&1; then
         echo "  ok   vizinho: $v"

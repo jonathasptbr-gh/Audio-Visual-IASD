@@ -415,7 +415,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.55';
+const WEB_VERSION = '1.13.56';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -21857,7 +21857,11 @@ async function resolverSemana(rec, daFila) {
   semanaPendente = { virtualId: rec.id, yt: epi.id_music };
   marcarCarregando(rec.id, true);
   try {
-    await ytAcao(serieComoYoutube(coll, epi), 'tocar', null, false, ytAlturaPadrao());
+    // `naFila: false` — A FILA JÁ É DESTE ITEM, e o item dela é o VIRTUAL (o
+    // `semanaAcao` o pôs lá): quem projeta é o ARQUIVO do episódio, mas trocar a
+    // fila por ele apagaria a âncora do "no ar" e o próximo do ⏭. Ver o funil
+    // do `ytAcaoInterno`.
+    await ytAcao(serieComoYoutube(coll, epi), 'tocar', null, false, ytAlturaPadrao(), { naFila: false });
   } finally { marcarCarregando(rec.id, false); }
   // O episódio novo entra na lista de RETENÇÃO já agora — e não "pela rotina", que
   // só reescreve a lista (ver `serieReterBaixado`: a rodada enfileirada pode
@@ -25621,7 +25625,11 @@ async function resolverLinkInterno(rec) {
 //
 // Só no `tocar`: os outros destinos não vão ao telão, e interromper a cena para
 // guardar um vídeo numa lista seria o oposto do que o toque pediu.
-async function ytAcao(r, destinos, btn, somenteAudio, altura) {
+//
+// `opts` atravessa para o `extra` do `ytAcaoInterno` (hoje só o `naFila`): quem
+// NÃO representa um toque — o caminho do vídeo da semana, que já pôs o item
+// virtual na fila — diz isso aqui, em vez de o `ytAcao` adivinhar pelo estado.
+async function ytAcao(r, destinos, btn, somenteAudio, altura, opts) {
   const alvos = typeof destinos === 'string' ? [destinos] : (destinos || []);
   const tocar = alvos.includes('tocar');
   // A BARRA DO TOQUE À TELA (v1.12.36) nasce no TOQUE — o preparo conta — e é
@@ -25634,7 +25642,8 @@ async function ytAcao(r, destinos, btn, somenteAudio, altura) {
     cartao = cederOPalco(r.name || 'o vídeo');
   }
   try {
-    return await ytAcaoInterno(r, destinos, btn, somenteAudio, altura, { cartao, barra });
+    return await ytAcaoInterno(r, destinos, btn, somenteAudio, altura,
+      { cartao, barra, ...(opts || {}) });
   } finally {
     // O cartão do DOWNLOAD (aberto por `ytArquivo` no meio do caminho) segura o
     // próprio contador, então soltar o meu não apaga a legenda dele — nem a
@@ -25821,6 +25830,20 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura, extra) {
   // operador projeta outra coisa no meio. O arquivo já está guardado — o que
   // não pode é subir ao palco por cima da cena de outro.
   if (tocar && projecaoSeq === senhaDoToque) {
+    // ===== O QUE ENTRA EM CENA VIRA A FILA (v1.13.56) =====
+    //
+    // "Tocar agora" é o MESMO funil de um item comum (`projetarItem`) e do
+    // vídeo da semana (v1.13.37): a fila passa a ser SÓ este item. Sem isto o
+    // arquivo subia ao palco com a fila ANTERIOR — o item em curso não aparecia
+    // nela (o relato: iniciado no Modo Fácil, não estava na fila ao ir para o
+    // Avançado), e o ⏮/⏭ seguiam uma sequência que não era a da cena.
+    //
+    // **A EXCEÇÃO É DO VÍDEO DA SEMANA, e por isso é declarada e não adivinhada
+    // aqui**: naquele caminho a fila JÁ contém o item VIRTUAL (`semanaAcao` o
+    // pôs lá), e é ele que `ancoraDaFila` procura para o "no ar" e o avanço
+    // continuarem certos — trocá-lo pelo ARQUIVO do episódio quebraria os dois.
+    // Ver o `naFila: false` do `resolverSemana`.
+    if (!(extra && extra.naFila === false)) await replacePlaylistWith(rec);
     // A mídia avulsa não está em `libItems` nem em `plItems`, então quem
     // resolve o nome dela é o `send` (que cai no `getMedia`).
     faixaPendente = r.__origemFaixa || null;
