@@ -342,7 +342,9 @@ limpa**: aparelhos que abriram o app no dia (o farol), com a média de 7 dias
 tracejada. Em volta dela, quatro leituras que saem da mesma série:
 
 - **Agora** — o contador do OTA dividido por 240 (primeiro plano) e 30 (segundo),
-  sempre um intervalo, e só quando a última amostra tem até 3 h;
+  sempre um intervalo. Até 3 h ele diz "nesta hora"; acima disso (o agendador
+  do GitHub entrega ~4 amostras por dia, não 24) ele **diz a janela** em vez de
+  fingir; acima de 12 h, não aparece;
 - **Quando** — média por dia da semana (o sábado aparece) e por hora do dia,
   esta última como faixa;
 - **A base atual** — adoção por versão e em quantos dias cada uma chegou à

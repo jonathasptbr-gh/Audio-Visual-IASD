@@ -168,6 +168,7 @@
   var dia = function (t) { return String(t).slice(0, 10); };
   var diaBr = function (d) { var p = d.split('-'); return p[2] + '/' + p[1]; };
   var DIAS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  var hm = function (t) { return new Date(t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); };
 
   function erro(msg, detalhe) {
     pagEl.innerHTML = '<h1>Alcance do app</h1>'
@@ -359,18 +360,31 @@
     var a = am[am.length - 2], b = am[am.length - 1];
     var dt = (new Date(b.t) - new Date(a.t)) / 3600000;
     var d = (b.manifesto || 0) - (a.manifesto || 0);
-    if (dt <= 0 || dt > 3 || d < 0) {
+    if (dt <= 0 || d < 0) {
+      return base + '<p class="sub">Sem leitura — o manifesto foi republicado '
+        + 'entre as duas amostras e o contador recomeçou.</p>';
+    }
+    // ACIMA DE 12 h a janela deixa de ser "agora" — e o painel diz isso em vez
+    // de esticar a palavra.
+    if (dt > 12) {
       return base + '<p class="sub">Sem leitura recente — a última amostra tem '
-        + 'mais de 3 h, e este medidor só vale para intervalos curtos.</p>';
+        + 'mais de 12 h. O agendador do GitHub atrasa, e este medidor só vale '
+        + 'para intervalos curtos.</p>';
     }
     var lo = d / 240 / dt, hi = d / 30 / dt;
+    // O agendador do GitHub entrega ~4 amostras por dia, não 24: quando o
+    // intervalo passa de 3 h, a janela é DITA em vez de fingir "nesta hora".
+    var quando = dt <= 3 ? 'nesta hora'
+      : 'na janela de ' + dec(dt) + ' h (entre ' + hm(a.t) + ' e ' + hm(b.t) + ')';
     return base
       + '<div class="caixa agora">'
       + '<div class="kpi-n">' + dec(lo) + '–' + dec(hi) + '</div>'
-      + '<div class="kpi-r">aparelhos com o app aberto nesta hora (estimativa)</div>'
+      + '<div class="kpi-r">aparelhos com o app aberto ' + esc(quando) + ' — estimativa</div>'
       + '</div>'
       + '<div class="nota">Não é um farol: é o próprio OTA. <b>Inclui o uso '
-      + 'próprio</b> e as consultas do CI quando ele publica.</div>';
+      + 'próprio</b> e as consultas do CI quando ele publica.'
+      + (dt > 3 ? ' A janela aparece porque as amostras chegam com atraso.' : '')
+      + '</div>';
   }
 
   // ===================================================================
