@@ -43,7 +43,10 @@ mesmo estado. Ver "OTA" para o que o nome versionado do zip fecha.
 ### Os oráculos
 
 Antes de publicar: `node --check` em todo `.js` de `assets/web`, validação do
-`version.json`, e a suíte abaixo.
+`version.json`, e a suíte abaixo. **Na máquina de quem escreve, o portão é um
+comando:** `tools/portao.sh` (Node puro + a Sanidade extraída DESTE workflow +
+a cobertura nos dois sentidos) — o texto do workflow não se copia para lugar
+nenhum.
 
 #### O ARNÊS: `tools/arnes.mjs` e `tools/checar.mjs`
 
@@ -63,7 +66,7 @@ herdados por cópia em vez de escolhidos.
   oráculo pedi-la.
 - **`checar` mora em `tools/checar.mjs`, SEM uma linha de `import`**, e a
   separação NÃO é organização: o `arnes.mjs` importa o Playwright, e no workflow
-  os 26 oráculos de Node puro rodam no passo "Sanidade da base web", que vem
+  os oráculos de Node puro rodam no passo "Sanidade da base web", que vem
   **antes** do `npm ci`. Um deles importando o arnês passaria na máquina de quem
   escreve (onde `node_modules/` existe) e falharia só no runner, no passo sem
   `continue-on-error` — "a atualização não chega", por um
