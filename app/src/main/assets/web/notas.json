@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.13.63",
+    "itens": [
+      "A barra de volume agora é uma barra em pé, encostada na borda esquerda, acima dos controles."
+    ]
+  },
+  {
     "versao": "1.13.62",
     "itens": [
       "O título Liturgia volta ao lugar de antes e passa a ter o tamanho do título das coleções."

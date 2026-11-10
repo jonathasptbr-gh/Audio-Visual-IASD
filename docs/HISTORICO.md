@@ -36,6 +36,7 @@ apagada da que a criou.
 - **as capturas novas do app (sem versão nova; só `site/`)** — as 14 telas do carrossel foram trocadas pelas do app na v1.13.62 (enviadas pelo operador), em WebP 800×1632; saíram as quatro sem captura nova (destinos, série, sorteio, tempo) e entraram Liturgia, Hinário por tema, Ferramentas e Transferir a biblioteca; o cartão do link foi refeito com a tela nova
 - **o site redesenhado (sem versão nova; só `site/`)** — página nova, mobile-first: hero em duas colunas, 12 recursos, carrossel de telas com pontos, dois modos e o passo a passo; o texto foi revisto contra o código (entra a Liturgia, entra o Cronograma com arrasto, sai a contagem que não existe) e o cartão do link foi refeito no desenho novo
 - **revisão da fachada (sem versão nova; só docs e site)** — o README perde o manual (compilar e índice de docs saem), o `CLAUDE.md` fica com uma árvore só e lista os apêndices, e o site ganha o cartão do link e volta a aparecer sem JavaScript
+- **v1.13.63** — a pílula de volume vira BARRA EM PÉ na borda ESQUERDA, acima do transporte (`--pill-bottom` medido), no lugar da cápsula deitada e centrada; `video-tela-cheia` H7/H9/I4 e E5 passam a medir o eixo (só web)
 - **v1.13.62** — desfaz o alinhamento da barra da Liturgia (volta o recuo de antes) e iguala o TAMANHO do título ao das coleções (`var(--fs-xl)`, o da `.coll-group-bar`); medido 20,368px = 20,368px (só web)
 - **v1.13.61** — a barra da Liturgia na COLUNA DO TEXTO: título e data recuam `calc(var(--faixa-coluna-texto) - .5rem)`, alinhados com o nome das linhas (só web)
 - **v1.13.60** — a LITURGIA no Modo Fácil (um bloco só, na ordem Informativo · abertura infantil 533 · Provai e Vede · ofertório 572, no lugar do "Este sábado" e do bloco dos fixos) e a fusão do "Diversas" valendo também no MODO AVANÇADO; bloco 12 do `lista-da-biblioteca` (só web)
@@ -801,6 +802,26 @@ hero ficava em `opacity:0` (medido), porque o `try/catch` do rodapé cobre a fal
 do IntersectionObserver, não a falta de JS. O comentário do `/registro/` que
 citava um `AUDITORIA-DE-USO-PLANO.md` inexistente passou a apontar o
 `MEDICAO-DE-ALCANCE.md`.
+
+## v1.13.63 — a barra de volume em pé, na borda esquerda
+
+**Pedido do operador**, **só web**: `SHELL_VERSION` 85, `minShell` 83, **sem `shellTag`**. Degrau
+CORREÇÃO.
+
+*"ajustar a barra de volume que hoje é flutuante para que ela seja uma barra vertical ao invés de
+horizontal? Ela deve ficar no canto esquerdo da tela… posicionada na altura que fique acima dos
+controles do modo avançado, para que não sobreponha os controles"*.
+
+A `#volPill` deixa de ser cápsula deitada e centrada: `flex-direction: column`, encostada em
+`left: max(6px, env(safe-area-inset-left))`, e o trilho volta ao eixo NATIVO do `.fader`
+(`writing-mode: vertical-lr`, de baixo para cima) — os overrides horizontais da v1.13.57 saíram. A
+ALTURA continua vindo de `lugarDaPilula` (`--pill-bottom` = a base do transporte à vista), então a
+barra termina logo acima do deck e cresce para cima: MEDIDO a 430×900, base em 633 contra o topo do
+deck em 643. Em tela cheia o nó segue MOVIDO para dentro da `.preview` (`casaDaPilula`).
+
+**Oráculos:** `video-tela-cheia` — H7, H9, I4 e E5 mediam "horizontal, centrada"; agora medem o
+eixo em pé e a borda esquerda (`h > w`, `l <= 8`). `controles-layout` (a pílula acima do
+transporte), `tela-inteira` e `modo-simples-teclas` seguem verdes sem mudar asserção.
 
 ## v1.13.62 — o título da Liturgia no tamanho do título das coleções
 

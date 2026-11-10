@@ -1115,18 +1115,25 @@ body {
      retorno do volume ("na busca da Biblioteca … as teclas físicas não mostram nada").
      ABAIXO só a cortina de abertura (500), que é dona do boot. Com 40 ela ficava atrás da
      tela do Modo Fácil — invisível e sem receber o dedo (achado do oráculo). */
-  position: fixed; left: 50%; bottom: var(--pill-bottom, 1rem); z-index: 350;
-  display: flex; align-items: center; gap: var(--sp-4);
-  padding: .55rem .9rem;
+  /* BARRA VERTICAL, NA BORDA ESQUERDA (v1.13.63), pedido do operador: *"ajustar a barra de volume
+     que hoje é flutuante para que ela seja uma barra vertical … no canto esquerdo da tela …
+     posicionada na altura que fique acima dos controles do modo avançado"*. O `--pill-bottom` é o
+     mesmo que já era medido (`lugarDaPilula`): a base do transporte à vista — então ela termina
+     logo ACIMA do deck e cresce para cima, sem cobrir botão nenhum. O recuo esquerdo respeita o
+     recorte da câmera (`safe-area-inset-left`). */
+  position: fixed; left: max(6px, env(safe-area-inset-left, 0px)); bottom: var(--pill-bottom, 1rem);
+  z-index: 350;
+  display: flex; flex-direction: column; align-items: center; gap: var(--sp-3);
+  padding: .6rem .45rem;
   background: var(--bar); color: var(--text);
   border-radius: var(--radius-pill); box-shadow: 0 6px 18px var(--shadow-card);
   opacity: 0; visibility: hidden; pointer-events: none;
-  transform: translate(-50%, .4rem);
+  transform: translateX(-.4rem);
   transition: opacity .14s ease, transform .14s ease, visibility 0s linear .14s;
 }
 .vol-pill.visivel {
   opacity: 1; visibility: visible; pointer-events: auto;
-  transform: translate(-50%, 0); transition-delay: 0s;
+  transform: translateX(0); transition-delay: 0s;
 }
 .vol-pill.na-previa { bottom: calc(env(safe-area-inset-bottom, 0px) + 5.5rem); }
 .vol-pill svg { display: block; flex: none; width: 18px; height: 18px; color: var(--accent); }
@@ -1136,20 +1143,13 @@ body {
 .vol-pill .ico-alt { display: none; }
 .vol-pill.mudo .ico-base { display: none; }
 .vol-pill.mudo .ico-alt { display: block; }
-.vol-pill-trilho { position: relative; flex: 0 1 9rem; width: 9rem; height: var(--fader-cap); }
-/* O MESMO `<input>` de sempre, com o eixo trocado: HORIZONTAL, e o preenchimento corre da
-   esquerda para a direita (a conta do `--fader-stop` é a mesma, só muda o eixo). */
-.vol-pill .fader { writing-mode: horizontal-tb; direction: ltr; }
-.vol-pill .fader::-webkit-slider-runnable-track {
-  background: linear-gradient(to right,
-    var(--accent) 0 var(--fader-stop), var(--surface) var(--fader-stop) 100%);
-}
-.vol-pill .fader::-webkit-slider-thumb {
-  width: var(--fader-cap); height: var(--fader-cap); border-radius: 50%;
-}
+/* O TRILHO EM PÉ: é o eixo NATIVO do `.fader` (vertical, de baixo para cima), então a pílula
+   volta a ele sem override — a conta do `--fader-stop` é a mesma, só muda o eixo. */
+.vol-pill-trilho { position: relative; flex: none; width: var(--fader-cap); height: 9rem; }
+.vol-pill .fader { width: 100%; height: 100%; }
 .vol-pill .fader-value {
-  position: static; flex: none; width: 2.4ch; height: auto; color: var(--text);
-  justify-content: flex-end; font-variant-numeric: tabular-nums;
+  position: static; flex: none; width: auto; height: auto; color: var(--text);
+  font-variant-numeric: tabular-nums; font-size: var(--fs-sm);
 }
 /* O FADER OCUPA A COLUNA INTEIRA, como o botão que ele substitui: a coluna não
    muda de espessura ao acender, só de conteúdo. Isso exige desenhar o trilho

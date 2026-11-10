@@ -229,8 +229,9 @@ try {
     'H5 · e soltar na metade leva a mídia à METADE da duração (um `seek` só, pelo caminho do card)', JSON.stringify(h4));
   const h6 = await esperar(pg, () => !document.getElementById('pvFsCtl').classList.contains('visivel'), null, 6000);
   checar(h6 === true, 'H6 · e solto o dedo o relógio volta a correr: tudo apaga sozinho', porque(h6));
-  // H7 · (v1.13.57) A PÍLULA DENTRO DA PRÉVIA, HORIZONTAL E CENTRADA, entre o título e a linha do
-  // tempo — o lugar da barra vertical da borda esquerda (v1.12.41) neste lote.
+  // H7 · (v1.13.63) A PÍLULA DENTRO DA PRÉVIA, EM PÉ NA BORDA ESQUERDA, entre o título e a linha
+  // do tempo — ela voltou a ser vertical a pedido do operador, e no app ela pousa onde a barra da
+  // tela cheia (v1.12.41) sempre morou.
   // A geometria não depende de estar aceso: a premissa da duração é reescrita NO MESMO quadro
   // (sob carga, um status da prévia com a mídia de 64 bytes a zera e a linha do tempo some).
   const [v7, f7] = await pg.evaluate(() => {
@@ -245,9 +246,9 @@ try {
       casa: pil && pil.parentNode === document.getElementById('preview') ? 'previa' : 'outra',
       vw: innerWidth }), { nome: r('pvFsNome'), hit: r('pvFsTempoHit') }];
   });
-  checar(v7.visivel && v7.casa === 'previa' && v7.naPrevia && v7.w > v7.h
-    && Math.abs((v7.l + v7.r) / 2 - v7.vw / 2) <= 2 && v7.t >= f7.nome.b && v7.b <= f7.hit.t,
-    'H7 · no Modo Fácil a pílula de volume mora DENTRO da prévia: HORIZONTAL, centrada, entre o título e a linha do tempo',
+  checar(v7.visivel && v7.casa === 'previa' && v7.naPrevia && v7.h > v7.w
+    && v7.l <= 8 && v7.t >= f7.nome.b && v7.b <= f7.hit.t,
+    'H7 · no Modo Fácil a pílula de volume mora DENTRO da prévia: EM PÉ, na borda esquerda, entre o título e a linha do tempo',
     JSON.stringify({ v7, nome: f7.nome, hit: f7.hit }));
   // H8 · sem duração conhecida, a linha do tempo some
   await pg.evaluate(() => { seekEl.disabled = true; seekEl.max = '0'; renderSimpleTime(); });
@@ -399,13 +400,14 @@ try {
   checar(b3.exit && b3.play && b3.view && b3.prev && b3.next,
     'B3 · no avançado a coluna continua com os CINCO botões', JSON.stringify(b3));
 
-  // H9 · (v1.13.57) O MESMO modelo do Modo Fácil: no avançado, EM TELA CHEIA, a pílula também é
-  // MOVIDA para dentro da prévia — é UMA peça, e o nome no topo continua onde estava.
+  // H9 · (v1.13.63) O MESMO modelo do Modo Fácil: no avançado, EM TELA CHEIA, a pílula também é
+  // MOVIDA para dentro da prévia — é UMA peça, em pé na borda esquerda, e o nome no topo continua
+  // onde estava.
   await pa.evaluate(() => { peekVolume(); });
   const h9 = await lerPilula(pa);
   const h9f = await lerFaixas(pa);
   checar(h9.existe === true && h9.visivel === true && h9.casa === 'previa' && h9.naPrevia === true
-    && h9.w > h9.h && h9.umaSo === true && h9.barraDaTelaCheia === false
+    && h9.h > h9.w && h9.l <= 8 && h9.umaSo === true && h9.barraDaTelaCheia === false
     && h9f.topo.display !== 'none' && h9f.texto === 'Provai e Vede',
     'H9 · (v1.13.57) no avançado a MESMA pílula é movida para dentro da prévia, e o NOME segue no topo',
     JSON.stringify({ h9, topo: h9f.topo.display, texto: h9f.texto }));
@@ -430,7 +432,7 @@ try {
     return { topo: Math.round(r.top), base: Math.round(r.bottom) };
   });
   checar(e5.existe === true && e5.visivel === true && e5.casa === 'corpo' && e5.naPrevia === false
-    && e5.num === '35' && e5.w > e5.h && e5.faderDoDeck === false && e5.umaSo === true,
+    && e5.num === '35' && e5.h > e5.w && e5.faderDoDeck === false && e5.umaSo === true,
     'E5 · no avançado, fora da tela cheia, mudar o volume acende a pílula NO CORPO (o fader do deck saiu), com o número',
     JSON.stringify(e5));
   const opac = await esperar(pa, () => parseFloat(getComputedStyle(document.getElementById('volPill')).opacity) > 0.9, null, 3000);
@@ -499,10 +501,10 @@ try {
       checar(g.base.vis && g.exit.cy > g.base.t && g.exit.cy < g.base.b && g.hit.r <= g.exit.l && g.dur.r <= g.exit.l && g.exitNoTopo,
         `I3 · ${rot} · na linha do tempo, sem ser coberto por ela e sem cobrir a duração`, j);
       checar(!!g.vol && g.vol.vis && g.volCasa === 'previa' && g.volNaPrevia === true && g.volUmaSo === true
-        && g.vol.w > g.vol.h && Math.abs(g.vol.cx - g.vw / 2) <= 1
+        && g.vol.h > g.vol.w && g.vol.l <= 8
         && g.vol.t >= g.nome.b && g.vol.b <= g.hit.t
         && g.nomeTxt === 'Provai e Vede' && g.nome.h > 0,
-        `I4 · ${rot} · o NOME no topo e a PÍLULA de volume DENTRO da prévia, horizontal e centrada, entre o título e a linha do tempo`,
+        `I4 · ${rot} · o NOME no topo e a PÍLULA de volume DENTRO da prévia, EM PÉ na borda esquerda, entre o título e a linha do tempo`,
         j);
       const centro = modo === 'simple' ? [g.play] : [g.prev, g.play, g.next];
       checar(!!g.vol && centro.every((c) => !sobre(c, g.vol) && !sobre(c, g.base) && !sobre(c, g.nome) && c.t >= g.nome.b && c.b <= g.hit.t),
