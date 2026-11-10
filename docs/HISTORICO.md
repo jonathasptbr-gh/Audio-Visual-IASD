@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.13.62** — desfaz o alinhamento da barra da Liturgia (volta o recuo de antes) e iguala o TAMANHO do título ao das coleções (`var(--fs-xl)`, o da `.coll-group-bar`); medido 20,368px = 20,368px (só web)
 - **v1.13.61** — a barra da Liturgia na COLUNA DO TEXTO: título e data recuam `calc(var(--faixa-coluna-texto) - .5rem)`, alinhados com o nome das linhas (só web)
 - **v1.13.60** — a LITURGIA no Modo Fácil (um bloco só, na ordem Informativo · abertura infantil 533 · Provai e Vede · ofertório 572, no lugar do "Este sábado" e do bloco dos fixos) e a fusão do "Diversas" valendo também no MODO AVANÇADO; bloco 12 do `lista-da-biblioteca` (só web)
 - **v1.13.59** — "Diversas" leva só Adoradores e Cantores: os hinários voltam a ser cards da raiz e cada outra categoria tem o grupo dela (`DISSOLVIDAS_EM_DIVERSAS`); um grupo só de Diversas, sem álbum repetido; bloco 12 do `lista-da-biblioteca` (só web)
@@ -674,6 +675,23 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.13.62 — o título da Liturgia no tamanho do título das coleções
+
+**Ajuste pedido pelo operador**, **só web**: `SHELL_VERSION` 85, `minShell` 83, **sem `shellTag`**.
+Degrau CORREÇÃO.
+
+*"Pode desfazer o novo alinhamento do título liturgia, volte para oque era antes. Apenas ajuste o
+tamanho de sua fonte para que fique no mesmo tamanho dos títulos das coleções abaixo"*.
+
+Duas coisas, e só duas: (1) o `.semana-raiz-cab` volta a `padding: 0 0 .35rem` — o recuo de antes da
+v1.13.61, com o título e a data pousados no recuo do bloco; (2) o `.serie-destaque-rot` do bloco da
+Liturgia passa a `font-size: var(--fs-xl)`, que é o MESMO token da `.coll-group-bar` (o título de uma
+coleção). MEDIDO a 430×900: título **20,368 px** e título de coleção **20,368 px**. Peso, caixa alta,
+espaçamento e cor de acento ficam como estavam — o pedido foi só o tamanho.
+
+**Oráculos:** os três que medem esse bloco (`serie-no-modo-facil`, `semana-item` e
+`lista-da-biblioteca`) seguem verdes sem mudança de asserção.
 
 ## v1.13.61 — a barra da Liturgia na coluna do texto
 

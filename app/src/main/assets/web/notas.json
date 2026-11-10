@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.13.62",
+    "itens": [
+      "O título Liturgia volta ao lugar de antes e passa a ter o tamanho do título das coleções."
+    ]
+  },
+  {
     "versao": "1.13.61",
     "itens": [
       "No bloco Liturgia, o título e a data passam a alinhar com a coluna do nome das músicas."
