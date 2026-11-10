@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o site redesenhado (sem versão nova; só `site/`)** — página nova, mobile-first: hero em duas colunas, 12 recursos, carrossel de telas com pontos, dois modos e o passo a passo; o texto foi revisto contra o código (entra a Liturgia, entra o Cronograma com arrasto, sai a contagem que não existe) e o cartão do link foi refeito no desenho novo
 - **revisão da fachada (sem versão nova; só docs e site)** — o README perde o manual (compilar e índice de docs saem), o `CLAUDE.md` fica com uma árvore só e lista os apêndices, e o site ganha o cartão do link e volta a aparecer sem JavaScript
 - **v1.13.62** — desfaz o alinhamento da barra da Liturgia (volta o recuo de antes) e iguala o TAMANHO do título ao das coleções (`var(--fs-xl)`, o da `.coll-group-bar`); medido 20,368px = 20,368px (só web)
 - **v1.13.61** — a barra da Liturgia na COLUNA DO TEXTO: título e data recuam `calc(var(--faixa-coluna-texto) - .5rem)`, alinhados com o nome das linhas (só web)
@@ -676,6 +677,35 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## o site redesenhado (sem versão nova; só `site/`)
+
+**A PÁGINA INTEIRA FOI REESCRITA**, e não repintada: mesma paleta (denim, night,
+branco), mesma promessa, outra composição. Mobile-first de verdade — o hero é
+uma coluna no celular e duas no computador, os cartões caem de 2 para 3 colunas,
+e os prints são a maior coisa da tela em qualquer largura. Nenhuma requisição
+externa: fonte do sistema, ícones em SVG inline, imagens as que já existiam.
+
+**O TEXTO FOI CONFERIDO CONTRA O CÓDIGO, e três coisas mudaram de fato:**
+entrou a **Liturgia** (o bloco do Modo Fácil que junta Informativo, abertura
+infantil, Provai e Vede e ofertório na ordem do culto, v1.13.60); o
+**Cronograma** passou a dizer o que ele faz hoje (arrastar para ordenar e o
+aviso do que falta baixar, v1.13.52); e a instalação ganhou a frase que faltava
+— *o app se atualiza sozinho, a versão da página é a da base web*. O que já
+estava certo ficou: 66 livros e 1.189 capítulos, "até três" computadores, o
+Play Protect. O rodapé declara a contagem de uma visita por dia (sem cookie e
+sem identificar ninguém), que é o que o farol faz.
+
+**O QUE NÃO SE TOCOU, porque é o que o deploy e os oráculos dependem:** os três
+placeholders (`{{VERSAO}}`, `{{TAMANHO}}`, `{{URL_APK}}`), a classificação
+binária de Android no `<head>` com falha ABERTA, o farol de visita (uma por dia,
+`v.txt`) e a falha aberta das seções sem JS. O `registro-alcance` continua
+passando sem uma linha de ajuste.
+
+**O QUE NÃO FOI FEITO, e fica dito:** as capturas de tela são de 2026-09-07
+(v1.8.49) e NÃO foram refeitas — elas mostram o Modo Fácil e a Biblioteca de
+antes da v1.13.57. Refazê-las pede o app num aparelho (ou o arnês com o banco
+semeado), e não é trabalho de CSS.
 
 ## revisão da fachada (sem versão nova; só docs e site)
 
