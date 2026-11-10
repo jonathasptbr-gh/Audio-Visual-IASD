@@ -86,6 +86,10 @@ async function abrir(ua) {
 }
 
 const ver = async (pg, sel) => await pg.locator(sel).first().isVisible();
+// O DOWNLOAD tem mais de um botão na página (a barra fina do topo, o herói, o passo do
+// guia), e o PRIMEIRO do DOM pode estar fora da vista numa dobra. A pergunta é "existe
+// algum botão de baixar à vista?", e não "o primeiro está?".
+const algumBaixar = async (pg) => (await pg.locator('.baixar:visible').count()) > 0;
 
 try {
   // =================================================================
@@ -95,11 +99,15 @@ try {
     const { ctx, pg, erros } = await abrir(ua);
     const classe = await pg.evaluate(() => document.documentElement.className);
     checar(classe === 'plat-android', `${nome} no Android é classificado como Android`, classe);
-    checar(await ver(pg, '#guia'), `${nome}: o guia de instalação aparece`);
-    checar(await ver(pg, '.baixar'), `${nome}: o botão de baixar aparece`);
+    // O GUIA mudou de casa no lote do site: o download leva a ele, e a seção passou a ser
+    // `#instalar` (era `#guia`).
+    checar(await ver(pg, '#instalar'), `${nome}: o guia de instalação aparece`);
+    checar(await algumBaixar(pg), `${nome}: o botão de baixar aparece`);
     checar(!(await ver(pg, '.aviso-plat')), `${nome}: e o aviso de plataforma NÃO aparece`);
     // O TAMANHO DO ARQUIVO é atributo do download, e anda com ele.
-    checar(/MB/.test(await pg.locator('.meta').innerText()),
+    // A LINHA DO TAMANHO mudou de casa no lote do site: era a `.meta` da faixa da marca,
+    // hoje é a `.depois` embaixo do botão grande ("12,4 MB · Android 8+ · versão …").
+    checar(/MB/.test(await pg.locator('.depois').first().innerText()),
       `${nome}: e a faixa da marca anuncia o tamanho do arquivo`);
     checar(erros.length === 0, `${nome}: nenhum erro de página`, erros);
     await ctx.close();
@@ -111,7 +119,7 @@ try {
   // demais, que ninguém relata e ninguém explica.
   {
     const { ctx, pg } = await abrir(UA.android);
-    const m = await pg.$eval('#guia', (e) => getComputedStyle(e).marginTop);
+    const m = await pg.$eval('#instalar', (e) => getComputedStyle(e).marginTop);
     checar(m === '0px', 'no Android o guia abre o `main` sem vão de topo herdado dos avisos ocultos', m);
     await ctx.close();
   }
@@ -136,10 +144,10 @@ try {
     // A ASSERÇÃO É SOBRE O QUE SE VÊ. O `<a>` continua no HTML; o que não
     // existe é um caminho até ele — `display:none` o tira da árvore de
     // acessibilidade e da ordem de tabulação junto.
-    checar(!(await ver(pg, '#guia')), `${nome}: o guia de instalação NÃO aparece`);
-    checar(!(await ver(pg, '.baixar')), `${nome}: nenhum botão de baixar aparece`);
+    checar(!(await ver(pg, '#instalar')), `${nome}: o guia de instalação NÃO aparece`);
+    checar(!(await algumBaixar(pg)), `${nome}: nenhum botão de baixar aparece`);
     checar(await ver(pg, '.aviso-plat'), `${nome}: o aviso aparece`);
-    checar(!/MB/.test(await pg.locator('.meta').innerText()),
+    checar((await pg.locator('.depois:visible').count()) === 0,
       `${nome}: e o TAMANHO do arquivo some junto — ele é atributo do download`);
     const m = await pg.$eval('.aviso-plat', (e) => getComputedStyle(e).marginTop);
     checar(m === '0px', `${nome}: o aviso abre o \`main\` sem vão herdado do guia oculto`, m);
@@ -167,7 +175,10 @@ try {
   {
     const { ctx, pg } = await abrir(UA.windows);
     const h2 = await pg.locator('main h2:visible').allInnerTexts();
-    checar(h2.includes('Tudo o que o culto precisa') && h2.includes('Como é na prática'),
+    // OS TÍTULOS são os do site desde o lote de 2026-11-10 ("o sábado" no lugar de "o culto",
+    // e as telas viraram seção própria). A régua não é o texto: é o RESTO da página ficar de pé.
+    checar(h2.includes('Tudo o que o sábado precisa') && h2.includes('As telas do app de verdade')
+      && h2.includes('Simples no sábado, completo quando precisa'),
       'no computador o resto da página continua à vista', h2);
     checar(await ver(pg, '.telas img'), 'inclusive as telas do app');
     await ctx.close();
@@ -183,9 +194,9 @@ try {
   // e sem uma frase dizendo por quê.
   {
     const { ctx, pg } = await abrir(UA.windows);
-    checar(!(await ver(pg, '.baixar')), 'no computador o download está escondido — o ponto de partida');
+    checar(!(await algumBaixar(pg)), 'no computador o download está escondido — o ponto de partida');
     await pg.evaluate(() => { document.documentElement.className = ''; });
-    checar(await ver(pg, '#guia') && await ver(pg, '.baixar'),
+    checar(await ver(pg, '#instalar') && await algumBaixar(pg),
       'e SEM a classe no `<html>` o guia e o download voltam: o filtro FALHA ABERTO');
     checar(!(await ver(pg, '.aviso-plat')),
       'e nenhum aviso é afirmado sem classificação — nada é adivinhado');
