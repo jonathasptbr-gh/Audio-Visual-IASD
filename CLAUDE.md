@@ -57,6 +57,7 @@ tem o resto):
 | [`docs/ESTRUTURA.md`](docs/ESTRUTURA.md) | a árvore anotada do repositório |
 | [`docs/shell/README.md`](docs/shell/README.md) | o HUB do **Kotlin**, um capítulo por subsistema |
 | [`docs/ARQUITETURA-WEB.md`](docs/ARQUITETURA-WEB.md) | o HUB da base web e o mapa dos capítulos |
+| [`docs/arquitetura/MIOLO.md`](docs/arquitetura/MIOLO.md) | **o mapa do `controle.js`**: pergunte nele antes de abrir o arquivo (`node tools/miolo.mjs`) |
 | [`docs/BUILD.md`](docs/BUILD.md) | arnês, prazos, CI, assinatura, backup, a página do site |
 | [`docs/ORACULOS.md`](docs/ORACULOS.md) | **referência**: o que cada oráculo trava |
 | [`docs/HISTORICO.md`](docs/HISTORICO.md) | **apêndice**: a nota de cada versão, por `grep` |

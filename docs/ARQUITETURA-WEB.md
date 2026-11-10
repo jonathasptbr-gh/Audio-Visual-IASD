@@ -18,6 +18,7 @@ para uma pergunta sobre a Bíblia não custar a leitura do Controle inteiro.
 | capítulo | arquivo | quando abrir |
 |---|---|---|
 | Controle — o HUB | [`arquitetura/CONTROLE.md`](arquitetura/CONTROLE.md) | o mapa das partes abaixo, o índice por assunto e as regras do Controle inteiro (feedback, diálogo, teclado virtual) |
+| Controle — o mapa do miolo | [`arquitetura/MIOLO.md`](arquitetura/MIOLO.md) | **antes de abrir o `controle.js`**: as nove fatias, e como perguntar onde uma coisa mora (`node tools/miolo.mjs`) |
 | Controle — modos | [`arquitetura/CONTROLE-MODOS.md`](arquitetura/CONTROLE-MODOS.md) | Modo Fácil × avançado, o modo pela sessão, o modo sem tela, o vídeo do Modo Fácil em tela cheia |
 | Controle — layout | [`arquitetura/CONTROLE-LAYOUT.md`](arquitetura/CONTROLE-LAYOUT.md) | layout geral, transporte, a pílula de volume, os dois botões de slide, os controles dentro do fullscreen |
 | Controle — navegação | [`arquitetura/CONTROLE-NAVEGACAO.md`](arquitetura/CONTROLE-NAVEGACAO.md) | uma tela, duas folhas e uma janela: as portas do rodapé, a folha da Bíblia, a barra da Biblioteca |

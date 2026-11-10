@@ -49,15 +49,16 @@ if [ ${#arquivos[@]} -gt 0 ]; then
   done
   for f in "${arquivos[@]}"; do
     base=$(basename "$f")
-    # OS MÓDULOS DE APOIO E A FERRAMENTA MANUAL FICAM DE FORA. `arnes`, `checar`
-    # e `sem-rede` não são oráculos; `pares-de-comentario` é FERRAMENTA e exige
-    # argumento (`<arquivo> [ref]`) — rodada sem nenhum ela imprime o uso e sai
-    # 2, o que o portão leria como vizinho reprovado em TODO lote que tocasse um
-    # arquivo citado no texto dela. É a mesma exclusão que a "lista do CI" já faz
-    # (CLAUDE.md, §Os oráculos), e ela mora aqui pelo mesmo motivo de sempre: a
-    # régua é uma só.
+    # OS MÓDULOS DE APOIO E AS FERRAMENTAS DE ARGUMENTO FICAM DE FORA. `arnes`,
+    # `checar` e `sem-rede` não são oráculos; `pares-de-comentario` e `miolo` são
+    # FERRAMENTAS e exigem argumento (`<arquivo> [ref]`, `<subcomando>`) — rodadas
+    # sem nenhum elas imprimem o uso e saem 2, o que o portão leria como vizinho
+    # reprovado em TODO lote que tocasse um arquivo citado no texto delas (o
+    # `miolo` cita o `controle.js`, o arquivo mais citado do repositório). É a
+    # mesma exclusão que a "lista do CI" já faz (CLAUDE.md, §Os oráculos), e ela
+    # mora aqui pelo mesmo motivo de sempre: a régua é uma só.
     vizinhos=$(grep -lF "$base" tools/*.mjs 2>/dev/null \
-      | grep -vE '/(arnes|checar|sem-rede|pares-de-comentario)\.mjs$' || true)
+      | grep -vE '/(arnes|checar|sem-rede|pares-de-comentario|miolo)\.mjs$' || true)
     for v in $vizinhos; do
       if timeout 300 node "$v" >/dev/null 2>&1; then
         echo "  ok   vizinho: $v"
