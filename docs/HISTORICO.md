@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **revisão da fachada (sem versão nova; só docs e site)** — o README perde o manual (compilar e índice de docs saem), o `CLAUDE.md` fica com uma árvore só e lista os apêndices, e o site ganha o cartão do link e volta a aparecer sem JavaScript
 - **v1.13.62** — desfaz o alinhamento da barra da Liturgia (volta o recuo de antes) e iguala o TAMANHO do título ao das coleções (`var(--fs-xl)`, o da `.coll-group-bar`); medido 20,368px = 20,368px (só web)
 - **v1.13.61** — a barra da Liturgia na COLUNA DO TEXTO: título e data recuam `calc(var(--faixa-coluna-texto) - .5rem)`, alinhados com o nome das linhas (só web)
 - **v1.13.60** — a LITURGIA no Modo Fácil (um bloco só, na ordem Informativo · abertura infantil 533 · Provai e Vede · ofertório 572, no lugar do "Este sábado" e do bloco dos fixos) e a fusão do "Diversas" valendo também no MODO AVANÇADO; bloco 12 do `lista-da-biblioteca` (só web)
@@ -675,6 +676,28 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## revisão da fachada (sem versão nova; só docs e site)
+
+O repositório é público porque o Pages exige, não porque convide alguém a
+trabalhar nele — e a fachada ainda era de projeto aberto. O `README.md` perdeu o
+que só servia a quem chega para contribuir: a seção "Compilar" (o mesmo comando
+já está no `BUILD.md`), o índice de documentos (o do `CLAUDE.md` é o dono) e a
+repetição da arquitetura, que já está no núcleo. Sobrou o cartão de visita: o que
+é, instalar, licença, contato, e uma linha para o contrato.
+
+**Uma árvore só:** a condensada do `CLAUDE.md` saiu — o `ESTRUTURA.md` é o dono
+do detalhe — e ficaram o mapa de cinco linhas e o link. **Apêndices rotulados:**
+as quatro auditorias dizem no topo que são retrato de uma data, e o índice do
+núcleo passa a listá-las junto do `revisao/REGISTRO.md`.
+
+**No site, dois consertos:** o cartão do link (`og.jpg`, 1200×630, gerado da
+própria página) — o endereço circula por WhatsApp e chegava como texto solto — e
+o `<noscript>` do `.reveal`: com JavaScript desligado a página inteira abaixo do
+hero ficava em `opacity:0` (medido), porque o `try/catch` do rodapé cobre a falta
+do IntersectionObserver, não a falta de JS. O comentário do `/registro/` que
+citava um `AUDITORIA-DE-USO-PLANO.md` inexistente passou a apontar o
+`MEDICAO-DE-ALCANCE.md`.
 
 ## v1.13.62 — o título da Liturgia no tamanho do título das coleções
 

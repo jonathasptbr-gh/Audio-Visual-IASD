@@ -65,6 +65,12 @@ tem o resto):
 | [`docs/ACHADOS-EM-ABERTO.md`](docs/ACHADOS-EM-ABERTO.md) | defeitos CONFIRMADOS em aberto — hoje **nenhum** |
 | [`docs/PEDIDOS-EM-ESPERA.md`](docs/PEDIDOS-EM-ESPERA.md) | a fila do operador, em pacotes |
 
+**Apêndices congelados** — `docs/AUDITORIA-2026-08.md`,
+`docs/AUDITORIA-2026-09-11.md`, `docs/AUDITORIA-EFICIENCIA-2026-09.md`,
+`docs/AUDITORIA-ESTABILIDADE-AV.md` e `docs/revisao/REGISTRO.md`: um retrato de
+uma data, consultado por `grep` — as decisões que saíram deles estão no núcleo e
+no `HISTORICO.md`.
+
 ## A conversa com o operador
 
 **Quem lê o que sai desta sessão não programa.** Ele opera o app num culto, e a
@@ -140,34 +146,18 @@ PWA, hoje com a COLUNA de controles no lugar dos gestos invisíveis).
 **A árvore ANOTADA — o que cada arquivo faz e se recusa a fazer — está em
 [`docs/ESTRUTURA.md`](docs/ESTRUTURA.md);** o mapa Kotlin está em
 [`docs/shell/README.md`](docs/shell/README.md) e o da base web em
-[`docs/ARQUITETURA-WEB.md`](docs/ARQUITETURA-WEB.md). Aqui, só os nomes:
+[`docs/ARQUITETURA-WEB.md`](docs/ARQUITETURA-WEB.md). **Uma árvore só:** o
+detalhe é do arquivo dono — o mapa abaixo não o repete.
 
 ```
-app/src/main/
-├── AndroidManifest.xml      # share, portrait, <queries>, regras de backup
-├── assets/web/              # a base web (cópia própria, versionada aqui)
-│   ├── version.json         #   identidade do bundle (version + minShell [+ shellTag])
-│   ├── notas.json           #   A LINHA DO TEMPO do operador — viaja NO bundle
-│   ├── shared/              #   tokens.css (PALETA, fonte única) · native.js (ponte +
-│   │                        #   watchdog do OTA; NÃO existe no PWA) · db.js (+ relay
-│   │                        #   nativo) · stage.js (motor de mídia) · wallpaper-padrao.svg
-│   ├── vendor/              #   ÚNICO código de terceiro do web: o renderizador de .pptx
-│   ├── espelho/             #   tela.css + tela.js: o papel `tela` (telão por comandos)
-│   ├── controle/            #   controle.js · bible.js · louvorja.js · deck.js (.pptx
-│   │                        #   no WebView) e as REGRAS PURAS, cada uma com oráculo
-│   │                        #   Node: serie · hinario · coletanea · cifra · progresso ·
-│   │                        #   sorteio · pacote · pptxzip
-│   └── display/             #   o telão (sem sw.js / manifest / icons)
-├── java/br/org/iasd/av/     # o shell — um .kt por subsistema (mapa: docs/shell/README.md)
-│   ├── MainActivity · StagePresentation · WebViewFactory · NativeBridge · MessageBus
-│   ├── SafPathHandler (+ SafJanela) · ShareIntake · WebPathHandler
-│   ├── SyncService · SessionService · WebUpdater · ShellUpdater · Farol
-│   ├── YoutubeGrab · TrilhaAudio · MuxMp4 · SlideDeck · CifraFonte · R2ImagemFonte
-│   ├── MicChromeClient · PacoteProvider · PacoteCanal
-│   └── Espelho{Http,Pares,Servidor,MidiaCache,MidiaCanal,Energia,Interfaces,Cert,Diag}
-└── res/                     # drawable (ícones em vetor) · mipmap-anydpi-v26 · values
-                             # (colors.xml ESPELHA tokens) · xml (backup_rules)
-docs/                        # ver o Índice; a árvore inteira em docs/ESTRUTURA.md
+app/src/main/            # o Android: manifest, java/ (o shell) e assets/web/
+  assets/web/            # a base web versionada aqui: shared/ · controle/ · display/ ·
+                         # espelho/ · vendor/ · version.json · notas.json
+  java/br/org/iasd/av/   # um .kt por subsistema (mapa: docs/shell/README.md)
+  res/                   # drawable, mipmap-anydpi-v26, values (colors.xml ESPELHA tokens)
+docs/                    # os capítulos; a árvore anotada em docs/ESTRUTURA.md
+site/                    # a página pública (GitHub Pages)
+tools/                   # o arnês e os oráculos; a lista do CI sai do workflow
 ```
 
 **31 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é

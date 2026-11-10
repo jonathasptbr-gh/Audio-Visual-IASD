@@ -1,5 +1,9 @@
 # Auditoria de eficiência — 2026-09-04
 
+> **APÊNDICE.** Retrato de 2026-09-04; consultar por `grep`, nunca por leitura
+> integral. O que sobreviveu dele está no `CLAUDE.md`/`NUCLEO-TECNICO` e no
+> `HISTORICO.md` (a lista dos mortos segue no Pacote 12 da fila).
+
 **O que ela mede:** o custo de MANTER este repositório, não a qualidade do que
 ele produz. Levantada a pedido do operador (*"seu trabalho está um pouco
 ineficiente, ou ficou muito lento"*).

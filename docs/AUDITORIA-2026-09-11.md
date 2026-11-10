@@ -1,6 +1,8 @@
 # Auditoria de 2026-09-11 — a semana da v1.5.19 à v1.8.69
 
-**APÊNDICE. Consultar por `grep`, nunca por leitura integral.**
+**APÊNDICE.** Retrato de 2026-09-11; consultar por `grep`, nunca por leitura
+integral. O que sobreviveu dele está no `CLAUDE.md`/`NUCLEO-TECNICO` e no
+`HISTORICO.md`.
 
 A semana de 04 a 11/09 somou **47.161 inserções em 184 arquivos** — `controle.js`
 +8.743, `controle.css` +3.480, `index.html` +1.008, `MainActivity.kt` +699,

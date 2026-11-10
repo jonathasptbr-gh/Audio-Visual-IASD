@@ -1,5 +1,9 @@
 # Auditoria de estabilidade de ÁUDIO e VÍDEO (2026-08-29)
 
+> **APÊNDICE.** Retrato de 2026-08-29; consultar por `grep`, nunca por leitura
+> integral. O que sobreviveu dele está no `CLAUDE.md`/`NUCLEO-TECNICO` e no
+> `HISTORICO.md`.
+
 > **ESTADO: nove dos dez achados foram CORRIGIDOS na v1.4.19**, no mesmo dia.
 > O décimo (**D1**) é MEDIÇÃO e não conserto — ele continua aberto de propósito,
 > e a receita está no lugar dele, mais abaixo. O que cada correção fez, e o

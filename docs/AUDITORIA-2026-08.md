@@ -1,5 +1,9 @@
 # Auditoria profunda — agosto de 2026
 
+> **APÊNDICE.** Retrato de agosto de 2026; consultar por `grep`, nunca por
+> leitura integral. O que sobreviveu dele está no `CLAUDE.md`/`NUCLEO-TECNICO`
+> e no `HISTORICO.md`.
+
 Varredura completa do repositório atrás de **defeitos, código morto e
 otimizações**, em etapas sequenciais. Cada achado passou por um verificador
 adversarial cuja tarefa era REFUTÁ-LO por seis vias (trecho verbatim, guarda no
