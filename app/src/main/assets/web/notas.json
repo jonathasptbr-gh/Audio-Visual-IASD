@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.13.67",
+    "itens": [
+      "Provai e Vede e Informativo: a opção de play que você abre não fecha mais sozinha quando a lista se atualiza.",
+      "A lista só é redesenhada quando algo mudou de verdade; item novo espera você fechar a opção aberta."
+    ]
+  },
+  {
     "versao": "1.13.66",
     "itens": [
       "O aviso de som do celular no zero virou um ícone amarelo: toque nele para abrir o volume do Android.",

@@ -623,8 +623,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.13.66 · APK v1.13.65** · `SHELL_VERSION` **86** ·
-bundle com `minShell: 83` e **sem `shellTag`** — a v1.13.66 é só web, e a Release
+**Versão atual: base web v1.13.67 · APK v1.13.65** · `SHELL_VERSION` **86** ·
+bundle com `minShell: 83` e **sem `shellTag`** — a v1.13.67 é só web, e a Release
 da v1.13.65 (a que trouxe o casco 86) já está publicada. O **PISO** continua **83**:
 as duas funções de volume do casco 86 são OPCIONAIS — o web pergunta e desiste sem
 elas (`native.js` devolve `null`), então um aparelho com casco 83/85 continua

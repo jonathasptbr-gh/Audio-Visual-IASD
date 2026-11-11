@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.66';
+const WEB_VERSION = '1.13.67';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -13488,7 +13488,7 @@ function verificarSemanaAoAbrir(coll) {
   u.semanaAdiada = false;
   u.semanaAviso = '';
   u.semanaProxima = agora + SERIE_VERIFICA_PISO_MS;
-  syncCollection(coll, { soIndice: true, rotulo: 'Verificando os vídeos da semana…' })
+  syncCollection(coll, { soIndice: true, automatica: true, rotulo: 'Verificando os vídeos da semana…' })
     .then((r) => {
       if (r && r.ok) {
         u.semanaAviso = '';
@@ -21320,7 +21320,11 @@ async function fetchSerieIndex(coll) {
   }
   if (!itens.length) throw new Error('As playlists de "' + serie.name + '" vieram vazias');
 
-  const byId = new Map(collSongs(coll.id).map((s) => [s.id_music, s]));
+  const antes = collSongs(coll.id);
+  const byId = new Map(antes.map((s) => [s.id_music, s]));
+  // A LISTA ANTES, em texto, para saber depois se MUDOU (v1.13.67): `serieFaixaDoItem` pode
+  // reaproveitar e alterar o objeto antigo, então a comparação precisa ser feita contra uma cópia.
+  const listaAntes = JSON.stringify(antes);
   const songs = AVSerie.ordenarItens(itens).map((it) => serieFaixaDoItem(
     byId.get(it.id) || { id_music: it.id, fileIdFull: null, fileIdPlayback: null }, it));
 
@@ -21361,6 +21365,12 @@ async function fetchSerieIndex(coll) {
   // O QUE JÁ ESTAVA BAIXADO GANHA O NOME NOVO (v1.13.15) — ver
   // `renomearEpisodiosGuardados`.
   await renomearEpisodiosGuardados(songs).catch(() => {});
+  // SÓ MEXE NA LISTA SE ELA MUDOU DE VERDADE (v1.13.67). A verificação da semana refaz o índice
+  // a cada abertura do card, e quase sempre ele volta IGUAL: redesenhar mesmo assim fechava a
+  // gaveta que o operador acabara de abrir. Igual = nenhum redesenho. (A renomeação dos
+  // episódios guardados, acima, mexe nos registros — e pelo `JSON.stringify` abaixo não conta
+  // como mudança da lista, porque ela não toca em `songs`.)
+  if (JSON.stringify(songs) === listaAntes) return;
   refreshCollectionsIfVisible();
   // PELO GUARDA, nunca direto: `renderSearchResults` faz `hymnResultsEl
   // .innerHTML = ''`, e o que ABRE uma linha vive no `li` que ele joga fora
@@ -22159,6 +22169,7 @@ async function manterSeriesDaSemana() {
   serieAutoRodando = true;
   try {
     const guardar = [];
+    let baixouEpisodio = false;
     const retidos = await AVDB.listIds(SERIE_LISTA).catch(() => []);
     for (const coll of series) {
       const epi = serieEpisodioDaSemana(coll);
@@ -22177,8 +22188,10 @@ async function manterSeriesDaSemana() {
         // antecedência. Um objeto próprio aqui perderia os cinco, e o primeiro
         // a aparecer seria o pior — um episódio baixando sem nada na tela.
         const r = serieComoYoutube(coll, epi);
+        // (`setCollStatus` já agenda o redesenho, PELO guarda — um `renderCollectionsNow`
+        // aqui, direto, fechava a gaveta que o operador abriu durante a verificação: v1.13.67.)
         setCollStatus(coll.id, 'Baixando o episódio desta semana…');
-        renderCollectionsNow();
+        baixouEpisodio = true;
         // `withBgRotina` e não `withBgWork`: isto é *"a ROTINA que ninguém
         // pediu"* — protege o processo do congelamento igual e NÃO adia a
         // pergunta da atualização, que é a diferença inteira entre as duas.
@@ -22213,7 +22226,13 @@ async function manterSeriesDaSemana() {
     await AVDB.listSet(SERIE_LISTA, guardar).catch((e) => {
       diagC('séries: gravar a retenção da semana falhou (' + (e && e.message || e) + ')');
     });
-    renderCollectionsNow();
+    // SÓ SE MUDOU (v1.13.67): esta rotina roda a CADA abertura de série, e na maioria das vezes
+    // o episódio já está no aparelho e a retenção é a mesma — redesenhar a lista inteira ali
+    // fechava a gaveta aberta sem que nada tivesse mudado. Mudou = baixou um episódio ou a
+    // lista de retenção não é a de antes; e mesmo então vai PELO guarda, que espera a gaveta.
+    const mesmaRetencao = guardar.length === retidos.length
+      && [...guardar].sort().join('\n') === [...retidos].sort().join('\n');
+    if (baixouEpisodio || !mesmaRetencao) refreshCollectionsIfVisible();
   } finally {
     serieAutoRodando = false;
     // A RODADA PEDIDA DURANTE ESTA (ver `serieAutoRefazer`): refaz agora, e a
@@ -22490,7 +22509,10 @@ async function syncCollection(coll, opts) {
   }
   u.syncBusy = true; u.cancel = false;
   setCollStatus(coll.id, (opts && opts.rotulo) || 'Atualizando lista…');
-  renderCollectionsNow(); // resposta ao toque é imediata; só o PROGRESSO é coalescido
+  // A verificação AUTOMÁTICA da série (`automatica`) não é toque de ninguém: ela passa pelo
+  // guarda (`refreshCollectionsIfVisible`), que espera a gaveta aberta fechar (v1.13.67).
+  if (opts && opts.automatica) refreshCollectionsIfVisible();
+  else renderCollectionsNow(); // resposta ao toque é imediata; só o PROGRESSO é coalescido
   // Cancelamento: o próprio álbum (botão) ou o lote que o contém (syncGroup).
   // Declarado antes de tudo porque a VARREDURA do que falta também é longa num
   // álbum de centenas de faixas — cancelar ali já precisa valer.

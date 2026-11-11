@@ -41,6 +41,7 @@ apagada da que a criou.
 - **as capturas novas do app (sem versão nova; só `site/`)** — as 14 telas do carrossel foram trocadas pelas do app na v1.13.62 (enviadas pelo operador), em WebP 800×1632; saíram as quatro sem captura nova (destinos, série, sorteio, tempo) e entraram Liturgia, Hinário por tema, Ferramentas e Transferir a biblioteca; o cartão do link foi refeito com a tela nova
 - **o site redesenhado (sem versão nova; só `site/`)** — página nova, mobile-first: hero em duas colunas, 12 recursos, carrossel de telas com pontos, dois modos e o passo a passo; o texto foi revisto contra o código (entra a Liturgia, entra o Cronograma com arrasto, sai a contagem que não existe) e o cartão do link foi refeito no desenho novo
 - **revisão da fachada (sem versão nova; só docs e site)** — o README perde o manual (compilar e índice de docs saem), o `CLAUDE.md` fica com uma árvore só e lista os apêndices, e o site ganha o cartão do link e volta a aparecer sem JavaScript
+- **v1.13.67** — a verificação da semana não fecha mais a gaveta aberta de um episódio do Provai e Vede/Informativo, e a lista só se redesenha se mudou de verdade; só web. Oráculo `serie-gaveta-aberta`.
 - **v1.13.66** — o aviso de sistema no zero vira ÍCONE AMARELO clicável (abre o painel do Android) e o botão do MUDO na prévia passa a mostrar a porcentagem do volume, em número absoluto dentro do mesmo quadrado (só web)
 - **v1.13.65** — o mudo da barra em VERMELHO, o AVISO "som do celular no zero" acima dela e o PISO de 60% do volume de mídia do sistema na abertura; duas funções novas na ponte (`systemVolumeAtual` e `systemVolumeDefinir`), `SHELL_VERSION` 86 (APK, `shellTag: "v1.13.65"`)
 - **v1.13.64** — a barra de volume sobe para o CENTRO do corpo (meia altura da zona de leitura no Fácil; o meio da lista no avançado) e cresce na escala do toque: cap `--hit` (34) no avançado e `--hit`×1,3 (44) no Fácil; `video-tela-cheia` E7 mede o centro (só web)
@@ -894,6 +895,43 @@ hero ficava em `opacity:0` (medido), porque o `try/catch` do rodapé cobre a fal
 do IntersectionObserver, não a falta de JS. O comentário do `/registro/` que
 citava um `AUDITORIA-DE-USO-PLANO.md` inexistente passou a apontar o
 `MEDICAO-DE-ALCANCE.md`.
+
+## v1.13.67 — a gaveta do episódio não fecha mais com a verificação da semana
+
+**Defeito relatado pelo operador**, **só web**: `minShell` 83, **sem `shellTag`**. Degrau CORREÇÃO.
+(Pacote 11.2 da fila.)
+
+*"Assim que eu abro o Provai e Vede ou Informativo Mundial das Missões e abro a opção de play, essa
+opção fecha, provavelmente devido a uma atualização visual da lista, que se inicia automaticamente
+após abrir a coleção. [...] só mexa na lista se houver mudança real. (Inclusive acréscimo de item
+não é mudança na lista inteira, só do item adicionado)."*
+
+**A causa, medida.** Abrir o card chama `verificarSemanaAoAbrir` (v1.12.53): refaz o índice e roda
+`manterSeriesDaSemana`. Essa rotina terminava SEMPRE com `renderCollectionsNow()` — o redesenho
+direto, sem o guarda `interacaoAbertaNoAcervo` — e o início do download do episódio também. O
+`renderSearchResults` faz `hymnResultsEl.innerHTML = ''` e a gaveta vive no `li` descartado. O oráculo
+novo reproduz o defeito no código antigo (5 falhas) e passa no novo.
+
+**O conserto, em três pontos.** (1) `manterSeriesDaSemana` não redesenha direto: o início do download
+já passa pelo `setCollStatus` (que vai pelo guarda), e o redesenho do fim só vem SE mudou (baixou um
+episódio, ou a lista de retenção não é a de antes) — e por `refreshCollectionsIfVisible`, que espera
+a gaveta fechar. (2) A verificação automática ganha `automatica: true` em `syncCollection`, que passa
+pelo guarda também no primeiro redesenho. (3) `fetchSerieIndex` compara a lista nova com a de antes
+(`JSON.stringify` da cópia tirada ANTES do mapa, porque `serieFaixaDoItem` pode alterar o objeto
+antigo) e, sendo igual, não pede redesenho nenhum.
+
+**O que continua valendo, dito.** Com a gaveta aberta, um item acrescentado ao índice só aparece
+quando ela fechar — o mesmo acordo do progresso de download (v1.1.2): a espera dura exatamente o
+tempo da gaveta aberta e o redesenho sai sozinho. O redesenho incremental por linha (inserir só o
+`li` novo) ficou de fora: o acervo inteiro se monta por `innerHTML = ''`, e mudar isso é outro lote.
+O subtítulo do card ("Verificando os vídeos da semana…") também espera a gaveta fechar. O índice de
+hinário/álbum (`fetchCollectionIndex` fora da série) NÃO ganhou a comparação: ele reaproveita e muda
+os objetos antigos, e já ia pelo guarda — o relato é das séries.
+
+**Oráculo:** `tools/serie-gaveta-aberta.test.mjs` (no `apk.yml`): A) o download da semana com a
+gaveta aberta; B) rotina sem nada a fazer não redesenha; C) a verificação inteira, com lista igual e
+com item acrescentado, e a espera TERMINA (a linha nova entra quando a gaveta fecha); D) o índice
+igual não pede redesenho, o índice com item novo pede.
 
 ## v1.13.66 — o aviso vira ícone amarelo, e o mudo mostra a porcentagem
 
