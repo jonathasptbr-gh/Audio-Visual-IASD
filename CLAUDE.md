@@ -64,6 +64,7 @@ tem o resto):
 | [`docs/revisao/CASOS-MEDIDOS.md`](docs/revisao/CASOS-MEDIDOS.md) | **apêndice**: os casos que criaram as regras do portão |
 | [`docs/ACHADOS-EM-ABERTO.md`](docs/ACHADOS-EM-ABERTO.md) | defeitos CONFIRMADOS em aberto — hoje **nenhum** |
 | [`docs/PEDIDOS-EM-ESPERA.md`](docs/PEDIDOS-EM-ESPERA.md) | a fila do operador, em pacotes |
+| [`docs/ECONOMIA.md`](docs/ECONOMIA.md) | **o custo da sessão**: os três tetos, a rotina e o medidor |
 
 **Apêndices congelados** — `docs/AUDITORIA-2026-08.md`,
 `docs/AUDITORIA-2026-09-11.md`, `docs/AUDITORIA-EFICIENCIA-2026-09.md`,
@@ -457,7 +458,13 @@ briefing, não o agente:
 - **Saída de ferramenta magra** é regra, não estilo: `head`/`tail` no que pode
   ser longo, UM caso do oráculo em vez do arquivo inteiro, log só de erro. O
   resultado de ferramenta é o maior item do contexto e é RELIDO a cada passo —
-  no Pacote 3, 582 kB de `bash` contra 107 kB de `read`, em 189 chamadas.
+  no Pacote 3, 582 kB de `bash` contra 107 kB de `read`, em 189 chamadas; na
+  medição de 10/11, carregar resultado foi **34% da conta**.
+- **A SESSÃO TEM TETO DE 150 CHAMADAS.** Acima de 400 o passo custa 5,6× o do
+  começo, e uma sessão de 589 chamadas levou **44%** do gasto de um dia. Ao
+  publicar o pacote a sessão FECHA: a próxima começa com o contexto do
+  repositório, não com o da conversa. Os três tetos e a rotina:
+  [`docs/ECONOMIA.md`](docs/ECONOMIA.md).
 - **Custo ≈ passos × contexto médio**, e 99% do que entra é cache: cortar PASSO
   vale mais que escrever menos. O anexo técnico do lote fecha com a medição
   (`node ~/.dsh-github/uso.mjs` — passos, cache lido, faixa); sem ela o gasto só

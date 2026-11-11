@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **a economia de sessão vira regra (sem versão nova; só `docs/`)** — os três tetos (150 chamadas, 10 kB de saída de ferramenta, o trecho em vez do arquivo), a rotina do pacote e a curva medida em 2.131 chamadas: 90% do custo é cache e o passo depois da 400ª custa 5,6× o da primeira
 - **o painel sem texto (sem versão nova; só `site/`)** — a página perdeu os parágrafos de explicação: ficaram os dois números, o gráfico e uma linha de legenda ("menos 1: o aparelho de quem publica")
 - **o painel semanal (sem versão nova; só `site/` e docs)** — uma métrica só: aparelhos no dia de maior uso da semana (normalmente o sábado), com 1 descontado por semana (o aparelho de quem publica); saíram downloads, visitas, adoção, OTA e todo número acumulado
 - **o painel enxuto (sem versão nova; só `site/` e docs)** — uma linha sólida (aparelhos ativos + média de 7 dias) e quatro leituras: agora, quando (dia da semana e hora), base atual com o tempo até a metade, e o funil de 7 dias; saíram as barras por versão e o total de downloads
