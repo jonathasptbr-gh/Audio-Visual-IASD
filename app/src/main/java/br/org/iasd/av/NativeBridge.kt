@@ -169,6 +169,20 @@ interface BridgeHost {
     fun stepSystemVolume(step: Int, done: (JSONObject) -> Unit)
 
     /**
+     * O volume de mídia do SISTEMA **lido sem mexer nele**: `{atual, max}`, em
+     * degraus de `STREAM_MUSIC`. É o que faltava para o app saber que a barra
+     * dele em 100% não faz som nenhum com o telefone no zero (v1.13.65).
+     */
+    fun systemVolumeAtual(done: (JSONObject) -> Unit)
+
+    /**
+     * **DEFINE** o volume de mídia do sistema em fração do máximo (0..1), sem
+     * painel e sem som de ajuste — é a abertura do app acertando um piso, não
+     * uma ação do operador. `setStreamVolume` com flags 0.
+     */
+    fun definirSystemVolume(fracao: Double)
+
+    /**
      * O tema escolhido no Controle. Ver [NativeBridge.temaClaro] — o CSS não
      * alcança nem os ícones das barras de sistema nem o `windowBackground`.
      */
@@ -365,7 +379,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 85
+        const val SHELL_VERSION = 86
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -1889,6 +1903,25 @@ class NativeBridge(
         val h = host
         if (h == null) { resolve(callId, "null"); return }
         h.stepSystemVolume(step) { json -> resolve(callId, json.toString()) }
+    }
+
+    /**
+     * A LEITURA do volume de mídia do sistema (shell 86): resolve `{atual, max}`.
+     * Separada do [systemVolumeStep] porque aquela, com passo zero, BAIXA um degrau
+     * (o `dir` é `ADJUST_LOWER` para qualquer passo ≤ 0) e abre o painel do Android —
+     * não serve para perguntar.
+     */
+    @JavascriptInterface
+    fun systemVolumeAtual(callId: String) {
+        val h = host
+        if (h == null) { resolve(callId, "null"); return }
+        h.systemVolumeAtual { json -> resolve(callId, json.toString()) }
+    }
+
+    /** O piso de volume do sistema na abertura do app (shell 86), sem UI. */
+    @JavascriptInterface
+    fun systemVolumeDefinir(fracao: Double) {
+        host?.definirSystemVolume(fracao)
     }
 
     // ---------- tema (claro × escuro) ----------

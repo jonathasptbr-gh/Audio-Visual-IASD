@@ -39,6 +39,7 @@ apagada da que a criou.
 - **as capturas novas do app (sem versão nova; só `site/`)** — as 14 telas do carrossel foram trocadas pelas do app na v1.13.62 (enviadas pelo operador), em WebP 800×1632; saíram as quatro sem captura nova (destinos, série, sorteio, tempo) e entraram Liturgia, Hinário por tema, Ferramentas e Transferir a biblioteca; o cartão do link foi refeito com a tela nova
 - **o site redesenhado (sem versão nova; só `site/`)** — página nova, mobile-first: hero em duas colunas, 12 recursos, carrossel de telas com pontos, dois modos e o passo a passo; o texto foi revisto contra o código (entra a Liturgia, entra o Cronograma com arrasto, sai a contagem que não existe) e o cartão do link foi refeito no desenho novo
 - **revisão da fachada (sem versão nova; só docs e site)** — o README perde o manual (compilar e índice de docs saem), o `CLAUDE.md` fica com uma árvore só e lista os apêndices, e o site ganha o cartão do link e volta a aparecer sem JavaScript
+- **v1.13.65** — o mudo da barra em VERMELHO, o AVISO "som do celular no zero" acima dela e o PISO de 60% do volume de mídia do sistema na abertura; duas funções novas na ponte (`systemVolumeAtual` e `systemVolumeDefinir`), `SHELL_VERSION` 86 (APK, `shellTag: "v1.13.65"`)
 - **v1.13.64** — a barra de volume sobe para o CENTRO do corpo (meia altura da zona de leitura no Fácil; o meio da lista no avançado) e cresce na escala do toque: cap `--hit` (34) no avançado e `--hit`×1,3 (44) no Fácil; `video-tela-cheia` E7 mede o centro (só web)
 - **v1.13.63** — a pílula de volume vira BARRA EM PÉ na borda ESQUERDA, acima do transporte (`--pill-bottom` medido), no lugar da cápsula deitada e centrada; `video-tela-cheia` H7/H9/I4 e E5 passam a medir o eixo (só web)
 - **v1.13.62** — desfaz o alinhamento da barra da Liturgia (volta o recuo de antes) e iguala o TAMANHO do título ao das coleções (`var(--fs-xl)`, o da `.coll-group-bar`); medido 20,368px = 20,368px (só web)
@@ -853,6 +854,46 @@ hero ficava em `opacity:0` (medido), porque o `try/catch` do rodapé cobre a fal
 do IntersectionObserver, não a falta de JS. O comentário do `/registro/` que
 citava um `AUDITORIA-DE-USO-PLANO.md` inexistente passou a apontar o
 `MEDICAO-DE-ALCANCE.md`.
+
+## v1.13.65 — o silêncio do telefone: vermelho no mudo, aviso e o piso de 60%
+
+**Pedido do operador**, **APK + web**: `SHELL_VERSION` **85 → 86**, `minShell` **83** (as duas
+funções novas são opcionais — o web só as chama se existirem), `shellTag: "v1.13.65"`. Degrau
+CORREÇÃO.
+
+Três coisas, e a terceira é a que custou o casco:
+
+**(1) O MUDO FICA VERMELHO.** `.vol-pill.mudo .vol-pill-mute svg { color: var(--danger-strong) }` —
+o par declarado do estado mudo no app, e a cor continua não vindo sozinha: o glifo também troca.
+
+**(2) O AVISO ACIMA DA BARRA.** Com o volume de mídia do TELEFONE em zero, uma etiqueta
+(`#volPillAviso`, `.vol-pill-aviso`) aparece grudada acima da pílula — *"som do celular no zero"* —
+porque a barra do app pode ir a 100% e não sair som nenhum. Ela é filha da pílula (`position:
+absolute; bottom: 100%`), então acompanha o lugar dela.
+
+**(3) O PISO DE 60% NA ABERTURA.** *"conseguimos fixar um volume mínimo do android (não o volume
+dentro do nosso app) em 60% quando o app é aberto"*. **Não dava com o que existia:** a ponte só
+tinha passo RELATIVO (`systemVolume`/`systemVolumeStep`), e o `systemVolumeStep` com passo zero
+**abaixa** um degrau (o `dir` é `ADJUST_LOWER` para qualquer passo ≤ 0) e abre o painel do Android
+— não serve para perguntar. Subir de degrau em degrau piscaria o painel na abertura.
+
+Duas funções novas, e é o lote inteiro do casco: `systemVolumeAtual(callId)` resolve
+`{atual, max}` (leitura pura, `getStreamVolume`/`getStreamMaxVolume`) e
+`systemVolumeDefinir(fracao)` aplica `setStreamVolume(STREAM_MUSIC, round(max × fração), 0)` — flags
+zero, sem painel e sem som de ajuste, porque é a abertura do app acertando um piso, não uma ação do
+operador. No lado web, `acertarPisoDoVolumeDoSistema()` roda UMA vez, logo depois de
+`captureVolumeKeys(true)` no `init`, e só se `atual/max < 60%`; `lerVolumeDoSistema()` é chamada a
+cada aparição da pílula e é ela que acende o aviso. A degradação é declarada nos dois sentidos:
+num casco 85 o `native.js` devolve `null` (o `typeof` antes de chamar) e nada acontece.
+
+**Contrato da ponte:** `tools/ponte-guarda-host.test.mjs` sobe a conta para 72 métodos (o
+`docs/NUCLEO-TECNICO.md` junto) e declara o motivo do `systemVolumeDefinir` (segura o `host` com
+`?.`); `tools/stub-da-ponte.test.mjs` obrigou a pôr `systemVolumeAtual` no `comCallId` do fixture do
+`tela-inteira` — sem isso ele ficaria MUDO e travaria 60 s.
+
+**Não testado em aparelho.** O piso e o aviso dependem do Android de verdade: aqui o que se prova é
+que o web pergunta, desiste sem a função e não trava; o `setStreamVolume` com flags 0 (silencioso)
+é o ponto a conferir no primeiro APK.
 
 ## v1.13.64 — a barra de volume no meio do corpo, e maior
 

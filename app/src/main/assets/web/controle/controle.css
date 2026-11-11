@@ -1141,6 +1141,21 @@ body {
 /* O ÍCONE É UM BOTÃO (o mudo). Sem moldura: numa cápsula, um quadrado dentro de outro quadrado
    é a moldura da moldura — o que diz que ele é tocável é a cor de acento e o `:active`. */
 .vol-pill-mute { border: 0; background: none; padding: 0; margin: 0; display: flex; cursor: pointer; }
+/* MUDO É VERMELHO (v1.13.65), pedido do operador: *"ele deve mudar para vermelho quando no mudo"*.
+   É o par declarado do app para o estado mudo — `--danger-strong`, a mesma cor que o desenho do
+   `#muteToggle` veste no avançado —, e a cor nunca vem sozinha: o glifo também troca. */
+.vol-pill.mudo .vol-pill-mute svg { color: var(--danger-strong); }
+/* O AVISO ACIMA DA PÍLULA: ela é `fixed`, então o filho absoluto pousa em cima dela. É uma
+   etiqueta, não um botão — sem moldura de toque, e com o mesmo tom de alerta. */
+.vol-pill-aviso {
+  position: absolute; bottom: calc(100% + .4rem); left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: .35rem .6rem; white-space: nowrap;
+  background: var(--btn-danger); color: var(--danger-strong);
+  border-radius: var(--radius-pill); font-size: var(--fs-sm); font-weight: var(--fw-forte);
+}
+.vol-pill-aviso[hidden] { display: none; }
+.vol-pill-aviso svg { width: 18px; height: 18px; color: var(--danger-strong); }
 .vol-pill .ico-alt { display: none; }
 .vol-pill.mudo .ico-base { display: none; }
 .vol-pill.mudo .ico-alt { display: block; }

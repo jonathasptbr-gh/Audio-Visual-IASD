@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.13.65",
+    "itens": [
+      "O mudo da barra de volume fica vermelho, e um aviso aparece quando o som do celular está no zero.",
+      "O app define o volume do celular em 60% ao abrir, para o primeiro louvor sair com som."
+    ]
+  },
+  {
     "versao": "1.13.64",
     "itens": [
       "A barra de volume subiu para o meio da tela e ficou maior, com o botão azul do tamanho dos outros botões."

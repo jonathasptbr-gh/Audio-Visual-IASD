@@ -36,6 +36,7 @@ const volValueEl = document.getElementById('volValue');
 // input e do número — ver `syncFader` e `peekVolume`.
 const volPillEl = document.getElementById('volPill');
 const volPillMuteEl = document.getElementById('volPillMute');
+const volPillAvisoEl = document.getElementById('volPillAviso');
 const pvCastBtnEl = document.getElementById('pvCastBtn');
 const fsCtlEl = document.getElementById('pvFsCtl');
 // O título e a linha do tempo da tela cheia do Modo Fácil (v1.12.41).
@@ -411,7 +412,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.64';
+const WEB_VERSION = '1.13.65';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -41957,9 +41958,44 @@ function casaDaPilula() {
   if (volPillEl.parentNode !== alvo) alvo.appendChild(volPillEl);
   volPillEl.classList.toggle('na-previa', alvo === previewEl);
 }
+// ===== O SILÊNCIO DO TELEFONE (v1.13.65) =====
+// A barra do app pode ir a 100% e o som de mídia do celular pode estar no zero — aí não sai nada, e
+// até aqui o único jeito de descobrir era subir a barra até o teto e ver que o número não subia.
+//
+// DUAS COISAS, e as duas vêm da MESMA leitura (`systemVolumeAtual`, shell 86):
+//   · o PISO na abertura do app: se o celular está abaixo de 60% do máximo, o app define 60% —
+//     sem painel e sem som de ajuste, porque não é uma ação do operador. Sem isso o operador
+//     gastava as primeiras interações subindo a barra do app até a tecla "passar" ao sistema;
+//   · o AVISO acima da pílula: com o volume do celular em ZERO, a etiqueta aparece junto da barra.
+const VOL_SISTEMA_PISO = 0.6;
+let volSistemaZero = false;
+
+function lerVolumeDoSistema() {
+  if (!window.__NATIVE__ || !AVNative.systemVolumeAtual) return Promise.resolve(null);
+  return AVNative.systemVolumeAtual().then((r) => {
+    if (!r || !r.max) return null;
+    volSistemaZero = r.atual <= 0;
+    if (volPillAvisoEl) volPillAvisoEl.hidden = !volSistemaZero;
+    return r;
+  }).catch(() => null);
+}
+
+// O PISO, uma vez por abertura. Roda depois do `init` porque depende da ponte de pé.
+function acertarPisoDoVolumeDoSistema() {
+  if (!window.__NATIVE__ || !AVNative.systemVolumeDefinir) return Promise.resolve(null);
+  return lerVolumeDoSistema().then((r) => {
+    if (!r || !r.max) return null;
+    if (r.atual / r.max >= VOL_SISTEMA_PISO) return r;
+    AVNative.systemVolumeDefinir(VOL_SISTEMA_PISO);
+    diagC('volume do sistema abaixo do piso: definido em ' + Math.round(VOL_SISTEMA_PISO * 100) + '%');
+    return lerVolumeDoSistema();
+  }).catch(() => null);
+}
+
 function mostrarPilula() {
   if (!volPillEl) return;
   casaDaPilula();
+  lerVolumeDoSistema();   // o aviso do sistema acompanha cada aparição da barra
   lugarDaPilula();
   volPillEl.classList.toggle('mudo', !!muted);
   volPillEl.classList.add('visivel');
@@ -43460,6 +43496,9 @@ if (window.__NATIVE__) {
   // Só agora — com o handler de pé — a Activity pode consumir as teclas.
   AVNative.captureVolumeKeys(true);
   volumeTeclasPedidas = true;
+  // O PISO DO VOLUME DO SISTEMA (v1.13.65): uma vez por abertura, aqui — depois da ponte de pé e
+  // antes de qualquer mídia, para o primeiro louvor já sair com som.
+  acertarPisoDoVolumeDoSistema();
 
   // ===== Controles da notificação / tela de bloqueio / botões de mídia =====
   // Tudo cai nos MESMOS botões da tela, via `.click()`: os handlers já tratam

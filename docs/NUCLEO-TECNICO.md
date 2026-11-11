@@ -88,7 +88,7 @@ silêncio**:
    `host = null`, `withSaf = false` e `role = "display"`. O `ponte.test.mjs`
    afirma outra coisa (o dreno e a remontagem de campos), e as guardas
    `host == null` de cada método — a outra metade da invariante — é o
-   `tools/ponte-guarda-host.test.mjs` (revisão K2, remedida na X1): 70 métodos,
+   `tools/ponte-guarda-host.test.mjs` (revisão K2, remedida na X1 e acrescida dos dois do volume em 2026-11-10): 72 métodos,
    44 com recusa explícita e 26 com motivo declarado e CONFERIDO contra o corpo.
 
 **No `AndroidManifest.xml`:** `hardwareAccelerated` e `largeHeap` — os dois
@@ -145,7 +145,7 @@ navegador nada é definido, nem `__NATIVE__`. **O catálogo dos 64 métodos e as
 regras abaixo por extenso estão em [`docs/shell/PONTE.md`](shell/PONTE.md).**
 
 - **Superfície: 64 métodos**; o shell serve **70**. A conta (64 − 3 callbacks sem
-  par + 9 internos = 70, sem órfão nenhum desde a X1) é MEDIDA por varredura
+  par + 9 internos = 72, sem órfão nenhum desde a X1) é MEDIDA por varredura
   (`@JavascriptInterface` + `fun <nome>` no `NativeBridge.kt` contra `B.<nome>(`
   no `native.js`), nunca de memória. Fora do `native.js`, tocar em `__AVBridge`
   é acoplamento indevido; o `funcao-sem-chamador.test.mjs` exige consumidor.

@@ -80,6 +80,7 @@ const DECLARADOS = {
   telaInteira: ['segura', 'tela cheia da preview'],
   projecaoLocal: ['segura', 'liga o `keepVisible` do Controle quando a preview É a projeção'],
   systemVolume: ['segura', 'lê o volume do sistema'],
+  systemVolumeDefinir: ['segura', 'define o piso do volume de mídia do sistema na abertura'],
   temaClaro: ['segura', 'aplica o cromo do tema'],
   takeShare: ['segura', 'consome o share pendente — o telão recebe `null`'],
   pacoteCancelar: ['segura', 'cancela a criação do pacote'],
@@ -165,11 +166,11 @@ for (const m of metodos) {
 }
 
 // ===== as asserções =====
-checar(metodos.length === 70,
-  'a premissa: a varredura achou os 70 métodos `@JavascriptInterface` (a conta do `CLAUDE.md`)',
+checar(metodos.length === 72,
+  'a premissa: a varredura achou os 72 métodos `@JavascriptInterface` (a conta do `CLAUDE.md`)',
   metodos.length);
-checar(comGuarda.length === 70 - Object.keys(DECLARADOS).length,
-  `a conta: ${70 - Object.keys(DECLARADOS).length} métodos recusam sem \`host\` e ${Object.keys(DECLARADOS).length} têm motivo declarado (70 no total)`,
+checar(comGuarda.length === 72 - Object.keys(DECLARADOS).length,
+  `a conta: ${72 - Object.keys(DECLARADOS).length} métodos recusam sem \`host\` e ${Object.keys(DECLARADOS).length} têm motivo declarado (72 no total)`,
   `${comGuarda.length} com guarda · ${semGuarda.length} sem`);
 
 const faltandoNaLista = semGuarda.filter((n) => !DECLARADOS[n]);

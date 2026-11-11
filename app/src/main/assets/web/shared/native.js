@@ -877,6 +877,18 @@
     // de mídia do sistema, ou null. Quem decide o que o fader do app faz com isso é o controle.js.
     systemVolumeStep: (step) => call((id) => B.systemVolumeStep(id, step | 0), CALL_TIMEOUT_MS)
       .then((r) => (r && typeof r === 'object' ? r : null)),
+    // A LEITURA do volume de mídia do sistema (shell 86): resolve `{atual, max}` ou null. O
+    // `systemVolumeStep` não serve para perguntar — com passo zero ele BAIXA um degrau.
+    // O `typeof` é a degradação declarada: num casco antigo o método não existe, e o lado web
+    // recebe null em vez de esperar 60 s por um retorno que nunca vem.
+    systemVolumeAtual: () => (typeof B.systemVolumeAtual === 'function'
+      ? call((id) => B.systemVolumeAtual(id), CALL_TIMEOUT_MS)
+        .then((r) => (r && typeof r === 'object' ? r : null))
+      : Promise.resolve(null)),
+    // O PISO de volume do sistema na abertura (shell 86), sem painel e sem som de ajuste.
+    systemVolumeDefinir(fracao) {
+      try { if (typeof B.systemVolumeDefinir === 'function') B.systemVolumeDefinir(Number(fracao) || 0); } catch (_) { /* ponte indisponível */ }
+    },
 
     // A PROJEÇÃO É ESTE APARELHO (shell 56): não há tela conectada e há cena no
     // ar, então quem projeta é o `<video>` da PREVIEW — neste WebView. O

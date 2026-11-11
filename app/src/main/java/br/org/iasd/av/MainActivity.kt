@@ -2490,6 +2490,36 @@ class MainActivity : ComponentActivity(), BridgeHost {
         }
     }
 
+    /**
+     * A LEITURA do volume de mídia do sistema (shell 86). Pura: não mexe em nada e não desenha
+     * painel. Devolve `{atual, max}` em degraus de `STREAM_MUSIC`.
+     */
+    override fun systemVolumeAtual(done: (JSONObject) -> Unit) {
+        runOnUiThread {
+            val am = getSystemService(AudioManager::class.java)
+            if (am == null) { done(JSONObject().put("atual", 0).put("max", 0)); return@runOnUiThread }
+            done(
+                JSONObject()
+                    .put("atual", am.getStreamVolume(AudioManager.STREAM_MUSIC))
+                    .put("max", am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)),
+            )
+        }
+    }
+
+    /**
+     * O PISO de volume do sistema na abertura do app (shell 86). `setStreamVolume` com flags 0:
+     * sem painel e sem o som de ajuste — isto não é uma ação do operador, é o app se apresentando
+     * com som audível. A fração vem do lado web (invariante 5) e é limitada aqui também.
+     */
+    override fun definirSystemVolume(fracao: Double) {
+        runOnUiThread {
+            val am = getSystemService(AudioManager::class.java) ?: return@runOnUiThread
+            val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            val alvo = Math.round(max * fracao.coerceIn(0.0, 1.0)).toInt()
+            am.setStreamVolume(AudioManager.STREAM_MUSIC, alvo.coerceIn(0, max), 0)
+        }
+    }
+
     override fun takePendingShare(): JSONObject? = pendingShare.poll()
 
     /**

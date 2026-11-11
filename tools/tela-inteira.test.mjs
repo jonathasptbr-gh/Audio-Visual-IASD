@@ -35,7 +35,7 @@ const PONTE = `(function () {
   window.__displays = [];
   const comCallId = new Set(['pickFolder','ytFetchAudio','ytFetchAte','ytFetch','ytSearch','ytCanalPlaylists','ytPlaylist','ytDetalhes','compartilharArquivoTexto','pacoteCriar','pacoteFechar','pacoteCriarLocal','pacoteCompartilhar','pacoteConsumirOrigem','cifraHtml','r2Imagem','otaApply','atualizacaoEstado','apkInstalar','ytMedida','pickDoc','deckPages','espelhoLigarEm','espelhoLigar','espelhoDerrubar','espelhoCertImportar','espelhoCertApagar','systemVolumeStep','displays','listFolder','otaPending','otaDiag','espelhoEstado','espelhoDiag',
     'castTarget','saidaDeAudioAlvo','ytDiag','cifraDiag','farolEstado','pacoteEspaco','pacoteProntoEstado',
-    'pacoteDiag','areaTransferencia','espelhoCertEstado','apkProcurar']);
+    'pacoteDiag','areaTransferencia','espelhoCertEstado','apkProcurar','systemVolumeAtual']);
   const vazio = { listFolder: [], otaPending: '', otaDiag: '',
     espelhoEstado: { ligado: false, telas: [], redes: [] }, espelhoDiag: {},
     castTarget: { label: '' }, ytDiag: '', cifraDiag: '',
