@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o painel semanal (sem versão nova; só `site/` e docs)** — uma métrica só: aparelhos no dia de maior uso da semana (normalmente o sábado), com 1 descontado por semana (o aparelho de quem publica); saíram downloads, visitas, adoção, OTA e todo número acumulado
 - **o painel enxuto (sem versão nova; só `site/` e docs)** — uma linha sólida (aparelhos ativos + média de 7 dias) e quatro leituras: agora, quando (dia da semana e hora), base atual com o tempo até a metade, e o funil de 7 dias; saíram as barras por versão e o total de downloads
 - **o painel de alcance, redesenhado (sem versão nova; só `site/` e docs)** — três linhas no mesmo eixo (baixaram, usaram, visitaram), o cartão "agora" que sai da consulta do OTA, e as definições de cada número; o rodapé do site passa a linká-lo
 - **o download leva ao guia (sem versão nova; só `site/`)** — o botão do topo baixa e rola até os três passos; a instalação perdeu a explicação longa, o passo 3 manda aceitar a verificação do Google, e o selo "funciona sem internet" saiu de cima do telefone (ficou o "Funciona offline" nos selos)
@@ -683,6 +684,23 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## o painel semanal (sem versão nova; só `site/` e docs)
+
+**UMA MÉTRICA SÓ, E É A ÚNICA EM QUE UMA PESSOA CONTA UMA VEZ:** o farol do app.
+O número é **o dia de maior uso da semana** (domingo a sábado — no comum, o
+sábado), e o painel **desconta 1 por semana**, o aparelho de quem publica.
+
+**O DESCONTO CONTRARIA O §6 DE PROPÓSITO**, e a diferença está escrita no
+contrato: o §6 proíbe subtrair uma ESTIMATIVA do próprio uso; aqui é um aparelho
+conhecido, que entra no farol como qualquer outro. A premissa, dita: ele usa o
+app no dia de maior uso da semana. O aviso fica logo abaixo dos números.
+
+**O QUE SAIU, e por quê:** downloads (evento: reinstalação conta de novo),
+visitas (robô e os testes de quem publica), adoção da base (reinstalação e
+teste) e a consulta do OTA (240 consultas por hora, por aparelho) — nenhum
+deles conta uma pessoa uma vez. **Nada é acumulado**: cada barra é uma semana, a
+média é das últimas quatro, e semana sem amostra fica em branco.
 
 ## o painel enxuto (sem versão nova; só `site/` e docs)
 

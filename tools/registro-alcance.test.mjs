@@ -47,37 +47,27 @@ const servidor = http.createServer((rq, rs) => {
 await new Promise((r) => servidor.listen(0, r));
 const BASE = 'http://127.0.0.1:' + servidor.address().port;
 
-// ---- uma série sintética: 3 dias, com o funil visitas > aparelhos ----
-// Os valores são escolhidos para a DIFERENÇA ser conferível à mão:
-// farol 10 → 13 → 18  dá  3 e 5 aparelhos.
-const dia = (n) => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10);
-const SERIE = {
-  amostras: [
-    { t: dia(2) + 'T23:17:00Z', apk: {}, web: { '1.4': 2 }, manifesto: 1000, farol: 10, farolDev: 1, visita: 40, visitaDev: 2 },
-    { t: dia(1) + 'T23:17:00Z', apk: {}, web: { '1.4': 5 }, manifesto: 1240, farol: 13, farolDev: 1, visita: 47, visitaDev: 2 },
-    // `v1.5` está na AMOSTRA com zero downloads e NÃO na marca d'água — é a
-    // versão recém-publicada, e a marca d'água só guarda contagem maior que
-    // zero. Sem a união das duas fontes ela some do quadro, e o operador
-    // publica sem ver a própria versão.
-    { t: dia(0) + 'T23:17:00Z', apk: { 'audio-visual-iasd-v1.5.apk': 0 }, web: { '1.4': 9 }, manifesto: 1480, farol: 18, farolDev: 1, visita: 55, visitaDev: 2 },
-  ],
-  // NOVE APKs — acima do corte de seis, para o rolo-up do passado disparar.
-  // As contagens são escolhidas para a soma do passado (3+4+5 = 12) EMPATAR
-  // com a maior barra individual: é o caso em que uma régua mal escolhida
-  // estoura a caixa.
-  visto: {
-    'audio-visual-iasd-v1.4.2.apk': 12,
-    'audio-visual-iasd-v1.4.1.apk': 2,
-    'audio-visual-iasd-v1.4.apk': 1,
-    'audio-visual-iasd-v1.3.12.apk': 1,
-    'audio-visual-iasd-v1.3.0.apk': 3,
-    'audio-visual-iasd-v1.2.17.apk': 2,
-    'audio-visual-iasd-v1.2.4.apk': 3,
-    'audio-visual-iasd-v1.1.apk': 4,
-    'audio-visual-iasd.apk': 5,
-    'web-1.4': 9,
-  },
-};
+// ---- uma série sintética: 4 semanas, uma amostra por dia ----
+// O painel só lê o farol, por semana: o dia de MAIOR uso da semana (domingo a
+// sábado), menos 1 (o aparelho de quem publica). O sábado leva +5 aparelhos e a
+// quarta +2; os outros dias, 0 ou 1. Assim a semana vale 5 − 1 = 4, e as quatro
+// semanas dão a mesma média.
+const FIM = new Date(Date.UTC(2026, 8, 26, 23, 17, 0));   // sábado, 26/09/2026
+const INI = new Date(FIM.getTime() - 27 * 864e5);         // domingo, 30/08
+const amostras = [];
+let farol = 40, manifesto = 5000, visita = 300;
+for (let i = 0; i < 28; i++) {
+  const t = new Date(INI.getTime() + i * 864e5);
+  const dow = t.getUTCDay();                               // 0 dom … 6 sáb
+  farol += dow === 6 ? 5 : (dow === 3 ? 2 : (i % 3 === 0 ? 1 : 0));
+  manifesto += 300;
+  visita += 4;
+  amostras.push({
+    t: t.toISOString(), apk: {}, web: {}, manifesto, farol, farolDev: 1, visita, visitaDev: 2,
+  });
+}
+const SERIE = { amostras, visto: {} };
+
 const navegador = await abrirNavegador();
 try {
   // =================================================================
@@ -114,37 +104,29 @@ try {
     await pg.waitForSelector('.kpi');
 
     const kpis = await pg.locator('.kpi-n').allInnerTexts();
-    // 18 − 13 = 5 aparelhos no último dia.
-    checar(kpis[0] === '5', 'aparelhos no dia = a DIFERENÇA do contador entre dois dias', kpis[0]);
-    // (3 + 5) / 2 = 4 — a média ignora o dia sem amostra em vez de contá-lo zero.
-    checar(kpis[1] === '4', 'a média por dia é a dos dias COM dado', kpis[1]);
-    // A base atual: a contagem da última amostra.
-    checar(kpis[2] === '9', 'a base atual vem da última amostra', kpis[2]);
+    // O sábado a série dá 5; o painel desconta 1 e mostra 4 — nas duas caixas.
+    checar(kpis.length === 2, 'só dois números: a semana e a média', kpis);
+    checar(kpis[0] === '4', 'a última semana desconta 1 (o aparelho do operador)', kpis[0]);
+    checar(kpis[1] === '4', 'e a média das últimas 4 semanas é a mesma conta', kpis[1]);
 
-    // ---- a tabela da base: versão, contagem e tempo até a metade ----
-    // `v1.4` aparece com 2 no primeiro dia, 5 no segundo (>= metade de 9) e 9
-    // no terceiro: a metade é alcançada um dia depois da primeira amostra.
-    const bases = await pg.$$eval('table.bases tbody tr', (trs) =>
-      trs.map((tr) => [].map.call(tr.children, (td) => td.textContent.trim())));
-    checar(bases.length === 1 && bases[0][0] === 'v1.4' && bases[0][1] === '9',
-      'a tabela da base mostra a versão e a contagem da última amostra', bases);
-    checar(/1 dia/.test(bases[0].join(' ')),
-      'e o tempo até a metade é medido entre a primeira amostra e a metade', bases[0]);
+    // uma barra por semana com amostra, e nenhuma com valor negativo
+    const barras = await pg.$$eval('.sem', (es) => es.map((e) =>
+      [e.querySelector('.sem-v').textContent.trim(),
+       Math.round(e.querySelector('b').getBoundingClientRect().height)]));
+    checar(barras.length === 4, 'uma barra por semana', barras.length);
+    checar(barras.every((b) => b[0] === '4' && b[1] > 0),
+      'e todas desenham a altura do valor descontado', barras);
 
-    // ---- o "quando": a série de 24 h não tem amostra horária, e o painel diz ----
-    const quando = await pg.locator('.q').count();
-    checar(quando === 2, 'o "quando" tem as duas leituras: dia da semana e hora', quando);
-    const vazioHora = await pg.locator('.q').nth(1).innerText();
-    checar(/Sem amostras horárias/.test(vazioHora),
-      'e diz que a hora não existe quando a série é diária', vazioHora);
-
-    // ---- o funil: visitas e downloads da janela ----
-    // 40 → 47 → 55 de visitas: a janela começa no primeiro dia com aparelho
-    // (dia 2), então soma (47−40) + (55−47) = 15. E os dias-aparelho são 3+5=8.
-    const funil = await pg.$$eval('.funil .f b', (es) => es.map((e) => e.textContent.trim()));
-    checar(funil.length === 3, 'o funil tem os três números', funil);
-    checar(funil[0] === '15', 'visitas da janela = SOMA das diferenças dos dias', funil[0]);
-    checar(funil[2] === '8', 'e os dias-aparelho somam a coluna de aparelhos', funil[2]);
+    // O DESCONTO TEM DE ESTAR ESCRITO: é ele que muda a leitura do número.
+    const nota1 = await pg.evaluate(() => {
+      const notas = [...document.querySelectorAll('#pag .nota')].map((n) => n.textContent);
+      return { primeira: notas[0] || '', quantas: notas.length };
+    });
+    checar(/descontado 1/i.test(nota1.primeira) && /quem publica|operador/i.test(nota1.primeira),
+      'o painel avisa que desconta o aparelho de quem publica', nota1.primeira);
+    checar(/build de teste|assembleDebug/i.test(nota1.primeira),
+      '  ↳ e nomeia a única exclusão que sobrou (o build de teste), que nunca '
+      + 'foi escolha de ninguém', nota1.primeira);
 
     // ======================================================================
     // NÃO HÁ MAIS EXCLUSÃO — E O PAINEL DIZ ISSO (v1.4.42)
@@ -186,9 +168,13 @@ try {
         quantas: notas.length,
       };
     });
-    checar(/inclu(em|i) o uso pr[óo]prio/i.test(aviso.primeira),
-      'e o painel AVISA, logo abaixo dos números, que eles incluem o uso próprio',
-      aviso);
+    // O AVISO MUDOU DE SENTIDO (2026-11-10, a pedido do operador): antes ele
+    // dizia que o uso próprio ENTRAVA; agora o painel DESCONTA 1 por semana, o
+    // aparelho de quem publica. A frase renderizada é o que se cobra, porque
+    // uma nota vazia passaria num teste de seletor.
+    checar(/descontado 1/i.test(aviso.primeira),
+      'e o painel AVISA, logo abaixo dos números, que desconta o aparelho do operador',
+      aviso.primeira);
     checar(/build de teste|assembleDebug/i.test(aviso.primeira),
       '  ↳ e nomeia a única exclusão que sobrou (o build debuggável), que nunca '
       + 'foi opção de ninguém', aviso.primeira);

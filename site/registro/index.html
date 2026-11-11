@@ -9,18 +9,15 @@
 <meta name="color-scheme" content="light">
 <link rel="icon" href="../icone.svg" type="image/svg+xml">
 <style>
-  /* A paleta é a do site (`site/index.html`), que é a do app — e CLARA E SÓ
-     CLARA pela mesma razão declarada lá.
-
-     UMA SÉRIE PRINCIPAL, e ela é azul (bluejay, oficial). A média de 7 dias é
-     a MESMA cor, tracejada: identidade de série não precisa de segunda cor
-     quando os dados são os mesmos. As barras do "quando" usam o denim (cor de
-     texto, aqui de marca) porque não competem com a linha. */
+  /* UMA SÓ MÉTRICA, e ela é a única deste projeto em que o aparelho de quem
+     publica conta exatamente 1: o farol do app (1 por aparelho por dia).
+     Tudo o mais — downloads, visitas, adoção da base, consulta do OTA — conta
+     máquina, robô ou teste, e saiu. Sem número acumulado: cada barra é uma
+     semana, e a semana é o que se lê. */
   :root {
     --bg:#dfe3e7; --panel:#fff; --panel-2:#d4dae2;
     --text:#4a4a4a; --titulo:#22303d; --muted:#55606d; --accent:#2f557f; --rule:#c6cfd9;
     --s1:#2e6de7;   /* bluejay */
-    --s2:#cd4900;   /* campfire */
   }
   * { box-sizing:border-box; }
   body {
@@ -28,11 +25,10 @@
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     font-size:16px; line-height:1.55; -webkit-font-smoothing:antialiased;
   }
-  .env { max-width:56rem; margin:0 auto; padding:1.4rem 1.15rem 4rem; }
+  .env { max-width:52rem; margin:0 auto; padding:1.4rem 1.15rem 4rem; }
   a { color:var(--accent); }
   h1 { font-size:1.6rem; margin:0 0 .15rem; letter-spacing:-.02em; color:var(--titulo); }
   h2 { font-size:1.02rem; margin:2.2rem 0 .2rem; letter-spacing:-.01em; color:var(--titulo); }
-  h3 { font-size:.86rem; margin:0 0 .45rem; color:var(--muted); font-weight:600; }
   .sub { color:var(--muted); font-size:.9rem; margin:0 0 .4rem; }
   .volta { font-size:.8rem; text-decoration:none; color:var(--muted); }
   .volta:hover { text-decoration:underline; }
@@ -44,25 +40,34 @@
   .nota b { color:var(--text); }
   code { background:rgba(0,0,0,.06); border-radius:4px; padding:0 .25rem; font-size:.92em; }
 
-  .kpis { display:grid; grid-template-columns:repeat(3,1fr); gap:.55rem; margin-top:1.1rem; }
-  .kpi { background:var(--panel); border-radius:14px; padding:.85rem .9rem; }
+  .kpis { display:grid; grid-template-columns:1fr 1fr; gap:.55rem; margin-top:1.1rem; }
+  .kpi { background:var(--panel); border-radius:14px; padding:.9rem 1rem; }
   .kpi-n {
-    font-size:1.8rem; font-weight:800; letter-spacing:-.03em; line-height:1.1;
+    font-size:1.9rem; font-weight:800; letter-spacing:-.03em; line-height:1.1;
     color:var(--titulo); font-variant-numeric:tabular-nums;
   }
-  .kpi-r { font-size:.74rem; color:var(--muted); margin-top:.2rem; line-height:1.35; }
+  .kpi-r { font-size:.75rem; color:var(--muted); margin-top:.2rem; line-height:1.35; }
 
   .caixa { background:var(--panel); border-radius:14px; padding:1rem .9rem .7rem; margin-top:.55rem; }
-  figure { margin:0; }
-  figcaption { font-size:.78rem; color:var(--muted); padding:.2rem .3rem .4rem; }
-  svg { display:block; width:100%; height:auto; overflow:visible; }
 
-  .legenda { display:flex; gap:.9rem; flex-wrap:wrap; padding:.1rem .3rem .5rem; font-size:.82rem; }
-  .legenda span { display:inline-flex; align-items:center; gap:.35rem; color:var(--muted); }
-  .pip { width:10px; height:10px; border-radius:3px; display:inline-block; flex:none; }
-  .hif { width:14px; height:3px; border-radius:2px; display:inline-block; background:repeating-linear-gradient(90deg,var(--s1) 0 4px,transparent 4px 7px); }
+  /* ===== as semanas: uma barra por semana ===== */
+  .semanas { display:flex; align-items:flex-end; gap:4px; height:170px; margin-top:.3rem; }
+  .sem { flex:1; display:flex; flex-direction:column; justify-content:flex-end; height:100%; }
+  .sem-v {
+    display:block; text-align:center; font-size:.66rem; font-weight:700; color:var(--titulo);
+    font-variant-numeric:tabular-nums; margin-bottom:.2rem;
+  }
+  .sem b {
+    display:block; background:var(--s1); border-radius:5px 5px 0 0; min-height:2px;
+    transition:height .3s;
+  }
+  .sem.vazia b { background:var(--rule); }
+  .sem i {
+    display:block; font-style:normal; font-size:.56rem; color:var(--muted);
+    text-align:center; margin-top:.35rem; line-height:1; height:1.1em;
+  }
 
-  details { margin-top:.5rem; }
+  details { margin-top:.6rem; }
   summary { cursor:pointer; font-size:.85rem; color:var(--accent); }
   table { border-collapse:collapse; width:100%; font-size:.82rem; margin-top:.5rem; }
   th, td { text-align:right; padding:.3rem .5rem; font-variant-numeric:tabular-nums; }
@@ -70,58 +75,7 @@
   thead th { color:var(--muted); font-weight:600; }
   tbody tr:nth-child(odd) { background:var(--panel-2); }
   .tw { overflow-x:auto; }
-  tr.atual td { font-weight:700; color:var(--titulo); }
 
-  /* ===== o "quando": barras simples, sem SVG ===== */
-  .quando { display:grid; gap:.55rem; margin-top:.55rem; }
-  @media (min-width:44rem) { .quando { grid-template-columns:1fr 1fr; } }
-  .q { background:var(--panel); border-radius:14px; padding:.9rem .9rem .7rem; }
-  .q h3 { margin:0 0 .6rem; font-size:.86rem; color:var(--titulo); font-weight:650; }
-  .barras { display:flex; align-items:flex-end; gap:3px; height:110px; }
-  .col { flex:1; display:flex; flex-direction:column; justify-content:flex-end; height:100%; gap:0; }
-  .col b {
-    display:block; background:var(--accent); border-radius:4px 4px 0 0; min-height:2px;
-    font-weight:400; font-size:0; /* a barra não carrega texto */
-  }
-  .col i {
-    display:block; font-style:normal; font-size:.58rem; color:var(--muted);
-    text-align:center; margin-top:.3rem; line-height:1; height:1.1em;
-  }
-  .barras.horas .col b { background:var(--accent); opacity:.85; }
-  .vazio { font-size:.8rem; color:var(--muted); margin:.2rem 0 .3rem; }
-  .pico { font-size:.74rem; color:var(--muted); margin:.55rem 0 0; }
-  .pico b { color:var(--titulo); }
-  .pico + .mini { font-size:.7rem; color:var(--muted); margin:.25rem 0 0; }
-
-  /* ===== base atual ===== */
-  .base { display:grid; gap:.5rem; margin-top:.55rem; }
-  .base .linha { background:var(--panel); border-radius:14px; padding:.8rem 1rem; display:flex; align-items:baseline; gap:.6rem; flex-wrap:wrap; }
-  .base .num { font-size:1.5rem; font-weight:800; color:var(--titulo); font-variant-numeric:tabular-nums; }
-  .base .txt { font-size:.8rem; color:var(--muted); }
-
-  /* ===== funil ===== */
-  .funil { display:grid; grid-template-columns:repeat(3,1fr); gap:.55rem; margin-top:.55rem; }
-  .funil .f { background:var(--panel); border-radius:14px; padding:.8rem .9rem; }
-  .funil .f b { display:block; font-size:1.35rem; color:var(--titulo); font-variant-numeric:tabular-nums; }
-  .funil .f span { font-size:.72rem; color:var(--muted); line-height:1.35; display:block; margin-top:.15rem; }
-  .conv { margin:.6rem 0 0; font-size:.82rem; color:var(--muted); }
-  .conv b { color:var(--titulo); }
-
-  .defs { display:grid; gap:.5rem; margin-top:.55rem; }
-  @media (min-width:44rem) { .defs { grid-template-columns:repeat(2,1fr); } }
-  .def { background:var(--panel); border-radius:14px; padding:.9rem .95rem; }
-  .def h3 { margin:0 0 .2rem; font-size:.9rem; color:var(--titulo); display:flex; align-items:center; gap:.4rem; }
-  .def p { margin:0; font-size:.79rem; color:var(--muted); line-height:1.45; }
-
-  .agora { display:flex; align-items:baseline; gap:.7rem; flex-wrap:wrap; }
-  .agora .kpi-n { color:var(--titulo); }
-  .agora .kpi-r { margin-top:0; }
-
-  #dica {
-    position:fixed; pointer-events:none; opacity:0; transition:opacity .1s;
-    background:var(--titulo); color:#fff; border-radius:8px; padding:.45rem .6rem;
-    font-size:.78rem; line-height:1.35; white-space:nowrap; z-index:9;
-  }
   #tranca { padding:4rem 1.15rem; text-align:center; color:var(--muted); }
 </style>
 </head>
@@ -129,7 +83,6 @@
 
 <div id="tranca">Não encontrado.</div>
 <div class="env" id="pag" hidden></div>
-<div id="dica" role="status" aria-live="polite"></div>
 
 <script>
 (function () {
@@ -138,18 +91,13 @@
   // ===================================================================
   // A TRANCA — obscuridade, não segredo
   // ===================================================================
-  // A chave está no HTML, e os contadores são API pública de repositório
-  // público. Ela serve para esta página não estar na frente de quem veio
-  // baixar o app — e desde 2026-11-10 é alcançável pelo rodapé do site.
   var CHAVE = 'alcance';
-
   var REPO = 'jonathasptbr-gh/Audio-Visual-IASD';
   // `raw.githubusercontent.com` e não o asset: asset de release não manda CORS.
   var SERIE = 'https://raw.githubusercontent.com/' + REPO + '/dados/serie.json';
 
   var trancaEl = document.getElementById('tranca');
   var pagEl = document.getElementById('pag');
-  var dicaEl = document.getElementById('dica');
 
   function chaveOk() { return (location.hash || '').replace(/^#/, '') === CHAVE; }
   if (!chaveOk()) return;
@@ -167,8 +115,15 @@
   var dec = function (n) { return (Math.round(n * 10) / 10).toLocaleString('pt-BR'); };
   var dia = function (t) { return String(t).slice(0, 10); };
   var diaBr = function (d) { var p = d.split('-'); return p[2] + '/' + p[1]; };
-  var DIAS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
-  var hm = function (t) { return new Date(t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); };
+  var pad = function (n) { return String(n).padStart(2, '0'); };
+  var iso = function (dt) { return dt.getFullYear() + '-' + pad(dt.getMonth() + 1) + '-' + pad(dt.getDate()); };
+
+  // O SÁBADO DA SEMANA daquela data (a semana vai de domingo a sábado).
+  function sabadoDe(d) {
+    var dt = new Date(d + 'T12:00:00');
+    dt.setDate(dt.getDate() + (6 - dt.getDay()));
+    return iso(dt);
+  }
 
   function erro(msg, detalhe) {
     pagEl.innerHTML = '<h1>Alcance do app</h1>'
@@ -187,7 +142,7 @@
       if (String(e.message) === '404') {
         erro('A série ainda não existe.',
           'O workflow "Série de uso" grava a primeira amostra na próxima hora '
-          + 'cheia (ele roda no minuto 17). Até lá não há o que desenhar.');
+          + 'cheia. Até lá não há o que desenhar.');
       } else {
         erro('Não deu para ler a série.', String(e.message));
       }
@@ -201,45 +156,44 @@
     if (!am.length) { erro('A série está vazia.', 'Nenhuma amostra gravada ainda.'); return; }
     var ultima = am[am.length - 1];
 
-    // ---- por dia: a ÚLTIMA amostra de cada dia (contadores acumulados) ----
+    // ---- por dia: a ÚLTIMA amostra de cada dia (os contadores são acumulados,
+    //      e o painel mostra só a DIFERENÇA — nada cumulativo) ----
     var porDia = {};
     am.forEach(function (a) { porDia[dia(a.t)] = a; });
     var dias = Object.keys(porDia).sort();
 
-    // ---- a DIFERENÇA entre dias é a contagem daquele dia ----
-    function serieDiaria(campo) {
-      var fora = [];
-      for (var i = 1; i < dias.length; i++) {
-        var a = porDia[dias[i - 1]][campo] || 0;
-        var b = porDia[dias[i]][campo] || 0;
-        fora.push({ d: dias[i], v: b >= a ? b - a : null });
-      }
-      return fora;
-    }
-    var apar = serieDiaria('farol');
-    var visi = serieDiaria('visita');
-
-    // ---- downloads de APK por dia (para o funil, não para o topo) ----
-    var baix = [];
+    var diario = {};   // 'YYYY-MM-DD' → aparelhos daquele dia
     for (var i = 1; i < dias.length; i++) {
-      var ap = porDia[dias[i - 1]].apk || {}, bp = porDia[dias[i]].apk || {};
-      var soma = 0, ok = false;
-      Object.keys(bp).forEach(function (n) {
-        if (!/\.apk$/i.test(n)) return;
-        var antes = ap[n];
-        if (antes === undefined) { soma += bp[n]; ok = true; }
-        else if (bp[n] >= antes) { soma += bp[n] - antes; ok = true; }
-      });
-      baix.push({ d: dias[i], v: ok ? soma : 0 });
+      var a = porDia[dias[i - 1]].farol || 0;
+      var b = porDia[dias[i]].farol || 0;
+      if (b >= a) diario[dias[i]] = b - a;
     }
 
-    var ultDia = apar.length ? apar[apar.length - 1] : null;
-    var baseAtual = Object.keys(ultima.web || {}).sort(cmpVer).pop();
-    var baseN = (ultima.web || {})[baseAtual] || 0;
+    // ---- por semana: o MAIOR dia da semana (domingo a sábado) ----
+    // É o número que o operador pediu: uma vez por semana, o dia em que a
+    // igreja usa (o sábado, no comum). Um aparelho que abre a semana inteira
+    // continua contando 1 por dia — o máximo não soma, ele pega o dia cheio.
+    var semanas = {};
+    Object.keys(diario).forEach(function (dd) {
+      var s = sabadoDe(dd);
+      if (!(s in semanas) || diario[dd] > semanas[s]) semanas[s] = diario[dd];
+    });
 
-    // média dos últimos 7 dias COM dado (dia sem amostra não entra)
-    var ult7 = apar.slice(-7).filter(function (p) { return p.v !== null; });
-    var media7 = ult7.length ? Math.round(ult7.reduce(function (s, p) { return s + p.v; }, 0) / ult7.length) : null;
+    // ---- O DESCONTO DO APARELHO DO OPERADOR ----
+    // O farol conta 1 por aparelho por dia, e o dele entra como qualquer outro.
+    // Ele pediu o desconto: 1 por semana, nunca abaixo de zero. Não é
+    // estimativa — é um aparelho conhecido, e o painel diz que descontou.
+    var DESCONTO = 1;
+    var lista = Object.keys(semanas).sort().map(function (s) {
+      return { s: s, v: Math.max(0, semanas[s] - DESCONTO) };
+    });
+
+    // as últimas 12 semanas COM dado (semana sem amostra não vira zero)
+    var ultimas = lista.slice(-12);
+    var ultimaSemana = ultimas.length ? ultimas[ultimas.length - 1] : null;
+    var janela4 = ultimas.slice(-4);
+    var media4 = janela4.length
+      ? janela4.reduce(function (s, w) { return s + w.v; }, 0) / janela4.length : null;
 
     var h = [];
     h.push('<a class="volta" href="../">← site</a>');
@@ -247,395 +201,86 @@
     h.push('<p class="sub">' + esc(am.length) + ' amostra(s) · última em '
       + esc(new Date(ultima.t).toLocaleString('pt-BR')) + '</p>');
 
-    // ---- três números: os dois sólidos, e a base atual ----
     h.push('<div class="kpis">');
-    h.push(kpi(ultDia && ultDia.v !== null ? num(ultDia.v) : '—',
-      'aparelhos em ' + (ultDia ? diaBr(ultDia.d) : '')));
-    h.push(kpi(media7 !== null ? dec(media7) : '—',
-      'média por dia (dias com amostra)'));
-    h.push(kpi(num(baseN), 'aparelhos na base v' + (baseAtual || '—')));
+    h.push(kpi(ultimaSemana ? num(ultimaSemana.v) : '—',
+      'aparelhos na semana de ' + (ultimaSemana ? diaBr(ultimaSemana.s) : '—')));
+    h.push(kpi(media4 !== null ? dec(media4) : '—',
+      'média das últimas 4 semanas'));
     h.push('</div>');
 
-    // ---- O QUE ESTES NÚMEROS INCLUEM (o oráculo cobra esta frase) ----
-    h.push('<div class="nota"><b>Estes números incluem o uso próprio.</b> '
-      + 'O aparelho de quem publica conta como qualquer outro. Fica de fora só '
-      + 'o app rodando em build de teste (emulador, <code>assembleDebug</code>), '
-      + 'que acende num contador separado por construção.</div>');
+    // ---- O AVISO DO DESCONTO (o oráculo cobra esta frase) ----
+    h.push('<div class="nota"><b>Já descontado 1 por semana: o aparelho de '
+      + 'quem publica.</b> O farol conta uma vez por aparelho por dia, então o '
+      + 'aparelho do operador entra como qualquer outro — e sai da conta aqui, '
+      + 'uma vez por semana. Fica de fora só o app rodando em build de teste '
+      + '(emulador, <code>assembleDebug</code>), que acende num contador '
+      + 'separado por construção.</div>');
 
-    // ---- a linha principal: aparelhos ativos por dia ----
-    h.push('<h2>Aparelhos ativos por dia</h2>');
-    h.push('<p class="sub">Quem abriu o app naquele dia. O farol acende uma vez '
-      + 'por aparelho por dia — é a métrica sólida desta página.</p>');
+    // ---- o gráfico das semanas ----
+    h.push('<h2>Aparelhos por semana</h2>');
+    h.push('<p class="sub">O dia de maior uso de cada semana — no comum, o '
+      + 'sábado. Semana sem amostra fica em branco, não vira zero.</p>');
     h.push('<div class="caixa">');
-    h.push('<div class="legenda"><span><i class="pip" style="background:var(--s1)"></i>No dia</span>'
-      + '<span><i class="hif"></i>Média de 7 dias</span></div>');
-    h.push(linha(apar));
-    h.push(tabelaDias(dias, porDia, apar, baix, visi));
+    h.push(barras(ultimas));
+    h.push(tabela(lista));
     h.push('</div>');
 
-    // ---- agora ----
-    h.push(agora(am));
-
-    // ---- quando ----
-    h.push('<h2>Quando o app é usado</h2>');
-    h.push('<p class="sub">O app é de sábado de manhã; este é o retrato disso. '
-      + 'A média por dia da semana usa o farol; o horário usa a consulta do OTA.</p>');
-    h.push('<div class="quando">');
-    h.push(porDiaDaSemana(apar));
-    h.push(porHora(am));
-    h.push('</div>');
-    h.push('<div class="nota"><b>O gráfico de horas é um intervalo.</b> Um app '
-      + 'aberto consulta o manifesto do OTA 240×/hora em primeiro plano e '
-      + '30×/hora em segundo, e não há como separar os dois deste lado. A barra '
-      + 'mostra o meio do intervalo; o número exato está na tabela.</div>');
-
-    // ---- a base atual e o tempo de atualização ----
-    h.push('<h2>A base atual</h2>');
-    h.push('<p class="sub">Quantos aparelhos já baixaram cada base do app, e em '
-      + 'quantos dias ela chegou à metade do que tem hoje.</p>');
-    h.push('<div class="caixa">' + baseTabela(am, ultima) + '</div>');
-
-    // ---- o funil ----
-    h.push('<h2>Funil dos últimos 7 dias</h2>');
-    h.push('<p class="sub">Visitas à página de download, downloads do APK e '
-      + 'aparelhos que abriram o app — três eventos diferentes, na mesma janela.</p>');
-    h.push(funil(ult7, baix, visi));
-
-    // ---- definições ----
-    h.push('<h2>O que cada número é</h2>');
-    h.push('<div class="defs">');
-    h.push(def('Aparelhos ativos', 'var(--s1)',
-      'Quem abriu o app no dia. O farol acende uma vez por aparelho por dia: um '
-      + 'aparelho usado em dois dias conta nos dois. Inclui o de quem publica.'));
-    h.push(def('Agora (estimativa)', 'var(--accent)',
-      'Aparelhos com o app aberto na última hora, calculado pela consulta do '
-      + 'OTA. É sempre um intervalo, nunca um número — e só aparece quando a '
-      + 'última amostra tem até 3 h.'));
-    h.push(def('Base atual', 'var(--accent)',
-      'Aparelhos que baixaram a base web desta versão. É o mais perto de '
-      + '"instalado e atualizado" que existe sem identificar aparelho.'));
-    h.push(def('Funil', 'var(--s2)',
-      'Visitas e downloads são EVENTOS, não pessoas: robô, rebaixamento e '
-      + 'segunda tentativa contam igual. Serve para ver ordem de grandeza, não '
-      + 'para dividir um pelo outro como se fossem gente.'));
-    h.push('</div>');
-
-    // ---- o que não dá ----
-    h.push('<div class="nota"><b>Instalados não existe</b> sem identificar o '
-      + 'aparelho, e identificar é exatamente o que este projeto não faz. O mais '
-      + 'perto é a base atual — o que um aparelho instalado e atualizado faz.</div>');
+    // ---- o que ficou de fora ----
+    h.push('<h2>O que não entra</h2>');
+    h.push('<div class="nota"><b>Downloads, visitas, adoção da base e a '
+      + 'consulta do OTA ficaram fora.</b> Os quatro contam máquina, robô ou '
+      + 'teste — o download é evento (reinstalação conta de novo), a visita '
+      + 'inclui robô e os testes de quem publica, e o app aberto consulta o OTA '
+      + '240 vezes por hora. Nenhum deles conta uma pessoa uma vez.</div>');
+    h.push('<div class="nota"><b>Nada aqui é acumulado.</b> Cada barra é uma '
+      + 'semana, e a média é das últimas quatro. Não há total de vida inteira: '
+      + 'um número que só cresce não responde "quantos usam".</div>');
     h.push('<div class="nota"><b>Esta página é discreta, não secreta.</b> A '
-      + 'chave está no HTML, e os contadores são API pública de repositório '
-      + 'público. O contrato inteiro está em '
-      + '<code>docs/MEDICAO-DE-ALCANCE.md</code>.</div>');
+      + 'chave está no HTML, e o contador é API pública de repositório público. '
+      + 'O contrato inteiro está em <code>docs/MEDICAO-DE-ALCANCE.md</code>.</div>');
 
     pagEl.innerHTML = h.join('');
-    ligarDica();
   }
 
   function kpi(n, r) {
     return '<div class="kpi"><div class="kpi-n">' + esc(n) + '</div>'
       + '<div class="kpi-r">' + esc(r) + '</div></div>';
   }
-  function def(titulo, cor, texto) {
-    return '<div class="def"><h3><i class="pip" style="background:' + cor + '"></i>'
-      + esc(titulo) + '</h3><p>' + esc(texto) + '</p></div>';
+
+  // ===================================================================
+  // AS BARRAS — uma por semana, com o número em cima
+  // ===================================================================
+  function barras(semanas) {
+    if (!semanas.length) return '<p class="sub">Sem semanas com amostra.</p>';
+    var max = Math.max.apply(null, semanas.map(function (w) { return w.v; }).concat([1]));
+    var o = ['<div class="semanas">'];
+    // rótulo de data a cada duas semanas, e sempre na última — mas a penúltima
+    // sai se cair ao lado dela, senão as duas se encostam no celular.
+    var comData = {};
+    semanas.forEach(function (_, i) { if (i % 2 === 0) comData[i] = true; });
+    comData[semanas.length - 1] = true;
+    if (semanas.length > 2) delete comData[semanas.length - 2];
+    semanas.forEach(function (w, i) {
+      var alt = Math.max(2, 100 * w.v / max);
+      var mostraData = !!comData[i];
+      o.push('<div class="sem">'
+        + '<span class="sem-v">' + w.v + '</span>'
+        + '<b style="height:' + alt.toFixed(1) + '%" title="semana de '
+        + esc(diaBr(w.s)) + ': ' + w.v + ' aparelho(s)"></b>'
+        + '<i>' + (mostraData ? diaBr(w.s) : '') + '</i></div>');
+    });
+    o.push('</div>');
+    return o.join('');
   }
 
-  function cmpVer(a, b) {
-    var x = String(a).split('.').map(Number), y = String(b).split('.').map(Number);
-    for (var i = 0; i < Math.max(x.length, y.length); i++) {
-      var p = x[i] || 0, q = y[i] || 0;
-      if (p !== q) return p - q;
-    }
-    return 0;
-  }
-
-  // ===================================================================
-  // AGORA — a estimativa pela consulta do OTA
-  // ===================================================================
-  function agora(am) {
-    var base = '<h2>Agora</h2>';
-    if (am.length < 2) return base + '<p class="sub">Sem amostras suficientes.</p>';
-    var a = am[am.length - 2], b = am[am.length - 1];
-    var dt = (new Date(b.t) - new Date(a.t)) / 3600000;
-    var d = (b.manifesto || 0) - (a.manifesto || 0);
-    if (dt <= 0 || d < 0) {
-      return base + '<p class="sub">Sem leitura — o manifesto foi republicado '
-        + 'entre as duas amostras e o contador recomeçou.</p>';
-    }
-    // ACIMA DE 12 h a janela deixa de ser "agora" — e o painel diz isso em vez
-    // de esticar a palavra.
-    if (dt > 12) {
-      return base + '<p class="sub">Sem leitura recente — a última amostra tem '
-        + 'mais de 12 h. O agendador do GitHub atrasa, e este medidor só vale '
-        + 'para intervalos curtos.</p>';
-    }
-    var lo = d / 240 / dt, hi = d / 30 / dt;
-    // O agendador do GitHub entrega ~4 amostras por dia, não 24: quando o
-    // intervalo passa de 3 h, a janela é DITA em vez de fingir "nesta hora".
-    var quando = dt <= 3 ? 'nesta hora'
-      : 'na janela de ' + dec(dt) + ' h (entre ' + hm(a.t) + ' e ' + hm(b.t) + ')';
-    return base
-      + '<div class="caixa agora">'
-      + '<div class="kpi-n">' + dec(lo) + '–' + dec(hi) + '</div>'
-      + '<div class="kpi-r">aparelhos com o app aberto ' + esc(quando) + ' — estimativa</div>'
-      + '</div>'
-      + '<div class="nota">Não é um farol: é o próprio OTA. <b>Inclui o uso '
-      + 'próprio</b> e as consultas do CI quando ele publica.'
-      + (dt > 3 ? ' A janela aparece porque as amostras chegam com atraso.' : '')
-      + '</div>';
-  }
-
-  // ===================================================================
-  // QUANDO — por dia da semana e por hora
-  // ===================================================================
-  function porDiaDaSemana(apar) {
-    var soma = [0,0,0,0,0,0,0], cont = [0,0,0,0,0,0,0];
-    apar.forEach(function (p) {
-      if (p.v === null) return;
-      var w = new Date(p.d + 'T12:00:00').getDay();
-      soma[w] += p.v; cont[w]++;
-    });
-    var med = soma.map(function (s, i) { return cont[i] ? s / cont[i] : null; });
-    var max = Math.max.apply(null, med.filter(function (v) { return v !== null; }).concat([1]));
-    var h = ['<div class="q"><h3>Média por dia da semana</h3>'];
-    if (!med.some(function (v) { return v !== null; })) {
-      h.push('<p class="vazio">Sem dias suficientes.</p></div>');
-      return h.join('');
-    }
-    h.push('<div class="barras">');
-    med.forEach(function (v, i) {
-      var alt = v === null ? 0 : Math.max(2, 100 * v / max);
-      h.push('<div class="col"><b style="height:' + alt.toFixed(1) + '%" title="'
-        + DIAS[i] + ': ' + (v === null ? '—' : dec(v)) + '"></b><i>' + DIAS[i] + '</i></div>');
-    });
-    var melhor = -1, melhorV = -1;
-    med.forEach(function (v, i) { if (v !== null && v > melhorV) { melhorV = v; melhor = i; } });
-    h.push('</div><p class="pico"><b>Pico: ' + DIAS[melhor] + '</b> — '
-      + dec(melhorV) + ' aparelhos por dia, em média.</p></div>');
-    return h.join('');
-  }
-
-  function porHora(am) {
-    var soma = new Array(24).fill(0), horas = new Array(24).fill(0);
-    for (var i = 1; i < am.length; i++) {
-      var a = am[i - 1], b = am[i];
-      var dt = (new Date(b.t) - new Date(a.t)) / 3600000;
-      var d = (b.manifesto || 0) - (a.manifesto || 0);
-      if (dt <= 0 || dt > 3 || d < 0) continue;   // buraco ou manifesto republicado
-      var hh = new Date(b.t).getHours();
-      soma[hh] += d; horas[hh] += dt;
-    }
-    var h = ['<div class="q"><h3>Aparelhos por hora do dia</h3>'];
-    if (!horas.some(function (x) { return x > 0; })) {
-      h.push('<p class="vazio">Sem amostras horárias (a série está em passos de 24 h).</p></div>');
-      return h.join('');
-    }
-    // faixa por hora: primeiro plano (240) e segundo (30) dão o piso e o teto
-    var faixas = horas.map(function (dt, i) {
-      if (!dt) return null;
-      var taxa = soma[i] / dt;             // consultas por hora, naquela hora do dia
-      return { lo: taxa / 240, hi: taxa / 30 };
-    });
-    var max = Math.max.apply(null, faixas.map(function (f) { return f ? f.hi : 0; }).concat([1]));
-    h.push('<div class="barras horas">');
-    faixas.forEach(function (f, i) {
-      var alt = f ? Math.max(2, 100 * f.hi / max) : 0;
-      h.push('<div class="col"><b style="height:' + alt.toFixed(1) + '%" title="'
-        + i + 'h: ' + (f ? dec(f.lo) + '–' + dec(f.hi) : '—') + '"></b>'
-        + '<i>' + (i % 4 === 0 ? i : '') + '</i></div>');
-    });
-    var hMelhor = -1, hMelhorV = -1;
-    faixas.forEach(function (f, i) { if (f && f.hi > hMelhorV) { hMelhorV = f.hi; hMelhor = i; } });
-    h.push('</div><p class="pico"><b>Pico: ' + hMelhor + 'h</b> — entre '
-      + dec(faixas[hMelhor].lo) + ' e ' + dec(faixas[hMelhor].hi) + ' aparelhos.</p>'
-      + '<p class="mini">Faixa entre primeiro e segundo plano; o topo da barra é o teto.</p></div>');
-    return h.join('');
-  }
-
-  // ===================================================================
-  // A BASE ATUAL — adoção e tempo de atualização
-  // ===================================================================
-  // `t50` é o tempo entre a PRIMEIRA amostra em que a base aparece e a amostra
-  // em que ela chega à metade do que tem hoje. Não é a data da publicação —
-  // essa não está na série —, e o painel diz "desde a 1ª amostra".
-  function baseTabela(am, ultima) {
-    var versoes = Object.keys(ultima.web || {}).sort(cmpVer).reverse().slice(0, 5);
-    if (!versoes.length) return '<p class="sub">Nenhuma base registrada ainda.</p>';
-    var h = ['<div class="tw"><table class="bases"><thead><tr><th>Base</th><th>Aparelhos</th>'
-      + '<th>1ª amostra</th><th>Metade em</th></tr></thead><tbody>'];
-    versoes.forEach(function (v, i) {
-      var atual = (ultima.web || {})[v] || 0;
-      var primeira = null, metade = null;
-      am.forEach(function (a) {
-        var n = (a.web || {})[v] || 0;
-        if (n > 0 && primeira === null) primeira = a.t;
-        if (atual > 0 && metade === null && n >= atual / 2) metade = a.t;
-      });
-      var t50 = null;
-      if (primeira && metade) t50 = Math.round((new Date(metade) - new Date(primeira)) / 864e5);
-      h.push('<tr class="' + (i === 0 ? 'atual' : '') + '"><td>v' + esc(v) + '</td>'
-        + '<td>' + num(atual) + '</td>'
-        + '<td>' + (primeira ? esc(diaBr(dia(primeira))) : '—') + '</td>'
-        + '<td>' + (t50 === null ? 'em curso' : (t50 === 0 ? 'no mesmo dia' : t50 + ' dia(s)')) + '</td></tr>');
-    });
-    h.push('</tbody></table></div>');
-    return h.join('');
-  }
-
-  // ===================================================================
-  // O FUNIL — três eventos, mesma janela
-  // ===================================================================
-  function funil(ult7, baix, visi) {
-    if (!ult7.length) return '<p class="sub">Sem dias suficientes.</p>';
-    var desde = ult7[0].d;
-    function soma(serie) {
-      return serie.filter(function (p) { return p.d >= desde; })
-        .reduce(function (s, p) { return s + (p.v || 0); }, 0);
-    }
-    var v = soma(visi), d = soma(baix);
-    var disp = ult7.reduce(function (s, p) { return s + (p.v || 0); }, 0);
-    var h = ['<div class="funil">'];
-    h.push('<div class="f"><b>' + num(v) + '</b><span>visitas ao site</span></div>');
-    h.push('<div class="f"><b>' + num(d) + '</b><span>downloads do APK</span></div>');
-    h.push('<div class="f"><b>' + num(disp) + '</b><span>dias-aparelho no app</span></div>');
-    h.push('</div>');
-    if (v > 0) {
-      h.push('<p class="conv">Conversão da página para o download: <b>'
-        + Math.round(100 * d / v) + '%</b>. Cada número conta eventos diferentes — '
-        + 'leia como ordem de grandeza.</p>'
-        + '<p class="conv">O topo do funil é o número MENOS confiável: as visitas '
-        + 'incluem robôs e os testes de quem publica (cada navegador novo conta '
-        + 'uma vez). Leia como teto, não como gente.</p>');
-    }
-    return h.join('');
-  }
-
-  // ===================================================================
-  // O GRÁFICO DE LINHAS — uma série + a média de 7 dias
-  // ===================================================================
-  function linha(pts) {
-    // A LARGURA DO viewBox ACOMPANHA A TELA: no celular, 360 unidades (~1 por
-    // pixel); no computador, 720. Sem isso o texto de 11 encolheria para 5 px.
-    var W = (window.innerWidth < 640) ? 360 : 720;
-    var L = 30, R = 12, T = 12, B = 26, H = 230;
-    var dias = pts.map(function (p) { return p.d; });
-    if (dias.length < 2) {
-      return '<p class="sub" style="padding:.6rem .3rem">Um dia de dados só — a '
-        + 'diferença entre dias é o que este gráfico desenha.</p>';
-    }
-    var max = 0;
-    pts.forEach(function (p) { if (p.v !== null && p.v > max) max = p.v; });
-    max = Math.max(max, 1);
-    var passo = Math.pow(10, Math.floor(Math.log10(max)));
-    var teto = Math.ceil(max / passo) * passo;
-
-    var x = function (i) { return L + (W - L - R) * (i / (dias.length - 1)); };
-    var y = function (v) { return T + (H - T - B) * (1 - v / teto); };
-
-    // média móvel de 7 dias (só onde há 7 dias completos)
-    var media = pts.map(function (p, i) {
-      if (i < 6) return null;
-      var jan = pts.slice(i - 6, i + 1);
-      if (jan.some(function (q) { return q.v === null; })) return null;
-      return jan.reduce(function (s, q) { return s + q.v; }, 0) / 7;
-    });
-
-    var o = ['<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="'
-      + 'Aparelhos ativos por dia, com a média de 7 dias">'];
-
-    [0, 0.5, 1].forEach(function (f) {
-      var v = teto * f, yy = y(v);
-      o.push('<line x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy
-        + '" stroke="var(--rule)" stroke-width="1"/>');
-      o.push('<text x="' + (L - 6) + '" y="' + (yy + 4) + '" text-anchor="end" '
-        + 'font-size="11" fill="var(--muted)">' + Math.round(v) + '</text>');
-    });
-    var quantos = Math.min(6, dias.length);
-    for (var k = 0; k < quantos; k++) {
-      var i = quantos === 1 ? 0 : Math.round(k * (dias.length - 1) / (quantos - 1));
-      o.push('<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="middle" '
-        + 'font-size="11" fill="var(--muted)">' + diaBr(dias[i]) + '</text>');
-    }
-
-    function caminho(serie, cor, tracejado) {
-      var seg = [], atual = [];
-      serie.forEach(function (v, i) {
-        if (v === null) { if (atual.length) { seg.push(atual); atual = []; } return; }
-        atual.push([x(i), y(v)]);
-      });
-      if (atual.length) seg.push(atual);
-      seg.forEach(function (g) {
-        if (g.length > 1) {
-          o.push('<path d="M' + g.map(function (p) { return p[0] + ' ' + p[1]; }).join('L')
-            + '" fill="none" stroke="' + cor + '" stroke-width="2" '
-            + (tracejado ? 'stroke-dasharray="5 5" ' : '')
-            + 'stroke-linejoin="round" stroke-linecap="round"/>');
-        }
-      });
-      return seg;
-    }
-    var valores = pts.map(function (p) { return p.v; });
-    var seg = caminho(valores, 'var(--s1)', false);
-    caminho(media, 'var(--s1)', true);
-
-    seg.forEach(function (g) {
-      g.forEach(function (p) {
-        o.push('<circle cx="' + p[0] + '" cy="' + p[1] + '" r="3" fill="var(--s1)" '
-          + 'stroke="var(--panel)" stroke-width="2"/>');
-      });
-    });
-
-    // camada de toque
-    dias.forEach(function (dd, i) {
-      var larg = (W - L - R) / Math.max(dias.length - 1, 1);
-      var valor = pts[i].v;
-      o.push('<rect x="' + (x(i) - larg / 2) + '" y="' + T + '" width="' + larg
-        + '" height="' + (H - T - B) + '" fill="transparent" class="alvo" '
-        + 'data-dica="' + esc(diaBr(dd) + ' · ' + (valor === null ? 'sem dado' : valor)) + '"/>');
-    });
-
-    o.push('</svg>');
-    return '<figure>' + o.join('')
-      + '<figcaption>Cada ponto é a diferença do contador em relação ao dia anterior.'
-      + '</figcaption></figure>';
-  }
-
-  function tabelaDias(dias, porDia, apar, baix, visi) {
-    var mA = {}, mB = {}, mV = {};
-    apar.forEach(function (p) { mA[p.d] = p.v; });
-    baix.forEach(function (p) { mB[p.d] = p.v; });
-    visi.forEach(function (p) { mV[p.d] = p.v; });
+  function tabela(lista) {
     var l = ['<details><summary>Ver a tabela</summary><div class="tw"><table>',
-      '<thead><tr><th>Dia</th><th>Aparelhos</th><th>Downloads</th><th>Visitas</th>'
-      + '</tr></thead><tbody>'];
-    dias.slice().reverse().forEach(function (dd) {
-      var v = function (m) { return m[dd] === undefined || m[dd] === null ? '—' : m[dd]; };
-      l.push('<tr><td>' + esc(dd) + '</td>'
-        + '<td>' + v(mA) + '</td><td>' + v(mB) + '</td><td>' + v(mV) + '</td></tr>');
+      '<thead><tr><th>Semana de</th><th>Aparelhos</th></tr></thead><tbody>'];
+    lista.slice().reverse().forEach(function (w) {
+      l.push('<tr><td>' + esc(diaBr(w.s)) + '</td><td>' + w.v + '</td></tr>');
     });
     l.push('</tbody></table></div></details>');
     return l.join('');
-  }
-
-  // ---------- a dica que segue o dedo/ponteiro ----------
-  function ligarDica() {
-    pagEl.addEventListener('pointerover', function (e) {
-      var alvo = e.target.closest && e.target.closest('.alvo');
-      if (!alvo) return;
-      dicaEl.textContent = alvo.getAttribute('data-dica') || '';
-      dicaEl.style.opacity = '1';
-    });
-    pagEl.addEventListener('pointermove', function (e) {
-      if (dicaEl.style.opacity !== '1') return;
-      var x = Math.min(e.clientX + 14, innerWidth - dicaEl.offsetWidth - 8);
-      dicaEl.style.left = Math.max(8, x) + 'px';
-      dicaEl.style.top = Math.max(8, e.clientY - dicaEl.offsetHeight - 12) + 'px';
-    });
-    pagEl.addEventListener('pointerout', function (e) {
-      if (e.target.closest && e.target.closest('.alvo')) dicaEl.style.opacity = '0';
-    });
   }
 })();
 </script>

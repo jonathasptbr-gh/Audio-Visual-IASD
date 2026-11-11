@@ -335,30 +335,26 @@ com outro custo de privacidade.
 | farol por SESSÃO em vez de por dia | quem abre o app quarenta vezes numa manhã de trabalho viraria quarenta. Por dia, o pior caso de um aparelho é contribuir com 1 — e a diferença entre dois dias passa a ser "aparelhos", que é a métrica de alcance |
 | retentar o farol que falhou | um dia perdido custa um ponto numa série; insistir custa fio e bateria no meio de um culto. É a única coisa deste projeto que pode falhar sem consequência, e falha calada de propósito |
 
-## §13 O PAINEL DE 2026-11-10 — só o que é sólido
+## §13 O PAINEL DE 2026-11-10 — uma métrica, semanal, com o operador descontado
 
-O painel foi reescrito em torno da **única métrica que este desenho entrega
-limpa**: aparelhos que abriram o app no dia (o farol), com a média de 7 dias
-tracejada. Em volta dela, quatro leituras que saem da mesma série:
+**SÓ O FAROL FICOU.** Ele é o único medidor deste projeto em que uma pessoa
+conta uma vez: 1 por aparelho por dia. Tudo o mais foi removido do painel —
+downloads, visitas, adoção da base e a consulta do OTA —, porque os quatro
+contam máquina, robô ou teste: o download é evento (reinstalação conta de novo),
+a visita inclui robô e os testes de quem publica, e o app aberto consulta o OTA
+240 vezes por hora.
 
-- **Agora** — o contador do OTA dividido por 240 (primeiro plano) e 30 (segundo),
-  sempre um intervalo. Até 3 h ele diz "nesta hora"; acima disso (o agendador
-  do GitHub entrega ~4 amostras por dia, não 24) ele **diz a janela** em vez de
-  fingir; acima de 12 h, não aparece;
-- **Quando** — média por dia da semana (o sábado aparece) e por hora do dia,
-  esta última como faixa;
-- **A base atual** — adoção por versão e em quantos dias cada uma chegou à
-  metade do que tem hoje (o "o OTA está chegando?" medível);
-- **Funil dos últimos 7 dias** — visitas, downloads e dias-aparelho na mesma
-  janela, com a conversão da página para o download.
+**A LEITURA É SEMANAL**, e o número é o **dia de maior uso da semana** (domingo
+a sábado) — no comum, o sábado. Um aparelho que abre a semana inteira continua
+contando 1 por dia; o máximo pega o dia cheio em vez de somar repetições.
 
-**SAIU O QUE SÓ FAZIA RUÍDO:** as barras de download por versão do APK, o total
-de downloads desde a v1.0 e a leitura de downloads/visitas como linha do tempo.
-Download é EVENTO (reinstalação, robô, segunda tentativa) e não sustenta um
-número de topo; ele ficou onde é lido como ordem de grandeza — no funil, ao lado
-das visitas, com o aviso de que são eventos diferentes.
+**E O APARELHO DO OPERADOR É DESCONTADO: 1 por semana.** Isso **contraria o §6**
+de propósito, e a diferença importa: o §6 proíbe *subtrair uma estimativa*, e
+aqui não há estimativa — é um aparelho conhecido, que entra no farol como
+qualquer outro. A premissa, dita: ele usa o app no dia de maior uso da semana.
+O painel escreve "já descontado 1" logo abaixo dos números, porque uma subtração
+muda a leitura e precisa estar à vista.
 
-**O QUE CONTINUA FORA, e é o mesmo de sempre:** aparelhos únicos, instalados e
-retenção não existem sem identificar o aparelho; "instalados" continua sendo
-aproximado pela adoção da base atual. GB de biblioteca o app sabe no aparelho e
-não reporta a lugar nenhum.
+**NADA É ACUMULADO.** Cada barra é uma semana, e a média é das últimas quatro.
+Não há total de vida inteira: um número que só cresce não responde "quantos
+usam". Semana sem amostra fica em branco — não vira zero.
