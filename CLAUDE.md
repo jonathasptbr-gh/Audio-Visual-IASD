@@ -616,12 +616,13 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.13.65 · APK v1.13.50** · `SHELL_VERSION` **86** ·
-bundle com `minShell: 83` e **sem `shellTag`** — a v1.13.56 é só web, e a Release
-da v1.13.50 já está publicada. O **PISO** continua **83**:
-nada novo é exigido do web, e a superfície não mudou desde a X1 — a X2 apagou o
-proxy da transmissão direta sem tocar no contrato da ponte. O que cada lote
-trouxe está no `docs/HISTORICO.md`, nunca aqui.
+**Versão atual: base web v1.13.66 · APK v1.13.65** · `SHELL_VERSION` **86** ·
+bundle com `minShell: 83` e **sem `shellTag`** — a v1.13.66 é só web, e a Release
+da v1.13.65 (a que trouxe o casco 86) já está publicada. O **PISO** continua **83**:
+as duas funções de volume do casco 86 são OPCIONAIS — o web pergunta e desiste sem
+elas (`native.js` devolve `null`), então um aparelho com casco 83/85 continua
+inteiro, só sem o piso e sem o aviso. O que cada lote trouxe está no
+`docs/HISTORICO.md`, nunca aqui.
 
 - **O `shellTag` ACOMPANHA A ÚLTIMA VERSÃO, NÃO A QUE MEXEU NO KOTLIN** — o CI
   exige `shellTag == 'v' + version`. Um lote só de web publicado DEPOIS de um

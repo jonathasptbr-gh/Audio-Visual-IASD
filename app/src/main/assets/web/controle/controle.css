@@ -1147,15 +1147,30 @@ body {
 .vol-pill.mudo .vol-pill-mute svg { color: var(--danger-strong); }
 /* O AVISO ACIMA DA PÍLULA: ela é `fixed`, então o filho absoluto pousa em cima dela. É uma
    etiqueta, não um botão — sem moldura de toque, e com o mesmo tom de alerta. */
+/* O AVISO É UM ÍCONE AMARELO, E É BOTÃO (v1.13.66). O operador: *"está em texto horizontal, e está
+   sendo cortado pela tela. Coloque ele como um icone de alerta amarelo, e se clicável ele abre a
+   barra de volume do sistema"*. Um quadrado do tamanho do alvo de toque, no par de AVISO do app
+   (`--btn-warn`/`--warn-text`), encostado ACIMA da pílula — sem texto, nada a cortar. */
 .vol-pill-aviso {
   position: absolute; bottom: calc(100% + .4rem); left: 50%; transform: translateX(-50%);
-  display: flex; align-items: center; gap: var(--sp-2);
-  padding: .35rem .6rem; white-space: nowrap;
-  background: var(--btn-danger); color: var(--danger-strong);
-  border-radius: var(--radius-pill); font-size: var(--fs-sm); font-weight: var(--fw-forte);
+  display: flex; align-items: center; justify-content: center;
+  width: var(--hit); height: var(--hit); padding: 0;
+  border: 0; cursor: pointer;
+  background: var(--btn-warn); color: var(--warn-text);
+  border-radius: var(--radius-btn);
 }
 .vol-pill-aviso[hidden] { display: none; }
-.vol-pill-aviso svg { width: 18px; height: 18px; color: var(--danger-strong); }
+.vol-pill-aviso svg { width: 18px; height: 18px; color: var(--warn-text); }
+/* O NÚMERO DENTRO DO BOTÃO DO MUDO (v1.13.66). Ele é ABSOLUTO de propósito: o `.pv-fab` tem
+   `width`/`height` fixos (`--hit`), e a regra do layout da prévia é que todo botão tenha a CAIXA do
+   botão do transporte — um filho no fluxo esticava o quadrado e reprovava essa régua. Assim o
+   número pousa no canto inferior direito do mesmo quadrado, e o alvo não muda de tamanho. */
+.pv-fab--mute { position: relative; }
+.pv-mute-num {
+  position: absolute; right: 3px; bottom: 1px;
+  font-size: var(--fs-xs); font-weight: var(--fw-forte); line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
 .vol-pill .ico-alt { display: none; }
 .vol-pill.mudo .ico-base { display: none; }
 .vol-pill.mudo .ico-alt { display: block; }

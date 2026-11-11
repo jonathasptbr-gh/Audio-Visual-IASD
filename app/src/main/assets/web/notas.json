@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.13.66",
+    "itens": [
+      "O aviso de som do celular no zero virou um ícone amarelo: toque nele para abrir o volume do Android.",
+      "No modo avançado, o botão do mudo mostra a porcentagem do volume o tempo todo."
+    ]
+  },
+  {
     "versao": "1.13.65",
     "itens": [
       "O mudo da barra de volume fica vermelho, e um aviso aparece quando o som do celular está no zero.",

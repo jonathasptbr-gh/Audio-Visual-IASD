@@ -37,6 +37,7 @@ const volValueEl = document.getElementById('volValue');
 const volPillEl = document.getElementById('volPill');
 const volPillMuteEl = document.getElementById('volPillMute');
 const volPillAvisoEl = document.getElementById('volPillAviso');
+const pvMuteNumEl = document.getElementById('pvMuteNum');
 const pvCastBtnEl = document.getElementById('pvCastBtn');
 const fsCtlEl = document.getElementById('pvFsCtl');
 // O título e a linha do tempo da tela cheia do Modo Fácil (v1.12.41).
@@ -412,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.65';
+const WEB_VERSION = '1.13.66';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4380,6 +4381,9 @@ function renderControls() {
     ? 'Sem áudio no Display — toque para tentar liberar'
     : muted ? 'Tirar o mudo' : 'Mutar';
   muteToggleEl.setAttribute('aria-label', muteToggleEl.title);
+  // O NÚMERO NO MESMO BOTÃO (v1.13.66): o volume do app, sempre à vista no avançado — é a metade
+  // que a pílula mostra na tecla física, e aqui ela não some.
+  if (pvMuteNumEl) pvMuteNumEl.textContent = String(muteToggleEl.classList.contains('blocked') ? 0 : Math.round(volume * 100));
   // Os DOIS mostradores de volume (o fader do deck e a tecla de nível do Modo Fácil)
   // saem daqui: um só ponto os escreve, então nunca divergem.
   syncFader(Math.round(volume * 100));
@@ -42008,6 +42012,15 @@ function esconderPilula() {
 }
 // O MUDO mora no ícone: um `.click()` no botão do avançado — o mesmo comando, o mesmo estado,
 // e uma segunda verdade sobre o mudo não nasce aqui.
+// O AVISO É A PORTA DO VOLUME DO ANDROID (v1.13.66): o `systemVolume(±1)` da ponte chama
+// `adjustStreamVolume` com `FLAG_SHOW_UI`, então o painel do sistema aparece — e é o mesmo caminho
+// que a tecla física já usa no teto/zero. Sobe UM degrau: sair do zero é o que o operador quer.
+if (volPillAvisoEl) {
+  volPillAvisoEl.addEventListener('click', () => {
+    if (window.__NATIVE__) AVNative.systemVolume(1);
+    esconderPilula();
+  });
+}
 if (volPillMuteEl) {
   volPillMuteEl.addEventListener('click', () => {
     muteToggleEl.click();
