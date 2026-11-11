@@ -49,6 +49,7 @@
   .kpi-r { font-size:.75rem; color:var(--muted); margin-top:.2rem; line-height:1.35; }
 
   .caixa { background:var(--panel); border-radius:14px; padding:1rem .9rem .7rem; margin-top:.55rem; }
+  .legenda { margin:0 0 .2rem; font-size:.76rem; color:var(--muted); }
 
   /* ===== as semanas: uma barra por semana ===== */
   .semanas { display:flex; align-items:flex-end; gap:4px; height:170px; margin-top:.3rem; }
@@ -208,36 +209,14 @@
       'média das últimas 4 semanas'));
     h.push('</div>');
 
-    // ---- O AVISO DO DESCONTO (o oráculo cobra esta frase) ----
-    h.push('<div class="nota"><b>Já descontado 1 por semana: o aparelho de '
-      + 'quem publica.</b> O farol conta uma vez por aparelho por dia, então o '
-      + 'aparelho do operador entra como qualquer outro — e sai da conta aqui, '
-      + 'uma vez por semana. Fica de fora só o app rodando em build de teste '
-      + '(emulador, <code>assembleDebug</code>), que acende num contador '
-      + 'separado por construção.</div>');
-
     // ---- o gráfico das semanas ----
     h.push('<h2>Aparelhos por semana</h2>');
-    h.push('<p class="sub">O dia de maior uso de cada semana — no comum, o '
-      + 'sábado. Semana sem amostra fica em branco, não vira zero.</p>');
     h.push('<div class="caixa">');
+    h.push('<p class="legenda">Dia de maior uso da semana, menos 1: o aparelho '
+      + 'de quem publica.</p>');
     h.push(barras(ultimas));
     h.push(tabela(lista));
     h.push('</div>');
-
-    // ---- o que ficou de fora ----
-    h.push('<h2>O que não entra</h2>');
-    h.push('<div class="nota"><b>Downloads, visitas, adoção da base e a '
-      + 'consulta do OTA ficaram fora.</b> Os quatro contam máquina, robô ou '
-      + 'teste — o download é evento (reinstalação conta de novo), a visita '
-      + 'inclui robô e os testes de quem publica, e o app aberto consulta o OTA '
-      + '240 vezes por hora. Nenhum deles conta uma pessoa uma vez.</div>');
-    h.push('<div class="nota"><b>Nada aqui é acumulado.</b> Cada barra é uma '
-      + 'semana, e a média é das últimas quatro. Não há total de vida inteira: '
-      + 'um número que só cresce não responde "quantos usam".</div>');
-    h.push('<div class="nota"><b>Esta página é discreta, não secreta.</b> A '
-      + 'chave está no HTML, e o contador é API pública de repositório público. '
-      + 'O contrato inteiro está em <code>docs/MEDICAO-DE-ALCANCE.md</code>.</div>');
 
     pagEl.innerHTML = h.join('');
   }

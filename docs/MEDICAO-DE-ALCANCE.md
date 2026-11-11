@@ -352,8 +352,8 @@ contando 1 por dia; o máximo pega o dia cheio em vez de somar repetições.
 de propósito, e a diferença importa: o §6 proíbe *subtrair uma estimativa*, e
 aqui não há estimativa — é um aparelho conhecido, que entra no farol como
 qualquer outro. A premissa, dita: ele usa o app no dia de maior uso da semana.
-O painel escreve "já descontado 1" logo abaixo dos números, porque uma subtração
-muda a leitura e precisa estar à vista.
+A legenda do gráfico diz "menos 1: o aparelho de quem publica" — uma subtração
+muda a leitura e precisa estar à vista, e essa é a única explicação da página.
 
 **NADA É ACUMULADO.** Cada barra é uma semana, e a média é das últimas quatro.
 Não há total de vida inteira: um número que só cresce não responde "quantos

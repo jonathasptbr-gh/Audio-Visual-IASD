@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o painel sem texto (sem versão nova; só `site/`)** — a página perdeu os parágrafos de explicação: ficaram os dois números, o gráfico e uma linha de legenda ("menos 1: o aparelho de quem publica")
 - **o painel semanal (sem versão nova; só `site/` e docs)** — uma métrica só: aparelhos no dia de maior uso da semana (normalmente o sábado), com 1 descontado por semana (o aparelho de quem publica); saíram downloads, visitas, adoção, OTA e todo número acumulado
 - **o painel enxuto (sem versão nova; só `site/` e docs)** — uma linha sólida (aparelhos ativos + média de 7 dias) e quatro leituras: agora, quando (dia da semana e hora), base atual com o tempo até a metade, e o funil de 7 dias; saíram as barras por versão e o total de downloads
 - **o painel de alcance, redesenhado (sem versão nova; só `site/` e docs)** — três linhas no mesmo eixo (baixaram, usaram, visitaram), o cartão "agora" que sai da consulta do OTA, e as definições de cada número; o rodapé do site passa a linká-lo
@@ -684,6 +685,16 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## o painel sem texto (sem versão nova; só `site/`)
+
+**A PÁGINA FICOU COM O DADO E A LEGENDA MÍNIMA**, a pedido do operador: *"não
+precisamos de tantos textos e explicações; quero apenas os dados e legenda
+mínima para entendimento, mas não preciso de desculpas e explicações"*. Saíram
+os três parágrafos do rodapé ("o que não entra", "nada é acumulado", "discreta,
+não secreta") e o parágrafo do desconto; a legenda do gráfico ficou com uma
+linha — *"dia de maior uso da semana, menos 1: o aparelho de quem publica"* —,
+que é o que permite ler o número. O contrato continua com a explicação inteira.
 
 ## o painel semanal (sem versão nova; só `site/` e docs)
 

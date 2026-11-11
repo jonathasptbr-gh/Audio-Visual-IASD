@@ -118,15 +118,7 @@ try {
       'e todas desenham a altura do valor descontado', barras);
 
     // O DESCONTO TEM DE ESTAR ESCRITO: é ele que muda a leitura do número.
-    const nota1 = await pg.evaluate(() => {
-      const notas = [...document.querySelectorAll('#pag .nota')].map((n) => n.textContent);
-      return { primeira: notas[0] || '', quantas: notas.length };
-    });
-    checar(/descontado 1/i.test(nota1.primeira) && /quem publica|operador/i.test(nota1.primeira),
-      'o painel avisa que desconta o aparelho de quem publica', nota1.primeira);
-    checar(/build de teste|assembleDebug/i.test(nota1.primeira),
-      '  ↳ e nomeia a única exclusão que sobrou (o build de teste), que nunca '
-      + 'foi escolha de ninguém', nota1.primeira);
+
 
     // ======================================================================
     // NÃO HÁ MAIS EXCLUSÃO — E O PAINEL DIZ ISSO (v1.4.42)
@@ -159,25 +151,12 @@ try {
       'abrir o Registro NÃO marca mais este navegador, e não há interruptor: o '
       + 'sistema de exclusão saiu inteiro', semMarca);
 
-    const aviso = await pg.evaluate(() => {
-      const notas = [...document.querySelectorAll('#pag .nota')].map((n) => n.textContent);
-      return {
-        // A ORDEM importa: a ressalva tem de vir antes dos gráficos, senão ela
-        // chega tarde para a leitura que existe para corrigir.
-        primeira: notas[0] || '',
-        quantas: notas.length,
-      };
-    });
-    // O AVISO MUDOU DE SENTIDO (2026-11-10, a pedido do operador): antes ele
-    // dizia que o uso próprio ENTRAVA; agora o painel DESCONTA 1 por semana, o
-    // aparelho de quem publica. A frase renderizada é o que se cobra, porque
-    // uma nota vazia passaria num teste de seletor.
-    checar(/descontado 1/i.test(aviso.primeira),
-      'e o painel AVISA, logo abaixo dos números, que desconta o aparelho do operador',
-      aviso.primeira);
-    checar(/build de teste|assembleDebug/i.test(aviso.primeira),
-      '  ↳ e nomeia a única exclusão que sobrou (o build debuggável), que nunca '
-      + 'foi opção de ninguém', aviso.primeira);
+    // A LEGENDA É CURTA, mas ela é o que permite LER o número: sem o desconto
+    // dito, "1 aparelho" não significa nada. A página perdeu os parágrafos de
+    // explicação a pedido do operador; esta linha é o mínimo que sobrou.
+    const legenda = await pg.locator('#pag .legenda').innerText();
+    checar(/menos 1/i.test(legenda) && /quem publica/i.test(legenda),
+      'a legenda diz que 1 já foi descontado (o aparelho de quem publica)', legenda);
 
     // ---- o medidor de horas fica FORA quando as amostras são diárias ----
     // Intervalos maiores que 3 h são descartados: entre duas amostras de 24 h
