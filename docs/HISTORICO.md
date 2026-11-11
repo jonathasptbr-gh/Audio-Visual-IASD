@@ -715,14 +715,17 @@ fonte, então o cartão sai igual em qualquer máquina — `system-ui` não tem 
 frase, e as três fichas (endereço, Android 8+, grátis) repetem o vidro fosco
 dos chips do app. O telefone é a moldura do próprio site (`.fone`,
 `linear-gradient(160deg,#33485f,#0f1b28)`, raio 30) com a captura real de
-`site/telas/letra.webp` dentro — a mesma tela do carrossel, não uma maquete.
+`site/telas/cronograma.webp` dentro — a mesma tela do carrossel, não uma
+maquete. A tela do Cronograma foi escolhida a pedido do operador por mostrar o
+que a frase promete: o telão em miniatura e os controles de reprodução na mesma
+imagem.
 
-**O `?v=2` NO `og:image`.** WhatsApp e Facebook guardam a prévia por ENDEREÇO,
+**O `?v=` NO `og:image`.** WhatsApp e Facebook guardam a prévia por ENDEREÇO,
 não por conteúdo: trocar o arquivo e manter a URL deixou a primeira versão
 (branca) circulando por semanas em quem já tinha recebido o link — e foi ela
 que voltou como pedido. Ao refazer a imagem, o número sobe.
 
-Medido: 1200×630 (1.91:1), 104 kB — o formato que o WhatsApp mostra sem
+Medido: 1200×630 (1.91:1), 113 kB — o formato que o WhatsApp mostra sem
 recorte.
 
 ## o painel sem texto (sem versão nova; só `site/`)
