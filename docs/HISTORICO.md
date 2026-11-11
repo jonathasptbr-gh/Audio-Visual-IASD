@@ -39,6 +39,7 @@ apagada da que a criou.
 - **as capturas novas do app (sem versão nova; só `site/`)** — as 14 telas do carrossel foram trocadas pelas do app na v1.13.62 (enviadas pelo operador), em WebP 800×1632; saíram as quatro sem captura nova (destinos, série, sorteio, tempo) e entraram Liturgia, Hinário por tema, Ferramentas e Transferir a biblioteca; o cartão do link foi refeito com a tela nova
 - **o site redesenhado (sem versão nova; só `site/`)** — página nova, mobile-first: hero em duas colunas, 12 recursos, carrossel de telas com pontos, dois modos e o passo a passo; o texto foi revisto contra o código (entra a Liturgia, entra o Cronograma com arrasto, sai a contagem que não existe) e o cartão do link foi refeito no desenho novo
 - **revisão da fachada (sem versão nova; só docs e site)** — o README perde o manual (compilar e índice de docs saem), o `CLAUDE.md` fica com uma árvore só e lista os apêndices, e o site ganha o cartão do link e volta a aparecer sem JavaScript
+- **v1.13.64** — a barra de volume sobe para o CENTRO do corpo (meia altura da zona de leitura no Fácil; o meio da lista no avançado) e cresce na escala do toque: cap `--hit` (34) no avançado e `--hit`×1,3 (44) no Fácil; `video-tela-cheia` E7 mede o centro (só web)
 - **v1.13.63** — a pílula de volume vira BARRA EM PÉ na borda ESQUERDA, acima do transporte (`--pill-bottom` medido), no lugar da cápsula deitada e centrada; `video-tela-cheia` H7/H9/I4 e E5 passam a medir o eixo (só web)
 - **v1.13.62** — desfaz o alinhamento da barra da Liturgia (volta o recuo de antes) e iguala o TAMANHO do título ao das coleções (`var(--fs-xl)`, o da `.coll-group-bar`); medido 20,368px = 20,368px (só web)
 - **v1.13.61** — a barra da Liturgia na COLUNA DO TEXTO: título e data recuam `calc(var(--faixa-coluna-texto) - .5rem)`, alinhados com o nome das linhas (só web)
@@ -852,6 +853,32 @@ hero ficava em `opacity:0` (medido), porque o `try/catch` do rodapé cobre a fal
 do IntersectionObserver, não a falta de JS. O comentário do `/registro/` que
 citava um `AUDITORIA-DE-USO-PLANO.md` inexistente passou a apontar o
 `MEDICAO-DE-ALCANCE.md`.
+
+## v1.13.64 — a barra de volume no meio do corpo, e maior
+
+**Pedido do operador**, **só web**: `SHELL_VERSION` 85, `minShell` 83, **sem `shellTag`**. Degrau
+CORREÇÃO.
+
+Duas coisas: **subir** e **crescer**. *"Levante mais a posição dessa barra de volume, ainda está
+ficando sobre os elementos de controle. No modo simples ele deve ficar na meia altura da caixa do
+auxiliar de leitura/biblioteca (considerando o controle de player aberto). No modo avançado, deve
+ficar centralizado com a altura disponível para o corpo da lista do cronograma. Tecnicamente ele
+fica aproximadamente a 2/3 da base e 1/3 do topo"* · *"aumente a escala … tente achar padrões do
+app para decidir esse tamanho. Talvez usar medidas padrões de botões para a barra azul móvel e não
+o corpo dessa pílula"*.
+
+**POSIÇÃO.** O que se mede agora é o CENTRO, não a base: `centroDaPilula()` devolve o meio da zona
+de leitura (`.simple-song`, que a Biblioteca ocupa quando é a tela principal) no Modo Fácil e o
+meio da `#library` (o corpo da lista) no avançado; `lugarDaPilula` escreve `--pill-top` com o
+respiro de 8 px nas duas pontas. MEDIDO a 430×900: centro 471 = centro da zona (471) no Fácil, e
+318 = centro da lista (318) no avançado. A base fica bem acima do deck (445 contra 643).
+
+**ESCALA.** A régua é o TOQUE do projeto, e ela vale para o CAP azul (a peça que se arrasta), não
+para a cápsula: `--hit` (34 px) no avançado e `--hit` × 1,3 (44 px, o mesmo fator que a Biblioteca
+aplica) no Modo Fácil, com o trilho de 10rem e 12rem. O número sobe para `--fs-lg` em peso máximo.
+
+**Oráculo:** `video-tela-cheia` E7 deixa de exigir "colada acima do deck" e passa a medir o CENTRO
+no meio do corpo; os outros três oráculos da pílula seguem verdes sem mudar asserção.
 
 ## v1.13.63 — a barra de volume em pé, na borda esquerda
 

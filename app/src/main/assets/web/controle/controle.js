@@ -36,7 +36,6 @@ const volValueEl = document.getElementById('volValue');
 // input e do número — ver `syncFader` e `peekVolume`.
 const volPillEl = document.getElementById('volPill');
 const volPillMuteEl = document.getElementById('volPillMute');
-const deckEl = document.querySelector('.deck');
 const pvCastBtnEl = document.getElementById('pvCastBtn');
 const fsCtlEl = document.getElementById('pvFsCtl');
 // O título e a linha do tempo da tela cheia do Modo Fácil (v1.12.41).
@@ -412,7 +411,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.63';
+const WEB_VERSION = '1.13.64';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -41919,17 +41918,35 @@ if (saidaAudioTileEl) {
 const VOL_PILL_MS = 1500;
 let volPillTimer = null;
 
+// O CENTRO que a barra deve ocupar (v1.13.64). O operador: *"no modo simples ele deve ficar na meia
+// altura da caixa do auxiliar de leitura/biblioteca (considerando o controle de player aberto); no
+// modo avançado, centralizado com a altura disponível para o corpo da lista do cronograma"*.
+//
+// A régua é o CORPO de cada modo, e não o transporte: no Modo Fácil é a zona de leitura
+// (`.simple-song`, que a Biblioteca ocupa quando é a tela principal); no avançado é a lista do
+// acervo (`#library`), que é o corpo acima do deck. Medido no momento de aparecer — nunca escrito.
+function centroDaPilula() {
+  if (appMode === 'simple') {
+    const r = simpleSongEl ? simpleSongEl.getBoundingClientRect() : null;
+    if (r && r.height > 0) return r.top + r.height / 2;
+  } else {
+    const r = libraryEl ? libraryEl.getBoundingClientRect() : null;
+    if (r && r.height > 0) return r.top + r.height / 2;
+  }
+  // Sem caixa (modo trocando, lista vazia): 1/3 do topo, que é a âncora que o operador descreveu
+  // ("aproximadamente 2/3 da base e 1/3 do topo").
+  return window.innerHeight / 3;
+}
 function lugarDaPilula() {
   // EM TELA CHEIA a casa é a `.preview` e o lugar é a faixa acima do transporte dela — só o
   // elemento em tela cheia e os filhos dele são pintados (a prévia inteira é um popover no top
-  // layer), então nem medir adianta: o CSS resolve (`--pill-bottom` fica de fora).
-  if (previaCheia()) return;
-  const barra = appMode === 'simple' ? simpleRemoteEl : deckEl;
-  if (!volPillEl || !barra) return;
-  const r = barra.getBoundingClientRect();
-  // Barra recolhida (sem nada no ar) tem altura zero: a pílula desce até o rodapé.
-  const base = r.height > 0 ? window.innerHeight - r.top : 0;
-  volPillEl.style.setProperty('--pill-bottom', Math.round(base + 10) + 'px');
+  // layer), então nem medir adianta: o CSS resolve (`--pill-top` fica de fora).
+  if (previaCheia() || !volPillEl) return;
+  const h = volPillEl.getBoundingClientRect().height || 204;
+  const centro = centroDaPilula();
+  // Nunca colada nas bordas: 8px de respiro em cima e embaixo.
+  const topo = Math.max(8, Math.min(window.innerHeight - h - 8, Math.round(centro - h / 2)));
+  volPillEl.style.setProperty('--pill-top', topo + 'px');
 }
 // A CASA da pílula: o corpo, ou a `.preview` quando há tela cheia. Mover o NÓ (e não criar um
 // segundo) é o que a mantém uma peça só — e é o mesmo motivo pelo qual ela mora no documento e

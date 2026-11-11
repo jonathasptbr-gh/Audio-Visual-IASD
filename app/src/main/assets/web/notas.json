@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.13.64",
+    "itens": [
+      "A barra de volume subiu para o meio da tela e ficou maior, com o botão azul do tamanho dos outros botões."
+    ]
+  },
+  {
     "versao": "1.13.63",
     "itens": [
       "A barra de volume agora é uma barra em pé, encostada na borda esquerda, acima dos controles."

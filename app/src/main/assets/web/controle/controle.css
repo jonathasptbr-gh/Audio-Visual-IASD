@@ -1121,10 +1121,11 @@ body {
      mesmo que já era medido (`lugarDaPilula`): a base do transporte à vista — então ela termina
      logo ACIMA do deck e cresce para cima, sem cobrir botão nenhum. O recuo esquerdo respeita o
      recorte da câmera (`safe-area-inset-left`). */
-  position: fixed; left: max(6px, env(safe-area-inset-left, 0px)); bottom: var(--pill-bottom, 1rem);
+  position: fixed; left: max(6px, env(safe-area-inset-left, 0px));
+  top: var(--pill-top, 33vh); bottom: auto;
   z-index: 350;
-  display: flex; flex-direction: column; align-items: center; gap: var(--sp-3);
-  padding: .6rem .45rem;
+  display: flex; flex-direction: column; align-items: center; gap: var(--sp-4);
+  padding: .8rem .55rem;
   background: var(--bar); color: var(--text);
   border-radius: var(--radius-pill); box-shadow: 0 6px 18px var(--shadow-card);
   opacity: 0; visibility: hidden; pointer-events: none;
@@ -1136,20 +1137,30 @@ body {
   transform: translateX(0); transition-delay: 0s;
 }
 .vol-pill.na-previa { bottom: calc(env(safe-area-inset-bottom, 0px) + 5.5rem); }
-.vol-pill svg { display: block; flex: none; width: 18px; height: 18px; color: var(--accent); }
+.vol-pill svg { display: block; flex: none; width: 22px; height: 22px; color: var(--accent); }
 /* O ÍCONE É UM BOTÃO (o mudo). Sem moldura: numa cápsula, um quadrado dentro de outro quadrado
    é a moldura da moldura — o que diz que ele é tocável é a cor de acento e o `:active`. */
 .vol-pill-mute { border: 0; background: none; padding: 0; margin: 0; display: flex; cursor: pointer; }
 .vol-pill .ico-alt { display: none; }
 .vol-pill.mudo .ico-base { display: none; }
 .vol-pill.mudo .ico-alt { display: block; }
-/* O TRILHO EM PÉ: é o eixo NATIVO do `.fader` (vertical, de baixo para cima), então a pílula
-   volta a ele sem override — a conta do `--fader-stop` é a mesma, só muda o eixo. */
-.vol-pill-trilho { position: relative; flex: none; width: var(--fader-cap); height: 9rem; }
+/* O TRILHO EM PÉ, NA ESCALA DO APP (v1.13.64). O operador: *"aumente a escala dessa barra de
+   volume, pois ela não está nas dimensões ideais do design do app"*. As medidas são as do
+   sistema de toque: o CAP tem a altura de um alvo de dedo (`--hit`), o trilho é largo o bastante
+   para receber o arrasto sem mira e o número cresce para a leitura de relance. O `.fader` volta
+   ao eixo NATIVO (vertical, de baixo para cima) — a conta do `--fader-stop` é a mesma. */
+.vol-pill { --fader-cap: var(--hit); }
+.vol-pill-trilho { position: relative; flex: none; width: var(--fader-cap); height: 10rem; }
+/* NO MODO FÁCIL ELA É MAIOR (v1.13.64), e a régua continua sendo o toque: o cap cresce junto com
+   as teclas daquele modo (a `.simple-key--big` tem 76px, e a escala do acervo é 1,3×), e o trilho
+   ganha comprimento para o dedo acertar sem mira. No avançado ela fica menor — mas ainda maior que
+   a cápsula de 26px da v1.13.57. */
+body.mode-simple .vol-pill { --fader-cap: calc(var(--hit) * 1.3); }
+body.mode-simple .vol-pill-trilho { height: 12rem; }
 .vol-pill .fader { width: 100%; height: 100%; }
 .vol-pill .fader-value {
   position: static; flex: none; width: auto; height: auto; color: var(--text);
-  font-variant-numeric: tabular-nums; font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums; font-size: var(--fs-lg); font-weight: var(--fw-max);
 }
 /* O FADER OCUPA A COLUNA INTEIRA, como o botão que ele substitui: a coluna não
    muda de espessura ao acender, só de conteúdo. Isso exige desenhar o trilho

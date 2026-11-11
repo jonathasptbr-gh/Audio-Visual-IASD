@@ -429,7 +429,9 @@ try {
   const e5 = await lerPilula(pa);
   const deck = await pa.evaluate(() => {
     const r = document.querySelector('.deck').getBoundingClientRect();
-    return { topo: Math.round(r.top), base: Math.round(r.bottom) };
+    const l = document.getElementById('library').getBoundingClientRect();
+    return { topo: Math.round(r.top), base: Math.round(r.bottom),
+      corpo: [Math.round(l.top), Math.round(l.bottom)] };
   });
   checar(e5.existe === true && e5.visivel === true && e5.casa === 'corpo' && e5.naPrevia === false
     && e5.num === '35' && e5.h > e5.w && e5.faderDoDeck === false && e5.umaSo === true,
@@ -437,8 +439,11 @@ try {
     JSON.stringify(e5));
   const opac = await esperar(pa, () => parseFloat(getComputedStyle(document.getElementById('volPill')).opacity) > 0.9, null, 3000);
   checar(opac === true, 'E6 · e ela é VISTA (opacidade cheia), não só marcada', porque(opac));
-  checar(e5.b <= deck.topo - 2 && e5.b >= deck.topo - 14,
-    'E7 · e flutua ACIMA do transporte (o deck), sem cobrir botão nenhum', JSON.stringify({ e5: [e5.t, e5.b], deck }));
+  // v1.13.64: a barra não fica mais colada no transporte — o CENTRO dela é o centro do corpo da
+  // lista (a `#library`), e a base continua sem tocar no deck.
+  checar(e5.b <= deck.topo - 2
+    && Math.abs((e5.t + e5.b) / 2 - (deck.corpo[0] + deck.corpo[1]) / 2) <= 2,
+    'E7 · com o CENTRO no meio do corpo da lista e sem cobrir o transporte', JSON.stringify({ e5: [e5.t, e5.b], deck }));
   const e8 = await esperar(pa, () => !document.getElementById('volPill').classList.contains('visivel'), null, 4000);
   checar(e8 === true, 'E8 · e some sozinha (1,5 s), como no Modo Fácil', porque(e8));
   await ctx2.close();
