@@ -121,8 +121,12 @@ const plantar = () => pg.evaluate((ids) => {
   });
   collState[ids.serie] = {
     indexSyncedAt: Date.now(), serieDiarioEm: Date.now(),
-    songs: [faixa('passada', desloca(-7)), faixa('semana', desloca(0)),
-      faixa('seguinte', desloca(7))],
+    // (v1.13.68) Os ids são os MESMOS que o canal de mentira devolve (`armarCanal`): a lista que a
+    // verificação traz é a MESMA lista com o mesmo episódio — e é isso que mantém a gaveta aberta
+    // no episódio da semana. Com ids diferentes, o episódio "sumiu" e acrescentou-se outro, e a
+    // lista em partes fecha a gaveta do que sumiu (é a regra: só a linha removida fecha).
+    songs: [faixa('aaaaaaaaaa1', desloca(-7)), faixa('aaaaaaaaaa2', desloca(0)),
+      faixa('aaaaaaaaaa9', desloca(7))],
   };
   collState[ids.outra] = { indexSyncedAt: Date.now(), songs: [] };
   // O VEREDITO DO APP sobre cada uma das três, e não uma conta nossa: é ele que
@@ -150,10 +154,20 @@ const armarDownload = () => pg.evaluate(() => {
 
 // A EXTRAÇÃO DO CANAL, de mentira: uma playlist aceita pela série, e a lista de
 // itens que o teste muda entre uma chamada e outra.
+//
+// v1.13.68 — AS DATAS SAEM DO SÁBADO CORRENTE (como `plantar`), e não de "Ago" escrito aqui: com o
+// calendário fixo o episódio "da semana" não existia fora de agosto, e as metades A e B (que
+// precisam de um episódio desta semana para a rotina baixar) mediam um canal vazio.
 const armarCanal = () => pg.evaluate(() => {
+  const MES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  window.__nomeData = (n) => {
+    const sab = AVSerie.sabadoDaSemana();
+    const d = new Date(2026, sab.mes - 1, sab.dia + n);
+    return '(' + String(d.getDate()).padStart(2, '0') + '/' + MES[d.getMonth()] + ')';
+  };
   window.__itens = [
-    { id: 'aaaaaaaaaa1', url: 'y/1', name: 'Match point | Provai e Vede 2026 (01/Ago)', seconds: 319 },
-    { id: 'aaaaaaaaaa2', url: 'y/2', name: 'Outro | Provai e Vede 2026 (08/Ago)', seconds: 320 },
+    { id: 'aaaaaaaaaa1', url: 'y/1', name: 'Match point | Provai e Vede 2026 ' + window.__nomeData(-7), seconds: 319 },
+    { id: 'aaaaaaaaaa2', url: 'y/2', name: 'Outro | Provai e Vede 2026 ' + window.__nomeData(0), seconds: 320 },
   ];
   AVNative.ytCanalPlaylists = async () => [
     { name: 'Provai e Vede Agosto 2026', url: 'p/ago', count: window.__itens.length }];
@@ -275,17 +289,15 @@ try {
 
   const linhasAntes = e.linhas;
   await pg.evaluate(() => { window.__itens.push(
-    { id: 'aaaaaaaaaa3', url: 'y/3', name: 'Novo | Provai e Vede 2026 (15/Ago)', seconds: 300 }); });
+    { id: 'aaaaaaaaaa3', url: 'y/3', name: 'Novo | Provai e Vede 2026 ' + window.__nomeData(-14), seconds: 300 }); });
   checar(await verificar(), 'C. a verificação automática termina bem (item acrescentado)');
   await pausa(1200);
   e = await estado();
-  checar(e.aberta && e.mesmoNo && e.linhas === linhasAntes,
-    'C. item ACRESCENTADO com a gaveta aberta: ela fica, e a lista espera', e);
+  // v1.13.68 — A LISTA NÃO ESPERA MAIS: a linha nova entra NA HORA, com a gaveta aberta e no mesmo
+  // nó (era "ela fica, e a lista espera" até a v1.13.67). A prova fina, nó a nó, é do `lista-por-partes`.
+  checar(e.aberta && e.mesmoNo && e.linhas === linhasAntes + 1,
+    'C. item ACRESCENTADO com a gaveta aberta: ela fica, no mesmo nó, e a linha nova JÁ entrou', e);
   await fecharGaveta();
-  const entrou = await esperar(pg, (n) => document
-    .querySelectorAll('#hymnResults .hymnal-card .hymn-result').length > n, linhasAntes, 8000);
-  checar(entrou === true,
-    'C. fechada a gaveta, o redesenho adiado sai e a linha nova entra (a espera TERMINA)', porque(entrou));
 
   // ---- D. O ÍNDICE IGUAL NÃO REDESENHA -------------------------------------
   const indice = () => pg.evaluate(async (id) => {
@@ -304,7 +316,7 @@ try {
   checar(d.rf === 0 && d.buscas === 0,
     'D. índice IGUAL ao que está na tela: nenhum pedido de redesenho', d);
   await pg.evaluate(() => { window.__itens.push(
-    { id: 'aaaaaaaaaa4', url: 'y/4', name: 'Mais um | Provai e Vede 2026 (22/Ago)', seconds: 300 }); });
+    { id: 'aaaaaaaaaa4', url: 'y/4', name: 'Mais um | Provai e Vede 2026 ' + window.__nomeData(-21), seconds: 300 }); });
   await indice();
   d = await pg.evaluate(() => ({ rf: window.__rf, buscas: window.__buscas }));
   checar(d.rf >= 1 && d.buscas >= 1, 'D. índice com item NOVO: pede o redesenho', d);

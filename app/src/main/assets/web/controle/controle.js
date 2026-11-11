@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.67';
+const WEB_VERSION = '1.13.68';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1591,9 +1591,9 @@ function setGroupStatus(key, text, autoClearMs) {
   g.status = text || '';
   clearTimeout(g.statusTimer);
   if (autoClearMs) {
-    g.statusTimer = setTimeout(() => { g.status = ''; refreshCollectionsIfVisible(); }, autoClearMs);
+    g.statusTimer = setTimeout(() => { g.status = ''; refreshCollectionsIfVisible({ partes: true }); }, autoClearMs);
   }
-  refreshCollectionsIfVisible();
+  refreshCollectionsIfVisible({ partes: true });   // (v1.13.68) só o resumo do grupo mudou
 }
 
 // Baixar um GRUPO inteiro, UM ÁLBUM POR VEZ: cada `syncCollection` já baixa
@@ -1677,7 +1677,7 @@ async function syncGroup(key, label, colls, opts) {
     setGroupStatus(key, 'Erro no download', 6000);
   } finally {
     g.busy = false; g.cancel = false;
-    refreshCollectionsIfVisible();
+    refreshCollectionsIfVisible({ partes: true });
   }
 }
 
@@ -1689,9 +1689,10 @@ function setCollStatus(id, text, autoClearMs) {
   u.status = text || '';
   clearTimeout(u.statusTimer);
   if (autoClearMs) {
-    u.statusTimer = setTimeout(() => { u.status = ''; refreshCollectionsIfVisible(); }, autoClearMs);
+    u.statusTimer = setTimeout(() => { u.status = ''; refreshCollectionsIfVisible({ partes: true }); }, autoClearMs);
   }
-  refreshCollectionsIfVisible();
+  // (v1.13.68) O subtítulo/progresso do card muda NO LUGAR (`reconciliarAcervo`), com ou sem gaveta.
+  refreshCollectionsIfVisible({ partes: true });
 }
 // Peso (bytes) que uma coleção OCUPA NO APARELHO — medido na pasta OPFS,
 // arquivo por arquivo. **Não chamar de dentro de um render de lista:** é IO, e a
@@ -1708,7 +1709,7 @@ async function updateCollBytes(id) {
     const total = await AVDB.opfsFolderSize('folders/' + id);
     const u = ui(id);
     pesoConferido.add(id);
-    if (total !== u.bytes) { u.bytes = total; salvarPesos(); refreshCollectionsIfVisible(); }
+    if (total !== u.bytes) { u.bytes = total; salvarPesos(); refreshCollectionsIfVisible({ partes: true }); }
   } catch (_) { /* sem pasta ainda — peso fica 0 */ }
 }
 
@@ -11522,7 +11523,9 @@ function fecharConfirmacaoNaLinha() {
  *    CAMINHO B (ver abaixo).
  *  · `simbolo` — o elemento que ocupa a coluna do `⋮`.
  *  · `semSlot(simbolo, cx)` — o CAMINHO B, para a linha que não tem `⋮`: a
- *    gaveta dos FAVORITOS, cuja faixa fica abaixo da linha em vez de cobri-la.
+ *    gaveta dos FAVORITOS, cuja faixa ficava abaixo da linha em vez de cobri-la.
+ *    (v1.13.68: a linha do favorito ganhou o `⋮` e usa o caminho A; o B ficou
+ *    para uma faixa sem linha/`⋮`, e não é mais exercido por nenhuma lista.)
  *    Cada processo escolhe o dele, e são destinos diferentes de propósito — o
  *    ✓ do renomear é um BOTÃO e precisa continuar alcançável (volta para dentro
  *    da faixa), a lixeira é um INDICADOR (volta para a capa, que ali continua
@@ -11891,6 +11894,11 @@ function botaoExcluirDaLinha(item, lista, depois) {
 
 // ===== REORDENAR É UM PAR DE BOTÕES, NÃO UM ARRASTO =====
 //
+// (v1.13.68: hoje o par só vive na FILA DA PLAYLIST. O Cronograma o trocou por
+// segurar-e-arrastar na v1.13.52 e os Favoritos o seguiram na v1.13.68, pela
+// mesma máquina — `attachRowGestures`. O texto abaixo é o de quando valia nas
+// três listas.)
+//
 // Vale nas TRÊS listas (Cronograma, Favoritos, fila da playlist) — dois idiomas
 // de reordenar seriam pior que qualquer um dos dois. Um arrasto é gesto
 // CONTÍNUO com captura de ponteiro, disputando o eixo vertical com a lista que
@@ -11979,6 +11987,34 @@ async function moverNaListaPara(listName, id, destino) {
     ids.splice(Math.max(0, Math.min(destino, ids.length)), 0, id);
     andou = true;
     return ids;
+  });
+  if (!andou) return;
+  await load();
+}
+
+// MOVE PARA ANTES DE UM ITEM (v1.13.68) — o desfecho do arrasto nas listas cuja
+// tela desenha só PARTE dos ids gravados (os Favoritos). `antesDeId` é o vizinho
+// que fica logo abaixo do vão; `null` é "no fim". Dizer o vizinho em vez de um
+// índice é o que mantém a ordem certa mesmo havendo, na lista gravada, um id
+// sem registro que a tela não mostra. Mesma regra de `moverNaListaPara`: a
+// leitura vem antes (soltar no lugar não grava, não emite `db-change`, não
+// fecha a faixa aberta) e a troca é atômica dentro do `listSet`.
+async function moverNaListaAntesDe(listName, id, antesDeId) {
+  const nova = (ids) => {
+    if (!ids.includes(id)) return null;
+    const sem = ids.filter((x) => x !== id);
+    const para = antesDeId ? sem.indexOf(antesDeId) : -1;
+    sem.splice(para === -1 ? sem.length : para, 0, id);
+    return sem.every((x, i) => x === ids[i]) ? null : sem;
+  };
+  // Soltar onde estava: a leitura decide ANTES de qualquer escrita.
+  if (!nova(await AVDB.listIds(listName))) return;
+  let andou = false;
+  await AVDB.listSet(listName, (ids) => {
+    const sem = nova(ids);
+    if (!sem) return ids;
+    andou = true;
+    return sem;
   });
   if (!andou) return;
   await load();
@@ -12604,7 +12640,9 @@ function renderCollectionsListMiolo(alvo, redesenhar) {
       aoTocar: (b) => syncDeviceFolder(undefined, b),
     }],
   });
-  if (favCorpo) {
+  // (Na passada de ESQUELETO, v1.13.68, os Favoritos não se montam: a reconciliação em partes não
+  // os toca — ver `reconciliarAcervo`.)
+  if (favCorpo && !acervoSoEsqueleto) {
     // A MARCA que o redesenho no lugar procura (v5.258, ver
     // `redesenharFavoritosNaBiblioteca`). Ela mora AQUI, no dono, e não no
     // `grupo()`: quem sabe que este corpo é o dos Favoritos é este trecho, e
@@ -12735,8 +12773,20 @@ function acertarAvisoDaFonte(noAcervo) {
 // começa colapsada.
 // `ctx` = a entrada do álbum DENTRO da categoria sendo renderizada (o pivô:
 // subtitle/order). Nulo para hinários e órfãos.
-function renderCollectionCard(coll, ctx) {
-  const total = ehLink(coll) ? serieTotalVisivel(coll) : songsBaixaveis(coll.id).length;
+function renderCollectionCard(coll, ctx, opcs) {
+  // O ESQUELETO (v1.13.68): a passada que só confere a ESTRUTURA do acervo (grupos e ordem dos
+  // cards, ver `reconciliarAcervo`) não monta card nenhum — devolve um marcador com a coleção e
+  // o contexto, que é tudo o que a reconciliação precisa para montar o card de verdade depois.
+  if (acervoSoEsqueleto) {
+    const e = document.createElement('li');
+    e.className = 'hymnal-card'; e.dataset.coll = coll.id; e.__coll = coll; e.__ctx = ctx;
+    return e;
+  }
+  // `total` é lido NA HORA do toque (v1.13.68): o `li` do card sobrevive aos redesenhos em partes,
+  // e um `total` congelado aqui faria o toque numa série que ganhou a lista abrir as opções
+  // (`!total`) em vez da lista.
+  const totalAgora = () => (ehLink(coll) ? serieTotalVisivel(coll) : songsBaixaveis(coll.id).length);
+  const total = totalAgora();
   // (Havia aqui um `countDownloaded(coll.id)` calculado e nunca lido — resto de
   // quando a fração vinha dele. Quem responde "quanto já está no aparelho?" é
   // `fracaoPeso`, e "está inteiro?" é `colecaoCompleta`. A varredura custava
@@ -12751,6 +12801,7 @@ function renderCollectionCard(coll, ctx) {
 
   const li = document.createElement('li');
   li.className = 'hymnal-card';
+  li.dataset.coll = coll.id;   // a chave do card na reconciliação em partes (v1.13.68)
   // (A `coll.color` do banco desenhava uma faixa lateral de 3px no cartão. Ela
   // saiu na v5.71 com as molduras: era mais uma linha vertical repetida em toda
   // a lista. Ela NÃO volta com a tinta da v1.5.7: na Bíblia a faixa carrega a
@@ -12964,7 +13015,7 @@ function renderCollectionCard(coll, ctx) {
   //
   // Nomeada porque tem DOIS gatilhos: o toque na barra e a seta (v5.95).
   const alternarAcordeao = () => {
-    if (!total && !u.expanded) { openCollectionOptions(coll); return; }
+    if (!totalAgora() && !u.expanded) { openCollectionOptions(coll); return; }
     // Acordeão: uma coleção aberta por vez. Duas listas de centenas de músicas
     // abertas ao mesmo tempo empurrariam o acervo para fora da tela e tirariam
     // do lugar exatamente o card que o operador mira.
@@ -13066,7 +13117,10 @@ function renderCollectionCard(coll, ctx) {
       // O ÍNDICE ANTES da lista, e FECHADO (ver `indiceDeSecoes`).
       const indice = indiceDeSecoes(coll, u, lista);
       if (indice) aberto.appendChild(indice);
-      fillSongList(lista, coll, u);
+      // `semLista`: a passada de reconciliação quer só o esqueleto do card aberto — as linhas
+      // saem do dado, uma a uma (`reconciliarListaDoCartao`), e não de uma lista inteira montada
+      // para ser comparada.
+      if (!(opcs && opcs.semLista)) fillSongList(lista, coll, u);
       aberto.appendChild(lista);
     }
     li.appendChild(aberto);
@@ -13114,7 +13168,7 @@ function fillSongList(lista, coll, u) {
   for (let i = lista.querySelectorAll('.hymn-result').length; i < ate; i++) {
     const cab = cabecalhoDeSecao(coll, songs[i]);
     if (cab) lista.appendChild(cab);
-    lista.appendChild(hymnResultRow(coll, songs[i], null, true));
+    lista.appendChild(linhaDoAcervo(coll, songs[i]));
   }
 
   const velha = lista.querySelector('.coll-more');
@@ -13482,7 +13536,7 @@ function verificarSemanaAoAbrir(coll) {
   if (!rotinaDeAcervoPodeCorrer()) {
     u.semanaAdiada = true;
     u.semanaAviso = 'Verificação da semana adiada: há mídia no ar';
-    refreshCollectionsIfVisible();
+    refreshCollectionsIfVisible({ partes: true });
     return;
   }
   u.semanaAdiada = false;
@@ -13496,7 +13550,7 @@ function verificarSemanaAoAbrir(coll) {
       }
       u.semanaProxima = Date.now() + SERIE_VERIFICA_FALHA_MS;
       u.semanaAviso = 'Sem conexão — semana não verificada';
-      refreshCollectionsIfVisible();
+      refreshCollectionsIfVisible({ partes: true });
       return null;
     })
     .catch((e) => {
@@ -13581,7 +13635,7 @@ function blocoDestaque(coll) {
     // alvo que a lista já define, sem uma segunda folha para manter em dia.
     const ul = document.createElement('ul');
     ul.className = 'coll-songs serie-destaque-lista';
-    ul.appendChild(hymnResultRow(coll, d.song, null, true, { destaque: true }));
+    ul.appendChild(linhaDoAcervo(coll, d.song, { destaque: true }));
     cx.appendChild(ul);
   } else {
     // SEM O EPISÓDIO, A LINHA DIZ "Aguardando lançamento" e a gaveta dela é a do
@@ -13670,13 +13724,27 @@ function interacaoAbertaNoAcervo() {
     + ' .lib-item.expanded:not(.folder-opfs)',
   );
 }
-function refreshCollectionsIfVisible() {
+// `opts.partes` (v1.13.68): quem pede o tique diz que só mudou o ESTADO DE COLEÇÃO — progresso,
+// subtítulo, peso, itens de uma lista — e que o acervo pode se atualizar em partes
+// (`reconciliarAcervo`). Quem chama sem isso (os Favoritos, o catálogo, a pasta do aparelho…)
+// pede o redesenho completo, como sempre: o pedido COMPLETO é pegajoso e vale para todos os
+// pedidos coalescidos no mesmo tique, e só cai quando o redesenho completo de fato sai.
+let collRefreshCompleto = false;
+function refreshCollectionsIfVisible(opts) {
+  if (!(opts && opts.partes)) collRefreshCompleto = true;
+  armarTiqueDoAcervo();
+}
+function armarTiqueDoAcervo() {
   if (collRefreshTimer) return;
   collRefreshTimer = setTimeout(() => {
     collRefreshTimer = null;
-    if (acervoAVista() && (interacaoAbertaNoAcervo() || acervoAnimando > 0)) {
-      refreshCollectionsIfVisible();   // rearma: o redesenho sai quando fechar
-      return;
+    if (acervoAVista()) {
+      if (acervoAnimando > 0) { armarTiqueDoAcervo(); return; }   // nunca no meio de uma animação
+      // PRIMEIRO EM PARTES (v1.13.68), com ou sem gaveta aberta: o que não mudou fica intocado, e
+      // o que mudou é atualizado no lugar. Só quando isso não se garante (estrutura mudou) é que
+      // vale o guarda de antes: com gaveta aberta ESPERA, sem ela redesenha tudo.
+      if (!collRefreshCompleto && reconciliarAcervo()) { renderSorteioSimples(); return; }
+      if (interacaoAbertaNoAcervo()) { armarTiqueDoAcervo(); return; }   // rearma: sai quando fechar
     }
     renderCollectionsNow();
   }, COLL_REFRESH_MS);
@@ -13689,7 +13757,259 @@ function renderCollectionsNow() {
   // E NUNCA NO MEIO DE UM FECHAMENTO (v1.12.57, ver `marcarAnimacaoNoAcervo`): vira o
   // tique coalescido, que se rearma até a animação acabar.
   if (acervoAVista() && acervoFechando > 0) { refreshCollectionsIfVisible(); return; }
+  collRefreshCompleto = false;   // o redesenho completo vai sair: o pedido pegajoso foi atendido
   if (acervoAVista()) renderSearchResults(hymnSearchInputEl.value);
+}
+
+/**
+ * ===== A LISTA ATUALIZA EM PARTES (v1.13.68) =====
+ *
+ * Pedido do operador, depois do conserto da v1.13.67: *"o modelo de lista mais complexa, que
+ * atualiza em partes, de forma correta e sem atrapalhar o usuário"*. A v1.13.67 só fez o
+ * redesenho ESPERAR a gaveta fechar — e o que sobrava era o resto: um item novo só aparecia
+ * depois dela, o "Verificando os vídeos da semana…" e o progresso do download também, e todo
+ * redesenho remontava TODOS os cards (`innerHTML = ''`).
+ *
+ * Aqui o acervo se compara com o que já está no DOM e mexe SÓ no que mudou:
+ *  - **a estrutura** (grupos, ordem e conjunto dos cards, qual grupo está aberto) é conferida por
+ *    um ESQUELETO — a mesma `renderCollectionsListMiolo`, sem montar card nenhum. Se o esqueleto
+ *    difere, não há garantia nenhuma e devolve `false`: o chamador cai no redesenho completo, que
+ *    segue pelo guarda `interacaoAbertaNoAcervo`;
+ *  - **a barra do card** (subtítulo, progresso, peso, botões) é morfada NO LUGAR a partir de um
+ *    card de sombra: os nós iguais ficam, o texto e os atributos mudam, o que apareceu entra;
+ *  - **as linhas** são casadas por CHAVE (`data-song` = `songRowKey`) e por uma assinatura do dado
+ *    (`assinaturaDaFaixa`): igual = o nó nem é tocado (gaveta aberta, foco, destinos marcados,
+ *    letra lida, scroll); acrescentada = entra só a linha nova, na posição certa; removida = sai
+ *    só a linha (e a gaveta junto, se era a dela — é o ÚNICO jeito de uma gaveta fechar aqui);
+ *    alterada = a linha é trocada, ou — se está aberta — só o rosto dela é atualizado no lugar.
+ *
+ * Os Favoritos NÃO são tocados (têm o redesenho próprio), e o Modo Fácil cai no completo. A
+ * paginação (`ui(id).shown`) é respeitada: a lista desejada é sempre os primeiros `shown` itens.
+ * Qualquer exceção = `false` = redesenho completo: a reconciliação nunca é a razão de a lista
+ * ficar errada.
+ */
+let acervoSoEsqueleto = false;
+
+function assinaturaDaFaixa(coll, s) {
+  try {
+    return songLabel(coll, s) + '|' + JSON.stringify(s, (k, v) => (k && k[0] === '_' ? undefined : v));
+  } catch (_) { return 'sem-assinatura:' + Math.random(); }
+}
+// A linha do acervo + a assinatura do dado de que ela foi montada: é com ela que a reconciliação
+// sabe se a linha que está no DOM ainda diz o que o índice diz.
+function linhaDoAcervo(coll, s, opcs) {
+  const li = hymnResultRow(coll, s, null, true, opcs);
+  li.__sig = assinaturaDaFaixa(coll, s);
+  return li;
+}
+function linhaAbertaNoAcervo(n) {
+  return n.classList.contains('expanded') || n.classList.contains('abrindo')
+    || !!n.querySelector('.acoes-abertas');
+}
+function desligarSentinelas(el) {
+  el.querySelectorAll('.coll-more').forEach((m) => { if (m.__obs) m.__obs.disconnect(); });
+}
+// "Do mesmo tipo" = mesma tag e mesmas classes, menos `busy` (o estado que a barra liga e desliga).
+function tipoDoNo(n) {
+  if (n.nodeType !== 1) return '#' + n.nodeType;
+  const c = (n.getAttribute('class') || '').split(/\s+/).filter((t) => t && t !== 'busy').sort();
+  return n.tagName + '.' + c.join('.');
+}
+// Morfa `v` (vivo) para ficar igual a `s` (sombra) SEM remontar: atributos e texto mudam no lugar,
+// nós do mesmo tipo ficam (e com eles os ouvintes), o que não casa é trocado pelo da sombra. SÓ
+// para nós PASSIVOS (a barra do card, o cabeçalho do destaque) — nunca para uma linha de gaveta,
+// cujo `expanded` seria apagado pela sincronia de atributos.
+function morphPassivo(v, s, ini) {
+  if (!ini) {
+    for (const a of [...s.attributes]) if (v.getAttribute(a.name) !== a.value) v.setAttribute(a.name, a.value);
+    // Só tira o que a RENDERIZAÇÃO põe e tira (rótulo, estado, classe): atributo que outro código
+    // pendurou no nó (`data-*`, marcas de medição) não é nosso para apagar.
+    for (const a of [...v.attributes]) {
+      if (!s.hasAttribute(a.name) && /^(class|title|disabled|hidden|aria-.*)$/.test(a.name)) v.removeAttribute(a.name);
+    }
+  }
+  const vk = [...v.childNodes].slice(ini || 0);
+  const sk = [...s.childNodes].slice(ini || 0);
+  for (let i = 0; i < Math.max(vk.length, sk.length); i++) {
+    const a = vk[i]; const b = sk[i];
+    if (!b) { a.remove(); continue; }
+    if (!a) { v.appendChild(b); continue; }
+    if (a.nodeType === 3 && b.nodeType === 3) { if (a.data !== b.data) a.data = b.data; continue; }
+    if (a.nodeType === 1 && b.nodeType === 1 && tipoDoNo(a) === tipoDoNo(b)) { morphPassivo(a, b); continue; }
+    a.replaceWith(b);
+  }
+}
+// Casa os filhos de `lista` com os `desejados` ({ chave, sig, nova }). Devolve `null` quando não
+// dá para garantir (nó sem chave, chave repetida) — SEM ter mexido em nada —, senão `{ mudou }`.
+function reconciliarLinhas(lista, desejados) {
+  const vivos = [...lista.children].filter((n) => !n.classList.contains('coll-more'));
+  const chaveDe = (n) => n.dataset.song || (n.dataset.secao ? 'cab:' + n.dataset.secao : '');
+  const porChave = new Map();
+  for (const n of vivos) {
+    const k = chaveDe(n);
+    if (!k || porChave.has(k)) return null;
+    porChave.set(k, n);
+  }
+  const querem = new Set(desejados.map((d) => d.chave));
+  if (querem.size !== desejados.length) return null;
+  let mudou = false;
+  for (const n of vivos) {
+    if (querem.has(chaveDe(n))) continue;
+    // A linha da gaveta aberta saiu da lista: ela fecha, e os destinos que ela marcou vão junto.
+    if (linhaAbertaNoAcervo(n)) destLimpar();
+    n.remove(); mudou = true;
+  }
+  const finais = desejados.map((d) => {
+    const no = porChave.get(d.chave);
+    if (!no) { mudou = true; return d.nova(); }
+    if ((no.__sig !== undefined ? no.__sig : no.outerHTML) === d.sig) return no;
+    mudou = true;
+    const novo = d.nova();
+    if (linhaAbertaNoAcervo(no)) {
+      // Aberta: a gaveta fica, só o rosto da linha (nome, subtítulo) é atualizado no lugar.
+      const a = no.querySelector(':scope > .hymn-row .hymn-info');
+      const b = novo.querySelector(':scope > .hymn-row .hymn-info');
+      if (a && b) a.replaceChildren(...b.childNodes);
+      no.__sig = d.sig;
+      return no;
+    }
+    return novo;
+  });
+  const ficam = new Set(finais);
+  for (const n of porChave.values()) if (!ficam.has(n) && n.parentNode === lista) n.remove();
+  let ref = lista.firstElementChild;
+  for (const no of finais) {
+    if (no === ref) { ref = ref.nextElementSibling; continue; }
+    lista.insertBefore(no, ref);
+    mudou = true;
+  }
+  return { mudou };
+}
+// A lista de um card aberto, a partir do DADO (e não de uma lista montada para comparar): os
+// primeiros `shown` itens de `faixasDaLista`, com os cabeçalhos de seção do hinário.
+function reconciliarListaDoCartao(lista, coll, u) {
+  const songs = faixasDaLista(coll);
+  if (!u.shown) u.shown = COLL_PAGE;
+  const ate = Math.min(u.shown, songs.length);
+  const desejados = [];
+  for (let i = 0; i < ate; i++) {
+    const s = songs[i];
+    const cab = cabecalhoDeSecao(coll, s);
+    if (cab) desejados.push({ chave: 'cab:' + cab.dataset.secao, sig: cab.outerHTML, nova: () => cab });
+    desejados.push({ chave: songRowKey(coll, s), sig: assinaturaDaFaixa(coll, s), nova: () => linhaDoAcervo(coll, s) });
+  }
+  const r = reconciliarLinhas(lista, desejados);
+  if (!r) return false;
+  // O rodapé "Carregando mais N de M restantes" refaz-se (com o observador) quando a lista mudou ou
+  // quando o número dele envelheceu — item acrescentado DEPOIS da página mostrada muda M sem
+  // mudar linha nenhuma.
+  const resta = songs.length - ate;
+  const esperado = resta > 0 ? 'Carregando mais ' + Math.min(COLL_PAGE, resta) + ' de ' + resta + ' restantes' : '';
+  const velha = lista.querySelector(':scope > .coll-more');
+  if (r.mudou || esperado !== (velha ? velha.textContent : '')) fillSongList(lista, coll, u);
+  return true;
+}
+// Um card: a barra morfada no lugar e, aberto, o destaque + a lista reconciliados. `false` = a
+// estrutura do card mudou (abriu/fechou, ganhou ou perdeu o índice) e isto não se garante.
+function reconciliarCartao(li, coll, ctx) {
+  const u = ui(coll.id);
+  if (u.animarAbertura) return false;
+  const sombra = renderCollectionCard(coll, ctx, { semLista: true });
+  const barV = li.querySelector(':scope > .coll-bar');
+  const barS = sombra.querySelector(':scope > .coll-bar');
+  if (!barV || !barS) return false;
+  if (li.classList.contains('expanded') !== sombra.classList.contains('expanded')) return false;
+  const abV = li.querySelector(':scope > .coll-open');
+  const abS = sombra.querySelector(':scope > .coll-open');
+  if (!!abV !== !!abS) return false;
+  const q = (raiz, sel) => raiz && raiz.querySelector(':scope > ' + sel);
+  if (abV) {
+    const indV = q(abV, '.hino-indice'); const indS = q(abS, '.hino-indice');
+    const lisV = q(abV, 'ul.coll-songs:not(.serie-destaque-lista)');
+    const lisS = q(abS, 'ul.coll-songs:not(.serie-destaque-lista)');
+    if (!!indV !== !!indS) return false;
+    if (!!lisV !== !!lisS && indS) return false;   // com o índice, a lista é parte dele
+  }
+  morphPassivo(barV, barS);
+  if (!abV) return true;
+  // ---- o destaque do sábado ----
+  const destV = q(abV, '.serie-destaque'); const destS = q(abS, '.serie-destaque');
+  if (!destV && destS) abV.insertBefore(destS, abV.firstChild);
+  else if (destV && !destS) { desligarSentinelas(destV); destV.remove(); }
+  else if (destV && destS) {
+    if (tipoDoNo(destV) !== tipoDoNo(destS)) destV.replaceWith(destS);   // "Aguardando" ↔ o episódio
+    else {
+      const cabV = q(destV, '.serie-destaque-cab'); const cabS = q(destS, '.serie-destaque-cab');
+      if (cabV && cabS) morphPassivo(cabV, cabS);
+      const ulV = q(destV, 'ul'); const ulS = q(destS, 'ul');
+      const linha = ulS && q(ulS, 'li[data-song]');
+      if (linha && ulV) {
+        if (!reconciliarLinhas(ulV, [{ chave: linha.dataset.song, sig: linha.__sig, nova: () => linha }])) return false;
+      }
+    }
+  }
+  // ---- a lista ----
+  const lisV = q(abV, 'ul.coll-songs:not(.serie-destaque-lista)');
+  const lisS = q(abS, 'ul.coll-songs:not(.serie-destaque-lista)');
+  if (lisV && lisS) return reconciliarListaDoCartao(lisV, coll, u);
+  if (!lisV && lisS) { abV.appendChild(lisS); return reconciliarListaDoCartao(lisS, coll, u); }
+  if (lisV && !lisS) { desligarSentinelas(lisV); lisV.remove(); }
+  return true;
+}
+function esqueletoDoAcervo(raiz) {
+  return [...raiz.children].map((el) => {
+    if (el.classList.contains('coll-group')) {
+      return ['G', el.dataset.grupo, el.classList.contains('aberto'),
+        [...el.querySelectorAll(':scope > .coll-group-corpo > .hymnal-card')].map((c) => c.dataset.coll)];
+    }
+    if (el.classList.contains('hymnal-card')) return ['C', el.dataset.coll];
+    return ['?', el.className];
+  });
+}
+function cartoesDoAcervo(raiz) {
+  const r = [];
+  for (const el of raiz.children) {
+    if (el.classList.contains('hymnal-card')) r.push(el);
+    else if (el.classList.contains('coll-group')) {
+      el.querySelectorAll(':scope > .coll-group-corpo > .hymnal-card').forEach((c) => r.push(c));
+    }
+  }
+  return r;
+}
+// Devolve `true` quando o acervo à vista ficou em dia SEM redesenho completo; `false` quando não se
+// garante (e nada de errado foi deixado — o que foi morfado antes de desistir é válido).
+function reconciliarAcervo() {
+  try {
+    if (!acervoAVista() || appMode === 'simple') return false;
+    if (acervoAnimando > 0 || gruposAnimar.size > 0 || typeof redesenharAcervo !== 'function') return false;
+    if (!hymnResultsEl.querySelector(':scope > .hymnal-card, :scope > .coll-group')) return false;
+    const raizSombra = document.createElement('ul');
+    // A mesma passada memoizada do redesenho completo (ver `renderCollectionsList`).
+    cacheLevantar.clear(); cacheBpsGlobal = 0;
+    cacheColecoesAtivo = true;
+    try {
+      acervoSoEsqueleto = true;
+      try { renderCollectionsListMiolo(raizSombra, redesenharAcervo); } finally { acervoSoEsqueleto = false; }
+      if (JSON.stringify(esqueletoDoAcervo(hymnResultsEl)) !== JSON.stringify(esqueletoDoAcervo(raizSombra))) return false;
+      // Os resumos dos grupos (progresso do download do grupo, contagem): só o que vem DEPOIS da
+      // seta e do nome; os Favoritos ficam fora.
+      const gV = [...hymnResultsEl.children].filter((e) => e.classList.contains('coll-group'));
+      const gS = [...raizSombra.children].filter((e) => e.classList.contains('coll-group'));
+      gV.forEach((g, i) => {
+        if (g.classList.contains('coll-group--fav')) return;
+        const bv = g.querySelector(':scope > .coll-group-bar');
+        const bs = gS[i] && gS[i].querySelector(':scope > .coll-group-bar');
+        if (bv && bs) morphPassivo(bv, bs, 2);
+      });
+      const vivos = cartoesDoAcervo(hymnResultsEl);
+      const stubs = cartoesDoAcervo(raizSombra);
+      let ok = true;
+      vivos.forEach((li, i) => {
+        if (!reconciliarCartao(li, stubs[i].__coll, stubs[i].__ctx)) ok = false;
+      });
+      return ok;
+    } finally { cacheColecoesAtivo = false; }
+  } catch (_) { return false; }
 }
 
 // A tela de FAVORITOS: os caminhos curtos para o que o operador usa toda
@@ -13821,8 +14141,8 @@ function renderFolderList() {
     favAlvo().appendChild(empty);
     return;
   }
-  // UMA LISTA SÓ, na ordem da lista `favs` (ordem de chegada), editável pelo
-  // par ↑↓. Sem subdivisão por tipo: o operador procura pelo LUGAR onde ele
+  // UMA LISTA SÓ, na ordem da lista `favs` (ordem de chegada), editável por
+  // segurar-e-arrastar (v1.13.68; antes, o par ↑↓). Sem subdivisão por tipo: o operador procura pelo LUGAR onde ele
   // mesmo pôs o item, e uma lista que se reorganiza sozinha impede isso.
   //
   // AS PASTAS DO APARELHO VÊM PRIMEIRO — a lista de favoritos cresce por baixo
@@ -14002,7 +14322,7 @@ function favItemRow(item, pos, total) {
 function linhaDeItem(item, opts) {
   const cfg = opts || {};
   const lista = cfg.lista || null;
-  const pos = cfg.pos; const total = cfg.total;
+  const total = cfg.total;
   const li = document.createElement('li');
   li.className = 'lib-item' + (linhaAtiva(item.id) ? ' active' : '')
     + (linhaNoAr(item.id) ? ' no-ar' : '');
@@ -14018,9 +14338,9 @@ function linhaDeItem(item, opts) {
   const sub = document.createElement('span'); sub.className = 'row-sub';
   sub.textContent = subtituloItem(item);
   textWrap.append(nome, sub);
-  // (A ALÇA DE ARRASTAR viveu aqui da v5.254 à v5.284. Ela saiu na v5.285 com o
-  // arrasto do app inteiro — quem reordena agora é o par ↑↓, pela mesma
-  // `botoesDeOrdem` das outras duas listas.)
+  // (A ALÇA DE ARRASTAR viveu aqui da v5.254 à v5.284; o par ↑↓ a substituiu da
+  // v5.285 à v1.13.67. Desde a v1.13.68 reordenar é SEGURAR O CORPO DA LINHA e
+  // arrastar — o gesto do Cronograma, pela mesma máquina; ver `attachRowGestures`.)
   // O PARAR NA MINIATURA (v5.259), como no Cronograma. Aqui ele simplesmente
   // NÃO EXISTIA: uma linha de favorito no ar mostrava o selo "● No ar" e não
   // oferecia nada que a tirasse de lá. Ele CONTINUA sendo um toque direto,
@@ -14033,8 +14353,33 @@ function linhaDeItem(item, opts) {
   // só numa das listas seria pior que nenhum: o operador aprenderia a não
   // confiar nele.
   porCarregando(li, miniatura, item.id);
-  row.append(miniatura, textWrap);
+  // ===== O `⋮` MORA NA LINHA, SEMPRE À VISTA (v1.13.68) =====
+  //
+  // Pedido do operador (item 11.1): *"o botão de opções, que fica na mesma linha do
+  // nome do item dos favoritos, e fica sempre visível, sem precisar abrir as opções
+  // de play para ter acesso a ele. Semelhante ao que já é no cronograma"*.
+  //
+  // Desde a v1.13.36 o `⋮` e a faixa (excluir · renomear · ↑↓) eram criados pelo
+  // `renderItemMenu`, DENTRO da gaveta: um toque na linha para abrir a gaveta e
+  // outro no `⋮` para chegar ao excluir. Agora é a anatomia da linha do Cronograma,
+  // pela MESMA função (`montarAcoesDaLinha`): a faixa `.row-acoes` e a coluna
+  // `.row-mais` são filhas da `.row`, abrem por cima do nome (`.acoes-abertas`,
+  // `alternarAcoesDaLinha`) e dispensam a gaveta. A confirmação de excluir e o
+  // campo de renomear nascem nessa faixa (`pedirConfirmacaoNaLinha`, caminho A: a
+  // lixeira ocupa a coluna do `⋮`), e `acertarFaixaDaLinha` mede a largura a 360px.
+  //
+  // SEM `lista` NÃO HÁ `⋮` (a pasta do aparelho não tem o que oferecer aqui —
+  // `montarAcoesDaLinha` devolve `[]` sem botões úteis, e a linha fica como antes).
+  // A POSIÇÃO NÃO É BOTÃO: o ↑↓ saiu na v1.13.68 e quem reordena é o segurar-e-
+  // arrastar da linha, o MESMO do Cronograma (`attachRowGestures`, abaixo).
+  const depoisDeMexer = cfg.depoisDeExcluir || (() => load());
+  row.append(miniatura, textWrap, ...(lista ? montarAcoesDaLinha(li, [
+    botaoExcluirDaLinha(item, lista, depoisDeMexer),
+    botaoRenomearDaLinha(item, depoisDeMexer),
+  ], lista + ':' + item.id) : []));
   li.appendChild(row);
+  // O ARRASTO só existe onde há ordem a mudar: uma linha sozinha não tem para onde ir.
+  if (lista && total > 1) attachRowGestures(row, item, { lista, aoTocar: null });
 
   // ===== A LINHA DOS FAVORITOS GANHA A GAVETA DA BIBLIOTECA =====
   //
@@ -14081,33 +14426,10 @@ function linhaDeItem(item, opts) {
   // dele —, e essa guarda é o que o mantém FORA da pasta do aparelho: ali o nome
   // vem do arquivo, e um nome só no registro seria desfeito na varredura
   // seguinte, sem erro em lugar nenhum.
-  // A ORDEM É A MESMA DA FILEIRA DO CRONOGRAMA (v5.302), *"com a ressalva de não
-  // contar com os itens que não existem naquela lista"*: excluir · renomear ·
-  // ↑ · ↓. Faltam a ESTRELA (nesta lista ela e a lixeira terminam no mesmo
-  // `listRemove('favs')` — ver acima) e o botão da PLAYLIST, que aqui é um
-  // BOTÃO da fileira de destinos logo acima.
-  const depoisDeMexer = cfg.depoisDeExcluir || (() => load());
-  const acoes = document.createElement('div');
-  acoes.className = 'fav-acoes';
-  acoes.append(...(lista ? [
-    botaoExcluirDaLinha(item, lista, depoisDeMexer),
-    botaoRenomearDaLinha(item, depoisDeMexer),
-    ...botoesDeOrdem(lista, item.id, pos, total),
-  ] : []).filter(Boolean));
+  // (A faixa excluir · renomear nasce na LINHA, logo acima — v1.13.68. Faltam a
+  // ESTRELA, que nesta lista terminaria no mesmo `listRemove('favs')` do excluir,
+  // e o botão da PLAYLIST, que aqui é um BOTÃO da fileira de destinos da gaveta.)
   gaveta.append(opcoes);
-  // ===== A FAIXA MORA ATRÁS DO `⋮` DA FILEIRA DE DESTINOS (v1.13.36) =====
-  //
-  // Quem a põe na gaveta é o `renderItemMenu`, ao lado do botão de opções que a
-  // revela no lugar dos destinos (o mecanismo da linha do Cronograma).
-  //
-  // O NÓ É O MESMO A CADA REMONTAGEM, e isto não é economia: `renderItemMenu`
-  // refaz a lista (`alvo.innerHTML = ''`), e devolver uma faixa NOVA perderia os
-  // ouvintes e, pior, apagaria uma confirmação de exclusão aberta — deixando a
-  // lixeira na miniatura sem nenhum botão que a explique. Devolvendo o mesmo nó,
-  // o `appendChild` apenas o MOVE.
-  //
-  // Sem lista não há faixa (a pasta do aparelho não tem o que oferecer aqui).
-  const aoLado = () => (acoes.childElementCount ? acoes : null);
 
   function abrir() {
     // A gaveta que se fecha aqui pode estar PERGUNTANDO (v5.301) — e um "sim"
@@ -14120,12 +14442,11 @@ function linhaDeItem(item, opts) {
     // no máximo uma aberta por vez: abrir a linha B os reescreve, e reabrir A sem
     // remontar deixaria os de B valendo sob o DOM de A. Remontar repõe tudo.
     //
-    // Remontar é seguro porque a faixa de ações é o MESMO nó a cada montagem (o
-    // `aoLado` devolve `acoes`): o `alvo.innerHTML = ''` de `renderItemMenu` não
-    // a alcança, e o `appendChild` apenas a MOVE de volta — ouvintes e uma
-    // confirmação de exclusão aberta sobrevivem. A montagem continua vindo ANTES
-    // do `expandAccordion`, que mede a altura do que vai ficar em cena.
-    renderItemMenu(item, opcoes, cfg.destinos, aoLado);
+    // A montagem continua vindo ANTES do `expandAccordion`, que mede a altura do
+    // que vai ficar em cena. (Desde a v1.13.68 a gaveta é só os destinos: a faixa
+    // de ações e o `⋮` moram na linha, e o `alvo.innerHTML = ''` do
+    // `renderItemMenu` não os alcança.)
+    renderItemMenu(item, opcoes, cfg.destinos);
     li.classList.add('expanded');
     expandAccordion(gaveta);
     // DEPOIS DA ANIMAÇÃO, pelo motivo do `alinharGrupoNoTopo`: durante os
@@ -14136,7 +14457,18 @@ function linhaDeItem(item, opts) {
   }
 
   row.addEventListener('click', (e) => {
-    if (e.target.closest('.row-btn')) return;
+    // `.row-acoes`/`.row-slot` (v1.13.68): a faixa de ações e a coluna do `⋮`
+    // vivem DENTRO da `.row` agora, e o campo de renomear e a pergunta de excluir
+    // têm filhos que não são `.row-btn` — o toque neles não pode abrir a gaveta.
+    if (e.target.closest('.row-btn,.row-acoes,.row-slot')) return;
+    // O FIM DE UM ARRASTO NÃO É UM TOQUE (v1.13.68): o navegador ainda entrega o
+    // `click` ao soltar um item arrastado, e sem esta guarda cada reordenação
+    // terminaria com a gaveta do item aberta.
+    if (Date.now() - arrastoFimEm < 400) return;
+    // COM A FAIXA ABERTA, o que sobra da linha à vista (a capa, ou a ponta do
+    // nome) só FECHA a faixa: abrir a gaveta por baixo dela deixaria duas
+    // camadas de opções empilhadas na mesma linha.
+    if (li.classList.contains('acoes-abertas')) { fecharAcoesDaLinha(); return; }
     // O SEGUNDO TOQUE RETIRA DO AR continua valendo (v5.165): com o item
     // projetado, a pergunta que a linha responde não é "o que fazer com ele?" —
     // é "tira isto do telão". A gaveta só abre quando não há nada a desfazer.
@@ -14150,30 +14482,21 @@ function linhaDeItem(item, opts) {
     if (noArAgora(item)) {
       retirarDoAr(item);
       if (li.classList.contains('expanded')) {
-        fecharConfirmacaoNaLinha();
-        if (linhaAcoesAberta === li) fecharAcoesDaLinha();
         collapseAccordion(gaveta, () => li.classList.remove('expanded'));
       }
       return;
     }
     if (li.classList.contains('expanded')) {
-      fecharConfirmacaoNaLinha();
-      if (linhaAcoesAberta === li) fecharAcoesDaLinha();
       collapseAccordion(gaveta, () => li.classList.remove('expanded'));
       return;
     }
     abrir();
   });
 
-  // A REABERTURA depois de uma casa de reordenação (v5.285), agora na gaveta:
-  // `moverNaLista` redesenha a lista inteira e o `li` que estava aberto deixa de
-  // existir. Sem isto, mover três casas custaria três aberturas.
-  if (lista && reabrirAcoesEm === lista + ':' + item.id) {
-    reabrirAcoesEm = null;
-    // Depois de o `li` entrar no documento: `expandAccordion` mede altura, e
-    // fora da árvore toda medida é zero.
-    setTimeout(() => { if (li.isConnected) abrir(); }, 0);
-  }
+  // (A REABERTURA depois de uma casa de reordenação — v5.285 — saiu com o par ↑↓
+  // na v1.13.68: o arrasto assenta a lista no lugar e não há botão sob o dedo
+  // para reencontrar. Se a faixa estava aberta, `montarAcoesDaLinha` a reabre
+  // pela chave `favs:id`, que `manterAcoesAbertas` deixa em `reabrirAcoesEm`.)
 
   li.appendChild(gaveta);
   return li;
@@ -14193,9 +14516,8 @@ function linhaDeItem(item, opts) {
 // O resto é a MESMA fileira de botões diretos do acervo (`destBotoesRow`), pelo
 // motivo de sempre: uma segunda anatomia divergiria da primeira no próximo ajuste.
 
-function renderItemMenu(item, alvo, destinos, aoLado) {
+function renderItemMenu(item, alvo, destinos) {
   destLimpar();
-  // `aoLado` devolve a faixa de ações da linha (ver `linhaDeItem`).
   songMenuFor = { item, alvo };
   // QUAIS destinos, e por que isto é parâmetro (v5.290): numa linha de FAVORITO
   // "Favoritar" seria uma opção que não muda nada — o item já está lá —, e numa
@@ -14222,29 +14544,10 @@ function renderItemMenu(item, alvo, destinos, aoLado) {
       ...destBotoesPadrao(quais, fazer),
       temLetraNoItem ? destBotaoLeitura(() => openLyricsPopup(item)) : null,
     ]);
-    // ===== AS OPÇÕES DO ITEM ATRÁS DE UM `⋮`, NA MESMA FILEIRA (v1.13.36) =====
-    //
-    // Pedido do operador: a faixa excluir · renomear · ↑↓ tinha uma fileira própria
-    // embaixo; agora é o botão de OPÇÕES do Cronograma (o mesmo desenho, os três
-    // pontos), quadrado, na ponta direita — e tocá-lo SUBSTITUI os destinos pela
-    // faixa, como no Cronograma. O mecanismo é o dele: a linha ganha
-    // `.acoes-abertas` por `alternarAcoesDaLinha` (UMA por vez, o toque fora fecha,
-    // a confirmação de excluir e o campo de renomear nascem DENTRO da faixa por
-    // `pedirConfirmacaoNaLinha`). O NÓ da faixa é o MESMO a cada remontagem (o
-    // `aoLado` devolve sempre a mesma `.fav-acoes`): o `appendChild` o MOVE, e uma
-    // confirmação aberta sobrevive.
-    const irmao = typeof aoLado === 'function' ? aoLado() : null;
-    const li = alvo.closest('.lib-item');
-    if (irmao && li) {
-      const mais = document.createElement('button');
-      mais.type = 'button';
-      mais.className = 'dest-btn dest-opcoes';
-      mais.title = 'Opções deste item';
-      mais.setAttribute('aria-label', 'Opções deste item');
-      mais.innerHTML = dotsIconSvg();
-      mais.addEventListener('click', (e) => { e.stopPropagation(); alternarAcoesDaLinha(li); });
-      fileira.append(irmao, mais);
-    }
+    // (O `⋮` das OPÇÕES DO ITEM — excluir · renomear — morou nesta fileira da
+    // v1.13.36 à v1.13.67, e por isso só existia com a gaveta aberta. Desde a
+    // v1.13.68 ele é a coluna `.row-mais` da própria linha, sempre à vista, como
+    // no Cronograma: ver `linhaDeItem`. Aqui ficam só os destinos.)
     alvo.appendChild(fileira);
   };
   desenhar();
@@ -19450,11 +19753,24 @@ function medirArrasto(ul, li) {
     if (el === li || el.tagName !== 'LI') continue;
     const r = el.getBoundingClientRect();
     const shift = antes.get(el) || 0;
-    itens.push({ el, altura: r.height, shift, meio: (r.top - shift) + r.height / 2 });
+    // `topo`/`base` na posição de REPOUSO: é o que `soltarNoVao` lê para deslizar
+    // o item ao vão (v1.13.68: faltavam aqui, e a conta dava NaN).
+    itens.push({
+      el, altura: r.height, shift,
+      topo: r.top - shift, base: r.bottom - shift,
+      meio: (r.top - shift) + r.height / 2,
+    });
   }
   const rli = li.getBoundingClientRect();
   const cs = getComputedStyle(ul);
-  const gap = parseFloat(cs.rowGap || cs.gap) || 0;
+  // O VÃO EFETIVO entre duas linhas é o `gap` da lista MAIS as margens verticais
+  // delas (v1.13.68): a placa dos Favoritos desenha o traço divisório com
+  // `margin-top` negativo de meio vão em cada linha, e contar só o `gap` abriria o
+  // buraco do arrasto meio vão maior que o passo real. No Cronograma as margens são 0.
+  const irmaos = [...ul.children].filter((el) => el.tagName === 'LI');
+  const mg = (el, lado) => parseFloat(getComputedStyle(el)[lado]) || 0;
+  const gap = (parseFloat(cs.rowGap || cs.gap) || 0)
+    + (irmaos.length > 1 ? mg(irmaos[0], 'marginBottom') + mg(irmaos[1], 'marginTop') : 0);
   arrastoGeom = {
     ul, itens, gap, rolagem: ul.scrollTop,
     // A ALTURA DO ARRASTADO manda no tamanho do vão. `translateY` não a muda.
@@ -19519,20 +19835,23 @@ function rolarNaBorda() {
   if (!arrasto) { pararRolagemDeBorda(); return; }
   const ul = arrasto.li.parentElement;
   if (!ul) { pararRolagemDeBorda(); return; }
-  const r = ul.getBoundingClientRect();
+  // As bordas são as de QUEM ROLA (v1.13.68): nos Favoritos a placa é mais alta que
+  // a janela, e as pontas dela estão fora da tela.
+  const r = arrasto.rolador.getBoundingClientRect();
   const dir = arrasto.y < r.top + ARRASTO_BORDA ? -1
     : (arrasto.y > r.bottom - ARRASTO_BORDA ? 1 : 0);
   if (!dir) { pararRolagemDeBorda(); return; }
   if (arrastoRolando) return;
   arrastoRolando = setInterval(() => {
     if (!arrasto) { pararRolagemDeBorda(); return; }
-    const alvo = arrasto.li.parentElement;
-    if (!alvo) { pararRolagemDeBorda(); return; }
+    const lista = arrasto.li.parentElement;
+    const alvo = arrasto.rolador;
+    if (!lista) { pararRolagemDeBorda(); return; }
     const antes = alvo.scrollTop;
     alvo.scrollTop = antes + dir * ARRASTO_PASSO;
     if (alvo.scrollTop === antes) { pararRolagemDeBorda(); return; }
     arrasto.dy += alvo.scrollTop - antes;
-    medirArrasto(alvo, arrasto.li);
+    medirArrasto(lista, arrasto.li);
     aplicarArrasto();
   }, 16);
 }
@@ -19542,14 +19861,27 @@ function moverArrasto(y) {
   const ul = arrasto.li.parentElement;
   if (!ul) { pararRolagemDeBorda(); arrasto = null; arrastoGeom = null; return; }
   arrasto.y = y;
-  arrasto.dy = (y - arrasto.y0) + (ul.scrollTop - arrasto.rolagem0);
+  arrasto.dy = (y - arrasto.y0) + (arrasto.rolador.scrollTop - arrasto.rolagem0);
   aplicarArrasto();
   rolarNaBorda();
 }
 
+// O elemento que ROLA a lista: ela mesma, se é rolável (o Cronograma), senão o
+// ancestral mais próximo com `overflow-y` auto/scroll (a Biblioteca). Sem nenhum,
+// a própria lista — `scrollTop` 0 e sem rolagem de borda, a degradação segura.
+function rolavelDe(ul) {
+  const rola = (el) => { const oy = getComputedStyle(el).overflowY; return oy === 'auto' || oy === 'scroll'; };
+  // A PRÓPRIA LISTA vale mesmo curta (o Cronograma, que ainda não transborda).
+  if (rola(ul)) return ul;
+  for (let el = ul.parentElement; el && el !== document.documentElement; el = el.parentElement) {
+    if (rola(el) && el.scrollHeight > el.clientHeight + 1) return el;
+  }
+  return ul;
+}
+
 // O GESTO NASCE AQUI: levanta a linha, põe a lista em modo de arrasto, mede e
 // abre o vão da posição de partida (que é o dela mesma — nada se desloca).
-function comecarArrasto(li, item, pid, y) {
+function comecarArrasto(li, item, pid, y, lista) {
   if (!li || arrasto) return;
   const ul = li.parentElement;
   // A LINHA PODE TER SIDO REDESENHADA DEBAIXO DO DEDO (v1.13.55): o toque longo
@@ -19557,7 +19889,11 @@ function comecarArrasto(li, item, pid, y) {
   // nós da lista. Sem esta guarda o pai é nulo e o gesto estoura, em vez de
   // simplesmente morrer com a linha que ele pegou.
   if (!ul) return;
-  arrasto = { li, id: item.id, pid, y0: y, rolagem0: ul.scrollTop, dy: 0, y };
+  // QUEM ROLA (v1.13.68): no Cronograma é a própria `<ul>`; nos Favoritos a `<ul>`
+  // é uma placa dentro da Biblioteca e a rolagem é de um ancestral. Medir a
+  // rolagem e rolar nas bordas é com ELE, e a `<ul>` continua sendo só a lista.
+  const rolador = rolavelDe(ul);
+  arrasto = { li, id: item.id, lista: lista || 'imports', pid, y0: y, rolador, rolagem0: rolador.scrollTop, dy: 0, y };
   li.classList.add('arrastando');
   ul.classList.add('arrastando-lista');
   medirArrasto(ul, li);
@@ -19581,15 +19917,22 @@ function comecarArrasto(li, item, pid, y) {
 function soltarNoVao(destino) {
   if (!arrasto || !arrastoGeom) return;
   const { li } = arrasto;
-  const { itens, altura, gap } = arrastoGeom;
+  const { itens, altura, gap, de } = arrastoGeom;
   // O topo DE FLUXO do item: o retângulo inclui o `translateY` que ele leva.
   const topoDeFluxo = li.getBoundingClientRect().top - arrasto.dy;
-  // O vão fica na POSIÇÃO DE REPOUSO do item que hoje ocupa aquele lugar — os
-  // da frente já estão deslocados, e é justamente o buraco que eles deixaram.
-  let alvo;
-  if (destino <= 0) alvo = itens.length ? itens[0].topo : topoDeFluxo;
-  else if (destino >= itens.length) alvo = itens.length ? itens[itens.length - 1].base + gap : topoDeFluxo;
-  else alvo = itens[destino].topo;
+  // O vão fica onde a lista o ABRIU (`ajustarVaos`), e a conta é a mesma dela:
+  //  · PARA CIMA (destino < origem) o item de índice `destino` desceu um passo e o
+  //    buraco é a posição de repouso dele;
+  //  · PARA BAIXO o que subiu foi o item de índice `destino - 1`, e o buraco começa
+  //    um passo ACIMA do fim dele (`base + gap - passo`);
+  //  · soltar onde estava não desloca nada.
+  // (v1.13.68: a versão anterior lia `topo`/`base`, que `medirArrasto` nunca
+  // preenchia — a conta dava NaN, o `transform` era ignorado e o item ficava
+  // onde o dedo o largou até o `load()` redesenhar.)
+  const passo = altura + gap;
+  let alvo = topoDeFluxo;
+  if (destino < de && itens[destino]) alvo = itens[destino].topo;
+  else if (destino > de && itens[destino - 1]) alvo = itens[destino - 1].base + gap - passo;
   li.classList.remove('arrastando');
   // ELE DESLIZA ATÉ LÁ, e é o único que ganha transição agora: os outros já
   // estão parados no lugar definitivo.
@@ -19604,8 +19947,10 @@ function soltarNoVao(destino) {
 // O fim de qualquer arrasto que NÃO vira ordem nova (o toque cancelado, a
 // gravação que não mudou nada): zera os deslocamentos e devolve a lista ao
 // repouso. Com `load()` no caminho, os nós já foram trocados e isto é no-op.
-function assentarArrasto() {
-  const ul = document.getElementById('library');
+function assentarArrasto(ul) {
+  // A LISTA É A DO ARRASTO (v1.13.68), não mais só o Cronograma: sem argumento
+  // vale o `#library` de sempre.
+  ul = ul || document.getElementById('library');
   if (!ul) return;
   ul.classList.remove('arrastando-lista');
   for (const el of ul.children) {
@@ -19614,18 +19959,43 @@ function assentarArrasto() {
   }
 }
 
+// O instante em que o último arrasto terminou. O `click` que o navegador entrega
+// ao soltar chega logo depois do `pointerup`, e uma linha cujo toque ABRE algo
+// (a gaveta dos Favoritos) o lê para não tratar o soltar como toque.
+let arrastoFimEm = 0;
+
 function terminarArrasto() {
   if (!arrasto) return;
-  const { id } = arrasto;
+  const { id, lista } = arrasto;
+  const ul = arrastoGeom && arrastoGeom.ul;
   const destino = indiceDoArrasto(arrasto.y);
+  // O VIZINHO DE DESTINO, pelo id: nos Favoritos a lista gravada pode ter ids sem
+  // registro (a tela só desenha os que existem), e o índice da tela não é o do
+  // banco. O Cronograma segue pelo índice, como sempre.
+  const vizinho = arrastoGeom && arrastoGeom.itens[destino]
+    ? arrastoGeom.itens[destino].el.dataset.id : null;
   soltarNoVao(destino);
+  arrastoFimEm = Date.now();
+  const assentar = () => assentarArrasto(ul);
   // A gravação vem DEPOIS de o desenho já estar na ordem final; o `load()` que
   // ela dispara encontra a tela como ela está. Sem mudança de ordem não há
   // `load()` — e aí o `assentarArrasto` fecha o gesto no lugar.
-  moverNaListaPara('imports', id, destino).then(assentarArrasto, assentarArrasto);
+  const grava = lista === 'imports'
+    ? moverNaListaPara(lista, id, destino)
+    : moverNaListaAntesDe(lista, id, vizinho);
+  grava.then(assentar, assentar);
 }
 
-function attachRowGestures(row, item) {
+/**
+ * O segurar-e-arrastar de uma linha de lista. `opts`:
+ *  · `lista`  — o nome da lista que o arrasto reordena (`'imports'`, o Cronograma,
+ *    é o padrão; `'favs'` desde a v1.13.68);
+ *  · `aoTocar` — o que o toque curto faz. O Cronograma projeta (`onTap`); os
+ *    Favoritos passam `null`, porque o toque deles é o `click` da linha (abre a
+ *    gaveta) e esta máquina só cuida do segurar.
+ */
+function attachRowGestures(row, item, opts) {
+  const cfg = opts || { lista: 'imports', aoTocar: onTap };
   let startX = 0, startY = 0, startT = 0, lp = null, pid = null;
 
   // O TOQUE LONGO ARRASTA (v1.13.52). Ele começa no CORPO da linha, e a alça
@@ -19634,7 +20004,7 @@ function attachRowGestures(row, item) {
     lp = null;
     const li = row.closest('li');
     if (!li || pid === null) return;
-    comecarArrasto(li, item, pid, startY);
+    comecarArrasto(li, item, pid, startY, cfg.lista);
     // A CAPTURA é o que faz o dedo continuar falando com ESTA linha mesmo
     // saindo dela; sem ela, o primeiro desvio entregaria o gesto à rolagem.
     try { row.setPointerCapture(pid); } catch (_) { /* sem captura: o gesto segue */ }
@@ -19665,7 +20035,7 @@ function attachRowGestures(row, item) {
     if (arrasto && arrasto.pid === pid) { moverArrasto(e.clientY); terminarArrasto(); pid = null; return; }
     if (pid === null) return;
     clearTimeout(lp); lp = null;
-    if (Date.now() - startT < LONGPRESS) onTap(item);
+    if (Date.now() - startT < LONGPRESS && cfg.aoTocar) cfg.aoTocar(item);
     pid = null;
   });
   // O CANCELAMENTO DO SISTEMA NÃO DESFAZ O QUE O OPERADOR JÁ FEZ (v1.13.53):
@@ -21371,7 +21741,7 @@ async function fetchSerieIndex(coll) {
   // episódios guardados, acima, mexe nos registros — e pelo `JSON.stringify` abaixo não conta
   // como mudança da lista, porque ela não toca em `songs`.)
   if (JSON.stringify(songs) === listaAntes) return;
-  refreshCollectionsIfVisible();
+  refreshCollectionsIfVisible({ partes: true });   // (v1.13.68) a linha nova entra sozinha, com ou sem gaveta
   // PELO GUARDA, nunca direto: `renderSearchResults` faz `hymnResultsEl
   // .innerHTML = ''`, e o que ABRE uma linha vive no `li` que ele joga fora
   // (ver `interacaoAbertaNoAcervo`). Um índice que chega enquanto o operador
@@ -21437,7 +21807,7 @@ async function fetchCollectionIndex(coll) {
   // Só grava se houve colheita: um `setState` do acervo de letras a cada
   // atualização de índice reescreveria megabytes por nada.
   if (colheu) { await saveLyricStore(coll.id); invalidateLyricIndex(); }
-  refreshCollectionsIfVisible();
+  refreshCollectionsIfVisible({ partes: true });
   // Popup de busca aberto durante a atualização: reflete a lista nova sem
   // esperar o operador reabrir o popup — pelo guarda, que ADIA enquanto há
   // gaveta aberta (`interacaoAbertaNoAcervo`) e rearma sozinho. `autoRefresh
@@ -22232,7 +22602,7 @@ async function manterSeriesDaSemana() {
     // lista de retenção não é a de antes; e mesmo então vai PELO guarda, que espera a gaveta.
     const mesmaRetencao = guardar.length === retidos.length
       && [...guardar].sort().join('\n') === [...retidos].sort().join('\n');
-    if (baixouEpisodio || !mesmaRetencao) refreshCollectionsIfVisible();
+    if (baixouEpisodio || !mesmaRetencao) refreshCollectionsIfVisible({ partes: true });
   } finally {
     serieAutoRodando = false;
     // A RODADA PEDIDA DURANTE ESTA (ver `serieAutoRefazer`): refaz agora, e a
@@ -22511,7 +22881,7 @@ async function syncCollection(coll, opts) {
   setCollStatus(coll.id, (opts && opts.rotulo) || 'Atualizando lista…');
   // A verificação AUTOMÁTICA da série (`automatica`) não é toque de ninguém: ela passa pelo
   // guarda (`refreshCollectionsIfVisible`), que espera a gaveta aberta fechar (v1.13.67).
-  if (opts && opts.automatica) refreshCollectionsIfVisible();
+  if (opts && opts.automatica) refreshCollectionsIfVisible({ partes: true });
   else renderCollectionsNow(); // resposta ao toque é imediata; só o PROGRESSO é coalescido
   // Cancelamento: o próprio álbum (botão) ou o lote que o contém (syncGroup).
   // Declarado antes de tudo porque a VARREDURA do que falta também é longa num
@@ -22716,7 +23086,7 @@ async function syncCollection(coll, opts) {
     // barato — não há mais IO concorrente — e é o único ponto em que o número
     // exibido pode ser trocado pelo real sem custo visível.
     updateCollBytes(coll.id);
-    refreshCollectionsIfVisible();
+    refreshCollectionsIfVisible({ partes: true });
   }
 }
 
@@ -23176,7 +23546,7 @@ async function syncImagensColecao(coll, opts) {
     // As imagens pesam (v5.134) e acabaram de entrar no disco: o número da tela
     // é reconferido no fim do lote, como no `syncCollection`.
     updateCollBytes(coll.id);
-    refreshCollectionsIfVisible();
+    refreshCollectionsIfVisible({ partes: true });
   }
   return refeitas;
 }
@@ -26175,6 +26545,10 @@ function renderBuscaQuandoPuder(imediato) {
   ytRedesenhoTimer = 0;
   // Biblioteca fechada: não há lista a redesenhar, e reabri-la a monta do zero.
   if (!hymnSearchPopupEl.classList.contains('open')) return;
+  // EM PARTES PRIMEIRO (v1.13.68): com o acervo à vista, o índice novo entra linha a linha em vez
+  // de redesenhar tudo ou esperar a gaveta — ver `reconciliarAcervo`. Não se garantindo, segue o
+  // guarda de sempre.
+  if (!imediato && acervoAVista() && acervoAnimando === 0 && reconciliarAcervo()) return;
   if (!imediato && interacaoAbertaNoAcervo()) {
     // REARMA em vez de marcar um pendente — a mesma escolha do tique do
     // progresso: a espera dura exatamente o tempo em que há gaveta aberta, e o

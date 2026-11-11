@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.13.68",
+    "itens": [
+      "A lista da Biblioteca agora atualiza só o que mudou: item novo aparece na hora e a opção aberta não fecha.",
+      "O progresso e o estado dos álbuns se atualizam no lugar, sem refazer a lista.",
+      "Nos Favoritos, o botão de opções (⋮) fica sempre na linha do item, sem abrir o play antes.",
+      "Os Favoritos agora se reordenam segurando e arrastando, como no Cronograma."
+    ]
+  },
+  {
     "versao": "1.13.67",
     "itens": [
       "Provai e Vede e Informativo: a opção de play que você abre não fecha mais sozinha quando a lista se atualiza.",

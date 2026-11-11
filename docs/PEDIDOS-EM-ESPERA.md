@@ -42,7 +42,6 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **8** — CI: os oráculos instáveis (residual) | 6 (I3×U2) | resíduo | só `tools/` + workflow |
 | **9** — Folha do vídeo: o teto e o botão "Detalhes" | 4 (I2×U2) | pedido | só web |
 | **10** — Configurações e Ferramentas: o editor e o tile | 4 (I2×U2) | pedido | só web |
-| **11** — Favoritos: o `⋮` sempre visível | 3 (I3×U1) | pedido | só web |
 | **12** — Limpeza e otimização do repositório (residual) | 2 (I2×U1) | pedido | só docs |
 | **13** — Estudos (não são fila de execução) | — | estudo | nenhuma entrega |
 
@@ -97,8 +96,6 @@ ordem; a fila é dele.
 | **10** | **Configurações e Ferramentas: o editor e o tile** | pedido | 2 | 2 | **4** | web |
 | 10.1 | "Editar mídia" vai para a lista das Ferramentas | | 2 | 2 | 4 | web |
 | 10.2 | sai o tile "Saída de áudio" (no mesmo lote) | | 2 | 2 | 4 | web |
-| **11** | **Favoritos: o `⋮` sempre visível** | pedido | 3 | 1 | **3** | web |
-| 11.1 | o `⋮` na linha, sem abrir a gaveta antes | | 3 | 1 | 3 | web |
 | **12** | **Limpeza e otimização do repositório (residual)** | pedido | 2 | 1 | **2** | docs |
 | 12.1 | a lista dos mortos da auditoria de eficiência | | 2 | 1 | 2 | docs |
 | **13** | **Estudos — não são fila de execução** | estudo | 4 | 1 | **4** | decisão |
@@ -254,30 +251,6 @@ Registro ficam (o `saidaDeAudioAlvo` continua).
 
 ---
 
-## Pacote 11 — Favoritos: o `⋮` sempre visível
-
-**Nota 3 (I3 × U1) · pedido · só web**
-
-**Onde:** `linhaDeItem`/`renderItemMenu` (o `dest-opcoes` nasce DENTRO da gaveta)
-× a coluna `.row-slot` do Cronograma.
-
-### 11.1 O `⋮` na linha, sem abrir a gaveta antes
-
-*"O botão de opções nos itens dos favoritos, ficará sempre visível, como no
-cronograma."* (2026-11-07 10:37).
-
-**O que a v1.13.36 já fez:** a faixa excluir · renomear · ↑↓ saiu da fileira
-própria e foi para trás de um `⋮` na fileira de destinos — o mesmo mecanismo do
-Cronograma (`alternarAcoesDaLinha`), com o "Ver a letra" só para registro com
-letra. **O que falta:** esse `⋮` é criado pelo `renderItemMenu`, então ele só
-existe DEPOIS de a gaveta abrir (um toque na linha); no Cronograma o `⋮` é a
-coluna `.row-slot` da própria linha, sempre à vista. Subir o `⋮` para a linha do
-favorito, abrindo a faixa de ações por cima (o `.acoes-abertas`) sem depender de a
-gaveta estar aberta. Conferir o alvo de toque da linha e os oráculos que medem a
-coluna do `⋮` (`cronograma-acoes-cheias`, `destinos-diretos` D).
-
----
-
 ## Pacote 12 — Limpeza e otimização do repositório (residual)
 
 **Nota 2 (I2 × U1) · pedido · só docs**
@@ -375,7 +348,9 @@ quiser só a paisagem, ela é um lote de web — e não espera o estudo do Windo
 
 ## O que saiu desta lista (rastro, não log)
 
-**v1.13.67 (2026-11-11):** o defeito da **gaveta que fechava** sozinha ao abrir o Provai e Vede/Informativo (entrou como 11.2 e saiu no mesmo dia — a verificação da semana redesenhava a lista sem o guarda). Nota em `docs/HISTORICO.md`, oráculo `serie-gaveta-aberta`. O **11.1** (o `⋮` sempre visível) continua na fila, com a numeração de sempre.
+**v1.13.68 (2026-11-11):** o **Pacote 11** inteiro — o `⋮` sempre na linha do favorito, com o arrastar do Cronograma no lugar do ↑↓ (11.1), e a lista do acervo por partes, que evolui o conserto da gaveta (v1.13.67). Notas em `docs/HISTORICO.md`; oráculos `favoritos-menu-na-linha` e `lista-por-partes`. Os números dos outros não se movem.
+
+**v1.13.67 (2026-11-11):** o defeito da **gaveta que fechava** sozinha ao abrir o Provai e Vede/Informativo (entrou como 11.2 e saiu no mesmo dia — a verificação da semana redesenhava a lista sem o guarda). Nota em `docs/HISTORICO.md`, oráculo `serie-gaveta-aberta`.
 
 **v1.13.61 (2026-11-10):** o **Pacote 14** — a barra da Liturgia na coluna do texto (título em 85 px, alinhado com o nome das linhas). O pedido foi feito para ficar na fila e o operador decidiu executá-lo na hora.
 

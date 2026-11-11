@@ -256,7 +256,17 @@ try {
   // maquinário rodou três vezes e escolheu adiar, em qualquer velocidade de
   // máquina. Ele é instalado sobre a global (o `controle.js` é script clássico,
   // então a chamada sem qualificador resolve pela mesma propriedade).
+  //
+  // v1.13.68 — ESTE ITEM PROVA O FALLBACK. Com a lista em partes (`reconciliarAcervo`), o
+  // tique do progresso patcha o card NO LUGAR e nem chega ao guarda. O que esta metade
+  // protege é o caminho em que a reconciliação NÃO se garante (estrutura mudou): ali o
+  // redesenho completo continua esperando a gaveta. Por isso o oráculo desliga a
+  // reconciliação em memória (`reconciliarAcervo` devolvendo `false`, que é o que ela diz
+  // quando desiste) — o outro lado, o patch no lugar com a gaveta aberta, é do
+  // `lista-por-partes`.
   await pg.evaluate(() => {
+    window.__reconciliarOrig = window.reconciliarAcervo;
+    window.reconciliarAcervo = () => false;
     const orig = window.interacaoAbertaNoAcervo;
     window.__consultasAoGuarda = 0;
     window.interacaoAbertaNoAcervo = function () {
@@ -293,6 +303,7 @@ try {
       .find((el) => /Hinário/i.test(el.textContent));
     return !!card && /Baixando 2 de 2/.test(card.textContent);
   }, 'fechada a gaveta, o redesenho adiado sai sozinho e o card mostra o estado em dia', null, 6000);
+  await pg.evaluate(() => { window.reconciliarAcervo = window.__reconciliarOrig; });
 
   // ---- 5. A PORTA DO YOUTUBE (v1.1.8) ------------------------------------
   //

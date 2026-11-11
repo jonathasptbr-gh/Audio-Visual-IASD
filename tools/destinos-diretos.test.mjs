@@ -12,8 +12,8 @@
 //     vídeo de série — e o item da semana nas listas idem. Nenhum ▶.
 //  C. DOIS TOQUES NO MESMO VÍDEO NÃO BAIXAM DUAS VEZES: o `ytArquivo` divide o
 //     download em curso (pela forma: vídeo e só-áudio são downloads distintos).
-//  D. (v1.13.36) As opções de um favorito atrás de um `⋮` na fileira de destinos,
-//     substituindo-os ao toque; num vídeo sem letra, nada de "Ver a letra".
+//  D. (v1.13.36 → v1.13.68) O `⋮` de um favorito mora na linha (não mais na fileira de destinos);
+//     a gaveta guarda só os destinos; num vídeo sem letra, nada de "Ver a letra".
 //  E. (v1.13.36) Uma gaveta aberta por vez na Biblioteca inteira.
 //
 //   node tools/destinos-diretos.test.mjs
@@ -182,12 +182,15 @@ try {
   checar(c.total === 3 && c.r3 !== c.depois,
     'C · só-áudio é OUTRO download, e acabado o primeiro um pedido novo não fica preso a ele', c);
 
-  // ── D. AS OPÇÕES DE UM FAVORITO ATRÁS DO `⋮`, NA MESMA FILEIRA (v1.13.36) ─
+  // ── D. AS OPÇÕES DE UM FAVORITO: O `⋮` É DA LINHA (v1.13.36 → v1.13.68) ──
   //
-  // O `⋮` é quadrado, fica na ponta direita da fileira de destinos, e tocá-lo
-  // SUBSTITUI os destinos pela faixa (excluir · renomear · ↑↓) — e a pergunta
-  // de excluir nasce ali dentro. Duas células, e num VÍDEO (sem letra) o "Ver a
-  // letra" não aparece: o `⋮` encosta à direita sozinho.
+  // v1.13.36 pôs o `⋮` na fileira de destinos da gaveta; a v1.13.68 o subiu para a
+  // PRÓPRIA LINHA (a coluna `.row-mais`, como no Cronograma), sempre à vista e
+  // SEM gaveta. Aqui se mede o que restou da fileira de destinos (só os
+  // destinos, e num VÍDEO sem letra nenhum "Ver a letra" apagado) e que abrir a
+  // faixa de ações com a gaveta ABERTA não esconde os destinos (as regras
+  // `.acoes-abertas .dest-botoes` da v1.13.36 já não existem). O resto da
+  // anatomia nova mora em `favoritos-menu-na-linha.test.mjs`.
   const medirD = (escala, largura, video) => pg.evaluate(async ({ escala, largura, video }) => {
     document.documentElement.style.fontSize = (16 * escala) + 'px';
     setAppMode('full');
@@ -204,41 +207,38 @@ try {
     document.getElementById('hymnResults').appendChild(ul);
     const li = linhaDeItem(item, { lista: 'favs', pos: 0, total: 2, destinos: ['playlist', 'cronograma'] });
     ul.appendChild(li);
-    li.querySelector('.row').click();
+    // A LINHA, ANTES DE QUALQUER GAVETA: o `⋮` já está lá.
+    const mais = li.querySelector(':scope > .row > .row-mais');
+    const linhaR = li.querySelector(':scope > .row').getBoundingClientRect();
+    const mr = mais ? mais.getBoundingClientRect() : { width: 0, height: 0, right: 0 };
+    const antes = {
+      maisNaLinha: !!mais && mr.width > 0,
+      quadrado: Math.abs(mr.width - mr.height) <= 0.5 && mr.width >= 34,
+      aDireita: Math.abs(mr.right - (linhaR.right - 8)) <= 2,
+      gavetaFechada: !li.classList.contains('expanded'),
+      semOpcoesNaGaveta: !li.querySelector('.dest-opcoes, .fav-acoes'),
+    };
+    li.querySelector('.row-text').click();
     await new Promise((r) => setTimeout(r, 400));
     const fileira = li.querySelector('.dest-botoes');
-    const fr = fileira.getBoundingClientRect();
     const visiveis = () => [...fileira.children].filter((b) => b.offsetWidth > 0);
-    const mais = fileira.querySelector('.dest-opcoes');
-    const mr = mais.getBoundingClientRect();
-    const antes = {
-      ordem: visiveis().map((b) => b.dataset.dest || b.className.split(' ').pop()),
-      quadrado: Math.abs(mr.width - mr.height) <= 0.5 && mr.width >= 34,
-      aDireita: Math.abs(mr.right - fr.right) <= 1,
-      semFileiraPropria: !li.querySelector('.fav-acoes-row'),
-      faixaEscondida: fileira.querySelector('.fav-acoes').offsetWidth === 0,
-      cabem: visiveis().every((b) => b.scrollWidth <= b.clientWidth + 0.5),
-    };
+    antes.ordem = visiveis().map((b) => b.dataset.dest || b.className.split(' ').pop());
+    antes.cabem = visiveis().every((b) => b.scrollWidth <= b.clientWidth + 0.5);
+    // Com a gaveta ABERTA, o `⋮` da linha abre a faixa POR CIMA e os destinos ficam.
     mais.click();
-    await new Promise((r) => setTimeout(r, 100));
-    const faixa = fileira.querySelector('.fav-acoes');
-    const fx = faixa.getBoundingClientRect();
-    // O `⋮` MOVE quando a faixa abre: na tela estreita (360×1,25×) a fileira de
-    // destinos quebra e o `⋮` desce de linha; a régua do "na MESMA fileira" lê a
-    // posição DELE depois de aberto, não a capturada antes do toque.
-    const mrAberto = mais.getBoundingClientRect();
+    await new Promise((r) => setTimeout(r, 150));
+    const faixa = li.querySelector(':scope > .row > .row-acoes');
     const depois = {
-      visiveis: visiveis().map((b) => b.className),
-      faixaNaFileira: fx.width > 0 && Math.abs(fx.top - mrAberto.top) <= 1,
-      destinosSairam: [...fileira.querySelectorAll('.dest-btn:not(.dest-opcoes), .dest-largo')].every((b) => b.offsetWidth === 0),
-      botoes: [...faixa.querySelectorAll('.row-btn')].map((b) => (b.className.match(/row-(excluir|renomear|ordem)/) || [''])[0]),
       maisLigado: li.classList.contains('acoes-abertas'),
+      faixaVisivel: faixa.offsetWidth > 0 && getComputedStyle(faixa).visibility === 'visible',
+      destinosFicam: visiveis().length === antes.ordem.length,
+      gavetaAindaAberta: li.classList.contains('expanded'),
+      botoes: [...faixa.querySelectorAll('.row-btn')].map((b) => (b.className.match(/row-(excluir|renomear|ordem)/) || [''])[0]),
     };
     faixa.querySelector('.row-excluir').click();
     await new Promise((r) => setTimeout(r, 150));
     const par = [...faixa.querySelectorAll('.linha-confirma-btn')];
-    depois.perguntaNaFileira = par.length === 2
-      && par.every((b) => Math.abs(b.getBoundingClientRect().top - mrAberto.top) <= 6 && b.offsetWidth > 0);
+    depois.perguntaNaFaixa = par.length === 2 && par.every((b) => b.offsetWidth > 0);
     fecharAcoesDaLinha();
     ul.remove();
     await AVDB.listRemove('favs', m.id); await AVDB.listRemove('favs', m2.id);
@@ -248,18 +248,20 @@ try {
   for (const [escala, largura, nome, video] of [[1.25, 360, '360×1,25×'], [1, 430, '430×1×'],
     [1.25, 360, '360×1,25× · vídeo', true]]) {
     const d = await medirD(escala, largura, video);
-    checar(d.antes.semFileiraPropria && d.antes.faixaEscondida && d.antes.quadrado && d.antes.aDireita && d.antes.cabem,
-      'D · ' + nome + ' · o favorito tem o botão de OPÇÕES quadrado na ponta direita da fileira de destinos, '
-      + 'sem a fileira própria de baixo, e nada cortado', d.antes);
-    checar(d.antes.ordem.join(' | ') === (video ? 'tocar | cronograma | playlist | dest-opcoes'
-      : 'tocar | cronograma | playlist | leitura | dest-opcoes'),
-      'D · ' + nome + ' · ' + (video ? 'num VÍDEO sem letra não há "Ver a letra" apagado' : 'com letra, o "Ver a letra" fica antes dele'),
+    checar(d.antes.maisNaLinha && d.antes.quadrado && d.antes.aDireita && d.antes.gavetaFechada
+      && d.antes.semOpcoesNaGaveta && d.antes.cabem,
+      'D · ' + nome + ' · o favorito tem o `⋮` quadrado na ponta direita da LINHA, com a gaveta fechada, '
+      + 'e nenhum `⋮`/faixa duplicado na gaveta', d.antes);
+    checar(d.antes.ordem.join(' | ') === (video ? 'tocar | cronograma | playlist'
+      : 'tocar | cronograma | playlist | leitura'),
+      'D · ' + nome + ' · ' + (video ? 'num VÍDEO sem letra não há "Ver a letra" apagado' : 'com letra, o "Ver a letra" fecha a fileira'),
       d.antes.ordem);
-    checar(d.depois.maisLigado && d.depois.destinosSairam && d.depois.faixaNaFileira
-      && d.depois.botoes.join(',') === 'row-excluir,row-renomear,row-ordem,row-ordem',
-      'D · ' + nome + ' · tocar em opções SUBSTITUI os destinos pela faixa (excluir · renomear · ↑ · ↓) na mesma fileira', d.depois);
-    checar(d.depois.perguntaNaFileira,
-      'D · ' + nome + ' · e a pergunta de excluir nasce ali, no lugar da fileira', d.depois);
+    checar(d.depois.maisLigado && d.depois.faixaVisivel && d.depois.destinosFicam && d.depois.gavetaAindaAberta
+      && d.depois.botoes.join(',') === 'row-excluir,row-renomear',
+      'D · ' + nome + ' · tocar no `⋮` abre a faixa (excluir · renomear, sem ↑↓) por cima da linha e a gaveta aberta '
+      + 'mantém os destinos', d.depois);
+    checar(d.depois.perguntaNaFaixa,
+      'D · ' + nome + ' · e a pergunta de excluir nasce na faixa da linha', d.depois);
   }
 
   // ── E. UMA GAVETA ABERTA POR VEZ NA BIBLIOTECA INTEIRA (v1.13.36) ──────

@@ -403,11 +403,10 @@ try {
       const li = [...document.querySelectorAll('[data-fav-corpo] .lib-item')].pop();
       li.scrollIntoView({ block: 'end' });
       res.scrollTop = res.scrollHeight;
-      if (!li.classList.contains('expanded')) { li.querySelector('.row').click(); await new Promise((f) => setTimeout(f, 300)); }
-      res.scrollTop = res.scrollHeight;
-      li.querySelector('.hymn-gaveta .dest-opcoes').click();
+      // O `⋮` e a faixa são da LINHA (v1.13.68): não precisa abrir a gaveta antes.
+      li.querySelector(':scope > .row > .row-mais').click();
       await new Promise((f) => setTimeout(f, 150));
-      li.querySelector('.hymn-gaveta .fav-acoes .row-renomear').click();
+      li.querySelector(':scope > .row > .row-acoes .row-renomear').click();
       await new Promise((f) => setTimeout(f, 250));
       res.scrollTop = res.scrollHeight;
       await new Promise((f) => setTimeout(f, 100));

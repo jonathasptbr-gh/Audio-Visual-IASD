@@ -3512,14 +3512,26 @@ main {
    Quem desliga a rolagem do gesto em curso é o `touchmove` cancelado em
    `controle.js` (ver o bloco do arrasto); esta declaração fica porque, com um
    arrasto em curso, o toque seguinte da lista também não deve rolar. */
-#library.arrastando-lista { touch-action: none; }
-#library > .lib-item.arrastando {
+#library.arrastando-lista,
+.fav-itens.arrastando-lista { touch-action: none; }
+#library > .lib-item.arrastando,
+.fav-itens > .lib-item.arrastando {
   z-index: 3; transition: none;
   box-shadow: 0 8px 20px var(--shadow-card);
 }
-#library.arrastando-lista > .lib-item:not(.arrastando) { transition: transform .16s ease; }
+/* OS FAVORITOS REORDENAM PELO MESMO GESTO (v1.13.68) — as regras acima valem para a
+   placa deles também. O item levantado ganha o fundo da placa (na `.row`, sobre o tom de
+   `--linha`): as linhas de lá são
+   transparentes (a placa pinta por trás), e sem fundo o nome do item levantado
+   se leria por cima do nome do vizinho que ele cobre. */
+.fav-itens > .lib-item.arrastando > .row {
+  background: linear-gradient(var(--linha), var(--linha)), var(--panel);
+}
+#library.arrastando-lista > .lib-item:not(.arrastando),
+.fav-itens.arrastando-lista > .lib-item:not(.arrastando) { transition: transform .16s ease; }
 @media (prefers-reduced-motion: reduce) {
-  #library.arrastando-lista > .lib-item:not(.arrastando) { transition: none; }
+  #library.arrastando-lista > .lib-item:not(.arrastando),
+  .fav-itens.arrastando-lista > .lib-item:not(.arrastando) { transition: none; }
 }
 
 #library > .empty {
@@ -4645,6 +4657,14 @@ main {
 }
 #hymnResults > .coll-group--fav.aberto .fav-itens
   > .lib-item:not(.no-ar):not(.active) { --linha: transparent; }
+/* A FAIXA DE AÇÕES DO FAVORITO É OPACA (v1.13.68). Ela nasce na `.row` (como no
+   Cronograma) e pinta `var(--linha)` — que nesta placa é TRANSPARENTE, e uma tampa
+   transparente deixa o nome aparecendo atrás dos botões. O preenchimento da linha
+   vai por cima do tom da placa (`--panel`), então um favorito ativo/no ar continua
+   com o próprio tom e os outros ficam sólidos. */
+#hymnResults > .coll-group--fav.aberto .fav-itens > .lib-item .row-acoes {
+  background: linear-gradient(var(--linha), var(--linha)), var(--panel);
+}
 /* ---------- AS SEÇÕES RESPIRAM (v5.273) ----------
    Pedido do operador: *"aumentar ligeiramente o espaço entre as outras
    coleções, elas estão muito coladas entre si"*. Elas herdavam o `gap` de
@@ -13029,29 +13049,13 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
 .lib-item.vendo-letra > .hymn-gaveta .song-menu-letra-cx > span:first-child {
   visibility: hidden;
 }
-/* ---------- AS OPÇÕES DE UM FAVORITO, NO LUGAR DOS DESTINOS (v1.13.36) ----------
-   Pedido do operador: a faixa excluir · renomear · ↑↓ deixa a fileira própria e
-   vira o botão de OPÇÕES do Cronograma (os três pontos, `dotsIconSvg`), quadrado
-   como os destinos e na PONTA DIREITA (`margin-left: auto`: sem o "Ver a letra",
-   num vídeo, ele não fica grudado no último destino). Tocá-lo põe
-   `.acoes-abertas` na linha (`alternarAcoesDaLinha`, o mecanismo do Cronograma) e
-   a faixa SUBSTITUI os destinos, encostada à direita, na altura dos quadrados; o
-   `⋮` fica, LIGADO, para fechar. A confirmação de excluir e o campo de renomear
-   nascem DENTRO da faixa e vestem a mesma altura. */
-.dest-opcoes { margin-left: auto; }
-.acoes-abertas .dest-opcoes { background: var(--btn-accent); }
-.dest-botoes > .fav-acoes { display: none; height: var(--quad-faixa); }
-.acoes-abertas .dest-botoes > .fav-acoes { display: flex; flex: 1 1 auto; }
-/* Aberta, a faixa SUBSTITUI os destinos e tem de ficar NA MESMA fileira do `⋮`
-   (a altura dos quadrados). O `flex-wrap` da `.dest-botoes` existe para o
-   `.dest-largo` descer sozinho; com a faixa aberta ele derrubaria a faixa para
-   uma segunda linha na tela estreita (360×1,25×) — o que o `destinos-diretos`
-   cobra em `faixaNaFileira`. */
-.acoes-abertas .dest-botoes { flex-wrap: nowrap; }
-.acoes-abertas .dest-botoes > :is(.dest-btn:not(.dest-opcoes), .dest-largo) { display: none; }
-.dest-botoes > .fav-acoes > .linha-confirma > :is(.linha-confirma-btn, .linha-renome-campo) {
-  min-height: var(--quad-faixa);
-}
+/* ---------- AS OPÇÕES DE UM FAVORITO MORAM NA LINHA (v1.13.68) ----------
+   O botão de OPÇÕES (`.dest-opcoes`) e a faixa `.fav-acoes` que a v1.13.36 pôs
+   NESTA fileira da gaveta saíram: o `⋮` (`.row-mais`) e a faixa (`.row-acoes`) são
+   da própria `.row` do favorito, a anatomia do Cronograma (ver `linhaDeItem`). Aqui
+   ficaram só os destinos — e as regras que os escondiam sob `.acoes-abertas` foram
+   com ela: a marca agora vem da LINHA, e uma gaveta aberta com a faixa aberta por
+   cima não pode perder os botões de destino. */
 /* ---------- A BARRA DA BIBLIOTECA SAI DE CENA ENTRE A TELA CHEIA E A ROTAÇÃO (v1.13.34) ----------
    Ver `aoSairDaTelaCheiaGeral`: nos quadros em que o documento já saiu da tela
    cheia e a janela ainda é a deitada, a posição da barra (`100svh` menos a caixa)

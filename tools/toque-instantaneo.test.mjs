@@ -302,25 +302,23 @@ try {
     const ul = document.createElement('ul');
     li.appendChild(ul);
     document.body.appendChild(li);
-    const acoes = document.createElement('div'); acoes.className = 'fav-acoes';
-    acoes.appendChild(document.createElement('button'));
     renderItemMenu({ id: 'x', name: 'X', kind: 'audio', lyrics: [{ time: 0, text: 'a' }] }, ul,
-      ['playlist', 'cronograma'], () => acoes);
+      ['playlist', 'cronograma']);
     const fileira = ul.querySelector('.dest-botoes');
     const r = {
       fileiras: [...ul.children].map((x) => x.className),
       botoes: [...ul.querySelectorAll('.dest-botoes > button')].map((b) => b.dataset.dest || b.className),
       confirmar: !!ul.querySelector('.song-menu-go'),
-      acoesNaFileira: !!fileira && fileira.contains(acoes),
+      semOpcoesNaFileira: !!fileira && !fileira.querySelector('.dest-opcoes, .fav-acoes'),
     };
     li.remove();
     return r;
   });
-  checar(ordem.botoes.join(' | ') === 'tocar | cronograma | playlist | leitura | dest-btn dest-opcoes' && !ordem.confirmar,
+  checar(ordem.botoes.join(' | ') === 'tocar | cronograma | playlist | leitura' && !ordem.confirmar,
     'a gaveta de um favorito tem os destinos em BOTÕES DIRETOS — "Tocar agora" na ponta, a ordem da '
-    + 'tabela, o "Ver a letra" e, por último, o botão de OPÇÕES — e nenhum Confirmar', ordem);
-  checar(ordem.acoesNaFileira === true && ordem.fileiras.length === 1,
-    'e a faixa de ações (excluir, renomear, ↑↓) mora NA MESMA fileira, atrás do botão de opções (v1.13.36)', ordem);
+    + 'tabela e o "Ver a letra" por último — e nenhum Confirmar (o `⋮` é da linha desde a v1.13.68)', ordem);
+  checar(ordem.semOpcoesNaFileira === true && ordem.fileiras.length === 1,
+    'e a fileira é só dos destinos: o `⋮` e a faixa de ações (excluir, renomear) moram na LINHA (v1.13.68)', ordem);
 
   // ── 8. O NOME NÃO TROCA NO MEIO DA ESPERA (v1.4.10) ─────────────────────
   //

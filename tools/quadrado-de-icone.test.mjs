@@ -127,9 +127,6 @@ try {
           if (!b.querySelector('svg, .msym')) continue;
           if (!b.closest('.popup-sheet, .dialog-card, .row-acoes, .hymn-gaveta')) continue;
           if (colunaDoTransporte > 0 && Math.abs(q.width - colunaDoTransporte) <= 1) continue;
-          //  4. E NÃO É A FAIXA `.fav-acoes` — a ÚNICA exceção, e ela não é um
-          //     buraco: o bloco C abaixo troca a asserção pela que vale ali.
-          if (b.closest('.fav-acoes')) continue;
           const chave = onde + '|' + (b.id || b.className);
           if (vistos.some((v) => v.chave === chave)) continue;
           vistos.push({ chave, onde, cls: b.id || b.className,
@@ -148,36 +145,23 @@ try {
       // o rodapé da fila
       document.getElementById('plBtn')?.click(); await espera(220); colher('rodapé da fila');
       document.getElementById('plPopup')?.classList.remove('open'); await espera(120);
-      // A GAVETA DE UM FAVORITO — o caminho SEM `⋮`, que é onde vive a única
-      // exceção do quadrado. Ela só existe dentro da Biblioteca, no grupo dos
-      // Favoritos aberto: `renderItemMenu` monta a `.fav-acoes` na fileira de
-      // destinos, atrás do `⋮`, e nenhuma outra porta a desenha.
+      // A GAVETA DE UM FAVORITO E A FAIXA DO `⋮` DELE. Elas só existem dentro da
+      // Biblioteca, no grupo dos Favoritos aberto. Desde a v1.13.68 a faixa de
+      // ações do favorito é uma `.row-acoes` da própria linha (como a do
+      // Cronograma) e NÃO há mais a exceção `.fav-acoes`: a regra do quadrado vale
+      // inteira, e o `colher` abaixo a mede como mede o Cronograma.
       openHymnSearch(false); await espera(320);
       document.querySelector('#hymnResults .coll-group--fav .coll-group-bar')?.click();
       await espera(320);
       document.querySelector('#hymnResults .coll-group--fav .lib-item .row')?.click();
       await espera(400);
       colher('gaveta de um favorito');
-      // A FAIXA MORA ATRÁS DO `⋮` DA FILEIRA DE DESTINOS (v1.13.36): é o toque
-      // nele que a põe à vista — e o `⋮` em si é um quadrado como os destinos.
-      document.querySelector('#hymnResults .coll-group--fav .lib-item .dest-opcoes')?.click();
+      // O `⋮` É DA LINHA (v1.13.68): é o toque nele que põe a faixa à vista.
+      document.querySelector('#hymnResults .coll-group--fav .lib-item .row-mais')?.click();
       await espera(120);
       colher('opções de um favorito');
 
-      // ── C. A FAIXA DA GAVETA DE UM FAVORITO ──────────────────────────
-      // Ali as três regras não cabem juntas: a LARGURA é a capa da linha
-      // (`--thumb`, 40px, v5.259) e a ALTURA é a da faixa (42px, v1.4.29 —
-      // toda peça mede o mesmo, senão o botão "boia no meio da linha"). 40×42
-      // não é quadrado, e os botões dali são excluir/renomear/↑↓, que não são
-      // destinos: está FORA do pedido. A asserção que vale nesta faixa é a
-      // outra, e ela é medida aqui em vez de a exceção virar silêncio.
-      const faixa = [...document.querySelectorAll('.fav-acoes')]
-        .map((f) => [...f.querySelectorAll('button, input')]
-          .map((e) => +e.getBoundingClientRect().height.toFixed(1))
-          .filter((h) => h > 0))
-        .filter((a) => a.length > 1);
-
-      return { vistos, quantos: vistos.length, faixa };
+      return { vistos, quantos: vistos.length };
     });
 
     const tortos = r.vistos.filter((v) => !v.quad);
@@ -190,11 +174,11 @@ try {
       + 'altura de um irmão pelo `align-items: stretch`, que é o padrão do flex e '
       + 'não uma decisão — foi assim que os mesmos dois destinos saíram em três caixas',
       JSON.stringify(tortos));
-    checar(r.faixa.length > 0 && r.faixa.every((a) => new Set(a).size === 1),
-      'C · ' + escala + '×: e na ÚNICA faixa que fica de fora do quadrado (a gaveta '
-      + 'de um favorito) vale a OUTRA regra, medida: toda peça na MESMA altura. Uma '
-      + 'exceção sem asserção é um buraco — esta troca a régua, não a desliga',
-      JSON.stringify(r.faixa));
+    checar(r.vistos.some((v) => v.onde === 'opções de um favorito'),
+      'C · ' + escala + '×: a faixa do `⋮` de um FAVORITO foi alcançada pelo censo — ela é uma '
+      + '`.row-acoes` como a do Cronograma (v1.13.68), sem a exceção `.fav-acoes` de antes, e a '
+      + 'regra do quadrado do bloco A a mede',
+      JSON.stringify(r.vistos.map((v) => v.onde)));
     await ctx.close();
   }
 

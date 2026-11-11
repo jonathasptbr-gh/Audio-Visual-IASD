@@ -41,6 +41,7 @@ apagada da que a criou.
 - **as capturas novas do app (sem versão nova; só `site/`)** — as 14 telas do carrossel foram trocadas pelas do app na v1.13.62 (enviadas pelo operador), em WebP 800×1632; saíram as quatro sem captura nova (destinos, série, sorteio, tempo) e entraram Liturgia, Hinário por tema, Ferramentas e Transferir a biblioteca; o cartão do link foi refeito com a tela nova
 - **o site redesenhado (sem versão nova; só `site/`)** — página nova, mobile-first: hero em duas colunas, 12 recursos, carrossel de telas com pontos, dois modos e o passo a passo; o texto foi revisto contra o código (entra a Liturgia, entra o Cronograma com arrasto, sai a contagem que não existe) e o cartão do link foi refeito no desenho novo
 - **revisão da fachada (sem versão nova; só docs e site)** — o README perde o manual (compilar e índice de docs saem), o `CLAUDE.md` fica com uma árvore só e lista os apêndices, e o site ganha o cartão do link e volta a aparecer sem JavaScript
+- **v1.13.68** — a lista do acervo passa a atualizar POR PARTES (item novo entra na hora, gaveta aberta fica, barra do card morfada no lugar) e o `⋮` dos Favoritos sobe para a linha, com o arrastar do Cronograma; só web. Oráculos `lista-por-partes` e `favoritos-menu-na-linha`.
 - **v1.13.67** — a verificação da semana não fecha mais a gaveta aberta de um episódio do Provai e Vede/Informativo, e a lista só se redesenha se mudou de verdade; só web. Oráculo `serie-gaveta-aberta`.
 - **v1.13.66** — o aviso de sistema no zero vira ÍCONE AMARELO clicável (abre o painel do Android) e o botão do MUDO na prévia passa a mostrar a porcentagem do volume, em número absoluto dentro do mesmo quadrado (só web)
 - **v1.13.65** — o mudo da barra em VERMELHO, o AVISO "som do celular no zero" acima dela e o PISO de 60% do volume de mídia do sistema na abertura; duas funções novas na ponte (`systemVolumeAtual` e `systemVolumeDefinir`), `SHELL_VERSION` 86 (APK, `shellTag: "v1.13.65"`)
@@ -895,6 +896,53 @@ hero ficava em `opacity:0` (medido), porque o `try/catch` do rodapé cobre a fal
 do IntersectionObserver, não a falta de JS. O comentário do `/registro/` que
 citava um `AUDITORIA-DE-USO-PLANO.md` inexistente passou a apontar o
 `MEDICAO-DE-ALCANCE.md`.
+
+## v1.13.68 — a lista por partes, e o `⋮` dos Favoritos na linha
+
+**Pedido do operador**, **só web**: `minShell` 83, **sem `shellTag`**. Degrau CORREÇÃO. (Pacote 11: o
+11.1 inteiro, e a evolução do 11.2 da v1.13.67.)
+
+*"Eu gostaria que você fizesse o modelo de lista mais complexa, que atualiza em partes, de forma
+correta e sem atrapalhar o usuário."* · *"faça o item 11.1, sobre o botão de opções, que fica na
+mesma linha do nome do item dos favoritos, e fica sempre visível [...]. Semelhante ao que já é no
+cronograma. [...] atualize o sistema de reordenação da lista dos favoritos, para que use o mesmo
+sistema de arrastar e soltar do cronograma."*
+
+**(1) A LISTA POR PARTES.** A v1.13.67 só fazia o redesenho ESPERAR a gaveta fechar. Agora o acervo
+reconcilia por chave (`reconciliarAcervo` → `reconciliarCartao` → `reconciliarListaDoCartao` →
+`reconciliarLinhas`): linha igual não é tocada (gaveta, foco, destinos marcados e letra ficam);
+item ACRESCENTADO entra só como linha nova, na posição de `faixasDaLista`; item removido sai só ele
+(a gaveta fecha apenas se era a dele); item alterado numa linha aberta atualiza só o rosto (nome,
+subtítulo) no lugar. A barra do card (subtítulo "Verificando os vídeos da semana…", progresso,
+contagem, peso, botões) e os resumos dos grupos são morfados NO LUGAR (`morphPassivo`), e o destaque do
+sábado também. Vale para série, álbum e hinário (o código é genérico por card). Os chamadores
+automáticos (`setCollStatus`, `setGroupStatus`, fins de lote, `fetchSerieIndex`, a verificação da
+semana…) pedem `{ partes: true }`; um pedido sem isso continua COMPLETO.
+
+**O que ainda cai no redesenho completo** (sempre pelo guarda `interacaoAbertaNoAcervo`): mudança de
+estrutura (grupos, ordem ou conjunto de cards, card aberto/fechado por fora — conferido por um
+"esqueleto"), a animação de abrir/fechar, o modo Fácil e qualquer exceção. Favoritos e a busca por
+texto não passam por aqui. **Dito:** a âncora de rolagem ao inserir uma linha acima da tela depende do
+`overflow-anchor` do WebView (não medida no aparelho); "duração/canal" dentro de uma gaveta já aberta
+só se atualizam na reabertura.
+
+**(2) O `⋮` NA LINHA DO FAVORITO.** `linhaDeItem` monta `.row-acoes` + `.row-mais` na própria `.row`,
+pela MESMA `montarAcoesDaLinha` do Cronograma (chave `favs:id`): o `⋮` fica sempre à vista, na linha do
+nome, e abre a faixa de ações (`.acoes-abertas`) sem abrir a gaveta. O `renderItemMenu` perdeu o `⋮`
+`.dest-opcoes` e o parâmetro `aoLado` (sem duplicado). "Ver a letra" ficou na gaveta.
+
+**(3) O ARRASTAR É O DO CRONOGRAMA.** Os Favoritos saíram do par ↑↓ e usam segurar-e-arrastar
+(`attachRowGestures` com `lista`, `comecarArrasto`, `terminarArrasto`, `assentarArrasto`), com a
+gravação por vizinho `moverNaListaAntesDe` (formato de `favs` inalterado). Na reforma saíram dois
+defeitos latentes do arrasto do Cronograma: `medirArrasto` nunca preenchia `topo`/`base` (o item não
+deslizava ao vão) e a conta para baixo errava um passo. Pastas do aparelho seguem fora do arrasto.
+**Dito:** o arrasto só foi medido com mouse no Chromium, não com o dedo num aparelho.
+
+**Oráculos:** novos `lista-por-partes` (35 asserções; reprova 13 com a reconciliação desligada) e
+`favoritos-menu-na-linha`; ajustados, por codificarem o comportamento antigo, `serie-gaveta-aberta`,
+`gaveta-no-download`, `destinos-diretos`, `quadrado-de-icone`, `teclado-das-folhas`,
+`toque-instantaneo` e `boot-nativo`. O `serie-gaveta-aberta` tinha datas fixas ("01/Ago") e reprovava
+fora de agosto: passou a usar `AVSerie.sabadoDaSemana()`.
 
 ## v1.13.67 — a gaveta do episódio não fecha mais com a verificação da semana
 

@@ -2216,27 +2216,22 @@ try {
       })(),
       // Tipos diferentes (áudio e vídeo) na MESMA lista, sem nada entre eles.
       nomes: [...lista3.querySelectorAll('.fav-itens .row-name')].map((e) => e.textContent),
-      // O PAR ↑↓ tomou o lugar da alça de arrastar (v5.285). Ele morava dentro
-      // do menu `⋮`; desde a v5.287 mora na FAIXA DE AÇÕES da gaveta, que abre
-      // ABAIXO da linha em vez de por cima do título. Medir só a presença
-      // aprovaria os botões soltos na faixa do nome.
-      ordem: [...lista3.querySelectorAll('.fav-itens .row-ordem')]
-        .filter((b) => b.closest('.hymn-gaveta .fav-acoes')).length,
-      // E AS PONTAS SÃO INERTES: o primeiro item não sobe, o último não desce.
-      // Sem isto, dois botões mortos ficariam oferecendo o que não fazem.
-      pontas: (() => {
-        const ls = [...lista3.querySelectorAll('.fav-itens > .lib-item')];
-        if (ls.length < 2) return null;
-        const ord = (li) => [...li.querySelectorAll('.row-ordem')].map((b) => b.disabled);
-        return { primeiro: ord(ls[0]), ultimo: ord(ls[ls.length - 1]) };
-      })(),
-      // ===== A FAIXA DO NOME FICOU SEM BOTÃO NENHUM (v5.287) =====
-      // O `⋮` era o último, e ele saiu com a faixa que ele abria: o corpo da
-      // linha deixou de projetar, então a gaveta tem para onde descer. O que
-      // sobra na `.row` é a miniatura (que hospeda o Parar) e o texto.
+      // O PAR ↑↓ SAIU (v1.13.68): reordenar é SEGURAR E ARRASTAR a linha, como no
+      // Cronograma (o gesto é medido em `favoritos-menu-na-linha`). O que se mede
+      // aqui é que não sobrou botão de posição em lugar nenhum da linha, e que o
+      // `⋮` está na LINHA de cada favorito (a faixa de ações é uma `.row-acoes`).
+      ordem: lista3.querySelectorAll('.fav-itens .row-ordem').length,
+      maisNaLinha: [...lista3.querySelectorAll('.fav-itens > .lib-item')]
+        .every((li) => !!li.querySelector(':scope > .row > .row-mais')
+          && !!li.querySelector(':scope > .row > .row-acoes .row-excluir')),
+      // ===== A FAIXA DO NOME TEM UM BOTÃO SÓ: O `⋮` (v1.13.68) =====
+      // Na v5.287 ela ficou sem botão nenhum (o `⋮` morava na gaveta); desde a
+      // v1.13.68 ele volta à linha, como no Cronograma — e é o ÚNICO botão dela.
+      // O corpo continua não projetando (abre a gaveta), e a gaveta continua
+      // descendo ABAIXO da linha.
       semBotaoNaLinha: [...lista3.querySelectorAll('.fav-itens > .lib-item')]
-        .every((li) => li.querySelectorAll('.row > button').length === 0
-          && !li.querySelector('.row-acoes') && !li.querySelector('.row-mais')),
+        .every((li) => li.querySelectorAll(':scope > .row > button').length === 1
+          && !!li.querySelector(':scope > .row > .row-mais')),
       // O subtítulo voltou: sem cabeçalho de tipo, é ele que distingue.
       subs: [...lista3.querySelectorAll('.fav-itens .row-sub')]
         .map((e) => getComputedStyle(e).display).filter((d) => d !== 'none').length,
@@ -2295,8 +2290,11 @@ try {
         // Confirmar — cada quadrado executa o dele.
         opcoes: [...gav.querySelectorAll('.hymn-opcoes .dest-botoes > button[data-dest]')].map((b) => b.dataset.dest),
         semMarcar: !gav.querySelector('.hymn-opcoes .song-menu-check, .hymn-opcoes .song-menu-go'),
-        acoesNaGaveta: !!gav.querySelector('.fav-acoes .row-ordem')
-          && !!gav.querySelector('.fav-acoes .row-excluir'),
+        // As ações (excluir · renomear) moram na LINHA (v1.13.68), e a gaveta não
+        // guarda nem faixa nem `⋮` nem ↑↓.
+        acoesNaGaveta: !gav.querySelector('.fav-acoes, .dest-opcoes, .row-ordem')
+          && !!li.querySelector(':scope > .row > .row-acoes .row-excluir')
+          && !!li.querySelector(':scope > .row > .row-acoes .row-renomear'),
         // ===== UMA SAÍDA SÓ, E ELA PERGUNTA (v5.288) =====
         // Pedido do operador: *"remova ou a opção de excluir ou a opção de
         // desfavoritar, pois tecnicamente ambas fazem a mesma coisa"*. Nesta
@@ -2323,8 +2321,9 @@ try {
     }
     lista3.remove();
     opfsFolders.length = 0;
-    // E O REORDENAR de verdade, pelo BOTÃO: o segundo item sobe uma casa.
-    await moverNaLista('favs', rec2.id, -1);
+    // E O REORDENAR de verdade, pela gravação que o ARRASTO usa (v1.13.68): o segundo
+    // item passa para ANTES do primeiro.
+    await moverNaListaAntesDe('favs', rec2.id, (await AVDB.listIds('favs'))[0]);
     r.lista.ordemDepois = (await AVDB.listIds('favs')).indexOf(rec2.id);
     await AVDB.listRemove('favs', rec2.id);
     await recarregarFavoritos();
@@ -2458,17 +2457,12 @@ try {
     'AS PASTAS SINCRONIZADAS VÊM NO TOPO da lista de favoritos (v5.285) — no fim '
     + 'elas eram empurradas para longe por cada favorito novo',
     'pasta antes da placa: ' + favs.lista.pastaAntes);
-  checar(favs.lista.ordem === favs.lista.nomes.length * 2,
-    'e cada item tem o PAR ↑↓ de reordenar, DENTRO do menu `⋮` (v5.285)',
-    favs.lista.ordem + ' botão(ões) para ' + favs.lista.nomes.length + ' item(ns)');
-  checar(!!favs.lista.pontas && favs.lista.pontas.primeiro[0] === true
-    && favs.lista.pontas.ultimo[1] === true
-    && favs.lista.pontas.primeiro[1] === false && favs.lista.pontas.ultimo[0] === false,
-    'e as PONTAS são inertes: o primeiro não sobe, o último não desce — e os '
-    + 'outros dois continuam vivos', JSON.stringify(favs.lista.pontas));
+  checar(favs.lista.ordem === 0 && favs.lista.maisNaLinha === true,
+    'e NÃO há mais o par ↑↓ (v1.13.68: reordenar é segurar e arrastar) — e cada item tem o `⋮` e a '
+    + 'faixa excluir · renomear NA LINHA, como o Cronograma',
+    favs.lista.ordem + ' botão(ões) ↑↓; `⋮` na linha: ' + favs.lista.maisNaLinha);
   checar(favs.lista.semBotaoNaLinha,
-    'e a faixa do nome ficou SEM BOTÃO NENHUM (v5.287): o `⋮` saiu com a faixa '
-    + 'que ele abria, e o nome fica com a linha inteira');
+    'e o único botão da linha do favorito é o `⋮` (v1.13.68): o nome fica com o resto da linha');
   // ===== A GAVETA DA BIBLIOTECA NA LINHA DE FAVORITO (v5.287) =====
   checar(favs.gaveta.abriu && favs.gaveta.naoProjetou,
     'O TOQUE NA LINHA DE FAVORITO ABRE AS OPÇÕES e não projeta mais nada — '
@@ -2491,8 +2485,8 @@ try {
     'e o botão FAZ o que diz: um toque no do Cronograma põe o item nele — e a gaveta '
     + 'continua ali para o segundo toque', JSON.stringify([favs.gaveta.foiPraCrono, favs.gaveta.tocarNaMesmaGaveta]));
   checar(favs.gaveta.acoesNaGaveta,
-    'e as ações da linha (↑↓, excluir) descem para a faixa de baixo da gaveta, '
-    + 'em vez de cobrirem o título');
+    'e as ações da linha (excluir, renomear) moram na faixa do `⋮` DA LINHA (v1.13.68) — '
+    + 'a gaveta guarda só os destinos');
   checar(favs.gaveta.semEstrela,
     'e a linha de favorito tem UMA saída só (v5.288): a estrela saiu — aqui ela '
     + 'e a lixeira faziam a mesma coisa, e só a lixeira pergunta antes');
@@ -2850,7 +2844,7 @@ try {
   checar(favs.lista.subs === favs.lista.nomes.length,
     'e o subtítulo voltou a aparecer: sem cabeçalho de tipo, é ele que distingue');
   checar(favs.lista.ordemDepois === 0,
-    'e o botão MOVE de verdade — uma casa, na lista de verdade');
+    'e a gravação do ARRASTO (`moverNaListaAntesDe`) MOVE de verdade, na lista de verdade');
   checar(!!favs.lista.parar && favs.lista.parar.naThumb && favs.lista.parar.visivel,
     'UM FAVORITO NO AR também oferece o "Tirar do ar", na capa (v5.259) — aqui ele '
     + 'nem existia', JSON.stringify(favs.lista.parar));
@@ -4501,45 +4495,17 @@ try {
     const ul = li && li.parentElement;
     if (!ul) return { erro: 'a lista dos favoritos não foi desenhada' };
 
-    // ---- O PAR ↑↓ MOVE, E A ORDEM É A DA LISTA (v5.285) ----
-    // O caso da LINHA-GUIA do arrasto (v5.272) morava aqui e saiu com ele: não
-    // há mais posicionamento absoluto a conferir. O que ficou é a pergunta que
-    // importa e que sobrevive à troca de gesto — o item foi para onde o botão
-    // prometeu —, medida na lista de VERDADE e pelo botão de verdade.
-    // A GAVETA PRECISA ESTAR ABERTA: a faixa de ações é montada por
-    // `renderItemMenu` no primeiro toque (v5.302), e é o percurso do operador —
-    // ele não alcança o ↓ sem abrir a linha.
-    const descer = async () => {
-      const alvo2 = corpo.querySelector('.lib-item[data-id="' + ids[0] + '"]');
-      if (!alvo2.classList.contains('expanded')) {
-        alvo2.querySelector('.row').click();
-        await new Promise((f) => setTimeout(f, 200));
-      }
-      const bs = corpo.querySelector('.lib-item[data-id="' + ids[0] + '"]')
-        .querySelectorAll('.row-ordem');
-      bs[1].click();
-    };
-    await descer();
-    await new Promise((r) => setTimeout(r, 300));
-    const ordemDepois = (await AVDB.listIds('favs')).indexOf(ids[0]);
-    // E A GAVETA REABRE no item que se moveu, com o ↓ de novo sob o dedo — sem
-    // isto cada casa custaria reabrir o menu à mão, que é o que tornaria uma
-    // sequência de toques insuportável. Medido aqui, e não no caso da lista
-    // solta: `redesenharFavoritosNaBiblioteca` desiste com a Biblioteca fechada,
-    // e é só aqui que ela está aberta de verdade.
-    // A REABERTURA é da GAVETA desde a v5.287 (`.expanded`), e não mais da
-    // faixa `⋮` (`.acoes-abertas`) — o par ↑↓ mudou de casa junto com o resto
-    // das ações da linha.
-    await new Promise((r) => setTimeout(r, 200));
-    const reaberta = document.querySelector('[data-fav-corpo] .lib-item.expanded');
-    const reabriu = !!reaberta && reaberta.dataset.id === ids[0];
-
-    // ---- O TOQUE LONGO não liga modo nenhum ----
+    // ---- O TOQUE LONGO ARRASTA (v1.13.68), e ARRASTAR GRAVA A ORDEM ----
     //
-    // A SELEÇÃO MÚLTIPLA SAIU DO APP na v1.13.52 (o Cronograma passou a
-    // ARRASTAR), então o que se mede aqui é a ausência dos DOIS efeitos que um
-    // toque longo poderia ter: nenhum modo de seleção e nenhum arrasto nesta
-    // lista (o arrasto é do Cronograma, e é lá que o oráculo dele mora).
+    // Até a v1.13.67 a lista dos Favoritos reordenava pelo par ↑↓ e o toque longo
+    // não fazia nada. Agora é o gesto do Cronograma: segurar o corpo da linha
+    // LEVANTA o item (`.arrastando`). O gesto inteiro, com o dedo, é medido em
+    // `favoritos-menu-na-linha`; aqui ficam as duas pontas que a ponte de mentira
+    // alcança: o toque longo levanta, e a gravação do soltar move o item na lista
+    // de VERDADE e a seção se redesenha na ordem nova.
+    //
+    // O toque longo vem ANTES da gravação: `li` é a primeira linha, e soltar acima
+    // de tudo (y = 10) é soltar onde ela já estava — nada muda.
     const row = li.querySelector('.row');
     const ev = (t) => row.dispatchEvent(new PointerEvent(t,
       { bubbles: true, clientX: 10, clientY: 10, pointerId: 1 }));
@@ -4547,26 +4513,34 @@ try {
     await new Promise((r) => setTimeout(r, 900));   // bem além do LONGPRESS
     const arrastando = !!document.querySelector('.lib-item.arrastando');
     ev('pointercancel');
+    await new Promise((r) => setTimeout(r, 300));
+    const ordemIntacta = (await AVDB.listIds('favs')).slice(0, 4).join(',') === ids.join(',');
+
+    await moverNaListaAntesDe('favs', ids[0], ids[2]);   // [1, 0, 2, 3]
+    await new Promise((r) => setTimeout(r, 400));
+    const ordemDepois = (await AVDB.listIds('favs')).indexOf(ids[0]);
+    const naTela = [...corpo.querySelectorAll('.fav-itens > .lib-item')].map((l) => l.dataset.id);
+    const reabriu = naTela.join(',') === (await AVDB.listIds('favs')).join(',');
 
     return {
-      ordemDepois, reabriu,
+      ordemDepois, reabriu, ordemIntacta,
       arrastando,
       temExcluir: !!li.querySelector('.row-excluir'),
       ids,
     };
   });
   checar(!fav.erro, 'a lista dos Favoritos foi desenhada na Biblioteca', fav.erro);
-  checar(fav.ordemDepois === 1,
-    'o ↓ da gaveta MOVE o item uma casa na lista de verdade (v5.285)',
-    'o primeiro foi para o índice ' + fav.ordemDepois);
+  checar(fav.ordemDepois === 1 && fav.ordemIntacta,
+    'o ARRASTO grava a ordem na lista de verdade (v1.13.68, `moverNaListaAntesDe`): o primeiro foi '
+    + 'para ANTES do terceiro (índice 1) — e o toque longo cancelado SEM mover não mexeu em nada',
+    'índice ' + fav.ordemDepois + ' · intacta: ' + fav.ordemIntacta);
   checar(fav.reabriu,
-    'e a gaveta REABRE no item que se moveu: o botão continua sob o mesmo dedo '
-    + 'para a casa seguinte');
-  checar(fav.arrastando === false,
-    'e o toque longo NÃO faz nada aqui: a lista dos Favoritos não arrasta (o '
-    + 'arrasto é do Cronograma) e a seleção múltipla saiu do app na v1.13.52');
+    'e a seção se redesenha NA ORDEM NOVA (a tela bate com o banco)');
+  checar(fav.arrastando === true,
+    'e o toque longo LEVANTA o item (`.arrastando`) — desde a v1.13.68 a lista dos Favoritos arrasta '
+    + 'como o Cronograma; a seleção múltipla continua fora do app (v1.13.52)');
   checar(fav.temExcluir,
-    'o que aquele modo daria — excluir sem sair da lista — está na gaveta, um toque');
+    'o que aquele modo daria — excluir sem sair da lista — está na faixa do `⋮` da linha, um toque');
 
   // ---- E O EXCLUIR PERGUNTA NA PRÓPRIA LINHA, sem popup nenhum (v5.301) ----
   //
@@ -4583,20 +4557,19 @@ try {
     const alvo = ids[0];
     const corpo = document.querySelector('[data-fav-corpo]');
     const li = corpo.querySelector('.lib-item[data-id="' + alvo + '"]');
-    // O EXCLUIR MORA NA GAVETA desde a v5.287 — quem a abre é o corpo da linha,
-    // e não mais um `⋮`. (A faixa de ações é montada com a linha, então o botão
-    // já existe; abrir é o que o operador de fato faz.)
-    li.querySelector('.row').click();
+    // O EXCLUIR MORA NA FAIXA DO `⋮` DA LINHA desde a v1.13.68 (de v5.287 a
+    // v1.13.67 era a gaveta): o operador toca no `⋮` — sem abrir gaveta nenhuma.
+    li.querySelector(':scope > .row > .row-mais').click();
     await new Promise((r) => setTimeout(r, 250));
     li.querySelector('.row-excluir').click();
     await new Promise((r) => setTimeout(r, 200));
     const dlg = document.getElementById('appDialog');
-    const lixo = li.querySelector('.fav-acoes .linha-confirma > .row-slot--del');
+    const lixo = li.querySelector(':scope > .row > .row-slot--del');
     const capa = [...li.querySelectorAll(':scope > .row > .thumb > *')]
       .filter((n) => getComputedStyle(n).display !== 'none').length;
     const r = {
       // 1. A PERGUNTA ESTÁ NA FAIXA, e o modal do app NÃO abriu.
-      perguntouNaFaixa: !!li.querySelector('.fav-acoes.confirmando > .linha-confirma'),
+      perguntouNaFaixa: !!li.querySelector(':scope > .row > .row-acoes.confirmando > .linha-confirma'),
       semModal: !dlg || !dlg.classList.contains('open'),
       // 2. A LIXEIRA ENTRA NA FAIXA, E A CAPA FICA À VISTA (v1.7.4).
       //    ESTE É O CAMINHO B DO SÍMBOLO: no Cronograma e na fila ele mora na
@@ -4607,12 +4580,16 @@ try {
       //    visivel a thumbnail do item durante essa confirmação"*. Ela morava
       //    debaixo da lixeira, e as duas asserções juntas é que dizem a regra —
       //    o símbolo mudou de casa PORQUE a capa voltou a ocupar a dela.
-      semMais: !li.querySelector(':scope > .row > .row-mais'),
+      // O `⋮` CEDE A COLUNA À LIXEIRA (caminho A, v1.4.27): escondido, não ausente.
+      semMais: (() => {
+        const m = li.querySelector(':scope > .row > .row-mais');
+        return !!m && getComputedStyle(m).display === 'none';
+      })(),
       lixeiraNaFaixa: !!lixo && getComputedStyle(lixo).display !== 'none',
       capaAVista: capa > 0,
       // 3. As opções da faixa cedem o lugar — sem isto o par apareceria ao lado
       //    dos botões que ele está confirmando.
-      opcoesEscondidas: [...li.querySelectorAll('.fav-acoes > .row-btn')]
+      opcoesEscondidas: [...li.querySelectorAll(':scope > .row > .row-acoes > .row-btn')]
         .every((b) => getComputedStyle(b).display === 'none'),
       // 4. E NADA SAIU AINDA.
       antesDoSim: (await AVDB.listIds('favs')).includes(alvo),
@@ -4622,6 +4599,7 @@ try {
     await new Promise((f) => setTimeout(f, 200));
     r.cancelouVoltou = !li.querySelector('.linha-confirma')
       && !li.querySelector('.row-slot--del')
+      && getComputedStyle(li.querySelector(':scope > .row > .row-mais')).display !== 'none'
       && (await AVDB.listIds('favs')).includes(alvo);
     // ---- E O SEGUNDO TOQUE executa ----
     li.querySelector('.row-excluir').click();
@@ -4649,13 +4627,13 @@ try {
     return r;
   }, fav.ids);
   checar(saiu.perguntouNaFaixa && saiu.semModal,
-    'o excluir da gaveta PERGUNTA na própria faixa (v5.301), e não abre popup '
+    'o excluir da linha PERGUNTA na própria faixa (v5.301), e não abre popup '
     + 'nenhum — a pergunta "excluir este item?" feita por cima de uma tela sem '
     + 'o item era respondida de memória', JSON.stringify(saiu));
   checar(saiu.semMais === true && saiu.lixeiraNaFaixa && saiu.opcoesEscondidas,
-    'e a lixeira entra na PRÓPRIA FAIXA — o CAMINHO B do símbolo: esta gaveta '
-    + 'não tem `⋮` para o processo tomar emprestado, e desde a v1.7.4 ele é o '
-    + 'mesmo caminho do ✓ do renomear, ao lado dos dois rótulos',
+    'e a lixeira ocupa a COLUNA DO `⋮` DA LINHA — o CAMINHO A do símbolo, o mesmo do '
+    + 'Cronograma (v1.13.68: antes, sem `⋮` na linha, ela entrava na faixa da gaveta, '
+    + 'caminho B) —, e o `⋮` fica escondido enquanto dura a pergunta',
     JSON.stringify(saiu));
   checar(saiu.capaAVista,
     'e A CAPA FICA À VISTA durante a pergunta (v1.7.4) — pedido do operador: ela '
@@ -4683,18 +4661,17 @@ try {
     const corpo = document.querySelector('[data-fav-corpo]');
     const li = corpo.querySelector('.lib-item[data-id="' + alvo + '"]');
     if (!li) return { erro: 'a linha do favorito sumiu' };
-    if (!li.classList.contains('expanded')) {
-      li.querySelector('.row').click();
-      await new Promise((f) => setTimeout(f, 250));
-    }
-    const b = li.querySelector('.hymn-gaveta .fav-acoes .row-renomear');
+    // Pelo `⋮` DA LINHA (v1.13.68), sem abrir a gaveta.
+    li.querySelector(':scope > .row > .row-mais').click();
+    await new Promise((f) => setTimeout(f, 250));
+    const b = li.querySelector(':scope > .row > .row-acoes .row-renomear');
     if (!b) return { erro: 'sem o lápis na faixa de ações' };
     b.click();
     await new Promise((f) => setTimeout(f, 200));
     // O CAMPO MORA NA PRÓPRIA FAIXA desde a v1.4.25 — e a asserção que carrega
     // isto é a NEGATIVA: um diálogo aberto por baixo continuaria renomeando
     // certo, e o pedido do operador era justamente sobre onde a pergunta mora.
-    const campo = li.querySelector('.fav-acoes.confirmando > .linha-renome > .linha-renome-campo');
+    const campo = li.querySelector(':scope > .row > .row-acoes.confirmando > .linha-renome > .linha-renome-campo');
     const dlg = document.getElementById('appDialog');
     const semModal = !dlg || !dlg.classList.contains('open');
     if (!campo) return { erro: 'o campo não abriu na faixa', semModal };
@@ -4711,8 +4688,13 @@ try {
     // caem por motivos diferentes: fora da faixa o botão some da tela; à
     // ESQUERDA ele entra na frente do texto que se está digitando (o `append`
     // do `semSlot` roda ANTES do campo — daí o `prepend` do lado do app).
-    const semMais = !li.querySelector(':scope > .row > .row-mais');
-    const okFav = li.querySelector('.fav-acoes.confirmando > .linha-renome > .row-slot--ok');
+    // (v1.13.68: há `⋮` na linha, então é o CAMINHO A — o ✓ ocupa a coluna do `⋮`,
+    // que fica escondido, e vem DEPOIS do campo na ordem do documento.)
+    const semMais = (() => {
+      const m = li.querySelector(':scope > .row > .row-mais');
+      return !!m && getComputedStyle(m).display === 'none';
+    })();
+    const okFav = li.querySelector(':scope > .row > .row-slot--ok');
     const okDepoisDoCampo = !!okFav && !!campo
       && (campo.compareDocumentPosition(okFav) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
     campo.value = 'Nome de favorito novo';
@@ -4731,145 +4713,106 @@ try {
     + 'no banco E na linha', JSON.stringify(renFav));
   checar(renFav.semMais === true && renFav.okNaFaixa === true
     && renFav.okDepoisDoCampo === true,
-    'e o CAMINHO B do ✓ (v1.4.27): esta gaveta não tem `⋮` para o processo '
-    + 'tomar emprestado, então ele volta para DENTRO da faixa, à direita do '
-    + 'campo — sem isso o renomear dos Favoritos ficaria sem confirmação',
+    'e o CAMINHO A do ✓ (v1.4.27 → v1.13.68): a linha do favorito tem `⋮` agora, e o processo '
+    + 'toma a coluna dele emprestada — o ✓ fica à direita do campo, como no Cronograma',
     JSON.stringify(renFav));
   checar(renFav.semModal === true,
     'e o campo mora NA FAIXA, sem diálogo de tela cheia (v1.4.25) — renomear é '
     + 'a única ação em que o nome VELHO precisa continuar à vista enquanto o '
     + 'novo é escrito', JSON.stringify(renFav));
 
-  // ===== A FAIXA DIVIDE A LINHA COM O CONFIRMAR (v5.302) =====
+  // ===== A FAIXA DO FAVORITO É A DA LINHA, COM A MESMA RECEITA DO CRONOGRAMA (v1.13.68) =====
   //
-  // Pedido do operador: *"ponha o botão de confirmar as escolhas do play dos
-  // favoritos para que ele fique lado a lado, à esquerda das opções, ajustado
-  // com a altura dos botões"*.
-  //
-  // Três coisas, e as três podem falhar separadas: ele está NA MESMA LINHA, ele
-  // está À ESQUERDA, e todos têm a MESMA ALTURA. A última é medida como
-  // IGUALDADE e nunca contra um número escrito aqui — um piso em pixel
-  // aprovaria os dois errados juntos no dia em que `--hit` mudar.
-  //
-  // E a ORDEM da faixa é a mesma do Cronograma, sem os que não existem nesta
-  // lista: sem a ESTRELA (aqui ela e a lixeira terminam no mesmo `listRemove`)
-  // e sem o botão da PLAYLIST, que aqui é uma LINHA da folha, com caixa.
+  // Até a v1.13.67 este bloco media a faixa `.fav-acoes` que morava atrás do `⋮` da FILEIRA DE
+  // DESTINOS da gaveta (v1.13.36; antes, v5.302, ela dividia a linha com o Confirmar). Desde a
+  // v1.13.68 o `⋮` é a coluna `.row-mais` da própria `.row` e a faixa é uma `.row-acoes` — a
+  // anatomia do Cronograma, por `montarAcoesDaLinha`. As asserções seguem a MESMA régua, agora
+  // contra a linha: a faixa nasce escondida, o `⋮` a põe À VISTA colada nele; os botões medem a
+  // CAPA da linha (largura) e a altura do `⋮`; a ordem é excluir · renomear (o ↑↓ saiu: reordenar
+  // é segurar e arrastar); e a pergunta e o campo de renomear vestem a mesma altura.
   const faixa = await pg6.evaluate(async (ids) => {
     const alvo = ids[2];
     const corpo = document.querySelector('[data-fav-corpo]');
     const li = corpo.querySelector('.lib-item[data-id="' + alvo + '"]');
     if (!li) return { erro: 'a linha do favorito sumiu' };
-    if (!li.classList.contains('expanded')) {
-      li.querySelector('.row').click();
-      // ESPERA A ANIMAÇÃO, NÃO UM RELÓGIO. O acordeão anima a altura com
-      // `el.animate()` (`expandAccordion`), e medir geometria no meio dela
-      // devolve um valor intermediário — o caso reprovava de vez em quando por
-      // isso. Um `setTimeout` maior só empurra a corrida para mais longe;
-      // `getAnimations()` é o mesmo objeto que o app criou, então a espera
-      // acaba exatamente quando o layout parou. Um oráculo que pisca é pior que
-      // um que falta: ele ensina a ignorá-lo.
-      const gav = li.querySelector('.hymn-gaveta');
-      await Promise.all((gav ? gav.getAnimations() : []).map((an) => an.finished.catch(() => {})));
-      await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
-    }
-    // A FAIXA MORA ATRÁS DO `⋮` DA FILEIRA DE DESTINOS DESDE A v1.13.36: tocar
-    // nele a põe NO LUGAR dos destinos (o mecanismo da linha do Cronograma).
-    const linhaGo = li.querySelector('.hymn-opcoes > .dest-botoes');
-    const fx = linhaGo && linhaGo.querySelector(':scope > .fav-acoes');
-    const mais = linhaGo && linhaGo.querySelector(':scope > .dest-opcoes');
-    if (!fx || !mais) return { erro: 'faixa ou opções fora do lugar' };
-    const escondidaAntes = fx.offsetWidth === 0;
-    mais.click();
-    await new Promise((f) => setTimeout(f, 60));
-    const destinos = linhaGo;
+    const fx = li.querySelector(':scope > .row > .row-acoes');
+    const mais = li.querySelector(':scope > .row > .row-mais');
+    if (!fx || !mais) return { erro: 'faixa ou `⋮` fora da linha' };
     const cx = (el) => el.getBoundingClientRect();
-    const bs = [...fx.querySelectorAll('.row-btn')];
-    // A RECEITA DE ALTURA, lida do layout: `--hit` mais o recuo vertical de uma
-    // opção, a mesma do par da pergunta e do campo de renomear.
-    // A ALTURA É A DO `⋮` VIZINHO (`--quad-faixa`), lida do layout.
+    const escondidaAntes = getComputedStyle(fx).visibility === 'hidden';
     const receita = Math.round(cx(mais).height);
+    mais.click();
+    await new Promise((f) => setTimeout(f, 300));
+    const bs = [...fx.querySelectorAll('.row-btn')];
     const r = {
-      // 1. NA MESMA FILEIRA, no lugar dos destinos — e não solta no pé da gaveta.
-      mesmaLinha: true,
-      soltaNaGaveta: !!li.querySelector(':scope > .hymn-gaveta > .fav-acoes'),
+      soltaNaGaveta: !!li.querySelector(':scope > .hymn-gaveta .fav-acoes, :scope > .hymn-gaveta .dest-opcoes'),
       escondidaAntes,
-      noLugarDosDestinos: Math.abs(cx(fx).top - cx(mais).top) <= 1
-        && [...linhaGo.querySelectorAll('.dest-btn:not(.dest-opcoes), .dest-largo')].every((b) => b.offsetWidth === 0),
-      // 2. ENCOSTADA À DIREITA, colada no `⋮`.
-      aDireita: Math.abs(Math.round(cx(fx).right) - Math.round(cx(mais).left)) <= 10,
-      // 3. UMA ALTURA SÓ, a do `⋮`.
+      visivelDepois: getComputedStyle(fx).visibility === 'visible' && fx.offsetWidth > 0,
+      aDireita: Math.abs(Math.round(cx(fx).right) - Math.round(cx(mais).left)) <= 12,
       alturaGo: receita,
       alturasBotoes: bs.map((b) => Math.round(cx(b).height)),
-      // 4. E A LARGURA DOS QUADRADOS NÃO ENCOLHEU: medida contra a CAPA da
-      //    própria linha, nunca contra um número.
       larguras: bs.map((b) => Math.round(cx(b).width)),
       larguraDaCapa: Math.round(cx(li.querySelector(':scope > .row > .thumb')).width),
       ordem: bs.map((b) => (b.className.match(/row-(excluir|renomear|ordem)/) || [''])[0]),
     };
-    // 5. E ELA SOBREVIVE À REMONTAGEM DA GAVETA: uma faixa NOVA perderia os
-    //    ouvintes — e apagaria uma confirmação de exclusão aberta, deixando a
-    //    lixeira na miniatura sem nenhum botão que a explicasse.
+    // A faixa sobrevive à remontagem da GAVETA (ela não é filha dela: não há o que perder).
+    li.querySelector(':scope > .row').click();   // fecha a faixa (o toque na linha só a fecha)
+    await new Promise((f) => setTimeout(f, 100));
+    li.querySelector(':scope > .row').click();   // e agora abre a gaveta
+    await new Promise((f) => setTimeout(f, 300));
     if (typeof destRemontar === 'function') {
       destRemontar();
       await new Promise((f) => setTimeout(f, 50));
-      r.sobreviveuAoRedesenho = li.querySelector('.dest-botoes > .fav-acoes') === fx
+      r.sobreviveuAoRedesenho = li.querySelector(':scope > .row > .row-acoes') === fx
         && !!fx.querySelector('.row-excluir');
     }
-    // 6. ENQUANTO A LINHA PERGUNTA, a fileira dos destinos continua no lugar e a
-    //    faixa não pula: o par mede a receita.
-    li.querySelector('.fav-acoes .row-excluir').click();
+    // ENQUANTO A LINHA PERGUNTA, o par mede a receita.
+    mais.click();
+    await new Promise((f) => setTimeout(f, 200));
+    li.querySelector('.row-excluir').click();
     await new Promise((f) => setTimeout(f, 250));
     const par = [...li.querySelectorAll('.linha-confirma-btn')];
     r.alturasDoPar = par.map((b) => Math.round(b.getBoundingClientRect().height));
-    r.destinosFicam = !!li.querySelector('.hymn-opcoes > .dest-botoes > .dest-opcoes');
     li.querySelector('.linha-nao').click();
     await new Promise((f) => setTimeout(f, 250));
-    // 7. E O CAMPO DE RENOMEAR TEM A MESMA ALTURA (v1.4.29).
-    li.querySelector('.fav-acoes .row-renomear').click();
+    // E O CAMPO DE RENOMEAR TEM A MESMA ALTURA (v1.4.29).
+    li.querySelector(':scope > .row > .row-acoes .row-renomear').click();
     await new Promise((f) => setTimeout(f, 250));
     const campoFav = li.querySelector('.linha-renome-campo');
     const okFavAlt = li.querySelector('.row-slot--ok');
     r.alturaCampo = campoFav ? Math.round(campoFav.getBoundingClientRect().height) : null;
     r.alturaOk = okFavAlt ? Math.round(okFavAlt.getBoundingClientRect().height) : null;
     fecharConfirmacaoNaLinha();
+    fecharAcoesDaLinha();
     await new Promise((f) => setTimeout(f, 200));
     return r;
   }, fav.ids);
-  checar(!faixa.erro && faixa.soltaNaGaveta === false && faixa.escondidaAntes && faixa.noLugarDosDestinos,
-    'A FAIXA DE AÇÕES MORA ATRÁS DO `⋮` DA FILEIRA DE DESTINOS (v1.13.36): escondida, e tocar no `⋮` '
-    + 'a põe NO LUGAR dos destinos, na mesma fileira', JSON.stringify(faixa));
+  checar(!faixa.erro && faixa.soltaNaGaveta === false && faixa.escondidaAntes && faixa.visivelDepois,
+    'A FAIXA DE AÇÕES MORA NA LINHA (v1.13.68): escondida, e o `⋮` DA LINHA a põe à vista — e a '
+    + 'gaveta não guarda faixa nem `⋮` nenhum', JSON.stringify(faixa));
   checar(!faixa.erro && faixa.aDireita,
     'e ela encosta à DIREITA, colada no `⋮`', JSON.stringify(faixa));
   checar(!faixa.erro && faixa.alturasBotoes.length > 0
       && faixa.alturasBotoes.every((h) => Math.abs(h - faixa.alturaGo) <= 1),
-    'e TODOS na mesma altura (' + (faixa.alturaGo || 0) + 'px, a do `⋮` vizinho) — os botões '
-    + 'traziam `--thumb` fixo e ficariam boiando no meio da linha',
-    JSON.stringify(faixa));
+    'e TODOS na mesma altura (' + (faixa.alturaGo || 0) + 'px, a do `⋮` vizinho)', JSON.stringify(faixa));
   checar(!faixa.erro && faixa.larguras.length > 0
       && faixa.larguras.every((w) => w === faixa.larguraDaCapa),
     'sem encolher a LARGURA deles: cada quadrado mede a CAPA da própria linha ('
-    + (faixa.larguraDaCapa || 0) + 'px), que é a regra do app para os quadrados '
-    + 'da linha', JSON.stringify(faixa));
-  checar(!faixa.erro && JSON.stringify(faixa.ordem)
-      === JSON.stringify(['row-excluir', 'row-renomear', 'row-ordem', 'row-ordem']),
-    'e a ORDEM é a mesma do Cronograma sem os que não existem nesta lista: '
-    + 'excluir · renomear · ↑ · ↓', JSON.stringify(faixa.ordem));
-  checar(!faixa.erro && faixa.sobreviveuAoRedesenho === true,
-    'a faixa é o MESMO nó a cada remontagem da gaveta — uma nova perderia os '
-    + 'ouvintes e apagaria uma confirmação de exclusão aberta',
+    + (faixa.larguraDaCapa || 0) + 'px), que é a regra do app para os quadrados da linha',
     JSON.stringify(faixa));
-  checar(!faixa.erro && faixa.destinosFicam === true,
-    'e enquanto a linha PERGUNTA o `⋮` continua na fileira (é ele que fecha)', JSON.stringify(faixa));
+  checar(!faixa.erro && JSON.stringify(faixa.ordem) === JSON.stringify(['row-excluir', 'row-renomear']),
+    'e a ORDEM é a do Cronograma sem os que não existem nesta lista: excluir · renomear (o ↑↓ saiu '
+    + 'na v1.13.68 — reordenar é segurar e arrastar)', JSON.stringify(faixa.ordem));
+  checar(!faixa.erro && faixa.sobreviveuAoRedesenho === true,
+    'e a faixa não é da gaveta: remontar a gaveta não a toca', JSON.stringify(faixa));
   checar(!faixa.erro && Math.abs(faixa.alturaCampo - faixa.alturaGo) <= 1
       && Math.abs(faixa.alturaOk - faixa.alturaGo) <= 1,
     'e o CAMPO DE RENOMEAR também (v1.4.29) mede a altura da faixa ('
     + faixa.alturaCampo + 'px contra ' + faixa.alturaGo + 'px) — sem pulo sob o dedo', JSON.stringify(faixa));
   checar(!faixa.erro && (faixa.alturasDoPar || []).length === 2
       && faixa.alturasDoPar.every((h) => Math.abs(h - faixa.alturaGo) <= 1),
-    'com o par Cancelar/Excluir na altura da faixa — sem isso '
-    + 'a gaveta dá um pulo sob o dedo ao perguntar. (A CONTAGEM entra na guarda: '
-    + 'um `[].every()` é `true`, e sem ela o caso passaria justamente quando o '
-    + 'par deixasse de existir.)', JSON.stringify(faixa.alturasDoPar));
+    'com o par Cancelar/Excluir na altura da faixa — sem isso a linha dá um pulo sob o dedo ao '
+    + 'perguntar. (A CONTAGEM entra na guarda: um `[].every()` é `true`.)', JSON.stringify(faixa.alturasDoPar));
 
   // ===== A FAIXA É DA LINHA DELA, E CONTINUA LÁ (v5.302) =====
   //
@@ -4925,12 +4868,12 @@ try {
     // o defeito: depois do roubo A TEM uma faixa — a de B. O que distingue é a
     // identidade do nó, e o carimbo é posto agora, com cada faixa ainda na
     // gaveta certa.
-    a.querySelector('.fav-acoes').dataset.dono = a.dataset.id;
-    b.querySelector('.fav-acoes').dataset.dono = b.dataset.id;
+    a.querySelector(':scope > .row > .row-acoes').dataset.dono = a.dataset.id;
+    b.querySelector(':scope > .row > .row-acoes').dataset.dono = b.dataset.id;
     await abrir(a);
     await marcar(a);
     const faixaDe = (li) => {
-      const fx = li.querySelector('.dest-botoes > .fav-acoes');
+      const fx = li.querySelector(':scope > .row > .row-acoes');
       return fx ? (fx.dataset.dono || '') : null;
     };
     const r = {
@@ -4945,14 +4888,18 @@ try {
       nomeA: a.querySelector('.row-name').textContent,
       dicaDoExcluirDeA: '',
     };
-    a.querySelector('.fav-acoes .row-excluir').click();
+    a.querySelector(':scope > .row > .row-mais').click();
+    await new Promise((f) => setTimeout(f, 120));
+    a.querySelector(':scope > .row > .row-acoes .row-excluir').click();
     await new Promise((f) => setTimeout(f, 220));
     const sim = a.querySelector('.linha-sim');
     r.dicaDoExcluirDeA = sim ? (sim.getAttribute('aria-label') || '') : '';
-    r.lixeiraEmA = !!a.querySelector('.fav-acoes .linha-confirma > .row-slot--del');
-    r.lixeiraEmB = !!b.querySelector('.fav-acoes .linha-confirma > .row-slot--del');
+    // A LIXEIRA É O SÍMBOLO DA PERGUNTA e mora na coluna do `⋮` DA LINHA (v1.13.68).
+    r.lixeiraEmA = !!a.querySelector(':scope > .row > .row-slot--del');
+    r.lixeiraEmB = !!b.querySelector(':scope > .row > .row-slot--del');
     a.querySelector('.linha-nao').click();
     await new Promise((f) => setTimeout(f, 220));
+    fecharAcoesDaLinha();
     // ---- 2. EXECUTAR UM DESTINO e depois mexer na MESMA gaveta ----
     // `closeSongMenu()` anula o global; a gaveta do acordeão continua aberta.
     await abrir(a);
@@ -4960,16 +4907,15 @@ try {
     if (go && !go.disabled) { go.click(); await new Promise((f) => setTimeout(f, 350)); }
     const a2 = document.querySelector('[data-fav-corpo] .fav-itens > .lib-item');
     await marcar(a2);
-    const fx2 = a2.querySelector('.dest-botoes > .fav-acoes');
+    const fx2 = a2.querySelector(':scope > .row > .row-acoes');
     // POSSE de novo, e não presença: a faixa que sobrou tem de ser A DELA.
     r.faixaSobreviveuAoConfirmar = !!fx2 && !!fx2.querySelector('.row-excluir')
       && fx2.dataset.dono === a2.dataset.id;
     return r;
   });
   checar(!roubo.erro && roubo.aTemFaixa === true && roubo.bTemFaixa === true,
-    'CADA LINHA FICA COM A FAIXA DELA depois de abrir outra e voltar (v5.302) — '
-    + 'o irmão do confirmar viajava num slot global, e o `desenhar()` de uma '
-    + 'linha reanexava a faixa de OUTRA', JSON.stringify(roubo));
+    'CADA LINHA FICA COM A FAIXA DELA depois de abrir outra e voltar (v5.302; desde a v1.13.68 '
+    + 'a faixa é filha da `.row` e não viaja mais num slot global — o roubo de faixa some por construção)', JSON.stringify(roubo));
   checar(!roubo.erro && roubo.lixeiraEmA === true && roubo.lixeiraEmB === false
       && roubo.dicaDoExcluirDeA.includes(roubo.nomeA),
     'e a lixeira dela fala do item DELA: a miniatura que pergunta e o nome no '
@@ -5042,9 +4988,8 @@ try {
     JSON.stringify(linkYt));
 
   checar(!roubo.erro && roubo.faixaSobreviveuAoConfirmar === true,
-    'e a faixa sobrevive a um CONFIRMAR seguido de outra marca: `closeSongMenu` '
-    + 'anula o global com a gaveta ainda aberta, e sem o irmão vindo do fecho a '
-    + 'faixa não era reanexada — excluir, renomear e ↑↓ sumiam da gaveta',
+    'e a faixa sobrevive a um CONFIRMAR seguido de outra marca da gaveta: excluir e renomear '
+    + 'continuam na LINHA (v1.13.68)',
     JSON.stringify(roubo));
 
   // ===== RENOMEAR NA GAVETA DA LINHA DO CRONOGRAMA (v5.288) =====
