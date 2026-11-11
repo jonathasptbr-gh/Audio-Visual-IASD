@@ -63,8 +63,12 @@
 <!-- O CARTÃO DO LINK. O endereço circula por WhatsApp, e um link sem imagem
      chega como texto solto — o cartão é o que faz a pessoa reconhecer o app
      antes de tocar. A imagem é gerada da própria página (paleta, ícone e uma
-     tela de verdade), 1200×630: o formato 1.91:1 que o WhatsApp não recorta. -->
-<meta property="og:image" content="https://audiovisualiasd.com.br/og.jpg">
+     tela de verdade), 1200×630: o formato 1.91:1 que o WhatsApp não recorta.
+     O `?v=` existe porque o mensageiro guarda a PRÉVIA por endereço, não por
+     conteúdo: trocar o arquivo mantendo a URL deixava o cartão velho (branco)
+     aparecendo por semanas para quem já tinha recebido o link. Ao refazer a
+     imagem, suba o número. -->
+<meta property="og:image" content="https://audiovisualiasd.com.br/og.jpg?v=2">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="O ícone do app, o nome Áudio Visual IASD e a frase “A tela da sua igreja 100% controlada por você”, ao lado da tela da letra de um hino.">

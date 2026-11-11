@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o cartão do link, desenhado (sem versão nova; só `site/`)** — o print sobre branco virou cartão em degradê denim: tipografia com peso e cor, onda sonora como régua, fichas de vidro e o telefone na moldura do site; o `og:image` ganhou `?v=` para a prévia velha parar de circular
 - **a economia de sessão vira regra (sem versão nova; só `docs/`)** — os três tetos (150 chamadas, 10 kB de saída de ferramenta, o trecho em vez do arquivo), a rotina do pacote e a curva medida em 2.131 chamadas: 90% do custo é cache e o passo depois da 400ª custa 5,6× o da primeira
 - **o painel sem texto (sem versão nova; só `site/`)** — a página perdeu os parágrafos de explicação: ficaram os dois números, o gráfico e uma linha de legenda ("menos 1: o aparelho de quem publica")
 - **o painel semanal (sem versão nova; só `site/` e docs)** — uma métrica só: aparelhos no dia de maior uso da semana (normalmente o sábado), com 1 descontado por semana (o aparelho de quem publica); saíram downloads, visitas, adoção, OTA e todo número acumulado
@@ -689,6 +690,40 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## o cartão do link, desenhado (sem versão nova; só `site/`)
+
+**O CARTÃO ERA UMA IMAGEM SEM DESENHO.** Ele resolvia o essencial desde a
+fachada enxuta — link sem imagem chega como texto solto —, mas era o ícone, o
+nome e o print sobre branco: nada nele dizia "projeção", e no WhatsApp ele
+competia com a prévia das outras mensagens sem vantagem. O pedido do operador
+foi de desenho, não de conserto: *"mais design nas letras, um fundo com degradê
+ou algum efeito"*.
+
+**O FUNDO É O DO HERO** (`.hero`): degradê radial de `#5482B4` a `#132B44`, a
+mesma família de denim do app, com grade de 74 px mascarada, três círculos no
+eixo do telefone, uma faixa de luz a 22° e grão de `feTurbulence` em `overlay`.
+É o que separa o cartão de um degradê de gerador de imagem.
+
+**AS LETRAS TÊM PESO E COR.** `Manrope` 800 com `letter-spacing` negativo no
+nome, o "IASD" com o azul do acento do palco (`#8FB1F3`) e o olho em caixa alta
+espaçada. A fonte é do desenho, não do site: o JPEG é raster e não carrega
+fonte, então o cartão sai igual em qualquer máquina — `system-ui` não tem peso
+800 aqui e caía em Liberation.
+
+**O MOTIVO DE ÁUDIO VIROU RÉGUA**: uma onda de 30 barras separa o nome da
+frase, e as três fichas (endereço, Android 8+, grátis) repetem o vidro fosco
+dos chips do app. O telefone é a moldura do próprio site (`.fone`,
+`linear-gradient(160deg,#33485f,#0f1b28)`, raio 30) com a captura real de
+`site/telas/letra.webp` dentro — a mesma tela do carrossel, não uma maquete.
+
+**O `?v=2` NO `og:image`.** WhatsApp e Facebook guardam a prévia por ENDEREÇO,
+não por conteúdo: trocar o arquivo e manter a URL deixou a primeira versão
+(branca) circulando por semanas em quem já tinha recebido o link — e foi ela
+que voltou como pedido. Ao refazer a imagem, o número sobe.
+
+Medido: 1200×630 (1.91:1), 104 kB — o formato que o WhatsApp mostra sem
+recorte.
 
 ## o painel sem texto (sem versão nova; só `site/`)
 
