@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.14.0",
+    "itens": [
+      "Na primeira vez, um tour rápido mostra cada parte da tela, com Voltar, Próximo e Pular.",
+      "No Modo Fácil, o tour começa pelas formas de conectar a TV e depois mostra os controles.",
+      "Em Configurações, \"Tour do app\" mostra o tour de novo quando você quiser.",
+      "Em Configurações, \"Guia de sonoplastia\" abre o guia do site (no Modo Fácil, direto no \"por um dia\")."
+    ]
+  },
+  {
     "versao": "1.13.69",
     "itens": [
       "Em celular lento, a Biblioteca não fecha mais sozinha logo depois de abrir o app.",

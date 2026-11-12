@@ -99,6 +99,7 @@
     if (!global.AVPptxZip) return false;
     if (!global.AVPacote) return false;
     if (!global.AVProgresso) return false;
+    if (!global.AVTour) return false;
     if (typeof global.__avBack !== 'function') return false;
     // O `init()` terminou (item 5 acima). `__avSplash` nasce no `<head>` do
     // Controle, antes de qualquer script; ausente aqui é um bundle sem ele.

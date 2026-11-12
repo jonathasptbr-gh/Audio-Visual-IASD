@@ -13063,3 +13063,48 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
    lugar dela na rotação. `visibility` e não `display`: a folha continua medindo,
    e é a medida dela que solta a classe. */
 body.lib-assentando .popup-sheet--lib { visibility: hidden; }
+
+/* ===== O TOUR GUIADO (v1.14.0) — ver `tour.js` =====
+   O VÉU é a sombra do RECORTE (`box-shadow` de espalhamento): o buraco é a peça
+   explicada, sem máscara nem SVG. Sem peça à vista o recorte some e o véu passa a
+   ser o fundo da raiz, com o balão no centro. A raiz pega todo toque: durante o
+   tour nada do app por baixo responde. 600 = acima dos diálogos (500), abaixo da
+   prévia inteira e da cortina de abertura (que contam como ocupado e o fecham). */
+.tour { position: fixed; inset: 0; z-index: 600; pointer-events: auto; touch-action: none; }
+.tour[hidden] { display: none; }
+.tour.tour--centro { background: var(--tour-veu); }
+.tour-recorte {
+  position: absolute; border-radius: var(--radius-card);
+  box-shadow: 0 0 0 200vmax var(--tour-veu);
+  pointer-events: none;
+}
+.tour-recorte[hidden] { display: none; }
+/* O balão é um cartão de diálogo: `--panel`, que afunda a superfície dos botões. */
+.tour-balao {
+  position: absolute;
+  --surface: var(--surface-sunk);
+  --surface-2: var(--surface-2-sunk);
+  background: var(--panel); color: var(--text);
+  border-radius: var(--radius-card);
+  box-shadow: 0 6px 18px var(--shadow-card);
+  padding: .8rem 1rem .9rem;
+  display: flex; flex-direction: column; gap: var(--sp-4);
+  overflow-y: auto; overscroll-behavior: contain;
+  box-sizing: border-box;
+}
+.tour-balao:focus { outline: none; }
+.tour-cab { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.tour-cont { font-size: var(--fs-md); color: var(--muted); font-variant-numeric: tabular-nums; }
+.tour-pular {
+  appearance: none; -webkit-appearance: none; border: none; background: none;
+  color: var(--muted); font: inherit; font-size: var(--fs-md); font-weight: var(--fw-medio);
+  min-height: var(--hit); padding: 0 .3rem; margin: calc(-1 * var(--sp-3)) -.3rem; cursor: pointer;
+}
+.tour-pular:active { transform: var(--press); filter: var(--press-luz); }
+.tour-balao .dialog-btn { padding-left: .5rem; padding-right: .5rem; min-height: var(--hit); }
+.tour-balao .dialog-btn:disabled { opacity: var(--op-inativo); cursor: default; }
+
+/* A AJUDA DE QUEM COMEÇA, no fim da grade de Configurações: dois botões lado a
+   lado, que quebram a linha do rótulo em vez de cortá-lo (320px × 1,3). */
+.cfg-ajuda { display: flex; gap: var(--sp-3); }
+.cfg-ajuda .dialog-btn { min-height: var(--hit); padding: .45rem .5rem; line-height: 1.2; }

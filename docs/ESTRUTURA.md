@@ -68,6 +68,9 @@ app/src/main/
 │   │                            #   volta noutro. PURA, com oráculo Node — os
 │   │                            #   bytes não passam por aqui; quem os move é o
 │   │                            #   `controle.js`, pelo canal `__avPacote`
+│   ├── controle/tour.js         #   o TOUR GUIADO: véu com recorte e balão, um
+│   │                            #   tour por estado da tela (conexão, controles,
+│   │                            #   avançado). Nunca projeta nem toca nada
 │   ├── controle/pptxzip.js      #   o ZIP de um `.pptx` lido por FATIAS: é ele
 │   │                            #   que faz uma apresentação de centenas de MB
 │   │                            #   caber, tirando os vídeos embutidos ANTES de

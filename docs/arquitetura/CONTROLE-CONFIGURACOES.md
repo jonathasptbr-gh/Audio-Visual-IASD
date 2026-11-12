@@ -9,6 +9,8 @@
 
 **Nesta parte:** [O tema (claro × escuro), em Configurações](#o-tema-claro--escuro-em-configurações) · [Configurações é um PAINEL RÁPIDO](#configurações-é-um-painel-rápido-v1438) · [O rodapé são TRÊS BOTÕES IGUAIS](#o-rodapé-são-três-botões-iguais-v1865-revogando-a-v1444) · [A contagem de uso NÃO TEM MAIS CHAVE](#a-contagem-de-uso-não-tem-mais-chave-v1442) · [UM registro só](#um-registro-só) · [Wallpaper personalizado](#wallpaper-personalizado) · [Girar a mídia](#girar-a-mídia-v5142) · [O histórico do culto, em Configurações](#o-histórico-do-culto-em-configurações-v120--v1431)
 
+> **A linha de ajuda (v1.14.0):** no fim do `#cfgTopo`, depois da grade, **Tour do app** (`#tourBtn`) e **Guia de sonoplastia** (`#guiaSomBtn`) — o contrato está em [`CONTROLE-TOUR.md`](CONTROLE-TOUR.md#os-botões-de-configurações).
+
 
 ### O tema (claro × escuro), em Configurações
 

@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.69';
+const WEB_VERSION = '1.14.0';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -45397,6 +45397,9 @@ POPUPS.forEach(([backdrop, closeBtn, close]) => {
 // Vive só no app: no navegador não há botão voltar do sistema, e a base precisa
 // continuar rodando lá (por isso nada aqui depende de `history`).
 window.__avBack = function () {
+  // 0. O TOUR GUIADO (v1.14.0): ele está por cima de tudo, então sai primeiro —
+  //    e o `fechar` desfaz o que ele mostrou (a pílula de volume do passo dela).
+  if (window.AVTour && AVTour.aberto()) { AVTour.fechar(); return true; }
   // 1. Diálogo modal (confirmar/renomear): cancela, como o botão Cancelar.
   if (appDialogEl.classList.contains('open')) {
     closeAppDialog(appDialogInputEl.hidden ? false : null);
@@ -45470,6 +45473,57 @@ window.__avBack = function () {
   // Nada aberto: a Activity minimiza (a projeção segue viva).
   return false;
 };
+
+// ===== O TOUR GUIADO (v1.14.0) — os ganchos do `tour.js` =====
+// O tour só LÊ: qual dos três vale agora e se a tela está livre. "Ocupado" é o
+// mesmo inventário do `__avBack` (o que o voltar fecharia) mais a cortina de
+// abertura e um campo de texto com o teclado — um tour não abre por cima de nada.
+function qualTour() {
+  if (appMode !== 'simple') return 'avancado';
+  return simpleModeEl.classList.contains('sem-tela') ? 'conexao' : 'simples';
+}
+function telaOcupadaParaTour() {
+  if (document.getElementById('splash')) return true;   // a cortina de abertura sai por remoção do nó
+  if (appDialogEl.classList.contains('open')) return true;
+  if (document.fullscreenElement || pvInteira) return true;
+  if (cronoGavetaAberta() || itinGavetaAberta() || ferramentasAbertas() || bibliaAberta()) return true;
+  for (const [backdrop] of POPUPS) {
+    if (!backdrop.classList.contains('open')) continue;
+    if (backdrop === hymnSearchPopupEl && (appMode !== 'simple' || simplesBibliotecaDocada())) continue;
+    return true;
+  }
+  const foco = document.activeElement;
+  return !!(foco && /^(INPUT|TEXTAREA)$/.test(foco.tagName) && foco.type !== 'range');
+}
+// A pílula de volume só aparece com as teclas do aparelho; no passo dela o tour a
+// mostra PARADA (sem o relógio que a esconde) e a esconde ao sair do passo.
+function volumeDoTour(ligar) {
+  if (!ligar) { esconderPilula(); return; }
+  mostrarPilula();
+  clearTimeout(volPillTimer); volPillTimer = null;
+}
+if (window.AVTour) {
+  AVTour.ligar({ qual: qualTour, ocupado: telaOcupadaParaTour, volume: volumeDoTour });
+}
+const tourBtnEl = document.getElementById('tourBtn');
+if (tourBtnEl) tourBtnEl.addEventListener('click', () => {
+  closeFadePopup();
+  if (window.AVTour) AVTour.refazer();
+});
+// O GUIA DE SONOPLASTIA mora no site (`site/sonoplastia/`). No Modo Fácil abre
+// direto na trilha "Sonoplasta por um dia" (`#dia`); no avançado, no começo. A
+// porta é a de todo link externo: `openExternal` no app, `window.open` fora dele.
+const AV_GUIA_SOM = AV_PAGINA + 'sonoplastia/';
+function urlDoGuiaDeSom() { return AV_GUIA_SOM + (appMode === 'simple' ? '#dia' : ''); }
+const guiaSomBtnEl = document.getElementById('guiaSomBtn');
+if (guiaSomBtnEl) guiaSomBtnEl.addEventListener('click', () => {
+  const url = urlDoGuiaDeSom();
+  if (window.__NATIVE__) {
+    try { AVNative.openExternal(url); } catch (_) { responder(guiaSomBtnEl, 'erro'); }
+  } else {
+    try { window.open(url, '_blank', 'noopener'); } catch (_) { /* bloqueado */ }
+  }
+});
 
 seekEl.addEventListener('pointerdown', () => { seeking = true; });
 seekEl.addEventListener('pointerup', () => { seeking = false; });
