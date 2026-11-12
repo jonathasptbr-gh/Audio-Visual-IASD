@@ -118,7 +118,7 @@
   .tabela th, .tabela td { text-align:left; vertical-align:top; padding:.5rem .6rem; border-bottom:1px solid var(--panel-2); }
   .tabela th { background:var(--panel-2); color:var(--titulo); font-size:.8rem; text-transform:uppercase; letter-spacing:.03em; }
   .tabela.estreita table { min-width:0; }
-  .tabela.estreita th, .tabela.estreita td { overflow-wrap:anywhere; }
+  .tabela.estreita th, .tabela.estreita td { overflow-wrap:break-word; }
   /* ----- tabela deslizante: duas colunas por vez com setas (celular) ----- */
   .tabela.desliza { position:relative; overflow:visible; }
   .tabela.desliza .rolo { overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:10px; scroll-behavior:smooth; }
@@ -3139,9 +3139,9 @@
       <rect x="220" y="40" width="65" height="24" fill="#e0b400"/>
       <rect x="285" y="40" width="45" height="24" fill="#d23c32"/>
       <g fill="#22303d" font-size="12.6" text-anchor="middle"><text font-size="12.6" x="40" y="32">ruído</text><text font-size="12.6" x="145" y="32">zona boa</text><text font-size="12.6" x="252" y="32">folga</text><text font-size="12.6" x="307" y="32">clip</text></g>
-      <g stroke="#c6cfd9" stroke-dasharray="4 3"><line x1="70" y1="64" x2="70" y2="225"/><line x1="285" y1="64" x2="285" y2="225"/></g>
-      <line x1="220" y1="36" x2="220" y2="225" stroke="#22303d" stroke-width="1.5" stroke-dasharray="4 3"/>
-      <text font-size="13.8" x="220" y="80" fill="#22303d" font-weight="700" text-anchor="middle">0</text>
+      <g stroke="#c6cfd9" stroke-dasharray="4 3"><line x1="70" y1="64" x2="70" y2="104"/><line x1="285" y1="64" x2="285" y2="100"/></g>
+      <line x1="220" y1="36" x2="220" y2="100" stroke="#22303d" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <text font-size="13.8" x="214" y="80" fill="#22303d" font-weight="700" text-anchor="end">0</text>
       <path d="M222,88 v4 H283 v-4" fill="none" stroke="#9a5a00" stroke-width="1.5"/>
       <text x="252" y="104" fill="#9a5a00" font-size="12.6" text-anchor="middle">headroom</text>
       <g fill="#22303d" font-weight="700"><text font-size="13.8" x="10" y="120">Ganho baixo</text><text font-size="13.8" x="10" y="160">Ganho certo</text><text font-size="13.8" x="10" y="200">Ganho alto</text></g>
@@ -4030,7 +4030,7 @@
       <rect x="180" y="86" width="84" height="44" rx="6" fill="#3a3f45"/>
       <circle cx="212" cy="108" r="13" fill="#55606d" stroke="#b8c0c8" stroke-width="1.5"/>
       <text font-size="13.8" x="250" y="112" fill="#fff" font-weight="700" text-anchor="middle">8 Ω</text>
-      <text x="8" y="134" fill="#55606d" font-size="13.8">ligadas em paralelo (o jeito comum)</text>
+      <text x="8" y="134" fill="#55606d" font-size="13.8">em paralelo (o jeito comum)</text>
       <text x="8" y="158" fill="#1f7a6d" font-size="15" font-weight="700">8 ÷ 2 = 4 Ω ✓ (no limite do mínimo)</text>
       <text x="8" y="182" fill="#d23c32" font-size="13.8">Quatro caixas de 8 Ω: 8 ÷ 4 = 2 Ω ✗</text>
       <text x="8" y="198" fill="#d23c32" font-size="13.8">abaixo do mínimo: esquenta ou desliga.</text>
@@ -4101,16 +4101,16 @@
       <rect x="96" y="56" width="88" height="44" rx="6" fill="#eef2f6" stroke="#2f557f" stroke-width="2"/>
       <text x="140" y="74" fill="#22303d" font-weight="700" font-size="15" text-anchor="middle">crossover</text>
       <text x="140" y="90" fill="#55606d" font-size="12.6" text-anchor="middle">divide ≈ 100 Hz</text>
-      <path d="M140,56 V34 H196" fill="none" stroke="#22303d" stroke-width="2"/>
+      <path d="M184,56 V34 H196" fill="none" stroke="#22303d" stroke-width="2"/>
       <rect x="196" y="20" width="130" height="34" rx="6" fill="#3a3f45"/>
       <text x="261" y="41" fill="#fff" font-size="11.5" font-weight="700" text-anchor="middle">caixa: médios + agudos</text>
-      <path d="M140,100 V190 H196" fill="none" stroke="#22303d" stroke-width="2"/>
+      <path d="M184,100 V190 H196" fill="none" stroke="#22303d" stroke-width="2"/>
       <rect x="196" y="176" width="130" height="32" rx="6" fill="#1f7a6d"/>
       <text x="261" y="195" fill="#fff" font-size="11.5" font-weight="700" text-anchor="middle">SUB: só graves baixos</text>
       <text x="8" y="126" fill="#2f557f" font-size="13.8">a caixa de cima fica alta,</text>
       <text x="8" y="142" fill="#2f557f" font-size="13.8">na altura das cabeças</text>
       <text x="8" y="174" fill="#1f7a6d" font-size="13.8">o sub vai no chão —</text>
-      <text x="8" y="190" fill="#1f7a6d" font-size="13.8">grave não tem "direção"</text>
+      <text x="8" y="190" fill="#1f7a6d" font-size="13.2">grave não tem "direção"</text>
       <text x="170" y="228" fill="#55606d" font-size="13.8" text-anchor="middle">Em igreja, sub discreto: grave demais embola a palavra.</text>
     </svg>
     <figcaption>O crossover pode estar dentro do sub, da caixa ou de um processador. O trabalho é o mesmo: cada alto-falante recebe só o que sabe tocar.</figcaption>
@@ -4226,7 +4226,7 @@
         <text x="175" y="97" text-anchor="middle" fill="#fff" font-size="12.6">estéreo</text>
         <line x1="210" y1="72" x2="250" y2="72" stroke="#3a3f45" stroke-width="3"/>
         <line x1="210" y1="90" x2="250" y2="90" stroke="#3a3f45" stroke-width="3"/>
-        <text x="230" y="64" text-anchor="middle" font-size="12.6">2 × XLR</text>
+        <text x="226" y="64" text-anchor="middle" font-size="11.5">2×XLR</text>
         <rect x="250" y="45" width="82" height="62" rx="6" fill="#3a3f45"/>
         <text font-size="13.8" x="291" y="62" text-anchor="middle" fill="#fff" font-weight="700">MESA</text>
         <g stroke="#8d97a1" stroke-width="2"><line x1="264" y1="72" x2="264" y2="100"/><line x1="280" y1="72" x2="280" y2="100"/><line x1="296" y1="72" x2="296" y2="100"/><line x1="312" y1="72" x2="312" y2="100"/></g>
@@ -5985,15 +5985,15 @@
   <p>O nome de <b>Slide anterior</b> e <b>Próximo slide</b> muda conforme o que está no ar: estrofe, versículo, mensagem ou página. Os ícones da prévia (cobrir o telão, volume, <b>Conectar uma TV</b>, <b>Tela cheia</b>, recolher) são vistos adiante, em Tela e prévia.</p>
   <figure class="ilus "><svg viewBox="0 0 340 186" role="img" aria-label="Fileira dos sete botões de transporte numerados de 1 a 7: repetição, playlist, mídia anterior, play ou pause, próxima mídia, parar e limpar e auxiliar de leitura" font-family="system-ui, sans-serif"><rect x="5" y="8" width="42" height="42" rx="8" fill="#eef2f6" stroke="#c6cfd9" stroke-width="1.5"/><g transform="translate(26 29)"><path stroke="#2f557f" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" d="M-10 -2V-5Q-10 -9 -6 -9H8M5 -12L9 -9L5 -6M10 2V5Q10 9 6 9H-8M-5 6L-9 9L-5 12"/></g><circle cx="26" cy="66" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="26" y="70" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">1</text><rect x="53" y="8" width="42" height="42" rx="8" fill="#eef2f6" stroke="#c6cfd9" stroke-width="1.5"/><g transform="translate(74 29)"><path stroke="#2f557f" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" d="M-11 -7h13M-11 -1h13M-11 5h7"/><circle cx="7" cy="6" r="3" fill="#2f557f"/><path stroke="#2f557f" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" d="M10 6V-7"/></g><circle cx="74" cy="66" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="74" y="70" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">2</text><rect x="101" y="8" width="42" height="42" rx="8" fill="#eef2f6" stroke="#c6cfd9" stroke-width="1.5"/><g transform="translate(122 29)"><path stroke="#2f557f" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" d="M-9 -8V8"/><path d="M9 -8L-5 0L9 8Z" fill="#2f557f"/></g><circle cx="122" cy="66" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="122" y="70" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">3</text><rect x="149" y="8" width="42" height="42" rx="8" fill="#eef2f6" stroke="#c6cfd9" stroke-width="1.5"/><g transform="translate(170 29)"><path d="M-6 -9L8 0L-6 9Z" fill="#2f557f"/></g><circle cx="170" cy="66" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="170" y="70" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">4</text><rect x="197" y="8" width="42" height="42" rx="8" fill="#eef2f6" stroke="#c6cfd9" stroke-width="1.5"/><g transform="translate(218 29)"><path stroke="#2f557f" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" d="M9 -8V8"/><path d="M-9 -8L5 0L-9 8Z" fill="#2f557f"/></g><circle cx="218" cy="66" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="218" y="70" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">5</text><rect x="245" y="8" width="42" height="42" rx="8" fill="#eef2f6" stroke="#c6cfd9" stroke-width="1.5"/><g transform="translate(266 29)"><rect x="-7" y="-7" width="14" height="14" rx="1.5" fill="#2f557f"/></g><circle cx="266" cy="66" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="266" y="70" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">6</text><rect x="293" y="8" width="42" height="42" rx="8" fill="#eef2f6" stroke="#c6cfd9" stroke-width="1.5"/><g transform="translate(314 29)"><rect x="-9" y="-11" width="18" height="22" rx="3" stroke="#2f557f" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path stroke="#2f557f" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" d="M-5 -5h10M-5 0h10M-5 5h6"/><circle cx="10" cy="-10" r="3.6" fill="#3aa35b" stroke="#fff" stroke-width="1"/></g><circle cx="314" cy="66" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="314" y="70" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">7</text><circle cx="21" cy="100" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="21" y="104" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">1</text><text x="36" y="104" font-size="13.2" font-weight="700" fill="#22303d">Repetição</text><circle cx="21" cy="122" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="21" y="126" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">2</text><text x="36" y="126" font-size="13.2" font-weight="700" fill="#22303d">Playlist</text><circle cx="21" cy="144" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="21" y="148" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">3</text><text x="36" y="148" font-size="13.2" font-weight="700" fill="#22303d">Mídia anterior</text><circle cx="21" cy="166" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="21" y="170" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">4</text><text x="36" y="170" font-size="13.2" font-weight="700" fill="#22303d">Play/Pause</text><circle cx="197" cy="100" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="197" y="104" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">5</text><text x="212" y="104" font-size="13.2" font-weight="700" fill="#22303d">Próxima mídia</text><circle cx="197" cy="122" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="197" y="126" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">6</text><text x="212" y="126" font-size="13.2" font-weight="700" fill="#22303d">Parar e limpar</text><circle cx="197" cy="144" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="197" y="148" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">7</text><text x="212" y="148" font-size="13.2" font-weight="700" fill="#22303d">Auxiliar de leitura</text></svg><figcaption>O transporte, da esquerda para a direita. O Play/Pause aparece como pausa quando a mídia está tocando.</figcaption></figure>
   <div class="tabela estreita"><table>
-    <thead><tr><th>#</th><th>Botão</th><th>Para que serve</th></tr></thead>
+    <thead><tr><th>Botão</th><th>Para que serve</th></tr></thead>
     <tbody>
-      <tr><td>1</td><td><b>Repetição</b></td><td>Passa por 4 estados de repetição. Fica apagado se não há fila nem mídia.</td></tr>
-      <tr><td>2</td><td><b>Playlist</b></td><td>Abre a fila do momento. Um selo mostra o total, a partir de 2 itens.</td></tr>
-      <tr><td>3</td><td><b>Mídia anterior</b></td><td>Volta na playlist; sem fila, recomeça a mídia.</td></tr>
-      <tr><td>4</td><td><b>Play/Pause</b></td><td>Toca ou pausa, sem tirar nada da TV.</td></tr>
-      <tr><td>5</td><td><b>Próxima mídia</b></td><td>Avança na playlist.</td></tr>
-      <tr><td>6</td><td><b>Parar e limpar</b></td><td>Tira o conteúdo da TV.</td></tr>
-      <tr><td>7</td><td><b>Auxiliar de leitura</b></td><td>Abre a folha de leitura. O ponto verde indica que há o que ler; sem conteúdo, o botão fica apagado.</td></tr>
+      <tr><td><b>1 · Repetição</b></td><td>Passa por 4 estados de repetição. Fica apagado se não há fila nem mídia.</td></tr>
+      <tr><td><b>2 · Playlist</b></td><td>Abre a fila do momento. Um selo mostra o total, a partir de 2 itens.</td></tr>
+      <tr><td><b>3 · Mídia anterior</b></td><td>Volta na playlist; sem fila, recomeça a mídia.</td></tr>
+      <tr><td><b>4 · Play/Pause</b></td><td>Toca ou pausa, sem tirar nada da TV.</td></tr>
+      <tr><td><b>5 · Próxima mídia</b></td><td>Avança na playlist.</td></tr>
+      <tr><td><b>6 · Parar e limpar</b></td><td>Tira o conteúdo da TV.</td></tr>
+      <tr><td><b>7 · Auxiliar de leitura</b></td><td>Abre a folha de leitura. O ponto verde indica que há o que ler; sem conteúdo, o botão fica apagado.</td></tr>
     </tbody>
   </table></div>
   <p>Mais detalhes em <a href="#i23-playlist">Playlist, repetição e transporte</a>, adiante.</p>
