@@ -320,6 +320,22 @@
     .trilha-cab, .escolha a, .cod, .ic { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     a { text-decoration:none; }
   }
+  /* d-inicio · trilha "por um dia": blocos visuais */
+  .d-sprite { position:absolute; width:0; height:0; overflow:hidden; }
+  .d-10s { margin:.3rem 0 1.1rem; padding:.7rem .8rem .8rem; border-radius:12px; background:var(--dia-tint); border:2px solid var(--dia); }
+  .d-10s-t { display:block; margin-bottom:.45rem; font-size:.78rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--dia); }
+  .d-10s ul, ul.d-lista { list-style:none; margin:0; padding:0; display:grid; gap:.5rem; }
+  ul.d-lista { margin:.6rem 0 1rem; }
+  .d-10s li, ul.d-lista li { display:flex; align-items:center; gap:.65rem; margin:0; line-height:1.3; color:var(--titulo); }
+  .d-10s li { font-weight:600; }
+  .d-10s li svg, ul.d-lista li svg { flex:none; width:38px; height:38px; padding:7px; border-radius:50%; background:#fff; color:var(--dia); border:2px solid var(--dia); }
+  details.sintoma > figure.d-flow { padding-left:4px; padding-right:4px; }
+  ul.d-lista li.d-perigo svg { color:#b3261e; border-color:#d23c32; }
+  .d-bt { display:inline-block; padding:.2em .5em .16em; border-radius:4px; background:#3a3f45; color:#fff; font:800 .76em/1.1 system-ui, sans-serif; letter-spacing:.04em; border-bottom:2px solid #22303d; vertical-align:.1em; white-space:nowrap; }
+  .d-bt.d-verm { background:#d23c32; border-bottom-color:#9e2a22; }
+  .d-bt.d-verde { background:#2e7d4f; border-bottom-color:#1d5a37; }
+  @media print { .d-10s, .d-bt { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+  /* d-fim */
 </style>
 </head>
 <body>
@@ -472,7 +488,7 @@
 <div class="trilha trilha--dia" id="dia">
   <div class="trilha-cab">
     <h2>Trilha 1 · Sonoplasta por um dia</h2>
-    <p>Para quem nunca mexeu no som e vai substituir alguém hoje. Ligar tudo, conferir se funciona, tocar música ou vídeo no telão e passar o culto sem susto.</p>
+    <p>Para quem nunca mexeu no som e foi chamado hoje. Siga os desenhos: ligar, testar, tocar o vídeo e passar o culto sem susto.</p>
     <span class="meta">D0 a D11 · cerca de 15 min</span>
   </div>
 
@@ -483,174 +499,325 @@
 
   <section class="cap" id="d1">
     <h2><span class="cod">D1</span> A ordem do dia</h2>
-    <p class="resumo">Chegar cedo, saber a quem perguntar e ter o programa do culto na mão resolve metade dos problemas.</p>
+    <div class="d-10s"><b class="d-10s-t">Em 10 segundos</b><ul><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-relogio"/></svg><span>Chegue <b>30 a 40 min antes</b>.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-pessoa"/></svg><span>Descubra quem é o <b>responsável</b>.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-papel"/></svg><span>Pegue o <b>programa</b> do culto.</span></li></ul></div>
     <h3 id="d1-chegar">Chegue cedo</h3>
-    <p>Chegue <b>30 a 40 minutos antes</b> do culto. É o tempo de ligar, testar e corrigir com calma, antes de a igreja encher.</p>
+    <p>Chegue <b>30 a 40 minutos antes</b>. Dá tempo de ligar, testar e pedir ajuda antes de a igreja encher.</p>
     <h3 id="d1-perguntar">Pergunte antes</h3>
-    <ul>
-      <li>Quem é o <b>responsável pelo som</b>? Tenha o telefone dele.</li>
-      <li>Onde ficam as <b>chaves</b>, os <b>microfones</b>, as <b>pilhas</b> e os cabos?</li>
-      <li>Qual canal da mesa é qual (púlpito, microfone sem fio, computador…)?</li>
-      <li>O computador tem <b>senha</b>?</li>
-    </ul>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 300" role="img" aria-label="Cartão: pergunte a alguém quem é o responsável, onde ficam as chaves, microfones e pilhas, qual é o programa, qual canal é qual e se o computador tem senha" font-family="system-ui, sans-serif">
+        <rect x="6" y="6" width="328" height="288" rx="12" fill="#fff" stroke="#1f7a6d" stroke-width="2"/>
+        <path d="M6 18a12 12 0 0 1 12-12h304a12 12 0 0 1 12 12v32H6z" fill="#1f7a6d"/>
+        <text x="20" y="35" font-size="17" font-weight="800" fill="#fff">Pergunte a alguém:</text>
+        <g fill="#eef2f6" stroke="#2f557f" stroke-width="1.5"><circle cx="34" cy="80" r="17"/><circle cx="34" cy="126" r="17"/><circle cx="34" cy="172" r="17"/><circle cx="34" cy="218" r="17"/><circle cx="34" cy="264" r="17"/></g>
+        <g color="#2f557f"><use href="#d-ic-pessoa" x="23" y="69" width="22" height="22"/><use href="#d-ic-chave" x="23" y="115" width="22" height="22"/><use href="#d-ic-papel" x="23" y="161" width="22" height="22"/><use href="#d-ic-fader" x="23" y="207" width="22" height="22"/><use href="#d-ic-pc" x="23" y="253" width="22" height="22"/></g>
+        <g stroke="#eef2f6" stroke-width="2"><path d="M60 103H322M60 149H322M60 195H322M60 241H322"/></g>
+        <g font-size="14" font-weight="800" fill="#22303d"><text x="62" y="77">Quem é o responsável?</text><text x="62" y="123">Onde ficam as chaves?</text><text x="62" y="169">Qual é o programa?</text><text x="62" y="215">Qual canal é qual?</text><text x="62" y="261">O computador tem senha?</text></g>
+        <g font-size="12" fill="#55606d"><text x="62" y="94">Salve o telefone dele.</text><text x="62" y="140">E os microfones, pilhas e cabos.</text><text x="62" y="186">Quem fala, quem canta, vídeos.</text><text x="62" y="232">Púlpito, sem fio, computador…</text><text x="62" y="278">Anote antes de precisar.</text></g>
+      </svg>
+      <figcaption>Faça essas perguntas assim que chegar, ou até antes, por mensagem.</figcaption>
+    </figure>
     <h3 id="d1-programa">O programa do culto</h3>
-    <p>Peça o programa (impresso ou por mensagem) e anote:</p>
+    <p>Peça o programa (no papel ou por mensagem). Marque nele:</p>
     <ul>
       <li><b>Quem fala</b> e onde: púlpito, frente, microfone de mão.</li>
-      <li><b>Músicas</b>: quem canta, se há playback (de onde ele vem: computador, pendrive, celular?).</li>
-      <li><b>Vídeos</b> e anúncios: quais, em que momento, se precisam de som.</li>
+      <li><b>Músicas</b>: quem canta e se tem playback (no computador, pendrive ou celular).</li>
+      <li><b>Vídeos</b>: quais e em que momento.</li>
     </ul>
     <h3 id="d1-tempo">Linha do tempo</h3>
     <figure class="ilus">
-      <svg viewBox="0 0 340 122" role="img" aria-label="Linha do tempo: 40 minutos antes chegar, 30 antes ligar, 20 antes testar, 10 antes tudo pronto, e na hora o culto começa" font-family="system-ui, sans-serif">
-        <path d="M20 58 H 320" stroke="#c6cfd9" stroke-width="4" stroke-linecap="round"/>
-        <g fill="#1f7a6d"><circle cx="30" cy="58" r="8"/><circle cx="95" cy="58" r="8"/><circle cx="160" cy="58" r="8"/><circle cx="225" cy="58" r="8"/></g>
-        <circle cx="302" cy="58" r="11" fill="#2f557f"/>
-        <g font-size="12" font-weight="700" fill="#55606d" text-anchor="middle"><text x="30" y="36">−40 min</text><text x="95" y="36">−30</text><text x="160" y="36">−20</text><text x="225" y="36">−10</text><text x="302" y="36" fill="#2f557f">Hora!</text></g>
-        <g font-size="12.5" font-weight="700" fill="#22303d" text-anchor="middle"><text x="30" y="88">Chegar</text><text x="95" y="88">Ligar</text><text x="160" y="88">Testar</text><text x="225" y="88">Pronto</text><text x="302" y="88">Culto</text></g>
-        <g font-size="11" fill="#55606d" text-anchor="middle"><text x="30" y="106">D1</text><text x="95" y="106">D3</text><text x="160" y="106">D4 · D7</text><text x="225" y="106">mics em mute</text><text x="302" y="106">D8</text></g>
+      <svg viewBox="0 0 340 154" role="img" aria-label="Relógio: chegue 30 a 40 minutos antes do culto. Linha do tempo: 40 minutos antes chegar, 30 antes ligar, 20 antes testar, 10 antes tudo pronto, e na hora o culto" font-family="system-ui, sans-serif">
+        <circle cx="44" cy="44" r="34" fill="#fff" stroke="#1f7a6d" stroke-width="4"/>
+        <path d="M44 14v7M74 44h-7M44 74v-7M14 44h7" stroke="#22303d" stroke-width="3" stroke-linecap="round"/>
+        <path d="M44 44L63 55M44 44L35 56" stroke="#22303d" stroke-width="3.5" stroke-linecap="round"/>
+        <circle cx="44" cy="44" r="3.5" fill="#22303d"/>
+        <text x="94" y="40" font-size="24" font-weight="800" fill="#1f7a6d">30–40 min</text>
+        <text x="94" y="63" font-size="15" font-weight="700" fill="#22303d">antes do culto</text>
+        <path d="M22 116 H 318" stroke="#c6cfd9" stroke-width="4" stroke-linecap="round"/>
+        <g fill="#1f7a6d"><circle cx="30" cy="116" r="8"/><circle cx="100" cy="116" r="8"/><circle cx="170" cy="116" r="8"/><circle cx="240" cy="116" r="8"/></g>
+        <circle cx="308" cy="116" r="11" fill="#2f557f"/>
+        <g font-size="13" font-weight="700" fill="#55606d" text-anchor="middle"><text x="30" y="99">−40</text><text x="100" y="99">−30</text><text x="170" y="99">−20</text><text x="240" y="99">−10</text><text x="308" y="97" fill="#2f557f">Hora!</text></g>
+        <g font-size="14" font-weight="800" fill="#22303d" text-anchor="middle"><text x="30" y="146">Chegar</text><text x="100" y="146">Ligar</text><text x="170" y="146">Testar</text><text x="240" y="146">Pronto</text><text x="308" y="146">Culto</text></g>
       </svg>
-      <figcaption>Um roteiro simples. Se algo der errado no teste, ainda sobra tempo para pedir ajuda.</figcaption>
+      <figcaption>Se algo falhar no teste, ainda sobra tempo para pedir ajuda.</figcaption>
     </figure>
-    <div class="box dica"><b class="box-t">Dica</b><p>Deixe o programa do culto ao lado da mesa, à vista. Marque com um traço cada parte que já passou.</p></div>
+    <div class="box dica"><b class="box-t">Dica</b><p>Deixe o programa ao lado da mesa. Risque cada parte que já passou.</p></div>
   </section>
 
   <section class="cap" id="d2">
     <h2><span class="cod">D2</span> Reconheça os equipamentos</h2>
-    <p class="resumo">Toda igreja é diferente, mas as peças são quase sempre as mesmas. Saiba o nome e para que serve cada uma.</p>
+    <div class="d-10s"><b class="d-10s-t">Em 10 segundos</b><ul><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-fader"/></svg><span>Na mesa, cada coluna é um <b>canal</b>.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-mic"/></svg><span>Siga o cabo do microfone até o canal.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-olho"/></svg><span><b>Tire uma foto</b> da mesa antes de mexer.</span></li></ul></div>
     <h3 id="d2-mesa">A mesa de som</h3>
-    <p>É o "coração" do som: todos os microfones e o computador chegam nela, e dela o som sai para as caixas. Cada entrada é um <b>canal</b> (uma coluna de botões).</p>
-    <ul>
-      <li><b>Mesa analógica</b>: um botão físico para cada função, em cada canal. O que você vê é o que está valendo.</li>
-      <li><b>Mesa digital</b>: tem tela, e às vezes é controlada por tablet. Os canais podem estar em "páginas" (camadas, ou <i>layers</i>).</li>
-    </ul>
+    <p>Todos os microfones e o computador chegam nela. Dela, o som vai para as caixas. Cada coluna de botões é um <b>canal</b>.</p>
     <figure class="ilus">
       <svg viewBox="0 0 340 306" role="img" aria-label="Mesa de som com 4 canais e a seção master. No canal 1 apontam-se o GAIN, o LED de sinal, os botões de EQ, o MUTE e o FADER. À direita, o medidor e o fader MASTER" font-family="system-ui, sans-serif">
         <defs><marker id="d2-ponta" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5"><circle cx="5" cy="5" r="4" fill="#2f557f"/></marker></defs>
         <rect x="78" y="22" width="250" height="276" rx="10" fill="#fff" stroke="#22303d" stroke-width="2"/>
         <g stroke="#c6cfd9" stroke-width="1.5"><path d="M128 28v264M170 28v264M212 28v264"/><path d="M254 28v264" stroke="#8d97a1" stroke-width="2"/></g>
-        <g font-size="11" font-weight="700" fill="#55606d" text-anchor="middle"><text x="107" y="34">1</text><text x="149" y="34">2</text><text x="191" y="34">3</text><text x="233" y="34">4</text></g>
-        <!-- GAIN -->
+        <g font-size="12" font-weight="700" fill="#55606d" text-anchor="middle"><text x="107" y="35">1</text><text x="149" y="35">2</text><text x="191" y="35">3</text><text x="233" y="35">4</text></g>
         <g fill="#3a3f45"><circle cx="107" cy="49" r="11"/><circle cx="149" cy="49" r="11"/><circle cx="191" cy="49" r="11"/><circle cx="233" cy="49" r="11"/></g>
         <g stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M107 49l5-7M149 49l2-8M191 49l6-6M233 49l1-8"/></g>
-        <!-- LED de sinal -->
         <circle cx="107" cy="69" r="4.5" fill="#3aa35b"/><circle cx="149" cy="69" r="4.5" fill="#c6cfd9"/><circle cx="191" cy="69" r="4.5" fill="#3aa35b"/><circle cx="233" cy="69" r="4.5" fill="#c6cfd9"/>
-        <!-- EQ -->
         <g fill="#8d97a1"><circle cx="107" cy="92" r="8"/><circle cx="107" cy="116" r="8"/><circle cx="107" cy="140" r="8"/><circle cx="149" cy="92" r="8"/><circle cx="149" cy="116" r="8"/><circle cx="149" cy="140" r="8"/><circle cx="191" cy="92" r="8"/><circle cx="191" cy="116" r="8"/><circle cx="191" cy="140" r="8"/><circle cx="233" cy="92" r="8"/><circle cx="233" cy="116" r="8"/><circle cx="233" cy="140" r="8"/></g>
-        <!-- MUTE -->
         <rect x="95" y="160" width="24" height="14" rx="3" fill="#b8c0c8"/><rect x="137" y="160" width="24" height="14" rx="3" fill="#d23c32"/><rect x="179" y="160" width="24" height="14" rx="3" fill="#b8c0c8"/><rect x="221" y="160" width="24" height="14" rx="3" fill="#b8c0c8"/>
-        <!-- faders -->
         <g stroke="#3a3f45" stroke-width="3"><path d="M107 188v74M149 188v74M191 188v74M233 188v74M289 188v74"/></g>
         <g fill="#22303d"><rect x="96" y="214" width="22" height="13" rx="2"/><rect x="138" y="244" width="22" height="13" rx="2"/><rect x="180" y="222" width="22" height="13" rx="2"/><rect x="222" y="250" width="22" height="13" rx="2"/></g>
         <rect x="278" y="206" width="22" height="13" rx="2" fill="#c8453b"/>
         <g stroke="#fff" stroke-width="1.5"><path d="M99 220.5h16M141 250.5h16M183 228.5h16M225 256.5h16M281 212.5h16"/></g>
-        <!-- fita crepe -->
-        <rect x="86" y="268" width="164" height="18" rx="2" fill="#efe0b0"/>
-        <g font-size="11" font-weight="700" fill="#22303d" text-anchor="middle"><text x="107" y="281">PÚLP</text><text x="149" y="281">MÃO</text><text x="191" y="281">PC</text><text x="233" y="281">TECL</text><text x="289" y="281">MASTER</text></g>
-        <!-- medidor -->
+        <rect x="84" y="268" width="166" height="20" rx="2" fill="#efe0b0"/>
+        <g font-size="12" font-weight="800" fill="#22303d" text-anchor="middle"><text x="107" y="283">PÚLP</text><text x="149" y="283">MÃO</text><text x="191" y="283">PC</text><text x="233" y="283">TECL</text><text x="291" y="283">MASTER</text></g>
         <g><rect x="273" y="36" width="10" height="8" fill="#d23c32" opacity=".25"/><rect x="273" y="47" width="10" height="8" fill="#e0b400" opacity=".25"/><rect x="273" y="58" width="10" height="8" fill="#e0b400"/><rect x="273" y="69" width="10" height="8" fill="#3aa35b"/><rect x="273" y="80" width="10" height="8" fill="#3aa35b"/><rect x="273" y="91" width="10" height="8" fill="#3aa35b"/><rect x="273" y="102" width="10" height="8" fill="#3aa35b"/><rect x="273" y="113" width="10" height="8" fill="#3aa35b"/>
         <rect x="295" y="36" width="10" height="8" fill="#d23c32" opacity=".25"/><rect x="295" y="47" width="10" height="8" fill="#e0b400" opacity=".25"/><rect x="295" y="58" width="10" height="8" fill="#e0b400" opacity=".25"/><rect x="295" y="69" width="10" height="8" fill="#3aa35b"/><rect x="295" y="80" width="10" height="8" fill="#3aa35b"/><rect x="295" y="91" width="10" height="8" fill="#3aa35b"/><rect x="295" y="102" width="10" height="8" fill="#3aa35b"/><rect x="295" y="113" width="10" height="8" fill="#3aa35b"/></g>
-        <g font-size="11" font-weight="700" fill="#55606d" text-anchor="middle"><text x="278" y="134">L</text><text x="300" y="134">R</text></g>
-        <text x="289" y="15" font-size="11.5" font-weight="800" fill="#2f557f" text-anchor="middle">MEDIDOR</text>
-        <!-- legendas à esquerda -->
-        <g stroke="#2f557f" stroke-width="1.5" fill="none" marker-end="url(#d2-ponta)"><path d="M48 40L94 47"/><path d="M48 70L100 69"/><path d="M48 116H97"/><path d="M48 167H93"/><path d="M48 220H94"/></g>
-        <g font-size="12" font-weight="800" fill="#2f557f"><text x="4" y="40">GAIN</text><text x="4" y="73">SINAL</text><text x="4" y="114">EQ</text><text x="4" y="165">MUTE</text><text x="4" y="218">FADER</text></g>
-        <g font-size="11" fill="#55606d"><text x="4" y="53">entrada</text><text x="4" y="86">luz/LED</text><text x="4" y="128">timbre</text><text x="4" y="179">silencia</text><text x="4" y="232">volume</text></g>
+        <g font-size="12" font-weight="700" fill="#55606d" text-anchor="middle"><text x="278" y="136">L</text><text x="300" y="136">R</text></g>
+        <text x="289" y="15" font-size="12" font-weight="800" fill="#2f557f" text-anchor="middle">MEDIDOR</text>
+        <g stroke="#2f557f" stroke-width="1.5" fill="none" marker-end="url(#d2-ponta)"><path d="M58 40L94 47"/><path d="M58 70L100 69"/><path d="M58 116H97"/><path d="M58 167H93"/><path d="M58 220H94"/></g>
+        <g font-size="12" font-weight="800" fill="#2f557f"><text x="2" y="40">GAIN</text><text x="2" y="73">SINAL</text><text x="2" y="114">EQ</text><text x="2" y="165">MUTE</text><text x="2" y="218">FADER</text></g>
+        <g font-size="12" fill="#55606d"><text x="2" y="54">entrada</text><text x="2" y="87">luz</text><text x="2" y="128">timbre</text><text x="2" y="179">silencia</text><text x="2" y="232">volume</text></g>
       </svg>
-      <figcaption>Uma mesa simples, com 4 canais. Canal 2 está em MUTE (vermelho). A fita crepe embaixo diz o que é cada canal. MASTER (ou MAIN) é o volume geral.</figcaption>
+      <figcaption>Mesa simples, com 4 canais. O canal 2 está em MUTE (vermelho). A fita crepe diz o que é cada canal.</figcaption>
     </figure>
+    <p>Os botões que você vai usar (o nome aparece escrito assim na mesa):</p>
     <dl class="glossario">
-      <dt>GAIN (ou TRIM)</dt><dd>Quanto de sinal entra no canal. Normalmente já vem ajustado: <b>não mexa</b> sem necessidade.</dd>
-      <dt>Luz de sinal (SIG / PEAK)</dt><dd>Pisca verde quando chega som. Vermelho = forte demais.</dd>
-      <dt>EQ (equalizador)</dt><dd>Grave, médio e agudo (HIGH, MID, LOW). Deixe como está.</dd>
-      <dt>MUTE (ou ON)</dt><dd>Silencia ou libera o canal. Em algumas mesas o botão se chama ON e acende quando o canal está ligado.</dd>
-      <dt>FADER</dt><dd>A alavanca deslizante: o volume daquele canal.</dd>
-      <dt>MASTER (ou MAIN)</dt><dd>O volume geral, de tudo que vai para as caixas.</dd>
+      <dt><span class="d-bt">FADER</span></dt><dd>Sobe e desce o volume do canal.</dd>
+      <dt><span class="d-bt d-verm">MUTE</span> ou <span class="d-bt">ON</span></dt><dd>Deixa o canal mudo. Algumas mesas usam ON: aceso = ligado.</dd>
+      <dt><span class="d-bt">MASTER</span> ou <span class="d-bt">MAIN</span></dt><dd>Volume de tudo, para as caixas.</dd>
+      <dt><span class="d-bt d-verde">SIG</span> e <span class="d-bt d-verm">PEAK</span></dt><dd>Luz que pisca verde quando chega som. Vermelho: forte demais.</dd>
+      <dt><span class="d-bt">GAIN</span> <span class="d-bt">EQ</span> <span class="d-bt">AUX</span></dt><dd><b>Não mexa.</b> Já vêm ajustados. (Para entender: <a href="#i5">I5</a>.)</dd>
     </dl>
+    <div class="box alerta"><b class="box-t">Atenção</b><p>Mesa com tela (digital)? <b>Não troque de cena nem de página.</b> Peça ao responsável para deixar pronta e mostrar só os faders que você vai usar.</p></div>
     <h3 id="d2-mics">Microfones</h3>
-    <ul>
-      <li><b>Com fio</b>: o cabo vai do microfone até a mesa (ou até uma caixa de conexões no palco). Alguns têm botão ON/OFF no corpo.</li>
-      <li><b>Sem fio</b>: funcionam com pilha ou bateria e conversam com um <b>receptor</b> (uma caixinha com antenas, perto da mesa). O receptor é que vai ligado à mesa.</li>
-    </ul>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 270" role="img" aria-label="Como reconhecer: microfone com fio tem cabo embaixo; microfone sem fio não tem cabo e usa pilha; o receptor é uma caixinha com antenas perto da mesa; o microfone de lapela ou de cabeça tem uma caixinha presa no cinto" font-family="system-ui, sans-serif">
+        <g fill="#fff" stroke="#c6cfd9" stroke-width="1.5"><rect x="4" y="4" width="162" height="128" rx="10"/><rect x="174" y="4" width="162" height="128" rx="10"/><rect x="4" y="138" width="162" height="128" rx="10"/><rect x="174" y="138" width="162" height="128" rx="10"/></g>
+        <circle cx="85" cy="26" r="12" fill="#8d97a1" stroke="#3a3f45" stroke-width="1.5"/><path d="M76 38L80 70H90L94 38Z" fill="#3a3f45"/><rect x="80" y="70" width="10" height="6" fill="#b8c0c8"/>
+        <path d="M85 76C85 90 110 84 120 72S140 58 150 76" stroke="#3a3f45" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <circle cx="255" cy="26" r="12" fill="#8d97a1" stroke="#3a3f45" stroke-width="1.5"/><path d="M246 38L249 74H261L264 38Z" fill="#3a3f45"/><rect x="249" y="72" width="12" height="6" rx="2" fill="#1f7a6d"/><circle cx="255" cy="48" r="3" fill="#3aa35b"/>
+        <path d="M276 30q8 8 0 16M284 23q15 15 0 30" stroke="#2f557f" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <path d="M50 182L40 150M120 182L130 150" stroke="#3a3f45" stroke-width="4" stroke-linecap="round"/><circle cx="40" cy="150" r="3.5" fill="#3a3f45"/><circle cx="130" cy="150" r="3.5" fill="#3a3f45"/>
+        <rect x="38" y="180" width="94" height="32" rx="4" fill="#3a3f45"/><circle cx="54" cy="196" r="4.5" fill="#3aa35b"/><circle cx="68" cy="196" r="4.5" fill="#3aa35b"/><rect x="82" y="189" width="40" height="14" rx="2" fill="#2f557f"/>
+        <rect x="214" y="160" width="32" height="46" rx="5" fill="#3a3f45"/><circle cx="224" cy="170" r="3" fill="#3aa35b"/><path d="M240 160q4-10-2-16" stroke="#3a3f45" stroke-width="2.5" fill="none"/>
+        <path d="M230 206C230 220 272 216 280 198S288 172 291 162" stroke="#3a3f45" stroke-width="2.5" fill="none"/><rect x="286" y="150" width="10" height="13" rx="4" fill="#3a3f45"/><rect x="283" y="161" width="16" height="5" rx="1" fill="#8d97a1"/>
+        <g font-size="13" font-weight="800" fill="#22303d" text-anchor="middle"><text x="85" y="104">Microfone com fio</text><text x="255" y="104">Microfone sem fio</text><text x="85" y="238">Receptor</text><text x="255" y="238">Lapela ou de cabeça</text></g>
+        <g font-size="12" fill="#55606d" text-anchor="middle"><text x="85" y="122">tem cabo embaixo</text><text x="255" y="122">sem cabo; usa pilha</text><text x="85" y="256">caixinha com antenas</text><text x="255" y="256">caixinha no cinto</text></g>
+      </svg>
+      <figcaption>O microfone sem fio só funciona com o <b>receptor</b> ligado. O receptor fica perto da mesa e vai ligado a ela.</figcaption>
+    </figure>
+    <h3 id="d2-canal">Qual canal é qual?</h3>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 214" role="img" aria-label="Siga o cabo do microfone pelo chão até a entrada do canal 2 da mesa. Embaixo do canal, escreva o nome na fita crepe: MÃO" font-family="system-ui, sans-serif">
+        <defs><marker id="d2-seta" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 10 5 0 10z" fill="#2f557f"/></marker></defs>
+        <path d="M42 80V186M22 194L42 186L62 194" stroke="#8d97a1" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <circle cx="42" cy="40" r="11" fill="#8d97a1" stroke="#3a3f45" stroke-width="1.5"/><path d="M34 50L37 80H47L50 50Z" fill="#3a3f45"/>
+        <path d="M44 82C60 124 56 190 104 190H140C160 190 154 14 204 14Q230 14 230.5 40" stroke="#2f557f" stroke-width="4" fill="none" stroke-linecap="round" marker-end="url(#d2-seta)"/>
+        <text x="60" y="104" font-size="15" font-weight="800" fill="#2f557f">1. Siga</text><text x="60" y="122" font-size="15" font-weight="800" fill="#2f557f">o cabo</text>
+        <rect x="170" y="36" width="160" height="140" rx="8" fill="#fff" stroke="#22303d" stroke-width="2"/>
+        <g fill="#3a3f45"><circle cx="191.5" cy="52" r="6"/><circle cx="230.5" cy="52" r="6"/><circle cx="269.5" cy="52" r="6"/><circle cx="308.5" cy="52" r="6"/></g>
+        <g fill="#8d97a1"><circle cx="191.5" cy="74" r="7"/><circle cx="230.5" cy="74" r="7"/><circle cx="269.5" cy="74" r="7"/><circle cx="308.5" cy="74" r="7"/></g>
+        <g stroke="#3a3f45" stroke-width="3"><path d="M191.5 90v46M230.5 90v46M269.5 90v46M308.5 90v46"/></g>
+        <g fill="#22303d"><rect x="182" y="120" width="19" height="11" rx="2"/><rect x="221" y="110" width="19" height="11" rx="2"/><rect x="260" y="124" width="19" height="11" rx="2"/><rect x="299" y="116" width="19" height="11" rx="2"/></g>
+        <rect x="174" y="146" width="152" height="22" rx="2" fill="#efe0b0"/>
+        <g font-size="12" font-weight="800" fill="#22303d" text-anchor="middle"><text x="191.5" y="162">PÚLP</text><text x="230.5" y="162">MÃO</text><text x="269.5" y="162">PC</text><text x="308.5" y="162">VIOL</text></g>
+        <rect x="211" y="40" width="39" height="132" rx="5" fill="none" stroke="#2f557f" stroke-width="3"/>
+        <text x="172" y="198" font-size="14" font-weight="800" fill="#2f557f">2. Escreva na fita</text>
+      </svg>
+      <figcaption>Os cabos podem passar por uma caixa de conexões no palco; aí, procure o número escrito nela. Se os canais não têm nome, cole <b>fita crepe</b> embaixo dos faders e escreva.</figcaption>
+    </figure>
     <h3 id="d2-caixas">Caixas e amplificador</h3>
-    <ul>
-      <li><b>Caixas principais</b>: viradas para a igreja.</li>
-      <li><b>Retorno</b> (monitor): caixas viradas para quem está à frente, para que se ouçam. Nem toda igreja tem.</li>
-      <li><b>Amplificador</b>: só existe se as caixas forem "passivas". Caixas "ativas" têm o amplificador dentro e um botão de liga atrás.</li>
-    </ul>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 270" role="img" aria-label="Como reconhecer: a caixa de som fica virada para a igreja; o retorno fica no chão, virado para quem canta; o amplificador nem toda igreja tem; a caixa ativa tem botão de ligar atrás" font-family="system-ui, sans-serif">
+        <g fill="#fff" stroke="#c6cfd9" stroke-width="1.5"><rect x="4" y="4" width="162" height="128" rx="10"/><rect x="174" y="4" width="162" height="128" rx="10"/><rect x="4" y="138" width="162" height="128" rx="10"/><rect x="174" y="138" width="162" height="128" rx="10"/></g>
+        <rect x="66" y="10" width="38" height="58" rx="4" fill="#3a3f45"/><circle cx="85" cy="47" r="12" fill="#8d97a1"/><circle cx="85" cy="22" r="5" fill="#8d97a1"/><rect x="83" y="68" width="4" height="13" fill="#8d97a1"/><path d="M85 81L70 89M85 81L100 89" stroke="#8d97a1" stroke-width="3" stroke-linecap="round"/>
+        <path d="M184 84H326" stroke="#c6cfd9" stroke-width="2"/>
+        <path d="M196 84H250L214 46L196 56Z" fill="#3a3f45"/>
+        <path d="M240 56q9 2 11 11M246 44q15 4 19 19" stroke="#1f7a6d" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <circle cx="300" cy="24" r="9" fill="#22303d"/><rect x="292" y="35" width="16" height="36" rx="7" fill="#2f557f"/><path d="M296 70v14M304 70v14" stroke="#2f557f" stroke-width="5" stroke-linecap="round"/>
+        <rect x="18" y="160" width="134" height="42" rx="4" fill="#3a3f45"/><g fill="#8d97a1"><rect x="18" y="160" width="8" height="42"/><rect x="144" y="160" width="8" height="42"/></g>
+        <g fill="#b8c0c8"><circle cx="56" cy="181" r="9"/><circle cx="84" cy="181" r="9"/><rect x="106" y="173" width="14" height="16" rx="2"/></g><circle cx="132" cy="177" r="3.5" fill="#3aa35b"/>
+        <rect x="222" y="148" width="66" height="72" rx="4" fill="#3a3f45"/><rect x="232" y="158" width="14" height="20" rx="2" fill="#fff"/><rect x="235" y="161" width="8" height="8" fill="#1f7a6d"/><rect x="232" y="190" width="18" height="14" rx="2" fill="#b8c0c8"/><circle cx="274" cy="166" r="8" fill="#b8c0c8"/><circle cx="274" cy="196" r="7" fill="#b8c0c8"/><circle cx="258" cy="164" r="3" fill="#3aa35b"/>
+        <circle cx="239" cy="168" r="16" fill="none" stroke="#e0b400" stroke-width="3"/>
+        <g font-size="13" font-weight="800" fill="#22303d" text-anchor="middle"><text x="85" y="104">Caixa de som</text><text x="255" y="104">Retorno (no chão)</text><text x="85" y="238">Amplificador</text><text x="255" y="238">Caixa ativa (atrás)</text></g>
+        <g font-size="12" fill="#55606d" text-anchor="middle"><text x="85" y="122">virada para a igreja</text><text x="255" y="122">virado para quem canta</text><text x="85" y="256">nem toda igreja tem</text><text x="255" y="256">tem botão de ligar</text></g>
+      </svg>
+      <figcaption>Caixa “ativa” tem o amplificador dentro e liga atrás. Caixa “passiva” depende de um amplificador separado.</figcaption>
+    </figure>
     <h3 id="d2-pc">Computador e telão</h3>
-    <p>O <b>computador</b> (notebook ou PC) toca músicas, vídeos e slides. Ele se liga ao <b>projetor ou TV</b> por um cabo de vídeo (geralmente HDMI) e à mesa por um cabo de áudio.</p>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 270" role="img" aria-label="Como reconhecer: o computador toca músicas e vídeos; o projetor ou a TV mostra no telão; a régua de tomadas tem uma chave que liga tudo; o estabilizador ou nobreak é uma caixa com botão e luzes" font-family="system-ui, sans-serif">
+        <g fill="#fff" stroke="#c6cfd9" stroke-width="1.5"><rect x="4" y="4" width="162" height="128" rx="10"/><rect x="174" y="4" width="162" height="128" rx="10"/><rect x="4" y="138" width="162" height="128" rx="10"/><rect x="174" y="138" width="162" height="128" rx="10"/></g>
+        <rect x="50" y="14" width="70" height="46" rx="3" fill="#2f557f" stroke="#22303d" stroke-width="2"/><path d="M78 28v18l14-9z" fill="#fff"/><path d="M40 60H130L124 70H46Z" fill="#8d97a1"/>
+        <path d="M248 56L320 16V76L248 64Z" fill="#e0b400" opacity=".3"/><rect x="190" y="46" width="60" height="26" rx="6" fill="#b8c0c8" stroke="#3a3f45" stroke-width="1.5"/><circle cx="238" cy="59" r="8" fill="#3a3f45"/><circle cx="200" cy="54" r="2.5" fill="#3aa35b"/><rect x="314" y="12" width="12" height="68" rx="2" fill="#fff" stroke="#22303d" stroke-width="2"/>
+        <rect x="24" y="178" width="124" height="26" rx="6" fill="#f4f4f4" stroke="#8d97a1" stroke-width="2"/><g fill="#fff" stroke="#8d97a1" stroke-width="1.5"><circle cx="50" cy="191" r="8"/><circle cx="76" cy="191" r="8"/><circle cx="102" cy="191" r="8"/></g><g fill="#3a3f45"><circle cx="47" cy="191" r="1.6"/><circle cx="53" cy="191" r="1.6"/><circle cx="73" cy="191" r="1.6"/><circle cx="79" cy="191" r="1.6"/><circle cx="99" cy="191" r="1.6"/><circle cx="105" cy="191" r="1.6"/></g><rect x="122" y="183" width="18" height="16" rx="3" fill="#d23c32"/><path d="M24 191C10 191 10 212 22 214" stroke="#3a3f45" stroke-width="3" fill="none"/>
+        <rect x="222" y="150" width="66" height="68" rx="6" fill="#3a3f45"/><circle cx="255" cy="172" r="10" fill="#b8c0c8"/><use href="#d-ic-power" x="248" y="165" width="14" height="14" color="#22303d"/><g fill="#3aa35b"><circle cx="242" cy="200" r="3.5"/><circle cx="255" cy="200" r="3.5"/></g><circle cx="268" cy="200" r="3.5" fill="#e0b400"/>
+        <g font-size="13" font-weight="800" fill="#22303d" text-anchor="middle"><text x="85" y="104">Computador</text><text x="255" y="104">Projetor ou TV</text><text x="85" y="238">Régua de tomadas</text><text x="255" y="238">Estabilizador</text></g>
+        <g font-size="12" fill="#55606d" text-anchor="middle"><text x="85" y="122">toca músicas e vídeos</text><text x="255" y="122">mostra no telão</text><text x="85" y="256">a chave liga tudo</text><text x="255" y="256">ou nobreak (bateria)</text></g>
+      </svg>
+      <figcaption>O computador vai ao telão por um cabo de vídeo (quase sempre HDMI) e à mesa por um cabo de áudio.</figcaption>
+    </figure>
     <h3 id="d2-energia">Régua e estabilizador</h3>
-    <p>Quase sempre há uma <b>régua de tomadas</b> (com chave geral) ou um <b>estabilizador</b>/nobreak que alimenta tudo. Descubra onde fica o botão de cada um.</p>
-    <div class="box dica"><b class="box-t">Dica</b><p><b>Tire uma foto da mesa do jeito que você encontrou</b>, antes de mexer em qualquer coisa. Se algo sair do lugar, a foto mostra como voltar.</p><p>Se os canais não têm nome, cole <b>fita crepe</b> embaixo dos faders e escreva com caneta: "Púlpito", "Sem fio", "PC"…</p></div>
-    <div class="box alerta"><b class="box-t">Atenção</b><p>Mesa digital que você não conhece: <b>não troque de cena nem de página</b>. Peça ao responsável que deixe tudo pronto e mostre só os faders que você vai usar.</p></div>
+    <p>Quase sempre uma <b>régua</b> ou um <b>estabilizador</b> alimenta tudo. Descubra onde fica o botão de cada um.</p>
+    <div class="box dica"><b class="box-t">Dica</b><p><b>Tire uma foto da mesa</b> do jeito que você encontrou, antes de mexer. A foto mostra como voltar.</p></div>
   </section>
 
   <section class="cap" id="d3">
     <h2><span class="cod">D3</span> Ligar na ordem certa</h2>
-    <p class="resumo">Liga-se do começo do caminho do som para o fim. As caixas são sempre as últimas a ligar e as primeiras a desligar.</p>
+    <div class="d-10s"><b class="d-10s-t">Em 10 segundos</b><ul><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-fader"/></svg><span>Antes: <b>tudo abaixado</b>.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-power"/></svg><span>Ligue de cima para baixo.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-caixa"/></svg><span><b>Caixas por último.</b></span></li></ul></div>
+    <h3 id="d3-botao">Onde fica o botão de ligar</h3>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 170" role="img" aria-label="Onde ligar: a chave costuma ficar atrás do aparelho; numa chave, I é ligado e O é desligado; luz acesa quer dizer ligado" font-family="system-ui, sans-serif">
+        <g fill="#fff" stroke="#c6cfd9" stroke-width="1.5"><rect x="4" y="4" width="106" height="162" rx="10"/><rect x="117" y="4" width="106" height="162" rx="10"/><rect x="230" y="4" width="106" height="162" rx="10"/></g>
+        <rect x="17" y="18" width="80" height="92" rx="6" fill="#3a3f45"/><rect x="29" y="34" width="18" height="26" rx="3" fill="#fff"/><rect x="33" y="38" width="10" height="10" fill="#1f7a6d"/><rect x="60" y="38" width="24" height="16" rx="2" fill="#b8c0c8"/><circle cx="72" cy="86" r="9" fill="#b8c0c8"/><circle cx="38" cy="86" r="4" fill="#3aa35b"/>
+        <circle cx="38" cy="47" r="21" fill="none" stroke="#e0b400" stroke-width="3.5"/>
+        <rect x="140" y="16" width="60" height="94" rx="8" fill="#3a3f45"/><rect x="146" y="22" width="48" height="40" rx="4" fill="#1f7a6d"/><rect x="146" y="64" width="48" height="40" rx="4" fill="#8d97a1"/>
+        <text x="170" y="51" font-size="24" font-weight="800" fill="#fff" text-anchor="middle">I</text><circle cx="170" cy="84" r="9" fill="none" stroke="#fff" stroke-width="3"/>
+        <circle cx="283" cy="56" r="30" fill="#3a3f45"/><use href="#d-ic-power" x="268" y="41" width="30" height="30" color="#fff"/>
+        <circle cx="283" cy="102" r="11" fill="#3aa35b" opacity=".3"/><circle cx="283" cy="102" r="6" fill="#3aa35b"/>
+        <g font-size="13" font-weight="800" fill="#22303d" text-anchor="middle"><text x="57" y="136">Atrás</text><text x="170" y="136">I = ligado</text><text x="283" y="136">Luz acesa</text></g>
+        <g font-size="12" fill="#55606d" text-anchor="middle"><text x="57" y="154">do aparelho</text><text x="170" y="154">O = desligado</text><text x="283" y="154">= ligado</text></g>
+      </svg>
+      <figcaption>Pode ser diferente no seu equipamento: procure uma chave atrás, um botão com o símbolo de ligar ou uma luz.</figcaption>
+    </figure>
     <h3 id="d3-ligar">Para ligar (de cima para baixo)</h3>
     <figure class="ilus">
-      <svg viewBox="0 0 340 290" role="img" aria-label="Ordem de ligar: 1 energia, 2 fontes, 3 mesa, 4 processadores, 5 amplificador ou caixas ativas por último. Para desligar, a ordem é a inversa" font-family="system-ui, sans-serif">
+      <svg viewBox="0 0 340 290" role="img" aria-label="Ordem de ligar: 1 energia, 2 fontes, 3 mesa, 4 processadores se houver, 5 amplificador ou caixas ativas por último. Para desligar, a ordem é a inversa" font-family="system-ui, sans-serif">
         <defs><marker id="d3-seta-v" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 10 5 0 10z" fill="#c8453b"/></marker>
         <marker id="d3-seta-c" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 10 5 0 10z" fill="#8d97a1"/></marker></defs>
         <g fill="#fff" stroke="#c6cfd9" stroke-width="1.5"><rect x="10" y="8" width="276" height="44" rx="9"/><rect x="10" y="64" width="276" height="44" rx="9"/><rect x="10" y="120" width="276" height="44" rx="9"/><rect x="10" y="176" width="276" height="44" rx="9"/></g>
-        <rect x="10" y="232" width="276" height="48" rx="9" fill="#f8e1df" stroke="#d23c32" stroke-width="2"/>
-        <g fill="#1f7a6d"><circle cx="32" cy="30" r="13"/><circle cx="32" cy="86" r="13"/><circle cx="32" cy="142" r="13"/><circle cx="32" cy="198" r="13"/></g>
-        <circle cx="32" cy="256" r="13" fill="#d23c32"/>
-        <g font-size="14" font-weight="800" fill="#fff" text-anchor="middle"><text x="32" y="35">1</text><text x="32" y="91">2</text><text x="32" y="147">3</text><text x="32" y="203">4</text><text x="32" y="261">5</text></g>
-        <g font-size="13" font-weight="800" fill="#22303d"><text x="54" y="27">Energia</text><text x="54" y="83">Fontes</text><text x="54" y="139">Mesa de som</text><text x="54" y="195">Processadores</text><text x="54" y="252">Amplificador / caixas ativas</text></g>
-        <g font-size="11" fill="#55606d"><text x="54" y="43">régua ou estabilizador</text><text x="54" y="99">PC, receptores sem fio, instrumentos</text><text x="54" y="155">com o MASTER todo abaixado</text><text x="54" y="211">equalizador, crossover… (se houver)</text><text x="54" y="269" fill="#b3261e" font-weight="700">POR ÚLTIMO · depois suba o volume</text></g>
+        <rect x="10" y="232" width="276" height="50" rx="9" fill="#f8e1df" stroke="#d23c32" stroke-width="2"/>
+        <g fill="#1f7a6d"><circle cx="32" cy="30" r="13"/><circle cx="32" cy="86" r="13"/><circle cx="32" cy="142" r="13"/><circle cx="32" cy="198" r="13" opacity=".55"/></g>
+        <circle cx="32" cy="257" r="13" fill="#d23c32"/>
+        <g font-size="14" font-weight="800" fill="#fff" text-anchor="middle"><text x="32" y="35">1</text><text x="32" y="91">2</text><text x="32" y="147">3</text><text x="32" y="203">4</text><text x="32" y="262">5</text></g>
+        <g font-size="14" font-weight="800" fill="#22303d"><text x="54" y="27">Energia</text><text x="54" y="83">Fontes</text><text x="54" y="139">Mesa de som</text><text x="54" y="195" fill="#55606d">Processadores</text><text x="54" y="253">Caixas / amplificador</text></g>
+        <g font-size="12" fill="#55606d"><text x="54" y="44">régua ou estabilizador</text><text x="54" y="100">PC, receptores, teclado</text><text x="54" y="156">com o MASTER abaixado</text><text x="54" y="212">só se houver</text><text x="54" y="272" fill="#b3261e" font-weight="800">POR ÚLTIMO, depois suba</text></g>
+        <g color="#2f557f"><use href="#d-ic-power" x="250" y="17" width="26" height="26"/><use href="#d-ic-pc" x="250" y="73" width="26" height="26"/><use href="#d-ic-fader" x="250" y="129" width="26" height="26"/><use href="#d-ic-caixa" x="250" y="244" width="26" height="26" color="#b3261e"/></g>
         <g stroke="#8d97a1" stroke-width="2" marker-end="url(#d3-seta-c)"><path d="M150 52v8"/><path d="M150 108v8"/><path d="M150 164v8"/><path d="M150 220v8"/></g>
-        <path d="M306 276V16" stroke="#c8453b" stroke-width="3" marker-end="url(#d3-seta-v)"/>
-        <text transform="rotate(-90 326 146)" x="326" y="146" font-size="11.5" font-weight="800" fill="#c8453b" text-anchor="middle">DESLIGAR: de baixo para cima</text>
+        <path d="M306 278V16" stroke="#c8453b" stroke-width="3" marker-end="url(#d3-seta-v)"/>
+        <text transform="rotate(-90 327 146)" x="327" y="146" font-size="12.5" font-weight="800" fill="#c8453b" text-anchor="middle">DESLIGAR: de baixo para cima</text>
       </svg>
       <figcaption>Ligar: 1 → 5. Desligar: 5 → 1 (caixas primeiro).</figcaption>
     </figure>
     <ol class="passos">
-      <li>Confira se o <b>MASTER</b> e os faders estão <b>todos abaixados</b>.</li>
+      <li>Abaixe o <span class="d-bt">MASTER</span> e todos os faders.</li>
       <li>Ligue a <b>régua</b> ou o <b>estabilizador</b>.</li>
-      <li>Ligue as <b>fontes</b>: computador, receptores dos microfones sem fio, teclado e outros instrumentos.</li>
-      <li>Ligue a <b>mesa de som</b>. Se for digital, espere ela terminar de carregar.</li>
-      <li>Ligue os <b>processadores</b>, se existirem (equalizador de rack, crossover, processador digital).</li>
-      <li><b>Por último</b>, ligue o <b>amplificador</b> ou as <b>caixas ativas</b>. Só então suba o MASTER, devagar.</li>
+      <li>Ligue o computador e os receptores dos microfones sem fio.</li>
+      <li>Ligue a <b>mesa</b>. Se tiver tela, espere carregar.</li>
+      <li><b>Por último</b>, ligue as caixas (ou o amplificador). Só então suba o MASTER, devagar.</li>
     </ol>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 190" role="img" aria-label="Faça: mesa primeiro, caixas por último. Não faça: ligar a mesa com a caixa já ligada, que dá um estouro, PUM, e pode estragar a caixa" font-family="system-ui, sans-serif">
+        <rect x="4" y="4" width="162" height="182" rx="10" fill="#e3f1e8" stroke="#3aa35b" stroke-width="2"/><rect x="174" y="4" width="162" height="182" rx="10" fill="#fbe9e7" stroke="#d23c32" stroke-width="2"/>
+        <text x="85" y="27" font-size="15" font-weight="800" fill="#2e7d4f" text-anchor="middle">✓ Faça</text><text x="255" y="27" font-size="15" font-weight="800" fill="#b3261e" text-anchor="middle">✗ Não faça</text>
+        <rect x="18" y="74" width="54" height="36" rx="4" fill="#3a3f45"/><path d="M30 80v24M45 80v24M60 80v24" stroke="#fff" stroke-width="2"/>
+        <path d="M78 92H102" stroke="#1f7a6d" stroke-width="3"/><path d="M100 86l8 6-8 6z" fill="#1f7a6d"/>
+        <rect x="114" y="54" width="36" height="66" rx="4" fill="#3a3f45"/><circle cx="132" cy="96" r="11" fill="#8d97a1"/><circle cx="132" cy="68" r="4.5" fill="#8d97a1"/>
+        <g fill="#1f7a6d"><circle cx="45" cy="58" r="11"/><circle cx="132" cy="44" r="11"/></g><g font-size="13" font-weight="800" fill="#fff" text-anchor="middle"><text x="45" y="63">1</text><text x="132" y="49">2</text></g>
+        <rect x="192" y="54" width="36" height="66" rx="4" fill="#3a3f45"/><circle cx="210" cy="96" r="11" fill="#8d97a1"/><circle cx="210" cy="68" r="4.5" fill="#8d97a1"/>
+        <path d="M332 86L314.5 97L312 115.4L292 108L272 115.4L269.5 97L252 86L269.5 75L272 56.6L292 64L312 56.6L314.5 75Z" fill="#e0b400" stroke="#d23c32" stroke-width="2"/>
+        <text x="292" y="92" font-size="17" font-weight="800" fill="#b3261e" text-anchor="middle">PUM!</text>
+        <g font-size="13" font-weight="800" fill="#22303d" text-anchor="middle"><text x="85" y="152">Mesa primeiro,</text><text x="255" y="152">Caixa já ligada:</text></g>
+        <g font-size="12" fill="#55606d" text-anchor="middle"><text x="85" y="170">caixas por último</text><text x="255" y="170">estouro que estraga</text></g>
+      </svg>
+      <figcaption>Ligar e desligar dá um tranco elétrico. Com as caixas por último, ele não chega a elas.</figcaption>
+    </figure>
     <h3 id="d3-desligar">Para desligar (ao contrário)</h3>
-    <p>Abaixe o MASTER, desligue <b>primeiro</b> o amplificador ou as caixas ativas, depois processadores, mesa, fontes e, por fim, a régua. Detalhes em <a href="#d10">D10</a>.</p>
-    <div class="box teoria"><b class="box-t">Por quê?</b><p>Todo aparelho dá um pequeno "tranco" elétrico ao ligar e desligar. Se as caixas já estiverem ligadas, esse tranco vira um <b>"PUM!"</b> alto, que assusta e pode danificar os alto-falantes. Com as caixas por último, o tranco não chega a elas.</p></div>
-    <div class="box perigo"><b class="box-t">Cuidado</b><p>Se sentir cheiro de queimado, ver faísca ou fumaça: desligue a régua ou o disjuntor e chame o responsável. Nunca abra os aparelhos.</p></div>
+    <p>Abaixe o MASTER e desligue <b>primeiro as caixas</b>. Depois o resto, até a régua. Desenho em <a href="#d10">D10</a>.</p>
+    <div class="box perigo"><b class="box-t">Cuidado</b><p>Cheiro de queimado, faísca ou fumaça? Desligue a régua e chame o responsável. Nunca abra os aparelhos.</p></div>
   </section>
 
   <section class="cap" id="d4">
     <h2><span class="cod">D4</span> Testar se tudo funciona</h2>
-    <p class="resumo">Teste tudo antes de as pessoas chegarem: cada microfone, o som do computador e a imagem no telão.</p>
+    <div class="d-10s"><b class="d-10s-t">Em 10 segundos</b><ul><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-mic"/></svg><span>Teste <b>um microfone de cada vez</b>.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-pilha"/></svg><span>Sem som? Primeiro, <b>as pilhas</b>.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-olho"/></svg><span>A luz do canal deve <b>piscar</b> quando você fala.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-tela"/></svg><span>Teste o vídeo, com som.</span></li></ul></div>
     <h3 id="d4-mics">Cada microfone</h3>
     <ol class="passos">
-      <li>Abra (tire o MUTE) <b>um microfone de cada vez</b>, com o fader dele baixo.</li>
-      <li>Fale <b>no lugar onde a pessoa vai falar</b>, com voz normal: "um, dois, teste, um, dois".</li>
-      <li>Olhe a <b>luz de sinal</b> do canal: ela deve piscar enquanto você fala.</li>
-      <li>Suba o fader devagar até ouvir bem e confortável. Depois, coloque esse canal de novo em MUTE até a hora de usar.</li>
+      <li>Tire o <span class="d-bt d-verm">MUTE</span> de <b>um microfone só</b>, com o fader embaixo.</li>
+      <li>Fale onde a pessoa vai falar: “um, dois, teste”.</li>
+      <li>Olhe a luz do canal: ela deve <b>piscar</b>.</li>
+      <li>Suba o fader devagar até ouvir bem.</li>
+      <li>Aperte o MUTE de novo até a hora de usar.</li>
     </ol>
-    <div class="box alerta"><b class="box-t">Atenção</b><p><b>Não sopre nem bata</b> no microfone para testar. O sopro e a batida chegam muito fortes à mesa e às caixas e podem estragar o microfone.</p></div>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 190" role="img" aria-label="Faça: fale com voz normal, um, dois, teste, a um palmo do microfone. Não faça: soprar nem bater no microfone" font-family="system-ui, sans-serif">
+        <rect x="4" y="4" width="162" height="182" rx="10" fill="#e3f1e8" stroke="#3aa35b" stroke-width="2"/><rect x="174" y="4" width="162" height="182" rx="10" fill="#fbe9e7" stroke="#d23c32" stroke-width="2"/>
+        <text x="85" y="27" font-size="15" font-weight="800" fill="#2e7d4f" text-anchor="middle">✓ Faça</text><text x="255" y="27" font-size="15" font-weight="800" fill="#b3261e" text-anchor="middle">✗ Não faça</text>
+        <rect x="18" y="38" width="136" height="28" rx="14" fill="#fff" stroke="#3aa35b" stroke-width="1.5"/><path d="M40 65l6 10 6-10" fill="#fff" stroke="#3aa35b" stroke-width="1.5"/><path d="M41 64h10" stroke="#fff" stroke-width="3"/>
+        <text x="86" y="57" font-size="13" font-weight="800" fill="#22303d" text-anchor="middle">um, dois, teste</text>
+        <circle cx="40" cy="96" r="20" fill="#fff" stroke="#22303d" stroke-width="2"/><circle cx="47" cy="90" r="2.2" fill="#22303d"/><path d="M52 102q4 2 7 0" stroke="#22303d" stroke-width="2" fill="none"/>
+        <circle cx="92" cy="98" r="9" fill="#8d97a1" stroke="#3a3f45" stroke-width="1.5"/><path d="M100 93L144 95V101L100 103Z" fill="#3a3f45"/>
+        <path d="M62 116v6h22v-6" stroke="#1f7a6d" stroke-width="2" fill="none"/><text x="73" y="138" font-size="12" font-weight="800" fill="#2e7d4f" text-anchor="middle">1 palmo</text>
+        <circle cx="208" cy="96" r="22" fill="#fff" stroke="#22303d" stroke-width="2"/><circle cx="215" cy="88" r="2.2" fill="#22303d"/><circle cx="226" cy="101" r="3.5" fill="none" stroke="#22303d" stroke-width="2"/>
+        <path d="M236 90h12M238 98h16M236 106h12" stroke="#8d97a1" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="270" cy="98" r="9" fill="#8d97a1" stroke="#3a3f45" stroke-width="1.5"/><path d="M278 93L322 95V101L278 103Z" fill="#3a3f45"/>
+        <text x="296" y="66" font-size="15" font-weight="800" fill="#b3261e" text-anchor="middle">toc! toc!</text><path d="M268 80l-5-6M276 78v-7M284 80l5-6" stroke="#b3261e" stroke-width="2" stroke-linecap="round"/>
+        <g font-size="13" font-weight="800" fill="#22303d" text-anchor="middle"><text x="85" y="160">Voz normal,</text><text x="255" y="160">Não sopre</text></g>
+        <g font-size="12" fill="#55606d" text-anchor="middle"><text x="85" y="178">a um palmo</text><text x="255" y="178">nem bata: estraga</text></g>
+      </svg>
+      <figcaption>O sopro e a batida chegam fortes demais às caixas e podem estragar o microfone.</figcaption>
+    </figure>
     <h3 id="d4-semfio">Microfones sem fio</h3>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 222" role="img" aria-label="Microfone sem fio de perto: chave ON e OFF no corpo, chave MUTE em alguns modelos, luz da pilha, vermelha quer dizer trocar, e as pilhas ficam embaixo, atrás de uma tampa. Pilha fraca é a causa número 1 de não sai som" font-family="system-ui, sans-serif">
+        <circle cx="52" cy="110" r="34" fill="#8d97a1" stroke="#3a3f45" stroke-width="2"/><path d="M26 96h52M22 110h60M26 124h52M40 80v60M64 80v60" stroke="#3a3f45" stroke-width="1" opacity=".5"/>
+        <path d="M84 92L300 100Q312 110 300 120L84 128Z" fill="#3a3f45"/>
+        <rect x="116" y="100" width="30" height="20" rx="4" fill="#b8c0c8"/><rect x="131" y="103" width="12" height="14" rx="2" fill="#fff"/>
+        <rect x="160" y="102" width="22" height="16" rx="3" fill="#b8c0c8"/>
+        <circle cx="206" cy="110" r="9" fill="#d23c32" opacity=".3"/><circle cx="206" cy="110" r="5" fill="#d23c32"/>
+        <path d="M236 98V122" stroke="#8d97a1" stroke-width="2"/><rect x="236" y="94" width="72" height="32" rx="6" fill="none" stroke="#e0b400" stroke-width="3" stroke-dasharray="6 4"/>
+        <g stroke="#2f557f" stroke-width="1.8"><path d="M131 98V62"/><path d="M206 102L222 62"/><path d="M171 120V150"/><path d="M272 128V150"/></g>
+        <g font-size="14" font-weight="800" fill="#2f557f" text-anchor="middle"><text x="124" y="42">ON / OFF</text><text x="236" y="42">Luz da pilha</text><text x="171" y="168">MUTE</text><text x="272" y="168">Pilhas aqui</text></g>
+        <g font-size="12" fill="#55606d" text-anchor="middle"><text x="124" y="58">liga</text><text x="236" y="58">vermelha = troque</text><text x="171" y="184">(alguns)</text><text x="272" y="184">gire ou abra</text></g>
+        <text x="170" y="212" font-size="13" font-weight="800" fill="#b3261e" text-anchor="middle">Pilha fraca: causa nº 1 de “não sai som”</text>
+      </svg>
+      <figcaption>Pode ser diferente no seu microfone: procure uma chave no corpo e a tampa das pilhas embaixo.</figcaption>
+    </figure>
     <ul>
-      <li>Ligue o microfone e confira a luz ou o visor de <b>bateria</b>.</li>
-      <li>Na dúvida, <b>troque as pilhas</b> antes do culto. Pilha fraca dá chiado e corte no meio da fala.</li>
-      <li>No receptor, veja se acende a luz de sinal quando o microfone está ligado.</li>
+      <li>Ligue na chave (<span class="d-bt">ON</span>).</li>
+      <li>Luz vermelha ou pilha fraca no visor? <b>Troque todas as pilhas</b>. Na dúvida, troque antes do culto.</li>
+      <li>Fale: a luz do receptor e a do canal devem acender.</li>
     </ul>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 198" role="img" aria-label="Quando você fala no microfone sem fio, a luz verde do receptor acende e a luz SIG do canal da mesa pisca" font-family="system-ui, sans-serif">
+        <defs><marker id="d4-seta" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 10 5 0 10z" fill="#8d97a1"/></marker></defs>
+        <path d="M24 82L14 34M124 82L134 34" stroke="#3a3f45" stroke-width="4" stroke-linecap="round"/><circle cx="14" cy="34" r="3.5" fill="#3a3f45"/><circle cx="134" cy="34" r="3.5" fill="#3a3f45"/>
+        <rect x="14" y="80" width="120" height="46" rx="6" fill="#3a3f45"/>
+        <circle cx="38" cy="103" r="10" fill="#3aa35b" opacity=".3"/><circle cx="38" cy="103" r="6" fill="#3aa35b"/><circle cx="60" cy="103" r="6" fill="#3aa35b"/><rect x="78" y="94" width="44" height="18" rx="2" fill="#2f557f"/>
+        <path d="M136 104H204" stroke="#8d97a1" stroke-width="3" stroke-dasharray="6 4" marker-end="url(#d4-seta)"/>
+        <rect x="220" y="14" width="70" height="160" rx="8" fill="#fff" stroke="#22303d" stroke-width="2"/>
+        <circle cx="255" cy="36" r="11" fill="#3a3f45"/>
+        <circle cx="255" cy="64" r="7" fill="#3aa35b"/><path d="M255 48v-4M241 64h-4M269 64h4M245 54l-3-3M265 54l3-3M245 74l-3 3M265 74l3 3" stroke="#3aa35b" stroke-width="2.5" stroke-linecap="round"/>
+        <rect x="243" y="88" width="24" height="14" rx="3" fill="#b8c0c8"/>
+        <path d="M255 112v52" stroke="#3a3f45" stroke-width="3"/><rect x="244" y="148" width="22" height="12" rx="2" fill="#22303d"/>
+        <text x="298" y="62" font-size="14" font-weight="800" fill="#2e7d4f">SIG</text><text x="298" y="79" font-size="12" fill="#55606d">pisca</text>
+        <g font-size="14" font-weight="800" fill="#22303d" text-anchor="middle"><text x="74" y="152">Receptor</text><text x="255" y="192">Canal da mesa</text></g>
+        <text x="74" y="170" font-size="12" fill="#55606d" text-anchor="middle">luz verde = recebe</text>
+      </svg>
+      <figcaption>Não pisca nada? O problema está antes da mesa: pilha, chave ou receptor. Veja <a href="#d9-mic">D9</a>.</figcaption>
+    </figure>
     <h3 id="d4-pc">Som do computador</h3>
-    <p>Toque um trecho de música ou vídeo e veja se a luz do canal do computador pisca e se o som sai nas caixas. Se não sair, veja <a href="#d9-pc">D9 · computador sem som</a>.</p>
+    <p>Toque um trecho. A luz do canal do computador pisca? O som sai nas caixas? Se não: <a href="#d9-pc">D9 · computador sem som</a>.</p>
     <h3 id="d4-telao">Imagem no telão</h3>
-    <p>Ligue o projetor ou a TV, conecte o computador e veja se a imagem aparece. Teste <b>o vídeo que vai passar</b>, do começo, com som (passo a passo em <a href="#d7">D7</a>).</p>
+    <p>Ligue o projetor ou a TV e veja a imagem. Teste <b>o vídeo que vai passar</b>, com som (<a href="#d7">D7</a>).</p>
     <h3 id="d4-sala">Ouça da plateia</h3>
-    <p>Se puder, peça para alguém falar no microfone enquanto você anda pela igreja, até o fundo. O som perto da mesa engana.</p>
+    <p>Peça para alguém falar no microfone e ande até o fundo da igreja. Perto da mesa, o som engana.</p>
   </section>
 
   <section class="cap" id="d5">
     <h2><span class="cod">D5</span> Volume com cuidado</h2>
-    <p class="resumo">Comece baixo, suba devagar, não deixe acender o vermelho e feche o que não está em uso.</p>
+    <div class="d-10s"><b class="d-10s-t">Em 10 segundos</b><ul><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-fader"/></svg><span>Comece baixo, <b>suba devagar</b>.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-alerta"/></svg><span>Luz vermelha? <b>Abaixe</b>.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-mic"/></svg><span>Microfone <b>longe da caixa</b>.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-mute"/></svg><span><b>MUTE</b> em quem não está falando.</span></li></ul></div>
     <h3 id="d5-subir">Comece baixo, suba devagar</h3>
-    <p>É muito mais fácil subir um pouco o volume do que consertar um apito ou um estouro. Mova os faders <b>aos poucos</b>, alguns milímetros por vez, e espere um segundo para ouvir o resultado.</p>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 214" role="img" aria-label="Fader: comece aqui, embaixo; suba devagar, pouco a pouco, ouvindo; a marca 0 ou U quase nunca precisa ser passada" font-family="system-ui, sans-serif">
+        <defs><marker id="d5-seta" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 10 5 0 10z" fill="#2f557f"/></marker></defs>
+        <rect x="90" y="140" width="40" height="64" rx="5" fill="#3aa35b" opacity=".22"/>
+        <rect x="104" y="18" width="12" height="184" rx="6" fill="#3a3f45"/>
+        <path d="M84 20h14M84 66h14M84 110h14M84 150h14M84 196h14" stroke="#8d97a1" stroke-width="2"/>
+        <g font-size="12" font-weight="700" fill="#55606d" text-anchor="end"><text x="78" y="24">+10</text><text x="78" y="70">0</text><text x="78" y="114">−10</text><text x="78" y="154">−30</text><text x="78" y="200">−∞</text></g>
+        <path d="M120 66H150" stroke="#2f557f" stroke-width="2" stroke-dasharray="4 3"/>
+        <rect x="88" y="160" width="44" height="22" rx="3" fill="#22303d"/><path d="M92 171h36" stroke="#fff" stroke-width="2"/>
+        <path d="M148 152V98" stroke="#2f557f" stroke-width="3.5" marker-end="url(#d5-seta)"/><path d="M141 138h14M141 124h14M141 110h14" stroke="#2f557f" stroke-width="2"/>
+        <text x="160" y="64" font-size="15" font-weight="800" fill="#2f557f">0 ou U</text><text x="160" y="81" font-size="12" fill="#55606d">quase nunca passe daqui</text>
+        <text x="166" y="124" font-size="15" font-weight="800" fill="#2f557f">Suba devagar</text><text x="166" y="141" font-size="12" fill="#55606d">pouco a pouco, ouvindo</text>
+        <text x="160" y="176" font-size="15" font-weight="800" fill="#2e7d4f">Comece aqui</text><text x="160" y="193" font-size="12" fill="#55606d">fader embaixo</text>
+      </svg>
+      <figcaption>Mova poucos milímetros e espere um segundo para ouvir. Na sua mesa, os números podem ser outros.</figcaption>
+    </figure>
     <h3 id="d5-clip">O vermelho (clip)</h3>
     <figure class="ilus">
       <svg viewBox="0 0 340 128" role="img" aria-label="Medidor de nível: verde é bom na maior parte do tempo, amarelo só nos picos, vermelho é CLIP e é preciso abaixar" font-family="system-ui, sans-serif">
@@ -659,254 +826,457 @@
         <g fill="#e0b400" opacity=".35"><rect x="220" y="28" width="21" height="26" rx="3"/><rect x="245" y="28" width="21" height="26" rx="3"/></g>
         <g fill="#d23c32" opacity=".35"><rect x="270" y="28" width="21" height="26" rx="3"/><rect x="295" y="28" width="21" height="26" rx="3"/></g>
         <g stroke-width="2.5" fill="none"><path d="M20 66v6h196v-6" stroke="#3aa35b"/><path d="M220 66v6h46v-6" stroke="#e0b400"/><path d="M270 66v6h46v-6" stroke="#d23c32"/></g>
-        <g font-size="12.5" font-weight="800" text-anchor="middle"><text x="118" y="92" fill="#2e7d4f">Verde: bom</text><text x="243" y="92" fill="#9a5a00">Amarelo</text><text x="293" y="92" fill="#b3261e">CLIP</text></g>
-        <g font-size="11" fill="#55606d" text-anchor="middle"><text x="118" y="108">quase o tempo todo</text><text x="243" y="108">só picos</text><text x="293" y="108">abaixe!</text></g>
+        <g font-size="13" font-weight="800" text-anchor="middle"><text x="118" y="92" fill="#2e7d4f">Verde: bom</text><text x="243" y="92" fill="#9a5a00">Amarelo</text><text x="293" y="92" fill="#b3261e">CLIP</text></g>
+        <g font-size="12" fill="#55606d" text-anchor="middle"><text x="118" y="110">quase o tempo todo</text><text x="243" y="110">só picos</text><text x="293" y="110">abaixe!</text></g>
       </svg>
-      <figcaption>O ideal é o sinal "dançar" no verde e só tocar o amarelo nas partes mais fortes.</figcaption>
+      <figcaption>O ideal: o sinal “dança” no verde e só toca o amarelo nas partes fortes.</figcaption>
     </figure>
-    <p>Se a luz <b>vermelha</b> (CLIP ou PEAK) acender, o som está forte demais e fica rachado. Abaixe aquele canal (ou o MASTER, se for o medidor geral).</p>
+    <p>Acendeu o vermelho (<span class="d-bt d-verm">CLIP</span> ou <span class="d-bt d-verm">PEAK</span>)? O som racha. Abaixe aquele canal, ou o MASTER se for o medidor geral.</p>
     <h3 id="d5-microfonia">Apito (microfonia)</h3>
-    <p>O apito acontece quando o som da caixa volta para dentro do microfone e dá a volta várias vezes. Se começar:</p>
-    <ol class="passos">
-      <li><b>Abaixe na hora</b> o fader daquele microfone (se não souber qual, abaixe o MASTER um pouco).</li>
-      <li>Peça para a pessoa <b>afastar o microfone da caixa</b> e não apontá-lo para ela.</li>
-      <li>Em vez de subir o volume, peça para a pessoa <b>falar mais perto</b> do microfone (um palmo, ou menos).</li>
-    </ol>
-    <p>Para entender a fundo e evitar de vez: <a href="#i8">I8 Microfonia</a>.</p>
+    <p>O apito vem quando o som da caixa entra de novo no microfone.</p>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 190" role="img" aria-label="Faça: microfone longe da caixa e virado para longe dela. Não faça: microfone mirando a caixa, que dá apito" font-family="system-ui, sans-serif">
+        <defs><marker id="d5-seta-v" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 10 5 0 10z" fill="#d23c32"/></marker></defs>
+        <rect x="4" y="4" width="162" height="182" rx="10" fill="#e3f1e8" stroke="#3aa35b" stroke-width="2"/><rect x="174" y="4" width="162" height="182" rx="10" fill="#fbe9e7" stroke="#d23c32" stroke-width="2"/>
+        <text x="85" y="27" font-size="15" font-weight="800" fill="#2e7d4f" text-anchor="middle">✓ Faça</text><text x="255" y="27" font-size="15" font-weight="800" fill="#b3261e" text-anchor="middle">✗ Não faça</text>
+        <rect x="114" y="46" width="36" height="68" rx="4" fill="#3a3f45"/><circle cx="132" cy="94" r="12" fill="#8d97a1"/><circle cx="132" cy="62" r="5" fill="#8d97a1"/>
+        <circle cx="24" cy="98" r="9" fill="#8d97a1" stroke="#3a3f45" stroke-width="1.5"/><path d="M32 93L72 95V101L32 103Z" fill="#3a3f45"/>
+        <path d="M78 112H108" stroke="#1f7a6d" stroke-width="2" stroke-dasharray="4 3"/><text x="93" y="130" font-size="13" font-weight="800" fill="#2e7d4f" text-anchor="middle">longe</text>
+        <rect x="184" y="46" width="36" height="68" rx="4" fill="#3a3f45"/><circle cx="202" cy="94" r="12" fill="#8d97a1"/><circle cx="202" cy="62" r="5" fill="#8d97a1"/>
+        <circle cx="244" cy="96" r="9" fill="#8d97a1" stroke="#3a3f45" stroke-width="1.5"/><path d="M252 91L292 93V99L252 101Z" fill="#3a3f45"/>
+        <path d="M224 72C238 48 266 56 252 80" stroke="#d23c32" stroke-width="2.5" fill="none" marker-end="url(#d5-seta-v)"/><path d="M238 118C232 132 214 130 216 116" stroke="#d23c32" stroke-width="2.5" fill="none" marker-end="url(#d5-seta-v)"/>
+        <text x="300" y="66" font-size="16" font-weight="800" fill="#b3261e" text-anchor="middle">IIIII!</text>
+        <g font-size="13" font-weight="800" fill="#22303d" text-anchor="middle"><text x="85" y="162">Longe da caixa</text><text x="255" y="162">Mirando a caixa:</text></g>
+        <g font-size="12" fill="#55606d" text-anchor="middle"><text x="85" y="179">e virado para longe</text><text x="255" y="179">apito!</text></g>
+      </svg>
+      <figcaption>Vale também para o retorno, a caixa no chão: não aponte o microfone para ela.</figcaption>
+    </figure>
+    <p><b>Apitou? Faça isto, nesta ordem:</b></p>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 166" role="img" aria-label="Quando apitar: 1 abaixe o fader na hora; 2 afaste o microfone da caixa; 3 peça para falar mais perto do microfone" font-family="system-ui, sans-serif">
+        <defs><marker id="d5-seta-a" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 10 5 0 10z" fill="#d23c32"/></marker></defs>
+        <g fill="#fff" stroke="#c6cfd9" stroke-width="1.5"><rect x="4" y="4" width="106" height="158" rx="10"/><rect x="117" y="4" width="106" height="158" rx="10"/><rect x="230" y="4" width="106" height="158" rx="10"/></g>
+        <g fill="#d23c32"><circle cx="22" cy="22" r="12"/><circle cx="135" cy="22" r="12"/><circle cx="248" cy="22" r="12"/></g>
+        <g font-size="14" font-weight="800" fill="#fff" text-anchor="middle"><text x="22" y="27">1</text><text x="135" y="27">2</text><text x="248" y="27">3</text></g>
+        <rect x="52" y="26" width="10" height="86" rx="5" fill="#3a3f45"/><rect x="40" y="34" width="34" height="14" rx="2" fill="none" stroke="#8d97a1" stroke-width="2" stroke-dasharray="3 3"/><rect x="40" y="90" width="34" height="14" rx="2" fill="#22303d"/>
+        <path d="M88 36V92" stroke="#d23c32" stroke-width="3.5" marker-end="url(#d5-seta-a)"/>
+        <rect x="128" y="40" width="30" height="56" rx="4" fill="#3a3f45"/><circle cx="143" cy="78" r="9" fill="#8d97a1"/><circle cx="143" cy="52" r="4" fill="#8d97a1"/>
+        <path d="M174 67L204 66V74L174 73Z" fill="#3a3f45"/><circle cx="210" cy="70" r="7" fill="#8d97a1" stroke="#3a3f45" stroke-width="1.5"/>
+        <path d="M168 100H208" stroke="#d23c32" stroke-width="3.5" marker-end="url(#d5-seta-a)"/>
+        <circle cx="262" cy="72" r="18" fill="#fff" stroke="#22303d" stroke-width="2"/><circle cx="268" cy="66" r="2" fill="#22303d"/>
+        <circle cx="292" cy="74" r="7" fill="#8d97a1" stroke="#3a3f45" stroke-width="1.5"/><path d="M298 70L326 71V77L298 78Z" fill="#3a3f45"/>
+        <g font-size="14" font-weight="800" fill="#22303d" text-anchor="middle"><text x="57" y="134">Abaixe</text><text x="170" y="134">Afaste</text><text x="283" y="134">Fale</text></g>
+        <g font-size="12" fill="#55606d" text-anchor="middle"><text x="57" y="152">o fader, já</text><text x="170" y="152">da caixa</text><text x="283" y="152">mais perto</text></g>
+      </svg>
+      <figcaption>Não sabe qual microfone apita? Abaixe um pouco o MASTER. Para entender a fundo: <a href="#i8">I8 Microfonia</a>.</figcaption>
+    </figure>
     <h3 id="d5-mute">MUTE em quem não está falando</h3>
-    <p>Microfone aberto sem ninguém falando só capta barulho e aumenta a chance de apito. Deixe em <b>MUTE</b> (ou com o fader embaixo) todo microfone que não está em uso.</p>
+    <p>Microfone aberto sem ninguém falando só pega barulho e facilita o apito. Aperte <span class="d-bt d-verm">MUTE</span> ou desça o fader.</p>
     <h3 id="d5-quanto">Quanto é o volume certo?</h3>
-    <p>Uma boa referência: perto da mesa, você deve conseguir <b>conversar com alguém ao lado sem precisar gritar</b>. Se precisa gritar, está alto demais.</p>
-    <div class="box alerta"><b class="box-t">Atenção</b><p><b>Não mexa em botões que você não conhece</b> (GAIN, EQ, AUX, efeitos). Se o som estava bom no culto passado, quase tudo já está no lugar. Use só os faders, o MUTE e o MASTER.</p></div>
-    <div class="box perigo"><b class="box-t">Cuidado com os ouvidos</b><p>Som alto por muito tempo cansa e pode machucar a audição, inclusive de crianças e idosos. Se alguém reclamar que está alto, acredite e abaixe.</p></div>
+    <p>Perto da mesa, você deve <b>conversar sem gritar</b>. Precisou gritar? Está alto.</p>
+    <div class="box alerta"><b class="box-t">Atenção</b><p>Use só <span class="d-bt">FADER</span> <span class="d-bt d-verm">MUTE</span> <span class="d-bt">MASTER</span>. Não mexa em GAIN, EQ, AUX nem efeitos: já estão no lugar.</p></div>
+    <div class="box perigo"><b class="box-t">Cuidado com os ouvidos</b><p>Som alto machuca a audição, inclusive de crianças e idosos. Alguém reclamou? Acredite e abaixe.</p></div>
   </section>
 
   <section class="cap" id="d6">
     <h2><span class="cod">D6</span> O computador (Windows básico)</h2>
-    <p class="resumo">O mínimo de Windows para não passar aperto: volume, saída de som, telão e alguns atalhos.</p>
+    <div class="d-10s"><b class="d-10s-t">Em 10 segundos</b><ul><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-som"/></svg><span>Som: clique no <b>alto-falante</b>, perto do relógio.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-teclado"/></svg><span>Telão: <kbd>Win</kbd> + <kbd>P</kbd>.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-alerta"/></svg><span>Pediu atualização? <b>“Mais tarde”</b>.</span></li></ul></div>
     <h3 id="d6-entrar">Ligar e entrar</h3>
-    <p>Ligue o computador cedo (ele pode demorar). Se pedir senha, use a que o responsável passou. Se o computador estiver ligado na tomada, mantenha-o carregando.</p>
+    <p>Ligue o computador cedo: ele pode demorar. Senha? Peça ao responsável. Deixe o carregador ligado.</p>
     <h3 id="d6-volume">Volume e saída de som</h3>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 188" role="img" aria-label="Tela do Windows: 1 clique no ícone de alto-falante na barra de baixo, perto do relógio; 2 ajuste o volume; 3 abra a lista e escolha a saída de som que vai para a mesa, e não o projetor ou TV" font-family="system-ui, sans-serif">
+        <rect x="4" y="4" width="332" height="180" rx="6" fill="#eef2f6" stroke="#c6cfd9"/>
+        <rect x="120" y="10" width="212" height="116" rx="8" fill="#fff" stroke="#8d97a1" stroke-width="1.5"/>
+        <use href="#d-ic-som" x="128" y="22" width="20" height="20" color="#22303d"/>
+        <rect x="154" y="30" width="118" height="5" rx="2.5" fill="#c6cfd9"/><rect x="154" y="30" width="94" height="5" rx="2.5" fill="#2f557f"/><circle cx="248" cy="32.5" r="7" fill="#fff" stroke="#2f557f" stroke-width="3"/>
+        <rect x="288" y="21" width="34" height="24" rx="5" fill="#eef2f6" stroke="#2f557f" stroke-width="2"/><path d="M302 27l6 6-6 6" stroke="#2f557f" stroke-width="2.5" fill="none"/>
+        <path d="M126 54H326" stroke="#eef2f6" stroke-width="2"/>
+        <text x="132" y="70" font-size="12" font-weight="700" fill="#55606d">Escolha a saída:</text>
+        <rect x="128" y="76" width="196" height="24" rx="4" fill="#e3f1e8" stroke="#3aa35b" stroke-width="1.5"/>
+        <text x="136" y="93" font-size="13" font-weight="800" fill="#22303d">✓ Alto-falantes (mesa)</text>
+        <text x="136" y="118" font-size="13" fill="#55606d">Projetor / TV (HDMI)</text>
+        <g fill="#c8453b"><circle cx="108" cy="33" r="10"/><circle cx="108" cy="88" r="10"/></g>
+        <g font-size="13" font-weight="800" fill="#fff" text-anchor="middle"><text x="108" y="38">2</text><text x="108" y="93">3</text></g>
+        <g font-size="14" font-weight="800" fill="#22303d"><text x="12" y="38">Volume</text><text x="12" y="86">Saída</text><text x="12" y="103">de som</text><text x="12" y="144">Clique no alto-falante</text></g>
+        <rect x="4" y="152" width="332" height="32" fill="#22303d"/>
+        <g fill="#b8c0c8"><rect x="16" y="160" width="7" height="7"/><rect x="25" y="160" width="7" height="7"/><rect x="16" y="169" width="7" height="7"/><rect x="25" y="169" width="7" height="7"/></g>
+        <g fill="#55606d"><rect x="46" y="160" width="16" height="16" rx="3"/><rect x="70" y="160" width="16" height="16" rx="3"/></g>
+        <path d="M208 172l5-5 5 5" stroke="#b8c0c8" stroke-width="2" fill="none"/>
+        <use href="#d-ic-som" x="258" y="157" width="22" height="22" color="#fff"/><circle cx="269" cy="168" r="15" fill="none" stroke="#e0b400" stroke-width="3"/>
+        <text x="296" y="173" font-size="12" fill="#fff">19:30</text><circle cx="236" cy="168" r="10" fill="#c8453b"/><text x="236" y="173" font-size="13" font-weight="800" fill="#fff" text-anchor="middle">1</text>
+      </svg>
+      <figcaption>O desenho muda um pouco no Windows 10 e 11. Procure o alto-falante perto do relógio; a lista pode abrir numa setinha ou no nome do aparelho.</figcaption>
+    </figure>
     <ol class="passos">
-      <li>No canto de baixo, à direita, clique no <b>ícone de alto-falante</b> 🔊.</li>
-      <li>Ajuste o volume com a barrinha (veja os três volumes em <a href="#d7-volumes">D7</a>).</li>
-      <li>Clique na seta ou no nome do dispositivo ao lado da barra e <b>escolha a saída de som certa</b>: a que vai para a mesa (pode se chamar "Alto-falantes", "Fones de ouvido", "Realtek" ou o nome de uma interface USB).</li>
+      <li>Clique no <b>alto-falante</b>, embaixo, à direita.</li>
+      <li>Ajuste o volume (veja <a href="#d7-volumes">D7</a>).</li>
+      <li>Abra a lista e escolha <b>a saída que vai para a mesa</b>. O nome muda: “Alto-falantes”, “Fones”, “Realtek” ou o nome de uma placa USB.</li>
     </ol>
-    <div class="box alerta"><b class="box-t">Atenção</b><p>Quando você liga o cabo HDMI do projetor ou da TV, o Windows pode <b>mudar sozinho</b> a saída de som para o projetor. A imagem aparece, mas o som não sai pela igreja. Volte e escolha a saída da mesa.</p></div>
+    <div class="box alerta"><b class="box-t">Atenção</b><p>Ao ligar o cabo do projetor (HDMI), o Windows pode <b>mudar sozinho</b> a saída para o projetor. A imagem aparece, mas o som some. Volte e escolha a saída da mesa.</p></div>
     <h3 id="d6-telao">Ligar ao telão: Win + P</h3>
-    <p>Com o cabo conectado, aperte <kbd>Win</kbd> + <kbd>P</kbd> (a tecla com o logotipo do Windows e a letra P). Aparece um menu:</p>
+    <p>Com o cabo ligado, aperte <kbd>Win</kbd> + <kbd>P</kbd> (Win é a tecla com o logotipo do Windows). Aparece uma lista:</p>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 258" role="img" aria-label="Win mais P abre a lista: Somente tela do PC, não use; Duplicar, comece aqui; Estender, telão separado; Somente segunda tela, não use" font-family="system-ui, sans-serif">
+        <rect x="96" y="8" width="72" height="38" rx="7" fill="#fff" stroke="#22303d" stroke-width="2"/><g fill="#2f557f"><rect x="107" y="19" width="7" height="7"/><rect x="116" y="19" width="7" height="7"/><rect x="107" y="28" width="7" height="7"/><rect x="116" y="28" width="7" height="7"/></g>
+        <text x="130" y="33" font-size="15" font-weight="800" fill="#22303d">Win</text>
+        <text x="184" y="34" font-size="20" font-weight="800" fill="#55606d" text-anchor="middle">+</text>
+        <rect x="200" y="8" width="44" height="38" rx="7" fill="#fff" stroke="#22303d" stroke-width="2"/><text x="222" y="34" font-size="18" font-weight="800" fill="#22303d" text-anchor="middle">P</text>
+        <rect x="14" y="58" width="312" height="38" rx="7" fill="#fff" stroke="#c6cfd9" stroke-width="1.5"/>
+        <rect x="14" y="104" width="312" height="38" rx="7" fill="#e3f1e8" stroke="#3aa35b" stroke-width="2"/>
+        <rect x="14" y="150" width="312" height="38" rx="7" fill="#eef2f6" stroke="#2f557f" stroke-width="2"/>
+        <rect x="14" y="196" width="312" height="38" rx="7" fill="#fff" stroke="#c6cfd9" stroke-width="1.5"/>
+        <g fill="#2f557f"><rect x="24" y="67" width="22" height="16" rx="2"/><rect x="24" y="113" width="22" height="16" rx="2"/><rect x="50" y="113" width="22" height="16" rx="2"/><rect x="24" y="159" width="22" height="16" rx="2"/><rect x="50" y="205" width="22" height="16" rx="2"/></g>
+        <rect x="50" y="159" width="22" height="16" rx="2" fill="#1f7a6d"/>
+        <g fill="#fff" stroke="#8d97a1" stroke-width="1.5"><rect x="50" y="67" width="22" height="16" rx="2"/><rect x="24" y="205" width="22" height="16" rx="2"/></g>
+        <g font-size="14" font-weight="800"><text x="84" y="82" fill="#55606d">Somente tela do PC</text><text x="84" y="128" fill="#22303d">Duplicar</text><text x="84" y="174" fill="#22303d">Estender</text><text x="84" y="220" fill="#55606d">Somente segunda tela</text></g>
+        <g font-size="12" font-weight="800" text-anchor="end"><text x="318" y="81" fill="#b3261e">não use</text><text x="318" y="127" fill="#2e7d4f">comece aqui</text><text x="318" y="173" fill="#2f557f">telão separado</text><text x="318" y="219" fill="#b3261e">não use</text></g>
+        <text x="170" y="252" font-size="12" fill="#55606d" text-anchor="middle">Os nomes podem mudar um pouco conforme a versão</text>
+      </svg>
+      <figcaption>Clique na opção ou use as setas e Enter.</figcaption>
+    </figure>
     <figure class="ilus">
       <svg viewBox="0 0 340 196" role="img" aria-label="Duplicar: o computador e o telão mostram a mesma coisa. Estender: o telão mostra só o vídeo e o computador fica livre para você" font-family="system-ui, sans-serif">
-        <g font-size="13" font-weight="800" fill="#22303d" text-anchor="middle"><text x="82" y="16">Duplicar</text><text x="258" y="16">Estender</text></g>
+        <g font-size="14" font-weight="800" fill="#22303d" text-anchor="middle"><text x="82" y="16">Duplicar</text><text x="258" y="16">Estender</text></g>
         <path d="M170 6v184" stroke="#c6cfd9" stroke-width="1.5" stroke-dasharray="4 4"/>
-        <!-- duplicar -->
         <rect x="20" y="26" width="124" height="72" rx="4" fill="#2f557f" stroke="#22303d" stroke-width="2"/>
         <path d="M74 48v28l24-14z" fill="#fff"/>
         <rect x="44" y="114" width="76" height="46" rx="3" fill="#2f557f" stroke="#22303d" stroke-width="2"/>
         <path d="M74 126v22l18-11z" fill="#fff"/>
         <path d="M36 160h92l6 8H30z" fill="#8d97a1"/>
-        <!-- estender -->
         <rect x="196" y="26" width="124" height="72" rx="4" fill="#2f557f" stroke="#22303d" stroke-width="2"/>
         <path d="M250 48v28l24-14z" fill="#fff"/>
         <rect x="220" y="114" width="76" height="46" rx="3" fill="#fff" stroke="#22303d" stroke-width="2"/>
         <rect x="226" y="120" width="34" height="22" rx="1.5" fill="#c6cfd9"/><rect x="264" y="124" width="26" height="18" rx="1.5" fill="#b8c0c8"/>
         <path d="M222 153h72" stroke="#3a3f45" stroke-width="5"/>
         <path d="M212 160h92l6 8H206z" fill="#8d97a1"/>
-        <g font-size="11" fill="#55606d" text-anchor="middle"><text x="82" y="110">telão</text><text x="258" y="110">telão: só o vídeo</text><text x="82" y="184">as duas telas iguais</text><text x="258" y="184">seu computador livre</text></g>
+        <g font-size="12" fill="#55606d" text-anchor="middle"><text x="82" y="110">telão</text><text x="258" y="110">telão: só o vídeo</text><text x="82" y="186">as duas telas iguais</text><text x="258" y="186">seu computador livre</text></g>
       </svg>
-      <figcaption>Duplicar é mais simples: o que você vê é o que a igreja vê. Estender permite preparar a próxima coisa sem que a igreja veja.</figcaption>
+      <figcaption>Duplicar é mais simples: a igreja vê o que você vê. Estender deixa preparar a próxima coisa escondido.</figcaption>
     </figure>
     <ul>
-      <li><b>Duplicar</b>: as duas telas mostram o mesmo. Bom para começar, mas tudo que você faz aparece no telão.</li>
-      <li><b>Estender</b>: o telão vira uma "segunda tela". Você arrasta para lá só o que deve aparecer (veja <a href="#d7-telao">D7</a>).</li>
+      <li><b>Duplicar</b>: tudo o que você faz aparece no telão. Bom para começar.</li>
+      <li><b>Estender</b>: o telão vira uma “segunda tela”. Você arrasta para lá só o que deve aparecer (<a href="#d7-telao">D7</a>).</li>
     </ul>
     <h3 id="d6-atalhos">Atalhos que salvam</h3>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 164" role="img" aria-label="Teclado com as teclas destacadas: Esc no canto de cima à esquerda, F11 em cima à direita, Tab à esquerda, P no meio da fileira de letras, Win e Alt embaixo à esquerda, ao lado da barra de espaço" font-family="system-ui, sans-serif">
+        <defs><pattern id="d6-tecla" x="5" y="6" width="22" height="26" patternUnits="userSpaceOnUse"><rect x=".5" y=".5" width="20" height="22" rx="3" fill="#eef2f6" stroke="#c6cfd9"/></pattern></defs>
+        <rect x="5" y="6" width="330" height="156" fill="url(#d6-tecla)"/>
+        <rect x="93.5" y="136.5" width="152" height="22" rx="3" fill="#eef2f6" stroke="#c6cfd9"/>
+        <g fill="#2f557f" stroke="#22303d"><rect x="5.5" y="6.5" width="42" height="22" rx="3"/><rect x="269.5" y="6.5" width="42" height="22" rx="3"/><rect x="5.5" y="58.5" width="42" height="22" rx="3"/><rect x="247.5" y="58.5" width="20" height="22" rx="3"/><rect x="27.5" y="136.5" width="20" height="22" rx="3"/><rect x="49.5" y="136.5" width="42" height="22" rx="3"/></g>
+        <g font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle"><text x="26.5" y="22">Esc</text><text x="290.5" y="22">F11</text><text x="26.5" y="74">Tab</text><text x="257.5" y="74">P</text><text x="70.5" y="152">Alt</text></g>
+        <g fill="#fff"><rect x="31.5" y="141" width="5.5" height="5.5"/><rect x="38.5" y="141" width="5.5" height="5.5"/><rect x="31.5" y="148" width="5.5" height="5.5"/><rect x="38.5" y="148" width="5.5" height="5.5"/></g>
+      </svg>
+      <figcaption>Onde ficam as teclas. Em notebooks, o F11 pode pedir a tecla Fn junto.</figcaption>
+    </figure>
     <div class="tabela estreita"><table>
-      <thead><tr><th>Atalho</th><th>O que faz</th></tr></thead>
+      <thead><tr><th>Aperte</th><th>O que faz</th></tr></thead>
       <tbody>
-        <tr><td><kbd>Win</kbd> + <kbd>P</kbd></td><td>Escolhe como usar o telão (Duplicar / Estender)</td></tr>
-        <tr><td><kbd>Alt</kbd> + <kbd>Tab</kbd></td><td>Troca de janela (segure Alt e toque Tab)</td></tr>
-        <tr><td><kbd>F11</kbd></td><td>Tela cheia no navegador (aperte de novo para sair)</td></tr>
+        <tr><td><kbd>Win</kbd> + <kbd>P</kbd></td><td>Escolhe Duplicar ou Estender</td></tr>
+        <tr><td><kbd>Alt</kbd> + <kbd>Tab</kbd></td><td>Troca de janela (segure Alt, toque Tab)</td></tr>
+        <tr><td><kbd>F11</kbd></td><td>Tela cheia no navegador</td></tr>
         <tr><td><kbd>Esc</kbd></td><td>Sai da tela cheia</td></tr>
       </tbody>
     </table></div>
     <h3 id="d6-atualizacao">Sem atualização no culto</h3>
-    <div class="box perigo"><b class="box-t">Cuidado</b><p>Se o Windows pedir para <b>atualizar ou reiniciar</b>, escolha "mais tarde" ou "agendar". Uma atualização no meio do culto pode deixar o computador parado por muitos minutos.</p></div>
+    <div class="box perigo"><b class="box-t">Cuidado</b><p>O Windows pediu para <b>atualizar ou reiniciar</b>? Escolha “mais tarde”. Uma atualização pode travar o computador por muitos minutos.</p></div>
     <h3 id="d6-avisos">Silenciar os avisos</h3>
-    <p>Ligue o <b>Não incomodar</b> (Windows 11) ou o <b>Assistente de foco</b> (Windows 10), no canto das notificações. Assim, avisos de mensagens e programas não aparecem no telão.</p>
-    <div class="box alerta"><b class="box-t">Atenção</b><p>Não feche programas de outras pessoas (slides, letras de música) sem perguntar: elas podem não ter salvado o trabalho.</p></div>
+    <p>Ligue o <b>Não incomodar</b> (Windows 11) ou o <b>Assistente de foco</b> (Windows 10), perto do relógio. Assim, avisos não aparecem no telão.</p>
+    <div class="box alerta"><b class="box-t">Atenção</b><p>Não feche programas de outras pessoas (slides, letras) sem perguntar.</p></div>
   </section>
 
   <section class="cap" id="d7">
     <h2><span class="cod">D7</span> Música ou vídeo do YouTube no telão</h2>
-    <p class="resumo">Do navegador ao telão, sem anúncio na hora errada, com o volume certo e sem mostrar a área de trabalho para a igreja.</p>
+    <div class="d-10s"><b class="d-10s-t">Em 10 segundos</b><ul><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-tela"/></svg><span><b>Teste o vídeo</b> antes do culto.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-alerta"/></svg><span>Desligue a <b>reprodução automática</b>.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-som"/></svg><span>YouTube no máximo; <b>ajuste na mesa</b>.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-olho"/></svg><span>Ao terminar: <b>tela preta</b> primeiro.</span></li></ul></div>
     <h3 id="d7-abrir">Achar o vídeo</h3>
-    <ol class="passos">
-      <li>Abra o <b>navegador</b> (Chrome, Edge, Firefox…).</li>
-      <li>Entre em <b>youtube.com</b>.</li>
-      <li>Na barra de pesquisa, escreva o nome do vídeo ou cole o link que você recebeu.</li>
-      <li>Confira se é o vídeo certo: título, canal e duração.</li>
-    </ol>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 220" role="img" aria-label="Navegador aberto em youtube.com: 1 escreva o nome ou cole o link na barra de pesquisa; 2 confira título, canal e duração do vídeo" font-family="system-ui, sans-serif">
+        <rect x="4" y="4" width="332" height="212" rx="8" fill="#fff" stroke="#22303d" stroke-width="2"/>
+        <path d="M5 12a7 7 0 0 1 7-7h316a7 7 0 0 1 7 7v21H5z" fill="#eef2f6"/>
+        <g fill="#c6cfd9"><circle cx="16" cy="19" r="3"/><circle cx="27" cy="19" r="3"/></g>
+        <rect x="40" y="11" width="250" height="16" rx="8" fill="#fff" stroke="#c6cfd9"/><text x="52" y="23.5" font-size="12" fill="#55606d">youtube.com</text>
+        <rect x="14" y="46" width="30" height="22" rx="6" fill="#d23c32"/><path d="M25 51v12l10-6z" fill="#fff"/>
+        <rect x="52" y="46" width="226" height="22" rx="11" fill="#fff" stroke="#2f557f" stroke-width="2.5"/><text x="64" y="61.5" font-size="13" fill="#8d97a1">nome do vídeo</text>
+        <rect x="282" y="46" width="44" height="22" rx="11" fill="#eef2f6" stroke="#2f557f" stroke-width="2"/><circle cx="301" cy="55" r="5" fill="none" stroke="#22303d" stroke-width="2"/><path d="M305 59l5 5" stroke="#22303d" stroke-width="2.2" stroke-linecap="round"/>
+        <text x="52" y="90" font-size="13" font-weight="800" fill="#2f557f">1. Escreva o nome ou cole o link</text>
+        <rect x="14" y="104" width="112" height="64" rx="4" fill="#2f557f"/><path d="M62 124v24l20-12z" fill="#fff" opacity=".85"/>
+        <rect x="82" y="148" width="40" height="17" rx="3" fill="#22303d"/><text x="102" y="161" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">4:32</text>
+        <text x="136" y="118" font-size="13" font-weight="800" fill="#22303d">Título do vídeo</text><text x="136" y="135" font-size="12" fill="#55606d">Nome do canal</text>
+        <text x="136" y="158" font-size="13" font-weight="800" fill="#2f557f">2. Confira título,</text><text x="136" y="175" font-size="13" font-weight="800" fill="#2f557f">canal e duração</text>
+        <rect x="14" y="180" width="112" height="30" rx="4" fill="#c6cfd9"/><rect x="136" y="188" width="140" height="8" rx="4" fill="#eef2f6"/><rect x="136" y="201" width="90" height="7" rx="3.5" fill="#eef2f6"/>
+      </svg>
+      <figcaption>Abra o navegador (Chrome, Edge, Firefox…) e entre em youtube.com.</figcaption>
+    </figure>
     <h3 id="d7-antes">Testar antes do culto</h3>
-    <p>Assista ao começo do vídeo <b>antes do culto</b>, com som saindo nas caixas. Assim você descobre a tempo se a internet está boa, se o som funciona e se é o vídeo certo.</p>
+    <p>Assista ao começo do vídeo <b>antes do culto</b>, com som nas caixas. Assim você descobre a tempo se a internet, o som e o vídeo estão certos.</p>
     <h3 id="d7-anuncios">Anúncios e reprodução automática</h3>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 292" role="img" aria-label="Player do YouTube: 1 play e pausa; 2 volume no máximo; 3 reprodução automática desligada; 4 tela cheia; 5 pular anúncio, quando aparecer" font-family="system-ui, sans-serif">
+        <rect x="4" y="4" width="332" height="180" rx="6" fill="#22303d"/>
+        <rect x="14" y="14" width="72" height="22" rx="4" fill="#e0b400"/><text x="50" y="30" font-size="12" font-weight="800" fill="#22303d" text-anchor="middle">Anúncio</text>
+        <rect x="206" y="84" width="120" height="30" rx="3" fill="#3a3f45" stroke="#fff" stroke-width="1.5"/><text x="216" y="104" font-size="12.5" font-weight="800" fill="#fff">Pular anúncio</text><path d="M310 92v14l9-7z" fill="#fff"/>
+        <rect x="201" y="79" width="130" height="40" rx="6" fill="none" stroke="#e0b400" stroke-width="3"/>
+        <path d="M14 152H326" stroke="#8d97a1" stroke-width="3"/><path d="M14 152H130" stroke="#d23c32" stroke-width="3"/><circle cx="130" cy="152" r="5" fill="#d23c32"/>
+        <path d="M16 162l13 8-13 8z" fill="#fff"/>
+        <use href="#d-ic-som" x="56" y="160" width="20" height="20" color="#fff"/><rect x="80" y="168" width="44" height="4" rx="2" fill="#fff"/>
+        <rect x="216" y="163" width="32" height="16" rx="8" fill="#8d97a1"/><circle cx="224" cy="171" r="6" fill="#fff"/>
+        <path d="M300 167v-5h6M316 162h6v5M322 175v5h-6M306 180h-6v-5" stroke="#fff" stroke-width="2.5" fill="none"/>
+        <g fill="#c8453b"><circle cx="22" cy="138" r="9"/><circle cx="66" cy="138" r="9"/><circle cx="232" cy="138" r="9"/><circle cx="311" cy="138" r="9"/><circle cx="188" cy="99" r="9"/></g>
+        <g font-size="12" font-weight="800" fill="#fff" text-anchor="middle"><text x="22" y="142">1</text><text x="66" y="142">2</text><text x="232" y="142">3</text><text x="311" y="142">4</text><text x="188" y="103">5</text></g>
+        <g fill="#c8453b"><circle cx="16" cy="202" r="9"/><circle cx="16" cy="221" r="9"/><circle cx="16" cy="240" r="9"/><circle cx="16" cy="259" r="9"/><circle cx="16" cy="278" r="9"/></g>
+        <g font-size="12" font-weight="800" fill="#fff" text-anchor="middle"><text x="16" y="206">1</text><text x="16" y="225">2</text><text x="16" y="244">3</text><text x="16" y="263">4</text><text x="16" y="282">5</text></g>
+        <g font-size="13" fill="#22303d"><text x="32" y="207">Play e pausa</text><text x="32" y="226">Volume: <tspan font-weight="800">no máximo</tspan></text><text x="32" y="245">Reprodução automática: <tspan font-weight="800" fill="#b3261e">DESLIGADA</tspan></text><text x="32" y="264">Tela cheia</text><text x="32" y="283">Pular anúncio (quando aparecer)</text></g>
+      </svg>
+      <figcaption>O lugar dos botões pode mudar com as atualizações do YouTube.</figcaption>
+    </figure>
     <ul>
-      <li><b>Desligue a reprodução automática</b>: no player, o botão "Reprodução automática" (um interruptor pequeno) deve ficar desligado. Senão, quando o vídeo acaba, outro começa sozinho no telão.</li>
-      <li><b>Anúncios</b>: dê play antes do culto, deixe o anúncio passar (ou toque em "Pular"), <b>pause</b> e volte o vídeo para o começo. Deixe a página aberta assim, pronta. Isso costuma evitar o anúncio na hora, mas não é garantido.</li>
-      <li>O mais seguro é <b>ter o vídeo baixado com antecedência</b>, pelo meio que a igreja usa (por exemplo, uma conta sem anúncios ou o arquivo enviado por quem preparou o culto).</li>
+      <li><b>Reprodução automática desligada</b>. Senão, quando o vídeo acaba, outro começa sozinho no telão.</li>
+      <li><b>Anúncio</b>: antes do culto, dê play, deixe o anúncio passar (ou “Pular”), <b>pause</b> e volte ao começo. Costuma evitar o anúncio na hora, mas não é garantido.</li>
+      <li>O mais seguro: <b>o vídeo já baixado</b>, enviado por quem preparou o culto.</li>
     </ul>
     <h3 id="d7-telao">Colocar no telão</h3>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 182" role="img" aria-label="No modo Estender: segure a janela pela barra de cima e arraste do seu computador para o lado, até o telão" font-family="system-ui, sans-serif">
+        <defs><marker id="d7-seta-v" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 10 5 0 10z" fill="#1f7a6d"/></marker></defs>
+        <rect x="10" y="34" width="140" height="88" rx="3" fill="#eef2f6" stroke="#22303d" stroke-width="2"/><path d="M2 122H158L150 132H10Z" fill="#8d97a1"/>
+        <rect x="30" y="52" width="90" height="56" rx="2" fill="none" stroke="#8d97a1" stroke-width="2" stroke-dasharray="5 4"/>
+        <rect x="186" y="20" width="148" height="100" rx="2" fill="#fff" stroke="#22303d" stroke-width="2"/><path d="M260 120v12M240 134h40" stroke="#8d97a1" stroke-width="3"/>
+        <rect x="198" y="32" width="112" height="72" fill="#2f557f"/><rect x="198" y="32" width="112" height="14" fill="#22303d"/><path d="M246 60v24l20-12z" fill="#fff"/>
+        <path d="M76 50C100 6 190 0 222 34" stroke="#1f7a6d" stroke-width="3" fill="none" stroke-dasharray="6 4" marker-end="url(#d7-seta-v)"/>
+        <path d="M228 38v16l4-4 3 7 3-1-3-7h6z" fill="#fff" stroke="#22303d" stroke-width="1.5" stroke-linejoin="round"/>
+        <g font-size="14" font-weight="800" fill="#22303d" text-anchor="middle"><text x="80" y="154">Seu computador</text><text x="260" y="154">Telão</text></g>
+        <text x="170" y="174" font-size="12" fill="#55606d" text-anchor="middle">Segure na barra de cima e arraste para o lado</text>
+      </svg>
+      <figcaption>Só no modo Estender. Atalho: <kbd>Win</kbd> + <kbd>Shift</kbd> + <kbd>→</kbd>.</figcaption>
+    </figure>
     <ol class="passos">
-      <li>Se estiver em <b>Duplicar</b>: deixe o vídeo pausado no começo e, na hora, coloque em tela cheia e dê play.</li>
-      <li>Se estiver em <b>Estender</b>: arraste a janela do navegador para o telão (segure na barra de cima da janela e leve para o lado da tela) ou use <kbd>Win</kbd> + <kbd>Shift</kbd> + <kbd>→</kbd>.</li>
-      <li>Tela cheia: tecla <kbd>F</kbd> (com o vídeo selecionado) ou o botão de quadrado no canto de baixo do player.</li>
-      <li>Dê play: tecla <kbd>K</kbd> ou a barra de espaço (ou clique no vídeo).</li>
+      <li><b>Duplicar</b>: deixe o vídeo pausado no começo. Na hora, tela cheia e play.</li>
+      <li><b>Estender</b>: arraste a janela para o telão (desenho acima).</li>
+      <li>Tela cheia: tecla <kbd>F</kbd> ou o quadrado no canto do player.</li>
+      <li>Play: tecla <kbd>K</kbd>, barra de espaço ou clique no vídeo.</li>
     </ol>
     <h3 id="d7-volumes">Os três volumes</h3>
-    <p>O som do vídeo passa por <b>três "registros"</b> em sequência, como água num cano. Se qualquer um estiver fechado, não sai som.</p>
+    <p>O som passa por <b>três volumes</b>, como três registros num cano. Um fechado, e não sai som.</p>
     <figure class="ilus">
       <svg viewBox="0 0 340 280" role="img" aria-label="Três volumes em sequência: o do YouTube no máximo, o do Windows em cerca de 80 por cento, e o fader do canal do computador na mesa, onde se faz o ajuste fino. Depois, as caixas" font-family="system-ui, sans-serif">
         <defs><marker id="d7-seta" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 10 5 0 10z" fill="#8d97a1"/></marker></defs>
         <g stroke="#8d97a1" stroke-width="2" stroke-dasharray="4 3" marker-end="url(#d7-seta)"><path d="M24 30v42M24 104v42M24 178v42"/></g>
         <g fill="#2f557f"><circle cx="24" cy="20" r="12"/><circle cx="24" cy="94" r="12"/><circle cx="24" cy="168" r="12"/></g>
         <g font-size="13" font-weight="800" fill="#fff" text-anchor="middle"><text x="24" y="25">1</text><text x="24" y="99">2</text><text x="24" y="173">3</text></g>
-        <g font-size="13" font-weight="800" fill="#22303d"><text x="46" y="18">YouTube (no player)</text><text x="46" y="92">Windows (ícone 🔊)</text><text x="46" y="166">Mesa: fader do canal do PC</text></g>
-        <g font-size="11" fill="#55606d"><text x="46" y="33">deixe no máximo</text><text x="46" y="107">deixe alto, cerca de 80%</text><text x="46" y="181">aqui você faz o ajuste fino</text></g>
+        <g font-size="14" font-weight="800" fill="#22303d"><text x="46" y="18">YouTube (no player)</text><text x="46" y="92">Windows (alto-falante)</text><text x="46" y="166">Mesa: fader do PC</text></g>
+        <g font-size="12" fill="#55606d"><text x="46" y="34">deixe no máximo</text><text x="46" y="108">deixe alto, cerca de 80%</text><text x="46" y="182">aqui você faz o ajuste fino</text></g>
         <g fill="#c6cfd9"><rect x="46" y="44" width="230" height="8" rx="4"/><rect x="46" y="118" width="230" height="8" rx="4"/><rect x="46" y="192" width="230" height="8" rx="4"/></g>
         <g fill="#1f7a6d"><rect x="46" y="44" width="230" height="8" rx="4"/><rect x="46" y="118" width="184" height="8" rx="4"/><rect x="46" y="192" width="140" height="8" rx="4"/></g>
         <g fill="#fff" stroke="#2f557f" stroke-width="3"><circle cx="270" cy="48" r="9"/><circle cx="230" cy="122" r="9"/><circle cx="186" cy="196" r="9"/></g>
         <g font-size="12" font-weight="800" fill="#2f557f"><text x="288" y="52">100%</text><text x="288" y="126">~80%</text><text x="288" y="200">ajuste</text></g>
-        <!-- caixa -->
         <rect x="12" y="226" width="24" height="40" rx="4" fill="#3a3f45"/><circle cx="24" cy="254" r="7" fill="#8d97a1"/><circle cx="24" cy="236" r="3.5" fill="#8d97a1"/>
-        <text x="46" y="243" font-size="13" font-weight="800" fill="#22303d">Caixas da igreja</text>
-        <text x="46" y="259" font-size="11" fill="#55606d">se um dos três estiver em zero, não sai som</text>
+        <text x="46" y="243" font-size="14" font-weight="800" fill="#22303d">Caixas da igreja</text>
+        <text x="46" y="260" font-size="12" fill="#55606d">um dos três em zero: não sai som</text>
       </svg>
-      <figcaption>Regra simples: YouTube no máximo, Windows alto, e o volume da igreja controlado no fader da mesa.</figcaption>
+      <figcaption>YouTube no máximo, Windows alto, e o volume da igreja no fader da mesa.</figcaption>
     </figure>
-    <div class="box dica"><b class="box-t">Dica</b><p>Se a luz vermelha do canal do computador acender, abaixe um pouco o volume do <b>Windows</b> (não o da mesa): o sinal está chegando forte demais.</p></div>
+    <div class="box dica"><b class="box-t">Dica</b><p>Luz vermelha no canal do computador? Abaixe um pouco o volume do <b>Windows</b>, não o da mesa.</p></div>
     <h3 id="d7-cursor">Esconder o cursor</h3>
-    <p>Em tela cheia, o YouTube esconde a setinha do mouse depois de alguns segundos parado. <b>Não mexa no mouse</b> durante o vídeo. No modo Estender, deixe a setinha na tela do computador.</p>
+    <p>Em tela cheia, a setinha do mouse some sozinha se você <b>não mexer no mouse</b>. No modo Estender, deixe a setinha na tela do computador.</p>
     <h3 id="d7-fim">Ao terminar o vídeo</h3>
-    <p>O momento mais delicado: ao sair da tela cheia com <kbd>Esc</kbd>, o telão pode mostrar a área de trabalho, a página do YouTube ou outros vídeos sugeridos.</p>
+    <p>Cuidado: ao sair da tela cheia, o telão pode mostrar a área de trabalho ou outros vídeos.</p>
     <ol class="passos">
-      <li>Antes de sair da tela cheia, deixe o telão com uma <b>tela preta ou o fundo da igreja</b>: use o botão BLANK, MUTE ou "AV MUTE" do controle do projetor (se houver), ou troque com <kbd>Alt</kbd> + <kbd>Tab</kbd> para uma imagem preta ou slide de fundo já aberto em tela cheia.</li>
-      <li>Abaixe o fader do computador na mesa.</li>
-      <li>Só então aperte <kbd>Esc</kbd> e feche ou prepare o próximo vídeo.</li>
+      <li>Primeiro, deixe o telão <b>preto</b>: botão <span class="d-bt">BLANK</span> ou <span class="d-bt">AV MUTE</span> do controle do projetor, ou <kbd>Alt</kbd> + <kbd>Tab</kbd> para uma imagem preta já aberta.</li>
+      <li>Abaixe o fader do computador.</li>
+      <li>Só então aperte <kbd>Esc</kbd> e prepare o próximo.</li>
     </ol>
-    <div class="box dica"><b class="box-t">Dica</b><p>Antes do culto, deixe aberta uma <b>imagem toda preta</b> (ou o slide de fundo da igreja). Ela é a sua "cortina": sempre que não houver nada para mostrar, é ela que fica no telão.</p></div>
+    <div class="box dica"><b class="box-t">Dica</b><p>Antes do culto, deixe aberta uma <b>imagem toda preta</b> (ou o fundo da igreja). É a sua “cortina”.</p></div>
   </section>
 
   <section class="cap" id="d8">
     <h2><span class="cod">D8</span> Durante o culto</h2>
-    <p class="resumo">Atenção ao programa, microfones abertos na hora certa e o mínimo de movimento.</p>
+    <div class="d-10s"><b class="d-10s-t">Em 10 segundos</b><ul><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-olho"/></svg><span>Fique <b>um passo à frente</b> do programa.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-mic"/></svg><span><b>Abra antes</b> de falarem; feche depois.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-mute"/></svg><span>Microfone sem uso: <b>MUTE</b>.</span></li></ul></div>
     <h3 id="d8-atencao">Atenção ao programa</h3>
-    <p>Siga o programa e preveja o próximo passo: quem vai falar, qual música, qual vídeo. O bom sonoplasta está sempre <b>um passo à frente</b>.</p>
+    <p>Siga o programa e prepare o próximo passo: quem fala, qual música, qual vídeo.</p>
     <h3 id="d8-abrir">Abrir e fechar microfones</h3>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 292" role="img" aria-label="Exemplo de culto: na abertura, oração, pregação e encerramento, só o microfone do púlpito aberto; no louvor, os microfones dos cantores e o computador; no vídeo, só o computador" font-family="system-ui, sans-serif">
+        <g font-size="12" font-weight="800" fill="#55606d"><text x="14" y="22">Momento</text><text x="176" y="22" text-anchor="middle">Púlpito</text><text x="244" y="22" text-anchor="middle">Cantores</text><text x="308" y="22" text-anchor="middle">PC</text></g>
+        <g fill="#fff" stroke="#c6cfd9" stroke-width="1.5"><rect x="4" y="32" width="332" height="34" rx="6"/><rect x="4" y="108" width="332" height="34" rx="6"/><rect x="4" y="184" width="332" height="34" rx="6"/></g>
+        <g font-size="14" font-weight="800" fill="#22303d"><text x="14" y="54">Abertura</text><text x="14" y="92">Oração</text><text x="14" y="130">Louvor</text><text x="14" y="168">Pregação</text><text x="14" y="206">Vídeo</text><text x="14" y="244">Encerramento</text></g>
+        <g fill="#3aa35b"><circle cx="176" cy="49" r="13"/><circle cx="176" cy="87" r="13"/><circle cx="176" cy="163" r="13"/><circle cx="176" cy="239" r="13"/><circle cx="244" cy="125" r="13"/><circle cx="308" cy="125" r="13"/><circle cx="308" cy="201" r="13"/></g>
+        <g fill="#dfe3e7"><circle cx="176" cy="125" r="13"/><circle cx="176" cy="201" r="13"/><circle cx="244" cy="49" r="13"/><circle cx="244" cy="87" r="13"/><circle cx="244" cy="163" r="13"/><circle cx="244" cy="201" r="13"/><circle cx="244" cy="239" r="13"/><circle cx="308" cy="49" r="13"/><circle cx="308" cy="87" r="13"/><circle cx="308" cy="163" r="13"/><circle cx="308" cy="239" r="13"/></g>
+        <g color="#fff"><use href="#d-ic-mic" x="167" y="40" width="18" height="18"/><use href="#d-ic-mic" x="167" y="78" width="18" height="18"/><use href="#d-ic-mic" x="167" y="154" width="18" height="18"/><use href="#d-ic-mic" x="167" y="230" width="18" height="18"/><use href="#d-ic-mic" x="235" y="116" width="18" height="18"/><use href="#d-ic-pc" x="299" y="116" width="18" height="18"/><use href="#d-ic-pc" x="299" y="192" width="18" height="18"/></g>
+        <g color="#8d97a1"><use href="#d-ic-mic" x="167" y="116" width="18" height="18"/><use href="#d-ic-mic" x="167" y="192" width="18" height="18"/><use href="#d-ic-mic" x="235" y="40" width="18" height="18"/><use href="#d-ic-mic" x="235" y="78" width="18" height="18"/><use href="#d-ic-mic" x="235" y="154" width="18" height="18"/><use href="#d-ic-mic" x="235" y="192" width="18" height="18"/><use href="#d-ic-mic" x="235" y="230" width="18" height="18"/><use href="#d-ic-pc" x="299" y="40" width="18" height="18"/><use href="#d-ic-pc" x="299" y="78" width="18" height="18"/><use href="#d-ic-pc" x="299" y="154" width="18" height="18"/><use href="#d-ic-pc" x="299" y="230" width="18" height="18"/></g>
+        <circle cx="20" cy="276" r="8" fill="#3aa35b"/><text x="34" y="281" font-size="13" font-weight="700" fill="#22303d">aberto</text>
+        <circle cx="110" cy="276" r="8" fill="#dfe3e7"/><text x="124" y="281" font-size="13" font-weight="700" fill="#22303d">fechado (MUTE)</text>
+      </svg>
+      <figcaption>Um exemplo. Siga o programa do seu culto.</figcaption>
+    </figure>
     <ul>
-      <li><b>Abra</b> o microfone um pouco <b>antes</b> de a pessoa começar a falar (quando ela se levanta ou se aproxima).</li>
-      <li><b>Feche</b> logo depois que ela terminar e se afastar.</li>
-      <li>Na oração e nos momentos de silêncio, mantenha abertos só os microfones necessários.</li>
+      <li><b>Abra</b> um pouco <b>antes</b> de a pessoa falar, quando ela se levanta.</li>
+      <li><b>Feche</b> logo que ela terminar e se afastar.</li>
     </ul>
     <h3 id="d8-comunicar">Comunicação discreta</h3>
-    <p>Combine antes com o pregador ou o diretor do culto alguns sinais simples: polegar para cima ("está bom"), mão subindo ("mais alto"), apontar para a boca ("fale mais perto do microfone"). Se precisar falar com alguém, vá com calma e em silêncio.</p>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 122" role="img" aria-label="Sinais de mão para combinar: mão subindo, mais alto; mão descendo, mais baixo; polegar para cima, tudo bem; apontar para a boca, fale mais perto do microfone" font-family="system-ui, sans-serif">
+        <defs><marker id="d8-seta" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 10 5 0 10z" fill="#1f7a6d"/></marker></defs>
+        <g fill="#fff" stroke="#c6cfd9" stroke-width="1.5"><rect x="2" y="4" width="80" height="114" rx="8"/><rect x="88" y="4" width="80" height="114" rx="8"/><rect x="174" y="4" width="80" height="114" rx="8"/><rect x="260" y="4" width="78" height="114" rx="8"/></g>
+        <g fill="#22303d"><circle cx="32" cy="34" r="10"/><circle cx="118" cy="34" r="10"/><circle cx="204" cy="34" r="10"/><circle cx="290" cy="34" r="10"/></g>
+        <g fill="#2f557f"><rect x="22" y="46" width="20" height="40" rx="8"/><rect x="108" y="46" width="20" height="40" rx="8"/><rect x="194" y="46" width="20" height="40" rx="8"/><rect x="280" y="46" width="20" height="40" rx="8"/></g>
+        <g stroke="#2f557f" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M38 54L54 30"/><path d="M124 56H146"/><path d="M210 58L224 48"/><path d="M296 58L310 50L300 38"/></g>
+        <g fill="#22303d"><circle cx="55" cy="28" r="4.5"/><rect x="142" y="53" width="12" height="6" rx="2"/><rect x="220" y="40" width="11" height="11" rx="3"/><circle cx="299" cy="37" r="3.5"/></g>
+        <path d="M224 41V30" stroke="#22303d" stroke-width="4" stroke-linecap="round"/>
+        <g stroke="#1f7a6d" stroke-width="3" marker-end="url(#d8-seta)"><path d="M70 66V24"/><path d="M158 46V82"/></g>
+        <circle cx="242" cy="26" r="9" fill="#3aa35b"/><path d="M237.5 26l3 3 5.5-6" stroke="#fff" stroke-width="2.2" fill="none"/>
+        <use href="#d-ic-mic" x="314" y="16" width="18" height="18" color="#1f7a6d"/>
+        <g font-size="12.5" font-weight="800" fill="#22303d" text-anchor="middle"><text x="42" y="106">Mais alto</text><text x="128" y="106">Mais baixo</text><text x="214" y="106">Tudo bem</text><text x="299" y="106">Mais perto</text></g>
+      </svg>
+      <figcaption>Combine os sinais com quem dirige o culto antes de começar. Responda com um aceno discreto.</figcaption>
+    </figure>
+    <p>Precisa falar com alguém? Vá com calma e em silêncio.</p>
     <h3 id="d8-nao">O que NÃO fazer</h3>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 190" role="img" aria-label="Faça: fique na mesa, olhando o programa. Não faça: celular e conversa durante o culto" font-family="system-ui, sans-serif">
+        <rect x="4" y="4" width="162" height="182" rx="10" fill="#e3f1e8" stroke="#3aa35b" stroke-width="2"/><rect x="174" y="4" width="162" height="182" rx="10" fill="#fbe9e7" stroke="#d23c32" stroke-width="2"/>
+        <text x="85" y="27" font-size="15" font-weight="800" fill="#2e7d4f" text-anchor="middle">✓ Faça</text><text x="255" y="27" font-size="15" font-weight="800" fill="#b3261e" text-anchor="middle">✗ Não faça</text>
+        <use href="#d-ic-olho" x="60" y="36" width="50" height="50" color="#1f7a6d"/>
+        <rect x="30" y="92" width="110" height="38" rx="4" fill="#3a3f45"/><path d="M46 98v26M66 98v26M86 98v26M106 98v26M126 98v26" stroke="#fff" stroke-width="2"/>
+        <rect x="230" y="40" width="48" height="90" rx="8" fill="#3a3f45"/><rect x="235" y="50" width="38" height="66" fill="#2f557f"/><rect x="239" y="56" width="24" height="10" rx="4" fill="#fff"/><rect x="245" y="72" width="24" height="10" rx="4" fill="#b8c0c8"/>
+        <path d="M286 44h38a6 6 0 0 1 6 6v14a6 6 0 0 1-6 6h-26l-8 8v-8h-4a6 6 0 0 1-6-6V50a6 6 0 0 1 6-6z" fill="#fff" stroke="#d23c32" stroke-width="1.5"/>
+        <text x="306" y="62" font-size="12" font-weight="800" fill="#b3261e" text-anchor="middle">blá blá</text>
+        <g font-size="13" font-weight="800" fill="#22303d" text-anchor="middle"><text x="85" y="160">Fique na mesa,</text><text x="255" y="160">Nada de celular</text></g>
+        <g font-size="12" fill="#55606d" text-anchor="middle"><text x="85" y="178">olhando o programa</text><text x="255" y="178">nem de conversa</text></g>
+      </svg>
+      <figcaption>O problema aparece justamente quando você se distrai.</figcaption>
+    </figure>
     <ul>
-      <li>Não saia de perto da mesa. Se precisar sair, peça a alguém que fique.</li>
-      <li>Não fique no celular nem em conversas: o problema aparece justamente nessa hora.</li>
-      <li>Não mexa em botões desconhecidos "para ver o que acontece".</li>
-      <li>Não faça testes com som durante o culto (nada de "alô, testando").</li>
-      <li>Não corrija o volume aos trancos: mova devagar.</li>
+      <li>Precisa sair da mesa? Peça a alguém que fique.</li>
+      <li>Não aperte botões desconhecidos “para ver o que acontece”.</li>
+      <li>Nada de “alô, testando” durante o culto.</li>
+      <li>Mexa no volume devagar, nunca aos trancos.</li>
     </ul>
-    <div class="box dica"><b class="box-t">Dica</b><p>Se algo der errado, mantenha a calma. A maioria dos problemas se resolve em segundos seguindo <a href="#d9">D9</a>, e quase ninguém percebe.</p></div>
+    <div class="box dica"><b class="box-t">Dica</b><p>Deu errado? Respire. Quase tudo se resolve em segundos com <a href="#d9">D9</a>, e quase ninguém percebe.</p></div>
   </section>
 
   <section class="cap" id="d9">
     <h2><span class="cod">D9</span> Deu problema? Socorro rápido</h2>
-    <p class="resumo">Toque no sintoma e confira na ordem: do mais simples para o mais complicado.</p>
+    <div class="d-10s"><b class="d-10s-t">Em 10 segundos</b><ul><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-alerta"/></svg><span>Respire. Comece <b>pelo mais simples</b>.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-mute"/></svg><span>Olhe o <b>MUTE</b> e o fader.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-pilha"/></svg><span>Microfone sem fio? <b>Pilhas</b>.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-pessoa"/></svg><span>3 minutos sem resolver? <b>Chame ajuda</b>.</span></li></ul></div>
     <h3 id="d9-sintomas">Sintomas e o que conferir</h3>
-    <details class="sintoma" id="d9-mic"><summary>Microfone sem som</summary><ol>
-      <li>O canal está em <b>MUTE</b>? O fader do canal e o MASTER estão levantados?</li>
-      <li>O microfone tem botão <b>ON/OFF</b> no corpo? Está ligado?</li>
-      <li>A <b>luz de sinal</b> do canal pisca quando a pessoa fala? Se não pisca, o problema está antes da mesa.</li>
-      <li>Sem fio: o receptor está ligado? A pilha está boa? A luz de sinal do receptor acende?</li>
-      <li>Com fio: o cabo está bem encaixado nas duas pontas? Tente outro cabo.</li>
-      <li>Microfone fino de púlpito ou de coral (condensador) precisa do botão <b>48V / PHANTOM</b> ligado no canal. Ligue ou desligue esse botão só com o fader e o MASTER abaixados.</li>
-    </ol></details>
-    <details class="sintoma" id="d9-pc"><summary>Computador sem som</summary><ol>
-      <li>O vídeo está sem som no próprio player? O volume do <b>Windows</b> está mudo?</li>
-      <li>A <b>saída de som</b> do Windows é a que vai para a mesa? (ícone 🔊 → escolher dispositivo — <a href="#d6-volume">D6</a>)</li>
-      <li>O canal do computador na mesa está em MUTE ou com o fader embaixo?</li>
-      <li>O cabo de áudio do computador está bem encaixado (no computador e na mesa)?</li>
-      <li>Teste outro vídeo ou música para saber se o problema é só daquele arquivo.</li>
-    </ol></details>
-    <details class="sintoma" id="d9-apito"><summary>Apito / microfonia</summary><ol>
-      <li><b>Abaixe imediatamente</b> o fader do microfone que está apitando (ou o MASTER, se não souber qual).</li>
-      <li>Afaste o microfone das caixas e não aponte o microfone para elas.</li>
-      <li>Feche (MUTE) os microfones que não estão em uso.</li>
-      <li>Peça à pessoa para falar mais perto do microfone e mantenha o volume um pouco mais baixo.</li>
-      <li>Se há caixas de retorno, abaixe o volume delas. Para resolver de vez: <a href="#i8">I8</a>.</li>
-    </ol></details>
-    <details class="sintoma" id="d9-zumbido"><summary>Zumbido ou chiado</summary><ol>
-      <li>Descubra de onde vem: coloque os canais em MUTE <b>um por um</b> até o zumbido sumir.</li>
-      <li>Confira o cabo daquele canal: mal encaixado ou estragado faz ruído. Troque.</li>
-      <li>Se o zumbido vem do <b>computador</b> e some ao tirar o carregador da tomada, é ruído da energia: deixe o notebook na bateria durante o culto e avise o responsável.</li>
-      <li>Microfone sem fio chiando: troque as pilhas.</li>
-      <li>Separe cabos de áudio dos cabos de energia quando possível. Mais detalhes em <a href="#i17">I17</a>.</li>
-    </ol>
-    <div class="box perigo"><b class="box-t">Cuidado</b><p>Nunca corte nem retire o pino de terra de uma tomada para "tirar o zumbido". Ele protege as pessoas contra choque.</p></div></details>
-    <details class="sintoma" id="d9-telao"><summary>Telão sem imagem</summary><ol>
-      <li>O projetor ou a TV estão ligados? O projetor leva cerca de um minuto para aquecer.</li>
-      <li>A <b>entrada</b> está certa? Aperte SOURCE ou INPUT no controle e escolha a entrada do cabo (HDMI 1, HDMI 2…).</li>
-      <li>O cabo está bem encaixado nas duas pontas (e no adaptador, se houver)?</li>
-      <li>No computador, aperte <kbd>Win</kbd> + <kbd>P</kbd> e escolha <b>Duplicar</b> (e não "Somente tela do PC").</li>
-      <li>Tire o cabo de vídeo do computador, espere alguns segundos e coloque de novo.</li>
-    </ol></details>
-    <details class="sintoma" id="d9-somhdmi"><summary>A imagem aparece, mas o som não sai pela igreja</summary><ol>
-      <li>Quase sempre é isto: o Windows mandou o som pelo <b>HDMI</b>, para o projetor ou a TV.</li>
-      <li>Clique no ícone 🔊 e escolha a saída que vai para a mesa (<a href="#d6-volume">D6</a>).</li>
-      <li>Confira o canal do computador na mesa: MUTE e fader.</li>
-      <li>Confira os volumes do YouTube e do Windows (<a href="#d7-volumes">D7</a>).</li>
-    </ol></details>
-    <details class="sintoma" id="d9-semfio"><summary>Som cortando no microfone sem fio</summary><ol>
-      <li><b>Troque as pilhas</b> (sempre todas de uma vez, por novas).</li>
-      <li>A pessoa está longe do receptor ou atrás de parede, coluna ou metal? Aproxime, ou deixe o receptor em lugar mais alto e à vista.</li>
-      <li>As antenas do receptor estão encaixadas e em pé?</li>
-      <li>A pessoa está segurando o microfone pela ponta de baixo (onde fica a antena)? Peça para segurar mais no meio.</li>
-      <li>Celular encostado no receptor ou outro microfone sem fio na mesma frequência podem atrapalhar. Se não resolver, use um microfone com fio.</li>
-    </ol></details>
+    <p>Toque no sintoma. Leia de cima para baixo: <b>sim</b>, faça o que está ao lado; <b>não</b>, desça para a próxima.</p>
+    <details class="sintoma" id="d9-mic"><summary>Microfone sem som</summary>
+      <figure class="ilus d-flow"><svg viewBox="0 0 340 324" role="img" aria-label="Canal em MUTE ou fader embaixo? Se sim: Tire o MUTE; suba o fader. A chave do microfone está em OFF? Se sim: Passe para ON. Sem fio: luz de pilha fraca? Se sim: Troque todas as pilhas. Com fio: cabo solto? Se sim: Encaixe bem ou troque o cabo. Nada? Use outro microfone e chame ajuda." font-family="system-ui, sans-serif"><defs><marker id="d9-mic-s" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 10 5 0 10z" fill="#8d97a1"/></marker></defs><rect x="4" y="4" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="29" r="17" fill="#eef2f6"/><use href="#d-ic-mute" x="16" y="17" width="24" height="24" color="#2f557f"/><text x="54" y="25" font-size="13.5" font-weight="800" fill="#22303d">Canal em MUTE ou fader embaixo?</text><rect x="54" y="32" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="45" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="45" font-size="13" font-weight="700" fill="#1f7a6d">Tire o MUTE; suba o fader</text><path d="M28 55V70" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-mic-s)"/><text x="40" y="68" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="74" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="99" r="17" fill="#eef2f6"/><use href="#d-ic-mic" x="16" y="87" width="24" height="24" color="#2f557f"/><text x="54" y="95" font-size="13.5" font-weight="800" fill="#22303d">A chave do microfone está em OFF?</text><rect x="54" y="102" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="115" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="115" font-size="13" font-weight="700" fill="#1f7a6d">Passe para ON</text><path d="M28 125V140" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-mic-s)"/><text x="40" y="138" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="144" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="169" r="17" fill="#eef2f6"/><use href="#d-ic-pilha" x="16" y="157" width="24" height="24" color="#2f557f"/><text x="54" y="165" font-size="13.5" font-weight="800" fill="#22303d">Sem fio: luz de pilha fraca?</text><rect x="54" y="172" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="185" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="185" font-size="13" font-weight="700" fill="#1f7a6d">Troque todas as pilhas</text><path d="M28 195V210" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-mic-s)"/><text x="40" y="208" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="214" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="239" r="17" fill="#eef2f6"/><use href="#d-ic-cabo" x="16" y="227" width="24" height="24" color="#2f557f"/><text x="54" y="235" font-size="13.5" font-weight="800" fill="#22303d">Com fio: cabo solto?</text><rect x="54" y="242" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="255" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="255" font-size="13" font-weight="700" fill="#1f7a6d">Encaixe bem ou troque o cabo</text><path d="M28 265V280" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-mic-s)"/><text x="40" y="278" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="286" width="332" height="34" rx="17" fill="#eef2f6" stroke="#c6cfd9" stroke-width="1.5"/><text x="170" y="308" font-size="13" font-weight="800" fill="#22303d" text-anchor="middle">Nada? Use outro microfone e chame ajuda.</text></svg></figure>
+      <div class="box alerta"><b class="box-t">Atenção</b><p>Microfone fino de púlpito ou de coral pode precisar do botão <span class="d-bt">48V</span> ou <span class="d-bt">PHANTOM</span> no canal. Mexa nele só com o fader e o MASTER abaixados.</p></div>
+    </details>
+    <details class="sintoma" id="d9-pc"><summary>Computador sem som</summary>
+      <figure class="ilus d-flow"><svg viewBox="0 0 340 324" role="img" aria-label="O player do vídeo está mudo? Se sim: Ative o som no player. O volume do Windows está mudo? Se sim: Suba para cerca de 80%. A saída de som é o projetor/TV? Se sim: Escolha a saída da mesa. Canal do PC em MUTE ou embaixo? Se sim: Tire o MUTE; suba o fader. Nada? Confira o cabo de áudio do PC." font-family="system-ui, sans-serif"><defs><marker id="d9-pc-s" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 10 5 0 10z" fill="#8d97a1"/></marker></defs><rect x="4" y="4" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="29" r="17" fill="#eef2f6"/><use href="#d-ic-tela" x="16" y="17" width="24" height="24" color="#2f557f"/><text x="54" y="25" font-size="13.5" font-weight="800" fill="#22303d">O player do vídeo está mudo?</text><rect x="54" y="32" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="45" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="45" font-size="13" font-weight="700" fill="#1f7a6d">Ative o som no player</text><path d="M28 55V70" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-pc-s)"/><text x="40" y="68" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="74" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="99" r="17" fill="#eef2f6"/><use href="#d-ic-som" x="16" y="87" width="24" height="24" color="#2f557f"/><text x="54" y="95" font-size="13.5" font-weight="800" fill="#22303d">O volume do Windows está mudo?</text><rect x="54" y="102" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="115" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="115" font-size="13" font-weight="700" fill="#1f7a6d">Suba para cerca de 80%</text><path d="M28 125V140" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-pc-s)"/><text x="40" y="138" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="144" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="169" r="17" fill="#eef2f6"/><use href="#d-ic-pc" x="16" y="157" width="24" height="24" color="#2f557f"/><text x="54" y="165" font-size="13.5" font-weight="800" fill="#22303d">A saída de som é o projetor/TV?</text><rect x="54" y="172" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="185" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="185" font-size="13" font-weight="700" fill="#1f7a6d">Escolha a saída da mesa</text><path d="M28 195V210" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-pc-s)"/><text x="40" y="208" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="214" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="239" r="17" fill="#eef2f6"/><use href="#d-ic-fader" x="16" y="227" width="24" height="24" color="#2f557f"/><text x="54" y="235" font-size="13.5" font-weight="800" fill="#22303d">Canal do PC em MUTE ou embaixo?</text><rect x="54" y="242" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="255" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="255" font-size="13" font-weight="700" fill="#1f7a6d">Tire o MUTE; suba o fader</text><path d="M28 265V280" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-pc-s)"/><text x="40" y="278" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="286" width="332" height="34" rx="17" fill="#eef2f6" stroke="#c6cfd9" stroke-width="1.5"/><text x="170" y="308" font-size="13" font-weight="800" fill="#22303d" text-anchor="middle">Nada? Confira o cabo de áudio do PC.</text></svg></figure>
+      <p>Como escolher a saída de som: <a href="#d6-volume">D6</a>. Teste outro vídeo para saber se o problema é só daquele.</p>
+    </details>
+    <details class="sintoma" id="d9-apito"><summary>Apito / microfonia</summary>
+      <figure class="ilus d-flow"><svg viewBox="0 0 340 324" role="img" aria-label="Está apitando agora? Se sim: Abaixe o fader já (ou o MASTER). Microfone virado para a caixa? Se sim: Afaste e vire para o outro lado. Microfones abertos sem uso? Se sim: Coloque em MUTE. A pessoa fala longe do microfone? Se sim: Peça: um palmo de distância. Volume um pouco mais baixo também ajuda." font-family="system-ui, sans-serif"><defs><marker id="d9-apito-s" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 10 5 0 10z" fill="#8d97a1"/></marker></defs><rect x="4" y="4" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="29" r="17" fill="#eef2f6"/><use href="#d-ic-fader" x="16" y="17" width="24" height="24" color="#2f557f"/><text x="54" y="25" font-size="13.5" font-weight="800" fill="#22303d">Está apitando agora?</text><rect x="54" y="32" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="45" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="45" font-size="13" font-weight="700" fill="#1f7a6d">Abaixe o fader já (ou o MASTER)</text><path d="M28 55V70" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-apito-s)"/><text x="40" y="68" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="74" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="99" r="17" fill="#eef2f6"/><use href="#d-ic-mic" x="16" y="87" width="24" height="24" color="#2f557f"/><text x="54" y="95" font-size="13.5" font-weight="800" fill="#22303d">Microfone virado para a caixa?</text><rect x="54" y="102" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="115" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="115" font-size="13" font-weight="700" fill="#1f7a6d">Afaste e vire para o outro lado</text><path d="M28 125V140" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-apito-s)"/><text x="40" y="138" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="144" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="169" r="17" fill="#eef2f6"/><use href="#d-ic-mute" x="16" y="157" width="24" height="24" color="#2f557f"/><text x="54" y="165" font-size="13.5" font-weight="800" fill="#22303d">Microfones abertos sem uso?</text><rect x="54" y="172" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="185" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="185" font-size="13" font-weight="700" fill="#1f7a6d">Coloque em MUTE</text><path d="M28 195V210" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-apito-s)"/><text x="40" y="208" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="214" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="239" r="17" fill="#eef2f6"/><use href="#d-ic-pessoa" x="16" y="227" width="24" height="24" color="#2f557f"/><text x="54" y="235" font-size="13.5" font-weight="800" fill="#22303d">A pessoa fala longe do microfone?</text><rect x="54" y="242" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="255" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="255" font-size="13" font-weight="700" fill="#1f7a6d">Peça: um palmo de distância</text><path d="M28 265V280" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-apito-s)"/><text x="40" y="278" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="286" width="332" height="34" rx="17" fill="#eef2f6" stroke="#c6cfd9" stroke-width="1.5"/><text x="170" y="308" font-size="13" font-weight="800" fill="#22303d" text-anchor="middle">Volume um pouco mais baixo também ajuda.</text></svg></figure>
+      <p>Tem caixa de retorno? Ela também apita: peça ajuda para abaixá-la. Para resolver de vez: <a href="#i8">I8</a>.</p>
+    </details>
+    <details class="sintoma" id="d9-zumbido"><summary>Zumbido ou chiado</summary>
+      <figure class="ilus d-flow"><svg viewBox="0 0 340 324" role="img" aria-label="Qual canal faz o ruído? Se sim: MUTE um a um até sumir. Cabo daquele canal mal encaixado? Se sim: Encaixe ou troque o cabo. Some ao tirar o carregador do PC? Se sim: Use o notebook na bateria. É o microfone sem fio? Se sim: Troque as pilhas. Nunca tire o pino de terra da tomada." font-family="system-ui, sans-serif"><defs><marker id="d9-zumbido-s" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 10 5 0 10z" fill="#8d97a1"/></marker></defs><rect x="4" y="4" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="29" r="17" fill="#eef2f6"/><use href="#d-ic-mute" x="16" y="17" width="24" height="24" color="#2f557f"/><text x="54" y="25" font-size="13.5" font-weight="800" fill="#22303d">Qual canal faz o ruído?</text><rect x="54" y="32" width="48" height="17" rx="8.5" fill="#1f7a6d"/><text x="78" y="45" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">FAÇA</text><text x="109" y="45" font-size="13" font-weight="700" fill="#1f7a6d">MUTE um a um até sumir</text><path d="M28 55V70" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-zumbido-s)"/><text x="40" y="68" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="74" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="99" r="17" fill="#eef2f6"/><use href="#d-ic-cabo" x="16" y="87" width="24" height="24" color="#2f557f"/><text x="54" y="95" font-size="13.5" font-weight="800" fill="#22303d">Cabo daquele canal mal encaixado?</text><rect x="54" y="102" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="115" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="115" font-size="13" font-weight="700" fill="#1f7a6d">Encaixe ou troque o cabo</text><path d="M28 125V140" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-zumbido-s)"/><text x="40" y="138" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="144" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="169" r="17" fill="#eef2f6"/><use href="#d-ic-pc" x="16" y="157" width="24" height="24" color="#2f557f"/><text x="54" y="165" font-size="13.5" font-weight="800" fill="#22303d">Some ao tirar o carregador do PC?</text><rect x="54" y="172" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="185" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="185" font-size="13" font-weight="700" fill="#1f7a6d">Use o notebook na bateria</text><path d="M28 195V210" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-zumbido-s)"/><text x="40" y="208" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="214" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="239" r="17" fill="#eef2f6"/><use href="#d-ic-pilha" x="16" y="227" width="24" height="24" color="#2f557f"/><text x="54" y="235" font-size="13.5" font-weight="800" fill="#22303d">É o microfone sem fio?</text><rect x="54" y="242" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="255" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="255" font-size="13" font-weight="700" fill="#1f7a6d">Troque as pilhas</text><path d="M28 265V280" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-zumbido-s)"/><text x="40" y="278" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="286" width="332" height="34" rx="17" fill="#fbe9e7" stroke="#d23c32" stroke-width="1.5"/><text x="170" y="308" font-size="13" font-weight="800" fill="#b3261e" text-anchor="middle">Nunca tire o pino de terra da tomada.</text></svg></figure>
+      <p>Afaste os cabos de áudio dos cabos de energia, se puder. Mais detalhes em <a href="#i17">I17</a>.</p>
+      <div class="box perigo"><b class="box-t">Cuidado</b><p>Nunca corte nem retire o pino de terra de uma tomada para “tirar o zumbido”. Ele protege as pessoas contra choque.</p></div>
+    </details>
+    <details class="sintoma" id="d9-telao"><summary>Telão sem imagem</summary>
+      <figure class="ilus d-flow"><svg viewBox="0 0 340 324" role="img" aria-label="Projetor ou TV desligado? Se sim: Ligue e espere 1 minuto. Aparece “sem sinal”? Se sim: SOURCE/INPUT: escolha o HDMI. Cabo ou adaptador solto? Se sim: Encaixe bem as duas pontas. Ainda nada no telão? Se sim: Win + P: escolha Duplicar. Nada? Tire o cabo, espere e ligue de novo." font-family="system-ui, sans-serif"><defs><marker id="d9-telao-s" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 10 5 0 10z" fill="#8d97a1"/></marker></defs><rect x="4" y="4" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="29" r="17" fill="#eef2f6"/><use href="#d-ic-power" x="16" y="17" width="24" height="24" color="#2f557f"/><text x="54" y="25" font-size="13.5" font-weight="800" fill="#22303d">Projetor ou TV desligado?</text><rect x="54" y="32" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="45" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="45" font-size="13" font-weight="700" fill="#1f7a6d">Ligue e espere 1 minuto</text><path d="M28 55V70" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-telao-s)"/><text x="40" y="68" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="74" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="99" r="17" fill="#eef2f6"/><use href="#d-ic-tela" x="16" y="87" width="24" height="24" color="#2f557f"/><text x="54" y="95" font-size="13.5" font-weight="800" fill="#22303d">Aparece “sem sinal”?</text><rect x="54" y="102" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="115" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="115" font-size="13" font-weight="700" fill="#1f7a6d">SOURCE/INPUT: escolha o HDMI</text><path d="M28 125V140" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-telao-s)"/><text x="40" y="138" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="144" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="169" r="17" fill="#eef2f6"/><use href="#d-ic-cabo" x="16" y="157" width="24" height="24" color="#2f557f"/><text x="54" y="165" font-size="13.5" font-weight="800" fill="#22303d">Cabo ou adaptador solto?</text><rect x="54" y="172" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="185" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="185" font-size="13" font-weight="700" fill="#1f7a6d">Encaixe bem as duas pontas</text><path d="M28 195V210" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-telao-s)"/><text x="40" y="208" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="214" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="239" r="17" fill="#eef2f6"/><use href="#d-ic-teclado" x="16" y="227" width="24" height="24" color="#2f557f"/><text x="54" y="235" font-size="13.5" font-weight="800" fill="#22303d">Ainda nada no telão?</text><rect x="54" y="242" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="255" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="255" font-size="13" font-weight="700" fill="#1f7a6d">Win + P: escolha Duplicar</text><path d="M28 265V280" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-telao-s)"/><text x="40" y="278" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="286" width="332" height="34" rx="17" fill="#eef2f6" stroke="#c6cfd9" stroke-width="1.5"/><text x="170" y="308" font-size="13" font-weight="800" fill="#22303d" text-anchor="middle">Nada? Tire o cabo, espere e ligue de novo.</text></svg></figure>
+      <p>No Win + P, não escolha “Somente tela do PC”.</p>
+    </details>
+    <details class="sintoma" id="d9-somhdmi"><summary>A imagem aparece, mas o som não sai pela igreja</summary>
+      <figure class="ilus d-flow"><svg viewBox="0 0 340 254" role="img" aria-label="Saída do Windows é o projetor/TV? Se sim: Escolha a saída da mesa. Canal do PC em MUTE ou embaixo? Se sim: Tire o MUTE; suba o fader. YouTube ou Windows baixos? Se sim: YouTube no máximo, Windows 80%. Quase sempre é o primeiro item." font-family="system-ui, sans-serif"><defs><marker id="d9-somhdmi-s" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 10 5 0 10z" fill="#8d97a1"/></marker></defs><rect x="4" y="4" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="29" r="17" fill="#eef2f6"/><use href="#d-ic-pc" x="16" y="17" width="24" height="24" color="#2f557f"/><text x="54" y="25" font-size="13.5" font-weight="800" fill="#22303d">Saída do Windows é o projetor/TV?</text><rect x="54" y="32" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="45" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="45" font-size="13" font-weight="700" fill="#1f7a6d">Escolha a saída da mesa</text><path d="M28 55V70" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-somhdmi-s)"/><text x="40" y="68" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="74" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="99" r="17" fill="#eef2f6"/><use href="#d-ic-fader" x="16" y="87" width="24" height="24" color="#2f557f"/><text x="54" y="95" font-size="13.5" font-weight="800" fill="#22303d">Canal do PC em MUTE ou embaixo?</text><rect x="54" y="102" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="115" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="115" font-size="13" font-weight="700" fill="#1f7a6d">Tire o MUTE; suba o fader</text><path d="M28 125V140" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-somhdmi-s)"/><text x="40" y="138" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="144" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="169" r="17" fill="#eef2f6"/><use href="#d-ic-som" x="16" y="157" width="24" height="24" color="#2f557f"/><text x="54" y="165" font-size="13.5" font-weight="800" fill="#22303d">YouTube ou Windows baixos?</text><rect x="54" y="172" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="185" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="185" font-size="13" font-weight="700" fill="#1f7a6d">YouTube no máximo, Windows 80%</text><path d="M28 195V210" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-somhdmi-s)"/><text x="40" y="208" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="216" width="332" height="34" rx="17" fill="#eef2f6" stroke="#c6cfd9" stroke-width="1.5"/><text x="170" y="238" font-size="13" font-weight="800" fill="#22303d" text-anchor="middle">Quase sempre é o primeiro item.</text></svg></figure>
+      <p>Trocar a saída: <a href="#d6-volume">D6</a>. Os volumes: <a href="#d7-volumes">D7</a>.</p>
+    </details>
+    <details class="sintoma" id="d9-semfio"><summary>Som cortando no microfone sem fio</summary>
+      <figure class="ilus d-flow"><svg viewBox="0 0 340 324" role="img" aria-label="Pilhas usadas? Se sim: Troque todas por novas. A pessoa está longe do receptor? Se sim: Chegue perto do receptor. Segura o microfone pela base? Se sim: Segure mais no meio. Antenas do receptor soltas? Se sim: Encaixe e deixe em pé. Nada? Use um microfone com fio." font-family="system-ui, sans-serif"><defs><marker id="d9-semfio-s" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 10 5 0 10z" fill="#8d97a1"/></marker></defs><rect x="4" y="4" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="29" r="17" fill="#eef2f6"/><use href="#d-ic-pilha" x="16" y="17" width="24" height="24" color="#2f557f"/><text x="54" y="25" font-size="13.5" font-weight="800" fill="#22303d">Pilhas usadas?</text><rect x="54" y="32" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="45" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="45" font-size="13" font-weight="700" fill="#1f7a6d">Troque todas por novas</text><path d="M28 55V70" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-semfio-s)"/><text x="40" y="68" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="74" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="99" r="17" fill="#eef2f6"/><use href="#d-ic-pessoa" x="16" y="87" width="24" height="24" color="#2f557f"/><text x="54" y="95" font-size="13.5" font-weight="800" fill="#22303d">A pessoa está longe do receptor?</text><rect x="54" y="102" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="115" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="115" font-size="13" font-weight="700" fill="#1f7a6d">Chegue perto do receptor</text><path d="M28 125V140" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-semfio-s)"/><text x="40" y="138" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="144" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="169" r="17" fill="#eef2f6"/><use href="#d-ic-mic" x="16" y="157" width="24" height="24" color="#2f557f"/><text x="54" y="165" font-size="13.5" font-weight="800" fill="#22303d">Segura o microfone pela base?</text><rect x="54" y="172" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="185" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="185" font-size="13" font-weight="700" fill="#1f7a6d">Segure mais no meio</text><path d="M28 195V210" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-semfio-s)"/><text x="40" y="208" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="214" width="332" height="50" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><circle cx="28" cy="239" r="17" fill="#eef2f6"/><use href="#d-ic-alerta" x="16" y="227" width="24" height="24" color="#2f557f"/><text x="54" y="235" font-size="13.5" font-weight="800" fill="#22303d">Antenas do receptor soltas?</text><rect x="54" y="242" width="36" height="17" rx="8.5" fill="#1f7a6d"/><text x="72" y="255" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">SIM</text><text x="97" y="255" font-size="13" font-weight="700" fill="#1f7a6d">Encaixe e deixe em pé</text><path d="M28 265V280" stroke="#8d97a1" stroke-width="2.5" marker-end="url(#d9-semfio-s)"/><text x="40" y="278" font-size="12" font-weight="800" fill="#55606d">não</text><rect x="4" y="286" width="332" height="34" rx="17" fill="#eef2f6" stroke="#c6cfd9" stroke-width="1.5"/><text x="170" y="308" font-size="13" font-weight="800" fill="#22303d" text-anchor="middle">Nada? Use um microfone com fio.</text></svg></figure>
+      <p>Celular encostado no receptor também atrapalha.</p>
+    </details>
     <h3 id="d9-ajuda">Quando chamar ajuda</h3>
-    <ul>
-      <li>Cheiro de queimado, faísca ou fumaça: desligue na régua e chame o responsável na hora.</li>
-      <li>Passaram 2 ou 3 minutos e você não resolveu: ligue ou mande mensagem para o responsável. Enquanto isso, use o que funciona (outro microfone, sem o vídeo).</li>
-      <li>Nunca abra aparelhos nem mexa em fiação elétrica.</li>
-    </ul>
+    <ul class="d-lista"><li class="d-perigo"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-alerta"/></svg><span>Fumaça ou cheiro de queimado? <b>Desligue a régua</b> e chame o responsável.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-relogio"/></svg><span>2 ou 3 minutos sem resolver? <b>Ligue para o responsável</b>. Enquanto isso, use o que funciona.</span></li><li class="d-perigo"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-power"/></svg><span><b>Nunca abra</b> aparelhos nem mexa na fiação.</span></li></ul>
   </section>
 
   <section class="cap" id="d10">
     <h2><span class="cod">D10</span> Ao terminar: desligar e guardar</h2>
-    <p class="resumo">Desligar na ordem inversa, guardar com cuidado e deixar tudo como encontrou.</p>
+    <div class="d-10s"><b class="d-10s-t">Em 10 segundos</b><ul><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-fader"/></svg><span>Abaixe <b>tudo</b>.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-caixa"/></svg><span>Desligue as <b>caixas primeiro</b>.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-pilha"/></svg><span><b>Tire as pilhas</b>.</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#d-ic-papel"/></svg><span>Deixe um <b>bilhete</b>.</span></li></ul></div>
     <h3 id="d10-ordem">Desligar na ordem</h3>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 134" role="img" aria-label="Ordem de desligar: 1 abaixe o volume, 2 caixas primeiro, 3 mesa, 4 computador e receptor, 5 régua por último" font-family="system-ui, sans-serif">
+        <defs><marker id="d10-seta" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 10 5 0 10z" fill="#8d97a1"/></marker></defs>
+        <g fill="#fff" stroke="#c6cfd9" stroke-width="1.5"><rect x="2" y="8" width="60" height="64" rx="10"/><rect x="138" y="8" width="60" height="64" rx="10"/><rect x="206" y="8" width="60" height="64" rx="10"/><rect x="274" y="8" width="60" height="64" rx="10"/></g>
+        <rect x="70" y="8" width="60" height="64" rx="10" fill="#f8e1df" stroke="#d23c32" stroke-width="2"/>
+        <g color="#2f557f"><use href="#d-ic-mute" x="18" y="28" width="28" height="28"/><use href="#d-ic-caixa" x="86" y="28" width="28" height="28" color="#b3261e"/><use href="#d-ic-fader" x="154" y="28" width="28" height="28"/><use href="#d-ic-pc" x="222" y="28" width="28" height="28"/><use href="#d-ic-power" x="290" y="28" width="28" height="28"/></g>
+        <g fill="#1f7a6d"><circle cx="12" cy="18" r="8"/><circle cx="148" cy="18" r="8"/><circle cx="216" cy="18" r="8"/><circle cx="284" cy="18" r="8"/></g><circle cx="80" cy="18" r="8" fill="#d23c32"/>
+        <g font-size="12" font-weight="800" fill="#fff" text-anchor="middle"><text x="12" y="22">1</text><text x="80" y="22">2</text><text x="148" y="22">3</text><text x="216" y="22">4</text><text x="284" y="22">5</text></g>
+        <g font-size="13" font-weight="800" fill="#22303d" text-anchor="middle"><text x="32" y="92">Abaixe</text><text x="100" y="92">Caixas</text><text x="168" y="92">Mesa</text><text x="236" y="92">PC</text><text x="304" y="92">Régua</text></g>
+        <g font-size="12" fill="#55606d" text-anchor="middle"><text x="32" y="108">o volume</text><text x="100" y="108" fill="#b3261e" font-weight="800">primeiro!</text><text x="168" y="108">depois</text><text x="236" y="108">e receptor</text><text x="304" y="108">por último</text></g>
+        <path d="M20 124H316" stroke="#8d97a1" stroke-width="2" marker-end="url(#d10-seta)"/>
+      </svg>
+      <figcaption>O contrário de ligar (<a href="#d3">D3</a>): as caixas saem primeiro.</figcaption>
+    </figure>
     <ol class="passos">
       <li>Abaixe o MASTER e os faders.</li>
-      <li>Desligue <b>primeiro o amplificador ou as caixas ativas</b>.</li>
-      <li>Depois os processadores (se houver) e a mesa.</li>
-      <li>Depois as fontes: receptores sem fio, instrumentos e o computador (pelo menu Iniciar → Desligar).</li>
+      <li>Desligue <b>as caixas</b> (ou o amplificador).</li>
+      <li>Desligue a mesa.</li>
+      <li>Desligue os receptores e o computador (Iniciar → Desligar).</li>
       <li>Por último, a régua ou o estabilizador.</li>
     </ol>
     <h3 id="d10-guardar">Guardar</h3>
-    <ul>
-      <li>Desligue os microfones sem fio e <b>tire as pilhas</b> (pilha esquecida vaza e estraga o microfone).</li>
-      <li>Guarde os microfones no estojo ou no lugar combinado.</li>
-      <li>Enrole os cabos em voltas largas, <b>sem dobrar nem dar nó</b>, e prenda com velcro ou fita.</li>
-      <li>Deixe a mesa como encontrou (compare com a foto que você tirou).</li>
-    </ul>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 172" role="img" aria-label="1 tire as pilhas do microfone sem fio; 2 guarde o microfone no estojo. Pilha esquecida vaza e estraga o microfone" font-family="system-ui, sans-serif">
+        <defs><marker id="d10-seta-a" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 10 5 0 10z" fill="#2f557f"/></marker></defs>
+        <text x="10" y="22" font-size="14" font-weight="800" fill="#2f557f">1. Tire as pilhas</text>
+        <circle cx="40" cy="70" r="22" fill="#8d97a1" stroke="#3a3f45" stroke-width="2"/><path d="M60 57L186 62V78L60 83Z" fill="#3a3f45"/><rect x="186" y="62" width="5" height="16" fill="#8d97a1"/>
+        <rect x="198" y="64" width="30" height="20" rx="4" fill="#3a3f45" transform="rotate(25 213 74)"/>
+        <path d="M196 56C206 36 224 32 240 38" stroke="#2f557f" stroke-width="2.5" fill="none" marker-end="url(#d10-seta-a)"/>
+        <g fill="#c9a227"><rect x="248" y="28" width="52" height="16" rx="3"/><rect x="248" y="50" width="52" height="16" rx="3"/></g><g fill="#b8c0c8"><rect x="300" y="32" width="5" height="8" rx="1"/><rect x="300" y="54" width="5" height="8" rx="1"/></g>
+        <text x="10" y="128" font-size="14" font-weight="800" fill="#2f557f">2. Guarde no estojo</text>
+        <path d="M158 122H194" stroke="#2f557f" stroke-width="2.5" marker-end="url(#d10-seta-a)"/>
+        <rect x="200" y="96" width="130" height="48" rx="8" fill="#3a3f45"/><rect x="212" y="113" width="90" height="14" rx="7" fill="#22303d"/><circle cx="310" cy="120" r="9" fill="#22303d"/>
+        <text x="10" y="164" font-size="12" fill="#55606d">Pilha esquecida vaza e estraga o microfone.</text>
+      </svg>
+      <figcaption>Microfone com fio: só guarde no lugar combinado.</figcaption>
+    </figure>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 190" role="img" aria-label="Faça: enrole o cabo em voltas largas e prenda com velcro. Não faça: dobrar o cabo ou dar nó" font-family="system-ui, sans-serif">
+        <rect x="4" y="4" width="162" height="182" rx="10" fill="#e3f1e8" stroke="#3aa35b" stroke-width="2"/><rect x="174" y="4" width="162" height="182" rx="10" fill="#fbe9e7" stroke="#d23c32" stroke-width="2"/>
+        <text x="85" y="27" font-size="15" font-weight="800" fill="#2e7d4f" text-anchor="middle">✓ Faça</text><text x="255" y="27" font-size="15" font-weight="800" fill="#b3261e" text-anchor="middle">✗ Não faça</text>
+        <g fill="none" stroke="#3a3f45" stroke-width="3"><ellipse cx="85" cy="90" rx="40" ry="34"/><ellipse cx="88" cy="91" rx="35" ry="30"/><ellipse cx="82" cy="89" rx="44" ry="37"/></g>
+        <path d="M44 104C30 120 26 128 20 132" stroke="#3a3f45" stroke-width="3" fill="none"/><rect x="12" y="130" width="14" height="9" rx="2" fill="#3a3f45"/>
+        <rect x="80" y="50" width="12" height="80" rx="3" fill="#1f7a6d"/>
+        <path d="M188 128L220 68L238 124L262 62L278 110C300 140 322 92 292 92C270 94 300 132 324 122" stroke="#3a3f45" stroke-width="3" fill="none" stroke-linejoin="miter"/>
+        <g fill="none" stroke="#d23c32" stroke-width="2.5"><circle cx="220" cy="68" r="9"/><circle cx="262" cy="62" r="9"/><circle cx="294" cy="108" r="14"/></g>
+        <g font-size="13" font-weight="800" fill="#22303d" text-anchor="middle"><text x="85" y="160">Voltas largas,</text><text x="255" y="160">Não dobre</text></g>
+        <g font-size="12" fill="#55606d" text-anchor="middle"><text x="85" y="178">prenda com velcro</text><text x="255" y="178">nem dê nó</text></g>
+      </svg>
+      <figcaption>Dobra e nó quebram o fio por dentro: o cabo passa a falhar.</figcaption>
+    </figure>
+    <p>Deixe a mesa como encontrou: compare com a foto que você tirou.</p>
     <h3 id="d10-anotar">Anotar e avisar</h3>
-    <p>Anote o que deu problema (pilha fraca, cabo com mau contato, canal com chiado) e avise o responsável. Isso ajuda o próximo sonoplasta.</p>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 196" role="img" aria-label="Bilhete para o responsável do som: pilha fraca no microfone 2, chiado no canal do púlpito, tudo desligado e guardado, e a assinatura" font-family="system-ui, sans-serif">
+        <g transform="rotate(-2 170 98)">
+          <path d="M36 12H304V164L280 188H36Z" fill="#efe0b0"/><path d="M280 188L304 164H280Z" fill="#d9c78f"/>
+          <rect x="140" y="4" width="60" height="16" fill="#fff" opacity=".75"/>
+          <text x="54" y="44" font-size="14" font-weight="800" fill="#22303d">Para: responsável do som</text>
+          <g font-size="13" fill="#22303d"><text x="54" y="74">• Pilha fraca no mic 2</text><text x="54" y="98">• Chiado no canal do púlpito</text><text x="54" y="122">• Tudo desligado e guardado ✓</text></g>
+          <text x="54" y="160" font-size="13" fill="#55606d">Assinado: ____________</text>
+        </g>
+      </svg>
+      <figcaption>Um bilhete (ou mensagem) ajuda o próximo sonoplasta.</figcaption>
+    </figure>
+    <p>Anote o que deu problema (pilha fraca, cabo falhando, canal com chiado) e avise o responsável.</p>
   </section>
 
   <section class="cap" id="d11">
     <h2><span class="cod">D11</span> Ficha de bolso (lista para marcar)</h2>
     <p class="resumo">Marque cada item. As marcações ficam salvas neste aparelho.</p>
+    <figure class="ilus">
+      <svg viewBox="0 0 340 112" role="img" aria-label="Três grupos: antes, chegar e testar; durante, atento à mesa; depois, desligar tudo" font-family="system-ui, sans-serif">
+        <g fill="#fff" stroke="#c6cfd9" stroke-width="1.5"><rect x="4" y="4" width="106" height="104" rx="10"/><rect x="117" y="4" width="106" height="104" rx="10"/><rect x="230" y="4" width="106" height="104" rx="10"/></g>
+        <g fill="#1f7a6d"><circle cx="57" cy="38" r="24"/><circle cx="170" cy="38" r="24"/><circle cx="283" cy="38" r="24"/></g>
+        <g color="#fff"><use href="#d-ic-relogio" x="43" y="24" width="28" height="28"/><use href="#d-ic-mic" x="156" y="24" width="28" height="28"/><use href="#d-ic-power" x="269" y="24" width="28" height="28"/></g>
+        <g font-size="15" font-weight="800" fill="#22303d" text-anchor="middle"><text x="57" y="84">Antes</text><text x="170" y="84">Durante</text><text x="283" y="84">Depois</text></g>
+        <g font-size="12" fill="#55606d" text-anchor="middle"><text x="57" y="101">chegar e testar</text><text x="170" y="101">atento à mesa</text><text x="283" y="101">desligar tudo</text></g>
+      </svg>
+    </figure>
     <h3 id="d11-antes">Antes do culto</h3>
     <ul class="check">
       <li><label><input type="checkbox"><span>Cheguei 30–40 min antes e sei quem é o responsável</span></label></li>
@@ -938,6 +1308,26 @@
     </ul>
     <p class="nao-imprime"><button type="button" class="btn" id="limpar-marcas" hidden>↺ Limpar marcações</button></p>
   </section>
+
+  <svg class="d-sprite" aria-hidden="true" focusable="false">
+    <symbol id="d-ic-relogio" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></g></symbol>
+    <symbol id="d-ic-pessoa" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.5 4.5-6.5 8-6.5s7 2 8 6.5"/></g></symbol>
+    <symbol id="d-ic-papel" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M9 11h7M9 15h7M9 19h4"/></g></symbol>
+    <symbol id="d-ic-mic" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="8.5" y="2.5" width="7" height="12" rx="3.5"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3.5M8.5 21.5h7"/></g></symbol>
+    <symbol id="d-ic-caixa" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2"><rect x="5" y="2.5" width="14" height="19" rx="2"/><circle cx="12" cy="14.5" r="3.8"/><circle cx="12" cy="6.8" r="1.4"/></g></symbol>
+    <symbol id="d-ic-power" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v8"/><path d="M7 6.5a7.5 7.5 0 1 0 10 0"/></g></symbol>
+    <symbol id="d-ic-fader" viewBox="0 0 24 24"><g stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M7 3v18M17 3v18"/><rect x="4" y="12" width="6" height="4" rx="1" fill="currentColor"/><rect x="14" y="6" width="6" height="4" rx="1" fill="currentColor"/></g></symbol>
+    <symbol id="d-ic-pilha" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"><rect x="7" y="5" width="10" height="17" rx="2"/><path d="M10 2.5h4V5h-4z"/><path d="M12 10v6M9 13h6"/></g></symbol>
+    <symbol id="d-ic-pc" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M2 20h20"/></g></symbol>
+    <symbol id="d-ic-tela" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3" width="19" height="13" rx="1"/><path d="M12 16v4M8 21h8"/><path d="M10 7.5v5l4-2.5z" fill="currentColor"/></g></symbol>
+    <symbol id="d-ic-alerta" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 22 20H2z"/><path d="M12 9.5v4.5M12 17.2v.3"/></g></symbol>
+    <symbol id="d-ic-mute" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5h4l5-4.5v14l-5-4.5H3z"/><path d="M16 9l5 6M21 9l-5 6"/></g></symbol>
+    <symbol id="d-ic-som" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5h4l5-4.5v14l-5-4.5H3z"/><path d="M16 8.5a5 5 0 0 1 0 7M19 5.5a9 9 0 0 1 0 13"/></g></symbol>
+    <symbol id="d-ic-cabo" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="12" r="7.5"/><circle cx="11" cy="12" r="4"/><path d="M18.5 12h3.5"/></g></symbol>
+    <symbol id="d-ic-olho" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></g></symbol>
+    <symbol id="d-ic-teclado" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></g></symbol>
+    <symbol id="d-ic-chave" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="7.5" cy="12" r="4.5"/><path d="M12 12h10M18 12v3.5M21 12v2.5"/></g></symbol>
+  </svg>
 </div>
 
 <!-- ================================================================ TRILHA 2 -->

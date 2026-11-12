@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o guia de sonoplastia: "Por um dia" para leigos (sem versão nova; só `site/` e docs)** — a trilha de emergência ficou mais simples e mais visual: de 6 para 40 ilustrações, um bloco "Em 10 segundos" por capítulo, pares Faça/Não faça e o socorro rápido em fluxogramas sim/não
 - **o guia de sonoplastia (sem versão nova; só `site/` e docs)** — página nova `sonoplastia/`: duas trilhas (Sonoplasta por um dia, D0–D11; Sonoplasta em tempo integral, I0–I18), 43 ilustrações, índice com busca, e três seções "em breve" (D0, I0 e Perguntas)
 - **o cartão do link, desenhado (sem versão nova; só `site/`)** — o print sobre branco virou cartão em degradê denim: tipografia com peso e cor, onda sonora como régua, fichas de vidro e o telefone na moldura do site; o `og:image` ganhou `?v=` para a prévia velha parar de circular
 - **a economia de sessão vira regra (sem versão nova; só `docs/`)** — os três tetos (150 chamadas, 10 kB de saída de ferramenta, o trecho em vez do arquivo), a rotina do pacote e a curva medida em 2.131 chamadas: 90% do custo é cache e o passo depois da 400ª custa 5,6× o da primeira
@@ -692,6 +693,19 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## o guia de sonoplastia: "Por um dia" para leigos (sem versão nova; só `site/` e docs)
+
+Pedido do operador: a trilha "Sonoplasta por um dia" é para EMERGÊNCIA, não
+uma introdução à sonoplastia — *"ilustrações são de mais rápida compreensão,
+então é ideal para sonoplasta de urgência"*. A trilha saiu de 6 para 40
+ilustrações; cada capítulo de D1 a D10 abre com "Em 10 segundos"; os botões
+(MUTE, FADER, MASTER…) aparecem desenhados; a teoria saiu (fica na trilha
+integral); o D9 virou fluxogramas sim/não com os mesmos `id`. Códigos, títulos
+e a lista da Ficha de bolso ficaram iguais (as marcações salvas continuam
+valendo).
 
 ---
 
