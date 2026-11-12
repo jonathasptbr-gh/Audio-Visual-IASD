@@ -44,7 +44,7 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **10** — Configurações e Ferramentas: o editor e o tile | 4 (I2×U2) | pedido | só web |
 | **12** — Limpeza e otimização do repositório (residual) | 2 (I2×U1) | pedido | só docs |
 | **13** — Estudos (não são fila de execução) | — | estudo | nenhuma entrega |
-| **14** — Guia de sonoplastia: as seções que faltam | 4 (I2×U2) | pedido | só `site/` |
+| **14** — Guia de sonoplastia: Perguntas e respostas | 4 (I2×U2) | pedido | só `site/` |
 
 ---
 
@@ -347,13 +347,21 @@ quiser só a paisagem, ela é um lote de web — e não espera o estudo do Windo
 
 ---
 
-## Pacote 14 — Guia de sonoplastia: as seções que faltam
+## Pacote 14 — Guia de sonoplastia: Perguntas e respostas
 
-A página `site/sonoplastia/` (Guia de sonoplastia IASD) saiu em 2026-11-11 com
-três lugares marcados como **"Em breve"**, por pedido do operador:
+A página `site/sonoplastia/` (Guia de sonoplastia IASD) saiu em 2026-11-11.
+A introdução sobre a santidade do serviço (D0 e I0) entrou em 2026-11-12 com o
+texto do operador; resta um lugar marcado como **"Em breve"**:
 
 | hora | pedido | onde fica |
 |---|---|---|
+| 2026-11-11 | *"Futuramente teremos uma seção de perguntas e respostas"* | `#perguntas`, no fim da página; as perguntas citam os códigos D/I |
+
+Ao entrar, troca-se a caixa `.box.embreve` pelo conteúdo, tira-se o selo "em
+breve" do item no índice estático, e o índice se refaz sozinho a partir dos
+`h3[id]`.
+
+---|---|---|
 | 2026-11-11 | *"futuramente teremos uma seção introdutória para a correlação entre a santidade do trabalho e suas responsabilidades e objetivos como sonoplastia… no início, sendo maior no sonoplasta em tempo integral, e apenas um breve paragrafo no sonoplasta por um dia"* | **I0** (seção maior) e **D0** (um parágrafo) — os dois abrem as trilhas |
 | 2026-11-11 | *"Futuramente teremos uma seção de perguntas e respostas"* | `#perguntas`, no fim da página; as perguntas citam os códigos D/I |
 

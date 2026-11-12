@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o guia de sonoplastia: a introdução (sem versão nova; só `site/` e docs)** — D0 ("O objetivo de hoje") e I0 (três partes sobre excelência, discrição e o poder da mensagem) com o texto do operador; resta "em breve" só nas Perguntas
 - **o guia de sonoplastia: "Por um dia" para leigos (sem versão nova; só `site/` e docs)** — a trilha de emergência ficou mais simples e mais visual: de 6 para 40 ilustrações, um bloco "Em 10 segundos" por capítulo, pares Faça/Não faça e o socorro rápido em fluxogramas sim/não
 - **o guia de sonoplastia (sem versão nova; só `site/` e docs)** — página nova `sonoplastia/`: duas trilhas (Sonoplasta por um dia, D0–D11; Sonoplasta em tempo integral, I0–I18), 43 ilustrações, índice com busca, e três seções "em breve" (D0, I0 e Perguntas)
 - **o cartão do link, desenhado (sem versão nova; só `site/`)** — o print sobre branco virou cartão em degradê denim: tipografia com peso e cor, onda sonora como régua, fichas de vidro e o telefone na moldura do site; o `og:image` ganhou `?v=` para a prévia velha parar de circular
@@ -693,6 +694,18 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## o guia de sonoplastia: a introdução (sem versão nova; só `site/` e docs)
+
+O operador mandou os dois textos que ocupam os lugares "em breve" do início das
+trilhas: **D0** — "O objetivo de hoje", curto, para quem assume de última hora
+(pode mutar, apagar a tela, desligar: tirar o equipamento de cena é servir) — e
+**I0** — "Excelência oferecida a Deus", "Primeiro não atrapalhar, depois
+aprimorar" e "O poder está na mensagem". Texto verbatim; só a formatação é
+nossa (subtítulos com `id`, parágrafos quebrados, uma frase-chave em caixa em
+cada um). O Pacote 14 fica só com as Perguntas e respostas.
 
 ---
 
