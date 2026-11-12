@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.3** — o tour em ORDEM VISUAL (`ordenar()` no `tour.js`, medida ao abrir: faixas por centro vertical com tolerância max(24 px, metade do menor), esquerda→direita; `abertura`/`fecho` fixos, peça fora de vista no fim) e todos os textos revistos (título = rótulo da tela; o que é, para que serve, como usar); oráculo J; só web.
 - **v1.14.2** — o "Guia de sonoplastia" abre DENTRO do app: `abrirGuia` (shell 87), `GuiaSomDialog` em tela cheia sobre a Activity com WebView SEM ponte, cerca `https` + host do site (`GuiaSom.urlDoGuia`, JUnit); casco antigo cai no `openExternal`; `minShell` 83, `shellTag` v1.14.2; APK + web.
 - **v1.14.1** — tours de SEÇÃO (cada janela, folha e gaveta se explica na primeira abertura; o "Tour do app" zera as do modo), o tour do Fácil TOCANDO (letra e teclas) e o halo azul no recorte; guia dentro do app recusado (iframe furaria a invariante 2); só web.
 - **v1.14.0** — o tour guiado: um por estado da tela (conexão com a cortina do Fácil, controles do Fácil, avançado completo), automático uma vez e nunca por cima de diálogo; botões "Tour do app" e "Guia de sonoplastia" (`#dia` no Fácil) em Configurações; só web.
@@ -703,6 +704,44 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.14.3 — o tour em ordem visual e os textos revistos
+
+**Pedido do operador:** o tour "pulava pela tela sem lógica" e vários balões eram
+confusos. Só web (sem Kotlin, sem `SHELL_VERSION`; a Release v1.14.2 já existe,
+então o `version.json` sai sem `shellTag`).
+
+- **Ordem visual em tempo de execução** (`ordenar()`, chamada no `abrir()` depois do
+  filtro dos `opcional`): os passos medidos pelo `getBoundingClientRect` vão de cima
+  para baixo; centros verticais encadeados a até max(`LINHA_PX` = 24, metade da
+  altura do menor) formam uma FAIXA, ordenada por `left`. Fixos: `abertura` (a
+  moldura que apresenta a tela: `#simpleConn`, `#library`, `#bibleBody`,
+  `#histSecao`, `#testeCorpo`, a folha da Playlist e a da Letra) no começo;
+  `fecho` (sem alvo) no fim; peça fora de vista (balão central) no fim, antes do
+  fecho, na ordem declarada. A pílula do volume ordena pela caixa que ocupa
+  escondida (`visibility`), porque o próprio passo a mostra. Nenhum tour precisou
+  de ordem estática.
+- **O fecho virou passo próprio** (`FIM`, "Tour do app", balão central) nos tours
+  `simples` e `avancado` — antes era a cauda do texto de Configurações, que agora
+  pode cair no meio do tour.
+- **Textos revistos todos:** título = o nome na tela (Preenchimento, Wallpaper,
+  Girar no telão, Refazer, Compartilhar registro, Legenda, + Nova mensagem…);
+  corpo com verbo de ação e o detalhe não óbvio, conferido no código (o
+  Cronograma: toque projeta, segurar arrasta; o Baixar cancela durante o
+  download; Exportar vira compartilhar; o computador recebe por endereço no mesmo
+  Wi-Fi; o sorteio do Fácil já toca; o mudo na pílula).
+- **Seletores mortos consertados:** `GUARDAR` e as opções do Relógio apontavam
+  para `#toolsBody`, mas a linha deles mora no `#toolsFoot` (irmão) — os passos
+  nunca apareciam. O Sorteio ganhou o passo da lista de opções (`textarea.draw-pool`).
+- **API:** `AVTour.passoAtual()` (o oráculo mede o passo NA ORDEM mostrada) e
+  `AVTour.LINHA_PX`.
+- **Oráculo:** `tour.test.mjs` bloco J — 30 tours por tela (Fácil: conexão,
+  controles, tocando e as 7 seções dos dois modos; avançado: o principal e as 20
+  seções que abrem nele), a 390×860 e a 360×640: a faixa não volta para cima e,
+  nela, o `left` não volta. Reversão: com `ordenar()` devolvendo a ordem
+  declarada, o J reprova.
 
 ---
 
