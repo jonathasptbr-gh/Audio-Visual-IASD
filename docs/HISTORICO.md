@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o guia de sonoplastia (sem versão nova; só `site/` e docs)** — página nova `sonoplastia/`: duas trilhas (Sonoplasta por um dia, D0–D11; Sonoplasta em tempo integral, I0–I18), 43 ilustrações, índice com busca, e três seções "em breve" (D0, I0 e Perguntas)
 - **o cartão do link, desenhado (sem versão nova; só `site/`)** — o print sobre branco virou cartão em degradê denim: tipografia com peso e cor, onda sonora como régua, fichas de vidro e o telefone na moldura do site; o `og:image` ganhou `?v=` para a prévia velha parar de circular
 - **a economia de sessão vira regra (sem versão nova; só `docs/`)** — os três tetos (150 chamadas, 10 kB de saída de ferramenta, o trecho em vez do arquivo), a rotina do pacote e a curva medida em 2.131 chamadas: 90% do custo é cache e o passo depois da 400ª custa 5,6× o da primeira
 - **o painel sem texto (sem versão nova; só `site/`)** — a página perdeu os parágrafos de explicação: ficaram os dois números, o gráfico e uma linha de legenda ("menos 1: o aparelho de quem publica")
@@ -691,6 +692,32 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## o guia de sonoplastia (sem versão nova; só `site/` e docs)
+
+**PÁGINA NOVA, `site/sonoplastia/`**, ligada pelo rodapé da principal ("Guia
+de sonoplastia"). Pedido do operador: um guia básico e genérico de
+sonoplastia — cabos, aparelhos, som, regulagens, teoria e prática —, pensado
+para o celular, em duas categorias:
+
+- **Sonoplasta por um dia (D0–D11)** — o roteiro de quem substitui numa
+  emergência: ordem do dia, reconhecer o equipamento, ligar e desligar na ordem,
+  testar, volume com cuidado, Windows básico, YouTube no telão, socorro rápido e
+  a ficha de bolso marcável (as marcações ficam no aparelho).
+- **Sonoplasta em tempo integral (I0–I18)** — som, caminho do sinal, cabos e
+  conectores (P10/P2/P1, XLR, RCA, Speakon, HDMI, VGA, USB lado a lado em escala
+  aproximada), microfones, mesa, ganho, EQ, microfonia, retorno, dinâmica, caixas,
+  computador, projeção, transmissão, rotina, manutenção, diagnóstico e glossário.
+
+**O ÍNDICE É A FERRAMENTA DE AULA:** códigos D/I fixos (o toque no código copia o
+link do capítulo), busca sem acento que acha capítulo, subtítulo e sintoma, e
+rodapé anterior/próximo em cada capítulo. Um HTML só, sem dependência, com as
+ilustrações em SVG inline.
+
+**FICOU "EM BREVE"** — a introdução sobre a santidade do serviço (D0 curta, I0
+maior) e as Perguntas e respostas: Pacote 14 da fila.
 
 ---
 

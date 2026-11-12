@@ -44,6 +44,7 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **10** — Configurações e Ferramentas: o editor e o tile | 4 (I2×U2) | pedido | só web |
 | **12** — Limpeza e otimização do repositório (residual) | 2 (I2×U1) | pedido | só docs |
 | **13** — Estudos (não são fila de execução) | — | estudo | nenhuma entrega |
+| **14** — Guia de sonoplastia: as seções que faltam | 4 (I2×U2) | pedido | só `site/` |
 
 ---
 
@@ -343,6 +344,22 @@ laterais. Riscos: a escada de camadas, as folhas que "não mudam de tamanho entr
 estados", e os oráculos geométricos medidos só em retrato (cada um ganha a célula
 de paisagem). Liberar a rotação no Android é Release; o CSS é OTA. Se o operador
 quiser só a paisagem, ela é um lote de web — e não espera o estudo do Windows.
+
+---
+
+## Pacote 14 — Guia de sonoplastia: as seções que faltam
+
+A página `site/sonoplastia/` (Guia de sonoplastia IASD) saiu em 2026-11-11 com
+três lugares marcados como **"Em breve"**, por pedido do operador:
+
+| hora | pedido | onde fica |
+|---|---|---|
+| 2026-11-11 | *"futuramente teremos uma seção introdutória para a correlação entre a santidade do trabalho e suas responsabilidades e objetivos como sonoplastia… no início, sendo maior no sonoplasta em tempo integral, e apenas um breve paragrafo no sonoplasta por um dia"* | **I0** (seção maior) e **D0** (um parágrafo) — os dois abrem as trilhas |
+| 2026-11-11 | *"Futuramente teremos uma seção de perguntas e respostas"* | `#perguntas`, no fim da página; as perguntas citam os códigos D/I |
+
+O texto espiritual é do operador (ou de quem ele indicar) — não se escreve sem
+ele. Ao entrar, troca-se a caixa `.box.embreve` pelo conteúdo; o índice se
+refaz sozinho a partir dos `h3[id]`.
 
 ---
 
