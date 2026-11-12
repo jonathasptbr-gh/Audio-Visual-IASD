@@ -301,13 +301,70 @@ try {
     const b = await loc.boundingBox();
     return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
   };
+  // O RASTRO (v1.13.69): o bloco D reprovou DUAS vezes no CI com a lista sumindo (`tela: []`) e
+  // nunca aqui, nem com a CPU 10× mais lenta. Sem reprodução local, o oráculo carrega a própria
+  // prova: quem fechou, limpou ou redesenhou a Biblioteca, e onde caiu cada toque — impresso só
+  // quando o bloco D reprova.
+  await pg.evaluate(() => {
+    window.__rastro = [];
+    const t0 = performance.now();
+    const anota = (txt) => { if (window.__rastro.length < 120) window.__rastro.push(Math.round(performance.now() - t0) + 'ms ' + txt); };
+    const pilha = () => (new Error().stack || '').split('\n').slice(3, 7)
+      .map((l) => l.trim().replace(/^at /, '').replace(/\(?https?:\/\/[^)\s]*\/([\w.-]+\.js):(\d+):\d+\)?/, '$1:$2')).join(' ← ');
+    for (const nome of ['closeHymnSearch', 'resetarBiblioteca', 'redesenharFavoritosNaBiblioteca',
+      'renderSearchResults', 'renderCollectionsNow', 'load']) {
+      const f = window[nome];
+      if (typeof f !== 'function') continue;
+      window[nome] = function (...a) { anota(nome + ' ← ' + pilha()); return f.apply(this, a); };
+    }
+    const quem = (el) => (el && el.closest ? (el.closest('[class]') || el) : el);
+    const rot = (el) => (el ? (el.tagName + '.' + String(el.className || '').trim().split(/\s+/).slice(0, 3).join('.')).slice(0, 70) : '—');
+    for (const tipo of ['pointerdown', 'pointerup', 'click']) {
+      document.addEventListener(tipo, (e) => anota(tipo + ' em ' + rot(quem(e.target)) + ' @' + Math.round(e.clientX) + ',' + Math.round(e.clientY)), true);
+    }
+    new MutationObserver(() => anota('popup ' + (hymnSearchPopupEl.classList.contains('open') ? 'aberto' : 'FECHADO')))
+      .observe(hymnSearchPopupEl, { attributes: true, attributeFilter: ['class'] });
+  });
+  const despejarRastro = async (por) => {
+    const r = await pg.evaluate((s) => {
+      const fav = document.querySelector('#hymnResults .coll-group--fav');
+      return { popup: hymnSearchPopupEl.classList.contains('open'), favGrupo: fav ? fav.className : null,
+        linhas: document.querySelectorAll(s).length, scrollTop: hymnResultsEl.scrollTop,
+        filhos: [...hymnResultsEl.children].map((c) => String(c.className).split(' ')[0]).slice(0, 8),
+        rastro: window.__rastro || [] };
+    }, linhas);
+    console.log('RASTRO (' + por + '): ' + JSON.stringify({ ...r, rastro: undefined }));
+    for (const l of r.rastro) console.log('  · ' + l);
+  };
+  // As linhas PARADAS: a mesma posição em três quadros seguidos (uma exclusão anterior anima a
+  // placa, e uma medida no meio dela apertaria a linha errada — ou o cabeçalho do grupo).
+  const linhasParadas = () => pg.evaluate((s) => new Promise((ok) => {
+    let ant = ''; let iguais = 0; let n = 0;
+    const passo = () => {
+      const r = [...document.querySelectorAll(s)].map((li) => {
+        const b = li.getBoundingClientRect(); return Math.round(b.top) + ':' + Math.round(b.height);
+      }).join(',');
+      if (r === ant) iguais++; else { iguais = 0; ant = r; }
+      if (iguais >= 3 || ++n > 600) ok(); else requestAnimationFrame(passo);
+    };
+    requestAnimationFrame(passo);
+  }), linhas);
   const arrastar = async (de, para, abaixo) => {
     // Rola UMA vez, para o item do MEIO ficar no centro: as coordenadas dos dois
-    // extremos são lidas depois, na mesma rolagem.
+    // extremos são lidas depois, na mesma rolagem — e só com a lista quieta e parada.
+    await aquietar(pg);
     await pg.locator(linhas + ' >> .row-text').nth(1).evaluate((el) => el.scrollIntoView({ block: 'center' }));
-    await espera(80);
+    await linhasParadas();
     const o = await centro(de);
     const d = await centro(para);
+    // O PONTO DO APERTAR CAI NA LINHA CERTA? Se não, é o arnês que erra — e o rastro diz onde.
+    const alvo = await pg.evaluate(([x, y, s, i]) => {
+      const el = document.elementFromPoint(x, y);
+      const li = el && el.closest('.lib-item');
+      return { ok: !!li && [...document.querySelectorAll(s)].indexOf(li) === i,
+        el: el ? (el.tagName + '.' + String(el.className || '')).slice(0, 80) : null };
+    }, [o.x, o.y, linhas, de]);
+    if (!alvo.ok) console.log('ARNÊS: o ponto do apertar não cai na linha ' + de + ' — ' + JSON.stringify({ o, alvo }));
     await pg.mouse.move(o.x, o.y);
     await pg.mouse.down();
     await espera(650);                                  // bem além do LONGPRESS (450 ms)
@@ -322,6 +379,7 @@ try {
     return emArrasto;
   };
   const emArrasto = await arrastar(0, 2, true);
+  if (!emArrasto) await despejarRastro('o primeiro arrasto não levantou');
   checar(emArrasto, 'D · segurar a linha de um favorito LEVANTA o item (a marca `.arrastando`)');
   const mudou = await esperar(pg, () => favItems.map((m) => m.name).join('|') === 'Segundo renomeado|Terceiro|Louvor com letra');
   checar(mudou === true, 'D · soltar no fim muda a ordem gravada (Louvor com letra vai para o fim)',
