@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o guia de sonoplastia: socorro em destaque (sem versão nova; só `site/` e docs)** — a capa ganha o cartão "Socorro rápido" entre as duas trilhas, setas grandes e o nome "Sonoplasta por um dia"; D9 vai de 7 a 24 problemas e I17 de 12 a 34; saem as Perguntas; o índice volta a levar até o capítulo
 - **o guia de sonoplastia: a introdução (sem versão nova; só `site/` e docs)** — D0 ("O objetivo de hoje") e I0 (três partes sobre excelência, discrição e o poder da mensagem) com o texto do operador; resta "em breve" só nas Perguntas
 - **o guia de sonoplastia: "Por um dia" para leigos (sem versão nova; só `site/` e docs)** — a trilha de emergência ficou mais simples e mais visual: de 6 para 40 ilustrações, um bloco "Em 10 segundos" por capítulo, pares Faça/Não faça e o socorro rápido em fluxogramas sim/não
 - **o guia de sonoplastia (sem versão nova; só `site/` e docs)** — página nova `sonoplastia/`: duas trilhas (Sonoplasta por um dia, D0–D11; Sonoplasta em tempo integral, I0–I18), 43 ilustrações, índice com busca, e três seções "em breve" (D0, I0 e Perguntas)
@@ -694,6 +695,30 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## o guia de sonoplastia: socorro em destaque (sem versão nova; só `site/` e docs)
+
+**O ÍNDICE NÃO LEVAVA A LUGAR NENHUM** (relato do operador): tocar num item da
+folha só fechava a folha. A folha fecha com `history.back()` (para o voltar do
+Android funcionar), e a navegação do histórico RESTAURAVA a rolagem depois do
+`popstate`, cancelando o salto. Medido no Playwright com perfil de celular:
+`scrollY` ficava em 0 com o hash certo. Conserto: `history.scrollRestoration =
+'manual'` e o salto no quadro seguinte ao fechamento. Os links diretos (`#d4`)
+nunca tiveram o defeito — não passam pela folha.
+
+**A CAPA TEM TRÊS PORTAS**, porque são as três coisas que resolvem problema:
+"Sonoplasta por um dia" (o nome agora diz "sonoplasta"), "Socorro rápido" (D9,
+em vermelho) e "Sonoplasta em tempo integral", cada uma com uma seta grande em
+círculo branco; abaixo, um link para o Diagnóstico (I17).
+
+**MAIS PROBLEMAS:** D9 de 7 para 24 (regras de ouro, grade de atalhos, cinco
+grupos, cada um em fluxograma sim/não) e I17 de 12 para 34 (método em 5 passos,
+nove grupos, tabela-resumo). Os `id` antigos ficaram.
+
+**AS PERGUNTAS E RESPOSTAS SAÍRAM**, a pedido do operador; a fila não tem mais
+pendência do guia.
 
 ---
 

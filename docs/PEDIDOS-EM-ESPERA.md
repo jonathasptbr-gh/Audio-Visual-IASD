@@ -44,7 +44,6 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **10** — Configurações e Ferramentas: o editor e o tile | 4 (I2×U2) | pedido | só web |
 | **12** — Limpeza e otimização do repositório (residual) | 2 (I2×U1) | pedido | só docs |
 | **13** — Estudos (não são fila de execução) | — | estudo | nenhuma entrega |
-| **14** — Guia de sonoplastia: Perguntas e respostas | 4 (I2×U2) | pedido | só `site/` |
 
 ---
 
@@ -347,31 +346,9 @@ quiser só a paisagem, ela é um lote de web — e não espera o estudo do Windo
 
 ---
 
-## Pacote 14 — Guia de sonoplastia: Perguntas e respostas
-
-A página `site/sonoplastia/` (Guia de sonoplastia IASD) saiu em 2026-11-11.
-A introdução sobre a santidade do serviço (D0 e I0) entrou em 2026-11-12 com o
-texto do operador; resta um lugar marcado como **"Em breve"**:
-
-| hora | pedido | onde fica |
-|---|---|---|
-| 2026-11-11 | *"Futuramente teremos uma seção de perguntas e respostas"* | `#perguntas`, no fim da página; as perguntas citam os códigos D/I |
-
-Ao entrar, troca-se a caixa `.box.embreve` pelo conteúdo, tira-se o selo "em
-breve" do item no índice estático, e o índice se refaz sozinho a partir dos
-`h3[id]`.
-
----|---|---|
-| 2026-11-11 | *"futuramente teremos uma seção introdutória para a correlação entre a santidade do trabalho e suas responsabilidades e objetivos como sonoplastia… no início, sendo maior no sonoplasta em tempo integral, e apenas um breve paragrafo no sonoplasta por um dia"* | **I0** (seção maior) e **D0** (um parágrafo) — os dois abrem as trilhas |
-| 2026-11-11 | *"Futuramente teremos uma seção de perguntas e respostas"* | `#perguntas`, no fim da página; as perguntas citam os códigos D/I |
-
-O texto espiritual é do operador (ou de quem ele indicar) — não se escreve sem
-ele. Ao entrar, troca-se a caixa `.box.embreve` pelo conteúdo; o índice se
-refaz sozinho a partir dos `h3[id]`.
-
----
-
 ## O que saiu desta lista (rastro, não log)
+
+**2026-11-12 (só `site/`):** o pacote do **Guia de sonoplastia** (anotado como "Pacote 14" por engano — o número já tinha saído na v1.13.61). A introdução (D0 e I0) entrou com o texto do operador, e as Perguntas e respostas foram **revogadas pelo operador**: *"Sobre as perguntas e respostas pode remover"*.
 
 **v1.13.68 (2026-11-11):** o **Pacote 11** inteiro — o `⋮` sempre na linha do favorito, com o arrastar do Cronograma no lugar do ↑↓ (11.1), e a lista do acervo por partes, que evolui o conserto da gaveta (v1.13.67). Notas em `docs/HISTORICO.md`; oráculos `favoritos-menu-na-linha` e `lista-por-partes`. Os números dos outros não se movem.
 
