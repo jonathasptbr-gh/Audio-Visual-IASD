@@ -14,6 +14,11 @@
  * app: o único efeito colateral é a pílula de volume, mostrada pelo gancho
  * `volume(true)` no passo dela e escondida ao sair dele (o "desfazer" do tour).
  *
+ * O TOUR SE DESLIGA POR INTEIRO (v1.14.5): `av.tour.off` = '1'. Desligado, nenhum
+ * tour abre sozinho (os principais e os de seção); só `refazer()` e `abrir()` à mão.
+ * Quem desliga é o "Pular tour" do balão e a caixa "Tour do app" de Configurações
+ * (`desativar()`/`refazer()`); a caixa avisa a mudança pelo evento `av-tour-ativo`.
+ *
  * AUTOMÁTICO UMA VEZ POR TOUR. A marca mora em `localStorage` (`av.tour`), como a
  * `av.dicaNaoPerturbe`: é deste aparelho, lida em síncrono, e não viaja no pacote
  * de transferência. Só dispara depois de a tela ficar LIVRE (`ocupado()` falso:
@@ -28,6 +33,7 @@
   'use strict';
 
   const CHAVE = 'av.tour';
+  const CHAVE_OFF = 'av.tour.off';   // '1' = o operador desligou o tour por inteiro
   const LIVRE_MS = 1200;
   const SECAO_MS = 700;   // a janela acabou de abrir: espera ela assentar
   const VIGIA_MS = 250;
@@ -41,7 +47,7 @@
   // peça não está à vista). `opcional`: sem a peça, o passo sai da conta.
   // `abertura`/`fecho`: o passo fica FIXO no começo/fim — ver `ordenar()`.
   const FIM = { fecho: true, titulo: 'Tour do app',
-    texto: 'Para rever estas explicações, toque em "Tour do app" nas Configurações. Cada janela também volta a se explicar ao abrir.' };
+    texto: 'Para rever estas explicações, desligue e ligue de novo a caixa "Tour do app" nas Configurações. "Pular tour" desliga o tour de vez.' };
   const PROJETAR = { alvo: '#miscProjectBtn', titulo: 'Projetar no telão',
     texto: 'Toque para mostrar este cartão na TV agora. O botão vira "Tirar do telão": toque nele para tirar.', opcional: true };
   const GUARDAR = { alvo: '#toolsFoot .cue-save-btn', titulo: 'Cronograma e Favoritos',
@@ -138,7 +144,7 @@
       { alvo: '#contatoBtn', titulo: 'Ajuda',
         texto: 'Toque para falar pelo WhatsApp com quem mantém o app.', opcional: true },
       { alvo: '#fadePopup .cfg-ajuda', titulo: 'Tour do app e Guia de sonoplastia',
-        texto: '"Tour do app" repete estas explicações e faz cada janela se explicar de novo. O guia ensina o básico do som, passo a passo.' },
+        texto: 'A caixa "Tour do app" liga ou desliga estas explicações: desligada, nenhuma janela se explica sozinha. O guia ensina o básico do som e abre noutra tela.' },
     ] },
     'cfg-tela': { modos: AMBOS, passos: [
       { alvo: '#fitTile', titulo: 'Preenchimento',
@@ -303,6 +309,17 @@
     if (visto) v[qual] = 1; else delete v[qual];
     try { localStorage.setItem(CHAVE, JSON.stringify(v)); } catch (_) { /* armazenamento bloqueado */ }
   }
+  // O tour desligado por inteiro (v1.14.5). Padrão: ligado.
+  function ativo() {
+    try { return localStorage.getItem(CHAVE_OFF) !== '1'; } catch (_) { return true; }
+  }
+  function definirAtivo(sim) {
+    const antes = ativo();
+    try { if (sim) localStorage.removeItem(CHAVE_OFF); else localStorage.setItem(CHAVE_OFF, '1'); } catch (_) { /* armazenamento bloqueado */ }
+    if (antes !== sim) {
+      try { window.dispatchEvent(new CustomEvent('av-tour-ativo', { detail: { ativo: sim } })); } catch (_) { /* segue */ }
+    }
+  }
   // As chaves de "já visto": o nome do tour principal, ou `s.<seção>`.
   const chaves = () => Object.keys(TOURS).concat(Object.keys(SECOES).map(CHAVE_SECAO));
   const passosDe = (id) => (id.startsWith('s.') ? (SECOES[id.slice(2)] || {}).passos : TOURS[id]);
@@ -381,7 +398,7 @@
       '<div class="tour-recorte" aria-hidden="true"></div>'
       + '<div class="tour-balao" role="dialog" aria-modal="true" aria-labelledby="tourTitulo" aria-describedby="tourTexto" tabindex="-1">'
       + '<div class="tour-cab"><span class="tour-cont" aria-live="polite"></span>'
-      + '<button type="button" class="tour-pular">Pular</button></div>'
+      + '<button type="button" class="tour-pular" title="Pular e desligar o tour">Pular tour</button></div>'
       + '<div class="dialog-title" id="tourTitulo"></div>'
       + '<div class="dialog-msg" id="tourTexto"></div>'
       + '<div class="dialog-actions">'
@@ -397,7 +414,7 @@
     textoEl = raiz.querySelector('#tourTexto');
     voltarEl = raiz.querySelector('.tour-voltar');
     proximoEl = raiz.querySelector('.tour-proximo');
-    raiz.querySelector('.tour-pular').addEventListener('click', () => fechar());
+    raiz.querySelector('.tour-pular').addEventListener('click', () => desativar());
     voltarEl.addEventListener('click', () => ir(-1));
     proximoEl.addEventListener('click', () => ir(1));
     raiz.addEventListener('keydown', (e) => {
@@ -732,6 +749,7 @@
   let candidatoAntes = null;
   function tique() {
     if (atual) return;
+    if (!ativo()) { clearInterval(autoTimer); autoTimer = null; livreDesde = 0; return; }
     const v = vistos();
     if (chaves().every((k) => v[k])) { clearInterval(autoTimer); autoTimer = null; return; }
     let qual = null;
@@ -745,7 +763,7 @@
 
   function armar() {
     const v = vistos();
-    if (!g || autoTimer || chaves().every((k) => v[k])) return;
+    if (!g || autoTimer || !ativo() || chaves().every((k) => v[k])) return;
     livreDesde = 0;
     autoTimer = setInterval(tique, 300);
   }
@@ -758,6 +776,7 @@
   // próxima vez que for aberta.
   function refazer() {
     if (!g) return;
+    definirAtivo(true);   // pedir o tour à mão liga o tour
     const modo = g.modo();
     const v = vistos();
     for (const k of Object.keys(TOURS)) if (MODO_DO_TOUR[k] === modo) delete v[k];
@@ -773,6 +792,14 @@
     })();
   }
 
+  // DESLIGAR por inteiro: fecha o tour aberto e para o automático. Quem chama é o
+  // "Pular tour" do balão e a caixa de Configurações. Não mexe nas marcas de "visto".
+  function desativar() {
+    definirAtivo(false);
+    clearInterval(autoTimer); autoTimer = null; livreDesde = 0;
+    fechar();   // o `armar()` do fim dele não arma com o tour desligado
+  }
+
   function ligar(ganchos) {
     g = ganchos;
     armar();
@@ -781,6 +808,8 @@
   global.AVTour = {
     ligar,
     refazer,
+    desativar,
+    ativo,
     armar,   // religa o automático depois de alguém mexer nas marcas (`av.tour`)
     abrir,
     fechar: () => fechar(),

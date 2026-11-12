@@ -1,7 +1,7 @@
-# O tour guiado (v1.14.0; seções, "tocando" e halo na v1.14.1; ordem visual na v1.14.3; movimento na v1.14.4)
+# O tour guiado (v1.14.0; seções, "tocando" e halo na v1.14.1; ordem visual na v1.14.3; movimento na v1.14.4; liga/desliga na v1.14.5)
 
 **O que é.** Um véu escurecido com um RECORTE na peça explicada e um balão curto
-(título, uma ou duas frases, "N de M", Voltar · Próximo/Concluir · Pular). Mora em
+(título, uma ou duas frases, "N de M", Voltar · Próximo/Concluir · Pular tour). Mora em
 `controle/tour.js` (`window.AVTour`); os ganchos ficam no `controle.js`, logo
 depois do `__avBack`. Oráculo: `tools/tour.test.mjs`.
 
@@ -65,6 +65,22 @@ itinerários) não tem tour, mas conta como seção aberta: o tour principal esp
 **Os ouvintes que fecham por toque FORA** (gaveta de cronogramas, de itinerários,
 ações da linha) ignoram toque dentro do `#tour` — senão o "Próximo" fechava a gaveta
 que ele explica.
+
+## O tour liga e desliga por INTEIRO (v1.14.5)
+
+`localStorage['av.tour.off'] = '1'` desliga TODOS os tours automáticos (os principais
+e os de seção): `armar()` não arma e o `tique()` já armado se desfaz. `AVTour.ativo()`
+lê; `desativar()` grava, fecha o tour aberto e para o automático; `refazer()` LIGA
+(e faz o de sempre). As marcas de "visto" (`av.tour`) ficam como estão. A mudança
+sai pelo evento `av-tour-ativo` na `window`.
+
+| quem | efeito |
+|---|---|
+| **"Pular tour"** (o botão do balão) | `desativar()` — fecha com o fade e desliga de vez |
+| Escape · voltar do Android · "Concluir" | só FECHAM o tour atual; o automático segue ligado |
+| caixa **"Tour do app"** (Configurações) | desmarcar = `desativar()` (a folha fica); marcar = `refazer()` (a folha fecha e o tour do modo abre) |
+
+Só o automático obedece: `abrir()` e `refazer()` à mão sempre abrem.
 
 ## Automático uma vez, e nunca por cima de nada
 
@@ -142,10 +158,13 @@ a duração 0 com movimento reduzido. As outras medidas esperam `AVTour.quieto()
 ## Os botões de Configurações
 
 No fim do `#cfgTopo` (some com a seção aberta, como a grade), a linha
-`.cfg-ajuda`: **Tour do app** (`#tourBtn`: fecha a folha e `AVTour.refazer()` o
-tour do estado atual — e ZERA o modo atual: os outros tours principais dele e todas
-as seções que existem nele voltam a se explicar na próxima abertura; o `title` do
-botão e o último passo dos tours principais dizem isso) e **Guia de sonoplastia** (`#guiaSomBtn`: `AV_PAGINA +
+`.cfg-ajuda`: **Tour do app** (`#tourBtn`, uma CAIXA — `role="checkbox"`,
+`aria-checked`, a `.song-menu-check` dentro; nasce marcada. Desmarcar desliga o tour
+(acima) e a folha fica; marcar de novo fecha a folha e `AVTour.refazer()` o tour do
+estado atual — e ZERA o modo atual: os outros tours principais dele e todas as
+seções que existem nele voltam a se explicar na próxima abertura; o `title` do botão
+muda com o estado e o último passo dos tours principais diz como rever) e **Guia de sonoplastia** (`#guiaSomBtn`, com a SETA de "abre outra tela" — `icoExterno`,
+porque ele sai da tela atual: `AV_PAGINA +
 'sonoplastia/'`, com `#dia` — a trilha "Sonoplasta por um dia" — no Modo Fácil;
 no app, `AVNative.abrirGuia` — uma tela do próprio app, WebView SEM ponte, desde o
 shell 87 —, com queda no `openExternal` no casco antigo ou na recusa; `window.open`

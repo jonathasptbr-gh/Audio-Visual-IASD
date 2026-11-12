@@ -19,6 +19,11 @@
 //   E · 360×640 com fonte 1,3×: o balão cabe na tela e nenhum botão corta o rótulo.
 //   F · o botão de Configurações refaz o tour do modo ATUAL e ZERA as seções do
 //       modo; o guia de sonoplastia abre `#dia` no Fácil e o começo no avançado.
+//   L · desligar por inteiro (v1.14.5): "Tour do app" é uma CAIXA (nasce marcada;
+//       tocar desmarca, grava `av.tour.off` e a folha segue aberta; desligado,
+//       nem o principal nem o de seção abrem sozinhos; tocar de novo liga e refaz
+//       o tour). "Pular tour" no balão desliga o MESMO interruptor, e a caixa
+//       acompanha. O "Guia de sonoplastia" leva a seta de "abre outra tela".
 //   G · tours de SEÇÃO (v1.14.1): Configurações no Fácil, Ferramentas e o Timer
 //       no avançado — sozinhos na primeira abertura, nunca de novo, com o halo.
 //   H · o Fácil TOCANDO: a letra e as teclas, na primeira vez que algo toca.
@@ -137,8 +142,9 @@ function recorteBate(m) {
 const cabeAoLado = (m) => { const h = m.balao.b - m.balao.t; return m.recorte.t - 22 >= h || m.vh - m.recorte.b - 22 >= h; };
 const dentro = (m) => m.balao.l >= -0.5 && m.balao.t >= -0.5 && m.balao.r <= m.vw + 0.5 && m.balao.b <= m.vh + 0.5;
 
-// "Pular" — se o tour estiver aberto (numa reprovação ele pode nem ter aberto).
-const pular = async (pg) => { if (await pg.evaluate(() => AVTour.aberto())) await pg.click('#tour .tour-pular'); };
+// Fecha o tour se estiver aberto (numa reprovação ele pode nem ter aberto). NÃO é o
+// "Pular tour" do balão — esse DESLIGA o tour por inteiro (v1.14.5) e tem o caso L.
+const pular = async (pg) => { if (await pg.evaluate(() => AVTour.aberto())) await pg.evaluate(() => AVTour.fechar()); };
 
 // A ORDEM VISUAL: a faixa é a do `tour.js` — os centros verticais, em ordem, ficam
 // na mesma faixa enquanto cada um dista do anterior até max(24 px, metade da altura
@@ -247,7 +253,7 @@ try {
     checar(rg === true, 'G · abrir Configurações pela primeira vez abre SOZINHO o tour de dentro dela', porque(rg));
     const pg1 = rg === true ? await percorrer(pg) : [];
     const ruinsG = pg1.filter((m) => !recorteBate(m) || !haloBate(m));
-    checar(pg1.length >= 3 && ruinsG.length === 0 && pg1.some((m) => /cada janela/.test(m.texto) || /tours de novo/.test(m.texto)),
+    checar(pg1.length >= 3 && ruinsG.length === 0 && pg1.some((m) => /liga ou desliga/.test(m.texto)),
       'G · cada passo recorta uma peça de Configurações, com o halo', JSON.stringify(ruinsG.map((m) => [m.alvo, m.peca, m.recorte])));
     await pg.click('#tour .tour-proximo');   // Concluir
     await pg.evaluate(() => closeFadePopup());
@@ -262,21 +268,68 @@ try {
       const t = document.getElementById('tourBtn'), s = document.getElementById('guiaSomBtn');
       const a = t.getBoundingClientRect(), b = s.getBoundingClientRect();
       return { vis: a.width > 0 && b.width > 0, mesmaLinha: Math.abs(a.top - b.top) < 2, corta: [t, s].some((x) => x.scrollWidth > x.clientWidth + 1),
-        diz: /cada janela/.test(t.title) };
+        diz: /cada janela/.test(t.title),
+        caixa: t.getAttribute('role') === 'checkbox' && !!t.querySelector('.song-menu-check') && t.querySelector('.song-menu-check').getBoundingClientRect().width > 0,
+        seta: !!s.querySelector('svg.cfg-externo use[href="#icoExterno"]') && s.querySelector('svg.cfg-externo').getBoundingClientRect().width > 0 };
     });
     checar(lado.vis && lado.mesmaLinha && !lado.corta && lado.diz, 'F · "Tour do app" e "Guia de sonoplastia" estão em Configurações, lado a lado, sem cortar (e o botão diz que as janelas voltam a se explicar)', JSON.stringify(lado));
+    checar(lado.caixa && lado.seta, 'L · "Tour do app" tem a CAIXA de marcação e "Guia de sonoplastia" a SETA de "abre outra tela", à vista', JSON.stringify(lado));
     await pg.click('#guiaSomBtn');
     const urlFacil = await pg.evaluate(() => window.__abertos.slice(-1)[0]);
     checar(urlFacil === 'https://audiovisualiasd.com.br/sonoplastia/#dia',
       'F · no Modo Fácil o guia abre direto em "Sonoplasta por um dia"', urlFacil);
+
+    // ---------------- L · a caixa "Tour do app" liga e desliga o tour por inteiro ----------------
+    const caixa = () => pg.evaluate(() => {
+      const b = document.getElementById('tourBtn');
+      return { role: b.getAttribute('role'), marcada: b.getAttribute('aria-checked'), on: !!b.querySelector('.song-menu-check.on'), title: b.title,
+        off: localStorage.getItem('av.tour.off'), ativo: AVTour.ativo(), folha: document.getElementById('fadePopup').classList.contains('open') };
+    });
+    const c0 = await caixa();
+    checar(c0.role === 'checkbox' && c0.marcada === 'true' && c0.on && c0.off === null && c0.ativo,
+      'L · o tour nasce LIGADO: a caixa "Tour do app" está marcada', JSON.stringify(c0));
     await pg.click('#tourBtn');
+    const c1 = await caixa();
+    checar(c1.marcada === 'false' && !c1.on && c1.off === '1' && !c1.ativo && c1.folha && /desligado/.test(c1.title),
+      'L · tocar na caixa DESLIGA: desmarca, grava a escolha e a folha continua aberta', JSON.stringify(c1));
+    await pg.evaluate(() => {
+      const v = JSON.parse(localStorage.getItem('av.tour')); delete v.simples; delete v['s.configuracoes'];
+      localStorage.setItem('av.tour', JSON.stringify(v)); AVTour.armar();
+    });
+    await pg.waitForTimeout(1600);   // AUSÊNCIA: o de seção leva 0,7 s
+    checar(await estado(pg) === null, 'L · desligado, nem a seção aberta e não vista se explica sozinha', JSON.stringify(await estado(pg)));
+    await pg.evaluate(() => closeFadePopup());
+    await esperar(pg, () => !document.getElementById('fadePopup').classList.contains('open'));
+    await pg.waitForTimeout(2200);   // AUSÊNCIA: o principal leva 1,2 s de tela livre
+    checar(await estado(pg) === null, 'L · desligado, o tour principal não abre sozinho com a tela livre', JSON.stringify(await estado(pg)));
+    await pg.click('#simpleSettingsBtn');
+    await esperar(pg, () => document.getElementById('fadePopup').classList.contains('open'));
+    await pg.waitForTimeout(1000);
+    const c2 = await caixa();
+    checar(c2.marcada === 'false' && !c2.on && await estado(pg) === null, 'L · reaberta a folha, a caixa segue desmarcada e nada se explica', JSON.stringify(c2));
+    await pg.click('#tourBtn');   // liga de novo: fecha a folha e refaz o tour do estado
     const rf = await esperarTour(pg, 'simples', 5000);
+    const c3 = await caixa();
+    checar(rf === true && c3.ativo && c3.off === null && !c3.folha,
+      'L · tocar de novo LIGA: a folha fecha e o tour da tela abre na hora', porque(rf) || JSON.stringify(c3));
     const zerou = await pg.evaluate(() => JSON.parse(localStorage.getItem('av.tour')));
     checar(rf === true && await pg.evaluate(() => !document.getElementById('fadePopup').classList.contains('open')),
       'F · no Fácil destravado o botão fecha Configurações e refaz o tour dos CONTROLES', porque(rf));
     checar(!zerou['s.configuracoes'] && !zerou.conexao,
       'F · e ZERA o Modo Fácil: as seções dele voltam a se explicar ao abrir', JSON.stringify(zerou));
-    await pular(pg);
+    // "Pular tour": o MESMO interruptor, por dentro do balão.
+    const rotuloPular = await pg.evaluate(() => document.querySelector('#tour .tour-pular').textContent);
+    await pg.click('#tour .tour-pular');
+    await esperar(pg, () => !AVTour.aberto());
+    const sp = await pg.evaluate(() => ({ off: localStorage.getItem('av.tour.off'), ativo: AVTour.ativo(), marcada: document.getElementById('tourBtn').getAttribute('aria-checked'),
+      on: !!document.querySelector('#tourBtn .song-menu-check.on'), oculto: document.getElementById('tour').hidden }));
+    checar(rotuloPular === 'Pular tour' && sp.off === '1' && !sp.ativo && sp.oculto && sp.marcada === 'false' && !sp.on,
+      'L · "Pular tour" fecha o balão e DESLIGA o tour por inteiro; a caixa de Configurações acompanha', JSON.stringify([rotuloPular, sp]));
+    await pg.evaluate(() => {
+      const v = JSON.parse(localStorage.getItem('av.tour')); delete v.simples; localStorage.setItem('av.tour', JSON.stringify(v)); AVTour.armar();
+    });
+    await pg.waitForTimeout(2200);   // AUSÊNCIA
+    checar(await estado(pg) === null, 'L · depois do "Pular tour", nada abre sozinho', JSON.stringify(await estado(pg)));
     await pg.evaluate(() => { setTocarNoCelular(false); renderSimpleGate(); });
     await esperar(pg, () => simpleModeEl.classList.contains('sem-tela'));
     await pg.evaluate(() => { openFadePopup(); document.getElementById('tourBtn').click(); });
@@ -375,7 +428,8 @@ try {
     await pg.click('#guiaSomBtn');
     const urlAv = await pg.evaluate(() => window.__abertos.slice(-1)[0]);
     checar(urlAv === 'https://audiovisualiasd.com.br/sonoplastia/', 'F · no avançado o guia abre no começo da página', urlAv);
-    await pg.click('#tourBtn');
+    await pg.click('#tourBtn');   // desliga (o tour estava ligado)…
+    await pg.click('#tourBtn');   // …e liga de novo: refaz o tour do modo
     const ra = await esperarTour(pg, 'avancado', 5000);
     checar(ra === true, 'F · no avançado o botão refaz o tour COMPLETO', porque(ra));
     const zerouAv = await pg.evaluate(() => JSON.parse(localStorage.getItem('av.tour')));

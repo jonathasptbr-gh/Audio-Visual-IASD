@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.14.5",
+    "itens": [
+      "\"Pular tour\" agora desliga o tour de vez: nenhuma janela volta a se explicar sozinha.",
+      "\"Tour do app\", em Configurações, virou uma caixa de marcar: ligada ou desligada.",
+      "Ao ligar a caixa de novo, o tour da tela atual recomeça na hora.",
+      "\"Guia de sonoplastia\" ganhou uma seta, para mostrar que abre o guia em outra tela."
+    ]
+  },
+  {
     "versao": "1.14.4",
     "itens": [
       "No tour, a área iluminada agora desliza de um botão para o outro, sem pular.",

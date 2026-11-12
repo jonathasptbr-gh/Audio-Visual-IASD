@@ -756,6 +756,14 @@
       <path d="M4.5 14.5v3.2a2.3 2.3 0 0 0 2.3 2.3h10.4a2.3 2.3 0 0 0 2.3-2.3v-3.2"/>
       <path d="M12 3.8v11.6"/><path d="m8.2 11.6 3.8 3.8 3.8-3.8"/>
     </symbol>
+    <!-- O "ABRE OUTRA COISA" (v1.14.5): a seta saindo de uma caixa aberta em cima e à
+         direita — o desenho de todo link que leva para FORA da tela atual. Mora no
+         "Guia de sonoplastia" de Configurações, que abre uma tela à parte (a página
+         do site) e não uma seção desta. -->
+    <symbol id="icoExterno" viewBox="0 0 24 24">
+      <path d="M14 4h6v6"/><path d="M20 4l-9 9"/>
+      <path d="M18 14v3.5a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 4 17.5v-9A2.5 2.5 0 0 1 6.5 6H10"/>
+    </symbol>
     <symbol id="icoModoAvancado" viewBox="0 0 24 24">
       <path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>
       <path d="M9 7h.01" stroke-width="4.6"/>
@@ -1914,7 +1922,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.4</span>
+          <span id="appVersion">v1.14.5</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
@@ -2239,16 +2247,24 @@
           </button>
         </div>
         <!-- ===== A AJUDA DE QUEM COMEÇA (v1.14.0) =====
-             O TOUR refaz o tour guiado do modo atual (no Fácil, o da conexão com a
-             cortina "sem tela" e o dos controles sem ela) — `AVTour.refazer`, em
-             `tour.js`. O GUIA abre a página de sonoplastia do site (no app, numa tela
-             dele — `abrirGuia`): no Fácil, direto na
+             O TOUR é uma CAIXA de marcação (v1.14.5): ligada, cada janela se explica na
+             primeira vez que abre; desligada (ela e o "Pular tour" do balão), nenhum
+             tour abre sozinho — `AVTour.ativo`/`desativar`. Ligar de novo refaz o tour
+             do modo atual (no Fácil, o da conexão com a cortina "sem tela" e o dos
+             controles sem ela) — `AVTour.refazer`, em `tour.js`. O GUIA abre a página
+             de sonoplastia do site (no app, numa tela dele — `abrirGuia`) e por isso
+             leva a seta de "abre outra coisa" (`icoExterno`): no Fácil, direto na
              trilha "Sonoplasta por um dia" (`#dia`); no avançado, no começo.
              Moram no fim do `#cfgTopo`, e não no cabeçalho ao lado do pedir ajuda: o
              cabeçalho já cede a palavra "Ajuda" para caber o título a 320px. -->
         <div class="cfg-ajuda">
-          <button type="button" id="tourBtn" class="dialog-btn" title="Mostrar de novo o tour desta tela; cada janela volta a se explicar quando for aberta">Tour do app</button>
-          <button type="button" id="guiaSomBtn" class="dialog-btn" title="Abrir o guia de sonoplastia">Guia de sonoplastia</button>
+          <button type="button" id="tourBtn" class="dialog-btn" role="checkbox" aria-checked="true" title="Tour ligado: cada janela se explica na primeira vez que abrir. Toque para desligar.">
+            <span class="cfg-ajuda-rot">Tour do app</span><span class="song-menu-check on" aria-hidden="true"></span>
+          </button>
+          <button type="button" id="guiaSomBtn" class="dialog-btn" title="Abrir o guia de sonoplastia, numa tela à parte">
+            <span class="cfg-ajuda-rot">Guia de sonoplastia</span>
+            <svg class="cfg-externo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoExterno"/></svg>
+          </button>
         </div>
         </div>
         <!-- ===== AS SEÇÕES DE CONFIGURAÇÕES (v1.12.48) =====
