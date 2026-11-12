@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.14.4",
+    "itens": [
+      "No tour, a área iluminada agora desliza de um botão para o outro, sem pular.",
+      "O balão de explicação também desliza, e o texto troca com um esmaecer suave.",
+      "O tour abre e fecha com um esmaecer suave; nos passos sem botão, a luz se recolhe para o centro.",
+      "Se o celular estiver com \"reduzir animações\" ligado, o tour troca de passo na hora, sem movimento."
+    ]
+  },
+  {
     "versao": "1.14.3",
     "itens": [
       "O tour agora segue a tela de cima para baixo e da esquerda para a direita, em qualquer celular.",

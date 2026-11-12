@@ -290,6 +290,10 @@
   let atual = null;        // { qual, passos, i, foco, volume }
   let quadro = 0;
   let ro = null;
+  // O movimento (v1.14.4): `seq` é a vez da troca de passo — um clique novo a cancela
+  // e o ÚLTIMO vence; `animando` segura os reposicionamentos até a troca assentar.
+  let seq = 0, animando = false, fimAnim = 0, fimCentro = 0, centroPendente = false, raioBase = 0;
+  const ASSENTA_MS = 700;   // teto da espera pela peça parar (rolagem, janela abrindo)
 
   function vistos() {
     try { return JSON.parse(localStorage.getItem(CHAVE) || '{}') || {}; } catch (_) { return {}; }
@@ -386,6 +390,7 @@
       + '</div></div>';
     document.body.appendChild(raiz);
     recorte = raiz.querySelector('.tour-recorte');
+    raioBase = parseFloat(getComputedStyle(recorte).borderTopLeftRadius) || 12;
     balao = raiz.querySelector('.tour-balao');
     contEl = raiz.querySelector('.tour-cont');
     tituloEl = raiz.querySelector('#tourTitulo');
@@ -407,33 +412,54 @@
     if (typeof ResizeObserver === 'function') ro = new ResizeObserver(() => agendar());
   }
 
-  function agendar() {
-    if (!atual || quadro) return;
-    quadro = requestAnimationFrame(() => { quadro = 0; posicionar(); });
+  // O MOVIMENTO (v1.14.4). As durações são os tokens (`--tour-mov`, `--tour-fade`),
+  // lidas na raiz: com `prefers-reduced-motion` elas valem 0 e tudo é instantâneo.
+  function ms(nome) {
+    const v = getComputedStyle(raiz).getPropertyValue(nome).trim();
+    const n = parseFloat(v) || 0;
+    return /ms$/.test(v) ? n : n * 1000;
+  }
+  function reduzido() {
+    try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) { return false; }
   }
 
-  function posicionar() {
-    if (!atual) return;
-    const passo = atual.passos[atual.i];
+  // Reposicionar (resize, teclado, rolagem, ResizeObserver, vigia). No meio de uma
+  // troca de passo ele espera: o fim da troca reposiciona.
+  function agendar() {
+    if (!atual || quadro || animando) return;
+    quadro = requestAnimationFrame(() => { quadro = 0; posicionar(false); });
+  }
+
+  // O raio: o do cartão, ou o da peça mais a folga (uma pílula ganha halo de pílula).
+  function raioDe(passo, w, h) {
+    const els = elementos(passo);
+    let raio = raioBase;
+    if (els.length === 1) {
+      const v = getComputedStyle(els[0]).borderTopLeftRadius || '';
+      const n = parseFloat(v) || 0;
+      const er = /%$/.test(v) ? Math.max(0, Math.min(w, h) - 2 * FOLGA) * n / 100 : n;
+      if (er > 0) raio = Math.max(raio, er + FOLGA);
+    }
+    return Math.max(0, Math.min(raio, Math.min(w, h) / 2));
+  }
+
+  // Onde tudo VAI ficar: o recorte (ou nenhum) e o canto do balão. Mede a altura
+  // NATURAL do balão — quem chama garante que ela não está travada.
+  function geometria(passo, r) {
     const vw = window.innerWidth;
     const vh = window.visualViewport ? Math.min(window.innerHeight, window.visualViewport.height) : window.innerHeight;
-    const r = retangulo(passo);
-    textoEl.textContent = r || !passo.semAlvo ? passo.texto : passo.semAlvo;
-    raiz.classList.toggle('tour--centro', !r);
     const w = Math.min(340, vw - 2 * MARGEM);
     balao.style.width = w + 'px';
     balao.style.maxHeight = (vh - 2 * MARGEM) + 'px';
     const h = balao.offsetHeight;
-    let left, top;
+    let left, top, rec = null;
     if (!r) {
-      recorte.hidden = true;
       left = (vw - w) / 2; top = Math.max(MARGEM, (vh - h) / 2);
     } else {
       const l = Math.max(0, r.left - FOLGA), t = Math.max(0, r.top - FOLGA);
       const rr = Math.min(vw, r.right + FOLGA), bb = Math.min(vh, r.bottom + FOLGA);
-      recorte.hidden = false;
-      recorte.style.left = l + 'px'; recorte.style.top = t + 'px';
-      recorte.style.width = Math.max(0, rr - l) + 'px'; recorte.style.height = Math.max(0, bb - t) + 'px';
+      rec = { l, t, w: Math.max(0, rr - l), h: Math.max(0, bb - t) };
+      rec.raio = raioDe(passo, rec.w, rec.h);
       const cx = (l + rr) / 2;
       left = Math.min(Math.max(MARGEM, cx - w / 2), vw - MARGEM - w);
       const abaixo = vh - MARGEM - (bb + VAO), acima = t - VAO - MARGEM;
@@ -442,8 +468,62 @@
       else top = abaixo >= acima ? vh - MARGEM - h : MARGEM;
       top = Math.min(Math.max(MARGEM, top), Math.max(MARGEM, vh - MARGEM - h));
     }
-    balao.style.left = Math.round(left) + 'px';
-    balao.style.top = Math.round(top) + 'px';
+    return { rec, x: Math.round(left), y: Math.round(top), w, h, vw, vh };
+  }
+
+  function por(g2) {
+    const s = recorte.style;
+    s.left = g2.l + 'px'; s.top = g2.t + 'px'; s.width = g2.w + 'px'; s.height = g2.h + 'px';
+    s.borderRadius = g2.raio + 'px';
+  }
+
+  // Leva recorte e balão até `geo`. As transições do CSS fazem o trajeto; `instante`
+  // pula direto (abrir, movimento reduzido).
+  function aplicar(geo, instante) {
+    if (instante) raiz.classList.add('tour--fixo');
+    balao.style.transform = 'translate(' + geo.x + 'px, ' + geo.y + 'px)';
+    clearTimeout(fimCentro); centroPendente = false;
+    if (geo.rec) {
+      if (recorte.hidden) {
+        // Saindo do centro: o buraco nasce fechado no meio do balão e abre até a peça.
+        raiz.classList.add('tour--fixo', 'tour--centro');
+        por({ l: geo.x + geo.w / 2, t: geo.y + geo.h / 2, w: 0, h: 0, raio: 0 });
+        recorte.hidden = false;
+        raiz.classList.remove('tour--sem-recorte');
+        void recorte.offsetWidth;
+        if (!instante) raiz.classList.remove('tour--fixo');
+      }
+      raiz.classList.remove('tour--centro');
+      por(geo.rec);
+    } else {
+      // Para o centro: o buraco encolhe até o meio do balão, o halo apaga, e só então
+      // o recorte sai e o véu passa para o fundo da raiz (a mesma cor: sem salto).
+      raiz.classList.add('tour--centro');
+      if (!recorte.hidden) {
+        por({ l: geo.x + geo.w / 2, t: geo.y + geo.h / 2, w: 0, h: 0, raio: 0 });
+        const esconder = () => {
+          centroPendente = false;
+          if (!raiz.classList.contains('tour--centro')) return;
+          recorte.hidden = true;
+          raiz.classList.add('tour--sem-recorte');
+        };
+        const d = instante ? 0 : ms('--tour-mov');
+        if (d > 0) { centroPendente = true; fimCentro = setTimeout(esconder, d); } else esconder();
+      }
+    }
+    if (instante) { void raiz.offsetWidth; raiz.classList.remove('tour--fixo'); }
+  }
+
+  function textoDe(passo, r) { return r || !passo.semAlvo ? passo.texto : passo.semAlvo; }
+
+  function posicionar(instante) {
+    if (!atual || animando) return;
+    const passo = atual.passos[atual.i];
+    const r = retangulo(passo);
+    const tx = textoDe(passo, r);
+    if (textoEl.textContent !== tx) textoEl.textContent = tx;
+    if (!instante) raiz.classList.add('tour--ajuste');
+    aplicar(geometria(passo, r), instante);
   }
 
   function observar() {
@@ -453,12 +533,31 @@
     for (const e of elementos(atual.passos[atual.i])) ro.observe(e);
   }
 
-  function mostrarPasso() {
+  function trocarTexto(passo) {
+    contEl.textContent = (atual.i + 1) + ' de ' + atual.passos.length;
+    tituloEl.textContent = passo.titulo;
+  }
+
+  // Espera a peça PARAR (a rolagem do `scrollIntoView`, uma janela ou a pílula
+  // entrando com transição): dois quadros seguidos no mesmo lugar, ou o teto.
+  // Enquanto isso o recorte fica onde estava — nunca salta para a posição velha.
+  function assentar(passo, vez, pronto) {
+    const ate = performance.now() + ASSENTA_MS;
+    let ant = '';
+    (function olhar() {
+      if (vez !== seq || !atual) return;
+      const r = retangulo(passo);
+      const k = r ? [r.left, r.top, r.right, r.bottom].map(Math.round).join() : '-';
+      if (k === ant || performance.now() > ate) pronto();
+      else { ant = k; requestAnimationFrame(olhar); }
+    })();
+  }
+
+  // `primeiro`: o passo de abertura, sem trajeto (o tour entra em fade e escala).
+  function mostrarPasso(primeiro) {
     const passo = atual.passos[atual.i];
     const quer = !!passo.volume;
     if (quer !== atual.volume) { atual.volume = quer; try { g.volume && g.volume(quer); } catch (_) { /* segue */ } }
-    contEl.textContent = (atual.i + 1) + ' de ' + atual.passos.length;
-    tituloEl.textContent = passo.titulo;
     voltarEl.disabled = atual.i === 0;
     voltarEl.title = atual.i === 0 ? 'Este é o primeiro passo' : '';
     proximoEl.textContent = atual.i === atual.passos.length - 1 ? 'Concluir' : 'Próximo';
@@ -469,9 +568,70 @@
       const q = els[0].getBoundingClientRect();
       if (q.top < 0 || q.bottom > vh) { try { els[0].scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (_) { /* segue */ } }
     }
-    posicionar();
     observar();
     try { proximoEl.focus({ preventScroll: true }); } catch (_) { balao.focus(); }
+    const vez = ++seq;
+    clearTimeout(fimAnim);
+    if (quadro) { cancelAnimationFrame(quadro); quadro = 0; }
+    if (primeiro || reduzido()) {
+      animando = false;
+      balao.classList.remove('tour-balao--trocando', 'tour-balao--movendo');
+      balao.style.height = '';
+      trocarTexto(passo);
+      posicionar(true);
+      return;
+    }
+    // A troca: o texto some (fade curto) com a altura do balão travada; quando a
+    // peça assentou e o fade acabou, `mover` troca o texto e leva tudo junto.
+    balao.style.height = balao.offsetHeight + 'px';
+    animando = true;
+    balao.classList.add('tour-balao--trocando', 'tour-balao--movendo');
+    const t0 = performance.now();
+    assentar(passo, vez, () => {
+      const falta = ms('--tour-fade') - (performance.now() - t0);
+      const seguir = () => { if (vez === seq && atual) mover(passo, vez); };
+      if (falta > 0) fimAnim = setTimeout(seguir, falta); else seguir();
+    });
+  }
+
+  function mover(passo, vez) {
+    trocarTexto(passo);
+    const r = retangulo(passo);
+    textoEl.textContent = textoDe(passo, r);
+    const hAgora = balao.offsetHeight;
+    balao.style.height = '';
+    raiz.classList.remove('tour--ajuste');
+    const geo = geometria(passo, r);
+    // A altura anima da de agora até a natural do texto novo.
+    balao.style.height = hAgora + 'px';
+    void balao.offsetHeight;
+    balao.style.height = geo.h + 'px';
+    balao.classList.remove('tour-balao--trocando');
+    aplicar(geo, false);
+    fimAnim = setTimeout(() => {
+      if (vez !== seq || !atual) return;
+      animando = false;
+      balao.style.height = '';
+      balao.classList.remove('tour-balao--movendo');
+      posicionar(false);
+    }, ms('--tour-mov') + 60);
+  }
+
+  // Fechar: uma cópia inerte do que está na tela some em fade; o tour de verdade já
+  // fechou (o toque volta ao app na hora, e quem pergunta `#tour` o vê oculto).
+  function sombra() {
+    const f = raiz.cloneNode(true);
+    f.removeAttribute('id');
+    delete f.dataset.tour;
+    for (const n of f.querySelectorAll('[id]')) n.removeAttribute('id');
+    f.setAttribute('aria-hidden', 'true');
+    f.inert = true;
+    f.classList.remove('tour--entrando');
+    f.classList.add('tour--saindo');
+    document.body.appendChild(f);
+    void f.offsetWidth;
+    f.classList.add('tour--sumindo');
+    setTimeout(() => f.remove(), ms('--dur-media') + 120);
   }
 
   function ir(d) {
@@ -504,7 +664,12 @@
     document.addEventListener('transitionend', aoMudar, true);
     document.addEventListener('scroll', aoMudar, true);
     vigia = setInterval(vigiar, VIGIA_MS);
-    mostrarPasso();
+    // Abrir: o véu entra em fade e recorte e balão crescem um pouco (`tour--entrando`).
+    raiz.classList.remove('tour--ajuste');
+    raiz.classList.add('tour--entrando');
+    mostrarPasso(true);
+    void raiz.offsetWidth;
+    raiz.classList.remove('tour--entrando');
     return true;
   }
 
@@ -519,11 +684,16 @@
     clearInterval(vigia); vigia = null;
     if (quadro) { cancelAnimationFrame(quadro); quadro = 0; }
     if (ro) ro.disconnect();
+    seq++; animando = false;
+    clearTimeout(fimAnim); clearTimeout(fimCentro); centroPendente = false;
+    balao.style.height = '';
+    balao.classList.remove('tour-balao--trocando', 'tour-balao--movendo');
     window.removeEventListener('resize', aoMudar);
     if (window.visualViewport) window.visualViewport.removeEventListener('resize', aoMudar);
     document.removeEventListener('transitionend', aoMudar, true);
     document.removeEventListener('scroll', aoMudar, true);
     if (o.manter) return true;
+    if (!reduzido()) { try { sombra(); } catch (_) { /* segue */ } }
     raiz.hidden = true;
     delete raiz.dataset.tour;
     try { if (era.foco && era.foco.isConnected && era.foco.focus) era.foco.focus({ preventScroll: true }); } catch (_) { /* segue */ }
@@ -544,7 +714,7 @@
     } catch (_) { /* segue */ }
     if (ocupado) { fechar({ desmarcar: true }); return; }
     if (qual !== atual.qual) { fechar(); return; }
-    posicionar();
+    agendar();
   }
 
   // O candidato de agora: a SEÇÃO aberta por cima (se tiver tour e não foi vista)
@@ -616,6 +786,9 @@
     fechar: () => fechar(),
     aberto: () => !!atual,
     estado: () => (atual ? { qual: atual.qual, passo: atual.i, total: atual.passos.length } : null),
+    // Nada em movimento: nem troca de passo, nem transição do recorte ou do balão.
+    quieto: () => !atual || (!animando && !quadro && !centroPendente
+      && !(raiz.getAnimations ? raiz.getAnimations({ subtree: true }) : []).length),
     passoAtual: () => (atual ? atual.passos[atual.i] : null),   // o oráculo mede o passo NA ORDEM medida
     LINHA_PX,
     TOURS,

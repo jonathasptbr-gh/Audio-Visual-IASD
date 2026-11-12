@@ -1,4 +1,4 @@
-# O tour guiado (v1.14.0; seções, "tocando" e halo na v1.14.1; ordem visual na v1.14.3)
+# O tour guiado (v1.14.0; seções, "tocando" e halo na v1.14.1; ordem visual na v1.14.3; movimento na v1.14.4)
 
 **O que é.** Um véu escurecido com um RECORTE na peça explicada e um balão curto
 (título, uma ou duas frases, "N de M", Voltar · Próximo/Concluir · Pular). Mora em
@@ -94,12 +94,50 @@ tour a esconde ao sair do passo ou fechar. O voltar do Android é o **degrau 0**
 
 O véu é o `box-shadow` de espalhamento do `.tour-recorte` (cor `--tour-veu`, nos
 dois temas), e por cima dele o HALO: um anel de 2 px e um brilho de 14 px em
-`--tour-halo` (o `--accent` do escuro, `#95b5f4`, com alfa .75/.9); sem peça, o fundo da raiz (`.tour--centro`). O recorte é a UNIÃO dos
-alvos visíveis mais 6 px. O balão (até 340 px) vai abaixo, acima, ou — sem lugar
+`--tour-halo` (o `--accent` do escuro, `#95b5f4`, com alfa .75/.9); sem peça, o fundo da raiz (`.tour--sem-recorte`). O recorte é a UNIÃO dos
+alvos visíveis mais 6 px, com o raio do cartão ou o da peça + 6 px (uma pílula
+ganha halo de pílula). O balão (até 340 px) vai abaixo, acima, ou — sem lugar
 dos dois lados — encostado na borda com mais espaço, sempre dentro da tela.
 Reposiciona em `resize`, `visualViewport`, `ResizeObserver` (peça e balão),
 `transitionend`, rolagem e a cada 250 ms do vigia; peça cortada pela borda recebe
 `scrollIntoView`. Foco no "Próximo", Tab preso no balão, `Escape` fecha.
+
+## O movimento (v1.14.4)
+
+Nada salta entre passos. Tokens em `shared/tokens.css`: `--tour-mov` (.34s, o
+trajeto), `--tour-fade` (.12s, a troca do texto), `--tour-curva` (a curva de saída
+das gavetas, `cubic-bezier(.22, .61, .36, 1)`).
+
+| momento | o que anima | como |
+|---|---|---|
+| troca de passo | recorte: posição, tamanho, raio | `left/top/width/height/border-radius` com transição — sem filhos, o layout é nulo; `transform` promoveria uma camada do tamanho da sombra de 200vmax |
+| | balão: posição e altura | `transform: translate()` (não refaz o texto); a altura vai da travada à natural do texto novo |
+| | texto (título, corpo, "N de M") | some em `--tour-fade` (`.tour-balao--trocando`), troca, volta durante o trajeto |
+| para o centro | o buraco encolhe até o meio do balão e o halo apaga (`.tour--centro`, `box-shadow` com halo transparente) | no fim o recorte sai e o véu vira o fundo da raiz (`.tour--sem-recorte`), da mesma cor |
+| do centro | o buraco nasce fechado no meio do balão (`.tour--fixo`) e abre até a peça | |
+| abrir | véu em fade, recorte e balão de `scale .94` a 1 | `.tour--entrando`, tirada no quadro seguinte |
+| fechar | uma CÓPIA inerte (`sombra()`, sem ids, `pointer-events: none`) some em fade | o tour de verdade fecha na hora: `#tour` oculto, o toque volta ao app |
+| resize, teclado, ResizeObserver, rolagem, vigia | o mesmo trajeto, curto (`.tour--ajuste` = `--dur-rapida`) | as transições redirecionam do ponto em que estão: sem tremer |
+
+**A ordem da troca** (`mostrarPasso` → `assentar` → `mover`): o volume, os botões e a
+rolagem (`scrollIntoView`) acontecem NA HORA; o texto some com a altura do balão
+travada; `assentar()` espera a peça parar (dois quadros no mesmo lugar, teto
+`ASSENTA_MS` = 700 ms — rolagem, janela ou pílula entrando); passado o fade, `mover()`
+troca o texto e leva recorte e balão juntos. Até lá o recorte fica onde estava:
+nunca salta para a posição velha. Durante a troca (`animando`) os reposicionamentos
+esperam; o fim dela reposiciona.
+
+**Cliques repetidos:** cada troca leva um número (`seq`); a seguinte cancela a
+anterior e o ÚLTIMO vence — três "Próximo" rápidos andam três passos.
+
+**`prefers-reduced-motion: reduce`:** os tokens viram 0 (no `controle.css`) e o
+`mostrarPasso` toma o caminho instantâneo (o de antes da v1.14.4); sem cópia ao
+fechar.
+
+**Oráculo:** bloco K do `tour.test.mjs` — as transições computadas; o recorte,
+com as transições pausadas na metade, ENTRE a peça A e a B; três cliques rápidos;
+a duração 0 com movimento reduzido. As outras medidas esperam `AVTour.quieto()`
+(sem troca nem transição correndo).
 
 ## Os botões de Configurações
 

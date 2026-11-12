@@ -13070,19 +13070,51 @@ body.lib-assentando .popup-sheet--lib { visibility: hidden; }
    ser o fundo da raiz, com o balão no centro. A raiz pega todo toque: durante o
    tour nada do app por baixo responde. 600 = acima dos diálogos (500), abaixo da
    prévia inteira e da cortina de abertura (que contam como ocupado e o fecham). */
-.tour { position: fixed; inset: 0; z-index: 600; pointer-events: auto; touch-action: none; }
+.tour {
+  position: fixed; inset: 0; z-index: 600; pointer-events: auto; touch-action: none;
+  transition: opacity var(--dur-media) ease;
+}
 .tour[hidden] { display: none; }
-.tour.tour--centro { background: var(--tour-veu); }
+/* Sem recorte (passo central já assentado) o véu passa a ser o fundo da raiz. */
+.tour.tour--sem-recorte { background: var(--tour-veu); }
+/* O MOVIMENTO (v1.14.4): o recorte desliza e muda de tamanho e de raio de uma peça
+   para a outra (left/top/width/height: ele não tem filhos, o layout é nulo, e o
+   tamanho muda de qualquer jeito — um `transform` promoveria uma camada do tamanho
+   da sombra de 200vmax); o balão desliza por `transform` (não refaz o texto) e a
+   altura dele anima enquanto o texto troca num fade curto. */
 .tour-recorte {
-  position: absolute; border-radius: var(--radius-card);
+  position: absolute; left: 0; top: 0; border-radius: var(--radius-card);
   /* O halo azul por cima do véu: um anel fino e um brilho que some em degradê. */
   box-shadow: 0 0 0 2px var(--tour-halo), 0 0 14px 5px var(--tour-halo), 0 0 0 200vmax var(--tour-veu);
   pointer-events: none;
+  transition: left var(--tour-mov) var(--tour-curva), top var(--tour-mov) var(--tour-curva),
+              width var(--tour-mov) var(--tour-curva), height var(--tour-mov) var(--tour-curva),
+              border-radius var(--tour-mov) var(--tour-curva), box-shadow var(--tour-mov) var(--tour-curva),
+              scale var(--tour-mov) var(--tour-curva);
 }
 .tour-recorte[hidden] { display: none; }
+/* Passo central: o buraco encolhe até o meio e o halo apaga; o véu fica. */
+.tour--centro .tour-recorte {
+  box-shadow: 0 0 0 0 transparent, 0 0 0 0 transparent, 0 0 0 200vmax var(--tour-veu);
+}
+/* O reposicionamento (resize, teclado, rolagem): o mesmo trajeto, mais curto. */
+.tour.tour--ajuste { --tour-mov: var(--dur-rapida); }
+/* Abrir: o véu entra em fade, recorte e balão crescem um pouco. */
+.tour.tour--entrando { opacity: 0; }
+.tour--entrando .tour-recorte, .tour--entrando .tour-balao { scale: .94; }
+/* Posição de partida (abrir, sair do centro): sem trajeto. */
+.tour--fixo .tour-recorte, .tour--fixo .tour-balao { transition: none; }
+/* Fechar: uma CÓPIA inerte some em fade; o tour de verdade já fechou. */
+.tour.tour--saindo { pointer-events: none; }
+.tour.tour--sumindo { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .tour, .tour.tour--ajuste { --tour-mov: 0s; --tour-fade: 0s; transition-duration: 0s; }
+}
 /* O balão é um cartão de diálogo: `--panel`, que afunda a superfície dos botões. */
 .tour-balao {
-  position: absolute;
+  position: absolute; left: 0; top: 0;
+  transition: transform var(--tour-mov) var(--tour-curva), height var(--tour-mov) var(--tour-curva),
+              scale var(--tour-mov) var(--tour-curva);
   --surface: var(--surface-sunk);
   --surface-2: var(--surface-2-sunk);
   background: var(--panel); color: var(--text);
@@ -13094,6 +13126,10 @@ body.lib-assentando .popup-sheet--lib { visibility: hidden; }
   box-sizing: border-box;
 }
 .tour-balao:focus { outline: none; }
+/* A troca de passo: o texto some, o balão anda, o texto novo volta. */
+.tour-balao.tour-balao--movendo { overflow: hidden; }
+.tour-balao > .dialog-title, .tour-balao > .dialog-msg, .tour-cont { transition: opacity var(--tour-fade) ease; }
+.tour-balao--trocando > .dialog-title, .tour-balao--trocando > .dialog-msg, .tour-balao--trocando .tour-cont { opacity: 0; }
 .tour-cab { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
 .tour-cont { font-size: var(--fs-md); color: var(--muted); font-variant-numeric: tabular-nums; }
 .tour-pular {
