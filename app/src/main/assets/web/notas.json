@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.14.1",
+    "itens": [
+      "Na primeira vez que você abre uma janela (Ferramentas, Bíblia, Configurações...), ela explica o que tem dentro.",
+      "No Modo Fácil, quando algo tocar pela primeira vez, um tour mostra a letra e os botões Parar, Play e Tela cheia.",
+      "\"Tour do app\" agora também faz cada janela se explicar de novo na próxima vez que for aberta.",
+      "A parte iluminada do tour ganhou um contorno azul suave, mais fácil de ver."
+    ]
+  },
+  {
     "versao": "1.14.0",
     "itens": [
       "Na primeira vez, um tour rápido mostra cada parte da tela, com Voltar, Próximo e Pular.",

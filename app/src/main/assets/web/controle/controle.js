@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.0';
+const WEB_VERSION = '1.14.1';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -11447,7 +11447,7 @@ window.addEventListener('resize', () => { if (linhaAcoesAberta) acertarFaixaDaLi
 // `stopPropagation` no próprio `click`.
 document.addEventListener('pointerdown', (e) => {
   if (!linhaAcoesAberta) return;
-  if (e.target.closest && e.target.closest('.acoes-abertas')) return;
+  if (e.target.closest && e.target.closest('.acoes-abertas, #tour')) return;   // o tour explica, não fecha
   fecharAcoesDaLinha();
 }, true);
 
@@ -44148,7 +44148,7 @@ document.addEventListener('pointerdown', (e) => {
   if (!cronoGavetaAberta()) return;
   const t = e.target;
   if (t === cronoVeuEl) return;
-  if ([cronoGavetaEl, cronoTituloEl, appDialogEl].some((el) => el && el.contains(t))) return;
+  if ([cronoGavetaEl, cronoTituloEl, appDialogEl, document.getElementById('tour')].some((el) => el && el.contains(t))) return;
   fecharCronoGaveta();
 }, true);
 // A GAVETA DOS ITINERÁRIOS, pela mesma regra: o véu dela cobre só a
@@ -44159,7 +44159,7 @@ document.addEventListener('pointerdown', (e) => {
   if (!itinGavetaAberta()) return;
   const t = e.target;
   if (t === itinVeuEl) return;
-  if ([itinGavetaEl, itinTituloEl, appDialogEl].some((el) => el && el.contains(t))) return;
+  if ([itinGavetaEl, itinTituloEl, appDialogEl, document.getElementById('tour')].some((el) => el && el.contains(t))) return;
   fecharItinGaveta();
 }, true);
 
@@ -45478,20 +45478,40 @@ window.__avBack = function () {
 // O tour só LÊ: qual dos três vale agora e se a tela está livre. "Ocupado" é o
 // mesmo inventário do `__avBack` (o que o voltar fecharia) mais a cortina de
 // abertura e um campo de texto com o teclado — um tour não abre por cima de nada.
+// No Fácil destravado, a Biblioteca encaixada (`corpo-biblioteca`) é o `simples`;
+// com a letra e as teclas à vista, o `tocando`.
 function qualTour() {
   if (appMode !== 'simple') return 'avancado';
-  return simpleModeEl.classList.contains('sem-tela') ? 'conexao' : 'simples';
+  if (simpleModeEl.classList.contains('sem-tela')) return 'conexao';
+  return simpleModeEl.classList.contains('corpo-biblioteca') ? 'simples' : 'tocando';
 }
-function telaOcupadaParaTour() {
+// O que nenhum tour cobre: a cortina de abertura, o diálogo e a tela cheia.
+function bloqueioDoTour() {
   if (document.getElementById('splash')) return true;   // a cortina de abertura sai por remoção do nó
   if (appDialogEl.classList.contains('open')) return true;
-  if (document.fullscreenElement || pvInteira) return true;
-  if (cronoGavetaAberta() || itinGavetaAberta() || ferramentasAbertas() || bibliaAberta()) return true;
-  for (const [backdrop] of POPUPS) {
+  return !!(document.fullscreenElement || pvInteira);
+}
+// A SEÇÃO por cima de tudo (a ordem do `__avBack`), com a chave do `AVTour.SECOES`.
+const SECAO_DO_POPUP = { fadePopup: 'configuracoes', castPopup: 'conectar', sorteioPopup: 'sorteio',
+  plPopup: 'playlist', lyricsPopup: 'letra', hymnSearchPopup: 'biblioteca' };
+function secaoDoTour() {
+  if (cronoGavetaAberta()) return 'cronogramas';
+  if (itinGavetaAberta()) return 'itin-gaveta';
+  for (let i = POPUPS.length - 1; i >= 0; i--) {
+    const [backdrop] = POPUPS[i];
     if (!backdrop.classList.contains('open')) continue;
-    if (backdrop === hymnSearchPopupEl && (appMode !== 'simple' || simplesBibliotecaDocada())) continue;
-    return true;
+    if (backdrop === hymnSearchPopupEl && appMode === 'simple' && simplesBibliotecaDocada()) continue;
+    if (backdrop === fadePopupEl && secaoAberta) return 'cfg-' + secaoAberta;
+    return SECAO_DO_POPUP[backdrop.id] || backdrop.id;
   }
+  if (ferramentasAbertas()) return ferrNaGrade ? 'ferramentas' : 'ferr-' + ferramentaAtual();
+  if (bibliaAberta()) return 'biblia';
+  return null;
+}
+// O tour PRINCIPAL só com a tela livre: sem bloqueio, sem seção aberta e sem um
+// campo de texto com o teclado.
+function telaOcupadaParaTour() {
+  if (bloqueioDoTour() || secaoDoTour()) return true;
   const foco = document.activeElement;
   return !!(foco && /^(INPUT|TEXTAREA)$/.test(foco.tagName) && foco.type !== 'range');
 }
@@ -45503,7 +45523,8 @@ function volumeDoTour(ligar) {
   clearTimeout(volPillTimer); volPillTimer = null;
 }
 if (window.AVTour) {
-  AVTour.ligar({ qual: qualTour, ocupado: telaOcupadaParaTour, volume: volumeDoTour });
+  AVTour.ligar({ qual: qualTour, ocupado: telaOcupadaParaTour, secao: secaoDoTour, bloqueio: bloqueioDoTour,
+    modo: () => appMode, volume: volumeDoTour });
 }
 const tourBtnEl = document.getElementById('tourBtn');
 if (tourBtnEl) tourBtnEl.addEventListener('click', () => {

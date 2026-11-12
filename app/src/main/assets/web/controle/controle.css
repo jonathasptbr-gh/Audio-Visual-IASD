@@ -13075,7 +13075,8 @@ body.lib-assentando .popup-sheet--lib { visibility: hidden; }
 .tour.tour--centro { background: var(--tour-veu); }
 .tour-recorte {
   position: absolute; border-radius: var(--radius-card);
-  box-shadow: 0 0 0 200vmax var(--tour-veu);
+  /* O halo azul por cima do véu: um anel fino e um brilho que some em degradê. */
+  box-shadow: 0 0 0 2px var(--tour-halo), 0 0 14px 5px var(--tour-halo), 0 0 0 200vmax var(--tour-veu);
   pointer-events: none;
 }
 .tour-recorte[hidden] { display: none; }

@@ -17,8 +17,12 @@
 //   D · colisão: um diálogo que abre no meio fecha o tour e o devolve à fila; ele
 //       volta quando o diálogo fecha.
 //   E · 360×640 com fonte 1,3×: o balão cabe na tela e nenhum botão corta o rótulo.
-//   F · o botão de Configurações refaz o tour do modo ATUAL; o guia de
-//       sonoplastia abre `#dia` no Fácil e o começo da página no avançado.
+//   F · o botão de Configurações refaz o tour do modo ATUAL e ZERA as seções do
+//       modo; o guia de sonoplastia abre `#dia` no Fácil e o começo no avançado.
+//   G · tours de SEÇÃO (v1.14.1): Configurações no Fácil, Ferramentas e o Timer
+//       no avançado — sozinhos na primeira abertura, nunca de novo, com o halo.
+//   H · o Fácil TOCANDO: a letra e as teclas, na primeira vez que algo toca.
+//   I · a varredura: toda seção do avançado acha as próprias peças.
 //   e nenhum `pageerror` em parte nenhuma.
 //   node tools/tour.test.mjs
 // ============================================================================
@@ -67,15 +71,16 @@ const esperarTour = (pg, qual, prazo = 8000) => esperar(pg, (q) => {
 // O passo de agora, medido: a peça (união dos alvos visíveis), o recorte, o balão.
 const medir = (pg) => pg.evaluate(() => {
   const e = AVTour.estado();
-  const passo = AVTour.TOURS[e.qual].filter((p) => !p.opcional || (Array.isArray(p.alvo) ? p.alvo : [p.alvo])
-    .some((s) => { const n = document.querySelector(s); return n && n.getBoundingClientRect().width > 0; }))[e.passo];
+  const todos = e.qual.startsWith('s.') ? AVTour.SECOES[e.qual.slice(2)].passos : AVTour.TOURS[e.qual];
   const vis = (n) => {
     if (!n || n.closest('[hidden]')) return false;
     const r = n.getBoundingClientRect(); const cs = getComputedStyle(n);
     return r.width >= 1 && r.height >= 1 && cs.visibility !== 'hidden' && cs.display !== 'none'
       && r.bottom > 0 && r.top < innerHeight;
   };
-  const els = (Array.isArray(passo.alvo) ? passo.alvo : [passo.alvo]).map((s) => document.querySelector(s)).filter(vis);
+  const todosDe = (p) => (Array.isArray(p.alvo) ? p.alvo : [p.alvo]).flatMap((q) => [...document.querySelectorAll(q)]).filter(vis);
+  const passo = todos.filter((p) => !p.opcional || todosDe(p).length)[e.passo];
+  const els = todosDe(passo);
   let peca = null;
   for (const n of els) {
     const q = n.getBoundingClientRect();
@@ -98,13 +103,19 @@ const medir = (pg) => pg.evaluate(() => {
     papel: bal.getAttribute('role'), focoDentro: bal.contains(document.activeElement),
     veu: getComputedStyle(rec).boxShadow, veuFundo: getComputedStyle(raiz).backgroundColor,
     token: getComputedStyle(document.documentElement).getPropertyValue('--tour-veu').trim(),
+    halo: getComputedStyle(document.documentElement).getPropertyValue('--tour-halo').trim(),
   };
 });
 
 // A cor do véu: a sombra computada do recorte (`rgba(0, 0, 0, 0.68)`) contra o token
 // (`rgba(0, 0, 0, .68)`), comparadas como NÚMEROS.
 const nums = (t) => ((String(t).match(/rgba?\(([^)]*)\)/) || [])[1] || '').split(',').map((x) => +x);
-const veuBate = (m) => { const a = nums(m.veu), b = nums(m.token); return a.length === 4 && b.length === 4 && a.every((v, k) => Math.abs(v - b[k]) < 0.005); };
+const cores = (sombra) => (String(sombra).match(/rgba?\([^)]*\)/g) || []).map(nums);
+const temCor = (sombra, token) => { const b = nums(token); return b.length === 4 && cores(sombra).some((a) => a.length === 4 && a.every((v, k) => Math.abs(v - b[k]) < 0.005)); };
+const veuBate = (m) => temCor(m.veu, m.token);
+// O HALO (v1.14.1): o `--tour-halo` está na sombra do recorte, ANTES do véu (por cima dele).
+const haloBate = (m) => temCor(m.veu, m.halo) && cores(m.veu).findIndex((a) => a.every((v, k) => Math.abs(v - nums(m.halo)[k]) < 0.005))
+  < cores(m.veu).findIndex((a) => a.every((v, k) => Math.abs(v - nums(m.token)[k]) < 0.005));
 
 // O recorte É a peça: contém o retângulo dela e não passa da folga (6px) + 1.
 function recorteBate(m) {
@@ -119,11 +130,15 @@ function recorteBate(m) {
 const cabeAoLado = (m) => { const h = m.balao.b - m.balao.t; return m.recorte.t - 22 >= h || m.vh - m.recorte.b - 22 >= h; };
 const dentro = (m) => m.balao.l >= -0.5 && m.balao.t >= -0.5 && m.balao.r <= m.vw + 0.5 && m.balao.b <= m.vh + 0.5;
 
+// "Pular" — se o tour estiver aberto (numa reprovação ele pode nem ter aberto).
+const pular = async (pg) => { if (await pg.evaluate(() => AVTour.aberto())) await pg.click('#tour .tour-pular'); };
+
 // Percorre o tour inteiro pelo "Próximo", medindo cada passo.
 async function percorrer(pg) {
   const passos = [];
   for (let k = 0; k < 20; k++) {
     await pg.waitForTimeout(320);   // o vigia (250 ms) reposiciona: a pílula de volume entra com transição
+    if (!(await estado(pg))) { passos.push({ alvo: '(o tour fechou no meio)', i: -1, total: 0 }); break; }
     const m = await medir(pg);
     passos.push(m);
     if (m.i === m.total - 1) break;
@@ -154,6 +169,8 @@ try {
       JSON.stringify(passos.map((m) => [m.cont, m.papel, m.focoDentro, dentro(m)])));
     checar(passos.every(veuBate) && Math.abs(nums(passos[0].token)[3] - 0.68) < 0.005,
       'A · o véu (escuro) é o `--tour-veu` do tema', passos[0].veu + ' × ' + passos[0].token);
+    checar(passos.every(haloBate) && nums(passos[0].halo)[2] === 244,
+      'A · em volta do recorte há o HALO azul (`--tour-halo`, derivado do `--accent`), por cima do véu', passos[0].veu + ' × ' + passos[0].halo);
     await pg.click('#tour .tour-proximo');   // Concluir
     const fechou = await pg.evaluate(() => ({ aberto: AVTour.aberto(), oculto: document.getElementById('tour').hidden, v: JSON.parse(localStorage.getItem('av.tour') || '{}') }));
     checar(!fechou.aberto && fechou.oculto && fechou.v.conexao === 1 && !fechou.v.simples,
@@ -169,13 +186,10 @@ try {
     checar(rb === true, 'B · destravar (sair da cortina) abre SOZINHO o tour dos controles', porque(rb));
     const pb = await percorrer(pg);
     const alvos = pb.map((m) => [].concat(m.alvo).join('+'));
-    checar(['#simpleBarra+#libBar', '.simple-song', '.simple-keys', '#volPill', '#simpleSettingsBtn'].every((a) => alvos.includes(a)),
-      'B · Biblioteca, letra, teclas, volume e Configurações estão no tour', alvos.join(' '));
-    const semMidia = pb.filter((m) => ['.simple-song', '.simple-keys'].includes(m.alvo));
-    checar(semMidia.length === 2 && semMidia.every((m) => m.centro && !m.recorte && m.veuFundo !== 'rgba(0, 0, 0, 0)' && /tocando/.test(m.texto)),
-      'B · sem mídia no ar, a letra e as teclas viram balão CENTRAL que explica', JSON.stringify(semMidia.map((m) => [m.alvo, m.centro, m.texto])));
-    const comPeca = pb.filter((m) => !semMidia.includes(m));
-    const ruinsB = comPeca.filter((m) => !recorteBate(m));
+    checar(['#simpleBarra+#libBar', '#volPill', '#simpleSettingsBtn'].every((a) => alvos.includes(a))
+      && !alvos.some((a) => /simple-song|simple-keys|simpleStop|simplePlay/.test(a)) && /Quando tocar/.test(pb[0].texto),
+      'B · Biblioteca, volume e Configurações estão no tour; a letra e as teclas NÃO (ficam para quando tocar, e o balão diz isso)', alvos.join(' '));
+    const ruinsB = pb.filter((m) => !recorteBate(m));
     checar(ruinsB.length === 0, 'B · os outros passos recortam a peça certa (o volume inclusive)',
       JSON.stringify(ruinsB.map((m) => [m.alvo, m.peca, m.recorte])));
     // O volume: aparece no passo dele e some ao sair.
@@ -192,33 +206,69 @@ try {
     const volta = await pg.evaluate(() => ({ r: window.__avBack(), aberto: AVTour.aberto(), oculto: document.getElementById('tour').hidden }));
     checar(volta.r === true && !volta.aberto && volta.oculto, 'B · o voltar do Android fecha o tour (e só ele)', JSON.stringify(volta));
 
-    // ---------------- F · Configurações, no Fácil ----------------
+    // ---------------- G · o tour de SEÇÃO no Fácil: Configurações ----------------
     await pg.evaluate(() => { window.__abertos = []; window.open = (u) => { window.__abertos.push(u); return null; }; });
     await pg.click('#simpleSettingsBtn');
+    const rg = await esperarTour(pg, 's.configuracoes');
+    checar(rg === true, 'G · abrir Configurações pela primeira vez abre SOZINHO o tour de dentro dela', porque(rg));
+    const pg1 = rg === true ? await percorrer(pg) : [];
+    const ruinsG = pg1.filter((m) => !recorteBate(m) || !haloBate(m));
+    checar(pg1.length >= 3 && ruinsG.length === 0 && pg1.some((m) => /cada janela/.test(m.texto) || /tours de novo/.test(m.texto)),
+      'G · cada passo recorta uma peça de Configurações, com o halo', JSON.stringify(ruinsG.map((m) => [m.alvo, m.peca, m.recorte])));
+    await pg.click('#tour .tour-proximo');   // Concluir
+    await pg.evaluate(() => closeFadePopup());
+    await esperar(pg, () => !document.getElementById('fadePopup').classList.contains('open') && !AVTour.aberto());
+    await pg.click('#simpleSettingsBtn');
     await esperar(pg, () => document.getElementById('fadePopup').classList.contains('open'));
+    await pg.waitForTimeout(1500);   // AUSÊNCIA: o de seção leva 0,7 s
+    checar(await estado(pg) === null, 'G · abrir Configurações de novo NÃO repete o tour da seção', JSON.stringify(await estado(pg)));
+
+    // ---------------- F · Configurações, no Fácil ----------------
     const lado = await pg.evaluate(() => {
       const t = document.getElementById('tourBtn'), s = document.getElementById('guiaSomBtn');
       const a = t.getBoundingClientRect(), b = s.getBoundingClientRect();
-      return { vis: a.width > 0 && b.width > 0, mesmaLinha: Math.abs(a.top - b.top) < 2, corta: [t, s].some((x) => x.scrollWidth > x.clientWidth + 1) };
+      return { vis: a.width > 0 && b.width > 0, mesmaLinha: Math.abs(a.top - b.top) < 2, corta: [t, s].some((x) => x.scrollWidth > x.clientWidth + 1),
+        diz: /cada janela/.test(t.title) };
     });
-    checar(lado.vis && lado.mesmaLinha && !lado.corta, 'F · "Tour do app" e "Guia de sonoplastia" estão em Configurações, lado a lado, sem cortar', JSON.stringify(lado));
+    checar(lado.vis && lado.mesmaLinha && !lado.corta && lado.diz, 'F · "Tour do app" e "Guia de sonoplastia" estão em Configurações, lado a lado, sem cortar (e o botão diz que as janelas voltam a se explicar)', JSON.stringify(lado));
     await pg.click('#guiaSomBtn');
     const urlFacil = await pg.evaluate(() => window.__abertos.slice(-1)[0]);
     checar(urlFacil === 'https://audiovisualiasd.com.br/sonoplastia/#dia',
       'F · no Modo Fácil o guia abre direto em "Sonoplasta por um dia"', urlFacil);
     await pg.click('#tourBtn');
     const rf = await esperarTour(pg, 'simples', 5000);
+    const zerou = await pg.evaluate(() => JSON.parse(localStorage.getItem('av.tour')));
     checar(rf === true && await pg.evaluate(() => !document.getElementById('fadePopup').classList.contains('open')),
       'F · no Fácil destravado o botão fecha Configurações e refaz o tour dos CONTROLES', porque(rf));
-    await pg.click('#tour .tour-pular');
+    checar(!zerou['s.configuracoes'] && !zerou.conexao,
+      'F · e ZERA o Modo Fácil: as seções dele voltam a se explicar ao abrir', JSON.stringify(zerou));
+    await pular(pg);
     await pg.evaluate(() => { setTocarNoCelular(false); renderSimpleGate(); });
     await esperar(pg, () => simpleModeEl.classList.contains('sem-tela'));
-    await pg.evaluate(() => openFadePopup());
-    await esperar(pg, () => document.getElementById('fadePopup').classList.contains('open'));
-    await pg.click('#tourBtn');
+    await pg.evaluate(() => { openFadePopup(); document.getElementById('tourBtn').click(); });
     const rc = await esperarTour(pg, 'conexao', 5000);
     checar(rc === true, 'F · com a cortina de volta, o mesmo botão refaz o tour da CONEXÃO', porque(rc));
-    await pg.click('#tour .tour-pular');
+    await pular(pg);
+
+    // ---------------- H · o Fácil TOCANDO: a letra e as teclas ----------------
+    await pg.evaluate(() => { const v = JSON.parse(localStorage.getItem('av.tour')); v.simples = 1; localStorage.setItem('av.tour', JSON.stringify(v)); });
+    await pg.evaluate(() => { setTocarNoCelular(true); renderSimpleGate(); });
+    const id = await pg.evaluate(async () => (await AVDB.addMedia(new Blob(['x'], { type: 'audio/wav' }),
+      { name: 'Louvor de Fundo', type: 'audio/wav', kind: 'audio', list: 'imports' })).id);
+    await pg.evaluate(async (i) => {
+      await send(i);
+      currentItem.lyrics = [{ cover: true }, { time: 0, text: 'primeira' }, { time: 5, text: 'segunda' }];
+      renderSlideNav(); renderSimpleGate();
+    }, id);
+    const rh = await esperarTour(pg, 'tocando');
+    checar(rh === true, 'H · a primeira vez que algo toca no Fácil abre SOZINHO o tour da tela tocando', porque(rh)
+      || await pg.evaluate(() => simpleModeEl.className + ' ' + qualTour()));
+    const ph = rh === true ? await percorrer(pg) : [];
+    const alvosH = ph.map((m) => [].concat(m.alvo).join('+'));
+    const ruinsH = ph.filter((m) => !recorteBate(m));
+    checar(['.simple-song', '#simpleStop', '#simplePlay'].every((a) => alvosH.includes(a)) && ruinsH.length === 0,
+      'H · ele recorta a letra, Parar e Play/Pausa (e o que mais estiver à vista)', alvosH.join(' ') + ' ' + JSON.stringify(ruinsH.map((m) => [m.alvo, m.peca, m.recorte])));
+    await pular(pg);
     await ctx.close();
   }
 
@@ -241,7 +291,11 @@ try {
     await pg.click('#tour .tour-proximo');
 
     // ---------------- D · colisão com um diálogo ----------------
-    await pg.evaluate(() => localStorage.setItem('av.tour', '{"conexao":1,"simples":1}'));
+    // Tudo visto MENOS o tour do avançado (e as Ferramentas, para o G2 logo abaixo).
+    await pg.evaluate(() => {
+      const v = {}; for (const k of AVTour.chaves()) if (k !== 'avancado' && !/^s\.ferr/.test(k)) v[k] = 1;
+      localStorage.setItem('av.tour', JSON.stringify(v));
+    });
     await pg.reload({ waitUntil: 'load' });
     await esperarCortina(pg);
     const rd = await esperarTour(pg, 'avancado');
@@ -254,7 +308,31 @@ try {
     await pg.evaluate(() => closeAppDialog(false));
     const volta = await esperarTour(pg, 'avancado');
     checar(volta === true, 'D · fechado o diálogo, o tour volta sozinho', porque(volta));
-    await pg.click('#tour .tour-pular');
+    await pular(pg);
+
+    // ---------------- G2 · os tours de SEÇÃO no avançado: Ferramentas e uma delas ----------------
+    await pg.click('#toolsBtn');
+    const rf2 = await esperarTour(pg, 's.ferramentas');
+    checar(rf2 === true, 'G2 · abrir Ferramentas pela primeira vez abre SOZINHO o tour delas', porque(rf2));
+    const pf = rf2 === true ? await percorrer(pg) : [];
+    const ruinsF = pf.filter((m) => !recorteBate(m) || !haloBate(m));
+    checar(pf.length >= 4 && ruinsF.length === 0, 'G2 · cada ferramenta é recortada na grade, com o halo',
+      JSON.stringify(ruinsF.map((m) => [m.alvo, m.peca, m.recorte])));
+    await pular(pg);
+    await pg.click('#ferrTile_timer');
+    const rt = await esperarTour(pg, 's.ferr-timer');
+    checar(rt === true, 'G2 · e abrir o Timer abre o tour DELE', porque(rt));
+    const pt = rt === true ? await percorrer(pg) : [];
+    checar(pt.length >= 2 && pt.every(recorteBate), 'G2 · o tour do Timer recorta as peças dele', JSON.stringify(pt.map((m) => [m.alvo, !!m.recorte])));
+    const backT = await pg.evaluate(() => ({ r: window.__avBack(), aberto: AVTour.aberto(), ferr: ferramentasAbertas() }));
+    checar(backT.r === true && !backT.aberto && backT.ferr, 'G2 · o voltar fecha SÓ o tour (as Ferramentas continuam abertas)', JSON.stringify(backT));
+    await pg.evaluate(() => fecharFerramentas());
+    await esperar(pg, () => !ferramentasAbertas());
+    await pg.click('#toolsBtn');
+    await pg.waitForTimeout(1500);   // AUSÊNCIA
+    checar(await estado(pg) === null, 'G2 · abrir Ferramentas de novo NÃO repete o tour', JSON.stringify(await estado(pg)));
+    await pg.evaluate(() => fecharFerramentas());
+    await esperar(pg, () => !ferramentasAbertas());
 
     // ---------------- F · Configurações, no avançado ----------------
     await pg.evaluate(() => { window.__abertos = []; window.open = (u) => { window.__abertos.push(u); return null; }; });
@@ -266,7 +344,46 @@ try {
     await pg.click('#tourBtn');
     const ra = await esperarTour(pg, 'avancado', 5000);
     checar(ra === true, 'F · no avançado o botão refaz o tour COMPLETO', porque(ra));
-    await pg.click('#tour .tour-pular');
+    const zerouAv = await pg.evaluate(() => JSON.parse(localStorage.getItem('av.tour')));
+    checar(!zerouAv['s.ferramentas'] && !zerouAv['s.ferr-timer'] && !zerouAv['s.configuracoes'] && zerouAv.conexao === 1 && zerouAv.avancado === 1,
+      'F · e ZERA só o avançado: as seções dele voltam a se explicar; as do Fácil ficam como estavam', JSON.stringify(zerouAv));
+    await pular(pg);
+
+    // ---------------- I · a VARREDURA: toda seção do avançado acha as próprias peças ----------------
+    // Os seletores das `SECOES` são texto: um id renomeado faria a seção abrir um
+    // tour de balões centrais (ou nenhum). Cada uma é aberta como o operador a
+    // abriria, e cada passo tem de recortar a peça.
+    const VARRER = [
+      ['biblia', 'abrirBiblia()', 'fecharBiblia()'],
+      ['biblioteca', 'openHymnSearch()', 'closeHymnSearch()'],
+      ['cronogramas', 'abrirCronoGaveta()', 'fecharCronoGaveta()'],
+      ['conectar', 'abrirCast()', 'fecharCast()'],
+      ['playlist', 'openPlPopup()', 'closePlPopup()'],
+      ['sorteio', 'abrirSorteio()', 'fecharSorteio()'],
+      ['cfg-tela', 'openFadePopup(); abrirSecao("tela")', 'closeFadePopup()'],
+      ['cfg-hist', 'openFadePopup(); abrirSecao("hist")', 'closeFadePopup()'],
+      ['cfg-teste', 'openFadePopup(); abrirSecao("teste")', 'closeFadePopup()'],
+      ['ferr-clock', 'abrirFerramenta("clock")', 'fecharFerramentas()'],
+      ['ferr-stopwatch', 'abrirFerramenta("stopwatch")', 'fecharFerramentas()'],
+      ['ferr-itinerario', 'abrirFerramenta("itinerario")', 'fecharFerramentas()'],
+      ['ferr-msg', 'abrirFerramenta("msg")', 'fecharFerramentas()'],
+      ['ferr-draw', 'abrirFerramenta("draw")', 'fecharFerramentas()'],
+    ];
+    const tudo = await pg.evaluate(() => { const v = {}; for (const k of AVTour.chaves()) v[k] = 1; return v; });
+    const ruinsI = [];
+    for (const [sec, abre, fecha] of VARRER) {
+      await pg.evaluate((v) => { localStorage.setItem('av.tour', JSON.stringify(v)); AVTour.armar(); }, Object.assign({}, tudo, { ['s.' + sec]: 0 }));
+      await pg.evaluate(abre);
+      const r = await esperarTour(pg, 's.' + sec, 5000);
+      if (r !== true) { ruinsI.push(sec + ': não abriu (' + await pg.evaluate(() => secaoDoTour()) + ')'); }
+      else {
+        for (const m of await percorrer(pg)) if (!recorteBate(m)) ruinsI.push(sec + ' ' + [].concat(m.alvo).join('+'));
+        await pg.evaluate(() => AVTour.aberto() && AVTour.fechar());
+      }
+      await pg.evaluate(fecha);
+      await esperar(pg, () => !secaoDoTour(), null, 3000);
+    }
+    checar(ruinsI.length === 0, 'I · toda seção do avançado abre o próprio tour, e cada passo recorta uma peça real', ruinsI.join(' | '));
     await ctx.close();
   }
 
