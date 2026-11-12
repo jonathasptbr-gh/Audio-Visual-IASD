@@ -124,16 +124,33 @@ const GANCHO_DA_CORTINA = () => {
 };
 
 /**
- * O TOUR JÁ VISTO (v1.14.0). O app abre um tour guiado AUTOMÁTICO na primeira vez
- * de cada modo (`controle/tour.js`, marca em `localStorage` `av.tour`), e o véu
- * dele engole todo toque — um oráculo que não fala do tour clicaria nele. Todo
- * contexto do arnês nasce com os três marcados, como um aparelho que já viu; quem
- * mede o tour passa `comTour: true` e parte do aparelho novo.
+ * O TOUR JÁ VISTO (v1.14.0; seções na v1.14.1). O app abre um tour guiado
+ * AUTOMÁTICO na primeira vez de cada estado da tela e de cada janela
+ * (`controle/tour.js`, marca em `localStorage` `av.tour`), e o véu dele engole
+ * todo toque — um oráculo que não fala do tour clicaria nele. Todo contexto do
+ * arnês nasce como um aparelho que já viu TODOS: o gancho embrulha o
+ * `window.AVTour` (como o da cortina embrulha o `__avSplash`) e, na publicação,
+ * grava cada chave que o próprio módulo declara (`AVTour.chaves()`) — uma seção
+ * nova entra sozinha. Quem mede o tour passa `comTour: true`.
  */
 const TOUR_JA_VISTO = () => {
   try {
-    if (!localStorage.getItem('av.tour')) localStorage.setItem('av.tour', '{"conexao":1,"simples":1,"avancado":1}');
-  } catch (_) { /* armazenamento bloqueado */ }
+    Object.defineProperty(window, 'AVTour', {
+      configurable: true,
+      get() { return undefined; },
+      set(v) {
+        delete window.AVTour;
+        window.AVTour = v;
+        try {
+          if (!localStorage.getItem('av.tour') && v && typeof v.chaves === 'function') {
+            const tudo = {};
+            for (const k of v.chaves()) tudo[k] = 1;
+            localStorage.setItem('av.tour', JSON.stringify(tudo));
+          }
+        } catch (_) { /* armazenamento bloqueado */ }
+      },
+    });
+  } catch (_) { /* sem gancho: o tour abre sozinho e o oráculo descobre */ }
 };
 
 /**

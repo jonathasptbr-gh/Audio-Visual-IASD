@@ -83,7 +83,7 @@ herdados por cópia em vez de escolhidos.
   recarga atravessa, o app novo nasce simples) é o bloco D do
   `abertura-e-transferencia`, porque os onze que o declaram passariam também num
   app que voltasse a lembrar o modo.
-- **O TOUR JÁ VISTO** (v1.14.0): todo contexto nascido do `abrirNavegador` grava `av.tour` com os três tours vistos — o véu do tour automático engole o toque. Quem mede o tour passa `abrirNavegador({ comTour: true })`.
+- **O TOUR JÁ VISTO** (v1.14.0): todo contexto nascido do `abrirNavegador` grava `av.tour` com TODAS as chaves de `AVTour.chaves()` (o gancho embrulha a publicação do `window.AVTour`) — o véu do tour automático engole o toque. Quem mede o tour passa `abrirNavegador({ comTour: true })`.
 - **Viewport e `args` são PARÂMETRO**, com o padrão do projeto (430×900). Quem
   quer outro o escreve, e aí está dito que foi escolha.
 

@@ -722,6 +722,9 @@
   /* O VÉU DO TOUR (v1.14.0): escurece tudo menos o recorte da peça explicada. Mais
      denso que o `--scrim` no escuro (a tela já é escura); no claro, um pouco menos. */
   --tour-veu: rgba(0, 0, 0, .68);
+  /* O HALO do recorte (v1.14.1): o `--accent` do escuro (#95b5f4) com alfa, somindo
+     em degradê em volta da peça — dá borda à luz sobre o véu escuro. */
+  --tour-halo: rgba(149, 181, 244, .75);
 }
 
   /* O ACENTO DO PALCO — ele existe por um defeito medido (v5.218).
@@ -937,4 +940,5 @@
   --cell-chapter: #cedff3;      --cell-chapter-text: #183d67;   /* 8,13:1 */
   --cell-verse: #f4e5c7;        --cell-verse-text: #654310;     /* 7,14:1 */
   --tour-veu: rgba(0, 0, 0, .55);
+  --tour-halo: rgba(149, 181, 244, .9);
 }

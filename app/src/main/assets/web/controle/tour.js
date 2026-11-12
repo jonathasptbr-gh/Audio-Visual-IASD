@@ -1,11 +1,15 @@
 /*
  * O TOUR GUIADO (v1.14.0) — um véu com um recorte na peça e um balão curto.
  *
- * UM TOUR POR ESTADO DA TELA, e cada um só roda no próprio estado:
+ * UM TOUR PRINCIPAL POR ESTADO DA TELA, e cada um só roda no próprio estado:
  *   `conexao`  — Modo Fácil com a cortina "sem tela" (só as opções de conexão);
- *   `simples`  — Modo Fácil destravado (os controles);
- *   `avancado` — Modo Avançado (a tela inteira).
- * Quem diz o estado é o `controle.js` (`AVTour.ligar({ qual, ocupado, ... })`);
+ *   `simples`  — Modo Fácil destravado, na Biblioteca (as portas);
+ *   `tocando`  — Modo Fácil com algo no ar (a letra e as teclas);
+ *   `avancado` — Modo Avançado (as portas da tela inteira).
+ * E UM TOUR POR SEÇÃO (`SECOES`): na primeira vez que o operador abre uma janela,
+ * folha ou gaveta, ela se explica por dentro. O tour nunca abre nada.
+ * Quem diz o estado é o `controle.js` (`AVTour.ligar({ qual, ocupado, secao,
+ * bloqueio, modo, volume })`);
  * este arquivo só lê a geometria do DOM. Ele NUNCA projeta, toca ou abre nada do
  * app: o único efeito colateral é a pílula de volume, mostrada pelo gancho
  * `volume(true)` no passo dela e escondida ao sair dele (o "desfazer" do tour).
@@ -25,14 +29,23 @@
 
   const CHAVE = 'av.tour';
   const LIVRE_MS = 1200;
+  const SECAO_MS = 700;   // a janela acabou de abrir: espera ela assentar
   const VIGIA_MS = 250;
   const FOLGA = 6;      // o recorte passa a peça por esta margem
   const MARGEM = 12;    // o balão nunca encosta na borda da tela
   const VAO = 10;       // entre o recorte e o balão
 
-  // Cada passo: `alvo` (seletor ou lista — o recorte é a UNIÃO dos visíveis),
-  // `titulo`, `texto`, e `semAlvo` (o texto do balão central quando a peça não
-  // está à vista). `opcional`: sem a peça, o passo some da conta.
+  // Cada passo: `alvo` (seletor ou lista; TODAS as ocorrências visíveis entram —
+  // o recorte é a UNIÃO), `titulo`, `texto`, e `semAlvo` (o texto do balão central
+  // quando a peça não está à vista). `opcional`: sem a peça, o passo sai da conta.
+  const FIM = 'Em Configurações, "Tour do app" mostra isto de novo — e cada janela volta a se explicar.';
+  const PROJETAR = { alvo: '#miscProjectBtn', titulo: 'Projetar', texto: 'Mostra este cartão na TV agora.', opcional: true };
+  const GUARDAR = { alvo: '#toolsBody .cue-save-btn', titulo: 'Guardar',
+    texto: 'Adicione ao Cronograma ou aos Favoritos para usar na hora certa.', opcional: true };
+  const SUBLINHA = { alvo: '#toolsBody input.misc-text', titulo: 'Sublinha',
+    texto: 'Um texto pequeno que aparece embaixo do cartão na TV.', opcional: true };
+
+  // OS TOURS PRINCIPAIS — um por estado da tela (`g.qual()`), só as portas.
   const TOURS = {
     conexao: [
       { alvo: '#simpleConn', titulo: 'Conecte a tela',
@@ -47,23 +60,34 @@
     ],
     simples: [
       { alvo: ['#simpleBarra', '#libBar'], titulo: 'Biblioteca',
-        texto: 'Procure o hino pelo número ou pelo nome e toque nele para pôr na TV.',
+        texto: 'Procure o hino pelo número ou pelo nome e toque nele para pôr na TV. Quando tocar, eu mostro a letra e os botões.',
         semAlvo: 'A Biblioteca fica no alto da tela: procure o hino pelo número ou pelo nome.' },
       { alvo: '#sorteioSimplesBtn', titulo: 'Sortear um hino',
         texto: 'Sorteia um hino do Hinário — bom para quando pedem "um hino qualquer".', opcional: true },
-      { alvo: '.simple-song', titulo: 'A letra',
-        texto: 'Enquanto um hino toca, a letra aparece aqui, acompanhando o que está na TV.',
-        semAlvo: 'Quando um hino estiver tocando, a letra aparece no lugar da Biblioteca, acompanhando a TV.' },
-      { alvo: '.simple-keys', titulo: 'Parar, Play e Tela cheia',
-        texto: 'Parar tira da TV, Play pausa ou continua, e Tela cheia mostra a TV aqui no celular.',
-        semAlvo: 'Com algo tocando, aparecem embaixo os botões Parar, Play/Pausa e Tela cheia.' },
       { alvo: '#volPill', volume: true, titulo: 'Volume',
         texto: 'Use os botões de volume do celular: esta barra aparece na lateral para ajustar.',
         semAlvo: 'Use os botões de volume do celular: aparece uma barra na lateral para ajustar.' },
       { alvo: '#simpleSettingsBtn', titulo: 'Configurações',
-        texto: 'Na engrenagem ficam o tema, a tela, a verificação, o guia de sonoplastia e este tour.' },
+        texto: 'Tema, tela, verificação e o guia de sonoplastia. ' + FIM },
       { alvo: '#simpleCastBtn', titulo: 'Conexão',
         texto: 'Mostra a tela conectada. Toque para conectar outra ou desconectar.', opcional: true },
+    ],
+    // O Modo Fácil COM ALGO NO AR (a letra e as teclas à vista).
+    tocando: [
+      { alvo: '.simple-song', titulo: 'A letra',
+        texto: 'A letra acompanha o que está na TV. Role para ler o resto.' },
+      { alvo: '.simple-fabs', titulo: 'Tamanho da letra',
+        texto: 'Aumente ou diminua a letra aqui no celular (a TV não muda).', opcional: true },
+      { alvo: '#simpleSlidesRow', titulo: 'Páginas',
+        texto: 'Passe para a página seguinte ou volte uma.', opcional: true },
+      { alvo: '.simple-nowplaying', titulo: 'Tocando agora',
+        texto: 'O nome do que está no ar e o tempo que falta.', opcional: true },
+      { alvo: '#simpleStop', titulo: 'Parar',
+        texto: 'Tira da TV o que está tocando e volta para a Biblioteca.', opcional: true },
+      { alvo: '#simplePlay', titulo: 'Play/Pausa',
+        texto: 'Pausa ou continua, sem tirar da TV.', opcional: true },
+      { alvo: '#simpleTela', titulo: 'Tela cheia',
+        texto: 'Mostra aqui no celular, em tela cheia, o que está na TV.', opcional: true },
     ],
     avancado: [
       { alvo: '#library', titulo: 'Cronograma',
@@ -75,7 +99,7 @@
       { alvo: '#bibleBtn', titulo: 'Bíblia',
         texto: 'Procure livro, capítulo e versículo para mostrar o texto na TV.' },
       { alvo: '#toolsBtn', titulo: 'Ferramentas',
-        texto: 'Relógio, Cronômetro, Timer, Itinerário, Mensagens e Sorteio ficam aqui.' },
+        texto: 'Relógio, Cronômetro, Timer, Itinerário, Mensagens e Sorteio. Ao abrir, cada uma se explica.' },
       { alvo: '#libBar', titulo: 'Biblioteca',
         texto: 'Busque hinos e mídias e mande para o Cronograma.',
         semAlvo: 'A Biblioteca fica logo abaixo do Cronograma: busque hinos e mídias por ali.' },
@@ -87,9 +111,132 @@
         texto: 'Toque aqui para conectar uma TV ou um computador.',
         semAlvo: 'Sem tela conectada, aparece sobre a prévia um botão para conectar uma TV ou um computador.' },
       { alvo: '#settingsBtn', titulo: 'Configurações',
-        texto: 'Na engrenagem ficam o tema, a tela, a verificação, o guia de sonoplastia e este tour.' },
+        texto: 'Tema, tela, verificação e o guia de sonoplastia. ' + FIM },
     ],
   };
+  const MODO_DO_TOUR = { conexao: 'simple', simples: 'simple', tocando: 'simple', avancado: 'full' };
+
+  // OS TOURS DE SEÇÃO — automáticos na PRIMEIRA ABERTURA de cada janela, folha ou
+  // gaveta (`g.secao()` diz qual está por cima). O tour nunca abre nada: o gatilho
+  // é o operador abrir. `modos`: em que modo a seção existe (o reset do botão
+  // zera as do modo atual).
+  const AMBOS = ['simple', 'full'];
+  const SECOES = {
+    configuracoes: { modos: AMBOS, passos: [
+      { alvo: '#appModeSeg', titulo: 'Modo do app',
+        texto: 'Simples ou avançado: troca a tela inteira do app.' },
+      { alvo: '#fadePopup .qs-grade', titulo: 'Atalhos',
+        texto: 'Tema, tela, histórico, verificação e mais. Os que abrem um bloco se explicam ao abrir.' },
+      { alvo: '#versaoBtn', titulo: 'Versão',
+        texto: 'Toque no número para ver o que mudou nas últimas versões.' },
+      { alvo: '#contatoBtn', titulo: 'Ajuda',
+        texto: 'Fala com quem mantém o app, pelo WhatsApp.', opcional: true },
+      { alvo: '#fadePopup .cfg-ajuda', titulo: 'Tour e guia',
+        texto: '"Tour do app" mostra os tours de novo; o guia ensina o básico de sonoplastia.' },
+    ] },
+    'cfg-tela': { modos: AMBOS, passos: [
+      { alvo: '#fitTile', titulo: 'Enquadrar', texto: 'Como a mídia ocupa a TV: inteira ou preenchendo a tela.' },
+      { alvo: '#wallTile', titulo: 'Fundo', texto: 'A imagem da TV quando nada está no ar.', opcional: true },
+      { alvo: '#lyricsBgTile', titulo: 'Fundo da letra', texto: 'Põe ou tira a imagem atrás da letra na TV.', opcional: true },
+      { alvo: '#rotBtn', titulo: 'Girar', texto: 'Gira a mídia na TV. Não gira o celular.', opcional: true },
+    ] },
+    'cfg-hist': { modos: AMBOS, passos: [
+      { alvo: '#histSecao', titulo: 'Histórico', texto: 'O que já foi para a TV, do mais recente ao mais antigo.' },
+      { alvo: '#histClear', titulo: 'Limpar', texto: 'Apaga o histórico quando começar outro culto.', opcional: true },
+    ] },
+    'cfg-teste': { modos: AMBOS, passos: [
+      { alvo: '#testeCorpo', titulo: 'Verificação', texto: 'Testa cada parte do app e mostra o que não respondeu.' },
+      { alvo: '#testeRefazer', titulo: 'De novo', texto: 'Faz a verificação outra vez.', opcional: true },
+      { alvo: '#testeSalvar', titulo: 'Compartilhar', texto: 'Manda o registro para quem está ajudando você.', opcional: true },
+    ] },
+    'cfg-edicao': { modos: AMBOS, passos: [
+      { alvo: '#edicaoBusca', titulo: 'Editar mídia', texto: 'Ache a mídia que quer cortar no começo ou no fim.', opcional: true },
+      { alvo: '#edicaoImportar', titulo: 'Arquivo de fora', texto: 'Ou traga um arquivo do celular só para cortar.', opcional: true },
+    ] },
+    'cfg-pacote': { modos: AMBOS, passos: [
+      { alvo: '#pacoteExportarTile', titulo: 'Exportar', texto: 'Salva a biblioteca e os ajustes num arquivo, para outro celular.' },
+      { alvo: '#pacoteImportarTile', titulo: 'Importar', texto: 'Traz tudo de um arquivo. Só acrescenta: nada do que já existe é apagado.' },
+    ] },
+    conectar: { modos: AMBOS, passos: [
+      { alvo: '#castMirrorBtn', titulo: 'Conectar uma TV', texto: 'Escolha a TV ou o adaptador na lista do celular.' },
+      { alvo: '#castNetBtn', titulo: 'Conectar um computador',
+        texto: 'Mostra a tela num computador no mesmo Wi-Fi, pelo navegador.', opcional: true },
+      { alvo: '#castLocalBtn', titulo: 'Tocar neste celular', texto: 'Usa o app só no celular, sem TV.', opcional: true },
+    ] },
+    biblioteca: { modos: ['full'], passos: [
+      { alvo: '#hymnSearchInput', titulo: 'Buscar', texto: 'Procure pelo nome, pelo número ou por um trecho da letra.' },
+      { alvo: '#sorteioBtn', titulo: 'Playlist automática', texto: 'Sorteia músicas por tema. Ao abrir, eu explico.', opcional: true },
+      { alvo: '#hymnSearchPopup .coll-bar-fechar', titulo: 'Álbuns',
+        texto: 'Toque num álbum para ver as músicas; toque numa música para as opções.', opcional: true },
+      { alvo: '#hymnSearchPopup .coll-bar-dl', titulo: 'Baixar',
+        texto: 'Baixe um álbum para usar sem internet no culto.', opcional: true },
+      { alvo: '#hymnSearchToggle', titulo: 'Fechar', texto: 'Fecha a Biblioteca e volta ao Cronograma.', opcional: true },
+    ] },
+    cronogramas: { modos: ['full'], passos: [
+      { alvo: '#cronoGaveta .crono-trocar', titulo: 'Seus cronogramas', texto: 'Toque num cronograma para usá-lo.' },
+      { alvo: ['#cronoGaveta .crono-renomear', '#cronoGaveta .crono-excluir'], titulo: 'Renomear e apagar',
+        texto: 'Mude o nome ou apague um cronograma.', opcional: true },
+      { alvo: '#cronoNovo', titulo: 'Novo cronograma', texto: 'Cria uma lista à parte, para outro culto ou evento.' },
+    ] },
+    biblia: { modos: ['full'], passos: [
+      { alvo: '#bibleBody', titulo: 'Bíblia',
+        texto: 'Toque no livro, depois no capítulo e nos versículos para mostrar na TV. As cores separam os grupos.' },
+      { alvo: '#bibleClose', titulo: 'Fechar', texto: 'Fecha a Bíblia. O voltar do celular sobe um nível de cada vez.' },
+    ] },
+    ferramentas: { modos: ['full'], passos: [
+      { alvo: ['#ferrTile_clock', '#ferrTile_stopwatch', '#ferrTile_timer'], titulo: 'Tempo',
+        texto: 'Relógio, Cronômetro e Timer, em cartão na TV.' },
+      { alvo: '#ferrTile_itinerario', titulo: 'Itinerário', texto: 'Os horários do culto, com atraso ou adiantamento.' },
+      { alvo: '#ferrTile_msg', titulo: 'Mensagens', texto: 'Avisos de texto prontos para a TV.' },
+      { alvo: '#ferrTile_draw', titulo: 'Sorteio', texto: 'Sorteia números e mostra o resultado na TV.' },
+      { alvo: '#toolsFechar', titulo: 'Fechar', texto: 'Volta ao Cronograma. Cada ferramenta se explica ao abrir.' },
+    ] },
+    'ferr-clock': { modos: ['full'], passos: [
+      { alvo: '#toolsBody .chrono-opt', titulo: 'Relógio', texto: 'Mostre os segundos ou use o formato de 12 horas.', opcional: true },
+      SUBLINHA, PROJETAR, GUARDAR,
+    ] },
+    'ferr-stopwatch': { modos: ['full'], passos: [
+      { alvo: ['#chronoRun', '#chronoZero'], titulo: 'Cronômetro', texto: 'Iniciar começa a contar; Zerar volta ao começo.' },
+      SUBLINHA, PROJETAR, GUARDAR,
+    ] },
+    'ferr-timer': { modos: ['full'], passos: [
+      { alvo: ['#chronoRun', '#chronoZero'], titulo: 'Timer',
+        texto: 'Escolha o tempo nas roletas e toque em Iniciar; Zerar recomeça.' },
+      SUBLINHA, PROJETAR, GUARDAR,
+    ] },
+    'ferr-itinerario': { modos: ['full'], passos: [
+      { alvo: '#itinTitulo', titulo: 'Itinerário', texto: 'Toque no nome para trocar de itinerário ou criar outro.', opcional: true },
+      { alvo: ['#toolsBody .itin-passo', '#toolsBody .itin-zerar'], titulo: 'Atraso',
+        texto: 'Adiante ou atrase todos os horários de uma vez, ou volte ao previsto.', opcional: true },
+      { alvo: '#itinNovoBtn', titulo: 'Horários', texto: 'Adicione cada parte do culto com a sua hora.', opcional: true },
+      { alvo: '#itinHorasBtn', titulo: 'Na TV', texto: 'Mostra ou esconde os horários na TV.', opcional: true },
+      PROJETAR,
+    ] },
+    'ferr-msg': { modos: ['full'], passos: [
+      { alvo: '#msgNovaBtn', titulo: 'Mensagens', texto: 'Crie um aviso; depois toque nele para mostrar na TV.' },
+    ] },
+    'ferr-draw': { modos: ['full'], passos: [
+      { alvo: '#toolsBody input.misc-num', titulo: 'De… até…', texto: 'Escolha entre quais números sortear.', opcional: true },
+      { alvo: '#toolsBody .misc-chip', titulo: 'Não repetir', texto: 'Ligado, um número sorteado não sai de novo.', opcional: true },
+      { alvo: ['#drawGoBtn', '#drawResetBtn'], titulo: 'Sortear', texto: 'Sortear escolhe um número; o botão ao lado recomeça.', opcional: true },
+      PROJETAR, GUARDAR,
+    ] },
+    sorteio: { modos: ['full'], passos: [
+      { alvo: '#sorteioPopup input.lib-search', titulo: 'Tema', texto: 'Digite uma palavra tema, como "graça" ou "esperança".' },
+      { alvo: '#sorteioPopup .song-menu-seg', titulo: 'Cantada ou fundo', texto: 'Escolha música cantada ou só o fundo musical.', opcional: true },
+      { alvo: '#sorteioPopup .misc-chip', titulo: 'De onde sortear', texto: 'Escolha os álbuns e se vale só o que já está baixado.', opcional: true },
+      { alvo: '#sorteioPopup .sorteio-acao', titulo: 'O que fazer',
+        texto: 'Tocar agora, ou sortear e guardar no Cronograma, na playlist ou nos favoritos.', opcional: true },
+    ] },
+    playlist: { modos: ['full'], passos: [
+      { alvo: '#plPopup .popup-sheet', titulo: 'Playlist', texto: 'Uma fila de músicas para tocar em sequência, à parte do Cronograma.' },
+      { alvo: ['#plPack', '#plPackFav'], titulo: 'Guardar a fila', texto: 'Guarde a fila como pacote para usar de novo.', opcional: true },
+    ] },
+    letra: { modos: ['full'], passos: [
+      { alvo: '#lyricsPopup .popup-sheet', titulo: 'Letra', texto: 'A letra completa, para ler e acompanhar o que está na TV.' },
+    ] },
+  };
+  const CHAVE_SECAO = (s) => 's.' + s;
 
   let g = null;            // os ganchos do controle.js
   let autoTimer = null;
@@ -109,7 +256,9 @@
     if (visto) v[qual] = 1; else delete v[qual];
     try { localStorage.setItem(CHAVE, JSON.stringify(v)); } catch (_) { /* armazenamento bloqueado */ }
   }
-  const todosVistos = () => { const v = vistos(); return Object.keys(TOURS).every((k) => v[k]); };
+  // As chaves de "já visto": o nome do tour principal, ou `s.<seção>`.
+  const chaves = () => Object.keys(TOURS).concat(Object.keys(SECOES).map(CHAVE_SECAO));
+  const passosDe = (id) => (id.startsWith('s.') ? (SECOES[id.slice(2)] || {}).passos : TOURS[id]);
 
   function visivel(el) {
     if (!el || !el.isConnected || el.closest('[hidden]')) return false;
@@ -123,7 +272,9 @@
   }
   function elementos(passo) {
     const lista = Array.isArray(passo.alvo) ? passo.alvo : [passo.alvo];
-    return lista.map((s) => document.querySelector(s)).filter(visivel);
+    const els = [];
+    for (const q of lista) for (const e of document.querySelectorAll(q)) if (visivel(e)) els.push(e);
+    return els;
   }
   function retangulo(passo) {
     const els = elementos(passo);
@@ -254,12 +405,14 @@
 
   function aoMudar() { agendar(); }
 
+  // `qual` é a chave: o nome do tour principal ou `s.<seção>`.
   function abrir(qual, auto) {
-    if (!TOURS[qual] || !g) return false;
+    const todos = passosDe(qual);
+    if (!todos || !g) return false;
     montar();
     if (atual) fechar({ manter: true });
     // `opcional` sem a peça sai da conta antes de contar "N de M".
-    const passos = TOURS[qual].filter((p) => !p.opcional || elementos(p).length);
+    const passos = todos.filter((p) => !p.opcional || elementos(p).length);
     if (!passos.length) return false;
     atual = { qual, passos, i: 0, foco: document.activeElement, volume: false, auto: !!auto };
     marcar(qual, true);
@@ -297,36 +450,69 @@
     return true;
   }
 
+  // O estado que vale para o tour aberto: a seção por cima (tour de seção) ou o
+  // estado da tela (tour principal). Mudou, ele fecha; algo por cima, fecha e
+  // devolve o automático à fila.
   function vigiar() {
     if (!atual) return;
+    const secao = atual.qual.startsWith('s.');
     let qual = null, ocupado = false;
-    try { qual = g.qual(); ocupado = g.ocupado(); } catch (_) { /* segue */ }
+    try {
+      if (secao) { const s2 = g.secao(); qual = s2 ? CHAVE_SECAO(s2) : null; ocupado = g.bloqueio(); }
+      else { qual = g.qual(); ocupado = g.ocupado(); }
+    } catch (_) { /* segue */ }
     if (ocupado) { fechar({ desmarcar: true }); return; }
     if (qual !== atual.qual) { fechar(); return; }
     posicionar();
   }
 
+  // O candidato de agora: a SEÇÃO aberta por cima (se tiver tour e não foi vista)
+  // ou, com a tela livre, o tour principal do estado.
+  function candidato() {
+    const v = vistos();
+    const sec = g.secao();
+    if (sec) {
+      const k = CHAVE_SECAO(sec);
+      return SECOES[sec] && !v[k] && !g.bloqueio() ? k : null;
+    }
+    const qual = g.qual();
+    return qual && !v[qual] && !g.ocupado() ? qual : null;
+  }
+  let candidatoAntes = null;
   function tique() {
     if (atual) return;
-    if (todosVistos()) { clearInterval(autoTimer); autoTimer = null; return; }
-    let qual = null, ocupado = true;
-    try { qual = g.qual(); ocupado = g.ocupado(); } catch (_) { /* segue */ }
-    if (!qual || ocupado || vistos()[qual]) { livreDesde = 0; return; }
+    const v = vistos();
+    if (chaves().every((k) => v[k])) { clearInterval(autoTimer); autoTimer = null; return; }
+    let qual = null;
+    try { qual = candidato(); } catch (_) { qual = null; }
+    if (qual !== candidatoAntes) { candidatoAntes = qual; livreDesde = 0; }
+    if (!qual) { livreDesde = 0; return; }
     const agora = Date.now();
     if (!livreDesde) { livreDesde = agora; return; }
-    if (agora - livreDesde >= LIVRE_MS) { livreDesde = 0; abrir(qual, true); }
+    if (agora - livreDesde >= (qual.startsWith('s.') ? SECAO_MS : LIVRE_MS)) { livreDesde = 0; abrir(qual, true); }
   }
 
   function armar() {
-    if (!g || autoTimer || todosVistos()) return;
+    const v = vistos();
+    if (!g || autoTimer || chaves().every((k) => v[k])) return;
     livreDesde = 0;
     autoTimer = setInterval(tique, 300);
   }
 
   // O botão de Configurações: refaz o tour do estado ATUAL. Quem o chama já
   // mandou fechar a folha; aqui se espera a tela ficar livre (até 3 s).
+  //
+  // E ZERA O MODO ATUAL: os outros tours principais do modo e TODAS as seções que
+  // existem nele voltam a ser "não vistos" — cada janela se explica de novo na
+  // próxima vez que for aberta.
   function refazer() {
     if (!g) return;
+    const modo = g.modo();
+    const v = vistos();
+    for (const k of Object.keys(TOURS)) if (MODO_DO_TOUR[k] === modo) delete v[k];
+    for (const k of Object.keys(SECOES)) if (SECOES[k].modos.includes(modo)) delete v[CHAVE_SECAO(k)];
+    try { localStorage.setItem(CHAVE, JSON.stringify(v)); } catch (_) { /* armazenamento bloqueado */ }
+    armar();
     const ate = Date.now() + 3000;
     (function tentar() {
       let ocupado = true;
@@ -344,11 +530,14 @@
   global.AVTour = {
     ligar,
     refazer,
+    armar,   // religa o automático depois de alguém mexer nas marcas (`av.tour`)
     abrir,
     fechar: () => fechar(),
     aberto: () => !!atual,
     estado: () => (atual ? { qual: atual.qual, passo: atual.i, total: atual.passos.length } : null),
     TOURS,
+    SECOES,
+    chaves,
     CHAVE,
   };
 })(window);

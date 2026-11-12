@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.1** — tours de SEÇÃO (cada janela, folha e gaveta se explica na primeira abertura; o "Tour do app" zera as do modo), o tour do Fácil TOCANDO (letra e teclas) e o halo azul no recorte; guia dentro do app recusado (iframe furaria a invariante 2); só web.
 - **v1.14.0** — o tour guiado: um por estado da tela (conexão com a cortina do Fácil, controles do Fácil, avançado completo), automático uma vez e nunca por cima de diálogo; botões "Tour do app" e "Guia de sonoplastia" (`#dia` no Fácil) em Configurações; só web.
 - **o guia de sonoplastia: compartilhar à vista (sem versão nova; só `site/`)** — botão "Compartilhar este guia" na capa, "Compartilhar capítulo" sob cada título e "Compartilhar este problema" em cada sintoma; abre a folha de compartilhar do celular (WhatsApp, e-mail…) e, sem ela, copia o link
 - **o guia de sonoplastia sem o botão flutuante (sem versão nova; só `site/`)** — o índice abre só pelo botão da barra do topo, que fica sempre visível; o texto de "Como usar" acompanha
@@ -701,6 +702,51 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.1 — tours de seção, o Fácil tocando e o halo
+
+**Pedido.** (1) Na primeira abertura de cada menu, folha, janela ou gaveta, um
+mini-tour de DENTRO dela, com marca própria; o "Tour do app" refaz também esses.
+(2) No Fácil, um tour da tela TOCANDO (letra e teclas), automático na primeira vez
+que algo toca; o tour dos controles perde os balões de "aparece quando…". (3) Um
+halo azul em volta do recorte. (4) O guia de sonoplastia DENTRO do app.
+
+**O que entrou** (contrato em `docs/arquitetura/CONTROLE-TOUR.md`):
+
+- `SECOES` no `tour.js` (20 chaves: Configurações e cada bloco, Conectar, e no
+  avançado Biblioteca, gaveta de cronogramas, Bíblia, Ferramentas e cada ferramenta,
+  playlist automática, playlist, letra), marca `s.<chave>`. Gatilho:
+  `secaoDoTour()` no `controle.js` (ordem do `__avBack`), 0,7 s parada, sem
+  `bloqueioDoTour()`. O tour principal agora espera QUALQUER seção aberta — corrige
+  a v1.14.0, que no avançado ignorava a janela da Biblioteca.
+- `tocando` = Fácil destravado sem `.corpo-biblioteca`; `simples` perdeu a letra e
+  as teclas (o passo da Biblioteca diz "quando tocar, eu mostro").
+- `AVTour.refazer` zera o MODO atual (os tours principais dele e as seções que
+  existem nele); dito no `title` do botão e no último passo dos principais.
+- `--tour-halo` (o `--accent` do escuro com alfa .75/.9) num anel de 2 px + brilho
+  de 14 px, por cima do véu.
+- Os três ouvintes de "toque fora fecha" (gaveta de cronogramas, de itinerários,
+  ações da linha) ignoram toque no `#tour` — o "Próximo" fechava a gaveta.
+- O arnês marca TODAS as chaves embrulhando o `window.AVTour` na publicação
+  (`AVTour.chaves()`), como o gancho da cortina; `AVTour.armar()` religa o
+  automático depois de mexer nas marcas.
+
+**O guia dentro do app foi RECUSADO** (segue abrindo por fora). A CSP do controle
+(não há) e o site (sem `X-Frame-Options`/`frame-ancestors`) permitiriam o iframe,
+mas a casca não: `addJavascriptInterface` injeta `__AVBridge` em TODO frame,
+de qualquer origem — a página do site ganharia a ponte inteira (invariante 2) —, e o
+`shouldOverrideUrlLoading` (`!ehDoApp`) pode cancelar a navegação do subframe. O
+caminho certo é lote de APK: uma tela nativa com um WebView SEM a ponte, restrito ao
+host do site, voltar fecha, links externos por `ACTION_VIEW`; método novo na ponte,
+`SHELL_VERSION` e Release.
+
+**Degrau: CORREÇÃO.** O tour é a mesma seção nascida na v1.14.0, só mais fundo; não
+há lugar novo no app.
+
+**Oráculo** `tools/tour.test.mjs`: blocos G (Configurações no Fácil), G2
+(Ferramentas e o Timer no avançado, o voltar), H (tocando), I (varredura das 14
+seções do avançado abertas como o operador as abre), o halo em A/G e o zerar em F.
+Revertido (halo, `tocando`, seção das Ferramentas, zerar): reprova.
 
 ## v1.14.0 — o tour guiado e o atalho do guia de sonoplastia
 
