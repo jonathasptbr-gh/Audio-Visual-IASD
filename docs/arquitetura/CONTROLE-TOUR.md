@@ -1,4 +1,4 @@
-# O tour guiado (v1.14.0; seções, "tocando" e halo na v1.14.1)
+# O tour guiado (v1.14.0; seções, "tocando" e halo na v1.14.1; ordem visual na v1.14.3)
 
 **O que é.** Um véu escurecido com um RECORTE na peça explicada e um balão curto
 (título, uma ou duas frases, "N de M", Voltar · Próximo/Concluir · Pular). Mora em
@@ -10,9 +10,9 @@ depois do `__avBack`. Oráculo: `tools/tour.test.mjs`.
 | tour | quando vale (`qualTour()`) | o que mostra |
 |---|---|---|
 | `conexao` | Modo Fácil com a cortina "sem tela" (`#simpleMode.sem-tela`) | só a cortina: `#simpleConn`, `#castMirrorBtn`, `#castNetBtn`, `#castLocalBtn` |
-| `simples` | Modo Fácil destravado, Biblioteca encaixada (`.corpo-biblioteca`) | `#simpleBarra`/`#libBar`, `#sorteioSimplesBtn`, `#volPill`, `#simpleSettingsBtn`, `#simpleCastBtn` |
+| `simples` | Modo Fácil destravado, Biblioteca encaixada (`.corpo-biblioteca`) | `#simpleBarra`/`#libBar`, `#sorteioSimplesBtn`, `#volPill`, `#simpleSettingsBtn`, `#simpleCastBtn`, `FIM` |
 | `tocando` | Modo Fácil destravado com a letra e as teclas à vista | `.simple-song`, `.simple-fabs`, `#simpleSlidesRow`, `.simple-nowplaying`, `#simpleStop`, `#simplePlay`, `#simpleTela` |
-| `avancado` | Modo Avançado | `#library`, `#cronoTitulo`, `#cronoImportar`, `#bibleBtn`, `#toolsBtn`, `#libBar`, `#preview`, `#seek`+`.transport`, `#pvCastBtn`, `#settingsBtn` |
+| `avancado` | Modo Avançado | `#library`, `#cronoTitulo`, `#cronoImportar`, `#bibleBtn`, `#toolsBtn`, `#libBar`, `#preview`, `#seek`+`.transport`, `#pvCastBtn`, `#settingsBtn`, `FIM` |
 
 Os tours principais só apontam as PORTAS (a tabela `TOURS` do `tour.js`); o que há
 dentro de cada janela é o tour de SEÇÃO, abaixo. Um passo `opcional` sem
@@ -20,6 +20,32 @@ a peça sai da conta; um passo com `semAlvo` e sem a peça à vista vira BALÃO
 CENTRAL com o texto que explica (a letra e as teclas do Fácil sem mídia no ar, o
 `#pvCastBtn` com tela conectada). O tour vigia o estado: se ele muda no meio (a TV
 conectou sozinha), o tour fecha e o do estado novo entra na fila.
+
+## A ORDEM é a VISUAL, medida ao abrir (v1.14.3)
+
+A ordem do array NÃO é a ordem mostrada: `abrir()` filtra os `opcional` e chama
+`ordenar()`, que mede cada peça (`getBoundingClientRect`, a união dos alvos) NAQUELA
+tela e naquele modo.
+
+| regra | o quê |
+|---|---|
+| faixa | centros verticais em ordem; cada um entra na faixa do anterior se dista dele até max(`LINHA_PX` = 24 px, metade da altura do menor dos dois) — encadeado |
+| ordem | faixa de cima para baixo; dentro dela, `left` crescente (empate: a ordem declarada) |
+| `abertura: true` | FIXO no começo, na ordem declarada: a moldura que apresenta a tela ou a janela e CONTÉM as outras peças (`#simpleConn`, `#library`, `#bibleBody`, `#histSecao`, `#testeCorpo`, a folha da Playlist e a da Letra) |
+| `fecho: true` / sem `alvo` | FIXO no fim (`FIM`: "Tour do app", balão central, em `simples` e `avancado`) |
+| peça fora de vista | (o balão central do `semAlvo`) vai para o fim, ANTES do fecho, na ordem declarada |
+| `volume: true` | a pílula está escondida (`visibility`) até o passo dela; ordena pela caixa que ocupa |
+
+O texto de um passo não pode depender do passo anterior (a posição dele muda com a
+tela). Nenhum tour tem ordem estática. Oráculo: o bloco J do `tour.test.mjs` (todos
+os tours, nos dois modos, a 390×860 e a 360×640; o `AVTour.passoAtual()` dá o passo
+na ordem mostrada).
+
+**Os textos:** título = o rótulo que está na tela (ou descrição curta, sem rótulo);
+corpo de 1–2 frases com o que é, para que serve e o verbo de ação ("Toque…",
+"Arraste…", "Segure…"), mais o detalhe que não é óbvio — conferido no código. As
+peças das Ferramentas que moram no rodapé (`#toolsFoot`, irmão do `#toolsBody`) são
+procuradas lá.
 
 ## Os tours de SEÇÃO (v1.14.1)
 

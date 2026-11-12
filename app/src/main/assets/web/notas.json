@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.14.3",
+    "itens": [
+      "O tour agora segue a tela de cima para baixo e da esquerda para a direita, em qualquer celular.",
+      "Os textos do tour foram reescritos: cada balão diz o nome do botão, para que serve e como usar.",
+      "O aviso de como rever o tour virou o último passo, no fim de cada tour.",
+      "Nas Ferramentas, o tour agora mostra também os botões de guardar no Cronograma e nos Favoritos."
+    ]
+  },
+  {
     "versao": "1.14.2",
     "itens": [
       "\"Guia de sonoplastia\" agora abre dentro do app, em tela cheia; o voltar do celular fecha o guia.",

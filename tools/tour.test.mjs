@@ -23,6 +23,9 @@
 //       no avançado — sozinhos na primeira abertura, nunca de novo, com o halo.
 //   H · o Fácil TOCANDO: a letra e as teclas, na primeira vez que algo toca.
 //   I · a varredura: toda seção do avançado acha as próprias peças.
+//   J · a ORDEM VISUAL (v1.14.3): em todo tour, nos dois modos, a 390×860 e a
+//       360×640, os passos com peça vão de cima para baixo e, na mesma faixa, da
+//       esquerda para a direita (os fixos — `abertura`/`fecho` — ficam de fora).
 //   e nenhum `pageerror` em parte nenhuma.
 //   node tools/tour.test.mjs
 // ============================================================================
@@ -71,15 +74,14 @@ const esperarTour = (pg, qual, prazo = 8000) => esperar(pg, (q) => {
 // O passo de agora, medido: a peça (união dos alvos visíveis), o recorte, o balão.
 const medir = (pg) => pg.evaluate(() => {
   const e = AVTour.estado();
-  const todos = e.qual.startsWith('s.') ? AVTour.SECOES[e.qual.slice(2)].passos : AVTour.TOURS[e.qual];
   const vis = (n) => {
     if (!n || n.closest('[hidden]')) return false;
     const r = n.getBoundingClientRect(); const cs = getComputedStyle(n);
     return r.width >= 1 && r.height >= 1 && cs.visibility !== 'hidden' && cs.display !== 'none'
       && r.bottom > 0 && r.top < innerHeight;
   };
-  const todosDe = (p) => (Array.isArray(p.alvo) ? p.alvo : [p.alvo]).flatMap((q) => [...document.querySelectorAll(q)]).filter(vis);
-  const passo = todos.filter((p) => !p.opcional || todosDe(p).length)[e.passo];
+  const todosDe = (p) => (!p.alvo ? [] : Array.isArray(p.alvo) ? p.alvo : [p.alvo]).flatMap((q) => [...document.querySelectorAll(q)]).filter(vis);
+  const passo = AVTour.passoAtual();   // o passo NA ORDEM em que o tour o mostra
   const els = todosDe(passo);
   let peca = null;
   for (const n of els) {
@@ -95,6 +97,7 @@ const medir = (pg) => pg.evaluate(() => {
   const botoes = [...bal.querySelectorAll('button')].map((b) => ({ t: b.textContent, corta: b.scrollWidth > b.clientWidth + 1 }));
   return {
     qual: e.qual, i: e.passo, total: e.total, alvo: passo.alvo, titulo: passo.titulo,
+    fixo: passo.abertura ? 'abertura' : passo.fecho ? 'fecho' : null,
     cont: raiz.querySelector('.tour-cont').textContent, texto: raiz.querySelector('#tourTexto').textContent,
     centro: raiz.classList.contains('tour--centro'),
     peca, recorte: rr && { l: rr.left, t: rr.top, r: rr.right, b: rr.bottom },
@@ -132,6 +135,28 @@ const dentro = (m) => m.balao.l >= -0.5 && m.balao.t >= -0.5 && m.balao.r <= m.v
 
 // "Pular" — se o tour estiver aberto (numa reprovação ele pode nem ter aberto).
 const pular = async (pg) => { if (await pg.evaluate(() => AVTour.aberto())) await pg.click('#tour .tour-pular'); };
+
+// A ORDEM VISUAL: a faixa é a do `tour.js` — os centros verticais, em ordem, ficam
+// na mesma faixa enquanto cada um dista do anterior até max(24 px, metade da altura
+// do menor). Na sequência mostrada, a faixa não volta para cima e, dentro dela, a
+// borda esquerda não volta para a esquerda. Devolve os pares fora de ordem.
+function foraDeOrdem(passos) {
+  const ms = passos.filter((m) => m.peca && !m.fixo).map((m) => ({
+    cy: (m.peca.t + m.peca.b) / 2, h: m.peca.b - m.peca.t, l: m.peca.l, alvo: [].concat(m.alvo).join('+') }));
+  let faixa = 0, ant = null;
+  for (const m of [...ms].sort((a, b) => a.cy - b.cy)) {
+    if (ant && m.cy - ant.cy > Math.max(24, Math.min(ant.h, m.h) / 2)) faixa++;
+    m.faixa = faixa; ant = m;
+  }
+  const ruins = [];
+  for (let k = 1; k < ms.length; k++) {
+    const a = ms[k - 1], b = ms[k];
+    if (b.faixa < a.faixa || (b.faixa === a.faixa && b.l < a.l - 1)) {
+      ruins.push(a.alvo + '(' + Math.round(a.cy) + ',' + Math.round(a.l) + ') → ' + b.alvo + '(' + Math.round(b.cy) + ',' + Math.round(b.l) + ')');
+    }
+  }
+  return ruins;
+}
 
 // Percorre o tour inteiro pelo "Próximo", medindo cada passo.
 async function percorrer(pg) {
@@ -187,9 +212,9 @@ try {
     const pb = await percorrer(pg);
     const alvos = pb.map((m) => [].concat(m.alvo).join('+'));
     checar(['#simpleBarra+#libBar', '#volPill', '#simpleSettingsBtn'].every((a) => alvos.includes(a))
-      && !alvos.some((a) => /simple-song|simple-keys|simpleStop|simplePlay/.test(a)) && /Quando tocar/.test(pb[0].texto),
+      && !alvos.some((a) => /simple-song|simple-keys|simpleStop|simplePlay/.test(a)) && /Quando tocar/.test((pb.find((m) => [].concat(m.alvo).includes('#simpleBarra')) || {}).texto),
       'B · Biblioteca, volume e Configurações estão no tour; a letra e as teclas NÃO (ficam para quando tocar, e o balão diz isso)', alvos.join(' '));
-    const ruinsB = pb.filter((m) => !recorteBate(m));
+    const ruinsB = pb.filter((m) => m.alvo && !recorteBate(m));
     checar(ruinsB.length === 0, 'B · os outros passos recortam a peça certa (o volume inclusive)',
       JSON.stringify(ruinsB.map((m) => [m.alvo, m.peca, m.recorte])));
     // O volume: aparece no passo dele e some ao sair.
@@ -386,6 +411,74 @@ try {
     checar(ruinsI.length === 0, 'I · toda seção do avançado abre o próprio tour, e cada passo recorta uma peça real', ruinsI.join(' | '));
     await ctx.close();
   }
+
+  // ---------------- J · a ORDEM VISUAL, em todo tour, nos dois modos e duas telas ----------------
+  // Cada tour é aberto à mão (`AVTour.abrir`) com a janela dele já assentada, e a
+  // sequência mostrada é medida passo a passo.
+  const AMBOS_J = [
+    ['s.configuracoes', 'openFadePopup()', 'closeFadePopup()'],
+    ['s.cfg-tela', 'openFadePopup(); abrirSecao("tela")', 'closeFadePopup()'],
+    ['s.cfg-hist', 'openFadePopup(); abrirSecao("hist")', 'closeFadePopup()'],
+    ['s.cfg-teste', 'openFadePopup(); abrirSecao("teste")', 'closeFadePopup()'],
+    ['s.cfg-edicao', 'openFadePopup(); abrirSecao("edicao")', 'closeFadePopup()'],
+    ['s.cfg-pacote', 'openFadePopup(); abrirSecao("pacote")', 'closeFadePopup()'],
+    ['s.conectar', 'abrirCast()', 'fecharCast()'],
+  ];
+  const SO_FACIL = [
+    ['conexao', '', ''],
+    ['simples', 'setTocarNoCelular(true); renderSimpleGate()', ''],
+    ['tocando', 'TOCAR', ''],
+  ];
+  const SO_AVANCADO = [
+    ['avancado', '', ''],
+    ['s.biblia', 'abrirBiblia()', 'fecharBiblia()'],
+    ['s.biblioteca', 'openHymnSearch()', 'closeHymnSearch()'],
+    ['s.cronogramas', 'abrirCronoGaveta()', 'fecharCronoGaveta()'],
+    ['s.playlist', 'openPlPopup()', 'closePlPopup()'],
+    ['s.sorteio', 'abrirSorteio()', 'fecharSorteio()'],
+    ['s.ferramentas', 'abrirFerramentas()', 'fecharFerramentas()'],
+    ['s.ferr-clock', 'abrirFerramenta("clock")', 'fecharFerramentas()'],
+    ['s.ferr-stopwatch', 'abrirFerramenta("stopwatch")', 'fecharFerramentas()'],
+    ['s.ferr-timer', 'abrirFerramenta("timer")', 'fecharFerramentas()'],
+    ['s.ferr-itinerario', 'abrirFerramenta("itinerario")', 'fecharFerramentas()'],
+    ['s.ferr-msg', 'abrirFerramenta("msg")', 'fecharFerramentas()'],
+    ['s.ferr-draw', 'abrirFerramenta("draw")', 'fecharFerramentas()'],
+  ];
+  const ruinsJ = [], vistosJ = [];
+  for (const viewport of [{ width: 390, height: 860 }, { width: 360, height: 640 }]) {
+    for (const avancado of [false, true]) {
+      const { ctx, pg } = await abrir(viewport, { avancado });
+      await pg.evaluate(() => { const v = {}; for (const k of AVTour.chaves()) v[k] = 1; localStorage.setItem('av.tour', JSON.stringify(v)); });
+      for (const [qual, abre, fecha] of (avancado ? SO_AVANCADO : SO_FACIL).concat(AMBOS_J)) {
+        const onde = viewport.width + '×' + viewport.height + (avancado ? ' avançado ' : ' fácil ') + qual;
+        if (abre === 'TOCAR') {
+          const id = await pg.evaluate(async () => (await AVDB.addMedia(new Blob(['x'], { type: 'audio/wav' }),
+            { name: 'Louvor de Fundo', type: 'audio/wav', kind: 'audio', list: 'imports' })).id);
+          await pg.evaluate(async (i) => {
+            await send(i);
+            currentItem.lyrics = [{ cover: true }, { time: 0, text: 'primeira' }, { time: 5, text: 'segunda' }];
+            renderSlideNav(); renderSimpleGate();
+          }, id);
+        } else if (abre) await pg.evaluate(abre);
+        const pronto = await esperar(pg, (q) => (q.startsWith('s.') ? secaoDoTour() === q.slice(2) : qualTour() === q), qual, 5000);
+        await pg.waitForTimeout(450);   // a janela assenta (transição) antes de o tour medir a ordem
+        const abriu = pronto === true && await pg.evaluate((q) => AVTour.abrir(q), qual);
+        if (!abriu) { ruinsJ.push(onde + ': não abriu (' + await pg.evaluate(() => secaoDoTour() + '/' + qualTour()) + ')'); }
+        else {
+          const ps = await percorrer(pg);
+          vistosJ.push(onde + ': ' + ps.map((m) => (m.fixo ? '[' + m.titulo + ']' : m.titulo)).join(' · '));
+          for (const r of foraDeOrdem(ps)) ruinsJ.push(onde + ': ' + r);
+          await pg.evaluate(() => AVTour.aberto() && AVTour.fechar());
+        }
+        if (fecha) { await pg.evaluate(fecha); await esperar(pg, () => !secaoDoTour(), null, 3000); }
+      }
+      await ctx.close();
+    }
+  }
+  if (process.env.TOUR_ORDEM) console.log(vistosJ.join('\n'));
+  checar(ruinsJ.length === 0 && vistosJ.length >= 40,
+    'J · em todo tour, nos dois modos, a 390×860 e a 360×640, os passos vão de cima para baixo e, na faixa, da esquerda para a direita',
+    ruinsJ.join(' | ') + ' (' + vistosJ.length + ' tours medidos)');
 
   // ---------------- E · 360×640 com fonte 1,3× ----------------
   for (const avancado of [true, false]) {
