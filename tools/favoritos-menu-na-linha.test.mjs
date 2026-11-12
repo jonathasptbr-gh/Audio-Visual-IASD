@@ -58,9 +58,9 @@ try {
   const erros = [];
   pg.on('pageerror', (e) => erros.push('pageerror: ' + e.message));
   // O BOOT TERMINA QUANDO A CORTINA CAI (v1.13.69): `init()` ainda roda `setAppMode` e `load()`
-  // até lá, e abrir a Biblioteca antes disso a fazia ser FECHADA debaixo do teste — foi a
-  // reprovação do CI (run 43106210937): `esperarCortina` devolve a FRASE do prazo (30 s) e o
-  // oráculo a ignorava. Aqui o prazo é folgado e o estouro é erro, não silêncio.
+  // até lá, e abrir a Biblioteca antes disso a fazia ser FECHADA debaixo do teste (achado com a
+  // CPU estrangulada; o vermelho do CI era OUTRO — ver `pontoDescoberto`): `esperarCortina`
+  // devolve a FRASE do prazo e o oráculo a ignorava. Aqui o prazo é folgado e o estouro é erro.
   const aguardarBoot = async () => {
     const r = await esperarCortina(pg, 150000);
     if (r !== true) throw new Error('o app não terminou de abrir: ' + r);
@@ -160,13 +160,48 @@ try {
     'A · e há UM `⋮` por linha — nenhum `.dest-opcoes`/`.fav-acoes` sobrou na gaveta', a);
 
   // ── B. TOCAR NO `⋮` ABRE A FAIXA, SEM ABRIR A GAVETA ─────────────────────
-  const tocar = async (seletor, nth = 0) => {
-    const loc = pg.locator(seletor).nth(nth);
-    // No MEIO da janela: o cabeçalho da seção é `sticky` e cobre o topo da rolagem.
+  // O PONTO DESCOBERTO (v1.13.69). Todo toque/aperto por COORDENADA passa por aqui. Foi ESTA a
+  // reprovação do CI (runs 43106210937 e 43134220477; o rastro do run 43135558877 provou, e uma
+  // janela de 660 px a reproduz aqui): com as fontes do runner a linha apertada ficava debaixo da
+  // barra GRUDADA do grupo Favoritos (`position: sticky`). O toque caía na barra, o soltar virava
+  // `click` nela e FECHAVA o grupo — a lista "sumia" (`tela: []`) por um gesto do próprio teste,
+  // não do app. Aqui o elemento vai ao centro, a lista PARA (três quadros iguais), e o
+  // `elementFromPoint` confirma que o ponto cai NELE antes de tocar; coberto, a lista rola um pouco
+  // e mede de novo.
+  const quadrosParados = () => pg.evaluate((s) => new Promise((ok) => {
+    let ant = ''; let iguais = 0; let n = 0;
+    const passo = () => {
+      const r = [...document.querySelectorAll(s)].map((li) => {
+        const b = li.getBoundingClientRect(); return Math.round(b.top) + ':' + Math.round(b.height);
+      }).join(',') + '|' + hymnResultsEl.scrollTop;
+      if (r === ant) iguais++; else { iguais = 0; ant = r; }
+      if (iguais >= 3 || ++n > 600) ok(); else requestAnimationFrame(passo);
+    };
+    requestAnimationFrame(passo);
+  }), linhas);
+  const pontoDescoberto = async (loc) => {
     await loc.evaluate((el) => el.scrollIntoView({ block: 'center' }));
-    await espera(60);
-    const b = await loc.boundingBox();
-    await pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2);
+    for (let i = 0; ; i++) {
+      await quadrosParados();
+      const b = await loc.boundingBox();
+      const c = { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+      const alvo = await loc.evaluate((el, [x, y]) => {
+        const h = document.elementFromPoint(x, y);
+        return { ok: !!h && (el === h || el.contains(h)),
+          el: h ? (h.tagName + '.' + String(h.className || '')).slice(0, 80) : null };
+      }, [c.x, c.y]);
+      if (alvo.ok) return c;
+      if (i >= 11) { console.log('ARNÊS: o ponto segue coberto — ' + JSON.stringify({ c, alvo })); return c; }
+      // Coberto em CIMA (a barra grudada) a lista desce; embaixo (o rodapé do app), sobe.
+      await pg.evaluate((y) => {
+        const r = hymnResultsEl.getBoundingClientRect();
+        hymnResultsEl.scrollTop += (y > r.top + r.height / 2 ? 40 : -40);
+      }, c.y);
+    }
+  };
+  const tocar = async (seletor, nth = 0) => {
+    const c = await pontoDescoberto(pg.locator(seletor).nth(nth));
+    await pg.touchscreen.tap(c.x, c.y);
     await espera(260);
   };
   const estadoBruto = (i) => pg.evaluate(({ linhas, i }) => {
@@ -301,12 +336,49 @@ try {
     const b = await loc.boundingBox();
     return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
   };
+  // O RASTRO (v1.13.69): o bloco D reprovou DUAS vezes no CI com a lista sumindo (`tela: []`) e
+  // nunca aqui, nem com a CPU 10× mais lenta. Sem reprodução local, o oráculo carrega a própria
+  // prova: quem fechou, limpou ou redesenhou a Biblioteca, e onde caiu cada toque — impresso só
+  // quando o bloco D reprova.
+  await pg.evaluate(() => {
+    window.__rastro = [];
+    const t0 = performance.now();
+    const anota = (txt) => { if (window.__rastro.length < 120) window.__rastro.push(Math.round(performance.now() - t0) + 'ms ' + txt); };
+    const pilha = () => (new Error().stack || '').split('\n').slice(3, 7)
+      .map((l) => l.trim().replace(/^at /, '').replace(/\(?https?:\/\/[^)\s]*\/([\w.-]+\.js):(\d+):\d+\)?/, '$1:$2')).join(' ← ');
+    for (const nome of ['closeHymnSearch', 'resetarBiblioteca', 'redesenharFavoritosNaBiblioteca',
+      'renderSearchResults', 'renderCollectionsNow', 'load']) {
+      const f = window[nome];
+      if (typeof f !== 'function') continue;
+      window[nome] = function (...a) { anota(nome + ' ← ' + pilha()); return f.apply(this, a); };
+    }
+    const quem = (el) => (el && el.closest ? (el.closest('[class]') || el) : el);
+    const rot = (el) => (el ? (el.tagName + '.' + String(el.className || '').trim().split(/\s+/).slice(0, 3).join('.')).slice(0, 70) : '—');
+    for (const tipo of ['pointerdown', 'pointerup', 'click']) {
+      document.addEventListener(tipo, (e) => anota(tipo + ' em ' + rot(quem(e.target)) + ' @' + Math.round(e.clientX) + ',' + Math.round(e.clientY)), true);
+    }
+    new MutationObserver(() => anota('popup ' + (hymnSearchPopupEl.classList.contains('open') ? 'aberto' : 'FECHADO')))
+      .observe(hymnSearchPopupEl, { attributes: true, attributeFilter: ['class'] });
+  });
+  const despejarRastro = async (por) => {
+    const r = await pg.evaluate((s) => {
+      const fav = document.querySelector('#hymnResults .coll-group--fav');
+      return { popup: hymnSearchPopupEl.classList.contains('open'), favGrupo: fav ? fav.className : null,
+        linhas: document.querySelectorAll(s).length, scrollTop: hymnResultsEl.scrollTop,
+        filhos: [...hymnResultsEl.children].map((c) => String(c.className).split(' ')[0]).slice(0, 8),
+        rastro: window.__rastro || [] };
+    }, linhas);
+    console.log('RASTRO (' + por + '): ' + JSON.stringify({ ...r, rastro: undefined }));
+    for (const l of r.rastro) console.log('  · ' + l);
+  };
+  const apontar = async (nth) => {
+    await aquietar(pg);
+    return pontoDescoberto(pg.locator(linhas + ' >> .row-text').nth(nth));
+  };
   const arrastar = async (de, para, abaixo) => {
-    // Rola UMA vez, para o item do MEIO ficar no centro: as coordenadas dos dois
-    // extremos são lidas depois, na mesma rolagem.
-    await pg.locator(linhas + ' >> .row-text').nth(1).evaluate((el) => el.scrollIntoView({ block: 'center' }));
-    await espera(80);
-    const o = await centro(de);
+    // A linha que se APERTA é a que vai para o centro (e é conferida descoberta); o destino é
+    // lido na mesma rolagem — o dedo já capturado não depende de o destino estar descoberto.
+    const o = await apontar(de);
     const d = await centro(para);
     await pg.mouse.move(o.x, o.y);
     await pg.mouse.down();
@@ -322,6 +394,7 @@ try {
     return emArrasto;
   };
   const emArrasto = await arrastar(0, 2, true);
+  if (!emArrasto) await despejarRastro('o primeiro arrasto não levantou');
   checar(emArrasto, 'D · segurar a linha de um favorito LEVANTA o item (a marca `.arrastando`)');
   const mudou = await esperar(pg, () => favItems.map((m) => m.name).join('|') === 'Segundo renomeado|Terceiro|Louvor com letra');
   checar(mudou === true, 'D · soltar no fim muda a ordem gravada (Louvor com letra vai para o fim)',
@@ -353,7 +426,7 @@ try {
 
   // Toque longo SEM mover: nada muda e a gaveta não abre.
   const antesLongo = await ordemDb();
-  const p = await centro(1);
+  const p = await apontar(1);
   await pg.mouse.move(p.x, p.y); await pg.mouse.down(); await espera(700); await pg.mouse.up();
   await espera(400);
   const longo = { ordem: await ordemDb(), gavetas: await pg.evaluate(() => document.querySelectorAll('#hymnResults .lib-item.expanded:not(.folder-opfs)').length) };
@@ -387,7 +460,7 @@ try {
   // na linha. A lista e o arrasto sobrevivem, e o soltar ainda grava a ordem.
   {
     const antes = await ordemDb();
-    const pr = await centro(0);
+    const pr = await apontar(0);
     await pg.mouse.move(pr.x, pr.y); await pg.mouse.down();
     await esperar(pg, () => !!document.querySelector('.fav-itens > .lib-item.arrastando'));
     await pg.evaluate(() => {
@@ -416,7 +489,7 @@ try {
   // roda: `arrasto` ficava não-nulo para sempre (rolagem por toque cancelada, nenhum arrasto
   // novo). Simula-se o remonte sem guarda (o corpo de `redesenharFavoritosNaBiblioteca`).
   {
-    const pr = await centro(1);
+    const pr = await apontar(1);
     await pg.mouse.move(pr.x, pr.y); await pg.mouse.down();
     await esperar(pg, () => !!document.querySelector('.fav-itens > .lib-item.arrastando'));
     await pg.evaluate(() => {
