@@ -33,6 +33,8 @@ apagada da que a criou.
 - **v1.14.2** — o "Guia de sonoplastia" abre DENTRO do app: `abrirGuia` (shell 87), `GuiaSomDialog` em tela cheia sobre a Activity com WebView SEM ponte, cerca `https` + host do site (`GuiaSom.urlDoGuia`, JUnit); casco antigo cai no `openExternal`; `minShell` 83, `shellTag` v1.14.2; APK + web.
 - **v1.14.1** — tours de SEÇÃO (cada janela, folha e gaveta se explica na primeira abertura; o "Tour do app" zera as do modo), o tour do Fácil TOCANDO (letra e teclas) e o halo azul no recorte; guia dentro do app recusado (iframe furaria a invariante 2); só web.
 - **v1.14.0** — o tour guiado: um por estado da tela (conexão com a cortina do Fácil, controles do Fácil, avançado completo), automático uma vez e nunca por cima de diálogo; botões "Tour do app" e "Guia de sonoplastia" (`#dia` no Fácil) em Configurações; só web.
+- **o app ganha capítulos próprios no guia (sem versão nova; só `site/` e docs)** — D12 (Modo Fácil, trilha "por um dia") e I23 (Modo Avançado, tempo integral): conexão, tela, hinos, Liturgia, YouTube, volume, Cronograma, Bíblia, Ferramentas, Transferir, fluxos; 43 figuras, 21 com capturas reais anotadas
+- **a montagem do livreto: dobrar, fichário, encadernar e capítulo único (sem versão nova; só `site/` e docs)** — três métodos de imposição, imprimir um capítulo só, tutorial "Como montar" dentro do caderno; verificados por contagem de ocorrência de cada página nas 18 combinações
 - **o livreto dobrável deixa de sair duplicado (sem versão nova; só `site/`)** — a imposição de lombada a cavalo gerava P/2 folhas em vez de P/4, então cada página saía duas vezes; agora cada página sai uma vez e o "N folhas" é papel de verdade (completo 51, por um dia 16, integral 36)
 - **o guia vira IASD de verdade, e a impressão economiza folhas (sem versão nova; só `site/` e docs)** — nascem I20 (hinário antigo e novo), I21 (música na igreja) e I22 (Louvor JA), o programa do sábado entra em D1/D8/I15/I19 e o app Áudio Visual IASD é citado nas duas trilhas; a paginação do livreto passa a fluir entre capítulos e ganha medição confiável
 - **o livreto em três modos e o estudo do guia IASD (sem versão nova; só `site/` e docs)** — a impressão se separa em "Por um dia" e "Tempo integral" (além do completo), e entra o estudo de especialização adventista do guia, aguardando decisão
@@ -835,6 +837,40 @@ grade.
 **O arnês** marca os três tours como vistos em todo contexto (`comTour: true`
 desliga); oráculo novo `tools/tour.test.mjs`, revertido (ocupado, volume, `#dia` e
 folga do recorte): reprova sete asserções.
+
+## o app ganha capítulos próprios no guia (sem versão nova; só `site/` e docs)
+
+**PEDIDO DO OPERADOR:** reforçar o app Áudio Visual IASD (não oficial; feito para substituir o controle de multimídia de um computador) no guia: seção completa só do Modo Fácil na trilha D e seção completa do Modo Avançado na trilha I, bem ilustradas. **D12** (22 figuras; conectar a tela, a tela anotada, hino por número/nome/trecho/dado, Liturgia, YouTube e Compartilhar, volume, roteiro do culto, Parar, Configurações, socorro, "o que não faz", ficha) e **I23** (21 figuras; mapa da tela, telão por comandos, Cronograma e cronogramas, Biblioteca, séries com Atalho universal, playlist e Playlist automática, Bíblia, as 6 Ferramentas, PDF/PPTX e Editar mídia, Cifra, prévia, Transferir, Histórico, Verificação, fluxos da semana e do sábado, limites, ficha). As capturas (`site/telas/`, +3: `busca-letra`, `cronogramas`, `editar-midia`) entram como `<image>` dentro do SVG, com marcadores numerados — o livreto as pagina como qualquer figura. **Estudo antes de escrever:** o rótulo na tela é "Modo simples" (o guia diz "Modo Fácil (na tela: Modo simples)"); a tecla "Nível" não existe mais; a Tela cheia do Fácil só funciona em "Tocar neste celular"; Bíblia, Favoritos, Cronograma e Ferramentas NÃO existem no Fácil; "Liturgia" só existe no Fácil; o avançado vale pela sessão e o app sempre reabre no simples. As menções antigas (D2, D4, D7, I12, I13, I15, I20, I22) ganharam link para os novos capítulos. Medido: sem ids duplicados nem âncoras quebradas; livreto "Por um dia" 96 páginas e "Tempo integral" 204 (antes da montagem por capítulo único).
+
+---
+
+## a montagem do livreto: dobrar, fichário, encadernar e capítulo único (sem versão nova; só `site/` e docs)
+
+**PEDIDO DO OPERADOR:** organizar o tutorial de montagem (à mão por capítulos,
+fichário, encadernação) e criar opções de montagem, como isolar um capítulo.
+O caderno ganhou: **método** — *Dobrar* (lombada a cavalo, borda curta, P/4
+folhas), *Fichário* (uma A5 por folha A4 no canto direito, margem de furo à
+esquerda, P folhas) e *Encadernar* (livro normal: A4 paisagem, borda longa,
+cortar ao meio e intercalar, P/4 folhas) —; **capítulo único** (os 35 capítulos,
+com capa "Caderno de apoio" e índice de uma linha); e o painel **Como montar**
+com os passos, desenhos e os limites reais (dobrar até ~10 folhas; o completo
+tem 54 folhas, o "por um dia" 17).
+
+**O QUE FOI PERDIDO E REFEITO:** a primeira versão desta montagem foi apagada
+por um `git reset --hard origin/main` de outra sessão no clone compartilhado
+(trabalho não commitado). Refeito numa cópia fora do clone e publicado por
+worktree. **Regra:** trabalho longo de `site/` se faz em cópia privada ou em
+worktree, nunca só na árvore do clone.
+
+**O QUE A CONTAGEM ENSINOU:** o Encadernar original usava `2i` onde era `4i`
+(só 110 páginas únicas de 216) e o desenho não fazia livro; agora a folha k leva
+frente [4k, 4k+2] e verso [4k+1, 4k+3], e a metade esquerda cortada é a folha
+(4k+1 frente, 4k+2 verso). A verificação passou a contar as ocorrências de cada
+página em `#caderno-imp`: 0 repetidas e 0 faltando em todas as combinações. Dois
+extras: `resta()` passou a descontar o padding da página (o conteúdo invadia a
+margem inferior) e a prévia A5 no celular deixou de sair deslocada.
+
+---
 
 ## o livreto dobrável deixa de sair duplicado (sem versão nova; só `site/`)
 
