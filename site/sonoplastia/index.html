@@ -6681,7 +6681,9 @@
       return d;
     }
     function impor() {
-      var P = PAGS.length, F = P / 2;
+      /* lombada a cavalo: cada folha física leva 4 páginas (2 na frente, 2 no verso),
+         então são P/4 folhas — com P/2 o livro saía com todas as páginas duas vezes */
+      var P = PAGS.length, F = P / 4;
       impC.innerHTML = '';
       for (var i = 0; i < F; i++) {
         var f = document.createElement('div'); f.className = 'folha-l';

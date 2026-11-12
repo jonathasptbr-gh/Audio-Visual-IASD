@@ -33,6 +33,7 @@ apagada da que a criou.
 - **v1.14.2** — o "Guia de sonoplastia" abre DENTRO do app: `abrirGuia` (shell 87), `GuiaSomDialog` em tela cheia sobre a Activity com WebView SEM ponte, cerca `https` + host do site (`GuiaSom.urlDoGuia`, JUnit); casco antigo cai no `openExternal`; `minShell` 83, `shellTag` v1.14.2; APK + web.
 - **v1.14.1** — tours de SEÇÃO (cada janela, folha e gaveta se explica na primeira abertura; o "Tour do app" zera as do modo), o tour do Fácil TOCANDO (letra e teclas) e o halo azul no recorte; guia dentro do app recusado (iframe furaria a invariante 2); só web.
 - **v1.14.0** — o tour guiado: um por estado da tela (conexão com a cortina do Fácil, controles do Fácil, avançado completo), automático uma vez e nunca por cima de diálogo; botões "Tour do app" e "Guia de sonoplastia" (`#dia` no Fácil) em Configurações; só web.
+- **o livreto dobrável deixa de sair duplicado (sem versão nova; só `site/`)** — a imposição de lombada a cavalo gerava P/2 folhas em vez de P/4, então cada página saía duas vezes; agora cada página sai uma vez e o "N folhas" é papel de verdade (completo 51, por um dia 16, integral 36)
 - **o guia vira IASD de verdade, e a impressão economiza folhas (sem versão nova; só `site/` e docs)** — nascem I20 (hinário antigo e novo), I21 (música na igreja) e I22 (Louvor JA), o programa do sábado entra em D1/D8/I15/I19 e o app Áudio Visual IASD é citado nas duas trilhas; a paginação do livreto passa a fluir entre capítulos e ganha medição confiável
 - **o livreto em três modos e o estudo do guia IASD (sem versão nova; só `site/` e docs)** — a impressão se separa em "Por um dia" e "Tempo integral" (além do completo), e entra o estudo de especialização adventista do guia, aguardando decisão
 - **o guia vira áudio visual e ganha livreto (sem versão nova; só `site/` e docs)** — I13 com oito partes novas de vídeo, capítulo I19 de eventos e peculiaridades, 26 ilustrações novas na trilha integral (295 no total) e versão para imprimir em livreto A4 dobrável com paginação automática e imposição
@@ -834,6 +835,19 @@ grade.
 **O arnês** marca os três tours como vistos em todo contexto (`comTour: true`
 desliga); oráculo novo `tools/tour.test.mjs`, revertido (ocupado, volume, `#dia` e
 folga do recorte): reprova sete asserções.
+
+## o livreto dobrável deixa de sair duplicado (sem versão nova; só `site/`)
+
+**DEFEITO ACHADO PELA CONTAGEM:** a imposição de lombada a cavalo fazia o laço
+até `P/2`, mas cada folha física leva 4 páginas (2 na frente, 2 no verso): a
+folha `i` e a folha `P/2−1−i` carregavam o MESMO conjunto de páginas. O livreto
+"completo" saía com 432 páginas impressas para 216, e o "N folhas" do caderno
+anunciava o dobro do papel. As verificações anteriores olhavam só a folha 1 e
+as faces, e nunca contaram quantas vezes cada página aparecia. Conserto: `P/4`.
+Medido: 204 impressas para 204 páginas, 0 repetidas, nos três modos.
+**Regra:** imposição se verifica por CONTAGEM de ocorrência de cada página.
+
+---
 
 ## o guia vira IASD de verdade, e a impressão economiza folhas (sem versão nova; só `site/` e docs)
 
