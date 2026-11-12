@@ -161,7 +161,7 @@ site/                    # a página pública (GitHub Pages)
 tools/                   # o arnês e os oráculos; a lista do CI sai do workflow
 ```
 
-**31 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
+**32 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
 AndroidX oficial (`core-ktx`, `activity-ktx`, `webkit`). O que sustenta essa
 proporção Kotlin × JavaScript é a invariante 5; ela é o argumento contra
 Capacitor/Cordova, que arrastariam npm e um build system inteiro e ainda assim
@@ -623,13 +623,13 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.14.1 · APK v1.13.65** · `SHELL_VERSION` **86** ·
-bundle com `minShell: 83` e **sem `shellTag`** — a v1.14.1 é só web, e a Release
-da v1.13.65 (a que trouxe o casco 86) já está publicada. O **PISO** continua **83**:
-as duas funções de volume do casco 86 são OPCIONAIS — o web pergunta e desiste sem
-elas (`native.js` devolve `null`), então um aparelho com casco 83/85 continua
-inteiro, só sem o piso e sem o aviso. O que cada lote trouxe está no
-`docs/HISTORICO.md`, nunca aqui.
+**Versão atual: base web v1.14.2 · APK v1.14.2** · `SHELL_VERSION` **87** ·
+bundle com `minShell: 83` e **`shellTag: "v1.14.2"`** — o casco 87 trouxe o
+`abrirGuia` (o guia de sonoplastia numa tela do app, WebView sem ponte). O
+**PISO** continua **83**: as funções do casco 86 (volume) e do 87 (guia) são
+OPCIONAIS — o web pergunta por `typeof` e degrada sem elas (`null`; o guia cai no
+`openExternal`), então um aparelho com casco 83/85/86 continua inteiro. O que cada
+lote trouxe está no `docs/HISTORICO.md`, nunca aqui.
 
 - **O `shellTag` ACOMPANHA A ÚLTIMA VERSÃO, NÃO A QUE MEXEU NO KOTLIN** — o CI
   exige `shellTag == 'v' + version`. Um lote só de web publicado DEPOIS de um

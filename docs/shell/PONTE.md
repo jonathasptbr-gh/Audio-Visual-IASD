@@ -265,6 +265,28 @@ vence os 60 s e resolve `null` —, e o botão existe, é tocável e não faz na
 isso mudança de ponte é um lote **APK + web publicado JUNTO**, com `shellTag` no
 `version.json`.
 
+**A exceção declarada: método OPCIONAL** (o volume do shell 86, o `abrirGuia` do
+87). O `native.js` pergunta `typeof B.<nome> === 'function'` e, sem ele, devolve o
+desfecho de "não há" (`null`/`false`) NA HORA — sem esperar 60 s — e quem chama
+tem um caminho para isso (o guia cai no `openExternal`). É capacidade, não versão:
+o piso (`minShell`) não sobe por um método opcional.
+
+### `abrirGuia(url)` — o guia de sonoplastia numa tela do app (shell 87)
+
+Síncrono, devolve `true` se abriu. **Falha FECHADO no Kotlin:** só `https` e só
+`audiovisualiasd.com.br` por componente do `URI` (`GuiaSom.urlDoGuia`, JUnit em
+`GuiaSomTest`); telão (`host = null`) recebe `false`. Quem abre é o
+`GuiaSomDialog` — um `Dialog` em tela cheia e imersivo sobre a `MainActivity`, e
+não outra Activity: com Dialog a Activity não passa por `onPause`/`onStop`, e
+nada do que defende a projeção (o `keepPlaying`, a `projecaoLocal`, a ronda do OTA)
+muda. O WebView sai da `WebViewFactory.createGuia`: **sem
+`addJavascriptInterface`**, sem asset loader, sem `/saf/`, mídia só com gesto. A
+cerca vale a cada navegação do quadro principal (fora do site → `ACTION_VIEW`, só
+`http(s)`); quadro interno carrega onde está. Voltar: com histórico, uma página
+atrás; sem ele, fecha. Sem rede: aviso com "Tentar de novo". A morte do renderer
+(o processo é o do app) fecha o guia e devolve `true`. O
+`invariantes-shell.test.mjs` trava as três metades.
+
 A tabela de degraus está em [`../HISTORICO.md`](../HISTORICO.md) — com o piso,
 ela é história do contrato, não regra viva.
 

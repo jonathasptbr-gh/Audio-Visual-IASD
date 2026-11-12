@@ -103,6 +103,8 @@ app/src/main/
 │   ├── WebPathHandler.kt        # serve o bundle OTA, com fallback pro APK
 │   ├── CifraFonte.kt            # o GET da página de cifra — host travado,
 │   │                            #   sem parse, sem gravar nada em disco
+│   ├── GuiaSom.kt               # o guia de sonoplastia numa tela do app: Dialog +
+│   │                            #   WebView SEM ponte; a cerca `urlDoGuia` (JUnit)
 │   ├── R2ImagemFonte.kt         # /r2img/<token>: as fotos do bucket R2 pelo NOSSO
 │   │                            #   origin (o desvio de CORS)
 │   ├── YoutubeGrab.kt           # extrai e baixa o vídeo do YouTube NO APARELHO

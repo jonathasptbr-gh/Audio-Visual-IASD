@@ -30,8 +30,10 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.2** — o "Guia de sonoplastia" abre DENTRO do app: `abrirGuia` (shell 87), `GuiaSomDialog` em tela cheia sobre a Activity com WebView SEM ponte, cerca `https` + host do site (`GuiaSom.urlDoGuia`, JUnit); casco antigo cai no `openExternal`; `minShell` 83, `shellTag` v1.14.2; APK + web.
 - **v1.14.1** — tours de SEÇÃO (cada janela, folha e gaveta se explica na primeira abertura; o "Tour do app" zera as do modo), o tour do Fácil TOCANDO (letra e teclas) e o halo azul no recorte; guia dentro do app recusado (iframe furaria a invariante 2); só web.
 - **v1.14.0** — o tour guiado: um por estado da tela (conexão com a cortina do Fácil, controles do Fácil, avançado completo), automático uma vez e nunca por cima de diálogo; botões "Tour do app" e "Guia de sonoplastia" (`#dia` no Fácil) em Configurações; só web.
+- **o livreto em três modos e o estudo do guia IASD (sem versão nova; só `site/` e docs)** — a impressão se separa em "Por um dia" e "Tempo integral" (além do completo), e entra o estudo de especialização adventista do guia, aguardando decisão
 - **o guia vira áudio visual e ganha livreto (sem versão nova; só `site/` e docs)** — I13 com oito partes novas de vídeo, capítulo I19 de eventos e peculiaridades, 26 ilustrações novas na trilha integral (295 no total) e versão para imprimir em livreto A4 dobrável com paginação automática e imposição
 - **o guia de sonoplastia: compartilhar à vista (sem versão nova; só `site/`)** — botão "Compartilhar este guia" na capa, "Compartilhar capítulo" sob cada título e "Compartilhar este problema" em cada sintoma; abre a folha de compartilhar do celular (WhatsApp, e-mail…) e, sem ela, copia o link
 - **o guia de sonoplastia sem o botão flutuante (sem versão nova; só `site/`)** — o índice abre só pelo botão da barra do topo, que fica sempre visível; o texto de "Como usar" acompanha
@@ -704,6 +706,55 @@ apagada da que a criou.
 
 ---
 
+## v1.14.2 — o guia de sonoplastia dentro do app (shell 87)
+
+**Pedido do operador (aprovado):** o "Guia de sonoplastia" de Configurações abre
+DENTRO do app, em tela cheia, sem barra de navegador, e o voltar do Android fecha o
+guia e devolve ao app. Até aqui ele saía por `openExternal` (o navegador). O
+`<iframe>` da v1.14.1 continua recusado: `addJavascriptInterface` injeta
+`__AVBridge` em todo frame do WebView do Controle (invariante 2).
+
+**O desenho.**
+
+| peça | o quê |
+|---|---|
+| ponte | `abrirGuia(url): Boolean` (shell 87), síncrono; `false` = não abri. Falha FECHADO: `host == null` (telão) ou `!GuiaSom.urlDoGuia(url)` |
+| cerca | `GuiaSom.urlDoGuia` — `java.net.URI`, `https`, host `audiovisualiasd.com.br` (sem subdomínio), porta padrão, sem `userInfo`; `GuiaSomTest` (JUnit, em pares) |
+| tela | `GuiaSomDialog` (`ComponentDialog`, `Theme_DeviceDefault_NoActionBar_Fullscreen`, barras escondidas por `WindowInsetsControllerCompat`, re-escondidas a cada foco); um "✕" no canto, porque no imersivo o gesto de voltar não é óbvio |
+| WebView | `WebViewFactory.createGuia`: sem `addJavascriptInterface`, sem asset loader, sem `/saf/`, `mediaPlaybackRequiresUserGesture = true`, sem janelas novas; não é `KeepVisibleWebView` |
+| navegação | quadro principal fora da cerca → `ACTION_VIEW` (só `http(s)`; `intent://` morre); quadro interno carrega onde está (não há ponte para alcançar); download → `ACTION_VIEW` |
+| voltar | com histórico, `goBack()`; sem ele (ou no aviso de erro), fecha. Fechado, a `MainActivity` re-esconde as barras se estava em tela inteira |
+| carga e rede | barra fina no topo (`onProgressChanged`) e roda no centro até o primeiro quadro; erro no quadro principal → "Não deu para abrir o guia… Tentar de novo / Voltar ao app" |
+| renderer | `onRenderProcessGone` fecha o guia e devolve `true` — o processo é o mesmo dos dois WebViews e da `Presentation` |
+
+**Por que Dialog e não Activity:** a `MainActivity` não passa por
+`onPause`/`onStop` com um Dialog por cima. O `onStop` é onde mora o
+`presentation.keepPlaying()` e a retomada do Controle na `projecaoLocal`, e o
+`onPause` desliga `WebUpdater.emPrimeiroPlano`; com Activity, abrir o guia seria
+igual a sair do app (o que o `openExternal` já fazia). Com Dialog nada disso dispara:
+a mídia, a preview e o telão seguem como estavam, e a `Presentation` é outra janela,
+noutro display. Destruída a Activity, o `onDestroy` fecha o Dialog (janela vazada).
+
+**Web.** `AVNative.abrirGuia(url)` pergunta `typeof B.abrirGuia` (degradação
+declarada, como o volume do 86) e devolve `false` na hora sem ele; o botão faz
+`if (!AVNative.abrirGuia(url)) AVNative.openExternal(url)`. No navegador, o
+`window.open` de sempre. **Piso:** `minShell` fica 83 — o método é opcional e o
+casco antigo tem caminho. `shellTag` v1.14.2.
+
+**Oráculos.** `guia-no-app.test.mjs` (novo, Chromium): A com `abrirGuia` na ponte
+simulada, o botão o chama com `#dia` no Fácil e o começo no avançado, sem
+`openExternal`; B sem ele, cai no `openExternal`; C recusado (`false`), cai; D o
+`native.js` não leva `http` à ponte. Reversão (o `controle.js` anterior): A e C
+reprovam nos dois modos. `invariantes-shell` ganhou três asserções (o WebView do
+guia sem ponte/loader/`/saf/`; o `onRenderProcessGone` com `true`; a cerca num
+predicado só, na ponte e na navegação), conferidas por reversão (um
+`addJavascriptInterface` na fábrica reprova). `ponte-guarda-host`: 72 → 73.
+
+**Não medido:** nada disso rodou em aparelho — não há SDK nesta máquina; o Kotlin
+compila só no CI. A competição de foco de áudio de uma mídia do site com a do app
+não foi medida (o guia não toca nada sem toque). Com o guia aberto, as teclas de
+volume vão ao volume do sistema, não ao fader do app.
+
 ## v1.14.1 — tours de seção, o Fácil tocando e o halo
 
 **Pedido.** (1) Na primeira abertura de cada menu, folha, janela ou gaveta, um
@@ -782,6 +833,24 @@ grade.
 **O arnês** marca os três tours como vistos em todo contexto (`comTour: true`
 desliga); oráculo novo `tools/tour.test.mjs`, revertido (ocupado, volume, `#dia` e
 folga do recorte): reprova sete asserções.
+
+## o livreto em três modos e o estudo do guia IASD (sem versão nova; só `site/` e docs)
+
+**IMPRESSÃO SEPARADA** (pedido do operador): o caderno ganhou três modos —
+"Guia completo" (208 páginas), "Por um dia" (68) e "Tempo integral" (144), cada
+um com capa própria, índice só com os capítulos do modo e números de página
+recalculados. 104/34/72 folhas; auditoria de estouro de página zerada nos três.
+
+**O ESTUDO DA ESPECIALIZAÇÃO** (pedido do operador, sem aplicação): nasce
+`docs/ESTUDO-GUIA-IASD.md` — inventário capítulo a capítulo de onde encaixar a
+IASD, os programas e eventos adventistas com o que o sonoplasta cuida em cada
+um, manuais e referências oficiais com links verificados (Manual da Igreja,
+Ministério da Música, Escola Sabatina, Novo Hinário Adventista — CPB 2022, 600
+hinos —, Louvor JA), cantores, teoria de música na igreja e o plano P1–P4. O que
+não foi confirmado está marcado para conferir antes de usar. A aplicação fica
+como **Pacote 15** da fila (a entrega é a decisão do operador).
+
+---
 
 ## o guia vira áudio visual e ganha livreto (sem versão nova; só `site/` e docs)
 

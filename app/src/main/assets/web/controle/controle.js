@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.1';
+const WEB_VERSION = '1.14.2';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -45532,15 +45532,18 @@ if (tourBtnEl) tourBtnEl.addEventListener('click', () => {
   if (window.AVTour) AVTour.refazer();
 });
 // O GUIA DE SONOPLASTIA mora no site (`site/sonoplastia/`). No Modo Fácil abre
-// direto na trilha "Sonoplasta por um dia" (`#dia`); no avançado, no começo. A
-// porta é a de todo link externo: `openExternal` no app, `window.open` fora dele.
+// direto na trilha "Sonoplasta por um dia" (`#dia`); no avançado, no começo. No
+// app abre DENTRO dele (`abrirGuia`, shell 87); casco antigo cai no `openExternal`,
+// e o navegador no `window.open`.
 const AV_GUIA_SOM = AV_PAGINA + 'sonoplastia/';
 function urlDoGuiaDeSom() { return AV_GUIA_SOM + (appMode === 'simple' ? '#dia' : ''); }
 const guiaSomBtnEl = document.getElementById('guiaSomBtn');
 if (guiaSomBtnEl) guiaSomBtnEl.addEventListener('click', () => {
   const url = urlDoGuiaDeSom();
   if (window.__NATIVE__) {
-    try { AVNative.openExternal(url); } catch (_) { responder(guiaSomBtnEl, 'erro'); }
+    try {
+      if (!AVNative.abrirGuia(url)) AVNative.openExternal(url);
+    } catch (_) { responder(guiaSomBtnEl, 'erro'); }
   } else {
     try { window.open(url, '_blank', 'noopener'); } catch (_) { /* bloqueado */ }
   }

@@ -322,6 +322,31 @@ object WebViewFactory {
     }
 
     /**
+     * O WebView do GUIA DE SONOPLASTIA ([GuiaSomDialog], shell 87): a página do
+     * site, que é TERCEIRO para o app. Por isso nenhuma das portas acima —
+     * **sem `addJavascriptInterface`**, sem asset loader, sem `/saf/` — e não é
+     * a [KeepVisibleWebView]: fora da tela, ser estrangulado é o certo. Quem
+     * põe o cliente (a cerca de navegação e o `onRenderProcessGone`) é o dono.
+     * Gesto exigido para mídia: nada do guia toca sozinho por cima do culto.
+     */
+    @SuppressLint("SetJavaScriptEnabled")
+    fun createGuia(ctx: Context): WebView {
+        val web = WebView(ctx)
+        web.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            mediaPlaybackRequiresUserGesture = true
+            allowFileAccess = false
+            allowContentAccess = false
+            javaScriptCanOpenWindowsAutomatically = false
+            setSupportMultipleWindows(false)
+            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            cacheMode = WebSettings.LOAD_DEFAULT
+        }
+        return web
+    }
+
+    /**
      * Resposta 404 curta, usada quando um recurso do dispositivo sumiu.
      *
      * O corpo tem UM byte, não zero — é o corolário da invariante 8: o próprio

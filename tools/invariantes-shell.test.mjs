@@ -168,6 +168,16 @@ checar(forjas.length === 1 && forjas[0] === 'WebViewFactory.kt',
   'o shell só constrói `WebView` na factory (um WebView novo nasceria sem as invariantes 4 e 8 e sem o tratamento da morte do renderer)',
   forjas.join(', '));
 
+// ===== O GUIA DE SONOPLASTIA (shell 87) — um WebView de TERCEIRO, sem ponte =====
+const guia = SO_CODIGO(LER('app/src/main/java/br/org/iasd/av/GuiaSom.kt'));
+const fabricaGuia = (wvf.match(/fun createGuia\([\s\S]*?\n    \}/) || [''])[0];
+checar(fabricaGuia && !/addJavascriptInterface|assetLoader|SafJanela/.test(fabricaGuia) && !/addJavascriptInterface/.test(guia),
+  'o WebView do guia nasce SEM `addJavascriptInterface`, sem asset loader e sem `/saf/` (a página é do site, terceiro para o app)');
+checar(/override fun onRenderProcessGone\s*\(/.test(guia) && /onRenderProcessGone[\s\S]{0,600}?return true/.test(guia),
+  'e trata a morte do renderer (`true`): o processo é o mesmo dos dois WebViews e da `Presentation`');
+checar(/if \(GuiaSom\.urlDoGuia\(alvo\.toString\(\)\)\) return false/.test(guia) && /fun abrirGuia\(url: String\?\): Boolean \{[\s\S]{0,200}?GuiaSom\.urlDoGuia\(url\)/.test(SO_CODIGO(LER('app/src/main/java/br/org/iasd/av/NativeBridge.kt'))),
+  'a cerca do guia é UM predicado (`GuiaSom.urlDoGuia`), perguntado na ponte e a cada navegação do quadro principal');
+
 // ===== O MANIFESTO — o que sustenta os dois WebViews e o reenvio =====
 for (const [decl, por] of [
   ['android:hardwareAccelerated="true"', 'os dois WebViews e um vídeo grande no mesmo processo'],

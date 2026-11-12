@@ -167,8 +167,10 @@ regras abaixo por extenso estão em [`docs/shell/PONTE.md`](shell/PONTE.md).**
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **85**, e o **PISO** é 83: o bundle declara `minShell: 83`, todo método
-existe sempre e **não há guarda de versão no lado web** — o que separa navegador
+Hoje vale **87**, e o **PISO** é 83: o bundle declara `minShell: 83`; os métodos
+do 86 (volume) e do 87 (`abrirGuia`, o guia num WebView sem ponte) são OPCIONAIS —
+o `native.js` pergunta `typeof` e degrada (ver `shell/PONTE.md`) — e **não há
+guarda de versão no lado web** — o que separa navegador
 de app é `if (!window.__NATIVE__)`, e nada mais. "Superfície" inclui **forma de
 retorno e comportamento**. Sem guarda, mudança de ponte é lote **APK + web
 publicado JUNTO**, com `shellTag` no `version.json`; **mudar a FORMA de um método

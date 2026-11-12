@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.14.2",
+    "itens": [
+      "\"Guia de sonoplastia\" agora abre dentro do app, em tela cheia; o voltar do celular fecha o guia.",
+      "Para isso é preciso instalar o app novo; sem ele, o guia continua abrindo no navegador."
+    ]
+  },
+  {
     "versao": "1.14.1",
     "itens": [
       "Na primeira vez que você abre uma janela (Ferramentas, Bíblia, Configurações...), ela explica o que tem dentro.",

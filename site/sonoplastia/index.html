@@ -381,9 +381,16 @@
   .caderno[hidden] { display:none !important; }
   body.imprimir-livreto { overflow:hidden; }
   .caderno-bar {
-    flex:none; display:flex; align-items:center; gap:.5rem; padding:.45rem .7rem;
+    flex:none; display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; padding:.45rem .7rem;
     background:#22303d; color:#fff; box-shadow:0 2px 10px -4px rgba(15,27,40,.5);
   }
+  .caderno-modos { flex-basis:100%; display:flex; gap:.4rem; }
+  .caderno-modo {
+    flex:1; border:1px solid rgba(255,255,255,.38); border-radius:9px;
+    background:transparent; color:#fff; font:600 .74rem/1.1 system-ui, sans-serif;
+    padding:.5rem .25rem; min-height:36px; cursor:pointer;
+  }
+  .caderno-modo[aria-pressed="true"] { background:var(--accent); border-color:var(--accent); }
   .caderno-info { flex:1; min-width:0; font-size:.82rem; font-weight:700; line-height:1.25; }
   .caderno-btn {
     flex:none; border:0; border-radius:999px; background:var(--accent); color:#fff;
@@ -495,6 +502,7 @@
     margin:0; padding:.35rem .7rem; border:1.2pt solid var(--rule); border-radius:999px;
     font-size:7.6pt; font-weight:700; color:var(--muted); letter-spacing:.04em;
   }
+  .pag-capa .capa-modo { margin:.8mm 0 0; font-size:8pt; font-weight:800; color:var(--accent); letter-spacing:.06em; }
 
   /* ----- índice do livreto ----- */
   .pag .lb-ind-t { margin:.7rem 0 .2rem; font-size:8pt; text-transform:uppercase; letter-spacing:.07em; color:var(--dia); }
@@ -5635,6 +5643,11 @@
     <span class="caderno-info" id="caderno-info">Livreto A4 — montando…</span>
     <button type="button" class="caderno-btn" id="caderno-print">Imprimir agora</button>
     <button type="button" class="caderno-btn caderno-btn-x" id="caderno-x">Fechar</button>
+    <div class="caderno-modos" id="caderno-modos" role="group" aria-label="Modo do livreto">
+      <button type="button" class="caderno-modo" data-modo="completo" aria-pressed="true">Completo</button>
+      <button type="button" class="caderno-modo" data-modo="dia" aria-pressed="false">Por um dia</button>
+      <button type="button" class="caderno-modo" data-modo="integral" aria-pressed="false">Tempo integral</button>
+    </div>
   </div>
   <p class="caderno-dica nao-imprime">A4 · paisagem · margens: nenhuma · frente e verso virando na <b>BORDA CURTA</b> · marque “gráficos de fundo”</p>
   <div class="caderno-sprite" id="caderno-sprite" aria-hidden="true"></div>
@@ -5988,6 +6001,7 @@
         info = $('#caderno-info'), sprite = $('#caderno-sprite'),
         cx = $('#caderno-x'), printBt = $('#caderno-print');
     var aberto = false, montado = false, focoVolta = null;
+    var MODO = 'completo', modosBox = $('#caderno-modos');
     var PAGS = [], cur = null, oidPag = {};
     var MM = 96 / 25.4;
 
@@ -6027,6 +6041,27 @@
       if (e.key === 'Escape' && aberto) fechar();
     });
     window.addEventListener('resize', function () { if (aberto) aplicarEscala(); });
+
+    /* ----- modos do livreto: completo / por um dia / tempo integral ----- */
+    function nomeModo(m) {
+      return m === 'dia' ? 'Por um dia' : (m === 'integral' ? 'Tempo integral' : 'Guia completo');
+    }
+    if (modosBox) $$('.caderno-modo', modosBox).forEach(function (bt) {
+      bt.addEventListener('click', function () {
+        var m = bt.getAttribute('data-modo');
+        if (!m || m === MODO) return;
+        MODO = m;
+        $$('.caderno-modo', modosBox).forEach(function (b) {
+          b.setAttribute('aria-pressed', String(b === bt));
+        });
+        // re-constrói o caderno do zero com o filtro do modo escolhido
+        montado = false; PAGS = []; cur = null; oidPag = {};
+        escala.innerHTML = ''; impC.innerHTML = '';
+        try { montar(); montado = true; }
+        catch (e) { if (window.console) console.warn('[guia] livreto: montagem falhou', e); }
+        aplicarEscala();
+      });
+    });
 
     /* ----- clonagem e preparação do miolo ----- */
     function preparar(cl) {
@@ -6119,7 +6154,15 @@
       }
       while (i < filhos.length) {
         var f = filhos[i], prox = filhos[i + 1];
-        if (ehCab(f) && prox) { out.push(junta(f, prox)); i += 2; continue; }
+        if (ehCab(f) && prox) {
+          var g = [f], j = i + 1;
+          while (filhos[j] && filhos[j].tagName === 'P' && curto(filhos[j])) { g.push(filhos[j]); j += 1; }
+          if (filhos[j] && (filhos[j].tagName === 'FIGURE' || (filhos[j].classList && (filhos[j].classList.contains('tabela') || filhos[j].classList.contains('box'))))) g.push(filhos[j]);
+          var run2 = document.createElement('div'); run2.className = 'lb-grp';
+          f.parentNode.insertBefore(run2, f);
+          g.forEach(function (n) { run2.appendChild(n); });
+          out.push(run2); i = j + 1; continue;
+        }
         if (f.tagName === 'DT' && prox && prox.tagName === 'DD') { out.push(junta(f, prox)); i += 2; continue; }
         if (f.tagName === 'P' && curto(f) && prox && prox.tagName === 'P' && curto(prox)) {
           var run = document.createElement('div'); run.className = 'lb-grp';
@@ -6220,6 +6263,13 @@
       if (pode(unit, cur.con)) { registrarOid(unit); return; }
       if (unit.classList && unit.classList.contains('tabela')) { colocarTabela(unit); registrarOid(unit); return; }
       if (/^(UL|OL|DL)$/.test(unit.tagName)) { colocarLista(unit); registrarOid(unit); return; }
+      if (unit.classList && unit.classList.contains('lb-grp') && ehCab(unit.firstElementChild)) {
+        novaPag();
+        if (pode(unit, cur.con)) { registrarOid(unit); return; }
+        unit.classList.add('lb-enc');
+        if (pode(unit, cur.con)) { registrarOid(unit); return; }
+        unit.classList.remove('lb-enc');
+      }
       if (ehComposto(unit)) { unidadesDe(unit).forEach(colocar); return; }
       novaPag();
       if (pode(unit, cur.con)) { registrarOid(unit); return; }
@@ -6278,7 +6328,10 @@
         '<path d="M140 76a22 22 0 0 1 0 14M128 66a38 38 0 0 1 0 34" fill="none" stroke="#1f7a6d" stroke-width="4" stroke-linecap="round"/>' +
         '<path d="M86 122h68M110 130l10 8 10-16" stroke="#2f557f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>' +
         '</svg>' +
-        '<p class="capa-note">livreto A4 · dobre ao meio</p>';
+        '<p class="capa-note">livreto A4 · dobre ao meio</p>' +
+        (MODO === 'dia' ? '<p class="capa-modo">parte 1 · sonoplasta por um dia</p>'
+          : MODO === 'integral' ? '<p class="capa-modo">parte 2 · sonoplasta em tempo integral</p>'
+          : '');
       return rec;
     }
     function pagAnotacoes() {
@@ -6294,6 +6347,8 @@
       var nav = document.getElementById('indice');
       var grupos = [];
       $$('.ind-bloco', nav).forEach(function (b) {
+        if (MODO === 'dia' && b.classList.contains('int')) return;
+        if (MODO === 'integral' && !b.classList.contains('int')) return;
         var tit = ($('h3', b) || { textContent: '' }).textContent.trim();
         var itens = $$('a[href^="#"]', b).map(function (a) {
           var cod = ($('.ic', a) || { textContent: '' }).textContent.trim();
@@ -6307,7 +6362,9 @@
       var frag = document.createDocumentFragment();
       var h2 = document.createElement('h2'); h2.textContent = 'Índice'; frag.appendChild(h2);
       var nota = document.createElement('p'); nota.className = 'resumo';
-      nota.textContent = 'Cada capítulo tem um código: D para "por um dia" e I para "tempo integral". O número ao lado é a página.';
+      nota.textContent = MODO === 'dia' ? 'Trilha D — para o sonoplasta de um dia. O número ao lado é a página.'
+        : MODO === 'integral' ? 'Trilha I — o curso completo do tempo integral. O número ao lado é a página.'
+        : 'Cada capítulo tem um código: D para "por um dia" e I para "tempo integral". O número ao lado é a página.';
       frag.appendChild(nota);
       grupos.forEach(function (g) {
         var h3 = document.createElement('h3');
@@ -6366,6 +6423,11 @@
         var o = n.getAttribute('data-oid');
         if (o === 'inicio' || o === 'indice') n.remove();
       });
+      // "como usar" é a introdução do guia completo, por isso fica só nele; nas versões parciais sai a trilha que não foi pedida.
+      if (MODO !== 'completo') {
+        var cu = $('[data-oid="como-usar"]', cl); if (cu) cu.remove();
+        var tr = $('[data-oid="' + (MODO === 'dia' ? 'integral' : 'dia') + '"]', cl); if (tr) tr.remove();
+      }
       var m0 = PAGS.length;
       paginarMiolo(cl);
       var mioloRecs = PAGS.slice(m0);
@@ -6403,8 +6465,8 @@
       Object.keys(oidPag).forEach(function (k) { finais[k] = oidPag[k] + offsetMiolo; });
 
       var F = impor();
-      info.textContent = 'Livreto A4 — ' + PAGS.length + ' páginas · ' + F + ' folhas';
-      try { window.livreto = { paginas: PAGS.length, folhas: F, oidPag: finais }; } catch (e) {}
+      info.textContent = 'Livreto A4 — ' + nomeModo(MODO) + ': ' + PAGS.length + ' páginas · ' + F + ' folhas';
+      try { window.livreto = { modo: MODO, paginas: PAGS.length, folhas: F, oidPag: finais }; } catch (e) {}
 
       escala.classList.remove('lb-medindo');
     }

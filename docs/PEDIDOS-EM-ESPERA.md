@@ -44,6 +44,7 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **10** — Configurações e Ferramentas: o editor e o tile | 4 (I2×U2) | pedido | só web |
 | **12** — Limpeza e otimização do repositório (residual) | 2 (I2×U1) | pedido | só docs |
 | **13** — Estudos (não são fila de execução) | — | estudo | nenhuma entrega |
+| **15** — Guia IASD: a especialização (estudo) | — | estudo | nenhuma entrega |
 
 ---
 
@@ -343,6 +344,22 @@ laterais. Riscos: a escada de camadas, as folhas que "não mudam de tamanho entr
 estados", e os oráculos geométricos medidos só em retrato (cada um ganha a célula
 de paisagem). Liberar a rotação no Android é Release; o CSS é OTA. Se o operador
 quiser só a paisagem, ela é um lote de web — e não espera o estudo do Windows.
+
+---
+
+## Pacote 15 — Guia IASD: a especialização (estudo)
+
+**Nota — · estudo · nenhuma entrega de código (a entrega é a DECISÃO do operador)**
+
+Pedido do operador (2026-11-12): especializar o Guia de sonoplastia IASD para a
+Igreja Adventista do Sétimo Dia — exemplos e comentários adventistas, referências
+a manuais oficiais, os programas da igreja (Escola Sabatina, Desbravadores,
+ofertório, culto JA…), seções dedicadas ao hinário adventista (novo E antigo),
+referências de cantores adventistas, o básico de teoria de música na igreja e uma
+seção dedicada ao LOUVOR JA (projeção/coletânea multimídia). **A entrega é o
+ESTUDO** `docs/ESTUDO-GUIA-IASD.md` (2026-11-12); a aplicação ao guia — que mora
+em `site/sonoplastia/index.html` — só acontece depois da DECISÃO do operador
+sobre o estudo. Nada aqui está autorizado.
 
 ---
 
