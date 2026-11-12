@@ -95,6 +95,13 @@ interface BridgeHost {
     fun openExternalUrl(url: String)
 
     /**
+     * Abre o GUIA DE SONOPLASTIA numa tela do próprio app ([GuiaSomDialog],
+     * shell 87). A URL já passou por [GuiaSom.urlDoGuia] em
+     * [NativeBridge.abrirGuia].
+     */
+    fun abrirGuia(url: String)
+
+    /**
      * Abre o SELETOR DE COMPARTILHAMENTO do Android com um texto
      * (`ACTION_SEND` + `createChooser`) — ver [NativeBridge.compartilharTexto].
      *
@@ -379,7 +386,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 86
+        const val SHELL_VERSION = 87
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -1101,6 +1108,25 @@ class NativeBridge(
         val u = try { Uri.parse(url) } catch (_: Exception) { return }
         if (!u.scheme.equals("https", ignoreCase = true) || u.host.isNullOrBlank()) return
         host?.openExternalUrl(u.toString())
+    }
+
+    /**
+     * O GUIA DE SONOPLASTIA DENTRO DO APP (shell 87): a página do site num
+     * WebView SEM ponte ([GuiaSomDialog]), em tela cheia, e o voltar devolve ao
+     * app. Devolve `true` se abriu; `false` é "não abri" — e o web cai no
+     * `openExternal` de sempre, que é também o caminho do casco antigo.
+     *
+     * **Falha FECHADO, e a decisão é aqui:** só `https` e só o host do site,
+     * por componente do `URI` ([GuiaSom.urlDoGuia], com JUnit). Sem a cerca, a
+     * ponte viraria um navegador embutido para qualquer endereço. O telão
+     * (`host = null`) recebe `false`.
+     */
+    @JavascriptInterface
+    fun abrirGuia(url: String?): Boolean {
+        val h = host
+        if (h == null || !GuiaSom.urlDoGuia(url)) return false
+        h.abrirGuia(url!!)
+        return true
     }
 
     /**

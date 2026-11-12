@@ -6154,7 +6154,15 @@
       }
       while (i < filhos.length) {
         var f = filhos[i], prox = filhos[i + 1];
-        if (ehCab(f) && prox) { out.push(junta(f, prox)); i += 2; continue; }
+        if (ehCab(f) && prox) {
+          var g = [f], j = i + 1;
+          while (filhos[j] && filhos[j].tagName === 'P' && curto(filhos[j])) { g.push(filhos[j]); j += 1; }
+          if (filhos[j] && (filhos[j].tagName === 'FIGURE' || (filhos[j].classList && (filhos[j].classList.contains('tabela') || filhos[j].classList.contains('box'))))) g.push(filhos[j]);
+          var run2 = document.createElement('div'); run2.className = 'lb-grp';
+          f.parentNode.insertBefore(run2, f);
+          g.forEach(function (n) { run2.appendChild(n); });
+          out.push(run2); i = j + 1; continue;
+        }
         if (f.tagName === 'DT' && prox && prox.tagName === 'DD') { out.push(junta(f, prox)); i += 2; continue; }
         if (f.tagName === 'P' && curto(f) && prox && prox.tagName === 'P' && curto(prox)) {
           var run = document.createElement('div'); run.className = 'lb-grp';
@@ -6255,6 +6263,13 @@
       if (pode(unit, cur.con)) { registrarOid(unit); return; }
       if (unit.classList && unit.classList.contains('tabela')) { colocarTabela(unit); registrarOid(unit); return; }
       if (/^(UL|OL|DL)$/.test(unit.tagName)) { colocarLista(unit); registrarOid(unit); return; }
+      if (unit.classList && unit.classList.contains('lb-grp') && ehCab(unit.firstElementChild)) {
+        novaPag();
+        if (pode(unit, cur.con)) { registrarOid(unit); return; }
+        unit.classList.add('lb-enc');
+        if (pode(unit, cur.con)) { registrarOid(unit); return; }
+        unit.classList.remove('lb-enc');
+      }
       if (ehComposto(unit)) { unidadesDe(unit).forEach(colocar); return; }
       novaPag();
       if (pode(unit, cur.con)) { registrarOid(unit); return; }

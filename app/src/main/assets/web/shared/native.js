@@ -768,6 +768,18 @@
       } catch (_) { /* ponte indisponível */ }
     },
 
+    // O GUIA DE SONOPLASTIA numa tela do próprio app (shell 87): WebView sem ponte,
+    // tela cheia, o voltar devolve ao app. Devolve `true` se o shell abriu; `false`
+    // (casco antigo, sem o método, ou URL recusada pela cerca do Kotlin) manda quem
+    // chama cair no `openExternal`. O `typeof` é a degradação declarada, como no volume.
+    abrirGuia(url) {
+      try {
+        const u = String(url || '');
+        if (!/^https:\/\//i.test(u) || typeof B.abrirGuia !== 'function') return false;
+        return B.abrirGuia(u) === true;
+      } catch (_) { return false; }
+    },
+
     // O SELETOR DE COMPARTILHAMENTO do Android, com um texto (shell 63).
     //
     // Ele NÃO é uma variante do `openExternal`: aquele MANDA este aparelho abrir

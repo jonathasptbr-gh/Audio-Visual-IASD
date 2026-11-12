@@ -73,6 +73,9 @@ class MainActivity : ComponentActivity(), BridgeHost {
     private var web: WebView? = null
 
     private var presentation: StagePresentation? = null
+
+    /** O guia de sonoplastia aberto por cima do Controle (shell 87), ou `null`. */
+    private var guiaSom: GuiaSomDialog? = null
     private var displayManager: DisplayManager? = null
 
     /**
@@ -738,6 +741,9 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // O hook sai antes de tudo: ele captura esta Activity, e uma chamada
         // depois daqui mexeria num campo de uma tela que não existe mais.
         SyncService.onGone = null
+        // Um Dialog vivo numa Activity destruída vaza a janela.
+        guiaSom?.let { try { it.dismiss() } catch (_: Exception) { } }
+        guiaSom = null
         // Sem o WebView não há download para proteger — o serviço não pode
         // sobreviver à Activity segurando um wake lock à toa.
         if (backgroundWork) {
@@ -1711,6 +1717,27 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * um `post`, e o alvo tem de virar tarefa própria: o app de projeção
      * continua na dele, com a `Presentation` viva na TV.
      */
+    /**
+     * O GUIA DE SONOPLASTIA por cima do Controle (shell 87) — ver
+     * [GuiaSomDialog]: um Dialog, e não outra Activity, para que esta NÃO passe
+     * por `onPause`/`onStop` (a mídia, a preview e o telão seguem como estão).
+     * Fechado, o imersivo desta janela volta ao que era.
+     */
+    override fun abrirGuia(url: String) {
+        runOnUiThread {
+            if (isFinishing || isDestroyed || guiaSom?.isShowing == true) return@runOnUiThread
+            try {
+                guiaSom = GuiaSomDialog(this, url) {
+                    guiaSom = null
+                    if (telaInteiraWeb || customView != null) setSystemBarsHidden(true)
+                }.also { it.show() }
+            } catch (e: Exception) {
+                guiaSom = null
+                Log.w(TAG, "o guia não abriu", e)
+            }
+        }
+    }
+
     override fun openExternalUrl(url: String) {
         runOnUiThread {
             try {

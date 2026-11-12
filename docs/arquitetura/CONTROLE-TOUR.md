@@ -83,7 +83,9 @@ tour do estado atual — e ZERA o modo atual: os outros tours principais dele e 
 as seções que existem nele voltam a se explicar na próxima abertura; o `title` do
 botão e o último passo dos tours principais dizem isso) e **Guia de sonoplastia** (`#guiaSomBtn`: `AV_PAGINA +
 'sonoplastia/'`, com `#dia` — a trilha "Sonoplasta por um dia" — no Modo Fácil;
-`openExternal` no app, `window.open` no navegador). Não moram no cabeçalho ao lado
+no app, `AVNative.abrirGuia` — uma tela do próprio app, WebView SEM ponte, desde o
+shell 87 —, com queda no `openExternal` no casco antigo ou na recusa; `window.open`
+no navegador; oráculo `guia-no-app.test.mjs`). Não moram no cabeçalho ao lado
 do pedir ajuda: o cabeçalho já cede a palavra "Ajuda" para o título caber a 320px.
 
 ## Os oráculos e o arnês
