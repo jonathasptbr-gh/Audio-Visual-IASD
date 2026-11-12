@@ -32,6 +32,7 @@ apagada da que a criou.
 
 - **v1.14.1** — tours de SEÇÃO (cada janela, folha e gaveta se explica na primeira abertura; o "Tour do app" zera as do modo), o tour do Fácil TOCANDO (letra e teclas) e o halo azul no recorte; guia dentro do app recusado (iframe furaria a invariante 2); só web.
 - **v1.14.0** — o tour guiado: um por estado da tela (conexão com a cortina do Fácil, controles do Fácil, avançado completo), automático uma vez e nunca por cima de diálogo; botões "Tour do app" e "Guia de sonoplastia" (`#dia` no Fácil) em Configurações; só web.
+- **o guia vira áudio visual e ganha livreto (sem versão nova; só `site/` e docs)** — I13 com oito partes novas de vídeo, capítulo I19 de eventos e peculiaridades, 26 ilustrações novas na trilha integral (295 no total) e versão para imprimir em livreto A4 dobrável com paginação automática e imposição
 - **o guia de sonoplastia: compartilhar à vista (sem versão nova; só `site/`)** — botão "Compartilhar este guia" na capa, "Compartilhar capítulo" sob cada título e "Compartilhar este problema" em cada sintoma; abre a folha de compartilhar do celular (WhatsApp, e-mail…) e, sem ela, copia o link
 - **o guia de sonoplastia sem o botão flutuante (sem versão nova; só `site/`)** — o índice abre só pelo botão da barra do topo, que fica sempre visível; o texto de "Como usar" acompanha
 - **o guia de sonoplastia na primeira tela (sem versão nova; só `site/`)** — uma pílula de vidro acima do logo, com microfone, "Guia de sonoplastia" e "O som da igreja: mesa, microfones e cabos"
@@ -781,6 +782,31 @@ grade.
 **O arnês** marca os três tours como vistos em todo contexto (`comTour: true`
 desliga); oráculo novo `tools/tour.test.mjs`, revertido (ocupado, volume, `#dia` e
 folga do recorte): reprova sete asserções.
+
+## o guia vira áudio visual e ganha livreto (sem versão nova; só `site/` e docs)
+
+**DE SONOPLASTIA PARA ÁUDIO VISUAL** (pedido do operador: o nome "sonoplastia"
+é o apego comum, o conteúdo é áudio visual): o I13 ganhou oito partes novas
+(HDMI em detalhe, DisplayPort/VGA, adaptadores, extensores e divisores, HDCP,
+várias telas, projetor em detalhe, cabeamento) e seis figuras; nasceu o **I19
+Eventos e peculiaridades** (dez grupos: fora do templo, água, casamento e
+funeral, ceia, musical, séries, refeição, convidados, vigílias, gravado) com
+quatro figuras; o glossário ganhou 15 termos; a capa e a pílula da página
+principal anunciam áudio visual.
+
+**MAIS DESENHO NA TRILHA INTEGRAL**: 26 figuras novas em I1–I12 (I5 e I10
+quadruplicaram) — a página passa de 259 para 295 figuras.
+
+**O LIVRETO A4 DOBRÁVEL** (o esforço do lote): botão "Imprimir" na barra do
+topo monta, sob demanda, um caderno A5 paginado por MEDIÇÃO REAL (nenhuma página
+estoura), com capa, índice com números de página, conteúdo completo e página de
+anotações; na impressão as páginas são impostas em folhas A4 paisagem na ordem
+de lombada a cavalo (frente e verso, virar na borda curta). 208 páginas · 104
+folhas. Defeito achado na entrega e corrigido: a bandeira `aberto` nunca mudava,
+então Esc e o botão não fechavam. O botão do topo fecha por Esc ou X — o toque
+direto nele é coberto pela própria sobreposição.
+
+---
 
 ## o guia de sonoplastia na primeira tela (sem versão nova; só `site/`)
 
