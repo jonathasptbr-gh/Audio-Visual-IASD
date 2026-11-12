@@ -256,6 +256,27 @@ try {
   const x1 = await linha('x1');
   checar(x1 && x1.car, '4. a linha que não mudou segue intocada', x1);
 
+  // ---- 4b. FECHADA A GAVETA, A LINHA ALTERADA É TROCADA (v1.13.69) ----------
+  // A gaveta aberta foi montada do dado VELHO; só o rosto foi atualizado no lugar. O `__sig` não
+  // pode ser dado como em dia — senão a linha nunca mais seria trocada, e a gaveta reaberta
+  // mostraria o detalhe velho para sempre. Fechada, ela é trocada sozinha, em partes.
+  await pg.evaluate((s) => document.querySelector(s + ' > li[data-song$=":x3"] .hymn-row').click(), LISTA);
+  r = await esperar(pg, (s) => {
+    const l = document.querySelector(s + ' > li[data-song$=":x3"]');
+    return !!l && !l.dataset.car && !l.classList.contains('expanded');
+  }, LISTA, 4000);
+  const x3b = await pg.evaluate((s) => {
+    const l = document.querySelector(s + ' > li[data-song$=":x3"]');
+    const coll = allCollections().find((c) => c.id === 'serie-provai-vede-2026');
+    const dado = collSongs(coll.id).find((x) => x.id_music === 'x3');
+    return { emDia: l.__sig === assinaturaDaFaixa(coll, dado), pendente: !!l.__trocarAoFechar,
+      nome: (l.querySelector('.hymn-name') || {}).textContent };
+  }, LISTA);
+  checar(r === true && x3b.emDia && !x3b.pendente && /RENOMEADO/.test(x3b.nome || ''),
+    '4b. fechada a gaveta, a linha alterada é trocada pela do dado novo (assinatura em dia)', { r: porque(r), x3b });
+  checar((await linha('x1')).car, '4b. e as outras linhas seguem intocadas');
+  checar(await abrirLinha('x3') === true, '4b. a gaveta de x3 reabre (para os casos seguintes)');
+
   // ---- 5. SUBTÍTULO / PROGRESSO COM A GAVETA ABERTA -------------------------
   const b0 = await barra();
   await pg.evaluate((id) => {
@@ -293,10 +314,15 @@ try {
   let d = await linha('dest');
   checar(r === true && d && d.aberta && d.car,
     '7. item novo na lista: a gaveta do DESTAQUE continua aberta, no mesmo nó', { r: porque(r), d });
+  // Um destino MARCADO na gaveta do destaque: o bloco que sai tem de limpá-lo (v1.13.69), como a
+  // linha que sai sozinha — senão a próxima gaveta herdaria a marca de um item que não existe.
+  await pg.evaluate(() => { destMarcados.add('oraculo'); });
   await mexer("st.songs = st.songs.filter((s) => s.id_music !== 'dest');");
   r = await esperar(pg, () => !document.querySelector('#hymnResults .serie-destaque-lista > li[data-song]'), null, 4000);
   checar(r === true && (await gavetas()) === 0,
     '7. o episódio do sábado sai: o destaque esvazia e a gaveta dele fecha', porque(r));
+  const marcas = await pg.evaluate(() => destMarcados.size);
+  checar(marcas === 0, '7. e os destinos marcados naquela gaveta saem junto (`destLimpar`)', marcas);
 
   // ---- 8. PAGINAÇÃO ---------------------------------------------------------
   await plantar(130);

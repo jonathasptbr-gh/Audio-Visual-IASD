@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.13.69",
+    "itens": [
+      "Em celular lento, a Biblioteca não fecha mais sozinha logo depois de abrir o app.",
+      "Arrastar nos Favoritos ou no Cronograma não trava mais o app se a lista se atualizar no meio.",
+      "Uma opção de play aberta mostra o dado novo quando você a fecha, se o item mudou enquanto ela estava aberta.",
+      "Menos trabalho em segundo plano com um card do Provai e Vede ou do Informativo aberto."
+    ]
+  },
+  {
     "versao": "1.13.68",
     "itens": [
       "A lista da Biblioteca agora atualiza só o que mudou: item novo aparece na hora e a opção aberta não fecha.",

@@ -38,6 +38,17 @@ await new Promise((r) => servidor.listen(0, r));
 const base = 'http://localhost:' + servidor.address().port;
 const navegador = await abrirNavegador();
 const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+// ESPERA A TELA ASSENTAR POR FATO (v1.13.69), não por tempo: o acervo se redesenha sozinho depois
+// de aberto, e em máquina lenta isso cai no meio dos gestos. Quieta = `#hymnResults` sem mutação
+// por 1,2 s de relógio do PRÓPRIO app (a máquina lenta alonga o relógio inteiro).
+const aquietar = (pg) => pg.evaluate(() => new Promise((ok) => {
+  let t = setTimeout(fim, 1200);
+  const mo = new MutationObserver(() => { clearTimeout(t); t = setTimeout(fim, 1200); });
+  mo.observe(document.getElementById('hymnResults'), { childList: true, subtree: true, attributes: true });
+  const teto = setTimeout(fim, 90000);
+  function fim() { mo.disconnect(); clearTimeout(t); clearTimeout(teto); ok(true); }
+}));
+const COLL_ESPERA = 1200;   // > COLL_REFRESH_MS (400) com folga: o tique pendente já caiu
 
 try {
   const ctx = await navegador.newContext({ viewport: { width: 360, height: 740 }, hasTouch: true });
@@ -46,10 +57,22 @@ try {
   const pg = await ctx.newPage();
   const erros = [];
   pg.on('pageerror', (e) => erros.push('pageerror: ' + e.message));
-  await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
-  await esperarCortina(pg);
-  await pg.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function'
-    && !!document.querySelector('.lib-bar'), null, { timeout: 30000 });
+  // O BOOT TERMINA QUANDO A CORTINA CAI (v1.13.69): `init()` ainda roda `setAppMode` e `load()`
+  // até lá, e abrir a Biblioteca antes disso a fazia ser FECHADA debaixo do teste — foi a
+  // reprovação do CI (run 43106210937): `esperarCortina` devolve a FRASE do prazo (30 s) e o
+  // oráculo a ignorava. Aqui o prazo é folgado e o estouro é erro, não silêncio.
+  const aguardarBoot = async () => {
+    const r = await esperarCortina(pg, 150000);
+    if (r !== true) throw new Error('o app não terminou de abrir: ' + r);
+    // A cortina também cai pelo prazo de segurança (12 s) com o `init()` ainda no meio: o fato
+    // que vale é o `terminou` que ele mesmo grava na última linha (`__avSplash.pronto()`).
+    await pg.waitForFunction(() => !window.__avSplash || window.__avSplash.terminou === true,
+      null, { timeout: 150000 });
+    await pg.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function'
+      && !!document.querySelector('.lib-bar'), null, { timeout: 30000 });
+  };
+  await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded', timeout: 120000 });
+  await aguardarBoot();
 
   // ── O CENÁRIO: quatro favoritos (o primeiro com letra) e uma pasta do aparelho ─
   const NOMES = ['Louvor com letra', 'Segundo', 'Terceiro', 'Quarto'];
@@ -83,7 +106,7 @@ try {
   if (!await esperar(pg, (s) => document.querySelectorAll(s).length === 4, linhas)) throw new Error('sem 4 favoritos');
   // O acervo se redesenha sozinho logo depois de aberto (varredura de coleções): espera
   // a seção ASSENTAR, senão o primeiro toque acerta um nó que já saiu do documento.
-  await espera(1800);
+  await aquietar(pg);
 
   // A medida que o oráculo usa em A e em E: o `⋮` está na LINHA (filho da `.row`, não da
   // gaveta), à vista, na altura do nome e à direita dele, dentro da tela.
@@ -102,6 +125,22 @@ try {
       naTela: m.right <= innerWidth + 0.5 && m.left >= 0,
     };
   }`;
+
+  // ── F. O `init()` TARDIO NÃO FECHA A BIBLIOTECA ABERTA (v1.13.69) ────────
+  // Em aparelho lento o `init()` chega ao `setAppMode(appMode)` segundos depois de o operador
+  // (ou do teste) abrir a Biblioteca. Reafirmar o modo em que já se está não pode fechá-la nem
+  // zerar os Favoritos abertos (`resetarBiblioteca`). Reproduz-se aqui o que o `init()` faz.
+  const f = await pg.evaluate(() => {
+    setAppMode(appMode);
+    return {
+      aberta: hymnSearchPopupEl.classList.contains('open'),
+      favAberto,
+      linhas: document.querySelectorAll('#hymnResults [data-fav-corpo] .fav-itens > .lib-item').length,
+    };
+  });
+  checar(f.aberta && f.favAberto && f.linhas === 4,
+    'F · reafirmar o modo atual (o `init()` tardio) NÃO fecha a Biblioteca nem os Favoritos abertos', f);
+  await espera(300);
 
   // ── A. O `⋮` NA LINHA, COM A GAVETA FECHADA ──────────────────────────────
   const a = await pg.evaluate(({ linhas, MEDIR_MAIS }) => {
@@ -130,7 +169,7 @@ try {
     await pg.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2);
     await espera(260);
   };
-  const estado = (i) => pg.evaluate(({ linhas, i }) => {
+  const estadoBruto = (i) => pg.evaluate(({ linhas, i }) => {
     const li = document.querySelectorAll(linhas)[i];
     const faixa = li.querySelector(':scope > .row > .row-acoes');
     const cs = faixa && getComputedStyle(faixa);
@@ -147,6 +186,18 @@ try {
       maisLigado: !!li.querySelector(':scope > .row > .row-mais') && li.classList.contains('acoes-abertas'),
     };
   }, { linhas, i });
+  // O estado ASSENTADO (v1.13.69): a faixa entra com um fade, e em máquina lenta ele passa dos
+  // 260 ms do toque. Lê até duas leituras seguidas iguais (200 ms), com teto de 10 s.
+  const estado = async (i) => {
+    let ant = JSON.stringify(await estadoBruto(i));
+    for (let k = 0; k < 50; k++) {
+      await espera(200);
+      const agora = JSON.stringify(await estadoBruto(i));
+      if (agora === ant) break;
+      ant = agora;
+    }
+    return JSON.parse(ant);
+  };
   await tocar(linhas + ' >> .row-mais', 1);
   const b1 = await estado(1);
   checar(b1.acoesAbertas && !b1.gavetaAberta && b1.gavetaAltura === 0 && b1.faixaVisivel
@@ -186,6 +237,9 @@ try {
   // ── C. AS AÇÕES ─────────────────────────────────────────────────────────
   // C1. "Ver a letra" — só no registro com letra, e abre a leitura.
   await tocar(linhas + ' >> .row-text', 0);
+  // A gaveta abre depois de um `await` (a letra sai do IndexedDB): em máquina lenta o
+  // toque passa antes dela. Espera o FATO (a linha `expanded`), não um tempo (v1.13.69).
+  await esperar(pg, (s) => !!document.querySelector(s + '.expanded .hymn-gaveta .dest-botoes'), linhas);
   const c1 = await pg.evaluate(({ linhas }) => {
     const lis = [...document.querySelectorAll(linhas)];
     const tem = (li) => !!li.querySelector('.hymn-gaveta .dest-largo');
@@ -306,19 +360,135 @@ try {
   checar(longo.ordem.join('|') === antesLongo.join('|') && longo.gavetas === 0,
     'D · segurar sem mover não muda a ordem nem abre a gaveta', longo);
 
+  // O MESMO, COM O TIMER ATRASADO (v1.13.69). Com a CPU apertada, o soltar pode ser tratado ANTES
+  // do timer do toque longo — medido com o estrangulamento 10×: a gaveta abria. Reproduz-se sem
+  // depender da sorte: o relógio do app anda 700 ms entre o apertar e o soltar, sem dar a vez a
+  // timer nenhum, e o `click` vem logo atrás. Um toque longo nunca pode virar toque.
+  await pg.evaluate((s) => {
+    const alvo = document.querySelectorAll(s)[1].querySelector('.row-text');
+    const b = alvo.getBoundingClientRect();
+    const opt = { bubbles: true, cancelable: true, composed: true, pointerId: 78, pointerType: 'touch',
+      isPrimary: true, button: 0, clientX: b.x + b.width / 2, clientY: b.y + b.height / 2 };
+    const agora = Date.now;
+    const t0 = agora();
+    try {
+      alvo.dispatchEvent(new PointerEvent('pointerdown', opt));
+      Date.now = () => t0 + 700;
+      alvo.dispatchEvent(new PointerEvent('pointerup', opt));
+      alvo.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: opt.clientX, clientY: opt.clientY }));
+    } finally { Date.now = agora; }
+  }, linhas);
+  await espera(600);   // a gaveta abre depois de um `await` — dá tempo a ela, se fosse abrir
+  const atrasado = await pg.evaluate(() => document.querySelectorAll('#hymnResults .lib-item.expanded:not(.folder-opfs)').length);
+  checar(atrasado === 0, 'D · toque longo com o timer atrasado (CPU lenta) também não abre a gaveta', atrasado);
+
+  // O REDESENHO DO ACERVO NO MEIO DO SEGURAR (v1.13.69): os tiques pendentes (`setCollStatus`,
+  // `refreshCollectionsIfVisible`, a reconciliação por partes, a busca) caem enquanto o dedo está
+  // na linha. A lista e o arrasto sobrevivem, e o soltar ainda grava a ordem.
+  {
+    const antes = await ordemDb();
+    const pr = await centro(0);
+    await pg.mouse.move(pr.x, pr.y); await pg.mouse.down();
+    await esperar(pg, () => !!document.querySelector('.fav-itens > .lib-item.arrastando'));
+    await pg.evaluate(() => {
+      refreshCollectionsIfVisible({ partes: true });
+      refreshCollectionsIfVisible();
+      renderBuscaQuandoPuder(false);
+      renderCollectionsNow();                 // direto, como o `syncCollection` de um grupo que baixa
+      redesenharFavoritosNaBiblioteca();      // direto, como o `load()` de uma gravação
+    });
+    await espera(COLL_ESPERA);
+    const meio = await pg.evaluate(() => ({
+      marca: document.querySelectorAll('.fav-itens > .lib-item.arrastando').length,
+      linhas: document.querySelectorAll('#hymnResults [data-fav-corpo] .fav-itens > .lib-item').length,
+      aberta: hymnSearchPopupEl.classList.contains('open'),
+    }));
+    await pg.mouse.up();
+    await espera(400);
+    checar(meio.marca === 1 && meio.linhas === 3 && meio.aberta && (await ordemDb()).join('|') === antes.join('|'),
+      'D · um redesenho do acervo NO MEIO do segurar não derruba a linha levantada nem a lista', meio);
+    const depois = await pg.evaluate((s) => ({ n: document.querySelectorAll(s).length, marcas: document.querySelectorAll('.fav-itens.arrastando-lista, .fav-itens > .lib-item.arrastando').length }), linhas);
+    checar(depois.n === 3 && depois.marcas === 0, 'D · e depois do soltar a lista está inteira e sem marca', depois);
+  }
+
+  // O ARRASTO ÓRFÃO NÃO FICA PRESO (v1.13.69). Se a linha levantada sai do documento por um
+  // redesenho que ninguém guardou, o `pointerup` cai na linha NOVA e `terminarArrasto` nunca
+  // roda: `arrasto` ficava não-nulo para sempre (rolagem por toque cancelada, nenhum arrasto
+  // novo). Simula-se o remonte sem guarda (o corpo de `redesenharFavoritosNaBiblioteca`).
+  {
+    const pr = await centro(1);
+    await pg.mouse.move(pr.x, pr.y); await pg.mouse.down();
+    await esperar(pg, () => !!document.querySelector('.fav-itens > .lib-item.arrastando'));
+    await pg.evaluate(() => {
+      const corpo = document.querySelector('[data-fav-corpo]');
+      corpo.innerHTML = '';
+      favHost = corpo;
+      try { comBaldeDeMiniaturas('fav-biblioteca', renderFolderList); } finally { favHost = null; }
+    });
+    await pg.mouse.up();
+    await espera(300);
+    const g = await pg.evaluate(() => {
+      const ev = new Event('touchmove', { bubbles: true, cancelable: true });
+      document.body.dispatchEvent(ev);
+      return {
+        arrastoNulo: arrasto === null,
+        rolagemLivre: ev.defaultPrevented === false,
+        marcas: document.querySelectorAll('.arrastando, .arrastando-lista, .segurando').length,
+        gavetas: document.querySelectorAll('#hymnResults .lib-item.expanded:not(.folder-opfs)').length,
+      };
+    });
+    checar(g.arrastoNulo && g.rolagemLivre && g.marcas === 0 && g.gavetas === 0,
+      'D · a linha levantada que SAI do documento no meio do gesto não deixa o arrasto preso (rolagem livre, sem marca)', g);
+    await esperar(pg, (s) => document.querySelectorAll(s).length === 3, linhas);
+    const antesNovo = await ordemDb();
+    await arrastar(0, 2, true);
+    const gravou = await esperar(pg, (a) => favItems.map((m) => m.name).join('|') !== a, antesNovo.join('|'));
+    checar(gravou === true, 'D · e um arrasto NOVO depois do órfão funciona e grava a ordem', porque(gravou) || await ordemDb());
+    await espera(400);
+  }
+
+  // O SOLTAR FORA DA LINHA (v1.13.69, `largarPonteiro`). O mouse aperta numa linha e SAI dela
+  // de um salto, antes do primeiro `pointermove` dela (sem captura antes do toque longo, o
+  // resto do gesto vai para outro elemento), e solta lá fora. Sem a rede, a marca `segurando`
+  // ficava presa — segurando o redesenho do acervo para sempre — e o toque longo pendente
+  // levantava o item com o botão já solto, num `arrasto` que nunca termina.
+  {
+    const antesFora = await ordemDb();
+    // Eventos SINTÉTICOS, e de propósito: o Chromium do Playwright entrega o soltar real à linha
+    // mesmo fora dela, e o caso não se reproduziria. Despachados à mão, o apertar vai à linha e o
+    // soltar ao `body` — exatamente o "soltar sem dono" que a rede tem de pegar.
+    await pg.evaluate((s) => {
+      const alvo = document.querySelector(s + ' .row-text');
+      const b = alvo.getBoundingClientRect();
+      const opt = { bubbles: true, cancelable: true, composed: true, pointerId: 77, pointerType: 'touch',
+        isPrimary: true, button: 0, clientX: b.x + b.width / 2, clientY: b.y + b.height / 2 };
+      alvo.dispatchEvent(new PointerEvent('pointerdown', opt));
+      document.body.dispatchEvent(new PointerEvent('pointerup', { ...opt, clientY: 4 }));
+    }, linhas);
+    await espera(800);                              // além do toque longo (450 ms)
+    const f = await pg.evaluate(() => ({
+      arrastoNulo: arrasto === null,
+      segurando: document.querySelectorAll('.segurando, .arrastando, .arrastando-lista').length,
+      guarda: interacaoAbertaNoAcervo(),
+    }));
+    checar(f.arrastoNulo && f.segurando === 0 && !f.guarda && (await ordemDb()).join('|') === antesFora.join('|'),
+      'D · soltar FORA da linha não deixa marca presa, nem arrasto tardio, nem o guarda do acervo ligado', f);
+  }
+
   // Um arrasto do MEIO para o fim e a PERSISTÊNCIA depois de recarregar a página.
+  const ordemAntesDoFim = await ordemDb();   // (o arrasto órfão acima mexeu na ordem de partida)
+  const esperada = [ordemAntesDoFim[0], ordemAntesDoFim[2], ordemAntesDoFim[1]].join('|');
   await arrastar(1, 2, true);
-  await esperar(pg, () => favItems.map((m) => m.name).join('|') === 'Louvor com letra|Terceiro|Segundo renomeado');
+  await esperar(pg, (e) => favItems.map((m) => m.name).join('|') === e, esperada);
   await espera(300);
   const ordemFinal = await ordemDb();
-  await pg.reload({ waitUntil: 'domcontentloaded' });
-  await esperarCortina(pg);
-  await pg.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function' && !!document.querySelector('.lib-bar'), null, { timeout: 30000 });
+  await pg.reload({ waitUntil: 'domcontentloaded', timeout: 120000 });
+  await aguardarBoot();
   await abrirSecao();
   await esperar(pg, (s) => document.querySelectorAll(s).length === 3, linhas);
-  await espera(1800);
+  await aquietar(pg);
   const depoisReload = await ordemTela();
-  checar(ordemFinal.join('|') === 'Louvor com letra|Terceiro|Segundo renomeado' && depoisReload.join('|') === ordemFinal.join('|'),
+  checar(ordemFinal.join('|') === esperada && depoisReload.join('|') === ordemFinal.join('|'),
     'D · a ordem PERSISTE: recarregada a página, a lista volta na ordem arrastada', { ordemFinal, depoisReload });
 
   // ── E. O ORÁCULO REPROVA O DESENHO ANTIGO ────────────────────────────────

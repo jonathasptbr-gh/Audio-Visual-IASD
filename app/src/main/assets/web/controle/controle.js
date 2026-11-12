@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.13.68';
+const WEB_VERSION = '1.13.69';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10915,6 +10915,7 @@ function renderLibraryCorpo() {
   // seguraria o `touch-action: none` e a transição do vão na lista seguinte.
   host.classList.remove('arrastando-lista');
   host.innerHTML = '';
+  sanearArrastoOrfao();   // (v1.13.69) a linha levantada acabou de sair do documento: o gesto morre com ela
   // ANTES do desvio por aba, e não no fim: a Bíblia e a raiz dos Favoritos saem
   // por `return` daqui, e o rodapé é da CAIXA da lista, não da lista — deixado
   // para o fim, a faixa de portas do Cronograma continuava desenhada
@@ -13093,7 +13094,11 @@ function renderCollectionCard(coll, ctx, opcs) {
     // ficam onde o assunto está, e fechar é o mesmo toque que abriu.
     // O AVISO DO DOWNLOAD AUTOMÁTICO (v1.11.10): sem a caixa que havia aqui, só o
     // impedimento de rede sobrevive — e vai para a linha de status do card.
-    serieAutoAviso(coll);
+    //
+    // NUNCA NA SOMBRA (v1.13.69): a reconciliação monta um card de sombra a cada tique, e o
+    // aviso chama `setCollStatus`, que pede outro tique — um laço de 400 ms enquanto o card
+    // estiver aberto, com ou sem gaveta. O aviso é do DESENHO de verdade, não da comparação.
+    if (!(opcs && opcs.semLista)) serieAutoAviso(coll);
     // A VERIFICAÇÃO ADIADA PELA MÍDIA NO AR (v1.12.53) volta aqui, no primeiro desenho do
     // card aberto com a mídia já fora do ar — sem pedir ao operador que feche e reabra.
     if (u.semanaAdiada && rotinaDeAcervoPodeCorrer()) setTimeout(() => verificarSemanaAoAbrir(coll), 0);
@@ -13693,7 +13698,15 @@ function acervoAVista() {
  * acontece sozinho, sem depender de alguém lembrar de chamar isto de dentro de
  * cada caminho que fecha uma gaveta.
  */
+// O DEDO NUMA LINHA DO ACERVO (v1.13.69): segurada (`segurando`, síncrona no pointerdown),
+// levantada (`arrastando`) ou com o `arrasto` do módulo apontando para um nó daqui. É a leitura
+// única de "remontar esta lista agora arrancaria a linha do dedo".
+function dedoNaLinhaDoAcervo() {
+  if (arrasto && hymnResultsEl.contains(arrasto.li)) return true;
+  return !!hymnResultsEl.querySelector('.lib-item.segurando, .lib-item.arrastando');
+}
 function interacaoAbertaNoAcervo() {
+  if (dedoNaLinhaDoAcervo()) return true;
   // `abrindo` conta como aberta, e é ela que fecha o caso do RELATO: entre o
   // toque e o `expanded` há um `await` (a letra sai do IndexedDB, o estado de um
   // vídeo sai de `mediaByYoutube`), e era ali que o redesenho alcançava a linha
@@ -13719,9 +13732,14 @@ function interacaoAbertaNoAcervo() {
   // espera se rearmar para sempre e o progresso do download nunca chegar à
   // tela. O que precisa de proteção é a gaveta de dentro dela, que é
   // `.lib-item.expanded` sem `.folder-opfs`.
+  //
+  // `.lib-item.segurando` e `.lib-item.arrastando` são a QUARTA (v1.13.69): o dedo numa linha de
+  // Favoritos, do pointerdown (SÍNCRONO, antes dos 450 ms do toque longo) até soltar. Sem elas o
+  // redesenho do acervo remontava a lista debaixo do dedo — a linha levantada virava órfã, a
+  // marca `.arrastando` sumia e o `arrasto` do módulo ficava preso a um nó fora do documento.
   return !!hymnResultsEl.querySelector(
     '.hymn-result.expanded, .hymn-result.abrindo, .acoes-abertas,'
-    + ' .lib-item.expanded:not(.folder-opfs)',
+    + ' .lib-item.expanded:not(.folder-opfs), .lib-item.segurando, .lib-item.arrastando',
   );
 }
 // `opts.partes` (v1.13.68): quem pede o tique diz que só mudou o ESTADO DE COLEÇÃO — progresso,
@@ -13743,7 +13761,13 @@ function armarTiqueDoAcervo() {
       // PRIMEIRO EM PARTES (v1.13.68), com ou sem gaveta aberta: o que não mudou fica intocado, e
       // o que mudou é atualizado no lugar. Só quando isso não se garante (estrutura mudou) é que
       // vale o guarda de antes: com gaveta aberta ESPERA, sem ela redesenha tudo.
-      if (!collRefreshCompleto && reconciliarAcervo()) { renderSorteioSimples(); return; }
+      if (!collRefreshCompleto) {
+        if (reconciliarAcervo()) { renderSorteioSimples(); return; }
+        // Não se garantiu (v1.13.69): o pedido vira COMPLETO, e pegajoso. Sem isto, cada tique de
+        // espera da gaveta aberta remontava o esqueleto e a sombra de todos os cards só para
+        // descobrir de novo que não dá — trabalho de 400 em 400 ms até ela fechar.
+        collRefreshCompleto = true;
+      }
       if (interacaoAbertaNoAcervo()) { armarTiqueDoAcervo(); return; }   // rearma: sai quando fechar
     }
     renderCollectionsNow();
@@ -13757,6 +13781,10 @@ function renderCollectionsNow() {
   // E NUNCA NO MEIO DE UM FECHAMENTO (v1.12.57, ver `marcarAnimacaoNoAcervo`): vira o
   // tique coalescido, que se rearma até a animação acabar.
   if (acervoAVista() && acervoFechando > 0) { refreshCollectionsIfVisible(); return; }
+  // NUNCA COM O DEDO NUMA LINHA (v1.13.69): chamado direto (o `syncCollection` de um grupo que
+  // baixa, a rede que muda), o redesenho remontava a lista do arrasto e deixava o `arrasto` preso
+  // a um nó órfão. Vira o tique coalescido, que se rearma até o dedo largar.
+  if (acervoAVista() && dedoNaLinhaDoAcervo()) { refreshCollectionsIfVisible(); return; }
   collRefreshCompleto = false;   // o redesenho completo vai sair: o pedido pegajoso foi atendido
   if (acervoAVista()) renderSearchResults(hymnSearchInputEl.value);
 }
@@ -13863,17 +13891,26 @@ function reconciliarLinhas(lista, desejados) {
     const no = porChave.get(d.chave);
     if (!no) { mudou = true; return d.nova(); }
     if ((no.__sig !== undefined ? no.__sig : no.outerHTML) === d.sig) return no;
-    mudou = true;
-    const novo = d.nova();
     if (linhaAbertaNoAcervo(no)) {
       // Aberta: a gaveta fica, só o rosto da linha (nome, subtítulo) é atualizado no lugar.
-      const a = no.querySelector(':scope > .hymn-row .hymn-info');
-      const b = novo.querySelector(':scope > .hymn-row .hymn-info');
-      if (a && b) a.replaceChildren(...b.childNodes);
-      no.__sig = d.sig;
+      //
+      // E o `__sig` NÃO é dado como em dia (v1.13.69): a gaveta ainda é a montada do dado
+      // velho. O rosto já atualizado fica em `__rosto` (para não refazê-lo a cada tique), e a
+      // linha é trocada no primeiro tique depois de a gaveta fechar — que o próprio fechar pede
+      // (`__trocarAoFechar`, em `hymnResultRow`).
+      if (no.__rosto !== d.sig) {
+        const novo = d.nova();
+        const a = no.querySelector(':scope > .hymn-row .hymn-info');
+        const b = novo.querySelector(':scope > .hymn-row .hymn-info');
+        if (a && b) a.replaceChildren(...b.childNodes);
+        no.__rosto = d.sig;
+        mudou = true;
+      }
+      no.__trocarAoFechar = true;
       return no;
     }
-    return novo;
+    mudou = true;
+    return d.nova();
   });
   const ficam = new Set(finais);
   for (const n of porChave.values()) if (!ficam.has(n) && n.parentNode === lista) n.remove();
@@ -13932,12 +13969,22 @@ function reconciliarCartao(li, coll, ctx) {
   }
   morphPassivo(barV, barS);
   if (!abV) return true;
+  // UM BLOCO INTEIRO QUE SAI (v1.13.69) — o destaque que some ou vira "Aguardando", a lista que
+  // some — leva junto a linha que estava nele: o item não existe mais na lista final, e é a
+  // regra do operador que a gaveta dele feche. Mas fecha DIREITO, como a linha que sai sozinha
+  // em `reconciliarLinhas`: os destinos marcados nela (`destLimpar`) não podem ficar órfãos.
+  const soltarGaveta = (el) => { if (el && el.querySelector('.expanded, .abrindo, .acoes-abertas')) destLimpar(); };
   // ---- o destaque do sábado ----
   const destV = q(abV, '.serie-destaque'); const destS = q(abS, '.serie-destaque');
   if (!destV && destS) abV.insertBefore(destS, abV.firstChild);
-  else if (destV && !destS) { desligarSentinelas(destV); destV.remove(); }
-  else if (destV && destS) {
-    if (tipoDoNo(destV) !== tipoDoNo(destS)) destV.replaceWith(destS);   // "Aguardando" ↔ o episódio
+  else if (destV && !destS) {
+    soltarGaveta(destV);
+    desligarSentinelas(destV); destV.remove();
+  } else if (destV && destS) {
+    if (tipoDoNo(destV) !== tipoDoNo(destS)) {   // "Aguardando" ↔ o episódio
+      soltarGaveta(destV);
+      destV.replaceWith(destS);
+    }
     else {
       const cabV = q(destV, '.serie-destaque-cab'); const cabS = q(destS, '.serie-destaque-cab');
       if (cabV && cabS) morphPassivo(cabV, cabS);
@@ -13953,7 +14000,10 @@ function reconciliarCartao(li, coll, ctx) {
   const lisS = q(abS, 'ul.coll-songs:not(.serie-destaque-lista)');
   if (lisV && lisS) return reconciliarListaDoCartao(lisV, coll, u);
   if (!lisV && lisS) { abV.appendChild(lisS); return reconciliarListaDoCartao(lisS, coll, u); }
-  if (lisV && !lisS) { desligarSentinelas(lisV); lisV.remove(); }
+  if (lisV && !lisS) {
+    soltarGaveta(lisV);
+    desligarSentinelas(lisV); lisV.remove();
+  }
   return true;
 }
 function esqueletoDoAcervo(raiz) {
@@ -14670,10 +14720,15 @@ async function recarregarFavoritos(atrasoMs) {
 // marcado no `grupo()` (`data-fav-corpo`) porque ele é criado lá e não tem id:
 // procurá-lo por posição ou pelo texto do cabeçalho quebraria no primeiro
 // grupo novo.
+// Com o dedo numa linha da seção (v1.13.69) o redesenho ESPERA: `corpo.innerHTML = ''` mataria a
+// linha segurada/levantada. O pedido fica anotado e sai quando o gesto acaba (`fimDoGestoDaLinha`).
+let favRedesenhoAdiado = false;
 function redesenharFavoritosNaBiblioteca() {
   if (!hymnSearchPopupEl.classList.contains('open')) return;
   const corpo = hymnResultsEl.querySelector('[data-fav-corpo]');
   if (!corpo) return;
+  if (dedoNaLinhaDoAcervo()) { favRedesenhoAdiado = true; return; }
+  favRedesenhoAdiado = false;
   corpo.innerHTML = '';
   favHost = corpo;
   try { comBaldeDeMiniaturas('fav-biblioteca', renderFolderList); } finally { favHost = null; }
@@ -19917,6 +19972,7 @@ function comecarArrasto(li, item, pid, y, lista) {
 function soltarNoVao(destino) {
   if (!arrasto || !arrastoGeom) return;
   const { li } = arrasto;
+  li.classList.remove('segurando');
   const { itens, altura, gap, de } = arrastoGeom;
   // O topo DE FLUXO do item: o retângulo inclui o `translateY` que ele leva.
   const topoDeFluxo = li.getBoundingClientRect().top - arrasto.dy;
@@ -19964,9 +20020,58 @@ function assentarArrasto(ul) {
 // (a gaveta dos Favoritos) o lê para não tratar o soltar como toque.
 let arrastoFimEm = 0;
 
+// A REDE DE SEGURANÇA DO ARRASTO ÓRFÃO (v1.13.69). Se a linha levantada sai do documento no meio
+// do gesto (um redesenho que ninguém guardou), a captura do ponteiro cai e o `pointerup` vai para
+// a linha NOVA, cuja máquina não sabe de arrasto algum: `terminarArrasto` nunca roda e `arrasto`
+// fica não-nulo para sempre — o `touchmove` do documento cancelaria TODA rolagem por toque e
+// `comecarArrasto` recusaria qualquer arrasto novo (Cronograma incluído). Sem nó para gravar, o
+// gesto simplesmente acaba: zera o estado, as marcas e os deslocamentos de qualquer lista.
+function sanearArrastoOrfao() {
+  if (!arrasto || arrasto.li.isConnected) return false;
+  pararRolagemDeBorda();
+  arrasto = null;
+  arrastoGeom = null;
+  arrastoFimEm = Date.now();
+  for (const ul of document.querySelectorAll('.arrastando-lista')) assentarArrasto(ul);
+  for (const li of document.querySelectorAll('li.arrastando, li.segurando')) li.classList.remove('arrastando', 'segurando');
+  fimDoGestoDaLinha();
+  return true;
+}
+for (const tipo of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+  document.addEventListener(tipo, sanearArrastoOrfao, true);
+}
+
+// O GESTO SEM DONO (v1.13.69) — a outra metade da rede. O órfão acima é a linha que SAIU do
+// documento; aqui é o soltar que caiu FORA da linha que ainda está nele: o mouse que deixa a linha
+// antes do primeiro `pointermove` dela (sem captura antes do toque longo, os eventos seguintes vão
+// para outro elemento), ou um alvo trocado no meio. Sem isto, a marca `segurando` ficava presa — e
+// ela segura o redesenho do acervo (`dedoNaLinhaDoAcervo`) para sempre — e o toque longo pendente
+// levantava o item DEPOIS de o botão já ter sido solto, com um `arrasto` que nunca termina.
+//
+// `ponteirosAbaixo` é a verdade sobre quem está pressionado; a conferência roda DEPOIS do despacho
+// (`setTimeout 0`): a linha que recebeu o soltar já o tratou, e o que sobrar é o sem dono.
+const ponteirosAbaixo = new Set();
+document.addEventListener('pointerdown', (e) => { ponteirosAbaixo.add(e.pointerId); }, true);
+function largarPonteiro(e) {
+  ponteirosAbaixo.delete(e.pointerId);
+  setTimeout(() => {
+    if (arrasto && arrasto.pid === e.pointerId) { terminarArrasto(); return; }
+    if (arrasto || ponteirosAbaixo.size) return;
+    let soltou = false;
+    for (const li of document.querySelectorAll('li.segurando')) { li.classList.remove('segurando'); soltou = true; }
+    if (soltou) fimDoGestoDaLinha();
+  }, 0);
+}
+document.addEventListener('pointerup', largarPonteiro, true);
+document.addEventListener('pointercancel', largarPonteiro, true);
+// Um soltar que nunca chega (a janela perdeu o foco com o dedo na tela) não pode deixar um
+// ponteiro "pressionado" para sempre: o conjunto zera, e o próximo soltar confere tudo.
+window.addEventListener('blur', () => { ponteirosAbaixo.clear(); });
+
 function terminarArrasto() {
   if (!arrasto) return;
   const { id, lista } = arrasto;
+  arrasto.li.classList.remove('segurando');   // (v1.13.69) o dedo largou, haja vão ou não
   const ul = arrastoGeom && arrastoGeom.ul;
   const destino = indiceDoArrasto(arrasto.y);
   // O VIZINHO DE DESTINO, pelo id: nos Favoritos a lista gravada pode ter ids sem
@@ -19976,7 +20081,7 @@ function terminarArrasto() {
     ? arrastoGeom.itens[destino].el.dataset.id : null;
   soltarNoVao(destino);
   arrastoFimEm = Date.now();
-  const assentar = () => assentarArrasto(ul);
+  const assentar = () => { assentarArrasto(ul); fimDoGestoDaLinha(); };
   // A gravação vem DEPOIS de o desenho já estar na ordem final; o `load()` que
   // ela dispara encontra a tela como ela está. Sem mudança de ordem não há
   // `load()` — e aí o `assentarArrasto` fecha o gesto no lugar.
@@ -20000,10 +20105,19 @@ function attachRowGestures(row, item, opts) {
 
   // O TOQUE LONGO ARRASTA (v1.13.52). Ele começa no CORPO da linha, e a alça
   // que a v1.13.25 tinha saiu com o par ↑↓: o operador pediu o gesto na linha.
+  // A MARCA `segurando` (v1.13.69) nasce no pointerdown e cai quando o dedo larga a linha, de
+  // qualquer jeito (soltar, cancelar, sair do lugar): é o que `interacaoAbertaNoAcervo` lê.
+  const marcar = (liga) => {
+    const li = row.closest('li');
+    if (li) li.classList.toggle('segurando', liga);
+    if (!liga) fimDoGestoDaLinha();
+  };
   const segurar = () => {
     lp = null;
     const li = row.closest('li');
     if (!li || pid === null) return;
+    // O botão já foi solto FORA da linha (v1.13.69, ver `largarPonteiro`): não há o que levantar.
+    if (!ponteirosAbaixo.has(pid)) { pid = null; marcar(false); return; }
     comecarArrasto(li, item, pid, startY, cfg.lista);
     // A CAPTURA é o que faz o dedo continuar falando com ESTA linha mesmo
     // saindo dela; sem ela, o primeiro desvio entregaria o gesto à rolagem.
@@ -20019,6 +20133,7 @@ function attachRowGestures(row, item, opts) {
     if (e.target.closest('.row-btn,.row-acoes,.row-slot')) return;
     if (e.button !== undefined && e.button !== 0) return;
     pid = e.pointerId; startX = e.clientX; startY = e.clientY; startT = Date.now();
+    marcar(true);
     lp = setTimeout(segurar, LONGPRESS);
   });
   row.addEventListener('pointermove', (e) => {
@@ -20029,14 +20144,21 @@ function attachRowGestures(row, item, opts) {
     // da lista, que é de quem o dedo está falando agora.
     if (Math.abs(e.clientX - startX) > MOVE || Math.abs(e.clientY - startY) > MOVE) {
       clearTimeout(lp); lp = null; pid = null;
+      marcar(false);
     }
   });
   row.addEventListener('pointerup', (e) => {
     if (arrasto && arrasto.pid === pid) { moverArrasto(e.clientY); terminarArrasto(); pid = null; return; }
     if (pid === null) return;
     clearTimeout(lp); lp = null;
-    if (Date.now() - startT < LONGPRESS && cfg.aoTocar) cfg.aoTocar(item);
+    if (Date.now() - startT < LONGPRESS) { if (cfg.aoTocar) cfg.aoTocar(item); }
+    // UM TOQUE LONGO NUNCA VIRA TOQUE (v1.13.69). Com a CPU apertada, o soltar (entrada tem
+    // prioridade) pode ser tratado ANTES do timer do toque longo: o dedo ficou o tempo todo, mas o
+    // arrasto não chegou a começar. O `click` que vem atrás abriria a gaveta do favorito como se
+    // fosse um toque — a mesma marca do fim de arrasto o descarta.
+    else arrastoFimEm = Date.now();
     pid = null;
+    marcar(false);
   });
   // O CANCELAMENTO DO SISTEMA NÃO DESFAZ O QUE O OPERADOR JÁ FEZ (v1.13.53):
   // se o navegador tomar o gesto apesar de tudo (um atalho de acessibilidade,
@@ -20046,8 +20168,14 @@ function attachRowGestures(row, item, opts) {
   row.addEventListener('pointercancel', () => {
     clearTimeout(lp); lp = null;
     if (arrasto && arrasto.pid === pid) terminarArrasto();
+    else marcar(false);
     pid = null;
   });
+}
+
+// O dedo largou a linha: se um redesenho da seção de Favoritos esperou por ele, sai agora.
+function fimDoGestoDaLinha() {
+  if (favRedesenhoAdiado) redesenharFavoritosNaBiblioteca();
 }
 
 // ===== "O CRONOGRAMA TOCA SEM REDE?" (v1.13.52) =====
@@ -22437,7 +22565,8 @@ function serieAutoAviso(coll) {
   const epi = serieEpisodioDaSemana(coll);
   serieArquivoDoEpisodio(epi).then((rec) => {
     const porque = serieAutoImpedimento(coll, epi, rec);
-    if (porque) setCollStatus(coll.id, porque, 6000);
+    // Só quando DIZ algo novo (v1.13.69): repetir o mesmo texto rearmava o tique por nada.
+    if (porque && ui(coll.id).status !== porque) setCollStatus(coll.id, porque, 6000);
   }).catch(() => {});
 }
 
@@ -27048,7 +27177,15 @@ function hymnResultRow(coll, s, lyricHit, semColecao, opts) {
     // card de um álbum vivem noutra `<ul>`, e ali a regra simplesmente não
     // valia — abrir a terceira faixa deixava as duas anteriores abertas.
     if (!aberta) fecharOutrasGavetas(li);
-    if (aberta) { collapseAccordion(gaveta, () => li.classList.remove('expanded')); return; }
+    if (aberta) {
+      collapseAccordion(gaveta, () => {
+        li.classList.remove('expanded');
+        // O dado desta linha mudou enquanto a gaveta estava aberta (v1.13.69, `reconciliarLinhas`):
+        // fechada, ela é trocada pela montada do dado novo — em partes, sem mexer no resto.
+        if (li.__trocarAoFechar) { li.__trocarAoFechar = false; refreshCollectionsIfVisible({ partes: true }); }
+      });
+      return;
+    }
     // ===== A MARCA DE "ABRINDO" É SÍNCRONA (v1.1.2) =====
     // Ela existe para o `interacaoAbertaNoAcervo` enxergar esta linha ANTES do
     // primeiro `await` abaixo: com um download correndo, o redesenho do
@@ -27724,7 +27861,9 @@ async function ensureSongDownloaded(coll, s) {
     const p = withBgWork(async () => {
       await downloadCollectionSong(coll, s);
       await AVDB.setState('coll:' + coll.id, collState[coll.id]);
-      refreshCollectionsIfVisible();
+      // EM PARTES (v1.13.69): tocar numa faixa ainda não baixada acontece com a gaveta ABERTA, e o
+      // pedido completo é pegajoso — congelava a barra e o progresso até ela fechar.
+      refreshCollectionsIfVisible({ partes: true });
     });
     songDownloadInFlight.set(key, p);
     try { await p; } finally { songDownloadInFlight.delete(key); }
@@ -42807,7 +42946,13 @@ function setAppMode(mode) {
   renderSimpleGate();   // `renderSimpleCast` volta cedo fora do simplificado
   // Sair do simplificado com a busca aberta deixaria o popup por cima da tela
   // completa sem nada que explicasse por quê.
-  if (appMode === 'full') closeHymnSearch();
+  //
+  // SÓ NA TROCA (v1.13.69): `init()` chama `setAppMode(appMode)` com o modo que a sessão já
+  // tinha, DEPOIS de `loadCollections`/`load()` — em aparelho lento isso sai segundos após a
+  // cortina do prazo cair, e fechava (e `resetarBiblioteca`, e limpava a lista) a Biblioteca que o
+  // operador já tinha aberto, com os Favoritos sumindo debaixo do dedo. Reafirmar o modo em que
+  // se está não sai de lugar nenhum: não há o que fechar.
+  if (appMode === 'full' && !eraAvancado) closeHymnSearch();
   renderSimpleCorpo();   // depois do fechar: sair do simples desencaixa a janela
   // E AS MINIATURAS DA APRESENTAÇÃO SAEM COM O MODO. `refreshSimpleLyrics`
   // volta cedo fora do simplificado, então ninguém mais passaria por elas: uma

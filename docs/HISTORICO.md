@@ -41,6 +41,7 @@ apagada da que a criou.
 - **as capturas novas do app (sem versão nova; só `site/`)** — as 14 telas do carrossel foram trocadas pelas do app na v1.13.62 (enviadas pelo operador), em WebP 800×1632; saíram as quatro sem captura nova (destinos, série, sorteio, tempo) e entraram Liturgia, Hinário por tema, Ferramentas e Transferir a biblioteca; o cartão do link foi refeito com a tela nova
 - **o site redesenhado (sem versão nova; só `site/`)** — página nova, mobile-first: hero em duas colunas, 12 recursos, carrossel de telas com pontos, dois modos e o passo a passo; o texto foi revisto contra o código (entra a Liturgia, entra o Cronograma com arrasto, sai a contagem que não existe) e o cartão do link foi refeito no desenho novo
 - **revisão da fachada (sem versão nova; só docs e site)** — o README perde o manual (compilar e índice de docs saem), o `CLAUDE.md` fica com uma árvore só e lista os apêndices, e o site ganha o cartão do link e volta a aparecer sem JavaScript
+- **v1.13.69** — o vermelho do CI da v1.13.68 era defeito real: o `init()` tardio fechava a Biblioteca aberta, e um redesenho no meio do arrasto deixava o `arrasto` preso (rolagem por toque morta); mais os três defeitos médios da revisão da lista por partes; só web.
 - **v1.13.68** — a lista do acervo passa a atualizar POR PARTES (item novo entra na hora, gaveta aberta fica, barra do card morfada no lugar) e o `⋮` dos Favoritos sobe para a linha, com o arrastar do Cronograma; só web. Oráculos `lista-por-partes` e `favoritos-menu-na-linha`.
 - **v1.13.67** — a verificação da semana não fecha mais a gaveta aberta de um episódio do Provai e Vede/Informativo, e a lista só se redesenha se mudou de verdade; só web. Oráculo `serie-gaveta-aberta`.
 - **v1.13.66** — o aviso de sistema no zero vira ÍCONE AMARELO clicável (abre o painel do Android) e o botão do MUDO na prévia passa a mostrar a porcentagem do volume, em número absoluto dentro do mesmo quadrado (só web)
@@ -896,6 +897,50 @@ hero ficava em `opacity:0` (medido), porque o `try/catch` do rodapé cobre a fal
 do IntersectionObserver, não a falta de JS. O comentário do `/registro/` que
 citava um `AUDITORIA-DE-USO-PLANO.md` inexistente passou a apontar o
 `MEDICAO-DE-ALCANCE.md`.
+
+## v1.13.69 — o que o vermelho da v1.13.68 achou, e a revisão das duas metades
+
+**Correção**, **só web**: `minShell` 83, **sem `shellTag`**. Degrau CORREÇÃO. A v1.13.68 nunca chegou
+aos aparelhos: o CI reprovou (`favoritos-menu-na-linha`, bloco D, 140/141) e o `web-ota` não
+publicou. O canal ficou na v1.13.66 — a v1.13.67 também não saiu (o run dela ficou "queued" sem job
+nenhum, um fantasma do GitHub que nem `cancel` nem `force-cancel` aceitam).
+
+**(1) A CAUSA DO VERMELHO, e era do app, não do teste.** O `init()` chama `setAppMode(appMode)`
+depois de `loadCollections`/`load()`; em máquina lenta isso sai segundos depois de a cortina cair
+pelo prazo (12 s), e `setAppMode` fazia `closeHymnSearch()` mesmo SEM trocar de modo — a Biblioteca
+que o operador já tinha aberto fechava, e os Favoritos sumiam (`tela: []`). Agora fecha só na TROCA
+(`!eraAvancado`). Prova: pilha do `closeHymnSearch` = `setAppMode ← init`, com o popup aberto.
+
+**(2) O ARRASTO PRESO** (achado da revisão; o Cronograma já tinha a falha, os Favoritos a tornaram
+frequente). Um redesenho completo do acervo no meio do gesto (`renderCollectionsNow()` direto de um
+grupo baixando, a rede que muda, `redesenharFavoritosNaBiblioteca`) remontava a lista, a linha
+levantada virava órfã e o `arrasto` do módulo ficava não-nulo para sempre: o `touchmove` do documento
+cancelava TODA rolagem por toque e nenhum arrasto novo começava. Agora: `dedoNaLinhaDoAcervo`
+(marca síncrona `.segurando` no pointerdown, `.arrastando`, ou o `arrasto` apontando para cá) entra
+no guarda `interacaoAbertaNoAcervo`, e `renderCollectionsNow`/`redesenharFavoritosNaBiblioteca`
+ADIAM com o dedo na linha (o adiado sai em `fimDoGestoDaLinha`). Duas redes de segurança no
+`document`: `sanearArrastoOrfao` (a linha saiu do documento) e `largarPonteiro` (o soltar caiu FORA
+da linha — sem ela a marca `segurando` ficava presa, segurando o redesenho do acervo para sempre, e o
+toque longo pendente levantava o item com o botão já solto; o oráculo reprova sem ela). E **um toque
+longo nunca vira toque**: com a CPU apertada o soltar pode ser tratado antes do timer do toque longo,
+e o `click` de trás abria a gaveta do favorito (medido com o estrangulamento 10×); o soltar depois de
+`LONGPRESS` marca `arrastoFimEm`, que o `click` da linha já respeita.
+
+**(3) A REVISÃO DA LISTA POR PARTES**, três médios: a linha ABERTA cujo dado mudou tinha a assinatura
+dada como em dia e nunca mais era trocada (agora `__rosto` + `__trocarAoFechar`: fechada a gaveta, ela
+é trocada em partes); o destaque ou a lista que SAEM levavam a gaveta sem `destLimpar` (os destinos
+marcados ficavam órfãos); e um laço de 400 ms com o card de série aberto — `serieAutoAviso` rodava no
+card de SOMBRA da reconciliação e pedia outro tique (agora só no desenho de verdade, e só com texto
+novo). E dois baixos: `ensureSongDownloaded` passa a pedir `{ partes: true }`, e uma reconciliação que
+não se garante vira pedido completo (não remonta a sombra a cada tique de espera).
+
+**Ficou de fora, dito:** a faixa `⋮` de um favorito (ou o campo de renomear) ainda fecha se um `load()`
+redesenhar o Cronograma no meio da digitação (`renderLibraryCorpo` → `fecharAcoesDaLinha`) — já valia
+antes; o CSS morto `.fav-acoes`; a ordem do Cronograma por índice com linha provisória de download.
+
+**Oráculos:** `favoritos-menu-na-linha` (casos F, redesenho no meio do segurar, órfão, soltar fora;
+esperas por FATO, nunca por tempo — passa com a CPU estrangulada 8× e 10×) e `lista-por-partes`
+(4b, 7). Cada caso novo reprova sem o conserto dele.
 
 ## v1.13.68 — a lista por partes, e o `⋮` dos Favoritos na linha
 
