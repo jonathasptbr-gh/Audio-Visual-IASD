@@ -26,6 +26,10 @@
 //   J · a ORDEM VISUAL (v1.14.3): em todo tour, nos dois modos, a 390×860 e a
 //       360×640, os passos com peça vão de cima para baixo e, na mesma faixa, da
 //       esquerda para a direita (os fixos — `abertura`/`fecho` — ficam de fora).
+//   K · o MOVIMENTO (v1.14.4): entre passos o recorte e o balão têm transição e,
+//       no meio dela, o recorte está ENTRE a peça A e a B (sem salto); no fim ele
+//       bate com a peça; três "Próximo" rápidos terminam três passos adiante; com
+//       `prefers-reduced-motion` a duração é 0 e o passo novo já está no lugar.
 //   e nenhum `pageerror` em parte nenhuma.
 //   node tools/tour.test.mjs
 // ============================================================================
@@ -158,11 +162,16 @@ function foraDeOrdem(passos) {
   return ruins;
 }
 
+// O MOVIMENTO (v1.14.4): o recorte e o balão deslizam — mede-se depois que tudo
+// ASSENTOU (`AVTour.quieto()`: sem troca de passo nem transição correndo).
+const assentou = (pg) => esperar(pg, () => !window.AVTour || AVTour.quieto(), null, 5000);
+
 // Percorre o tour inteiro pelo "Próximo", medindo cada passo.
 async function percorrer(pg) {
   const passos = [];
   for (let k = 0; k < 20; k++) {
     await pg.waitForTimeout(320);   // o vigia (250 ms) reposiciona: a pílula de volume entra com transição
+    await assentou(pg);
     if (!(await estado(pg))) { passos.push({ alvo: '(o tour fechou no meio)', i: -1, total: 0 }); break; }
     const m = await medir(pg);
     passos.push(m);
@@ -219,9 +228,9 @@ try {
       JSON.stringify(ruinsB.map((m) => [m.alvo, m.peca, m.recorte])));
     // O volume: aparece no passo dele e some ao sair.
     await pg.click('#tour .tour-voltar');
-    await pg.waitForTimeout(320);
+    await pg.waitForTimeout(320); await assentou(pg);
     let m = await medir(pg);
-    while (m.alvo !== '#volPill' && m.i > 0) { await pg.click('#tour .tour-voltar'); await pg.waitForTimeout(320); m = await medir(pg); }
+    while (m.alvo !== '#volPill' && m.i > 0) { await pg.click('#tour .tour-voltar'); await pg.waitForTimeout(320); await assentou(pg); m = await medir(pg); }
     const noVol = await pg.evaluate(() => document.getElementById('volPill').classList.contains('visivel'));
     await pg.click('#tour .tour-voltar');
     const depoisVol = await pg.evaluate(() => document.getElementById('volPill').classList.contains('visivel'));
@@ -479,6 +488,84 @@ try {
   checar(ruinsJ.length === 0 && vistosJ.length >= 40,
     'J · em todo tour, nos dois modos, a 390×860 e a 360×640, os passos vão de cima para baixo e, na faixa, da esquerda para a direita',
     ruinsJ.join(' | ') + ' (' + vistosJ.length + ' tours medidos)');
+
+  // ---------------- K · o MOVIMENTO entre passos (v1.14.4) ----------------
+  {
+    const { ctx, pg } = await abrir({ width: 390, height: 860 }, { avancado: true });
+    const r = await esperarTour(pg, 'avancado');
+    await pg.waitForTimeout(320); await assentou(pg);
+    const a = r === true ? await medir(pg) : null;
+    // As transições declaradas: computadas, e não 0.
+    const trans = () => pg.evaluate(() => {
+      const de = (el) => { const cs = getComputedStyle(el);
+        return { props: cs.transitionProperty.split(',').map((x) => x.trim()),
+          durs: cs.transitionDuration.split(',').map((x) => parseFloat(x) * (/ms/.test(x) ? 1 : 1000)) }; };
+      return { rec: de(document.querySelector('#tour .tour-recorte')), bal: de(document.querySelector('#tour .tour-balao')) };
+    });
+    // Em repouso vale o trajeto CURTO dos reposicionamentos (`--dur-rapida`); na
+    // troca de passo, o inteiro (`--tour-mov`) — medido abaixo, no meio dela.
+    const t1 = await trans();
+    const dur = (x, p) => x.durs[x.props.indexOf(p) % x.durs.length];
+    const temTrans = (t, min) => ['left', 'top', 'width', 'height', 'border-radius'].every((p) => dur(t.rec, p) >= min)
+      && dur(t.bal, 'transform') >= min && dur(t.bal, 'height') >= min;
+    // No MEIO da troca (as transições pausadas na metade), o recorte está entre A e B.
+    await pg.click('#tour .tour-proximo');
+    const meio = await pg.evaluate(async () => {
+      const raiz = document.getElementById('tour');
+      const rec = raiz.querySelector('.tour-recorte'), bal = raiz.querySelector('.tour-balao');
+      const ate = performance.now() + 3000;
+      let an = [];
+      while (performance.now() < ate && !an.length) {
+        an = rec.getAnimations().filter((x) => /^(left|top|width|height)$/.test(x.transitionProperty || ''));
+        if (!an.length) await new Promise((ok) => requestAnimationFrame(ok));
+      }
+      if (!an.length) return null;
+      const todas = raiz.getAnimations({ subtree: true });
+      for (const x of todas) { x.pause(); x.currentTime = x.effect.getTiming().duration / 2; }
+      const q = rec.getBoundingClientRect();
+      const de = (el) => { const cs = getComputedStyle(el);
+        return { props: cs.transitionProperty.split(',').map((x) => x.trim()),
+          durs: cs.transitionDuration.split(',').map((x) => parseFloat(x) * (/ms/.test(x) ? 1 : 1000)) }; };
+      const trans = { rec: de(rec), bal: de(bal) };
+      const balAnim = bal.getAnimations().some((x) => x.transitionProperty === 'transform');
+      for (const x of todas) x.play();
+      return { recorte: { l: q.left, t: q.top, r: q.right, b: q.bottom }, balAnim, trans };
+    });
+    checar(temTrans(t1, 100) && !!meio && temTrans(meio.trans, 300),
+      'K · o recorte (posição, tamanho e raio) e o balão (posição e altura) têm transição: ≥ 300 ms na troca de passo, curta no reposicionamento',
+      JSON.stringify({ repouso: t1, troca: meio && meio.trans }));
+    await assentou(pg); await pg.waitForTimeout(320); await assentou(pg);
+    const b = await medir(pg);
+    const muda = a && b.recorte ? ['l', 't', 'r', 'b'].filter((k) => Math.abs(a.recorte[k] - b.recorte[k]) > 8) : [];
+    const entre = !!meio && muda.length > 0 && muda.every((k) => meio.recorte[k] > Math.min(a.recorte[k], b.recorte[k]) + 0.5
+      && meio.recorte[k] < Math.max(a.recorte[k], b.recorte[k]) - 0.5);
+    const balMuda = a && (Math.abs(a.balao.t - b.balao.t) > 8 || Math.abs(a.balao.l - b.balao.l) > 8);
+    checar(entre && (!balMuda || meio.balAnim),
+      'K · no meio da troca o recorte está ENTRE a peça A e a B (desliza, não salta) e o balão anda junto',
+      JSON.stringify({ a: a && a.recorte, meio, b: b.recorte, muda }));
+    checar(recorteBate(b) && haloBate(b), 'K · no fim da troca o recorte bate com a peça nova, com o halo', JSON.stringify([b.alvo, b.peca, b.recorte]));
+    // Três "Próximo" rápidos, no meio do movimento: o último vence, três passos adiante.
+    const i0 = b.i;
+    await pg.evaluate(async () => {
+      const bt = document.querySelector('#tour .tour-proximo');
+      for (let k = 0; k < 3; k++) { bt.click(); await new Promise((ok) => setTimeout(ok, 40)); }
+    });
+    await assentou(pg); await pg.waitForTimeout(320); await assentou(pg);
+    const c = await medir(pg);
+    checar(c.i === i0 + 3 && c.titulo === await pg.evaluate(() => document.getElementById('tourTitulo').textContent)
+      && c.cont === (c.i + 1) + ' de ' + c.total && (c.peca ? recorteBate(c) : c.centro),
+      'K · três "Próximo" rápidos terminam três passos adiante, com texto, contador e recorte do passo certo',
+      JSON.stringify({ i0, i: c.i, titulo: c.titulo, cont: c.cont, alvo: c.alvo, peca: c.peca, recorte: c.recorte }));
+    // Movimento reduzido: duração 0, e o passo novo já está no lugar no mesmo instante.
+    await pg.emulateMedia({ reducedMotion: 'reduce' });
+    const t2 = await trans();
+    await pg.evaluate(() => document.querySelector('#tour .tour-voltar').click());
+    const d = await medir(pg);
+    checar([...t2.rec.durs, ...t2.bal.durs].every((x) => x < 1) && d.i === c.i - 1 && (d.peca ? recorteBate(d) : d.centro),
+      'K · com `prefers-reduced-motion` a duração é 0 e o recorte já está na peça logo depois do toque',
+      JSON.stringify({ rec: t2.rec.durs, bal: t2.bal.durs, i: d.i, alvo: d.alvo, peca: d.peca, recorte: d.recorte }));
+    await ctx.close();
+  }
 
   // ---------------- E · 360×640 com fonte 1,3× ----------------
   for (const avancado of [true, false]) {

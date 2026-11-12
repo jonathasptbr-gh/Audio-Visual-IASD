@@ -725,6 +725,14 @@
   /* O HALO do recorte (v1.14.1): o `--accent` do escuro (#95b5f4) com alfa, somindo
      em degradê em volta da peça — dá borda à luz sobre o véu escuro. */
   --tour-halo: rgba(149, 181, 244, .75);
+  /* O MOVIMENTO DO TOUR (v1.14.4): o recorte e o balão DESLIZAM de uma peça para a
+     outra em vez de saltar. Um pouco acima do `--dur-lenta` (.3s) porque o trajeto
+     é a tela inteira; a curva é a "saída" (rápido no começo, assenta no fim), a
+     mesma das gavetas. O `--tour-fade` é a troca do texto do balão (some e volta).
+     Com `prefers-reduced-motion` os dois viram 0 (no `controle.css`). */
+  --tour-mov: .34s;
+  --tour-fade: .12s;
+  --tour-curva: cubic-bezier(.22, .61, .36, 1);
 }
 
   /* O ACENTO DO PALCO — ele existe por um defeito medido (v5.218).

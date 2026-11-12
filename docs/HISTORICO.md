@@ -41918,3 +41918,76 @@ caso: **para um vídeo ela não esmaece** — `play()` chama
 `instantCover(computeCover())` e a arranca instantaneamente —, então o fade de
 conteúdo é a única transição de entrada que um vídeo tem. Detalhes em
 `docs/ARQUITETURA-WEB.md`.
+
+---
+
+## v1.14.3 — o tour em ordem visual e os textos revistos
+
+**Pedido do operador:** o tour "pulava pela tela sem lógica" e vários balões eram
+confusos. Só web (sem Kotlin, sem `SHELL_VERSION`; a Release v1.14.2 já existe,
+então o `version.json` sai sem `shellTag`).
+
+- **Ordem visual em tempo de execução** (`ordenar()`, chamada no `abrir()` depois do
+  filtro dos `opcional`): os passos medidos pelo `getBoundingClientRect` vão de cima
+  para baixo; centros verticais encadeados a até max(`LINHA_PX` = 24, metade da
+  altura do menor) formam uma FAIXA, ordenada por `left`. Fixos: `abertura` (a
+  moldura que apresenta a tela: `#simpleConn`, `#library`, `#bibleBody`,
+  `#histSecao`, `#testeCorpo`, a folha da Playlist e a da Letra) no começo;
+  `fecho` (sem alvo) no fim; peça fora de vista (balão central) no fim, antes do
+  fecho, na ordem declarada. A pílula do volume ordena pela caixa que ocupa
+  escondida (`visibility`), porque o próprio passo a mostra. Nenhum tour precisou
+  de ordem estática.
+- **O fecho virou passo próprio** (`FIM`, "Tour do app", balão central) nos tours
+  `simples` e `avancado` — antes era a cauda do texto de Configurações, que agora
+  pode cair no meio do tour.
+- **Textos revistos todos:** título = o nome na tela (Preenchimento, Wallpaper,
+  Girar no telão, Refazer, Compartilhar registro, Legenda, + Nova mensagem…);
+  corpo com verbo de ação e o detalhe não óbvio, conferido no código (o
+  Cronograma: toque projeta, segurar arrasta; o Baixar cancela durante o
+  download; Exportar vira compartilhar; o computador recebe por endereço no mesmo
+  Wi-Fi; o sorteio do Fácil já toca; o mudo na pílula).
+- **Seletores mortos consertados:** `GUARDAR` e as opções do Relógio apontavam
+  para `#toolsBody`, mas a linha deles mora no `#toolsFoot` (irmão) — os passos
+  nunca apareciam. O Sorteio ganhou o passo da lista de opções (`textarea.draw-pool`).
+- **API:** `AVTour.passoAtual()` (o oráculo mede o passo NA ORDEM mostrada) e
+  `AVTour.LINHA_PX`.
+- **Oráculo:** `tour.test.mjs` bloco J — 30 tours por tela (Fácil: conexão,
+  controles, tocando e as 7 seções dos dois modos; avançado: o principal e as 20
+  seções que abrem nele), a 390×860 e a 360×640: a faixa não volta para cima e,
+  nela, o `left` não volta. Reversão: com `ordenar()` devolvendo a ordem
+  declarada, o J reprova.
+
+---
+
+(Seção restaurada na v1.14.4: o commit `b35e6252`, do `site/`, a apagou junto com a linha do índice, e o `docs-coerentes` passou a reprovar `main`.)
+
+## v1.14.4 — o tour com movimento
+
+**Pedido do operador:** o recorte iluminado (com o halo) e o balão "piscavam" de
+uma peça para a outra entre os passos; tudo devia andar com movimento.
+
+- **O recorte desliza** e muda de tamanho e de raio (`left/top/width/height/
+  border-radius` com transição). Não é `transform`: o recorte não tem filhos (o
+  layout por quadro é nulo), o tamanho muda de qualquer jeito, e um `transform`
+  promoveria uma camada do tamanho da sombra de 200vmax que faz o véu. O raio segue
+  a peça (uma pílula ganha halo de pílula).
+- **O balão desliza por `transform`** (não refaz o texto); a altura anima da antiga
+  à nova enquanto o texto troca: some em `--tour-fade`, o balão anda, volta.
+- **A troca espera a peça assentar** (`assentar()`: dois quadros no mesmo lugar,
+  teto 700 ms) — a rolagem do `scrollIntoView` e a pílula de volume entrando. Até
+  lá o recorte fica onde estava; nunca salta.
+- **Passo central:** o buraco encolhe até o meio do balão e o halo apaga; no fim, o
+  recorte sai e o véu passa para o fundo da raiz (a mesma cor). O inverso nasce
+  fechado no meio e abre até a peça.
+- **Abrir:** véu em fade e recorte/balão de `scale .94` a 1. **Fechar:** uma cópia
+  inerte some em fade; o tour de verdade fecha na hora (o toque volta ao app).
+- **Cliques rápidos:** `seq` — cada troca cancela a anterior e o último vence;
+  `animando` segura resize/ResizeObserver/vigia até o fim, que reposiciona com o
+  trajeto curto (`tour--ajuste`, `--dur-rapida`).
+- **Tokens novos** em `shared/tokens.css`: `--tour-mov` (.34s), `--tour-fade` (.12s),
+  `--tour-curva` (a curva de saída das gavetas). `prefers-reduced-motion` zera os
+  dois e o tour volta ao salto instantâneo.
+- **Oráculo:** bloco K do `tour.test.mjs` (transições computadas; recorte pausado na
+  metade ENTRE a peça A e a B; três "Próximo" rápidos; movimento reduzido = 0), e
+  as medidas dos outros blocos esperam `AVTour.quieto()`.
+- **Não medido:** fluidez em aparelho fraco (aqui só Chromium de desktop). Só web.
