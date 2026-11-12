@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o guia de sonoplastia na primeira tela (sem versão nova; só `site/`)** — uma pílula de vidro acima do logo, com microfone, "Guia de sonoplastia" e "O som da igreja: mesa, microfones e cabos"
 - **o guia de sonoplastia: socorro em destaque (sem versão nova; só `site/` e docs)** — a capa ganha o cartão "Socorro rápido" entre as duas trilhas, setas grandes e o nome "Sonoplasta por um dia"; D9 vai de 7 a 24 problemas e I17 de 12 a 34; saem as Perguntas; o índice volta a levar até o capítulo
 - **o guia de sonoplastia: a introdução (sem versão nova; só `site/` e docs)** — D0 ("O objetivo de hoje") e I0 (três partes sobre excelência, discrição e o poder da mensagem) com o texto do operador; resta "em breve" só nas Perguntas
 - **o guia de sonoplastia: "Por um dia" para leigos (sem versão nova; só `site/` e docs)** — a trilha de emergência ficou mais simples e mais visual: de 6 para 40 ilustrações, um bloco "Em 10 segundos" por capítulo, pares Faça/Não faça e o socorro rápido em fluxogramas sim/não
@@ -695,6 +696,17 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## o guia de sonoplastia na primeira tela (sem versão nova; só `site/`)
+
+Pedido do operador: o acesso ao guia **visível no primeiro momento, mas sem ser
+o foco**, e sem parecer guia do APP (esse vai morar dentro do app). Virou uma
+pílula de vidro no topo do hero, acima do logo: ícone de MICROFONE (o de
+controles deslizantes foi descartado por ser o próprio ícone do app), o título
+"Guia de sonoplastia" e a linha "O som da igreja: mesa, microfones e cabos". O
+link do rodapé continua.
 
 ---
 
