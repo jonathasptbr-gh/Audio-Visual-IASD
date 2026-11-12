@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o guia de sonoplastia: coesão e conserto dos defeitos (sem versão nova; só `site/` e docs)** — conserta os 2 botões "Para quem quer entender mais" aninhados (I1, I4), o "?" e o "dica Dica" (I23), a frase duplicada do projetor (I13) e a legenda órfã "Em breve"; some a comparação repetida do I23 e a Tabela-resumo do I17; glossário vira índice; D3/D6 e 14 tabelas enxutos
 - **v1.14.2** — o "Guia de sonoplastia" abre DENTRO do app: `abrirGuia` (shell 87), `GuiaSomDialog` em tela cheia sobre a Activity com WebView SEM ponte, cerca `https` + host do site (`GuiaSom.urlDoGuia`, JUnit); casco antigo cai no `openExternal`; `minShell` 83, `shellTag` v1.14.2; APK + web.
 - **v1.14.1** — tours de SEÇÃO (cada janela, folha e gaveta se explica na primeira abertura; o "Tour do app" zera as do modo), o tour do Fácil TOCANDO (letra e teclas) e o halo azul no recorte; guia dentro do app recusado (iframe furaria a invariante 2); só web.
 - **v1.14.0** — o tour guiado: um por estado da tela (conexão com a cortina do Fácil, controles do Fácil, avançado completo), automático uma vez e nunca por cima de diálogo; botões "Tour do app" e "Guia de sonoplastia" (`#dia` no Fácil) em Configurações; só web.
@@ -709,6 +710,33 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## o guia de sonoplastia: coesão e conserto dos defeitos (sem versão nova; só `site/` e docs)
+
+Revisão de conteúdo do guia (pedido do operador, com a análise comparada em
+duas passadas). Lote só de `site/` e docs: nada chega ao app.
+
+- **Defeitos consertados:** os dois blocos "Para quem quer entender mais"
+  aninhados por poda mal fechada (I1 acústica, I4 microfones: título solto e
+  repetido), o "aparece um **?**" e o "mostra a dica **Dica**" (I23), a frase
+  "Desligue pelo botão e espere a ventoinha parar" duplicada no I13 (fica só em
+  "Cuidados com o projetor", com a explicação) e a legenda órfã da caixa
+  "Em breve" em "Como usar".
+- **Redundância cortada:** a comparação Modo Fácil × Avançado saía duas vezes no
+  I23 (figura e tabela); fica a tabela. A "Tabela-resumo" do I17 (4ª cópia dos
+  sintomas do socorro) saiu, com o atalho do topo. O glossário (I18) virou
+  índice remissivo: 75 termos viram links para o capítulo que os define. D3 e
+  D6 perdem as listas que repetiam a figura ao lado (a ordem de ligar fica na
+  figura; a de volumes, idem).
+- **Tabelas:** `.tabela estreita` ganha `overflow-wrap:anywhere` e as 14 tabelas
+  de capítulo restantes levam a classe — nenhuma rola mais na lateral num
+  celular de 360 px (antes: 15; o conserto do I23 ficava só nele).
+- **Ficou de fora (decisão do operador):** o conserto de precisão das figuras —
+  fonte única com métricas iguais em todo aparelho, tamanho explícito nos 828
+  textos que herdam do CSS, sobreposições medidas (marcadores e textos fora da
+  caixa), letra mínima e linhas de conexão — entra no lote seguinte, depois da
+  decisão sobre a proposta entregue na conversa.
+
 
 ## v1.14.2 — o guia de sonoplastia dentro do app (shell 87)
 

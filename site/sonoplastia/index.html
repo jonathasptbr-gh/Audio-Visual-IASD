@@ -104,8 +104,6 @@
   .box.perigo > .box-t { color:var(--perigo); }
   .box.teoria  { background:var(--panel-2);    border-color:var(--accent); }
   .box.teoria > .box-t { color:var(--accent); }
-  .box.embreve { background:repeating-linear-gradient(135deg,#f6f8fa 0 12px,#eef2f6 12px 24px); border-color:var(--muted); border-left-style:dashed; }
-  .box.embreve > .box-t { color:var(--muted); }
 
   /* ----- ilustração ----- */
   figure.ilus { margin:1rem -.2rem; background:var(--panel-2); border-radius:12px; padding:.7rem .6rem .5rem; }
@@ -118,6 +116,7 @@
   .tabela th, .tabela td { text-align:left; vertical-align:top; padding:.5rem .6rem; border-bottom:1px solid var(--panel-2); }
   .tabela th { background:var(--panel-2); color:var(--titulo); font-size:.8rem; text-transform:uppercase; letter-spacing:.03em; }
   .tabela.estreita table { min-width:0; }
+  .tabela.estreita th, .tabela.estreita td { overflow-wrap:anywhere; }
 
   /* ----- aprofundar (abre e fecha) ----- */
   details.mais { margin:.8rem 0; border:1px solid var(--rule); border-radius:12px; background:#fff; }
@@ -765,7 +764,6 @@
     <div class="box alerta"><b class="box-t">Atenção</b><p>Um erro comum. Ex.: o Windows pode mandar o som para o projetor sem avisar.</p></div>
     <div class="box perigo"><b class="box-t">Cuidado</b><p>Risco para pessoas ou equipamentos. Ex.: ligar as caixas antes da mesa pode dar um estouro.</p></div>
     <div class="box teoria"><b class="box-t">Por quê?</b><p>A explicação curta por trás da regra, para você entender e não só decorar.</p></div>
-    <div class="box embreve"><b class="box-t">Em breve</b><p>Parte do guia que ainda está sendo escrita.</p></div>
   </div>
 </section>
 
@@ -988,13 +986,6 @@
       </svg>
       <figcaption>Ligar: 1 → 5. Desligar: 5 → 1 (caixas primeiro).</figcaption>
     </figure>
-    <ol class="passos">
-      <li>Abaixe o <span class="d-bt">MASTER</span> e todos os faders.</li>
-      <li>Ligue a <b>régua</b> ou o <b>estabilizador</b>.</li>
-      <li>Ligue o computador e os receptores dos microfones sem fio.</li>
-      <li>Ligue a <b>mesa</b>. Se tiver tela, espere carregar.</li>
-      <li><b>Por último</b>, ligue as caixas (ou o amplificador). Só então suba o MASTER, devagar.</li>
-    </ol>
     <figure class="ilus">
       <svg viewBox="0 0 340 190" role="img" aria-label="Faça: mesa primeiro, caixas por último. Não faça: ligar a mesa com a caixa já ligada, que dá um estouro, PUM, e pode estragar a caixa" font-family="system-ui, sans-serif">
         <rect x="4" y="4" width="162" height="182" rx="10" fill="#e3f1e8" stroke="#3aa35b" stroke-width="2"/><rect x="174" y="4" width="162" height="182" rx="10" fill="#fbe9e7" stroke="#d23c32" stroke-width="2"/>
@@ -1202,11 +1193,7 @@
       </svg>
       <figcaption>O desenho muda um pouco no Windows 10 e 11. Procure o alto-falante perto do relógio; a lista pode abrir numa setinha ou no nome do aparelho.</figcaption>
     </figure>
-    <ol class="passos">
-      <li>Clique no <b>alto-falante</b>, embaixo, à direita.</li>
-      <li>Ajuste o volume (veja <a href="#d7-volumes">D7</a>).</li>
-      <li>Abra a lista e escolha <b>a saída que vai para a mesa</b>. O nome muda: “Alto-falantes”, “Fones”, “Realtek” ou o nome de uma placa USB.</li>
-    </ol>
+    <p>O nome da saída muda: “Alto-falantes”, “Fones”, “Realtek” ou o nome de uma placa USB.</p>
     <div class="box alerta"><b class="box-t">Atenção</b><p>Ao ligar o cabo do projetor (HDMI), o Windows pode <b>mudar sozinho</b> a saída para o projetor. A imagem aparece, mas o som some. Volte e escolha a saída da mesa.</p></div>
     <h3 id="d6-telao">Ligar ao telão: Win + P</h3>
     <p>Com o cabo ligado, aperte <kbd>Win</kbd> + <kbd>P</kbd> (Win é a tecla com o logotipo do Windows). Aparece uma lista:</p>
@@ -1248,10 +1235,7 @@
       </svg>
       <figcaption>Duplicar é mais simples: a igreja vê o que você vê. Estender deixa preparar a próxima coisa escondido.</figcaption>
     </figure>
-    <ul>
-      <li><b>Duplicar</b>: tudo o que você faz aparece no telão. Bom para começar.</li>
-      <li><b>Estender</b>: o telão vira uma “segunda tela”. Você arrasta para lá só o que deve aparecer (<a href="#d7-telao">D7</a>).</li>
-    </ul>
+    <p>Para mandar o que aparece no telão, veja <a href="#d7-telao">D7</a>.</p>
     <h3 id="d6-atalhos">Atalhos que salvam</h3>
     <figure class="ilus">
       <svg viewBox="0 0 340 164" role="img" aria-label="Teclado com as teclas destacadas: Esc no canto de cima à esquerda, F11 em cima à direita, Tab à esquerda, P no meio da fileira de letras, Win e Alt embaixo à esquerda, ao lado da barra de espaço" font-family="system-ui, sans-serif">
@@ -1984,8 +1968,6 @@
     <figcaption>Na prática: se o som está abafado no fundo da igreja, é o agudo que está sendo bloqueado — não adianta só subir o volume.</figcaption>
   </figure>
   <details class="mais"><summary>Para quem quer entender mais</summary>
-    <p><b>Comprimento de onda.</b>
-  <details class="mais"><summary>Para quem quer entender mais</summary>
     <p><b>Comprimento de onda.</b> Cada frequência tem um "tamanho" no ar: 100 Hz mede cerca de 3,4 m; 1 kHz, cerca de 34 cm; 10 kHz, cerca de 3,4 cm. Por isso os graves contornam pilares e pessoas, atravessam paredes e são difíceis de controlar, enquanto os agudos são barrados por quase tudo (até pela cabeça de quem está na frente).</p>
     <p><b>dB SPL e dB(A).</b> Os valores da régua são de pressão sonora (SPL). Medidores costumam usar a "curva A", que dá menos peso aos graves, como o ouvido. Já os dB da mesa de som são outra coisa: medem o nível do sinal elétrico, não o som no ar.</p>
     <p><b>Tratamento acústico.</b> Cortinas pesadas, carpete, estofados e painéis absorventes na parede do fundo reduzem eco e reverberação. Muitas vezes resolvem mais que qualquer equalizador.</p>
@@ -2062,7 +2044,7 @@
     </svg>
     <figcaption>Cada degrau é muito mais forte que o anterior (fora de escala: do microfone à linha são cerca de mil vezes).</figcaption>
   </figure>
-  <div class="tabela"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>Nível</th><th>Quem produz</th><th>Onde ligar na mesa</th></tr></thead>
     <tbody>
       <tr><td>Microfone</td><td>Microfones com fio e receptores sem fio (na saída MIC)</td><td>Entrada XLR do canal, com ganho</td></tr>
@@ -2407,7 +2389,7 @@
     </svg>
     <figcaption>Vale para P10 e P2 (o P1 também existe nas três versões). E = esquerdo, D = direito, + e − = os dois fios do sinal balanceado.</figcaption>
   </figure>
-  <div class="tabela"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>Tipo</th><th>Anéis pretos</th><th>Uso</th></tr></thead>
     <tbody>
       <tr><td><b>TS</b> (mono)</td><td>1</td><td>Cabo de instrumento (violão, guitarra), entradas mono desbalanceadas</td></tr>
@@ -2514,7 +2496,7 @@
 <div class="box perigo"><b class="box-t">Cuidado</b><p><b>Nunca use cabo de instrumento P10 para ligar caixa passiva no amplificador.</b> O fio fino esquenta, pode derreter, perde potência e pode danificar o amplificador. E o contrário também é ruim: cabo de caixa (sem malha) num violão vira uma antena de ruído. Marque os cabos de caixa (fita colorida) para ninguém confundir.</p></div>
 
   <h3 id="i3-vconect">HDMI, VGA, DisplayPort e USB</h3>
-  <div class="tabela"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>Conector</th><th>Para que serve</th><th>Onde aparece</th><th>Cuidado</th></tr></thead>
     <tbody>
       <tr><td><b>HDMI</b></td><td>Vídeo e áudio digitais no mesmo cabo</td><td>Notebook, projetor, TV, mesa digital de vídeo</td><td>Frágil a puxões; leva o áudio junto (às vezes o som "some" da caixa e vai para a TV)</td></tr>
@@ -2563,7 +2545,7 @@
   <p>Para ser balanceado, <b>os dois lados</b> precisam ser balanceados (a saída, o cabo e a entrada). Um cabo XLR num microfone dinâmico é balanceado; um cabo P10 TS de violão nunca é.</p>
 
   <h3 id="i3-distancia">Comprimentos práticos</h3>
-  <div class="tabela"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>Ligação</th><th>Até quanto vai bem</th><th>Se precisar ir mais longe</th></tr></thead>
     <tbody>
       <tr><td>Desbalanceado (P10 TS, P2, RCA)</td><td>Cerca de 5–6 m</td><td>Use DI e siga em XLR</td></tr>
@@ -2664,7 +2646,7 @@
   </ul>
 
   <h3 id="i3-resumo">Tabela-resumo</h3>
-  <div class="tabela"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>Conector</th><th>Uso típico</th><th>Balanceado?</th><th>Observação</th></tr></thead>
     <tbody>
       <tr><td>XLR</td><td>Microfone, DI, mesa ↔ caixa ativa</td><td>Sim</td><td>Trava; sinal sai pelo macho</td></tr>
@@ -2768,7 +2750,7 @@
   </ul>
 
   <h3 id="i4-formatos">De mão, lapela, headset e outros</h3>
-  <div class="tabela"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>Tipo</th><th>Bom para</th><th>Atenção</th></tr></thead>
     <tbody>
       <tr><td><b>De mão</b></td><td>Cantores, avisos, quem anda pelo palco</td><td>Depende de a pessoa segurar perto da boca</td></tr>
@@ -2898,8 +2880,6 @@
     <figcaption>Esconder a lapela na roupa ou atrás da gravata abafa o som. A distância certa vale para qualquer microfone.</figcaption>
   </figure>
   <details class="mais"><summary>Para quem quer entender mais</summary>
-    <p><b>Sensibilidade.</b>
-  <details class="mais"><summary>Para quem quer entender mais</summary>
     <p><b>Sensibilidade.</b> O condensador entrega mais sinal com o mesmo som; o dinâmico precisa de mais GAIN. Isso é normal — não é defeito.</p>
     <p><b>Espuma e pop filter.</b> A espuma (windscreen) reduz sopros e protege a cápsula de saliva. Lave com água e sabão neutro e deixe secar à sombra. Ter espumas de cores diferentes ajuda a identificar cada microfone.</p>
     <p><b>Higiene.</b> Microfones passam de boca em boca: limpe a grade com pano levemente úmido com álcool 70% (sem encharcar), com o microfone desligado.</p>
@@ -3017,7 +2997,7 @@
     </svg>
     <figcaption>Um canal entra na soma MAIN, passa pelo fader master e sai às caixas. O retorno é um desvio antes do fader.</figcaption>
   </figure>
-<div class="tabela"><table>
+<div class="tabela estreita"><table>
     <thead><tr><th>Controle</th><th>O que faz</th></tr></thead>
     <tbody>
       <tr><td><b>MAIN / MASTER / L-R</b></td><td>Fader do volume geral que vai para as caixas da congregação. Trabalhe com ele perto do "0" e faça a mistura nos canais</td></tr>
@@ -3284,7 +3264,7 @@
     </svg>
     <figcaption>Exemplo típico para voz: HPF tirando o grave, um corte leve no embolado e um realce pequeno na presença. Regiões aproximadas.</figcaption>
   </figure>
-  <div class="tabela"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>Faixa (aprox.)</th><th>Nome / sintoma</th><th>O que fazer</th></tr></thead>
     <tbody>
       <tr><td>Abaixo de 80–120 Hz</td><td>Ronco, pisadas, sopro, "pum" no microfone</td><td>HPF ligado em vozes e na maioria dos instrumentos</td></tr>
@@ -3444,7 +3424,7 @@
   <div class="box teoria"><b class="box-t">Por quê? Ganho antes da microfonia</b><p>Existe um limite de quanto você pode amplificar cada microfone antes de ele começar a apitar. Esse limite fica maior quando a boca está perto, a caixa está longe e o microfone está de costas para ela. Você não "vence" a microfonia com equipamento caro; vence com posição.</p></div>
 
   <h3 id="i8-ouvido">Reconhecer de ouvido</h3>
-  <div class="tabela"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>O que se ouve</th><th>Região aproximada</th><th>Onde costuma nascer</th></tr></thead>
     <tbody>
       <tr><td>"Uuuu", ronco grave</td><td>Cerca de 100–300 Hz</td><td>Retornos de chão, microfone de púlpito com muito grave, sala ressonante</td></tr>
@@ -3832,7 +3812,7 @@
     <figcaption>Cada barra é o volume num instante. Em verde, os picos que o compressor reduziu (aqui, RATIO 4:1).</figcaption>
   </figure>
   <p>Os quatro ajustes principais aparecem com estes nomes em quase todo compressor:</p>
-  <div class="tabela"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>Botão</th><th>O que faz</th><th>Para voz, comece com</th></tr></thead>
     <tbody>
       <tr><td><b>THRESHOLD</b> (limiar)</td><td>A partir de que volume o compressor começa a agir.</td><td>Baixe até a luz de redução (GR) acender só nas partes mais fortes.</td></tr>
@@ -4045,7 +4025,7 @@
 
   <h3 id="i11-cabos">Cabo de caixa não é cabo de sinal</h3>
   <p>Entre o amplificador e a caixa passiva passa muita corrente. O <b>cabo de caixa</b> tem dois fios grossos e <b>sem malha</b>. O <b>cabo de sinal</b> (de microfone ou instrumento) tem fios finos e uma malha de blindagem (veja I3). Um não substitui o outro.</p>
-  <div class="tabela"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>Conector</th><th>Onde aparece</th><th>Observação</th></tr></thead>
     <tbody>
       <tr><td><b>Speakon</b></td><td>Caixas e amplificadores profissionais</td><td>Trava girando. O mais seguro: não solta e não encosta em entrada de sinal.</td></tr>
@@ -4143,7 +4123,7 @@
   <p class="resumo">Como levar o som do computador até a mesa sem ruído e deixar o Windows pronto para não atrapalhar o culto.</p>
 
   <h3 id="i12-saidas">As saídas de áudio do computador</h3>
-  <div class="tabela"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>Saída</th><th>Como é</th><th>Comentário</th></tr></thead>
     <tbody>
       <tr><td><b>Fone (P2)</b></td><td>Furo redondo de 3,5 mm, às vezes com desenho de fone</td><td>A mais comum. Funciona bem, mas é a que mais pega zumbido e chiado.</td></tr>
@@ -4358,7 +4338,6 @@
     <li><b>Keystone (correção trapezoidal):</b> corrige a imagem quando o projetor está torto, mas <b>perde nitidez</b>. Prefira posicionar o projetor reto em relação à tela e use o keystone só para o ajuste fino.</li>
     <li><b>Zoom e foco:</b> ajuste o tamanho com o zoom e a nitidez com o foco, nessa ordem — sempre com um slide cheio de texto para conferir.</li>
     <li><b>Filtro e poeira:</b> limpe o filtro de ar como o manual manda; poeira acumulada esquenta o projetor.</li>
-    <li><b>Desligue pelo botão</b> e espere a ventoinha parar antes de tirar da tomada.</li>
     <li><b>Altura de reposição:</b> se o projetor for de lâmpada, anote as horas de uso (aparecem no menu) e deixe a lâmpada reserva comprada quando estiver perto do fim.</li>
   </ul>
   <figure class="ilus">
@@ -4915,7 +4894,7 @@
 
   <h3 id="i16-patch">Mapa de ligações (patch list)</h3>
   <p>O <b>mapa de ligações</b> diz o que está ligado em cada canal da mesa. Cole uma cópia perto da mesa e use fita crepe com os nomes acima dos faders. Exemplo:</p>
-  <div class="tabela"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>Canal</th><th>Fonte</th><th>Equipamento / cabo</th><th>Observação</th></tr></thead>
     <tbody>
       <tr><td>1</td><td>Púlpito</td><td>Microfone de púlpito · XLR 10 m (azul)</td><td>PHANTOM ligado</td></tr>
@@ -5013,7 +4992,7 @@
 
   <h3 id="i17-sintomas">Sintomas e o que conferir</h3>
   <p>Toque no sintoma para abrir. As conferências estão na ordem: da mais provável e rápida para a mais rara. Cada um termina com o ponto em que é melhor parar e chamar quem conhece o equipamento.</p>
-  <p>Grupos: <a href="#i17-som">Sem som</a> · <a href="#i17-ruido">Ruídos</a> · <a href="#i17-qualid">Qualidade</a> · <a href="#i17-mfonia">Microfonia</a> · <a href="#i17-radio">Sem fio</a> · <a href="#i17-pc">Computador</a> · <a href="#i17-video">Vídeo</a> · <a href="#i17-energia">Energia</a> · <a href="#i17-live">Transmissão</a> · <a href="#i17-resumo">Tabela-resumo</a></p>
+  <p>Grupos: <a href="#i17-som">Sem som</a> · <a href="#i17-ruido">Ruídos</a> · <a href="#i17-qualid">Qualidade</a> · <a href="#i17-mfonia">Microfonia</a> · <a href="#i17-radio">Sem fio</a> · <a href="#i17-pc">Computador</a> · <a href="#i17-video">Vídeo</a> · <a href="#i17-energia">Energia</a> · <a href="#i17-live">Transmissão</a></p>
 
   <h3 id="i17-som">Sem som ou som fraco</h3>
 
@@ -5434,48 +5413,7 @@
     <p><b>Pare e chame o técnico:</b> atraso que muda ao longo do culto: computador sobrecarregado ou taxa de amostragem diferente (veja o sintoma acima sobre 44,1 × 48 kHz).</p>
   </details>
 
-  <h3 id="i17-resumo">Tabela-resumo</h3>
-  <div class="tabela"><table>
-    <thead><tr><th>Sintoma</th><th>Causa mais comum</th><th>Primeiro teste</th></tr></thead>
-    <tbody>
-      <tr><td>Sem som nenhum</td><td>MAIN baixo ou caixas desligadas</td><td>Medidores da mesa e energia das caixas</td></tr>
-      <tr><td>Um canal sem som</td><td>MUTE, pilha ou cabo</td><td>MUTE e medidor do canal; trocar o cabo</td></tr>
-      <tr><td>Som fraco</td><td>GAIN baixo</td><td>Medidor do canal; acertar o GAIN</td></tr>
-      <tr><td>Só um lado</td><td>Pan ou cabo estéreo</td><td>Medidor L/R do MAIN</td></tr>
-      <tr><td>Zumbido 60 Hz</td><td>Laço de terra</td><td>Baixar canal por canal; tirar o carregador do notebook</td></tr>
-      <tr><td>Chiado</td><td>Ganho mal distribuído</td><td>Faders abaixados: o chiado continua?</td></tr>
-      <tr><td>Estalos no cabo</td><td>Mau contato</td><td>Trocar o cabo</td></tr>
-      <tr><td>Ruído digital</td><td>Fonte do notebook ou USB</td><td>Tirar o carregador; DI com GND LIFT</td></tr>
-      <tr><td>“Tu-tu-tu”</td><td>Celular perto</td><td>Modo avião; afastar o celular</td></tr>
-      <tr><td>Distorcido</td><td>Ganho alto (clip)</td><td>Luz de PEAK do canal; baixar o GAIN</td></tr>
-      <tr><td>Embolado ou estridente</td><td>EQ e falta de HPF</td><td>HPF nas vozes; EQ no centro</td></tr>
-      <tr><td>Voz abafada</td><td>Distância ou posição</td><td>Um palmo, apontando para a boca</td></tr>
-      <tr><td>Fundo sem clareza</td><td>Reverberação</td><td>Menos volume e graves; mirar as caixas</td></tr>
-      <tr><td>Som oco (2 microfones)</td><td>Fase</td><td>Abaixar um dos microfones</td></tr>
-      <tr><td>Microfonia persistente</td><td>Retorno alto ou microfone perto da caixa</td><td>Baixar o master do AUX</td></tr>
-      <tr><td>Retorno sem som</td><td>AUX fechado</td><td>PFL do AUX; AUX em PRE</td></tr>
-      <tr><td>Sem fio cortando</td><td>Pilha fraca</td><td>Pilha nova</td></tr>
-      <tr><td>Vários sem fio falham</td><td>Frequências sem combinar</td><td>Mesmo GROUP, canais diferentes</td></tr>
-      <tr><td>Pilha acaba no culto</td><td>Pilha usada ou recarregável fraca</td><td>Pilhas novas em todo culto</td></tr>
-      <tr><td>PC sem som na mesa</td><td>Saída do Windows no HDMI</td><td>Escolher a saída no ícone de som</td></tr>
-      <tr><td>Estalos ou atraso do PC</td><td>Buffer</td><td>Buffer maior (estalo) ou menor (atraso)</td></tr>
-      <tr><td>Som acelerado ou estalando</td><td>44,1 × 48 kHz</td><td>Tudo em 48 kHz</td></tr>
-      <tr><td>Saída trocou sozinha</td><td>HDMI ou Bluetooth</td><td>Escolher a saída; desligar o Bluetooth</td></tr>
-      <tr><td>Notificação nas caixas</td><td>Sons do sistema</td><td>Não perturbe; “Sem sons”</td></tr>
-      <tr><td>Telão sem sinal</td><td>Entrada errada no projetor</td><td>INPUT/SOURCE e <kbd>Win</kbd> + <kbd>P</kbd></td></tr>
-      <tr><td>Tela preta só no vídeo</td><td>HDCP</td><td>Ligar direto, sem divisor</td></tr>
-      <tr><td>Imagem cortada ou cor</td><td>Resolução ou cabo</td><td>AUTO/ASPECT; reencaixar o cabo</td></tr>
-      <tr><td>Vídeo e som fora de tempo</td><td>Som também saindo pela TV</td><td>Silenciar a TV</td></tr>
-      <tr><td>“Tum” ao ligar</td><td>Ordem de ligar</td><td>Caixas por último, MAIN embaixo</td></tr>
-      <tr><td>Disjuntor desarma</td><td>Tudo ligado de uma vez</td><td>Ligar um por vez; chamar eletricista</td></tr>
-      <tr><td><b>Choque</b></td><td>Aterramento ou fuga</td><td><b>Soltar, desligar, chamar eletricista</b></td></tr>
-      <tr><td>Nobreak apitando</td><td>Na bateria ou sobrecarga</td><td>Salvar e desligar; tirar o excesso</td></tr>
-      <tr><td>Live diferente do templo</td><td>Mistura do MAIN</td><td>Ouvir no fone; mistura própria</td></tr>
-      <tr><td>Eco ou atraso na live</td><td>Áudio entrando duas vezes</td><td>Uma só fonte de áudio no programa</td></tr>
-    </tbody>
-  </table></div>
-
-  <details class="mais"><summary>Para quem quer entender mais</summary>
+    <details class="mais"><summary>Para quem quer entender mais</summary>
     <p><b>Kit de socorro na sala de som:</b> um cabo XLR e um P10 sobressalentes testados, pilhas novas, adaptador P2 → 2 × P10, adaptador USB-C → HDMI, fita crepe, lanterna e um testador de cabos.</p>
     <p><b>Zumbido x chiado:</b> o zumbido é grave e “tonal” (60 Hz e múltiplos: 120, 180 Hz) e vem da rede elétrica. O chiado é agudo e espalhado, como chuva, e vem de ganho mal distribuído.</p>
     <p><b>Por que uma coisa por vez:</b> com duas trocas juntas você nunca sabe qual resolveu, e a peça com defeito volta para a caixa de cabos “bons”. Anote no diário de bordo: data, sintoma, causa e o que foi trocado.</p>
@@ -5487,81 +5425,81 @@
   <p class="resumo">Os termos da trilha em ordem alfabética, com o capítulo onde aparecem.</p>
   <h3 id="i18-termos">Termos de A a Z</h3>
   <dl class="glossario">
-    <dt>Amplificador (potência)</dt><dd>Aparelho que transforma o sinal fraco da mesa no sinal forte que move os alto-falantes. Fica separado nas caixas passivas e embutido nas ativas. Ver I11.</dd>
-    <dt>ARC / eARC</dt><dd>Entrada HDMI da TV que devolve o som dela para outro aparelho. No culto, quando existe, a saída de fone (P2) costuma ser mais prática. Ver I13.</dd>
-    <dt>ATTACK</dt><dd>Ajuste do compressor: quão rápido ele começa a agir. Ver I10.</dd>
-    <dt>AUX (auxiliar)</dt><dd>Envio que cria uma mixagem separada, usada para retornos (pré-fader) ou efeitos (pós-fader). Ver I5 e I9.</dd>
-    <dt>Balanceado</dt><dd>Ligação com dois condutores e malha que cancela ruídos captados no caminho; típica dos cabos XLR e P10 TRS. Ver I3.</dd>
-    <dt>Banana / borne</dt><dd>Conectores de cabo de caixa em amplificadores e caixas passivas mais simples. Ver I11.</dd>
-    <dt>Cardioide</dt><dd>Padrão de captação em forma de coração: o microfone ouve bem pela frente e pouco por trás. Ver I4 e I9.</dd>
-    <dt>CLIP / PEAK</dt><dd>Distorção quando o sinal passa do limite que o aparelho suporta; também o nome da luz vermelha que avisa. Ver I6 e I11.</dd>
-    <dt>Compressor</dt><dd>Processador que reduz automaticamente os picos de volume, deixando o som mais constante. Ver I10.</dd>
-    <dt>Condensador</dt><dd>Tipo de microfone sensível e detalhado que precisa de energia (PHANTOM ou pilha). Ver I4.</dd>
-    <dt>Crossover</dt><dd>Divisor que separa graves e agudos para alto-falantes diferentes, ou para o subwoofer. Ver I11.</dd>
-    <dt>dB (decibel)</dt><dd>Unidade usada para comparar níveis de som e de sinal. 3 dB é uma mudança perceptível; 10 dB parece cerca de “o dobro”. Ver I1 e I6.</dd>
-    <dt>Delay</dt><dd>Efeito de eco (repetição). Também o atraso eletrônico aplicado às caixas de atraso e ao áudio da transmissão. Ver I10, I11 e I14.</dd>
-    <dt>DI (direct box)</dt><dd>Caixinha que converte sinal de instrumento ou computador em sinal balanceado de microfone (XLR); muitas têm GND LIFT. Ver I3 e I12.</dd>
-    <dt>Dinâmico (microfone)</dt><dd>Microfone robusto, que não precisa de energia; o mais comum para voz no palco. Ver I4.</dd>
-    <dt>DisplayPort</dt><dd>Conector digital de vídeo (leva som também) parecido com o HDMI, comum em computadores; converte para HDMI com adaptador. Ver I13.</dd>
-    <dt>Duplicar / Estender</dt><dd>Modos de projeção do Windows: telão igual ao monitor, ou telão como segunda tela. Ver I12 e I13.</dd>
-    <dt>EDID</dt><dd>A “carteira de identidade” que a tela manda para o computador: resoluções e formatos que ela aceita. Falha de EDID causa resolução errada ou tela preta. Ver I13.</dd>
-    <dt>Encoder</dt><dd>Programa ou aparelho que comprime o som e a imagem e envia a transmissão para a internet. Ver I14.</dd>
-    <dt>EQ (equalização)</dt><dd>Controle de graves, médios e agudos de um canal ou saída. Ver I7.</dd>
-    <dt>Extensor (vídeo)</dt><dd>Par de caixinhas (ou cabo ativo) que leva o sinal de vídeo para longe, por cabo de rede ou fibra. Ver I13.</dd>
-    <dt>Fader</dt><dd>Controle deslizante que ajusta o volume de um canal ou saída. Ver I5.</dd>
-    <dt>FX SEND / FX RETURN</dt><dd>Envio de um canal para o processador de efeitos e a volta do efeito para a mesa. Ver I10.</dd>
-    <dt>GAIN (ganho, TRIM)</dt><dd>Primeiro ajuste do canal: adapta o nível que chega do microfone ou instrumento. Ver I6.</dd>
-    <dt>Gate</dt><dd>Processador que fecha o canal quando o som fica abaixo de um limite. Ver I10.</dd>
-    <dt>GND LIFT (ground lift)</dt><dd>Chave, geralmente numa DI, que interrompe o terra no caminho do áudio para acabar com o zumbido do laço de terra. Ver I12 e I17.</dd>
-    <dt>HDBaseT</dt><dd>Sistema de extensores que leva vídeo HDMI por cabo de rede a distâncias grandes. Ver I13.</dd>
-    <dt>HDCP</dt><dd>Proteção contra cópia do HDMI: aparelho e tela trocam uma “senha”. Cabo ou adaptador velho deixa conteúdo protegido com a tela preta. Ver I13.</dd>
-    <dt>HDMI</dt><dd>Cabo digital que leva imagem e som juntos, do computador ao projetor ou TV. Ver I13.</dd>
-    <dt>HPF (filtro passa-altas)</dt><dd>Botão que corta os graves abaixo de um ponto; limpa vozes e retornos. Ver I7.</dd>
-    <dt>Hz (hertz)</dt><dd>Unidade de frequência: graves têm poucos hertz, agudos muitos. A rede elétrica do Brasil é de 60 Hz. Ver I1.</dd>
-    <dt>Impedância (Ω)</dt><dd>Carga que uma caixa passiva representa para o amplificador (comum 4 ou 8 Ω). Nunca ligue menos ohms do que o amplificador aceita. Ver I11.</dd>
-    <dt>In-ear</dt><dd>Retorno por fone dentro do ouvido, no lugar da caixa no chão. Ver I9.</dd>
-    <dt>Keystone</dt><dd>Correção da imagem em trapézio quando o projetor está torto; tira nitidez, então prefira posicionar reto. Ver I13.</dd>
-    <dt>Laço de terra (loop de terra)</dt><dd>Caminho fechado formado pelo terra de dois aparelhos ligados entre si; causa zumbido. Ver I12 e I17.</dd>
-    <dt>Laser (projetor)</dt><dd>Fonte de luz de projetor que dura bem mais que a lâmpada (cerca de 20 000 horas ou mais) e esquenta menos. Ver I13.</dd>
-    <dt>Limitador (LIMITER)</dt><dd>Processador que não deixa o som passar de um teto; protege as caixas. Ver I10 e I11.</dd>
-    <dt>Linha (nível de linha)</dt><dd>Sinal mais forte que o de microfone, típico de teclado, computador e saídas de mesa. Ver I2 e I6.</dd>
-    <dt>Lumens (lúmens)</dt><dd>Medida do brilho do projetor. Cerca de 3 000 lm servem para salas claras pequenas; templos grandes pedem bem mais. Ver I13.</dd>
-    <dt>MAIN / MASTER</dt><dd>Saída principal da mesa, que alimenta as caixas da igreja, e o fader que a controla. Ver I5.</dd>
-    <dt>Matriz (vídeo)</dt><dd>Aparelho que liga várias fontes a várias telas, cada saída com a fonte escolhida. Ver I13.</dd>
-    <dt>Microfonia (feedback)</dt><dd>Apito ou ronco causado quando o microfone capta o som da caixa e o reenvia em círculo. Ver I8.</dd>
-    <dt>Monitor</dt><dd>Outro nome do retorno: a caixa ou fone para quem está no palco. Ver I9.</dd>
-    <dt>MUTE</dt><dd>Botão que silencia um canal ou saída sem mexer no fader. Ver I5.</dd>
-    <dt>Nobreak</dt><dd>Aparelho com bateria que mantém os equipamentos ligados numa queda de energia. Ver I16.</dd>
-    <dt>P2</dt><dd>Plugue de 3,5 mm, o de fone de ouvido e da saída de som do computador. Ver I3 e I12.</dd>
-    <dt>P10</dt><dd>Plugue de 6,35 mm, comum em instrumentos e entradas de linha; pode ser TS ou TRS. Ver I3.</dd>
-    <dt>PAD</dt><dd>Botão que reduz o sinal na entrada (cerca de −20 dB) para fontes muito fortes. Ver I5.</dd>
-    <dt>Pan</dt><dd>Controle que coloca o som mais à esquerda ou à direita. Ver I5.</dd>
-    <dt>Passivo e ativo (cabo)</dt><dd>Cabo passivo é só fio; ativo tem um circuito que reforça o sinal e alcança mais longe. Adaptador ativo converte sinal que o passivo não converte. Ver I13.</dd>
-    <dt>Passagem de som</dt><dd>Teste e ajuste de cada fonte antes do culto, uma de cada vez e depois todas juntas. Ver I15.</dd>
-    <dt>Patch list (mapa de ligações)</dt><dd>Lista do que está ligado em cada canal e saída da mesa. Ver I16.</dd>
-    <dt>PFL / SOLO</dt><dd>Botão que manda um canal para o fone e o medidor do operador, sem mudar o som da igreja. Ver I5 e I17.</dd>
-    <dt>PHANTOM (48V)</dt><dd>Energia que a mesa envia pelo cabo XLR para microfones condensadores e algumas DI. Ver I4.</dd>
-    <dt>Pré-fader / pós-fader</dt><dd>Diz se o envio AUX pega o som antes ou depois do fader. Retorno: pré. Efeitos: pós. Ver I5 e I9.</dd>
-    <dt>Proporção (16:9, 4:3)</dt><dd>Formato da tela, largura por altura. Ver I13.</dd>
-    <dt>RATIO</dt><dd>Ajuste do compressor: quanto ele reduz o que passa do limiar (ex.: 3:1). Ver I10.</dd>
-    <dt>RCA</dt><dd>Conector pequeno, geralmente em par vermelho/branco, de aparelhos domésticos. Ver I3 e I12.</dd>
-    <dt>RELEASE</dt><dd>Ajuste do compressor: quão rápido ele deixa de agir. Ver I10.</dd>
-    <dt>Resolução</dt><dd>Quantidade de pontos da imagem (ex.: 1920 × 1080). Ver I13.</dd>
-    <dt>Rider</dt><dd>Lista que o convidado manda com o que ele usa: microfones, tomadas, retorno. Peça com antecedência. Ver I19.</dd>
-    <dt>Retorno</dt><dd>Som enviado ao palco para os músicos e cantores se ouvirem. Ver I9.</dd>
-    <dt>Reverb</dt><dd>Efeito que simula as reflexões de uma sala; use pouco no louvor e quase nada na fala. Ver I10.</dd>
-    <dt>RMS (potência)</dt><dd>Potência contínua, o número que vale para comparar caixas e amplificadores; “pico” e PMPO são números inflados. Ver I11.</dd>
-    <dt>Speakon</dt><dd>Conector com trava para cabos de caixa. Ver I3 e I11.</dd>
-    <dt>Splitter</dt><dd>Aparelho que manda a mesma imagem para duas ou mais telas. Ver I13.</dd>
-    <dt>Subwoofer</dt><dd>Caixa só para os graves mais baixos. Ver I11.</dd>
-    <dt>Switch (vídeo)</dt><dd>Aparelho que escolhe qual fonte vai para a tela, sem tirar cabo. Ver I13.</dd>
-    <dt>THRESHOLD (limiar)</dt><dd>Nível a partir do qual o compressor, o gate ou o limitador começa a agir. Ver I10.</dd>
-    <dt>TRS</dt><dd>Plugue com três partes (ponta, anel, corpo): estéreo ou balanceado. Ver I3.</dd>
-    <dt>TS</dt><dd>Plugue com duas partes (ponta, corpo): mono, desbalanceado, de instrumento. Ver I3.</dd>
-    <dt>VGA</dt><dd>Conector de vídeo analógico antigo (azul, 15 pinos); leva só imagem. Ver I13.</dd>
-    <dt>Vídeo composto (AV)</dt><dd>O conector amarelo dos aparelhos antigos (DVD, câmera); leva só imagem, de qualidade baixa. Ver I13.</dd>
-    <dt><kbd>Win</kbd> + <kbd>P</kbd></dt><dd>Atalho do Windows que abre as opções de projeção (Duplicar, Estender…). Ver I12 e I13.</dd>
-    <dt>XLR</dt><dd>Conector de três pinos com trava, padrão dos microfones e das ligações balanceadas. Ver I3.</dd>
+    <dt>Amplificador (potência)</dt><dd><a href="#i11">I11</a></dd>
+    <dt>ARC / eARC</dt><dd><a href="#i13">I13</a></dd>
+    <dt>ATTACK</dt><dd><a href="#i10">I10</a></dd>
+    <dt>AUX (auxiliar)</dt><dd><a href="#i5">I5</a>, <a href="#i9">I9</a></dd>
+    <dt>Balanceado</dt><dd><a href="#i3">I3</a></dd>
+    <dt>Banana / borne</dt><dd><a href="#i11">I11</a></dd>
+    <dt>Cardioide</dt><dd><a href="#i4">I4</a>, <a href="#i9">I9</a></dd>
+    <dt>CLIP / PEAK</dt><dd><a href="#i6">I6</a>, <a href="#i11">I11</a></dd>
+    <dt>Compressor</dt><dd><a href="#i10">I10</a></dd>
+    <dt>Condensador</dt><dd><a href="#i4">I4</a></dd>
+    <dt>Crossover</dt><dd><a href="#i11">I11</a></dd>
+    <dt>dB (decibel)</dt><dd><a href="#i1">I1</a>, <a href="#i6">I6</a></dd>
+    <dt>Delay</dt><dd><a href="#i10">I10</a>, <a href="#i11">I11</a>, <a href="#i14">I14</a></dd>
+    <dt>DI (direct box)</dt><dd><a href="#i3">I3</a>, <a href="#i12">I12</a></dd>
+    <dt>Dinâmico (microfone)</dt><dd><a href="#i4">I4</a></dd>
+    <dt>DisplayPort</dt><dd><a href="#i13">I13</a></dd>
+    <dt>Duplicar / Estender</dt><dd><a href="#i12">I12</a>, <a href="#i13">I13</a></dd>
+    <dt>EDID</dt><dd><a href="#i13">I13</a></dd>
+    <dt>Encoder</dt><dd><a href="#i14">I14</a></dd>
+    <dt>EQ (equalização)</dt><dd><a href="#i7">I7</a></dd>
+    <dt>Extensor (vídeo)</dt><dd><a href="#i13">I13</a></dd>
+    <dt>Fader</dt><dd><a href="#i5">I5</a></dd>
+    <dt>FX SEND / FX RETURN</dt><dd><a href="#i10">I10</a></dd>
+    <dt>GAIN (ganho, TRIM)</dt><dd><a href="#i6">I6</a></dd>
+    <dt>Gate</dt><dd><a href="#i10">I10</a></dd>
+    <dt>GND LIFT (ground lift)</dt><dd><a href="#i12">I12</a>, <a href="#i17">I17</a></dd>
+    <dt>HDBaseT</dt><dd><a href="#i13">I13</a></dd>
+    <dt>HDCP</dt><dd><a href="#i13">I13</a></dd>
+    <dt>HDMI</dt><dd><a href="#i13">I13</a></dd>
+    <dt>HPF (filtro passa-altas)</dt><dd><a href="#i7">I7</a></dd>
+    <dt>Hz (hertz)</dt><dd><a href="#i1">I1</a></dd>
+    <dt>Impedância (Ω)</dt><dd><a href="#i11">I11</a></dd>
+    <dt>In-ear</dt><dd><a href="#i9">I9</a></dd>
+    <dt>Keystone</dt><dd><a href="#i13">I13</a></dd>
+    <dt>Laço de terra (loop de terra)</dt><dd><a href="#i12">I12</a>, <a href="#i17">I17</a></dd>
+    <dt>Laser (projetor)</dt><dd><a href="#i13">I13</a></dd>
+    <dt>Limitador (LIMITER)</dt><dd><a href="#i10">I10</a>, <a href="#i11">I11</a></dd>
+    <dt>Linha (nível de linha)</dt><dd><a href="#i2">I2</a>, <a href="#i6">I6</a></dd>
+    <dt>Lumens (lúmens)</dt><dd><a href="#i13">I13</a></dd>
+    <dt>MAIN / MASTER</dt><dd><a href="#i5">I5</a></dd>
+    <dt>Matriz (vídeo)</dt><dd><a href="#i13">I13</a></dd>
+    <dt>Microfonia (feedback)</dt><dd><a href="#i8">I8</a></dd>
+    <dt>Monitor</dt><dd><a href="#i9">I9</a></dd>
+    <dt>MUTE</dt><dd><a href="#i5">I5</a></dd>
+    <dt>Nobreak</dt><dd><a href="#i16">I16</a></dd>
+    <dt>P2</dt><dd><a href="#i3">I3</a>, <a href="#i12">I12</a></dd>
+    <dt>P10</dt><dd><a href="#i3">I3</a></dd>
+    <dt>PAD</dt><dd><a href="#i5">I5</a></dd>
+    <dt>Pan</dt><dd><a href="#i5">I5</a></dd>
+    <dt>Passivo e ativo (cabo)</dt><dd><a href="#i13">I13</a></dd>
+    <dt>Passagem de som</dt><dd><a href="#i15">I15</a></dd>
+    <dt>Patch list (mapa de ligações)</dt><dd><a href="#i16">I16</a></dd>
+    <dt>PFL / SOLO</dt><dd><a href="#i5">I5</a>, <a href="#i17">I17</a></dd>
+    <dt>PHANTOM (48V)</dt><dd><a href="#i4">I4</a></dd>
+    <dt>Pré-fader / pós-fader</dt><dd><a href="#i5">I5</a>, <a href="#i9">I9</a></dd>
+    <dt>Proporção (16:9, 4:3)</dt><dd><a href="#i13">I13</a></dd>
+    <dt>RATIO</dt><dd><a href="#i10">I10</a></dd>
+    <dt>RCA</dt><dd><a href="#i3">I3</a>, <a href="#i12">I12</a></dd>
+    <dt>RELEASE</dt><dd><a href="#i10">I10</a></dd>
+    <dt>Resolução</dt><dd><a href="#i13">I13</a></dd>
+    <dt>Rider</dt><dd><a href="#i19">I19</a></dd>
+    <dt>Retorno</dt><dd><a href="#i9">I9</a></dd>
+    <dt>Reverb</dt><dd><a href="#i10">I10</a></dd>
+    <dt>RMS (potência)</dt><dd><a href="#i11">I11</a></dd>
+    <dt>Speakon</dt><dd><a href="#i3">I3</a>, <a href="#i11">I11</a></dd>
+    <dt>Splitter</dt><dd><a href="#i13">I13</a></dd>
+    <dt>Subwoofer</dt><dd><a href="#i11">I11</a></dd>
+    <dt>Switch (vídeo)</dt><dd><a href="#i13">I13</a></dd>
+    <dt>THRESHOLD (limiar)</dt><dd><a href="#i10">I10</a></dd>
+    <dt>TRS</dt><dd><a href="#i3">I3</a></dd>
+    <dt>TS</dt><dd><a href="#i3">I3</a></dd>
+    <dt>VGA</dt><dd><a href="#i13">I13</a></dd>
+    <dt>Vídeo composto (AV)</dt><dd><a href="#i13">I13</a></dd>
+    <dt><kbd>Win</kbd> + <kbd>P</kbd></dt><dd><a href="#i12">I12</a>, <a href="#i13">I13</a></dd>
+    <dt>XLR</dt><dd><a href="#i3">I3</a></dd>
   </dl>
 </section>
 
@@ -5929,7 +5867,7 @@
      </svg>
      <figcaption>São referências técnicas genéricas, não norma da igreja. O medidor do celular serve — na plateia.</figcaption>
    </figure>
-   <div class="tabela"><table>
+   <div class="tabela estreita"><table>
      <thead><tr><th>Momento</th><th>Alvo (média, dBA)</th><th>Regra</th></tr></thead>
      <tbody>
        <tr><td>Estudo da lição / oração</td><td>60–70</td><td>só a voz; música de fundo bem baixa</td></tr>
@@ -6006,7 +5944,6 @@
   <p>Ele <b>não é um aplicativo oficial da IASD</b>. Foi feito para um fim só: tirar o computador do caminho da projeção. O celular é o controle; o telão (a TV, um computador na rede ou o próprio celular) mostra apenas o que você manda. A tela do celular nunca vai para a TV. A tela do app pode variar um pouco conforme a versão.</p>
   <p>O <b>Modo Fácil</b> (na tela do app: "Modo simples") é para quem escolhe e toca. O <b>Modo avançado</b> é para quem opera todo sábado, e é dele que este capítulo trata.</p>
 
-  <figure class="ilus "><svg viewBox="0 0 340 449" role="img" aria-label="Comparação em duas colunas entre o Modo Fácil (na tela: Modo simples) e o Modo avançado, em cinco linhas: quando abre, o que acontece sem tela conectada, o que há na tela, as listas e o sorteio" font-family="system-ui, sans-serif"><rect x="4" y="4" width="164" height="44" rx="9" fill="#1f7a6d"/><rect x="172" y="4" width="164" height="44" rx="9" fill="#2f557f"/><text x="86" y="24" font-size="14" font-weight="800" fill="#fff" text-anchor="middle">Modo Fácil</text><text x="86" y="40" font-size="11.5" fill="#fff" text-anchor="middle">(na tela: &quot;Modo simples&quot;)</text><text x="254" y="24" font-size="14" font-weight="800" fill="#fff" text-anchor="middle">Modo avançado</text><text x="254" y="40" font-size="11.5" fill="#fff" text-anchor="middle">o culto inteiro à mão</text><text x="170" y="69" font-size="11.5" font-weight="800" fill="#55606d" text-anchor="middle">QUANDO ABRE</text><rect x="4" y="75" width="164" height="38" rx="9" fill="#fff" stroke="#1f7a6d" stroke-width="1.5"/><rect x="172" y="75" width="164" height="38" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><text x="12" y="91" font-size="11.5" fill="#22303d">Sempre: é a tela de</text><text x="12" y="105" font-size="11.5" fill="#22303d">abertura</text><text x="180" y="91" font-size="11.5" fill="#22303d">Só se você escolher; vale</text><text x="180" y="105" font-size="11.5" fill="#22303d">pela sessão</text><text x="170" y="134" font-size="11.5" font-weight="800" fill="#55606d" text-anchor="middle">SEM TELA CONECTADA</text><rect x="4" y="140" width="164" height="38" rx="9" fill="#fff" stroke="#1f7a6d" stroke-width="1.5"/><rect x="172" y="140" width="164" height="38" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><text x="12" y="156" font-size="11.5" fill="#22303d">Bloqueia e pede a conexão</text><text x="180" y="156" font-size="11.5" fill="#22303d">Não bloqueia; o som sai no</text><text x="180" y="170" font-size="11.5" fill="#22303d">celular</text><text x="170" y="199" font-size="11.5" font-weight="800" fill="#55606d" text-anchor="middle">O QUE HÁ NA TELA</text><rect x="4" y="205" width="164" height="66" rx="9" fill="#fff" stroke="#1f7a6d" stroke-width="1.5"/><rect x="172" y="205" width="164" height="66" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><text x="12" y="221" font-size="11.5" fill="#22303d">Biblioteca, letra e 3</text><text x="12" y="235" font-size="11.5" fill="#22303d">teclas: Parar, Play/Pausa,</text><text x="12" y="249" font-size="11.5" fill="#22303d">Tela cheia</text><text x="180" y="221" font-size="11.5" fill="#22303d">Cronograma, Bíblia,</text><text x="180" y="235" font-size="11.5" fill="#22303d">Ferramentas, Biblioteca,</text><text x="180" y="249" font-size="11.5" fill="#22303d">prévia e 7 botões de</text><text x="180" y="263" font-size="11.5" fill="#22303d">transporte</text><text x="170" y="292" font-size="11.5" font-weight="800" fill="#55606d" text-anchor="middle">LISTAS</text><rect x="4" y="298" width="164" height="38" rx="9" fill="#fff" stroke="#1f7a6d" stroke-width="1.5"/><rect x="172" y="298" width="164" height="38" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><text x="12" y="314" font-size="11.5" fill="#22303d">Sem Cronograma, Favoritos</text><text x="12" y="328" font-size="11.5" fill="#22303d">ou Playlist</text><text x="180" y="314" font-size="11.5" fill="#22303d">Cronogramas, Favoritos e</text><text x="180" y="328" font-size="11.5" fill="#22303d">Playlist</text><text x="170" y="357" font-size="11.5" font-weight="800" fill="#55606d" text-anchor="middle">SORTEIO</text><rect x="4" y="363" width="164" height="38" rx="9" fill="#fff" stroke="#1f7a6d" stroke-width="1.5"/><rect x="172" y="363" width="164" height="38" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><text x="12" y="379" font-size="11.5" fill="#22303d">O dado: um hino do Hinário</text><text x="12" y="393" font-size="11.5" fill="#22303d">2022</text><text x="180" y="379" font-size="11.5" fill="#22303d">Playlist automática, com</text><text x="180" y="393" font-size="11.5" fill="#22303d">folha completa</text><rect x="4" y="409" width="332" height="34" rx="9" fill="#fff6d6" stroke="#e0b400" stroke-width="1.5"/><text x="170" y="430" font-size="11.5" font-weight="800" fill="#22303d" text-anchor="middle">Nos dois: Configurações e Editar mídia</text></svg><figcaption>Fácil e Avançado lado a lado. O Fácil escolhe e toca; o Avançado monta e conduz o culto inteiro.</figcaption></figure>
 
   <div class="tabela estreita"><table>
     <thead><tr><th>Tema</th><th>Modo Fácil</th><th>Modo avançado</th></tr></thead>
@@ -6065,7 +6002,7 @@
   <h4>Por que não há atraso entre as telas</h4>
   <figure class="ilus "><svg viewBox="0 0 340 284" role="img" aria-label="O celular envia comandos como tocar, pausar e estrofe 2 a três telas. Cada tela toca o seu próprio arquivo, por isso não há atraso entre elas" font-family="system-ui, sans-serif"><defs><marker id="i23-seta-cmd" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#2f557f"/></marker></defs><rect x="110" y="6" width="120" height="44" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><text x="170" y="25" font-size="12.5" font-weight="800" fill="#22303d" text-anchor="middle">Celular</text><text x="170" y="41" font-size="11.5" fill="#22303d" text-anchor="middle">manda comandos</text><line x1="170" y1="52" x2="56" y2="146" stroke="#2f557f" stroke-width="2" marker-end="url(#i23-seta-cmd)"/><rect x="4" y="150" width="104" height="62" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><text x="56" y="170" font-size="12.5" font-weight="800" fill="#22303d" text-anchor="middle">Tela 1</text><text x="56" y="186" font-size="11.5" fill="#22303d" text-anchor="middle">toca o próprio</text><text x="56" y="200" font-size="11.5" fill="#22303d" text-anchor="middle">arquivo</text><line x1="170" y1="52" x2="170" y2="146" stroke="#2f557f" stroke-width="2" marker-end="url(#i23-seta-cmd)"/><rect x="118" y="150" width="104" height="62" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><text x="170" y="170" font-size="12.5" font-weight="800" fill="#22303d" text-anchor="middle">Tela 2</text><text x="170" y="186" font-size="11.5" fill="#22303d" text-anchor="middle">toca o próprio</text><text x="170" y="200" font-size="11.5" fill="#22303d" text-anchor="middle">arquivo</text><line x1="170" y1="52" x2="284" y2="146" stroke="#2f557f" stroke-width="2" marker-end="url(#i23-seta-cmd)"/><rect x="232" y="150" width="104" height="62" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><text x="284" y="170" font-size="12.5" font-weight="800" fill="#22303d" text-anchor="middle">Tela 3</text><text x="284" y="186" font-size="11.5" fill="#22303d" text-anchor="middle">toca o próprio</text><text x="284" y="200" font-size="11.5" fill="#22303d" text-anchor="middle">arquivo</text><rect x="96" y="84" width="46" height="20" rx="10" fill="#fff6d6" stroke="#e0b400" stroke-width="1"/><text x="119" y="98" font-size="11.5" fill="#22303d" text-anchor="middle">tocar</text><rect x="146" y="66" width="48" height="20" rx="10" fill="#fff6d6" stroke="#e0b400" stroke-width="1"/><text x="170" y="80" font-size="11.5" fill="#22303d" text-anchor="middle">pausar</text><rect x="202" y="96" width="62" height="20" rx="10" fill="#fff6d6" stroke="#e0b400" stroke-width="1"/><text x="233" y="110" font-size="11.5" fill="#22303d" text-anchor="middle">estrofe 2</text><rect x="4" y="226" width="332" height="50" rx="9" fill="#e3f1e8" stroke="#1f7a6d" stroke-width="1.5"/><text x="170" y="246" font-size="11.5" fill="#22303d" text-anchor="middle">Só comandos viajam. Cada tela busca o arquivo</text><text x="170" y="262" font-size="11.5" fill="#22303d" text-anchor="middle">no celular e toca o seu: imagem e som juntos.</text></svg><figcaption>Por que não há atraso entre as telas: nenhuma delas recebe um vídeo da tela do celular, só ordens.</figcaption></figure>
   <h4>Tocar neste celular e o som</h4>
-  <p><b>Tocar neste celular</b> usa o aparelho como saída, sem TV. Com uma TV conectada, aparece um <b>?</b>: <b>todo o som do celular, exceto notificações, sai na TV</b>. Cuidado com áudio de WhatsApp e de outros apps. Ligue o <b>Não Perturbe</b> antes do culto: o app não o liga por você, mas mostra a dica <b>Dica: ligue o "Não Perturbe"</b> quando o som sai pelo celular. O caminho do som até a mesa e as caixas segue a lógica de <a href="#i12">I12</a>.</p>
+  <p><b>Tocar neste celular</b> usa o aparelho como saída, sem TV. Com uma TV conectada, <b>todo o som do celular, exceto notificações, sai na TV</b>. Cuidado com áudio de WhatsApp e de outros apps. Ligue o <b>Não Perturbe</b> antes do culto: o app não o liga por você, só mostra a dica. O caminho do som até a mesa e as caixas segue a lógica de <a href="#i12">I12</a>.</p>
 
   <h3 id="i23-cronograma">O Cronograma</h3>
   <p>O Cronograma é a lista do culto: o que vai ao telão, na ordem.</p>
