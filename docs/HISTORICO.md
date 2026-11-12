@@ -32,6 +32,7 @@ apagada da que a criou.
 
 - **o guia de sonoplastia: coesão e conserto dos defeitos (sem versão nova; só `site/` e docs)** — conserta os 2 botões "Para quem quer entender mais" aninhados (I1, I4), o "?" e o "dica Dica" (I23), a frase duplicada do projetor (I13) e a legenda órfã "Em breve"; some a comparação repetida do I23 e a Tabela-resumo do I17; glossário vira índice; D3/D6 e 14 tabelas enxutos
 - **o guia ganha layout dinâmico: tabelas empilhadas e figuras corrigidas (sem versão nova; só `site/` e docs)** — no celular, as 16 tabelas de 3+ colunas empilham com rótulo por linha (no computador seguem tabela); fonte única Roboto/Arial nas figuras; tamanho explícito nos 867 textos que herdavam do CSS; letra mínima de 6,2 para 9 px; estouros corrigidos
+- **o guia: tabela deslizante com setas e quatro figuras consertadas (sem versão nova; só `site/` e docs)** — as 16 tabelas de 3+ colunas voltam a ser tabela e deslizam duas colunas por vez no celular, com setas para os lados (no computador ficam como estão); conserta as figuras do I2, I5, I12 e I13 das fotos do operador
 - **v1.14.2** — o "Guia de sonoplastia" abre DENTRO do app: `abrirGuia` (shell 87), `GuiaSomDialog` em tela cheia sobre a Activity com WebView SEM ponte, cerca `https` + host do site (`GuiaSom.urlDoGuia`, JUnit); casco antigo cai no `openExternal`; `minShell` 83, `shellTag` v1.14.2; APK + web.
 - **v1.14.1** — tours de SEÇÃO (cada janela, folha e gaveta se explica na primeira abertura; o "Tour do app" zera as do modo), o tour do Fácil TOCANDO (letra e teclas) e o halo azul no recorte; guia dentro do app recusado (iframe furaria a invariante 2); só web.
 - **v1.14.0** — o tour guiado: um por estado da tela (conexão com a cortina do Fácil, controles do Fácil, avançado completo), automático uma vez e nunca por cima de diálogo; botões "Tour do app" e "Guia de sonoplastia" (`#dia` no Fácil) em Configurações; só web.
@@ -770,6 +771,38 @@ Segundo lote da revisão de conteúdo (pedido do operador). Só `site/` e docs.
   que se tocam de propósito (cones de alto-falante, pinos de conectores, padrão
   polar sobre o corpo do microfone) e 3 rótulos com 1–3 px de folga, que sobram
   na fonte de fallback deste Linux e cabem no Roboto do celular.
+
+
+## o guia: tabela deslizante com setas e quatro figuras consertadas (sem versão nova; só `site/` e docs)
+
+Terceiro lote da revisão de conteúdo (pedido do operador, com as fotos do
+celular). Só `site/` e docs.
+
+- **Tabelas deslizantes:** o empilhamento em cartões da v1.14.5 é desfeito. A
+  tabela continua sendo tabela; no celular a janela mostra duas colunas por vez
+  (41 vw cada) e duas setas circulares rolam para a esquerda e para a direita,
+  uma coluna por toque, com a seta apagada no fim do percurso. De 640 px para
+  cima as setas somem e a tabela ocupa a largura toda. `data-label` sai (não é
+  mais usado). JS próprio (`tab-seta`) cria o `rolo` e as setas nas tabelas de
+  3+ colunas; sem JS a tabela continua rolando no dedo.
+- **Figuras consertadas com base nas fotos do celular:**
+  - I2 (três portas): o rótulo `2×XLR` saía por cima da caixa INTERFACE/MESA e
+    `ou mesa digital` vazava da caixa — o rótulo sobe para o vão, vira `2×XLR`
+    em 11,5 e as caixas INTERFACE/DI ficam em 76 de largura.
+  - I5 (medidor): `picos fortes` e `distorce` se sobrepunham — o primeiro
+    desloca para 206 com a régua correspondente.
+  - I12 (PC à mesa): as duas linhas tortas da primeira faixa viram retas e as
+    caixas DI/interface ganham 6 px de altura para o `GND LIFT` e o
+    `ou mesa digital`.
+  - I13 (cabeamento): as duas pílulas amarelas `etiqueta` sobrepunham o
+    projetor, a mesa e o cabo; saem e entram marcadores numerados 1 e 2 nas
+    pontas do cabo, com a legenda dizendo que é o mesmo nome nas duas pontas;
+    `palco` sai de cima da barra do telão, `telão` sai da borda da sala e a
+    caixa `mesa` sobe para não cobrir o texto de apoio.
+- **Conferido por captura** a 412 px e por medição (0 estouros, 0 erros de
+  página, 0 textos sobrepostos; as 11 figuras ainda sinalizadas são os círculos
+  de desenho que se tocam de propósito e 3 rótulos com 1–3 px de folga na fonte
+  de fallback do Linux).
 
 
 ## v1.14.2 — o guia de sonoplastia dentro do app (shell 87)
