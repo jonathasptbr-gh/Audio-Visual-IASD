@@ -30,10 +30,10 @@ apagada da que a criou.
 
 ## Índice
 
-- **v1.14.3** — o tour em ORDEM VISUAL (`ordenar()` no `tour.js`, medida ao abrir: faixas por centro vertical com tolerância max(24 px, metade do menor), esquerda→direita; `abertura`/`fecho` fixos, peça fora de vista no fim) e todos os textos revistos (título = rótulo da tela; o que é, para que serve, como usar); oráculo J; só web.
 - **v1.14.2** — o "Guia de sonoplastia" abre DENTRO do app: `abrirGuia` (shell 87), `GuiaSomDialog` em tela cheia sobre a Activity com WebView SEM ponte, cerca `https` + host do site (`GuiaSom.urlDoGuia`, JUnit); casco antigo cai no `openExternal`; `minShell` 83, `shellTag` v1.14.2; APK + web.
 - **v1.14.1** — tours de SEÇÃO (cada janela, folha e gaveta se explica na primeira abertura; o "Tour do app" zera as do modo), o tour do Fácil TOCANDO (letra e teclas) e o halo azul no recorte; guia dentro do app recusado (iframe furaria a invariante 2); só web.
 - **v1.14.0** — o tour guiado: um por estado da tela (conexão com a cortina do Fácil, controles do Fácil, avançado completo), automático uma vez e nunca por cima de diálogo; botões "Tour do app" e "Guia de sonoplastia" (`#dia` no Fácil) em Configurações; só web.
+- **o guia vira IASD de verdade, e a impressão economiza folhas (sem versão nova; só `site/` e docs)** — nascem I20 (hinário antigo e novo), I21 (música na igreja) e I22 (Louvor JA), o programa do sábado entra em D1/D8/I15/I19 e o app Áudio Visual IASD é citado nas duas trilhas; a paginação do livreto passa a fluir entre capítulos e ganha medição confiável
 - **o livreto em três modos e o estudo do guia IASD (sem versão nova; só `site/` e docs)** — a impressão se separa em "Por um dia" e "Tempo integral" (além do completo), e entra o estudo de especialização adventista do guia, aguardando decisão
 - **o guia vira áudio visual e ganha livreto (sem versão nova; só `site/` e docs)** — I13 com oito partes novas de vídeo, capítulo I19 de eventos e peculiaridades, 26 ilustrações novas na trilha integral (295 no total) e versão para imprimir em livreto A4 dobrável com paginação automática e imposição
 - **o guia de sonoplastia: compartilhar à vista (sem versão nova; só `site/`)** — botão "Compartilhar este guia" na capa, "Compartilhar capítulo" sob cada título e "Compartilhar este problema" em cada sintoma; abre a folha de compartilhar do celular (WhatsApp, e-mail…) e, sem ela, copia o link
@@ -707,44 +707,6 @@ apagada da que a criou.
 
 ---
 
-## v1.14.3 — o tour em ordem visual e os textos revistos
-
-**Pedido do operador:** o tour "pulava pela tela sem lógica" e vários balões eram
-confusos. Só web (sem Kotlin, sem `SHELL_VERSION`; a Release v1.14.2 já existe,
-então o `version.json` sai sem `shellTag`).
-
-- **Ordem visual em tempo de execução** (`ordenar()`, chamada no `abrir()` depois do
-  filtro dos `opcional`): os passos medidos pelo `getBoundingClientRect` vão de cima
-  para baixo; centros verticais encadeados a até max(`LINHA_PX` = 24, metade da
-  altura do menor) formam uma FAIXA, ordenada por `left`. Fixos: `abertura` (a
-  moldura que apresenta a tela: `#simpleConn`, `#library`, `#bibleBody`,
-  `#histSecao`, `#testeCorpo`, a folha da Playlist e a da Letra) no começo;
-  `fecho` (sem alvo) no fim; peça fora de vista (balão central) no fim, antes do
-  fecho, na ordem declarada. A pílula do volume ordena pela caixa que ocupa
-  escondida (`visibility`), porque o próprio passo a mostra. Nenhum tour precisou
-  de ordem estática.
-- **O fecho virou passo próprio** (`FIM`, "Tour do app", balão central) nos tours
-  `simples` e `avancado` — antes era a cauda do texto de Configurações, que agora
-  pode cair no meio do tour.
-- **Textos revistos todos:** título = o nome na tela (Preenchimento, Wallpaper,
-  Girar no telão, Refazer, Compartilhar registro, Legenda, + Nova mensagem…);
-  corpo com verbo de ação e o detalhe não óbvio, conferido no código (o
-  Cronograma: toque projeta, segurar arrasta; o Baixar cancela durante o
-  download; Exportar vira compartilhar; o computador recebe por endereço no mesmo
-  Wi-Fi; o sorteio do Fácil já toca; o mudo na pílula).
-- **Seletores mortos consertados:** `GUARDAR` e as opções do Relógio apontavam
-  para `#toolsBody`, mas a linha deles mora no `#toolsFoot` (irmão) — os passos
-  nunca apareciam. O Sorteio ganhou o passo da lista de opções (`textarea.draw-pool`).
-- **API:** `AVTour.passoAtual()` (o oráculo mede o passo NA ORDEM mostrada) e
-  `AVTour.LINHA_PX`.
-- **Oráculo:** `tour.test.mjs` bloco J — 30 tours por tela (Fácil: conexão,
-  controles, tocando e as 7 seções dos dois modos; avançado: o principal e as 20
-  seções que abrem nele), a 390×860 e a 360×640: a faixa não volta para cima e,
-  nela, o `left` não volta. Reversão: com `ordenar()` devolvendo a ordem
-  declarada, o J reprova.
-
----
-
 ## v1.14.2 — o guia de sonoplastia dentro do app (shell 87)
 
 **Pedido do operador (aprovado):** o "Guia de sonoplastia" de Configurações abre
@@ -872,6 +834,32 @@ grade.
 **O arnês** marca os três tours como vistos em todo contexto (`comTour: true`
 desliga); oráculo novo `tools/tour.test.mjs`, revertido (ocupado, volume, `#dia` e
 folga do recorte): reprova sete asserções.
+
+## o guia vira IASD de verdade, e a impressão economiza folhas (sem versão nova; só `site/` e docs)
+
+**O ESTUDO VIROU CONTEÚDO** (Pacote 15 aplicado): **I20 O hinário adventista**
+(1996 e 2022, como citar "NH/HA", apps oficiais, direitos autorais sem parecer
+jurídico), **I21 Música na igreja adventista** (hino congregacional, banda do
+JA, níveis, cantores de referência, links do Ministério da Música e do Manual da
+Igreja) e **I22 O Louvor JA** (rotina, mesma fonte do app). Os programas do
+sábado adventista entraram em D1, D8, I15 e I19 (Escola Sabatina em classes,
+Culto JA, Desbravadores, lava-pés, calendário). **O APP Áudio Visual IASD entra
+como ferramenta especializada, não oficial**: Modo Fácil na trilha D (D2, D4,
+D7, D11) e recursos avançados na I (I12, I13, I15, I20, I22), sempre como opção
+"se a igreja usa o app", com link único no I22.
+
+**A IMPRESSÃO ECONOMIZA FOLHAS** (pedido de verificação do operador): capítulos
+passaram a FLUIR na mesma página (antes cada capítulo abria página nova), a
+medição de página cheia trocou o `scrollHeight` — instável dentro da pilha
+transformada e fonte de páginas quase vazias — pela soma real dos filhos, e
+grupos de título+figura continuam viajando juntos. Completo: 204 páginas
+(mediana de aproveitamento 90%; 28 páginas abaixo de 60%). De caminho, a
+auditoria achou e corrigiu um defeito silencioso que DERRUBAVA listas e blocos
+de problema logo após títulos (a ficha do D11 e vários socorros saíam sem
+conteúdo). As opções de montagem (dobrar/fichário/encadernar) seguem em espera
+no `~/tmp/sono3/y-*` — pedido adiado pelo operador.
+
+---
 
 ## o livreto em três modos e o estudo do guia IASD (sem versão nova; só `site/` e docs)
 
