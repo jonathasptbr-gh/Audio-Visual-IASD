@@ -33,6 +33,7 @@ apagada da que a criou.
 - **o guia de sonoplastia: coesão e conserto dos defeitos (sem versão nova; só `site/` e docs)** — conserta os 2 botões "Para quem quer entender mais" aninhados (I1, I4), o "?" e o "dica Dica" (I23), a frase duplicada do projetor (I13) e a legenda órfã "Em breve"; some a comparação repetida do I23 e a Tabela-resumo do I17; glossário vira índice; D3/D6 e 14 tabelas enxutos
 - **o guia ganha layout dinâmico: tabelas empilhadas e figuras corrigidas (sem versão nova; só `site/` e docs)** — no celular, as 16 tabelas de 3+ colunas empilham com rótulo por linha (no computador seguem tabela); fonte única Roboto/Arial nas figuras; tamanho explícito nos 867 textos que herdavam do CSS; letra mínima de 6,2 para 9 px; estouros corrigidos
 - **o guia: tabela deslizante com setas e quatro figuras consertadas (sem versão nova; só `site/` e docs)** — as 16 tabelas de 3+ colunas voltam a ser tabela e deslizam duas colunas por vez no celular, com setas para os lados (no computador ficam como estão); conserta as figuras do I2, I5, I12 e I13 das fotos do operador
+- **o guia: colunas que não quebram palavra e figuras sem linha sobre texto (sem versão nova; só `site/` e docs)** — tabela deixa de quebrar palavra no meio (`break-word`), a coluna `#` do transporte vira `1 · Repetição` (a tabela fica com 2 colunas), e as figuras do I6 (linhas do 0 e do ruído cortando rótulos), I11 (paralelo, sub) e I12 (2×XLR) são corrigidas
 - **v1.14.2** — o "Guia de sonoplastia" abre DENTRO do app: `abrirGuia` (shell 87), `GuiaSomDialog` em tela cheia sobre a Activity com WebView SEM ponte, cerca `https` + host do site (`GuiaSom.urlDoGuia`, JUnit); casco antigo cai no `openExternal`; `minShell` 83, `shellTag` v1.14.2; APK + web.
 - **v1.14.1** — tours de SEÇÃO (cada janela, folha e gaveta se explica na primeira abertura; o "Tour do app" zera as do modo), o tour do Fácil TOCANDO (letra e teclas) e o halo azul no recorte; guia dentro do app recusado (iframe furaria a invariante 2); só web.
 - **v1.14.0** — o tour guiado: um por estado da tela (conexão com a cortina do Fácil, controles do Fácil, avançado completo), automático uma vez e nunca por cima de diálogo; botões "Tour do app" e "Guia de sonoplastia" (`#dia` no Fácil) em Configurações; só web.
@@ -803,6 +804,31 @@ celular). Só `site/` e docs.
   página, 0 textos sobrepostos; as 11 figuras ainda sinalizadas são os círculos
   de desenho que se tocam de propósito e 3 rótulos com 1–3 px de folga na fonte
   de fallback do Linux).
+
+
+## o guia: colunas que não quebram palavra e figuras sem linha sobre texto (sem versão nova; só `site/` e docs)
+
+Quarto lote da revisão de conteúdo (fotos do celular). Só `site/` e docs.
+
+- **Tabelas:** `overflow-wrap` passa de `anywhere` para `break-word`. Com
+  `anywhere` a coluna podia encolher até uma letra e a tabela quebrava palavras
+  no meio ("Preen/chime/nto"); com `break-word` a coluna respeita a palavra
+  mais longa. A tabela do transporte perde a coluna `#` e a numeração entra no
+  nome (`1 · Repetição`), virando duas colunas que cabem sem deslizar.
+- **I6 (janela de níveis):** as linhas de referência do `0` e do `ruído` iam de
+  cima a baixo e cortavam `fader no talo: sobe o chiado`, `picos perto de 0` e
+  `Ganho baixo`; param na altura da régua e o `0` sai de cima do traço.
+- **I11 (duas caixas):** `ligadas em paralelo (o jeito comum)` cruzava o canto
+  inferior da caixa de baixo; encurtou para `em paralelo (o jeito comum)`.
+- **I11 (subwoofer):** os dois cabos saíam do centro do crossover e atravessavam
+  os rótulos; agora saem pelos cantos do crossover, e o rótulo do sub ganhou
+  folga.
+- **I12 (zumbido):** `2 × XLR` ficava atrás da caixa MESA; virou `2×XLR` em
+  11,5 no vão entre a DI e a mesa.
+- **Medição:** 0 estouros, 0 erros, 0 textos sobrepostos em 320/360/412/1280 px;
+  o detector de linha-sobre-texto aponta 19 figuras, mas a maioria é seta que
+  termina em marcador ou linha que passa por baixo de caixa opaca; as reais
+  foram consertadas (I6, I11, I12).
 
 
 ## v1.14.2 — o guia de sonoplastia dentro do app (shell 87)
