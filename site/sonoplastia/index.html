@@ -119,16 +119,21 @@
   .tabela th { background:var(--panel-2); color:var(--titulo); font-size:.8rem; text-transform:uppercase; letter-spacing:.03em; }
   .tabela.estreita table { min-width:0; }
   .tabela.estreita th, .tabela.estreita td { overflow-wrap:anywhere; }
-  .tabela.estreita th, .tabela.estreita td { overflow-wrap:anywhere; }
+  /* ----- tabela deslizante: duas colunas por vez com setas (celular) ----- */
+  .tabela.desliza { position:relative; overflow:visible; }
+  .tabela.desliza .rolo { overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:10px; scroll-behavior:smooth; }
+  .tabela .tab-seta { position:absolute; top:50%; transform:translateY(-50%); z-index:3; width:2.1rem; height:2.1rem; border:0; border-radius:50%; background:rgba(34,48,61,.8); color:#fff; display:none; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 2px 8px rgba(10,20,30,.28); -webkit-tap-highlight-color:transparent; }
+  .tabela .tab-seta svg { width:1.05rem; height:1.05rem; }
+  .tabela .tab-seta.esq { left:-.45rem; }
+  .tabela .tab-seta.dir { right:-.45rem; }
+  .tabela.tem-mais .tab-seta { display:flex; }
+  .tabela .tab-seta[disabled] { opacity:.32; pointer-events:none; }
   @media (max-width:639px) {
-    .tabela.empilha thead { display:none; }
-    .tabela.empilha table, .tabela.empilha tbody, .tabela.empilha tr, .tabela.empilha td { display:block; }
-    .tabela.empilha tr { padding:.35rem 0; border-bottom:1px solid var(--panel-2); }
-    .tabela.empilha tr:last-child { border-bottom:none; }
-    .tabela.empilha td { border:none; padding:.16rem .05rem; }
-    .tabela.empilha td::before { content:attr(data-label); display:block; font-size:.66rem; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
-    .tabela.empilha td:first-child { font-weight:700; }
+    .tabela.desliza table { table-layout:fixed; width:auto; min-width:0; }
+    .tabela.desliza th, .tabela.desliza td { width:41vw; min-width:41vw; max-width:41vw; white-space:normal; }
+    .tabela.desliza td { overflow-wrap:break-word; }
   }
+  @media (min-width:640px) { .tabela .tab-seta { display:none !important; } }
 
   /* ----- aprofundar (abre e fecha) ----- */
   details.mais { margin:.8rem 0; border:1px solid var(--rule); border-radius:12px; background:#fff; }
@@ -2056,13 +2061,13 @@
     </svg>
     <figcaption>Cada degrau é muito mais forte que o anterior (fora de escala: do microfone à linha são cerca de mil vezes).</figcaption>
   </figure>
-  <div class="tabela empilha estreita"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>Nível</th><th>Quem produz</th><th>Onde ligar na mesa</th></tr></thead>
     <tbody>
-      <tr><td data-label="Nível">Microfone</td><td data-label="Quem produz">Microfones com fio e receptores sem fio (na saída MIC)</td><td data-label="Onde ligar na mesa">Entrada XLR do canal, com ganho</td></tr>
-      <tr><td data-label="Nível">Instrumento</td><td data-label="Quem produz">Violão com captador, guitarra, contrabaixo (passivos)</td><td data-label="Onde ligar na mesa">Pela DI; ou entrada marcada INST/Hi-Z</td></tr>
-      <tr><td data-label="Nível">Linha</td><td data-label="Quem produz">Teclado, computador, celular, interface, saída da mesa</td><td data-label="Onde ligar na mesa">Entrada LINE (P10), ou XLR com ganho baixo / PAD</td></tr>
-      <tr><td data-label="Nível">Alto-falante</td><td data-label="Quem produz">Saída do amplificador</td><td data-label="Onde ligar na mesa"><b>Nunca na mesa</b>: só na caixa passiva</td></tr>
+      <tr><td>Microfone</td><td>Microfones com fio e receptores sem fio (na saída MIC)</td><td>Entrada XLR do canal, com ganho</td></tr>
+      <tr><td>Instrumento</td><td>Violão com captador, guitarra, contrabaixo (passivos)</td><td>Pela DI; ou entrada marcada INST/Hi-Z</td></tr>
+      <tr><td>Linha</td><td>Teclado, computador, celular, interface, saída da mesa</td><td>Entrada LINE (P10), ou XLR com ganho baixo / PAD</td></tr>
+      <tr><td>Alto-falante</td><td>Saída do amplificador</td><td><b>Nunca na mesa</b>: só na caixa passiva</td></tr>
     </tbody>
   </table></div>
     <figure class="ilus">
@@ -2140,12 +2145,12 @@
         <text x="48" y="58" fill="#fff" font-size="13.8" font-weight="700" text-anchor="middle">notebook</text>
         <line x1="86" y1="59" x2="126" y2="59" stroke="#3a3f45" stroke-width="3"/>
         <text x="106" y="52" fill="#55606d" font-size="12.6" text-anchor="middle">USB</text>
-        <rect x="126" y="36" width="84" height="46" rx="8" fill="#2f557f"/>
-        <text x="168" y="56" fill="#fff" font-size="13.8" font-weight="700" text-anchor="middle">INTERFACE</text>
-        <text x="168" y="70" fill="#fff" font-size="12.6" text-anchor="middle">ou mesa digital</text>
-        <line x1="210" y1="55" x2="250" y2="55" stroke="#3a3f45" stroke-width="2.5"/>
-        <line x1="210" y1="67" x2="250" y2="67" stroke="#3a3f45" stroke-width="2.5"/>
-        <text x="230" y="48" fill="#55606d" font-size="12.6" text-anchor="middle">2 × XLR</text>
+        <rect x="126" y="36" width="76" height="46" rx="8" fill="#2f557f"/>
+        <text x="164" y="56" fill="#fff" font-size="13.8" font-weight="700" text-anchor="middle">INTERFACE</text>
+        <text x="164" y="70" fill="#fff" font-size="12.1" text-anchor="middle">mesa digital</text>
+        <line x1="202" y1="55" x2="250" y2="55" stroke="#3a3f45" stroke-width="2.5"/>
+        <line x1="202" y1="67" x2="250" y2="67" stroke="#3a3f45" stroke-width="2.5"/>
+        <text x="226" y="50" fill="#55606d" font-size="11.5" text-anchor="middle">2×XLR</text>
         <rect x="250" y="36" width="80" height="46" rx="6" fill="#3a3f45"/>
         <text font-size="13.8" x="290" y="62" fill="#fff" font-weight="700" text-anchor="middle">MESA</text>
         <text x="8" y="100" fill="#1f7a6d" font-size="13.8" font-weight="700">Som limpo — também grava e transmite a mistura.</text>
@@ -2156,12 +2161,12 @@
         <text x="48" y="134" fill="#fff" font-size="13.8" font-weight="700" text-anchor="middle">notebook</text>
         <line x1="86" y1="135" x2="126" y2="135" stroke="#3a3f45" stroke-width="3"/>
         <text x="106" y="128" fill="#55606d" font-size="12.6" text-anchor="middle">P2</text>
-        <rect x="126" y="112" width="84" height="46" rx="8" fill="#1f7a6d"/>
-        <text x="168" y="132" fill="#fff" font-size="13.8" font-weight="700" text-anchor="middle">DI estéreo</text>
-        <text x="168" y="146" fill="#fff" font-size="12.6" text-anchor="middle">GND LIFT</text>
-        <line x1="210" y1="131" x2="250" y2="131" stroke="#3a3f45" stroke-width="2.5"/>
-        <line x1="210" y1="143" x2="250" y2="143" stroke="#3a3f45" stroke-width="2.5"/>
-        <text x="230" y="124" fill="#55606d" font-size="12.6" text-anchor="middle">2 × XLR</text>
+        <rect x="126" y="112" width="76" height="46" rx="8" fill="#1f7a6d"/>
+        <text x="164" y="132" fill="#fff" font-size="13.2" font-weight="700" text-anchor="middle">DI estéreo</text>
+        <text x="164" y="146" fill="#fff" font-size="12.1" text-anchor="middle">GND LIFT</text>
+        <line x1="202" y1="131" x2="250" y2="131" stroke="#3a3f45" stroke-width="2.5"/>
+        <line x1="202" y1="143" x2="250" y2="143" stroke="#3a3f45" stroke-width="2.5"/>
+        <text x="226" y="126" fill="#55606d" font-size="11.5" text-anchor="middle">2×XLR</text>
         <rect x="250" y="112" width="80" height="46" rx="6" fill="#3a3f45"/>
         <text font-size="13.8" x="290" y="138" fill="#fff" font-weight="700" text-anchor="middle">MESA</text>
         <text x="8" y="176" fill="#1f7a6d" font-size="13.8" font-weight="700">Para cabos longos e fim do zumbido (laço de terra).</text>
@@ -2401,13 +2406,13 @@
     </svg>
     <figcaption>Vale para P10 e P2 (o P1 também existe nas três versões). E = esquerdo, D = direito, + e − = os dois fios do sinal balanceado.</figcaption>
   </figure>
-  <div class="tabela empilha estreita"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>Tipo</th><th>Anéis pretos</th><th>Uso</th></tr></thead>
     <tbody>
-      <tr><td data-label="Tipo"><b>TS</b> (mono)</td><td data-label="Anéis pretos">1</td><td data-label="Uso">Cabo de instrumento (violão, guitarra), entradas mono desbalanceadas</td></tr>
-      <tr><td data-label="Tipo"><b>TRS</b> (estéreo)</td><td data-label="Anéis pretos">2</td><td data-label="Uso">Fone de ouvido (esquerdo + direito), saída P2 do computador</td></tr>
-      <tr><td data-label="Tipo"><b>TRS</b> (balanceado)</td><td data-label="Anéis pretos">2</td><td data-label="Uso">Ligações de linha balanceadas: saídas da mesa, entradas de caixa ativa</td></tr>
-      <tr><td data-label="Tipo"><b>TRRS</b></td><td data-label="Anéis pretos">3</td><td data-label="Uso">Fone de celular com microfone; microfones de lapela para celular</td></tr>
+      <tr><td><b>TS</b> (mono)</td><td>1</td><td>Cabo de instrumento (violão, guitarra), entradas mono desbalanceadas</td></tr>
+      <tr><td><b>TRS</b> (estéreo)</td><td>2</td><td>Fone de ouvido (esquerdo + direito), saída P2 do computador</td></tr>
+      <tr><td><b>TRS</b> (balanceado)</td><td>2</td><td>Ligações de linha balanceadas: saídas da mesa, entradas de caixa ativa</td></tr>
+      <tr><td><b>TRRS</b></td><td>3</td><td>Fone de celular com microfone; microfones de lapela para celular</td></tr>
     </tbody>
   </table></div>
   <div class="box alerta"><b class="box-t">Atenção</b><p>Cabo TS ligado numa saída estéreo pega só um lado (e você perde metade da música). Cabo TRS ligado numa entrada TS funciona, mas desbalanceado. E um microfone de celular (TRRS) no computador ou na mesa costuma não funcionar sem adaptador próprio.</p></div>
@@ -2508,16 +2513,16 @@
 <div class="box perigo"><b class="box-t">Cuidado</b><p><b>Nunca use cabo de instrumento P10 para ligar caixa passiva no amplificador.</b> O fio fino esquenta, pode derreter, perde potência e pode danificar o amplificador. E o contrário também é ruim: cabo de caixa (sem malha) num violão vira uma antena de ruído. Marque os cabos de caixa (fita colorida) para ninguém confundir.</p></div>
 
   <h3 id="i3-vconect">HDMI, VGA, DisplayPort e USB</h3>
-  <div class="tabela empilha estreita"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>Conector</th><th>Para que serve</th><th>Onde aparece</th><th>Cuidado</th></tr></thead>
     <tbody>
-      <tr><td data-label="Conector"><b>HDMI</b></td><td data-label="Para que serve">Vídeo e áudio digitais no mesmo cabo</td><td data-label="Onde aparece">Notebook, projetor, TV, mesa digital de vídeo</td><td data-label="Cuidado">Frágil a puxões; leva o áudio junto (às vezes o som "some" da caixa e vai para a TV)</td></tr>
-      <tr><td data-label="Conector"><b>mini / micro HDMI</b></td><td data-label="Para que serve">O mesmo HDMI, menor</td><td data-label="Onde aparece">Câmeras, tablets, placas pequenas</td><td data-label="Cuidado">Muito frágil; use adaptador curto e apoie o cabo</td></tr>
-      <tr><td data-label="Conector"><b>DisplayPort</b></td><td data-label="Para que serve">Vídeo digital (e áudio)</td><td data-label="Onde aparece">Computadores de mesa, monitores</td><td data-label="Cuidado">Tem trava: aperte o botão para soltar</td></tr>
-      <tr><td data-label="Conector"><b>VGA (DE-15)</b></td><td data-label="Para que serve">Vídeo analógico, sem áudio</td><td data-label="Onde aparece">Projetores e computadores antigos</td><td data-label="Cuidado">Aperte os parafusos; pinos tortos dão cor errada; perde nitidez com distância</td></tr>
-      <tr><td data-label="Conector"><b>USB-A</b></td><td data-label="Para que serve">Dados e energia (lado do computador)</td><td data-label="Onde aparece">Computador, carregador, mesa digital</td><td data-label="Cuidado">Só entra de um jeito; não force</td></tr>
-      <tr><td data-label="Conector"><b>USB-B</b></td><td data-label="Para que serve">Dados (lado do aparelho)</td><td data-label="Onde aparece">Interfaces de áudio, mesas, impressoras</td><td data-label="Cuidado">Cabo USB longo (mais de cerca de 5 m) falha</td></tr>
-      <tr><td data-label="Conector"><b>USB-C</b></td><td data-label="Para que serve">Dados, energia e às vezes vídeo</td><td data-label="Onde aparece">Celulares, notebooks novos, interfaces</td><td data-label="Cuidado">Nem todo cabo USB-C leva vídeo ou dados rápidos</td></tr>
+      <tr><td><b>HDMI</b></td><td>Vídeo e áudio digitais no mesmo cabo</td><td>Notebook, projetor, TV, mesa digital de vídeo</td><td>Frágil a puxões; leva o áudio junto (às vezes o som "some" da caixa e vai para a TV)</td></tr>
+      <tr><td><b>mini / micro HDMI</b></td><td>O mesmo HDMI, menor</td><td>Câmeras, tablets, placas pequenas</td><td>Muito frágil; use adaptador curto e apoie o cabo</td></tr>
+      <tr><td><b>DisplayPort</b></td><td>Vídeo digital (e áudio)</td><td>Computadores de mesa, monitores</td><td>Tem trava: aperte o botão para soltar</td></tr>
+      <tr><td><b>VGA (DE-15)</b></td><td>Vídeo analógico, sem áudio</td><td>Projetores e computadores antigos</td><td>Aperte os parafusos; pinos tortos dão cor errada; perde nitidez com distância</td></tr>
+      <tr><td><b>USB-A</b></td><td>Dados e energia (lado do computador)</td><td>Computador, carregador, mesa digital</td><td>Só entra de um jeito; não force</td></tr>
+      <tr><td><b>USB-B</b></td><td>Dados (lado do aparelho)</td><td>Interfaces de áudio, mesas, impressoras</td><td>Cabo USB longo (mais de cerca de 5 m) falha</td></tr>
+      <tr><td><b>USB-C</b></td><td>Dados, energia e às vezes vídeo</td><td>Celulares, notebooks novos, interfaces</td><td>Nem todo cabo USB-C leva vídeo ou dados rápidos</td></tr>
     </tbody>
   </table></div>
 
@@ -2557,15 +2562,15 @@
   <p>Para ser balanceado, <b>os dois lados</b> precisam ser balanceados (a saída, o cabo e a entrada). Um cabo XLR num microfone dinâmico é balanceado; um cabo P10 TS de violão nunca é.</p>
 
   <h3 id="i3-distancia">Comprimentos práticos</h3>
-  <div class="tabela empilha estreita"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>Ligação</th><th>Até quanto vai bem</th><th>Se precisar ir mais longe</th></tr></thead>
     <tbody>
-      <tr><td data-label="Ligação">Desbalanceado (P10 TS, P2, RCA)</td><td data-label="Até quanto vai bem">Cerca de 5–6 m</td><td data-label="Se precisar ir mais longe">Use DI e siga em XLR</td></tr>
-      <tr><td data-label="Ligação">Balanceado (XLR, P10 TRS)</td><td data-label="Até quanto vai bem">Dezenas de metros sem problema</td><td data-label="Se precisar ir mais longe">Multicabo (medusa) ou mesa digital com stage box</td></tr>
-      <tr><td data-label="Ligação">Cabo de caixa</td><td data-label="Até quanto vai bem">Depende da bitola: quanto mais longe, mais grosso</td><td data-label="Se precisar ir mais longe">Aproximar o amplificador ou usar caixa ativa</td></tr>
-      <tr><td data-label="Ligação">HDMI passivo</td><td data-label="Até quanto vai bem">Cerca de 10–15 m (bons cabos)</td><td data-label="Se precisar ir mais longe">Cabo HDMI ativo/fibra ou extensor por cabo de rede</td></tr>
-      <tr><td data-label="Ligação">VGA</td><td data-label="Até quanto vai bem">Imagem perde nitidez e ganha "fantasma" com a distância</td><td data-label="Se precisar ir mais longe">Cabo de boa qualidade, mais curto, ou trocar por HDMI</td></tr>
-      <tr><td data-label="Ligação">USB 2.0</td><td data-label="Até quanto vai bem">Cerca de 5 m</td><td data-label="Se precisar ir mais longe">Cabo USB ativo (com repetidor)</td></tr>
+      <tr><td>Desbalanceado (P10 TS, P2, RCA)</td><td>Cerca de 5–6 m</td><td>Use DI e siga em XLR</td></tr>
+      <tr><td>Balanceado (XLR, P10 TRS)</td><td>Dezenas de metros sem problema</td><td>Multicabo (medusa) ou mesa digital com stage box</td></tr>
+      <tr><td>Cabo de caixa</td><td>Depende da bitola: quanto mais longe, mais grosso</td><td>Aproximar o amplificador ou usar caixa ativa</td></tr>
+      <tr><td>HDMI passivo</td><td>Cerca de 10–15 m (bons cabos)</td><td>Cabo HDMI ativo/fibra ou extensor por cabo de rede</td></tr>
+      <tr><td>VGA</td><td>Imagem perde nitidez e ganha "fantasma" com a distância</td><td>Cabo de boa qualidade, mais curto, ou trocar por HDMI</td></tr>
+      <tr><td>USB 2.0</td><td>Cerca de 5 m</td><td>Cabo USB ativo (com repetidor)</td></tr>
     </tbody>
   </table></div>
 
@@ -2658,19 +2663,19 @@
   </ul>
 
   <h3 id="i3-resumo">Tabela-resumo</h3>
-  <div class="tabela empilha estreita"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>Conector</th><th>Uso típico</th><th>Balanceado?</th><th>Observação</th></tr></thead>
     <tbody>
-      <tr><td data-label="Conector">XLR</td><td data-label="Uso típico">Microfone, DI, mesa ↔ caixa ativa</td><td data-label="Balanceado?">Sim</td><td data-label="Observação">Trava; sinal sai pelo macho</td></tr>
-      <tr><td data-label="Conector">P10 TS</td><td data-label="Uso típico">Instrumento</td><td data-label="Balanceado?">Não</td><td data-label="Observação">Cabo curto; 1 anel preto</td></tr>
-      <tr><td data-label="Conector">P10 TRS</td><td data-label="Uso típico">Linha balanceada, fone</td><td data-label="Balanceado?">Sim (ou estéreo)</td><td data-label="Observação">2 anéis pretos</td></tr>
-      <tr><td data-label="Conector">P2</td><td data-label="Uso típico">Computador, celular, lapela</td><td data-label="Balanceado?">Não</td><td data-label="Observação">Frágil; TRRS no celular</td></tr>
-      <tr><td data-label="Conector">P1</td><td data-label="Uso típico">Alguns transmissores e rádios</td><td data-label="Balanceado?">Não</td><td data-label="Observação">Raro hoje</td></tr>
-      <tr><td data-label="Conector">RCA</td><td data-label="Uso típico">Áudio doméstico, 2-TRACK</td><td data-label="Balanceado?">Não</td><td data-label="Observação">Vermelho = D, branco = E</td></tr>
-      <tr><td data-label="Conector">Speakon</td><td data-label="Uso típico">Amplificador → caixa passiva</td><td data-label="Balanceado?">— (potência)</td><td data-label="Observação">Só cabo de caixa</td></tr>
-      <tr><td data-label="Conector">HDMI</td><td data-label="Uso típico">Vídeo + áudio digital</td><td data-label="Balanceado?">— (digital)</td><td data-label="Observação">Passivo até cerca de 10–15 m</td></tr>
-      <tr><td data-label="Conector">VGA</td><td data-label="Uso típico">Vídeo analógico</td><td data-label="Balanceado?">—</td><td data-label="Observação">Sem áudio; parafusos</td></tr>
-      <tr><td data-label="Conector">USB</td><td data-label="Uso típico">Dados, interface, mesa digital</td><td data-label="Balanceado?">— (digital)</td><td data-label="Observação">Até cerca de 5 m (USB 2.0)</td></tr>
+      <tr><td>XLR</td><td>Microfone, DI, mesa ↔ caixa ativa</td><td>Sim</td><td>Trava; sinal sai pelo macho</td></tr>
+      <tr><td>P10 TS</td><td>Instrumento</td><td>Não</td><td>Cabo curto; 1 anel preto</td></tr>
+      <tr><td>P10 TRS</td><td>Linha balanceada, fone</td><td>Sim (ou estéreo)</td><td>2 anéis pretos</td></tr>
+      <tr><td>P2</td><td>Computador, celular, lapela</td><td>Não</td><td>Frágil; TRRS no celular</td></tr>
+      <tr><td>P1</td><td>Alguns transmissores e rádios</td><td>Não</td><td>Raro hoje</td></tr>
+      <tr><td>RCA</td><td>Áudio doméstico, 2-TRACK</td><td>Não</td><td>Vermelho = D, branco = E</td></tr>
+      <tr><td>Speakon</td><td>Amplificador → caixa passiva</td><td>— (potência)</td><td>Só cabo de caixa</td></tr>
+      <tr><td>HDMI</td><td>Vídeo + áudio digital</td><td>— (digital)</td><td>Passivo até cerca de 10–15 m</td></tr>
+      <tr><td>VGA</td><td>Vídeo analógico</td><td>—</td><td>Sem áudio; parafusos</td></tr>
+      <tr><td>USB</td><td>Dados, interface, mesa digital</td><td>— (digital)</td><td>Até cerca de 5 m (USB 2.0)</td></tr>
     </tbody>
   </table></div>
   <details class="mais"><summary>Para quem quer entender mais</summary>
@@ -2762,14 +2767,14 @@
   </ul>
 
   <h3 id="i4-formatos">De mão, lapela, headset e outros</h3>
-  <div class="tabela empilha estreita"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>Tipo</th><th>Bom para</th><th>Atenção</th></tr></thead>
     <tbody>
-      <tr><td data-label="Tipo"><b>De mão</b></td><td data-label="Bom para">Cantores, avisos, quem anda pelo palco</td><td data-label="Atenção">Depende de a pessoa segurar perto da boca</td></tr>
-      <tr><td data-label="Tipo"><b>Lapela</b></td><td data-label="Bom para">Pregador que gesticula e anda; batismo; entrevistas</td><td data-label="Atenção">Fica longe da boca: precisa de mais ganho e microfonia aparece antes. Prenda no peito, a cerca de um palmo do queixo, do lado para onde a pessoa vira mais</td></tr>
-      <tr><td data-label="Tipo"><b>Headset</b> (de cabeça)</td><td data-label="Bom para">Pregador ou cantor que se movimenta</td><td data-label="Atenção">Cápsula perto do canto da boca, sem encostar (evita sopro). Bom ganho antes da microfonia</td></tr>
-      <tr><td data-label="Tipo"><b>Gooseneck</b> (pescoço de ganso, de púlpito)</td><td data-label="Bom para">Púlpito, mesa de diretoria</td><td data-label="Atenção">Aponte para a boca, a cerca de um palmo. Quem fala precisa ficar na frente dele</td></tr>
-      <tr><td data-label="Tipo"><b>Ambiente / coral</b></td><td data-label="Bom para">Coral, gravação, transmissão</td><td data-label="Atenção">Normalmente condensador: precisa de 48V e capta tudo, inclusive caixas</td></tr>
+      <tr><td><b>De mão</b></td><td>Cantores, avisos, quem anda pelo palco</td><td>Depende de a pessoa segurar perto da boca</td></tr>
+      <tr><td><b>Lapela</b></td><td>Pregador que gesticula e anda; batismo; entrevistas</td><td>Fica longe da boca: precisa de mais ganho e microfonia aparece antes. Prenda no peito, a cerca de um palmo do queixo, do lado para onde a pessoa vira mais</td></tr>
+      <tr><td><b>Headset</b> (de cabeça)</td><td>Pregador ou cantor que se movimenta</td><td>Cápsula perto do canto da boca, sem encostar (evita sopro). Bom ganho antes da microfonia</td></tr>
+      <tr><td><b>Gooseneck</b> (pescoço de ganso, de púlpito)</td><td>Púlpito, mesa de diretoria</td><td>Aponte para a boca, a cerca de um palmo. Quem fala precisa ficar na frente dele</td></tr>
+      <tr><td><b>Ambiente / coral</b></td><td>Coral, gravação, transmissão</td><td>Normalmente condensador: precisa de 48V e capta tudo, inclusive caixas</td></tr>
     </tbody>
   </table></div>
 
@@ -3094,8 +3099,8 @@
       <text x="306" y="54" fill="#d23c32" font-size="12.6" font-weight="700">CLIP</text>
       <line x1="100" y1="94" x2="100" y2="62" stroke="#8d97a1" stroke-width="1.5"/>
       <text x="100" y="108" fill="#55606d" font-size="13.8" text-anchor="middle">fala e música</text>
-      <line x1="222" y1="94" x2="222" y2="62" stroke="#8d97a1" stroke-width="1.5"/>
-      <text x="222" y="108" fill="#55606d" font-size="13.8" text-anchor="middle">picos fortes</text>
+      <line x1="206" y1="94" x2="206" y2="62" stroke="#8d97a1" stroke-width="1.5"/>
+      <text x="206" y="108" fill="#55606d" font-size="13.2" text-anchor="middle">picos fortes</text>
       <line x1="288" y1="94" x2="274" y2="62" stroke="#d23c32" stroke-width="1.5"/>
       <text x="300" y="108" fill="#d23c32" font-size="13.8" font-weight="700" text-anchor="end">distorce</text>
       <text x="170" y="130" fill="#55606d" font-size="13.8" text-anchor="middle">Mesa digital: picos por volta de −18 a −10 (dBFS).</text>
@@ -3276,16 +3281,16 @@
     </svg>
     <figcaption>Exemplo típico para voz: HPF tirando o grave, um corte leve no embolado e um realce pequeno na presença. Regiões aproximadas.</figcaption>
   </figure>
-  <div class="tabela empilha estreita"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>Faixa (aprox.)</th><th>Nome / sintoma</th><th>O que fazer</th></tr></thead>
     <tbody>
-      <tr><td data-label="Faixa (aprox.)">Abaixo de 80–120 Hz</td><td data-label="Nome / sintoma">Ronco, pisadas, sopro, "pum" no microfone</td><td data-label="O que fazer">HPF ligado em vozes e na maioria dos instrumentos</td></tr>
-      <tr><td data-label="Faixa (aprox.)">200–400 Hz</td><td data-label="Nome / sintoma"><b>Embolado</b>, "barrento", sem definição</td><td data-label="O que fazer">Corte leve (−2 a −4 dB) quando muitos instrumentos somam ali</td></tr>
-      <tr><td data-label="Faixa (aprox.)">500 Hz–1 kHz</td><td data-label="Nome / sintoma"><b>Anasalado</b>, som de "dentro de caixa" ou de telefone</td><td data-label="O que fazer">Corte leve, procurando o ponto exato</td></tr>
-      <tr><td data-label="Faixa (aprox.)">2–5 kHz</td><td data-label="Nome / sintoma"><b>Presença</b>, clareza das palavras</td><td data-label="O que fazer">Realce pequeno para a voz "aparecer"</td></tr>
-      <tr><td data-label="Faixa (aprox.)">2–4 kHz (em excesso)</td><td data-label="Nome / sintoma"><b>Estridente</b>, "ardido", cansa o ouvido</td><td data-label="O que fazer">Cortar; é a região mais sensível do ouvido</td></tr>
-      <tr><td data-label="Faixa (aprox.)">5–8 kHz</td><td data-label="Nome / sintoma"><b>Sibilância</b>: "s" e "x" chiando</td><td data-label="O que fazer">Corte leve; ou afastar/inclinar um pouco o microfone</td></tr>
-      <tr><td data-label="Faixa (aprox.)">10 kHz em diante</td><td data-label="Nome / sintoma"><b>Ar</b>, brilho, "abertura"</td><td data-label="O que fazer">Realce suave com o HI; cuidado com o chiado</td></tr>
+      <tr><td>Abaixo de 80–120 Hz</td><td>Ronco, pisadas, sopro, "pum" no microfone</td><td>HPF ligado em vozes e na maioria dos instrumentos</td></tr>
+      <tr><td>200–400 Hz</td><td><b>Embolado</b>, "barrento", sem definição</td><td>Corte leve (−2 a −4 dB) quando muitos instrumentos somam ali</td></tr>
+      <tr><td>500 Hz–1 kHz</td><td><b>Anasalado</b>, som de "dentro de caixa" ou de telefone</td><td>Corte leve, procurando o ponto exato</td></tr>
+      <tr><td>2–5 kHz</td><td><b>Presença</b>, clareza das palavras</td><td>Realce pequeno para a voz "aparecer"</td></tr>
+      <tr><td>2–4 kHz (em excesso)</td><td><b>Estridente</b>, "ardido", cansa o ouvido</td><td>Cortar; é a região mais sensível do ouvido</td></tr>
+      <tr><td>5–8 kHz</td><td><b>Sibilância</b>: "s" e "x" chiando</td><td>Corte leve; ou afastar/inclinar um pouco o microfone</td></tr>
+      <tr><td>10 kHz em diante</td><td><b>Ar</b>, brilho, "abertura"</td><td>Realce suave com o HI; cuidado com o chiado</td></tr>
     </tbody>
   </table></div>
 
@@ -3436,13 +3441,13 @@
   <div class="box teoria"><b class="box-t">Por quê? Ganho antes da microfonia</b><p>Existe um limite de quanto você pode amplificar cada microfone antes de ele começar a apitar. Esse limite fica maior quando a boca está perto, a caixa está longe e o microfone está de costas para ela. Você não "vence" a microfonia com equipamento caro; vence com posição.</p></div>
 
   <h3 id="i8-ouvido">Reconhecer de ouvido</h3>
-  <div class="tabela empilha estreita"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>O que se ouve</th><th>Região aproximada</th><th>Onde costuma nascer</th></tr></thead>
     <tbody>
-      <tr><td data-label="O que se ouve">"Uuuu", ronco grave</td><td data-label="Região aproximada">Cerca de 100–300 Hz</td><td data-label="Onde costuma nascer">Retornos de chão, microfone de púlpito com muito grave, sala ressonante</td></tr>
-      <tr><td data-label="O que se ouve">"Ooo" / "ééé", tom médio</td><td data-label="Região aproximada">Cerca de 300 Hz–1 kHz</td><td data-label="Onde costuma nascer">Lapela, gooseneck longe da boca</td></tr>
-      <tr><td data-label="O que se ouve">"Iiii", apito agudo</td><td data-label="Região aproximada">Cerca de 2–5 kHz</td><td data-label="Onde costuma nascer">Microfone apontado para a caixa, condensador, retorno alto</td></tr>
-      <tr><td data-label="O que se ouve">"Ssss", chiado muito agudo</td><td data-label="Região aproximada">Acima de cerca de 6 kHz</td><td data-label="Onde costuma nascer">Condensador com muito agudo; menos comum</td></tr>
+      <tr><td>"Uuuu", ronco grave</td><td>Cerca de 100–300 Hz</td><td>Retornos de chão, microfone de púlpito com muito grave, sala ressonante</td></tr>
+      <tr><td>"Ooo" / "ééé", tom médio</td><td>Cerca de 300 Hz–1 kHz</td><td>Lapela, gooseneck longe da boca</td></tr>
+      <tr><td>"Iiii", apito agudo</td><td>Cerca de 2–5 kHz</td><td>Microfone apontado para a caixa, condensador, retorno alto</td></tr>
+      <tr><td>"Ssss", chiado muito agudo</td><td>Acima de cerca de 6 kHz</td><td>Condensador com muito agudo; menos comum</td></tr>
     </tbody>
   </table></div>
     <figure class="ilus">
@@ -3824,14 +3829,14 @@
     <figcaption>Cada barra é o volume num instante. Em verde, os picos que o compressor reduziu (aqui, RATIO 4:1).</figcaption>
   </figure>
   <p>Os quatro ajustes principais aparecem com estes nomes em quase todo compressor:</p>
-  <div class="tabela empilha estreita"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>Botão</th><th>O que faz</th><th>Para voz, comece com</th></tr></thead>
     <tbody>
-      <tr><td data-label="Botão"><b>THRESHOLD</b> (limiar)</td><td data-label="O que faz">A partir de que volume o compressor começa a agir.</td><td data-label="Para voz, comece com">Baixe até a luz de redução (GR) acender só nas partes mais fortes.</td></tr>
-      <tr><td data-label="Botão"><b>RATIO</b> (proporção)</td><td data-label="O que faz">Quanto ele reduz o que passou do limiar. 3:1 = a cada 3 dB acima, só 1 dB passa.</td><td data-label="Para voz, comece com">Cerca de 2:1 a 4:1 (3:1 é um bom começo).</td></tr>
-      <tr><td data-label="Botão"><b>ATTACK</b> (ataque)</td><td data-label="O que faz">Quão rápido ele começa a agir depois que o som passa do limiar.</td><td data-label="Para voz, comece com">Cerca de 10 a 20 ms.</td></tr>
-      <tr><td data-label="Botão"><b>RELEASE</b> (soltura)</td><td data-label="O que faz">Quão rápido ele “solta” quando o som volta a ficar baixo.</td><td data-label="Para voz, comece com">Cerca de 100 a 200 ms, ou AUTO se houver.</td></tr>
-      <tr><td data-label="Botão"><b>GAIN / MAKE-UP</b></td><td data-label="O que faz">Devolve o volume perdido com a compressão.</td><td data-label="Para voz, comece com">Igual ou um pouco menor que a redução média.</td></tr>
+      <tr><td><b>THRESHOLD</b> (limiar)</td><td>A partir de que volume o compressor começa a agir.</td><td>Baixe até a luz de redução (GR) acender só nas partes mais fortes.</td></tr>
+      <tr><td><b>RATIO</b> (proporção)</td><td>Quanto ele reduz o que passou do limiar. 3:1 = a cada 3 dB acima, só 1 dB passa.</td><td>Cerca de 2:1 a 4:1 (3:1 é um bom começo).</td></tr>
+      <tr><td><b>ATTACK</b> (ataque)</td><td>Quão rápido ele começa a agir depois que o som passa do limiar.</td><td>Cerca de 10 a 20 ms.</td></tr>
+      <tr><td><b>RELEASE</b> (soltura)</td><td>Quão rápido ele “solta” quando o som volta a ficar baixo.</td><td>Cerca de 100 a 200 ms, ou AUTO se houver.</td></tr>
+      <tr><td><b>GAIN / MAKE-UP</b></td><td>Devolve o volume perdido com a compressão.</td><td>Igual ou um pouco menor que a redução média.</td></tr>
     </tbody>
   </table></div>
   <figure class="ilus">
@@ -4037,12 +4042,12 @@
 
   <h3 id="i11-cabos">Cabo de caixa não é cabo de sinal</h3>
   <p>Entre o amplificador e a caixa passiva passa muita corrente. O <b>cabo de caixa</b> tem dois fios grossos e <b>sem malha</b>. O <b>cabo de sinal</b> (de microfone ou instrumento) tem fios finos e uma malha de blindagem (veja I3). Um não substitui o outro.</p>
-  <div class="tabela empilha estreita"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>Conector</th><th>Onde aparece</th><th>Observação</th></tr></thead>
     <tbody>
-      <tr><td data-label="Conector"><b>Speakon</b></td><td data-label="Onde aparece">Caixas e amplificadores profissionais</td><td data-label="Observação">Trava girando. O mais seguro: não solta e não encosta em entrada de sinal.</td></tr>
-      <tr><td data-label="Conector"><b>Banana / borne</b></td><td data-label="Onde aparece">Amplificadores e caixas mais simples</td><td data-label="Observação">Borne de parafuso com fio desencapado: aperte bem e não deixe fiapo encostando no vizinho.</td></tr>
-      <tr><td data-label="Conector"><b>P10 de caixa</b></td><td data-label="Onde aparece">Equipamentos antigos ou baratos</td><td data-label="Observação">Parece um cabo de instrumento. Etiquete: trocar um pelo outro dá ruído, perda e risco.</td></tr>
+      <tr><td><b>Speakon</b></td><td>Caixas e amplificadores profissionais</td><td>Trava girando. O mais seguro: não solta e não encosta em entrada de sinal.</td></tr>
+      <tr><td><b>Banana / borne</b></td><td>Amplificadores e caixas mais simples</td><td>Borne de parafuso com fio desencapado: aperte bem e não deixe fiapo encostando no vizinho.</td></tr>
+      <tr><td><b>P10 de caixa</b></td><td>Equipamentos antigos ou baratos</td><td>Parece um cabo de instrumento. Etiquete: trocar um pelo outro dá ruído, perda e risco.</td></tr>
     </tbody>
   </table></div>
   <div class="box perigo"><b class="box-t">Cuidado</b><p>Nunca ligue a saída de um amplificador numa entrada de mesa, de caixa ativa ou de computador: a tensão alta queima a entrada. E não deixe as pontas de um cabo de caixa se tocarem com o amplificador ligado (curto-circuito).</p></div>
@@ -4135,12 +4140,12 @@
   <p class="resumo">Como levar o som do computador até a mesa sem ruído e deixar o Windows pronto para não atrapalhar o culto.</p>
 
   <h3 id="i12-saidas">As saídas de áudio do computador</h3>
-  <div class="tabela empilha estreita"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>Saída</th><th>Como é</th><th>Comentário</th></tr></thead>
     <tbody>
-      <tr><td data-label="Saída"><b>Fone (P2)</b></td><td data-label="Como é">Furo redondo de 3,5 mm, às vezes com desenho de fone</td><td data-label="Comentário">A mais comum. Funciona bem, mas é a que mais pega zumbido e chiado.</td></tr>
-      <tr><td data-label="Saída"><b>HDMI</b></td><td data-label="Como é">O mesmo cabo que leva a imagem</td><td data-label="Comentário">Leva o som junto para a TV ou o projetor (veja I13). Bom para a TV tocar sozinha; ruim se o som deve ir para a mesa.</td></tr>
-      <tr><td data-label="Saída"><b>Interface USB</b></td><td data-label="Como é">Caixinha externa ligada na USB, com saídas P10 ou XLR</td><td data-label="Comentário">A melhor opção: som mais limpo, nível certo para a mesa e menos ruído.</td></tr>
+      <tr><td><b>Fone (P2)</b></td><td>Furo redondo de 3,5 mm, às vezes com desenho de fone</td><td>A mais comum. Funciona bem, mas é a que mais pega zumbido e chiado.</td></tr>
+      <tr><td><b>HDMI</b></td><td>O mesmo cabo que leva a imagem</td><td>Leva o som junto para a TV ou o projetor (veja I13). Bom para a TV tocar sozinha; ruim se o som deve ir para a mesa.</td></tr>
+      <tr><td><b>Interface USB</b></td><td>Caixinha externa ligada na USB, com saídas P10 ou XLR</td><td>A melhor opção: som mais limpo, nível certo para a mesa e menos ruído.</td></tr>
     </tbody>
   </table></div>
 
@@ -4158,8 +4163,8 @@
         <rect x="10" y="40" width="64" height="40" rx="4" fill="#3a3f45"/>
         <text font-size="13.8" x="42" y="64" fill="#fff" font-weight="700" text-anchor="middle">PC</text>
         <line x1="74" y1="54" x2="152" y2="54" stroke="#3a3f45" stroke-width="2.5"/>
-        <line x1="152" y1="48" x2="250" y2="50" stroke="#3a3f45" stroke-width="2.5"/>
-        <line x1="152" y1="60" x2="250" y2="66" stroke="#3a3f45" stroke-width="2.5"/>
+        <line x1="152" y1="52" x2="250" y2="52" stroke="#3a3f45" stroke-width="2.5"/>
+        <line x1="152" y1="64" x2="250" y2="64" stroke="#3a3f45" stroke-width="2.5"/>
         <rect x="250" y="40" width="80" height="44" rx="6" fill="#3a3f45"/>
         <text font-size="13.8" x="290" y="66" fill="#fff" font-weight="700" text-anchor="middle">MESA</text>
         <text x="8" y="102" fill="#22303d" font-weight="700" font-size="15">P2 → 2 × P10</text>
@@ -4169,7 +4174,7 @@
         <rect x="10" y="132" width="64" height="40" rx="4" fill="#3a3f45"/>
         <text font-size="13.8" x="42" y="156" fill="#fff" font-weight="700" text-anchor="middle">PC</text>
         <line x1="74" y1="152" x2="112" y2="152" stroke="#3a3f45" stroke-width="2.5"/>
-        <rect x="112" y="132" width="84" height="44" rx="6" fill="#2f557f"/>
+        <rect x="112" y="132" width="84" height="50" rx="6" fill="#2f557f"/>
         <text x="154" y="152" fill="#fff" font-weight="700" font-size="13.8" text-anchor="middle">DI estéreo</text>
         <text x="154" y="167" fill="#fff" font-size="11.5" text-anchor="middle">GND LIFT</text>
         <line x1="196" y1="146" x2="250" y2="146" stroke="#3a3f45" stroke-width="2.5"/>
@@ -4183,7 +4188,7 @@
         <rect x="10" y="224" width="64" height="40" rx="4" fill="#3a3f45"/>
         <text font-size="13.8" x="42" y="248" fill="#fff" font-weight="700" text-anchor="middle">PC</text>
         <line x1="74" y1="244" x2="122" y2="244" stroke="#3a3f45" stroke-width="2.5"/>
-        <rect x="122" y="224" width="96" height="44" rx="6" fill="#1f7a6d"/>
+        <rect x="122" y="224" width="96" height="50" rx="6" fill="#1f7a6d"/>
         <text x="170" y="243" fill="#fff" font-weight="700" font-size="13.8" text-anchor="middle">interface USB</text>
         <text x="170" y="257" fill="#fff" font-size="11.5" text-anchor="middle">ou mesa digital</text>
         <line x1="218" y1="244" x2="250" y2="244" stroke="#3a3f45" stroke-width="2.5"/>
@@ -4627,35 +4632,33 @@
     <li><b>Roteiro de teste:</b> uma vez por semana (ou antes do evento): liga o computador → a imagem aparece? → o som aparece? → a entrada certa do telão está selecionada? Anote a ordem em que as coisas ligam.</li>
   </ul>
   <figure class="ilus">
-    <svg viewBox="0 0 340 232" role="img" aria-label="Planta do templo: o cabo de vídeo vai da mesa do operador até o projetor com folga, etiquetas nas duas pontas e calha de proteção no trecho de passagem">
+    <svg viewBox="0 0 340 232" role="img" aria-label="Planta do templo: o cabo de vídeo vai da mesa do operador até o projetor com folga, marcadores 1 e 2 nas duas pontas (mesmo nome nos dois lados) e calha de proteção no trecho de passagem">
       <g font-family="system-ui, sans-serif" font-size="13.8" fill="#22303d">
         <text font-size="13.8" x="170" y="16" text-anchor="middle" font-weight="700">Cabeamento no templo (visto de cima)</text>
         <rect x="40" y="30" width="260" height="110" fill="#eef2f6" stroke="#22303d" stroke-width="2"/>
-        <rect x="40" y="30" width="70" height="110" fill="#d3dae2" stroke="#22303d" stroke-width="2"/>
-        <text font-size="13.8" x="75" y="90" text-anchor="middle" fill="#55606d">palco</text>
+        <rect x="40" y="30" width="80" height="110" fill="#d3dae2" stroke="#22303d" stroke-width="2"/>
+        <text font-size="13.2" x="86" y="90" text-anchor="middle" fill="#55606d">palco</text>
         <rect x="52" y="44" width="6" height="80" fill="#22303d"/>
-        <text font-size="13.8" x="55" y="140" text-anchor="middle" fill="#55606d">telão</text>
+        <text font-size="13.2" x="55" y="132" text-anchor="middle" fill="#55606d">telão</text>
         <g stroke="#8d97a1" stroke-width="2"><line x1="126" y1="46" x2="250" y2="46"/><line x1="126" y1="66" x2="250" y2="66"/><line x1="126" y1="86" x2="250" y2="86"/><line x1="126" y1="106" x2="250" y2="106"/><line x1="126" y1="126" x2="250" y2="126"/></g>
         <rect x="150" y="72" width="60" height="20" rx="3" fill="#2f557f"/>
         <text font-size="13.8" x="180" y="86" text-anchor="middle" fill="#fff">projetor</text>
-        <rect x="252" y="150" width="44" height="26" rx="3" fill="#3a3f45"/>
-        <text font-size="13.8" x="274" y="167" text-anchor="middle" fill="#fff">mesa</text>
+        <rect x="252" y="146" width="44" height="24" rx="3" fill="#3a3f45"/>
+        <text font-size="13.2" x="274" y="162" text-anchor="middle" fill="#fff">mesa</text>
         <path d="M252 160 C 220 160, 216 122, 196 122 L 178 122 C 170 122, 168 96, 168 94" fill="none" stroke="#1f7a6d" stroke-width="3"/>
         <rect x="180" y="104" width="56" height="14" fill="#ffffff" stroke="#8d97a1"/>
         <g stroke="#8d97a1" stroke-width="1.5"><line x1="184" y1="104" x2="188" y2="118"/><line x1="192" y1="104" x2="196" y2="118"/><line x1="200" y1="104" x2="204" y2="118"/><line x1="208" y1="104" x2="212" y2="118"/><line x1="216" y1="104" x2="220" y2="118"/><line x1="224" y1="104" x2="228" y2="118"/><line x1="232" y1="104" x2="236" y2="118"/></g>
         <text font-size="13.8" x="208" y="132" text-anchor="middle" fill="#55606d">calha onde o povo pisa</text>
-        <rect x="238" y="134" width="58" height="16" rx="2" fill="#c9a227"/>
-        <text font-size="13.8" x="267" y="146" text-anchor="middle">etiqueta</text>
-        <line x1="267" y1="134" x2="260" y2="126" stroke="#c9a227" stroke-width="1.5"/>
-        <rect x="118" y="96" width="58" height="16" rx="2" fill="#c9a227"/>
-        <text font-size="13.8" x="147" y="108" text-anchor="middle">etiqueta</text>
-        <line x1="147" y1="112" x2="164" y2="98" stroke="#c9a227" stroke-width="1.5"/>
-        <text font-size="12.6" x="170" y="180" text-anchor="middle" fill="#55606d">Folga nas duas pontas e no caminho: cabo esticado quebra.</text>
-        <text font-size="13.8" x="170" y="198" text-anchor="middle" fill="#55606d">Teste semanal: imagem? som? entrada certa no telão?</text>
-        <text font-size="13.8" x="170" y="216" text-anchor="middle" fill="#55606d">Cabo reserva, já testado, na caixa de cabos.</text>
+        <circle cx="168" cy="110" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/>
+        <text font-size="12.6" x="168" y="114.5" text-anchor="middle" font-weight="800" fill="#22303d">1</text>
+        <circle cx="240" cy="160" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/>
+        <text font-size="12.6" x="240" y="164.5" text-anchor="middle" font-weight="800" fill="#22303d">2</text>
+        <text font-size="12.6" x="170" y="186" text-anchor="middle" fill="#55606d">Folga nas duas pontas e no caminho: cabo esticado quebra.</text>
+        <text font-size="13.2" x="170" y="204" text-anchor="middle" fill="#55606d">Teste semanal: imagem? som? entrada certa no telão?</text>
+        <text font-size="13.2" x="170" y="222" text-anchor="middle" fill="#55606d">Cabo reserva, já testado, na caixa de cabos.</text>
       </g>
     </svg>
-    <figcaption>A etiqueta nas duas pontas economiza meia hora no dia do problema.</figcaption>
+    <figcaption>O mesmo nome nas duas pontas (1 projetor, 2 mesa) economiza meia hora no dia do problema.</figcaption>
   </figure>
 
   <h3 id="i13-cuidados">Cuidados com o projetor</h3>
@@ -4906,18 +4909,18 @@
 
   <h3 id="i16-patch">Mapa de ligações (patch list)</h3>
   <p>O <b>mapa de ligações</b> diz o que está ligado em cada canal da mesa. Cole uma cópia perto da mesa e use fita crepe com os nomes acima dos faders. Exemplo:</p>
-  <div class="tabela empilha estreita"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>Canal</th><th>Fonte</th><th>Equipamento / cabo</th><th>Observação</th></tr></thead>
     <tbody>
-      <tr><td data-label="Canal">1</td><td data-label="Fonte">Púlpito</td><td data-label="Equipamento / cabo">Microfone de púlpito · XLR 10 m (azul)</td><td data-label="Observação">PHANTOM ligado</td></tr>
-      <tr><td data-label="Canal">2</td><td data-label="Fonte">Sem fio 1</td><td data-label="Equipamento / cabo">Receptor 1 · XLR 1 m</td><td data-label="Observação">Pregador</td></tr>
-      <tr><td data-label="Canal">3</td><td data-label="Fonte">Sem fio 2</td><td data-label="Equipamento / cabo">Receptor 2 · XLR 1 m</td><td data-label="Observação">Avisos / dirigente</td></tr>
-      <tr><td data-label="Canal">4–5</td><td data-label="Fonte">Vozes</td><td data-label="Equipamento / cabo">Microfones de mão · XLR 5 m</td><td data-label="Observação">Retorno AUX 1</td></tr>
-      <tr><td data-label="Canal">6</td><td data-label="Fonte">Violão</td><td data-label="Equipamento / cabo">DI · XLR 10 m (vermelho)</td><td data-label="Observação">—</td></tr>
-      <tr><td data-label="Canal">7–8</td><td data-label="Fonte">Teclado L/R</td><td data-label="Equipamento / cabo">2 × P10 → DI estéreo</td><td data-label="Observação">Retorno AUX 2</td></tr>
-      <tr><td data-label="Canal">9–10</td><td data-label="Fonte">Computador</td><td data-label="Equipamento / cabo">DI estéreo · GND LIFT</td><td data-label="Observação">Volume do Windows ~90%</td></tr>
-      <tr><td data-label="Canal">AUX 1</td><td data-label="Fonte">Retorno vozes</td><td data-label="Equipamento / cabo">Caixa ativa de chão</td><td data-label="Observação">Pré-fader</td></tr>
-      <tr><td data-label="Canal">AUX 2</td><td data-label="Fonte">Retorno banda</td><td data-label="Equipamento / cabo">Caixa ativa de chão</td><td data-label="Observação">Pré-fader</td></tr>
+      <tr><td>1</td><td>Púlpito</td><td>Microfone de púlpito · XLR 10 m (azul)</td><td>PHANTOM ligado</td></tr>
+      <tr><td>2</td><td>Sem fio 1</td><td>Receptor 1 · XLR 1 m</td><td>Pregador</td></tr>
+      <tr><td>3</td><td>Sem fio 2</td><td>Receptor 2 · XLR 1 m</td><td>Avisos / dirigente</td></tr>
+      <tr><td>4–5</td><td>Vozes</td><td>Microfones de mão · XLR 5 m</td><td>Retorno AUX 1</td></tr>
+      <tr><td>6</td><td>Violão</td><td>DI · XLR 10 m (vermelho)</td><td>—</td></tr>
+      <tr><td>7–8</td><td>Teclado L/R</td><td>2 × P10 → DI estéreo</td><td>Retorno AUX 2</td></tr>
+      <tr><td>9–10</td><td>Computador</td><td>DI estéreo · GND LIFT</td><td>Volume do Windows ~90%</td></tr>
+      <tr><td>AUX 1</td><td>Retorno vozes</td><td>Caixa ativa de chão</td><td>Pré-fader</td></tr>
+      <tr><td>AUX 2</td><td>Retorno banda</td><td>Caixa ativa de chão</td><td>Pré-fader</td></tr>
     </tbody>
   </table></div>
   <div class="box dica"><b class="box-t">Dica</b><p>Mantenha o mesmo mapa toda semana. Quando todo mundo sabe que “o púlpito é o canal 1”, ninguém se perde, nem o voluntário novo.</p></div>
@@ -5879,14 +5882,14 @@
      </svg>
      <figcaption>São referências técnicas genéricas, não norma da igreja. O medidor do celular serve — na plateia.</figcaption>
    </figure>
-   <div class="tabela empilha estreita"><table>
+   <div class="tabela estreita"><table>
      <thead><tr><th>Momento</th><th>Alvo (média, dBA)</th><th>Regra</th></tr></thead>
      <tbody>
-       <tr><td data-label="Momento">Estudo da lição / oração</td><td data-label="Alvo (média, dBA)">60–70</td><td data-label="Regra">só a voz; música de fundo bem baixa</td></tr>
-       <tr><td data-label="Momento">Ofertório instrumental</td><td data-label="Alvo (média, dBA)">65–75</td><td data-label="Regra">abaixo da voz de quem dirige</td></tr>
-       <tr><td data-label="Momento">Sermão</td><td data-label="Alvo (média, dBA)">65–75</td><td data-label="Regra">voz clara e natural</td></tr>
-       <tr><td data-label="Momento">Louvor congregacional</td><td data-label="Alvo (média, dBA)">75–85</td><td data-label="Regra">pico até ~90, sem incomodar</td></tr>
-       <tr><td data-label="Momento">Culto JA com banda</td><td data-label="Alvo (média, dBA)">85–90</td><td data-label="Regra">medir na plateia; pausas de descanso</td></tr>
+       <tr><td>Estudo da lição / oração</td><td>60–70</td><td>só a voz; música de fundo bem baixa</td></tr>
+       <tr><td>Ofertório instrumental</td><td>65–75</td><td>abaixo da voz de quem dirige</td></tr>
+       <tr><td>Sermão</td><td>65–75</td><td>voz clara e natural</td></tr>
+       <tr><td>Louvor congregacional</td><td>75–85</td><td>pico até ~90, sem incomodar</td></tr>
+       <tr><td>Culto JA com banda</td><td>85–90</td><td>medir na plateia; pausas de descanso</td></tr>
      </tbody>
    </table></div>
 
@@ -5957,15 +5960,15 @@
   <p>O <b>Modo Fácil</b> (na tela do app: "Modo simples") é para quem escolhe e toca. O <b>Modo avançado</b> é para quem opera todo sábado, e é dele que este capítulo trata.</p>
 
 
-  <div class="tabela empilha estreita"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>Tema</th><th>Modo Fácil</th><th>Modo avançado</th></tr></thead>
     <tbody>
-      <tr><td data-label="Tema">Prévia e transporte</td><td data-label="Modo Fácil">Sem prévia (a TV é o visor); sem repetição, playlist, anterior e próxima</td><td data-label="Modo avançado">Prévia e 7 botões de transporte</td></tr>
-      <tr><td data-label="Tema">Liturgia</td><td data-label="Modo Fácil">Bloco <b>Liturgia</b> pronto (com o vídeo da semana)</td><td data-label="Modo avançado">Não existe o bloco: a sua liturgia é o Cronograma que você monta</td></tr>
-      <tr><td data-label="Tema">Biblioteca</td><td data-label="Modo Fácil">Encaixada na tela; séries não são cartões</td><td data-label="Modo avançado">Janela que sobe; séries são cartões</td></tr>
-      <tr><td data-label="Tema">Link do YouTube copiado</td><td data-label="Modo Fácil">Baixa e projeta na hora</td><td data-label="Modo avançado">Pergunta e abre a folha de destinos</td></tr>
-      <tr><td data-label="Tema">Letra</td><td data-label="Modo Fácil">Letra grande, com A+ e A−</td><td data-label="Modo avançado">Auxiliar de leitura: Letra, Bíblia, Cifra e Páginas</td></tr>
-      <tr><td data-label="Tema">Bíblia, Ferramentas, Cifra</td><td data-label="Modo Fácil">Não há</td><td data-label="Modo avançado">Há</td></tr>
+      <tr><td>Prévia e transporte</td><td>Sem prévia (a TV é o visor); sem repetição, playlist, anterior e próxima</td><td>Prévia e 7 botões de transporte</td></tr>
+      <tr><td>Liturgia</td><td>Bloco <b>Liturgia</b> pronto (com o vídeo da semana)</td><td>Não existe o bloco: a sua liturgia é o Cronograma que você monta</td></tr>
+      <tr><td>Biblioteca</td><td>Encaixada na tela; séries não são cartões</td><td>Janela que sobe; séries são cartões</td></tr>
+      <tr><td>Link do YouTube copiado</td><td>Baixa e projeta na hora</td><td>Pergunta e abre a folha de destinos</td></tr>
+      <tr><td>Letra</td><td>Letra grande, com A+ e A−</td><td>Auxiliar de leitura: Letra, Bíblia, Cifra e Páginas</td></tr>
+      <tr><td>Bíblia, Ferramentas, Cifra</td><td>Não há</td><td>Há</td></tr>
     </tbody>
   </table></div>
 
@@ -5981,16 +5984,16 @@
   <figure class="ilus tela-app "><svg viewBox="0 0 340 314" role="img" aria-label="Parte de baixo da tela do Modo avançado: busca com o dado, nome e barra de tempo, prévia do telão com colunas de slide, fileira de sete botões de transporte e o auxiliar de leitura" font-family="system-ui, sans-serif"><defs><clipPath id="i23a2"><rect x="4" y="4" width="150" height="306.0" rx="12"/></clipPath></defs><rect x="2" y="2" width="154" height="310.0" rx="14" fill="#22303d"/><image href="../telas/cronograma.webp" x="4" y="4" width="150" height="306.0" preserveAspectRatio="xMidYMid slice" clip-path="url(#i23a2)"/><circle cx="79.0" cy="204.3" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="79.0" y="208.3" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">1</text><circle cx="133.4" cy="228.1" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="133.4" y="232.1" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">2</text><circle cx="94.0" cy="281.5" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="94.0" y="285.5" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">3</text><circle cx="68.7" cy="291.3" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="68.7" y="295.3" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">4</text><circle cx="140.5" cy="285.8" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="140.5" y="289.8" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">5</text><circle cx="179.0" cy="17.0" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="179.0" y="21.0" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">1</text><text x="194" y="21" font-size="14.4" font-weight="800" fill="#22303d">Busca e dado</text><text x="194" y="36" font-size="13.2" fill="#55606d">O ↑ à direita abre a</text><text x="194" y="50" font-size="13.2" fill="#55606d">Biblioteca.</text><circle cx="179.0" cy="73.0" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="179.0" y="77.0" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">2</text><text x="194" y="77" font-size="14.4" font-weight="800" fill="#22303d">Nome e tempo</text><text x="194" y="92" font-size="13.2" fill="#55606d">Arraste a barra para</text><text x="194" y="106" font-size="13.2" fill="#55606d">pular.</text><circle cx="179.0" cy="129.0" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="179.0" y="133.0" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">3</text><text x="194" y="133" font-size="14.4" font-weight="800" fill="#22303d">Prévia do telão</text><text x="194" y="148" font-size="13.2" fill="#55606d">Slide anterior e</text><text x="194" y="162" font-size="13.2" fill="#55606d">Próximo slide ficam nas</text><text x="194" y="176" font-size="13.2" fill="#55606d">colunas.</text><circle cx="179.0" cy="199.0" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="179.0" y="203.0" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">4</text><text x="194" y="203" font-size="14.4" font-weight="800" fill="#22303d">Transporte</text><text x="194" y="218" font-size="13.2" fill="#55606d">Sete botões, em</text><text x="194" y="232" font-size="13.2" fill="#55606d">fileira.</text><circle cx="179.0" cy="255.0" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="179.0" y="259.0" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">5</text><text x="194" y="259" font-size="14.4" font-weight="800" fill="#22303d">Auxiliar de leitura</text><text x="194" y="274" font-size="13.2" fill="#55606d">O ponto verde avisa que</text><text x="194" y="288" font-size="13.2" fill="#55606d">há o que ler.</text></svg><figcaption>Parte de baixo: a caixa de controles, sempre à vista. A prévia é a miniatura do que está no telão.</figcaption></figure>
   <p>O nome de <b>Slide anterior</b> e <b>Próximo slide</b> muda conforme o que está no ar: estrofe, versículo, mensagem ou página. Os ícones da prévia (cobrir o telão, volume, <b>Conectar uma TV</b>, <b>Tela cheia</b>, recolher) são vistos adiante, em Tela e prévia.</p>
   <figure class="ilus "><svg viewBox="0 0 340 186" role="img" aria-label="Fileira dos sete botões de transporte numerados de 1 a 7: repetição, playlist, mídia anterior, play ou pause, próxima mídia, parar e limpar e auxiliar de leitura" font-family="system-ui, sans-serif"><rect x="5" y="8" width="42" height="42" rx="8" fill="#eef2f6" stroke="#c6cfd9" stroke-width="1.5"/><g transform="translate(26 29)"><path stroke="#2f557f" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" d="M-10 -2V-5Q-10 -9 -6 -9H8M5 -12L9 -9L5 -6M10 2V5Q10 9 6 9H-8M-5 6L-9 9L-5 12"/></g><circle cx="26" cy="66" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="26" y="70" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">1</text><rect x="53" y="8" width="42" height="42" rx="8" fill="#eef2f6" stroke="#c6cfd9" stroke-width="1.5"/><g transform="translate(74 29)"><path stroke="#2f557f" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" d="M-11 -7h13M-11 -1h13M-11 5h7"/><circle cx="7" cy="6" r="3" fill="#2f557f"/><path stroke="#2f557f" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" d="M10 6V-7"/></g><circle cx="74" cy="66" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="74" y="70" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">2</text><rect x="101" y="8" width="42" height="42" rx="8" fill="#eef2f6" stroke="#c6cfd9" stroke-width="1.5"/><g transform="translate(122 29)"><path stroke="#2f557f" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" d="M-9 -8V8"/><path d="M9 -8L-5 0L9 8Z" fill="#2f557f"/></g><circle cx="122" cy="66" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="122" y="70" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">3</text><rect x="149" y="8" width="42" height="42" rx="8" fill="#eef2f6" stroke="#c6cfd9" stroke-width="1.5"/><g transform="translate(170 29)"><path d="M-6 -9L8 0L-6 9Z" fill="#2f557f"/></g><circle cx="170" cy="66" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="170" y="70" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">4</text><rect x="197" y="8" width="42" height="42" rx="8" fill="#eef2f6" stroke="#c6cfd9" stroke-width="1.5"/><g transform="translate(218 29)"><path stroke="#2f557f" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" d="M9 -8V8"/><path d="M-9 -8L5 0L-9 8Z" fill="#2f557f"/></g><circle cx="218" cy="66" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="218" y="70" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">5</text><rect x="245" y="8" width="42" height="42" rx="8" fill="#eef2f6" stroke="#c6cfd9" stroke-width="1.5"/><g transform="translate(266 29)"><rect x="-7" y="-7" width="14" height="14" rx="1.5" fill="#2f557f"/></g><circle cx="266" cy="66" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="266" y="70" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">6</text><rect x="293" y="8" width="42" height="42" rx="8" fill="#eef2f6" stroke="#c6cfd9" stroke-width="1.5"/><g transform="translate(314 29)"><rect x="-9" y="-11" width="18" height="22" rx="3" stroke="#2f557f" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path stroke="#2f557f" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" d="M-5 -5h10M-5 0h10M-5 5h6"/><circle cx="10" cy="-10" r="3.6" fill="#3aa35b" stroke="#fff" stroke-width="1"/></g><circle cx="314" cy="66" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="314" y="70" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">7</text><circle cx="21" cy="100" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="21" y="104" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">1</text><text x="36" y="104" font-size="13.2" font-weight="700" fill="#22303d">Repetição</text><circle cx="21" cy="122" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="21" y="126" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">2</text><text x="36" y="126" font-size="13.2" font-weight="700" fill="#22303d">Playlist</text><circle cx="21" cy="144" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="21" y="148" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">3</text><text x="36" y="148" font-size="13.2" font-weight="700" fill="#22303d">Mídia anterior</text><circle cx="21" cy="166" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="21" y="170" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">4</text><text x="36" y="170" font-size="13.2" font-weight="700" fill="#22303d">Play/Pause</text><circle cx="197" cy="100" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="197" y="104" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">5</text><text x="212" y="104" font-size="13.2" font-weight="700" fill="#22303d">Próxima mídia</text><circle cx="197" cy="122" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="197" y="126" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">6</text><text x="212" y="126" font-size="13.2" font-weight="700" fill="#22303d">Parar e limpar</text><circle cx="197" cy="144" r="9" fill="#f5a300" stroke="#fff" stroke-width="2"/><text x="197" y="148" font-size="13.2" font-weight="800" fill="#22303d" text-anchor="middle">7</text><text x="212" y="148" font-size="13.2" font-weight="700" fill="#22303d">Auxiliar de leitura</text></svg><figcaption>O transporte, da esquerda para a direita. O Play/Pause aparece como pausa quando a mídia está tocando.</figcaption></figure>
-  <div class="tabela empilha estreita"><table>
+  <div class="tabela estreita"><table>
     <thead><tr><th>#</th><th>Botão</th><th>Para que serve</th></tr></thead>
     <tbody>
-      <tr><td data-label="#">1</td><td data-label="Botão"><b>Repetição</b></td><td data-label="Para que serve">Passa por 4 estados de repetição. Fica apagado se não há fila nem mídia.</td></tr>
-      <tr><td data-label="#">2</td><td data-label="Botão"><b>Playlist</b></td><td data-label="Para que serve">Abre a fila do momento. Um selo mostra o total, a partir de 2 itens.</td></tr>
-      <tr><td data-label="#">3</td><td data-label="Botão"><b>Mídia anterior</b></td><td data-label="Para que serve">Volta na playlist; sem fila, recomeça a mídia.</td></tr>
-      <tr><td data-label="#">4</td><td data-label="Botão"><b>Play/Pause</b></td><td data-label="Para que serve">Toca ou pausa, sem tirar nada da TV.</td></tr>
-      <tr><td data-label="#">5</td><td data-label="Botão"><b>Próxima mídia</b></td><td data-label="Para que serve">Avança na playlist.</td></tr>
-      <tr><td data-label="#">6</td><td data-label="Botão"><b>Parar e limpar</b></td><td data-label="Para que serve">Tira o conteúdo da TV.</td></tr>
-      <tr><td data-label="#">7</td><td data-label="Botão"><b>Auxiliar de leitura</b></td><td data-label="Para que serve">Abre a folha de leitura. O ponto verde indica que há o que ler; sem conteúdo, o botão fica apagado.</td></tr>
+      <tr><td>1</td><td><b>Repetição</b></td><td>Passa por 4 estados de repetição. Fica apagado se não há fila nem mídia.</td></tr>
+      <tr><td>2</td><td><b>Playlist</b></td><td>Abre a fila do momento. Um selo mostra o total, a partir de 2 itens.</td></tr>
+      <tr><td>3</td><td><b>Mídia anterior</b></td><td>Volta na playlist; sem fila, recomeça a mídia.</td></tr>
+      <tr><td>4</td><td><b>Play/Pause</b></td><td>Toca ou pausa, sem tirar nada da TV.</td></tr>
+      <tr><td>5</td><td><b>Próxima mídia</b></td><td>Avança na playlist.</td></tr>
+      <tr><td>6</td><td><b>Parar e limpar</b></td><td>Tira o conteúdo da TV.</td></tr>
+      <tr><td>7</td><td><b>Auxiliar de leitura</b></td><td>Abre a folha de leitura. O ponto verde indica que há o que ler; sem conteúdo, o botão fica apagado.</td></tr>
     </tbody>
   </table></div>
   <p>Mais detalhes em <a href="#i23-playlist">Playlist, repetição e transporte</a>, adiante.</p>
@@ -6143,10 +6146,10 @@
 <figure class="ilus "><svg viewBox="0 0 340 186" role="img" aria-label="Televisão com um número sorteado e a legenda Rifa da juventude; ao lado, os controles do celular: campos De e Até, Não repetir, Sortear e Reiniciar." font-family="system-ui, sans-serif"><rect x="10" y="14" width="150" height="84" rx="7" fill="#22303d"/><rect x="14" y="18" width="142" height="76" rx="4" fill="#0f1b2d"/><text x="85" y="68" font-size="50.6" font-weight="800" fill="#fff" text-anchor="middle">47</text><text x="85" y="88" font-size="10.9" font-weight="800" fill="#f5a300" text-anchor="middle">Rifa da juventude</text><rect x="176" y="14" width="154" height="164" rx="9" fill="#fff" stroke="#2f557f" stroke-width="1.5"/><text x="186" y="32" font-size="12.6" font-weight="800" fill="#22303d">No celular</text><text x="186" y="52" font-size="12.1" fill="#55606d">De</text><rect x="204" y="40" width="34" height="17" rx="4" fill="#eef2f6" stroke="#c6cfd9" stroke-width="1"/><text x="221" y="52.5" font-size="12.1" fill="#22303d" text-anchor="middle">1</text><text x="246" y="52" font-size="12.1" fill="#55606d">Até</text><rect x="270" y="40" width="50" height="17" rx="4" fill="#eef2f6" stroke="#c6cfd9" stroke-width="1"/><text x="295" y="52.5" font-size="12.1" fill="#22303d" text-anchor="middle">100</text><text x="186" y="76" font-size="12.1" fill="#55606d">ou uma lista, com uma</text><text x="186" y="89" font-size="12.1" fill="#55606d">opção por linha</text><rect x="186" y="98" width="100" height="20" rx="10" fill="#fff" stroke="#2f557f" stroke-width="1.3"/><text x="236" y="112" font-size="12.1" font-weight="800" fill="#22303d" text-anchor="middle">Não repetir</text><text x="186" y="136" font-size="11.5" fill="#55606d">mostra “n de N restantes”</text><rect x="186" y="148" width="62" height="22" rx="8" fill="#fff" stroke="#2f557f" stroke-width="1.3"/><text x="217" y="163" font-size="12.1" font-weight="800" fill="#22303d" text-anchor="middle">Sortear</text><rect x="256" y="148" width="64" height="22" rx="8" fill="#fff" stroke="#2f557f" stroke-width="1.3"/><text x="288" y="163" font-size="12.1" font-weight="800" fill="#22303d" text-anchor="middle">Reiniciar</text><text x="10" y="118" font-size="12.6" fill="#55606d">Projetar arma o cartão e</text><text x="10" y="133" font-size="12.6" fill="#55606d">espera o toque em Sortear.</text><text x="10" y="148" font-size="12.6" fill="#55606d">Guardar no Cronograma</text><text x="10" y="163" font-size="12.6" fill="#55606d">guarda a configuração,</text><text x="10" y="178" font-size="12.6" fill="#55606d">nunca o resultado.</text></svg><figcaption>O <b>Sorteio</b>: o número vai à TV; as escolhas (<b>De</b>, <b>Até</b>, <b>Não repetir</b>) ficam no celular.</figcaption></figure>
 <p>No modo <b>Números</b>, vale até 100 000 valores. Os já sorteados ficam à vista.</p>
 
-<div class="tabela empilha estreita"><table><thead><tr><th>Momento do culto</th><th>Ferramenta</th><th>Como usar</th></tr></thead><tbody>
-<tr><td data-label="Momento do culto">Contagem de abertura</td><td data-label="Ferramenta">Timer</td><td data-label="Como usar">Legenda “Início do culto”; deixe guardado no Cronograma.</td></tr>
-<tr><td data-label="Momento do culto">Avisos</td><td data-label="Ferramenta">Mensagens</td><td data-label="Como usar">Uma mensagem por aviso, estilo Grande; projete e tire pelo toque.</td></tr>
-<tr><td data-label="Momento do culto">Programa de evento</td><td data-label="Ferramenta">Itinerário</td><td data-label="Como usar">Um itinerário por evento; atrase 5 min quando o programa escorregar.</td></tr>
+<div class="tabela estreita"><table><thead><tr><th>Momento do culto</th><th>Ferramenta</th><th>Como usar</th></tr></thead><tbody>
+<tr><td>Contagem de abertura</td><td>Timer</td><td>Legenda “Início do culto”; deixe guardado no Cronograma.</td></tr>
+<tr><td>Avisos</td><td>Mensagens</td><td>Uma mensagem por aviso, estilo Grande; projete e tire pelo toque.</td></tr>
+<tr><td>Programa de evento</td><td>Itinerário</td><td>Um itinerário por evento; atrase 5 min quando o programa escorregar.</td></tr>
 </tbody></table></div>
 
 <h3 id="i23-documentos">Slides: PDF e PowerPoint</h3>
@@ -7470,6 +7473,43 @@
 
       escala.classList.remove('lb-medindo');
     }
+  });
+})();
+</script>
+<script>
+(function () {
+  'use strict';
+  var tabelas = [].slice.call(document.querySelectorAll('.tabela'));
+  tabelas.forEach(function (t) {
+    var linha = t.querySelector('thead tr') || t.querySelector('tr');
+    if (!linha || linha.children.length < 3) return;
+    t.classList.add('desliza');
+    var rolo = document.createElement('div');
+    rolo.className = 'rolo';
+    while (t.firstChild) rolo.appendChild(t.firstChild);
+    t.appendChild(rolo);
+    function seta(c, d) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'tab-seta ' + c;
+      b.setAttribute('aria-label', c === 'esq' ? 'Colunas anteriores' : 'Próximas colunas');
+      b.innerHTML = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="' + (c === 'esq' ? 'M13 4 7 10l6 6' : 'M7 4l6 6-6 6') + '" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      return b;
+    }
+    var esq = seta('esq'), dir = seta('dir');
+    t.appendChild(esq); t.appendChild(dir);
+    function passo() { var th = t.querySelector('th'); return th ? th.getBoundingClientRect().width + 6 : 200; }
+    function atualiza() {
+      var max = rolo.scrollWidth - rolo.clientWidth;
+      t.classList.toggle('tem-mais', max > 4);
+      esq.disabled = rolo.scrollLeft <= 2;
+      dir.disabled = rolo.scrollLeft >= max - 2;
+    }
+    esq.addEventListener('click', function () { rolo.scrollBy({ left: -passo(), behavior: 'smooth' }); });
+    dir.addEventListener('click', function () { rolo.scrollBy({ left: passo(), behavior: 'smooth' }); });
+    rolo.addEventListener('scroll', atualiza, { passive: true });
+    window.addEventListener('resize', atualiza);
+    atualiza();
   });
 })();
 </script>
