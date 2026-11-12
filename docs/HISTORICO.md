@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o guia de sonoplastia sem o botão flutuante (sem versão nova; só `site/`)** — o índice abre só pelo botão da barra do topo, que fica sempre visível; o texto de "Como usar" acompanha
 - **o guia de sonoplastia na primeira tela (sem versão nova; só `site/`)** — uma pílula de vidro acima do logo, com microfone, "Guia de sonoplastia" e "O som da igreja: mesa, microfones e cabos"
 - **o guia de sonoplastia: socorro em destaque (sem versão nova; só `site/` e docs)** — a capa ganha o cartão "Socorro rápido" entre as duas trilhas, setas grandes e o nome "Sonoplasta por um dia"; D9 vai de 7 a 24 problemas e I17 de 12 a 34; saem as Perguntas; o índice volta a levar até o capítulo
 - **o guia de sonoplastia: a introdução (sem versão nova; só `site/` e docs)** — D0 ("O objetivo de hoje") e I0 (três partes sobre excelência, discrição e o poder da mensagem) com o texto do operador; resta "em breve" só nas Perguntas

@@ -255,12 +255,6 @@
     display:inline-flex; align-items:center; gap:.4rem; border:1.5px solid var(--rule); background:#fff;
     color:var(--titulo); border-radius:999px; padding:.55rem 1rem; font:600 .9rem/1.2 system-ui, sans-serif; cursor:pointer;
   }
-  .fab {
-    position:fixed; right:1rem; bottom:calc(1rem + env(safe-area-inset-bottom, 0px)); z-index:40;
-    width:3.5rem; height:3.5rem; border-radius:50%; border:0; background:var(--accent); color:#fff;
-    box-shadow:0 6px 18px rgba(15,27,40,.38); display:grid; place-items:center; cursor:pointer; text-decoration:none;
-  }
-  .fab svg { width:1.55rem; height:1.55rem; }
   .aviso {
     position:fixed; left:50%; bottom:5.6rem; z-index:60; transform:translate(-50%,.8rem); opacity:0;
     background:var(--titulo); color:#fff; padding:.5rem 1rem; border-radius:999px; font-size:.88rem; font-weight:600;
@@ -319,7 +313,7 @@
   /* ----- impressão ----- */
   @media print {
     body { padding-top:0; background:#fff; font-size:11.5pt; }
-    .topo, .fab, .folha, .aviso, .cap-nav, .e-ir, .nao-imprime { display:none !important; }
+    .topo, .folha, .aviso, .cap-nav, .e-ir, .nao-imprime { display:none !important; }
     section.cap, .bloco, .trilha-cab, .capa-ilus, .escolha a { box-shadow:none; }
     section.cap, .bloco { border:1px solid #ccc; }
     figure.ilus, details.sintoma, .box, .ind-lista li { break-inside:avoid; }
@@ -369,7 +363,6 @@
   <div class="topo-prog" id="topo-prog" aria-hidden="true"></div>
 </header>
 
-<a class="fab" href="#indice" data-abre-folha role="button" aria-controls="folha" aria-label="Abrir o índice"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.2" fill="currentColor"/><circle cx="4.5" cy="12" r="1.2" fill="currentColor"/><circle cx="4.5" cy="18" r="1.2" fill="currentColor"/></svg></a>
 
 <div class="folha" id="folha" hidden>
   <div class="folha-veu" data-fecha-folha></div>
@@ -484,7 +477,7 @@
   <ol class="passos">
     <li><b>Escolha a trilha.</b> Vai cuidar do som só hoje? Leia a trilha <b>D</b> (por um dia), na ordem. Vai cuidar toda semana? A trilha <b>I</b> (tempo integral) é um curso completo.</li>
     <li><b>Use os códigos.</b> Cada capítulo tem um código, como <b>D3</b> ou <b>I8</b>. Servem para aulas ("hoje vamos ver I5 e I6") e para perguntas ("o apito está explicado em I8"). Toque no código no título de um capítulo para <b>copiar o link</b> dele e mandar pelo WhatsApp.</li>
-    <li><b>Problema agora?</b> Toque no botão redondo <b>Índice</b> (canto de baixo) e escreva em "Procurar" o que está acontecendo: <i>apito</i>, <i>sem som</i>, <i>HDMI</i>, <i>pilha</i>… A lista mostra onde está a solução. O capítulo <a href="#d9">D9</a> reúne o socorro rápido.</li>
+    <li><b>Problema agora?</b> Toque em <b>Índice</b>, no alto da tela, e escreva em "Procurar" o que está acontecendo: <i>apito</i>, <i>sem som</i>, <i>HDMI</i>, <i>pilha</i>… A lista mostra onde está a solução. O capítulo <a href="#d9">D9</a> reúne o socorro rápido.</li>
     <li><b>Marque as listas.</b> As caixinhas das listas ficam marcadas neste aparelho, mesmo se você fechar a página.</li>
   </ol>
   <h3 id="caixas">As caixas coloridas</h3>
