@@ -124,6 +124,19 @@ const GANCHO_DA_CORTINA = () => {
 };
 
 /**
+ * O TOUR JÁ VISTO (v1.14.0). O app abre um tour guiado AUTOMÁTICO na primeira vez
+ * de cada modo (`controle/tour.js`, marca em `localStorage` `av.tour`), e o véu
+ * dele engole todo toque — um oráculo que não fala do tour clicaria nele. Todo
+ * contexto do arnês nasce com os três marcados, como um aparelho que já viu; quem
+ * mede o tour passa `comTour: true` e parte do aparelho novo.
+ */
+const TOUR_JA_VISTO = () => {
+  try {
+    if (!localStorage.getItem('av.tour')) localStorage.setItem('av.tour', '{"conexao":1,"simples":1,"avancado":1}');
+  } catch (_) { /* armazenamento bloqueado */ }
+};
+
+/**
  * O navegador. `PW_CHROMIUM` aponta o binário quando ele não está onde o
  * Playwright o procura (o passo do CI o deixa vazio de propósito).
  *
@@ -148,7 +161,7 @@ const GANCHO_DA_CORTINA = () => {
  * atravessa a calha QUANDO existe uma; que exista é fato do motor, não deste
  * app.
  *
- * @param {{args?: string[], comBarraDeRolagem?: boolean, semGancho?: boolean}} [opts]
+ * @param {{args?: string[], comBarraDeRolagem?: boolean, semGancho?: boolean, comTour?: boolean}} [opts]
  *
  * ===== E TODO CONTEXTO NASCIDO DAQUI CARREGA O GANCHO DA CORTINA =====
  *
@@ -169,6 +182,7 @@ export function abrirNavegador(opts = {}) {
     nav.newContext = async (o) => {
       const ctx = await cru(o);
       await ctx.addInitScript(GANCHO_DA_CORTINA);
+      if (!opts.comTour) await ctx.addInitScript(TOUR_JA_VISTO);
       return ctx;
     };
     return nav;

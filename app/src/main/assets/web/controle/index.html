@@ -1914,7 +1914,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.13.69</span>
+          <span id="appVersion">v1.14.0</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
@@ -2237,6 +2237,17 @@
             </svg>
             <span class="qs-titulo">Transferir</span>
           </button>
+        </div>
+        <!-- ===== A AJUDA DE QUEM COMEÇA (v1.14.0) =====
+             O TOUR refaz o tour guiado do modo atual (no Fácil, o da conexão com a
+             cortina "sem tela" e o dos controles sem ela) — `AVTour.refazer`, em
+             `tour.js`. O GUIA abre a página de sonoplastia do site: no Fácil, direto na
+             trilha "Sonoplasta por um dia" (`#dia`); no avançado, no começo.
+             Moram no fim do `#cfgTopo`, e não no cabeçalho ao lado do pedir ajuda: o
+             cabeçalho já cede a palavra "Ajuda" para caber o título a 320px. -->
+        <div class="cfg-ajuda">
+          <button type="button" id="tourBtn" class="dialog-btn" title="Mostrar de novo o tour desta tela">Tour do app</button>
+          <button type="button" id="guiaSomBtn" class="dialog-btn" title="Abrir o guia de sonoplastia no navegador">Guia de sonoplastia</button>
         </div>
         </div>
         <!-- ===== AS SEÇÕES DE CONFIGURAÇÕES (v1.12.48) =====
@@ -3200,6 +3211,10 @@
        erro de topo aqui deixaria a exportação morta com o bundle carimbado
        como bom, que é o buraco que a v5.315 fechou para os outros oito. -->
   <script src="pacote.js"></script>
+  <!-- O TOUR GUIADO (v1.14.0): o véu, o recorte e o balão. Só lê o DOM e os ganchos
+       que o `controle.js` lhe entrega (`AVTour.ligar`); nunca projeta nem toca nada.
+       ANTES do controle.js e dentro do watchdog de boot (`AVTour`, em `otaAppIsUp`). -->
+  <script src="tour.js"></script>
   <script src="controle.js"></script>
 </body>
 </html>

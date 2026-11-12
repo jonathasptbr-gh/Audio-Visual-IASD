@@ -719,6 +719,9 @@
      perde de vista em qual das duas metades está tocando. */
   --cell-chapter: #283543;      --cell-chapter-text: #d6e0eb;   /* 9,35:1 */
   --cell-verse: #433a28;        --cell-verse-text: #ede5d4;     /* 8,94:1 */
+  /* O VÉU DO TOUR (v1.14.0): escurece tudo menos o recorte da peça explicada. Mais
+     denso que o `--scrim` no escuro (a tela já é escura); no claro, um pouco menos. */
+  --tour-veu: rgba(0, 0, 0, .68);
 }
 
   /* O ACENTO DO PALCO — ele existe por um defeito medido (v5.218).
@@ -933,4 +936,5 @@
 
   --cell-chapter: #cedff3;      --cell-chapter-text: #183d67;   /* 8,13:1 */
   --cell-verse: #f4e5c7;        --cell-verse-text: #654310;     /* 7,14:1 */
+  --tour-veu: rgba(0, 0, 0, .55);
 }

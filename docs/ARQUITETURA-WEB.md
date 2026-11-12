@@ -23,6 +23,7 @@ para uma pergunta sobre a Bíblia não custar a leitura do Controle inteiro.
 | Controle — layout | [`arquitetura/CONTROLE-LAYOUT.md`](arquitetura/CONTROLE-LAYOUT.md) | layout geral, transporte, a pílula de volume, os dois botões de slide, os controles dentro do fullscreen |
 | Controle — navegação | [`arquitetura/CONTROLE-NAVEGACAO.md`](arquitetura/CONTROLE-NAVEGACAO.md) | uma tela, duas folhas e uma janela: as portas do rodapé, a folha da Bíblia, a barra da Biblioteca |
 | Controle — Configurações | [`arquitetura/CONTROLE-CONFIGURACOES.md`](arquitetura/CONTROLE-CONFIGURACOES.md) | tema, painel rápido e seções, rodapé, Registro, wallpaper, girar a mídia, histórico do culto |
+| Controle — tour guiado | [`arquitetura/CONTROLE-TOUR.md`](arquitetura/CONTROLE-TOUR.md) | o tour de cada modo (conexão, controles, avançado), a marca de "já visto", os botões Tour e Guia de sonoplastia |
 | Controle — telão | [`arquitetura/CONTROLE-TELAO.md`](arquitetura/CONTROLE-TELAO.md) | abertura (cortina, versão), retomada do telão, a referência da preview, a saída de áudio, a prévia recolhível |
 | Controle — Biblioteca | [`arquitetura/CONTROLE-BIBLIOTECA.md`](arquitetura/CONTROLE-BIBLIOTECA.md) | abas, destinos de um item, a linha da lista, o rodízio das coleções, a coletânea, deslizar entre abas |
 | Controle — listas | [`arquitetura/CONTROLE-LISTAS.md`](arquitetura/CONTROLE-LISTAS.md) | cronogramas múltiplos, gestos nos itens, favoritos, editar mídia |
@@ -250,6 +251,10 @@ app/src/main/assets/web/
 │   │                           # vira UM arquivo e volta noutro. Os BYTES não
 │   │                           # passam por aqui: quem os move é o controle.js,
 │   │                           # pelo canal `__avPacote` do shell
+│   ├── tour.js                 # O TOUR GUIADO (v1.14.0): véu, recorte e balão,
+│   │                           # um tour por estado da tela, automático uma vez.
+│   │                           # Só lê o DOM e os ganchos do controle.js — ver
+│   │                           # `arquitetura/CONTROLE-TOUR.md`
 │   └── bible.js                # Cliente da parte bíblica do banco LouvorJA (livros/versões/capítulos — ver seção "Bíblia")
 ├── espelho/                    # o papel `tela` (telão nas telas da rede)
 │   ├── tela.js                 # a casca: SSE, dreno de subida, entrada, relógio

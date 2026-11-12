@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.0** — o tour guiado: um por estado da tela (conexão com a cortina do Fácil, controles do Fácil, avançado completo), automático uma vez e nunca por cima de diálogo; botões "Tour do app" e "Guia de sonoplastia" (`#dia` no Fácil) em Configurações; só web.
 - **o guia de sonoplastia: compartilhar à vista (sem versão nova; só `site/`)** — botão "Compartilhar este guia" na capa, "Compartilhar capítulo" sob cada título e "Compartilhar este problema" em cada sintoma; abre a folha de compartilhar do celular (WhatsApp, e-mail…) e, sem ela, copia o link
 - **o guia de sonoplastia sem o botão flutuante (sem versão nova; só `site/`)** — o índice abre só pelo botão da barra do topo, que fica sempre visível; o texto de "Como usar" acompanha
 - **o guia de sonoplastia na primeira tela (sem versão nova; só `site/`)** — uma pílula de vidro acima do logo, com microfone, "Guia de sonoplastia" e "O som da igreja: mesa, microfones e cabos"
@@ -700,6 +701,40 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.0 — o tour guiado e o atalho do guia de sonoplastia
+
+**Pedido.** Um tour com véu e recorte, UM POR MODO, automático na primeira vez e
+refeito por um botão em Configurações; e um atalho para o guia de sonoplastia do
+site — no Fácil direto em "Sonoplasta por um dia", no avançado no começo.
+
+**O que entrou** (contrato em `docs/arquitetura/CONTROLE-TOUR.md`):
+
+- `controle/tour.js` (`AVTour`, no `otaAppIsUp`): três tours — `conexao` (cortina
+  "sem tela": `#simpleConn` e os três botões dela), `simples` (Biblioteca, sorteio,
+  letra, teclas, volume, engrenagem, conexão) e `avancado` (Cronograma, troca,
+  Importar, Bíblia, Ferramentas, Biblioteca, prévia, transporte, conectar,
+  Configurações). Peça ausente: passo `opcional` sai da conta; com `semAlvo`, balão
+  central que explica.
+- Ganchos no `controle.js`, depois do `__avBack`: `qualTour`,
+  `telaOcupadaParaTour` (o inventário do voltar + `#splash` + foco em campo de
+  texto), `volumeDoTour` (a pílula PARADA no passo dela). O `__avBack` ganhou o
+  degrau 0.
+- A marca `localStorage['av.tour']` (padrão da `av.dicaNaoPerturbe`), gravada ao
+  abrir; colisão com algo que abre no meio desfaz a marca do automático.
+- `--tour-veu` nos dois temas (.68 escuro, .55 claro); camada 600.
+- `.cfg-ajuda` no fim do `#cfgTopo`: `#tourBtn` e `#guiaSomBtn`
+  (`AV_PAGINA + 'sonoplastia/'` e `#dia` no Fácil; `openExternal` no app).
+
+**Divergência do pedido, decidida pelo repositório.** O pedido punha o botão "no
+rodapé, ao lado de Pedir ajuda", mas o pedir ajuda mora no CABEÇALHO desde a
+v1.12.50, o rodapé SOME vazio (`configuracoes-janelas`, H1) e o cabeçalho já cede a
+palavra "Ajuda" para o título caber a 320px. Os dois botões foram para o fim da
+grade.
+
+**O arnês** marca os três tours como vistos em todo contexto (`comTour: true`
+desliga); oráculo novo `tools/tour.test.mjs`, revertido (ocupado, volume, `#dia` e
+folga do recorte): reprova sete asserções.
 
 ## o guia de sonoplastia na primeira tela (sem versão nova; só `site/`)
 
