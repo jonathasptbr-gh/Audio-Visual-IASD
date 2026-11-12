@@ -41,7 +41,7 @@ apagada da que a criou.
 - **as capturas novas do app (sem versão nova; só `site/`)** — as 14 telas do carrossel foram trocadas pelas do app na v1.13.62 (enviadas pelo operador), em WebP 800×1632; saíram as quatro sem captura nova (destinos, série, sorteio, tempo) e entraram Liturgia, Hinário por tema, Ferramentas e Transferir a biblioteca; o cartão do link foi refeito com a tela nova
 - **o site redesenhado (sem versão nova; só `site/`)** — página nova, mobile-first: hero em duas colunas, 12 recursos, carrossel de telas com pontos, dois modos e o passo a passo; o texto foi revisto contra o código (entra a Liturgia, entra o Cronograma com arrasto, sai a contagem que não existe) e o cartão do link foi refeito no desenho novo
 - **revisão da fachada (sem versão nova; só docs e site)** — o README perde o manual (compilar e índice de docs saem), o `CLAUDE.md` fica com uma árvore só e lista os apêndices, e o site ganha o cartão do link e volta a aparecer sem JavaScript
-- **v1.13.69** — o vermelho do CI da v1.13.68 era defeito real: o `init()` tardio fechava a Biblioteca aberta, e um redesenho no meio do arrasto deixava o `arrasto` preso (rolagem por toque morta); mais os três defeitos médios da revisão da lista por partes; só web.
+- **v1.13.69** — o vermelho do CI da v1.13.68 era o arnês (apertava a linha debaixo da barra grudada do grupo); na caça, defeitos reais: o `init()` tardio fechava a Biblioteca aberta, o arrasto ficava preso num redesenho (rolagem por toque morta), o toque longo virava toque em CPU lenta; e os três médios da revisão da lista por partes; só web.
 - **v1.13.68** — a lista do acervo passa a atualizar POR PARTES (item novo entra na hora, gaveta aberta fica, barra do card morfada no lugar) e o `⋮` dos Favoritos sobe para a linha, com o arrastar do Cronograma; só web. Oráculos `lista-por-partes` e `favoritos-menu-na-linha`.
 - **v1.13.67** — a verificação da semana não fecha mais a gaveta aberta de um episódio do Provai e Vede/Informativo, e a lista só se redesenha se mudou de verdade; só web. Oráculo `serie-gaveta-aberta`.
 - **v1.13.66** — o aviso de sistema no zero vira ÍCONE AMARELO clicável (abre o painel do Android) e o botão do MUDO na prévia passa a mostrar a porcentagem do volume, em número absoluto dentro do mesmo quadrado (só web)
@@ -905,11 +905,18 @@ aos aparelhos: o CI reprovou (`favoritos-menu-na-linha`, bloco D, 140/141) e o `
 publicou. O canal ficou na v1.13.66 — a v1.13.67 também não saiu (o run dela ficou "queued" sem job
 nenhum, um fantasma do GitHub que nem `cancel` nem `force-cancel` aceitam).
 
-**(1) A CAUSA DO VERMELHO, e era do app, não do teste.** O `init()` chama `setAppMode(appMode)`
-depois de `loadCollections`/`load()`; em máquina lenta isso sai segundos depois de a cortina cair
+**(1) O VERMELHO ERA DO ARNÊS — e caçá-lo achou defeitos reais do app.** A prova veio do próprio
+CI (o oráculo passou a carregar um RASTRO de toques e redesenhos, impresso só quando reprova; run
+43135558877): o arnês centrava a linha do MEIO e apertava a de CIMA, que com as fontes do runner
+ficava debaixo da barra GRUDADA do grupo Favoritos (`position: sticky`). O toque caía na barra, o
+soltar virava `click` nela e FECHAVA o grupo — a lista "sumia" (`tela: []`) por um gesto do teste.
+Uma janela de 660 px reproduz aqui (o arnês antigo reprova, o novo passa). Conserto no oráculo: todo
+toque por coordenada passa por `pontoDescoberto` (centro, lista parada, `elementFromPoint`).
+
+No caminho, com a CPU estrangulada, um defeito REAL e parecido: o `init()` chama `setAppMode(appMode)`
+depois de `loadCollections`/`load()`; em aparelho lento isso sai segundos depois de a cortina cair
 pelo prazo (12 s), e `setAppMode` fazia `closeHymnSearch()` mesmo SEM trocar de modo — a Biblioteca
-que o operador já tinha aberto fechava, e os Favoritos sumiam (`tela: []`). Agora fecha só na TROCA
-(`!eraAvancado`). Prova: pilha do `closeHymnSearch` = `setAppMode ← init`, com o popup aberto.
+que o operador já tinha aberto fechava. Agora fecha só na TROCA (`!eraAvancado`).
 
 **(2) O ARRASTO PRESO** (achado da revisão; o Cronograma já tinha a falha, os Favoritos a tornaram
 frequente). Um redesenho completo do acervo no meio do gesto (`renderCollectionsNow()` direto de um
