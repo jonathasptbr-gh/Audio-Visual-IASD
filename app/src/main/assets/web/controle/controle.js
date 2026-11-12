@@ -413,7 +413,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.4';
+const WEB_VERSION = '1.14.5';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -45526,11 +45526,33 @@ if (window.AVTour) {
   AVTour.ligar({ qual: qualTour, ocupado: telaOcupadaParaTour, secao: secaoDoTour, bloqueio: bloqueioDoTour,
     modo: () => appMode, volume: volumeDoTour });
 }
+// "Tour do app" é uma CAIXA de marcação (v1.14.5): ligada, cada janela se explica na
+// primeira vez que abre; desligada — por ela ou pelo "Pular tour" do balão —, nenhum
+// tour abre sozinho. Desligar fica em Configurações (a folha não fecha); LIGAR de novo
+// refaz o tour do modo atual, e para isso a folha fecha (o tour não abre por cima
+// dela). O desenho segue o estado (`av-tour-ativo`), também quando o "Pular tour"
+// desliga com a folha fechada.
 const tourBtnEl = document.getElementById('tourBtn');
-if (tourBtnEl) tourBtnEl.addEventListener('click', () => {
-  closeFadePopup();
-  if (window.AVTour) AVTour.refazer();
-});
+function pintarTourBtn() {
+  if (!tourBtnEl || !window.AVTour) return;
+  const on = AVTour.ativo();
+  tourBtnEl.setAttribute('aria-checked', on ? 'true' : 'false');
+  tourBtnEl.title = on
+    ? 'Tour ligado: cada janela se explica na primeira vez que abrir. Toque para desligar.'
+    : 'Tour desligado: nada se explica sozinho. Toque para ligar e rever o tour desta tela.';
+  const caixa = tourBtnEl.querySelector('.song-menu-check');
+  if (caixa) caixa.classList.toggle('on', on);
+}
+if (tourBtnEl) {
+  pintarTourBtn();
+  window.addEventListener('av-tour-ativo', pintarTourBtn);
+  tourBtnEl.addEventListener('click', () => {
+    if (!window.AVTour) return;
+    if (AVTour.ativo()) { AVTour.desativar(); return; }
+    closeFadePopup();
+    AVTour.refazer();
+  });
+}
 // O GUIA DE SONOPLASTIA mora no site (`site/sonoplastia/`). No Modo Fácil abre
 // direto na trilha "Sonoplasta por um dia" (`#dia`); no avançado, no começo. No
 // app abre DENTRO dele (`abrirGuia`, shell 87); casco antigo cai no `openExternal`,

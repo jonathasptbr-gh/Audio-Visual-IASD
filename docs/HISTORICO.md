@@ -42005,3 +42005,35 @@ uma peça para a outra entre os passos; tudo devia andar com movimento.
   metade ENTRE a peça A e a B; três "Próximo" rápidos; movimento reduzido = 0), e
   as medidas dos outros blocos esperam `AVTour.quieto()`.
 - **Não medido:** fluidez em aparelho fraco (aqui só Chromium de desktop). Só web.
+
+## v1.14.5 — o tour liga e desliga por inteiro
+
+**Pedido do operador:** o "Pular" do tour devia desativá-lo de vez; o botão "Tour do
+app" devia ser uma caixa de marcar (ativo/desativo); e o "Guia de sonoplastia" devia
+ganhar uma seta ou sinal de que abre/direciona para o guia.
+
+- **Um interruptor só:** `localStorage['av.tour.off'] = '1'` (`AVTour.ativo()`,
+  `desativar()`, `refazer()` liga). Desligado, `armar()`/`tique()` não rodam: nem o
+  tour principal nem os de seção abrem sozinhos. As marcas de "visto" (`av.tour`)
+  não são tocadas. O interruptor avisa a mudança por `av-tour-ativo` (evento na
+  `window`), que repinta a caixa também quando quem desliga é o balão.
+- **"Pular" virou "Pular tour"** e chama `desativar()` (fecha o balão com o fade de
+  sempre). Escape, o voltar do Android e "Concluir" continuam só FECHANDO o tour
+  atual (sem desligar).
+- **`#tourBtn` é uma caixa** (`role="checkbox"`, `aria-checked`, a `.song-menu-check`
+  da lista dentro do botão, `on` = accent com o ✓). Tocar desmarca (a folha NÃO
+  fecha); tocar de novo LIGA e faz o que o botão sempre fez: fecha a folha e
+  `refazer()` o tour do modo atual, zerando as seções do modo. O `title` muda com o
+  estado. Para "rever" com o tour ligado é desligar e ligar (o último passo e o
+  texto do tour de Configurações dizem isso).
+- **`#guiaSomBtn` ganhou a seta de "abre outra coisa"** (`icoExterno`, caixa aberta
+  com a seta saindo no canto): ele não abre uma seção do app, abre uma tela à parte
+  (no app, o WebView do guia; no navegador, outra aba). O `.cfg-ajuda .dialog-btn`
+  virou flex (rótulo + sinal; o rótulo quebra a linha a 320 px × 1,3).
+- **Oráculo:** bloco L do `tour.test.mjs` (a caixa nasce marcada; desliga sem fechar
+  a folha; desligado nada abre sozinho, nem a seção nem o principal; liga e refaz;
+  "Pular tour" desliga e a caixa acompanha; a seta e a caixa à vista). O helper
+  `pular` do oráculo agora só FECHA (`AVTour.fechar()`) — o clique em "Pular tour"
+  desliga e derrubaria os blocos seguintes.
+- **Conferido por captura** a 320×640 × 1,3 (escuro) e 390×860 (claro), nos dois
+  estados da caixa. Só web.

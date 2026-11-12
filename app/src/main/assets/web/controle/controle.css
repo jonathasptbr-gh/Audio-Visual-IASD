@@ -13145,3 +13145,11 @@ body.lib-assentando .popup-sheet--lib { visibility: hidden; }
    lado, que quebram a linha do rótulo em vez de cortá-lo (320px × 1,3). */
 .cfg-ajuda { display: flex; gap: var(--sp-3); }
 .cfg-ajuda .dialog-btn { min-height: var(--hit); padding: .45rem .5rem; line-height: 1.2; }
+/* v1.14.5: o "Tour do app" é uma CAIXA de marcação (a `.song-menu-check` da lista,
+   ligada = accent com o ✓) e o "Guia de sonoplastia" leva a seta de "abre outra
+   tela" (`icoExterno`) — o rótulo e o sinal lado a lado, e o rótulo quebra a linha
+   em vez de cortar. O sinal não é alvo (`pointer-events: none`): o toque é do botão. */
+.cfg-ajuda .dialog-btn { display: flex; align-items: center; justify-content: center; gap: var(--sp-3); }
+.cfg-ajuda .cfg-ajuda-rot { min-width: 0; }
+.cfg-ajuda .song-menu-check { width: 20px; height: 20px; margin-left: 0; }
+.cfg-ajuda .cfg-externo { flex: none; width: var(--icon-sm); height: var(--icon-sm); pointer-events: none; }
