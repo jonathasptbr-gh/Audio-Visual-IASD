@@ -31,6 +31,7 @@ apagada da que a criou.
 ## Índice
 
 - **o guia de sonoplastia: coesão e conserto dos defeitos (sem versão nova; só `site/` e docs)** — conserta os 2 botões "Para quem quer entender mais" aninhados (I1, I4), o "?" e o "dica Dica" (I23), a frase duplicada do projetor (I13) e a legenda órfã "Em breve"; some a comparação repetida do I23 e a Tabela-resumo do I17; glossário vira índice; D3/D6 e 14 tabelas enxutos
+- **o guia ganha layout dinâmico: tabelas empilhadas e figuras corrigidas (sem versão nova; só `site/` e docs)** — no celular, as 16 tabelas de 3+ colunas empilham com rótulo por linha (no computador seguem tabela); fonte única Roboto/Arial nas figuras; tamanho explícito nos 867 textos que herdavam do CSS; letra mínima de 6,2 para 9 px; estouros corrigidos
 - **v1.14.2** — o "Guia de sonoplastia" abre DENTRO do app: `abrirGuia` (shell 87), `GuiaSomDialog` em tela cheia sobre a Activity com WebView SEM ponte, cerca `https` + host do site (`GuiaSom.urlDoGuia`, JUnit); casco antigo cai no `openExternal`; `minShell` 83, `shellTag` v1.14.2; APK + web.
 - **v1.14.1** — tours de SEÇÃO (cada janela, folha e gaveta se explica na primeira abertura; o "Tour do app" zera as do modo), o tour do Fácil TOCANDO (letra e teclas) e o halo azul no recorte; guia dentro do app recusado (iframe furaria a invariante 2); só web.
 - **v1.14.0** — o tour guiado: um por estado da tela (conexão com a cortina do Fácil, controles do Fácil, avançado completo), automático uma vez e nunca por cima de diálogo; botões "Tour do app" e "Guia de sonoplastia" (`#dia` no Fácil) em Configurações; só web.
@@ -736,6 +737,39 @@ duas passadas). Lote só de `site/` e docs: nada chega ao app.
   textos que herdam do CSS, sobreposições medidas (marcadores e textos fora da
   caixa), letra mínima e linhas de conexão — entra no lote seguinte, depois da
   decisão sobre a proposta entregue na conversa.
+
+
+## o guia ganha layout dinâmico: tabelas empilhadas e figuras corrigidas (sem versão nova; só `site/` e docs)
+
+Segundo lote da revisão de conteúdo (pedido do operador). Só `site/` e docs.
+
+- **Tabelas dinâmicas:** as 16 tabelas de capítulo com 3+ colunas levam a classe
+  `empilha` com `data-label` por célula. Até 639 px cada linha vira um cartão
+  com o rótulo da coluna (nada de rolagem lateral nem colunas apertadas); de
+  640 px para cima voltam a ser tabela (o guia é lido no computador também).
+  Verificado em 320/360/412/1280 px: nenhum elemento passa da borda.
+- **Fonte única nas figuras:** `svg text, svg tspan { font-family:"Roboto",
+  "Liberation Sans",Arial,sans-serif }` — Roboto no Android, Arial no Windows e
+  Liberation (métrica de Arial) no Linux: o desenho renderiza igual em qualquer
+  aparelho, no lugar do `system-ui` que mudava de largura por plataforma.
+- **Tamanho explícito:** os 867 textos que herdavam tamanho do CSS passam a
+  declarar o próprio `font-size` (mesmo valor que herdavam) — mudança futura de
+  fonte da página não desregula mais um terço dos rótulos.
+- **Letra legível:** tamanho global das figuras ×1,15 e piso de 10,4 nas
+  menores. A letra mínima renderizada num celular de 360 px sobe de 6,2 para
+  9 px (mediana 9,1 → 10,5) e nenhuma figura fica abaixo de 9 px.
+- **Conserto dos estouros:** ~70 textos que vazavam da caixa, passavam da borda
+  do desenho ou se sobrepunham foram encurtados, reduzidos ou recolocados
+  (portas do gate, cartões do episódio, níveis de sinal, adaptadores, keystone,
+  batismo, entre outros), cada rodada conferida por medição no Chromium.
+- **Linhas de conexão:** detector mede, nas coordenadas do próprio desenho, os
+  182 figuras com conectores retos e curvos: nenhuma ponta solta (todas chegam
+  à caixa). A sensação de "linha desconectada" vinha da fonte e dos rótulos,
+  agora corrigidos.
+- **Ficam de fora (medidos, cosméticos):** 8 figuras com círculos de desenho
+  que se tocam de propósito (cones de alto-falante, pinos de conectores, padrão
+  polar sobre o corpo do microfone) e 3 rótulos com 1–3 px de folga, que sobram
+  na fonte de fallback deste Linux e cabem no Roboto do celular.
 
 
 ## v1.14.2 — o guia de sonoplastia dentro do app (shell 87)
