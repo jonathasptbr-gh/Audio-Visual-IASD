@@ -347,6 +347,28 @@
 .d9-atalhos a.d9-at-g svg { color:#fff; }
 .d9-atalhos a.d9-at-p { border-color:#d23c32; }
 .d9-atalhos a.d9-at-p svg { color:#d23c32; }
+  /* ===== compartilhar: visível e com nome (página, capítulo, problema) ===== */
+  .compart {
+    display:inline-flex; align-items:center; gap:.45rem; margin:0 0 .8rem; padding:.42rem .85rem .42rem .7rem;
+    border-radius:999px; border:1.5px solid var(--integral); background:var(--integral-tint); color:var(--integral);
+    font:700 .84rem/1.2 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .trilha--dia .compart { border-color:var(--dia); background:var(--dia-tint); color:var(--dia); }
+  .compart:active { transform:scale(.97); }
+  .compart svg { width:1.05rem; height:1.05rem; flex:none; }
+  details.sintoma .compart { margin:.6rem .85rem .2rem; }
+  .compart-guia {
+    display:flex; align-items:center; gap:.8rem; width:100%; margin:.9rem 0 .2rem; padding:.85rem 1rem;
+    border-radius:var(--raio); border:2px solid var(--accent); background:#fff; color:var(--titulo);
+    text-align:left; cursor:pointer; box-shadow:var(--sombra); font:inherit; -webkit-tap-highlight-color:transparent;
+  }
+  .compart-guia:active { transform:scale(.98); }
+  .compart-guia .cg-ic { flex:none; width:2.6rem; height:2.6rem; border-radius:50%; display:grid; place-items:center; background:var(--accent); color:#fff; }
+  .compart-guia .cg-ic svg { width:1.3rem; height:1.3rem; }
+  .compart-guia .cg-t { display:block; font-weight:800; font-size:1.02rem; }
+  .compart-guia .cg-s { display:block; font-size:.82rem; color:var(--muted); }
+  @media print { .compart, .compart-guia { display:none !important; } }
 </style>
 </head>
 <body>
@@ -421,6 +443,7 @@
     <a class="sos" href="#d9"><span class="e-n">Problema agora · D9</span><span class="e-t">Socorro rápido</span><span class="e-s">Microfone mudo, apito, computador sem som, telão sem imagem… a solução passo a passo.</span><span class="e-m">do mais simples ao mais difícil</span><span class="e-ir" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a>
     <a class="int" href="#integral"><span class="e-n">Trilha 2 · I · curso</span><span class="e-t">Sonoplasta em tempo integral</span><span class="e-s">Para quem cuida do som toda semana: teoria, mesa em detalhe, microfonia, transmissão e manutenção.</span><span class="e-m">curso completo, por capítulos</span><span class="e-ir" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a>
   </nav>
+  <button type="button" class="compart-guia" id="compart-guia"><span class="cg-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5l6.8-4M8.6 13.5l6.8 4"/></svg></span><span><span class="cg-t">Compartilhar este guia</span><span class="cg-s">Envie pelo WhatsApp, e-mail ou copie o link</span></span></button>
   <p class="escolha-mais">Problema mais técnico? Veja o <a href="#i17">Diagnóstico de problemas (I17)</a>.</p>
 </section>
 
@@ -476,7 +499,7 @@
   <h2>Como usar este guia</h2>
   <ol class="passos">
     <li><b>Escolha a trilha.</b> Vai cuidar do som só hoje? Leia a trilha <b>D</b> (por um dia), na ordem. Vai cuidar toda semana? A trilha <b>I</b> (tempo integral) é um curso completo.</li>
-    <li><b>Use os códigos.</b> Cada capítulo tem um código, como <b>D3</b> ou <b>I8</b>. Servem para aulas ("hoje vamos ver I5 e I6") e para perguntas ("o apito está explicado em I8"). Toque no código no título de um capítulo para <b>copiar o link</b> dele e mandar pelo WhatsApp.</li>
+    <li><b>Use os códigos.</b> Cada capítulo tem um código, como <b>D3</b> ou <b>I8</b>. Servem para aulas ("hoje vamos ver I5 e I6") e para perguntas ("o apito está explicado em I8"). Para mandar um capítulo pelo WhatsApp, toque em <b>Compartilhar capítulo</b>, logo abaixo do título dele. Cada problema do socorro também tem o seu botão.</li>
     <li><b>Problema agora?</b> Toque em <b>Índice</b>, no alto da tela, e escreva em "Procurar" o que está acontecendo: <i>apito</i>, <i>sem som</i>, <i>HDMI</i>, <i>pilha</i>… A lista mostra onde está a solução. O capítulo <a href="#d9">D9</a> reúne o socorro rápido.</li>
     <li><b>Marque as listas.</b> As caixinhas das listas ficam marcadas neste aparelho, mesmo se você fechar a página.</li>
   </ol>
@@ -4454,7 +4477,7 @@
 
   /* 7. tocar no código do capítulo copia o link */
   function copiar(txt) {
-    function ok() { avisar('Link copiado'); }
+    function ok() { avisar('Link copiado. Cole no WhatsApp ou onde quiser.'); }
     function velho() {
       var ta = document.createElement('textarea'), r = false;
       ta.value = txt; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.top = '0'; ta.style.opacity = '0';
@@ -4475,6 +4498,35 @@
       c.addEventListener('click', vai);
       c.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') vai(e); });
     });
+  });
+
+  /* 7b. compartilhar: a folha do celular (WhatsApp, e-mail…) quando existe; senão, copia o link */
+  function compartilhar(titulo, url) {
+    if (navigator.share) {
+      navigator.share({ title: titulo, text: titulo, url: url }).catch(function (e) {
+        if (!e || e.name !== 'AbortError') copiar(url);
+      });
+    } else copiar(url);
+  }
+  seguro('compartilhar', function () {
+    var ICONE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5l6.8-4M8.6 13.5l6.8 4"/></svg>', base = location.href.split('#')[0];
+    function botao(rotulo, titulo, id) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'compart';
+      b.innerHTML = ICONE + '<span>' + rotulo + '</span>';
+      b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); compartilhar(titulo, base + '#' + id); });
+      return b;
+    }
+    caps.forEach(function (sec) {
+      var h2 = $('h2', sec); if (!h2) return;
+      var inf = infoCap(sec);
+      h2.insertAdjacentElement('afterend', botao('Compartilhar capítulo', inf.cod + ' · ' + inf.tit + ' — Guia de sonoplastia IASD', sec.id));
+    });
+    $$('details.sintoma[id]').forEach(function (d) {
+      var sm = $('summary', d); if (!sm) return;
+      d.appendChild(botao('Compartilhar este problema', sm.textContent.trim() + ' — Guia de sonoplastia IASD', d.id));
+    });
+    var g = document.getElementById('compart-guia');
+    if (g) g.addEventListener('click', function () { compartilhar('Guia de sonoplastia IASD — o som da igreja, passo a passo', base); });
   });
 
   /* 8. impressão: abre todos os details */
