@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o guia: o app vai para a operação, e o glossário para o fim (sem versão nova; só `site/` e docs)** — o app (D11) passa a D8, logo depois do YouTube, e o glossário (I17) passa a I22, antes do diagnóstico: a ordem dos capítulos conferida de ponta a ponta.
 - **v1.14.7** — o tour vira quadrado, o editor vira ferramenta, e o tour não encosta na borda
 - **o guia: socorro e diagnóstico no fim, e os códigos em sequência (sem versão nova; só `site/` e docs)** — o socorro (D9) e o diagnóstico (I17) fecham cada guia, os capítulos que vinham depois andam uma casa, e as remissões, o índice e a impressão vão junto.
 - **o guia: capa impressa nova, e "trilha" vira "guia" (sem versão nova; só `site/` e docs)** — a 1ª página da impressão ganha a faixa da igreja (Igreja Adventista do Sétimo Dia e IASD, em texto), o nome do guia dominante, o caminho do som no azul da casa e um rodapé com endereço, data e páginas; as partes passam a se chamar "Guia de sonoplasta por um dia" e "… em tempo integral".
@@ -722,7 +723,13 @@ apagada da que a criou.
 - **v5.159** — fechou o que a v5.158 deixou de pé, e o achado é do MESMO tipo: KEY_I_FRAME_INTERVAL não é segundos de parede, é CONTAGEM DE QUADROS.
 - **v5.158** — achou a causa do travamento, e ela era a PODA.
 - **v5.157** — mede o travamento, e a metade que MEDE é APK.
-- **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em## v1.14.7 — o tour vira quadrado, o editor vira ferramenta, e o tour não encosta na borda
+- **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
+- **v5.155** — é OTA PURO
+- **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.14.7 — o tour vira quadrado, o editor vira ferramenta, e o tour não encosta na borda
 
 **Pacote 10 da fila do operador** (`docs/PEDIDOS-EM-ESPERA.md`, pedidos de
 2026-10-30), mais três itens que ele acrescentou em **2026-11-13**. **Só web**
@@ -787,11 +794,25 @@ pílula a 12 px), `edicao-de-midia` (a ferramenta, o voltar e o rascunho),
 **Não medido:** o aparelho — o lote é só web, chega por OTA, e nenhum APK foi
 feito. A captura a 320 px é a dos oráculos de Chromium.
 
- aparelho.
-- **v5.155** — é OTA PURO
-- **v5.156** — é METADE OTA e METADE APK, de novo.
+## o guia: o app vai para a operação, e o glossário para o fim (sem versão nova; só `site/` e docs)
 
----
+- **Pedido:** "a ordem dos capítulos ainda faz sentido? … faz sentido falar sobre o app apenas
+  depois de citar como encerrar? Verifique a ordem geral dos capítulos." — conferida a
+  sequência, aprovado o ajuste ("Aplicar os dois").
+- **No guia de um dia:** o app era D11, depois de "Ao terminar" — e é capítulo de OPERAÇÃO
+  durante o culto (ligar o celular na TV, achar o hino, tocar), não de despedida. Vai para D8,
+  logo depois do YouTube no telão; "Durante o culto" vira D9, "Ao terminar" D10 e a "Ficha de
+  bolso" D11. O socorro segue fechando, em D12.
+- **No tempo integral:** o glossário (I17) caía no meio do curso, antes de eventos, hinário e
+  música; é consulta e passa a fechar o guia ao lado do diagnóstico: Eventos I17, Hinário I18,
+  Música na igreja I19, Louvor JA I20, App I21, Glossário I22, Diagnóstico I23.
+- **Junto:** os códigos dos títulos (.cod), o índice estático, as âncoras internas e as
+  remissões (D11→D8 · D8→D9 · D9→D10 · D10→D11 · I18→I17 · I19→I18 · I20→I19 · I21→I20 ·
+  I22→I21 · I17→I22) e os códigos do estudo `docs/ESTUDO-GUIA-IASD.md`. Os 37 capítulos
+  conferidos bloco a bloco: renomeados e reordenados, nenhuma linha perdida.
+- **Oráculos:** `guia-impressao` 76 ok (as 22 páginas do "um dia" e as 88 do integral seguem),
+  `guia-no-app` e `tour` certos, e o portão da vizinhança inteiro.
+
 
 ## o guia: socorro e diagnóstico no fim, e os códigos em sequência (sem versão nova; só `site/` e docs)
 
