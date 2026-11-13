@@ -775,9 +775,16 @@ docs: nada chega ao app.
   na impressão, limpo a cada remontagem) e a referência é reescrita.
 - **Oráculo novo:** `tools/guia-impressao.test.mjs`, no workflow; cobra também
   que toda referência SVG da prévia resolva dentro do diálogo e renderizada (295
-  no Por um dia, 96 no Tempo integral). E o `tools/guia-no-app.test.mjs` ganha o
-  `process.exit(falhas.length ? 1 : 0)`: sem ele, um FALHOU ali não reprovava o
-  CI (o runner lê o código de saída).
+  no Por um dia, 96 no Tempo integral).
+- **Achado fora do escopo, registrado e NÃO consertado:** o
+  `tools/guia-no-app.test.mjs` não tem `process.exit(falhas.length ? 1 : 0)`, e
+  por isso um FALHOU ali não reprova o CI (o runner lê o código de saída). Com o
+  exit posto, o run #2492 reprovou no caso "E · a 320 px o guia no app também
+  não estoura nem cobre o título" — `{"tituloEsq":52,"sobra":18}`, 18 px de
+  rolagem lateral a 320 px com `?app=1#dia` —, que já falhava CALADO em `main`
+  (runs #2488 e #2491) e passa na máquina local (fontes diferentes). O exit
+  saiu deste lote para não segurar o canal; o conserto do estouro e o exit, no
+  mesmo lote, estão no Pacote 8.2 de `PEDIDOS-EM-ESPERA.md`.
 - **Não medido:** a impressão física (impressora real, frente e verso pela
   borda longa, furo no fichário) e a impressão de dentro do app (o WebView do
   Android provavelmente ignora `window.print()` — daí o aviso).
