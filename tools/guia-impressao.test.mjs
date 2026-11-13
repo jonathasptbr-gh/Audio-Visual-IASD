@@ -6,7 +6,12 @@
 // ("Por um dia" ou "Tempo integral") paginado em folhas A4 retrato, na ordem
 // natural, em dois formatos — "A4 simples" (margens 18/18 mm) e "A4 fichário"
 // (25 mm do lado do furo e 11 do outro, espelhadas nas páginas pares). A
-// prévia É o que se imprime. O que este arquivo trava:
+// área útil (174 × 264 mm) tem DUAS colunas de 83,5 mm — a largura de um
+// celular — com um vão de 7 mm: o texto enche a da esquerda, depois a da
+// direita, e cada figura fica na largura da SUA coluna. Uma faixa de largura
+// total, só no alto da página, leva o cabeçalho da trilha e a tabela larga
+// demais para uma coluna (4 colunas ou mais). A prévia É o que se imprime. O
+// que este arquivo trava:
 //  A. o diálogo tem só 2 guias × 2 formatos e abre em "Por um dia · A4 simples";
 //     a caixa de cima tem o "?" (Como imprimir) no topo esquerdo e o fechar no
 //     direito, numa faixa só deles, UMA linha de informação (páginas, folhas e
@@ -15,17 +20,24 @@
 //     (`window.livreto.paginas`), sem folha em branco a mais — o modo de
 //     falhar calado é uma caixa 1 px mais alta que a folha;
 //  C. com a mídia de impressão, cada página mede 210 × 297 mm e o texto fica
-//     dentro das margens do formato, sem invadir a margem do furo; toda seta,
+//     dentro das margens do formato, sem invadir a margem do furo; as duas
+//     colunas medem 83,5 mm com 7 mm de vão e nada do que mora numa coluna
+//     passa da largura dela (nada atravessa o vão); toda seta,
 //     recorte, textura e <use> da prévia aponta para um recurso DENTRO do
 //     diálogo e renderizado (o original em `main` some na impressão);
 //  D. os dois formatos do mesmo guia, paginados do zero, dão o mesmo nº de
 //     páginas e o mesmo índice (a área útil é a mesma);
 //  E. nenhuma página vazia nem texto cortado no rodapé; cada capítulo começa
-//     em página nova e o índice aponta para ela; figura centrada e com até
-//     ~120 mm; caixa, cartão de problema e tabela nunca partidos;
+//     em página nova, no alto (faixa, ou o topo da coluna da esquerda), e o
+//     índice aponta para ela; a ordem de leitura é a do guia e a coluna da
+//     esquerda enche antes da direita; figura na largura da sua coluna e
+//     centrada nela, nunca na faixa; a faixa só leva o cabeçalho da trilha e
+//     tabela larga (com o texto que a precede na página); caixa, cartão,
+//     cartão de problema, figura e tabela nunca partidos;
 //  F. capa e rodapé com o nome real da trilha; sem aviso "não coube" do
 //     motor nem erro de JavaScript;
-//  G. a 390 px nada rola de lado e, a 320, nada no diálogo (a página embaixo
+//  G. o título "Imprimir o guia" fica no meio, entre o "?" e o fechar;
+//     a 390 px nada rola de lado e, a 320, nada no diálogo (a página embaixo
 //     ainda sobra 18 px no CI: fila, Pacote 8.2); com `?app=1` a faixa do "?"
 //     e o tutorial desviam do "fechar" nativo (52 × 56 px), guia e formato
 //     ficam abaixo dele, e o tutorial manda abrir no navegador.
@@ -63,8 +75,21 @@ const medirPaginas = (pg) => pg.evaluate(() => {
       if (!r.width || !r.height) return;
       esq = Math.min(esq, r.left); dir = Math.max(dir, r.right); fundo = Math.max(fundo, r.bottom);
     });
+    // o que mora numa coluna não passa da largura dela: nada atravessa o vão
+    const cols = [...c.querySelectorAll(':scope > .pag-col')], vazam = [];
+    cols.forEach((col) => {
+      const q = col.getBoundingClientRect();
+      col.querySelectorAll('*').forEach((k) => {
+        if (k instanceof SVGElement && k.tagName.toLowerCase() !== 'svg') return;
+        const r = k.getBoundingClientRect();
+        if (r.width && r.height && (r.left < q.left - 0.5 || r.right > q.right + 0.5) && vazam.length < 3)
+          vazam.push(k.tagName + ' ' + ((r.left - q.left) / MM).toFixed(1) + '/' + ((q.right - r.right) / MM).toFixed(1));
+      });
+    });
     return { w: a.width / MM, h: a.height / MM, esq: (esq - a.left) / MM, dir: (a.right - dir) / MM,
-      corte: (fundo - b.bottom) / MM, filhos: c.children.length };
+      corte: (fundo - b.bottom) / MM, vazam,
+      cols: cols.map((k) => { const r = k.getBoundingClientRect(); return [(r.left - a.left) / MM, r.width / MM]; }),
+      filhos: c.matches('.pag-capa') ? c.children.length : c.querySelectorAll(':scope > .pag-col > *, :scope > .pag-faixa > *').length };
   });
 });
 
@@ -124,6 +149,17 @@ async function conferir(pg, guia, fmt, rotulo) {
   checar(invadem.length === 0 && Math.abs(encostam.impar - ei) < 0.5 && Math.abs(encostam.par - ep) < 0.5,
     `C · ${rotulo}: o texto começa a ${ei} mm da borda nas ímpares e a ${ep} mm nas pares, sem invadir a margem`,
     JSON.stringify({ encostam, invadem: invadem.slice(0, 3) }));
+  // da 2ª página em diante: duas colunas de 83,5 mm, a da esquerda na margem, 7 mm de vão
+  const colunasTortas = pags.map((p, i) => [i + 1, p]).filter(([n, p]) => {
+    if (n === 1) return false;
+    const e = margens(fmt, n)[0];
+    return p.cols.length !== 2 || Math.abs(p.cols[0][0] - e) > 0.3 || Math.abs(p.cols[1][0] - (e + 90.5)) > 0.3
+      || p.cols.some(([, w]) => Math.abs(w - 83.5) > 0.3);
+  });
+  const vazantes = pags.map((p, i) => (p.vazam.length ? (i + 1) + ': ' + p.vazam.join(', ') : 0)).filter(Boolean);
+  checar(colunasTortas.length === 0 && vazantes.length === 0,
+    `C · ${rotulo}: duas colunas de 83,5 mm com 7 mm de vão, e nada passa da largura da sua coluna (nem atravessa o vão)`,
+    JSON.stringify({ colunasTortas: colunasTortas.slice(0, 2), vazantes: vazantes.slice(0, 3) }));
   const vazias = pags.map((p, i) => (p.filhos ? 0 : i + 1)).filter(Boolean);
   const cortadas = pags.map((p, i) => (p.corte > 0.3 ? (i + 1) + ':' + p.corte.toFixed(1) : 0)).filter(Boolean);
   checar(vazias.length === 0 && cortadas.length === 0,
@@ -137,25 +173,59 @@ const estrutura = (pg, guia) => pg.evaluate((guia) => {
   const pags = [...esc.querySelectorAll('.pag')];
   const oid = window.livreto.oidPag;
   const caps = Object.keys(oid).filter((k) => /^[di]\d+$/.test(k));
-  const codNa = (n, cod) => pags[n - 1] && [...pags[n - 1].querySelector('.pag-conteudo').children].slice(0, 2)
+  // o capítulo abre a página: o código dele está nos 2 primeiros blocos (a faixa, depois a coluna da esquerda)
+  const codNa = (n, cod) => pags[n - 1] && [...pags[n - 1].querySelectorAll('.pag-faixa > *, .pag-col-e > *')].slice(0, 2)
     .some((k) => [...k.querySelectorAll('.cod')].concat(k.matches('.cod') ? [k] : []).some((c) => c.textContent.trim() === cod));
   const foraDoInicio = caps.filter((k) => !codNa(oid[k], k.toUpperCase()));
   const original = caps.length === document.querySelectorAll('#' + guia + ' > section.cap').length;
   const indice = [...esc.querySelectorAll('.lb-ind li')].map((li) =>
     [li.querySelector('.ic').textContent.trim().toLowerCase(), li.querySelector('.lb-pg').textContent.replace(/\D/g, '')]);
   const indiceErrado = indice.filter(([k, n]) => String(oid[k]) !== n);
+  // figura: na largura da SUA coluna e centrada nela (a prévia está escalada: k)
   const figuras = [...esc.querySelectorAll('figure.ilus > svg')].map((s) => {
-    const r = s.getBoundingClientRect(), c = s.closest('.pag-conteudo'), cs = getComputedStyle(c), b = c.getBoundingClientRect();
-    const pag = s.closest('.pag'), k = pag.getBoundingClientRect().width / pag.offsetWidth;   // a prévia está escalada
-    const e = (r.left - b.left) / k - parseFloat(cs.paddingLeft), d = (b.right - r.right) / k - parseFloat(cs.paddingRight);
-    return { larg: r.width / k / MM, desvio: Math.abs(e - d) / MM };
+    const col = s.closest('.pag-col');
+    if (!col) return { faixa: true };
+    const r = s.getBoundingClientRect(), b = col.getBoundingClientRect();
+    const pag = s.closest('.pag'), k = pag.getBoundingClientRect().width / pag.offsetWidth;
+    return { larg: r.width / k / MM, col: b.width / k / MM, desvio: Math.abs((r.left - b.left) - (b.right - r.right)) / k / MM };
   });
   const conta = (raiz, s) => raiz.querySelectorAll(s).length;
   const orig = document.getElementById(guia);
+  // ordem de leitura: os ids do guia aparecem na prévia (faixa, coluna da esquerda, da direita) na ordem do original
+  const pos = new Map([...orig.querySelectorAll('[id]')].map((e, i) => [e.id, i]));
+  const seq = [...esc.querySelectorAll('[data-oid]')].map((e) => pos.get(e.getAttribute('data-oid'))).filter((i) => i !== undefined);
+  const foraDeOrdem = seq.filter((v, i) => i && v < seq[i - 1]).length;
+  // a da esquerda enche antes: com a direita ocupada, o que sobrou embaixo na esquerda é menor que o 1º bloco
+  // da direita (+ o recuo do título que não fica órfão no pé da coluna, 90 px); o índice de uma página
+  // se reparte nas duas colunas de propósito e fica de fora
+  const alt = (k) => { const cs = getComputedStyle(k); return k.offsetHeight + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom); };
+  const esqDepois = pags.map((p, i) => {
+    const [e, d] = p.querySelectorAll(':scope > .pag-conteudo > .pag-col');
+    if (!e || !d.childElementCount) return null;
+    if (!e.childElementCount) return (i + 1) + ': esquerda vazia';
+    if (p.querySelector('.lb-ind')) return null;
+    const livre = e.clientHeight - [...e.children].reduce((t, k) => t + alt(k), 0), prim = alt(d.firstElementChild);
+    return livre < prim + 94 ? null : (i + 1) + ': sobram ' + Math.round(livre) + ' px para ' + Math.round(prim);
+  }).filter(Boolean);
+  // faixa: só o cabeçalho da trilha e a tabela larga (4 colunas ou mais, ou que passa da largura de uma coluna)
+  const faixas = [...esc.querySelectorAll('.pag-faixa')];
+  const largaDeVerdade = (t) => {
+    const tr = t.querySelector('thead tr') || t.querySelector('tr');
+    if (tr && tr.children.length >= 4) return true;
+    const c = t.cloneNode(true), col = t.closest('.pag').querySelector('.pag-col');
+    col.appendChild(c); const passa = c.querySelector('table').offsetWidth > c.clientWidth + 1; c.remove();
+    return passa;
+  };
+  const tabFaixa = faixas.flatMap((f) => [...f.querySelectorAll('.tabela')]);
+  const faixaMal = faixas.filter((f) => f.querySelector('figure, svg, img') || !(f.querySelector('.trilha-cab') || f.querySelector('.tabela'))).length
+    + tabFaixa.filter((t) => !largaDeVerdade(t)).length;
   return {
     caps: caps.length, original, foraDoInicio, indice: indice.length, indiceErrado,
-    figLarga: figuras.filter((f) => f.larg > 121).length, figTorta: figuras.filter((f) => f.desvio > 1).length, figuras: figuras.length,
-    inteiros: ['.box', 'details', 'figure.ilus', '.tabela'].map((s) => [s, conta(orig, s), conta(esc, s + ':not(.lb-fat)')]),
+    figLarga: figuras.filter((f) => !f.faixa && f.larg > f.col + 0.3).length, figTorta: figuras.filter((f) => !f.faixa && f.desvio > 1).length,
+    figFaixa: figuras.filter((f) => f.faixa).length, figuras: figuras.length,
+    larguraCol: Math.max(0, ...figuras.filter((f) => !f.faixa).map((f) => f.col)),
+    foraDeOrdem, ordenados: seq.length, esqDepois, faixas: faixas.length, tabFaixa: tabFaixa.length, faixaMal,
+    inteiros: ['.box', '.cartao', 'details', 'figure.ilus', '.tabela', '.d-10s'].map((s) => [s, conta(orig, s), conta(esc, s + ':not(.lb-fat)')]),
     fatias: conta(esc, '.lb-fat'),
     capa: pags[0].querySelector('h1').textContent.trim(),
     rodape: pags[2].querySelector('.pag-rod').textContent.replace(/\s+/g, ' ').trim(),
@@ -228,11 +298,18 @@ try {
     checar(e.original && e.foraDoInicio.length === 0 && e.indice === e.caps && e.indiceErrado.length === 0,
       `E · ${nome}: os ${e.caps} capítulos começam em página nova e o índice aponta para ela`,
       JSON.stringify({ foraDoInicio: e.foraDoInicio, indiceErrado: e.indiceErrado.slice(0, 3), original: e.original }));
-    checar(e.figuras > 0 && e.figLarga === 0 && e.figTorta === 0,
-      `E · ${nome}: as ${e.figuras} figuras ficam centradas e com até ~120 mm`, JSON.stringify(e));
+    checar(e.figuras > 0 && e.figLarga === 0 && e.figTorta === 0 && e.figFaixa === 0 && Math.abs(e.larguraCol - 83.5) < 0.5,
+      `E · ${nome}: as ${e.figuras} figuras ficam na largura da sua coluna (83,5 mm), centradas nela, e nenhuma na faixa`,
+      JSON.stringify({ figLarga: e.figLarga, figTorta: e.figTorta, figFaixa: e.figFaixa, larguraCol: e.larguraCol }));
+    checar(e.ordenados > 50 && e.foraDeOrdem === 0 && e.esqDepois.length === 0,
+      `E · ${nome}: a ordem de leitura é a do guia (${e.ordenados} trechos) e a coluna da esquerda enche antes da direita`,
+      JSON.stringify({ foraDeOrdem: e.foraDeOrdem, esqDepois: e.esqDepois.slice(0, 3) }));
+    checar(e.faixas >= 1 && e.faixaMal === 0,
+      `E · ${nome}: a faixa de largura total só leva o cabeçalho da trilha e tabela larga (${e.faixas} faixas, ${e.tabFaixa} tabelas)`,
+      JSON.stringify({ faixas: e.faixas, tabFaixa: e.tabFaixa, faixaMal: e.faixaMal }));
     const partidos = e.inteiros.filter(([, o, p]) => o !== p);
     checar(partidos.length === 0 && e.fatias === 0,
-      `E · ${nome}: nenhuma caixa, cartão de problema, figura ou tabela partida`, JSON.stringify({ partidos, fatias: e.fatias }));
+      `E · ${nome}: nenhuma caixa, cartão, cartão de problema, figura ou tabela partida`, JSON.stringify({ partidos, fatias: e.fatias }));
     checar(e.capa === e.trilha && e.rodape.includes(e.trilha) && /· 3$/.test(e.rodape),
       `F · ${nome}: capa e rodapé com o nome da trilha ("${e.trilha}") e o nº da página`, JSON.stringify({ capa: e.capa, rodape: e.rodape }));
   }
@@ -259,6 +336,13 @@ try {
       recuoTut: parseFloat(getComputedStyle(document.querySelector('.tut-cab')).paddingLeft),
       grupos: Math.round(document.querySelector('.caderno-grupos').getBoundingClientRect().top),
       titulo: Math.round(document.querySelector('.caderno-tit').getBoundingClientRect().width),
+      // o meio do texto do título × o meio entre o "?" e o fechar
+      centro: (() => {
+        const t = document.querySelector('.caderno-tit'), rg = document.createRange(); rg.selectNodeContents(t);
+        const x = rg.getBoundingClientRect(), a = document.getElementById('caderno-tut').getBoundingClientRect(),
+          b = document.getElementById('caderno-x').getBoundingClientRect();
+        return Math.round(((x.left + x.right) / 2 - (a.right + b.left) / 2) * 10) / 10;
+      })(),
       aviso: getComputedStyle(document.querySelector('.tut-so-app')).display !== 'none',
       secoes: document.querySelectorAll('#caderno-tut-p .tut-met svg').length,
     }));
@@ -266,6 +350,8 @@ try {
     // quem a cobra é o `guia-no-app` E): a essa largura mede-se só o diálogo
     checar(m.dialogo <= 1 && m.barra <= 1 && (larg < 390 || m.sobra <= 1) && m.secoes === 2 && m.titulo >= 90,
       `G · a ${larg} px${app ? ' (app)' : ''} o diálogo e o tutorial não rolam de lado e o título cabe`, JSON.stringify(m));
+    checar(Math.abs(m.centro) <= 2,
+      `G · a ${larg} px${app ? ' (app)' : ''} o título "Imprimir o guia" fica no meio, entre o "?" e o fechar`, JSON.stringify({ centro: m.centro }));
     checar(app ? m.recuo >= 51 && m.recuoTut >= 51 && m.grupos >= 56 && m.aviso : m.recuo < 51 && !m.aviso,
       app ? `G · a ${larg} px pelo app, a faixa do "?" e o tutorial desviam do "fechar" nativo, guia e formato ficam abaixo dele, e o tutorial manda abrir no navegador`
         : 'G · no navegador, sem recuo e sem o aviso do app', JSON.stringify(m));

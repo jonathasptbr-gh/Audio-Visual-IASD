@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o guia: impressão em duas colunas (sem versão nova; só `site/` e docs)** — duas colunas de 83,5 mm (a largura de um celular) com 7 mm de vão; figura na largura da sua coluna; faixa de largura total só para o cabeçalho da trilha e 3 tabelas largas; título "Imprimir o guia" centrado; Por um dia 46 → 26 páginas, Tempo integral 147 → 95.
 - **o guia: a caixa de cima da impressão reorganizada (sem versão nova; só `site/` e docs)** — `?` (Como imprimir) no topo esquerdo e o fechar no direito, numa faixa só deles; UMA linha de informação (páginas, folhas e o ajuste da impressora); o Imprimir por último, na base direita; no app só a faixa do `?` desvia do fechar nativo.
 - **o guia: impressão em A4 retrato, simples ou fichário (sem versão nova; só `site/` e docs)** — cada página do guia vira uma folha A4 retrato, na ordem; 2 guias (Por um dia, Tempo integral) × 2 formatos (simples 18/18 mm; fichário 25/11 mm espelhado); saem Dobrar, Encadernar, A5, Completo, capítulo único e Anotações; o tutorial vira "Como imprimir"; oráculo `guia-impressao`.
 - **v1.14.6** — o "fechar" do guia à ESQUERDA, no lugar do "voltar ao site" (que some no app): o shell manda `?app=1`, a página esconde o voltar do topo e do rodapé e reserva 52 px ao botão nativo, e ainda limpa o parâmetro para ele não viajar no compartilhar; APK + site.
@@ -716,6 +717,45 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## o guia: impressão em duas colunas (sem versão nova; só `site/` e docs)
+
+- **Pedido:** centralizar o título "Imprimir o guia" e imprimir o guia em duas
+  colunas: o guia nasceu para a tela do celular, então cada coluna tem a
+  largura de um celular e as imagens seguem a sua coluna.
+- **Título:** `.caderno-tit` centrado no espaço entre o `?` e o `×` (no
+  navegador, o meio da caixa; no app, entre o `?` recuado e o `×`).
+- **Duas colunas:** as margens não mudam (simples 18/18; fichário 25/11
+  espelhado; topo 15, base 18). A área útil de 174 × 264 mm vira duas colunas
+  de 83,5 mm (≈ 315 px) com 7 mm de vão e um fio fino no meio, que só aparece
+  com a coluna da direita ocupada e acaba onde acaba o texto. O motor enche a
+  coluna da esquerda, depois a da direita, depois a página seguinte
+  (`proxColuna`/`avancar`); capítulo e índice em página nova, no alto. A
+  letra é a de antes (10,5 pt).
+- **Figuras:** na largura da sua coluna, centradas nela (altura até 110 mm): as
+  telas do app saem inteiras na largura da coluna, como no celular.
+- **Faixa de largura total**, só no alto da página: o cabeçalho da trilha e a
+  tabela larga demais para uma coluna (4 colunas ou mais, ou que passa da
+  largura) — no Tempo integral, "HDMI, VGA, DisplayPort e USB" e a
+  "Tabela-resumo" (I3) e o "Mapa de ligações" (I16); na coluna, a Tabela-resumo
+  passava 3,4 mm da largura. Se a página só tem texto na coluna da esquerda, ele
+  sobe para a faixa junto com a tabela (o cartão "Diário de bordo", no I16), em
+  vez de a página ficar quase vazia.
+- **Inteiros:** caixa, cartão, cartão de problema, figura e tabela não se partem,
+  nem entre colunas; nenhum ficou mais alto que uma coluna. No I17 (problemas)
+  cada cartão ocupa meia coluna ou mais e várias colunas ficam com a metade de
+  baixo em branco.
+- **Índice:** de uma página só, repartido nas duas colunas.
+- **Tutorial:** o desenho do "A4 simples" mostra o texto em duas colunas; o texto
+  não citava a coluna única e fica como estava.
+- **Páginas:** Por um dia 46 → 26; Tempo integral 147 → 95 (iguais no simples e
+  no fichário). Montagem no Chromium deste aparelho (3 rodadas): Por um dia
+  ~1,5 s → ~1,3 s; Tempo integral ~3,3 s → ~2,7 s.
+- **Oráculo:** `guia-impressao` (55 ok): duas colunas de 83,5 mm com 7 mm de vão
+  e nada passando da largura da sua coluna; a ordem de leitura é a do guia e a
+  coluna da esquerda enche antes da direita; figura na largura da sua coluna,
+  centrada nela e nunca na faixa; a faixa só com o cabeçalho da trilha e tabela
+  larga; caixa, cartão, figura e tabela inteiros; o título no meio a 390 e 320 px.
 
 ## o guia: a caixa de cima da impressão reorganizada (sem versão nova; só `site/` e docs)
 
