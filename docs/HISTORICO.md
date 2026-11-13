@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o cartão do link, redesenhado (sem versão nova; só `site/`)** — a pedido: sai o caminho microfone → cabo → mesa → caixa e entra o posto de trabalho — um monitor com a onda na tela sobre um pé curto e, na frente, a mesa de som em perspectiva (corpo escuro, painel claro, faders e knobs), em CSS 3D; o `?v=` sobe a 2 para o cartão antigo não circular.
 - **o guia de sonoplastia ganha cartão de link (sem versão nova; só `site/`)** — a página recebe `og:*`, `twitter:card` e `canonical`, e `site/og-sonoplastia.jpg` (1200×630, 84 kB) desenha o guia: o título, a régua de nível com o pico no vermelho e, num cartão branco, o caminho do som (microfone → mesa → caixa) que abre a capa; `?v=1` porque a prévia é guardada por endereço.
 - **o guia: título de figura sempre junto da figura na impressão (sem versão nova; só `site/` e docs)** — o subtítulo ou o parágrafo curto logo antes de uma figura vai com ela para a coluna seguinte quando ela não cabe no resto da coluna; separados antes: 2 no Por um dia e 2 no Tempo integral (fonte local e Roboto; 2 e 4 com DejaVu), depois nenhum; páginas iguais (22 e 88).
 - **o guia: cartão longo partido entre colunas na impressão (sem versão nova; só `site/` e docs)** — o cartão de problema e o "entender mais" se partem entre blocos (parágrafo, item) quando não cabem no resto da coluna: título + ~3 linhas em cima, "continua →" no pé, título com "(continuação)" no alto da coluna seguinte; Tempo integral 91 → 88 páginas (DejaVu 103 → 96).
@@ -721,6 +722,48 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## o cartão do link, redesenhado (sem versão nova; só `site/`)
+
+**O PEDIDO:** *"Refaça a imagem de referência do microfone, mesa de som e caixa
+de som. Quero algo como um monitor de computador e uma mesa de som (em
+perspectiva) em baixo. Use um design minimalista, bordas curvas… Mais estético
+do que temos hoje. O resto da imagem do link, os textos e afins estão bons."*
+
+**O DESENHO NOVO.** Sai o caminho microfone → cabo → mesa → caixa (o desenho da
+capa, em SVG); entra o **posto de trabalho** que o guia ensina a operar, agora em
+CSS 3D: o monitor (298×182, canto 22, bezel de 9) inclinado a
+`rotateX(9deg) rotateY(-8deg)` sobre um pé curto, e a mesa de som a
+`rotateX(32deg) rotateY(-8deg)` — corpo escuro com painel claro de gradiente,
+quatro canais com knob + fader de cap escuro e o master com medidor de 3 leds.
+Cantos redondos em tudo (22 no monitor, 24 na mesa, 8 no cap do fader), sombras
+de contato desfocadas sob cada peça e um halo claro no fundo do cartão. A tela
+do monitor leva três traçados de onda (SVG; os de trás a 20–26% de opacidade), a
+barra de progresso e o ponto verde — som e imagem na mesma peça, que é o assunto
+do guia.
+
+**POR QUE CSS 3D.** As duas peças pedem PLANO INCLINADO, e plano inclinado em
+SVG é polígono com canto arredondado desenhado à mão — no CSS basta `rotateX` e
+`rotateY` com `perspective: 1300px`, e `border-radius`, gradiente e `box-shadow`
+acompanham a perspectiva de graça. Renderizado a `deviceScaleFactor: 2` e
+gravado em 1200×630 (`scale: 'css'`), que é o que mantém a borda limpa; JPEG
+q92, **93.216 bytes** — dentro do mesmo patamar do cartão anterior (84 kB). O
+gerador segue fora do repositório, como o do `og.jpg`.
+
+**O `?v=` SOBE PARA 2.** A imagem mudou e o endereço é a chave do cache do
+mensageiro: mantido o `?v=1`, quem já tinha recebido o link continuaria vendo o
+cartão do microfone. O `og:image:alt` acompanha — passa a descrever o monitor
+com a onda e a mesa inclinada, porque é ele que o leitor de tela anuncia.
+
+**O RESTO NÃO MUDOU**, a pedido: o texto da esquerda (olho, título em duas
+linhas com a segunda no azul claro, régua de nível, frase, as três fichas e o
+endereço) é o mesmo do cartão anterior, e a página continua sem versão nova.
+
+**A NOTA ANTERIOR FICA.** "o guia de sonoplastia ganha cartão de link" registra o
+primeiro desenho e a estreia do bloco `og:*`; esta a substitui no mesmo dia, como
+manda o apêndice — a decisão revogada não se apaga.
 
 ---
 
