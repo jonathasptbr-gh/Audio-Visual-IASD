@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o guia: a caixa de cima da impressão reorganizada (sem versão nova; só `site/` e docs)** — `?` (Como imprimir) no topo esquerdo e o fechar no direito, numa faixa só deles; UMA linha de informação (páginas, folhas e o ajuste da impressora); o Imprimir por último, na base direita; no app só a faixa do `?` desvia do fechar nativo.
 - **o guia: impressão em A4 retrato, simples ou fichário (sem versão nova; só `site/` e docs)** — cada página do guia vira uma folha A4 retrato, na ordem; 2 guias (Por um dia, Tempo integral) × 2 formatos (simples 18/18 mm; fichário 25/11 mm espelhado); saem Dobrar, Encadernar, A5, Completo, capítulo único e Anotações; o tutorial vira "Como imprimir"; oráculo `guia-impressao`.
 - **v1.14.6** — o "fechar" do guia à ESQUERDA, no lugar do "voltar ao site" (que some no app): o shell manda `?app=1`, a página esconde o voltar do topo e do rodapé e reserva 52 px ao botão nativo, e ainda limpa o parâmetro para ele não viajar no compartilhar; APK + site.
 - **o guia de sonoplastia: coesão e conserto dos defeitos (sem versão nova; só `site/` e docs)** — conserta os 2 botões "Para quem quer entender mais" aninhados (I1, I4), o "?" e o "dica Dica" (I23), a frase duplicada do projetor (I13) e a legenda órfã "Em breve"; some a comparação repetida do I23 e a Tabela-resumo do I17; glossário vira índice; D3/D6 e 14 tabelas enxutos
@@ -715,6 +716,24 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## o guia: a caixa de cima da impressão reorganizada (sem versão nova; só `site/` e docs)
+
+- **Pedido:** a contagem de páginas ficava no topo da barra e a dica da
+  impressora numa segunda linha, embaixo; o fechar e o "Como imprimir" se
+  amontoavam com o Imprimir.
+- **Agora, em três faixas, na ordem de leitura:** `?` (abre o "Como imprimir";
+  `aria-label` e `title`) no topo esquerdo, o título e o `×` (fechar) no topo
+  direito — o mesmo lado do `×` do índice e do tutorial; guia e formato; e uma
+  linha só (`#caderno-info`: páginas, folhas e "Imprima em A4 retrato, escala
+  100%, margens padrão.") com o **Imprimir** (era "Imprimir agora") por último,
+  na base direita. Sai o `#caderno-dica`; o tutorial cita o botão novo.
+- **No app:** o recuo de 52 px sai da barra inteira e fica só na faixa do `?`,
+  que ganha altura mínima para guia e formato começarem abaixo dos 56 px do
+  botão nativo; as opções passam a usar a largura toda.
+- **Oráculo:** `guia-impressao` trava o `?` e o `×` nos cantos, o Imprimir como
+  último botão (base direita, abaixo das opções), a linha única de informação
+  e, a 390 e a 320 px pelo app, guia e formato abaixo do botão nativo.
 
 ## o guia: impressão em A4 retrato, simples ou fichário (sem versão nova; só `site/` e docs)
 
