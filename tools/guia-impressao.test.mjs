@@ -42,7 +42,11 @@
 //     a 390 px nada rola de lado e, a 320, nada no diálogo (a página embaixo
 //     ainda sobra 18 px no CI: fila, Pacote 8.2); com `?app=1` a faixa do "?"
 //     e o tutorial desviam do "fechar" nativo (52 × 56 px), guia e formato
-//     ficam abaixo dele, e o tutorial manda abrir no navegador.
+//     ficam abaixo dele, e o tutorial manda abrir no navegador;
+//  H. na figura dos adaptadores (I3, Tempo integral), cada par de <text> com
+//     ≥ 4 px de vão entre as caixas (getBoundingClientRect), sem interseção, na
+//     tela a 390 e 320 px e na impressão (coluna de 83,5 mm) — o modo de falhar
+//     é dois rótulos dividindo a linha, o da esquerda mais largo que a coluna.
 //
 //   node tools/guia-impressao.test.mjs
 // ============================================================================
@@ -103,6 +107,27 @@ async function escolher(pg, attr, valor) {
   const chave = attr === 'data-guia' ? 'guia' : 'formato';
   await pg.waitForFunction(([k, v]) => window.livreto && window.livreto[k] === v, [chave, valor], { timeout: 60000 });
 }
+
+// H. os textos da figura dos adaptadores não se encostam: o menor vão entre as caixas de cada par
+// (o maior dos quatro afastamentos; negativo = interseção) tem de ser ≥ 4 px, e os dois rótulos
+// do pedido ("canais de linha" × "2-TRACK") estão entre os medidos
+const ADAPTADORES = 'svg[aria-label^="Quatro adaptadores"]';
+const vaosDoDesenho = (pg, raiz) => pg.evaluate(([raiz, sel]) => {
+  const s = document.querySelector(raiz + ' ' + sel);
+  if (!s) return { textos: 0, alvos: 0, perto: ['figura não achada em ' + raiz] };
+  const ts = [...s.querySelectorAll('text')], R = ts.map((t) => t.getBoundingClientRect());
+  const nome = (t) => t.textContent.replace(/\s+/g, ' ').trim().slice(0, 22);
+  const perto = [];
+  for (let i = 0; i < ts.length; i++) for (let j = i + 1; j < ts.length; j++) {
+    const a = R[i], b = R[j], vao = Math.max(a.left - b.right, b.left - a.right, a.top - b.bottom, b.top - a.bottom);
+    if (vao < 4) perto.push(nome(ts[i]) + ' × ' + nome(ts[j]) + ': ' + vao.toFixed(1) + ' px');
+  }
+  return { textos: R.filter((r) => r.width > 0).length, alvos: ts.filter((t) => /canais de linha|2-TRACK/.test(t.textContent)).length,
+    largura: Math.round(s.getBoundingClientRect().width), perto };
+}, [raiz, ADAPTADORES]);
+const checarDesenho = (v, onde) => checar(v.alvos === 2 && v.textos > 2 && v.perto.length === 0,
+  `H · ${onde}, na figura dos adaptadores (I3) nenhum texto encosta em outro: ≥ 4 px entre as caixas de cada par, "computador → 2 canais de linha" × "PC → entrada RCA (2-TRACK)" entre eles`,
+  JSON.stringify(v));
 
 async function conferir(pg, guia, fmt, rotulo) {
   const L = await pg.evaluate(() => ({ ...window.livreto }));
@@ -321,6 +346,10 @@ try {
   await escolher(pg, 'data-guia', 'integral');
   const iF = await conferir(pg, 'integral', 'fich', 'Tempo integral · A4 fichário');
   const eInt = await estrutura(pg, 'integral');
+  await pg.emulateMedia({ media: 'print' });
+  const vImp = await vaosDoDesenho(pg, '#caderno-escala');
+  await pg.emulateMedia({ media: null });          // como no conferir: o page.pdf() seguinte sai com a mídia certa
+  checarDesenho(vImp, 'na impressão (Tempo integral, coluna de 83,5 mm)');
   await escolher(pg, 'data-guia', 'dia');
   const dF = await pg.evaluate(() => ({ ...window.livreto }));
   await escolher(pg, 'data-fmt', 'simples');
@@ -364,6 +393,7 @@ try {
     const p = await c.newPage();
     p.on('pageerror', (e) => erros.push(e.message));
     await p.goto(GUIA + (app ? '?app=1' : ''), { waitUntil: 'load' });
+    checarDesenho(await vaosDoDesenho(p, 'main'), `a ${larg} px${app ? ' (app)' : ''}`);
     await p.click('#btn-imp');
     await p.waitForFunction(() => window.livreto && window.livreto.paginas > 2, null, { timeout: 60000 });
     await p.click('#caderno-tut');

@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o guia: os rótulos da figura dos adaptadores afastados (sem versão nova; só `site/` e docs)** — no I3 (Tempo integral), "computador → 2 canais de linha" invadia "PC → entrada RCA (2-TRACK)" na mesma linha; cada rótulo vai em duas linhas, a fileira de baixo desce 12 e o aviso do HDMI sai de cima dos rótulos dela (viewBox 340 × 292).
 - **o guia: capítulos em sequência, sem página nova (sem versão nova; só `site/` e docs)** — cada capítulo começa logo depois do anterior, na mesma coluna, com respiro acima; o título só fica no pé da coluna com o 1º bloco ou ~3 linhas; a tabela larga entra no meio da página; Por um dia 26 → 22 páginas, Tempo integral 95 → 91.
 - **o guia: impressão em duas colunas (sem versão nova; só `site/` e docs)** — duas colunas de 83,5 mm (a largura de um celular) com 7 mm de vão; figura na largura da sua coluna; faixa de largura total só para o cabeçalho da trilha e 3 tabelas largas; título "Imprimir o guia" centrado; Por um dia 46 → 26 páginas, Tempo integral 147 → 95.
 - **o guia: a caixa de cima da impressão reorganizada (sem versão nova; só `site/` e docs)** — `?` (Como imprimir) no topo esquerdo e o fechar no direito, numa faixa só deles; UMA linha de informação (páginas, folhas e o ajuste da impressora); o Imprimir por último, na base direita; no app só a faixa do `?` desvia do fechar nativo.
@@ -718,6 +719,44 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## o guia: os rótulos da figura dos adaptadores afastados (sem versão nova; só `site/` e docs)
+
+- **Pedido:** "Desenho dos adaptadores (capítulo I3, Tempo integral): o texto
+  'computador → 2 canais de linha' encosta em 'PC → entrada RCA (2-TRACK)'.
+  Afaste os dois, na tela e na impressão."
+- **Causa:** os dois rótulos da fileira de cima dividiam a linha (`<text>` em
+  y=140, x=20 e x=186) e o da esquerda (13,8 px, ~200 unidades) não cabe na sua
+  coluna de 166: as caixas se sobrepunham 30 px na horizontal a 390 px de tela.
+  O aviso "HDMI → VGA…" também encostava nos rótulos da fileira de baixo (caixas
+  sobrepostas 2–3 px na vertical).
+- **Conserto** (só o `<svg aria-label="Quatro adaptadores…">` de
+  `#i3-adaptadores`): cada rótulo de cima em duas linhas (`<tspan x dy>`, a 1ª em
+  y=136) — "computador →" / "2 canais de linha" e "PC → entrada RCA" /
+  "(2-TRACK)"; a fileira de baixo desce 12 (`<g transform="translate(0 12)">`), o
+  aviso do HDMI vai de y=264 a 288 e o `viewBox` cresce de 340 × 268 para
+  340 × 292. Texto, fonte, cor e desenho sem mudança.
+- **Medido** (menor vão entre duas caixas de `<text>` da figura,
+  `getBoundingClientRect`): antes −14 px a 390, −10 a 320 e −13 na impressão
+  (coluna de 83,5 mm); depois 8, 6 e 8 px.
+- **Fora do lote** — a régua de 4 px passada em todas as figuras acusa textos
+  lado a lado (mesma linha) em outras 12, não consertados: D5 medidor de nível
+  (só picos × abaixe!, 1,6 px; Amarelo × CLIP, 3,9 a 320), D10 ordem de desligar
+  (e receptor × por último, 3,5 a 320), I1 régua de frequências (10k × 20k,
+  sobrepostos 1,8) e onda grave (GRAVE… × contorna e chega, 0,6), I3 plugues
+  (3,5 mm × 2,5 mm, 0; mais três pares de 1,3–3,2) e cabo AV (áudio D × áudio E ×
+  vídeo composto, 1,6–1,8), I4 por dentro dos microfones (diafragma × placa fixa,
+  0,3; × bobina, 3) e padrões polares (3,9 a 320), I5 caminho do sinal na mesa
+  (→ caixas × o palco (retorno)…, sobrepostos 7,7 a 390), I8 régua do apito
+  (5k × 10k Hz, sobrepostos 0,7), I19 energia para evento longo (computador ×
+  combustível sobrando, 1,1) e I23 TV × som (sobrepostos 2,5). A régua geral não
+  entrou no oráculo: as linhas de um mesmo rótulo, em `<text>` separados, dão
+  ~880 pares de caixas a < 4 px que não são defeito.
+- **Oráculo:** `guia-impressao` (63 ok): H — na figura dos adaptadores, cada par
+  de `<text>` com ≥ 4 px de vão entre as caixas (sem interseção), com os dois
+  rótulos do pedido entre eles, na tela a 390 px (navegador e `?app=1`) e 320 px,
+  e na impressão (Tempo integral, coluna de 83,5 mm). Reversão: com a figura
+  antiga, as 4 reprovam.
 
 ## o guia: capítulos em sequência, sem página nova (sem versão nova; só `site/` e docs)
 
