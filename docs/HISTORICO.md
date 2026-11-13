@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o guia: a 320 px, aberto pelo app, sem rolagem lateral (sem versão nova; só `site/` e docs)** — a grade de atalhos do D9 (socorro rápido) vira uma coluna até 340 px e os textos de item flex/grade quebram em vez de alargar a página; o endereço da Escola Sabatina quebra na barra; o `guia-no-app` passa a sair 1 com FALHOU e mede a 320 e a 280 px.
 - **o guia: os rótulos da figura dos adaptadores afastados (sem versão nova; só `site/` e docs)** — no I3 (Tempo integral), "computador → 2 canais de linha" invadia "PC → entrada RCA (2-TRACK)" na mesma linha; cada rótulo vai em duas linhas, a fileira de baixo desce 12 e o aviso do HDMI sai de cima dos rótulos dela (viewBox 340 × 292).
 - **o guia: capítulos em sequência, sem página nova (sem versão nova; só `site/` e docs)** — cada capítulo começa logo depois do anterior, na mesma coluna, com respiro acima; o título só fica no pé da coluna com o 1º bloco ou ~3 linhas; a tabela larga entra no meio da página; Por um dia 26 → 22 páginas, Tempo integral 95 → 91.
 - **o guia: impressão em duas colunas (sem versão nova; só `site/` e docs)** — duas colunas de 83,5 mm (a largura de um celular) com 7 mm de vão; figura na largura da sua coluna; faixa de largura total só para o cabeçalho da trilha e 3 tabelas largas; título "Imprimir o guia" centrado; Por um dia 46 → 26 páginas, Tempo integral 147 → 95.
@@ -719,6 +720,54 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## o guia: a 320 px, aberto pelo app, sem rolagem lateral (sem versão nova; só `site/` e docs)
+
+- **Pedido:** "Guia aberto pelo app em celular estreito (320 px): a página desliza
+  uns 18 px para o lado." É o Pacote 8.2 da fila: o caso E do `guia-no-app` a
+  320 px reprovava no `verificar` de `main` (`{"tituloEsq":52,"sobra":18}`, runs
+  #2488, #2491 e #2500) e ninguém via, porque o arquivo não terminava com
+  `process.exit`.
+- **Causa — a fonte do runner:** o guia usa `system-ui, …, Roboto, sans-serif`, e
+  no Linux o Chromium resolve `system-ui` pelo fontconfig (`sans`): DejaVu Sans no
+  `ubuntu-latest`, WenQuanYi Zen Hei nesta máquina (sem DejaVu). DejaVu é a mais
+  larga, e com ela, a 320 px (254 px de coluna dentro de `.env` + trilha):
+  **(1)** `.d9-atalhos` (grade `1fr 1fr`; `1fr` é `minmax(auto, 1fr)`, então o
+  mínimo da coluna é o min-content do item mais largo — "(microfonia)",
+  "estourado", em negrito) pede 305 px e a borda vai a 338 = os 18 px;
+  **(2)** "adventistas.org/pt/escolasabatina" (o "Para saber mais" da Escola
+  Sabatina, no D) é uma palavra só de 288 px, até 336 com o `<details>` aberto.
+  Reproduzido aqui com DejaVu Sans num `FONTCONFIG_FILE` próprio (`system-ui` e
+  `sans-serif` → DejaVu): a 320 px, exatamente `sobra: 18`. Com Roboto (o
+  Android), a 320 px a grade já passava 13 px da coluna (267 px), sem chegar à
+  borda da tela; a 280 px qualquer das três fontes estoura.
+- **Conserto** (CSS e um `<wbr>`; layout de 390 px intacto):
+  `@media (max-width:340px) { .d9-atalhos { grid-template-columns:1fr } }` — até
+  340 px as duas colunas não cabem "(microfonia)" sem partir a palavra, e a grade
+  vira uma coluna; `overflow-wrap:anywhere` em `.d9-atalhos a` (rede para fonte
+  larga acima de 340), `.d-10s li, ul.d-lista li` ("(audiovisualiasd.com.br)."
+  no item flex), `section.cap > h2` (o título é item flex ANÔNIMO; o
+  "responsabilidade" do I0 estourava a 280 px com DejaVu; o `.cod` é `flex:none`)
+  e `.cap-nav a` — `anywhere`, não `break-word`, porque só ele baixa o min-content
+  que dimensiona item de flex e de grade; `overflow-wrap:break-word` no `body`
+  (palavra maior que a linha, em bloco comum, quebra; não mexe em min-content); e
+  `adventistas.org/pt/<wbr>escolasabatina`, para a quebra cair na barra.
+- **Medido:** a 390 px (WenQuanYi, DejaVu e Roboto; `<details>` fechados e
+  abertos), recortes PNG da grade e do endereço idênticos byte a byte e a altura
+  do documento igual. A 360 px muda só o que já transbordava a própria caixa: com
+  Roboto, o endereço (1 px além do parágrafo) quebra na barra (+1 linha); com
+  DejaVu, também a grade (305 → 294 px). Sobra lateral depois: 0 de 360 a 260 px
+  em DejaVu e Roboto, e até 240 px em WenQuanYi.
+- **Fora do lote:** a 240 px ainda sobram 16 px com DejaVu (cartões das trilhas,
+  `a.sos`/`a.int`) e 3 com Roboto (`div.cartao` analógica × digital) — largura de
+  celular que não existe.
+- **Oráculo:** `guia-no-app` (18 ok) termina com `process.exit(falhas.length ? 1
+  : 0)`. O caso E mede a 320 e a 280 px (`?app=1#dia`), com os `<details>`
+  fechados e depois todos abertos: título ≥ 52 px e `sobra ≤ 1`. Os 280 px valem
+  pela fonte. Reversão, com o CSS antigo: aqui reprova a 280 (`sobra 11`,
+  `sobraAberto 32`) e sai 1; com DejaVu forçada, reprova a 320 (`sobra 18`, o
+  número do CI) e a 280 (58), e sai 1. O log do run #2500 não tinha outro FALHOU
+  do arquivo.
 
 ## o guia: os rótulos da figura dos adaptadores afastados (sem versão nova; só `site/` e docs)
 
