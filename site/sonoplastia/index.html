@@ -567,6 +567,19 @@
   .pag details.sintoma > summary { padding:.5rem .7rem; font-size:10.5pt; }
   .pag details.sintoma > summary::before { content:"⚠ "; }
   .pag details.sintoma > :not(summary) { margin-left:.7rem; margin-right:.7rem; }
+  /* cartão partido entre colunas (o motor: partir): a borda fica aberta no corte, "continua →" no pé
+     da parte de cima e o título curto com "(continuação)" no alto da de baixo. O contorno do cartão
+     de problema é sombra interna: o outline de 2 px saía da coluna e era cortado nas laterais */
+  .pag details.sintoma[open] { outline:0; box-shadow:inset 0 0 0 2px var(--perigo-bg); }
+  .pag details.lb-corta { margin-bottom:0; padding-bottom:.25rem; border-bottom-left-radius:0; border-bottom-right-radius:0; }
+  .pag details.lb-cont { margin-top:0; border-top-left-radius:0; border-top-right-radius:0; }
+  .pag details.sintoma.lb-corta { box-shadow:inset 2px 0 var(--perigo-bg), inset -2px 0 var(--perigo-bg), inset 0 2px var(--perigo-bg); }
+  .pag details.sintoma.lb-cont { box-shadow:inset 2px 0 var(--perigo-bg), inset -2px 0 var(--perigo-bg), inset 0 -2px var(--perigo-bg); }
+  .pag details.sintoma.lb-cont.lb-corta { box-shadow:inset 2px 0 var(--perigo-bg), inset -2px 0 var(--perigo-bg); }
+  .pag details.mais.lb-corta { border-bottom:0; }
+  .pag details.mais.lb-cont { border-top:0; }
+  .pag details > summary.lb-cont-t { padding-top:.4rem; padding-bottom:.15rem; font-size:8.6pt; color:var(--muted); }
+  .pag .lb-segue { margin:.3rem 0 0; text-align:right; font-size:8.6pt; font-style:italic; font-weight:700; color:var(--muted); }
   .pag .d-10s { margin:.35rem 0 .9rem; padding:.6rem .75rem .65rem; border-radius:8px; }
   .pag .d-10s-t { font-size:8pt; margin-bottom:.35rem; }
   .pag .d-10s ul, .pag ul.d-lista { gap:.35rem; }
@@ -7141,7 +7154,7 @@
     /* figura, tabela, caixa e cartão não se partem, nem o título do grupo que os anuncia: vão
        inteiros para a coluna seguinte (a da direita, ou a esquerda da página seguinte). Só o que
        não cabe numa coluna inteira se divide (a tabela em fatias com o cabeçalho repetido, a
-       partir de onde está). */
+       partir de onde está). Exceção: o cartão partível (PARTIVEL, abaixo) se parte entre blocos. */
     var ATOMO = 'figure, .tabela, .box, .cartao, .d-10s, details';
     function altura(u) {
       var cs = getComputedStyle(u);
@@ -7202,12 +7215,13 @@
       var e = cur.cols[0], d = cur.cols[1];
       var us = Array.prototype.slice.call(e.children).concat(Array.prototype.slice.call(d.children));
       if (!us.length) return false;
-      var hs = us.map(altura), tot = 0, k = 0, acc = Infinity, soma = 0;
-      hs.forEach(function (h) { tot += h; });
+      var hs = us.map(altura), tot = 0, k = 0, acc = Infinity, soma = 0, corta = -1;
+      hs.forEach(function (h, i) { tot += h; if (us[i].classList.contains('lb-corta')) corta = i; });
       for (var n = 1; n <= us.length; n++) {        // n blocos na esquerda, o resto na direita
         soma += hs[n - 1];
         var dir = tot - soma;
-        if (n < us.length && (soTitulo(us[n - 1]) || (dir > soma && dir - soma >= hs[n]))) continue;
+        if (corta >= 0) { if (n !== corta + 1) continue; }   // o cartão partido continua no alto da direita
+        else if (n < us.length && (soTitulo(us[n - 1]) || (dir > soma && dir - soma >= hs[n]))) continue;
         if (Math.max(soma, dir) < acc) { acc = Math.max(soma, dir); k = n; }
       }
       var pc = cur.el.firstChild, f = document.createElement('div');
@@ -7223,9 +7237,112 @@
       cur.meio = f; cur.cols = [e2, d2]; cur.col = 0; cur.con = e2;
       return true;
     }
+    /* ----- cartão partido: o cartão de problema (details.sintoma) e o "para quem quer entender
+       mais" (details.mais), longos e de texto, se partem entre blocos internos (parágrafo, item de
+       lista; figura, caixa e tabela de dentro ficam inteiras) quando não cabem no resto da coluna.
+       Parte só se o resto da coluna comporta o título (com o subtítulo do grupo) e ~3 linhas do
+       conteúdo, e se a parte de baixo leva ~3 linhas ou mais; senão o cartão vai inteiro para a
+       coluna seguinte. A parte de cima termina em "continua →"; a de baixo abre a coluna seguinte
+       com o título curto e "(continuação)"; a borda fica aberta no corte (.lb-corta, .lb-cont). ----- */
+    var PARTIVEL = 'details.sintoma, details.mais';
+    /* o cartão partível da unidade: ela mesma, ou o último de um grupo título (+ texto curto) + cartão */
+    function cartaoDe(u) {
+      if (!u.matches) return null;
+      if (u.matches(PARTIVEL)) return u;
+      var c = u.lastElementChild;
+      if (!u.classList.contains('lb-grp') || !c || !c.matches(PARTIVEL) || !ehCab(u.firstElementChild)) return null;
+      for (var x = u.firstElementChild; x !== c; x = x.nextElementSibling) if (x.matches(ATOMO) || x.querySelector(ATOMO)) return null;
+      return c;
+    }
+    /* os blocos internos, na ordem: cada filho (fora o título) e, numa lista, cada item */
+    function pecasDe(card) {
+      var out = [];
+      Array.prototype.slice.call(card.children).forEach(function (k) {
+        if (k.tagName === 'SUMMARY') return;
+        if (/^(UL|OL)$/.test(k.tagName) && k.children.length > 1) {
+          Array.prototype.slice.call(k.children).forEach(function (li, i) { out.push({ el: li, lista: k, i: i }); });
+        } else out.push({ el: k, lista: null, i: 0 });
+      });
+      return out;
+    }
+    /* a lista que continua no meio: cópia vazia, numerada a partir do item certo */
+    function novaLista(p) {
+      var l = p.lista.cloneNode(false);
+      l.removeAttribute('data-oid');
+      if (l.tagName === 'OL') {
+        l.setAttribute('start', (parseInt(p.lista.getAttribute('start'), 10) || 1) + p.i);
+        if (/(^| )passos( |$)/.test(l.className)) l.style.counterReset = 'p ' + p.i;
+      }
+      return l;
+    }
+    /* o cartão fica só com o título (e o "continua") e recebe as peças [ini, fim) na ordem */
+    function encher(card, ps, ini, fim, antes) {
+      Array.prototype.slice.call(card.children).forEach(function (k) { if (k.tagName !== 'SUMMARY' && k !== antes) k.remove(); });
+      var dono = null, lst = null;
+      for (var i = ini; i < fim; i++) {
+        var p = ps[i];
+        if (!p.lista) { card.insertBefore(p.el, antes); dono = null; continue; }
+        if (dono !== p.lista) {
+          dono = p.lista; lst = p.i === 0 ? p.lista : novaLista(p);
+          while (lst.firstChild) lst.removeChild(lst.firstChild);
+          card.insertBefore(lst, antes);
+        }
+        lst.appendChild(p.el);
+      }
+    }
+    function tituloCurto(card) {
+      var t = card.getAttribute('data-lb-tit'), s = card.querySelector(':scope > summary');
+      if (t) return t;
+      t = (s ? s.textContent : '').replace(/\s+/g, ' ').trim();
+      if (t.length <= 30) return t;
+      var k = t.lastIndexOf(' ', 28);
+      return t.slice(0, k > 12 ? k : 28).replace(/[\s,;:(–—-]+$/, '').replace(/\s+(ou|e|de|do|da|dos|das|com|no|na|em|o|a|ao|que)$/i, '') + '…';
+    }
+    function partir(unit) {
+      var card = cartaoDe(unit), c = cur.con;
+      if (!card) return false;
+      var ps = pecasDe(card), era = card.classList.contains('lb-parte');
+      if (ps.length < 2) return false;
+      if (!LINHA) LINHA = parseFloat(getComputedStyle(c).lineHeight) || 20;
+      // onde cada bloco fica com o cartão inteiro nesta coluna: as linhas de cada parte
+      c.appendChild(unit);
+      var t = ps.map(function (p) { return p.el.offsetTop; }), b = ps.map(function (p) { return p.el.offsetTop + p.el.offsetHeight; });
+      var seg = document.createElement('p'); seg.className = 'lb-segue'; seg.textContent = 'continua →';
+      card.appendChild(seg); card.classList.add('lb-parte', 'lb-corta');
+      var n = 0;                                       // quantos blocos cabem aqui com o título e o "continua"
+      while (n < ps.length - 1) { encher(card, ps, 0, n + 1, seg); if (cheio(c)) break; n += 1; }
+      var L3 = 2.7 * LINHA, fimB = b[ps.length - 1];
+      while (n > 0 && fimB - t[n] < L3) n -= 1;        // ~3 linhas na parte de baixo
+      if (n < 1 || b[n - 1] - t[0] < L3) {             // e ~3 linhas abaixo do título, na de cima
+        unit.remove(); seg.remove(); card.classList.remove('lb-corta');
+        if (!era) card.classList.remove('lb-parte');
+        encher(card, ps, 0, ps.length, null);
+        return false;
+      }
+      encher(card, ps, 0, n, seg);
+      registrarOid(unit);
+      var resto = card.cloneNode(false), st = document.createElement('summary');
+      resto.removeAttribute('data-oid'); resto.classList.remove('lb-corta'); resto.classList.add('lb-cont');
+      resto.setAttribute('data-lb-tit', tituloCurto(card));
+      st.className = 'lb-cont-t'; st.textContent = resto.getAttribute('data-lb-tit') + ' (continuação)';
+      resto.appendChild(st);
+      encher(resto, ps, n, ps.length, null);
+      proxColuna();                                    // a continuação abre a coluna seguinte
+      colocar(resto);
+      return true;
+    }
+    /* o cartão que não cabe no resto da coluna: parte aqui, se a regra deixa; senão vai inteiro para
+       a coluna seguinte e, se for mais alto que uma coluna, parte de lá */
+    function colocarCartao(unit) {
+      if (partir(unit)) return true;
+      if (cabeNumaColuna(unit)) return emColunaNova(unit);
+      proxColuna();
+      return partir(unit);
+    }
     function colocar(unit) {
       if (larga(unit)) { colocarFaixa(unit); return; }
       if (pode(unit, cur.con)) { registrarOid(unit); return; }
+      if (cartaoDe(unit) && colocarCartao(unit)) return;
       var grupo = !!(unit.classList && unit.classList.contains('lb-grp') && ehCab(unit.firstElementChild));
       if ((unit.matches && unit.matches(ATOMO)) || (grupo && unit.querySelector(ATOMO))) {
         if (cabeNumaColuna(unit) && emColunaNova(unit)) return;
