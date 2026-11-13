@@ -52,6 +52,28 @@ object GuiaSom {
             (alvo.port == -1 || alvo.port == 443) &&
             alvo.rawUserInfo == null
     }
+
+    /**
+     * A MESMA URL, com o marcador `app=1` que a página lê para esconder o
+     * "voltar ao site" e reservar a esquerda ao "fechar" nativo
+     * (`site/sonoplastia/index.html`, bloco `no-app`).
+     *
+     * Entra ANTES da âncora: `#dia` é a trilha do Modo Fácil e não pode se
+     * perder. Idempotente, porque o WebView do guia reusa a URL a cada
+     * navegação e o `abrirGuia` pode ser chamado de novo.
+     */
+    fun comMarcadorDeApp(url: String): String {
+        val corte = url.indexOf('#')
+        val base = if (corte >= 0) url.substring(0, corte) else url
+        val ancora = if (corte >= 0) url.substring(corte) else ""
+        if (Regex("(^|[?&])app=1(&|\$)").containsMatchIn(base)) return url
+        val separador = when {
+            base.endsWith("?") || base.endsWith("&") -> ""
+            base.contains('?') -> "&"
+            else -> "?"
+        }
+        return base + separador + "app=1" + ancora
+    }
 }
 
 /**
@@ -126,23 +148,34 @@ class GuiaSomDialog(
         }
         raiz.addView(aviso, FrameLayout.LayoutParams(MATCH, MATCH))
 
-        // O "fechar" visível: no imersivo a barra de navegação some, e o gesto de
+        // O "fechar" visível mora à ESQUERDA, no lugar do "voltar ao site" que a
+        // página esconde quando é aberta pelo app (`?app=1`): à direita ele caía
+        // sobre o "Imprimir". No imersivo a barra de navegação some, e o gesto de
         // voltar não é óbvio para todo operador.
-        raiz.addView(TextView(ctx).apply {
-            text = "✕"
-            textSize = 20f
-            setTextColor(texto)
-            gravity = Gravity.CENTER
+        //
+        // O miolo claro o mantém visível nos DOIS fundos que a página põe atrás
+        // dele: a barra branca do guia e a barra escura do livreto
+        // (`.caderno-bar`). A largura casa com o recuo que a página reserva
+        // (`padding-left: 3.25rem`, no bloco `no-app` do site).
+        val fechar = FrameLayout(ctx).apply {
             contentDescription = "Fechar o guia"
-            background = android.graphics.drawable.GradientDrawable().apply {
-                shape = android.graphics.drawable.GradientDrawable.OVAL
-                setColor(fundo)
-                alpha = 200
-            }
+            isClickable = true
+            isFocusable = true
             setOnClickListener { dismiss() }
-        }, FrameLayout.LayoutParams(dp(44), dp(44), Gravity.TOP or Gravity.END).apply {
-            topMargin = dp(10); rightMargin = dp(10)
-        })
+            addView(TextView(ctx).apply {
+                text = "✕"
+                textSize = 20f
+                setTextColor(fundo)
+                gravity = Gravity.CENTER
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.OVAL
+                    setColor(0xF2FFFFFF.toInt())
+                    setStroke(dp(1), 0x33000000)
+                }
+            }, FrameLayout.LayoutParams(dp(40), dp(40), Gravity.CENTER))
+        }
+        raiz.addView(fechar, FrameLayout.LayoutParams(dp(52), dp(56), Gravity.TOP or Gravity.START))
 
         setContentView(raiz)
         window?.setLayout(MATCH, MATCH)

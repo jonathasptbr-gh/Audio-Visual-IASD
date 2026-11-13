@@ -623,13 +623,15 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.14.5 · APK v1.14.2** · `SHELL_VERSION` **87** ·
-bundle com `minShell: 83` e **sem `shellTag`** (a Release v1.14.2 já saiu) — o casco 87 trouxe o
-`abrirGuia` (o guia de sonoplastia numa tela do app, WebView sem ponte). O
-**PISO** continua **83**: as funções do casco 86 (volume) e do 87 (guia) são
-OPCIONAIS — o web pergunta por `typeof` e degrada sem elas (`null`; o guia cai no
-`openExternal`), então um aparelho com casco 83/85/86 continua inteiro. O que cada
-lote trouxe está no `docs/HISTORICO.md`, nunca aqui.
+**Versão atual: base web v1.14.6 · APK v1.14.6** · `SHELL_VERSION` **87** ·
+bundle com `minShell: 83` e **`shellTag: "v1.14.6"`** — o APK 1.14.6 põe o
+"fechar" do guia à esquerda, no lugar do "voltar ao site", e manda `?app=1` para
+a página esconder esse voltar; o contrato da ponte não mudou desde o casco 87,
+que trouxe o `abrirGuia` (o guia de sonoplastia numa tela do app, WebView sem
+ponte). O **PISO** continua **83**: as funções do casco 86 (volume) e do 87
+(guia) são OPCIONAIS — o web pergunta por `typeof` e degrada sem elas (`null`; o
+guia cai no `openExternal`), então um aparelho com casco 83/85/86 continua
+inteiro. O que cada lote trouxe está no `docs/HISTORICO.md`, nunca aqui.
 
 - **O `shellTag` ACOMPANHA A ÚLTIMA VERSÃO, NÃO A QUE MEXEU NO KOTLIN** — o CI
   exige `shellTag == 'v' + version`. Um lote só de web publicado DEPOIS de um

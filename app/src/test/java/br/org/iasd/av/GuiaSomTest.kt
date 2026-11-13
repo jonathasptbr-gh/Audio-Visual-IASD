@@ -1,5 +1,6 @@
 package br.org.iasd.av
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -10,6 +11,10 @@ import org.junit.Test
  * navegação. Falhar ABERTO aqui transformaria a ponte num navegador embutido
  * para qualquer endereço. Os casos vêm em PARES: o que a regra aceita, e o
  * ataque vizinho que ela não pode ter aceitado junto.
+ *
+ * E o MARCADOR que transforma a página na tela do app
+ * ([GuiaSom.comMarcadorDeApp]): antes da âncora, sem duplicar, e aceito pela
+ * cerca.
  */
 class GuiaSomTest {
 
@@ -72,5 +77,32 @@ class GuiaSomTest {
         assertFalse(GuiaSom.urlDoGuia(""))
         assertFalse(GuiaSom.urlDoGuia("https://audiovisualiasd.com.br\\@evil.com/"))
         assertFalse(GuiaSom.urlDoGuia("audiovisualiasd.com.br/sonoplastia/"))
+    }
+
+    @Test
+    fun oMarcadorDeAppEntraAntesDaAncora() {
+        assertEquals(
+            "https://audiovisualiasd.com.br/sonoplastia/?app=1",
+            GuiaSom.comMarcadorDeApp("https://audiovisualiasd.com.br/sonoplastia/"),
+        )
+        assertEquals(
+            "https://audiovisualiasd.com.br/sonoplastia/?app=1#dia",
+            GuiaSom.comMarcadorDeApp("https://audiovisualiasd.com.br/sonoplastia/#dia"),
+        )
+        assertTrue(
+            GuiaSom.urlDoGuia(GuiaSom.comMarcadorDeApp("https://audiovisualiasd.com.br/sonoplastia/#dia")),
+        )
+    }
+
+    @Test
+    fun oMarcadorRespeitaAConsultaExistenteENaoDuplica() {
+        assertEquals(
+            "https://audiovisualiasd.com.br/sonoplastia/?modo=dia&app=1#d8",
+            GuiaSom.comMarcadorDeApp("https://audiovisualiasd.com.br/sonoplastia/?modo=dia#d8"),
+        )
+        assertEquals(
+            "https://audiovisualiasd.com.br/sonoplastia/?app=1#dia",
+            GuiaSom.comMarcadorDeApp("https://audiovisualiasd.com.br/sonoplastia/?app=1#dia"),
+        )
     }
 }

@@ -275,11 +275,16 @@ o piso (`minShell`) não sobe por um método opcional.
 
 Síncrono, devolve `true` se abriu. **Falha FECHADO no Kotlin:** só `https` e só
 `audiovisualiasd.com.br` por componente do `URI` (`GuiaSom.urlDoGuia`, JUnit em
-`GuiaSomTest`); telão (`host = null`) recebe `false`. Quem abre é o
+`GuiaSomTest`); telão (`host = null`) recebe `false`. A URL que chega à tela leva
+`?app=1` (`GuiaSom.comMarcadorDeApp`, antes da âncora `#dia`): é o marcador que
+manda a página esconder o "voltar ao site" e reservar a esquerda ao "fechar"
+nativo; casco antigo não o manda e vê a página inteira. Quem abre é o
 `GuiaSomDialog` — um `Dialog` em tela cheia e imersivo sobre a `MainActivity`, e
 não outra Activity: com Dialog a Activity não passa por `onPause`/`onStop`, e
 nada do que defende a projeção (o `keepPlaying`, a `projecaoLocal`, a ronda do OTA)
-muda. O WebView sai da `WebViewFactory.createGuia`: **sem
+muda. O "fechar" é um `✕` no canto ESQUERDO, num miolo claro que aparece tanto na
+barra branca do guia quanto na barra escura do livreto. O WebView sai da
+`WebViewFactory.createGuia`: **sem
 `addJavascriptInterface`**, sem asset loader, sem `/saf/`, mídia só com gesto. A
 cerca vale a cada navegação do quadro principal (fora do site → `ACTION_VIEW`, só
 `http(s)`); quadro interno carrega onde está. Voltar: com histórico, uma página

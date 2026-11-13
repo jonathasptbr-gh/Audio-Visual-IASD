@@ -1120,12 +1120,17 @@ class NativeBridge(
      * por componente do `URI` ([GuiaSom.urlDoGuia], com JUnit). Sem a cerca, a
      * ponte viraria um navegador embutido para qualquer endereço. O telão
      * (`host = null`) recebe `false`.
+     *
+     * A URL que chega à tela leva o marcador `app=1`
+     * ([GuiaSom.comMarcadorDeApp]): é ele que manda a página esconder o
+     * "voltar ao site" e reservar a esquerda ao "fechar" do app. Casco antigo
+     * não o manda — e continua com a página inteira, sem o botão à esquerda.
      */
     @JavascriptInterface
     fun abrirGuia(url: String?): Boolean {
         val h = host
         if (h == null || !GuiaSom.urlDoGuia(url)) return false
-        h.abrirGuia(url!!)
+        h.abrirGuia(GuiaSom.comMarcadorDeApp(url!!))
         return true
     }
 

@@ -236,7 +236,7 @@ tudo funciona, e o testemunho está em inglês na frente da congregação; doze 
 **em pares**, o que a regra passou a recusar e o que ela não pode ter recusado
 junto), `R2ImagemFonteTest` (a allowlist do bucket das fotos por COMPONENTE do
 `URI`: sufixo, prefixo, subdomínio, `http` e URL ilegível — a invariante 2 pelo
-lado do `fetch` que não manda CORS) `GuiaSomTest` (a cerca do `abrirGuia`, shell 87: `https` + o host do site por componente do `URI`, em pares — prefixo, sufixo, subdomínio, porta, `userInfo`, `intent:`) e `CifraFonteTest` (a mesma invariante no
+lado do `fetch` que não manda CORS) `GuiaSomTest` (a cerca do `abrirGuia` e o marcador `?app=1`, shell 87: `https` + o host do site por componente do `URI`, em pares — prefixo, sufixo, subdomínio, porta, `userInfo`, `intent:`) e `CifraFonteTest` (a mesma invariante no
 transporte da cifra, que confere o host na entrada E no destino FINAL depois dos
 redirecionamentos; a reversão do predicado reprova 7 dos 9 casos).
 
