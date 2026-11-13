@@ -226,8 +226,9 @@ const estrutura = (pg, guia) => pg.evaluate((guia) => {
   const seq = [...esc.querySelectorAll('[data-oid]')].map((e) => pos.get(e.getAttribute('data-oid'))).filter((i) => i !== undefined);
   const foraDeOrdem = seq.filter((v, i) => i && v < seq[i - 1]).length;
   // a da esquerda enche antes: com a direita ocupada, o que sobrou embaixo na esquerda é menor que o 1º bloco
-  // da direita (+ o recuo do título que não fica órfão no pé da coluna, 90 px); o índice de uma página
-  // se reparte nas duas colunas de propósito e fica de fora
+  // da direita (+ 90 px de folga); se esse 1º bloco é um título, ele foi junto com o começo do bloco seguinte
+  // (nunca órfão): conta-se o título, o respiro e o bloco seguinte. O índice de uma página se reparte nas duas
+  // colunas de propósito e fica de fora
   const alt = (k) => { const cs = getComputedStyle(k); return k.offsetHeight + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom); };
   const esqDepois = [];
   pags.forEach((p, i) => {
@@ -238,7 +239,9 @@ const estrutura = (pg, guia) => pg.evaluate((guia) => {
       if (!e.childElementCount) { esqDepois.push((i + 1) + ': esquerda vazia'); continue; }
       const d0 = d.firstElementChild, livre = e.clientHeight - [...e.children].reduce((t, k) => t + alt(k), 0);
       let prim = alt(d0);
-      if (d0.matches('.lb-cap')) prim += respiro + Math.max(d0.nextElementSibling ? alt(d0.nextElementSibling) : 0, 3 * LINHA);
+      if (d0.matches('.lb-cap') || /^H[1-6]$/.test(d0.tagName)) {
+        prim += (d0.matches('.lb-cap') ? respiro : 0) + Math.max(d0.nextElementSibling ? alt(d0.nextElementSibling) : 0, 3 * LINHA);
+      }
       if (livre >= prim + 94) esqDepois.push((i + 1) + ': sobram ' + Math.round(livre) + ' px para ' + Math.round(prim));
     }
   });
