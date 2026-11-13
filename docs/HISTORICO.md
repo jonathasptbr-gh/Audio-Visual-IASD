@@ -754,6 +754,10 @@ apagada da que a criou.
   anterior terminou, salvo quando título + 1º bloco não cabem no resto da coluna),
   nenhum título de capítulo órfão no pé da coluna, e o índice aponta para a
   página do título; as colunas vêm em pares (a faixa no meio abre um segundo par).
+  O primeiro CI (#2498) caiu na régua "a esquerda enche antes da direita": com as
+  fontes do runner, um subtítulo foi para o alto da coluna da direita levando junto
+  o bloco seguinte (a regra nova), e a régua ainda contava só a folga fixa de 90
+  px; agora ela soma ao título o bloco que vem depois dele.
 
 ## o guia: impressão em duas colunas (sem versão nova; só `site/` e docs)
 
