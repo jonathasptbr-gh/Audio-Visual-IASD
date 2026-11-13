@@ -301,6 +301,10 @@ else nao('nenhuma função existe só para o oráculo chamar',
     ['espelhoCertImportar', 'sem UI desde a v5.196 (PONTE.md)'],
     ['espelhoCertEstado', 'sem UI desde a v5.196 (PONTE.md)'],
     ['espelhoCertApagar', 'sem UI desde a v5.196 (PONTE.md)'],
+    // v1.14.7: o tile "Saída de áudio" saiu do app (o projeto da janela da Samsung
+    // foi abandonado) e o web não chama mais a tela do sistema. O Kotlin fica — é o
+    // lado seguro —, e o atalho agora é o do próprio aparelho.
+    ['abrirSaidaDeAudio', 'sem consumidor desde a v1.14.7 (o atalho é o do aparelho)'],
   ]);
 
   const NATIVE = join(WEB, 'shared/native.js');

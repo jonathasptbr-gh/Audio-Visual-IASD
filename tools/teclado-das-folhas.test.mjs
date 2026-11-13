@@ -264,11 +264,12 @@ try {
   await esperar(pg, () => !document.getElementById('sorteioPopup').classList.contains('open'));
 
   // ── B. CONFIGURAÇÕES, EDITAR MÍDIA: a busca do seletor e o NOME do item ───
-  await pg.evaluate(() => abrirSecao('edicao', { animar: false }));
-  await esperar(pg, () => document.getElementById('fadePopup').classList.contains('open')
+  // v1.14.7: o editor de mídia é uma FERRAMENTA — a folha é a das Ferramentas.
+  await pg.evaluate(() => abrirFerramenta('edicao'));
+  await esperar(pg, () => ferramentasAbertas()
     && !!document.getElementById('edicaoBusca') && document.getElementById('edicaoBusca').offsetParent !== null);
-  await esperar(pg, () => document.querySelector('#fadePopup .popup-sheet').getBoundingClientRect().top >= -0.5);
-  algum('B', await varrer('B', '#fadePopup .popup-sheet'));
+  await esperar(pg, () => document.getElementById('toolsSheet').getBoundingClientRect().top >= -0.5);
+  algum('B', await varrer('B', '#toolsSheet'));
   // O formulário: o campo do NOME do item, que nunca teve asserção própria.
   const rForm = await pg.evaluate(async () => {
     const id = (await AVDB.listIds('imports'))[0];
@@ -278,9 +279,9 @@ try {
   const temNome = await esperar(pg, () => !!document.querySelector('#edicaoLista .edicao-nome input'), null, 10000);
   checar(rForm && temNome === true, 'B · o formulário do Editar mídia abriu com o campo do nome', porque(temNome));
   await pg.waitForTimeout(500);
-  algum('B', await varrer('B-form', '#fadePopup .popup-sheet'));
-  await pg.evaluate(() => closeFadePopup());
-  await esperar(pg, () => !document.getElementById('fadePopup').classList.contains('open'));
+  algum('B', await varrer('B-form', '#toolsSheet'));
+  await pg.evaluate(() => fecharFerramentas());
+  await esperar(pg, () => !ferramentasAbertas());
 
   // ── C. FERRAMENTAS: as legendas do Tempo e os campos do Sorteio ──────────
   for (const [rot, prep] of [
@@ -451,18 +452,23 @@ try {
     await pg.evaluate(() => { document.activeElement.blur(); window.__teclado(0); closeHymnSearch(); });
   }
 
-  // ── S. O MODO FÁCIL: o mesmo Editar mídia, com a barra da Biblioteca na
-  //    casa dela de lá (o espaço `#simpleBarra`, entre o cabeçalho e a leitura).
+  // ── S. O MODO FÁCIL: o editor de mídia NÃO entra na lista das Ferramentas — ele
+  //    era um tile de MANUTENÇÃO, apagado nessa grade desde a v1.13.57, e a
+  //    lista das Ferramentas não pode ser a porta que a grade fechava (v1.14.7).
   {
     await pg.evaluate(() => { setAppMode('simple'); });
     await pg.waitForTimeout(600);
-    await pg.evaluate(() => abrirSecao('edicao', { animar: false }));
-    await esperar(pg, () => document.getElementById('fadePopup').classList.contains('open')
-      && document.querySelector('#fadePopup .popup-sheet').getBoundingClientRect().top >= -0.5);
-    await pg.waitForTimeout(500);
-    algum('S', await varrer('S', '#fadePopup .popup-sheet'));
-    await pg.evaluate(() => closeFadePopup());
-    await esperar(pg, () => !document.getElementById('fadePopup').classList.contains('open'));
+    const s = await pg.evaluate(async () => {
+      abrirFerramentas();
+      await new Promise((r) => setTimeout(r, 150));
+      return { ids: [...document.querySelectorAll('#ferrGrade .ferr-tile')].map((b) => b.dataset.ferr),
+        modo: document.body.classList.contains('mode-simple') };
+    });
+    checar(s.modo === true && s.ids.length === 6 && !s.ids.includes('edicao'),
+      'S · no MODO FÁCIL o editor de mídia NÃO está na lista das Ferramentas (a mesma regra do tile de '
+      + 'manutenção que ele era): a lista tem as seis ferramentas do culto', JSON.stringify(s));
+    await pg.evaluate(() => fecharFerramentas());
+    await esperar(pg, () => !ferramentasAbertas());
   }
 
   console.log('\nCampos percorridos (' + percorridos.length + '):\n  ' + percorridos.join('\n  '));

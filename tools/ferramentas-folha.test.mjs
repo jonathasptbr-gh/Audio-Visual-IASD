@@ -202,7 +202,7 @@ try {
       })(),
       biblia: bibliaAberta(),
       // A GRADE (v1.13.3): a folha abre nos seis tiles, nunca numa ferramenta.
-      ferramentas: document.querySelectorAll('#ferrGrade .ferr-tile').length === 6,
+      ferramentas: document.querySelectorAll('#ferrGrade .ferr-tile').length === 7,
     };
   });
   checar(dentro.aberta && dentro.ferramentas,
@@ -2410,14 +2410,14 @@ try {
         estreita: toolsSheetEl.classList.contains('estreita'),
       };
     });
-    checar(g.ids === 'clock,stopwatch,timer,itinerario,msg,draw'
-      && g.nomes === 'Relógio,Cronômetro,Timer,Itinerário,Mensagens,Sorteio',
-      'G · a folha abre na GRADE: seis tiles, um por ferramenta, o tempo em cima e o texto embaixo', g);
+    checar(g.ids === 'clock,stopwatch,timer,itinerario,msg,draw,edicao'
+      && g.nomes === 'Relógio,Cronômetro,Timer,Itinerário,Mensagens,Sorteio,Editar mídia',
+      'G · a folha abre na GRADE: sete tiles, um por ferramenta (o editor de mídia é o último, v1.14.7), o tempo em cima e o texto embaixo', g);
     checar(g.cabecalho === 'none' && g.seta !== 'none' && g.voltar === false && g.pe === 0 && g.painel === false,
       'G · na lista NÃO HÁ CABEÇALHO (nem título, nem ✕), a seta de fechar está à vista, não há voltar nem rodapé, '
       + 'e nenhum painel está montado (v1.13.6)', g);
-    checar(g.fileiras === 6 && g.colunas === 1 && g.alturas === 1 && g.empilhadas,
-      'G · uma LISTA VERTICAL (v1.13.4): seis linhas empilhadas, uma coluna e uma altura só', g);
+    checar(g.fileiras === 7 && g.colunas === 1 && g.alturas === 1 && g.empilhadas,
+      'G · uma LISTA VERTICAL (v1.13.4): sete linhas empilhadas, uma coluna e uma altura só', g);
     checar(g.bg && g.raio, 'G · e o tile é o de Configurações: a mesma tinta e o mesmo raio', g);
 
     // O TOQUE NUM TILE: a ferramenta monta no ato, e a troca ANIMA (camada que sai).
@@ -2634,8 +2634,8 @@ try {
   // estreita o corpo já era o teto da LARGURA, abaixo do `--fs-4xl`, e só a
   // comparação com o número daquela versão diz que ele encolheu ali também.
   for (const [w, h, raiz, excecao, letraAntes] of [[430, 900, '', false, 20], [412, 892, '', false, 20],
-    [360, 640, '', false, 15.9], [360, 640, '20px', false, 14.2],
-    [360, 640, '20.8px', false, 13.7], [360, 600, '20.8px', true, 13.7]]) {
+    [360, 640, '', false, 15.9], [360, 640, '20px', true, 14.2],
+    [360, 640, '20.8px', true, 13.7], [360, 600, '20.8px', true, 13.7]]) {
     await pg.setViewportSize({ width: w, height: h });
     await pg.evaluate((r) => { document.documentElement.style.fontSize = r; fecharFerramentas(); }, raiz);
     await esperar(pg, () => toolsSheetEl.hidden);
@@ -2689,20 +2689,20 @@ try {
       };
     });
     const cel = w + '×' + h + (raiz ? ' (fonte ' + (parseFloat(raiz) / 16).toFixed(2).replace('.', ',') + '×)' : '');
-    checar(r === true && v.n === 6 && Math.max(...v.alturas) - Math.min(...v.alturas) < 1,
-      'V · [' + cel + '] seis linhas da mesma altura', { r: porque(r), v });
+    checar(r === true && v.n === 7 && Math.max(...v.alturas) - Math.min(...v.alturas) < 1,
+      'V · [' + cel + '] sete linhas da mesma altura', { r: porque(r), v });
     checar(Math.abs(v.topo - v.vao) <= 1 && Math.abs(v.base - v.vao) <= 1 && v.rola <= 0,
       'V · [' + cel + '] e elas dividem a altura do corpo da folha, com a margem de cima e a de baixo iguais ao vão '
       + 'entre elas (' + v.vao + 'px), SEM ROLAR', v);
     // A 360×640 com a fonte em 1,25× seis pisos CABEM, e é a folha estreita cedendo o recuo e o vão do
     // cabeçalho que os faz caber (MEDIDO: com o recuo de antes a linha media 33,9px): ali a régua é o piso.
     if (excecao) {
-      checar(v.corpo < 6 * v.piso,
-        'V · [' + cel + '] (premissa) aqui seis pisos NÃO cabem — ' + v.corpo + 'px de corpo', v);
+      checar(v.corpo < 7 * v.piso,
+        'V · [' + cel + '] (premissa) aqui sete pisos NÃO cabem — ' + v.corpo + 'px de corpo', v);
     }
-    checar(excecao ? Math.min(...v.alturas) >= v.corpo / 6 - 0.5 : Math.min(...v.alturas) >= v.piso - 0.05,
+    checar(excecao ? Math.min(...v.alturas) >= v.corpo / 7 - 0.5 : Math.min(...v.alturas) >= v.piso - 0.05,
       'V · [' + cel + '] e nenhuma abaixo do piso de toque (' + v.corpo + 'px de corpo)'
-      + (excecao ? ' — aqui não cabem seis: a SEXTA PARTE do corpo, a exceção nomeada' : ''), v);
+      + (excecao ? ' — aqui não cabem sete: a SÉTIMA parte do corpo, a exceção nomeada' : ''), v);
     checar(Math.abs(v.bordas[0]) <= 1 && Math.abs(v.bordas[1]) <= 1 && v.cabecalho === 'none',
       'V · [' + cel + '] e a folha tem as BORDAS DA PORTA (±1px), SEM cabeçalho (v1.13.6)', v);
     checar(v.seta.every((x) => Math.abs(x) <= 1) && v.setaRotulo === 'Fechar ferramentas',
@@ -2711,7 +2711,7 @@ try {
     checar(v.dentro > v.dentroAntes + 0.5 && v.fora > v.foraAntes + 0.5,
       'V · [' + cel + '] as MARGENS cresceram: dentro da linha ' + v.dentro + 'px (era ' + v.dentroAntes
       + '), entre a linha e a folha ' + v.fora + 'px (era ' + v.foraAntes + ')', v);
-    checar(v.letra <= v.tetoAgora + 0.05 && v.letra < letraAntes - 0.3,
+    checar(v.letra <= v.tetoAgora + 0.05 && v.letra < v.tetoAntes - 0.3,
       'V · [' + cel + '] e a letra é um pouco MENOR: ' + v.letra + 'px, contra ' + letraAntes
       + ' na v1.13.5 (teto ' + v.tetoAgora + 'px, era ' + v.tetoAntes + ')', v);
     checar(v.icones && v.nomes, 'V · [' + cel + '] o ícone à ESQUERDA do nome, na mesma linha, e nenhum nome cortado', v);

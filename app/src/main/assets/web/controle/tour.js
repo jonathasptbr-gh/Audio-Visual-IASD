@@ -16,8 +16,9 @@
  *
  * O TOUR SE DESLIGA POR INTEIRO (v1.14.5): `av.tour.off` = '1'. Desligado, nenhum
  * tour abre sozinho (os principais e os de seção); só `refazer()` e `abrir()` à mão.
- * Quem desliga é o "Pular tour" do balão e a caixa "Tour do app" de Configurações
- * (`desativar()`/`refazer()`); a caixa avisa a mudança pelo evento `av-tour-ativo`.
+ * Quem desliga é o "Pular tour" do balão e o quadrado "Tour do app" de
+ * Configurações (`desativar()`/`refazer()`); ele avisa a mudança pelo evento
+ * `av-tour-ativo`.
  *
  * AUTOMÁTICO UMA VEZ POR TOUR. A marca mora em `localStorage` (`av.tour`), como a
  * `av.dicaNaoPerturbe`: é deste aparelho, lida em síncrono, e não viaja no pacote
@@ -38,8 +39,26 @@
   const SECAO_MS = 700;   // a janela acabou de abrir: espera ela assentar
   const VIGIA_MS = 250;
   const FOLGA = 6;      // o recorte passa a peça por esta margem
-  const MARGEM = 12;    // o balão nunca encosta na borda da tela
+  const MARGEM = 16;    // o balão nunca encosta na borda da tela
+  // O RECORTE TAMBÉM NUNCA ENCOSTA (v1.14.7). A 0 o halo do `.tour-recorte` era
+  // cortado pela borda da tela — e um elemento de borda a borda ficava SEM
+  // recorte visível. A margem é a do halo: o anel (2px) + o espalhamento (5px) +
+  // o desfoque (14px) chegam a 19px, e o recorte recua 20px dos quatro lados. O
+  // preço, aceito pelo operador, é que num elemento colado à borda o recorte pode
+  // não envolvê-lo por inteiro — visível é melhor que inteiro.
+  const MARGEM_RECORTE = 20;
   const VAO = 10;       // entre o recorte e o balão
+
+  // A ÁREA VISÍVEL é a do `visualViewport` quando ele existe: com o teclado ou a
+  // barra do navegador, a janela de layout não é o que o olho vê, e o recorte e o
+  // balão têm de caber no que está à vista. Sem ele, a janela.
+  function areaVisivel() {
+    const vv = window.visualViewport;
+    return {
+      w: Math.round(vv && vv.width ? Math.min(window.innerWidth, vv.width) : window.innerWidth),
+      h: Math.round(vv && vv.height ? Math.min(window.innerHeight, vv.height) : window.innerHeight),
+    };
+  }
 
   // Cada passo: `alvo` (seletor ou lista; TODAS as ocorrências visíveis entram —
   // o recorte é a UNIÃO), `titulo` (o nome que está na tela), `texto` (o que é,
@@ -47,7 +66,7 @@
   // peça não está à vista). `opcional`: sem a peça, o passo sai da conta.
   // `abertura`/`fecho`: o passo fica FIXO no começo/fim — ver `ordenar()`.
   const FIM = { fecho: true, titulo: 'Tour do app',
-    texto: 'Para rever estas explicações, desligue e ligue de novo a caixa "Tour do app" nas Configurações. "Pular tour" desliga o tour de vez.' };
+    texto: 'Para rever estas explicações, desligue e ligue de novo o quadrado "Tour do app" nas Configurações. "Pular tour" desliga o tour de vez.' };
   const PROJETAR = { alvo: '#miscProjectBtn', titulo: 'Projetar no telão',
     texto: 'Toque para mostrar este cartão na TV agora. O botão vira "Tirar do telão": toque nele para tirar.', opcional: true };
   const GUARDAR = { alvo: '#toolsFoot .cue-save-btn', titulo: 'Cronograma e Favoritos',
@@ -143,8 +162,10 @@
         texto: 'Toque no número para ver o que mudou nas últimas atualizações do app.' },
       { alvo: '#contatoBtn', titulo: 'Ajuda',
         texto: 'Toque para falar pelo WhatsApp com quem mantém o app.', opcional: true },
-      { alvo: '#fadePopup .cfg-ajuda', titulo: 'Tour do app e Guia de sonoplastia',
-        texto: 'A caixa "Tour do app" liga ou desliga estas explicações: desligada, nenhuma janela se explica sozinha. O guia ensina o básico do som e abre noutra tela.' },
+      { alvo: '#tourBtn', titulo: 'Tour do app',
+        texto: 'Este quadrado liga ou desliga estas explicações: desligado, nenhuma janela se explica sozinha; ligado de novo, o tour desta tela recomeça.', opcional: true },
+      { alvo: '#fadePopup .cfg-ajuda', titulo: 'Guia de sonoplastia',
+        texto: 'O guia ensina o básico do som da igreja e abre noutra tela do app.', opcional: true },
     ] },
     'cfg-tela': { modos: AMBOS, passos: [
       { alvo: '#fitTile', titulo: 'Preenchimento',
@@ -167,7 +188,9 @@
       { alvo: '#testeSalvar', titulo: 'Compartilhar registro',
         texto: 'Toque para enviar o resultado, pelo app que escolher, a quem está ajudando você.', opcional: true },
     ] },
-    'cfg-edicao': { modos: AMBOS, passos: [
+    // O EDITOR DE MÍDIA é uma FERRAMENTA desde a v1.14.7: a chave da seção é a
+    // do painel da folha de Ferramentas (`'ferr-' + ferramentaAtual()`).
+    'ferr-edicao': { modos: AMBOS, passos: [
       { alvo: '#edicaoBusca', titulo: 'Buscar pelo nome',
         texto: 'Digite o nome da mídia que quer cortar no começo ou no fim e toque nela na lista.', opcional: true },
       { alvo: '#edicaoImportar', titulo: 'Importar arquivo',
@@ -331,8 +354,8 @@
     const cs = getComputedStyle(el);
     if (cs.visibility === 'hidden' || cs.display === 'none' || +cs.opacity === 0) return false;
     // fora da tela por inteiro (a folha da Biblioteca recolhida mora abaixo da borda)
-    const vh = window.innerHeight, vw = window.innerWidth;
-    return r.bottom > 0 && r.right > 0 && r.top < vh && r.left < vw;
+    const a = areaVisivel();
+    return r.bottom > 0 && r.right > 0 && r.top < a.h && r.left < a.w;
   }
   function elementos(passo) {
     if (!passo.alvo) return [];
@@ -463,8 +486,7 @@
   // Onde tudo VAI ficar: o recorte (ou nenhum) e o canto do balão. Mede a altura
   // NATURAL do balão — quem chama garante que ela não está travada.
   function geometria(passo, r) {
-    const vw = window.innerWidth;
-    const vh = window.visualViewport ? Math.min(window.innerHeight, window.visualViewport.height) : window.innerHeight;
+    const { w: vw, h: vh } = areaVisivel();
     const w = Math.min(340, vw - 2 * MARGEM);
     balao.style.width = w + 'px';
     balao.style.maxHeight = (vh - 2 * MARGEM) + 'px';
@@ -473,8 +495,14 @@
     if (!r) {
       left = (vw - w) / 2; top = Math.max(MARGEM, (vh - h) / 2);
     } else {
-      const l = Math.max(0, r.left - FOLGA), t = Math.max(0, r.top - FOLGA);
-      const rr = Math.min(vw, r.right + FOLGA), bb = Math.min(vh, r.bottom + FOLGA);
+      // O RECORTE RESPEITA A MARGEM DO HALO NOS QUATRO LADOS, inclusive quando a
+      // peça vai de borda a borda: aí ele fica DENTRO da peça em vez de sumir na
+      // borda da tela (é a troca aceita pelo operador).
+      const preso = (v, min, max) => Math.min(max, Math.max(min, v));
+      const l = preso(r.left - FOLGA, MARGEM_RECORTE, vw - MARGEM_RECORTE);
+      const t = preso(r.top - FOLGA, MARGEM_RECORTE, vh - MARGEM_RECORTE);
+      const rr = preso(r.right + FOLGA, MARGEM_RECORTE, vw - MARGEM_RECORTE);
+      const bb = preso(r.bottom + FOLGA, MARGEM_RECORTE, vh - MARGEM_RECORTE);
       rec = { l, t, w: Math.max(0, rr - l), h: Math.max(0, bb - t) };
       rec.raio = raioDe(passo, rec.w, rec.h);
       const cx = (l + rr) / 2;
@@ -579,7 +607,7 @@
     voltarEl.title = atual.i === 0 ? 'Este é o primeiro passo' : '';
     proximoEl.textContent = atual.i === atual.passos.length - 1 ? 'Concluir' : 'Próximo';
     const els = elementos(passo);
-    const vh = window.innerHeight;
+    const vh = areaVisivel().h;
     // Peça cortada pela borda (dentro de uma lista que rola): traz para a vista.
     if (els[0]) {
       const q = els[0].getBoundingClientRect();
@@ -793,7 +821,7 @@
   }
 
   // DESLIGAR por inteiro: fecha o tour aberto e para o automático. Quem chama é o
-  // "Pular tour" do balão e a caixa de Configurações. Não mexe nas marcas de "visto".
+  // "Pular tour" do balão e o quadrado de Configurações. Não mexe nas marcas de "visto".
   function desativar() {
     definirAtivo(false);
     clearInterval(autoTimer); autoTimer = null; livreDesde = 0;

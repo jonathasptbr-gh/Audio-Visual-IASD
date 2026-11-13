@@ -108,6 +108,10 @@ const PONTE = `(() => {
         try {
           window.__avResolve(id, {
             label: 'Seletor de saída (SystemUI) (com.android.systemui/.media.MediaOutputDialogReceiver)',
+            // AS DUAS LEITURAS do Registro que FICARAM no web (v1.14.7): por onde a
+            // mídia sai e o Não Perturbe. O shell real as devolve; o stub também.
+            saindoPor: [{ tipo: 'bluetooth', nome: 'Caixa de som da igreja' }],
+            naoPerturbe: 'ligado',
             // UM CANDIDATO AUSENTE DE PROPÓSITO (o do app de Configurações): é o
             // caso do aparelho do operador na v1.9.9, e é ele que a linha do
             // Registro existe para dizer. Um stub com tudo presente provaria a
@@ -310,185 +314,65 @@ try {
   const { ctx, pg } = await abrir();
 
   // =========================================================================
-  // A · O ATALHO DA SAÍDA DE ÁUDIO
   // =========================================================================
-  const tileAudio = await pg.evaluate(() => {
-    const t = document.getElementById('saidaAudioTile');
-    if (!t) return null;
-    return {
-      oculto: !!t.hidden,
-      titulo: (t.querySelector('.qs-titulo') || {}).textContent || '',
-      dica: t.title,
-      // O DESENHO É PRÓPRIO, e não o `#icoSom` (que neste app significa MUDO):
-      // reusá-lo faria o mesmo traço responder duas perguntas.
-      simbolo: (t.querySelector('use') || {}).getAttribute
-        ? t.querySelector('use').getAttribute('href') : '',
-    };
-  });
-  checar(!!tileAudio, 'A1 · o tile "Saída de áudio" existe na folha');
-  checar(tileAudio && tileAudio.oculto === false,
-    'A2 · e no APP ele está à vista', tileAudio);
-  checar(tileAudio && tileAudio.simbolo === '#icoSaidaDeAudio',
-    'A3 · com desenho PRÓPRIO — o `#icoSom` deste app significa MUDO, e um símbolo '
-    + 'que responde duas perguntas não responde nenhuma', tileAudio);
-  checar(tileAudio && /Android/.test(tileAudio.dica),
-    'A4 · e a dica diz que quem escolhe a saída é o ANDROID: ele ABRE, não roteia '
-    + '— rotear áudio é privilégio de sistema, e um tile que parecesse decidir '
-    + 'seria lido como quebrado no dia em que o som não mudasse', tileAudio);
+  // A · A SAÍDA DE ÁUDIO: O TILE SAIU, O REGISTRO FICOU (v1.14.7)
+  // =========================================================================
+  //
+  // O projeto da janela da Samsung foi ABANDONADO, e o atalho que abria o seletor
+  // do sistema saiu do app (o operador usa o do próprio aparelho). O que NÃO podia
+  // sair é a leitura: as linhas "Mídia saindo agora por" e "Não Perturbe" do
+  // Registro e o `saidaDeAudioAlvo` continuam — é por elas que se responde, a
+  // distância, por onde o som estava saindo no culto.
+  const saiu = await pg.evaluate(() => ({
+    tile: !!document.getElementById('saidaAudioTile'),
+    simbolo: !!document.getElementById('icoSaidaDeAudio'),
+    grade: (() => { const g = document.querySelector('#fadePopup .qs-grade');
+      return g ? [...g.children].map((e) => e.id) : []; })(),
+    ferramentas: typeof FERRAMENTAS !== 'undefined' ? FERRAMENTAS.map((f) => f.id) : [],
+    saida: window.__saidaAberta,
+  }));
+  checar(!saiu.tile && !saiu.simbolo,
+    'A1 · o tile "Saída de áudio" e o símbolo dele NÃO existem mais no documento (v1.14.7)',
+    JSON.stringify(saiu));
+  checar(JSON.stringify(saiu.grade) === JSON.stringify(['temaTile', 'telaTile', 'dadosMoveisTile',
+    'histOpenRow', 'testeTile', 'shareAppTile', 'pacoteTile', 'tourBtn']),
+  'A2 · a grade de Configurações é a de OITO tiles, com o "Tour do app" fechando a fileira do aparelho',
+  JSON.stringify(saiu.grade));
+  checar(JSON.stringify(saiu.ferramentas) === JSON.stringify(['clock', 'stopwatch', 'timer', 'itinerario', 'msg', 'draw', 'edicao']),
+    'A3 · e o "Editar mídia" é a SÉTIMA ferramenta — ele ocupou a vaga que o editor deixou nas Configurações',
+    JSON.stringify(saiu.ferramentas));
 
-  await pg.evaluate(() => { document.getElementById('saidaAudioTile').click(); });
-  const abriu = await esperar(pg, () => window.__saidaAberta === 1, null, 5000);
-  checar(abriu === true,
-    'A5 · o toque pede ao shell para abrir a tela do sistema, UMA vez', porque(abriu));
-
+  // AS DUAS LINHAS QUE FICARAM: o Registro as compõe da leitura do shell que o
+  // próprio app pede ao montar (o stub devolve o mesmo formato do `saidaDeAudioAlvo`).
   const reg = await lerRegistro(pg);
+  checar(/Mídia saindo agora por:/.test(reg),
+    'A4 · o Registro continua dizendo POR ONDE o som está saindo (o `saidaDeAudioAlvo` ficou)',
+    (reg.match(/Mídia saindo agora por:.*/) || ['(a linha não saiu)'])[0]);
   checar(/Saída de áudio abre: Seletor de saída \(SystemUI\) \(com\.android\.systemui/.test(reg),
-    'A6 · e o Registro carrega o alvo COM o componente — a única resposta possível '
-    + 'a distância quando o botão abre a tela errada',
+    'A5 · e qual é o alvo do sistema, com o COMPONENTE — a resposta a distância quando o som não sai por onde devia',
     (reg.match(/Saída de áudio abre:.*/) || ['(a linha não saiu)'])[0]);
+  checar(/Não Perturbe:/.test(reg),
+    'A6 · e o estado do Não Perturbe continua no Registro',
+    (reg.match(/Não Perturbe:.*/) || ['(a linha não saiu)'])[0]);
+  checar(saiu.saida === 0,
+    'A7 · e NADA no carregamento abre a tela do sistema: o web não tem mais chamador da ponte',
+    JSON.stringify(saiu.saida));
 
-  // ===== A CADEIA INTEIRA, e não só quem pegou (v1.9.10) =====
-  //
-  // A v1.9.9 abriu a tela errada no aparelho do operador, e o Registro daquela
-  // versão não tinha como responder por quê: ele dizia qual candidato PEGOU, que
-  // não é a mesma pergunta que quais EXISTEM. As duas metades desta asserção são
-  // obrigatórias — a lista tem de mostrar o que ESTÁ lá E o que FALTA, senão ela
-  // vira uma segunda cópia da linha de cima.
-  const linhas = reg.split('\n').filter((x) => /^\s+· /.test(x));
-  checar(linhas.length === 3,
-    'A6a · o Registro lista a CADEIA inteira, um candidato por linha, na ordem',
-    JSON.stringify(linhas));
-  checar(/SystemUI.*\[broadcast\].*com\.android\.systemui/.test(linhas[0] || ''),
-    'A6b · com o TIPO de cada um — o diálogo do SystemUI é um BROADCAST, e é '
-    + 'exatamente isso que a cadeia da v1.9.9 não sabia disparar',
-    linhas[0] || '(sem linha)');
-  checar(/não existe neste aparelho/.test(linhas[1] || ''),
-    'A6c · e o que FALTA aparece dito: é o candidato ausente que explica por que o '
-    + 'atalho caiu na tela errada, e sem ele a lista não responde nada que a linha '
-    + 'de cima já não respondesse', linhas[1] || '(sem linha)');
-
-  // ===== E A TERCEIRA PERGUNTA: O DIÁLOGO CHEGOU A SUBIR? (v1.9.11) =====
-  //
-  // Relato do operador sobre a v1.9.10: *"dessa vez ele não abriu nenhuma
-  // janela"*, com o Registro mostrando o receptor do SystemUI PRESENTE. A lista
-  // de candidatos responde *"quais existem"* e não *"ele abriu"* — `sendBroadcast`
-  // não devolve desfecho nenhum, e quem recebe pode engolir em silêncio.
-  //
-  // A LINHA É RELIDA a cada montagem do Registro, e é isso que esta asserção
-  // trava junto: o desfecho muda a CADA toque, e lê-lo só na carga faria o
-  // Registro dizer "nunca" para sempre — o diagnóstico que envelhece calado, que
-  // é o pior artefato que este projeto sabe produzir.
-  const regDepois = await lerRegistro(pg);
-  checar(/Saída de áudio, último toque: o diálogo foi ENGOLIDO/.test(regDepois),
-    'A6d · o Registro diz se o diálogo do sistema SUBIU ou foi ENGOLIDO — e relê a '
-    + 'cada montagem, senão ele responderia "nunca" para sempre',
-    (regDepois.match(/Saída de áudio, último toque:.*/) || ['(a linha não saiu)'])[0]);
-
-  // ===== O SEGUNDO TOQUE NÃO PAGA A ESPERA (v1.9.12) =====
-  //
-  // Pedido do operador, depois de o Registro dele PROVAR que o diálogo é engolido
-  // naquele aparelho: tirar a espera. Os 800 ms são o que impede o tile de ficar
-  // mudo, mas onde o desfecho já é conhecido eles são espera pura — e ele os paga
-  // em todo toque, num culto.
-  //
-  // A ASSERÇÃO É SOBRE O ESTADO DITO, e não sobre o relógio: medir 800 ms aqui
-  // seria medir o arnês (o shell de mentira não espera nada). O que se trava é que
-  // o app SABE que está bloqueado e DIZ isso — sem a linha, "o app deixou de
-  // tentar" é um estado invisível, e um estado invisível num diagnóstico lido a
-  // distância é o que este Registro existe para não produzir.
-  await pg.evaluate(() => { document.getElementById('saidaAudioTile').click(); });
-  await esperar(pg, () => window.__saidaAberta === 2, null, 5000);
-  const regBloq = await lerRegistro(pg);
-  checar(/último toque: o diálogo está BLOQUEADO neste aparelho/.test(regBloq),
-    'A6e · depois de medido, o Registro diz que o diálogo está BLOQUEADO e que o '
-    + 'app abre a tela seguinte NO ATO',
-    (regBloq.match(/Saída de áudio, último toque:.*/) || ['(a linha não saiu)'])[0]);
-  const linhaBloq = regBloq.split('\n').filter((x) => /^\s+· /.test(x))[0] || '';
-  checar(/BLOQUEADO — o app não tenta mais nesta versão/.test(linhaBloq),
-    'A6f · e a linha DO CANDIDATO carrega a marca: o endereço EXISTE e o sistema '
-    + 'recusa mostrar a janela, e as duas coisas juntas são o diagnóstico',
-    linhaBloq || '(sem linha)');
-
-  // NO NAVEGADOR ELE NÃO EXISTE, e esta asserção precisa de um contexto SEM a
-  // ponte: medir o `hidden` no app aprova o tile mesmo que ninguém o esconda
-  // nunca (lá ele é `false` das duas formas). O defeito vive só do outro lado —
-  // um tile aceso que não liga nada, que é a regra da v1.8.50.
+  // NO NAVEGADOR o documento é o MESMO (o tile não existe nos dois): a asserção de
+  // cima já o prova por ausência. O que este bloco separa é o que morreu de fato —
+  // o símbolo e o tile —, sem depender de a ponte existir ou não.
   const ctxWeb = await navegador.newContext({ viewport: { width: 430, height: 900 }, reducedMotion: 'reduce' });
   await semRedeExterna(ctxWeb);
   const pgWeb = await ctxWeb.newPage();
   await pgWeb.goto(base + '/controle/', { waitUntil: 'load' });
   await esperarCortina(pgWeb);
-  const noNavegador = await pgWeb.evaluate(() => {
-    const t = document.getElementById('saidaAudioTile');
-    return { oculto: !!(t && t.hidden), semCaixa: !t || t.getBoundingClientRect().width === 0 };
-  });
-  checar(noNavegador.oculto === true && noNavegador.semCaixa === true,
-    'A7 · e NO NAVEGADOR ele não existe: sem ponte não há tela do sistema a abrir, e '
-    + 'um tile que só sabe não funcionar é pior que tile nenhum',
+  const noNavegador = await pgWeb.evaluate(() => ({
+    tile: !!document.getElementById('saidaAudioTile'),
+    simbolo: !!document.getElementById('icoSaidaDeAudio'),
+  }));
+  checar(noNavegador.tile === false && noNavegador.simbolo === false,
+    'A8 · e NO NAVEGADOR também não existe — não há dois desenhos para a mesma ausência',
     noNavegador);
-
-  // A GRADE DE CONFIGURAÇÕES TEM DOIS DESENHOS (v1.13.57), e o de sempre é o do AVANÇADO:
-  // NOVE tiles em TRÊS fileiras por assunto — aparência e saída (tema, tela, saída de
-  // áudio), dados e mídia (dados móveis, editar mídia, histórico) e o aparelho (verificar,
-  // compartilhar, transferir). Sem coluna forçada: 9 em 3 colunas se fecham sozinhos.
-  //
-  // NO MODO FÁCIL, que é onde o app ABRE, ficam CINCO — os do culto (Tema, Tela, Saída de
-  // áudio, Dados móveis, Compartilhar) —, e os quatro de MANUTENÇÃO (Editar mídia,
-  // Histórico, Verificar, Transferir) são apagados por `body.mode-simple`: continuam no
-  // HTML (é o MESMO nó), e o apagado diz "indisponível" em vez de deixar buraco inerte na
-  // grade. As duas pontas se medem aqui, e a régua das fileiras é o TOPO de cada caixa.
-  const grade = () => pg.evaluate(() => {
-    const g = document.querySelector('#fadePopup .qs-grade');
-    const caixa = (e) => { const b = e.getBoundingClientRect(); return b.width > 0 && b.height > 0; };
-    const top = (id) => Math.round(document.getElementById(id).getBoundingClientRect().top);
-    const lido = (id) => {
-      const e = document.getElementById(id);
-      return { existe: !!e, display: getComputedStyle(e).display, caixa: !!e && caixa(e), oculto: !!e && !!e.hidden };
-    };
-    const manut = ['edicaoTile', 'histOpenRow', 'testeTile', 'pacoteTile'];
-    const culto = ['temaTile', 'telaTile', 'saidaAudioTile', 'dadosMoveisTile', 'shareAppTile'];
-    return {
-      modoSimples: document.body.classList.contains('mode-simple'),
-      noDom: g.querySelectorAll('.qs-tile').length,
-      ids: [...g.querySelectorAll('.qs-tile')].filter((e) => !e.hidden && caixa(e)).map((e) => e.id),
-      compartilhar: top('shareAppTile'), transferir: top('pacoteTile'), verificar: top('testeTile'),
-      saida: top('saidaAudioTile'), dados: top('dadosMoveisTile'), edicao: top('edicaoTile'),
-      tema: top('temaTile'), tela: top('telaTile'), hist: top('histOpenRow'),
-      manutencao: Object.fromEntries(manut.map((id) => [id, lido(id)])),
-      culto: Object.fromEntries(culto.map((id) => [id, lido(id)])),
-      mesmoNo: window.__noEdicao === document.getElementById('edicaoTile'),
-    };
-  });
-  // A PRIMEIRA PONTA, no MODO FÁCIL (o app abre nele): cinco à vista, quatro apagados SEM
-  // `hidden` — nesta ponte os quatro existem com ponte, então quem os apaga é o MODO.
-  const facil = await grade();
-  checar(facil.modoSimples === true && facil.noDom === 9
-      && facil.ids.join() === 'temaTile,telaTile,saidaAudioTile,dadosMoveisTile,shareAppTile'
-      && Object.values(facil.manutencao).every((t) => t.existe && t.display === 'none' && t.caixa === false && t.oculto === false)
-      && Object.values(facil.culto).every((t) => t.display !== 'none' && t.caixa === true),
-    'A8f · no MODO FÁCIL a grade fica com os CINCO tiles do culto (Tema, Tela, Saída de áudio, Dados '
-    + 'móveis e Compartilhar), e os quatro de MANUTENÇÃO — Editar mídia, Histórico, Verificar e '
-    + 'Transferir — estão apagados por `body.mode-simple`: sem caixa, e sem `hidden`, porque são o '
-    + 'MESMO nó que o avançado mostra', JSON.stringify(facil));
-  // A OUTRA PONTA: o MESMO nó devolve o desenho de TRÊS FILEIRAS no avançado.
-  await pg.evaluate(() => { window.__noEdicao = document.getElementById('edicaoTile'); setAppMode('full'); });
-  const virou = await esperar(pg, () => !document.body.classList.contains('mode-simple')
-    && document.getElementById('edicaoTile').getBoundingClientRect().width > 0, null, 5000);
-  const fileira = await grade();
-  checar(virou === true && fileira.modoSimples === false && fileira.mesmoNo === true
-      && fileira.noDom === 9
-      && fileira.ids.join() === 'temaTile,telaTile,saidaAudioTile,dadosMoveisTile,edicaoTile,histOpenRow,testeTile,shareAppTile,pacoteTile',
-    'A8a · no MODO AVANÇADO a grade de Configurações tem os NOVE tiles que o desenho pede, e é o MESMO '
-    + 'nó do Modo Fácil (os ajustes do telão e o exportar/importar moram nas janelas)',
-    JSON.stringify([virou, fileira.ids]));
-  checar(fileira.compartilhar === fileira.transferir && fileira.verificar === fileira.transferir,
-    'A8 · Verificar, Compartilhar e Transferir fecham a grade na MESMA fileira '
-    + '(*"compartilhar, exportar e importar devem ser os itens da base"*)', fileira);
-  checar(fileira.tema === fileira.tela && fileira.tela === fileira.saida
-    && fileira.dados === fileira.edicao && fileira.edicao === fileira.hist
-    && fileira.saida < fileira.dados && fileira.hist < fileira.verificar,
-    'A9 · e as outras duas fileiras são por ASSUNTO, na ordem de cima para baixo: '
-    + 'aparência e saída, depois dados e mídia', fileira);
   await ctxWeb.close();
 
   // =========================================================================

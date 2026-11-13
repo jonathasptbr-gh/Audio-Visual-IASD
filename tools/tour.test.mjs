@@ -130,16 +130,27 @@ const haloBate = (m) => temCor(m.veu, m.halo) && cores(m.veu).findIndex((a) => a
   < cores(m.veu).findIndex((a) => a.every((v, k) => Math.abs(v - nums(m.token)[k]) < 0.005));
 
 // O recorte É a peça: contém o retângulo dela e não passa da folga (6px) + 1.
+// O RECORTE PRESO À ÁREA VISÍVEL (v1.14.7): o esperado é a peça mais a FOLGA de 6,
+// limitada à MARGEM_RECORTE de 20 — o alcance do halo (anel 2 + espalhamento 5 +
+// desfoque 14 = 19). Num elemento de borda a borda o recorte pode NÃO envolvê-lo
+// por inteiro; é a troca aceita pelo operador, e por isso a régua é o retângulo
+// esperado e não "contém a peça".
+const MARGEM_RECORTE = 20;
 function recorteBate(m) {
   if (!m.peca || !m.recorte) return false;
-  const P = 7;
+  const FOLGA = 6;
   const lim = (v, max) => Math.max(0, Math.min(max, v));
+  const preso = (v, max) => Math.min(max - MARGEM_RECORTE, Math.max(MARGEM_RECORTE, v));
   const p = { l: lim(m.peca.l, m.vw), t: lim(m.peca.t, m.vh), r: lim(m.peca.r, m.vw), b: lim(m.peca.b, m.vh) };
-  return m.recorte.l <= p.l + 0.5 && m.recorte.t <= p.t + 0.5 && m.recorte.r >= p.r - 0.5 && m.recorte.b >= p.b - 0.5
-    && p.l - m.recorte.l <= P && p.t - m.recorte.t <= P && m.recorte.r - p.r <= P && m.recorte.b - p.b <= P;
+  const e = { l: preso(p.l - FOLGA, m.vw), t: preso(p.t - FOLGA, m.vh), r: preso(p.r + FOLGA, m.vw), b: preso(p.b + FOLGA, m.vh) };
+  const perto = (a, b) => Math.abs(a - b) <= 1.5;
+  return perto(m.recorte.l, e.l) && perto(m.recorte.t, e.t) && perto(m.recorte.r, e.r) && perto(m.recorte.b, e.b)
+    && m.recorte.r - m.recorte.l > 8 && m.recorte.b - m.recorte.t > 8
+    && m.recorte.l >= MARGEM_RECORTE - 0.5 && m.recorte.t >= MARGEM_RECORTE - 0.5
+    && m.recorte.r <= m.vw - MARGEM_RECORTE + 0.5 && m.recorte.b <= m.vh - MARGEM_RECORTE + 0.5;
 }
-// Há lugar para o balão inteiro acima ou abaixo do recorte (margem 12 + vão 10)?
-const cabeAoLado = (m) => { const h = m.balao.b - m.balao.t; return m.recorte.t - 22 >= h || m.vh - m.recorte.b - 22 >= h; };
+// Há lugar para o balão inteiro acima ou abaixo do recorte (margem 16 + vão 10)?
+const cabeAoLado = (m) => { const h = m.balao.b - m.balao.t; return m.recorte.t - 26 >= h || m.vh - m.recorte.b - 26 >= h; };
 const dentro = (m) => m.balao.l >= -0.5 && m.balao.t >= -0.5 && m.balao.r <= m.vw + 0.5 && m.balao.b <= m.vh + 0.5;
 
 // Fecha o tour se estiver aberto (numa reprovação ele pode nem ter aberto). NÃO é o
@@ -266,14 +277,28 @@ try {
     // ---------------- F · Configurações, no Fácil ----------------
     const lado = await pg.evaluate(() => {
       const t = document.getElementById('tourBtn'), s = document.getElementById('guiaSomBtn');
+      const grade = document.querySelector('#fadePopup .qs-grade');
+      const irmaos = [...grade.children];
       const a = t.getBoundingClientRect(), b = s.getBoundingClientRect();
-      return { vis: a.width > 0 && b.width > 0, mesmaLinha: Math.abs(a.top - b.top) < 2, corta: [t, s].some((x) => x.scrollWidth > x.clientWidth + 1),
+      return { vis: a.width > 0 && b.width > 0,
+        quadrado: t.classList.contains('qs-tile') && t.closest('.qs-grade') === grade,
+        ultimo: irmaos[irmaos.length - 1] === t,
+        soGuia: document.querySelectorAll('#fadePopup .cfg-ajuda > *').length === 1 && !!s.closest('.cfg-ajuda'),
+        corta: [t, s].some((x) => x.scrollWidth > x.clientWidth + 1),
         diz: /cada janela/.test(t.title),
-        caixa: t.getAttribute('role') === 'checkbox' && !!t.querySelector('.song-menu-check') && t.querySelector('.song-menu-check').getBoundingClientRect().width > 0,
+        // O ESTADO MORA NO DESENHO (v1.14.7): o par de ícones do quadrado, e nenhuma
+        // caixa de marcação — ele é um `.qs-tile` como o "Dados móveis".
+        desenho: !!t.querySelector('use.ico-base[href="#icoTourOff"]')
+          && !!t.querySelector('use.ico-alt[href="#icoTour"]'),
+        semCaixa: !t.querySelector('.song-menu-check'),
         seta: !!s.querySelector('svg.cfg-externo use[href="#icoExterno"]') && s.querySelector('svg.cfg-externo').getBoundingClientRect().width > 0 };
     });
-    checar(lado.vis && lado.mesmaLinha && !lado.corta && lado.diz, 'F · "Tour do app" e "Guia de sonoplastia" estão em Configurações, lado a lado, sem cortar (e o botão diz que as janelas voltam a se explicar)', JSON.stringify(lado));
-    checar(lado.caixa && lado.seta, 'L · "Tour do app" tem a CAIXA de marcação e "Guia de sonoplastia" a SETA de "abre outra tela", à vista', JSON.stringify(lado));
+    checar(lado.vis && lado.quadrado && lado.ultimo && lado.soGuia && !lado.corta && lado.diz,
+      'F · o "Tour do app" é o ÚLTIMO quadrado da grade de Configurações, e o "Guia de sonoplastia" ficou sozinho nos botões de ajuda — nenhum dos dois corta, e o quadrado diz que as janelas voltam a se explicar',
+      JSON.stringify(lado));
+    checar(lado.desenho && lado.semCaixa && lado.seta,
+      'L · o estado do tour mora no DESENHO do quadrado (dois ícones, nenhuma caixa de marcação), e o "Guia de sonoplastia" leva a SETA de "abre outra tela", à vista',
+      JSON.stringify(lado));
     await pg.click('#guiaSomBtn');
     const urlFacil = await pg.evaluate(() => window.__abertos.slice(-1)[0]);
     checar(urlFacil === 'https://audiovisualiasd.com.br/sonoplastia/#dia',
@@ -282,16 +307,18 @@ try {
     // ---------------- L · a caixa "Tour do app" liga e desliga o tour por inteiro ----------------
     const caixa = () => pg.evaluate(() => {
       const b = document.getElementById('tourBtn');
-      return { role: b.getAttribute('role'), marcada: b.getAttribute('aria-checked'), on: !!b.querySelector('.song-menu-check.on'), title: b.title,
+      return { estado: b.dataset.estado, alt: b.classList.contains('qs-alt'), aria: b.getAttribute('aria-label'),
+        desenho: !!b.querySelector('use.ico-base[href="#icoTourOff"]') && !!b.querySelector('use.ico-alt[href="#icoTour"]'),
+        title: b.title,
         off: localStorage.getItem('av.tour.off'), ativo: AVTour.ativo(), folha: document.getElementById('fadePopup').classList.contains('open') };
     });
     const c0 = await caixa();
-    checar(c0.role === 'checkbox' && c0.marcada === 'true' && c0.on && c0.off === null && c0.ativo,
-      'L · o tour nasce LIGADO: a caixa "Tour do app" está marcada', JSON.stringify(c0));
+    checar(c0.estado === 'on' && c0.alt && /ligado$/.test(c0.aria) && c0.desenho && c0.off === null && c0.ativo,
+      'L · o tour nasce LIGADO: o quadrado está aceso, o `data-estado` é `on` e o `aria-label` diz "ligado"', JSON.stringify(c0));
     await pg.click('#tourBtn');
     const c1 = await caixa();
-    checar(c1.marcada === 'false' && !c1.on && c1.off === '1' && !c1.ativo && c1.folha && /desligado/.test(c1.title),
-      'L · tocar na caixa DESLIGA: desmarca, grava a escolha e a folha continua aberta', JSON.stringify(c1));
+    checar(c1.estado === 'off' && !c1.alt && /desligado$/.test(c1.aria) && c1.off === '1' && !c1.ativo && c1.folha && /desligado/.test(c1.title),
+      'L · tocar no quadrado DESLIGA: apaga o desenho, grava a escolha e a folha continua aberta', JSON.stringify(c1));
     await pg.evaluate(() => {
       const v = JSON.parse(localStorage.getItem('av.tour')); delete v.simples; delete v['s.configuracoes'];
       localStorage.setItem('av.tour', JSON.stringify(v)); AVTour.armar();
@@ -306,11 +333,11 @@ try {
     await esperar(pg, () => document.getElementById('fadePopup').classList.contains('open'));
     await pg.waitForTimeout(1000);
     const c2 = await caixa();
-    checar(c2.marcada === 'false' && !c2.on && await estado(pg) === null, 'L · reaberta a folha, a caixa segue desmarcada e nada se explica', JSON.stringify(c2));
+    checar(c2.estado === 'off' && !c2.alt && await estado(pg) === null, 'L · reaberta a folha, o quadrado segue apagado e nada se explica', JSON.stringify(c2));
     await pg.click('#tourBtn');   // liga de novo: fecha a folha e refaz o tour do estado
     const rf = await esperarTour(pg, 'simples', 5000);
     const c3 = await caixa();
-    checar(rf === true && c3.ativo && c3.off === null && !c3.folha,
+    checar(rf === true && c3.ativo && c3.off === null && !c3.folha && c3.estado === 'on',
       'L · tocar de novo LIGA: a folha fecha e o tour da tela abre na hora', porque(rf) || JSON.stringify(c3));
     const zerou = await pg.evaluate(() => JSON.parse(localStorage.getItem('av.tour')));
     checar(rf === true && await pg.evaluate(() => !document.getElementById('fadePopup').classList.contains('open')),
@@ -321,10 +348,11 @@ try {
     const rotuloPular = await pg.evaluate(() => document.querySelector('#tour .tour-pular').textContent);
     await pg.click('#tour .tour-pular');
     await esperar(pg, () => !AVTour.aberto());
-    const sp = await pg.evaluate(() => ({ off: localStorage.getItem('av.tour.off'), ativo: AVTour.ativo(), marcada: document.getElementById('tourBtn').getAttribute('aria-checked'),
-      on: !!document.querySelector('#tourBtn .song-menu-check.on'), oculto: document.getElementById('tour').hidden }));
-    checar(rotuloPular === 'Pular tour' && sp.off === '1' && !sp.ativo && sp.oculto && sp.marcada === 'false' && !sp.on,
-      'L · "Pular tour" fecha o balão e DESLIGA o tour por inteiro; a caixa de Configurações acompanha', JSON.stringify([rotuloPular, sp]));
+    const sp = await pg.evaluate(() => ({ off: localStorage.getItem('av.tour.off'), ativo: AVTour.ativo(),
+      estado: document.getElementById('tourBtn').dataset.estado, alt: document.getElementById('tourBtn').classList.contains('qs-alt'),
+      oculto: document.getElementById('tour').hidden }));
+    checar(rotuloPular === 'Pular tour' && sp.off === '1' && !sp.ativo && sp.oculto && sp.estado === 'off' && !sp.alt,
+      'L · "Pular tour" fecha o balão e DESLIGA o tour por inteiro; o quadrado de Configurações acompanha', JSON.stringify([rotuloPular, sp]));
     await pg.evaluate(() => {
       const v = JSON.parse(localStorage.getItem('av.tour')); delete v.simples; localStorage.setItem('av.tour', JSON.stringify(v)); AVTour.armar();
     });
@@ -483,7 +511,6 @@ try {
     ['s.cfg-tela', 'openFadePopup(); abrirSecao("tela")', 'closeFadePopup()'],
     ['s.cfg-hist', 'openFadePopup(); abrirSecao("hist")', 'closeFadePopup()'],
     ['s.cfg-teste', 'openFadePopup(); abrirSecao("teste")', 'closeFadePopup()'],
-    ['s.cfg-edicao', 'openFadePopup(); abrirSecao("edicao")', 'closeFadePopup()'],
     ['s.cfg-pacote', 'openFadePopup(); abrirSecao("pacote")', 'closeFadePopup()'],
     ['s.conectar', 'abrirCast()', 'fecharCast()'],
   ];
@@ -506,6 +533,10 @@ try {
     ['s.ferr-itinerario', 'abrirFerramenta("itinerario")', 'fecharFerramentas()'],
     ['s.ferr-msg', 'abrirFerramenta("msg")', 'fecharFerramentas()'],
     ['s.ferr-draw', 'abrirFerramenta("draw")', 'fecharFerramentas()'],
+    // v1.14.7: o editor de mídia é uma FERRAMENTA — a chave do tour é a do painel
+    // da folha (`'ferr-' + ferramentaAtual()`). Ele mora no AVANÇADO porque no
+    // Fácil "tocando" a folha não é um estado que o tour atravessa.
+    ['s.ferr-edicao', 'abrirFerramenta("edicao")', 'fecharFerramentas()'],
   ];
   const ruinsJ = [], vistosJ = [];
   for (const viewport of [{ width: 390, height: 860 }, { width: 360, height: 640 }]) {

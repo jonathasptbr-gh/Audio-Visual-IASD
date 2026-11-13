@@ -536,7 +536,7 @@ abaixo é o mapa: navegador → app.
 | pastas do aparelho | SAF no lugar de `showDirectoryPicker()` |
 | compartilhamento / link copiado | só no app (`ShareIntake.kt`, só `content://`); o link copiado vem com PERGUNTA antes |
 | destinos de um item | na gaveta, um botão por destino (as folhas marcam vários); o vídeo do YouTube baixa UMA vez |
-| estado do telão · cast · saída de áudio | indicador ao vivo; `openCast()`; o tile "Saída de áudio" ABRE o seletor do sistema, não ROTEIA |
+| estado do telão · cast · saída de áudio | indicador ao vivo; `openCast()`; a saída de áudio fica só no Registro (o tile que abria o seletor do sistema saiu do app na v1.14.7) |
 | recolher a prévia | a seta vira uma linha do deck; marcação × geometria × veredito da decodificação são três coisas |
 | retomada do telão | reenvia só o que ESTAVA no ar (`midiaNoAr`, nunca `currentId`) |
 | Modo Fácil | sem prévia; a Biblioteca é a tela principal sem mídia no ar; abre SEMPRE no Modo Fácil (`sessionStorage`) |

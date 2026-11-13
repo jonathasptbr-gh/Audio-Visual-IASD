@@ -46,6 +46,7 @@ sessão; o resto é consulta, aberta quando a tarefa pede.**
 | telão nas telas da rede | [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#telão-por-comandos-o-telão-nas-telas-da-rede-local) | as telas da igreja |
 | paleta, cor, toque, camadas | [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#a-paleta) | **antes de escrever qualquer cor** |
 | divergências web × nativo | [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#divergências-entre-o-caminho-web-e-o-nativo) | o que muda entre navegador e app |
+| **duas sessões no mesmo clone** | [`MULTI-AGENTE`](docs/MULTI-AGENTE.md) | **ao abrir a sessão, se o clone tem arquivo sujo** |
 | séries, cifra, pacote, abertura | [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md) | esses recursos |
 | Verificação do Sistema, Registro | [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#diagnóstico) · [`DIAGNOSTICO`](docs/DIAGNOSTICO.md) | diagnóstico |
 
@@ -623,10 +624,11 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.14.6 · APK v1.14.6** · `SHELL_VERSION` **87** ·
-bundle com `minShell: 83` e **`shellTag: "v1.14.6"`** — o APK 1.14.6 põe o
-"fechar" do guia à esquerda, no lugar do "voltar ao site", e manda `?app=1` para
-a página esconder esse voltar; o contrato da ponte não mudou desde o casco 87,
+**Versão atual: base web v1.14.7 · APK v1.14.6** · `SHELL_VERSION` **87** ·
+bundle com `minShell: 83` e **sem `shellTag`** (lote só web: a Release continua
+sendo a 1.14.6, que põe o "fechar" do guia à esquerda, no lugar do "voltar ao
+site", e manda `?app=1` para a página esconder esse voltar); o contrato da ponte
+não mudou desde o casco 87,
 que trouxe o `abrirGuia` (o guia de sonoplastia numa tela do app, WebView sem
 ponte). O **PISO** continua **83**: as funções do casco 86 (volume) e do 87
 (guia) são OPCIONAIS — o web pergunta por `typeof` e degrada sem elas (`null`; o

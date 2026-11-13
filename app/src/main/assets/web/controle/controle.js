@@ -299,8 +299,9 @@ const plClearEl = document.getElementById('plClear');
 // enquanto ele está fora de cena, e é ela que some com a fila vazia.
 const plClearFaixaEl = document.getElementById('plClearFaixa');
 
-// AS SEÇÕES DE CONFIGURAÇÕES (v1.12.48) — Histórico, Verificação, Tela,
-// Transferir e Editar mídia. Eram folhas de baixo abertas por cima de
+// AS SEÇÕES DE CONFIGURAÇÕES (v1.12.48) — Histórico, Verificação, Tela e
+// Transferir (o editor de mídia saiu para as Ferramentas na v1.14.7). Eram
+// folhas de baixo abertas por cima de
 // Configurações; hoje moram DENTRO dela (`#cfgSecoes`), uma aberta por vez (ver
 // `trocarSecao`). Declaradas AQUI, no bloco do topo, e não perto dos pintores:
 // `pacoteRenderTiles()` roda na CARGA, e uma constante lida antes da linha em que
@@ -321,7 +322,10 @@ const telaTileEl = document.getElementById('telaTile');
 const telaSecaoEl = document.getElementById('telaSecao');
 const pacoteTileEl = document.getElementById('pacoteTile');
 const pacoteSecaoEl = document.getElementById('pacoteSecao');
-const edicaoTileEl = document.getElementById('edicaoTile');
+// O EDITOR DE MÍDIA é uma FERRAMENTA desde a v1.14.7, e o corpo dele mora na
+// folha de Ferramentas (`#toolsSheet`), FORA do `#toolsBody`: o corpo da folha é
+// reconstruído a cada troca (`innerHTML = ''`) e o editor é DOM FIXO — dezenas de
+// nós presos por referência (ver `renderDiversos`).
 const edicaoSecaoEl = document.getElementById('edicaoSecao');
 const pacoteListaEl = document.getElementById('pacoteLista');
 const pacoteNotaEl = document.getElementById('pacoteNota');
@@ -341,7 +345,6 @@ const testeRefazerEl = document.getElementById('testeRefazer');
 const SECOES = {
   tela: { tile: telaTileEl, el: telaSecaoEl, abrir: aoAbrirTela },
   pacote: { tile: pacoteTileEl, el: pacoteSecaoEl, abrir: aoAbrirPacote },
-  edicao: { tile: edicaoTileEl, el: edicaoSecaoEl, abrir: aoAbrirEdicao, recolher: aoRecolherEdicao },
   hist: { tile: histOpenRowEl, el: histSecaoEl, abrir: renderHistorico, recolher: aoRecolherHist },
   teste: { tile: testeTileEl, el: testeSecaoEl, abrir: aoAbrirTeste, recolher: aoRecolherTeste },
 };
@@ -413,7 +416,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.6';
+const WEB_VERSION = '1.14.7';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -620,7 +623,6 @@ const fadePopupCloseEl = document.getElementById('fadePopupClose');
 const fitTileEl = document.getElementById('fitTile');
 const rotBtnEl = document.getElementById('rotBtn');
 const lyricsBgTileEl = document.getElementById('lyricsBgTile');
-const saidaAudioTileEl = document.getElementById('saidaAudioTile');
 const dadosMoveisTileEl = document.getElementById('dadosMoveisTile');
 const pvRecolherEl = document.getElementById('pvRecolherBtn');
 const wallFileEl = document.getElementById('wallFile');
@@ -7467,9 +7469,10 @@ function renderFoot() {
   if (!toolsFootEl) return;
   toolsFootEl.innerHTML = '';
   // A LISTA NÃO TEM RODAPÉ (v1.13.3): o que se aciona é de uma ferramenta, e na lista
-  // nenhuma está aberta. O par ao lado da preview continua sendo repintado daqui —
-  // todo mutador das ferramentas passa por este `renderFoot`.
-  if (ferrNaGrade) { renderEixoDoPar(); return; }
+  // nenhuma está aberta. O EDITOR DE MÍDIA TAMBÉM NÃO (v1.14.7): o fecho dele é o
+  // `#edicaoFechoForm`, dentro do corpo fixo. O par ao lado da preview continua
+  // sendo repintado daqui — todo mutador das ferramentas passa por este `renderFoot`.
+  if (ferrNaGrade || miscTool === 'edicao') { renderEixoDoPar(); return; }
   const row = document.createElement('div'); row.className = 'misc-foot';
 
   // ---- À ESQUERDA, o que a ferramenta ATIVA opera ----
@@ -10326,6 +10329,8 @@ const FERR_ICO = {
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/>',
   timer: '<path d="M7 3h10M7 21h10"/><path d="M8 3v2.6c0 2.2 4 4.2 4 6.4s-4 4.2-4 6.4V21"/>'
     + '<path d="M16 3v2.6c0 2.2-4 4.2-4 6.4s4 4.2 4 6.4V21"/>',
+  edicao: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/>'
+    + '<path d="M20 4 8.12 15.88"/><path d="M14.47 14.48 20 20"/><path d="M8.12 8.12 12 12"/>',
 };
 const FERRAMENTAS = [
   { id: 'clock', nome: 'Relógio', tool: 'chrono', modo: 'clock', ico: FERR_ICO.clock },
@@ -10334,6 +10339,10 @@ const FERRAMENTAS = [
   { id: 'itinerario', nome: 'Itinerário', tool: 'chrono', vista: 'itinerario', ico: CUE_SVG.itinerario },
   { id: 'msg', nome: 'Mensagens', tool: 'msg', ico: CUE_SVG.message },
   { id: 'draw', nome: 'Sorteio', tool: 'draw', ico: CUE_SVG.draw },
+  // O EDITOR DE MÍDIA entrou aqui na v1.14.7: era uma seção de Configurações e
+  // não projeta nada — ele monta o item editado, e por isso é a última linha,
+  // depois do que vai ao telão.
+  { id: 'edicao', nome: 'Editar mídia', tool: 'edicao', ico: FERR_ICO.edicao },
 ];
 
 // QUAL LINHA é a ferramenta montada agora (o inverso do toque).
@@ -10367,7 +10376,10 @@ function renderGradeDeFerramentas() {
   const g = document.createElement('div');
   g.className = 'ferr-grade';
   g.id = 'ferrGrade';
-  FERRAMENTAS.forEach((f) => {
+  // NO MODO FÁCIL O EDITOR NÃO ENTRA NA LISTA (v1.14.7): ele era um tile de
+  // MANUTENÇÃO e ficava `display: none` naquela grade (o operador edita mídia no
+  // avançado); a lista das Ferramentas não pode ser a porta que a grade fechava.
+  FERRAMENTAS.filter((f) => !(f.id === 'edicao' && appMode === 'simple')).forEach((f) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'qs-tile qs-on ferr-tile';
@@ -10571,11 +10583,19 @@ function renderDiversos() {
   // A FOLHA É ESTREITA NA LISTA, e só nela (v1.13.5) — ver `medirPortaDasFerramentas`.
   if (toolsSheetEl) toolsSheetEl.classList.toggle('estreita', ferrNaGrade);
   pintarCabecalhoDasFerramentas();
+  // QUEM OCUPA A FOLHA: o corpo (`#toolsBody`) ou o EDITOR, que é DOM fixo (o
+  // mesmo nó, com os mesmos ids) — o `#toolsBody` é esvaziado a cada troca, e o
+  // editor não pode ser. A decisão é daqui, num lugar só: os dois nunca aparecem
+  // juntos, e um destrói o outro por engano.
+  const noEditor = !ferrNaGrade && miscTool === 'edicao';
+  edicaoSecaoEl.hidden = !noEditor;
+  toolsBodyEl.hidden = noEditor;
   if (ferrNaGrade) {
     renderGradeDeFerramentas();
     renderFoot();   // a lista não tem rodapé — ver o primeiro ramo de `renderFoot`
     return;
   }
+  if (noEditor) { renderFoot(); return; }
   const tool = MISC_TOOLS.find((t) => t.id === miscTool) || MISC_TOOLS[0];
   const panel = document.createElement('div');
   panel.className = 'misc-panel rola misc-panel--' + tool.id;
@@ -10617,7 +10637,23 @@ function abrirFerramenta(id, opcoes) {
     toolsBodyEl.innerHTML = '';
     renderDiversos();
   };
-  if (!ferramentasAbertas()) { abrirFerramentas(); desenhar(); return; }
+  if (!ferramentasAbertas()) {
+    abrirFerramentas();
+    desenhar();
+    // O EDITOR LÊ O RASCUNHO AO ABRIR, inclusive nesta porta: sem isto ele abriria
+    // com o desenho da última vez e o cabeçalho dizendo "Ferramentas".
+    if (f.tool === 'edicao') aoAbrirEdicao();
+    return;
+  }
+  // O EDITOR entra e sai SEM a camada da troca: a animação move os filhos do
+  // `#toolsBody` e tira os ids deles, e o corpo do editor não é montado — é o
+  // mesmo nó de sempre (`#edicaoSecao`).
+  if (f.tool === 'edicao' || miscTool === 'edicao') {
+    if (ferrTrocaAnim) ferrTrocaAnim.fim();
+    desenhar();
+    if (f.tool === 'edicao') aoAbrirEdicao();
+    return;
+  }
   trocarVistaDasFerramentas(desenhar, 'entra', opcoes);
 }
 
@@ -10625,6 +10661,8 @@ function abrirFerramenta(id, opcoes) {
 function voltarAGradeDeFerramentas(opcoes) {
   if (!ferramentasAbertas() || ferrNaGrade) return;
   fecharItinGaveta();
+  // O EDITOR GRAVA O RASCUNHO ao sair, como fazia ao recolher a seção.
+  if (miscTool === 'edicao') edicaoSalvarJa();
   trocarVistaDasFerramentas(() => {
     ferrNaGrade = true;
     toolsBodyEl.innerHTML = '';
@@ -10648,8 +10686,10 @@ function voltarAGradeDeFerramentas(opcoes) {
 let ferrTrocaAnim = null;
 function trocarVistaDasFerramentas(desenhar, sentido, opcoes) {
   if (ferrTrocaAnim) ferrTrocaAnim.fim();
+  // O EDITOR NÃO ENTRA NA CAMADA: ele não é montado no `#toolsBody` (é DOM fixo,
+  // com ids), e a camada da troca move os filhos do corpo e tira os ids deles.
   const anima = !!(opcoes && opcoes.animar) && ferramentasAbertas() && !semMovimento()
-    && typeof toolsBodyEl.animate === 'function';
+    && miscTool !== 'edicao' && typeof toolsBodyEl.animate === 'function';
   if (!anima) { desenhar(); return; }
   const folha = toolsSheetEl.getBoundingClientRect();
   const corpoR = toolsBodyEl.getBoundingClientRect();
@@ -10797,6 +10837,7 @@ function fecharFerramentas() {
   stopItinPanelTimer();
   pararGradeTimer();
   fecharItinGaveta();
+  if (!ferrNaGrade && miscTool === 'edicao') edicaoSalvarJa();
   // A FOLHA DESCE POR ONDE SUBIU: sumir no talo, depois de entrar deslizando,
   // se lê como erro.
   //
@@ -10820,6 +10861,9 @@ function fecharFerramentas() {
     toolsSheetEl.hidden = true;
     toolsBodyEl.innerHTML = '';
     toolsFootEl.innerHTML = '';
+    // O CORPO VOLTA AO LUGAR para a próxima abertura; o editor fica escondido.
+    toolsBodyEl.hidden = false;
+    edicaoSecaoEl.hidden = true;
   }, msDaToolsAnim());
 }
 
@@ -36978,7 +37022,7 @@ function pacoteSinal() {
  */
 function pacoteRenderPar() {
   const fora = !window.__NATIVE__;
-  for (const el of [saidaAudioTileEl, shareAppTileEl, pacoteTileEl, pacoteExportarTileEl, pacoteImportarTileEl]) {
+  for (const el of [shareAppTileEl, pacoteTileEl, pacoteExportarTileEl, pacoteImportarTileEl]) {
     if (el) el.hidden = fora;
   }
   if (shareAppTileEl) pintarTile(shareAppTileEl, 'app', 'O app', true, false);
@@ -41104,7 +41148,6 @@ function aoAbrirPacote() {
 // Escolher um item JÁ EDITADO o edita NO LUGAR: o mesmo registro e o mesmo id, então toda
 // lista que o tem (Cronograma, playlist, favoritos) passa a mostrar a edição nova — `AVDB.atualizarEdicao`.
 // Escolher o ORIGINAL cria um item novo. O fecho é o "Confirmar" + os quadrados dos destinos.
-const edicaoTituloEl = document.getElementById('edicaoTitulo');
 const edicaoBuscaCaixaEl = document.getElementById('edicaoBuscaCaixa');
 const edicaoBuscaEl = document.getElementById('edicaoBusca');
 const edicaoListaEl = document.getElementById('edicaoLista');
@@ -41622,7 +41665,11 @@ window.addEventListener('resize', () => { if (edicaoVista === 'form') edicaoRola
 function edicaoRender() {
   animarAlturaDasSecoes(() => {
     const escolha = edicaoVista === 'escolha';
-    edicaoTituloEl.textContent = escolha ? 'Escolher a mídia' : 'Editar mídia';
+    // O TÍTULO DA VISTA É O DO CABEÇALHO DA FOLHA (v1.14.7): a seção tinha o dela,
+    // e o quadrado de Ferramentas já tem o título no `#toolsTitle`.
+    if (!ferrNaGrade && miscTool === 'edicao') {
+      toolsTitleEl.textContent = escolha ? 'Escolher a mídia' : 'Editar mídia';
+    }
     edicaoBuscaCaixaEl.hidden = !escolha;
     edicaoFechoFormEl.hidden = escolha;
     edicaoFechoEscolhaEl.hidden = !escolha;
@@ -41713,11 +41760,10 @@ async function edicaoEscolherItem(it) {
   edicaoSalvarJa();
 }
 
-// A ABERTURA DESENHA NO ATO. A troca de seção mede a altura final LOGO DEPOIS de chamar este
-// gancho: o primeiro quadro tem de ser o que esta abertura vai mostrar — o formulário que está
-// na memória, ou o spinner no lugar da lista, que guarda a altura da última lista
-// (`edicaoAlturaLista`) —, senão a caixa anima até o desenho da abertura ANTERIOR e PULA no fim.
-// O resto chega depois, animado.
+// A ABERTURA DESENHA NO ATO. O spinner do seletor guarda a altura da última lista
+// (`edicaoAlturaLista`) e o formulário que está na memória aparece primeiro; o resto chega
+// depois, animado. É o mesmo contrato de quando ele era seção (v1.12.48), agora dentro do
+// painel de altura fixa da folha de Ferramentas (v1.14.7).
 async function aoAbrirEdicao() {
   if (edicaoOrigem) { edicaoVista = 'form'; edicaoRender(); }
   else { edicaoVista = 'escolha'; edicaoBuscaEl.value = ''; edicaoCarregando = true; edicaoRender(); }
@@ -41745,10 +41791,6 @@ async function aoAbrirEdicao() {
     await edicaoCarregarLista();
   } else if (edicaoVista !== 'form' || carregou) { edicaoVista = 'form'; edicaoRender(); }
 }
-function aoRecolherEdicao() {
-  edicaoSalvarJa();
-}
-
 async function edicaoDescartar() {
   clearTimeout(edicaoSalvarTimer); edicaoSalvarTimer = null;
   try { await AVDB.setState(EDICAO_RASCUNHO, null); } catch (_) { /* nada */ }
@@ -41885,7 +41927,6 @@ edicaoBuscaEl.addEventListener('input', () => { if (edicaoVista === 'escolha') r
 edicaoConfirmarEl.addEventListener('click', () => edicaoConfirmar('', edicaoConfirmarEl));
 edicaoDestEls.forEach((b) => b.addEventListener('click', () => edicaoConfirmar(b.dataset.dest, b)));
 edicaoImportarEl.addEventListener('click', edicaoImportar);
-if (edicaoTileEl) edicaoTileEl.addEventListener('click', () => trocarSecao('edicao'));
 
 // O REGISTRO É COMPARTILHADO COMO ARQUIVO: o MESMO `diagTexto` de sempre, com o
 // resultado da verificação lá dentro (`blocoAutoteste`), entregue ao seletor de
@@ -42432,17 +42473,6 @@ if (pvRecolherEl) {
 // `redeLiberadaParaBaixar`, onde a regra e o que ela cobre estão.
 if (dadosMoveisTileEl) {
   dadosMoveisTileEl.addEventListener('click', () => { setPermitirDadosMoveis(!permitirDadosMoveis); });
-}
-// SAÍDA DE ÁUDIO: abre a tela do SISTEMA e mais nada. Não há estado a pintar no
-// toque — quem decide a saída é o Android, e o app não tem como saber o que ele
-// decidiu (a leitura seria `AudioManager.getDevices`, que responde o que EXISTE
-// e não o que está em uso pela sessão de mídia do WebView).
-if (saidaAudioTileEl) {
-  saidaAudioTileEl.addEventListener('click', () => {
-    if (!window.__NATIVE__) return;
-    diagC('saída de áudio: abrindo a tela do sistema');
-    AVNative.abrirSaidaDeAudio();
-  });
 }
 // ===== A PÍLULA DE VOLUME: UMA PEÇA SÓ, EM TODA TELA (v1.13.57) =====
 // Quem não consome a tecla física deixa o ANDROID desenhar o painel de volume dele — e com
@@ -45536,12 +45566,13 @@ const tourBtnEl = document.getElementById('tourBtn');
 function pintarTourBtn() {
   if (!tourBtnEl || !window.AVTour) return;
   const on = AVTour.ativo();
-  tourBtnEl.setAttribute('aria-checked', on ? 'true' : 'false');
+  // O QUADRADO, no molde do `#dadosMoveisTile` (v1.14.7): aceso sempre, e o ESTADO
+  // SÓ NO ÍCONE (a regra da v1.7.6) — `pintarTile` escreve o `data-estado`/`qs-on`
+  // e o `aria-label`, e o par `ico-base`/`ico-alt` troca pelo `.qs-alt`.
+  pintarTile(tourBtnEl, on ? 'on' : 'off', on ? 'ligado' : 'desligado', true, on);
   tourBtnEl.title = on
     ? 'Tour ligado: cada janela se explica na primeira vez que abrir. Toque para desligar.'
     : 'Tour desligado: nada se explica sozinho. Toque para ligar e rever o tour desta tela.';
-  const caixa = tourBtnEl.querySelector('.song-menu-check');
-  if (caixa) caixa.classList.toggle('on', on);
 }
 if (tourBtnEl) {
   pintarTourBtn();

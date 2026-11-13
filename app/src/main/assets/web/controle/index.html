@@ -410,17 +410,18 @@
       <path d="m16.4 9.8 5 4.4"/>
       <path d="m21.4 9.8-5 4.4"/>
     </symbol>
-    <!-- SAÍDA DE ÁUDIO: a CAIXA DE SOM, e não o traço de volume.
-         O `#icoSom` acima já é o volume (alto-falante com ondas), e ele
-         significa MUDO — reusá-lo aqui faria o mesmo desenho responder duas
-         perguntas. O que este tile abre é a escolha do APARELHO que vai tocar,
-         então o desenho é o aparelho: o gabinete com o alto-falante grande e o
-         tweeter. Ele também não se confunde com o `#icoCelular`, que é o
-         retângulo sem cone nenhum. -->
-    <symbol id="icoSaidaDeAudio" viewBox="0 0 24 24">
-      <rect x="5.5" y="2.8" width="13" height="18.4" rx="2.2"/>
-      <circle cx="12" cy="14.6" r="3.5"/>
-      <circle cx="12" cy="6.7" r="1.2"/>
+    <!-- O TOUR (v1.14.7): a MOLDURA com o "play" dentro — a janela que se
+         explica — e a mesma moldura RISCADA quando ele está desligado, o par de
+         sempre (ver `#icoDadosMoveisOff`). O estado mora no desenho, nunca numa
+         palavra na tela (a regra da v1.7.6). -->
+    <symbol id="icoTour" viewBox="0 0 24 24">
+      <rect x="3.6" y="4.6" width="16.8" height="14.8" rx="2.6"/>
+      <path d="M10.2 9.2 14.6 12l-4.4 2.8z"/>
+    </symbol>
+    <symbol id="icoTourOff" viewBox="0 0 24 24">
+      <rect x="3.6" y="4.6" width="16.8" height="14.8" rx="2.6"/>
+      <path d="M10.2 9.2 14.6 12l-4.4 2.8z"/>
+      <path d="M3 3.5 21 20.5"/>
     </symbol>
     <!-- A TELA (v1.11.7): o monitor com o pé. Ele diz "a tela onde o culto
          aparece" — o mesmo retângulo de proporção larga do `#icoAjustar` e do
@@ -446,10 +447,6 @@
     </symbol>
     <!-- EDITAR MÍDIA (v1.12.0): a tesoura — o verbo do recurso é CORTAR, e é o
          desenho que o operador reconhece antes de ler o título do tile. -->
-    <symbol id="icoEditar" viewBox="0 0 24 24">
-      <circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/>
-      <path d="M20 4 8.12 15.88"/><path d="M14.47 14.48 20 20"/><path d="M8.12 8.12 12 12"/>
-    </symbol>
     <!-- RECOLHER / EXPANDIR A PRÉVIA (v1.11.7): o chevron para BAIXO é "recolher"
          e o para CIMA é "expandir", e a direção vem do lugar onde a prévia mora —
          a caixa de controles é ancorada na BASE da tela, então a borda de cima
@@ -1156,6 +1153,47 @@
            que antes era espremido até sumir passou a transbordar, e a resposta
            a "não cabe" é rolar. -->
       <div id="toolsBody" class="tools-body lib-misc rola"></div>
+          <!-- ===== EDITAR MÍDIA: AGORA É UMA FERRAMENTA (v1.14.7) =====
+               Era uma SEÇÃO de Configurações (v1.12.0); o operador a pediu na
+               LISTA das Ferramentas (`FERRAMENTAS`), e a vaga que ela deixou na
+               grade é a do tile "Saída de áudio", que saiu no mesmo lote. O corpo
+               mora AQUI, FORA do `#toolsBody`: o corpo da folha é reconstruído a
+               cada troca (`innerHTML = ''`), e este editor é DOM FIXO — dezenas
+               de nós presos por referência (`#edicaoLista`, o fecho, o campo). O
+               título da vista ("Editar mídia" / "Escolher a mídia") vai ao
+               cabeçalho da folha (`#toolsTitle`), e o voltar do Android devolve a
+               lista antes de fechar (degrau 2.5 do `__avBack`). -->
+          <div id="edicaoSecao" class="misc-panel edicao-panel" hidden>
+            <div id="edicaoBuscaCaixa" class="edicao-busca sorteio-campo" hidden>
+              <div class="lib-search-campo">
+                <svg class="lib-search-lupa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoLupa"/></svg>
+                <input id="edicaoBusca" class="lib-search" type="search" placeholder="Buscar pelo nome…" autocomplete="off" enterkeyhint="search">
+              </div>
+            </div>
+            <!-- Quem rola no painel é ESTA lista (o fecho não rola): a marca `rola` é a
+                 sombra das bordas que todo scroller do app carrega (v1.14.7). -->
+            <ul id="edicaoLista" class="popup-list song-menu-list rola"></ul>
+            <div class="popup-fecho">
+              <!-- O FECHO DO FORMULÁRIO É A BARRA DE SEMPRE (v1.12.6): o primário "Confirmar" que CRESCE e,
+                   à direita, os quadrados dos destinos (Cronograma · playlist · favoritos) montados pelo JS
+                   a partir da tabela `DESTINOS` — o desenho do rodapé da playlist automática. -->
+              <div id="edicaoFechoForm" class="song-menu-go-row sorteio-barra">
+                <button type="button" class="song-menu-btn sorteio-acao song-menu-go" id="edicaoConfirmar" title="Confirmar a edição" disabled>
+                  <span class="song-menu-text"><span class="song-menu-label">Confirmar</span></span>
+                </button>
+              </div>
+              <!-- O FECHO DA ESCOLHA: um botão só, na altura dos da barra do formulário (v1.12.7) — o ícone ao
+                   lado do texto, não em cima. -->
+              <div id="edicaoFechoEscolha" class="song-menu-go-row sorteio-barra" hidden>
+                <button type="button" class="song-menu-btn sorteio-acao song-menu-go edicao-importar" id="edicaoImportar" title="Trazer um arquivo só para o editor — ele não entra em lista nenhuma">
+                  <span class="song-menu-text">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoImportar"/></svg>
+                    <span class="song-menu-label">Importar arquivo</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
       <!-- O RODAPÉ FIXO DA FOLHA (v1.8.89). Ele é IRMÃO do corpo, nunca filho:
            uma barra que mora dentro do scroller rola com ele, que é o que o
            pedido do operador nomeia (*"deve ser uma barra fixa no rodapé dessa
@@ -1922,7 +1960,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.6</span>
+          <span id="appVersion">v1.14.7</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
@@ -2115,26 +2153,6 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoTela"/></svg>
             <span class="qs-titulo">Tela</span>
           </button>
-          <!-- ===== SAÍDA DE ÁUDIO: UM ATALHO, e ele diz isso (shell 73) =====
-               Pedido do operador: *"um botão para selecionar saída de áudio
-               (escolher entre som no smartphone, na tv conectada, no bluetooth e
-               etc…)"*, e depois, sabendo que a notificação de mídia já tem o
-               seletor do sistema: *"o que eu quero é um atalho mesmo no próprio
-               app, nas configurações, assim fica claro as opções"*.
-
-               ELE ABRE A TELA DO SISTEMA, e não escolhe nada — rotear áudio é
-               privilégio de sistema (`MODIFY_AUDIO_ROUTING`, ver
-               `NativeBridge.openAudioOutputPicker`). O `title` é o que diz isso,
-               porque um tile que parecesse decidir a saída seria lido como
-               quebrado no dia em que o aparelho não mudasse.
-
-               SÓ NO APP (`hidden` no navegador, escrito por `renderSaidaDeAudioTile`):
-               ele depende da ponte, e um botão que só sabe não funcionar é pior
-               que botão nenhum — a mesma regra dos três da fileira de baixo. -->
-          <button type="button" class="qs-tile qs-on" id="saidaAudioTile" title="Abrir a escolha de saída de som do Android — alto-falante, Bluetooth, fone">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSaidaDeAudio"/></svg>
-            <span class="qs-titulo">Saída de áudio</span>
-          </button>
           <!-- ===== DADOS MÓVEIS: PERMITIR OU NÃO, PARA O ACERVO E OS DOIS
                AUTOMÁTICOS (v1.11.0) =====
                Pedido do operador: *"crie uma opção para permitir ou não o uso
@@ -2182,18 +2200,6 @@
                O ARO DE TRABALHO é o `.qs-trabalhando` que o Exportar já usa —
                uma segunda opinião sobre o mesmo desenho seria a primeira a
                divergir. -->
-          <!-- ===== EDITAR MÍDIA (v1.12.0) =====
-               Recorte do início e do fim, fade de entrada e de saída e "só o
-               áudio" — tudo VIRTUAL: o arquivo original não é tocado nem
-               copiado, o item novo guarda só as marcações e o motor de
-               exibição as aplica na hora de tocar. É um painel de comandos
-               frios (seletor e sliders), sem player: o operador anota o tempo
-               tocando o original e volta aqui para registrar. Nos dois modos
-               (v1.12.1). -->
-          <button type="button" class="qs-tile qs-on" id="edicaoTile" title="Cortar o começo ou o fim de uma mídia, esmaecer a entrada e a saída, ou separar o áudio — sem alterar o arquivo original">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoEditar"/></svg>
-            <span class="qs-titulo">Editar mídia</span>
-          </button>
           <!-- ===== O HISTÓRICO DO CULTO MORA AQUI (v1.4.31) =====
                Pedido do operador: *"coloque a função do histórico de mídias
                tocadas, dentro das configurações"*. Ele era a sétima célula da
@@ -2245,22 +2251,35 @@
             </svg>
             <span class="qs-titulo">Transferir</span>
           </button>
+          <!-- ===== O TOUR DO APP É UM QUADRADO ON/OFF (v1.14.7) =====
+               Pedido do operador: *"vamos colocar o botão de ativar tour como um
+               dos quadrados de on/off padrão de configurações, assim como é o
+               permitir dados móveis"*. Era uma caixa de marcação na `.cfg-ajuda`
+               (v1.14.5), FORA da grade; agora é o ÚLTIMO quadrado dela, no molde do
+               `#dadosMoveisTile`: sempre clicável, aceso sempre, e o ESTADO SÓ NO
+               ÍCONE (a regra da v1.7.6) — `pintarTile(tourBtnEl, on ? 'on' : 'off')`.
+               O comportamento é o mesmo de sempre: desligado, nenhum tour abre
+               sozinho (a chave `av.tour.off`, que o `AVTour` lê e grava); ligado de
+               novo, REFAZ o tour do modo atual (`AVTour.refazer`), e para isso a
+               folha fecha (o tour não abre por cima dela). O evento `av-tour-ativo`
+               é o que repinta — também quando o "Pular tour" desliga com a folha
+               fechada. O GUIA fica sozinho na `.cfg-ajuda`, logo abaixo. -->
+          <button type="button" class="qs-tile" id="tourBtn" title="Cada janela se explica na primeira vez que abrir">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <use class="ico-base" href="#icoTourOff"/><use class="ico-alt" href="#icoTour"/>
+            </svg>
+            <span class="qs-titulo">Tour do app</span>
+          </button>
         </div>
         <!-- ===== A AJUDA DE QUEM COMEÇA (v1.14.0) =====
-             O TOUR é uma CAIXA de marcação (v1.14.5): ligada, cada janela se explica na
-             primeira vez que abre; desligada (ela e o "Pular tour" do balão), nenhum
-             tour abre sozinho — `AVTour.ativo`/`desativar`. Ligar de novo refaz o tour
-             do modo atual (no Fácil, o da conexão com a cortina "sem tela" e o dos
-             controles sem ela) — `AVTour.refazer`, em `tour.js`. O GUIA abre a página
-             de sonoplastia do site (no app, numa tela dele — `abrirGuia`) e por isso
-             leva a seta de "abre outra coisa" (`icoExterno`): no Fácil, direto na
-             trilha "Sonoplasta por um dia" (`#dia`); no avançado, no começo.
-             Moram no fim do `#cfgTopo`, e não no cabeçalho ao lado do pedir ajuda: o
+             O GUIA abre a página de sonoplastia do site (no app, numa tela dele —
+             `abrirGuia`) e por isso leva a seta de "abre outra coisa"
+             (`icoExterno`): no Fácil, direto na trilha "Sonoplasta por um dia"
+             (`#dia`); no avançado, no começo. O TOUR morava aqui desde a v1.14.0 e
+             subiu para a grade na v1.14.7.
+             Mora no fim do `#cfgTopo`, e não no cabeçalho ao lado do pedir ajuda: o
              cabeçalho já cede a palavra "Ajuda" para caber o título a 320px. -->
         <div class="cfg-ajuda">
-          <button type="button" id="tourBtn" class="dialog-btn" role="checkbox" aria-checked="true" title="Tour ligado: cada janela se explica na primeira vez que abrir. Toque para desligar.">
-            <span class="cfg-ajuda-rot">Tour do app</span><span class="song-menu-check on" aria-hidden="true"></span>
-          </button>
           <button type="button" id="guiaSomBtn" class="dialog-btn" title="Abrir o guia de sonoplastia, numa tela à parte">
             <span class="cfg-ajuda-rot">Guia de sonoplastia</span>
             <svg class="cfg-externo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoExterno"/></svg>
@@ -2272,9 +2291,10 @@
              uma nova janela na base da tela, faça com que seus conteúdos abram
              dentro da janela original das configurações, abaixo dos botões …
              mas acima dos botões de versão e pedir ajuda"*. Tela, Transferir,
-             Editar mídia, Histórico e Verificação eram cinco FOLHAS de baixo
-             abertas por cima desta; hoje são SEÇÕES desta, depois da grade — e,
-             aberta uma, a grade SOME (`#cfgTopo`, v1.12.50) e o cabeçalho da seção
+             Histórico e Verificação eram quatro FOLHAS de baixo abertas por cima
+             desta; hoje são SEÇÕES desta, depois da grade — o editor de mídia
+             saiu para a lista de Ferramentas na v1.14.7 (era a quinta). Aberta
+             uma, a grade SOME (`#cfgTopo`, v1.12.50) e o cabeçalho da seção
              gruda no topo da folha. A versão e o pedir ajuda moram no cabeçalho da
              folha (v1.12.50).
 
@@ -2408,42 +2428,6 @@
                     <use class="ico-base" href="#icoImportar"/><use class="ico-irmao" href="#icoCancelar"/>
                   </svg>
                   <span class="qs-titulo">Importar</span>
-                </button>
-              </div>
-            </div>
-          </section>
-          <section id="edicaoSecao" class="cfg-sec" data-secao="edicao" hidden>
-            <div class="cfg-sec-cab">
-              <svg class="cfg-sec-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoEditar"/></svg>
-              <span class="cfg-sec-titulo" id="edicaoTitulo">Editar mídia</span>
-              <button type="button" class="cfg-sec-recolher" data-secao="edicao" title="Recolher" aria-label="Recolher Editar mídia">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoExpandir"/></svg>
-              </button>
-            </div>
-            <div id="edicaoBuscaCaixa" class="edicao-busca sorteio-campo" hidden>
-              <div class="lib-search-campo">
-                <svg class="lib-search-lupa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoLupa"/></svg>
-                <input id="edicaoBusca" class="lib-search" type="search" placeholder="Buscar pelo nome…" autocomplete="off" enterkeyhint="search">
-              </div>
-            </div>
-            <ul id="edicaoLista" class="popup-list song-menu-list"></ul>
-            <div class="popup-fecho">
-              <!-- O FECHO DO FORMULÁRIO É A BARRA DE SEMPRE (v1.12.6): o primário "Confirmar" que CRESCE e,
-                   à direita, os quadrados dos destinos (Cronograma · playlist · favoritos) montados pelo JS
-                   a partir da tabela `DESTINOS` — o desenho do rodapé da playlist automática. -->
-              <div id="edicaoFechoForm" class="song-menu-go-row sorteio-barra">
-                <button type="button" class="song-menu-btn sorteio-acao song-menu-go" id="edicaoConfirmar" title="Confirmar a edição" disabled>
-                  <span class="song-menu-text"><span class="song-menu-label">Confirmar</span></span>
-                </button>
-              </div>
-              <!-- O FECHO DA ESCOLHA: um botão só, na altura dos da barra do formulário (v1.12.7) — o ícone ao
-                   lado do texto, não em cima. -->
-              <div id="edicaoFechoEscolha" class="song-menu-go-row sorteio-barra" hidden>
-                <button type="button" class="song-menu-btn sorteio-acao song-menu-go edicao-importar" id="edicaoImportar" title="Trazer um arquivo só para o editor — ele não entra em lista nenhuma">
-                  <span class="song-menu-text">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoImportar"/></svg>
-                    <span class="song-menu-label">Importar arquivo</span>
-                  </span>
                 </button>
               </div>
             </div>

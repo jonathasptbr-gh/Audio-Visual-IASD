@@ -30,8 +30,8 @@ espelhamento. Inclusive esse é o método que o controle de saída de som tem co
 objetivo de controle"*. O Bluetooth É o destino desejado para o som com o
 espelhamento no ar, e é para isso que o tile "Saída de áudio" existe (o estudo
 de abrir a lista de aparelhos foi ABANDONADO em 2026-10-30 — o tile passou a
-abrir a API pública do sistema na v1.13.16 e sai no Pacote 10.2 de
-`PEDIDOS-EM-ESPERA.md`). O que
+abrir a API pública do sistema na v1.13.16 e SAIU do app na v1.14.7; o atalho
+para trocar a saída de som é o do próprio celular). O que
 segue abaixo fica como registro do raciocínio; não há conserto a fazer aqui. **Desde a v1.13.16** o tile tenta primeiro a API pública
 (`MediaRouter2.showSystemOutputSwitcher`) e o Registro imprime *"Mídia saindo
 agora por: …"* (`getAudioDevicesForAttributes`) — a medição (b) abaixo passa a

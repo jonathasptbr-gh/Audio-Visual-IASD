@@ -386,7 +386,7 @@ try {
   // sai da tela, não da árvore.
   const ordem = await pg.$eval('.qs-grade',
     (g) => [...g.children].map((e) => e.id));
-  const projecao = ['temaTile', 'telaTile', 'saidaAudioTile', 'dadosMoveisTile', 'edicaoTile', 'histOpenRow'];
+  const projecao = ['temaTile', 'telaTile', 'dadosMoveisTile', 'histOpenRow'];
   // ===== O TERCEIRO GRUPO É DE UM TILE SÓ, E ELE TEM NOME (v1.10.0) =====
   //
   // A VERIFICAÇÃO não é preferência da PROJEÇÃO nem ação sobre o APP: ela é
@@ -405,7 +405,10 @@ try {
   // pediu para ficar limpa.
   const diagnostico = ['testeTile'];
   const aparelho = ['shareAppTile', 'pacoteTile'];
-  checar(JSON.stringify(ordem) === JSON.stringify(projecao.concat(diagnostico, aparelho)),
+  // O TOUR fecha a grade (v1.14.7): ele é preferência, não ação do aparelho nem
+  // diagnóstico, e por isso vem DEPOIS do grupo do aparelho em vez de misturar.
+  const tour = ['tourBtn'];
+  checar(JSON.stringify(ordem) === JSON.stringify(projecao.concat(diagnostico, aparelho, tour)),
     'as ações do APARELHO são as ÚLTIMAS da grade, as da PROJEÇÃO as primeiras, e o DIAGNÓSTICO '
     + 'entre as duas — ele não muda nada, só pergunta',
     JSON.stringify(ordem));

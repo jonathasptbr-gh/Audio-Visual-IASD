@@ -367,10 +367,13 @@ const ids = await app.evaluate(async (b64) => {
 }, wav);
 
 const abrir = async (pg2 = app) => {
-  await pg2.evaluate(() => (document.getElementById('settingsBtn') || document.getElementById('simpleSettingsBtn')).click());
-  await esperar(pg2, () => document.getElementById('fadePopup').classList.contains('open'), null, 10000);
-  await pg2.click('#edicaoTile');
-  return esperar(pg2, () => document.getElementById('edicaoSecao').classList.contains('open'), null, 10000);
+  // v1.14.7: o editor é a SÉTIMA linha da lista das Ferramentas, não uma seção
+  // de Configurações (ver `abrirFerramenta`).
+  // `abrirFerramenta` é a porta dos oráculos (e o mesmo caminho do toque na linha):
+  // abre a folha fechada direto na ferramenta, e devolve a lista se ela estava em
+  // outra — sem depender do estado em que a folha ficou da medição anterior.
+  await pg2.evaluate(() => abrirFerramenta('edicao'));
+  return esperar(pg2, () => !document.getElementById('edicaoSecao').hidden && miscTool === 'edicao', null, 10000);
 };
 // Abre o grupo e toca na linha pelo NOME (o seletor é a lista de grupos da exportação).
 const escolher = async (grupo, nome, pg2 = app) => {
@@ -403,7 +406,7 @@ const estado = (pg2) => pg2.evaluate(() => {
     fim: document.getElementById('edicaoFim') && document.getElementById('edicaoFim').value,
     nome: nm && nm.value, fi: on('Fade de entrada'), fo: on('Fade de saída'),
     criar: document.getElementById('edicaoConfirmar').disabled,
-    titulo: document.getElementById('edicaoTitulo').textContent };
+    titulo: document.getElementById('toolsTitle').textContent };
 });
 const criarEGuardar = async (pg2) => {
   await pg2.click('#edicaoConfirmar');
@@ -422,32 +425,36 @@ const criarEGuardar = async (pg2) => {
 // Depois: 0→299 e 299→342 animados; a 2ª abre uma vez só, em 342.
 // `abrirMedindo` amostra a altura de `#cfgSecoes` a cada quadro, do toque até 1,6 s.
 const abrirMedindo = async (pg2 = app) => {
-  await pg2.evaluate(() => (document.getElementById('settingsBtn') || document.getElementById('simpleSettingsBtn')).click());
-  await esperar(pg2, () => document.getElementById('fadePopup').classList.contains('open'), null, 10000);
-  // A FOLHA ACABA DE SUBIR: espera-se o fim das animações FINITAS dela (o aro de um
-  // spinner é infinito, e o `finished` dele nunca chega).
-  await pg2.evaluate(() => Promise.all(document.getElementById('fadePopup').getAnimations({ subtree: true })
+  // `abrirFerramentas` reabre no ato, inclusive no meio da saída (o degrau que
+  // cancela a animação de descida) — clicar na porta durante ela não faria nada.
+  await pg2.evaluate(() => abrirFerramentas());
+  await esperar(pg2, () => ferramentasAbertas() && !document.getElementById('toolsSheet').classList.contains('saindo')
+    && !!document.getElementById('ferrTile_edicao'), null, 10000);
+  await pg2.evaluate(() => Promise.all(document.getElementById('toolsSheet').getAnimations({ subtree: true })
     .filter((a) => a.effect && a.effect.getComputedTiming().iterations !== Infinity)
     .map((a) => a.finished.catch(() => {}))));
   return pg2.evaluate(() => new Promise((res) => {
-    const box = document.getElementById('cfgSecoes');
+    const box = document.getElementById('edicaoSecao');
     const out = []; const t0 = performance.now();
-    document.getElementById('edicaoTile').click();
-    // NO ATO do toque: o que a seção já mostra (o spinner, ou o formulário).
+    document.getElementById('ferrTile_edicao').click();
+    // NO ATO do toque: o que o painel já mostra (o spinner, ou o formulário). O painel
+    // é de ALTURA FIXA (v1.14.7): ocupa o lugar do `#toolsBody`, e quem rola é a lista.
     const noAto = { spinner: !!document.querySelector('#edicaoLista .edicao-carga'), form: !!document.getElementById('edicaoIni'),
-      titulo: document.getElementById('edicaoTitulo').textContent };
+      titulo: document.getElementById('toolsTitle').textContent };
     const tempos = []; const troca = []; const anims = [];
     const tick = () => {
       out.push(box.getBoundingClientRect().height); tempos.push(performance.now() - t0);
-      // `secaoAnim` é a troca de seção em curso; `anims`, as animações de altura da caixa.
-      troca.push(!!secaoAnim); anims.push(box.getAnimations().length);
+      troca.push(false); anims.push(box.getAnimations().length);
       if (performance.now() - t0 < 1600) requestAnimationFrame(tick); else res({ noAto, alturas: out, tempos, troca, anims });
     };
     tick();
   }));
 };
 const quedaMaior = (a) => a.reduce((m, h, i) => (i && a[i - 1] - h > m ? a[i - 1] - h : m), 0);
-const fechar = (pg2 = app) => pg2.evaluate(() => closeFadePopup());
+const fechar = async (pg2 = app) => {
+  await pg2.evaluate(() => fecharFerramentas());
+  return esperar(pg2, () => !ferramentasAbertas(), null, 5000);
+};
 const ab1 = await abrirMedindo();
 await esperar(app, () => !!document.querySelector('#edicaoLista [data-grupo="lst:favs"]'), null, 10000);
 await fechar();
@@ -456,25 +463,34 @@ await fechar();
 const resumo = (x) => JSON.stringify({ noAto: x.noAto, queda: +quedaMaior(x.alturas).toFixed(1),
   fim: +x.alturas[x.alturas.length - 1].toFixed(1), n: x.alturas.length });
 checar(ab1.noAto.spinner && ab1.noAto.titulo === 'Escolher a mídia',
-  'C0 · no ATO do toque a seção já mostra o que esta abertura vai ser — o seletor com o spinner no lugar da '
-  + 'lista —, e a troca anima até ELE, não até o desenho da abertura anterior', resumo(ab1));
-checar(quedaMaior(ab1.alturas) < 0.5,
-  'C0 · a 1ª abertura só CRESCE (até o spinner, e dele até a lista)', resumo(ab1));
-checar(ab2.noAto.spinner && quedaMaior(ab2.alturas) < 0.5,
-  'C0 · e a 2ª abertura também só cresce — não há o encolher-e-crescer', resumo(ab2));
-// UMA ALTURA SÓ NA REABERTURA: o spinner reserva a altura da última lista, então aos
-// ~800 ms (a troca de 0,3 s já acabou, a lista só chega depois de 1 s) a caixa já
-// está na altura final.
-const em800 = ab2.alturas[Math.max(0, ab2.tempos.findIndex((t) => t >= 800))];
-checar(Math.abs(em800 - ab2.alturas[ab2.alturas.length - 1]) < 1,
-  'C0 · e a 2ª abertura já nasce na altura FINAL (o spinner guarda a da última lista) — a lista entra sem '
-  + 'mover a caixa', 'aos 800 ms ' + em800.toFixed(1) + ' · fim ' + ab2.alturas[ab2.alturas.length - 1].toFixed(1));
+  'C0 · no ATO do toque o painel já mostra o que esta abertura vai ser — o seletor com o spinner no lugar da '
+  + 'lista — e o cabeçalho da folha diz "Escolher a mídia"', resumo(ab1));
+checar(quedaMaior(ab1.alturas) < 0.5 && quedaMaior(ab2.alturas) < 0.5,
+  'C0 · o painel do editor é de ALTURA FIXA: nem a 1ª nem a 2ª abertura movem a caixa (quem rola é a lista)',
+  resumo(ab1) + ' ' + resumo(ab2));
+// E O LUGAR DO CORPO: o editor ocupa o vão do `#toolsBody` (que sai de cena), e a
+// lista é o scroller do painel — o fecho não rola (a regra do rodapé de folha).
+// A folha foi fechada logo acima: ela reabre para esta medição.
+await abrir();
+const lugar = await app.evaluate(() => {
+  const p = document.getElementById('edicaoSecao').getBoundingClientRect();
+  const f = document.querySelector('#edicaoSecao .popup-fecho').getBoundingClientRect();
+  const L = document.getElementById('edicaoLista');
+  return { corpoFora: document.getElementById('toolsBody').hidden,
+    mesmaCaixa: Math.abs(p.width - document.getElementById('toolsSheet').getBoundingClientRect().width) < 30,
+    rola: getComputedStyle(L).overflowY === 'auto',
+    fechoDentro: f.bottom <= p.bottom + 1 && f.bottom > p.top };
+});
+checar(lugar.corpoFora && lugar.mesmaCaixa && lugar.rola && lugar.fechoDentro,
+  'C0 · o editor OCUPA o lugar do corpo da folha (`#toolsBody` sai de cena), e a lista é o scroller — o fecho fica dentro do painel',
+  JSON.stringify(lugar));
+await fechar();
 
 // C1 · SEM rascunho a janela abre no SELETOR, com os grupos das listas.
 const aberta = await abrir();
 await esperar(app, () => !!document.querySelector('#edicaoLista [data-grupo="lst:favs"]'), null, 10000);
 const vista = await app.evaluate(() => ({
-  titulo: document.getElementById('edicaoTitulo').textContent,
+  titulo: document.getElementById('toolsTitle').textContent,
   grupos: [...document.querySelectorAll('#edicaoLista [data-grupo]')].map((e) => e.dataset.grupo),
   semVoltar: !document.getElementById('edicaoVoltar') && !document.getElementById('edicaoDescartar') && !document.getElementById('edicaoCriar'),
   busca: !document.getElementById('edicaoBuscaCaixa').hidden,
@@ -589,7 +605,7 @@ checar(fecho.dest.join() === 'cronograma,playlist,favoritos' && fecho.quadrados 
 
 // C3 · PERSISTÊNCIA do rascunho: fechar e recarregar o app.
 await app.waitForTimeout(400);   // o gravar do rascunho é adiado em 250 ms de propósito
-await app.click('#edicaoSecao .cfg-sec-recolher');
+await app.click('#toolsClose');
 await app.reload({ waitUntil: 'domcontentloaded' });
 await esperarCortina(app);
 // C3a · COM RASCUNHO, a abertura lê o banco antes de saber que é o formulário: o que
@@ -597,16 +613,12 @@ await esperarCortina(app);
 // quadro só, 76% da altura; depois, passos de quadro de no máximo ~12%).
 const ab3 = await abrirMedindo();
 await esperar(app, () => !!document.getElementById('edicaoIni'), null, 10000);
-const total3 = Math.max(...ab3.alturas);
-// O PRIMEIRO QUADRO DEPOIS DA TROCA: o formulário chegou no meio dela, então ali a
-// caixa ou está ANIMANDO até a altura nova, ou não se moveu. Sem a continuação ela
-// salta, sem animação nenhuma.
-const iFim = ab3.troca.findIndex((t, i) => i > 0 && ab3.troca[i - 1] && !t);
-const depoisDaTroca = iFim > 0 ? { anims: ab3.anims[iFim], salto: +(ab3.alturas[iFim] - ab3.alturas[iFim - 1]).toFixed(1) } : null;
-checar(quedaMaior(ab3.alturas) < 0.5 && depoisDaTroca && (depoisDaTroca.anims > 0 || Math.abs(depoisDaTroca.salto) < total3 * 0.3),
-  'C3a · com rascunho a abertura só cresce, e o formulário que chega no meio da troca ANIMA a partir dela — '
-  + 'no fim da troca a caixa não salta para a altura nova', resumo(ab3) + ' ' + JSON.stringify(depoisDaTroca) + ' total=' + total3.toFixed(1));
-const voltou = await esperar(app, () => document.getElementById('edicaoSecao').classList.contains('open'), null, 10000);
+const fim3 = await app.evaluate(() => ({ titulo: document.getElementById('toolsTitle').textContent,
+  h: document.getElementById('edicaoSecao').getBoundingClientRect().height }));
+checar(quedaMaior(ab3.alturas) < 0.5 && fim3.titulo === 'Editar mídia'
+    && Math.abs(fim3.h - ab3.alturas[ab3.alturas.length - 1]) < 1,
+  'C3a · com rascunho o formulário chega do banco e a caixa NÃO pula (a altura do painel é fixa)', resumo(ab3) + ' ' + JSON.stringify(fim3));
+const voltou = await esperar(app, () => !document.getElementById('edicaoSecao').hidden && miscTool === 'edicao', null, 10000);
 await esperar(app, () => !!document.getElementById('edicaoIni'), null, 10000);
 const rasc2 = await estado(app);
 checar(voltou === true && rasc2.titulo === 'Editar mídia' && rasc2.ini === '2' && rasc2.fim === '5'
@@ -640,7 +652,7 @@ const idEditado = await app.evaluate(async () => {
   return it.id;
 });
 await app.click('#edicaoLista .pacote-linha .song-menu-btn');   // o card: troca de mídia
-await esperar(app, () => document.getElementById('edicaoTitulo').textContent === 'Escolher a mídia', null, 10000);
+await esperar(app, () => document.getElementById('toolsTitle').textContent === 'Escolher a mídia', null, 10000);
 const c5a = await escolher('lst:imports', 'Hino Cinco sem a introdução');
 const parte = await estado(app);
 const emEdicao = await app.evaluate(() => ({
@@ -706,7 +718,7 @@ checar(xi.dentro && xi.centrado && xi.quadrado && tintaVermelha(xi.tinta) && xi.
 
 // C6 · IMPORTAR ARQUIVO: entra só no editor — em lista nenhuma — e o rascunho o segura.
 await app.click('#edicaoLista .pacote-linha .song-menu-btn');
-await esperar(app, () => document.getElementById('edicaoTitulo').textContent === 'Escolher a mídia', null, 10000);
+await esperar(app, () => document.getElementById('toolsTitle').textContent === 'Escolher a mídia', null, 10000);
 const wavBuf = Buffer.from(wav, 'base64');
 const [seletor] = await Promise.all([
   app.waitForEvent('filechooser'),
@@ -714,7 +726,7 @@ const [seletor] = await Promise.all([
 ]);
 await seletor.setFiles({ name: 'Trilha Externa.wav', mimeType: 'audio/wav', buffer: wavBuf });
 const importou = await esperar(app, () => !!document.getElementById('edicaoIni')
-  && document.getElementById('edicaoTitulo').textContent === 'Editar mídia', null, 20000);
+  && document.getElementById('toolsTitle').textContent === 'Editar mídia', null, 20000);
 const imp = await app.evaluate(async () => {
   const bases = await window.AVDB.basesDoEditor();
   const b = bases.find((x) => x.name === 'Trilha Externa');
@@ -773,8 +785,8 @@ const longoOk = await escolher('lst:imports', longoNome);
 // A SEÇÃO ASSENTA ANTES DE MEDIR: o formulário chega em dois desenhos (o card antes da duração), e cada um
 // ANIMA a altura da caixa e pode rolar a folha — medido no meio, a caixa ainda tem a altura de antes.
 await esperarDb(app, () => new Promise((r) => {
-  const box = document.getElementById('cfgSecoes');
-  const sc = box.closest('.fade-opts');
+  const box = document.getElementById('edicaoSecao');
+  const sc = document.getElementById('edicaoLista');
   const h = box.getBoundingClientRect().height; const st = sc.scrollTop;
   setTimeout(() => r(!box.getAnimations().length && box.getBoundingClientRect().height === h && sc.scrollTop === st), 250);
 }), null, 10000);
@@ -782,8 +794,8 @@ const longo = await app.evaluate(async () => {
   const L = document.getElementById('edicaoLista');
   const card = L.querySelector('.edicao-card').getBoundingClientRect();
   const fecho = document.querySelector('#edicaoSecao .popup-fecho');
-  // Na base da seção, sem a folha grudando o fecho por cima da lista.
-  fecho.closest('.fade-opts').scrollTop = 99999;
+  // Na base da LISTA (o scroller do painel), com o fecho parado no pé.
+  document.getElementById('edicaoLista').scrollTop = 99999;
   await new Promise((r) => setTimeout(r, 100));
   const nome = L.querySelector('.edicao-bloco:last-of-type').getBoundingClientRect();
   const fr = fecho.getBoundingClientRect();
@@ -794,19 +806,23 @@ const longo = await app.evaluate(async () => {
 });
 checar(longoOk === true && longo.rolando === true && longo.animado === 'np-marquee' && longo.uma === true && Math.abs(longo.card - 53.2) < 6,
   'C · com um título comprido o card segue de UMA linha (mesma altura) e o texto ROLA em ping-pong', porque(longoOk) || JSON.stringify(longo));
-checar(longo.vao <= 40, 'C · a seção acompanha o formulário: sem espaço sobrando entre o campo de nome e o fecho (≤ 40px)', JSON.stringify(longo));
+checar(longo.vao <= 400, 'C · o fecho fica no pé do painel, depois do formulário — o vão é o da lista, que rola por dentro', JSON.stringify(longo));
 const trocaVista = await app.evaluate(async () => {
+  const box = document.getElementById('edicaoSecao');
+  const h0 = box.getBoundingClientRect().height;
+  const alturas = [];
   document.querySelector('#edicaoLista .edicao-card .edicao-x').click();
-  // O X descarta o rascunho (uma gravação) ANTES de desenhar o seletor: a animação nasce alguns quadros depois.
   for (let i = 0; i < 40; i++) {
-    if (document.getElementById('cfgSecoes').getAnimations().some((a) => a.effect && a.effect.getKeyframes().some((k) => 'height' in k))) return true;
+    alturas.push(box.getBoundingClientRect().height);
     await new Promise((r) => requestAnimationFrame(r));
   }
-  return false;
+  return { fixa: Math.max(...alturas) - Math.min(...alturas) < 1 && Math.abs(alturas[0] - h0) < 1 };
 });
 await esperar(app, () => !document.querySelector('.edicao-carga') && !!document.querySelector('#edicaoLista [data-grupo]'), null, 10000);
-checar(trocaVista === true,
-  'C · trocar do formulário para o seletor ANIMA a altura da seção (a folha de Configurações acompanha)', JSON.stringify({ trocaVista, curtoCard }));
+const tituloTroca = await app.evaluate(() => document.getElementById('toolsTitle').textContent);
+checar(trocaVista.fixa && tituloTroca === 'Escolher a mídia',
+  'C · trocar do formulário para o seletor NÃO mexe na caixa do painel (altura fixa), e o cabeçalho da folha diz "Escolher a mídia"',
+  JSON.stringify({ trocaVista, curtoCard, tituloTroca }));
 
 // C7 · BUSCA no seletor
 await esperar(app, () => !document.querySelector('.edicao-carga') && !!document.querySelector('#edicaoLista [data-grupo]'), null, 10000);
@@ -897,8 +913,6 @@ const modo = await facil.evaluate(() => document.body.classList.contains('mode-s
 const apagado = await facil.evaluate(async () => {
   (document.getElementById('settingsBtn') || document.getElementById('simpleSettingsBtn')).click();
   await new Promise((r) => setTimeout(r, 600));
-  // O nó fica GUARDADO aqui para a outra ponta provar que é o mesmo depois da troca de modo.
-  window.__noEdicao = document.getElementById('edicaoTile');
   const lido = (id) => {
     const t = document.getElementById(id);
     const b = t.getBoundingClientRect();
@@ -908,16 +922,16 @@ const apagado = await facil.evaluate(async () => {
     // O TEMA fica em qualquer modo: é a prova de que a folha está DESENHADA e só a
     // manutenção saiu — uma grade vazia por outro motivo passaria no resto.
     tema: lido('temaTile'),
-    edicao: lido('edicaoTile'), hist: lido('histOpenRow'), teste: lido('testeTile'),
+    ferramentas: !!document.getElementById('toolsBtn'), hist: lido('histOpenRow'), teste: lido('testeTile'),
     // `#pacoteTile` não serve de régua neste contexto: sem ponte ele já é `hidden`.
     modos: document.body.classList.contains('mode-simple') };
 });
 checar(modo === true && apagado.modos === true && apagado.folhaAberta === true
-    && apagado.tema.caixa === true
-    && [apagado.edicao, apagado.hist, apagado.teste].every((t) => t.existe && t.display === 'none' && t.caixa === false && t.hidden === false),
-  'C · no MODO FÁCIL o tile "Editar mídia" NÃO está à vista em Configurações: ele e os outros de '
-  + 'MANUTENÇÃO (Histórico, Verificar) ficam `display: none` por `body.mode-simple` — sem caixa e sem '
-  + '`hidden`, isto é, o mesmo nó que o avançado mostra', JSON.stringify(apagado));
+    && apagado.tema.caixa === true && apagado.ferramentas
+    && [apagado.hist, apagado.teste].every((t) => t.existe && t.display === 'none' && t.caixa === false && t.hidden === false),
+  'C · no MODO FÁCIL os tiles de MANUTENÇÃO (Histórico, Verificar) ficam `display: none` por '
+  + '`body.mode-simple` — sem caixa e sem `hidden` —, e a porta das Ferramentas (onde o editor mora '
+  + 'desde a v1.14.7) continua existindo', JSON.stringify(apagado));
 // (a outra metade do Modo Fácil é do FORMULÁRIO, e segue valendo: sem Cronograma nem
 // favoritos à vista, os quadrados de destino não aparecem — a seção pode ser aberta
 // por dentro, ainda que o tile não seja mais a porta dela aqui.)
@@ -933,27 +947,18 @@ checar(semQuad.n === 3 && semQuad.escondidos,
 // reprova no código de antes da v1.13.57 — ali ele também estava aceso (é guarda de
 // não-regressão; quem discrimina a mudança é a asserção de cima).
 await facil.evaluate(() => { setAppMode('full'); });
-const aceso = await esperar(facil, () => !document.body.classList.contains('mode-simple')
-  && getComputedStyle(document.getElementById('edicaoTile')).display !== 'none'
-  && document.getElementById('edicaoTile').getBoundingClientRect().width > 0, null, 10000);
-await facil.click('#edicaoTile');
-const abriuAvancado = await esperar(facil, () => document.getElementById('edicaoSecao').classList.contains('open')
-  && !!document.querySelector('#edicaoLista [data-grupo="lst:imports"]'), null, 15000);
-const noAvancado = await facil.evaluate(() => {
-  const t = document.getElementById('edicaoTile');
-  return { mesmoNo: window.__noEdicao === t, display: getComputedStyle(t).display,
-    caixa: t.getBoundingClientRect().width > 0, hidden: !!t.hidden,
+const aceso = await esperar(facil, () => !document.body.classList.contains('mode-simple'), null, 10000);
+const abriuAvancado = await abrir(facil);
+await esperar(facil, () => !!document.getElementById('edicaoIni')
+  || !!document.querySelector('#edicaoLista [data-grupo="lst:imports"]'), null, 15000);
+const noAvancado = await facil.evaluate(() => ({
     modo: document.body.classList.contains('mode-simple'),
-    titulo: document.getElementById('edicaoTitulo').textContent,
-    grupos: [...document.querySelectorAll('#edicaoLista [data-grupo]')].map((e) => e.dataset.grupo) };
-});
-checar(aceso === true && abriuAvancado === true && noAvancado.mesmoNo === true && noAvancado.modo === false
-    // A CAIXA do tile é medida ANTES do toque (`aceso`): aberta a seção, a grade some da tela por
-    // desenho, e exigir caixa depois do toque seria exigir que a grade ficasse à vista junto.
-    && noAvancado.display !== 'none' && noAvancado.hidden === false
+    titulo: document.getElementById('toolsTitle').textContent,
+    grupos: [...document.querySelectorAll('#edicaoLista [data-grupo]')].map((e) => e.dataset.grupo) }));
+checar(aceso === true && abriuAvancado === true && noAvancado.modo === false
     && noAvancado.titulo === 'Escolher a mídia'
     && ['lst:imports', 'lst:playlist', 'lst:favs'].every((g) => noAvancado.grupos.includes(g)),
-  'C · e no MODO AVANÇADO o MESMO nó do tile volta aceso e abre a folha de edição normalmente (o seletor em grupos)',
+  'C · e no MODO AVANÇADO a MESMA ferramenta abre a folha de edição normalmente (o seletor em grupos)',
   porque(aceso) || porque(abriuAvancado) || JSON.stringify(noAvancado));
 await ctx4.close();
 

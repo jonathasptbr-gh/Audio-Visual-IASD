@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.14.7",
+    "itens": [
+      "O Tour do app virou um quadrado de ligar e desligar, no fim dos botões de Configurações.",
+      "\"Editar mídia\" saiu das Configurações e agora é uma ferramenta: está na lista de Ferramentas.",
+      "Saiu o botão \"Saída de áudio\": para trocar o som de aparelho, use o atalho do próprio celular.",
+      "A barra de volume saiu da borda e o destaque do tour não é mais cortado pela tela."
+    ]
+  },
+  {
     "versao": "1.14.6",
     "itens": [
       "O \"fechar\" do guia de sonoplastia passou para a esquerda, longe do \"Imprimir\".",

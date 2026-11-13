@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.7** — o tour vira quadrado, o editor vira ferramenta, e o tour não encosta na borda
 - **o guia: socorro e diagnóstico no fim, e os códigos em sequência (sem versão nova; só `site/` e docs)** — o socorro (D9) e o diagnóstico (I17) fecham cada guia, os capítulos que vinham depois andam uma casa, e as remissões, o índice e a impressão vão junto.
 - **o guia: capa impressa nova, e "trilha" vira "guia" (sem versão nova; só `site/` e docs)** — a 1ª página da impressão ganha a faixa da igreja (Igreja Adventista do Sétimo Dia e IASD, em texto), o nome do guia dominante, o caminho do som no azul da casa e um rodapé com endereço, data e páginas; as partes passam a se chamar "Guia de sonoplasta por um dia" e "… em tempo integral".
 - **o cartão do link, redesenhado (sem versão nova; só `site/`)** — a pedido: sai o caminho microfone → cabo → mesa → caixa e entra o posto de trabalho — um monitor com a onda na tela sobre um pé curto e, na frente, a mesa de som em perspectiva (corpo escuro, painel claro, faders e knobs), em CSS 3D; o `?v=` sobe a 2 para o cartão antigo não circular.
@@ -721,7 +722,72 @@ apagada da que a criou.
 - **v5.159** — fechou o que a v5.158 deixou de pé, e o achado é do MESMO tipo: KEY_I_FRAME_INTERVAL não é segundos de parede, é CONTAGEM DE QUADROS.
 - **v5.158** — achou a causa do travamento, e ela era a PODA.
 - **v5.157** — mede o travamento, e a metade que MEDE é APK.
-- **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
+- **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em## v1.14.7 — o tour vira quadrado, o editor vira ferramenta, e o tour não encosta na borda
+
+**Pacote 10 da fila do operador** (`docs/PEDIDOS-EM-ESPERA.md`, pedidos de
+2026-10-30), mais três itens que ele acrescentou em **2026-11-13**. **Só web**
+(base web 1.14.7, `minShell` 83, sem `shellTag`: a Release continua a 1.14.6).
+
+**10.1 + 10.2 — uma vaga por outra.** "Editar mídia" era uma seção de
+Configurações desde a v1.12.48 (`#edicaoTile`, `#edicaoSecao`,
+`data-secao="edicao"`, na tabela `SECOES`); agora é a SÉTIMA linha da lista de
+`FERRAMENTAS` (`abrirFerramenta`, `tool: 'edicao'`), e o corpo dela — que é
+**DOM fixo**, com dezenas de nós presos por referência (`#edicaoLista`, o fecho,
+o campo de busca) — mora na folha de Ferramentas, irmão do `#toolsBody`:
+`renderDiversos` decide quem ocupa a folha, e o editor NÃO entra na camada da
+troca (ela move os filhos do corpo e tira os ids deles). A lista passou a sete
+linhas e oito vãos (`--ferr-vao`/`--ferr-linha`). O título da vista vai ao
+`#toolsTitle`; o voltar do Android devolve a lista antes de fechar (degrau 2.5
+do `__avBack`), e o rascunho `edicaoRascunho` é gravado ao sair
+(`edicaoSalvarJa` em `voltarAGradeDeFerramentas` e em `fecharFerramentas`). A
+vaga que ficou na grade era a do tile "Saída de áudio": ele SAIU, com o
+`abrirSaidaDeAudio` do web (o lado Kotlin fica órfão, que é seguro), o símbolo
+`#icoSaidaDeAudio` e o comentário do tile. **Ficam** as linhas "Mídia saindo
+agora por" e "Não Perturbe" do Registro e o `saidaDeAudioAlvo`.
+
+**10.3 — o tour como quadrado on/off.** Pedido: *"vamos colocar o botão de
+ativar tour como um dos quadrados de on/off padrão de configurações, assim como é
+o permitir dados móveis"*. O `#tourBtn` deixou de ser `role="checkbox"` com
+`song-menu-check` na `.cfg-ajuda` e passou a `.qs-tile` — ÚLTIMO da grade, no
+molde do `#dadosMoveisTile`: ícone em dois estados (`#icoTour`/`#icoTourOff`,
+sprite novo) e o estado só no desenho (a regra da v1.7.6), escrito por
+`pintarTile(tourBtnEl, on ? 'on' : 'off', …)`, que também pinta o `aria-label`.
+O comportamento não mudou: `AVTour.ativo()/desativar()/refazer()`, a chave
+`av.tour.off` e o evento `av-tour-ativo` (que repinta também quando o "Pular
+tour" desliga com a folha fechada); ligar de novo fecha Configurações e refaz o
+tour do modo atual. O passo do tour que apresentava a dupla virou dois: o
+quadrado e o guia.
+
+**10.4 — a pílula de volume com piso de 12 px.** Pedido: *"a barra de volume no
+modo simples está muito colada a esquerda … a borda azul do highlight está se
+cortando pela borda esquerda da tela"*. O `left` do `.vol-pill` era
+`max(6px, env(safe-area-inset-left))`; agora é `max(12px, …)` — a margem da
+grade, e a que o recorte do tour desconta.
+
+**10.5 — o tour preso à ÁREA VISÍVEL.** Pedido: *"as janelas do tour … fica
+colada nas bordas da tela, e o mesmo vale para os highlights, que quando tenta
+destacar elementos de borda a borda, acaba ficando sem um highlight visível,
+pois ele fica para além da tela"*. Em `geometria()` o recorte era preso a `0`
+(rente à borda, com o halo cortado); agora respeita `MARGEM_RECORTE = 20` nos
+quatro lados — o alcance do halo do `.tour-recorte` (anel 2 + espalhamento 5 +
+desfoque 14 = 19). Num elemento de borda a borda o recorte PODE não envolvê-lo
+por inteiro: é a troca aceita pelo operador, e visível é melhor que inteiro. O
+balão sobe a `MARGEM = 16` (era 12), mantém o `VAO = 10` e nunca encosta; e os
+dois leem a área de `visualViewport` quando ele existe (também o "sem alvo", o
+centro e a visibilidade de uma peça num passo).
+
+**Oráculos.** `tour` (o quadrado liga/desliga, o estado no ícone, o `refazer`, o
+recorte de borda a borda com margem e visível a 320 px, o balão a 16 px e a
+pílula a 12 px), `edicao-de-midia` (a ferramenta, o voltar e o rascunho),
+`ferramentas` e `ferramentas-folha` (a sétima linha), `configuracoes-janelas` e
+`abertura-e-transferencia` (a grade sem os dois tiles e com o tour),
+`saida-de-audio-e-economia` (o tile saiu; as linhas do Registro ficam) e
+`volume-troca` (a pílula).
+
+**Não medido:** o aparelho — o lote é só web, chega por OTA, e nenhum APK foi
+feito. A captura a 320 px é a dos oráculos de Chromium.
+
+ aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 

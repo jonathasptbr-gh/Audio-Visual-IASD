@@ -1120,8 +1120,10 @@ body {
      posicionada na altura que fique acima dos controles do modo avançado"*. O `--pill-bottom` é o
      mesmo que já era medido (`lugarDaPilula`): a base do transporte à vista — então ela termina
      logo ACIMA do deck e cresce para cima, sem cobrir botão nenhum. O recuo esquerdo respeita o
-     recorte da câmera (`safe-area-inset-left`). */
-  position: fixed; left: max(6px, env(safe-area-inset-left, 0px));
+     recorte da câmera (`safe-area-inset-left`) E TEM UM PISO DE 12px (v1.14.7): a 6px o recorte
+     azul do tour ficava cortado pela borda da tela, e 12px é a margem da grade — o `MARGEM_RECORTE`
+     do tour desconta exatamente isso. */
+  position: fixed; left: max(12px, env(safe-area-inset-left, 0px));
   top: var(--pill-top, 33vh); bottom: auto;
   z-index: 350;
   display: flex; flex-direction: column; align-items: center; gap: var(--sp-4);
@@ -3265,6 +3267,10 @@ main {
   box-shadow: 0 4px 14px var(--shadow-card);
 }
 .tools-sheet[hidden] { display: none; }
+/* COM UM CAMPO NO AR, A FOLHA TERMINA ONDE O TECLADO COMEÇA (v1.14.7): o editor
+   de mídia trouxe o primeiro campo da folha de Ferramentas, e o `--kb-folha` é a
+   medida que as folhas de baixo já usam para não deixarem o fecho atrás dele. */
+.tools-sheet { bottom: var(--kb-folha, 0px); }
 /* ENTRADA E SAÍDA SÃO ANIMAÇÕES DE UMA PASSADA, não transições de classe: a
    folha nasce com `hidden`, e um `transform` que muda no mesmo quadro em que o
    elemento aparece não anima — o navegador não tem estado anterior para
@@ -3329,6 +3335,9 @@ main {
    importa (coluna que ocupa a altura), e o oposto no que a `.lib-misc` diz
    logo abaixo: aqui quem administra a altura é o painel ativo, não a rolagem. */
 .tools-body { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+/* `display: flex` venceria o `[hidden]` do navegador: com o editor aberto (ele é
+   irmão do corpo, v1.14.7) quem ocupa a folha é o `#edicaoSecao`. */
+.tools-body[hidden] { display: none; }
 
 .lib-list { touch-action: pan-y; }
 .lib-list {
@@ -6783,19 +6792,22 @@ main {
   display: flex; flex-direction: column;
 }
 .ferr-grade > .ferr-tile {
-  --ferr-vao: clamp(0px, calc((100cqh - 6 * var(--hit)) / 7), var(--sp-4));
-  --ferr-linha: calc((100cqh - 7 * var(--sp-4)) / 6);
+  /* SETE LINHAS desde a v1.14.7 (o editor de mídia entrou na lista): os vãos são
+     OITO (acima da primeira, entre as sete e abaixo da última) e a linha é a
+     SÉTIMA parte da lista onde o piso não cabe. */
+  --ferr-vao: clamp(0px, calc((100cqh - 7 * var(--hit)) / 8), var(--sp-4));
+  --ferr-linha: calc((100cqh - 8 * var(--sp-4)) / 7);
   position: relative; min-width: 0;
   /* O PISO É O `--hit`, MENOS ONDE SEIS NÃO CABEM (v1.13.5): aí a linha mede a
      SEXTA PARTE da lista e o corpo NÃO ROLA. É a exceção NOMEADA do
      `geometria.test.mjs`, pedida pelo operador: *"verifique em telas menores,
      para garantir que essa janela de ferramentas não necessite de scroll, mas
      sim tenha seus botões encolhidos verticalmente para caber de forma
-     correta"*. Antes de chegar aqui os sete vãos da lista já cederam a zero (e
-     na lista não há cabeçalho desde a v1.13.6); MEDIDO no estado do `geometria`,
-     só a 360×640 com a fonte do sistema em 1,3× a linha passa abaixo do piso —
-     33,9px, a sexta parte de 203,6px de corpo. */
-  flex: 1 1 0; min-height: min(var(--hit), 100cqh / 6);
+     correta"*. Antes de chegar aqui os oito vãos da lista já cederam a zero (e
+     na lista não há cabeçalho desde a v1.13.6); com SETE linhas a exceção vale
+     em mais telas que antes — a regra do operador não mudou: a lista não rola,
+     as linhas é que cedem. */
+  flex: 1 1 0; min-height: min(var(--hit), 100cqh / 7);
   flex-direction: row; justify-content: flex-start; gap: var(--sp-4);
   /* O RECUO É O MESMO DOS DOIS LADOS (v1.13.6), e o PONTO de "no ar" mora DENTRO
      do da direita, centrado nele: o nome não corre para baixo dele quando ele
@@ -8201,7 +8213,6 @@ body.simples-barra .lib-toggle { display: none; }
    Ficam Tema, Tela, Saída de áudio, Dados móveis e Compartilhar — o que se decide no culto.
    Editar mídia, Histórico, Verificar e Transferir são MANUTENÇÃO: continuam inteiros no
    avançado, e apagados aqui não deixam buraco inerte na grade (apagado = indisponível). */
-body.mode-simple #edicaoTile,
 body.mode-simple #histOpenRow,
 body.mode-simple #testeTile,
 body.mode-simple #pacoteTile { display: none; }
@@ -13145,11 +13156,26 @@ body.lib-assentando .popup-sheet--lib { visibility: hidden; }
    lado, que quebram a linha do rótulo em vez de cortá-lo (320px × 1,3). */
 .cfg-ajuda { display: flex; gap: var(--sp-3); }
 .cfg-ajuda .dialog-btn { min-height: var(--hit); padding: .45rem .5rem; line-height: 1.2; }
-/* v1.14.5: o "Tour do app" é uma CAIXA de marcação (a `.song-menu-check` da lista,
-   ligada = accent com o ✓) e o "Guia de sonoplastia" leva a seta de "abre outra
-   tela" (`icoExterno`) — o rótulo e o sinal lado a lado, e o rótulo quebra a linha
-   em vez de cortar. O sinal não é alvo (`pointer-events: none`): o toque é do botão. */
+/* Sobrou o "Guia de sonoplastia", que leva a seta de "abre outra tela"
+   (`icoExterno`) — o rótulo e o sinal lado a lado, e o rótulo quebra a linha em
+   vez de cortar. O sinal não é alvo (`pointer-events: none`): o toque é do botão.
+   O "Tour do app" subiu para a grade de quadrados na v1.14.7 (era uma caixa de
+   marcação aqui desde a v1.14.5). */
 .cfg-ajuda .dialog-btn { display: flex; align-items: center; justify-content: center; gap: var(--sp-3); }
 .cfg-ajuda .cfg-ajuda-rot { min-width: 0; }
-.cfg-ajuda .song-menu-check { width: 20px; height: 20px; margin-left: 0; }
 .cfg-ajuda .cfg-externo { flex: none; width: var(--icon-sm); height: var(--icon-sm); pointer-events: none; }
+
+/* ===== O EDITOR DE MÍDIA, DENTRO DA FOLHA DE FERRAMENTAS (v1.14.7) =====
+   Ele é a ferramenta que NÃO monta painel: o corpo é DOM fixo (`#edicaoSecao`),
+   irmão do `#toolsBody`, e ocupa o lugar dele — a folha tem altura fixa, e quem
+   rola é a LISTA (o `.popup-list` base, `flex: 1`), não o painel. O campo de
+   busca e a faixa de fecho ficam parados: o rodapé de uma ferramenta não rola.
+   Sem a classe `.cfg-sec`, sai também o `.cfg-sec .popup-list` (que deixava a
+   lista crescer com a seção) — é o que devolve o comportamento de painel. */
+.edicao-panel {
+  /* `min-height: 0` é o que deixa o painel CABER no vão do corpo: o `min-content`
+   do `.misc-panel` empurrava o fecho para fora da folha (e a altura acompanhava o
+   conteúdo, que é o que um painel de altura fixa não pode fazer). */
+  overflow: hidden; min-height: 0; padding-top: 0; gap: var(--sp-4);
+}
+.edicao-panel[hidden] { display: none; }

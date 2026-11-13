@@ -41,10 +41,10 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **7** — Verificação: procurar atualização | 6 (I3×U2) | pedido | só web |
 | **8** — CI: os oráculos instáveis (residual) | 6 (I3×U2) | resíduo | só `tools/` + workflow |
 | **9** — Folha do vídeo: o teto e o botão "Detalhes" | 4 (I2×U2) | pedido | só web |
-| **10** — Configurações e Ferramentas: o editor e o tile | 4 (I2×U2) | pedido | só web |
 | **12** — Limpeza e otimização do repositório (residual) | 2 (I2×U1) | pedido | só docs |
 | **13** — Estudos (não são fila de execução) | — | estudo | nenhuma entrega |
 | **15** — Guia IASD: a especialização (estudo) | — | estudo | nenhuma entrega |
+| **16** — O cronograma pronto: o organizador entrega o culto ao sonoplasta | 8 (I4×U2) | pedido | planejamento → Kotlin + web |
 
 ---
 
@@ -80,10 +80,6 @@ ordem; a fila é dele.
 
 | # | pacote · pedido | tipo | I | U | nota | entrega |
 |---|---|---|---|---|---|---|
-| **4** | **Modo Fácil: volume, coleções e Configurações** | pedido | 4 | 2 | **8** | web |
-| 4.1 | indicador de volume flutuante + botão de tela cheia | | 4 | 2 | 8 | web |
-| 4.2 | as coleções em "Diversos" e os elementos fixos | | 3 | 2 | 6 | web |
-| 4.3 | revisar as opções de Configurações que aparecem | | 3 | 1 | 3 | web |
 | **5** | **Itinerário: a abertura antes do primeiro evento** | pedido | 4 | 2 | **8** | web |
 | 5.1 | contagem regressiva + música + avisos | | 4 | 2 | 8 | web |
 | **6** | **Link do YouTube: os detalhes no oferecimento** | pedido | 3 | 2 | **6** | Kotlin + web |
@@ -94,15 +90,13 @@ ordem; a fila é dele.
 | 8.1 | `configuracoes-janelas` D, instrumentado | | 3 | 2 | 6 | tools |
 | **9** | **Folha do vídeo: o teto e o botão "Detalhes"** | pedido | 2 | 2 | **4** | web |
 | 9.1 | sem o aviso do teto; o quinto botão sem linha própria | | 2 | 2 | 4 | web |
-| **10** | **Configurações e Ferramentas: o editor e o tile** | pedido | 2 | 2 | **4** | web |
-| 10.1 | "Editar mídia" vai para a lista das Ferramentas | | 2 | 2 | 4 | web |
-| 10.2 | sai o tile "Saída de áudio" (no mesmo lote) | | 2 | 2 | 4 | web |
 | **12** | **Limpeza e otimização do repositório (residual)** | pedido | 2 | 1 | **2** | docs |
 | 12.1 | a lista dos mortos da auditoria de eficiência | | 2 | 1 | 2 | docs |
 | **13** | **Estudos — não são fila de execução** | estudo | 4 | 1 | **4** | decisão |
 | 13.1 | controle de slides + compartilhar itinerário/cronograma | | 4 | 1 | 4 | estudo |
 | 13.2 | transmissão ao vivo | | 3 | 1 | 3 | estudo |
-| 13.3 | app no Windows + layout de paisagem | | 3 | 1 | 3 | estudo |
+| 13.3 | layout de paisagem (o app no Windows saiu) | | 3 | 1 | 3 | estudo |
+| **16** | **O cronograma pronto: o organizador entrega o culto** | pedido | 4 | 2 | **8** | planejamento |
 
 ---
 
@@ -225,33 +219,6 @@ versão de título mais curta como apenas 'Detalhes'."* (2026-11-07 09:12).
 
 ---
 
-## Pacote 10 — Configurações e Ferramentas: o editor e o tile
-
-**Nota 4 (I2 × U2) · pedido · só web**
-
-**Saem juntos:** a saída do editor abre a vaga que o tile ocupava — tirar os dois
-no mesmo lote evita a grade com buraco.
-
-### 10.1 O editor de mídia vai para as Ferramentas
-
-Pedido do operador (2026-10-30). "Editar mídia" é seção de Configurações
-(`#cfgSecoes`, v1.12.48) e passa a ser uma ferramenta da LISTA das Ferramentas
-(`FERRAMENTAS`, `abrirFerramenta`). A grade de Configurações perde um tile — é a
-vaga que o tile "Saída de áudio" esperava (ver 10.2). Conferir o voltar do Android
-(a lista das Ferramentas, degrau 2.5) e o rascunho `edicaoRascunho`.
-
-### 10.2 Tirar o tile "Saída de áudio"
-
-Decisão do operador (2026-10-30): o projeto da janela da Samsung foi ABANDONADO —
-não há caminho documentado (a One UI não expõe a dela; a única via pública,
-`MediaRouter2.showSystemOutputSwitcher`, abre a do Android, e é o que o tile faz
-desde a v1.13.16). O operador usa o atalho do próprio aparelho. O tile sai JUNTO
-com o 10.1: o tile, o `abrirSaidaDeAudio` do web (o Kotlin pode ficar órfão, o
-lado seguro), e as linhas *"Mídia saindo agora por"* e *"Não Perturbe"* do
-Registro ficam (o `saidaDeAudioAlvo` continua).
-
----
-
 ## Pacote 12 — Limpeza e otimização do repositório (residual)
 
 **Nota 2 (I2 × U1) · pedido · só docs**
@@ -290,6 +257,11 @@ faixas.
 | 2026-10-30 | *"controle remoto de slides para o pregador, algum link de site, endereço ou código que não requer internet… onde ele pode controlar os slides pelo próprio aparelho dele, seja vendo os slides. Ou… integração com aparelhos de passagem de slides bluetooth"* | ESTUDO. Duas vias. **(a) Passador Bluetooth:** quase todo passador é um TECLADO HID (manda PageDown/PageUp, setas, às vezes B/F5); pareado com o celular, as teclas chegam à `MainActivity.onKeyDown` como chegam as de volume — o caminho já existe (`captureVolumeKeys` → `__avVolumeKey`), e ligar `KEYCODE_PAGE_DOWN/UP`, `DPAD_RIGHT/LEFT` ao ⏮/⏭ de slide é Kotlin pequeno + Release. Medir: quais teclas os passadores comuns mandam, e se o pareado como teclado esconde o teclado virtual. **(b) Pelo celular do pregador:** o servidor das telas da rede (sem internet, Wi-Fi ou ponto de acesso) já serve páginas; uma página de CONTROLE (anterior/próximo, e opcionalmente a página atual em miniatura) por uma rota nova com o mesmo pareamento e teto de sessões. Cuidado: hoje a rota de subida aceita só `TIPOS_QUE_SOBEM` (lista de permissão) — um comando de slide vindo da rede é uma porta nova de CONTROLE, não só de exibição, e pede decisão de segurança (código de entrada? só no ponto de acesso?). Ver `docs/TELAO-POR-COMANDOS.md` |
 | 10:34 | *"Vamos estudar e planejar um sistema de compartilhar itinerários e ou cronogramas de forma mais facilitada… compartilhar no whatsapp… um simples link, que ao tocar, abre o app, e busca/baixa oque for necessário inclusive baixando diretamente do aparelho de origem… Talvez precisamos de um servidor? Estude as opções para o menor atrito possível…"* | entregável é um ESTUDO para o operador decidir, não código. Eixos: link de app (App Links no domínio `audiovisualiasd.com.br`, que já é nosso — exige o arquivo de associação de domínio (Digital Asset Links) no `site/` e `intent-filter` no manifesto, logo Release) vs. arquivo `.avpkg` pequeno só com a LISTA; de onde vem a mídia (LouvorJA e YouTube já são re-baixáveis por id; mídia própria do aparelho é o problema difícil — sem servidor, só com os dois aparelhos online ao mesmo tempo); e o que NÃO viajar (privacidade, `docs/MEDICAO-DE-ALCANCE.md`). Comparar com o `.avpkg` atual (`docs/recursos/PACOTE.md`) |
 
+**Promovido em 2026-11-13:** o eixo (b) deste estudo virou o **Pacote 16** — o
+operador deu o caso de uso (o líder de desbravadores e o cronograma da
+cerimônia) e pediu planejamento. O (a), o passador Bluetooth, continua só
+estudo.
+
 ### 13.2 Transmissão ao vivo (câmera fixa → YouTube)
 
 Pedido (2026-10-31 11:53): um segundo celular dedicado é a CÂMERA (720p/30 na
@@ -316,34 +288,21 @@ mesmo servidor): as duas são PORTAS NOVAS DE SUBIDA e a decisão de segurança
 (código de entrada? só no ponto de acesso?) é UMA só para as duas. Pede Release
 (Kotlin) e decisão sobre a invariante de captura.
 
-### 13.3 O app no Windows, e o layout de paisagem
+### 13.3 O layout de paisagem
 
-Pedido (2026-10-31). **Estudo preliminar.** O fato que decide quase tudo: a base
-web JÁ roda no navegador (o PWA de origem); o que o app Android acrescenta é a
-ponte (`window.AVNative`, 64 métodos). Portar = escrever OUTRA casca, não
-reescrever o app.
+Estudo (2026-10-31). **O app no Windows saiu do projeto** — decisão do operador
+em 2026-11-13, depois do estudo: não haverá segunda casca nativa. O que sobra
+nesta linha de fila é o pedaço que nunca dependeu dele.
 
-| caminho | como | prós | contras |
-|---|---|---|---|
-| **(A) PWA no Edge/Chrome** | instalar a base web como app do navegador | zero código; `showDirectoryPicker` existe; arrasta a janela do telão para o 2º monitor | sem YouTube baixado (CORS), sem cifra, sem séries, sem servidor das telas da rede, sem OTA nosso; dois apps/janelas (o modelo antigo) |
-| **(B) casca nativa com WebView2** (C#/.NET + WinUI ou WinForms) | o MESMO desenho do Android: `SetVirtualHostNameToFolderMapping` dá um origin `https://` (contexto seguro), dois WebView2 no MESMO perfil compartilham IDB/OPFS/BroadcastChannel; o telão é uma JANELA sem borda posicionada no monitor secundário (`Screen.AllScreens`) — mais simples que a `Presentation` | as invariantes 1–3 se traduzem 1:1; `AddHostObjectToScript` faz o papel do `addJavascriptInterface`; Windows tem 2º monitor por cabo HDMI (sem Miracast) | reescrever a ponte em C#: SAF→pastas do disco (mais fácil), `YoutubeGrab`/`TrilhaAudio` dependem do NewPipeExtractor (Java) — no Windows seria `yt-dlp` (executável externo) ou portar; `MuxMp4`, `EspelhoServidor` (HttpListener), OTA, `SlideDeck` (PDF via `Windows.Data.Pdf`), instalador e assinatura de código |
-| (C) Electron/Tauri | casca JS/Rust | menos C# | dependência grande, contra a regra "sem dependências externas" |
-
-**Recomendação do estudo:** (B), em fases — 1) casca + telão no 2º monitor +
-pastas (o culto básico); 2) YouTube/séries; 3) telas da rede e OTA. Guarda no
-web: continua só `if (!window.__NATIVE__)`; os métodos sem par no Windows
-respondem o desfecho inofensivo (a mesma regra do papel `display`). Custo maior:
-manter DUAS cascas a cada degrau de `SHELL_VERSION`.
-
-**O layout de paisagem** é o pedaço que vale JÁ, independente do Windows: serve
-tablet Android, celular deitado e o Windows. Hoje o Controle é retrato fixo
-(manifesto `portrait`) com uma coluna. Estudo: um `@media (orientation:
-landscape) and (min-width: …)` em DUAS colunas (Biblioteca/Cronograma à esquerda,
-prévia + transporte + letra à direita), sem duplicar DOM; folhas viram painéis
-laterais. Riscos: a escada de camadas, as folhas que "não mudam de tamanho entre
-estados", e os oráculos geométricos medidos só em retrato (cada um ganha a célula
-de paisagem). Liberar a rotação no Android é Release; o CSS é OTA. Se o operador
-quiser só a paisagem, ela é um lote de web — e não espera o estudo do Windows.
+O Controle é **retrato fixo** (manifesto `portrait`) com uma coluna. Serve
+tablet Android, celular deitado e qualquer tela larga. Estudo: um
+`@media (orientation: landscape) and (min-width: …)` em DUAS colunas
+(Biblioteca/Cronograma à esquerda, prévia + transporte + letra à direita), sem
+duplicar DOM; folhas viram painéis laterais. Riscos: a escada de camadas, as
+folhas que "não mudam de tamanho entre estados", e os **76 oráculos que medem
+geometria** — eles partem do viewport de 430×900 do arnês (`tools/arnes.mjs`),
+que é a forma de um celular em pé; cada um ganha a célula de paisagem. Liberar a
+rotação no Android é Release; o CSS é OTA.
 
 ---
 
@@ -363,7 +322,67 @@ sobre o estudo. Nada aqui está autorizado.
 
 ---
 
+## Pacote 16 — O cronograma pronto: o organizador entrega o culto
+
+**Nota 8 (I4 × U2) · pedido · planejamento PRIMEIRO, depois Kotlin + web**
+
+Pedido do operador (2026-11-13). Este pacote **promove** o estudo 13.1(b): o
+compartilhamento de cronograma deixa de ser hipótese e vira o caminho de um
+caso de uso concreto.
+
+**O caso que o pediu:** *um líder de desbravadores organiza a cerimônia
+inteira — as mídias, a ordem, os tempos — e precisa entregá-la ao sonoplasta.
+Hoje isso é link por link no WhatsApp, ou um pendrive na mão.*
+
+**O que "pronto" significa:** o destinatário toca no link e recebe o culto
+montado — cronograma, itinerário, elementos e as mídias conforme a organização
+do responsável —, sem procurar arquivo nem pedir nada a ninguém.
+
+**O que já existe e não resolve sozinho:**
+
+| peça | o que faz | por que não basta |
+|---|---|---|
+| `.avpkg` ([`PACOTE.md`](recursos/PACOTE.md)) | leva o acervo inteiro de um aparelho a outro | é um arquivo de gigabytes: não atravessa o WhatsApp, e não carrega a ORGANIZAÇÃO do culto |
+| link de app (App Links em `audiovisualiasd.com.br`) | abre o app num endereço nosso | leva a lista, não a mídia |
+| o Cronograma e o Itinerário | já existem como estrutura | não há como exportá-los como uma unidade entregável |
+
+**O problema central:** a mídia é pesada e o link é leve. A saída provável é o
+pacote **pequeno** — a organização, os ids re-baixáveis (YouTube e LouvorJA já
+são re-baixáveis por id) e as impressões digitais do que precisa viajar — e o
+app do destinatário completa o que falta. A mídia PRÓPRIA do organizador é o
+caso difícil: sem servidor, os dois aparelhos precisam estar online juntos.
+
+**O que decidir ANTES de codar** (é a etapa de planejamento, e a entrega é a
+decisão):
+
+1. **Servidor ou não.** A arquitetura não tem nenhum, e o operador já perguntou
+   "talvez precisamos de um servidor?". Sem ele, o link sozinho não move bytes —
+   e a resposta muda o custo de tudo.
+2. **Quem é o dono do cronograma.** O organizador pode não ter o app. A autoria
+   pelo site é uma via? Se for, o site deixa de ser só página de download.
+3. **O que viaja.** A organização sempre; a mídia só quando não é re-baixável.
+4. **O que NÃO viaja nunca.** Privacidade — ver
+   [`MEDICAO-DE-ALCANCE.md`](MEDICAO-DE-ALCANCE.md).
+5. **O consentimento.** Receber um cronograma não pode ser um comando remoto:
+   o destinatário vê o que vai entrar e confirma antes. (É a mesma decisão de
+   porta de ENTRADA que o 13.1 já levantou para o controle remoto de slides.)
+
+**A regra que este pacote herda e não pode esquecer:** *importar só acrescenta*
+(`PACOTE.md`); nada que já esteja no aparelho do sonoplasta é substituído.
+
+---
+
 ## O que saiu desta lista (rastro, não log)
+
+**v1.14.7 (2026-11-13), só web:** o **Pacote 10** inteiro — o "Editar mídia"
+agora é uma linha da lista de Ferramentas (com o voltar do Android e o rascunho)
+e o tile "Saída de áudio" saiu. Entraram no mesmo lote os três pedidos do dia: o
+**10.3** (o tour vira quadrado on/off, no molde do "Dados móveis"), o **10.4** (a
+pílula de volume a 12 px da borda) e o **10.5** (o recorte do tour preso à área
+visível, com margem de halo nos quatro lados, e o balão a 16 px). Nota em
+`docs/HISTORICO.md`; oráculos `tour`, `edicao-de-midia`, `ferramentas`,
+`ferramentas-folha`, `configuracoes-janelas`, `abertura-e-transferencia`,
+`saida-de-audio-e-economia` e `volume-troca`. Os números dos outros não se movem.
 
 **2026-11-13 (só `site/`):** o **8.2** — o guia aberto pelo app a 320 px sem a rolagem lateral de 18 px (a grade de atalhos do D9 e o endereço longo, medidos com a fonte do runner), e o `guia-no-app` saindo 1 com FALHOU. Nota em `docs/HISTORICO.md`; o 8.1 continua.
 
@@ -417,7 +436,7 @@ anteriores (o `docs/REVISAO-PROFUNDA.md` cita "Pacote 8" e "pacotes 9–12"; o
 | até 2026-11-08 (Área) | antes disso (Pacote) | hoje (Pacote) |
 |---|---|---|
 | 1 — Séries | 13 e 21 | 1 (só o 1.1) |
-| 2 — Modo Fácil | 16 e 26 | 4 |
+| 2 — Modo Fácil | 16 e 26 | 4 (saiu na v1.13.57) |
 | 3 — Cronograma | 10 e 24 | 2 |
 | 4 — Favoritos | 22 | 11 |
 | 5 — Folha do vídeo | 20 | 9 |
@@ -431,5 +450,5 @@ anteriores (o `docs/REVISAO-PROFUNDA.md` cita "Pacote 8" e "pacotes 9–12"; o
 | 13 — CI | 8 | 8 |
 
 O "Pacote 6" antigo (o estudo de abrir a lista de aparelhos de áudio) NÃO existe
-mais: o operador abandonou o projeto da janela da Samsung em 2026-10-30, e o
-tile passou a abrir a API pública na v1.13.16 — o que sobrou dele é o 10.2.
+mais: o operador abandonou o projeto da janela da Samsung em 2026-10-30, o tile
+passou a abrir a API pública na v1.13.16 e SAIU do app na v1.14.7.
