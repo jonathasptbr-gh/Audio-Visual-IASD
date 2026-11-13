@@ -43,6 +43,7 @@
     margin:0; background:var(--bg); color:var(--text);
     font-family:system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     font-size:17px; line-height:1.6; -webkit-font-smoothing:antialiased;
+    overflow-wrap:break-word; /* palavra sem espaço (endereço) maior que a linha quebra em vez de rolar a página */
   }
   .env { max-width:46rem; margin:0 auto; padding:0 1rem; }
   a { color:var(--accent); }
@@ -76,7 +77,7 @@
     scroll-margin-top:calc(var(--topo) + .6rem);
   }
   section.cap h3[id], section.cap h4[id] { scroll-margin-top:calc(var(--topo) + .6rem); }
-  section.cap > h2 { font-size:1.3rem; margin:0 0 .5rem; display:flex; gap:.55rem; align-items:baseline; }
+  section.cap > h2 { font-size:1.3rem; margin:0 0 .5rem; display:flex; gap:.55rem; align-items:baseline; overflow-wrap:anywhere; } /* o texto é item flex anônimo: "responsabilidade" quebra em vez de estourar a tela estreita */
   .cod {
     flex:none; font:700 .78rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
     padding:.32rem .45rem; border-radius:8px; color:#fff; background:var(--dia);
@@ -181,7 +182,7 @@
 
   /* ----- rodapé de capítulo (o JS preenche) ----- */
   .cap-nav { display:flex; justify-content:space-between; gap:.6rem; margin-top:1.1rem; padding-top:.7rem; border-top:1px solid var(--panel-2); font-size:.88rem; }
-  .cap-nav a { text-decoration:none; font-weight:600; }
+  .cap-nav a { text-decoration:none; font-weight:600; overflow-wrap:anywhere; }
 
   /* ===== ACRÉSCIMOS DESTA PÁGINA (barra do topo, capa, índice, folha, impressão) ===== */
   body { padding-top:var(--topo); }
@@ -375,7 +376,8 @@
   .d-10s-t { display:block; margin-bottom:.45rem; font-size:.78rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--dia); }
   .d-10s ul, ul.d-lista { list-style:none; margin:0; padding:0; display:grid; gap:.5rem; }
   ul.d-lista { margin:.6rem 0 1rem; }
-  .d-10s li, ul.d-lista li { display:flex; align-items:center; gap:.65rem; margin:0; line-height:1.3; color:var(--titulo); }
+  /* `anywhere`: o "(audiovisualiasd.com.br)" no item flex encolhe e quebra, sem alargar a grade (ver `.d9-atalhos a`) */
+  .d-10s li, ul.d-lista li { display:flex; align-items:center; gap:.65rem; margin:0; line-height:1.3; color:var(--titulo); overflow-wrap:anywhere; }
   .d-10s li { font-weight:600; }
   .d-10s li svg, ul.d-lista li svg { flex:none; width:38px; height:38px; padding:7px; border-radius:50%; background:#fff; color:var(--dia); border:2px solid var(--dia); }
   details.sintoma > figure.d-flow { padding-left:4px; padding-right:4px; }
@@ -387,7 +389,8 @@
   /* d-fim */
 /* D9 — grade de atalhos do socorro rápido */
 .d9-atalhos { display:grid; grid-template-columns:1fr 1fr; gap:.45rem; margin:.5rem 0 1.2rem; }
-.d9-atalhos a { display:flex; align-items:center; gap:.5rem; min-height:48px; padding:.4rem .55rem; border-radius:10px; background:#fff; border:2px solid var(--dia); color:var(--titulo); font-weight:700; font-size:.86rem; line-height:1.2; text-decoration:none; }
+/* `anywhere` (não `break-word`) baixa o min-content: se a palavra não couber, ela quebra e a coluna 1fr encolhe, em vez de alargar a grade além da tela (rede sob a coluna única abaixo) */
+.d9-atalhos a { display:flex; align-items:center; gap:.5rem; min-height:48px; padding:.4rem .55rem; border-radius:10px; background:#fff; border:2px solid var(--dia); color:var(--titulo); font-weight:700; font-size:.86rem; line-height:1.2; text-decoration:none; overflow-wrap:anywhere; }
 .d9-atalhos a svg { flex:none; width:24px; height:24px; color:var(--dia); }
 .d9-atalhos a:active, .d9-atalhos a:focus-visible { background:var(--dia-tint); }
 .d9-atalhos a.d9-at-g { grid-column:1 / -1; min-height:40px; margin-top:.4rem; background:var(--dia); color:#fff; font-size:.8rem; letter-spacing:.06em; text-transform:uppercase; }
@@ -395,6 +398,8 @@
 .d9-atalhos a.d9-at-g svg { color:#fff; }
 .d9-atalhos a.d9-at-p { border-color:#d23c32; }
 .d9-atalhos a.d9-at-p svg { color:#d23c32; }
+/* até 340 px as duas colunas não cabem "(microfonia)" sem partir a palavra (Roboto pede ~267 px de grade, DejaVu ~305; a 320 px há 254): uma coluna só */
+@media (max-width:340px) { .d9-atalhos { grid-template-columns:1fr; } }
   /* ===== compartilhar: visível e com nome (página, capítulo, problema) ===== */
   .compart {
     display:inline-flex; align-items:center; gap:.45rem; margin:0 0 .8rem; padding:.42rem .85rem .42rem .7rem;
@@ -859,7 +864,7 @@
       <li><b>Ofertório e vídeos</b>: o momento do ofertório (instrumental suave) e os vídeos, como o Informativo.</li>
     </ul>
     <div class="box dica"><b class="box-t">Dica</b><p>Se a igreja usa os dois hinários, anote qual edição vale para cada hino: por exemplo, <b>"HA 123"</b> para o Hinário Adventista (1996) e <b>"NH 123"</b> para o Novo Hinário (2022). É uma convenção sugerida — confirme a que a liderança usa. Veja <a href="#i20">I20</a>.</p></div>
-    <details class="mais"><summary>Para saber mais</summary><p>O programa oficial da Escola Sabatina (lições, auxiliares e o resumo missionário) está em <a href="https://www.adventistas.org/pt/escolasabatina" rel="noopener">adventistas.org/pt/escolasabatina</a>.</p></details>
+    <details class="mais"><summary>Para saber mais</summary><p>O programa oficial da Escola Sabatina (lições, auxiliares e o resumo missionário) está em <a href="https://www.adventistas.org/pt/escolasabatina" rel="noopener">adventistas.org/pt/<wbr>escolasabatina</a>.</p></details>
     <h3 id="d1-tempo">Linha do tempo</h3>
     <figure class="ilus">
       <svg viewBox="0 0 340 154" role="img" aria-label="Relógio: chegue 30 a 40 minutos antes do culto. Linha do tempo: 40 minutos antes chegar, 30 antes ligar, 20 antes testar, 10 antes tudo pronto, e na hora o culto" font-family="system-ui, sans-serif">

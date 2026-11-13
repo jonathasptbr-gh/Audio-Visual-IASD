@@ -92,7 +92,6 @@ ordem; a fila é dele.
 | 7.1 | a checagem que oferece o "Atualizar agora" | | 3 | 2 | 6 | web |
 | **8** | **CI: os oráculos instáveis (residual)** | resíduo | 3 | 2 | **6** | tools |
 | 8.1 | `configuracoes-janelas` D, instrumentado | | 3 | 2 | 6 | tools |
-| 8.2 | `guia-no-app` E a 320 px: estouro calado no CI | | 3 | 2 | 6 | site + tools |
 | **9** | **Folha do vídeo: o teto e o botão "Detalhes"** | pedido | 2 | 2 | **4** | web |
 | 9.1 | sem o aviso do teto; o quinto botão sem linha própria | | 2 | 2 | 4 | web |
 | **10** | **Configurações e Ferramentas: o editor e o tile** | pedido | 2 | 2 | **4** | web |
@@ -196,19 +195,6 @@ consertados; um ficou INSTRUMENTADO, não consertado: `configuracoes-janelas` D
 RUNNER e trocá-la pelo FATO (`esperar`/`esperarDb`), nunca subir prazo; rodar sob
 carga (3 processos + `stress`) até reprovar localmente antes de consertar, e
 repetir depois. Isto protege o canal: um vermelho no `verificar` segura o bundle.
-
-### 8.2 O `guia-no-app` E a 320 px reprova calado no CI
-
-Achado em 2026-11-12, no lote da impressão A4 do guia (só `site/`). O
-`tools/guia-no-app.test.mjs` não termina com `process.exit(falhas.length ? 1 :
-0)`, então um FALHOU ali não reprova o `verificar`. Posto o exit, o caso "E · a
-320 px o guia no app também não estoura nem cobre o título" reprovou no CI com
-`{"tituloEsq":52,"sobra":18}` (18 px de rolagem lateral em
-`sonoplastia/?app=1#dia` a 320 px); o mesmo FALHOU já estava no log de `main`
-(runs #2488 e #2491) e o caso passa na máquina local — a diferença provável são
-as fontes do runner. **O lote:** achar o elemento que estoura com as fontes do
-runner (estreitar a janela localmente até reprovar), consertar a folga no CSS do
-site e pôr o exit no MESMO lote, para o canal não ficar segurado.
 
 ---
 
@@ -378,6 +364,8 @@ sobre o estudo. Nada aqui está autorizado.
 ---
 
 ## O que saiu desta lista (rastro, não log)
+
+**2026-11-13 (só `site/`):** o **8.2** — o guia aberto pelo app a 320 px sem a rolagem lateral de 18 px (a grade de atalhos do D9 e o endereço longo, medidos com a fonte do runner), e o `guia-no-app` saindo 1 com FALHOU. Nota em `docs/HISTORICO.md`; o 8.1 continua.
 
 **2026-11-12 (só `site/`):** o pacote do **Guia de sonoplastia** (anotado como "Pacote 14" por engano — o número já tinha saído na v1.13.61). A introdução (D0 e I0) entrou com o texto do operador, e as Perguntas e respostas foram **revogadas pelo operador**: *"Sobre as perguntas e respostas pode remover"*.
 

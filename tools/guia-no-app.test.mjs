@@ -15,7 +15,8 @@
 //     passa): some o "voltar ao site" do topo e do rodapé, a esquerda fica
 //     reservada ao "fechar" nativo, a âncora `#dia` permanece e o marcador sai
 //     da barra de endereço (para não viajar no link de compartilhar). Sem o
-//     marcador, o "voltar ao site" continua à vista.
+//     marcador, o "voltar ao site" continua à vista. A 320 e a 280 px, com e sem
+//     os <details> abertos, a página não ganha rolagem lateral.
 // A forma do navegador (`window.open`) é do `tour.test.mjs` (bloco F).
 //
 //   node tools/guia-no-app.test.mjs
@@ -23,7 +24,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, esperarCortina, comModoAvancado, checar, RAIZ_SITE } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, esperarCortina, comModoAvancado, checar, falhas, RAIZ_SITE } from './arnes.mjs';
 
 // `guia`: 'aceita' (o shell 87 abre), 'recusa' (devolve false) ou 'ausente' (casco antigo).
 const ponte = (guia) => `(() => {
@@ -159,15 +160,26 @@ try {
     'E · o índice aberto também reserva a esquerda ao "fechar" nativo', JSON.stringify(folha));
   await p.ctx.close();
 
-  // A 320 px (o menor celular comum) o recuo e as duas pílulas ainda cabem.
-  p = await abrirPagina(SITE + '/sonoplastia/?app=1#dia', 320);
-  const estreito = await p.pg.evaluate(() => ({
-    tituloEsq: document.querySelector('.topo-meio').getBoundingClientRect().left,
-    sobra: document.documentElement.scrollWidth - window.innerWidth,
-  }));
-  checar(estreito.tituloEsq >= 52 && estreito.sobra <= 1,
-    'E · a 320 px o guia no app também não estoura nem cobre o título', JSON.stringify(estreito));
-  await p.ctx.close();
+  // A 320 px (o menor celular comum) o recuo e as duas pílulas ainda cabem, e nada
+  // alarga a página, nem com todo <details> aberto. Os 280 px valem pela FONTE: a
+  // fonte daqui é mais estreita que o DejaVu Sans do runner, e o estouro de 18 px a
+  // 320 px (grade de atalhos do D9, endereço longo) só aparecia lá; a 280 px ele
+  // aparece com qualquer fonte (com o CSS antigo, 11 px aqui; 58 px no runner).
+  for (const largura of [320, 280]) {
+    p = await abrirPagina(SITE + '/sonoplastia/?app=1#dia', largura);
+    const estreito = await p.pg.evaluate(async () => {
+      const sobra = () => document.documentElement.scrollWidth - window.innerWidth;
+      const r = { tituloEsq: document.querySelector('.topo-meio').getBoundingClientRect().left, sobra: sobra() };
+      document.querySelectorAll('details').forEach((d) => { d.open = true; });
+      await new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)));
+      r.sobraAberto = sobra();
+      return r;
+    });
+    checar(estreito.tituloEsq >= 52 && estreito.sobra <= 1 && estreito.sobraAberto <= 1,
+      `E · a ${largura} px o guia no app também não estoura (nem com os <details> abertos) nem cobre o título`,
+      JSON.stringify(estreito));
+    await p.ctx.close();
+  }
 
   p = await abrirPagina(SITE + '/sonoplastia/');
   const semApp = await p.pg.evaluate(() => ({
@@ -185,3 +197,6 @@ try {
   servidor.close();
   servidorSite.close();
 }
+
+console.log(falhas.length ? '\n' + falhas.length + ' falha(s)' : '\ntudo certo');
+process.exit(falhas.length ? 1 : 0);
