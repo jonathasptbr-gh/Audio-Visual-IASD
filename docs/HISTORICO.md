@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o guia: capa impressa nova, e "trilha" vira "guia" (sem versão nova; só `site/` e docs)** — a 1ª página da impressão ganha a faixa da igreja (Igreja Adventista do Sétimo Dia e IASD, em texto), o nome do guia dominante, o caminho do som no azul da casa e um rodapé com endereço, data e páginas; as partes passam a se chamar "Guia de sonoplasta por um dia" e "… em tempo integral".
 - **o cartão do link, redesenhado (sem versão nova; só `site/`)** — a pedido: sai o caminho microfone → cabo → mesa → caixa e entra o posto de trabalho — um monitor com a onda na tela sobre um pé curto e, na frente, a mesa de som em perspectiva (corpo escuro, painel claro, faders e knobs), em CSS 3D; o `?v=` sobe a 2 para o cartão antigo não circular.
 - **o guia de sonoplastia ganha cartão de link (sem versão nova; só `site/`)** — a página recebe `og:*`, `twitter:card` e `canonical`, e `site/og-sonoplastia.jpg` (1200×630, 84 kB) desenha o guia: o título, a régua de nível com o pico no vermelho e, num cartão branco, o caminho do som (microfone → mesa → caixa) que abre a capa; `?v=1` porque a prévia é guardada por endereço.
 - **o guia: título de figura sempre junto da figura na impressão (sem versão nova; só `site/` e docs)** — o subtítulo ou o parágrafo curto logo antes de uma figura vai com ela para a coluna seguinte quando ela não cabe no resto da coluna; separados antes: 2 no Por um dia e 2 no Tempo integral (fonte local e Roboto; 2 e 4 com DejaVu), depois nenhum; páginas iguais (22 e 88).
@@ -724,6 +725,59 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## o guia: capa impressa nova, e "trilha" vira "guia" (sem versão nova; só `site/` e docs)
+
+- **Pedido:** "Refaça o design da capa da Versão impressa do guia de sonoplastia, o design
+  está meio confuso, faça algo mais elaborado e se possível lembre de indicar que é para
+  IASD. Também aproveite para tirar as referências a 'trilha', deixe apenas 'guia' de
+  sonoplasta por um dia e guia de sonoplasta em tempo integral."
+- **A capa de antes:** um quadro de degradê claro com tudo centrado no meio da folha — o
+  olho "GUIA DE SONOPLASTIA IASD · TRILHA 1", o h1 "Sonoplasta por um dia", a descrição do
+  cabeçalho, um desenho ambíguo (tela com zigue-zague, caixa e um "visto") e a pílula do
+  endereço; metade da folha vazia e a igreja só na sigla.
+- **A capa nova** (`pagCapa`, `capaSvg`, `CAPA`; CSS `.capa-in` e `.cv-*`), na área útil do
+  formato (18/18 mm; 25/11 no fichário): a faixa da igreja — `.cv-sigla` "IASD" num
+  quadrado de degradê denim, "IGREJA ADVENTISTA DO SÉTIMO DIA" e "Material de apoio para a
+  equipe de sonoplastia", filete na cor do guia (em TEXTO: nada do logotipo oficial); o
+  olho do público (`CAPA[GUIA].olho`, na cor do guia); o h1 de 50 pt em duas linhas,
+  "Guia de sonoplasta" e a cauda ("por um dia" / "em tempo integral") na cor do guia
+  (`--cv` = `--dia`/`--integral`) — numa fonte larga o h1 encolhe até cada metade caber
+  numa linha (DejaVu: ~43 pt); o subtítulo (`CAPA[GUIA].sub`); as fichas do `.meta` do
+  cabeçalho ("Capítulos D0 a D12", "cerca de 15 min"); o caminho do som em SVG (600 ×
+  372: degradê denim, cartão branco com microfone → mesa de 4 canais com medidor e master
+  → caixa com as ondas na cor do guia, e a régua de nível do cartão do link, com o pico no
+  amarelo e no vermelho; SVG sai na impressão mesmo sem "gráficos de fundo"); o rodapé
+  `.cv-rod`: endereço + "Áudio Visual IASD" e "Impresso em dd/mm/aaaa" + "N páginas em
+  A4" (preenchido no fim de `montar`). Conferida em captura com Roboto, em cor e em tons
+  de cinza (a cauda do h1 fica cinza médio; o branco no denim, sobre cinza escuro).
+- **"Trilha" → "guia"** (13 textos): os `.trilha-cab h2` e os h3 do índice ("Trilha 1 ·
+  Sonoplasta por um dia" → "Guia de sonoplasta por um dia"; idem "em tempo integral"); os
+  cartões da escolha (`.e-n` "Trilha 1 · D · guia rápido" → "D · o essencial", "Trilha 2
+  · I · curso" → "I · curso"; o `.e-t` passa a ser o nome do guia; `aria-label` "Escolha o
+  seu guia"); o "Como usar" ("Escolha o guia… Leia o guia D… O guia I…"); a porta de
+  entrada do I16 ("começa pelo “Guia de sonoplasta por um dia”"); o glossário ("Os termos
+  do guia"); as notas do índice impresso; o olho da capa; e o rodapé das páginas (`rodTxt`
+  = nome + " · IASD": "Guia de sonoplasta por um dia · IASD · 3"). `trilha()` devolve o
+  nome inteiro do h2 (sai o regex "Trilha N ·"), a quebra da capa e as fichas. Na tela,
+  `text-wrap:balance` no `.e-t` e no `.trilha-cab h2` (o nome mais longo deixava "dia"
+  sozinho na 2ª linha a 390 px). Ficam, por não aparecerem: as classes `.trilha`,
+  `.trilha-cab`, `.f-trilha`, `.trilha--dia`/`--integral`, a função `trilha()` e os
+  comentários. A página principal, o `<title>`, as metas e o texto do cartão do link não
+  diziam "trilha"; no app, só comentários (`controle.js`, `GuiaSom.kt`) e a "trilha de
+  áudio" do YouTube, sem relação.
+- **Páginas:** iguais — Roboto 22 e 88, DejaVu 23 e 96 (a capa continua uma página).
+- **Oráculo:** `guia-impressao` (76 ok). "J": a capa cabe inteira na 1ª página nos dois
+  formatos, dentro das margens do formato e da área útil, e diz "Igreja Adventista do
+  Sétimo Dia", IASD e o nome do guia (h1 = h2 do cabeçalho, "Guia de sonoplasta …"; 4
+  checagens). "K": nenhum "trilha" no texto — na tela, o documento inteiro (com os
+  `<details>` fechados, o `<title>` e as metas description/og:/twitter:); na impressão, as
+  páginas dos dois guias — nem nos atributos lidos (aria-label, title, alt, placeholder…;
+  3 checagens). "F" compara com o nome inteiro do guia. `tour`: a premissa procura "Guia
+  de sonoplasta por um dia" em `#dia`. Reversão: o index de antes → 9 reprovam (J×4, F×2,
+  K×3); o desenho com 150 mm de altura → J×4 (e E×4); a capa 8 mm para dentro da margem
+  do furo → J×4; a premissa do tour com o index de antes → falsa. Com a fonte do runner
+  (`FONTCONFIG_FILE`, DejaVu), 72 ok: falham só as 4 do H, como antes.
 
 ## o cartão do link, redesenhado (sem versão nova; só `site/`)
 
