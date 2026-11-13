@@ -182,6 +182,46 @@ telão numa **janela sem borda** posicionada no monitor secundário
   Para um projeto cujo argumento é *não ter dependências*, é a pior relação
   custo/benefício — a não ser que o operador queira velocidade acima de tudo.
 
+#### 3.1 Casca própria (B) × Electron (C), em profundidade
+
+Pedido do operador (2026-11-13), **depois** de fixar as quatro restrições do
+projeto: independente do celular · pública · grátis de manter · todas as funções
+do app no resultado **incluindo YouTube offline sem anúncio**. As duas
+arquiteturas atendem às quatro; o que as separa é outra coisa.
+
+| # | critério | (B) WebView2 + C# | (C) Electron | quem ganha |
+|---|---|---|---|---|
+| 1 | **A ponte** | 67 métodos em C# — ~2.500–3.500 linhas, e o remonte dos objetos do `native.js` (1.092 linhas) **precisa de um par novo** | o `native.js` **fica intacto**; só o `__AVBridge` vira Node, ~900–1.400 linhas, na mesma linguagem da base web | **C**, por ~2,5× |
+| 2 | **A incógnita do compartilhamento** | IDB/OPFS/`BroadcastChannel` entre dois controles: **não medido** (Fase 0) | **garantido**: duas janelas da mesma sessão | **C** |
+| 3 | **O peso que a igreja baixa** | ~5–10 MB de casca + ~100 MB de `yt-dlp`/`ffmpeg` ≈ **110 MB** | ~100–150 MB de Chromium + os mesmos ~100 MB ≈ **200–250 MB** | **B**, por ~2× |
+| 4 | **Atualizar o motor (segurança)** | a Microsoft atualiza o WebView2 pelo Windows/Edge — **o projeto não faz nada** | o Chromium embutido só atualiza quando o projeto publica: cada major do Electron tem ~8 meses de suporte | **B** — e isto é o "grátis de manter" |
+| 5 | **Build e CI** | exige um runner **Windows** (grátis em repo público; é um segundo workflow) | `electron-builder` empacota a partir do `ubuntu-latest` | **C**, leve |
+| 6 | **A regra "sem dependências externas"** | uma dependência first-party, pequena, já no Windows | a maior dependência possível, de terceiro | **B** |
+| 7 | **PDF** | `Windows.Data.Pdf`, nativo | uma biblioteca de PDF em JS, dependência nova | **B**, leve |
+| 8 | **RAM no culto** | ~150–250 MB (motor compartilhado) | ~300–400 MB | **B** — importa num PC modesto |
+| 9 | **Apodrecimento** | API estável; o C# não muda | acompanhar os majors do Electron é tarefa recorrente, para sempre | **B** |
+| 10 | **Prazo até a primeira versão útil** | Fase 0 + C# + a incógnita | pela metade | **C** |
+
+**O placar:** (C) ganha em **4** (ponte, incógnita, CI, prazo), (B) ganha em **6**
+(peso, segurança do motor, regra, PDF, RAM, apodrecimento). Não é empate
+técnico: são vetores diferentes — **(C) chega antes; (B) envelhece melhor.**
+
+**O que decide de verdade:** as quatro restrições do operador põem "grátis de
+manter" e "pública" no mesmo lugar. Interpretado como **dinheiro**, as duas
+empatam. Interpretado como **trabalho recorrente**, (C) tem um imposto fixo
+(a cada ~8 meses, atualizar o Electron para não servir navegador velho a uma
+igreja), e (B) não tem. Para um projeto de uma pessoa só, esse imposto é o
+critério — e é o que a seção 8 chama de manutenção.
+
+**A recomendação:** não escolher no papel. A **Fase 0** custa meio dia e mede a
+única incógnita de (B); se ela passar, a escolha vira prazo × longevidade, que
+é decisão do operador; se ela falhar, (C) é a resposta e a discussão acaba. O
+que **não** se faz é escolher (C) por medo de uma incógnita de meio dia.
+
+> **O que continua valendo nas duas:** o `yt-dlp` e o `ffmpeg` são os mesmos, o
+> telão é uma janela sem borda nas duas, e o acervo em pasta é trivial nas duas.
+> A diferença mora só na casca.
+
 ### (D) Serviço local + Edge em modo app  ⚠️ **a mais barata**
 
 Um executável .NET **sem UI** que:
