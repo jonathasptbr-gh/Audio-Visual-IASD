@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o guia: impressão em A4 retrato, simples ou fichário (sem versão nova; só `site/` e docs)** — cada página do guia vira uma folha A4 retrato, na ordem; 2 guias (Por um dia, Tempo integral) × 2 formatos (simples 18/18 mm; fichário 25/11 mm espelhado); saem Dobrar, Encadernar, A5, Completo, capítulo único e Anotações; o tutorial vira "Como imprimir"; oráculo `guia-impressao`.
 - **v1.14.6** — o "fechar" do guia à ESQUERDA, no lugar do "voltar ao site" (que some no app): o shell manda `?app=1`, a página esconde o voltar do topo e do rodapé e reserva 52 px ao botão nativo, e ainda limpa o parâmetro para ele não viajar no compartilhar; APK + site.
 - **o guia de sonoplastia: coesão e conserto dos defeitos (sem versão nova; só `site/` e docs)** — conserta os 2 botões "Para quem quer entender mais" aninhados (I1, I4), o "?" e o "dica Dica" (I23), a frase duplicada do projetor (I13) e a legenda órfã "Em breve"; some a comparação repetida do I23 e a Tabela-resumo do I17; glossário vira índice; D3/D6 e 14 tabelas enxutos
 - **o guia ganha layout dinâmico: tabelas empilhadas e figuras corrigidas (sem versão nova; só `site/` e docs)** — no celular, as 16 tabelas de 3+ colunas empilham com rótulo por linha (no computador seguem tabela); fonte única Roboto/Arial nas figuras; tamanho explícito nos 867 textos que herdavam do CSS; letra mínima de 6,2 para 9 px; estouros corrigidos
@@ -714,6 +715,79 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## o guia: impressão em A4 retrato, simples ou fichário (sem versão nova; só `site/` e docs)
+
+PEDIDO DO OPERADOR: *"Revise o layout de impressão, juntamente com o tutorial de
+montagem. Vamos simplificar, usar padrão A4 normal inteiro, para uso em fichário
+ou simplesmente impresso e usado com clips ou grampos. Eu quero fazer algo mais
+elaborado e acabado, mas acredito que esse acabamento deixaria o processo mais
+inconveniente para a maioria, então apenas organize para o padrão a4 em retrato
+normal. E dê a opção de a4 normal, impressão simples ou frente e verso ou a4
+para fichário frente e verso (com as margens para não furar conteúdo). Tudo bem
+simples. Para impressão. Duas opções de formato, e os dois formatos de
+sonoplasta por um dia e Sonoplasta em tempo integral."* Perguntado depois,
+decidiu: saem o modo "Completo" e o "capítulo único". Lote só de `site/` e
+docs: nada chega ao app.
+
+- **Agora:** o botão Imprimir abre o diálogo com 2 guias (Por um dia, o padrão;
+  Tempo integral) × 2 formatos (A4 simples, o padrão; A4 fichário). Cada página
+  do guia é uma folha A4 retrato inteira, na ordem natural, e a prévia na tela
+  É o que se imprime — sem cópia nem imposição. `@page guia-a4` (A4 retrato,
+  margem 0); os fundos saem com `print-color-adjust:exact`, sem depender da
+  caixa "gráficos de fundo".
+- **Margens:** a MESMA área útil nos dois formatos (174 × 264 mm): topo 15 mm,
+  base 18 mm com o rodapé centrado (guia, trilha e nº; a capa sem número).
+  Simples: 18/18 mm — uma face ou frente e verso, grampo no canto ou clipe.
+  Fichário: 25 mm do lado do furo e 11 do outro, espelhadas nas pares; em
+  frente e verso pela borda longa as duas margens largas caem na mesma borda.
+  Trocar de formato só desloca o texto (classe `fmt-fich`); trocar de guia
+  repagina.
+- **Motor:** o mesmo paginador, com a caixa de página trocada. Cada capítulo
+  começa em página nova (o primeiro divide a página com o cabeçalho da trilha);
+  figura, tabela, caixa, cartão e cartão de problema (`details`) vão inteiros
+  para a página seguinte e só se dividem se não couberem numa página inteira;
+  figura centrada, até 120 × 90 mm; tabela na largura útil, sem a rolagem nem
+  as setas da tela; corpo 10,5 pt. Capa com o nome real da trilha (lido do
+  `.trilha-cab`) e índice com o nº da página.
+- **Tutorial:** "Como montar" virou "Como imprimir": duas seções com desenho —
+  A4 simples (configuração, uma face ou frente e verso, grampo ou clipe, clipes
+  entre capítulos no Tempo integral) e A4 fichário (configuração, teste com as
+  páginas 1 e 2, furador de 2 ou 4 furos, frente e verso manual da própria
+  janela da impressora). Com `html.no-app`, o aviso de abrir
+  audiovisualiasd.com.br/sonoplastia no navegador se nada acontecer.
+- **SAIU:** Dobrar (lombada a cavalo), Encadernar (corte ao meio), a página A5,
+  a imposição em A4 paisagem, o modo "Completo", o capítulo único e as páginas
+  "Anotações" de enchimento (não há mais múltiplo de 4) — com o CSS, o HTML e
+  o JS de cada um.
+- **Medido** (Chromium, `page.pdf`): Por um dia = 46 páginas (46 folhas numa
+  face, 23 em frente e verso); Tempo integral = 147 páginas (147 / 74). Iguais
+  nos dois formatos; toda página 595 × 842 pt; o texto encosta em 18 mm no
+  simples e em 25/11 mm (ímpar/par) no fichário. Antes, em A5: 68 e 152
+  páginas A5.
+- **Setas, recortes e texturas na impressão** (defeito anterior ao lote): o
+  clone perde os ids, e `url(#X)` / `href="#X"` caíam no original dentro de
+  `main`, que some na impressão — recurso sem layout não pinta. Saíam sem ponta
+  as setas (D3: conectores 1→5 e DESLIGAR; 71 `<marker>` na página) e sem as
+  teclas claras o teclado do D6 (`<pattern>`); os 21 `<clipPath>` das telas do
+  app dependiam do mesmo original. Agora cada recurso apontado é copiado, com
+  as partes internas, para um `<svg>` de defs do diálogo (`X--imp`, renderizado
+  na impressão, limpo a cada remontagem) e a referência é reescrita.
+- **Oráculo novo:** `tools/guia-impressao.test.mjs`, no workflow; cobra também
+  que toda referência SVG da prévia resolva dentro do diálogo e renderizada (295
+  no Por um dia, 96 no Tempo integral).
+- **Achado fora do escopo, registrado e NÃO consertado:** o
+  `tools/guia-no-app.test.mjs` não tem `process.exit(falhas.length ? 1 : 0)`, e
+  por isso um FALHOU ali não reprova o CI (o runner lê o código de saída). Com o
+  exit posto, o run #2492 reprovou no caso "E · a 320 px o guia no app também
+  não estoura nem cobre o título" — `{"tituloEsq":52,"sobra":18}`, 18 px de
+  rolagem lateral a 320 px com `?app=1#dia` —, que já falhava CALADO em `main`
+  (runs #2488 e #2491) e passa na máquina local (fontes diferentes). O exit
+  saiu deste lote para não segurar o canal; o conserto do estouro e o exit, no
+  mesmo lote, estão no Pacote 8.2 de `PEDIDOS-EM-ESPERA.md`.
+- **Não medido:** a impressão física (impressora real, frente e verso pela
+  borda longa, furo no fichário) e a impressão de dentro do app (o WebView do
+  Android provavelmente ignora `window.print()` — daí o aviso).
 
 ## v1.14.6 — o guia com o "fechar" à esquerda e sem o "voltar ao site"
 

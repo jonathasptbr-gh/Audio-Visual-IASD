@@ -193,8 +193,8 @@
      O "fechar" é nativo e ocupa a esquerda da barra; o "voltar ao site" não
      faz sentido dentro do app e some (topo e rodapé). 3.25rem = 52px = a caixa
      do botão nativo (GuiaSomDialog), para o título não ficar embaixo dele —
-     inclusive nos cabeçalhos das telas que cobrem o guia (índice, livreto,
-     "Como montar"). */
+     inclusive nos cabeçalhos das telas que cobrem o guia (índice, impressão,
+     "Como imprimir"). */
   html.no-app .topo-volta { display:none; }
   html.no-app .topo-in { padding-left:3.25rem; }
   html.no-app .topo-meio { border-left:0; padding-left:0; }
@@ -414,203 +414,192 @@
   .compart-guia .cg-t { display:block; font-weight:800; font-size:1.02rem; }
   .compart-guia .cg-s { display:block; font-size:.82rem; color:var(--muted); }
   @media print { .compart, .compart-guia { display:none !important; } }
-  /* ===== LIVRETO A4 (botão Imprimir + caderno dobrável + imposição lombada a cavalo) ===== */
+  /* ===== IMPRESSÃO EM A4 (botão Imprimir + diálogo com a prévia; a prévia É o que se imprime) =====
+     Cada .pag é uma folha A4 retrato inteira (210 × 297 mm), na ordem natural. Os dois formatos
+     têm a MESMA área útil (174 × 264 mm): só o deslocamento horizontal muda, então paginação,
+     nº de páginas e índice são idênticos. */
   #btn-imp { min-height:44px; }
   @media (max-width:520px) {
     #btn-imp { padding-left:.7rem; padding-right:.7rem; min-width:44px; justify-content:center; }
     #btn-imp .bi-t { display:none; }
   }
 
-  /* ----- caderno (sobreposição na tela; vira o impresso na impressão) ----- */
+  /* ----- diálogo (sobreposição na tela) ----- */
   .caderno { position:fixed; inset:0; z-index:70; display:flex; flex-direction:column; background:#c9d0d8; }
   .caderno[hidden] { display:none !important; }
-  body.imprimir-livreto { overflow:hidden; }
+  body.imprimir-guia { overflow:hidden; }
   .caderno-bar {
     flex:none; display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; padding:.45rem .7rem;
-    background:#22303d; color:#fff; box-shadow:0 2px 10px -4px rgba(15,27,40,.5);
+    min-width:0; max-width:100%; background:#22303d; color:#fff; box-shadow:0 2px 10px -4px rgba(15,27,40,.5);
   }
-  .caderno-modos { flex-basis:100%; display:flex; gap:.4rem; }
-  .caderno-modo {
-    flex:1; border:1px solid rgba(255,255,255,.38); border-radius:9px;
-    background:transparent; color:#fff; font:600 .74rem/1.1 system-ui, sans-serif;
-    padding:.5rem .25rem; min-height:36px; cursor:pointer;
-  }
-  .caderno-modo[aria-pressed="true"] { background:var(--accent); border-color:var(--accent); }
-  .caderno-info { flex:1; min-width:0; font-size:.82rem; font-weight:700; line-height:1.25; }
+  .caderno-info { flex:1 1 100%; min-width:0; font-size:.82rem; font-weight:700; line-height:1.25; }
   .caderno-btn {
-    flex:none; border:0; border-radius:999px; background:var(--accent); color:#fff;
-    font:700 .85rem/1 system-ui, sans-serif; padding:.7rem .9rem; min-height:44px; cursor:pointer;
+    flex:1 1 auto; border:0; border-radius:999px; background:var(--accent); color:#fff;
+    font:700 .8rem/1 system-ui, sans-serif; padding:.55rem .6rem; min-height:40px; cursor:pointer;
   }
+  .caderno-btn-tut { background:var(--dia); }
+  .caderno-btn-tut[aria-expanded="true"] { background:var(--accent); }
   .caderno-btn-x { background:#3a3f45; }
-  .caderno-dica { flex:none; margin:0; padding:.35rem .75rem; background:var(--dia-tint); color:var(--titulo); font-size:.72rem; font-weight:600; line-height:1.35; }
-  .caderno-corpo { flex:1; overflow:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding:10px 8px 48px; }
-  .caderno-escala { width:148.5mm; margin:0 auto; transform-origin:top center; }
+  .caderno-grupos { flex:1 1 100%; display:flex; flex-wrap:wrap; gap:.4rem .9rem; min-width:0; }
+  .caderno-grupo { flex:1 1 15rem; display:flex; align-items:center; gap:.4rem; min-width:0; }
+  .caderno-grupo-t {
+    flex:none; width:4.2rem; font-size:.68rem; font-weight:700; letter-spacing:.05em;
+    text-transform:uppercase; color:rgba(255,255,255,.78);
+  }
+  .caderno-opc {
+    flex:1 1 0; min-width:0; border:1px solid rgba(255,255,255,.38); border-radius:9px;
+    background:transparent; color:#fff; font:600 .78rem/1.1 system-ui, sans-serif;
+    padding:.5rem .25rem; min-height:38px; cursor:pointer;
+  }
+  .caderno-opc[aria-pressed="true"] { background:var(--accent); border-color:var(--accent); }
+  @media (min-width:760px) {
+    .caderno-info { flex:1 1 20rem; }
+    .caderno-btn { flex:none; padding:.6rem 1.1rem; }
+    .caderno-grupo { flex:0 1 25rem; }
+  }
+  .caderno-dica { flex:none; margin:0; padding:.35rem .75rem; background:var(--dia-tint); color:var(--titulo); font-size:.74rem; font-weight:600; line-height:1.35; }
+  /* a pilha é reduzida por transform: a caixa de layout (210 mm) não pode virar rolagem horizontal */
+  .caderno-corpo { flex:1; overflow:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding:10px 8px 48px; }
+  .caderno-escala { width:210mm; margin:0 auto; transform-origin:top left; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   .caderno-escala.lb-medindo { position:fixed; left:-4000px; top:0; transform:none !important; }
-  .caderno-sprite { position:absolute; width:0; height:0; overflow:hidden; }
+  /* sprite e defs da prévia: fora da vista, mas RENDERIZADOS também na impressão (display:none apagaria setas e texturas) */
+  .caderno-sprite, .caderno-defs { position:absolute; width:0; height:0; overflow:hidden; }
 
-  /* ----- página A5 ----- */
+  /* ----- página A4 retrato. Topo 15 mm; base 18 mm (o rodapé mora nela); laterais por formato:
+     simples 18/18; fichário 25 do lado do furo e 11 do outro, espelhadas nas páginas pares ----- */
   .pag {
-    width:148.5mm; height:210mm; margin:0 auto 16px; background:#fff; position:relative;
+    --m-esq:18mm; --m-dir:18mm;
+    width:210mm; height:297mm; margin:0 auto 16px; background:#fff; position:relative;
     display:flex; flex-direction:column; overflow:hidden;
     box-shadow:0 1px 2px rgba(15,27,40,.1), 0 8px 24px -12px rgba(15,27,40,.35);
   }
-  .pag-cab {
-    flex:none; display:flex; justify-content:space-between; gap:.5rem;
-    padding:2.6mm 7mm 1.4mm; border-bottom:.5pt solid var(--rule);
-    font-size:6.6pt; color:var(--muted); line-height:1.2;
-  }
-  .pag-cab-t { font-weight:700; }
-  .pag-cab-r { font-weight:700; color:var(--accent); }
-  .pag-conteudo { flex:1 1 0; min-height:0; overflow:hidden; padding:3.2mm 7mm 2mm; }
+  .fmt-fich .pag.impar { --m-esq:25mm; --m-dir:11mm; }
+  .fmt-fich .pag.par { --m-esq:11mm; --m-dir:25mm; }
+  .pag-conteudo { flex:1 1 0; min-height:0; overflow:hidden; padding:15mm var(--m-dir) 0 var(--m-esq); }
   .pag-rod {
-    flex:none; display:flex; justify-content:space-between; gap:.5rem;
-    padding:1.4mm 7mm 2.6mm; border-top:.5pt solid var(--rule);
-    font-size:6.8pt; color:var(--muted); line-height:1.2;
+    flex:none; height:18mm; box-sizing:border-box; padding:3.5mm var(--m-dir) 0 var(--m-esq);
+    font-size:8pt; line-height:1.2; color:var(--muted); text-align:center;
   }
+  .pag-rod-in { display:block; padding-top:2mm; border-top:.5pt solid var(--rule); }
   .pag-rod .pn { font-weight:800; color:var(--titulo); }
+  /* marcas de furo: só na prévia do fichário */
+  @media screen {
+    .fmt-fich .pag::before {
+      content:""; position:absolute; top:0; bottom:0; width:24mm; pointer-events:none;
+      background:radial-gradient(circle at 12mm 108.5mm, #d3dae2 0 3mm, transparent 3.1mm),
+                 radial-gradient(circle at 12mm 188.5mm, #d3dae2 0 3mm, transparent 3.1mm);
+    }
+    .fmt-fich .pag.impar::before { left:0; }
+    .fmt-fich .pag.par::before { right:0; }
+  }
 
-  /* ----- tipografia do miolo (9,5–10 pt, respiros curtos) ----- */
-  .pag { font-size:9.5pt; line-height:1.42; }
-  .pag h2 { font-size:13pt; margin:.2rem 0 .4rem; }
-  .pag h3 { font-size:10.6pt; margin:.9rem 0 .25rem; }
-  .pag h4 { font-size:9.6pt; margin:.6rem 0 .2rem; }
-  .pag p { margin:.3rem 0; }
-  .pag ul, .pag ol { padding-left:1.15rem; margin:.3rem 0; }
-  .pag li { margin:.12rem 0; }
-  .pag section.cap, .pag .bloco { background:#fff; border-radius:0; box-shadow:none; padding:0; margin:0; }
-  .pag .resumo { font-size:8.6pt; margin:0 0 .4rem; }
-  .pag .trilha-cab { border-radius:8px; padding:.6rem .8rem .55rem; box-shadow:none; }
-  .pag .trilha-cab h2 { color:#fff; font-size:12.5pt; margin:0 0 .2rem; }
-  .pag .trilha-cab p { font-size:8.8pt; margin:.15rem 0; }
-  .pag .trilha-cab .meta { font-size:.66rem; padding:.1rem .5rem; }
-  .pag .cod { font-size:.62rem; padding:.22rem .38rem; top:0; }
+  /* ----- tipografia (corpo 10,5 pt) ----- */
+  .pag { font-size:10.5pt; line-height:1.45; }
+  .pag h2, .pag section.cap > h2 { font-size:16pt; margin:0 0 .5rem; }
+  .pag h3 { font-size:12.5pt; margin:1rem 0 .3rem; }
+  .pag h4 { font-size:11pt; margin:.7rem 0 .25rem; }
+  .pag p { margin:.35rem 0; }
+  .pag ul, .pag ol { padding-left:1.3rem; margin:.35rem 0; }
+  .pag li { margin:.15rem 0; }
+  .pag section.cap, .pag .bloco { background:#fff; border:0; border-radius:0; box-shadow:none; padding:0; margin:0; }
+  .pag .resumo { font-size:9.8pt; margin:0 0 .5rem; }
+  .pag .trilha-cab { border-radius:10px; padding:5mm 6mm 4.5mm; margin:0 0 7mm; box-shadow:none; }
+  .pag .trilha-cab h2 { color:#fff; font-size:18pt; margin:0 0 .3rem; }
+  .pag .trilha-cab p { font-size:10.5pt; margin:.2rem 0; }
+  .pag .trilha-cab .meta { font-size:8.5pt; padding:.12rem .55rem; }
+  .pag .cod { font-size:9pt; padding:.25rem .45rem; top:0; }
 
-  /* ----- figuras: nunca estourar a página ----- */
-  .pag figure.ilus { margin:.55rem 0; padding:.4rem .3rem .35rem; border-radius:8px; }
-  .pag figure.ilus svg { max-height:138mm; }
-  .pag figure.ilus figcaption { font-size:7.4pt; margin-top:.3rem; }
-  .pag figure.ilus.lb-enc svg { max-height:96mm; }
-  .pag figure.ilus.lb-enc figcaption { font-size:6.8pt; }
-  .pag .lb-enc { font-size:8.4pt; }
+  /* ----- figuras: centralizadas, até ~120 mm de largura e altura limitada ----- */
+  .pag figure.ilus { max-width:124mm; margin:.6rem auto; padding:.45rem .4rem .4rem; border-radius:8px; }
+  .pag figure.ilus svg { display:block; width:100%; max-width:120mm; max-height:90mm; margin:0 auto; }
+  .pag details.sintoma > figure.ilus, .pag details.mais > figure.ilus { margin-left:auto; margin-right:auto; }
+  .pag figure.ilus figcaption { font-size:8.6pt; margin-top:.3rem; }
+  .pag figure.ilus.lb-enc svg { max-height:80mm; }
+  .pag .lb-enc { font-size:9.4pt; }
 
-  /* ----- caixas, cards, detalhes ----- */
-  .pag .box { border-radius:8px; padding:.5rem .65rem; margin:.45rem 0; font-size:8.8pt; border-left-width:4px; }
-  .pag .box > .box-t { font-size:.92em; }
-  .pag .cartao { border-radius:8px; padding:.5rem .6rem; }
+  /* ----- caixas, cartões, detalhes ----- */
+  .pag .box { border-radius:8px; padding:.55rem .75rem; margin:.5rem 0; font-size:10pt; border-left-width:4px; }
+  .pag .box > .box-t { font-size:.95em; }
+  .pag .cartao { border-radius:8px; padding:.55rem .7rem; }
   .pag .grade2 { display:block; }
-  .pag details.mais { margin:.45rem 0; border-radius:8px; }
-  .pag details.mais > summary { padding:.4rem .6rem; font-size:9.3pt; }
+  .pag details.mais { margin:.5rem 0; border-radius:8px; }
+  .pag details.mais > summary { padding:.45rem .7rem; font-size:10.5pt; }
   .pag details.mais > summary::before { content:""; }
-  .pag details.mais > :not(summary) { margin-left:.6rem; margin-right:.6rem; }
-  .pag details.sintoma { margin:.4rem 0; border-radius:8px; }
-  .pag details.sintoma > summary { padding:.45rem .6rem; font-size:9.3pt; }
+  .pag details.mais > :not(summary) { margin-left:.7rem; margin-right:.7rem; }
+  .pag details.sintoma { margin:.45rem 0; border-radius:8px; }
+  .pag details.sintoma > summary { padding:.5rem .7rem; font-size:10.5pt; }
   .pag details.sintoma > summary::before { content:"⚠ "; }
-  .pag details.sintoma > :not(summary) { margin-left:.6rem; margin-right:.6rem; }
-  .pag .d-10s { margin:.3rem 0 .8rem; padding:.5rem .6rem .55rem; border-radius:8px; }
-  .pag .d-10s-t { font-size:.68rem; margin-bottom:.3rem; }
-  .pag .d-10s ul, .pag ul.d-lista { gap:.3rem; }
-  .pag .d-10s li, .pag ul.d-lista li { gap:.45rem; }
-  .pag .d-10s li svg, .pag ul.d-lista li svg { width:7mm; height:7mm; padding:1.2mm; border-width:1.5pt; }
-  .pag .d-bt { font-size:.68em; padding:.15em .4em .12em; }
+  .pag details.sintoma > :not(summary) { margin-left:.7rem; margin-right:.7rem; }
+  .pag .d-10s { margin:.35rem 0 .9rem; padding:.6rem .75rem .65rem; border-radius:8px; }
+  .pag .d-10s-t { font-size:8pt; margin-bottom:.35rem; }
+  .pag .d-10s ul, .pag ul.d-lista { gap:.35rem; }
+  .pag .d-10s li, .pag ul.d-lista li { gap:.55rem; }
+  .pag .d-10s li svg, .pag ul.d-lista li svg { width:8.5mm; height:8.5mm; padding:1.5mm; border-width:1.5pt; }
+  .pag .d-bt { font-size:.72em; padding:.15em .4em .12em; }
   .pag .d9-atalhos { display:none; }
 
-  /* ----- listas de conferência: quadradinho imprimível ----- */
-  .pag ul.check { margin:.35rem 0; }
-  .pag ul.check label { padding:.3rem .1rem; gap:.5rem; }
-  .pag ul.check .lb-q {
-    flex:none; width:3mm; height:3mm; margin-top:1mm; border:1.1pt solid #55606d; border-radius:.6mm;
-  }
+  /* ----- listas de conferência: quadradinho para marcar à caneta ----- */
+  .pag ul.check { margin:.4rem 0; }
+  .pag ul.check label { padding:.22rem .1rem; gap:.55rem; }
+  .pag ul.check .lb-q { flex:none; width:3.6mm; height:3.6mm; margin-top:.9mm; border:1.2pt solid #55606d; border-radius:.7mm; }
 
-  /* ----- tabelas: encolher, fatias com thead repetido ----- */
-  .pag .tabela { margin:.4rem 0; border-radius:8px; overflow:visible; }
-  .pag .tabela table { min-width:0; width:100%; font-size:7.6pt; }
-  .pag .tabela th, .pag .tabela td { padding:.28rem .4rem; }
-  .pag .tabela th { font-size:6.6pt; }
-  .pag .tabela.lb-enc table { font-size:6.8pt; }
+  /* ----- tabelas: na largura útil, inteiras, sem a rolagem nem as setas da tela ----- */
+  .pag .tabela { margin:.5rem 0; border-radius:8px; overflow:visible; }
+  .pag .tabela .rolo { overflow:visible; }
+  .pag .tabela table, .pag .tabela.desliza table { table-layout:auto; min-width:0; width:100%; font-size:9pt; }
+  .pag .tabela th, .pag .tabela td, .pag .tabela.desliza th, .pag .tabela.desliza td { width:auto; min-width:0; max-width:none; padding:.32rem .45rem; }
+  .pag .tabela th { font-size:8pt; }
+  .pag .tabela.lb-enc table { font-size:8pt; }
 
   /* ----- glossário ----- */
-  .pag dl.glossario dt { margin-top:.45rem; }
-  .pag dl.glossario dd { margin:.05rem 0 0; font-size:9pt; }
-  .pag kbd { font-size:.72em; border-bottom-width:2px; padding:0 .3em; }
+  .pag dl.glossario dt { margin-top:.5rem; }
+  .pag dl.glossario dd { margin:.05rem 0 0; font-size:10pt; }
+  .pag kbd { font-size:.75em; border-bottom-width:2px; padding:0 .3em; }
 
-  /* ----- capa própria ----- */
-  .pag--capa .pag-cab, .pag--capa .pag-rod { visibility:hidden; }
-  .pag-conteudo.pag-capa {
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    text-align:center; padding:8mm 10mm; background:linear-gradient(180deg,#fff 0%,#eef2f6 100%);
+  /* ----- capa (pág. 1, sem número) ----- */
+  .pag--capa .pag-rod { visibility:hidden; }
+  .pag-conteudo.pag-capa { display:flex; flex-direction:column; padding-bottom:6mm; }
+  .capa-in {
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:12mm 12mm; border:1pt solid var(--rule); border-radius:6mm;
+    background:linear-gradient(180deg,#fff 0%,#eef2f6 100%);
   }
-  .pag-capa .capa-olho { font-size:7.5pt; font-weight:800; letter-spacing:.22em; text-transform:uppercase; color:var(--accent); margin-bottom:6mm; }
-  .pag-capa h1 { font-size:23pt; line-height:1.08; margin:0 0 4mm; letter-spacing:-.02em; }
-  .pag-capa .capa-sub { font-size:11pt; color:var(--muted); margin:0 0 8mm; }
-  .pag-capa .capa-svg { width:96mm; height:auto; margin:0 0 8mm; }
-  .pag-capa .capa-note {
-    margin:0; padding:.35rem .7rem; border:1.2pt solid var(--rule); border-radius:999px;
-    font-size:7.6pt; font-weight:700; color:var(--muted); letter-spacing:.04em;
-  }
-  .pag-capa .capa-modo { margin:.8mm 0 0; font-size:8pt; font-weight:800; color:var(--accent); letter-spacing:.06em; }
+  .capa-olho { font-size:10pt; font-weight:800; letter-spacing:.2em; text-transform:uppercase; color:var(--accent); margin-bottom:9mm; }
+  .capa-in h1 { font-size:34pt; font-weight:800; line-height:1.08; margin:0 0 6mm; letter-spacing:-.02em; color:var(--dia); }
+  .capa-in.int h1 { color:var(--integral); }
+  .capa-sub { max-width:130mm; font-size:13pt; line-height:1.4; color:var(--muted); margin:0 0 12mm; }
+  .capa-svg { width:120mm; height:auto; margin:0 0 12mm; }
+  .capa-note { margin:0; padding:.4rem .9rem; border:1.2pt solid var(--rule); border-radius:999px; font-size:9.5pt; font-weight:700; color:var(--muted); letter-spacing:.03em; }
 
-  /* ----- índice do livreto ----- */
-  .pag .lb-ind-t { margin:.7rem 0 .2rem; font-size:8pt; text-transform:uppercase; letter-spacing:.07em; color:var(--dia); }
+  /* ----- índice (pág. 2) ----- */
+  .pag .lb-ind-t { margin:.9rem 0 .25rem; font-size:9pt; text-transform:uppercase; letter-spacing:.07em; color:var(--dia); }
   .pag .lb-ind-t.int { color:var(--integral); }
-  .pag ul.lb-ind { list-style:none; padding:0; margin:0 0 .2rem; }
-  .pag ul.lb-ind li { display:flex; align-items:baseline; gap:.5rem; padding:.18rem 0; border-bottom:.5pt solid var(--panel-2); margin:0; }
-  .pag ul.lb-ind .ic { min-width:7.5mm; font-size:.6rem; padding:.16rem .2rem; }
-  .pag ul.lb-ind .lb-t { flex:1; font-size:9pt; }
-  .pag ul.lb-ind .lb-pg { flex:none; font-weight:800; font-size:8.6pt; color:var(--titulo); }
-
-  /* ----- anotações ----- */
-  .pag-conteudo.pag-anot { display:flex; flex-direction:column; }
-  .pag-conteudo.pag-anot h3 { flex:none; margin:.1rem 0 .5rem; }
-  .lb-linhas { flex:1; min-height:0; background:repeating-linear-gradient(to bottom, transparent 0 6.9mm, var(--rule) 6.9mm calc(6.9mm + .35pt)); }
-
-  /* ----- cores na impressão ----- */
-  .pag .trilha-cab, .pag .cod, .pag .ic, .pag .box, .pag .d-10s, .pag .d-bt, .pag .lb-q,
-  .pag figure.ilus, .pag .pag-cab, .pag .pag-rod, .pag .tabela th, .pag .pag-capa {
-    -webkit-print-color-adjust:exact; print-color-adjust:exact;
-  }
+  .pag ul.lb-ind { list-style:none; padding:0; margin:0 0 .25rem; }
+  .pag ul.lb-ind li { display:flex; align-items:baseline; gap:.6rem; padding:.3rem 0; border-bottom:.5pt solid var(--panel-2); margin:0; }
+  .pag ul.lb-ind .ic { min-width:9mm; font-size:8pt; padding:.18rem .25rem; text-align:center; }
+  .pag ul.lb-ind .lb-t { flex:1; font-size:10.5pt; }
+  .pag ul.lb-ind .lb-pg { flex:none; font-weight:800; font-size:10pt; color:var(--titulo); }
 
   /* As margens dos filhos colapsavam ATRAVÉS do agrupador/caixa: a soma de alturas feita pelo
-     paginador (resta/cheio) errava, a página parecia ter espaço de sobra e a última linha
-     invadia o rodapé. display:flow-root faz cada um conter as margens dos filhos. */
+     paginador (resta/cheio) errava e a última linha invadia o rodapé. display:flow-root faz
+     cada um conter as margens dos filhos. */
   .pag .lb-grp, .pag details, .pag .cartao, .pag .box { display:flow-root; }
 
-  /* ----- imposição A4 (só na impressão) ----- */
-  @page livreto { size: A4 landscape; margin: 0; }
+  /* ----- na impressão: só as páginas, uma por lado de folha ----- */
+  @page guia-a4 { size:A4 portrait; margin:0; }
   @media print {
-    body.imprimir-livreto { padding-top:0; overflow:visible; }
-    body.imprimir-livreto .topo, body.imprimir-livreto main, body.imprimir-livreto .rodape,
-    body.imprimir-livreto .folha, body.imprimir-livreto .aviso { display:none !important; }
+    body.imprimir-guia { padding-top:0; overflow:visible; background:#fff; }
+    body.imprimir-guia .topo, body.imprimir-guia main, body.imprimir-guia .rodape,
+    body.imprimir-guia .folha, body.imprimir-guia .aviso { display:none !important; }
     .caderno { position:static; inset:auto; display:block; background:#fff; }
-    .caderno-bar, .caderno-dica, .caderno-tut, .caderno-corpo, .caderno-sprite { display:none !important; }
-    .caderno-imp { display:block !important; }
-    .folha-l {
-      position:relative; width:297mm; background:#fff;
-      page:livreto;
-    }
-    .folha-l .lado {
-      position:relative; width:297mm; height:210mm; overflow:hidden;
-      break-after:page; page-break-after:always;
-    }
-    .folha-l .lado:last-child { break-after:auto; page-break-after:auto; }
-    .folha-l .pag { position:absolute; top:0; margin:0; box-shadow:none; }
-    .folha-l .pag.pos-e { left:0; }
-    .folha-l .pag.pos-d { left:148.5mm; }
-    .caderno-imp section.cap, .caderno-imp .bloco { border:0; }
-    .caderno-imp .box, .caderno-imp figure.ilus, .caderno-imp details.sintoma, .caderno-imp .ind-lista li { break-inside:auto; }
+    .caderno-bar, .caderno-dica, .caderno-tut { display:none !important; }
+    .caderno-corpo { display:block; overflow:visible; padding:0; }
+    .caderno-escala { margin:0 !important; transform:none !important; height:auto !important; }
+    .pag { margin:0; box-shadow:none; page:guia-a4; break-after:page; page-break-after:always; }
+    .pag:last-child { break-after:auto; page-break-after:auto; }
   }
 
-  /* ===== LIVRETO: seletor de capítulo + métodos de montagem + tutorial ===== */
-  .caderno-opcoes { flex-basis:100%; display:flex; flex-wrap:wrap; gap:.4rem; align-items:stretch; min-width:0; }
-  .caderno-sel {
-    flex:1 1 100%; min-width:0; border:1px solid rgba(255,255,255,.38); border-radius:9px;
-    background:#2f3945; color:#fff; font:600 .72rem/1.1 system-ui, sans-serif;
-    padding:.4rem .3rem; min-height:36px;
-  }
-  .caderno-metodos { flex:1 1 100%; display:flex; gap:.4rem; }
-  .caderno-btn-tut { background:var(--dia); }
-  .caderno-btn-tut[aria-expanded="true"] { background:var(--accent); }
-
-  /* ----- tutorial "Como montar" (painel dentro do caderno) ----- */
+  /* ----- tutorial "Como imprimir" (painel dentro do diálogo) ----- */
   .caderno-tut {
     position:fixed; inset:0; z-index:90; background:rgba(15,27,40,.62);
     display:flex; align-items:flex-start; justify-content:center; padding:12px 10px;
@@ -630,38 +619,17 @@
     color:#fff; font-size:1.4rem; line-height:1; cursor:pointer;
   }
   .tut-corpo { overflow:auto; padding:.4rem .9rem 1.1rem; }
-  .tut-intro { font-size:.84rem; color:var(--muted); margin:.5rem 0 .1rem; line-height:1.4; }
+  .tut-intro { font-size:.86rem; color:var(--muted); margin:.5rem 0 .3rem; line-height:1.4; }
   .tut-met { border-top:1px solid var(--panel-2); padding:.65rem 0 .35rem; }
   .tut-met h3 { margin:0 0 .3rem; font-size:.98rem; color:var(--titulo); }
   .tut-met ol { margin:.3rem 0 .4rem; padding-left:1.2rem; font-size:.86rem; line-height:1.42; }
   .tut-met li { margin:.22rem 0; }
   .tut-quando { margin:.3rem 0 0; padding:.45rem .6rem; border-radius:9px; background:var(--dia-tint); font-size:.82rem; line-height:1.42; }
   .tut-svg { width:100%; max-width:330px; height:auto; display:block; margin:.35rem auto; background:var(--panel-2); border-radius:10px; }
-  .tut-rec { border-top:1px solid var(--panel-2); padding:.65rem 0 .4rem; }
-  .tut-rec h3 { margin:0 0 .3rem; font-size:.98rem; color:var(--titulo); }
-  .tut-rec ul { margin:.3rem 0; padding-left:1.2rem; font-size:.85rem; line-height:1.45; }
-  .tut-rec li { margin:.22rem 0; }
-
-  /* ----- impressão: página nomeada retrato para o fichário ----- */
-  @page livreto-port { size: A4 portrait; margin: 0; }
-  @media print {
-    .caderno-tut { display:none !important; }
-    /* Fichário: folha A4 retrato, uma página A5 no canto direito (furo à esquerda) */
-    .caderno-imp.met-fich .folha-l {
-      width:210mm; height:297mm; page:livreto-port;
-      break-after:page; page-break-after:always;
-    }
-    .caderno-imp.met-fich .folha-l:last-child { break-after:auto; page-break-after:auto; }
-    .caderno-imp.met-fich .folha-l .pag, .caderno-imp.met-fich .folha-l .pag.pos-d { left:61.5mm; }
-  }
-
-  /* barra compacta: info + 3 botões cabem em 393 px sem rolagem horizontal */
-  .caderno-bar { min-width:0; max-width:100%; }
-  .caderno-bar .caderno-info { flex:1 1 100%; }
-  .caderno-bar .caderno-btn { flex:1 1 auto; padding:.55rem .6rem; font-size:.8rem; min-height:40px; }
-  /* a pilha A5 é reduzida por transform: sua caixa de layout (148,5 mm) criava rolagem horizontal vazia */
-  .caderno-corpo { overflow-x:hidden; }
   .tut-aviso { margin:.4rem 0 .2rem; padding:.45rem .6rem; border-radius:9px; background:#fff3cd; color:#5c4400; font-size:.82rem; line-height:1.42; }
+  /* o WebView do app pode ignorar window.print(): o aviso só aparece aberto pelo app */
+  .tut-so-app { display:none; }
+  html.no-app .tut-so-app { display:block; }
 </style>
 </head>
 <body>
@@ -674,7 +642,7 @@
       <span class="topo-atual" id="topo-atual" aria-live="off">Início</span>
     </div>
     <a class="topo-btn" href="#indice" id="btn-indice" data-abre-folha role="button" aria-controls="folha"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Índice</a>
-    <button type="button" class="topo-btn" id="btn-imp" aria-label="Imprimir o guia como livreto A4" aria-haspopup="dialog" aria-controls="caderno" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><rect x="6" y="14" width="12" height="8" rx="1.5"/><path d="M6 17H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/></svg><span class="bi-t">Imprimir</span></button>
+    <button type="button" class="topo-btn" id="btn-imp" aria-label="Imprimir o guia em folhas A4" aria-haspopup="dialog" aria-controls="caderno" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><rect x="6" y="14" width="12" height="8" rx="1.5"/><path d="M6 17H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/></svg><span class="bi-t">Imprimir</span></button>
   </div>
   <div class="topo-prog" id="topo-prog" aria-hidden="true"></div>
 </header>
@@ -6340,124 +6308,92 @@
 
 </main>
 
-<!-- LIVRETO: caderno (cole antes do <footer class="rodape">, ~linha 4210) -->
-<div class="caderno" id="caderno" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-label="Livreto A4 para imprimir">
+<!-- IMPRESSÃO: diálogo com a prévia das folhas A4 (o script 10 monta as páginas) -->
+<div class="caderno" id="caderno" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-label="Imprimir o guia em folhas A4">
   <div class="caderno-bar nao-imprime">
-    <span class="caderno-info" id="caderno-info">Livreto A4 — montando…</span>
+    <span class="caderno-info" id="caderno-info" aria-live="polite">Montando as páginas…</span>
     <button type="button" class="caderno-btn" id="caderno-print">Imprimir agora</button>
-    <button type="button" class="caderno-btn caderno-btn-tut" id="caderno-tut" aria-haspopup="dialog" aria-controls="caderno-tut-p" aria-expanded="false">Como montar</button>
+    <button type="button" class="caderno-btn caderno-btn-tut" id="caderno-tut" aria-haspopup="dialog" aria-controls="caderno-tut-p" aria-expanded="false">Como imprimir</button>
     <button type="button" class="caderno-btn caderno-btn-x" id="caderno-x">Fechar</button>
-    <div class="caderno-modos" id="caderno-modos" role="group" aria-label="Modo do livreto">
-      <button type="button" class="caderno-modo" data-modo="completo" aria-pressed="true">Completo</button>
-      <button type="button" class="caderno-modo" data-modo="dia" aria-pressed="false">Por um dia</button>
-      <button type="button" class="caderno-modo" data-modo="integral" aria-pressed="false">Tempo integral</button>
-    </div>
-    <div class="caderno-opcoes">
-      <select class="caderno-sel" id="caderno-cap" aria-label="Imprimir só um capítulo (capítulo único)"></select>
-      <div class="caderno-modos caderno-metodos" id="caderno-metodos" role="group" aria-label="Método de montagem">
-        <button type="button" class="caderno-modo" data-met="dobrar" aria-pressed="true">Dobrar</button>
-        <button type="button" class="caderno-modo" data-met="fich" aria-pressed="false">Fichário</button>
-        <button type="button" class="caderno-modo" data-met="enc" aria-pressed="false">Encadernar</button>
+    <div class="caderno-grupos">
+      <div class="caderno-grupo" id="caderno-guias" role="group" aria-labelledby="caderno-guias-t">
+        <span class="caderno-grupo-t" id="caderno-guias-t">Guia</span>
+        <button type="button" class="caderno-opc" data-guia="dia" aria-pressed="true">Por um dia</button>
+        <button type="button" class="caderno-opc" data-guia="integral" aria-pressed="false">Tempo integral</button>
+      </div>
+      <div class="caderno-grupo" id="caderno-formatos" role="group" aria-labelledby="caderno-formatos-t">
+        <span class="caderno-grupo-t" id="caderno-formatos-t">Formato</span>
+        <button type="button" class="caderno-opc" data-fmt="simples" aria-pressed="true">A4 simples</button>
+        <button type="button" class="caderno-opc" data-fmt="fich" aria-pressed="false">A4 fichário</button>
       </div>
     </div>
   </div>
-  <p class="caderno-dica nao-imprime" id="caderno-dica">A4 · paisagem · margens: nenhuma · frente e verso virando na <b>BORDA CURTA</b> · marque “gráficos de fundo”</p>
-  <div class="caderno-tut nao-imprime" id="caderno-tut-p" hidden role="dialog" aria-modal="true" aria-label="Como montar o livreto">
+  <p class="caderno-dica nao-imprime" id="caderno-dica">Papel A4 · Retrato · Margens: Padrão · Escala 100% · uma face ou frente e verso (borda longa)</p>
+  <div class="caderno-tut nao-imprime" id="caderno-tut-p" hidden role="dialog" aria-modal="true" aria-labelledby="caderno-tut-t">
     <div class="tut-painel">
       <div class="tut-cab">
-        <h2>Como montar</h2>
+        <h2 id="caderno-tut-t">Como imprimir</h2>
         <button type="button" class="tut-x" id="caderno-tut-x" aria-label="Fechar o tutorial">×</button>
       </div>
       <div class="tut-corpo">
-        <p class="tut-intro">A prévia na tela é a mesma nos três métodos: o método só muda a disposição das páginas nas folhas A4 na hora de imprimir. Escolha o método antes de imprimir.</p>
-        <section class="tut-met" aria-labelledby="tut-t-dobrar">
-          <h3 id="tut-t-dobrar">Dobrar — lombada a cavalo</h3>
-          <svg class="tut-svg" id="ym-dobrar" viewBox="0 0 340 150" role="img" aria-label="Folha A4 dobrada ao meio com grampos na dobra" font-family="system-ui, sans-serif">
-            <rect x="36" y="14" width="124" height="102" rx="5" fill="#eef2f6" stroke="#2f557f" stroke-width="2.5"/>
-            <rect x="160" y="14" width="124" height="102" rx="5" fill="#fff" stroke="#2f557f" stroke-width="2.5"/>
-            <line x1="160" y1="14" x2="160" y2="116" stroke="#2f557f" stroke-width="2.5" stroke-dasharray="6 4"/>
-            <rect x="152" y="40" width="16" height="5" rx="1" fill="#3a3f45"/>
-            <rect x="152" y="88" width="16" height="5" rx="1" fill="#3a3f45"/>
-            <text x="98" y="66" font-size="15" font-weight="700" fill="#22303d" text-anchor="middle">pág. par</text>
-            <text x="222" y="66" font-size="15" font-weight="700" fill="#22303d" text-anchor="middle">pág. ímpar</text>
-            <text x="160" y="138" font-size="15" font-weight="700" fill="#1f7a6d" text-anchor="middle">dobre ao meio · grampeie na dobra</text>
+        <p class="tut-intro">Escolha o guia e o formato na barra e toque em <b>Imprimir agora</b>. Dá para imprimir pelo navegador do computador ou do celular.</p>
+        <p class="tut-aviso tut-so-app">Pelo app, se nada acontecer ao tocar em <b>Imprimir agora</b>, abra <b>audiovisualiasd.com.br/sonoplastia</b> no navegador.</p>
+        <section class="tut-met" aria-labelledby="tut-t-simples">
+          <h3 id="tut-t-simples">A4 simples</h3>
+          <svg class="tut-svg" id="tut-svg-simples" viewBox="0 0 340 150" role="img" aria-label="Folhas A4 grampeadas no canto superior esquerdo, ou presas com um clipe" font-family="system-ui, sans-serif">
+            <rect x="50" y="18" width="84" height="110" rx="4" fill="#eef2f6" stroke="#2f557f" stroke-width="2.5"/>
+            <rect x="42" y="10" width="84" height="110" rx="4" fill="#fff" stroke="#2f557f" stroke-width="2.5"/>
+            <path d="M58 44h52M58 58h52M58 72h52M58 86h34" stroke="#c6cfd9" stroke-width="4" stroke-linecap="round"/>
+            <path d="M48 27l13-13" stroke="#3a3f45" stroke-width="4.5" stroke-linecap="round"/>
+            <rect x="214" y="18" width="84" height="110" rx="4" fill="#eef2f6" stroke="#2f557f" stroke-width="2.5"/>
+            <rect x="206" y="10" width="84" height="110" rx="4" fill="#fff" stroke="#2f557f" stroke-width="2.5"/>
+            <path d="M222 44h52M222 58h52M222 72h52M222 86h34" stroke="#c6cfd9" stroke-width="4" stroke-linecap="round"/>
+            <path d="M236 6h24l-3 16h-18z" fill="#3a3f45"/>
+            <path d="M240 6l-5-5M256 6l5-5" fill="none" stroke="#3a3f45" stroke-width="2.5" stroke-linecap="round"/>
+            <text x="88" y="144" font-size="15" font-weight="700" fill="#1f7a6d" text-anchor="middle">grampo no canto</text>
+            <text x="252" y="144" font-size="15" font-weight="700" fill="#1f7a6d" text-anchor="middle">ou clipe</text>
           </svg>
           <ol>
-            <li>Imprima em A4 paisagem, sem margens e com “gráficos de fundo” marcado.</li>
-            <li>Frente e verso, virando na <b>borda curta</b>. Impressora só de frente? Imprima a frente da pilha, vire as folhas pela borda curta e imprima o verso.</li>
-            <li>Junte as folhas na ordem em que saíram da impressora: a primeira (a da capa) por fora, a última por dentro.</li>
-            <li>Dobre a pilha ao meio, no meio da folha.</li>
-            <li>Grampeie na dobra: grampeador de longo alcance, ou 2 grampos normais colocados de fora para dentro (abra a pilha sobre uma superfície macia).</li>
+            <li>Na janela da impressora: papel <b>A4</b>, <b>retrato</b>, margens <b>Padrão</b>, escala <b>100%</b>.</li>
+            <li>Uma face só, ou frente e verso virando na <b>borda longa</b>: as margens são iguais dos dois lados.</li>
+            <li>Grampeie no <b>canto superior esquerdo</b>, ou prenda com um clipe ou prendedor.</li>
+            <li>No <b>Tempo integral</b>, que é mais grosso, separe os capítulos com clipes: cada capítulo começa numa página nova.</li>
           </ol>
-          <p class="tut-quando"><b>Quando escolher este:</b> capítulo único e livros finos, de até ~10 folhas (40 páginas) — ex.: o D9 sai com 7 folhas. O “Por um dia” já tem 17 folhas (68 páginas) e o completo 54: para esses, prefira fichário ou encadernar.</p>
         </section>
         <section class="tut-met" aria-labelledby="tut-t-fich">
-          <h3 id="tut-t-fich">Fichário</h3>
-          <svg class="tut-svg" id="ym-fich" viewBox="0 0 340 150" role="img" aria-label="Folha com dois furos à esquerda guardada num fichário A5" font-family="system-ui, sans-serif">
-            <rect x="196" y="12" width="120" height="112" rx="4" fill="#fff" stroke="#2f557f" stroke-width="2.5"/>
-            <text x="256" y="66" font-size="15" font-weight="700" fill="#22303d" text-anchor="middle">página A5</text>
-            <text x="256" y="84" font-size="13.8" fill="#55606d" text-anchor="middle">no canto direito</text>
-            <circle cx="188" cy="52" r="5.5" fill="#eef2f6" stroke="#3a3f45" stroke-width="2"/>
-            <circle cx="188" cy="88" r="5.5" fill="#eef2f6" stroke="#3a3f45" stroke-width="2"/>
-            <rect x="24" y="28" width="26" height="88" rx="5" fill="#22303d"/>
-            <rect x="46" y="20" width="108" height="96" rx="7" fill="#eef2f6" stroke="#2f557f" stroke-width="2.5"/>
-            <text x="100" y="52" font-size="15" font-weight="700" fill="#22303d" text-anchor="middle">fichário A5</text>
-            <text x="100" y="70" font-size="13.8" fill="#55606d" text-anchor="middle">com 2 argolas</text>
-            <circle cx="50" cy="98" r="4" fill="none" stroke="#3a3f45" stroke-width="2"/>
-            <circle cx="72" cy="98" r="4" fill="none" stroke="#3a3f45" stroke-width="2"/>
-            <text x="172" y="140" font-size="15" font-weight="700" fill="#1f7a6d" text-anchor="middle">fure à esquerda · guarde no fichário</text>
+          <h3 id="tut-t-fich">A4 fichário</h3>
+          <svg class="tut-svg" id="tut-svg-fich" viewBox="0 0 340 150" role="img" aria-label="Frente com a margem larga e os furos à esquerda; verso com a margem larga e os furos à direita: virando na borda longa, os furos ficam na mesma borda da folha" font-family="system-ui, sans-serif">
+            <rect x="22" y="10" width="96" height="116" rx="4" fill="#fff" stroke="#2f557f" stroke-width="2.5"/>
+            <rect x="48" y="22" width="60" height="92" rx="2" fill="#eef2f6"/>
+            <circle cx="35" cy="46" r="5" fill="#c9d0d8" stroke="#3a3f45" stroke-width="2"/>
+            <circle cx="35" cy="90" r="5" fill="#c9d0d8" stroke="#3a3f45" stroke-width="2"/>
+            <text x="78" y="64" font-size="15" font-weight="700" fill="#22303d" text-anchor="middle">pág. 1</text>
+            <text x="78" y="82" font-size="13.8" fill="#55606d" text-anchor="middle">frente</text>
+            <rect x="222" y="10" width="96" height="116" rx="4" fill="#fff" stroke="#2f557f" stroke-width="2.5"/>
+            <rect x="232" y="22" width="60" height="92" rx="2" fill="#eef2f6"/>
+            <circle cx="305" cy="46" r="5" fill="#c9d0d8" stroke="#3a3f45" stroke-width="2"/>
+            <circle cx="305" cy="90" r="5" fill="#c9d0d8" stroke="#3a3f45" stroke-width="2"/>
+            <text x="262" y="64" font-size="15" font-weight="700" fill="#22303d" text-anchor="middle">pág. 2</text>
+            <text x="262" y="82" font-size="13.8" fill="#55606d" text-anchor="middle">verso</text>
+            <path d="M130 68h74" stroke="#2f557f" stroke-width="2.5" stroke-dasharray="5 4"/>
+            <path d="M200 61l8 7-8 7" fill="none" stroke="#2f557f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <text x="170" y="56" font-size="13.8" fill="#55606d" text-anchor="middle">vire na</text>
+            <text x="170" y="90" font-size="13.8" font-weight="700" fill="#22303d" text-anchor="middle">borda longa</text>
+            <text x="170" y="144" font-size="15" font-weight="700" fill="#1f7a6d" text-anchor="middle">fure na margem larga</text>
           </svg>
           <ol>
-            <li>Imprima em A4 retrato: uma página A5 por folha, no canto direito (a margem larga fica do lado do furo).</li>
-            <li>Imprima só a <b>frente</b> (um lado de cada folha): a margem larga tem de ficar sempre à esquerda, onde vai o furo. Uma folha A4 para cada página.</li>
-            <li>Fure à esquerda com furador de 2 furos.</li>
-            <li>Encaixe as folhas no fichário A5, na ordem dos números.</li>
+            <li>Na janela da impressora: papel <b>A4</b>, <b>retrato</b>, margens <b>Padrão</b>, escala <b>100%</b>, frente e verso virando na <b>borda longa</b>.</li>
+            <li><b>Teste com 1 folha:</b> imprima só as páginas <b>1 e 2</b>. Contra a luz, a margem larga da frente e a do verso têm de ficar na mesma borda. Se não ficarem, troque <b>borda longa</b> por <b>borda curta</b>.</li>
+            <li>Fure na <b>margem larga</b>, com furador de 2 ou 4 furos.</li>
+            <li>Guarde num fichário A4, na ordem dos números.</li>
           </ol>
-          <p class="tut-quando"><b>Quando escolher este:</b> para os livros grossos (Por um dia: 68 folhas A4; Tempo integral: 152; completo: 216) e para trocar ou acrescentar capítulos sem reimprimir tudo — cada capítulo pode virar um fichário próprio (use “Capítulo único”). Gasta mais papel: uma folha por página.</p>
-        </section>
-        <section class="tut-met" aria-labelledby="tut-t-enc">
-          <h3 id="tut-t-enc">Encadernar — livro normal</h3>
-          <svg class="tut-svg" id="ym-enc" viewBox="0 0 340 150" role="img" aria-label="Pilha de folhas cortada ao meio e caderno encadernado com espiral" font-family="system-ui, sans-serif">
-            <rect x="36" y="26" width="118" height="98" rx="4" fill="#eef2f6" stroke="#2f557f" stroke-width="2.5"/>
-            <rect x="46" y="18" width="118" height="98" rx="4" fill="#fff" stroke="#2f557f" stroke-width="2.5"/>
-            <line x1="95" y1="18" x2="95" y2="116" stroke="#d23c32" stroke-width="2.5" stroke-dasharray="6 4"/>
-            <text x="95" y="134" font-size="13.8" font-weight="700" fill="#d23c32" text-anchor="middle">corte ao meio</text>
-            <rect x="206" y="30" width="84" height="84" rx="5" fill="#fff" stroke="#2f557f" stroke-width="2.5"/>
-            <text x="248" y="70" font-size="13.8" font-weight="700" fill="#22303d" text-anchor="middle">caderno</text>
-            <circle cx="212" cy="40" r="5" fill="none" stroke="#1f7a6d" stroke-width="3"/>
-            <circle cx="212" cy="56" r="5" fill="none" stroke="#1f7a6d" stroke-width="3"/>
-            <circle cx="212" cy="72" r="5" fill="none" stroke="#1f7a6d" stroke-width="3"/>
-            <circle cx="212" cy="88" r="5" fill="none" stroke="#1f7a6d" stroke-width="3"/>
-            <circle cx="212" cy="104" r="5" fill="none" stroke="#1f7a6d" stroke-width="3"/>
-            <text x="248" y="128" font-size="13.8" font-weight="700" fill="#22303d" text-anchor="middle">espiral ou capa dura</text>
-            <text x="248" y="143" font-size="13.8" fill="#55606d" text-anchor="middle">na papelaria</text>
-          </svg>
-          <ol>
-            <li>Imprima em A4 paisagem, sem margens e com “gráficos de fundo” marcado: <b>frente e verso na borda longa</b> (a esquerda continua esquerda).</li>
-            <li>Corte cada folha ao meio na guilhotina (ou régua e estilete), no meio da folha: saem uma metade <b>esquerda</b> e uma <b>direita</b>.</li>
-            <li>Empilhe as metades <b>esquerdas</b> numa pilha e as <b>direitas</b> em outra, mantendo a ordem em que saíram.</li>
-            <li>Intercale: esquerda 1, direita 1, esquerda 2, direita 2… — as páginas ficam na ordem 1, 2, 3, 4…</li>
-            <li>Encaderne: espiral, ou leve à papelaria para capa dura.</li>
-          </ol>
-          <p class="tut-aviso"><b>Teste com 1 folha antes de imprimir tudo:</b> a folha A5 da esquerda deve ter a página 1 na frente e a 2 no verso. Se vier trocada ou de cabeça para baixo, alterne “borda longa”/“borda curta” no diálogo de impressão.</p>
-          <p class="tut-quando"><b>Quando escolher este:</b> o livro definitivo, para os grossos — Por um dia (68 páginas = 17 folhas A4), Tempo integral (152 = 38) ou o completo (216 = 54) — e para uso semanal ou presente. Gasta metade do papel do fichário e fica igual a um livro de verdade.</p>
-        </section>
-        <section class="tut-rec" aria-labelledby="tut-t-rec">
-          <h3 id="tut-t-rec">Recomendações</h3>
-          <ul>
-            <li><b>Papel:</b> sulfite 75 g/m² serve; para dobrar, prefira 90 g/m² ou mais — a dobra fica firme.</li>
-            <li><b>Dobrar tem limite:</b> acima de ~10 folhas (40 páginas) a dobra a cavalo fica ruim — o “Por um dia” (17 folhas), o “Tempo integral” (38) e o completo (54) pedem fichário ou encadernação; dobrar fica para capítulo único e livros finos.</li>
-            <li><b>Grampos:</b> grampeador de longo alcance; sem ele, 2 grampos normais na dobra resolvem.</li>
-            <li><b>Furos:</b> furador de 2 furos + fichário A5, ou encadernação com espiral em papelaria.</li>
-            <li><b>Impressora sem duplex:</b> imprima a frente, vire a pilha conforme a dica do caderno e imprima o verso — teste com 2 folhas primeiro.</li>
-          </ul>
+          <p class="tut-quando"><b>Impressora sem frente e verso automático?</b> Use o “frente e verso manual” da própria janela da impressora.</p>
         </section>
       </div>
     </div>
   </div>
   <div class="caderno-sprite" id="caderno-sprite" aria-hidden="true"></div>
   <div class="caderno-corpo" id="caderno-corpo"><div class="caderno-escala" id="caderno-escala"></div></div>
-  <div class="caderno-imp" id="caderno-imp" hidden></div>
 </div>
 
 <footer class="rodape">
@@ -6798,55 +6734,68 @@
     if (el && el.tagName === 'DETAILS') { el.open = true; setTimeout(function () { el.scrollIntoView(); }, 60); }
   });
 
-  /* 10. livreto A4: caderno dobrável (A5) + imposição de lombada a cavalo (A4 paisagem) */
+  /* 10. impressão em A4: o guia escolhido, paginado em folhas A4 retrato na ordem natural.
+     A prévia na tela É o que se imprime (sem cópia nem imposição). Os dois formatos têm a mesma
+     área útil: trocar de formato só desloca o texto; trocar de guia repagina. */
   seguro('livreto', function () {
     var cad = $('#caderno'), btn = $('#btn-imp');
     if (!cad || !btn) return;
-    var corpo = $('#caderno-corpo'), escala = $('#caderno-escala'), impC = $('#caderno-imp'),
-        info = $('#caderno-info'), sprite = $('#caderno-sprite'),
+    var corpo = $('#caderno-corpo'), escala = $('#caderno-escala'),
+        info = $('#caderno-info'), dica = $('#caderno-dica'), sprite = $('#caderno-sprite'),
         cx = $('#caderno-x'), printBt = $('#caderno-print');
-    var aberto = false, montado = false, focoVolta = null;
-    var MODO = 'completo', modosBox = $('#caderno-modos');
-    var CAP = '', capSel = $('#caderno-cap');              // capítulo único ('' = nenhum): oid do capítulo, ex. 'd9'
-    var MET = 'dobrar', metBox = $('#caderno-metodos');    // método de montagem: 'dobrar' | 'fich' | 'enc'
-    var tutBt = $('#caderno-tut'), tutP = $('#caderno-tut-p'), tutX = $('#caderno-tut-x'), tutAberto = false;
-    var dica = $('#caderno-dica') || $('.caderno-dica');
-    var PAGS = [], cur = null, oidPag = {};
-    var MM = 96 / 25.4;
+    var guiaBox = $('#caderno-guias'), fmtBox = $('#caderno-formatos');
+    var tutBt = $('#caderno-tut'), tutP = $('#caderno-tut-p'), tutX = $('#caderno-tut-x');
+    var aberto = false, montado = false, tutAberto = false, focoVolta = null;
+    var GUIA = 'dia', FMT = 'simples';          // 'dia' | 'integral' · 'simples' | 'fich'
+    var PAGS = [], cur = null, oidPag = {}, finais = {}, rodTxt = '';
+    var LARG = 210 * 96 / 25.4;                 // largura da folha A4 em px CSS
+    var CURTO = { dia: 'Por um dia', integral: 'Tempo integral' };
+    var FORMATO = { simples: 'A4 simples', fich: 'A4 fichário' };
+    var DICA = {
+      simples: 'Papel A4 · Retrato · Margens: Padrão · Escala 100% · uma face ou frente e verso (borda longa)',
+      fich: 'Papel A4 · Retrato · Margens: Padrão · Escala 100% · frente e verso virando na <b>BORDA LONGA</b>'
+    };
+
+    /* nome e descrição da trilha como estão no guia ("Trilha 1 · Sonoplasta por um dia") */
+    function trilha(g) {
+      var cab = $('#' + g + ' .trilha-cab'), h = cab && $('h2', cab), p = cab && $('p', cab);
+      var t = h ? h.textContent.trim() : CURTO[g];
+      var m = /^(Trilha\s+\d+)\s*·\s*(.+)$/.exec(t);
+      return { num: m ? m[1] : '', nome: m ? m[2] : t, desc: p ? p.textContent.trim() : '' };
+    }
 
     function escTela() {
-      var w = (corpo.clientWidth || 360) - 14;
-      var s = w / (148.5 * MM);
-      return Math.min(1, Math.max(0.22, Math.round(s * 1000) / 1000));
+      var s = ((corpo.clientWidth || 360) - 16) / LARG;
+      return Math.min(1, Math.max(0.2, Math.round(s * 1000) / 1000));
     }
     function aplicarEscala() {
       var s = escTela();
-      /* o transform-origin centrado + margin:auto deslocava a prévia para a direita quando a tela é mais
-         estreita que 148,5 mm (a página saía cortada): origem no canto e margem esquerda calculada */
-      var disp = corpo.clientWidth - 16;
-      escala.style.transformOrigin = 'top left';
-      escala.style.marginLeft = Math.max(0, Math.round((disp - 148.5 * MM * s) / 2)) + 'px';
-      escala.style.marginRight = '0';
+      escala.style.marginLeft = Math.max(0, Math.round((corpo.clientWidth - 16 - LARG * s) / 2)) + 'px';
       escala.style.transform = 'scale(' + s + ')';
       escala.style.height = Math.round(escala.scrollHeight * s) + 'px';
+    }
+    function montarSeguro() {
+      try { montar(); montado = true; }
+      catch (e) { montado = false; if (window.console) console.warn('[guia] impressão: montagem falhou', e); }
+    }
+    /* a paginação leva segundos no celular: a barra pinta o aviso antes do trabalho pesado */
+    function montarDepois() {
+      info.textContent = 'Montando as páginas…';
+      setTimeout(function () { montarSeguro(); aplicarEscala(); }, 40);
     }
     function abrir() {
       aberto = true; focoVolta = document.activeElement;
       cad.hidden = false; cad.setAttribute('aria-hidden', 'false');
-      document.body.classList.add('imprimir-livreto');
-      if (!montado) {
-        try { montar(); montado = true; }
-        catch (e) { if (window.console) console.warn('[guia] livreto: montagem falhou', e); }
-      }
+      document.body.classList.add('imprimir-guia');
       btn.setAttribute('aria-expanded', 'true');
-      aplicarEscala();
+      if (montado) aplicarEscala(); else montarDepois();
       if (cx) cx.focus();
     }
     function fechar() {
       aberto = false;
       tutAberto = false; if (tutP) tutP.hidden = true;
       if (tutBt) tutBt.setAttribute('aria-expanded', 'false');
-      document.body.classList.remove('imprimir-livreto');
+      document.body.classList.remove('imprimir-guia');
       cad.hidden = true; cad.setAttribute('aria-hidden', 'true');
       btn.setAttribute('aria-expanded', 'false');
       if (focoVolta && focoVolta.focus) focoVolta.focus();
@@ -6857,11 +6806,11 @@
     document.addEventListener('keydown', function (e) {
       if (e.key !== 'Escape') return;
       if (tutAberto) { fecharTut(); e.stopPropagation(); return; }   // 1º Esc: só o tutorial
-      if (aberto) fechar();                                           // 2º Esc: o caderno
+      if (aberto) fechar();                                           // 2º Esc: o diálogo
     });
     window.addEventListener('resize', function () { if (aberto) aplicarEscala(); });
 
-    /* ----- tutorial "Como montar" (painel dentro do caderno; X e Esc fecham SÓ ele) ----- */
+    /* ----- tutorial "Como imprimir" (painel dentro do diálogo; X e Esc fecham SÓ ele) ----- */
     function abrirTut() {
       tutAberto = true; tutP.hidden = false;
       if (tutBt) tutBt.setAttribute('aria-expanded', 'true');
@@ -6877,79 +6826,63 @@
       if (tutX) tutX.addEventListener('click', fecharTut);
     }
 
-    /* ----- seletores: modo do livreto / capítulo único / método de montagem ----- */
-    function nomeModo(m) {
-      return m === 'dia' ? 'Por um dia' : (m === 'integral' ? 'Tempo integral' : 'Guia completo');
+    /* ----- seletores: guia (repagina) e formato (só desloca) ----- */
+    function marcar(box, attr, val) {
+      if (box) $$('.caderno-opc', box).forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute(attr) === val)); });
     }
-    function nomeMetodo() {
-      return MET === 'fich' ? 'Fichário' : (MET === 'enc' ? 'Encadernar' : 'Dobrar');
-    }
-    function remontar() {
-      // re-constrói o caderno do zero com o filtro/método escolhido
-      montado = false; PAGS = []; cur = null; oidPag = {};
-      escala.innerHTML = ''; impC.innerHTML = '';
-      try { montar(); montado = true; }
-      catch (e) { if (window.console) console.warn('[guia] livreto: montagem falhou', e); }
-      aplicarEscala();
-    }
-    function sincModos() {   // com capítulo único escolhido, nenhuma aba de modo fica marcada
-      if (!modosBox) return;
-      $$('.caderno-modo', modosBox).forEach(function (b) {
-        b.setAttribute('aria-pressed', String(b.getAttribute('data-modo') === MODO && !CAP));
+    function escolher(box, attr, fn) {
+      if (box) $$('.caderno-opc', box).forEach(function (bt) {
+        bt.addEventListener('click', function () { var v = bt.getAttribute(attr); if (v) fn(v); });
       });
     }
-    function sincMet() {
-      if (!metBox) return;
-      $$('.caderno-modo', metBox).forEach(function (b) {
-        b.setAttribute('aria-pressed', String(b.getAttribute('data-met') === MET));
-      });
-    }
-    if (modosBox) $$('.caderno-modo', modosBox).forEach(function (bt) {
-      bt.addEventListener('click', function () {
-        var m = bt.getAttribute('data-modo');
-        if (!m || (m === MODO && !CAP)) return;
-        MODO = m; CAP = '';              // clicar numa aba de modo zera o capítulo
-        if (capSel) capSel.value = '';
-        sincModos();
-        remontar();
-      });
+    escolher(guiaBox, 'data-guia', function (g) {
+      if (g === GUIA) return;
+      GUIA = g; marcar(guiaBox, 'data-guia', g);
+      montarDepois();
     });
-    if (metBox) $$('.caderno-modo', metBox).forEach(function (bt) {
-      bt.addEventListener('click', function () {
-        var m = bt.getAttribute('data-met');
-        if (!m || m === MET) return;
-        MET = m;
-        sincMet();
-        remontar();                       // a pilha A5 é a mesma; muda só a imposição nas folhas A4
-      });
+    escolher(fmtBox, 'data-fmt', function (f) {
+      if (f === FMT) return;
+      FMT = f; marcar(fmtBox, 'data-fmt', f);
+      if (montado) { aplicarFormato(); aplicarEscala(); }   // montagem pendente aplica o formato ao terminar
     });
-    /* capítulo único: opções lidas do <nav id="indice"> estático (sempre em sincronia) */
-    function dadosCapitulo(cod) {
-      var nav = document.getElementById('indice');
-      var a = $('a[href="#' + cod + '"]', nav);
-      if (!a) return { oid: cod, cod: String(cod).toUpperCase(), titulo: 'Capítulo' };
-      var ic = $('.ic', a);
-      var codTxt = ic ? ic.textContent.trim() : String(cod).toUpperCase();
-      var tEl = a.children.length > 1 ? a.children[1] : a;
-      return { oid: cod, cod: codTxt, titulo: (tEl.textContent || '').trim() };
+
+    /* ----- recursos SVG da prévia -----
+       marker, clipPath, pattern e <use> fora do sprite são apontados por url(#X) ou href="#X". O
+       clone perdeu os ids, então a referência cai no original em `main`, que some na impressão — e
+       recurso sem layout não pinta (a seta e a textura desaparecem). Cada um é copiado, com as
+       partes internas, para o <svg> de defs do diálogo como X--imp, e a referência é reescrita. */
+    var SVGNS = 'http://www.w3.org/2000/svg';
+    var ATR_URL = ['marker-start', 'marker-mid', 'marker-end', 'clip-path', 'mask', 'filter', 'fill', 'stroke', 'style'];
+    function copiarRecursos(cl, holder) {
+      var defs = document.createElementNS(SVGNS, 'svg'), feitos = {};
+      defs.setAttribute('class', 'caderno-defs'); defs.setAttribute('aria-hidden', 'true');
+      holder.appendChild(defs);
+      function alvo(id) {
+        if (id in feitos) return feitos[id];
+        var o = document.getElementById(id);
+        if (!o || cad.contains(o)) return (feitos[id] = null);   // já mora no diálogo (sprite) ou não existe
+        var c = o.cloneNode(true);
+        [c].concat($$('[id]', c)).forEach(function (el) { feitos[el.id] = el.id + '--imp'; el.id += '--imp'; });
+        defs.appendChild(c);
+        trocar(c);
+        return feitos[id];
+      }
+      function trocar(raiz) {
+        [raiz].concat($$('*', raiz)).forEach(function (el) {
+          ATR_URL.forEach(function (a) {
+            var v = el.getAttribute(a);
+            if (!v || v.indexOf('url(') < 0) return;
+            var n = v.replace(/url\(\s*(['"]?)#([^'")\s]+)\1\s*\)/g, function (m, q, id) {
+              var t = alvo(id); return t ? 'url(#' + t + ')' : m;
+            });
+            if (n !== v) el.setAttribute(a, n);
+          });
+          var h = el.namespaceURI === SVGNS && el.getAttribute('href');
+          if (h && h.charAt(0) === '#') { var t = alvo(h.slice(1)); if (t) el.setAttribute('href', '#' + t); }
+        });
+      }
+      trocar(cl);
     }
-    if (capSel) {
-      var op0 = document.createElement('option');
-      op0.value = ''; op0.textContent = 'Capítulo único…';
-      capSel.appendChild(op0);
-      $$('#indice .ind-bloco a[href^="#"]').forEach(function (a) {
-        var d = dadosCapitulo(a.getAttribute('href').slice(1));
-        var op = document.createElement('option');
-        op.value = d.oid; op.textContent = d.cod + ' — ' + d.titulo;
-        capSel.appendChild(op);
-      });
-      capSel.addEventListener('change', function () {
-        CAP = capSel.value;               // escolher um capítulo zera o modo (abas ficam desmarcadas)
-        sincModos();
-        remontar();
-      });
-    }
-    sincMet();
 
     /* ----- clonagem e preparação do miolo ----- */
     function preparar(cl) {
@@ -6966,12 +6899,13 @@
       $$('[id]', cl).forEach(function (el) {
         el.setAttribute('data-oid', el.id); el.removeAttribute('id');
       });
+      copiarRecursos(cl, holder);
       $$('a[href^="#"]', cl).forEach(function (a) {
         var s = document.createElement('span'); s.className = 'lb-link';
         while (a.firstChild) s.appendChild(a.firstChild);
         a.replaceWith(s);
       });
-      $$('button, select, textarea, .compart, .compart-guia, .cap-nav, .d9-atalhos, .nao-imprime', cl).forEach(function (el) { el.remove(); });
+      $$('button, select, textarea, .compart, .compart-guia, .cap-nav, .d9-atalhos, .e-ir, .nao-imprime', cl).forEach(function (el) { el.remove(); });
       $$('details', cl).forEach(function (d) { d.open = true; });
       $$('ul.check input', cl).forEach(function (i) {
         var s = document.createElement('span'); s.className = 'lb-q'; s.setAttribute('aria-hidden', 'true');
@@ -6980,35 +6914,21 @@
       $$('[aria-labelledby], [aria-controls], [for]', cl).forEach(function (el) {
         el.removeAttribute('aria-labelledby'); el.removeAttribute('aria-controls'); el.removeAttribute('for');
       });
-      var cu = $('[data-oid="como-usar"]', cl);
-      if (cu) {
-        var ol = $('ol.passos', cu);
-        if (ol) {
-          var novo = document.createElement('ol'); novo.className = 'passos';
-          [
-            '<b>Escolha a trilha.</b> Vai cuidar do som só hoje? Leia a trilha <b>D</b> (por um dia), na ordem. Vai cuidar toda semana? A trilha <b>I</b> (tempo integral) é um curso completo.',
-            '<b>Use os códigos.</b> Cada capítulo tem um código, como <b>D3</b> ou <b>I8</b>. Servem para aulas ("hoje vamos ver I5 e I6") e para perguntas ("o apito está explicado em I8").',
-            '<b>Problema agora?</b> Vá direto ao capítulo <b>D9</b> (Deu problema? Socorro rápido), que reúne as soluções do mais simples ao mais difícil. O diagnóstico completo está em <b>I17</b>.',
-            '<b>Marque as listas.</b> As caixinhas foram feitas para marcar com caneta — a ficha de bolso (D11) pode ser destacada.'
-          ].forEach(function (t) {
-            var li = document.createElement('li'); li.innerHTML = t; novo.appendChild(li);
-          });
-          ol.replaceWith(novo);
-        }
-      }
+      $$('[role="button"]', cl).forEach(function (el) { el.removeAttribute('role'); el.removeAttribute('tabindex'); });
       return cl;
     }
 
-    /* ----- paginador A5 ----- */
+    /* ----- paginador: a página é uma folha A4 inteira ----- */
     function novaPag() {
       if (PAGS.length >= 250) throw new Error('mais de 250 páginas');
       var p = document.createElement('div'); p.className = 'pag';
-      var cab = document.createElement('div'); cab.className = 'pag-cab';
-      cab.innerHTML = '<span class="pag-cab-t">Guia de sonoplastia IASD</span><span class="pag-cab-r"></span>';
       var con = document.createElement('div'); con.className = 'pag-conteudo';
       var rod = document.createElement('div'); rod.className = 'pag-rod';
-      rod.innerHTML = '<span>Guia de sonoplastia IASD</span><span class="pn">·</span>';
-      p.appendChild(cab); p.appendChild(con); p.appendChild(rod);
+      var rin = document.createElement('span'); rin.className = 'pag-rod-in';
+      var pn = document.createElement('span'); pn.className = 'pn';
+      rin.appendChild(document.createTextNode(rodTxt + ' · ')); rin.appendChild(pn);
+      rod.appendChild(rin);
+      p.appendChild(con); p.appendChild(rod);
       escala.appendChild(p);
       cur = { el: p, con: con };
       PAGS.push(cur);
@@ -7161,75 +7081,69 @@
       });
       if (ch && ch.children.length === 0) ch.remove();
     }
+    /* figura, tabela, caixa e cartão não se partem, nem o título do grupo que os anuncia: vão
+       inteiros para a página seguinte. Só o que não cabe numa página inteira se divide (a tabela
+       em fatias com o cabeçalho repetido, a partir de onde está). */
+    var ATOMO = 'figure, .tabela, .box, .cartao, .d-10s, details';
+    function altura(u) {
+      var cs = getComputedStyle(u);
+      return u.offsetHeight + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
+    }
+    function cabeNumaPagina(u) {
+      var cs = getComputedStyle(cur.con);
+      var util = cur.con.clientHeight - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0);
+      cur.con.appendChild(u);
+      var ok = altura(u) <= util + 2;
+      u.remove();
+      return ok;
+    }
     function colocar(unit) {
       if (pode(unit, cur.con)) { registrarOid(unit); return; }
-      if (unit.classList && unit.classList.contains('tabela')) { colocarTabela(unit); registrarOid(unit); return; }
-      if (/^(UL|OL|DL)$/.test(unit.tagName)) { colocarLista(unit); registrarOid(unit); return; }
-      /* grupo de cabeçalho: com figura/tabela o bloco viaja INTEIRO (nunca título
-         órfão); com lista/problema, o título entra onde houver espaço e o resto
-         divide — preenche a página em vez de pular e deixar o vão */
-      if (unit.classList && unit.classList.contains('lb-grp') && ehCab(unit.firstElementChild)) {
-        var atomico = !!unit.querySelector('figure, .tabela');
-        if (atomico) {
-          novaPag();
-          if (pode(unit, cur.con)) { registrarOid(unit); return; }
-          unit.classList.add('lb-enc');
-          if (pode(unit, cur.con)) { registrarOid(unit); return; }
-          unit.classList.remove('lb-enc');
-        } else {
-          var h = unit.firstElementChild;
-          cur.con.appendChild(h);
-          if (cheio(cur.con) || resta(cur.con) < 90) {
-            cur.con.removeChild(h);
-            novaPag();
-            cur.con.appendChild(h);
-          }
-          registrarOid(h);
-        }
+      var grupo = !!(unit.classList && unit.classList.contains('lb-grp') && ehCab(unit.firstElementChild));
+      if ((unit.matches && unit.matches(ATOMO)) || (grupo && unit.querySelector(ATOMO))) {
+        if (cabeNumaPagina(unit)) { novaSecao(); if (pode(unit, cur.con)) { registrarOid(unit); return; } }
+        if (unit.classList.contains('tabela')) { colocarTabela(unit); registrarOid(unit); return; }
+        unit.classList.add('lb-enc');
+        if (cabeNumaPagina(unit)) { novaSecao(); if (pode(unit, cur.con)) { registrarOid(unit); return; } }
+        unit.classList.remove('lb-enc');
+      } else if (grupo) {
+        /* título com lista ou texto: entra onde houver espaço e o resto divide (nunca título órfão) */
+        var h = unit.firstElementChild;
+        cur.con.appendChild(h);
+        if (cheio(cur.con) || resta(cur.con) < 90) { cur.con.removeChild(h); novaPag(); cur.con.appendChild(h); }
+        registrarOid(h);
       }
+      if (/^(UL|OL|DL)$/.test(unit.tagName)) { colocarLista(unit); registrarOid(unit); return; }
       if (ehComposto(unit)) { unidadesDe(unit).forEach(colocar); return; }
-      novaPag();
+      novaSecao();
       if (pode(unit, cur.con)) { registrarOid(unit); return; }
       unit.classList.add('lb-enc');
       if (pode(unit, cur.con)) { registrarOid(unit); return; }
       unit.classList.remove('lb-enc');
       if (unit.children && unit.children.length) { unidadesDe(unit).forEach(colocar); return; }
       cur.con.appendChild(unit); registrarOid(unit);
-      if (window.console) console.warn('[guia] livreto: unidade não coube nem encolhida', unit.tagName);
+      if (window.console) console.warn('[guia] impressão: unidade não coube nem encolhida', unit.tagName);
     }
     function ehComposto(u) {
       return /^(SECTION|DIV|DETAILS|UL|OL|DL|NAV|TABLE|TBODY)$/.test(u.tagName);
     }
-    function marcarCab(cod) {
-      if (!cur || !cod) return;
-      var r = cur.el.querySelector('.pag-cab-r');
-      if (r && !r.textContent) r.textContent = cod;
-    }
+    /* cada capítulo começa em página nova; o primeiro divide a página com o cabeçalho da trilha */
     function paginarMiolo(cl) {
       Array.prototype.slice.call(cl.children).forEach(function (n) {
-        if (n.matches('.trilha')) {
-          var oidT = n.getAttribute('data-oid') || '';
-          novaSecao(); registrar(oidT); if (!CAP) marcarCab(oidT.toUpperCase());
-          Array.prototype.slice.call(n.children).forEach(function (sec) {
-            if (sec.classList.contains('trilha-cab')) { novaSecao(); colocar(sec); }
-            else {
-              /* capítulos fluem na mesma página (sem quebra forçada) para não
-                 desperdiçar o fim da página anterior; só pula se o restante for
-                 um rodapé pequeno demais para começar o capítulo com dignidade */
-              if (resta(cur && cur.con) < 0.15 * (cur && cur.con ? cur.con.clientHeight : 0)) novaPag();
-              registrar(sec.getAttribute('data-oid'));
-              marcarCab(String(sec.getAttribute('data-oid') || '').toUpperCase());
-              colocar(sec);
-            }
-          });
-          return;
-        }
         novaSecao(); registrar(n.getAttribute('data-oid'));
-        colocar(n);
+        if (!n.matches('.trilha')) { colocar(n); return; }
+        var soCab = false;
+        Array.prototype.slice.call(n.children).forEach(function (sec) {
+          if (sec.classList.contains('trilha-cab')) { colocar(sec); soCab = true; return; }
+          if (!soCab) novaSecao();
+          soCab = false;
+          registrar(sec.getAttribute('data-oid'));
+          colocar(sec);
+        });
       });
     }
 
-    /* ----- páginas especiais ----- */
+    /* ----- capa e índice ----- */
     var CAPA_SVG =
       '<svg viewBox="0 0 240 150" class="capa-svg" role="img" aria-label="Desenho: uma caixa de som diante de uma tela, com ondas sonoras">' +
       '<rect x="18" y="16" width="118" height="84" rx="8" fill="#eef2f6" stroke="#2f557f" stroke-width="3"/>' +
@@ -7240,52 +7154,24 @@
       '<path d="M140 76a22 22 0 0 1 0 14M128 66a38 38 0 0 1 0 34" fill="none" stroke="#1f7a6d" stroke-width="4" stroke-linecap="round"/>' +
       '<path d="M86 122h68M110 130l10 8 10-16" stroke="#2f557f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>' +
       '</svg>';
-    function capaNote() {
-      return MET === 'fich' ? 'folhas A4 · fure e guarde no fichário'
-        : MET === 'enc' ? 'folhas A4 · corte ao meio e encaderne'
-        : 'livreto A4 · dobre ao meio';
-    }
-    function pagCapa() {
+    function pagCapa(tr) {
       novaPag();
       var rec = cur;
       rec.el.classList.add('pag--capa');
       rec.con.classList.add('pag-capa');
-      if (CAP) {
-        var cd = dadosCapitulo(CAP);
-        rec.con.innerHTML =
-          '<div class="capa-olho">ÁUDIO VISUAL IASD</div>' +
-          '<h1>Caderno de apoio</h1>' +
-          '<p class="capa-sub"></p>' + CAPA_SVG +
-          '<p class="capa-note">' + capaNote() + '</p>' +
-          '<p class="capa-modo">capítulo único</p>';
-        rec.con.querySelector('.capa-sub').textContent = cd.cod + ' — ' + cd.titulo;
-        return rec;
-      }
       rec.con.innerHTML =
-        '<div class="capa-olho">ÁUDIO VISUAL IASD</div>' +
-        '<h1>Guia de sonoplastia IASD</h1>' +
-        '<p class="capa-sub">som, vídeo e projeção na igreja</p>' + CAPA_SVG +
-        '<p class="capa-note">' + capaNote() + '</p>' +
-        (MODO === 'dia' ? '<p class="capa-modo">parte 1 · sonoplasta por um dia</p>'
-          : MODO === 'integral' ? '<p class="capa-modo">parte 2 · sonoplasta em tempo integral</p>'
-          : '');
-      return rec;
-    }
-    function pagAnotacoes() {
-      novaPag();
-      var rec = cur;
-      rec.con.classList.add('pag-anot');
-      var h = document.createElement('h3'); h.textContent = 'Anotações';
-      var l = document.createElement('div'); l.className = 'lb-linhas'; l.setAttribute('aria-hidden', 'true');
-      rec.con.appendChild(h); rec.con.appendChild(l);
+        '<div class="capa-in' + (GUIA === 'integral' ? ' int' : '') + '">' +
+        '<div class="capa-olho"></div><h1></h1><p class="capa-sub"></p>' + CAPA_SVG +
+        '<p class="capa-note">Áudio Visual IASD · audiovisualiasd.com.br/sonoplastia</p></div>';
+      $('.capa-olho', rec.con).textContent = 'Guia de sonoplastia IASD' + (tr.num ? ' · ' + tr.num : '');
+      $('h1', rec.con).textContent = tr.nome;
+      $('.capa-sub', rec.con).textContent = tr.desc;
       return rec;
     }
     function coletarIndice() {
-      var nav = document.getElementById('indice');
       var grupos = [];
-      $$('.ind-bloco', nav).forEach(function (b) {
-        if (MODO === 'dia' && b.classList.contains('int')) return;
-        if (MODO === 'integral' && !b.classList.contains('int')) return;
+      $$('#indice .ind-bloco').forEach(function (b) {
+        if (b.classList.contains('int') !== (GUIA === 'integral')) return;
         var tit = ($('h3', b) || { textContent: '' }).textContent.trim();
         var itens = $$('a[href^="#"]', b).map(function (a) {
           var cod = ($('.ic', a) || { textContent: '' }).textContent.trim();
@@ -7299,9 +7185,8 @@
       var frag = document.createDocumentFragment();
       var h2 = document.createElement('h2'); h2.textContent = 'Índice'; frag.appendChild(h2);
       var nota = document.createElement('p'); nota.className = 'resumo';
-      nota.textContent = MODO === 'dia' ? 'Trilha D — para o sonoplasta de um dia. O número ao lado é a página.'
-        : MODO === 'integral' ? 'Trilha I — o curso completo do tempo integral. O número ao lado é a página.'
-        : 'Cada capítulo tem um código: D para "por um dia" e I para "tempo integral". O número ao lado é a página.';
+      nota.textContent = GUIA === 'integral' ? 'Trilha I — o curso completo do tempo integral. O número ao lado é a página.'
+        : 'Trilha D — para o sonoplasta de um dia. O número ao lado é a página.';
       frag.appendChild(nota);
       grupos.forEach(function (g) {
         var h3 = document.createElement('h3');
@@ -7322,184 +7207,65 @@
       return frag;
     }
 
-    /* índice de capítulo único: uma única linha com "pág. N" */
-    function blocoIndiceCap(cd, offset) {
-      var frag = document.createDocumentFragment();
-      var h2 = document.createElement('h2'); h2.textContent = 'Índice'; frag.appendChild(h2);
-      var nota = document.createElement('p'); nota.className = 'resumo';
-      nota.textContent = 'Este caderno traz um único capítulo, com uma página de anotações no fim.';
-      frag.appendChild(nota);
-      var ul = document.createElement('ul'); ul.className = 'lb-ind';
-      var li = document.createElement('li');
-      var cod = document.createElement('span'); cod.className = 'ic'; cod.textContent = cd.cod;
-      var t = document.createElement('span'); t.className = 'lb-t'; t.textContent = cd.titulo;
-      var pg = document.createElement('span'); pg.className = 'lb-pg';
-      pg.textContent = 'pág. ' + (offset + (oidPag[cd.oid] || 0) + 1);
-      li.appendChild(cod); li.appendChild(t); li.appendChild(pg);
-      ul.appendChild(li);
-      frag.appendChild(ul);
-      return frag;
-    }
-    /* dica da barra, conforme o método */
-    function dicaMetodo() {
-      if (MET === 'fich') return 'A4 · retrato · uma página A5 por folha (no canto direito) · imprima só a <b>FRENTE</b> (um lado de cada folha) · fure à esquerda';
-      if (MET === 'enc') return 'A4 · paisagem · margens: nenhuma · frente e verso virando na <b>BORDA LONGA</b> · marque “gráficos de fundo” · corte ao meio e intercale';
-      return 'A4 · paisagem · margens: nenhuma · frente e verso virando na <b>BORDA CURTA</b> · marque “gráficos de fundo”';
+    /* ----- formato: margens (classe), contagem de folhas e dica da impressora ----- */
+    function aplicarFormato() {
+      escala.classList.toggle('fmt-fich', FMT === 'fich');
+      var P = PAGS.length, F2 = Math.ceil(P / 2);
+      info.textContent = CURTO[GUIA] + ' · ' + FORMATO[FMT] + ' — ' + P + ' páginas ' + (FMT === 'fich'
+        ? '· ' + F2 + ' folhas, frente e verso'
+        : '(' + P + ' folhas numa face ou ' + F2 + ' em frente e verso)');
+      if (dica) dica.innerHTML = DICA[FMT];
+      try {
+        window.livreto = { guia: GUIA, formato: FMT, paginas: P, folhasUmaFace: P, folhasFrenteVerso: F2, oidPag: finais };
+      } catch (e) {}
     }
 
-    /* ----- imposição ----- */
-    function lado(par, cls) {
-      var d = document.createElement('div'); d.className = 'lado' + (cls ? ' ' + cls : '');
-      par.forEach(function (n, k) {
-        var p = PAGS[n].el.cloneNode(true);
-        p.classList.add(k === 0 ? 'pos-e' : 'pos-d');
-        d.appendChild(p);
-      });
-      return d;
-    }
-    /* A paginação (PAGS) é sempre a MESMA pilha A5; o método só muda a disposição das páginas
-       nas folhas A4 na hora de imprimir. P = PAGS.length. Cada função devolve F = nº de FOLHAS A4
-       FÍSICAS de papel (não de lados nem de páginas A5): dobrar P/4, encadernar P/4, fichário P. */
-    function prepararImp() {
-      impC.innerHTML = '';
-      impC.classList.remove('met-dobrar', 'met-fich', 'met-enc');
-      impC.classList.add('met-' + MET);
-    }
-    function novaFolha(i) {
-      var f = document.createElement('div'); f.className = 'folha-l';
-      f.setAttribute('data-folha', String(i + 1));
-      impC.appendChild(f);
-      return f;
-    }
-    /* DOBRAR — lombada a cavalo, duplex pela borda CURTA. P múltiplo de 4, F = P/4.
-       Folha i (0-based): frente [P-1-2i | 2i], verso [2i+1 | P-2-2i]. A folha 0 é a mais externa
-       (contracapa | capa por fora; 2 | P-1 por dentro). Em cada folha as páginas "de trás uma da
-       outra" são consecutivas: frente-direita 2i+1 / verso-esquerda 2i+2, e frente-esquerda
-       P-2i / verso-direita P-1-2i (1-based). */
-    function imporDobrar() {
-      var P = PAGS.length, F = P / 4;
-      if (P % 4 !== 0) throw new Error('dobrar exige P múltiplo de 4 (P=' + P + ')');
-      prepararImp();
-      for (var i = 0; i < F; i++) {
-        var f = novaFolha(i);
-        f.appendChild(lado([P - 1 - 2 * i, 2 * i]));
-        f.appendChild(lado([2 * i + 1, P - 2 - 2 * i], 'verso'));
-      }
-      return F;
-    }
-    /* ENCADERNAR — livro normal, duplex pela borda LONGA (a esquerda continua esquerda).
-       P múltiplo de 4, F = P/4. Folha k (0-based): frente [4k | 4k+2], verso [4k+1 | 4k+3].
-       Cortada ao meio, a metade ESQUERDA é a folha A5 (4k+1 na frente, 4k+2 no verso) e a
-       DIREITA é (4k+3, 4k+4) — 1-based. Empilham-se as esquerdas e as direitas e intercala-se. */
-    function imporEncadernar() {
-      var P = PAGS.length, F = P / 4;
-      if (P % 4 !== 0) throw new Error('encadernar exige P múltiplo de 4 (P=' + P + ')');
-      prepararImp();
-      for (var k = 0; k < F; k++) {
-        var f = novaFolha(k);
-        f.appendChild(lado([4 * k, 4 * k + 2]));
-        f.appendChild(lado([4 * k + 1, 4 * k + 3], 'verso'));
-      }
-      return F;
-    }
-    /* FICHÁRIO — P folhas A4 em retrato, uma página A5 por folha, no canto DIREITO (a margem larga
-       fica à esquerda, para o furo). Só a frente de cada folha; não completa múltiplo de 4. F = P. */
-    function imporFichario() {
-      var P = PAGS.length;
-      prepararImp();
-      for (var i = 0; i < P; i++) {
-        var f = novaFolha(i);
-        var p = PAGS[i].el.cloneNode(true);
-        p.classList.add('pos-d');
-        f.appendChild(p);
-      }
-      return P;
-    }
-
-    /* ----- montagem ----- */
+    /* ----- montagem: capa, índice, miolo ----- */
     function montar() {
+      escala.innerHTML = ''; if (sprite) sprite.innerHTML = '';
       escala.classList.add('lb-medindo');
       escala.style.transform = 'none'; escala.style.height = '';
-      PAGS = []; cur = null; oidPag = {};
-
-      var capaRec = pagCapa();
+      PAGS = []; cur = null; oidPag = {}; finais = {};
+      var tr = trilha(GUIA);
+      rodTxt = 'Guia de sonoplastia IASD · ' + tr.nome;
+      var capaRec = pagCapa(tr);
 
       var mainEl = $('main.env');
       if (!mainEl) throw new Error('main ausente');
       var cl = preparar(mainEl.cloneNode(true));
+      // fica só a trilha escolhida: saem a capa do site, o índice, o "como usar" e a outra trilha
       Array.prototype.slice.call(cl.children).forEach(function (n) {
-        var o = n.getAttribute('data-oid');
-        if (o === 'inicio' || o === 'indice') n.remove();
+        if (n.getAttribute('data-oid') !== GUIA) n.remove();
       });
-      if (CAP) {
-        // capítulo único: fica só o capítulo escolhido (dentro da sua trilha, sem o cabeçalho dela) + Anotações no fim
-        var alvo = $('[data-oid="' + CAP + '"]', cl);
-        if (!alvo) throw new Error('capítulo ' + CAP + ' não encontrado');
-        var tri = alvo.closest('.trilha');
-        if (!tri) throw new Error('capítulo ' + CAP + ' fora de trilha');
-        Array.prototype.slice.call(tri.children).forEach(function (n) { if (n !== alvo) n.remove(); });
-        Array.prototype.slice.call(cl.children).forEach(function (n) { if (n !== tri) n.remove(); });
-      } else if (MODO !== 'completo') {
-        // "como usar" é a introdução do guia completo, por isso fica só nele; nas versões parciais sai a trilha que não foi pedida.
-        var cu = $('[data-oid="como-usar"]', cl); if (cu) cu.remove();
-        var tr = $('[data-oid="' + (MODO === 'dia' ? 'integral' : 'dia') + '"]', cl); if (tr) tr.remove();
-      }
-      var m0 = PAGS.length;
       paginarMiolo(cl);
-      var mioloRecs = PAGS.slice(m0);
+      var mioloRecs = PAGS.slice(1);
 
-      var idxN = 1, idxRecs = [];
-      if (CAP) {
-        var cd = dadosCapitulo(CAP);
-        var lenC = PAGS.length;
-        var boxC = document.createElement('div');
-        boxC.appendChild(blocoIndiceCap(cd, idxN));
-        novaSecao(); colocar(boxC);
-        idxRecs = PAGS.slice(lenC);
-      } else {
-        var grupos = coletarIndice();
-        for (var tent = 0; tent < 3; tent++) {
-          var len0 = PAGS.length;
-          var box = document.createElement('div');
-          box.appendChild(blocoIndice(grupos, idxN));
-          novaSecao(); colocar(box);
-          idxRecs = PAGS.slice(len0);
-          if (idxRecs.length === idxN) break;
-          idxRecs.forEach(function (r) { r.el.remove(); });
-          PAGS.length = len0;
-          cur = PAGS.length ? PAGS[PAGS.length - 1] : null;
-          idxN = idxRecs.length;
-        }
+      // o índice se refaz até o nº de páginas dele estabilizar (os números do miolo dependem dele)
+      var grupos = coletarIndice(), idxN = 1, idxRecs = [];
+      for (var tent = 0; tent < 3; tent++) {
+        var len0 = PAGS.length;
+        var box = document.createElement('div');
+        box.appendChild(blocoIndice(grupos, idxN));
+        novaSecao(); colocar(box);
+        idxRecs = PAGS.slice(len0);
+        if (idxRecs.length === idxN) break;
+        idxRecs.forEach(function (r) { r.el.remove(); });
+        PAGS.length = len0;
+        cur = PAGS[PAGS.length - 1];
+        idxN = idxRecs.length;
       }
 
-      var anotRecs = [];
-      if (MET === 'dobrar' || MET === 'enc') {
-        // dobra a cavalo e encadernação em duplex exigem P múltiplo de 4
-        do { anotRecs.push(pagAnotacoes()); }
-        while ((capaRec ? 1 : 0) + idxRecs.length + mioloRecs.length + anotRecs.length < 4 ||
-               (1 + idxRecs.length + mioloRecs.length + anotRecs.length) % 4 !== 0);
-      } else {
-        anotRecs.push(pagAnotacoes());   // fichário: uma folha por página, sem completar múltiplo de 4
-      }
-
-      var ordem = [capaRec].concat(idxRecs, mioloRecs, anotRecs);
+      var ordem = [capaRec].concat(idxRecs, mioloRecs);
       ordem.forEach(function (r, i) {
         escala.appendChild(r.el);
         PAGS[i] = r;
+        r.el.classList.add(i % 2 ? 'par' : 'impar');
         r.el.querySelector('.pn').textContent = String(i + 1);
       });
       PAGS.length = ordem.length;
+      Object.keys(oidPag).forEach(function (k) { finais[k] = oidPag[k] + idxN + 1; });   // nº da página impressa
 
-      var offsetMiolo = idxN + 1;
-      var finais = {};
-      Object.keys(oidPag).forEach(function (k) { finais[k] = oidPag[k] + offsetMiolo; });
-
-      var F = MET === 'enc' ? imporEncadernar() : (MET === 'fich' ? imporFichario() : imporDobrar());
-      var rotulo = CAP ? ('Caderno de apoio — ' + String(CAP).toUpperCase()) : ('Livreto A4 — ' + nomeModo(MODO));
-      info.textContent = rotulo + ': ' + PAGS.length + ' páginas · ' + F + ' folhas A4 · ' + nomeMetodo();   // F = folhas A4 físicas de papel
-      if (dica) dica.innerHTML = dicaMetodo();
-      try { window.livreto = { modo: MODO, cap: CAP, metodo: MET, paginas: PAGS.length, folhas: F, oidPag: finais }; } catch (e) {}
-
+      aplicarFormato();
       escala.classList.remove('lb-medindo');
     }
   });

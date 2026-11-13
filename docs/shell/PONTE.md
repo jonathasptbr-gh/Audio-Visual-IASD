@@ -283,7 +283,7 @@ nativo; casco antigo não o manda e vê a página inteira. Quem abre é o
 não outra Activity: com Dialog a Activity não passa por `onPause`/`onStop`, e
 nada do que defende a projeção (o `keepPlaying`, a `projecaoLocal`, a ronda do OTA)
 muda. O "fechar" é um `✕` no canto ESQUERDO, num miolo claro que aparece tanto na
-barra branca do guia quanto na barra escura do livreto. O WebView sai da
+barra branca do guia quanto na barra escura do diálogo de impressão. O WebView sai da
 `WebViewFactory.createGuia`: **sem
 `addJavascriptInterface`**, sem asset loader, sem `/saf/`, mídia só com gesto. A
 cerca vale a cada navegação do quadro principal (fora do site → `ACTION_VIEW`, só
