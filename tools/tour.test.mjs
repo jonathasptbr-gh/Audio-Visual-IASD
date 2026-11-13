@@ -57,8 +57,8 @@ const erros = [];
 
 // A âncora existe na página do site (a URL do atalho não é inventada).
 const site = fs.readFileSync(path.join(AQUI, '..', 'site', 'sonoplastia', 'index.html'), 'utf8');
-checar(/id="dia"/.test(site) && /Sonoplasta por um dia/.test(site) && fs.readFileSync(path.join(AQUI, '..', 'site', 'CNAME'), 'utf8').trim() === 'audiovisualiasd.com.br',
-  'premissa: a página do guia tem a trilha "por um dia" em `#dia`, no domínio do site');
+checar(/id="dia"/.test(site) && /Guia de sonoplasta por um dia/.test(site) && fs.readFileSync(path.join(AQUI, '..', 'site', 'CNAME'), 'utf8').trim() === 'audiovisualiasd.com.br',
+  'premissa: a página do guia tem o "Guia de sonoplasta por um dia" em `#dia`, no domínio do site');
 
 async function abrir(viewport, { avancado = false, tema = 'escuro', fonte = 1 } = {}) {
   const ctx = await navegador.newContext({ viewport, hasTouch: true });
@@ -277,7 +277,7 @@ try {
     await pg.click('#guiaSomBtn');
     const urlFacil = await pg.evaluate(() => window.__abertos.slice(-1)[0]);
     checar(urlFacil === 'https://audiovisualiasd.com.br/sonoplastia/#dia',
-      'F · no Modo Fácil o guia abre direto em "Sonoplasta por um dia"', urlFacil);
+      'F · no Modo Fácil o guia abre direto no "Guia de sonoplasta por um dia"', urlFacil);
 
     // ---------------- L · a caixa "Tour do app" liga e desliga o tour por inteiro ----------------
     const caixa = () => pg.evaluate(() => {

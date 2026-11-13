@@ -42,8 +42,8 @@
 //     alto da seguinte, que abre a coluna seguinte, e a borda aberta no corte;
 //     nenhuma coluna com meia coluna em branco antes de um cartão longo que veio
 //     inteiro (no Tempo integral, 5 cartões partidos ou mais);
-//  F. capa e rodapé com o nome real da trilha; sem aviso "não coube" do
-//     motor nem erro de JavaScript;
+//  F. capa e rodapé com o nome real do guia ("Guia de sonoplasta por um dia");
+//     sem aviso "não coube" do motor nem erro de JavaScript;
 //  G. o título "Imprimir o guia" fica no meio, entre o "?" e o fechar;
 //     a 390 px nada rola de lado e, a 320, nada no diálogo (a página embaixo
 //     ainda sobra 18 px no CI: fila, Pacote 8.2); com `?app=1` a faixa do "?"
@@ -55,7 +55,15 @@
 //     é dois rótulos dividindo a linha, o da esquerda mais largo que a coluna;
 //  I. nenhum título de figura — o subtítulo, o título de cartão ou de caixa, ou o
 //     parágrafo curto (< 220 caracteres) logo antes dela no guia — fica numa
-//     coluna (ou página) diferente da figura, nos dois guias e nos dois formatos.
+//     coluna (ou página) diferente da figura, nos dois guias e nos dois formatos;
+//  J. a capa cabe inteira na 1ª página, nos dois formatos: dentro das margens do
+//     formato (no fichário, 25 mm do lado do furo) e da área útil, sem nada
+//     cortado; e diz "Igreja Adventista do Sétimo Dia", a sigla IASD e o nome do
+//     guia (o h1 é o título do cabeçalho do guia, "Guia de sonoplasta …");
+//  K. "trilha" saiu do texto: nenhum no guia na tela (o documento inteiro, com
+//     os <details> fechados, o <title> e as metas description/og:/twitter:) nem
+//     nas páginas da impressão dos dois guias, nem nos atributos lidos
+//     (aria-label, title, alt, placeholder…).
 //
 //   node tools/guia-impressao.test.mjs
 // ============================================================================
@@ -145,6 +153,23 @@ async function conferir(pg, guia, fmt, rotulo) {
     `B · ${rotulo}: o PDF tem ${L.paginas} páginas A4 retrato, uma por página do guia`, JSON.stringify({ pdf, paginas: L.paginas }));
   await pg.emulateMedia({ media: 'print' });
   const pags = await medirPaginas(pg);
+  // J. a capa: o que está na 1ª página, medido com a mídia de impressão (sem a escala da prévia)
+  const capa = await pg.evaluate(() => {
+    const MM = 96 / 25.4, pag = document.querySelector('#caderno-escala .pag'), con = pag.querySelector('.pag-conteudo');
+    const a = pag.getBoundingClientRect(), b = con.getBoundingClientRect();
+    let e = Infinity, d = -Infinity, t = Infinity, f = -Infinity, n = 0;
+    con.querySelectorAll('*').forEach((k) => {
+      if (k instanceof SVGElement && k.tagName.toLowerCase() !== 'svg') return;
+      const r = k.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      n += 1; e = Math.min(e, r.left); d = Math.max(d, r.right); t = Math.min(t, r.top); f = Math.max(f, r.bottom);
+    });
+    const txt = con.textContent.replace(/\s+/g, ' '), mm = (x) => Math.round(x / MM * 10) / 10;
+    return { n, esq: mm(e - a.left), dir: mm(a.right - d), topo: mm(t - a.top), base: mm(a.bottom - f), corte: mm(f - b.bottom),
+      transborda: con.scrollHeight - con.clientHeight, igreja: /Igreja Adventista do Sétimo Dia/i.test(txt), sigla: /\bIASD\b/.test(txt),
+      h1: (con.querySelector('h1') || { textContent: '' }).textContent.replace(/\s+/g, ' ').trim(),
+      nome: document.querySelector('#' + window.livreto.guia + ' .trilha-cab h2').textContent.replace(/\s+/g, ' ').trim() };
+  });
   // seta (marker), recorte (clipPath), textura (pattern) e <use>: o alvo tem de morar no diálogo e
   // estar renderizado — o original fica em `main`, que some na impressão, e aí a seta não pinta
   const refs = await pg.evaluate(() => {
@@ -201,6 +226,11 @@ async function conferir(pg, guia, fmt, rotulo) {
   const cortadas = pags.map((p, i) => (p.corte > 0.3 ? (i + 1) + ':' + p.corte.toFixed(1) : 0)).filter(Boolean);
   checar(vazias.length === 0 && cortadas.length === 0,
     `E · ${rotulo}: nenhuma página vazia e nada passa da área útil (texto cortado no rodapé)`, JSON.stringify({ vazias, cortadas }));
+  const [ce, cd] = margens(fmt, 1);
+  checar(capa.n > 10 && capa.esq >= ce - 0.3 && capa.dir >= cd - 0.3 && capa.topo >= 10 && capa.base >= 10 && capa.corte <= 0.3 && capa.transborda <= 1
+    && capa.igreja && capa.sigla && capa.h1 === capa.nome && /^Guia de sonoplasta \S/.test(capa.nome),
+    `J · ${rotulo}: a capa cabe inteira na 1ª página, dentro das margens do formato (${ce}/${cd} mm) e da área útil, e diz "Igreja Adventista do Sétimo Dia", IASD e o nome do guia ("${capa.nome}")`,
+    JSON.stringify(capa));
   return L;
 }
 
@@ -351,7 +381,7 @@ const estrutura = (pg, guia) => pg.evaluate((guia) => {
     fatias: conta(esc, '.lb-fat'),
     capa: pags[0].querySelector('h1').textContent.trim(),
     rodape: pags[2].querySelector('.pag-rod').textContent.replace(/\s+/g, ' ').trim(),
-    trilha: document.querySelector('#' + guia + ' .trilha-cab h2').textContent.replace(/^Trilha\s+\d+\s*·\s*/, '').trim(),
+    trilha: document.querySelector('#' + guia + ' .trilha-cab h2').textContent.replace(/\s+/g, ' ').trim(),
   };
 }, guia);
 
@@ -387,6 +417,27 @@ const checarTitulos = (nome, fmt, r) => checar(r.separados.length === 0 && r.fig
   `I · ${nome} · ${fmt}: nenhum título de figura (${Object.entries(r.fmts).map(([k, n]) => n + ' ' + k).join(', ')} logo antes dela) em coluna diferente da sua figura`,
   JSON.stringify({ figuras: r.figuras, casadas: r.casadas, separados: r.separados.slice(0, 4) }));
 
+// K. "trilha" fora do texto: o que a página mostra (textContent sem script/style, o que inclui os <details>
+// fechados e o que só aparece na impressão), os atributos que o leitor de tela e a dica leem e, no
+// documento inteiro, o <title> e as metas do cartão do link
+const LIDOS = ['aria-label', 'aria-description', 'aria-roledescription', 'aria-valuetext', 'aria-placeholder', 'title', 'alt', 'placeholder', 'label'];
+const trilhas = (pg, raiz) => pg.evaluate(([raiz, LIDOS]) => {
+  const R = document.querySelector(raiz), copia = R.cloneNode(true), achados = [];
+  copia.querySelectorAll('script, style, template, noscript').forEach((e) => e.remove());
+  const ver = (onde, t) => { const m = /.{0,30}trilha.{0,30}/i.exec(t || ''); if (m && achados.length < 6) achados.push(onde + ': ' + m[0].trim()); };
+  const texto = copia.textContent.replace(/\s+/g, ' ');
+  ver('texto', texto); ver('innerText', R.innerText);
+  R.querySelectorAll('*').forEach((el) => LIDOS.forEach((a) => { if (el.hasAttribute(a)) ver(el.tagName.toLowerCase() + '[' + a + ']', el.getAttribute(a)); }));
+  if (raiz === 'html') {
+    ver('<title>', document.title);
+    document.querySelectorAll('meta[name], meta[property]').forEach((m) => {
+      const k = m.getAttribute('name') || m.getAttribute('property');
+      if (/^(description|og:|twitter:)/.test(k)) ver('meta ' + k, m.getAttribute('content'));
+    });
+  }
+  return { achados, letras: texto.length };
+}, [raiz, LIDOS]);
+
 try {
   const ctx = await navegador.newContext({ viewport: { width: 1280, height: 800 } });
   await semRedeExterna(ctx);
@@ -394,6 +445,7 @@ try {
   pg.on('pageerror', (e) => erros.push(e.message));
   pg.on('console', (m) => { if (m.type() === 'warning' || m.type() === 'error') avisos.push(m.text().slice(0, 160)); });
   await pg.goto(GUIA, { waitUntil: 'load' });
+  const kTela = await trilhas(pg, 'html');
   await pg.click('#btn-imp');
   await pg.waitForFunction(() => window.livreto && window.livreto.paginas > 2, null, { timeout: 60000 });
 
@@ -430,6 +482,7 @@ try {
   // dia: paginado no simples · integral: paginado no fichário · e o cruzado de cada um
   const dS = await conferir(pg, 'dia', 'simples', 'Por um dia · A4 simples');
   const eDia = await estrutura(pg, 'dia');
+  const kDia = await trilhas(pg, '#caderno-escala');
   titulos.push(['Por um dia', 'A4 simples', await titulosDeFigura(pg, 'dia')]);
   await escolher(pg, 'data-fmt', 'fich');
   await conferir(pg, 'dia', 'fich', 'Por um dia · A4 fichário');
@@ -439,6 +492,7 @@ try {
   await escolher(pg, 'data-guia', 'integral');
   const iF = await conferir(pg, 'integral', 'fich', 'Tempo integral · A4 fichário');
   const eInt = await estrutura(pg, 'integral');
+  const kInt = await trilhas(pg, '#caderno-escala');
   titulos.push(['Tempo integral', 'A4 fichário', await titulosDeFigura(pg, 'integral')]);
   await pg.emulateMedia({ media: 'print' });
   const vImp = await vaosDoDesenho(pg, '#caderno-escala');
@@ -481,7 +535,14 @@ try {
     checar(e.meiaVazia.length === 0,
       `E · ${nome}: nenhuma coluna fica com meia coluna em branco antes de um cartão longo que veio inteiro para a seguinte`, JSON.stringify(e.meiaVazia.slice(0, 4)));
     checar(e.capa === e.trilha && e.rodape.includes(e.trilha) && /· 3$/.test(e.rodape),
-      `F · ${nome}: capa e rodapé com o nome da trilha ("${e.trilha}") e o nº da página`, JSON.stringify({ capa: e.capa, rodape: e.rodape }));
+      `F · ${nome}: capa e rodapé com o nome do guia ("${e.trilha}") e o nº da página`, JSON.stringify({ capa: e.capa, rodape: e.rodape }));
+  }
+  checar(kTela.achados.length === 0 && kTela.letras > 100000,
+    'K · na tela, nenhum "trilha" no texto do guia (as duas partes, com os <details> fechados) nem nos atributos lidos (aria-label, title, alt…), no <title> e nas metas',
+    JSON.stringify(kTela));
+  for (const [nome, k] of [['Por um dia', kDia], ['Tempo integral', kInt]]) {
+    checar(k.achados.length === 0 && k.letras > 5000,
+      `K · ${nome}: na impressão, nenhum "trilha" nas páginas (capa, faixa do cabeçalho, índice, miolo, rodapé) nem nos atributos lidos`, JSON.stringify(k));
   }
   await ctx.close();
 
