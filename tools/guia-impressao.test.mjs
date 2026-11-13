@@ -7,8 +7,10 @@
 // natural, em dois formatos — "A4 simples" (margens 18/18 mm) e "A4 fichário"
 // (25 mm do lado do furo e 11 do outro, espelhadas nas páginas pares). A
 // prévia É o que se imprime. O que este arquivo trava:
-//  A. o diálogo tem só 2 guias × 2 formatos, abre em "Por um dia · A4 simples"
-//     e o tutorial se chama "Como imprimir";
+//  A. o diálogo tem só 2 guias × 2 formatos e abre em "Por um dia · A4 simples";
+//     a caixa de cima tem o "?" (Como imprimir) no topo esquerdo e o fechar no
+//     direito, numa faixa só deles, UMA linha de informação (páginas, folhas e
+//     o ajuste da impressora) e o Imprimir por último, na base direita;
 //  B. o PDF tem uma página A4 retrato (595 × 842 pt) por página do guia
 //     (`window.livreto.paginas`), sem folha em branco a mais — o modo de
 //     falhar calado é uma caixa 1 px mais alta que a folha;
@@ -23,8 +25,9 @@
 //     ~120 mm; caixa, cartão de problema e tabela nunca partidos;
 //  F. capa e rodapé com o nome real da trilha; sem aviso "não coube" do
 //     motor nem erro de JavaScript;
-//  G. a 390 px nada rola de lado; com `?app=1` a barra e o tutorial reservam
-//     os 52 px do "fechar" nativo e o tutorial manda abrir no navegador.
+//  G. a 390 e a 320 px nada rola de lado; com `?app=1` a faixa do "?" e o
+//     tutorial desviam do "fechar" nativo (52 × 56 px), guia e formato ficam
+//     abaixo dele, e o tutorial manda abrir no navegador.
 //
 //   node tools/guia-impressao.test.mjs
 // ============================================================================
@@ -169,30 +172,43 @@ try {
   await pg.click('#btn-imp');
   await pg.waitForFunction(() => window.livreto && window.livreto.paginas > 2, null, { timeout: 60000 });
 
-  const barra = await pg.evaluate(() => ({
-    opcoes: [...document.querySelectorAll('.caderno-bar .caderno-opc')].map((b) => b.textContent.trim() + (b.getAttribute('aria-pressed') === 'true' ? '*' : '')),
-    outros: document.querySelectorAll('.caderno-bar select, [data-modo], [data-met]').length,
-    tutorial: document.getElementById('caderno-tut').textContent.trim(),
-    rotulo: document.getElementById('btn-imp').getAttribute('aria-label'),
-    info: document.getElementById('caderno-info').textContent,
-    dica: document.getElementById('caderno-dica').textContent,
-  }));
+  const barra = await pg.evaluate(() => {
+    const r = (s) => document.querySelector(s).getBoundingClientRect();
+    const tut = document.getElementById('caderno-tut'), cab = r('.caderno-cab'), bar = r('.caderno-bar'), imp = r('#caderno-print');
+    const botoes = [...document.querySelectorAll('.caderno-bar button')];
+    const resto = [...document.querySelectorAll('.caderno-bar *')].filter((e) => e.id !== 'caderno-print' && e.getClientRects().length);
+    return {
+      opcoes: [...document.querySelectorAll('.caderno-bar .caderno-opc')].map((b) => b.textContent.trim() + (b.getAttribute('aria-pressed') === 'true' ? '*' : '')),
+      outros: document.querySelectorAll('.caderno-bar select, [data-modo], [data-met]').length,
+      tutorial: tut.textContent.trim() + '|' + tut.getAttribute('aria-label'),
+      rotulo: document.getElementById('btn-imp').getAttribute('aria-label'),
+      info: document.getElementById('caderno-info').textContent,
+      linhas: document.querySelectorAll('.caderno-bar p, .caderno-bar span:not(.caderno-tit):not(.caderno-grupo-t), .caderno > p, #caderno-dica').length,
+      cab: [...document.querySelectorAll('.caderno-cab button')].map((b) => b.id).join(','),
+      cantos: [Math.round(r('#caderno-tut').left - cab.left), Math.round(cab.right - r('#caderno-x').right)],
+      ultimo: botoes[botoes.length - 1].id,
+      imp: [Math.round(bar.right - imp.right), Math.round(Math.max(...resto.map((e) => e.getBoundingClientRect().bottom)) - imp.bottom),
+        Math.round(imp.top - r('.caderno-grupos').bottom)],
+    };
+  });
   checar(barra.opcoes.join('|') === 'Por um dia*|Tempo integral|A4 simples*|A4 fichário' && barra.outros === 0,
     'A · só 2 guias × 2 formatos, e o diálogo abre em "Por um dia · A4 simples"', JSON.stringify(barra.opcoes));
-  checar(barra.tutorial === 'Como imprimir' && barra.rotulo === 'Imprimir o guia em folhas A4',
-    'A · o tutorial é "Como imprimir" e o botão se anuncia como impressão em folhas A4', JSON.stringify(barra));
-  checar(/^Por um dia · A4 simples — \d+ páginas \(\d+ folhas numa face ou \d+ em frente e verso\)$/.test(barra.info)
-    && /Margens: Padrão · Escala 100%/.test(barra.dica),
-    'A · a barra diz páginas e folhas, e a dica da impressora pede A4 retrato a 100%', JSON.stringify(barra));
+  checar(barra.tutorial === '?|Como imprimir' && barra.rotulo === 'Imprimir o guia em folhas A4',
+    'A · o "Como imprimir" é um "?" compacto e o botão do guia se anuncia como impressão em folhas A4', JSON.stringify(barra));
+  checar(barra.cab === 'caderno-tut,caderno-x' && barra.cantos.every((d) => d <= 1),
+    'A · o "?" no topo esquerdo e o fechar no topo direito, numa faixa só deles', JSON.stringify(barra));
+  checar(barra.ultimo === 'caderno-print' && barra.imp[0] <= 12 && barra.imp[1] <= 1 && barra.imp[2] >= 0,
+    'A · o Imprimir é o último da caixa: base direita, abaixo de guia e formato', JSON.stringify(barra.imp));
+  checar(barra.linhas === 1 && /^\d+ páginas: \d+ folhas numa face ou \d+ em frente e verso \(borda longa\)\. Imprima em A4 retrato, escala 100%, margens padrão\.$/.test(barra.info),
+    'A · UMA linha de informação: páginas, folhas e o ajuste da impressora', JSON.stringify(barra));
 
   // dia: paginado no simples · integral: paginado no fichário · e o cruzado de cada um
   const dS = await conferir(pg, 'dia', 'simples', 'Por um dia · A4 simples');
   const eDia = await estrutura(pg, 'dia');
   await escolher(pg, 'data-fmt', 'fich');
   await conferir(pg, 'dia', 'fich', 'Por um dia · A4 fichário');
-  checar(/— \d+ páginas · \d+ folhas, frente e verso$/.test(await pg.textContent('#caderno-info'))
-    && /BORDA LONGA/.test(await pg.textContent('#caderno-dica')),
-    'A · no fichário a barra conta folhas em frente e verso e a dica pede a borda longa', await pg.textContent('#caderno-info'));
+  checar(/^\d+ páginas: \d+ folhas em frente e verso, virando na borda longa\. Imprima em A4 retrato, escala 100%, margens padrão\.$/.test(await pg.textContent('#caderno-info')),
+    'A · no fichário a linha conta folhas em frente e verso e pede a borda longa', await pg.textContent('#caderno-info'));
   await escolher(pg, 'data-guia', 'integral');
   const iF = await conferir(pg, 'integral', 'fich', 'Tempo integral · A4 fichário');
   const eInt = await estrutura(pg, 'integral');
@@ -221,9 +237,9 @@ try {
   }
   await ctx.close();
 
-  // G. celular: sem rolagem de lado; pelo app, o recuo do "fechar" nativo e o aviso
-  for (const app of [false, true]) {
-    const c = await navegador.newContext({ viewport: { width: 390, height: 844 } });
+  // G. celular: sem rolagem de lado; pelo app, o desvio do "fechar" nativo (52 × 56) e o aviso
+  for (const [larg, app] of [[390, false], [390, true], [320, true]]) {
+    const c = await navegador.newContext({ viewport: { width: larg, height: 844 } });
     await semRedeExterna(c);
     const p = await c.newPage();
     p.on('pageerror', (e) => erros.push(e.message));
@@ -234,15 +250,17 @@ try {
     const m = await p.evaluate(() => ({
       sobra: document.documentElement.scrollWidth - innerWidth,
       barra: (() => { const b = document.querySelector('.caderno-bar'); return b.scrollWidth - b.clientWidth; })(),
-      recuo: parseFloat(getComputedStyle(document.querySelector('.caderno-bar')).paddingLeft),
+      recuo: parseFloat(getComputedStyle(document.querySelector('.caderno-cab')).paddingLeft),
       recuoTut: parseFloat(getComputedStyle(document.querySelector('.tut-cab')).paddingLeft),
+      grupos: Math.round(document.querySelector('.caderno-grupos').getBoundingClientRect().top),
+      titulo: Math.round(document.querySelector('.caderno-tit').getBoundingClientRect().width),
       aviso: getComputedStyle(document.querySelector('.tut-so-app')).display !== 'none',
       secoes: document.querySelectorAll('#caderno-tut-p .tut-met svg').length,
     }));
-    checar(m.sobra <= 1 && m.barra <= 1 && m.secoes === 2,
-      `G · a 390 px${app ? ' (app)' : ''} o diálogo e o tutorial não rolam de lado`, JSON.stringify(m));
-    checar(app ? m.recuo >= 51 && m.recuoTut >= 51 && m.aviso : m.recuo < 51 && !m.aviso,
-      app ? 'G · pelo app a barra e o tutorial reservam os 52 px do "fechar" e o tutorial manda abrir no navegador'
+    checar(m.sobra <= 1 && m.barra <= 1 && m.secoes === 2 && m.titulo >= 90,
+      `G · a ${larg} px${app ? ' (app)' : ''} o diálogo e o tutorial não rolam de lado e o título cabe`, JSON.stringify(m));
+    checar(app ? m.recuo >= 51 && m.recuoTut >= 51 && m.grupos >= 56 && m.aviso : m.recuo < 51 && !m.aviso,
+      app ? `G · a ${larg} px pelo app, a faixa do "?" e o tutorial desviam do "fechar" nativo, guia e formato ficam abaixo dele, e o tutorial manda abrir no navegador`
         : 'G · no navegador, sem recuo e sem o aviso do app', JSON.stringify(m));
     await c.close();
   }

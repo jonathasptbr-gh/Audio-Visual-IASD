@@ -200,8 +200,11 @@
   html.no-app .topo-meio { border-left:0; padding-left:0; }
   html.no-app .rodape-volta { display:none; }
   html.no-app .folha-cab,
-  html.no-app .caderno-bar,
+  html.no-app .caderno-cab,
   html.no-app .tut-cab { padding-left:3.25rem; }
+  /* na impressão só a faixa do "?" recua; ela desce até passar dos 56 px de
+     altura do botão nativo, e guia e formato usam a largura toda */
+  html.no-app .caderno-cab { min-height:2.75rem; }
 
   /* ----- barra fixa do topo ----- */
   .topo {
@@ -428,19 +431,32 @@
   .caderno { position:fixed; inset:0; z-index:70; display:flex; flex-direction:column; background:#c9d0d8; }
   .caderno[hidden] { display:none !important; }
   body.imprimir-guia { overflow:hidden; }
+  /* a caixa de cima, em três faixas, na ordem de leitura: "?" · título · fechar |
+     guia e formato | a linha única de informação e, por último (base direita), o Imprimir */
   .caderno-bar {
-    flex:none; display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; padding:.45rem .7rem;
+    flex:none; display:flex; flex-direction:column; gap:.45rem; padding:.4rem .7rem .55rem;
     min-width:0; max-width:100%; background:#22303d; color:#fff; box-shadow:0 2px 10px -4px rgba(15,27,40,.5);
   }
-  .caderno-info { flex:1 1 100%; min-width:0; font-size:.82rem; font-weight:700; line-height:1.25; }
-  .caderno-btn {
-    flex:1 1 auto; border:0; border-radius:999px; background:var(--accent); color:#fff;
-    font:700 .8rem/1 system-ui, sans-serif; padding:.55rem .6rem; min-height:40px; cursor:pointer;
+  .caderno-cab { display:flex; align-items:center; gap:.6rem; min-width:0; }
+  .caderno-tit {
+    flex:1 1 auto; min-width:0; font-size:.95rem; font-weight:700;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
-  .caderno-btn-tut { background:var(--dia); }
-  .caderno-btn-tut[aria-expanded="true"] { background:var(--accent); }
-  .caderno-btn-x { background:#3a3f45; }
-  .caderno-grupos { flex:1 1 100%; display:flex; flex-wrap:wrap; gap:.4rem .9rem; min-width:0; }
+  .caderno-ic {
+    flex:none; width:40px; height:40px; padding:0; border-radius:50%; color:#fff;
+    font:700 1.15rem/1 system-ui, sans-serif; cursor:pointer;
+  }
+  .caderno-ic-tut { border:2px solid rgba(255,255,255,.6); background:transparent; }
+  .caderno-ic-tut[aria-expanded="true"] { background:var(--dia); border-color:var(--dia); }
+  .caderno-ic-x { border:0; background:#3a3f45; font-size:1.4rem; }
+  .caderno-pe { display:flex; align-items:flex-end; gap:.8rem; min-width:0; }
+  .caderno-info { flex:1 1 auto; min-width:0; margin:0; font-size:.76rem; line-height:1.35; color:rgba(255,255,255,.86); }
+  .caderno-info b { color:#fff; }
+  .caderno-btn {
+    flex:none; border:0; border-radius:999px; background:var(--accent); color:#fff;
+    font:700 .9rem/1 system-ui, sans-serif; padding:.6rem 1.35rem; min-height:44px; cursor:pointer;
+  }
+  .caderno-grupos { display:flex; flex-wrap:wrap; gap:.4rem .9rem; min-width:0; }
   .caderno-grupo { flex:1 1 15rem; display:flex; align-items:center; gap:.4rem; min-width:0; }
   .caderno-grupo-t {
     flex:none; width:4.2rem; font-size:.68rem; font-weight:700; letter-spacing:.05em;
@@ -453,11 +469,9 @@
   }
   .caderno-opc[aria-pressed="true"] { background:var(--accent); border-color:var(--accent); }
   @media (min-width:760px) {
-    .caderno-info { flex:1 1 20rem; }
-    .caderno-btn { flex:none; padding:.6rem 1.1rem; }
     .caderno-grupo { flex:0 1 25rem; }
+    .caderno-pe { align-items:center; }   /* a linha cabe numa só: o Imprimir fica ao lado, centrado */
   }
-  .caderno-dica { flex:none; margin:0; padding:.35rem .75rem; background:var(--dia-tint); color:var(--titulo); font-size:.74rem; font-weight:600; line-height:1.35; }
   /* a pilha é reduzida por transform: a caixa de layout (210 mm) não pode virar rolagem horizontal */
   .caderno-corpo { flex:1; overflow:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding:10px 8px 48px; }
   .caderno-escala { width:210mm; margin:0 auto; transform-origin:top left; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
@@ -592,7 +606,7 @@
     body.imprimir-guia .topo, body.imprimir-guia main, body.imprimir-guia .rodape,
     body.imprimir-guia .folha, body.imprimir-guia .aviso { display:none !important; }
     .caderno { position:static; inset:auto; display:block; background:#fff; }
-    .caderno-bar, .caderno-dica, .caderno-tut { display:none !important; }
+    .caderno-bar, .caderno-tut { display:none !important; }
     .caderno-corpo { display:block; overflow:visible; padding:0; }
     .caderno-escala { margin:0 !important; transform:none !important; height:auto !important; }
     .pag { margin:0; box-shadow:none; page:guia-a4; break-after:page; page-break-after:always; }
@@ -6311,10 +6325,11 @@
 <!-- IMPRESSÃO: diálogo com a prévia das folhas A4 (o script 10 monta as páginas) -->
 <div class="caderno" id="caderno" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-label="Imprimir o guia em folhas A4">
   <div class="caderno-bar nao-imprime">
-    <span class="caderno-info" id="caderno-info" aria-live="polite">Montando as páginas…</span>
-    <button type="button" class="caderno-btn" id="caderno-print">Imprimir agora</button>
-    <button type="button" class="caderno-btn caderno-btn-tut" id="caderno-tut" aria-haspopup="dialog" aria-controls="caderno-tut-p" aria-expanded="false">Como imprimir</button>
-    <button type="button" class="caderno-btn caderno-btn-x" id="caderno-x">Fechar</button>
+    <div class="caderno-cab">
+      <button type="button" class="caderno-ic caderno-ic-tut" id="caderno-tut" aria-haspopup="dialog" aria-controls="caderno-tut-p" aria-expanded="false" aria-label="Como imprimir" title="Como imprimir">?</button>
+      <span class="caderno-tit">Imprimir o guia</span>
+      <button type="button" class="caderno-ic caderno-ic-x" id="caderno-x" aria-label="Fechar a impressão" title="Fechar">×</button>
+    </div>
     <div class="caderno-grupos">
       <div class="caderno-grupo" id="caderno-guias" role="group" aria-labelledby="caderno-guias-t">
         <span class="caderno-grupo-t" id="caderno-guias-t">Guia</span>
@@ -6327,8 +6342,11 @@
         <button type="button" class="caderno-opc" data-fmt="fich" aria-pressed="false">A4 fichário</button>
       </div>
     </div>
+    <div class="caderno-pe">
+      <p class="caderno-info" id="caderno-info" aria-live="polite">Montando as páginas…</p>
+      <button type="button" class="caderno-btn" id="caderno-print">Imprimir</button>
+    </div>
   </div>
-  <p class="caderno-dica nao-imprime" id="caderno-dica">Papel A4 · Retrato · Margens: Padrão · Escala 100% · uma face ou frente e verso (borda longa)</p>
   <div class="caderno-tut nao-imprime" id="caderno-tut-p" hidden role="dialog" aria-modal="true" aria-labelledby="caderno-tut-t">
     <div class="tut-painel">
       <div class="tut-cab">
@@ -6336,8 +6354,8 @@
         <button type="button" class="tut-x" id="caderno-tut-x" aria-label="Fechar o tutorial">×</button>
       </div>
       <div class="tut-corpo">
-        <p class="tut-intro">Escolha o guia e o formato na barra e toque em <b>Imprimir agora</b>. Dá para imprimir pelo navegador do computador ou do celular.</p>
-        <p class="tut-aviso tut-so-app">Pelo app, se nada acontecer ao tocar em <b>Imprimir agora</b>, abra <b>audiovisualiasd.com.br/sonoplastia</b> no navegador.</p>
+        <p class="tut-intro">Escolha o guia e o formato na barra e toque em <b>Imprimir</b>, o último botão dela. Dá para imprimir pelo navegador do computador ou do celular.</p>
+        <p class="tut-aviso tut-so-app">Pelo app, se nada acontecer ao tocar em <b>Imprimir</b>, abra <b>audiovisualiasd.com.br/sonoplastia</b> no navegador.</p>
         <section class="tut-met" aria-labelledby="tut-t-simples">
           <h3 id="tut-t-simples">A4 simples</h3>
           <svg class="tut-svg" id="tut-svg-simples" viewBox="0 0 340 150" role="img" aria-label="Folhas A4 grampeadas no canto superior esquerdo, ou presas com um clipe" font-family="system-ui, sans-serif">
@@ -6741,7 +6759,7 @@
     var cad = $('#caderno'), btn = $('#btn-imp');
     if (!cad || !btn) return;
     var corpo = $('#caderno-corpo'), escala = $('#caderno-escala'),
-        info = $('#caderno-info'), dica = $('#caderno-dica'), sprite = $('#caderno-sprite'),
+        info = $('#caderno-info'), sprite = $('#caderno-sprite'),
         cx = $('#caderno-x'), printBt = $('#caderno-print');
     var guiaBox = $('#caderno-guias'), fmtBox = $('#caderno-formatos');
     var tutBt = $('#caderno-tut'), tutP = $('#caderno-tut-p'), tutX = $('#caderno-tut-x');
@@ -6750,11 +6768,7 @@
     var PAGS = [], cur = null, oidPag = {}, finais = {}, rodTxt = '';
     var LARG = 210 * 96 / 25.4;                 // largura da folha A4 em px CSS
     var CURTO = { dia: 'Por um dia', integral: 'Tempo integral' };
-    var FORMATO = { simples: 'A4 simples', fich: 'A4 fichário' };
-    var DICA = {
-      simples: 'Papel A4 · Retrato · Margens: Padrão · Escala 100% · uma face ou frente e verso (borda longa)',
-      fich: 'Papel A4 · Retrato · Margens: Padrão · Escala 100% · frente e verso virando na <b>BORDA LONGA</b>'
-    };
+    var IMPRESSORA = 'Imprima em A4 retrato, escala 100%, margens padrão.';
 
     /* nome e descrição da trilha como estão no guia ("Trilha 1 · Sonoplasta por um dia") */
     function trilha(g) {
@@ -7207,14 +7221,13 @@
       return frag;
     }
 
-    /* ----- formato: margens (classe), contagem de folhas e dica da impressora ----- */
+    /* ----- formato: margens (classe) e a linha única de informação (folhas + impressora) ----- */
     function aplicarFormato() {
       escala.classList.toggle('fmt-fich', FMT === 'fich');
       var P = PAGS.length, F2 = Math.ceil(P / 2);
-      info.textContent = CURTO[GUIA] + ' · ' + FORMATO[FMT] + ' — ' + P + ' páginas ' + (FMT === 'fich'
-        ? '· ' + F2 + ' folhas, frente e verso'
-        : '(' + P + ' folhas numa face ou ' + F2 + ' em frente e verso)');
-      if (dica) dica.innerHTML = DICA[FMT];
+      info.innerHTML = '<b>' + P + ' páginas</b>: ' + (FMT === 'fich'
+        ? F2 + ' folhas em frente e verso, virando na <b>borda longa</b>. '
+        : P + ' folhas numa face ou ' + F2 + ' em frente e verso (borda longa). ') + IMPRESSORA;
       try {
         window.livreto = { guia: GUIA, formato: FMT, paginas: P, folhasUmaFace: P, folhasFrenteVerso: F2, oidPag: finais };
       } catch (e) {}
