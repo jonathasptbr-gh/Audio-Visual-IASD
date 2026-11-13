@@ -495,18 +495,19 @@
     display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); column-gap:7mm;
   }
   /* duas colunas de 83,5 mm (≈ 315 px, a largura de um celular) e um vão de 7 mm: o texto enche a
-     da esquerda de cima a baixo, depois a da direita. Uma faixa de largura total, só no alto da
-     página, recebe o cabeçalho da trilha e a tabela larga demais para uma coluna. O fio no meio do
-     vão só aparece com a coluna da direita ocupada e vai até onde acaba o texto (classe lb-fio,
-     --faixa e --fio, postas pelo motor). */
+     da esquerda de cima a baixo, depois a da direita. Uma faixa de largura total recebe o cabeçalho
+     da trilha (no alto) e a tabela larga demais para uma coluna, onde ela cair: o que já está na
+     página se reparte em duas colunas acima dela e o texto segue em duas colunas novas abaixo (as
+     linhas da grade são postas pelo motor). O fio no meio do vão (.pag-fio) só aparece onde a
+     coluna da direita está ocupada e vai até onde acaba o texto. */
   .pag-faixa { grid-column:1 / -1; grid-row:1; min-width:0; padding-bottom:5mm; }
+  .pag-faixa-meio { padding-top:3mm; }
   .pag-col { grid-row:2; min-width:0; min-height:0; overflow:hidden; }
+  /* os capítulos seguem em sequência: o título que não abre a coluna ganha um respiro acima */
+  .pag-col > .lb-cap:not(:first-child) { margin-top:8mm; }
   .pag-col-e { grid-column:1; }
   .pag-col-d { grid-column:2; }
-  .pag.lb-fio::after {
-    content:""; position:absolute; top:calc(15mm + var(--faixa, 0px)); height:var(--fio, 264mm); left:calc(var(--m-esq) + 87mm);
-    width:0; border-left:.5pt solid var(--rule); pointer-events:none;
-  }
+  .pag-fio { position:absolute; left:calc(var(--m-esq) + 87mm); width:0; border-left:.5pt solid var(--rule); pointer-events:none; }
   .pag-rod {
     flex:none; height:18mm; box-sizing:border-box; padding:3.5mm var(--m-dir) 0 var(--m-esq);
     font-size:8pt; line-height:1.2; color:var(--muted); text-align:center;
@@ -6392,7 +6393,7 @@
             <li>Na janela da impressora: papel <b>A4</b>, <b>retrato</b>, margens <b>Padrão</b>, escala <b>100%</b>.</li>
             <li>Uma face só, ou frente e verso virando na <b>borda longa</b>: as margens são iguais dos dois lados.</li>
             <li>Grampeie no <b>canto superior esquerdo</b>, ou prenda com um clipe ou prendedor.</li>
-            <li>No <b>Tempo integral</b>, que é mais grosso, separe os capítulos com clipes: cada capítulo começa numa página nova.</li>
+            <li>No <b>Tempo integral</b>, que é mais grosso, use um prendedor de papel. Para achar um capítulo, veja o <b>índice</b> na página 2.</li>
           </ol>
         </section>
         <section class="tut-met" aria-labelledby="tut-t-fich">
@@ -6965,15 +6966,13 @@
       escala.appendChild(p);
       cur = { el: p, con: con, cols: null, col: 0, faixa: null };
       if (!semColunas) {
-        cur.cols = ['e', 'd'].map(function (l) {
-          var c = document.createElement('div'); c.className = 'pag-col pag-col-' + l;
-          con.appendChild(c); return c;
-        });
+        cur.cols = ['e', 'd'].map(function (l) { var c = colunaNova(l); con.appendChild(c); return c; });
         cur.con = cur.cols[0];
       }
       PAGS.push(cur);
       return cur;
     }
+    function colunaNova(l) { var c = document.createElement('div'); c.className = 'pag-col pag-col-' + l; return c; }
     /* a coluna seguinte: a da direita e, depois dela, página nova */
     function avancar() {
       if (cur && cur.cols && cur.col === 0) { cur.col = 1; cur.con = cur.cols[1]; return cur; }
@@ -6994,10 +6993,10 @@
       /* clientHeight inclui o padding do contêiner: só a área de conteúdo comporta os filhos */
       return c.clientHeight - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0) - soma;
     }
-    /* capítulo e índice: página nova, no topo da coluna da esquerda (a atual serve se vazia) */
+    /* o miolo, o índice e a faixa: página nova, no topo da coluna da esquerda (a atual serve se vazia) */
     function novaSecao() {
-      var usado = cur && (cur.cols ? cur.cols[0].childElementCount + cur.cols[1].childElementCount + (cur.faixa ? 1 : 0) : cur.con.childElementCount);
-      if (!cur || usado > 0) return novaPag();
+      var usado = cur && (cur.cols ? !!cur.el.firstChild.querySelector('.pag-col > *, .pag-faixa > *') : cur.con.childElementCount > 0);
+      if (!cur || usado) return novaPag();
       if (cur.cols) { cur.col = 0; cur.con = cur.cols[0]; }
       return cur;
     }
@@ -7028,11 +7027,14 @@
           while (filhos[j] && filhos[j].tagName === 'P' && curto(filhos[j])) { g.push(filhos[j]); j += 1; }
           var blocou = filhos[j] && (filhos[j].tagName === 'FIGURE' || /^(UL|OL|DL|DETAILS)$/.test(filhos[j].tagName) || (filhos[j].classList && (filhos[j].classList.contains('tabela') || filhos[j].classList.contains('box'))));
           if (blocou) g.push(filhos[j]);
+          /* título sozinho leva junto o que vem logo depois (um parágrafo longo, por exemplo) */
+          var junto = !blocou && g.length === 1 && filhos[j] && !ehCab(filhos[j]);
+          if (junto) g.push(filhos[j]);
           var run2 = document.createElement('div'); run2.className = 'lb-grp';
           f.parentNode.insertBefore(run2, f);
           g.forEach(function (n) { run2.appendChild(n); });
           out.push(run2);
-          i = blocou ? j + 1 : j;  /* sem bloco anexado, o elemento seguinte NÃO é pulado */
+          i = blocou || junto ? j + 1 : j;  /* sem bloco anexado, o elemento seguinte NÃO é pulado */
           continue;
         }
         if (f.tagName === 'DT' && prox && prox.tagName === 'DD') { out.push(junta(f, prox)); i += 2; continue; }
@@ -7174,28 +7176,47 @@
       u.remove();
       return passa;
     }
-    /* faixa de largura total no alto de uma página (a atual, se vazia); o texto segue nas duas
-       colunas abaixo dela */
+    /* faixa de largura total: no alto de uma página (a atual, se vazia) ou onde cair (faixaNoMeio);
+       o texto segue nas duas colunas abaixo dela */
     function criarFaixa() {
       var f = document.createElement('div'); f.className = 'pag-faixa';
       cur.el.firstChild.insertBefore(f, cur.cols[0]);
       return (cur.faixa = f);
     }
     function colocarFaixa(unit) {
-      var c0 = cur && cur.cols && cur.col === 0 && !cur.cols[1].childElementCount ? cur.cols[0] : null;
-      if (c0 && c0.childElementCount && !c0.querySelector('figure, svg, img, .tabela')) {
-        /* a página só tem texto (sem figura nem tabela) na coluna da esquerda: ele sobe para a
-           faixa, com a tabela logo abaixo, em vez de a página ficar quase vazia */
-        var nova = !cur.faixa, f = cur.faixa || criarFaixa(), mov = Array.prototype.slice.call(c0.children);
-        mov.forEach(function (k) { f.appendChild(k); });
-        f.appendChild(unit);
-        if (f.offsetHeight <= utilCheia() * 0.6) { registrarOid(unit); return; }
-        unit.remove(); mov.forEach(function (k) { c0.appendChild(k); });
-        if (nova) { f.remove(); cur.faixa = null; }
-      }
-      novaSecao();
-      (cur.faixa || criarFaixa()).appendChild(unit);
+      if (!faixaNoMeio(unit)) { novaSecao(); (cur.faixa || criarFaixa()).appendChild(unit); }
       registrarOid(unit);
+    }
+    /* a faixa onde cair: o que já está nas duas colunas desta página se reparte em duas colunas
+       acima dela, o mais baixas possível — sem título no pé da esquerda, e o 1º bloco da direita
+       sem caber no que sobra da esquerda —, e o texto segue em duas colunas novas abaixo. Se não
+       couber com ~3 linhas embaixo, ela vai para o alto da página seguinte. */
+    function soTitulo(u) { return /^H[1-6]$/.test(u.tagName) || (u.classList.contains('lb-cap') && u.tagName !== 'SECTION'); }
+    function faixaNoMeio(unit) {
+      if (!cur || !cur.cols || cur.meio) return false;
+      var e = cur.cols[0], d = cur.cols[1];
+      var us = Array.prototype.slice.call(e.children).concat(Array.prototype.slice.call(d.children));
+      if (!us.length) return false;
+      var hs = us.map(altura), tot = 0, k = 0, acc = Infinity, soma = 0;
+      hs.forEach(function (h) { tot += h; });
+      for (var n = 1; n <= us.length; n++) {        // n blocos na esquerda, o resto na direita
+        soma += hs[n - 1];
+        var dir = tot - soma;
+        if (n < us.length && (soTitulo(us[n - 1]) || (dir > soma && dir - soma >= hs[n]))) continue;
+        if (Math.max(soma, dir) < acc) { acc = Math.max(soma, dir); k = n; }
+      }
+      var pc = cur.el.firstChild, f = document.createElement('div');
+      f.className = 'pag-faixa pag-faixa-meio'; f.style.gridRow = '3';
+      pc.appendChild(f); f.appendChild(unit);
+      var alto = acc + f.offsetHeight + (cur.faixa ? cur.faixa.offsetHeight : 0) + 3 * (LINHA || 20);
+      if (alto > utilCheia()) { unit.remove(); f.remove(); return false; }
+      us.forEach(function (u, i) { (i < k ? e : d).appendChild(u); });
+      var e2 = colunaNova('e'), d2 = colunaNova('d');
+      e2.style.gridRow = d2.style.gridRow = '4';
+      pc.appendChild(e2); pc.appendChild(d2);
+      pc.style.gridTemplateRows = 'auto auto auto minmax(0,1fr)';
+      cur.meio = f; cur.cols = [e2, d2]; cur.col = 0; cur.con = e2;
+      return true;
     }
     function colocar(unit) {
       if (larga(unit)) { colocarFaixa(unit); return; }
@@ -7207,12 +7228,15 @@
         unit.classList.add('lb-enc');
         if (cabeNumaColuna(unit) && emColunaNova(unit)) return;
         unit.classList.remove('lb-enc');
-      } else if (grupo) {
-        /* título com lista ou texto: entra onde houver espaço e o resto divide (nunca título órfão) */
+      }
+      if (grupo) {
+        /* o grupo se divide: o título entra onde houver espaço, mas só se o começo do bloco seguinte
+           (inteiro; numa lista, ~3 linhas) couber junto — nunca título órfão no pé da coluna */
         var h = unit.firstElementChild;
-        cur.con.appendChild(h);
-        if (cheio(cur.con) || resta(cur.con) < 90) { cur.con.removeChild(h); proxColuna(); cur.con.appendChild(h); }
-        registrarOid(h);
+        if (!tituloCabe(h, h.nextElementSibling)) proxColuna();
+        cur.con.appendChild(h); registrarOid(h);
+        unidadesDe(unit).forEach(colocar);
+        return;
       }
       if (/^(UL|OL|DL)$/.test(unit.tagName)) { colocarLista(unit); registrarOid(unit); return; }
       if (ehComposto(unit)) { unidadesDe(unit).forEach(colocar); return; }
@@ -7228,20 +7252,115 @@
     function ehComposto(u) {
       return /^(SECTION|DIV|DETAILS|UL|OL|DL|NAV|TABLE|TBODY)$/.test(u.tagName);
     }
-    /* cada capítulo começa em página nova; o primeiro divide a página com o cabeçalho da trilha (na faixa) */
+    /* ----- capítulos em sequência: o miolo começa em página nova, com o cabeçalho da trilha na
+       faixa, e cada capítulo começa logo depois do anterior, na mesma coluna, se o título (com o
+       resumo) couber junto com o 1º bloco inteiro — numa lista, com ~3 linhas dela — e com pelo
+       menos ~3 linhas de espaço; senão, no alto da coluna seguinte. Assim o título nunca fica
+       sozinho no pé da coluna. ----- */
+    var LINHA = 0;                                   // altura de uma linha de texto da coluna (px)
     function paginarMiolo(cl) {
       Array.prototype.slice.call(cl.children).forEach(function (n) {
         novaSecao(); registrar(n.getAttribute('data-oid'));
         if (!n.matches('.trilha')) { colocar(n); return; }
-        var soCab = false;
         Array.prototype.slice.call(n.children).forEach(function (sec) {
-          if (sec.classList.contains('trilha-cab')) { colocarFaixa(sec); soCab = true; return; }
-          if (!soCab) novaSecao();
-          soCab = false;
-          registrar(sec.getAttribute('data-oid'));
-          colocar(sec);
+          if (sec.classList.contains('trilha-cab')) { colocarFaixa(sec); return; }
+          if (sec.matches('section.cap')) { colocarCapitulo(sec); return; }
+          registrar(sec.getAttribute('data-oid')); colocar(sec);
         });
       });
+    }
+    /* a página do capítulo é a do título dele (que pode dividir a página com outro capítulo) */
+    function registrarEm(oid, el) {
+      if (!oid || oid in oidPag) return;
+      var p = el.closest('.pag');
+      for (var i = PAGS.length - 1; i >= 0; i--) if (PAGS[i].el === p) { oidPag[oid] = i; return; }
+    }
+    /* a menor parte do bloco que segura o título: ele inteiro; numa lista, os itens até ~3 linhas;
+       num grupo, o texto até a lista e ~3 linhas dela, ou o texto antes de uma figura, caixa ou
+       tabela, se tiver ~4 linhas (o grupo do 1º bloco do capítulo entra peça a peça) */
+    function minimo(u) {
+      var b = altura(u);
+      if (u.classList.contains('lb-grp')) {
+        var topo = u.offsetTop - (parseFloat(getComputedStyle(u).marginTop) || 0);
+        for (var x = u.firstElementChild; x; x = x.nextElementSibling) {
+          var antes = x.offsetTop - topo;
+          if (/^(UL|OL|DL)$/.test(x.tagName) && !u.querySelector(ATOMO)) return Math.min(b, antes + minimo(x));
+          if (x.matches(ATOMO) || x.querySelector(ATOMO)) return x !== u.firstElementChild && antes >= 4 * LINHA ? Math.min(b, antes) : b;
+        }
+      }
+      if (/^(UL|OL|DL)$/.test(u.tagName) && u.children.length > 1) {
+        var topo = u.offsetTop - (parseFloat(getComputedStyle(u).marginTop) || 0);
+        for (var i = 0; i < u.children.length; i++) {
+          var k = u.children[i], fimK = k.offsetTop + k.offsetHeight - topo;
+          if (fimK >= 3 * LINHA) return Math.min(b, fimK);
+        }
+      }
+      return b;
+    }
+    /* mede elementos na coluna atual e os devolve ao lugar de origem */
+    function medindo(els, fn) {
+      var lugares = els.map(function (e) { return [e, e.parentNode, e.nextSibling]; });
+      els.forEach(function (e) { cur.con.appendChild(e); });
+      try { return fn(); } finally {
+        for (var i = lugares.length - 1; i >= 0; i--) {
+          var l = lugares[i];
+          if (l[1]) l[1].insertBefore(l[0], l[2]); else l[0].remove();
+        }
+      }
+    }
+    /* o título h cabe no resto da coluna junto com o começo do bloco seguinte (e ~3 linhas)? */
+    function tituloCabe(h, prox) {
+      var c = cur.con;
+      if (!c.childElementCount) return true;
+      if (!LINHA) LINHA = parseFloat(getComputedStyle(c).lineHeight) || 20;
+      var livre = resta(c);
+      return medindo(prox ? [h, prox] : [h], function () {
+        return altura(h) + (prox ? Math.max(minimo(prox), Math.min(altura(prox), 3 * LINHA)) : 0) <= livre + 2;
+      });
+    }
+    /* o título (com o resumo), o 1º bloco (ou o começo dele) e ~3 linhas cabem no resto da coluna? */
+    function cabeAbertura(abre, seg) {
+      var c = cur.con;
+      if (!c.childElementCount) return true;          // no alto da coluna não há o que ganhar
+      if (!LINHA) LINHA = parseFloat(getComputedStyle(c).lineHeight) || 20;
+      var livre = resta(c);
+      c.appendChild(abre);
+      var a = altura(abre), bloco = abre.lastElementChild, precisa = a;
+      if (abre.childElementCount > 1 && !/^(H[1-6]|P)$/.test(bloco.tagName)) {
+        precisa = a - altura(bloco) + Math.max(minimo(bloco), 3 * LINHA);   // o 1º bloco veio no grupo do título
+      } else if (seg) {
+        c.appendChild(seg); precisa = a + Math.max(minimo(seg), 3 * LINHA); seg.remove();
+      }
+      abre.remove();
+      return precisa <= livre + 2;
+    }
+    function colocarCapitulo(sec) {
+      var oid = sec.getAttribute('data-oid');
+      sec.classList.add('lb-cap');
+      if (pode(sec, cur.con)) { registrarOid(sec); return; }       // o capítulo inteiro cabe aqui
+      sec.classList.remove('lb-cap');
+      var us = unidadesDe(sec);
+      if (!us.length) return;
+      var abre = us[0];
+      abre.classList.add('lb-cap');
+      if (!cabeAbertura(abre, us[1])) proxColuna();
+      if (pode(abre, cur.con)) { registrarEm(oid, abre); registrarOid(abre); }
+      else {                                                       // grande demais: peça a peça, o título primeiro
+        abre.classList.remove('lb-cap');
+        var pecas = unidadesDe(abre);
+        pecas[0].classList.add('lb-cap');
+        pecas.forEach(colocar);
+        registrarEm(oid, pecas[0]);
+      }
+      /* o 1º bloco: inteiro, se couber; senão, um grupo entra peça a peça (o texto fica com o título
+         e a figura, a caixa ou a tabela passa para a coluna seguinte) */
+      var seg = us[1];
+      if (seg) {
+        if (pode(seg, cur.con)) registrarOid(seg);
+        else if (seg.classList.contains('lb-grp')) unidadesDe(seg).forEach(colocar);
+        else colocar(seg);
+      }
+      us.slice(2).forEach(colocar);
     }
 
     /* ----- capa e índice ----- */
@@ -7381,17 +7500,21 @@
         r.el.querySelector('.pn').textContent = String(i + 1);
       });
       PAGS.length = ordem.length;
-      /* o fio do meio só com a coluna da direita ocupada: começa abaixo da faixa e acaba com o texto
-         (todas as medidas primeiro, depois as escritas: o leiaute é calculado uma vez só) */
+      /* o fio do meio em cada par de colunas com a da direita ocupada, do alto delas até onde acaba
+         o texto (todas as medidas primeiro, depois as escritas: o leiaute é calculado uma vez só) */
       var fios = ordem.map(function (r) {
-        return r.cols && r.cols[1].childElementCount
-          ? { faixa: r.faixa ? r.faixa.offsetHeight : 0, alto: Math.max(fim(r.cols[0]), fim(r.cols[1])) } : null;
+        var cs = r.el.querySelectorAll('.pag-col'), out = [];
+        for (var i = 0; i + 1 < cs.length; i += 2) {
+          if (cs[i + 1].childElementCount) out.push([cs[i].offsetTop, Math.max(fim(cs[i]), fim(cs[i + 1]))]);
+        }
+        return out;
       });
       ordem.forEach(function (r, i) {
-        var f = fios[i]; if (!f) return;
-        r.el.classList.add('lb-fio');
-        r.el.style.setProperty('--faixa', f.faixa + 'px');
-        r.el.style.setProperty('--fio', f.alto + 'px');
+        fios[i].forEach(function (f) {
+          var d = document.createElement('div'); d.className = 'pag-fio';
+          d.style.top = f[0] + 'px'; d.style.height = f[1] + 'px';
+          r.el.appendChild(d);
+        });
       });
       Object.keys(oidPag).forEach(function (k) { finais[k] = oidPag[k] + idxN + 1; });   // nº da página impressa
 

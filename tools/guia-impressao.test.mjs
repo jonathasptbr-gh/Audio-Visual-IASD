@@ -8,10 +8,11 @@
 // (25 mm do lado do furo e 11 do outro, espelhadas nas páginas pares). A
 // área útil (174 × 264 mm) tem DUAS colunas de 83,5 mm — a largura de um
 // celular — com um vão de 7 mm: o texto enche a da esquerda, depois a da
-// direita, e cada figura fica na largura da SUA coluna. Uma faixa de largura
-// total, só no alto da página, leva o cabeçalho da trilha e a tabela larga
-// demais para uma coluna (4 colunas ou mais). A prévia É o que se imprime. O
-// que este arquivo trava:
+// direita, e cada figura fica na largura da SUA coluna. Os capítulos seguem
+// em sequência, sem página nova. Uma faixa de largura total leva o cabeçalho
+// da trilha (no alto) e a tabela larga demais para uma coluna (4 colunas ou
+// mais), onde ela cair: o que já está na página se reparte em duas colunas
+// acima dela. A prévia É o que se imprime. O que este arquivo trava:
 //  A. o diálogo tem só 2 guias × 2 formatos e abre em "Por um dia · A4 simples";
 //     a caixa de cima tem o "?" (Como imprimir) no topo esquerdo e o fechar no
 //     direito, numa faixa só deles, UMA linha de informação (páginas, folhas e
@@ -28,12 +29,13 @@
 //  D. os dois formatos do mesmo guia, paginados do zero, dão o mesmo nº de
 //     páginas e o mesmo índice (a área útil é a mesma);
 //  E. nenhuma página vazia nem texto cortado no rodapé; cada capítulo começa
-//     em página nova, no alto (faixa, ou o topo da coluna da esquerda), e o
-//     índice aponta para ela; a ordem de leitura é a do guia e a coluna da
-//     esquerda enche antes da direita; figura na largura da sua coluna e
-//     centrada nela, nunca na faixa; a faixa só leva o cabeçalho da trilha e
-//     tabela larga (com o texto que a precede na página); caixa, cartão,
-//     cartão de problema, figura e tabela nunca partidos;
+//     na coluna onde o anterior terminou, salvo quando o título e o 1º bloco
+//     não cabem no resto dela; nenhum título de capítulo fica órfão no pé da
+//     coluna; o índice aponta para a página onde o capítulo começa; a ordem
+//     de leitura é a do guia e a coluna da esquerda enche antes da direita;
+//     figura na largura da sua coluna e centrada nela, nunca na faixa; a faixa
+//     só leva o cabeçalho da trilha e tabela larga; caixa, cartão, cartão de
+//     problema, figura e tabela nunca partidos;
 //  F. capa e rodapé com o nome real da trilha; sem aviso "não coube" do
 //     motor nem erro de JavaScript;
 //  G. o título "Imprimir o guia" fica no meio, entre o "?" e o fechar;
@@ -149,12 +151,13 @@ async function conferir(pg, guia, fmt, rotulo) {
   checar(invadem.length === 0 && Math.abs(encostam.impar - ei) < 0.5 && Math.abs(encostam.par - ep) < 0.5,
     `C · ${rotulo}: o texto começa a ${ei} mm da borda nas ímpares e a ${ep} mm nas pares, sem invadir a margem`,
     JSON.stringify({ encostam, invadem: invadem.slice(0, 3) }));
-  // da 2ª página em diante: duas colunas de 83,5 mm, a da esquerda na margem, 7 mm de vão
+  // da 2ª página em diante: pares de colunas de 83,5 mm, a da esquerda na margem, 7 mm de vão
+  // (a faixa no meio da página abre um segundo par, abaixo dela)
   const colunasTortas = pags.map((p, i) => [i + 1, p]).filter(([n, p]) => {
     if (n === 1) return false;
     const e = margens(fmt, n)[0];
-    return p.cols.length !== 2 || Math.abs(p.cols[0][0] - e) > 0.3 || Math.abs(p.cols[1][0] - (e + 90.5)) > 0.3
-      || p.cols.some(([, w]) => Math.abs(w - 83.5) > 0.3);
+    return !p.cols.length || p.cols.length % 2
+      || p.cols.some(([x, w], j) => Math.abs(x - (j % 2 ? e + 90.5 : e)) > 0.3 || Math.abs(w - 83.5) > 0.3);
   });
   const vazantes = pags.map((p, i) => (p.vazam.length ? (i + 1) + ': ' + p.vazam.join(', ') : 0)).filter(Boolean);
   checar(colunasTortas.length === 0 && vazantes.length === 0,
@@ -173,14 +176,41 @@ const estrutura = (pg, guia) => pg.evaluate((guia) => {
   const pags = [...esc.querySelectorAll('.pag')];
   const oid = window.livreto.oidPag;
   const caps = Object.keys(oid).filter((k) => /^[di]\d+$/.test(k));
-  // o capítulo abre a página: o código dele está nos 2 primeiros blocos (a faixa, depois a coluna da esquerda)
-  const codNa = (n, cod) => pags[n - 1] && [...pags[n - 1].querySelectorAll('.pag-faixa > *, .pag-col-e > *')].slice(0, 2)
-    .some((k) => [...k.querySelectorAll('.cod')].concat(k.matches('.cod') ? [k] : []).some((c) => c.textContent.trim() === cod));
-  const foraDoInicio = caps.filter((k) => !codNa(oid[k], k.toUpperCase()));
   const original = caps.length === document.querySelectorAll('#' + guia + ' > section.cap').length;
+  // capítulos em sequência: medidas do motor (altura com margens; o que sobra numa coluna)
+  const colsTodas = [...esc.querySelectorAll('.pag-col')];
+  const LINHA = parseFloat(getComputedStyle(colsTodas[0]).lineHeight) || 20;
+  const altK = (k) => { const cs = getComputedStyle(k); return k.offsetHeight + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom); };
+  const livreDe = (c) => c.clientHeight - [...c.children].reduce((t, k) => t + altK(k), 0);
+  const comRespiro = esc.querySelector('.pag-col > .lb-cap:not(:first-child)');
+  const respiro = comRespiro ? parseFloat(getComputedStyle(comRespiro).marginTop) : 0;
+  const ordemCaps = [...document.querySelectorAll('#' + guia + ' > section.cap')].map((s) => s.id).filter((k) => k in oid);
+  const titulos = [...esc.querySelectorAll('.pag-col h2 .cod, .pag-faixa h2 .cod')];
+  const pulos = [], orfaos = [], capPag = {};
+  ordemCaps.forEach((k, idx) => {
+    const c = titulos.find((x) => x.textContent.trim() === k.toUpperCase()), h = c && c.closest('h2');
+    if (!h) { pulos.push(k + ': sem título'); return; }
+    capPag[k] = pags.indexOf(h.closest('.pag')) + 1;
+    const col = h.closest('.pag-col');
+    if (!col) return;
+    let topo = h; while (topo.parentElement !== col) topo = topo.parentElement;
+    // órfão: logo depois do título, na mesma coluna, tem de vir o 1º bloco (fora o resumo) ou ~3 linhas
+    const depois = [];
+    for (let n = h; n && n !== col; n = n.parentElement) for (let x = n.nextElementSibling; x; x = x.nextElementSibling) depois.push(x);
+    const ult = col.lastElementChild, abaixo = ult.offsetTop + ult.offsetHeight - (h.offsetTop + h.offsetHeight);
+    if (!depois.some((x) => !x.matches('p.resumo')) && abaixo < 2.7 * LINHA) orfaos.push(k + ': ' + Math.round(abaixo) + ' px');
+    // pulou: abriu uma coluna nova (não logo depois de uma faixa) com espaço na anterior para título + 1º bloco
+    if (idx === 0 || topo.previousElementSibling) return;
+    if (col.previousElementSibling && col.previousElementSibling.matches('.pag-faixa')) return;
+    const ant = colsTodas[colsTodas.indexOf(col) - 1];
+    if (!ant) return;
+    const prox = topo.nextElementSibling;
+    const precisa = altK(topo) + respiro + Math.max(prox ? altK(prox) : 0, 3 * LINHA), livre = livreDe(ant);
+    if (livre >= precisa + 3) pulos.push(k + ': sobravam ' + Math.round(livre) + ' px para ' + Math.round(precisa));
+  });
   const indice = [...esc.querySelectorAll('.lb-ind li')].map((li) =>
     [li.querySelector('.ic').textContent.trim().toLowerCase(), li.querySelector('.lb-pg').textContent.replace(/\D/g, '')]);
-  const indiceErrado = indice.filter(([k, n]) => String(oid[k]) !== n);
+  const indiceErrado = indice.filter(([k, n]) => String(oid[k]) !== n || String(capPag[k]) !== n);
   // figura: na largura da SUA coluna e centrada nela (a prévia está escalada: k)
   const figuras = [...esc.querySelectorAll('figure.ilus > svg')].map((s) => {
     const col = s.closest('.pag-col');
@@ -199,14 +229,19 @@ const estrutura = (pg, guia) => pg.evaluate((guia) => {
   // da direita (+ o recuo do título que não fica órfão no pé da coluna, 90 px); o índice de uma página
   // se reparte nas duas colunas de propósito e fica de fora
   const alt = (k) => { const cs = getComputedStyle(k); return k.offsetHeight + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom); };
-  const esqDepois = pags.map((p, i) => {
-    const [e, d] = p.querySelectorAll(':scope > .pag-conteudo > .pag-col');
-    if (!e || !d.childElementCount) return null;
-    if (!e.childElementCount) return (i + 1) + ': esquerda vazia';
-    if (p.querySelector('.lb-ind')) return null;
-    const livre = e.clientHeight - [...e.children].reduce((t, k) => t + alt(k), 0), prim = alt(d.firstElementChild);
-    return livre < prim + 94 ? null : (i + 1) + ': sobram ' + Math.round(livre) + ' px para ' + Math.round(prim);
-  }).filter(Boolean);
+  const esqDepois = [];
+  pags.forEach((p, i) => {
+    const cs = [...p.querySelectorAll(':scope > .pag-conteudo > .pag-col')];
+    for (let j = 0; j + 1 < cs.length; j += 2) {
+      const e = cs[j], d = cs[j + 1];
+      if (!d.childElementCount || p.querySelector('.lb-ind')) continue;
+      if (!e.childElementCount) { esqDepois.push((i + 1) + ': esquerda vazia'); continue; }
+      const d0 = d.firstElementChild, livre = e.clientHeight - [...e.children].reduce((t, k) => t + alt(k), 0);
+      let prim = alt(d0);
+      if (d0.matches('.lb-cap')) prim += respiro + Math.max(d0.nextElementSibling ? alt(d0.nextElementSibling) : 0, 3 * LINHA);
+      if (livre >= prim + 94) esqDepois.push((i + 1) + ': sobram ' + Math.round(livre) + ' px para ' + Math.round(prim));
+    }
+  });
   // faixa: só o cabeçalho da trilha e a tabela larga (4 colunas ou mais, ou que passa da largura de uma coluna)
   const faixas = [...esc.querySelectorAll('.pag-faixa')];
   const largaDeVerdade = (t) => {
@@ -220,7 +255,7 @@ const estrutura = (pg, guia) => pg.evaluate((guia) => {
   const faixaMal = faixas.filter((f) => f.querySelector('figure, svg, img') || !(f.querySelector('.trilha-cab') || f.querySelector('.tabela'))).length
     + tabFaixa.filter((t) => !largaDeVerdade(t)).length;
   return {
-    caps: caps.length, original, foraDoInicio, indice: indice.length, indiceErrado,
+    caps: caps.length, original, pulos, orfaos, indice: indice.length, indiceErrado,
     figLarga: figuras.filter((f) => !f.faixa && f.larg > f.col + 0.3).length, figTorta: figuras.filter((f) => !f.faixa && f.desvio > 1).length,
     figFaixa: figuras.filter((f) => f.faixa).length, figuras: figuras.length,
     larguraCol: Math.max(0, ...figuras.filter((f) => !f.faixa).map((f) => f.col)),
@@ -295,9 +330,13 @@ try {
   }
 
   for (const [nome, e] of [['Por um dia', eDia], ['Tempo integral', eInt]]) {
-    checar(e.original && e.foraDoInicio.length === 0 && e.indice === e.caps && e.indiceErrado.length === 0,
-      `E · ${nome}: os ${e.caps} capítulos começam em página nova e o índice aponta para ela`,
-      JSON.stringify({ foraDoInicio: e.foraDoInicio, indiceErrado: e.indiceErrado.slice(0, 3), original: e.original }));
+    checar(e.original && e.pulos.length === 0,
+      `E · ${nome}: os ${e.caps} capítulos seguem em sequência: cada um começa na coluna onde o anterior terminou, salvo quando o título e o 1º bloco não cabem no resto dela`,
+      JSON.stringify({ pulos: e.pulos.slice(0, 4), original: e.original }));
+    checar(e.orfaos.length === 0,
+      `E · ${nome}: nenhum título de capítulo fica órfão no pé da coluna (vem com o 1º bloco ou ~3 linhas)`, JSON.stringify(e.orfaos.slice(0, 4)));
+    checar(e.indice === e.caps && e.indiceErrado.length === 0,
+      `E · ${nome}: o índice aponta para a página onde cada capítulo começa`, JSON.stringify(e.indiceErrado.slice(0, 4)));
     checar(e.figuras > 0 && e.figLarga === 0 && e.figTorta === 0 && e.figFaixa === 0 && Math.abs(e.larguraCol - 83.5) < 0.5,
       `E · ${nome}: as ${e.figuras} figuras ficam na largura da sua coluna (83,5 mm), centradas nela, e nenhuma na faixa`,
       JSON.stringify({ figLarga: e.figLarga, figTorta: e.figTorta, figFaixa: e.figFaixa, larguraCol: e.larguraCol }));

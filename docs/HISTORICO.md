@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o guia: capítulos em sequência, sem página nova (sem versão nova; só `site/` e docs)** — cada capítulo começa logo depois do anterior, na mesma coluna, com respiro acima; o título só fica no pé da coluna com o 1º bloco ou ~3 linhas; a tabela larga entra no meio da página; Por um dia 26 → 22 páginas, Tempo integral 95 → 91.
 - **o guia: impressão em duas colunas (sem versão nova; só `site/` e docs)** — duas colunas de 83,5 mm (a largura de um celular) com 7 mm de vão; figura na largura da sua coluna; faixa de largura total só para o cabeçalho da trilha e 3 tabelas largas; título "Imprimir o guia" centrado; Por um dia 46 → 26 páginas, Tempo integral 147 → 95.
 - **o guia: a caixa de cima da impressão reorganizada (sem versão nova; só `site/` e docs)** — `?` (Como imprimir) no topo esquerdo e o fechar no direito, numa faixa só deles; UMA linha de informação (páginas, folhas e o ajuste da impressora); o Imprimir por último, na base direita; no app só a faixa do `?` desvia do fechar nativo.
 - **o guia: impressão em A4 retrato, simples ou fichário (sem versão nova; só `site/` e docs)** — cada página do guia vira uma folha A4 retrato, na ordem; 2 guias (Por um dia, Tempo integral) × 2 formatos (simples 18/18 mm; fichário 25/11 mm espelhado); saem Dobrar, Encadernar, A5, Completo, capítulo único e Anotações; o tutorial vira "Como imprimir"; oráculo `guia-impressao`.
@@ -717,6 +718,42 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## o guia: capítulos em sequência, sem página nova (sem versão nova; só `site/` e docs)
+
+- **Pedido:** "Não divida os capítulos em páginas novas, isso desperdiça muito
+  espaço."
+- **Capítulos em sequência** (`colocarCapitulo`): o capítulo começa logo depois
+  do anterior, na mesma coluna e página. Passa para a coluna seguinte só quando o
+  título (com o resumo) e o 1º bloco não cabem no resto dela — numa lista bastam
+  ~3 linhas; no grupo de subtítulo com figura, o texto antes da figura (a figura
+  vai para a coluna seguinte). O título que não abre a coluna ganha 8 mm de
+  respiro acima. O índice aponta para a página do título, que pode ser a mesma de
+  outro capítulo.
+- **Título nunca órfão, em geral:** o subtítulo que vinha sozinho (seguido de um
+  parágrafo longo) leva o parágrafo junto, e o título de um grupo que se divide só
+  fica no pé da coluna se o começo do bloco seguinte couber junto (no lugar da
+  folga fixa de 90 px).
+- **Faixa onde cair:** a tabela larga não força mais página nova: o que já está
+  na página se reparte em duas colunas acima dela (sem título no pé da esquerda)
+  e o texto segue em duas colunas novas abaixo — no Tempo integral, o "Mapa de
+  ligações" (I16, pág. 50). Se não couber com ~3 linhas embaixo, vai para o alto
+  da página seguinte, como as duas tabelas do I3. A faixa da trilha continua no
+  alto da 1ª página do miolo. O fio do meio é desenhado por par de colunas.
+- **Sai** a regra que subia texto ("Diário de bordo") para a faixa: servia para a
+  página antes de um capítulo novo não ficar quase vazia.
+- **Capa e índice:** sem mudança. **Tutorial:** o item que mandava separar os
+  capítulos com clipes ("cada capítulo começa numa página nova") vira "use um
+  prendedor de papel; para achar um capítulo, veja o índice na página 2".
+- **Páginas:** Por um dia 26 → 22; Tempo integral 95 → 91 (iguais no simples e
+  no fichário). Ainda sobra branco nos cartões do I17 (cada um com meia coluna
+  ou mais, inteiros) e na coluna antes de um capítulo cujo 1º bloco é uma figura
+  grande.
+- **Oráculo:** `guia-impressao` (59 ok): no lugar de "capítulo em página nova",
+  três checagens — nenhum capítulo pula coluna sem necessidade (começa onde o
+  anterior terminou, salvo quando título + 1º bloco não cabem no resto da coluna),
+  nenhum título de capítulo órfão no pé da coluna, e o índice aponta para a
+  página do título; as colunas vêm em pares (a faixa no meio abre um segundo par).
 
 ## o guia: impressão em duas colunas (sem versão nova; só `site/` e docs)
 
