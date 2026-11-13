@@ -6777,13 +6777,17 @@
       try { montar(); montado = true; }
       catch (e) { montado = false; if (window.console) console.warn('[guia] impressão: montagem falhou', e); }
     }
+    /* a paginação leva segundos no celular: a barra pinta o aviso antes do trabalho pesado */
+    function montarDepois() {
+      info.textContent = 'Montando as páginas…';
+      setTimeout(function () { montarSeguro(); aplicarEscala(); }, 40);
+    }
     function abrir() {
       aberto = true; focoVolta = document.activeElement;
       cad.hidden = false; cad.setAttribute('aria-hidden', 'false');
       document.body.classList.add('imprimir-guia');
-      if (!montado) montarSeguro();
       btn.setAttribute('aria-expanded', 'true');
-      aplicarEscala();
+      if (montado) aplicarEscala(); else montarDepois();
       if (cx) cx.focus();
     }
     function fechar() {
@@ -6833,13 +6837,12 @@
     escolher(guiaBox, 'data-guia', function (g) {
       if (g === GUIA) return;
       GUIA = g; marcar(guiaBox, 'data-guia', g);
-      montarSeguro(); aplicarEscala();
+      montarDepois();
     });
     escolher(fmtBox, 'data-fmt', function (f) {
       if (f === FMT) return;
       FMT = f; marcar(fmtBox, 'data-fmt', f);
-      if (montado) aplicarFormato(); else montarSeguro();
-      aplicarEscala();
+      if (montado) { aplicarFormato(); aplicarEscala(); }   // montagem pendente aplica o formato ao terminar
     });
 
     /* ----- clonagem e preparação do miolo ----- */
