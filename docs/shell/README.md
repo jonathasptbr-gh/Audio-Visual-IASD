@@ -59,7 +59,7 @@ para a TV com `android.app.Presentation`.
 | `SlideDeck.kt` | 455 | [`../arquitetura/DOCUMENTO-EM-CENA.md`](../arquitetura/DOCUMENTO-EM-CENA.md) |
 | `Farol.kt` | 258 | [`../MEDICAO-DE-ALCANCE.md`](../MEDICAO-DE-ALCANCE.md) — uma busca por dia, agregada, sem id nenhum |
 | `CifraFonte.kt` | 178 | `CLAUDE.md` — "A aba de cifra" (transporte só; quem lê o HTML é `controle/cifra.js`) |
-| `GuiaSom.kt` | 263 | [`PONTE.md`](PONTE.md) — o método `abrirGuia` (shell 87): `GuiaSomDialog`, tela cheia sobre a Activity (Dialog, para ela NÃO pausar), WebView da `WebViewFactory.createGuia` sem ponte; a cerca `GuiaSom.urlDoGuia` com JUnit |
+| `GuiaSom.kt` | 296 | [`PONTE.md`](PONTE.md) — o método `abrirGuia` (shell 87): `GuiaSomDialog`, tela cheia sobre a Activity (Dialog, para ela NÃO pausar), WebView da `WebViewFactory.createGuia` sem ponte; o ✕ à esquerda e o marcador `?app=1` (`GuiaSom.comMarcadorDeApp`); a cerca `GuiaSom.urlDoGuia` com JUnit |
 | `R2ImagemFonte.kt` | 249 | [`PONTE.md`](PONTE.md) — o método `r2Imagem`; o desvio de CORS do bucket R2 de fotos (mesma classe do desvio de CORS da transmissão direta; token `/r2img/` consumido uma vez, como o `/saf/`) |
 
 > **Números envelhecem a cada commit.** Meça antes de citá-los:

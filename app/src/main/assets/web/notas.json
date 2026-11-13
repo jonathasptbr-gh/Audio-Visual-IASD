@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.14.6",
+    "itens": [
+      "O \"fechar\" do guia de sonoplastia passou para a esquerda, longe do \"Imprimir\".",
+      "Dentro do app, o guia não mostra mais o botão de voltar ao site: o caminho de volta é fechar o guia.",
+      "Essa mudança pede o app novo; no navegador, o guia continua igual."
+    ]
+  },
+  {
     "versao": "1.14.5",
     "itens": [
       "\"Pular tour\" agora desliga o tour de vez: nenhuma janela volta a se explicar sozinha.",

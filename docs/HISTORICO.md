@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.6** — o "fechar" do guia à ESQUERDA, no lugar do "voltar ao site" (que some no app): o shell manda `?app=1`, a página esconde o voltar do topo e do rodapé e reserva 52 px ao botão nativo, e ainda limpa o parâmetro para ele não viajar no compartilhar; APK + site.
 - **o guia de sonoplastia: coesão e conserto dos defeitos (sem versão nova; só `site/` e docs)** — conserta os 2 botões "Para quem quer entender mais" aninhados (I1, I4), o "?" e o "dica Dica" (I23), a frase duplicada do projetor (I13) e a legenda órfã "Em breve"; some a comparação repetida do I23 e a Tabela-resumo do I17; glossário vira índice; D3/D6 e 14 tabelas enxutos
 - **o guia ganha layout dinâmico: tabelas empilhadas e figuras corrigidas (sem versão nova; só `site/` e docs)** — no celular, as 16 tabelas de 3+ colunas empilham com rótulo por linha (no computador seguem tabela); fonte única Roboto/Arial nas figuras; tamanho explícito nos 867 textos que herdavam do CSS; letra mínima de 6,2 para 9 px; estouros corrigidos
 - **o guia: tabela deslizante com setas e quatro figuras consertadas (sem versão nova; só `site/` e docs)** — as 16 tabelas de 3+ colunas voltam a ser tabela e deslizam duas colunas por vez no celular, com setas para os lados (no computador ficam como estão); conserta as figuras do I2, I5, I12 e I13 das fotos do operador
@@ -713,6 +714,43 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.6 — o guia com o "fechar" à esquerda e sem o "voltar ao site"
+
+**Pedido do operador:** *"no guia de sonoplastia aberto pelo app, o botão de
+fechar está ficando sobre o botão de imprimir"*, e o "voltar para o site de
+download" não faz sentido dentro do app. Queria o fechar à esquerda e o voltar
+oculto *"quando a página é aberta pelo app"*.
+
+**O desenho.** O `GuiaSomDialog` continua com o ✕ (a barra de navegação some no
+imersivo), agora no canto ESQUERDO: um miolo claro de 40 dp sobre uma caixa de
+52 × 56 dp, visível tanto na barra branca do guia quanto na barra escura do
+livreto. A ponte `abrirGuia` passa a entregar a URL com `?app=1`
+(`GuiaSom.comMarcadorDeApp`, antes da âncora `#dia`, idempotente); a página, no
+bloco `no-app`, esconde `.topo-volta` e `.rodape-volta`, tira a borda do título
+e reserva `padding-left: 3.25rem` (52 px) ao botão nativo. O parâmetro é lido no
+`<head>` e sai da barra de endereço com `replaceState`, para não viajar nos
+links de "Compartilhar".
+
+**Por que a página continua sendo a do site.** Embutir o guia no APK foi
+considerado (o operador deixou em aberto) e descartado neste lote: são ~2 MB de
+página e capturas, e cada correção do guia passaria a exigir Release — o texto
+é o que mais muda, e o site o publica sozinho. A integração veio da barra e do
+marcador.
+
+**Contrato.** `SHELL_VERSION` fica **87**: nenhum método novo, e a superfície
+não mudou. O APK é 1.14.6 (`shellTag: "v1.14.6"`), `minShell` 83; casco antigo
+não manda o marcador e vê a página inteira, com o ✕ no canto de antes.
+
+**Oráculos.** `GuiaSomTest` ganha o marcador (antes da âncora, com consulta
+existente, sem duplicar, aceito pela cerca); `guia-no-app.test.mjs` ganha o
+bloco E, que serve `site/` de verdade: com `?app=1`, somem os dois voltar,
+`padding-left` de 52 px, `#dia` preservado, sem consulta na URL, sem rolagem
+horizontal e sem erro de JavaScript; sem o marcador, os dois voltar continuam à
+vista.
+
+**Não medido:** a aparência em aparelho (o Kotlin compila só no CI) e a
+impressão em si — `window.print()` do livreto não mudou neste lote.
 
 ## o guia de sonoplastia: coesão e conserto dos defeitos (sem versão nova; só `site/` e docs)
 

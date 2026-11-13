@@ -7,6 +7,21 @@
 <meta name="description" content="Guia prático e gratuito do áudio visual para igrejas: som, vídeo e projeção — o essencial para quem vai cuidar por um dia e o curso completo para quem opera toda semana.">
 <meta name="color-scheme" content="light">
 <meta name="theme-color" content="#2f557f">
+<script>
+  // ABERTO PELO APP (a tela do guia manda `?app=1`, app 1.14.6): o "fechar"
+  // é nativo e mora à esquerda; o "voltar ao site" não faz sentido aqui. O
+  // parâmetro sai da barra de endereço para não viajar no link de compartilhar.
+  (function () {
+    var p = new URLSearchParams(location.search);
+    if (p.get('app') !== '1') return;
+    document.documentElement.classList.add('no-app');
+    p.delete('app');
+    var q = p.toString();
+    try {
+      history.replaceState(null, '', location.pathname + (q ? '?' + q : '') + location.hash);
+    } catch (e) {}
+  })();
+</script>
 <link rel="icon" href="../icone.svg">
 <style>
   /* ===== BASE DO GUIA DE SONOPLASTIA — contrato comum (não renomear classes) ===== */
@@ -173,6 +188,20 @@
   [id] { scroll-margin-top:calc(var(--topo) + .6rem); }
   [tabindex="-1"]:focus { outline:none; }
   body.folha-aberta { overflow:hidden; }
+
+  /* ===== ABERTO PELO APP (app 1.14.6, `?app=1`) =====
+     O "fechar" é nativo e ocupa a esquerda da barra; o "voltar ao site" não
+     faz sentido dentro do app e some (topo e rodapé). 3.25rem = 52px = a caixa
+     do botão nativo (GuiaSomDialog), para o título não ficar embaixo dele —
+     inclusive nos cabeçalhos das telas que cobrem o guia (índice, livreto,
+     "Como montar"). */
+  html.no-app .topo-volta { display:none; }
+  html.no-app .topo-in { padding-left:3.25rem; }
+  html.no-app .topo-meio { border-left:0; padding-left:0; }
+  html.no-app .rodape-volta { display:none; }
+  html.no-app .folha-cab,
+  html.no-app .caderno-bar,
+  html.no-app .tut-cab { padding-left:3.25rem; }
 
   /* ----- barra fixa do topo ----- */
   .topo {
@@ -6432,7 +6461,7 @@
 </div>
 
 <footer class="rodape">
-  <p><a href="../">← Áudio Visual IASD</a></p>
+  <p class="rodape-volta"><a href="../">← Áudio Visual IASD</a></p>
   <p>Áudio Visual IASD · Guia de sonoplastia</p>
 </footer>
 
