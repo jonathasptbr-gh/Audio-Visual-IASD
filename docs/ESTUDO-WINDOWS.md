@@ -437,6 +437,32 @@ pela invariante 3 (mesmo processo, mesmo origin). No Windows, é o mesmo
 - **Custo:** baixo, e é o melhor dinheiro do projeto — ele decide entre duas
   arquiteturas antes de qualquer linha de produção.
 
+#### 7.0.1 E se não houver um Windows para rodar o teste?
+
+Levantado pelo operador em 2026-11-13: **ele não tem computador próprio.** Isso
+não invalida a Fase 0 — muda quem aperta o botão. As saídas, na ordem de custo:
+
+| saída | como | o que prova | o que não prova |
+|---|---|---|---|
+| **o CI como bancada** (preferida) | um workflow `windows-latest` mínimo compila um WinForms e tenta abrir os dois `WebView2` com um `UserDataFolder` comum | se roda: o projeto **tem bancada sem PC**, e cada versão passa a ser ensaiada sozinha | depende de o runner ter sessão de desktop — **a fonte mais atual diz que a etiqueta `windows-latest` sozinha não garante isso** e recomenda um piloto ([WPF/WinForms em CI, 2026-10](https://automatedtesting.eu/en/services/desktop-application-test-automation/wpf-winforms-tests-in-ci/)) |
+| **o equivalente no Chromium** | o mesmo teste rodando nas duas abas do arnês que já existe, no CI de hoje | que a base web funciona quando as duas janelas compartilham armazenamento — **e isso é metade da resposta** | não prova o `WebView2`; prova o motor, não a casca |
+| **um PC emprestado** | um sábado no computador da igreja, com o instalador e uma lista de 10 passos | tudo | depende de haver esse PC |
+| **a primeira igreja** | entregar sem ensaio e esperar o relato | — | é o pior desfecho: o defeito aparece no culto de outra pessoa |
+
+**A consequência que isto tem para o projeto inteiro** — e que vale mais que a
+Fase 0: hoje o app Android é ensaiado no aparelho do operador antes de cada
+entrega. No Windows **não há esse aparelho**. Sem o CI como bancada, toda versão
+do app de Windows chega ao primeiro uso real **sem nunca ter rodado**, e a
+primeira execução é a de uma igreja. Isso muda o desenho: a casca precisa de
+**uma rede de segurança automática** (um *smoke* que abre, carrega e fecha) ou o
+projeto não tem como prometer nada.
+
+**Consequência para a escolha (B) × (C):** o Electron **roda no CI do Linux**
+para os testes de fumaça (é Node; e `electron` abre janela no CI Linux com
+`xvfb`). A casca WebView2 só pode ser ensaiada num Windows. Ou seja, a
+desvantagem da (C) no peso e na manutenção continua, mas ela ganha um ponto que
+este estudo não tinha: **é a única das duas que pode ser ensaiada sem um PC.**
+
 ### Fase 1 — O culto básico (o núcleo)
 
 - Casca com uma janela, servindo o bundle pelo host virtual.
