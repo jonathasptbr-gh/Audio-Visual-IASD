@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o guia: cartão longo partido entre colunas na impressão (sem versão nova; só `site/` e docs)** — o cartão de problema e o "entender mais" se partem entre blocos (parágrafo, item) quando não cabem no resto da coluna: título + ~3 linhas em cima, "continua →" no pé, título com "(continuação)" no alto da coluna seguinte; Tempo integral 91 → 88 páginas (DejaVu 103 → 96).
 - **o guia: a 320 px, aberto pelo app, sem rolagem lateral (sem versão nova; só `site/` e docs)** — a grade de atalhos do D9 (socorro rápido) vira uma coluna até 340 px e os textos de item flex/grade quebram em vez de alargar a página; o endereço da Escola Sabatina quebra na barra; o `guia-no-app` passa a sair 1 com FALHOU e mede a 320 e a 280 px.
 - **o guia: os rótulos da figura dos adaptadores afastados (sem versão nova; só `site/` e docs)** — no I3 (Tempo integral), "computador → 2 canais de linha" invadia "PC → entrada RCA (2-TRACK)" na mesma linha; cada rótulo vai em duas linhas, a fileira de baixo desce 12 e o aviso do HDMI sai de cima dos rótulos dela (viewBox 340 × 292).
 - **o guia: capítulos em sequência, sem página nova (sem versão nova; só `site/` e docs)** — cada capítulo começa logo depois do anterior, na mesma coluna, com respiro acima; o título só fica no pé da coluna com o 1º bloco ou ~3 linhas; a tabela larga entra no meio da página; Por um dia 26 → 22 páginas, Tempo integral 95 → 91.
@@ -720,6 +721,66 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## o guia: cartão longo partido entre colunas na impressão (sem versão nova; só `site/` e docs)
+
+- **Pedido:** "Impressão em duas colunas: no 'Diagnóstico de problemas' (I17, Tempo
+  integral), os cartões não se partem e deixam metade de várias colunas em branco.
+  Deixe um cartão longo continuar na coluna seguinte, com o título nunca sozinho no
+  pé da coluna e um sinal de que continua. Me diga quantas páginas economizou."
+- **Partem-se** (`PARTIVEL = 'details.sintoma, details.mais'`; `partir` e
+  `colocarCartao`, antes do caminho de átomo em `colocar`): o cartão de problema
+  (`details.sintoma`, I17 e D9) e o "Para quem quer entender mais" (`details.mais`),
+  longos e de texto — no Tempo integral, 34 de 35 cartões de problema e 13 de 16
+  "entender mais" passam de 300 px (o maior, 661 px ≈ 2/3 de coluna; 783 com
+  DejaVu). O corte é entre blocos internos (`pecasDe`: cada filho e, numa lista, cada
+  item; figura, caixa e tabela de dentro inteiras); a lista que continua no meio é
+  uma cópia com `start` (e `counter-reset` no `ol.passos`): a numeração segue. O
+  grupo subtítulo + cartão (`cartaoDe`) leva o subtítulo junto com a parte de cima.
+- **Regra do corte:** parte só se o resto da coluna comporta o título (com o
+  subtítulo do grupo), ~3 linhas do conteúdo (2,7 × a linha, medidas no cartão
+  inteiro) e o "continua", e se a parte de baixo leva ~3 linhas ou mais (se não leva,
+  blocos descem enquanto a de cima mantiver ~3 linhas). Senão o cartão vai inteiro
+  para a coluna seguinte, como antes; mais alto que uma coluna, parte a partir do
+  alto dela. A continuação abre sempre a coluna seguinte (`proxColuna`) e pode partir
+  de novo.
+- **Ficam inteiros:** caixa (`.box`: a maior tem 326 px, e um aviso partido perde a
+  força), cartão (`.cartao`, até 180 px, aos pares), "Em 10 segundos" (`.d-10s`, lido
+  de relance), figura e tabela.
+- **Sinal:** a parte de cima termina em "continua →" (`p.lb-segue`, à direita) e a de
+  baixo começa com o título curto (até ~28 caracteres, cortado em palavra, com "…")
+  e "(continuação)" (`summary.lb-cont-t`, 8,6 pt); a borda fica aberta no corte
+  (`.lb-corta`/`.lb-cont`: sem a linha e sem o arredondado desse lado). O contorno
+  do cartão de problema na impressão vira sombra interna: o outline de 2 px saía da
+  coluna e era cortado nas laterais, que agora aparecem.
+- **Faixa no meio** (`faixaNoMeio`): com um cartão partido na página, a esquerda acaba
+  nele e a continuação fica no alto da direita.
+- **Páginas** (antes → depois; A4 simples = fichário): fonte local (WenQuanYi) Por um
+  dia 22 → 22, Tempo integral 91 → 88 (o I17, págs. 51–65 → 51–61); Roboto (o
+  Android) 22 → 22 e 91 → 88; DejaVu (o runner) 23 → 23 e 103 → 96. Cartões
+  partidos no Tempo integral: 12 (local), 13 (Roboto), 23 (DejaVu, e 1 no Por um
+  dia). Montagem (mediana de 3, clique → `livreto`): local Por um dia 0,69 → 0,78 s
+  e Tempo integral 2,12 → 2,20 s; Roboto 0,72 → 0,80 e 2,35 → 2,21; DejaVu
+  0,73 → 0,70 e 2,19 → 2,07 — dentro do ruído.
+- **Ainda sobra branco:** antes de figura grande (a maior parte do que resta no Tempo
+  integral) e antes de cartão cujo começo não cabe com ~3 linhas (até ~190 px).
+- **Oráculo:** `guia-impressao` (65 ok). O "nada partido" vira duas checagens por
+  guia: (1) caixa, cartão, figura e tabela inteiros; cada cartão partido com blocos
+  inteiros (filho ou item, com o nº do item) que somam os do original na ordem, ~3
+  linhas entre o título e o "continua", "continua" no pé de toda parte cortada (nada
+  depois dela na coluna), o título com "(continuação)" no alto da seguinte, que abre a
+  coluna seguinte, e a borda aberta no corte; no Tempo integral, ≥ 5 partidos; (2)
+  nenhuma coluna com meia coluna ou mais em branco antes de um cartão longo que veio
+  inteiro. "Capítulos em sequência": o 1º bloco que é só um subtítulo conta com ~3
+  linhas do que vem depois dele — com DejaVu, o I18 abria na coluna seguinte com 189
+  px livres, e o motor estava certo (h2 + resumo + h3 deixariam o h3 órfão); a régua
+  velha pedia 172. Reversão: motor velho → as duas reprovam no Tempo integral (0
+  partidos; "52: 522 de 998 px", com DejaVu "57: 611"); sem "continua" e sem
+  "(continuação)" → (1) reprova; sem as ~3 linhas em cima → 14 partidos e "Chiado
+  constante 1/2: o título leva só 2.0 linha(s)". Com a fonte do runner forçada
+  (`FONTCONFIG_FILE`, DejaVu), 61 ok: falham só as 4 do H (figura dos adaptadores,
+  −0,6 px entre "aparelho doméstico → P" e "mic XLR → P10"), que falham igual com o
+  guia de antes — a DejaVu daqui não é a do runner byte a byte.
 
 ## o guia: a 320 px, aberto pelo app, sem rolagem lateral (sem versão nova; só `site/` e docs)
 

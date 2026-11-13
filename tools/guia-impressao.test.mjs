@@ -34,8 +34,14 @@
 //     coluna; o índice aponta para a página onde o capítulo começa; a ordem
 //     de leitura é a do guia e a coluna da esquerda enche antes da direita;
 //     figura na largura da sua coluna e centrada nela, nunca na faixa; a faixa
-//     só leva o cabeçalho da trilha e tabela larga; caixa, cartão, cartão de
-//     problema, figura e tabela nunca partidos;
+//     só leva o cabeçalho da trilha e tabela larga; caixa, cartão, figura e
+//     tabela nunca partidos; o cartão de problema e o "entender mais" partidos
+//     só entre blocos inteiros (parágrafo, item de lista; na ordem e com a
+//     numeração do original), com ~3 linhas abaixo do título na parte de cima,
+//     "continua" no pé de cada parte cortada, o título com "(continuação)" no
+//     alto da seguinte, que abre a coluna seguinte, e a borda aberta no corte;
+//     nenhuma coluna com meia coluna em branco antes de um cartão longo que veio
+//     inteiro (no Tempo integral, 5 cartões partidos ou mais);
 //  F. capa e rodapé com o nome real da trilha; sem aviso "não coube" do
 //     motor nem erro de JavaScript;
 //  G. o título "Imprimir o guia" fica no meio, entre o "?" e o fechar;
@@ -230,7 +236,9 @@ const estrutura = (pg, guia) => pg.evaluate((guia) => {
     const ant = colsTodas[colsTodas.indexOf(col) - 1];
     if (!ant) return;
     const prox = topo.nextElementSibling;
-    const precisa = altK(topo) + respiro + Math.max(prox ? altK(prox) : 0, 3 * LINHA), livre = livreDe(ant);
+    // o 1º bloco que é só um subtítulo vai junto com ~3 linhas do que vem depois dele (nunca órfão)
+    const sub = prox && /^H[1-6]$/.test(prox.tagName);
+    const precisa = altK(topo) + respiro + (sub ? altK(prox) + 3 * LINHA : Math.max(prox ? altK(prox) : 0, 3 * LINHA)), livre = livreDe(ant);
     if (livre >= precisa + 3) pulos.push(k + ': sobravam ' + Math.round(livre) + ' px para ' + Math.round(precisa));
   });
   const indice = [...esc.querySelectorAll('.lb-ind li')].map((li) =>
@@ -282,13 +290,61 @@ const estrutura = (pg, guia) => pg.evaluate((guia) => {
   const tabFaixa = faixas.flatMap((f) => [...f.querySelectorAll('.tabela')]);
   const faixaMal = faixas.filter((f) => f.querySelector('figure, svg, img') || !(f.querySelector('.trilha-cab') || f.querySelector('.tabela'))).length
     + tabFaixa.filter((t) => !largaDeVerdade(t)).length;
+  // cartão partido (.lb-parte): as partes de cada cartão em sequência; os blocos (cada filho e cada item
+  // de lista, com o nº do item) somados têm de ser os do original, na ordem — um parágrafo cortado ao
+  // meio vira dois blocos e reprova
+  const txt = (e) => e.textContent.replace(/\s+/g, ' ').trim();
+  const FORA = 'button, select, textarea, .compart, .compart-guia, .cap-nav, .d9-atalhos, .e-ir, .nao-imprime';
+  const blocos = (card) => [...card.children].filter((k) => !k.matches('summary, .lb-segue')).flatMap((k) =>
+    /^(UL|OL)$/.test(k.tagName) ? [...k.children].map((li, i) => (k.tagName === 'OL' ? (k.start + i) + '. ' : '') + txt(li)) : [txt(k)]);
+  const cadeias = [];
+  esc.querySelectorAll('.lb-parte').forEach((p) => { if (p.matches('.lb-cont') && cadeias.length) cadeias[cadeias.length - 1].push(p); else cadeias.push([p]); });
+  const naRaiz = (e) => { let x = e; while (x.parentElement && !x.parentElement.matches('.pag-col')) x = x.parentElement; return x; };
+  const partidoMal = [];
+  cadeias.forEach((c) => {
+    const tit = txt(c[0].querySelector(':scope > summary')), nome = tit.slice(0, 32), juntos = JSON.stringify(c.flatMap(blocos));
+    const igual = [...orig.querySelectorAll('details')].some((d) => {
+      const s = d.querySelector(':scope > summary');
+      if (!s || txt(s) !== tit) return false;
+      const k = d.cloneNode(true); k.querySelectorAll(FORA).forEach((x) => x.remove());
+      return JSON.stringify(blocos(k)) === juntos;
+    });
+    if (c.length < 2 || !igual) partidoMal.push(nome + ': ' + c.length + ' parte(s), blocos ' + (igual ? 'iguais' : 'diferentes do original'));
+    c.forEach((p, i) => {
+      const ult = i === c.length - 1, seg = p.lastElementChild, cs = getComputedStyle(p), onde = nome + ' ' + (i + 1) + '/' + c.length + ': ';
+      const segue = !!seg && seg.matches('.lb-segue') && /^continua/.test(txt(seg));
+      if (ult === segue) partidoMal.push(onde + (ult ? '"continua" na última parte' : 'sem "continua" no pé'));
+      if (!ult && (naRaiz(p).nextElementSibling || cs.borderBottomLeftRadius !== '0px')) partidoMal.push(onde + 'algo depois dela na coluna, ou a borda fechada no corte');
+      if (i > 0) {
+        const s = p.firstElementChild, m = s && s.matches('summary') && /^(.+?)…? \(continuação\)$/.exec(txt(s));
+        if (!m || !tit.startsWith(m[1]) || cs.borderTopLeftRadius !== '0px') partidoMal.push(onde + 'sem o título com "(continuação)" no alto, ou a borda fechada');
+        const a = c[i - 1].closest('.pag-col'), b = p.closest('.pag-col');
+        if (!b || b.firstElementChild !== p || colsTodas.indexOf(b) !== colsTodas.indexOf(a) + 1) partidoMal.push(onde + 'não abre a coluna seguinte');
+      }
+      if (!ult && segue) {            // o título nunca sozinho no pé: ~3 linhas entre o título e o "continua"
+        const s = p.querySelector(':scope > summary'), pri = s && s.nextElementSibling, fimC = seg.previousElementSibling;
+        const linhas = pri && pri !== seg ? (fimC.offsetTop + fimC.offsetHeight - pri.offsetTop) / LINHA : 0;
+        if (linhas < 2.7) partidoMal.push(onde + 'o título leva só ' + linhas.toFixed(1) + ' linha(s)');
+      }
+    });
+  });
+  // a queixa: meia coluna (ou mais) em branco e, no alto da seguinte, um cartão longo que veio inteiro
+  const meiaVazia = [];
+  colsTodas.forEach((c, i) => {
+    const n = colsTodas[i + 1], f = n && n.firstElementChild;
+    if (!f || !c.firstElementChild || f.matches('.lb-cont')) return;
+    const k = f.matches('details') ? f : (f.matches('.lb-grp') && f.lastElementChild && f.lastElementChild.matches('details') ? f.lastElementChild : null);
+    const l = livreDe(c);
+    if (k && l >= c.clientHeight / 2) meiaVazia.push((pags.indexOf(c.closest('.pag')) + 1) + ': ' + Math.round(l) + ' de ' + c.clientHeight + ' px');
+  });
   return {
     caps: caps.length, original, pulos, orfaos, indice: indice.length, indiceErrado,
     figLarga: figuras.filter((f) => !f.faixa && f.larg > f.col + 0.3).length, figTorta: figuras.filter((f) => !f.faixa && f.desvio > 1).length,
     figFaixa: figuras.filter((f) => f.faixa).length, figuras: figuras.length,
     larguraCol: Math.max(0, ...figuras.filter((f) => !f.faixa).map((f) => f.col)),
     foraDeOrdem, ordenados: seq.length, esqDepois, faixas: faixas.length, tabFaixa: tabFaixa.length, faixaMal,
-    inteiros: ['.box', '.cartao', 'details', 'figure.ilus', '.tabela', '.d-10s'].map((s) => [s, conta(orig, s), conta(esc, s + ':not(.lb-fat)')]),
+    inteiros: ['.box', '.cartao', 'details', 'figure.ilus', '.tabela', '.d-10s'].map((s) => [s, conta(orig, s), conta(esc, s + ':not(.lb-fat):not(.lb-cont)')]),
+    partidoMal, cadeias: cadeias.length, meiaVazia,
     fatias: conta(esc, '.lb-fat'),
     capa: pags[0].querySelector('h1').textContent.trim(),
     rodape: pags[2].querySelector('.pag-rod').textContent.replace(/\s+/g, ' ').trim(),
@@ -378,9 +434,12 @@ try {
     checar(e.faixas >= 1 && e.faixaMal === 0,
       `E · ${nome}: a faixa de largura total só leva o cabeçalho da trilha e tabela larga (${e.faixas} faixas, ${e.tabFaixa} tabelas)`,
       JSON.stringify({ faixas: e.faixas, tabFaixa: e.tabFaixa, faixaMal: e.faixaMal }));
-    const partidos = e.inteiros.filter(([, o, p]) => o !== p);
-    checar(partidos.length === 0 && e.fatias === 0,
-      `E · ${nome}: nenhuma caixa, cartão, cartão de problema, figura ou tabela partida`, JSON.stringify({ partidos, fatias: e.fatias }));
+    const partidos = e.inteiros.filter(([, o, p]) => o !== p), minimo = nome === 'Tempo integral' ? 5 : 0;
+    checar(partidos.length === 0 && e.fatias === 0 && e.partidoMal.length === 0 && e.cadeias >= minimo,
+      `E · ${nome}: caixa, cartão, figura e tabela inteiros; ${e.cadeias} cartões partidos (cartão de problema, "entender mais") só entre blocos inteiros, na ordem, com ~3 linhas abaixo do título, "continua" no pé, "(continuação)" no alto da coluna seguinte e a borda aberta no corte`,
+      JSON.stringify({ partidos, fatias: e.fatias, cadeias: e.cadeias, minimo, partidoMal: e.partidoMal.slice(0, 4) }));
+    checar(e.meiaVazia.length === 0,
+      `E · ${nome}: nenhuma coluna fica com meia coluna em branco antes de um cartão longo que veio inteiro para a seguinte`, JSON.stringify(e.meiaVazia.slice(0, 4)));
     checar(e.capa === e.trilha && e.rodape.includes(e.trilha) && /· 3$/.test(e.rodape),
       `F · ${nome}: capa e rodapé com o nome da trilha ("${e.trilha}") e o nº da página`, JSON.stringify({ capa: e.capa, rodape: e.rodape }));
   }
