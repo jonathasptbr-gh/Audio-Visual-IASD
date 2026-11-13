@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o guia de sonoplastia ganha cartão de link (sem versão nova; só `site/`)** — a página recebe `og:*`, `twitter:card` e `canonical`, e `site/og-sonoplastia.jpg` (1200×630, 84 kB) desenha o guia: o título, a régua de nível com o pico no vermelho e, num cartão branco, o caminho do som (microfone → mesa → caixa) que abre a capa; `?v=1` porque a prévia é guardada por endereço.
 - **o guia: título de figura sempre junto da figura na impressão (sem versão nova; só `site/` e docs)** — o subtítulo ou o parágrafo curto logo antes de uma figura vai com ela para a coluna seguinte quando ela não cabe no resto da coluna; separados antes: 2 no Por um dia e 2 no Tempo integral (fonte local e Roboto; 2 e 4 com DejaVu), depois nenhum; páginas iguais (22 e 88).
 - **o guia: cartão longo partido entre colunas na impressão (sem versão nova; só `site/` e docs)** — o cartão de problema e o "entender mais" se partem entre blocos (parágrafo, item) quando não cabem no resto da coluna: título + ~3 linhas em cima, "continua →" no pé, título com "(continuação)" no alto da coluna seguinte; Tempo integral 91 → 88 páginas (DejaVu 103 → 96).
 - **o guia: a 320 px, aberto pelo app, sem rolagem lateral (sem versão nova; só `site/` e docs)** — a grade de atalhos do D9 (socorro rápido) vira uma coluna até 340 px e os textos de item flex/grade quebram em vez de alargar a página; o endereço da Escola Sabatina quebra na barra; o `guia-no-app` passa a sair 1 com FALHOU e mede a 320 e a 280 px.
@@ -723,7 +724,61 @@ apagada da que a criou.
 
 ---
 
-## o guia: título de figura sempre junto da figura na impressão (sem versão nova; só `site/` e docs)
+## o guia de sonoplastia ganha cartão de link (sem versão nova; só `site/`)
+
+**O PEDIDO:** *"O link do guia de sonoplastia não possui uma imagem quando
+compartilhado, pode fazer essa imagem ilustrativa para o link?"*
+
+**O DEFEITO MEDIDO.** `site/sonoplastia/` tinha `<title>`, `description`,
+`color-scheme` — e **nenhuma** meta `og:*`. O link do guia, que é hoje a porta de
+entrada mais compartilhada (o botão "Compartilhar este guia" está na capa, e o
+`GuiaSom` do app abre essa URL), chegava em grupo de WhatsApp como uma linha de
+texto e um endereço: o mesmo estado da raiz do site antes do `og.jpg`. A
+`site/index.html` já tinha o bloco inteiro (linhas 58–75) — a página nova nasceu
+sem ele, e nada no CI cobrava a presença (nenhum oráculo lê `og:`).
+
+**A IMAGEM.** `site/og-sonoplastia.jpg`: **1200×630** (o 1.91:1 que o WhatsApp
+mostra sem recortar), **84.491 bytes**, JPEG q92, no mesmo desenho do cartão da
+raiz — degradê denim com bandas verticais de 1 px, olho em versalete com a régua
+de travessão, título em duas linhas (a segunda no azul claro que a raiz usa no
+"IASD"), a **régua de nível** no lugar da onda sonora — e não é enfeite: o pico
+encosta no amarelo e num vermelho, que é a lição do D5 ("luz vermelha? abaixe")
+—, a frase que resume a página e as três entradas em fichas de vidro (por um
+dia · socorro rápido · tempo integral), com o endereço no pé. À direita, num
+cartão branco de canto 30, o desenho que abre a capa: microfone com cápsula de
+metal e cabo curvo, mesa de quatro canais com medidor de 5 leds e master, caixa
+com as ondas. Nada de captura de tela: a página publicada não tem uma tela que
+resuma o conjunto, e o guia é texto — o cartão desenha o assunto, não a página.
+
+**A FONTE.** Roboto 400/500/700/900 (`@fontsource/roboto`), embutida no render
+como `@font-face` em base64: com `system-ui` o Chromium headless desta máquina
+cai em WenQuanYi Zen Hei (o `fc-match` devolve isso), que não é a cara do app.
+O render é Playwright com viewport de 1200×630 e `deviceScaleFactor: 1` — o
+arquivo sai em JPEG direto, sem pós-processamento. O gerador é de uso único,
+como o do `og.jpg`: não entra no repositório; o que fica é esta nota (medidas,
+paleta, fonte) e o `.jpg`.
+
+**O BLOCO NA PÁGINA.** `og:type=article`, `og:title` igual ao `<title>`,
+`og:description` igual à `description` (a prévia e a busca dizem a mesma coisa),
+`og:locale`, `og:url`, `og:image` **com `?v=1`**, largura/altura, `og:image:alt`
+(o desenho descrito — é ele que o leitor de tela anuncia), `twitter:card`
+(`summary_large_image`) e `canonical`, que a página também não tinha. O `?v=` é
+a válvula de sempre, e vale repetir porque é o erro que já custou semanas:
+**WhatsApp e Facebook guardam a prévia por ENDEREÇO, não por conteúdo** —
+trocar o arquivo mantendo a URL deixa o cartão velho circulando. Ao refazer a
+imagem, o número sobe.
+
+**O QUE NÃO SE MEXEU.** Nada de app: `GuiaSom` abre `https://…/sonoplastia/` no
+WebView, então o cartão chega junto com o push em `main` — o `pages.yml` publica
+em `site/**` —, sem APK, sem OTA e **sem as quatro casas da versão mexerem**.
+Medido no portão: os oráculos do guia (`guia-no-app`, `guia-impressao`) e o
+`site-grade-e-carrossel` passam; o `site-grade-e-carrossel` reprovou uma vez a
+1280 px por diferença de 74 px e passou na repetição — instabilidade do oráculo
+(mede posição depois do carregamento), não do lote.
+
+---
+
+
 
 - **Pedido:** "Ainda há títulos de imagens que estão ficando na coluna ou página anterior,
   separados da imagem em si."
