@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o guia: título de figura sempre junto da figura na impressão (sem versão nova; só `site/` e docs)** — o subtítulo ou o parágrafo curto logo antes de uma figura vai com ela para a coluna seguinte quando ela não cabe no resto da coluna; separados antes: 2 no Por um dia e 2 no Tempo integral (fonte local e Roboto; 2 e 4 com DejaVu), depois nenhum; páginas iguais (22 e 88).
 - **o guia: cartão longo partido entre colunas na impressão (sem versão nova; só `site/` e docs)** — o cartão de problema e o "entender mais" se partem entre blocos (parágrafo, item) quando não cabem no resto da coluna: título + ~3 linhas em cima, "continua →" no pé, título com "(continuação)" no alto da coluna seguinte; Tempo integral 91 → 88 páginas (DejaVu 103 → 96).
 - **o guia: a 320 px, aberto pelo app, sem rolagem lateral (sem versão nova; só `site/` e docs)** — a grade de atalhos do D9 (socorro rápido) vira uma coluna até 340 px e os textos de item flex/grade quebram em vez de alargar a página; o endereço da Escola Sabatina quebra na barra; o `guia-no-app` passa a sair 1 com FALHOU e mede a 320 e a 280 px.
 - **o guia: os rótulos da figura dos adaptadores afastados (sem versão nova; só `site/` e docs)** — no I3 (Tempo integral), "computador → 2 canais de linha" invadia "PC → entrada RCA (2-TRACK)" na mesma linha; cada rótulo vai em duas linhas, a fileira de baixo desce 12 e o aviso do HDMI sai de cima dos rótulos dela (viewBox 340 × 292).
@@ -721,6 +722,60 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## o guia: título de figura sempre junto da figura na impressão (sem versão nova; só `site/` e docs)
+
+- **Pedido:** "Ainda há títulos de imagens que estão ficando na coluna ou página anterior,
+  separados da imagem em si."
+- **Os formatos de título de figura** (o irmão logo antes do `<figure>`; a `figcaption`
+  fica sempre embaixo, 153 de 178 figuras, e nenhuma figura vem embrulhada): subtítulo
+  h3/h4 (Por um dia 24, Tempo integral 34); título de cartão (o `summary` do cartão de
+  problema que abre com a figura, 24 no Por um dia); parágrafo curto (< 220 caracteres, o
+  `curto` do motor: rótulo em negrito, frase que acaba em ":" ou 2–3 linhas que
+  apresentam a figura; 7 e 32). O parágrafo longo antes da figura (13 no Tempo integral)
+  é texto corrido, não título, e fica de fora.
+- **Linha de base** (título numa coluna, figura em outra; A4 simples = fichário): fonte
+  local e Roboto — Por um dia "Achar o vídeo" (D7, pág. 10 esq. → dir.) e "As 3 regras
+  de ouro" (D9, 12 dir. → 13 esq.); Tempo integral "O retorno (também chamado
+  monitor)…" (I9, 28 esq. → dir.) e "Teste simples: se, ao desligar o efeito…" (I10, 33
+  dir. → 34 esq.). DejaVu (o runner) — Por um dia "Todos os microfones e o computador…"
+  (D2, 4 dir. → 5 esq.) e "As 3 regras de ouro" (13 dir. → 14 esq.); Tempo integral
+  "Todo sistema de som…" (I2, 7 esq. → dir.), "O retorno…" (30 dir. → 31 esq.), "Para
+  retorno, o AUX deve ser PRÉ-fader…" (I9, 31 esq. → dir.) e "Cada tela conectada…"
+  (I23, 78 esq. → dir.). Depois: nenhum, nas três fontes.
+- **Por que escapavam:** (1) `colocarCapitulo` punha o 1º bloco que não cabia (o grupo
+  subtítulo + figura) peça a peça, com `unidadesDe(seg).forEach(colocar)`, sem o
+  `tituloCabe` do caminho de grupo de `colocar`; quando o título do capítulo já levava
+  um bloco (o "Em 10 segundos", `.d-10s`), `cabeAbertura` nem olhava o 2º, e o subtítulo
+  ficava no pé com a figura na coluna seguinte (D7, D9; D2 com DejaVu); (2) o parágrafo
+  curto só se agrupava atrás de um subtítulo (`unidadesDe`): sozinho, depois de um
+  parágrafo longo ou de uma lista, era unidade solta, e no grupo subtítulo + texto curto
+  + figura `minimo` deixava o texto (≥ 4 linhas) ficar e a figura descer.
+- **Conserto** (`tituloDeFig`: subtítulo h1–h6 ou parágrafo `curto` cujo irmão seguinte
+  é um `<figure>`): `unidadesDe` embrulha parágrafo-título + figura num `.lb-grp.lb-fig`,
+  que o grupo de subtítulo conta como bloco (como a figura); `colocar` trata o `.lb-fig`
+  como grupo (inteiro na coluna seguinte; maior que uma coluna, encolhido; senão se
+  divide); `minimo` não corta o `.lb-fig`; o caminho de grupo de `colocar` virou
+  `dividir` (o título só fica no pé se o começo do bloco seguinte couber junto — a
+  figura, inteira) e `colocarCapitulo` divide o 1º bloco com ele (o subtítulo antes de
+  caixa ou tabela também deixa de ficar órfão ali); em `partir` (o cartão partido do lote
+  anterior) o corte nunca cai entre o título e a figura (`n` desce). Cartões continuam
+  partindo; figura e tabela, inteiras.
+- **Branco reaberto** (o que sobra na coluna que o título deixou): local, Por um dia pág.
+  10 esq. 124 → 166 px e 12 dir. 164 → 206; Tempo integral 28 esq. 215 → 307 e 33 dir.
+  231 → 303; Roboto igual (12 dir. 133 → 175). Com DejaVu, Tempo integral 7 esq. 377 →
+  660 px: a abertura do I2 (título, resumo, "Da fonte ao ouvido" e o parágrafo) vai com a
+  figura de 431 px para a direita — o título do capítulo não pode ficar sem o 1º bloco.
+- **Páginas** (antes → depois; A4 simples = fichário): local (WenQuanYi) Por um dia 22 →
+  22, Tempo integral 88 → 88; Roboto 22 → 22 e 88 → 88; DejaVu 23 → 23 e 96 → 96.
+- **Oráculo:** `guia-impressao` (69 ok). "I": nenhum título de figura em coluna
+  diferente da sua figura, nos dois guias e nos dois formatos (4 checagens); o título é o
+  irmão logo antes da figura no guia original (subtítulo, `summary`/`b.box-t`, parágrafo
+  < 220 caracteres), casado pela ordem das figuras e por tag + texto. Reversão: motor de
+  antes → as 4 reprovam, "pág. 10 esq.: «Achar o vídeo» (subtítulo) → figura na pág. 10
+  dir." e "pág. 28 esq.: «O retorno (também chamado monitor)…» → pág. 28 dir." (local e
+  Roboto); com DejaVu, "pág. 4 dir.: «Todos os microfones…» → pág. 5 esq.". Com a fonte do
+  runner forçada (`FONTCONFIG_FILE`), 65 ok: falham só as 4 do H, como antes.
 
 ## o guia: cartão longo partido entre colunas na impressão (sem versão nova; só `site/` e docs)
 

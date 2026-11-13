@@ -52,7 +52,10 @@
 //  H. na figura dos adaptadores (I3, Tempo integral), cada par de <text> com
 //     ≥ 4 px de vão entre as caixas (getBoundingClientRect), sem interseção, na
 //     tela a 390 e 320 px e na impressão (coluna de 83,5 mm) — o modo de falhar
-//     é dois rótulos dividindo a linha, o da esquerda mais largo que a coluna.
+//     é dois rótulos dividindo a linha, o da esquerda mais largo que a coluna;
+//  I. nenhum título de figura — o subtítulo, o título de cartão ou de caixa, ou o
+//     parágrafo curto (< 220 caracteres) logo antes dela no guia — fica numa
+//     coluna (ou página) diferente da figura, nos dois guias e nos dois formatos.
 //
 //   node tools/guia-impressao.test.mjs
 // ============================================================================
@@ -352,6 +355,38 @@ const estrutura = (pg, guia) => pg.evaluate((guia) => {
   };
 }, guia);
 
+// I. o título de figura — no guia original, o irmão logo antes da figura: subtítulo (h2–h6), título de
+// cartão ou de caixa (summary, b.box-t) ou parágrafo curto (< 220 caracteres, o `curto` do motor) — fica
+// na MESMA coluna da figura na prévia. Figura e título casam pela ordem (a k-ésima figura do original é a
+// k-ésima da prévia) e pela tag + texto (o último igual antes da figura). O parágrafo longo antes de uma
+// figura é texto corrido, não título, e fica de fora
+const titulosDeFigura = (pg, guia) => pg.evaluate((guia) => {
+  const esc = document.getElementById('caderno-escala'), orig = document.getElementById(guia);
+  const pags = [...esc.querySelectorAll('.pag')];
+  const FORA = 'button, select, textarea, .compart, .compart-guia, .cap-nav, .d9-atalhos, .e-ir, .nao-imprime';
+  const txt = (e) => e.textContent.replace(/\s+/g, ' ').trim();
+  const formato = (t) => (!t ? null : /^H[1-6]$/.test(t.tagName) ? 'subtítulo' : t.matches('summary, b.box-t, strong.box-t') ? 'título de cartão'
+    : t.tagName === 'P' && t.textContent.length < 220 && !t.querySelector('figure, svg, table') ? 'parágrafo curto' : null);
+  const figO = [...orig.querySelectorAll('figure')].filter((f) => !f.closest(FORA)), figP = [...esc.querySelectorAll('figure')];
+  const col = (e) => e.closest('.pag-col, .pag-faixa');
+  const onde = (e) => 'pág. ' + (pags.indexOf(e.closest('.pag')) + 1) + (col(e) && col(e).matches('.pag-col-d') ? ' dir.' : ' esq.');
+  const fmts = {}, separados = [];
+  figO.forEach((f, i) => {
+    let t = f.previousElementSibling;
+    while (t && t.matches(FORA)) t = t.previousElementSibling;
+    const k = formato(t), fp = figP[i];
+    if (!k) return;
+    fmts[k] = (fmts[k] || 0) + 1;
+    const tt = txt(t), tp = fp && [...esc.querySelectorAll(t.tagName)].filter((x) => txt(x) === tt && (x.compareDocumentPosition(fp) & Node.DOCUMENT_POSITION_FOLLOWING)).pop();
+    if (!tp || col(tp) !== col(fp)) separados.push(`${tp ? onde(tp) : '?'}: «${tt.slice(0, 40)}» (${k}) → figura na ${fp ? onde(fp) : '?'}`);
+  });
+  return { figuras: figO.length, casadas: figP.length, fmts, separados };
+}, guia);
+const titulos = [];
+const checarTitulos = (nome, fmt, r) => checar(r.separados.length === 0 && r.figuras === r.casadas && r.fmts['subtítulo'] > 0 && r.fmts['parágrafo curto'] > 0,
+  `I · ${nome} · ${fmt}: nenhum título de figura (${Object.entries(r.fmts).map(([k, n]) => n + ' ' + k).join(', ')} logo antes dela) em coluna diferente da sua figura`,
+  JSON.stringify({ figuras: r.figuras, casadas: r.casadas, separados: r.separados.slice(0, 4) }));
+
 try {
   const ctx = await navegador.newContext({ viewport: { width: 1280, height: 800 } });
   await semRedeExterna(ctx);
@@ -395,13 +430,16 @@ try {
   // dia: paginado no simples · integral: paginado no fichário · e o cruzado de cada um
   const dS = await conferir(pg, 'dia', 'simples', 'Por um dia · A4 simples');
   const eDia = await estrutura(pg, 'dia');
+  titulos.push(['Por um dia', 'A4 simples', await titulosDeFigura(pg, 'dia')]);
   await escolher(pg, 'data-fmt', 'fich');
   await conferir(pg, 'dia', 'fich', 'Por um dia · A4 fichário');
+  titulos.push(['Por um dia', 'A4 fichário', await titulosDeFigura(pg, 'dia')]);
   checar(/^\d+ páginas: \d+ folhas em frente e verso, virando na borda longa\. Imprima em A4 retrato, escala 100%, margens padrão\.$/.test(await pg.textContent('#caderno-info')),
     'A · no fichário a linha conta folhas em frente e verso e pede a borda longa', await pg.textContent('#caderno-info'));
   await escolher(pg, 'data-guia', 'integral');
   const iF = await conferir(pg, 'integral', 'fich', 'Tempo integral · A4 fichário');
   const eInt = await estrutura(pg, 'integral');
+  titulos.push(['Tempo integral', 'A4 fichário', await titulosDeFigura(pg, 'integral')]);
   await pg.emulateMedia({ media: 'print' });
   const vImp = await vaosDoDesenho(pg, '#caderno-escala');
   await pg.emulateMedia({ media: null });          // como no conferir: o page.pdf() seguinte sai com a mídia certa
@@ -411,6 +449,8 @@ try {
   await escolher(pg, 'data-fmt', 'simples');
   await escolher(pg, 'data-guia', 'integral');
   const iS = await conferir(pg, 'integral', 'simples', 'Tempo integral · A4 simples');
+  titulos.push(['Tempo integral', 'A4 simples', await titulosDeFigura(pg, 'integral')]);
+  titulos.forEach(([nome, fmt, r]) => checarTitulos(nome, fmt, r));
   for (const [nome, a, b] of [['Por um dia', dS, dF], ['Tempo integral', iS, iF]]) {
     checar(a.paginas === b.paginas && JSON.stringify(a.oidPag) === JSON.stringify(b.oidPag),
       `D · ${nome}: paginado do zero nos dois formatos, mesmo nº de páginas e mesmo índice`,

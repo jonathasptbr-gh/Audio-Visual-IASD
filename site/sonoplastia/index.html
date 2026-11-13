@@ -7029,6 +7029,13 @@
     }
     function ehCab(f) { return /^H[1-6]$/.test(f.tagName) || f.tagName === 'SUMMARY' || (f.matches && f.matches('b.box-t, strong.box-t')); }
     function curto(p) { return p.textContent.length < 220 && !p.querySelector('figure, svg, table'); }
+    /* título de figura: o subtítulo ou o parágrafo curto logo antes de uma figura. Vai sempre com ela, na
+       coluna dela: o subtítulo no grupo de unidadesDe (que se divide por dividir/tituloCabe), o parágrafo
+       num grupo .lb-fig; no cartão partido, o corte não cai entre os dois (partir) */
+    function tituloDeFig(t) {
+      var f = t && t.nextElementSibling;
+      return !!f && f.tagName === 'FIGURE' && (/^H[1-6]$/.test(t.tagName) || (t.tagName === 'P' && curto(t)));
+    }
     function unidadesDe(el) {
       var filhos = Array.prototype.slice.call(el.children || []);
       var out = [], i = 0;
@@ -7038,12 +7045,15 @@
         var pa = a.parentNode; pa.insertBefore(g, a); g.appendChild(a); g.appendChild(b);
         return g;
       }
+      for (var q = 0; q < filhos.length; q++) {
+        if (filhos[q].tagName === 'P' && tituloDeFig(filhos[q])) { filhos.splice(q, 2, junta(filhos[q], filhos[q + 1])); filhos[q].classList.add('lb-fig'); }
+      }
       while (i < filhos.length) {
         var f = filhos[i], prox = filhos[i + 1];
         if (ehCab(f) && prox) {
           var g = [f], j = i + 1;
           while (filhos[j] && filhos[j].tagName === 'P' && curto(filhos[j])) { g.push(filhos[j]); j += 1; }
-          var blocou = filhos[j] && (filhos[j].tagName === 'FIGURE' || /^(UL|OL|DL|DETAILS)$/.test(filhos[j].tagName) || (filhos[j].classList && (filhos[j].classList.contains('tabela') || filhos[j].classList.contains('box'))));
+          var blocou = filhos[j] && (filhos[j].tagName === 'FIGURE' || /^(UL|OL|DL|DETAILS)$/.test(filhos[j].tagName) || (filhos[j].classList && (filhos[j].classList.contains('tabela') || filhos[j].classList.contains('box') || filhos[j].classList.contains('lb-fig'))));
           if (blocou) g.push(filhos[j]);
           /* título sozinho leva junto o que vem logo depois (um parágrafo longo, por exemplo) */
           var junto = !blocou && g.length === 1 && filhos[j] && !ehCab(filhos[j]);
@@ -7303,6 +7313,7 @@
       if (!card) return false;
       var ps = pecasDe(card), era = card.classList.contains('lb-parte');
       if (ps.length < 2) return false;
+      var tit = ps.map(function (p, i) { var s = ps[i + 1]; return !p.lista && !!s && !s.lista && s.el === p.el.nextElementSibling && tituloDeFig(p.el); });
       if (!LINHA) LINHA = parseFloat(getComputedStyle(c).lineHeight) || 20;
       // onde cada bloco fica com o cartão inteiro nesta coluna: as linhas de cada parte
       c.appendChild(unit);
@@ -7313,6 +7324,7 @@
       while (n < ps.length - 1) { encher(card, ps, 0, n + 1, seg); if (cheio(c)) break; n += 1; }
       var L3 = 2.7 * LINHA, fimB = b[ps.length - 1];
       while (n > 0 && fimB - t[n] < L3) n -= 1;        // ~3 linhas na parte de baixo
+      while (n > 0 && tit[n - 1]) n -= 1;              // o título de figura desce com ela
       if (n < 1 || b[n - 1] - t[0] < L3) {             // e ~3 linhas abaixo do título, na de cima
         unit.remove(); seg.remove(); card.classList.remove('lb-corta');
         if (!era) card.classList.remove('lb-parte');
@@ -7343,7 +7355,7 @@
       if (larga(unit)) { colocarFaixa(unit); return; }
       if (pode(unit, cur.con)) { registrarOid(unit); return; }
       if (cartaoDe(unit) && colocarCartao(unit)) return;
-      var grupo = !!(unit.classList && unit.classList.contains('lb-grp') && ehCab(unit.firstElementChild));
+      var grupo = !!(unit.classList && unit.classList.contains('lb-grp') && (ehCab(unit.firstElementChild) || unit.classList.contains('lb-fig')));
       if ((unit.matches && unit.matches(ATOMO)) || (grupo && unit.querySelector(ATOMO))) {
         if (cabeNumaColuna(unit) && emColunaNova(unit)) return;
         if (unit.classList.contains('tabela')) { colocarTabela(unit); registrarOid(unit); return; }
@@ -7351,15 +7363,7 @@
         if (cabeNumaColuna(unit) && emColunaNova(unit)) return;
         unit.classList.remove('lb-enc');
       }
-      if (grupo) {
-        /* o grupo se divide: o título entra onde houver espaço, mas só se o começo do bloco seguinte
-           (inteiro; numa lista, ~3 linhas) couber junto — nunca título órfão no pé da coluna */
-        var h = unit.firstElementChild;
-        if (!tituloCabe(h, h.nextElementSibling)) proxColuna();
-        cur.con.appendChild(h); registrarOid(h);
-        unidadesDe(unit).forEach(colocar);
-        return;
-      }
+      if (grupo) { dividir(unit); return; }
       if (/^(UL|OL|DL)$/.test(unit.tagName)) { colocarLista(unit); registrarOid(unit); return; }
       if (ehComposto(unit)) { unidadesDe(unit).forEach(colocar); return; }
       proxColuna();
@@ -7370,6 +7374,14 @@
       if (unit.children && unit.children.length) { unidadesDe(unit).forEach(colocar); return; }
       cur.con.appendChild(unit); registrarOid(unit);
       if (window.console) console.warn('[guia] impressão: unidade não coube nem encolhida', unit.tagName);
+    }
+    /* o grupo se divide: o título entra onde houver espaço, mas só se o começo do bloco seguinte (inteiro;
+       numa lista, ~3 linhas; a figura, com o título dela) couber junto — nunca título órfão no pé da coluna */
+    function dividir(unit) {
+      var h = unit.firstElementChild;
+      if (!tituloCabe(h, h.nextElementSibling)) proxColuna();
+      cur.con.appendChild(h); registrarOid(h);
+      unidadesDe(unit).forEach(colocar);
     }
     function ehComposto(u) {
       return /^(SECTION|DIV|DETAILS|UL|OL|DL|NAV|TABLE|TBODY)$/.test(u.tagName);
@@ -7402,6 +7414,7 @@
        tabela, se tiver ~4 linhas (o grupo do 1º bloco do capítulo entra peça a peça) */
     function minimo(u) {
       var b = altura(u);
+      if (u.classList.contains('lb-fig')) return b;   // título de figura + figura: inteiros
       if (u.classList.contains('lb-grp')) {
         var topo = u.offsetTop - (parseFloat(getComputedStyle(u).marginTop) || 0);
         for (var x = u.firstElementChild; x; x = x.nextElementSibling) {
@@ -7474,12 +7487,14 @@
         pecas.forEach(colocar);
         registrarEm(oid, pecas[0]);
       }
-      /* o 1º bloco: inteiro, se couber; senão, um grupo entra peça a peça (o texto fica com o título
-         e a figura, a caixa ou a tabela passa para a coluna seguinte) */
+      /* o 1º bloco: inteiro, se couber; senão, um grupo de subtítulo se divide como em colocar (o texto
+         fica com o título e a figura, a caixa ou a tabela passa para a coluna seguinte; o subtítulo que
+         só anuncia a figura vai com ela), e outro grupo entra peça a peça */
       var seg = us[1];
       if (seg) {
         if (pode(seg, cur.con)) registrarOid(seg);
-        else if (seg.classList.contains('lb-grp')) unidadesDe(seg).forEach(colocar);
+        else if (seg.classList.contains('lb-grp') && ehCab(seg.firstElementChild)) dividir(seg);
+        else if (seg.classList.contains('lb-grp') && !seg.classList.contains('lb-fig')) unidadesDe(seg).forEach(colocar);
         else colocar(seg);
       }
       us.slice(2).forEach(colocar);
