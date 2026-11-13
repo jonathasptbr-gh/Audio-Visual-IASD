@@ -733,7 +733,10 @@ apagada da que a criou.
   botão nativo; as opções passam a usar a largura toda.
 - **Oráculo:** `guia-impressao` trava o `?` e o `×` nos cantos, o Imprimir como
   último botão (base direita, abaixo das opções), a linha única de informação
-  e, a 390 e a 320 px pelo app, guia e formato abaixo do botão nativo.
+  e, a 390 e a 320 px pelo app, guia e formato abaixo do botão nativo. O
+  primeiro CI (#2495) caiu na medida da PÁGINA a 320 px (18 px de sobra, o
+  defeito antigo do Pacote 8.2, que o `guia-no-app` E já acusa): a essa
+  largura o oráculo passa a medir só o diálogo.
 
 ## o guia: impressão em A4 retrato, simples ou fichário (sem versão nova; só `site/` e docs)
 

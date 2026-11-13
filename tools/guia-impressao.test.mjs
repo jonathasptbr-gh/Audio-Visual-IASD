@@ -25,9 +25,10 @@
 //     ~120 mm; caixa, cartão de problema e tabela nunca partidos;
 //  F. capa e rodapé com o nome real da trilha; sem aviso "não coube" do
 //     motor nem erro de JavaScript;
-//  G. a 390 e a 320 px nada rola de lado; com `?app=1` a faixa do "?" e o
-//     tutorial desviam do "fechar" nativo (52 × 56 px), guia e formato ficam
-//     abaixo dele, e o tutorial manda abrir no navegador.
+//  G. a 390 px nada rola de lado e, a 320, nada no diálogo (a página embaixo
+//     ainda sobra 18 px no CI: fila, Pacote 8.2); com `?app=1` a faixa do "?"
+//     e o tutorial desviam do "fechar" nativo (52 × 56 px), guia e formato
+//     ficam abaixo dele, e o tutorial manda abrir no navegador.
 //
 //   node tools/guia-impressao.test.mjs
 // ============================================================================
@@ -249,6 +250,10 @@ try {
     await p.click('#caderno-tut');
     const m = await p.evaluate(() => ({
       sobra: document.documentElement.scrollWidth - innerWidth,
+      // só caixa que ROLA conta (a prévia corta o lado de propósito: overflow-x hidden)
+      dialogo: Math.max(0, ...['#caderno', '#caderno-corpo', '#caderno-tut-p', '.tut-painel', '.tut-corpo']
+        .map((s) => document.querySelector(s)).filter((e) => e && /auto|scroll/.test(getComputedStyle(e).overflowX))
+        .map((e) => e.scrollWidth - e.clientWidth)),
       barra: (() => { const b = document.querySelector('.caderno-bar'); return b.scrollWidth - b.clientWidth; })(),
       recuo: parseFloat(getComputedStyle(document.querySelector('.caderno-cab')).paddingLeft),
       recuoTut: parseFloat(getComputedStyle(document.querySelector('.tut-cab')).paddingLeft),
@@ -257,7 +262,9 @@ try {
       aviso: getComputedStyle(document.querySelector('.tut-so-app')).display !== 'none',
       secoes: document.querySelectorAll('#caderno-tut-p .tut-met svg').length,
     }));
-    checar(m.sobra <= 1 && m.barra <= 1 && m.secoes === 2 && m.titulo >= 90,
+    // a 320 px a PÁGINA embaixo do diálogo ainda sobra 18 px no CI (fila, Pacote 8.2;
+    // quem a cobra é o `guia-no-app` E): a essa largura mede-se só o diálogo
+    checar(m.dialogo <= 1 && m.barra <= 1 && (larg < 390 || m.sobra <= 1) && m.secoes === 2 && m.titulo >= 90,
       `G · a ${larg} px${app ? ' (app)' : ''} o diálogo e o tutorial não rolam de lado e o título cabe`, JSON.stringify(m));
     checar(app ? m.recuo >= 51 && m.recuoTut >= 51 && m.grupos >= 56 && m.aviso : m.recuo < 51 && !m.aviso,
       app ? `G · a ${larg} px pelo app, a faixa do "?" e o tutorial desviam do "fechar" nativo, guia e formato ficam abaixo dele, e o tutorial manda abrir no navegador`
