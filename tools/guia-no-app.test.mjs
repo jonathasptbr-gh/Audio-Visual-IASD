@@ -163,7 +163,7 @@ try {
   // A 320 px (o menor celular comum) o recuo e as duas pílulas ainda cabem, e nada
   // alarga a página, nem com todo <details> aberto. Os 280 px valem pela FONTE: a
   // fonte daqui é mais estreita que o DejaVu Sans do runner, e o estouro de 18 px a
-  // 320 px (grade de atalhos do D9, endereço longo) só aparecia lá; a 280 px ele
+  // 320 px (grade de atalhos do D12, endereço longo) só aparecia lá; a 280 px ele
   // aparece com qualquer fonte (com o CSS antigo, 11 px aqui; 58 px no runner).
   for (const largura of [320, 280]) {
     p = await abrirPagina(SITE + '/sonoplastia/?app=1#dia', largura);

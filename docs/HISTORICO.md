@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o guia: socorro e diagnóstico no fim, e os códigos em sequência (sem versão nova; só `site/` e docs)** — o socorro (D9) e o diagnóstico (I17) fecham cada guia, os capítulos que vinham depois andam uma casa, e as remissões, o índice e a impressão vão junto.
 - **o guia: capa impressa nova, e "trilha" vira "guia" (sem versão nova; só `site/` e docs)** — a 1ª página da impressão ganha a faixa da igreja (Igreja Adventista do Sétimo Dia e IASD, em texto), o nome do guia dominante, o caminho do som no azul da casa e um rodapé com endereço, data e páginas; as partes passam a se chamar "Guia de sonoplasta por um dia" e "… em tempo integral".
 - **o cartão do link, redesenhado (sem versão nova; só `site/`)** — a pedido: sai o caminho microfone → cabo → mesa → caixa e entra o posto de trabalho — um monitor com a onda na tela sobre um pé curto e, na frente, a mesa de som em perspectiva (corpo escuro, painel claro, faders e knobs), em CSS 3D; o `?v=` sobe a 2 para o cartão antigo não circular.
 - **o guia de sonoplastia ganha cartão de link (sem versão nova; só `site/`)** — a página recebe `og:*`, `twitter:card` e `canonical`, e `site/og-sonoplastia.jpg` (1200×630, 84 kB) desenha o guia: o título, a régua de nível com o pico no vermelho e, num cartão branco, o caminho do som (microfone → mesa → caixa) que abre a capa; `?v=1` porque a prévia é guardada por endereço.
@@ -725,6 +726,31 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## o guia: socorro e diagnóstico no fim, e os códigos em sequência (sem versão nova; só `site/` e docs)
+
+- **Pedido:** "os capítulos de socorro e diagnósticos devem ser os últimos capítulos. Foi-se
+  adicionado conteúdo novo como hinário e guia sobre o aplicativo e acabaram estragando a
+  ordem. Coloque os capítulos de socorro e diagnósticos nos respectivos finais de seus guias."
+- **O que estava fora de ordem:** o socorro (D9) vinha antes de "Ao terminar", da ficha de
+  bolso e do app; o diagnóstico (I17) vinha antes do glossário, dos eventos, do hinário, da
+  música, do Louvor JA e do app. Os dois passam a fechar o seu guia e os capítulos que vinham
+  depois andam uma casa para trás: D9→D12 · D10→D9 · D11→D10 · D12→D11 · I17→I23 · I18→I17 ·
+  I19→I18 · I20→I19 · I21→I20 · I22→I21 · I23→I22.
+- **Os códigos acompanham a leitura**, sem buraco: `D0`–`D12` e `I0`–`I23` seguem a ordem da
+  página — o `.cod` de cada título, o `<span class="ic">` do índice estático e o `id` das
+  seções. As remissões foram junto: `href="#d9"`, as âncoras internas (`d9-mic` → `d12-mic`),
+  o cartão "Problema agora · D12", o "Como usar" ("o capítulo D12 reúne o socorro rápido"), os
+  cartões da escolha (D11 e I22 para o app) e os códigos do estudo `docs/ESTUDO-GUIA-IASD.md`
+  (D9, D10, I17, I18, I23). O texto de abertura do curso passa a "até a manutenção e o
+  diagnóstico de problemas".
+- **A impressão:** com a ordem nova, a prévia do tempo integral passou a cortar 0,5 mm no pé da
+  página 62 — um `.lb-grp` 2 px abaixo da coluna, aceito pela folga de `cheio()`; a folga caiu
+  de −2 px para −0,5 px e o grupo vai para a coluna seguinte. Seguem 22 páginas (um dia) e 88
+  (tempo integral), as mesmas do lote anterior.
+- **Oráculos:** `guia-impressao` 76 ok (B, E, J e K entre eles), `guia-no-app`, `tour` e
+  `docs-coerentes` certos. Os 37 capítulos foram conferidos bloco a bloco: renomeados e
+  reordenados, nenhuma linha perdida.
 
 ## o guia: capa impressa nova, e "trilha" vira "guia" (sem versão nova; só `site/` e docs)
 

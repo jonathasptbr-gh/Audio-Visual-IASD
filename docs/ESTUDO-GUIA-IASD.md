@@ -41,8 +41,8 @@ integral"). Tabela capítulo a capítulo:
 | D5 · Volume com cuidado | "volume certo" | tabela de níveis por momento do sábado (ver seção 7) |
 | D7 · YouTube no telão | vídeo qualquer | exemplos IASD: Informativo Mundial das Missões, Provai e Vede, Semana Santa, TV Novo Tempo |
 | D8 · Durante o culto | atenção ao programa | exemplo completo: ofertório com instrumental suave, oração pastoral, sermão (ver seção 3) |
-| D10 · Desligar e guardar | fechamento | citar a rotina de dois cultos seguidos (ES + Divino) e o almoço entre eles |
-| D11 · Ficha de bolso | lista única | versão "ficha do sábado" e ficha curta por evento (ES, batismo, JA) |
+| D9 · Desligar e guardar | fechamento | citar a rotina de dois cultos seguidos (ES + Divino) e o almoço entre eles |
+| D10 · Ficha de bolso | lista única | versão "ficha do sábado" e ficha curta por evento (ES, batismo, JA) |
 | I0 · Chamado e responsabilidade | genérico | citar os ministérios da igreja que o sonoplasta apoia (Música, Recepção, Diáconos, JA) |
 | I4 · Microfones | tipos de mic | casos IASD: professor de ES (lapela/headset), batismo (à prova d'água), coral |
 | I12 · O computador no culto | Windows | acrescentar o **Louvor JA** (instalar/atualizar/backup) e a regra "sem atualização no culto" |
@@ -50,11 +50,11 @@ integral"). Tabela capítulo a capítulo:
 | I14 · Transmissão ao vivo | genérico | exemplos IASD: transmissão do Culto Divino, Semana de Oração, congressos |
 | I15 · A rotina completa do culto | rotina única | virar **rotina do sábado inteiro** (chegada, ES, transição, Culto, tarde) |
 | I16 · Manutenção e organização | genérico | citar a escala do Ministério da Música e o responsável do som da igreja |
-| I18 · Glossário | termos técnicos | acrescentar termos adventistas: ES, JA, Desbravadores, ofertório, lição, investidura |
-| I19 · Eventos e peculiaridades | eventos genéricos | receber a tabela completa da seção 3 (batismo, Santa Ceia, Desbravadores…) |
+| I17 · Glossário | termos técnicos | acrescentar termos adventistas: ES, JA, Desbravadores, ofertório, lição, investidura |
+| I18 · Eventos e peculiaridades | eventos genéricos | receber a tabela completa da seção 3 (batismo, Santa Ceia, Desbravadores…) |
 
 Os capítulos de técnica pura (I1 som, I2 sinal, I3 cabos, I5 mesa, I6 ganho, I7
-EQ, I8 microfonia, I9 retorno, I10 dinâmica, I11 caixas, I17 diagnóstico) **não
+EQ, I8 microfonia, I9 retorno, I10 dinâmica, I11 caixas, I23 diagnóstico) **não
 mudam**: ganham no máximo UM exemplo adventista por capítulo, nada mais.
 
 ---
@@ -79,7 +79,7 @@ mudam**: ganham no máximo UM exemplo adventista por capítulo, nada mais.
 | **Impacto Esperança** | entrega de livros + evento comunitário | som para o evento de rua/praça: PA portátil, energia, chuva |
 | **Congressos / acampamentos** | palco grande, várias igrejas | som de palco profissional; monitor; transmissão; backup de mídias |
 
-Cada linha desta tabela vira um bloco curto em **I19** (e as duas primeiras
+Cada linha desta tabela vira um bloco curto em **I18** (e as duas primeiras
 viram o exemplo padrão de **D1** e **D8**).
 
 ---
@@ -226,7 +226,7 @@ hinário novo e o antigo estão disponíveis ali.
 - **segunda tela** no telão — remeter a **I13** (projeção) e **D6** (Windows), que já existem, sem duplicar conteúdo.
 
 **Onde encaixar:** item novo em **I13** (projeção) + menção em **I12**
-(computador) e **I19** (eventos). Não criar capítulo técnico novo de zero: o
+(computador) e **I18** (eventos). Não criar capítulo técnico novo de zero: o
 Louvor JA é EXEMPLO do que I13 já ensina.
 
 **Conferir com o operador:** se o guia fala do Louvor JA de Windows (desktop)
@@ -238,10 +238,10 @@ ou só do banco de dados — e se a igreja dele usa o app ou outra ferramenta.
 
 | prioridade | pacote | capítulos | conteúdo |
 |---|---|---|---|
-| **P1** — exemplos e programas | D0, D1, D8, I0, I15, I19 | trocar o genérico pelo sábado adventista e receber a tabela da seção 3 | menor custo, maior ganho: é texto |
+| **P1** — exemplos e programas | D0, D1, D8, I0, I15, I18 | trocar o genérico pelo sábado adventista e receber a tabela da seção 3 | menor custo, maior ganho: é texto |
 | **P2** — hinário + Louvor JA | D5, D7, I12, I13 + seções novas | seção 5 (hinários) e seção 8 (Louvor JA) | mexe em caixas e remissões |
 | **P3** — links oficiais | nova seção "Referências" + rodapé | tabela da seção 4 | só o que estiver ✅ |
-| **P4** — seções novas dedicadas | apêndices novos | teoria musical (seção 7), tabela de cantores (seção 6), glossário IASD (I18) | escrever do zero; pode esperar |
+| **P4** — seções novas dedicadas | apêndices novos | teoria musical (seção 7), tabela de cantores (seção 6), glossário IASD (I17) | escrever do zero; pode esperar |
 
 **O que NÃO fazer:**
 - ❌ não virar doutrina: o guia ensina som, não teologia; princípios de música
