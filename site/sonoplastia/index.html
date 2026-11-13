@@ -462,7 +462,8 @@
   .caderno-corpo { flex:1; overflow:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding:10px 8px 48px; }
   .caderno-escala { width:210mm; margin:0 auto; transform-origin:top left; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   .caderno-escala.lb-medindo { position:fixed; left:-4000px; top:0; transform:none !important; }
-  .caderno-sprite { position:absolute; width:0; height:0; overflow:hidden; }
+  /* sprite e defs da prévia: fora da vista, mas RENDERIZADOS também na impressão (display:none apagaria setas e texturas) */
+  .caderno-sprite, .caderno-defs { position:absolute; width:0; height:0; overflow:hidden; }
 
   /* ----- página A4 retrato. Topo 15 mm; base 18 mm (o rodapé mora nela); laterais por formato:
      simples 18/18; fichário 25 do lado do furo e 11 do outro, espelhadas nas páginas pares ----- */
@@ -6845,6 +6846,44 @@
       if (montado) { aplicarFormato(); aplicarEscala(); }   // montagem pendente aplica o formato ao terminar
     });
 
+    /* ----- recursos SVG da prévia -----
+       marker, clipPath, pattern e <use> fora do sprite são apontados por url(#X) ou href="#X". O
+       clone perdeu os ids, então a referência cai no original em `main`, que some na impressão — e
+       recurso sem layout não pinta (a seta e a textura desaparecem). Cada um é copiado, com as
+       partes internas, para o <svg> de defs do diálogo como X--imp, e a referência é reescrita. */
+    var SVGNS = 'http://www.w3.org/2000/svg';
+    var ATR_URL = ['marker-start', 'marker-mid', 'marker-end', 'clip-path', 'mask', 'filter', 'fill', 'stroke', 'style'];
+    function copiarRecursos(cl, holder) {
+      var defs = document.createElementNS(SVGNS, 'svg'), feitos = {};
+      defs.setAttribute('class', 'caderno-defs'); defs.setAttribute('aria-hidden', 'true');
+      holder.appendChild(defs);
+      function alvo(id) {
+        if (id in feitos) return feitos[id];
+        var o = document.getElementById(id);
+        if (!o || cad.contains(o)) return (feitos[id] = null);   // já mora no diálogo (sprite) ou não existe
+        var c = o.cloneNode(true);
+        [c].concat($$('[id]', c)).forEach(function (el) { feitos[el.id] = el.id + '--imp'; el.id += '--imp'; });
+        defs.appendChild(c);
+        trocar(c);
+        return feitos[id];
+      }
+      function trocar(raiz) {
+        [raiz].concat($$('*', raiz)).forEach(function (el) {
+          ATR_URL.forEach(function (a) {
+            var v = el.getAttribute(a);
+            if (!v || v.indexOf('url(') < 0) return;
+            var n = v.replace(/url\(\s*(['"]?)#([^'")\s]+)\1\s*\)/g, function (m, q, id) {
+              var t = alvo(id); return t ? 'url(#' + t + ')' : m;
+            });
+            if (n !== v) el.setAttribute(a, n);
+          });
+          var h = el.namespaceURI === SVGNS && el.getAttribute('href');
+          if (h && h.charAt(0) === '#') { var t = alvo(h.slice(1)); if (t) el.setAttribute('href', '#' + t); }
+        });
+      }
+      trocar(cl);
+    }
+
     /* ----- clonagem e preparação do miolo ----- */
     function preparar(cl) {
       var holder = sprite || document.body;
@@ -6860,6 +6899,7 @@
       $$('[id]', cl).forEach(function (el) {
         el.setAttribute('data-oid', el.id); el.removeAttribute('id');
       });
+      copiarRecursos(cl, holder);
       $$('a[href^="#"]', cl).forEach(function (a) {
         var s = document.createElement('span'); s.className = 'lb-link';
         while (a.firstChild) s.appendChild(a.firstChild);

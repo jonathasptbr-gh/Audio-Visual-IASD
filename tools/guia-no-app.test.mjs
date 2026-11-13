@@ -23,7 +23,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, esperarCortina, comModoAvancado, checar, RAIZ_SITE } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, esperarCortina, comModoAvancado, checar, falhas, RAIZ_SITE } from './arnes.mjs';
 
 // `guia`: 'aceita' (o shell 87 abre), 'recusa' (devolve false) ou 'ausente' (casco antigo).
 const ponte = (guia) => `(() => {
@@ -185,3 +185,6 @@ try {
   servidor.close();
   servidorSite.close();
 }
+
+console.log(falhas.length ? '\n' + falhas.length + ' falha(s)' : '\ntudo certo');
+process.exit(falhas.length ? 1 : 0);

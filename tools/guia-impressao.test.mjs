@@ -13,7 +13,9 @@
 //     (`window.livreto.paginas`), sem folha em branco a mais — o modo de
 //     falhar calado é uma caixa 1 px mais alta que a folha;
 //  C. com a mídia de impressão, cada página mede 210 × 297 mm e o texto fica
-//     dentro das margens do formato, sem invadir a margem do furo;
+//     dentro das margens do formato, sem invadir a margem do furo; toda seta,
+//     recorte, textura e <use> da prévia aponta para um recurso DENTRO do
+//     diálogo e renderizado (o original em `main` some na impressão);
 //  D. os dois formatos do mesmo guia, paginados do zero, dão o mesmo nº de
 //     páginas e o mesmo índice (a área útil é a mesma);
 //  E. nenhuma página vazia nem texto cortado no rodapé; cada capítulo começa
@@ -78,7 +80,31 @@ async function conferir(pg, guia, fmt, rotulo) {
     `B · ${rotulo}: o PDF tem ${L.paginas} páginas A4 retrato, uma por página do guia`, JSON.stringify({ pdf, paginas: L.paginas }));
   await pg.emulateMedia({ media: 'print' });
   const pags = await medirPaginas(pg);
+  // seta (marker), recorte (clipPath), textura (pattern) e <use>: o alvo tem de morar no diálogo e
+  // estar renderizado — o original fica em `main`, que some na impressão, e aí a seta não pinta
+  const refs = await pg.evaluate(() => {
+    const cad = document.getElementById('caderno'), SVG = 'http://www.w3.org/2000/svg';
+    let n = 0; const ruins = [];
+    document.querySelectorAll('#caderno-escala *').forEach((el) => {
+      const ids = [];
+      for (const a of el.attributes) {
+        for (const m of a.value.matchAll(/url\(\s*['"]?#([^'")\s]+)/g)) ids.push(m[1]);
+        if (a.name === 'href' && el.namespaceURI === SVG && a.value[0] === '#') ids.push(a.value.slice(1));
+      }
+      ids.forEach((id) => {
+        n += 1;
+        const t = document.getElementById(id);
+        let ok = !!t && cad.contains(t);
+        for (let q = t; ok && q; q = q.parentElement) if (getComputedStyle(q).display === 'none') ok = false;
+        if (!ok && ruins.length < 4) ruins.push(el.tagName + ' → #' + id + (!t ? ' (inexistente)' : cad.contains(t) ? ' (oculto)' : ' (fora do diálogo)'));
+      });
+    });
+    return { n, ruins };
+  });
   await pg.emulateMedia({ media: null });          // 'screen' faria o page.pdf() seguinte sair com a mídia de tela
+  checar(refs.n > 0 && refs.ruins.length === 0,
+    `C · ${rotulo}: as ${refs.n} referências SVG da prévia (seta, recorte, textura, <use>) resolvem dentro do diálogo, renderizadas na impressão`,
+    JSON.stringify(refs));
   const foraDoTamanho = pags.map((p, i) => [i + 1, p]).filter(([, p]) => Math.abs(p.w - 210) > 0.3 || Math.abs(p.h - 297) > 0.3);
   checar(pags.length === L.paginas && foraDoTamanho.length === 0,
     `C · ${rotulo}: na impressão cada página mede 210 × 297 mm`, JSON.stringify(foraDoTamanho.slice(0, 3)));

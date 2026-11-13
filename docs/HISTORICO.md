@@ -765,7 +765,19 @@ docs: nada chega ao app.
   nos dois formatos; toda página 595 × 842 pt; o texto encosta em 18 mm no
   simples e em 25/11 mm (ímpar/par) no fichário. Antes, em A5: 68 e 152
   páginas A5.
-- **Oráculo novo:** `tools/guia-impressao.test.mjs`, no workflow.
+- **Setas, recortes e texturas na impressão** (defeito anterior ao lote): o
+  clone perde os ids, e `url(#X)` / `href="#X"` caíam no original dentro de
+  `main`, que some na impressão — recurso sem layout não pinta. Saíam sem ponta
+  as setas (D3: conectores 1→5 e DESLIGAR; 71 `<marker>` na página) e sem as
+  teclas claras o teclado do D6 (`<pattern>`); os 21 `<clipPath>` das telas do
+  app dependiam do mesmo original. Agora cada recurso apontado é copiado, com
+  as partes internas, para um `<svg>` de defs do diálogo (`X--imp`, renderizado
+  na impressão, limpo a cada remontagem) e a referência é reescrita.
+- **Oráculo novo:** `tools/guia-impressao.test.mjs`, no workflow; cobra também
+  que toda referência SVG da prévia resolva dentro do diálogo e renderizada (295
+  no Por um dia, 96 no Tempo integral). E o `tools/guia-no-app.test.mjs` ganha o
+  `process.exit(falhas.length ? 1 : 0)`: sem ele, um FALHOU ali não reprovava o
+  CI (o runner lê o código de saída).
 - **Não medido:** a impressão física (impressora real, frente e verso pela
   borda longa, furo no fichário) e a impressão de dentro do app (o WebView do
   Android provavelmente ignora `window.print()` — daí o aviso).
