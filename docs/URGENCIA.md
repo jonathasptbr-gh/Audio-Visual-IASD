@@ -4,11 +4,12 @@ O operador pediu uma revisão das diretrizes e metodologias (o contrato, o rito
 de entrega, os processos de revisão e as instruções desta máquina). Três
 revisores leram tudo e conferiram contra o que os scripts e o CI FAZEM. Saíram
 cerca de 50 apontamentos, 12 graves. **Este arquivo é a lista do que consertar**,
-em quatro pacotes — os Pacotes 24 a 27 da fila (`PEDIDOS-EM-ESPERA.md`).
+em três pacotes — os Pacotes 25 a 27 da fila (`PEDIDOS-EM-ESPERA.md`); o Pacote
+24 (o C) saiu em 2026-11-14.
 
 **Como se usa.**
 
-- **Um pacote por sessão**, na ordem **C → A → B → D**. Leia SÓ o pacote da vez
+- **Um pacote por sessão**, na ordem **A → B → D**. Leia SÓ o pacote da vez
   (e "As decisões do operador", logo abaixo).
 - **Os quatro estão autorizados** pelo operador (14/11): não é preciso perguntar
   qual seguir, só confirmar que a sessão é a do pacote seguinte.
@@ -21,7 +22,7 @@ em quatro pacotes — os Pacotes 24 a 27 da fila (`PEDIDOS-EM-ESPERA.md`).
   · TOOL = `tools/revisao-cobertura.mjs`. Fora do repositório: AG =
   `/root/workspace/AGENTS.md` · PC = `/root/workspace/PACOTE-DE-CONTINUIDADE.md`
   · GL = `~/.dsh/AGENTS.md` (do app, não se edita) · RD = `~/.dsh-github/README.md`.
-- **Ele ESVAZIA.** Pacote entregue sai daqui e da fila. Quando o quarto sair,
+- **Ele ESVAZIA.** Pacote entregue sai daqui e da fila. Quando o terceiro sair,
   este arquivo é apagado, com as linhas dele no mapa do CL e na `ESTRUTURA.md`.
 - Gravidade: **A** = causa erro ou perda · **M** = confunde ou custa · **B** = cosmético.
 
@@ -38,28 +39,6 @@ em quatro pacotes — os Pacotes 24 a 27 da fila (`PEDIDOS-EM-ESPERA.md`).
 4. **A revisão geral volta a caçar DEFEITO**, não só higiene.
 5. **Tudo entra na fila**: os dois itens de decisão que estavam só no RES
    viraram os Pacotes 28 e 29.
-
----
-
-## Pacote C — esta máquina (Pacote 24)
-
-Quase tudo mora FORA do repositório (AG, PC, RD); no clone, só `tools/estado.sh`
-e o EC.
-
-| # | g | onde | o que está errado | a correção |
-|---|---|---|---|---|
-| C1 | A | AG:129 | "Reverter é uma linha: `cp ~/tmp/cordis.patch.yml.bak …`". O `.bak` é de 10/11 (593 B); o patch de hoje tem 2.466 B, com a lista de modelos e o provedor curados em 14/11 — a linha os APAGA | reverter = tirar do patch só as entradas de sandbox e de aprovação; ou refazer o `.bak` a cada mudança do patch |
-| C2 | A | AG:86-89 × AG:97, PC:41-44, PC:61, `estado.sh`:73/85/89, RD:3-4 | o texto diz que `~/.dsh-github/token` "pode ser apagado", mas a receita do `extraHeader` e o `estado.sh` leem SÓ ele (a biblioteca do kit, linhas 10-11, já lê o cofre primeiro) | `estado.sh` e a receita passam a ler o cofre primeiro; só então o "pode ser apagado" volta |
-| C3 | A | EC:11-14, :20, :29-31, :65-67; o medidor de custo do kit (`~/.dsh-github/`), linhas 192-193 | os limiares em US$ foram medidos com outro modelo; o medidor só tem tabela de preço dele e imprime "dentro do teto" | remedir com `--preco` do modelo atual; exprimir os tetos em chamadas e tokens, não em dólar |
-| C4 | M | GL:5 × AG:82, AG:121 | GL manda pedir `sandbox_permissions`; aqui o pedido é recusado sozinho. GL:6 manda produzir em `/sdcard/Download/DSH-Go/` × AG:124 "só com ele avisado" | uma linha no AG: "ignore GL:5; produzir em `/sdcard` só avisando" |
-| C5 | M | AG:3, :10, :18-26, :41-53, :55-68, :132-152 | "fino de propósito" com 8,7 kB injetados em toda sessão e subagente: repete contrato, rito, economia (duas vezes) e kit; "última revisão: 10/11" com conteúdo de 13/11 | AG fica com ambiente, credenciais, armadilhas e ponteiros; fontes únicas: CL (conversa, rito), EC, MA, RD |
-| C6 | M | AG:30, CL:183, CL:186 | dizem que `estado.sh` imprime o CI; só com `--ci` | citar `tools/estado.sh --ci` |
-| C7 | M | AG:115 × MA:69-78, MA:102 | "mudança alheia = parar" × "arquivo sujo de outro se edita e NÃO se commita", na mesma célula | AG só aponta para o MA |
-| C8 | M | MA:124-125 × CL:49; AG:28-39 | o registro de sessões ativas (`ATIVO.md`) é mandado ler "ao abrir a sessão", mas não está no "Antes de trabalhar" e ninguém o preenche; "2 horas sem atualização" sem campo de hora. A revisão não o achou na árvore: LOCALIZE antes | passo 0 do "Antes de trabalhar", ou `estado.sh` imprime e cobra; ou aposentar o registro |
-| C9 | M | CL:90; RD:22 | o aviso de etapa a cada ~15 min usa `send_later`, que não existe neste harness (o fim do subagente notifica sozinho) | tirar o check-in por tempo |
-| C10 | M | EC:24, EC:26; AG:62, AG:66 | "no teto a sessão ACABA" só prevê pacote publicado: não há regra para 150 chamadas no MEIO do lote, e a contagem só é mandada no fim | medir por volta de 120; se não fecha, nota de passagem commitada + pedir sessão nova |
-| C11 | B | AG:81; PC:4, PC:13 | "portas 3080/3081/3083": hoje só a 3080 responde. PC: link quebrado para o CL e data anterior ao cofre | acertar os três |
-| C12 | B | `~/tmp/backup-*` | 51 backups sem regra de limpeza; AG, PC e RD não têm histórico nem oráculo | regra de limpeza; avaliar cópia versionada dos três |
 
 ---
 

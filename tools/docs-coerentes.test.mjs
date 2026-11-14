@@ -148,6 +148,8 @@ const docs = [];
     ['anexo-varredura-command-stream.json', 'anexo temporário, apagado como estava previsto (o TELAO diz isso)'],
     // Asset publicado na branch de dados, lido por URL.
     ['serie.json', 'asset servido por raw.githubusercontent, não versionado aqui'],
+    // O medidor de custo do KIT da máquina, fora do repositório (Pacote 24/C3).
+    ['uso.mjs', 'kit da máquina: ~/.dsh-github/uso.mjs, não versionado aqui'],
   ]);
 
   const reais = new Set();

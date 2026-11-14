@@ -49,6 +49,7 @@ medição em aparelho não é fino.**
 | 2026-11-14 | `capturas/entrada/` | 3,7 MB de JPEG de origem, já convertidos para `site/telas/` | operador | **decidido deixar como está** em 14/11 |
 | 2026-11-14 | `controle.js:22564` | o aviso do card promete que a série "desce quando ela sair", mas a rodada só é armada por `manterSeriesDaSemana` — com um card aberto na projeção a saída da mídia não baixa | operador | mexe no contrato do `serieAutoImpedimento` — **na fila: Pacote 28** (14/11) |
 | 2026-11-14 | `tools/tour.test.mjs:94` | o oráculo mede a peça com a MESMA regra do `elementos()`: não distingue a peça certa da primeira casada | higienização | só o G novo tem régua independente |
+| 2026-11-14 | `~/.dsh-github/uso.mjs` | a remedição do custo com o preço do modelo ATUAL não saiu (não há preço publicado confiável na máquina); as tabelas do medidor são de 10/11 e ele aceita `--preco novo cache saida` | medição | preço do modelo atual não medido |
 | 2026-11-14 | `ESTABILIDADE-AV` C2, D2 | pedem medição em aparelho | medição | não há aparelho nesta máquina |
 | 2026-11-14 | `EFICIENCIA` #2, #9 | processo, não código | operador | aberto desde 2026-09 |
 

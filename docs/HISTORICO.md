@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o Pacote 24: as instruções desta máquina consertadas (sem versão nova; docs, `tools/` e arquivos da máquina)** — os 12 apontamentos da revisão de 14/11: a reversão do patch, o cofre primeiro no `estado.sh` e na receita, os tetos sem dólar, o `AGENTS.md` enxuto, o `--ci` citado, o ATIVO.md aposentado, o `send_later` fora, o teto no meio do lote, e regras para portas e backups.
 - **v1.14.16** — o tour volta a destacar o conjunto inteiro no Relógio, no Sorteio e no Itinerário, e saem três comentários falsos e cinco imagens órfãs; só web.
 - **v1.14.15** — o Histórico e o Transferir destacam a primeira linha do gesto em vez da lista inteira, e saem três comentários falsos; só web.
 - **v1.14.14** — a série que cedeu a vez à projeção volta quando ela sai, o card diz por quê, e a junção mostra a fração real em vez de parar no 99%; só web.
@@ -741,6 +742,57 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## o Pacote 24 — as instruções desta máquina consertadas (sem versão nova; docs, `tools/` e arquivos fora do repositório)
+
+O **Pacote 24** — o Pacote C do `docs/URGENCIA.md`, o primeiro dos quatro da
+revisão de 14/11. Os 12 apontamentos foram conferidos um a um antes de
+consertar; nada toca a base web: sem versão nova, sem Release, sem OTA.
+
+- **C1 · a reversão do patch** (`AGENTS.md` + `~/tmp`): a receita de "reverter em
+  uma linha" mandava `cp` do `~/tmp/cordis.patch.yml.bak`, um retrato de 10/11
+  (593 B) que apagaria a curadoria de modelos/provedor de 14/11 (2.467 B). Agora
+  a reversão é **tirar do patch as entradas de sandbox e de aprovação**, e o
+  `.bak` foi refeito, com a regra de refazê-lo a cada mudança do patch.
+- **C2 · o cofre primeiro** (`tools/estado.sh`, `AGENTS.md`,
+  `PACOTE-DE-CONTINUIDADE.md`, `~/.dsh-github/README.md`): o `estado.sh` e a
+  receita do `extraHeader` agora leem `refs.GITHUB_TOKEN` do cofre do harness e
+  caem para `~/.dsh-github/token` — a mesma ordem da `lib.mjs`. O arquivo antigo
+  é reserva declarada; saiu o "pode ser apagado" que contradizia os leitores.
+- **C3 · tetos sem dólar** (`docs/ECONOMIA.md`, `~/.dsh-github/uso.mjs`): os
+  limiares em US$ (medidos com outro modelo) saíram da prosa; o sinal de sessão
+  funda é o **teto de 150 chamadas**; as tabelas do medidor ganharam a data
+  (10/11) e ele aponta `--preco novo cache saida` para o modelo atual.
+- **C4 · GL × máquina** (`AGENTS.md`): uma linha ignora GL:5 (pedir
+  `sandbox_permissions` é recusado aqui) e reafirma `/sdcard` só avisando.
+- **C5 · o AG enxugou** (`AGENTS.md`): 152 → 119 linhas; saíram o contrato, o
+  rito, a economia e o kit repetidos — fontes únicas: CL (conversa, rito), EC
+  (economia), MA (clone compartilhado), RD (kit).
+- **C6 · `--ci` citado** (`CLAUDE.md`, `AGENTS.md`): os dois lugares que mandavam
+  medir "versão, HEAD, CI" agora mandam `tools/estado.sh --ci`.
+- **C7 · clone compartilhado** (`AGENTS.md`): a célula das duas sessões perdeu o
+  "mudança alheia = parar" (conflitava com o MA) e aponta o `docs/MULTI-AGENTE.md`.
+- **C8 · ATIVO.md aposentado** (`docs/MULTI-AGENTE.md`): o registro de sessões
+  ativas nunca existiu na árvore nem foi preenchido; a seção 3 agora diz que o
+  canal entre as sessões é o operador e o `git status` é a verdade (regra 1).
+- **C9 · sem check-in por tempo** (`CLAUDE.md`): o aviso de etapa a cada ~15 min
+  usava `send_later`, que não existe neste harness; o fim do agente delegado
+  notifica sozinho.
+- **C10 · teto no meio do lote** (`docs/ECONOMIA.md`): medir por volta de 120
+  chamadas; se o lote não fecha, nota de passagem commitada e sessão nova.
+- **C11 · portas e PC** (`AGENTS.md`, `PACOTE-DE-CONTINUIDADE.md`): nada escuta
+  em 3080–3083 hoje (medido em 14/11); o link quebrado para o CL saiu e as datas
+  foram acertadas.
+- **C12 · backups** (`AGENTS.md` + `~/tmp`): regra de 7 dias para
+  `~/tmp/backup-*` (248 hoje, nenhum com 7 dias ainda — a limpeza passa a agir
+  sozinha) e a cópia versionada dos três arquivos sem histórico (`AGENTS.md`,
+  `PACOTE-DE-CONTINUIDADE.md`, `~/.dsh-github/README.md`) em `~/tmp/continuidade/`.
+
+**O que não saiu:** a remedição com o PREÇO do modelo atual (C3) — não há preço
+publicado confiável na máquina; o medidor aceita `--preco novo cache saida`, e a
+linha ficou no `RESIDUOS.md` (dono `medição`). Verificação: `bash -n` no
+`estado.sh`, `node --check` no `uso.mjs`, `estado.sh --ci` lendo o cofre, e o
+portão.
 
 ## v1.14.7 — o tour vira quadrado, o editor vira ferramenta, e o tour não encosta na borda
 

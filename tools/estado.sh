@@ -69,11 +69,26 @@ puro=$(comm -23 <(ls tools/*.test.mjs | sort) \
              <(grep -lE "from '(\./)?(arnes\.mjs|playwright)'" tools/*.test.mjs | sort) | wc -l)
 echo "  oráculos: $total arquivos · $puro de Node puro · $fora fora do workflow"
 
-p "credencial"
-if [ -f "$HOME/.dsh-github/token" ]; then
-  echo "  token:       presente ($(stat -c%s "$HOME/.dsh-github/token") B, $(stat -c%a "$HOME/.dsh-github/token"))"
+# O cofre do harness vem primeiro; o arquivo antigo é reserva — a mesma ordem
+# da `lib.mjs` do kit `~/.dsh-github/` (Pacote 24/C2, 2026-11-14).
+COFRE="${DSH_HOME:-$HOME/.dsh}/.credentials.yaml"
+TOKEN=$(sed -n '/^refs:/,/^[^[:space:]]/p' "$COFRE" 2>/dev/null \
+  | sed -nE 's/^[[:space:]]+GITHUB_TOKEN:[[:space:]]*(.*)[[:space:]]*$/\1/p' | head -1)
+if [ -n "$TOKEN" ]; then
+  TOKEN="${TOKEN%\'}"; TOKEN="${TOKEN#\'}"; TOKEN="${TOKEN%\"}"; TOKEN="${TOKEN#\"}"
+  ORIGEM="cofre"
+elif [ -f "$HOME/.dsh-github/token" ]; then
+  TOKEN=$(cat "$HOME/.dsh-github/token")
+  ORIGEM="arquivo"
 else
-  echo "  token:       AUSENTE"
+  ORIGEM=""
+fi
+
+p "credencial"
+if [ -n "$TOKEN" ]; then
+  echo "  token:       presente ($ORIGEM)"
+else
+  echo "  token:       AUSENTE (cofre e ~/.dsh-github/token)"
 fi
 if g config --global --get http.https://github.com/.extraHeader >/dev/null 2>&1; then
   echo "  extraHeader: configurado"
@@ -82,11 +97,10 @@ else
 fi
 echo "  gh CLI:      $(gh auth status >/dev/null 2>&1 && echo logado || echo 'sem login (use a API pelo token)')"
 
-if [ "$CI" -eq 1 ] && [ -f "$HOME/.dsh-github/token" ]; then
+if [ "$CI" -eq 1 ] && [ -n "$TOKEN" ]; then
   p "CI do HEAD"
-  node -e '
-    const fs = require("fs");
-    const token = fs.readFileSync(process.env.HOME + "/.dsh-github/token", "utf8").trim();
+  TOKEN_GITHUB="$TOKEN" node -e '
+    const token = process.env.TOKEN_GITHUB;
     const repo = "jonathasptbr-gh/Audio-Visual-IASD";
     const sha = process.argv[1];
     const ctl = new AbortController();

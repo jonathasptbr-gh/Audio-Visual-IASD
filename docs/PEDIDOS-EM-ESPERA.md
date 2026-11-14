@@ -35,7 +35,8 @@ executado** — esta edição é só a lista.
 uma revisão do contrato, do rito e dos processos de revisão, aprovou os quatro
 pacotes de conserto e mandou pô-los num arquivo de urgência: são os **Pacotes
 24 a 27**, e o conteúdo mora em [`URGENCIA.md`](URGENCIA.md). São os ÚNICOS
-pacotes desta fila **já autorizados** — um por sessão, na ordem 24 → 27. Os
+pacotes desta fila **já autorizados** — um por sessão. **O Pacote 24 saiu em
+2026-11-14**; a ordem dos que restam é 25 → 27. Os
 dois itens de decisão que estavam só no `RESIDUOS.md` viraram os **Pacotes 28 e
 29** (*"tudo entra na fila para ser feito"*).
 
@@ -74,10 +75,9 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **21** — Destinos: a engrenagem do item guardado | 6 (I3×U2) | pedido | só web |
 | **22** — Bíblia: três versículos no controle | 2 (I2×U1) | pedido | só web |
 | **23** — Editor de mídia: a margem inferior | 4 (I2×U2) | defeito | só web |
-| **24** — Urgência C: as instruções desta máquina | urgente — 1º | resíduo | fora do repositório + `tools/estado.sh` |
-| **25** — Urgência A: o rito de entrega | urgente — 2º | resíduo | `tools/` + workflow + docs |
-| **26** — Urgência B: o processo de revisão | urgente — 3º | resíduo | só docs + `tools/revisao-cobertura.mjs` |
-| **27** — Urgência D: enxugar e unificar o contrato | urgente — 4º | resíduo | só docs |
+| **25** — Urgência A: o rito de entrega | urgente — 1º | resíduo | `tools/` + workflow + docs |
+| **26** — Urgência B: o processo de revisão | urgente — 2º | resíduo | só docs + `tools/revisao-cobertura.mjs` |
+| **27** — Urgência D: enxugar e unificar o contrato | urgente — 3º | resíduo | só docs |
 | **28** — Série: o aviso que promete descer | 6 (I3×U2) | defeito | só web |
 | **29** — Guia do site: a captura das sete ferramentas | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
 
@@ -847,17 +847,6 @@ pode ser sido mal feito."*
   uma linha de CSS; se for o `#toolsFoot` vazio ou a lista, é outra.
 - **O oráculo:** o `geometria` mede a folha aberta e o corte; o
   `edicao-de-midia` mede o editor. O lote ajusta os dois se a régua mudar.
-
----
-
-## Pacote 24 — Urgência C: as instruções desta máquina
-
-**Urgente, 1º · resíduo · fora do repositório + `tools/estado.sh`**
-
-O conteúdo é o **Pacote C** do [`URGENCIA.md`](URGENCIA.md) (C1 a C12): a
-reversão que apagaria a configuração de modelos, o token que o texto manda
-apagar e duas ferramentas ainda leem, os tetos de custo medidos em outro modelo.
-**Autorizado** pelo operador em 14/11.
 
 ---
 

@@ -17,8 +17,8 @@ corta PASSO, não texto.
 
 | teto | número | evidência |
 |---|---|---|
-| **sessão** | **150 chamadas** | o passo custa US$ 0,0027 na 1ª–25ª e US$ 0,0150 depois da 400ª — **5,6×**; uma sessão de 589 chamadas consumiu **44%** do gasto de um dia |
-| **resultado de ferramenta** | **10 kB** | carregar resultado de ferramenta foi **34%** da conta; 70% desse texto veio do `bash`. 10 kB esquecidos custam US$ 0,008 a cada 100 chamadas seguintes |
+| **sessão** | **150 chamadas** | o passo depois da 400ª custa **5,6×** o da 1ª–25ª (medido em 10/11); uma sessão de 589 chamadas consumiu **44%** do gasto de um dia |
+| **resultado de ferramenta** | **10 kB** | carregar resultado de ferramenta foi **34%** da conta; 70% desse texto veio do `bash`. 10 kB esquecidos são relidos em CADA chamada seguinte |
 | **leitura de arquivo** | **o trecho, nunca o arquivo** | `read` com `offset`/`limit`, e `grep` antes de abrir. O `CLAUDE.md` se lê uma vez por sessão — nunca de novo |
 
 **No teto, a sessão ACABA.** O pacote publicado fecha a sessão; a próxima
@@ -26,9 +26,16 @@ começa com o contexto do repositório (`tools/estado.sh`, o pacote escolhido, o
 `CLAUDE.md`), não com o da conversa anterior. Não se perde nada: o estado está
 no repositório e no `HISTORICO.md`.
 
-**Ordem de grandeza:** um pacote dentro do teto (~100 chamadas) custa
-**US$ 0,4–0,8**. Custo por chamada acima de **US$ 0,01** é o sinal de sessão
-funda: publique e feche.
+**Teto no MEIO do lote** (regra de 2026-11-14, Pacote 24/C10): meça por volta
+das **120 chamadas** (`node ~/.dsh-github/uso.mjs`). Se o lote não fecha antes
+de 150, **commita uma nota de passagem** (o que está pronto, o que falta, o
+próximo passo) e **peça sessão nova** ao operador — nunca emende o resto na
+sessão funda.
+
+**Ordem de grandeza:** um pacote cabe em **~100 chamadas** (medido em 10/11).
+O preço em dólar não mora no repositório — o medidor (`uso.mjs`) imprime a
+faixa, e o sinal de sessão funda é o **teto de chamadas**, não um valor por
+chamada.
 
 ## A rotina do pacote
 
@@ -62,7 +69,7 @@ total em até 26%.
 
 | mudança | efeito medido |
 |---|---|
-| esforço `max` → `high` | nenhum: US$ 0,0069 contra US$ 0,0072 por chamada |
+| esforço `max` → `high` | nenhum efeito medido (10/11): a diferença não passou do ruído |
 | escrever menos | pouco: a saída é 5% da conta |
 | trocar de modelo | não há degrau abaixo do `deepseek-flash` neste ambiente |
 

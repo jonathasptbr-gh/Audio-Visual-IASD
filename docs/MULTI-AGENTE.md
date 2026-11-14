@@ -108,28 +108,12 @@ qual trecho, e deixe o operador decidir.
 
 ## 3 · Onde as duas sessões se encontram
 
-O git não é canal de recado. Este é:
+O git não é canal de recado. O canal é o **operador** — o único que fala com as
+duas sessões, e o que evita o choque antes de ele acontecer (regra 2).
 
-**`~/tmp/agents/ATIVO.md`** — fora do repositório (não polui o projeto, não
-entra em commit), abaixo do `HOME`, que as duas sessões compartilham.
-
-Formato, uma linha por sessão viva:
-
-```
-| desde  | escopo                    | arquivos que vai tocar         |
-|--------|---------------------------|--------------------------------|
-| 19:50  | docs/PEDIDOS, docs/*.md   | PEDIDOS-EM-ESPERA.md           |
-```
-
-**Ao abrir a sessão:** leia o arquivo. **Ao fechar:** apague a sua linha.
-Linha de mais de 2 horas sem atualização é sessão morta — apague e siga.
-
-```bash
-mkdir -p ~/tmp/agents && cat ~/tmp/agents/ATIVO.md 2>/dev/null
-```
-
-Isto **não substitui** a regra 1: o arquivo é cortesia, o `git status` é a
-verdade.
+> O registro `~/tmp/agents/ATIVO.md` foi **aposentado em 2026-11-14** (Pacote
+> 24/C8): nunca foi preenchido, não existe na árvore e mandava ler um arquivo
+> que ninguém escrevia. O `git status` continua a verdade (regra 1).
 
 ---
 
