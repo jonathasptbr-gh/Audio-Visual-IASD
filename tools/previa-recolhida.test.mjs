@@ -28,10 +28,12 @@
 //     tem de fazer algo visível), a DECODIFICAÇÃO segue `economiaAtiva()`
 //     (marcação E destino E fora da tela cheia). Ligar a decodificação à
 //     marcação pausa o `<video>` que, sem tela, é a fonte do SOM.
-//   · **O mudo (v1.14.9).** O número é o desenho principal e o glifo o
-//     secundário, e os dois têm de pousar nas MESMAS coordenadas da face nos
-//     dois estados. O botão continua tocável e o ícone continua trocando com o
-//     estado: o que se perde, calado, é a leitura — e era ela o pedido.
+//   · **O mudo (v1.14.9, refeito na v1.14.12).** O número é o desenho
+//     principal, CENTRADO como um ícone comum, e o glifo o secundário, no canto
+//     inferior direito SOBRE ele, com ~1/4 de sobreposição e sombra própria. Os
+//     dois têm de pousar nas MESMAS coordenadas da face nos dois estados. O
+//     botão continua tocável e o ícone continua trocando com o estado: o que se
+//     perde, calado, é a leitura — e era ela o pedido.
 //
 // ## O que se MEDE, e o que NÃO se escreve aqui
 //
@@ -207,8 +209,9 @@ const MEDIR = () => {
       const num = document.getElementById('pvMuteNum');
       const icone = b && b.querySelector('svg');
       if (!face || !num || !icone) return null;
+      const rg = document.createRange(); rg.selectNodeContents(num);
       return {
-        face: r(face), num: r(num), icone: r(icone),
+        face: r(face), num: r(num), icone: r(icone), texto: r(rg),
         fonte: parseFloat(getComputedStyle(num).fontSize),
       };
     })(),
@@ -218,13 +221,25 @@ const MEDIR = () => {
 // AS MEDIDAS DO MUDO EM COORDENADAS DA FACE. A face é o que viaja entre os dois
 // estados (o botão muda de caixa; ela não), então é nela que a composição tem de
 // ser a mesma — medir a partir do BOTÃO é justamente o que deixava o defeito passar.
-const mudoRelativo = (m) => ({
-  face: [+m.face.w.toFixed(1), +m.face.h.toFixed(1)],
-  num: [+(m.num.l - m.face.l).toFixed(1), +(m.num.t - m.face.t).toFixed(1)],
-  icone: [+(m.icone.l - m.face.l).toFixed(1), +(m.icone.t - m.face.t).toFixed(1)],
-  fonte: m.fonte,
-  lado: +m.icone.w.toFixed(1),
-});
+const mudoRelativo = (m) => {
+  const cx = (b) => b.l + b.w / 2;
+  const cy = (b) => b.t + b.h / 2;
+  return {
+    face: [+m.face.w.toFixed(1), +m.face.h.toFixed(1)],
+    num: [+(m.num.l - m.face.l).toFixed(1), +(m.num.t - m.face.t).toFixed(1)],
+    icone: [+(m.icone.l - m.face.l).toFixed(1), +(m.icone.t - m.face.t).toFixed(1)],
+    texto: [+(m.texto.l - m.face.l).toFixed(1), +(m.texto.t - m.face.t).toFixed(1),
+      +m.texto.w.toFixed(1), +m.texto.h.toFixed(1)],
+    // O desvio do CENTRO da linha do número em relação ao centro da face: zero é o desenho
+    // "como um ícone comum", que é o que o operador pediu depois de recusar o número em cima.
+    desvio: [+(cx(m.texto) - cx(m.face)).toFixed(2), +(cy(m.texto) - cy(m.face)).toFixed(2)],
+    // Quanto do glifo entra na caixa do número, em fração da altura dele — ~1/4 é a
+    // sobreposição do v1.13.66 invertida, e é ela que o dedo/olho espera.
+    sobrepoe: +((m.texto.t + m.texto.h - m.icone.t) / m.icone.h).toFixed(3),
+    fonte: m.fonte,
+    lado: +m.icone.w.toFixed(1),
+  };
+};
 
 async function abrir(largura = 430, altura = 900) {
   const ctx = await navegador.newContext({ viewport: { width: largura, height: altura }, reducedMotion: 'reduce' });
@@ -322,7 +337,7 @@ try {
         checar(rec.ponto === false,
           'B7 · sem giro nem camada a seta recolhida NÃO tem o ponto vermelho [' + tag + ']', rec.ids);
 
-        // ---- C: O MUDO — O NÚMERO MANDA, E OS DOIS NÃO ANDAM (v1.14.9) ----
+        // ---- C: O MUDO — O NÚMERO MANDA, E OS DOIS NÃO ANDAM (v1.14.9 · refeito na v1.14.12) ----
         //
         // O pedido do operador foi uma INVERSÃO de hierarquia dentro do MESMO botão:
         // *"o número principal e o ícone de som secundário, abaixo na direita"*, e que os
@@ -348,11 +363,25 @@ try {
           checar(mudoExp.icone[0] > mudoExp.face[0] / 2 && mudoExp.icone[1] > mudoExp.face[1] / 2,
             'C3 · o glifo está no canto INFERIOR DIREITO da face — o "abaixo na direita" do pedido ['
             + tag + ']', mudoExp);
-          checar(mudoExp.num[1] < mudoExp.face[1] / 2,
-            'C4 · e o número está ACIMA dele, na metade de cima [' + tag + ']', mudoExp);
+          // ±1,25px no eixo Y e não ±0,6: a CAIXA DA LINHA carrega 0,91px de entrelinha
+          // assimétrica (medido), enquanto a TINTA dos algarismos fica no centro da face com
+          // 0,04px de desvio. O deslocamento que C4 precisa pegar é o da v1.14.9 (`top: 2px`,
+          // ~7,6px para cima), e ele passa longe desta tolerância.
+          checar(Math.abs(mudoExp.desvio[0]) <= 0.6 && Math.abs(mudoExp.desvio[1]) <= 1.25,
+            'C4 · e o NÚMERO fica no CENTRO da face, nos dois eixos — "como um ícone normal": '
+            + 'deslocá-lo para cima para desamontoar os dois é o que o operador recusou ['
+            + tag + ']', mudoExp);
+          // A sobreposição é lida na CAIXA DA LINHA (43% da altura do glifo, medido); na TINTA
+          // dos algarismos — que não tem descendente — ela é de 3,0px em 13, ~23%, o "1/4" do
+          // operador. As duas contam a mesma história: o glifo entra no número e fica na frente.
+          checar(mudoExp.sobrepoe > 0.15 && mudoExp.sobrepoe < 0.6,
+            'C4b · e o glifo SOBREPÕE a caixa do número, no canto inferior direito — nem separado '
+            + '(0%), nem cobrindo mais da metade: é a sobreposição do v1.13.66 invertida ['
+            + tag + ']', { sobreposicao: mudoExp.sobrepoe, icone: mudoExp.icone });
           checar(mudoExp.face.join() === mudoRec.face.join()
             && mudoExp.num.join() === mudoRec.num.join()
             && mudoExp.icone.join() === mudoRec.icone.join()
+            && mudoExp.texto.join() === mudoRec.texto.join()
             && mudoExp.fonte === mudoRec.fonte && mudoExp.lado === mudoRec.lado,
             'C5 · os dois pousam nas MESMAS coordenadas da face na prévia ABERTA e na RECOLHIDA: '
             + 'era na célula larga do deck que o número, morando no canto do BOTÃO, se afastava do '

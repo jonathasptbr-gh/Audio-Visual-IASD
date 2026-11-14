@@ -1182,44 +1182,70 @@ body {
    preenchimento, a face fica centrada sem entrar na conta da altura em nenhum dos dois, e o
    `--press` do recolhido continua movendo a caixa inteira, não o desenho.
 
-   O NÚMERO VAI EM CIMA, CENTRADO; o glifo desce ao canto inferior direito, a 13px. A inversão de
-   hierarquia é a de TAMANHO — 16,8px de número contra 24px antes, 13px de glifo contra 24 — e o
-   `title` do botão continua dizendo "Mutar", que é o que o dedo aciona. `--fs-2xl` é o maior
-   número que cabe em três dígitos dentro de `--hit` (MEDIDO: "100" em `tabular-nums` pede 28px,
-   com 3px de folga de cada lado); acima disso o dígito encostaria na borda da miniatura.
+   O NÚMERO FICA NO CENTRO DO BOTÃO, no lugar de um ícone comum, e o glifo desce ao canto inferior
+   direito, a 13px, SOBRE ele — a mesma sobreposição do v1.13.66, invertida: até aqui o glifo era
+   o do centro (24px) e o número o do canto (10,9px). O operador: *"assim como um ícone normal, e
+   depois o outro vinha no canto inferior direito, que devido ao espaço ele acabava se
+   sobrepondo… apenas invertendo qual era o principal no centro do botão e qual o secundário"*.
 
-   O `text-shadow` é o irmão do traço. A `drop-shadow` do `.pv-fab svg` acompanha o desenho do SVG
-   e não alcança um `<span>`; sem ele o número sumiria sobre um slide branco — o mesmo defeito que
-   as três sombras existem para impedir (ver `.pv-fab-num`). E ele é VARIÁVEL porque na linha do
-   deck não há palco atrás: lá o botão é `--surface` com tema, e contorno de tinta sob o dígito
-   viraria sujeira. */
+   A SOBREPOSIÇÃO É DE ~1/4 DO GLIFO, e ela é de propósito: o dígito tem 16,8px de linha e a
+   caixa de tinta dos algarismos (sem descendente) acaba por volta de 3px acima do topo do glifo
+   — MEDIDO no renderizado: 3,0px de sobreposição numa caixa de 13px, 23%. Desamontoar os dois
+   (subir o número) foi a v1.14.9 e o operador recusou: o número saía do centro.
+
+   E PARA A SOBREPOSIÇÃO NÃO VIRAR EMBARALHADO, o glifo ganha uma sombra PRÓPRIA em cima do
+   número: a `drop-shadow` extra, deslocada para cima e para a esquerda (onde a tinta do número
+   está), escurece o dígito sob o traço e diz qual dos dois está na frente. As três sombras de
+   sempre continuam logo antes dela, com o papel de contraste contra o palco.
+
+   `--fs-2xl` é o maior número que cabe em três dígitos dentro de `--hit` (MEDIDO: "100" em
+   `tabular-nums` pede 28px, com 3px de folga de cada lado); acima disso o dígito encostaria na
+   borda da miniatura. O `title` do botão continua dizendo "Mutar", que é o que o dedo aciona.
+
+   O `text-shadow` do número é o irmão do traço. A `drop-shadow` do `.pv-fab svg` acompanha o
+   desenho do SVG e não alcança um `<span>`; sem ele o número sumiria sobre um slide branco — o
+   mesmo defeito que as três sombras existem para impedir (ver `.pv-fab-num`). E ele é VARIÁVEL
+   porque na linha do deck não há palco atrás: lá o botão é `--surface` com tema, e contorno de
+   tinta sob o dígito viraria sujeira. A sombra do glifo também é variável, pelo mesmo motivo. */
 .pv-fab--mute {
   --pv-mute-ico: 13px;
   --pv-mute-halo:
     0 0 1px rgba(0, 0, 0, .95),
     0 0 2px var(--shadow-ink),
     0 1px 5px rgba(0, 0, 0, .65);
+  /* A SOMBRA QUE DIZ QUEM ESTÁ NA FRENTE (ver o bloco acima). A última é a de contato com o
+     número: deslocada para cima e para a esquerda, a direção em que a tinta do dígito está. */
+  --pv-mute-sombra:
+    drop-shadow(0 0 1px rgba(0, 0, 0, .95))
+    drop-shadow(0 0 2px var(--shadow-ink))
+    drop-shadow(0 1px 5px rgba(0, 0, 0, .65))
+    drop-shadow(-1px -1px 4px rgba(0, 0, 0, .9));
   position: relative;
 }
 .pv-mute-face {
   position: absolute; inset: 0; margin: auto;
   width: var(--hit); height: var(--hit);
 }
+/* Centralizado nos DOIS eixos, como um ícone comum: `inset: 0` + flex no lugar de `top`, que era
+   o que empurrava o número para cima. */
 .pv-mute-num {
-  position: absolute; left: 0; right: 0; top: 2px;
-  text-align: center; line-height: 1;
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  line-height: 1;
   font-size: var(--fs-2xl); font-weight: var(--fw-max);
   font-variant-numeric: tabular-nums;
   text-shadow: var(--pv-mute-halo);
 }
 /* A classe dobrada é o desempate, e não estilo: `.pv-fab svg` (0,1,1) é escrito depois deste
    bloco e venceria por ordem — a mesma armadilha que o selo de camadas pagou uma vez (ver o
-   comentário da `.pv-fab--camada`). A posição absoluta no canto é a que dá o "abaixo na direita"
-   do pedido, e o tamanho sai da variável para a prévia recolhida poder dizer `--icon-md` aos
-   vizinhos sem tocar neste. */
+   comentário da `.pv-fab--camada`). A posição absoluta no canto é o "abaixo na direita" do
+   pedido, e o tamanho sai da variável para a prévia recolhida poder dizer `--icon-md` aos
+   vizinhos sem tocar neste. O `filter` também é variável: no palco são as três sombras (+ a de
+   contato), e na linha do deck é uma sombra de elevação só. */
 .pv-fab.pv-fab--mute svg {
   position: absolute; right: 0; bottom: 1px;
   width: var(--pv-mute-ico); height: var(--pv-mute-ico);
+  filter: var(--pv-mute-sombra);
 }
 .vol-pill .ico-alt { display: none; }
 .vol-pill.mudo .ico-base { display: none; }
@@ -1634,8 +1660,10 @@ body.mode-simple .vol-pill-trilho { height: 12rem; }
   padding: .45rem 0; border-radius: var(--radius-btn);
   background: var(--surface); color: var(--text);
   /* O MUDO NÃO TEM PALCO ATRÁS AQUI: a célula é `--surface` com tema, e o contorno de tinta do
-     número (a `--pv-mute-halo` do `.pv-fab--mute`) viraria sujeira sob o dígito. */
+     número (a `--pv-mute-halo` do `.pv-fab--mute`) viraria sujeira sob o dígito. A sombra do
+     glifo fica, mas só a de elevação: é ela que mantém o "está na frente" sobre o número. */
   --pv-mute-halo: none;
+  --pv-mute-sombra: drop-shadow(0 1px 2px rgba(0, 0, 0, .45));
 }
 .preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) #muteToggle { grid-column: 1; }
 .preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) #viewToggle { grid-column: 2; }
@@ -1645,7 +1673,7 @@ body.mode-simple .vol-pill-trilho { height: 12rem; }
 .preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) .pv-fab svg,
 .preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) .pv-fab:active svg {
   width: var(--pv-mute-ico, var(--icon-md)); height: var(--pv-mute-ico, var(--icon-md));
-  stroke-width: 2; filter: none;
+  stroke-width: 2; filter: var(--pv-mute-sombra, none);
 }
 .preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) .pv-fab:active {
   transform: var(--press); filter: var(--press-luz);

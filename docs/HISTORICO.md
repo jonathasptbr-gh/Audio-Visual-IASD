@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.12** — o número do mudo volta ao centro, e o alto-falante fica sobre ele
 - **v1.14.11** — o anel do destaque encosta na borda sem cortar, e o recorte segue envolvendo a peça inteira
 - **v1.14.10** — o tour só nas seções que precisam (Histórico e Transferir), e a transferência com a régua da Biblioteca
 - **v1.14.9** — no mudo da prévia, o número manda e o alto-falante fica menor, no canto
@@ -1368,6 +1369,28 @@ docs: nada chega ao app.
 - **Não medido:** a impressão física (impressora real, frente e verso pela
   borda longa, furo no fichário) e a impressão de dentro do app (o WebView do
   Android provavelmente ignora `window.print()` — daí o aviso).
+
+## v1.14.12 — o número do mudo volta ao centro, e o alto-falante fica sobre ele
+
+**Pedido do operador**, **só web**, no mesmo dia da v1.14.9: *"o principal está
+ficando deslocado para cima, provavelmente para desamontoar os dois ícones. Pode
+fazer o número centralizado no botão, e o ícone de som … sobreposição igual
+estava na primeira versão, uma sobreposição de 1/4 ou algo do tipo … faça o
+ícone de som ter uma sombra sobre o número, assim deixando claro que o ícone de
+som está sobre o ícone de numeração"*.
+
+- **O número voltou ao CENTRO**, nos dois eixos, no lugar de um ícone comum: era
+  `top: 2px` na v1.14.9, e o desvio de 7,6px para cima é o que ele recusou.
+- **O glifo entra SOBRE o número**, no canto inferior direito, como no v1.13.66 —
+  a sobreposição é de 3,0px em 13 (23%, o "1/4" pedido) na tinta dos algarismos.
+- **A sombra de contato** é o que diz qual dos dois está na frente: uma
+  `drop-shadow` deslocada para cima e para a esquerda, sobre a tinta do número.
+  Na linha do deck ela vira uma sombra de elevação só (o palco não está lá).
+- **Oráculo:** `previa-recolhida` C4 passa a exigir o centro (±1,25px no eixo Y,
+  a entrelinha da caixa da linha) e o C4b a sobreposição entre 15% e 60%.
+- **Não medido:** aparelho fraco; a tinta foi medida pelo oráculo (0,04px de
+  desvio no centro). Só web: `minShell` 83, sem `shellTag` (a Release segue a
+  1.14.6).
 
 ## v1.14.11 — o anel do destaque encosta na borda sem cortar
 

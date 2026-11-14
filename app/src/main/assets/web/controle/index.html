@@ -1605,6 +1605,11 @@
                  de som secundário, abaixo na direita"*. O alvo não muda de tamanho: a porcentagem
                  sobe ao lugar de honra, e o glifo de 24px vira o secundário, de 13px, no canto.
 
+                 E DESDE A v1.14.12 O NÚMERO FICA NO CENTRO, como um ícone comum, com o glifo
+                 SOBRE ele no canto inferior direito: sobrepor os dois é o desenho do v1.13.66
+                 invertido, e a sombra do glifo é o que diz qual está na frente. Ver o bloco do
+                 `.pv-fab--mute` na `controle.css`.
+
                  A FACE ENVOLVE OS DOIS. É ela que mantém a composição quando o botão deixa de ser
                  um quadrado de `--hit` e vira a célula larga do deck recolhido — foi ali que os
                  dois se afastaram, porque o número morava no canto do BOTÃO. Ver o bloco da
@@ -1968,7 +1973,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.11</span>
+          <span id="appVersion">v1.14.12</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>

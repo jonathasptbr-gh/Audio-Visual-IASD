@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.14.12",
+    "itens": [
+      "O volume no botão de mudo voltou para o centro, como um ícone comum, e o alto-falante fica sobre ele.",
+      "Os dois não se separam entre a prévia aberta e a recolhida."
+    ]
+  },
+  {
     "versao": "1.14.11",
     "itens": [
       "O destaque do tour encosta na borda sem cortar a linha azul: ela aparece inteira, inclusive no Cronograma.",
