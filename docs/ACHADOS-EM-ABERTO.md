@@ -1,8 +1,8 @@
 # Achados em aberto
 
-**UM** — o §6 (a pílula de volume na tela cheia deitada, que espera uma
-decisão de desenho). O §5 foi corrigido na v1.14.13 e fecha com o APK dela.
-Fora eles, nenhum defeito CONFIRMADO em aberto: o arquivo fica pelo registro
+**NENHUM** em aberto. O §5 foi corrigido na v1.14.13 (APK publicado), e o §6
+(a pílula de volume na tela cheia deitada) fica SEM conserto por decisão do
+operador em 2026-11-14 ("deixar como está"). O arquivo fica pelo registro
 dos três que moraram aqui, e os três fecharam por RESPOSTA DO OPERADOR: o do
 fone/Bluetooth (§1) e o "só o cliente pode fazer o app escolher baixo" (§3), em
 2026-11-08; e o da CHAMADA telefônica, em 2026-11-09 — palavras dele: *"não é um
@@ -310,7 +310,7 @@ defeito descrito acima.
 
 ---
 
-## 6. A pílula de volume vaza da tela na tela cheia deitada (2026-11-14, achado de revisão)
+## 6. A pílula de volume vaza da tela na tela cheia deitada (2026-11-14 — FICA COMO ESTÁ, decisão do operador)
 
 **Medido em Chromium** (C8 do dossiê `docs/revisao/REVISAO-2026-11-13.md`):
 com a prévia em tela cheia e o aparelho DEITADO, a `.vol-pill.na-previa` fica
@@ -323,5 +323,6 @@ menor que o conteúdo — a 740×360 ela tem 153 px para 259 (Fácil) / 227
 cede e tudo cabe — mas ele cai a **75 px** a 740×360 (115 a 900×420), contra 192
 / 160 hoje. (b) O topo da pílula na tela cheia passa a ser "logo abaixo do
 título" (o título termina em y 35) — o trilho fica perto de **150 px**. A
-escolha é do operador; o conserto escolhido entra com a asserção "o conteúdo
-cabe na caixa e o número fica na tela", provada por reversão.
+escolha foi do operador, e ela foi **deixar como está** (2026-11-14). Se um dia
+voltar, o conserto escolhido entra com a asserção "o conteúdo cabe na caixa e o
+número fica na tela", provada por reversão.
