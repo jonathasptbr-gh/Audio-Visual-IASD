@@ -416,7 +416,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.18';
+const WEB_VERSION = '1.14.19';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -22232,7 +22232,7 @@ function openSemanaMenu(cat, alvo) {
   destRemontar = () => openSemanaMenu(cat, alvo);
   destExecutor = null;
   alvo.appendChild(ytSegRow([['ep', 'Este sábado'], ['atalho', 'Atalho universal']], 'atalho',
-    () => {}, null, { ep: 'o episódio deste sábado ainda não saiu' }));
+    () => {}, { ep: 'o episódio deste sábado ainda não saiu' }));
   alvo.appendChild(destBotoesRow([
     ...destBotoesPadrao(DESTINOS.map((d) => d.chave),
       (chave, btn) => semanaAcao(cat, [chave], chave === 'tocar' ? null : btn)),
@@ -25928,23 +25928,15 @@ function avisarResolucaoLimitada(entregue, teto) {
   previewBusy(cap, texto).avisar(cap, texto);
 }
 
-// Uma linha de segmentos da folha de download — o MESMO desenho de
-// Cantada/Playback das músicas do acervo. Duas perguntas usam este formato
-// (forma e qualidade), e escrevê-lo duas vezes era garantir que a segunda
-// divergisse da primeira no primeiro ajuste de estilo.
+// Uma linha de segmentos — o MESMO desenho de Cantada/Playback das músicas do
+// acervo, para toda pergunta de escolha única da folha e da gaveta (forma,
+// qualidade, o episódio da semana, a variante da música e a do sorteio):
+// escrevê-lo duas vezes era garantir que a segunda divergisse da primeira no
+// primeiro ajuste de estilo.
 // `inativos` (opcional): `{ valor: motivo }` — o segmento fica APAGADO, com o
 // motivo no `title` (o "Este sábado" de uma semana sem episódio).
-function ytSegRow(opcoes, atual, onPick, nota, inativos) {
+function ytSegRow(opcoes, atual, onPick, inativos) {
   const li = document.createElement('li'); li.className = 'song-menu-seg-row';
-  // A LINHA PODE DIZER O QUE ELA GOVERNA, e uma delas precisa: a escala de
-  // qualidade lê como "qualidade do download", e o operador não teria como saber
-  // que ela também vale para o "Tocar agora" e fica como padrão.
-  if (nota) {
-    const n = document.createElement('small');
-    n.className = 'song-menu-seg-nota';
-    n.textContent = nota;
-    li.appendChild(n);
-  }
   const wrap = document.createElement('div'); wrap.className = 'fit-seg song-menu-seg';
   opcoes.forEach(([valor, rotulo]) => {
     const b = document.createElement('button');
@@ -26021,6 +26013,8 @@ function openYtMenu(r, alvoDado) {
   // E ESCOLHER AQUI É ESCOLHER O PADRÃO (`adotarAlturaPreferida`): a escolha
   // sobrevive à sessão e passa a valer para o próximo vídeo, que é o pedido ao
   // pé da letra.
+  // A escala é um TETO, e não uma escolha fixa: o shell entrega a melhor faixa
+  // ABAIXO dele, e o teto vale também para o "Tocar agora".
   // E O SELETOR SOME QUANDO O ARQUIVO JÁ ESTÁ AQUI (`semQualidade`, v1.8.87).
   // É a MESMA regra que já tira a linha no caminho de só-áudio, uma condição
   // acima: uma escolha que não muda nada é pior que escolha nenhuma. Com bytes
@@ -26033,10 +26027,6 @@ function openYtMenu(r, alvoDado) {
       YT_ALTURAS.map((h) => [h, h + 'p']),
       songMenuFor.alt | 0,
       (v) => { songMenuFor.alt = v; adotarAlturaPreferida(v); openYtMenu(r); },
-      // TETO, e não escolha fixa: o shell entrega a melhor faixa ABAIXO dele.
-      // Vale para o "Tocar agora" também — que é justamente o que a escala não
-      // dizia — e fica guardado como o padrão deste aparelho.
-      'Teto de qualidade — vale para o "Tocar agora" e fica como padrão',
     ));
   }
   // O subtítulo do "Tocar agora" DIZ que o Cronograma fica de fora: é a
@@ -27545,37 +27535,33 @@ function destConfirmRow() {
 // `aria-label`; os ícones são os das abas e do transporte. O QUINTO NÃO MANDA NADA
 // A LUGAR NENHUM — ele revela —, e por isso tem outro desenho (v1.13.35, pedido do
 // operador): o botão LARGO com rótulo do antigo "Ver a letra", crescendo no resto
-// da fileira (`b.rotulos`).
+// da fileira (`b.texto`).
 //
 // O VÍDEO DO YOUTUBE NÃO BAIXA DUAS VEZES com dois toques seguidos: quem baixa é
 // o `ytArquivo`, e ele divide o download em curso (`ytArquivoEmVoo`).
 //
 // Cada botão: `{ chave, rotulo, icone (HTML), acao(btn), disabled, motivo, on }`,
-// ou, no LARGO, `rotulos` (uma frase, ou duas que alternam na MESMA célula) no
-// lugar do ícone.
+// ou, no LARGO, `texto` (a frase do botão, a MESMA nos dois estados) no lugar do
+// ícone.
 function destBotoesRow(botoes) {
   const li = document.createElement('li');
   li.className = 'dest-botoes';
   botoes.filter(Boolean).forEach((b) => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = (b.rotulos ? 'song-menu-btn dest-largo' : 'dest-btn') + (b.on ? ' on' : '');
+    btn.className = (b.texto ? 'song-menu-btn dest-largo' : 'dest-btn') + (b.on ? ' on' : '');
     btn.dataset.dest = b.chave;
     btn.setAttribute('aria-label', b.rotulo);
     // APAGADO, O `title` DIZ POR QUÊ — a regra do indisponível.
     btn.title = b.disabled && b.motivo ? b.rotulo + ' — ' + b.motivo : b.rotulo;
     if (typeof b.on === 'boolean') btn.setAttribute('aria-pressed', b.on ? 'true' : 'false');
-    if (b.rotulos) {
-      // ===== A LARGURA NÃO MUDA COM O ESTADO (v5.287) =====
-      // Duas frases ("Ver"/"Ocultar os detalhes") ocupam a MESMA célula de uma
-      // grade 1×1: a largura é a da MAIOR e a troca só alterna qual se vê (a
-      // classe `vendo-letra` do `li`). `visibility`, não `display`: a escondida
-      // continua medindo.
+    if (b.texto) {
+      // O TEXTO É O MESMO ABERTO E FECHADO: o estado é o `on` (a superfície de
+      // ação) e o `aria-pressed`, e a largura — que decide se a fileira quebra —
+      // não muda sob o dedo.
       const cx = document.createElement('span');
-      cx.className = 'song-menu-label' + (b.rotulos.length > 1 ? ' song-menu-letra-cx' : '');
-      if (b.rotulos.length > 1) {
-        b.rotulos.forEach((t) => { const sp = document.createElement('span'); sp.textContent = t; cx.appendChild(sp); });
-      } else cx.textContent = b.rotulos[0];
+      cx.className = 'song-menu-label';
+      cx.textContent = b.texto;
       btn.appendChild(cx);
     } else btn.innerHTML = b.icone;
     btn.disabled = !!b.disabled;
@@ -27597,12 +27583,12 @@ function destBotoesPadrao(quais, fazer) {
 }
 // O QUINTO: o auxiliar de leitura de uma música, ou os detalhes de um vídeo.
 function destBotaoLeitura(acao, motivo) {
-  return { chave: 'leitura', rotulo: 'Ver a letra no auxiliar de leitura', rotulos: ['Ver a letra'],
+  return { chave: 'leitura', rotulo: 'Ver a letra no auxiliar de leitura', texto: 'Ver a letra',
     acao: acao || (() => {}), disabled: !acao, motivo: motivo || '' };
 }
 function destBotaoDetalhes(det) {
   const aberto = !!(det && det.aberto());
-  return { chave: 'detalhes', rotulo: 'Ver os detalhes do vídeo', rotulos: ['Ver os detalhes', 'Ocultar os detalhes'],
+  return { chave: 'detalhes', rotulo: 'Ver os detalhes do vídeo', texto: 'Detalhes',
     on: det ? aberto : undefined, disabled: !det, motivo: 'o episódio ainda não saiu',
     acao: (btn) => {
       const on = det.alternar();

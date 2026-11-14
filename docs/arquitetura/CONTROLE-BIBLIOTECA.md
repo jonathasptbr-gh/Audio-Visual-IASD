@@ -77,8 +77,9 @@ sem rótulo (o nome no `aria-label`/`title`), ícone `--icon-md`. Cada toque
 executa UM destino e a gaveta fica aberta para o segundo; a variante (Cantada ·
 Playback · Letra), a forma e a qualidade são lidas NA MONTAGEM. **O QUINTO É
 LARGO** (v1.13.35, `.dest-largo`): ele não manda a mídia a lugar nenhum, então
-veste o desenho do antigo "Ver a letra" — rótulo ("Ver a letra", ou "Ver/Ocultar
-os detalhes" empilhados na mesma célula), crescendo no resto da fileira —, e os
+veste o desenho do antigo "Ver a letra" — rótulo ("Ver a letra", ou "Detalhes"
+num vídeo: o MESMO texto aberto e fechado, LIGADO com `--btn-accent`), crescendo
+no resto da fileira —, e os
 quatro destinos ficam quadrados e juntos. A variante, a forma e a qualidade são lidas (o seletor remonta
 a gaveta, então o valor no fecho é o vigente). A faixa de ações de um favorito
 (excluir · renomear · ↑↓) mora atrás de um `⋮` na ponta direita da fileira

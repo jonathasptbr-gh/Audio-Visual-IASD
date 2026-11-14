@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.14.19",
+    "itens": [
+      "Na folha do vídeo, saiu o aviso \"Teto de qualidade\" que ocupava uma linha inteira.",
+      "O botão \"Ver os detalhes\" agora se chama só \"Detalhes\" e cabe na mesma linha dos outros quatro.",
+      "Com os detalhes à vista, o botão \"Detalhes\" fica aceso; ao fechar, volta ao normal."
+    ]
+  },
+  {
     "versao": "1.14.18",
     "itens": [
       "Faxina: as explicações que mandavam ao arquivo errado agora apontam para o capítulo certo.",

@@ -196,8 +196,9 @@ pergunta sobre a UI, não sobre o culto.
 - **NUM VÍDEO A METADE DE BAIXO FICA:** ali ela é a miniatura, o título
   completo, o canal, a duração e o estado no aparelho — o que responde
   *"é este mesmo?"* num item sem letra —, e o
-  mesmo botão continua sendo o interruptor dela ("Ver / Ocultar os detalhes",
-  duas frases empilhadas numa grade 1×1 para a largura não mudar sob o dedo).
+  mesmo botão continua sendo o interruptor dela ("Detalhes", LIGADO com a
+  metade à vista — o texto é o mesmo nos dois estados, e a largura não muda sob
+  o dedo).
   Quem decide é `temLetra(coll)`, nunca `ehSerie`. Quem some fechado é o
   ENVELOPE (`.hymn-gaveta`), nunca cada metade: a animação do acordeão mede
   `offsetHeight` de UM elemento, e com duas caixas irmãs aparecendo por conta
@@ -250,7 +251,7 @@ pergunta sobre a UI, não sobre o culto.
     shell 62 — `AVNative.ytDetalhes`). As do índice valem offline; esta custa
     uma extração POR VÍDEO, e daí as decisões que a cercam:
     - **O gatilho é a REVELAÇÃO, não a abertura da linha.** Quem pede é o toque
-      em "Ver os detalhes", uma vez por vídeo OLHADO. Pendurá-la no toque na
+      em "Detalhes", uma vez por vídeo OLHADO. Pendurá-la no toque na
       LINHA gastaria uma extração por gaveta aberta — inclusive nas que o
       operador abre só para mandar o episódio ao Cronograma —, e na montagem da
       LISTA gastaria uma por episódio do álbum, que é a varredura que a fila de
@@ -342,12 +343,12 @@ o botão em que mora → 1,28:1. Token com TEMA e não o `--scrim` compartilhado
 claro aquele .6 seria uma lápide), e ainda um RECESSO. O teto é do tema escuro:
 preto sobre um botão já escuro comprime a razão por construção.
 
-**A largura do "Ver/Ocultar a letra" não muda com o estado.** "Ocultar" é mais
-longo que "Ver": o botão crescia ao ser tocado (110px → 143px) e o CONFIRMAR ao
-lado encolhia junto. As duas frases ocupam a MESMA célula de uma grade 1×1 — a
-largura é a da maior. **`visibility` e não `display`**, porque a escondida
-precisa continuar MEDINDO: é ela que reserva o espaço. Um `min-width` em `ch`
-seria um número a manter contra a fonte e contra a tradução; isto não tem número.
+**O texto do botão largo não muda com o estado.** O "Detalhes" de um vídeo é o
+MESMO aberto e fechado (v1.14.19): duas frases ("Ver"/"Ocultar os detalhes")
+faziam o botão crescer ao ser tocado e, na célula estreita (360×1,25×), descer
+para uma linha só dele. O estado é o `aria-pressed` e a superfície de ação
+(`.dest-largo.on`, `--btn-accent`) — sem a regra, aberto e fechado seriam
+idênticos, e o `destinos-diretos` mede o fundo antes e depois do toque.
 
 Tocar (`playSongVariant`) e os três destinos (`addSongToDestinos` →
 `adicionarNasListas`) baixam a música na hora se ainda não estiver offline — e o

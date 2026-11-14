@@ -6,8 +6,9 @@
 // já é no resto do app"* — Tocar agora · Cronograma · playlist · Favoritos ·
 // Auxiliar de leitura —, e as miniaturas da lista sem o ▶, que lia como botão.
 //
-//  A. A FILEIRA: quatro QUADRADOS juntos e o "Ver a letra" LARGO no resto da
-//     linha, com o rótulo inteiro, a 360×1,25× e a 430×1× (v1.13.35).
+//  A. A FILEIRA: quatro QUADRADOS juntos e o quinto LARGO no resto da linha —
+//     "Ver a letra" numa música, "Detalhes" num vídeo (v1.14.19) —, com o
+//     rótulo inteiro, a 360×1,25× e a 430×1× (v1.13.35).
 //  B. O QUADRADO DA ESQUERDA DIZ O TIPO: a nota numa música, a fita de filme num
 //     vídeo de série — e o item da semana nas listas idem. Nenhum ▶.
 //  C. DOIS TOQUES NO MESMO VÍDEO NÃO BAIXAM DUAS VEZES: o `ytArquivo` divide o
@@ -45,8 +46,11 @@ try {
   // pai), nunca no span: o span tem o tamanho do próprio texto.
   // QUANDO NÃO CABE AO LADO, ELE DESCE (`flex-wrap`): o rótulo nunca é cortado, e
   // a régua aceita as duas formas — na linha dos quadrados até a borda, OU numa
-  // linha só dele de borda a borda. Medido também num VÍDEO, cujo "Ocultar os
-  // detalhes" é a frase mais longa da fileira.
+  // linha só dele de borda a borda. Medido também num VÍDEO, cujo "Detalhes"
+  // (v1.14.19) é mais curto que o "Ver a letra": onde a música cabe ao lado dos
+  // quadrados o vídeo também tem de caber — a régua é RELATIVA à música da mesma
+  // célula, porque a largura do texto é da fonte do runner. E o texto é o mesmo
+  // aberto e fechado: o estado é a superfície (`--btn-accent`) e o `aria-pressed`.
   const medirA = (escala, largura, video) => pg.evaluate(async ({ escala, largura, video }) => {
     document.documentElement.style.fontSize = (16 * escala) + 'px';
     setAppMode('full');
@@ -90,10 +94,13 @@ try {
       largoAteABorda: !!lr && Math.abs(lr.right - dentroDireita) <= 1
         && (lr.top < cx[0].bottom - 0.5 || Math.abs(lr.left - dentroEsquerda) <= 1),
       mesmaAltura: !!lr && Math.abs(lr.height - quad[0].height) <= 0.5,
-      rotulo: largo ? [...largo.querySelectorAll('.song-menu-label > span')].map((x) => x.textContent).join(' / ')
-        || largo.textContent.trim() : '',
+      rotulo: largo ? largo.textContent.trim() : '',
+      // O ESTADO ANTES DO TOQUE: o fundo e o `aria-pressed`. O de depois é lido
+      // adiante, com a transição do fundo assentada.
+      fundo: largo ? getComputedStyle(largo).backgroundColor : '',
+      pressionado: largo ? largo.getAttribute('aria-pressed') : null,
       // O PAI: o botão não pode estar estourado pelo próprio texto — nos DOIS
-      // estados de um vídeo (a frase longa é a de "Ocultar").
+      // estados de um vídeo (fechado e aberto).
       cabe: !!largo && largo.scrollWidth <= largo.clientWidth + 0.5
         && (!video || (largo.click(), largo.scrollWidth <= largo.clientWidth + 0.5)),
       icones: todos.slice(0, 4).map((b) => {
@@ -102,10 +109,21 @@ try {
       }),
       tipoMusica: { glifo: (thumb.querySelector('.msym') || {}).textContent || '', tipo: thumb.dataset.tipo },
     };
+    // O LIGADO (só o vídeo alterna, e o toque foi dado no `cabe`): a espera é pelo
+    // FATO — o fundo deixar de ser o de antes —, nunca por um prazo; sem a regra
+    // `.dest-largo.on` ele nunca muda e o laço acaba no teto, com o número à mostra.
+    if (video && largo) {
+      for (let i = 0; i < 40 && getComputedStyle(largo).backgroundColor === r.fundo; i++) {
+        await new Promise((res) => setTimeout(res, 25));
+      }
+      r.fundoLigado = getComputedStyle(largo).backgroundColor;
+      r.pressionadoLigado = largo.getAttribute('aria-pressed');
+    }
     lista.remove();
     document.documentElement.style.fontSize = '';
     return r;
   }, { escala, largura, video });
+  const musica = {};   // a música de cada célula, para a régua RELATIVA do vídeo
   for (const [escala, largura, nome, video] of [[1.25, 360, '360×1,25×'], [1, 430, '430×1×'],
     [1.25, 360, '360×1,25× · vídeo', true], [1, 430, '430×1× · vídeo', true]]) {
     const a = await medirA(escala, largura, video);
@@ -117,11 +135,21 @@ try {
     checar(a.juntos,
       'A · ' + nome + ' · e JUNTOS: o vão entre dois botões é o `gap` da fileira (' + a.gap + 'px), sem espalhar', a);
     checar(a.largoLargo && a.largoAteABorda && a.mesmaAltura
-      && a.rotulo === (video ? 'Ver os detalhes / Ocultar os detalhes' : 'Ver a letra'),
+      && a.rotulo === (video ? 'Detalhes' : 'Ver a letra'),
       'A · ' + nome + ' · o quinto é LARGO, com rótulo, vai até a borda da gaveta (ao lado dos quadrados, ou '
       + 'numa linha só dele, de borda a borda) e tem a altura dos quadrados', a);
     checar(a.cabe,
       'A · ' + nome + ' · e o rótulo dele NÃO é cortado (medido no botão, não no texto)', a);
+    if (video) {
+      checar(a.pressionado === 'false' && a.pressionadoLigado === 'true' && a.fundoLigado !== a.fundo,
+        'A · ' + nome + ' · o "Detalhes" LIGA: o texto é o mesmo, e o estado é o `aria-pressed` e a superfície '
+        + 'de ação — sem ela o aberto e o fechado são idênticos',
+        { fundo: a.fundo, fundoLigado: a.fundoLigado, pressionado: a.pressionado, pressionadoLigado: a.pressionadoLigado });
+      const m = musica[escala + 'x' + largura];
+      checar(!!m && !(a.desceu && !m.desceu),
+        'A · ' + nome + ' · o "Detalhes" NÃO custa uma linha própria onde o "Ver a letra" cabe ao lado dos '
+        + 'quatro quadrados (o rótulo é mais curto)', { video: a.desceu, musica: m && m.desceu });
+    } else musica[escala + 'x' + largura] = a;
     checar(a.icones.every((w) => w === 22),
       'A · ' + nome + ' · com o ícone dos quadrados no degrau do transporte (`--icon-md`, 22px)', a.icones);
     if (!video) checar(a.tipoMusica.tipo === 'musica' && a.tipoMusica.glifo === '\ue3a1',

@@ -63,7 +63,6 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **6** — Link do YouTube: os detalhes no oferecimento | 6 (I3×U2) | pedido | Kotlin + web (APK/Release) |
 | **7** — Verificação: procurar atualização | 6 (I3×U2) | pedido | só web |
 | **8** — CI: os oráculos instáveis (residual) | 6 (I3×U2) | resíduo | só `tools/` + workflow |
-| **9** — Folha do vídeo: o teto e o botão "Detalhes" | 4 (I2×U2) | pedido | só web |
 | **12** — Limpeza e otimização do repositório (residual) | 2 (I2×U1) | pedido | só docs |
 | **13** — Estudos (não são fila de execução) | 4 | estudo | nenhuma entrega |
 | **15** — Guia IASD: a especialização (estudo) | — | estudo | nenhuma entrega |
@@ -95,7 +94,7 @@ diferentes, e um lote nunca mistura dois temas.
 | **Mídia** | 23 | a margem inferior do editor de mídia |
 | **Séries** | 28 | o aviso do card que promete o que a rodada não cumpre |
 | **Site** | 29 | a captura da lista de Ferramentas, com as sete |
-| **Fila anterior a 14/11** | 5, 6, 7, 8, 9, 12 | o que já estava na fila, na ordem que ela já tinha |
+| **Fila anterior a 14/11** | 5, 6, 7, 8, 12 | o que já estava na fila, na ordem que ela já tinha |
 | **Estudos** | 13, 15 | não são fila de execução: a entrega é a decisão do operador |
 
 ---
@@ -140,8 +139,6 @@ ordem; a fila é dele.
 | 7.1 | a checagem que oferece o "Atualizar agora" | | 3 | 2 | 6 | web |
 | **8** | **CI: os oráculos instáveis (residual)** | resíduo | 3 | 2 | **6** | tools |
 | 8.1 | `configuracoes-janelas` D, instrumentado | | 3 | 2 | 6 | tools |
-| **9** | **Folha do vídeo: o teto e o botão "Detalhes"** | pedido | 2 | 2 | **4** | web |
-| 9.1 | sem o aviso do teto; o quinto botão sem linha própria | | 2 | 2 | 4 | web |
 | **12** | **Limpeza e otimização do repositório (residual)** | pedido | 2 | 1 | **2** | docs |
 | 12.1 | a lista dos mortos da auditoria de eficiência | | 2 | 1 | 2 | docs |
 | **13** | **Estudos — não são fila de execução** | estudo | 4 | 1 | **4** | decisão |
@@ -264,33 +261,6 @@ consertados; um ficou INSTRUMENTADO, não consertado: `configuracoes-janelas` D
 RUNNER e trocá-la pelo FATO (`esperar`/`esperarDb`), nunca subir prazo; rodar sob
 carga (3 processos + `stress`) até reprovar localmente antes de consertar, e
 repetir depois. Isto protege o canal: um vermelho no `verificar` segura o bundle.
-
----
-
-## Pacote 9 — Folha do vídeo: o teto e o botão "Detalhes"
-
-**Nota 4 (I2 × U2) · pedido · só web**
-
-**Onde:** `openYtMenu` (a legenda que o `ytSegRow` recebe), `destBotaoDetalhes` e
-a régua do rótulo no `destinos-diretos`.
-
-### 9.1 Sem o aviso de teto e sem uma linha só para o quinto botão
-
-*"Remova a mensagem 'teto de qualidade, vale para o tocar agora e fica como
-padrão' que temos nos vídeos. Também verifique se não está desperdiçando espaço
-criando uma outra linha apenas para o botão de detalhes... Talvez apenas faça uma
-versão de título mais curta como apenas 'Detalhes'."* (2026-11-07 09:12).
-
-- **(a)** tirar a legenda do teto: ela é o último argumento do `ytSegRow` em
-  `openYtMenu` (`'Teto de qualidade — vale para o "Tocar agora" e fica como
-  padrão'`). Conferir a altura da fileira depois — a legenda ocupa uma linha.
-- **(b)** o botão de DETALHES (o quinto da fileira, v1.13.34) não pode custar uma
-  linha própria: hoje o `destBotaoDetalhes` alterna
-  `['Ver os detalhes', 'Ocultar os detalhes']`, e é esse rótulo largo que o
-  operador vê descer sozinho numa linha na célula estreita (360×1,25×). Encurtar
-  para "Detalhes" nos dois estados, com o aberto/fechado no `on`/`aria-pressed`
-  que o botão já alterna. A asserção do `destinos-diretos` A mede o rótulo — muda
-  no mesmo lote.
 
 ---
 

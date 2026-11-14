@@ -52,6 +52,9 @@ medição em aparelho não é fino.**
 | 2026-11-14 · revisão de 14/11 | `ESTABILIDADE-AV` C2, D2 | pedem medição em aparelho | medição | não há aparelho nesta máquina |
 | 2026-11-14 · Pacote 25 | `apk.yml` | a regra "base web mudou ⇒ versão sobe" é contra a última TAG: um segundo lote de web sem subir, depois de um que subiu, passa | CI | o certo é comparar com o canal, e o `sha256` do zip muda a cada empacotamento — pede o hash da árvore |
 | 2026-11-14 · Pacote 26 (B9) | `configuracoes-sem-subtitulo` D3, `ferramentas-folha` V, `sorteio-tela` O | os três oráculos cujos números nasceram da FONTE do runner (DejaVu/pixel): reprovam no Chromium desta máquina e passam no runner — o §4 do `ACHADOS-EM-ABERTO` migrou para cá | CI | não se conserta mexendo no app: é a campanha de fontes do CI |
+| 2026-11-14 · v1.14.19 | `NativeBridge.kt:1554`, `YoutubeGrab.kt:1820` | dois comentários ainda chamam o botão de "Ver os detalhes" (hoje "Detalhes"); 2 linhas | higienização | mexer em `java/` pede `shellTag` e Release, e o lote é só de web — vai no próximo que tocar o Kotlin |
+| 2026-11-14 · v1.14.19 | `site/telas/320/destinos.webp`, `site/sonoplastia/index.html:5532` | a captura da folha do vídeo ainda mostra a legenda "Teto de qualidade", que saiu (a ilustração tem seis marcadores sobre ela); 1 imagem | medição | refazer a captura pede o app em tela |
+| 2026-11-14 · v1.14.19 | `tools/estado.sh` | compara com a última tag LOCAL e não avisa que o GitHub tem uma Release mais nova: com a v1.14.13 local e a v1.14.18 no GitHub ele imprimiu "shell mudou desde ela → exige shellTag" sem motivo (`git fetch --tags` resolve); ~5 linhas | higienização | fora da cerca do lote (só web) |
 
 ## Fechado/decidido
 

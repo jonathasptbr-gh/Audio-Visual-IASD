@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.19** — a folha do vídeo sem o aviso do teto de qualidade, e o botão dos detalhes encurtado para "Detalhes" (texto único, ligado por superfície própria); só web.
 - **v1.14.18** — a higienização C: as 14 lápides podadas, a gaveta que retoma o slot ao reabrir, o `naoResta` inalcançável, 17 ponteiros de documentação repontados e a rodada da série descrita como ela é; base web e `java/` (só comentário no Kotlin), com Release.
 - **v1.14.17** — o tour: o conjunto certo em três passos, o re-sortear fora do destaque, e o oráculo que distingue a peça certa da primeira casada; só web.
 - **a higienização A: o fino dos docs e das ferramentas (sem versão nova; `docs/`, `tools/` e o contrato)** — 13 resíduos fechados: a régua do RESIDUOS cobra o Aberto e não o exemplo, o portão só pula o oráculo EXECUTADO, o `estado.sh` não morre sem `origin/main`, o `versao.mjs` nasceu, a fixture do Registro ganhou os campos do shell, e números e ponteiros foram corrigidos.
@@ -751,6 +752,67 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.19 — a folha do vídeo: sem o aviso do teto, e o botão "Detalhes" (só web)
+
+**v1.14.19 (só web; Pacote 9 de `docs/PEDIDOS-EM-ESPERA.md`)** — pedido do operador
+(2026-11-07 09:12): *"Remova a mensagem 'teto de qualidade, vale para o tocar agora e
+fica como padrão' que temos nos vídeos. Também verifique se não está desperdiçando
+espaço criando uma outra linha apenas para o botão de detalhes... Talvez apenas faça
+uma versão de título mais curta como apenas 'Detalhes'."* **O achado que o pedido não
+nomeia: encurtar o rótulo sozinho teria apagado o único sinal de estado do botão.** O
+`.dest-largo` nunca teve a regra do LIGADO (só o `.dest-btn.on`, do tempo em que o
+botão dos detalhes era um quadrado, v1.13.34), e desde a v1.13.35 quem dizia "aberto"
+era a troca de frase ("Ver" → "Ocultar os detalhes").
+
+**A legenda.** Saiu o último argumento do `ytSegRow` em `openYtMenu` e, com ele, o
+parâmetro `nota` inteiro: `ytSegRow(opcoes, atual, onPick, inativos)`, sem a
+`<small class="song-menu-seg-nota">` e sem a regra do CSS — o `openSemanaMenu`
+passava `null` nessa posição e foi reposto. O que a legenda dizia continua sendo o
+comportamento (a escala é um TETO: o shell entrega a melhor faixa ABAIXO dele, vale
+para o "Tocar agora" e fica como padrão, `adotarAlturaPreferida`) e agora mora só no
+comentário de `openYtMenu`. A fileira de qualidade ficou com a anatomia da de
+Vídeo/Só áudio (`li > .fit-seg`), sem o vão da legenda.
+
+**O botão.** O `destBotaoDetalhes` deixa de alternar `['Ver os detalhes', 'Ocultar os
+detalhes']`: o texto é `Detalhes` nos dois estados (o `aria-label` continua "Ver os
+detalhes do vídeo", que contém o texto visível). O contrato do largo no
+`destBotoesRow` mudou junto — `rotulos` (uma frase, ou duas na MESMA célula) virou
+`texto` (uma frase) — e saíram a grade 1×1 da v5.287 (`.song-menu-letra-cx` e as duas
+regras de `visibility` que escolhiam qual frase se via): ficaram sem usuário. **O
+estado agora é só a superfície:** entrou `.dest-botoes .dest-largo.on { background:
+var(--btn-accent) }` — o `.dest-botoes` no seletor empata a especificidade com o
+`.hymn-opcoes .song-menu-btn:not(.song-menu-go)` (que pinta o fundo do poço) e a que
+vem depois ganha. MEDIDO no Chromium: fechado `rgb(33, 47, 61)` (o `--gaveta-btn`, que
+é o `--panel`), aberto `rgb(41, 61, 87)` (o `--btn-accent`).
+
+**O oráculo (`destinos-diretos`, bloco A).** O rótulo esperado passa a `Detalhes` e
+entram duas asserções por célula de vídeo (360×1,25× e 430×1×): **LIGA** — o
+`aria-pressed` vai de `false` a `true` e o fundo computado muda (a espera é pelo FATO,
+o fundo deixar de ser o de antes, nunca por um prazo) — e **NÃO custa linha própria**:
+onde a música da MESMA célula cabe ao lado dos quatro quadrados, o vídeo também tem de
+caber. A régua é RELATIVA porque a largura do texto é da fonte do runner (a v1.13.35
+mediu o "Ver a letra" a 8px de folga na fonte local e estourando no runner).
+**Reversões medidas:** sem a regra `.dest-largo.on` o fundo é `rgb(33, 47, 61)` nos
+dois estados e as duas células reprovam; com o rótulo longo de volta ("Ocultar os
+detalhes"), a 360×1,25× o botão DESCE para uma linha própria — a queixa do operador,
+`{video: true, musica: false}` — e reprova (a 430×1× ele cabe, e só o rótulo esperado
+reprova).
+
+**Documentação.** `DESIGN-SYSTEM`, `CONTROLE-BIBLIOTECA`, `CONTROLE-YOUTUBE` (o
+parágrafo da largura, que justificava a grade, foi reescrito: o texto é o mesmo e o
+estado é a superfície), `DIVERGENCIAS-WEB-NATIVO`, `shell/PONTE` e `ORACULOS`. **Fino
+fechado no lote:** a contagem velha do comentário do `ytSegRow` ("duas perguntas usam
+este formato"; são seis chamadas) e o comentário do `boot-nativo` que ainda chamava o
+botão dos detalhes de "quadrado sem rótulo" (falso desde a v1.13.35).
+
+**Sem `shellTag`:** a Release v1.14.18 já está publicada e o lote não toca `java/`; o
+OTA sai com o push. **Armadilha do ambiente, colhida aqui:** as tags LOCAIS pararam na
+v1.14.13, e o `tools/estado.sh` cobrava `shellTag` de um shell que já tinha Release (a
+v1.14.18, no GitHub) — `git fetch --tags` antes do portão. **Declarado em
+`docs/RESIDUOS.md`:** os dois comentários do Kotlin que ainda dizem "Ver os detalhes"
+(mexer em `java/` pede Release), a captura `destinos.webp` do guia (mostra a legenda
+que saiu) e o aviso de tag velha do `estado.sh`.
 
 ## v1.14.18 — a higienização C: as lápides, o slot da gaveta e os ponteiros
 

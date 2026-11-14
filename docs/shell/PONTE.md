@@ -427,7 +427,7 @@ habilita é o que esta decisão existe para impedir.
 
 > **A fila é a `extracao`, e é isso que obriga o chamador a ser um TOQUE.** Ela
 > é de uma thread, e trabalho de MASSA ali empurra todo "Tocar agora" para além
-> dos 60 s do `call()`. Quem chama é o botão "Ver os detalhes" de UMA linha, com
+> dos 60 s do `call()`. Quem chama é o botão "Detalhes" de UMA linha, com
 > cache em memória do outro lado — nunca a montagem de uma lista, nunca uma
 > varredura de álbum.
 

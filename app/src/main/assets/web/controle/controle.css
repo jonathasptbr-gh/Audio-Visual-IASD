@@ -9696,17 +9696,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    dobrar a lista de destinos (ver renderSongMenu). */
 .song-menu-seg-row { padding-bottom: var(--sp-1); }
 .song-menu-seg { width: 100%; }
-/* A NOTA DA LINHA: o que aquela escala governa. Só a de qualidade a usa, e ela
-   precisa — a escala começa em "Online", que é armazenamento, e o resto se lia
-   como "qualidade do download". `--muted` porque ela é legenda, não escolha: o
-   olho tem de cair nos botões primeiro. */
-.song-menu-seg-nota {
-  display: block;
-  color: var(--muted);
-  font-size: var(--fs-sm);
-  line-height: 1.25;
-  padding: 0 var(--sp-1) var(--sp-2);
-}
 
 /* ---------- MAIS DE UM DESTINO NA MESMA FOLHA (v5.141) ---------- */
 /* A caixa de marcação vive DENTRO do botão da linha e à direita dele: o corpo
@@ -12985,11 +12974,11 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
    `--gaveta-btn` do poço, o `--press`) com o rótulo centrado em `--accent` — mas
    CRESCENDO no resto da fileira, na altura do quadrado vizinho. O rótulo NUNCA
    corta: com `nowrap`, o `min-width: auto` de um item flex já é o texto inteiro,
-   e quando ele não cabe ao lado dos quatro (a 360 px com a fonte a 1,25× o "Ocultar
-   os detalhes" de um vídeo não cabe, e a fonte do aparelho decide o "Ver a
-   letra"), a fileira QUEBRA (`flex-wrap`) e ele desce para uma linha só dele, de
-   borda a borda. O que decide a quebra é o TIPO do item e a tela, nunca o estado:
-   as duas frases ocupam a mesma célula. */
+   e quando ele não cabe ao lado dos quatro (a fonte do aparelho decide o "Ver a
+   letra" de uma música; o "Detalhes" de um vídeo é mais curto que ele), a
+   fileira QUEBRA (`flex-wrap`) e ele desce para uma linha só dele, de borda a
+   borda. O que decide a quebra é o TIPO do item e a tela, nunca o estado: o
+   texto é o mesmo aberto e fechado. */
 .dest-largo {
   flex: 1 1 auto; width: auto; height: var(--quad-faixa); padding-block: 0;
   padding-inline: var(--sp-4);
@@ -12997,14 +12986,11 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
   color: var(--accent); white-space: nowrap;
 }
 .dest-largo:disabled { opacity: var(--op-inativo); cursor: default; }
-/* As duas frases do "Ver/Ocultar os detalhes" na MESMA célula (v5.287): a largura
-   é a da maior, e a classe do `li` escolhe qual se vê. */
-.song-menu-letra-cx { display: grid; }
-.song-menu-letra-cx > span { grid-area: 1 / 1; }
-.lib-item:not(.vendo-letra) > .hymn-gaveta .song-menu-letra-cx > span:last-child,
-.lib-item.vendo-letra > .hymn-gaveta .song-menu-letra-cx > span:first-child {
-  visibility: hidden;
-}
+/* O LIGADO do largo (os detalhes à vista) é a superfície de ação, como o dos
+   quadrados — e é a ÚNICA marca do estado, porque o texto não muda. O
+   `.dest-botoes` no seletor vence o `.hymn-opcoes .song-menu-btn`, que pinta o
+   fundo do poço. */
+.dest-botoes .dest-largo.on { background: var(--btn-accent); }
 /* ---------- A BARRA DA BIBLIOTECA SAI DE CENA ENTRE A TELA CHEIA E A ROTAÇÃO (v1.13.34) ----------
    Ver `aoSairDaTelaCheiaGeral`: nos quadros em que o documento já saiu da tela
    cheia e a janela ainda é a deitada, a posição da barra (`100svh` menos a caixa)

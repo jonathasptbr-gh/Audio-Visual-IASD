@@ -1258,13 +1258,11 @@ try {
       texto: li.textContent,
       temThumb: !!li.querySelector('.item-detalhe-thumb'),
       duracaoGuardada: s.duration || '',
-      // ===== O BOTÃO DOS DETALHES É UM QUADRADO DA FILEIRA (v1.13.34) =====
+      // ===== O BOTÃO DOS DETALHES É O QUINTO DA FILEIRA, LARGO (v1.14.19) =====
       //
-      // Ele era "Ver/Ocultar os detalhes", um botão de texto ao lado do
-      // Confirmar, com as duas frases empilhadas para a largura não mudar. Com os
-      // destinos em botões diretos ele virou o quinto quadrado da fileira — sem
-      // rótulo e LIGADO quando os detalhes estão à vista —, e a largura não muda
-      // por construção: o que se mede é que ele não se mexe, e que LIGA.
+      // O texto é "Detalhes" nos dois estados: o aberto é o `on` e o
+      // `aria-pressed`, e a largura não muda por construção. O que se mede aqui é
+      // que ele não se mexe, e que LIGA; a superfície é do `destinos-diretos`.
       larguras: (() => {
         const ver = li.querySelector('.dest-botoes > [data-dest="detalhes"]');
         if (!ver) return null;
@@ -1282,7 +1280,7 @@ try {
     // descrição se for possível obter"*. Os três primeiros são do ÍNDICE e o
     // `serie.test.mjs` prende a regra deles; a descrição é a única que vem da
     // PONTE (`AVNative.ytDetalhes`, shell 62), e o que este oráculo prende é o
-    // FIO — o botão "Ver os detalhes" pedindo, o texto voltando e o card
+    // FIO — o botão "Detalhes" pedindo, o texto voltando e o card
     // pintando. Ele falha de um jeito que nenhum dos outros pega: o método da
     // ponte certo, o Kotlin certo, e nada na tela.
     //
@@ -1629,7 +1627,7 @@ try {
   // REDE, e a única que exigiu shell novo.
   const D = gaveta.desc;
   checar(!!D && /fidelidade no dizimo/.test(D.texto),
-    'o toque em "Ver os detalhes" PEDE a descrição e ela chega à tela — o gatilho é a '
+    'o toque em "Detalhes" PEDE a descrição e ela chega à tela — o gatilho é a '
     + 'REVELAÇÃO, e não a abertura da linha: uma extração por vídeo OLHADO',
     JSON.stringify(D && D.texto && D.texto.slice(0, 60)));
   checar(!!D && D.virouElemento === false && /<b>/.test(D.texto),
