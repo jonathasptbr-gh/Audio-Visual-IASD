@@ -56,16 +56,17 @@
     };
   }
 
-  // Cada passo: `alvo` (seletor ou lista; TODAS as ocorrências visíveis entram —
-  // o recorte é a UNIÃO), `titulo` (o nome que está na tela), `texto` (o que é,
-  // para que serve e como usar) e `semAlvo` (o texto do balão central quando a
-  // peça não está à vista). `opcional`: sem a peça, o passo sai da conta.
+  // Cada passo: `alvo` (seletor ou lista; UMA peça por seletor, e `todos: true`
+  // quando o passo explica o conjunto inteiro — aí o recorte é a UNIÃO), `titulo`
+  // (o nome que está na tela), `texto` (o que é, para que serve e como usar) e
+  // `semAlvo` (o texto do balão central quando a peça não está à vista).
+  // `opcional`: sem a peça, o passo sai da conta.
   // `abertura`/`fecho`: o passo fica FIXO no começo/fim — ver `ordenar()`.
   const FIM = { fecho: true, titulo: 'Tour do app',
     texto: 'Para rever estas explicações, desligue e ligue de novo o quadrado "Tour do app" nas Configurações. "Pular tour" desliga o tour de vez.' };
   const PROJETAR = { alvo: '#miscProjectBtn', titulo: 'Projetar no telão',
     texto: 'Toque para mostrar este cartão na TV agora. O botão vira "Tirar do telão": toque nele para tirar.', opcional: true };
-  const GUARDAR = { alvo: '#toolsFoot .cue-save-btn', titulo: 'Cronograma e Favoritos',
+  const GUARDAR = { alvo: '#toolsFoot .cue-save-btn', todos: true, titulo: 'Cronograma e Favoritos',
     texto: 'Toque num dos dois botões para guardar este cartão no Cronograma ou nos Favoritos e usá-lo na hora certa.', opcional: true };
   const SUBLINHA = { alvo: '#toolsBody input.misc-text', titulo: 'Legenda',
     texto: 'Digite um texto curto para aparecer embaixo do cartão na TV, como "Início do culto". Pode ficar vazio.', opcional: true };
@@ -248,7 +249,7 @@
         texto: 'Toque para voltar ao Cronograma. Cada ferramenta se explica na primeira vez que abrir.' },
     ] },
     'ferr-clock': { modos: ['full'], passos: [
-      { alvo: '#toolsFoot .chrono-opt', titulo: 'Seg e 12h',
+      { alvo: '#toolsFoot .chrono-opt', todos: true, titulo: 'Seg e 12h',
         texto: 'Toque em Seg para mostrar os segundos e em 12h para o formato de 12 horas.', opcional: true },
       SUBLINHA, PROJETAR, GUARDAR,
     ] },
@@ -295,8 +296,10 @@
         texto: 'Toque para escolher músicas cantadas ou só o fundo musical, sem voz.', opcional: true },
       { alvo: '#sorteioPopup .misc-chip', todos: true, titulo: 'Álbuns e Só no aparelho',
         texto: 'Toque nos álbuns de onde sortear. "Só no aparelho" usa apenas o que já está baixado.', opcional: true },
-      { alvo: '#sorteioPopup .sorteio-acao', todos: true, titulo: 'Tocar agora e guardar',
-        texto: 'Toque em Tocar agora para ouvir já, ou nos botões ao lado para sortear e guardar no Cronograma, na playlist ou nos Favoritos.', opcional: true },
+      // O RE-SORTEAR FICA FORA DO DESTAQUE: ele é outra ação (refazer a lista),
+      // e o passo é o da saída — os botões de tocar e de guardar.
+      { alvo: '#sorteioPopup .sorteio-acao:not(.sorteio-sortear)', todos: true, titulo: 'Tocar agora e guardar',
+        texto: 'Toque em Tocar agora para ouvir já, ou nos botões ao lado para guardar no Cronograma, na playlist ou nos Favoritos.', opcional: true },
     ] },
     playlist: { modos: ['full'], passos: [
       { alvo: '#plPopup .popup-sheet', abertura: true, titulo: 'Playlist',
@@ -864,6 +867,15 @@
       && !(raiz.getAnimations ? raiz.getAnimations({ subtree: true }) : []).length),
     passoAtual: () => (atual ? atual.passos[atual.i] : null),   // o oráculo mede o passo NA ORDEM medida
     LINHA_PX,
+    FOLGA,   // o oráculo mede o recorte com a régua do CÓDIGO, nunca com um 6 digitado
+    ANEL,
+    // O QUE ESTE PASSO SELECIONOU, e não a regra que o selecionou: o oráculo
+    // cobra a SELEÇÃO (um alvo por seletor, todos com `todos`) e a geometria
+    // contra ela, sem repetir a escolha do `elementos()` (v1.14.17).
+    alvos: () => (atual ? elementos(atual.passos[atual.i]) : []).map((n) => {
+      const r = n.getBoundingClientRect();
+      return { l: r.left, t: r.top, r: r.right, b: r.bottom };
+    }),
     TOURS,
     SECOES,
     chaves,

@@ -45,14 +45,10 @@ medição em aparelho não é fino.**
 
 | quando · lote | onde | o que ficou | dono | por que não foi agora |
 |---|---|---|---|---|
-| 2026-11-14 · revisão de 14/11 | `tools/tour.test.mjs` | `s.configuracoes` é chave que não existe: duas asserções e um `delete` que passam por vacuidade | higienização | fora da cerca do lote do tour |
-| 2026-11-14 · revisão de 14/11 | `tools/tour.test.mjs:271` | pré-marca todas as chaves antes de abrir Configurações, então a asserção passaria com a seção de volta | higienização | precisa da reversão para provar |
-| 2026-11-14 · revisão de 14/11 | `tools/tour.test.mjs` | `FOLGA`/`ANEL` escritos à mão (o padrão do achado T7) | higienização | idem |
 | 2026-11-14 · revisão de 14/11 | `controle.js`, `controle.css` | 14 comentários "lápide" (`saiu na vX`) anteriores ao intervalo | higienização | fora do escopo das duas revisões |
 | 2026-11-14 · v1.14.16 | `site/sonoplastia/index.html` | a captura da lista de Ferramentas mostra seis e o app tem sete ("Editar mídia") | operador | refazer a captura pede o app em tela — **na fila: Pacote 29** (14/11) |
 | 2026-11-14 · revisão de 14/11 | `YoutubeGrab.kt` | os campos `initIni/initFim/idxIni/idxFim/codec` da `Faixa`, sem leitor desde que o `dash` saiu (~24 linhas, KDoc junto) | CI | não há compilador aqui; a remoção só se prova no Gradle |
 | 2026-11-14 · v1.14.16 | `controle.js:22564` | o aviso do card promete que a série "desce quando ela sair", mas a rodada só é armada por `manterSeriesDaSemana` — com um card aberto na projeção a saída da mídia não baixa | operador | mexe no contrato do `serieAutoImpedimento` — **na fila: Pacote 28** (14/11) |
-| 2026-11-14 · v1.14.16 | `tools/tour.test.mjs:94` | o oráculo mede a peça com a MESMA regra do `elementos()`: não distingue a peça certa da primeira casada | higienização | só o G novo tem régua independente |
 | 2026-11-14 · Pacote 24 | `~/.dsh-github/uso.mjs` | a remedição do custo com o preço do modelo ATUAL não saiu (não há preço publicado confiável na máquina); as tabelas do medidor são de 10/11 e ele aceita `--preco novo cache saida` | medição | preço do modelo atual não medido |
 | 2026-11-14 · revisão de 14/11 | `ESTABILIDADE-AV` C2, D2 | pedem medição em aparelho | medição | não há aparelho nesta máquina |
 | 2026-11-14 · Pacote 25 | `apk.yml` | a regra "base web mudou ⇒ versão sobe" é contra a última TAG: um segundo lote de web sem subir, depois de um que subiu, passa | CI | o certo é comparar com o canal, e o `sha256` do zip muda a cada empacotamento — pede o hash da árvore |
@@ -61,8 +57,6 @@ medição em aparelho não é fino.**
 | 2026-11-14 · Pacote 27 | `java/` e `assets/web/` (16 arquivos) | 19 referências mandam ao `CLAUDE.md` por conteúdo que mora no `NUCLEO-TECNICO.md` desde a A2 (2026-10-30): as invariantes numeradas, a regra do diagnóstico, o Hinário, o `nowPlaying` — contagem recontada na revisão geral B | higienização | tocar `java/` ou a base web obriga `shellTag` + Release, e este lote é só texto |
 | 2026-11-14 · Pacote 26 (B9) | `configuracoes-sem-subtitulo` D3, `ferramentas-folha` V, `sorteio-tela` O | os três oráculos cujos números nasceram da FONTE do runner (DejaVu/pixel): reprovam no Chromium desta máquina e passam no runner — o §4 do `ACHADOS-EM-ABERTO` migrou para cá | CI | não se conserta mexendo no app: é a campanha de fontes do CI |
 | 2026-11-14 · revisão geral B | `controle.js:22110-22111` + `HISTORICO.md:1629` | o comentário (e a nota que o repete) dizem que "a rotina do acervo chama `serieSemanaReavaliar`" e que a rodada "volta em todo `visibilitychange`": o acervo chama `manterSeriesDaSemana` e sai antes com mídia no ar (`:17473`) | higienização | toca base web ⇒ pede versão própria |
-| 2026-11-14 · revisão geral B | `tour.js:68` e `:251` | os passos "Cronograma e Favoritos" e "Seg e 12h" explicam duas peças e ficaram sem `todos` na v1.14.16 — regressões da v1.14.15; `:298` põe o re-sortear no destaque e `:59-60` é o comentário do schema velho | higienização | base web ⇒ versão própria |
-| 2026-11-14 · revisão geral B | `tools/tour.test.mjs:94-100` + `docs/arquitetura/CONTROLE-TOUR.md:132` | o oráculo espelha a seleção do `elementos()` e não pega os dois passos acima; o capítulo dono não conhece `todos`/uma-peça-por-seletor | higienização | a régua independente só existe para a LINHA |
 
 ## Fechado/decidido
 
@@ -82,13 +76,19 @@ resíduo. (B8)
 | 2026-11-14 · higienização A | `docs/ARQUITETURA-WEB.md:56-66`, `:114` e `CLAUDE.md:223-235` | o rito em três casas (o `BUILD.md` é a fonte única) e "a TERCEIRA exceção" quando a próxima é a segunda | **fechado** — o rito ficou só no BUILD (o hub aponta), "segunda exceção", e o bloco do `CLAUDE.md` ganhou o `--vizinho` que o `TETO=8` do portão exige |
 | 2026-11-14 · higienização A | `CLAUDE.md:233` | o contrato mostrava só `tools/portao.sh <arquivos do lote>`, e um lote de 9+ arquivos reprova por omissão | **fechado** — o `--vizinho` entrou na mesma linha (o mesmo conserto da linha acima) |
 | 2026-11-14 · higienização A | `docs/HISTORICO.md:34` e `:796` | duas medidas velhas: o corpo do guia tem 918.125 B (não 838 kB) e o `CLAUDE.md` fechou em 368 linhas | **fechado** — 918 kB e 368 linhas, nos dois pontos e na nota do Pacote 27 |
-| 2026-11-14 · higienização A | `tools/docs-coerentes.test.mjs:338-344` | a checagem "a versão está no RESIDUOS" era satisfeita pelo exemplo da regra | **fechado** — a régua recorta `## Aberto` até `## Refutado`: o exemplo do topo não a satisfaz mais |
+| 2026-11-14 · higienização A | `tools/docs-coerentes.test.mjs:338-344` | a checagem "a versão está no RESIDUOS" era satisfeita pelo exemplo da regra | **fechado** — a régua recorta da seção Aberto até a Refutado: o exemplo do topo não a satisfaz mais |
 | 2026-11-14 · higienização A | `tools/portao.sh:153` | o passo 2 pulava oráculo puro só MENCIONADO na Sanidade, inclusive em comentário | **fechado** — só conta linha que EXECUTA `node … tools/x.test.mjs`; comentário e `echo` não pulam mais |
 | 2026-11-14 · higienização A | `tools/estado.sh:64-65` e `:30-31` | a régua do shell não somava o não rastreado (o `apk.yml` soma) e o `set --` sem guarda abortava sob `set -u` | **fechado** — `git ls-files --others` entra na conta e o `rev-list` é guardado por `if`, com `${1:-?}` |
 | 2026-11-14 · higienização A | `tools/reverter.sh:5` | o cabeçalho mandava a regra "a reversão se desfaz com uma cópia" ao `CLAUDE.md`, que não a tem | **fechado** — o ponteiro é o `docs/BUILD.md` |
 | 2026-11-14 · higienização A | `tools/revisao-cobertura.mjs:125` | o `--tabela` imprimia `\/` e a cópia do `REVISAO-GERAL.md` usa `/` | **fechado** — a saída normaliza a barra: a cópia passa a ser mecânica |
 | 2026-11-14 · higienização A | `docs/revisao/REVISAO-2026-11-14.md:30-38` | o §0 do dossiê não tinha a tabela de ids que o fecho cobra | **fechado** — os 17 ids, um por linha, com o estado de cada um |
 | 2026-11-14 · higienização A | `docs/PEDIDOS-EM-ESPERA.md:68` × `:147` | o Pacote 13 tinha nota "—" numa tabela e 4 na outra | **fechado** — 4 nas duas |
+| 2026-11-14 · higienização B (v1.14.17) | `tools/tour.test.mjs` | `s.configuracoes` é chave que não existe: duas asserções e um `delete` que passavam por vacuidade | **fechado** — o bloco G cobra a lista FECHADA das seções `s.cfg-` (as duas que restaram); o F e o L não citam mais a chave morta |
+| 2026-11-14 · higienização B (v1.14.17) | `tools/tour.test.mjs:271` | pré-marcava todas as chaves antes de abrir Configurações, então a asserção passaria com a seção de volta | **fechado** — marca só as chaves do principal: um tour de raiz que voltasse abriria e reprovaria |
+| 2026-11-14 · higienização B (v1.14.17) | `tools/tour.test.mjs` | `FOLGA`/`ANEL` escritos à mão (o padrão do achado T7) | **fechado** — `AVTour.FOLGA`/`ANEL` publicados e lidos pelo oráculo; nenhum 6/2 digitado |
+| 2026-11-14 · higienização B (v1.14.17) | `tools/tour.test.mjs:94` | o oráculo media a peça com a MESMA regra do `elementos()` | **fechado** — a peça vem de `AVTour.alvos()` e a régua cobra UM alvo por seletor (todos com `todos`), com a contagem e o pertencimento no lugar da escolha |
+| 2026-11-14 · higienização B (v1.14.17) | `tour.js:68` e `:251` | os passos "Cronograma e Favoritos" e "Seg e 12h" explicam duas peças e ficaram sem `todos` na v1.14.16; o `:298` punha o re-sortear no destaque; o `:59-60` era o comentário do schema velho | **fechado** — `todos` nos três passos (o do Sorteio inclusive), o re-sortear fora do halo (`:not(.sorteio-sortear)`) e o comentário do schema nomeando `todos` |
+| 2026-11-14 · higienização B (v1.14.17) | `tools/tour.test.mjs:94-100` + `docs/arquitetura/CONTROLE-TOUR.md:132` | o oráculo espelhava a seleção do `elementos()` e o capítulo dono não conhecia `todos`/uma-peça-por-seletor | **fechado** — o capítulo ganhou a seção do `alvo`/`todos` e o oráculo descrito pelo que mede |
 
 ## Lotes que declararam "nenhum"
 
@@ -100,6 +100,7 @@ de "ninguém olhou".
 | 2026-11-14 | o método da revisão (`RESIDUOS.md`, `REVISAO-GERAL.md`, `tools/revisao-cobertura.mjs`) | nenhum resíduo de código. **A ferramenta não estava pronta:** a revisão de 14/11 achou nela três defeitos — o telão e a tela espelho caíam no marco do shell, a citação por nome solto dava o site por coberto, e sem `--dossie` ela anunciava cobertura. Os três — e um quarto, de uso, na citação — foram corrigidos, e a ferramenta foi provada nos dois sentidos (acusa o marco roçado, cala quando o dossiê cita) |
 | 2026-11-14 | o Pacote 26 (o processo de revisão) | nenhum resíduo de código: só docs e `tools/`. A migração B4 levou os abertos das auditorias para a tabela acima e carimbou o estado final em cada uma; os itens NÃO VERIFICADOS da auditoria de 09-11 ficam como registro daquela data, sem virarem fila |
 
+| 2026-11-14 | v1.14.17 — o tour (só web) | nenhum resíduo NOVO: o lote fechou os seis do tour; os que sobram da lista já estavam declarados (as lápides, o `naoResta`, o `hymnResultRow`, o `:22110` e as referências de `java/`) |
 ## Refutado — medido e não é resíduo
 
 Registrado para ninguém gastar a sessão duas vezes na mesma suspeita.

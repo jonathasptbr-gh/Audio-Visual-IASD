@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.17** — o tour: o conjunto certo em três passos, o re-sortear fora do destaque, e o oráculo que distingue a peça certa da primeira casada; só web.
 - **a higienização A: o fino dos docs e das ferramentas (sem versão nova; `docs/`, `tools/` e o contrato)** — 13 resíduos fechados: a régua do RESIDUOS cobra o Aberto e não o exemplo, o portão só pula o oráculo EXECUTADO, o `estado.sh` não morre sem `origin/main`, o `versao.mjs` nasceu, a fixture do Registro ganhou os campos do shell, e números e ponteiros foram corrigidos.
 - **a revisão geral B (sem versão nova; só `docs/`)** — os dez marcos de `ea612559` a `02957d08`: 32 achados confirmados, 7 refutados e 3 obsoletos; as duas tabelas da fila alinhadas e 15 resíduos finos com dono.
 - **o `estado.sh` para de chamar de pendente o resíduo que já tem pacote (sem versão nova; só `tools/`)** — a linha de dono `operador` cujo "por que" cita um `Pacote N` que existe em `PEDIDOS-EM-ESPERA.md` sai da lista; a que cita número inexistente continua saindo, e "Fechado/decidido" fica fora.
@@ -750,6 +751,45 @@ apagada da que a criou.
 
 ---
 
+## v1.14.17 — o tour: a peça certa, e o oráculo que a distingue (só web)
+
+**v1.14.17 (só web)** — os seis resíduos do TOUR que a revisão geral B deixou em
+`docs/RESIDUOS.md`, fechados. **O conserto do app é pequeno e o do oráculo é o
+que vale:** o `tour.test.mjs` media a peça com a MESMA regra do `elementos()`, e
+por isso aprovava o recorte que ela mesma fizera — não distinguia a peça certa da
+primeira casada.
+
+**No app.** O `GUARDAR` ("Cronograma e Favoritos"), o passo `Seg e 12h` e o do
+Sorteio explicam DUAS ou mais peças e tinham ficado sem `todos` na v1.14.16 —
+regressões da v1.14.15, que trocou `querySelectorAll` inteiro por uma peça por
+seletor: os três voltam a recortar o conjunto. O passo do Sorteio deixa o
+RE-SORTEAR de fora (`:not(.sorteio-sortear)`): ele é outra ação, e o texto passa
+a dizer só o que está sob o halo. O comentário do schema, em `tour.js`, ainda
+descrevia a regra velha ("TODAS as ocorrências visíveis entram") e passa a
+nomear `todos`. E o `AVTour` publica `FOLGA`, `ANEL` e `alvos()` — o que o passo
+SELECIONOU, em retângulos.
+
+**No oráculo.** A peça vem de `AVTour.alvos()` e a régua é outra: a união do
+selecionado é a peça, e a SELEÇÃO obedece à regra — UM alvo por seletor, todos
+quando o passo pede `todos`; o que se cobra é a contagem e o pertencimento, não
+QUAL foi escolhido. O recorte é medido com `AVTour.FOLGA`/`ANEL`, nunca com um 6
+e um 2 digitados no teste (o padrão do achado T7). Saíram três vacuidades: a
+linha `s.configuracoes` (chave que nunca existiu em `SECOES`) virava asserção
+negativa em DOIS blocos e um `delete` sem efeito — hoje o bloco G cobra a lista
+FECHADA das seções `s.cfg-` (as duas que restaram), o F não cita a chave morta e
+o L não a apaga; e o bloco G pré-marcava TODAS as chaves antes de abrir
+Configurações, o que esconderia justamente o tour de raiz que ele existe para
+negar — agora marca só as do principal. `CONTROLE-TOUR.md` ganhou a seção do
+`alvo`/`todos` e o oráculo descrito pelo que ele mede.
+
+**O que fica para a próxima sessão, e está no `RESIDUOS.md`:** os 14 comentários
+lápide do `controle.js`/`controle.css`, o `naoResta()` inalcançável, o
+`hymnResultRow` que reabre a gaveta sem repor o estado, o comentário de
+`:22110`, e as 19 referências de `java/` e `assets/web/` que mandam ao
+`CLAUDE.md` por conteúdo que mora no `NUCLEO-TECNICO.md` (esse pede `shellTag` e
+Release, porque toca `java/`).
+
+---
 ## a higienização A — o fino dos docs e das ferramentas (sem versão nova; `docs/`, `tools/` e o contrato)
 
 **A higienização A (sem versão nova; `docs/`, `tools/` e o contrato)** — os treze

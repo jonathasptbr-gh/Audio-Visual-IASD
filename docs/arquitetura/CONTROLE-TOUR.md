@@ -41,6 +41,16 @@ tela). Nenhum tour tem ordem estática. Oráculo: o bloco J do `tour.test.mjs` (
 os tours, nos dois modos, a 390×860 e a 360×640; o `AVTour.passoAtual()` dá o passo
 na ordem mostrada).
 
+**`alvo` e `todos`.** `alvo` é um seletor ou uma lista deles, e o recorte é a
+UNIÃO entre os SELETORES — a faixa e as duas pontas do mesmo controle. De cada
+seletor entra UMA peça (a primeira visível), **salvo `todos: true`**, quando o
+passo explica o conjunto inteiro ("os quatro botões de ajuste", as categorias):
+aí entram todas as ocorrências visíveis. Sem `todos`, unir as LINHAS é o defeito
+que a v1.14.15 consertou — `#histList .row-item .row-btn` destacava a lista toda
+em vez da primeira linha, que é a que explica o gesto; e o inverso (passo que
+explica um conjunto com uma peça só) é o da v1.14.16, que pôs `todos` em cinco
+passos e deixou dois de fora, consertados na v1.14.17.
+
 **Os textos:** título = o rótulo que está na tela (ou descrição curta, sem rótulo);
 corpo de 1–2 frases com o que é, para que serve e o verbo de ação ("Toque…",
 "Arraste…", "Segure…"), mais o detalhe que não é óbvio — conferido no código. As
@@ -129,15 +139,17 @@ janela.
 
 | constante | valor | o que faz |
 |---|---|---|
-| `FOLGA` | 6 px | o recorte é a UNIÃO dos alvos visíveis mais esta folga, a peça INTEIRA; o raio é o do cartão ou o da peça + 6 px (uma pílula ganha halo de pílula) |
+| `FOLGA` | 6 px | o recorte é a UNIÃO dos alvos SELECIONADOS mais esta folga, a peça INTEIRA; o raio é o do cartão ou o da peça + 6 px (uma pílula ganha halo de pílula) |
 | `ANEL` | 2 px | a espessura do anel (`box-shadow: 0 0 0 2px`), desenhado POR FORA da caixa: o recorte é preso a 2 px de cada borda da área visível e o anel termina exatamente nela — encosta, não fura (a régua do foco dos controles). Numa peça colada à borda, só esses 2 px saem da folga |
 | `MARGEM` | 16 px | o balão (largura `min(340, área − 2·16)`, altura máxima `área − 2·16`) nunca chega a menos disto de borda nenhuma |
 | `VAO` | 10 px | entre o recorte e o balão |
 
 O balão vai abaixo do recorte, acima, ou — sem lugar dos dois lados — encostado (a
 `MARGEM`) na borda com mais espaço; sem peça, no centro. Oráculo: `recorteBate` do
-`tour.test.mjs` (o recorte = a peça + 6 px, preso entre 2 px e a área − 2 px), nos
-blocos que medem o recorte.
+`tour.test.mjs` — a peça vem de `AVTour.alvos()` (o que o passo SELECIONOU), o
+oráculo cobra UM alvo por seletor (todos com `todos`) e mede o recorte = a peça +
+`AVTour.FOLGA`, preso entre `AVTour.ANEL` e a área − `ANEL` —, nos blocos que
+medem o recorte.
 Reposiciona em `resize`, `visualViewport`, `ResizeObserver` (peça e balão),
 `transitionend`, rolagem e a cada 250 ms do vigia; peça cortada pela borda recebe
 `scrollIntoView`. Foco no "Próximo", Tab preso no balão, `Escape` fecha.

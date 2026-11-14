@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.14.17",
+    "itens": [
+      "O tour volta a destacar o conjunto certo no Cronograma/Favoritos, no Seg e 12h e no Sorteio.",
+      "O teste do tour passa a cobrar a peça certa, e não a primeira que aparece. Nada muda no uso."
+    ]
+  },
+  {
     "versao": "1.14.16",
     "itens": [
       "O tour do Relógio, do Sorteio e do Itinerário volta a destacar o conjunto inteiro, e não só a primeira peça.",

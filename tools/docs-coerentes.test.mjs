@@ -335,7 +335,9 @@ const docs = [];
   const res = ler('docs/RESIDUOS.md');
   // A RÉGUA É O "ABERTO" (e as duas tabelas de fecho), não o arquivo inteiro: o
   // exemplo da regra no topo cita uma versão e satisfazia a checagem sozinho.
-  const corpo = res.slice(res.indexOf('## Aberto'), res.indexOf('## Refutado'));
+  // As âncoras são o INÍCIO DA LINHA: o texto de uma linha fechada cita os dois
+  // títulos, e um `indexOf` solto cortava o recorte no meio da própria citação.
+  const corpo = res.slice(res.indexOf('\n## Aberto'), res.indexOf('\n## Refutado'));
   const cita = new RegExp('\\bv' + ver.replace(/\./g, '\\.') + '(?![0-9])').test(corpo);
   if (cita) ok('a versão do `version.json` (v' + ver + ') está declarada no `docs/RESIDUOS.md`');
   else nao('a versão do lote está declarada no `docs/RESIDUOS.md`',

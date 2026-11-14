@@ -91,20 +91,22 @@ const medir = (pg) => pg.evaluate(() => {
     return r.width >= 1 && r.height >= 1 && cs.visibility !== 'hidden' && cs.display !== 'none'
       && r.bottom > 0 && r.top < innerHeight;
   };
-  // A MESMA REGRA DO `elementos()`: uma peça por seletor, e todas quando o passo
-  // pede `todos` — a união que o passo explica (os quatro botões de ajuste, as
-  // categorias), não a que o seletor coletivo pegava por acidente.
-  const todosDe = (p) => (!p.alvo ? [] : Array.isArray(p.alvo) ? p.alvo : [p.alvo])
-    .flatMap((q) => { const achados = [...document.querySelectorAll(q)].filter(vis); return p.todos ? achados : achados.slice(0, 1); })
-    .filter(Boolean);
+  // TODOS OS ALVOS VISÍVEIS, sem escolher: o oráculo NÃO repete a escolha do
+  // `elementos()` — ele guarda as ocorrências e cobra a PEÇA contra elas (um
+  // alvo quando o passo não pede `todos`; a união quando pede). Espelhar a regra
+  // do código aprovava o recorte que ela mesma tinha feito (v1.14.17).
   const passo = AVTour.passoAtual();   // o passo NA ORDEM em que o tour o mostra
-  const els = todosDe(passo);
-  let peca = null;
-  for (const n of els) {
-    const q = n.getBoundingClientRect();
-    peca = peca ? { l: Math.min(peca.l, q.left), t: Math.min(peca.t, q.top), r: Math.max(peca.r, q.right), b: Math.max(peca.b, q.bottom) }
-      : { l: q.left, t: q.top, r: q.right, b: q.bottom };
-  }
+  const rect = (n) => { const q = n.getBoundingClientRect(); return { l: q.left, t: q.top, r: q.right, b: q.bottom }; };
+  const seletores = !passo.alvo ? [] : Array.isArray(passo.alvo) ? passo.alvo : [passo.alvo];
+  // A SELEÇÃO VEM DO TOUR (`AVTour.alvos()`), não de uma segunda cópia da regra
+  // do `elementos()`; os GRUPOS são o que cada seletor tem à vista, para o
+  // oráculo cobrar a REGRA (um alvo por seletor, todos com `todos`) sem repetir
+  // a escolha. Antes, medir com a mesma regra aprovava o recorte que ela fizera.
+  const selecionados = AVTour.alvos();
+  const grupos = seletores.map((q) => [...document.querySelectorAll(q)].filter(vis).map(rect));
+  const peca = selecionados.reduce((a, q) => (a
+    ? { l: Math.min(a.l, q.l), t: Math.min(a.t, q.t), r: Math.max(a.r, q.r), b: Math.max(a.b, q.b) }
+    : { ...q }), null);
   const raiz = document.getElementById('tour');
   const rec = raiz.querySelector('.tour-recorte');
   const bal = raiz.querySelector('.tour-balao');
@@ -116,7 +118,8 @@ const medir = (pg) => pg.evaluate(() => {
     fixo: passo.abertura ? 'abertura' : passo.fecho ? 'fecho' : null,
     cont: raiz.querySelector('.tour-cont').textContent, texto: raiz.querySelector('#tourTexto').textContent,
     centro: raiz.classList.contains('tour--centro'),
-    peca, recorte: rr && { l: rr.left, t: rr.top, r: rr.right, b: rr.bottom },
+    peca, selecionados, grupos, todos: !!passo.todos, folga: AVTour.FOLGA, anel: AVTour.ANEL,
+    recorte: rr && { l: rr.left, t: rr.top, r: rr.right, b: rr.bottom },
     balao: { l: br.left, t: br.top, r: br.right, b: br.bottom },
     vw: innerWidth, vh: innerHeight, botoes,
     papel: bal.getAttribute('role'), focoDentro: bal.contains(document.activeElement),
@@ -136,13 +139,42 @@ const veuBate = (m) => temCor(m.veu, m.token);
 const haloBate = (m) => temCor(m.veu, m.halo) && cores(m.veu).findIndex((a) => a.every((v, k) => Math.abs(v - nums(m.halo)[k]) < 0.005))
   < cores(m.veu).findIndex((a) => a.every((v, k) => Math.abs(v - nums(m.token)[k]) < 0.005));
 
-// O recorte É a peça: contém o retângulo dela mais a folga (6px), e recua só o
-// ANEL de 2px — ele é desenhado por FORA da caixa (`box-shadow: 0 0 0 2px`), então
-// a caixa para 2px antes da borda e o anel termina exatamente nela (v1.14.11).
-// É a mesma régua do foco dos controles: encosta na borda, não fura.
+// A PEÇA CONTRA OS ALVOS (v1.14.17): com `todos` ela é a UNIÃO de todos os
+// visíveis; sem, é UM deles — nunca a união de dois. Este é o lado independente:
+// antes o oráculo media a peça com a MESMA regra do `elementos()`, e aprovava o
+// recorte que ela mesma fizera.
+const uniaoDe = (rs) => rs.reduce((a, q) => (a
+  ? { l: Math.min(a.l, q.l), t: Math.min(a.t, q.t), r: Math.max(a.r, q.r), b: Math.max(a.b, q.b) }
+  : { ...q }), null);
+const pertoDe = (a, b) => Math.abs(a - b) <= 1.5;
+const dentroDe = (peca, r) => r.l >= peca.l - 1.5 && r.t >= peca.t - 1.5
+  && r.r <= peca.r + 1.5 && r.b <= peca.b + 1.5;
+// A PEÇA É EXATAMENTE A UNIÃO DO QUE ESTÁ DENTRO DELA, e um alvo por seletor —
+// salvo `todos`, que pode unir as ocorrências. Assim a régua não repete a
+// escolha do `elementos()`: a peça pode unir SELETORES diferentes (a faixa e as
+// duas pontas do mesmo controle), nunca as LINHAS de um seletor só.
+const pecaDeAlvos = (m) => {
+  if (!m.peca || !m.selecionados || !m.selecionados.length || !m.grupos) return false;
+  const igual = (a, b) => pertoDe(a.l, b.l) && pertoDe(a.t, b.t) && pertoDe(a.r, b.r) && pertoDe(a.b, b.b);
+  // A peça é a UNIÃO do que o tour selecionou.
+  if (!igual(m.peca, uniaoDe(m.selecionados))) return false;
+  // E a seleção obedece à regra: UM alvo por seletor; com `todos`, todos os
+  // visíveis. O que se cobra é a contagem e o pertencimento, não QUAL foi
+  // escolhido — é isso que distingue a peça certa da primeira casada.
+  return m.grupos.every((g) => {
+    const marco = g.filter((r) => m.selecionados.some((e) => igual(r, e)));
+    return m.todos ? marco.length === g.length : marco.length === 1;
+  });
+};
+
+// O recorte É a peça: contém o retângulo dela mais a folga, e recua só o ANEL —
+// ele é desenhado por FORA da caixa (`box-shadow: 0 0 0 2px`), então a caixa para
+// o ANEL antes da borda e o anel termina exatamente nela (v1.14.11). É a mesma
+// régua do foco dos controles: encosta na borda, não fura. AS DUAS CONSTANTES VÊM
+// DO CÓDIGO (`AVTour.FOLGA`/`ANEL`), nunca digitadas aqui.
 function recorteBate(m) {
-  if (!m.peca || !m.recorte) return false;
-  const FOLGA = 6, ANEL = 2;
+  if (!m.peca || !m.recorte || !pecaDeAlvos(m)) return false;
+  const FOLGA = m.folga, ANEL = m.anel;
   const lim = (v, max) => Math.min(max - ANEL, Math.max(ANEL, v));
   const p = { l: lim(m.peca.l, m.vw), t: lim(m.peca.t, m.vh), r: lim(m.peca.r, m.vw), b: lim(m.peca.b, m.vh) };
   const e = { l: lim(p.l - FOLGA, m.vw), t: lim(p.t - FOLGA, m.vh), r: lim(p.r + FOLGA, m.vw), b: lim(p.b + FOLGA, m.vh) };
@@ -268,12 +300,18 @@ try {
     // simples (Tela, Verificar) saem; Histórico e Transferir ficam — e o do
     // Histórico ensina o + que manda o item ao Cronograma.
     const chavesG = await pg.evaluate(() => AVTour.chaves());
-    checar(!chavesG.includes('s.configuracoes') && !chavesG.includes('s.cfg-tela')
-      && !chavesG.includes('s.cfg-teste') && chavesG.includes('s.cfg-hist') && chavesG.includes('s.cfg-pacote'),
-      'G · na lista de tours não há mais a raiz de Configurações nem as janelas simples; Histórico e Transferir continuam',
-      JSON.stringify(chavesG));
+    // A FAMÍLIA, e não três nomes que não existem: `s.configuracoes`/`s.cfg-tela`/
+    // `s.cfg-teste` nunca estiveram em `SECOES`, então negá-los passava por
+    // vacuidade. A régua é a lista FECHADA das seções de Configurações.
+    const secoesCfg = chavesG.filter((k) => k.startsWith('s.cfg-')).sort();
+    checar(secoesCfg.length === 2 && secoesCfg[0] === 's.cfg-hist' && secoesCfg[1] === 's.cfg-pacote',
+      'G · as seções de Configurações são DUAS — Histórico e Transferir —, e a raiz não voltou',
+      JSON.stringify(secoesCfg));
     await pg.evaluate(() => {
-      const v = {}; for (const k of AVTour.chaves()) v[k] = 1;
+      // SÓ AS DO PRINCIPAL: pré-marcar TUDO esconderia justamente o tour de raiz
+      // que este bloco existe para negar.
+      const v = JSON.parse(localStorage.getItem('av.tour') || '{}');
+      for (const k of ['conexao', 'simples', 'tocando', 'avancado']) v[k] = 1;
       delete v['s.cfg-hist']; delete v['s.cfg-pacote'];
       localStorage.setItem('av.tour', JSON.stringify(v)); AVTour.armar();
     });
@@ -393,7 +431,7 @@ try {
     checar(c1.estado === 'off' && !c1.alt && /desligado$/.test(c1.aria) && c1.off === '1' && !c1.ativo && c1.folha && /desligado/.test(c1.title),
       'L · tocar no quadrado DESLIGA: apaga o desenho, grava a escolha e a folha continua aberta', JSON.stringify(c1));
     await pg.evaluate(() => {
-      const v = JSON.parse(localStorage.getItem('av.tour')); delete v.simples; delete v['s.configuracoes'];
+      const v = JSON.parse(localStorage.getItem('av.tour')); delete v.simples;
       localStorage.setItem('av.tour', JSON.stringify(v)); AVTour.armar();
     });
     await pg.waitForTimeout(1600);   // AUSÊNCIA: o de seção leva 0,7 s
@@ -542,7 +580,7 @@ try {
     const ra = await esperarTour(pg, 'avancado', 5000);
     checar(ra === true, 'F · no avançado o botão refaz o tour COMPLETO', porque(ra));
     const zerouAv = await pg.evaluate(() => JSON.parse(localStorage.getItem('av.tour')));
-    checar(!zerouAv['s.ferramentas'] && !zerouAv['s.ferr-timer'] && !zerouAv['s.configuracoes'] && zerouAv.conexao === 1 && zerouAv.avancado === 1,
+    checar(!zerouAv['s.ferramentas'] && !zerouAv['s.ferr-timer'] && zerouAv.conexao === 1 && zerouAv.avancado === 1,
       'F · e ZERA só o avançado: as seções dele voltam a se explicar; as do Fácil ficam como estavam', JSON.stringify(zerouAv));
     await pular(pg);
 
