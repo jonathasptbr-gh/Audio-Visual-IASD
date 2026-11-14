@@ -49,7 +49,6 @@ medição em aparelho não é fino.**
 | 2026-11-14 · revisão de 14/11 | `tools/tour.test.mjs:271` | pré-marca todas as chaves antes de abrir Configurações, então a asserção passaria com a seção de volta | higienização | precisa da reversão para provar |
 | 2026-11-14 · revisão de 14/11 | `tools/tour.test.mjs` | `FOLGA`/`ANEL` escritos à mão (o padrão do achado T7) | higienização | idem |
 | 2026-11-14 · revisão de 14/11 | `controle.js`, `controle.css` | 14 comentários "lápide" (`saiu na vX`) anteriores ao intervalo | higienização | fora do escopo das duas revisões |
-| 2026-11-14 · revisão de 14/11 | `site/sonoplastia/index.html` | 671 linhas de CSS e 1.320 de JS inline, nada cacheável (~33 kB comprimidos) | operador | falta o AVAL do operador: tirar exige conferir o layout de impressão (era o 12.3.2 da fila) |
 | 2026-11-14 · v1.14.16 | `site/sonoplastia/index.html` | a captura da lista de Ferramentas mostra seis e o app tem sete ("Editar mídia") | operador | refazer a captura pede o app em tela — **na fila: Pacote 29** (14/11) |
 | 2026-11-14 · revisão de 14/11 | `YoutubeGrab.kt` | os campos `initIni/initFim/idxIni/idxFim/codec` da `Faixa`, sem leitor desde que o `dash` saiu (~24 linhas, KDoc junto) | CI | não há compilador aqui; a remoção só se prova no Gradle |
 | 2026-11-14 · v1.14.16 | `controle.js:22564` | o aviso do card promete que a série "desce quando ela sair", mas a rodada só é armada por `manterSeriesDaSemana` — com um card aberto na projeção a saída da mídia não baixa | operador | mexe no contrato do `serieAutoImpedimento` — **na fila: Pacote 28** (14/11) |
@@ -57,7 +56,6 @@ medição em aparelho não é fino.**
 | 2026-11-14 · Pacote 24 | `~/.dsh-github/uso.mjs` | a remedição do custo com o preço do modelo ATUAL não saiu (não há preço publicado confiável na máquina); as tabelas do medidor são de 10/11 e ele aceita `--preco novo cache saida` | medição | preço do modelo atual não medido |
 | 2026-11-14 · revisão de 14/11 | `ESTABILIDADE-AV` C2, D2 | pedem medição em aparelho | medição | não há aparelho nesta máquina |
 | 2026-11-14 · revisão de 14/11 | `EFICIENCIA` #2, #9 | o #2: a fixture `DIAG` do `registro.test.mjs` sem `via`/`interfaces`/`midia`/`ultimo`; o #9: não há `tools/versao.mjs` | higienização | aberto desde 2026-09 |
-| 2026-11-14 · Pacote 25 | `tools/` (A1) | o `pre-push` versionado, opcional no A1: obrigaria o portão a cada push, inclusive de documentação, e pede `core.hooksPath` em cada clone | operador | é custo de toda entrega; os hooks do git neste proot não foram medidos |
 | 2026-11-14 · Pacote 25 | `apk.yml`, `web-ota` | a regra "base web mudou ⇒ versão sobe" é contra a última TAG: um segundo lote de web sem subir, depois de um que subiu, passa; a guarda anti-regressão aceita versão IGUAL | CI | o certo é comparar com o canal, e o `sha256` do zip muda a cada empacotamento — pede o hash da árvore |
 | 2026-11-14 · Pacote 26 (migração B4) | `controle.js` `:5705` | `naoResta()` e as duas frases dela, inalcançáveis: `doDraw` só chega lá com `drawRemaining() <= 0`, e os dois caminhos passam por botões com `disabled = drawGoApagado()` | higienização | veio da auditoria de agosto (A4); fora da cerca de toda etapa |
 | 2026-11-14 · Pacote 26 (migração B4) | `controle.js` (resíduo de `:8884`) | `hymnResultRow` reabre a gaveta montada sem repor `destExecutor`/`destMarcados`/`songMenuFor`; vale também para o ramo de episódio (`openYtMenu`) | higienização | veio da auditoria de agosto (A4); fora da cerca de toda etapa |
@@ -74,6 +72,8 @@ resíduo. (B8)
 |---|---|---|---|
 | 2026-11-14 · revisão de 14/11 | `controle.css` | a pílula de volume da tela cheia deitada (C8): a 740×360 o número sai da tela | **deixar como está** (operador, 14/11) |
 | 2026-11-14 · revisão de 14/11 | `capturas/entrada/` | 3,7 MB de JPEG de origem, já convertidos para `site/telas/` | **deixar como está** (operador, 14/11) |
+| 2026-11-14 · decisão do operador | `site/sonoplastia/index.html` | 671 linhas de CSS e 1.320 de JS inline, nada cacheável (~33 kB comprimidos de ~206 kB; o corpo é 838 kB dos 966 kB) | **deixar como está** (operador, 14/11): extrair mexe num arquivo de 7.803 linhas com 4 blocos `@media print` e um `@page`, para ganhar o que o corpo domina — era o 12.3.2 da fila, e fecha aqui |
+| 2026-11-14 · decisão do operador | `tools/` (A1) | o `pre-push` versionado: obrigaria o portão (~46 s) em todo push, inclusive de documentação, e pede `core.hooksPath` em cada clone | **deixar como está** (operador, 14/11): os hooks rodam neste proot (medido, git 2.43), mas o rito já roda o portão antes do commit; se o push sem portão voltar, um hook só com a Sanidade se paga |
 
 ## Lotes que declararam "nenhum"
 

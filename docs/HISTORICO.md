@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **os dois resíduos do operador fechados como decisão (sem versão nova; só `docs/`)** — o CSS/JS inline do `site/sonoplastia` e o `pre-push` versionado: medidos (33 kB comprimidos de ~206 kB, corpo de 838 kB; os hooks rodam no proot, mas o portão são ~46 s por push) e deixados como estão.
 - **o Pacote 27: o contrato enxuto (sem versão nova; docs, `tools/` e o workflow)** — os 8 apontamentos D da revisão de 14/11: o `CLAUDE.md` de 729 linhas para 369, uma regra só de leitura, a tabela única das falas ao operador, o critério objetivo da delegação, o método dos oráculos e a versão na fonte única, a árvore completa e os cinco finos; o `URGENCIA.md` esvaziou e saiu.
 - **o Pacote 25: o rito de entrega (sem versão nova; `tools/`, workflow e docs)** — os 11 apontamentos A da revisão de 14/11: direto em `main` sem `claude/**`, o portão como último passo e com teto na vizinhança, o gatilho da Release cobrado por máquina, três casas da versão, o rito numerado no BUILD, a regra do CI vermelho, o histórico e o RES cobrados, o `acorn` declarado.
 - **o Pacote 26: o processo de revisão (sem versão nova; docs e `tools/`)** — os 14 apontamentos B da revisão de 14/11: a revisão caça defeito, a base é o HEAD medido, as auditorias congeladas com os abertos no RES, o ACH esvaziado, a revisão profunda encerrada e a ferramenta de cobertura com títulos, binário fora e `--tabela`.
@@ -745,6 +746,27 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## os dois resíduos do operador fechados como decisão (sem versão nova; só `docs/`)
+
+O operador pediu a recomendação sobre as duas linhas com dono `operador` que o
+`tools/estado.sh` imprimia, e as duas fecharam sem trabalho:
+
+- **O CSS/JS inline do `site/sonoplastia/index.html`** (era o 12.3.2 da fila).
+  O estilo tem 44,8 kB e os dois scripts 71 kB crus — ~33 kB comprimidos, contra
+  os ~206 kB comprimidos da página, e o corpo é 838 kB dos 966 kB: é ele que
+  pesa. Extrair mexeria num arquivo de 7.803 linhas, com quatro blocos
+  `@media print` e um `@page` — risco no layout de impressão para um ganho que o
+  corpo domina. **Fica como está.**
+- **O `pre-push` versionado** (opcional no Pacote 25/A1). Os hooks do git RODAM
+  neste proot (medido: git 2.43, um `pre-push` num repo descartável) — o que
+  reprova é o custo: o portão inteiro são ~46 s, e rodaria em TODO push, inclusive
+  de documentação, depois de o rito já tê-lo rodado antes do commit. **Fica como
+  está**; se o push sem portão voltar a acontecer, um hook só com a Sanidade se
+  paga.
+
+Nenhum dos dois era defeito — eram decisões de custo, e as linhas desceram para
+"Fechado/decidido" no `docs/RESIDUOS.md`.
 
 ## o Pacote 27 — o contrato enxuto (sem versão nova; docs, `tools/` e o workflow)
 

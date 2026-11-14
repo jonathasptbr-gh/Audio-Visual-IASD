@@ -335,12 +335,14 @@ depois a revisão de 14/11 refez o trabalho com o escopo fixo
 
 Os seis itens fecharam: o 12.3.1 **REFUTADO** com número (o guia tem 943 kB
 crus e **206 kB comprimidos**), o 12.3.3 e o 12.3.4 **FEITOS**, o 12.3.5 e o
-12.3.6 **FEITOS** — os commits estão no dossiê — e o 12.3.2 saiu daqui: é o item
-do `site/sonoplastia/index.html` (o CSS/JS inline), que mora no
-`docs/RESIDUOS.md` com dono `operador` (falta o aval; o `estado.sh` imprime a
-linha). **Medido e sem o que consertar:** o desempenho do app (abertura de
-`562 ms`, busca de 1.000 itens em `5,2 ms`, sem retenção de heap) e o APK
-(5,11 MB) — o peso que sobra é de download do site, não do app.
+12.3.6 **FEITOS** — os commits estão no dossiê — e o 12.3.2 **FECHADO** (14/11):
+o item do `site/sonoplastia/index.html` (o CSS/JS inline) **fica como está** — o
+ganho (~33 kB comprimidos de ~206 kB; o corpo é 838 kB dos 966 kB) não paga
+extrair 7.803 linhas com 4 blocos de impressão —, e a linha desceu para
+"Fechado/decidido" no `docs/RESIDUOS.md`. **Medido e sem o que consertar:** o
+desempenho do app (abertura de `562 ms`, busca de 1.000 itens em `5,2 ms`, sem
+retenção de heap) e o APK (5,11 MB) — o peso que sobra é de download do site,
+não do app.
 
 ---
 
