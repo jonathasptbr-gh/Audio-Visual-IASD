@@ -9,7 +9,9 @@ disso.
 
 1. **Todo lote que publica declara o seu resíduo AQUI, antes do push** — mesmo
    quando a resposta é "nenhum". Um lote sem linha nesta tabela é um lote sem
-   vistoria.
+   vistoria. A coluna do lote leva a **versão** (`v1.14.16`) ou, sem versão, o
+   pacote; o `docs-coerentes` reprova quando a versão do `version.json` não
+   aparece aqui.
 2. **O que se fecha na mesma sessão não entra aqui.** Viu, consertou, pronto. A
    tabela é para o que NÃO deu para fechar agora.
 3. **O fino se resolve na hora, com agente de contexto limpo.** Chamar um
@@ -36,22 +38,24 @@ medição em aparelho não é fino.**
 `operador` (decisão de desenho ou de custo), `CI` (só o runner prova) ou
 `medição` (precisa de aparelho).
 
-| quando | onde | o que ficou | dono | por que não foi agora |
+| quando · lote | onde | o que ficou | dono | por que não foi agora |
 |---|---|---|---|---|
-| 2026-11-14 | `tools/tour.test.mjs` | `s.configuracoes` é chave que não existe: duas asserções e um `delete` que passam por vacuidade | higienização | fora da cerca do lote do tour |
-| 2026-11-14 | `tools/tour.test.mjs:271` | pré-marca todas as chaves antes de abrir Configurações, então a asserção passaria com a seção de volta | higienização | precisa da reversão para provar |
-| 2026-11-14 | `tools/tour.test.mjs` | `FOLGA`/`ANEL` escritos à mão (o padrão do achado T7) | higienização | idem |
-| 2026-11-14 | `controle.js`, `controle.css` | 14 comentários "lápide" (`saiu na vX`) anteriores ao intervalo | higienização | fora do escopo das duas revisões |
-| 2026-11-14 | `site/sonoplastia/index.html` | 671 linhas de CSS e 1.320 de JS inline, nada cacheável (~33 kB comprimidos) | higienização | ganho pequeno; exige conferir o layout de impressão |
-| 2026-11-14 | `site/sonoplastia/index.html` | a captura da lista de Ferramentas mostra seis e o app tem sete ("Editar mídia") | operador | refazer a captura pede o app em tela — **na fila: Pacote 29** (14/11) |
-| 2026-11-14 | `YoutubeGrab.kt` | os campos `initIni/initFim/idxIni/idxFim/codec` da `Faixa`, sem leitor desde que o `dash` saiu (~24 linhas, KDoc junto) | CI | não há compilador aqui; a remoção só se prova no Gradle |
-| 2026-11-14 | `controle.css` | a pílula de volume da tela cheia deitada (C8): a 740×360 o número sai da tela | operador | **decidido deixar como está** em 14/11 |
-| 2026-11-14 | `capturas/entrada/` | 3,7 MB de JPEG de origem, já convertidos para `site/telas/` | operador | **decidido deixar como está** em 14/11 |
-| 2026-11-14 | `controle.js:22564` | o aviso do card promete que a série "desce quando ela sair", mas a rodada só é armada por `manterSeriesDaSemana` — com um card aberto na projeção a saída da mídia não baixa | operador | mexe no contrato do `serieAutoImpedimento` — **na fila: Pacote 28** (14/11) |
-| 2026-11-14 | `tools/tour.test.mjs:94` | o oráculo mede a peça com a MESMA regra do `elementos()`: não distingue a peça certa da primeira casada | higienização | só o G novo tem régua independente |
-| 2026-11-14 | `~/.dsh-github/uso.mjs` | a remedição do custo com o preço do modelo ATUAL não saiu (não há preço publicado confiável na máquina); as tabelas do medidor são de 10/11 e ele aceita `--preco novo cache saida` | medição | preço do modelo atual não medido |
-| 2026-11-14 | `ESTABILIDADE-AV` C2, D2 | pedem medição em aparelho | medição | não há aparelho nesta máquina |
-| 2026-11-14 | `EFICIENCIA` #2, #9 | processo, não código | operador | aberto desde 2026-09 |
+| 2026-11-14 · revisão de 14/11 | `tools/tour.test.mjs` | `s.configuracoes` é chave que não existe: duas asserções e um `delete` que passam por vacuidade | higienização | fora da cerca do lote do tour |
+| 2026-11-14 · revisão de 14/11 | `tools/tour.test.mjs:271` | pré-marca todas as chaves antes de abrir Configurações, então a asserção passaria com a seção de volta | higienização | precisa da reversão para provar |
+| 2026-11-14 · revisão de 14/11 | `tools/tour.test.mjs` | `FOLGA`/`ANEL` escritos à mão (o padrão do achado T7) | higienização | idem |
+| 2026-11-14 · revisão de 14/11 | `controle.js`, `controle.css` | 14 comentários "lápide" (`saiu na vX`) anteriores ao intervalo | higienização | fora do escopo das duas revisões |
+| 2026-11-14 · revisão de 14/11 | `site/sonoplastia/index.html` | 671 linhas de CSS e 1.320 de JS inline, nada cacheável (~33 kB comprimidos) | higienização | ganho pequeno; exige conferir o layout de impressão |
+| 2026-11-14 · v1.14.16 | `site/sonoplastia/index.html` | a captura da lista de Ferramentas mostra seis e o app tem sete ("Editar mídia") | operador | refazer a captura pede o app em tela — **na fila: Pacote 29** (14/11) |
+| 2026-11-14 · revisão de 14/11 | `YoutubeGrab.kt` | os campos `initIni/initFim/idxIni/idxFim/codec` da `Faixa`, sem leitor desde que o `dash` saiu (~24 linhas, KDoc junto) | CI | não há compilador aqui; a remoção só se prova no Gradle |
+| 2026-11-14 · revisão de 14/11 | `controle.css` | a pílula de volume da tela cheia deitada (C8): a 740×360 o número sai da tela | operador | **decidido deixar como está** em 14/11 |
+| 2026-11-14 · revisão de 14/11 | `capturas/entrada/` | 3,7 MB de JPEG de origem, já convertidos para `site/telas/` | operador | **decidido deixar como está** em 14/11 |
+| 2026-11-14 · v1.14.16 | `controle.js:22564` | o aviso do card promete que a série "desce quando ela sair", mas a rodada só é armada por `manterSeriesDaSemana` — com um card aberto na projeção a saída da mídia não baixa | operador | mexe no contrato do `serieAutoImpedimento` — **na fila: Pacote 28** (14/11) |
+| 2026-11-14 · v1.14.16 | `tools/tour.test.mjs:94` | o oráculo mede a peça com a MESMA regra do `elementos()`: não distingue a peça certa da primeira casada | higienização | só o G novo tem régua independente |
+| 2026-11-14 · Pacote 24 | `~/.dsh-github/uso.mjs` | a remedição do custo com o preço do modelo ATUAL não saiu (não há preço publicado confiável na máquina); as tabelas do medidor são de 10/11 e ele aceita `--preco novo cache saida` | medição | preço do modelo atual não medido |
+| 2026-11-14 · revisão de 14/11 | `ESTABILIDADE-AV` C2, D2 | pedem medição em aparelho | medição | não há aparelho nesta máquina |
+| 2026-11-14 · revisão de 14/11 | `EFICIENCIA` #2, #9 | processo, não código | operador | aberto desde 2026-09 |
+| 2026-11-14 · Pacote 25 | `tools/` (A1) | o `pre-push` versionado, opcional no A1: obrigaria o portão a cada push, inclusive de documentação, e pede `core.hooksPath` em cada clone | operador | é custo de toda entrega; os hooks do git neste proot não foram medidos |
+| 2026-11-14 · Pacote 25 | `apk.yml`, `web-ota` | a regra "base web mudou ⇒ versão sobe" é contra a última TAG: um segundo lote de web sem subir, depois de um que subiu, passa; a guarda anti-regressão aceita versão IGUAL | CI | o certo é comparar com o canal, e o `sha256` do zip muda a cada empacotamento — pede o hash da árvore |
 
 ## Lotes que declararam "nenhum"
 

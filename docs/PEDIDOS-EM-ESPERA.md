@@ -35,8 +35,8 @@ executado** — esta edição é só a lista.
 uma revisão do contrato, do rito e dos processos de revisão, aprovou os quatro
 pacotes de conserto e mandou pô-los num arquivo de urgência: são os **Pacotes
 24 a 27**, e o conteúdo mora em [`URGENCIA.md`](URGENCIA.md). São os ÚNICOS
-pacotes desta fila **já autorizados** — um por sessão. **O Pacote 24 saiu em
-2026-11-14**; a ordem dos que restam é 25 → 27. Os
+pacotes desta fila **já autorizados** — um por sessão. **Os Pacotes 24 e 25 saíram
+em 2026-11-14**; a ordem dos que restam é 26 → 27. Os
 dois itens de decisão que estavam só no `RESIDUOS.md` viraram os **Pacotes 28 e
 29** (*"tudo entra na fila para ser feito"*).
 
@@ -75,7 +75,6 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **21** — Destinos: a engrenagem do item guardado | 6 (I3×U2) | pedido | só web |
 | **22** — Bíblia: três versículos no controle | 2 (I2×U1) | pedido | só web |
 | **23** — Editor de mídia: a margem inferior | 4 (I2×U2) | defeito | só web |
-| **25** — Urgência A: o rito de entrega | urgente — 1º | resíduo | `tools/` + workflow + docs |
 | **26** — Urgência B: o processo de revisão | urgente — 2º | resíduo | só docs + `tools/revisao-cobertura.mjs` |
 | **27** — Urgência D: enxugar e unificar o contrato | urgente — 3º | resíduo | só docs |
 | **28** — Série: o aviso que promete descer | 6 (I3×U2) | defeito | só web |
@@ -96,7 +95,7 @@ diferentes, e um lote nunca mistura dois temas.
 | **Cronograma e destinos** | 16, 20, 21 | a abertura antes do culto, o alerta de "não baixado" à esquerda e a engrenagem do item guardado |
 | **Bíblia** | 22 | a leitura de três versículos no controle |
 | **Mídia** | 23 | a margem inferior do editor de mídia |
-| **Diretrizes (urgência)** | 24, 25, 26, 27 | a revisão das diretrizes de 14/11: a máquina, o rito, a revisão e o contrato — um por sessão, nessa ordem |
+| **Diretrizes (urgência)** | 26, 27 | o que resta da revisão das diretrizes de 14/11: a revisão e o contrato — um por sessão, nessa ordem |
 | **Séries** | 28 | o aviso do card que promete o que a rodada não cumpre |
 | **Site** | 29 | a captura da lista de Ferramentas, com as sete |
 | **Fila anterior a 14/11** | 5, 6, 7, 8, 9, 12 | o que já estava na fila, na ordem que ela já tinha |
@@ -847,17 +846,6 @@ pode ser sido mal feito."*
   uma linha de CSS; se for o `#toolsFoot` vazio ou a lista, é outra.
 - **O oráculo:** o `geometria` mede a folha aberta e o corte; o
   `edicao-de-midia` mede o editor. O lote ajusta os dois se a régua mudar.
-
----
-
-## Pacote 25 — Urgência A: o rito de entrega
-
-**Urgente, 2º · resíduo · `tools/` + workflow + docs**
-
-O **Pacote A** do [`URGENCIA.md`](URGENCIA.md) (A1 a A11). Traz duas decisões
-do operador: **a entrega direto em `main` é o fluxo oficial** (o único teste
-antes de publicar é a prévia visual, e só quando ele pedir um design novo) e
-**a versão tem três casas**. **Autorizado** em 14/11.
 
 ---
 

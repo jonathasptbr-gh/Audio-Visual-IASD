@@ -669,7 +669,7 @@ de terceiro ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
 3. **Método novo? Escolha a fila** pela tabela acima — e, se for rede,
    **não** é `io`, por mais curta que a consulta pareça.
 4. **Mudou o shell? A base web sozinha não chega ao aparelho.** Declare a
-   `shellTag` no `version.json` **antes** do merge e publique a Release — ver
+   `shellTag` no `version.json` **antes** do commit e publique a Release — ver
    `CLAUDE.md`, "Regras de desenvolvimento".
 
 ---

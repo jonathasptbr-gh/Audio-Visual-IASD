@@ -22,7 +22,7 @@ O que aconteceu em 2026-11-13, e que este capítulo existe para impedir: a sess�
 A mediu o HEAD `94924a02` e começou um estudo; no meio, a sessão B commitou
 `316a4ec5` e deixou **13 arquivos sujos** no tree. A sessão A só lia, então nada
 aconteceu — mas se tivesse rodado `git add -A`, teria levado o lote alheio para
-dentro do próprio commit, e o rito de versão do projeto (as quatro casas, o
+dentro do próprio commit, e o rito de versão do projeto (as três casas, o
 `shellTag`, a Release) ficaria partido ao meio entre dois commits.
 
 ---
@@ -102,7 +102,7 @@ qual trecho, e deixe o operador decidir.
 | o **HEAD mudou** desde que você mediu | a outra sessão commitou | re-`status`; se o seu arquivo continua limpo, siga |
 | um **arquivo que você leu mudou** (mtime diferente) | o outro editou o mesmo arquivo | releia antes de editar; se a linha que você ia mudar sumiu, pare |
 | o **`git status` mostra arquivo que você não tocou** | trabalho alheio no tree | regra 5 |
-| **dois commits** com o mesmo número de versão | as duas sessões tocaram o rito | pare: o rito é de uma só |
+| **dois commits de sessões diferentes** com o mesmo número de versão | as duas sessões tocaram o rito | pare: o rito é de uma só (o conserto de CI vermelho no MESMO número é da mesma sessão — `docs/BUILD.md`, "O rito de entrega", passo 10) |
 
 ---
 

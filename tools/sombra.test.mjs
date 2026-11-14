@@ -32,7 +32,7 @@
 // ## Por que uma varredura de TEXTO, e por que ela é honesta
 //
 // A base web não tem dependências e este repositório não aceita uma só por um
-// teste (ver as quatro exceções declaradas no `CLAUDE.md`), então não há parser
+// teste (ver as cinco exceções declaradas no `CLAUDE.md`), então não há parser
 // de JavaScript à mão. O que existe é uma formatação uniforme: os módulos da
 // base são uma IIFE com corpo a dois espaços, ou um script de topo a zero, e
 // toda declaração aninhada tem indentação MAIOR. É o bastante para a pergunta

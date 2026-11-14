@@ -40,17 +40,41 @@ case "$acao" in
     echo "restaurar: tools/reverter.sh --restaurar $destino"
     ;;
 
+  # O RESTAURAR MOSTRA O QUE VAI SOBRESCREVER, E GUARDA (Pacote 25/A1). Ele
+  # copiava o arquivo inteiro por cima, calado: o que o lote escreveu DEPOIS do
+  # `--guardar` sumia sem aviso. Agora cada arquivo que mudou mostra o diff
+  # (atual → guardado) e a versão atual vai para `<backup>/.sobrescrito-<hora>/`
+  # antes da cópia — desfazer o restaurar é outro `cp`. E a árvore mudou: o
+  # portão roda DE NOVO antes do commit.
   --restaurar)
     [ $# -eq 1 ] || { echo "uso: tools/reverter.sh --restaurar <diretório do backup>"; exit 2; }
     dir=$1
     [ -f "$dir/.manifesto" ] || { echo "sem manifesto em $dir"; exit 1; }
+    salvo="$dir/.sobrescrito-$(date +%Y%m%d-%H%M%S)"
+    n=0
     while IFS= read -r f; do
       [ -n "$f" ] || continue
       [ -f "$dir/$f" ] || { echo "falta no backup: $f"; exit 1; }
+      if [ -f "$RAIZ/$f" ] && cmp -s "$dir/$f" "$RAIZ/$f"; then
+        echo "igual ao guardado: $f"
+        continue
+      fi
+      if [ -f "$RAIZ/$f" ]; then
+        echo "== vai sobrescrever $f (o que some está nas linhas '-'):"
+        diff -u "$RAIZ/$f" "$dir/$f" | sed -n '3,42p'
+        [ "$(diff "$RAIZ/$f" "$dir/$f" | wc -l)" -gt 40 ] && echo "   … (diff cortado em 40 linhas)"
+        mkdir -p "$salvo/$(dirname "$f")" || exit 1
+        cp -p "$RAIZ/$f" "$salvo/$f" || { echo "falhou ao guardar o atual: $f"; exit 1; }
+      fi
       mkdir -p "$RAIZ/$(dirname "$f")" || exit 1
       cp -p "$dir/$f" "$RAIZ/$f" || { echo "falhou ao restaurar: $f"; exit 1; }
       echo "restaurado: $f"
+      n=$((n + 1))
     done < "$dir/.manifesto"
+    if [ "$n" -gt 0 ]; then
+      [ -d "$salvo" ] && echo "o que foi sobrescrito ficou em $salvo"
+      echo "A ÁRVORE MUDOU: rode tools/portao.sh de novo antes do commit."
+    fi
     ;;
 
   *)

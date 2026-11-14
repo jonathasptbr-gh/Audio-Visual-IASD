@@ -68,7 +68,7 @@ tem o resto):
 | [`docs/ECONOMIA.md`](docs/ECONOMIA.md) | **o custo da sessão**: os três tetos, a rotina e o medidor |
 | [`docs/RESIDUOS.md`](docs/RESIDUOS.md) | **o que cada lote deixou para trás** — a tabela que substitui a arqueologia |
 | [`docs/REVISAO-GERAL.md`](docs/REVISAO-GERAL.md) | **o escopo da revisão periódica**: os dez marcos, e o que fecha uma revisão |
-| [`docs/URGENCIA.md`](docs/URGENCIA.md) | **a revisão das diretrizes de 14/11**: quatro pacotes de conserto (C → A → B → D) e as decisões do operador — ele esvazia |
+| [`docs/URGENCIA.md`](docs/URGENCIA.md) | **a revisão das diretrizes de 14/11**: os pacotes de conserto que restam (B → D) e as decisões do operador — ele esvazia |
 
 **Apêndices congelados** — `docs/AUDITORIA-2026-08.md`,
 `docs/AUDITORIA-2026-09-11.md`, `docs/AUDITORIA-EFICIENCIA-2026-09.md`,
@@ -181,7 +181,7 @@ Número congelado em prosa envelhece em horas — e a sessão que o lê decide c
 dado velho. **Meça antes de citar:**
 
 ```bash
-tools/estado.sh --ci     # HEAD, árvore, as quatro casas da versão, CI, fila
+tools/estado.sh --ci     # HEAD, árvore, as três casas da versão, a última Release, CI, fila
 ```
 
 Ele imprime o que muda sozinho (versão, HEAD, CI, token) e é a única fonte
@@ -222,7 +222,7 @@ escrever em prosa, está nas seções abaixo.
 
 ## OTA da base web (atualização sem APK)
 
-**Movido.** O canal, o watchdog e as três garantias em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#ota-da-base-web-atualização-sem-apk). A que segura a frota: **`shellTag` declarada sem Release segura o canal para sempre, em silêncio** — e a Release se dispara depois do merge.
+**Movido.** O canal, o watchdog e as três garantias em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#ota-da-base-web-atualização-sem-apk). A que segura a frota: **`shellTag` declarada sem Release segura o canal para sempre, em silêncio** — e a Release se dispara depois do push em `main`.
 
 ## Telão por comandos (o telão nas telas da rede local)
 
@@ -260,8 +260,10 @@ arnês, os prazos, o paralelismo, o stub que trava 60 s, os dois passos de
 Chromium, a rede externa bloqueada, o JUnit, a assinatura e o backup estão em
 [`docs/BUILD.md`](docs/BUILD.md).** O que se quebra sem abrir:
 
-- **Release:** `git tag vX && git push --tags`, ou *Build APK* → *Run workflow*
-  com `release_tag`. O `web-ota` roda com fila e sem cancelamento
+- **Release:** a rota do rito é o disparo manual — *Build APK* → *Run workflow*
+  com `release_tag` (a tag nasce no workflow, de `main`); `git tag vX && git
+  push --tags` é a alternativa. As três entradas do disparo e os três workflows
+  estão em [`docs/BUILD.md`](docs/BUILD.md#os-três-workflows-e-as-entradas-do-disparo). O `web-ota` roda com fila e sem cancelamento
   (`concurrency: web-ota`), e sem filtro de caminho por decisão.
 - **O arnês** (`tools/arnes.mjs`): `servirEstatico(raiz, antes)`, `esperar` e
   `esperarDb` (**prazo não é asserção**: o estouro devolve a frase, nunca o
@@ -296,20 +298,28 @@ asserção. O que fica aqui é o MÉTODO, que vale para todos.
 - **LOCALMENTE SE RODA SÓ A VIZINHANÇA DO LOTE; A SUÍTE INTEIRA É DO CI**
   (decisão do operador, 2026-10-15). Antes do commit: os oráculos de Chromium
   que tocam o que o lote mexeu (e os vizinhos que leem o mesmo estado), TODOS
-  os de Node puro (~8 s) e a *"Sanidade da base web"*. A suíte de Chromium
-  completa roda no `verificar` de `main`, que já é o portão do `web-ota` — um
-  vermelho ali segura o bundle, não o publica. **Reprovou no CI, o lote não
-  acabou:** conserta, repete a vizinhança e empurra de novo.
+  os de Node puro e a *"Sanidade da base web"* — é o `tools/portao.sh`, e ele é
+  o ÚLTIMO passo antes do commit. A suíte de Chromium completa roda no
+  `verificar` de `main`, que já é o portão do `web-ota` — um vermelho ali segura
+  o bundle, não o publica. **Reprovou no CI, o lote não acabou**, e o número
+  segue o rito ([`docs/BUILD.md`](docs/BUILD.md#o-rito-de-entrega), passo 10):
+  `verificar` vermelho = o bundle não saiu ⇒ conserto no MESMO número; já
+  publicado ⇒ número novo; nunca `revert` nem `push --force` em `main`.
 
 - **O PORTÃO É UM COMANDO, e ele roda o texto do workflow sem copiá-lo:**
 
   ```bash
   tools/portao.sh                       # Node puro + Sanidade + a lista do CI
-  tools/portao.sh controle/controle.js  # + a vizinhança que cita o arquivo
+  tools/portao.sh app/src/main/assets/web/controle/controle.js  # + sintaxe e vizinhança
+  tools/portao.sh <arq> --vizinho tools/x.test.mjs   # a vizinhança escolhida
   ```
 
-  Copiar o bloco da Sanidade seria a divergência que o arnês existe para fechar:
-  o script o extrai do próprio `.github/workflows/apk.yml` a cada execução.
+  **Vizinho é só oráculo de Chromium** (`*.test.mjs` não puro e os dois smoke)
+  que cita o arquivo — os puros já rodam inteiros. **Acima de 8 ele não
+  escolhe:** lista e reprova até a escolha vir por `--vizinho` (o `controle.js`
+  passa dele); `--vizinhanca-inteira` tira o teto. Copiar o bloco da
+  Sanidade seria a divergência que o arnês existe para fechar: o script o
+  extrai do próprio `.github/workflows/apk.yml` a cada execução.
 
 - **Teste que não está no workflow é documentação, não rede de segurança** — a
   linha do `rodar` entra no MESMO lote que o arquivo. O modo de falhar é sempre
@@ -328,14 +338,16 @@ asserção. O que fica aqui é o MÉTODO, que vale para todos.
   `display-smoke.mjs` medem o RENDERIZADO e não têm esse sufixo: um runner que
   filtre por ele os pula em silêncio e devolve placar cheio. **A conferência é
   nos DOIS sentidos**, e o passo 4 do `portao.sh` a faz com `comm -3` entre
-  `ls tools/*.test.mjs` e os caminhos que o `apk.yml` cita. O passo 2 (Node puro)
-  usa a mesma lista do disco menos quem **importa** o arnês — o filtro é
-  `from './arnes.mjs'`, nunca a menção ao nome (o furo de 2026-11-13: o
-  `docs-coerentes` NOMEIA o arnês num Set e era o único puro fora do portão):
+  `ls tools/*.test.mjs` e os caminhos que o `apk.yml` cita. O conjunto puro é a
+  mesma lista do disco menos quem **importa** o arnês ou uma dependência do
+  `package.json` — por `from '…'` ou `import('…')`, nunca pela menção ao nome (o
+  furo de 2026-11-13: o `docs-coerentes` NOMEIA o arnês num Set e ficava fora;
+  o de 14/11: o import dinâmico do `acorn` no `nome-inexistente` escapava e o fazia contar como
+  puro). O passo 2 roda os puros que a Sanidade não roda; os dela, no passo 3:
 
   ```bash
   comm -23 <(ls tools/*.test.mjs | sort) \
-           <(grep -lE "from '(\./)?(arnes\.mjs|playwright)'" tools/*.test.mjs | sort)
+           <(grep -lE "(from |import\()'(\./)?(arnes\.mjs|playwright|acorn)'" tools/*.test.mjs | sort)
   ```
 
 - **E OS ORÁCULOS NÃO SÃO O PASSO INTEIRO.** A *"Sanidade da base web"* é um
@@ -382,15 +394,18 @@ asserção. O que fica aqui é o MÉTODO, que vale para todos.
 
 ### Entrega
 
-- **SEMPRE fazer merge com `main` ao terminar.** Trabalhar na branch designada é
-  o meio, não o fim: o OTA publica a partir de `main` (`if: github.ref ==
-  'refs/heads/main'`) e as Releases nascem de `main`.
+- **A ENTREGA É DIRETO EM `main`** (decisão do operador, 2026-11-14): sem ramo
+  de teste, sem `checkout`/`merge`. O OTA publica a partir de `main` (`if:
+  github.ref == 'refs/heads/main'`) e as Releases nascem de `main`. **A ordem é
+  o rito, numerado em [`docs/BUILD.md`](docs/BUILD.md#o-rito-de-entrega)**, e o
+  portão é o ÚLTIMO passo antes do commit — com o ramo fora, ele é a ÚNICA
+  barreira antes do canal. O único teste que passa pelo operador antes de
+  publicar é a **prévia visual**, e só quando ele pede um design novo.
 
   ```bash
+  tools/portao.sh <arquivos do lote>   # de novo depois de QUALQUER mudança
   git add <arquivos> && git commit -m "vX.Y.Z: <descrição>"
-  git push -u origin <branch>
-  git checkout main && git merge <branch> --no-ff -m "Merge: <resumo>"
-  git push origin main          # ← sem isto, nada chega aos aparelhos
+  git push origin main                 # ← sem isto, nada chega aos aparelhos
   ```
 
 - **O APK NÃO É RECURSO RESTRITO** (diretriz do operador, 2026-10-30: *"sempre
@@ -400,13 +415,13 @@ asserção. O que fica aqui é o MÉTODO, que vale para todos.
   ele é feito no Kotlin, no mesmo lote, com `shellTag` e Release — nunca se
   entrega um contorno só de web no lugar dele, nem se deixa a metade do shell
   "para depois". O OTA continua sendo o caminho normal para o que é web.
-- **SEMPRE gerar uma Release quando o SHELL mudar.** O merge entrega só a **base
-  web** — o OTA carrega `assets/web/` e mais nada. `java/`, `AndroidManifest.xml`,
+- **SEMPRE gerar uma Release quando o SHELL mudar.** O push em `main` entrega só
+  a **base web** — o OTA carrega `assets/web/` e mais nada. `java/`, `AndroidManifest.xml`,
   `res/`, `build.gradle.kts` e os workflows **só chegam instalando um APK**, e o
   pior caso é silencioso: um método novo da ponte faz o web se comportar de um
   jeito no código e de outro no culto, porque lá o `SHELL_VERSION` é o antigo.
 
-  **A primeira linha vem ANTES do merge:** declarar a tag em `version.json`.
+  **A primeira linha vem ANTES do commit:** declarar a tag em `version.json`.
 
   ```jsonc
   { "version": "1.0.1", "minShell": 46, "shellTag": "v1.0.1" }
@@ -418,6 +433,9 @@ asserção. O que fica aqui é o MÉTODO, que vale para todos.
   um lote só de web. Depois do push em `main`: Actions → *Build APK* → Run
   workflow, com `release_tag` = a MESMA tag do `version.json` (a tag é criada
   pelo workflow, a partir de `main`). **Não esperar o operador pedir.**
+  **O esquecimento tem máquina:** o portão e o `verificar` reprovam o shell
+  (`java/`, `res/`, manifesto, `build.gradle.kts`) mudado desde a última tag
+  `v*` sem `shellTag`, e a base web mudada sem versão maior que a da tag.
 
   **`shellTag` esquecido não quebra nada, mas desfaz o ganho** (o aparelho recebe
   a metade web sozinha). **`shellTag` apontando para uma tag que nunca sai é
@@ -459,7 +477,8 @@ asserção. O que fica aqui é o MÉTODO, que vale para todos.
   ninguém abriu. Quem fez o lote sabe, na hora, o que viu e não consertou: **cada
   linha vai para [`docs/RESIDUOS.md`](docs/RESIDUOS.md)**, com onde e tamanho —
   mesmo quando a resposta é "nenhum". Um lote sem linha lá é um lote sem
-  vistoria, do mesmo jeito que uma versão sem nota no `HISTORICO.md`.
+  vistoria, do mesmo jeito que uma versão sem nota no `HISTORICO.md` — e a
+  versão vai na coluna do lote: o `docs-coerentes` reprova sem ela.
 
   **O que se fecha na mesma sessão não entra na tabela.** Viu, consertou, pronto.
   A tabela é para o que não deu, e cada linha diz por quê.
@@ -522,12 +541,12 @@ briefing, não o agente:
 - **Cor nova entra em `shared/tokens.css`**, nunca literal na folha do app — e
   nunca branco pleno fora do palco.
 - **Sem dependências externas** — Kotlin puro + AndroidX no shell, JavaScript
-  puro no web. **Quatro exceções, todas declaradas:** `@aiden0z/pptx-renderer`
+  puro no web. **Cinco exceções, todas declaradas:** `@aiden0z/pptx-renderer`
   (`assets/web/vendor/`, `import()` dinâmico), `NewPipeExtractor` (pin
-  explícito; ler o CHANGELOG antes de reescrever extração à mão), JUnit e
-  Playwright (estes dois sem um byte no APK; subir o pin do Playwright obriga a
-  repetir a campanha de determinismo). A justificativa de cada uma está em
-  [`docs/BUILD.md`](docs/BUILD.md), seção "As dependências". Uma quinta exceção
+  explícito; ler o CHANGELOG antes de reescrever extração à mão), JUnit,
+  Playwright e `acorn` (estes três sem um byte no APK; subir o pin do Playwright
+  obriga a repetir a campanha de determinismo). A justificativa de cada uma está
+  em [`docs/BUILD.md`](docs/BUILD.md), seção "As dependências". Uma sexta exceção
   precisa da mesma justificativa: um problema que não se resolve de outro jeito,
   e a manutenção paga por quem publica a biblioteca.
 
@@ -569,7 +588,8 @@ trabalho. Prosa custa contexto que não sobra para o código.
   inteira e a escrita custa uma linha.
 - **ESTE ARQUIVO NÃO GUARDA LOG DE LOTE.** Um lote publicado escreve a nota no
   `docs/HISTORICO.md` (a seção `## vX — título` logo abaixo do índice, e no
-  índice UMA linha sem a nota, até 400 caracteres — o `docs-coerentes` cobra) e, AQUI, só corrige a REGRA que mudou — **no lugar dela**. Se o lote
+  índice UMA linha sem a nota, até 400 caracteres — o `docs-coerentes` cobra as
+  duas e o teto) e, AQUI, só corrige a REGRA que mudou — **no lugar dela**. Se o lote
   não muda regra nenhuma, este arquivo não muda.
 
   **O formato é o defeito**: um bloco por lote é um log, e um log só cresce. A
@@ -655,15 +675,11 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.14.16 · APK v1.14.13** · `SHELL_VERSION` **87** ·
-bundle com `minShell: 83` e **sem `shellTag`** (lote só de web: a Release do
-1.14.13 já saiu, e nada de Kotlin mudou); o contrato da ponte
-não mudou desde o casco 87,
-que trouxe o `abrirGuia` (o guia de sonoplastia numa tela do app, WebView sem
-ponte). O **PISO** continua **83**: as funções do casco 86 (volume) e do 87
-(guia) são OPCIONAIS — o web pergunta por `typeof` e degrada sem elas (`null`; o
-guia cai no `openExternal`), então um aparelho com casco 83/85/86 continua
-inteiro. O que cada lote trouxe está no `docs/HISTORICO.md`, nunca aqui.
+**O estado corrente — a versão, a última Release, o `SHELL_VERSION`, o
+`minShell` e o `shellTag` — se mede** (`tools/estado.sh`); o degrau e o PISO
+da ponte estão no [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#shell_version--subir-sempre-que-a-superfície-mudar),
+e o que cada lote trouxe, no `docs/HISTORICO.md`. Nenhum número de versão mora
+nesta prosa.
 
 - **O `shellTag` ACOMPANHA A ÚLTIMA VERSÃO, NÃO A QUE MEXEU NO KOTLIN** — o CI
   exige `shellTag == 'v' + version`. Um lote só de web publicado DEPOIS de um
@@ -679,18 +695,16 @@ inteiro. O que cada lote trouxe está no `docs/HISTORICO.md`, nunca aqui.
 - **O modo de falhar é o caro:** uma tag declarada cuja Release nunca sai segura
   o canal PARA SEMPRE, em silêncio (a única pista é a linha no resumo do run), e
   deixá-la apontando para a tag do lote ANTERIOR é o mesmo defeito. Declarada, a
-  Release se dispara depois do merge em `main`: Actions → *Build APK* →
+  Release se dispara depois do push em `main`: Actions → *Build APK* →
   `release_tag` = a MESMA tag.
 - **Um `apk` reprovado não pula o `web-ota`** (o `if:` dele ignora o resultado do
   `apk`; o `needs` está pela ORDEM): quem segura é o HOLD do `shellTag`, e o
   desfecho é um job VERDE que não publicou. Um lote que toca `java/` confere o
   `apk`. Por extenso em [`docs/BUILD.md`](docs/BUILD.md).
-- **Este bloco é a QUARTA CASA da versão** e tem oráculo
-  (`docs-coerentes.test.mjs` compara esta linha com o `version.json`).
-  **Renumerar um lote mexe nas QUATRO casas** (`version.json`, `WEB_VERSION`,
-  `#appVersion` e esta linha), no `shellTag`, no `notas.json` e em toda chave que
-  carregue o número — o OTA ignora, em silêncio, um bundle cuja versão não seja
-  MAIOR que a instalada.
+- **Renumerar um lote mexe nas TRÊS casas** (`version.json`, `WEB_VERSION`,
+  `#appVersion`), no `shellTag`, no `notas.json` e em toda chave que carregue o
+  número — o OTA ignora, em silêncio, um bundle cuja versão não seja MAIOR que
+  a instalada.
 
 ### Onde procurar
 

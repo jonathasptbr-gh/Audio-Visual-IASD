@@ -163,8 +163,8 @@ para os capítulos (que já existem) o que é detalhe de recurso; mover para o
 de parágrafos de lotes antigos; a tabela de divergências tem células de 40
 linhas). Método: inventário regra a regra ANTES de cortar (cada regra tem casa
 nova nomeada no relatório), e o `tools/docs-coerentes.test.mjs` verde. **Não
-muda regra nenhuma**, só onde ela mora. Cuidado com a "quarta casa da versão"
-e a contagem de arquivos Kotlin, que o oráculo lê dali. **E a linha da
+muda regra nenhuma**, só onde ela mora. Cuidado com a contagem de arquivos Kotlin,
+que o oráculo lê dali. **E a linha da
 revisão na tabela "Onde procurar" fica** — é por ela que "faça uma das etapas
 de revisão" acha este plano.
 

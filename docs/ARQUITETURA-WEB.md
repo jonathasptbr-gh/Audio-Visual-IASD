@@ -53,18 +53,15 @@ Neste arquivo:
 
 ## Regra obrigatória após qualquer alteração
 
-**Sempre fazer merge com `main` ao finalizar qualquer atualização nos arquivos.**
+**A entrega é direto em `main`** (decisão do operador, 2026-11-14) — sem ramo,
+sem `checkout`/`merge`. A ordem (versão, notas, histórico, resíduo, portão,
+commit, push, Release) é o rito numerado em
+[`BUILD.md`](BUILD.md#o-rito-de-entrega), e o `tools/portao.sh` é o último passo
+antes do commit:
 
-Fluxo padrão:
 ```bash
-# 1. Desenvolver na branch designada
-git add <arquivos>
-git commit -m "mensagem descritiva"
-git push -u origin <branch>
-
-# 2. Merge obrigatório para main
-git checkout main
-git merge <branch> --no-ff -m "Merge: <descrição resumida>"
+tools/portao.sh <arquivos do lote>
+git add <arquivos> && git commit -m "vX.Y.Z: <descrição>"
 git push origin main
 ```
 

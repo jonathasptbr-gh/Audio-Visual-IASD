@@ -255,7 +255,7 @@ motivo de a escolha ter sido barata.
    **republicaria o bundle de hora em hora** — e cada publicação substitui o
    `version.json`, **zerando justamente o contador do §5**. O instrumento
    destruiria a própria medida. Daí a série morar numa branch órfã `dados`: o
-   `on: push` do `apk.yml` é `branches: [main, 'claude/**']`, e `dados` não casa.
+   `on: push` do `apk.yml` é `branches: [main]`, e `dados` não casa.
 3. **Asset de Release não tem CORS; `raw.githubusercontent.com` tem.** O
    `pages.yml` já registra a medição (*"o asset de release responde SEM
    `Access-Control-Allow-Origin`"*), e é por isso que ele escreve a versão no

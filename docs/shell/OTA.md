@@ -348,7 +348,7 @@ O job `web-ota` (todo push em `main`) empacota `assets/web/` num
 
 - **`shellTag` no `version.json` é o acoplamento.** Declarado, o `web-ota`
   **segura a publicação do bundle** até a Release existir (o job termina verde e
-  diz no resumo que está segurando — é o estado normal entre o merge e a
+  diz no resumo que está segurando — é o estado normal entre o push e a
   Release). Quando ela sai, o bundle é republicado com o bloco **`shell`**
   (versão, URL do `.apk`, tamanho) dentro do manifesto. Sem `shellTag` o
   manifesto anuncia a Release mais recente que existir — `shellTag` responde

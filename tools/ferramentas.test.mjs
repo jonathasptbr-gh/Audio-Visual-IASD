@@ -46,8 +46,8 @@ for (const arq of ['tools/estado.sh', 'tools/portao.sh', 'tools/reverter.sh']) {
 // 1. O estado roda OFFLINE (sem --ci), sai com 0 e imprime as seções.
 try {
   const saida = execFileSync('bash', ['tools/estado.sh'], { cwd: RAIZ, encoding: 'utf8', timeout: 60000 });
-  checar(saida.includes('== versão — as quatro casas'),
-    'o estado.sh roda e imprime as quatro casas da versão');
+  checar(saida.includes('== versão — as três casas') && saida.includes('última Release'),
+    'o estado.sh roda e imprime as três casas da versão e a última Release');
   checar(saida.includes('== credencial') && saida.includes('== cobertura do workflow'),
     'e as outras seções (credencial, cobertura, fila)');
 } catch (e) {
@@ -93,9 +93,31 @@ if (reFiltro) {
   checar(importam.length > 30, 'os oráculos de Chromium importam o arnês', 'achou ' + importam.length);
   checar(importam.every((f) => !puros.includes(f)),
     'e nenhum deles entra no conjunto puro');
-  const RE_IMPORTE = "from '(\\./)?(arnes\\.mjs|playwright)'";
+  const RE_IMPORTE = "(from |import\\()'(\\./)?(arnes\\.mjs|playwright|acorn)'";
   checar(portao.includes(RE_IMPORTE) && estado.includes(RE_IMPORTE),
     'o portão e o estado contam os puros pelo MESMO filtro (o import, não a menção)');
+  // 3.6. TODA DEPENDÊNCIA DO ARNÊS ESTÁ NO FILTRO (Pacote 25/A9). O `acorn` é
+  //    importado dinamicamente (`await import` do `acorn`) no `nome-inexistente`,
+  //    que roda no passo de Chromium (depois do `npm ci`), e o filtro antigo só
+  //    via o `from`: ele contava como puro um oráculo que, rodado antes do
+  //    `npm ci`, não acha a dependência. Uma sexta dependência entra no filtro
+  //    no mesmo lote. (A sintaxe do import, escrita num comentário, casa com o
+  //    filtro — por isso a forma acima, e a régua estrutural logo abaixo.)
+  const deps = Object.keys(JSON.parse(ler('package.json')).devDependencies || {});
+  const fora = deps.filter((d) => !reFiltro[1].includes('|' + d + ')') && !reFiltro[1].includes('|' + d + '|'));
+  checar(deps.length >= 2 && !fora.length,
+    'e cada `devDependency` do `package.json` está no filtro dos puros', 'fora: ' + fora.join(', '));
+  // 3.7. O PURO DO FILTRO É O PURO DO CI, nos dois sentidos. O CI roda os puros
+  //    ANTES do `npm ci` (a Sanidade e os passos próprios); o que roda depois
+  //    não é puro. Um oráculo que o filtro tira dos puros some do passo 2 do
+  //    portão (o furo de 13/11); um que ele põe é rodado antes da dependência.
+  const corte = workflow.indexOf('- name: Cache do npm e do Chromium (restaurar)');
+  const antesDoNpm = new Set([...workflow.slice(0, corte).matchAll(/node tools\/([a-z0-9.-]+\.test\.mjs)/g)].map((x) => x[1]));
+  const soFiltro = puros.filter((f) => !antesDoNpm.has(f));
+  const soCi = [...antesDoNpm].filter((f) => !puros.includes(f));
+  checar(corte > 0 && antesDoNpm.size >= 30 && !soFiltro.length && !soCi.length,
+    'e o conjunto puro do filtro é o que o CI roda antes do `npm ci`',
+    'puro só no filtro: ' + soFiltro.join(', ') + ' · só no CI: ' + soCi.join(', '));
 }
 
 // 4. As duas ferramentas são citadas no CONTRATO — é o que faz a sessão

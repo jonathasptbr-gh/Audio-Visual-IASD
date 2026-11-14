@@ -3,9 +3,9 @@
 # O ESTADO, MEDIDO — nunca citado de memória.
 #
 # Número em prosa envelhece em horas (o manual já disse "token ausente" com o
-# token na mão). Este script imprime o que muda sozinho: HEAD, árvore, as quatro
-# casas da versão, o degrau da ponte, a cobertura do workflow, a credencial e o
-# CI do commit. Quem escreve relatório cita o que ele imprimiu NESTA sessão.
+# token na mão). Este script imprime o que muda sozinho: HEAD, árvore, as três
+# casas da versão, a última Release (a tag), o degrau da ponte, a cobertura do
+# workflow, a credencial e o CI do commit. Quem escreve relatório cita o que ele imprimiu NESTA sessão.
 #
 # Uso:  tools/estado.sh [--ci]      (--ci consulta a API do GitHub)
 # =============================================================================
@@ -31,32 +31,43 @@ if g rev-parse --verify -q origin/main >/dev/null; then
   echo "remoto:  atrás $1 · à frente $2 (main do origin)"
 fi
 
-p "versão — as quatro casas"
+p "versão — as três casas"
 python3 - <<'PY'
-import json, re, pathlib
+import json, re, pathlib, subprocess
 raiz = pathlib.Path('app/src/main/assets/web')
 m = json.load(open(raiz / 'version.json'))
 js = (raiz / 'controle/controle.js').read_text(encoding='utf-8')
 html = (raiz / 'controle/index.html').read_text(encoding='utf-8')
-cl = pathlib.Path('CLAUDE.md').read_text(encoding='utf-8')
 web = re.search(r"^const WEB_VERSION = '([^']+)'", js, re.M)
 app = re.search(r'id="appVersion"[^>]*>[^<]*?v([0-9][0-9.]*)<', html)
-clm = re.search(r'Versão atual: base web v([0-9.]+) · APK v([0-9.]+)', cl)
 kt = pathlib.Path('app/src/main/java/br/org/iasd/av/NativeBridge.kt').read_text(encoding='utf-8')
 shell = re.search(r'const val SHELL_VERSION\s*=\s*(\d+)', kt)
 casas = {
     'version.json': m['version'],
     'WEB_VERSION': web.group(1) if web else '?',
     '#appVersion': app.group(1) if app else '?',
-    'CLAUDE.md': clm.group(1) if clm else '?',
 }
 for k, v in casas.items():
     print(f'  {k:<14} {v}')
 ok = len(set(casas.values())) == 1 and '?' not in casas.values()
-print(f'  -> as quatro {"BATEM" if ok else "DIVERGEM"}')
+print(f'  -> as três {"BATEM" if ok else "DIVERGEM"}')
 print(f"  minShell       {m.get('minShell')}   (SHELL_VERSION {shell.group(1) if shell else '?'})")
 print(f"  shellTag       {m.get('shellTag') or '(ausente)'}")
-print(f"  APK anunciado  {('v' + clm.group(2)) if clm else '?'}")
+# A ÚLTIMA RELEASE SAI DO GIT, NÃO DA PROSA (Pacote 25/A5): a linha "APK v…"
+# do CLAUDE.md era lida aqui e conferida contra ela mesma. A tag `v*` é o que
+# o workflow cria ao publicar; as locais andam com `git fetch --tags`.
+def git(*a):
+    r = subprocess.run(['git', '-c', 'safe.directory=*', *a], capture_output=True, text=True)
+    return r.stdout.strip() if r.returncode == 0 else ''
+tag = git('describe', '--tags', '--abbrev=0', '--match', 'v*', 'HEAD')
+if tag:
+    d = git('diff', '--name-only', tag, '--', 'app/src/main/java', 'app/src/main/res',
+            'app/src/main/AndroidManifest.xml', 'app/build.gradle.kts')
+    n = len([l for l in d.splitlines() if l])
+    print(f"  última Release {tag} (tag local) · shell mudou desde ela: "
+          f"{n} arquivo(s){' → exige shellTag' if n else ''}")
+else:
+    print("  última Release (nenhuma tag v* local — git fetch --tags)")
 PY
 
 p "cobertura do workflow"
@@ -64,9 +75,10 @@ fora=$(comm -3 <(ls tools/*.test.mjs | sort) \
              <(grep -oE 'tools/[a-z0-9.-]+\.test\.mjs' .github/workflows/apk.yml | sort -u) | wc -l)
 total=$(ls tools/*.test.mjs | wc -l)
 # O FILTRO É O IMPORT, NÃO A MENÇÃO (2026-11-13): o `docs-coerentes` NOMEIA o
-# `arnes.mjs` num Set e ficava de fora — a mesma régua do `portao.sh`.
+# `arnes.mjs` num Set e ficava de fora — a mesma régua do `portao.sh`, que conta
+# também o `import('…')` dinâmico (o `acorn` do `nome-inexistente`).
 puro=$(comm -23 <(ls tools/*.test.mjs | sort) \
-             <(grep -lE "from '(\./)?(arnes\.mjs|playwright)'" tools/*.test.mjs | sort) | wc -l)
+             <(grep -lE "(from |import\()'(\./)?(arnes\.mjs|playwright|acorn)'" tools/*.test.mjs | sort) | wc -l)
 echo "  oráculos: $total arquivos · $puro de Node puro · $fora fora do workflow"
 
 # O cofre do harness vem primeiro; o arquivo antigo é reserva — a mesma ordem
@@ -111,6 +123,11 @@ if [ "$CI" -eq 1 ] && [ -n "$TOKEN" ]; then
     }).then(r => r.json()).then(j => {
       for (const c of j.check_runs || []) console.log(`  ${c.status}/${c.conclusion || "-"}  ${c.name}`);
       if (!(j.check_runs || []).length) console.log("  (nenhum check ainda)");
+      // A Release mais nova NO GITHUB — a tag local pode estar atrás.
+      return fetch(`https://api.github.com/repos/${repo}/releases/latest`, {
+        headers: { Authorization: "Bearer " + token, "User-Agent": "dsh-estado" },
+        signal: ctl.signal,
+      }).then(r => r.json()).then(r => console.log(`  Release mais nova no GitHub: ${r.tag_name || "(nenhuma)"}`));
     }).catch(() => console.log("  (API indisponível agora)"));
   ' "$(g rev-parse HEAD)"
 elif [ "$CI" -eq 1 ]; then

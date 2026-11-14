@@ -9,6 +9,45 @@ web", a reversão de asserção e a reversão por cópia) ficam no `CLAUDE.md`**
 
 > **Movido do `CLAUDE.md` na revisão A2 (2026-10-30), sem mudança de texto** (só os links relativos e o nível dos títulos). No núcleo ficou um resumo com o link para cá. "Acima", "abaixo", "esta seção" e as invariantes numeradas falam do `CLAUDE.md`, de onde este texto veio.
 
+## O rito de entrega
+
+A lista ÚNICA, na ordem — o `CLAUDE.md` aponta para cá. A entrega é direto em
+`main` (decisão do operador, 2026-11-14): sem ramo, o passo 7 é a ÚNICA barreira
+antes do canal OTA.
+
+1. **Prévia visual** — só quando o operador pede um design novo (abaixo).
+2. **Versão:** a base web mudou ⇒ as três casas (`version.json`, `WEB_VERSION`, `#appVersion`); o shell mudou ⇒ `shellTag` = `v` + versão (e o `SHELL_VERSION`, se a superfície mudou).
+3. **`notas.json`:** a entrada da versão no topo, um tópico por linha, ≤ 120 caracteres.
+4. **`docs/HISTORICO.md`:** a seção `## vX — …` e a linha do índice — antes da mensagem de commit, que fica curta.
+5. **`docs/RESIDUOS.md`:** o que ficou para trás (ou "nenhum"), com a versão na coluna do lote.
+6. **A fila:** o pacote entregue sai do `PEDIDOS-EM-ESPERA.md`.
+7. **`tools/portao.sh <arquivos do lote>`** — o ÚLTIMO passo antes do commit; de novo depois de QUALQUER mudança (um `reverter.sh --restaurar` inclusive).
+8. **Commit e push em `main`:** `git add <caminhos>` (nunca `-A` — `docs/MULTI-AGENTE.md`).
+9. **Release, se o shell mudou:** o disparo manual com `release_tag` = o `shellTag` (a seção seguinte).
+10. **O CI:** `verificar` vermelho = o bundle não saiu ⇒ conserto no MESMO número e push de novo; já publicado ⇒ número novo. Nunca `revert` nem `push --force` em `main`.
+11. **A página:** o passo *"A versão que o aparelho vai rodar"* sem `::warning::` ("A página do site").
+
+O portão e o `verificar` cobram 2 a 5 por máquina: as três casas, o `shellTag`
+contra a última tag `v*` (shell mudado sem ele reprova), a versão maior que a da
+tag quando a base web mudou, o teto das notas, o índice E a seção do histórico,
+e a versão citada no RES.
+
+## Os três workflows e as entradas do disparo
+
+| workflow | gatilho | o que faz |
+|---|---|---|
+| `apk.yml` (*Build APK*) | push em `main`, tag `v*`, PR, `release`, disparo manual | `verificar` (o portão do CI) → `apk` (o APK; a Release, se `PUBLISH`) → `web-ota` (o canal) |
+| `pages.yml` | `workflow_run` do *Build APK*; push em `main` que toque `site/`; `release`; manual | a página do site, com a versão do canal OTA |
+| `dados.yml` | cron, de hora em hora (`17 * * * *`) | fotografa os contadores de download e grava na branch órfã `dados` — **nunca em `main`**: um push ali republicaria o bundle e zeraria o contador que ele mede (`docs/MEDICAO-DE-ALCANCE.md`) |
+
+O disparo manual do *Build APK* tem três entradas:
+
+| entrada | o que faz |
+|---|---|
+| `release_tag` | publica a Release com esta tag, criada de `main` — **a rota do rito**. Vazio = só compila |
+| `retag` | a tag já existe ⇒ MOVE para o commit atual (apaga e recria a Release) |
+| `permitir_regressao` | publica um manifesto com versão MENOR que a no ar — só para renumeração deliberada. Sem ela, a **guarda anti-regressão** do `web-ota` (*"O manifesto publicado é mais novo?"*) pula a publicação, e o job termina VERDE com o motivo no resumo |
+
 ## Build e distribuição
 
 `.github/workflows/apk.yml` — o runner `ubuntu-latest` já traz JDK e Android SDK;
@@ -22,8 +61,8 @@ a campanha).
 | Rota | Como | Observação |
 |---|---|---|
 | Artifact | Actions → run → *Artifacts* | vem como **.zip**; precisa descompactar no celular |
-| **Release** ⭐ | `git tag v1.0.1 && git push --tags` | **link direto para o .apk** |
-| Release manual | Actions → *Build APK* → *Run workflow*, com `release_tag` | a tag é criada pelo próprio workflow |
+| **Release** ⭐ (a do rito) | Actions → *Build APK* → *Run workflow*, com `release_tag` | a tag é criada pelo próprio workflow, de `main`; **link direto para o .apk** |
+| Release por tag | `git tag v1.0.1 && git push --tags` | a alternativa; o push da tag também solta o HOLD do `shellTag` |
 
 **O `web-ota` NÃO tem filtro de caminho**, e é por isso que um lote que não toca
 em `assets/web/` — documentação, o `site/`, um workflow — ainda republica o
@@ -36,15 +75,16 @@ OTA parar.
 
 **O `web-ota` roda com fila, sem cancelamento** (`concurrency: web-ota`,
 `cancel-in-progress: false`). Os assets de `web-latest` são substituídos um a um,
-sem transação: duas execuções em paralelo (o merge seguido de um push de
-correção é o caso normal) intercalariam, e cancelar no meio do upload produz o
+sem transação: duas execuções em paralelo (o push do lote seguido do push do
+conserto é o caso normal) intercalariam, e cancelar no meio do upload produz o
 mesmo estado. Ver "OTA" para o que o nome versionado do zip fecha.
 
 ### A PRÉVIA VISUAL — o laço de design, para lote só de aparência
 
-**A REGRA:** quando o diff é SÓ aparência — CSS, o HTML de uma folha ou de um
-card, espaçamento, cor, sombra, animação —, o lote **não vai a `main` para ser
-vistoriado**. Ele se vê na prévia visual, no working tree, e só depois entra no
+**A REGRA:** é a ÚNICA via experimental (decisão do operador, 2026-11-14), e
+entra **só quando ele pede** para experimentar um design novo. Quando o diff é
+SÓ aparência — CSS, o HTML de uma folha ou de um card, espaçamento, cor,
+sombra, animação —, o lote **não vai a `main` para ser vistoriado**. Ele se vê na prévia visual, no working tree, e só depois entra no
 rito de publicação. O que deixa de existir é o "publica para ver como ficou".
 
 ```
@@ -440,7 +480,7 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
 ## As dependências
 
 - **Sem dependências externas** — Kotlin puro + AndroidX no shell, JavaScript
-  puro no web. **Quatro exceções, todas declaradas:**
+  puro no web. **Cinco exceções, todas declaradas:**
 
   | dependência | por que é inevitável |
   |---|---|
@@ -448,8 +488,9 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   | **`NewPipeExtractor`** | extrair a URL de um vídeo do YouTube é acompanhar as defesas deles (PO Tokens por vídeo, assinados por BotGuard/DroidGuard). A alternativa sem dependência — servidor público — FALHOU em aparelho: eles rodam em IP de datacenter, exatamente o que o YouTube bloqueia. E a conta é paga por quem publica: o SABR que derrubou o 1080p foi resolvido lá (cliente visionOS) e chegou aqui como **um bump de versão**. Manter o pin explícito e ler o CHANGELOG antes de reescrever extração à mão |
   | **JUnit** (`testImplementation`) | **não põe um byte no APK**. Existe porque o servidor das telas é **a primeira fronteira de rede do projeto** — um parser HTTP com controle de acesso, onde um erro não vira pixel errado, vira controle de acesso quebrado. Escrevê-lo sem oráculo, num repositório que recusa o RFC 6455 **por falta de oráculo**, seria o argumento aplicado contra ele mesmo |
 | **Playwright** (`package.json`, `devDependencies`) | **também não põe um byte no APK** — é o arnês dos oráculos de Chromium, e a única forma de exercitar o que só existe RENDERIZADO (contraste, escada de camadas, hit-test, o telão de verdade). Ele já era usado; o que mudou é que passou a ser **declarado e PINADO**: o `package.json` e o `package-lock.json` são versionados e o CI usa `npm ci`. Sem o pin, o passo instalava a `latest` do dia e o veredito do CI não era função só do nosso código — o que tornava impossível o passo BARRAR o build, e desde a v5.316 ele barra. **Subir o pin obriga a repetir a campanha de determinismo** (ver "Um oráculo não pode medir o runner") |
+  | **`acorn`** (`package.json`, `devDependencies`) | **não põe um byte no APK** — é o parser de JavaScript de dois instrumentos: o `nome-inexistente.test.mjs` (a chamada a um nome que não existe em lugar nenhum, que o `node --check` não vê) e o `tools/miolo.mjs` (o mapa do `controle.js`). Percorrer a árvore pede um parser, e escrever um à mão seria o defeito; sem dependências próprias. Só existe depois do `npm ci`: por isso o filtro dos puros conta o `import('acorn')` (o `ferramentas.test.mjs` cobra que toda `devDependency` esteja nele) |
 
-  Uma quinta exceção precisa da mesma justificativa: um problema que não se
+  Uma sexta exceção precisa da mesma justificativa: um problema que não se
   resolve de outro jeito, e a manutenção paga por quem publica a biblioteca.
 
 ## Um `apk` reprovado não pula o `web-ota`

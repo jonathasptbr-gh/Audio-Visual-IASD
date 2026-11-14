@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o Pacote 25: o rito de entrega (sem versão nova; `tools/`, workflow e docs)** — os 11 apontamentos A da revisão de 14/11: direto em `main` sem `claude/**`, o portão como último passo e com teto na vizinhança, o gatilho da Release cobrado por máquina, três casas da versão, o rito numerado no BUILD, a regra do CI vermelho, o histórico e o RES cobrados, o `acorn` declarado.
 - **o Pacote 24: as instruções desta máquina consertadas (sem versão nova; docs, `tools/` e arquivos da máquina)** — os 12 apontamentos da revisão de 14/11: a reversão do patch, o cofre primeiro no `estado.sh` e na receita, os tetos sem dólar, o `AGENTS.md` enxuto, o `--ci` citado, o ATIVO.md aposentado, o `send_later` fora, o teto no meio do lote, e regras para portas e backups.
 - **v1.14.16** — o tour volta a destacar o conjunto inteiro no Relógio, no Sorteio e no Itinerário, e saem três comentários falsos e cinco imagens órfãs; só web.
 - **v1.14.15** — o Histórico e o Transferir destacam a primeira linha do gesto em vez da lista inteira, e saem três comentários falsos; só web.
@@ -742,6 +743,64 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## o Pacote 25 — o rito de entrega (sem versão nova; `tools/`, workflow e docs)
+
+O **Pacote 25** — o Pacote A do `docs/URGENCIA.md`, o segundo dos quatro da
+revisão de 14/11. Traz duas decisões do operador: **a entrega direto em `main` é
+o fluxo oficial** (o único teste dele antes de publicar é a prévia visual, e só
+a pedido) e **a versão tem três casas**. Nada toca a base web: sem versão nova,
+sem Release; o `web-ota` republica a mesma v1.14.16 (o aparelho ignora).
+
+- **A1 · o portão é o último passo** (`tools/portao.sh`, `tools/reverter.sh`,
+  CL, BU): a ordem escrita é versão → portão → commit → push, e o portão roda
+  DE NOVO depois de qualquer mudança. O `--restaurar` mostra o diff do que vai
+  sobrescrever, guarda o atual em `<backup>/.sobrescrito-<hora>/` e manda rodar
+  o portão. O `pre-push` versionado (opcional) não saiu: ver o RES.
+- **A2 · a vizinhança** (`portao.sh`, CL): só oráculo de Chromium (`*.test.mjs`
+  não puro e os dois smoke) que cita o arquivo — antes rodava todo `tools/*.mjs`
+  que o citasse (38 para o `controle.js`, entre eles o `revisao-cobertura`, que
+  sem `--base` sai 2). Acima de 8 reprova com a lista até `--vizinho` escolher
+  (`--vizinhanca-inteira` tira o teto). O caminho curto
+  (`controle/controle.js`) é resolvido contra `assets/web/`; o exemplo do CL
+  apontava caminho inexistente.
+- **A3 · direto em `main`** (CL, BU, `ARQUITETURA-WEB.md`, `apk.yml`,
+  `dados.yml`, `MEDICAO-DE-ALCANCE.md`): saiu o `checkout`/`merge --no-ff`; o
+  `on.push` é só `main` (o gatilho `claude/**` saiu), e o `if` do `verificar`
+  que pulava o PR da própria origem saiu junto — sem `claude/**` ele pulava o PR
+  inteiro.
+- **A4 · o gatilho da Release cobrado** (`apk.yml`, Sanidade — e por ela o
+  portão): contra a última tag `v*` alcançável do HEAD e a árvore de trabalho,
+  shell (`java/`, `res/`, manifesto, `build.gradle.kts`) mudado sem `shellTag`
+  reprova, e base web mudada sem versão maior que a da tag reprova. O
+  `verificar` faz checkout com `fetch-depth: 0` (sem tag é erro, não pulo).
+  Reversões: um `.kt` novo reprova; o `version.json` na versão da tag reprova.
+- **A5 · três casas** (CL, `docs-coerentes`, `estado.sh`, MA): saiu a linha
+  "Versão atual" do CL e o bloco 5b que a cobrava; o `estado.sh` imprime as
+  três casas e a última Release pela TAG (git) — o "APK anunciado" era lido da
+  prosa e conferido contra ela mesma; com `--ci`, a Release mais nova da API.
+- **A6 · o rito numerado** (BU, "O rito de entrega"): onze passos numa lista,
+  com o RES antes do push e a prévia visual; o CL aponta.
+- **A7 · CI vermelho** (CL, BU passo 10, MA): `verificar` vermelho = o bundle
+  não saiu ⇒ conserto no MESMO número; já publicado ⇒ número novo; nunca
+  `revert` nem `push --force` em `main`. A linha do MA ("dois commits com o
+  mesmo número = pare") passou a dizer "de sessões diferentes".
+- **A8 · o apêndice cobrado inteiro** (`docs-coerentes`, RES): cada versão do
+  `notas.json` exige a linha do índice E a seção; a versão do `version.json` tem
+  de aparecer no RES — a tabela ganhou a coluna `quando · lote`, preenchida
+  pelo `git log` de cada linha. Reversões: a seção `## v1.14.16` renomeada
+  reprova com o índice de pé; a v1.14.16 fora do RES reprova.
+- **A9 · o `acorn`** (`portao.sh`, `estado.sh`, `ferramentas.test.mjs`, CL, BU):
+  o filtro dos puros conta `import('…')` e as `devDependencies` (o
+  `nome-inexistente` saiu da conta: 37 → 36 puros); o `ferramentas` cobra que
+  toda `devDependency` esteja no filtro. O `acorn` é a quinta exceção
+  declarada, com a justificativa no BU.
+- **A10 · as rotas** (CL, BU): a Release do rito é o disparo manual com
+  `release_tag`; a tag é a alternativa. O BU ganhou "Os três workflows e as
+  entradas do disparo" (`apk.yml`, `pages.yml`, `dados.yml`; `release_tag`,
+  `retag`, `permitir_regressao` e a guarda anti-regressão).
+- **A11 · sem pagar duas vezes** (`portao.sh`, CL): o passo 2 roda só os puros
+  que a Sanidade não roda (os dela, no passo 3); o "~8 s" saiu.
 
 ## o Pacote 24 — as instruções desta máquina consertadas (sem versão nova; docs, `tools/` e arquivos fora do repositório)
 

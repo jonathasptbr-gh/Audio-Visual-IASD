@@ -26,7 +26,7 @@
 # silêncio, porque nada disso falha.
 #
 # Daí a branch órfã `dados`: o `on: push` do `apk.yml` é
-# `branches: [main, 'claude/**']`, e `dados` não casa com nenhum dos dois.
+# `branches: [main]`, e `dados` não casa.
 # **Se um dia alguém alargar aquele filtro, este arquivo passa a ser uma
 # bomba-relógio** — é por isso que a razão está escrita aqui e não numa linha
 # de commit.

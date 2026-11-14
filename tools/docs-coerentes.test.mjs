@@ -286,13 +286,20 @@ const docs = [];
 {
   const notas = JSON.parse(ler('app/src/main/assets/web/notas.json'));
   const hist = ler('docs/HISTORICO.md');
-  const semNota = notas.map((e) => e.versao).filter((v) => !hist.includes('**v' + v + '**') && !hist.includes('## v' + v + ' '));
+  // OS DOIS, não um OU outro (Pacote 25/A8): a regra é "uma linha no índice E
+  // a seção" — o `grep` acha a linha, e a nota mora na seção.
+  const semNota = notas.map((e) => e.versao).flatMap((v) => {
+    const falta = [];
+    if (!hist.includes('**v' + v + '**')) falta.push('índice');
+    if (!hist.includes('## v' + v + ' ')) falta.push('seção');
+    return falta.length ? [v + ' (sem ' + falta.join(' nem ') + ')'] : [];
+  });
   if (notas.length >= 20) ok('o `notas.json` foi lido (' + notas.length + ' versões publicadas)');
   else nao('o notas.json foi lido', 'só ' + notas.length + ' entradas');
-  if (!semNota.length) ok('e toda versão publicada tem nota no `docs/HISTORICO.md`');
+  if (!semNota.length) ok('e toda versão publicada tem linha no índice E seção no `docs/HISTORICO.md`');
   else nao('toda versão publicada tem nota no HISTORICO',
     semNota.join(', ')
-    + '\n\tconserto: escreva a entrada de índice (`- **vX** — …`) no topo do índice.'
+    + '\n\tconserto: a linha `- **vX** — …` no topo do índice e a seção `## vX — …` logo abaixo.'
     + '\n\tSem ela, um `grep` por aquela versão devolve VAZIO — e o apêndice é'
     + '\n\to lugar declarado para responder "por que isto é assim?"');
 
@@ -311,34 +318,27 @@ const docs = [];
 }
 
 // ============================================================================
-// 5b · A QUARTA CASA DA VERSÃO — o bloco "Versão atual" do `CLAUDE.md`
+// 5b · O LOTE DA VERSÃO DECLAROU O QUE DEIXOU — a versão está no `RESIDUOS.md`
 //
-// A versão mora em TRÊS lugares que o `verificar` já compara entre si
-// (`version.json`, `WEB_VERSION`, `#appVersion`) e num QUARTO que ninguém
-// comparava: a linha "**Versão atual: base web vX**" do `CLAUDE.md`. MEDIDO,
-// ela ficou para trás TRÊS vezes — a v1.8.8, a v1.8.9 e a v1.8.49 —, e o modo
-// de falhar é o pior que este repositório sabe produzir: um arquivo lido a cada
-// sessão, ANTES do trabalho, afirmando um estado que o repositório já não tem.
-// Quem o lê não confere, porque é justamente para não conferir que ele existe.
+// A regra de entrega pede uma linha no `docs/RESIDUOS.md` antes do push, "mesmo
+// quando a resposta é nenhum" — e não tinha máquina: a v1.14.16 saiu sem linha
+// identificável (Pacote 25/A8). A régua é o `version.json`, o número que chega
+// ao aparelho: ele tem de aparecer no RES (na coluna do lote, numa linha aberta
+// ou na tabela dos que declararam "nenhum").
 //
-// A ASSERÇÃO É CONTRA O `version.json`, e não contra o `notas.json`: aquele é o
-// campo que o OTA compara, isto é, o número que de fato chega ao aparelho.
+// (Aqui morava a "quarta casa": a linha "Versão atual" do `CLAUDE.md`. A
+// versão tem TRÊS casas — decisão do operador, 14/11 —, e o estado corrente se
+// mede no `tools/estado.sh`.)
 // ============================================================================
 {
-  const claude = ler('CLAUDE.md');
   const ver = JSON.parse(ler('app/src/main/assets/web/version.json')).version;
-  const m = claude.match(/\*\*Vers[ãa]o atual: base web v([0-9.]+)/);
-  if (!m) {
-    nao('o bloco "Versão atual" existe no CLAUDE.md',
-      'a linha `**Versão atual: base web vX**` não foi encontrada');
-  } else if (m[1] === ver) {
-    ok('a "Versão atual" do CLAUDE.md bate com o `version.json` (' + ver + ')');
-  } else {
-    nao('a "Versão atual" do CLAUDE.md bate com o `version.json`',
-      'CLAUDE.md diz ' + m[1] + ', version.json diz ' + ver
-      + '\n\tconserto: renumerar o lote inclui ESTA linha, ao lado das três'
-      + '\n\toficiais e do `shellTag`.');
-  }
+  const res = ler('docs/RESIDUOS.md');
+  const cita = new RegExp('\\bv' + ver.replace(/\./g, '\\.') + '(?![0-9])').test(res);
+  if (cita) ok('a versão do `version.json` (v' + ver + ') está declarada no `docs/RESIDUOS.md`');
+  else nao('a versão do lote está declarada no `docs/RESIDUOS.md`',
+    'v' + ver + ' não aparece lá'
+    + '\n\tconserto: o lote escreve o que deixou para trás (ou "nenhum") ANTES do push,'
+    + '\n\tcom a versão na coluna do lote — `docs/RESIDUOS.md`, "A regra".');
 }
 
 // ============================================================================

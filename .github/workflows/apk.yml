@@ -1,8 +1,11 @@
 name: Build APK
 
 on:
+  # SÓ `main` (Pacote 25/A3): a entrega direto em `main` é o fluxo oficial
+  # (decisão do operador, 2026-11-14) e não há ramo de teste — o gatilho
+  # `claude/**` saiu junto. A branch órfã `dados` (o `dados.yml`) não casa.
   push:
-    branches: [main, 'claude/**']
+    branches: [main]
     tags: ['v*']
   pull_request:
     branches: [main]
@@ -68,21 +71,18 @@ jobs:
   # `refs/heads/main`: a PRIMEIRA vez que um oráculo via o commit era DEPOIS do
   # merge, já na linha que alimenta a frota. Um `tokens.test.mjs` que reprovasse
   # ali não publicava o bundle — mas `main` já continha o commit, e a saída era
-  # um segundo lote. Aqui não há `if` de branch: roda em push de `claude/**`, em
-  # PR, em tag e no `release`, ANTES de existir qualquer publicação.
+  # um segundo lote. Aqui não há `if` de branch: roda em push de `main`, em PR,
+  # em tag e no `release`, e o `web-ota` só publica com ele verde. Com a entrega
+  # direto em `main`, o vermelho daqui é o bundle que NÃO saiu: conserto no
+  # mesmo número (`docs/BUILD.md`, "O rito de entrega").
   #
   # `needs:` NÃO compartilha o diretório de trabalho, por isso o checkout
   # próprio — e ele repete o `ref` do `web-ota` de propósito: verificar uma
   # árvore diferente da que vai ser empacotada não verifica nada.
   verificar:
-    # SEM DUPLICAR O PUSH DE BRANCH COM PR ABERTO. `on.push` já cobre
-    # `claude/**`, então um PR desta mesma origem dispararia a suíte duas vezes
-    # sobre o mesmo commit. Fica de fora só o `pull_request` cuja cabeça é ESTE
-    # repositório; o PR vindo de um fork (que não gera `push` aqui) continua
-    # sendo verificado, que é justamente o caso em que ninguém mais olharia.
-    if: >-
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.full_name != github.repository
+    # Todo PR é verificado: sem o gatilho `claude/**`, nenhuma branch além de
+    # `main` gera `push`, e o `if` que pulava o PR da própria origem (para não
+    # rodar a suíte duas vezes) passou a pular o PR inteiro — saiu junto.
     # A IMAGEM É FIXA, e só neste job. O `ubuntu-latest` migrou para o Ubuntu
     # 26.04 (aviso do GitHub: a partir de 2026-10-19), e o Playwright do pin
     # (1.56.0) recusa a imagem nova — "Playwright does not support chromium on
@@ -102,8 +102,11 @@ jobs:
     steps:
       # No evento `release` o `github.ref` é a TAG, e o que precisa ser
       # verificado é a base web de `main` — a mesma que o `web-ota` empacota.
+      # `fetch-depth: 0` traz as TAGS: o gatilho da Release, na Sanidade, mede
+      # o que mudou desde a última `v*`, e num clone raso não há régua.
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           ref: ${{ github.event_name == 'release' && 'main' || '' }}
 
       # O canal OTA publica direto para a frota: um erro de sintaxe aqui chega
@@ -187,6 +190,46 @@ jobs:
               f'os três lugares de versão divergem: version.json={vjson} '
               f'controle.js WEB_VERSION={vjs} index.html #appVersion={vhtml}')
           print('três lugares de versão OK:', vjson)
+          PY
+          # O GATILHO DA RELEASE, COBRADO (Pacote 25/A4). Duas regras falhavam
+          # MUDAS: o shell mudou e o `shellTag` não foi declarado (o aparelho
+          # recebe só a metade web, e o Kotlin fica para trás, calado); a base
+          # web mudou e a versão não subiu (o OTA ignora, em silêncio, o que não
+          # for MAIOR). A régua é a ÚLTIMA TAG `v*` alcançável do HEAD — a
+          # última Release — contra a ÁRVORE DE TRABALHO, para valer igual no
+          # portão (antes do commit) e aqui. Sem tag é erro, não pulo: o
+          # checkout deste job tem `fetch-depth: 0` justamente para isto.
+          python3 - <<'PY'
+          import json, subprocess
+          def git(*a):
+              r = subprocess.run(['git', '-c', 'safe.directory=*', *a], capture_output=True, text=True)
+              return r.returncode, r.stdout
+          rc, tag = git('describe', '--tags', '--abbrev=0', '--match', 'v*', 'HEAD')
+          tag = tag.strip()
+          assert rc == 0 and tag, 'nenhuma tag v* alcançável do HEAD — o checkout precisa de fetch-depth: 0'
+          _, dif = git('diff', '--name-only', tag, '--')
+          _, novos = git('ls-files', '--others', '--exclude-standard')
+          mudou = [l for l in (dif + novos).splitlines() if l]
+          SHELL = ('app/src/main/java/', 'app/src/main/res/',
+                   'app/src/main/AndroidManifest.xml', 'app/build.gradle.kts')
+          raiz = 'app/src/main/assets/web'
+          m = json.load(open(f'{raiz}/version.json'))
+          kt = [f for f in mudou if f.startswith(SHELL)]
+          assert not kt or m.get('shellTag'), (
+              f'{len(kt)} arquivo(s) do shell mudaram desde a {tag} (ex.: {kt[0]}) e o '
+              f'version.json não declara shellTag — declare "shellTag": "v{m["version"]}" '
+              'e dispare a Release depois do push (docs/BUILD.md, "O rito de entrega")')
+          web = [f for f in mudou if f.startswith(raiz + '/')]
+          def num(v):
+              x = [int(p) for p in v.split('.')]
+              return x + [0] * (3 - len(x))
+          rc, antes = git('show', f'{tag}:{raiz}/version.json')
+          va = json.loads(antes)['version'] if rc == 0 else '0'
+          assert not web or num(m['version']) > num(va), (
+              f'{len(web)} arquivo(s) da base web mudaram desde a {tag} e a versão '
+              f'continua {m["version"]} (a da tag é {va}) — o OTA ignora, em silêncio, '
+              'o que não for MAIOR: suba as três casas')
+          print(f'gatilho da Release OK: desde a {tag}, {len(kt)} do shell, {len(web)} da base web')
           PY
           # A LINHA DO TEMPO DA ATUALIZAÇÃO (`notas.json`, v1.0.6). Ela falha
           # CALADA nas duas pontas: o `notasPendentes` do shell devolve lista
@@ -1204,9 +1247,9 @@ jobs:
       # `fetch-depth: 0` porque o versionCode sai da CONTAGEM DE COMMITS (ver
       # "Definir versão"), e um clone raso devolveria 1.
       # `ref`: num disparo manual COM release_tag, o código vem de `main` — a
-      # tag/Release também nasce lá (target_commitish), e sem isto o APK podia
-      # ser compilado de uma branch `claude/**` (que o `on.push` permite)
-      # enquanto a tag apontava para main: binário publicado ≠ commit da tag.
+      # tag/Release também nasce lá (target_commitish), e sem isto um disparo
+      # feito de outra branch compilaria o APK dela enquanto a tag apontava
+      # para main: binário publicado ≠ commit da tag.
       # Vazio = comportamento padrão da action (o próprio ref do evento), que é
       # o certo para push de tag, push de branch e PR.
       - uses: actions/checkout@v4

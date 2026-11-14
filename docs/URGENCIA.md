@@ -3,13 +3,13 @@
 O operador pediu uma revisão das diretrizes e metodologias (o contrato, o rito
 de entrega, os processos de revisão e as instruções desta máquina). Três
 revisores leram tudo e conferiram contra o que os scripts e o CI FAZEM. Saíram
-cerca de 50 apontamentos, 12 graves. **Este arquivo é a lista do que consertar**,
-em três pacotes — os Pacotes 25 a 27 da fila (`PEDIDOS-EM-ESPERA.md`); o Pacote
-24 (o C) saiu em 2026-11-14.
+cerca de 50 apontamentos, 12 graves. **Este arquivo é a lista do que consertar**:
+restam os Pacotes 26 e 27 da fila (`PEDIDOS-EM-ESPERA.md`); o 24 (o C) e o 25
+(o A) saíram em 2026-11-14.
 
 **Como se usa.**
 
-- **Um pacote por sessão**, na ordem **A → B → D**. Leia SÓ o pacote da vez
+- **Um pacote por sessão**, na ordem **B → D** (C e A saíram). Leia SÓ o pacote da vez
   (e "As decisões do operador", logo abaixo).
 - **Os quatro estão autorizados** pelo operador (14/11): não é preciso perguntar
   qual seguir, só confirmar que a sessão é a do pacote seguinte.
@@ -39,27 +39,6 @@ em três pacotes — os Pacotes 25 a 27 da fila (`PEDIDOS-EM-ESPERA.md`); o Paco
 4. **A revisão geral volta a caçar DEFEITO**, não só higiene.
 5. **Tudo entra na fila**: os dois itens de decisão que estavam só no RES
    viraram os Pacotes 28 e 29.
-
----
-
-## Pacote A — a entrega (Pacote 25)
-
-Mexe em `tools/`, no workflow, no CL e no BU. **A decisão 2 muda o fluxo**: A3
-é o texto novo, e A1 passa a ser a única barreira.
-
-| # | g | onde | o que está errado | a correção |
-|---|---|---|---|---|
-| A1 | A | `tools/portao.sh`:20; `tools/reverter.sh`:43-52; `ce8edc1c`, `c48d9c8f` | o portão não é obrigatório nem o ÚLTIMO passo. Os dois consertos pós-push (casa fora de passo; nota acima de 120) são cobertos pelo passo 3 dele. O `--restaurar` copia o arquivo inteiro por cima, sem avisar que ele mudou desde o `--guardar` | escrever: rito de versão → portão → commit; portão DE NOVO depois de qualquer `--restaurar`; o `--restaurar` mostra o diff do que vai sobrescrever; opcional: `pre-push` versionado |
-| A2 | A | CL:307; `portao.sh`:52-61 | o exemplo `tools/portao.sh controle/controle.js` aponta caminho que não existe (rc=1). A vizinhança roda TODO `tools/*.mjs` que cita o nome: 38 em série para o `controle.js`, entre eles o TOOL, que sem `--base` sai 2 — "vizinho FALHOU" sempre | vizinho = só `*.test.mjs` + os dois smoke; exemplo com o caminho real; teto ou seleção |
-| A3 | A | CL:388-393; `apk.yml`:65-72; BU:45-48 | o texto manda ramo → push → `git checkout main && git merge --no-ff`; a prática são 33 commits seguidos direto em `main`. **Decisão 2:** direto é o oficial | reescrever a seção: commit em `main`, portão, push. Tirar o `checkout`/`merge`. Decidir o destino do gatilho `claude/**`. A prévia visual vira a única via experimental, só a pedido |
-| A4 | A | CL:402-424; `apk.yml`:159-170; BU:28-32 | quatro regras de falha MUDA sem máquina: Kotlin mudou ⇒ `shellTag`; web mudou ⇒ versão sobe; superfície mudou ⇒ `SHELL_VERSION` sobe; disparar a Release (manual, e o HOLD é verde para sempre) | um passo no portão e no `verificar`, contra a última tag `v*`: mudou `java/`, `res/` ou manifesto ⇒ exige `shellTag`; mudou `assets/web/` ⇒ exige versão maior |
-| A5 | M | CL:644, :657-665, :687-689; `docs-coerentes.test.mjs`:328; `estado.sh`:34, :44, :59; MA:25; AG:43 | "TRÊS lugares" no título × "QUARTA CASA" no corpo. **Decisão 3:** três | apagar a quarta casa do CL e o bloco do oráculo que a cobra; `estado.sh` deixa de ler o "APK anunciado" da prosa (hoje é circular); acertar MA e AG |
-| A6 | M | CL:295, 384, 408, 417, 432, 444, 455, 685; BU:45 | não há lista ORDENADA do rito: os passos estão em nove lugares; falta nela o RES "antes do push" e a prévia visual | uma lista numerada única (≤ 15 linhas) no BU; o CL aponta |
-| A7 | M | CL:300-301; MA:105 | CI vermelho depois do push: a única regra é "conserta e empurra de novo", sem dizer com que número; a prática é mista | "`verificar` vermelho = bundle não saiu ⇒ conserto no MESMO número; já publicado ⇒ número novo; sem revert nem force em `main`" |
-| A8 | M | `docs-coerentes.test.mjs`:287; CL:455-461, :543, :570 | cobrança pela metade: o oráculo aceita índice OU seção no HISTORICO (a regra pede os dois); a linha no RES não tem máquina | exigir os dois, e a versão citada no RES |
-| A9 | M | `nome-inexistente.test.mjs`:77; `apk.yml`:607; CL:524; BU:443 | o teste importa `acorn` e roda no passo de Chromium, mas a régua o conta como Node puro; `acorn` é a QUINTA dependência e os textos dizem "quatro exceções" | declarar (ou remover) e tirar do filtro dos puros |
-| A10 | M | CL:262, :417-419; BU:25; `apk.yml`:51, :1042; `dados.yml` | duas rotas de Release sem dizer qual é a do rito; `permitir_regressao` e a guarda anti-regressão sem uma menção; `dados.yml` (cron horário, escreve no repositório) não aparece em lugar nenhum | uma rota oficial; os três inputs e os três workflows no BU |
-| A11 | B | CL:298; `apk.yml`:254-289 | "~8 s": o portão inteiro levou 46 s, e os puros rodam DUAS vezes (passo 2 + dentro da Sanidade) | passo 2 só com os puros fora do bloco; acertar o número ou tirá-lo |
 
 ---
 
