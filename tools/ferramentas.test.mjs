@@ -93,6 +93,9 @@ if (reFiltro) {
   checar(importam.length > 30, 'os oráculos de Chromium importam o arnês', 'achou ' + importam.length);
   checar(importam.every((f) => !puros.includes(f)),
     'e nenhum deles entra no conjunto puro');
+  const RE_IMPORTE = "from '(\\./)?(arnes\\.mjs|playwright)'";
+  checar(portao.includes(RE_IMPORTE) && estado.includes(RE_IMPORTE),
+    'o portão e o estado contam os puros pelo MESMO filtro (o import, não a menção)');
 }
 
 // 4. As duas ferramentas são citadas no CONTRATO — é o que faz a sessão

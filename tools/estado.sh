@@ -63,8 +63,10 @@ p "cobertura do workflow"
 fora=$(comm -3 <(ls tools/*.test.mjs | sort) \
              <(grep -oE 'tools/[a-z0-9.-]+\.test\.mjs' .github/workflows/apk.yml | sort -u) | wc -l)
 total=$(ls tools/*.test.mjs | wc -l)
+# O FILTRO É O IMPORT, NÃO A MENÇÃO (2026-11-13): o `docs-coerentes` NOMEIA o
+# `arnes.mjs` num Set e ficava de fora — a mesma régua do `portao.sh`.
 puro=$(comm -23 <(ls tools/*.test.mjs | sort) \
-             <(grep -lE 'arnes\.mjs|playwright' tools/*.test.mjs | sort) | wc -l)
+             <(grep -lE "from '(\./)?(arnes\.mjs|playwright)'" tools/*.test.mjs | sort) | wc -l)
 echo "  oráculos: $total arquivos · $puro de Node puro · $fora fora do workflow"
 
 p "credencial"
