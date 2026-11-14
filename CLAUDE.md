@@ -108,7 +108,7 @@ abaixo é a lista FECHADA do que se diz ao operador (as outras sessões e o
 | momento | a fala — curta, e é a única permitida | o que NÃO se diz |
 |---|---|---|
 | **abertura** | *"Pacote 27: etapa 1 de 5, planejando — área: docs."* **A área em uma linha** é o que evita o choque entre duas sessões ([`MULTI-AGENTE`](docs/MULTI-AGENTE.md), regra 2) | o que vai ler, o que pretende fazer |
-| **troca de etapa** | *"Pacote 27: etapa 3 de 5, testando."* As cinco: **1 Planejando · 2 Executando · 3 Testando · 4 Publicando · 5 Conferindo**. Uma linha por troca, sem detalhe | detalhe da etapa, "aguardando", "ainda rodando", "o agente continua" |
+| **troca de etapa** | *"Pacote 27: etapa 3 de 5, testando."* As cinco: **1 Planejando · 2 Executando · 3 Testando · 4 Publicando · 5 Conferindo** — e a 4 só existe quando a entrega CHEGA ao operador (o que não sai do repositório não passou do 3). Uma linha por troca, sem detalhe | detalhe da etapa, "aguardando", "ainda rodando", "o agente continua" |
 | **pergunta** | a pergunta e a decisão que ele precisa tomar | pergunta que se responde medindo o repositório |
 | **entrega** | o relatório de leigo: o que mudou, **o que ele precisa fazer**, **o que não deu certo** | nome de arquivo, de função, de tecnologia ou número interno |
 | **enquanto delega** | **nada** — o fim do agente notifica sozinho (não há check-in por tempo) | narrar a AUSÊNCIA de trabalho |
@@ -361,7 +361,6 @@ trabalho. Prosa custa contexto que não sobra para o código.
 | o rito, o CI, a versão, a assinatura, o backup, o site | `docs/BUILD.md` |
 | o custo da sessão, a delegação | `docs/ECONOMIA.md` |
 | a Verificação do Sistema e o Registro | `docs/DIAGNOSTICO.md` |
-| duas sessões no mesmo clone | `docs/MULTI-AGENTE.md` |
 | a varredura geral de 2026-11-13: o que fechou e o que deixou aberto | `docs/revisao/REVISAO-2026-11-13.md` (o dossiê, com a prova de cada achado) e o Pacote 12.2 da fila |
 | o que o operador pediu e ainda não foi feito? | `docs/PEDIDOS-EM-ESPERA.md` — pacotes; perguntar qual seguir antes de começar |
 | o que ficou para trás de um lote anterior? | `docs/RESIDUOS.md` (com dono, tamanho e por que não foi agora) |
