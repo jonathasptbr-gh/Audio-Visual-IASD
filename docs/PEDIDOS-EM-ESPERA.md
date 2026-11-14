@@ -17,6 +17,15 @@ saído na v1.13.50. O rastro está ao fim. **Os Pacotes 1, 2 e 3 saíram** — o
 ficam MANTÊM a numeração — renumerar de novo custaria mais que o buraco, e o
 "Mapa da numeração antiga" continua valendo para as referências velhas.
 
+**Edição de 2026-11-14.** O operador mandou oito mensagens em sequência (09:13–09:55)
+sobre o TOUR dos dois modos, o alerta do Cronograma, a Bíblia, as Mensagens, o
+Editor de mídia e uma porta nova para as ferramentas guardadas. Eles entraram
+como os **Pacotes 17 a 23**, sem renumeração — os números andam presos às
+referências que o `HISTORICO.md`, o `docs/revisao/` e este próprio arquivo já
+fazem. A novidade desta edição é o agrupamento por TEMA (a tabela logo abaixo):
+a fila continua sendo a coluna da NOTA do índice. **Nenhum pacote foi
+executado** — esta edição é só a lista.
+
 **Regra do arquivo:** ele ESVAZIA. Um pacote entregue sai daqui (a nota vai ao
 `docs/HISTORICO.md`, como sempre); um pedido revogado sai com uma linha dizendo
 quem revogou. Não é log, e não é `docs/ACHADOS-EM-ABERTO.md` (lá moram defeitos
@@ -45,6 +54,31 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **13** — Estudos (não são fila de execução) | — | estudo | nenhuma entrega |
 | **15** — Guia IASD: a especialização (estudo) | — | estudo | nenhuma entrega |
 | **16** — O cronograma pronto: o organizador entrega o culto ao sonoplasta | 8 (I4×U2) | pedido | planejamento → Kotlin + web |
+| **17** — Tour do Fácil: a Biblioteca que se abre | 9 (I3×U3) | pedido | só web (tour) |
+| **18** — Tour do Avançado: os controles | 9 (I3×U3) | pedido | só web (tour) |
+| **19** — Tour do Avançado: ferramentas e seções | 9 (I3×U3) | pedido | só web (tour) |
+| **20** — Cronograma: o alerta à esquerda | 4 (I2×U2) | pedido | só web |
+| **21** — Destinos: a engrenagem do item guardado | 6 (I3×U2) | pedido | só web |
+| **22** — Bíblia: três versículos no controle | 2 (I2×U1) | pedido | só web |
+| **23** — Editor de mídia: a margem inferior | 4 (I2×U2) | defeito | só web |
+
+---
+
+## Os temas, em uma linha
+
+Os pacotes abertos, agrupados pelo RECURSO que tocam. É a leitura "o que mexe
+com o quê" — **não** é a ordem de execução: essa é a coluna da NOTA, no índice.
+Um tema não é um lote: dois pacotes do mesmo tema podem sair em semanas
+diferentes, e um lote nunca mistura dois temas.
+
+| tema | pacotes | o que sai junto |
+|---|---|---|
+| **Tour do app** | 17, 18, 19 | o roteiro do Fácil e do Avançado: os passos que faltam, o que sobra e cada controle explicado |
+| **Cronograma e destinos** | 16, 20, 21 | a abertura antes do culto, o alerta de "não baixado" à esquerda e a engrenagem do item guardado |
+| **Bíblia** | 22 | a leitura de três versículos no controle |
+| **Mídia** | 23 | a margem inferior do editor de mídia |
+| **Fila anterior a 14/11** | 5, 6, 7, 8, 9, 12 | o que já estava na fila, na ordem que ela já tinha |
+| **Estudos** | 13, 15 | não são fila de execução: a entrega é a decisão do operador |
 
 ---
 
@@ -76,7 +110,7 @@ ordem; a fila é dele.
 
 ---
 
-## O índice — 2026-11-13
+## O índice — 2026-11-14
 
 | # | pacote · pedido | tipo | I | U | nota | entrega |
 |---|---|---|---|---|---|---|
@@ -98,6 +132,27 @@ ordem; a fila é dele.
 | 13.3 | layout de paisagem (o app no Windows saiu) | | 3 | 1 | 3 | estudo |
 | **15** | **Guia IASD: a especialização (estudo)** | estudo | — | — | **—** | decisão |
 | **16** | **O cronograma pronto: o organizador entrega o culto** | pedido | 4 | 2 | **8** | planejamento |
+| **17** | **Tour do Fácil: a Biblioteca que se abre** | pedido | 3 | 3 | **9** | web |
+| 17.1 | a janela aberta: Liturgia, coleções, o toque que toca e o download | | 3 | 3 | 9 | web |
+| **18** | **Tour do Avançado: os controles** | pedido | 3 | 3 | **9** | web |
+| 18.1 | barra, base comum, prévia e os dois slides | | 3 | 3 | 9 | web |
+| 18.2 | um passo por exclusivo: playlist, leitura, cortina, mudo, tela cheia | | 3 | 3 | 9 | web |
+| 18.3 | a cifra: play automático, tons e a tela cheia deitada | | 3 | 3 | 9 | web |
+| **19** | **Tour do Avançado: ferramentas e seções** | pedido | 3 | 3 | **9** | web |
+| 19.1 | a lista de Ferramentas sem a etapa do fechar | | 3 | 3 | 9 | web |
+| 19.2 | o Timer: a roleta e o gesto de rolar | | 3 | 3 | 9 | web |
+| 19.3 | o Itinerário: as três saídas numa explicação só | | 3 | 3 | 9 | web |
+| 19.4 | as Mensagens: a lista e o exemplo formatado | | 3 | 3 | 9 | web |
+| 19.5 | o Editor de mídia: a lista e a tela de edição | | 3 | 3 | 9 | web |
+| 19.6 | a Bíblia: sem o fechar, com a leitura prática | | 3 | 3 | 9 | web |
+| **20** | **Cronograma: o alerta à esquerda** | pedido | 2 | 2 | **4** | web |
+| 20.1 | o par nome + alerta inverte a ordem | | 2 | 2 | 4 | web |
+| **21** | **Destinos: a engrenagem do item guardado** | pedido | 3 | 2 | **6** | web |
+| 21.1 | a engrenagem nas ações da linha, no Cronograma e nos Favoritos | | 3 | 2 | 6 | web |
+| **22** | **Bíblia: três versículos no controle** | pedido | 2 | 1 | **2** | web |
+| 22.1 | sai o segundo futuro: 1 atrás, o atual e 1 à frente | | 2 | 1 | 2 | web |
+| **23** | **Editor de mídia: a margem inferior** | defeito | 2 | 2 | **4** | web |
+| 23.1 | a folha com o editor aberto, medida contra as ferramentas de painel | | 2 | 2 | 4 | web |
 
 ---
 
@@ -435,6 +490,346 @@ decisão):
 
 **A regra que este pacote herda e não pode esquecer:** *importar só acrescenta*
 (`PACOTE.md`); nada que já esteja no aparelho do sonoplasta é substituído.
+
+---
+
+## Pacote 17 — Tour do Fácil: a Biblioteca que se abre
+
+**Nota 9 (I3 × U3) · pedido · só web (o tour)**
+
+**Onde:** `app/src/main/assets/web/controle/tour.js` (`TOURS.simples`, e o
+`SECOES.biblioteca`, que hoje é `modos: ['full']`), o `secaoDoTour()` do
+`controle.js`, e o oráculo `tools/tour.test.mjs`.
+
+### 17.1 A janela aberta, as seções, o toque que toca e o download
+
+Pedido do operador (2026-11-14 09:34): *"o tour do modo simples não explica
+sobre a biblioteca aberta, suas seções como liturgias e coleções, nem sobre o
+toque que dá play diretamente, nem sobre a questão de como funciona o download
+da biblioteca, seja por item individual ou seja por coletâneas."*
+
+- **A janela é a mesma; a porta é outra.** O Fácil abre o MESMO
+  `#hymnSearchPopup` sobre a `#simpleBarra` (o comentário do `index.html` diz
+  isso), mas o `secaoDoTour()` **pula** esse popup quando
+  `simplesBibliotecaDocada()` — com a barra docada, o tour de seção não abre.
+  Então a etapa só pode morar em (a) `TOURS.simples`, que roda com a barra à
+  vista e alcança o `#libBar`, ou (b) `SECOES.biblioteca`, que só abre com a
+  janela por cima da leitura. **A escolha é do lote**; o que não pode é a etapa
+  nascer morta nos dois estados. A marca do visto (`s.biblioteca`) e o reset
+  do botão "Tour do app" seguem a mesma decisão.
+- **As seções.** O bloco "Liturgia" (`blocoLiturgia`) e os cards de coleção são
+  a primeira coisa que a janela mostra; o tour de hoje só fala em "buscar". Um
+  passo para a divisória das seções e outro para um card de coleção (o que ele
+  é: um álbum inteiro, com as músicas dentro).
+- **O toque que toca.** No Fácil, tocar numa música a põe na TV; no Avançado,
+  o mesmo toque abre as opções dela — o texto atual do `TOURS.avancado` já diz
+  isso, e é a promessa do modo. O passo precisa dizer a diferença.
+- **O download, por item e por coletânea.** O item tem o caminho dele (as
+  opções da música) e a coleção tem o botão da barra dela (`coll-bar-dl`), que
+  baixa o álbum inteiro e cancela no mesmo botão durante o download. O tour do
+  Avançado tem UM passo de "Baixar" (álbum) e o Fácil não tem nenhum — faltam
+  os dois caminhos.
+
+**Fora do escopo:** abrir a Biblioteca ou projetar sozinho. A regra do tour é
+passiva ("o tour nunca abre nada").
+
+---
+
+## Pacote 18 — Tour do Avançado: os controles
+
+**Nota 9 (I3 × U3) · pedido · só web (o tour)**
+
+**Onde:** `tour.js` (`TOURS.avancado`, o passo `['#seek', '.transport']` que
+hoje junta tudo) e o oráculo `tools/tour.test.mjs`.
+
+### 18.1 O que hoje é um passo só vira cinco
+
+Pedido do operador (2026-11-14 09:55): *"na parte dos controles, divida ele
+para uma etapa da barra de progresso, um dos botões da base, uma sobre o
+preview e os dois botões de pular slides e também uma individual sobre cada um
+dos botões exclusivos… não siga exatamente essa ordem, apenas aponte todos
+esses elementos."*
+
+A divisão, com os alvos medidos no `index.html`:
+
+| etapa | alvo | o que dizer |
+|---|---|---|
+| a barra | `#seek` | arraste para avançar/voltar no vídeo ou na música; os tempos ficam nas pontas |
+| a base comum | `.transport` (`#repeat`, `#prev`, `#playpause`, `#next`, `#stop`) | repete, volta mídia, toca/pausa, passa mídia e encerra — em grupo, como o operador autorizou |
+| a prévia | `#preview` | o que está na TV, em miniatura |
+| os dois slides | `#slidePrevBtn` / `#slideNextBtn` | o par que flanqueia a prévia e passa estrofe/página |
+| os exclusivos, um a um | `#plBtn` (playlist), `#lyricsViewBtn` (auxiliar de leitura), `#viewToggle` (cortina/wallpaper), `#muteToggle` (mudo) e `#pvFullBtn` (tela cheia) | cada um com o próprio balão; a ordem pode ser a da tela, não a do pedido |
+
+**Fora do grupo comum:** play/stop/next/repeat. **Dentro dele:** a playlist e o
+auxiliar de leitura são os dois que ABREM uma folha; a cortina, o mudo e a tela
+cheia operam a cena — a distinção que o `index.html` já documenta na ordem da
+fileira (o que abre folha fica nas pontas).
+
+### 18.2 A cifra, dentro do auxiliar de leitura
+
+Pedido (09:55): *"no auxiliar de leitura, temos as cifras, que não é explicado
+nada sobre o play automatico, ou os alteradores de tom ou tela cheia que fica
+na horizontal."*
+
+**Onde:** `SECOES.letra` (a folha do `#lyricsPopup`), a barra `#lyricsCifraCtl`,
+o `#cifraCheiaBtn` e os oráculos `cifra-rolagem`/`cifra-tela-cheia`.
+
+- **Play automático:** o botão da barra da cifra a rola sozinho; as velocidades
+  estão em `CIFRA_VELOCIDADES` e o estado é `cifraRolando` (`auto` é uma delas).
+- **Os tons:** os dois `lv-fonte-btn lv-cifra-tom` (−/+), meio tom por toque.
+- **A tela cheia deitada:** o `#cifraCheiaBtn` nasce no cabeçalho e mora na
+  barra da cifra; é o modo horizontal de leitura.
+- **A armadilha do passo:** a cifra só existe quando a mídia tem cifra. Os
+  passos são `opcional` (sem a peça, saem da conta) e o texto não pode prometer
+  o que a mídia não tem. O tour da seção abre na PRIMEIRA abertura da folha; se
+  a mídia em cena não tem cifra, as etapas somem e a marca do visto fica — a
+  mesma pergunta do tour da Bíblia (19.6), e a decisão é do lote.
+
+---
+
+## Pacote 19 — Tour do Avançado: ferramentas e seções
+
+**Nota 9 (I3 × U3) · pedido · só web (o tour)**
+
+**Onde:** `tour.js` (`SECOES.ferramentas`, `ferr-timer`, `ferr-itinerario`,
+`ferr-msg`, `ferr-edicao`, `biblia`) e o oráculo `tools/tour.test.mjs`.
+
+### 19.1 A lista de Ferramentas sem a etapa do "Fechar"
+
+Pedido (09:15): *"na lista de ferramentas, o tour explica o botão de fechar,
+uma etapa completa dispensável, então pode remover essa etapa."*
+
+É o último passo do `SECOES.ferramentas` (`#toolsFechar`) — sai inteiro. A lista
+continua com as SETE linhas (Relógio, Cronômetro, Timer, Itinerário, Mensagens,
+Sorteio e Editar mídia), e a seta de sair não precisa de balão: ela é o mesmo
+retângulo da porta que abriu.
+
+### 19.2 O Timer: a roleta e o gesto de rolar
+
+Pedido (09:55): *"no timer, faltou a explicação sobre rolar para ajustar o
+tempo. Ele está pulando direto para a legenda."*
+
+- O passo de hoje é `['#chronoRun', '#chronoZero']` ("Iniciar e Zerar"), e a
+  legenda (`SUBLINHA`) vem logo depois; a roleta (`#chronoRoletas`, com as
+  colunas de hora/minuto/segundo) não tem passo.
+- O passo novo aponta a roleta e ensina o GESTO: rolar a coluna ajusta o
+  número; o Timer vai de 0 a 59 e volta ao zero (o comentário do
+  `acertarRoletas` no `controle.js`).
+- Entra antes da legenda; a ordem do `ordenar()` (o que é fixo no começo/fim)
+  não muda.
+
+### 19.3 O Itinerário: as três saídas numa explicação só
+
+Pedido (09:55): *"não apenas restrito ao itinerário, mas nele o tour não comenta
+sobre os botões de salvar no cronograma ou favoritos. Pode fazer uma explicação
+conjunta nesses casos com o projetar no telão, pois são basicamente todas
+opções de direcionamentos."*
+
+- O rodapé da folha (`#toolsFoot`) desenha o PROJETAR e, quando a ferramenta
+  sabe guardar, o par Cronograma/Favoritos (`cueSaveBtn`; o descritor é o
+  `cueSaveDaFerramenta`, e o Itinerário JÁ tem os dois — com `itin.itens`
+  vazio, os quadrados ficam apagados e o `title` diz por quê).
+- O `SECOES['ferr-itinerario']` tem `PROJETAR` e **não tem `GUARDAR`**. Entra um
+  passo conjunto (a constante `GUARDAR` já existe, com o texto "Cronograma e
+  Favoritos") explicando as três saídas de uma vez: projetar no telão agora,
+  guardar no Cronograma para o culto e guardar nos Favoritos para repetir.
+- O texto é o MESMO em todas as ferramentas que têm as três saídas (Relógio,
+  Cronômetro, Timer, Sorteio, Itinerário): um texto só, no `GUARDAR`; cada tour
+  acrescenta o que é específico. Não escrever cinco textos que vão divergir.
+
+### 19.4 As Mensagens: a lista e o exemplo formatado
+
+Pedido (09:55): *"na aba das mensagens, também não explica sobre a lista de
+mensagens e nem um exemplo de mensagem que mostre que pode ser editado a
+formatação e afins."*
+
+- Hoje o `SECOES['ferr-msg']` tem UM passo: `#msgNovaBtn` ("+ Nova mensagem").
+- Entram: (a) a LISTA (`renderMsg`, a `.msg-list`; tocar numa linha projeta, e
+  a linha no ar tem o `.no-ar`); (b) um passo nas OPÇÕES da mensagem (a gaveta
+  do `⋮`, onde o oráculo `mensagem-estilo` mede tamanho, fonte e alinhamento do
+  cartão) — o balão pode usar uma mensagem de exemplo, sem criar outra.
+- **Cuidado medido:** a mesma linha tem o projetar, o "Adicionar ao Cronograma"
+  e o favoritar; o passo da lista não pode prometer que o toque guarda.
+
+### 19.5 O Editor de mídia: a lista e a tela de edição
+
+Pedido (09:55): *"no editor de mídia, também não temos explicações sobre a
+lista de arquivos, biblioteca e coleções… E nem estou tendo um tour sobre a
+tela de edição propriamente dita."*
+
+- Hoje o `SECOES['ferr-edicao']` tem três passos opcionais: a faixa do trecho, a
+  busca e o importar.
+- **A linha na lista de Ferramentas.** O `SECOES.ferramentas` vai do Sorteio
+  direto para o "Fechar" que sai (19.1): o "Editar mídia" não tem passo na
+  lista, e o operador pediu explicação do editor. O lote decide onde a linha
+  entra — no tour da lista (19.1) ou junto do tour do editor (aqui).
+- **A lista** (`renderEdicaoEscolha`, `#edicaoLista`): o acervo por grupos (as
+  mesmas coleções/pacotes da Biblioteca), a busca e o toque que escolhe a mídia
+  — nenhum passo hoje.
+- **A tela de edição** (`renderEdicaoForm`): o card da mídia (o X cancela ou
+  descarta), o TRECHO (as duas pontas + −1 s/+1 s), o "Confirmar"
+  (`#edicaoConfirmar`) e os destinos do rodapé (Cronograma · playlist ·
+  favoritos, a tabela `DESTINOS`). O tour explica o trecho, mas não o
+  "Confirmar" nem o que os destinos fazem — e o editor é a ferramenta que MONTA
+  o item, não uma que projeta.
+- **O gatilho:** o editor tem duas vistas (`renderEdicaoEscolha`/
+  `renderEdicaoForm`), e o tour já usa `opcional` para cobrir as duas; a vista
+  que está à vista na abertura é a única que pode ser tour. Medir as duas no
+  lote.
+
+### 19.6 A Bíblia: sem o "Fechar" e com a leitura prática
+
+Pedido (09:55): *"na bíblia, não precisa explicar sobre o botão de fechar. E
+também faça um tour sobre a seção prática dos controles da bíblia, explicando
+como mudar um versículo selecionado, ou como salvar no cronograma ou
+projetar…"*
+
+- **Sai** o passo `#bibleClose` ("Fechar") do `SECOES.biblia`.
+- **Entra a leitura** (`renderBibleReading`; as seções `.bible-vsec`, o
+  `.bible-read-foot` e o `.bible-read-acoes`): o versículo central alterna
+  projetar/tirar do telão (`toggleBibleVerse`); os vizinhos navegam
+  (`bibleStep`, que cruza capítulo e livro nos limites); o rodapé tem as quatro
+  pílulas da referência (livro · capítulo · versículo · versão) e os dois
+  `cueSaveBtn` — Cronograma e Favoritos.
+- **A pendência do gatilho:** o `SECOES.biblia` abre na GRADE DE LIVROS, e a
+  leitura só existe depois de escolher um versículo; o `secaoDoTour()` devolve
+  'biblia' nos dois estados. Com os passos da leitura `opcional`, eles não
+  estariam à vista na primeira abertura. O lote decide entre (a) uma seção
+  própria para a tela `reading` (o que pede um gatilho por estado interno) ou
+  (b) a marca do visto esperar a primeira abertura EM leitura. Qualquer uma
+  muda o `SECOES` e o oráculo, e a decisão fica registrada no commit.
+- **O que NÃO é deste pacote:** a nota do operador de tirar um dos versículos
+  futuros (3 no total) é o **Pacote 22**. A etapa daqui mede a leitura como ela
+  estiver; se o 22 sair antes, a etapa já nasce com 3.
+
+---
+
+## Pacote 20 — Cronograma: o alerta à esquerda
+
+**Nota 4 (I2 × U2) · pedido · só web**
+
+**Onde:** `index.html` (o `.crono-par` da barra), `controle.css` (`.crono-par`,
+`.crono-titulo` e o `padding-left` simétrico), os oráculos `cronograma-pronto`
+e `barra-do-topo-e-titulos`.
+
+Pedido (09:13): *"O icone de alerta sobre itens não baixados no cronograma, ele
+atualmente esta na direita, deixe ele na esquerda."*
+
+Hoje o par é `[#cronoTitulo][#cronoAlerta]` dentro do `.crono-par`, centrado na
+trilha do meio; o alerta nasce `hidden` e só aparece quando
+`faltaParaTocarSemRede` acha item. A troca:
+
+- o `#cronoAlerta` passa a vir ANTES do `#cronoTitulo` no DOM — não dá para ser
+  filho do título, porque o título é o botão da gaveta e um botão dentro de
+  outro é o defeito que a marcação não desfaz (o próprio comentário do
+  `index.html` diz isso);
+- o `padding-left` do título compensa a SETA, que fica do lado direito dentro
+  dele (o comentário do `controle.css` explica); com o alerta à esquerda, o par
+  precisa de compensação simétrica para o NOME continuar no eixo. Medir o eixo
+  com o alerta VISÍVEL e escondido: o nome não pode andar em nenhum dos dois;
+- o `justify-content` do `.crono-par` continua `center`; o grid do
+  `.list-header` (a coluna do importar e a do configurar) não muda.
+
+**Medir:** o `cronograma-pronto` confere que o alerta está ao lado do título; a
+barra do topo tem o próprio oráculo (`barra-do-topo-e-titulos`) — o lote
+confere os dois e muda a referência no mesmo commit.
+
+---
+
+## Pacote 21 — Destinos: a engrenagem do item guardado
+
+**Nota 6 (I3 × U2) · pedido · só web**
+
+**Onde:** `controle.js` — `criarCue`, `montarAcoesDaLinha`, `abrirFerramenta`,
+`cueSaveDaFerramenta` e o desenho das ações da linha (Cronograma e Favoritos).
+
+Pedido (09:55): *"Para esses itens que são configuraveis e podem ir para o
+cronograma, e que ao executar não abrem suas respectivas abas, ou afins, crie
+um botão nas opções seja no cronograma ou favoritos (um botão de engrenagem que
+abre a aba da ferramenta com os dados da ferramenta para serem editados ou
+administrados)."*
+
+O problema que ele resolve: a Mensagem, o Sorteio, o Tempo (Relógio /
+Cronômetro / Timer) e o Itinerário viram itens do Cronograma/Favoritos
+(`criarCue`), mas o item guardado **não abre a ferramenta que o gerou** — para
+editar o texto de uma mensagem ou trocar as opções de um sorteio, o operador
+tem de abrir Ferramentas do zero, e o item guardado fica apontando para o que
+já foi.
+
+- **Onde mora o botão:** nas AÇÕES DA LINHA (`montarAcoesDaLinha`), nos dois
+  destinos (Cronograma e Favoritos), só para os cues que têm ferramenta
+  editável (`message`, `draw`, `chrono`, `itinerario`).
+- **O que ele faz:** abre `abrirFerramenta(id)` com os dados do cue. Hoje o
+  `abrirFerramenta` só leva `opcoes` de animação, então o lote precisa de uma
+  PORTA DE DADOS (um `abrirFerramenta(id, { cue: rec })` ou uma função própria)
+  que monte o painel com o conteúdo do item, não com o último estado da
+  ferramenta. O `edicao` não entra: ele já é a ferramenta que edita um item.
+- **O desenho:** o mesmo quadrado de ícone das ações irmãs, com o glifo da
+  engrenagem e `title` "Administrar este item"; não é botão de texto (a faixa é
+  estreita).
+- **A dupla face:** o cue é uma REFERÊNCIA (o `renderMsg` guarda o `id` da
+  mensagem), então editar pela engrenagem deve atualizar o que o roteiro
+  projeta — conferir no lote se `message`/`draw` leem o dado vivo e se
+  `chrono`/`itinerario` precisam regravar o cue.
+- **Oráculos:** `cronograma-acoes-cheias` (a faixa de ações),
+  `favoritos-menu-na-linha`, `ferramentas-folha`; e os passos de tour que a
+  entrada nova pedir (o `SECOES` das quatro).
+
+---
+
+## Pacote 22 — Bíblia: três versículos no controle
+
+**Nota 2 (I2 × U1) · pedido · só web — anotado pelo operador para depois**
+
+**Onde:** `renderBibleReading` (as quatro chamadas de `mkSection`), o CSS da
+`.bible-read`/`.bible-vsec` e os oráculos `biblia-leitura-cabe` e
+`troca-de-versiculo`.
+
+Pedido (09:55, na mesma mensagem do tour): *"Anote para ser feito depois:
+atualmente colocamos 1 versículo do passado, 1 atual e 2 futuros na leitura dos
+controles da bíblia. Vamos tirar um dos versículos futuros, assim a tela ficara
+com 3 ao todo, tendo mais espaço para esses 3."*
+
+- Hoje o `renderBibleReading` chama `mkSection(-1)`, `mkSection(0)`,
+  `mkSection(1)` e `mkSection(2)` — 1 atrás e 2 à frente. Saem o `+2` e o
+  espaço dele; ficam 1 atrás, o atual e 1 à frente.
+- **O que muda de verdade:** o CSS distribui a altura da `.bible-read` entre as
+  seções; com três, cada uma ganha ~1/3 em vez de ~1/4. Medir a 390×844 e a
+  360×640 com a fonte do sistema em 1,25× (o `biblia-leitura-cabe` é o que
+  cobra que o texto caiba) e conferir que o rodapé (as quatro pílulas e as duas
+  ações) não muda de lugar.
+- **O que NÃO muda:** o `bibleStep` continua andando por `s.idx`; a seção `+1`
+  já mostra o versículo seguinte, e tirar o `+2` muda a PRÉVIA, não a
+  navegação.
+
+---
+
+## Pacote 23 — Editor de mídia: a margem inferior
+
+**Nota 4 (I2 × U2) · defeito · só web**
+
+**Onde:** `controle.css` — `.tools-sheet` (o `padding` da folha), `.misc-panel`
+/ `.edicao-panel` (o painel do editor), `.tools-foot`; e o `index.html`
+(`#edicaoSecao` é IRMÃO do `#toolsBody`, dentro do `#toolsSheet`).
+
+Relato (09:55): *"verifique a margem inferior dessa aba de editor de mídia,
+pois ele está com uma margem maior que o normal, veja se ele foi corretamente
+adaptado para essa janela de ferramentas, pois ele veio das configurações e
+pode ser sido mal feito."*
+
+- A suspeita tem lastro: o editor veio de Configurações (v1.14.7) e é o ÚNICO
+  painel que não é montado no `#toolsBody`; ele ocupa o lugar dele como irmão,
+  com o `#toolsFoot` vazio (`:empty { display: none }`). O painel herda o
+  `padding-bottom: .4rem` do `.misc-panel`, e a folha soma o
+  `padding: .5rem .7rem .6rem` do `.tools-sheet` — réguas de respiro diferentes
+  das ferramentas de painel.
+- **Medir antes de mexer:** a distância da última peça do editor (o fecho,
+  `#edicaoFechoForm`/`#edicaoFechoEscolha`) até a borda de baixo da folha,
+  contra a MESMA distância numa ferramenta de painel (Timer, Mensagens). Se a
+  diferença for o `.4rem` do painel (ou um `padding` que veio do `#config`), é
+  uma linha de CSS; se for o `#toolsFoot` vazio ou a lista, é outra.
+- **O oráculo:** o `geometria` mede a folha aberta e o corte; o
+  `edicao-de-midia` mede o editor. O lote ajusta os dois se a régua mudar.
 
 ---
 
