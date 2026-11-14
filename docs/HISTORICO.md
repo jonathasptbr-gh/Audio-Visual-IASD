@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.14** — a série que cedeu a vez à projeção volta quando ela sai, o card diz por quê, e a junção mostra a fração real em vez de parar no 99%; só web.
 - **v1.14.13** — a faxina da revisão de 2026-11-13: código morto e comentários falsos fora do `controle.js`, do CSS e do Kotlin, o tour do editor que tentava abrir em laço, e o `abrirGuia` que cai no navegador quando o diálogo não abre; APK + web.
 - **v1.14.12** — o número do mudo volta ao centro, e o alto-falante fica sobre ele
 - **v1.14.11** — o anel do destaque encosta na borda sem cortar, e o recorte segue envolvendo a peça inteira
@@ -1370,6 +1371,36 @@ docs: nada chega ao app.
 - **Não medido:** a impressão física (impressora real, frente e verso pela
   borda longa, furo no fichário) e a impressão de dentro do app (o WebView do
   Android provavelmente ignora `window.print()` — daí o aviso).
+
+## v1.14.14 — a série que cedeu a vez volta, e a junção mostra o que anda
+
+**Só web** (sem `shellTag`; a Release do 1.14.13 já saiu). Dois relatos do
+operador, os dois no Registro de 14/11 09:10 (v1.14.13): *"um deles não baixa
+nesse download automático — no último teste foi o provai e vede"* e *"quando
+baixei manualmente, ficou muito tempo travado em 99%"*.
+
+**(1) A SEGUNDA SÉRIE DO LOTE NÃO PERDIA A VEZ PARA SEMPRE.** A rodada
+(`manterSeriesDaSemana`) roda uma série por vez e cede a vez à mídia no ar
+(`rotinaDeAcervoPodeCorrer`) — a guarda está certa. O que faltava era a VOLTA:
+a rodada só nasce na abertura e no `visibilitychange`, e no culto o app fica
+aberto; a série que chegava depois do Informativo (156 s de download no
+Registro, com o telão entrando no ar às 09:03:20 e a vez dela às 09:04:48)
+ficava a semana inteira sem o episódio, calada. Agora a passada que adia marca
+`serieAdiadaPelaMidia`, o `pararMidia` e o `resetAfterEnd` chamam
+`serieSemanaReavaliar`, e o card DIZ o impedimento (`serieAutoImpedimento`).
+
+**(2) O 99% ERA A JUNÇÃO.** O inteiro do toque já está no teto quando a junção
+começa, e a fase é real (o `MuxMp4` copia amostra por amostra — 1 a 5 min num
+programa inteiro, no relato). O shell já mandava a fração (`juntando`, a cada
+~1 MB) e o `AVProgresso` já a usava para prever o FIM — mas o tique só acordava
+quando o inteiro mudava, e na junção ele não muda. Agora `AVProgresso.fracao()`
+expõe a fração, o `tique` da `novaBarraYt` avisa quando ela muda, e a legenda
+troca o número do toque por "43% da junção".
+
+Oráculos: bloco N do `serie-mantem-a-semana` (com e sem a projeção),
+`barra-da-juncao` (novo, blocos A/B) e T1–T4 no `progresso` para a fração.
+Reversões medidas: sem a bandeira e sem a volta (N1/N2), sem o tique por fração
+(A/B1) e com `fracao()` devolvendo `null` (T2/T3). **Não testado em aparelho.**
 
 ## v1.14.13 — a faxina da revisão de 2026-11-13
 

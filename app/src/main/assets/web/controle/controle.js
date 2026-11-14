@@ -19520,6 +19520,8 @@ function resetAfterEnd() {
   // O FIM DO VÍDEO FECHA A TELA CHEIA DO MODO FÁCIL (o avanço da fila não passa por aqui: ele
   // chama `send` direto, e o vídeo seguinte herda a tela cheia).
   acertarTelaCheiaDoVideo(false);
+  // A PROJEÇÃO SAIU: a série que cedeu a vez agora pode baixar (v1.14.14).
+  serieSemanaReavaliar();
 }
 
 // TODO `send` DAQUI PASSA `daFila` (v5.312): a imagem que chega pelo avanço
@@ -19663,6 +19665,8 @@ async function pararMidia(tipo) {
   // `previewTick` que também o chama volta antes na guarda `if (!midiaNoAr)`:
   // sem esta linha o par de slide e o Parar ficariam acesos sobre um palco vazio.
   renderSlideNav();
+  // A PROJEÇÃO SAIU: a série que cedeu a vez agora pode baixar (v1.14.14).
+  serieSemanaReavaliar();
 }
 
 /**
@@ -22102,6 +22106,14 @@ let serieAutoRodando = false;
 // fila fecha TODOS os outros, e é uma rodada a mais no fim, nunca uma a menos.
 let serieAutoRefazer = false;
 
+// A SÉRIE QUE CEDEU A VEZ À PROJEÇÃO VOLTA QUANDO ELA SAI (v1.14.14). A rodada
+// roda uma vez por abertura e a guarda `rotinaDeAcervoPodeCorrer` é POR SÉRIE:
+// um lote que começou antes do culto e ainda baixava a primeira série quando o
+// telão entrou no ar pulava a segunda em silêncio, e ela ficava a semana inteira
+// sem o episódio — o defeito relatado (*"um deles não baixa nesse download
+// automático"*). `pararMidia` e `resetAfterEnd` chamam `serieSemanaReavaliar`.
+let serieAdiadaPelaMidia = false;
+
 // A rotina vale para TODA série (v1.11.10). A pergunta é a mesma das outras
 // capacidades do calendário semanal: `ehLink` — com uma só família de vídeo,
 // "é link" e "tem episódio da semana" são a mesma resposta (ver `tipoDaColecao`).
@@ -22549,6 +22561,9 @@ function serieAutoImpedimento(coll, epi, rec) {
     return 'Esperando uma rede Wi-Fi (ou "Dados móveis" ligado nas Configurações) '
       + 'para baixar o episódio desta semana';
   }
+  if (!rotinaDeAcervoPodeCorrer()) {
+    return 'A projeção está no ar — o episódio desta semana desce quando ela sair';
+  }
   return '';
 }
 
@@ -22666,6 +22681,8 @@ async function manterSeriesDaSemana() {
   try {
     const guardar = [];
     let baixouEpisodio = false;
+    // A RODADA REAVALIA O ADIAMENTO: o que esta passada não adiar ficou pronto.
+    serieAdiadaPelaMidia = false;
     const retidos = await AVDB.listIds(SERIE_LISTA).catch(() => []);
     for (const coll of series) {
       const epi = serieEpisodioDaSemana(coll);
@@ -22676,39 +22693,46 @@ async function manterSeriesDaSemana() {
       let rec = await serieArquivoDoEpisodio(epi);
       // BAIXAR é o caminho da EXCEÇÃO aqui: o caso normal, semana após semana, é
       // o arquivo já estar no aparelho e esta função só reescrever a lista.
-      if (!rec && window.__NATIVE__
-          && redeLiberadaParaBaixar() && rotinaDeAcervoPodeCorrer()) {
-        // O `serieComoYoutube` é o MESMO objeto que a folha de opções monta: é
-        // ele que carrega `semSoAudio`, a duração, o canal, a chave da linha (o
-        // anel de download do quadrado à esquerda) e o aviso da janela de
-        // antecedência. Um objeto próprio aqui perderia os cinco, e o primeiro
-        // a aparecer seria o pior — um episódio baixando sem nada na tela.
-        const r = serieComoYoutube(coll, epi);
-        // (`setCollStatus` já agenda o redesenho, PELO guarda — um `renderCollectionsNow`
-        // aqui, direto, fechava a gaveta que o operador abriu durante a verificação: v1.13.67.)
-        setCollStatus(coll.id, 'Baixando o episódio desta semana…');
-        baixouEpisodio = true;
-        // `withBgRotina` e não `withBgWork`: isto é *"a ROTINA que ninguém
-        // pediu"* — protege o processo do congelamento igual e NÃO adia a
-        // pergunta da atualização, que é a diferença inteira entre as duas.
-        rec = await withBgRotina(() => ytArquivo(r, {
-          lista: SERIE_LISTA,
-          altura: ytAlturaPadrao(),   // *"a qualidade padrão que o usuário tem em seleção"*
-          // `'nenhum'`: nenhuma superfície da tela está esperando por isto.
-          // Quem mostra o andamento é a notificação do sistema (o `bgTaskStart`
-          // de dentro do `ytBaixarNativo`) mais o anel da linha, pelo `onPct`.
-          aviso: 'nenhum',
-          onPct: (pct) => setYtEstado(r.id, 'baixando', pct),
-          // E O TEMPO DE CADA FASE ENTRA NO HISTÓRICO do percentual (v1.12.36):
-          // o download automático de toda semana ensina a barra do "Tocar agora"
-          // tanto quanto um toque — menos a abertura, que ele não tem.
-          origem: 'serie',
-        })).catch((e) => {
-          diagC('séries: baixar o episódio da semana falhou (' + (e && e.message || e) + ')');
-          return null;
-        });
-        setYtEstado(r.id, rec ? 'pronto' : null);
-        setCollStatus(coll.id, rec ? 'Episódio desta semana baixado' : '', rec ? 4000 : 0);
+      if (!rec && window.__NATIVE__ && redeLiberadaParaBaixar()) {
+        // CEDE A VEZ, MAS NÃO PERDE A SEMANA (v1.14.14): com a projeção no ar o
+        // download espera — e VOLTA, por `serieSemanaReavaliar`, quando ela sai.
+        // Sem a volta, a série que vem depois de um download longo (o lote roda
+        // uma por vez) ficava a semana inteira sem o episódio, calada.
+        if (!rotinaDeAcervoPodeCorrer()) {
+          serieAdiadaPelaMidia = true;
+        } else {
+          // O `serieComoYoutube` é o MESMO objeto que a folha de opções monta: é
+          // ele que carrega `semSoAudio`, a duração, o canal, a chave da linha (o
+          // anel de download do quadrado à esquerda) e o aviso da janela de
+          // antecedência. Um objeto próprio aqui perderia os cinco, e o primeiro
+          // a aparecer seria o pior — um episódio baixando sem nada na tela.
+          const r = serieComoYoutube(coll, epi);
+          // (`setCollStatus` já agenda o redesenho, PELO guarda — um `renderCollectionsNow`
+          // aqui, direto, fechava a gaveta que o operador abriu durante a verificação: v1.13.67.)
+          setCollStatus(coll.id, 'Baixando o episódio desta semana…');
+          baixouEpisodio = true;
+          // `withBgRotina` e não `withBgWork`: isto é *"a ROTINA que ninguém
+          // pediu"* — protege o processo do congelamento igual e NÃO adia a
+          // pergunta da atualização, que é a diferença inteira entre as duas.
+          rec = await withBgRotina(() => ytArquivo(r, {
+            lista: SERIE_LISTA,
+            altura: ytAlturaPadrao(),   // *"a qualidade padrão que o usuário tem em seleção"*
+            // `'nenhum'`: nenhuma superfície da tela está esperando por isto.
+            // Quem mostra o andamento é a notificação do sistema (o `bgTaskStart`
+            // de dentro do `ytBaixarNativo`) mais o anel da linha, pelo `onPct`.
+            aviso: 'nenhum',
+            onPct: (pct) => setYtEstado(r.id, 'baixando', pct),
+            // E O TEMPO DE CADA FASE ENTRA NO HISTÓRICO do percentual (v1.12.36):
+            // o download automático de toda semana ensina a barra do "Tocar agora"
+            // tanto quanto um toque — menos a abertura, que ele não tem.
+            origem: 'serie',
+          })).catch((e) => {
+            diagC('séries: baixar o episódio da semana falhou (' + (e && e.message || e) + ')');
+            return null;
+          });
+          setYtEstado(r.id, rec ? 'pronto' : null);
+          setCollStatus(coll.id, rec ? 'Episódio desta semana baixado' : '', rec ? 4000 : 0);
+        }
       }
       // O SUBSTITUTO ENTROU? Só então a lista desta série encolhe para ele. Sem
       // ele, o que já estava retido continua — ver o KDoc acima.
@@ -22743,6 +22767,19 @@ async function manterSeriesDaSemana() {
       });
     }
   }
+}
+
+// A VOLTA DA SÉRIE QUE CEDEU A VEZ (v1.14.14). `pararMidia` e `resetAfterEnd`
+// são os dois caminhos por onde a projeção SAI, e os dois chamam esta função:
+// ela só roda a rodada quando a passada anterior adiou alguma série por causa
+// da mídia (ver `serieAdiadaPelaMidia`). Sem `await` — quem parou a mídia não
+// espera um download de centenas de MB.
+function serieSemanaReavaliar() {
+  if (!serieAdiadaPelaMidia) return;
+  serieAdiadaPelaMidia = false;
+  manterSeriesDaSemana().catch((e) => {
+    diagC('séries: a rodada adiada pela mídia falhou (' + ((e && e.message) || e) + ')');
+  });
 }
 
 // O ÍNDICE DE UMA COLEÇÃO PRECISA SER REFEITO?
@@ -26368,7 +26405,7 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura, extra) {
   });
   if (extra && extra.cartao) {
     const cartao = extra.cartao;
-    barra.ouvir((pct, fase) => cartao.atualizar(legendaDoProgresso(fase, pct, soAudio)));
+    barra.ouvir((pct, fase, f) => cartao.atualizar(legendaDoProgresso(fase, pct, soAudio, f)));
   }
 
   const existente = r && r.id ? await AVDB.mediaByYoutube(r.id, soAudio ? 'audio' : 'video') : null;
@@ -37595,6 +37632,14 @@ function novaBarraYt(opcoes) {
   const ouvintes = new Set();
   const aoTerminar = [];
   let ultimo = -1;
+  // A FRAÇÃO DA JUNÇÃO entra na conta do tique (v1.14.14): o inteiro fica preso
+  // no teto enquanto o arquivo é montado, e sem isto a legenda não se moveria —
+  // quem denuncia o progresso ali é a fração do muxer, não o número do toque.
+  let ultimaFracao = null;
+  const fracaoDaJuncao = () => {
+    const f = b.fracao();
+    return f == null ? null : Math.round(f * 100);
+  };
   let timer = 0;
   let encerrada = false;
   let concluida = false;
@@ -37606,9 +37651,11 @@ function novaBarraYt(opcoes) {
   };
   const tique = () => {
     const v = b.passo();
-    if (v !== ultimo) {
+    const f = fracaoDaJuncao();
+    if (v !== ultimo || f !== ultimaFracao) {
       ultimo = v;
-      for (const fn of [...ouvintes]) { try { fn(v, b.fase()); } catch (_) { /* superfície é aviso */ } }
+      ultimaFracao = f;
+      for (const fn of [...ouvintes]) { try { fn(v, b.fase(), f); } catch (_) { /* superfície é aviso */ } }
     }
     if (b.terminou()) { parar(); aoTerminar.splice(0).forEach((f) => f()); }
   };
@@ -37616,7 +37663,7 @@ function novaBarraYt(opcoes) {
   return {
     ouvir(fn) {
       ouvintes.add(fn);
-      if (ultimo >= 0) { try { fn(ultimo, b.fase()); } catch (_) { /* idem */ } }
+      if (ultimo >= 0) { try { fn(ultimo, b.fase(), ultimaFracao); } catch (_) { /* idem */ } }
       return () => ouvintes.delete(fn);
     },
     sinal(nome, info) { if (!encerrada) { b.sinal(nome, info); tique(); } },
@@ -37682,12 +37729,16 @@ function novaBarraYt(opcoes) {
 
 // A FRASE de cada fase, com o MESMO número em toda superfície. Só a fase dos
 // bytes começa por "Baixando" — é ela que acende a seta (`legendaEhDownload`).
-function legendaDoProgresso(fase, pct, soAudio) {
+function legendaDoProgresso(fase, pct, soAudio, fracao) {
   const n = ' · ' + Math.max(0, pct | 0) + '%';
   switch (fase) {
     case 'preparo': return (soAudio ? 'Preparando áudio' : 'Preparando vídeo') + n;
     case 'download': return (soAudio ? 'Baixando áudio' : 'Baixando vídeo') + n;
-    case 'juncao': return 'Juntando vídeo e som' + n;
+    // A JUNÇÃO MUDA DE RÉGUA (v1.14.14): o número do toque já chegou ao teto, e
+    // o que anda é a fração do muxer — mostrá-la é o que separa "montando um
+    // arquivo grande" de "travado em 99%" (relato do operador).
+    case 'juncao': return 'Juntando vídeo e som'
+      + (fracao > 0 && fracao < 100 ? ' · ' + fracao + '% da junção' : n);
     case 'copia':
     case 'gravacao': return 'Guardando no aparelho' + n;
     default: return 'Abrindo' + n;
@@ -37833,8 +37884,8 @@ async function ytBaixarNativo(link, nome, opts) {
   const barra = barraPropria ? novaBarraYt({ juncao: !soAudio, abertura: false }) : opts.barra;
   // Um escritor para as TRÊS superfícies (cartão ou linha, notificação, linha
   // do resultado): o mesmo número em todas, e ele sai da barra, não dos bytes.
-  const pararDeOuvir = barra.ouvir((pct, fase) => {
-    bg.atualizar(legendaDoProgresso(fase, pct, soAudio), null, pct);
+  const pararDeOuvir = barra.ouvir((pct, fase, f) => {
+    bg.atualizar(legendaDoProgresso(fase, pct, soAudio, f), null, pct);
     bgTaskPct(notif, pct);
     if (opts && opts.onPct) opts.onPct(pct);
   });

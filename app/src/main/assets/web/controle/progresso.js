@@ -690,6 +690,13 @@
       /** O valor CONTÍNUO e a velocidade (pontos/s) — para o oráculo medir a suavidade. */
       bruto: () => ({ s, v: Math.max(0, v) * 1000 }),
       fase: () => atual,
+      /**
+       * A FRAÇÃO REAL da junção (0–1), quando ela é a fase corrente e o shell já
+       * mandou `juntando` — ou `null`. É o único sinal que não é estimativa: o
+       * muxer conta as amostras que copiou (`MuxMp4`), e a tela usa isso para o
+       * número não ficar parado no teto enquanto o arquivo é montado.
+       */
+      fracao: () => (atual === 'juncao' && muxTotal > 0 ? Math.min(1, muxFeito / muxTotal) : null),
       terminou: () => concluido && s >= 100,
       /** O tempo que falta, estimado agora (ms) — para o oráculo. */
       restante: () => restante(agora()),

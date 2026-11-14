@@ -758,5 +758,32 @@ if (process.env.REPLAY) console.log(JSON.stringify(resPequenos.map((r) => ({ pro
     'S · e o fim segurado fica curto (no máximo 0,3 s; eram 0,5 e 0,3 s com a barra em 62 e 74)', resPequenos.map((r) => r.segura));
 }
 
+// ── T. A FRAÇÃO DA JUNÇÃO (v1.14.14) ──────────────────────────────────────
+//
+// RELATO DO OPERADOR: *"quando baixei manualmente, ficou muito tempo travado em
+// 99%"* — o texto dizia "Juntando vídeo e som", e o número não andava enquanto
+// o arquivo era montado. O inteiro do toque já está no teto ali, então quem
+// denuncia o progresso é a FRAÇÃO do muxer; sem ela a tela fica parada num
+// trabalho que está andando.
+{
+  let t = 0;
+  const b = P.criar({ modelo: P.modelo(null), agora: () => t, juncao: true, abertura: false });
+  b.sinal('extraiu', {});
+  t += 100; b.bytes(50 * MB, 100 * MB);
+  checar(b.fracao() === null,
+    'T1 · fora da junção não há fração: no download quem manda é o byte (o muxer ainda não começou)', b.fracao());
+  t += 100; b.sinal('baixou', { bytes: 100 * MB, juntar: true });
+  b.sinal('juntando', { feito: 25 * MB, total: 100 * MB });
+  checar(b.fracao() === 0.25,
+    'T2 · e na junção a fração é a do muxer, linha por linha — a única medida REAL desta fase', b.fracao());
+  b.sinal('juntando', { feito: 100 * MB, total: 100 * MB });
+  b.sinal('juntou', {});
+  checar(b.fracao() === 1,
+    'T3 · a junção que termina devolve 1 (e não NaN, com o total de antes)', b.fracao());
+  t += 100; b.sinal('copia');
+  checar(b.fracao() === null,
+    'T4 · e a cópia, que não tem contador, volta a não ter fração — a tela volta ao número do toque', b.fracao());
+}
+
 if (falhas.length) { console.log('\n' + falhas.length + ' falha(s).'); process.exit(1); }
 console.log('\nTodos passaram.');

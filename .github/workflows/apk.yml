@@ -654,6 +654,7 @@ jobs:
           rodar tools/hidratacao-perde-a-vez.test.mjs
           rodar tools/telao-no-chao.test.mjs
           rodar tools/serie-mantem-a-semana.test.mjs
+          rodar tools/barra-da-juncao.test.mjs
           rodar tools/serie-gaveta-aberta.test.mjs
           rodar tools/lista-por-partes.test.mjs
           rodar tools/semana-item.test.mjs

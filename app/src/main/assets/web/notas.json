@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.14.14",
+    "itens": [
+      "O vídeo da semana não fica mais para trás quando o culto começa no meio do download: ele volta quando a projeção sai.",
+      "O cartão da série diz que o episódio está esperando a projeção sair.",
+      "Juntando vídeo e som agora mostra quanto da junção já foi feito, em vez de parar no 99%."
+    ]
+  },
+  {
     "versao": "1.14.13",
     "itens": [
       "Se o guia de sonoplastia não conseguir abrir dentro do app, ele abre no navegador. Isso vem com o app novo.",

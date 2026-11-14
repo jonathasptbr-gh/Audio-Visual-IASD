@@ -709,6 +709,44 @@ try {
     'L2 · e a rodada de reforço RETÉM o arquivo que chegou quando a de dentro já o '
     + 'tinha lido como ausente — nenhuma rodada pedida se perde', l2);
 
+  // ── N. A SÉRIE QUE CEDEU A VEZ VOLTA QUANDO A PROJEÇÃO SAI (v1.14.14) ────
+  //
+  // RELATO DO OPERADOR: *"um deles não baixa nesse download automático. No
+  // último teste foi o provai e vede … tive que baixar manualmente"*. O lote
+  // roda uma série por vez e cede a vez à mídia no ar; a que chegava depois de
+  // um download longo (o Informativo leva minutos) pegava o culto no meio e não
+  // voltava NUNCA — a rodada só nasce na abertura e no `visibilitychange`, e no
+  // culto o app fica aberto. `pararMidia` e `resetAfterEnd` chamam
+  // `serieSemanaReavaliar`, e é isso que este bloco mede.
+  await plantar();
+  await armarDownload(true);
+  const n = await pg.evaluate(async () => {
+    // AS DUAS LISTAS: o bloco L2 deixou o arquivo da semana em `avulsos`, e um
+    // registro com blob faria esta premissa mentir (a rotina o encontraria já baixado).
+    await AVDB.listSet('serie', []);
+    await AVDB.listSet('avulsos', []);
+    await new Promise((r) => setTimeout(r, 50));
+    midiaNoAr = true;
+    await manterSeriesDaSemana();
+    const comMidia = (window.__baixados || []).length;
+    const adiado = serieAdiadaPelaMidia;
+    // O PARAR DE VERDADE (o mesmo `pararMidia` do operador) — não a bandeira na mão.
+    await pararMidia('clear');
+    let retidos = [];
+    for (let i = 0; i < 400; i++) {
+      retidos = await AVDB.listIds('serie');
+      if (retidos.length) break;
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    return { comMidia, adiado, midiaNoAr, baixados: (window.__baixados || []).slice(), retidos };
+  });
+  checar(n.comMidia === 0 && n.adiado === true && n.midiaNoAr === false,
+    'N1 · A PREMISSA: com a projeção no ar a rodada NÃO baixa (cede a vez) e marca '
+    + 'o adiamento — sem isso a última série do lote fica a semana inteira sem o episódio', n);
+  checar(n.baixados.length === 1 && n.retidos.length === 1,
+    'N2 · e o PARAR a faz voltar: a mesma rodada roda com a mídia fora do ar e '
+    + 'baixa o episódio que tinha ficado para trás', n);
+
 } finally {
   await navegador.close();
   await new Promise((r) => servidor.close(r));
