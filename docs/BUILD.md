@@ -40,6 +40,40 @@ sem transação: duas execuções em paralelo (o merge seguido de um push de
 correção é o caso normal) intercalariam, e cancelar no meio do upload produz o
 mesmo estado. Ver "OTA" para o que o nome versionado do zip fecha.
 
+### A PRÉVIA VISUAL — o laço de design, para lote só de aparência
+
+**A REGRA:** quando o diff é SÓ aparência — CSS, o HTML de uma folha ou de um
+card, espaçamento, cor, sombra, animação —, o lote **não vai a `main` para ser
+vistoriado**. Ele se vê na prévia visual, no working tree, e só depois entra no
+rito de publicação. O que deixa de existir é o "publica para ver como ficou".
+
+```
+node tools/previa-visual.mjs                  # serve e imprime as URLs, fica de pé
+node tools/previa-visual.mjs --foto ~/tmp/tela.png   # Chromium do arnês, 430x900
+```
+
+O comando serve `app/src/main/assets/web` — **a base que o OTA entrega**, sem
+build: o arquivo salvo é o servido, a cada requisição. Quem opera abre a URL da
+rede no navegador do celular, toca, salva e recarrega; a foto existe para quem
+não está com o aparelho na mão. `--rota`/`--largura`/`--altura` medem o que se
+quer ver (o `/display/` a 1280x720, a Biblioteca a 360 de largura).
+
+**O que a prévia NÃO é**, e é o que impede "rápido" de virar "sem conferência":
+
+- **sem a ponte** (`window.__NATIVE__` falso, o caminho de navegador que a base
+  mantém de propósito — `docs/DIVERGENCIAS-WEB-NATIVO.md`): telão/TV,
+  `Presentation`, YouTube, cifra, PDF/`.pptx`, share e OTA não existem. Esses
+  continuam no aparelho;
+- **Chromium do Playwright, não o WebView do aparelho**: desenho sim, MEDIDA
+  final não — nenhuma asserção de oráculo nasce daí;
+- **o DISCO, não o HEAD**: lote sem commit de outra sessão aparece junto
+  (`docs/MULTI-AGENTE.md`).
+
+Aprovar na prévia não substitui os oráculos nem a conferência no aparelho: o
+lote visual continua sendo lote — versão, notas, portão e release como qualquer
+outro. A porta é 8097 (3080/3081/3083 são do harness) e o PNG vai para `~/tmp`,
+nunca para o repositório.
+
 ### Os oráculos
 
 Antes de publicar: `node --check` em todo `.js` de `assets/web`, validação do
