@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.14.9",
+    "itens": [
+      "No mudo da prévia, a porcentagem do volume ficou grande e o ícone de som pequeno, no canto.",
+      "Com a prévia aberta ou recolhida, os dois ficam na mesma posição, um colado ao outro."
+    ]
+  },
+  {
     "versao": "1.14.8",
     "itens": [
       "O destaque azul do tour voltou a envolver o botão inteiro; numa peça colada à borda ele fica rente à tela.",

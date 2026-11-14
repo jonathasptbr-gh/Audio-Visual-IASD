@@ -1163,15 +1163,63 @@ body {
 }
 .vol-pill-aviso[hidden] { display: none; }
 .vol-pill-aviso svg { width: 18px; height: 18px; color: var(--warn-text); }
-/* O NÚMERO DENTRO DO BOTÃO DO MUDO (v1.13.66). Ele é ABSOLUTO de propósito: o `.pv-fab` tem
-   `width`/`height` fixos (`--hit`), e a regra do layout da prévia é que todo botão tenha a CAIXA do
-   botão do transporte — um filho no fluxo esticava o quadrado e reprovava essa régua. Assim o
-   número pousa no canto inferior direito do mesmo quadrado, e o alvo não muda de tamanho. */
-.pv-fab--mute { position: relative; }
+/* ===== NO MUDO, O NÚMERO MANDA E O ALTO-FALANTE É O SECUNDÁRIO (v1.14.9) =====
+   Pedido do operador: *"inverta a prioridade dos dois símbolos, pois hoje o botão de som é maior
+   que o número do volume atual … o número principal e o ícone de som secundário, abaixo na
+   direita"*. Até aqui era o contrário: o glifo a 24px (a escala de todo `.pv-fab`) com a
+   porcentagem de `--fs-xs` (MEDIDOS 10,9px) encostada no canto inferior direito.
+
+   A FACE É O QUE SEGURA A COMPOSIÇÃO, e ela existe por um defeito medido: o botão muda de CAIXA
+   entre os dois estados — 34×34 de `--hit` na prévia aberta, e a célula do deck recolhido
+   (37,7×36,4 a 320px) —, e o número morava no canto do BOTÃO (`right: 3px`). Na célula larga ele
+   continuava colado à borda direita enquanto o glifo ficava no CENTRO: os dois se afastavam
+   conforme a largura da célula. Com um quadrado de `--hit` por dentro, os dois pousam nas MESMAS
+   coordenadas nos dois estados; só o espaço em volta muda.
+
+   ELA É ABSOLUTA NOS DOIS ESTADOS, e não só no recolhido. Um filho no fluxo esticava a caixa de
+   `--hit` (a régua do v1.13.66), e no recolhido ele somaria 34px ao conteúdo — a linha do deck
+   passaria a medir o DOBRO do botão do transporte. Com `inset: 0; margin: auto` sobre a caixa de
+   preenchimento, a face fica centrada sem entrar na conta da altura em nenhum dos dois, e o
+   `--press` do recolhido continua movendo a caixa inteira, não o desenho.
+
+   O NÚMERO VAI EM CIMA, CENTRADO; o glifo desce ao canto inferior direito, a 13px. A inversão de
+   hierarquia é a de TAMANHO — 16,8px de número contra 24px antes, 13px de glifo contra 24 — e o
+   `title` do botão continua dizendo "Mutar", que é o que o dedo aciona. `--fs-2xl` é o maior
+   número que cabe em três dígitos dentro de `--hit` (MEDIDO: "100" em `tabular-nums` pede 28px,
+   com 3px de folga de cada lado); acima disso o dígito encostaria na borda da miniatura.
+
+   O `text-shadow` é o irmão do traço. A `drop-shadow` do `.pv-fab svg` acompanha o desenho do SVG
+   e não alcança um `<span>`; sem ele o número sumiria sobre um slide branco — o mesmo defeito que
+   as três sombras existem para impedir (ver `.pv-fab-num`). E ele é VARIÁVEL porque na linha do
+   deck não há palco atrás: lá o botão é `--surface` com tema, e contorno de tinta sob o dígito
+   viraria sujeira. */
+.pv-fab--mute {
+  --pv-mute-ico: 13px;
+  --pv-mute-halo:
+    0 0 1px rgba(0, 0, 0, .95),
+    0 0 2px var(--shadow-ink),
+    0 1px 5px rgba(0, 0, 0, .65);
+  position: relative;
+}
+.pv-mute-face {
+  position: absolute; inset: 0; margin: auto;
+  width: var(--hit); height: var(--hit);
+}
 .pv-mute-num {
-  position: absolute; right: 3px; bottom: 1px;
-  font-size: var(--fs-xs); font-weight: var(--fw-forte); line-height: 1;
+  position: absolute; left: 0; right: 0; top: 2px;
+  text-align: center; line-height: 1;
+  font-size: var(--fs-2xl); font-weight: var(--fw-max);
   font-variant-numeric: tabular-nums;
+  text-shadow: var(--pv-mute-halo);
+}
+/* A classe dobrada é o desempate, e não estilo: `.pv-fab svg` (0,1,1) é escrito depois deste
+   bloco e venceria por ordem — a mesma armadilha que o selo de camadas pagou uma vez (ver o
+   comentário da `.pv-fab--camada`). A posição absoluta no canto é a que dá o "abaixo na direita"
+   do pedido, e o tamanho sai da variável para a prévia recolhida poder dizer `--icon-md` aos
+   vizinhos sem tocar neste. */
+.pv-fab.pv-fab--mute svg {
+  position: absolute; right: 0; bottom: 1px;
+  width: var(--pv-mute-ico); height: var(--pv-mute-ico);
 }
 .vol-pill .ico-alt { display: none; }
 .vol-pill.mudo .ico-base { display: none; }
@@ -1585,6 +1633,9 @@ body.mode-simple .vol-pill-trilho { height: 12rem; }
   grid-row: 1; position: relative; width: auto; height: auto; min-height: 0; margin: 0;
   padding: .45rem 0; border-radius: var(--radius-btn);
   background: var(--surface); color: var(--text);
+  /* O MUDO NÃO TEM PALCO ATRÁS AQUI: a célula é `--surface` com tema, e o contorno de tinta do
+     número (a `--pv-mute-halo` do `.pv-fab--mute`) viraria sujeira sob o dígito. */
+  --pv-mute-halo: none;
 }
 .preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) #muteToggle { grid-column: 1; }
 .preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) #viewToggle { grid-column: 2; }
@@ -1593,7 +1644,8 @@ body.mode-simple .vol-pill-trilho { height: 12rem; }
 .preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) #pvFullBtn { grid-column: 5; }
 .preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) .pv-fab svg,
 .preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) .pv-fab:active svg {
-  width: var(--icon-md); height: var(--icon-md); stroke-width: 2; filter: none;
+  width: var(--pv-mute-ico, var(--icon-md)); height: var(--pv-mute-ico, var(--icon-md));
+  stroke-width: 2; filter: none;
 }
 .preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) .pv-fab:active {
   transform: var(--press); filter: var(--press-luz);

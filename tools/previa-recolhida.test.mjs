@@ -8,7 +8,7 @@
 // `pv-recolhida` põe os cinco botões numa grade de cinco células, cada uma com a
 // caixa do botão do transporte logo abaixo, e a altura passa a ser a do CONTEÚDO
 // — ninguém declara um número. O selo de camadas e o giro saem da linha, e um
-// PONTO na seta diz que um deles está ativo (bloco H). Cinco coisas se quebram
+// PONTO na seta diz que um deles está ativo (bloco H). Seis coisas se quebram
 // sem erro:
 //
 //   · **A altura que sobra.** Uma altura declarada (`height: 72px`) ou um piso
@@ -28,6 +28,10 @@
 //     tem de fazer algo visível), a DECODIFICAÇÃO segue `economiaAtiva()`
 //     (marcação E destino E fora da tela cheia). Ligar a decodificação à
 //     marcação pausa o `<video>` que, sem tela, é a fonte do SOM.
+//   · **O mudo (v1.14.9).** O número é o desenho principal e o glifo o
+//     secundário, e os dois têm de pousar nas MESMAS coordenadas da face nos
+//     dois estados. O botão continua tocável e o ícone continua trocando com o
+//     estado: o que se perde, calado, é a leitura — e era ela o pedido.
 //
 // ## O que se MEDE, e o que NÃO se escreve aqui
 //
@@ -195,8 +199,32 @@ const MEDIR = () => {
     ladoDoIcone: seta && seta.svg ? [seta.svg.w, seta.svg.h] : null,
     esquerdaDaSeta: seta ? seta.l - P.l : null,
     cast: fabs.find((f) => f.id === 'pvCastBtn') || null,
+    // O MUDO (v1.14.9): o número é o desenho principal e o glifo o secundário. A
+    // posição dos dois é lida DENTRO da `.pv-mute-face` — ver `mudoRelativo`.
+    mudo: (() => {
+      const b = document.getElementById('muteToggle');
+      const face = b && b.querySelector('.pv-mute-face');
+      const num = document.getElementById('pvMuteNum');
+      const icone = b && b.querySelector('svg');
+      if (!face || !num || !icone) return null;
+      return {
+        face: r(face), num: r(num), icone: r(icone),
+        fonte: parseFloat(getComputedStyle(num).fontSize),
+      };
+    })(),
   };
 };
+
+// AS MEDIDAS DO MUDO EM COORDENADAS DA FACE. A face é o que viaja entre os dois
+// estados (o botão muda de caixa; ela não), então é nela que a composição tem de
+// ser a mesma — medir a partir do BOTÃO é justamente o que deixava o defeito passar.
+const mudoRelativo = (m) => ({
+  face: [+m.face.w.toFixed(1), +m.face.h.toFixed(1)],
+  num: [+(m.num.l - m.face.l).toFixed(1), +(m.num.t - m.face.t).toFixed(1)],
+  icone: [+(m.icone.l - m.face.l).toFixed(1), +(m.icone.t - m.face.t).toFixed(1)],
+  fonte: m.fonte,
+  lado: +m.icone.w.toFixed(1),
+});
 
 async function abrir(largura = 430, altura = 900) {
   const ctx = await navegador.newContext({ viewport: { width: largura, height: altura }, reducedMotion: 'reduce' });
@@ -293,6 +321,43 @@ try {
 
         checar(rec.ponto === false,
           'B7 · sem giro nem camada a seta recolhida NÃO tem o ponto vermelho [' + tag + ']', rec.ids);
+
+        // ---- C: O MUDO — O NÚMERO MANDA, E OS DOIS NÃO ANDAM (v1.14.9) ----
+        //
+        // O pedido do operador foi uma INVERSÃO de hierarquia dentro do MESMO botão:
+        // *"o número principal e o ícone de som secundário, abaixo na direita"*, e que os
+        // dois não se afastem *"quando a prévia está colapsada"*. As duas metades falham
+        // CALADAS: o botão continua tocável, o alvo continua de `--hit`, o ícone continua
+        // trocando com o estado — o que se perde é só a leitura, que é a razão do pedido.
+        // Por isso as asserções são de RELAÇÃO (a fonte do número contra o lado do glifo,
+        // cada um dentro da FACE) e não de números escritos aqui.
+        const mudoExp = exp.mudo && mudoRelativo(exp.mudo);
+        const mudoRec = rec.mudo && mudoRelativo(rec.mudo);
+        checar(!!mudoExp && !!mudoRec,
+          'C0 · PREMISSA: o mudo tem a face e os dois desenhos nos dois estados [' + tag + ']',
+          { expandida: !!mudoExp, recolhida: !!mudoRec });
+        if (mudoExp && mudoRec) {
+          checar(mudoExp.fonte > mudoExp.lado * 1.15,
+            'C1 · o NÚMERO é o desenho PRINCIPAL: a fonte da porcentagem é maior que o lado do '
+            + 'alto-falante — na ordem antiga os dois seguem lá, e o pedido some [' + tag + ']',
+            mudoExp);
+          checar(Math.abs(mudoExp.face[0] - exp.hit) <= 0.5
+            && Math.abs(mudoExp.face[1] - exp.hit) <= 0.5,
+            'C2 · e a face é o quadrado de `--hit` (a régua da prévia aberta), mesmo com o botão '
+            + 'sem ser quadrado no recolhido [' + tag + ']', { face: mudoExp.face, hit: exp.hit });
+          checar(mudoExp.icone[0] > mudoExp.face[0] / 2 && mudoExp.icone[1] > mudoExp.face[1] / 2,
+            'C3 · o glifo está no canto INFERIOR DIREITO da face — o "abaixo na direita" do pedido ['
+            + tag + ']', mudoExp);
+          checar(mudoExp.num[1] < mudoExp.face[1] / 2,
+            'C4 · e o número está ACIMA dele, na metade de cima [' + tag + ']', mudoExp);
+          checar(mudoExp.face.join() === mudoRec.face.join()
+            && mudoExp.num.join() === mudoRec.num.join()
+            && mudoExp.icone.join() === mudoRec.icone.join()
+            && mudoExp.fonte === mudoRec.fonte && mudoExp.lado === mudoRec.lado,
+            'C5 · os dois pousam nas MESMAS coordenadas da face na prévia ABERTA e na RECOLHIDA: '
+            + 'era na célula larga do deck que o número, morando no canto do BOTÃO, se afastava do '
+            + 'glifo [' + tag + ']', { aberta: mudoExp, recolhida: mudoRec });
+        }
 
         // ---- H: com o giro ativo, recolhida: o giro SAI e o ponto da seta o diz (v1.13.10) ----
         await pg.evaluate(() => { mediaRot = 270; renderRotBtn(); });

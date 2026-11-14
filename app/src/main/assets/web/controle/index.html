@@ -1599,15 +1599,23 @@
             </button>
             <!-- Idem: `muted = false` no boot → sai som, então o alto-falante
                  inteiro. É deste botão que o ícone da pílula copia o estado. -->
-            <!-- O MUDO CARREGA O NÚMERO (v1.13.66), pedido do operador: *"um indicador sempre visível
-                 sobre a porcentagem atual do volume … unificar os dois em um único ícone de volume e
-                 numérico, para tentar manter o mesmo tamanho do ícone atual"*. São o MESMO botão de
-                 sempre — o alvo não muda de tamanho —, com o glifo em cima e o número embaixo. -->
+            <!-- O MUDO CARREGA O NÚMERO (v1.13.66), e desde a v1.14.9 o NÚMERO É O DESENHO
+                 PRINCIPAL. Pedido do operador: *"inverta a prioridade dos dois símbolos, pois hoje
+                 o botão de som é maior que o número do volume atual … o número principal e o ícone
+                 de som secundário, abaixo na direita"*. O alvo não muda de tamanho: a porcentagem
+                 sobe ao lugar de honra, e o glifo de 24px vira o secundário, de 13px, no canto.
+
+                 A FACE ENVOLVE OS DOIS. É ela que mantém a composição quando o botão deixa de ser
+                 um quadrado de `--hit` e vira a célula larga do deck recolhido — foi ali que os
+                 dois se afastaram, porque o número morava no canto do BOTÃO. Ver o bloco da
+                 `.pv-mute-face` na `controle.css`. -->
             <button id="muteToggle" class="pv-fab pv-fab--mute" type="button" title="Mutar" aria-label="Mutar">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <use class="ico-base" href="#icoSom"/><use class="ico-alt" href="#icoSomOff"/>
-              </svg>
-              <span class="pv-mute-num" id="pvMuteNum">100</span>
+              <span class="pv-mute-face">
+                <span class="pv-mute-num" id="pvMuteNum">100</span>
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <use class="ico-base" href="#icoSom"/><use class="ico-alt" href="#icoSomOff"/>
+                </svg>
+              </span>
             </button>
           </div>
           <div class="pv-fabs">
@@ -1960,7 +1968,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.8</span>
+          <span id="appVersion">v1.14.9</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>

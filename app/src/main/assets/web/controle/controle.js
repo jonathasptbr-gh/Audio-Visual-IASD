@@ -416,7 +416,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.8';
+const WEB_VERSION = '1.14.9';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -34762,17 +34762,37 @@ function pacoteMontarFolha({ cols, porGrupo, bytesEstado, midiaPorGrupo, midiaBy
   };
   const coletaneas = AVColetanea.aplicar(albumCatalog.categories);
   const reivindicados = new Set();
+  // A MESMA RÉGUA DA BIBLIOTECA (v1.14.10). Pedido do operador: *"verifique o
+  // agrupamento nessa lista de transferência, pois ele acabou não atualizando
+  // como fizemos na biblioteca, onde agrupamos duas coleções para dentro da
+  // coleção 'Diversas'."* A regra é a do `desenharCategorias`: "Adoradores" e
+  // "Cantores" (`DISSOLVIDAS_EM_DIVERSAS`) entram no grupo "Diversas"
+  // (`GRUPO_DIVERSAS`) junto com a coletânea que já tem esse nome, e as OUTRAS
+  // categorias continuam com o grupo delas. Sem estas linhas a folha desenhava
+  // as duas separadas e a mesma coleção morava em dois lugares conforme a tela.
+  const catDiversas = coletaneas.categorias
+    .find((c) => chaveDeNome(c.name) === chaveDeNome(GRUPO_DIVERSAS));
+  const emDiversas = [];
+  const chavesDaCategoria = (cat) => categoryCards(cat)
+    .map((x) => porColecao.get(x.coll.id))
+    .filter(Boolean).map((x) => x.chave);
   for (const cat of coletaneas.categorias) {
+    if (cat === catDiversas) continue;
     for (const a of cat.albums) reivindicados.add('album-' + a.id_album);
     // PELA MESMA FUNÇÃO DA BIBLIOTECA: é ela que decide a ORDEM (a
     // alfabética das coletâneas nomeadas) e o que fica de fora (um álbum de
     // hinário não é card de coletânea). Lendo `cat.albums` por conta própria,
     // esta folha reescrevia as duas regras e divergia da tela em que o
     // operador aprendeu onde cada álbum mora.
-    secao(cat.name, categoryCards(cat)
-      .map((x) => porColecao.get(x.coll.id))
-      .filter(Boolean).map((x) => x.chave));
+    const chaves = chavesDaCategoria(cat);
+    if (DISSOLVIDAS_EM_DIVERSAS.test(String(cat.name))) { emDiversas.push(...chaves); continue; }
+    secao(cat.name, chaves);
   }
+  if (catDiversas) {
+    for (const a of catDiversas.albums) reivindicados.add('album-' + a.id_album);
+    emDiversas.push(...chavesDaCategoria(catDiversas));
+  }
+  secao(catDiversas ? catDiversas.name : GRUPO_DIVERSAS, emDiversas);
   const orfaos = albumCatalog.albums
     .map((a) => porColecao.get('album-' + a.id_album))
     .filter((x) => x && !reivindicados.has(AVPacote.colecaoDoGrupo(x.chave)));
@@ -35151,18 +35171,16 @@ function renderPacoteGrupos(plano) {
     pacoteNotaEl.textContent = PACOTE_NOTA_IMPORTAR;
     return;
   }
-  // O PESO DO QUE FOI ESCOLHIDO, na nota acima dos botões: é a única pergunta
-  // que o operador tem depois de marcar ("cabe no cartão?"), e ela muda a cada
-  // toque.
-  // Sem nada baixado aqui (só as coleções de base, com "nada baixado") não há o que
-  // exportar, e um peso de "até 56 KB" de ajustes seria ruído: a nota fala só do
-  // que serve a um aparelho novo — o Importar.
+  // A NOTA NÃO DIZ MAIS O PESO TOTAL (v1.14.10). Pedido do operador: *"remova a
+  // linha de comentários sobre o peso total que pode chegar e afins, essa linha é
+  // desnecessária."* O que fica é o que ela dizia de útil e o peso NÃO dizia: o
+  // Importar só acrescenta, e um aparelho sem biblioteca não tem o que exportar.
+  // O peso continua onde ele responde a uma pergunta por linha — no `sub` de cada
+  // grupo e no rótulo do Exportar —, nunca como um total solto.
   const temAlgo = plano.grupos.some((g) => !g.fixo && !g.vazio);
-  pacoteNotaEl.textContent = !temAlgo
-    ? 'Este aparelho ainda não tem biblioteca baixada. ' + PACOTE_NOTA_IMPORTAR
-    : 'Exportar leva '
-      + pacotePeso(pacoteBytesDe(plano, pacoteSelecao(plano)), plano.aprox)
-      + '. ' + PACOTE_NOTA_IMPORTAR;
+  pacoteNotaEl.textContent = temAlgo
+    ? PACOTE_NOTA_IMPORTAR
+    : 'Este aparelho ainda não tem biblioteca baixada. ' + PACOTE_NOTA_IMPORTAR;
 }
 
 const PACOTE_CANCELADO = 'cancelado';

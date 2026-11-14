@@ -628,7 +628,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.14.8 · APK v1.14.6** · `SHELL_VERSION` **87** ·
+**Versão atual: base web v1.14.9 · APK v1.14.6** · `SHELL_VERSION` **87** ·
 bundle com `minShell: 83` e **sem `shellTag`** (lote só web: a Release continua
 sendo a 1.14.6, que põe o "fechar" do guia à esquerda, no lugar do "voltar ao
 site", e manda `?app=1` para a página esconder esse voltar); o contrato da ponte
@@ -678,5 +678,6 @@ inteiro. O que cada lote trouxe está no `docs/HISTORICO.md`, nunca aqui.
 | o que muda entre navegador e app? | `docs/DIVERGENCIAS-WEB-NATIVO.md` |
 | o arnês, o CI, a assinatura, o backup, a página do site | `docs/BUILD.md` |
 | a Verificação do Sistema e o Registro | `docs/DIAGNOSTICO.md` |
+| a varredura geral de 2026-11-13: o que ela fechou e o que deixou aberto | `docs/revisao/REVISAO-2026-11-13.md` (o dossiê, com a prova de cada achado) e o Pacote 12.2 da fila |
 | o que o operador pediu e ainda não foi feito? | `docs/PEDIDOS-EM-ESPERA.md` — pacotes; perguntar qual seguir antes de começar |
 | "faça uma das etapas de revisão" / a revisão profunda em etapas | `docs/REVISAO-PROFUNDA.md` (o plano e a regra que ESCOLHE a etapa) e `docs/revisao/REGISTRO.md` (a fila e o andamento) — uma etapa por sessão, a sessão escolhe sozinha |

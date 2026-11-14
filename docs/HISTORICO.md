@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.9** — no mudo da prévia, o número manda e o alto-falante fica menor, no canto
 - **revisão de resíduos pós-v1.14.7 (sem versão nova; `tools/`, docs e site)** — o portão voltou a rodar o `docs-coerentes` (o filtro casava a MENÇÃO ao arnês e pulava o único puro de fora), o comentário do placar do CI parou de copiar "134", e os fatos da v1.14.7 saíram dos capítulos, do guia e da ponte (67 · 73 · 73); o que ficou medido está no Pacote 12.2 da fila.
 - **o guia: o app vai para a operação, e o glossário para o fim (sem versão nova; só `site/` e docs)** — o app (D11) passa a D8, logo depois do YouTube, e o glossário (I17) passa a I22, antes do diagnóstico: a ordem dos capítulos conferida de ponta a ponta.
 - **v1.14.8** — o destaque do tour volta a envolver a peça inteira (sai o recuo de 20 px da v1.14.7)
@@ -1365,6 +1366,30 @@ docs: nada chega ao app.
 - **Não medido:** a impressão física (impressora real, frente e verso pela
   borda longa, furo no fichário) e a impressão de dentro do app (o WebView do
   Android provavelmente ignora `window.print()` — daí o aviso).
+
+## v1.14.9 — no mudo, o número manda e o alto-falante vira o secundário
+
+**Pedido do operador**, **só web**: *"inverta a prioridade dos dois símbolos,
+pois hoje o botão de som é maior que o número do volume atual … o número
+principal e o ícone de som secundário, abaixo na direita"*, e que os dois não se
+afastem *"quando a prévia está colapsada"* — manter a aberta, onde ficam mais
+próximos.
+
+- **A inversão:** a porcentagem sobe de `--fs-xs` (10,9 px medidos) para
+  `--fs-2xl` (16,8 px), centrada em cima; o glifo desce de 24 px para 13 px, no
+  canto inferior direito. O alvo continua `--hit`, então o dedo não muda.
+- **A face:** um quadrado de `--hit` dentro do botão (`.pv-mute-face`), absoluto
+  nos dois estados, guarda as coordenadas dos dois. Era o número morando no canto
+  do BOTÃO (`right: 3px`) que se afastava do glifo na célula larga do deck
+  recolhido — 37,7×36,4 medidos a 320 px.
+- **Na linha do deck** o número perde a sombra de tinta (`--pv-mute-halo: none`):
+  a célula é `--surface` com tema, e contorno de palco ali viraria sujeira.
+- **Oráculo:** `tools/previa-recolhida.test.mjs` ganha o bloco C — a fonte do
+  número maior que o lado do glifo, o glifo no quadrante inferior direito, o
+  número na metade de cima, e as MESMAS coordenadas da face na aberta e na
+  recolhida (320/360/430 px × 2 proporções).
+- **Não medido:** aparelho fraco; a célula recolhida a 320 px foi medida pelo
+  oráculo. Só web: `minShell` 83, sem `shellTag` (a Release segue a 1.14.6).
 
 ## v1.14.8 — o destaque do tour volta a envolver a peça inteira
 
