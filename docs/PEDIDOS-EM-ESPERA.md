@@ -31,6 +31,14 @@ fazem. A novidade desta edição é o agrupamento por TEMA (a tabela logo abaixo
 a fila continua sendo a coluna da NOTA do índice. **Nenhum pacote foi
 executado** — esta edição é só a lista.
 
+**Segunda edição de 2026-11-14 (a revisão das diretrizes).** O operador pediu
+uma revisão do contrato, do rito e dos processos de revisão, aprovou os quatro
+pacotes de conserto e mandou pô-los num arquivo de urgência: são os **Pacotes
+24 a 27**, e o conteúdo mora em [`URGENCIA.md`](URGENCIA.md). São os ÚNICOS
+pacotes desta fila **já autorizados** — um por sessão, na ordem 24 → 27. Os
+dois itens de decisão que estavam só no `RESIDUOS.md` viraram os **Pacotes 28 e
+29** (*"tudo entra na fila para ser feito"*).
+
 **Regra do arquivo:** ele ESVAZIA. Um pacote entregue sai daqui (a nota vai ao
 `docs/HISTORICO.md`, como sempre); um pedido revogado sai com uma linha dizendo
 quem revogou. Não é log, e não é `docs/ACHADOS-EM-ABERTO.md` (lá moram defeitos
@@ -66,6 +74,12 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **21** — Destinos: a engrenagem do item guardado | 6 (I3×U2) | pedido | só web |
 | **22** — Bíblia: três versículos no controle | 2 (I2×U1) | pedido | só web |
 | **23** — Editor de mídia: a margem inferior | 4 (I2×U2) | defeito | só web |
+| **24** — Urgência C: as instruções desta máquina | urgente — 1º | resíduo | fora do repositório + `tools/estado.sh` |
+| **25** — Urgência A: o rito de entrega | urgente — 2º | resíduo | `tools/` + workflow + docs |
+| **26** — Urgência B: o processo de revisão | urgente — 3º | resíduo | só docs + `tools/revisao-cobertura.mjs` |
+| **27** — Urgência D: enxugar e unificar o contrato | urgente — 4º | resíduo | só docs |
+| **28** — Série: o aviso que promete descer | 6 (I3×U2) | defeito | só web |
+| **29** — Guia do site: a captura das sete ferramentas | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
 
 ---
 
@@ -82,6 +96,9 @@ diferentes, e um lote nunca mistura dois temas.
 | **Cronograma e destinos** | 16, 20, 21 | a abertura antes do culto, o alerta de "não baixado" à esquerda e a engrenagem do item guardado |
 | **Bíblia** | 22 | a leitura de três versículos no controle |
 | **Mídia** | 23 | a margem inferior do editor de mídia |
+| **Diretrizes (urgência)** | 24, 25, 26, 27 | a revisão das diretrizes de 14/11: a máquina, o rito, a revisão e o contrato — um por sessão, nessa ordem |
+| **Séries** | 28 | o aviso do card que promete o que a rodada não cumpre |
+| **Site** | 29 | a captura da lista de Ferramentas, com as sete |
 | **Fila anterior a 14/11** | 5, 6, 7, 8, 9, 12 | o que já estava na fila, na ordem que ela já tinha |
 | **Estudos** | 13, 15 | não são fila de execução: a entrega é a decisão do operador |
 
@@ -830,6 +847,79 @@ pode ser sido mal feito."*
   uma linha de CSS; se for o `#toolsFoot` vazio ou a lista, é outra.
 - **O oráculo:** o `geometria` mede a folha aberta e o corte; o
   `edicao-de-midia` mede o editor. O lote ajusta os dois se a régua mudar.
+
+---
+
+## Pacote 24 — Urgência C: as instruções desta máquina
+
+**Urgente, 1º · resíduo · fora do repositório + `tools/estado.sh`**
+
+O conteúdo é o **Pacote C** do [`URGENCIA.md`](URGENCIA.md) (C1 a C12): a
+reversão que apagaria a configuração de modelos, o token que o texto manda
+apagar e duas ferramentas ainda leem, os tetos de custo medidos em outro modelo.
+**Autorizado** pelo operador em 14/11.
+
+---
+
+## Pacote 25 — Urgência A: o rito de entrega
+
+**Urgente, 2º · resíduo · `tools/` + workflow + docs**
+
+O **Pacote A** do [`URGENCIA.md`](URGENCIA.md) (A1 a A11). Traz duas decisões
+do operador: **a entrega direto em `main` é o fluxo oficial** (o único teste
+antes de publicar é a prévia visual, e só quando ele pedir um design novo) e
+**a versão tem três casas**. **Autorizado** em 14/11.
+
+---
+
+## Pacote 26 — Urgência B: o processo de revisão
+
+**Urgente, 3º · resíduo · só docs + `tools/revisao-cobertura.mjs`**
+
+O **Pacote B** do [`URGENCIA.md`](URGENCIA.md) (B1 a B14). Traz a decisão do
+operador: **a revisão geral volta a caçar defeito**, não só higiene.
+**Autorizado** em 14/11.
+
+---
+
+## Pacote 27 — Urgência D: enxugar e unificar o contrato
+
+**Urgente, 4º · resíduo · só docs**
+
+O **Pacote D** do [`URGENCIA.md`](URGENCIA.md) (D1 a D8). Sai por último: A e B
+movem trechos que D depois corta. **Autorizado** em 14/11.
+
+---
+
+## Pacote 28 — Série: o aviso que promete descer
+
+**Nota 6 (I3 × U2) · defeito · só web**
+
+**Onde:** `controle.js` (o aviso do card, perto da linha 22564 no HEAD
+`21b28607`), `manterSeriesDaSemana`, `serieAutoImpedimento`.
+
+Achado M1-2 da revisão de 14/11, que estava só no `RESIDUOS.md`. O aviso do
+card promete que a série "desce quando ela sair", mas a rodada só é armada por
+`manterSeriesDaSemana`: com um card aberto na projeção, a saída da mídia NÃO
+baixa a série.
+
+- **A decidir no lote:** cumprir a promessa (armar a rodada na saída da mídia)
+  ou mudar o texto do aviso. Mexe no contrato do `serieAutoImpedimento` — por
+  isso era decisão do operador, e não resíduo fino.
+- **O oráculo:** o `serie` ganha o cenário "card aberto, a mídia sai".
+
+---
+
+## Pacote 29 — Guia do site: a captura das sete ferramentas
+
+**Nota 2 (I2 × U1) · resíduo · só site**
+
+**Onde:** `site/sonoplastia/index.html` e `site/telas/`.
+
+Achado M6-1 da revisão de 14/11. A captura da lista de Ferramentas mostra seis,
+e o app tem sete (falta "Editar mídia"). Refazer a captura pede **o app em
+tela** — não há aparelho nesta máquina: ou o operador manda a captura, ou ela
+sai da prévia visual no Chromium.
 
 ---
 

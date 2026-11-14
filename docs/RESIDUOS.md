@@ -43,11 +43,11 @@ medição em aparelho não é fino.**
 | 2026-11-14 | `tools/tour.test.mjs` | `FOLGA`/`ANEL` escritos à mão (o padrão do achado T7) | higienização | idem |
 | 2026-11-14 | `controle.js`, `controle.css` | 14 comentários "lápide" (`saiu na vX`) anteriores ao intervalo | higienização | fora do escopo das duas revisões |
 | 2026-11-14 | `site/sonoplastia/index.html` | 671 linhas de CSS e 1.320 de JS inline, nada cacheável (~33 kB comprimidos) | higienização | ganho pequeno; exige conferir o layout de impressão |
-| 2026-11-14 | `site/sonoplastia/index.html` | a captura da lista de Ferramentas mostra seis e o app tem sete ("Editar mídia") | operador | refazer a captura pede o app em tela |
+| 2026-11-14 | `site/sonoplastia/index.html` | a captura da lista de Ferramentas mostra seis e o app tem sete ("Editar mídia") | operador | refazer a captura pede o app em tela — **na fila: Pacote 29** (14/11) |
 | 2026-11-14 | `YoutubeGrab.kt` | os campos `initIni/initFim/idxIni/idxFim/codec` da `Faixa`, sem leitor desde que o `dash` saiu (~24 linhas, KDoc junto) | CI | não há compilador aqui; a remoção só se prova no Gradle |
 | 2026-11-14 | `controle.css` | a pílula de volume da tela cheia deitada (C8): a 740×360 o número sai da tela | operador | **decidido deixar como está** em 14/11 |
 | 2026-11-14 | `capturas/entrada/` | 3,7 MB de JPEG de origem, já convertidos para `site/telas/` | operador | **decidido deixar como está** em 14/11 |
-| 2026-11-14 | `controle.js:22564` | o aviso do card promete que a série "desce quando ela sair", mas a rodada só é armada por `manterSeriesDaSemana` — com um card aberto na projeção a saída da mídia não baixa | operador | mexe no contrato do `serieAutoImpedimento` |
+| 2026-11-14 | `controle.js:22564` | o aviso do card promete que a série "desce quando ela sair", mas a rodada só é armada por `manterSeriesDaSemana` — com um card aberto na projeção a saída da mídia não baixa | operador | mexe no contrato do `serieAutoImpedimento` — **na fila: Pacote 28** (14/11) |
 | 2026-11-14 | `tools/tour.test.mjs:94` | o oráculo mede a peça com a MESMA regra do `elementos()`: não distingue a peça certa da primeira casada | higienização | só o G novo tem régua independente |
 | 2026-11-14 | `ESTABILIDADE-AV` C2, D2 | pedem medição em aparelho | medição | não há aparelho nesta máquina |
 | 2026-11-14 | `EFICIENCIA` #2, #9 | processo, não código | operador | aberto desde 2026-09 |

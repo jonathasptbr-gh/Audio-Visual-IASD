@@ -194,6 +194,7 @@ docs/
 ├── ECONOMIA.md                  # o CUSTO da sessão: os três tetos, a rotina, o medidor
 ├── RESIDUOS.md                 # o que cada LOTE deixou para trás — a tabela que substitui a arqueologia
 ├── REVISAO-GERAL.md            # o ESCOPO da revisão periódica: os dez marcos (M1..M10)
+├── URGENCIA.md                 # a revisão das DIRETRIZES de 14/11: quatro pacotes de conserto — esvazia
 └── AUDITORIA-ESTABILIDADE-AV.md # APÊNDICE: o que pode INTERROMPER áudio/vídeo
 ```
 

@@ -68,6 +68,7 @@ tem o resto):
 | [`docs/ECONOMIA.md`](docs/ECONOMIA.md) | **o custo da sessão**: os três tetos, a rotina e o medidor |
 | [`docs/RESIDUOS.md`](docs/RESIDUOS.md) | **o que cada lote deixou para trás** — a tabela que substitui a arqueologia |
 | [`docs/REVISAO-GERAL.md`](docs/REVISAO-GERAL.md) | **o escopo da revisão periódica**: os dez marcos, e o que fecha uma revisão |
+| [`docs/URGENCIA.md`](docs/URGENCIA.md) | **a revisão das diretrizes de 14/11**: quatro pacotes de conserto (C → A → B → D) e as decisões do operador — ele esvazia |
 
 **Apêndices congelados** — `docs/AUDITORIA-2026-08.md`,
 `docs/AUDITORIA-2026-09-11.md`, `docs/AUDITORIA-EFICIENCIA-2026-09.md`,
