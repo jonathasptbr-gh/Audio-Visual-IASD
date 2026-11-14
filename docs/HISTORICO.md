@@ -31,6 +31,7 @@ apagada da que a criou.
 ## Índice
 
 - **o guia: o app vai para a operação, e o glossário para o fim (sem versão nova; só `site/` e docs)** — o app (D11) passa a D8, logo depois do YouTube, e o glossário (I17) passa a I22, antes do diagnóstico: a ordem dos capítulos conferida de ponta a ponta.
+- **v1.14.8** — o destaque do tour volta a envolver a peça inteira (sai o recuo de 20 px da v1.14.7)
 - **v1.14.7** — o tour vira quadrado, o editor vira ferramenta, e o tour não encosta na borda
 - **o guia: socorro e diagnóstico no fim, e os códigos em sequência (sem versão nova; só `site/` e docs)** — o socorro (D9) e o diagnóstico (I17) fecham cada guia, os capítulos que vinham depois andam uma casa, e as remissões, o índice e a impressão vão junto.
 - **o guia: capa impressa nova, e "trilha" vira "guia" (sem versão nova; só `site/` e docs)** — a 1ª página da impressão ganha a faixa da igreja (Igreja Adventista do Sétimo Dia e IASD, em texto), o nome do guia dominante, o caminho do som no azul da casa e um rodapé com endereço, data e páginas; as partes passam a se chamar "Guia de sonoplasta por um dia" e "… em tempo integral".
@@ -1360,6 +1361,24 @@ docs: nada chega ao app.
 - **Não medido:** a impressão física (impressora real, frente e verso pela
   borda longa, furo no fichário) e a impressão de dentro do app (o WebView do
   Android provavelmente ignora `window.print()` — daí o aviso).
+
+## v1.14.8 — o destaque do tour volta a envolver a peça inteira
+
+**Pedido do operador**, no dia seguinte à v1.14.7, **só web**: *"Pode desfazer o
+limitador do highlight que abrange o item inteiro. Os elementos ficaram pouco
+cobertos e os pontos de focos em diversos casos ficaram distorcidos."*
+
+- **O recorte perde o recuo de 20 px** que a v1.14.7 lhe deu: volta a ser a peça
+  mais a folga de 6 px, preso só à tela (0…largura/altura visível). Numa peça
+  colada à borda o anel fica rente e o halo pode ser cortado — é a escolha do
+  operador, e o caso que motivou o recuo (a pílula de volume) já está resolvido
+  pelo piso de 12 px da v1.14.7.
+- **Ficam** o balão a 16 px de todas as bordas e a leitura do `visualViewport`.
+- **Oráculo:** `tools/tour.test.mjs` volta a exigir o recorte = a peça inteira
+  (preso à tela), com o porquê no comentário.
+- **Não medido:** aparelho fraco; a 320 px o recorte foi conferido pelo oráculo.
+  Só web: `minShell` 83, sem `shellTag` (a Release segue a 1.14.6).
+
 
 ## v1.14.6 — o guia com o "fechar" à esquerda e sem o "voltar ao site"
 

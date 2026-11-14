@@ -40,13 +40,6 @@
   const VIGIA_MS = 250;
   const FOLGA = 6;      // o recorte passa a peça por esta margem
   const MARGEM = 16;    // o balão nunca encosta na borda da tela
-  // O RECORTE TAMBÉM NUNCA ENCOSTA (v1.14.7). A 0 o halo do `.tour-recorte` era
-  // cortado pela borda da tela — e um elemento de borda a borda ficava SEM
-  // recorte visível. A margem é a do halo: o anel (2px) + o espalhamento (5px) +
-  // o desfoque (14px) chegam a 19px, e o recorte recua 20px dos quatro lados. O
-  // preço, aceito pelo operador, é que num elemento colado à borda o recorte pode
-  // não envolvê-lo por inteiro — visível é melhor que inteiro.
-  const MARGEM_RECORTE = 20;
   const VAO = 10;       // entre o recorte e o balão
 
   // A ÁREA VISÍVEL é a do `visualViewport` quando ele existe: com o teclado ou a
@@ -495,14 +488,14 @@
     if (!r) {
       left = (vw - w) / 2; top = Math.max(MARGEM, (vh - h) / 2);
     } else {
-      // O RECORTE RESPEITA A MARGEM DO HALO NOS QUATRO LADOS, inclusive quando a
-      // peça vai de borda a borda: aí ele fica DENTRO da peça em vez de sumir na
-      // borda da tela (é a troca aceita pelo operador).
-      const preso = (v, min, max) => Math.min(max, Math.max(min, v));
-      const l = preso(r.left - FOLGA, MARGEM_RECORTE, vw - MARGEM_RECORTE);
-      const t = preso(r.top - FOLGA, MARGEM_RECORTE, vh - MARGEM_RECORTE);
-      const rr = preso(r.right + FOLGA, MARGEM_RECORTE, vw - MARGEM_RECORTE);
-      const bb = preso(r.bottom + FOLGA, MARGEM_RECORTE, vh - MARGEM_RECORTE);
+      // O RECORTE É A PEÇA (v1.14.8; o recuo de 20px da v1.14.7 saiu a pedido do
+      // operador de 2026-11-13: ele deixava a peça de borda a borda pouco coberta e
+      // distorcia o ponto de foco em vários casos). Ele volta a envolver a peça
+      // inteira, preso só à tela; numa peça colada à borda o anel fica rente e o halo
+      // pode ser cortado — o preço que o operador escolheu, e o piso de 12px da
+      // pílula de volume resolve o caso que motivou o recuo.
+      const l = Math.max(0, r.left - FOLGA), t = Math.max(0, r.top - FOLGA);
+      const rr = Math.min(vw, r.right + FOLGA), bb = Math.min(vh, r.bottom + FOLGA);
       rec = { l, t, w: Math.max(0, rr - l), h: Math.max(0, bb - t) };
       rec.raio = raioDe(passo, rec.w, rec.h);
       const cx = (l + rr) / 2;

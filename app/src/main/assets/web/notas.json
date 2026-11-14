@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.14.8",
+    "itens": [
+      "O destaque azul do tour voltou a envolver o botão inteiro; numa peça colada à borda ele fica rente à tela.",
+      "A janelinha do tour continua com folga das bordas da tela."
+    ]
+  },
+  {
     "versao": "1.14.7",
     "itens": [
       "O Tour do app virou um quadrado de ligar e desligar, no fim dos botões de Configurações.",

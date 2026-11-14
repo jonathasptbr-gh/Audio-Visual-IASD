@@ -129,25 +129,21 @@ const veuBate = (m) => temCor(m.veu, m.token);
 const haloBate = (m) => temCor(m.veu, m.halo) && cores(m.veu).findIndex((a) => a.every((v, k) => Math.abs(v - nums(m.halo)[k]) < 0.005))
   < cores(m.veu).findIndex((a) => a.every((v, k) => Math.abs(v - nums(m.token)[k]) < 0.005));
 
-// O recorte É a peça: contém o retângulo dela e não passa da folga (6px) + 1.
-// O RECORTE PRESO À ÁREA VISÍVEL (v1.14.7): o esperado é a peça mais a FOLGA de 6,
-// limitada à MARGEM_RECORTE de 20 — o alcance do halo (anel 2 + espalhamento 5 +
-// desfoque 14 = 19). Num elemento de borda a borda o recorte pode NÃO envolvê-lo
-// por inteiro; é a troca aceita pelo operador, e por isso a régua é o retângulo
-// esperado e não "contém a peça".
-const MARGEM_RECORTE = 20;
+// O recorte É a peça: contém o retângulo dela mais a folga (6px), preso só à tela.
+// O recuo de 20px da v1.14.7 saiu na v1.14.8 (pedido do operador de 2026-11-13: a
+// peça de borda a borda ficava pouco coberta e o ponto de foco distorcia): a régua
+// volta a ser a peça inteira, e um elemento de borda a borda tem o recorte rente.
 function recorteBate(m) {
   if (!m.peca || !m.recorte) return false;
   const FOLGA = 6;
   const lim = (v, max) => Math.max(0, Math.min(max, v));
-  const preso = (v, max) => Math.min(max - MARGEM_RECORTE, Math.max(MARGEM_RECORTE, v));
   const p = { l: lim(m.peca.l, m.vw), t: lim(m.peca.t, m.vh), r: lim(m.peca.r, m.vw), b: lim(m.peca.b, m.vh) };
-  const e = { l: preso(p.l - FOLGA, m.vw), t: preso(p.t - FOLGA, m.vh), r: preso(p.r + FOLGA, m.vw), b: preso(p.b + FOLGA, m.vh) };
+  const e = { l: lim(p.l - FOLGA, m.vw), t: lim(p.t - FOLGA, m.vh), r: lim(p.r + FOLGA, m.vw), b: lim(p.b + FOLGA, m.vh) };
   const perto = (a, b) => Math.abs(a - b) <= 1.5;
   return perto(m.recorte.l, e.l) && perto(m.recorte.t, e.t) && perto(m.recorte.r, e.r) && perto(m.recorte.b, e.b)
     && m.recorte.r - m.recorte.l > 8 && m.recorte.b - m.recorte.t > 8
-    && m.recorte.l >= MARGEM_RECORTE - 0.5 && m.recorte.t >= MARGEM_RECORTE - 0.5
-    && m.recorte.r <= m.vw - MARGEM_RECORTE + 0.5 && m.recorte.b <= m.vh - MARGEM_RECORTE + 0.5;
+    && m.recorte.l >= -0.5 && m.recorte.t >= -0.5
+    && m.recorte.r <= m.vw + 0.5 && m.recorte.b <= m.vh + 0.5;
 }
 // Há lugar para o balão inteiro acima ou abaixo do recorte (margem 16 + vão 10)?
 const cabeAoLado = (m) => { const h = m.balao.b - m.balao.t; return m.recorte.t - 26 >= h || m.vh - m.recorte.b - 26 >= h; };
