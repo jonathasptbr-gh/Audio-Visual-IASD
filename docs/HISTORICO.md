@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **revisão de resíduos pós-v1.14.7 (sem versão nova; `tools/`, docs e site)** — o portão voltou a rodar o `docs-coerentes` (o filtro casava a MENÇÃO ao arnês e pulava o único puro de fora), o comentário do placar do CI parou de copiar "134", e os fatos da v1.14.7 saíram dos capítulos, do guia e da ponte (67 · 73 · 73); o que ficou medido está no Pacote 12.2 da fila.
 - **o guia: o app vai para a operação, e o glossário para o fim (sem versão nova; só `site/` e docs)** — o app (D11) passa a D8, logo depois do YouTube, e o glossário (I17) passa a I22, antes do diagnóstico: a ordem dos capítulos conferida de ponta a ponta.
 - **v1.14.8** — o destaque do tour volta a envolver a peça inteira (sai o recuo de 20 px da v1.14.7)
 - **v1.14.7** — o tour vira quadrado, o editor vira ferramenta, e o tour não encosta na borda

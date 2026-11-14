@@ -1,6 +1,7 @@
 # Achados em aberto
 
-**NENHUM** — não há defeito CONFIRMADO em aberto. O arquivo fica pelo registro
+**UM** — o §5 (`abrirGuia` responde antes de a tela abrir). Fora ele, nenhum
+defeito CONFIRMADO em aberto: o arquivo fica pelo registro
 dos três que moraram aqui, e os três fecharam por RESPOSTA DO OPERADOR: o do
 fone/Bluetooth (§1) e o "só o cliente pode fazer o app escolher baixo" (§3), em
 2026-11-08; e o da CHAMADA telefônica, em 2026-11-09 — palavras dele: *"não é um
@@ -277,3 +278,22 @@ Os dois primeiros passam no RUNNER — é lá que os números deles nasceram —
 terceiro é medição de pixel, que também fecha lá. **Não se conserta mexendo no
 app:** o conserto é uma campanha de fontes do CI, e o registro existe para a
 próxima sessão não cobrar do lote errado.
+
+---
+
+## 5. O guia do app pode não abrir — e o web não sabe (2026-11-13, achado de revisão)
+
+**O mecanismo, medido no código.** `AVNative.abrirGuia(url)` devolve `true`
+(`NativeBridge.kt:1129-1134`) e só DEPOIS posta o `show()` no UI thread
+(`MainActivity.kt:1726-1739`), onde três coisas podem recusar em silêncio: a
+Activity estar acabando (`isFinishing`/`isDestroyed`), o diálogo já estar aberto
+(`guiaSom?.isShowing`), ou o `show()` lançar. O web decide com esse `true`
+(`controle.js:45598`: `if (!AVNative.abrirGuia(url)) AVNative.openExternal(url)`)
+— então, na recusa, o guia não abre e o caminho de queda não é tomado.
+
+**Não é regressão de culto:** o guia é leitura. O conserto é o contrato virar um
+`Boolean` decidido no UI thread (true só depois do `show()`, false no `catch`) e
+a ponte propagar — Kotlin, logo APK + Release.
+
+**Por que ainda não foi corrigido:** o lote de 2026-11-13 era só web; este achado
+pede `SHELL_VERSION` novo e Release, e não entra de carona.
