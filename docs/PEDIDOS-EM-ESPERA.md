@@ -334,24 +334,32 @@ app"), uma suspeita refutada (as classes `pag-col-e/d` são montadas pelo JS).
 
 **O que sobra, e não é conserto de uma linha:**
 
-- **12.3.1** o guia é um arquivo de 966 kB e 61,4% é SVG inline (587 kB, 267
-  `<svg>`); extrair para um sprite cacheável é o ganho grande.
-- **12.3.2** 671 linhas de CSS e 1.320 de JS inline no mesmo HTML, nada cacheável.
-- **12.3.3** as 18 capturas de `site/telas/` são 800×1632 (990 kB) e o guia as
-  pinta a 150 px: uma variante de 320 px serviria quatro delas.
-- **12.3.4** um oráculo que case os `nome:` de `FERRAMENTAS` do `controle.js` com
-  os títulos do guia — foi a ausência dele que deixou os dois erros passarem
-  verdes.
+- ~~**12.3.1**~~ **REFUTADO em 14/11, com número.** A extração do desenho não
+  paga: o guia tem 943 kB CRUS e **206 kB comprimidos** (o Pages comprime), então
+  o que sai da rede é isso, não os 587 kB; um sprite em arquivo à parte economiza
+  ~110 kB **só a partir da segunda visita**, e `<use>` externo não funciona nos
+  navegadores. Quem quisesse provar teria de medir o parse, não a rede.
+- **12.3.2** 671 linhas de CSS e 1.320 de JS inline no mesmo HTML: virariam dois
+  arquivos cacheáveis (~33 kB comprimidos). Ganho pequeno, risco baixo.
+- ~~**12.3.3**~~ **FEITO em 14/11** (`82df8685`): as 18 capturas ganharam uma
+  variante de 320 px em `site/telas/320/`, e o guia passou a usá-la. As imagens
+  do guia caíram de 902 kB para 247 kB (−72,6%), e a página de 2,07 MB para
+  1,22 MB. Era o peso de verdade: as capturas pagam em toda visita, o desenho só
+  na segunda.
+- ~~**12.3.4**~~ **FEITO em 14/11**: `tools/guia-casa-com-o-app.test.mjs`, no CI e
+  no `docs/ORACULOS.md`. Provado por reversão, e já achou um quarto texto velho
+  que a faxina deixou (a legenda da figura do Editar mídia).
 - **12.3.5** o pós-retrato (v1.14.8–v1.14.12, 1.619 inserções) não teve varredura
   própria; a de 14/11 cobre o intervalo, e o que sobrar dela entra aqui.
-- **12.3.6** TRÊS comentários falsos na base web, achados e conferidos em
-  14/11 mas **deixados de fora do lote de docs/site** porque mexer em
-  `controle.js`/`controle.css` exige as quatro casas da versão (e o `web-ota`
-  publica em todo push em `main`). Vão no próximo lote web:
-  `controle.css:1101` cita o `MARGEM_RECORTE`, constante que morreu — hoje o
-  tour usa `ANEL = 2`; `controle.js` (perto de `temAlgo`) promete "o peso no
-  rótulo do Exportar", e o rótulo só tem o desenho e a palavra; e o comentário
-  do `Tour do app` ainda chama o quadrado de "CAIXA de marcação (v1.14.5)".
+- ~~**12.3.6**~~ **FEITO na v1.14.15**, junto com o tour (`b8b2c4b2`):
+  o do piso de 12px citava o `MARGEM_RECORTE`, constante que morreu; o do peso
+  prometia o número "no rótulo do Exportar"; e o do `Tour do app` chamava o
+  quadrado de "CAIXA de marcação".
+
+**Feito na v1.14.15** (`b8b2c4b2`): o tour do Histórico e do Transferir recorta
+UMA linha em vez da lista inteira (`elementos()` passou a pegar uma peça por
+seletor), com oráculo que planta duas linhas e prova — a asserção que olha o que
+se vê, não o que o código faz.
 
 **Achados do pós-retrato que pedem decisão de projeto, não conserto de uma
 linha** (registrados no §10 do dossiê): o tour de Transferir e Histórico usa
