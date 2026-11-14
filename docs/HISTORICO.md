@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.15** — o Histórico e o Transferir destacam a primeira linha do gesto em vez da lista inteira, e saem três comentários falsos; só web.
 - **v1.14.14** — a série que cedeu a vez à projeção volta quando ela sai, o card diz por quê, e a junção mostra a fração real em vez de parar no 99%; só web.
 - **v1.14.13** — a faxina da revisão de 2026-11-13: código morto e comentários falsos fora do `controle.js`, do CSS e do Kotlin, o tour do editor que tentava abrir em laço, e o `abrirGuia` que cai no navegador quando o diálogo não abre; APK + web.
 - **v1.14.12** — o número do mudo volta ao centro, e o alto-falante fica sobre ele
@@ -1371,6 +1372,31 @@ docs: nada chega ao app.
 - **Não medido:** a impressão física (impressora real, frente e verso pela
   borda longa, furo no fichário) e a impressão de dentro do app (o WebView do
   Android provavelmente ignora `window.print()` — daí o aviso).
+
+## v1.14.15 — o tour recorta a linha, não a lista
+
+**Só web** (sem `shellTag`). Achado da varredura do pós-retrato de 14/11, com a
+prova na mão.
+
+**O PASSO DO GESTO RECORTAVA A LISTA INTEIRA.** O `elementos()` do tour fazia
+`querySelectorAll` de cada alvo e o recorte virava a UNIÃO de todas as
+ocorrências. A união que vale é entre os SELETORES — a faixa e as duas pontas do
+mesmo controle —, não entre as LINHAS: `#histList .row-item .row-btn` e
+`#pacoteLista .pacote-linha` destacavam o Histórico e o Transferir inteiros. Agora
+é UMA peça por seletor, a primeira visível.
+
+O oráculo era CEGO por construção: ele plantava uma linha só e media a união pela
+mesma régua do código. Agora ele planta DUAS, longe uma da outra, e afirma que o
+recorte do passo cabe numa linha — asserção que olha o que se vê, não o que o
+código faz.
+
+**Os três comentários falsos da base web** (fila 12.3.6): o do piso de 12px da
+pílula citava o `MARGEM_RECORTE`, constante que morreu — hoje o tour usa `ANEL`;
+o do peso da transferência prometia o número "no rótulo do Exportar", e o rótulo
+só tem o desenho e a palavra; e o do "Tour do app" ainda chamava o quadrado de
+"CAIXA de marcação".
+
+---
 
 ## v1.14.14 — a série que cedeu a vez volta, e a junção mostra o que anda
 

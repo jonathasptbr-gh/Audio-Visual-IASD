@@ -1099,8 +1099,7 @@ body {
      escrito por `lugarDaPilula` na hora de aparecer: o CENTRO dela no centro do corpo do modo
      (`centroDaPilula`, v1.13.64), com 8px de respiro nas bordas da janela. O recuo esquerdo respeita o
      recorte da câmera (`safe-area-inset-left`) E TEM UM PISO DE 12px (v1.14.7): a 6px o recorte
-     azul do tour ficava cortado pela borda da tela, e 12px é a margem da grade — o `MARGEM_RECORTE`
-     do tour desconta exatamente isso. */
+     azul do tour ficava cortado pela borda da tela, e 12px é a margem da grade. */
   position: fixed; left: max(12px, env(safe-area-inset-left, 0px));
   top: var(--pill-top, 33vh); bottom: auto;
   z-index: 350;

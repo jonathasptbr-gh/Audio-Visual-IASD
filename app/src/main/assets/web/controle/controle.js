@@ -416,7 +416,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.14';
+const WEB_VERSION = '1.14.15';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -35166,7 +35166,7 @@ function renderPacoteGrupos(plano) {
   // desnecessária."* O que fica é o que ela dizia de útil e o peso NÃO dizia: o
   // Importar só acrescenta, e um aparelho sem biblioteca não tem o que exportar.
   // O peso continua onde ele responde a uma pergunta por linha — no `sub` de cada
-  // grupo e no rótulo do Exportar —, nunca como um total solto.
+  // grupo —, nunca como um total solto.
   const temAlgo = plano.grupos.some((g) => !g.fixo && !g.vazio);
   pacoteNotaEl.textContent = temAlgo
     ? PACOTE_NOTA_IMPORTAR
@@ -45581,8 +45581,8 @@ if (window.AVTour) {
   AVTour.ligar({ qual: qualTour, ocupado: telaOcupadaParaTour, secao: secaoDoTour, bloqueio: bloqueioDoTour,
     modo: () => appMode, volume: volumeDoTour });
 }
-// "Tour do app" é uma CAIXA de marcação (v1.14.5): ligada, cada janela se explica na
-// primeira vez que abre; desligada — por ela ou pelo "Pular tour" do balão —, nenhum
+// "Tour do app" é o ÚLTIMO quadrado da grade (v1.14.7): ligado, cada janela se explica na
+// primeira vez que abre; desligado — por ele ou pelo "Pular tour" do balão —, nenhum
 // tour abre sozinho. Desligar fica em Configurações (a folha não fecha); LIGAR de novo
 // refaz o tour do modo atual, e para isso a folha fecha (o tour não abre por cima
 // dela). O desenho segue o estado (`av-tour-ativo`), também quando o "Pular tour"

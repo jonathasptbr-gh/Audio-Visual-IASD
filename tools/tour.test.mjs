@@ -91,7 +91,8 @@ const medir = (pg) => pg.evaluate(() => {
     return r.width >= 1 && r.height >= 1 && cs.visibility !== 'hidden' && cs.display !== 'none'
       && r.bottom > 0 && r.top < innerHeight;
   };
-  const todosDe = (p) => (!p.alvo ? [] : Array.isArray(p.alvo) ? p.alvo : [p.alvo]).flatMap((q) => [...document.querySelectorAll(q)]).filter(vis);
+  const todosDe = (p) => (!p.alvo ? [] : Array.isArray(p.alvo) ? p.alvo : [p.alvo])
+    .map((q) => [...document.querySelectorAll(q)].filter(vis)[0]).filter(Boolean);
   const passo = AVTour.passoAtual();   // o passo NA ORDEM em que o tour o mostra
   const els = todosDe(passo);
   let peca = null;
@@ -311,6 +312,12 @@ try {
       sub.textContent = 'até 1 MB';
       li.appendChild(sub);
       lista.appendChild(li);
+      // A SEGUNDA LINHA, LONGE: é ela que denuncia o recorte da lista inteira.
+      // Esta asserção NÃO espelha o `elementos()` — ela olha o que se vê.
+      const li2 = li.cloneNode(true);
+      li2.style.marginTop = '260px';
+      lista.appendChild(li2);
+      window.__alturaDaLinha = li.getBoundingClientRect().height;
       const v = JSON.parse(localStorage.getItem('av.tour') || '{}');
       delete v['s.cfg-pacote'];
       localStorage.setItem('av.tour', JSON.stringify(v));
@@ -321,6 +328,11 @@ try {
     const titulosPac = passosPac.map((m) => m.titulo);
     checar(titulosPac.includes('Marcar e desmarcar') && titulosPac.includes('O peso de cada escolha'),
       'G · abrir o Transferir abre o tour dele, com os passos de seleção e de peso', JSON.stringify(titulosPac));
+    const marcar = passosPac.find((m) => m.titulo === 'Marcar e desmarcar');
+    const alt = await pg.evaluate(() => window.__alturaDaLinha);
+    checar(!!marcar && !!marcar.recorte && (marcar.recorte.b - marcar.recorte.t) < alt + 40,
+      'G · o passo da marca recorta UMA linha do Transferir, não as duas da lista',
+      JSON.stringify({ alturaDaLinha: alt, recorte: marcar && marcar.recorte }));
     await pular(pg);
     await pg.evaluate(() => closeFadePopup());
     await esperar(pg, () => !document.getElementById('fadePopup').classList.contains('open'));

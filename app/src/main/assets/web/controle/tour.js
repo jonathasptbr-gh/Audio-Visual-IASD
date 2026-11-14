@@ -362,7 +362,14 @@
     if (!passo.alvo) return [];
     const lista = Array.isArray(passo.alvo) ? passo.alvo : [passo.alvo];
     const els = [];
-    for (const q of lista) for (const e of document.querySelectorAll(q)) if (visivel(e)) els.push(e);
+    // UMA PEÇA POR SELETOR: o recorte é a UNIÃO dos alvos, e a união que vale é
+    // entre os SELETORES — a faixa e as duas pontas do mesmo controle, por
+    // exemplo. Com o `querySelectorAll` inteiro a união também acontecia entre as
+    // LINHAS: `#histList .row-item .row-btn` e `#pacoteLista .pacote-linha`
+    // destacavam a lista toda em vez da primeira linha, que é a que explica o gesto.
+    for (const q of lista) {
+      for (const e of document.querySelectorAll(q)) if (visivel(e)) { els.push(e); break; }
+    }
     return els;
   }
   function retangulo(passo) {

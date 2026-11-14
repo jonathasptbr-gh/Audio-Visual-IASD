@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.14.15",
+    "itens": [
+      "Abrir o Histórico ou o Transferir destaca a primeira linha que explica o gesto, e não a lista inteira.",
+      "Faxina: saíram três explicações que descreviam coisas que o app não faz mais. Nada muda no uso."
+    ]
+  },
+  {
     "versao": "1.14.14",
     "itens": [
       "O vídeo da semana não fica mais para trás quando o culto começa no meio do download: ele volta quando a projeção sai.",
