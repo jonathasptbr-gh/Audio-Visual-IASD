@@ -44,7 +44,9 @@ outro está é o que separa "editei junto sem perceber" de "editei e avisei".
 
 A primeira fala de cada sessão ao operador diz **qual área ela está tocando**
 (`web/controle`, `tools/`, `docs/`, Kotlin). É o que permite ao operador — o
-único que fala com as duas — evitar o choque antes dele acontecer.
+único que fala com as duas — evitar o choque antes dele acontecer. **A tabela do
+que se diz ao operador (a abertura, as cinco etapas, a entrega) é uma só, no
+`CLAUDE.md`** — aqui fica a regra, não a lista.
 
 ### 3. Commitar só o que é seu
 

@@ -226,7 +226,7 @@ const docs = [];
   // parecendo autoridade depois de o repositório mudar debaixo dele.
   const contagens = [
     ['docs/shell/README.md', /`app\/src\/main\/java\/br\/org\/iasd\/av\/`, (\d+) arquivos/, kt.length, 'arquivos Kotlin no mapa do shell'],
-    ['CLAUDE.md', /\*\*(\d+) arquivos Kotlin/, kt.length, 'arquivos Kotlin no CLAUDE.md'],
+    ['docs/ESTRUTURA.md', /\*\*(\d+) arquivos Kotlin/, kt.length, 'arquivos Kotlin na ESTRUTURA.md'],
   ];
   for (const [arq, re, esperado, nome] of contagens) {
     const m = ler(arq).match(re);

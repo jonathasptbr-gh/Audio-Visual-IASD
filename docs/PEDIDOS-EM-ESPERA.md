@@ -34,11 +34,11 @@ executado** — esta edição é só a lista.
 **Segunda edição de 2026-11-14 (a revisão das diretrizes).** O operador pediu
 uma revisão do contrato, do rito e dos processos de revisão, aprovou os quatro
 pacotes de conserto e mandou pô-los num arquivo de urgência: são os **Pacotes
-24 a 27**, e o conteúdo mora em [`URGENCIA.md`](URGENCIA.md). São os ÚNICOS
-pacotes desta fila **já autorizados** — um por sessão. **Os Pacotes 24, 25 e 26
-saíram em 2026-11-14**; resta o 27. Os
-dois itens de decisão que estavam só no `RESIDUOS.md` viraram os **Pacotes 28 e
-29** (*"tudo entra na fila para ser feito"*).
+24 a 27**. Eles foram os ÚNICOS pacotes desta fila **já autorizados** — um por
+sessão —, e **os quatro saíram em 2026-11-14**, um por commit; o `URGENCIA.md`
+esvaziou com o 27 e foi apagado. Os dois itens de decisão que estavam só no
+`RESIDUOS.md` viraram os **Pacotes 28 e 29** (*"tudo entra na fila para ser
+feito"*).
 
 **Regra do arquivo:** ele ESVAZIA. Um pacote entregue sai daqui (a nota vai ao
 `docs/HISTORICO.md`, como sempre); um pedido revogado sai com uma linha dizendo
@@ -75,7 +75,6 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **21** — Destinos: a engrenagem do item guardado | 6 (I3×U2) | pedido | só web |
 | **22** — Bíblia: três versículos no controle | 2 (I2×U1) | pedido | só web |
 | **23** — Editor de mídia: a margem inferior | 4 (I2×U2) | defeito | só web |
-| **27** — Urgência D: enxugar e unificar o contrato | urgente — o que resta | resíduo | só docs |
 | **28** — Série: o aviso que promete descer | 6 (I3×U2) | defeito | só web |
 | **29** — Guia do site: a captura das sete ferramentas | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
 
@@ -94,7 +93,6 @@ diferentes, e um lote nunca mistura dois temas.
 | **Cronograma e destinos** | 16, 20, 21 | a abertura antes do culto, o alerta de "não baixado" à esquerda e a engrenagem do item guardado |
 | **Bíblia** | 22 | a leitura de três versículos no controle |
 | **Mídia** | 23 | a margem inferior do editor de mídia |
-| **Diretrizes (urgência)** | 27 | o que resta da revisão das diretrizes de 14/11: o contrato |
 | **Séries** | 28 | o aviso do card que promete o que a rodada não cumpre |
 | **Site** | 29 | a captura da lista de Ferramentas, com as sete |
 | **Fila anterior a 14/11** | 5, 6, 7, 8, 9, 12 | o que já estava na fila, na ordem que ela já tinha |
@@ -814,15 +812,6 @@ pode ser sido mal feito."*
 
 ---
 
-## Pacote 27 — Urgência D: enxugar e unificar o contrato
-
-**Urgente, 4º · resíduo · só docs**
-
-O **Pacote D** do [`URGENCIA.md`](URGENCIA.md) (D1 a D8). Sai por último: A e B
-movem trechos que D depois corta. **Autorizado** em 14/11.
-
----
-
 ## Pacote 28 — Série: o aviso que promete descer
 
 **Nota 6 (I3 × U2) · defeito · só web**
@@ -856,6 +845,14 @@ sai da prévia visual no Chromium.
 ---
 
 ## O que saiu desta lista (rastro, não log)
+
+**2026-11-14, Pacotes 24 a 27 (sem versão nova; docs, `tools/` e arquivos da
+máquina):** a revisão das diretrizes — as instruções desta máquina consertadas
+(24), o rito de entrega (25), o processo de revisão (26) e a dieta do contrato
+(27): o `CLAUDE.md` de 47 kB para 25 kB, uma regra de leitura só, a tabela única
+das falas ao operador, o critério objetivo da delegação, e o método dos oráculos,
+a versão e o rito da Release na fonte única (`docs/BUILD.md`). A nota de cada um
+está em `docs/HISTORICO.md`; o `URGENCIA.md` esvaziou com o 27 e foi apagado.
 
 **v1.14.7 (2026-11-13), só web:** o **Pacote 10** inteiro — o "Editar mídia"
 agora é uma linha da lista de Ferramentas (com o voltar do Android e o rascunho)

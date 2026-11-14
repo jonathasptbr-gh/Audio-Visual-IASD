@@ -49,8 +49,37 @@ chamada.
 
 **A delegação só compensa quando o trabalho é de leitura.** O subagente começa
 com contexto vazio e devolve a conclusão; se a tarefa depende da conversa
-inteira, ele re-lê tudo e o ganho some. O briefing é o que decide o custo
-dele — ver "A entrega delegada" no `CLAUDE.md`.
+inteira, ele re-lê tudo e o ganho some. O critério objetivo e o que o briefing
+carrega estão na seção seguinte.
+
+## A entrega delegada
+
+**Toda tarefa de LEITURA nasce delegada** — e o critério é objetivo, não
+adjetivo: delega-se quando o trabalho **lê mais de 3 arquivos, ou mais de 200
+linhas, ou varre o repositório, ou roda a suíte**. Edição pontual — um trecho já
+achado, uma linha, um arquivo já lido — fica na sessão: o briefing de um agente
+custa mais que o corte.
+
+**O briefing carrega quatro coisas, e nenhuma é opcional:**
+
+| o que | o padrão |
+|---|---|
+| **escopo** | os arquivos e o que **NÃO** está na cerca |
+| **teto de passos** | **60 chamadas** do subagente; acima disso o trabalho se divide em dois, ou o briefing está grande demais |
+| **ponto de parada** | quando o pedido chega como **suspeita** ("defeito a confirmar"): voltar com a causa achada **ANTES** de consertar |
+| **saída magra** | `head`/`tail` no que pode ser longo, UM caso do oráculo em vez do arquivo inteiro, log só de erro |
+
+**As chamadas do subagente NÃO entram no teto de 150 da sessão** — ele tem
+transcript próprio, e o medidor só vê o da sessão. O que a sessão paga é o
+briefing (entra) e o resultado (volta); por isso um briefing longo para uma
+tarefa curta é o jeito de delegar caro.
+
+**O que decide o custo é o briefing, não o agente.** No Pacote 3 (2026-11-10) a
+suspeita era falsa e o agente escreveu 348 linhas de oráculo no caminho errado —
+205 passos e US$ 1,5–3,6 para uma correção de 31 linhas. A saída de ferramenta
+é o maior item do contexto e é RELIDA a cada passo: no Pacote 3, 582 kB de
+`bash` contra 107 kB de `read`, em 189 chamadas; na medição de 10/11, carregar
+resultado foi **34% da conta**.
 
 ## A medição
 
@@ -60,7 +89,8 @@ node ~/.dsh-github/uso.mjs --todas         # uma linha por sessão (não conta a
 node ~/.dsh-github/uso.mjs --profundidade  # a curva: quanto custa o passo em cada faixa
 ```
 
-Ela fecha o anexo técnico do lote. **Sessão retomada não se conta duas vezes:**
+Ela fecha o relatório do lote: o número (passos, cache lido, faixa) entra no
+fecho da sessão, ao operador — **não há arquivo de anexo**. **Sessão retomada não se conta duas vezes:**
 o transcript de uma sessão semeada carrega o histórico do pai, e o medidor
 ignora as chamadas anteriores à criação dela — sem isso, uma retomada infla o
 total em até 26%.

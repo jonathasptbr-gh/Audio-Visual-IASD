@@ -294,7 +294,7 @@ checar(doFade.length === 1 && !doFade[0].mediaId && !doFade[0].playing,
 //    São duas perguntas, e as duas precisam de oráculo porque nenhuma se vê
 //    lendo o código: **o cartão tem as três peças?** e **o texto se lê contra o
 //    preto?** A segunda é a primeira medição de contraste do repositório — o
-//    `CLAUDE.md` diz, desde a v5.47, que não havia nenhuma. Ela cabe aqui e não
+//    repositório não tinha nenhuma até a v5.47. Ela cabe aqui e não
 //    no app inteiro: no palco o piso não é "acessibilidade de tela a 30 cm", é
 //    um projetor visto do fundo de um salão.
 //

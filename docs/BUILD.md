@@ -1,13 +1,13 @@
 # Build, distribuição e os oráculos por dentro
 
-O workflow, o arnês dos oráculos, os passos do CI, a assinatura, o backup, a
-página do site e as dependências declaradas. **As regras de MÉTODO dos oráculos
-(a vizinhança local e a suíte no CI, a lista do workflow, a "Sanidade da base
-web", a reversão de asserção e a reversão por cópia) ficam no `CLAUDE.md`**, que
-é lido em toda sessão; o que cada oráculo trava está em
-[`ORACULOS.md`](ORACULOS.md).
+O rito, a versão, o workflow, o arnês dos oráculos, o MÉTODO deles, os passos do
+CI, a assinatura, o backup, a página do site e as dependências declaradas. **É a
+fonte única de tudo isso: o `CLAUDE.md` guarda a regra em uma linha e aponta para
+cá.** O que cada oráculo trava está em [`ORACULOS.md`](ORACULOS.md).
 
-> **Movido do `CLAUDE.md` na revisão A2 (2026-10-30), sem mudança de texto** (só os links relativos e o nível dos títulos). No núcleo ficou um resumo com o link para cá. "Acima", "abaixo", "esta seção" e as invariantes numeradas falam do `CLAUDE.md`, de onde este texto veio.
+> **Este texto veio do `CLAUDE.md`** — a maior parte na revisão A2 (2026-10-30),
+> e o método dos oráculos, o número da versão e o rito da Release no Pacote 27
+> (2026-11-14). Onde ele disser "acima", "abaixo" ou "esta seção", é daqui.
 
 ## O rito de entrega
 
@@ -31,6 +31,98 @@ O portão e o `verificar` cobram 2 a 5 por máquina: as três casas, o `shellTag
 contra a última tag `v*` (shell mudado sem ele reprova), a versão maior que a da
 tag quando a base web mudou, o teto das notas, o índice E a seção do histórico,
 e a versão citada no RES.
+
+## A versão — o número, as três casas e o `shellTag`
+
+**O degrau é `MAIOR.INCREMENTAL.CORREÇÃO`, e cada componente responde a uma
+pergunta. Nunca se sobe um degrau "porque já mudou bastante": sobe-se o degrau
+que o LOTE justifica.**
+
+| degrau | quando sobe | exemplo |
+|---|---|---|
+| **MAIOR** (`1`.x.y) | **só sob mudança fundamental de CONCEITO**, por decisão explícita de quem publica. Não é acúmulo de recursos — é o app deixar de ser o que era | `1.x.y` → `2.0.0` |
+| **INCREMENTAL** (x.`2`.y) | uma **seção inteiramente nova**: um lugar que não existia, com tela e fluxo próprios | `1.0.7` → `1.1.0` |
+| **CORREÇÃO** (x.y.`3`) | correções e ajustes menores — o caso NORMAL, e o que a maioria dos lotes é | `1.0` → `1.0.1` |
+
+**Ao subir um degrau, os de baixo ZERAM:** depois de `1.4.9`, uma seção nova é
+`1.5.0`, nunca `1.5.9` — um número que não zera passa a contar duas coisas e
+deixa de responder qualquer uma delas.
+
+**ARMADILHA MEDIDA: `1.1` e `1.1.0` são a MESMA versão** para o OTA, e vale
+para todo número de DOIS componentes — o `compareVersions` completa com zero o
+que falta, então republicar a `1.1` como `1.1.0` não é atualização nenhuma: o
+aparelho ignora, em silêncio. **O primeiro degrau depois de um número de dois
+componentes é o `.1`** (depois da `1.0` veio a `1.0.1`; depois da `1.1` vem a
+`1.1.1`). A comparação é **numérica por componente**, nunca lexical: `1.0.10` é
+MAIOR que `1.0.9`.
+
+**As DUAS LINHAS usam o mesmo número, e podem ficar em degraus diferentes.** A
+base web sobe a cada lote (chega por OTA em minutos); o APK só sobe quando um
+lote exige Release. Um `web v1.0.7 · shell v1.0.3` não é divergência — é a
+resposta a *"o OTA chegou e o APK ainda não?"*. **Desde a v1.7.0 essa resposta
+mora só no REGISTRO:** a tela mostra um número, e é o da base web.
+
+### As TRÊS casas, e os três andam juntos
+
+| onde | o quê | para quê |
+|---|---|---|
+| `assets/web/version.json` | `"version"` | **faz a atualização chegar**: o OTA compara este campo (`compareVersions`) e ignora, em silêncio, um bundle cuja versão não seja maior que a instalada |
+| `controle/controle.js` | `WEB_VERSION` | **é o que a UI mostra**: `renderVersionLabel()` escreve o rótulo de versão no CABEÇALHO de Configurações |
+| `controle/index.html` | `<span id="appVersion">` | o que aparece antes do primeiro render — e a única versão visível num shell sem `appVersion()` |
+
+Esquecer o `WEB_VERSION` é o erro **silencioso** (o bundle novo chega e o
+aparelho exibe a versão antiga, justamente a leitura que serve para diagnosticar
+se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
+chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI
+("Assinatura").
+
+**O estado corrente — a versão, a última Release, o `SHELL_VERSION`, o
+`minShell` e o `shellTag` — se mede** (`tools/estado.sh`); o degrau e o piso da
+ponte estão no
+[`NUCLEO-TECNICO`](NUCLEO-TECNICO.md#shell_version--subir-sempre-que-a-superfície-mudar),
+e o que cada lote trouxe, no `HISTORICO.md`. **Nenhum número de versão mora nesta
+prosa.**
+
+### O `shellTag` e a Release
+
+**A primeira linha vem ANTES do commit:** declarar a tag em `version.json`.
+
+```jsonc
+{ "version": "1.0.1", "minShell": 46, "shellTag": "v1.0.1" }
+```
+
+Com ela o `web-ota` SEGURA o bundle até a Release existir e, quando ela sai,
+republica o manifesto **com o link do APK dentro** — o app pergunta uma vez
+sobre o lote inteiro (o mecanismo em
+[`NUCLEO`](NUCLEO-TECNICO.md#ota-da-base-web-atualização-sem-apk)). Sem
+`shellTag` o bundle sai na hora, que é o certo para um lote só de web. Depois do
+push em `main`: Actions → *Build APK* → Run workflow, com `release_tag` = a MESMA
+tag do `version.json` (a tag é criada pelo workflow, a partir de `main`). **Não
+esperar o operador pedir.**
+
+- **`shellTag` ACOMPANHA A ÚLTIMA VERSÃO, NÃO A QUE MEXEU NO KOTLIN** — o CI
+  exige `shellTag == 'v' + version`. Um lote só de web publicado DEPOIS de um
+  lote de shell ainda sem Release HERDA a obrigação (zerá-lo publicaria o bundle
+  sozinho e deixaria o conserto do shell para trás, calado); com a Release já
+  publicada, um lote só de web não declara. **Conferir a Release é parte de
+  decidir.** A Release é UMA, cortada de `main` na tag mais nova, e carrega todo
+  o Kotlin acumulado.
+- **O gatilho da Release é o `java/` (e `res/`, o manifesto), não a ponte:**
+  Kotlin que muda sem método novo pede Release; ENCOLHER a ponte pelo web não
+  pede. Os módulos de `assets/web/` não são superfície do `SHELL_VERSION` —
+  viajam dentro do bundle.
+- **`shellTag` esquecido não quebra nada, mas desfaz o ganho** (o aparelho
+  recebe a metade web sozinha). **`shellTag` apontando para uma tag que nunca
+  sai é pior:** o canal fica segurando para sempre, em silêncio, e a única pista
+  é a linha no resumo do run. Deixá-la apontando para a tag do lote ANTERIOR é o
+  mesmo defeito.
+- **Um `apk` reprovado não pula o `web-ota`** (o `if:` dele ignora o resultado
+  do `apk`; o `needs` está pela ORDEM): quem segura é o HOLD do `shellTag`, e o
+  desfecho é um job VERDE que não publicou. Um lote que toca `java/` confere o
+  `apk`. Por extenso na última seção deste arquivo.
+- **Renumerar um lote mexe nas TRÊS casas**, no `shellTag`, no `notas.json` e em
+  toda chave que carregue o número — o OTA ignora, em silêncio, um bundle cuja
+  versão não seja MAIOR que a instalada.
 
 ## Os três workflows e as entradas do disparo
 
@@ -77,7 +169,7 @@ OTA parar.
 `cancel-in-progress: false`). Os assets de `web-latest` são substituídos um a um,
 sem transação: duas execuções em paralelo (o push do lote seguido do push do
 conserto é o caso normal) intercalariam, e cancelar no meio do upload produz o
-mesmo estado. Ver "OTA" para o que o nome versionado do zip fecha.
+mesmo estado. Ver [`NUCLEO-TECNICO`](NUCLEO-TECNICO.md#ota-da-base-web-atualização-sem-apk) para o que o nome versionado do zip fecha.
 
 ### A PRÉVIA VISUAL — o laço de design, para lote só de aparência
 
@@ -185,11 +277,12 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os de Chromium são **132** e os de Node puro **26** — juntos, os 158 (contados na revisão W3). MEDIDO com
-82 deles: **~13 min em série** e **~4,3 min nos três processos** (4 vCPU, o mesmo
-do runner); os de Node puro somam **8 s**. **Os números moram no `apk.yml`**, ao
-lado do passo que descrevem, e esta é a cópia — divergiram uma vez (79/99 aqui
-contra 82/101 lá) e a varredura que os fecha é contar o `rodar` do workflow. O custo não é o que parece: lançar o navegador são **~110 ms** e
+**A conta do dia é do `tools/estado.sh`** (`oráculos: N arquivos · M de Node puro`);
+nenhum número fixo de arquivos se escreve aqui — ele já envelheceu mentindo uma
+vez (79/99 nesta prosa contra 82/101 no `apk.yml`). O CUSTO, esse é medido: a
+suíte de Chromium soma **~13 min em série** e **~4,3 min nos três processos**
+(4 vCPU, o mesmo do runner, revisão W3), e os de Node puro somam **8 s**. O custo
+não é o que parece: lançar o navegador são **~110 ms** e
 subir o `/controle/` inteiro é **~1 s** — compartilhar um navegador entre
 oráculos, a otimização óbvia, economizaria 2% e custaria o isolamento. O que
 sobra é espera, com os quatro núcleos ociosos.
@@ -201,7 +294,7 @@ cobertura inteira que eles carregam.
 O passo é caro por causa de uma DÚZIA de arquivos, e o que os encarece são
 defeitos de arnês, não asserções a mais — dois deles pagaram 130 s sozinhos (o
 stub da ponte, logo abaixo, e o piso da cortina, que o `esperarCortina` não paga —
-`CLAUDE.md`, "A abertura por trás dos panos"). **A pergunta diante de um passo lento é "onde
+[`NUCLEO`](NUCLEO-TECNICO.md#a-abertura-por-trás-dos-panos)). **A pergunta diante de um passo lento é "onde
 está o tempo?", medida arquivo a arquivo, e nunca "quantos oráculos são?".**
 
 É seguro por CONSTRUÇÃO, e foi conferido antes de ligar: todos abrem o servidor
@@ -236,12 +329,6 @@ contra cada fixture e reprova o stub CONSTANTE (`takeShare: () => ''`) e o nome
 preenchido pelo laço FORA do `comCallId` (num `Proxy`, qualquer nome). Método
 AUSENTE do stub não trava: `B.x(id)` lança e o `call()` resolve `null` na hora. Um arquivo que demore um múltiplo
 redondo de 60 s é este defeito até prova em contrário.
-
-**As tabelas — o que cada oráculo trava — moram em
-[`docs/ORACULOS.md`](ORACULOS.md).** São 127 linhas de REFERÊNCIA: ninguém as
-lê inteiras, e ninguém deveria. Abra o capítulo para mexer num oráculo, escrever
-um novo, ou entender por que uma asserção existe antes de "consertá-la". O que
-fica aqui é o MÉTODO, que vale para todos eles.
 
 **Node puro, SEM `continue-on-error`** — reprovar aqui barra o build. **Chromium
 de verdade, em DOIS PASSOS, e NENHUM dos dois pula** (decisão do operador,
@@ -312,12 +399,133 @@ junto), `R2ImagemFonteTest` (a allowlist do bucket das fotos por COMPONENTE do
 `URI`: sufixo, prefixo, subdomínio, `http` e URL ilegível — a invariante 2 pelo
 lado do `fetch` que não manda CORS), `GuiaSomTest` (a cerca do `abrirGuia` e o marcador `?app=1`, shell 87: `https` + o host do site por componente do `URI`, em pares — prefixo, sufixo, subdomínio, porta, `userInfo`, `intent:`) e `CifraFonteTest` (a mesma invariante no
 transporte da cifra, que confere o host na entrada E no destino FINAL depois dos
-redirecionamentos; a reversão do predicado reprova 7 dos 9 casos).
+redirecionamentos; a reversão do predicado reprova 7 dos 9 casos), `SafJanelaTest`
+(a janela de bytes do `/saf/`, shell 64: `available()` que mente e o `?r=` que
+fatia) e `SlideDeckTest` (as duas metades PURAS do `SlideDeck` — a que lê o link e
+a que apaga). **São onze classes** — a conta é do diretório, não desta prosa:
+`ls app/src/test/java/br/org/iasd/av/`.
 Só os seis primeiros (até o `TrilhaAudioTest`) rodam também fora do Gradle, no
 `tools/junit-sem-rede.sh`, que recusa arquivo testado com `import android.*`;
-`R2ImagemFonteTest`, `GuiaSomTest` e `CifraFonteTest` testam uma função pura de
-um arquivo que importa `android.*` (o `GuiaSom.kt` mora junto do diálogo), e
-rodam só no Gradle do CI.
+`R2ImagemFonteTest`, `GuiaSomTest`, `CifraFonteTest`, `SafJanelaTest` e
+`SlideDeckTest` testam função pura (ou quase) de arquivo que importa
+`android.*` — o `GuiaSom.kt` mora junto do diálogo, e o `SlideDeck` desenha PDF —,
+e rodam só no Gradle do CI.
+
+## Os oráculos — o método
+
+**As tabelas — o que cada oráculo trava — moram em [`ORACULOS.md`](ORACULOS.md);**
+é REFERÊNCIA pura: consulte por `grep` ao mexer num oráculo, ao escrever um novo,
+ou antes de "consertar" uma asserção. O que fica aqui é o MÉTODO, que vale para
+todos.
+
+- **LOCALMENTE SE RODA SÓ A VIZINHANÇA DO LOTE; A SUÍTE INTEIRA É DO CI**
+  (decisão do operador, 2026-10-15). Antes do commit: os oráculos de Chromium
+  que tocam o que o lote mexeu (e os vizinhos que leem o mesmo estado), TODOS os
+  de Node puro e a *"Sanidade da base web"* — é o `tools/portao.sh`, e ele é o
+  ÚLTIMO passo antes do commit. A suíte de Chromium completa roda no `verificar`
+  de `main`, que já é o portão do `web-ota`: um vermelho ali segura o bundle, não
+  o publica. **Reprovou no CI, o lote não acabou** — `verificar` vermelho = o
+  bundle não saiu ⇒ conserto no MESMO número; já publicado ⇒ número novo; nunca
+  `revert` nem `push --force` em `main` (o rito, passo 10).
+
+- **O PORTÃO É UM COMANDO, e ele roda o texto do workflow sem copiá-lo:**
+
+  ```bash
+  tools/portao.sh                       # Node puro + Sanidade + a lista do CI
+  tools/portao.sh app/src/main/assets/web/controle/controle.js  # + sintaxe e vizinhança
+  tools/portao.sh <arq> --vizinho tools/x.test.mjs   # a vizinhança escolhida
+  ```
+
+  **Vizinho é só oráculo de Chromium** (`*.test.mjs` não puro e os dois smoke)
+  que cita o arquivo — os puros já rodam inteiros. **Acima de 8 ele não
+  escolhe:** lista e reprova até a escolha vir por `--vizinho` (o `controle.js`
+  passa dele); `--vizinhanca-inteira` tira o teto. Copiar o bloco da Sanidade
+  seria a divergência que o arnês existe para fechar: o script o extrai do
+  próprio `.github/workflows/apk.yml` a cada execução.
+
+- **Teste que não está no workflow é documentação, não rede de segurança** — a
+  linha do `rodar` entra no MESMO lote que o arquivo. O modo de falhar é sempre
+  o mesmo: o run fica verde porque ninguém o roda. *Um oráculo que não roda é
+  pior que oráculo nenhum: ele responde a pergunta "isso está coberto?" com um
+  sim que não existe.* A varredura é arquivo a arquivo, **nos dois sentidos**:
+
+  ```bash
+  comm -3 <(ls tools/*.test.mjs | sort) \
+          <(grep -oE 'tools/[a-z0-9.-]+\.test\.mjs' .github/workflows/apk.yml | sort -u)
+  ```
+
+- **E A LISTA DO CI NÃO É `tools/*.test.mjs`.** O `smoke.mjs` e o
+  `display-smoke.mjs` medem o RENDERIZADO e não têm esse sufixo: um runner que
+  filtre por ele os pula em silêncio e devolve placar cheio. **A conferência é
+  nos DOIS sentidos**, e o passo 4 do `portao.sh` a faz com `comm -3` entre
+  `ls tools/*.test.mjs` e os caminhos que o `apk.yml` cita. O conjunto puro é a
+  mesma lista do disco menos quem **importa** o arnês ou uma dependência do
+  `package.json` — por `from '…'` ou `import('…')`, nunca pela menção ao nome (o
+  furo de 2026-11-13: o `docs-coerentes` NOMEIA o arnês num Set; o de 14/11: o
+  import dinâmico do `acorn` no `nome-inexistente` escapava). O passo 2 roda os
+  puros que a Sanidade não roda; os dela, no passo 3:
+
+  ```bash
+  comm -23 <(ls tools/*.test.mjs | sort) \
+           <(grep -lE "(from |import\()'(\./)?(arnes\.mjs|playwright|acorn)'" tools/*.test.mjs | sort)
+  ```
+
+  **A conta do dia quem imprime é o `tools/estado.sh`** (`oráculos: N arquivos ·
+  M de Node puro`) — nenhum número de oráculo se escreve aqui, porque envelhece
+  no primeiro arquivo novo.
+
+- **E OS ORÁCULOS NÃO SÃO O PASSO INTEIRO.** A *"Sanidade da base web"* é um
+  bloco de shell DENTRO do workflow e trava o que não está em `tools/` nenhum: a
+  forma do `version.json`, o `minShell` contra o `SHELL_VERSION` lido do próprio
+  Kotlin, o `shellTag` batendo com a versão, as três casas do número e o **teto
+  de 120 caracteres por item do `notas.json`** (*"a lista do diálogo é uma linha
+  do tempo, não um texto"*). Rodar só os oráculos devolve placar cheio e reprova
+  no CI.
+
+- **A REVERSÃO É UM PASSO, NÃO UMA BOA PRÁTICA.** Toda asserção nova roda
+  **duas vezes** antes do commit: com o conserto, e com ele desfeito. Sem isso
+  ela pode ser uma TAUTOLOGIA — passar nas duas versões. **Uma asserção que não
+  pode reprovar o defeito que ela nomeia é pior que asserção nenhuma.**
+
+  **A reversão escolhe a CÉLULA e a RÉGUA, não o bom senso.** A maioria das
+  asserções geométricas não alcança a decisão em qualquer largura — e medir
+  `scrollWidth` de um `<span>` para provar que o rótulo não é cortado nunca
+  acusa nada: o span é do tamanho do texto, e quem estoura é o PAI. Quando a
+  reversão passa, a pergunta não é *"a asserção está errada?"* — é *"que célula,
+  e medindo o quê?"*. E ela também acha declaração que não faz nada: um
+  `min-width: max-content` que não movia um pixel, porque um item flex já nasce
+  com `min-width: auto` e o `white-space: nowrap` já É o rótulo inteiro.
+
+- **A REVERSÃO SE DESFAZ COM UMA CÓPIA, NUNCA COM O GIT.** `git checkout
+  <arquivo>` restaura do HEAD e **apaga o trabalho não commitado do lote inteiro
+  naquele arquivo**. `tools/reverter.sh --guardar <arquivos>` antes de mexer, e
+  `--restaurar <dir>` para desfazer — a cópia é mais barata que a tentação.
+
+- `node --check` prova que o arquivo é PARSEÁVEL, não que o app funciona. O canal
+  OTA publica direto para a frota e o watchdog **não evita o primeiro estrago**
+  (`beginSession()` arma o `pending` e SERVE o bundle; só o lançamento seguinte
+  descarta): um lançamento quebrado por aparelho, garantido.
+
+> **Os casos que criaram estas regras** — os quatro oráculos esquecidos, o
+> `notas.json` de 127 caracteres, as tautologias, o `min-width` — estão em
+> [`revisao/CASOS-MEDIDOS.md`](revisao/CASOS-MEDIDOS.md). É apêndice, como o
+> `HISTORICO.md`: consulta-se por `grep`, não por leitura.
+
+#### UM ORÁCULO NÃO PODE MEDIR O RUNNER
+
+**O veredito do CI tem de ser função só do nosso código.** A geometria medida em
+pixel (`getBoundingClientRect` de um texto, o `scrollWidth` de um rótulo) depende
+da FONTE que o navegador resolve — DejaVu no runner, outra no aparelho de quem
+escreve. Um oráculo que mede isso passa numa máquina e reprova na outra, e o
+reparo que ele sugere ("ajuste 1,2 px") é ruído: o número do runner não é o do
+aparelho.
+
+A régua certa é a PROPRIEDADE — quem está à esquerda de quem, se o elemento
+cabe, se o texto está sobre a cor —, não o pixel exato; quando o pixel é
+inevitável (contraste, sombra), ele é medido contra o fundo e com a folga
+declarada. **Reprovou só nesta máquina e passa no runner? É esta classe até
+prova em contrário**, e o conserto é a campanha de fontes do CI, não o app (os
+três oráculos desta classe estão no `docs/RESIDUOS.md`).
 
 ## Assinatura
 
@@ -410,8 +618,9 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   | o TAMANHO e a URL | o `.apk` da **Release** | é o que se baixa |
 
   **Não trocar `workflow_run` por `on: release`** — evento criado com o
-  `GITHUB_TOKEN` padrão não dispara workflow (o guarda de recursão do GitHub; ver
-  a seção do OTA). Foi assim que a página serviu o APK da Release ANTERIOR.
+  `GITHUB_TOKEN` padrão não dispara workflow (o guarda de recursão do GitHub;
+  ver [`NUCLEO-TECNICO.md`](NUCLEO-TECNICO.md#ota-da-base-web-atualização-sem-apk)).
+  Foi assim que a página serviu o APK da Release ANTERIOR.
 
   **Conferir depois de publicar**, porque o run verde não prova o número: o passo
   *"A versão que o aparelho vai rodar"* imprime `Base web publicada: X (APK: Y)`,

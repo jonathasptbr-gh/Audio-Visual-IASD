@@ -16,82 +16,110 @@ espelhar o celular.
 > `app/src/main/java/br/org/iasd/av/`; onde um caminho aparecer curto
 > (`controle/controle.js`), a raiz dele é `app/src/main/assets/web/`.
 
-## Índice
+## Como este arquivo se lê
 
-**Este arquivo é o CONTRATO: o que se decide antes de tocar em nada.** Ele é
-lido inteiro em toda sessão; o que é de uma ÁREA (shell, ponte, OTA, telão,
-paleta) mora em [`docs/NUCLEO-TECNICO.md`](docs/NUCLEO-TECNICO.md), e cada
-seção daqui diz quando abri-lo. A dieta anterior — e o mapa do que saiu — está
+**Ele é o CONTRATO: o que se decide antes de tocar em nada — e só isso.** Toda
+sessão lê, uma vez:
+
+1. **este topo, até "A conversa com o operador"**, com as tabelas;
+2. **[Regras de desenvolvimento](#regras-de-desenvolvimento)**.
+
+O resto é **consulta**: a linha da ÁREA, na tabela abaixo, diz qual capítulo
+abrir, e o capítulo se abre **por âncora** (`grep` antes, o trecho depois).
+Nenhum dos dois se lê inteiro.
+
+**O teto é 20–25 kB.** O que passar disso não é contrato, é área: muda para o
+capítulo dono e aqui fica a linha. A dieta de 2026-11-14 (Pacote 27) tem o mapa
 em [`docs/revisao/A2-INVENTARIO.md`](docs/revisao/A2-INVENTARIO.md).
 
-**As três primeiras e as regras de desenvolvimento são leitura de toda
-sessão; o resto é consulta, aberta quando a tarefa pede.**
-
-| # | seção | quando abrir |
+| # | seção deste arquivo | quando abrir |
 |---|---|---|
 | 1 | [A conversa com o operador](#a-conversa-com-o-operador) | **sempre** |
-| 2 | [O estado se mede, não se cita](#o-estado-se-mede-não-se-cita) | ao começar a sessão |
-| 3 | [O ganho: Presentation em vez de espelhamento](#o-ganho-presentation-em-vez-de-espelhamento) | entender o app em uma tela |
+| 2 | [O ganho: Presentation em vez de espelhamento](#o-ganho-presentation-em-vez-de-espelhamento) | entender o app em uma tela |
+| 3 | [O estado se mede, não se cita](#o-estado-se-mede-não-se-cita) | ao começar a sessão |
 | 4 | [Estrutura do repositório](#estrutura-do-repositório) | achar o arquivo |
-| 5 | [Build e distribuição](#build-e-distribuição) | CI, Release, o portão |
-| 6 | [Os oráculos — o MÉTODO](#os-oráculos--o-método) | escrever ou consertar oráculo |
-| 7 | [Regras de desenvolvimento](#regras-de-desenvolvimento) | **antes de commitar** |
+| 5 | [Regras de desenvolvimento](#regras-de-desenvolvimento) | **antes de commitar** |
+| 6 | [Onde procurar](#onde-procurar) | a pergunta não tem casa |
 
-**O que é de uma área — abra só a área da tarefa:**
+**As ÁREAS — a regra em uma linha, o corpo no capítulo dono:**
 
-| área | onde | quando |
+| área | onde mora o corpo | a regra que se paga caro |
 |---|---|---|
-| invariantes do shell, ponte, filas | [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#invariantes-do-shell-não-quebrar) | **antes de mexer no Kotlin** |
-| OTA, atualização sem APK | [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#ota-da-base-web-atualização-sem-apk) | mexer no `WebUpdater` |
-| telão nas telas da rede | [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#telão-por-comandos-o-telão-nas-telas-da-rede-local) | as telas da igreja |
-| paleta, cor, toque, camadas | [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#a-paleta) | **antes de escrever qualquer cor** |
-| divergências web × nativo | [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#divergências-entre-o-caminho-web-e-o-nativo) | o que muda entre navegador e app |
-| **duas sessões no mesmo clone** | [`MULTI-AGENTE`](docs/MULTI-AGENTE.md) | **ao abrir a sessão, se o clone tem arquivo sujo** |
-| séries, cifra, pacote, abertura | [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md) | esses recursos |
-| Verificação do Sistema, Registro | [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#diagnóstico) · [`DIAGNOSTICO`](docs/DIAGNOSTICO.md) | diagnóstico |
+| invariantes do shell | [`NUCLEO`](docs/NUCLEO-TECNICO.md#invariantes-do-shell-não-quebrar) | servir por `https://appassets.androidplatform.net/`, **nunca** `file://`, e um origin só para os dois WebViews |
+| reconexão, morte do renderer | [`NUCLEO`](docs/NUCLEO-TECNICO.md#reconexão-e-morte-do-renderer) | **"há tela" não é "há telão"** |
+| a ponte `window.AVNative` | [`NUCLEO`](docs/NUCLEO-TECNICO.md#a-ponte-windowavnative) | superfície é privilégio do Controle: o telão nasce com `host = null` e sem o `/saf/` |
+| `SHELL_VERSION` | [`NUCLEO`](docs/NUCLEO-TECNICO.md#shell_version--subir-sempre-que-a-superfície-mudar) | superfície mudou (forma de retorno conta) ⇒ sobe o degrau **e o lote é APK + web**, com `shellTag` |
+| as SEIS filas da ponte | [`NUCLEO`](docs/NUCLEO-TECNICO.md#as-seis-filas-da-ponte--escolher-a-errada-é-uma-regressão-muda) | escolher a fila errada é **regressão muda** |
+| barramento, plano B do `BroadcastChannel` | [`NUCLEO`](docs/NUCLEO-TECNICO.md#barramento-de-comandos-e-o-plano-b-do-broadcastchannel) | o relay e o dreno do papel `tela`; a preview ILUSTRA, não espelha |
+| trabalho em segundo plano | [`NUCLEO`](docs/NUCLEO-TECNICO.md#trabalho-em-segundo-plano-downloads-com-o-app-minimizado) | **`startForeground` SEMPRE**, antes de qualquer decisão de parar |
+| notificação de controles | [`NUCLEO`](docs/NUCLEO-TECNICO.md#notificação-de-controles-sessão-de-mídia) | **`play`/`pause` ≠ `playpause`**: tratar tudo como alternador pausa o louvor |
+| OTA da base web | [`NUCLEO`](docs/NUCLEO-TECNICO.md#ota-da-base-web-atualização-sem-apk) · [`shell/OTA`](docs/shell/OTA.md) | **`shellTag` sem Release segura o canal para sempre, em silêncio** — e a Release se dispara depois do push em `main` |
+| telão nas telas da rede | [`TELAO-POR-COMANDOS`](docs/TELAO-POR-COMANDOS.md) | o contrato inteiro está no capítulo |
+| séries do YouTube | [`NUCLEO`](docs/NUCLEO-TECNICO.md#séries-do-youtube-os-álbuns-oficiais-da-biblioteca) · [`SERIES`](docs/recursos/SERIES.md) | **a playlist prova o pertencimento; o título é só rótulo** |
+| a aba de cifra | [`NUCLEO`](docs/NUCLEO-TECNICO.md#a-aba-de-cifra-acordes-ao-lado-da-letra) · [`CIFRA`](docs/recursos/CIFRA.md) | **sob demanda é o contrato**, não uma otimização |
+| o pacote de transferência | [`NUCLEO`](docs/NUCLEO-TECNICO.md#o-pacote-de-transferência-o-acervo-num-arquivo) · [`PACOTE`](docs/recursos/PACOTE.md) | **importar só acrescenta**; é o `fim`, não o tamanho, que separa pacote inteiro de cortado |
+| a abertura por trás dos panos | [`NUCLEO`](docs/NUCLEO-TECNICO.md#a-abertura-por-trás-dos-panos) | todo oráculo que toca na tela espera a cortina **depois de CADA carga** |
+| a paleta | [`NUCLEO`](docs/NUCLEO-TECNICO.md#a-paleta) · [`DESIGN-SYSTEM`](docs/arquitetura/DESIGN-SYSTEM.md) | **cor nova entra em `tokens.css`**, nunca literal na folha; nunca branco pleno fora do palco |
+| divergências web × nativo | [`NUCLEO`](docs/NUCLEO-TECNICO.md#divergências-entre-o-caminho-web-e-o-nativo) · [`DIVERGENCIAS`](docs/DIVERGENCIAS-WEB-NATIVO.md) | toda guarda é `if (!window.__NATIVE__)`: **o navegador é o padrão** |
+| diagnóstico, Registro | [`NUCLEO`](docs/NUCLEO-TECNICO.md#diagnóstico) · [`DIAGNOSTICO`](docs/DIAGNOSTICO.md) | **o aparelho é a última palavra** |
+| rito, versão, CI, Release | [`BUILD`](docs/BUILD.md) | fonte única do rito, do número e da Release — aqui fica a linha, lá o passo |
+| os oráculos | [`BUILD`](docs/BUILD.md#os-oráculos--o-método) · [`ORACULOS`](docs/ORACULOS.md) | o método em uma casa só; o que cada oráculo trava, por `grep` |
+| duas sessões no mesmo clone | [`MULTI-AGENTE`](docs/MULTI-AGENTE.md) | **o working tree é de todos; o commit é de quem editou** |
+| economia, delegação | [`ECONOMIA`](docs/ECONOMIA.md) | **teto de 150 chamadas**; delegar tem critério objetivo e teto no briefing |
+| a poda de comentário | [`PODA-DE-COMENTARIO`](docs/PODA-DE-COMENTARIO.md) | **duas provas**: o código não mudou, e cada bloco continua sobre o seu símbolo |
 
 **Fora daqui** (o resumo tem o que se quebra sem abrir o capítulo; o capítulo
 tem o resto):
 
 | arquivo | o que é |
 |---|---|
-| [`docs/ESTRUTURA.md`](docs/ESTRUTURA.md) | a árvore anotada do repositório |
+| [`docs/ESTRUTURA.md`](docs/ESTRUTURA.md) | a árvore anotada — onde mora o arquivo, e o que ele se recusa a fazer |
 | [`docs/shell/README.md`](docs/shell/README.md) | o HUB do **Kotlin**, um capítulo por subsistema |
 | [`docs/ARQUITETURA-WEB.md`](docs/ARQUITETURA-WEB.md) | o HUB da base web e o mapa dos capítulos |
 | [`docs/arquitetura/MIOLO.md`](docs/arquitetura/MIOLO.md) | **o mapa do `controle.js`**: pergunte nele antes de abrir o arquivo (`node tools/miolo.mjs`) |
-| [`docs/BUILD.md`](docs/BUILD.md) | arnês, prazos, CI, assinatura, backup, a página do site |
+| [`docs/BUILD.md`](docs/BUILD.md) | o rito, o CI, a versão, os oráculos, a assinatura, o backup, a página do site |
 | [`docs/ORACULOS.md`](docs/ORACULOS.md) | **referência**: o que cada oráculo trava |
 | [`docs/HISTORICO.md`](docs/HISTORICO.md) | **apêndice**: a nota de cada versão, por `grep` |
 | [`docs/revisao/CASOS-MEDIDOS.md`](docs/revisao/CASOS-MEDIDOS.md) | **apêndice**: os casos que criaram as regras do portão |
 | [`docs/ACHADOS-EM-ABERTO.md`](docs/ACHADOS-EM-ABERTO.md) | defeitos CONFIRMADOS em aberto — hoje **nenhum** |
 | [`docs/PEDIDOS-EM-ESPERA.md`](docs/PEDIDOS-EM-ESPERA.md) | a fila do operador, em pacotes |
-| [`docs/ECONOMIA.md`](docs/ECONOMIA.md) | **o custo da sessão**: os três tetos, a rotina e o medidor |
 | [`docs/RESIDUOS.md`](docs/RESIDUOS.md) | **o que cada lote deixou para trás** — a tabela que substitui a arqueologia |
-| [`docs/REVISAO-GERAL.md`](docs/REVISAO-GERAL.md) | **o escopo da revisão periódica**: os dez marcos, e o que fecha uma revisão |
-| [`docs/URGENCIA.md`](docs/URGENCIA.md) | **a revisão das diretrizes de 14/11**: o pacote de conserto que resta (o D) e as decisões do operador — ele esvazia |
 
 **Apêndices congelados** — `docs/AUDITORIA-2026-08.md`,
 `docs/AUDITORIA-2026-09-11.md`, `docs/AUDITORIA-EFICIENCIA-2026-09.md`,
-`docs/AUDITORIA-ESTABILIDADE-AV.md` e `docs/revisao/REGISTRO.md`: um retrato de
-uma data, consultado por `grep` — as decisões que saíram deles estão no núcleo e
-no `HISTORICO.md`.
+`docs/AUDITORIA-ESTABILIDADE-AV.md`: um retrato de uma data, consultado por
+`grep`; as decisões que saíram deles estão no núcleo e no `HISTORICO.md`. A
+revisão profunda foi **ENCERRADA em 2026-11-09** — o
+[`REVISAO-PROFUNDA`](docs/REVISAO-PROFUNDA.md) e o
+[`revisao/REGISTRO`](docs/revisao/REGISTRO.md) são o registro do que cada etapa
+mediu, e a vistoria em vigor é a
+[`REVISAO-GERAL`](docs/REVISAO-GERAL.md).
 
 ## A conversa com o operador
 
 **Quem lê o que sai desta sessão não programa.** Ele opera o app num culto, e a
 pergunta dele é sempre a mesma: *mudou o quê, e eu preciso fazer alguma coisa?*
 
-| regra | o que é |
-|---|---|
-| **NÃO NARRAR O TRABALHO** | nada de "vou conferir", "agora vou editar", "encontrei o arquivo". A sessão fala DUAS vezes: para perguntar o que não dá para decidir sozinha, e para ENTREGAR |
-| **O RELATÓRIO É PARA LEIGO** | sem nome de arquivo, de função, de tecnologia ou de número interno. O que mudou, dito pelo que ele VÊ ou FAZ no app |
-| **ECONOMIA DE PALAVRAS** | frases curtas, sem preâmbulo e sem fecho de cortesia. Um relatório de dez linhas que se lê vale mais que um de cinquenta que se pula |
-| **DETALHE SÓ SOB PEDIDO** | ele pergunta, e aí vem o técnico inteiro, sem economia |
-| **ESPERAR É MUDO** | *"pode ocultar as mensagens e logs que não sejam seu relatório final"*. Enquanto um agente delegado trabalha, a sessão NÃO escreve "aguardando", "ainda rodando", "o agente continua". Isso não é narrar o trabalho: é narrar a AUSÊNCIA de trabalho, e sai dezenas de vezes seguidas |
-| **A ETAPA É DITA, EM UMA LINHA** | *"me atualizasse nas mensagens sobre em qual etapa estamos… bem genéricas… em 4 ou 5 etapas… assim eu consigo perceber se algo está errado, ou se sequer está tendo progresso ou algo travou"* (2026-10-28). Cinco etapas fixas — **1 Planejando · 2 Executando · 3 Testando · 4 Publicando · 5 Conferindo** — e UMA linha a cada troca de etapa (ex.: *"Pacote 4: etapa 3 de 5, testando."*), sem detalhe. O fim de um agente delegado notifica sozinho — **não há check-in por tempo** (`send_later` não existe neste harness) |
+**A sessão fala DUAS vezes por natureza — para perguntar o que não dá para
+decidir sozinha, e para ENTREGAR** — e, no mais, só a linha da etapa. A tabela
+abaixo é a lista FECHADA do que se diz ao operador (as outras sessões e o
+`AGENTS.md` da máquina apontam para cá, não repetem):
 
-**AS DUAS COISAS QUE NUNCA SE OMITEM** — são elas que impedem "sucinto" de virar
-"só a parte boa":
+| momento | a fala — curta, e é a única permitida | o que NÃO se diz |
+|---|---|---|
+| **abertura** | *"Pacote 27: etapa 1 de 5, planejando — área: docs."* **A área em uma linha** é o que evita o choque entre duas sessões ([`MULTI-AGENTE`](docs/MULTI-AGENTE.md), regra 2) | o que vai ler, o que pretende fazer |
+| **troca de etapa** | *"Pacote 27: etapa 3 de 5, testando."* As cinco: **1 Planejando · 2 Executando · 3 Testando · 4 Publicando · 5 Conferindo**. Uma linha por troca, sem detalhe | detalhe da etapa, "aguardando", "ainda rodando", "o agente continua" |
+| **pergunta** | a pergunta e a decisão que ele precisa tomar | pergunta que se responde medindo o repositório |
+| **entrega** | o relatório de leigo: o que mudou, **o que ele precisa fazer**, **o que não deu certo** | nome de arquivo, de função, de tecnologia ou número interno |
+| **enquanto delega** | **nada** — o fim do agente notifica sozinho (não há check-in por tempo) | narrar a AUSÊNCIA de trabalho |
+
+- **O RELATÓRIO É PARA LEIGO**, dito pelo que ele VÊ ou FAZ no app; frases
+  curtas, sem preâmbulo e sem fecho de cortesia. Um relatório de dez linhas que
+  se lê vale mais que um de cinquenta que se pula. **DETALHE SÓ SOB PEDIDO:**
+  ele pergunta, e aí vem o técnico inteiro, sem economia.
+
+**AS DUAS COISAS QUE NUNCA SE OMITEM** — são elas que impedem "sucinto" de
+virar "só a parte boa":
 
 - **O QUE ELE PRECISA FAZER.** Instalar, esperar, reiniciar, conferir no
   aparelho — ou nada. Um relatório que diz *"pronto"* sobre o que só chega
@@ -104,15 +132,16 @@ pergunta dele é sempre a mesma: *mudou o quê, e eu preciso fazer alguma coisa?
 ferramenta que aparecem na tela durante o trabalho são do PROGRAMA, não do texto
 da sessão — nenhuma regra de escrita as suprime. **O que as encolhe é DELEGAR:**
 o que roda dentro de um agente aparece como UM cartão no lugar de trinta linhas.
-Por isso a tarefa substantiva nasce delegada — é economia de LEITURA do
-operador, não gosto por paralelismo.
+Por isso a tarefa de leitura nasce delegada — é economia de LEITURA do operador,
+não gosto por paralelismo (o critério está na
+[`ECONOMIA`](docs/ECONOMIA.md#a-entrega-delegada)).
 
 **E ISTO VALE PARA O CHAT, JAMAIS PARA A DOCUMENTAÇÃO.** O `CLAUDE.md`, os
 `docs/` e as mensagens de commit continuam técnicos, densos e cheios de nome de
 símbolo: eles são lidos por um AGENTE, antes do trabalho, e é essa densidade que
 economiza a sessão seguinte. O `notas.json` é o único arquivo do repositório que
-fala com o operador, e ele já tem regra própria (um tópico por linha, teto de 120
-caracteres). **Aplicar linguagem de leigo à documentação destrói o
+fala com o operador, e ele já tem regra própria (um tópico por linha, teto de
+120 caracteres). **Aplicar linguagem de leigo à documentação destrói o
 `HISTORICO.md`** — e o que se perde ali não volta.
 
 ---
@@ -137,8 +166,8 @@ YouTube tocando ao mesmo tempo.
 Os dois WebViews rodam no mesmo processo e no mesmo origin
 (`https://appassets.androidplatform.net/`), então **compartilham IndexedDB,
 OPFS e BroadcastChannel exatamente como os dois PWAs compartilhavam no
-navegador**. É por isso que `shared/db.js`, `shared/stage.js` e todo o
-protocolo de comandos seguem praticamente inalterados.
+navegador**. É por isso que `shared/db.js`, `shared/stage.js` e todo o protocolo
+de comandos seguem praticamente inalterados.
 
 **Sem TV conectada o app continua útil:** nenhuma Presentation é criada e a
 projeção volta a ser a preview do Controle em tela cheia (o mesmo fallback do
@@ -146,13 +175,27 @@ PWA, hoje com a COLUNA de controles no lugar dos gestos invisíveis).
 
 ---
 
+## O estado se mede, não se cita
+
+Número congelado em prosa envelhece em horas — e a sessão que o lê decide com
+dado velho. **Meça antes de citar:**
+
+```bash
+tools/estado.sh --ci     # HEAD, árvore, as três casas da versão, a última Release, CI, fila
+```
+
+Ele imprime o que muda sozinho (versão, HEAD, CI, token, a conta dos oráculos) e
+é a única fonte desses números numa sessão. O que **não** muda sozinho, e por
+isso vale escrever em prosa, está nas seções abaixo e nos capítulos donos.
+
 ## Estrutura do repositório
 
 **A árvore ANOTADA — o que cada arquivo faz e se recusa a fazer — está em
-[`docs/ESTRUTURA.md`](docs/ESTRUTURA.md);** o mapa Kotlin está em
+[`docs/ESTRUTURA.md`](docs/ESTRUTURA.md);** o mapa Kotlin em
 [`docs/shell/README.md`](docs/shell/README.md) e o da base web em
 [`docs/ARQUITETURA-WEB.md`](docs/ARQUITETURA-WEB.md). **Uma árvore só:** o
-detalhe é do arquivo dono — o mapa abaixo não o repete.
+detalhe é do arquivo dono — o mapa abaixo não o repete, e a contagem de arquivos
+também é de lá (medida, não escrita).
 
 ```
 app/src/main/            # o Android: manifest, java/ (o shell) e assets/web/
@@ -165,228 +208,11 @@ site/                    # a página pública (GitHub Pages)
 tools/                   # o arnês e os oráculos; a lista do CI sai do workflow
 ```
 
-**32 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
-AndroidX oficial (`core-ktx`, `activity-ktx`, `webkit`). O que sustenta essa
-proporção Kotlin × JavaScript é a invariante 5; ela é o argumento contra
-Capacitor/Cordova, que arrastariam npm e um build system inteiro e ainda assim
-exigiriam código nativo próprio para a `Presentation`.
-
-> Números envelhecem a cada commit. **Meça antes de citá-los:**
-> `wc -l app/src/main/java/br/org/iasd/av/*.kt` ·
-> `find app/src/main/assets/web -name '*.js' -not -path '*/vendor/*' | xargs wc -l`
-
-## O estado se mede, não se cita
-
-Número congelado em prosa envelhece em horas — e a sessão que o lê decide com
-dado velho. **Meça antes de citar:**
-
-```bash
-tools/estado.sh --ci     # HEAD, árvore, as três casas da versão, a última Release, CI, fila
-```
-
-Ele imprime o que muda sozinho (versão, HEAD, CI, token) e é a única fonte
-desses números numa sessão. O que **não** muda sozinho, e por isso vale
-escrever em prosa, está nas seções abaixo.
-
-## Invariantes do shell (não quebrar)
-
-**Movido.** As nove invariantes — e **quem** trava cada uma — estão em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#invariantes-do-shell-não-quebrar). A que mais custa: servir por `https://appassets.androidplatform.net/`, **nunca** `file://`, e um único origin para os dois WebViews.
-
-### Reconexão e morte do renderer
-
-**Movido.** Em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#reconexão-e-morte-do-renderer). A regra que se esquece: **"há tela" não é "há telão"**.
-
-## A ponte `window.AVNative`
-
-**Movido.** O catálogo, os quatro globais, as filas e as regras estão em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#a-ponte-windowavnative). O contrato que se paga caro: **superfície é privilégio do Controle** — o telão nasce com `host = null` e sem o `/saf/`.
-
-### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
-
-**Movido.** O degrau corrente e o piso estão em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#shell_version--subir-sempre-que-a-superfície-mudar). A regra do rito: mudou a superfície (forma de retorno conta), sobe o degrau e o lote é **APK + web juntos**, com `shellTag`.
-
-### As SEIS filas da ponte — escolher a errada é uma regressão muda
-
-**Movido.** A tabela das seis filas (`io`, `transferencia`, `apk`, `extracao`, `cifra`, `r2img`) está em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#as-seis-filas-da-ponte--escolher-a-errada-é-uma-regressão-muda).
-
-## Barramento de comandos e o plano B do BroadcastChannel
-
-**Movido.** Relay, dreno do papel `tela`, a preview que ILUSTRA e o `load` em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#barramento-de-comandos-e-o-plano-b-do-broadcastchannel).
-
-## Trabalho em segundo plano (downloads com o app minimizado)
-
-**Movido.** FGS, wake lock, cota do Android 15 e as rotinas que cedem a vez em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#trabalho-em-segundo-plano-downloads-com-o-app-minimizado). O que não se pode esquecer: **`startForeground` SEMPRE**, antes de qualquer decisão de parar.
-
-## Notificação de controles (sessão de mídia)
-
-**Movido.** O `MediaSession` e a notificação em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#notificação-de-controles-sessão-de-mídia). **`play`/`pause` ≠ `playpause`**: tratar tudo como alternador pausa o louvor.
-
-## OTA da base web (atualização sem APK)
-
-**Movido.** O canal, o watchdog e as três garantias em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#ota-da-base-web-atualização-sem-apk). A que segura a frota: **`shellTag` declarada sem Release segura o canal para sempre, em silêncio** — e a Release se dispara depois do push em `main`.
-
-## Telão por comandos (o telão nas telas da rede local)
-
-**Movido.** O contrato inteiro em [`docs/TELAO-POR-COMANDOS.md`](docs/TELAO-POR-COMANDOS.md); o resumo das peças em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#telão-por-comandos-o-telão-nas-telas-da-rede-local).
-
-## Séries do YouTube (os álbuns oficiais da Biblioteca)
-
-**Movido.** Em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#séries-do-youtube-os-álbuns-oficiais-da-biblioteca) e [`docs/recursos/SERIES.md`](docs/recursos/SERIES.md). A regra de ouro: **a playlist prova o pertencimento, o título é só rótulo.**
-
-## A aba de cifra (acordes ao lado da letra)
-
-**Movido.** Em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#a-aba-de-cifra-acordes-ao-lado-da-letra) e [`docs/recursos/CIFRA.md`](docs/recursos/CIFRA.md). **Sob demanda é o contrato, não uma otimização.**
-
-## O pacote de transferência (o acervo num arquivo)
-
-**Movido.** Em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#o-pacote-de-transferência-o-acervo-num-arquivo) e [`docs/recursos/PACOTE.md`](docs/recursos/PACOTE.md). **Importar só acrescenta** — e é o `fim`, não o tamanho, que separa pacote inteiro de cortado.
-
-## A abertura por trás dos panos
-
-**Movido.** Em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#a-abertura-por-trás-dos-panos). Todo oráculo que toca na tela espera a cortina **depois de CADA carga**.
-
-## A paleta
-
-**Movido.** Os pares medidos e as regras duras em [`NUCLEO-TECNICO.md#a-paleta`](docs/NUCLEO-TECNICO.md#a-paleta) e em [`docs/arquitetura/DESIGN-SYSTEM.md`](docs/arquitetura/DESIGN-SYSTEM.md). **Cor nova entra em `tokens.css`, nunca literal na folha.**
-
-## Divergências entre o caminho web e o nativo
-
-**Movido.** A tabela navegador → app está em [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#divergências-entre-o-caminho-web-e-o-nativo); cada ponto por extenso em [`docs/DIVERGENCIAS-WEB-NATIVO.md`](docs/DIVERGENCIAS-WEB-NATIVO.md). Toda guarda é `if (!window.__NATIVE__)`: o navegador é o padrão.
-
-## Build e distribuição
-
-`.github/workflows/apk.yml` — o runner `ubuntu-latest` já traz JDK e Android
-SDK. **As rotas de publicação, o `web-ota` (sem filtro de caminho e com fila), o
-arnês, os prazos, o paralelismo, o stub que trava 60 s, os dois passos de
-Chromium, a rede externa bloqueada, o JUnit, a assinatura e o backup estão em
-[`docs/BUILD.md`](docs/BUILD.md).** O que se quebra sem abrir:
-
-- **Release:** a rota do rito é o disparo manual — *Build APK* → *Run workflow*
-  com `release_tag` (a tag nasce no workflow, de `main`); `git tag vX && git
-  push --tags` é a alternativa. As três entradas do disparo e os três workflows
-  estão em [`docs/BUILD.md`](docs/BUILD.md#os-três-workflows-e-as-entradas-do-disparo). O `web-ota` roda com fila e sem cancelamento
-  (`concurrency: web-ota`), e sem filtro de caminho por decisão.
-- **O arnês** (`tools/arnes.mjs`): `servirEstatico(raiz, antes)`, `esperar` e
-  `esperarDb` (**prazo não é asserção**: o estouro devolve a frase, nunca o
-  veredito; `waitForFunction` não espera a Promise de um predicado `async`),
-  `comTema` e `comModoAvancado` (declaram o estado de partida). **`checar` mora
-  em `tools/checar.mjs`, SEM `import`**: os oráculos de Node puro rodam antes do
-  `npm ci`.
-- **Três processos em paralelo, não `nproc`**: subir o número é subir a carga e
-  obriga a repetir a campanha. Diante de um passo lento, a pergunta é "onde está
-  o tempo?", arquivo a arquivo — nunca "quantos oráculos são?".
-- **Método novo na ponte entra na allowlist do fixture no mesmo lote** — um stub
-  que não resolve trava 60 s calado (um arquivo que demore um múltiplo redondo de
-  60 s é este defeito até prova em contrário).
-- **Node puro, "Preparar o Chromium", "Oráculos em Chromium" e JUnit BARRAM o
-  build — NENHUM teste é pulado, por motivo nenhum** (operador, 2026-11-05):
-  infraestrutura que falha reprova o job e se resolve repetindo o run. **A rede externa não entra num oráculo**
-  (`semRedeExterna(ctx)` depois de cada `newContext()`), e um servidor de mentira
-  não diverge do de verdade.
-- **Assinatura:** keystore fixa por secrets, `-PrequireSigning=true` na Release e
-  o `apksigner` reprovando `CN=Android Debug`; `versionCode` = contagem de
-  commits + 100000. Perder a keystore é irreversível.
-- **Backup:** ficam de fora o bundle OTA, a chave do TLS e `app_webview/` (este
-  só da nuvem) — exclusão nova entra nos DOIS arquivos de regras.
-
-### Os oráculos — o MÉTODO
-
-**As tabelas — o que cada oráculo trava — moram em
-[`docs/ORACULOS.md`](docs/ORACULOS.md);** é REFERÊNCIA pura: consulte por
-`grep` ao mexer num oráculo, ao escrever um novo, ou antes de "consertar" uma
-asserção. O que fica aqui é o MÉTODO, que vale para todos.
-
-- **LOCALMENTE SE RODA SÓ A VIZINHANÇA DO LOTE; A SUÍTE INTEIRA É DO CI**
-  (decisão do operador, 2026-10-15). Antes do commit: os oráculos de Chromium
-  que tocam o que o lote mexeu (e os vizinhos que leem o mesmo estado), TODOS
-  os de Node puro e a *"Sanidade da base web"* — é o `tools/portao.sh`, e ele é
-  o ÚLTIMO passo antes do commit. A suíte de Chromium completa roda no
-  `verificar` de `main`, que já é o portão do `web-ota` — um vermelho ali segura
-  o bundle, não o publica. **Reprovou no CI, o lote não acabou**, e o número
-  segue o rito ([`docs/BUILD.md`](docs/BUILD.md#o-rito-de-entrega), passo 10):
-  `verificar` vermelho = o bundle não saiu ⇒ conserto no MESMO número; já
-  publicado ⇒ número novo; nunca `revert` nem `push --force` em `main`.
-
-- **O PORTÃO É UM COMANDO, e ele roda o texto do workflow sem copiá-lo:**
-
-  ```bash
-  tools/portao.sh                       # Node puro + Sanidade + a lista do CI
-  tools/portao.sh app/src/main/assets/web/controle/controle.js  # + sintaxe e vizinhança
-  tools/portao.sh <arq> --vizinho tools/x.test.mjs   # a vizinhança escolhida
-  ```
-
-  **Vizinho é só oráculo de Chromium** (`*.test.mjs` não puro e os dois smoke)
-  que cita o arquivo — os puros já rodam inteiros. **Acima de 8 ele não
-  escolhe:** lista e reprova até a escolha vir por `--vizinho` (o `controle.js`
-  passa dele); `--vizinhanca-inteira` tira o teto. Copiar o bloco da
-  Sanidade seria a divergência que o arnês existe para fechar: o script o
-  extrai do próprio `.github/workflows/apk.yml` a cada execução.
-
-- **Teste que não está no workflow é documentação, não rede de segurança** — a
-  linha do `rodar` entra no MESMO lote que o arquivo. O modo de falhar é sempre
-  o mesmo: o run fica verde porque ninguém o roda, e o oráculo novo passa a
-  existir só no repositório. *Um oráculo que não roda é pior que oráculo
-  nenhum: ele responde a pergunta "isso está coberto?" com um sim que não
-  existe.* A varredura é arquivo a arquivo, **nos dois sentidos** (o
-  `portao.sh` imprime esta conta):
-
-  ```bash
-  comm -3 <(ls tools/*.test.mjs | sort) \
-          <(grep -oE 'tools/[a-z0-9.-]+\.test\.mjs' .github/workflows/apk.yml | sort -u)
-  ```
-
-- **E A LISTA DO CI NÃO É `tools/*.test.mjs`.** O `smoke.mjs` e o
-  `display-smoke.mjs` medem o RENDERIZADO e não têm esse sufixo: um runner que
-  filtre por ele os pula em silêncio e devolve placar cheio. **A conferência é
-  nos DOIS sentidos**, e o passo 4 do `portao.sh` a faz com `comm -3` entre
-  `ls tools/*.test.mjs` e os caminhos que o `apk.yml` cita. O conjunto puro é a
-  mesma lista do disco menos quem **importa** o arnês ou uma dependência do
-  `package.json` — por `from '…'` ou `import('…')`, nunca pela menção ao nome (o
-  furo de 2026-11-13: o `docs-coerentes` NOMEIA o arnês num Set e ficava fora;
-  o de 14/11: o import dinâmico do `acorn` no `nome-inexistente` escapava e o fazia contar como
-  puro). O passo 2 roda os puros que a Sanidade não roda; os dela, no passo 3:
-
-  ```bash
-  comm -23 <(ls tools/*.test.mjs | sort) \
-           <(grep -lE "(from |import\()'(\./)?(arnes\.mjs|playwright|acorn)'" tools/*.test.mjs | sort)
-  ```
-
-- **E OS ORÁCULOS NÃO SÃO O PASSO INTEIRO.** A *"Sanidade da base web"* é um
-  bloco de shell DENTRO do workflow e trava o que não está em `tools/` nenhum: a
-  forma do `version.json`, o `minShell` contra o `SHELL_VERSION` lido do próprio
-  Kotlin, o `shellTag` batendo com a versão, as três casas do número e o **teto
-  de 120 caracteres por item do `notas.json`** (*"a lista do diálogo é uma linha
-  do tempo, não um texto"*). Rodar só os oráculos devolve placar cheio e reprova
-  no CI.
-
-- **A REVERSÃO É UM PASSO, NÃO UMA BOA PRÁTICA.** Toda asserção nova roda
-  **duas vezes** antes do commit: com o conserto, e com ele desfeito. Sem isso
-  ela pode ser uma TAUTOLOGIA — passar nas duas versões. **Uma asserção que não
-  pode reprovar o defeito que ela nomeia é pior que asserção nenhuma:** ela
-  responde *"isso está coberto?"* com um sim que não existe.
-
-  **A reversão escolhe a CÉLULA e a RÉGUA, não o bom senso.** A maioria das
-  asserções geométricas não alcança a decisão em qualquer largura — e medir
-  `scrollWidth` de um `<span>` para provar que o rótulo não é cortado nunca
-  acusa nada: o span é do tamanho do texto, e quem estoura é o PAI. Quando a
-  reversão passa, a pergunta não é *"a asserção está errada?"* — é *"que célula,
-  e medindo o quê?"*. E ela também acha declaração que não faz nada: um
-  `min-width: max-content` que não movia um pixel, porque um item flex já nasce
-  com `min-width: auto` e o `white-space: nowrap` já É o rótulo inteiro.
-
-- **A REVERSÃO SE DESFAZ COM UMA CÓPIA, NUNCA COM O GIT.** `git checkout
-  <arquivo>` restaura do HEAD e **apaga o trabalho não commitado do lote inteiro
-  naquele arquivo**. `tools/reverter.sh --guardar <arquivos>` antes de mexer, e
-  `--restaurar <dir>` para desfazer — a cópia é mais barata que a tentação.
-
-- `node --check` prova que o arquivo é PARSEÁVEL, não que o app funciona. O
-  canal OTA publica direto para a frota e o watchdog **não evita o primeiro
-  estrago** (`beginSession()` arma o `pending` e SERVE o bundle; só o lançamento
-  seguinte descarta): um lançamento quebrado por aparelho, garantido.
-
-> **Os casos que criaram estas regras** — os quatro oráculos esquecidos, o
-> `notas.json` de 127 caracteres, as tautologias, o `min-width` — estão em
-> [`docs/revisao/CASOS-MEDIDOS.md`](docs/revisao/CASOS-MEDIDOS.md). É apêndice,
-> como o `HISTORICO.md`: consulta-se por `grep`, não por leitura.
+**Uma dependência de terceiros no shell** — o resto é AndroidX oficial
+(`core-ktx`, `activity-ktx`, `webkit`). O que sustenta a proporção Kotlin ×
+JavaScript é a invariante 5; ela é o argumento contra Capacitor/Cordova, que
+arrastariam npm e um build system inteiro e ainda assim exigiriam código nativo
+próprio para a `Presentation`.
 
 ---
 
@@ -395,12 +221,13 @@ asserção. O que fica aqui é o MÉTODO, que vale para todos.
 ### Entrega
 
 - **A ENTREGA É DIRETO EM `main`** (decisão do operador, 2026-11-14): sem ramo
-  de teste, sem `checkout`/`merge`. O OTA publica a partir de `main` (`if:
-  github.ref == 'refs/heads/main'`) e as Releases nascem de `main`. **A ordem é
-  o rito, numerado em [`docs/BUILD.md`](docs/BUILD.md#o-rito-de-entrega)**, e o
+  de teste, sem `checkout`/`merge`. O OTA publica a partir de `main` e as
+  Releases nascem de `main`. **A ordem é o rito numerado em
+  [`docs/BUILD.md#o-rito-de-entrega`](docs/BUILD.md#o-rito-de-entrega)**, e o
   portão é o ÚLTIMO passo antes do commit — com o ramo fora, ele é a ÚNICA
   barreira antes do canal. O único teste que passa pelo operador antes de
-  publicar é a **prévia visual**, e só quando ele pede um design novo.
+  publicar é a **prévia visual**, e só quando ele pede um design novo
+  ([`docs/BUILD.md`](docs/BUILD.md) — "O laço de design").
 
   ```bash
   tools/portao.sh <arquivos do lote>   # de novo depois de QUALQUER mudança
@@ -410,125 +237,56 @@ asserção. O que fica aqui é o MÉTODO, que vale para todos.
 
 - **O APK NÃO É RECURSO RESTRITO** (diretriz do operador, 2026-10-30: *"sempre
   que for necessário uma nova versão do APK, faça. O OTA é o principal meio de
-  atualização, mas o APK não é um elemento exclusivo ou restrito, pode usar
-  conforme a necessidade normalmente"*). Quando o conserto CERTO mora no Kotlin,
-  ele é feito no Kotlin, no mesmo lote, com `shellTag` e Release — nunca se
-  entrega um contorno só de web no lugar dele, nem se deixa a metade do shell
-  "para depois". O OTA continua sendo o caminho normal para o que é web.
-- **SEMPRE gerar uma Release quando o SHELL mudar.** O push em `main` entrega só
-  a **base web** — o OTA carrega `assets/web/` e mais nada. `java/`, `AndroidManifest.xml`,
-  `res/`, `build.gradle.kts` e os workflows **só chegam instalando um APK**, e o
-  pior caso é silencioso: um método novo da ponte faz o web se comportar de um
-  jeito no código e de outro no culto, porque lá o `SHELL_VERSION` é o antigo.
+  atualização, mas o APK não é um elemento exclusivo ou restrito"*). Quando o
+  conserto CERTO mora no Kotlin, ele é feito no Kotlin, no mesmo lote, com
+  `shellTag` e Release — nunca um contorno só de web no lugar dele, nem a
+  metade do shell "para depois". O OTA continua sendo o caminho normal do web.
+- **SHELL MUDOU ⇒ RELEASE, e o esquecimento tem máquina.** O push em `main`
+  entrega só a base web; `java/`, o manifesto, `res/` e `build.gradle.kts` só
+  chegam instalando um APK. O portão e o `verificar` reprovam shell mudado desde
+  a última tag sem `shellTag`, e a base web mudada sem versão maior que a da
+  tag. As três casas do número, o `shellTag`, o degrau e o disparo da Release
+  estão em uma casa só: [`docs/BUILD.md`](docs/BUILD.md#a-versão--o-número-as-três-casas-e-o-shelltag).
 
-  **A primeira linha vem ANTES do commit:** declarar a tag em `version.json`.
+- **A NOTA DO LOTE SE ESCREVE UMA VEZ, e ela mora no `docs/HISTORICO.md`:**
+  primeiro a seção `## vX — …` (a versão longa), depois a linha do índice; a
+  mensagem de commit fica curta e não repete a narrativa; o `notas.json` é
+  outra coisa e fala com o OPERADOR, um tópico por linha. O
+  `tools/docs-coerentes.test.mjs` reprova versão do `notas.json` sem entrada
+  lá — foi assim que doze versões publicadas ficaram sem nota nenhuma.
 
-  ```jsonc
-  { "version": "1.0.1", "minShell": 46, "shellTag": "v1.0.1" }
-  ```
+- **A PÁGINA ANUNCIA SOZINHA** (`pages.yml`, por `workflow_run` no *Build APK*;
+  a versão vem do manifesto do canal OTA). O trabalho é **não quebrar o
+  automático** e conferir o passo *"A versão que o aparelho vai rodar"* depois
+  de publicar. Por extenso em
+  [`docs/BUILD.md`](docs/BUILD.md) — "A página do site".
 
-  Com ela o `web-ota` SEGURA o bundle até a Release existir e, quando ela sai,
-  republica o manifesto **com o link do APK dentro** — o app pergunta uma vez
-  sobre o lote inteiro. Sem `shellTag` o bundle sai na hora, que é o certo para
-  um lote só de web. Depois do push em `main`: Actions → *Build APK* → Run
-  workflow, com `release_tag` = a MESMA tag do `version.json` (a tag é criada
-  pelo workflow, a partir de `main`). **Não esperar o operador pedir.**
-  **O esquecimento tem máquina:** o portão e o `verificar` reprovam o shell
-  (`java/`, `res/`, manifesto, `build.gradle.kts`) mudado desde a última tag
-  `v*` sem `shellTag`, e a base web mudada sem versão maior que a da tag.
+- **O LOTE DECLARA O QUE DEIXOU PARA TRÁS — antes do push.** Quem fez o lote
+  sabe, na hora, o que viu e não consertou: **cada linha vai para
+  [`docs/RESIDUOS.md`](docs/RESIDUOS.md)**, com onde e tamanho — mesmo quando a
+  resposta é "nenhum". Um lote sem linha lá é um lote sem vistoria, e a coluna
+  do lote leva a versão (o `docs-coerentes` reprova sem ela).
 
-  **`shellTag` esquecido não quebra nada, mas desfaz o ganho** (o aparelho recebe
-  a metade web sozinha). **`shellTag` apontando para uma tag que nunca sai é
-  pior:** o canal fica segurando para sempre, em silêncio, e a única pista é a
-  linha no resumo do run.
-
-- **A NOTA DO LOTE SE ESCREVE UMA VEZ, e ela mora no `docs/HISTORICO.md`.**
-  Ela chegou a ser escrita QUATRO vezes — mensagem de commit, entrada no
-  histórico, bloco no `CLAUDE.md` e `notas.json` —, e o bloco do `CLAUDE.md`
-  saiu na faxina de 2026-09-07. Das três que sobram, duas são **o mesmo texto**:
-  a mensagem de commit e a entrada do histórico.
-
-  **A ordem que resolve:** escreva a entrada do `HISTORICO.md` PRIMEIRO — ela é
-  a versão longa, é o que se lê por `grep` meses depois, e é a que o oráculo
-  cobra. A **mensagem de commit fica curta** (o que mudou e por quê, em algumas
-  linhas) e não repete a narrativa. O `notas.json` é outra coisa e continua
-  sendo escrito à parte: ele fala com o OPERADOR, num tópico por linha.
-
-  Foi a fricção de escrever duas vezes que produziu o defeito real: **doze
-  versões publicadas ficaram sem nota nenhuma no apêndice**, entre elas a v1.7.7
-  — o lote que removeu a transmissão direta. Hoje o
-  `tools/docs-coerentes.test.mjs` reprova o build quando uma versão do
-  `notas.json` não tem entrada lá.
-
-- **SEMPRE deixar a PÁGINA anunciando a versão que acabou de sair.** É
-  automático (`pages.yml`, por `workflow_run` no *Build APK*; a VERSÃO vem do
-  manifesto do canal OTA, o tamanho e a URL do `.apk` da Release), e o trabalho é
-  NÃO QUEBRAR o automático: não trocar `workflow_run` por `on: release`;
-  conferir o passo *"A versão que o aparelho vai rodar"* depois de publicar (um
-  `::warning::` ali é a página com a versão do APK); todo caminho dentro de
-  `site/` é RELATIVO; na página o recurso se chama "conectar um computador"; e o
-  download só existe no Android (classificação BINÁRIA no `<head>`, com falha
-  ABERTA). **Por extenso em [`docs/BUILD.md`](docs/BUILD.md)**, seção "A página
-  do site".
-
-- **O LOTE DECLARA O QUE DEIXOU PARA TRÁS — antes do push.** Descobrir depois o
-  que ficou custa uma varredura inteira, feita por quem não estava lá, e foi
-  assim que a revisão de 2026-11-13 terminou com 8.652 linhas do site que
-  ninguém abriu. Quem fez o lote sabe, na hora, o que viu e não consertou: **cada
-  linha vai para [`docs/RESIDUOS.md`](docs/RESIDUOS.md)**, com onde e tamanho —
-  mesmo quando a resposta é "nenhum". Um lote sem linha lá é um lote sem
-  vistoria, do mesmo jeito que uma versão sem nota no `HISTORICO.md` — e a
-  versão vai na coluna do lote: o `docs-coerentes` reprova sem ela.
-
-  **O que se fecha na mesma sessão não entra na tabela.** Viu, consertou, pronto.
-  A tabela é para o que não deu, e cada linha diz por quê.
-
-  **Linha com dono `operador` é DECISÃO pendente: ela vira pacote na fila** —
-  e o `tools/estado.sh` imprime essas linhas enquanto não virar, para nenhuma
-  sessão perder a pendência.
+  **O que se fecha na mesma sessão não entra na tabela.** Viu, consertou,
+  pronto. E **linha com dono `operador` é DECISÃO pendente: ela vira pacote na
+  fila** — o `tools/estado.sh` imprime essas linhas enquanto não virar.
 
 - **O FINO NÃO ESPERA A PRÓXIMA REVISÃO.** Comentário falso, asserção vacuosa,
   seletor morto, contagem velha num capítulo: acha e fecha no mesmo lote — com
-  **um subagente de contexto limpo**, que lê o repositório e o briefing e começa
-  com o contexto vazio. É mais barato que o mesmo trabalho feito na sessão longa,
-  que paga o contexto inteiro a cada passo (ver
-  [`docs/ECONOMIA.md`](docs/ECONOMIA.md)). O que pede decisão do operador ou
-  medição em aparelho **não é fino** — esse vira pacote na fila, e a linha dele
-  no `RESIDUOS.md` diz "decisão" ou "medição", não "fino".
+  **um subagente de contexto limpo**
+  ([`docs/ECONOMIA.md`](docs/ECONOMIA.md#a-entrega-delegada)). O que pede
+  decisão do operador ou medição em aparelho **não é fino**: vira pacote na
+  fila, e a linha dele no `RESIDUOS.md` diz "decisão" ou "medição".
 
   Vale para o agente delegado também: ao encontrar resíduo fora da cerca, ele
   **não conserta em silêncio nem cala** — devolve no relatório, e o coordenador
   decide se chama o higienizador ou registra.
 
-### A entrega delegada
-
-**Toda tarefa substantiva nasce delegada** — e o que decide o custo dela é o
-briefing, não o agente:
-
-- **Teto e ponto de parada.** O briefing declara o escopo, um teto de passos e,
-  quando o pedido chega como **suspeita** ("defeito a confirmar"), a parada
-  obrigatória: voltar com a causa achada **antes** de consertar. No Pacote 3
-  (2026-11-10) a suspeita era falsa e o agente escreveu 348 linhas de oráculo no
-  caminho errado — 205 passos e US$ 1,5–3,6 para uma correção de 31 linhas.
-- **Saída de ferramenta magra** é regra, não estilo: `head`/`tail` no que pode
-  ser longo, UM caso do oráculo em vez do arquivo inteiro, log só de erro. O
-  resultado de ferramenta é o maior item do contexto e é RELIDO a cada passo —
-  no Pacote 3, 582 kB de `bash` contra 107 kB de `read`, em 189 chamadas; na
-  medição de 10/11, carregar resultado foi **34% da conta**.
-- **A SESSÃO TEM TETO DE 150 CHAMADAS.** Acima de 400 o passo custa 5,6× o do
-  começo, e uma sessão de 589 chamadas levou **44%** do gasto de um dia. Ao
-  publicar o pacote a sessão FECHA: a próxima começa com o contexto do
-  repositório, não com o da conversa. Os três tetos e a rotina:
-  [`docs/ECONOMIA.md`](docs/ECONOMIA.md).
-- **Custo ≈ passos × contexto médio**, e 99% do que entra é cache: cortar PASSO
-  vale mais que escrever menos. O anexo técnico do lote fecha com a medição
-  (`node ~/.dsh-github/uso.mjs` — passos, cache lido, faixa); sem ela o gasto só
-  aparece quando o operador pergunta.
-
 ### Código
 
 - **Nunca perder funcionalidades ao refatorar.** A base web tem o sistema de
-  culto inteiro — ver `docs/ARQUITETURA-WEB.md` e os capítulos em `docs/arquitetura/`.
+  culto inteiro — ver `docs/ARQUITETURA-WEB.md` e os capítulos em
+  `docs/arquitetura/`.
 - **Todo código novo em `assets/web/` continua rodando no navegador**: caminhos
   nativos entram como `if (!window.__NATIVE__) { …web… }`.
 - **Toda operação IDB multi-passo que precise de atomicidade usa `storeTx()`.**
@@ -540,23 +298,17 @@ briefing, não o agente:
   mordeu duas vezes — o diário da varredura das séries (metade do bloco do
   Registro sumia) e as intenções de download (o vídeo não era reclamado depois
   de o renderer morrer). O sintoma dos dois é a AUSÊNCIA de sintoma.
-- **Ao mudar a superfície da ponte, subir `SHELL_VERSION` e atualizar a seção "A
-  ponte".**
+- **Ao mudar a superfície da ponte, subir `SHELL_VERSION`** e atualizar o
+  capítulo (a tabela e a regra:
+  [`NUCLEO`](docs/NUCLEO-TECNICO.md#shell_version--subir-sempre-que-a-superfície-mudar)).
 - **Cor nova entra em `shared/tokens.css`**, nunca literal na folha do app — e
   nunca branco pleno fora do palco.
 - **Sem dependências externas** — Kotlin puro + AndroidX no shell, JavaScript
-  puro no web. **Cinco exceções, todas declaradas:** `@aiden0z/pptx-renderer`
-  (`assets/web/vendor/`, `import()` dinâmico), `NewPipeExtractor` (pin
-  explícito; ler o CHANGELOG antes de reescrever extração à mão), JUnit,
-  Playwright e `acorn` (estes três sem um byte no APK; subir o pin do Playwright
-  obriga a repetir a campanha de determinismo). A justificativa de cada uma está
-  em [`docs/BUILD.md`](docs/BUILD.md), seção "As dependências". Uma sexta exceção
-  precisa da mesma justificativa: um problema que não se resolve de outro jeito,
-  e a manutenção paga por quem publica a biblioteca.
-
-### Diagnóstico
-
-**Movido.** As regras da Verificação do Sistema e do Registro estão em [`NUCLEO-TECNICO.md#diagnóstico`](docs/NUCLEO-TECNICO.md#diagnóstico) e em [`docs/DIAGNOSTICO.md`](docs/DIAGNOSTICO.md). **O aparelho é a última palavra.**
+  puro no web. **Cinco exceções, todas declaradas**, com a justificativa de cada
+  uma em [`docs/BUILD.md`](docs/BUILD.md#as-dependências): `@aiden0z/pptx-renderer`,
+  `NewPipeExtractor`, JUnit, Playwright e `acorn`. Uma sexta exceção precisa da
+  mesma justificativa: um problema que não se resolve de outro jeito, e a
+  manutenção paga por quem publica a biblioteca.
 
 ### Documentação
 
@@ -564,153 +316,39 @@ Esta documentação é lida por um agente, a cada sessão, **antes** de qualquer
 trabalho. Prosa custa contexto que não sobra para o código.
 
 - **Aqui entra o que VALE HOJE; em `docs/HISTORICO.md`, o que explica POR QUÊ.**
-  Ao publicar, a nota do lote vai para lá (topo + uma linha no índice). Neste
-  arquivo só se mexe quando uma REGRA muda — e então **corrija a regra**, não
-  acrescente um parágrafo dizendo que ela mudou.
-- **Regra e armadilha ficam; a narrativa do achado sai.** Vale escrever "o
-  `optBoolean` lê ausente como `false`, que é valor legítimo" — isso muda o
-  próximo diff. Não vale escrever como o defeito foi encontrado, quem relatou,
-  nem o que se pensou antes.
-- **Uma medição que sustenta uma decisão fica** (`2,73:1`, `60 req/hora`); uma
-  medição de algo já corrigido vai para o histórico.
+  Inclusive: **regra e armadilha ficam; a narrativa do achado sai**; uma medição
+  que sustenta uma decisão fica (`2,73:1`, `60 req/hora`), e a de algo já
+  corrigido vai para o histórico.
 - **Nada de lápide dentro do código.** Comentário descreve o que está ali — se
   ele explica um mecanismo removido, ou contradiz o código, é armadilha: quem o
   ler vai procurar (ou reintroduzir) o que ele promete.
+- **APAGAR CÓDIGO É APAGAR O QUE O DESCREVE, NO MESMO LOTE.** Cada remoção de
+  recurso deixou comentários de pé, e eles não envelheceram calados — passaram a
+  AFIRMAR coisas falsas, com guardas de segurança se justificando por um motivo
+  que já não existia. Ao tirar um recurso, `grep` pelo nome dele em
+  `assets/web/`, `java/` **e** nos capítulos de `docs/arquitetura/`.
+- **A poda de comentário se PROVA, não se confere de olho** — e são DUAS provas,
+  em [`docs/PODA-DE-COMENTARIO.md`](docs/PODA-DE-COMENTARIO.md):
+  `git show <ref>:<arquivo>` sem comentários (o código não mudou) e
+  `node tools/pares-de-comentario.mjs <arquivo> <ref>` (cada bloco continua
+  sobre o símbolo que ele explica). A primeira é CEGA à troca de lugar.
 - **Prefira tabela a lista, e lista a parágrafo.** Prefira o nome do símbolo a
-  descrevê-lo por extenso.
-- **APAGAR CÓDIGO É APAGAR O QUE O DESCREVE, NO MESMO LOTE.** Esta é a regra
-  que a limpeza da v5.299/v5.300 comprou caro: cada remoção de recurso (v5.156,
-  v5.187, v5.189, v5.212) deixou comentários de pé, e eles não envelheceram
-  calados — passaram a AFIRMAR coisas falsas. Duas guardas de segurança
-  justificavam a si mesmas por um motivo que já não existia, o que é o convite
-  exato para o próximo leitor removê-las. **Um comentário errado é pior que um
-  comentário longo: ele não custa só leitura, produz a decisão errada.** Ao tirar
-  um recurso, `grep` pelo nome dele em `assets/web/` e `java/` **e** nos
-  capítulos de `docs/arquitetura/` antes de fechar o lote.
-- **O que nasce hoje nasce no padrão.** Comentário novo entra condensado — não
-  se escreve largo esperando uma poda futura, porque a poda custa uma sessão
-  inteira e a escrita custa uma linha.
+  descrevê-lo por extenso. **O que nasce hoje nasce no padrão:** comentário novo
+  entra condensado, não se escreve largo esperando uma poda futura.
 - **ESTE ARQUIVO NÃO GUARDA LOG DE LOTE.** Um lote publicado escreve a nota no
-  `docs/HISTORICO.md` (a seção `## vX — título` logo abaixo do índice, e no
-  índice UMA linha sem a nota, até 400 caracteres — o `docs-coerentes` cobra as
-  duas e o teto) e, AQUI, só corrige a REGRA que mudou — **no lugar dela**. Se o lote
-  não muda regra nenhuma, este arquivo não muda.
+  `docs/HISTORICO.md` e, AQUI, só corrige a REGRA que mudou — **no lugar dela**.
+  Se o lote não muda regra nenhuma, este arquivo não muda. **O formato é o
+  defeito**: um bloco por lote é um log, e um log só cresce; a casa da regra
+  permanente é a seção canônica ou o capítulo dono, e uma regra sem casa é
+  enxertada lá ANTES de o bloco sair.
+- **`docs/ARQUITETURA-WEB.md` é HUB, e não recebe corpo.** Ali ficam as regras
+  que valem para a base inteira, a estrutura de arquivos, o build e a TABELA que
+  diz qual capítulo abrir. Assunto novo grande é **arquivo novo** em
+  `docs/arquitetura/` mais uma linha na tabela — nunca uma seção a mais no hub.
 
-  **O formato é o defeito**: um bloco por lote é um log, e um log só cresce. A
-  casa da regra permanente é a seção canônica ou a TABELA DE ORÁCULOS — e uma
-  regra sem casa é enxertada lá ANTES de o bloco sair.
+---
 
-**Ao atualizar o código:** atualizar este arquivo se a mudança afetar
-arquitetura, protocolo de comandos ou a ponte; o CAPÍTULO certo de
-`docs/arquitetura/` se afetar a arquitetura de `assets/web/`.
-
-**`docs/ARQUITETURA-WEB.md` é HUB, e não recebe corpo.** Ali ficam as regras que
-valem para a base inteira, a estrutura de arquivos, o build e a TABELA que diz
-qual capítulo abrir. Assunto novo grande é **arquivo novo** em `docs/arquitetura/`
-mais uma linha na tabela — nunca uma seção a mais no hub, que é o formato de que
-ele acabou de sair (um arquivo de 490 KB em que uma pergunta sobre a Bíblia
-custava carregar o Controle inteiro).
-
-**Poda de comentário se PROVA, não se confere de olho — e são DUAS provas.**
-
-1. **O código não mudou.** Remova os comentários dos dois lados, normalize o
-   espaço em branco e compare com `git show <ref>:<arquivo>`. É a defesa contra
-   apagar uma linha de código junto com o parágrafo que a explicava — e ela
-   também prova, no fim do lote, que um lote de documentação é **só web** e não
-   precisa de Release.
-2. **Cada comentário continua sobre o que ele explica.**
-   `node tools/pares-de-comentario.mjs <arquivo> <ref>` casa os blocos pelo
-   cabeçalho e reprova quando um deles passou a encabeçar outro símbolo.
-
-**A prova 1 é CEGA à troca de lugar, e por isso a 2 existe.** Remover os
-comentários dos dois lados e comparar aprova uma **rotação completa** dos
-blocos: foi o que a v5.300 fez com o `display.js` (commits `4ed5061` e
-`da615b8`), onde oito blocos andaram uma casa e cada um passou a explicar a
-função errada — o bloco do relógio da origem foi parar dentro do
-`telaAplicarWallpaper`, e o da pré-carga do wallpaper, sobre o `agoraDaOrigem`.
-As duas mensagens de commit afirmavam "código inalterado (verificado por remoção
-de comentários contra HEAD)", e estavam certas: o método é que não via.
-
-**Um comentário no lugar errado é pior que um comentário removido: ele responde,
-e responde errado.**
-
-### O NÚMERO: `MAIOR.INCREMENTAL.CORREÇÃO`
-
-Três componentes, e cada um responde a uma pergunta diferente. **Nunca se sobe
-um degrau "porque já mudou bastante": sobe-se o degrau que o LOTE justifica.**
-
-| degrau | quando sobe | exemplo |
-|---|---|---|
-| **MAIOR** (`1`.x.y) | **só sob mudança fundamental de CONCEITO**, e por decisão explícita de quem publica. Não é acúmulo de recursos — é o app deixar de ser o que era | `1.x.y` → `2.0.0` |
-| **INCREMENTAL** (x.`2`.y) | uma **seção inteiramente nova** do app: um lugar que não existia, com tela e fluxo próprios | `1.0.7` → `1.1.0` |
-| **CORREÇÃO** (x.y.`3`) | correções e ajustes menores — o caso NORMAL, e o que a maioria dos lotes é | `1.0` → `1.0.1` |
-
-**Ao subir um degrau, os de baixo ZERAM:** depois de `1.4.9`, uma seção nova é
-`1.5.0`, nunca `1.5.9`. Um número que não zera passa a contar duas coisas ao
-mesmo tempo e deixa de responder qualquer uma delas.
-
-**ARMADILHA MEDIDA: `1.1` e `1.1.0` são a MESMA versão** para o OTA, e vale para
-todo número de DOIS componentes. O `compareVersions` completa com zero o que
-falta, então republicar a `1.1` como `1.1.0` não é atualização nenhuma — o
-aparelho ignora, em silêncio. **O primeiro degrau depois de um número de dois
-componentes é o `.1`**: depois da `1.0` veio a `1.0.1`, e depois da `1.1` vem a
-`1.1.1`.
-
-> A comparação é **numérica por componente**, nunca lexical: `1.0.10` é MAIOR que
-> `1.0.9`. É o mesmo motivo pelo qual `4.9 < 4.82` como string seria errado — a
-> regra vale para os três degraus.
-
-**As DUAS LINHAS usam o mesmo número, e podem ficar em degraus diferentes.** A
-base web sobe a cada lote (chega por OTA em minutos); o APK só sobe quando um
-lote exige Release. Um `web v1.0.7 · shell v1.0.3` no REGISTRO não é divergência —
-é a resposta exata a *"o OTA chegou e o APK ainda não?"*. **Desde a v1.7.0 essa
-resposta mora só lá:** a tela mostra um número, e é o da base web.
-
-### A versão mora em TRÊS lugares, e os três precisam andar juntos
-
-| Onde | O quê | Para quê |
-|---|---|---|
-| `assets/web/version.json` | `"version"` | **faz a atualização chegar aos aparelhos**: o OTA compara este campo (`compareVersions`) e ignora, em silêncio, um bundle cuja versão não seja maior que a instalada |
-| `controle/controle.js` | `WEB_VERSION` | **é o que a UI mostra**: `renderVersionLabel()` escreve a ÚNICA casa que sobrou, o rótulo de versão (`#versaoBtn`, texto ao lado do título) no CABEÇALHO de Configurações — foi o rodapé da folha e, na v1.12.49, a Verificação (a badge do cabeçalho do Cronograma saiu na v1.8.66, para o botão de limpar a lista, e a do Modo Fácil na v1.11.15, para o nome do app) |
-| `controle/index.html` | `<span id="appVersion">` | o que aparece antes do primeiro render — e a única versão visível num shell sem `appVersion()` |
-
-Esquecer o `WEB_VERSION` é o erro **silencioso** (o bundle novo chega e o
-aparelho exibe a versão antiga, justamente a leitura que serve para diagnosticar
-se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
-chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
-
-**O estado corrente — a versão, a última Release, o `SHELL_VERSION`, o
-`minShell` e o `shellTag` — se mede** (`tools/estado.sh`); o degrau e o PISO
-da ponte estão no [`NUCLEO-TECNICO`](docs/NUCLEO-TECNICO.md#shell_version--subir-sempre-que-a-superfície-mudar),
-e o que cada lote trouxe, no `docs/HISTORICO.md`. Nenhum número de versão mora
-nesta prosa.
-
-- **O `shellTag` ACOMPANHA A ÚLTIMA VERSÃO, NÃO A QUE MEXEU NO KOTLIN** — o CI
-  exige `shellTag == 'v' + version`. Um lote só de web publicado DEPOIS de um
-  lote de shell ainda sem Release HERDA a obrigação (zerá-lo publicaria o bundle
-  sozinho e deixaria o conserto do shell para trás, calado); com a Release já
-  publicada, um lote só de web não declara. **Conferir a Release é parte de
-  decidir.** A Release é UMA, cortada de `main` na tag mais nova, e carrega todo
-  o Kotlin acumulado.
-- **O gatilho da Release é o `java/` (e `res/`, o manifesto), não a ponte:**
-  Kotlin que muda sem método novo pede Release; ENCOLHER a ponte pelo web não
-  pede. Os módulos de `assets/web/` não são superfície do `SHELL_VERSION` — viajam
-  dentro do bundle.
-- **O modo de falhar é o caro:** uma tag declarada cuja Release nunca sai segura
-  o canal PARA SEMPRE, em silêncio (a única pista é a linha no resumo do run), e
-  deixá-la apontando para a tag do lote ANTERIOR é o mesmo defeito. Declarada, a
-  Release se dispara depois do push em `main`: Actions → *Build APK* →
-  `release_tag` = a MESMA tag.
-- **Um `apk` reprovado não pula o `web-ota`** (o `if:` dele ignora o resultado do
-  `apk`; o `needs` está pela ORDEM): quem segura é o HOLD do `shellTag`, e o
-  desfecho é um job VERDE que não publicou. Um lote que toca `java/` confere o
-  `apk`. Por extenso em [`docs/BUILD.md`](docs/BUILD.md).
-- **Renumerar um lote mexe nas TRÊS casas** (`version.json`, `WEB_VERSION`,
-  `#appVersion`), no `shellTag`, no `notas.json` e em toda chave que carregue o
-  número — o OTA ignora, em silêncio, um bundle cuja versão não seja MAIOR que
-  a instalada.
-
-### Onde procurar
+## Onde procurar
 
 | pergunta | onde |
 |---|---|
@@ -720,10 +358,12 @@ nesta prosa.
 | o banco de hinos e Bíblia | `docs/FONTE-DE-DADOS-LOUVORJA.md` |
 | onde mora este arquivo? o que ele faz? | `docs/ESTRUTURA.md` |
 | o que muda entre navegador e app? | `docs/DIVERGENCIAS-WEB-NATIVO.md` |
-| o arnês, o CI, a assinatura, o backup, a página do site | `docs/BUILD.md` |
+| o rito, o CI, a versão, a assinatura, o backup, o site | `docs/BUILD.md` |
+| o custo da sessão, a delegação | `docs/ECONOMIA.md` |
 | a Verificação do Sistema e o Registro | `docs/DIAGNOSTICO.md` |
-| a varredura geral de 2026-11-13: o que ela fechou e o que deixou aberto | `docs/revisao/REVISAO-2026-11-13.md` (o dossiê, com a prova de cada achado) e o Pacote 12.2 da fila |
+| duas sessões no mesmo clone | `docs/MULTI-AGENTE.md` |
+| a varredura geral de 2026-11-13: o que fechou e o que deixou aberto | `docs/revisao/REVISAO-2026-11-13.md` (o dossiê, com a prova de cada achado) e o Pacote 12.2 da fila |
 | o que o operador pediu e ainda não foi feito? | `docs/PEDIDOS-EM-ESPERA.md` — pacotes; perguntar qual seguir antes de começar |
 | o que ficou para trás de um lote anterior? | `docs/RESIDUOS.md` (com dono, tamanho e por que não foi agora) |
 | uma revisão geral vai começar: o que ela cobre? | `docs/REVISAO-GERAL.md` (os dez marcos) e `node tools/revisao-cobertura.mjs --base <sha>` |
-| "faça uma das etapas de revisão" / a revisão em etapas | [`docs/REVISAO-GERAL.md`](docs/REVISAO-GERAL.md) (a vistoria dos dez marcos, em sessão própria) — a revisão profunda FOI **ENCERRADA em 2026-11-09**: `docs/REVISAO-PROFUNDA.md` e `docs/revisao/REGISTRO.md` ficam como registro |
+| "faça uma das etapas de revisão" | **não existe mais**: a revisão profunda foi encerrada em 2026-11-09; a vistoria é a `docs/REVISAO-GERAL.md`, em sessão própria |

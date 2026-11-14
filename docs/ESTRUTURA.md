@@ -2,8 +2,9 @@
 
 O que cada arquivo do app faz e se recusa a fazer, num lugar só. O mapa Kotlin
 com o capítulo de cada `.kt` é o [`shell/README.md`](shell/README.md); o da base
-web, o [`ARQUITETURA-WEB.md`](ARQUITETURA-WEB.md). A versão condensada (só os
-nomes) fica no `CLAUDE.md`.
+web, o [`ARQUITETURA-WEB.md`](ARQUITETURA-WEB.md). O `CLAUDE.md` guarda só o
+esboço (seis linhas) e a **contagem medida** dos arquivos Kotlin — o número mora
+aqui e o `tools/docs-coerentes.test.mjs` o confere contra o disco.
 
 > **Movido do `CLAUDE.md` na revisão A2 (2026-10-30), sem mudança de texto** (só os links relativos e o nível dos títulos). No núcleo ficou um resumo com o link para cá. "Acima", "abaixo", "esta seção" e as invariantes numeradas falam do `CLAUDE.md`, de onde este texto veio.
 
@@ -13,7 +14,7 @@ app/src/main/
 ├── assets/web/                  # ← a base web (cópia própria, versionada aqui)
 │   ├── version.json             #   identidade do bundle (version + minShell)
 │   ├── notas.json               #   A LINHA DO TEMPO: o que cada versão mudou.
-│                                #   Viaja NO bundle de propósito (ver o OTA)
+│   │                            #   Viaja NO bundle de propósito (ver o OTA)
 │   ├── shared/tokens.css        #   PALETA — fonte única, carregada pelos dois apps
 │   ├── shared/wallpaper-padrao.svg  # o WALLPAPER padrão: símbolo oficial IASD
 │   ├── shared/native.js         #   ponte AVNative + watchdog do OTA (NÃO existe no PWA)
@@ -139,6 +140,7 @@ app/src/main/
 │   │                            #   ConnectivityManager
 │   ├── EspelhoCert.kt           # o .p12 do TLS opcional (sem UI desde a v5.196)
 │   └── EspelhoDiag.kt           # o DIÁRIO da transmissão — devolve JSON, não frase
+├── test/java/br/org/iasd/av/    # os JUnit — a lista e o que cada um trava: BUILD.md
 └── res/
     ├── drawable/                # ic_image{,_off} — a cortina, na notificação
     │                            #  + ic_stop — PARAR (o sistema não tem um)
@@ -147,25 +149,74 @@ app/src/main/
     ├── values/colors.xml        # app_bg e ic_launcher_background: ESPELHAM tokens da base web
     ├── values/themes.xml        # tema sem action bar; tema preto da Presentation
     └── xml/                     # backup_rules + data_extraction_rules (ver "Build")
+
+.github/workflows/
+├── apk.yml                      # verificar → apk → web-ota: o CI inteiro (BUILD.md)
+├── pages.yml                    # a página, por `workflow_run` — NUNCA `on: release`
+└── dados.yml                    # o cron que fotografa os contadores na branch `dados`
+
+capturas/                        # a ORIGEM das capturas do site (JPEG): material, não bundle
+├── LEIA-ME.md                   #   o que cada pasta é, e como a captura vira `site/telas/`
+└── entrada/                     #   as capturas da entrada (convertidas para `site/telas/`)
+
+site/                            # a página pública (GitHub Pages) — todo caminho é RELATIVO
+├── index.html                   #   a página da versão, do APK e das funções
+├── CNAME                        #   audiovisualiasd.com.br
+├── registro/ · sonoplastia/     #   a página do Registro e o guia de sonoplastia
+├── telas/                       #   as capturas do guia (320/: as estreitas)
+└── icone.svg · og.jpg · og-sonoplastia.jpg
+
+tools/                           # o arnês e os oráculos — a lista do CI sai do workflow
+├── estado.sh                    #   o estado MEDIDO: versão, HEAD, CI, credencial, fila, oráculos
+├── portao.sh                    #   o portão da máquina: Node puro + Sanidade + a vizinhança
+├── arnes.mjs                    #   servirEstatico, esperar/esperarDb, comTema/comModoAvancado
+├── checar.mjs                   #   o `checar`, SEM import: roda antes do `npm ci`
+├── reverter.sh                  #   guardar/restaurar — a reversão por CÓPIA, nunca por git
+├── previa-visual.mjs            #   a prévia visual: o laço de design (BUILD.md)
+├── miolo.mjs                    #   o mapa do `controle.js` (docs/arquitetura/MIOLO.md)
+├── pares-de-comentario.mjs      #   a prova 2 da poda de comentário
+├── revisao-cobertura.mjs        #   a cobertura dos marcos da revisão geral
+├── junit-sem-rede.sh            #   os JUnit puros, sem Gradle e sem rede
+├── sem-rede.mjs                 #   `semRedeExterna(ctx)`: terceiro fora do oráculo
+├── medicao-desempenho.mjs       #   a medição X3 (só com `[medicao]` no commit)
+├── fixtures/                    #   o vídeo de 20 s que os oráculos de mídia usam
+└── *.test.mjs · smoke.mjs · display-smoke.mjs   # os oráculos (ORACULOS.md)
+
 docs/
-├── ACHADOS-EM-ABERTO.md         # os defeitos confirmados que MUDAM comportamento
-│                                #   (a auditoria de 2026-08). Para ESVAZIAR.
-├── MEDICAO-DE-ALCANCE.md        # o contrato da contagem de uso: o que é contado,
-│                                #   o que NUNCA é, e a medição ainda pendente
-├── ORACULOS.md                  # o que cada oráculo TRAVA, e como aquele defeito
-│                                #   falha calado. REFERÊNCIA: abra por pergunta,
-│                                #   nunca inteiro. O MÉTODO fica no CLAUDE.md
+├── ACHADOS-EM-ABERTO.md         # os defeitos confirmados que MUDAM comportamento (hoje: nenhum). Para ESVAZIAR
+├── ARQUITETURA-WEB.md           # HUB da base web: regras gerais + mapa dos capítulos
+├── AUDITORIA-2026-08.md         # APÊNDICE congelado: o retrato de 2026-08
+├── AUDITORIA-2026-09-11.md      # APÊNDICE congelado: o retrato de 2026-09-11
+├── AUDITORIA-EFICIENCIA-2026-09.md  # APÊNDICE congelado: o custo, medido
+├── AUDITORIA-ESTABILIDADE-AV.md # APÊNDICE congelado: o que pode INTERROMPER áudio/vídeo
+├── BUILD.md                     # o rito, a versão, o CI, os oráculos (MÉTODO), assinatura, backup, site
+├── DIAGNOSTICO.md               # a Verificação do Sistema e o Registro
+├── DIVERGENCIAS-WEB-NATIVO.md   # navegador × app, ponto por ponto
+├── ECONOMIA.md                  # o CUSTO da sessão: os tetos, a rotina, a delegação, o medidor
+├── ESTRUTURA.md                 # esta árvore
+├── ESTUDO-GUIA-IASD.md          # ESTUDO: a especialização do guia (Pacote 15; não é entrega)
+├── FONTE-DE-DADOS-LOUVORJA.md   # referência do banco LouvorJA (hinos/Bíblia)
+├── HISTORICO.md                 # APÊNDICE: as notas de todas as versões — usar por grep
+├── MEDICAO-DE-ALCANCE.md        # o contrato da contagem de uso: o que é contado, e o que NUNCA é
+├── MULTI-AGENTE.md              # duas sessões no mesmo clone — o protocolo
+├── NUCLEO-TECNICO.md            # o corpo por área: invariantes, ponte, filas, OTA, telão, paleta, diagnóstico
+├── ORACULOS.md                  # o que cada oráculo TRAVA. REFERÊNCIA: abra por pergunta, nunca inteiro
+├── PEDIDOS-EM-ESPERA.md         # a fila do operador, em pacotes
+├── PODA-DE-COMENTARIO.md        # as duas provas da poda de comentário
+├── RESIDUOS.md                  # o que cada LOTE deixou para trás — a tabela que substitui a arqueologia
+├── REVISAO-GERAL.md             # o ESCOPO da revisão periódica: os dez marcos (M1..M10)
+├── REVISAO-PROFUNDA.md          # APÊNDICE: a revisão profunda, ENCERRADA em 2026-11-09
+├── TELAO-POR-COMANDOS.md        # o CONTRATO do telão por comandos — ler antes de mexer nele
 ├── recursos/                    # o DETALHE do que o núcleo resume (a faxina 2026-09-07)
 │   ├── CIFRA.md                 #   a aba de cifra: cadeia de busca, transposição, rolagem
 │   ├── PACOTE.md                #   o `.avpkg`: formato, folha de grupos, importação
 │   └── SERIES.md                #   as sete armadilhas da nomenclatura, o Registro da regra
 ├── shell/                       # HUB do KOTLIN + um capítulo por subsistema
 │   ├── README.md                #   o mapa: qual capítulo abrir, e onde cada .kt mora
-│   ├── PONTE.md                 #   AVNative campo a campo, SHELL_VERSION, as 4 filas
+│   ├── PONTE.md                 #   AVNative campo a campo, SHELL_VERSION, as SEIS filas
 │   ├── SEGUNDO-PLANO.md         #   SyncService, wake lock, a notificação de progresso
 │   ├── SESSAO-DE-MIDIA.md       #   MediaSession: transporte, estado, ciclo de vida
 │   └── OTA.md                   #   watchdog de boot, detecção, shellTag, achados abertos
-├── ARQUITETURA-WEB.md           # HUB da base web: regras gerais + mapa dos capítulos
 ├── arquitetura/                 # um capítulo por arquivo — abrir SÓ o que a pergunta pede
 │   ├── CONTROLE.md              #   HUB do Controle: mapa das partes + regras gerais
 │   ├── MIOLO.md                 #     o mapa do controle.js: as nove fatias e como perguntar (`node tools/miolo.mjs`)
@@ -188,17 +239,16 @@ docs/
 │   ├── DISPLAY.md               #   wallpaper, microfone, o telão
 │   ├── DESIGN-SYSTEM.md         #   ANTES DE ESCREVER COR: tokens, dois temas, contraste
 │   └── DOCUMENTO-EM-CENA.md     #   PDF, PowerPoint, Google Apresentações
-├── TELAO-POR-COMANDOS.md        # o CONTRATO do telão por comandos — ler antes de mexer nele
-├── FONTE-DE-DADOS-LOUVORJA.md   # referência do banco LouvorJA (hinos/Bíblia)
-├── HISTORICO.md                 # APÊNDICE: as notas de todas as versões — usar por grep
-├── ECONOMIA.md                  # o CUSTO da sessão: os três tetos, a rotina, o medidor
-├── RESIDUOS.md                 # o que cada LOTE deixou para trás — a tabela que substitui a arqueologia
-├── REVISAO-GERAL.md            # o ESCOPO da revisão periódica: os dez marcos (M1..M10)
-├── URGENCIA.md                 # a revisão das DIRETRIZES de 14/11: quatro pacotes de conserto — esvazia
-└── AUDITORIA-ESTABILIDADE-AV.md # APÊNDICE: o que pode INTERROMPER áudio/vídeo
+└── revisao/                     # as revisões datadas e os apêndices do método
+    ├── A2-INVENTARIO.md         #   o mapa da dieta do CLAUDE.md (o que saiu, e para onde)
+    ├── CASOS-MEDIDOS.md         #   os casos que criaram as regras do portão
+    ├── PARTIR-O-MIOLO.md        #   o método que partiu o controle.js (A3)
+    ├── REGISTRO.md              #   o que cada etapa da revisão profunda mediu (ENCERRADO)
+    ├── REVISAO-2026-11-13.md    #   o dossiê da varredura de 13/11
+    └── REVISAO-2026-11-14.md    #   o dossiê da revisão das diretrizes (o Pacote 27 saiu dele)
 ```
 
-**31 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
+**32 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
 AndroidX oficial (`core-ktx`, `activity-ktx`, `webkit`). O que sustenta essa
 proporção Kotlin × JavaScript é a invariante 5; ela é o argumento contra
 Capacitor/Cordova, que arrastariam npm e um build system inteiro e ainda assim
@@ -206,6 +256,7 @@ exigiriam código nativo próprio para a `Presentation`.
 
 > Números envelhecem a cada commit. **Meça antes de citá-los:**
 > `wc -l app/src/main/java/br/org/iasd/av/*.kt` ·
-> `find app/src/main/assets/web -name '*.js' -not -path '*/vendor/*' | xargs wc -l`
+> `find app/src/main/assets/web -name '*.js' -not -path '*/vendor/*' | xargs wc -l`;
+> a conta acima é conferida pelo `tools/docs-coerentes.test.mjs`.
 
 ---

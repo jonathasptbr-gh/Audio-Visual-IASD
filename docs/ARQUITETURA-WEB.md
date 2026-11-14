@@ -7,7 +7,8 @@ offline.
 
 > Este documento cobre **só a base web** (`app/src/main/assets/web/`). A casca
 > Android que a hospeda — Presentation, ponte `AVNative`, SAF, OTA, serviço de
-> segundo plano — está em [`../CLAUDE.md`](../CLAUDE.md).
+> segundo plano — está em [`NUCLEO-TECNICO.md`](NUCLEO-TECNICO.md), e o
+> contrato que a rege, em [`../CLAUDE.md`](../CLAUDE.md).
 
 ## Índice — QUAL ARQUIVO ABRIR
 
@@ -113,14 +114,14 @@ git push origin main
   Uma terceira exceção precisa do mesmo tipo de justificativa: um problema que
   não se resolve de outro jeito, e a conta da manutenção paga por quem publica
   a biblioteca.
-- Ao atualizar o código, atualizar este documento se a mudança afetar arquitetura, protocolo de comandos ou API pública. Mudanças no shell (Kotlin) vão em `../CLAUDE.md`.
+- Ao atualizar o código, atualizar este documento se a mudança afetar arquitetura, protocolo de comandos ou API pública. Mudanças no shell (Kotlin) vão no `NUCLEO-TECNICO.md`.
 - **Todo código novo precisa continuar rodando no navegador.** Caminhos
   específicos do nativo entram sempre como `if (!window.__NATIVE__) { …web… }`
   — nunca o inverso: o comportamento de navegador é o padrão, e o nativo é a
   exceção que se declara. Os pontos onde os dois divergem (autoplay, pastas do
   dispositivo, compartilhamento, fullscreen, atualização) estão tabelados em
   [`DIVERGENCIAS-WEB-NATIVO.md`](DIVERGENCIAS-WEB-NATIVO.md) (resumo em
-  `../CLAUDE.md`, "Divergências entre o caminho web e o nativo").
+  `NUCLEO-TECNICO.md`, "Divergências entre o caminho web e o nativo").
 - **A cada atualização de código, incrementar a versão visual do Controle** em
   **três lugares que precisam bater**:
   1. `version` em `assets/web/version.json` — **a fonte da verdade**. É este
@@ -260,7 +261,7 @@ app/src/main/assets/web/
 │                               # estilo embutido (v5.205)
 └── display/
     ├── index.html              # UI do Display (SEM iframe: o embed do YouTube
-    │                           # saiu na v5.212 — ver CLAUDE.md)
+    │                           # saiu na v5.212)
     ├── display.css             # Estilos do Display
     └── display.js              # Lógica do Display
 docs/
@@ -269,7 +270,7 @@ docs/
 
 Sem `manifest.json`, sem `icons/`, sem `sw.js` e sem `server.js`: ícone, nome e
 orientação vêm do APK, os arquivos são locais por natureza e a atualização é
-por OTA (ver "Build, distribuição e instalação", no fim, e o `CLAUDE.md`).
+por OTA (ver "Build, distribuição e instalação", no fim, e o `BUILD.md`).
 
 `vendor/` é a única pasta aqui que não é código do projeto, e **nada fora do
 caminho do `.pptx` a carrega**: ela entra por `import()` dinâmico, na hora em
@@ -283,8 +284,8 @@ dos cultos não usa.
 
 Tudo isso vive no shell, não aqui: o APK é gerado e assinado pelo CI
 (`.github/workflows/apk.yml`) e a base web é publicada como bundle OTA na
-release de tag fixa `web-latest`. Ver `CLAUDE.md`, seções "OTA da base web" e
-"Build e distribuição".
+release de tag fixa `web-latest`. Ver `NUCLEO-TECNICO.md`, "OTA da base web", e
+`BUILD.md`.
 
 Do modelo antigo saíram: o deploy do `public/` no GitHub Pages, a instalação
 dos dois PWAs pelo Chrome ("Adicionar à tela inicial"), os `manifest.json` com

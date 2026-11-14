@@ -156,7 +156,7 @@ jobs:
           # um "1.0.1-rc" compara igual a "1.0.1" e um "v1.0.1" vira "0.0.1" —
           # os dois publicam, e o aparelho decide errado em silêncio. O sufixo
           # opcional aceita a `1.0` histórica; daqui para a frente todo lote tem
-          # os três degraus (ver "O NÚMERO" no CLAUDE.md).
+          # os três degraus (ver "A versão", no docs/BUILD.md).
           assert re.fullmatch(r'[0-9]+\.[0-9]+(\.[0-9]+)?', m['version']), (
               f"version malformada: {m['version']!r} — use MAIOR.INCREMENTAL.CORREÇÃO, ex. \"1.0.1\"")
           tag = m.get('shellTag', '')
@@ -173,7 +173,7 @@ jobs:
               f"o esperado é 'v{m['version']}'")
           print('version.json OK:', m)
           PY
-          # A versão mora em TRÊS lugares (ver CLAUDE.md), e os três precisam
+          # A versão mora em TRÊS lugares (ver docs/BUILD.md), e os três precisam
           # bater: esquecer o WEB_VERSION é "o erro silencioso" (o OTA distribui
           # e o aparelho exibe a versão antiga) e esquecer o version.json é "o
           # erro mudo" (nada chega a aparelho nenhum). Até aqui a única defesa
@@ -332,7 +332,7 @@ jobs:
           node tools/guia-casa-com-o-app.test.mjs
 
       # ---------- O ORÁCULO QUE NÃO ESTÁ NA LISTA NÃO PROTEGE ----------
-      # A varredura que antes era feita À MÃO (a linha `comm -3` do CLAUDE.md)
+      # A varredura que antes era feita À MÃO (a linha `comm -3` do docs/BUILD.md)
       # vira um passo. O defeito que ela trava é o mais caro do rito: um
       # *.test.mjs novo no disco que ninguém roda — quatro vezes em nove lotes,
       # e o modo de falhar é o run ficar verde porque ninguém o executa. A
@@ -571,7 +571,7 @@ jobs:
       # PRAZO AQUI TAMBÉM, e pela mesma razão: um oráculo que pendure o
       # navegador (uma Promise que nunca resolve, um `waitForFunction` sem
       # timeout) trava o job inteiro e leva o canal OTA junto. O prazo é folga
-      # larga: MEDIDO em 4 vCPU (o mesmo do runner), os 82 somam ~13 min em
+      # larga: MEDIDO em 4 vCPU (o mesmo do runner), a suíte soma ~13 min em
       # SÉRIE e ~4,4 min nos três processos em que rodam hoje — e o prazo cobre o
       # pior caso, que é a paralelização não pegar por qualquer razão e a lista
       # correr em fila.
@@ -584,7 +584,7 @@ jobs:
 
           # ---------- EM PARALELO, E O `rodar` SÓ ENFILEIRA ----------
           #
-          # MEDIDO: os 82 oráculos somam ~13 min em série, e o custo NÃO é o
+          # MEDIDO: a suíte soma ~13 min em série, e o custo NÃO é o
           # que parece — lançar o Chromium são ~110 ms e subir o `/controle/`
           # inteiro é ~1 s. O que sobra é espera: cada oráculo passa a maior
           # parte do tempo parado esperando o app dele assentar, com os quatro
@@ -597,7 +597,7 @@ jobs:
           # O que encarece este passo é uma DÚZIA de arquivos, e neles o tempo é
           # de arnês, não de asserção — ver docs/BUILD.md ("um stub da ponte que
           # não resolve", travado pelo `stub-da-ponte.test.mjs`) e o
-          # `esperarCortina`, que não paga o piso da cortina (CLAUDE.md, "A
+          # `esperarCortina`, que não paga o piso da cortina (docs/NUCLEO-TECNICO.md, "A
           # abertura por trás dos panos").
           #
           # Rodar em paralelo é seguro por CONSTRUÇÃO, e isso foi conferido

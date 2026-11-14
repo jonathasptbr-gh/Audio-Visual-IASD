@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o Pacote 27: o contrato enxuto (sem versão nova; docs, `tools/` e o workflow)** — os 8 apontamentos D da revisão de 14/11: o `CLAUDE.md` de 729 linhas para 369, uma regra só de leitura, a tabela única das falas ao operador, o critério objetivo da delegação, o método dos oráculos e a versão na fonte única, a árvore completa e os cinco finos; o `URGENCIA.md` esvaziou e saiu.
 - **o Pacote 25: o rito de entrega (sem versão nova; `tools/`, workflow e docs)** — os 11 apontamentos A da revisão de 14/11: direto em `main` sem `claude/**`, o portão como último passo e com teto na vizinhança, o gatilho da Release cobrado por máquina, três casas da versão, o rito numerado no BUILD, a regra do CI vermelho, o histórico e o RES cobrados, o `acorn` declarado.
 - **o Pacote 26: o processo de revisão (sem versão nova; docs e `tools/`)** — os 14 apontamentos B da revisão de 14/11: a revisão caça defeito, a base é o HEAD medido, as auditorias congeladas com os abertos no RES, o ACH esvaziado, a revisão profunda encerrada e a ferramenta de cobertura com títulos, binário fora e `--tabela`.
 - **o Pacote 24: as instruções desta máquina consertadas (sem versão nova; docs, `tools/` e arquivos da máquina)** — os 12 apontamentos da revisão de 14/11: a reversão do patch, o cofre primeiro no `estado.sh` e na receita, os tetos sem dólar, o `AGENTS.md` enxuto, o `--ci` citado, o ATIVO.md aposentado, o `send_later` fora, o teto no meio do lote, e regras para portas e backups.
@@ -744,6 +745,47 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## o Pacote 27 — o contrato enxuto (sem versão nova; docs, `tools/` e o workflow)
+
+O **Pacote 27** — o Pacote D do `docs/URGENCIA.md`, o quarto e ÚLTIMO da revisão
+de 14/11. Só texto: nenhum byte da base web nem do Kotlin — sem versão nova, sem
+Release. Com ele o `URGENCIA.md` esvaziou e foi **APAGADO**, como o próprio
+arquivo mandava ("quando o D sair, este arquivo é apagado").
+
+- **D1 · uma regra de leitura** (CL, AG, PC): o topo (até "A conversa com o
+  operador") mais "Regras de desenvolvimento" em toda sessão, o resto por âncora
+  — dito UMA vez, no `CLAUDE.md`; o `AGENTS.md` e o `PACOTE-DE-CONTINUIDADE.md`
+  apontam para lá.
+- **D2 · a dieta** (CL, BU, EC, PODA): 729 → 369 linhas e 47 → 25 kB. Os **17
+  tocos "Movido"** viraram LINHA da tabela de ÁREAS (cada uma com a regra que se
+  paga caro); o Build e o MÉTODO dos oráculos foram para o `BUILD.md`; a entrega
+  delegada, para a `ECONOMIA.md`; o NÚMERO e as três casas, para o `BUILD.md`; a
+  poda de comentário, para `PODA-DE-COMENTARIO.md` (arquivo novo).
+- **D3 · a fala, em uma tabela** (CL, MA): abertura com a área, as cinco etapas,
+  a pergunta, a entrega e o silêncio enquanto delega — a lista FECHADA do que se
+  diz ao operador; a regra 2 do `MULTI-AGENTE` aponta, não repete.
+- **D4 · delegação com número** (EC, CL): delega-se acima de **3 arquivos, 200
+  linhas, uma varredura ou a suíte**; o briefing leva escopo, **teto de 60
+  chamadas**, ponto de parada e saída magra; e as chamadas do subagente **não
+  entram** no teto de 150 da sessão.
+- **D5 · fonte única** (CL, BU, NUCLEO): o rito, a versão e o CI no `BUILD.md`;
+  a ponte e o OTA no `NUCLEO`; o `CLAUDE.md` fica com a linha e o link. Morre a
+  cópia que já divergia (o backup "três" × "quatro" e o runner `ubuntu-latest` ×
+  `ubuntu-24.04` fixo).
+- **D6 · contagem fora da prosa** (BU, `apk.yml`): "158 oráculos", "127 linhas"
+  e "os 82" saíram — a conta é do `estado.sh`; o JUnit foi de 9 para **11
+  classes** (entraram `SafJanelaTest` e `SlideDeckTest`); e as seções citadas que
+  não existiam ("OTA", "Um oráculo não pode medir o runner") agora existem.
+- **D7 · o mapa completo** (ESTRUTURA, `docs-coerentes`): `tools/`, `site/`,
+  `.github/`, `capturas/`, os `docs/*.md` e `docs/revisao/` entraram na árvore;
+  31 → **32** Kotlin; "4 filas" → **seis**; e a contagem passou a ser COBRADA —
+  ela saiu do `CLAUDE.md` e o oráculo a confere na ESTRUTURA.
+- **D8 · os cinco finos** (CL, EC): a ordem do índice é a do arquivo; "atualizar
+  a seção A ponte" virou "o capítulo" (`NUCLEO`); o `REGISTRO` deixou de ser
+  "apêndice congelado" — ele é o registro do que cada etapa mediu; "anexo técnico
+  do lote" virou a medição no fecho da sessão; e a seção que virou toco não é
+  mais mandada atualizar.
 
 ## o Pacote 25 — o rito de entrega (sem versão nova; `tools/`, workflow e docs)
 

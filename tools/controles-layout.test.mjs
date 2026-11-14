@@ -34,7 +34,7 @@
 //
 // A ESTÉTICA. Ele mede posição relativa (quem está à esquerda de quem), não
 // pixel — a base pede `system-ui, sans-serif` e quem responde é a fonte da
-// máquina. Ver "Um oráculo não pode medir o runner" no CLAUDE.md.
+// máquina. Ver "Um oráculo não pode medir o runner" no docs/BUILD.md.
 //
 //   node tools/controles-layout.test.mjs
 // ============================================================================
