@@ -34,6 +34,7 @@ const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ler = (p) => readFileSync(join(RAIZ, p), 'utf8');
 const CONTROLE = ler('app/src/main/assets/web/controle/controle.js');
 const GUIA = ler('site/sonoplastia/index.html');
+const INDEX = ler('app/src/main/assets/web/controle/index.html');
 
 // Um trecho do guia entre duas âncoras; vazio quer dizer âncora que sumiu.
 function entre(texto, de, ate) {
@@ -58,7 +59,10 @@ const ferramentas = [...blocoFerr.matchAll(/nome:\s*'([^']+)'/g)].map((m) => m[1
 // mas não no arquivo: o do Editar mídia vem depois de Slides, e é ali que o
 // guia descreve a SÉTIMA ferramenta.
 const secaoFerr = entre(GUIA, 'id="i21-ferramentas"', 'id="i21-documentos"');
-const secaoEditar = entre(GUIA, 'id="i21-editar"', 'id="i21-leitura"');
+// A ÂNCORA LEVA A TAG INTEIRA: `entre()` corta a partir do índice, e começar em
+// `id="i21-editar"` deixava o `<h3 …>` de fora — o título do capítulo nunca
+// casava e a sétima ferramenta nunca era conferida no sentido guia→app.
+const secaoEditar = entre(GUIA, '<h3 id="i21-editar"', 'id="i21-leitura"');
 const textoDasFerramentas = secaoFerr + secaoEditar;
 
 checar(inicioFerr >= 0 && ferramentas.length >= 6,
@@ -122,6 +126,18 @@ checar(linhaTour.includes('quadrado') && linhaTour.includes('Configurações'),
   'C · o "Tour do app" é o quadrado no fim da grade de Configurações', linhaTour);
 checar(!linhaTour.includes('refaz os tours') && !linhaTour.includes('uma vez por tela'),
   'C · o "Tour do app" não é descrito como "refaz os tours" nem "uma vez por tela"', linhaTour);
+
+// O GUIA DIZ ONDE ELE ESTÁ; O APP TEM DE CONCORDAR. Sem esta metade, renomear
+// ou mover o quadrado deixava o guia certo sobre um botão que não existe mais.
+const gradeIdx = entre(INDEX, '<div class="qs-grade">', '</div>');
+const tiles = [...gradeIdx.matchAll(/<button[^>]*class="([^"]*)"[^>]*id="([^"]+)"/g)]
+  .map((m) => ({ classes: m[1], id: m[2] }))
+  .filter((t) => t.classes.split(/\s+/).includes('qs-tile'));
+const ultimo = tiles.length ? tiles[tiles.length - 1].id : null;
+checar(tiles.length >= 8, 'C · a grade de Configurações do app tem os oito quadrados', tiles.length + ' quadrado(s): ' + tiles.map((t) => t.id).join(' · '));
+checar(ultimo === 'tourBtn', 'C · o "Tour do app" é o ÚLTIMO quadrado da grade, no app', 'último: ' + ultimo);
+checar(!/<input[^>]*id="tourBtn"|song-menu-check[^>]*id="tourBtn"/.test(INDEX),
+  'C · o "Tour do app" não é uma caixa de marcação no HTML', 'achado o padrão de caixa');
 
 console.log(falhas.length ? '\n' + falhas.length + ' falha(s)' : '\ntudo certo');
 process.exit(falhas.length ? 1 : 0);

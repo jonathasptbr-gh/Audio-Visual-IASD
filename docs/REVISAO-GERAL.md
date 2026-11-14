@@ -28,8 +28,11 @@ node tools/revisao-cobertura.mjs --base <commit-da-revisão-anterior>
 ```
 
 Ele imprime os marcos, quantos arquivos e linhas cada um recebeu no intervalo, e
-**sai com código 1 se algum marco recebeu mudança e nenhum arquivo dele foi
-citado no dossiê** — é a trava contra a área pulada em silêncio. Ao fechar:
+**sai com código 1 quando algum marco recebeu mudança e menos de 10% dos arquivos
+dele são citados no dossiê** — um marco de 63 arquivos citando 3 não foi coberto,
+foi roçado. A citação exige CAMINHO (`controle/index.html`), nunca nome solto: o
+site e o app têm `index.html`, e o nome solto dava o site por coberto. É a trava
+contra a área pulada em silêncio. Ao fechar:
 
 ```bash
 node tools/revisao-cobertura.mjs --base <sha> --dossie docs/revisao/REVISAO-<data>.md
@@ -44,13 +47,13 @@ se parte em dois, nunca se pula.
 | # | marco | escopo | o que se procura | fecha quando |
 |---|---|---|---|---|
 | **M1** | o app web | `assets/web/controle/controle.js` | código morto, ramo inalcançável, parâmetro sem leitor, duplicata, comentário que contradiz o corpo | todo achado tem arquivo:linha, prova e veredito |
-| **M2** | a base compartilhada | `assets/web/shared/**`, `tokens.css`, `vendor/` | símbolo exportado sem chamador, token sem `var()`, dependência de terceiros sem justificativa | idem |
+| **M2** | a base web, o telão e a tela espelho | `assets/web/shared/**`, `assets/web/display/**`, `assets/web/espelho/**`, `tokens.css`, `vendor/` | símbolo exportado sem chamador, token sem `var()`, dependência de terceiros sem justificativa | idem |
 | **M3** | o CSS e o HTML do app | `controle/controle.css`, `controle/index.html` | seletor sem produtor (provar as DUAS pontas), id sem leitor, `<symbol>` sem `<use>`, comentário falso | idem |
 | **M4** | o tour | `controle/tour.js`, `tools/tour.test.mjs`, `arquitetura/CONTROLE-TOUR.md` | passo inalcançável, âncora que não existe, chave de "já visto" sem gravador, asserção vacuosa | idem |
-| **M5** | o shell | `java/**`, `res/**`, `AndroidManifest.xml`, `build.gradle.kts` | símbolo sem chamador, import morto, KDoc falso, `SHELL_VERSION` × `minShell` × ponte | idem, e o CI verde compensa o que não compila aqui |
+| **M5** | o shell e o build | `java/**`, `res/**`, `test/**`, `AndroidManifest.xml`, `app/build.gradle*`, e a RAIZ do build (`build.gradle.kts`, `settings.gradle.kts`, `gradle/`, `gradlew`, `package.json`) | símbolo sem chamador, import morto, KDoc falso, `SHELL_VERSION` × `minShell` × ponte | idem, e o CI verde compensa o que não compila aqui |
 | **M6** | **o site** | `site/**`, `.github/workflows/pages.yml` | texto velho contra o app de hoje, asset órfão, CSS/JS morto, peso, oráculo que case guia × app | idem |
 | **M7** | a documentação | `docs/**`, `CLAUDE.md`, `README.md` | fato velho, link morto, contagem velha, doc órfão no mapa, índice do HISTORICO, teto do `notas.json` | idem |
-| **M8** | as ferramentas e o repositório | `tools/**`, `.github/workflows/**` | oráculo fora do portão ou do workflow, ferramenta sem chamador, passo morto, arquivo grande rastreado | idem |
+| **M8** | as ferramentas e o repositório | `tools/**`, `.github/workflows/**`, e a raiz (`LICENSE`, `.gitignore`, `AVISOS-DE-TERCEIROS.md`) | oráculo fora do portão ou do workflow, ferramenta sem chamador, passo morto, arquivo grande rastreado | idem |
 | **M9** | os achados antigos | `ACHADOS-EM-ABERTO`, `AUDITORIA-*`, `RESIDUOS.md` | cada linha reconferida contra o código de HOJE: aberto, fechado ou obsoleto | nenhuma linha fica sem veredito |
 | **M10** | a governança | o dossiê × `PEDIDOS-EM-ESPERA` × `RESIDUOS.md` | achado sem casa, pacote já entregue, dossiê que omite id fechado, resíduo sem dono | as três listas concordam |
 
@@ -73,7 +76,7 @@ se parte em dois, nunca se pula.
    fechados antes e os refutados. Dossiê que omite id fechado faz a próxima
    sessão reconferir o que já era.
 5. `node tools/revisao-cobertura.mjs --base <sha> --dossie <dossiê>` **verde**:
-   todo marco com mudança tem arquivo citado.
+   todo marco com mudança tem ao menos 10% dos arquivos citados.
 
 > **A revisão não é uma caçada: é uma vistoria.** O que se cobra não é achar
 > mais, é não deixar área sem olhar. Um marco limpo, provado, vale mais que dez

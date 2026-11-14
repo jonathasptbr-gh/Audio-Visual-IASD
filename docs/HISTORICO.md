@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.16** — o tour volta a destacar o conjunto inteiro no Relógio, no Sorteio e no Itinerário, e saem três comentários falsos e cinco imagens órfãs; só web.
 - **v1.14.15** — o Histórico e o Transferir destacam a primeira linha do gesto em vez da lista inteira, e saem três comentários falsos; só web.
 - **v1.14.14** — a série que cedeu a vez à projeção volta quando ela sai, o card diz por quê, e a junção mostra a fração real em vez de parar no 99%; só web.
 - **v1.14.13** — a faxina da revisão de 2026-11-13: código morto e comentários falsos fora do `controle.js`, do CSS e do Kotlin, o tour do editor que tentava abrir em laço, e o `abrirGuia` que cai no navegador quando o diálogo não abre; APK + web.
@@ -1372,6 +1373,33 @@ docs: nada chega ao app.
 - **Não medido:** a impressão física (impressora real, frente e verso pela
   borda longa, furo no fichário) e a impressão de dentro do app (o WebView do
   Android provavelmente ignora `window.print()` — daí o aviso).
+
+## v1.14.16 — o tour recorta o conjunto, quando é conjunto
+
+**Só web** (sem `shellTag`). É o primeiro lote que nasce de uma revisão geral
+feita no escopo fixo ([`revisao/REVISAO-2026-11-14.md`](revisao/REVISAO-2026-11-14.md)).
+
+**A v1.14.15 CONSERTOU DEMAIS.** Ao fazer `elementos()` pegar uma peça por
+seletor — o que conserta o Histórico e o Transferir, que recortavam a lista
+inteira —, cinco passos que explicam um CONJUNTO passaram a recortar só a
+primeira peça: os quatro botões de ajuste do Itinerário, o "De" e o "Até" do
+Sorteio, os dois chips, as categorias, e o "Tocar agora e guardar", que passou a
+destacar o botão de sortear. O passo agora declara `todos: true` e o recorte
+volta a unir as ocorrências DAQUELE seletor; o padrão segue uma peça por seletor.
+
+**O resto é faxina de revisão:** o comentário da rodada da série dizia "uma vez
+por abertura" (ela volta em todo `visibilitychange`), o KDoc do aviso dizia que
+ele aparece só "se a rede não deixa" (desde a v1.14.14 também com a projeção no
+ar), o oráculo do tour ainda chamava o "Tour do app" de caixa de marcação, e
+saíram cinco imagens órfãs (`telas/320/busca.webp` e quatro originais de 800 px
+que o `index.html` nunca usou).
+
+**O oráculo do guia ganhou os dois lados que faltavam:** a fatia do capítulo
+começava no `id`, deixando o `<h3>` de fora — "Editar mídia" nunca era conferido
+no sentido guia→app —, e a parte C não lia o HTML do app. Consertados e provados
+por reversão.
+
+---
 
 ## v1.14.15 — o tour recorta a linha, não a lista
 

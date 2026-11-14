@@ -265,7 +265,7 @@
     'ferr-itinerario': { modos: ['full'], passos: [
       { alvo: '#itinTitulo', titulo: 'Nome do itinerário',
         texto: 'Toque no nome para trocar de itinerário ou criar outro.', opcional: true },
-      { alvo: ['#toolsBody .itin-passo', '#toolsBody .itin-zerar'], titulo: 'Adiantar e atrasar',
+      { alvo: ['#toolsBody .itin-passo', '#toolsBody .itin-zerar'], todos: true, titulo: 'Adiantar e atrasar',
         texto: 'Toque em −5, −1, +1 ou +5 para mover todos os horários de uma vez. O último botão volta ao previsto.', opcional: true },
       { alvo: '#itinNovoBtn', titulo: 'Adicionar horário',
         texto: 'Toque para incluir uma parte do culto com a hora em que ela começa.', opcional: true },
@@ -280,9 +280,9 @@
     'ferr-draw': { modos: ['full'], passos: [
       { alvo: '#toolsBody textarea.draw-pool', titulo: 'Opções',
         texto: 'Escreva uma opção por linha, como nomes de pessoas. O sorteio escolhe uma delas.', opcional: true },
-      { alvo: '#toolsBody input.misc-num', titulo: 'De e Até',
+      { alvo: '#toolsBody input.misc-num', todos: true, titulo: 'De e Até',
         texto: 'Digite o menor e o maior número. O sorteio escolhe um número entre os dois.', opcional: true },
-      { alvo: '#toolsBody .misc-chip', titulo: 'Números e Não repetir',
+      { alvo: '#toolsBody .misc-chip', todos: true, titulo: 'Números e Não repetir',
         texto: 'Toque em Números para trocar entre números e uma lista de nomes. Com Não repetir ligado, o que saiu não sai de novo.', opcional: true },
       { alvo: ['#drawGoBtn', '#drawResetBtn'], titulo: 'Sortear e Reiniciar',
         texto: 'Toque no botão de sortear para escolher. O botão ao lado reinicia e devolve todos ao sorteio.', opcional: true },
@@ -293,9 +293,9 @@
         texto: 'Digite uma palavra, como "graça" ou "esperança", para sortear músicas sobre ela.' },
       { alvo: '#sorteioPopup .song-menu-seg', titulo: 'Cantada ou Fundo musical',
         texto: 'Toque para escolher músicas cantadas ou só o fundo musical, sem voz.', opcional: true },
-      { alvo: '#sorteioPopup .misc-chip', titulo: 'Álbuns e Só no aparelho',
+      { alvo: '#sorteioPopup .misc-chip', todos: true, titulo: 'Álbuns e Só no aparelho',
         texto: 'Toque nos álbuns de onde sortear. "Só no aparelho" usa apenas o que já está baixado.', opcional: true },
-      { alvo: '#sorteioPopup .sorteio-acao', titulo: 'Tocar agora e guardar',
+      { alvo: '#sorteioPopup .sorteio-acao', todos: true, titulo: 'Tocar agora e guardar',
         texto: 'Toque em Tocar agora para ouvir já, ou nos botões ao lado para sortear e guardar no Cronograma, na playlist ou nos Favoritos.', opcional: true },
     ] },
     playlist: { modos: ['full'], passos: [
@@ -362,13 +362,19 @@
     if (!passo.alvo) return [];
     const lista = Array.isArray(passo.alvo) ? passo.alvo : [passo.alvo];
     const els = [];
-    // UMA PEÇA POR SELETOR: o recorte é a UNIÃO dos alvos, e a união que vale é
-    // entre os SELETORES — a faixa e as duas pontas do mesmo controle, por
-    // exemplo. Com o `querySelectorAll` inteiro a união também acontecia entre as
-    // LINHAS: `#histList .row-item .row-btn` e `#pacoteLista .pacote-linha`
-    // destacavam a lista toda em vez da primeira linha, que é a que explica o gesto.
+    // UMA PEÇA POR SELETOR, salvo quando o passo pede `todos` (v1.14.16). O
+    // recorte é a UNIÃO dos alvos, e a união que vale é entre os SELETORES — a
+    // faixa e as duas pontas do mesmo controle — MAIS as ocorrências quando o
+    // passo explica um conjunto ("os quatro botões de ajuste", "as categorias").
+    // O que não vale é a união acidental entre LINHAS: `#histList .row-item
+    // .row-btn` e `#pacoteLista .pacote-linha` destacavam a lista toda em vez da
+    // primeira linha, que é a que explica o gesto.
     for (const q of lista) {
-      for (const e of document.querySelectorAll(q)) if (visivel(e)) { els.push(e); break; }
+      for (const e of document.querySelectorAll(q)) {
+        if (!visivel(e)) continue;
+        els.push(e);
+        if (!passo.todos) break;
+      }
     }
     return els;
   }

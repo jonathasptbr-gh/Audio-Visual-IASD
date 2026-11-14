@@ -329,48 +329,35 @@ residuais pequenos e quatro antigos que pedem medição ou são de processo.
 ### 12.3 A auditoria da revisão, e o site (2026-11-14)
 
 Pedido do operador: *"achei estranha pois foi muito rápida — verificasse se ela
-realmente cobriu tudo"*. Foi medida e registrada no §9 e no §10 do dossiê.
+realmente cobriu tudo"*. Foi medida e registrada nos §§9 e 10 do dossiê de 13/11;
+depois a revisão de 14/11 refez o trabalho com o escopo fixo
+([`revisao/REVISAO-2026-11-14.md`](revisao/REVISAO-2026-11-14.md)).
 
 **A lacuna que ela achou:** as sete varreduras de 13/11 não leram o `site/` —
 8.652 linhas e 52 commits do intervalo, incluindo o guia de sonoplastia novo de
-7.803 linhas. A varredura de 14/11 fez esse trabalho: dez achados, dois de texto
-velho já corrigidos (o "Editar mídia" mandado para Configurações e o "Tour do
-app"), uma suspeita refutada (as classes `pag-col-e/d` são montadas pelo JS).
+7.803 linhas. O site foi varrido em 14/11: dez achados, e os consertos abaixo.
 
-**O que sobra, e não é conserto de uma linha:**
+**O QUE ESTA SEÇÃO NÃO GUARDA MAIS.** Resíduo fino não mora nesta fila: ele mora
+em [`RESIDUOS.md`](RESIDUOS.md), com dono. Aqui fica o que precisa de decisão do
+operador.
 
-- ~~**12.3.1**~~ **REFUTADO em 14/11, com número.** A extração do desenho não
-  paga: o guia tem 943 kB CRUS e **206 kB comprimidos** (o Pages comprime), então
-  o que sai da rede é isso, não os 587 kB; um sprite em arquivo à parte economiza
-  ~110 kB **só a partir da segunda visita**, e `<use>` externo não funciona nos
-  navegadores. Quem quisesse provar teria de medir o parse, não a rede.
-- **12.3.2** 671 linhas de CSS e 1.320 de JS inline no mesmo HTML: virariam dois
-  arquivos cacheáveis (~33 kB comprimidos). Ganho pequeno, risco baixo.
-- ~~**12.3.3**~~ **FEITO em 14/11** (`82df8685`): as 18 capturas ganharam uma
-  variante de 320 px em `site/telas/320/`, e o guia passou a usá-la. As imagens
-  do guia caíram de 902 kB para 247 kB (−72,6%), e a página de 2,07 MB para
-  1,22 MB. Era o peso de verdade: as capturas pagam em toda visita, o desenho só
-  na segunda.
-- ~~**12.3.4**~~ **FEITO em 14/11**: `tools/guia-casa-com-o-app.test.mjs`, no CI e
-  no `docs/ORACULOS.md`. Provado por reversão, e já achou um quarto texto velho
-  que a faxina deixou (a legenda da figura do Editar mídia).
-- **12.3.5** o pós-retrato (v1.14.8–v1.14.12, 1.619 inserções) não teve varredura
-  própria; a de 14/11 cobre o intervalo, e o que sobrar dela entra aqui.
-- ~~**12.3.6**~~ **FEITO na v1.14.15**, junto com o tour (`b8b2c4b2`):
-  o do piso de 12px citava o `MARGEM_RECORTE`, constante que morreu; o do peso
-  prometia o número "no rótulo do Exportar"; e o do `Tour do app` chamava o
-  quadrado de "CAIXA de marcação".
-
-**Feito na v1.14.15** (`b8b2c4b2`): o tour do Histórico e do Transferir recorta
-UMA linha em vez da lista inteira (`elementos()` passou a pegar uma peça por
-seletor), com oráculo que planta duas linhas e prova — a asserção que olha o que
-se vê, não o que o código faz.
-
-**Achados do pós-retrato que pedem decisão de projeto, não conserto de uma
-linha** (registrados no §10 do dossiê): o tour de Transferir e Histórico usa
-seletor COLETIVO e destaca a lista inteira em vez da linha; e há duas asserções
-do `tour.test.mjs` que passariam com o código de volta (`s.configuracoes`, e a
-pré-marcação de `chaves()` antes de abrir a folha).
+- ~~**12.3.1**~~ **REFUTADO com número.** A extração do desenho do guia não paga:
+  943 kB crus e **206 kB comprimidos** (o Pages comprime), então o que sai da
+  rede é isso, não os 587 kB; um sprite à parte economiza ~110 kB **só a partir
+  da segunda visita**, e `<use>` externo não funciona nos navegadores.
+- **12.3.2** **decisão do operador.** Tirar as 671 linhas de CSS e as 1.320 de JS
+  de dentro do guia: ~33 kB comprimidos a menos, ao custo de mexer no layout de
+  impressão. Está no `RESIDUOS.md` com dono `higienização`; o que falta é o aval.
+- ~~**12.3.3**~~ **FEITO** (`82df8685`): as capturas ganharam variante de 320 px.
+  As imagens do guia caíram de 902 kB para 247 kB (−72,6%).
+- ~~**12.3.4**~~ **FEITO**: `tools/guia-casa-com-o-app.test.mjs`, no CI e no
+  `ORACULOS.md` — e a revisão de 14/11 achou que ele tinha dois furos (a fatia do
+  capítulo não pegava o `<h3>`, e a parte C não lia o HTML do app). Consertados,
+  provados por reversão.
+- ~~**12.3.5**~~ **FEITO**: o pós-retrato (v1.14.8–v1.14.12) foi varrido em 14/11
+  e está no §10 do dossiê de 13/11 e no marco M1 da revisão de 14/11.
+- ~~**12.3.6**~~ **FEITO na v1.14.15** (`b8b2c4b2`): os três comentários falsos da
+  base web, junto com o tour que recorta uma linha em vez da lista inteira.
 
 **Medido e sem o que consertar:** o desempenho do app (`562 ms` de abertura,
 busca de 1.000 itens em `5,2 ms`, sem retenção de heap em 180 s de status a 4 Hz)

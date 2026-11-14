@@ -255,7 +255,7 @@ exatamente três tiles. Com o Tour do app entrando como oitavo tile não há col
 forçada nenhuma — o que o oráculo afirma é a ORDEM dos oito ids na `.qs-grade`.
 
 **Os tiles que dependem da ponte são `hidden` um a um fora do app**
-(`pacoteRenderTiles`): Saída de áudio, Compartilhar e Transferir — o seletor do
+(`pacoteRenderTiles`): Compartilhar, Transferir e o Exportar/Importar da folha — o seletor do
 Android, o "Salvar como" do SAF e o canal de bytes só existem lá, e um botão que
 só sabe não funcionar é pior que botão nenhum. A **contagem de uso** saiu daqui
 na v1.4.41 e, uma versão depois, saiu do app inteiro: ver "A contagem de uso"

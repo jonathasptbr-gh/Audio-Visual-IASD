@@ -416,7 +416,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.15';
+const WEB_VERSION = '1.14.16';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -22107,7 +22107,8 @@ let serieAutoRodando = false;
 let serieAutoRefazer = false;
 
 // A SÉRIE QUE CEDEU A VEZ À PROJEÇÃO VOLTA QUANDO ELA SAI (v1.14.14). A rodada
-// roda uma vez por abertura e a guarda `rotinaDeAcervoPodeCorrer` é POR SÉRIE:
+// nasce na abertura e volta em todo `visibilitychange` (a rotina do acervo
+// chama `serieSemanaReavaliar`), e a guarda `rotinaDeAcervoPodeCorrer` é POR SÉRIE:
 // um lote que começou antes do culto e ainda baixava a primeira série quando o
 // telão entrou no ar pulava a segunda em silêncio, e ela ficava a semana inteira
 // sem o episódio — o defeito relatado (*"um deles não baixa nesse download
@@ -22569,8 +22570,8 @@ function serieAutoImpedimento(coll, epi, rec) {
 
 /**
  * O AVISO DO CARD, a cada abertura: pergunta ao disco se o episódio da semana já
- * está no aparelho e, se não está e a rede não deixa, diz por quê na linha de
- * status (`serieAutoImpedimento`).
+ * está no aparelho e, se não está, diz na linha de status por que ele não desce
+ * (`serieAutoImpedimento`) — a rede que não deixa, ou a projeção no ar (v1.14.14).
  */
 function serieAutoAviso(coll) {
   if (!serieAutoLigada(coll)) return;

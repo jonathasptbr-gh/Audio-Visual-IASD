@@ -654,7 +654,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.14.15 · APK v1.14.13** · `SHELL_VERSION` **87** ·
+**Versão atual: base web v1.14.16 · APK v1.14.13** · `SHELL_VERSION` **87** ·
 bundle com `minShell: 83` e **sem `shellTag`** (lote só de web: a Release do
 1.14.13 já saiu, e nada de Kotlin mudou); o contrato da ponte
 não mudou desde o casco 87,

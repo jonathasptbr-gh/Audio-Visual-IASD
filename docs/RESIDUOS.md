@@ -32,18 +32,25 @@ medição em aparelho não é fino.**
 
 ## Aberto
 
-| quando | versão | onde | o que ficou | tipo | por que não foi agora |
-|---|---|---|---|---|---|
-| 2026-11-14 | — | `tools/tour.test.mjs` | `s.configuracoes` é chave que não existe: a asserção e o `delete` passam por vacuidade | fino | fora da cerca do lote do tour |
-| 2026-11-14 | — | `tools/tour.test.mjs:271` | pré-marca todas as chaves antes de abrir Configurações, então a asserção passaria com a seção de volta | fino | idem |
-| 2026-11-14 | — | `YoutubeGrab.kt` | os campos `initIni/initFim/idxIni/idxFim/codec` da `Faixa`, sem leitor desde que o `dash` saiu (~24 linhas, KDoc junto) | fino | precisa de compilador para provar; é do CI |
-| 2026-11-14 | — | `tools/tour.test.mjs` | `FOLGA`/`ANEL` escritos à mão (o mesmo padrão do achado T7) | fino | idem |
-| 2026-11-14 | — | `controle.js`, `controle.css` | 14 comentários "lápide" (`saiu na vX`) anteriores ao intervalo | fino | fora do escopo das duas revisões |
-| 2026-11-14 | — | `site/sonoplastia/index.html` | 671 linhas de CSS e 1.320 de JS inline, nada cacheável (~33 kB comprimidos) | fino | ganho pequeno, risco de layout |
-| 2026-11-14 | — | `controle.css` | a pílula de volume da tela cheia deitada (C8): a 740×360 o número sai da tela | **decisão** | desenho; operador decidiu deixar em 14/11 |
-| 2026-11-14 | — | `capturas/entrada/` | 3,7 MB de JPEG de origem, já convertidos para `site/telas/` | **decisão** | operador decidiu deixar em 14/11 |
-| 2026-11-14 | — | `ESTABILIDADE-AV` C2, D2 | pedem medição em aparelho | **medição** | não há aparelho nesta máquina |
-| 2026-11-14 | — | `EFICIENCIA` #2, #9 | processo, não código | **decisão** | aberto desde 2026-09 |
+**Dono** é quem fecha a linha: `higienização` (agente de contexto limpo, na hora),
+`operador` (decisão de desenho ou de custo), `CI` (só o runner prova) ou
+`medição` (precisa de aparelho).
+
+| quando | onde | o que ficou | dono | por que não foi agora |
+|---|---|---|---|---|
+| 2026-11-14 | `tools/tour.test.mjs` | `s.configuracoes` é chave que não existe: duas asserções e um `delete` que passam por vacuidade | higienização | fora da cerca do lote do tour |
+| 2026-11-14 | `tools/tour.test.mjs:271` | pré-marca todas as chaves antes de abrir Configurações, então a asserção passaria com a seção de volta | higienização | precisa da reversão para provar |
+| 2026-11-14 | `tools/tour.test.mjs` | `FOLGA`/`ANEL` escritos à mão (o padrão do achado T7) | higienização | idem |
+| 2026-11-14 | `controle.js`, `controle.css` | 14 comentários "lápide" (`saiu na vX`) anteriores ao intervalo | higienização | fora do escopo das duas revisões |
+| 2026-11-14 | `site/sonoplastia/index.html` | 671 linhas de CSS e 1.320 de JS inline, nada cacheável (~33 kB comprimidos) | higienização | ganho pequeno; exige conferir o layout de impressão |
+| 2026-11-14 | `site/sonoplastia/index.html` | a captura da lista de Ferramentas mostra seis e o app tem sete ("Editar mídia") | operador | refazer a captura pede o app em tela |
+| 2026-11-14 | `YoutubeGrab.kt` | os campos `initIni/initFim/idxIni/idxFim/codec` da `Faixa`, sem leitor desde que o `dash` saiu (~24 linhas, KDoc junto) | CI | não há compilador aqui; a remoção só se prova no Gradle |
+| 2026-11-14 | `controle.css` | a pílula de volume da tela cheia deitada (C8): a 740×360 o número sai da tela | operador | **decidido deixar como está** em 14/11 |
+| 2026-11-14 | `capturas/entrada/` | 3,7 MB de JPEG de origem, já convertidos para `site/telas/` | operador | **decidido deixar como está** em 14/11 |
+| 2026-11-14 | `controle.js:22564` | o aviso do card promete que a série "desce quando ela sair", mas a rodada só é armada por `manterSeriesDaSemana` — com um card aberto na projeção a saída da mídia não baixa | operador | mexe no contrato do `serieAutoImpedimento` |
+| 2026-11-14 | `tools/tour.test.mjs:94` | o oráculo mede a peça com a MESMA regra do `elementos()`: não distingue a peça certa da primeira casada | higienização | só o G novo tem régua independente |
+| 2026-11-14 | `ESTABILIDADE-AV` C2, D2 | pedem medição em aparelho | medição | não há aparelho nesta máquina |
+| 2026-11-14 | `EFICIENCIA` #2, #9 | processo, não código | operador | aberto desde 2026-09 |
 
 ## Lotes que declararam "nenhum"
 
@@ -52,7 +59,7 @@ de "ninguém olhou".
 
 | quando | lote | vistoria |
 |---|---|---|
-| 2026-11-14 | o método da revisão (`RESIDUOS.md`, `REVISAO-GERAL.md`, `tools/revisao-cobertura.mjs`) | nenhum: o resíduo das sessões anteriores está nas tabelas acima, o fino do dia foi fechado, e a ferramenta foi provada nos dois sentidos (acusa o marco pulado e passa quando o dossiê cita tudo) |
+| 2026-11-14 | o método da revisão (`RESIDUOS.md`, `REVISAO-GERAL.md`, `tools/revisao-cobertura.mjs`) | nenhum resíduo de código. **A ferramenta não estava pronta:** a revisão de 14/11 achou nela três defeitos — o telão e a tela espelho caíam no marco do shell, a citação por nome solto dava o site por coberto, e sem `--dossie` ela anunciava cobertura. Os três — e um quarto, de uso, na citação — foram corrigidos, e a ferramenta foi provada nos dois sentidos (acusa o marco roçado, cala quando o dossiê cita) |
 
 ## Refutado — medido e não é resíduo
 

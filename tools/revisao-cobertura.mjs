@@ -46,9 +46,12 @@ const MARCOS = [
     /^app\/src\/main\/assets\/web\/controle\/[^/]+\.js$/,
     /^app\/src\/main\/assets\/web\/(notas|version)\.json$/,
   ]],
-  ['M2', 'a base compartilhada', [
+  ['M2', 'a base web, o telão e a tela espelho', [
     /^app\/src\/main\/assets\/web\/shared\//,
     /^app\/src\/main\/assets\/web\/controle\/shared\//,
+    // O TELÃO E A TELA ESPELHO têm pasta e vida próprias: o catch-all do M5 os
+    // engolia como "shell", e é assim que uma área inteira fica sem varredura.
+    /^app\/src\/main\/assets\/web\/(display|espelho)\//,
     /tokens\.css$/,
     /^app\/src\/main\/assets\/web\/vendor\//,
   ]],
@@ -56,12 +59,20 @@ const MARCOS = [
     /^app\/src\/main\/assets\/web\/controle\/controle\.css$/,
     /^app\/src\/main\/assets\/web\/controle\/index\.html$/,
   ]],
-  ['M5', 'o shell', [
+  ['M5', 'o shell e o build', [
     /^app\/src\/main\/java\//,
     /^app\/src\/main\/res\//,
     /^app\/src\/test\//,
     /AndroidManifest\.xml$/,
-    /^app\/build\.gradle/,
+    /^app\/(build\.gradle|proguard-rules)/,
+    // A RAIZ do build: sem isto, `build.gradle.kts`, `settings.gradle.kts`,
+    // `gradle/`, `gradlew` e o `package.json` ficavam sem marco nenhum.
+    /^build\.gradle/,
+    /^settings\.gradle/,
+    /^gradle/,
+    /^package(-lock)?\.json$/,
+    // o registro do ADI da assinatura mora em `assets/` sem ser base web
+    /^app\/src\/main\/assets\/[^/]+\.properties$/,
   ]],
   ['M6', 'o site e as capturas', [/^site\//, /^capturas\//, /^\.github\/workflows\/pages\.yml$/]],
   ['M9', 'os achados antigos', [
@@ -74,7 +85,13 @@ const MARCOS = [
     /^docs\/PEDIDOS-EM-ESPERA\.md$/,
     /^docs\/REVISAO-GERAL\.md$/,
   ]],
-  ['M8', 'as ferramentas e o repositório', [/^tools\//, /^\.github\/workflows\//]],
+  ['M8', 'as ferramentas e o repositório', [
+    /^tools\//,
+    /^\.github\/workflows\//,
+    /^\.gitignore$/,
+    /^LICENSE$/,
+    /^AVISOS-DE-TERCEIROS\.md$/,
+  ]],
   ['M7', 'a documentação', [/^docs\//, /^CLAUDE\.md$/, /^README\.md$/]],
 ];
 
@@ -125,9 +142,24 @@ const texto = dossie ? readFileSync(dossie, 'utf8') : null;
 // CITAÇÃO = o caminho inteiro OU o nome do arquivo. A régua é frouxa de
 // propósito: o que se cobra aqui é ATENÇÃO ao marco, não precisão de citação.
 // Quem decide se a atenção foi suficiente é a fração — ver `PISO` abaixo.
+// Quantos arquivos mudados têm o mesmo nome: é o que separa `controle.js` (único)
+// de `index.html` (quatro: o do app, o do site e dois do site).
+const unicos = new Map();
+for (const a of [...porMarco.values()].flatMap((m) => m.arqs)) {
+  const n = a.split('/').pop();
+  unicos.set(n, (unicos.get(n) || 0) + 1);
+}
+
 const citado = (arq) => {
   if (!texto) return null;
-  return texto.includes(arq) || texto.includes(arq.split('/').pop());
+  const segs = arq.split('/');
+  // O CAMINHO SEMPRE VALE — inteiro ou sufixo de duas ou mais partes
+  // (`controle/index.html` distingue o app do site).
+  for (let i = 0; i <= segs.length - 2; i++) if (texto.includes(segs.slice(i).join('/'))) return true;
+  // O NOME SOLTO VALE QUANDO É ÚNICO. É como o repositório cita dentro de um
+  // texto sobre a área ("`controle.js:22109`"); exigir caminho sempre tornava o
+  // dossiê mais difícil de escrever sem ganhar nada.
+  return unicos.get(segs[segs.length - 1]) === 1 && texto.includes(segs[segs.length - 1]);
 };
 
 // O PISO: um marco com 8.663 linhas citando 3 arquivos (4,8%) não foi coberto —
@@ -189,4 +221,8 @@ if (texto && vazios.length) {
   console.log('\nCOBERTURA INCOMPLETA: ' + vazios.map(([id]) => id).join(', '));
   process.exit(1);
 }
-console.log('\nCOBERTURA: todo marco com mudança tem arquivo citado.');
+if (!texto) {
+  console.log('\n(sem --dossie não há cobertura a cobrar: passe o dossiê para medir)');
+} else {
+  console.log('\nCOBERTURA: todo marco com mudança tem arquivo citado (piso ' + Math.round(PISO * 100) + '%).');
+}

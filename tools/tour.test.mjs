@@ -20,11 +20,11 @@
 //   F · o botão de Configurações refaz o tour do modo ATUAL e ZERA as seções do
 //       modo (a do editor de mídia, que só existe no avançado, o Fácil não zera);
 //       o guia de sonoplastia abre `#dia` no Fácil e o começo no avançado.
-//   L · desligar por inteiro (v1.14.5): "Tour do app" é uma CAIXA (nasce marcada;
-//       tocar desmarca, grava `av.tour.off` e a folha segue aberta; desligado,
-//       nem o principal nem o de seção abrem sozinhos; tocar de novo liga e refaz
-//       o tour). "Pular tour" no balão desliga o MESMO interruptor, e a caixa
-//       acompanha. O "Guia de sonoplastia" leva a seta de "abre outra tela".
+//   L · desligar por inteiro: "Tour do app" é o ÚLTIMO QUADRADO da grade (nasce
+//       ligado; tocar desliga, grava `av.tour.off` e a folha segue aberta;
+//       desligado, nem o principal nem o de seção abrem sozinhos; tocar de novo
+//       liga e refaz o tour). "Pular tour" no balão desliga o MESMO interruptor, e
+//       o quadrado acompanha. O "Guia de sonoplastia" leva a seta de "abre outra tela".
 //   G · tours de SEÇÃO (v1.14.1): Configurações no Fácil, Ferramentas e o Timer
 //       no avançado — sozinhos na primeira abertura, nunca de novo, com o halo.
 //   H · o Fácil TOCANDO: a letra e as teclas, na primeira vez que algo toca.
@@ -91,8 +91,12 @@ const medir = (pg) => pg.evaluate(() => {
     return r.width >= 1 && r.height >= 1 && cs.visibility !== 'hidden' && cs.display !== 'none'
       && r.bottom > 0 && r.top < innerHeight;
   };
+  // A MESMA REGRA DO `elementos()`: uma peça por seletor, e todas quando o passo
+  // pede `todos` — a união que o passo explica (os quatro botões de ajuste, as
+  // categorias), não a que o seletor coletivo pegava por acidente.
   const todosDe = (p) => (!p.alvo ? [] : Array.isArray(p.alvo) ? p.alvo : [p.alvo])
-    .map((q) => [...document.querySelectorAll(q)].filter(vis)[0]).filter(Boolean);
+    .flatMap((q) => { const achados = [...document.querySelectorAll(q)].filter(vis); return p.todos ? achados : achados.slice(0, 1); })
+    .filter(Boolean);
   const passo = AVTour.passoAtual();   // o passo NA ORDEM em que o tour o mostra
   const els = todosDe(passo);
   let peca = null;
