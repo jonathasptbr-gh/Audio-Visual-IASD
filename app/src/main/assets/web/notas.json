@@ -2,8 +2,8 @@
   {
     "versao": "1.14.11",
     "itens": [
-      "O destaque azul do tour agora encosta na borda da tela sem cortar a linha: ela aparece inteira, inclusive na lista do Cronograma.",
-      "O destaque continua envolvendo o elemento por inteiro, como você pediu na volta atrás."
+      "O destaque do tour encosta na borda sem cortar a linha azul: ela aparece inteira, inclusive no Cronograma.",
+      "O destaque continua envolvendo o elemento por inteiro."
     ]
   },
   {
