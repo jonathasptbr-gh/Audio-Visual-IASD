@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.14.10",
+    "itens": [
+      "O tour não abre mais na primeira tela das Configurações; ele ficou nas seções que precisam: Histórico e Transferir.",
+      "No Histórico, o tour agora ensina o + que manda o item para o Cronograma.",
+      "Na Transferência, o tour explica os itens marcados e o peso de cada escolha; a linha do peso total saiu.",
+      "A lista de transferência agrupa as coleções em \"Diversas\", como a Biblioteca."
+    ]
+  },
+  {
     "versao": "1.14.9",
     "itens": [
       "No mudo da prévia, a porcentagem do volume ficou grande e o ícone de som pequeno, no canto.",

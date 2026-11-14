@@ -563,6 +563,59 @@ try {
   checar(!/"do-dois"/.test(conteudo.texto),
     'B · e o do desmarcado NÃO — catálogo sem arquivo é uma faixa que não toca');
   await b.ctx.close();
+  // ===== B2 · O AGRUPAMENTO É O DA BIBLIOTECA (v1.14.10) =====
+  //
+  // Pedido do operador: *"verifique o agrupamento nessa lista de transferência,
+  // pois ele acabou não atualizando como fizemos na biblioteca, onde agrupamos
+  // duas coleções para dentro da coleção 'Diversas'."* Com "Adoradores" e
+  // "Cantores" no catálogo, a folha tem de mostrar UMA seção "Diversas" com os
+  // dois álbuns dentro — e nenhuma seção com o nome das duas.
+  const b2 = await aparelho();
+  await b2.pg.evaluate(async () => {
+    await AVDB.setState('albumCatalog', {
+      categories: [
+        { id_category: 'c-ad', name: 'Adoradores', albums: [{ id_album: 'um', name: 'Álbum Um', order: 0 }] },
+        { id_category: 'c-ca', name: 'Cantores', albums: [{ id_album: 'dois', name: 'Álbum Dois', order: 0 }] },
+        { id_category: 'c-div', name: 'Diversas', albums: [] },
+      ],
+      albums: [{ id_album: 'um', name: 'Álbum Um' }, { id_album: 'dois', name: 'Álbum Dois' }],
+    });
+  });
+  await b2.pg.reload({ waitUntil: 'domcontentloaded' });
+  await esperar(b2.pg, () => !document.getElementById('splash'), null, 30000);
+  await b2.pg.evaluate(async () => {
+    const bytes = (n, v) => new Blob([new Uint8Array(n).fill(v)], { type: 'audio/mp4' });
+    for (const [id, v] of [['um', 1], ['dois', 2]]) {
+      await AVDB.opfsWriteFile('folders/album-' + id + '/faixa.m4a', bytes(9000, v));
+      await AVDB.fileAdd({ id: 'f-' + id, folder: 'album-' + id,
+        opfsPath: 'folders/album-' + id + '/faixa.m4a', name: 'Faixa ' + id,
+        type: 'audio/mp4', kind: 'audio', size: 9000, thumb: null, blob: null, url: null, addedAt: 1 });
+    }
+  });
+  await b2.pg.evaluate(() => { abrirSecao('pacote'); });
+  const abriuB2 = await abriuFolha(b2.pg);
+  checar(abriuB2 === true, 'B2 · a folha de escolha abre', porque(abriuB2));
+  const folhaB2 = await lerFolha(b2.pg);
+  const gruposB2 = folhaB2.filter((l) => l.grupo).map((l) => l.rotulo);
+  const diversas = folhaB2.find((l) => l.grupo && l.rotulo === 'Diversas');
+  checar(!!diversas && !gruposB2.includes('Adoradores') && !gruposB2.includes('Cantores'),
+    'B2 · "Adoradores" e "Cantores" entram no grupo "Diversas", como na Biblioteca — a folha não repete as duas seções',
+    JSON.stringify(gruposB2));
+  checar(/2 de 2/.test((diversas && diversas.sub) || ''),
+    'B2 · e a seção "Diversas" conta os dois álbuns que estão dentro dela', diversas && diversas.sub);
+  await b2.pg.evaluate(() => {
+    const li = [...document.querySelectorAll('#pacoteLista li')].find((x) => {
+      const r = x.querySelector(':scope > .song-menu-btn .song-menu-label');
+      return r && r.textContent === 'Diversas';
+    });
+    if (li) li.querySelector('.pacote-seta').click();
+  });
+  await esperar(b2.pg, () => document.querySelectorAll('#pacoteLista .pacote-grupo-corpo .pacote-linha').length === 2, null, 5000);
+  const dentroB2 = await b2.pg.evaluate(() => [...document.querySelectorAll('#pacoteLista .pacote-grupo-corpo .pacote-linha')]
+    .map((li) => (li.querySelector('.song-menu-label') || {}).textContent || ''));
+  checar(dentroB2.length === 2 && dentroB2.some((t) => /Um/.test(t)) && dentroB2.some((t) => /Dois/.test(t)),
+    'B2 · e os dois álbuns estão DENTRO de "Diversas"', JSON.stringify(dentroB2));
+  await b2.ctx.close();
 
   // =========================================================================
   // A FOLHA ABRE SEM LER O CATÁLOGO (v1.8.30)
@@ -752,10 +805,15 @@ try {
             albums: [{ id_album: 'zeta', order: 1 }, { id_album: 'alfa', order: 2 }] },
           { id_category: 2, name: 'Diversas', order: 2,
             albums: [{ id_album: 'omega', order: 1 }, { id_album: 'beta', order: 2 }] },
+          // A TERCEIRA NÃO É DISSOLVIDA: ela dá o segundo sujeito ao rodízio de
+          // seções e à ordem do catálogo (v1.14.10).
+          { id_category: 3, name: 'Coral', order: 3,
+            albums: [{ id_album: 'gama', order: 1 }, { id_album: 'delta', order: 2 }] },
         ],
         albums: [
           { id_album: 'zeta', name: 'Zeta' }, { id_album: 'alfa', name: 'Alfa' },
           { id_album: 'omega', name: 'Omega' }, { id_album: 'beta', name: 'Beta' },
+          { id_album: 'gama', name: 'Gama' }, { id_album: 'delta', name: 'Delta' },
         ],
       });
     });
@@ -765,7 +823,7 @@ try {
       const bytes = (n, v) => new Blob([new Uint8Array(n).fill(v)], { type: 'audio/mp4' });
       let escrito = 0;
       for (const [id, nome] of [['zeta', 'Zeta'], ['alfa', 'Alfa'],
-        ['omega', 'Omega'], ['beta', 'Beta']]) {
+        ['omega', 'Omega'], ['beta', 'Beta'], ['gama', 'Gama'], ['delta', 'Delta']]) {
         const cam = 'folders/album-' + id + '/faixa.m4a';
         await AVDB.opfsWriteFile(cam, bytes(9000, 1));
         escrito += 9000;
@@ -811,10 +869,16 @@ try {
     // coleção. A régua é a ordem em que as SEÇÕES aparecem, e não a lista
     // inteira: os nomes das coleções dentro delas são do fixture.
     const folhaE = await lerFolha(e.pg);
+    // v1.14.10 — A LISTA DA TRANSFERÊNCIA PASSA A AGRUPAR COMO A BIBLIOTECA:
+    // "Adoradores" e "Cantores" (e a coletânea chamada "Diversas") viram UMA
+    // seção "Diversas", pela MESMA régua do `desenharCategorias`
+    // (`DISSOLVIDAS_EM_DIVERSAS` + `GRUPO_DIVERSAS`). Pedido do operador:
+    // *"verifique o agrupamento nessa lista de transferência, pois ele acabou
+    // não atualizando como fizemos na biblioteca"*.
     const secoes = folhaE.filter((l) => l.grupo).map((l) => l.rotulo);
-    checar(JSON.stringify(secoes) === JSON.stringify(['Adoradores', 'Diversas']),
-      'E · as seções saem na ORDEM DA BIBLIOTECA — as coletâneas na ordem do '
-      + 'catálogo, e nada entre elas', JSON.stringify(secoes));
+    checar(JSON.stringify(secoes) === JSON.stringify(['Coral', 'Diversas']),
+      'E · as seções saem na ORDEM DA BIBLIOTECA — a "Diversas" é UMA, com as '
+      + 'categorias dissolvidas dentro dela, e vem no fim como na Biblioteca', JSON.stringify(secoes));
     // AS DUAS PONTAS, e elas dizem a regra inteira: os FAVORITOS vão na FRENTE
     // (na Biblioteca eles são a primeira seção) e o que a Biblioteca não tem —
     // os itens em lista nenhuma — vai DEPOIS de tudo que ela tem. A asserção é
@@ -822,7 +886,7 @@ try {
     const ordem = folhaE.filter((l) => !/^Salvar/.test(l.rotulo)).map((l) => l.rotulo);
     checar(JSON.stringify(ordem)
       === JSON.stringify(['Favoritos', 'Informativo Mundial das Missões 2026', 'Provai e Vede 2026',
-        'Hinário Adventista 2022', 'Hinário Adventista 1996', 'Adoradores', 'Diversas', 'Outros itens']),
+        'Hinário Adventista 2022', 'Hinário Adventista 1996', 'Coral', 'Diversas', 'Outros itens']),
       'E · com os FAVORITOS na frente (a primeira seção da Biblioteca), a raiz '
       + '(séries e hinários, sempre listados desde a v1.11.12) e o que ela NÃO tem '
       + 'no fim — a folha inteira na ordem em que o operador aprendeu a procurar', JSON.stringify(ordem));
@@ -1094,11 +1158,11 @@ try {
     {
       const abrir = await e.pg.evaluate(async () => {
         const li = [...document.querySelectorAll('#pacoteLista li')]
-          .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Adoradores');
+          .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Coral');
         li.querySelector('.pacote-seta').click();
         await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
         const novo = [...document.querySelectorAll('#pacoteLista li')]
-          .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Adoradores');
+          .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Coral');
         const corpo = novo && novo.querySelector('.pacote-grupo-corpo');
         const anims = corpo ? corpo.getAnimations().filter((a) => a.playState === 'running') : [];
         return {
@@ -1124,7 +1188,7 @@ try {
       // no mesmo quadro e o que se mede é a ausência.
       const fechar = await e.pg.evaluate(async () => {
         const li = [...document.querySelectorAll('#pacoteLista li')]
-          .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Adoradores');
+          .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Coral');
         const corpo = li.querySelector('.pacote-grupo-corpo');
         li.querySelector('.pacote-seta').click();
         await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
@@ -1140,7 +1204,7 @@ try {
       // seção ficaria aberta para sempre.
       const sumiu = await esperar(e.pg, () => {
         const li = [...document.querySelectorAll('#pacoteLista li')]
-          .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Adoradores');
+          .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Coral');
         return !!li && !li.querySelector('.pacote-grupo-corpo');
       }, null, 4000);
       checar(sumiu === true,
@@ -1162,19 +1226,19 @@ try {
         await Promise.all(corpo.getAnimations().map((a) => a.finished.catch(() => {})));
         acha('Diversas').querySelector('.pacote-seta').click();          // fecha (animando)
         const anims = corpo.getAnimations();
-        acha('Adoradores').querySelector('.pacote-seta').click();        // e abre outra já
+        acha('Coral').querySelector('.pacote-seta').click();             // e abre outra já
         await Promise.all(anims.map((a) => a.finished.catch(() => {})));
         await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
-        const ad = acha('Adoradores');
+        const ad = acha('Coral');
         return { animou: anims.length, aberta: pacoteSecaoAberta,
           corpo: !!(ad && ad.querySelector('.pacote-grupo-corpo')) };
       });
       checar(corrida.animou > 0, 'E · PREMISSA: o fechar de Diversas animou', JSON.stringify(corrida));
-      checar(corrida.aberta === 'Adoradores' && corrida.corpo === true,
+      checar(corrida.aberta === 'Coral' && corrida.corpo === true,
         'E · fechar uma seção e abrir OUTRA antes de a animação acabar deixa a outra ABERTA — o fecho '
         + 'atrasado só vale para a seção que ainda é a aberta', JSON.stringify(corrida));
       // de volta ao estado sem seção aberta
-      await tocar(e.pg, 'Adoradores', 'seta');
+      await tocar(e.pg, 'Coral', 'seta');
       const voltou = await esperar(e.pg, () => pacoteSecaoAberta === ''
         && ![...document.querySelectorAll('#pacoteLista .pacote-grupo-corpo')].length, null, 4000);
       checar(voltou === true, 'E · PREMISSA: nenhuma seção aberta de novo', porque(voltou));
@@ -1197,30 +1261,43 @@ try {
       return out;
     };
     const naDiversas = await dentroDe('Diversas');
-    const naAdoradores = await dentroDe('Adoradores');
-    checar(JSON.stringify(naDiversas) === JSON.stringify(['Beta', 'Omega']),
-      'E · e os álbuns de uma coletânea ALFABÉTICA saem por NOME, não pela '
-      + 'ordem do banco — semeados "Omega, Beta", a folha mostra "Beta, Omega"',
-      JSON.stringify(naDiversas));
-    checar(JSON.stringify(naAdoradores) === JSON.stringify(['Zeta', 'Alfa']),
+    const naCoral = await dentroDe('Coral');
+    // v1.14.10: "Diversas" leva as duas coletâneas dissolvidas e a que tem o
+    // nome: os cards vêm na ordem da Biblioteca — Adoradores (catálogo: Zeta,
+    // Alfa) e depois a alfabética (Beta, Omega).
+    checar(JSON.stringify(naDiversas) === JSON.stringify(['Zeta', 'Alfa', 'Beta', 'Omega']),
+      'E · o grupo "Diversas" traz as categorias dissolvidas e a de nome, na ordem '
+      + 'da Biblioteca, com a alfabética ordenada por NOME', JSON.stringify(naDiversas));
+    checar(JSON.stringify(naCoral) === JSON.stringify(['Gama', 'Delta']),
       'E · e uma coletânea que NÃO está na lista mantém a ordem do catálogo — '
       + 'sem esta metade, ordenar TUDO passaria na de cima e apagaria a '
-      + 'curadoria de quem a tem', JSON.stringify(naAdoradores));
+      + 'curadoria de quem a tem', JSON.stringify(naCoral));
 
     // ===== O PESO ERRA PARA CIMA =====
     // A régua é a DESIGUALDADE contra o arquivo que sai, e não um número: o que
     // o operador precisa é que o que ele leu na folha nunca seja menor que o
     // que ele vai escrever. MEDIDO antes do lote: com `bytesEstado: 0` a folha
     // mostrava 14,7% da realidade neste mesmo cenário.
+    // v1.14.10 — A NOTA NÃO DIZ MAIS O PESO TOTAL. Pedido do operador:
+    // *"remova a linha de comentários sobre o peso total que pode chegar e
+    // afins, essa linha é desnecessária."* O que se trava aqui é a REMOÇÃO (a
+    // linha não voltar por descuido) e a estimativa continua sendo a mesma nos
+    // `sub` dos grupos, que é onde ela responde "quanto esta parte ocupa".
+    const nota = await e.pg.evaluate(() =>
+      (document.getElementById('pacoteNota') || {}).textContent || '');
+    checar(/Importar/.test(nota) && !/[\d.,]+\s*(B|KB|MB|GB)/.test(nota),
+      'E · a nota acima dos botões NÃO diz mais o peso total — ela ficou com o que '
+      + 'serve ao aparelho novo (o Importar só acrescenta)', JSON.stringify(nota));
     const prometido = await e.pg.evaluate(() => {
-      const t = (document.getElementById('pacoteNota') || {}).textContent || '';
+      const t = pacotePeso(pacoteBytesDe(pacoteEsboco, pacoteSelecao(pacoteEsboco)), pacoteEsboco.aprox);
       const m = /([\d.,]+)\s*(B|KB|MB|GB)/.exec(t);
       if (!m) return -1;
       const u = { B: 1, KB: 1024, MB: 1024 * 1024, GB: 1024 * 1024 * 1024 }[m[2]];
       return Number(String(m[1]).replace('.', '').replace(',', '.')) * u;
     });
     checar(prometido > 0,
-      'E · a nota acima dos botões diz o peso do que vai no arquivo', String(prometido));
+      'E · a ESTIMATIVA da seleção (a que os grupos mostram e a nota dava) fica acima de zero',
+      String(prometido));
     await e.pg.click('#pacoteExportarTile');
     const fimE = await fimDaExportacao(e.pg);
     checar(fimE && fimE.dialogo === false, 'E · a exportação termina', JSON.stringify(fimE));

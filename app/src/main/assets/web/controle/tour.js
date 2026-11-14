@@ -146,40 +146,19 @@
   // zera as do modo atual).
   const AMBOS = ['simple', 'full'];
   const SECOES = {
-    configuracoes: { modos: AMBOS, passos: [
-      { alvo: '#appModeSeg', titulo: 'Modo simples e Modo avançado',
-        texto: 'Toque num dos dois para trocar a tela inteira do app. O simples tem o essencial; o avançado, Cronograma, Bíblia e Ferramentas.' },
-      { alvo: '#fadePopup .qs-grade', titulo: 'Botões de ajuste',
-        texto: 'Toque num quadrado para mudar um ajuste, como o Tema, ou abrir um bloco, como Tela ou Verificar. Cada bloco se explica ao abrir.' },
-      { alvo: '#versaoBtn', titulo: 'Número da versão',
-        texto: 'Toque no número para ver o que mudou nas últimas atualizações do app.' },
-      { alvo: '#contatoBtn', titulo: 'Ajuda',
-        texto: 'Toque para falar pelo WhatsApp com quem mantém o app.', opcional: true },
-      { alvo: '#tourBtn', titulo: 'Tour do app',
-        texto: 'Este quadrado liga ou desliga estas explicações: desligado, nenhuma janela se explica sozinha; ligado de novo, o tour desta tela recomeça.', opcional: true },
-      { alvo: '#fadePopup .cfg-ajuda', titulo: 'Guia de sonoplastia',
-        texto: 'O guia ensina o básico do som da igreja e abre noutra tela do app.', opcional: true },
-    ] },
-    'cfg-tela': { modos: AMBOS, passos: [
-      { alvo: '#fitTile', titulo: 'Preenchimento',
-        texto: 'Toque para alternar entre a mídia inteira na TV ou preenchendo a tela toda, o que pode cortar as bordas.' },
-      { alvo: '#wallTile', titulo: 'Wallpaper', texto: 'Toque para escolher a imagem que cobre a TV quando nada está no ar.', opcional: true },
-      { alvo: '#lyricsBgTile', titulo: 'Fundo da letra', texto: 'Toque para pôr ou tirar a imagem de fundo atrás das estrofes na TV.', opcional: true },
-      { alvo: '#rotBtn', titulo: 'Girar no telão',
-        texto: 'Toque para girar a mídia na TV quando ela aparece deitada. A tela do celular não gira.', opcional: true },
-    ] },
+    // A RAIZ DE CONFIGURAÇÕES NÃO TEM TOUR (v1.14.10). Pedido do operador:
+    // *"Desative o tour na primeira aba das configurações … Pode aplicar o tour
+    // novamente apenas nas seções complexas das configurações, como o histórico e
+    // a transferência."* Saíram com ela o da Tela e o da Verificação — as três
+    // eram janelas de ajuste simples, e o tour a cada abertura virava ruído. O
+    // que fica é o que tem o que ensinar: o Histórico e o Transferir.
     'cfg-hist': { modos: AMBOS, passos: [
       { alvo: '#histSecao', abertura: true, titulo: 'Histórico',
         texto: 'Tudo o que já foi para a TV, do mais recente ao mais antigo. Role para ver o resto.' },
+      { alvo: '#histList .row-item .row-btn', titulo: 'Adicionar ao Cronograma',
+        texto: 'Este + leva o item do histórico para o Cronograma, para tocar de novo no culto. O toque na linha só projeta: não guarda nada.', opcional: true },
       { alvo: '#histClear', titulo: 'Limpar todo o histórico',
         texto: 'Toque para apagar a lista, bom para começar outro culto. O app pede confirmação antes.', opcional: true },
-    ] },
-    'cfg-teste': { modos: AMBOS, passos: [
-      { alvo: '#testeCorpo', abertura: true, titulo: 'Verificar',
-        texto: 'Testa cada parte do app e marca o que não respondeu. Faça antes do culto, para achar um problema a tempo.' },
-      { alvo: '#testeRefazer', titulo: 'Refazer', texto: 'Toque para rodar a verificação outra vez, depois de corrigir algo.', opcional: true },
-      { alvo: '#testeSalvar', titulo: 'Compartilhar registro',
-        texto: 'Toque para enviar o resultado, pelo app que escolher, a quem está ajudando você.', opcional: true },
     ] },
     // O EDITOR DE MÍDIA é uma FERRAMENTA desde a v1.14.7: a chave da seção é a
     // do painel da folha de Ferramentas (`'ferr-' + ferramentaAtual()`).
@@ -190,10 +169,23 @@
         texto: 'Toque para abrir um arquivo do celular só para cortar. Ele não entra no Cronograma nem nos Favoritos.', opcional: true },
     ] },
     'cfg-pacote': { modos: AMBOS, passos: [
+      // O QUE VAI NO ARQUIVO, A SELEÇÃO E O PESO (v1.14.10). Pedido do operador:
+      // *"na transferência, tente explicar sobre os itens selecionados e o pesos
+      // de adicionar ou remover uma seleção."* Nenhum passo abre nem projeta: só
+      // mostra onde se marca, o que a marca faz e o que ela muda no tamanho.
+      { alvo: '#pacoteLista', abertura: true, titulo: 'O que vai no arquivo',
+        texto: 'A lista é o acervo deste aparelho, agrupado como na Biblioteca. O que está marcado é o que o arquivo leva — e ele já abre com tudo marcado.' },
+      { alvo: '#pacoteLista .pacote-linha', titulo: 'Marcar e desmarcar',
+        texto: 'Toque na marca de uma linha para tirar aquele álbum do arquivo, e de novo para devolvê-lo. A barra de uma seção marca ou desmarca tudo o que está dentro dela.', opcional: true },
+      { alvo: '#pacoteLista .song-menu-sub', titulo: 'O peso de cada escolha',
+        texto: 'O número ao lado do nome é quanto aquela parte ocupa no arquivo. Marcar aumenta o total e desmarcar diminui — é o que responde se o pacote cabe no cartão.', opcional: true },
+      // OS DOIS QUADROS SÓ EXISTEM COM A PONTE (`pacoteRenderPar` os esconde no
+      // navegador): `opcional` é o que deixa o passo sair quando não há o que
+      // recortar, em vez de um balão central sobre nada.
       { alvo: '#pacoteExportarTile', titulo: 'Exportar',
-        texto: 'Toque para salvar a biblioteca e os ajustes num arquivo. Pronto o arquivo, toque de novo para mandá-lo a outro celular.' },
+        texto: 'Toque para salvar a biblioteca e os ajustes num arquivo. Pronto o arquivo, toque de novo para mandá-lo a outro celular.', opcional: true },
       { alvo: '#pacoteImportarTile', titulo: 'Importar',
-        texto: 'Toque para trazer tudo de um arquivo exportado. Só acrescenta: nada do que já existe é apagado.' },
+        texto: 'Toque para trazer tudo de um arquivo exportado. Só acrescenta: nada do que já existe é apagado.', opcional: true },
     ] },
     conectar: { modos: AMBOS, passos: [
       { alvo: '#castMirrorBtn', titulo: 'Conectar uma TV',

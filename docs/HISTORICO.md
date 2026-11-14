@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.10** — o tour só nas seções que precisam (Histórico e Transferir), e a transferência com a régua da Biblioteca
 - **v1.14.9** — no mudo da prévia, o número manda e o alto-falante fica menor, no canto
 - **revisão de resíduos pós-v1.14.7 (sem versão nova; `tools/`, docs e site)** — o portão voltou a rodar o `docs-coerentes` (o filtro casava a MENÇÃO ao arnês e pulava o único puro de fora), o comentário do placar do CI parou de copiar "134", e os fatos da v1.14.7 saíram dos capítulos, do guia e da ponte (67 · 73 · 73); o que ficou medido está no Pacote 12.2 da fila.
 - **o guia: o app vai para a operação, e o glossário para o fim (sem versão nova; só `site/` e docs)** — o app (D11) passa a D8, logo depois do YouTube, e o glossário (I17) passa a I22, antes do diagnóstico: a ordem dos capítulos conferida de ponta a ponta.
@@ -1366,6 +1367,32 @@ docs: nada chega ao app.
 - **Não medido:** a impressão física (impressora real, frente e verso pela
   borda longa, furo no fichário) e a impressão de dentro do app (o WebView do
   Android provavelmente ignora `window.print()` — daí o aviso).
+
+## v1.14.10 — o tour só nas seções que precisam, e a transferência com a régua da Biblioteca
+
+**Pedido do operador** (2026-11-13, noite), **só web**: *"Desative o tour na
+primeira aba das configurações … Pode aplicar o tour novamente apenas nas seções
+complexas das configurações, como o histórico e a transferência."*
+
+- **A raiz de Configurações perdeu o tour** (`SECOES.configuracoes`), e com ela as
+  seções simples (Tela e Verificação) também ficaram sem. Restaram as complexas:
+  **Histórico**, com o passo novo do "+" que manda o item da lista para o
+  Cronograma, e **Transferir**, com os passos do que é um item marcado e do peso
+  que entra ou sai ao marcar e desmarcar.
+- **A linha do peso total saiu** do rodapé da Transferência (o texto vinha do JS,
+  não do `index.html`); o peso de cada grupo continua no subtítulo dele.
+- **A lista do pacote usa a MESMA régua da Biblioteca** (`GRUPO_DIVERSAS` +
+  `DISSOLVIDAS_EM_DIVERSAS`, a de `desenharCategorias`): Adoradores, Cantores e a
+  coletânea "Diversas" numa seção só, no fim.
+- **Nota de concorrência:** o agrupamento e a linha do peso viajaram no commit da
+  v1.14.9 — o `controle.js` era compartilhado com outra sessão, que o commitou. Esta
+  nota os documenta onde o operador os lê: na versão que tem os tours.
+- **Oráculos:** `tools/tour.test.mjs` (bloco G: a raiz sem tour, o "+" do Histórico,
+  a seleção e o peso da Transferência) e `tools/pacote-por-grupos.test.mjs` (B2: o
+  "Diversas" na lista do pacote).
+- **Não medido:** aparelho fraco; a 360×640 o tour foi conferido pelo oráculo. Só
+  web: `minShell` 83, sem `shellTag` (a Release segue a 1.14.6).
+
 
 ## v1.14.9 — no mudo, o número manda e o alto-falante vira o secundário
 

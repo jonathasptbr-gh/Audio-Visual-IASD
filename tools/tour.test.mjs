@@ -253,22 +253,80 @@ try {
     const volta = await pg.evaluate(() => ({ r: window.__avBack(), aberto: AVTour.aberto(), oculto: document.getElementById('tour').hidden }));
     checar(volta.r === true && !volta.aberto && volta.oculto, 'B · o voltar do Android fecha o tour (e só ele)', JSON.stringify(volta));
 
-    // ---------------- G · o tour de SEÇÃO no Fácil: Configurações ----------------
-    await pg.evaluate(() => { window.__abertos = []; window.open = (u) => { window.__abertos.push(u); return null; }; });
-    await pg.click('#simpleSettingsBtn');
-    const rg = await esperarTour(pg, 's.configuracoes');
-    checar(rg === true, 'G · abrir Configurações pela primeira vez abre SOZINHO o tour de dentro dela', porque(rg));
-    const pg1 = rg === true ? await percorrer(pg) : [];
-    const ruinsG = pg1.filter((m) => !recorteBate(m) || !haloBate(m));
-    checar(pg1.length >= 3 && ruinsG.length === 0 && pg1.some((m) => /liga ou desliga/.test(m.texto)),
-      'G · cada passo recorta uma peça de Configurações, com o halo', JSON.stringify(ruinsG.map((m) => [m.alvo, m.peca, m.recorte])));
-    await pg.click('#tour .tour-proximo');   // Concluir
-    await pg.evaluate(() => closeFadePopup());
-    await esperar(pg, () => !document.getElementById('fadePopup').classList.contains('open') && !AVTour.aberto());
+    // ---------------- G · a RAIZ de Configurações NÃO tem tour (v1.14.10) ----------------
+    // Pedido do operador: *"Desative o tour na primeira aba das configurações …
+    // Pode aplicar o tour novamente apenas nas seções complexas das
+    // configurações, como o histórico e a transferência."* A raiz e as janelas
+    // simples (Tela, Verificar) saem; Histórico e Transferir ficam — e o do
+    // Histórico ensina o + que manda o item ao Cronograma.
+    const chavesG = await pg.evaluate(() => AVTour.chaves());
+    checar(!chavesG.includes('s.configuracoes') && !chavesG.includes('s.cfg-tela')
+      && !chavesG.includes('s.cfg-teste') && chavesG.includes('s.cfg-hist') && chavesG.includes('s.cfg-pacote'),
+      'G · na lista de tours não há mais a raiz de Configurações nem as janelas simples; Histórico e Transferir continuam',
+      JSON.stringify(chavesG));
+    await pg.evaluate(() => {
+      const v = {}; for (const k of AVTour.chaves()) v[k] = 1;
+      delete v['s.cfg-hist']; delete v['s.cfg-pacote'];
+      localStorage.setItem('av.tour', JSON.stringify(v)); AVTour.armar();
+    });
     await pg.click('#simpleSettingsBtn');
     await esperar(pg, () => document.getElementById('fadePopup').classList.contains('open'));
     await pg.waitForTimeout(1500);   // AUSÊNCIA: o de seção leva 0,7 s
-    checar(await estado(pg) === null, 'G · abrir Configurações de novo NÃO repete o tour da seção', JSON.stringify(await estado(pg)));
+    const semRaiz = await pg.evaluate(() => ({ aberto: AVTour.aberto(), secao: secaoDoTour() }));
+    checar(!semRaiz.aberto && semRaiz.secao === 'configuracoes',
+      'G · abrir Configurações pela raiz NÃO abre tour nenhum', JSON.stringify(semRaiz));
+
+    // O HISTÓRICO: um item plantado no histórico dá o alvo do passo novo.
+    await pg.evaluate(() => {
+      historico.unshift({ inicio: Date.now(), itens: [{ id: 'tour-hino', nome: 'Hino do culto',
+        sub: 'Áudio', hora: Date.now(), vezes: 1, rec: { kind: 'audio' } }] });
+      abrirSecao('hist');
+    });
+    const tourHist = await esperarTour(pg, 's.cfg-hist', 5000);
+    const passosHist = tourHist === true ? await percorrer(pg) : [];
+    checar(tourHist === true && passosHist.some((m) => m.titulo === 'Adicionar ao Cronograma'
+        && m.alvo === '#histList .row-item .row-btn'),
+      'G · abrir o Histórico abre o tour dele, com o passo do + que adiciona o item ao Cronograma',
+      JSON.stringify(passosHist.map((m) => m.titulo)));
+    await pular(pg);
+    await pg.evaluate(() => closeFadePopup());
+    await esperar(pg, () => !document.getElementById('fadePopup').classList.contains('open') && !AVTour.aberto());
+
+    // A TRANSFERÊNCIA: seleção e peso. A lista do pacote só é desenhada com a
+    // ponte (`pacoteAbrirLista` sai cedo no navegador), então o oráculo PLANTA a
+    // linha que os passos recortam — o que se mede aqui é o tour, e o
+    // agrupamento de verdade é do `pacote-por-grupos`.
+    await pg.evaluate(() => {
+      openFadePopup();
+      abrirSecao('pacote');
+      const lista = document.getElementById('pacoteLista');
+      lista.innerHTML = '';
+      const li = document.createElement('li');
+      li.className = 'pacote-linha';
+      const sub = document.createElement('span');
+      sub.className = 'song-menu-sub';
+      sub.textContent = 'até 1 MB';
+      li.appendChild(sub);
+      lista.appendChild(li);
+      const v = JSON.parse(localStorage.getItem('av.tour') || '{}');
+      delete v['s.cfg-pacote'];
+      localStorage.setItem('av.tour', JSON.stringify(v));
+      AVTour.abrir('s.cfg-pacote');
+    });
+    await esperar(pg, () => AVTour.aberto());
+    const passosPac = await percorrer(pg);
+    const titulosPac = passosPac.map((m) => m.titulo);
+    checar(titulosPac.includes('Marcar e desmarcar') && titulosPac.includes('O peso de cada escolha'),
+      'G · abrir o Transferir abre o tour dele, com os passos de seleção e de peso', JSON.stringify(titulosPac));
+    await pular(pg);
+    await pg.evaluate(() => closeFadePopup());
+    await esperar(pg, () => !document.getElementById('fadePopup').classList.contains('open'));
+    // O bloco F continua de Configurações ABERTA.
+    await pg.click('#simpleSettingsBtn');
+    await esperar(pg, () => document.getElementById('fadePopup').classList.contains('open'));
+    // O F mede o GUIA por `window.open` — a sonda que era plantada pelo antigo
+    // bloco G (que testava o tour da raiz) e continua valendo aqui.
+    await pg.evaluate(() => { window.__abertos = []; window.open = (u) => { window.__abertos.push(u); return null; }; });
 
     // ---------------- F · Configurações, no Fácil ----------------
     const lado = await pg.evaluate(() => {
@@ -472,9 +530,8 @@ try {
       ['conectar', 'abrirCast()', 'fecharCast()'],
       ['playlist', 'openPlPopup()', 'closePlPopup()'],
       ['sorteio', 'abrirSorteio()', 'fecharSorteio()'],
-      ['cfg-tela', 'openFadePopup(); abrirSecao("tela")', 'closeFadePopup()'],
       ['cfg-hist', 'openFadePopup(); abrirSecao("hist")', 'closeFadePopup()'],
-      ['cfg-teste', 'openFadePopup(); abrirSecao("teste")', 'closeFadePopup()'],
+      ['cfg-pacote', 'openFadePopup(); abrirSecao("pacote")', 'closeFadePopup()'],
       ['ferr-clock', 'abrirFerramenta("clock")', 'fecharFerramentas()'],
       ['ferr-stopwatch', 'abrirFerramenta("stopwatch")', 'fecharFerramentas()'],
       ['ferr-itinerario', 'abrirFerramenta("itinerario")', 'fecharFerramentas()'],
@@ -503,10 +560,7 @@ try {
   // Cada tour é aberto à mão (`AVTour.abrir`) com a janela dele já assentada, e a
   // sequência mostrada é medida passo a passo.
   const AMBOS_J = [
-    ['s.configuracoes', 'openFadePopup()', 'closeFadePopup()'],
-    ['s.cfg-tela', 'openFadePopup(); abrirSecao("tela")', 'closeFadePopup()'],
     ['s.cfg-hist', 'openFadePopup(); abrirSecao("hist")', 'closeFadePopup()'],
-    ['s.cfg-teste', 'openFadePopup(); abrirSecao("teste")', 'closeFadePopup()'],
     ['s.cfg-pacote', 'openFadePopup(); abrirSecao("pacote")', 'closeFadePopup()'],
     ['s.conectar', 'abrirCast()', 'fecharCast()'],
   ];
