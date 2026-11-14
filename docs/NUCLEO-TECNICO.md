@@ -144,8 +144,8 @@ Definida em `shared/native.js` (web) sobre `__AVBridge` (Kotlin,
 navegador nada é definido, nem `__NATIVE__`. **O catálogo dos 64 métodos e as
 regras abaixo por extenso estão em [`docs/shell/PONTE.md`](shell/PONTE.md).**
 
-- **Superfície: 64 métodos**; o shell serve **70**. A conta (64 − 3 callbacks sem
-  par + 9 internos = 72, sem órfão nenhum desde a X1) é MEDIDA por varredura
+- **Superfície: 67 métodos**; o shell serve **73**. A conta (67 − 3 callbacks sem
+  par + 9 internos = 73, sem órfão nenhum desde a X1) é MEDIDA por varredura
   (`@JavascriptInterface` + `fun <nome>` no `NativeBridge.kt` contra `B.<nome>(`
   no `native.js`), nunca de memória. Fora do `native.js`, tocar em `__AVBridge`
   é acoplamento indevido; o `funcao-sem-chamador.test.mjs` exige consumidor.

@@ -30,7 +30,7 @@ lotes em que foram achados; a nota de cada um está em
 **Resposta do operador (2026-10-30):** *"o fone bluetooth pode carregar o som do
 espelhamento. Inclusive esse é o método que o controle de saída de som tem como
 objetivo de controle"*. O Bluetooth É o destino desejado para o som com o
-espelhamento no ar, e é para isso que o tile "Saída de áudio" existe (o estudo
+espelhamento no ar, e era para isso que o tile "Saída de áudio" existia (o estudo
 de abrir a lista de aparelhos foi ABANDONADO em 2026-10-30 — o tile passou a
 abrir a API pública do sistema na v1.13.16 e SAIU do app na v1.14.7; o atalho
 para trocar a saída de som é o do próprio celular). O que
@@ -261,7 +261,7 @@ minutos: projetar na mesma TV um vídeo **já baixado** em 1080p.
 
 ## 4. Resíduos de ORÁCULO medidos no baseline (2026-11-13 — não são defeito do app)
 
-No fechamento da v1.14.7 quatro oráculos reprovaram no CI, e o commit anterior
+No fechamento da v1.14.7 três oráculos reprovaram no CI, e o commit anterior
 (`80339772~1` = `15be4461`) foi rodado como **baseline**, no mesmo Chromium desta
 máquina. O que reprova NOS DOIS é dependência da FONTE (os números da asserção
 foram medidos com a DejaVu do runner, e aqui a métrica é outra) ou de pixel — não

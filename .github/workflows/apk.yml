@@ -815,7 +815,7 @@ jobs:
           passaram=$((rodados - ${#falhas[@]}))
           echo "Oráculos em Chromium: $passaram/$rodados passaram (em $PARALELO processos)." | tee -a "$GITHUB_STEP_SUMMARY"
           # O PLACAR VIRA UMA LINHA para o passo seguinte (o status do commit):
-          # "134/134" ou "134/134 REPROVOU: tools/x tools/y".
+          # "N/N" ou "N/N REPROVOU: tools/x tools/y" (o N sai da lista, não de memória).
           veredito="$passaram/$rodados"
           [ ${#falhas[@]} -eq 0 ] || veredito="$veredito REPROVOU:${falhas[*]}"
           echo "VEREDITO_ORACULOS=$veredito" >> "$GITHUB_ENV"
@@ -824,7 +824,7 @@ jobs:
           exit 1
 
       # ---------- O VEREDITO VIRA STATUS DO COMMIT ----------
-      # O placar sai do log e vira UMA linha publicada no commit ("134/134" ou
+      # O placar sai do log e vira UMA linha publicada no commit ("N/N" ou
       # "REPROVOU: tools/x"), lida sem abrir log nem vigiar o run. INFORMATIVO:
       # o portão continua sendo o código de saída do passo acima — este nunca
       # reprova o job por si (melhor-esforço; sem permissão, cala).

@@ -76,7 +76,7 @@ ordem; a fila é dele.
 
 ---
 
-## O índice — 2026-11-09
+## O índice — 2026-11-13
 
 | # | pacote · pedido | tipo | I | U | nota | entrega |
 |---|---|---|---|---|---|---|
@@ -96,6 +96,7 @@ ordem; a fila é dele.
 | 13.1 | controle de slides + compartilhar itinerário/cronograma | | 4 | 1 | 4 | estudo |
 | 13.2 | transmissão ao vivo | | 3 | 1 | 3 | estudo |
 | 13.3 | layout de paisagem (o app no Windows saiu) | | 3 | 1 | 3 | estudo |
+| **15** | **Guia IASD: a especialização (estudo)** | estudo | — | — | **—** | decisão |
 | **16** | **O cronograma pronto: o organizador entrega o culto** | pedido | 4 | 2 | **8** | planejamento |
 
 ---

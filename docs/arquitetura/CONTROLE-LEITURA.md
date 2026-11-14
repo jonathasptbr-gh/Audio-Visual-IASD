@@ -57,7 +57,7 @@ Pedido do operador: *"ao invés de usar tabs e sub tabs, use uma grade inicial c
 todas as ferramentas prontas no primeiro toque, por exemplo não separa por tempo,
 sorteio e mensagens, mas já põe direto as subdivisões"*. Eram três abas no topo da
 folha (`.misc-switch`) e, dentro do Tempo, um segmentado de quatro; hoje a folha
-abre nas seis ferramentas e o toque abre uma. A v1.13.3 as desenhava numa grade
+abre nas sete ferramentas e o toque abre uma. A v1.13.3 as desenhava numa grade
 de 3×2 tiles; a v1.13.4 a REVOGOU por uma lista vertical: *"como temos poucas
 ferramentas, ao invés de uma grande, faça apenas uma lista vertical, mantendo o tom
 de cores, mas aproveitando e distribuindo toda a altura disponível para esses 6

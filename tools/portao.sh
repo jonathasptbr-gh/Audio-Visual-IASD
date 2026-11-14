@@ -71,8 +71,14 @@ fi
 
 # 2 ---------------------------------------------------------------------------
 echo "== 2. oráculos de Node puro"
+# O FILTRO É O IMPORT, NÃO A MENÇÃO (2026-11-13). Ele era textual
+# (`grep -lE 'arnes\.mjs|playwright'`) e por isso pulava um oráculo puro que
+# apenas NOMEIA o `arnes.mjs` num Set: o `docs-coerentes` — justamente o que
+# cobra que todo oráculo rode no CI e tenha linha na tabela. Ele rodava no CI e
+# não no portão, e o placar ("35 passaram") não denunciava a troca. Agora casa
+# só quem importa de fato: `from './arnes.mjs'` ou `from 'playwright'`.
 puros=$(comm -23 <(ls tools/*.test.mjs | sort) \
-               <(grep -lE 'arnes\.mjs|playwright' tools/*.test.mjs | sort))
+               <(grep -lE "from '(\./)?(arnes\.mjs|playwright)'" tools/*.test.mjs | sort))
 n=0
 for f in $puros; do
   n=$((n + 1))

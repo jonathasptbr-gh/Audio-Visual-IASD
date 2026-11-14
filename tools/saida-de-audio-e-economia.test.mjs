@@ -1,21 +1,20 @@
 #!/usr/bin/env node
 // ============================================================================
-// O ATALHO DA SAÍDA DE ÁUDIO, E A SETA QUE RECOLHE A PRÉVIA (v1.9.9 / v1.11.7)
+// O TILE DA SAÍDA DE ÁUDIO — QUE SAIU —, E A SETA QUE RECOLHE A PRÉVIA (v1.9.9 / v1.11.7 / v1.14.7)
 //
 // Dois recursos num arquivo porque eles compartilham o CENÁRIO — a folha de
 // Configurações com a ponte de mentira e uma lista de telas mutável —, e montar
 // esse cenário é o que custa. Eles não compartilham nada mais: o que cada um
 // trava está abaixo, e as reversões são independentes.
 //
-// ## 1. O ATALHO DA SAÍDA DE ÁUDIO — o que ele trava
+// ## 1. O TILE SAIU, O REGISTRO FICOU (v1.14.7) — o que ele trava
 //
-// Ele é um botão que **abre uma tela do sistema e não faz mais nada**, e essa
-// classe de botão tem um modo de falhar próprio: no navegador ele não tem ponte
-// nenhuma a chamar, e um tile aceso que não liga nada é indistinguível de um
-// quebrado (a regra da v1.8.50). A guarda é `hidden` fora do app, e ela mora
-// numa LISTA COMPARTILHADA com os do aparelho (`pacoteRenderTiles`) — tirá-lo de
-// lá não quebra nada visível no aparelho, o que é exatamente por que ninguém
-// veria.
+// O botão que abria o seletor de saída do SISTEMA saiu do app em 2026-11-13. O
+// que a classe dele ensinou continua valendo para os vizinhos: um tile aceso que
+// não liga nada é indistinguível de um quebrado (a regra da v1.8.50), e é por
+// isso que a LISTA COMPARTILHADA (`pacoteRenderTiles`) ainda tem oráculo. A
+// asserção de hoje é o INVERSO do que era: o tile e o símbolo dele NÃO existem
+// mais no documento, e o `abrirSaidaDeAudio` do web não pode voltar sem decisão.
 //
 // A terceira asserção é a linha do REGISTRO. O alvo não é API documentada e
 // varia por fabricante: quando o botão abre a tela errada, essa string é a ÚNICA

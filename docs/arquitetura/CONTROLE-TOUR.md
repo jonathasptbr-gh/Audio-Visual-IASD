@@ -57,7 +57,7 @@ foco num campo NÃO bloqueia, a Biblioteca abre com o teclado).
 
 | chave | onde |
 |---|---|
-| `configuracoes`, `cfg-tela`, `cfg-hist`, `cfg-teste`, `cfg-edicao`, `cfg-pacote`, `conectar` | os dois modos |
+| `configuracoes`, `cfg-tela`, `cfg-hist`, `cfg-teste`, `ferr-edicao`, `cfg-pacote`, `conectar` | os dois modos |
 | `biblioteca` (a janela do avançado), `cronogramas`, `biblia`, `ferramentas`, `ferr-clock`, `ferr-stopwatch`, `ferr-timer`, `ferr-itinerario`, `ferr-msg`, `ferr-draw`, `sorteio`, `playlist`, `letra` | avançado |
 
 Uma janela sem entrada na tabela (`songMenuPopup`, `itinPopup`, a gaveta de
@@ -78,7 +78,7 @@ sai pelo evento `av-tour-ativo` na `window`.
 |---|---|
 | **"Pular tour"** (o botão do balão) | `desativar()` — fecha com o fade e desliga de vez |
 | Escape · voltar do Android · "Concluir" | só FECHAM o tour atual; o automático segue ligado |
-| caixa **"Tour do app"** (Configurações) | desmarcar = `desativar()` (a folha fica); marcar = `refazer()` (a folha fecha e o tour do modo abre) |
+| quadrado **"Tour do app"** (Configurações) | desligar = `desativar()` (a folha fica); ligar = `refazer()` (a folha fecha e o tour do modo abre) |
 
 Só o automático obedece: `abrir()` e `refazer()` à mão sempre abrem.
 
@@ -158,9 +158,9 @@ a duração 0 com movimento reduzido. As outras medidas esperam `AVTour.quieto()
 ## Os botões de Configurações
 
 No fim do `#cfgTopo` (some com a seção aberta, como a grade), a linha
-`.cfg-ajuda`: **Tour do app** (`#tourBtn`, uma CAIXA — `role="checkbox"`,
-`aria-checked`, a `.song-menu-check` dentro; nasce marcada. Desmarcar desliga o tour
-(acima) e a folha fica; marcar de novo fecha a folha e `AVTour.refazer()` o tour do
+`.cfg-ajuda`: **Tour do app** (`#tourBtn`, o ÚLTIMO `.qs-tile` da grade — dois ícones,
+`#icoTourOff`/`#icoTour`, e o estado só no desenho; nasce ligado. Desligar desliga o
+tour (acima) e a folha fica; ligar de novo fecha a folha e `AVTour.refazer()` o tour do
 estado atual — e ZERA o modo atual: os outros tours principais dele e todas as
 seções que existem nele voltam a se explicar na próxima abertura; o `title` do botão
 muda com o estado e o último passo dos tours principais diz como rever) e **Guia de sonoplastia** (`#guiaSomBtn`, com a SETA de "abre outra tela" — `icoExterno`,

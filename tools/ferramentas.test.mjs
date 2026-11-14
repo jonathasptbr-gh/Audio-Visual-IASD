@@ -22,7 +22,7 @@
 // commit, e não na máquina de quem for publicar.
 // ============================================================================
 import { execFileSync } from 'node:child_process';
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checar, falhas } from './checar.mjs';
@@ -30,7 +30,7 @@ import { checar, falhas } from './checar.mjs';
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ler = (p) => readFileSync(join(RAIZ, p), 'utf8');
 
-for (const arq of ['tools/estado.sh', 'tools/portao.sh']) {
+for (const arq of ['tools/estado.sh', 'tools/portao.sh', 'tools/reverter.sh']) {
   const caminho = join(RAIZ, arq);
   checar(statSync(caminho).isFile(), `a ferramenta existe: ${arq}`);
   checar((statSync(caminho).mode & 0o111) !== 0, `e é EXECUTÁVEL: ${arq}`,
@@ -73,6 +73,27 @@ const portao = ler('tools/portao.sh');
 checar(workflow.includes(PASSO), 'o passo da Sanidade existe no workflow', PASSO);
 checar(portao.includes(PASSO),
   'e o portao.sh procura esse mesmo passo (a âncora não pode divergir)', PASSO);
+
+// 3.5. O CONJUNTO "PURO" DO PORTÃO SAI DO IMPORT, NÃO DA MENÇÃO.
+//    Em 2026-11-13 o filtro era textual (`grep -lE 'arnes\.mjs|playwright'`) e
+//    pulava o `docs-coerentes` — que apenas NOMEIA o `arnes.mjs` num Set. Era o
+//    único oráculo puro fora do portão, e o que ficava de fora era justamente o
+//    que cobra "todo oráculo roda no CI". O placar ("35 passaram") não denunciava
+//    a troca. A régua é EXTRAÍDA do portão aqui e aplicada ao disco.
+const cmdPuros = (portao.match(/puros=\$\(comm -23[\s\S]*?\)\)/) || [''])[0];
+const reFiltro = cmdPuros.match(/grep -lE "([^"]+)"/);
+checar(!!reFiltro, 'o filtro dos puros está no portão como regex entre aspas', cmdPuros);
+if (reFiltro) {
+  const filtro = new RegExp(reFiltro[1]);
+  const testes = readdirSync(join(RAIZ, 'tools')).filter((f) => f.endsWith('.test.mjs'));
+  const puros = testes.filter((f) => !filtro.test(ler('tools/' + f)));
+  checar(puros.includes('docs-coerentes.test.mjs'),
+    'e o `docs-coerentes` roda entre os puros (ele NOMEIA o arnês, não o importa)');
+  const importam = testes.filter((f) => /from '\.\/arnes\.mjs'/.test(ler('tools/' + f)));
+  checar(importam.length > 30, 'os oráculos de Chromium importam o arnês', 'achou ' + importam.length);
+  checar(importam.every((f) => !puros.includes(f)),
+    'e nenhum deles entra no conjunto puro');
+}
 
 // 4. As duas ferramentas são citadas no CONTRATO — é o que faz a sessão
 //    seguinte descobri-las sem procurar.

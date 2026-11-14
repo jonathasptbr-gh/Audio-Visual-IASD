@@ -168,10 +168,12 @@ docs/
 ├── ARQUITETURA-WEB.md           # HUB da base web: regras gerais + mapa dos capítulos
 ├── arquitetura/                 # um capítulo por arquivo — abrir SÓ o que a pergunta pede
 │   ├── CONTROLE.md              #   HUB do Controle: mapa das partes + regras gerais
+│   ├── MIOLO.md                 #     o mapa do controle.js: as nove fatias e como perguntar (`node tools/miolo.mjs`)
 │   ├── CONTROLE-MODOS.md        #     Modo Fácil × avançado
 │   ├── CONTROLE-LAYOUT.md       #     layout, transporte, botões de slide, fullscreen
 │   ├── CONTROLE-NAVEGACAO.md    #     uma tela, duas folhas e uma janela
 │   ├── CONTROLE-CONFIGURACOES.md #    tema, painel rápido, Registro, wallpaper, histórico
+│   ├── CONTROLE-TOUR.md         #     o tour guiado: um por estado da tela, a marca de "já visto"
 │   ├── CONTROLE-TELAO.md        #     abertura, retomada, referência da preview, saída de áudio
 │   ├── CONTROLE-BIBLIOTECA.md   #     abas, destinos, a linha da lista, coleções na raiz
 │   ├── CONTROLE-LISTAS.md       #     cronogramas, gestos, favoritos, editar mídia

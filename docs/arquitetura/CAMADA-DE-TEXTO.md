@@ -637,9 +637,9 @@ baixada): o índice sai de UMA leitura do IDB, sem requisição, e funciona offl
 
 A v5.31 tentou um **acordeão** e a v5.32 o trocou por um **seletor no topo**
 (três abas, com um segmentado de quatro dentro do Tempo). **Desde a v1.13.3 a
-folha abre nas seis ferramentas** — numa grade 3×2 até a v1.13.4, hoje numa
+folha abre nas sete ferramentas** — numa grade 3×2 até a v1.13.4, hoje numa
 LISTA VERTICAL que divide a altura da folha: Relógio · Cronômetro · Timer ·
-Itinerário · Mensagens · Sorteio — e o toque abre a ferramenta; o detalhe (a
+Itinerário · Mensagens · Sorteio · Editar mídia — e o toque abre a ferramenta; o detalhe (a
 linha, a altura, o ponto de "no ar", o número de quem conta, o voltar e a
 animação) está em [`CONTROLE-LEITURA.md`](CONTROLE-LEITURA.md), "A LISTA DAS FERRAMENTAS". O que
 vale aqui:

@@ -645,7 +645,7 @@ de terceiro ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
   telão. **O Display nunca busca um `/saf/`.**
 - Quem trava isso é `tools/invariantes-shell.test.mjs` (as três metades: `host = null`, `withSaf = false`, `role = "display"`); o `ponte.test.mjs` trava o dreno e a remontagem de campos, que são outra pergunta.
 - E a guarda de CADA método (`host == null`) é do `tools/ponte-guarda-host.test.mjs`:
-  70 métodos, 44 com recusa explícita e 26 com motivo declarado — método novo sem
+  73 métodos, 46 com recusa explícita e 27 com motivo declarado — método novo sem
   guarda reprova até alguém escrever por que ele não precisa.
 
 > A guarda **não** depende do embed do YouTube. Ele carregava script de terceiro
@@ -668,9 +668,9 @@ de terceiro ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
 
 ---
 
-## O CATÁLOGO COMPLETO — os 64 métodos, um a um
+## O CATÁLOGO COMPLETO — os 67 métodos, um a um
 
-> **O SHELL SERVE 70.** Os SEIS ÓRFÃOS saíram do Kotlin na X1 (shell 85): o
+> **O SHELL SERVE 73.** Os SEIS ÓRFÃOS saíram do Kotlin na X1 (shell 85): o
 > `@JavascriptInterface` de `ytStream`, `otaPending`, `apkProcurar`,
 > `requestMic`, `micDiag` e `salvarTexto` foi removido, junto com o que só
 > existia por eles — o `MicDiag.kt` inteiro, o `requestMicPermission` da
@@ -682,13 +682,13 @@ de terceiro ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
 > do lado Kotlin é que pede `SHELL_VERSION` novo e Release, e foi o que a X1
 > entregou.
 >
-> **A conta fecha, e é MEDIDA:** 64 de superfície − 3 callbacks sem par no
-> Kotlin (`onShare`, `onRemote`, `onDisplayChange`) + 9 internos = 70 chamados,
-> **70 servidos, zero órfão**. Números envelhecem a cada lote de ponte — a
+> **A conta fecha, e é MEDIDA:** 67 de superfície − 3 callbacks sem par no
+> Kotlin (`onShare`, `onRemote`, `onDisplayChange`) + 9 internos = 73 chamados,
+> **73 servidos, zero órfão**. Números envelhecem a cada lote de ponte — a
 > varredura que os refaz é a mesma do `CLAUDE.md`:
 > `@JavascriptInterface` + `fun <nome>` no `NativeBridge.kt` contra `B.<nome>(`
 > no `native.js` (as ocorrências de `@JavascriptInterface` em comentário do
-> arquivo não contam). Remedida na X1 (2026-11-08, shell 85): 64 · 70 · 70.
+> arquivo não contam). Remedida em 2026-11-13 (shell 87): 67 · 73 · 73.
 
 <!-- Extraído do `CLAUDE.md` na faxina de 2026-09-07. -->
 
@@ -759,7 +759,12 @@ window.AVNative = {
                        //   APK com a keystore deste projeto nunca a obtém. E com
                        //   o espelhamento no ar ele não resolve o vazamento: o
                        //   áudio do Miracast é `REMOTE_SUBMIX`, a mistura do
-                       //   aparelho inteiro
+                       //   aparelho inteiro.
+                       //   **SEM CHAMADOR no web desde a v1.14.7** — o tile que
+                       //   o acionava saiu do app e o atalho é o do próprio
+                       //   celular. O método FICA na ponte de propósito: tirá-lo
+                       //   do shell é Release, e o lado seguro é o Kotlin. Quem
+                       //   o lista sem consumidor é o `funcao-sem-chamador`.
   saidaDeAudioAlvo(),  // → { label, candidatos: [{acao, rotulo, tipo, alvo}],
                        //   desfecho, saindoPor, naoPerturbe } (shell 75; os
                        //   dois últimos no shell 83: `[{tipo, nome}]` de

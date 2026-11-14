@@ -58,18 +58,18 @@ hoje são **Compartilhar e Transferir**, porque exportar e importar viraram um
 tile só (ver abaixo). O que faz a fileira do aparelho começar sozinha, com a
 ponte ou sem ela, é `#shareAppTile { grid-column: 1 }` no CSS.
 
-Em nativo as fileiras são `[Tema · Tela · Histórico]` `[Saída de áudio · Dados
-móveis · Verificar]` `[Compartilhar · Transferir]`; no navegador (Saída de
-áudio, Compartilhar e Transferir são `hidden`) são cinco tiles.
+Em nativo a grade tem OITO tiles, na ordem Tema · Tela · Dados móveis ·
+Histórico · Verificar · Compartilhar · Transferir · Tour do app; no navegador
+são SEIS (Compartilhar e Transferir são `hidden`).
 
 | tile | id | estado (`data-estado`) | aceso | ícone |
 |---|---|---|---|---|
 | Tema | `#temaTile` | `escuro` · `claro` | **sempre** | `#icoLua` / `#icoSol` |
 | **Tela** | `#telaTile` | — (abre a seção da Tela) | **sempre** (classe no HTML) | `#icoTela` |
 | Histórico | `#histOpenRow` | — (abre a seção) | **sempre** (classe no HTML) | `#icoHistorico` |
-| Saída de áudio | `#saidaAudioTile` | — (abre o seletor do sistema) | **sempre** | `#icoSaidaDeAudio` |
 | Dados móveis | `#dadosMoveisTile` | `on` · `off` | **sempre** | `#icoDadosMoveisOff` / `#icoDadosMoveis` |
 | Verificar | `#testeTile` | — (abre a seção) | **sempre** | `#icoVerificar` |
+| Tour do app | `#tourBtn` | `on` · `off` | **sempre** | `#icoTourOff` / `#icoTour` |
 | Compartilhar | `#shareAppTile` | `app` | **sempre** | `#icoCompartilhar` |
 | **Transferir** | `#pacoteTile` | `ocioso` · `ocupado` · `pronto-para-enviar` | **sempre** | `#icoTransferir` / `#icoCompartilhar` (pronto) · o ARO no lugar dele em curso |
 
@@ -83,9 +83,9 @@ mais individuais e não concorram visualmente com o botão de fechar a janela to
 … Lembre de fazer as animações de alternância, abertura e fechamento dessas
 seções no corpo, como também cuidar a animação da própria janela"*.
 
-**Tela, Transferir, Editar mídia, Histórico e Verificação são SEÇÕES de
+**Tela, Transferir, Histórico e Verificação são SEÇÕES de
 `#fadePopup`**, e não folhas: cada uma é uma `<section class="cfg-sec">`
-(`#telaSecao`, `#pacoteSecao`, `#edicaoSecao`, `#histSecao`, `#testeSecao`)
+(`#telaSecao`, `#pacoteSecao`, `#histSecao`, `#testeSecao`)
 dentro de `#cfgSecoes`, no fim da `.fade-opts` — depois do `#cfgTopo` (o modo e a
 `.qs-grade`), e são o fim da folha: a versão e o pedir ajuda moram no CABEÇALHO
 da folha (v1.12.50), e o `.popup-footer` só existe com a atualização adiada (`#otaRow`) ou
@@ -156,7 +156,7 @@ grade moram agora em `#telaSecao`, com os **mesmos ids e o mesmo markup**
 
 - **O Tema FICA na grade:** é a cor do APP, e o palco não tem tema — pô-lo numa
   seção chamada "Tela" induziria a lê-lo como o tema do telão. O Histórico (o
-  que foi ao ar), a Saída de áudio (o som) e os Dados móveis (a rede) também não
+  que foi ao ar) e os Dados móveis (a rede) também não
   descrevem a aparência do telão.
 - **O WALLPAPER continua sendo um `<label>` com o `<input type=file>` DENTRO**
   (invariante 6 do shell): a ativação nativa do rótulo é o que abre o

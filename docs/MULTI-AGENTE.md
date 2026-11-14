@@ -62,7 +62,9 @@ uma sessão é a fronteira: o que está fora dele não é dela.
 está no `AGENTS.md` da máquina: *"`git checkout <arq>` para desfazer apaga o
 lote"* — e ele apaga o lote do OUTRO também, em silêncio.
 
-Reverter o próprio trabalho é `cp` do backup em `~/tmp/backup-*`, nunca o git.
+Reverter o próprio trabalho é `cp` do backup em `~/tmp/backup-*`, nunca o git
+(`tools/reverter.sh --guardar <arquivo>...` faz a cópia antes da edição e
+imprime o caminho; `--restaurar` devolve cada arquivo do manifesto).
 
 ### 5. Arquivo compartilhado sujo: editar sim, commitar não
 
