@@ -66,6 +66,8 @@ tem o resto):
 | [`docs/ACHADOS-EM-ABERTO.md`](docs/ACHADOS-EM-ABERTO.md) | defeitos CONFIRMADOS em aberto — hoje **nenhum** |
 | [`docs/PEDIDOS-EM-ESPERA.md`](docs/PEDIDOS-EM-ESPERA.md) | a fila do operador, em pacotes |
 | [`docs/ECONOMIA.md`](docs/ECONOMIA.md) | **o custo da sessão**: os três tetos, a rotina e o medidor |
+| [`docs/RESIDUOS.md`](docs/RESIDUOS.md) | **o que cada lote deixou para trás** — a tabela que substitui a arqueologia |
+| [`docs/REVISAO-GERAL.md`](docs/REVISAO-GERAL.md) | **o escopo da revisão periódica**: os dez marcos, e o que fecha uma revisão |
 
 **Apêndices congelados** — `docs/AUDITORIA-2026-08.md`,
 `docs/AUDITORIA-2026-09-11.md`, `docs/AUDITORIA-EFICIENCIA-2026-09.md`,
@@ -450,6 +452,30 @@ asserção. O que fica aqui é o MÉTODO, que vale para todos.
   ABERTA). **Por extenso em [`docs/BUILD.md`](docs/BUILD.md)**, seção "A página
   do site".
 
+- **O LOTE DECLARA O QUE DEIXOU PARA TRÁS — antes do push.** Descobrir depois o
+  que ficou custa uma varredura inteira, feita por quem não estava lá, e foi
+  assim que a revisão de 2026-11-13 terminou com 8.652 linhas do site que
+  ninguém abriu. Quem fez o lote sabe, na hora, o que viu e não consertou: **cada
+  linha vai para [`docs/RESIDUOS.md`](docs/RESIDUOS.md)**, com onde e tamanho —
+  mesmo quando a resposta é "nenhum". Um lote sem linha lá é um lote sem
+  vistoria, do mesmo jeito que uma versão sem nota no `HISTORICO.md`.
+
+  **O que se fecha na mesma sessão não entra na tabela.** Viu, consertou, pronto.
+  A tabela é para o que não deu, e cada linha diz por quê.
+
+- **O FINO NÃO ESPERA A PRÓXIMA REVISÃO.** Comentário falso, asserção vacuosa,
+  seletor morto, contagem velha num capítulo: acha e fecha no mesmo lote — com
+  **um subagente de contexto limpo**, que lê o repositório e o briefing e começa
+  com o contexto vazio. É mais barato que o mesmo trabalho feito na sessão longa,
+  que paga o contexto inteiro a cada passo (ver
+  [`docs/ECONOMIA.md`](docs/ECONOMIA.md)). O que pede decisão do operador ou
+  medição em aparelho **não é fino** — esse vira pacote na fila, e a linha dele
+  no `RESIDUOS.md` diz "decisão" ou "medição", não "fino".
+
+  Vale para o agente delegado também: ao encontrar resíduo fora da cerca, ele
+  **não conserta em silêncio nem cala** — devolve no relatório, e o coordenador
+  decide se chama o higienizador ou registra.
+
 ### A entrega delegada
 
 **Toda tarefa substantiva nasce delegada** — e o que decide o custo dela é o
@@ -679,4 +705,6 @@ inteiro. O que cada lote trouxe está no `docs/HISTORICO.md`, nunca aqui.
 | a Verificação do Sistema e o Registro | `docs/DIAGNOSTICO.md` |
 | a varredura geral de 2026-11-13: o que ela fechou e o que deixou aberto | `docs/revisao/REVISAO-2026-11-13.md` (o dossiê, com a prova de cada achado) e o Pacote 12.2 da fila |
 | o que o operador pediu e ainda não foi feito? | `docs/PEDIDOS-EM-ESPERA.md` — pacotes; perguntar qual seguir antes de começar |
+| o que ficou para trás de um lote anterior? | `docs/RESIDUOS.md` (com dono, tamanho e por que não foi agora) |
+| uma revisão geral vai começar: o que ela cobre? | `docs/REVISAO-GERAL.md` (os dez marcos) e `node tools/revisao-cobertura.mjs --base <sha>` |
 | "faça uma das etapas de revisão" / a revisão profunda em etapas | `docs/REVISAO-PROFUNDA.md` (o plano e a regra que ESCOLHE a etapa) e `docs/revisao/REGISTRO.md` (a fila e o andamento) — uma etapa por sessão, a sessão escolhe sozinha |

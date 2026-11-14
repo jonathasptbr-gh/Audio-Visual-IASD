@@ -192,6 +192,8 @@ docs/
 ├── FONTE-DE-DADOS-LOUVORJA.md   # referência do banco LouvorJA (hinos/Bíblia)
 ├── HISTORICO.md                 # APÊNDICE: as notas de todas as versões — usar por grep
 ├── ECONOMIA.md                  # o CUSTO da sessão: os três tetos, a rotina, o medidor
+├── RESIDUOS.md                 # o que cada LOTE deixou para trás — a tabela que substitui a arqueologia
+├── REVISAO-GERAL.md            # o ESCOPO da revisão periódica: os dez marcos (M1..M10)
 └── AUDITORIA-ESTABILIDADE-AV.md # APÊNDICE: o que pode INTERROMPER áudio/vídeo
 ```
 

@@ -7,6 +7,11 @@ uma limpeza de contexto: quem retomar lê este arquivo e pergunta ao operador
 **qual pacote seguir** — nada aqui está autorizado para execução sem essa
 resposta.
 
+**O resíduo fino NÃO mora aqui.** Comentário falso, asserção vacuosa, seletor
+morto: o lote que os encontra fecha no mesmo dia, e o que não deu vai para
+[`RESIDUOS.md`](RESIDUOS.md), não para esta fila. A fila é para o que precisa
+de decisão do operador.
+
 **Edição de 2026-11-09.** A lista foi relida contra o que já saiu (v1.13.36 a
 v1.13.50), **renumerada do zero** (o Pacote 1 é o de maior prioridade) e
 **recatalogada por importância × urgência** — o índice é a primeira tabela, e a
