@@ -91,8 +91,12 @@ try {
   // dois tiles e não passou por aqui, o `verificar` reprovou na `main` e o
   // `web-ota` foi PULADO — o bundle daquele lote não chegou a aparelho nenhum.
   // Mexeu na grade, este número anda junto, no MESMO lote.
-  checar(tiles.length === 15,
-    'A · a grade e as duas janelas têm os QUINZE tiles', tiles.length);
+  // CATORZE na v1.14.7: o tile "Saída de áudio" saiu (o projeto da janela da
+  // Samsung foi abandonado) e o "Tour do app" entrou na grade — oito da grade (era
+  // nove), quatro da Tela e dois do Transferir. A conta continua sendo a do portão:
+  // mexeu na grade, este número anda junto, no MESMO lote.
+  checar(tiles.length === 14,
+    'A · a grade e as duas janelas têm os CATORZE tiles', tiles.length);
   const comSobra = tiles.filter((t) => t.texto !== t.titulo.trim());
   checar(comSobra.length === 0,
     'A · e nenhum tem texto além do TÍTULO — a palavra do estado saiu de todos '

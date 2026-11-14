@@ -407,7 +407,10 @@ try {
   const h9 = await lerPilula(pa);
   const h9f = await lerFaixas(pa);
   checar(h9.existe === true && h9.visivel === true && h9.casa === 'previa' && h9.naPrevia === true
-    && h9.h > h9.w && h9.l <= 8 && h9.umaSo === true && h9.barraDaTelaCheia === false
+    // v1.14.7: o recuo esquerdo da pílula subiu para 12px (pedido do operador: a
+    // borda azul do tour era cortada pela borda da tela). A régua passa a ser
+    // "encostada na borda esquerda, com o piso de 12px", e não mais ≤ 8.
+    && h9.h > h9.w && h9.l >= 12 && h9.l <= 16 && h9.umaSo === true && h9.barraDaTelaCheia === false
     && h9f.topo.display !== 'none' && h9f.texto === 'Provai e Vede',
     'H9 · (v1.13.57) no avançado a MESMA pílula é movida para dentro da prévia, e o NOME segue no topo',
     JSON.stringify({ h9, topo: h9f.topo.display, texto: h9f.texto }));
@@ -506,7 +509,9 @@ try {
       checar(g.base.vis && g.exit.cy > g.base.t && g.exit.cy < g.base.b && g.hit.r <= g.exit.l && g.dur.r <= g.exit.l && g.exitNoTopo,
         `I3 · ${rot} · na linha do tempo, sem ser coberto por ela e sem cobrir a duração`, j);
       checar(!!g.vol && g.vol.vis && g.volCasa === 'previa' && g.volNaPrevia === true && g.volUmaSo === true
-        && g.vol.h > g.vol.w && g.vol.l <= 8
+        // v1.14.7: a pílula deixou de nascer a 6px — o piso é 12px (o recorte do
+        // tour tem de caber com o halo), e é isso que esta régua passa a exigir.
+        && g.vol.h > g.vol.w && g.vol.l >= 12 && g.vol.l <= 16
         && g.vol.t >= g.nome.b && g.vol.b <= g.hit.t
         && g.nomeTxt === 'Provai e Vede' && g.nome.h > 0,
         `I4 · ${rot} · o NOME no topo e a PÍLULA de volume DENTRO da prévia, EM PÉ na borda esquerda, entre o título e a linha do tempo`,

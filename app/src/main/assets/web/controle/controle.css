@@ -6812,7 +6812,11 @@ main {
   /* O RECUO É O MESMO DOS DOIS LADOS (v1.13.6), e o PONTO de "no ar" mora DENTRO
      do da direita, centrado nele: o nome não corre para baixo dele quando ele
      acende, e a reserva não come a largura que o nome precisa. */
-  padding: 0 var(--sp-6);
+  /* O RECUO LATERAL CEDE UM DEGRAU NA v1.14.7: com SETE linhas, a altura é a que
+     aperta, e o nome é o que não pode ser cortado — `--sp-5` (12px) devolve ~8px
+     de largura por linha e continua sendo MAIOR que o `--sp-4` da v1.13.5 (a régua
+     do `ferramentas-folha` mede justamente que a margem cresceu). */
+  padding: 0 var(--sp-5);
   margin-top: var(--ferr-vao);
   text-align: left;
 }
@@ -6854,7 +6858,7 @@ main {
    no ar exigiria abrir cada uma. Ele é um GRÁFICO que carrega informação (piso de
    3:1): sobre o `--btn-accent` MEDIDO 4,27:1 no escuro e 5,65:1 no claro. */
 .ferr-no-ar {
-  display: none; position: absolute; top: 50%; right: calc((var(--sp-6) - 7px) / 2);
+  display: none; position: absolute; top: 50%; right: calc((var(--sp-5) - 7px) / 2);
   width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%;
   background: var(--live-strong);
 }

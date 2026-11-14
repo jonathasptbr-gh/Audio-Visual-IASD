@@ -49,9 +49,14 @@ export const PISOS = [
     // MEDIDO, só a 360×640 com a fonte do sistema em 1,3× a linha passa abaixo do
     // `--hit` — 33,9px, a sexta parte de 203,6px de corpo (33,4 na v1.13.5). O piso
     // trocado é 32, um píxel e pouco de folga sobre o medido.
-    sel: '.ferr-grade > .ferr-tile', piso: 32,
-    porque: 'a lista das ferramentas não rola por pedido do operador (v1.13.5): seis '
-      + 'linhas de 34px pedem 204px e o corpo da folha mede 203,6px a 360×640 · 1,3×. '
+    // SETE LINHAS desde a v1.14.7 (o editor de mídia entrou na lista a pedido do
+    // operador): MEDIDO, a 360×640 com a fonte em 1,3× a linha mede 28,6px — a
+    // sétima parte dos 199,6px de corpo. O piso TROCADO é 28, como na v1.13.5 o de
+    // seis linhas era 32 sobre 33,9: a regra do operador não muda (a lista não
+    // rola; as linhas é que cedem), e o número acompanha o mesmo pedido.
+    sel: '.ferr-grade > .ferr-tile', piso: 28,
+    porque: 'a lista das ferramentas não rola por pedido do operador (v1.13.5): sete '
+      + 'linhas de 34px pedem 238px e o corpo da folha mede 199,6px a 360×640 · 1,3×. '
       + 'Ver `.ferr-grade > .ferr-tile` em controle.css.',
   },
 ];

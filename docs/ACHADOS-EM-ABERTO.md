@@ -9,6 +9,8 @@ problema, então ela será criada e resolvida"*. **Arquivo para esvaziar, não p
 crescer:** relato novo abre item novo, com a cena que ele der.
 O §2 (a chamada) saiu inteiro em 2026-11-09 — a numeração dos outros fica
 como estava, porque os registros antigos citam §1 e §3.
+O §4 (2026-11-13) NÃO é defeito do app: são resíduos de ORÁCULO medidos contra
+o baseline, e ficam para o próximo lote não ser cobrado por eles.
 
 O que já saiu antes: a faixa da Biblioteca que nunca era marcada como no ar
 (v1.5.16) saiu na v1.13.14 — ela acende pela ORIGEM do toque. Houve outro, e ele
@@ -257,3 +259,21 @@ Miracast. Se o Registro disser 1080p e a imagem continuar ruim, o gargalo não �
 nada disto — e o app não tem o que fazer. O teste que separa os dois custa cinco
 minutos: projetar na mesma TV um vídeo **já baixado** em 1080p.
 
+## 4. Resíduos de ORÁCULO medidos no baseline (2026-11-13 — não são defeito do app)
+
+No fechamento da v1.14.7 quatro oráculos reprovaram no CI, e o commit anterior
+(`80339772~1` = `15be4461`) foi rodado como **baseline**, no mesmo Chromium desta
+máquina. O que reprova NOS DOIS é dependência da FONTE (os números da asserção
+foram medidos com a DejaVu do runner, e aqui a métrica é outra) ou de pixel — não
+é regressão do lote:
+
+| oráculo | célula | medido aqui × esperado | baseline |
+|---|---|---|---|
+| `configuracoes-sem-subtitulo` | D3 · 320×1,25 e 360×1,5 | `palavra:true` (a "Ajuda" aparece) × `false`; título INTEIRO (`tw=tc`) | reprova igual |
+| `ferramentas-folha` | V · "a letra é um pouco MENOR" em 360×640·1,25, 360×640·1,3 e 360×600·1,3 | 14,9 e 14,2 × 14,2 e 13,7 (os números da v1.13.5) | reprova igual |
+| `sorteio-tela` | O · a tira pinta a fronteira do scroller | `maxd 0,0653` contra o limiar | reprova igual |
+
+Os dois primeiros passam no RUNNER — é lá que os números deles nasceram — e o
+terceiro é medição de pixel, que também fecha lá. **Não se conserta mexendo no
+app:** o conserto é uma campanha de fontes do CI, e o registro existe para a
+próxima sessão não cobrar do lote errado.
