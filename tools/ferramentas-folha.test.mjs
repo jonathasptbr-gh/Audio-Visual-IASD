@@ -2713,7 +2713,8 @@ try {
       + '), entre a linha e a folha ' + v.fora + 'px (era ' + v.foraAntes + ')', v);
     // v1.14.7 — A RÉGUA POR CÉLULA (`letraAntes`, medida com a fonte do RUNNER na
     // v1.13.5) não é portátil para a fonte desta máquina: ela reprova também no
-    // commit anterior ao lote (ver `docs/ACHADOS-EM-ABERTO.md` §4). O que se exige
+    // commit anterior ao lote (era o §4 do `ACHADOS-EM-ABERTO`; migrou para o
+    // `docs/RESIDUOS.md` em 2026-11-14). O que se exige
     // aqui é o que a decisão da v1.13.5 prometeu e não depende de fonte: a letra
     // cabe no TETO NOVO e é menor que o TETO ANTIGO (`--fs-4xl`).
     checar(v.letra <= v.tetoAgora + 0.05 && v.letra < v.tetoAntes - 0.3,

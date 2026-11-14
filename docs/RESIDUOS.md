@@ -23,6 +23,11 @@ disso.
    ninguém consegue escolher o que pegar primeiro.
 5. **Linha fechada não se apaga: ganha o commit ao lado.** O histórico do resíduo
    é o que mostra se a mesma coisa volta.
+6. **Linha com dono `operador` é DECISÃO pendente** (B1): ela ganha pacote na
+   fila (`docs/PEDIDOS-EM-ESPERA.md`) ou, enquanto não ganhar, o
+   `tools/estado.sh` imprime essas linhas — ninguém descobre a pendência
+   relendo esta tabela. Uma linha decidida sai da tabela de abertos e desce para
+   "Fechado/decidido".
 
 ## O que é "fino"
 
@@ -44,18 +49,30 @@ medição em aparelho não é fino.**
 | 2026-11-14 · revisão de 14/11 | `tools/tour.test.mjs:271` | pré-marca todas as chaves antes de abrir Configurações, então a asserção passaria com a seção de volta | higienização | precisa da reversão para provar |
 | 2026-11-14 · revisão de 14/11 | `tools/tour.test.mjs` | `FOLGA`/`ANEL` escritos à mão (o padrão do achado T7) | higienização | idem |
 | 2026-11-14 · revisão de 14/11 | `controle.js`, `controle.css` | 14 comentários "lápide" (`saiu na vX`) anteriores ao intervalo | higienização | fora do escopo das duas revisões |
-| 2026-11-14 · revisão de 14/11 | `site/sonoplastia/index.html` | 671 linhas de CSS e 1.320 de JS inline, nada cacheável (~33 kB comprimidos) | higienização | ganho pequeno; exige conferir o layout de impressão |
+| 2026-11-14 · revisão de 14/11 | `site/sonoplastia/index.html` | 671 linhas de CSS e 1.320 de JS inline, nada cacheável (~33 kB comprimidos) | operador | falta o AVAL do operador: tirar exige conferir o layout de impressão (era o 12.3.2 da fila) |
 | 2026-11-14 · v1.14.16 | `site/sonoplastia/index.html` | a captura da lista de Ferramentas mostra seis e o app tem sete ("Editar mídia") | operador | refazer a captura pede o app em tela — **na fila: Pacote 29** (14/11) |
 | 2026-11-14 · revisão de 14/11 | `YoutubeGrab.kt` | os campos `initIni/initFim/idxIni/idxFim/codec` da `Faixa`, sem leitor desde que o `dash` saiu (~24 linhas, KDoc junto) | CI | não há compilador aqui; a remoção só se prova no Gradle |
-| 2026-11-14 · revisão de 14/11 | `controle.css` | a pílula de volume da tela cheia deitada (C8): a 740×360 o número sai da tela | operador | **decidido deixar como está** em 14/11 |
-| 2026-11-14 · revisão de 14/11 | `capturas/entrada/` | 3,7 MB de JPEG de origem, já convertidos para `site/telas/` | operador | **decidido deixar como está** em 14/11 |
 | 2026-11-14 · v1.14.16 | `controle.js:22564` | o aviso do card promete que a série "desce quando ela sair", mas a rodada só é armada por `manterSeriesDaSemana` — com um card aberto na projeção a saída da mídia não baixa | operador | mexe no contrato do `serieAutoImpedimento` — **na fila: Pacote 28** (14/11) |
 | 2026-11-14 · v1.14.16 | `tools/tour.test.mjs:94` | o oráculo mede a peça com a MESMA regra do `elementos()`: não distingue a peça certa da primeira casada | higienização | só o G novo tem régua independente |
 | 2026-11-14 · Pacote 24 | `~/.dsh-github/uso.mjs` | a remedição do custo com o preço do modelo ATUAL não saiu (não há preço publicado confiável na máquina); as tabelas do medidor são de 10/11 e ele aceita `--preco novo cache saida` | medição | preço do modelo atual não medido |
 | 2026-11-14 · revisão de 14/11 | `ESTABILIDADE-AV` C2, D2 | pedem medição em aparelho | medição | não há aparelho nesta máquina |
-| 2026-11-14 · revisão de 14/11 | `EFICIENCIA` #2, #9 | processo, não código | operador | aberto desde 2026-09 |
+| 2026-11-14 · revisão de 14/11 | `EFICIENCIA` #2, #9 | o #2: a fixture `DIAG` do `registro.test.mjs` sem `via`/`interfaces`/`midia`/`ultimo`; o #9: não há `tools/versao.mjs` | higienização | aberto desde 2026-09 |
 | 2026-11-14 · Pacote 25 | `tools/` (A1) | o `pre-push` versionado, opcional no A1: obrigaria o portão a cada push, inclusive de documentação, e pede `core.hooksPath` em cada clone | operador | é custo de toda entrega; os hooks do git neste proot não foram medidos |
 | 2026-11-14 · Pacote 25 | `apk.yml`, `web-ota` | a regra "base web mudou ⇒ versão sobe" é contra a última TAG: um segundo lote de web sem subir, depois de um que subiu, passa; a guarda anti-regressão aceita versão IGUAL | CI | o certo é comparar com o canal, e o `sha256` do zip muda a cada empacotamento — pede o hash da árvore |
+| 2026-11-14 · Pacote 26 (migração B4) | `controle.js` `:5705` | `naoResta()` e as duas frases dela, inalcançáveis: `doDraw` só chega lá com `drawRemaining() <= 0`, e os dois caminhos passam por botões com `disabled = drawGoApagado()` | higienização | veio da auditoria de agosto (A4); fora da cerca de toda etapa |
+| 2026-11-14 · Pacote 26 (migração B4) | `controle.js` (resíduo de `:8884`) | `hymnResultRow` reabre a gaveta montada sem repor `destExecutor`/`destMarcados`/`songMenuFor`; vale também para o ramo de episódio (`openYtMenu`) | higienização | veio da auditoria de agosto (A4); fora da cerca de toda etapa |
+| 2026-11-14 · Pacote 26 (B9) | `configuracoes-sem-subtitulo` D3, `ferramentas-folha` V, `sorteio-tela` O | os três oráculos cujos números nasceram da FONTE do runner (DejaVu/pixel): reprovam no Chromium desta máquina e passam no runner — o §4 do `ACHADOS-EM-ABERTO` migrou para cá | CI | não se conserta mexendo no app: é a campanha de fontes do CI |
+
+## Fechado/decidido
+
+O que a decisão do operador fechou, ou o que se decidiu deixar como está. Não é
+trabalho: é o registro da decisão, para o mesmo assunto não voltar como
+resíduo. (B8)
+
+| quando · lote | onde | o que era | a decisão |
+|---|---|---|---|
+| 2026-11-14 · revisão de 14/11 | `controle.css` | a pílula de volume da tela cheia deitada (C8): a 740×360 o número sai da tela | **deixar como está** (operador, 14/11) |
+| 2026-11-14 · revisão de 14/11 | `capturas/entrada/` | 3,7 MB de JPEG de origem, já convertidos para `site/telas/` | **deixar como está** (operador, 14/11) |
 
 ## Lotes que declararam "nenhum"
 
@@ -65,6 +82,7 @@ de "ninguém olhou".
 | quando | lote | vistoria |
 |---|---|---|
 | 2026-11-14 | o método da revisão (`RESIDUOS.md`, `REVISAO-GERAL.md`, `tools/revisao-cobertura.mjs`) | nenhum resíduo de código. **A ferramenta não estava pronta:** a revisão de 14/11 achou nela três defeitos — o telão e a tela espelho caíam no marco do shell, a citação por nome solto dava o site por coberto, e sem `--dossie` ela anunciava cobertura. Os três — e um quarto, de uso, na citação — foram corrigidos, e a ferramenta foi provada nos dois sentidos (acusa o marco roçado, cala quando o dossiê cita) |
+| 2026-11-14 | o Pacote 26 (o processo de revisão) | nenhum resíduo de código: só docs e `tools/`. A migração B4 levou os abertos das auditorias para a tabela acima e carimbou o estado final em cada uma; os itens NÃO VERIFICADOS da auditoria de 09-11 ficam como registro daquela data, sem virarem fila |
 
 ## Refutado — medido e não é resíduo
 

@@ -1,5 +1,11 @@
 # Revisão profunda — o plano em etapas
 
+> **ENCERRADA em 2026-11-09 — use a [`REVISAO-GERAL`](REVISAO-GERAL.md).**
+> As etapas A1..X3 terminaram (o andamento em `docs/revisao/REGISTRO.md`); este
+> arquivo fica como REGISTRO do plano, do método e do que ele mediu. A regra de
+> escolha de etapa, a fila e as cercas NÃO voltam a valer: a vistoria em vigor
+> é a revisão geral dos dez marcos.
+
 Pedido do operador (2026-10-30): *"manutenções, otimizações, limpezas e
 correções no código todo do app … e também no repositório"*, com a restrição
 de tokens. **Este arquivo é só a ESTRUTURA**: nenhuma etapa foi executada aqui.

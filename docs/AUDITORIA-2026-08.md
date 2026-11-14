@@ -27,6 +27,16 @@ sequência que o Android/navegador não produz).
 > O "26 por aplicar" do fim é a soma das listas BRUTAS dos lotes 4 (18) e 5 (8)
 > — os commits `8ecba36` e `4de14bc` não as enumeram —, e não uma contagem dos
 > ids deste arquivo.
+>
+> **ESTADO FINAL (2026-11-14, Pacote 26/B4).** Os sete da conferência A4 foram
+> reconferidos hoje: K12 **OBSOLETO** (o `soltar()` não existe mais), M1
+> **DECIDIDO** (o `CLAUDE.md` exclui o `pares-de-comentario` de propósito),
+> `:19952` **RESOLVIDO** (a ponte devolve o carimbo e o web manda `desde`), o
+> desfecho do lote 3b **RESOLVIDO** (o denominador entrou: "3/300 falharam"), e
+> os dois que seguem abertos — `:5705` e o resíduo de `:8884` — migraram para o
+> `docs/RESIDUOS.md` (dono `higienização`); o INCERTO fica como registro daquela
+> data. **O M9 da revisão geral NÃO varre mais esta auditoria: ela é apêndice
+> congelado.**
 
 ## Conferência da revisão A4 (2026-11-04) — o que ficou por aplicar
 

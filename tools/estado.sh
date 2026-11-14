@@ -137,3 +137,6 @@ fi
 p "fila do operador"
 grep -E '^## Pacote [0-9]+ —' docs/PEDIDOS-EM-ESPERA.md \
   | sed -E 's/^## Pacote ([0-9]+) — (.*)/  \1. \2/' | cut -c1-96
+
+p "resíduos com dono 'operador' (decisão pendente — a regra 6 do RESIDUOS.md)"
+awk -F'|' '/^\| 2026-/{ d=$5; gsub(/ /,"",d); if (d=="operador") print "  " $2 " ->" $3 }' docs/RESIDUOS.md | cut -c1-96

@@ -4,6 +4,11 @@
 integral. O que sobreviveu dele está no `CLAUDE.md`/`NUCLEO-TECNICO` e no
 `HISTORICO.md`.
 
+**ESTADO FINAL (2026-11-14, Pacote 26/B4).** Os itens NÃO VERIFICADOS não
+foram reconferidos: ficam como registro de suspeitas daquela data, não como
+resíduo aberto (suspeita não confirmada não é resíduo — `docs/REVISAO-GERAL.md`).
+**O M9 da revisão geral NÃO varre mais esta auditoria: ela é apêndice congelado.**
+
 A semana de 04 a 11/09 somou **47.161 inserções em 184 arquivos** — `controle.js`
 +8.743, `controle.css` +3.480, `index.html` +1.008, `MainActivity.kt` +699,
 `NativeBridge.kt` +452 — com quarenta lotes e **muitos feitos e desfeitos**: a

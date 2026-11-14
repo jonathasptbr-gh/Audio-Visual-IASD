@@ -150,6 +150,9 @@ const docs = [];
     ['serie.json', 'asset servido por raw.githubusercontent, não versionado aqui'],
     // O medidor de custo do KIT da máquina, fora do repositório (Pacote 24/C3).
     ['uso.mjs', 'kit da máquina: ~/.dsh-github/uso.mjs, não versionado aqui'],
+    // A ferramenta de versão que a EFICIENCIA prometeu e nunca nasceu — é o
+    // PRÓPRIO resíduo do EFICIENCIA #9, e o RES explica a ausência.
+    ['versao.mjs', 'nunca existiu: é o resíduo do EFICIENCIA #9; o estado.sh cobre o que ela faria'],
   ]);
 
   const reais = new Set();

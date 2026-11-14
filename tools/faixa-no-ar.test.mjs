@@ -2,7 +2,8 @@
 // ============================================================================
 // A FAIXA DE ÁLBUM QUE ESTÁ NO AR, DESTACADA (v1.13.14)
 //
-// Pedido do operador (resposta ao §4 do ACHADOS-EM-ABERTO): *"pode considerar que
+// Pedido do operador (resposta ao §4 do `ACHADOS-EM-ABERTO`, que em 2026-11-14
+// migrou para o `docs/RESIDUOS.md`): *"pode considerar que
 // quero que seja destacado também"* — e a identidade decidida: *"acender apenas o
 // álbum de onde está tocando o item"*. O defeito tinha DUAS metades, e as duas
 // entram aqui:

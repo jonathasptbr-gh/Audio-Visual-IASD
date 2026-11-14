@@ -68,7 +68,7 @@ tem o resto):
 | [`docs/ECONOMIA.md`](docs/ECONOMIA.md) | **o custo da sessão**: os três tetos, a rotina e o medidor |
 | [`docs/RESIDUOS.md`](docs/RESIDUOS.md) | **o que cada lote deixou para trás** — a tabela que substitui a arqueologia |
 | [`docs/REVISAO-GERAL.md`](docs/REVISAO-GERAL.md) | **o escopo da revisão periódica**: os dez marcos, e o que fecha uma revisão |
-| [`docs/URGENCIA.md`](docs/URGENCIA.md) | **a revisão das diretrizes de 14/11**: os pacotes de conserto que restam (B → D) e as decisões do operador — ele esvazia |
+| [`docs/URGENCIA.md`](docs/URGENCIA.md) | **a revisão das diretrizes de 14/11**: o pacote de conserto que resta (o D) e as decisões do operador — ele esvazia |
 
 **Apêndices congelados** — `docs/AUDITORIA-2026-08.md`,
 `docs/AUDITORIA-2026-09-11.md`, `docs/AUDITORIA-EFICIENCIA-2026-09.md`,
@@ -483,6 +483,10 @@ asserção. O que fica aqui é o MÉTODO, que vale para todos.
   **O que se fecha na mesma sessão não entra na tabela.** Viu, consertou, pronto.
   A tabela é para o que não deu, e cada linha diz por quê.
 
+  **Linha com dono `operador` é DECISÃO pendente: ela vira pacote na fila** —
+  e o `tools/estado.sh` imprime essas linhas enquanto não virar, para nenhuma
+  sessão perder a pendência.
+
 - **O FINO NÃO ESPERA A PRÓXIMA REVISÃO.** Comentário falso, asserção vacuosa,
   seletor morto, contagem velha num capítulo: acha e fecha no mesmo lote — com
   **um subagente de contexto limpo**, que lê o repositório e o briefing e começa
@@ -722,4 +726,4 @@ nesta prosa.
 | o que o operador pediu e ainda não foi feito? | `docs/PEDIDOS-EM-ESPERA.md` — pacotes; perguntar qual seguir antes de começar |
 | o que ficou para trás de um lote anterior? | `docs/RESIDUOS.md` (com dono, tamanho e por que não foi agora) |
 | uma revisão geral vai começar: o que ela cobre? | `docs/REVISAO-GERAL.md` (os dez marcos) e `node tools/revisao-cobertura.mjs --base <sha>` |
-| "faça uma das etapas de revisão" / a revisão profunda em etapas | `docs/REVISAO-PROFUNDA.md` (o plano e a regra que ESCOLHE a etapa) e `docs/revisao/REGISTRO.md` (a fila e o andamento) — uma etapa por sessão, a sessão escolhe sozinha |
+| "faça uma das etapas de revisão" / a revisão em etapas | [`docs/REVISAO-GERAL.md`](docs/REVISAO-GERAL.md) (a vistoria dos dez marcos, em sessão própria) — a revisão profunda FOI **ENCERRADA em 2026-11-09**: `docs/REVISAO-PROFUNDA.md` e `docs/revisao/REGISTRO.md` ficam como registro |

@@ -19,11 +19,16 @@
 //
 // ## Uso
 //
-//   node tools/revisao-cobertura.mjs --base <sha>                 # o mapa do intervalo
-//   node tools/revisao-cobertura.mjs --base <sha> --dossie <arq>  # e a cobertura
+//   node tools/revisao-cobertura.mjs --tabela   # a tabela de marcos (o RG a copia)
+//   node tools/revisao-cobertura.mjs --base <sha>                # o mapa do intervalo
+//   node tools/revisao-cobertura.mjs --base <sha> --head <sha> --dossie <arq>  # e a cobertura
 //
-// Sai com 1 quando algum marco recebeu mudança e o dossiê não cita nenhum
-// arquivo dele. Sem `--dossie`, só informa.
+// Com `--dossie` sai com 1 quando: algum dos dez títulos de marco não aparece
+// no dossiê; ou um marco recebeu mudança e menos de 10% dos arquivos dele são
+// citados (o caminho sempre vale; o nome solto, quando é único). Sem `--dossie`,
+// só informa. Arquivo binário (`-` no numstat) fica FORA da conta: o que a
+// vistoria varre é texto. O `--head` que mediu o intervalo se GRAVA no topo do
+// dossiê, e o fecho roda com o MESMO head — nunca o `HEAD` de depois.
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync } from 'node:fs';
@@ -77,7 +82,6 @@ const MARCOS = [
   ['M6', 'o site e as capturas', [/^site\//, /^capturas\//, /^\.github\/workflows\/pages\.yml$/]],
   ['M9', 'os achados antigos', [
     /^docs\/ACHADOS-EM-ABERTO\.md$/,
-    /^docs\/AUDITORIA-/,
     /^docs\/RESIDUOS\.md$/,
   ]],
   ['M10', 'a governança', [
@@ -112,8 +116,19 @@ const base = opc('base');
 const head = opc('head') || 'HEAD';
 const dossie = opc('dossie');
 
+if (args.includes('--tabela')) {
+  // A TABELA QUE O `REVISAO-GERAL.md` COPIA (B13): os padrões moram aqui — o
+  // documento não os reescreve, e quem divergir daqui é quem fica velho.
+  console.log('| # | marco | padrões (a ordem importa: o primeiro que casa fica com o arquivo) |');
+  console.log('|---|---|---|');
+  for (const [id, titulo, padroes] of MARCOS) {
+    console.log(`| **${id}** | ${titulo} | ${padroes.map((p) => '`' + p.source + '`').join(' ')} |`);
+  }
+  process.exit(0);
+}
+
 if (!base) {
-  console.error('uso: node tools/revisao-cobertura.mjs --base <sha> [--head <sha>] [--dossie <arquivo.md>]');
+  console.error('uso: node tools/revisao-cobertura.mjs --tabela | --base <sha> [--head <sha>] [--dossie <arquivo.md>]');
   process.exit(2);
 }
 if (dossie && !existsSync(dossie)) {
@@ -130,7 +145,9 @@ porMarco.set('—', { titulo: 'fora dos marcos', arqs: [], mais: 0, menos: 0 });
 for (const linha of git('diff', '--numstat', `${base}..${head}`).split('\n')) {
   if (!linha.trim()) continue;
   const [mais, menos, arq] = linha.split('\t');
-  // binário não tem conta de linha: entra como arquivo, com zero
+  // BINÁRIO FICA FORA DA CONTA (B7): o numstat dá `-` nas duas colunas e não há
+  // linha de texto a varrer — exigir citação de um `.webp` fingia cobertura.
+  if (mais === '-' || menos === '-') continue;
   const m = porMarco.get(marcoDe(arq));
   m.arqs.push(arq);
   m.mais += Number(mais) || 0;
@@ -138,6 +155,17 @@ for (const linha of git('diff', '--numstat', `${base}..${head}`).split('\n')) {
 }
 
 const texto = dossie ? readFileSync(dossie, 'utf8') : null;
+
+// O DOSSIÊ PRECISA DOS DEZ TÍTULOS (B7): o marco sem mudança aparece no dossiê
+// dizendo "LIMPO — sem mudança no intervalo" — um título ausente é um marco
+// que ninguém declarou.
+const semTitulo = texto ? MARCOS.filter(([, t]) => !texto.includes(t)).map(([id, t]) => id + ' · ' + t) : [];
+if (semTitulo.length) {
+  console.error('\n== DOSSIÊ SEM O MARCO — os títulos abaixo não aparecem nele:');
+  for (const s of semTitulo) console.error('   ' + s);
+  console.error('   o dossiê declara os DEZ marcos, com o título da tabela (`--tabela`).');
+  process.exit(1);
+}
 
 // CITAÇÃO = o caminho inteiro OU o nome do arquivo. A régua é frouxa de
 // propósito: o que se cobra aqui é ATENÇÃO ao marco, não precisão de citação.

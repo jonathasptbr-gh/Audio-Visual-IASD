@@ -1,10 +1,14 @@
 # Registro da revisão profunda
 
+> **ENCERRADA em 2026-11-09 — use a [`REVISAO-GERAL`](../REVISAO-GERAL.md).**
+> A fila terminou na X3; a tabela abaixo é REGISTRO do que cada etapa mediu,
+> não uma fila de trabalho. "Faça uma das etapas de revisão" não é mais um
+> pedido válido: a vistoria em vigor é a revisão geral dos dez marcos.
+
 O andamento das etapas de [`docs/REVISAO-PROFUNDA.md`](../REVISAO-PROFUNDA.md).
-É a ÚNICA memória entre as sessões: o que uma etapa precisa saber de outra está
-aqui, e só aqui. **A tabela abaixo É a fila**: "faça uma das etapas de revisão"
-pega a próxima pela regra "A ESCOLHA DA ETAPA" do plano (parcial → em curso
-abandonada → primeira pendente pelo `nº`).
+É a memória do que uma etapa mediu: o que ela precisou saber de outra está
+aqui, e só aqui. A tabela abaixo foi a fila enquanto o plano viveu; hoje ela é
+registro.
 
 ## Estado
 

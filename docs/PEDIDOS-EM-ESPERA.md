@@ -35,8 +35,8 @@ executado** — esta edição é só a lista.
 uma revisão do contrato, do rito e dos processos de revisão, aprovou os quatro
 pacotes de conserto e mandou pô-los num arquivo de urgência: são os **Pacotes
 24 a 27**, e o conteúdo mora em [`URGENCIA.md`](URGENCIA.md). São os ÚNICOS
-pacotes desta fila **já autorizados** — um por sessão. **Os Pacotes 24 e 25 saíram
-em 2026-11-14**; a ordem dos que restam é 26 → 27. Os
+pacotes desta fila **já autorizados** — um por sessão. **Os Pacotes 24, 25 e 26
+saíram em 2026-11-14**; resta o 27. Os
 dois itens de decisão que estavam só no `RESIDUOS.md` viraram os **Pacotes 28 e
 29** (*"tudo entra na fila para ser feito"*).
 
@@ -75,8 +75,7 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **21** — Destinos: a engrenagem do item guardado | 6 (I3×U2) | pedido | só web |
 | **22** — Bíblia: três versículos no controle | 2 (I2×U1) | pedido | só web |
 | **23** — Editor de mídia: a margem inferior | 4 (I2×U2) | defeito | só web |
-| **26** — Urgência B: o processo de revisão | urgente — 2º | resíduo | só docs + `tools/revisao-cobertura.mjs` |
-| **27** — Urgência D: enxugar e unificar o contrato | urgente — 3º | resíduo | só docs |
+| **27** — Urgência D: enxugar e unificar o contrato | urgente — o que resta | resíduo | só docs |
 | **28** — Série: o aviso que promete descer | 6 (I3×U2) | defeito | só web |
 | **29** — Guia do site: a captura das sete ferramentas | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
 
@@ -95,7 +94,7 @@ diferentes, e um lote nunca mistura dois temas.
 | **Cronograma e destinos** | 16, 20, 21 | a abertura antes do culto, o alerta de "não baixado" à esquerda e a engrenagem do item guardado |
 | **Bíblia** | 22 | a leitura de três versículos no controle |
 | **Mídia** | 23 | a margem inferior do editor de mídia |
-| **Diretrizes (urgência)** | 26, 27 | o que resta da revisão das diretrizes de 14/11: a revisão e o contrato — um por sessão, nessa ordem |
+| **Diretrizes (urgência)** | 27 | o que resta da revisão das diretrizes de 14/11: o contrato |
 | **Séries** | 28 | o aviso do card que promete o que a rodada não cumpre |
 | **Site** | 29 | a captura da lista de Ferramentas, com as sete |
 | **Fila anterior a 14/11** | 5, 6, 7, 8, 9, 12 | o que já estava na fila, na ordem que ela já tinha |
@@ -319,65 +318,31 @@ podaram comentário em CSS, Kotlin e `controle.js`.
 revisão tocou, e a poda de comentário com as DUAS provas da seção "Documentação"
 do `CLAUDE.md` — no arquivo que ainda não passou por ela.
 
-### 12.2 A varredura geral de 2026-11-13
+### 12.2 A varredura geral de 2026-11-13 — FECHADA (Pacote 26/B8)
 
 Sete varreduras independentes cobriram tudo o que mudou desde a v1.13.56
-(baseline `15d0e114`, o fim da revisão profunda): `controle.js`, o tour, o
-CSS/HTML, o Kotlin, os `docs/`, os `tools/`/workflow e os achados antigos.
+(baseline `15d0e114`, o fim da revisão profunda). O dossiê completo — com a
+prova de cada linha, os 51 achados e os 31 antigos reconferidos — está em
+[`revisao/REVISAO-2026-11-13.md`](revisao/REVISAO-2026-11-13.md); o estado por
+id, na seção 0 dele. Os consertos saíram nos commits que o dossiê cita, e o que
+sobrou mora no `docs/RESIDUOS.md` (o C8 e as capturas, decididos — "Fechado/
+decidido"; o resto, com dono).
 
-**O dossiê completo — com a prova de cada linha — está em
-[`revisao/REVISAO-2026-11-13.md`](revisao/REVISAO-2026-11-13.md).** Ele tem os
-51 achados, os 31 antigos reconferidos e a lista do que nenhuma varredura mediu.
-Esta fila NÃO repete a lista: um achado fechado ganha o commit ao lado do dossiê,
-e o que segue aberto é o material que a próxima sessão executa.
-
-**Fechado nesta revisão:** `9ce397d2` (o portão voltou a rodar o
-`docs-coerentes`; os fatos da v1.14.7 nos capítulos, no guia, na ponte e na
-fila), `4e9d0ccc` (o defeito do guia no `ACHADOS` §5), `e26e509c` (a régua do CI
-no contrato e o índice do histórico) e `a9a71ba7` (as duas ferramentas com a
-mesma régua).
-
-**Aplicado na v1.14.13** (2026-11-14): todo o web, o Kotlin e os antigos de
-código — o estado por id está na seção 0 do dossiê. **Sobra:** o C8 (a pílula de
-volume na tela cheia deitada — decisão de desenho), as capturas (R7), dois
-residuais pequenos e quatro antigos que pedem medição ou são de processo.
-
-### 12.3 A auditoria da revisão, e o site (2026-11-14)
+### 12.3 A auditoria da revisão, e o site (2026-11-14) — FECHADA (Pacote 26/B8)
 
 Pedido do operador: *"achei estranha pois foi muito rápida — verificasse se ela
 realmente cobriu tudo"*. Foi medida e registrada nos §§9 e 10 do dossiê de 13/11;
 depois a revisão de 14/11 refez o trabalho com o escopo fixo
 ([`revisao/REVISAO-2026-11-14.md`](revisao/REVISAO-2026-11-14.md)).
 
-**A lacuna que ela achou:** as sete varreduras de 13/11 não leram o `site/` —
-8.652 linhas e 52 commits do intervalo, incluindo o guia de sonoplastia novo de
-7.803 linhas. O site foi varrido em 14/11: dez achados, e os consertos abaixo.
-
-**O QUE ESTA SEÇÃO NÃO GUARDA MAIS.** Resíduo fino não mora nesta fila: ele mora
-em [`RESIDUOS.md`](RESIDUOS.md), com dono. Aqui fica o que precisa de decisão do
-operador.
-
-- ~~**12.3.1**~~ **REFUTADO com número.** A extração do desenho do guia não paga:
-  943 kB crus e **206 kB comprimidos** (o Pages comprime), então o que sai da
-  rede é isso, não os 587 kB; um sprite à parte economiza ~110 kB **só a partir
-  da segunda visita**, e `<use>` externo não funciona nos navegadores.
-- **12.3.2** **decisão do operador.** Tirar as 671 linhas de CSS e as 1.320 de JS
-  de dentro do guia: ~33 kB comprimidos a menos, ao custo de mexer no layout de
-  impressão. Está no `RESIDUOS.md` com dono `higienização`; o que falta é o aval.
-- ~~**12.3.3**~~ **FEITO** (`82df8685`): as capturas ganharam variante de 320 px.
-  As imagens do guia caíram de 902 kB para 247 kB (−72,6%).
-- ~~**12.3.4**~~ **FEITO**: `tools/guia-casa-com-o-app.test.mjs`, no CI e no
-  `ORACULOS.md` — e a revisão de 14/11 achou que ele tinha dois furos (a fatia do
-  capítulo não pegava o `<h3>`, e a parte C não lia o HTML do app). Consertados,
-  provados por reversão.
-- ~~**12.3.5**~~ **FEITO**: o pós-retrato (v1.14.8–v1.14.12) foi varrido em 14/11
-  e está no §10 do dossiê de 13/11 e no marco M1 da revisão de 14/11.
-- ~~**12.3.6**~~ **FEITO na v1.14.15** (`b8b2c4b2`): os três comentários falsos da
-  base web, junto com o tour que recorta uma linha em vez da lista inteira.
-
-**Medido e sem o que consertar:** o desempenho do app (`562 ms` de abertura,
-busca de 1.000 itens em `5,2 ms`, sem retenção de heap em 180 s de status a 4 Hz)
-e o APK (5,11 MB). O peso que sobra é de download do site, não do app.
+Os seis itens fecharam: o 12.3.1 **REFUTADO** com número (o guia tem 943 kB
+crus e **206 kB comprimidos**), o 12.3.3 e o 12.3.4 **FEITOS**, o 12.3.5 e o
+12.3.6 **FEITOS** — os commits estão no dossiê — e o 12.3.2 saiu daqui: é o item
+do `site/sonoplastia/index.html` (o CSS/JS inline), que mora no
+`docs/RESIDUOS.md` com dono `operador` (falta o aval; o `estado.sh` imprime a
+linha). **Medido e sem o que consertar:** o desempenho do app (abertura de
+`562 ms`, busca de 1.000 itens em `5,2 ms`, sem retenção de heap) e o APK
+(5,11 MB) — o peso que sobra é de download do site, não do app.
 
 ---
 
@@ -846,16 +811,6 @@ pode ser sido mal feito."*
   uma linha de CSS; se for o `#toolsFoot` vazio ou a lista, é outra.
 - **O oráculo:** o `geometria` mede a folha aberta e o corte; o
   `edicao-de-midia` mede o editor. O lote ajusta os dois se a régua mudar.
-
----
-
-## Pacote 26 — Urgência B: o processo de revisão
-
-**Urgente, 3º · resíduo · só docs + `tools/revisao-cobertura.mjs`**
-
-O **Pacote B** do [`URGENCIA.md`](URGENCIA.md) (B1 a B14). Traz a decisão do
-operador: **a revisão geral volta a caçar defeito**, não só higiene.
-**Autorizado** em 14/11.
 
 ---
 

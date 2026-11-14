@@ -18,6 +18,11 @@
 > ("a medir"), cujo CÓDIGO SUMIU: o `mse.js` saiu e o `StreamProxy.kt` não tem
 > cliente desde a v1.8.82.
 >
+> **ESTADO FINAL (2026-11-14, Pacote 26/B4).** Dos três, o D1 é **OBSOLETO**
+> (nada a medir: o código sumiu), e o C2/D2 seguem abertos no `docs/RESIDUOS.md`
+> (dono `medição`). **O M9 da revisão geral NÃO varre mais esta auditoria: ela é
+> apêndice congelado.**
+>
 > A tabela abaixo guarda o estado de cada um.
 
 **A pergunta:** *o que pode INTERROMPER a transmissão, ou a mídia que está no ar

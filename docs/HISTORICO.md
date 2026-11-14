@@ -31,6 +31,7 @@ apagada da que a criou.
 ## Índice
 
 - **o Pacote 25: o rito de entrega (sem versão nova; `tools/`, workflow e docs)** — os 11 apontamentos A da revisão de 14/11: direto em `main` sem `claude/**`, o portão como último passo e com teto na vizinhança, o gatilho da Release cobrado por máquina, três casas da versão, o rito numerado no BUILD, a regra do CI vermelho, o histórico e o RES cobrados, o `acorn` declarado.
+- **o Pacote 26: o processo de revisão (sem versão nova; docs e `tools/`)** — os 14 apontamentos B da revisão de 14/11: a revisão caça defeito, a base é o HEAD medido, as auditorias congeladas com os abertos no RES, o ACH esvaziado, a revisão profunda encerrada e a ferramenta de cobertura com títulos, binário fora e `--tabela`.
 - **o Pacote 24: as instruções desta máquina consertadas (sem versão nova; docs, `tools/` e arquivos da máquina)** — os 12 apontamentos da revisão de 14/11: a reversão do patch, o cofre primeiro no `estado.sh` e na receita, os tetos sem dólar, o `AGENTS.md` enxuto, o `--ci` citado, o ATIVO.md aposentado, o `send_later` fora, o teto no meio do lote, e regras para portas e backups.
 - **v1.14.16** — o tour volta a destacar o conjunto inteiro no Relógio, no Sorteio e no Itinerário, e saem três comentários falsos e cinco imagens órfãs; só web.
 - **v1.14.15** — o Histórico e o Transferir destacam a primeira linha do gesto em vez da lista inteira, e saem três comentários falsos; só web.
@@ -801,6 +802,54 @@ sem Release; o `web-ota` republica a mesma v1.14.16 (o aparelho ignora).
   `retag`, `permitir_regressao` e a guarda anti-regressão).
 - **A11 · sem pagar duas vezes** (`portao.sh`, CL): o passo 2 roda só os puros
   que a Sanidade não roda (os dela, no passo 3); o "~8 s" saiu.
+
+## o Pacote 26 — o processo de revisão (sem versão nova; docs e `tools/`)
+
+O **Pacote 26** — o Pacote B do `docs/URGENCIA.md`, o terceiro dos quatro da
+revisão de 14/11. Traz a decisão do operador: **a revisão geral volta a caçar
+defeito, não só higiene**. Nada toca a base web: sem versão nova, sem Release.
+
+- **B1 · a decisão pendente não se perde** (CL, RES, `estado.sh`): todo resíduo
+  com dono `operador` ganha pacote na fila, e o `estado.sh` imprime essas linhas
+  enquanto não ganham.
+- **B2 · o escopo dos marcos** (RG): M1–M8 varrem o intervalo + o que depende
+  dele; M9 e M10 são integrais.
+- **B3 · a base da próxima revisão** (RG): é o HEAD MEDIDO, gravado no topo do
+  dossiê — nunca o commit da faxina (o buraco do "pós-retrato").
+- **B4 · as auditorias congeladas** (RES, `revisao-cobertura.mjs`, auditorias):
+  os abertos migraram UMA vez para o RES — o `:5705` e o resíduo de `:8884`
+  seguem abertos (dono `higienização`); K12 OBSOLETO (o `soltar()` sumiu), M1
+  DECIDIDO, `:19952` RESOLVIDO (o carimbo viaja nos dois sentidos), o desfecho
+  do lote 3b RESOLVIDO (o denominador entrou) e o #5 da EFICIENCIA RESOLVIDO
+  (as duas pontas dizem "de hora em hora"). Cada auditoria ganhou o carimbo de
+  estado final, e o M9 da revisão geral varre só RES + ACH.
+- **B5 · a revisão caça defeito** (RG): a lista de verificação da revisão
+  profunda (defeito com cenário, culto, código morto, duplicação, desempenho,
+  comentário, invariantes, cobertura) é a lista comum a todos os marcos, com o
+  método de refutação junto.
+- **B6 · cobrado por máquina**: a versão no RES já era cobrada (A8); conferido.
+- **B7 · o verde reproduz** (`revisao-cobertura.mjs`, RG): o dossiê grava o
+  `--head` e o fecho roda com ele; binário fica fora da conta; o dossiê declara
+  os DEZ títulos de marco, e a ferramenta cobra.
+- **B8 · uma casa por item** (RES, PED): o 12.3.2 saiu da fila e mora no RES com
+  dono `operador` (falta o aval); as linhas decididas desceram para
+  "Fechado/decidido"; o 12.2/12.3 da fila foram limpos.
+- **B9 · o ACH esvaziou** (ACH, HISTORICO): os §§1–3 e 6 fecharam por resposta
+  ou decisão do operador, o §5 foi CORRIGIDO na v1.14.13 (nada de `java/` mudou
+  depois da tag — o "falta o APK" era falso), e o §4 migrou para o RES (dono
+  `CI`). O arquivo ficou com a lista dos abertos — vazia.
+- **B10 · a revisão profunda encerrada** (RP, REGISTRO, CL, RG): faixa
+  "ENCERRADA em 2026-11-09 — use a REVISAO-GERAL" no topo dos três, e a tabela
+  "Onde procurar" do CL aponta a revisão geral.
+- **B11/B12 · a revisão é uma sessão** (RG): ela FECHA no dossiê, o conserto é
+  do lote seguinte, um agente por marco com teto de 30 passos; nas cinco etapas
+  a revisão é a etapa 2, marco não se anuncia, e sem conserto não há etapa 4.
+- **B13 · uma tabela só de marcos** (`revisao-cobertura.mjs --tabela`, RG): os
+  padrões moram na ferramenta e o RG a copia — as divergências de nome solto,
+  `controle/` e `capturas/` morreram com a cópia.
+- **B14 · um vocabulário** (RG): achado é CONFIRMADO · REFUTADO · OBSOLETO;
+  marco é limpo (com prova) ou com achados; o RES guarda aberto e
+  Fechado/decidido. Gravidade A/M/B, critério de parada e ordem escritos.
 
 ## o Pacote 24 — as instruções desta máquina consertadas (sem versão nova; docs, `tools/` e arquivos fora do repositório)
 
