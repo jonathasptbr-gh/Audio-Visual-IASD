@@ -29,8 +29,8 @@ abrir, e o capítulo se abre **por âncora** (`grep` antes, o trecho depois).
 Nenhum dos dois se lê inteiro.
 
 **O teto é 20–25 kB.** O que passar disso não é contrato, é área: muda para o
-capítulo dono e aqui fica a linha. A dieta de 2026-11-14 (Pacote 27) tem o mapa
-em [`docs/revisao/A2-INVENTARIO.md`](docs/revisao/A2-INVENTARIO.md).
+capítulo dono e aqui fica a linha. O mapa desta dieta está na nota do Pacote 27,
+no `docs/HISTORICO.md`.
 
 | # | seção deste arquivo | quando abrir |
 |---|---|---|
