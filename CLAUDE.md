@@ -323,12 +323,16 @@ asserção. O que fica aqui é o MÉTODO, que vale para todos.
 
 - **E A LISTA DO CI NÃO É `tools/*.test.mjs`.** O `smoke.mjs` e o
   `display-smoke.mjs` medem o RENDERIZADO e não têm esse sufixo: um runner que
-  filtre por ele os pula em silêncio e devolve placar cheio. A lista certa sai
-  do workflow, e o `portao.sh` usa exatamente esta:
+  filtre por ele os pula em silêncio e devolve placar cheio. **A conferência é
+  nos DOIS sentidos**, e o passo 4 do `portao.sh` a faz com `comm -3` entre
+  `ls tools/*.test.mjs` e os caminhos que o `apk.yml` cita. O passo 2 (Node puro)
+  usa a mesma lista do disco menos quem **importa** o arnês — o filtro é
+  `from './arnes.mjs'`, nunca a menção ao nome (o furo de 2026-11-13: o
+  `docs-coerentes` NOMEIA o arnês num Set e era o único puro fora do portão):
 
   ```bash
-  grep -oE 'tools/[a-z0-9._-]+\.mjs' .github/workflows/apk.yml | sort -u \
-    | grep -vE 'arnes|checar|sem-rede|pares-de-comentario'
+  comm -23 <(ls tools/*.test.mjs | sort) \
+           <(grep -lE "from '(\./)?(arnes\.mjs|playwright)'" tools/*.test.mjs | sort)
   ```
 
 - **E OS ORÁCULOS NÃO SÃO O PASSO INTEIRO.** A *"Sanidade da base web"* é um
