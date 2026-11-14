@@ -266,6 +266,48 @@ código — o estado por id está na seção 0 do dossiê. **Sobra:** o C8 (a p�
 volume na tela cheia deitada — decisão de desenho), as capturas (R7), dois
 residuais pequenos e quatro antigos que pedem medição ou são de processo.
 
+### 12.3 A auditoria da revisão, e o site (2026-11-14)
+
+Pedido do operador: *"achei estranha pois foi muito rápida — verificasse se ela
+realmente cobriu tudo"*. Foi medida e registrada no §9 e no §10 do dossiê.
+
+**A lacuna que ela achou:** as sete varreduras de 13/11 não leram o `site/` —
+8.652 linhas e 52 commits do intervalo, incluindo o guia de sonoplastia novo de
+7.803 linhas. A varredura de 14/11 fez esse trabalho: dez achados, dois de texto
+velho já corrigidos (o "Editar mídia" mandado para Configurações e o "Tour do
+app"), uma suspeita refutada (as classes `pag-col-e/d` são montadas pelo JS).
+
+**O que sobra, e não é conserto de uma linha:**
+
+- **12.3.1** o guia é um arquivo de 966 kB e 61,4% é SVG inline (587 kB, 267
+  `<svg>`); extrair para um sprite cacheável é o ganho grande.
+- **12.3.2** 671 linhas de CSS e 1.320 de JS inline no mesmo HTML, nada cacheável.
+- **12.3.3** as 18 capturas de `site/telas/` são 800×1632 (990 kB) e o guia as
+  pinta a 150 px: uma variante de 320 px serviria quatro delas.
+- **12.3.4** um oráculo que case os `nome:` de `FERRAMENTAS` do `controle.js` com
+  os títulos do guia — foi a ausência dele que deixou os dois erros passarem
+  verdes.
+- **12.3.5** o pós-retrato (v1.14.8–v1.14.12, 1.619 inserções) não teve varredura
+  própria; a de 14/11 cobre o intervalo, e o que sobrar dela entra aqui.
+- **12.3.6** TRÊS comentários falsos na base web, achados e conferidos em
+  14/11 mas **deixados de fora do lote de docs/site** porque mexer em
+  `controle.js`/`controle.css` exige as quatro casas da versão (e o `web-ota`
+  publica em todo push em `main`). Vão no próximo lote web:
+  `controle.css:1101` cita o `MARGEM_RECORTE`, constante que morreu — hoje o
+  tour usa `ANEL = 2`; `controle.js` (perto de `temAlgo`) promete "o peso no
+  rótulo do Exportar", e o rótulo só tem o desenho e a palavra; e o comentário
+  do `Tour do app` ainda chama o quadrado de "CAIXA de marcação (v1.14.5)".
+
+**Achados do pós-retrato que pedem decisão de projeto, não conserto de uma
+linha** (registrados no §10 do dossiê): o tour de Transferir e Histórico usa
+seletor COLETIVO e destaca a lista inteira em vez da linha; e há duas asserções
+do `tour.test.mjs` que passariam com o código de volta (`s.configuracoes`, e a
+pré-marcação de `chaves()` antes de abrir a folha).
+
+**Medido e sem o que consertar:** o desempenho do app (`562 ms` de abertura,
+busca de 1.000 itens em `5,2 ms`, sem retenção de heap em 180 s de status a 4 Hz)
+e o APK (5,11 MB). O peso que sobra é de download do site, não do app.
+
 ---
 
 ## Pacote 13 — Estudos (não são fila de execução)

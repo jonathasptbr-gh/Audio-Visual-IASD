@@ -372,13 +372,10 @@ try {
     });
     checar(bloco.escondidos.length === 0,
       'C · no APP os dois tiles deste aparelho estão à vista', bloco);
-    // A ORDEM É A DA GRADE INTEIRA (v1.11.7: oito tiles). O que se ajusta vem
-    // primeiro — o tema do app, a janela da Tela, o Histórico, a saída de áudio,
-    // os dados móveis e a verificação — e as duas coisas que se fazem com o APP
-    // fora da projeção ficam juntas e por último. Quem garante que elas ficam
-    // numa FILEIRA inteira é o `grid-column: 1` do `#shareAppTile` (medido por
-    // geometria no `saida-de-audio-e-economia.test.mjs`, que é onde a régua de
-    // PIXEL mora — e independe de quantas preferências vêm antes). O que mora
+    // A ORDEM É A DA GRADE INTEIRA (oito tiles): o tema, a janela da Tela, os
+    // dados móveis, o Histórico, a verificação, Compartilhar, Transferir e, por
+    // último, o Tour do app. Não há coluna forçada nenhuma — a grade é uma
+    // `.qs-grade` de três colunas, e a fileira é o que a contagem dá. O que mora
     // DENTRO das janelas (a Tela e o Transferir) está no
     // `configuracoes-janelas.test.mjs`.
     checar(bloco.grade.join(',') === 'temaTile,telaTile,dadosMoveisTile,'

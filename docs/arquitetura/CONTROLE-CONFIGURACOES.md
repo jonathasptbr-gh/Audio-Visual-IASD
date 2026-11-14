@@ -50,13 +50,13 @@ altura. Hoje é uma **grade de três colunas** de tiles: **ícone e título curt
 e o toque **alterna** — o painel rápido de um celular. (A palavra do estado, que
 era uma segunda linha em cada tile, saiu na v1.7.2; ver a regra 2 abaixo.)
 
-**A GRADE TEM OITO TILES E TRÊS COLUNAS** (v1.11.7), na ordem da tabela, de cima
-para baixo: o que se **ajusta** (seis) e, numa fileira própria, o que se faz com
-o **APP fora da projeção** (dois). Pedido do operador (v1.7.6): *"reordene os
-botões: compartilhar, exportar e importar devem ser os tres itens da base"* — e
-hoje são **Compartilhar e Transferir**, porque exportar e importar viraram um
-tile só (ver abaixo). O que faz a fileira do aparelho começar sozinha, com a
-ponte ou sem ela, é `#shareAppTile { grid-column: 1 }` no CSS.
+**A GRADE TEM OITO TILES E TRÊS COLUNAS** (v1.11.7), numa grade só
+(`.qs-grade`, sem coluna forçada), nesta ordem: Tema · Tela · Dados móveis ·
+Histórico · Verificar · Compartilhar · Transferir · Tour do app. Seis **ajustam
+o app**; Compartilhar e Transferir **saem do aparelho**. Pedido do operador
+(v1.7.6): *"reordene os botões: compartilhar, exportar e importar devem ser os
+tres itens da base"* — e hoje são **Compartilhar e Transferir**, porque exportar
+e importar viraram um tile só (ver abaixo).
 
 Em nativo a grade tem OITO tiles, na ordem Tema · Tela · Dados móveis ·
 Histórico · Verificar · Compartilhar · Transferir · Tour do app; no navegador
@@ -66,12 +66,12 @@ são SEIS (Compartilhar e Transferir são `hidden`).
 |---|---|---|---|---|
 | Tema | `#temaTile` | `escuro` · `claro` | **sempre** | `#icoLua` / `#icoSol` |
 | **Tela** | `#telaTile` | — (abre a seção da Tela) | **sempre** (classe no HTML) | `#icoTela` |
-| Histórico | `#histOpenRow` | — (abre a seção) | **sempre** (classe no HTML) | `#icoHistorico` |
 | Dados móveis | `#dadosMoveisTile` | `on` · `off` | **sempre** | `#icoDadosMoveisOff` / `#icoDadosMoveis` |
+| Histórico | `#histOpenRow` | — (abre a seção) | **sempre** (classe no HTML) | `#icoHistorico` |
 | Verificar | `#testeTile` | — (abre a seção) | **sempre** | `#icoVerificar` |
-| Tour do app | `#tourBtn` | `on` · `off` | **sempre** | `#icoTourOff` / `#icoTour` |
 | Compartilhar | `#shareAppTile` | `app` | **sempre** | `#icoCompartilhar` |
 | **Transferir** | `#pacoteTile` | `ocioso` · `ocupado` · `pronto-para-enviar` | **sempre** | `#icoTransferir` / `#icoCompartilhar` (pronto) · o ARO no lugar dele em curso |
+| Tour do app | `#tourBtn` | `on` · `off` | **sempre** | `#icoTourOff` / `#icoTour` |
 
 #### As SEÇÕES de Configurações (v1.12.48)
 
@@ -249,10 +249,10 @@ quer dizer INDISPONÍVEL** (`opacity: .3` + `disabled`), e é a queixa da v1.4.2
 palavra do estado saiu na v1.7.2, a cor saiu na v1.7.6, e o desenho é o único
 canal que sobrou. *Um estado que não caiba num desenho não cabe nesta grade.*
 
-**A fileira do aparelho começa sozinha** (`#shareAppTile { grid-column: 1 }`): a
-v1.7.6 media a última fileira CHEIA, e aquilo era um atalho verdadeiro enquanto o
-grupo do aparelho tinha exatamente três tiles. O oráculo mede a propriedade (o
-grupo do aparelho começa uma fileira nova), não o atalho.
+**A fileira do aparelho não começa sozinha** (v1.14.7): a v1.7.6 media a última
+fileira CHEIA, e o `grid-column: 1` existiu enquanto o grupo do aparelho tinha
+exatamente três tiles. Com o Tour do app entrando como oitavo tile não há coluna
+forçada nenhuma — o que o oráculo afirma é a ORDEM dos oito ids na `.qs-grade`.
 
 **Os tiles que dependem da ponte são `hidden` um a um fora do app**
 (`pacoteRenderTiles`): Saída de áudio, Compartilhar e Transferir — o seletor do
