@@ -286,6 +286,7 @@ jobs:
           node tools/glifos.test.mjs
           node tools/cifra.test.mjs
           node tools/louvorja-url.test.mjs
+          node tools/guia-casa-com-o-app.test.mjs
 
       # ---------- O ORÁCULO QUE NÃO ESTÁ NA LISTA NÃO PROTEGE ----------
       # A varredura que antes era feita À MÃO (a linha `comm -3` do CLAUDE.md)
