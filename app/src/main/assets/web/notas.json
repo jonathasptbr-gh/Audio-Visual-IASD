@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.14.11",
+    "itens": [
+      "O destaque azul do tour agora encosta na borda da tela sem cortar a linha: ela aparece inteira, inclusive na lista do Cronograma.",
+      "O destaque continua envolvendo o elemento por inteiro, como você pediu na volta atrás."
+    ]
+  },
+  {
     "versao": "1.14.10",
     "itens": [
       "O tour não abre mais na primeira tela das Configurações; ele ficou nas seções que precisam: Histórico e Transferir.",

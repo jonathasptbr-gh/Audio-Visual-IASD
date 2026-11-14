@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.11** — o anel do destaque encosta na borda sem cortar, e o recorte segue envolvendo a peça inteira
 - **v1.14.10** — o tour só nas seções que precisam (Histórico e Transferir), e a transferência com a régua da Biblioteca
 - **v1.14.9** — no mudo da prévia, o número manda e o alto-falante fica menor, no canto
 - **revisão de resíduos pós-v1.14.7 (sem versão nova; `tools/`, docs e site)** — o portão voltou a rodar o `docs-coerentes` (o filtro casava a MENÇÃO ao arnês e pulava o único puro de fora), o comentário do placar do CI parou de copiar "134", e os fatos da v1.14.7 saíram dos capítulos, do guia e da ponte (67 · 73 · 73); o que ficou medido está no Pacote 12.2 da fila.
@@ -1367,6 +1368,31 @@ docs: nada chega ao app.
 - **Não medido:** a impressão física (impressora real, frente e verso pela
   borda longa, furo no fichário) e a impressão de dentro do app (o WebView do
   Android provavelmente ignora `window.print()` — daí o aviso).
+
+## v1.14.11 — o anel do destaque encosta na borda sem cortar
+
+**Pedido do operador** (2026-11-13, depois de ver o tour no Cronograma), **só
+web**: *"as laterais azuis do highlight esquerda e direita saem da tela … Pode
+fazer uma única restrição … apenas use esses limites que já temos como o da borda
+do foco do controle e afins que vai até a borda, mas não fura ela."*
+
+- **O que faltava:** o recorte voltou a envolver a peça INTEIRA na v1.14.8, mas o
+  anel azul é desenhado 2px POR FORA da caixa (`box-shadow: 0 0 0 2px`). Numa peça
+  de borda a borda — a lista do Cronograma é uma — metade da linha caía fora da
+  tela. Agora a caixa recua só os 2px do anel e o anel termina exatamente na borda
+  da área visível: a MESMA régua do foco dos controles do app, que encosta e não
+  fura. Nada de margem: 2px é a espessura da linha, não um recuo de conforto.
+- **O balão segue a 16px** de todas as bordas (v1.14.7) e o recorte segue sendo a
+  peça inteira mais a folga de 6px (v1.14.8).
+- **Oráculo:** `tools/tour.test.mjs` — `recorteBate` passa a exigir o piso e o teto
+  de 2px (o anel) em vez de 0…tela, em todos os blocos.
+- **Conserta o CI da v1.14.10:** o oráculo da Transferência ainda cobrava o peso NA
+  NOTA ("Exportar leva até…", e "desmarcar muda a nota"); ele passa a exigir a nota
+  fixa do Importar e o "N de M · até X" da SEÇÃO como a resposta ao dedo — que é o
+  que a v1.14.10 deixou.
+- **Não medido:** aparelho fraco; a 360×640 e 390×860 foi o oráculo. Só web:
+  `minShell` 83, sem `shellTag` (a Release segue a 1.14.6).
+
 
 ## v1.14.10 — o tour só nas seções que precisam, e a transferência com a régua da Biblioteca
 

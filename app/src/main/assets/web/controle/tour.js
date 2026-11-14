@@ -40,6 +40,7 @@
   const VIGIA_MS = 250;
   const FOLGA = 6;      // o recorte passa a peça por esta margem
   const MARGEM = 16;    // o balão nunca encosta na borda da tela
+  const ANEL = 2;       // a espessura do anel azul (`box-shadow: 0 0 0 2px`), desenhada POR FORA
   const VAO = 10;       // entre o recorte e o balão
 
   // A ÁREA VISÍVEL é a do `visualViewport` quando ele existe: com o teclado ou a
@@ -480,14 +481,16 @@
     if (!r) {
       left = (vw - w) / 2; top = Math.max(MARGEM, (vh - h) / 2);
     } else {
-      // O RECORTE É A PEÇA (v1.14.8; o recuo de 20px da v1.14.7 saiu a pedido do
-      // operador de 2026-11-13: ele deixava a peça de borda a borda pouco coberta e
-      // distorcia o ponto de foco em vários casos). Ele volta a envolver a peça
-      // inteira, preso só à tela; numa peça colada à borda o anel fica rente e o halo
-      // pode ser cortado — o preço que o operador escolheu, e o piso de 12px da
-      // pílula de volume resolve o caso que motivou o recuo.
-      const l = Math.max(0, r.left - FOLGA), t = Math.max(0, r.top - FOLGA);
-      const rr = Math.min(vw, r.right + FOLGA), bb = Math.min(vh, r.bottom + FOLGA);
+      // O ANEL NÃO FURA A TELA (v1.14.11). O recorte volta a envolver a peça
+      // INTEIRA — o recuo de 20px da v1.14.7 saiu na v1.14.8 porque deixava a peça
+      // de borda a borda pouco coberta e distorcia o foco —, mas o anel azul é
+      // desenhado 2px POR FORA da caixa: então a caixa recua só esses 2px e o anel
+      // termina exatamente na borda da área visível. Numa peça colada à borda a
+      // linha aparece inteira, em vez de metade dela sumir para fora da tela.
+      // É a MESMA régua do foco dos controles do app: encosta, não fura.
+      const preso = (v, max) => Math.min(max - ANEL, Math.max(ANEL, v));
+      const l = preso(r.left - FOLGA, vw), t = preso(r.top - FOLGA, vh);
+      const rr = preso(r.right + FOLGA, vw), bb = preso(r.bottom + FOLGA, vh);
       rec = { l, t, w: Math.max(0, rr - l), h: Math.max(0, bb - t) };
       rec.raio = raioDe(passo, rec.w, rec.h);
       const cx = (l + rr) / 2;

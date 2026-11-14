@@ -658,9 +658,10 @@ try {
   checar(fechada.secoes === 1 && fechada.marcadas === fechada.caixas && fechada.caixas > 0,
     'D · a seção da Biblioteca nasce FECHADA e com TUDO marcado — o que se faz '
     + 'aqui é tirar', JSON.stringify(fechada));
-  checar(/^Exportar leva até /.test(fechada.nota) && /só acrescenta/.test(fechada.nota),
-    'D · e a nota acima dos botões diz o PESO do que vai ("até X", o teto) e a '
-    + 'promessa do Importar', fechada.nota);
+  checar(/^Importar traz só o que estiver marcado/.test(fechada.nota) && !/até \d/.test(fechada.nota),
+    'D · a nota acima dos botões NÃO diz mais o peso (v1.14.10, pedido do operador: '
+    + '"essa linha é desnecessária"): ela só promete o Importar, e o peso mora no '
+    + '"até X" de cada linha', fechada.nota);
   await tocar(com.pg, '#pacoteLista .pacote-seta');
   // ESPERAR PELAS DUAS LINHAS SEMEADAS, e LER o desfecho da espera. Os álbuns
   // moram no corpo da seção, que só existe depois do toque na seta (acordeão
@@ -696,19 +697,22 @@ try {
     + 'o texto "[object HTMLSpanElement]"', JSON.stringify(cheia.icones));
   checar(cheia.textos.every((t) => !/\[object/.test(t)),
     'D · e o texto da linha não contém "[object …]" em ponto nenhum', JSON.stringify(cheia.textos));
-  // TIRAR UMA COLEÇÃO MUDA A NOTA: é a pergunta "cabe no cartão?" respondida a
-  // cada toque, e sem ela a nota seria uma frase fixa.
+  // TIRAR UMA COLEÇÃO MUDA A SEÇÃO: o peso não mora mais na nota (v1.14.10, pedido
+  // do operador), mas o "N de M · até X" do cabeçalho da seção continua respondendo
+  // ao dedo — é a pergunta "cabe no cartão?" respondida a cada toque.
+  // A NOTA É FIXA desde a v1.14.10 (o peso saiu dela, pedido do operador): desmarcar
+  // uma coleção muda a MARCAÇÃO, e a nota continua a mesma — o peso mora no "até X"
+  // de cada linha, que o bloco acima já cobra.
   const notaAntes = cheia.nota;
   await com.pg.evaluate(() => {
     const li = [...document.querySelectorAll('#pacoteLista .pacote-linha')]
       .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Álbum Dois');
     if (li) li.querySelector('button').click();
   });
-  const mudou = await esperar(com.pg, (antes) => document.getElementById('pacoteNota').textContent !== antes, notaAntes, 10000);
   const depois = await lerLista(com.pg);
-  checar(mudou === true && depois.marcadas < cheia.marcadas,
-    'D · desmarcar uma coleção MUDA o peso da nota — ela acompanha a escolha',
-    porque(mudou) || JSON.stringify([notaAntes, depois.nota]));
+  checar(depois.nota === notaAntes && depois.marcadas < cheia.marcadas,
+    'D · desmarcar uma coleção muda a MARCAÇÃO e deixa a nota igual — o peso saiu da nota na v1.14.10',
+    JSON.stringify([notaAntes, depois.nota, cheia.marcadas, depois.marcadas]));
 
   // ---- D3 · OS DOIS BOTÕES MORAM NA BASE, FORA DO SCROLLER, LADO A LADO ----
   const baseJ = await com.pg.evaluate(() => {
