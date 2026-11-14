@@ -243,52 +243,27 @@ podaram comentário em CSS, Kotlin e `controle.js`.
 revisão tocou, e a poda de comentário com as DUAS provas da seção "Documentação"
 do `CLAUDE.md` — no arquivo que ainda não passou por ela.
 
-### 12.2 A varredura geral de 2026-11-13 — o que ficou medido
+### 12.2 A varredura geral de 2026-11-13
 
-Sete varreduras cobriram tudo o que mudou desde a v1.13.56 (baseline `15d0e114`,
-o fim da revisão profunda): `controle.js`, o tour, o CSS/HTML, o Kotlin, os
-`docs/`, os `tools/` e os achados antigos. **Corrigido no commit `9ce397d2`**
-(sem versão nova): o portão voltou a rodar o `docs-coerentes`, os fatos da
-v1.14.7 nos capítulos, o guia, a ponte (67 · 73 · 73) e a fila. **O que segue
-abaixo foi medido e NÃO corrigido** — cada linha é um conserto de uma a três
-linhas, e o lote é que decide o custo.
+Sete varreduras independentes cobriram tudo o que mudou desde a v1.13.56
+(baseline `15d0e114`, o fim da revisão profunda): `controle.js`, o tour, o
+CSS/HTML, o Kotlin, os `docs/`, os `tools/`/workflow e os achados antigos.
 
-**Web — pede versão e a vizinhança do Chromium:**
+**O dossiê completo — com a prova de cada linha — está em
+[`revisao/REVISAO-2026-11-13.md`](revisao/REVISAO-2026-11-13.md).** Ele tem os
+51 achados, os 31 antigos reconferidos e a lista do que nenhuma varredura mediu.
+Esta fila NÃO repete a lista: um achado fechado ganha o commit ao lado do dossiê,
+e o que segue aberto é o material que a próxima sessão executa.
 
-| onde | o quê |
-|---|---|
-| `controle.js:14381` | `favItemRow` recebe `pos` e nenhum consumidor o lê (sobrou do par ↑↓) |
-| `controle.js:11604` | o ramo `semSlot` não é exercido por chamador nenhum |
-| `controle.js:961` × `24664` | `chaveDeNome` e `normalizeForSearch` são a mesma regra com duas tabelas de acento |
-| `controle.js:13786` | o seletor repete `.segurando`/`.arrastando`, que `dedoNaLinhaDoAcervo` já lê |
-| `controle.js:950`, `4390`, `45517`, `45374` | quatro comentários que descrevem o mecanismo de ontem |
-| `controle.css:1092` | o bloco do fader vertical, morto desde a pílula |
-| `controle.css:9544` | seis regras `.fav-acoes*` sem criador no DOM |
-| `controle.css:13159` | `.cfg-ajuda{display:flex;gap}` com UM filho — inerte |
-| `controle.css:8217` · `index.html:2096` | listas de tiles de antes da v1.14.7 (o "Saída de áudio") |
-| `controle.css:1141` | `.vol-pill.na-previa` fixa `top` e `bottom` — estica em vez de assentar (SUSPEITA; conferir em tela) |
-| `tour.js:186` | `ferr-edicao` em `modos: AMBOS`, mas a folha só existe no avançado (o reset indevido) |
-| `tools/tour.test.mjs` | `s.letra` é o único tour de seção sem bloco; `LINHA_PX` é exportado "para o oráculo" e o teste escreve o número à mão |
+**Fechado nesta revisão:** `9ce397d2` (o portão voltou a rodar o
+`docs-coerentes`; os fatos da v1.14.7 nos capítulos, no guia, na ponte e na
+fila), `4e9d0ccc` (o defeito do guia no `ACHADOS` §5), `e26e509c` (a régua do CI
+no contrato e o índice do histórico) e `a9a71ba7` (as duas ferramentas com a
+mesma régua).
 
-**Kotlin — pede APK + Release:**
-
-| onde | o quê |
-|---|---|
-| `MainActivity.kt:1706-1726` | dois KDoc empilhados: o de `openExternalUrl` ficou sobre o `abrirGuia` |
-| `NativeBridge.kt:1129` | `abrirGuia` devolve `true` antes de a tela abrir (o UI thread pode recusar) e o JS não cai no `openExternal` |
-| `YoutubeGrab.kt:1279` | `val dash` é calculado e ninguém lê |
-| `GuiaSom.kt:46` | `SITE_HOST` é público e só tem uso interno |
-| `docs/BUILD.md:239` | põe o `GuiaSomTest` entre os PUROS; ele roda só no Gradle |
-
-**Docs e repo — sem versão:**
-
-| onde | o quê |
-|---|---|
-| `docs/HISTORICO.md` §índice | v1.14.3, v1.14.4 e v1.14.5 têm seção e não têm linha no índice |
-| `CLAUDE.md:326` | a "lista do CI" documentada não é a que o `portao.sh` executa |
-| `capturas/entrada/` | as 18 já viraram `site/telas/`; não há candidato, e a pasta são 3,7 MB de origem |
-| `AUDITORIA-2026-09-11` | 11 dos 23 seguem abertos: [0] [1] [2] [5] [9] [10] [23] [25] [37] e os imports de `EspelhoServidor.kt` e `ShellUpdater.kt` |
-| `AUDITORIA-ESTABILIDADE-AV` | C2 (o empurrão da tela sem medição) e D2 (`telasDaRede` filtram `pronta`, não "tem som") seguem abertos |
+**Aberto:** 25 no web (23 consertos de uma a três linhas e 2 suspeitas que pedem
+tela — C8 e T4), 6 no Kotlin (K2 é defeito), 1 nas ferramentas (as capturas, que
+são decisão do operador) e os 16 achados antigos da seção 7 do dossiê.
 
 ---
 
