@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.18** — a higienização C: as 14 lápides podadas, a gaveta que retoma o slot ao reabrir, o `naoResta` inalcançável, 17 ponteiros de documentação repontados e a rodada da série descrita como ela é; base web e `java/` (só comentário no Kotlin), com Release.
 - **v1.14.17** — o tour: o conjunto certo em três passos, o re-sortear fora do destaque, e o oráculo que distingue a peça certa da primeira casada; só web.
 - **a higienização A: o fino dos docs e das ferramentas (sem versão nova; `docs/`, `tools/` e o contrato)** — 13 resíduos fechados: a régua do RESIDUOS cobra o Aberto e não o exemplo, o portão só pula o oráculo EXECUTADO, o `estado.sh` não morre sem `origin/main`, o `versao.mjs` nasceu, a fixture do Registro ganhou os campos do shell, e números e ponteiros foram corrigidos.
 - **a revisão geral B (sem versão nova; só `docs/`)** — os dez marcos de `ea612559` a `02957d08`: 32 achados confirmados, 7 refutados e 3 obsoletos; as duas tabelas da fila alinhadas e 15 resíduos finos com dono.
@@ -750,6 +751,76 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.18 — a higienização C: as lápides, o slot da gaveta e os ponteiros
+
+**v1.14.18 (base web e `java/` — no Kotlin só comentário; com `shellTag` e
+Release)** — os cinco resíduos de dono `higienização` que restavam em
+`docs/RESIDUOS.md`, fechados numa sessão. Quatro deles são TEXTO: só um muda
+comportamento, e é a gaveta da linha do hinário.
+
+**A GAVETA JÁ MONTADA NÃO RETOMAVA O SLOT — e por isso a ação caía no item
+errado.** `songMenuFor`, `destExecutor`, `destRemontar` e `destMarcados` são um
+slot de MÓDULO, e a gaveta montada continua em cena quando outra linha toma o
+slot para si: reabrir a linha A não remonta nada (a guarda `gavetaMontada`), e o
+`alvo` que o `openYtMenu`/`renderSongMenu` leem no toque é o da última aberta.
+O desfecho é o do achado `:8884` da auditoria de agosto, que a v5.302 consertou
+no `linhaDeItem` mandando-o remontar sempre: o seletor tocado em A redesenhava a
+folha de B, e o "Confirmar" da folha de um vídeo executava sobre B. Aqui a
+montagem custa uma leitura de IndexedDB (a busca do episódio) e uma de mídia por
+vídeo, então o conserto não remonta: a gaveta guarda o que deixou
+(`donoDaGaveta`) e REPÕE no toque. O `destinos-diretos` ganhou o bloco **F** —
+reabrir A depois de B e afirmar que o `songMenuFor` voltou a apontar para as
+opções de A —, e a reversão foi MEDIDA antes do conserto: `devolveu:false,
+aindaB:true`; depois dele, verde.
+
+**O `naoResta` SAIU — e a prova é que os dois caminhos que chamam o `doDraw`
+estão apagados.** A função escrevia "escreva as opções" / "todas já saíram" no
+mostrador do sorteio, e só o `v == null` do `doDraw` a alcançava. O botão do
+painel (`#drawGoBtn`) e o par do transporte (`slideNextBtnEl`) saem com
+`disabled = drawGoApagado()`, que é a MESMA conta do `v == null` — e o
+`renderFoot` repinta os dois a cada mutador. Ficou `if (v == null) return;`, e as
+duas frases continuam na tela: são o `title` desses botões (o `ferramentas-folha`
+cobra a primeira).
+
+**AS 14 LÁPIDES.** `controle.js` e `controle.css` tinham 14 comentários que só
+narravam código removido ("saiu na vX", de `v1.3.5` a `v5.292`). Saíram a
+história e a citação morta; ficou a REGRA que ainda governa — por que o fecho é
+por `pointerdown` em captura, por que a lista de favoritos não redesenha a seção,
+por que o card não tem faixa lateral, por que o `mirror-body` não se renomeia. As
+duas provas do `PODA-DE-COMENTARIO.md`: o diff sem comentários contra o `HEAD`
+saiu VAZIO nos dois arquivos, e o `pares-de-comentario.mjs` aprovou os 3.628
+blocos do JS e os 880 do CSS sem nenhum bloco trocando de símbolo. Saldo: −39
+linhas.
+
+**OS PONTEIROS.** 20 referências mandavam ao `CLAUDE.md` por conteúdo que ele
+entregou aos capítulos (contagem recontada; o resíduo dizia 19): 17 erradas, 3
+legítimas, em 16 arquivos — 7 do Kotlin e 9 da base web. Foram para
+`NUCLEO-TECNICO.md` (as invariantes, a regra do diagnóstico, a paleta, o
+`nowPlaying`, o OTA), `docs/recursos/CIFRA.md` (o ler-calcular-gravar),
+`docs/DIVERGENCIAS-WEB-NATIVO.md` (o `currentId` que sobrevive ao Parar) e
+`docs/arquitetura/CAMADA-DE-TEXTO.md` (o Hinário, a Camada de Texto). Onze
+âncoras foram conferidas com a MESMA função de slug do `docs-coerentes`: nenhuma
+inventada. As três legítimas ficaram: a `Presentation`, "Sem TV conectada o app
+continua útil" e a exceção de dependências — todas ainda no contrato.
+
+**A RODADA DA SÉRIE.** O comentário de `serieAdiadaPelaMidia` (e a nota da
+v1.14.15, que a repetia) dizia que a rotina do acervo chama
+`serieSemanaReavaliar`. Ela chama `manterSeriesDaSemana`, e sai antes com mídia
+no ar (`rotinaDeAcervoPodeCorrer`, POR SÉRIE); quem chama `serieSemanaReavaliar`
+são `pararMidia` e `resetAfterEnd`. Agora está escrito assim, e a nota da
+v1.14.15 aponta para cá.
+
+**O PORTÃO, COM UMA EXCEÇÃO JÁ DECLARADA:** o `sorteio-tela` reprova na tela O
+deste Chromium — a tinta da tira medida em pixel (`maxd` 0,0653) — e reprova
+IGUAL contra o `HEAD`, num worktree limpo: é o resíduo de fonte do runner
+(dono `CI`) que já está em `docs/RESIDUOS.md`, não este lote. Os outros cinco
+vizinhos passam.
+
+**POR QUE O LOTE TOCA O `java/`:** só comentário, e é o que obriga `shellTag` e
+Release (`docs/BUILD.md`) — a superfície não mudou e o `SHELL_VERSION` segue 87.
+**Não testado em aparelho** no que não é texto: o desfecho da gaveta foi medido
+no Chromium do oráculo.
 
 ## v1.14.17 — o tour: a peça certa, e o oráculo que a distingue (só web)
 
@@ -1731,7 +1802,8 @@ destacar o botão de sortear. O passo agora declara `todos: true` e o recorte
 volta a unir as ocorrências DAQUELE seletor; o padrão segue uma peça por seletor.
 
 **O resto é faxina de revisão:** o comentário da rodada da série dizia "uma vez
-por abertura" (ela volta em todo `visibilitychange`), o KDoc do aviso dizia que
+por abertura" (o acervo a pede de novo em todo `visibilitychange`, e ela sai
+antes com mídia no ar — ver a v1.14.18), o KDoc do aviso dizia que
 ele aparece só "se a rede não deixa" (desde a v1.14.14 também com a projeção no
 ar), o oráculo do tour ainda chamava o "Tour do app" de caixa de marcação, e
 saíram cinco imagens órfãs (`telas/320/busca.webp` e quatro originais de 800 px

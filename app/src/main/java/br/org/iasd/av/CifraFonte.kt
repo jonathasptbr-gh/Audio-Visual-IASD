@@ -103,8 +103,9 @@ object CifraFonte {
     /**
      * A última tentativa, em texto, para a linha "Cifra:" do Registro. Escrita
      * só por [buscar] — não há segundo escritor, e por isso ela não precisa de
-     * trava. Ver a regra do diagnóstico no `CLAUDE.md`: o Kotlin guarda o
-     * VEREDITO da função que decidiu; quem monta a frase é o `controle.js`.
+     * trava. Ver a regra do diagnóstico no
+     * `docs/NUCLEO-TECNICO.md#diagnóstico`: o Kotlin guarda o VEREDITO da
+     * função que decidiu; quem monta a frase é o `controle.js`.
      */
     @Volatile
     var ultimaTentativa: String = ""

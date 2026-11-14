@@ -95,8 +95,8 @@
 
   // ===== MOTIVOS =====
   // O VEREDITO de quem decidiu, para o Registro montar a frase (ver a regra do
-  // diagnóstico no CLAUDE.md). Cada um pede uma ação DIFERENTE do operador, e é
-  // por isso que são cinco e não um "falhou".
+  // diagnóstico em `docs/NUCLEO-TECNICO.md#diagnóstico`). Cada um pede uma ação
+  // DIFERENTE do operador, e é por isso que são cinco e não um "falhou".
   const OK = 'ok';                       // achou e entendeu
   const MOTIVO_SEM_REDE = 'sem-rede';    // status 0: não houve resposta
   const MOTIVO_NAO_TEM = 'nao-tem';      // 404: o site respondeu que não tem

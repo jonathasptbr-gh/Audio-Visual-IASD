@@ -41,7 +41,8 @@
 
   <img id="img" class="layer" alt="" hidden>
   <video id="video" class="layer" playsinline hidden></video>
-  <!-- Letra sincronizada (Hinário 2022 — ver CLAUDE.md): mesmo z-index dos
+  <!-- Letra sincronizada (Hinário 2022 — ver
+       `docs/arquitetura/CAMADA-DE-TEXTO.md`): mesmo z-index dos
        demais layers de mídia, então a cortina do wallpaper (z-index maior)
        cobre/revela este layer de graça, sem precisar de nada no stage.js. -->
   <div id="lyrics" class="layer lyrics-layer" hidden>
@@ -65,7 +66,7 @@
     </div>
   </div>
   <!-- Camada de TEXTO manual (Bíblia + Mensagens) — ver "Camada de Texto" no
-       CLAUDE.md. Genérica, e os modos vivem em `.text-content`: SEM CLASSE =
+       `docs/arquitetura/CAMADA-DE-TEXTO.md`. Genérica, e os modos vivem em `.text-content`: SEM CLASSE =
        versículo (a referência dourada em #textSub) · `mode-message`
        (mensagem/texto puro) · `mode-chrono` (cronômetro/relógio/timer) ·
        `mode-draw` (sorteio) · `mode-itinerario` (a programação). Não existe `mode-verse`: o versículo é o estado

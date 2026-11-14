@@ -463,7 +463,8 @@ class SessionService : Service() {
              * o alvo de toque das duas ações que de fato existem (cobrir o telão
              * e parar).
              *
-             * A LISTA VEM DE FORA por invariante (a 5 do CLAUDE.md): quem sabe
+             * A LISTA VEM DE FORA por invariante (a 5 de
+             * `docs/NUCLEO-TECNICO.md#invariantes-do-shell-não-quebrar`): quem sabe
              * se "próxima estrofe" faz sentido agora é o `controle.js`, que tem
              * a cena inteira na mão. Uma cópia dessa regra em Kotlin envelheceria
              * à parte da de lá — foi por isso que o transporte nunca decidiu nada

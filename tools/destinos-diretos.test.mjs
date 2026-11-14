@@ -299,6 +299,40 @@ try {
     'E · abrir o episódio deste sábado, depois um comum, depois um favorito e de novo o do sábado deixa '
     + 'sempre UMA gaveta aberta na Biblioteca — o destaque e os Favoritos são listas próprias', e);
 
+  // ── F. A GAVETA JÁ MONTADA RETOMA O SLOT (v1.14.18) ────────────────────
+  //
+  // `songMenuFor` é um slot de MÓDULO, e a gaveta montada continua na tela
+  // quando outra linha toma o slot para si. Reabrir a linha não remonta nada —
+  // e, sem repor, um seletor tocado aqui redesenharia a folha do OUTRO item (e
+  // o "Confirmar" da folha de um vídeo executaria sobre ele). É o achado
+  // `:8884` da auditoria de agosto, que a v5.302 consertou no `linhaDeItem`.
+  const f = await pg.evaluate(async () => {
+    setAppMode('full');
+    const host = document.getElementById('hymnResults');
+    const c = { id: 'serie-teste', kind: 'serie', name: 'Série de teste' };
+    const ep = (n) => ({ id_music: 'w' + n, name: 'Episódio ' + n, ytUrl: 'https://youtu.be/w' + n, serieData: { mes: 1, dia: n } });
+    const lista = document.createElement('ul'); lista.className = 'coll-songs';
+    host.appendChild(lista);
+    const a = hymnResultRow(c, ep(1), null, true); lista.appendChild(a);
+    const b = hymnResultRow(c, ep(2), null, true); lista.appendChild(b);
+    const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+    a.querySelector('.row').click(); await espera(500);
+    const alvoA = songMenuFor && songMenuFor.alvo;
+    b.querySelector('.row').click(); await espera(500);
+    const alvoB = songMenuFor && songMenuFor.alvo;
+    a.querySelector('.row').click(); await espera(500);
+    const devolveu = !!songMenuFor && songMenuFor.alvo === alvoA;
+    const aindaB = !!songMenuFor && songMenuFor.alvo === alvoB;
+    const aberta = a.classList.contains('expanded');
+    lista.remove();
+    return { temA: !!alvoA, temB: !!alvoB, distintos: !!alvoA && !!alvoB && alvoA !== alvoB, devolveu, aindaB, aberta };
+  });
+  checar(f.temA && f.temB && f.distintos,
+    'F · o ponto de partida: abrir A e depois B deixa cada gaveta com o ALVO dela', f);
+  checar(f.devolveu && !f.aindaB && f.aberta,
+    'F · reabrir a gaveta já montada de A devolve o slot a ELA — o `songMenuFor` aponta para as opções '
+    + 'da própria linha, e não para as da última aberta', f);
+
   await ctx.close();
 } finally {
   await navegador.close();

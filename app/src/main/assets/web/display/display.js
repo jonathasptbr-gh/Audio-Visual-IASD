@@ -215,7 +215,7 @@ const stage = createStage({
 // dono para o mesmo estado.
 if (TELA) window.__telaSom = (on) => stage.setForceMuted(!on);
 
-// ===== Letra sincronizada (Hinário 2022 — ver CLAUDE.md) =====
+// ===== Letra sincronizada (Hinário 2022 — ver `docs/arquitetura/CAMADA-DE-TEXTO.md`) =====
 // Camada paralela ao stage.js: ele não sabe nada sobre texto/letra, só
 // gerencia wallpaper/img/video. O layer #lyrics vive no mesmo z-index dos
 // demais layers de mídia, então a cortina do wallpaper (z-index maior, já

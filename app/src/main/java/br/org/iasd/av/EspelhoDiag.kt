@@ -10,8 +10,9 @@ import org.json.JSONObject
  *
  * **O Kotlin entrega JSON; quem monta a frase é o `controle.js`.** É o que o
  * resto do projeto já faz (`otaDiag`, `ytDiag` — os dois nasceram string e são
- * exceção histórica, não modelo), é o que respeita a invariante 5 do
- * `CLAUDE.md` ("não reimplementar em Kotlin nada que já exista em JS") e é o
+ * exceção histórica, não modelo), é o que respeita a invariante 5 de
+ * `docs/NUCLEO-TECNICO.md#invariantes-do-shell-não-quebrar` ("não reimplementar
+ * em Kotlin nada que já exista em JS") e é o
  * que torna a sanitização de texto vindo da rede auditável **num ponto só**.
  * Um `EspelhoDiag` que formata parágrafos é UI de diagnóstico escrita em
  * Kotlin, e este projeto faz o contrário.

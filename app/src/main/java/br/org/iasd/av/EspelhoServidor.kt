@@ -89,10 +89,11 @@ import kotlin.concurrent.thread
  * `canonicalPath` do [WebPathHandler] contém o que sobrar. `/controle/` NUNCA
  * está entre os prefixos.
  *
- * ## A invariante 8 do `CLAUDE.md` se INVERTE aqui
+ * ## A invariante 8 do shell se INVERTE aqui
  *
  * Num `shouldInterceptRequest` quem aplica o `Range` é o WebView, sobre o que o
- * app devolveu (invariante 8, `docs/shell/WEBVIEW-RANGE.md`). **Num
+ * app devolveu (invariante 8, `docs/NUCLEO-TECNICO.md#invariantes-do-shell-não-quebrar`
+ * — o capítulo é o `docs/shell/WEBVIEW-RANGE.md`). **Num
  * `ServerSocket` quem aplica é o servidor**, e é o que a rota `/m/` faz: RFC
  * 7233 de verdade, por [EspelhoHttp.alcanceDe] (com JUnit). Copiar aquele molde
  * para cá é o erro exato — ele devolve a fatia como se fosse o todo, porque do

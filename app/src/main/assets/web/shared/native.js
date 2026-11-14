@@ -951,7 +951,7 @@
           // A UNIDADE. Sem este campo o Kotlin lê `optBoolean` como false e
           // apresenta bytes como se fossem ITENS: "0 de 398458880", que se lê
           // como quase quatrocentos milhões de músicas. É o mesmo modo de
-          // falhar do `nowPlaying` (ver CLAUDE.md): esta função remonta o
+          // falhar do `nowPlaying` (ver `docs/NUCLEO-TECNICO.md#notificação-de-controles-sessão-de-mídia`): esta função remonta o
           // objeto campo a campo, e um campo esquecido some em silêncio.
           // CAMPO NOVO AQUI = CAMPO NOVO NO OBJETO ACIMA, sempre.
           bytes: !!(p && p.bytes),

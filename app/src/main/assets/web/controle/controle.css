@@ -2960,7 +2960,7 @@ main {
    × *Ferramentas*. A redundância já existia, e é gramatical.
    Some um segundo argumento, MEDIDO: dos treze consumidores de
    `background: var(--btn-accent)` na folha, este era o ÚNICO a pintar uma porta
-   de NAVEGAÇÃO permanente sobre a página. O CLAUDE.md escreve que
+   de NAVEGAÇÃO permanente sobre a página. O `docs/NUCLEO-TECNICO.md#a-paleta` escreve que
    *"**LIGADO** (interruptor) = `--btn-accent` + `--accent`"* — o rodapé dizia
    "ligado" o culto inteiro, num idioma em que isso quer dizer outra coisa.
 
@@ -6924,13 +6924,9 @@ main {
    `pointercancel`. É a MESMA regra que preserva o `pan-x` do histórico do
    sorteio, só que lida do outro lado. */
 /* ===== O MIOLO DE UMA FOLHA NÃO ENCOLHE ATÉ SUMIR (v1.8.1) =====
-   `min-height: 0` deixava o painel ir a QUALQUER altura, e o `overflow:
-   hidden` da `.lib-misc` cortava o que sobrasse. MEDIDO a 360×640 com a fonte
-   do sistema em 1,3×: o corpo da folha tem 181,2px, o seletor come 53,3 e o
-   rodapé de então (o microfone, que saiu na v1.8.89) 73,7 — sobravam
-   **42,9px** para um painel cujo botão
-   "+ Nova mensagem" mede 51,1px. A lista de mensagens sumia inteira e o botão
-   saía CORTADO, dentro de uma caixa que não rolava.
+   Com `min-height: 0` o painel vai a QUALQUER altura, e o `overflow: hidden`
+   da `.lib-misc` corta o que sobrar: a lista de mensagens some inteira e o
+   botão "+ Nova mensagem" sai CORTADO, dentro de uma caixa que não rola.
    `min-content` é o piso HONESTO: a lista tem `min-height: 0` e rola sozinha,
    então ela contribui ZERO — o que sobra na conta é exatamente o que não pode
    encolher. */
@@ -11032,20 +11028,14 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    em cena, com scroll. O telão mostra uma estrofe/um versículo por vez; aqui o
    operador vê o todo e sabe o que vem depois. A linha no ar fica destacada e a
    lista a acompanha sozinha até o operador rolar com o dedo (ver lvFollow). */
-/* O SELETOR DE FONTES RESPIRA DOS DOIS LADOS, e nenhum dos dois vinha de graça
-   (v1.6.4).
+/* O SELETOR DE FONTES RESPIRA DOS DOIS LADOS.
+   ACIMA o recuo é ZERO: o `.popup-header` já fecha com `padding-bottom: .7rem`
+   (11,2px), e quem separa passa a ser o dele, que é de quem a decisão é — o
+   cabeçalho é que sabe quanto quer respirar do que vem abaixo, e ele é o mesmo
+   nas quatro fontes.
 
-   ACIMA ele era uma margem DUPLICADA: o `.popup-header` já fecha com
-   `padding-bottom: .7rem` (11,2px) e o seletor abria com `.6rem` (9,6px) — 20,8px
-   entre duas fileiras de controles, contra os ~10px que o resto da folha usa. O
-   recuo de cima vai a ZERO e quem separa passa a ser o do cabeçalho, que é de
-   quem a decisão é: o cabeçalho é que sabe quanto quer respirar do que vem
-   abaixo, e ele é o mesmo nas quatro fontes.
-
-   ABAIXO o vão era da BARRA, que saiu na v1.6.3 — ela deixava 9,6px entre si e o
-   corpo (`margin-bottom: .6rem`), e sem ela o seletor ficou a 3,2px da caixa de
-   texto, encostado. O `.6rem` daqui devolve exatamente os 9,6px que a barra
-   dava: o número não é novo, é o que estava lá antes de a barra sair. */
+   ABAIXO o `.6rem` (9,6px) é o que separa o seletor da caixa de texto, que sem
+   ele fica encostado. */
 .lyricsview-seg { padding: 0 .9rem .6rem; flex-shrink: 0; }
 /* ===== A JANELA DO AUXILIAR TEM TAMANHO PRÓPRIO (v1.6.4) =====
 
@@ -12491,8 +12481,7 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
    `--stage-*` existe para impedir.
 
    `::before` e não `::after`: é a metade livre do par, e o `.btn-pulso` usa o
-   `::after` para o ✓/✕. (O contorno de eixo do `.t-btn` que ocupava o `::after`
-   saiu na v1.3.5, com o eixo duplo do transporte.)
+   `::after` para o ✓/✕.
    `pointer-events: none` porque ele cobre o botão inteiro durante a animação. */
 .btn-eco { position: relative; }
 .btn-eco::before {
@@ -12688,9 +12677,8 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
 .cast-acao:disabled { opacity: .7; cursor: default; }
 .cast-acao:disabled:active { filter: none; }
 
-/* Ainda em uso: é o BLOCO DE CONEXÃO (`#castConn`). O nome vem da folha de
-   ajustes que o hospedava e que saiu na v5.196; renomeá-lo custaria tocar em
-   três arquivos para não mudar um pixel. */
+/* Ainda em uso: é o BLOCO DE CONEXÃO (`#castConn`). O nome `mirror-body` fica:
+   renomeá-lo custaria tocar em três arquivos para não mudar um pixel. */
 .mirror-body {
   flex: 1; overflow-y: auto;
   padding: .6rem .7rem .8rem;

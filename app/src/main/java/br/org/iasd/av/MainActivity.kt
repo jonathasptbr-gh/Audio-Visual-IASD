@@ -1871,7 +1871,9 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * `setPreferredDeviceForStrategy` e `registerAudioPolicy` são `@SystemApi`
      * atrás de `MODIFY_AUDIO_ROUTING` (`signature|privileged|role`), e um APK
      * assinado com a keystore deste projeto nunca as obtém. Ver a seção do
-     * espelhamento no `CLAUDE.md`, que já levantou isso — **este método não
+     * espelhamento em
+     * `docs/DIVERGENCIAS-WEB-NATIVO.md#o-espelhamento-leva-o-som-do-aparelho-inteiro-e-não-há-como-isolá-lo`,
+     * que já levantou isso — **este método não
      * reabre aquela investigação, ele aceita a resposta dela** e entrega o que
      * sobra: a tela do sistema, a um toque de onde o operador já está.
      *

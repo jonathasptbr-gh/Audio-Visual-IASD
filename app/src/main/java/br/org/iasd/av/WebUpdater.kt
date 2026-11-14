@@ -56,7 +56,8 @@ object WebUpdater {
      *
      * **É a ÚNICA cópia no Kotlin desde a K5** — o [ShellUpdater] e o [Farol]
      * referenciam esta constante em vez de digitá-la. Eram três, e o contrato
-     * (o `docs/shell/OTA.md` e o `CLAUDE.md`) só nomeava duas: renomear o
+     * (o `docs/shell/OTA.md` e o
+     * `docs/NUCLEO-TECNICO.md#ota-da-base-web-atualização-sem-apk`) só nomeava duas: renomear o
      * repositório seguindo o contrato ao pé da letra deixaria a terceira
      * apontando para o nome velho, com o `GET` devolvendo 404 e o farol parando
      * de contar em silêncio. A outra cópia que sobra é a da página do site

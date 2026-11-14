@@ -21,10 +21,11 @@ import java.io.InputStream
  * abre socket nem sabe o que é uma rota, e o `EspelhoServidor` não decide nada
  * que este arquivo decida.
  *
- * ## A invariante 8 do `CLAUDE.md` SE INVERTE aqui
+ * ## A invariante 8 do shell SE INVERTE aqui
  *
  * No `shouldInterceptRequest` o `InputStream` devolvido é o recurso INTEIRO e
  * quem aplica o `Range` é o WebView (invariante 8,
+ * `docs/NUCLEO-TECNICO.md#invariantes-do-shell-não-quebrar` — o capítulo é o
  * `docs/shell/WEBVIEW-RANGE.md`). **Num `ServerSocket` quem o aplica somos
  * NÓS** — é o que [alcanceDe] faz, com a gramática do RFC 7233 e JUnit
  * próprio. Copiar aquele molde para cá é o erro exato: ele devolve a fatia

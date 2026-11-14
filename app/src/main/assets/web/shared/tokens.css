@@ -524,7 +524,7 @@
   --btn-warn:   #533423;
 
   /* texto — off-white com a matiz do denim, nunca branco pleno (ver "A paleta"
-     no CLAUDE.md: fora do palco, o branco pleno é a maior fonte isolada de luz
+     no `docs/NUCLEO-TECNICO.md#a-paleta`: fora do palco, o branco pleno é a maior fonte isolada de luz
      emitida do app). DERIVADO de `white`, escurecido e tingido.
      `--muted` clareou um degrau na v5.267 (#b0b7bf → #b6bdc6): com o painel-2
      mais claro, o valor antigo dava 4,68:1 ali — passava AA por 4 centésimos, e

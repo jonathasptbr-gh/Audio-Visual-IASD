@@ -33,7 +33,8 @@
    cria. No telão de verdade ela é inerte.
 
    As cores saem de `shared/tokens.css` (o palco, que não tem tema — ver a seção
-   da paleta em CLAUDE.md), pelas mesmas variáveis que a string usava. */
+   da paleta em `docs/NUCLEO-TECNICO.md#a-paleta`), pelas mesmas variáveis que a
+   string usava. */
 
 #telaEntrada {
   position: fixed;

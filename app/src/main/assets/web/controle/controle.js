@@ -416,7 +416,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.17';
+const WEB_VERSION = '1.14.18';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -9692,33 +9692,14 @@ function pushDraw() {
   cmd({ type: 'text', mode: 'draw', draw: drawDescriptor(), sub: draw.label || '', view });
 }
 
-// O SORTEIO FALA NO PRÓPRIO PAINEL.
-//
-// "Escreva as opções antes de sortear" e "todas já saíram" são respostas ao
-// botão de sortear, e a frase ocupa o lugar do VALOR sorteado — que é exatamente o que o operador está olhando
-// quando toca em sortear, e o que ele teria recebido se houvesse o que sortear.
-function naoResta(texto) {
-  // `#drawRead` é o mostrador do sorteio — o mesmo que exibe o número/nome
-  // sorteado e a animação do rolo (ver `renderDrawReadout`). Ele é redesenhado
-  // a cada sorteio, então a frase não precisa ser limpa: o próximo sorteio
-  // válido a substitui pelo resultado.
-  const el = document.getElementById('drawRead');
-  if (!el) return;
-  el.classList.remove('rolling');
-  el.textContent = texto;
-}
-
 function doDraw() {
   const v = draw.kind === 'text' ? pickText() : pickNumber();
-  if (v == null) {
-    naoResta(draw.kind === 'text' && !draw.pool.length
-      ? 'Escreva as opções antes de sortear.'
-      // SEM NOMEAR O RÓTULO: desde a v1.9.1 o reiniciar é um QUADRADO de ícone
-      // no rodapé, e uma frase que manda tocar em "Reiniciar" manda procurar
-      // uma palavra que não está em lugar nenhum da tela.
-      : 'Todas as opções já saíram — reinicie para sortear de novo.');
-    return;
-  }
+  // SEM NADA A SORTEAR NÃO HÁ O QUE FAZER — e não há frase a dar. Os dois
+  // caminhos que chegam aqui, o botão do painel e o par do transporte, ficam
+  // apagados por `drawGoApagado()`, que é a MESMA conta do `v == null`; e as
+  // duas frases que existiam neste lugar ("escreva as opções", "todas já
+  // saíram") são o `title` desses mesmos botões.
+  if (v == null) return;
   draw.value = String(v);
   if (draw.noRepeat) draw.used.push(String(v));
   // Semente nova a cada rodada: sem ela o ruído do rolo seria idêntico toda
@@ -11187,20 +11168,16 @@ function renderListFoot() {
   const li = document.createElement('div');
   li.className = 'portas-row';
 
-  // ===== AS DUAS PORTAS DO CRONOGRAMA (v1.13.5; eram três desde a v1.5.0) =====
+  // ===== AS DUAS PORTAS DO CRONOGRAMA =====
   //
   // Com o Cronograma sendo a tela ÚNICA, este rodapé é a navegação do app: o
   // único ponto sempre à vista (fora do `<ul>` rolável), e é dele que saem os
   // dois lugares que não são a lista. A Biblioteca não entra aqui — ela tem a
   // barra própria na caixa de controles.
   //
-  // O "Importar" do MEIO saiu na v1.13.5, para a trilha 1 da barra do topo
-  // (`#cronoImportar`), a pedido do operador: *"Deixando na base, apenas bíblia e
-  // ferramentas"*. As duas dividem a faixa em partes iguais, cada uma com o ícone
-  // À ESQUERDA do rótulo (*"ajuste para que o icone fique a esquerda dos titulos
-  // dos dois botões"*) — a pilha ícone-em-cima da v1.5.0 existia porque TRÊS
-  // rótulos lado a lado com o ícone não cabiam num terço de celular; numa metade
-  // cabem.
+  // As duas dividem a faixa em partes iguais, cada uma com o ícone À ESQUERDA
+  // do rótulo (*"ajuste para que o icone fique a esquerda dos titulos dos dois
+  // botões"*) — numa metade de celular os dois cabem.
   //
   // A ORDEM É A DA LEITURA: o que se CONSULTA à esquerda, o que se PRODUZ à
   // direita.
@@ -11475,14 +11452,10 @@ function acertarFaixaDaLinha(li) {
   li.classList.toggle('acoes-justas', precisa > direita - capaR.left + 0.5);
 }
 window.addEventListener('resize', () => { if (linhaAcoesAberta) acertarFaixaDaLinha(linhaAcoesAberta); });
-// Tocar em QUALQUER outro lugar fecha. Na fase de CAPTURA e por `pointerdown`,
-// e não por `click`, e a razão MUDOU de dono sem mudar de forma: até a v5.284
-// era a alça de arrastar (que morava dentro do menu, capturava o ponteiro e
-// nunca produzia um `click`); a alça saiu na v5.285, e o que sustenta o
-// `pointerdown` hoje é a PROPRIEDADE que ele sempre teve e que a alça apenas
-// exemplificava: um gesto que não termina em `click` — rolar a lista de baixo é
-// o caso comum — fecha o menu do mesmo jeito. A CAPTURA continua sendo o único
-// caminho pelo mesmo motivo de sempre: todo botão de linha deste app chama
+// Tocar em QUALQUER outro lugar fecha. Na fase de CAPTURA e por
+// `pointerdown`, e não por `click`: um gesto que não termina em `click` —
+// rolar a lista de baixo é o caso comum — fecha o menu do mesmo jeito. A
+// CAPTURA é o único caminho porque todo botão de linha deste app chama
 // `stopPropagation` no próprio `click`.
 document.addEventListener('pointerdown', (e) => {
   if (!linhaAcoesAberta) return;
@@ -11952,13 +11925,11 @@ async function moverNaLista(listName, id, delta) {
   if (!andou) return;
   reabrirAcoesEm = listName + ':' + id;
   await load();
-  // (O REDESENHO EXPLÍCITO DA SEÇÃO saiu na v5.292: `load()` passou a fazê-lo
-  // sozinho, para toda porta que mexe nos favoritos — ver
-  // `sincronizarFavoritosNaBiblioteca`. Mantê-lo aqui seria um SEGUNDO
-  // redesenho, e ele custava o recurso desta função: `reabrirAcoesEm` é
-  // CONSUMIDO pelo primeiro, então o segundo reconstruía a linha sem a gaveta
-  // aberta — o botão saía de baixo do dedo, que é exatamente o que ele existe
-  // para evitar.)
+  // O redesenho explícito da seção não se faz aqui: `load()` já o faz, para
+  // toda porta que mexe nos favoritos — ver `sincronizarFavoritosNaBiblioteca`.
+  // Um segundo redesenho custaria o recurso desta função: `reabrirAcoesEm` é
+  // CONSUMIDO pelo primeiro, e o segundo reconstruiria a linha sem a gaveta
+  // aberta — o botão sairia de baixo do dedo.
 }
 
 // MOVE PARA UMA POSIÇÃO (v1.13.52) — o desfecho do ARRASTO. `destino` é o
@@ -12304,17 +12275,13 @@ function categoryCards(cat) {
 }
 
 // O MIOLO do cabeçalho de grupo — contador (busy/done/fração) + botão de
-// lote/cancelar — hoje usado só pelo `header()` da lista, por CATEGORIA. Ele
-// era compartilhado com o "Baixar toda a biblioteca" fixo do cabeçalho do
-// popup, que saiu na v5.258 — e com ele saiu o `aposClique`, que era a
-// diferença legítima daquele (ele precisava se redesenhar).
+// lote/cancelar — hoje usado só pelo `header()` da lista, por CATEGORIA.
 function montarResumoGrupo(host, key, text, colls, gOpts) {
   const g = gui(key);
   const complete = grupoCompleto(colls);
 
   const info = document.createElement('span');
-  // `busy` fica (ele diz que ALGO está acontecendo, que o número não diz);
-  // `done` saiu na v5.263 — ver "O verde sai dos indicadores" em controle.css.
+  // `busy` fica (ele diz que ALGO está acontecendo, que o número não diz).
   info.className = 'coll-group-count' + (g.busy ? ' busy' : '');
   info.textContent = g.status || fracaoPeso(colls.map((c) => c.id)) || '—';
   host.appendChild(info);
@@ -12592,10 +12559,6 @@ function renderCollectionsListMiolo(alvo, redesenhar) {
     return corpo;
   };
 
-  // (A barra "Toda a biblioteca" saiu na v5.258 — ver o bloco acima. Ela já
-  // vinha desligada por `semTotal` no único chamador real desde que subiu para
-  // o cabeçalho, e o cabeçalho saiu com ela.)
-
   // ===== FAVORITOS, O PRIMEIRO GRUPO =====
   //
   // A Biblioteca é onde se procura o que projetar, e o favorito é o atalho de
@@ -12799,11 +12762,10 @@ function renderCollectionCard(coll, ctx, opcs) {
   const li = document.createElement('li');
   li.className = 'hymnal-card';
   li.dataset.coll = coll.id;   // a chave do card na reconciliação em partes (v1.13.68)
-  // (A `coll.color` do banco desenhava uma faixa lateral de 3px no cartão. Ela
-  // saiu na v5.71 com as molduras: era mais uma linha vertical repetida em toda
-  // a lista. Ela NÃO volta com a tinta da v1.5.7: na Bíblia a faixa carrega a
-  // informação porque o ladrilho é pequeno e a tinta é sutil; aqui o card é uma
-  // barra larga e a tinta cobre tudo.)
+  // (Sem faixa lateral de cor no cartão: seria mais uma linha vertical repetida
+  // em toda a lista. Ela também não volta com a tinta: na Bíblia a faixa
+  // carrega a informação porque o ladrilho é pequeno e a tinta é sutil; aqui o
+  // card é uma barra larga e a tinta cobre tudo.)
 
   // Uma linha só: ícone + nome/subtítulo + resumo + a coluna de ações. O card
   // deixou de ser um acordeão de manutenção — TOCAR NELE ABRE A LISTA, que é o
@@ -14417,8 +14379,8 @@ function linhaDeItem(item, opts) {
   //
   // SEM `lista` NÃO HÁ `⋮` (a pasta do aparelho não tem o que oferecer aqui —
   // `montarAcoesDaLinha` devolve `[]` sem botões úteis, e a linha fica como antes).
-  // A POSIÇÃO NÃO É BOTÃO: o ↑↓ saiu na v1.13.68 e quem reordena é o segurar-e-
-  // arrastar da linha, o MESMO do Cronograma (`attachRowGestures`, abaixo).
+  // A POSIÇÃO NÃO É BOTÃO: quem reordena é o segurar-e-arrastar da linha, o
+  // MESMO do Cronograma (`attachRowGestures`, abaixo).
   const depoisDeMexer = cfg.depoisDeExcluir || (() => load());
   row.append(miniatura, textWrap, ...(lista ? montarAcoesDaLinha(li, [
     botaoExcluirDaLinha(item, lista, depoisDeMexer),
@@ -15069,18 +15031,12 @@ function acertarTampa(lista) {
 }
 
 // ===== OS FAVORITOS ABREM E FECHAM NUM MOVIMENTO SÓ (v1.12.56) =====
-// A CAUSA ERA O PISO (o `--fav-vao`, que saiu na v1.13.12), e o acordeão anima
-// só o CORPO: o bloco encolhia até o vão e PARAVA nele (MEDIDO a
-// 430×900, 20 favoritos: 1201 → 401px em 90 ms e 401px parado por 130 ms; com
-// 3 favoritos o bloco ficava parado os 220 ms inteiros) até o redesenho tirar o
-// `.aberto` — e aí caía de uma vez, e as irmãs com ele: a tampa delas (ver
-// `medirTampa`) desconta o vão dos Favoritos abertos, então elas iam de 45 para
-// 66px num quadro DEPOIS do redesenho (o bloco passava por 45 antes de 66). Ao
-// abrir era o mesmo salto ao contrário, no quadro do toque.
+// O acordeão anima só o CORPO; a RAIZ e cada irmã FECHADA animam JUNTO, no
+// mesmo `ACC_MS`/`ACC_EASE`: o bloco vai da altura de agora à altura de
+// depois, e a tampa das irmãs (ver `medirTampa`) desconta o vão dos Favoritos
+// abertos — sem animá-las, elas só se acertam num quadro DEPOIS do redesenho.
 //
-// O CONSERTO é animar a RAIZ junto com o corpo, no mesmo `ACC_MS`/`ACC_EASE`: o
-// bloco vai da altura de agora à altura de depois, e cada irmã FECHADA idem. A
-// altura de depois é a mesma régua do caso normal (`calcularTampa` com os
+// A altura de depois é a mesma régua do caso normal (`calcularTampa` com os
 // Favoritos contados como fechados), e a das irmãs é LIDA com a tampa de depois
 // escrita por um instante (sem pintura no meio) — nenhuma fórmula de CSS copiada.
 // Ao fim, o redesenho e a tampa saem no MESMO quadro, e o que eles desenham é o
@@ -17359,7 +17315,7 @@ async function cifraDiscoDe(collId) {
  * MESCLA as cifras novas no que já está guardado — nunca SUBSTITUI.
  *
  * Gravar o mapa INTEIRO a partir do slot de módulo (`cifraDisco`) é o
- * ler-calcular-gravar que o `CLAUDE.md` proíbe, e com um agravante: a identidade
+ * ler-calcular-gravar que o `docs/recursos/CIFRA.md#as-decisões-que-precisam-estar-ditas` proíbe, e com um agravante: a identidade
  * do slot mora noutra variável (`cifraDiscoColl`), e outra coleção carregada no
  * meio escreveria o mapa errado por cima. Uma substituição pode produzir zero a
  * partir de 275 (MEDIDO num aparelho); **uma mescla não pode**.
@@ -20455,7 +20411,8 @@ async function replacePlaylistWith(rec) {
  *  - **mídia** sai pelo mesmo caminho do Parar, porque ali ela É a cena.
  *
  * `currentId` NÃO é zerado, de propósito: é ele que permite ao ▶ repetir o
- * item sem precisar reabri-lo, e é um contrato que o CLAUDE.md descreve. Quem
+ * item sem precisar reabri-lo, e é um contrato que o
+ * `docs/DIVERGENCIAS-WEB-NATIVO.md#a-regra-de-escrita-e-a-tabela` descreve. Quem
  * responde "há algo no telão?" é `midiaNoAr`, e é ele que o `stopClear` baixa.
  */
 async function retirarDoAr(item) {
@@ -22107,12 +22064,14 @@ let serieAutoRodando = false;
 let serieAutoRefazer = false;
 
 // A SÉRIE QUE CEDEU A VEZ À PROJEÇÃO VOLTA QUANDO ELA SAI (v1.14.14). A rodada
-// nasce na abertura e volta em todo `visibilitychange` (a rotina do acervo
-// chama `serieSemanaReavaliar`), e a guarda `rotinaDeAcervoPodeCorrer` é POR SÉRIE:
-// um lote que começou antes do culto e ainda baixava a primeira série quando o
-// telão entrou no ar pulava a segunda em silêncio, e ela ficava a semana inteira
-// sem o episódio — o defeito relatado (*"um deles não baixa nesse download
-// automático"*). `pararMidia` e `resetAfterEnd` chamam `serieSemanaReavaliar`.
+// nasce na abertura e é pedida de novo em todo `visibilitychange` — por
+// `autoRefreshCollections`, que chama `manterSeriesDaSemana` —, e ela SAI ANTES
+// com mídia no ar (`rotinaDeAcervoPodeCorrer`); é por isso que `pararMidia` e
+// `resetAfterEnd` chamam `serieSemanaReavaliar`. A guarda é POR SÉRIE: um lote
+// que começou antes do culto e ainda baixava a primeira série quando o telão
+// entrou no ar pulava a segunda em silêncio, e ela ficava a semana inteira sem
+// o episódio — o defeito relatado (*"um deles não baixa nesse download
+// automático"*).
 let serieAdiadaPelaMidia = false;
 
 // A rotina vale para TODA série (v1.11.10). A pergunta é a mesma das outras
@@ -26494,13 +26453,11 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura, extra) {
     // SEM AVISO NO FIM DO DOWNLOAD (v5.119). No caminho do YouTube o botão
     // tocado NUNCA está visível quando a ação termina: a folha de destinos
     // fecha antes. O MOTIVO de uma falha vai para o cartão sobre a preview
-    // (`previewBusy(…).falhar`) ou para a folha de origem (`#castMsg`) — a
-    // faixa flutuante (`avisar()`) saiu na v5.207.
+    // (`previewBusy(…).falhar`) ou para a folha de origem (`#castMsg`).
     //
-    // E ela não fazia falta: quem já responde é a MINIATURA do resultado, que
-    // troca o anel de download pelo ✓ (`setYtEstado('pronto')`), e a linha que
-    // aparece na lista de destino. O aviso repetia por escrito o que a tela
-    // acabara de mostrar.
+    // A MINIATURA já responde: ela troca o anel de download pelo ✓
+    // (`setYtEstado('pronto')`), e a linha que aparece na lista de destino diz
+    // o resto. Um aviso repetiria por escrito o que a tela acabou de mostrar.
     //
     // O `pulsar` fica, e só ele: quando o botão POR ACASO está visível (a
     // conversão de um link já no Cronograma, que não passa por folha nenhuma),
@@ -26975,6 +26932,18 @@ function hymnResultRow(coll, s, lyricHit, semColecao, opts) {
   gaveta.append(opcoes);
   if (!temLetra(coll)) gaveta.appendChild(conteudo);
   let gavetaMontada = false;
+  // ===== O QUE ESTA GAVETA DEIXOU NO ESTADO DE MÓDULO (v1.14.18) =====
+  //
+  // `songMenuFor`, `destExecutor`, `destRemontar` e `destMarcados` são um slot
+  // só para o app inteiro, e a gaveta MONTADA continua em cena quando outra
+  // linha toma o slot para si. Reabrir esta linha não remonta nada — e, sem
+  // repor, um seletor tocado aqui redesenharia a folha do OUTRO item, e o
+  // "Confirmar" da folha de um vídeo executaria sobre ele. É o achado `:8884`
+  // da auditoria de agosto, que a v5.302 consertou no `linhaDeItem` mandando-o
+  // remontar sempre; aqui a montagem custa uma leitura de IndexedDB (a busca do
+  // episódio) e uma de mídia por vídeo, então se guarda o que ela deixou e se
+  // repõe no toque.
+  let donoDaGaveta = null;
 
   // AS OPÇÕES DA LINHA: o seletor do QUÊ (variante, ou forma e qualidade num
   // vídeo) e a fileira de botões diretos do ONDE (`destBotoesRow`, v1.13.34).
@@ -27243,6 +27212,19 @@ function hymnResultRow(coll, s, lyricHit, semColecao, opts) {
         const pendente = montarOpcoes();
         if (pendente) await pendente;
         if (!temLetra(coll)) await montarDetalhe();
+        donoDaGaveta = {
+          menu: songMenuFor,
+          executor: destExecutor,
+          remontar: destRemontar,
+          marcados: new Set(destMarcados),
+        };
+      } else if (donoDaGaveta) {
+        // A GAVETA JÁ MONTADA RETOMA O SLOT — ver o bloco de `donoDaGaveta`.
+        destLimpar();
+        donoDaGaveta.marcados.forEach((m) => destMarcados.add(m));
+        songMenuFor = donoDaGaveta.menu;
+        destExecutor = donoDaGaveta.executor;
+        destRemontar = donoDaGaveta.remontar;
       }
       li.classList.add('expanded');
       expandAccordion(gaveta);
