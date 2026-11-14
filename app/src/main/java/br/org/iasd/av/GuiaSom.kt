@@ -43,7 +43,7 @@ import java.net.URI
  * navegação do quadro principal — fora dela, o link vai para fora do app.
  */
 object GuiaSom {
-    const val SITE_HOST = "audiovisualiasd.com.br"
+    private const val SITE_HOST = "audiovisualiasd.com.br"
 
     fun urlDoGuia(url: String?): Boolean {
         val alvo = try { URI(url ?: return false) } catch (_: Exception) { return false }

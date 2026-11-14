@@ -192,10 +192,19 @@ de ações na base"*.
   chama `pacoteAbrirLista()`: o plano APROXIMADO (`pacotePlanoAproximado`, o que
   a Biblioteca já sabe) vai para `pacoteEsboco` e `renderPacoteGrupos(plano)`
   desenha as mesmas linhas do seletor de destinos (`songMenuItem`, o Set
-  `destMarcados`), **tudo marcado** (`pacoteMarcarPadrao`). A nota diz o peso do
-  que está marcado (*"Exportar leva até X"*, o teto) e a promessa do Importar;
-  num aparelho sem biblioteca a lista é uma frase de vazio (`li.empty`) e a nota
-  só fala do Importar. **Importar não lê a marca**: traz o que o arquivo tiver.
+  `destMarcados`), **tudo marcado** (`pacoteMarcarPadrao`). **As seções seguem a
+  régua da Biblioteca** (a de `desenharCategorias`): Adoradores e Cantores
+  (`DISSOLVIDAS_EM_DIVERSAS`) entram numa seção só, "Diversas"
+  (`GRUPO_DIVERSAS`), junto com a coletânea desse nome, depois das outras
+  categorias.
+- **O PESO MORA NAS LINHAS, nunca num total solto** (`pacotePeso`, "até X"): no
+  `sub` de cada grupo e no de cada SEÇÃO — *"N de M · até X"*, que responde ao
+  dedo ao marcar e desmarcar (`pacoteBytesDe`, a UNIÃO). A nota (`#pacoteNota`)
+  é FIXA, `PACOTE_NOTA_IMPORTAR`; sem nada a exportar, a frase de vazio vem na
+  lista (`li.empty`) ou antes da nota. **Importar LÊ a marca**
+  (`pacoteFiltroDeImportacao`, lida antes do seletor de arquivos): com tudo
+  marcado — o padrão — traz o pacote inteiro; com alguma marca tirada, só o
+  marcado, e "Ajustes e catálogos" (fixo) entra sempre.
 - **O toque no Exportar É a confirmação:** `exportarPacote()` lê
   `pacoteSelecao(pacoteEsboco)` na hora e segue para a medição, o destino e a
   escrita — sem folha por cima. **Chamada direta, sem a janela aberta** (os
@@ -227,8 +236,6 @@ de ações na base"*.
 - **Fechar a janela com uma exportação em curso não cancela nada:** o estado é de
   módulo (`pacoteExportando`, `pacotePronto`…) e o trabalho roda sob `withBgWork`
   + notificação. Cancelar é tocar no tile que trabalha.
-- **A folha "O que levar" (`#songMenuPopup`, z 210) abre POR CIMA da janela
-  (z 205).**
 
 **A COLUNA "ACESO" DIZ "SEMPRE"**, e a regra é a da v1.7.6. Pedido do operador:
 *"todos os botões devem ter o mesmo azul de ativo, não temos mais essa diferença,

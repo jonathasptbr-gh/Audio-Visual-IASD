@@ -1,4 +1,4 @@
-# O tour guiado (v1.14.0; seções, "tocando" e halo na v1.14.1; ordem visual na v1.14.3; movimento na v1.14.4; liga/desliga na v1.14.5)
+# O tour guiado (v1.14.0; seções, "tocando" e halo na v1.14.1; ordem visual na v1.14.3; movimento na v1.14.4; liga/desliga na v1.14.5; só as seções complexas de Configurações na v1.14.10; o anel rente à borda na v1.14.11)
 
 **O que é.** Um véu escurecido com um RECORTE na peça explicada e um balão curto
 (título, uma ou duas frases, "N de M", Voltar · Próximo/Concluir · Pular tour). Mora em
@@ -57,8 +57,19 @@ foco num campo NÃO bloqueia, a Biblioteca abre com o teclado).
 
 | chave | onde |
 |---|---|
-| `configuracoes`, `cfg-tela`, `cfg-hist`, `cfg-teste`, `ferr-edicao`, `cfg-pacote`, `conectar` | os dois modos |
-| `biblioteca` (a janela do avançado), `cronogramas`, `biblia`, `ferramentas`, `ferr-clock`, `ferr-stopwatch`, `ferr-timer`, `ferr-itinerario`, `ferr-msg`, `ferr-draw`, `sorteio`, `playlist`, `letra` | avançado |
+| `cfg-hist`, `cfg-pacote`, `conectar` | os dois modos |
+| `biblioteca` (a janela do avançado), `cronogramas`, `biblia`, `ferramentas`, `ferr-clock`, `ferr-stopwatch`, `ferr-timer`, `ferr-itinerario`, `ferr-msg`, `ferr-draw`, `ferr-edicao`, `sorteio`, `playlist`, `letra` | avançado |
+
+A raiz de Configurações, a Tela e a Verificação não têm tour: são janelas de ajuste
+simples. O editor de mídia (`ferr-edicao`) só existe no avançado — a lista das
+Ferramentas do Fácil não tem o quadrado dele —, e tem um passo para cada vista: a
+"escolha" (busca, importar) e o formulário (o trecho). Todos são `opcional`, e o
+editor que abre direto no formulário se explica por ele. Uma seção sem NENHUM passo
+visível não abre nem grava a marca, e o automático volta a tentar a cada segundo:
+por isso toda vista de uma seção precisa de um passo. As três portas de conexão
+(`#castMirrorBtn`, `#castNetBtn`, `#castLocalBtn`) são as mesmas consts no tour
+`conexao` e na seção `conectar`; muda só o texto do "Tocar neste celular" (na
+cortina é a saída sem TV, na janela um interruptor) e o `opcional` da TV.
 
 Uma janela sem entrada na tabela (`songMenuPopup`, `itinPopup`, a gaveta de
 itinerários) não tem tour, mas conta como seção aberta: o tour principal espera.
@@ -95,9 +106,9 @@ Só o automático obedece: `abrir()` e `refazer()` à mão sempre abrem.
   campo de texto com foco.
 - **Colisão:** se algo abre no meio do tour automático, ele fecha e a marca é
   DESFEITA — volta quando a tela ficar livre. O refeito à mão não desmarca.
-- **A camada é 600**: acima dos diálogos (500), abaixo da prévia inteira
-  (`2147483000`, e ela é popover no top layer) e da cortina — os dois contam como
-  ocupado.
+- **A camada é 600**: acima dos diálogos (`.dialog-backdrop`, 300) e da cortina
+  (`#splash`, 500), abaixo da prévia inteira (`2147483000`, e ela é popover no top
+  layer). A cortina e a prévia contam como ocupado: o tour nunca abre por cima delas.
 
 ## O que ele toca
 
@@ -110,10 +121,23 @@ tour a esconde ao sair do passo ou fechar. O voltar do Android é o **degrau 0**
 
 O véu é o `box-shadow` de espalhamento do `.tour-recorte` (cor `--tour-veu`, nos
 dois temas), e por cima dele o HALO: um anel de 2 px e um brilho de 14 px em
-`--tour-halo` (o `--accent` do escuro, `#95b5f4`, com alfa .75/.9); sem peça, o fundo da raiz (`.tour--sem-recorte`). O recorte é a UNIÃO dos
-alvos visíveis mais 6 px, com o raio do cartão ou o da peça + 6 px (uma pílula
-ganha halo de pílula). O balão (até 340 px) vai abaixo, acima, ou — sem lugar
-dos dois lados — encostado na borda com mais espaço, sempre dentro da tela.
+`--tour-halo` (o `--accent` do escuro, `#95b5f4`, com alfa .75/.9); sem peça, o fundo da raiz (`.tour--sem-recorte`).
+
+A tela é a ÁREA VISÍVEL (`areaVisivel()`): o `visualViewport` quando existe (com o
+teclado ou a barra do navegador, a janela de layout não é o que o olho vê), senão a
+janela.
+
+| constante | valor | o que faz |
+|---|---|---|
+| `FOLGA` | 6 px | o recorte é a UNIÃO dos alvos visíveis mais esta folga, a peça INTEIRA; o raio é o do cartão ou o da peça + 6 px (uma pílula ganha halo de pílula) |
+| `ANEL` | 2 px | a espessura do anel (`box-shadow: 0 0 0 2px`), desenhado POR FORA da caixa: o recorte é preso a 2 px de cada borda da área visível e o anel termina exatamente nela — encosta, não fura (a régua do foco dos controles). Numa peça colada à borda, só esses 2 px saem da folga |
+| `MARGEM` | 16 px | o balão (largura `min(340, área − 2·16)`, altura máxima `área − 2·16`) nunca chega a menos disto de borda nenhuma |
+| `VAO` | 10 px | entre o recorte e o balão |
+
+O balão vai abaixo do recorte, acima, ou — sem lugar dos dois lados — encostado (a
+`MARGEM`) na borda com mais espaço; sem peça, no centro. Oráculo: `recorteBate` do
+`tour.test.mjs` (o recorte = a peça + 6 px, preso entre 2 px e a área − 2 px), nos
+blocos que medem o recorte.
 Reposiciona em `resize`, `visualViewport`, `ResizeObserver` (peça e balão),
 `transitionend`, rolagem e a cada 250 ms do vigia; peça cortada pela borda recebe
 `scrollIntoView`. Foco no "Próximo", Tab preso no balão, `Escape` fecha.

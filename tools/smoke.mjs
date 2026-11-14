@@ -4751,7 +4751,7 @@ try {
     const campo = li.querySelector('.linha-renome-campo');
     campo.value = 'Nome pelo slot';
     // O ✓ é procurado NA COLUNA, e a ausência dele é um veredito e não uma
-    // exceção: com o símbolo caindo no caminho B (o defeito que a asserção de
+    // exceção: com o símbolo fora da coluna (o defeito que a asserção de
     // baixo pega) o `click` de um `null` derrubaria o bloco inteiro, e a
     // reprovação sairia como "terminou com exceção" em vez de dizer o que era.
     const okEl = li.querySelector(':scope > .row > .row-slot--ok');

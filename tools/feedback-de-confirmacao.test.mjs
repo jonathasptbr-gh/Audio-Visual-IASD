@@ -25,7 +25,7 @@
 // diferença.
 //
 // POR ISSO A ASSERÇÃO CENTRAL NÃO É "o pulso é azul": é **"o pulso é o MESMO
-// azul nos cinco contextos"**. Medir só um botão solto passaria com a cascata
+// azul nos quatro contextos"**. Medir só um botão solto passaria com a cascata
 // inteira de pé — foi assim que o defeito viveu tantas versões.
 //
 // E A DISTINÇÃO FICA. O âmbar ("já estava lá") e o vermelho (falha) continuam
@@ -59,17 +59,13 @@ try {
     await pg.goto(base, { waitUntil: 'load' });
     await esperarCortina(pg);
 
-    // ── A. O MESMO AZUL NOS CINCO CONTEXTOS ─────────────────────────────
+    // ── A. O MESMO AZUL NOS QUATRO CONTEXTOS ────────────────────────────
     const cores = await pg.evaluate(() => {
       setAppMode('full');
       const raiz = getComputedStyle(document.documentElement);
       const tok = (n) => raiz.getPropertyValue(n).trim();
-      // Um hospedeiro por contexto. `.fav-acoes` é a GAVETA, e é o único que
-      // pinta pelo ANCESTRAL — os outros três pintam pela própria classe.
-      const gaveta = document.createElement('div');
-      gaveta.className = 'fav-acoes';
       const solto = document.createElement('div');
-      document.body.append(gaveta, solto);
+      document.body.append(solto);
       const medir = (classe, pai) => {
         const b = document.createElement('button');
         b.className = classe;
@@ -87,7 +83,6 @@ try {
           estrelaAcesa: medir('row-btn fav-btn on ' + ok, solto),
           filaAcesa: medir('row-btn row-playlist on ' + ok, solto),
           tileAceso: medir('qs-tile qs-on ' + ok, solto),
-          naGaveta: medir('row-btn ' + ok, gaveta),
         },
         dup: medir('row-btn btn-pulso btn-pulso--dup', solto),
         erro: medir('row-btn btn-pulso btn-pulso--erro', solto),
@@ -101,9 +96,9 @@ try {
     const vistos = Object.values(cores.contextos);
     const iguais = new Set(vistos.map((v) => v.bg + '|' + v.cor));
     checar(iguais.size === 1,
-      'A · ' + tema + ': o pulso de confirmação é o MESMO em TODOS os cinco '
-      + 'contextos — solto, sobre a estrela acesa, sobre a fila acesa, sobre um '
-      + 'tile aceso e dentro da gaveta. Medir só um botão solto passaria com a '
+      'A · ' + tema + ': o pulso de confirmação é o MESMO em TODOS os quatro '
+      + 'contextos — solto, sobre a estrela acesa, sobre a fila acesa e sobre um '
+      + 'tile aceso. Medir só um botão solto passaria com a '
       + 'cascata inteira de pé, que é como o defeito viveu tantas versões',
       JSON.stringify(cores.contextos));
 
@@ -224,7 +219,6 @@ try {
   }
   const ESPERADOS = [
     '.lv-badge',                       // "há letra ou texto para ler" — disponibilidade
-    '.display-status.connected',       // (regra morta: o elemento só existe no ramo do navegador)
     '.cast-acao.connected',            // "há TV no ar" — dura o culto, não 1,1 s
     '.cast-acao.connected .cast-acao-ico',  // o ícone do mesmo botão, mesmo estado
     // A MESMA "TV no ar", um nível acima (v1.8.89). O `?` do aviso de áudio

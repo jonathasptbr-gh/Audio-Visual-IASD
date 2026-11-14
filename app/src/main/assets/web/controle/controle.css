@@ -328,15 +328,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      de destinos caía de 312,30 para 267,55px e a do YouTube de 469,91 para
      411,91 —, sem relato, sem régua (não há `.hymn-result` "logo acima" de um
      modal) e sem oráculo. O recuo vira TOKEN e a GAVETA o sobrescreve: o alcance
-     passa a ser exatamente o que o pedido nomeia.
-
-     E ELE FECHA A DUPLICAÇÃO QUE A FOLHA JÁ RECLAMAVA. A faixa de confirmação
-     (`.fav-acoes > .linha-confirma`) precisa da MESMA altura da linha de opção,
-     e o número dela era o do botão COPIADO — o comentário de lá dizia, com
-     todas as letras, que era *"a única duplicação aqui"*. Com o token, a soma é
-     escrita como soma e as duas andam juntas por construção: sem isso, o
-     aperto da gaveta faria a linha PULAR +11,19px sob o dedo ao perguntar
-     "excluir?", que é o defeito da v5.309 de volta e MEDIDO. */
+     passa a ser exatamente o que o pedido nomeia. */
   --opcao-recuo-v: .6rem;
   --opcao-recuo-h: .7rem;
   /* ---------- ONDE O TEXTO DE UMA FAIXA COMEÇA (v1.5.16) ----------
@@ -680,7 +672,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 /* ---------- Feedback de toque (regra única) ----------
    O `*` acima zera o `-webkit-tap-highlight-color`, então um controle SEM
    `:active` fica mudo ao toque. Lista única: um botão novo nasce coberto.
-   O `.display-status` fica FORA — o indicador do telão é `disabled` no app.
+   O `.display-status` fica FORA — ele só aparece no navegador (no app é `hidden`).
 
    NA LISTA QUEM ENCOLHE É O CARTÃO INTEIRO, não a `.row` de dentro: com a borda
    do cartão VISÍVEL (`.no-ar`, `.active`) o miolo se afastava de
@@ -1089,23 +1081,9 @@ body {
   pointer-events: none;
 }
 
-/* ===== O FADER DE VOLUME: A MESMA CÉLULA DO VOLTAR SLIDE (v1.8.87) =====
-   Ele é item da grade do deck (a coluna 1, a faixa da preview) e só existe
-   enquanto a tecla física o acendeu — ver `peekVolume`. Some com o botão de
-   VOLTAR slide, que ocupa a mesma célula; o de PASSAR, na outra ponta, FICA.
-
-   ISTO REVOGA A ESCOLHA DA v1.3.8, e a razão é a FREQUÊNCIA. Aquele lote pôs o
-   fader sobre o de PASSAR porque, até ele, o par inteiro sumia junto — e o que
-   o operador tinha relatado era o sumiço. Escolher qual dos dois cede era uma
-   pergunta aberta, e a resposta veio agora: *"assim ele não interrompe a
-   passagem dos slides"*. Passar slide é o gesto que se repete durante um
-   sermão inteiro, com a mão parada no mesmo ponto da tela; voltar é a
-   correção, que se faz olhando. O fader come 2,8 s da célula que ele cobre, e
-   cobrir a célula do gesto repetido é interromper o sermão a cada espiada. */
 /* ===== A PÍLULA DE VOLUME (v1.13.57) =====
-   Uma peça só, nos dois modos e em toda tela: aqui morreu o fader vertical do deck e, com ele, a
-   barra separada da tela cheia. Ela nasce no corpo, flutua ACIMA do transporte e some sozinha
-   (ver `mostrarPilula`). OPACA de propósito: rodapé flutuante não deixa passar imagem.
+   Uma peça só, nos dois modos e em toda tela. Ela nasce no corpo, flutua sobre a tela e some
+   sozinha (ver `mostrarPilula`). OPACA de propósito: rodapé flutuante não deixa passar imagem.
    Em tela cheia ela é MOVIDA para dentro da `.preview` (`casaDaPilula`): só o elemento em tela
    cheia e os filhos dele são pintados — a prévia inteira é um popover no top layer —, e lá o
    rodapé dela é a faixa acima do transporte da projeção. */
@@ -1117,9 +1095,9 @@ body {
      tela do Modo Fácil — invisível e sem receber o dedo (achado do oráculo). */
   /* BARRA VERTICAL, NA BORDA ESQUERDA (v1.13.63), pedido do operador: *"ajustar a barra de volume
      que hoje é flutuante para que ela seja uma barra vertical … no canto esquerdo da tela …
-     posicionada na altura que fique acima dos controles do modo avançado"*. O `--pill-bottom` é o
-     mesmo que já era medido (`lugarDaPilula`): a base do transporte à vista — então ela termina
-     logo ACIMA do deck e cresce para cima, sem cobrir botão nenhum. O recuo esquerdo respeita o
+     posicionada na altura que fique acima dos controles do modo avançado"*. O `--pill-top` é
+     escrito por `lugarDaPilula` na hora de aparecer: o CENTRO dela no centro do corpo do modo
+     (`centroDaPilula`, v1.13.64), com 8px de respiro nas bordas da janela. O recuo esquerdo respeita o
      recorte da câmera (`safe-area-inset-left`) E TEM UM PISO DE 12px (v1.14.7): a 6px o recorte
      azul do tour ficava cortado pela borda da tela, e 12px é a margem da grade — o `MARGEM_RECORTE`
      do tour desconta exatamente isso. */
@@ -1264,9 +1242,13 @@ body {
 body.mode-simple .vol-pill { --fader-cap: calc(var(--hit) * 1.3); }
 body.mode-simple .vol-pill-trilho { height: 12rem; }
 .vol-pill .fader { width: 100%; height: 100%; }
+/* O NÚMERO (0–100) fica FORA do trilho, abaixo dele na coluna da pílula: a cápsula é estreita
+   demais para um número dentro do cap. Não recebe toque — quem arrasta é o input. */
 .vol-pill .fader-value {
-  position: static; flex: none; width: auto; height: auto; color: var(--text);
-  font-variant-numeric: tabular-nums; font-size: var(--fs-lg); font-weight: var(--fw-max);
+  flex: none; display: flex; align-items: center; justify-content: center; line-height: 1;
+  color: var(--text); font-variant-numeric: tabular-nums;
+  font-size: var(--fs-lg); font-weight: var(--fw-max);
+  pointer-events: none; user-select: none;
 }
 /* O FADER OCUPA A COLUNA INTEIRA, como o botão que ele substitui: a coluna não
    muda de espessura ao acender, só de conteúdo. Isso exige desenhar o trilho
@@ -1295,18 +1277,6 @@ body.mode-simple .vol-pill-trilho { height: 12rem; }
   background: linear-gradient(to top,
     var(--accent) 0 var(--fader-stop), var(--surface) var(--fader-stop) 100%);
 }
-/* O número (0–100) ocupa exatamente o retângulo do cap: mesma altura e a mesma
-   conta de posição do preenchimento, então ele acompanha o cap sem folga em
-   qualquer posição. Não recebe toque — quem arrasta é o input por baixo. */
-.fader-value {
-  position: absolute; left: 0; right: 0;
-  bottom: calc(var(--vol, 1) * (100% - var(--fader-cap)));
-  height: var(--fader-cap);
-  display: flex; align-items: center; justify-content: center;
-  font-size: var(--fs-md); font-weight: var(--fw-forte); line-height: 1;
-  color: var(--bg);
-  pointer-events: none; user-select: none;
-}
 /* Cap do fader: atravessa a coluna inteira, como o cap de uma mesa de som de
    verdade — e é um alvo de toque muito maior que um thumb redondo. */
 .fader::-webkit-slider-thumb {
@@ -1314,9 +1284,8 @@ body.mode-simple .vol-pill-trilho { height: 12rem; }
   width: 100%; height: var(--fader-cap);
   border-radius: var(--radius-btn);
   /* O cap é o elemento mais claro da coluna de propósito (é onde o olho vai
-     procurar o nível), e o número dentro dele é escrito em `--bg`. Branco
-     literal era a maior fonte isolada de luz emitida do app; `--text` é o
-     off-white já calibrado da paleta e mantém 11,4:1 com o número. */
+     procurar o nível). Branco literal era a maior fonte isolada de luz
+     emitida do app; `--text` é o off-white já calibrado da paleta. */
   background: var(--text);
   box-shadow: 0 1px 4px var(--shadow-cap);
   cursor: pointer;
@@ -3552,8 +3521,8 @@ main {
    coberta.
    `:has()` e não uma classe escrita pelo JS: os dois abridores e os dois
    fechadores de folha teriam de lembrar dela, e é o tipo de par que diverge no
-   primeiro caminho novo. Ele já é dependência desta folha desde a v1.8.53
-   (`.song-menu-go-row:has(> .fav-acoes.confirmando)`), então não é motor novo. */
+   primeiro caminho novo. Ele já é dependência desta folha desde a v1.8.53,
+   então não é motor novo. */
 .list-body:has(.tools-sheet:not([hidden]):not(.estreita)) > #library::before,
 .list-body:has(.tools-sheet:not([hidden]):not(.estreita)) > #library::after { display: none; }
 .empty { color: var(--muted); text-align: center; padding: 1.6rem 0; line-height: 1.6; font-size: var(--fs-lg); }
@@ -3814,11 +3783,11 @@ main {
    preservar (a caixa já está no ar) e um botão de 40px invisível continuaria
    reservando a largura que o par precisa. */
 .linha-confirma { display: none; }
-:is(.row-acoes, .fav-acoes, .pl-limpar-faixa, .hist-sessao-acoes).confirmando > .linha-confirma {
+:is(.row-acoes, .pl-limpar-faixa, .hist-sessao-acoes).confirmando > .linha-confirma {
   display: flex; flex: 1; min-width: 0;
   align-items: center; gap: var(--sp-3);
 }
-:is(.row-acoes, .fav-acoes, .pl-limpar-faixa, .hist-sessao-acoes).confirmando > :not(.linha-confirma) { display: none; }
+:is(.row-acoes, .pl-limpar-faixa, .hist-sessao-acoes).confirmando > :not(.linha-confirma) { display: none; }
 /* O par é de TEXTO, não de ícone, e é a única exceção à regra dos quadrados da
    linha: um destrutivo confirmado por dois desenhos parecidos seria pior que o
    modal que ele substitui. Daí o reset completo aqui — ele não entra na lista
@@ -3852,10 +3821,6 @@ main {
    o mesmo do "Remover do dispositivo" de um álbum: vermelho SUAVE é ação
    destrutiva, e o saturado fica reservado para "está no ar agora". */
 .linha-sim { background: var(--btn-danger); color: var(--danger-strong); }
-/* Dentro da gaveta de um Favorito o `--surface` é um OVERLAY que AFUNDA, e
-   afundar sobre o poço (já o tom mais escuro do app) não produz degrau nenhum —
-   a mesma correção que `.fav-acoes .row-btn` recebeu na v5.287. */
-.fav-acoes .linha-nao { background: var(--gaveta-btn); }
 
 /* ---------- E A ALTURA DELES É A DOS QUADRADOS DA LINHA (v1.4.29) ----------
    Relato do operador: *"a altura dos botões de cancelar ou confirmar exclusão,
@@ -3872,9 +3837,7 @@ main {
    `.row-slot`) ao lado de um campo de 34.
 
    O ESCOPO É `.row-acoes`, e não `.lib-item`, porque a régua é O VIZINHO e não
-   a lista: na faixa dos FAVORITOS (`.fav-acoes`) quem está ao lado é o
-   confirmar da folha, que ESTICA (`align-self: stretch`) — ali a altura certa é
-   a dele, não 40px. E na FILA (`.row-item`) os quadrados já medem `--hit`, que
+   a lista: na FILA (`.row-item`) os quadrados já medem `--hit`, que
    é o que o par mede: aquela lista nunca esteve desalinhada. Escrever `40px` à
    mão, ou pendurar a regra em `.lib-item`, quebraria uma das duas. */
 .lib-item .row-acoes :is(.linha-confirma-btn, .linha-renome-campo) {
@@ -3978,11 +3941,6 @@ main {
 .row-slot--del { background: var(--surface); color: var(--text); cursor: default; }
 .row-slot--del .msym { font-size: var(--icon-sm); }
 .row-slot--ok { background: var(--btn-accent); color: var(--accent); }
-/* O CAMINHO B do ✓ (a gaveta dos Favoritos, que não tem `⋮`): dentro da faixa
-   ele acompanha a altura dela, como todo irmão ali. É a mesma exceção nomeada
-   do `.fav-acoes .row-btn` — ver lá —, e pela mesma razão: aqui a faixa inteira
-   mede o mesmo, e um quadrado de 40 no meio de 42 é o que a v5.309 corrigiu. */
-.linha-confirma > .row-slot { height: auto; align-self: stretch; }
 
 /* ---------- E RENOMEAR TAMBÉM MORA NA FAIXA (v1.4.25) ----------
    Pedido do operador: *"coloque o processo de renomear também dentro do item na
@@ -6343,8 +6301,8 @@ main {
    idênticos, todas as medidas da tira iguais bit a bit, e a rolagem por toque
    intacta.
 
-   ---------- OS DEZ `::-webkit-scrollbar` CONTINUAM MORTOS ----------
-   Isto é da v1.8.60 e segue valendo: o Chromium DESLIGA os pseudos
+   ---------- E NENHUM `::-webkit-scrollbar` (v1.8.60) ----------
+   O Chromium DESLIGA os pseudos
    `::-webkit-scrollbar*` quando `scrollbar-width` ou `scrollbar-color` tem valor
    diferente de `auto`. MEDIDO no leitor de letra, com barra clássica: a calha
    saía **10px** — o valor de `thin` — e não os 7px que o pseudo pedia. **Não
@@ -8294,8 +8252,8 @@ body:not(.mode-simple) #sorteioSimplesBtn { display: none; }
 body.simples-barra .lib-toggle { display: none; }
 /* ===== AS CONFIGURAÇÕES DO MODO FÁCIL (v1.13.57) =====
    Pedido do operador: *"revisar quais opções das configurações aparecem no modo simples"*.
-   Ficam Tema, Tela, Saída de áudio, Dados móveis e Compartilhar — o que se decide no culto.
-   Editar mídia, Histórico, Verificar e Transferir são MANUTENÇÃO: continuam inteiros no
+   Ficam Tema, Tela, Dados móveis, Compartilhar e o Tour do app — o que se decide no culto.
+   Histórico, Verificar e Transferir são MANUTENÇÃO: continuam inteiros no
    avançado, e apagados aqui não deixam buraco inerte na grade (apagado = indisponível). */
 body.mode-simple #histOpenRow,
 body.mode-simple #testeTile,
@@ -8504,6 +8462,8 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   padding: .8rem 1rem .7rem;
   flex-shrink: 0;
 }
+/* O `font-size` é o tamanho dos glifos `.msym`; os SVG do cabeçalho trazem `width="20"`, o
+   mesmo `--icon-sm` (20px — a escala 1,3 dele só vale dentro do `#hymnResults`). */
 .popup-header-icon { font-size: var(--icon-sm); color: var(--accent); }
 .popup-title { font-size: var(--fs-xl); font-weight: var(--fw-forte); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* ---------- O CONTADOR VESTE A CAIXA DO ✕ (v1.8.55) ----------
@@ -9054,9 +9014,9 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   flex-shrink: 0;
 }
 .popup-footer:not(:has(> :not([hidden]))) { display: none; }
-/* Estado do telão (rodapé do popup de Exibição). No app é só um indicador
-   (desabilitado); no navegador continua clicável, como atalho para a tela do
-   Display. Verde quando há TV recebendo a Presentation. */
+/* O "Abrir tela do Display" (rodapé da folha): só NO NAVEGADOR, onde é a única
+   forma de abrir a tela do Display sem `Presentation`; no app ele nasce e fica
+   `hidden` (ver o `else` do `window.__NATIVE__` em `controle.js`). */
 .display-status {
   width: 100%; padding: .6rem;
   background: var(--surface);
@@ -9065,15 +9025,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   cursor: pointer; appearance: none; -webkit-appearance: none;
 }
 .display-status .msym { font-size: var(--icon-sm); }
-.display-status:disabled { cursor: default; }
-/* `.connected` sobrou de quando este botão era o INDICADOR do telão no rodapé
-   de Configurações (v5.193 o tirou de lá: quem está conectado é assunto da
-   folha de conexão). Ele fica porque o botão continua existindo no NAVEGADOR,
-   onde é a ação de abrir a tela do Display — e o dia em que ela quiser dizer
-   "já está aberta" o desenho já existe. */
-.display-status.connected {
-  background: var(--ok-fill); color: var(--ok);
-}
 
 
 /* ---------- Busca (pasta e Hinário) ---------- */
@@ -9609,82 +9560,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
      ele valia 8px como o `--sp-4` da `<ul>` ao lado por coincidência, não por
      contrato. */
   margin: 0;
-}
-/* ---------- A FAIXA DE AÇÕES DA LINHA DE FAVORITO (v5.287) ----------
-   O conteúdo do `⋮` de antes, agora DENTRO da gaveta. Ela fica embaixo porque as
-   opções acima são a pergunta ("onde este item deve estar?") e estas são o que
-   se faz com a LINHA — favoritar, mover, excluir. Os botões
-   são os mesmos `.row-btn`, e vestem `--gaveta-btn` como as opções acima: o
-   `--surface` que eles trazem de fábrica é um OVERLAY, e aqui dentro ele
-   resolve para o par SUNK (a gaveta mora numa seção da Biblioteca) — preto
-   sobre o poço, que já é o tom mais escuro do app, não produz degrau nenhum.
-
-   (A ESTRELA saiu desta faixa na v5.288: nesta lista ela e a lixeira faziam a
-   mesma coisa — ver `favItemRow`. Ela continua inteira nas outras listas, onde
-   alterna de verdade.) */
-/* ---------- ATRÁS DO `⋮` DA FILEIRA DE DESTINOS (v1.13.36) ----------
-   Ela mora na `.dest-botoes`, escondida até o botão de opções (`.dest-opcoes`)
-   pôr `.acoes-abertas` na linha — e aí ela toma o lugar dos destinos (ver a
-   regra junto da `.dest-botoes`). A ALTURA é uma só (`align-items: stretch` mais
-   a altura declarada lá) — os botões traziam `--thumb` fixo (40px) e `height:
-   auto` desarma esse valor; a LARGURA continua `--thumb`. Com `.confirmando`
-   quem preenche a faixa é a `.linha-confirma` (`flex: 1`), cujo par divide a
-   faixa ao meio desde a v5.309. */
-.fav-acoes {
-  display: flex; align-items: stretch; justify-content: flex-end; gap: var(--sp-3);
-  flex: none; min-width: 0;
-}
-/* ---------- A EXCEÇÃO NOMEADA DO QUADRADO (v1.8.57) ----------
-   Este botão NÃO é quadrado, e as três regras que o cercam não cabem juntas:
-   a LARGURA é a capa da própria linha (`--thumb`, 40px — a regra dos quadrados
-   de uma linha, v5.259), a ALTURA é a da faixa (42px — a v1.4.29/v5.309 exige
-   que toda peça daqui meça o mesmo, senão o botão *"boia no meio da linha"* e o
-   campo de renomear pula sob o dedo), e 40 × 42 não é quadrado. As duas foram
-   MEDIDAS e as duas têm oráculo; tentei conciliá-las nos dois sentidos e cada
-   tentativa reprovou a outra metade do `boot-nativo.test.mjs`.
-
-   **E ELE ESTÁ FORA DO PEDIDO**, que é o que decide: o relato do operador é
-   sobre *"botões de adicionar ao cronograma ou adicionar aos favoritos"*, e os
-   desta faixa são excluir, renomear e o par ↑↓ — o que mexe no ITEM e na
-   POSIÇÃO, nunca um destino. O que o `quadrado-de-icone.test.mjs` faz aqui não
-   é abrir um buraco: ele troca a asserção pela que de fato vale nesta faixa —
-   TODA peça na MESMA altura. */
-.fav-acoes .row-btn { background: var(--gaveta-btn); height: auto; align-self: stretch; }
-.fav-acoes.confirmando { flex: 1; }
-/* E O PAR VESTE A RECEITA DE ALTURA DO BOTÃO QUE ELE SUBSTITUI, não um número:
-   `--hit` de conteúdo mais o recuo vertical de uma linha de opção, que desde a
-   v1.5.17 é o token `--opcao-recuo-v` — o MESMO que o `.song-menu-btn` lê.
-   Enquanto foi um número copiado (o `1.2rem` do `.6rem` de cada lado), esta era
-   *"a única duplicação aqui"*, e foi ela que quase reintroduziu o pulo da
-   v5.309 quando a gaveta apertou: hoje as duas leem a mesma fonte e andam
-   juntas por construção, dentro da gaveta (recuo `--sp-2`) e fora dela (`.6rem`).
-   Com `box-sizing: border-box` o `min-height` inclui o padding, então é ele que
-   precisa carregar a conta inteira.
-   Sem isto a linha ENCOLHE ao perguntar: com o confirmar fora de cena nada mais
-   segura a altura da linha, e a gaveta dava um pulo sob o dedo no exato
-   instante em que o operador mira um destrutivo. MEDIDO na gaveta de hoje: a
-   faixa fica em 47,59px com e sem a pergunta (pulo de 0,00px); com o número
-   copiado no lugar do token, ela iria a 58,78px — **+11,19px**.
-   (Na fileira do `⋮` a régua é OUTRA e mora noutro lugar: lá os vizinhos são os
-   quadrados da linha, e desde a v1.4.29 o par mede `--thumb` como eles — ver
-   "E A ALTURA DELES É A DOS QUADRADOS DA LINHA".)
-
-   E O CAMPO DE RENOMEAR ENTROU AQUI NA v1.4.29. Ele nasceu na v1.4.25 e ficou
-   de fora desta regra, medindo `--hit` cru contra o confirmar ao lado — o MESMO
-   pulo que a v5.309 corrigiu para a pergunta da exclusão, no caminho que nasceu
-   depois dela. O ✓ não precisa ser nomeado: ele é um `.row-slot` e já estica
-   (`align-self: stretch`), então segue a caixa assim que o campo a levanta.
-
-   Quem centra os dois verticalmente continua sendo a regra de `.confirmando` lá
-   em cima — um `align-items` repetido aqui seria letra morta, porque aquela é
-   mais específica. */
-.fav-acoes > .linha-confirma > :is(.linha-confirma-btn, .linha-renome-campo) {
-  /* v1.5.17: A DUPLICAÇÃO QUE O COMENTÁRIO ACIMA RECLAMAVA DEIXOU DE EXISTIR.
-     O número era o do `.song-menu-btn` COPIADO, e um aperto lá deixaria a linha
-     PULAR +11,19px sob o dedo ao perguntar "excluir?" — o defeito da v5.309 de
-     volta, e MEDIDO. Hoje os dois leem o MESMO token e andam juntos por
-     construção, dentro da gaveta e fora dela. */
-  min-height: calc(var(--hit) + 2 * var(--opcao-recuo-v));
 }
 /* A METADE DE BAIXO da gaveta só aparece com `vendo-letra` — ver o botão irmão
    do confirmar em `montarOpcoes`. Ela é a mais alta das duas, e aberta por
@@ -10991,11 +10866,10 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 /* COM TRABALHO ANDANDO (ou um pacote pronto) a lista é só para olhar: as caixas
    apagam — INDISPONÍVEL, nunca "desligado" — e as seções continuam abrindo. */
 #pacoteLista.travada .song-menu-check { opacity: var(--op-inativo); }
-/* A GRADE DE CONFIGURAÇÕES (v1.12.1): 9 tiles em 3 colunas, por ASSUNTO, uma fileira
-   por assunto — aparência e saída (Tema, Tela, Saída de áudio), dados e mídia (Dados
-   móveis, Editar mídia, Histórico) e o aparelho (Verificar, Compartilhar, Transferir) —,
-   e sem coluna forçada: com 9 a grade se fecha sozinha, e um `grid-column` num tile que some (o
-   Compartilhar, no navegador) abriria um vão. */
+/* A GRADE DE CONFIGURAÇÕES (v1.12.1): 3 colunas, na ordem por ASSUNTO — Tema, Tela e Dados
+   móveis; Histórico e Verificar; Compartilhar, Transferir e o Tour do app (8 tiles no app, 6 no
+   navegador) —, e sem coluna forçada: um `grid-column` num tile que some (Compartilhar e
+   Transferir, no navegador) abriria um vão. */
 .qs-tile {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: var(--sp-2); min-height: 4rem;
@@ -13144,13 +13018,6 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
 .lib-item.vendo-letra > .hymn-gaveta .song-menu-letra-cx > span:first-child {
   visibility: hidden;
 }
-/* ---------- AS OPÇÕES DE UM FAVORITO MORAM NA LINHA (v1.13.68) ----------
-   O botão de OPÇÕES (`.dest-opcoes`) e a faixa `.fav-acoes` que a v1.13.36 pôs
-   NESTA fileira da gaveta saíram: o `⋮` (`.row-mais`) e a faixa (`.row-acoes`) são
-   da própria `.row` do favorito, a anatomia do Cronograma (ver `linhaDeItem`). Aqui
-   ficaram só os destinos — e as regras que os escondiam sob `.acoes-abertas` foram
-   com ela: a marca agora vem da LINHA, e uma gaveta aberta com a faixa aberta por
-   cima não pode perder os botões de destino. */
 /* ---------- A BARRA DA BIBLIOTECA SAI DE CENA ENTRE A TELA CHEIA E A ROTAÇÃO (v1.13.34) ----------
    Ver `aoSairDaTelaCheiaGeral`: nos quadros em que o documento já saiu da tela
    cheia e a janela ainda é a deitada, a posição da barra (`100svh` menos a caixa)
@@ -13163,8 +13030,9 @@ body.lib-assentando .popup-sheet--lib { visibility: hidden; }
    O VÉU é a sombra do RECORTE (`box-shadow` de espalhamento): o buraco é a peça
    explicada, sem máscara nem SVG. Sem peça à vista o recorte some e o véu passa a
    ser o fundo da raiz, com o balão no centro. A raiz pega todo toque: durante o
-   tour nada do app por baixo responde. 600 = acima dos diálogos (500), abaixo da
-   prévia inteira e da cortina de abertura (que contam como ocupado e o fecham). */
+   tour nada do app por baixo responde. 600 = acima dos diálogos (300) e da cortina
+   de abertura (`#splash`, 500), abaixo da prévia inteira (`.pv-inteira`); a cortina e
+   a prévia inteira contam como ocupado e o fecham. */
 .tour {
   position: fixed; inset: 0; z-index: 600; pointer-events: auto; touch-action: none;
   transition: opacity var(--dur-media) ease;
@@ -13236,15 +13104,14 @@ body.lib-assentando .popup-sheet--lib { visibility: hidden; }
 .tour-balao .dialog-btn { padding-left: .5rem; padding-right: .5rem; min-height: var(--hit); }
 .tour-balao .dialog-btn:disabled { opacity: var(--op-inativo); cursor: default; }
 
-/* A AJUDA DE QUEM COMEÇA, no fim da grade de Configurações: dois botões lado a
-   lado, que quebram a linha do rótulo em vez de cortá-lo (320px × 1,3). */
-.cfg-ajuda { display: flex; gap: var(--sp-3); }
+/* A AJUDA DE QUEM COMEÇA, no fim da grade de Configurações: um botão só (o Guia),
+   que ocupa a linha inteira pelo `flex: 1` do `.dialog-btn` — é para isso o `flex`
+   aqui — e quebra a linha do rótulo em vez de cortá-lo (320px × 1,3). */
+.cfg-ajuda { display: flex; }
 .cfg-ajuda .dialog-btn { min-height: var(--hit); padding: .45rem .5rem; line-height: 1.2; }
-/* Sobrou o "Guia de sonoplastia", que leva a seta de "abre outra tela"
+/* O "Guia de sonoplastia" leva a seta de "abre outra tela"
    (`icoExterno`) — o rótulo e o sinal lado a lado, e o rótulo quebra a linha em
-   vez de cortar. O sinal não é alvo (`pointer-events: none`): o toque é do botão.
-   O "Tour do app" subiu para a grade de quadrados na v1.14.7 (era uma caixa de
-   marcação aqui desde a v1.14.5). */
+   vez de cortar. O sinal não é alvo (`pointer-events: none`): o toque é do botão. */
 .cfg-ajuda .dialog-btn { display: flex; align-items: center; justify-content: center; gap: var(--sp-3); }
 .cfg-ajuda .cfg-ajuda-rot { min-width: 0; }
 .cfg-ajuda .cfg-externo { flex: none; width: var(--icon-sm); height: var(--icon-sm); pointer-events: none; }

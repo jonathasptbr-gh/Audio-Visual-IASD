@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Regras de backup/transferência (Android 12+). Sem elas, o backup automático
-     leva TUDO o que está no diretório de dados — e duas coisas ali não podem ir
-     junto pelos mesmos motivos:
+     leva TUDO o que está no diretório de dados — e quatro coisas ali não podem
+     ir junto. As quatro saem da nuvem; da transferência direta saem as três
+     primeiras (o porquê da diferença está no fim):
 
      1. `files/web-ota/` e `shared_prefs/web-ota.xml` são o bundle OTA extraído e
         o ponteiro para ele. Isso é CÓDIGO que roda no origin privilegiado, com

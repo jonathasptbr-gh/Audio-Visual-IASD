@@ -416,7 +416,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.12';
+const WEB_VERSION = '1.14.13';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -945,21 +945,16 @@ const FIXED_COLLECTIONS = [
   { id: 'hymnal-1996',  name: 'Hinário Adventista 1996', kind: 'hymnal', source: Louvorja.HYMNAL_1996_FILE },
 ];
 
-// ===== O QUE É "DIVERSAS" NO MODO FÁCIL (v1.13.59) =====
-// Pedido do operador: *"além da coleção de cds do ano, o resto ficará na coleção de diversos"*.
-// A categoria dos CDs do ano é a ÚNICA que fica separada na raiz; todo o resto — os hinários,
-// as outras categorias e os álbuns órfãos — entra no "Diversas". A régua do nome aceita as duas
-// formas que o catálogo já usou ("CDs Oficiais/Ano" hoje); sem casar, tudo cai em "Diversas",
-// que é a degradação certa: nada some, só deixa de estar em destaque.
+// ===== O QUE É "DIVERSAS" =====
 // AS DUAS CATEGORIAS QUE SÃO "DIVERSAS" DE VERDADE, na palavra do operador (2026-11-10): eram
 // coleção própria e não são. Elas entram no grupo "Diversas"; as OUTRAS categorias continuam com o
-// grupo delas, e os CDs do ano seguem separados sem precisar de régua nenhuma.
+// grupo delas — os CDs do ano entre elas. Quem aplica: `desenharCategorias` e `pacoteMontarFolha`.
 const DISSOLVIDAS_EM_DIVERSAS = /^(adoradores|cantores)$/i;
 const GRUPO_DIVERSAS = 'Diversas';
-// O nome comparável: sem acento, sem caixa, com os espaços colapsados.
+// O nome comparável: a régua da busca (`normalizeForSearch`: sem acento, sem caixa) com os
+// espaços colapsados.
 function chaveDeNome(x) {
-  return String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase().replace(/\s+/g, ' ').trim();
+  return normalizeForSearch(x).replace(/\s+/g, ' ').trim();
 }
 
 // ===== OS DOIS ELEMENTOS FIXOS DO MODO FÁCIL (v1.13.58) =====
@@ -4387,8 +4382,8 @@ function renderControls() {
   // O NÚMERO NO MESMO BOTÃO (v1.13.66): o volume do app, sempre à vista no avançado — é a metade
   // que a pílula mostra na tecla física, e aqui ela não some.
   if (pvMuteNumEl) pvMuteNumEl.textContent = String(muteToggleEl.classList.contains('blocked') ? 0 : Math.round(volume * 100));
-  // Os DOIS mostradores de volume (o fader do deck e a tecla de nível do Modo Fácil)
-  // saem daqui: um só ponto os escreve, então nunca divergem.
+  // A PÍLULA DE VOLUME sai daqui: `syncFader` escreve o fader, o preenchimento (`--vol`) e o
+  // número dela, e é o único que os escreve — então os três nunca divergem.
   syncFader(Math.round(volume * 100));
   renderSimple();
   // A coluna da tela cheia espelha a cortina daqui: este é o único ponto que a
@@ -11563,18 +11558,13 @@ function fecharConfirmacaoNaLinha() {
  *
  * `opts`:
  *  · `classe`  — a classe extra da caixa, para o CSS distinguir os dois usos.
- *  · `marca`   — a classe que vai no `li` enquanto ela está aberta. OPCIONAL, e
- *    hoje só a exclusão a usa: é ela que troca a miniatura pela lixeira no
- *    CAMINHO B (ver abaixo).
- *  · `simbolo` — o elemento que ocupa a coluna do `⋮`.
- *  · `semSlot(simbolo, cx)` — o CAMINHO B, para a linha que não tem `⋮`: a
- *    gaveta dos FAVORITOS, cuja faixa ficava abaixo da linha em vez de cobri-la.
- *    (v1.13.68: a linha do favorito ganhou o `⋮` e usa o caminho A; o B ficou
- *    para uma faixa sem linha/`⋮`, e não é mais exercido por nenhuma lista.)
- *    Cada processo escolhe o dele, e são destinos diferentes de propósito — o
- *    ✓ do renomear é um BOTÃO e precisa continuar alcançável (volta para dentro
- *    da faixa), a lixeira é um INDICADOR (volta para a capa, que ali continua
- *    visível o tempo todo).
+ *  · `marca`   — a classe que vai no `li` enquanto ela está aberta
+ *    (`excluindo`, `renomeando`): é por ela que o CSS sabe QUAL processo está
+ *    no ar. OPCIONAL.
+ *  · `simbolo` — o elemento que ocupa a coluna do `⋮`. Só entra onde há essa
+ *    coluna: as faixas que perguntam sobre uma LISTA inteira (limpar a playlist,
+ *    o histórico, uma sessão) não têm linha nem `⋮`, e nelas o par de rótulos
+ *    divide a caixa ao meio — o símbolo fala de UM item, e ali não há item.
  */
 function abrirNaFaixaDaLinha(botao, opts) {
   const faixa = botao.parentElement;
@@ -11594,21 +11584,17 @@ function abrirNaFaixaDaLinha(botao, opts) {
   const marca = opts.marca || '';
   if (li && marca) li.classList.add(marca);
 
-  // O SÍMBOLO ENTRA DEPOIS DA CAIXA porque o caminho B de um dos dois é ela
-  // mesma — e ela precisa existir para receber o hóspede.
   const simbolo = opts.simbolo || null;
   const mais = li ? li.querySelector(':scope > .row > .row-mais') : null;
   if (simbolo && mais) {
     simbolo.classList.add('row-slot');
     mais.insertAdjacentElement('afterend', simbolo);
-  } else if (simbolo && opts.semSlot) {
-    opts.semSlot(simbolo, cx);
   }
 
   desfazerConfirmacao = () => {
     cx.remove();
     // `remove()` de um nó que nunca entrou no documento é no-op — é o caso do
-    // símbolo cujo caminho B não achou onde pousar.
+    // símbolo de uma faixa sem `⋮`.
     if (simbolo) simbolo.remove();
     faixa.classList.remove('confirmando');
     if (li && marca) li.classList.remove(marca);
@@ -11629,8 +11615,7 @@ function abrirNaFaixaDaLinha(botao, opts) {
 function pedirConfirmacaoNaLinha(botao, opts) {
   // A LINHA a que esta pergunta pertence — `null` nas três faixas que não são
   // uma linha (limpar a playlist, limpar o histórico, limpar uma sessão). É ela
-  // que SAI quando o "sim" é tocado, e por isso a busca sobe até aqui: ela já
-  // era feita no `abrirNaFaixaDaLinha` e no caminho B, cada uma por sua conta.
+  // que SAI quando o "sim" é tocado.
   const li = botao.closest('.lib-item,.row-item');
   // A LIXEIRA É O SÍMBOLO DA PERGUNTA, e não um botão: `<span>` sem ponteiro,
   // fora da árvore de acessibilidade. Quem decide são os dois rótulos.
@@ -11641,27 +11626,6 @@ function pedirConfirmacaoNaLinha(botao, opts) {
   const cx = abrirNaFaixaDaLinha(botao, {
     marca: 'excluindo',
     simbolo: lixo,
-    // CAMINHO B — a gaveta dos FAVORITOS, que não tem `⋮` a ceder. Ele é hoje o
-    // MESMO do ✓ do renomear (v1.7.4): a lixeira entra na própria faixa, ao
-    // lado dos dois rótulos.
-    //
-    // ELA MOROU NA CAPA da v1.4.27 até aqui, e saiu de lá porque a capa deixou
-    // de estar livre: o operador pediu a miniatura à vista durante a pergunta
-    // (ver a regra `.renomeando` no CSS), e um símbolo por cima dela responde a
-    // pergunta "de qual item é isto?" com um desenho que serve a todos. Com os
-    // dois caminhos B iguais some também a assimetria que o comentário antigo
-    // precisava explicar.
-    //
-    // E SÓ ONDE HÁ LINHA. As três faixas que perguntam sobre uma LISTA inteira
-    // (limpar a playlist, limpar o histórico, limpar uma sessão) não têm `li`, e
-    // nelas o par de rótulos DIVIDE A CAIXA AO MEIO — um terceiro filho a
-    // encolhe, que é o desenho que a v5.309 pediu por extenso. O símbolo
-    // pertence à pergunta sobre UM item; ali ele não tem item de quem falar.
-    semSlot: (sim, caixa) => {
-      if (!li) return;
-      sim.classList.add('row-slot');
-      caixa.appendChild(sim);
-    },
   });
   if (!cx) return;
   // A MINHA pergunta, guardada como a função que a desfaz. Com o `aoConfirmar`
@@ -11812,14 +11776,6 @@ function pedirRenomearNaLinha(botao, item, aoGravar) {
     // aqui ela sai (o campo quer a faixa inteira), lá ela fica.
     marca: 'renomeando',
     simbolo: ok,
-    // CAMINHO B (a gaveta dos Favoritos, sem `⋮`): ele volta para DENTRO da
-    // faixa, ao lado do campo, que é onde morou até a v1.4.27. Ele é o mesmo da
-    // lixeira desde a v1.7.4 — o que os separava era a capa, e ela deixou de
-    // estar livre —, com uma diferença que fica: o ✓ DECIDE, então ele entra
-    // sempre que a faixa existir; a lixeira ILUSTRA, e não entra numa faixa que
-    // não fala de um item (ver `pedirConfirmacaoNaLinha`). Um botão que
-    // desaparece por não achar coluna deixaria o campo sem confirmação.
-    semSlot: (sim, caixa) => { sim.classList.add('row-slot'); caixa.appendChild(sim); },
   });
   if (!cx) return;
 
@@ -11841,11 +11797,7 @@ function pedirRenomearNaLinha(botao, item, aoGravar) {
   //  transporte, que é o que o operador está olhando.)
 
   // O CAMPO É O ÚNICO FILHO DA FAIXA — o ✓ já foi para a coluna do `⋮`.
-  // `prepend` e não `append`: no CAMINHO B o ✓ já está aqui dentro (o `semSlot`
-  // roda DENTRO do `abrirNaFaixaDaLinha`, antes desta linha), e com `append` o
-  // campo entraria à DIREITA dele — a faixa sairia com o botão na frente do
-  // texto que se está digitando. Com a faixa vazia os dois são a mesma coisa.
-  cx.prepend(campo);
+  cx.appendChild(campo);
 
   const gravar = async () => {
     if (ok.disabled) return;
@@ -13767,7 +13719,7 @@ function interacaoAbertaNoAcervo() {
   // as três classes acima não a alcançam. Sem ela, abrir a gaveta de um
   // favorito enquanto um álbum baixa (ou uma pasta sincroniza, que chama
   // `statusPasta` uma vez POR ARQUIVO) a perdia em até 400 ms, com os destinos
-  // marcados junto. Marca de abertura nova entra AQUI: este seletor é a única
+  // marcados junto. Marca de abertura nova entra AQUI: esta função é a única
   // definição de "há interação aberta neste host".
   //
   // O `:not(.folder-opfs)` é o contrário de um esquecimento. A PASTA aberta é
@@ -13777,13 +13729,14 @@ function interacaoAbertaNoAcervo() {
   // tela. O que precisa de proteção é a gaveta de dentro dela, que é
   // `.lib-item.expanded` sem `.folder-opfs`.
   //
-  // `.lib-item.segurando` e `.lib-item.arrastando` são a QUARTA (v1.13.69): o dedo numa linha de
-  // Favoritos, do pointerdown (SÍNCRONO, antes dos 450 ms do toque longo) até soltar. Sem elas o
-  // redesenho do acervo remontava a lista debaixo do dedo — a linha levantada virava órfã, a
-  // marca `.arrastando` sumia e o `arrasto` do módulo ficava preso a um nó fora do documento.
+  // O DEDO NUMA LINHA de Favoritos é a QUARTA (v1.13.69), e é a primeira linha desta função
+  // (`dedoNaLinhaDoAcervo`: `.segurando`/`.arrastando`, do pointerdown SÍNCRONO, antes dos 450 ms
+  // do toque longo, até soltar). Sem ela o redesenho do acervo remontava a lista debaixo do dedo —
+  // a linha levantada virava órfã, a marca `.arrastando` sumia e o `arrasto` do módulo ficava
+  // preso a um nó fora do documento.
   return !!hymnResultsEl.querySelector(
     '.hymn-result.expanded, .hymn-result.abrindo, .acoes-abertas,'
-    + ' .lib-item.expanded:not(.folder-opfs), .lib-item.segurando, .lib-item.arrastando',
+    + ' .lib-item.expanded:not(.folder-opfs)',
   );
 }
 // `opts.partes` (v1.13.68): quem pede o tique diz que só mudou o ESTADO DE COLEÇÃO — progresso,
@@ -14378,7 +14331,7 @@ function renderFolderList() {
   if (favItems.length) {
     const placa = document.createElement('ul');
     placa.className = 'fav-itens';
-    favItems.forEach((item, i) => placa.appendChild(favItemRow(item, i, favItems.length)));
+    favItems.forEach((item) => placa.appendChild(favItemRow(item, favItems.length)));
     favAlvo().appendChild(placa);
   }
 }
@@ -14387,9 +14340,9 @@ function renderFolderList() {
 // MESMO que tocar nele no Cronograma (`onTap`: mídia toca, cena projeta), a
 // estrela desmarca e o `+` manda para a lista do culto. São as três coisas que
 // se quer de um favorito, sem entrar em pasta nenhuma.
-function favItemRow(item, pos, total) {
+function favItemRow(item, total) {
   return linhaDeItem(item, {
-    lista: 'favs', pos, total, destinos: ['playlist', 'cronograma'],
+    lista: 'favs', total, destinos: ['playlist', 'cronograma'],
     depoisDeExcluir: () => recarregarFavoritos(),
   });
 }
@@ -14459,8 +14412,8 @@ function linhaDeItem(item, opts) {
   // pela MESMA função (`montarAcoesDaLinha`): a faixa `.row-acoes` e a coluna
   // `.row-mais` são filhas da `.row`, abrem por cima do nome (`.acoes-abertas`,
   // `alternarAcoesDaLinha`) e dispensam a gaveta. A confirmação de excluir e o
-  // campo de renomear nascem nessa faixa (`pedirConfirmacaoNaLinha`, caminho A: a
-  // lixeira ocupa a coluna do `⋮`), e `acertarFaixaDaLinha` mede a largura a 360px.
+  // campo de renomear nascem nessa faixa (`pedirConfirmacaoNaLinha`: a lixeira
+  // ocupa a coluna do `⋮`), e `acertarFaixaDaLinha` mede a largura a 360px.
   //
   // SEM `lista` NÃO HÁ `⋮` (a pasta do aparelho não tem o que oferecer aqui —
   // `montarAcoesDaLinha` devolve `[]` sem botões úteis, e a linha fica como antes).
@@ -45389,8 +45342,9 @@ const POPUPS = [
   [plPopupEl, plPopupCloseEl, closePlPopup],
   [bibleVerPopupEl, bibleVerCloseEl, closeBibleVerPopup],
   [fadePopupEl, fadePopupCloseEl, closeFadePopup],
-  // (O Histórico, a Verificação, a Tela, o Transferir e o Editar mídia são
-  // SEÇÕES de Configurações: o voltar as recolhe no degrau dela, ver `__avBack`.)
+  // (O Histórico, a Verificação, a Tela e o Transferir são SEÇÕES de
+  // Configurações: o voltar as recolhe no degrau dela, ver `__avBack`. O Editar
+  // mídia é uma FERRAMENTA: sai no degrau 2.5, o da folha de Ferramentas.)
   // A folha de CONECTAR UMA TELA abre da tela principal (o botão de cast), e
   // vem antes das duas que nascem dela — o voltar percorre esta tabela de trás
   // para a frente.
@@ -45539,7 +45493,9 @@ function bloqueioDoTour() {
   if (appDialogEl.classList.contains('open')) return true;
   return !!(document.fullscreenElement || pvInteira);
 }
-// A SEÇÃO por cima de tudo (a ordem do `__avBack`), com a chave do `AVTour.SECOES`.
+// A SEÇÃO por cima de tudo (a ordem do `__avBack`), pelo nome que o tour procura no
+// `AVTour.SECOES`. Um nome que não está lá (`'itin-gaveta'`) não tem tour próprio: ele só
+// SILENCIA o principal, porque `telaOcupadaParaTour` lê qualquer seção aberta como tela ocupada.
 const SECAO_DO_POPUP = { fadePopup: 'configuracoes', castPopup: 'conectar', sorteioPopup: 'sorteio',
   plPopup: 'playlist', lyricsPopup: 'letra', hymnSearchPopup: 'biblioteca' };
 function secaoDoTour() {

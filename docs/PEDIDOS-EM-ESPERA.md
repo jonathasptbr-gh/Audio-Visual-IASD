@@ -261,9 +261,10 @@ fila), `4e9d0ccc` (o defeito do guia no `ACHADOS` §5), `e26e509c` (a régua do 
 no contrato e o índice do histórico) e `a9a71ba7` (as duas ferramentas com a
 mesma régua).
 
-**Aberto:** 25 no web (23 consertos de uma a três linhas e 2 suspeitas que pedem
-tela — C8 e T4), 6 no Kotlin (K2 é defeito), 1 nas ferramentas (as capturas, que
-são decisão do operador) e os 16 achados antigos da seção 7 do dossiê.
+**Aplicado na v1.14.13** (2026-11-14): todo o web, o Kotlin e os antigos de
+código — o estado por id está na seção 0 do dossiê. **Sobra:** o C8 (a pílula de
+volume na tela cheia deitada — decisão de desenho), as capturas (R7), dois
+residuais pequenos e quatro antigos que pedem medição ou são de processo.
 
 ---
 

@@ -4572,15 +4572,13 @@ try {
       perguntouNaFaixa: !!li.querySelector(':scope > .row > .row-acoes.confirmando > .linha-confirma'),
       semModal: !dlg || !dlg.classList.contains('open'),
       // 2. A LIXEIRA ENTRA NA FAIXA, E A CAPA FICA À VISTA (v1.7.4).
-      //    ESTE É O CAMINHO B DO SÍMBOLO: no Cronograma e na fila ele mora na
-      //    COLUNA DO `⋮` (v1.4.27); aqui não há `⋮` — a gaveta abre pelo corpo
-      //    da linha e a faixa fica ABAIXO dela —, e desde a v1.7.4 ele entra na
-      //    própria faixa, do mesmo jeito que o ✓ do renomear.
+      //    O símbolo mora na COLUNA DO `⋮` da linha, como no Cronograma e na
+      //    fila (o `⋮` se esconde enquanto dura a pergunta).
       //    A CAPA É A OUTRA METADE, e é o pedido do operador: *"pode deixar
       //    visivel a thumbnail do item durante essa confirmação"*. Ela morava
       //    debaixo da lixeira, e as duas asserções juntas é que dizem a regra —
       //    o símbolo mudou de casa PORQUE a capa voltou a ocupar a dela.
-      // O `⋮` CEDE A COLUNA À LIXEIRA (caminho A, v1.4.27): escondido, não ausente.
+      // O `⋮` CEDE A COLUNA À LIXEIRA: escondido, não ausente.
       semMais: (() => {
         const m = li.querySelector(':scope > .row > .row-mais');
         return !!m && getComputedStyle(m).display === 'none';
@@ -4631,9 +4629,8 @@ try {
     + 'nenhum — a pergunta "excluir este item?" feita por cima de uma tela sem '
     + 'o item era respondida de memória', JSON.stringify(saiu));
   checar(saiu.semMais === true && saiu.lixeiraNaFaixa && saiu.opcoesEscondidas,
-    'e a lixeira ocupa a COLUNA DO `⋮` DA LINHA — o CAMINHO A do símbolo, o mesmo do '
-    + 'Cronograma (v1.13.68: antes, sem `⋮` na linha, ela entrava na faixa da gaveta, '
-    + 'caminho B) —, e o `⋮` fica escondido enquanto dura a pergunta',
+    'e a lixeira ocupa a COLUNA DO `⋮` DA LINHA, a mesma do Cronograma, e o `⋮` '
+    + 'fica escondido enquanto dura a pergunta',
     JSON.stringify(saiu));
   checar(saiu.capaAVista,
     'e A CAPA FICA À VISTA durante a pergunta (v1.7.4) — pedido do operador: ela '
@@ -4676,20 +4673,11 @@ try {
     const semModal = !dlg || !dlg.classList.contains('open');
     if (!campo) return { erro: 'o campo não abriu na faixa', semModal };
     const valorInicial = campo.value;
-    // ===== O CAMINHO B DO SÍMBOLO (v1.4.27) =====
-    // Na v1.4.27 o ✓ do renomear e a lixeira da exclusão mudaram de casa: vão
-    // para a COLUNA DO `⋮`, que o processo toma emprestada. **Esta gaveta não
-    // tem `⋮`** — ela abre pelo corpo da linha e a faixa fica ABAIXO dela, sem
-    // cobrir nada —, e é por isso que o caminho B existe e é medido aqui: sem
-    // ele o ✓ simplesmente não seria desenhado, e o campo ficaria sem
-    // confirmação em toda a lista dos Favoritos.
-    //
-    // E ELE VOLTA PARA DENTRO DA FAIXA, à DIREITA do campo. As duas metades
-    // caem por motivos diferentes: fora da faixa o botão some da tela; à
-    // ESQUERDA ele entra na frente do texto que se está digitando (o `append`
-    // do `semSlot` roda ANTES do campo — daí o `prepend` do lado do app).
-    // (v1.13.68: há `⋮` na linha, então é o CAMINHO A — o ✓ ocupa a coluna do `⋮`,
-    // que fica escondido, e vem DEPOIS do campo na ordem do documento.)
+    // ===== O ✓ DO RENOMEAR NA COLUNA DO `⋮` =====
+    // O ✓ ocupa a coluna do `⋮` da linha, que fica escondido enquanto dura o
+    // campo, e vem DEPOIS do campo na ordem do documento — à ESQUERDA ele
+    // entraria na frente do texto que se está digitando. É a única casa do
+    // símbolo: toda linha que pergunta tem `⋮`.
     const semMais = (() => {
       const m = li.querySelector(':scope > .row > .row-mais');
       return !!m && getComputedStyle(m).display === 'none';
@@ -4713,8 +4701,8 @@ try {
     + 'no banco E na linha', JSON.stringify(renFav));
   checar(renFav.semMais === true && renFav.okNaFaixa === true
     && renFav.okDepoisDoCampo === true,
-    'e o CAMINHO A do ✓ (v1.4.27 → v1.13.68): a linha do favorito tem `⋮` agora, e o processo '
-    + 'toma a coluna dele emprestada — o ✓ fica à direita do campo, como no Cronograma',
+    'e o ✓ toma emprestada a coluna do `⋮` da linha do favorito — à direita do '
+    + 'campo, como no Cronograma',
     JSON.stringify(renFav));
   checar(renFav.semModal === true,
     'e o campo mora NA FAIXA, sem diálogo de tela cheia (v1.4.25) — renomear é '

@@ -213,7 +213,8 @@ portanto **compartilhados por todas as instâncias**. Todos daemon.
 
 **Fora das filas:**
 
-- **Os cinco métodos do espelho rodam na MAIN THREAD** (`espelhoLigar`,
+- **Os métodos do espelho que ligam, consultam ou derrubam a transmissão rodam
+  na MAIN THREAD** (`espelhoLigar`,
   `espelhoLigarEm`, `espelhoEstado`, `espelhoDiag`, `espelhoDerrubar`, por
   `runOnUiThread`). Enfileirados atrás de um download, "ligar a transmissão"
   venceria os 60 s e resolveria `null` — um erro sem causa. O que sustenta isso
@@ -221,8 +222,8 @@ portanto **compartilhados por todas as instâncias**. Todos daemon.
   `Looper` da `Presentation` do espelho de pixels — morreu na v5.187). Os outros
   do espelho ficam fora dela de propósito: `espelhoDesligar` fica na thread do
   WebView (desistir não espera o que se quer parar — a lição do `ytCancel`; é por
-  essa escrita fora da main thread que os dois campos são `@Volatile`), e os três
-  de certificado abrem thread própria (`av-cert`: disco e cripto). Ver o
+  essa escrita fora da main thread que os dois campos são `@Volatile`), e os de
+  certificado (`espelhoCert*`) abrem thread própria (`av-cert`: disco e cripto). Ver o
   comentário sobre os métodos do espelho no `NativeBridge.kt` e o KDoc de
   `MainActivity.startMirror`.
 - **`ytCancel` não vai para fila nenhuma**, e não poderia: `transferencia` está
@@ -273,7 +274,12 @@ o piso (`minShell`) não sobe por um método opcional.
 
 ### `abrirGuia(url)` — o guia de sonoplastia numa tela do app (shell 87)
 
-Síncrono, devolve `true` se abriu. **Falha FECHADO no Kotlin:** só `https` e só
+Síncrono, devolve `true` quando ACEITOU — o guia passa a ser do Kotlin. O `show()`
+só roda no UI thread, depois do `true` (esperar por ele travaria a thread do
+JavaBridge), então a queda mora no `MainActivity.abrirGuia`: Activity acabando
+ou `show()` lançando abre a MESMA URL, sem o `?app=1`, no `openExternalUrl` — o
+caminho que o web tomaria com `false`; diálogo já aberto é sucesso e não abre
+nada. **Falha FECHADO no Kotlin:** só `https` e só
 `audiovisualiasd.com.br` por componente do `URI` (`GuiaSom.urlDoGuia`, JUnit em
 `GuiaSomTest`); telão (`host = null`) recebe `false`. A URL que chega à tela leva
 `?app=1` (`GuiaSom.comMarcadorDeApp`, antes da âncora `#dia`): é o marcador que

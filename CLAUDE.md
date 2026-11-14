@@ -628,10 +628,10 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.14.12 · APK v1.14.6** · `SHELL_VERSION` **87** ·
-bundle com `minShell: 83` e **sem `shellTag`** (lote só web: a Release continua
-sendo a 1.14.6, que põe o "fechar" do guia à esquerda, no lugar do "voltar ao
-site", e manda `?app=1` para a página esconder esse voltar); o contrato da ponte
+**Versão atual: base web v1.14.13 · APK v1.14.13** · `SHELL_VERSION` **87** ·
+bundle com `minShell: 83` e **`shellTag: v1.14.13`** (lote APK + web: o Kotlin
+mudou por dentro — o `abrirGuia` cai no navegador quando o diálogo não abre —,
+sem mexer na superfície da ponte); o contrato da ponte
 não mudou desde o casco 87,
 que trouxe o `abrirGuia` (o guia de sonoplastia numa tela do app, WebView sem
 ponte). O **PISO** continua **83**: as funções do casco 86 (volume) e do 87

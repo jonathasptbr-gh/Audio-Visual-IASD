@@ -27,8 +27,10 @@
  * seguidos — o diálogo de atualização e o "O que mudou" chegam um pouco depois
  * do boot. Se algo abrir no meio do tour, ele fecha e DESMARCA (volta depois).
  *
- * A CAMADA É 600: acima dos diálogos (500) e abaixo da prévia inteira e da cortina
- * de abertura — que de todo modo contam como ocupado.
+ * A CAMADA É 600 (`.tour` no `controle.css`): acima dos diálogos (`.dialog-backdrop`,
+ * 300) e da cortina de abertura (`#splash`, 500), abaixo da prévia inteira
+ * (2147483000, popover no top layer). A cortina e a prévia contam como ocupado: o
+ * tour nunca abre por cima delas.
  */
 (function (global) {
   'use strict';
@@ -67,6 +69,15 @@
     texto: 'Toque num dos dois botões para guardar este cartão no Cronograma ou nos Favoritos e usá-lo na hora certa.', opcional: true };
   const SUBLINHA = { alvo: '#toolsBody input.misc-text', titulo: 'Legenda',
     texto: 'Digite um texto curto para aparecer embaixo do cartão na TV, como "Início do culto". Pode ficar vazio.', opcional: true };
+  // AS TRÊS PORTAS DE CONEXÃO: as mesmas peças na cortina "sem tela" do Fácil
+  // (`TOURS.conexao`) e na janela de conexão (`SECOES.conectar`). Cada tour acrescenta
+  // o que muda com o lugar: o texto do "Tocar neste celular" (na cortina ele é a
+  // saída sem TV; na janela, um interruptor) e o `opcional` da TV.
+  const PORTA_TV = { alvo: '#castMirrorBtn', titulo: 'Conectar uma TV',
+    texto: 'Toque e escolha na lista do celular a TV ou o adaptador sem fio. Só o que está no ar vai para a TV; os controles ficam no celular.' };
+  const PORTA_PC = { alvo: '#castNetBtn', titulo: 'Conectar um computador',
+    texto: 'Toque e digite, no navegador do computador, o endereço que aparece logo abaixo. Ele precisa estar no mesmo Wi-Fi.', opcional: true };
+  const PORTA_CELULAR = { alvo: '#castLocalBtn', titulo: 'Tocar neste celular', opcional: true };
 
   // OS TOURS PRINCIPAIS — um por estado da tela (`g.qual()`), só as portas.
   const TOURS = {
@@ -74,12 +85,10 @@
       { alvo: '#simpleConn', abertura: true, titulo: 'Conecte uma tela',
         texto: 'Sem uma tela escolhida, o app fica parado nesta página. Escolha abaixo como vai usá-lo hoje; depois a Biblioteca aparece.',
         semAlvo: 'Sem uma tela escolhida, o app fica parado nesta página. Escolha como vai usá-lo hoje; depois a Biblioteca aparece.' },
-      { alvo: '#castMirrorBtn', titulo: 'Conectar uma TV',
-        texto: 'Toque e escolha na lista do celular a TV ou o adaptador sem fio. Só o que está no ar vai para a TV; os controles ficam no celular.', opcional: true },
-      { alvo: '#castNetBtn', titulo: 'Conectar um computador',
-        texto: 'Toque e digite, no navegador do computador, o endereço que aparece logo abaixo. Ele precisa estar no mesmo Wi-Fi.', opcional: true },
-      { alvo: '#castLocalBtn', titulo: 'Tocar neste celular',
-        texto: 'Sem TV hoje? Toque para usar o app só no celular, com o som saindo dele ou da caixa de som ligada a ele.', opcional: true },
+      Object.assign({}, PORTA_TV, { opcional: true }),
+      PORTA_PC,
+      Object.assign({}, PORTA_CELULAR, {
+        texto: 'Sem TV hoje? Toque para usar o app só no celular, com o som saindo dele ou da caixa de som ligada a ele.' }),
     ],
     simples: [
       { alvo: ['#simpleBarra', '#libBar'], titulo: 'Biblioteca',
@@ -161,9 +170,18 @@
       { alvo: '#histClear', titulo: 'Limpar todo o histórico',
         texto: 'Toque para apagar a lista, bom para começar outro culto. O app pede confirmação antes.', opcional: true },
     ] },
-    // O EDITOR DE MÍDIA é uma FERRAMENTA desde a v1.14.7: a chave da seção é a
-    // do painel da folha de Ferramentas (`'ferr-' + ferramentaAtual()`).
-    'ferr-edicao': { modos: AMBOS, passos: [
+    // O EDITOR DE MÍDIA é uma FERRAMENTA: a chave da seção é a do painel da folha
+    // de Ferramentas (`'ferr-' + ferramentaAtual()`). Só existe no AVANÇADO — a
+    // lista das Ferramentas do Fácil não tem o quadrado dele —, então o `refazer()`
+    // do Fácil não zera esta marca.
+    // AS DUAS VISTAS: a "escolha" (busca e importar) e o formulário (o trecho), uma
+    // ou a outra à vista. Todos os passos são `opcional`, e cada vista tem o dela:
+    // o editor que já abre no formulário (uma mídia escolhida na memória) se
+    // explica por ele, em vez de ficar sem passo visível — sem passo o tour não
+    // abre nem grava a marca, e o automático tentaria de novo a cada segundo.
+    'ferr-edicao': { modos: ['full'], passos: [
+      { alvo: ['#edicaoLista .edicao-faixa', '#edicaoLista .edicao-pontas'], titulo: 'Trecho',
+        texto: 'Arraste as duas pontas da faixa para escolher onde a mídia começa e onde termina. Os botões −1 s e +1 s acertam o segundo.', opcional: true },
       { alvo: '#edicaoBusca', titulo: 'Buscar pelo nome',
         texto: 'Digite o nome da mídia que quer cortar no começo ou no fim e toque nela na lista.', opcional: true },
       { alvo: '#edicaoImportar', titulo: 'Importar arquivo',
@@ -189,12 +207,9 @@
         texto: 'Toque para trazer tudo de um arquivo exportado. Só acrescenta: nada do que já existe é apagado.', opcional: true },
     ] },
     conectar: { modos: AMBOS, passos: [
-      { alvo: '#castMirrorBtn', titulo: 'Conectar uma TV',
-        texto: 'Toque e escolha na lista do celular a TV ou o adaptador sem fio. Só o que está no ar vai para a TV.' },
-      { alvo: '#castNetBtn', titulo: 'Conectar um computador',
-        texto: 'Toque e digite, no navegador do computador, o endereço que aparece logo abaixo. Ele precisa estar no mesmo Wi-Fi.', opcional: true },
-      { alvo: '#castLocalBtn', titulo: 'Tocar neste celular',
-        texto: 'Toque para usar o app só no celular, sem TV. Toque de novo para desligar.', opcional: true },
+      PORTA_TV,
+      PORTA_PC,
+      Object.assign({}, PORTA_CELULAR, { texto: 'Toque para usar o app só no celular, sem TV. Toque de novo para desligar.' }),
     ] },
     biblioteca: { modos: ['full'], passos: [
       { alvo: '#hymnSearchInput', titulo: 'Buscar',
@@ -481,13 +496,13 @@
     if (!r) {
       left = (vw - w) / 2; top = Math.max(MARGEM, (vh - h) / 2);
     } else {
-      // O ANEL NÃO FURA A TELA (v1.14.11). O recorte volta a envolver a peça
-      // INTEIRA — o recuo de 20px da v1.14.7 saiu na v1.14.8 porque deixava a peça
-      // de borda a borda pouco coberta e distorcia o foco —, mas o anel azul é
-      // desenhado 2px POR FORA da caixa: então a caixa recua só esses 2px e o anel
-      // termina exatamente na borda da área visível. Numa peça colada à borda a
-      // linha aparece inteira, em vez de metade dela sumir para fora da tela.
-      // É a MESMA régua do foco dos controles do app: encosta, não fura.
+      // O RECORTE ENVOLVE A PEÇA INTEIRA (a união dos alvos + `FOLGA`), sem recuo de
+      // conforto: um recuo deixaria a peça de borda a borda pouco coberta e
+      // distorceria o foco. O ANEL NÃO FURA A TELA: o anel azul é desenhado 2px POR
+      // FORA da caixa, então a caixa é presa a `ANEL` de cada borda da área visível
+      // e o anel termina exatamente nela. Numa peça colada à borda a linha aparece
+      // inteira, em vez de metade dela sumir para fora da tela. É a MESMA régua do
+      // foco dos controles do app: encosta, não fura.
       const preso = (v, max) => Math.min(max - ANEL, Math.max(ANEL, v));
       const l = preso(r.left - FOLGA, vw), t = preso(r.top - FOLGA, vh);
       const rr = preso(r.right + FOLGA, vw), bb = preso(r.bottom + FOLGA, vh);

@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.14.13",
+    "itens": [
+      "Se o guia de sonoplastia não conseguir abrir dentro do app, ele abre no navegador. Isso vem com o app novo.",
+      "O tour do editor de mídia passa a explicar o trecho do corte, e não fica mais tentando abrir sem aparecer.",
+      "Refazer o tour no Modo Fácil não apaga mais o tour do editor de mídia, que só existe no avançado.",
+      "Faxina: saíram código e textos que não faziam mais nada. Nada muda no uso do app."
+    ]
+  },
+  {
     "versao": "1.14.12",
     "itens": [
       "O volume no botão de mudo voltou para o centro, como um ícone comum, e o alto-falante fica sobre ele.",

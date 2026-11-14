@@ -97,9 +97,12 @@ interface BridgeHost {
     /**
      * Abre o GUIA DE SONOPLASTIA numa tela do próprio app ([GuiaSomDialog],
      * shell 87). A URL já passou por [GuiaSom.urlDoGuia] em
-     * [NativeBridge.abrirGuia].
+     * [NativeBridge.abrirGuia]; [url] leva o marcador `app=1`, [urlFora] é a
+     * mesma SEM ele. Se a tela não puder abrir (Activity acabando, `show()`
+     * lançando), quem cai no [openExternalUrl] com [urlFora] é o
+     * implementador — a ponte já respondeu `true` ao web.
      */
-    fun abrirGuia(url: String)
+    fun abrirGuia(url: String, urlFora: String)
 
     /**
      * Abre o SELETOR DE COMPARTILHAMENTO do Android com um texto
@@ -381,10 +384,15 @@ class NativeBridge(
          * - **A degradação vale nos dois sentidos:** bundle antigo em shell
          *   novo e bundle novo em shell antigo caem num comportamento
          *   declarado, nunca numa meia-verdade.
-         * - **Um método novo NÃO chega por OTA**, então o lado web pergunta
-         *   antes de desenhar o que depende dele (`__SHELL_VERSION__ < N`).
+         * - **Um método novo NÃO chega por OTA**, e guarda de versão no lado
+         *   web é proibida — nada de comparar este número. O método novo nasce
+         *   OPCIONAL: o `native.js` pergunta `typeof B.<nome> === 'function'`
+         *   e, sem ele, devolve o desfecho de "não há" (`null`/`false`) na
+         *   hora, e quem chama tem um caminho para isso. É capacidade, não
+         *   versão: o PISO é o `minShell`, que não sobe por um método opcional.
          *
-         * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
+         * A regra inteira está no `docs/shell/PONTE.md` (seção do
+         * `SHELL_VERSION`); a tabela dos degraus, no `docs/HISTORICO.md`.
          */
         const val SHELL_VERSION = 87
 
@@ -1113,8 +1121,16 @@ class NativeBridge(
     /**
      * O GUIA DE SONOPLASTIA DENTRO DO APP (shell 87): a página do site num
      * WebView SEM ponte ([GuiaSomDialog]), em tela cheia, e o voltar devolve ao
-     * app. Devolve `true` se abriu; `false` é "não abri" — e o web cai no
-     * `openExternal` de sempre, que é também o caminho do casco antigo.
+     * app. Devolve `true` quando ACEITOU: daí em diante o guia é do Kotlin;
+     * `false` é "não abri" — e o web cai no `openExternal` de sempre, que é
+     * também o caminho do casco antigo.
+     *
+     * **O `true` sai ANTES do `show()`**, que só pode rodar no UI thread — e
+     * esperar por ele travaria a thread do JavaBridge. Por isso a queda mora no
+     * [BridgeHost.abrirGuia]: se a tela recusar (Activity acabando) ou o
+     * `show()` lançar, o próprio Kotlin abre a MESMA URL fora do app
+     * ([BridgeHost.openExternalUrl], sem o `app=1`), o caminho que o web teria
+     * tomado com `false`. Diálogo já aberto é sucesso: nada a fazer.
      *
      * **Falha FECHADO, e a decisão é aqui:** só `https` e só o host do site,
      * por componente do `URI` ([GuiaSom.urlDoGuia], com JUnit). Sem a cerca, a
@@ -1129,8 +1145,8 @@ class NativeBridge(
     @JavascriptInterface
     fun abrirGuia(url: String?): Boolean {
         val h = host
-        if (h == null || !GuiaSom.urlDoGuia(url)) return false
-        h.abrirGuia(GuiaSom.comMarcadorDeApp(url!!))
+        if (h == null || url == null || !GuiaSom.urlDoGuia(url)) return false
+        h.abrirGuia(GuiaSom.comMarcadorDeApp(url), url)
         return true
     }
 

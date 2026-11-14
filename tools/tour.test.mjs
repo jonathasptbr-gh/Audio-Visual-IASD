@@ -18,7 +18,8 @@
 //       volta quando o diálogo fecha.
 //   E · 360×640 com fonte 1,3×: o balão cabe na tela e nenhum botão corta o rótulo.
 //   F · o botão de Configurações refaz o tour do modo ATUAL e ZERA as seções do
-//       modo; o guia de sonoplastia abre `#dia` no Fácil e o começo no avançado.
+//       modo (a do editor de mídia, que só existe no avançado, o Fácil não zera);
+//       o guia de sonoplastia abre `#dia` no Fácil e o começo no avançado.
 //   L · desligar por inteiro (v1.14.5): "Tour do app" é uma CAIXA (nasce marcada;
 //       tocar desmarca, grava `av.tour.off` e a folha segue aberta; desligado,
 //       nem o principal nem o de seção abrem sozinhos; tocar de novo liga e refaz
@@ -27,7 +28,8 @@
 //   G · tours de SEÇÃO (v1.14.1): Configurações no Fácil, Ferramentas e o Timer
 //       no avançado — sozinhos na primeira abertura, nunca de novo, com o halo.
 //   H · o Fácil TOCANDO: a letra e as teclas, na primeira vez que algo toca.
-//   I · a varredura: toda seção do avançado acha as próprias peças.
+//   I · a varredura: toda seção do avançado acha as próprias peças; I2 · o editor
+//       de mídia que já abre no formulário se explica pelo trecho e grava a marca.
 //   J · a ORDEM VISUAL (v1.14.3): em todo tour, nos dois modos, a 390×860 e a
 //       360×640, os passos com peça vão de cima para baixo e, na mesma faixa, da
 //       esquerda para a direita (os fixos — `abertura`/`fecho` — ficam de fora).
@@ -44,7 +46,7 @@ import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
 import {
   servirEstatico, abrirNavegador, esperarCortina, esperar, porque, comTema, comModoAvancado,
-  checar, falhas,
+  checar, falhas, wav,
 } from './arnes.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
@@ -154,15 +156,16 @@ const dentro = (m) => m.balao.l >= -0.5 && m.balao.t >= -0.5 && m.balao.r <= m.v
 const pular = async (pg) => { if (await pg.evaluate(() => AVTour.aberto())) await pg.evaluate(() => AVTour.fechar()); };
 
 // A ORDEM VISUAL: a faixa é a do `tour.js` — os centros verticais, em ordem, ficam
-// na mesma faixa enquanto cada um dista do anterior até max(24 px, metade da altura
-// do menor). Na sequência mostrada, a faixa não volta para cima e, dentro dela, a
-// borda esquerda não volta para a esquerda. Devolve os pares fora de ordem.
-function foraDeOrdem(passos) {
+// na mesma faixa enquanto cada um dista do anterior até max(`linhaPx`, metade da
+// altura do menor). `linhaPx` é o `AVTour.LINHA_PX` lido da página: a régua do
+// oráculo é a do código. Na sequência mostrada, a faixa não volta para cima e,
+// dentro dela, a borda esquerda não volta para a esquerda. Devolve os pares fora de ordem.
+function foraDeOrdem(passos, linhaPx) {
   const ms = passos.filter((m) => m.peca && !m.fixo).map((m) => ({
     cy: (m.peca.t + m.peca.b) / 2, h: m.peca.b - m.peca.t, l: m.peca.l, alvo: [].concat(m.alvo).join('+') }));
   let faixa = 0, ant = null;
   for (const m of [...ms].sort((a, b) => a.cy - b.cy)) {
-    if (ant && m.cy - ant.cy > Math.max(24, Math.min(ant.h, m.h) / 2)) faixa++;
+    if (ant && m.cy - ant.cy > Math.max(linhaPx, Math.min(ant.h, m.h) / 2)) faixa++;
     m.faixa = faixa; ant = m;
   }
   const ruins = [];
@@ -388,6 +391,14 @@ try {
     await pg.waitForTimeout(1000);
     const c2 = await caixa();
     checar(c2.estado === 'off' && !c2.alt && await estado(pg) === null, 'L · reaberta a folha, o quadrado segue apagado e nada se explica', JSON.stringify(c2));
+    // Duas marcas postas antes do refazer do Fácil: a do Histórico (seção dos dois
+    // modos — o refazer a zera) e a do editor de mídia (seção só do avançado — a
+    // lista das Ferramentas do Fácil não tem o quadrado dele, e o refazer daqui não
+    // a toca).
+    await pg.evaluate(() => {
+      const v = JSON.parse(localStorage.getItem('av.tour')); v['s.cfg-hist'] = 1; v['s.ferr-edicao'] = 1;
+      localStorage.setItem('av.tour', JSON.stringify(v));
+    });
     await pg.click('#tourBtn');   // liga de novo: fecha a folha e refaz o tour do estado
     const rf = await esperarTour(pg, 'simples', 5000);
     const c3 = await caixa();
@@ -396,8 +407,8 @@ try {
     const zerou = await pg.evaluate(() => JSON.parse(localStorage.getItem('av.tour')));
     checar(rf === true && await pg.evaluate(() => !document.getElementById('fadePopup').classList.contains('open')),
       'F · no Fácil destravado o botão fecha Configurações e refaz o tour dos CONTROLES', porque(rf));
-    checar(!zerou['s.configuracoes'] && !zerou.conexao,
-      'F · e ZERA o Modo Fácil: as seções dele voltam a se explicar ao abrir', JSON.stringify(zerou));
+    checar(!zerou['s.cfg-hist'] && !zerou.conexao && zerou['s.ferr-edicao'] === 1,
+      'F · e ZERA o Modo Fácil: as seções dele voltam a se explicar ao abrir; a do editor, que só existe no avançado, fica', JSON.stringify(zerou));
     // "Pular tour": o MESMO interruptor, por dentro do balão.
     const rotuloPular = await pg.evaluate(() => document.querySelector('#tour .tour-pular').textContent);
     await pg.click('#tour .tour-pular');
@@ -537,6 +548,7 @@ try {
       ['ferr-itinerario', 'abrirFerramenta("itinerario")', 'fecharFerramentas()'],
       ['ferr-msg', 'abrirFerramenta("msg")', 'fecharFerramentas()'],
       ['ferr-draw', 'abrirFerramenta("draw")', 'fecharFerramentas()'],
+      ['letra', 'openLyricsPopup()', 'closeLyricsPopup()'],
     ];
     const tudo = await pg.evaluate(() => { const v = {}; for (const k of AVTour.chaves()) v[k] = 1; return v; });
     const ruinsI = [];
@@ -553,6 +565,27 @@ try {
       await esperar(pg, () => !secaoDoTour(), null, 3000);
     }
     checar(ruinsI.length === 0, 'I · toda seção do avançado abre o próprio tour, e cada passo recorta uma peça real', ruinsI.join(' | '));
+
+    // I2 · o editor que já ABRE NO FORMULÁRIO (uma mídia escolhida na memória): a
+    // busca e o importar da vista "escolha" estão ocultos, e o passo do trecho é o
+    // que o explica. Sem passo visível o tour não abriria nem gravaria a marca, e o
+    // automático tentaria de novo a cada segundo enquanto o editor estivesse aberto.
+    await pg.evaluate((v) => { localStorage.setItem('av.tour', JSON.stringify(v)); AVTour.armar(); }, Object.assign({}, tudo, { 's.ferr-edicao': 0 }));
+    const origem = await pg.evaluate(async (b64) => {
+      const u = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      const rec = await AVDB.addMedia(new Blob([u], { type: 'audio/wav' }), { name: 'Trecho', kind: 'audio', list: 'imports', seconds: 6 });
+      return edicaoCarregarOrigem(rec.id);
+    }, wav(6).toString('base64'));
+    await pg.evaluate(() => abrirFerramenta('edicao'));
+    const rForm = await esperarTour(pg, 's.ferr-edicao', 5000);
+    const form = await pg.evaluate(() => ({ vista: edicaoVista, passo: AVTour.aberto() ? AVTour.passoAtual().titulo : null,
+      marca: JSON.parse(localStorage.getItem('av.tour'))['s.ferr-edicao'] || 0 }));
+    const ruinsForm = rForm === true ? (await percorrer(pg)).filter((m) => !recorteBate(m)).map((m) => [].concat(m.alvo).join('+')) : [];
+    await pg.evaluate(() => AVTour.aberto() && AVTour.fechar());
+    checar(origem === true && rForm === true && form.vista === 'form' && form.passo === 'Trecho' && form.marca === 1 && ruinsForm.length === 0,
+      'I2 · o editor aberto no formulário se explica pelo trecho, recorta a faixa e grava a marca',
+      'origem ' + origem + ' · ' + (porque(rForm) || 'abriu') + ' · ' + JSON.stringify(form) + ' ' + ruinsForm.join(' | '));
+    await pg.evaluate(() => fecharFerramentas());
     await ctx.close();
   }
 
@@ -583,16 +616,20 @@ try {
     ['s.ferr-itinerario', 'abrirFerramenta("itinerario")', 'fecharFerramentas()'],
     ['s.ferr-msg', 'abrirFerramenta("msg")', 'fecharFerramentas()'],
     ['s.ferr-draw', 'abrirFerramenta("draw")', 'fecharFerramentas()'],
-    // v1.14.7: o editor de mídia é uma FERRAMENTA — a chave do tour é a do painel
-    // da folha (`'ferr-' + ferramentaAtual()`). Ele mora no AVANÇADO porque no
-    // Fácil "tocando" a folha não é um estado que o tour atravessa.
+    // O editor de mídia é uma FERRAMENTA — a chave do tour é a do painel da folha
+    // (`'ferr-' + ferramentaAtual()`) — e só existe no AVANÇADO: a lista das
+    // Ferramentas do Fácil não tem o quadrado dele. Aberto sem mídia, é a vista
+    // "escolha"; a do formulário é o I2.
     ['s.ferr-edicao', 'abrirFerramenta("edicao")', 'fecharFerramentas()'],
+    ['s.letra', 'openLyricsPopup()', 'closeLyricsPopup()'],
   ];
   const ruinsJ = [], vistosJ = [];
   for (const viewport of [{ width: 390, height: 860 }, { width: 360, height: 640 }]) {
     for (const avancado of [false, true]) {
       const { ctx, pg } = await abrir(viewport, { avancado });
       await pg.evaluate(() => { const v = {}; for (const k of AVTour.chaves()) v[k] = 1; localStorage.setItem('av.tour', JSON.stringify(v)); });
+      const linhaPx = await pg.evaluate(() => AVTour.LINHA_PX);
+      if (!(linhaPx > 0)) ruinsJ.push('a régua da faixa não veio da página (AVTour.LINHA_PX = ' + linhaPx + ')');
       for (const [qual, abre, fecha] of (avancado ? SO_AVANCADO : SO_FACIL).concat(AMBOS_J)) {
         const onde = viewport.width + '×' + viewport.height + (avancado ? ' avançado ' : ' fácil ') + qual;
         if (abre === 'TOCAR') {
@@ -611,7 +648,7 @@ try {
         else {
           const ps = await percorrer(pg);
           vistosJ.push(onde + ': ' + ps.map((m) => (m.fixo ? '[' + m.titulo + ']' : m.titulo)).join(' · '));
-          for (const r of foraDeOrdem(ps)) ruinsJ.push(onde + ': ' + r);
+          for (const r of foraDeOrdem(ps, linhaPx)) ruinsJ.push(onde + ': ' + r);
           await pg.evaluate(() => AVTour.aberto() && AVTour.fechar());
         }
         if (fecha) { await pg.evaluate(fecha); await esperar(pg, () => !secaoDoTour(), null, 3000); }

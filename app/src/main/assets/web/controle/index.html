@@ -976,15 +976,11 @@
 
   <main>
     <div class="list-header">
-      <!-- title + aria-label: este é o ÚNICO botão só-de-ícone do app que não
-           tinha rótulo nenhum, e é a única saída da aba Pastas e da navegação
-           da Bíblia. Sem nome, um leitor de tela anuncia o caractere da área
-           de uso privado da fonte (na prática, "sem rótulo"). O aria-label não
-           é redundante com o title: o title é fallback na ordem de cálculo do
-           nome acessível e nem toda combinação de leitor/navegador o usa. -->
-      <!-- O voltar serve HOJE só à navegação da Bíblia: a tela de Favoritos,
-           que era a outra dona dele, virou a gaveta `#favPopup` e levou junto o
-           próprio voltar, a busca da pasta e o botão de sincronizar. -->
+      <!-- O `#backBtn` fica no HTML SEMPRE oculto: `renderListTitle` o esconde a
+           cada pintura, e o voltar da Bíblia é o da folha dela (`#bibleBack`).
+           `smoke` e `ferramentas-folha` leem o `hidden` dele como prova de que o
+           voltar do app não reaparece. O title + aria-label ficam: sem nome, um
+           leitor de tela anunciaria o caractere da área de uso privado da fonte. -->
       <button id="backBtn" class="back-btn" title="Voltar" aria-label="Voltar" hidden><span class="msym" aria-hidden="true">&#xe5c4;</span></button>
       <!-- IMPORTAR ARQUIVOS, NA TRILHA 1 DA BARRA (v1.13.5). Pedido do
            operador: *"no lugar do esvaziar lista de cronograma, mova o botão de
@@ -1973,7 +1969,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.12</span>
+          <span id="appVersion">v1.14.13</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
@@ -2105,21 +2101,19 @@
             </button>
           </div>
         </div>
-        <!-- A GRADE. Três colunas fixas, e OITO tiles no app (cinco no navegador,
-             onde Saída de áudio, Compartilhar e Transferir são `hidden`): é o que
-             cabe num aparelho de 360px com o título mais longo desta lista
-             ("Saída de áudio") numa linha só. Quem pinta cada tile é `pintarTile()`
+        <!-- A GRADE. Três colunas fixas, e OITO tiles no app (seis no navegador,
+             onde Compartilhar e Transferir são `hidden`): é o que cabe num
+             aparelho de 360px com cada título numa linha só. Quem pinta cada tile é `pintarTile()`
              — o `data-estado` é escrito lá e é por ele que os oráculos perguntam,
              nunca pela classe.
 
-             A ORDEM É POR ASSUNTO. Em cima, o que se AJUSTA: o tema do app, a
-             seção da Tela, o Histórico, a Saída de áudio, os Dados móveis e a
-             Verificação. Embaixo, numa fileira própria, as duas coisas que se
-             fazem com o APP fora da projeção — Compartilhar e Transferir (pedido
-             do operador, v1.7.6: *"compartilhar, exportar e importar devem ser os
-             tres itens da base"*, e as duas últimas viraram uma). O que faz essa
-             fileira começar sozinha, com a ponte ou sem ela, é o
-             `#shareAppTile { grid-column: 1 }` do CSS.
+             A ORDEM É POR ASSUNTO. Primeiro o que se AJUSTA: o tema do app, a
+             seção da Tela, os Dados móveis, o Histórico e a Verificação. Depois,
+             as duas coisas que se fazem com o APP fora da projeção — Compartilhar
+             e Transferir (pedido do operador, v1.7.6: *"compartilhar, exportar e
+             importar devem ser os tres itens da base"*, e as duas últimas viraram
+             uma) —, e por último o Tour do app (v1.14.7). Sem coluna forçada: um
+             `grid-column` num tile que some no navegador abriria um vão.
 
              O QUE SE DECIDE SOBRE O TELÃO MORA NUMA SEÇÃO, e não na grade
              (v1.11.7, janela até a v1.12.48): Preenchimento, Wallpaper, Fundo da letra e Girar no telão
@@ -3148,15 +3142,14 @@
        lugares diferentes para a mesma pergunta).
 
        Ela não pertence a barra nenhuma: nasce no CORPO, fica EM PÉ encostada na borda
-       ESQUERDA (v1.13.66) e a base é medida na hora de aparecer — `--pill-bottom`, o topo do
-       transporte que estiver à vista (ver `lugarDaPilula`), para ela terminar acima dos
-       controles e não cobrir botão nenhum. OPA: rodapé flutuante não deixa passar imagem
+       ESQUERDA (v1.13.66) e a altura é medida na hora de aparecer — `--pill-top`, com o
+       centro dela no centro do corpo do modo (ver `lugarDaPilula`). OPACA: rodapé flutuante não deixa passar imagem
        (regra da paleta), e é isso que a deixa legível sobre a letra ou o vídeo.
 
        E ELA É O CONTROLE, não só o aviso: o `<input range>` de dentro é o volume do APP —
        o mesmo que vai ao telão e às telas da rede —, arrastável, e é ele quem recebe o dedo.
-       O número fica ao lado e não dentro do cap: a cápsula é baixa demais para um número no
-       meio do traço. -->
+       O número fica abaixo do trilho e não dentro do cap: a cápsula é estreita demais para um
+       número no meio do traço. -->
   <div class="vol-pill" id="volPill">
     <!-- O ÍCONE É O MUDO (v1.13.66): o toque na tecla de NÍVEL do Modo Fácil mutava, e essa
          tecla virou a tela cheia — o mudo ficou aqui, no mesmo comando e no mesmo estado do

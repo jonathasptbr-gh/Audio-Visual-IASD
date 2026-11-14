@@ -470,6 +470,15 @@ grupos**, todos só-ícone, sem moldura, com a mesma `drop-shadow` tripla no tra
 (ver "Layout de player", abaixo). Cada botão ocupa uma caixa de `--hit`, e o
 tamanho do ícone vem do CSS (`24px`), não do atributo do `<svg>`.
 
+**O MUDO (`#muteToggle`) é NÚMERO + GLIFO.** Uma face de `--hit` (`.pv-mute-face`,
+absoluta, a mesma na prévia aberta e na recolhida) leva o volume do app em %
+(`#pvMuteNum`: `--fs-2xl`, `--fw-max`, centrado nos dois eixos; `0` com o áudio
+bloqueado no Display, o volume mesmo no mudo) e, SOBRE ele, o alto-falante de 13px
+(`--pv-mute-ico`) no canto inferior direito, riscado (`.alternado`) no mudo e no
+bloqueio. No palco o número tem halo de tinta (`--pv-mute-halo`) e o glifo uma
+sombra de contato para cima e à esquerda (`--pv-mute-sombra`); na linha do deck
+recolhido o halo é `none` e a sombra é só de elevação.
+
 | Grupo | Onde | O quê | Pergunta que ele responde |
 |---|---|---|---|
 | `.pv-fabs` | coluna DIREITA | cast em cima, tela cheia embaixo | *para onde eu mando isto?* |

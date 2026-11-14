@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.13** — a faxina da revisão de 2026-11-13: código morto e comentários falsos fora do `controle.js`, do CSS e do Kotlin, o tour do editor que tentava abrir em laço, e o `abrirGuia` que cai no navegador quando o diálogo não abre; APK + web.
 - **v1.14.12** — o número do mudo volta ao centro, e o alto-falante fica sobre ele
 - **v1.14.11** — o anel do destaque encosta na borda sem cortar, e o recorte segue envolvendo a peça inteira
 - **v1.14.10** — o tour só nas seções que precisam (Histórico e Transferir), e a transferência com a régua da Biblioteca
@@ -1369,6 +1370,49 @@ docs: nada chega ao app.
 - **Não medido:** a impressão física (impressora real, frente e verso pela
   borda longa, furo no fichário) e a impressão de dentro do app (o WebView do
   Android provavelmente ignora `window.print()` — daí o aviso).
+
+## v1.14.13 — a faxina da revisão de 2026-11-13
+
+**O lote que aplica o dossiê** [`docs/revisao/REVISAO-2026-11-13.md`](revisao/REVISAO-2026-11-13.md)
+(medido no v1.14.7; cada achado foi RECONFERIDO no v1.14.12 antes do conserto).
+**APK + web:** `shellTag: v1.14.13`, `minShell` 83, `SHELL_VERSION` 87 — o
+Kotlin mudou por dentro, a superfície da ponte não.
+
+- **O defeito (K2):** `abrirGuia` devolvia `true` e só depois postava o `show()`
+  do `GuiaSomDialog` no UI thread, onde ele pode recusar (Activity acabando) ou
+  lançar — e o web, com o `true` na mão, não caía no `openExternal`. Agora o
+  `BridgeHost.abrirGuia(url, urlFora)` cai no `openExternalUrl(urlFora)` (a URL
+  sem o `?app=1`) nos dois casos; "já aberto" é sucesso. Sem bloquear a thread
+  do JavaBridge e sem mexer na assinatura JS.
+- **O tour (T3, T4):** `ferr-edicao` passa a `modos: ['full']` (o `refazer()` do
+  Fácil apagava a marca de uma seção que só existe no avançado); e o editor na
+  vista "form" — com os dois alvos `opcional` `hidden` — fazia o `abrir()`
+  falhar sem gravar a marca, ~1 tentativa por segundo, sem fim (MEDIDO em
+  Chromium): ganhou o passo "Trecho" (`.edicao-faixa` + `.edicao-pontas`). As
+  três portas de conexão viraram `PORTA_TV/PC/CELULAR`, uma lista só para a
+  cortina e a janela (T10).
+- **Código morto:** o `pos` de `favItemRow`, o caminho B do símbolo
+  (`semSlot` e a regra `.linha-confirma > .row-slot`), a repetição do seletor de
+  `interacaoAbertaNoAcervo`, as regras `.fav-acoes*`, `.display-status.connected`
+  e `:disabled`, o `gap` inerte da `.cfg-ajuda`, a redeclaração do
+  `--surface-porta` no tema claro, o `val dash` do `YoutubeGrab` e os imports de
+  `AtomicLong`/`Uri`. `chaveDeNome` reusa `normalizeForSearch` (as duas tabelas
+  de acento são idênticas — varrido o Unicode inteiro).
+- **Comentários e docs que afirmavam o falso:** ~30, entre eles o z-index do
+  tour (diálogo 300, cortina 500, tour 600 acima dos dois), o `--pill-bottom`
+  que não existe, os tiles de Configurações (oito no app, seis no navegador), o
+  KDoc do `SHELL_VERSION` que ensinava a guarda proibida, os KDoc empilhados da
+  `MainActivity`, as exclusões de backup ("quatro coisas") e o "indicador ao
+  vivo" do telão que no app é `hidden`.
+- **Oráculos:** `tour.test.mjs` ganha o I2 (o editor na vista form abre o tour e
+  grava a marca), o `s.letra` nos blocos I e J e passa a ler `AVTour.LINHA_PX`
+  da página — quatro reversões, cada uma reprovando o que devia; o
+  `feedback-de-confirmacao` perde o host sintético `.fav-acoes`.
+
+**Medido e NÃO corrigido (decisão de desenho):** na tela cheia DEITADA a pílula
+de volume tem a caixa menor que o conteúdo — a 740×360 o número sai da tela
+(y 362–376 com vh 360). Fazer o trilho ceder resolve, mas ele cai a 75 px; subir
+o topo para logo abaixo do título dá ~150 px. Fica para o operador escolher.
 
 ## v1.14.12 — o número do mudo volta ao centro, e o alto-falante fica sobre ele
 

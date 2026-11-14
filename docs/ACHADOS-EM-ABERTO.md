@@ -1,7 +1,8 @@
 # Achados em aberto
 
-**UM** — o §5 (`abrirGuia` responde antes de a tela abrir). Fora ele, nenhum
-defeito CONFIRMADO em aberto: o arquivo fica pelo registro
+**UM** — o §6 (a pílula de volume na tela cheia deitada, que espera uma
+decisão de desenho). O §5 foi corrigido na v1.14.13 e fecha com o APK dela.
+Fora eles, nenhum defeito CONFIRMADO em aberto: o arquivo fica pelo registro
 dos três que moraram aqui, e os três fecharam por RESPOSTA DO OPERADOR: o do
 fone/Bluetooth (§1) e o "só o cliente pode fazer o app escolher baixo" (§3), em
 2026-11-08; e o da CHAMADA telefônica, em 2026-11-09 — palavras dele: *"não é um
@@ -281,7 +282,7 @@ próxima sessão não cobrar do lote errado.
 
 ---
 
-## 5. O guia do app pode não abrir — e o web não sabe (2026-11-13, achado de revisão)
+## 5. O guia do app pode não abrir — e o web não sabe (2026-11-13, achado de revisão — CORRIGIDO no Kotlin em 2026-11-14, falta o APK)
 
 **O mecanismo, medido no código.** `AVNative.abrirGuia(url)` devolve `true`
 (`NativeBridge.kt:1129-1134`) e só DEPOIS posta o `show()` no UI thread
@@ -291,9 +292,36 @@ Activity estar acabando (`isFinishing`/`isDestroyed`), o diálogo já estar aber
 (`controle.js:45598`: `if (!AVNative.abrirGuia(url)) AVNative.openExternal(url)`)
 — então, na recusa, o guia não abre e o caminho de queda não é tomado.
 
-**Não é regressão de culto:** o guia é leitura. O conserto é o contrato virar um
-`Boolean` decidido no UI thread (true só depois do `show()`, false no `catch`) e
-a ponte propagar — Kotlin, logo APK + Release.
+**Não é regressão de culto:** o guia é leitura.
 
-**Por que ainda não foi corrigido:** o lote de 2026-11-13 era só web; este achado
-pede `SHELL_VERSION` novo e Release, e não entra de carona.
+**O conserto (2026-11-14), sem mexer no contrato:** o `true` continua saindo
+antes do `show()` — esperar o UI thread travaria a thread do JavaBridge —, e a
+QUEDA passou para o Kotlin. A ponte entrega ao `BridgeHost.abrirGuia` a URL com
+o marcador e a MESMA sem ele; no UI thread, o `MainActivity.abrirGuia` abre a
+segunda no `openExternalUrl` quando a Activity está acabando ou o `show()`
+lança — o caminho que o web tomaria com `false`. Diálogo já aberto é sucesso
+honesto (nada abre de novo). A assinatura, o retorno e o `controle.js` não
+mudam: o web de qualquer versão segue certo, e o `SHELL_VERSION` não sobe. Sem
+JUnit novo: o que sobrou é fluxo em volta do `show()` e do `isFinishing`, que
+pedem uma Activity; a URL de fora é a recebida, sem transformação.
+
+**O que falta:** o APK. Até a Release com este Kotlin, o aparelho segue com o
+defeito descrito acima.
+
+---
+
+## 6. A pílula de volume vaza da tela na tela cheia deitada (2026-11-14, achado de revisão)
+
+**Medido em Chromium** (C8 do dossiê `docs/revisao/REVISAO-2026-11-13.md`):
+com a prévia em tela cheia e o aparelho DEITADO, a `.vol-pill.na-previa` fica
+presa entre `top: var(--pill-top, 33vh)` e `bottom: 88px`, e a caixa resultante é
+menor que o conteúdo — a 740×360 ela tem 153 px para 259 (Fácil) / 227
+(avançado); o trilho e o número vazam da cápsula, e o número sai da tela (y
+362–376, viewport 360). O `video-tela-cheia` I4 não vê porque mede a CAIXA.
+
+**Por que não foi corrigido:** os dois consertos mudam o desenho. (a) O trilho
+cede e tudo cabe — mas ele cai a **75 px** a 740×360 (115 a 900×420), contra 192
+/ 160 hoje. (b) O topo da pílula na tela cheia passa a ser "logo abaixo do
+título" (o título termina em y 35) — o trilho fica perto de **150 px**. A
+escolha é do operador; o conserto escolhido entra com a asserção "o conteúdo
+cabe na caixa e o número fica na tela", provada por reversão.

@@ -255,7 +255,7 @@ envelheceria mentindo.
 > nenhuma**.
 
 **JUnit** (`./gradlew testDebugUnitTest`, **sem `continue-on-error`**, antes do
-`assembleRelease`) — os arquivos PUROS: `EspelhoHttpTest` (tetos do parser,
+`assembleRelease`) — testes de regra PURA: `EspelhoHttpTest` (tetos do parser,
 `read()` parcial, `Host` fora da allowlist, `Origin` estranha, 404 uniforme),
 `EspelhoParesTest` (prazo, teto de sessões, saneamento), `EspelhoHttpRangeTest`
 (a gramática RFC 7233 do `alcanceDe` — malformado é IGNORADO e vira 200, nunca
@@ -270,9 +270,14 @@ tudo funciona, e o testemunho está em inglês na frente da congregação; doze 
 **em pares**, o que a regra passou a recusar e o que ela não pode ter recusado
 junto), `R2ImagemFonteTest` (a allowlist do bucket das fotos por COMPONENTE do
 `URI`: sufixo, prefixo, subdomínio, `http` e URL ilegível — a invariante 2 pelo
-lado do `fetch` que não manda CORS) `GuiaSomTest` (a cerca do `abrirGuia` e o marcador `?app=1`, shell 87: `https` + o host do site por componente do `URI`, em pares — prefixo, sufixo, subdomínio, porta, `userInfo`, `intent:`) e `CifraFonteTest` (a mesma invariante no
+lado do `fetch` que não manda CORS), `GuiaSomTest` (a cerca do `abrirGuia` e o marcador `?app=1`, shell 87: `https` + o host do site por componente do `URI`, em pares — prefixo, sufixo, subdomínio, porta, `userInfo`, `intent:`) e `CifraFonteTest` (a mesma invariante no
 transporte da cifra, que confere o host na entrada E no destino FINAL depois dos
 redirecionamentos; a reversão do predicado reprova 7 dos 9 casos).
+Só os seis primeiros (até o `TrilhaAudioTest`) rodam também fora do Gradle, no
+`tools/junit-sem-rede.sh`, que recusa arquivo testado com `import android.*`;
+`R2ImagemFonteTest`, `GuiaSomTest` e `CifraFonteTest` testam uma função pura de
+um arquivo que importa `android.*` (o `GuiaSom.kt` mora junto do diálogo), e
+rodam só no Gradle do CI.
 
 ## Assinatura
 
@@ -314,7 +319,8 @@ apaga junto com o app.
 ## Backup com regras
 
 `res/xml/backup_rules.xml` e `res/xml/data_extraction_rules.xml` —
-`allowBackup="true"` sozinho leva tudo, e **três** coisas não podem ir:
+`allowBackup="true"` sozinho leva tudo, e **quatro** coisas não podem ir —
+todas fora da nuvem; da transferência direta, as três primeiras:
 
 - **`files/web-ota/` e `shared_prefs/web-ota.xml`** — o bundle extraído e o
   ponteiro para ele, isto é, **CÓDIGO** que roda no origin privilegiado com
@@ -326,10 +332,13 @@ apaga junto com o app.
   do certificado do telão na rede e a senha com que ela foi reescrita
   (`EspelhoCert.kt`). Uma chave restaurada de um backup adulterado é um servidor
   falando com a identidade da igreja — e, ao contrário do bundle OTA, ela não se
-  reconstrói sozinha. **É a única exclusão que sai também da transferência
-  direta:** perdê-la ao trocar de aparelho custa reemitir e reimportar, que é o
-  preço certo.
-- **`app_webview/`** — IndexedDB/OPFS, que passa de gigabytes.
+  reconstrói sozinha. Perdê-la ao trocar de aparelho custa reemitir e
+  reimportar, que é o preço certo.
+- **`files/pacote/`** — o `.avpkg` que espera o seletor de compartilhamento
+  (shell 67): uma cópia temporária do acervo, do tamanho dele, que a faxina do
+  app apaga no lançamento seguinte.
+- **`app_webview/`** — IndexedDB/OPFS, que passa de gigabytes. **É a única das
+  quatro que VAI na transferência direta** — sai só da nuvem.
 
 A diferença entre os destinos é deliberada: o backup em **nuvem** tem cota de
 25 MB (com `app_webview` dentro ele não protegia a biblioteca e ainda arriscava

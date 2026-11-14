@@ -1256,29 +1256,6 @@ object YoutubeGrab {
     ) {
         val webm: Boolean = ext == "webm"
 
-        /**
-         * Dá para transmitir esta faixa por MSE?
-         *
-         * São só DUAS exigências, e as duas são de fato indispensáveis: o
-         * segmento de inicialização (sem ele o `SourceBuffer` rejeita qualquer
-         * mídia) e o índice (sem ele não há como saber onde cada fragmento
-         * começa).
-         *
-         * O `tamanho` NÃO entra, e essa era a v5.120: o `contentLength` do
-         * `ItagItem` nasce em **-1** quando o YouTube não o informa, e exigi-lo
-         * derrubava a transmissão inteira por um campo que o player nem usa —
-         * quem diz onde a faixa acaba é o próprio `sidx`, que lista todos os
-         * fragmentos. Era uma condição a mais para dar errado, sem nada em
-         * troca.
-         *
-         * Os começos precisam ser NÃO NEGATIVOS além de menores que os fins: o
-         * `ItagItem` usa -1 para "não sei", e se a biblioteca um dia preencher
-         * só metade do par, um `initIni = -1` viraria `?r=-1-500` na query do
-         * proxy — 400 garantido, depois de anunciar a faixa como transmissível.
-         */
-        val dash: Boolean = initIni >= 0 && idxIni >= 0 &&
-            idxFim > idxIni && initFim > initIni && codec.isNotEmpty()
-
         /** A REGRA mora no [TrilhaAudio], que é puro e tem JUnit. Aqui é só a leitura. */
         val ordemTrilha: Int = TrilhaAudio.ordem(idioma, tipoTrilha)
 

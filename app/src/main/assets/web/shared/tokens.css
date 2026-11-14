@@ -349,9 +349,10 @@
      vira um bloco branco no salão escuro. O alias resolve por tema sozinho,
      porque a substituição acontece no valor COMPUTADO (a referência para a
      frente, com o `--btn-accent` declarado mais abaixo no mesmo bloco, é válida
-     e foi medida). **AS DUAS DECLARAÇÕES SÃO UM LOTE SÓ:** trocar só esta e
-     deixar a do tema claro em `#2f557f` põe traço e fundo no MESMO denim —
-     rótulo invisível a 1,00:1, e só o tema claro pega.
+     e foi medida). **POR ISSO O BLOCO CLARO NÃO O REPETE:** os dois blocos
+     são o MESMO elemento (`:root`), e um valor escrito lá venceria o alias — com
+     o `#2f557f` da v1.8.62, traço e fundo no MESMO denim, rótulo invisível a
+     1,00:1, e só o tema claro pega.
 
      A OPACIDADE É INVARIANTE, não estilo: desde a v1.8.61 a LISTA CORRE POR
      BAIXO das portas. Elas vestiram `color-mix(--surface 70%, transparent)` e
@@ -776,11 +777,6 @@
   --surface-alta: rgba(255, 255, 255, .70);
   --surface-2-alta: rgba(255, 255, 255, .92);
   --surface: var(--surface-alta);
-
-  /* A superfície das três portas — o MESMO alias do escuro (ver o bloco de lá),
-     e ele TEM de estar escrito aqui: sem esta linha o `:root` sem atributo
-     venceria e o tema claro ficaria no valor do escuro. */
-  --surface-porta: var(--btn-accent);
   --surface-2: var(--surface-2-alta);
   /* Os afundados subiram de .06/.10 na v5.207, e o motivo está medido: sobre o
      painel BRANCO, .06 dava #f0f0f0 — **1,14:1**, um controle que não se

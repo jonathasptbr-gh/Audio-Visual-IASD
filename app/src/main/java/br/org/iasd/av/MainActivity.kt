@@ -1704,28 +1704,23 @@ class MainActivity : ComponentActivity(), BridgeHost {
     }
 
     /**
-     * Abre uma URL fora do app. Hoje o único chamador é o "Pesquisar … no
-     * YouTube" do fim da busca do acervo: o acervo é o LouvorJA e não tem
-     * tudo, e o caminho de volta para uma música que falta já existe (o
-     * `intent-filter` de share). Faltava a ida.
-     *
-     * `ACTION_VIEW` sem escolher pacote: quem reivindica `youtube.com` no
-     * aparelho abre — o app do YouTube, se instalado; o navegador, se não. O
-     * esquema já foi restringido a `https` em [NativeBridge.openExternal].
-     *
-     * `FLAG_ACTIVITY_NEW_TASK` porque isto sai de uma thread do WebView por
-     * um `post`, e o alvo tem de virar tarefa própria: o app de projeção
-     * continua na dele, com a `Presentation` viva na TV.
-     */
-    /**
      * O GUIA DE SONOPLASTIA por cima do Controle (shell 87) — ver
      * [GuiaSomDialog]: um Dialog, e não outra Activity, para que esta NÃO passe
      * por `onPause`/`onStop` (a mídia, a preview e o telão seguem como estão).
      * Fechado, o imersivo desta janela volta ao que era.
+     *
+     * A ponte já devolveu `true` ao web quando isto roda, então a QUEDA é
+     * daqui: Activity acabando ou `show()` lançando abre [urlFora] (a mesma,
+     * sem o `app=1`) no [openExternalUrl] — o que o web faria com `false`.
+     * Diálogo já aberto é sucesso honesto, e não abre nada de novo.
      */
-    override fun abrirGuia(url: String) {
+    override fun abrirGuia(url: String, urlFora: String) {
         runOnUiThread {
-            if (isFinishing || isDestroyed || guiaSom?.isShowing == true) return@runOnUiThread
+            if (isFinishing || isDestroyed) {
+                openExternalUrl(urlFora)
+                return@runOnUiThread
+            }
+            if (guiaSom?.isShowing == true) return@runOnUiThread
             try {
                 guiaSom = GuiaSomDialog(this, url) {
                     guiaSom = null
@@ -1733,11 +1728,29 @@ class MainActivity : ComponentActivity(), BridgeHost {
                 }.also { it.show() }
             } catch (e: Exception) {
                 guiaSom = null
-                Log.w(TAG, "o guia não abriu", e)
+                Log.w(TAG, "o guia não abriu no app; vai para fora", e)
+                openExternalUrl(urlFora)
             }
         }
     }
 
+    /**
+     * Abre uma URL fora do app. Dois chamadores: o "Pesquisar … no YouTube"
+     * do fim da busca do acervo (o acervo é o LouvorJA e não tem tudo, e o
+     * caminho de volta para uma música que falta já existe — o
+     * `intent-filter` de share; faltava a ida), e a queda do guia de
+     * sonoplastia — a do web, com casco sem `abrirGuia` ou com `false`, e a
+     * do [abrirGuia] daqui, quando a tela não abre.
+     *
+     * `ACTION_VIEW` sem escolher pacote: quem reivindica o endereço no
+     * aparelho abre — o app do YouTube, se instalado; o navegador, se não. O
+     * esquema já foi restringido a `https` em [NativeBridge.openExternal]
+     * (e a URL do guia, ao site, em [GuiaSom.urlDoGuia]).
+     *
+     * `FLAG_ACTIVITY_NEW_TASK` porque isto sai de uma thread do WebView por
+     * um `post`, e o alvo tem de virar tarefa própria: o app de projeção
+     * continua na dele, com a `Presentation` viva na TV.
+     */
     override fun openExternalUrl(url: String) {
         runOnUiThread {
             try {
