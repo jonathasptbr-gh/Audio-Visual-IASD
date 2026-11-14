@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **a revisão geral B (sem versão nova; só `docs/`)** — os dez marcos de `ea612559` a `02957d08`: 32 achados confirmados, 7 refutados e 3 obsoletos; as duas tabelas da fila alinhadas e 15 resíduos finos com dono.
 - **o `estado.sh` para de chamar de pendente o resíduo que já tem pacote (sem versão nova; só `tools/`)** — a linha de dono `operador` cujo "por que" cita um `Pacote N` que existe em `PEDIDOS-EM-ESPERA.md` sai da lista; a que cita número inexistente continua saindo, e "Fechado/decidido" fica fora.
 - **os dois resíduos do operador fechados como decisão (sem versão nova; só `docs/`)** — o CSS/JS inline do `site/sonoplastia` e o `pre-push` versionado: medidos (33 kB comprimidos de ~206 kB, corpo de 838 kB; os hooks rodam no proot, mas o portão são ~46 s por push) e deixados como estão.
 - **o Pacote 27: o contrato enxuto (sem versão nova; docs, `tools/` e o workflow)** — os 8 apontamentos D da revisão de 14/11: o `CLAUDE.md` de 729 linhas para 369, uma regra só de leitura, a tabela única das falas ao operador, o critério objetivo da delegação, o método dos oráculos e a versão na fonte única, a árvore completa e os cinco finos; o `URGENCIA.md` esvaziou e saiu.
@@ -745,6 +746,28 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## a revisão geral B — o escopo fixo, a segunda vez (sem versão nova; só `docs/`)
+
+A segunda revisão de 14/11, em sessão própria e sem consertar: mediu `ea612559`
+→ `02957d08` (46 arquivos, 1.978 linhas) e fechou no dossiê
+[`docs/revisao/REVISAO-2026-11-14-B.md`](revisao/REVISAO-2026-11-14-B.md), com
+os dez marcos, cada um com prova, e a cobertura verde.
+
+**O que ela achou que a revisão A deixou passar:** a segunda passada do `todos`
+do tour deixou dois passos recortando metade (o "Seg e 12h" e o "Cronograma e
+Favoritos"), e o comentário que a v1.14.16 escreveu no `controle.js` chama de "a
+rotina do acervo" uma função que ela não chama. **O que ela achou de guarda:** a
+checagem da versão no `RESIDUOS` se satisfaz com o exemplo da própria regra, e o
+portão pula oráculo só *mencionado* na Sanidade. **O que ela corrigiu na
+entrega:** as duas tabelas da fila (o índice omitia os Pacotes 28 e 29, e os
+sub-itens do 18 estavam deslocados) e a linha da ordem no `REVISAO-GERAL`.
+
+**O que não foi consertado, e por quê:** o conserto não é da revisão (B11) — os
+15 finos estão no `RESIDUOS.md` com dono `higienização`, e a higienização é o
+lote seguinte, um por vez.
 
 ---
 

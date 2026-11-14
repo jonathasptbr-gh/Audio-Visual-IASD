@@ -14,8 +14,8 @@ de decisão do operador.
 
 **Edição de 2026-11-09.** A lista foi relida contra o que já saiu (v1.13.36 a
 v1.13.50), **renumerada do zero** (o Pacote 1 é o de maior prioridade) e
-**recatalogada por importância × urgência** — o índice é a primeira tabela, e a
-nota é item a item. Nesta revisão três pedidos saíram inteiros (os antigos 1.1,
+**recatalogada por importância × urgência** — o índice é a tabela **Os pacotes, em
+uma linha**, e a nota é item a item. Nesta revisão três pedidos saíram inteiros (os antigos 1.1,
 1.3 e 1.4), um foi reduzido (o antigo 4.1 virou o 11.1 de hoje), o antigo 11.1
 ficou só com o que as revisões não cobriram, e o cache do antigo 9.3 já tinha
 saído na v1.13.50. O rastro está ao fim. **Os Pacotes 1, 2 e 3 saíram** — o 1 na v1.13.51, o 2 na v1.13.52 (2026-11-09) e o 3 na v1.13.56; os que
@@ -153,9 +153,8 @@ ordem; a fila é dele.
 | **17** | **Tour do Fácil: a Biblioteca que se abre** | pedido | 3 | 3 | **9** | web |
 | 17.1 | a janela aberta: Liturgia, coleções, o toque que toca e o download | | 3 | 3 | 9 | web |
 | **18** | **Tour do Avançado: os controles** | pedido | 3 | 3 | **9** | web |
-| 18.1 | barra, base comum, prévia e os dois slides | | 3 | 3 | 9 | web |
-| 18.2 | um passo por exclusivo: playlist, leitura, cortina, mudo, tela cheia | | 3 | 3 | 9 | web |
-| 18.3 | a cifra: play automático, tons e a tela cheia deitada | | 3 | 3 | 9 | web |
+| 18.1 | barra, base comum, prévia, os dois slides e os exclusivos, um a um | | 3 | 3 | 9 | web |
+| 18.2 | a cifra: play automático, tons e a tela cheia deitada | | 3 | 3 | 9 | web |
 | **19** | **Tour do Avançado: ferramentas e seções** | pedido | 3 | 3 | **9** | web |
 | 19.1 | a lista de Ferramentas sem a etapa do fechar | | 3 | 3 | 9 | web |
 | 19.2 | o Timer: a roleta e o gesto de rolar | | 3 | 3 | 9 | web |
@@ -171,6 +170,8 @@ ordem; a fila é dele.
 | 22.1 | sai o segundo futuro: 1 atrás, o atual e 1 à frente | | 2 | 1 | 2 | web |
 | **23** | **Editor de mídia: a margem inferior** | defeito | 2 | 2 | **4** | web |
 | 23.1 | a folha com o editor aberto, medida contra as ferramentas de painel | | 2 | 2 | 4 | web |
+| **28** | **Série: o aviso que promete descer** | defeito | 3 | 2 | **6** | web |
+| **29** | **Guia do site: a captura das sete ferramentas** | resíduo | 2 | 1 | **2** | site |
 
 ---
 

@@ -140,8 +140,9 @@ da lista comum, cada marco tem o específico dele, abaixo.
   e ferramentas, o que NÃO foi medido, e o resíduo no `RESIDUOS.md` — e a
   ferramenta fica verde com o head do dossiê. **O conserto não entra na
   revisão: entra no lote seguinte.**
-- **Ordem:** a da tabela acima, M1 → M10; onde a área é grande, o marco se
-  parte em dois, nunca se pula.
+- **Ordem de leitura:** M1 → M10 — a ordem da tabela acima é a da casa dos
+  padrões (o primeiro que casa fica com o arquivo), não a da vistoria; onde a
+  área é grande, o marco se parte em dois, nunca se pula.
 
 ## O que o relatório de cada marco entrega
 
