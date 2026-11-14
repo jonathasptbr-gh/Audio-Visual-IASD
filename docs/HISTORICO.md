@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o `estado.sh` para de chamar de pendente o resíduo que já tem pacote (sem versão nova; só `tools/`)** — a linha de dono `operador` cujo "por que" cita um `Pacote N` que existe em `PEDIDOS-EM-ESPERA.md` sai da lista; a que cita número inexistente continua saindo, e "Fechado/decidido" fica fora.
 - **os dois resíduos do operador fechados como decisão (sem versão nova; só `docs/`)** — o CSS/JS inline do `site/sonoplastia` e o `pre-push` versionado: medidos (33 kB comprimidos de ~206 kB, corpo de 838 kB; os hooks rodam no proot, mas o portão são ~46 s por push) e deixados como estão.
 - **o Pacote 27: o contrato enxuto (sem versão nova; docs, `tools/` e o workflow)** — os 8 apontamentos D da revisão de 14/11: o `CLAUDE.md` de 729 linhas para 369, uma regra só de leitura, a tabela única das falas ao operador, o critério objetivo da delegação, o método dos oráculos e a versão na fonte única, a árvore completa e os cinco finos; o `URGENCIA.md` esvaziou e saiu.
 - **o Pacote 25: o rito de entrega (sem versão nova; `tools/`, workflow e docs)** — os 11 apontamentos A da revisão de 14/11: direto em `main` sem `claude/**`, o portão como último passo e com teto na vizinhança, o gatilho da Release cobrado por máquina, três casas da versão, o rito numerado no BUILD, a regra do CI vermelho, o histórico e o RES cobrados, o `acorn` declarado.
@@ -746,6 +747,19 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## o `estado.sh` para de chamar de pendente o resíduo que já tem pacote (sem versão nova; só `tools/`)
+
+A regra 6 do `RESIDUOS.md` diz que a linha de dono `operador` **ganha pacote na
+fila** ou, enquanto não ganhar, o `estado.sh` a imprime. O script imprimia todas:
+as duas que já viraram os Pacotes 28 e 29 apareciam como "decisão pendente"
+depois de a fila já tê-las recebido.
+
+Agora ele cruza a tabela "Aberto" com a fila: a linha cujo "por que" cita um
+`na fila: Pacote N` que EXISTE em `PEDIDOS-EM-ESPERA.md` não sai; a que cita um
+número que não existe continua saindo (citação velha não pode esconder uma
+decisão), e a tabela "Fechado/decidido" fica fora. Sem pendência, imprime
+`(nenhum)`; seção "Aberto" não achada imprime o aviso, não o silêncio.
 
 ## os dois resíduos do operador fechados como decisão (sem versão nova; só `docs/`)
 

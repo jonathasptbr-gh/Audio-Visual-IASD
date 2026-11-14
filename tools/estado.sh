@@ -138,5 +138,29 @@ p "fila do operador"
 grep -E '^## Pacote [0-9]+ —' docs/PEDIDOS-EM-ESPERA.md \
   | sed -E 's/^## Pacote ([0-9]+) — (.*)/  \1. \2/' | cut -c1-96
 
-p "resíduos com dono 'operador' (decisão pendente — a regra 6 do RESIDUOS.md)"
-awk -F'|' '/^\| 2026-/{ d=$5; gsub(/ /,"",d); if (d=="operador") print "  " $2 " ->" $3 }' docs/RESIDUOS.md | cut -c1-96
+p "resíduos com dono 'operador' (sem pacote na fila — a regra 6 do RESIDUOS.md)"
+# A linha que JÁ GANHOU PACOTE na fila deixou de ser decisão pendente (regra 6)
+# e sai daqui. A que cita um pacote que NÃO existe em `PEDIDOS-EM-ESPERA.md`
+# continua saindo — citação velha não pode esconder uma decisão. A tabela
+# "Fechado/decidido" fica fora: ela é o registro, não a pendência.
+PACOTES=$(grep -E '^## Pacote [0-9]+ —' docs/PEDIDOS-EM-ESPERA.md \
+  | sed -E 's/^## Pacote ([0-9]+) —.*/ \1 /' | tr -d '\n')
+# Seção não achada não é "nenhum": a busca vazia não é prova de ausência.
+if ! grep -q '^## Aberto' docs/RESIDUOS.md; then
+  echo "  (seção '## Aberto' não achada no RESIDUOS.md — nada conferido)"
+else
+PEND=$(awk -F'|' -v pacotes="$PACOTES" '
+  /^## Aberto/  { dentro = 1; next }
+  /^## Fechado/ { dentro = 0 }
+  !dentro || $0 !~ /^\| 2026-/ { next }
+  {
+    d = $5; gsub(/[ \t]/, "", d)
+    if (d != "operador") next
+    if (match($6, /na fila: Pacote [0-9]+/)) {
+      n = substr($6, RSTART + 16, RLENGTH - 16)
+      if (index(pacotes, " " n " ") > 0) next
+    }
+    print "  " $2 " ->" $3
+  }' docs/RESIDUOS.md | cut -c1-96)
+if [ -n "$PEND" ]; then printf '%s\n' "$PEND"; else echo "  (nenhum)"; fi
+fi
