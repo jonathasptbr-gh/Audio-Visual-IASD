@@ -65,7 +65,7 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **8** — CI: os oráculos instáveis (residual) | 6 (I3×U2) | resíduo | só `tools/` + workflow |
 | **9** — Folha do vídeo: o teto e o botão "Detalhes" | 4 (I2×U2) | pedido | só web |
 | **12** — Limpeza e otimização do repositório (residual) | 2 (I2×U1) | pedido | só docs |
-| **13** — Estudos (não são fila de execução) | — | estudo | nenhuma entrega |
+| **13** — Estudos (não são fila de execução) | 4 | estudo | nenhuma entrega |
 | **15** — Guia IASD: a especialização (estudo) | — | estudo | nenhuma entrega |
 | **16** — O cronograma pronto: o organizador entrega o culto ao sonoplasta | 8 (I4×U2) | pedido | planejamento → Kotlin + web |
 | **17** — Tour do Fácil: a Biblioteca que se abre | 9 (I3×U3) | pedido | só web (tour) |

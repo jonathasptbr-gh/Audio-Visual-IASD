@@ -55,16 +55,9 @@ Neste arquivo:
 ## Regra obrigatória após qualquer alteração
 
 **A entrega é direto em `main`** (decisão do operador, 2026-11-14) — sem ramo,
-sem `checkout`/`merge`. A ordem (versão, notas, histórico, resíduo, portão,
-commit, push, Release) é o rito numerado em
-[`BUILD.md`](BUILD.md#o-rito-de-entrega), e o `tools/portao.sh` é o último passo
-antes do commit:
-
-```bash
-tools/portao.sh <arquivos do lote>
-git add <arquivos> && git commit -m "vX.Y.Z: <descrição>"
-git push origin main
-```
+sem `checkout`/`merge`. O rito é UM só e mora em
+[`BUILD.md`](BUILD.md#o-rito-de-entrega) — versão, notas, histórico, resíduo,
+portão, commit, push e Release, nessa ordem; aqui não se repete o comando.
 
 ---
 
@@ -111,7 +104,7 @@ git push origin main
     ou escrever DrawingML à mão (que produz um slide PARECIDO com o que o pastor
     montou). O levantamento inteiro está no `LEIA-ME.md` daquela pasta.
 
-  Uma terceira exceção precisa do mesmo tipo de justificativa: um problema que
+  Uma segunda exceção precisa do mesmo tipo de justificativa: um problema que
   não se resolve de outro jeito, e a conta da manutenção paga por quem publica
   a biblioteca.
 - Ao atualizar o código, atualizar este documento se a mudança afetar arquitetura, protocolo de comandos ou API pública. Mudanças no shell (Kotlin) vão no `NUCLEO-TECNICO.md`.

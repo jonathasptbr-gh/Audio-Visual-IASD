@@ -150,9 +150,6 @@ const docs = [];
     ['serie.json', 'asset servido por raw.githubusercontent, não versionado aqui'],
     // O medidor de custo do KIT da máquina, fora do repositório (Pacote 24/C3).
     ['uso.mjs', 'kit da máquina: ~/.dsh-github/uso.mjs, não versionado aqui'],
-    // A ferramenta de versão que a EFICIENCIA prometeu e nunca nasceu — é o
-    // PRÓPRIO resíduo do EFICIENCIA #9, e o RES explica a ausência.
-    ['versao.mjs', 'nunca existiu: é o resíduo do EFICIENCIA #9; o estado.sh cobre o que ela faria'],
   ]);
 
   const reais = new Set();
@@ -336,7 +333,10 @@ const docs = [];
 {
   const ver = JSON.parse(ler('app/src/main/assets/web/version.json')).version;
   const res = ler('docs/RESIDUOS.md');
-  const cita = new RegExp('\\bv' + ver.replace(/\./g, '\\.') + '(?![0-9])').test(res);
+  // A RÉGUA É O "ABERTO" (e as duas tabelas de fecho), não o arquivo inteiro: o
+  // exemplo da regra no topo cita uma versão e satisfazia a checagem sozinho.
+  const corpo = res.slice(res.indexOf('## Aberto'), res.indexOf('## Refutado'));
+  const cita = new RegExp('\\bv' + ver.replace(/\./g, '\\.') + '(?![0-9])').test(corpo);
   if (cita) ok('a versão do `version.json` (v' + ver + ') está declarada no `docs/RESIDUOS.md`');
   else nao('a versão do lote está declarada no `docs/RESIDUOS.md`',
     'v' + ver + ' não aparece lá'

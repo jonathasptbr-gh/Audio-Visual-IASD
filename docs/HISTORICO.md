@@ -30,10 +30,11 @@ apagada da que a criou.
 
 ## Índice
 
+- **a higienização A: o fino dos docs e das ferramentas (sem versão nova; `docs/`, `tools/` e o contrato)** — 13 resíduos fechados: a régua do RESIDUOS cobra o Aberto e não o exemplo, o portão só pula o oráculo EXECUTADO, o `estado.sh` não morre sem `origin/main`, o `versao.mjs` nasceu, a fixture do Registro ganhou os campos do shell, e números e ponteiros foram corrigidos.
 - **a revisão geral B (sem versão nova; só `docs/`)** — os dez marcos de `ea612559` a `02957d08`: 32 achados confirmados, 7 refutados e 3 obsoletos; as duas tabelas da fila alinhadas e 15 resíduos finos com dono.
 - **o `estado.sh` para de chamar de pendente o resíduo que já tem pacote (sem versão nova; só `tools/`)** — a linha de dono `operador` cujo "por que" cita um `Pacote N` que existe em `PEDIDOS-EM-ESPERA.md` sai da lista; a que cita número inexistente continua saindo, e "Fechado/decidido" fica fora.
-- **os dois resíduos do operador fechados como decisão (sem versão nova; só `docs/`)** — o CSS/JS inline do `site/sonoplastia` e o `pre-push` versionado: medidos (33 kB comprimidos de ~206 kB, corpo de 838 kB; os hooks rodam no proot, mas o portão são ~46 s por push) e deixados como estão.
-- **o Pacote 27: o contrato enxuto (sem versão nova; docs, `tools/` e o workflow)** — os 8 apontamentos D da revisão de 14/11: o `CLAUDE.md` de 729 linhas para 369, uma regra só de leitura, a tabela única das falas ao operador, o critério objetivo da delegação, o método dos oráculos e a versão na fonte única, a árvore completa e os cinco finos; o `URGENCIA.md` esvaziou e saiu.
+- **os dois resíduos do operador fechados como decisão (sem versão nova; só `docs/`)** — o CSS/JS inline do `site/sonoplastia` e o `pre-push` versionado: medidos (33 kB comprimidos de ~206 kB, corpo de 918 kB; os hooks rodam no proot, mas o portão são ~46 s por push) e deixados como estão.
+- **o Pacote 27: o contrato enxuto (sem versão nova; docs, `tools/` e o workflow)** — os 8 apontamentos D da revisão de 14/11: o `CLAUDE.md` de 729 linhas para 368, uma regra só de leitura, a tabela única das falas ao operador, o critério objetivo da delegação, o método dos oráculos e a versão na fonte única, a árvore completa e os cinco finos; o `URGENCIA.md` esvaziou e saiu.
 - **o Pacote 25: o rito de entrega (sem versão nova; `tools/`, workflow e docs)** — os 11 apontamentos A da revisão de 14/11: direto em `main` sem `claude/**`, o portão como último passo e com teto na vizinhança, o gatilho da Release cobrado por máquina, três casas da versão, o rito numerado no BUILD, a regra do CI vermelho, o histórico e o RES cobrados, o `acorn` declarado.
 - **o Pacote 26: o processo de revisão (sem versão nova; docs e `tools/`)** — os 14 apontamentos B da revisão de 14/11: a revisão caça defeito, a base é o HEAD medido, as auditorias congeladas com os abertos no RES, o ACH esvaziado, a revisão profunda encerrada e a ferramenta de cobertura com títulos, binário fora e `--tabela`.
 - **o Pacote 24: as instruções desta máquina consertadas (sem versão nova; docs, `tools/` e arquivos da máquina)** — os 12 apontamentos da revisão de 14/11: a reversão do patch, o cofre primeiro no `estado.sh` e na receita, os tetos sem dólar, o `AGENTS.md` enxuto, o `--ci` citado, o ATIVO.md aposentado, o `send_later` fora, o teto no meio do lote, e regras para portas e backups.
@@ -749,6 +750,47 @@ apagada da que a criou.
 
 ---
 
+## a higienização A — o fino dos docs e das ferramentas (sem versão nova; `docs/`, `tools/` e o contrato)
+
+**A higienização A (sem versão nova; `docs/`, `tools/` e o contrato)** — os treze
+resíduos finos que a revisão geral B deixou em `docs/RESIDUOS.md` com dono
+`higienização`, fechados numa sessão. Nada toca a base web: `assets/web/` e
+`java/` ficam para a higienização B, que é lote com versão e `shellTag`.
+
+**O que ganhou máquina, e não só texto.** O `docs-coerentes` recortava o
+`RESIDUOS.md` INTEIRO para cobrar a versão do lote, e o exemplo da própria regra
+(a coluna do lote leva a versão, `v1.14.16`) satisfazia a checagem — um lote que
+só renumerasse o exemplo passava sem linha no Aberto; a régua agora é o trecho de
+`## Aberto` a `## Refutado`. O `portao.sh` pulava o oráculo puro MENCIONADO na
+Sanidade, comentário inclusive (`# ver tools/x.test.mjs` tirava o oráculo do
+portão sem rodá-lo), e agora só conta a linha que EXECUTA `node …
+tools/x.test.mjs`. O `estado.sh` tinha duas réguas com defeito: a do shell mudado
+não somava `git ls-files --others` (o `apk.yml` soma), e o `set -- $(git rev-list
+…)` sem guarda abortava sob `set -u` se o `rev-list` falhasse — hoje o `rev-list`
+é guardado por `if` e os posicionais são `${1:-?}`. A fixture `DIAG` do
+`registro.test.mjs` ganhou `via`/`iface`/`midia` (de `EspelhoServidor.estado()`),
+`interfaces` (de `interfacesJson()`) e o `farolEstado` com `ultimo`: sem eles o
+Registro desenhava "ligado à Wi-Fi" por conta própria e a linha do Alcance nunca
+nascia no oráculo. E o `tools/versao.mjs` nasceu: escreve as três casas de uma
+vez, recusa forma inválida e versão que não subiu, faz o `shellTag` acompanhar, e
+o `ferramentas.test.mjs` o cobra nos dois sentidos.
+
+**O que era texto.** O rito ficou com UMA casa (o `BUILD.md`): o
+`ARQUITETURA-WEB.md` repetia o bloco de comandos e agora aponta, e o bloco do
+`CLAUDE.md` ganhou o `--vizinho` que o `TETO=8` do portão exige (um lote que toca
+o `controle.js` reprova por omissão). O `ORACULOS.md` dizia "quatro casas" e são
+três. O `HISTORICO.md` tinha duas medidas velhas — o corpo do guia é 918.125 B
+(não 838 kB) e o `CLAUDE.md` fechou em 368 linhas, não 369. O `reverter.sh`
+mandava a regra da reversão ao `CLAUDE.md`, que não a tem: é `BUILD.md:499`. O
+`revisao-cobertura.mjs --tabela` imprimia `\/` e a cópia no `REVISAO-GERAL.md` usa
+`/` — a saída normaliza. O `:17` da `ESTRUTURA.md` (a árvore do `notas.json` "com
+um nível a mais") foi MEDIDO e **não é defeito**: as colunas dos comentários batem
+na 33, e o `│   │` é o `assets/web` seguindo para o próximo filho; a primeira
+metade da linha era real (o `CLAUDE.md` não guarda contagem de Kotlin e o esboço
+tem oito linhas) e foi corrigida. O §0 do dossiê de 14/11 ganhou a tabela com os
+17 ids, que o item 4 do fecho cobra.
+
+---
 ## a revisão geral B — o escopo fixo, a segunda vez (sem versão nova; só `docs/`)
 
 A segunda revisão de 14/11, em sessão própria e sem consertar: mediu `ea612559`
@@ -791,7 +833,7 @@ O operador pediu a recomendação sobre as duas linhas com dono `operador` que o
 
 - **O CSS/JS inline do `site/sonoplastia/index.html`** (era o 12.3.2 da fila).
   O estilo tem 44,8 kB e os dois scripts 71 kB crus — ~33 kB comprimidos, contra
-  os ~206 kB comprimidos da página, e o corpo é 838 kB dos 966 kB: é ele que
+  os ~206 kB comprimidos da página, e o corpo é 918 kB dos 966 kB: é ele que
   pesa. Extrair mexeria num arquivo de 7.803 linhas, com quatro blocos
   `@media print` e um `@page` — risco no layout de impressão para um ganho que o
   corpo domina. **Fica como está.**
@@ -816,7 +858,7 @@ arquivo mandava ("quando o D sair, este arquivo é apagado").
   operador") mais "Regras de desenvolvimento" em toda sessão, o resto por âncora
   — dito UMA vez, no `CLAUDE.md`; o `AGENTS.md` e o `PACOTE-DE-CONTINUIDADE.md`
   apontam para lá.
-- **D2 · a dieta** (CL, BU, EC, PODA): 729 → 369 linhas e 47 → 25 kB. Os **17
+- **D2 · a dieta** (CL, BU, EC, PODA): 729 → 368 linhas e 47 → 25 kB. Os **17
   tocos "Movido"** viraram LINHA da tabela de ÁREAS (cada uma com a regra que se
   paga caro); o Build e o MÉTODO dos oráculos foram para o `BUILD.md`; a entrega
   delegada, para a `ECONOMIA.md`; o NÚMERO e as três casas, para o `BUILD.md`; a

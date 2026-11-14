@@ -230,7 +230,7 @@ próprio para a `Presentation`.
   ([`docs/BUILD.md`](docs/BUILD.md) — "O laço de design").
 
   ```bash
-  tools/portao.sh <arquivos do lote>   # de novo depois de QUALQUER mudança
+  tools/portao.sh <arquivos do lote>   # de novo após QUALQUER mudança; 8+ pedem --vizinho
   git add <arquivos> && git commit -m "vX.Y.Z: <descrição>"
   git push origin main                 # ← sem isto, nada chega aos aparelhos
   ```

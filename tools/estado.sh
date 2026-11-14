@@ -27,8 +27,10 @@ echo "branch:  $(g branch --show-current)"
 mudou=$(g status --porcelain | wc -l)
 echo "árvore:  $([ "$mudou" -eq 0 ] && echo limpa || echo "$mudou arquivo(s) fora do HEAD")"
 if g rev-parse --verify -q origin/main >/dev/null; then
-  set -- $(g rev-list --left-right --count origin/main...HEAD 2>/dev/null)
-  echo "remoto:  atrás $1 · à frente $2 (main do origin)"
+  if contagem=$(g rev-list --left-right --count origin/main...HEAD 2>/dev/null); then
+    set -- $contagem
+    echo "remoto:  atrás ${1:-?} · à frente ${2:-?} (main do origin)"
+  fi
 fi
 
 p "versão — as três casas"
@@ -61,9 +63,13 @@ def git(*a):
     return r.stdout.strip() if r.returncode == 0 else ''
 tag = git('describe', '--tags', '--abbrev=0', '--match', 'v*', 'HEAD')
 if tag:
-    d = git('diff', '--name-only', tag, '--', 'app/src/main/java', 'app/src/main/res',
-            'app/src/main/AndroidManifest.xml', 'app/build.gradle.kts')
-    n = len([l for l in d.splitlines() if l])
+    caminhos = ('app/src/main/java', 'app/src/main/res',
+                'app/src/main/AndroidManifest.xml', 'app/build.gradle.kts')
+    d = git('diff', '--name-only', tag, '--', *caminhos)
+    # O NÃO RASTREADO CONTA: um `.kt` novo muda o shell como um editado muda,
+    # e o `apk.yml` já o soma — a régua daqui tem de dar o mesmo veredito.
+    novos = git('ls-files', '--others', '--exclude-standard', '--', *caminhos)
+    n = len({l for l in (d + '\n' + novos).splitlines() if l})
     print(f"  última Release {tag} (tag local) · shell mudou desde ela: "
           f"{n} arquivo(s){' → exige shellTag' if n else ''}")
 else:

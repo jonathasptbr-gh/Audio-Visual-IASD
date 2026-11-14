@@ -150,7 +150,11 @@ fi
 # 2 ---------------------------------------------------------------------------
 echo "== 2. oráculos de Node puro (os que a Sanidade não roda)"
 naSanidade=""
-[ "$sem_sanidade" -eq 0 ] && naSanidade=$(grep -oE 'tools/[a-z0-9.-]+\.test\.mjs' "$tmp/sanidade.sh" | sort -u)
+# SÓ O EXECUTADO CONTA: um `# ver tools/x.test.mjs` (ou um `echo`) tirava o
+# oráculo do portão sem rodá-lo em lugar nenhum — o pulo era o defeito.
+[ "$sem_sanidade" -eq 0 ] && naSanidade=$(sed 's/[[:space:]]#.*//' "$tmp/sanidade.sh" \
+  | grep -E '(^|[;&|][[:space:]]*)node[[:space:]]' \
+  | grep -oE 'tools/[a-z0-9.-]+\.test\.mjs' | sort -u)
 antes=$falhas
 n=0
 m=0

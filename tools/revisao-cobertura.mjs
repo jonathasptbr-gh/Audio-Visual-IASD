@@ -122,7 +122,7 @@ if (args.includes('--tabela')) {
   console.log('| # | marco | padrões (a ordem importa: o primeiro que casa fica com o arquivo) |');
   console.log('|---|---|---|');
   for (const [id, titulo, padroes] of MARCOS) {
-    console.log(`| **${id}** | ${titulo} | ${padroes.map((p) => '`' + p.source + '`').join(' ')} |`);
+    console.log(`| **${id}** | ${titulo} | ${padroes.map((p) => '`' + p.source.replace(/\\\//g, '/') + '`').join(' ')} |`);
   }
   process.exit(0);
 }

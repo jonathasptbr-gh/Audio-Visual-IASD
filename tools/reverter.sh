@@ -2,7 +2,7 @@
 # =============================================================================
 # REVERTER — guardar antes de mexer, devolver para provar a reversão.
 #
-# A regra do `CLAUDE.md` (*"a reversão se desfaz com uma cópia, nunca com o
+# A regra do `docs/BUILD.md` (*"a reversão se desfaz com uma cópia, nunca com o
 # git"*) existia em prosa e dependia de memória: quem esquece o `cp` antes da
 # edição acaba apelando para `git checkout`, que restaura do HEAD e **apaga o
 # trabalho não commitado do lote inteiro naquele arquivo**. Este script faz a

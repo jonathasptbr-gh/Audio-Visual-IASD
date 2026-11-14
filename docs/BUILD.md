@@ -73,8 +73,10 @@ mora só no REGISTRO:** a tela mostra um número, e é o da base web.
 Esquecer o `WEB_VERSION` é o erro **silencioso** (o bundle novo chega e o
 aparelho exibe a versão antiga, justamente a leitura que serve para diagnosticar
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
-chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI
-("Assinatura").
+chega a aparelho nenhum). **O escritor é `node tools/versao.mjs <versão>`** — as
+três de uma vez, com o `shellTag` acompanhando quando declarado; sem argumento
+aceito (`--conferir` só lê e compara), ele sai com 2. O `versionCode`/`versionName`
+do APK vêm do CI ("Assinatura").
 
 **O estado corrente — a versão, a última Release, o `SHELL_VERSION`, o
 `minShell` e o `shellTag` — se mede** (`tools/estado.sh`); o degrau e o piso da

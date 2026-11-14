@@ -57,7 +57,11 @@ const servidor = servirEstatico(RAIZ);
 // (`EspelhoServidor.estado()`) e `servico` (`EspelhoEnergia.estado()`). Uma
 // TELA traz os oito campos de `EspelhoServidor` — `rotulo`, `comando`,
 // `conectadaMs`, `telaAcesaMin`, `aviso`, `eventos`, `pronta`, `fila` — e nada
-// além disso. Se um dia o Kotlin publicar mais, é AQUI que o espelho da forma
+// além disso. `via`/`iface`/`midia` vêm de `EspelhoServidor.estado()`,
+// `interfaces` de `interfacesJson()` e `ultimo` do `farolEstado()` — os quatro
+// entraram no espelho em 2026-11-14 (auditoria de eficiência, #2): sem eles o
+// Registro desenhava "ligado à Wi-Fi" por conta própria e a linha do Alcance
+// nunca nascia. Se o Kotlin publicar mais, é AQUI que o espelho da forma
 // precisa ser atualizado, e é essa a manutenção que este arquivo cobra.
 // ---------------------------------------------------------------------------
 const DIAG = {
@@ -70,15 +74,25 @@ const DIAG = {
   servidor: {
     ligado: true, url: 'http://192.168.0.14:8787', ip: '192.168.0.14', porta: 8787,
     tls: false, noArMs: 754000, teto: 3, sessoes: 1,
+    via: 'PONTO_DE_ACESSO', iface: 'wlan0',
     origensBloqueadas: 0, conexoesTotais: 4, semConexaoMs: 0, ultimaSaida: null,
     recusadas: {}, enlace: { upKbps: 48000, downKbps: 65000, wifi: true, validada: true, iface: 'wlan0' },
+    midia: { itens: 3, bytes: 52428800, teto: 268435456 },
     telas: [{
       rotulo: 'tela A', comando: true, conectadaMs: 612000, telaAcesaMin: 10,
       aviso: '', eventos: 431, pronta: true, fila: 0,
     }],
   },
   servico: { servico: true, wakeLock: true, wifi: true, termico: 1, termicoMax: 2, carregando: false },
+  interfaces: {
+    achados: [{ nome: 'wlan0', ip: '192.168.0.14', tipo: 'WIFI' }],
+    recusadas: [{ nome: 'ap0', motivo: 'sem permissão de localização' }],
+  },
 };
+
+// O FAROL: `farolEstado()` devolve `conta`, `ultimo` e `diag`. É o que desenha
+// a linha "Alcance:" do Registro — sem ele, a linha nunca nascia no oráculo.
+const FAROL = { conta: true, ultimo: 1765000123000, diag: 'ultima busca ha 11s: nada novo' };
 
 const ESTADO = {
   ligado: true, endereco: 'http://192.168.0.14:8787', erro: '',
@@ -90,12 +104,12 @@ const PONTE = `(() => {
   const vazio = { displays: [{ id: 1, name: 'TV do templo', w: 1920, h: 1080, density: 320, telao: true }],
     listFolder: [], pickDoc: [], ytSearch: [],
     espelhoEstado: ${JSON.stringify(ESTADO)}, espelhoDiag: ${JSON.stringify(DIAG)},
-    espelhoCertEstado: { temCert: false }, castTarget: { label: 'Tela de teste' },
+    espelhoCertEstado: { temCert: false }, castTarget: { label: 'Tela de teste' }, farolEstado: ${JSON.stringify(FAROL)},
     otaPending: '', otaDiag: 'ultima busca ha 11s: nada novo', ytDiag: '' };
   const comCallId = new Set(['espelhoLigar','displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
     'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','castTarget','saidaDeAudioAlvo',
     'espelhoEstado','espelhoDiag','espelhoCertEstado','espelhoCertImportar','espelhoCertApagar',
-    'apkProcurar','apkInstalar','otaPending','otaApply','otaCheck','otaDiag','ytDiag',
+    'apkProcurar','apkInstalar','otaPending','otaApply','otaCheck','otaDiag','ytDiag','farolEstado',
     ]);
   const B = {
     shellVersion: () => 46,
@@ -108,7 +122,7 @@ const PONTE = `(() => {
   const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','projecaoLocal','castTarget','saidaDeAudioAlvo',
     'deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar',
     'espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado',
-    'espelhoLigar','keepAlive','listFolder','nowPlaying','openCast','abrirSaidaDeAudio','openExternal','otaApply',
+    'espelhoLigar','keepAlive','listFolder','nowPlaying','openCast','abrirSaidaDeAudio','openExternal','otaApply','farolEstado',
     'otaCheck','otaDiag','otaPending','pickDoc','pickFolder','systemVolume',
     'temaClaro','ytCancel','ytDiag','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio','ytSearch',
     'ytStream',

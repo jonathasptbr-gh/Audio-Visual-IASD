@@ -8,7 +8,8 @@
 > foram reconferidos hoje: o #5 **RESOLVIDO** (o `dados.yml` é `'17 * * * *'` e
 > o `MEDICAO-DE-ALCANCE.md` diz "de hora em hora" — as duas pontas conferem); o
 > #2 (a fixture `DIAG`) e o #9 (não há `tools/versao.mjs`) seguem abertos e
-> moram no `docs/RESIDUOS.md`. **O M9 da revisão geral NÃO varre mais esta
+> moram no `docs/RESIDUOS.md`. **Os dois foram fechados em 2026-11-14 pela
+> higienização A** (a fixture e o `tools/versao.mjs`). **O M9 da revisão geral NÃO varre mais esta
 > auditoria: ela é apêndice congelado.**
 
 **O que ela mede:** o custo de MANTER este repositório, não a qualidade do que

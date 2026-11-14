@@ -3,8 +3,8 @@
 O que cada arquivo do app faz e se recusa a fazer, num lugar só. O mapa Kotlin
 com o capítulo de cada `.kt` é o [`shell/README.md`](shell/README.md); o da base
 web, o [`ARQUITETURA-WEB.md`](ARQUITETURA-WEB.md). O `CLAUDE.md` guarda só o
-esboço (seis linhas) e a **contagem medida** dos arquivos Kotlin — o número mora
-aqui e o `tools/docs-coerentes.test.mjs` o confere contra o disco.
+esboço (oito linhas); a **contagem medida** dos arquivos Kotlin mora aqui, e o
+`tools/docs-coerentes.test.mjs` a confere contra o disco.
 
 > **Movido do `CLAUDE.md` na revisão A2 (2026-10-30), sem mudança de texto** (só os links relativos e o nível dos títulos). No núcleo ficou um resumo com o link para cá. "Acima", "abaixo", "esta seção" e as invariantes numeradas falam do `CLAUDE.md`, de onde este texto veio.
 

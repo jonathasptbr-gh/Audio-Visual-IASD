@@ -126,5 +126,26 @@ const contrato = ler('CLAUDE.md');
 checar(contrato.includes('tools/estado.sh'), 'o CLAUDE.md cita tools/estado.sh');
 checar(contrato.includes('tools/portao.sh'), 'o CLAUDE.md cita tools/portao.sh');
 
+// 5. O ESCRITOR DA VERSÃO (auditoria de eficiência #9). O `apk.yml` já REPROVA
+//    a divergência entre as três casas; o que faltava era escrevê-las de uma
+//    vez. Ele não pode mentir: recusa forma inválida, recusa número que não
+//    subiu, e na leitura concorda com o `version.json` de hoje.
+try {
+  const saida = execFileSync('node', ['tools/versao.mjs', '--conferir'], { cwd: RAIZ, encoding: 'utf8', timeout: 60000 });
+  const versao = JSON.parse(ler('app/src/main/assets/web/version.json')).version;
+  checar(saida.includes('version.json ' + versao),
+    'o tools/versao.mjs lê as três casas e concorda com o version.json', saida.trim());
+} catch (e) {
+  checar(false, 'o tools/versao.mjs lê as três casas', String(e.stdout || '') + String(e.stderr || e.message));
+}
+for (const [v, rotulo] of [['1.0.1-rc', 'a forma inválida'], ['1.0', 'a versão que não subiu']]) {
+  try {
+    execFileSync('node', ['tools/versao.mjs', v], { cwd: RAIZ, encoding: 'utf8', timeout: 60000 });
+    checar(false, 'o tools/versao.mjs recusa ' + rotulo);
+  } catch (e) {
+    checar(e.status === 2, 'o tools/versao.mjs recusa ' + rotulo, 'saiu ' + e.status);
+  }
+}
+
 console.log(falhas.length ? '\n' + falhas.length + ' FALHA(S)' : '\nTodos passaram.');
 process.exit(falhas.length ? 1 : 0);
