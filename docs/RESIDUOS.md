@@ -55,6 +55,7 @@ medição em aparelho não é fino.**
 | 2026-11-14 · v1.14.19 | `NativeBridge.kt:1554`, `YoutubeGrab.kt:1820` | dois comentários ainda chamam o botão de "Ver os detalhes" (hoje "Detalhes"); 2 linhas | higienização | mexer em `java/` pede `shellTag` e Release, e o lote é só de web — vai no próximo que tocar o Kotlin |
 | 2026-11-14 · v1.14.19 | `site/telas/320/destinos.webp`, `site/sonoplastia/index.html:5532` | a captura da folha do vídeo ainda mostra a legenda "Teto de qualidade", que saiu (a ilustração tem seis marcadores sobre ela); 1 imagem | medição | refazer a captura pede o app em tela |
 | 2026-11-14 · v1.14.19 | `tools/estado.sh` | compara com a última tag LOCAL e não avisa que o GitHub tem uma Release mais nova: com a v1.14.13 local e a v1.14.18 no GitHub ele imprimiu "shell mudou desde ela → exige shellTag" sem motivo (`git fetch --tags` resolve); ~5 linhas | higienização | fora da cerca do lote (só web) |
+| 2026-11-14 · v1.14.19 | `.dest-largo`, o "Detalhes" na gaveta de um vídeo | foi medido só no Chromium desta máquina e no runner do CI (360×1,25× e 430×1×, com a régua relativa à música): falta ver ao lado dos quatro quadrados no aparelho do operador, com a fonte real dele | medição | não há aparelho nesta máquina |
 
 ## Fechado/decidido
 

@@ -772,7 +772,11 @@ passava `null` nessa posição e foi reposto. O que a legenda dizia continua sen
 comportamento (a escala é um TETO: o shell entrega a melhor faixa ABAIXO dele, vale
 para o "Tocar agora" e fica como padrão, `adotarAlturaPreferida`) e agora mora só no
 comentário de `openYtMenu`. A fileira de qualidade ficou com a anatomia da de
-Vídeo/Só áudio (`li > .fit-seg`), sem o vão da legenda.
+Vídeo/Só áudio (`li > .fit-seg`), sem o vão da legenda. **MEDIDO depois da
+publicação** (Chromium, `openYtMenu` com `__NATIVE__`, commit anterior × este): a
+lista da folha encolheu 33,6px a 360px — a legenda quebrava em DUAS linhas e a
+fileira de qualidade tinha 70px — e 18,8px a 430px (uma linha, 55,2px); a fileira de
+qualidade tem hoje 36,4px, a mesma da de Vídeo/Só áudio, e as demais não mudaram.
 
 **O botão.** O `destBotaoDetalhes` deixa de alternar `['Ver os detalhes', 'Ocultar os
 detalhes']`: o texto é `Detalhes` nos dois estados (o `aria-label` continua "Ver os
