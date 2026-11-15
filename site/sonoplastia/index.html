@@ -666,16 +666,37 @@
   .pag ul.lb-ind .ic { min-width:9mm; font-size:8pt; padding:.18rem .25rem; text-align:center; }
   .pag ul.lb-ind .lb-t { flex:1; font-size:10.5pt; }
   .pag ul.lb-ind .lb-pg { flex:none; font-weight:800; font-size:10pt; color:var(--titulo); }
+  /* O índice é UMA caixa de largura total: o cabeçalho (título centrado, resumo e o título do
+     grupo quando há um só) fica na faixa do alto e os itens descem nas duas colunas da página a
+     partir da MESMA linha — antes o título morava na coluna da esquerda e a da direita começava
+     mais alta. A caixa se lê pela BORDA e pelo título (a impressão pode sair sem "gráficos de
+     fundo"); a moldura é desenhada depois de paginar, do alto do cabeçalho ao fim do texto. */
+  .pag .lb-idx-cab { padding:0 0 1.4mm; }
+  .pag .lb-idx-cab h2 { margin:0 0 .3rem; font-size:15.5pt; text-align:center; color:var(--dia); }
+  .pag .lb-idx-cab.int h2 { color:var(--integral); }
+  .pag .lb-idx-cab .resumo { margin:0; font-size:9.4pt; text-align:center; }
+  .pag .lb-idx-cab .lb-ind-t { margin:.7rem 0 .2rem; }
+  .pag .lb-idx {
+    position:absolute; left:calc(var(--m-esq) - 2.8mm); right:calc(var(--m-dir) - 2.8mm);
+    border:1.2pt solid var(--dia); border-radius:2.6mm; pointer-events:none;
+  }
+  .pag .lb-idx.int { border-color:var(--integral); }
 
   /* As margens dos filhos colapsavam ATRAVÉS do agrupador/caixa: a soma de alturas feita pelo
      paginador (resta/cheio) errava e a última linha invadia o rodapé. display:flow-root faz
      cada um conter as margens dos filhos. */
   .pag .lb-grp, .pag details, .pag .cartao, .pag .box { display:flow-root; }
 
-  /* ----- anotações: o vão no pé de uma coluna (fora a capa) que comporta o título e 4 linhas ou
+  /* ----- anotações: o vão no pé de uma coluna (fora a capa) que comporta o título e 5 linhas ou
      mais vira pauta, posta pelo motor depois de paginar (anotar). Linha = borda, não fundo (a
-     impressão costuma sair sem "gráficos de fundo"), no cinza das setas do guia, passo de 7,5 mm ----- */
+     impressão costuma sair sem "gráficos de fundo"), no cinza das setas do guia, passo de 7,5 mm.
+     Onde as duas colunas de um par comportam, sai UMA pauta larga (anotarPar), solta na página
+     como o fio (a coluna corta o que passa dela): na largura das colunas e do vão pelas margens do
+     formato (o motor só põe o alto); no L, o título e as linhas curtas ficam numa coluna só ----- */
   .pag .anot { display:flow-root; margin-top:5mm; }
+  .pag .anot-larga { position:absolute; left:var(--m-esq); right:var(--m-dir); margin:0; pointer-events:none; }
+  .pag .anot-larga > .anot-e, .pag .anot-larga > .anot-d { width:calc(50% - 3.5mm); }
+  .pag .anot-larga > .anot-d { margin-left:calc(50% + 3.5mm); }
   .pag .anot-t { display:block; margin:0; font-size:8pt; font-weight:800; line-height:1.2; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); }
   .pag .anot-l { display:block; height:7.5mm; box-sizing:border-box; border-bottom:.6pt solid #8d97a1; }
 
@@ -7247,6 +7268,7 @@
        ou com o título que a anuncia */
     function larga(u) {
       if (!u.matches) return false;
+      if (u.classList.contains('lb-idx-cab')) return true;      // o cabeçalho do índice vai na faixa
       var t = u.matches('.tabela') ? u : (u.classList.contains('lb-grp') && ehCab(u.firstElementChild) ? u.querySelector(':scope > .tabela') : null);
       if (!t) return false;
       var tr = t.querySelector('thead tr') || t.querySelector('tr');
@@ -7651,17 +7673,21 @@
       });
       return grupos;
     }
+    /* o índice em duas partes: o cabeçalho (título, resumo e, com um grupo só, o título dele) vai
+       na faixa, de largura total; os itens vão nas duas colunas da página, que começam na mesma
+       linha. Sem grupo único o título do grupo desce junto com os itens dele. */
     function blocoIndice(grupos, offset) {
-      var frag = document.createDocumentFragment();
-      var h2 = document.createElement('h2'); h2.textContent = 'Índice'; frag.appendChild(h2);
+      var cab = document.createElement('div'); cab.className = 'lb-idx-cab' + (GUIA === 'integral' ? ' int' : '');
+      var h2 = document.createElement('h2'); h2.textContent = 'Índice'; cab.appendChild(h2);
       var nota = document.createElement('p'); nota.className = 'resumo';
       nota.textContent = GUIA === 'integral' ? 'Os capítulos I, na ordem do curso completo. O número ao lado é a página.'
         : 'Os capítulos D, na ordem de leitura: o essencial para um culto. O número ao lado é a página.';
-      frag.appendChild(nota);
+      cab.appendChild(nota);
+      var corpo = document.createElement('div'); corpo.className = 'lb-idx-corpo';
       grupos.forEach(function (g) {
         var h3 = document.createElement('h3');
         h3.textContent = g.tit; h3.className = 'lb-ind-t' + (g.int ? ' int' : '');
-        frag.appendChild(h3);
+        (grupos.length === 1 ? cab : corpo).appendChild(h3);
         var ul = document.createElement('ul'); ul.className = 'lb-ind';
         g.itens.forEach(function (it) {
           var li = document.createElement('li');
@@ -7672,9 +7698,9 @@
           li.appendChild(cod); li.appendChild(t); li.appendChild(pg);
           ul.appendChild(li);
         });
-        frag.appendChild(ul);
+        corpo.appendChild(ul);
       });
-      return frag;
+      return { cab: cab, corpo: corpo };
     }
 
     /* índice de uma página só, todo na coluna da esquerda: os itens do fim passam para o alto da
@@ -7691,6 +7717,19 @@
       lis.slice(de).forEach(function (li) { nu.appendChild(li); });
       d.appendChild(nu);
     }
+    /* a caixa do índice, desenhada depois de paginar: um quadro de largura total, só de BORDA (a
+       impressão pode sair sem "gráficos de fundo"), do alto do cabeçalho até o fim do texto das duas
+       colunas — que assim terminam dentro dela. Absoluta: não mexe no leiaute nem na pauta do pé. */
+    function caixaIndice(rec) {
+      var cab = rec && rec.el.querySelector('.lb-idx-cab');
+      if (!cab) return;
+      var e = rec.cols[0], d = rec.cols[1], mm = 96 / 25.4;
+      var fimTxt = Math.max(e.offsetTop + fim(e), d.offsetTop + fim(d));
+      var topo = cab.offsetTop - 2.8 * mm, b = document.createElement('div');
+      b.className = 'lb-idx' + (GUIA === 'integral' ? ' int' : '');
+      b.style.top = topo + 'px'; b.style.height = (fimTxt + 2.8 * mm - topo) + 'px';
+      rec.el.appendChild(b);
+    }
     /* onde acaba o texto de uma coluna, medido do alto dela (a pauta de anotações do pé não conta) */
     function fim(c) { var l = ultTexto(c); return l ? l.offsetTop + l.offsetHeight - c.offsetTop : 0; }
     function ultTexto(c) { var l = c.lastElementChild; while (l && l.classList.contains('anot')) l = l.previousElementSibling; return l; }
@@ -7701,7 +7740,7 @@
        já tem, sem empurrar a faixa) ou a pauta passou do pé, sai uma linha; menos de ANOT_MIN, sai
        a pauta. Não cria página nem mexe no texto. A coluna que acaba num cartão partido fica sem:
        o "continua →" leva direto à seguinte. A pauta desce até o pé (linhas vizinhas alinhadas). ----- */
-    var ANOT_MIN = 4, antesDaPauta = 0;
+    var ANOT_MIN = 5, antesDaPauta = 0;
     function anotar(c) {
       var ult = c.lastElementChild;
       if (!ult || ult.matches('.lb-corta') || ult.querySelector('.lb-corta')) return 0;
@@ -7721,6 +7760,35 @@
       var r = Math.floor(alto - (a.offsetTop + a.offsetHeight - c.offsetTop)) - 1;
       if (r > 0) { a.style.marginTop = (parseFloat(getComputedStyle(a).marginTop) + r) + 'px'; if (!dentro()) a.style.marginTop = ''; }
       return k;
+    }
+    /* o par lado a lado (esq/dir, também o de cima de uma faixa): se as DUAS colunas comportam a
+       pauta (anotar), sai UMA larga (.anot-larga), solta na página: do texto mais baixo do par (+ a
+       margem da pauta) até o pé do par, com as linhas na largura das colunas e do vão. Se a coluna de
+       vão maior tem, acima disso, lugar para o título e ≥ 1 linha, a pauta começa nela (título e
+       linhas curtas) e segue larga no mesmo passo: um L, com um título só. As linhas descem até o
+       pé, como na de coluna. Só uma comporta: fica a de coluna. Medidas sem escala (lb-medindo). */
+    function anotarPar(pag, e, d) {
+      var ke = anotar(e), kd = anotar(d);
+      if (!ke || !kd) return;
+      var ae = e.lastElementChild, t = ae.firstElementChild, P = pag.getBoundingClientRect();
+      var E = e.getBoundingClientRect(), g = fim(e) <= fim(d) ? e : d;
+      ae.style.marginTop = '';
+      var m = parseFloat(getComputedStyle(ae).marginTop) || 0, th = t.getBoundingClientRect().height;
+      var passo = t.nextElementSibling.getBoundingClientRect().height, y0 = E.top - P.top, pe = E.bottom - P.top - 1;
+      var topo = y0 + Math.max(fim(e), fim(d)) + 1 + m, kw = Math.floor((pe - topo) / passo);
+      var ks = Math.floor((pe - kw * passo - (y0 + fim(g) + 1 + m + th)) / passo);
+      if (ks < 1) { ks = 0; kw = Math.floor((pe - topo - th) / passo); }
+      ae.remove(); d.lastElementChild.remove();
+      var a = document.createElement('div');
+      a.className = 'anot anot-larga';
+      a.style.top = (pe - (ks + kw) * passo - th) + 'px';
+      function curta(n) { if (ks) n.className += g === e ? ' anot-e' : ' anot-d'; return n; }
+      a.appendChild(curta(t));
+      for (var i = 0; i < ks + kw; i++) {
+        var l = document.createElement('div'); l.className = 'anot-l';
+        a.appendChild(i < ks ? curta(l) : l);
+      }
+      pag.appendChild(a);
     }
 
     /* ----- formato: margens (classe) e a linha única de informação (folhas + impressora) ----- */
@@ -7758,10 +7826,8 @@
       // o índice se refaz até o nº de páginas dele estabilizar (os números do miolo dependem dele)
       var grupos = coletarIndice(), idxN = 1, idxRecs = [];
       for (var tent = 0; tent < 3; tent++) {
-        var len0 = PAGS.length;
-        var box = document.createElement('div');
-        box.appendChild(blocoIndice(grupos, idxN));
-        novaSecao(); colocar(box);
+        var len0 = PAGS.length, idx = blocoIndice(grupos, idxN);
+        novaSecao(); colocar(idx.cab); colocar(idx.corpo);
         idxRecs = PAGS.slice(len0);
         if (idxRecs.length === idxN) break;
         idxRecs.forEach(function (r) { r.el.remove(); });
@@ -7781,10 +7847,14 @@
       PAGS.length = ordem.length;
       var cvp = $('.cv-pags', capaRec.con);
       if (cvp) cvp.textContent = PAGS.length + ' páginas em A4';
-      // as anotações nos vãos (fora a capa), com a página já no lugar e antes do fio; o nº de
-      // páginas de antes delas vai ao `window.livreto` (a pauta não abre página: oráculo L)
+      // as anotações nos vãos (fora a capa), par a par, com a página já no lugar e antes do fio; o
+      // nº de páginas de antes delas vai ao `window.livreto` (a pauta não abre página: oráculo L)
       antesDaPauta = escala.querySelectorAll('.pag').length;
-      ordem.slice(1).forEach(function (r) { $$('.pag-col', r.el).forEach(anotar); });
+      ordem.slice(1).forEach(function (r) {
+        var cs = $$('.pag-col', r.el);
+        for (var i = 0; i + 1 < cs.length; i += 2) anotarPar(r.el, cs[i], cs[i + 1]);
+      });
+      idxRecs.forEach(caixaIndice);          // a caixa do índice, medida com as anotações no lugar
       /* o fio do meio em cada par de colunas com a da direita ocupada, do alto delas até onde acaba
          o texto — a pauta de anotações não conta (todas as medidas primeiro, depois as escritas: o
          leiaute é calculado uma vez só) */

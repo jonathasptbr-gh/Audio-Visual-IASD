@@ -34,7 +34,7 @@
 //     coluna; o índice aponta para a página onde o capítulo começa; a ordem
 //     de leitura é a do guia e a coluna da esquerda enche antes da direita;
 //     figura na largura da sua coluna e centrada nela, nunca na faixa; a faixa
-//     só leva o cabeçalho da trilha e tabela larga; caixa, cartão, figura e
+//     só leva o cabeçalho da trilha, o cabeçalho do índice e a tabela larga; caixa, cartão, figura e
 //     tabela nunca partidos; o cartão de problema e o "entender mais" partidos
 //     só entre blocos inteiros (parágrafo, item de lista; na ordem e com a
 //     numeração do original), com ~3 linhas abaixo do título na parte de cima,
@@ -68,9 +68,17 @@
 //     "Anotações" (.anot) sem mudar o nº de páginas (o `livreto.antesDaPauta`,
 //     contado antes da passada, = o de depois = o do PDF; número fixo, não: a
 //     fonte muda a régua — 22/88 aqui, 23/97 no runner); nenhuma na capa, ao menos uma por
-//     impressão, cada uma com ≥ 4 linhas de BORDA (sem fundo) e inteira na sua
-//     coluna. As medidas de vão de E (livre, "cortadas", "esquerda vazia",
-//     meia coluna, órfão) ignoram .anot: senão a pauta mascara o paginador.
+//     impressão, cada uma com ≥ 5 linhas de BORDA (sem fundo) e um título só,
+//     inteira na área útil, sem cobrir texto nem passar do pé do par (rodapé ou
+//     faixa). Onde as duas colunas de um par comportam, UMA pauta larga
+//     (.anot-larga, solta na página; reta ou em L) — nunca duas lado a lado; ≥ 1
+//     larga por impressão. O índice (2ª página) é UMA caixa de largura total
+//     (.lb-idx, só borda), o título "Índice" centrado nela (≤ 2 mm), as duas
+//     colunas de itens no mesmo topo (≤ 1 mm) e da mesma largura (≤ 0,5 mm),
+//     sem item fora da caixa nem da área útil, e abaixo dele UMA pauta larga.
+//     As medidas de vão de E (livre, "cortadas", "esquerda
+//     vazia", meia coluna, órfão) ignoram toda .anot: senão a pauta mascara o
+//     paginador; a larga nem mora em .pag-conteudo (C e E não a varrem).
 //
 //   node tools/guia-impressao.test.mjs
 // ============================================================================
@@ -121,14 +129,73 @@ const medirPaginas = (pg) => pg.evaluate(() => {
       corte: (fundo - b.bottom) / MM, vazam,
       cols: cols.map((k) => { const r = k.getBoundingClientRect(); return [(r.left - a.left) / MM, r.width / MM]; }),
       filhos: c.matches('.pag-capa') ? c.children.length : c.querySelectorAll(':scope > .pag-col > :not(.anot), :scope > .pag-faixa > *').length,
-      // L. cada pauta: filha direta de uma coluna, título, nº de linhas, linhas por borda e sem fundo,
-      // e as folgas (mm) do alto e do pé dela até o alto e o pé da coluna (negativo = cortada)
-      anot: [...c.querySelectorAll('.anot')].map((n) => {
-        const q = n.parentElement, r = n.getBoundingClientRect(), s = q.getBoundingClientRect(), ls = [...n.querySelectorAll('.anot-l')];
-        return { col: q.matches('.pag-col'), tit: (n.querySelector('.anot-t') || { textContent: '' }).textContent.trim(), n: ls.length,
-          borda: ls.every((l) => { const e = getComputedStyle(l); return e.borderBottomStyle === 'solid' && parseFloat(e.borderBottomWidth) > 0 && e.backgroundImage === 'none'; }),
-          topo: (r.top - s.top) / MM, pe: (s.bottom - r.bottom) / MM };
-      }) };
+      // L. o índice: uma caixa de largura total (.lb-idx, só borda), o título centrado nela, as duas
+      // colunas de itens no MESMO topo e da mesma largura, e nenhum item fora da caixa nem da área
+      // útil (o "topo" é o da 1ª lista de cada coluna; a da direita começava mais alta: o título
+      // morava na esquerda)
+      idx: (() => {
+        const uls = [...c.querySelectorAll('ul.lb-ind')];
+        if (!uls.length) return null;
+        const q = p.querySelector(':scope > .lb-idx'), T = p.querySelector('.lb-idx-cab h2');
+        const Q = q && q.getBoundingClientRect(), R = T && T.getBoundingClientRect();
+        const par = [...c.querySelectorAll(':scope > .pag-col')].slice(0, 2).map((col) => {
+          const u = col.querySelector('ul.lb-ind');
+          if (!u) return null;
+          const r = u.getBoundingClientRect();
+          return [r.top, r.width];
+        }).filter(Boolean);
+        const lis = [...p.querySelectorAll('.lb-ind li')], mm = (x) => Math.round(x / MM * 100) / 100;
+        return {
+          caixa: !!q, titulo: T ? T.textContent.trim() : '', colunas: par.length, itens: lis.length,
+          centro: R && Q ? mm((R.left + R.right) / 2 - (Q.left + Q.right) / 2) : null,
+          topos: par.map(([t]) => mm(t)), larguras: par.map(([, w]) => mm(w)),
+          foraCaixa: Q ? lis.filter((l) => { const r = l.getBoundingClientRect();
+            return r.left < Q.left - 0.5 || r.right > Q.right + 0.5 || r.top < Q.top - 0.5 || r.bottom > Q.bottom + 0.5; }).length : -1,
+          foraUtil: lis.filter((l) => { const r = l.getBoundingClientRect();
+            return r.left < b.left - 0.5 || r.right > b.right + 0.5 || r.bottom > b.bottom + 0.5; }).length,
+        };
+      })(),
+      // L. as pautas, par a par (o de cima e o de baixo de uma faixa): a de coluna é filha dela, a
+      // larga mora na página, solta. Cada uma: título(s), nº de linhas (curtas = as do L), linhas por
+      // borda e sem fundo, e a menor folga (mm) de cada peça até o texto das colunas que ela cruza, o
+      // fio do par, o pé do par e as bordas da coluna/do par (negativo = cobre ou passa). Pauta fora
+      // de um par = solta (mal)
+      anot: (() => {
+        const fimTxt = (col) => {
+          let f = col.getBoundingClientRect().top;
+          col.querySelectorAll('*').forEach((k) => {
+            if ((k instanceof SVGElement && k.tagName.toLowerCase() !== 'svg') || k.closest('.anot')) return;
+            const r = k.getBoundingClientRect();
+            if (r.width && r.height) f = Math.max(f, r.bottom);
+          });
+          return f;
+        };
+        const vistas = new Set(), out = [];
+        for (let j = 0; j + 1 < cols.length; j += 2) {
+          const [e, d] = [cols[j], cols[j + 1]], E = e.getBoundingClientRect(), D = d.getBoundingClientRect(), fe = fimTxt(e), fd = fimTxt(d);
+          const doPar = (r) => r.top >= E.top - 0.5 && r.top < E.bottom;
+          const fio = Math.max(E.top, ...[...p.querySelectorAll(':scope > .pag-fio')].map((f) => f.getBoundingClientRect()).filter(doPar).map((r) => r.bottom));
+          [...e.querySelectorAll(':scope > .anot'), ...d.querySelectorAll(':scope > .anot'),
+            ...[...p.querySelectorAll(':scope > .anot-larga')].filter((n) => doPar(n.getBoundingClientRect()))].forEach((n) => {
+            vistas.add(n);
+            const larga = n.matches('.anot-larga'), Q = larga ? { left: E.left, right: D.right } : n.parentElement.getBoundingClientRect();
+            const ls = [...n.querySelectorAll('.anot-l')], ts = [...n.querySelectorAll('.anot-t')];
+            let folga = Infinity;
+            [...ts, ...ls].forEach((k) => {
+              const r = k.getBoundingClientRect();
+              folga = Math.min(folga, r.left - Q.left, Q.right - r.right, E.bottom - r.bottom);
+              if (r.left < E.right) folga = Math.min(folga, r.top - fe);
+              if (r.right > D.left) folga = Math.min(folga, r.top - fd);
+              if (r.left < E.right && r.right > D.left) folga = Math.min(folga, r.top - fio);
+            });
+            out.push({ par: j / 2, larga, n: ls.length, curtas: ls.filter((l) => l.getBoundingClientRect().right <= E.right + 0.5 || l.getBoundingClientRect().left >= D.left - 0.5).length,
+              tit: ts.map((k) => k.textContent.trim()).join('|'), folga: folga / MM,
+              borda: ls.every((l) => { const s = getComputedStyle(l); return s.borderBottomStyle === 'solid' && parseFloat(s.borderBottomWidth) > 0 && s.backgroundImage === 'none'; }) });
+          });
+        }
+        p.querySelectorAll('.anot').forEach((n) => { if (!vistas.has(n)) out.push({ par: -1, solta: true, n: 0, tit: '', folga: -999, borda: false }); });
+        return out;
+      })() };
   });
 });
 
@@ -246,10 +313,26 @@ async function conferir(pg, guia, fmt, rotulo) {
   checar(L.antesDaPauta > 0 && L.antesDaPauta === L.paginas && pags.length === L.paginas,
     `L · ${rotulo}: ${L.antesDaPauta} páginas antes das anotações, as mesmas depois`, JSON.stringify({ antes: L.antesDaPauta, paginas: L.paginas, dom: pags.length }));
   const anots = pags.flatMap((p, i) => p.anot.map((a) => ({ pag: i + 1, ...a })));
-  const anotMal = anots.filter((a) => a.pag === 1 || !a.col || a.tit !== 'Anotações' || a.n < 4 || !a.borda || a.topo < -0.1 || a.pe < -0.1);
-  checar(anots.length > 0 && anotMal.length === 0,
-    `L · ${rotulo}: ${anots.length} pautas "Anotações" nos vãos, nenhuma na capa, cada uma com ≥ 4 linhas de borda (sem fundo) e inteira na sua coluna`,
-    JSON.stringify({ anots: anots.length, anotMal: anotMal.slice(0, 3) }));
+  const anotMal = anots.filter((a) => a.pag === 1 || a.solta || a.tit !== 'Anotações' || a.n < 5 || !a.borda || a.folga < -0.1);
+  const porPar = anots.reduce((o, a) => { o[a.pag + '/' + a.par] = (o[a.pag + '/' + a.par] || 0) + 1; return o; }, {});
+  const ladoALado = Object.keys(porPar).filter((k) => porPar[k] > 1);
+  const largas = anots.filter((a) => a.larga), colunas = anots.filter((a) => !a.larga);
+  const faixaN = (xs) => { const s = xs.map((a) => a.n).sort((x, y) => x - y); return s.length ? s[0] + '–' + s[s.length >> 1] + '–' + s[s.length - 1] : '—'; };
+  checar(anots.length > 0 && anotMal.length === 0 && ladoALado.length === 0 && largas.length > 0,
+    `L · ${rotulo}: ${anots.length} pautas "Anotações" nos vãos — ${largas.length} largas (${largas.filter((a) => a.curtas).length} em L; linhas mín–med–máx ${faixaN(largas)}) e ${colunas.length} de coluna (${faixaN(colunas)}) —, nenhuma na capa, cada uma com ≥ 5 linhas de borda (sem fundo) e um título, inteira na área útil, sem cobrir texto nem passar do pé do par, nunca duas lado a lado`,
+    JSON.stringify({ anots: anots.length, anotMal: anotMal.slice(0, 3), ladoALado: ladoALado.slice(0, 3) }));
+  // L. o índice (a 2ª página): uma caixa de largura total, título centrado nela e as duas colunas de
+  // itens no mesmo topo e da mesma largura; abaixo, UMA pauta larga (a do par), não duas de coluna
+  const ix = pags[1] && pags[1].idx, aIx = (pags[1] && pags[1].anot) || [];
+  const desnivel = (xs) => (xs.length === 2 ? Math.abs(xs[0] - xs[1]) : null);
+  const topoIx = ix && desnivel(ix.topos), largIx = ix && desnivel(ix.larguras);
+  checar(!!ix && ix.caixa && ix.titulo === 'Índice' && ix.colunas === 2 && Math.abs(ix.centro) <= 2
+    && topoIx !== null && topoIx <= 1 && largIx !== null && largIx <= 0.5 && ix.foraCaixa === 0 && ix.foraUtil === 0,
+    `L · ${rotulo}: o índice (pág. 2) é UMA caixa de largura total, com o título "Índice" centrado (≤ 2 mm), as duas colunas de itens no mesmo topo (≤ 1 mm) e da mesma largura (≤ 0,5 mm), e nenhum item fora da caixa nem da área útil`,
+    JSON.stringify(ix));
+  checar(aIx.length === 1 && aIx[0].larga && !aIx[0].solta,
+    `L · ${rotulo}: abaixo do índice a pauta de anotações é UMA e larga (a do par), não duas de coluna`,
+    JSON.stringify({ pautas: aIx.length, larga: !!aIx[0] && aIx[0].larga }));
   const [ce, cd] = margens(fmt, 1);
   checar(capa.n > 10 && capa.esq >= ce - 0.3 && capa.dir >= cd - 0.3 && capa.topo >= 10 && capa.base >= 10 && capa.corte <= 0.3 && capa.transborda <= 1
     && capa.igreja && capa.sigla && capa.h1 === capa.nome && /^Guia de sonoplasta \S/.test(capa.nome),
@@ -347,7 +430,8 @@ const estrutura = (pg, guia) => pg.evaluate((guia) => {
     return passa;
   };
   const tabFaixa = faixas.flatMap((f) => [...f.querySelectorAll('.tabela')]);
-  const faixaMal = faixas.filter((f) => f.querySelector('figure, svg, img') || !(f.querySelector('.trilha-cab') || f.querySelector('.tabela'))).length
+  // faixa: só o cabeçalho da trilha, o cabeçalho do índice (.lb-idx-cab) e a tabela larga
+  const faixaMal = faixas.filter((f) => f.querySelector('figure, svg, img') || !(f.querySelector('.trilha-cab') || f.querySelector('.lb-idx-cab') || f.querySelector('.tabela'))).length
     + tabFaixa.filter((t) => !largaDeVerdade(t)).length;
   // cartão partido (.lb-parte): as partes de cada cartão em sequência; os blocos (cada filho e cada item
   // de lista, com o nº do item) somados têm de ser os do original, na ordem — um parágrafo cortado ao
@@ -552,7 +636,7 @@ try {
       `E · ${nome}: a ordem de leitura é a do guia (${e.ordenados} trechos) e a coluna da esquerda enche antes da direita`,
       JSON.stringify({ foraDeOrdem: e.foraDeOrdem, esqDepois: e.esqDepois.slice(0, 3) }));
     checar(e.faixas >= 1 && e.faixaMal === 0,
-      `E · ${nome}: a faixa de largura total só leva o cabeçalho da trilha e tabela larga (${e.faixas} faixas, ${e.tabFaixa} tabelas)`,
+      `E · ${nome}: a faixa de largura total só leva o cabeçalho da trilha, o do índice e tabela larga (${e.faixas} faixas, ${e.tabFaixa} tabelas)`,
       JSON.stringify({ faixas: e.faixas, tabFaixa: e.tabFaixa, faixaMal: e.faixaMal }));
     const partidos = e.inteiros.filter(([, o, p]) => o !== p), minimo = nome === 'Tempo integral' ? 5 : 0;
     checar(partidos.length === 0 && e.fatias === 0 && e.partidoMal.length === 0 && e.cadeias >= minimo,

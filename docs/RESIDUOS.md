@@ -66,6 +66,7 @@ medição em aparelho não é fino.**
 | 2026-11-15 · v1.14.21 | `controle.js`, o `ECO_SELETOR` | inclui `'.transport .t-btn'` inteiro, logo o `#plBtn`, que só abre a folha da playlist — contra a regra do próprio comentário ("fica de fora o que NÃO vai ao telão"); conferir e tirar com `:not(#plBtn)`; 1 linha | higienização | fora da cerca do lote (posição e tour) |
 | 2026-11-15 · v1.14.21 | `docs/arquitetura/CONTROLE-LAYOUT.md:33`, `:122` | o diagrama do deck é de antes da v1.3.9 ("Vol" na coluna da direita, o `#historyBtn`); só a ordem da fileira foi corrigida; ~15 linhas | higienização | refazer o desenho pede medir o deck inteiro |
 | 2026-11-15 · v1.14.22 | `GuiaSom.kt` (`imprimir`), o caderno impresso pelo app | a impressão pelo `PrintManager` não foi vista em aparelho: o adapter do WebView respeitar o `@page guia-a4 {margin:0}` e o A4 retrato, e a volta da tela de impressão ao guia aberto | medição | não há aparelho nesta máquina, e o Kotlin só compila no CI |
+| 2026-11-15 · guia impresso (sem versão; só `site/`) | `site/sonoplastia/index.html`, as pautas largas e a caixa do índice | medidas só no Chromium desta máquina: falta ver no aparelho se a borda de 1,2 pt da caixa e a linha de 0,6 pt da pauta saem na impressora e se a pauta larga não encosta no fio nas pares do fichário | medição | não há aparelho nesta máquina; a régua de páginas (22/88) foi medida aqui e o runner dá outra fonte |
 
 ## Fechado/decidido
 

@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **o guia impresso: as anotações em bloco largo e o índice numa caixa única (sem versão nova; só `site/`)** — o mínimo de anotações vai a 5 linhas, as duas colunas com vão viram um bloco só (em L quando a coluna mais alta tem sobra), e o índice vira um quadro com o título centrado e duas colunas alinhadas.
 - **v1.14.23** — a notificação vira controle de player: ⏮/⏭ dela passam MÚSICA com letra, versículo, mensagem ou itinerário no ar, e o eixo duplo fica só na coluna da tela cheia (`slideMode`/`slideLabel` vão sempre vazios); só web.
 - **v1.14.22** — o guia impresso: o "Imprimir" do caderno funciona dentro do app (`avguia://imprimir` → `PrintManager`) e os vazios das colunas ganham o bloco "Anotações" sem folha a mais; `java/` + site, Release `v1.14.22`.
 - **v1.14.21** — o tour: a moldura antes do que está dentro dela (a prévia antes dos botões sobre ela), a lista da Playlist automática, e a playlist à esquerda do repetir no deck; só web.
@@ -754,6 +755,50 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## o guia impresso: as anotações em bloco largo e o índice numa caixa única (sem versão nova; só `site/`)
+
+- **Pedido (15/11, logo depois da v1.14.22):** "o mínimo de linhas das anotações seja 5 linhas";
+  "pontos onde as anotações se encaixam lado a lado, nas duas colunas, tente fazer um bloco de
+  anotações que ocupe as duas colunas ao invés de dois blocos"; e "faça o índice ser uma caixa
+  única, com um título centralizado, duas colunas próprias e alinhadas entre si. E como dito
+  acima, unificando também as anotações abaixo para serem um bloco só".
+- **A pauta larga** (`anotarPar`, `.anot-larga`). A passada deixou de ser coluna a coluna e virou
+  par a par: `anotar` mede as duas; se AS DUAS comportam título + `ANOT_MIN` (5) linhas, as duas
+  saem e entra UM bloco só, filho da `.pag` (como o `.pag-fio`, fora da coluna com
+  `overflow:hidden`), do vão logo abaixo do texto mais baixo do par até o pé dele. Se a coluna de
+  vão maior tem, acima dele, título + ≥ 1 linha, o bloco começa lá: título e linhas curtas
+  naquela coluna, continuando nas linhas largas no mesmo passo — um bloco em L, com um título só.
+  O horizontal é CSS (`left`/`right` nas margens do formato, `.anot-e`/`.anot-d` em
+  `calc(50% - 3.5mm)`): o formato (simples x fichário) troca só a classe, sem repaginar, e com px
+  fixos a pauta larga saía 7 mm torta nas pares do fichário (o oráculo pegou). Só uma coluna
+  comporta: fica a pauta de coluna. Par com uma coluna vazia fica sem larga (a regra das
+  anotações não trata coluna vazia). MEDIDO: Por um dia 11 pautas (2 largas, 1 em L, 8 e 23
+  linhas; 9 de coluna, 5-14 linhas); Tempo integral 39 (7 largas, 6 em L, 5-19; 32 de coluna,
+  5-25). Nenhum par com duas lado a lado.
+- **O índice numa caixa** (`caixaIndice`, `.lb-idx` e `.lb-idx-cab`, `blocoIndice` devolvendo
+  `{cab, corpo}`, o cabeçalho em `larga()`). O defeito era o índice correr nas duas colunas da
+  página: o título e o resumo caíam só na esquerda e a direita começava mais baixa. Agora o
+  cabeçalho (h2 centrado, resumo centrado e o título do grupo quando há um só) vai para a FAIXA
+  de largura total, e os itens descem nas duas colunas da página, que começam na MESMA linha; a
+  moldura do quadro é DESENHADA depois de paginar (`caixaIndice`, absoluta, do alto do cabeçalho
+  ao fim do texto das duas colunas), de 1,2 pt na cor do guia e SEM fundo — a impressão pode sair
+  sem "gráficos de fundo" e a caixa tem de se ler pela borda. O índice do "Tempo integral" tem 24
+  itens e ocupa UMA página, como o do "Por um dia" (13): uma caixa para os dois, sem repetir
+  cabeçalho. Se um índice futuro passar de uma página, `caixaIndice` não acha o cabeçalho na
+  continuação e não desenha moldura ali: o fluxo segue sem página a mais.
+- **As anotações abaixo do índice** saem como UMA pauta larga: é a mesma regra do `anotarPar`,
+  agora que as duas colunas do índice terminam na mesma linha.
+- **O oráculo** (bloco L do `guia-impressao`): a pauta passou a ser medida por PAR (de coluna e
+  larga) com o título único, ≥ 5 linhas de borda (sem fundo), a menor folga de cada peça até o
+  texto das colunas que ela cruza, até o fio e até o pé do par; nenhuma duas lado a lado, ≥ 1
+  larga por impressão. E o índice: centro do h2 = centro da caixa, as duas colunas de itens com o
+  mesmo topo e a mesma largura, nada fora da caixa. MEDIDO nos 4 casos: centro 0,00 mm; topo
+  339,07 / 339,07 px; larguras 83,5 / 83,5 mm.
+- **As páginas não se moveram:** 22 (Por um dia) e 88 (Tempo integral), nos dois formatos, e o
+  `antesDaPauta` = depois = PDF continua cobrando isso.
 
 ---
 
