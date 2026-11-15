@@ -416,7 +416,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.22';
+const WEB_VERSION = '1.14.23';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4665,6 +4665,10 @@ let lastPosMs = 0, lastPosAt = 0, lastPosPlaying = false;
  *  - play/pause só com mídia que tenha TEMPO (`temTempo`, a régua da barra de
  *    progresso). Imagem, versículo, mensagem e cronômetro não têm o que pausar.
  *  - ⏮/⏭ só com EIXO: cena com slides (`who`, de `slideTarget`) ou mídia atual.
+ *    Desde a v1.14.23 eles são SEMPRE mídia (ver `onRemote`), então numa cena
+ *    só de slides eles aparecem e não fazem nada: é a decisão do operador
+ *    (Pacote 31) contra sumirem — a lista de ações não tem estado "apagado", e
+ *    um botão que some e volta no meio do culto é pior que um inerte.
  *  - cortina e parar existem sempre.
  *
  * A ORDEM IMPORTA: o shell mostra os três primeiros no modo compacto (ele
@@ -4763,16 +4767,14 @@ function pushNowPlaying() {
     title: npNameInnerEl.textContent || '',
     subtitle,
     playing,
-    slideMode: !!who,
-    // Como o operador CHAMA o que ⏮/⏭ passam agora. A notificação escrevia
-    // "(estrofe)" sempre, e com uma APRESENTAÇÃO em cena isso é simplesmente
-    // outra palavra — o que passa ali é página. Num shell antigo o campo é
-    // ignorado e o rótulo volta a ser o de sempre.
-    //
-    // A palavra sai da MESMA tabela que nomeia os botões da tela
-    // (`SLIDE_AXIS_NAME`): são a mesma pergunta feita em dois lugares, e a
-    // cópia local respondia "estrofe" para um versículo e para uma mensagem.
-    slideLabel: SLIDE_AXIS_NAME[who] || 'estrofe',
+    // A NOTIFICAÇÃO NÃO TEM EIXO DE SLIDE (v1.14.23, Pacote 31): ela é controle
+    // de PLAYER, e o ⏮/⏭ dela passam música com qualquer cena no ar. O campo
+    // continua viajando — sempre `false` — porque o `native.js` remonta este
+    // objeto campo a campo e um casco antigo não pode receber outra coisa.
+    // O rótulo por unidade ("(estrofe)", "(página)") morre com ele: ver
+    // `docs/RESIDUOS.md`, v1.14.23.
+    slideMode: false,
+    slideLabel: '',
     wallpaper: view === 'wallpaper',
     positionMs: temTempo ? Math.round((parseFloat(seekEl.value) || 0) * 1000) : 0,
     durationMs: temTempo ? Math.round((parseFloat(seekEl.max) || 0) * 1000) : 0,
@@ -16110,12 +16112,14 @@ function applySlideLimits(who) {
 // há para onde ir" é o `disabled` que `applySlideLimits` escreve — o esmaecido
 // de um botão desabilitado, que é a leitura de sempre.
 //
-// AS TRÊS TABELAS COBREM TODO ALVO QUE NAVEGA, e isso não é zelo: elas são
+// AS DUAS TABELAS COBREM TODO ALVO QUE NAVEGA, e isso não é zelo: elas são
 // indexadas pelo alvo, e um alvo de navegação que falte cai no rótulo GENÉRICO
 // — o botão promete "Próximo slide" sobre uma cena que tem nome próprio, e
 // nada acusa. Faltavam justamente os dois mais novos, `deck` (v5.97) e
 // `songlyrics` — e o da apresentação é o que mais aparece, porque ali eles são
-// o único jeito de passar página.
+// o único jeito de passar página. Eram TRÊS até a v1.14.23: a primeira só
+// existia para o substantivo que a notificação punha entre parênteses, e ela
+// saiu com o eixo de slide do cartão (Pacote 31).
 //
 // **`chrono` e `draw` NÃO ESTÃO AQUI, e é de propósito** (v1.9.4): eles não
 // navegam, ACIONAM. O par é assimétrico (zerar × iniciar/sortear) e não tem
@@ -16123,14 +16127,6 @@ function applySlideLimits(who) {
 // abaixo — acrescentá-los a estas três seria uma segunda resposta para a mesma
 // pergunta, e a de cá é a que perde (o `desenho.rotulo` tem precedência em
 // `renderTransportAxis`), isto é, seria linha morta desde o primeiro dia.
-const SLIDE_AXIS_NAME = {
-  lyrics: 'estrofe', songlyrics: 'estrofe', bible: 'versículo',
-  message: 'mensagem', deck: 'página',
-  // A NOTIFICAÇÃO só recebe esta palavra (o Kotlin monta "Anterior (…)" e
-  // "Próxima (…)"), e é por ela que a tela de bloqueio diz que o par mexe no
-  // horário. O desenho e o rótulo da TELA saem do `EIXO_DE_ACAO`.
-  itinerario: '±5 min',
-};
 const SLIDE_AXIS_PREV = {
   lyrics: 'Estrofe anterior', songlyrics: 'Estrofe anterior', bible: 'Versículo anterior',
   message: 'Mensagem anterior', deck: 'Página anterior',
@@ -16217,19 +16213,19 @@ function renderTransportAxis(who) {
 
 // ===== O PAR DE AÇÃO É DO PAINEL, E DE MAIS NINGUÉM (v1.9.4) =====
 //
-// Três superfícies roteiam pelo eixo: a coluna da TELA CHEIA e os ⏮/⏭ da
-// NOTIFICAÇÃO (`if (slideTarget()) slideBtn().click(); else step(dir)`) e o
-// rótulo que a notificação publica. Nas duas primeiras o desenho é OUTRO — a
-// seta com barra, copiada inline — e não acompanha esta troca; deixá-las ver
+// Hoje UMA superfície roteia pelo eixo: a coluna da TELA CHEIA
+// (`attachTransportStep`). A NOTIFICAÇÃO saiu desta lista na v1.14.23 (Pacote
+// 31) — os ⏮/⏭ dela passam mídia sempre. Na coluna o desenho é OUTRO — a
+// seta com barra, copiada inline — e não acompanha esta troca; deixá-la ver
 // `chrono`/`draw` faria a tela de bloqueio ZERAR a contagem com o desenho de
-// "mídia anterior" na frente. Elas continuam no eixo de MÍDIA, que é o que
+// "mídia anterior" na frente. Ela continua no eixo de MÍDIA, que é o que
 // aquele desenho promete.
 //
-// O ITINERÁRIO NÃO ESTÁ NA LISTA, e é de propósito (v1.13.1): o par dele é
+// O ITINERÁRIO CONTINUA ROTEANDO, e é de propósito (v1.13.1): o par dele é
 // SIMÉTRICO (−5 · +5, o mesmo eixo de "antes · depois" que as setas prometem) e
-// não aciona nada que não se desfaça com o toque oposto. Na tela cheia e na
-// notificação ele adianta e atrasa como ao lado da preview; a notificação diz
-// "(±5 min)" no rótulo, pelo `SLIDE_AXIS_NAME`.
+// não aciona nada que não se desfaça com o toque oposto. Na tela cheia ele
+// adianta e atrasa como ao lado da preview, com o rótulo "(±5 min)" do
+// `EIXO_DE_ACAO`.
 const EIXO_SO_DO_PAINEL = ['chrono', 'draw'];
 function eixoForaDoPainel() {
   const w = slideTarget();
@@ -42336,12 +42332,12 @@ slideNextBtnEl.addEventListener('click', () => stepSlide(1));
 //     mesmo assim se quer trocar de música).
 //
 // NO TRANSPORTE O PAR SÓ PASSA MÍDIA: a preview é flanqueada por dois botões de
-// slide. O eixo duplo vale nas DUAS superfícies sem botão de slide:
-//   • a COLUNA DA TELA CHEIA (sem TV ela É a projeção, e nada mais é desenhado);
-//   • a NOTIFICAÇÃO nativa, onde o eixo é dito no RÓTULO do botão
-//     (`slideMode`/`slideLabel` em `pushNowPlaying`).
+// slide. O eixo duplo vale numa ÚNICA superfície sem botão de slide: a COLUNA
+// DA TELA CHEIA (sem TV ela É a projeção, e nada mais é desenhado). A
+// NOTIFICAÇÃO ficou de fora na v1.14.23 (Pacote 31): os ⏮/⏭ dela são do
+// player, com qualquer cena no ar.
 //
-// A regra de qual eixo vale é `slideTarget()`, a MESMA nas duas. Quem executa
+// A regra de qual eixo vale é `slideTarget()`. Quem executa
 // continua sendo `#slidePrevBtn`/`#slideNextBtn` por `.click()`: é neles que
 // `applySlideLimits` guarda "dá para passar slide agora?", e um botão
 // `disabled` é no-op natural.
@@ -44096,11 +44092,17 @@ if (window.__NATIVE__) {
       case 'playpause': playPauseEl.click(); break;
       case 'stop': stopEl.click(); break;
       case 'view': viewToggleEl.click(); break;
-      // Com letra, versículo ou mensagem em cena, ⏮/⏭ passam ESTROFE — é o que
-      // o operador está fazendo naquele momento. Ver `slideMode` em
-      // pushNowPlaying, que é o que rotula os botões na notificação.
-      case 'prev': (eixoForaDoPainel() ? slidePrevBtnEl : prevEl).click(); break;
-      case 'next': (eixoForaDoPainel() ? slideNextBtnEl : nextEl).click(); break;
+      // ⏮/⏭ SÃO DO PLAYER, E DE MAIS NINGUÉM (v1.14.23, Pacote 31): a
+      // notificação, a tela de bloqueio e o fone passam MÚSICA — *"é um controle
+      // de player e não de slides"*. Com letra, versículo ou mensagem no ar eles
+      // deixam de passar estrofe; quem faz isso é o par ao lado da preview e a
+      // coluna da tela cheia, onde o operador está olhando.
+      //
+      // SEM MÍDIA ELES FICAM DESENHADOS E INERTES (decisão do operador): quem
+      // barra é o `step`, pelo `transportePode` — a mesma régua dos botões da
+      // tela, não uma segunda.
+      case 'prev': prevEl.click(); break;
+      case 'next': nextEl.click(); break;
       default: break;
     }
   });

@@ -1328,11 +1328,12 @@
            esquerda, o de PASSAR na fatia que os três controles do mixer
            deixaram vaga, à direita. Com isso ⏮/⏭ do transporte perderam o eixo
            de estrofe e passam MÍDIA e mais nada (ver "Um par de botões, dois
-           eixos" em controle.js, que hoje descreve só as duas superfícies que
-           continuam com dois eixos: a tela cheia e a notificação).
+           eixos" em controle.js, que hoje descreve a ÚNICA superfície que ainda
+           tem dois eixos: a coluna da tela cheia — a notificação passou a ser
+           só player na v1.14.23, Pacote 31).
 
            Eles seguem sendo acionados por `.click()` de fora, então continuam
-           servindo de estado para aquelas duas. -->
+           servindo de estado para as duas. -->
       <div class="preview-row">
         <div class="preview" id="preview">
           <!-- O padrão é o símbolo oficial da IASD (shared/wallpaper-padrao.svg,
@@ -1970,7 +1971,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.22</span>
+          <span id="appVersion">v1.14.23</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>

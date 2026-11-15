@@ -440,14 +440,14 @@ try {
       alvo: slideTarget(), fora: eixoForaDoPainel(),
       prev: [slidePrevBtnEl.disabled, slidePrevBtnEl.title, slidePrevBtnEl.textContent.trim()],
       next: [slideNextBtnEl.disabled, slideNextBtnEl.title, slideNextBtnEl.textContent.trim()],
-      nome: SLIDE_AXIS_NAME.itinerario,
     }));
     checar(par.alvo === 'itinerario' && !par.prev[0] && !par.next[0]
       && par.prev[2] === '−5' && par.next[2] === '+5'
       && /Adiantar 5 min/.test(par.prev[1]) && /Atrasar 5 min/.test(par.next[1]),
       'J · com o itinerário no ar o par diz "−5"/"+5" e está aceso', par);
-    checar(par.fora === 'itinerario' && /5 min/.test(par.nome),
-      'J · e ele vale também na tela cheia e na notificação (não é eixo só do painel), com o rótulo "±5 min"', par);
+    checar(par.fora === 'itinerario',
+      'J · e ele vale na TELA CHEIA (não é eixo só do painel); a NOTIFICAÇÃO perdeu o atalho '
+      + 'na v1.14.23 (Pacote 31): os ⏮/⏭ dela são do player', par);
   }
   // COM A FOLHA FECHADA: o par não depende do painel.
   await pg.evaluate(() => fecharFerramentas());

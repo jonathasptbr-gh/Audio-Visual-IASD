@@ -39,19 +39,24 @@ menos óbvio:
 - **`play`/`pause` ≠ `playpause`.** Tela de bloqueio, fone e Android Auto mandam
   intenção explícita; o botão da notificação é alternador. Tratar tudo como
   alternador faria um `onPlay` recebido com o áudio tocando PAUSAR o louvor.
-- **⏮/⏭ mudam de eixo conforme a cena** (`slideMode`, de `eixoForaDoPainel()`:
-  o `slideTarget()` MENOS os eixos que só existem no painel — cronômetro e
-  sorteio. Com eles em cena o par volta a ser mídia, e o rótulo mostra isso):
-  com letra, versículo ou mensagem em cena é a estrofe que o operador passa. O rótulo
-  diz qual é o modo, para não virar adivinhação — e é por CABER rótulo aqui que
-  o eixo duplo continua fazendo sentido neste cartão. **A COLUNA DA TELA CHEIA
-  segue a mesma regra** (toque curto passa estrofe, toque longo passa mídia —
-  `attachTransportStep`); as duas são as ÚNICAS superfícies com eixo duplo desde
-  a v1.3.5. Na BARRA DE TRANSPORTE o par voltou a ser só mídia: lá a preview é
-  flanqueada por dois botões de slide próprios, e um eixo escondido atrás do
-  tempo do toque não se justifica com o outro a dois centímetros dali.
-- **A PALAVRA do rótulo é `slideLabel`** ("estrofe" não serve para uma
-  apresentação, onde ⏮/⏭ passam página).
+- **⏮/⏭ são do PLAYER, sempre** (v1.14.23, Pacote 31 — *"é um controle de
+  player e não de slides"*): notificação, tela de bloqueio, fone e Android Auto
+  passam MÚSICA com qualquer cena no ar — letra, versículo, mensagem,
+  apresentação ou itinerário. Sem mídia nem fila eles ficam DESENHADOS E
+  INERTES: o conjunto de ações não tem estado "apagado", e o `.click()` num
+  `prevEl`/`nextEl` `disabled` é o no-op natural (invariante 5).
+- **O eixo duplo ficou numa superfície só: a COLUNA DA TELA CHEIA**
+  (`attachTransportStep` — toque curto passa estrofe, toque longo passa mídia).
+  Ali ele se paga porque, sem TV, a coluna É a projeção e nada mais é desenhado.
+  A regra é `eixoForaDoPainel()`: o `slideTarget()` MENOS os eixos que só existem
+  no painel (cronômetro e sorteio) — com eles em cena o par volta a ser mídia,
+  que é o que o desenho de seta com barra promete. Na BARRA DE TRANSPORTE o par
+  é só mídia desde a v1.3.5: a preview é flanqueada por dois botões de slide
+  próprios.
+- **O `slideMode`/`slideLabel` viaja no `nowPlaying` e hoje vai sempre vazio:**
+  o rótulo "(estrofe)"/"(página)" morreu junto com o eixo na notificação. O campo
+  fica no carimbo porque o `native.js` remonta a forma campo a campo, e o casco
+  ainda o lê — a limpeza do lado Kotlin está em `docs/RESIDUOS.md`.
 - **Os BOTÕES vêm do web** (`actions`, shell 42), na ordem — invariante 5
   aplicada ao cartão. Lista vazia = os cinco de sempre. O conjunto entra na CHAVE
   de deduplicação do `pushNowPlaying`: sem isso, uma cena que muda só de eixo
@@ -78,8 +83,9 @@ menos óbvio:
 - **Campo novo em `pushNowPlaying` = campo novo em `AVNative.nowPlaying`**,
   sempre — e **sem** subir `SHELL_VERSION`, porque o Kotlin não muda. Ela remonta
   o objeto campo a campo, um campo esquecido some em silêncio e o `optString` lê
-  vazio como "use o padrão": foi assim que a notificação escreveu "(estrofe)"
-  durante toda a rodada das apresentações.
+  vazio como "use o padrão": um campo que deixa de viajar não dá erro, dá a
+  notificação de antes. Desde a v1.14.23 o `slideMode`/`slideLabel` viaja sempre
+  vazio **de propósito** — o eixo de slide saiu do cartão.
 - **CENA é tudo que está no telão, não só mídia:** `active` inclui `currentId`,
   mensagem, versículo, **cronômetro e sorteio** projetando. O caso que os dois
   últimos cobrem é a sessão RECÉM-ABERTA — projetar a contagem regressiva sem ter

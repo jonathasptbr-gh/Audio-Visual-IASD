@@ -1004,11 +1004,11 @@
           title: String((s && s.title) || ''),
           subtitle: String((s && s.subtitle) || ''),
           playing: !!(s && s.playing),
-          // ⏮/⏭ passam ESTROFE em vez de mídia (letra, versículo, mensagem).
+          // ⏮/⏭ passam MÍDIA na notificação (v1.14.23, Pacote 31) — o eixo de
+          // slide saiu dela; o campo viaja sempre `false` e o casco o lê.
           slideMode: !!(s && s.slideMode),
-          // COMO o operador chama o que ⏮/⏭ passam agora ("estrofe",
-          // "versículo", "página"). Sem ele a notificação diz "(estrofe)"
-          // também numa APRESENTAÇÃO, onde o que passa é página.
+          // A unidade do rótulo ("estrofe", "página"): idem, sempre vazia —
+          // viaja porque o Kotlin remonta este objeto campo a campo.
           slideLabel: String((s && s.slideLabel) || ''),
           wallpaper: !!(s && s.wallpaper),
           // `inteiro()` e NÃO `| 0`, como no bgProgress acima — o defeito

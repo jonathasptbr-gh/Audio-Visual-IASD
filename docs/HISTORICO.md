@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.23** — a notificação vira controle de player: ⏮/⏭ dela passam MÚSICA com letra, versículo, mensagem ou itinerário no ar, e o eixo duplo fica só na coluna da tela cheia (`slideMode`/`slideLabel` vão sempre vazios); só web.
 - **v1.14.22** — o guia impresso: o "Imprimir" do caderno funciona dentro do app (`avguia://imprimir` → `PrintManager`) e os vazios das colunas ganham o bloco "Anotações" sem folha a mais; `java/` + site, Release `v1.14.22`.
 - **v1.14.21** — o tour: a moldura antes do que está dentro dela (a prévia antes dos botões sobre ela), a lista da Playlist automática, e a playlist à esquerda do repetir no deck; só web.
 - **v1.14.20** — o tour do grupo nota 9: a lista da Biblioteca do Fácil, o deck do Avançado um a um, a cifra, as Ferramentas (sem o "Fechar", com a roleta e as três saídas), as Mensagens, o editor de mídia e a Bíblia em leitura — e as seções por VISTA, mais o `modos` que virou porteiro; só web.
@@ -753,6 +754,36 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.14.23 — a notificação é controle de PLAYER: ⏮/⏭ passam música, não slide (só web)
+
+**v1.14.23 (Pacote 31, autorizado pelo operador em 2026-11-15)** — o relato das 08:20: *"na barra de
+notificação, ao invés de anterior e next apenas trocarem os slides, faça eles funcionarem para pular
+música, é um controle de player e não de slides"*. As decisões dele no começo do lote: sem música os
+botões ficam DESENHADOS E INERTES (não somem); o ±5 min do Itinerário sai da notificação; a COLUNA
+DA TELA CHEIA mantém o eixo duplo.
+
+**O conserto, num ponto.** O `onRemote` era `(eixoForaDoPainel() ? slidePrevBtnEl :
+prevEl).click()`; virou `prevEl.click()`/`nextEl.click()` — os MESMOS botões do transporte, pela
+invariante 5, e sem uma segunda verdade sobre ⏮/⏭. Como o `prevEl`/`nextEl` já é `disabled` quando o
+`transportePode` nega, o toque sem música nem fila é no-op por construção: é a escolha do operador, e
+não um botão que some do cartão no meio do culto.
+
+**O que saiu junto.** O `slideMode` vai sempre `false` e o `slideLabel` sempre vazio: o rótulo
+"(estrofe)"/"(página)" da notificação morreu com o eixo. Os campos continuam no carimbo (o
+`native.js` remonta a forma campo a campo, e o casco antigo os lê); a limpeza do lado Kotlin está no
+`RESIDUOS.md`. O eixo duplo ficou numa superfície só, a coluna da tela cheia
+(`attachTransportStep`) — é o que o `eixoForaDoPainel()` ainda guarda, junto do itinerário.
+
+**Os oráculos.** O `eixo-de-acao` bloco I passou a afirmar `slideMode:false` também com uma MENSAGEM
+no ar (antes ela era o contraste que provava o `true`) e ganhou a metade que faltava: com a mensagem
+no ar, `next`/`prev` da notificação tocam `prevEl`/`nextEl` e ZERO `slidePrevBtnEl`/`slideNextBtnEl`
+— sem ela, a v1.14.23 voltaria sem aviso. O `itinerario` bloco J só mudou a frase: o par dele
+continua aceso na tela cheia, e a notificação deixou de ser caminho.
+
+`SHELL_VERSION` fica em 87 e não há `shellTag`: é lote só de web, e a Release da v1.14.22 já saiu.
 
 ---
 

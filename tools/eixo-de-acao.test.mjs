@@ -738,10 +738,11 @@ try {
   // ======================================================================
   // I · O PAR É DO PAINEL, E DE MAIS NINGUÉM
   // ======================================================================
-  // A coluna da TELA CHEIA e os ⏮/⏭ da NOTIFICAÇÃO roteiam pelo eixo, e o
-  // desenho DELAS é outro — a seta com barra, copiada inline, que não
-  // acompanha esta troca. Vendo `chrono`, a tela de bloqueio ZERARIA a contagem
-  // com "mídia anterior" desenhado na frente.
+  // A coluna da TELA CHEIA roteia pelo eixo, e o desenho DELA é outro — a seta
+  // com barra, copiada inline, que não acompanha esta troca. Vendo `chrono`, a
+  // tela de bloqueio ZERARIA a contagem com "mídia anterior" desenhado na
+  // frente. A NOTIFICAÇÃO saiu do eixo na v1.14.23 (Pacote 31): os ⏮/⏭ dela são
+  // do player, e a metade de baixo deste bloco mede isso.
   await limpar();
   const foraDoPainel = await pg.evaluate(async () => {
     const z = (ms) => new Promise((f) => setTimeout(f, ms));
@@ -760,13 +761,13 @@ try {
     const daTelaCheia = { fora: eixoForaDoPainel(), alvo: slideTarget(),
       baseMs: chrono.baseMs, running: chrono.running,
       cmds: window.__desde(n, 'text', 'chrono').length };
-    // ---- a NOTIFICAÇÃO: o campo que rotula os ⏮/⏭ ----
+    // ---- a NOTIFICAÇÃO: o cartão que ela publica, e o que ⏮/⏭ fazem ----
     window.__np.length = 0;
     lastScene = '';
     pushNowPlaying();
     const comCronometro = window.__np[window.__np.length - 1] || null;
-    // O CONTRASTE: uma MENSAGEM continua levando o eixo para fora do painel.
-    // Sem ele, um `slideMode` preso em `false` passaria a asserção acima.
+    // O CONTRASTE: uma MENSAGEM continua levando a COLUNA da tela cheia para o
+    // eixo fora do painel — quem roteia por ele é ela, e só ela (v1.14.23).
     messages.length = 0;
     messages.push({ id: 'or-eixo', text: 'Desliguem o celular' });
     projectMessage(0);
@@ -776,8 +777,26 @@ try {
     pushNowPlaying();
     const comMensagem = window.__np[window.__np.length - 1] || null;
     const foraMensagem = eixoForaDoPainel();
+    // O QUE OS ⏮/⏭ DA NOTIFICAÇÃO TOCAM, com a mensagem no ar: os botões do
+    // TRANSPORTE (`prevEl`/`nextEl`) e nunca os do eixo de slide. Mede-se o
+    // `.click()` de cada um — a DECISÃO do `onRemote` —, e não o efeito: sem
+    // mídia nem fila o transporte está `disabled`, e um `.click()` nele não
+    // dispara nada (é justamente o "inerte" que o operador escolheu).
+    const cliques = { prev: 0, next: 0, slidePrev: 0, slideNext: 0 };
+    const alvos = [prevEl, nextEl, slidePrevBtnEl, slideNextBtnEl];
+    const originais = alvos.map((b) => b.click);
+    prevEl.click = () => { cliques.prev++; };
+    nextEl.click = () => { cliques.next++; };
+    slidePrevBtnEl.click = () => { cliques.slidePrev++; };
+    slideNextBtnEl.click = () => { cliques.slideNext++; };
+    const temRem = typeof window.__avRemote === 'function';
+    window.__avRemote('next');
+    window.__avRemote('prev');
+    const daNotificacao = JSON.parse(JSON.stringify(cliques));
+    alvos.forEach((b, i) => { b.click = originais[i]; });
     clearManualText();
-    return { acumulado, daTelaCheia, comCronometro, comMensagem, foraMensagem };
+    return { acumulado, daTelaCheia, comCronometro, comMensagem, foraMensagem,
+      temRem, daNotificacao };
   });
   checar(foraDoPainel.acumulado > 200 && foraDoPainel.daTelaCheia.alvo === 'chrono',
     'I · PREMISSA: a contagem ANDOU e está pausada com um acumulado, e o par ao '
@@ -797,10 +816,16 @@ try {
     + '⏮/⏭ dela passariam a zerar a contagem com o rótulo de mídia',
     JSON.stringify(foraDoPainel.comCronometro));
   checar(foraDoPainel.foraMensagem === 'message'
-    && foraDoPainel.comMensagem && foraDoPainel.comMensagem.slideMode === true,
+    && foraDoPainel.comMensagem && foraDoPainel.comMensagem.slideMode === false,
     'I · e o filtro é NOMEADO, não um "sempre null": com uma MENSAGEM no ar o '
-    + 'eixo continua saindo do painel e a notificação volta a anunciar '
-    + '`slideMode: true`', JSON.stringify(foraDoPainel.comMensagem));
+    + 'eixo continua saindo do painel (é a TELA CHEIA que o consulta) — mas a '
+    + 'notificação não anuncia eixo de slide nem com ela', JSON.stringify(foraDoPainel.comMensagem));
+  checar(foraDoPainel.temRem
+    && foraDoPainel.daNotificacao.next === 1 && foraDoPainel.daNotificacao.prev === 1
+    && foraDoPainel.daNotificacao.slideNext === 0 && foraDoPainel.daNotificacao.slidePrev === 0,
+    'I · e os ⏮/⏭ da NOTIFICAÇÃO tocam os botões do TRANSPORTE, nunca os do eixo '
+    + 'de slide: com a mensagem no ar, `next` e `prev` viram um clique em cada e '
+    + 'ZERO nos dois de estrofe (v1.14.23, Pacote 31)', JSON.stringify(foraDoPainel.daNotificacao));
 
   // ======================================================================
   // J · O ▶ DO TRANSPORTE, AS DUAS METADES

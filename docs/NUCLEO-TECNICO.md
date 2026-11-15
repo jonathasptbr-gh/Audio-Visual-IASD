@@ -271,8 +271,12 @@ O que vale sem abrir o capítulo:
   levando a `Presentation` junto.
 - **Nenhuma decisão de transporte em Kotlin** (invariante 5): o sistema entrega
   uma string e o web aciona os **mesmos botões da tela** por `.click()`. Por isso
-  nenhuma ação é desabilitada do lado nativo — quem sabe se "estrofe anterior"
-  faz sentido é o web, e a cópia em Kotlin envelheceria.
+  nenhuma ação é desabilitada do lado nativo — quem sabe se o ⏮ tem o que fazer é
+  o web (`transportePode`), e a cópia em Kotlin envelheceria.
+- **⏮/⏭ são do PLAYER, e de mais ninguém** (v1.14.23, Pacote 31): a notificação,
+  a tela de bloqueio e o fone passam música com qualquer cena no ar; o eixo
+  duplo (estrofe × mídia) ficou só na coluna da tela cheia. O
+  `slideMode`/`slideLabel` vai sempre vazio no cartão.
 - **`play`/`pause` ≠ `playpause`.** Tela de bloqueio, fone e Android Auto mandam
   intenção explícita; tratar tudo como alternador faz um `onPlay` recebido com o
   áudio tocando PAUSAR o louvor.

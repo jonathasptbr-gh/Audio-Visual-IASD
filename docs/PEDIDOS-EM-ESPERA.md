@@ -44,7 +44,7 @@ feito"*).
 notificação, o "Imprimir" do guia que não abre no app e as anotações nos vazios
 do guia impresso. Entraram como os **Pacotes 31 a 33**, mapeados contra o HEAD
 `d5c15202` (as linhas citadas valem para ele). Os 32 e 33 saíram no mesmo dia
-(v1.14.22); o 31 continua.
+(v1.14.22) e o 31 na v1.14.23.
 
 **Regra do arquivo:** ele ESVAZIA. Um pacote entregue sai daqui (a nota vai ao
 `docs/HISTORICO.md`, como sempre); um pedido revogado sai com uma linha dizendo
@@ -77,7 +77,6 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **28** — Série: o aviso que promete descer | 6 (I3×U2) | defeito | só web |
 | **29** — Guia do site: a captura das sete ferramentas | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
 | **30** — Ferramentas: duas arestas que o tour achou | 2 (I2×U1) | resíduo | só web |
-| **31** — Notificação: ⏮/⏭ pulam a música, não o slide | 9 (I3×U3) | pedido | só web (OTA) |
 
 ---
 
@@ -96,7 +95,6 @@ diferentes, e um lote nunca mistura dois temas.
 | **Séries** | 28 | o aviso do card que promete o que a rodada não cumpre |
 | **Site** | 29 | a captura da lista de Ferramentas, com as sete |
 | **Ferramentas** | 30 | o Timer em zero que ainda projeta e guarda, e o editor de mídia vazio na instalação nova |
-| **Notificação de controles** | 31 | o ⏮/⏭ da notificação (e da tela de bloqueio e do fone) andando na fila de mídia |
 | **Fila anterior a 14/11** | 5, 6, 7 | o que já estava na fila, na ordem que ela já tinha |
 | **Estudos** | 13 | não são fila de execução: a entrega é a decisão do operador |
 
@@ -158,7 +156,6 @@ ordem; a fila é dele.
 | **30** | **Ferramentas: duas arestas que o tour achou** | resíduo | 2 | 1 | **2** | web |
 | 30.1 | o Timer em 0:00: o ▶ apagado, o projetar e os dois guardar acesos | | 2 | 1 | 2 | web |
 | 30.2 | o editor de mídia numa instalação nova: três grupos "0 mídias" e nenhum convite a importar | | 2 | 1 | 2 | web |
-| **31** | **Notificação: ⏮/⏭ pulam a música, não o slide** | pedido | 3 | 3 | **9** | web |
 
 ---
 
@@ -529,50 +526,12 @@ grupos vazios, ou ao lado deles).
 
 ---
 
-## Pacote 31 — Notificação: ⏮/⏭ pulam a música, não o slide
-
-**Nota 9 (I3 × U3) · pedido · só web (OTA; `SHELL_VERSION` fica)**
-
-**Onde:** `controle.js` — `AVNative.onRemote` (:44084; o `case 'prev'/'next'`
-em :44102-44103), `eixoForaDoPainel` (:16234), `step` (:15727),
-`pushNowPlaying` (:4766, o `slideMode`), `acoesDaNotificacao` (:4675). O Kotlin
-só repassa: `SessionService.kt:129-130` e `:189` mandam `"prev"`/`"next"`; o
-rótulo "Anterior (unidade)" de `:907-909` sai do `slideMode`.
-
-Relato (08:20): *"No controle na barra de notificação, ao inves de anterior e
-next apenas trocarem os slides, faça eles funcionarem para pular música, é um
-controle de player e não de slides."*
-
-- **A causa é desenho, não defeito:** `(eixoForaDoPainel() ? slidePrevBtnEl :
-  prevEl).click()` — com letra, versículo, mensagem ou apresentação no ar, o
-  eixo é o slide (`stepSlide`). É o eixo duplo que a
-  `docs/shell/SESSAO-DE-MIDIA.md:42-54` declara (a notificação e a coluna da
-  tela cheia são as únicas superfícies com ele).
-- **O conserto provável:** `prev`/`next` → `prevEl`/`nextEl` sempre (o
-  `step(±1)` já anda em `plItems` a partir de `ancoraDaFila()`; sem fila o ⏮ é
-  `seek 0`; guarda `transportePode`, :15722); `slideMode:false` no
-  `pushNowPlaying` (o rótulo vira "Anterior/Próxima" sem tocar no Kotlin); rever
-  o `eixo = !!who || !!currentId` do `acoesDaNotificacao`, para não sobrar ⏮/⏭
-  mudo numa cena só de slides. O `play`/`pause` ≠ `playpause` (:44094-44096)
-  não se mexe.
-- **A confirmar com o operador no começo do lote** (o pedido responde à 1):
-  1. passar estrofe/página pela tela de bloqueio, pelo fone e pelo Bluetooth
-     acaba (são os mesmos callbacks da sessão);
-  2. o ±5 min do Itinerário pela notificação some (`itinerario.test.mjs:450`);
-  3. a coluna da tela cheia (`attachTransportStep`) fica com o eixo duplo ou
-     vira só mídia também;
-  4. ⏮/⏭ visíveis sem fila.
-- **Docs no mesmo lote:** `SESSAO-DE-MIDIA.md:42-54`,
-  `NUCLEO-TECNICO.md:259-285` e os comentários do eixo duplo no `controle.js`
-  (:16218-16232, :42331-42367).
-- **Os oráculos:** `eixo-de-acao` (bloco I, :760-803 — hoje afirma
-  `slideMode:true` com mensagem), `itinerario` (:440-450), `ponte` (:292-330,
-  os campos do `nowPlaying`), `verificacao-do-sistema` L5 (:807-824, o
-  `__avRemote`).
-
----
-
 ## O que saiu desta lista (rastro, não log)
+
+**v1.14.23 (2026-11-15), só web:** o **Pacote 31** — a notificação virou controle de player: ⏮/⏭ dela
+(e da tela de bloqueio, do fone e do Bluetooth) passam MÚSICA com letra, versículo, mensagem ou
+itinerário no ar; sem música nem fila ficam desenhados e inertes. O eixo duplo ficou só na coluna da
+tela cheia, e o `slideMode`/`slideLabel` do cartão vão sempre vazios. Nota em `docs/HISTORICO.md`.
 
 **2026-11-15, revogados pelo operador (sem versão nova):** os **Pacotes 8, 12 e 15** — *"ou já
 foram feitos ou são irrelevantes hoje. Pode apagar completamente eles e suas referências"*. Saíram

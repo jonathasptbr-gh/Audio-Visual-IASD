@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.14.23",
+    "itens": [
+      "Na notificação, anterior e próxima agora trocam a MÚSICA mesmo com letra, versículo ou mensagem no telão.",
+      "A tela cheia continua como era: toque curto passa o slide, toque longo troca a música."
+    ]
+  },
+  {
     "versao": "1.14.22",
     "itens": [
       "Guia de sonoplastia: o botão Imprimir agora abre a impressão dentro do app (pede o app novo instalado).",
