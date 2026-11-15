@@ -129,8 +129,7 @@ invariante 5); `MainActivity.handleBack()` pergunta e obedece. A ordem é do mai
 efêmero ao mais permanente:
 
 1. diálogo modal → **1.7. a gaveta dos cronogramas** (v1.12.54; o menu ⋮ que
-dividia o degrau saiu na v1.12.55) → **1.8. a gaveta dos itinerários** (v1.13.2,
-a irmã no painel do Itinerário) → 2. bottom-sheet (o de cima; em Configurações, a SEÇÃO aberta
+dividia o degrau saiu na v1.12.55) → 2. bottom-sheet (o de cima; em Configurações, a SEÇÃO aberta
 recolhe antes de a folha fechar — v1.12.48) → 2.5. a folha de Ferramentas (com
 uma ferramenta aberta, o voltar devolve a LISTA delas antes de fechá-la — v1.13.3; é o
 ÚNICO caminho de volta à lista desde a v1.13.6, que tirou o voltar da tela) →

@@ -89,16 +89,32 @@ a trocar, e cada um que escapasse leria o cronograma errado calado.
   na captura e segue para quem o recebeu — abrir outra janela com a gaveta
   esquecida por baixo seria o pior dos dois.
 - **O VOLTAR a fecha** (degrau 1.7 do `__avBack`, depois do diálogo).
-- **A IRMÃ NO ITINERÁRIO (v1.13.2)**: a gaveta dos itinerários (`#itinGaveta`, degrau
-  1.8) é esta, com as mesmas classes, na folha de Ferramentas — ver
-  [CAMADA-DE-TEXTO.md](CAMADA-DE-TEXTO.md), "Ferramentas: itinerário". Mexer numa
-  é olhar a outra.
+- **CADA CRONOGRAMA TEM O SEU ITINERÁRIO**: os momentos são linhas do cronograma (cues
+  `momento`), então trocar, criar, guardar e excluir um cronograma os leva junto — não há gaveta
+  de itinerários. Ver "Os momentos do itinerário na lista", abaixo.
 - **O MENU ⋮ DA v1.12.54 SAIU INTEIRO na v1.12.55** — botão, folha, CSS e
   `abrirCronoCamada`/`fecharCronoCamadas`. Relato do operador: *"Achei pouco
   intuitivo os botões de edição do cronograma ficarem fora da lista de
   cronogramas... E o design da lista em si está meio pobre e fora dos padrões do
   app."* O que um cronograma faz consigo mesmo mora na LINHA dele; o que se faz
   com a lista à vista (limpar) mora na barra.
+
+### Os momentos do itinerário na lista (v1.14.32)
+
+O itinerário é uma opção do Cronograma: os títulos dele moram NA MESMA LISTA, com outra
+formatação, e as opções numa segunda linha estreita (`#itinBar`). O contrato do telão, do estado e
+da faixa está em [CAMADA-DE-TEXTO.md](CAMADA-DE-TEXTO.md), "O itinerário é uma opção do
+Cronograma"; aqui, o que a LISTA faz com eles.
+
+| peça | regra |
+|---|---|
+| a linha | `linhaDeMomento` (o `renderLibraryCorpo` a escolhe quando `ehMomento(item)`): `li.lib-item.momento` — sem capa, o horário em `.momento-hora` (`--accent`), uma barra de `--accent` na ponta (`::before`), o fundo `--btn-accent` (`--linha`). É a `.lib-item > .row` das outras, então o arrasto, a faixa do `⋮` e o excluir na linha são os de sempre |
+| o agora | `.agora`/`.seguir` vêm de `itinMarcar` (laço de 1 s, a MESMA leitura do telão); `.agora` é classe PRÓPRIA, e não o `.active` (que é o item que o ▶ repete) |
+| os gestos | tocar EDITA (`attachRowGestures(row, item, { lista:'imports', aoTocar })` → folha `#itinPopup`) e nunca projeta; segurar ARRASTA, pela máquina do Cronograma; `⋮` → excluir (pergunta NA LINHA) · editar |
+| a ordem | a posição da linha é do operador e organiza as MÍDIAS (arrastar uma mídia para baixo de um momento); o TELÃO ordena pelo RELÓGIO (`ordenarItin`). Nada toca nem projeta sozinho pelo horário |
+| o momento novo | `itinAdicionar`: ANTES do primeiro momento posterior no relógio; sem posterior, no FIM da lista; sem nenhum momento, no TOPO |
+| a faixa | `#itinBar`, irmã da barra do topo (entre `.list-header` e `.list-body`), recolhível (a fita com `#itinBarAbrir`; `state.itinerario.barraOculta`); o Modo Fácil não a desenha |
+| o que a lista dispara | `itinSincronizar()` no fim de TODO `renderLibrary`: reenvia o telão se a assinatura dos momentos (id, horário, título, em ordem de relógio) mudou e repinta a faixa — uma exclusão, uma edição ou uma troca de cronograma com ele no ar atualizam o telão sem código próprio, e um arrasto não reenvia nada |
 
 ### Gestos nos itens da biblioteca
 

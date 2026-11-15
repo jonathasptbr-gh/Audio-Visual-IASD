@@ -11,13 +11,16 @@
 // ## O que falha calado aqui, e por isso cada metade existe
 //
 //  A. A ENGRENAGEM SÓ EXISTE ONDE TEM O QUE ADMINISTRAR — nos cues de
-//     ferramenta (`message`, `draw`, `chrono`, `itinerario`), tanto no
-//     Cronograma quanto nos Favoritos, e NUNCA numa mídia. Um botão que abre
+//     ferramenta (`message`, `draw`, `chrono`), tanto no Cronograma quanto nos
+//     Favoritos, e NUNCA numa mídia — nem na cena antiga `itinerario`
+//     ("Itinerário guardado"): o Itinerário deixou de ser ferramenta (v1.14.32;
+//     os horários são MOMENTOS do Cronograma e as opções moram em `#itinBar`),
+//     não há painel a abrir, e `CUE_FERRAMENTA` não a conhece. Um botão que abre
 //     uma ferramenta vazia, ou que aparece em toda linha, é a classe que este
 //     projeto já recusou (o `⋮` sem função, a caixa de marcação que não marca).
 //  B. A IDA: o painel abre com o CONTEÚDO DO ITEM, e não com o último estado da
 //     ferramenta — cada modo do Tempo no modo certo, o Sorteio com a lista de
-//     opções dele, o Itinerário com a programação dele, a Mensagem no editor.
+//     opções dele, a Mensagem no editor.
 //  C. A VOLTA: o que se edita no painel volta para O MESMO item quando ele
 //     fecha. Sem isto a engrenagem editaria uma cópia descartável, e o item
 //     seguiria apontando para o que já foi — o defeito que ela existe para
@@ -64,6 +67,7 @@ try {
     const desenho = await AVDB.addCue('draw', {
       kind: 'text', min: 1, max: 100, pool: ['Ana', 'Bia', 'Caio'], label: 'Nomes',
     }, { name: 'Sorteio de nomes', list: 'imports' });
+    // A CENA ANTIGA, de antes da v1.14.32: o "Itinerário guardado" (`itens` + `horas`) continua nas listas.
     const itin = await AVDB.addCue('itinerario', {
       itens: [{ min: 540, titulo: 'Escola sabatina' }, { min: 600, titulo: 'Culto' }], horas: true,
     }, { name: 'Itinerário da manhã', list: 'imports' });
@@ -81,14 +85,21 @@ try {
     const li = (id) => document.querySelector('#library .lib-item[data-id="' + id + '"]');
     const g = (id) => li(id) && li(id).querySelector('.row-engrenagem');
     return {
-      crono: !!g(i.crono), desenho: !!g(i.desenho), itin: !!g(i.itin), mensagem: !!g(i.mensagem),
+      crono: !!g(i.crono), desenho: !!g(i.desenho), mensagem: !!g(i.mensagem),
       midia: !g(i.midia),
+      // A CENA ANTIGA `itinerario`: a linha EXISTE na lista (sem isto `!g` seria vacuoso — `li` nulo também o faz
+      // verdadeiro) e NÃO tem engrenagem; o mapa de cues com ferramenta são exatamente os três de cima.
+      itinLinha: !!li(i.itin), itinSem: !g(i.itin),
+      mapa: Object.keys(CUE_FERRAMENTA).sort().join(','),
       titulo: g(i.crono) && g(i.crono).title,
       etiqueta: g(i.crono) && g(i.crono).getAttribute('aria-label'),
     };
   }, ids);
-  checar(presenca.crono && presenca.desenho && presenca.itin && presenca.mensagem,
-    'A · os quatro cues de ferramenta têm a engrenagem na faixa de ações do Cronograma', presenca);
+  checar(presenca.crono && presenca.desenho && presenca.mensagem,
+    'A · os três cues de ferramenta (Tempo, Sorteio, Mensagem) têm a engrenagem na faixa de ações do Cronograma', presenca);
+  checar(presenca.itinLinha && presenca.itinSem && presenca.mapa === 'chrono,draw,message',
+    'A · e a cena antiga `itinerario` ("Itinerário guardado") segue na lista SEM engrenagem — o Itinerário virou opção do '
+    + 'Cronograma, não há ferramenta a abrir — e o `CUE_FERRAMENTA` não a conhece', presenca);
   checar(presenca.midia, 'A · e uma MÍDIA não tem: não há ferramenta a administrar nela', presenca);
   checar(presenca.titulo === 'Administrar este item' && presenca.etiqueta === 'Administrar este item',
     'A · o botão diz o que faz, no `title` e no nome acessível', presenca);
@@ -98,14 +109,14 @@ try {
     await new Promise((r) => setTimeout(r, 350));
     const r = (id) => document.getElementById(id).getBoundingClientRect();
     return {
-      aberta: ferramentasAbertas(), tool: miscTool, vista: tempoVista,
+      aberta: ferramentasAbertas(), tool: miscTool,
       modo: chrono.mode, dur: chrono.durationMs, rotulo: chrono.label,
       // A ENGRENAGEM ABRE FORA DA LISTA: o cabeçalho mostra o ✕ que fecha a folha
       // direto, e NÃO a seta de voltar à lista (v1.14.26).
       seta: r('toolsVoltar').width > 0, fechar: r('toolsClose').width > 0,
     };
   }, ids);
-  checar(idaCrono.aberta && idaCrono.tool === 'chrono' && idaCrono.vista === 'chrono'
+  checar(idaCrono.aberta && idaCrono.tool === 'chrono'
     && idaCrono.modo === 'timer' && idaCrono.dur === 300000 && idaCrono.rotulo === 'Abertura',
     'B · o Tempo abre no MODO e com a DURAÇÃO e a legenda do item, e não no último estado da ferramenta', idaCrono);
   checar(!idaCrono.seta && idaCrono.fechar,
@@ -141,21 +152,20 @@ try {
     && idaDraw.pool.join(',') === 'Ana,Bia,Caio' && idaDraw.label === 'Nomes',
     'B · o Sorteio abre com as OPÇÕES e a legenda do item', idaDraw);
 
-  // ── O ITINERÁRIO: a programação dele, e o painel passa a editar ele ───────
+  // ── A CENA ANTIGA `itinerario`: não há ferramenta a abrir ─────────────────
+  // Sem engrenagem na linha (bloco A) e sem porta de dados: `abrirFerramentaComCue` não monta painel nenhum para ela
+  // (tocá-la acrescenta os horários dela ao Cronograma como momentos — é outro oráculo). A folha do bloco anterior
+  // pode ainda estar descendo: espera-se ela fechar, senão `antes` leria o resto da animação, não a ausência.
   const idaItin = await pg.evaluate(async (i) => {
-    document.querySelector('#library .lib-item[data-id="' + i.itin + '"] .row-engrenagem').click();
+    for (let k = 0; k < 100 && !toolsSheetEl.hidden; k++) await new Promise((r) => setTimeout(r, 30));
+    const rec = await AVDB.getMedia(i.itin);
+    const antes = ferramentasAbertas();
+    abrirFerramentaComCue(rec);
     await new Promise((r) => setTimeout(r, 350));
-    const out = {
-      tool: miscTool, vista: tempoVista,
-      itens: itin.itens.map((x) => x.min + ' ' + x.titulo),
-      horas: itin.horas,
-    };
-    fecharFerramentas();
-    return out;
+    return { cue: rec && rec.cue, antes, aberta: ferramentasAbertas() };
   }, ids);
-  checar(idaItin.tool === 'chrono' && idaItin.vista === 'itinerario'
-    && idaItin.itens.join('|') === '540 Escola sabatina|600 Culto' && idaItin.horas === true,
-    'B · o Itinerário abre com a PROGRAMAÇÃO do item no painel', idaItin);
+  checar(idaItin.cue === 'itinerario' && idaItin.antes === false && idaItin.aberta === false,
+    'B · a porta de dados NÃO abre painel para a cena antiga `itinerario`: o registro existe e a folha de Ferramentas segue fechada', idaItin);
 
   // ── A MENSAGEM: abre no editor do texto dela ──────────────────────────────
   const idaMsg = await pg.evaluate(async (i) => {

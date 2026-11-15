@@ -379,12 +379,8 @@ const toolsCloseEl = document.getElementById('toolsClose');
 const toolsVoltarEl = document.getElementById('toolsVoltar');
 // O TÍTULO da folha (v1.13.3) — ver `pintarCabecalhoDasFerramentas`.
 const toolsTitleEl = document.getElementById('toolsTitle');
-// O NOME DO ITINERÁRIO ATIVO no título da folha (v1.13.4) — ver
-// `pintarCabecalhoDasFerramentas`.
-const itinTituloEl = document.getElementById('itinTitulo');
 // A SETA QUE FECHA A LISTA, na casa da porta (v1.13.6) — ver `medirPortaDasFerramentas`.
 const toolsFecharEl = document.getElementById('toolsFechar');
-const itinNomeEl = document.getElementById('itinNome');
 // Há UM host de lista (`libraryEl`). A pasta do aparelho abre INLINE, como um
 // álbum — e por isso não há busca dentro de uma pasta nem seleção múltipla lá
 // dentro: a barra da Biblioteca varre `allCollections()`, que não alcança o
@@ -405,11 +401,10 @@ const cronoGavetaEl = document.getElementById('cronoGaveta');
 const cronoListaEl = document.getElementById('cronoLista');
 const cronoVeuEl = document.getElementById('cronoVeu');
 const cronoImportarEl = document.getElementById('cronoImportar');
-// A GAVETA DOS ITINERÁRIOS (v1.13.2), irmã da dos cronogramas — mora na folha
-// de Ferramentas (ver `abrirItinGaveta`).
-const itinGavetaEl = document.getElementById('itinGaveta');
-const itinGavetaListaEl = document.getElementById('itinGavetaLista');
-const itinVeuEl = document.getElementById('itinVeu');
+// A SEGUNDA LINHA DO CRONOGRAMA (v1.14.32): as opções do itinerário — ver
+// `renderItinBar`. Declarada AQUI pela mesma razão do resto desta lista: o
+// `load()` a repinta milhares de linhas antes de onde o cromo é ligado.
+const itinBarEl = document.getElementById('itinBar');
 // OS CRONOGRAMAS (v1.12.54): `{ ativo, itens: [{ id, nome, qtd, usado }] }`, lido
 // por `AVDB.cronoLer` em todo `load()`. O conteúdo do ativo é `libItems`, como
 // sempre — este objeto só diz o NOME dele e quais outros existem.
@@ -420,7 +415,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.31';
+const WEB_VERSION = '1.14.32';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4179,8 +4174,13 @@ async function load(opts) {
   const senhaDoFit = fitSeq;
   const senhaDoGiro = rotSeq;
   const senhaDasListas = listasSeq;
+  // O ajuste e as opções do itinerário, pela mesma razão: ver `itinSeq`.
+  const senhaDoItin = itinSeq;
 
   // ---- FASE 1: só leituras do IDB, em locais (nada de estado/DOM ainda) ----
+  // O ITINERÁRIO DA v1.13 vira momentos do Cronograma ANTES de a lista ser lida
+  // (v1.14.32) — uma vez só; depois disso é uma checagem em memória.
+  await itinMigrarLegado();
   const cur = await AVDB.getState('current');
   const repeatV = (await AVDB.getState('repeat')) || 'off';
   const plItemsV = await AVDB.listItems('playlist');
@@ -4244,7 +4244,7 @@ async function load(opts) {
   messages = messagesV;
   applyChronoPrefs(chronoPrefsV);
   applyDrawPrefs(drawPrefsV);
-  applyItin(itinerarioV);
+  if (!itinGravando && itinSeq === senhaDoItin) applyItin(itinerarioV);
   // "Esticar" SAIU da UI na v5.142 e o valor guardado é MIGRADO aqui, uma vez.
   // Sem a migração, quem já o tinha escolhido continuaria com a mídia distorcida
   // no telão e sem nenhum botão na tela que explicasse por quê — o pior estado
@@ -6436,7 +6436,10 @@ const CUES = {
   songlyrics: { nome: 'Letra' },
   chrono: { nome: 'Tempo' },
   draw: { nome: 'Sorteio' },
-  itinerario: { nome: 'Itinerário' },
+  // O MOMENTO do itinerário (v1.14.32) tem linha PRÓPRIA no Cronograma (`linhaDeMomento`),
+  // e o `itinerario` é a cena de ANTES dela — fica só para tocar e acrescentar os momentos.
+  momento: { nome: 'Momento' },
+  itinerario: { nome: 'Itinerário guardado' },
   group: { nome: 'Pacote', glifo: () => ICON.queue },
 };
 
@@ -7423,16 +7426,9 @@ function miscProjectState() {
     const live = drawProjecting();
     return { live, disabled: false, hint: '', act: () => (live ? hideDraw() : projectDraw()) };
   }
-  if (miscTool === 'chrono' && tempoVista === 'itinerario') {
-    const live = itinProjecting();
-    // LISTA VAZIA É APAGADO, NÃO INERTE (a regra da v1.8.50), com o porquê.
-    const vazio = !live && !itin.itens.length;
-    return { live, disabled: vazio, hint: vazio ? 'Adicione um horário antes de projetar' : '',
-      act: () => (live ? hideItin() : projectItin()) };
-  }
   if (miscTool === 'chrono') {
     const live = chronoProjecting();
-    // TIMER SEM TEMPO É APAGADO, NÃO INERTE (v1.14.31), como o itinerário vazio: o
+    // TIMER SEM TEMPO É APAGADO, NÃO INERTE (v1.14.31): o
     // cartão zerado não tem o que mostrar. Quem JÁ está no ar sai pelo mesmo botão.
     const vazio = !live && chronoSemTempo();
     return { live, disabled: vazio, hint: vazio ? 'Escolha um tempo nas roletas antes de projetar' : '',
@@ -7506,21 +7502,7 @@ function renderFoot() {
   // ---- À ESQUERDA, o que a ferramenta ATIVA opera ----
   const esq = document.createElement('div');
   esq.className = 'misc-foot-esq';
-  if (miscTool === 'chrono' && tempoVista === 'itinerario') {
-    // O ITINERÁRIO NÃO SE PAUSA NEM SE ZERA: no lugar do transporte fica a única
-    // opção de formato dele — os horários no telão, ou só os títulos. O mesmo
-    // quadrado do "Seg"/"12h" do Relógio, com o relógio desenhado.
-    const h = document.createElement('button');
-    h.type = 'button'; h.id = 'itinHorasBtn';
-    h.className = 'chrono-btn itin-horas' + (itin.horas ? ' active' : '');
-    h.title = itin.horas ? 'Mostrando os horários no telão — toque para mostrar só os títulos'
-      : 'Mostrando só os títulos no telão — toque para mostrar os horários';
-    h.setAttribute('aria-label', 'Mostrar os horários no telão');
-    h.setAttribute('aria-pressed', itin.horas ? 'true' : 'false');
-    h.innerHTML = cueIconSvg('chrono');
-    h.addEventListener('click', () => itinSetHoras(!itin.horas));
-    esq.appendChild(h);
-  } else if (miscTool === 'chrono') {
+  if (miscTool === 'chrono') {
     if (chrono.mode === 'clock') {
       // O RELÓGIO NÃO SE PAUSA, então no lugar do transporte ficam as duas
       // opções de formato — o mesmo canto, a mesma pergunta ("o que eu aciono
@@ -7648,7 +7630,7 @@ function renderFoot() {
         if (!rec) responder(bt, 'erro');
       });
       // APAGADO COM O PORQUÊ, quando a ferramenta diz que não há o que guardar
-      // (o itinerário vazio) — ver `cueSaveDaFerramenta`.
+      // (o Timer sem tempo) — ver `cueSaveDaFerramenta`.
       if (montar.apagado) { b.disabled = true; b.title = montar.apagado; }
       row.appendChild(b);
     };
@@ -7671,21 +7653,15 @@ function renderFoot() {
 // deixar o cronômetro correndo aqui e projetá-lo depois — ou tirá-lo do telão
 // sem zerar a contagem.
 let chronoSession = null;   // { projecting } | null
-// O ITINERÁRIO mora no MESMO painel (o quarto segmento do Tempo), com estado e
-// projeção próprios — ver "Itinerário" logo depois do `renderChrono`.
-let tempoVista = 'chrono';  // 'chrono' (as três roletas) | 'itinerario'
+// O ITINERÁRIO é uma opção do CRONOGRAMA (v1.14.32), com projeção própria — ver
+// "O ITINERÁRIO É UMA OPÇÃO DO CRONOGRAMA" logo depois do `renderChrono`.
 let itinSession = null;     // { projecting } | null
-// O ITINERÁRIO ATIVO — o que o painel edita e o telão mostra. `id`/`nome` são
-// dele na lista dos itinerários (v1.13.2), e `desloc` é o AJUSTE DO DIA, que é
-// GLOBAL: vale para qualquer itinerário que esteja no ar.
-let itin = { id: '', nome: 'Itinerário', itens: [], horas: true, desloc: 0 };   // itens: [{ id, min, titulo }]
-// OS OUTROS ITINERÁRIOS (v1.13.2), na ordem da gaveta. A entrada do ATIVO fica
-// na lista (é ela que guarda o lugar dele na ordem) com o conteúdo VAZIO: o
-// conteúdo dele é o `itin` — a regra dos cronogramas, em que o ativo é `imports`.
-let itinLista = [];         // [{ id, nome, usado, itens, horas }]
-let itinGavetaSeq = 0;
-let itinEditor = null;      // { id|null } — o horário aberto na folha de edição
-let itinPanelTimer = null;
+// AS OPÇÕES DESTE APARELHO, no que ele escreve em `state.itinerario`: `desloc` é o
+// AJUSTE DO DIA (`deslocDia` é o dia dele) e vale para qualquer cronograma;
+// `horas` é a escolha de horários × só títulos no telão; `barraOculta` recolhe
+// `#itinBar`. A LISTA de momentos NÃO mora aqui: ela é o Cronograma (`itinItens`).
+let itin = { horas: true, desloc: 0, deslocDia: '', barraOculta: false };
+let itinEditor = null;      // { id|null } — o momento aberto na folha de edição
 const ITIN_DESLOC_MAX = 720;   // min — doze horas para cada lado
 const ITIN_PASSO_PAR = 5;      // min — o passo do ⏮/⏭ com o itinerário no ar
 const ITIN_TITULO_MAX = 60;
@@ -8359,15 +8335,6 @@ function renderChrono() {
   if (!host) return;
   host.innerHTML = '';
 
-  host.classList.toggle('misc-panel--itin', tempoVista === 'itinerario');
-  if (tempoVista === 'itinerario') {
-    stopChronoPanelTimer();
-    renderItinerario(host);
-    return;
-  }
-  stopItinPanelTimer();
-  fecharItinGaveta();
-
   // ---- O MOSTRADOR: as MESMAS três roletas nas três ferramentas ----
   //
   // O que muda entre elas não é o desenho, é quem pode tocar (`roletaEditavel`)
@@ -8454,23 +8421,35 @@ function renderChrono() {
   startChronoPanelTimer();
 }
 
-// ===== Itinerário (aba Ferramentas → Tempo, v1.13.0) =====
-// A PROGRAMAÇÃO DO EVENTO: horário + título, editável aqui e projetável no
-// cartão da Camada de Texto (`mode: 'itinerario'`). O item de AGORA sai em
-// destaque e os seguintes vêm abaixo, em ordem — para a igreja e a equipe saberem
-// em que momento estão e o que vem a seguir.
+// ===== O ITINERÁRIO É UMA OPÇÃO DO CRONOGRAMA (v1.14.32) =====
+// Pedido do operador (15/11): *"agregar o itinerário ao cronograma, como uma
+// opção do cronograma. Os títulos do itinerário vão ficar na mesma lista, com
+// uma formatação diferente … por estar listado no cronograma, se consegue
+// arrastar a ordem das mídias para que fiquem organizadas com os títulos dos
+// momentos. As mídias não vão tocar automaticamente com o tempo do
+// itinerário"*. Ele deixou de ser uma ferramenta: as opções moram na segunda
+// linha do Cronograma (`#itinBar`), que pode ser recolhida.
 //
-// **O QUE VIAJA É UM DESCRITOR** (`itinDescriptor`): a lista, o ajuste e o fuso
-// do celular. Quem decide qual item está no ar é cada tela, pelo próprio relógio
-// (`createStage.itinerarioLeitura`) — a mesma regra do relógio do Tempo. Por isso
-// nenhum comando trafega quando o relógio cruza um horário, e a reconexão volta
-// no item certo.
+// **O MOMENTO É UMA CENA DE ROTEIRO** (`kind: 'cue'`, `cue: 'momento'`): o horário
+// em `data.min` (minuto do dia PREVISTO), o título em `name`. Ele mora em
+// `imports` como qualquer outro item — por isso o arrasto, o excluir, os
+// cronogramas múltiplos, o pacote e o coletor já o conhecem sem uma linha nova, e
+// CADA cronograma tem o seu itinerário. Tocar na linha EDITA; nada é projetado
+// nem tocado pelo horário.
+//
+// **O QUE VIAJA AO TELÃO É UM DESCRITOR** (`itinDescriptor`): a lista, o ajuste e o
+// fuso do celular. Quem decide qual item está no ar é cada tela, pelo próprio
+// relógio (`createStage.itinerarioLeitura`) — a mesma regra do relógio do Tempo. Por
+// isso nenhum comando trafega quando o relógio cruza um horário, e a reconexão
+// volta no item certo. **A ORDEM DO TELÃO É A DO RELÓGIO** (`ordenarItin`): a
+// posição da linha na lista é do operador e organiza as MÍDIAS; o horário é o que
+// ordena o telão.
 //
 // **O AJUSTE DESLOCA A LISTA INTEIRA** (`desloc`, em minutos: + = atrasou):
 // todos os horários andam juntos e os intervalos entre eles ficam. Ele PERSISTE
 // PELO DIA (`deslocDia`): sobrevive a uma atualização ou a uma morte do renderer
-// no meio do culto, e não chega ao sábado seguinte — ali a programação volta ao
-// previsto sem ninguém lembrar de zerar.
+// no meio do culto, e não chega ao sábado seguinte. É GLOBAL: o atraso é do culto,
+// não de um cronograma.
 //
 // **A VIRADA DA MEIA-NOITE fica fora**: a lista é de um dia (ver o stage.js).
 function hojeLocal() {
@@ -8484,249 +8463,112 @@ function ordenarItin(lista) {
   return lista.map((x, i) => [x, i]).sort((a, b) => a[0].min - b[0].min || a[1] - b[1]).map((p) => p[0]);
 }
 
-// ===== OS ITINERÁRIOS MÚLTIPLOS (v1.13.2) =====
-//
-// Pedido do operador: uma lista de itinerários com nome, no MESMO idioma dos
-// cronogramas múltiplos — o título é o nome do ativo e abre a gaveta deles. E
-// tocar um itinerário guardado (a cena do Cronograma ou dos Favoritos) faz dele
-// o ATIVO do painel, editável ali, SEM apagar o que o painel tinha antes.
-//
-// A CHAVE CONTINUA SENDO `state.itinerario`, e o conteúdo do ATIVO continua nos
-// campos de sempre (`itens`, `horas`) — a regra dos cronogramas, em que o ativo
-// é `imports`. Os outros vêm na lista `itinerarios`, cada um com o conteúdo
-// dele; a entrada do ativo guarda só o lugar e o nome:
-//
-//   { v: 2, itens, horas, desloc, deslocDia,
-//     ativo: '<id>', itinerarios: [{ id, nome, usado, itens, horas }] }
-//
-// UMA CHAVE SÓ, então TROCAR É UMA TRANSAÇÃO: o `updateState` grava o ativo
-// novo e a lista no mesmo commit. O AJUSTE (`desloc`) é GLOBAL e do DIA: o
-// atraso é do culto, não da programação.
-//
-// A CHAVE DA v1 (sem `ativo`) É A MIGRAÇÃO, e ela não escreve nada: vira UM
-// itinerário chamado "Itinerário", com a lista que já estava lá. O id dele é
-// aleatório e fica guardado na memória até a primeira escrita (como o
-// provisório do `cronoLerEm`).
-//
-// NADA AQUI SEGURA MÍDIA: um itinerário é horário + título. O coletor
-// (`lerDetentores`) não o lê, e não precisa.
-const ITIN_NOME_PADRAO = 'Itinerário';
-let itinIdProvisorio = '';
-function itinIdNovo() { return 'it-' + uid(); }
-// "Itinerário", "Itinerário 2"… — os nomes que o app escreveu sozinho. Uma cena
-// tocada sobre um ativo VAZIO com nome assim dá o nome dela a ele; um nome que o
-// operador escreveu nunca é trocado.
-function itinNomeAutomatico(nome) { return /^Itinerário( \d+)?$/.test(String(nome || '')); }
-function itinNomeLimpo(nome) {
-  return String(nome == null ? '' : nome).replace(/\s+/g, ' ').trim().slice(0, 60);
+function ehMomento(rec) { return !!(rec && rec.kind === 'cue' && rec.cue === 'momento'); }
+function itinMinValido(m) { return Number.isFinite(m) && m >= 0 && m < 1440; }
+
+// OS MOMENTOS DO CRONOGRAMA ATIVO, em ordem de relógio: `[{ id, min, titulo }]`.
+// Lidos de `libItems` a cada pergunta — a lista é a fonte, e uma cópia em memória
+// divergiria dela no primeiro caminho que esquecesse de atualizá-la.
+function itinItens() {
+  return ordenarItin((libItems || [])
+    .filter((r) => ehMomento(r) && itinMinValido(Number(r.data && r.data.min)))
+    .map((r) => ({ id: r.id, min: Math.round(Number(r.data.min)), titulo: String(r.name || '').slice(0, ITIN_TITULO_MAX) })));
 }
-const itinNomeChave = (n) => String(n || '').trim().toLocaleLowerCase('pt');
-// O NOME LIVRE, para renomear, para uma cena que vira itinerário e para a
-// importação — a regra do `cronoNomeLivre`: " (2)", " (3)"… quando colide.
-function itinNomeLivre(nome, usados) {
-  const tem = new Set([...usados].map(itinNomeChave));
-  if (!tem.has(itinNomeChave(nome))) return nome;
-  for (let n = 2; ; n++) { const t = nome + ' (' + n + ')'; if (!tem.has(itinNomeChave(t))) return t; }
-}
-// "Itinerário 2", "Itinerário 3"… — o primeiro número livre, a partir de 2.
-function itinNomeNovo(usados) {
-  const tem = new Set([...usados].map(itinNomeChave));
-  for (let n = 2; ; n++) { const t = ITIN_NOME_PADRAO + ' ' + n; if (!tem.has(itinNomeChave(t))) return t; }
-}
+
+/** Uma lista de horários vinda de fora (a chave antiga, uma cena antiga), saneada. */
 function itinItensValidos(lista) {
-  const vistos = new Set();
   return ordenarItin((Array.isArray(lista) ? lista : [])
-    .filter((x) => x && Number.isFinite(x.min) && x.min >= 0 && x.min < 1440)
-    .map((x) => {
-      let id = String(x.id || '') || uid();
-      if (vistos.has(id)) id = uid();
-      vistos.add(id);
-      return { id, min: Math.round(x.min), titulo: String(x.titulo || '').slice(0, ITIN_TITULO_MAX) };
-    }));
-}
-// A IDENTIDADE DE UMA PROGRAMAÇÃO é o conteúdo — a regra da cena (`cueChave`):
-// os horários e os títulos, em ordem. É ela que reconhece a cena tocada de novo.
-function itinChaveDoConteudo(itens) {
-  return ordenarItin(itens || []).map((x) => x.min + '|' + String(x.titulo || '').trim()).join('\n');
+    .filter((x) => x && itinMinValido(Number(x.min)))
+    .map((x) => ({ id: String(x.id || ''), min: Math.round(Number(x.min)), titulo: String(x.titulo || '').trim().slice(0, ITIN_TITULO_MAX) || 'Momento' })));
 }
 
 /**
- * A LEITURA NORMALIZADA de `state.itinerario`, PURA (a importação a usa sobre
- * o valor do pacote). Devolve `{ ativo, lista, desloc, deslocDia }`,
- * com o conteúdo de TODA entrada preenchido — o do ativo vem dos campos de cima.
- * `provisorio` é o id do ativo quando a chave não tem um (a v1, ou nenhuma).
+ * A LEITURA NORMALIZADA de `state.itinerario`, PURA. Desde a v1.14.32 a chave só
+ * guarda o que é DESTE aparelho e deste dia: a escolha de horários no telão, o
+ * ajuste e se a barra está recolhida. A lista de horários saiu dela (virou
+ * momentos do Cronograma) e `itinMigrarLegado` a esvazia.
  */
-function itinLerEstado(p, provisorio) {
+function itinLerEstado(p) {
   const v = (p && typeof p === 'object') ? p : {};
-  const vistos = new Set();
-  const lista = (Array.isArray(v.itinerarios) ? v.itinerarios : [])
-    .filter((x) => x && typeof x.id === 'string' && x.id && !vistos.has(x.id) && vistos.add(x.id))
-    .map((x) => ({
-      id: x.id, nome: itinNomeLimpo(x.nome) || ITIN_NOME_PADRAO,
-      usado: Number.isFinite(x.usado) ? x.usado : 0,
-      itens: itinItensValidos(x.itens), horas: x.horas !== false,
-    }));
-  // O ATIVO É O QUE A CHAVE DIZ; sem `ativo` (a v1, ou nenhuma chave) é UM
-  // itinerário, o de sempre, com o id provisório. E o conteúdo do ativo é
-  // SEMPRE o dos campos de cima — inclusive na v1, em que eles são tudo.
-  let ativo = (typeof v.ativo === 'string' && v.ativo) ? v.ativo : (provisorio || itinIdNovo());
-  if (!lista.some((x) => x.id === ativo)) {
-    lista.unshift({ id: ativo, nome: ITIN_NOME_PADRAO, usado: 0, itens: [], horas: true });
-  }
-  const a = lista.find((x) => x.id === ativo);
-  a.itens = itinItensValidos(v.itens);
-  a.horas = v.horas !== false;
   const desloc = (v.deslocDia === hojeLocal() && Number.isFinite(v.desloc))
     ? Math.max(-ITIN_DESLOC_MAX, Math.min(ITIN_DESLOC_MAX, Math.round(v.desloc))) : 0;
-  return { ativo, lista, desloc, deslocDia: desloc ? v.deslocDia : '' };
+  return { horas: v.horas !== false, desloc, deslocDia: desloc ? v.deslocDia : '', barraOculta: v.barraOculta === true };
 }
 
-/** A GRAVAÇÃO, PURA: o inverso de `itinLerEstado`. */
-function itinEstadoParaGravar(e) {
-  const a = e.lista.find((x) => x.id === e.ativo) || { itens: [], horas: true };
-  const copia = (l) => l.map((x) => ({ id: x.id, min: x.min, titulo: x.titulo }));
-  return {
-    v: 2,
-    itens: copia(a.itens), horas: a.horas !== false,
-    desloc: e.desloc || 0, deslocDia: e.desloc ? (e.deslocDia || hojeLocal()) : '',
-    ativo: e.ativo,
-    itinerarios: e.lista.map((x) => (x.id === e.ativo
-      ? { id: x.id, nome: x.nome, usado: x.usado || 0, itens: [], horas: true }
-      : { id: x.id, nome: x.nome, usado: x.usado || 0, itens: copia(x.itens), horas: x.horas !== false })),
-  };
-}
-
+// UMA ESCRITA EM VOO GANHA DE UMA LEITURA ANTIGA: um `load()` lê o banco por uma dezena de
+// `await`s, e um toque no −5 que caia nesse intervalo escreveria o ajuste na memória com a
+// gravação ainda a caminho — o `applyItin` do `load()` o devolveria ao valor de antes.
+// `itinSeq` marca cada gravação, `itinGravando` conta as que ainda não voltaram.
+let itinSeq = 0;
+let itinGravando = 0;
 function applyItin(p) {
-  if (!p || typeof p !== 'object') return;
-  if (!itinIdProvisorio) itinIdProvisorio = itin.id || itinIdNovo();
-  const e = itinLerEstado(p, itinIdProvisorio);
-  const a = e.lista.find((x) => x.id === e.ativo);
-  itin.id = a.id; itin.nome = a.nome;
-  itin.itens = a.itens; itin.horas = a.horas;
-  itin.desloc = e.desloc;
-  a.itens = []; a.horas = true;
-  itinLista = e.lista;
-}
-
-// O ESTADO DE AGORA na forma de `itinLerEstado` — a entrada do ativo com o
-// conteúdo do `itin`.
-function itinEstadoAtual() {
-  if (!itin.id) itin.id = itinIdProvisorio || (itinIdProvisorio = itinIdNovo());
-  let lista = itinLista.slice();
-  if (!lista.some((x) => x.id === itin.id)) lista.unshift({ id: itin.id, nome: itin.nome, usado: 0, itens: [], horas: true });
-  lista = lista.map((x) => (x.id === itin.id
-    ? { id: x.id, nome: itin.nome, usado: x.usado || 0, itens: itin.itens, horas: itin.horas }
-    : x));
-  return { ativo: itin.id, lista, desloc: itin.desloc };
+  const e = itinLerEstado(p);
+  itin.horas = e.horas; itin.desloc = e.desloc; itin.deslocDia = e.deslocDia; itin.barraOculta = e.barraOculta;
 }
 
 // `updateState`, e não `setState`: a escrita é LER + MESCLAR + GRAVAR numa
 // transação só — um campo que uma versão futura acrescente não é apagado por
-// uma gravação desta. E é UMA chave: trocar de itinerário, criar e excluir são
-// esta mesma escrita, atômica.
+// uma gravação desta. Os campos da v1.13 (a lista e a gaveta) saem na primeira.
 function saveItin() {
-  const v = itinEstadoParaGravar(itinEstadoAtual());
-  return AVDB.updateState('itinerario', (atual) =>
-    Object.assign({}, (atual && typeof atual === 'object') ? atual : {}, v)).catch(() => {});
+  const v = {
+    v: 3, horas: itin.horas, desloc: itin.desloc || 0,
+    deslocDia: itin.desloc ? (itin.deslocDia || hojeLocal()) : '', barraOculta: itin.barraOculta,
+  };
+  itinSeq++; itinGravando++;
+  return AVDB.updateState('itinerario', (atual) => {
+    const base = (atual && typeof atual === 'object') ? Object.assign({}, atual) : {};
+    delete base.itens; delete base.itinerarios; delete base.ativo;
+    return Object.assign(base, v);
+  }).catch(() => {}).finally(() => { itinGravando--; });
 }
 
-// A entrada do ativo, na lista, ganha o conteúdo do `itin`; a do escolhido o
-// entrega ao `itin`. Só memória — quem grava é quem chama (`itinMudou`).
-function itinAtivarEntrada(alvo, agora) {
-  const atual = itinLista.find((x) => x.id === itin.id);
-  if (atual) {
-    atual.nome = itin.nome; atual.itens = itin.itens; atual.horas = itin.horas;
-    atual.usado = agora;
-  } else {
-    itinLista.unshift({ id: itin.id, nome: itin.nome, usado: agora, itens: itin.itens, horas: itin.horas });
-  }
-  itin.id = alvo.id; itin.nome = alvo.nome;
-  itin.itens = alvo.itens; itin.horas = alvo.horas !== false;
-  alvo.itens = []; alvo.horas = true; alvo.usado = agora;
+// ===== A MIGRAÇÃO DO ITINERÁRIO DA v1.13 (uma vez) =====
+// O itinerário ATIVO vira momentos no COMEÇO do cronograma ativo, em ordem de
+// relógio. Decisão do operador: os itinerários GUARDADOS não vêm (a chave deles
+// é apagada). O `legado` no registro é o id do horário de antes — rodar de novo
+// (um corte no meio) não duplica nada — e a chave só é reescrita DEPOIS dos
+// momentos: o pior corte deixa tudo no lugar e refaz sozinho.
+let itinLegadoFeito = false;
+let itinMigrando = null;
+// UMA migração em voo por vez: dois `load()` da abertura chegam juntos aqui, e o
+// segundo espera a promessa do primeiro em vez de começar a sua.
+function itinMigrarLegado() {
+  if (itinLegadoFeito) return Promise.resolve();
+  if (!itinMigrando) itinMigrando = itinMigrarLegadoCorpo().finally(() => { itinMigrando = null; });
+  return itinMigrando;
 }
-// TROCAR para outro itinerário. Devolve `true` se trocou.
-function itinTrocarPara(id) {
-  if (!id || id === itin.id) return false;
-  const alvo = itinLista.find((x) => x.id === id);
-  if (!alvo) return false;
-  itinAtivarEntrada(alvo, Date.now());
-  return true;
-}
-// UM ITINERÁRIO NOVO, já ativo. `conteudo` (opcional): `{ nome, itens, horas }`
-// — é por aqui que uma cena sem par na lista vira um itinerário dela.
-function itinCriar(conteudo) {
-  const usados = itinLista.map((x) => (x.id === itin.id ? itin.nome : x.nome));
-  const c = conteudo || {};
-  const nome = itinNomeLivre(itinNomeLimpo(c.nome) || itinNomeNovo(usados), usados);
-  const novo = { id: itinIdNovo(), nome, usado: 0, itens: Array.isArray(c.itens) ? c.itens : [], horas: c.horas !== false };
-  if (!itinLista.some((x) => x.id === itin.id)) {
-    itinLista.unshift({ id: itin.id, nome: itin.nome, usado: 0, itens: [], horas: true });
-  }
-  itinLista.push(novo);
-  itinAtivarEntrada(novo, Date.now());
-  return novo;
-}
-/**
- * As entradas da gaveta, na ordem dela: `{ id, nome, qtd, ativo }`. Uma lista
- * sem a entrada do ativo (o estado em memória antes da primeira escrita) ganha
- * a dele na frente.
- */
-function itinEntradas() {
-  return itinEstadoAtual().lista.map((x) => ({
-    id: x.id, nome: x.nome, ativo: x.id === itin.id, usado: x.usado || 0,
-    qtd: x.id === itin.id ? itin.itens.length : x.itens.length,
-  }));
-}
-
-/**
- * A IMPORTAÇÃO DE UM PACOTE, PURA: o que vale para `state.itinerario` quando o
- * `.avpkg` traz outro. A regra é a dos cronogramas guardados — **só
- * ACRESCENTA**, e importar de novo não duplica:
- *
- *  - o MESMO id é o mesmo itinerário: os horários se UNEM (pelo id do horário,
- *    o daqui vencendo) e o nome daqui fica;
- *  - um itinerário de CONTEÚDO igual a um daqui (um pacote da v1, sem id) não
- *    entra de novo;
- *  - o resto entra GUARDADO, com o nome dele (" (2)" se colidir) — inclusive o
- *    ativo de lá: misturar duas programações num ativo só embaralharia os
- *    horários das duas;
- *  - num aparelho VIRGEM (um itinerário só, vazio e com o nome do app) a lista
- *    de lá entra inteira, e o ativo de lá vira o ativo daqui.
- *
- * O AJUSTE DO DIA NÃO VIAJA: o atraso é do culto daquele aparelho. Devolve o
- * próprio `local` quando nada mudou.
- */
-function itinMesclarPacote(local, vindo) {
-  if (!vindo || typeof vindo !== 'object') return local;
-  const L = itinLerEstado(local, itinIdProvisorio || 'it-local');
-  const V = itinLerEstado(vindo, 'it-pacote-' + uid());
-  if (!V.lista.some((x) => x.itens.length)) return local;
-  const la = L.lista.find((x) => x.id === L.ativo);
-  const virgem = L.lista.length === 1 && !la.itens.length && itinNomeAutomatico(la.nome);
-  let mudou = false;
-  if (virgem) {
-    L.lista = V.lista;
-    L.ativo = V.ativo;
-    mudou = true;
-  } else {
-    for (const v of V.lista) {
-      if (!v.itens.length) continue;
-      const mesmo = L.lista.find((x) => x.id === v.id);
-      if (mesmo) {
-        const tem = new Set(mesmo.itens.map((x) => x.id));
-        const novos = v.itens.filter((x) => !tem.has(x.id));
-        if (novos.length) { mesmo.itens = ordenarItin(mesmo.itens.concat(novos)); mudou = true; }
-        continue;
+async function itinMigrarLegadoCorpo() {
+  const est = await AVDB.getState('itinerario');
+  const velha = !!(est && typeof est === 'object'
+    && (Array.isArray(est.itens) || Array.isArray(est.itinerarios) || est.ativo));
+  if (velha) {
+    try {
+      const itens = itinItensValidos(est.itens);
+      if (itens.length) {
+        const ja = new Set((await AVDB.listItems('imports')).filter(ehMomento)
+          .map((r) => r.data && r.data.legado).filter(Boolean));
+        const novos = [];
+        for (const x of itens) {
+          if (x.id && ja.has(x.id)) continue;
+          const rec = await AVDB.addCue('momento', { min: x.min, legado: x.id || uid() }, { name: x.titulo, list: 'imports' });
+          if (rec) novos.push(rec.id);
+        }
+        if (novos.length) {
+          await AVDB.listSet('imports', (antes) => novos.concat(antes.filter((id) => !novos.includes(id))));
+        }
       }
-      const chave = itinChaveDoConteudo(v.itens);
-      if (L.lista.some((x) => itinChaveDoConteudo(x.itens) === chave)) continue;
-      L.lista.push({ id: v.id, nome: itinNomeLivre(v.nome, L.lista.map((x) => x.nome)), usado: 0, itens: v.itens, horas: v.horas });
-      mudou = true;
+      const e = itinLerEstado(est);
+      await AVDB.updateState('itinerario', (atual) => {
+        const base = (atual && typeof atual === 'object') ? Object.assign({}, atual) : {};
+        delete base.itens; delete base.itinerarios; delete base.ativo;
+        return Object.assign(base, { v: 3, horas: e.horas, desloc: e.desloc, deslocDia: e.deslocDia, barraOculta: false });
+      });
+    } catch (err) {
+      console.warn('[itinerario] migrar falhou:', err);
+      return;   // tenta de novo no próximo `load()`
     }
   }
-  if (!mudou) return local;
-  const g = itinEstadoParaGravar(Object.assign({}, L, { desloc: L.desloc, deslocDia: L.deslocDia }));
-  return Object.assign({}, (local && typeof local === 'object') ? local : {}, g);
+  itinLegadoFeito = true;
 }
 
 function itinProjecting() { return !!(itinSession && itinSession.projecting); }
@@ -8734,7 +8576,7 @@ function itinProjecting() { return !!(itinSession && itinSession.projecting); }
 // O descritor enviado ao telão — uma CÓPIA, pelo motivo do `chronoDescriptor`.
 function itinDescriptor() {
   return {
-    itens: itin.itens.map((x) => ({ k: x.id, min: x.min, titulo: x.titulo })),
+    itens: itinItens().map((x) => ({ k: x.id, min: x.min, titulo: x.titulo })),
     desloc: itin.desloc, horas: itin.horas,
     fuso: new Date().getTimezoneOffset(),
   };
@@ -8746,22 +8588,24 @@ function itinDescriptor() {
 // no ar sai do telão: um cartão sem linha nenhuma é um retângulo preto.
 function pushItin() {
   if (!itinProjecting()) return;
-  if (!itin.itens.length) { hideItin(); return; }
+  if (!itinItens().length) { hideItin(); return; }
   cmd({ type: 'text', mode: 'itinerario', itinerario: itinDescriptor(), view });
 }
 
 function projectItin() {
-  if (!itin.itens.length) return;
+  const n = itinItens().length;
+  if (!n) return;
   soUmProvedorDeTexto('itinerario');
   itinSession = { projecting: true };
   view = 'visual';
   persistCurrent();
   cmd({ type: 'text', mode: 'itinerario', itinerario: itinDescriptor(), view: 'visual' });
-  diagC('itinerário: no telão (' + itin.itens.length + ' itens' + (itin.desloc ? ', ajuste ' + textoDoAjuste() : '') + ')');
+  diagC('itinerário: no telão (' + n + ' momentos' + (itin.desloc ? ', ajuste ' + textoDoAjuste() : '') + ')');
   renderControls();
   renderNowPlaying();
   renderSlideNav();
   refreshDiversos();
+  renderItinBar();
 }
 
 // Tira do telão SEM apagar a lista — espelha o `hideChrono`.
@@ -8775,6 +8619,7 @@ function hideItin() {
   renderSlideNav();
   marcarNoAr();
   refreshDiversos();
+  renderItinBar();
 }
 
 function clearItinSession() {
@@ -8783,109 +8628,29 @@ function clearItinSession() {
   renderNowPlaying();
   renderSlideNav();
   refreshDiversos();
+  renderItinBar();
 }
 
-// ===== O ITINERÁRIO COMO CENA DE ROTEIRO (v1.13.1) =====
-// Pedido do operador: adicionar ao Cronograma e aos Favoritos, como as abas
-// irmãs. O descritor é a PROGRAMAÇÃO — `{ itens: [{min, titulo}], horas }` —, e
-// os `id` ficam de fora: a identidade de uma cena é o conteúdo (`cueChave`), e
-// dois itinerários iguais guardados duas vezes nos Favoritos são o mesmo.
-//
-// O AJUSTE NÃO VIAJA: ele é do DIA (`deslocDia`). Um roteiro montado no sábado
-// passado que trouxesse o atraso daquele culto começaria errado hoje.
-function itinCueData() {
-  return { itens: itin.itens.map((x) => ({ min: x.min, titulo: x.titulo })), horas: itin.horas };
-}
-
-// O NOME DA CENA é o do itinerário quando o operador o escreveu (v1.13.2); o
-// nome que o app escreveu sozinho ("Itinerário 2") não diz nada no Cronograma,
-// e ali a cena continua se chamando pelos horários.
-function itinCueNome() {
-  if (!itinNomeAutomatico(itin.nome)) return itin.nome;
-  const n = itin.itens.length;
-  if (!n) return 'Itinerário';
-  const a = createStage.itinHora(itin.itens[0].min);
-  const b = createStage.itinHora(itin.itens[n - 1].min);
-  return 'Itinerário ' + (n > 1 ? a + '–' + b : a);
-}
-
-// PROJETA UMA CENA GUARDADA (v1.13.1; o lugar na lista é da v1.13.2). O que vai
-// ao telão é o `projectItin` de sempre — o reenvio de cena, o ⏮/⏭ do ajuste e a
-// marca de agora no painel vêm de graça, porque é a MESMA sessão.
-//
-// A CENA VIRA O ITINERÁRIO ATIVO DO PAINEL, E NADA É APAGADO (v1.13.2). Pedido
-// do operador: tocar um itinerário guardado o torna o ativo, editável, sem
-// perder o que o painel tinha. Quem acha o lugar dele na lista é o CONTEÚDO (a
-// identidade da cena, `cueChave`) — e não um id gravado na cena:
-//
-//  1. o ATIVO já é esta programação → ele mesmo (o id de cada linha igual é
-//     reaproveitado: é a chave por que o telão reconhece as linhas, e reprojetar
-//     faria todas "entrarem" de novo, animadas, sem nada ter mudado);
-//  2. um itinerário GUARDADO é esta programação → troca para ele;
-//  3. o ativo está VAZIO → ele recebe a cena (e o nome dela, se o dele foi o app
-//     que escreveu);
-//  4. senão → um itinerário NOVO, com o nome da cena (" (2)" se colidir), e o
-//     de antes fica na lista, intocado.
-//
-// Tocar a mesma cena de novo cai no 1 ou no 2, então nunca duplica. E uma cena
-// guardada antes de o ativo ser editado cai no 4: a edição não é apagada pela
-// cena, e a cena não é desfigurada pela edição.
-// A ADOÇÃO, PURA: o painel passa a editar a programação da cena. Devolve
-// `false` quando a cena não tem horário válido — aí nada é tocado. Ela mora
-// separada porque tem DOIS chamadores desde o Pacote 21: o toque na cena
-// (`projetarItinerarioCue`, que depois projeta) e a engrenagem do item
-// (`abrirFerramentaComCue`, que só abre o painel).
-function itinAdotarCue(d, nomeDaCena) {
-  const dados = (d && Array.isArray(d.itens)) ? d.itens : [];
-  const vindos = dados
-    .filter((x) => x && Number.isFinite(x.min) && x.min >= 0 && x.min < 1440 && String(x.titulo || '').trim())
-    .map((x) => ({ min: Math.round(x.min), titulo: String(x.titulo).trim().slice(0, ITIN_TITULO_MAX) }));
-  if (!vindos.length) return false;
-  const chave = itinChaveDoConteudo(vindos);
-  const comIds = (base) => {
-    const livres = base.slice();
-    return ordenarItin(vindos.map((x) => {
-      const i = livres.findIndex((y) => y.min === x.min && y.titulo === x.titulo);
-      return { id: i >= 0 ? livres.splice(i, 1)[0].id : uid(), min: x.min, titulo: x.titulo };
-    }));
-  };
-  if (itinChaveDoConteudo(itin.itens) === chave) {
-    itin.itens = comIds(itin.itens);
-  } else {
-    const par = itinLista.filter((x) => x.id !== itin.id && itinChaveDoConteudo(x.itens) === chave)
-      .sort((a, b) => (b.usado || 0) - (a.usado || 0))[0];
-    if (par) {
-      itinTrocarPara(par.id);
-      diagC('itinerário: a cena tocada é "' + itin.nome + '" — ele passa a ser o ativo');
-    } else if (!itin.itens.length) {
-      itin.itens = comIds([]);
-      const nome = itinNomeLimpo(nomeDaCena);
-      if (nome && itinNomeAutomatico(itin.nome)) {
-        itin.nome = itinNomeLivre(nome, itinLista.filter((x) => x.id !== itin.id).map((x) => x.nome));
-      }
-    } else {
-      itinCriar({ nome: nomeDaCena, itens: comIds([]), horas: d.horas });
-      diagC('itinerário: a cena tocada virou o itinerário "' + itin.nome + '" (o anterior continua na lista)');
-    }
+// A LISTA MUDOU (um `load()`, um arrasto, uma troca de cronograma): o que está no
+// ar acompanha o cronograma ATIVO, e a barra se repinta. A assinatura é o que
+// impede um redesenho da lista (cada download, cada ordem) de reenviar ao telão
+// uma lista que não mudou.
+let itinAssinVista = null;
+function itinSincronizar() {
+  const assin = JSON.stringify(itinItens().map((x) => [x.id, x.min, x.titulo]));
+  if (assin !== itinAssinVista) {
+    itinAssinVista = assin;
+    pushItin();
   }
-  if (typeof d.horas === 'boolean') itin.horas = d.horas;
-  return true;
+  renderItinBar();
+  itinMarcar();
 }
 
-function projetarItinerarioCue(d, cueId, nomeDaCena) {
-  if (!itinAdotarCue(d, nomeDaCena)) { falharNoItem(cueId, 'o itinerário guardado está vazio'); return; }
-  saveItin();
-  projectItin();
-  if (itinGavetaAberta()) renderItinGaveta();
-  if (ferramentasAbertas() && miscTool === 'chrono' && tempoVista === 'itinerario') renderChronoEControles();
-}
-
-// O painel e o rodapé mudam juntos (o projetar apaga com a lista vazia, o
-// quadrado das horas acende e apaga) — o mesmo par do `renderChronoEControles`.
 function itinMudou() {
   saveItin();
   pushItin();
-  if (ferramentasAbertas() && miscTool === 'chrono' && tempoVista === 'itinerario') renderChronoEControles();
+  renderItinBar();
+  itinMarcar();
 }
 
 function textoDoAjuste() {
@@ -8894,7 +8659,7 @@ function textoDoAjuste() {
   return (d > 0 ? '+' : '−') + Math.abs(d) + ' min';
 }
 
-// HÁ PARA ONDE ANDAR? A régua única dos passos do ajuste — os quatro do painel
+// HÁ PARA ONDE ANDAR? A régua única dos passos do ajuste — os quatro da barra
 // e o par ao lado da preview. Nos extremos (doze horas) o passo apaga.
 function itinPassoApagado(sentido) {
   return sentido < 0 ? itin.desloc <= -ITIN_DESLOC_MAX : itin.desloc >= ITIN_DESLOC_MAX;
@@ -8903,7 +8668,9 @@ function itinPassoApagado(sentido) {
 function itinAjustar(delta) {
   const novo = Math.max(-ITIN_DESLOC_MAX, Math.min(ITIN_DESLOC_MAX, itin.desloc + delta));
   if (novo === itin.desloc) return;
+  if (!itin.desloc) itin.deslocDia = hojeLocal();
   itin.desloc = novo;
+  if (!novo) itin.deslocDia = '';
   diagC('itinerário: ajuste ' + textoDoAjuste());
   itinMudou();
   // O PAR AO LADO DA PREVIEW lê a mesma régua, e a folha pode estar fechada (o
@@ -8914,6 +8681,7 @@ function itinAjustar(delta) {
 function itinAjusteZerar() {
   if (!itin.desloc) return;
   itin.desloc = 0;
+  itin.deslocDia = '';
   diagC('itinerário: ajuste zerado (horário previsto)');
   itinMudou();
   renderEixoDoPar();
@@ -8924,105 +8692,61 @@ function itinSetHoras(v) {
   itinMudou();
 }
 
-function itinAdicionar(min, titulo) {
+function itinBarraOculta(v) {
+  itin.barraOculta = !!v;
+  saveItin();
+  renderItinBar();
+}
+
+// ===== OS MOMENTOS: criar, editar =====
+// A POSIÇÃO DE UM MOMENTO NOVO: antes do primeiro momento que vem DEPOIS dele no
+// relógio; se não há, no fim da lista (a lista vazia de momentos o põe no TOPO — é o
+// título do primeiro bloco). O operador arrasta o resto.
+function itinPosicaoDoNovo(ids, min) {
+  const porId = new Map((libItems || []).filter(ehMomento).map((r) => [r.id, Number(r.data && r.data.min)]));
+  let ultimo = -1;
+  for (let i = 0; i < ids.length; i++) {
+    if (!porId.has(ids[i])) continue;
+    ultimo = i;
+    if (porId.get(ids[i]) > min) return i;
+  }
+  return ultimo < 0 ? 0 : ids.length;
+}
+
+async function itinAdicionar(min, titulo) {
   const t = String(titulo || '').trim().slice(0, ITIN_TITULO_MAX);
-  if (!t || !Number.isFinite(min)) return false;
-  itin.itens = ordenarItin(itin.itens.concat([{ id: uid(), min, titulo: t }]));
-  itinMudou();
+  if (!t || !itinMinValido(min)) return false;
+  const rec = await AVDB.addCue('momento', { min }, { name: t, list: 'imports' });
+  if (!rec) return false;
+  await AVDB.listSet('imports', (ids) => {
+    const sem = ids.filter((i) => i !== rec.id);
+    sem.splice(itinPosicaoDoNovo(sem, min), 0, rec.id);
+    return sem;
+  });
+  cronoSet.add(rec.id);
+  await load();
   return true;
 }
 
-function itinSalvar(id, min, titulo) {
+async function itinSalvar(id, min, titulo) {
   const t = String(titulo || '').trim().slice(0, ITIN_TITULO_MAX);
-  const x = itin.itens.find((i) => i.id === id);
-  if (!x || !t || !Number.isFinite(min)) return false;
-  x.min = min; x.titulo = t;
-  itin.itens = ordenarItin(itin.itens);
-  itinMudou();
+  if (!t || !itinMinValido(min)) return false;
+  const novo = await AVDB.atualizarCue(id, { min }, t);
+  if (!novo) return false;
+  await load();
   return true;
 }
 
-function itinExcluir(id) {
-  const n = itin.itens.length;
-  itin.itens = itin.itens.filter((x) => x.id !== id);
-  if (itin.itens.length === n) return;
-  itinMudou();
-}
-
-/**
- * MOVER UM HORÁRIO UMA CASA (v1.13.2) — o par ↑↓ do Cronograma, na faixa do `⋮`.
- *
- * A LISTA É ORDENADA PELO RELÓGIO, então mover é TROCAR DE LUGAR COM O VIZINHO
- * deixando os HORÁRIOS onde estão: o evento leva o horário do vizinho, e o
- * vizinho o dele. A grade de horários da programação não muda — muda quem ocupa
- * cada horário —, e a lista continua em ordem sem nada mais a ajustar.
- *
- * Considerado e recusado: trocar levando a DURAÇÃO de cada um (o primeiro do par
- * começa no horário de antes, o segundo depois do primeiro acabar). O último da
- * lista não tem duração — não há o seguinte que a diga —, e a regra mudaria de
- * natureza justamente na ponta em que o encerramento mora.
- *
- * O id de cada linha FICA com o título: é por ele que o telão reconhece as
- * linhas, e a troca no ar é o deslize animado de sempre. A faixa reabre na
- * linha que andou (`reabrirAcoesEm`), como no Cronograma: mover três casas são
- * três toques, sem reabrir o `⋮`.
- */
-function itinMover(id, delta) {
-  const i = itin.itens.findIndex((x) => x.id === id);
-  const j = i + delta;
-  if (i < 0 || j < 0 || j >= itin.itens.length) return false;
-  const a = itin.itens[i], b = itin.itens[j];
-  const m = a.min; a.min = b.min; b.min = m;
-  const nova = itin.itens.slice();
-  nova[i] = b; nova[j] = a;
-  itin.itens = nova;
-  reabrirAcoesEm = 'itin:' + id;
-  itinMudou();
-  return true;
-}
-// O PAR, com a anatomia do `botoesDeOrdem`: `row-btn row-ordem` (a faixa não
-// fecha — está em `ACOES_QUE_NAO_FECHAM`), o chevron do app, e as PONTAS
-// apagadas. Lista de um só não ganha par.
-function itinBotoesDeOrdem(id, pos, total) {
-  if (total <= 1) return [];
-  const faz = (delta, titulo, inerte) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'row-btn row-ordem';
-    b.title = titulo;
-    b.setAttribute('aria-label', titulo);
-    b.innerHTML = chevronDirSvg(delta < 0);
-    if (inerte) b.disabled = true;
-    else b.addEventListener('click', (e) => { e.stopPropagation(); itinMover(id, delta); });
-    return b;
-  };
-  return [faz(-1, 'Mover para cima', pos === 0), faz(1, 'Mover para baixo', pos === total - 1)];
-}
-
-// O HORÁRIO SUGERIDO para a próxima linha: 15 minutos depois da última, ou o
-// próximo múltiplo de cinco a partir de agora numa lista vazia.
+// O HORÁRIO SUGERIDO para o próximo momento: 15 minutos depois do último, ou o
+// próximo múltiplo de cinco a partir de agora quando ainda não há nenhum.
 function itinHoraSugerida() {
-  if (itin.itens.length) return Math.min(1439, itin.itens[itin.itens.length - 1].min + 15);
+  const itens = itinItens();
+  if (itens.length) return Math.min(1439, itens[itens.length - 1].min + 15);
   const d = new Date();
   return Math.min(1439, Math.ceil((d.getHours() * 60 + d.getMinutes() + 1) / 5) * 5);
 }
 
-function itinBotao(classe, rotulo, conteudo, fn) {
-  const b = document.createElement('button');
-  b.type = 'button'; b.className = 'chrono-btn ' + classe;
-  b.title = rotulo; b.setAttribute('aria-label', rotulo);
-  if (typeof conteudo === 'string') b.textContent = conteudo; else b.appendChild(conteudo);
-  b.addEventListener('click', fn);
-  return b;
-}
-
-function svgNo(html) {
-  const t = document.createElement('template');
-  t.innerHTML = html.trim();
-  return t.content.firstChild;
-}
-
-// "1 h 30 min", "45 min" — o intervalo até o item seguinte, no subtítulo.
+// "1 h 30 min", "45 min" — o intervalo até o momento seguinte, no subtítulo.
 function itinDuracao(min) {
   if (!(min > 0)) return '';
   const h = Math.floor(min / 60), m = min % 60;
@@ -9030,131 +8754,46 @@ function itinDuracao(min) {
 }
 
 /**
- * O PAINEL DO ITINERÁRIO — a LISTA do app, e não um formulário: as peças que
- * o operador já sabe do Cronograma, de cima para baixo:
- *
- *  1. o AJUSTE (−5 · −1 · o atraso · +1 · +5 · ↺);
- *  2. a LISTA (`.lib-item > .row`, a linha do Cronograma e das Mensagens): a
- *     HORA no quadrado da capa, o título com o subtítulo embaixo, e o `⋮` com a
- *     faixa de ações (excluir, que pergunta NA LINHA, e editar). Tocar na linha
- *     EDITA — a ação de quem abre um horário é corrigi-lo; quem projeta é o
- *     rodapé, que manda a lista inteira;
- *  3. "ADICIONAR HORÁRIO", a última linha — o "Novo cronograma" da gaveta dos
- *     cronogramas, fora do scroller para não sumir numa lista comprida.
- *
- * Adicionar e editar abrem a MESMA folha (`#itinPopup`), com as roletas de
- * hora e minuto do Tempo — sem diálogo do sistema (ver `abrirItinEditor`).
- *
- * O PAR ↑↓ MORA NA FAIXA, como no Cronograma: mover TROCA o evento de lugar
- * com o vizinho e os horários ficam onde estão (ver `itinMover`).
- *
- * O NOME DO ITINERÁRIO ATIVO não mora no painel: ele é o TÍTULO DA FOLHA
- * (`#itinTitulo`, no `.tools-head`), a porta da gaveta dos itinerários — o
- * `#cronoTitulo` do Cronograma.
- *
- * O item de AGORA é marcado pela MESMA leitura do telão, e um laço de um segundo
- * (`itinMarcar`) só troca as marcas — reconstruir o painel a cada segundo
- * fecharia a faixa de ações debaixo do dedo.
+ * A CENA ANTIGA (`cue: 'itinerario'`, de antes da v1.14.32): tocá-la ACRESCENTA os
+ * horários dela ao cronograma ativo como momentos — nada do que já está lá é
+ * tocado (a regra do pacote: só acrescenta), e um horário que já existe (mesmo
+ * horário e título) não entra de novo. Nenhuma cena nova desse tipo se cria.
  */
-function renderItinerario(host) {
-  // A gaveta de uma linha não sobrevive ao redesenho (a regra do `renderMsg`).
-  fecharAcoesDaLinha();
-  // O NOME DO ATIVO, a porta da gaveta, mora no TÍTULO DA FOLHA: o
-  // painel é redesenhado a cada mudança, e o cabeçalho acompanha daqui.
-  pintarCabecalhoDasFerramentas();
-  // --- 1. o ajuste ---
-  const aj = document.createElement('div');
-  aj.className = 'itin-ajuste';
-  const passo = (n) => itinBotao('itin-passo', (n > 0 ? 'Atrasar ' : 'Adiantar ') + Math.abs(n) + ' min',
-    (n > 0 ? '+' : '−') + Math.abs(n), () => itinAjustar(n));
-  const menos5 = passo(-5), menos1 = passo(-1), mais1 = passo(1), mais5 = passo(5);
-  // NOS EXTREMOS O PASSO É APAGADO (doze horas para cada lado; mais que isso
-  // cruza a meia-noite, que está fora).
-  menos5.disabled = menos1.disabled = itinPassoApagado(-1);
-  mais5.disabled = mais1.disabled = itinPassoApagado(1);
-  const txt = document.createElement('span');
-  txt.className = 'itin-ajuste-txt' + (itin.desloc ? ' deslocado' : '');
-  txt.id = 'itinAjusteTxt';
-  txt.textContent = itin.desloc > 0 ? 'Atrasado ' + itin.desloc + ' min'
-    : itin.desloc < 0 ? 'Adiantado ' + (-itin.desloc) + ' min' : 'No horário';
-  const zerar = itinBotao('itin-zerar', 'Voltar ao horário previsto', svgNo(icoSprite('icoZerar')), itinAjusteZerar);
-  zerar.disabled = !itin.desloc;
-  if (!itin.desloc) zerar.title = 'Já está no horário previsto';
-  [menos5, menos1, txt, mais1, mais5, zerar].forEach((e) => aj.appendChild(e));
-  host.appendChild(aj);
-
-  // --- 2. a lista ---
-  const lista = document.createElement('ul');
-  lista.className = 'itin-lista rola';
-  lista.id = 'itinLista';
-  if (!itin.itens.length) {
-    const vazio = document.createElement('li');
-    vazio.className = 'empty';
-    vazio.textContent = 'Nenhum horário ainda.';
-    lista.appendChild(vazio);
+async function projetarItinerarioCue(d, cueId) {
+  const itens = itinItensValidos(d && d.itens);
+  if (!itens.length) { falharNoItem(cueId, 'itinerário guardado vazio'); return; }
+  const tem = new Set(itinItens().map((x) => x.min + '|' + x.titulo.trim()));
+  let novos = 0;
+  for (const x of itens) {
+    if (tem.has(x.min + '|' + x.titulo.trim())) continue;
+    if (await itinAdicionar(x.min, x.titulo)) novos++;
   }
-  itin.itens.forEach((x, i) => lista.appendChild(itinLinha(x, itin.itens[i + 1] || null, i, itin.itens.length)));
-  host.appendChild(lista);
-
-  // --- 3. adicionar ---
-  const novo = document.createElement('button');
-  novo.type = 'button';
-  novo.className = 'crono-novo itin-novo-btn';
-  novo.id = 'itinNovoBtn';
-  novo.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"'
-    + ' stroke-linecap="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>';
-  const t = document.createElement('span');
-  t.textContent = 'Adicionar horário';
-  novo.appendChild(t);
-  novo.addEventListener('click', () => abrirItinEditor(null));
-  host.appendChild(novo);
-
-  itinMarcar();
-  startItinPanelTimer();
+  if (!novos) falharNoItem(cueId, 'estes momentos já estão no cronograma');
+  else diagC('itinerário antigo: ' + novos + ' momentos acrescentados ao cronograma');
 }
 
-function itinLinha(x, proximo, pos, total) {
+// ===== A LINHA DE UM MOMENTO, NA LISTA DO CRONOGRAMA =====
+// Uma linha DIFERENTE das de mídia, de propósito: sem capa, mais baixa, o
+// horário em destaque e uma barra do lado — ela é um TÍTULO que organiza as
+// mídias que vêm depois, e não um item do culto. Mesma `lib-item > .row` das
+// outras (o arrasto, a faixa do `⋮` e o excluir na linha são os de sempre).
+// Tocar EDITA; segurar ARRASTA. O item de AGORA é marcado pela mesma leitura do
+// telão (`itinMarcar`, um laço de um segundo que só troca marcas e textos).
+function linhaDeMomento(item) {
   const li = document.createElement('li');
-  li.className = 'lib-item itin-li';
-  li.dataset.id = x.id;
+  li.className = 'lib-item momento';
+  li.dataset.id = item.id;
   const row = document.createElement('div');
   row.className = 'row';
-  row.title = 'Editar este horário';
-  // A HORA MORA NA CAPA: é o que identifica a linha num itinerário, e é o
-  // quadrado de `--thumb` que toda linha de lista deste app já tem à esquerda.
-  // O que vai ali é o horário EFETIVO (com o ajuste); o previsto vai no
-  // subtítulo quando eles diferem.
-  const thumb = document.createElement('div');
-  thumb.className = 'thumb thumb--icon itin-thumb';
+  row.title = 'Editar este momento';
   const hora = document.createElement('span');
-  hora.className = 'itin-thumb-hora';
-  hora.textContent = createStage.itinHora(x.min + itin.desloc);
-  thumb.appendChild(hora);
+  hora.className = 'momento-hora';
+  const min = Number(item.data && item.data.min);
+  hora.textContent = itinMinValido(min) ? createStage.itinHora(min + itin.desloc) : '--:--';
   const texto = document.createElement('div'); texto.className = 'row-text';
-  const nome = document.createElement('span'); nome.className = 'row-name'; nome.textContent = x.titulo;
+  const nome = document.createElement('span'); nome.className = 'row-name'; nome.textContent = item.name;
   const sub = document.createElement('span'); sub.className = 'row-sub';
-  sub.dataset.dur = proximo ? itinDuracao(proximo.min - x.min) : '';
   texto.append(nome, sub);
-  row.addEventListener('click', (e) => {
-    if (e.target.closest('.row-btn,.row-acoes,.row-slot,.row-stop')) return;
-    abrirItinEditor(x.id);
-  });
-  // EXCLUIR PERGUNTA NA LINHA, como em toda lista deste app (v5.301): a faixa
-  // troca de conteúdo e a linha sai antes de o item ser apagado.
-  const del = document.createElement('button');
-  del.type = 'button'; del.className = 'row-btn row-excluir';
-  del.title = 'Excluir este horário';
-  del.setAttribute('aria-label', 'Excluir este horário');
-  del.appendChild(msym(ICON.del));
-  del.addEventListener('click', (e) => {
-    e.stopPropagation();
-    pedirConfirmacaoNaLinha(del, {
-      ok: 'Excluir',
-      dica: 'Apagar este horário do itinerário. Os itinerários já guardados no '
-        + 'Cronograma ou nos favoritos continuam como estavam.',
-      aoConfirmar: () => itinExcluir(x.id),
-    });
-  });
   // EDITAR abre a folha, e por isso FECHA a faixa (não está em
   // `ACOES_QUE_NAO_FECHAM`): a conversa continua noutro lugar.
   const ed = document.createElement('button');
@@ -9162,236 +8801,122 @@ function itinLinha(x, proximo, pos, total) {
   ed.title = 'Editar horário e título';
   ed.setAttribute('aria-label', 'Editar horário e título');
   ed.innerHTML = pencilIconSvg();
-  ed.addEventListener('click', (e) => { e.stopPropagation(); abrirItinEditor(x.id); });
-  // A ORDEM É A DAS LISTAS: o excluir primeiro, o mais longe do `⋮`, e o par
-  // ↑↓ por último, como no Cronograma.
-  const [caixa, mais] = montarAcoesDaLinha(li, [del, ed, ...itinBotoesDeOrdem(x.id, pos, total)], 'itin:' + x.id);
-  row.append(thumb, texto, caixa, mais);
+  ed.addEventListener('click', (e) => { e.stopPropagation(); abrirItinEditor(item.id); });
+  // A ORDEM É A DAS LISTAS: o excluir primeiro, o mais longe do `⋮`.
+  const [caixa, mais] = montarAcoesDaLinha(li, [botaoExcluirDaLinha(item, 'imports', () => load()), ed], 'imports:' + item.id);
+  row.append(hora, texto, caixa, mais);
   li.appendChild(row);
+  attachRowGestures(row, item, { lista: 'imports', aoTocar: (it) => abrirItinEditor(it.id) });
   return li;
 }
 
-// A MARCA DE AGORA no painel, pela MESMA leitura do telão (relógio deste
-// aparelho, que é a origem). Só troca classes e textos — nada se reconstrói.
-// O item de agora é a linha ATUAL da lista (`.active`, o `--sel-fill` das
-// listas); o subtítulo diz "Agora"/"A seguir", o previsto quando há ajuste e o
-// intervalo até o seguinte.
+// A MARCA DE AGORA na lista, pela MESMA leitura do telão (relógio deste
+// aparelho, que é a origem). Só troca classes e textos — nada se reconstrói. O
+// subtítulo diz "Agora"/"A seguir", o previsto quando há ajuste e o intervalo até
+// o momento seguinte.
 function itinMarcar() {
+  const lis = libraryEl ? libraryEl.querySelectorAll('li.momento') : [];
+  if (!lis.length) return;
+  const itens = itinItens();
   const l = createStage.itinerarioLeitura(itinDescriptor(), Date.now());
   const agora = l.ativo >= 0 ? l.itens[l.ativo].k : '';
   const seguir = l.ativo < 0 && l.itens.length ? l.itens[0].k : '';
-  document.querySelectorAll('#itinLista .itin-li').forEach((li) => {
+  lis.forEach((li) => {
     const id = li.dataset.id;
-    const x = itin.itens.find((i) => i.id === id);
-    li.classList.toggle('active', id === agora);
-    li.classList.toggle('itin-seguir', id === seguir);
+    const i = itens.findIndex((x) => x.id === id);
+    if (i < 0) return;
+    const x = itens[i], proximo = itens[i + 1] || null;
+    li.classList.toggle('agora', id === agora);
+    li.classList.toggle('seguir', id === seguir);
     const sub = li.querySelector('.row-sub');
-    if (!sub || !x) return;
+    if (!sub) return;
     const partes = [];
     if (id === agora) partes.push('Agora');
     else if (id === seguir) partes.push('A seguir');
     if (itin.desloc) partes.push('previsto ' + createStage.itinHora(x.min));
-    if (sub.dataset.dur) partes.push(sub.dataset.dur);
-    const txt = partes.join(' · ') || 'Último horário';
+    const dur = proximo ? itinDuracao(proximo.min - x.min) : '';
+    if (dur) partes.push(dur);
+    const txt = partes.join(' · ') || 'Último momento';
     if (sub.textContent !== txt) sub.textContent = txt;
+    const hora = li.querySelector('.momento-hora');
+    const h = createStage.itinHora(x.min + itin.desloc);
+    if (hora && hora.textContent !== h) hora.textContent = h;
   });
 }
+setInterval(itinMarcar, createStage.ITIN_TICK_MS);
 
-// ===== A GAVETA DOS ITINERÁRIOS (v1.13.2) =====
-//
-// O idioma da gaveta dos cronogramas (`abrirCronoGaveta`), linha a linha: uma
-// LINHA por itinerário — renomear à esquerda, o nome e a conta no MEIO (tocar
-// TROCA), excluir à direita, os dois sempre à vista — e "Novo itinerário" por
-// último. O ativo é a linha em `--sel-fill`; o excluir é APAGADO no único.
-//
-// ELA MORA NA FOLHA DE FERRAMENTAS, e não no painel: o painel é redesenhado a
-// cada mudança (e o `.tools-body` rola), e uma gaveta dentro dele morreria com
-// o redesenho que ela mesma dispara. O VÉU é da folha também — o toque que fecha
-// não pode editar a linha do itinerário que estava por baixo dele; o que cai
-// FORA da folha (a preview, o transporte) fecha pela captura e segue.
-//
-// A PROJEÇÃO SEGUE O ATIVO: o telão mostra o itinerário do painel, então trocar
-// (ou excluir o ativo) com ele no ar manda o novo ativo — vazio, sai do telão.
-// É o que já acontece com toda edição do painel; um telão preso ao itinerário
-// de antes deixaria o painel e a projeção falando de programações diferentes.
-// (Os nós da gaveta — `itinGavetaEl`, `itinGavetaListaEl`, `itinVeuEl` — são
-// declarados no topo, com os da gaveta dos cronogramas.)
-
-// ABERTA é ter a classe, e não só estar à vista: no fechamento o nó continua à
-// vista até a transição acabar, e o voltar e o título já o leem como fechado.
-function itinGavetaAberta() { return !!(itinGavetaEl && !itinGavetaEl.hidden && itinGavetaEl.classList.contains('aberta')); }
-
-function abrirItinGaveta() {
-  if (!itinGavetaEl) return;
-  const tit = itinTituloEl;
-  fecharAcoesDaLinha();
-  renderItinGaveta();
-  const seq = ++itinGavetaSeq;
-  // ABAIXO DO TÍTULO, medido: o cabeçalho da folha cresce com a fonte do
-  // sistema — um número escrito no CSS envelheceria com ela.
-  if (tit && toolsSheetEl) {
-    const t = tit.getBoundingClientRect(), f = toolsSheetEl.getBoundingClientRect();
-    itinGavetaEl.style.top = Math.max(0, Math.round(t.bottom - f.top)) + 'px';
-  }
-  if (itinVeuEl) itinVeuEl.hidden = false;
-  itinGavetaEl.hidden = false;
-  if (tit) tit.setAttribute('aria-expanded', 'true');
-  void itinGavetaEl.offsetHeight;
-  if (seq === itinGavetaSeq) itinGavetaEl.classList.add('aberta');
-}
-
-function fecharItinGaveta() {
-  const seq = ++itinGavetaSeq;
-  if (itinVeuEl) itinVeuEl.hidden = true;
-  if (itinTituloEl) itinTituloEl.setAttribute('aria-expanded', 'false');
-  const el = itinGavetaEl;
-  if (!el || el.hidden) return;
-  el.classList.remove('aberta');
-  // O relógio é de segurança, não de régua — a regra do `fecharCronoGaveta`.
-  const fim = () => { if (seq === itinGavetaSeq) el.hidden = true; };
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { fim(); return; }
-  el.addEventListener('transitionend', fim, { once: true });
-  setTimeout(fim, 260);
-}
-
-// A gaveta só existe com o painel do itinerário à vista: trocar de ferramenta
-// ou de segmento a fecha.
-function fecharItinGavetaForaDoPainel() {
-  if (ferrNaGrade || !(miscTool === 'chrono' && tempoVista === 'itinerario')) fecharItinGaveta();
-}
-
-function renderItinGaveta() {
-  if (!itinGavetaListaEl) return;
-  itinGavetaListaEl.innerHTML = '';
-  const entradas = itinEntradas();
-  const unico = entradas.length < 2;
-  for (const c of entradas) {
-    const li = document.createElement('li');
-    li.className = 'crono-item itin-g-item' + (c.ativo ? ' ativo' : '');
-    li.dataset.id = c.id;
-
-    const ren = document.createElement('button');
-    ren.type = 'button';
-    ren.className = 'row-btn crono-renomear';
-    ren.title = 'Renomear “' + c.nome + '”';
-    ren.setAttribute('aria-label', ren.title);
-    ren.innerHTML = pencilIconSvg();
-    ren.addEventListener('click', (e) => { e.stopPropagation(); renomearItinerario(c.id); });
-
-    const troca = document.createElement('button');
-    troca.type = 'button';
-    troca.className = 'crono-trocar';
-    if (c.ativo) troca.setAttribute('aria-current', 'true');
-    troca.title = c.ativo ? 'Este é o itinerário em uso' : 'Usar “' + c.nome + '”';
-    const nome = document.createElement('span');
-    nome.className = 'row-name crono-item-nome';
-    nome.textContent = c.nome;
-    const qtd = document.createElement('span');
-    qtd.className = 'row-sub crono-item-qtd';
-    qtd.textContent = c.qtd === 1 ? '1 horário' : c.qtd + ' horários';
-    troca.append(nome, qtd);
-    troca.addEventListener('click', () => { trocarItinerario(c.id); });
-
-    const exc = document.createElement('button');
-    exc.type = 'button';
-    exc.className = 'row-btn crono-excluir';
-    exc.disabled = unico;
-    exc.title = unico ? 'É o único itinerário — o app precisa de pelo menos um' : 'Excluir “' + c.nome + '”';
-    exc.setAttribute('aria-label', exc.title);
-    exc.appendChild(msym(ICON.del));
-    exc.addEventListener('click', (e) => { e.stopPropagation(); excluirItinerario(c.id); });
-
-    li.append(ren, troca, exc);
-    itinGavetaListaEl.appendChild(li);
-  }
-  const li = document.createElement('li');
+// ===== A SEGUNDA LINHA DO CRONOGRAMA: as OPÇÕES DO ITINERÁRIO (`#itinBar`) =====
+// Uma faixa estreita logo abaixo da barra do topo, da cor dela. Da esquerda para a
+// direita: o TELÃO (liga e desliga a lista de momentos no cartão) · os HORÁRIOS no
+// telão (ou só os títulos) · o AJUSTE (−5 −1 · o atraso · +1 +5; tocar no atraso o
+// zera) · ADICIONAR um momento · RECOLHER. Recolhida, vira uma fita fina com a
+// seta para abrir (e o ponto aceso se o itinerário está no ar). A escolha de
+// recolher é DESTE aparelho (`state.itinerario.barraOculta`).
+let itinBarAssin = '';
+function itinBarBotao(id, classe, rotulo, conteudo, fn) {
   const b = document.createElement('button');
-  b.type = 'button';
-  b.className = 'crono-novo';
-  b.id = 'itinNovoItin';
-  b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"'
-    + ' stroke-linecap="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>';
-  const t = document.createElement('span');
-  t.textContent = 'Novo itinerário';
-  b.appendChild(t);
-  b.addEventListener('click', () => { novoItinerario(); });
-  li.appendChild(b);
-  itinGavetaListaEl.appendChild(li);
+  b.type = 'button'; b.className = 'itin-b ' + classe;
+  if (id) b.id = id;
+  b.title = rotulo; b.setAttribute('aria-label', rotulo);
+  if (typeof conteudo === 'string') b.innerHTML = conteudo; else b.appendChild(conteudo);
+  b.addEventListener('click', fn);
+  return b;
 }
+const ITIN_SETA_BAIXO = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+const ITIN_SETA_CIMA = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>';
+const ITIN_MAIS = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>';
 
-function trocarItinerario(id) {
-  fecharItinGaveta();
-  fecharAcoesDaLinha();
-  if (!itinTrocarPara(id)) return;
-  diagC('itinerário: trocou para "' + itin.nome + '"');
-  itinMudou();
-  renderEixoDoPar();
-}
-
-function novoItinerario() {
-  fecharItinGaveta();
-  fecharAcoesDaLinha();
-  itinCriar();
-  diagC('itinerário: novo, "' + itin.nome + '"');
-  itinMudou();
-  renderEixoDoPar();
-}
-
-/**
- * RENOMEAR (o quadrado da ESQUERDA da linha) — o `appPrompt` dos itens, para
- * QUALQUER itinerário. Aparado; vazio mantém o antigo; colidindo com OUTRO,
- * ganha " (2)". A GAVETA FICA ABERTA e é redesenhada.
- */
-async function renomearItinerario(id) {
-  const ativo = id === itin.id;
-  const alvo = ativo ? null : itinLista.find((x) => x.id === id);
-  if (!ativo && !alvo) return;
-  const atual = ativo ? itin.nome : alvo.nome;
-  const nome = await appPrompt({ title: 'Renomear o itinerário', message: 'Novo nome:', value: atual, okText: 'Renomear' });
-  const limpo = itinNomeLimpo(nome);
-  if (!limpo || limpo === atual) return;
-  const outros = itinEntradas().filter((x) => x.id !== id).map((x) => x.nome);
-  const final = itinNomeLivre(limpo, outros);
-  if (ativo) itin.nome = final; else alvo.nome = final;
-  saveItin();
-  if (ferramentasAbertas() && miscTool === 'chrono' && tempoVista === 'itinerario') renderChronoEControles();
-  if (itinGavetaAberta()) renderItinGaveta();
-}
-
-/**
- * EXCLUIR (o quadrado da DIREITA): pergunta, porque não tem desfazer. Sendo o
- * ATIVO, cai no USADO MAIS RECENTEMENTE dos outros — e o telão, se ele estava
- * no ar, passa a mostrar esse (a projeção segue o ativo). APAGADO no único. As
- * cenas já guardadas no Cronograma e nos Favoritos não são tocadas: elas têm a
- * programação dentro de si. A GAVETA FICA ABERTA e é redesenhada.
- */
-async function excluirItinerario(id) {
-  const entradas = itinEntradas();
-  if (entradas.length < 2) return;
-  const alvo = entradas.find((x) => x.id === id);
-  if (!alvo) return;
-  const n = alvo.qtd;
-  const ok = await appConfirm({
-    title: 'Excluir o itinerário',
-    message: 'Excluir “' + alvo.nome + '”' + (n ? ' e ' + (n === 1 ? 'o único horário' : 'os ' + n + ' horários') + ' dele' : '') + '?',
-    okText: 'Excluir',
-    perigo: true,
-  });
-  if (!ok) return;
-  if (id === itin.id) {
-    fecharAcoesDaLinha();
-    const prox = itinLista.filter((x) => x.id !== itin.id).sort((a, b) => (b.usado || 0) - (a.usado || 0))[0];
-    if (!prox) return;
-    itinTrocarPara(prox.id);
+function renderItinBar() {
+  if (!itinBarEl) return;
+  const n = itinItens().length, live = itinProjecting();
+  const assin = [itin.barraOculta ? 1 : 0, live ? 1 : 0, n ? 1 : 0, itin.desloc, itin.horas ? 1 : 0].join('|');
+  if (assin === itinBarAssin && itinBarEl.firstChild) return;
+  itinBarAssin = assin;
+  itinBarEl.textContent = '';
+  itinBarEl.classList.toggle('recolhida', itin.barraOculta);
+  itinBarEl.classList.toggle('no-ar', live);
+  if (itin.barraOculta) {
+    const abrir = itinBarBotao('itinBarAbrir', 'itin-abrir', 'Mostrar as opções do itinerário',
+      ITIN_SETA_BAIXO + '<span class="itin-abrir-txt">Itinerário</span>' + (live ? '<span class="itin-ponto" aria-hidden="true"></span>' : ''),
+      () => itinBarraOculta(false));
+    abrir.setAttribute('aria-expanded', 'false');
+    itinBarEl.appendChild(abrir);
+    return;
   }
-  itinLista = itinLista.filter((x) => x.id !== id);
-  diagC('itinerário: "' + alvo.nome + '" excluído');
-  itinMudou();
-  renderEixoDoPar();
-  if (itinGavetaAberta()) renderItinGaveta();
+  // O TELÃO: apagado sem momentos, com o porquê (a regra da v1.8.50).
+  const tel = itinBarBotao('itinTelaoBtn', 'itin-telao' + (live ? ' active' : ''),
+    live ? 'Tirar o itinerário do telão' : (n ? 'Mostrar o itinerário no telão' : 'Adicione um momento antes de projetar'),
+    cueIconSvg('itinerario') + '<span class="itin-telao-txt">Telão</span>',
+    () => (itinProjecting() ? hideItin() : projectItin()));
+  tel.setAttribute('aria-pressed', live ? 'true' : 'false');
+  tel.disabled = !live && !n;
+  const hor = itinBarBotao('itinHorasBtn', 'itin-horas' + (itin.horas ? ' active' : ''),
+    itin.horas ? 'Mostrando os horários no telão — toque para mostrar só os títulos'
+      : 'Mostrando só os títulos no telão — toque para mostrar os horários',
+    cueIconSvg('chrono'), () => itinSetHoras(!itin.horas));
+  hor.setAttribute('aria-pressed', itin.horas ? 'true' : 'false');
+  const passo = (d) => {
+    const b = itinBarBotao('', 'itin-passo', (d > 0 ? 'Atrasar ' : 'Adiantar ') + Math.abs(d) + ' min',
+      (d > 0 ? '+' : '−') + Math.abs(d), () => itinAjustar(d));
+    b.disabled = itinPassoApagado(d);
+    return b;
+  };
+  const txt = itinBarBotao('itinAjusteTxt', 'itin-ajuste-txt' + (itin.desloc ? ' deslocado' : ''),
+    itin.desloc ? 'Voltar ao horário previsto' : 'Já está no horário previsto',
+    // DUAS ESCRITAS do mesmo estado: a longa cabe nas telas largas, a curta (`+5 min`) nas
+    // estreitas — quem escolhe é a consulta de contêiner do CSS, não o JS.
+    '<span class="itin-txt-longo">' + (itin.desloc > 0 ? 'Atrasado ' + itin.desloc + ' min'
+      : itin.desloc < 0 ? 'Adiantado ' + (-itin.desloc) + ' min' : 'No horário') + '</span>'
+    + '<span class="itin-txt-curto">' + (itin.desloc ? textoDoAjuste() : '0 min') + '</span>',
+    itinAjusteZerar);
+  txt.disabled = !itin.desloc;
+  const novo = itinBarBotao('itinNovoBtn', 'itin-novo', 'Adicionar um momento ao cronograma', ITIN_MAIS, () => abrirItinEditor(null));
+  const fechar = itinBarBotao('itinBarFechar', 'itin-fechar', 'Recolher as opções do itinerário', ITIN_SETA_CIMA, () => itinBarraOculta(true));
+  fechar.setAttribute('aria-expanded', 'true');
+  [tel, hor, passo(-5), passo(-1), txt, passo(1), passo(5), novo, fechar].forEach((e) => itinBarEl.appendChild(e));
 }
 
-// ===== A FOLHA DE UM HORÁRIO: adicionar e editar =====
+// ===== A FOLHA DE UM MOMENTO: adicionar e editar =====
 //
 // A HORA NÃO É UM `<input type="time">`: a escolha dele não é do app — o WebView
 // a entrega a um diálogo do sistema, que depende da versão do WebView e do
@@ -9456,12 +8981,12 @@ function itinEditorValor() {
 }
 
 function abrirItinEditor(id) {
-  const x = id ? itin.itens.find((i) => i.id === id) : null;
+  const x = id ? itinItens().find((i) => i.id === id) : null;
   if (id && !x) return;
   fecharAcoesDaLinha();
   itinEditor = { id: x ? x.id : null };
   const min = x ? x.min : itinHoraSugerida();
-  itinPopupTituloEl.textContent = x ? 'Editar horário' : 'Novo horário';
+  itinPopupTituloEl.textContent = x ? 'Editar momento' : 'Novo momento';
   limparFolha(itinPopupCorpoEl);
 
   const cx = document.createElement('div');
@@ -9497,7 +9022,7 @@ function abrirItinEditor(id) {
   ok.className = 'song-menu-btn song-menu-go';
   const txt = document.createElement('span'); txt.className = 'song-menu-text';
   const lab = document.createElement('span'); lab.className = 'song-menu-label';
-  lab.textContent = x ? 'Salvar' : 'Adicionar ao itinerário';
+  lab.textContent = x ? 'Salvar' : 'Adicionar ao cronograma';
   txt.appendChild(lab); ok.appendChild(txt);
   const acertar = () => {
     ok.disabled = !titulo.value.trim();
@@ -9507,12 +9032,13 @@ function abrirItinEditor(id) {
   titulo.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !ok.disabled) { e.preventDefault(); ok.click(); }
   });
-  ok.addEventListener('click', () => {
+  ok.addEventListener('click', async () => {
     const m = itinEditorValor();
     if (!Number.isFinite(m) || !titulo.value.trim()) return;
+    ok.disabled = true;   // a gravação é assíncrona: um segundo toque não duplica o momento
     const feito = itinEditor && itinEditor.id
-      ? itinSalvar(itinEditor.id, m, titulo.value) : itinAdicionar(m, titulo.value);
-    if (feito) fecharItinEditor();
+      ? await itinSalvar(itinEditor.id, m, titulo.value) : await itinAdicionar(m, titulo.value);
+    if (feito) fecharItinEditor(); else acertar();
   });
   acertar();
   linha.appendChild(ok);
@@ -9538,15 +9064,6 @@ function fecharItinEditor() {
   if (itinRoletasObs) { itinRoletasObs.disconnect(); itinRoletasObs = null; }
   const c = document.getElementById('itinCampoTitulo');
   if (c && document.activeElement === c) c.blur();
-}
-
-function startItinPanelTimer() {
-  stopItinPanelTimer();
-  itinPanelTimer = setInterval(itinMarcar, createStage.ITIN_TICK_MS);
-}
-
-function stopItinPanelTimer() {
-  if (itinPanelTimer) { clearInterval(itinPanelTimer); itinPanelTimer = null; }
 }
 
 // UM BOTÃO DE ÍCONE para "guardar isto aqui": os dois destinos de uma cena de
@@ -9578,19 +9095,6 @@ function cueSaveBtn(icone, titulo, fn) {
  * caminho próprio delas.
  */
 function cueSaveDaFerramenta() {
-  // O ITINERÁRIO VIRA CENA DE ROTEIRO (v1.13.1), como as abas irmãs: o que se
-  // guarda é a PROGRAMAÇÃO (os itens e a escolha de horários × títulos), e não o
-  // ajuste — esse é do DIA, e um roteiro do sábado que viesse com o atraso de
-  // hoje começaria errado. O que a linha faz ao ser tocada é `projetarItinerarioCue`.
-  if (miscTool === 'chrono' && tempoVista === 'itinerario') {
-    const montar = async (destino, btn) => (itin.itens.length
-      ? criarCue('itinerario', itinCueData(), itinCueNome(), destino, btn) : null);
-    // LISTA VAZIA não tem o que guardar, e os dois quadrados ficam APAGADOS, não
-    // ausentes: uma peça que aparece e some desloca o primário sob o dedo (a
-    // regra da v1.8.61), e o `title` diz por quê (a da v1.8.50).
-    if (!itin.itens.length) montar.apagado = 'Adicione um horário antes de guardar';
-    return montar;
-  }
   if (miscTool === 'chrono') {
     const montar = async (destino, btn) => {
       const nome = chrono.label
@@ -9602,7 +9106,7 @@ function cueSaveDaFerramenta() {
       }, nome, destino, btn);
     };
     // O TIMER SEM TEMPO não tem o que guardar (v1.14.31): um "Timer 0 min" no
-    // Cronograma ou nos favoritos. Apagados com o porquê, como o itinerário vazio.
+    // Cronograma ou nos favoritos. Apagados com o porquê.
     if (chronoSemTempo()) montar.apagado = 'Escolha um tempo nas roletas antes de guardar';
     return montar;
   }
@@ -10354,8 +9858,8 @@ function renderMsg() {
 // (`ferrNaGrade`, `renderGradeDeFerramentas`, `#ferrGrade`, `.ferr-tile`) são da GRADE
 // que a lista substituiu — renomeá-los não muda um pixel.
 //
-// **O ESTADO DOS PAINÉIS É O DE SEMPRE.** `miscTool` ('msg' · 'chrono' · 'draw'),
-// `tempoVista` e `chrono.mode` continuam dizendo QUAL painel está montado — as dezenas
+// **O ESTADO DOS PAINÉIS É O DE SEMPRE.** `miscTool` ('msg' · 'chrono' · 'draw')
+// e `chrono.mode` continuam dizendo QUAL painel está montado — as dezenas
 // de guardas espalhadas pelo arquivo seguem valendo —, e o que entrou é UMA pergunta a
 // mais: `ferrNaGrade`, "a folha está mostrando a lista?". Ela nasce `true` em TODA
 // abertura da folha: Configurações também reabre sempre na grade dela (fechar recolhe a
@@ -10378,13 +9882,13 @@ let ferrVeioDaLista = false;
 // Os PAINÉIS — o que cada ferramenta monta no corpo da folha.
 const MISC_TOOLS = [
   { id: 'msg', name: 'Mensagens', wrap: 'msgWrap', render: () => renderMsg(), live: () => msgProjecting() },
-  { id: 'chrono', name: 'Tempo', wrap: 'chronoWrap', render: () => renderChrono(), live: () => chronoProjecting() || itinProjecting() },
+  { id: 'chrono', name: 'Tempo', wrap: 'chronoWrap', render: () => renderChrono(), live: () => chronoProjecting() },
   { id: 'draw', name: 'Sorteio', wrap: 'drawWrap', render: () => renderDraw(), live: () => drawProjecting() },
 ];
 
 // AS LINHAS DA LISTA, na ordem dela — por assunto: primeiro o TEMPO (as três roletas,
-// na ordem de `CHRONO_MODES`), depois o que vai ao telão como TEXTO do culto (o
-// Itinerário logo abaixo do Timer, encabeçando o texto).
+// na ordem de `CHRONO_MODES`), depois o que vai ao telão como TEXTO do culto. (O
+// Itinerário saiu da lista na v1.14.32: é uma opção do Cronograma, `#itinBar`.)
 // `tool` é o painel; `modo`/`vista` são o que o toque escreve no Tempo. Os desenhos
 // são os das cenas de roteiro (`CUE_SVG`) — o tile e a linha do Cronograma que ele
 // produz dizem a mesma coisa —, e os dois que não tinham cena própria (Relógio e
@@ -10401,7 +9905,6 @@ const FERRAMENTAS = [
   { id: 'clock', nome: 'Relógio', tool: 'chrono', modo: 'clock', ico: FERR_ICO.clock },
   { id: 'stopwatch', nome: 'Cronômetro', tool: 'chrono', modo: 'stopwatch', ico: CUE_SVG.chrono },
   { id: 'timer', nome: 'Timer', tool: 'chrono', modo: 'timer', ico: FERR_ICO.timer },
-  { id: 'itinerario', nome: 'Itinerário', tool: 'chrono', vista: 'itinerario', ico: CUE_SVG.itinerario },
   { id: 'msg', nome: 'Mensagens', tool: 'msg', ico: CUE_SVG.message },
   { id: 'draw', nome: 'Sorteio', tool: 'draw', ico: CUE_SVG.draw },
   // O EDITOR DE MÍDIA entrou aqui na v1.14.7: era uma seção de Configurações e
@@ -10412,7 +9915,7 @@ const FERRAMENTAS = [
 
 // QUAL LINHA é a ferramenta montada agora (o inverso do toque).
 function ferramentaAtual() {
-  if (miscTool === 'chrono') return tempoVista === 'itinerario' ? 'itinerario' : chrono.mode;
+  if (miscTool === 'chrono') return chrono.mode;
   return miscTool;
 }
 
@@ -10421,7 +9924,6 @@ function ferramentaAtual() {
 function ferramentaNoAr(f) {
   if (f.id === 'msg') return msgProjecting();
   if (f.id === 'draw') return drawProjecting();
-  if (f.id === 'itinerario') return itinProjecting();
   return chronoProjecting() && chrono.mode === f.modo;
 }
 
@@ -10608,14 +10110,6 @@ function acertarGradeDeFerramentas() {
 // volta à lista quando ela veio de lá, o ✕ que fecha a folha quando ela abriu
 // direto. Eles nunca aparecem juntos. Na LISTA o cabeçalho não é desenhado, e
 // quem fecha é a `#toolsFechar` (ver `medirPortaDasFerramentas`).
-//
-// NO ITINERÁRIO O TÍTULO É O NOME DO ITINERÁRIO ATIVO, e é a porta da gaveta
-// deles (o espaço vertical volta para a lista). É o idioma do `#cronoTitulo` inteiro — o nome e a seta, o
-// toque abre a gaveta e o RENOMEAR é o lápis da linha dela —, e não um campo de
-// texto no cabeçalho: um título que edita no toque não teria como abrir a gaveta,
-// e as duas folhas que têm "vários" passariam a responder ao mesmo gesto de formas
-// diferentes. O nome "Itinerário" da ferramenta sai da tela ali (o ícone da lista
-// já a disse), e o `#toolsTitle` continua escrito por baixo, escondido.
 function pintarCabecalhoDasFerramentas() {
   if (!toolsTitleEl) return;
   const atual = ferramentaAtual();
@@ -10628,13 +10122,7 @@ function pintarCabecalhoDasFerramentas() {
   const dentro = !ferrNaGrade && !!f;
   if (toolsVoltarEl) toolsVoltarEl.hidden = !(dentro && ferrVeioDaLista);
   if (toolsCloseEl) toolsCloseEl.hidden = !(dentro && !ferrVeioDaLista);
-  const noItin = !ferrNaGrade && atual === 'itinerario';
-  toolsTitleEl.hidden = noItin;
-  if (!itinTituloEl) return;
-  itinTituloEl.hidden = !noItin;
-  if (!noItin) return;
-  if (itinNomeEl.textContent !== itin.nome) itinNomeEl.textContent = itin.nome;
-  itinTituloEl.setAttribute('aria-expanded', itinGavetaAberta() ? 'true' : 'false');
+  toolsTitleEl.hidden = false;
 }
 
 /**
@@ -10651,9 +10139,7 @@ function renderDiversos() {
   // não existem no DOM — nenhum laço batendo em nó invisível.
   stopChronoPanelTimer();
   stopDrawPanelTimer();
-  stopItinPanelTimer();
   pararGradeTimer();
-  fecharItinGavetaForaDoPainel();
   // A FOLHA É ESTREITA NA LISTA, e só nela (v1.13.5) — ver `medirPortaDasFerramentas`.
   if (toolsSheetEl) toolsSheetEl.classList.toggle('estreita', ferrNaGrade);
   pintarCabecalhoDasFerramentas();
@@ -10715,7 +10201,6 @@ function abrirFerramenta(id, opcoes) {
   const desenhar = () => {
     miscTool = f.tool;
     if (f.tool === 'chrono') {
-      tempoVista = f.vista || 'chrono';
       if (f.modo && chrono.mode !== f.modo) chronoTrocarModo(f.modo);
     }
     ferrNaGrade = false;
@@ -10746,7 +10231,6 @@ function abrirFerramenta(id, opcoes) {
 function voltarAGradeDeFerramentas(opcoes) {
   if (!ferramentasAbertas() || ferrNaGrade) return;
   finalizarCueDoPainel();
-  fecharItinGaveta();
   // O EDITOR GRAVA O RASCUNHO ao sair, como fazia ao recolher a seção.
   if (miscTool === 'edicao') edicaoSalvarJa();
   trocarVistaDasFerramentas(() => {
@@ -10921,9 +10405,7 @@ function fecharFerramentas() {
   // timer de 5 Hz reescrevendo nós que o `innerHTML = ''` já descartou.
   stopChronoPanelTimer();
   stopDrawPanelTimer();
-  stopItinPanelTimer();
   pararGradeTimer();
-  fecharItinGaveta();
   if (!ferrNaGrade && miscTool === 'edicao') edicaoSalvarJa();
   // A FOLHA DESCE POR ONDE SUBIU: sumir no talo, depois de entrar deslizando,
   // se lê como erro.
@@ -11034,6 +10516,9 @@ function renderLibrary() {
   // O ALERTA DO "NÃO ESTÁ PRONTO" é conferido DEPOIS do desenho: a pergunta
   // "toca sem rede?" lê o banco, e o desenho da lista é síncrono.
   agendarConferenciaDoCronograma();
+  // OS MOMENTOS DO ITINERÁRIO moram nesta lista: o que está no telão e a barra de
+  // opções acompanham toda releitura dela (v1.14.32).
+  itinSincronizar();
 }
 
 function renderLibraryCorpo() {
@@ -11068,6 +10553,8 @@ function renderLibraryCorpo() {
   }
 
   items.forEach((item, i) => {
+    // O MOMENTO DO ITINERÁRIO é um TÍTULO da lista, e tem linha própria.
+    if (ehMomento(item)) { host.appendChild(linhaDeMomento(item)); return; }
     const li = document.createElement('li');
     const isActive = linhaAtiva(item.id);
     // NO AR é outra coisa que "atual" — ver `linhaNoAr`.
@@ -11305,7 +10792,7 @@ function renderListFoot() {
   li.appendChild(bib);
 
   const ferr = botaoDoRodape('toolsBtn', 'tools-btn',
-    'Ferramentas: relógio, cronômetro, timer, itinerário, mensagens e sorteio', 'Ferramentas',
+    'Ferramentas: relógio, cronômetro, timer, mensagens e sorteio', 'Ferramentas',
     '<rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/>'
     + '<rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/>'
     + '<rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/>'
@@ -12155,13 +11642,13 @@ const ACOES_QUE_NAO_FECHAM = ['row-ordem', 'fav-btn', 'row-excluir', 'row-playli
  */
 // ===== A ENGRENAGEM DO ITEM GUARDADO (Pacote 21) =====
 //
-// O cue é um PRESET: a Mensagem, o Sorteio, o Tempo e o Itinerário viram item
+// O cue é um PRESET: a Mensagem, o Sorteio e o Tempo viram item
 // do Cronograma/Favoritos, mas o item guardado não abria a ferramenta que o
 // gerou. A engrenagem abre — e a PORTA DE DADOS é o par `abrirFerramentaComCue`
 // (leva o conteúdo do item para o painel) e `finalizarCueDoPainel` (devolve o
 // painel editado para o item quando ele fecha). Sem a volta, o operador
 // editaria uma cópia descartável e o item seguiria apontando para o que já foi.
-const CUE_FERRAMENTA = { message: 'msg', draw: 'draw', chrono: 'clock', itinerario: 'itinerario' };
+const CUE_FERRAMENTA = { message: 'msg', draw: 'draw', chrono: 'clock' };
 // O cue aberto pela engrenagem, ou null. Ele morre quando a folha fecha, quando
 // o painel volta à grade e quando outra ferramenta é aberta (ver
 // `abrirFerramenta`): um vínculo que sobrevivesse à troca gravaria o painel de
@@ -12202,11 +11689,6 @@ function abrirFerramentaComCue(rec) {
     // `abrirFerramenta` já usa para trocar o modo (e zerar a contagem).
   } else if (rec.cue === 'draw') {
     applyDrawPrefs(d);
-  } else if (rec.cue === 'itinerario') {
-    // A MESMA adoção da cena tocada (`projetarItinerarioCue`), sem projetar: o
-    // que o painel mostra é o itinerário do item, com os ids reaproveitados.
-    itinAdotarCue(d, rec.name);
-    saveItin();
   }
   const id = rec.cue === 'chrono'
     ? (d.mode === 'stopwatch' ? 'stopwatch' : d.mode === 'timer' ? 'timer' : 'clock')
@@ -12224,12 +11706,10 @@ function finalizarCueDoPainel() {
   cueEmEdicao = null;
   if (!rec) return;
   let data = null;
-  if (rec.cue === 'chrono' && miscTool === 'chrono' && tempoVista === 'chrono') {
+  if (rec.cue === 'chrono' && miscTool === 'chrono') {
     data = { mode: chrono.mode, durationMs: chrono.durationMs, label: chrono.label, secs: chrono.secs, h12: chrono.h12 };
   } else if (rec.cue === 'draw' && miscTool === 'draw') {
     data = { kind: draw.kind, min: draw.min, max: draw.max, pool: draw.kind === 'text' ? draw.pool.slice() : [], label: draw.label };
-  } else if (rec.cue === 'itinerario' && miscTool === 'chrono' && tempoVista === 'itinerario') {
-    data = itinCueData();
   }
   if (!data) return;
   AVDB.atualizarCue(rec.id, data).then((novo) => {
@@ -36217,7 +35697,6 @@ function pacoteMesclarValor(local, vindo) {
 async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
   let viuFim = false;
   let cronosDoPacote = null;
-  let itinDoPacote = null;
   // AS CHAVES DE `state` VÃO EM LOTE. Uma transação por chave é o que a
   // Bíblia cobraria caro: ela mora aqui com uma chave POR CAPÍTULO, e
   // MEDIDO em Chromium sobre 1189 capítulos de tamanho real são 596 ms uma a
@@ -36427,10 +35906,11 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
       // daqui, com o nome dele, e nunca substitui um daqui. Fica para o FIM do
       // fluxo, quando a seleção (`filtro.admitidos`) já sabe quem entrou.
       if (cab.t === 'state' && cab.chave === 'cronogramas') { cronosDoPacote = valor; continue; }
-      // OS ITINERÁRIOS também não: a mescla genérica UNIRIA os horários
-      // do ativo de lá aos do ativo daqui — duas programações embaralhadas numa.
-      // A regra é a dos cronogramas guardados (`itinMesclarPacote`).
-      if (cab.t === 'state' && cab.chave === 'itinerario') { itinDoPacote = valor; continue; }
+      // O ITINERÁRIO NÃO VIAJA COMO CHAVE (v1.14.32): os momentos são cenas do
+      // Cronograma e vêm com ele; o que a chave guarda (o ajuste do dia, a
+      // escolha de horários, a barra recolhida) é DESTE aparelho. Um pacote
+      // antigo que traga a lista de horários dela não a reescreve aqui.
+      if (cab.t === 'state' && cab.chave === 'itinerario') continue;
       // A CHAVE ENTRA NO LOTE (`escoarEstado` → `updateStateLote`): a mescla
       // roda dentro da transação, com a `fn` SÍNCRONA, e `novo === atual` — a
       // mescla devolvendo o LOCAL por IDENTIDADE — não escreve nem conta.
@@ -36465,20 +35945,6 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
     } catch (e) {
       if (pacoteSemEspaco(e)) throw new Error(PACOTE_SEM_ESPACO);
       console.warn('[crono] importar falhou:', e);
-    }
-  }
-  if (itinDoPacote && !pacoteCancelarImport) {
-    try {
-      // SÓ ESCREVE O QUE MUDA: o `updateState` grava o que a `fn` devolver, e
-      // "nada mudou" é o próprio valor de antes — inclusive a AUSÊNCIA dele.
-      const antes = await AVDB.getState('itinerario');
-      if (itinMesclarPacote(antes, itinDoPacote) !== antes) {
-        await AVDB.updateState('itinerario', (atual) => itinMesclarPacote(atual, itinDoPacote) || atual);
-        contagem.chaves += 1;
-      }
-    } catch (e) {
-      if (pacoteSemEspaco(e)) throw new Error(PACOTE_SEM_ESPACO);
-      console.warn('[itinerario] importar falhou:', e);
     }
   }
   return viuFim;
@@ -44490,18 +43956,6 @@ document.addEventListener('pointerdown', (e) => {
   if ([cronoGavetaEl, cronoTituloEl, appDialogEl, document.getElementById('tour')].some((el) => el && el.contains(t))) return;
   fecharCronoGaveta();
 }, true);
-// A GAVETA DOS ITINERÁRIOS, pela mesma regra: o véu dela cobre só a
-// folha de Ferramentas, e o toque de fora da folha fecha aqui, na captura, e
-// segue para quem o recebeu. O título é o alternador (o clique dele decide).
-if (itinVeuEl) itinVeuEl.addEventListener('click', () => fecharItinGaveta());
-document.addEventListener('pointerdown', (e) => {
-  if (!itinGavetaAberta()) return;
-  const t = e.target;
-  if (t === itinVeuEl) return;
-  if ([itinGavetaEl, itinTituloEl, appDialogEl, document.getElementById('tour')].some((el) => el && el.contains(t))) return;
-  fecharItinGaveta();
-}, true);
-
 // O `#backBtn` do cabeçalho fica no HTML, sempre oculto: `renderListTitle` o
 // esconde explicitamente, e é essa linha que impede um bundle de o revelar por
 // acidente. O voltar da Bíblia é o da folha dela.
@@ -45712,13 +45166,6 @@ if (toolsCloseEl) toolsCloseEl.addEventListener('click', fecharFerramentas);
 // A SETA VOLTA À LISTA (v1.14.26) — o par do ✕ quando a ferramenta veio da lista.
 if (toolsVoltarEl) toolsVoltarEl.addEventListener('click', () => voltarAGradeDeFerramentas({ animar: true }));
 if (toolsFecharEl) toolsFecharEl.addEventListener('click', fecharFerramentas);
-// O TÍTULO DO ITINERÁRIO abre e fecha a gaveta deles (ele mora no cabeçalho da
-// folha, e o ouvinte é ligado uma vez, aqui).
-if (itinTituloEl) itinTituloEl.addEventListener('click', () => {
-  if (itinGavetaAberta()) fecharItinGaveta();
-  else abrirItinGaveta();
-});
-
 POPUPS.forEach(([backdrop, closeBtn, close]) => {
   if (closeBtn) closeBtn.addEventListener('click', close);
   // Só o próprio backdrop: um clique dentro da folha não fecha.
@@ -45760,10 +45207,6 @@ window.__avBack = function () {
   //    em qualquer lugar —, e nada abre por cima dela além do diálogo (renomear
   //    e excluir de uma linha), que é o degrau 1.
   if (cronoGavetaAberta()) { fecharCronoGaveta(); return true; }
-  // 1.8. A GAVETA DOS ITINERÁRIOS, a irmã da de cima no painel do
-  //    Itinerário: a camada mais efêmera da folha de Ferramentas, e só o
-  //    diálogo (renomear e excluir de uma linha) abre por cima dela.
-  if (itinGavetaAberta()) { fecharItinGaveta(); return true; }
   // 2. Bottom-sheets. Fecha o ÚLTIMO da tabela que estiver aberto — normalmente
   //    há um só, mas se houver dois o de cima é o que o operador vê.
   for (let i = POPUPS.length - 1; i >= 0; i--) {
@@ -45834,7 +45277,7 @@ function bloqueioDoTour() {
   return !!(document.fullscreenElement || pvInteira);
 }
 // A SEÇÃO por cima de tudo (a ordem do `__avBack`), pelo nome que o tour procura no
-// `AVTour.SECOES`. Um nome que não está lá (`'itin-gaveta'`) não tem tour próprio: ele só
+// `AVTour.SECOES`. Um nome que não está lá não tem tour próprio: ele só
 // SILENCIA o principal, porque `telaOcupadaParaTour` lê qualquer seção aberta como tela ocupada.
 // Três janelas se dividem por ESTADO, cada estado com a própria marca de visto: `letra`/`letra-cifra`,
 // `ferr-edicao`/`ferr-edicao-form` e `biblia`/`biblia-leitura`.
@@ -45842,7 +45285,6 @@ const SECAO_DO_POPUP = { fadePopup: 'configuracoes', castPopup: 'conectar', sort
   plPopup: 'playlist', lyricsPopup: 'letra', hymnSearchPopup: 'biblioteca' };
 function secaoDoTour() {
   if (cronoGavetaAberta()) return 'cronogramas';
-  if (itinGavetaAberta()) return 'itin-gaveta';
   for (let i = POPUPS.length - 1; i >= 0; i--) {
     const [backdrop] = POPUPS[i];
     if (!backdrop.classList.contains('open')) continue;

@@ -659,11 +659,20 @@ try {
     const alvos = pc.map((m) => [].concat(m.alvo).join('+'));
     // O DECK, UM A UM (v1.14.20): a barra, a prévia com as setas, o grupo de tocar (sem o repetir e a
     // playlist, que abrem a fileira) e cada exclusivo do Avançado têm o próprio balão.
-    const quer = ['#library', '#cronoTitulo', '#cronoImportar', '#bibleBtn', '#toolsBtn', '#libBar',
+    const quer = ['#library', '#cronoTitulo', '#cronoImportar', '#itinBar', '#bibleBtn', '#toolsBtn', '#libBar',
       '.np-seek', '#slidePrevBtn+#preview+#slideNextBtn', '#prev+#playpause+#next+#stop', '#repeat', '#plBtn',
       '#lyricsViewBtn', '#viewToggle', '#muteToggle', '#pvFullBtn', '#pvCastBtn', '#settingsBtn'];
     checar(quer.every((a) => alvos.includes(a)) && !alvos.includes('#seek+.transport'),
-      'C · Cronograma, troca, Importar, Bíblia, Ferramentas, Biblioteca, o deck um a um (barra, prévia e setas, tocar, playlist, repetir, auxiliar, cobrir, mutar, tela cheia), conectar e Configurações', alvos.join(' '));
+      'C · Cronograma, troca, Importar, a faixa do Itinerário, Bíblia, Ferramentas, Biblioteca, o deck um a um (barra, prévia e setas, tocar, playlist, repetir, auxiliar, cobrir, mutar, tela cheia), conectar e Configurações', alvos.join(' '));
+    // A FAIXA DO ITINERÁRIO (v1.14.32): `#itinBar` mora logo abaixo da barra do topo, e o passo dela — `opcional`: só existe
+    // com a faixa à vista — é DECLARADO depois do Importar, mas o tour MOSTRA na ordem da tela: ele vem depois de TODAS as
+    // peças da barra do topo (Importar, o nome do cronograma e Configurações, na mesma linha) e antes da Bíblia (a primeira do
+    // rodapé). É o único lugar do tour onde o Itinerário se explica: ele deixou de ser ferramenta e não tem passo nas Ferramentas.
+    const iFaixa = alvos.indexOf('#itinBar');
+    const iBarra = ['#cronoImportar', '#cronoTitulo', '#settingsBtn'].map((a) => alvos.indexOf(a));
+    checar(iFaixa > 0 && iBarra.every((i) => i >= 0 && i < iFaixa) && iFaixa < alvos.indexOf('#bibleBtn')
+      && pc[iFaixa].titulo === 'Itinerário' && !!pc[iFaixa].peca && recorteBate(pc[iFaixa]),
+      'C · a faixa do Itinerário tem o passo dela (título "Itinerário"), DEPOIS das peças da barra do topo e antes da Bíblia, recortando a faixa', alvos.join(' '));
     // A PRÉVIA ANTES DOS BOTÕES QUE MORAM NELA (v1.14.21, pedido do operador): o passo da prévia com as setas
     // CONTÉM o Cobrir, o Mutar e a Tela cheia (e o Conectar, onde ele aparece) — a moldura vem antes.
     const tit = pc.map((m) => m.titulo);
@@ -716,8 +725,13 @@ try {
     // A LISTA SEM O "FECHAR" E COM O EDITAR MÍDIA (v1.14.20): a seta de sair é o mesmo retângulo da
     // porta que abriu, e o tile do editor (só no avançado) ganhou o passo dele.
     const titulosF = pf.map((m) => m.titulo);
-    checar(titulosF.includes('Editar mídia') && !titulosF.includes('Fechar') && pf.length >= 5,
+    checar(titulosF.includes('Editar mídia') && !titulosF.includes('Fechar') && pf.length >= 4,
       'G2 · a lista de Ferramentas explica o Editar mídia e NÃO tem o passo "Fechar"', titulosF.join(' · '));
+    // UM PASSO POR LINHA, com o tempo (três tiles) num recorte só: o tempo, Mensagens, Sorteio e o Editar mídia — QUATRO. O
+    // Itinerário não é ferramenta (v1.14.32: é a faixa `#itinBar` do Cronograma, explicada no tour do avançado), então nenhum
+    // passo da lista o cita; a lista fechada reprova tanto o passo que sobra quanto o que falta.
+    checar(titulosF.join(' | ') === 'Relógio, Cronômetro e Timer | Mensagens | Sorteio | Editar mídia',
+      'G2 · a lista de Ferramentas tem QUATRO passos — o tempo, Mensagens, Sorteio e o Editar mídia — e nenhum é o do Itinerário', titulosF.join(' · '));
     await pular(pg);
     await pg.click('#ferrTile_timer');
     const rt = await esperarTour(pg, 's.ferr-timer');
@@ -771,7 +785,6 @@ try {
       ['cfg-pacote', 'openFadePopup(); abrirSecao("pacote")', 'closeFadePopup()'],
       ['ferr-clock', 'abrirFerramenta("clock")', 'fecharFerramentas()'],
       ['ferr-stopwatch', 'abrirFerramenta("stopwatch")', 'fecharFerramentas()'],
-      ['ferr-itinerario', 'abrirFerramenta("itinerario")', 'fecharFerramentas()'],
       ['ferr-msg', MSG_ABRE, MSG_FECHA],
       ['ferr-edicao', 'abrirFerramenta("edicao")', 'fecharFerramentas()'],
       ['ferr-draw', 'abrirFerramenta("draw")', 'fecharFerramentas()'],
@@ -883,7 +896,6 @@ try {
     ['s.ferr-clock', 'abrirFerramenta("clock")', 'fecharFerramentas()'],
     ['s.ferr-stopwatch', 'abrirFerramenta("stopwatch")', 'fecharFerramentas()'],
     ['s.ferr-timer', 'abrirFerramenta("timer")', 'fecharFerramentas()'],
-    ['s.ferr-itinerario', 'abrirFerramenta("itinerario")', 'fecharFerramentas()'],
     ['s.ferr-msg', MSG_ABRE, MSG_FECHA],
     ['s.ferr-draw', 'abrirFerramenta("draw")', 'fecharFerramentas()'],
     // O editor de mídia é uma FERRAMENTA — a chave do tour é a do painel da folha

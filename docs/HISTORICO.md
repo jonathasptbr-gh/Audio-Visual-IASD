@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.32** — o itinerário deixou de ser ferramenta e virou opção do Cronograma: os momentos são linhas da lista e a faixa de opções fica sob a barra do topo (Pacote 5, 1ª metade; só web)
 - **v1.14.31** — Pacote 30: o Timer em 0:00 apaga o "Projetar no telão" e os dois de guardar, como já apagava o ▶ (o 30.2, o editor de mídia vazio, ficou como está por decisão do operador); só web.
 - **v1.14.30** — nas duas telas de destino, a fileira de largura inteira virou os botões compactos da Biblioteca: um toque importa ou manda o vídeo na hora, e fechar sem tocar não importa nada (a regra "cai no Cronograma" foi revogada); só web.
 - **v1.14.29** — Ferramentas: a seta de voltar foi para o canto direito, no lugar do ✕ e apontando para a direita; e a engrenagem de um Favorito fecha a Biblioteca antes de abrir a ferramenta; só web.
@@ -832,6 +833,90 @@ apagada da que a criou.
   `antesDaPauta` = depois = PDF continua cobrando isso.
 
 ---
+
+## v1.14.32 — o itinerário é uma opção do Cronograma
+
+A **primeira metade do Pacote 5**, com o conceito mudado pelo operador em
+2026-11-15: *"agregar o itinerário ao cronograma, como uma opção do cronograma.
+Os títulos do itinerário vão ficar na mesma lista do cronograma, mas terão uma
+formatação diferente … por estar listado no cronograma, se consegue arrastar a
+ordem das mídias para que fiquem organizadas com os títulos dos momentos … as
+mídias não vão tocar automaticamente com o tempo do itinerário … o itinerário
+deve deixar de ser uma ferramenta … as opções podem ser uma segunda linha mais
+estreita logo abaixo da linha de topo do cronograma. Pode ser uma linha
+ocultável."* Só web: nenhum arquivo do shell tocado. A tela de espera (a
+contagem, os playbacks e os avisos antes do primeiro momento, o 5.1) continua na
+fila, agora como o lote seguinte (decisão do operador na mesma conversa). O
+segundo ponto decidido por ele: **só o itinerário ATIVO migra; os guardados com
+nome são descartados.**
+
+### O desenho
+
+| peça | o que é |
+|---|---|
+| o momento | uma CENA DE ROTEIRO `{kind:'cue', cue:'momento', name:<título>, data:{min}}` em `imports` — o conceito que o app já tinha para "item da lista sem bytes" |
+| a lista | `itinItens()` lê os momentos de `libItems` (ordenados por relógio, `ordenarItin`); não há cópia em memória que possa divergir da lista |
+| a posição | é do operador (organiza as MÍDIAS); o TELÃO segue o RELÓGIO. Momento novo: antes do primeiro posterior no relógio, senão no fim, senão (nenhum momento) no topo |
+| a linha | `linhaDeMomento`: `lib-item > row` sem capa, `.momento-hora` em `--accent`, barra de 4 px, fundo `--btn-accent`; `.agora`/`.seguir` pelo laço de 1 s (`itinMarcar`, a mesma leitura do telão). Tocar EDITA; segurar ARRASTA (`attachRowGestures` com `aoTocar` próprio); `⋮` = excluir + editar |
+| as opções | `#itinBar`, irmã da barra do topo (a barra é uma grade de três trilhas medida ao pixel): telão · horários · −5 −1 atraso +1 +5 (tocar no atraso zera) · adicionar · recolher. Recolhida vira uma fita com o ponto do "no ar" |
+| o estado | `state.itinerario` = `{v:3, horas, desloc, deslocDia, barraOculta}`: só o que é DESTE aparelho e deste dia; não viaja no `.avpkg` |
+
+- **Por que cena de roteiro e não uma estrutura própria:** `imports` tem ~45 leitores;
+  um momento como cue entra neles sem uma linha nova (arrasto, excluir, cronogramas
+  múltiplos, pacote, coletor) e CADA cronograma ganha o seu itinerário — trocar de
+  cronograma troca os momentos e o telão acompanha. Uma lista paralela com
+  âncoras ("depois da mídia X") quebraria em toda exclusão e todo arrasto.
+- **A POSIÇÃO NÃO REESCREVE HORÁRIO:** o ↑↓ antigo trocava títulos deixando os
+  horários nos lugares; agora arrastar um momento não toca no `min` de ninguém. O
+  descritor do telão continua ordenado pelo relógio, então uma lista fora de ordem
+  na tela é escolha do operador e não muda o que a congregação vê.
+- **`itinSincronizar` roda em todo `renderLibrary`:** reenvia ao telão só quando a
+  ASSINATURA dos momentos muda (`itinAssinVista`) — cada download e cada ordem
+  redesenham a lista, e nenhum deles pode reenviar uma lista igual — e repinta a
+  faixa. A lista que esvazia no ar tira o cartão (`pushItin` → `hideItin`).
+- **UMA ESCRITA EM VOO GANHA DE UMA LEITURA ANTIGA:** o `load()` lê o banco por
+  uma dezena de `await`s e devolvia o ajuste ao valor de antes se um −5 caísse
+  nesse intervalo. `itinSeq` (senha, como `favSeq`) e `itinGravando` (gravações
+  que ainda não voltaram) fazem o `applyItin` do `load()` perder a vez.
+- **`AVDB.atualizarCue(id, data, nome)`** ganhou o terceiro argumento: horário e
+  título do momento mudam na MESMA transação.
+
+### A migração (uma vez, dentro do `load()`)
+
+`itinMigrarLegado` (promessa única: dois `load()` da abertura não a rodam duas
+vezes) lê a chave da v1.13: os `itens` do ATIVO viram momentos no TOPO de
+`imports`, em ordem de relógio, com `data.legado` = o id antigo — rodar de novo
+depois de um corte não duplica nada — e SÓ DEPOIS a chave é reescrita (sem
+`itens/itinerarios/ativo`, mantendo `horas` e o ajuste do dia). Os guardados
+(`itinerarios[]` não ativos) são descartados.
+
+- **A cena antiga `cue:'itinerario'`** continua nas listas como "Itinerário
+  guardado": tocá-la ACRESCENTA os horários ao cronograma (`projetarItinerarioCue`;
+  não duplica horário+título que já existam, e não tira nada). Nenhum caminho novo a
+  cria, e ela não tem engrenagem (`CUE_FERRAMENTA` perdeu a entrada).
+- **O pacote:** `pacoteAplicarFluxo` ignora a chave `itinerario` (o ajuste do dia e a
+  barra recolhida são do aparelho); os momentos viajam como cues do cronograma.
+
+### O que saiu
+
+A ferramenta (a linha de `FERRAMENTAS`, o painel `renderItinerario`, `tempoVista`
+e o ramo do Tempo no rodapé), os itinerários múltiplos (a gaveta, o título no
+cabeçalho da folha, o degrau 1.8 do voltar, `itinTrocarPara`/`itinCriar`/…), o par
+↑↓ do horário, `itinMesclarPacote`, a cena guardada a partir da ferramenta
+(`itinCueData`) e a seção `ferr-itinerario` do tour. O passo `#itinBar` entrou no
+tour `avancado`. **As Ferramentas são seis** (a "Editar mídia" é a última).
+
+### Oráculos
+
+`itinerario.test.mjs` foi reescrito para o modelo (a leitura pura, a troca ao
+cruzar o horário, o ajuste, o telão e o reenvio, o desenho, o ⏮/⏭, mais os
+momentos na lista, o arrasto de uma mídia entre momentos, a faixa recolhível, a
+migração e a cena antiga). Ajustados à lista de seis: `ferramentas-folha`,
+`saida-de-audio-e-economia`, `smoke`, `tour`, `teclado-das-folhas`,
+`engrenagem-do-item` e `pacote-ida-e-volta`. O guia do site perdeu a seção
+`i21-fer-itinerario` (o `guia-casa-com-o-app` trata todo `i21-fer-…` como
+ferramenta que o app tem) e ganhou a descrição do itinerário no capítulo do
+Cronograma; as CAPTURAS do site seguem velhas (Pacote 29).
 
 ## v1.14.31 — o Timer em 0:00 apaga o projetar e o guardar
 

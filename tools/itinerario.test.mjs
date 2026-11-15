@@ -1,56 +1,75 @@
 // ============================================================================
-// O ITINERÁRIO (v1.13.0) — a programação do evento, no Tempo e no telão.
+// O ITINERÁRIO É UMA OPÇÃO DO CRONOGRAMA (v1.14.32) — a programação do evento
+// mora NA LISTA, e o telão a segue pelo relógio.
 //
-// Pedido do operador: uma lista de HORÁRIO + TÍTULO, editável, que vai ao telão
-// seguindo o relógio — o item de AGORA em destaque, os seguintes abaixo —, com
-// a opção de mostrar só os títulos e um AJUSTE que desloca a lista inteira.
+// Pedido do operador: *"agregar o itinerário ao cronograma, como uma opção do
+// cronograma … os títulos do itinerário vão ficar na mesma lista, com uma
+// formatação diferente … por estar listado no cronograma, se consegue arrastar a
+// ordem das mídias … as mídias não vão tocar automaticamente com o tempo do
+// itinerário"* — e, sobre as opções: *"uma segunda linha mais estreita logo abaixo
+// da linha de topo do cronograma. Pode ser uma linha ocultável"*.
+//
+// ## O MODELO (o que este oráculo trava)
+//
+//  · MOMENTO = registro de cena de roteiro `{ kind:'cue', cue:'momento', name:<título>,
+//    data:{ min } }` em `imports` (a lista do cronograma ATIVO), como qualquer item:
+//    linha `li.lib-item.momento` SEM capa, com `.momento-hora`, `.row-name` e
+//    `.row-sub` ('Agora' / 'A seguir' / 'previsto HH:MM' / duração / 'Último momento').
+//    Tocar edita (folha `#itinPopup`); segurar ARRASTA; o `⋮` tem excluir (a pergunta
+//    NA LINHA) e editar — não há par ↑↓.
+//  · A ORDEM: a posição da linha é do OPERADOR (organiza as mídias); o TELÃO é
+//    ordenado pelo RELÓGIO (`ordenarItin`). Momento novo entra antes do primeiro
+//    momento posterior no relógio, senão no fim da lista; lista sem momento: no TOPO.
+//  · A FAIXA `#itinBar` (irmã da barra do topo, dentro do `<main>`): Telão · Horários
+//    × só títulos · −5 −1 [ajuste] +1 +5 · Novo · Recolher; recolhida, um botão só
+//    (`#itinBarAbrir`). A escolha de recolher persiste em `state.itinerario.barraOculta`.
+//  · O ESTADO `state.itinerario` = `{ v:3, horas, desloc, deslocDia, barraOculta }` e
+//    só isso (a lista saiu dela); o ajuste é do dia e é GLOBAL.
+//  · O ITINERÁRIO NÃO TOCA MÍDIA: o relógio cruzando um horário muda a marca de
+//    "agora" na lista e no telão, e mais nada.
 //
 // ## O que falha calado aqui, e por isso cada bloco existe
 //
-//  A. A LEITURA PURA (`createStage.itinerarioLeitura`) — quem está no ar a cada
-//     hora. Antes do primeiro: ninguém. Depois do último: o último. Fora de
-//     ordem: ordenado. O FUSO é o do celular, não o da tela que desenha.
-//  B. EDITAR E PERSISTIR — pela UI de verdade (campos e botões), com o banco
-//     conferido e uma RECARGA no fim: uma lista que só vive na memória some no
-//     primeiro OTA aplicado no meio do culto.
-//  C. A TROCA QUANDO O RELÓGIO CRUZA o horário, na preview e no painel — sem
-//     comando nenhum trafegando —, e ANIMADA (as linhas têm animação viva).
-//  D. O AJUSTE: ±1/±5 deslocam todos os horários JUNTOS (os intervalos ficam),
-//     o item de agora acompanha, e o ↺ volta ao previsto.
-//  E. Horários × só os títulos.
-//  F. O TELÃO: a mesma lista pelo DESCRITOR, e o REENVIO na reconexão (o
-//     `display-ready` de um telão que recarrega traz a lista de volta).
+//  MANTIDOS (a montagem trocou o painel de Ferramentas pela faixa e pelas linhas):
+//  A. A LEITURA PURA (`createStage.itinerarioLeitura`): antes do primeiro, ninguém;
+//     depois do último, o último; fora de ordem, ordenado; o FUSO é o do celular.
+//  C. A TROCA QUANDO O RELÓGIO CRUZA o horário — na preview e na lista, sem comando
+//     nenhum trafegando —, e ANIMADA.
+//  D. O AJUSTE, pela faixa: ±1/±5 deslocam os horários JUNTOS (os intervalos ficam),
+//     o de agora acompanha, tocar no atraso o ZERA; gravado PELO DIA.
+//  E. Horários × só os títulos (`#itinHorasBtn`).
+//  F. O TELÃO: a mesma lista pelo DESCRITOR, e o REENVIO na reconexão.
 //  G. Antes do primeiro e depois do último, no telão.
 //  H. `prefers-reduced-motion`: nada se move.
-//  I. Lista vazia: o projetar é APAGADO e diz por quê; esvaziar no ar tira do telão
-//     — e os dois destinos ficam apagados, não somem.
+//  I. Lista sem momentos: o "Telão" é APAGADO e diz por quê; esvaziar no ar tira do telão.
+//  J. Com o itinerário no ar o ⏮/⏭ é o AJUSTE de 5 em 5 min, com apagado nos extremos.
+//  L. A FOLHA de um momento: roletas de hora e minuto, nenhum `<input type="time">`.
+//  M. O DESENHO NO TELÃO: wallpaper à vista, bloco escuro centrado, a marca "Agora"
+//     à esquerda do horário — medido por pixel sobre um wallpaper branco.
+//  N. O TECLADO da folha não mexe na barra de busca da Biblioteca.
 //
-//  E A v1.13.1 (os pedidos do operador sobre a v1.13.0):
-//  J. Com o itinerário no ar o ⏮/⏭ é o AJUSTE de 5 em 5 min ("−5"/"+5"), com a
-//     folha fechada, pela coluna da tela cheia, e apagado nos extremos.
-//  K. Os DESTINOS: Cronograma e Favoritos guardam a programação (sem o ajuste do
-//     dia), o `.avpkg` a leva, e tocar na cena projeta mantendo o ajuste.
-//  L. A FOLHA de um horário: roletas de hora e minuto, nenhum `<input
-//     type="time">` (o diálogo do sistema que não abria no aparelho).
-//  M. O DESENHO NO TELÃO: wallpaper à vista, bloco escuro semitransparente à
-//     esquerda, a marca "Agora" à esquerda do horário — medido por pixel sobre um
-//     wallpaper branco.
-//  (B mede também a ANATOMIA da linha: a lista do app, com capa, subtítulo e `⋮`.)
+//  NOVOS (v1.14.32):
+//  B′. MOMENTOS NA LISTA, PELA UI REAL: três (e mais um) criados FORA da ordem do
+//     relógio pela folha; a lista sai pelo relógio; sem `.thumb`; hora e título à vista;
+//     o registro é cue `momento` em `imports`; editar por TOQUE na linha; excluir pela
+//     faixa do `⋮` com a pergunta na linha; persistência por RECARGA.
+//  D′. ARRASTO REAL DE UMA MÍDIA para entre dois momentos: a ordem do banco muda, a do
+//     telão (descritor) NÃO, e nada toca sozinho quando o relógio cruza um horário.
+//  S. A MIGRAÇÃO do itinerário da v1.13: os itens do ATIVO viram momentos no TOPO, em
+//     ordem de relógio, com `data.legado`; a chave vira `{ v:3 }` sem `itens`,
+//     `itinerarios`, `ativo`; os GUARDADOS são descartados; repetir não duplica.
+//  T. A CENA ANTIGA `itinerario`: tocá-la ACRESCENTA os horários como momentos (sem
+//     apagar nada, sem duplicar o que já existe, e tocar de novo não duplica).
+//  U. A FAIXA RECOLHÍVEL: recolher, recarregar, persistir, abrir; mais baixa que a barra
+//     do topo; em 320, 360 e 430 nenhum botão passa da borda direita da faixa.
+//  V. SEM FERRAMENTA: `FERRAMENTAS` sem `itinerario`, nenhum id/global removido, e a
+//     folha de Ferramentas só tem os seis tiles.
+//  W. CRONOGRAMA MÚLTIPLO: cada cronograma tem os SEUS momentos, e com o itinerário no
+//     ar o telão acompanha a troca.
 //
-//  E A v1.13.2 (os pedidos do operador sobre a v1.13.1):
-//  N. O TECLADO da folha não mexe na barra de busca da Biblioteca: ela não sobe
-//     com o teclado nem desce no confirmar (o campo do título SOBREPÕE), e a
-//     folha continua terminando onde o teclado começa (`--kb-folha`).
-//  M. (refeito) o bloco no telão é CENTRADO na tela, estreito como era, com o
-//     texto de dentro ainda à esquerda.
-//  O. O par ↑↓ na faixa do `⋮`, como no Cronograma: mover TROCA o evento com o
-//     vizinho e os horários ficam no lugar; pontas apagadas; o telão acompanha.
-//  P. OS ITINERÁRIOS MÚLTIPLOS: o nome do ativo abre a gaveta (renomear · nome ·
-//     excluir, "Novo itinerário" por último); trocar é uma escrita só; tocar uma
-//     cena guardada a torna o ativo SEM apagar o que o painel tinha, e tocá-la de
-//     novo não duplica; o voltar fecha a gaveta antes da folha.
-//  Q. A MIGRAÇÃO da chave da v1 (um itinerário só) e a mescla do `.avpkg`
-//     (`itinMesclarPacote`).
+//  SAÍRAM com a ferramenta (o app os removeu): o painel de Ferramentas e a vista do Tempo
+//  (B antigo), guardar a programação a partir da ferramenta (K), o par ↑↓ (O), os
+//  itinerários múltiplos e a gaveta (P), a migração da v1 e a mescla do `.avpkg` (Q).
 //
 // O RELÓGIO É O DO PLAYWRIGHT (`ctx.clock`), num fuso declarado
 // (`America/Sao_Paulo`): é ele que faz "10:00" ser 10:00 em qualquer runner.
@@ -63,6 +82,7 @@ import {
   esperarCortina, comModoAvancado, esperarDb, lerPng, pixel,
 } from './arnes.mjs';
 
+const inicio = Date.now();
 const servidor = servirEstatico(RAIZ_WEB);
 await new Promise((r) => servidor.listen(0, r));
 const base = 'http://localhost:' + servidor.address().port;
@@ -96,9 +116,11 @@ const vigiar = (p) => {
 try {
   const pg = await ctx.newPage();
   vigiar(pg);
+  const aguardarApp = () => pg.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function', null, { timeout: 30000 });
   await pg.goto(base + '/controle/');
-  await pg.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function', null, { timeout: 30000 });
+  await aguardarApp();
   await esperarCortina(pg);
+  const recarregar = async () => { await pg.reload(); await aguardarApp(); await esperarCortina(pg); };
 
   // ── A. A LEITURA PURA ─────────────────────────────────────────────────────
   const leitura = await pg.evaluate(() => {
@@ -137,32 +159,54 @@ try {
   checar(leitura.hora.join(' ') === '23:55 00:05 10:05',
     'A · a hora mostrada dá a volta na meia-noite (a comparação não — fora de escopo)', leitura.hora);
 
-  // ── B. EDITAR E PERSISTIR, PELA UI ───────────────────────────────────────
-  // DESDE A v1.13.3 o Itinerário é um TILE da grade da folha, e o toque nele o abre.
-  const abrirItinerario = () => pg.evaluate(async () => {
+  // ── V. O ITINERÁRIO NÃO É MAIS UMA FERRAMENTA ────────────────────────────
+  // Ele virou uma opção do Cronograma: a folha de Ferramentas voltou a ter SEIS
+  // tiles, e o que só existia para a ferramenta (o painel, a gaveta de itinerários,
+  // as funções de lista e de mescla do pacote) saiu junto.
+  await pg.evaluate(() => {
     if (!ferramentasAbertas()) abrirFerramentas();
-    if (!document.getElementById('itinLista')) {
-      if (!document.getElementById('ferrGrade')) voltarAGradeDeFerramentas();
-      document.getElementById('ferrTile_itinerario').click();
-    }
+    if (!document.getElementById('ferrGrade')) voltarAGradeDeFerramentas();
   });
-  await abrirItinerario();
-  await esperar(pg, () => !!document.getElementById('itinLista'));
+  await esperar(pg, () => !!document.getElementById('ferrGrade'));
+  {
+    const v = await pg.evaluate(() => ({
+      ids: FERRAMENTAS.map((f) => f.id),
+      tiles: [...document.querySelectorAll('#ferrGrade .ferr-tile')].map((b) => b.dataset.ferr),
+      filhos: document.getElementById('ferrGrade').children.length,
+      noDom: ['ferrTile_itinerario', 'itinTitulo', 'itinNome', 'itinGaveta', 'itinVeu', 'itinLista', 'itinNovoItin']
+        .filter((id) => document.getElementById(id)),
+      globais: {
+        tempoVista: typeof tempoVista, renderItinerario: typeof renderItinerario, itinMover: typeof itinMover,
+        itinEntradas: typeof itinEntradas, itinLista: typeof itinLista, itinMesclarPacote: typeof itinMesclarPacote,
+        itinCueData: typeof itinCueData,
+      },
+    }));
+    checar(!v.ids.includes('itinerario') && v.ids.join() === 'clock,stopwatch,timer,msg,draw,edicao',
+      'V · `FERRAMENTAS` não tem o `itinerario`: restam clock, stopwatch, timer, msg, draw, edicao', v.ids);
+    checar(v.noDom.length === 0,
+      'V · nenhum dos ids removidos existe no DOM (`ferrTile_itinerario`, `itinTitulo`, `itinNome`, `itinGaveta`, `itinVeu`, `itinLista`)', v.noDom);
+    checar(Object.values(v.globais).every((t) => t === 'undefined'),
+      'V · e as funções que só serviam à ferramenta sumiram (`tempoVista`, `renderItinerario`, `itinMover`, `itinEntradas`, '
+      + '`itinLista`, `itinMesclarPacote`, `itinCueData`)', v.globais);
+    checar(v.tiles.join() === 'clock,stopwatch,timer,msg,draw,edicao' && v.filhos === 6,
+      'V · ao abrir as Ferramentas só há os 6 tiles: clock, stopwatch, timer, msg, draw, edicao', v);
+  }
+  await pg.evaluate(() => fecharFerramentas());
+  // A FOLHA DESCE ANIMADA, e só some no fim.
+  await esperar(pg, () => toolsSheetEl.hidden);
 
-  const vazio = await pg.evaluate(() => {
-    const p = document.getElementById('miscProjectBtn');
-    const t = document.getElementById('toolsTitle');
-    return {
-      off: p && p.disabled, titulo: p && p.title,
-      cabecalho: t && t.textContent,
-      // NENHUM SEGMENTO SOBROU no painel: o Tempo não tem mais sub-abas.
-      segs: document.querySelectorAll('#chronoWrap .misc-seg').length,
-    };
-  });
-  checar(vazio.cabecalho === 'Itinerário' && vazio.segs === 0,
-    'B · o Itinerário abre pelo TILE dele, com o nome no cabeçalho e sem segmentos no painel (v1.13.3)', vazio);
-  checar(vazio.off && /adicione/i.test(vazio.titulo || ''),
-    'I · lista vazia: o "Projetar no telão" é APAGADO e diz por quê', vazio);
+  // ── I. LISTA SEM MOMENTOS: o "Telão" da faixa é APAGADO e diz por quê ─────
+  {
+    const e = await pg.evaluate(() => {
+      const tel = document.getElementById('itinTelaoBtn');
+      return {
+        off: !!tel && tel.disabled, titulo: tel && tel.title, pressed: tel && tel.getAttribute('aria-pressed'),
+        momentos: document.querySelectorAll('#library > li.momento').length, itens: itinItens().length,
+      };
+    });
+    checar(e.off && /adicione/i.test(e.titulo || '') && e.pressed === 'false' && e.momentos === 0 && e.itens === 0,
+      'I · lista SEM momentos: o "Telão" da faixa é APAGADO e diz por quê (o `title` manda adicionar um momento)', e);
+  }
 
   // O HORÁRIO SE ESCOLHE NAS ROLETAS da folha (v1.13.1): a posição é escrita
   // como o dedo a deixaria — a célula do valor na banda do meio —, e quem lê é o
@@ -177,6 +221,8 @@ try {
     rh.scrollTop = (Number(rh.dataset.base) + pistaDoValor(h, 24, 0)) * it;
     rm.scrollTop = (Number(rm.dataset.base) + pistaDoValor(m, 60, 0)) * it;
   }, hm);
+  // O confirmar é ASSÍNCRONO (grava, relê a lista e SÓ ENTÃO fecha): folha fechada
+  // quer dizer lista já redesenhada.
   const fechada = () => esperar(pg, () => !document.getElementById('itinPopup').classList.contains('open'));
   const adicionar = async (hora, titulo) => {
     await pg.click('#itinNovoBtn');
@@ -186,7 +232,16 @@ try {
     await pg.click('#itinEditorOk');
     await fechada();
   };
-  // ── L. A FOLHA DE UM HORÁRIO: roletas, nenhum campo do sistema ────────────
+  // A LISTA DO CRONOGRAMA, só os momentos, na ordem em que a tela os desenha.
+  const lista = () => pg.evaluate(() => [...document.querySelectorAll('#library > li.momento')]
+    .map((li) => li.querySelector('.momento-hora').textContent + ' ' + li.querySelector('.row-name').textContent));
+  const banco = () => pg.evaluate(() => AVDB.getState('itinerario'));
+  const idDe = (titulo) => pg.evaluate((t) => {
+    const li = [...document.querySelectorAll('#library > li.momento')].find((x) => x.querySelector('.row-name').textContent === t);
+    return li ? li.dataset.id : null;
+  }, titulo);
+
+  // ── L. A FOLHA DE UM MOMENTO: roletas, nenhum campo do sistema ───────────
   await pg.click('#itinNovoBtn');
   await abrirFolha();
   {
@@ -201,6 +256,8 @@ try {
         rola: cx.querySelectorAll('.rola').length,
         item: roletaItem(cx), alto: Math.round(r.height),
         okOff: ok.disabled, okTitulo: ok.title,
+        titulo: document.getElementById('itinPopupTitulo').textContent,
+        rotulo: ok.querySelector('.song-menu-label').textContent,
         // A SUGESTÃO para uma lista vazia: o próximo múltiplo de cinco depois
         // de agora (09:58 → 10:00).
         valor: roletaValorDe(rh) * 60 + roletaValorDe(document.getElementById('itinRoleta_min')),
@@ -208,6 +265,8 @@ try {
     });
     checar(f.times === 0 && f.roletas === 2 && f.rola === 0 && f.item >= 22,
       'L · o horário se escolhe em DUAS roletas (hora e minuto), sem `<input type="time">` em lugar nenhum', f);
+    checar(f.titulo === 'Novo momento' && f.rotulo === 'Adicionar ao cronograma',
+      'L · a folha nova diz "Novo momento" e o confirmar "Adicionar ao cronograma"', f);
     checar(f.valor === 600, 'L · a folha nova abre no horário sugerido (10:00 às 09:58)', f);
     checar(f.okOff && /título/i.test(f.okTitulo), 'L · sem título o confirmar é APAGADO e diz por quê', f);
     // A RODA RESPONDE AO GESTO: uma volta da roda do mouse para baixo sobre a
@@ -223,6 +282,8 @@ try {
   }
   await pg.click('#itinPopupClose');
   await fechada();
+  checar((await lista()).length === 0, 'L · fechar a folha sem confirmar NÃO cria momento nenhum', await lista());
+
   // ── N. O TECLADO DA FOLHA NÃO MEXE NA BARRA DA BIBLIOTECA (v1.13.2) ──────
   // Relato do operador: ao confirmar um horário, a caixa de busca da Biblioteca
   // (a barra que repousa no topo da caixa de controles) subia e descia na tela.
@@ -272,105 +333,309 @@ try {
     checar(fora.length === 0 && (await topoDaBarra()) === antes,
       'N · e no CONFIRMAR ela não desce nem sobe: parada no mesmo pixel em todos os quadros', { antes, fora: fora.slice(0, 8) });
   }
-  // FORA DE ORDEM de propósito (a primeira, "10:00 Louvor", entrou pelo bloco N).
+
+  // ── B′. MOMENTOS NA LISTA DO CRONOGRAMA, PELA UI REAL ────────────────────
+  // O "10:00 Louvor" entrou pelo bloco N, com a lista SEM momento nenhum (vai ao
+  // TOPO). Os demais entram fora da ordem do relógio, e a posição de cada um
+  // (antes do primeiro posterior no relógio; senão no fim) é o que ordena a lista.
+  checar((await lista()).join(' · ') === '10:00 Louvor',
+    'B′ · o primeiro momento (criado pela folha, no bloco N) é uma LINHA do Cronograma', await lista());
   await adicionar('09:00', 'Recepção');
   await adicionar('10:30', 'Sermão');
   await adicionar('11:00', 'Bênção');
-  const lista = () => pg.evaluate(() => [...document.querySelectorAll('#itinLista .itin-li')]
-    .map((li) => li.querySelector('.itin-thumb-hora').textContent + ' ' + li.querySelector('.row-name').textContent));
   checar((await lista()).join(' · ') === '09:00 Recepção · 10:00 Louvor · 10:30 Sermão · 11:00 Bênção',
-    'B · adicionados fora de ordem, a lista do painel sai pelo horário', await lista());
+    'B′ · criados FORA da ordem do relógio (10:00, 09:00, 10:30, 11:00), cada um entra antes do primeiro posterior '
+    + 'no relógio — a lista do cronograma sai pelo relógio', await lista());
   {
     const anat = await pg.evaluate(() => {
-      const li = document.querySelector('#itinLista .itin-li');
+      const li = document.querySelector('#library > li.momento');
+      const vis = (el) => {
+        const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
+        return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' && Number(cs.opacity) > 0;
+      };
+      const hora = li.querySelector('.row > .momento-hora'), nome = li.querySelector('.row-text > .row-name');
+      const sub = li.querySelector('.row-text > .row-sub');
+      const linha = li.getBoundingClientRect();
+      const dentro = (el) => { const r = el.getBoundingClientRect(); return r.left >= linha.left - 0.5 && r.right <= linha.right + 0.5; };
       return {
         lib: li.classList.contains('lib-item'),
-        capa: !!li.querySelector('.row > .thumb .itin-thumb-hora'),
-        sub: !!li.querySelector('.row-text > .row-sub'),
+        semCapa: !li.querySelector('.thumb'), capasNaLista: document.querySelectorAll('#library > li.momento .thumb').length,
+        hora: hora && hora.textContent, horaVisivel: !!hora && vis(hora) && dentro(hora),
+        nome: nome && nome.textContent, nomeVisivel: !!nome && vis(nome) && dentro(nome),
+        sub: sub ? sub.textContent : null,
         mais: !!li.querySelector('.row > .row-mais'),
         acoes: [...li.querySelectorAll('.row-acoes > button')].map((b) => b.className),
-        novoFora: !document.getElementById('itinNovoBtn').closest('#itinLista'),
+        ordem: li.querySelectorAll('.row-ordem').length,
+        novoFora: !document.getElementById('itinNovoBtn').closest('#library'),
+        aoLado: li.parentElement.id === 'library',
       };
     });
-    checar(anat.lib && anat.capa && anat.sub && anat.mais && anat.acoes.length === 4
-      && /row-excluir/.test(anat.acoes[0]) && /itin-editar/.test(anat.acoes[1])
-      && /row-ordem/.test(anat.acoes[2]) && /row-ordem/.test(anat.acoes[3]) && anat.novoFora,
-      'B · a linha é a LISTA do app: a hora na capa, nome e subtítulo, e o `⋮` com excluir · editar · ↑ · ↓ '
-      + '(o par por último, como no Cronograma); "Adicionar horário" fora do scroller', anat);
+    checar(anat.lib && anat.aoLado && anat.semCapa && anat.capasNaLista === 0,
+      'B′ · a linha do momento é um item da MESMA lista (`#library > li.lib-item.momento`) e SEM capa (`.thumb`)', anat);
+    checar(anat.hora === '09:00' && anat.horaVisivel && anat.nome === 'Recepção' && anat.nomeVisivel && !!anat.sub,
+      'B′ · a hora (`.momento-hora`) e o título (`.row-name`) estão à vista, dentro da linha, com um subtítulo', anat);
+    checar(anat.mais && anat.acoes.length === 2 && /row-excluir/.test(anat.acoes[0]) && /itin-editar/.test(anat.acoes[1])
+      && anat.ordem === 0 && anat.novoFora,
+      'B′ · o `⋮` da linha tem excluir · editar (e NENHUM par ↑↓); "Novo momento" mora na faixa, fora da lista', anat);
   }
-  const banco = () => pg.evaluate(() => AVDB.getState('itinerario'));
   {
-    const b = await banco();
-    checar(b && Array.isArray(b.itens) && b.itens.map((x) => x.titulo).join('|') === 'Recepção|Louvor|Sermão|Bênção',
-      'B · e ela está no banco (`state.itinerario`), na mesma ordem', b);
+    const regs = await pg.evaluate(async () => (await AVDB.listItems('imports'))
+      .map((r) => [r.kind, r.cue, r.name, r.data && r.data.min, ehMomento(r)].join(':')));
+    checar(regs.join('|') === 'cue:momento:Recepção:540:true|cue:momento:Louvor:600:true|cue:momento:Sermão:630:true|cue:momento:Bênção:660:true',
+      'B′ · cada momento é um registro `{ kind:"cue", cue:"momento", name, data:{ min } }` em `imports`, na ordem da lista', regs);
   }
 
   // EDITAR: tocar na linha abre a MESMA folha, com o horário e o título dela.
-  await pg.evaluate(() => [...document.querySelectorAll('#itinLista .itin-li')]
-    .find((li) => /Sermão/.test(li.textContent)).querySelector('.row-name').click());
+  const idSermao = await idDe('Sermão');
+  await pg.click('#library > li.momento[data-id="' + idSermao + '"] .row-name');
   await abrirFolha();
   {
     const e = await pg.evaluate(() => ({
       titulo: document.getElementById('itinPopupTitulo').textContent,
+      rotulo: document.querySelector('#itinEditorOk .song-menu-label').textContent,
       campo: document.getElementById('itinCampoTitulo').value,
       valor: roletaValorDe(document.getElementById('itinRoleta_hora')) * 60
         + roletaValorDe(document.getElementById('itinRoleta_min')),
     }));
-    checar(e.titulo === 'Editar horário' && e.campo === 'Sermão' && e.valor === 630,
-      'B · tocar na linha abre a folha de EDIÇÃO com o horário e o título dela', e);
+    checar(e.titulo === 'Editar momento' && e.rotulo === 'Salvar' && e.campo === 'Sermão' && e.valor === 630,
+      'B′ · tocar na linha abre a folha de EDIÇÃO ("Editar momento" / "Salvar") com o horário e o título dela', e);
   }
   await escolherHora('10:40');
   await pg.fill('#itinCampoTitulo', 'Pregação');
   await pg.click('#itinEditorOk');
   await fechada();
-  checar((await lista()).includes('10:40 Pregação'), 'B · editar troca horário e título', await lista());
-  // EXCLUIR pergunta NA LINHA (o `⋮`, a lixeira, o "Excluir" da faixa).
-  await pg.evaluate(() => [...document.querySelectorAll('#itinLista .itin-li')]
+  {
+    const l = await lista();
+    const r = await pg.evaluate(async (id) => {
+      const rec = (await AVDB.listItems('imports')).find((x) => x.id === id);
+      return rec && { name: rec.name, min: rec.data.min, cue: rec.cue };
+    }, idSermao);
+    checar(l.includes('10:40 Pregação') && !l.some((x) => /Sermão/.test(x)) && (await idDe('Pregação')) === idSermao
+      && r && r.name === 'Pregação' && r.min === 640 && r.cue === 'momento',
+      'B′ · editar por toque troca HORÁRIO e TÍTULO do MESMO registro (mesmo id, nome e `data.min` novos)', { l, r });
+  }
+  // EXCLUIR pela faixa do `⋮`: a pergunta é NA LINHA, sem diálogo.
+  await pg.evaluate(() => [...document.querySelectorAll('#library > li.momento')]
     .find((li) => /Bênção/.test(li.textContent)).querySelector('.row-mais').click());
-  await pg.evaluate(() => [...document.querySelectorAll('#itinLista .itin-li')]
+  await pg.evaluate(() => [...document.querySelectorAll('#library > li.momento')]
     .find((li) => /Bênção/.test(li.textContent)).querySelector('.row-excluir').click());
   {
-    const r = await esperar(pg, () => !!document.querySelector('#itinLista .linha-sim'));
+    const r = await esperar(pg, () => !!document.querySelector('#library .linha-sim'));
     checar(r === true && (await pg.evaluate(() => document.getElementById('appDialog').classList.contains('open'))) === false,
-      'B · excluir pergunta NA LINHA, sem diálogo', porque(r));
+      'B′ · excluir pergunta NA LINHA (`.linha-sim`), sem diálogo', porque(r));
   }
-  await pg.click('#itinLista .linha-sim');
-  await esperar(pg, () => ![...document.querySelectorAll('.itin-li')].some((b) => /Bênção/.test(b.textContent)));
+  await pg.click('#library .linha-sim');
+  await esperar(pg, () => ![...document.querySelectorAll('#library > li.momento')].some((b) => /Bênção/.test(b.textContent)));
   checar((await lista()).join(' · ') === '09:00 Recepção · 10:00 Louvor · 10:40 Pregação',
-    'B · e o "Excluir" tira a linha', await lista());
+    'B′ · e o "Excluir" tira a linha', await lista());
   {
-    const r = await esperar(pg, () => true);
-    const b = await banco();
-    checar(b && b.itens.length === 3 && b.itens[2].titulo === 'Pregação' && b.itens[2].min === 640,
-      'B · e o banco acompanha a edição e a exclusão', b || porque(r));
+    const regs = await pg.evaluate(async () => (await AVDB.listItems('imports')).filter(ehMomento).map((r) => r.name + ':' + r.data.min));
+    checar(regs.join('|') === 'Recepção:540|Louvor:600|Pregação:640',
+      'B′ · e o banco acompanha a edição e a exclusão (3 registros `momento`)', regs);
   }
 
-  // A RECARGA: a lista e a vista do Tempo voltam do banco.
-  await pg.reload();
-  await pg.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function', null, { timeout: 30000 });
-  await esperarCortina(pg);
-  await pg.evaluate(() => {
-    abrirFerramentas();
-    abrirFerramenta('itinerario');
+  // ── U. A FAIXA DE OPÇÕES: anatomia, recolher, persistir, abrir ───────────
+  const faixa = () => pg.evaluate(() => {
+    const b = document.getElementById('itinBar');
+    const topo = b.previousElementSibling;
+    const nome = (e) => e.id || (e.classList.contains('itin-passo') ? 'passo' + e.textContent.trim() : e.className);
+    const abrir = document.getElementById('itinBarAbrir');
+    const fechar = document.getElementById('itinBarFechar');
+    return {
+      recolhida: b.classList.contains('recolhida'),
+      filhos: [...b.children].map(nome),
+      h: Math.round(b.getBoundingClientRect().height * 10) / 10,
+      hTopo: topo ? Math.round(topo.getBoundingClientRect().height * 10) / 10 : -1,
+      irmaDoTopo: !!topo && topo.classList.contains('list-header'),
+      corpo: !!b.nextElementSibling && b.nextElementSibling.contains(document.getElementById('library')),
+      pai: b.parentElement && b.parentElement.tagName,
+      ponto: !!b.querySelector('.itin-ponto'),
+      expandidoAbrir: abrir && abrir.getAttribute('aria-expanded'),
+      expandidoFechar: fechar && fechar.getAttribute('aria-expanded'),
+      telao: (() => { const t = document.getElementById('itinTelaoBtn'); return t && [t.getAttribute('aria-pressed'), t.disabled]; })(),
+      horas: (() => { const t = document.getElementById('itinHorasBtn'); return t && t.getAttribute('aria-pressed'); })(),
+      ajuste: (() => { const t = document.getElementById('itinAjusteTxt'); return t && [t.disabled, t.classList.contains('deslocado')]; })(),
+    };
   });
-  await esperar(pg, () => !!document.getElementById('itinLista'));
-  checar((await lista()).join(' · ') === '09:00 Recepção · 10:00 Louvor · 10:40 Pregação',
-    'B · depois de RECARREGAR, a lista volta do banco', await lista());
+  {
+    const f = await faixa();
+    checar(f.pai === 'MAIN' && f.irmaDoTopo && f.corpo && !f.recolhida,
+      'U · a faixa é IRMÃ da barra do topo (`.list-header`), dentro do `<main>`, antes do corpo da lista — e começa aberta', f);
+    checar(f.filhos.join(' ') === 'itinTelaoBtn itinHorasBtn passo−5 passo−1 itinAjusteTxt passo+1 passo+5 itinNovoBtn itinBarFechar',
+      'U · os botões, na ordem: Telão · Horários · −5 −1 · ajuste · +1 +5 · Novo · Recolher (os "−" são U+2212)', f.filhos);
+    checar(f.telao[0] === 'false' && f.telao[1] === false && f.horas === 'true' && f.ajuste[0] === true && f.ajuste[1] === false
+      && f.expandidoFechar === 'true',
+      'U · estado inicial: telão apagado→aceso (com momentos), horários ligados, atraso apagado e sem `deslocado`', f);
+  }
+  await pg.click('#itinBarFechar');
+  {
+    const r = await esperarDb(pg, async () => ((await AVDB.getState('itinerario')) || {}).barraOculta === true);
+    const f = await faixa();
+    const b = await banco();
+    checar(f.recolhida && f.filhos.join() === 'itinBarAbrir' && f.expandidoAbrir === 'false' && !f.ponto,
+      'U · RECOLHER deixa UM botão só (`#itinBarAbrir`, `aria-expanded="false"`), sem o ponto (o itinerário não está no ar)', f);
+    checar(r === true && b.barraOculta === true && b.v === 3,
+      'U · e a escolha de recolher é gravada em `state.itinerario.barraOculta`', b || porque(r));
+    checar(f.h < f.hTopo && f.h > 0,
+      'U · recolhida, a faixa é MAIS BAIXA que a barra do topo (`.list-header`)', { faixa: f.h, topo: f.hTopo });
+  }
+  // A RECARGA: a escolha de recolher volta do banco, junto com a lista de momentos.
+  await recarregar();
+  {
+    const f = await faixa();
+    checar(f.recolhida && f.filhos.join() === 'itinBarAbrir',
+      'U · depois de RECARREGAR a faixa continua RECOLHIDA (a escolha é do aparelho, guardada)', f);
+    checar((await lista()).join(' · ') === '09:00 Recepção · 10:00 Louvor · 10:40 Pregação',
+      'B′ · depois de RECARREGAR, os momentos voltam do banco, na mesma ordem', await lista());
+  }
+  await pg.click('#itinBarAbrir');
+  {
+    const r = await esperarDb(pg, async () => ((await AVDB.getState('itinerario')) || {}).barraOculta === false);
+    const f = await faixa();
+    checar(r === true && !f.recolhida && f.filhos.length === 9 && f.expandidoFechar === 'true',
+      'U · o botão de abrir devolve a faixa inteira (9 botões) e grava `barraOculta: false`', { f, r: porque(r) });
+    checar(f.h < f.hTopo && f.h > 0, 'U · aberta, a faixa continua MAIS BAIXA que a barra do topo', { faixa: f.h, topo: f.hTopo });
+  }
+  // NENHUM BOTÃO PASSA DA BORDA: em 320, 360 e 430 de largura, com o atraso mais
+  // largo escrito ("Atrasado 45 min"). A escrita (longa ou curta) é escolhida pela
+  // consulta de contêiner do CSS: uma das duas, nunca as duas nem nenhuma.
+  await pg.evaluate(() => itinAjustar(45));
+  await esperar(pg, () => document.getElementById('itinAjusteTxt').classList.contains('deslocado'));
+  for (const w of [320, 360, 430]) {
+    await pg.setViewportSize({ width: w, height: 800 });
+    await esperar(pg, (x) => innerWidth === x, w);
+    await pg.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const g = await pg.evaluate(() => {
+      const b = document.getElementById('itinBar');
+      const rb = b.getBoundingClientRect();
+      const padD = parseFloat(getComputedStyle(b).paddingRight) || 0;
+      const bts = [...b.querySelectorAll('.itin-b')].map((e) => {
+        const r = e.getBoundingClientRect();
+        return { id: e.id || e.textContent.trim(), esq: Math.round(r.left * 10) / 10, dir: Math.round(r.right * 10) / 10, larg: r.width };
+      });
+      const exibe = (sel) => getComputedStyle(b.querySelector(sel)).display !== 'none';
+      return {
+        w: innerWidth, n: bts.length, faixaDir: Math.round(rb.right * 10) / 10, rolagem: b.scrollWidth - b.clientWidth,
+        passaram: bts.filter((x) => x.dir > rb.right + 0.5 || x.esq < rb.left - 0.5).map((x) => x.id + '→' + x.dir),
+        noRecuo: bts.filter((x) => x.dir > rb.right - padD + 0.5).map((x) => x.id + '→' + x.dir),
+        semLargura: bts.filter((x) => x.larg < 1).map((x) => x.id),
+        longo: exibe('.itin-txt-longo'), curto: exibe('.itin-txt-curto'),
+        telaoTxt: exibe('.itin-telao-txt'),
+        h: Math.round(rb.height * 10) / 10, hTopo: Math.round(b.previousElementSibling.getBoundingClientRect().height * 10) / 10,
+      };
+    });
+    checar(g.n === 9 && g.passaram.length === 0 && g.semLargura.length === 0 && g.rolagem <= 1,
+      'U · em ' + w + 'px de largura NENHUM botão da faixa passa da borda da faixa (e a faixa não rola)', g);
+    checar(g.noRecuo.length === 0,
+      'U · e em ' + w + 'px nenhum botão invade o recuo da direita (o `padding` da faixa)', g);
+    checar(g.longo !== g.curto, 'U · em ' + w + 'px o atraso aparece em UMA escrita só (longa ou curta)', g);
+    checar(g.h < g.hTopo, 'U · em ' + w + 'px a faixa é mais baixa que a barra do topo', g);
+  }
+  await pg.setViewportSize({ width: 360, height: 800 });
+  await esperar(pg, () => innerWidth === 360);
+  await pg.evaluate(() => itinAjusteZerar());
 
-  // ── C. PROJETAR, E A TROCA QUANDO O RELÓGIO CRUZA ────────────────────────
-  // Espia o barramento: a troca de item NÃO pode custar comando nenhum.
+  // ── D′. ARRASTAR UMA MÍDIA PARA ENTRE DOIS MOMENTOS ─────────────────────
+  // A lista é do operador: ele a organiza segurando e arrastando (a mesma máquina
+  // do `cronograma-pronto`, B1/B2). O TELÃO continua ordenado pelo RELÓGIO, e
+  // NADA toca sozinho quando um horário passa: o itinerário só marca a lista.
+  await ctx.clock.setSystemTime(T('09:58'));
+  const midias = await pg.evaluate(async () => {
+    const a = await AVDB.addCue('message', { text: 'Bom dia' }, { name: 'Aviso 1', list: 'imports' });
+    const b = await AVDB.addCue('message', { text: 'Desliguem os celulares' }, { name: 'Aviso 2', list: 'imports' });
+    await load();
+    return { a: a.id, b: b.id };
+  });
+  const nomesDoBanco = () => pg.evaluate(async () => (await AVDB.listItems('imports')).map((r) => r.name));
+  const nomesNaTela = () => pg.evaluate(() => [...document.querySelectorAll('#library > li.lib-item')]
+    .map((li) => li.querySelector('.row-name').textContent));
+  const ordemDoTelao = () => pg.evaluate(() => ({
+    descritor: itinDescriptor().itens.map((x) => x.titulo).join(),
+    leitura: itinItens().map((x) => x.titulo).join(),
+  }));
+  checar((await nomesDoBanco()).join() === 'Recepção,Louvor,Pregação,Aviso 1,Aviso 2' && (await nomesNaTela()).join() === (await nomesDoBanco()).join(),
+    'D′ · ponto de partida: três momentos e duas mídias (`message`), a tela igual ao banco', await nomesDoBanco());
+  {
+    const geo = await pg.evaluate((id) => {
+      const lis = [...document.querySelectorAll('#library > li.lib-item')];
+      const r = (el) => el.getBoundingClientRect();
+      const li = lis.find((x) => x.dataset.id === id);
+      const rl = r(li);
+      return {
+        x: Math.round(rl.left + rl.width / 2), y: Math.round(rl.top + rl.height / 2),
+        // O PONTO ENTRE A 1ª E A 2ª LINHA (os momentos são mais baixos que as mídias:
+        // a conta sai das caixas reais, não de uma altura única).
+        alvo: Math.round((r(lis[0]).bottom + r(lis[1]).top) / 2),
+      };
+    }, midias.b);
+    await pg.mouse.move(geo.x, geo.y);
+    await pg.mouse.down();
+    const levantou = await esperar(pg, () => !!document.querySelector('#library > .lib-item.arrastando'), null, 4000);
+    checar(levantou === true, 'D′ · segurar a MÍDIA a levanta (estado de arrasto, não modo de seleção)', porque(levantou));
+    await pg.mouse.move(geo.x, geo.alvo, { steps: 12 });
+    await pg.mouse.up();
+  }
+  {
+    const esperado = ['Recepção', 'Aviso 2', 'Louvor', 'Pregação', 'Aviso 1'];
+    const r = await esperarDb(pg, async (e) => (await AVDB.listItems('imports')).map((x) => x.name).join() === e.join(), esperado, 8000);
+    const solto = await esperar(pg, () => !document.getElementById('library').classList.contains('arrastando-lista')
+      && !document.querySelector('#library .arrastando'), null, 5000);
+    checar(r === true, 'D′ · soltar GRAVA a ordem: a mídia foi para ENTRE "Recepção" e "Louvor", no banco', await nomesDoBanco());
+    checar(solto === true && (await nomesNaTela()).join() === esperado.join(),
+      'D′ · e a tela mostra a ordem nova, sem rastro do gesto (sem `.arrastando` nem `arrastando-lista`)', { r: porque(solto), tela: await nomesNaTela() });
+    const o = await ordemDoTelao();
+    checar(o.descritor === 'Recepção,Louvor,Pregação' && o.leitura === o.descritor,
+      'D′ · a ordem do TELÃO (o descritor) NÃO mudou: segue o relógio, e a mídia no meio da lista não entra nele', o);
+  }
+  // E A POSIÇÃO DE UM MOMENTO NÃO ORDENA O TELÃO: o último do relógio vai ao topo da lista.
+  {
+    const idPre = await idDe('Pregação');
+    await pg.evaluate((id) => moverNaListaPara('imports', id, 0), idPre);
+    await esperar(pg, () => document.querySelector('#library > li.lib-item .row-name').textContent === 'Pregação');
+    const o = await ordemDoTelao();
+    checar(o.descritor === 'Recepção,Louvor,Pregação' && (await lista())[0] === '10:40 Pregação',
+      'D′ · um MOMENTO arrastado ao topo da lista muda a lista, e o telão continua pelo relógio (Recepção, Louvor, Pregação)',
+      { o, lista: await lista() });
+    await pg.evaluate((id) => moverNaListaPara('imports', id, 3), idPre);
+    await esperar(pg, () => document.querySelector('#library > li.lib-item .row-name').textContent === 'Recepção');
+  }
+  // NADA TOCA SOZINHO quando o relógio cruza um horário.
   await pg.evaluate(() => {
     window.__cmds = [];
     const orig = AVDB.sendCommand;
     AVDB.sendCommand = function (c) { window.__cmds.push(c); return orig.apply(this, arguments); };
   });
-  await pg.click('#miscProjectBtn');
+  await ctx.clock.pauseAt(T('09:59', 57));
+  await ctx.clock.runFor(5000);   // cruza 10:00:00 com o laço de um segundo
+  {
+    const c = await pg.evaluate(() => ({
+      hora: new Date().getHours() * 60 + new Date().getMinutes(),
+      noAr: itinProjecting(), linhasNoAr: document.querySelectorAll('#library .lib-item.no-ar').length,
+      cmds: window.__cmds.map((x) => x.type), tocando: typeof midiaNoAr === 'function' ? !!midiaNoAr() : null,
+      agora: [...document.querySelectorAll('#library > li.momento.agora .row-name')].map((e) => e.textContent).join(),
+      marcaNaMidia: document.querySelectorAll('#library > li:not(.momento).agora, #library > li:not(.momento).seguir').length,
+    }));
+    checar(c.hora >= 600, 'D′ · o relógio CRUZOU as 10:00 (a prova de que o horário passou)', c);
+    checar(c.agora === 'Louvor' && c.marcaNaMidia === 0,
+      'D′ · a LISTA acompanhou o relógio: "Louvor" passou a ser o de agora (e nenhuma mídia ganhou a marca)', c);
+    checar(!c.noAr && c.linhasNoAr === 0 && c.cmds.length === 0 && c.tocando !== true,
+      'D′ · e NADA tocou: `itinProjecting()` falso, nenhuma linha NO AR, nenhum comando no barramento', c);
+  }
+  await ctx.clock.resume();
+
+  // ── C. PROJETAR, E A TROCA QUANDO O RELÓGIO CRUZA ────────────────────────
+  // Volta ao começo da manhã (o D′ cruzou as 10:00): a troca sob teste é a do bloco.
+  await ctx.clock.setSystemTime(T('09:58'));
+  await pg.evaluate(() => { window.__cmds.length = 0; });
+  await esperar(pg, () => { const a = document.querySelector('#library > li.momento.agora .row-name'); return !!a && a.textContent === 'Recepção'; });
+  await pg.click('#itinTelaoBtn');
   await esperar(pg, () => !!document.querySelector('#pvTextItin .itin-linha'));
   const pv = () => pg.evaluate(() => ({
     linhas: [...document.querySelectorAll('#pvTextItin .itin-linha:not(.itin-saindo)')].map((l) =>
       (l.classList.contains('agora') ? '*' : '') + l.querySelector('.itin-hora').textContent + ' '
       + l.querySelector('.itin-titulo').textContent),
-    painel: [...document.querySelectorAll('#itinLista .itin-li.active .row-name')].map((e) => e.textContent),
+    lista: [...document.querySelectorAll('#library > li.momento.agora .row-name')].map((e) => e.textContent),
+    subs: [...document.querySelectorAll('#library > li.momento .row-sub')].map((e) => e.textContent),
     anima: [...document.querySelectorAll('#pvTextItin .itin-linha')]
       .reduce((n, l) => n + l.getAnimations().filter((a) => a.playState === 'running').length, 0),
     semHoras: document.getElementById('pvTextItin').classList.contains('sem-horas'),
@@ -378,63 +643,104 @@ try {
   }));
   const cmdItin = await pg.evaluate(() => window.__cmds.filter((c) => c.type === 'text' && c.mode === 'itinerario'));
   checar(cmdItin.length === 1 && Array.isArray(cmdItin[0].itinerario.itens) && cmdItin[0].itinerario.itens.length === 3
-    && Number.isFinite(cmdItin[0].itinerario.fuso),
-    'C · projetar manda UM descritor (a lista, o ajuste, o fuso) — não o estado calculado', cmdItin);
+    && Number.isFinite(cmdItin[0].itinerario.fuso)
+    && cmdItin[0].itinerario.itens.map((x) => x.titulo).join() === 'Recepção,Louvor,Pregação',
+    'C · o Telão da faixa manda UM descritor (a lista pelo RELÓGIO, o ajuste, o fuso) — não o estado calculado', cmdItin);
   {
+    const tel = await pg.evaluate(() => { const t = document.getElementById('itinTelaoBtn'); return [t.getAttribute('aria-pressed'), t.classList.contains('active'), itinProjecting()]; });
+    checar(tel.join() === 'true,true,true', 'C · e o botão "Telão" fica LIGADO (`aria-pressed="true"`, classe `active`)', tel);
     const v = await pv();
     checar(v.linhas[0] === '*09:00 Recepção' && v.linhas.length === 3,
       'C · às 09:58 a preview mostra "Recepção" em destaque e os seguintes abaixo', v);
-    checar(v.painel.join() === 'Recepção', 'C · e o painel marca o mesmo item', v.painel);
+    checar(v.lista.join() === 'Recepção', 'C · e a LISTA do cronograma marca o mesmo momento (`.agora`)', v.lista);
+    checar(v.subs.join(' | ') === 'Agora · 1 h | 40 min | Último momento',
+      'C · o subtítulo da linha diz "Agora" + a duração até o seguinte, e o último diz "Último momento"', v.subs);
   }
+  // LIGAR E DESLIGAR: o botão tira o itinerário do telão sem apagar nada, e a marca da lista continua.
+  await pg.click('#itinTelaoBtn');
+  {
+    const r = await esperar(pg, () => !itinProjecting());
+    const e = await pg.evaluate(() => {
+      const t = document.getElementById('itinTelaoBtn');
+      return { pressed: t.getAttribute('aria-pressed'), ativo: t.classList.contains('active'), momentos: itinItens().length,
+        marca: document.querySelectorAll('#library > li.momento.agora').length };
+    });
+    checar(r === true && e.pressed === 'false' && !e.ativo && e.momentos === 3 && e.marca === 1,
+      'C · tocar de novo em "Telão" DESLIGA (a lista e a marca de agora ficam)', { r: porque(r), e });
+  }
+  await pg.evaluate(() => { window.__cmds.length = 0; });
+  await pg.click('#itinTelaoBtn');
+  await esperar(pg, () => itinProjecting() && !!document.querySelector('#pvTextItin .itin-linha'));
   await pg.evaluate(() => { window.__cmds.length = 0; });
   await ctx.clock.pauseAt(T('09:59', 57));
   await ctx.clock.runFor(5000);   // cruza 10:00:00 com o laço de um segundo
   {
     const v = await pv();
     checar(v.linhas[0] === '*10:00 Louvor' && v.linhas.length === 2,
-      'C · ao cruzar 10:00 o destaque passa para "Louvor", e "Recepção" sai da lista', v);
-    checar(v.painel.join() === 'Louvor', 'C · o painel acompanha o relógio', v.painel);
+      'C · ao cruzar 10:00 o destaque passa para "Louvor", e "Recepção" sai da lista do telão', v);
+    checar(v.lista.join() === 'Louvor' && v.subs.join(' | ') === '1 h | Agora · 40 min | Último momento',
+      'C · a lista do cronograma acompanha o relógio (a marca e o subtítulo passam para "Louvor")', { lista: v.lista, subs: v.subs });
     checar(v.anima > 0, 'C · e a troca é ANIMADA (as linhas têm animação viva)', v);
     const novos = await pg.evaluate(() => window.__cmds.length);
     checar(novos === 0, 'C · sem comando nenhum no barramento: cada tela segue o próprio relógio', novos);
   }
   await ctx.clock.resume();
 
-  // ── D. O AJUSTE ──────────────────────────────────────────────────────────
+  // ── D. O AJUSTE, PELA FAIXA ──────────────────────────────────────────────
   const horasPv = async () => (await pv()).linhas.map((t) => t.replace('*', '').slice(0, 5));
   const mins = (hs) => hs.map((h) => Number(h.slice(0, 2)) * 60 + Number(h.slice(3)));
-  await pg.click('.itin-ajuste .itin-passo[aria-label="Atrasar 5 min"]');
-  await esperar(pg, () => document.getElementById('itinAjusteTxt').textContent.includes('5'));
+  const ajusteTxt = () => pg.evaluate(() => {
+    const b = document.getElementById('itinAjusteTxt');
+    return { longo: b.querySelector('.itin-txt-longo').textContent, curto: b.querySelector('.itin-txt-curto').textContent,
+      off: b.disabled, deslocado: b.classList.contains('deslocado') };
+  });
+  await pg.click('#itinBar .itin-passo[aria-label="Atrasar 5 min"]');
+  await esperar(pg, () => itin.desloc === 5);
   {
     const v = await pv();
     const b = await banco();
+    const a = await ajusteTxt();
+    const horasLista = await pg.evaluate(() => [...document.querySelectorAll('#library > li.momento .momento-hora')].map((e) => e.textContent));
     // Com +5, às ~10:00:05 o "Louvor" (10:05) ainda não começou: volta a ser a Recepção.
     checar(v.linhas[0] === '*09:05 Recepção' && v.linhas.join('|').includes('10:05 Louvor')
       && v.linhas.join('|').includes('10:45 Pregação'),
       'D · +5 desloca TODOS os horários e o de agora acompanha (Louvor passa a 10:05)', v.linhas);
-    checar(b && b.desloc === 5 && /^\d{4}-\d{2}-\d{2}$/.test(b.deslocDia || ''),
-      'D · e o ajuste é guardado PELO DIA', b);
+    checar(horasLista.join() === '09:05,10:05,10:45' && v.lista.join() === 'Recepção' && /previsto 09:00/.test(v.subs[0]),
+      'D · e a LISTA mostra a hora efetiva (09:05 · 10:05 · 10:45), marca "Recepção" e o subtítulo diz "previsto 09:00"',
+      { horasLista, lista: v.lista, subs: v.subs });
+    checar(b && b.v === 3 && b.desloc === 5 && /^\d{4}-\d{2}-\d{2}$/.test(b.deslocDia || '')
+      && Object.keys(b).sort().join() === 'barraOculta,desloc,deslocDia,horas,v',
+      'D · o ajuste é guardado PELO DIA, e a chave tem só `{ v:3, horas, desloc, deslocDia, barraOculta }`', b);
+    checar(a.longo === 'Atrasado 5 min' && a.curto === '+5 min' && !a.off && a.deslocado,
+      'D · o atraso diz "Atrasado 5 min" (curto: "+5 min"), fica aceso e destacado (`deslocado`)', a);
   }
-  await pg.click('.itin-ajuste .itin-passo[aria-label="Adiantar 1 min"]');
-  await esperar(pg, () => document.getElementById('itinAjusteTxt').textContent.includes('4'));
+  await pg.click('#itinBar .itin-passo[aria-label="Adiantar 1 min"]');
+  await esperar(pg, () => itin.desloc === 4);
   {
     const h = await horasPv();
     const m = mins(h);
     checar(h[0] === '09:04' && m[1] - m[0] === 60 && m[2] - m[1] === 40,
       'D · −1 recua todos juntos, e os INTERVALOS ficam (60 e 40 min)', h);
+    checar((await ajusteTxt()).longo === 'Atrasado 4 min', 'D · e o atraso acompanha ("Atrasado 4 min")', await ajusteTxt());
   }
-  await pg.click('.itin-ajuste .itin-zerar');
-  await esperar(pg, () => document.getElementById('itinAjusteTxt').textContent === 'No horário');
+  await pg.click('#itinBar .itin-passo[aria-label="Adiantar 5 min"]');
+  await esperar(pg, () => itin.desloc === -1);
+  checar((await ajusteTxt()).longo === 'Adiantado 1 min' && (await ajusteTxt()).curto === '−1 min',
+    'D · passando de zero o atraso vira "Adiantado 1 min" (curto: "−1 min", com o U+2212)', await ajusteTxt());
+  await pg.click('#itinAjusteTxt');
+  await esperar(pg, () => itin.desloc === 0);
   {
     const v = await pv();
-    const zerar = await pg.evaluate(() => document.querySelector('.itin-ajuste .itin-zerar').disabled);
-    checar(v.linhas[0] === '*10:00 Louvor' && zerar,
-      'D · o ↺ volta ao previsto, e no previsto ele fica APAGADO', { v, zerar });
+    const a = await ajusteTxt();
+    const b = await banco();
+    checar(v.linhas[0] === '*10:00 Louvor' && a.off && !a.deslocado && a.longo === 'No horário' && a.curto === '0 min',
+      'D · tocar no atraso ZERA o ajuste (volta ao previsto), e no previsto ele fica APAGADO ("No horário")', { v: v.linhas, a });
+    checar(b.desloc === 0 && b.deslocDia === '', 'D · e o zero é guardado (`desloc: 0`, `deslocDia` vazio)', b);
   }
 
   // ── J. O PAR AO LADO DA PREVIEW É O AJUSTE, DE 5 EM 5 MIN ──────────────
   // Pedido do operador (v1.13.1): com o itinerário no ar, ⏮ adianta 5 min e ⏭
-  // atrasa 5 min — a ordem do −5 … +5 do painel. Revoga a v1.13.0 (par apagado).
+  // atrasa 5 min — a ordem do −5 … +5 da faixa.
   {
     const par = await pg.evaluate(() => ({
       alvo: slideTarget(), fora: eixoForaDoPainel(),
@@ -449,11 +755,7 @@ try {
       'J · e ele vale na TELA CHEIA (não é eixo só do painel); a NOTIFICAÇÃO perdeu o atalho '
       + 'na v1.14.23 (Pacote 31): os ⏮/⏭ dela são do player', par);
   }
-  // COM A FOLHA FECHADA: o par não depende do painel.
-  await pg.evaluate(() => fecharFerramentas());
-  // A FOLHA DESCE ANIMADA, e só some no fim: reabri-la antes disso é a corrida
-  // que o `abrirFerramentas` não cobre (ele volta cedo com ela ainda à vista).
-  await esperar(pg, () => toolsSheetEl.hidden);
+  // COM A FOLHA DE FERRAMENTAS FECHADA: o par não depende de painel nenhum.
   await pg.click('#slideNextBtn');
   await pg.click('#slideNextBtn');
   await pg.click('#slidePrevBtn');
@@ -464,6 +766,7 @@ try {
     checar(r === true && b.desloc === 5 && h.includes('10:05'),
       'J · ⏭ ⏭ ⏮ = +5 min: o ajuste anda de 5 em 5, é guardado e o telão acompanha (Louvor 10:05)',
       { r: porque(r), desloc: b && b.desloc, h });
+    checar((await ajusteTxt()).longo === 'Atrasado 5 min', 'J · e a faixa mostra o mesmo atraso ("Atrasado 5 min")', await ajusteTxt());
   }
   // A COLUNA DA TELA CHEIA roteia pelo mesmo par (`attachTransportStep`).
   await pg.evaluate(() => document.getElementById('fsPrev').click());
@@ -471,36 +774,50 @@ try {
     const r = await esperar(pg, () => itin.desloc === 0);
     checar(r === true, 'J · o ⏮ da coluna da tela cheia adianta 5 min pelo mesmo caminho', porque(r));
   }
-  // NOS EXTREMOS o passo apaga — a mesma régua dos −5/+5 do painel.
+  // NOS EXTREMOS o passo apaga — a mesma régua dos −5/+5 da faixa.
   {
     const lim = await pg.evaluate(() => {
       itin.desloc = ITIN_DESLOC_MAX - 5; itinAjustar(5);
       const noTeto = [slidePrevBtnEl.disabled, slideNextBtnEl.disabled];
+      const faixaNoTeto = [...document.querySelectorAll('#itinBar .itin-passo')].map((b) => b.textContent + (b.disabled ? ':off' : ''));
       itinAjusteZerar();
       const zerado = [slidePrevBtnEl.disabled, slideNextBtnEl.disabled];
-      return { noTeto, zerado, desloc: itin.desloc };
+      return { noTeto, faixaNoTeto, zerado, desloc: itin.desloc, apagado: [itinPassoApagado(-1), itinPassoApagado(1)] };
     });
     checar(lim.noTeto[0] === false && lim.noTeto[1] === true && lim.zerado.join() === 'false,false' && lim.desloc === 0,
       'J · em +12 h o ⏭ APAGA (e o ⏮ não); zerado, os dois voltam', lim);
+    checar(lim.faixaNoTeto.join(' ') === '−5 −1 +1:off +5:off',
+      'J · e na faixa, em +12 h, só os passos para a frente apagam (+1 e +5)', lim.faixaNoTeto);
   }
-  await pg.evaluate(() => {
-    abrirFerramentas();
-    abrirFerramenta('itinerario');
-  });
-  await esperar(pg, () => !!document.getElementById('itinLista'));
 
-  // ── E. HORÁRIOS × SÓ OS TÍTULOS ──────────────────────────────────────────
+  // ── E. HORÁRIOS × SÓ OS TÍTULOS, PELA FAIXA ──────────────────────────────
   await pg.click('#itinHorasBtn');
   await esperar(pg, () => document.getElementById('pvTextItin').classList.contains('sem-horas'));
   {
     const v = await pv();
     const b = await banco();
-    checar(v.semHoras && v.horaVisivel === 'none' && b.horas === false,
-      'E · "só os títulos": a hora some da lista projetada, e a escolha é guardada', { v, horas: b.horas });
+    const bt = await pg.evaluate(() => { const t = document.getElementById('itinHorasBtn'); return [t.getAttribute('aria-pressed'), t.classList.contains('active')]; });
+    checar(v.semHoras && v.horaVisivel === 'none' && b.horas === false && bt.join() === 'false,false',
+      'E · "só os títulos": a hora some da lista projetada, o botão desliga (`aria-pressed="false"`) e a escolha é guardada', { v, horas: b.horas, bt });
     checar(v.linhas[0].startsWith('*'), 'E · e o item de agora CONTINUA marcado', v.linhas);
   }
   await pg.click('#itinHorasBtn');
   await esperar(pg, () => !document.getElementById('pvTextItin').classList.contains('sem-horas'));
+  checar((await faixa()).horas === 'true', 'E · e o botão volta a "horários" (`aria-pressed="true"`)', await faixa());
+
+  // ── U (no ar). RECOLHIDA, A FAIXA CONTINUA DIZENDO QUE ESTÁ NO AR ─────────
+  await pg.click('#itinBarFechar');
+  {
+    const f = await faixa();
+    const cls = await pg.evaluate(() => document.getElementById('itinBar').classList.contains('no-ar'));
+    checar(f.recolhida && f.ponto && cls,
+      'U · recolhida com o itinerário NO AR, a faixa mostra o ponto aceso (`.itin-ponto`) — a única pista que sobra', { f, cls });
+  }
+  await pg.click('#itinBarAbrir');
+  {
+    const f = await faixa();
+    checar(!f.recolhida && f.telao.join() === 'true,false', 'U · abrir de novo devolve o "Telão" ligado', f);
+  }
 
   // ── F. O TELÃO — e o REENVIO quando ele se reapresenta ───────────────────
   const tv = await ctx.newPage();
@@ -617,62 +934,17 @@ try {
       { dentro, fora, geo });
     await tv.evaluate(() => { document.getElementById('wallpaper').style.backgroundImage = ''; pintarFundoDoCartao(); });
   }
-  // ── O. O PAR ↑↓, COMO NO CRONOGRAMA (v1.13.2) ──────────────────────────
-  // Mover TROCA o evento com o vizinho e os horários ficam no lugar: "Louvor"
-  // desce e leva o 10:40, "Pregação" sobe para o 10:00 — a grade não muda.
-  {
-    const abrirMais = (titulo) => pg.evaluate((t) => [...document.querySelectorAll('#itinLista .itin-li')]
-      .find((li) => li.querySelector('.row-name').textContent === t).querySelector('.row-mais').click(), titulo);
-    const ordem = (titulo) => pg.evaluate((t) => {
-      const li = [...document.querySelectorAll('#itinLista .itin-li')].find((x) => x.querySelector('.row-name').textContent === t);
-      return [...li.querySelectorAll('.row-acoes > .row-ordem')].map((b) => [b.getAttribute('aria-label'), b.disabled]);
-    }, titulo);
-    const pontas = { primeiro: await ordem('Recepção'), ultimo: await ordem('Pregação') };
-    checar(pontas.primeiro.join() === 'Mover para cima,true,Mover para baixo,false'
-      && pontas.ultimo.join() === 'Mover para cima,false,Mover para baixo,true',
-      'O · as PONTAS apagam: o primeiro não sobe, o último não desce', pontas);
-    await abrirMais('Louvor');
-    await pg.evaluate(() => [...document.querySelectorAll('#itinLista .itin-li')]
-      .find((li) => li.querySelector('.row-name').textContent === 'Louvor')
-      .querySelector('.row-ordem[aria-label="Mover para baixo"]').click());
-    await esperar(pg, () => [...document.querySelectorAll('#itinLista .itin-li')].map((li) => li.querySelector('.row-name').textContent).join() === 'Recepção,Pregação,Louvor');
-    const depois = await pg.evaluate(() => ({
-      lista: [...document.querySelectorAll('#itinLista .itin-li')].map((li) => li.querySelector('.itin-thumb-hora').textContent + ' ' + li.querySelector('.row-name').textContent),
-      aberta: (document.querySelector('#itinLista .itin-li.acoes-abertas .row-name') || {}).textContent || '',
-    }));
-    checar(depois.lista.join(' · ') === '09:00 Recepção · 10:00 Pregação · 10:40 Louvor',
-      'O · ↓ em "Louvor": ele TROCA de lugar com o vizinho e os HORÁRIOS ficam onde estavam', depois.lista);
-    checar(depois.aberta === 'Louvor', 'O · e a faixa REABRE na linha que andou — o segundo toque cai no mesmo lugar', depois);
-    const b = await banco();
-    checar(b.itens.map((x) => x.min + ' ' + x.titulo).join('|') === '540 Recepção|600 Pregação|640 Louvor',
-      'O · e a troca é gravada (`state.itinerario`)', b.itens);
-    const rt = await esperar(tv, () => {
-      const l = document.querySelector('#textItin .itin-linha.agora .itin-titulo');
-      return !!l && l.textContent === 'Pregação';
-    });
-    const t = await telao();
-    checar(rt === true && t.linhas[0] === '*10:00 Pregação [Agora]' && t.linhas[1] === '10:40 Louvor' && t.anima > 0,
-      'O · o telão acompanha, ANIMADO: "Pregação" passa a ser o de agora (10:00) e "Louvor" vai a 10:40', { t, r: porque(rt) });
-    // E DE VOLTA: ↑ em "Louvor" (a faixa continua aberta nele).
-    await pg.evaluate(() => document.querySelector('#itinLista .itin-li.acoes-abertas .row-ordem[aria-label="Mover para cima"]').click());
-    await esperar(pg, () => [...document.querySelectorAll('#itinLista .itin-li')].map((li) => li.querySelector('.row-name').textContent).join() === 'Recepção,Louvor,Pregação');
-    checar((await lista()).join(' · ') === '09:00 Recepção · 10:00 Louvor · 10:40 Pregação',
-      'O · ↑ desfaz: a mesma troca, no sentido oposto', await lista());
-    await pg.evaluate(() => fecharAcoesDaLinha());
-    await esperar(tv, () => {
-      const l = document.querySelector('#textItin .itin-linha.agora .itin-titulo');
-      return !!l && l.textContent === 'Louvor';
-    });
-  }
 
   // O telão segue o PRÓPRIO relógio: cruzar 10:40 troca o destaque lá também.
   await ctx.clock.pauseAt(T('10:39', 58));
   await ctx.clock.runFor(4000);
   {
     const t = await telao();
+    const marca = await pg.evaluate(() => [...document.querySelectorAll('#library > li.momento.agora .row-name')].map((e) => e.textContent).join());
     checar(t.linhas.length === 1 && t.linhas[0] === '*10:40 Pregação [Agora]',
       'G · depois do último horário o último fica no ar, sozinho', t.linhas);
     checar(t.anima > 0, 'F · e no telão a troca também é animada', t);
+    checar(marca === 'Pregação', 'G · e a lista do cronograma marca o mesmo último momento', marca);
   }
   await ctx.clock.resume();
 
@@ -715,322 +987,225 @@ try {
       { linhas: t.linhas, animou, trans });
   }
 
-  // ── K. OS DESTINOS: Cronograma e Favoritos, como as abas irmãs ─────────
-  // Pedido do operador (v1.13.1). O que se guarda é a PROGRAMAÇÃO (itens e
-  // horários × títulos), e não o ajuste, que é do dia.
-  await pg.evaluate(() => { itinAjustar(5); });
-  {
-    const foot = await pg.evaluate(() => [...document.querySelectorAll('#toolsFoot .cue-save-btn')]
-      .map((b) => [b.getAttribute('aria-label'), b.disabled]));
-    checar(foot.length === 2 && foot[0][0] === 'Adicionar ao Cronograma' && foot[1][0] === 'Favoritar'
-      && !foot[0][1] && !foot[1][1],
-      'K · o rodapé do itinerário tem os DOIS destinos, na ordem Cronograma · favoritos', foot);
-  }
-  await pg.click('#toolsFoot .cue-save-btn[aria-label="Adicionar ao Cronograma"]');
-  await pg.click('#toolsFoot .cue-save-btn[aria-label="Favoritar"]');
-  const achaCue = (lista) => pg.evaluate(async (l) => (await AVDB.listItems(l))
-    .filter((r) => r.kind === 'cue' && r.cue === 'itinerario'), lista);
-  {
-    const r = await esperarDb(pg, async () => (await AVDB.listItems('favs')).some((x) => x.cue === 'itinerario'));
-    const crono = await achaCue('imports');
-    const favs = await achaCue('favs');
-    const d = crono[0] && crono[0].data;
-    checar(r === true && crono.length === 1 && favs.length === 1 && d
-      && d.itens.map((x) => x.min + ' ' + x.titulo).join('|') === '540 Recepção|600 Louvor|640 Pregação'
-      && d.horas === true && !('desloc' in d) && /^Itinerário 09:00–10:40$/.test(crono[0].name),
-      'K · a cena guarda a programação (sem o ajuste do dia) no Cronograma e nos Favoritos', { crono, favs });
-    // O PACOTE leva a cena como qualquer registro: o descritor atravessa inteiro.
-    const san = await pg.evaluate((rec) => AVPacote.sanearMedia(rec), crono[0]);
-    checar(san && san.kind === 'cue' && san.cue === 'itinerario' && JSON.stringify(san.data) === JSON.stringify(d),
-      'K · e o `.avpkg` a leva com o descritor inteiro (`sanearMedia`)', san);
-    const sub = await pg.evaluate(() => {
-      const li = [...document.querySelectorAll('#library .lib-item')].find((x) => /Itinerário 09:00/.test(x.textContent));
-      return li ? li.querySelector('.row-sub').textContent : null;
-    });
-    checar(sub === 'Itinerário', 'K · e a linha do Cronograma diz o tipo: "Itinerário"', sub);
-  }
-  // TOCAR NA CENA projeta a programação guardada: ela vira a do painel, e o
-  // ajuste do dia FICA (+5).
-  await pg.evaluate(() => { hideItin(); itin.itens = [{ id: 'z', min: 700, titulo: 'Outra coisa' }]; itinMudou(); });
-  await pg.evaluate(async () => {
-    const rec = (await AVDB.listItems('imports')).find((r) => r.cue === 'itinerario');
-    await send(rec.id);
-  });
-  {
-    const r = await esperar(pg, () => itinProjecting());
-    const st = await pg.evaluate(() => ({
-      titulos: itin.itens.map((x) => x.titulo).join('|'), desloc: itin.desloc,
-      noAr: !!document.querySelector('#library .lib-item.no-ar'),
-    }));
-    checar(r === true && st.titulos === 'Recepção|Louvor|Pregação' && st.desloc === 5 && st.noAr,
-      'K · tocar na cena do Cronograma projeta a programação guardada, mantém o ajuste do dia e a linha fica NO AR',
-      { r: porque(r), st });
-  }
-
-  // ── P. OS ITINERÁRIOS MÚLTIPLOS (v1.13.2) ────────────────────────────────
-  // A cena acima caiu sobre um ativo que NÃO era ela ("Outra coisa"): virou um
-  // itinerário NOVO, e o de antes ficou na lista, intocado.
-  const gaveta = () => pg.evaluate(() => itinEntradas().map((x) => x.nome + ':' + x.qtd + (x.ativo ? '*' : '')).join(' · '));
-  const tocarCena = () => pg.evaluate(async () => {
-    const rec = (await AVDB.listItems('imports')).find((r) => r.cue === 'itinerario');
-    await send(rec.id);
-  });
-  const abrirGavetaItin = async () => {
-    await pg.click('#itinTitulo');
-    // A GAVETA ANIMA (opacidade e 6px): mede-se depois de ela assentar.
+  // ── W. CRONOGRAMA MÚLTIPLO: cada cronograma tem os SEUS momentos ─────────
+  // O itinerário segue o cronograma ATIVO: trocar de cronograma troca a lista, e
+  // com ele no ar o telão acompanha (o reenvio sai da releitura da lista). Aqui o
+  // "A" é o que os blocos acima montaram; o "B" nasce vazio pela gaveta do título.
+  const abrirGavetaCrono = async () => {
+    await pg.click('#cronoTitulo');
     return esperar(pg, () => {
-      const g = document.getElementById('itinGaveta');
-      return g.classList.contains('aberta') && g.getAnimations().every((a) => a.playState !== 'running');
+      const g = document.getElementById('cronoGaveta');
+      return !g.hidden && g.classList.contains('aberta') && g.getAnimations().every((a) => a.playState !== 'running');
     });
   };
-  const naGaveta = (nome, qual) => pg.evaluate(([n, q]) => {
-    const li = [...document.querySelectorAll('#itinGavetaLista .crono-item')]
-      .find((x) => x.querySelector('.crono-item-nome').textContent === n);
-    li.querySelector('.crono-' + q).click();
-  }, [nome, qual]);
-  const responder = async (valor) => {
-    await esperar(pg, () => document.getElementById('appDialog').classList.contains('open'));
-    if (typeof valor === 'string') await pg.fill('#appDialogInput', valor);
-    await pg.click('#appDialogOk');
-    await esperar(pg, () => !document.getElementById('appDialog').classList.contains('open'));
-  };
-  checar((await gaveta()) === 'Itinerário:1 · Itinerário 09:00–10:40:3*',
-    'P · a cena tocada sobre outro itinerário virou um itinerário NOVO (o nome da cena), e o de antes FICOU na lista',
-    await gaveta());
+  // A troca terminou quando a lista de momentos lida e a desenhada concordam com o
+  // esperado (a `load()` redesenha a lista por último).
+  const assentou = (titulos) => esperar(pg, (e) => itinItens().map((x) => x.titulo).join() === e
+    && document.querySelectorAll('#library > li.momento').length === itinItens().length
+    && document.getElementById('cronoGaveta').hidden, titulos);
+  const nomeDoCrono = () => pg.evaluate(() => document.getElementById('listTitle').textContent);
+  const nomeA = await nomeDoCrono();
+  const tvTitulos = () => tv.evaluate(() => [...document.querySelectorAll('#textItin .itin-linha:not(.itin-saindo) .itin-titulo')]
+    .map((e) => e.textContent).join());
+  checar(await pg.evaluate(() => itinProjecting()) === true,
+    'W · ponto de partida: o itinerário do cronograma "A" está no ar', await pg.evaluate(() => itinProjecting()));
   {
-    const r = await abrirGavetaItin();
-    const g = await pg.evaluate(() => {
-      const itens = [...document.querySelectorAll('#itinGavetaLista .crono-item')];
-      const ativo = itens.find((li) => li.classList.contains('ativo'));
-      const geo = ativo && (() => {
-        const row = ativo.getBoundingClientRect();
-        const ren = ativo.querySelector('.crono-renomear').getBoundingClientRect();
-        const exc = ativo.querySelector('.crono-excluir').getBoundingClientRect();
-        const nm = ativo.querySelector('.crono-item-nome').getBoundingClientRect();
-        return { renEsq: ren.left - row.left < 12, excDir: row.right - exc.right < 12,
-          centro: Math.abs((nm.left + nm.right) / 2 - (row.left + row.right) / 2) };
-      })();
-      const tit = document.getElementById('itinTitulo').getBoundingClientRect();
-      const gav = document.getElementById('itinGaveta').getBoundingClientRect();
-      return {
-        titulo: document.getElementById('itinNome').textContent,
-        expandido: document.getElementById('itinTitulo').getAttribute('aria-expanded'),
-        nomes: itens.map((li) => li.querySelector('.crono-item-nome').textContent + ':' + li.querySelector('.crono-item-qtd').textContent),
-        ativo: ativo && ativo.querySelector('.crono-item-nome').textContent,
-        excluirAceso: itens.every((li) => !li.querySelector('.crono-excluir').disabled),
-        ultimo: (document.querySelector('#itinGavetaLista > li:last-child').textContent || '').trim(),
-        geo, abaixo: gav.top >= tit.bottom - 1 && gav.top - tit.bottom < 24
-      };
+    const r1 = await abrirGavetaCrono();
+    await pg.click('#cronoNovo');
+    const r2 = await assentou('');
+    const e = await pg.evaluate(() => {
+      const t = document.getElementById('itinTelaoBtn');
+      return { momentos: document.querySelectorAll('#library > li.momento').length, noAr: itinProjecting(),
+        off: t.disabled, titulo: t.title, pressed: t.getAttribute('aria-pressed'), nome: document.getElementById('listTitle').textContent };
     });
-    checar(r === true && g.titulo === 'Itinerário 09:00–10:40' && g.expandido === 'true'
-      && g.nomes.join(' · ') === 'Itinerário:1 horário · Itinerário 09:00–10:40:3 horários'
-      && g.ativo === 'Itinerário 09:00–10:40' && g.excluirAceso && g.ultimo === 'Novo itinerário' && g.abaixo,
-      'P · o NOME do ativo é o título do painel e abre a GAVETA logo abaixo: uma linha por itinerário (o ativo '
-      + 'marcado, a conta de horários) e "Novo itinerário" por último', g);
-    checar(g.geo && g.geo.renEsq && g.geo.excDir && g.geo.centro < 2,
-      'P · a linha é a dos cronogramas: renomear à ESQUERDA, excluir à DIREITA, o nome no CENTRO', g.geo);
+    const r3 = await esperar(tv, () => document.getElementById('text').hidden === true);
+    checar(r1 === true && r2 === true && e.nome !== nomeA && e.momentos === 0,
+      'W · um cronograma NOVO nasce SEM momentos: os de "' + nomeA + '" são do outro cronograma', { e, r1: porque(r1), r2: porque(r2) });
+    checar(!e.noAr && e.off && /adicione/i.test(e.titulo) && e.pressed === 'false' && r3 === true,
+      'W · e trocar para um cronograma sem momentos TIRA o itinerário do telão (e apaga o "Telão", dizendo por quê)', { e, r3: porque(r3) });
   }
-  // O VOLTAR fecha a gaveta ANTES da folha (degrau 1.8 do `__avBack`).
-  {
-    // A FOLHA "aberta" é à vista E sem a saída em curso: `ferramentasAbertas()`
-    // continua verdadeiro enquanto ela desce.
-    const v = await pg.evaluate(() => ({ r: window.__avBack(), gaveta: itinGavetaAberta(),
-      folha: ferramentasAbertas() && !toolsSheetEl.classList.contains('saindo') }));
-    checar(v.r === true && !v.gaveta && v.folha, 'P · o VOLTAR fecha a gaveta e deixa a folha de Ferramentas aberta', v);
-  }
-  // TOCAR A MESMA CENA DE NOVO não duplica: ela já é o ativo.
-  await tocarCena();
-  await esperar(pg, () => itinProjecting());
-  checar((await gaveta()) === 'Itinerário:1 · Itinerário 09:00–10:40:3*',
-    'P · tocar a MESMA cena de novo não cria outro itinerário', await gaveta());
-  // TROCAR pela gaveta: o ativo passa a ser o outro, numa escrita só, e o telão
-  // (no ar) acompanha — a projeção segue o ativo.
-  await abrirGavetaItin();
-  await naGaveta('Itinerário', 'trocar');
-  {
-    const r = await esperar(tv, () => /Outra coisa/.test(document.getElementById('textItin').textContent));
-    const st = await banco();
-    const fechou = await pg.evaluate(() => !itinGavetaAberta());
-    const guardado = st && Array.isArray(st.itinerarios) && st.itinerarios.find((x) => x.id !== st.ativo);
-    checar(r === true && fechou && st.v === 2 && st.itens.map((x) => x.titulo).join() === 'Outra coisa'
-      && st.itinerarios.length === 2 && guardado && guardado.itens.length === 3
-      && (await pg.evaluate(() => document.getElementById('itinNome').textContent)) === 'Itinerário',
-      'P · TROCAR pela gaveta: o outro vira o ativo (painel e telão), e o de antes fica GUARDADO com os 3 horários — uma chave, uma escrita',
-      { r: porque(r), st, fechou });
-  }
-  // A CENA GUARDADA DE NOVO, com o outro ativo: ela VOLTA a ser o ativo — o
-  // conteúdo acha o lugar dela na lista, e nada é duplicado nem apagado.
-  await tocarCena();
-  await esperar(pg, () => itin.nome === 'Itinerário 09:00–10:40');
-  checar((await gaveta()) === 'Itinerário:1 · Itinerário 09:00–10:40:3*',
-    'P · tocar a cena com OUTRO ativo troca para o itinerário dela — sem criar outro e sem apagar "Outra coisa"', await gaveta());
-  // E COM O ATIVO EDITADO DEPOIS: a cena não apaga a edição — vira um novo.
-  await pg.evaluate(() => itinAdicionar(700, 'Avisos'));
-  await tocarCena();
-  await esperar(pg, () => itin.nome === 'Itinerário 09:00–10:40 (2)');
-  checar((await gaveta()) === 'Itinerário:1 · Itinerário 09:00–10:40:4 · Itinerário 09:00–10:40 (2):3*',
-    'P · com o ativo EDITADO depois de guardado, a cena vira um itinerário NOVO (" (2)") — a edição fica intacta',
-    await gaveta());
-  // RENOMEAR (qualquer um, a gaveta fica aberta) e o nome guardado.
-  await abrirGavetaItin();
-  await naGaveta('Itinerário', 'renomear');
-  await responder('Culto de sábado');
-  await esperar(pg, () => itinEntradas().some((x) => x.nome === 'Culto de sábado'));
-  {
-    const st = await banco();
-    checar(await pg.evaluate(() => itinGavetaAberta()) && st.itinerarios.some((x) => x.nome === 'Culto de sábado')
-      && (await gaveta()).startsWith('Culto de sábado:1'),
-      'P · RENOMEAR um guardado: o nome novo é gravado e a gaveta continua aberta', await gaveta());
-  }
-  // RENOMEAR COM UM NOME QUE JÁ EXISTE ganha " (2)".
-  await naGaveta('Itinerário 09:00–10:40', 'renomear');
-  await responder('Culto de sábado');
-  await esperar(pg, () => itinEntradas().some((x) => x.nome === 'Culto de sábado (2)'));
-  checar((await gaveta()).includes('Culto de sábado (2):4'), 'P · e um nome que colide ganha " (2)"', await gaveta());
-  // EXCLUIR O ATIVO: pergunta, e cai no USADO MAIS RECENTEMENTE dos outros.
-  await naGaveta('Itinerário 09:00–10:40 (2)', 'excluir');
-  {
-    const msg = await pg.evaluate(async () => {
-      await new Promise((r) => setTimeout(r, 50));
-      return document.getElementById('appDialogMsg').textContent;
-    });
-    await responder();
-    await esperar(pg, () => itinEntradas().length === 2);
-    const g = await gaveta();
-    checar(/Excluir “Itinerário 09:00–10:40 \(2\)” e os 3 horários dele/.test(msg) && g === 'Culto de sábado:1 · Culto de sábado (2):4*',
-      'P · EXCLUIR o ativo pergunta (nomeando-o) e cai no usado mais recentemente', { msg, g });
-  }
-  // EXCLUIR UM GUARDADO: o ativo não muda. E no ÚNICO o excluir é APAGADO.
-  await naGaveta('Culto de sábado', 'excluir');
-  await responder();
-  await esperar(pg, () => itinEntradas().length === 1);
-  {
-    const u = await pg.evaluate(() => {
-      const b = document.querySelector('#itinGavetaLista .crono-item .crono-excluir');
-      return { g: itinEntradas().map((x) => x.nome).join(), off: b.disabled, title: b.title };
-    });
-    checar(u.g === 'Culto de sábado (2)' && u.off && /único/.test(u.title),
-      'P · excluir um GUARDADO não toca o ativo, e no ÚNICO o excluir é APAGADO e diz por quê', u);
-  }
-  // NOVO: um vazio "Itinerário 2", já ativo — e o telão, no ar, sai (lista vazia).
-  await pg.evaluate(() => document.getElementById('itinNovoItin').click());
-  await esperar(pg, () => itin.nome === 'Itinerário 2');
-  {
-    const n = await pg.evaluate(() => ({ g: itinEntradas().map((x) => x.nome + ':' + x.qtd + (x.ativo ? '*' : '')).join(' · '),
-      vazio: !!document.querySelector('#itinLista > .empty'), noAr: itinProjecting() }));
-    checar(n.g === 'Culto de sábado (2):4 · Itinerário 2:0*' && n.vazio && !n.noAr,
-      'P · NOVO cria um vazio ("Itinerário 2"), ativo; a lista do painel vem vazia e o telão sai (a projeção segue o ativo)', n);
-  }
-  // FORA DA GAVETA o toque a fecha: o véu (dentro da folha) e fora da folha.
-  {
-    await abrirGavetaItin();
-    const ponto = await pg.evaluate(() => {
-      const g = document.getElementById('itinGaveta').getBoundingClientRect();
-      const f = document.getElementById('toolsSheet').getBoundingClientRect();
-      return { x: Math.round(f.left + 30), y: Math.round(Math.min(f.bottom - 20, g.bottom + 30)) };
-    });
-    await pg.mouse.click(ponto.x, ponto.y);
-    const r1 = await esperar(pg, () => !itinGavetaAberta());
-    await abrirGavetaItin();
-    await pg.mouse.click(20, 860 - 100);
-    const r2 = await esperar(pg, () => !itinGavetaAberta());
-    checar(r1 === true && r2 === true, 'P · o toque fora fecha a gaveta — no véu da folha e fora da folha', { r1: porque(r1), r2: porque(r2) });
-  }
-  // A RECARGA traz a lista e o ativo de volta do banco.
-  await pg.evaluate(() => trocarItinerario(itinEntradas()[0].id));
-  await esperar(pg, () => itin.nome === 'Culto de sábado (2)');
-  await esperarDb(pg, async () => (await AVDB.getState('itinerario')).ativo === itin.id);
-  await pg.reload();
-  await pg.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function', null, { timeout: 30000 });
-  await esperarCortina(pg);
-  {
-    const g = await pg.evaluate(() => itinEntradas().map((x) => x.nome + ':' + x.qtd + (x.ativo ? '*' : '')).join(' · '));
-    checar(g === 'Culto de sábado (2):4* · Itinerário 2:0', 'P · depois de RECARREGAR, os itinerários e o ativo voltam do banco', g);
-  }
-  await pg.evaluate(() => {
-    abrirFerramentas();
-    abrirFerramenta('itinerario');
+  const nomeB = await nomeDoCrono();
+  // B: uma mídia primeiro, depois os momentos — o primeiro vai ao TOPO (nenhum momento
+  // na lista), o segundo ao FIM (nenhum momento depois dele no relógio).
+  await pg.evaluate(async () => {
+    await AVDB.addCue('message', { text: 'Aviso do ensaio' }, { name: 'Aviso B', list: 'imports' });
+    await load();
   });
-  await esperar(pg, () => !!document.getElementById('itinLista'));
-  await pg.evaluate(() => projectItin());
+  await adicionar('19:00', 'Ensaio');
+  checar((await nomesNaTela()).join() === 'Ensaio,Aviso B',
+    'W · lista SEM momento: o primeiro momento entra no TOPO, acima da mídia que já estava lá', await nomesNaTela());
+  await adicionar('19:30', 'Coral');
+  checar((await nomesNaTela()).join() === 'Ensaio,Aviso B,Coral',
+    'W · e um momento sem nenhum posterior no relógio entra no FIM da lista (depois da mídia)', await nomesNaTela());
+  {
+    const e = await pg.evaluate(() => {
+      const t = document.getElementById('itinTelaoBtn');
+      const seguir = document.querySelector('#library > li.momento.seguir');
+      return { off: t.disabled, titulo: t.title,
+        seguir: seguir ? seguir.querySelector('.row-name').textContent + ' · ' + seguir.querySelector('.row-sub').textContent : null,
+        agora: document.querySelectorAll('#library > li.momento.agora').length };
+    });
+    checar(!e.off && e.agora === 0 && /^Ensaio · A seguir/.test(e.seguir || ''),
+      'W · com momentos de novo o "Telão" acende, e antes do primeiro horário a linha diz "A seguir" (nenhum de agora)', e);
+  }
+  await pg.click('#itinTelaoBtn');
   await esperar(pg, () => itinProjecting());
+  {
+    const r = await esperar(tv, () => /Ensaio/.test(document.getElementById('textItin').textContent));
+    const t = await telao();
+    checar(r === true && t.linhas[0] === '>19:00 Ensaio [A seguir]' && t.linhas[1] === '19:30 Coral' && (await tvTitulos()) === 'Ensaio,Coral',
+      'W · no ar, o telão mostra a lista do cronograma "B" (Ensaio, Coral) — pelo relógio', { r: porque(r), t });
+  }
+  // EDITAR COM O ITINERÁRIO NO AR: o reenvio sai da releitura da lista, e o operador
+  // não toca em "Telão" para o telão saber.
+  {
+    const idCoral = await idDe('Coral');
+    await pg.evaluate((id) => itinSalvar(id, 1185, 'Coral e Oração'), idCoral);
+    const r = await esperar(tv, () => /Coral e Oração/.test(document.getElementById('textItin').textContent), null, 8000);
+    const t = await telao();
+    checar(r === true && t.linhas[0] === '>19:00 Ensaio [A seguir]' && t.linhas[1] === '19:45 Coral e Oração',
+      'F · com o itinerário no ar, EDITAR um momento (horário e título) atualiza o telão — o reenvio sai da releitura da lista',
+      { r: porque(r), t: t.linhas });
+    await pg.evaluate((id) => itinSalvar(id, 1170, 'Coral'), idCoral);
+    const r2 = await esperar(tv, () => /19:30/.test(document.getElementById('textItin').textContent)
+      && !/Coral e Oração/.test(document.getElementById('textItin').textContent), null, 8000);
+    checar(r2 === true, 'F · e desfazer a edição leva o telão de volta ao que era (19:30 Coral)', porque(r2));
+  }
+  // TROCA, COM O ITINERÁRIO NO AR: o telão acompanha, sem ninguém tocar em "Telão".
+  {
+    const r1 = await abrirGavetaCrono();
+    await pg.click('#cronoGaveta .crono-item:not(.ativo) .crono-trocar');
+    const r2 = await assentou('Recepção,Louvor,Pregação');
+    const r3 = await esperar(tv, () => document.querySelector('#textItin .itin-linha.agora .itin-titulo')
+      && document.querySelector('#textItin .itin-linha.agora .itin-titulo').textContent === 'Pregação');
+    const e = await pg.evaluate(() => ({
+      nome: document.getElementById('listTitle').textContent, noAr: itinProjecting(),
+      nomes: [...document.querySelectorAll('#library > li.lib-item .row-name')].map((x) => x.textContent).join(),
+      marca: [...document.querySelectorAll('#library > li.momento.agora .row-name')].map((x) => x.textContent).join(),
+    }));
+    checar(r1 === true && r2 === true && e.nome === nomeA && e.nomes === 'Recepção,Aviso 2,Louvor,Pregação,Aviso 1' && e.marca === 'Pregação',
+      'W · voltar ao cronograma "A" devolve os momentos DELE (e as mídias dele), e só deles', { e, r1: porque(r1), r2: porque(r2) });
+    checar(e.noAr && r3 === true && (await tvTitulos()) === 'Pregação' && !/Ensaio|Coral/.test(await tvTitulos()),
+      'W · com o itinerário NO AR, o telão acompanhou a troca: agora mostra a lista de "A" (o último, "Pregação")',
+      { e, tv: await tvTitulos(), r3: porque(r3) });
+  }
+  {
+    const r1 = await abrirGavetaCrono();
+    await pg.click('#cronoGaveta .crono-item:not(.ativo) .crono-trocar');
+    const r2 = await assentou('Ensaio,Coral');
+    const r3 = await esperar(tv, () => /Ensaio/.test(document.getElementById('textItin').textContent)
+      && !/Pregação/.test(document.getElementById('textItin').textContent));
+    const e = await pg.evaluate(() => ({ nome: document.getElementById('listTitle').textContent, noAr: itinProjecting() }));
+    checar(r1 === true && r2 === true && e.nome === nomeB && e.noAr && r3 === true,
+      'W · e a volta para "B" leva o telão de volta à lista dele (Ensaio, Coral)', { e, tv: await tvTitulos(), r3: porque(r3) });
+  }
 
   // ── I. ESVAZIAR NO AR TIRA DO TELÃO ──────────────────────────────────────
-  await pg.evaluate(() => { [...itin.itens].forEach((x) => itinExcluir(x.id)); });
-  await esperar(pg, () => document.getElementById('pvText').hidden || !itinProjecting());
+  await pg.evaluate(async () => { for (const x of itinItens()) await AVDB.listRemove('imports', x.id); await load(); });
+  await esperar(pg, () => !itinProjecting());
   {
-    const r = await pg.evaluate(() => ({
-      noAr: itinProjecting(),
-      btn: document.getElementById('miscProjectBtn') && document.getElementById('miscProjectBtn').disabled,
-    }));
-    checar(!r.noAr && r.btn, 'I · a lista que esvazia no ar sai do telão, e o projetar volta apagado', r);
-    const dest = await pg.evaluate(() => [...document.querySelectorAll('#toolsFoot .cue-save-btn')]
-      .map((b) => b.disabled && /Adicione/.test(b.title)));
-    checar(dest.length === 2 && dest.every(Boolean),
-      'I · e os dois destinos ficam APAGADOS (não somem), dizendo por quê', dest);
+    const r = await pg.evaluate(() => {
+      const t = document.getElementById('itinTelaoBtn');
+      return { noAr: itinProjecting(), off: t.disabled, titulo: t.title, pressed: t.getAttribute('aria-pressed'),
+        momentos: document.querySelectorAll('#library > li.momento').length,
+        midia: [...document.querySelectorAll('#library > li.lib-item .row-name')].map((x) => x.textContent).join() };
+    });
+    const r3 = await esperar(tv, () => document.getElementById('text').hidden === true);
+    checar(!r.noAr && r.off && /adicione/i.test(r.titulo) && r.pressed === 'false' && r.momentos === 0,
+      'I · a lista que esvazia no ar sai do telão, e o "Telão" volta apagado dizendo por quê', r);
+    checar(r3 === true && r.midia === 'Aviso B',
+      'I · o telão (a tela) escondeu o cartão, e a mídia do cronograma ficou intacta', { r3: porque(r3), midia: r.midia });
   }
 
-  // ── Q. A MIGRAÇÃO DA v1 E A MESCLA DO PACOTE (v1.13.2) ───────────────────
-  // A chave da v1 é UM itinerário: ele vira "Itinerário", com a lista inteira, e
-  // nada é escrito até a primeira mudança.
-  await pg.evaluate(() => AVDB.setState('itinerario', {
-    v: 1, horas: false, desloc: 0, deslocDia: '',
-    itens: [{ id: 'a', min: 600, titulo: 'Louvor' }, { id: 'b', min: 660, titulo: 'Sermão' }],
-  }));
-  await pg.reload();
-  await pg.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function', null, { timeout: 30000 });
-  await esperarCortina(pg);
-  await pg.evaluate(() => {
-    abrirFerramentas();
-    abrirFerramenta('itinerario');
+  // ── S. A MIGRAÇÃO DO ITINERÁRIO DA v1.13 (os itens do ATIVO viram momentos) ──
+  // O cronograma "B" está sem momentos e com UMA mídia ("Aviso B"): os migrados têm
+  // de entrar ACIMA dela, em ordem de relógio, e só o itinerário ATIVO vem.
+  const hoje = await pg.evaluate(() => hojeLocal());
+  const velho = (hojeDia) => ({
+    v: 2, horas: false, desloc: 7, deslocDia: hojeDia, ativo: 'a',
+    itens: [{ id: 's3', min: 660, titulo: 'Sermão' }, { id: 's1', min: 540, titulo: 'Recepção' }, { id: 's2', min: 600, titulo: 'Louvor' }],
+    itinerarios: [
+      { id: 'a', nome: 'Culto', itens: [], horas: false },
+      { id: 'b', nome: 'Ensaio guardado', itens: [{ id: 'g1', min: 1140, titulo: 'Coral guardado' }], horas: true },
+    ],
   });
-  await esperar(pg, () => !!document.getElementById('itinLista'));
+  await pg.evaluate(async (est) => {
+    for (const x of itinItens()) await AVDB.listRemove('imports', x.id);
+    await AVDB.setState('itinerario', est);
+    itinLegadoFeito = false;
+    await load();
+  }, velho(hoje));
+  const migrado = () => pg.evaluate(async () => {
+    const regs = await AVDB.listItems('imports');
+    return {
+      ordem: regs.map((r) => (ehMomento(r) ? 'M:' : 'x:') + r.name).join(','),
+      legado: regs.filter(ehMomento).map((r) => r.data.legado).join(','),
+      horas: regs.filter(ehMomento).map((r) => r.data.min).join(','),
+      estado: await AVDB.getState('itinerario'),
+      noTela: [...document.querySelectorAll('#library > li.lib-item')].map((li) => li.querySelector('.row-name').textContent).join(','),
+      mem: { horas: itin.horas, desloc: itin.desloc, feito: itinLegadoFeito },
+      horasNaLista: [...document.querySelectorAll('#library > li.momento .momento-hora')].map((e) => e.textContent).join(),
+    };
+  });
   {
-    const m = await pg.evaluate(async () => ({
-      titulo: document.getElementById('itinNome').textContent,
-      g: itinEntradas().map((x) => x.nome + ':' + x.qtd + (x.ativo ? '*' : '')).join(' · '),
-      lista: [...document.querySelectorAll('#itinLista .itin-li .row-name')].map((e) => e.textContent).join('|'),
-      horas: itin.horas, cru: (await AVDB.getState('itinerario')).v,
-    }));
-    checar(m.titulo === 'Itinerário' && m.g === 'Itinerário:2*' && m.lista === 'Louvor|Sermão' && m.horas === false && m.cru === 1,
-      'Q · a chave da v1 vira UM itinerário, "Itinerário", com a lista e o "só títulos" — sem escrever nada ao abrir', m);
+    const m = await migrado();
+    checar(m.ordem === 'M:Recepção,M:Louvor,M:Sermão,x:Aviso B' && m.legado === 's1,s2,s3' && m.horas === '540,600,660',
+      'S · os itens do ATIVO viram momentos no TOPO de `imports`, em ordem de RELÓGIO, com `data.legado` = o id antigo '
+      + '(a mídia que já estava lá desce)', m);
+    checar(!m.ordem.includes('Coral guardado') && !m.noTela.includes('Coral'),
+      'S · os itinerários GUARDADOS (os não ativos) são DESCARTADOS: nenhum "Coral guardado" no cronograma', m.ordem);
+    const e = m.estado || {};
+    checar(e.v === 3 && e.horas === false && e.desloc === 7 && e.deslocDia === hoje && e.barraOculta === false
+      && Object.keys(e).sort().join() === 'barraOculta,desloc,deslocDia,horas,v',
+      'S · a chave vira `{ v:3, horas, desloc, deslocDia, barraOculta }` — sem `itens`, `itinerarios`, `ativo` — mantendo `horas` e o ajuste do dia', e);
+    checar(m.mem.horas === false && m.mem.desloc === 7 && m.mem.feito === true && m.horasNaLista === '09:07,10:07,11:07',
+      'S · e o app já lê a chave nova: horários desligados no telão, ajuste de +7 min aplicado às horas da lista', m.mem);
   }
-  await pg.evaluate(() => itinSetHoras(true));
+  await pg.evaluate(() => load());
+  checar((await migrado()).ordem === 'M:Recepção,M:Louvor,M:Sermão,x:Aviso B',
+    'S · um segundo `load()` NÃO duplica nada', (await migrado()).ordem);
+  // UM CORTE NO MEIO: a chave antiga volta (os momentos já estavam gravados) e a migração roda de novo.
+  await pg.evaluate(async (est) => { await AVDB.setState('itinerario', est); itinLegadoFeito = false; await load(); }, velho(hoje));
   {
-    const r = await esperarDb(pg, async () => (await AVDB.getState('itinerario')).v === 2);
-    const st = await banco();
-    const id = await pg.evaluate(() => itin.id);
-    checar(r === true && st.ativo === id && st.itinerarios.length === 1 && st.itinerarios[0].nome === 'Itinerário'
-      && st.itens.map((x) => x.id + x.titulo).join() === 'aLouvor,bSermão',
-      'Q · e a primeira mudança grava a forma nova: o mesmo itinerário, com os mesmos ids de horário', st);
+    const m = await migrado();
+    checar(m.ordem === 'M:Recepção,M:Louvor,M:Sermão,x:Aviso B' && m.estado.v === 3 && !('itens' in m.estado),
+      'S · rodar a migração de novo sobre a chave antiga (um corte no meio) não duplica: o `legado` reconhece os já criados', m);
   }
+
+  // ── T. A CENA ANTIGA `itinerario`: tocá-la ACRESCENTA os horários ────────
+  // "Louvor 10:00" já existe (mesmo horário e título): não entra de novo. "Avisos" e
+  // "Bênção" entram, no FIM da lista (nenhum momento depois deles no relógio).
+  const antigaCena = await pg.evaluate(async () => {
+    const rec = await AVDB.addCue('itinerario',
+      { itens: [{ min: 600, titulo: 'Louvor' }, { min: 690, titulo: 'Avisos' }, { min: 720, titulo: 'Bênção' }], horas: true },
+      { name: 'Itinerário 10:00–12:00', list: 'imports' });
+    await load();
+    return rec.id;
+  });
+  const estadoDaLista = () => pg.evaluate(async () => {
+    const regs = await AVDB.listItems('imports');
+    return { ids: regs.map((r) => r.id), momentos: itinItens().map((x) => x.min + ' ' + x.titulo).join('|'),
+      ordem: regs.map((r) => r.name).join(','), cena: regs.filter((r) => r.cue === 'itinerario').length };
+  });
+  const antesT = await estadoDaLista();
+  await pg.evaluate((id) => AVDB.listItems('imports').then((rs) => playCue(rs.find((r) => r.id === id))), antigaCena);
+  const depoisT = await estadoDaLista();
+  checar(depoisT.momentos === '540 Recepção|600 Louvor|660 Sermão|690 Avisos|720 Bênção',
+    'T · tocar a cena antiga ACRESCENTA os horários como momentos, e o "Louvor 10:00" que já existia NÃO duplica', { antesT, depoisT });
+  checar(antesT.ids.every((id) => depoisT.ids.includes(id)) && depoisT.cena === 1,
+    'T · e nada foi apagado: todos os itens de antes continuam na lista (a própria cena inclusive)', { antesT: antesT.ordem, depoisT: depoisT.ordem });
+  checar(depoisT.ordem.endsWith('Itinerário 10:00–12:00,Avisos,Bênção'),
+    'T · os acrescentados entram no FIM da lista (nenhum momento depois deles no relógio)', depoisT.ordem);
+  await pg.evaluate((id) => AVDB.listItems('imports').then((rs) => playCue(rs.find((r) => r.id === id))), antigaCena);
   {
-    const q = await pg.evaluate(() => {
-      const h = (id, min, titulo) => ({ id, min, titulo });
-      const local = { v: 2, ativo: 'L1', horas: true, desloc: 3, deslocDia: hojeLocal(),
-        itens: [h('x', 600, 'Louvor')],
-        itinerarios: [{ id: 'L1', nome: 'Culto', itens: [], horas: true }, { id: 'L2', nome: 'Ensaio', itens: [h('y', 1140, 'Coral')], horas: true }] };
-      const vindo = { v: 2, ativo: 'V1', horas: true, desloc: 40, deslocDia: hojeLocal(),
-        itens: [h('v', 480, 'Café')],
-        itinerarios: [{ id: 'V1', nome: 'Culto', itens: [], horas: true }, { id: 'L2', nome: 'Outro nome', itens: [h('y', 1140, 'Coral'), h('z', 1200, 'Oração')], horas: true }] };
-      const m = itinMesclarPacote(local, vindo);
-      const ler = (st) => itinLerEstado(st, 'p').lista.map((x) => x.nome + '=' + x.itens.map((i) => i.titulo).join('+')).join(' · ');
-      const de2 = itinMesclarPacote(m, vindo);
-      const v1 = { v: 1, horas: true, itens: [h('q', 480, 'Café')] };
-      const virgem = itinMesclarPacote(undefined, vindo);
-      return {
-        mesclado: ler(m), ativo: m.ativo, desloc: m.desloc,
-        deNovo: de2 === m,
-        v1: itinMesclarPacote(m, v1) === m,
-        virgem: ler(virgem), virgemAtivo: virgem.ativo, virgemDesloc: virgem.desloc,
-      };
-    });
-    checar(q.mesclado === 'Culto=Louvor · Ensaio=Coral+Oração · Culto (2)=Café' && q.ativo === 'L1' && q.desloc === 3,
-      'Q · o pacote SÓ ACRESCENTA: o mesmo id une os horários (o nome daqui fica), o ativo de lá entra GUARDADO '
-      + '(com " (2)"), o ativo daqui não muda e o ajuste do dia não viaja', q);
-    checar(q.deNovo && q.v1, 'Q · e importar de novo não muda nada — nem o pacote da v1 (sem id) de conteúdo igual', q);
-    checar(q.virgem === 'Culto=Café · Outro nome=Coral+Oração' && q.virgemAtivo === 'V1' && q.virgemDesloc === 0,
-      'Q · num aparelho VIRGEM a lista de lá entra inteira, com o ativo de lá', q);
+    const d2 = await estadoDaLista();
+    const nota = await esperar(pg, (id) => {
+      const li = document.querySelector('#library > li.lib-item[data-id="' + id + '"]');
+      return !!li && /já estão no cronograma/.test(li.textContent);
+    }, antigaCena, 3000);
+    checar(d2.ordem === depoisT.ordem && d2.momentos === depoisT.momentos,
+      'T · tocar a cena DE NOVO não duplica nada', { depoisT: depoisT.ordem, d2: d2.ordem });
+    checar(nota === true, 'T · e a linha da cena diz por quê: "estes momentos já estão no cronograma"', porque(nota));
   }
 
   checar(erros.length === 0, 'nenhum erro de console', erros);
@@ -1041,5 +1216,6 @@ try {
   servidor.close();
 }
 
+console.log('\n(' + Math.round((Date.now() - inicio) / 1000) + ' s)');
 if (falhas.length) { console.log('\n' + falhas.length + ' falha(s).'); process.exit(1); }
 console.log('\nTodos passaram.');

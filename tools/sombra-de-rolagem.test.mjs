@@ -1229,18 +1229,28 @@ try {
       const c = cab.getBoundingClientRect();
       const lib = document.getElementById('library');
       const l = lib.getBoundingClientRect();
+      // O CABEÇALHO TEM DUAS PEÇAS (v1.14.32): a barra do topo e, logo abaixo dela, a
+      // FAIXA de opções do itinerário (`#itinBar`, da mesma cor, de borda a borda). A
+      // lista nasce na borda de baixo da ÚLTIMA peça à vista — a faixa, e só sem ela a
+      // barra —, e é ali que o corte tem de encostar: medir contra a barra acusaria os
+      // 37,8px da faixa como um vão que não existe.
+      const fx = document.getElementById('itinBar');
+      const f = fx && fx.getClientRects().length ? fx.getBoundingClientRect() : null;
+      const fim = f ? f.bottom : c.bottom;
       // AS AMOSTRAS SÃO NA MOLDURA, e não no meio: no meio da barra mora o
       // título ("CRONOGRAMA") e no meio da caixa de controles mora o transporte
       // — ali o pixel mede a FONTE, com franja de antialias, e não a superfície.
       // Os dois recuos laterais são de 12,8px, então x=4 está dentro do recuo
       // dos dois e fora de qualquer conteúdo.
       return { x: 4, yCab: Math.round(c.bottom - 4),
+        yFaixa: f ? Math.round(f.bottom - 4) : null,
         yBarra: Math.round(document.querySelector('.bottombar').getBoundingClientRect().top + 6),
         esq: +c.left.toFixed(2), larg: +c.width.toFixed(2), tela: innerWidth,
-        // A BORDA DE BAIXO DA BARRA É A BORDA DO SCROLLPORT: é isso que faz o
+        faixa: f ? { esq: +f.left.toFixed(2), larg: +f.width.toFixed(2), alt: +f.height.toFixed(2) } : null,
+        // A BORDA DE BAIXO DA ÚLTIMA PEÇA É A BORDA DO SCROLLPORT: é isso que faz o
         // corte "fazer sentido" — a linha some encostada nela, e não no meio de
         // uma faixa de fundo.
-        vao: +(l.top - c.bottom).toFixed(2),
+        vao: +(l.top - fim).toFixed(2),
         simple: document.body.classList.contains('mode-simple') };
     });
     const img = lerPng(await pg.screenshot());
@@ -1255,11 +1265,24 @@ try {
       + 'controles — medido em pixel, não pelo nome do token (o `.deck` não pinta '
       + 'nada; quem carrega a cor é a barra em volta)',
       JSON.stringify({ cabecalho: cor, controles: corControles }));
+    // A FAIXA DO ITINERÁRIO é a peça que o corte agora encosta, então é ela que tem de
+    // ser da mesma cor e ir de borda a borda: com um recuo ou uma cor própria a lista
+    // sumiria numa faixa que não é a barra. É também a PREMISSA da medida de baixo —
+    // sem a faixa à vista o `vão` voltaria a ser contra a barra do topo, calado.
+    const corFaixa = r.faixa ? pixel(img, r.x, r.yFaixa) : null;
+    const faixaIgual = !!corFaixa && !!corControles
+      && Math.abs(corFaixa[0] - corControles[0]) <= 1
+      && Math.abs(corFaixa[1] - corControles[1]) <= 1
+      && Math.abs(corFaixa[2] - corControles[2]) <= 1;
+    checar(!!r.faixa && r.faixa.esq === 0 && r.faixa.larg === r.tela && faixaIgual,
+      'R · ' + tema + ': e a FAIXA do itinerário (`#itinBar`) — a peça que o corte agora '
+      + 'encosta — está à vista, vai de borda a borda e pinta a MESMA cor da caixa de '
+      + 'controles', JSON.stringify({ faixa: r.faixa, cor: corFaixa, controles: corControles }));
     checar(r.esq === 0 && r.larg === r.tela && Math.abs(r.vao) <= 1,
       'R · ' + tema + ': e ela é uma BARRA — de borda a borda da tela, com a '
-      + 'lista começando encostada nela (vão ' + r.vao + 'px). Uma barra que '
-      + 'começa 12,8px depois da borda não descreve a fronteira de uma lista que '
-      + 'vai de 0 a `w`', JSON.stringify(r));
+      + 'lista começando encostada na ÚLTIMA peça dela (a faixa do itinerário; vão '
+      + r.vao + 'px). Uma barra que começa 12,8px depois da borda não descreve a '
+      + 'fronteira de uma lista que vai de 0 a `w`', JSON.stringify(r));
     await ctx.close();
   }
 

@@ -65,10 +65,10 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 
 | pacote | nota | tipo | área |
 |---|---|---|---|
-| **5** — Itinerário: a abertura antes do primeiro evento | 8 (I4×U2) | pedido | só web, depois de planejar |
+| **5** — Itinerário: a tela de espera antes do primeiro momento | 8 (I4×U2) | pedido | só web, depois de planejar |
 | **13** — Estudos (não são fila de execução) | 4 | estudo | nenhuma entrega |
 | **16** — O cronograma pronto: o organizador entrega o culto ao sonoplasta | 8 (I4×U2) | pedido | planejamento → Kotlin + web |
-| **29** — Guia do site: a captura das sete ferramentas | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
+| **29** — Guia do site: a captura da lista de Ferramentas e do Cronograma | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
 
 ---
 
@@ -82,8 +82,8 @@ diferentes, e um lote nunca mistura dois temas.
 | tema | pacotes | o que sai junto |
 |---|---|---|
 | **Cronograma e destinos** | 16 | a abertura antes do culto, e o organizador entregando o culto pronto |
-| **Site** | 29 | a captura da lista de Ferramentas, com as sete |
-| **Fila anterior a 14/11** | 5 | a abertura do Itinerário, na ordem que a fila já tinha |
+| **Site** | 29 | a captura da lista de Ferramentas (seis) e a do Cronograma com a faixa do itinerário |
+| **Fila anterior a 14/11** | 5 | a tela de espera do Itinerário, na ordem que a fila já tinha |
 | **Estudos** | 13 | não são fila de execução: a entrega é a decisão do operador |
 
 ---
@@ -120,35 +120,46 @@ ordem; a fila é dele.
 
 | # | pacote · pedido | tipo | I | U | nota | entrega |
 |---|---|---|---|---|---|---|
-| **5** | **Itinerário: a abertura antes do primeiro evento** | pedido | 4 | 2 | **8** | web |
+| **5** | **Itinerário: a tela de espera antes do primeiro momento** | pedido | 4 | 2 | **8** | web |
 | 5.1 | contagem regressiva + música + avisos | | 4 | 2 | 8 | web |
 | **13** | **Estudos — não são fila de execução** | estudo | 4 | 1 | **4** | decisão |
 | 13.1 | controle de slides + compartilhar itinerário/cronograma | | 4 | 1 | 4 | estudo |
 | 13.2 | transmissão ao vivo | | 3 | 1 | 3 | estudo |
 | 13.3 | layout de paisagem (o app no Windows saiu) | | 3 | 1 | 3 | estudo |
 | **16** | **O cronograma pronto: o organizador entrega o culto** | pedido | 4 | 2 | **8** | planejamento |
-| **29** | **Guia do site: a captura das sete ferramentas** | resíduo | 2 | 1 | **2** | site |
+| **29** | **Guia do site: a captura da lista de Ferramentas e do Cronograma** | resíduo | 2 | 1 | **2** | site |
 
 ---
 
-## Pacote 5 — Itinerário: a abertura antes do primeiro evento
+## Pacote 5 — Itinerário: a tela de espera antes do primeiro momento
 
 **Nota 8 (I4 × U2) · pedido · só web, depois de planejar**
 
-**Onde:** o Itinerário como provedor por descritor, a Camada de Texto e a regra
-do `sorteio.js`.
+**Onde:** a faixa de opções do itinerário (`#itinBar`), a Camada de Texto
+(`mode: 'itinerario'`) e a regra do `sorteio.js`.
 
-### 5.1 A contagem regressiva, a música e os avisos
+**O que já saiu (v1.14.32, 2026-11-15):** o conceito mudou a pedido do operador
+e a primeira metade do pacote foi entregue — o Itinerário deixou de ser uma
+ferramenta e virou uma OPÇÃO DO CRONOGRAMA (os momentos são linhas da lista;
+a faixa `#itinBar` tem telão, horários, ajuste e adicionar; as mídias se
+arrastam para debaixo de cada momento; nada toca sozinho pelo horário). A
+fusão está em `docs/HISTORICO.md` e em `docs/arquitetura/CAMADA-DE-TEXTO.md`.
 
-Pedido do operador (2026-10-30): uma OPÇÃO do Itinerário (um interruptor só,
-*"com tudo automatizado"*) que, antes do primeiro evento do itinerário ativo, põe
-no telão uma tela de espera: contagem regressiva até o primeiro horário, música
-de fundo de PLAYBACKS aleatórios do Hinário (a regra do `sorteio.js`, categoria
-do hinário, variante playback) e, se houver, avisos. Termina sozinha no horário
-do primeiro evento. Itinerário = eventos e títulos; Cronograma = mídias — não se
-fundem (o operador recusou a fusão). A planejar: o que conta como "avisos"
-(Mensagens? apresentação?), a camada de texto que leva a contagem (o Itinerário
-já é provedor por descritor), e o que acontece se o operador tocar algo no meio.
+### 5.1 A tela de espera: a contagem, a música e os avisos
+
+Pedido do operador (2026-10-30), confirmado em 2026-11-15 como o lote
+seguinte à fusão: uma OPÇÃO do itinerário (um interruptor só, *"com tudo
+automatizado"*) que, antes do primeiro momento do cronograma ativo, põe no
+telão uma tela de espera: contagem regressiva até o primeiro horário, música
+de fundo de PLAYBACKS aleatórios do Hinário (a regra do `sorteio.js`,
+categoria do hinário, variante playback) e, se houver, avisos. Termina sozinha
+no horário do primeiro momento. **O interruptor mora na faixa `#itinBar`**, e
+o "primeiro momento" é o primeiro do relógio entre os momentos do cronograma
+ativo (`itinItens`). A planejar: o que conta como "avisos" (Mensagens?
+apresentação?), a camada de texto que leva a contagem (o Itinerário já é
+provedor por descritor), a largura da faixa (hoje 9 peças a 360 px: a peça
+nova pede lugar ou vira opção do `⋮`), e o que acontece se o operador tocar
+algo no meio.
 
 ---
 
@@ -236,7 +247,7 @@ do responsável —, sem procurar arquivo nem pedir nada a ninguém.
 |---|---|---|
 | `.avpkg` ([`PACOTE.md`](recursos/PACOTE.md)) | leva o acervo inteiro de um aparelho a outro | é um arquivo de gigabytes: não atravessa o WhatsApp, e não carrega a ORGANIZAÇÃO do culto |
 | link de app (App Links em `audiovisualiasd.com.br`) | abre o app num endereço nosso | leva a lista, não a mídia |
-| o Cronograma e o Itinerário | já existem como estrutura | não há como exportá-los como uma unidade entregável |
+| o Cronograma (com os momentos do itinerário, que moram nele) | já existe como estrutura | não há como exportá-lo como uma unidade entregável |
 
 **O problema central:** a mídia é pesada e o link é leve. A saída provável é o
 pacote **pequeno** — a organização, os ids re-baixáveis (YouTube e LouvorJA já
@@ -264,20 +275,29 @@ decisão):
 
 ---
 
-## Pacote 29 — Guia do site: a captura das sete ferramentas
+## Pacote 29 — Guia do site: a captura da lista de Ferramentas e do Cronograma
 
 **Nota 2 (I2 × U1) · resíduo · só site**
 
 **Onde:** `site/sonoplastia/index.html` e `site/telas/`.
 
-Achado M6-1 da revisão de 14/11. A captura da lista de Ferramentas mostra seis,
-e o app tem sete (falta "Editar mídia"). Refazer a captura pede **o app em
-tela** — não há aparelho nesta máquina: ou o operador manda a captura, ou ela
-sai da prévia visual no Chromium.
+Achado M6-1 da revisão de 14/11, ampliado em 15/11. A captura da lista de
+Ferramentas mostra Relógio, Cronômetro, Timer, Itinerário, Mensagens e Sorteio;
+o app tem SEIS linhas desde a v1.14.32 (o Itinerário saiu para o Cronograma e o
+"Editar mídia" entrou na v1.14.7). A captura do Cronograma também ficou velha:
+não mostra a faixa de opções do itinerário (`#itinBar`) nem as linhas de momento.
+Refazer as capturas pede **o app em tela** — não há aparelho nesta máquina: ou o
+operador manda a captura, ou ela sai da prévia visual no Chromium.
 
 ---
 
 ## O que saiu desta lista (rastro, não log)
+
+**v1.14.32 (2026-11-15), só web:** a primeira metade do **Pacote 5**, com o conceito
+mudado pelo operador — o Itinerário virou uma opção do Cronograma (os momentos são
+cenas `momento` na lista, a faixa `#itinBar` recolhível, a migração do ativo da
+v1.13; os guardados saíram por decisão dele). A tela de espera (5.1) continua aqui.
+Nota em `docs/HISTORICO.md`.
 
 **v1.14.31 (2026-11-15), só web:** o **Pacote 30** — o 30.1: o Timer em 0:00 apaga também o
 "Projetar no telão" e os dois de guardar (a mesma régua do ▶, `chronoSemTempo`); no ar, o

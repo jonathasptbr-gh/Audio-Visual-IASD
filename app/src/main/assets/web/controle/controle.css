@@ -6742,7 +6742,7 @@ main {
 .misc-foot { display: flex; gap: var(--sp-4); align-items: stretch; container-type: inline-size; }
 .misc-foot .misc-project { flex: 1; min-width: 0; }
 .misc-foot .cue-save-btn { width: var(--quad-faixa); height: var(--quad-faixa); }
-/* APAGADO = INDISPONÍVEL (o itinerário vazio, v1.13.1): a pílula preenchida
+/* APAGADO = INDISPONÍVEL (o Timer sem tempo, v1.14.31): a pílula preenchida
    veste `--op-inativo`, a régua da família. */
 .misc-foot .cue-save-btn:disabled { opacity: var(--op-inativo); cursor: default; }
 /* ---------- O QUE A FERRAMENTA OPERA, À ESQUERDA (v1.8.94) ----------
@@ -6846,11 +6846,12 @@ main {
   display: flex; flex-direction: column;
 }
 .ferr-grade > .ferr-tile {
-  /* SETE LINHAS desde a v1.14.7 (o editor de mídia entrou na lista): os vãos são
-     OITO (acima da primeira, entre as sete e abaixo da última) e a linha é a
-     SÉTIMA parte da lista onde o piso não cabe. */
-  --ferr-vao: clamp(0px, calc((100cqh - 7 * var(--hit)) / 8), var(--sp-4));
-  --ferr-linha: calc((100cqh - 8 * var(--sp-4)) / 7);
+  /* SEIS LINHAS (v1.14.32: o Itinerário saiu da lista e virou opção do Cronograma; eram
+     sete desde a v1.14.7, com o editor de mídia): os vãos são SETE (acima da primeira,
+     entre as seis e abaixo da última) e a linha é a SEXTA parte da lista onde o piso não
+     cabe. */
+  --ferr-vao: clamp(0px, calc((100cqh - 6 * var(--hit)) / 7), var(--sp-4));
+  --ferr-linha: calc((100cqh - 7 * var(--sp-4)) / 6);
   position: relative; min-width: 0;
   /* O PISO É O `--hit`, MENOS ONDE SEIS NÃO CABEM (v1.13.5): aí a linha mede a
      SEXTA PARTE da lista e o corpo NÃO ROLA. É a exceção NOMEADA do
@@ -6858,15 +6859,14 @@ main {
      para garantir que essa janela de ferramentas não necessite de scroll, mas
      sim tenha seus botões encolhidos verticalmente para caber de forma
      correta"*. Antes de chegar aqui os oito vãos da lista já cederam a zero (e
-     na lista não há cabeçalho desde a v1.13.6); com SETE linhas a exceção vale
-     em mais telas que antes — a regra do operador não mudou: a lista não rola,
-     as linhas é que cedem. */
-  flex: 1 1 0; min-height: min(var(--hit), 100cqh / 7);
+     na lista não há cabeçalho desde a v1.13.6); a regra do operador não mudou: a
+     lista não rola, as linhas é que cedem. */
+  flex: 1 1 0; min-height: min(var(--hit), 100cqh / 6);
   flex-direction: row; justify-content: flex-start; gap: var(--sp-4);
   /* O RECUO É O MESMO DOS DOIS LADOS (v1.13.6), e o PONTO de "no ar" mora DENTRO
      do da direita, centrado nele: o nome não corre para baixo dele quando ele
      acende, e a reserva não come a largura que o nome precisa. */
-  /* O RECUO LATERAL CEDE UM DEGRAU NA v1.14.7: com SETE linhas, a altura é a que
+  /* O RECUO LATERAL CEDE UM DEGRAU NA v1.14.7: quando eram SETE linhas, a altura é a que
      aperta, e o nome é o que não pode ser cortado — `--sp-5` (12px) devolve ~8px
      de largura por linha e continua sendo MAIOR que o `--sp-4` da v1.13.5 (a régua
      do `ferramentas-folha` mede justamente que a margem cresceu). */
@@ -7235,75 +7235,114 @@ main {
    faria a faixa inteira mudar de altura a cada troca de ferramenta. */
 .misc-project:disabled { opacity: .4; background: var(--surface); color: var(--muted); cursor: default; }
 
-/* ---------- O ITINERÁRIO (v1.13.0), um tile da grade desde a v1.13.3 ----------
-   Três faixas: o AJUSTE em cima, a LISTA no meio (é ela que rola) e a linha de
-   ADICIONAR embaixo. O painel NÃO rola — o scroller é a lista, pelo motivo das
-   Mensagens: um scroller dentro de outro é o gesto que não se sabe para quem vai. */
-.misc-panel--itin { min-height: 0; overflow: hidden; gap: var(--sp-4); }
-.itin-ajuste { flex-shrink: 0; display: flex; align-items: center; gap: var(--sp-3); }
-.itin-ajuste .chrono-btn { font-size: var(--fs-md); font-weight: var(--fw-max); font-variant-numeric: tabular-nums; }
-.itin-ajuste-txt {
-  flex: 1; min-width: 0; text-align: center;
-  font-size: var(--fs-md); font-weight: var(--fw-forte); color: var(--muted);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+/* ---------- O ITINERÁRIO É UMA OPÇÃO DO CRONOGRAMA (v1.14.32) ----------
+   Pedido do operador: os títulos do itinerário moram na lista do Cronograma, com
+   outra formatação, e as opções dele numa segunda linha MAIS ESTREITA logo abaixo
+   da barra do topo — que pode ser recolhida. Duas peças: a LINHA DO MOMENTO e a
+   FAIXA DE OPÇÕES (`#itinBar`). */
+
+/* A LINHA DO MOMENTO: um TÍTULO que organiza as mídias que vêm depois dele, e por
+   isso NÃO é um item do culto. Sem capa (o horário toma o lugar dela), mais baixa
+   que as de mídia, com uma barra de `--accent` na ponta e o fundo do "ligado"
+   (`--btn-accent`) — o tom que o app já usa para dizer "isto está ativo", e que
+   nenhuma linha de mídia veste. A linha é a `.lib-item > .row` de sempre: o
+   arrasto, a faixa do `⋮` e o excluir na linha são os das outras, e `--linha` é o
+   preenchimento OPACO que a faixa de ações precisa por baixo. */
+.lib-item.momento { --linha: var(--btn-accent); }
+.lib-item.momento::before {
+  content: ''; position: absolute; z-index: 2; left: 0; top: 0; bottom: 0; width: 4px;
+  background: var(--accent); pointer-events: none;
 }
-/* COM ATRASO, a frase deixa de ser apagada: é o estado que muda o que o telão
-   mostra, e ele tem de se ler de relance. */
-.itin-ajuste-txt.deslocado { color: var(--accent); }
-/* ---------- A LISTA É A LISTA DO APP (v1.13.1) ----------
-   A linha é a `.lib-item > .row` do Cronograma e das Mensagens — capa, nome,
-   subtítulo e `⋮` com a faixa de ações —, e o scroller é a lista (o painel não
-   rola). Os mesmos números da `.msg-list`, a irmã dentro da mesma folha. */
-.itin-lista {
-  flex: 1; min-height: 0; overflow-y: auto; touch-action: pan-y;
-  list-style: none; margin: 0; padding: 0; position: relative;
-  display: flex; flex-direction: column; gap: var(--sp-3);
-}
-.itin-lista > .empty { color: var(--muted); font-size: var(--fs-md); text-align: center; padding: var(--sp-5) var(--sp-3); }
-/* A HORA NA CAPA: o quadrado de `--thumb` com o horário em algarismos
-   tabulares. Cinco caracteres num quadrado de 40px pedem o corpo pequeno e o
-   peso máximo — medido: "23:59" ocupa 33px a .74rem. */
-.itin-thumb { background: var(--surface); }
-.itin-thumb-hora {
-  font-size: .74rem; font-weight: var(--fw-max); line-height: 1; color: var(--text);
+.lib-item.momento > .row { padding-left: .7rem; }
+/* O HORÁRIO EM ALGARISMOS TABULARES: "23:59" e "10:00" ocupam a mesma largura, e
+   os títulos da lista se alinham uns com os outros. */
+.momento-hora {
+  flex: none; min-width: 2.9rem; text-align: left;
+  font-size: var(--fs-lg); font-weight: var(--fw-max); line-height: 1; color: var(--accent);
   font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
 }
-/* O ITEM DE AGORA é a linha ATUAL (`.active` → `--sel-fill`); a capa dele
-   veste o par do "ligado" para a hora se ler de relance. */
-.lib-item.active .itin-thumb { background: var(--btn-accent); }
-.lib-item.active .itin-thumb-hora { color: var(--accent); }
-.lib-item.active .row-sub, .lib-item.itin-seguir .row-sub { color: var(--accent); }
-/* ---------- O NOME DO ITINERÁRIO ATIVO E A GAVETA DELES (v1.13.2; o nome no
-   cabeçalho da folha desde a v1.13.4) ----------
-   O título é o `.crono-titulo` do Cronograma (o nome no eixo, a seta à direita,
-   o `padding-left` que a equilibra), e desde a v1.13.4 ele MORA NO CABEÇALHO DA
-   FOLHA, na trilha 2 do `.tools-head`, no lugar do `#toolsTitle` — o pedido foi
-   devolver à lista a altura da faixa que ele tinha no topo do painel. O nome veste
-   o `.tools-title` (o corpo e o peso do título de toda folha): ali ele É o título.
+.lib-item.momento .row-name { font-weight: var(--fw-forte); }
+/* O MOMENTO DE AGORA (a leitura do relógio, a mesma do telão): o preenchimento da
+   linha atual das listas e o subtítulo em `--accent`. É uma classe PRÓPRIA
+   (`.agora`), e não o `.active`: o `.active` desta lista é o item que o ▶ repete
+   (`marcarNoAr` o escreve a cada passada), e um momento nunca é isso. */
+.lib-item.momento.agora { --linha: var(--sel-fill); }
+.lib-item.momento.agora .row-sub, .lib-item.momento.seguir .row-sub { color: var(--accent); }
 
-   `display: flex` do `.crono-titulo` VENCE o `[hidden]` da folha do agente, então
-   a regra de esconder é escrita. `max-width: 100%` com o `min-width: 0` dos dois:
-   um nome longo vira reticências em vez de empurrar o ✕ para fora. A classe é
-   `.itin-cab-titulo`, e não `.itin-titulo`, que é a coluna do título na lista
-   desenhada no PALCO (`createStage.desenharItinerario`).
-
-   A GAVETA é a `.crono-gaveta`, verbatim — as mesmas linhas (`.crono-item`) e o
-   mesmo "Novo" —, posicionada na folha de Ferramentas logo abaixo do cabeçalho (o
-   `top` é medido ao abrir, `abrirItinGaveta`). O VÉU é da folha (`absolute`, e
-   não `fixed`): fora dela o toque fecha pela captura e segue para quem o
-   recebeu, como o da Biblioteca sobre a gaveta dos cronogramas. */
-.tools-head > .itin-cab-titulo { grid-column: 2; max-width: 100%; }
-.tools-head > .itin-cab-titulo[hidden] { display: none; }
-.itin-cab-titulo .itin-nome {
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+/* A FAIXA DE OPÇÕES, IRMÃ DA BARRA DO TOPO (ver o `#itinBar` no HTML): da cor
+   dela (`--bar`), sangrando até as bordas pelo recuo do `<main>` devolvido como
+   margem negativa — a mesma conta do `.list-header` —, e com a margem de baixo
+   negativa para anular o `gap` do `<main>` (a barra de cima já anula o dela). Fica
+   encostada nas duas. O Modo Fácil não a desenha: esconde o `<main>` inteiro. */
+.itin-bar {
+  container-type: inline-size;
+  /* QUEBRA EM DUAS LINHAS quando não cabe (a fonte do sistema em 1,25× ou mais, ou uma tela
+     de 320 px): a alternativa era esconder `+` e a seta de recolher atrás da borda, sem
+     rolagem nenhuma para chegar a eles. O atraso é o elástico (`flex-basis` abaixo) e é
+     ele que desce primeiro, levando os dois da ponta junto — a segunda linha fica
+     [atraso ......... + ⌃]. */
+  flex-shrink: 0; display: flex; flex-wrap: wrap; row-gap: var(--sp-2);
+  align-items: center; gap: var(--sp-2);
+  background: var(--bar);
+  margin: 0 -.8rem calc(-1 * var(--sp-5));
+  padding: .15rem .8rem .25rem;
 }
-.itin-veu { position: absolute; inset: 0; z-index: 160; }
-.itin-veu[hidden] { display: none; }
-.itin-gaveta { left: .7rem; right: .7rem; width: auto; max-width: 24rem; }
-/* "Adicionar horário" fica FORA do scroller, embaixo da lista: o "Novo
-   cronograma" da gaveta dos cronogramas (`.crono-novo`), sem precisar rolar. */
-.itin-novo-btn { flex-shrink: 0; }
-/* A FOLHA DE UM HORÁRIO (`#itinPopup`): desce do teto e termina onde o teclado
+.itin-bar:empty { display: none; }
+.itin-b {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1);
+  height: 1.9rem; min-width: 1.9rem; padding: 0 .3rem; box-sizing: border-box;
+  border: 0; border-radius: var(--radius-card);
+  background: var(--surface); color: var(--text);
+  font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-forte); line-height: 1;
+  cursor: pointer;
+}
+.itin-b svg { width: 1.05rem; height: 1.05rem; flex: none; }
+.itin-b:disabled { opacity: var(--op-inativo); cursor: default; }
+/* LIGADO é o par do interruptor do app (`--btn-accent` + `--accent`), como o "Seg"
+   e o "12h" do Relógio: o telão no ar e os horários escolhidos. */
+.itin-b.active { background: var(--btn-accent); color: var(--accent); }
+.itin-telao { padding: 0 .55rem; }
+.itin-passo { min-width: 1.6rem; padding: 0 .1rem; font-weight: var(--fw-max); font-variant-numeric: tabular-nums; }
+/* O ATRASO é o miolo elástico, e é um botão (tocar o zera): chapado, sem corpo.
+   Com atraso ele deixa de ser apagado — é o estado que muda o que o telão mostra, e
+   lê-se de relance. */
+.itin-b.itin-ajuste-txt {
+  flex: 1 1 3rem; min-width: 0; padding: 0 .15rem; background: none; color: var(--muted);
+  font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;
+  line-height: 1.9rem;
+}
+.itin-b.itin-ajuste-txt:disabled { opacity: 1; }
+.itin-txt-curto { display: none; }
+.itin-b.itin-ajuste-txt.deslocado { color: var(--accent); font-weight: var(--fw-max); }
+.itin-novo, .itin-fechar { background: none; color: var(--accent); }
+/* QUEBRADA, o par da ponta fica à DIREITA da segunda linha (`margin-left: auto`); na mesma
+   linha do atraso a margem vale zero, porque o atraso já absorve a sobra. */
+.itin-novo { margin-left: auto; }
+/* RECOLHIDA: uma fita fina com a seta para abrir. Ela continua dizendo se o
+   itinerário está no ar (o ponto), porque é a única pista que sobra da faixa. */
+.itin-bar.recolhida { padding: 0 .8rem .1rem; justify-content: center; }
+.itin-b.itin-abrir {
+  flex: 1 1 auto; height: 1.5rem; min-width: 0; padding: 0 .6rem; background: none; color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.itin-b.itin-abrir svg { width: .9rem; height: .9rem; }
+.itin-ponto { width: .45rem; height: .45rem; border-radius: 50%; background: var(--live-strong); flex: none; }
+/* O VÃO ENCOLHE nas telas estreitas — pela consulta de MÍDIA, porque uma consulta de contêiner
+   só estiliza DESCENDENTES, nunca o próprio contêiner. A faixa tem a largura da tela, então as
+   duas réguas coincidem: a 360 px a soma dos nove (com o atraso no tamanho mínimo) é ~325 px
+   de ~334, e com o vão cheio de `--sp-2` ela passava por 4 px e quebrava a seta de recolher. */
+@media (max-width: 419.98px) { .itin-bar { column-gap: var(--sp-1); } }
+/* A FAIXA MEDE O PRÓPRIO COMPRIMENTO (consulta de contêiner, como a do `.misc-foot`): abaixo
+   de 400px o atraso passa à escrita curta ("+5 min"), e abaixo de 320px o rótulo do telão
+   cede — o ícone e a cor de ligado dizem o mesmo. (A consulta mede o CONTEÚDO da faixa:
+   o recuo de .8rem de cada lado já está descontado — 360px de tela são ~334px aqui.) */
+@container (max-width: 399.98px) {
+  .itin-txt-longo { display: none; }
+  .itin-txt-curto { display: inline; }
+}
+@container (max-width: 319.98px) { .itin-telao-txt { display: none; } .itin-telao { padding: 0 .4rem; } }
+
+/* A FOLHA DE UM MOMENTO (`#itinPopup`): desce do teto e termina onde o teclado
    começa. As roletas ocupam o que sobra e se medem por isso
    (`acertarRoletasDoItin`).
    O DESCONTO É `--kb-folha`, E NÃO `--kb` (v1.13.2): o campo do título SOBREPÕE
@@ -7318,9 +7357,6 @@ main {
 }
 .itin-roletas { flex: 1 1 11rem; min-height: 5.5rem; }
 .itin-editor-corpo > .itin-campo-titulo { flex: none; }
-/* O QUADRADO DAS HORAS, no rodapé: ligado = os horários vão ao telão. O par do
-   "ligado" (`--btn-accent` + `--accent`), como o "Seg" e o "12h" do Relógio. */
-.chrono-btn.itin-horas.active { background: var(--btn-accent); color: var(--accent); }
 
 /* ---------- Sorteio (aba Ferramentas) ---------- */
 /* O resultado. Sem `tabular-nums` (ao contrário do cronômetro): aqui o valor

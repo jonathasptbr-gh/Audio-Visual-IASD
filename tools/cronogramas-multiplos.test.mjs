@@ -141,7 +141,13 @@ try {
     await z(350);   // a medida é do quadro ASSENTADO: durante a entrada ela ainda desliza
     const g = await pg.evaluate(() => {
       const gv = document.getElementById('cronoGaveta');
-      const h = document.querySelector('.list-header').getBoundingClientRect();
+      // O CABEÇALHO TEM DUAS PEÇAS (v1.14.32): a barra do topo e, logo abaixo, a faixa de
+      // opções do itinerário (`#itinBar`). A gaveta nasce na LISTA — logo abaixo da ÚLTIMA
+      // peça à vista —, então é a borda de baixo dela (e só sem ela a da barra) que o
+      // "logo abaixo" mede. Contra a barra o vão seria a faixa mais o vão de sempre
+      // (43,4px = 37,8 + 5,6), e a asserção acusaria uma folga que a gaveta não tem.
+      const fx = document.getElementById('itinBar');
+      const h = (fx && fx.getClientRects().length ? fx : document.querySelector('.list-header')).getBoundingClientRect();
       const r = gv.getBoundingClientRect();
       const itens = [...document.querySelectorAll('#cronoLista .crono-item')];
       const ativo = document.querySelector('#cronoLista .crono-item.ativo');
@@ -161,7 +167,8 @@ try {
       };
     });
     checar(ab === true && g.abaixo >= 0 && g.abaixo < 12,
-      'A · tocar no título abre a GAVETA logo abaixo da barra do topo', porque(ab) || JSON.stringify(g));
+      'A · tocar no título abre a GAVETA logo abaixo do cabeçalho — da faixa do itinerário, a última '
+      + 'peça dele à vista (e da barra do topo, sem ela)', porque(ab) || JSON.stringify(g));
     checar(g.n === 1 && /^Cronograma\s*3 itens$/.test(g.ativo) && g.ultimo === 'Novo cronograma',
       'A · e ela lista o cronograma com a CONTA de itens, e a última linha é "Novo cronograma"',
       JSON.stringify(g));

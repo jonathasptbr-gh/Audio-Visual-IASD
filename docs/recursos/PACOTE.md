@@ -752,27 +752,27 @@ episódio não viaja junto com ele (quem o leva, se for o caso, é a linha da s�
 na folha — o vídeo retido pela lista `serie`). Importar de novo não duplica: o id
 é fixo por série, e `mediaAdd` falha sobre um id que já existe.
 
-## Os itinerários (v1.13.2)
+## O itinerário no pacote (v1.14.32)
 
-A chave `state.itinerario` (ver o modelo de dados) VIAJA inteira — o ativo e os
-guardados —, e entra pela regra dos cronogramas guardados, **não pela mescla
-genérica**: unida por `id`, ela juntaria os horários do ativo de lá aos do ativo
-daqui, duas programações embaralhadas numa lista só. Quem decide é
-`itinMesclarPacote` (controle.js, PURA), aplicada no fim do fluxo
-(`itinDoPacote` no `pacoteAplicarFluxo`) e só quando muda alguma coisa:
+O itinerário viaja como o que ele É: **linhas do Cronograma**. Os MOMENTOS são cues `momento`
+(registros `media` com `kind: 'cue'`, sem bytes; ver o modelo de dados) e atravessam como qualquer
+cue — o registro (`sanearMedia`), com o horário (`data.min`) e o título (`name`), e o id na lista
+`imports` —, junto com o cronograma que os contém: um cronograma GUARDADO leva os dele.
 
-| do pacote | entra como |
-|---|---|
-| um itinerário de id que já existe aqui (ativo ou guardado) | a MESMA importação de novo: os horários se UNEM pelo id do horário, o daqui vencendo, e o nome daqui fica |
-| um de CONTEÚDO igual a um daqui (o pacote da v1, sem id) | nada — já está aqui |
-| qualquer outro, inclusive o ATIVO de lá | um GUARDADO novo daqui, com o nome dele (" (2)" se colidir); o ativo daqui não muda |
-| tudo, num aparelho VIRGEM (um itinerário só, vazio e com o nome do app) | a lista de lá inteira, com o ativo de lá como o ativo daqui |
-
-- **O AJUSTE DO DIA NÃO VIAJA**: o atraso é do culto daquele aparelho.
-- **Nada aqui é mídia**: o itinerário não tem linha na folha de grupos e não
-  passa pelo `filtro` da seleção — ele vai sempre, como as mensagens.
-- **A cena `itinerario`** (um registro `cue` do Cronograma ou dos Favoritos)
-  viaja como qualquer registro, com o descritor inteiro (`sanearMedia`).
+- **A CHAVE `state.itinerario` NÃO atravessa.** Ela guarda o que é DESTE aparelho e deste dia
+  (`{ v, horas, desloc, deslocDia, barraOculta }`: a escolha de horários no telão, o atraso do
+  culto, a faixa recolhida). O import a PULA — `pacoteAplicarFluxo`, `cab.t === 'state' &&
+  cab.chave === 'itinerario'`, antes da mescla genérica e sem contar em `recusadas` — e não há
+  mescla própria. A exportação também NÃO a grava: `'itinerario'` está no `FORA` do `pacote.js`
+  (o `pacote.test.mjs` confere a entrada contra a base). O import continua a pular a chave de um
+  pacote ANTIGO, que ainda a traz.
+- **UM PACOTE ANTIGO** (a chave carregava a lista de horários e os itinerários guardados) tem a
+  chave inteira IGNORADA, a LISTA dentro dela inclusive: os horários de lá só chegam se estiverem
+  como cena (a `itinerario`, abaixo).
+- **O momento não segura mídia**: é um cue sem bytes, e o coletor não o conta como detentor.
+- **A cena antiga `itinerario`** (um registro `cue` do Cronograma ou dos Favoritos) viaja como
+  qualquer registro, com o descritor inteiro (`sanearMedia`); tocá-la no destino ACRESCENTA os
+  horários dela como momentos (ver a Camada de Texto).
 
 ## O original escondido do item editado (v1.12.0)
 

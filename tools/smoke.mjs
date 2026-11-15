@@ -791,7 +791,7 @@ try {
     // AS FERRAMENTAS ABREM NUMA GRADE (v1.13.3): o que a varredura de cima viu é só
     // a grade, e os controles de cada ferramenta só existem com ela aberta — cada
     // uma é aberta e varrida, e o Sorteio também com os "Números" ligados.
-    for (const id of ['clock', 'stopwatch', 'timer', 'itinerario', 'msg', 'draw']) {
+    for (const id of ['clock', 'stopwatch', 'timer', 'msg', 'draw']) {
       try { abrirFerramenta(id); } catch (e) { /* idem */ }
       await new Promise((r) => setTimeout(r, 60));
       varrer();

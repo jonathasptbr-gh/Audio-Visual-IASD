@@ -105,6 +105,10 @@
     // `pacote.test.mjs` confere cada entrada contra a base.
     'ota-intencao',
     'ytIntencoes',
+    // O ITINERÁRIO (v1.14.32): `state.itinerario` guarda o ajuste do dia, a escolha de horários
+    // e a barra recolhida — opções DESTE aparelho. Os momentos são cenas do Cronograma e viajam
+    // com ele. (O import ainda IGNORA a chave de um pacote antigo: `pacoteAplicarFluxo`.)
+    'itinerario',
     // A PASTA DO APARELHO. Ela guarda `content://` do SAF, que são concessões
     // deste aparelho e não significam nada no outro — e o modo de falhar é o
     // PIOR do app: `listFolder` sobre uma URI que não se pode abrir devolve

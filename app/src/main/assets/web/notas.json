@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.14.32",
+    "itens": [
+      "O Itinerário saiu das Ferramentas: os momentos do culto agora ficam na lista do Cronograma, cada um com a sua hora.",
+      "Segure e arraste as mídias para debaixo de cada momento. Nada toca sozinho pelo horário.",
+      "Uma faixa fina sob a barra do topo liga o telão, esconde as horas, adianta ou atrasa tudo e adiciona momentos.",
+      "A faixa se recolhe pela seta. O itinerário que estava ativo entrou no começo do Cronograma atual.",
+      "Os itinerários guardados com nome não vieram. Uma cena de itinerário guardada acrescenta os horários ao tocar."
+    ]
+  },
+  {
     "versao": "1.14.31",
     "itens": [
       "No Timer em 0:00, o Projetar no telão e os dois botões de guardar ficam apagados, com a dica do porquê.",

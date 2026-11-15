@@ -12,7 +12,7 @@ depois do `__avBack`. Oráculo: `tools/tour.test.mjs`.
 | `conexao` | Modo Fácil com a cortina "sem tela" (`#simpleMode.sem-tela`) | só a cortina: `#simpleConn`, `#castMirrorBtn`, `#castNetBtn`, `#castLocalBtn` |
 | `simples` | Modo Fácil destravado, Biblioteca encaixada (`.corpo-biblioteca`) | `#simpleBarra`/`#libBar`, a lista da janela (`.semana-raiz`, `.hymnal-card > .coll-bar`, `.coll-group-bar`, `.coll-bar-dl`), `#sorteioSimplesBtn`, `#volPill`, `#simpleSettingsBtn`, `#simpleCastBtn`, `FIM` |
 | `tocando` | Modo Fácil destravado com a letra e as teclas à vista | `.simple-song`, `.simple-fabs`, `#simpleSlidesRow`, `.simple-nowplaying`, `#simpleStop`, `#simplePlay`, `#simpleTela` |
-| `avancado` | Modo Avançado | `#library`, `#cronoTitulo`, `#cronoImportar`, `#bibleBtn`, `#toolsBtn`, `#libBar`, o deck em nove passos (`.np-seek`, `#slidePrevBtn`+`#preview`+`#slideNextBtn`, `#prev`+`#playpause`+`#next`+`#stop`, `#plBtn`, `#repeat`, `#lyricsViewBtn`, `#viewToggle`, `#muteToggle`, `#pvFullBtn`), `#pvCastBtn`, `#settingsBtn`, `FIM` |
+| `avancado` | Modo Avançado | `#library`, `#cronoTitulo`, `#cronoImportar`, `#itinBar` (`opcional`), `#bibleBtn`, `#toolsBtn`, `#libBar`, o deck em nove passos (`.np-seek`, `#slidePrevBtn`+`#preview`+`#slideNextBtn`, `#prev`+`#playpause`+`#next`+`#stop`, `#plBtn`, `#repeat`, `#lyricsViewBtn`, `#viewToggle`, `#muteToggle`, `#pvFullBtn`), `#pvCastBtn`, `#settingsBtn`, `FIM` |
 
 Os tours principais apontam as PORTAS e o que já está à vista na tela (a tabela `TOURS` do `tour.js`: o deck do Avançado, a lista da Biblioteca encaixada do Fácil); o que há
 dentro de cada janela é o tour de SEÇÃO, abaixo. Um passo `opcional` sem
@@ -80,7 +80,7 @@ foco num campo NÃO bloqueia, a Biblioteca abre com o teclado).
 | chave | onde |
 |---|---|
 | `cfg-hist`, `cfg-pacote`, `conectar` | os dois modos |
-| `biblioteca` (a janela do avançado), `cronogramas`, `biblia`, `biblia-leitura`, `ferramentas`, `ferr-clock`, `ferr-stopwatch`, `ferr-timer`, `ferr-itinerario`, `ferr-msg`, `ferr-draw`, `ferr-edicao`, `ferr-edicao-form`, `sorteio`, `playlist`, `letra`, `letra-cifra` | avançado |
+| `biblioteca` (a janela do avançado), `cronogramas`, `biblia`, `biblia-leitura`, `ferramentas`, `ferr-clock`, `ferr-stopwatch`, `ferr-timer`, `ferr-msg`, `ferr-draw`, `ferr-edicao`, `ferr-edicao-form`, `sorteio`, `playlist`, `letra`, `letra-cifra` | avançado |
 
 A raiz de Configurações, a Tela e a Verificação não têm tour: são janelas de ajuste
 simples. O editor de mídia só existe no avançado — a lista das
@@ -106,9 +106,8 @@ mudou, `vigiar()`) e o automático oferece o da vista nova se ela ainda não foi
 acrescentar uma vista nova a uma janela com tour: seção própria, não passo `opcional`.
 
 **O rodapé das Ferramentas (v1.14.20):** as três saídas — o projetar e os dois quadrados de
-guardar — são UM passo (`SAIDAS`, `todos`) nas cinco ferramentas que têm rodapé (Relógio,
-Cronômetro, Timer, Sorteio e Itinerário); a união é a ponta direita do rodapé, e o Itinerário
-acrescenta que, sem horários, os três ficam apagados. O Timer ganhou o passo da roleta
+guardar — são UM passo (`SAIDAS`, `todos`) nas quatro ferramentas que projetam e guardam
+(Relógio, Cronômetro, Timer e Sorteio); a união é a ponta direita do rodapé. O Timer ganhou o passo da roleta
 (`#chronoRoletas`); a lista de Ferramentas perdeu o "Fechar" (é a mesma porta que abriu) e ganhou
 o "Editar mídia"; as Mensagens explicam a lista e as opções de formatação — na primeira
 instalação a lista está vazia, e o passo das opções vira balão central (`semAlvo`).
@@ -119,9 +118,8 @@ acervo inteiro embaralhado), então os passos dela moram no mesmo `sorteio`: a m
 (`.sorteio-res-btn`, com `semAlvo` para a lista vazia), o `#sorteioQuantidade` e o embaralhar
 (`.sorteio-sortear`), que tem passo próprio fora do destaque da saída.
 
-Uma janela sem entrada na tabela (`songMenuPopup`, `itinPopup`, a gaveta de
-itinerários) não tem tour, mas conta como seção aberta: o tour principal espera.
-**Os ouvintes que fecham por toque FORA** (gaveta de cronogramas, de itinerários,
+Uma janela sem entrada na tabela (`songMenuPopup`, `itinPopup`) não tem tour, mas conta como seção aberta: o tour principal espera.
+**Os ouvintes que fecham por toque FORA** (gaveta de cronogramas,
 ações da linha) ignoram toque dentro do `#tour` — senão o "Próximo" fechava a gaveta
 que ele explica.
 

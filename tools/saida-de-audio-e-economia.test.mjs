@@ -337,8 +337,8 @@ try {
     'histOpenRow', 'testeTile', 'shareAppTile', 'pacoteTile', 'tourBtn']),
   'A2 · a grade de Configurações é a de OITO tiles, com o "Tour do app" fechando a fileira do aparelho',
   JSON.stringify(saiu.grade));
-  checar(JSON.stringify(saiu.ferramentas) === JSON.stringify(['clock', 'stopwatch', 'timer', 'itinerario', 'msg', 'draw', 'edicao']),
-    'A3 · e o "Editar mídia" é a SÉTIMA ferramenta — ele ocupou a vaga que o editor deixou nas Configurações',
+  checar(JSON.stringify(saiu.ferramentas) === JSON.stringify(['clock', 'stopwatch', 'timer', 'msg', 'draw', 'edicao']),
+    'A3 · e o "Editar mídia" é a ÚLTIMA ferramenta (a sexta desde que o Itinerário virou opção do Cronograma, v1.14.32)',
     JSON.stringify(saiu.ferramentas));
 
   // AS DUAS LINHAS QUE FICARAM: o Registro as compõe da leitura do shell que o

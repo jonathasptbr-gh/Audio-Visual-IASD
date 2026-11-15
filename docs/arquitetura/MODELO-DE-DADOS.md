@@ -214,7 +214,7 @@ O campo `kind` é derivado do `type` (ou definido pelo chamador para itens de UR
 |---|---|
 | `imports` / `playlist` | arrays de IDs de mídia. `imports` é o cronograma ATIVO |
 | `cronogramas` | **os cronogramas múltiplos** (v1.12.54): `{ ativo, itens: [{ id, nome, ids, usado }] }`. O conteúdo do ATIVO é `imports` (o `ids` dele é sempre `[]` na chave); os outros são conjuntos GUARDADOS. **Ausente = o aparelho de sempre**: um cronograma, "Cronograma", com o id PROVISÓRIO `cr-atual` até a primeira escrita, que o troca por um aleatório (é o id que diz "o mesmo cronograma" numa importação). **É DETENTORA**: `lerDetentores` lê os `ids` de todo item. Escrita só pelas funções `crono*` do `db.js`, sempre numa transação `state`+`media` |
-| `itinerario` | **o ITINERÁRIO do Tempo** (v1.13.0; os múltiplos da v1.13.2): `{ v: 2, itens: [{ id, min, titulo }], horas, desloc, deslocDia, ativo, itinerarios: [{ id, nome, usado, itens, horas }] }`. O conteúdo do ATIVO mora nos campos de cima (`itens`, `horas`) — a entrada dele em `itinerarios` guarda só o lugar e o nome, com `itens: []` (a regra do `imports` dos cronogramas); os outros têm o conteúdo inteiro. `desloc`/`deslocDia` é o AJUSTE DO DIA, GLOBAL (vale para qualquer ativo; fora do dia, lido como 0). **A v1 (sem `ativo`) é a migração e não escreve nada**: vira UM itinerário, "Itinerário", com a lista de cima, id aleatório guardado na memória até a primeira escrita. Uma chave só: trocar, criar e excluir são UM `updateState` (`saveItin`, que mescla para não apagar campo futuro). **NÃO É DETENTORA**: horário e título não seguram mídia, e `lerDetentores` não a lê. Escrita só por `saveItin` (controle.js); no `.avpkg`, por `itinMesclarPacote` |
+| `itinerario` | **as opções do ITINERÁRIO neste aparelho** (v1.14.32): `{ v: 3, horas, desloc, deslocDia, barraOculta }` — `horas` escolhe horários × só títulos no telão, `desloc`/`deslocDia` são o AJUSTE DO DIA (min, + = atrasou; GLOBAL; fora do dia, lido como 0; preso a ±720) e `barraOculta` recolhe a faixa `#itinBar`. **A LISTA DE HORÁRIOS NÃO MORA AQUI**: os momentos são cues `momento` do Cronograma (ver "Cenas de roteiro"). Leitura normalizada PURA (`itinLerEstado`); escrita só por `saveItin` (controle.js; `updateState` que mescla, para não apagar campo futuro, e tira `itens`/`itinerarios`/`ativo` do formato antigo); `itinMigrarLegado` (uma vez, no `load()`) leva o `itens` do ativo do formato antigo para momentos e descarta os guardados. **NÃO viaja no `.avpkg`** (o import a pula) e **não é detentora**: `lerDetentores` não a lê |
 | `current` | `{ mediaId, view, muted, volume, at }` — estado de exibição atual. O `mediaId` é **limpo na abertura** (`clearCurrentSelection`): sessão nova começa com o player vazio; volume/mudo/cortina ficam, que são o ajuste da mesa e não uma seleção. **`mediaId` é DETENTOR DE REFERÊNCIA** (v5.315): `lerDetentores` o conta, e é o que impede o coletor de apagar a mídia em cena — a limpeza da abertura é o que solta o órfão para o `gcOrfaos` da mesma abertura |
 | `repeat` | `'off'` \| `'all'` \| `'one'` \| `'shuffle'` |
 | `fade` | legado — as transições visuais (fade in/out) viraram **inerentes ao sistema** (`createStage.FADE`, fixo em `{in:true, out:true, time:0.6}` e compartilhado pelos dois apps, não configurável); esta chave **não é mais lida nem gravada** (fica ignorada se existir de versões antigas). Fade em toda troca visual: mídia, cortina do wallpaper (view toggle), letra e texto bíblico |
@@ -415,14 +415,15 @@ contagem regressiva, leitura bíblica, aviso, letra sem música:
 { kind: 'cue', cue: 'songlyrics', data: { collId, songId } }
 { kind: 'cue', cue: 'chrono',     data: { mode, durationMs, label, secs, h12 } }
 { kind: 'cue', cue: 'draw',       data: { kind, min, max, pool, label } }
-{ kind: 'cue', cue: 'itinerario', data: { itens: [{ min, titulo }], horas } }  // v1.13.1, sem o ajuste do dia
+{ kind: 'cue', cue: 'momento',    name: <título>, data: { min } }  // o itinerário: uma LINHA do Cronograma, em `imports`
+{ kind: 'cue', cue: 'itinerario', data: { itens: [{ min, titulo }], horas } }  // LEGADO: tocar ACRESCENTA os horários como momentos
 { kind: 'cue', cue: 'group',      data: { ids: [...] } }        // o "pacote"
 ```
 
 1. **O Display não muda uma linha, e sequer sabe que cues existem.** Um cue
    NUNCA vira `load`: projetá-lo chama a MESMA função que o botão da aba já
    chamava (`projectBibleVerse`, `projectMessage`, `projectChrono`,
-   `projectDraw`, `projectItin`, `projectSongLyricsOnly`), que manda o `text`/`chrono`/`draw`
+   `projectDraw`, `projectSongLyricsOnly`), que manda o `text`/`chrono`/`draw`
    de sempre. Ponteiro novo, nunca lógica de projeção nova.
 2. **A guarda mora em `send()`**, não no toque da lista: é por ali que passam o
    avanço automático da playlist, o ⏮/⏭ do transporte, a notificação nativa e o
@@ -436,6 +437,11 @@ contagem regressiva, leitura bíblica, aviso, letra sem música:
    roteiro não ficar mudo se ela for apagada). Um cue não envelhece quando a
    mensagem é editada nem duplica a Escritura no banco.
 
+- **Dois cues são do itinerário, e nenhum é uma cena de projeção.** O `momento` é uma LINHA do
+  Cronograma (`data.min` = minuto do dia previsto, o título em `name`, `data.legado` = o id do
+  horário de antes quando veio da migração): tocar a linha o EDITA, e `playCue` não tem caso para
+  ele. O `itinerario` é o cue ANTIGO (legado): tocá-lo ACRESCENTA os horários dele como momentos
+  (`projetarItinerarioCue`), e nenhum novo se cria.
 - **O versículo projeta na versão EM USO HOJE**, com a guardada como reserva: a
   referência é do texto, não da tradução — um roteiro de um mês atrás não pode
   arrastar de volta uma versão trocada nem disparar o download dela no domingo.

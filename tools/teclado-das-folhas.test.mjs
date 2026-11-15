@@ -301,16 +301,15 @@ try {
     await pg.waitForTimeout(400);
   }
 
-  // ── D. O ITINERÁRIO: o título de um horário (`#itinPopup`) ───────────────
-  await pg.evaluate(() => { abrirFerramentas(); });
-  await pg.waitForTimeout(150);
-  await pg.evaluate(() => { abrirFerramenta('itinerario'); abrirItinEditor(null); });
+  // ── D. O MOMENTO DO ITINERÁRIO: o título de um horário (`#itinPopup`) ─────
+  // A folha abre DIRETO (v1.14.32): o Itinerário é opção do Cronograma (`#itinBar`, o `+`), não uma ferramenta, então não há
+  // folha de Ferramentas por baixo — o campo é varrido com o Cronograma como único app por trás dele.
+  await pg.evaluate(() => { abrirItinEditor(null); });
   await esperar(pg, () => document.getElementById('itinPopup').classList.contains('open') && !!document.getElementById('itinCampoTitulo'));
   await esperar(pg, () => document.querySelector('#itinPopup .popup-sheet').getBoundingClientRect().top >= -0.5);
   algum('D', await varrer('D', '#itinPopup .popup-sheet'));
   await pg.evaluate(() => window.__avBack());
   await esperar(pg, () => !document.getElementById('itinPopup').classList.contains('open'));
-  await pg.evaluate(() => fecharFerramentas());
   await pg.waitForTimeout(400);
 
   // ── E. O DIÁLOGO CENTRADO (`appPrompt`): renomear o CRONOGRAMA, pelo lápis da
@@ -464,9 +463,9 @@ try {
       return { ids: [...document.querySelectorAll('#ferrGrade .ferr-tile')].map((b) => b.dataset.ferr),
         modo: document.body.classList.contains('mode-simple') };
     });
-    checar(s.modo === true && s.ids.length === 6 && !s.ids.includes('edicao'),
+    checar(s.modo === true && s.ids.join(',') === 'clock,stopwatch,timer,msg,draw' && !s.ids.includes('edicao'),
       'S · no MODO FÁCIL o editor de mídia NÃO está na lista das Ferramentas (a mesma regra do tile de '
-      + 'manutenção que ele era): a lista tem as seis ferramentas do culto', JSON.stringify(s));
+      + 'manutenção que ele era): a lista tem as cinco ferramentas do culto (o Itinerário não é ferramenta, v1.14.32)', JSON.stringify(s));
     await pg.evaluate(() => fecharFerramentas());
     await esperar(pg, () => !ferramentasAbertas());
   }

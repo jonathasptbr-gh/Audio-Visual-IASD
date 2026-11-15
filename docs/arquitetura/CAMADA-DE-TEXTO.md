@@ -15,7 +15,7 @@ cobre/revela "de graça", sem tocar em `stage.js`). São eles:
 | **Letra avulsa** | manual (operador avança estrofe) | `lyricSlidesFor` (o ARQUIVO quando há ilustração; o acervo de texto quando não há) | **`#lyrics` / `#pvLyrics`** — a camada da letra CANTADA (v1.9.7) |
 | **Cronômetro/relógio/timer** | **derivado do relógio** (sem avanço) | o próprio tempo (`chronoReading`) | `#text` / `#pvText` |
 | **Sorteio** | **derivado** (rolo até assentar) | faixa numérica ou lista de opções (`drawReading`) | `#text` / `#pvText` |
-| **Itinerário** (v1.13.0) | **derivado do relógio** (o item de agora) | `state.itinerario` (`itinerarioLeitura`) | `#text` / `#pvText` (a lista `.itin`) |
+| **Itinerário** (v1.14.32) | **derivado do relógio** (o momento de agora) | os MOMENTOS do Cronograma ativo (`cue: 'momento'`, `itinItens`) + o ajuste de `state.itinerario`, lidos por `itinerarioLeitura` | `#text` / `#pvText` (a lista `.itin`) |
 | **Letra sincronizada** | **temporizado** (segue o `currentTime` do áudio) | música do LouvorJA | `#lyrics` / `#pvLyrics` |
 | **Mídia visual sobre o áudio** | manual (o toque na imagem ou na apresentação) | um registro `kind:'image'` — ou `kind:'deck'`, e aí o cartão pinta `pages[page]` | `#text` / `#pvText` (modo `mode-img`) |
 
@@ -637,14 +637,15 @@ baixada): o índice sai de UMA leitura do IDB, sem requisição, e funciona offl
 
 A v5.31 tentou um **acordeão** e a v5.32 o trocou por um **seletor no topo**
 (três abas, com um segmentado de quatro dentro do Tempo). **Desde a v1.13.3 a
-folha abre nas sete ferramentas** — numa grade 3×2 até a v1.13.4, hoje numa
+folha abre nas seis ferramentas** — numa grade 3×2 até a v1.13.4, hoje numa
 LISTA VERTICAL que divide a altura da folha: Relógio · Cronômetro · Timer ·
-Itinerário · Mensagens · Sorteio · Editar mídia — e o toque abre a ferramenta; o detalhe (a
+Mensagens · Sorteio · Editar mídia — e o toque abre a ferramenta. O Itinerário não é uma
+delas: é uma opção do Cronograma (seção própria, abaixo). O detalhe (a
 linha, a altura, o ponto de "no ar", o número de quem conta, o voltar e a
 animação) está em [`CONTROLE-LEITURA.md`](CONTROLE-LEITURA.md), "A LISTA DAS FERRAMENTAS". O que
 vale aqui:
 
-- **Uma ferramenta montada por vez** (`miscTool` + `tempoVista` + `chrono.mode`),
+- **Uma ferramenta montada por vez** (`miscTool` + `chrono.mode`),
   e **só ela existe no DOM** — é o render dela que religa o seu timer de painel.
   Na lista nenhuma está montada; o tique da lista só existe com algo contando.
 - **O painel começa sempre no mesmo lugar** e ocupa a folha inteira, o que
@@ -891,8 +892,9 @@ exibindo exatamente o mesmo valor do Controle.
   dois timers escrevendo no mesmo nó nunca seriam ambos corretos — bastaria um
   esquecer de parar o outro para o sorteio ser sobrescrito pelo relógio. Com um
   registro único isso é estruturalmente impossível, em vez de depender de
-  lembrar. (No PAINEL são dois laços, e ali está certo: são duas seções lado a
-  lado, cada uma com o seu próprio nó.)
+  lembrar. (Fora do cartão os laços são separados, e ali está certo: cada um tem
+  o seu próprio nó — o painel do Tempo, o do Sorteio e, na lista do Cronograma,
+  o `itinMarcar` dos momentos, que só troca marcas.)
 - **Um provedor por vez.** `projectChrono` encerra Bíblia e Mensagem, e as duas
   encerram o cronômetro — é um cartão só. Enquanto ele está no ar,
   `slideTarget()` devolve `null`: sem essa guarda, os botões de estrofe cairiam
@@ -1062,176 +1064,77 @@ Tempo e o Sorteio chamam. Duas cópias divergiriam no primeiro ajuste, e aqui
   `.misc-row--legenda`: os outros `.misc-text` são listas e faixas numéricas, que
   se leem alinhadas à esquerda.
 
-### Ferramentas: itinerário (v1.13.0; lista, folha, destinos, par e desenho da v1.13.1; os múltiplos, o ↑↓ e o bloco centrado da v1.13.2; o nome no cabeçalho da v1.13.4)
+### O itinerário é uma opção do Cronograma (v1.14.32)
 
-Mais um provedor da Camada de Texto, na folha de Ferramentas: uma **linha da lista das
-ferramentas** (era o quarto segmento do Tempo até a v1.13.3): a programação do evento — horário +
-título —, com o item de AGORA em destaque e os seguintes abaixo, para a igreja e a
-equipe saberem em que momento estão e o que vem a seguir.
+Mais um provedor da Camada de Texto: a programação do evento (horário + título), com o momento de
+AGORA em destaque e os seguintes abaixo, para a igreja e a equipe saberem em que ponto estão.
+**Não é uma ferramenta** — nenhuma linha em `FERRAMENTAS`, nenhum painel, nenhuma gaveta: os títulos
+são LINHAS DO CRONOGRAMA, com formatação própria, e as opções moram numa SEGUNDA LINHA estreita e
+recolhível logo abaixo da barra do topo (`#itinBar`). Pedido do operador: *"agregar o itinerário ao
+cronograma, como uma opção do cronograma … se consegue arrastar a ordem das mídias para que fiquem
+organizadas com os títulos dos momentos … As mídias não vão tocar automaticamente com o tempo do
+itinerário"*.
 
 ```js
 { type:'text', mode:'itinerario', view,
-  itinerario: { itens:[{ k:<id>, min:<minuto do dia PREVISTO>, titulo }],
+  itinerario: { itens:[{ k:<id do momento>, min:<minuto do dia PREVISTO>, titulo }],
                 desloc:<min, + = atrasou>, horas:bool,
                 fuso:<getTimezoneOffset() do celular> } }
 ```
 
-- **O DESCRITOR, NUNCA O ESTADO CALCULADO.** Quem decide o item no ar é cada tela,
-  pelo relógio dela (`createStage.itinerarioLeitura`, em `shared/stage.js`): o
-  cruzamento de um horário não custa comando nenhum, e o reenvio de cena
-  (`resendSceneToDisplay`, depois do `load`, pelo mesmo descritor) volta no item
-  certo. É o desenho do RELÓGIO do Tempo, e pelo mesmo motivo.
-- **A HORA É A DA ORIGEM, E O FUSO TAMBÉM.** O descritor não carrega época
-  nenhuma (os horários são minutos do dia), então a tradução do `corrigirRelogio`
-  do `tela.js` não o alcança: o telão desenha com `agoraDaOrigem()` (o
-  `__avAgora` da casca numa tela da rede) e tira o minuto do dia do `fuso` do
-  CELULAR. Uma Smart TV com relógio ou fuso errados marca o item certo. Oráculo:
-  `tela-rede.test.mjs`, 3-bis.
-- **O EFETIVO É `min + desloc`**, e é ele que se compara e se mostra. O ajuste
-  (−5 · −1 · +1 · +5 · ↺) desloca a lista INTEIRA, os intervalos ficam; vai a
-  ±12 h e PERSISTE PELO DIA (`deslocDia`): sobrevive a um OTA ou a uma morte do
-  renderer no culto e não chega ao sábado seguinte.
-- **ANTES DO PRIMEIRO HORÁRIO nada é destaque**, e o primeiro diz "A seguir".
-  **DEPOIS DO ÚLTIMO, o último fica no ar** — o encerramento é um momento como os
-  outros e não tem hora de acabar. **A VIRADA DA MEIA-NOITE está fora**: a lista é
-  de um dia, e um item deslocado para fora de 00:00–23:59 é mostrado com a hora
-  dada a volta mas comparado como do mesmo dia.
-- **UM DESENHO SÓ** (`createStage.desenharItinerario`), no telão, nas telas da
-  rede e na preview: até seis linhas (`ITIN_JANELA`) a partir do item de agora,
-  numa `<ol class="itin">` irmã do `.text-main` (que some em `mode-itinerario`).
-  As linhas são reaproveitadas pela chave (`data-k`) e a troca é ANIMADA por FLIP
-  — mede antes, muda o DOM, mede depois, anima a diferença (WAAPI, 700 ms): a que
-  sai esmaece subindo (`.itin-saindo`, fora do fluxo), as que ficam deslizam, a
-  que entra aparece; o destaque troca por `transition`. **Nada se move com
-  `prefers-reduced-motion`** (o JS pergunta o `matchMedia`; a folha zera a
-  transição). A primeira pintura de uma entrada nova NÃO anima — ela chega com o
-  fade do cartão (`liveAnima`/`pvLiveAnima`). A assinatura da janela
-  (`__itinAssin`) é o que faz o tique de um segundo não tocar no DOM à toa.
-- **A ALTURA RESERVADA É A DA LISTA CHEIA** (`--itin-linhas`, até seis): perto do
-  fim as linhas de baixo vagam, e sem a reserva o bloco se recentraria a cada item
-  que acaba — o de agora andaria na tela. As linhas têm altura fixa (`--itin-h`).
-  Com o bloco escuro à vista, a reserva aparece como o fundo dele (decidido: um
-  bloco que encolhesse levaria a borda de baixo junto com a linha que sai).
-- **O DESENHO NO TELÃO É DO OPERADOR (v1.13.1)**: *"mantenha o wallpaper visível,
-  apenas com uma camada escura semitransparente atrás do texto… alinhar à
-  esquerda… não precisa explorar toda a largura da tela"*. Três peças:
-  1. o CARTÃO PINTA O WALLPAPER no lugar do preto (`.mode-itinerario` também na
-     camada `#text`/`#pvText`); a imagem escolhida é COPIADA da cortina por
-     `pintarFundoDoCartao` (`display.js`) e `pintarFundoDoPvCartao`
-     (`controle.js`), chamadas por todo ponto que troca a imagem da cortina
-     (`applyWallpaper`, `telaAplicarWallpaper`, `telaWallpaperPadrao`,
-     `applyPvWallpaper`) e pela troca de modo. A mídia por baixo segue coberta;
-  2. o BLOCO é uma coluna CENTRADA na tela (`align-self: center`, v1.13.2 — era
-     ancorada à esquerda; *"centralize… mantendo estreito"*), com a largura da
-     v1.13.1 (`width: min(100%, max(60cqw, 100cqmin))`) e o texto de DENTRO ainda
-     à esquerda, sobre `--stage-painel` (`rgba(0,0,0,.72)`, token do palco):
-     MEDIDO no pior caso, um wallpaper branco, texto 9,29:1, hora 5,73:1, o
-     acento do "A seguir" 4,31:1 (com os .62 da moldura da letra o acento caía a
-     2,88:1);
-  3. a MARCA é a PRIMEIRA coluna da linha (`itin-tag · itin-hora · itin-titulo`,
-     em grade), colada no horário; toda linha reserva a coluna (`--itin-tag-w`),
-     e é isso que alinha os horários.
-- **Só tokens do palco**: o item de agora é `--stage-accent` preenchido com
-  `--stage-on-accent` (8,65:1), e a etiqueta "Agora" é o par invertido. A regra
-  do telão (`display.css`) tem a gêmea na preview (`controle.css`).
-- **O laço do cartão é o mesmo do cronômetro e do sorteio** (`liveKind`
-  `'itinerario'`, um segundo — `ITIN_TICK_MS`).
-- **O ⏮/⏭ COM ELE NO AR É O AJUSTE, DE 5 EM 5 MIN (v1.13.1, revogando a v1.13.0,
-  em que o par ficava apagado)**: `slideTarget()` devolve `'itinerario'`, o ⏮
-  ADIANTA 5 min e o ⏭ ATRASA 5 min (`ITIN_PASSO_PAR`, a ordem do −5 … +5 do
-  painel), pelo MESMO `itinAjustar`. O botão diz "−5"/"+5" (`EIXO_DE_ACAO`,
-  `desenharBotaoDeEixo` com `texto`) e apaga nos extremos (`itinPassoApagado`, a
-  régua única dos passos). NÃO entra em `EIXO_SO_DO_PAINEL`: o par é simétrico e
-  se desfaz com o toque oposto, então a coluna da tela cheia e a notificação
-  (rótulo "±5 min", `SLIDE_AXIS_NAME`) também ajustam. Quem troca o ITEM continua
-  sendo o relógio.
-- **NO PAINEL (v1.13.1, a LISTA do app)**: o AJUSTE em cima (no CORPO, não no
-  rodapé: seis peças empurrariam o primário para as reticências a 360px), a LISTA
-  no meio — a `.lib-item > .row` do Cronograma e das Mensagens: a HORA na capa
-  (`--thumb`, o efetivo), o título com o subtítulo ("Agora"/"A seguir", o
-  previsto com ajuste, o intervalo até o seguinte), o `⋮` com excluir (pergunta
-  NA LINHA, `pedirConfirmacaoNaLinha`) · editar; o item de agora é a linha
-  `.active` — e "Adicionar horário" embaixo, fora do scroller (o `.crono-novo`
-  da gaveta dos cronogramas). Tocar na linha EDITA. O PAR ↑↓ (v1.13.2, revogando
-  o "não há ↑↓" da v1.13.1) nasceu copiado do Cronograma — `row-btn row-ordem`, por último
-  na faixa do `⋮`, pontas apagadas, a faixa REABRE na linha que andou
-  (`reabrirAcoesEm`) — e mover TROCA o evento com o vizinho deixando os HORÁRIOS
-  no lugar (`itinMover`): a grade da programação não muda, a lista continua em
-  ordem, e o id fica com o título (no ar, o telão desliza as duas linhas).
-  Recusado: trocar levando a duração de cada um — o último não tem. Um laço de um segundo (`itinMarcar`) troca só as marcas e o
-  subtítulo; reconstruir o painel fecharia a faixa de ações debaixo do dedo.
-- **ADICIONAR E EDITAR SÃO UMA FOLHA** (`#itinPopup`, `abrirItinEditor`), que
-  desce do teto e termina onde o teclado começa. **O CAMPO DO TÍTULO SOBREPÕE**
-  (v1.13.2; desde a v1.13.7 o padrão de todo campo, ver `keyboardShift`) e a folha desconta `--kb-folha` — o teclado
-  inteiro, que o `keyboardShift` escreve no mesmo quadro do `--kb`. Com o `--kb`
-  fazendo os dois papéis, o campo encolhia o `<body>`: a barra de busca da
-  Biblioteca subia com o teclado e descia no confirmar (o relato). As
-  ROLETAS de hora e minuto do Tempo (`chronoRoletaEl` com `opts.id`/`aoAssentar`
-  próprios — com o id do Timer, o assentamento escreveria a duração dele;
-  `roletaLevar` posiciona; `acertarRoletasDoItin` mede a célula pelo que sobra) e
-  o título; o confirmar é a faixa de fecho, APAGADO sem título. A v1.13.0 usava
-  `<input type="time">`, cuja escolha é um diálogo do SISTEMA que o WebView pode
-  não abrir — o relato do operador foi que o toque não deixava escolher a hora.
-  **Nenhum `<input type="time">` volta**: o oráculo conta zero.
-- **VIRA CENA DE ROTEIRO (v1.13.1)**: o rodapé tem os dois destinos das abas
-  irmãs (Cronograma · favoritos, `cueSaveDaFerramenta`), APAGADOS com a lista
-  vazia. A cena `itinerario` guarda `{ itens:[{min, titulo}], horas }` — sem ids
-  (a identidade é o conteúdo, `cueChave`) e SEM O AJUSTE, que é do dia; o nome
-  dela é o do itinerário quando o operador o escreveu, senão os horários. Tocá-la
-  (`projetarItinerarioCue`) a torna o ITINERÁRIO ATIVO do painel SEM APAGAR NADA
-  (v1.13.2), e o lugar dela na lista sai do CONTEÚDO (`itinChaveDoConteudo`), não
-  de um id gravado na cena: o ativo igual a ela → ele mesmo (o id das linhas
-  iguais reaproveitado, para o telão não as "entrar" de novo); um guardado igual →
-  troca para ele; o ativo VAZIO → recebe a cena (e o nome dela, se o dele era
-  automático); senão → um itinerário NOVO com o nome da cena (" (2)" se colidir),
-  e o de antes fica intocado. Tocar de novo não duplica; um ativo editado depois
-  de guardado não é apagado pela cena. O ajuste do dia fica, e projeta pelo
-  `projectItin` de sempre. Ela é um registro
-  `cue` comum: o coletor a guarda pela lista, o `.avpkg` a leva inteira, e o
-  Histórico não a registra (nenhuma cena de roteiro passa pelo `historicoRegistrar`).
-- **O Itinerário não é um `chrono.mode`** (`tempoVista`, escrito pelo TILE desde a
-  v1.13.3 — `chronoPrefs.vista` deixou de ser lida, a folha abre na grade):
-  entrar no Itinerário não para a contagem que ficou correndo nas outras três, e
-  voltar delas não zera nada.
-- **OS ITINERÁRIOS MÚLTIPLOS (v1.13.2)**, no idioma dos cronogramas múltiplos: o
-  NOME do ativo é a porta da gaveta. **DESDE A v1.13.4 ELE É O TÍTULO DA FOLHA**
-  (pedido do operador: *"use o campo de título da barra superior geral, para
-  colocar o título editável dos nomes dos itinerários, para aproveitar o espaço
-  vertical"*): o `#itinTitulo` (o `.crono-titulo`, nome e seta; classe
-  `.itin-cab-titulo` — `.itin-titulo` é a coluna da lista no PALCO) mora no
-  `.tools-head`, na trilha 2, e `pintarCabecalhoDasFerramentas` o mostra no lugar
-  do `#toolsTitle` só com o Itinerário aberto (o `renderItinerario` a chama, então
-  trocar, criar e renomear acertam o nome). A faixa que ele tinha no topo do
-  painel (`.itin-cab`) saiu, e a altura foi para a lista. **"EDITÁVEL" É O IDIOMA
-  DO CRONOGRAMA, não um campo no cabeçalho**: o toque no nome abre a gaveta e
-  RENOMEAR é o lápis da linha dela, pelo diálogo do app (`appPrompt`, que DESLOCA
-  de propósito: cartão centrado) — um título que editasse no toque não teria como
-  abrir a gaveta, e as duas folhas de "vários" responderiam ao mesmo gesto de
-  jeitos diferentes. A gaveta (`#itinGaveta`, a `.crono-gaveta` e as `.crono-item` verbatim):
-  renomear (lápis, esquerda) · nome e conta de horários (tocar TROCA) · excluir
-  (lixeira `--btn-danger`, direita, APAGADA no único; pergunta pelo diálogo; o
-  ativo cai no usado mais recentemente), e "Novo itinerário" por último
-  ("Itinerário 2"…). Renomear e excluir deixam a gaveta aberta. **A GAVETA MORA
-  NA FOLHA de Ferramentas, não no painel** (que é redesenhado a cada mudança): o
-  `top` é medido do título (no cabeçalho) ao abrir, o VÉU é `absolute` na folha, e fora da folha
-  a captura do `pointerdown` fecha e deixa o toque seguir. O voltar a fecha antes
-  da folha (degrau 1.8). Trocar de ferramenta (ou voltar à lista) a fecha.
-  **A PROJEÇÃO SEGUE O ATIVO**: trocar (ou excluir o ativo) com ele no ar manda o
-  novo pelo `pushItin` — vazio, sai do telão; um telão preso ao de antes deixaria
-  painel e projeção falando de programações diferentes. **O AJUSTE É GLOBAL** (o
-  atraso é do culto); `horas` é de cada itinerário (viaja na cena).
-- **Persiste** em `state.itinerario` por `AVDB.updateState`, numa chave SÓ (a forma
-  e a migração em [MODELO-DE-DADOS.md](MODELO-DE-DADOS.md)): o ativo nos campos de
-  sempre (`itens`, `horas`, o ajuste com o dia) e os outros em `itinerarios`.
-  Trocar, criar e excluir são UMA escrita. A PROJEÇÃO não persiste, como a do
-  cronômetro. A lista que esvazia no ar sai do telão (`pushItin`). No `.avpkg` a
-  chave viaja inteira e entra pela regra dos cronogramas guardados
-  (`itinMesclarPacote`, ver [PACOTE.md](../recursos/PACOTE.md)), nunca pela
-  mescla genérica. Nada aqui segura mídia: o coletor não lê a chave.
-- **Registro**: uma linha na linha do tempo ao projetar, tirar e ajustar
-  (`itinerário: …`).
+**A fonte: os momentos do Cronograma**
 
-Oráculo: `itinerario.test.mjs` (A–Q).
+| peça | regra |
+|---|---|
+| o MOMENTO | cena de roteiro `{ kind:'cue', cue:'momento', name:<título>, data:{ min:<minuto do dia previsto> } }` em `imports` (`CUES.momento`, `ehMomento`). Criar: `AVDB.addCue('momento', { min }, { name, list:'imports' })`; editar: `AVDB.atualizarCue(id, { min }, título)` — horário e título numa transação só. Título até `ITIN_TITULO_MAX` (60); `min` em 0–1439 (`itinMinValido`). Não é detentor de mídia |
+| UM itinerário POR cronograma | o momento mora na lista do cronograma ativo: trocar, guardar, excluir e exportar um cronograma o leva junto, e o pacote o transporta como qualquer cue |
+| `itinItens()` | a leitura: os momentos de `libItems` em ORDEM DE RELÓGIO (`ordenarItin`; o empate fica na ordem da lista), `[{ id, min, titulo }]`. A lista é a fonte: uma cópia em memória divergiria dela no primeiro caminho que esquecesse de atualizá-la |
+| a ordem | **o TELÃO segue o RELÓGIO; a POSIÇÃO da linha é do operador e organiza as MÍDIAS** (arrastar uma mídia para baixo de um momento é o uso). **Nada toca nem projeta sozinho pelo horário** |
+| o telão acompanha a lista | `itinSincronizar()` (fim de todo `renderLibrary`) compara a assinatura `[id, min, titulo]` e só então reenvia (`pushItin`): um arrasto ou um download não reenvia uma lista que não mudou. Trocar de cronograma com ele no ar manda o do novo; sem momentos, o cartão sai do telão (`hideItin`: um cartão sem linha é um retângulo preto) |
+| projetar | `projectItin`/`hideItin`, pelo `#itinTelaoBtn`; UM provedor por vez (`soUmProvedorDeTexto('itinerario')`). Não é `chrono.mode`: projetá-lo não para a contagem do Tempo |
+
+**A linha, a faixa e a folha**
+
+| peça | regra |
+|---|---|
+| a linha | `linhaDeMomento` (o `renderLibraryCorpo` a escolhe quando `ehMomento(item)`): `li.lib-item.momento`, a `.lib-item > .row` das outras — o arrasto, a faixa do `⋮` e o excluir na linha são os de sempre. É um TÍTULO que organiza as mídias que vêm depois, e por isso é DIFERENTE: sem capa, mais baixa, o horário EFETIVO em `.momento-hora` (`--accent`, algarismos tabulares: "23:59" e "10:00" ocupam a mesma largura), uma barra de `--accent` na ponta (`::before`) e o fundo `--btn-accent` (`--linha`, o preenchimento OPACO que a faixa de ações precisa por baixo) — o tom do "ligado", que nenhuma linha de mídia veste. O subtítulo diz "Agora"/"A seguir", o previsto (com ajuste) e o intervalo até o seguinte ("Último momento" no fim) |
+| o agora | `itinMarcar`, um laço de 1 s (`ITIN_TICK_MS`) com a MESMA leitura do telão (`createStage.itinerarioLeitura(itinDescriptor(), Date.now())`): só troca as classes `.agora`/`.seguir` e os textos — reconstruir a linha fecharia a faixa de ações debaixo do dedo. `.agora` é classe PRÓPRIA (`--sel-fill`): o `.active` da lista é o item que o ▶ repete (`marcarNoAr`), e um momento nunca é isso |
+| os gestos | tocar EDITA (`attachRowGestures(row, item, { lista:'imports', aoTocar })` → `abrirItinEditor`) e nunca projeta; segurar ARRASTA (a máquina do Cronograma, sem peça nova); `⋮` → excluir (a pergunta NA LINHA, `botaoExcluirDaLinha`) · editar (`.itin-editar`, que FECHA a faixa: não está em `ACOES_QUE_NAO_FECHAM`) |
+| o momento novo | `itinAdicionar(min, titulo)` grava o cue e a posição (`AVDB.listSet('imports')`, `itinPosicaoDoNovo`): ANTES do primeiro momento posterior no relógio; sem posterior, no FIM da lista; sem nenhum momento, no TOPO (é o título do primeiro bloco). O operador arrasta o resto |
+| a faixa: onde | `#itinBar` (`.itin-bar`, `role="toolbar"`), IRMÃ da barra do topo e não filha — entre `.list-header` e `.list-body`: a barra é uma grade de três trilhas medida ao pixel (`--hit`), e uma linha a mais dentro dela mexeria na conta dos três moradores. Da cor dela (`--bar`), sangrando até as bordas (o recuo do `<main>` devolvido como margem negativa, a conta do `.list-header`) e encostada nas duas barras (a margem de baixo negativa anula o `gap` do `<main>`). Vazia até o primeiro `load()` (`:empty` some); o Modo Fácil não a desenha (esconde o `<main>`). `renderItinBar` a desenha, e só quando a assinatura (recolhida · no ar · há momentos · ajuste · horas) muda |
+| a faixa: botões | `#itinTelaoBtn` (liga/desliga a lista no telão: `projectItin`/`hideItin`, `aria-pressed`; APAGADO sem momentos, com o porquê no `title`) · `#itinHorasBtn` (horários × só títulos no telão: `itin.horas`) · `.itin-passo` −5 −1 · `#itinAjusteTxt` · +1 +5 (`itinAjustar`; os passos apagam nos extremos por `itinPassoApagado`; tocar no atraso ZERA, e ele é apagado sem ajuste) · `#itinNovoBtn` (abre a `#itinPopup` vazia) · `#itinBarFechar` (recolhe) |
+| a faixa: recolhida | uma fita fina: `#itinBarAbrir` ("Itinerário" + seta) e o ponto aceso (`.itin-ponto`) se o itinerário está no ar — a única pista que sobra da faixa. A escolha é DESTE aparelho (`state.itinerario.barraOculta`) |
+| a faixa: largura | a faixa é contêiner de consulta (`container-type: inline-size`) e mede o PRÓPRIO conteúdo (o recuo de .8rem dos lados já descontado: 360px de tela são ~334px): abaixo de 400px o atraso passa à escrita curta ("+5 min", `.itin-txt-curto`), abaixo de 320px o rótulo do telão cede — o ícone e a cor de ligado dizem o mesmo |
+| a faixa: cores | LIGADO é o par do interruptor do app (`--btn-accent` + `--accent`), como o "Seg" e o "12h" do Relógio: o telão no ar e os horários escolhidos |
+
+- **ADICIONAR E EDITAR SÃO UMA FOLHA** (`#itinPopup`, `abrirItinEditor(id | null)`; está em `POPUPS`): as mesmas peças, e só o título ("Novo momento"/"Editar momento") e o confirmar ("Adicionar ao cronograma"/"Salvar") mudam. Desce do TETO e termina onde o teclado começa: **o campo do título SOBREPÕE** (o padrão de todo campo, ver `keyboardShift`) e a folha desconta `--kb-folha`, o teclado inteiro, escrito no mesmo quadro do `--kb`. Com o `--kb` nos dois papéis, o campo encolheria o `<body>` e a barra de busca da Biblioteca subiria com o teclado.
+- **A HORA É DE DUAS ROLETAS** do Tempo (`chronoRoletaEl` com `opts.id`/`aoAssentar` próprios — `itinRoleta_hora`/`itinRoleta_min`: com o id do Timer, o assentamento escreveria a duração dele; `roletaLevar` posiciona; `acertarRoletasDoItin` mede a célula pelo que sobra) e o título; o confirmar é a faixa de fecho, APAGADO sem título. **Nenhum `<input type="time">`**: a escolha dele é um diálogo do SISTEMA que o WebView pode não abrir; o oráculo conta zero. Salvar é `itinSalvar` → `AVDB.atualizarCue`.
+- **O HORÁRIO SUGERIDO** (`itinHoraSugerida`): 15 min depois do último momento, ou o próximo múltiplo de 5 a partir de agora quando não há nenhum.
+
+**O que vale do telão**
+
+- **O DESCRITOR, NUNCA O ESTADO CALCULADO.** Quem decide o momento no ar é cada tela, pelo relógio dela (`createStage.itinerarioLeitura`, em `shared/stage.js`): o cruzamento de um horário não custa comando nenhum, e o reenvio de cena (`resendSceneToDisplay`, depois do `load`, pelo mesmo descritor) volta no momento certo. É o desenho do RELÓGIO do Tempo, e pelo mesmo motivo. O descritor sai de `itinDescriptor()` (uma CÓPIA) e o reenvio (`pushItin`) usa a VIEW VIGENTE, nunca `'visual'` literal — com o telão coberto, um literal o descobriria.
+- **A HORA É A DA ORIGEM, E O FUSO TAMBÉM.** O descritor não carrega época nenhuma (os horários são minutos do dia), então a tradução do `corrigirRelogio` do `tela.js` não o alcança: o telão desenha com `agoraDaOrigem()` (o `__avAgora` da casca numa tela da rede) e tira o minuto do dia do `fuso` do CELULAR. Uma Smart TV com relógio ou fuso errados marca o momento certo. Oráculo: `tela-rede.test.mjs`, 3-bis.
+- **O EFETIVO É `min + desloc`**, e é ele que se compara e se mostra — na linha, na faixa e no telão. O ajuste (−5 · −1 · +1 · +5 · zerar) desloca a lista INTEIRA, os intervalos ficam; vai a ±12 h (`ITIN_DESLOC_MAX` = 720 min) e PERSISTE PELO DIA (`deslocDia`): sobrevive a um OTA ou a uma morte do renderer no culto e não chega ao sábado seguinte. **É GLOBAL**: o atraso é do culto, não de um cronograma.
+- **ANTES DO PRIMEIRO HORÁRIO nada é destaque**, e o primeiro diz "A seguir". **DEPOIS DO ÚLTIMO, o último fica no ar** — o encerramento é um momento como os outros e não tem hora de acabar. **A VIRADA DA MEIA-NOITE está fora**: a lista é de um dia, e um momento deslocado para fora de 00:00–23:59 é mostrado com a hora dada a volta mas comparado como do mesmo dia.
+- **UM DESENHO SÓ** (`createStage.desenharItinerario`), no telão, nas telas da rede e na preview: até seis linhas (`ITIN_JANELA`) a partir do momento de agora, numa `<ol class="itin">` irmã do `.text-main` (que some em `mode-itinerario`). As linhas são reaproveitadas pela chave (`data-k`) e a troca é ANIMADA por FLIP — mede antes, muda o DOM, mede depois, anima a diferença (WAAPI, 700 ms): a que sai esmaece subindo (`.itin-saindo`, fora do fluxo), as que ficam deslizam, a que entra aparece; o destaque troca por `transition`. **Nada se move com `prefers-reduced-motion`** (o JS pergunta o `matchMedia`; a folha zera a transição). A primeira pintura de uma entrada nova NÃO anima — ela chega com o fade do cartão (`liveAnima`/`pvLiveAnima`). A assinatura da janela (`__itinAssin`) é o que faz o tique de um segundo não tocar no DOM à toa.
+- **A ALTURA RESERVADA É A DA LISTA CHEIA** (`--itin-linhas`, até seis): perto do fim as linhas de baixo vagam, e sem a reserva o bloco se recentraria a cada momento que acaba — o de agora andaria na tela. As linhas têm altura fixa (`--itin-h`). Com o bloco escuro à vista, a reserva aparece como o fundo dele (decidido: um bloco que encolhesse levaria a borda de baixo junto com a linha que sai).
+- **O DESENHO NO TELÃO É DO OPERADOR**: *"mantenha o wallpaper visível, apenas com uma camada escura semitransparente atrás do texto… alinhar à esquerda… não precisa explorar toda a largura da tela"*. Três peças:
+  1. o CARTÃO PINTA O WALLPAPER no lugar do preto (`.mode-itinerario` também na camada `#text`/`#pvText`); a imagem escolhida é COPIADA da cortina por `pintarFundoDoCartao` (`display.js`) e `pintarFundoDoPvCartao` (`controle.js`), chamadas por todo ponto que troca a imagem da cortina (`applyWallpaper`, `telaAplicarWallpaper`, `telaWallpaperPadrao`, `applyPvWallpaper`) e pela troca de modo. A mídia por baixo segue coberta;
+  2. o BLOCO é uma coluna CENTRADA na tela (`align-self: center`; *"centralize… mantendo estreito"*), com a largura `min(100%, max(60cqw, 100cqmin))` e o texto de DENTRO à esquerda, sobre `--stage-painel` (`rgba(0,0,0,.72)`, token do palco): MEDIDO no pior caso, um wallpaper branco, texto 9,29:1, hora 5,73:1, o acento do "A seguir" 4,31:1 (com os .62 da moldura da letra o acento caía a 2,88:1);
+  3. a MARCA é a PRIMEIRA coluna da linha (`itin-tag · itin-hora · itin-titulo`, em grade), colada no horário; toda linha reserva a coluna (`--itin-tag-w`), e é isso que alinha os horários.
+- **Só tokens do palco**: o momento de agora é `--stage-accent` preenchido com `--stage-on-accent` (8,65:1), e a etiqueta "Agora" é o par invertido. A regra do telão (`display.css`) tem a gêmea na preview (`controle.css`).
+- **O laço do cartão é o mesmo do cronômetro e do sorteio** (`liveKind` `'itinerario'`, um segundo — `ITIN_TICK_MS`).
+- **O ⏮/⏭ COM ELE NO AR É O AJUSTE, DE 5 EM 5 MIN**: `slideTarget()` devolve `'itinerario'`, o ⏮ ADIANTA 5 min e o ⏭ ATRASA 5 min (`ITIN_PASSO_PAR`, a ordem do −5 … +5 da faixa), pelo MESMO `itinAjustar`. O botão diz "−5"/"+5" (`EIXO_DE_ACAO`, `desenharBotaoDeEixo` com `texto`) e apaga nos extremos (`itinPassoApagado`, a régua única dos passos — a faixa lê a mesma). Valem o par ao lado da preview (`#slidePrevBtn`/`#slideNextBtn`) e a coluna da tela cheia: ele NÃO entra em `EIXO_SO_DO_PAINEL`, porque o par é simétrico e se desfaz com o toque oposto. **A notificação não ajusta**: os ⏮/⏭ dela são do player, sempre. Quem troca o MOMENTO continua sendo o relógio.
+
+**O estado, a migração e a cena antiga**
+
+- **Persiste em `state.itinerario`** — `{ v: 3, horas, desloc, deslocDia, barraOculta }`, SÓ o que é DESTE aparelho e deste dia: a escolha de horários no telão, o ajuste (com o dia) e a faixa recolhida. A lista de horários não mora aqui (é o Cronograma). Leitura normalizada PURA em `itinLerEstado` (o ajuste só vale com `deslocDia === hojeLocal()`, preso a ±720 min); escrita só por `saveItin` (`AVDB.updateState`: ler + mesclar + gravar numa transação só, então um campo que uma versão futura acrescente não é apagado — e as chaves do formato antigo, `itens`/`itinerarios`/`ativo`, saem na primeira gravação). A PROJEÇÃO não persiste, como a do cronômetro. **NÃO viaja no `.avpkg`**: o import pula a chave, e os momentos viajam como cues do cronograma ([PACOTE.md](../recursos/PACOTE.md)).
+- **A MIGRAÇÃO** (`itinMigrarLegado`, no começo do `load()`, uma vez): o `itens` do itinerário ATIVO da chave no formato antigo (`itens` · `itinerarios` · `ativo`) vira momentos no TOPO de `imports`, em ordem de relógio, cada um com `data.legado` = o id do horário de antes — rodar de novo (um corte no meio) não duplica. Os itinerários GUARDADOS são descartados (decisão do operador). A chave só é reescrita DEPOIS dos momentos (`v: 3`, sem as chaves antigas, `barraOculta: false`): o pior corte deixa tudo no lugar e refaz sozinho; uma falha vira `console.warn` e tenta de novo no próximo `load()`. UMA migração em voo por vez (`itinMigrando`): dois `load()` da abertura chegam juntos, e o segundo espera a promessa do primeiro.
+- **A CENA ANTIGA `cue: 'itinerario'`** ("Itinerário guardado", `{ itens:[{ min, titulo }], horas }`) continua nas listas onde estava (Cronograma, Favoritos), sem engrenagem (fora de `CUE_FERRAMENTA`), e nenhuma nova se cria. **Tocá-la ACRESCENTA os horários dela como momentos** (`projetarItinerarioCue` → `itinAdicionar`), sem duplicar o par horário + título que já existe e sem tocar em nada do que já está — a regra do pacote, só acrescenta; sem nada novo, `falharNoItem` ("estes momentos já estão no cronograma"). Ela é um registro `cue` comum: o coletor a guarda pela lista, o `.avpkg` a leva inteira (`sanearMedia`) e o Histórico não a registra (nenhuma cena de roteiro passa pelo `historicoRegistrar`).
+- **Registro**: uma linha na linha do tempo ao projetar, tirar e ajustar (`itinerário: …`), e ao acrescentar os momentos de uma cena antiga.
+
+Oráculo: `itinerario.test.mjs` (os blocos e as reversões medidas estão no cabeçalho do arquivo); a metade da tela da rede é o 3-bis do `tela-rede.test.mjs`.
 
 ### Entradas e saídas de camada sempre com fade (`fadeLayerIn`/`fadeLayerOut`)
 

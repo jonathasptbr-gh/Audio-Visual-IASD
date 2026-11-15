@@ -506,12 +506,15 @@
   // ferramenta que a cena carrega — o mesmo preset que `criarCue` gravou.
   // get + put na MESMA transação (a regra do `renameMedia`): uma lista que
   // aponte para este id não pode ver metade da troca.
-  async function atualizarCue(id, data) {
+  // `nome` (v1.14.32, opcional): o título de um MOMENTO do itinerário mora no
+  // `name` do registro, e horário e título mudam juntos — uma transação só.
+  async function atualizarCue(id, data, nome) {
     if (!id || !data) return null;
     const [s, tx] = await storeTx(STORE_MEDIA, 'readwrite');
     const record = await asPromise(s.get(id));
     if (!record || record.kind !== 'cue') { await txDone(tx); return null; }
     record.data = Object.assign({}, record.data, data);
+    if (typeof nome === 'string' && nome.trim()) record.name = nome.trim();
     await asPromise(s.put(record));
     await txDone(tx);
     return record;

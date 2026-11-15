@@ -15,6 +15,7 @@
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    CRONOGRAMA                    [Cfg]  │ ← .list-header (topo; sem appbar)
+│ [Telão][⏱] −5 −1  no horário  +1 +5  [+] [⌃]            │ ← #itinBar (a segunda linha; recolhível)
 │  ┌───────────────────────────────────────────────────┐  │
 │  │  item 1                                           │  │  ← .lib-list
 │  │  item 2                                           │  │     (área scrollável)
@@ -37,6 +38,23 @@
 ```
 **Sem barra de topo (`.appbar`):** o app começa no cabeçalho da lista, e `main`
 ganhou `padding-top` com `env(safe-area-inset-top)`.
+
+**A SEGUNDA LINHA (`#itinBar`, v1.14.32):** as opções do itinerário do Cronograma,
+IRMÃ da barra do topo e não filha dela — a barra é uma grade de três trilhas medida
+ao pixel (`--hit`), e uma linha a mais dentro dela mexeria na conta dos três
+moradores. Da cor `--bar`, sangrando até as bordas pela mesma margem negativa
+(`-.8rem`) e com a de baixo (`-var(--sp-5)`) anulando o `gap` do `<main>`, como a de
+cima faz. ≈ 37,8 px (a barra do topo tem 43,6), uma fita de ≈ 24 px recolhida.
+**O topo de `#library` é a borda de baixo dela**, e é por ela que se mede a lista.
+Consulta de contêiner (`container-type: inline-size` na própria faixa; ela só
+estiliza DESCENDENTES, então o vão do contêiner vai por `@media`): abaixo de 400 px
+o atraso passa a "+5 min" e abaixo de 320 px o rótulo do telão cede (a consulta mede
+o CONTEÚDO: 360 px de tela são ~334 px; a soma dos nove é ~325 px). **Quebra em duas
+linhas** (`flex-wrap`) quando não cabe — a fonte do sistema em 1,25× ou mais —, com o
+atraso `flex-basis: 3rem` como elástico e o par `+ ⌃` à direita da segunda
+(`.itin-novo { margin-left: auto }`): esconder os dois atrás da borda era o pior
+desfecho, sem rolagem para chegar a eles. Detalhe das peças em
+[CAMADA-DE-TEXTO.md](CAMADA-DE-TEXTO.md), "O itinerário é uma opção do Cronograma".
 
 **Cabeçalho da lista (`.list-header`):** o `#listTitle` centrado, o
 `#settingsBtn` à direita e, só na navegação da Bíblia, o `#backBtn` à esquerda. A

@@ -66,8 +66,8 @@
     texto: 'Para rever estas explicações, desligue e ligue de novo o quadrado "Tour do app" nas Configurações. "Pular tour" desliga o tour de vez.' };
   // AS TRÊS SAÍDAS DO RODAPÉ DAS FERRAMENTAS num passo só (v1.14.20): o "Projetar no telão" e os
   // dois quadrados de guardar (Cronograma e Favoritos) são a mesma fileira, e o recorte é a união
-  // deles (`todos`). Um texto para as cinco ferramentas que têm rodapé; cada tour acrescenta o que
-  // é dele (o Itinerário sem horários apaga os três).
+  // deles (`todos`). Um texto para as ferramentas que têm rodapé (Relógio, Cronômetro, Timer e Sorteio); cada tour acrescenta o que
+  // é dele.
   const SAIDAS = { alvo: ['#miscProjectBtn', '#toolsFoot .cue-save-btn'], todos: true, titulo: 'Telão, Cronograma e Favoritos',
     texto: 'Toque em "Projetar no telão" para mostrar este cartão na TV agora; o botão vira "Tirar do telão". Os dois quadrados ao lado guardam o cartão no Cronograma ou nos Favoritos, para usar na hora certa.', opcional: true };
   const SUBLINHA = { alvo: '#toolsBody input.misc-text', titulo: 'Legenda',
@@ -146,10 +146,13 @@
         texto: 'Toque no nome para trocar de cronograma ou criar um novo, para outro culto ou evento.' },
       { alvo: '#cronoImportar', titulo: 'Importar',
         texto: 'Toque para trazer do celular vídeos, músicas, fotos, PDF ou PowerPoint. Eles entram no Cronograma.' },
+      { alvo: '#itinBar', titulo: 'Itinerário',
+        texto: 'Os momentos do culto ficam na lista, com a hora de cada um; arraste as mídias para debaixo deles. Aqui você mostra a lista na TV, esconde as horas, adianta ou atrasa tudo de uma vez e adiciona um momento.',
+        opcional: true },
       { alvo: '#bibleBtn', titulo: 'Bíblia',
         texto: 'Toque para abrir a Bíblia e escolher livro, capítulo e versículo para mostrar na TV.' },
       { alvo: '#toolsBtn', titulo: 'Ferramentas',
-        texto: 'Toque para abrir Relógio, Cronômetro, Timer, Itinerário, Mensagens e Sorteio, que aparecem em cartões na TV.' },
+        texto: 'Toque para abrir Relógio, Cronômetro, Timer, Mensagens e Sorteio, que aparecem em cartões na TV.' },
       { alvo: '#libBar', titulo: 'Biblioteca',
         texto: 'Toque para abrir a Biblioteca e buscar hinos, álbuns e mídias. Tocando numa música, aparecem as opções dela.',
         semAlvo: 'A Biblioteca fica logo abaixo do Cronograma: toque nela para buscar hinos, álbuns e mídias.' },
@@ -299,8 +302,6 @@
     ferramentas: { modos: ['full'], passos: [
       { alvo: ['#ferrTile_clock', '#ferrTile_stopwatch', '#ferrTile_timer'], titulo: 'Relógio, Cronômetro e Timer',
         texto: 'Toque num deles para abrir. O tempo aparece num cartão na TV.' },
-      { alvo: '#ferrTile_itinerario', titulo: 'Itinerário',
-        texto: 'Toque para montar os horários do culto e mostrá-los na TV, adiantando ou atrasando tudo de uma vez.' },
       { alvo: '#ferrTile_msg', titulo: 'Mensagens', texto: 'Toque para escrever avisos e mostrá-los na TV na hora certa.' },
       { alvo: '#ferrTile_draw', titulo: 'Sorteio',
         texto: 'Toque para sortear um número ou um nome de uma lista e mostrar o resultado na TV.' },
@@ -323,17 +324,6 @@
       { alvo: ['#chronoRun', '#chronoZero'], titulo: 'Iniciar e Zerar',
         texto: 'Toque no botão de iniciar para começar a contar. O outro botão zera e recomeça.' },
       SUBLINHA, SAIDAS,
-    ] },
-    'ferr-itinerario': { modos: ['full'], passos: [
-      { alvo: '#itinTitulo', titulo: 'Nome do itinerário',
-        texto: 'Toque no nome para trocar de itinerário ou criar outro.', opcional: true },
-      { alvo: ['#toolsBody .itin-passo', '#toolsBody .itin-zerar'], todos: true, titulo: 'Adiantar e atrasar',
-        texto: 'Toque em −5, −1, +1 ou +5 para mover todos os horários de uma vez. O último botão volta ao previsto.', opcional: true },
-      { alvo: '#itinNovoBtn', titulo: 'Adicionar horário',
-        texto: 'Toque para incluir uma parte do culto com a hora em que ela começa.', opcional: true },
-      { alvo: '#itinHorasBtn', titulo: 'Horários na TV',
-        texto: 'Toque no relógio para mostrar ou esconder as horas na TV. Sem elas, aparecem só os títulos.', opcional: true },
-      Object.assign({}, SAIDAS, { texto: SAIDAS.texto + ' Sem horários na lista, os três ficam apagados.' }),
     ] },
     'ferr-msg': { modos: ['full'], passos: [
       // A LISTA existe até vazia (`li.empty`), e a primeira instalação não traz mensagem de exemplo:

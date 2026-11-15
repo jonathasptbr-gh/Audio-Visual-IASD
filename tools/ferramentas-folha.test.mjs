@@ -160,11 +160,33 @@ try {
   }, sel);
 
   // ── 3. A FOLHA SOBE DENTRO DO CRONOGRAMA, NÃO SOBRE A TELA ──────────────
+  // A PREMISSA DA RÉGUA DE CIMA (v1.14.32), medida com a folha FECHADA: a faixa do Itinerário existe, está colada
+  // embaixo do `.list-header` (±1,5px) e o `#library` começa na borda de baixo dela. É por ela que a folha, a
+  // seguir, é medida contra a faixa e não contra o cabeçalho — sem esta metade a régua voltaria a ser a do
+  // `.list-header` em silêncio.
+  const faixaIt = await pg.evaluate(() => {
+    const b = document.getElementById('itinBar');
+    const c = document.querySelector('.list-header');
+    if (!b) return { ok: false, erro: 'sem #itinBar' };
+    const rb = b.getBoundingClientRect(), rc = c.getBoundingClientRect(), rl = document.getElementById('library').getBoundingClientRect();
+    return { ok: rb.height > 0 && Math.abs(rb.top - rc.bottom) <= 1.5 && Math.abs(rl.top - rb.bottom) <= 1.5,
+      faixa: [+rb.top.toFixed(2), +rb.bottom.toFixed(2)], cabecalhoBase: +rc.bottom.toFixed(2), listaTopo: +rl.top.toFixed(2) };
+  });
+  checar(faixaIt.ok,
+    'a faixa do Itinerário (`#itinBar`) está de pé entre o cabeçalho e a lista: é a borda de baixo dela que o '
+    + 'topo da lista herda, e a régua da folha, a seguir, mede contra ela (v1.14.32)', faixaIt);
   await pg.click('#toolsBtn');
   await assentar(pg, '#toolsSheet');
   const dentro = await pg.evaluate(() => {
     const f = document.getElementById('toolsSheet');
-    const cab = document.querySelector('.list-header').getBoundingClientRect();
+    // A BARRA DO TOPO TERMINA NA FAIXA DO ITINERÁRIO (v1.14.32): o `#itinBar` fica entre o `.list-header` e a
+    // lista — recolhido ele continua lá, como fita —, e é a borda de baixo dele que o topo do `#library` herda.
+    // Mede-se contra o ÚLTIMO dos dois que estiver à vista (a premissa de que a faixa existe é medida com a folha
+    // FECHADA, logo acima): contra o `.list-header` a régua "não cobre o cabeçalho" folgaria uma faixa inteira
+    // (37,8px) antes de reprovar.
+    const faixaEl = document.getElementById('itinBar');
+    const cabEl = faixaEl && faixaEl.getBoundingClientRect().height > 0 ? faixaEl : document.querySelector('.list-header');
+    const cab = cabEl.getBoundingClientRect();
     const barra = document.querySelector('.bottombar').getBoundingClientRect();
     const r = f.getBoundingClientRect();
     return {
@@ -202,13 +224,13 @@ try {
       })(),
       biblia: bibliaAberta(),
       // A GRADE (v1.13.3): a folha abre nos seis tiles, nunca numa ferramenta.
-      ferramentas: document.querySelectorAll('#ferrGrade .ferr-tile').length === 7,
+      ferramentas: document.querySelectorAll('#ferrGrade .ferr-tile').length === 6,
     };
   });
   checar(dentro.aberta && dentro.ferramentas,
     'o toque na porta abre a folha com a GRADE das ferramentas dentro', dentro);
   checar(!dentro.invadeCabecalho && !dentro.invadeControles,
-    'ela NÃO cobre o cabeçalho nem a caixa de controles — quem projeta um '
+    'ela NÃO cobre a barra do topo (a faixa do Itinerário inclusive) nem a caixa de controles — quem projeta um '
     + 'cronômetro precisa do transporte e da preview na frente', dentro);
   checar(dentro.cobreALista, 'e cobre a lista de cima a baixo, que é o território dela', dentro);
   checar(Math.abs(dentro.bordas.esq) <= 1 && Math.abs(dentro.bordas.dir) <= 1,
@@ -300,7 +322,9 @@ try {
     const f = document.getElementById('bibleSheet');
     if (!f || f.hidden) return { erro: 'a folha da Bíblia não abriu' };
     const r = f.getBoundingClientRect();
-    const cab = document.querySelector('.list-header').getBoundingClientRect();
+    // A BARRA DO TOPO TERMINA NA FAIXA DO ITINERÁRIO (v1.14.32): a mesma régua do bloco de Ferramentas acima.
+    const faixaEl = document.getElementById('itinBar');
+    const cab = (faixaEl && faixaEl.getBoundingClientRect().height > 0 ? faixaEl : document.querySelector('.list-header')).getBoundingClientRect();
     const barra = document.querySelector('.bottombar').getBoundingClientRect();
     const lEl = document.getElementById('library');
     const l = lEl.getBoundingClientRect();
@@ -2467,14 +2491,14 @@ try {
         estreita: toolsSheetEl.classList.contains('estreita'),
       };
     });
-    checar(g.ids === 'clock,stopwatch,timer,itinerario,msg,draw,edicao'
-      && g.nomes === 'Relógio,Cronômetro,Timer,Itinerário,Mensagens,Sorteio,Editar mídia',
-      'G · a folha abre na GRADE: sete tiles, um por ferramenta (o editor de mídia é o último, v1.14.7), o tempo em cima e o texto embaixo', g);
+    checar(g.ids === 'clock,stopwatch,timer,msg,draw,edicao'
+      && g.nomes === 'Relógio,Cronômetro,Timer,Mensagens,Sorteio,Editar mídia',
+      'G · a folha abre na GRADE: seis tiles, um por ferramenta (o editor de mídia é o último, v1.14.7; o Itinerário não é ferramenta, é opção do Cronograma), o tempo em cima e o texto embaixo', g);
     checar(g.cabecalho === 'none' && g.seta !== 'none' && g.voltar === false && g.pe === 0 && g.painel === false,
       'G · na lista NÃO HÁ CABEÇALHO (nem título, nem ✕), a seta de fechar está à vista, a seta de voltar está '
       + 'escondida (só existe dentro de uma ferramenta aberta pela lista) e nenhum painel está montado (v1.13.6)', g);
-    checar(g.fileiras === 7 && g.colunas === 1 && g.alturas === 1 && g.empilhadas,
-      'G · uma LISTA VERTICAL (v1.13.4): sete linhas empilhadas, uma coluna e uma altura só', g);
+    checar(g.fileiras === 6 && g.colunas === 1 && g.alturas === 1 && g.empilhadas,
+      'G · uma LISTA VERTICAL (v1.13.4): seis linhas empilhadas, uma coluna e uma altura só', g);
     checar(g.bg && g.raio, 'G · e o tile é o de Configurações: a mesma tinta e o mesmo raio', g);
 
     // O TOQUE NUM TILE: a ferramenta monta no ato, e a troca ANIMA (camada que sai).
@@ -2490,7 +2514,7 @@ try {
         semIds: saindo ? saindo.querySelectorAll('[id]').length : -1,
         anima: document.getElementById('toolsBody').getAnimations().length > 0,
         painel: !!document.getElementById('chronoWrap'),
-        modo: chrono.mode, vista: tempoVista,
+        modo: chrono.mode, tool: miscTool,
       };
     });
     checar(t.saindo && t.semIds === 0 && t.anima,
@@ -2498,7 +2522,7 @@ try {
     checar(g.estreita && t.alarga,
       'G · e a folha, ESTREITA na lista, se ALARGA animando quando a ferramenta abre (v1.13.5)',
       { estreita: g.estreita, alarga: t.alarga });
-    checar(t.painel && t.modo === 'timer' && t.vista === 'chrono',
+    checar(t.painel && t.modo === 'timer' && t.tool === 'chrono',
       'G · e o tile do Timer abre o Tempo NO TIMER, no mesmo toque', t);
     const r = await esperar(pg, () => !document.querySelector('#toolsSheet > .ferr-saindo'), null, 3000);
     const d = await pg.evaluate(() => ({
@@ -2644,30 +2668,28 @@ try {
     checar(c1.contando && /^0[45]:\d\d$/.test(c1.leitura) && c1.svg !== 'none' && c1.noLugar && !c1.outro,
       'G · com o Timer contando, a linha do Timer mostra o NÚMERO no lugar do nome, inteiro, e o ícone fica (e só ela conta)', c1);
     checar(c2 !== c1.leitura, 'G · e o número ANDA com a grade à vista', { antes: c1.leitura, depois: c2 });
-    // ENTRAR NO ITINERÁRIO NÃO PARA A CONTAGEM (a regra do segmento de antes).
+    // ABRIR OUTRA FERRAMENTA NÃO PARA A CONTAGEM (a regra do segmento de antes, que valia para o Tempo inteiro): o
+    // Timer segue contando por baixo do painel de Mensagens — quem para a contagem é o painel dele, não a troca.
     const it = await pg.evaluate(() => {
-      document.getElementById('ferrTile_itinerario').click();
-      const nome = document.getElementById('itinTitulo');
-      return { vista: tempoVista, correndo: chrono.running, modo: chrono.mode, lista: !!document.getElementById('itinLista'),
-        titulo: !nome.hidden ? document.getElementById('itinNome').textContent : document.getElementById('toolsTitle').textContent,
-        ativo: itin.nome };
+      document.getElementById('ferrTile_msg').click();
+      return { tool: miscTool, correndo: chrono.running, modo: chrono.mode, painel: !!document.getElementById('msgWrap') };
     });
-    checar(it.vista === 'itinerario' && it.lista && it.correndo && it.modo === 'timer' && it.titulo === it.ativo,
-      'G · o tile do Itinerário abre a lista e NÃO para o Timer que estava contando', it);
+    checar(it.tool === 'msg' && it.painel && it.correndo && it.modo === 'timer',
+      'G · o tile de Mensagens abre o painel e NÃO para o Timer que estava contando', it);
     const p = await pg.evaluate(() => {
       voltarAGradeDeFerramentas(); chronoPause();
       return document.getElementById('ferrTile_timer').classList.contains('contando');
     });
     checar(p === false, 'G · pausado, o tile volta ao nome (o número congelado é o painel que diz)', p);
-    // DEPOIS DO ITINERÁRIO, um tile do Tempo volta às ROLETAS (a vista é do tile).
+    // DEPOIS DE OUTRA FERRAMENTA, um tile do Tempo volta às ROLETAS (o painel é escrito pelo tile).
     const rel = await pg.evaluate(() => {
       chronoReset();
       document.getElementById('ferrTile_clock').click();
-      return { vista: tempoVista, modo: chrono.mode, roletas: !!document.getElementById('chronoRoletas'),
-        lista: !!document.getElementById('itinLista') };
+      return { tool: miscTool, modo: chrono.mode, roletas: !!document.getElementById('chronoRoletas'),
+        msg: !!document.getElementById('msgWrap') };
     });
-    checar(rel.vista === 'chrono' && rel.modo === 'clock' && rel.roletas && !rel.lista,
-      'G · e depois do Itinerário o tile do Relógio abre as ROLETAS no Relógio — a vista é escrita pelo tile', rel);
+    checar(rel.tool === 'chrono' && rel.modo === 'clock' && rel.roletas && !rel.msg,
+      'G · e depois de Mensagens o tile do Relógio abre as ROLETAS no Relógio — o painel é escrito pelo tile', rel);
     await pg.evaluate(() => voltarAGradeDeFerramentas());
 
     // SEM MOVIMENTO, a troca assenta no ato: nenhuma camada.
@@ -2683,17 +2705,14 @@ try {
     await pg.evaluate(() => voltarAGradeDeFerramentas());
   }
 
-  // ── V. A LISTA VERTICAL E O NOME DO ITINERÁRIO NO CABEÇALHO (v1.13.4) ────
+  // ── V. A LISTA VERTICAL (v1.13.4) ────────────────────────────────────────
   //
-  // Pedidos do operador: *"ao invés de uma grade, faça apenas uma lista vertical …
+  // Pedido do operador: *"ao invés de uma grade, faça apenas uma lista vertical …
   // aproveitando e distribuindo toda a altura disponível para esses 6 itens. Use o
-  // icone a esquerda e texto a direita"* e *"No itinerário, use o campo de título da
-  // barra superior geral, para colocar o título editável dos nomes dos itinerários,
-  // para aproveitar o espaço vertical"*. O que se erra calado: a lista deixar sobra
+  // icone a esquerda e texto a direita"*. O que se erra calado: a lista deixar sobra
   // embaixo (ou rolar, no celular pequeno, onde o corpo da folha mede ~190px); o
-  // ícone ir para cima do nome; a linha encolher abaixo do piso de toque (`--hit`,
-  // 34px) para caber; e a faixa do título continuar no painel, comendo a altura que
-  // o pedido quis devolver.
+  // ícone ir para cima do nome; e a linha encolher abaixo do piso de toque (`--hit`,
+  // 34px) para caber.
   //
   // E DESDE A v1.13.5 A LISTA NÃO ROLA EM CÉLULA NENHUMA, e ela tem a LARGURA DA
   // PORTA. Pedido do operador: *"verifique em telas menores, para garantir que essa
@@ -2778,20 +2797,20 @@ try {
       };
     });
     const cel = w + '×' + h + (raiz ? ' (fonte ' + (parseFloat(raiz) / 16).toFixed(2).replace('.', ',') + '×)' : '');
-    checar(r === true && v.n === 7 && Math.max(...v.alturas) - Math.min(...v.alturas) < 1,
-      'V · [' + cel + '] sete linhas da mesma altura', { r: porque(r), v });
+    checar(r === true && v.n === 6 && Math.max(...v.alturas) - Math.min(...v.alturas) < 1,
+      'V · [' + cel + '] seis linhas da mesma altura', { r: porque(r), v });
     checar(Math.abs(v.topo - v.vao) <= 1 && Math.abs(v.base - v.vao) <= 1 && v.rola <= 0,
       'V · [' + cel + '] e elas dividem a altura do corpo da folha, com a margem de cima e a de baixo iguais ao vão '
       + 'entre elas (' + v.vao + 'px), SEM ROLAR', v);
     // A 360×640 com a fonte em 1,25× seis pisos CABEM, e é a folha estreita cedendo o recuo e o vão do
     // cabeçalho que os faz caber (MEDIDO: com o recuo de antes a linha media 33,9px): ali a régua é o piso.
     if (excecao) {
-      checar(v.corpo < 7 * v.piso,
-        'V · [' + cel + '] (premissa) aqui sete pisos NÃO cabem — ' + v.corpo + 'px de corpo', v);
+      checar(v.corpo < 6 * v.piso,
+        'V · [' + cel + '] (premissa) aqui seis pisos NÃO cabem — ' + v.corpo + 'px de corpo', v);
     }
-    checar(excecao ? Math.min(...v.alturas) >= v.corpo / 7 - 0.5 : Math.min(...v.alturas) >= v.piso - 0.05,
+    checar(excecao ? Math.min(...v.alturas) >= v.corpo / 6 - 0.5 : Math.min(...v.alturas) >= v.piso - 0.05,
       'V · [' + cel + '] e nenhuma abaixo do piso de toque (' + v.corpo + 'px de corpo)'
-      + (excecao ? ' — aqui não cabem sete: a SÉTIMA parte do corpo, a exceção nomeada' : ''), v);
+      + (excecao ? ' — aqui não cabem seis: a SEXTA parte do corpo, a exceção nomeada' : ''), v);
     checar(Math.abs(v.bordas[0]) <= 1 && Math.abs(v.bordas[1]) <= 1 && v.cabecalho === 'none',
       'V · [' + cel + '] e a folha tem as BORDAS DA PORTA (±1px), SEM cabeçalho (v1.13.6)', v);
     checar(v.seta.every((x) => Math.abs(x) <= 1) && v.setaRotulo === 'Fechar ferramentas',
@@ -2814,45 +2833,27 @@ try {
   await pg.setViewportSize({ width: 412, height: 892 });
   await pg.evaluate(() => { document.documentElement.style.fontSize = ''; });
   {
-    const i1 = await pg.evaluate(() => {
-      abrirFerramenta('itinerario');
-      const tit = document.getElementById('itinTitulo');
+    // O TÍTULO DA FOLHA É O NOME DA FERRAMENTA ABERTA e, de volta à lista, "Ferramentas". O Itinerário não é
+    // ferramenta (v1.14.32: é opção do Cronograma, a faixa `#itinBar`), então nada dele sobra aqui: nem o campo do
+    // nome que tomava o título, nem a gaveta, o véu ou a lista.
+    const tf = await pg.evaluate(() => {
+      abrirFerramenta('draw');
       const cab = document.querySelector('#toolsSheet > .tools-head');
-      const corpo = document.getElementById('toolsBody').getBoundingClientRect();
-      const primeiro = document.querySelector('#chronoWrap > *');
-      return {
-        noCabecalho: !!tit && cab.contains(tit) && !tit.hidden && tit.getBoundingClientRect().height > 0,
-        nome: document.getElementById('itinNome').textContent, ativo: itin.nome,
-        tituloDaFerramenta: document.getElementById('toolsTitle').hidden,
-        // NENHUMA FAIXA DE TÍTULO NO PAINEL: o primeiro filho é o ajuste, colado ao topo do corpo.
-        noPainel: document.querySelectorAll('#toolsBody .crono-titulo, #toolsBody .itin-cab').length,
-        primeiro: primeiro ? primeiro.className : '',
-        folga: primeiro ? Math.round(primeiro.getBoundingClientRect().top - corpo.top) : -1,
+      const dentro = {
+        titulo: document.getElementById('toolsTitle').textContent,
+        visivel: !document.getElementById('toolsTitle').hidden && cab.getBoundingClientRect().height > 0,
+        restos: ['itinTitulo', 'itinNome', 'itinGaveta', 'itinGavetaLista', 'itinVeu', 'itinLista']
+          .filter((id) => document.getElementById(id)),
       };
+      voltarAGradeDeFerramentas();
+      return { dentro, fora: { titulo: document.getElementById('toolsTitle').textContent,
+        visivel: !document.getElementById('toolsTitle').hidden } };
     });
-    checar(i1.noCabecalho && i1.nome === i1.ativo && i1.tituloDaFerramenta,
-      'V · com o Itinerário aberto, o TÍTULO DA FOLHA é o nome do itinerário ativo (o "Itinerário" da ferramenta sai)', i1);
-    checar(i1.noPainel === 0 && /itin-ajuste/.test(i1.primeiro) && i1.folga <= 8,
-      'V · e o painel não tem mais a faixa do título: o ajuste é a primeira coisa do corpo', i1);
-    await pg.click('#itinTitulo');
-    // A GAVETA ANIMA (opacidade e 6px): mede-se depois de ela assentar.
-    const r = await esperar(pg, () => itinGavetaAberta()
-      && document.getElementById('itinTitulo').getAttribute('aria-expanded') === 'true'
-      && document.getElementById('itinGaveta').getAnimations().every((a) => a.playState !== 'running'), null, 3000);
-    const gv = await pg.evaluate(() => {
-      const t = document.getElementById('itinTitulo').getBoundingClientRect();
-      const g = document.getElementById('itinGaveta').getBoundingClientRect();
-      return { abaixo: g.top >= t.bottom - 1 && g.top - t.bottom < 24, t: t.bottom, g: g.top,
-        lapis: !!document.querySelector('#itinGavetaLista .crono-item .crono-renomear') };
-    });
-    checar(r === true && gv.abaixo && gv.lapis,
-      'V · tocar no nome do cabeçalho abre a GAVETA dos itinerários logo abaixo dele, com o lápis de renomear na linha', { r: porque(r), gv });
-    await pg.evaluate(() => fecharItinGaveta());
-    const fora = await pg.evaluate(() => { voltarAGradeDeFerramentas(); return {
-      escondido: document.getElementById('itinTitulo').hidden,
-      titulo: document.getElementById('toolsTitle').textContent, visivel: !document.getElementById('toolsTitle').hidden }; });
-    checar(fora.escondido && fora.visivel && fora.titulo === 'Ferramentas',
-      'V · fora do Itinerário o cabeçalho volta a dizer "Ferramentas"', fora);
+    checar(tf.dentro.titulo === 'Sorteio' && tf.dentro.visivel && tf.dentro.restos.length === 0,
+      'V · com uma ferramenta aberta o TÍTULO DA FOLHA é o nome dela, e nada do Itinerário-ferramenta (campo do nome, '
+      + 'gaveta, véu, lista) sobrou na folha', tf);
+    checar(tf.fora.titulo === 'Ferramentas' && tf.fora.visivel,
+      'V · e de volta à lista o cabeçalho volta a dizer "Ferramentas"', tf);
   }
 
   // ── W. A PORTA VIRA SETA, E A TROCA NÃO FAZ A FOLHA PULAR (v1.13.6) ──────
