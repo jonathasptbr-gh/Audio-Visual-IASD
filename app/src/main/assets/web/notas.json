@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.14.29",
+    "itens": [
+      "Nas Ferramentas, a seta de voltar ficou no canto direito, apontando para a direita — o mesmo lugar do ✕.",
+      "Do Favoritos, tocar na engrenagem fecha a Biblioteca e mostra a janela da ferramenta na frente."
+    ]
+  },
+  {
     "versao": "1.14.28",
     "itens": [
       "Ao compartilhar um link do YouTube, o app mostra capa, título, canal e duração antes de escolher o destino.",

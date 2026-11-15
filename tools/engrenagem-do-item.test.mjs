@@ -206,6 +206,20 @@ try {
   });
   checar(fav.tem, 'A · e a mesma engrenagem aparece na linha dos Favoritos — a faixa é a mesma função', fav);
 
+  // A BIBLIOTECA SAI DA FRENTE PARA A JANELA DA FERRAMENTA APARECER (pedido de
+  // 2026-11-15): do Favoritos, a folha da ferramenta abre ATRÁS da Biblioteca —
+  // sem o fechamento, o operador veria a aba dos Favoritos no lugar do painel.
+  const favAbre = await pg.evaluate(async (i) => {
+    document.querySelector('#hymnResults [data-fav-corpo] .fav-itens > .lib-item[data-id="' + i + '"] .row-engrenagem').click();
+    await new Promise((r) => setTimeout(r, 700));
+    const x = document.getElementById('toolsClose').getBoundingClientRect();
+    return { biblioteca: hymnSearchPopupEl.classList.contains('open'),
+      aberta: ferramentasAbertas(), tool: miscTool,
+      fechar: x.width > 0 && !document.getElementById('toolsClose').hidden };
+  }, fav.id);
+  checar(!favAbre.biblioteca && favAbre.aberta && favAbre.tool === 'draw' && favAbre.fechar,
+    'A · a engrenagem de um Favorito FECHA a Biblioteca e põe a ferramenta à vista — com o ✕ no canto', favAbre);
+
   checar(erros.length === 0, 'nenhum erro de página durante o percurso', erros);
 } finally {
   await navegador.close();

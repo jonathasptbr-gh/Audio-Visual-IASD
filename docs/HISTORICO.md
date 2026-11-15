@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.29** — Ferramentas: a seta de voltar foi para o canto direito, no lugar do ✕ e apontando para a direita; e a engrenagem de um Favorito fecha a Biblioteca antes de abrir a ferramenta; só web.
 - **v1.14.28** — o link do YouTube copiado é oferecido com capa, título, canal e duração antes de usar; a capa vem do extrator (shell 88, APK + web).
 - **v1.14.27** — o alerta de "não toca sem rede" do Cronograma passou para a ESQUERDA do nome, com o nome ainda no eixo da faixa (com e sem o ícone); só web.
 - **v1.14.26** — Ferramentas: a ferramenta aberta pela lista mostra a SETA de voltar (e o voltar do Android sobe para ela); aberta direto, pela engrenagem, mostra o ✕, que fecha a folha; só web.
@@ -827,6 +828,48 @@ apagada da que a criou.
   339,07 / 339,07 px; larguras 83,5 / 83,5 mm.
 - **As páginas não se moveram:** 22 (Por um dia) e 88 (Tempo integral), nos dois formatos, e o
   `antesDaPauta` = depois = PDF continua cobrando isso.
+
+---
+
+## v1.14.29 — a seta das Ferramentas no canto do ✕, e a Biblioteca sai da frente
+
+Dois ajustes pedidos pelo operador em 2026-11-15, num lote só (web): *"ajuste a
+seta para que ela fique na direita e apontando para a direita, pois a lista de
+ferramentas fixa na direita e a página encolhe para a direita. Esse é o fluxo.
+Tecnicamente a seta e o x de fechar disputam o mesmo lugar"* e *"quando abrir a
+confirmação de uma dessas ferramentas a partir dos favoritos, feche a aba da
+biblioteca para ver a janela da ferramenta em questão"*.
+
+### A seta vai para o canto do ✕
+
+- A seta da v1.14.26 morava na trilha 1; ela passou para a TRILHA 3, a mesma do
+  ✕, e o glifo de voltar (`&#xe5c4;`) vai ESPELHADO (`transform: scaleX(-1)`),
+  então aponta para a direita — o lado em que a folha encolhe. A regra é
+  `.tools-head > #toolsVoltar`, e não a do `.back-btn` genérico: essa continua
+  valendo para o voltar da Bíblia, que fica à esquerda.
+- Os DOIS dividem a MESMA célula da grade. O escondido (`hidden`, com o
+  `display: none !important` do topo) não é item de grade, então o cabeçalho
+  continua com uma linha só e o título no centro da trilha 2.
+- O resto do comportamento é o da v1.14.26: a seta aparece quando a ferramenta
+  veio da lista e o ✕ quando ela abriu direto; o voltar do Android segue o que
+  está na tela.
+
+### A Biblioteca sai da frente
+
+- Do Favoritos, a folha de Ferramentas abre ATRÁS da janela da Biblioteca
+  (`#hymnSearchPopup`), e o operador via a aba dos Favoritos no lugar do
+  painel. O toque na engrenagem (`botaoEngrenagemDaLinha`) agora chama
+  `closeHymnSearch({ calma: true })` ANTES de `abrirFerramentaComCue` — `calma`
+  porque a saída logo depois de uma escolha não pode ser adiada; e o Modo Fácil
+  encaixado continua como estava (ali a Biblioteca É a tela, e o
+  `closeHymnSearch` não a tira).
+- Nada mais mudou no vínculo: a ida leva os dados do item, a volta grava nele.
+
+**Nenhum arquivo do shell foi tocado, e a Release v1.14.28 já estava publicada
+— este lote não declara `shellTag`.** Os oráculos: o `ferramentas-folha` mede a
+seta no mesmo canto do ✕ (a borda direita igual nos dois caminhos), o glifo
+espelhado e o título no centro; o `engrenagem-do-item` mede o Favorito fechando
+a Biblioteca e a ferramenta aparecendo com o ✕ no canto.
 
 ---
 

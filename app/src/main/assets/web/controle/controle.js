@@ -373,8 +373,9 @@ const toolsBodyEl = document.getElementById('toolsBody');
 // O RODAPÉ FIXO da folha (v1.8.89), irmão do corpo — ver `renderFoot`.
 const toolsFootEl = document.getElementById('toolsFoot');
 const toolsCloseEl = document.getElementById('toolsClose');
-// A SETA DE VOLTAR À LISTA (v1.14.26) — a trilha 1 do cabeçalho, à vista só
-// quando a ferramenta foi aberta PELA lista (ver `pintarCabecalhoDasFerramentas`).
+// A SETA DE VOLTAR À LISTA (v1.14.26) — no canto DIREITO do cabeçalho, o mesmo
+// lugar do ✕ (v1.14.27), à vista só quando a ferramenta foi aberta PELA lista
+// (ver `pintarCabecalhoDasFerramentas`).
 const toolsVoltarEl = document.getElementById('toolsVoltar');
 // O TÍTULO da folha (v1.13.3) — ver `pintarCabecalhoDasFerramentas`.
 const toolsTitleEl = document.getElementById('toolsTitle');
@@ -419,7 +420,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.28';
+const WEB_VERSION = '1.14.29';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10589,9 +10590,10 @@ function pintarCabecalhoDasFerramentas() {
   const atual = ferramentaAtual();
   const f = FERRAMENTAS.find((x) => x.id === atual);
   toolsTitleEl.textContent = ferrNaGrade || !f ? 'Ferramentas' : f.nome;
-  // AS DUAS SAÍDAS SÃO EXCLUSIVAS: aberta pela lista, a seta volta para ela;
-  // aberta direto (a engrenagem, o tour, os oráculos), o ✕ fecha a folha. Na
-  // lista o cabeçalho inteiro é escondido pelo CSS, e o par fica sem uso.
+  // AS DUAS SAÍDAS SÃO EXCLUSIVAS e dividem o MESMO canto (v1.14.27): aberta
+  // pela lista, a seta volta para ela; aberta direto (a engrenagem, o tour, os
+  // oráculos), o ✕ fecha a folha. Na lista o cabeçalho inteiro é escondido pelo
+  // CSS, e o par fica sem uso.
   const dentro = !ferrNaGrade && !!f;
   if (toolsVoltarEl) toolsVoltarEl.hidden = !(dentro && ferrVeioDaLista);
   if (toolsCloseEl) toolsCloseEl.hidden = !(dentro && !ferrVeioDaLista);
@@ -12145,6 +12147,11 @@ function botaoEngrenagemDaLinha(item) {
   b.innerHTML = icoSprite('icoGear');
   b.addEventListener('click', (e) => {
     e.stopPropagation();
+    // A BIBLIOTECA SAI DA FRENTE (pedido de 2026-11-15): do Favoritos a folha da
+    // ferramenta abre ATRÁS dela, e o operador via a aba da Biblioteca no lugar
+    // do painel. `calma` fecha na hora, mesmo logo depois de uma escolha; docada
+    // (Modo Fácil) ela É a tela e o `closeHymnSearch` a mantém.
+    if (hymnSearchPopupEl && hymnSearchPopupEl.classList.contains('open')) closeHymnSearch({ calma: true });
     abrirFerramentaComCue(item);
   });
   return b;

@@ -2457,6 +2457,11 @@ try {
       // A SETA VOLTA À LISTA (v1.14.26): a ferramenta veio do toque na linha, e a
       // saída do cabeçalho é ela — o ✕ dá lugar a ela e não aparece junto.
       voltar: (() => { const x = document.getElementById('toolsVoltar').getBoundingClientRect(); return x.width > 0 && x.height > 0; })(),
+      // NO MESMO CANTO DO ✕ (v1.14.27): a borda DIREITA dela é a do ✕ do caminho
+      // direto (comparada abaixo), e o glifo de voltar vai ESPELHADO — voltar
+      // aqui é ir para a direita, o lado em que a folha encolhe.
+      voltarD: Math.round(document.getElementById('toolsVoltar').getBoundingClientRect().right),
+      voltarT: getComputedStyle(document.querySelector('#toolsVoltar .msym')).transform,
       fantasmas: document.querySelectorAll('#toolsSheet > .ferr-fantasma').length,
       run: !!document.getElementById('chronoRun'),
       grade: !!document.getElementById('ferrGrade'),
@@ -2475,9 +2480,12 @@ try {
       + 'lista), sem o ✕; a seta da lista some, o rodapé é o dela, e não há abas nem segmentos', d);
     checar(d.fantasmas === 0,
       'G · e os fantasmas da troca sumiram com ela', d);
-    // O TÍTULO FICA NO CENTRO DA FOLHA LARGA (o voltar tem trilha própria). Na
-    // lista ele encosta à esquerda da folha ESTREITA (v1.13.5), então "parado
-    // entre as duas vistas" deixou de ser a pergunta — a folha muda de largura.
+    checar(d.voltarT === 'matrix(-1, 0, 0, 1, 0, 0)',
+      'G · e o glifo da seta vai ESPELHADO — ela aponta para a direita, o lado em que a folha encolhe', d.voltarT);
+    // O TÍTULO FICA NO CENTRO DA FOLHA LARGA (a seta divide a trilha da direita
+    // com o ✕). Na lista ele encosta à esquerda da folha ESTREITA (v1.13.5),
+    // então "parado entre as duas vistas" deixou de ser a pergunta — a folha muda
+    // de largura.
     checar(Math.abs(d.tituloCx - d.folhaCx) <= 1 && d.larga,
       'G · dentro da ferramenta a folha é LARGA de novo (as bordas do `.list-body`) e o título fica no CENTRO dela',
       { d: d.tituloCx, folha: d.folhaCx, larga: d.larga });
@@ -2514,10 +2522,15 @@ try {
     const dir = await pg.evaluate(() => {
       const v = document.getElementById('toolsVoltar').getBoundingClientRect();
       const x = document.getElementById('toolsClose').getBoundingClientRect();
-      return { lista: ferrNaGrade, seta: v.width > 0, fechar: x.width > 0 };
+      return { lista: ferrNaGrade, seta: v.width > 0, fechar: x.width > 0,
+        fecharD: Math.round(x.right),
+        barraD: Math.round(document.querySelector('#toolsSheet .tools-head').getBoundingClientRect().right) };
     });
     checar(!dir.lista && !dir.seta && dir.fechar,
       'G · aberta DIRETO (fora da lista), o cabeçalho mostra o ✕ e não a seta — os dois nunca aparecem juntos', dir);
+    checar(Math.abs(d.voltarD - dir.fecharD) <= 1 && Math.abs(d.voltarD - dir.barraD) <= 1,
+      'G · e a SETA e o ✕ disputam o MESMO canto: a borda direita é a mesma nos dois caminhos, encostada na da barra',
+      { seta: d.voltarD, fechar: dir.fecharD, barra: dir.barraD });
     const dvol = await pg.evaluate(() => {
       const c = window.__avBack();
       return { c, saindo: toolsSheetEl.classList.contains('saindo') };

@@ -3372,21 +3372,28 @@ main {
    MESMO piso (`--hit`) e o mesmo crescimento (`1fr`). O centro geométrico da
    barra passa a ser o centro da trilha 2, independentemente de quantos botões
    há nas pontas: a Bíblia tem voltar e ✕, e o Ferramentas mostra UM dos dois —
-   a seta quando a ferramenta veio da lista, o ✕ quando abriu direto (v1.14.26) —,
-   e o título fica no mesmo x nos dois. Um botão `hidden` some do layout mas NÃO
-   apaga a trilha que o template declara — é por isso que a troca de tela não o
-   move.
+   a seta quando a ferramenta veio da lista, o ✕ quando abriu direto (v1.14.26),
+   OS DOIS NA TRILHA 3, no mesmo canto (v1.14.27) —, e o título fica no mesmo x
+   nos dois. Um botão `hidden` some do layout mas NÃO apaga a trilha que o
+   template declara — é por isso que a troca de tela não o move.
 
    O `grid-column` de cada morador é EXPLÍCITO porque a colocação automática
-   preencheria da esquerda para a direita: sem ele, o `#toolsVoltar` (o primeiro
-   filho do cabeçalho) mandaria o título para a trilha 2 por acaso e o ✕ para a
-   3, e a folha da Bíblia desfaria o eixo. */
+   preencheria da esquerda para a direita: sem ele, o título da folha de
+   Ferramentas cairia na trilha 1 e o ✕ andaria para a 2, e a folha da Bíblia
+   desfaria o eixo. */
 .tools-head {
   flex-shrink: 0; display: grid; align-items: center; gap: var(--sp-3);
   grid-template-columns: minmax(var(--hit), 1fr) minmax(0, auto) minmax(var(--hit), 1fr);
   margin-bottom: .5rem;
 }
 .tools-head > .back-btn { grid-column: 1; justify-self: start; }
+/* A SETA DAS FERRAMENTAS FICA NO LUGAR DO ✕ (v1.14.27): a lista é ancorada à
+   direita e a folha ENCOLHE para lá, então voltar é ir para a direita — a trilha
+   3, a mesma do ✕, e o glifo de voltar vai ESPELHADO. Os dois nunca aparecem
+   juntos (a regra é `ferrVeioDaLista`), então a célula é uma só: o escondido não
+   é item de grade, e o cabeçalho continua com uma linha. */
+.tools-head > #toolsVoltar { grid-column: 3; justify-self: end; }
+#toolsVoltar .msym { transform: scaleX(-1); }
 .tools-head > .tools-title { grid-column: 2; }
 .tools-head > .popup-close { grid-column: 3; justify-self: end; }
 .tools-title { min-width: 0; text-align: center; font-size: var(--fs-xl); font-weight: var(--fw-max); color: var(--text); }
