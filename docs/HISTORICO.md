@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.30** — nas duas telas de destino, a fileira de largura inteira virou os botões compactos da Biblioteca: um toque importa ou manda o vídeo na hora, e fechar sem tocar não importa nada (a regra "cai no Cronograma" foi revogada); só web.
 - **v1.14.29** — Ferramentas: a seta de voltar foi para o canto direito, no lugar do ✕ e apontando para a direita; e a engrenagem de um Favorito fecha a Biblioteca antes de abrir a ferramenta; só web.
 - **v1.14.28** — o link do YouTube copiado é oferecido com capa, título, canal e duração antes de usar; a capa vem do extrator (shell 88, APK + web).
 - **v1.14.27** — o alerta de "não toca sem rede" do Cronograma passou para a ESQUERDA do nome, com o nome ainda no eixo da faixa (com e sem o ícone); só web.
@@ -830,6 +831,56 @@ apagada da que a criou.
   `antesDaPauta` = depois = PDF continua cobrando isso.
 
 ---
+
+## v1.14.30 — a pergunta de destino em quadrados, e o oferecimento do link também
+
+Dois pedidos do operador em 2026-11-15, num lote só de web: trocar, nas DUAS
+telas de destino, a fileira de ações de largura inteira pela fileira de botões
+compactos que a Biblioteca já usa (`destBotoesRow` + `destBotoesPadrao`), com um
+toque = uma ação — sem caixa de marcar e sem confirmar.
+
+### O oferecimento do link copiado
+
+- O bloco de capa, título, canal e duração (`ofertaDoLink`, v1.14.28) FICA no
+  topo da folha; o que muda é a fileira abaixo dele: "Tocar agora", os três
+  destinos e o botão largo dos Detalhes, iguais aos da gaveta.
+- As ações vão por `ytAcao`, com a forma (vídeo/só áudio) e o teto de resolução
+  lidos na montagem, como antes. A folha FECHA no toque (um download de minutos
+  com a folha aberta é uma tela travada); a gaveta continua montada.
+- O "Detalhes" nasce apagado ali, e o `title` diz por quê: os detalhes já estão
+  em cima. O `motivo` do `destBotaoDetalhes` virou parâmetro opcional (o padrão
+  continua "o episódio ainda não saiu", o do atalho universal).
+- Na folha o quadrado veste `--surface`, o overlay das linhas que ele
+  substitui: a `--gaveta-btn` da gaveta é `--panel`, o mesmo tom da folha.
+
+### A pergunta de destino do arquivo importado
+
+- `escolherDestinos`/`renderDestPrompt` deixaram de ser lista de caixas + rodapé
+  de Confirmar: são a MESMA fileira, sem "Tocar agora" (a pergunta é só onde
+  guardar), e cada quadrado resolve a promessa com o destino DELE no toque.
+- Os parâmetros `padrao` e `rotulo` (o Cronograma pré-marcado e o verbo do
+  botão de confirmar) saíram junto com o Confirmar; os dois chamadores foram
+  atualizados (`importShare`, `edicaoCriar`).
+
+### A regra revogada
+
+**"Desistir não perde o item, cai no Cronograma" está REVOGADA** (decisão do
+operador, 2026-11-15): fechar a pergunta sem tocar NÃO importa nada — é o padrão
+da Biblioteca. O `importShare` devolve `false` e não grava arquivo nenhum, e o
+comentário que afirmava a regra antiga saiu de `controle.js`.
+
+O outro ponto que dependia dela é `edicaoCriar`: ele já tratava `null` como "não
+criar" desde antes, então a revogação não o mudou — e o relatório do lote diz
+isso, em vez de mexer calado.
+
+### O que os oráculos passaram a prender
+
+- `boot-nativo`: o oferecimento abre com a fileira compacta (cinco botões, na
+  ordem da gaveta), sem caixa nem Confirmar, e o toque num quadrado chama
+  `ytAcao` UMA vez, com o destino dele, fechando a folha.
+- `destinos`: a pergunta é a fileira compacta (três quadrados, sem "Tocar
+  agora"), resolve no toque e fecha; e o `importShare` desistido termina em
+  `false` sem chamar `addMedia`.
 
 ## v1.14.29 — a seta das Ferramentas no canto do ✕, e a Biblioteca sai da frente
 

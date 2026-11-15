@@ -424,35 +424,91 @@ try {
   checar(!reabrir.listados.includes('ITEM B'),
     'e nada da linha vizinha entra em lista nenhuma', JSON.stringify(reabrir));
 
-  // ---- A MESMA FOLHA COMO PERGUNTA (importação e compartilhamento) ----
+  // ---- A MESMA FILEIRA COMPACTA COMO PERGUNTA (importação e compartilhamento) ----
+  //
+  // v1.15.0: a pergunta deixou de ser lista de caixas + rodapé de Confirmar e
+  // passou a ser a fileira de quadrados que a Biblioteca já usa
+  // (`destBotoesRow`): cada botão IMPORTA para a lista dele NO TOQUE, sem
+  // confirmar. E FECHAR SEM TOCAR NÃO IMPORTA NADA (decisão do operador), o que
+  // revoga a regra antiga ("desistir não perde o item, cai no Cronograma").
+  //
   // O SIMPLIFICADO não pergunta, e é a resposta certa: ali não existe
   // Cronograma nem playlist, e uma folha com destinos que a tela não tem seria
   // pior que folha nenhuma (a mesma regra do link compartilhado naquele modo).
   const noSimples = await pg.evaluate(async () => {
     setAppMode('simple');
-    const r = await escolherDestinos('Importar', ['cronograma']);
+    const r = await escolherDestinos('Importar');
     setAppMode('full');
     return r;
   });
   checar(noSimples === null, 'no modo simplificado a pergunta nem chega a ser feita');
 
-  // Aqui não há ação por trás da linha: a folha É a pergunta, e a resposta é a
-  // promessa que ela resolve. Fechar sem responder não pode deixá-la pendente
-  // para sempre — seria um share que nunca chega à lista.
-  const escolhido = await pg.evaluate(async () => {
-    const p = escolherDestinos('Importar', ['cronograma']);
+  // A PERGUNTA DESENHADA: um quadrado por lista, na ordem da tabela, sem
+  // "Tocar agora" (a pergunta é só ONDE guardar), sem caixa de marcar e sem
+  // Confirmar em rodapé — a fileira é a única coisa na folha.
+  const perg = await pg.evaluate(async () => {
+    const p = escolherDestinos('Importar');
     await new Promise((r) => setTimeout(r, 50));
-    // A linha dos Favoritos, pelo CORPO dela: nesta folha a linha inteira marca.
-    const linhas = [...document.querySelectorAll('#songMenuList .song-menu-btn')];
-    linhas[2].click();
-    await new Promise((r) => setTimeout(r, 50));
-    document.querySelector('#songMenuPopup .song-menu-go').click();
-    return p;
+    const fileira = document.querySelector('#songMenuList .dest-botoes');
+    const out = {
+      fileira: !!fileira,
+      botoes: fileira ? [...fileira.querySelectorAll('button')].map((b) => b.dataset.dest) : [],
+      quadrados: fileira ? [...fileira.querySelectorAll('.dest-btn')].length : 0,
+      semCaixa: !document.querySelector('#songMenuList .song-menu-check'),
+      semGo: !document.querySelector('#songMenuPopup .song-menu-go'),
+      aberta: document.getElementById('songMenuPopup').classList.contains('open'),
+    };
+    // O TOQUE NUM QUADRADO RESOLVE A PERGUNTA NA HORA: é o que o importador
+    // espera do outro lado, e é a prova de que não há passo de confirmar.
+    fileira.querySelector('[data-dest="favoritos"]').click();
+    out.valor = await p;
+    out.fechou = !document.getElementById('songMenuPopup').classList.contains('open');
+    return out;
   });
-  checar(JSON.stringify(escolhido) === JSON.stringify(['cronograma', 'favoritos']),
-    'a pergunta da importação abre com o Cronograma marcado e aceita um segundo destino');
+  checar(perg.fileira
+    && JSON.stringify(perg.botoes) === JSON.stringify(['cronograma', 'playlist', 'favoritos'])
+    && perg.quadrados === 3,
+    'a pergunta da importação é a FILEIRA COMPACTA, com um quadrado por lista e na ordem da '
+    + 'tabela — sem "Tocar agora", porque a pergunta é só onde guardar', JSON.stringify(perg));
+  checar(perg.semCaixa && perg.semGo && perg.aberta,
+    'sem caixa de marcar e sem Confirmar em rodapé: nada de marcar antes', JSON.stringify(perg));
+  checar(JSON.stringify(perg.valor) === JSON.stringify(['favoritos']) && perg.fechou,
+    'e TOCAR num quadrado resolve a pergunta com o destino DELE e fecha a folha — importa '
+    + 'direto, sem confirmar', JSON.stringify(perg));
+
+  // O CAMINHO INTEIRO: desistir da pergunta não grava arquivo nenhum. É a
+  // revogação da regra antiga, e ela se mede no desfecho do `importShare` (o
+  // `false` e o `addMedia` que não foi chamado), não no desenho da folha.
+  const semImportar = await pg.evaluate(async () => {
+    let grava = 0;
+    const orig = AVDB.addMedia;
+    AVDB.addMedia = function (...a) { grava++; return orig.apply(AVDB, a); };
+    const arq = new File([new Blob(['x'])], 'descartado.txt', { type: 'text/plain' });
+    // A FOLHA DO CASO ANTERIOR DEIXA A FILEIRA NA LISTA: `fecharDestPrompt` só
+    // esconde a folha, e a lista é reescrita na próxima montagem. Sem limpar, a
+    // sonda acharia a fileira VELHA e fecharia a folha antes de a nova abrir.
+    document.getElementById('songMenuList').innerHTML = '';
+    const p = importShare({ files: [arq] });
+    const naTela = () => {
+      const pop = document.getElementById('songMenuPopup');
+      return !!pop && pop.classList.contains('open')
+        && !!document.querySelector('#songMenuList .dest-botoes');
+    };
+    for (let i = 0; i < 40 && !naTela(); i++) {
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    const mostrou = naTela();
+    closeSongMenu();   // o ✕, o toque no fundo e o voltar do aparelho caem todos aqui
+    const r = await p;
+    AVDB.addMedia = orig;
+    return { mostrou, r, grava };
+  });
+  checar(semImportar.mostrou && semImportar.r === false && semImportar.grava === 0,
+    'e fechar a pergunta SEM TOCAR não importa nada: o lote termina sem gravar arquivo — a '
+    + 'regra antiga ("desistir cai no Cronograma") está revogada', JSON.stringify(semImportar));
+
   const desistiu = await pg.evaluate(async () => {
-    const p = escolherDestinos('Importar', ['cronograma']);
+    const p = escolherDestinos('Importar');
     await new Promise((r) => setTimeout(r, 50));
     closeSongMenu();   // o ✕, o toque no fundo e o voltar do aparelho caem todos aqui
     return p;

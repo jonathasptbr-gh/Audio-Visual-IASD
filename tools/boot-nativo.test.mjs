@@ -1748,6 +1748,67 @@ try {
     'e a CAPA troca a reserva pela do extrator quando ela chega (o `ytDetalhes` '
     + 'passou a devolver `thumb`)', JSON.stringify(oferta.capa));
 
+  // ── O OFERECIMENTO USA A FILEIRA COMPACTA (v1.15.0) ──────────────────────
+  //
+  // Pedido do operador: a fileira de largura inteira sai, e fica a MESMA fileira
+  // de quadrados da gaveta da Biblioteca (`destBotoesRow`) — um toque, uma ação,
+  // sem caixa de marcar e sem Confirmar. O bloco de capa/título/canal/duração
+  // continua no topo. O que esta asserção prende: a fileira existe com os cinco
+  // botões na ordem da gaveta, e o TOQUE executa o destino na hora (`ytAcao`,
+  // substituído para capturar), fechando a folha — não há passo de confirmar.
+  //
+  // O `window.ytAcao` é o da própria página: `controle.js` é script clássico e a
+  // declaração de função é propriedade do global, então a troca pega o caminho
+  // real do toque. Sem ela, o toque baixaria um vídeo de verdade.
+  const fileiraOferta = await pg.evaluate(async () => {
+    closeSongMenu();
+    const orig = window.ytAcao;
+    const chamadas = [];
+    window.ytAcao = async (r, destinos, btn, soAudio, altura) => {
+      chamadas.push({ id: r.id, destinos, soAudio, altura, btn: !!btn });
+    };
+    openYtMenu({ id: 'oferta3', url: 'y/1', name: 'Link copiado', oferecendo: true });
+    const fileira = document.querySelector('#songMenuList .dest-botoes');
+    const out = {
+      fileira: !!fileira,
+      botoes: fileira ? [...fileira.querySelectorAll('button')].map((b) => b.dataset.dest) : [],
+      quadrados: fileira ? [...fileira.querySelectorAll('.dest-btn')].length : 0,
+      semCaixa: !document.querySelector('#songMenuList .song-menu-check'),
+      semGo: !document.querySelector('#songMenuPopup .song-menu-go'),
+      detalhes: (() => {
+        const b = fileira && fileira.querySelector('[data-dest="detalhes"]');
+        return b ? { desabilitado: !!b.disabled, texto: b.textContent.trim() } : null;
+      })(),
+      ofertaNoTopo: !!document.querySelector('#songMenuPopup .yt-oferta'),
+      chamadas,
+    };
+    fileira.querySelector('[data-dest="cronograma"]').click();
+    await new Promise((r) => setTimeout(r, 50));
+    out.fechou = !document.getElementById('songMenuPopup').classList.contains('open');
+    window.ytAcao = orig;
+    closeSongMenu();
+    ytDetalhesCache.delete('oferta3');
+    return out;
+  });
+  checar(fileiraOferta.fileira && fileiraOferta.ofertaNoTopo
+    && JSON.stringify(fileiraOferta.botoes)
+      === JSON.stringify(['tocar', 'cronograma', 'playlist', 'favoritos', 'detalhes'])
+    && fileiraOferta.quadrados === 4,
+    'o OFERECIMENTO do link usa a FILEIRA COMPACTA da gaveta — "Tocar agora", os três destinos e '
+    + 'os detalhes, com o bloco de capa e texto ainda no topo da folha', JSON.stringify(fileiraOferta));
+  checar(fileiraOferta.semCaixa && fileiraOferta.semGo,
+    'sem caixa de marcar e sem Confirmar: a fileira É a pergunta', JSON.stringify(fileiraOferta));
+  checar(fileiraOferta.detalhes && fileiraOferta.detalhes.desabilitado
+    && fileiraOferta.detalhes.texto === 'Detalhes',
+    'e o botão largo dos detalhes fica APAGADO aqui, porque os detalhes já estão em cima '
+    + '(a regra do indisponível)', JSON.stringify(fileiraOferta.detalhes));
+  checar(fileiraOferta.chamadas.length === 1
+    && fileiraOferta.chamadas[0].id === 'oferta3'
+    && JSON.stringify(fileiraOferta.chamadas[0].destinos) === JSON.stringify(['cronograma'])
+    && fileiraOferta.fechou,
+    'e TOCAR no quadrado do Cronograma executa o destino NA HORA, um só, e fecha a folha — '
+    + 'sem confirmar', JSON.stringify(fileiraOferta.chamadas));
+
   // ── O ESTADO NO APARELHO: A OUTRA METADE (v1.6.0) ─────────────────────
   // Sem ela, apagar a linha INTEIRA passaria na asserção do caso comum — e o
   // card perderia a única coisa que responde "preciso de rede agora?" quando os

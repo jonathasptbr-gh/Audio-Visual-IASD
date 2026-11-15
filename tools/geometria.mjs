@@ -134,7 +134,7 @@ export const SUPERFICIES = [
   { nome: 'leitor de letra', abrir: () => { setAppMode('full'); openLyricsPopup(); }, alvo: '#lyricsPopup.open' },
   {
     nome: 'destinos de um item',
-    abrir: () => { setAppMode('full'); escolherDestinos('Onde guardar “Faixa de teste”?', ['cronograma']); },
+    abrir: () => { setAppMode('full'); escolherDestinos('Onde guardar “Faixa de teste”?'); },
     alvo: '#songMenuPopup.open',
   },
   {

@@ -45,6 +45,7 @@ medição em aparelho não é fino.**
 
 | quando · lote | onde | o que ficou | dono | por que não foi agora |
 |---|---|---|---|---|
+| 2026-11-15 · v1.14.30 | a fileira compacta dentro da folha (o oferecimento do link e a pergunta da importação) | foi medida só no Chromium desta máquina, em 430×900: falta ver no aparelho do operador, com a fonte real dele, os quatro quadrados e o "Detalhes" largo na mesma linha (é a fonte que decide a quebra) | medição | não há aparelho nesta máquina |
 | 2026-11-15 · v1.14.23 | `SessionService.kt:907-909`, `NativeBridge.kt:1053-1054` | o rótulo por unidade do ⏮/⏭ (`slideMode`/`slideLabel`) ficou inalcançável — o web manda sempre `false`/vazio desde que a notificação virou controle de player (~10 linhas com KDoc) | CI | não há compilador aqui; a remoção só se prova no Gradle, e o lote foi só de web |
 | 2026-11-14 · v1.14.16 | `site/sonoplastia/index.html` | a captura da lista de Ferramentas mostra seis e o app tem sete ("Editar mídia") | operador | refazer a captura pede o app em tela — **na fila: Pacote 29** (14/11) |
 | 2026-11-14 · revisão de 14/11 | `YoutubeGrab.kt` | os campos `initIni/initFim/idxIni/idxFim/codec` da `Faixa`, sem leitor desde que o `dash` saiu (~24 linhas, KDoc junto) | CI | não há compilador aqui; a remoção só se prova no Gradle |

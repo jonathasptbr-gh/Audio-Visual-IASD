@@ -420,7 +420,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.29';
+const WEB_VERSION = '1.14.30';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -26236,30 +26236,42 @@ function openYtMenu(r, alvoDado) {
   // `songMenuFor` — ler o teto lá dentro encontraria null e todo download sairia
   // no padrão, calado.
   const altura = soAudio ? 0 : (songMenuFor.alt | 0);
-  // OS DESTINOS SÃO MARCÁVEIS (v5.141), e aqui o ganho é maior que no acervo: um
-  // vídeo do YouTube custa MINUTOS de download. Até aqui, querer o mesmo louvor
-  // no Cronograma e nos Favoritos era baixá-lo duas vezes — e o operador só
-  // descobria isso na segunda espera. Agora o download é um só e o arquivo entra
-  // nas listas marcadas.
-  //
-  // "Tocar agora" NÃO ganha caixa: ele não é uma lista, é o telão. E ele
-  // continua honrando o que estiver marcado (o `songMenuItem` passa a união),
-  // então "marcar Cronograma + tocar agora" projeta e guarda no mesmo toque —
-  // que é exatamente o que se faz com o louvor que acabou de chegar.
+  // O RESULTADO DA BUSCA segue com as caixas e o Confirmar (ver
+  // `destBotoesRow`): marcar antes é o único jeito de mandar o mesmo vídeo a
+  // vários lugares de uma vez, e o download continua sendo um só — `ytAcao`
+  // recebe a união do que foi marcado. "Tocar agora" também ganha caixa desde a
+  // v5.252: com um Confirmar único, negá-la seria manter a exceção que o
+  // pedido veio remover.
   const remontar = () => openYtMenu(r);
   destRemontar = remontar;
-  // NA GAVETA, UM TOQUE, UMA AÇÃO (v1.13.34) — ver `destBotoesRow`. O download é
-  // um só mesmo com toques separados: o `ytArquivo` divide o que está em curso.
-  if (songMenuFor.alvo) {
+  // UM TOQUE, UMA AÇÃO (v1.13.34 na gaveta, v1.15.0 no oferecimento) — ver
+  // `destBotoesRow`. O download é um só mesmo com toques separados: o
+  // `ytArquivo` divide o que está em curso.
+  //
+  // O OFERECIMENTO do link copiado é a MESMA fileira da gaveta, pelo motivo que
+  // a gaveta a tem: cada quadrado é uma ação completa, e a pergunta "para onde?"
+  // se responde no toque. O bloco de capa/título/canal/duração que abre a folha
+  // (`ofertaDoLink`) fica onde está.
+  if (songMenuFor.alvo || r.oferecendo) {
     destExecutor = null;
-    const atalho = !!(cat && songMenuFor.semanaModo === 'atalho');
-    const fazer = (chave, btn) => (atalho
-      ? semanaAcao(cat, [chave], chave === 'tocar' ? null : btn)
-      : ytAcao(r, [chave], chave === 'tocar' ? null : btn, soAudio, altura));
+    const naFolha = !songMenuFor.alvo;
+    const atalho = !!(cat && songMenuFor.alvo && songMenuFor.semanaModo === 'atalho');
+    const fazer = (chave, btn) => {
+      // A FOLHA FECHA ANTES DA AÇÃO, como fechava na linha de largura inteira: o
+      // download leva de segundos a minutos, e a folha aberta durante isso é uma
+      // tela travada. A GAVETA continua montada — é o lugar, não a ação.
+      if (naFolha) closeSongMenu();
+      return atalho
+        ? semanaAcao(cat, [chave], chave === 'tocar' ? null : btn)
+        : ytAcao(r, [chave], chave === 'tocar' ? null : btn, soAudio, altura);
+    };
     alvo.appendChild(destBotoesRow([
       ...destBotoesPadrao(DESTINOS.map((d) => d.chave), fazer),
-      destBotaoDetalhes(r.__detalhes || null),
+      destBotaoDetalhes(r.__detalhes || null,
+        naFolha ? 'os detalhes já estão aqui em cima' : ''),
     ]));
+    // Só a FOLHA abre aqui; no corpo da linha quem abre é o acordeão do chamador.
+    if (naFolha) songMenuPopupEl.classList.add('open');
     return;
   }
   destExecutor = (alvos, btn) => ytAcao(r, alvos, btn, soAudio, altura);
@@ -27674,9 +27686,11 @@ function porFecho(alvo, li) {
 // O CONFIRMAR É SEMPRE VISÍVEL (v5.252). Ele só aparecia depois da primeira
 // marca — isto é, era invisível justamente para quem ainda não sabia que dava
 // para marcar, e a folha parecia não ter conclusão. Sem nada escolhido ele fica
-// desabilitado e DIZ o que falta, que é o mesmo desenho que o seletor de
-// destinos da importação (`renderDestPrompt`) já usava desde a v5.141: esta
-// mudança é as duas folhas convergindo num modelo só.
+// desabilitado e DIZ o que falta.
+//
+// É o desenho de UMA folha só, hoje: o resultado da busca do YouTube. O
+// oferecimento do link e a pergunta da importação passaram à fileira compacta
+// (`destBotoesRow`, v1.15.0), onde cada botão executa no toque.
 function destConfirmRow() {
   if (!destExecutor) return null;
   const alvos = destUniao(null);
@@ -27718,10 +27732,13 @@ function destConfirmRow() {
 // já é no resto do app"*. A gaveta de uma linha da Biblioteca (o acervo, os
 // Favoritos, a pasta do aparelho, o episódio de série) deixou de MARCAR destinos
 // e confirmar: cada quadrado executa o dele, e a gaveta CONTINUA aberta — um
-// segundo toque manda o mesmo item a outro lugar. As FOLHAS (o resultado da busca
-// do YouTube, o link compartilhado, a importação) seguem com as caixas e o
-// Confirmar: ali a folha fecha ao executar, e marcar antes é o único jeito de
-// mandar a vários lugares de uma vez.
+// segundo toque manda o mesmo item a outro lugar.
+//
+// As FOLHAS foram convergindo para a mesma fileira: o OFERECIMENTO do link e a
+// PERGUNTA da importação na v1.15.0, e ali a folha FECHA no toque (uma folha
+// aberta durante um download de minutos é uma tela travada). Só o resultado da
+// busca do YouTube segue com as caixas e o Confirmar: ali marcar antes é o único
+// jeito de mandar a vários lugares de uma vez.
 //
 // A ORDEM: "Tocar agora" na ponta esquerda, os destinos na ordem da tabela
 // (`destinosNaOrdem`), e o quinto (o auxiliar de leitura, ou os detalhes de um
@@ -27832,10 +27849,13 @@ function ofertaDoLink(r) {
   return cx;
 }
 
-function destBotaoDetalhes(det) {
+// `motivo` (opcional) é a frase do indisponível: `title`, e nada mais. O
+// oferecimento do link diz a dele porque ali não há episódio a esperar — os
+// detalhes já estão no topo da folha (`ofertaDoLink`).
+function destBotaoDetalhes(det, motivo) {
   const aberto = !!(det && det.aberto());
   return { chave: 'detalhes', rotulo: 'Ver os detalhes do vídeo', texto: 'Detalhes',
-    on: det ? aberto : undefined, disabled: !det, motivo: 'o episódio ainda não saiu',
+    on: det ? aberto : undefined, disabled: !det, motivo: motivo || 'o episódio ainda não saiu',
     acao: (btn) => {
       const on = det.alternar();
       btn.classList.toggle('on', on);
@@ -27850,15 +27870,15 @@ function destBotaoDetalhes(det) {
 // que se quer nos Favoritos, isso significava importar, achar o item na lista e
 // marcá-lo à mão, um por um.
 //
-// Aqui a folha de destinos vira uma PERGUNTA: as mesmas três linhas marcáveis,
-// o Cronograma já marcado (o destino de sempre, para quem só quer confirmar) e
-// um botão que fecha. É a única porta em que a folha PRECISA de confirmação:
-// nas outras cada linha é uma ação completa, e aqui não há ação nenhuma até o
-// operador dizer para onde.
+// Aqui a folha de destinos vira uma PERGUNTA, e é a MESMA fileira compacta da
+// gaveta (`destBotoesRow`, v1.15.0): cada quadrado importa para a lista dele e
+// resolve a promessa no toque. Não há caixa de marcar nem Confirmar — um
+// segundo destino seria uma segunda importação, e o item é um só.
 //
-// **Desistir não perde o item.** Fechar por ✕, pelo fundo ou pelo voltar do
-// aparelho resolve `null`, e quem chamou importa no destino padrão — a mesma
-// regra do link compartilhado, que "nunca se perde".
+// **FECHAR SEM TOCAR NÃO IMPORTA NADA** (decisão do operador, v1.15.0): é o
+// padrão da biblioteca, e ele REVOGA a regra antiga ("desistir não perde o item,
+// cai no Cronograma"). Fechar por ✕, pelo fundo ou pelo voltar do aparelho
+// resolve `null`, e quem chamou não importa — ver `importShare`.
 let destPromptResolve = null;
 
 function fecharDestPrompt(valor) {
@@ -27870,12 +27890,7 @@ function fecharDestPrompt(valor) {
   if (r) r(valor);
 }
 
-// `rotulo` é o verbo do botão de confirmar ("Importar" é o de sempre; o item
-// editado diz "Guardar"). Vai para uma variável porque o `remontar` da folha
-// refaz a lista a cada marca, e o rótulo tem de sobreviver a isso.
-let destRotuloGo = 'Importar';
-function escolherDestinos(titulo, padrao, rotulo) {
-  destRotuloGo = rotulo || 'Importar';
+function escolherDestinos(titulo) {
   // No simplificado não existe Cronograma nem playlist: perguntar por listas que
   // a tela não tem seria pior que não perguntar (a mesma regra do link
   // compartilhado ali). Quem chama já sabe disso, mas a guarda fica: uma folha
@@ -27884,7 +27899,6 @@ function escolherDestinos(titulo, padrao, rotulo) {
   return new Promise((resolve) => {
     destPromptResolve = resolve;
     destLimpar();
-    (padrao && padrao.length ? padrao : ['cronograma']).forEach((c) => destMarcados.add(c));
     songMenuFor = { destPrompt: true };
     songMenuTitleEl.textContent = titulo;
     renderDestPrompt();
@@ -27892,31 +27906,20 @@ function escolherDestinos(titulo, padrao, rotulo) {
   });
 }
 
+// UM TOQUE, UMA AÇÃO (v1.15.0) — ver `destBotoesRow`. Sem "Tocar agora": a
+// pergunta é só ONDE guardar. O rótulo é o do lugar (`rotulo`), não o do verbo:
+// o quadrado é mudo, e o nome dele cabe no `title`/`aria-label`.
 function renderDestPrompt() {
   limparFolha(songMenuListEl);
-  const remontar = () => renderDestPrompt();
-  destRemontar = remontar;
-  // AS MESMAS LINHAS DAS OUTRAS FOLHAS (v5.252): `songMenuItem` com `destino`
-  // MARCA, que é o que esta folha faz.
-  DESTINOS.forEach((d) => {
-    songMenuListEl.appendChild(songMenuItem(
-      msym(ICON[d.ico] || ICON.add), d.rotulo, '',
-      () => {}, d.chave, remontar));
-  });
-  const li = document.createElement('li');
-  li.className = 'song-menu-go-row';
-  const go = document.createElement('button');
-  go.type = 'button'; go.className = 'song-menu-btn song-menu-go';
-  const txt = document.createElement('span'); txt.className = 'song-menu-text';
-  const t = document.createElement('span'); t.className = 'song-menu-label';
-  const escolhidos = destUniao(null);
-  t.textContent = escolhidos.length ? destRotuloGo : 'Escolha um destino';
-  txt.appendChild(t);
-  go.appendChild(txt);
-  go.disabled = !escolhidos.length;
-  go.addEventListener('click', () => fecharDestPrompt(escolhidos));
-  li.appendChild(go);
-  porFecho(songMenuListEl, li);
+  destRemontar = () => renderDestPrompt();
+  destExecutor = null;
+  songMenuListEl.appendChild(destBotoesRow(
+    destinosNaOrdem(DESTINOS.map((d) => d.chave)).map((d) => ({
+      chave: d.chave,
+      rotulo: d.rotulo,
+      icone: destIco(ICON[d.ico] || ICON.add),
+      acao: () => fecharDestPrompt([d.chave]),
+    }))));
 }
 
 function renderSongMenu() {
@@ -35122,10 +35125,10 @@ function pacoteMidiaSelecionada(plano, sel) {
 //
 // As linhas são as do seletor de destinos (`songMenuItem`): a mesma caixa como
 // INDICADOR, mas o Set é PRÓPRIO (`pacoteMarcados`). NÃO pode ser o
-// `destMarcados`: a outra folha o deixa com `{'tocar'}` ou `{'cronograma'}` ao
-// abrir (`renderItemMenu`, `escolherDestinos`), e a lista do Transferir
-// encontraria o Set "não vazio", não remarcaria, e o Importar montaria
-// `['tocar', 'ajustes']` — só os ajustes entrariam e o arquivo seria consumido.
+// `destMarcados`: ele é da folha aberta, e a lista do Transferir o encontraria
+// com o que outra porta tivesse marcado — e o Importar montaria
+// `['tocar', 'ajustes']`, onde só os ajustes entrariam e o arquivo seria
+// consumido.
 const pacoteMarcados = new Set();
 //
 // O plano aproximado que a lista desenha — o que a Biblioteca já tem em
@@ -39330,15 +39333,17 @@ async function importShare(pending) {
   // simplificado `escolherDestinos` já devolve `null` sozinho — ali não existe
   // Cronograma nem playlist.
   //
-  // Desistir (✕, fundo, voltar) devolve `null` e o lote entra no Cronograma,
-  // como sempre entrou: um compartilhamento nunca se perde por causa de uma
-  // pergunta.
+  // FECHAR SEM TOCAR NÃO IMPORTA NADA (decisão do operador, v1.15.0): é o padrão
+  // da biblioteca, e ele REVOGA a regra antiga ("desistir não perde o item, cai
+  // no Cronograma"). O lote não entra em lista nenhuma — nada foi copiado, e o
+  // `false` daqui é a resposta honesta.
   shareDestinos = ['cronograma'];
   const temLinkYt = !!(pending.url && extractYouTubeId(pending.url));
   if (files.length || (pending.url && !temLinkYt)) {
     const titulo = files.length > 1 ? 'Importar ' + files.length + ' itens' : 'Importar';
-    const escolha = await escolherDestinos(titulo, ['cronograma']);
-    if (escolha && escolha.length) shareDestinos = escolha;
+    const escolha = await escolherDestinos(titulo);
+    if (!escolha || !escolha.length) return false;
+    shareDestinos = escolha;
   }
   // No simplificado NADA de um share vai para lista visível — arquivo
   // inclusive: a tela não tem Cronograma nem playlist, e o que chega ali chega
@@ -42133,14 +42138,14 @@ function edicaoFixarNoItem(rec) {
 async function edicaoCriar(e, chave, btn) {
   if (!edicaoMudou(e)) return;
   // `chave` é um quadrado de destino: vai direto para aquela lista. Sem ela (o "Confirmar"), no
-  // avançado a pergunta de destino (a mesma folha da importação, com o Cronograma marcado) — desistir
+  // avançado a pergunta de destino (a mesma folha da importação, com um quadrado por lista) — desistir
   // DESISTE de criar —; no Modo Fácil não há listas à vista para perguntar: o item vai ao Cronograma
   // e aos Favoritos, e aparece quando o avançado for aberto.
   let listas;
   if (chave) listas = listasDosDestinos([chave]);
   else if (simplificado()) listas = listasDosDestinos(['cronograma', 'favoritos']);
   else {
-    const escolha = await escolherDestinos('Guardar o item editado', ['cronograma'], 'Guardar');
+    const escolha = await escolherDestinos('Guardar o item editado');
     if (!escolha || !escolha.length) return;
     listas = listasDosDestinos(escolha);
   }

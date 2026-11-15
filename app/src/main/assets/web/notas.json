@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.14.30",
+    "itens": [
+      "O oferecimento do link do YouTube e a pergunta do arquivo importado usam os botões quadrados da Biblioteca.",
+      "Um toque no botão manda o vídeo ou importa o arquivo na hora, sem marcar e sem confirmar.",
+      "Fechar a pergunta do arquivo sem tocar não importa nada — antes o arquivo caía no Cronograma."
+    ]
+  },
+  {
     "versao": "1.14.29",
     "itens": [
       "Nas Ferramentas, a seta de voltar ficou no canto direito, apontando para a direita — o mesmo lugar do ✕.",

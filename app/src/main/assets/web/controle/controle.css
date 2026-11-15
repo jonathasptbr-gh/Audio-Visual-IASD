@@ -13028,6 +13028,17 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
    `.dest-botoes` no seletor vence o `.hymn-opcoes .song-menu-btn`, que pinta o
    fundo do poço. */
 .dest-botoes .dest-largo.on { background: var(--btn-accent); }
+/* ---------- A MESMA FILEIRA NA FOLHA (v1.15.0) — o oferecimento do link e a
+   pergunta da importação ----------
+   Dois ajustes, e os dois vêm do lugar, não do gosto: a `.dest-botoes` nasceu na
+   gaveta, onde o poço é `--gaveta-bg` e o quadrado veste `--gaveta-btn`
+   (= `--panel`). A folha JÁ é `--panel` — ali o quadrado sumiria no fundo, e o
+   tom certo é o overlay das linhas de largura inteira que ele substitui
+   (`--surface`, o mesmo do `.song-menu-btn` da folha). O `padding-top` da
+   fileira some porque, na `.popup-list`, quem separa uma linha da de cima é o
+   `gap` dela. */
+.popup-list > .dest-botoes { padding-top: 0; }
+.popup-list > .dest-botoes .dest-btn { background: var(--surface); }
 /* ---------- A BARRA DA BIBLIOTECA SAI DE CENA ENTRE A TELA CHEIA E A ROTAÇÃO (v1.13.34) ----------
    Ver `aoSairDaTelaCheiaGeral`: nos quadros em que o documento já saiu da tela
    cheia e a janela ainda é a deitada, a posição da barra (`100svh` menos a caixa)
