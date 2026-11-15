@@ -195,7 +195,6 @@ docs/
 ├── DIVERGENCIAS-WEB-NATIVO.md   # navegador × app, ponto por ponto
 ├── ECONOMIA.md                  # o CUSTO da sessão: os tetos, a rotina, a delegação, o medidor
 ├── ESTRUTURA.md                 # esta árvore
-├── ESTUDO-GUIA-IASD.md          # ESTUDO: a especialização do guia (Pacote 15; não é entrega)
 ├── FONTE-DE-DADOS-LOUVORJA.md   # referência do banco LouvorJA (hinos/Bíblia)
 ├── HISTORICO.md                 # APÊNDICE: as notas de todas as versões — usar por grep
 ├── MEDICAO-DE-ALCANCE.md        # o contrato da contagem de uso: o que é contado, e o que NUNCA é

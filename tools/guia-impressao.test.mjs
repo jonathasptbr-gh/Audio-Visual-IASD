@@ -46,7 +46,7 @@
 //     sem aviso "não coube" do motor nem erro de JavaScript;
 //  G. o título "Imprimir o guia" fica no meio, entre o "?" e o fechar;
 //     a 390 px nada rola de lado e, a 320, nada no diálogo (a página embaixo
-//     ainda sobra 18 px no CI: fila, Pacote 8.2); com `?app=1` a faixa do "?"
+//     ainda sobra 18 px no CI); com `?app=1` a faixa do "?"
 //     e o tutorial desviam do "fechar" nativo (52 × 56 px), guia e formato
 //     ficam abaixo dele, e o tutorial manda abrir no navegador;
 //  H. na figura dos adaptadores (I3, Tempo integral), cada par de <text> com
@@ -604,8 +604,8 @@ try {
       aviso: getComputedStyle(document.querySelector('.tut-so-app')).display !== 'none',
       secoes: document.querySelectorAll('#caderno-tut-p .tut-met svg').length,
     }));
-    // a 320 px a PÁGINA embaixo do diálogo ainda sobra 18 px no CI (fila, Pacote 8.2;
-    // quem a cobra é o `guia-no-app` E): a essa largura mede-se só o diálogo
+    // a 320 px a PÁGINA embaixo do diálogo ainda sobra 18 px no CI (quem a cobra
+    // é o `guia-no-app` E): a essa largura mede-se só o diálogo
     checar(m.dialogo <= 1 && m.barra <= 1 && (larg < 390 || m.sobra <= 1) && m.secoes === 2 && m.titulo >= 90,
       `G · a ${larg} px${app ? ' (app)' : ''} o diálogo e o tutorial não rolam de lado e o título cabe`, JSON.stringify(m));
     checar(Math.abs(m.centro) <= 2,

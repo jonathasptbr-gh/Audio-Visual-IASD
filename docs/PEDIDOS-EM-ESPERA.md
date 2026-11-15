@@ -68,10 +68,7 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **5** — Itinerário: a abertura antes do primeiro evento | 8 (I4×U2) | pedido | só web, depois de planejar |
 | **6** — Link do YouTube: os detalhes no oferecimento | 6 (I3×U2) | pedido | Kotlin + web (APK/Release) |
 | **7** — Verificação: procurar atualização | 6 (I3×U2) | pedido | só web |
-| **8** — CI: os oráculos instáveis (residual) | 6 (I3×U2) | resíduo | só `tools/` + workflow |
-| **12** — Limpeza e otimização do repositório (residual) | 2 (I2×U1) | pedido | só docs |
 | **13** — Estudos (não são fila de execução) | 4 | estudo | nenhuma entrega |
-| **15** — Guia IASD: a especialização (estudo) | — | estudo | nenhuma entrega |
 | **16** — O cronograma pronto: o organizador entrega o culto ao sonoplasta | 8 (I4×U2) | pedido | planejamento → Kotlin + web |
 | **20** — Cronograma: o alerta à esquerda | 4 (I2×U2) | pedido | só web |
 | **21** — Destinos: a engrenagem do item guardado | 6 (I3×U2) | pedido | só web |
@@ -100,8 +97,8 @@ diferentes, e um lote nunca mistura dois temas.
 | **Site** | 29 | a captura da lista de Ferramentas, com as sete |
 | **Ferramentas** | 30 | o Timer em zero que ainda projeta e guarda, e o editor de mídia vazio na instalação nova |
 | **Notificação de controles** | 31 | o ⏮/⏭ da notificação (e da tela de bloqueio e do fone) andando na fila de mídia |
-| **Fila anterior a 14/11** | 5, 6, 7, 8, 12 | o que já estava na fila, na ordem que ela já tinha |
-| **Estudos** | 13, 15 | não são fila de execução: a entrega é a decisão do operador |
+| **Fila anterior a 14/11** | 5, 6, 7 | o que já estava na fila, na ordem que ela já tinha |
+| **Estudos** | 13 | não são fila de execução: a entrega é a decisão do operador |
 
 ---
 
@@ -143,15 +140,10 @@ ordem; a fila é dele.
 | 6.1 | miniatura, título, duração e canal antes de usar | | 3 | 2 | 6 | Kotlin + web |
 | **7** | **Verificação: procurar atualização** | pedido | 3 | 2 | **6** | web |
 | 7.1 | a checagem que oferece o "Atualizar agora" | | 3 | 2 | 6 | web |
-| **8** | **CI: os oráculos instáveis (residual)** | resíduo | 3 | 2 | **6** | tools |
-| 8.1 | `configuracoes-janelas` D, instrumentado | | 3 | 2 | 6 | tools |
-| **12** | **Limpeza e otimização do repositório (residual)** | pedido | 2 | 1 | **2** | docs |
-| 12.1 | a lista dos mortos da auditoria de eficiência | | 2 | 1 | 2 | docs |
 | **13** | **Estudos — não são fila de execução** | estudo | 4 | 1 | **4** | decisão |
 | 13.1 | controle de slides + compartilhar itinerário/cronograma | | 4 | 1 | 4 | estudo |
 | 13.2 | transmissão ao vivo | | 3 | 1 | 3 | estudo |
 | 13.3 | layout de paisagem (o app no Windows saiu) | | 3 | 1 | 3 | estudo |
-| **15** | **Guia IASD: a especialização (estudo)** | estudo | — | — | **—** | decisão |
 | **16** | **O cronograma pronto: o organizador entrega o culto** | pedido | 4 | 2 | **8** | planejamento |
 | **20** | **Cronograma: o alerta à esquerda** | pedido | 2 | 2 | **4** | web |
 | 20.1 | o par nome + alerta inverte a ordem | | 2 | 2 | 4 | web |
@@ -238,83 +230,6 @@ desfecho é `não se aplica` quando não há nada pendente.
 
 ---
 
-## Pacote 8 — CI: os oráculos instáveis (residual)
-
-**Nota 6 (I3 × U2) · resíduo · só `tools/` + workflow**
-**Gatilho:** só volta ao primeiro plano se o CI reprovar de novo num oráculo de
-tempo.
-
-### 8.1 O que a A1 deixou instrumentado
-
-> **Tratado pela etapa A1 da revisão (2026-10-30)** — o relatório está em
-> `docs/revisao/REGISTRO.md` (A1, "feita com um resíduo"). Fica aqui como
-> residual, não como trabalho aberto em primeiro plano.
-
-Pedido do operador (2026-10-30): *"Urgente. Coloque em prioridade."* O lote
-v1.13.16 reprovou TRÊS rodadas seguidas, cada uma num oráculo DIFERENTE, todos de
-tempo e nenhum tocado pelo lote; todos passam na máquina local. Cinco foram
-consertados; um ficou INSTRUMENTADO, não consertado: `configuracoes-janelas` D
-(repasse A5). O método de conserto é o da campanha de determinismo da v5.316
-(`grep -n "v5.316" docs/HISTORICO.md`): achar em cada um a espera que mede o
-RUNNER e trocá-la pelo FATO (`esperar`/`esperarDb`), nunca subir prazo; rodar sob
-carga (3 processos + `stress`) até reprovar localmente antes de consertar, e
-repetir depois. Isto protege o canal: um vermelho no `verificar` segura o bundle.
-
----
-
-## Pacote 12 — Limpeza e otimização do repositório (residual)
-
-**Nota 2 (I2 × U1) · pedido · só docs**
-
-**Onde:** `docs/AUDITORIA-EFICIENCIA-2026-09.md` (a lista dos mortos) e o que as
-revisões S/K/C/X não tocaram.
-
-### 12.1 A poda que sobrou
-
-Pedido do operador (2026-10-30): *"realmente estamos a muito tempo sem"*.
-
-**O que já foi feito:** o alvo nº 1 que abriu o pedido — o bloco *"Versão atual"*
-do `CLAUDE.md` voltou a ser três linhas (medido em 2026-11-09); o
-`ACHADOS-EM-ABERTO.md` está vazio desde 2026-11-09; a tabela de divergências
-virou o mapa compacto do `CLAUDE.md` mais o capítulo
-`docs/DIVERGENCIAS-WEB-NATIVO.md`; e as revisões S1/S2, K1–K6, C2–C9 e X1–X2
-podaram comentário em CSS, Kotlin e `controle.js`.
-
-**O que resta:** a lista dos MORTOS da auditoria de eficiência
-(`AUDITORIA-EFICIENCIA-2026-09.md`), a conferência dos `docs/` que nenhuma
-revisão tocou, e a poda de comentário com as DUAS provas da seção "Documentação"
-do `CLAUDE.md` — no arquivo que ainda não passou por ela.
-
-### 12.2 A varredura geral de 2026-11-13 — FECHADA (Pacote 26/B8)
-
-Sete varreduras independentes cobriram tudo o que mudou desde a v1.13.56
-(baseline `15d0e114`, o fim da revisão profunda). O dossiê completo — com a
-prova de cada linha, os 51 achados e os 31 antigos reconferidos — está em
-[`revisao/REVISAO-2026-11-13.md`](revisao/REVISAO-2026-11-13.md); o estado por
-id, na seção 0 dele. Os consertos saíram nos commits que o dossiê cita, e o que
-sobrou mora no `docs/RESIDUOS.md` (o C8 e as capturas, decididos — "Fechado/
-decidido"; o resto, com dono).
-
-### 12.3 A auditoria da revisão, e o site (2026-11-14) — FECHADA (Pacote 26/B8)
-
-Pedido do operador: *"achei estranha pois foi muito rápida — verificasse se ela
-realmente cobriu tudo"*. Foi medida e registrada nos §§9 e 10 do dossiê de 13/11;
-depois a revisão de 14/11 refez o trabalho com o escopo fixo
-([`revisao/REVISAO-2026-11-14.md`](revisao/REVISAO-2026-11-14.md)).
-
-Os seis itens fecharam: o 12.3.1 **REFUTADO** com número (o guia tem 943 kB
-crus e **206 kB comprimidos**), o 12.3.3 e o 12.3.4 **FEITOS**, o 12.3.5 e o
-12.3.6 **FEITOS** — os commits estão no dossiê — e o 12.3.2 **FECHADO** (14/11):
-o item do `site/sonoplastia/index.html` (o CSS/JS inline) **fica como está** — o
-ganho (~33 kB comprimidos de ~206 kB; o corpo é 838 kB dos 966 kB) não paga
-extrair 7.803 linhas com 4 blocos de impressão —, e a linha desceu para
-"Fechado/decidido" no `docs/RESIDUOS.md`. **Medido e sem o que consertar:** o
-desempenho do app (abertura de `562 ms`, busca de 1.000 itens em `5,2 ms`, sem
-retenção de heap) e o APK (5,11 MB) — o peso que sobra é de download do site,
-não do app.
-
----
-
 ## Pacote 13 — Estudos (não são fila de execução)
 
 Três estudos preliminares; nada sai para código sem decisão do operador. A nota
@@ -374,22 +289,6 @@ folhas que "não mudam de tamanho entre estados", e os **76 oráculos que medem
 geometria** — eles partem do viewport de 430×900 do arnês (`tools/arnes.mjs`),
 que é a forma de um celular em pé; cada um ganha a célula de paisagem. Liberar a
 rotação no Android é Release; o CSS é OTA.
-
----
-
-## Pacote 15 — Guia IASD: a especialização (estudo)
-
-**Nota — · estudo · nenhuma entrega de código (a entrega é a DECISÃO do operador)**
-
-Pedido do operador (2026-11-12): especializar o Guia de sonoplastia IASD para a
-Igreja Adventista do Sétimo Dia — exemplos e comentários adventistas, referências
-a manuais oficiais, os programas da igreja (Escola Sabatina, Desbravadores,
-ofertório, culto JA…), seções dedicadas ao hinário adventista (novo E antigo),
-referências de cantores adventistas, o básico de teoria de música na igreja e uma
-seção dedicada ao LOUVOR JA (projeção/coletânea multimídia). **A entrega é o
-ESTUDO** `docs/ESTUDO-GUIA-IASD.md` (2026-11-12); a aplicação ao guia — que mora
-em `site/sonoplastia/index.html` — só acontece depois da DECISÃO do operador
-sobre o estudo. Nada aqui está autorizado.
 
 ---
 
@@ -675,6 +574,11 @@ controle de player e não de slides."*
 
 ## O que saiu desta lista (rastro, não log)
 
+**2026-11-15, revogados pelo operador (sem versão nova):** os **Pacotes 8, 12 e 15** — *"ou já
+foram feitos ou são irrelevantes hoje. Pode apagar completamente eles e suas referências"*. Saíram
+as seções, as linhas do índice e dos temas, e o estudo `docs/ESTUDO-GUIA-IASD.md` (o do 15). As
+menções nos apêndices e nos registros das revisões ficam: são o passado, não fila.
+
 **v1.14.22 (2026-11-15), `java/` + site (Release `v1.14.22`):** os **Pacotes 32 e 33** — o tema
 "Guia impresso" inteiro, autorizado pelo operador no mesmo dia (*"conserte o imprimir no app mesmo,
 gerando novo APK se necessário"*; a capa sem anotações, o índice com; mínimo título + 4 linhas): o
@@ -708,7 +612,7 @@ visível, com margem de halo nos quatro lados, e o balão a 16 px). Nota em
 `ferramentas-folha`, `configuracoes-janelas`, `abertura-e-transferencia`,
 `saida-de-audio-e-economia` e `volume-troca`. Os números dos outros não se movem.
 
-**2026-11-13 (só `site/`):** o **8.2** — o guia aberto pelo app a 320 px sem a rolagem lateral de 18 px (a grade de atalhos do D9 e o endereço longo, medidos com a fonte do runner), e o `guia-no-app` saindo 1 com FALHOU. Nota em `docs/HISTORICO.md`; o 8.1 continua.
+**2026-11-13 (só `site/`):** o **8.2** — o guia aberto pelo app a 320 px sem a rolagem lateral de 18 px (a grade de atalhos do D9 e o endereço longo, medidos com a fonte do runner), e o `guia-no-app` saindo 1 com FALHOU. Nota em `docs/HISTORICO.md`.
 
 **2026-11-12 (só `site/`):** o pacote do **Guia de sonoplastia** (anotado como "Pacote 14" por engano — o número já tinha saído na v1.13.61). A introdução (D0 e I0) entrou com o texto do operador, e as Perguntas e respostas foram **revogadas pelo operador**: *"Sobre as perguntas e respostas pode remover"*.
 
@@ -769,9 +673,9 @@ anteriores (o `docs/REVISAO-PROFUNDA.md` cita "Pacote 8" e "pacotes 9–12"; o
 | 8 — Verificação | 19 | 7 |
 | 9 — Configurações e Ferramentas | 9 | 10 |
 | 10 — Itinerário | 11 | 5 |
-| 11 — Limpeza | 12 | 12 |
+| 11 — Limpeza | 12 | 12 (revogado em 2026-11-15) |
 | 12 — Estudos | 6, 17 e 18 | 13 |
-| 13 — CI | 8 | 8 |
+| 13 — CI | 8 | 8 (revogado em 2026-11-15) |
 
 O "Pacote 6" antigo (o estudo de abrir a lista de aparelhos de áudio) NÃO existe
 mais: o operador abandonou o projeto da janela da Samsung em 2026-10-30, o tile
