@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.22** — o guia impresso: o "Imprimir" do caderno funciona dentro do app (`avguia://imprimir` → `PrintManager`) e os vazios das colunas ganham o bloco "Anotações" sem folha a mais; `java/` + site, Release `v1.14.22`.
 - **v1.14.21** — o tour: a moldura antes do que está dentro dela (a prévia antes dos botões sobre ela), a lista da Playlist automática, e a playlist à esquerda do repetir no deck; só web.
 - **v1.14.20** — o tour do grupo nota 9: a lista da Biblioteca do Fácil, o deck do Avançado um a um, a cifra, as Ferramentas (sem o "Fechar", com a roleta e as três saídas), as Mensagens, o editor de mídia e a Bíblia em leitura — e as seções por VISTA, mais o `modos` que virou porteiro; só web.
 - **v1.14.19** — a folha do vídeo sem o aviso do teto de qualidade, e o botão dos detalhes encurtado para "Detalhes" (texto único, ligado por superfície própria); só web.
@@ -752,6 +753,52 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.14.22 — o guia impresso: o "Imprimir" dentro do app e as anotações nos vazios (`java/` + site, Release)
+
+**v1.14.22 (Pacotes 32 e 33, autorizados pelo operador em 2026-11-15)** — os dois pedidos das 08:23
+e 08:26: *"o botão final de imprimir não abre nada para imprimir"* e *"preencha esses vazios com
+layouts de anotações, apenas o título 'anotações' e as linhas… sem aumentar o número de páginas…
+sem vazar as linhas… para outras folhas"*. Decisões dele: *"conserte o imprimir no app mesmo,
+gerando novo APK se necessário"*; a capa sem anotações, o índice com; mínimo título + 4 linhas.
+
+**O "Imprimir" no app.** O guia abre no `GuiaSomDialog`, um WebView SEM ponte (invariante 2), e o
+WebView do Android ignora `window.print()` — o botão `#caderno-print` não fazia nada, e só o
+tutorial "?" avisava. Ponte nova estava fora (a página é de terceiro). O caminho: com `?app=1`
+(`html.no-app`) o botão clica um `<a hidden href="avguia://imprimir">`; o `Cliente` do diálogo
+apanha o link ANTES da cerca (`GuiaSom.pedidoDeImpressao`, exato — esquema, host, sem porta,
+consulta nem âncora; JUnit em pares) e chama o `PrintManager` com o `createPrintDocumentAdapter`
+do próprio WebView, A4 retrato sem margem como padrão (o `@media print` da página deixa só o
+`.caderno`). Casco anterior manda o link ao `abrirFora`, que recusa o que não é `http(s)`: nada
+acontece, como antes — o aviso do tutorial passou a dizer "atualize o app ou abra no navegador".
+A tela de impressão é outra Activity: a `MainActivity` passa por `onPause`/`onStop`, como no link
+que abre fora (escrito no `PONTE.md`). `SHELL_VERSION` fica em 87: a superfície do `AVNative` não
+mudou; o gatilho da Release é o `java/`. O `guia-no-app` ganhou o bloco F (pelo app, o link e
+nenhum `window.print()`; no navegador, o inverso).
+
+**As anotações.** Uma passada no `montar`, depois do par/ímpar e antes do fio do meio, sobre todas
+as `.pag-col` menos a capa (`ordem.slice(1)`): `anotar(c)` põe "Anotações" + linhas de 7,5 mm
+(`border-bottom` .6pt `#8d97a1` — borda, não fundo, porque a impressão costuma vir sem "gráficos de
+fundo"), estima pelo `resta()` e MEDE de novo — tira linha enquanto houver `cheio()`, a coluna
+crescer ou a pauta passar do pé; acrescenta enquanto couber; com menos de `ANOT_MIN` (4) tira o
+bloco; no fim desce a pauta até o pé, e as linhas das colunas vizinhas ficam alinhadas. A coluna
+tem altura fixa e `overflow:hidden`: a pauta não cria folha nem passa para a seguinte. Pula a
+coluna que acaba em cartão partido (`.lb-corta`): o "continua →" leva direto à continuação. O
+`fim(c)` e o fio do meio passaram a medir pelo `ultTexto(c)`, que ignora `.anot` (senão o fio
+desceria sobre a pauta). Medido: Por um dia 16 pautas (o índice recebeu 24 e 23 linhas), Tempo
+integral 52; as páginas continuam 22 e 88 nos dois formatos. As duas colunas acima de faixa do
+integral têm vão de 10 e 0 mm — ficaram sem pauta por geometria.
+
+**O oráculo.** O `guia-impressao` ganhou o bloco L (páginas em número FIXO, ≥ 1 pauta por
+impressão, nenhuma na capa, ≥ 4 linhas de borda, inteira na coluna) e as medidas de espaço livre
+(`livreDe`, órfão, pulos, "esquerda vazia", `meiaVazia`) passaram a ignorar `.anot` — sem isso a
+pauta mascararia, em silêncio, a regressão do paginador que essas regras existem para pegar.
+
+**O que ficou** (as linhas estão no `RESIDUOS.md`): a impressão pelo app não foi vista em aparelho —
+o adapter do WebView respeitar o `@page guia-a4 {margin:0}` e o A4 só se mede lá; o Kotlin só
+compila no CI.
 
 ---
 

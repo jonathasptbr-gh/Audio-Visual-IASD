@@ -63,7 +63,13 @@
 //  K. "trilha" saiu do texto: nenhum no guia na tela (o documento inteiro, com
 //     os <details> fechados, o <title> e as metas description/og:/twitter:) nem
 //     nas páginas da impressão dos dois guias, nem nos atributos lidos
-//     (aria-label, title, alt, placeholder…).
+//     (aria-label, title, alt, placeholder…);
+//  L. anotações (pedido de 15/11): o vão no pé de uma coluna vira pauta
+//     "Anotações" (.anot) sem mudar o nº de páginas (régua: Por um dia 22,
+//     Tempo integral 88, nos dois formatos); nenhuma na capa, ao menos uma por
+//     impressão, cada uma com ≥ 4 linhas de BORDA (sem fundo) e inteira na sua
+//     coluna. As medidas de vão de E (livre, "cortadas", "esquerda vazia",
+//     meia coluna, órfão) ignoram .anot: senão a pauta mascara o paginador.
 //
 //   node tools/guia-impressao.test.mjs
 // ============================================================================
@@ -94,6 +100,7 @@ const medirPaginas = (pg) => pg.evaluate(() => {
     let esq = Infinity, dir = -Infinity, fundo = -Infinity;
     c.querySelectorAll('*').forEach((k) => {
       if (k instanceof SVGElement && k.tagName.toLowerCase() !== 'svg') return;
+      if (k.closest('.anot')) return;                    // a pauta é medida à parte (L)
       const r = k.getBoundingClientRect();
       if (!r.width || !r.height) return;
       esq = Math.min(esq, r.left); dir = Math.max(dir, r.right); fundo = Math.max(fundo, r.bottom);
@@ -112,12 +119,22 @@ const medirPaginas = (pg) => pg.evaluate(() => {
     return { w: a.width / MM, h: a.height / MM, esq: (esq - a.left) / MM, dir: (a.right - dir) / MM,
       corte: (fundo - b.bottom) / MM, vazam,
       cols: cols.map((k) => { const r = k.getBoundingClientRect(); return [(r.left - a.left) / MM, r.width / MM]; }),
-      filhos: c.matches('.pag-capa') ? c.children.length : c.querySelectorAll(':scope > .pag-col > *, :scope > .pag-faixa > *').length };
+      filhos: c.matches('.pag-capa') ? c.children.length : c.querySelectorAll(':scope > .pag-col > :not(.anot), :scope > .pag-faixa > *').length,
+      // L. cada pauta: filha direta de uma coluna, título, nº de linhas, linhas por borda e sem fundo,
+      // e as folgas (mm) do alto e do pé dela até o alto e o pé da coluna (negativo = cortada)
+      anot: [...c.querySelectorAll('.anot')].map((n) => {
+        const q = n.parentElement, r = n.getBoundingClientRect(), s = q.getBoundingClientRect(), ls = [...n.querySelectorAll('.anot-l')];
+        return { col: q.matches('.pag-col'), tit: (n.querySelector('.anot-t') || { textContent: '' }).textContent.trim(), n: ls.length,
+          borda: ls.every((l) => { const e = getComputedStyle(l); return e.borderBottomStyle === 'solid' && parseFloat(e.borderBottomWidth) > 0 && e.backgroundImage === 'none'; }),
+          topo: (r.top - s.top) / MM, pe: (s.bottom - r.bottom) / MM };
+      }) };
   });
 });
 
 // Margens esperadas por página (1-based): simples 18/18; fichário 25/11 na ímpar e 11/25 na par.
 const margens = (fmt, n) => (fmt === 'simples' ? [18, 18] : n % 2 ? [25, 11] : [11, 25]);
+// L. a régua de páginas medida antes das anotações (15/11): a pauta não pode abrir página
+const PAGINAS = { dia: 22, integral: 88 };
 
 async function escolher(pg, attr, valor) {
   await pg.click(`.caderno-opc[${attr}="${valor}"]`);
@@ -226,6 +243,13 @@ async function conferir(pg, guia, fmt, rotulo) {
   const cortadas = pags.map((p, i) => (p.corte > 0.3 ? (i + 1) + ':' + p.corte.toFixed(1) : 0)).filter(Boolean);
   checar(vazias.length === 0 && cortadas.length === 0,
     `E · ${rotulo}: nenhuma página vazia e nada passa da área útil (texto cortado no rodapé)`, JSON.stringify({ vazias, cortadas }));
+  // L. a pauta só ocupa vão: o nº de páginas é a régua de antes dela, número fixo
+  checar(L.paginas === PAGINAS[guia], `L · ${rotulo}: ${PAGINAS[guia]} páginas, as mesmas de antes das anotações`, JSON.stringify({ paginas: L.paginas }));
+  const anots = pags.flatMap((p, i) => p.anot.map((a) => ({ pag: i + 1, ...a })));
+  const anotMal = anots.filter((a) => a.pag === 1 || !a.col || a.tit !== 'Anotações' || a.n < 4 || !a.borda || a.topo < -0.1 || a.pe < -0.1);
+  checar(anots.length > 0 && anotMal.length === 0,
+    `L · ${rotulo}: ${anots.length} pautas "Anotações" nos vãos, nenhuma na capa, cada uma com ≥ 4 linhas de borda (sem fundo) e inteira na sua coluna`,
+    JSON.stringify({ anots: anots.length, anotMal: anotMal.slice(0, 3) }));
   const [ce, cd] = margens(fmt, 1);
   checar(capa.n > 10 && capa.esq >= ce - 0.3 && capa.dir >= cd - 0.3 && capa.topo >= 10 && capa.base >= 10 && capa.corte <= 0.3 && capa.transborda <= 1
     && capa.igreja && capa.sigla && capa.h1 === capa.nome && /^Guia de sonoplasta \S/.test(capa.nome),
@@ -245,7 +269,9 @@ const estrutura = (pg, guia) => pg.evaluate((guia) => {
   const colsTodas = [...esc.querySelectorAll('.pag-col')];
   const LINHA = parseFloat(getComputedStyle(colsTodas[0]).lineHeight) || 20;
   const altK = (k) => { const cs = getComputedStyle(k); return k.offsetHeight + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom); };
-  const livreDe = (c) => c.clientHeight - [...c.children].reduce((t, k) => t + altK(k), 0);
+  // o texto de uma coluna, sem a pauta de anotações (L): o vão medido aqui é o do paginador
+  const texto = (c) => [...c.children].filter((k) => !k.matches('.anot'));
+  const livreDe = (c) => c.clientHeight - texto(c).reduce((t, k) => t + altK(k), 0);
   const comRespiro = esc.querySelector('.pag-col > .lb-cap:not(:first-child)');
   const respiro = comRespiro ? parseFloat(getComputedStyle(comRespiro).marginTop) : 0;
   const ordemCaps = [...document.querySelectorAll('#' + guia + ' > section.cap')].map((s) => s.id).filter((k) => k in oid);
@@ -261,8 +287,8 @@ const estrutura = (pg, guia) => pg.evaluate((guia) => {
     // órfão: logo depois do título, na mesma coluna, tem de vir o 1º bloco (fora o resumo) ou ~3 linhas
     const depois = [];
     for (let n = h; n && n !== col; n = n.parentElement) for (let x = n.nextElementSibling; x; x = x.nextElementSibling) depois.push(x);
-    const ult = col.lastElementChild, abaixo = ult.offsetTop + ult.offsetHeight - (h.offsetTop + h.offsetHeight);
-    if (!depois.some((x) => !x.matches('p.resumo')) && abaixo < 2.7 * LINHA) orfaos.push(k + ': ' + Math.round(abaixo) + ' px');
+    const ult = texto(col).pop(), abaixo = ult.offsetTop + ult.offsetHeight - (h.offsetTop + h.offsetHeight);
+    if (!depois.some((x) => !x.matches('p.resumo, .anot')) && abaixo < 2.7 * LINHA) orfaos.push(k + ': ' + Math.round(abaixo) + ' px');
     // pulou: abriu uma coluna nova (não logo depois de uma faixa) com espaço na anterior para título + 1º bloco
     if (idx === 0 || topo.previousElementSibling) return;
     if (col.previousElementSibling && col.previousElementSibling.matches('.pag-faixa')) return;
@@ -301,9 +327,9 @@ const estrutura = (pg, guia) => pg.evaluate((guia) => {
     const cs = [...p.querySelectorAll(':scope > .pag-conteudo > .pag-col')];
     for (let j = 0; j + 1 < cs.length; j += 2) {
       const e = cs[j], d = cs[j + 1];
-      if (!d.childElementCount || p.querySelector('.lb-ind')) continue;
-      if (!e.childElementCount) { esqDepois.push((i + 1) + ': esquerda vazia'); continue; }
-      const d0 = d.firstElementChild, livre = e.clientHeight - [...e.children].reduce((t, k) => t + alt(k), 0);
+      if (!texto(d).length || p.querySelector('.lb-ind')) continue;
+      if (!texto(e).length) { esqDepois.push((i + 1) + ': esquerda vazia'); continue; }
+      const d0 = d.firstElementChild, livre = livreDe(e);
       let prim = alt(d0);
       if (d0.matches('.lb-cap') || /^H[1-6]$/.test(d0.tagName)) {
         prim += (d0.matches('.lb-cap') ? respiro : 0) + Math.max(d0.nextElementSibling ? alt(d0.nextElementSibling) : 0, 3 * LINHA);
@@ -365,7 +391,7 @@ const estrutura = (pg, guia) => pg.evaluate((guia) => {
   const meiaVazia = [];
   colsTodas.forEach((c, i) => {
     const n = colsTodas[i + 1], f = n && n.firstElementChild;
-    if (!f || !c.firstElementChild || f.matches('.lb-cont')) return;
+    if (!f || !texto(c).length || f.matches('.lb-cont')) return;
     const k = f.matches('details') ? f : (f.matches('.lb-grp') && f.lastElementChild && f.lastElementChild.matches('details') ? f.lastElementChild : null);
     const l = livreDe(c);
     if (k && l >= c.clientHeight / 2) meiaVazia.push((pags.indexOf(c.closest('.pag')) + 1) + ': ' + Math.round(l) + ' de ' + c.clientHeight + ' px');

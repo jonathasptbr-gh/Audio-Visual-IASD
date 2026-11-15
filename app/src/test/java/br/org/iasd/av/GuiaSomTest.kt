@@ -14,7 +14,8 @@ import org.junit.Test
  *
  * E o MARCADOR que transforma a página na tela do app
  * ([GuiaSom.comMarcadorDeApp]): antes da âncora, sem duplicar, e aceito pela
- * cerca.
+ * cerca. E o PEDIDO DE IMPRESSÃO ([GuiaSom.pedidoDeImpressao]): só o link
+ * exato do caderno.
  */
 class GuiaSomTest {
 
@@ -104,5 +105,26 @@ class GuiaSomTest {
             "https://audiovisualiasd.com.br/sonoplastia/?app=1#dia",
             GuiaSom.comMarcadorDeApp("https://audiovisualiasd.com.br/sonoplastia/?app=1#dia"),
         )
+    }
+
+    @Test
+    fun oPedidoDeImpressaoEOLinkExatoDoCaderno() {
+        assertTrue(GuiaSom.pedidoDeImpressao("avguia://imprimir"))
+        assertTrue(GuiaSom.pedidoDeImpressao("AVGUIA://Imprimir/"))
+        // e não abre a cerca: o pedido não é uma página do guia
+        assertFalse(GuiaSom.urlDoGuia("avguia://imprimir"))
+    }
+
+    @Test
+    fun oPedidoDeImpressaoRecusaOsVizinhos() {
+        assertFalse(GuiaSom.pedidoDeImpressao(null))
+        assertFalse(GuiaSom.pedidoDeImpressao(""))
+        assertFalse(GuiaSom.pedidoDeImpressao("avguia://outro"))
+        assertFalse(GuiaSom.pedidoDeImpressao("avguia://imprimir/caminho"))
+        assertFalse(GuiaSom.pedidoDeImpressao("avguia://imprimir?x=1"))
+        assertFalse(GuiaSom.pedidoDeImpressao("avguia://imprimir#x"))
+        assertFalse(GuiaSom.pedidoDeImpressao("avguia://imprimir:80"))
+        assertFalse(GuiaSom.pedidoDeImpressao("https://imprimir/"))
+        assertFalse(GuiaSom.pedidoDeImpressao("https://audiovisualiasd.com.br/sonoplastia/#imprimir"))
     }
 }

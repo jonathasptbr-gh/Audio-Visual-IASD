@@ -672,6 +672,13 @@
      cada um conter as margens dos filhos. */
   .pag .lb-grp, .pag details, .pag .cartao, .pag .box { display:flow-root; }
 
+  /* ----- anotações: o vão no pé de uma coluna (fora a capa) que comporta o título e 4 linhas ou
+     mais vira pauta, posta pelo motor depois de paginar (anotar). Linha = borda, não fundo (a
+     impressão costuma sair sem "gráficos de fundo"), no cinza das setas do guia, passo de 7,5 mm ----- */
+  .pag .anot { display:flow-root; margin-top:5mm; }
+  .pag .anot-t { display:block; margin:0; font-size:8pt; font-weight:800; line-height:1.2; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); }
+  .pag .anot-l { display:block; height:7.5mm; box-sizing:border-box; border-bottom:.6pt solid #8d97a1; }
+
   /* ----- na impressão: só as páginas, uma por lado de folha ----- */
   @page guia-a4 { size:A4 portrait; margin:0; }
   @media print {
@@ -714,7 +721,7 @@
   .tut-quando { margin:.3rem 0 0; padding:.45rem .6rem; border-radius:9px; background:var(--dia-tint); font-size:.82rem; line-height:1.42; }
   .tut-svg { width:100%; max-width:330px; height:auto; display:block; margin:.35rem auto; background:var(--panel-2); border-radius:10px; }
   .tut-aviso { margin:.4rem 0 .2rem; padding:.45rem .6rem; border-radius:9px; background:#fff3cd; color:#5c4400; font-size:.82rem; line-height:1.42; }
-  /* o WebView do app pode ignorar window.print(): o aviso só aparece aberto pelo app */
+  /* app anterior à 1.14.22 ignora o pedido de impressão: o aviso só aparece aberto pelo app */
   .tut-so-app { display:none; }
   html.no-app .tut-so-app { display:block; }
 </style>
@@ -6417,6 +6424,7 @@
     <div class="caderno-pe">
       <p class="caderno-info" id="caderno-info" aria-live="polite">Montando as páginas…</p>
       <button type="button" class="caderno-btn" id="caderno-print">Imprimir</button>
+      <a id="caderno-print-app" href="avguia://imprimir" hidden></a>
     </div>
   </div>
   <div class="caderno-tut nao-imprime" id="caderno-tut-p" hidden role="dialog" aria-modal="true" aria-labelledby="caderno-tut-t">
@@ -6427,7 +6435,7 @@
       </div>
       <div class="tut-corpo">
         <p class="tut-intro">Escolha o guia e o formato na barra e toque em <b>Imprimir</b>, o último botão dela. Dá para imprimir pelo navegador do computador ou do celular.</p>
-        <p class="tut-aviso tut-so-app">Pelo app, se nada acontecer ao tocar em <b>Imprimir</b>, abra <b>audiovisualiasd.com.br/sonoplastia</b> no navegador.</p>
+        <p class="tut-aviso tut-so-app">Pelo app, se nada acontecer ao tocar em <b>Imprimir</b>, atualize o app ou abra <b>audiovisualiasd.com.br/sonoplastia</b> no navegador.</p>
         <section class="tut-met" aria-labelledby="tut-t-simples">
           <h3 id="tut-t-simples">A4 simples</h3>
           <svg class="tut-svg" id="tut-svg-simples" viewBox="0 0 340 150" role="img" aria-label="Folhas A4 grampeadas no canto superior esquerdo, ou presas com um clipe" font-family="system-ui, sans-serif">
@@ -6890,7 +6898,13 @@
     }
     btn.addEventListener('click', function () { aberto ? fechar() : abrir(); });
     if (cx) cx.addEventListener('click', fechar);
-    if (printBt) printBt.addEventListener('click', function () { try { window.print(); } catch (e) {} });
+    // Pelo app (`?app=1`) o WebView ignora window.print() e não há ponte: o pedido vai no link
+    // `avguia://imprimir`, que a tela do guia apanha (GuiaSom.pedidoDeImpressao, app 1.14.22).
+    if (printBt) printBt.addEventListener('click', function () {
+      var pedido = $('#caderno-print-app');
+      if (pedido && document.documentElement.classList.contains('no-app')) { pedido.click(); return; }
+      try { window.print(); } catch (e) {}
+    });
     document.addEventListener('keydown', function (e) {
       if (e.key !== 'Escape') return;
       if (tutAberto) { fecharTut(); e.stopPropagation(); return; }   // 1º Esc: só o tutorial
@@ -7677,8 +7691,37 @@
       lis.slice(de).forEach(function (li) { nu.appendChild(li); });
       d.appendChild(nu);
     }
-    /* onde acaba o texto de uma coluna, medido do alto dela */
-    function fim(c) { var l = c.lastElementChild; return l ? l.offsetTop + l.offsetHeight - c.offsetTop : 0; }
+    /* onde acaba o texto de uma coluna, medido do alto dela (a pauta de anotações do pé não conta) */
+    function fim(c) { var l = ultTexto(c); return l ? l.offsetTop + l.offsetHeight - c.offsetTop : 0; }
+    function ultTexto(c) { var l = c.lastElementChild; while (l && l.classList.contains('anot')) l = l.previousElementSibling; return l; }
+
+    /* ----- anotações: depois de paginar, o vão no pé de cada coluna (fora a capa) que comporta o
+       título e ANOT_MIN linhas ganha a pauta "Anotações", com quantas linhas couberem. Mede-se
+       depois de pôr: transbordou, a coluna cresceu (a de cima de uma faixa no meio só usa o vão que
+       já tem, sem empurrar a faixa) ou a pauta passou do pé, sai uma linha; menos de ANOT_MIN, sai
+       a pauta. Não cria página nem mexe no texto. A coluna que acaba num cartão partido fica sem:
+       o "continua →" leva direto à seguinte. A pauta desce até o pé (linhas vizinhas alinhadas). ----- */
+    var ANOT_MIN = 4;
+    function anotar(c) {
+      var ult = c.lastElementChild;
+      if (!ult || ult.matches('.lb-corta') || ult.querySelector('.lb-corta')) return 0;
+      var alto = c.clientHeight, a = document.createElement('div'), t = document.createElement('b'), k = 0;
+      a.className = 'anot'; t.className = 'anot-t'; t.textContent = 'Anotações';
+      a.appendChild(t); c.appendChild(a);
+      function dentro() { return c.clientHeight <= alto + 0.5 && a.offsetTop + a.offsetHeight - c.offsetTop <= alto + 0.5; }
+      function cabe() { return !cheio(c) && dentro(); }
+      function linha() { var l = document.createElement('div'); l.className = 'anot-l'; a.appendChild(l); return l; }
+      if (cabe()) {
+        var passo = linha().offsetHeight; k = 1;
+        for (var n = passo > 0 ? Math.floor(resta(c) / passo) : 0; n > 0; n--) { linha(); k++; }
+        while (k > 0 && !cabe()) { a.lastElementChild.remove(); k--; }
+        while (k < 200) { linha(); if (cabe()) { k++; continue; } a.lastElementChild.remove(); break; }
+      }
+      if (k < ANOT_MIN) { a.remove(); return 0; }
+      var r = Math.floor(alto - (a.offsetTop + a.offsetHeight - c.offsetTop)) - 1;
+      if (r > 0) { a.style.marginTop = (parseFloat(getComputedStyle(a).marginTop) + r) + 'px'; if (!dentro()) a.style.marginTop = ''; }
+      return k;
+    }
 
     /* ----- formato: margens (classe) e a linha única de informação (folhas + impressora) ----- */
     function aplicarFormato() {
@@ -7738,12 +7781,15 @@
       PAGS.length = ordem.length;
       var cvp = $('.cv-pags', capaRec.con);
       if (cvp) cvp.textContent = PAGS.length + ' páginas em A4';
+      // as anotações nos vãos (fora a capa), com a página já no lugar e antes do fio
+      ordem.slice(1).forEach(function (r) { $$('.pag-col', r.el).forEach(anotar); });
       /* o fio do meio em cada par de colunas com a da direita ocupada, do alto delas até onde acaba
-         o texto (todas as medidas primeiro, depois as escritas: o leiaute é calculado uma vez só) */
+         o texto — a pauta de anotações não conta (todas as medidas primeiro, depois as escritas: o
+         leiaute é calculado uma vez só) */
       var fios = ordem.map(function (r) {
         var cs = r.el.querySelectorAll('.pag-col'), out = [];
         for (var i = 0; i + 1 < cs.length; i += 2) {
-          if (cs[i + 1].childElementCount) out.push([cs[i].offsetTop, Math.max(fim(cs[i]), fim(cs[i + 1]))]);
+          if (ultTexto(cs[i + 1])) out.push([cs[i].offsetTop, Math.max(fim(cs[i]), fim(cs[i + 1]))]);
         }
         return out;
       });

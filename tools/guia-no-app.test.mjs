@@ -17,6 +17,8 @@
 //     da barra de endereço (para não viajar no link de compartilhar). Sem o
 //     marcador, o "voltar ao site" continua à vista. A 320 e a 280 px, com e sem
 //     os <details> abertos, a página não ganha rolagem lateral.
+//  F. O "IMPRIMIR" DO CADERNO (app 1.14.22): pelo app, o link `avguia://imprimir`
+//     que a tela do guia apanha; no navegador, `window.print()`.
 // A forma do navegador (`window.open`) é do `tour.test.mjs` (bloco F).
 //
 //   node tools/guia-no-app.test.mjs
@@ -178,6 +180,28 @@ try {
     checar(estreito.tituloEsq >= 52 && estreito.sobra <= 1 && estreito.sobraAberto <= 1,
       `E · a ${largura} px o guia no app também não estoura (nem com os <details> abertos) nem cobre o título`,
       JSON.stringify(estreito));
+    await p.ctx.close();
+  }
+
+  // ── F. O "IMPRIMIR" DO CADERNO ─────────────────────────────────────────
+  // Pelo app o WebView ignora `window.print()` e não há ponte: o botão toca o
+  // link `avguia://imprimir` (o `GuiaSom.pedidoDeImpressao` o apanha); no
+  // navegador, `window.print()` — e nunca os dois.
+  for (const [url, app] of [[SITE + '/sonoplastia/?app=1', true], [SITE + '/sonoplastia/', false]]) {
+    p = await abrirPagina(url);
+    const imp = await p.pg.evaluate(() => {
+      const r = { print: 0, pedido: null };
+      window.print = () => { r.print++; };
+      document.addEventListener('click', (e) => {
+        const a = e.target.closest && e.target.closest('a[href^="avguia:"]');
+        if (a) { e.preventDefault(); r.pedido = a.getAttribute('href'); }
+      }, true);
+      document.getElementById('caderno-print').click();
+      return r;
+    });
+    checar(app ? imp.pedido === 'avguia://imprimir' && imp.print === 0 : imp.pedido === null && imp.print === 1,
+      app ? 'F · pelo app, o "Imprimir" toca o link avguia://imprimir, sem window.print()'
+        : 'F · no navegador, o "Imprimir" chama window.print(), sem o link do app', JSON.stringify(imp));
     await p.ctx.close();
   }
 

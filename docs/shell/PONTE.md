@@ -295,7 +295,15 @@ barra branca do guia quanto na barra escura do diálogo de impressão. O WebView
 cerca vale a cada navegação do quadro principal (fora do site → `ACTION_VIEW`, só
 `http(s)`); quadro interno carrega onde está. Voltar: com histórico, uma página
 atrás; sem ele, fecha. Sem rede: aviso com "Tentar de novo". A morte do renderer
-(o processo é o do app) fecha o guia e devolve `true`. O
+(o processo é o do app) fecha o guia e devolve `true`. **Imprimir (app
+1.14.22):** o WebView ignora `window.print()`; com `?app=1`, o "Imprimir" do
+caderno toca o link `avguia://imprimir`, que o `Cliente` apanha ANTES da cerca
+(`GuiaSom.pedidoDeImpressao`, exato, JUnit em `GuiaSomTest`) e entrega ao
+`PrintManager` com o `createPrintDocumentAdapter` do próprio WebView (A4 retrato
+sem margem como padrão). Casco anterior recusa o esquema no `abrirFora` — nada
+acontece, e o tutorial do caderno manda atualizar ou abrir no navegador. A tela
+de impressão é outra Activity: a `MainActivity` passa por `onPause`/`onStop`,
+como no link que abre fora. O `guia-no-app` (F) trava a metade do site. O
 `invariantes-shell.test.mjs` trava as três metades.
 
 A tabela de degraus está em [`../HISTORICO.md`](../HISTORICO.md) — com o piso,

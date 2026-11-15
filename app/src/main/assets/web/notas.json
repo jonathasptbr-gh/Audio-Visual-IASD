@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.14.22",
+    "itens": [
+      "Guia de sonoplastia: o botão Imprimir agora abre a impressão dentro do app (pede o app novo instalado).",
+      "Guia impresso: os espaços vazios das folhas ganharam um bloco de Anotações com linhas, sem folha a mais."
+    ]
+  },
+  {
     "versao": "1.14.21",
     "itens": [
       "No player do Avançado, o botão da playlist passou para a esquerda e o de repetir para a direita dele.",

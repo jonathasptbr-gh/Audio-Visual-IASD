@@ -1,9 +1,12 @@
 package br.org.iasd.av
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.print.PrintAttributes
+import android.print.PrintManager
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
@@ -73,6 +76,23 @@ object GuiaSom {
             else -> "?"
         }
         return base + separador + "app=1" + ancora
+    }
+
+    /**
+     * O PEDIDO DE IMPRESSÃO (app 1.14.22). O WebView ignora `window.print()` e o
+     * guia não tem ponte (invariante 2): aberto pelo app (`?app=1`), o
+     * "Imprimir" do caderno toca o link `avguia://imprimir`, que o
+     * [GuiaSomDialog] apanha ANTES da cerca. Casco anterior o manda ao
+     * `abrirFora`, que recusa o que não é `http(s)` — nada acontece, como antes.
+     * Exato: esse esquema e esse host, sem porta, consulta nem âncora.
+     */
+    fun pedidoDeImpressao(url: String?): Boolean {
+        val alvo = try { URI(url ?: return false) } catch (_: Exception) { return false }
+        return alvo.scheme.equals("avguia", ignoreCase = true) &&
+            alvo.host.equals("imprimir", ignoreCase = true) &&
+            alvo.port == -1 && alvo.rawUserInfo == null &&
+            (alvo.rawPath.isNullOrEmpty() || alvo.rawPath == "/") &&
+            alvo.rawQuery == null && alvo.rawFragment == null
     }
 }
 
@@ -230,6 +250,27 @@ class GuiaSomDialog(
         }
     }
 
+    /**
+     * O caderno no papel: o `PrintDocumentAdapter` do PRÓPRIO WebView, que
+     * imprime com o `@media print` da página (só o `.caderno`, `@page guia-a4`).
+     * A4 retrato sem margem é o PADRÃO oferecido; o operador troca na tela do
+     * sistema. Essa tela é outra Activity: a [MainActivity] passa por
+     * `onPause`/`onStop`, como no link que abre fora — imprimir é preparo.
+     */
+    private fun imprimir(view: WebView) {
+        if (web !== view) return
+        val gerente = activity.getSystemService(Context.PRINT_SERVICE) as? PrintManager ?: return
+        val padrao = PrintAttributes.Builder()
+            .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+            .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
+            .build()
+        try {
+            gerente.print(NOME_DA_IMPRESSAO, view.createPrintDocumentAdapter(NOME_DA_IMPRESSAO), padrao)
+        } catch (e: Exception) {
+            Log.w(TAG, "a impressão do guia não abriu", e)
+        }
+    }
+
     private fun encerrar() {
         val v = web ?: return aoFechar()
         web = null
@@ -249,6 +290,10 @@ class GuiaSomDialog(
             // neste WebView para ele alcançar. A cerca é o QUADRO PRINCIPAL.
             if (!request.isForMainFrame) return false
             val alvo = request.url
+            if (GuiaSom.pedidoDeImpressao(alvo.toString())) {
+                view.post { imprimir(view) }
+                return true
+            }
             if (GuiaSom.urlDoGuia(alvo.toString())) return false
             abrirFora(alvo)
             return true
@@ -290,6 +335,7 @@ class GuiaSomDialog(
 
     private companion object {
         const val TAG = "GuiaSom"
+        const val NOME_DA_IMPRESSAO = "Guia de sonoplastia"
         const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
         const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
     }
