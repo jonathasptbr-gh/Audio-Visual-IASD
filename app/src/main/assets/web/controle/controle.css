@@ -3361,13 +3361,16 @@ main {
    É A GRADE DA `.list-header`, verbatim — três trilhas, as duas laterais com o
    MESMO piso (`--hit`) e o mesmo crescimento (`1fr`). O centro geométrico da
    barra passa a ser o centro da trilha 2, independentemente de quantos botões
-   há nas pontas: a Bíblia tem voltar e ✕, o Ferramentas só o ✕, e o título fica
-   no mesmo x nos dois. Um botão `hidden` some do layout mas NÃO apaga a trilha
-   que o template declara — é por isso que a troca de tela não o move.
+   há nas pontas: a Bíblia tem voltar e ✕, e o Ferramentas mostra UM dos dois —
+   a seta quando a ferramenta veio da lista, o ✕ quando abriu direto (v1.14.26) —,
+   e o título fica no mesmo x nos dois. Um botão `hidden` some do layout mas NÃO
+   apaga a trilha que o template declara — é por isso que a troca de tela não o
+   move.
 
    O `grid-column` de cada morador é EXPLÍCITO porque a colocação automática
-   preencheria da esquerda para a direita: sem ele, a folha de Ferramentas (que
-   não tem voltar) poria o título na trilha 1 e desfaria tudo. */
+   preencheria da esquerda para a direita: sem ele, o `#toolsVoltar` (o primeiro
+   filho do cabeçalho) mandaria o título para a trilha 2 por acaso e o ✕ para a
+   3, e a folha da Bíblia desfaria o eixo. */
 .tools-head {
   flex-shrink: 0; display: grid; align-items: center; gap: var(--sp-3);
   grid-template-columns: minmax(var(--hit), 1fr) minmax(0, auto) minmax(var(--hit), 1fr);

@@ -96,14 +96,20 @@ try {
   const idaCrono = await pg.evaluate(async (i) => {
     document.querySelector('#library .lib-item[data-id="' + i.crono + '"] .row-engrenagem').click();
     await new Promise((r) => setTimeout(r, 350));
+    const r = (id) => document.getElementById(id).getBoundingClientRect();
     return {
       aberta: ferramentasAbertas(), tool: miscTool, vista: tempoVista,
       modo: chrono.mode, dur: chrono.durationMs, rotulo: chrono.label,
+      // A ENGRENAGEM ABRE FORA DA LISTA: o cabeçalho mostra o ✕ que fecha a folha
+      // direto, e NÃO a seta de voltar à lista (v1.14.26).
+      seta: r('toolsVoltar').width > 0, fechar: r('toolsClose').width > 0,
     };
   }, ids);
   checar(idaCrono.aberta && idaCrono.tool === 'chrono' && idaCrono.vista === 'chrono'
     && idaCrono.modo === 'timer' && idaCrono.dur === 300000 && idaCrono.rotulo === 'Abertura',
     'B · o Tempo abre no MODO e com a DURAÇÃO e a legenda do item, e não no último estado da ferramenta', idaCrono);
+  checar(!idaCrono.seta && idaCrono.fechar,
+    'B · aberta pela ENGRENAGEM (fora da lista), o cabeçalho mostra o ✕ e não a seta — o ✕ fecha a folha direto', idaCrono);
 
   // ── C. A VOLTA: o que se edita volta para O MESMO item ────────────────────
   const voltaCrono = await pg.evaluate(async (i) => {

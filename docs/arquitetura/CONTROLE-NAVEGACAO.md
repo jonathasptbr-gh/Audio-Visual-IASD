@@ -53,8 +53,8 @@ Um `text-align: center` sozinho não alcança a segunda: a caixa dele continuari
 sendo "o que sobra", e o que sobra muda de tamanho com o vizinho. A grade é a da
 `.list-header`, verbatim — um botão `hidden` some do layout mas não apaga a
 trilha que o template declara, e é por isso que trocar de tela não move o
-título. O `grid-column` de cada morador é explícito: sem ele, a folha de
-Ferramentas (que não tem voltar) poria o título na trilha 1.
+título. O `grid-column` de cada morador é explícito: sem ele, o `#toolsVoltar`
+da folha de Ferramentas mandaria o título para a trilha errada.
 
 | peça | o que é |
 |---|---|

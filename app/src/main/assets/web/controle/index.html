@@ -1121,10 +1121,13 @@
     <div id="toolsSheet" class="tools-sheet" hidden>
       <div class="tools-head">
         <!-- O CABEÇALHO SÓ EXISTE DENTRO DE UMA FERRAMENTA (v1.13.6): na LISTA
-             delas quem fecha é a seta `#toolsFechar`, na casa da porta. Ele não
-             tem voltar na tela — a trilha 1 fica vazia, reservada pela grade, e
-             o título continua no centro; o caminho de volta à lista é o voltar
-             do Android (degrau 2.5 do `__avBack`). -->
+             delas quem fecha é a seta `#toolsFechar`, na casa da porta. A trilha
+             1 é o VOLTAR À LISTA quando a ferramenta foi aberta por ela; aberta
+             direto (a engrenagem do Cronograma/Favoritos, o tour), a ferramenta
+             mostra o ✕ e não a seta — os dois nunca aparecem juntos, e quem
+             decide é `pintarCabecalhoDasFerramentas` (v1.14.26). A trilha 2
+             continua sendo o eixo do título. -->
+        <button id="toolsVoltar" class="back-btn" type="button" title="Voltar às ferramentas" aria-label="Voltar às ferramentas" hidden><span class="msym" aria-hidden="true">&#xe5c4;</span></button>
         <span id="toolsTitle" class="tools-title">Ferramentas</span>
         <!-- O NOME DO ITINERÁRIO ATIVO MORA NO TÍTULO DA FOLHA (v1.13.4): com o
              Itinerário aberto, ele toma a trilha 2 no lugar do `#toolsTitle` e é a
@@ -1971,7 +1974,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.25</span>
+          <span id="appVersion">v1.14.26</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>

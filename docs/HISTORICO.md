@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.26** — Ferramentas: a ferramenta aberta pela lista mostra a SETA de voltar (e o voltar do Android sobe para ela); aberta direto, pela engrenagem, mostra o ✕, que fecha a folha; só web.
 - **v1.14.25** — os Pacotes 22 e 23 num lote só: a leitura da Bíblia fica em três versículos (um atrás, o atual e um à frente) e o fecho do editor de mídia encosta na régua do rodapé das outras ferramentas; só web.
 - **o guia impresso: as anotações num retângulo só e o subtítulo do índice centrado (sem versão nova; só `site/`)** — sai o L da pauta larga (nenhuma linha cobre uma coluna só, o título sempre à esquerda) e o subtítulo do grupo no índice vai para o centro.
 - **o guia impresso: as anotações em bloco largo e o índice numa caixa única (sem versão nova; só `site/`)** — o mínimo de anotações vai a 5 linhas, as duas colunas com vão viram um bloco só (em L quando a coluna mais alta tem sobra), e o índice vira um quadro com o título centrado e duas colunas alinhadas.
@@ -824,6 +825,39 @@ apagada da que a criou.
   339,07 / 339,07 px; larguras 83,5 / 83,5 mm.
 - **As páginas não se moveram:** 22 (Por um dia) e 88 (Tempo integral), nos dois formatos, e o
   `antesDaPauta` = depois = PDF continua cobrando isso.
+
+---
+
+## v1.14.26 — a seta de voltar nas Ferramentas, quando a ferramenta veio da lista
+
+Pedido direto do operador em 2026-11-15, fora da fila: *"ao invés do botão de
+fechar sempre. Use um seta quando aberto pela janela de ferramentas, e no caso
+ele retorna para a lista de ferramentas se for aberto por esse caminho. Quando
+aberto por outro lugar direto, como pela engrenagem no cronograma ou favoritos,
+então ele mostra o botão de fechar que temos hoje, que fecha diretamente a
+janela."* Ele REVOGA, com uma condição, a remoção do voltar que o operador
+pediu na v1.13.6.
+
+- O cabeçalho da folha de Ferramentas ganhou a seta `#toolsVoltar` na trilha 1
+  (a que a grade sempre reservou), e o ✕ `#toolsClose` continua na trilha 3.
+  Os dois são EXCLUSIVOS: quem decide é `ferrVeioDaLista`, escrito por
+  `abrirFerramenta` — `true` com a folha já aberta na lista (o toque na linha),
+  `false` quando a folha abre direto (a engrenagem do Cronograma/Favoritos, o
+  tour, os oráculos).
+- A SETA volta à lista por `voltarAGradeDeFerramentas({ animar: true })`, o
+  caminho animado de sempre; o ✕ fecha a folha como antes.
+- O VOLTAR DO ANDROID passa a seguir o controle que está na tela: aberta pela
+  lista, sobe para ela; aberta direto, fecha a folha (`__avBack`, degrau 2.5).
+  Era o único caminho de volta à lista desde a v1.13.6; agora o degrau existe
+  só no caminho que veio da lista.
+- O título continua no centro nos dois estados, porque a trilha que fica vazia
+  segue reservada pelo template (v1.8.80).
+- Os oráculos: o `ferramentas-folha` mede os dois estados (seta visível e ✕
+  oculto pela lista; ✕ visível e seta oculta no direto), o toque na seta
+  devolvendo a lista, e o voltar do Android fechando a folha no caminho direto;
+  o `engrenagem-do-item` mede o cabeçalho na abertura pela engrenagem.
+
+**Nenhum arquivo do shell foi tocado.**
 
 ---
 

@@ -2398,7 +2398,9 @@ try {
         // NA LISTA NÃO HÁ CABEÇALHO (v1.13.6): quem fecha é a seta na casa da porta.
         cabecalho: getComputedStyle(document.querySelector('#toolsSheet > .tools-head')).display,
         seta: getComputedStyle(document.getElementById('toolsFechar')).display,
-        voltar: !!document.getElementById('toolsBack') || !!document.querySelector('#toolsSheet .back-btn'),
+        // A SETA DE VOLTAR À LISTA existe no DOM (v1.14.26), mas só aparece dentro
+        // de uma ferramenta ABERTA PELA LISTA — aqui ela está escondida.
+        voltar: (() => { const b = document.getElementById('toolsVoltar'); return !!b && !b.hidden; })(),
         pe: document.getElementById('toolsFoot').childElementCount,
         painel: !!document.querySelector('#toolsBody .misc-panel'),
         // UMA COLUNA, SEIS FILEIRAS, UMA ALTURA (a lista vertical da v1.13.4).
@@ -2417,8 +2419,8 @@ try {
       && g.nomes === 'Relógio,Cronômetro,Timer,Itinerário,Mensagens,Sorteio,Editar mídia',
       'G · a folha abre na GRADE: sete tiles, um por ferramenta (o editor de mídia é o último, v1.14.7), o tempo em cima e o texto embaixo', g);
     checar(g.cabecalho === 'none' && g.seta !== 'none' && g.voltar === false && g.pe === 0 && g.painel === false,
-      'G · na lista NÃO HÁ CABEÇALHO (nem título, nem ✕), a seta de fechar está à vista, não há voltar nem rodapé, '
-      + 'e nenhum painel está montado (v1.13.6)', g);
+      'G · na lista NÃO HÁ CABEÇALHO (nem título, nem ✕), a seta de fechar está à vista, a seta de voltar está '
+      + 'escondida (só existe dentro de uma ferramenta aberta pela lista) e nenhum painel está montado (v1.13.6)', g);
     checar(g.fileiras === 7 && g.colunas === 1 && g.alturas === 1 && g.empilhadas,
       'G · uma LISTA VERTICAL (v1.13.4): sete linhas empilhadas, uma coluna e uma altura só', g);
     checar(g.bg && g.raio, 'G · e o tile é o de Configurações: a mesma tinta e o mesmo raio', g);
@@ -2452,8 +2454,9 @@ try {
       cabecalho: getComputedStyle(document.querySelector('#toolsSheet > .tools-head')).display,
       fechar: (() => { const x = document.getElementById('toolsClose').getBoundingClientRect(); return x.width > 0 && x.height > 0; })(),
       seta: getComputedStyle(document.getElementById('toolsFechar')).display,
-      // NENHUM VOLTAR NA TELA (v1.13.6): nem o nó, nem um `.back-btn` qualquer na folha.
-      voltar: !!document.getElementById('toolsBack') || !!document.querySelector('#toolsSheet .back-btn'),
+      // A SETA VOLTA À LISTA (v1.14.26): a ferramenta veio do toque na linha, e a
+      // saída do cabeçalho é ela — o ✕ dá lugar a ela e não aparece junto.
+      voltar: (() => { const x = document.getElementById('toolsVoltar').getBoundingClientRect(); return x.width > 0 && x.height > 0; })(),
       fantasmas: document.querySelectorAll('#toolsSheet > .ferr-fantasma').length,
       run: !!document.getElementById('chronoRun'),
       grade: !!document.getElementById('ferrGrade'),
@@ -2467,12 +2470,11 @@ try {
       })(),
     }));
     checar(r === true, 'G · e a camada que sai some no fim da animação', porque(r));
-    checar(d.titulo === 'Timer' && d.cabecalho !== 'none' && d.fechar && d.seta === 'none' && d.run && !d.grade && d.segs === 0,
-      'G · dentro dela HÁ o cabeçalho, com o NOME da ferramenta e o ✕; a seta da lista some, o rodapé é o dela, e não há '
-      + 'abas nem segmentos', d);
-    checar(d.voltar === false && d.fantasmas === 0,
-      'G · e NÃO HÁ VOLTAR na tela (v1.13.6: saiu a pedido do operador — o caminho de volta à lista é o voltar do Android), '
-      + 'e os fantasmas da troca sumiram com ela', d);
+    checar(d.titulo === 'Timer' && d.cabecalho !== 'none' && !d.fechar && d.voltar && d.run && !d.grade && d.segs === 0,
+      'G · dentro dela HÁ o cabeçalho, com o NOME da ferramenta e a SETA de voltar à lista (a ferramenta veio da '
+      + 'lista), sem o ✕; a seta da lista some, o rodapé é o dela, e não há abas nem segmentos', d);
+    checar(d.fantasmas === 0,
+      'G · e os fantasmas da troca sumiram com ela', d);
     // O TÍTULO FICA NO CENTRO DA FOLHA LARGA (o voltar tem trilha própria). Na
     // lista ele encosta à esquerda da folha ESTREITA (v1.13.5), então "parado
     // entre as duas vistas" deixou de ser a pergunta — a folha muda de largura.
@@ -2480,8 +2482,9 @@ try {
       'G · dentro da ferramenta a folha é LARGA de novo (as bordas do `.list-body`) e o título fica no CENTRO dela',
       { d: d.tituloCx, folha: d.folhaCx, larga: d.larga });
 
-    // DE VOLTA À LISTA (o caminho do voltar do Android, animado como o toque).
-    await pg.evaluate(() => voltarAGradeDeFerramentas({ animar: true }));
+    // DE VOLTA À LISTA: a SETA do cabeçalho devolve a grade (o mesmo destino do
+    // voltar do Android, que usa o mesmo caminho).
+    await pg.evaluate(() => document.getElementById('toolsVoltar').click());
     const rv = await esperar(pg, () => !!document.getElementById('ferrGrade') && !document.querySelector('.ferr-saindo')
       && !document.querySelector('#toolsSheet > .ferr-fantasma'), null, 3000);
     const vd = await pg.evaluate(() => ({
@@ -2489,10 +2492,10 @@ try {
       seta: getComputedStyle(document.getElementById('toolsFechar')).display,
     }));
     checar(rv === true && vd.cabecalho === 'none' && vd.seta !== 'none',
-      'G · a volta à lista devolve a GRADE, sem cabeçalho e com a seta (e os fantasmas da troca somem)', { r: porque(rv), vd });
+      'G · a SETA do cabeçalho devolve a GRADE, sem cabeçalho e com a seta de fechar (e os fantasmas da troca somem)', { r: porque(rv), vd });
 
-    // O VOLTAR DO ANDROID: de dentro de uma ferramenta devolve a grade (a folha
-    // continua aberta); da grade, fecha a folha.
+    // O VOLTAR DO ANDROID, ABERTA PELA LISTA: de dentro da ferramenta devolve a
+    // grade (a folha continua aberta); da grade, fecha a folha.
     const b = await pg.evaluate(() => {
       abrirFerramenta('msg');
       const c1 = window.__avBack();
@@ -2501,8 +2504,26 @@ try {
       const c2 = window.__avBack();
       return { c1, naGrade, c2, saindo: toolsSheetEl.classList.contains('saindo') };
     });
-    checar(b.c1 === true && b.naGrade, 'G · o voltar do Android, dentro de uma ferramenta, DEVOLVE A GRADE e não fecha a folha', b);
+    checar(b.c1 === true && b.naGrade, 'G · o voltar do Android, na ferramenta aberta PELA LISTA, DEVOLVE A GRADE e não fecha a folha', b);
     checar(b.c2 === true && b.saindo, 'G · e da grade, o voltar fecha a folha', b);
+    await esperar(pg, () => toolsSheetEl.hidden);
+
+    // ABERTA DIRETO (a engrenagem, o tour): a saída é o ✕, e o voltar do Android
+    // faz o mesmo — não há degrau de volta à lista, porque a lista nunca esteve lá.
+    await pg.evaluate(() => abrirFerramenta('msg'));   // folha fechada → abre direto
+    const dir = await pg.evaluate(() => {
+      const v = document.getElementById('toolsVoltar').getBoundingClientRect();
+      const x = document.getElementById('toolsClose').getBoundingClientRect();
+      return { lista: ferrNaGrade, seta: v.width > 0, fechar: x.width > 0 };
+    });
+    checar(!dir.lista && !dir.seta && dir.fechar,
+      'G · aberta DIRETO (fora da lista), o cabeçalho mostra o ✕ e não a seta — os dois nunca aparecem juntos', dir);
+    const dvol = await pg.evaluate(() => {
+      const c = window.__avBack();
+      return { c, saindo: toolsSheetEl.classList.contains('saindo') };
+    });
+    checar(dvol.c === true && dvol.saindo,
+      'G · e o voltar do Android, na mesma porta, FECHA a folha como o ✕', dvol);
     await esperar(pg, () => toolsSheetEl.hidden);
 
     // A FOLHA NÃO LEMBRA A ÚLTIMA FERRAMENTA: fechada de dentro do Sorteio, ela

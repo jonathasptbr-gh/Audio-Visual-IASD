@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.14.26",
+    "itens": [
+      "Nas Ferramentas, a ferramenta aberta pela lista mostra a seta de voltar, e ela retorna à lista.",
+      "Aberta direto (a engrenagem do Cronograma ou dos Favoritos), ela mostra o ✕, que fecha a janela."
+    ]
+  },
+  {
     "versao": "1.14.25",
     "itens": [
       "Na leitura da Bíblia, agora são 3 versículos (um antes, o atual e um depois), com mais espaço em cada um.",

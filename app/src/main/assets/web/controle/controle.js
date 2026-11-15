@@ -373,6 +373,9 @@ const toolsBodyEl = document.getElementById('toolsBody');
 // O RODAPÉ FIXO da folha (v1.8.89), irmão do corpo — ver `renderFoot`.
 const toolsFootEl = document.getElementById('toolsFoot');
 const toolsCloseEl = document.getElementById('toolsClose');
+// A SETA DE VOLTAR À LISTA (v1.14.26) — a trilha 1 do cabeçalho, à vista só
+// quando a ferramenta foi aberta PELA lista (ver `pintarCabecalhoDasFerramentas`).
+const toolsVoltarEl = document.getElementById('toolsVoltar');
 // O TÍTULO da folha (v1.13.3) — ver `pintarCabecalhoDasFerramentas`.
 const toolsTitleEl = document.getElementById('toolsTitle');
 // O NOME DO ITINERÁRIO ATIVO no título da folha (v1.13.4) — ver
@@ -416,7 +419,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.25';
+const WEB_VERSION = '1.14.26';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10311,11 +10314,13 @@ function renderMsg() {
 // ===== A FOLHA DE FERRAMENTAS ABRE NUMA LISTA =====
 // A LISTA das sete, uma linha por ferramenta (`FERRAMENTAS`), dividindo a altura da
 // folha — um nível de escolha só até a ferramenta. O toque abre a ferramenta; o voltar
-// do Android devolve a lista antes de a folha fechar. Na tela não há voltar: dentro de
-// uma ferramenta o cabeçalho tem o título e o ✕, e na lista quem fecha é a seta na
-// casa da porta (`#toolsFechar`). Os nomes internos (`ferrNaGrade`,
-// `renderGradeDeFerramentas`, `#ferrGrade`, `.ferr-tile`) são da GRADE que a lista
-// substituiu — renomeá-los não muda um pixel.
+// devolve a lista quando ela foi aberta POR ela — a seta no cabeçalho e o voltar do
+// Android fazem o mesmo (v1.14.26). Aberta DIRETO (a engrenagem do Cronograma e dos
+// Favoritos, o tour, a porta dos oráculos), o cabeçalho mostra o ✕, que fecha a folha,
+// e não a seta: `ferrVeioDaLista` é a pergunta que separa os dois caminhos. Na lista
+// quem fecha é a seta na casa da porta (`#toolsFechar`). Os nomes internos
+// (`ferrNaGrade`, `renderGradeDeFerramentas`, `#ferrGrade`, `.ferr-tile`) são da GRADE
+// que a lista substituiu — renomeá-los não muda um pixel.
 //
 // **O ESTADO DOS PAINÉIS É O DE SEMPRE.** `miscTool` ('msg' · 'chrono' · 'draw'),
 // `tempoVista` e `chrono.mode` continuam dizendo QUAL painel está montado — as dezenas
@@ -10332,6 +10337,11 @@ function renderMsg() {
 // ponta direita da linha.
 let miscTool = 'msg';
 let ferrNaGrade = true;
+// DE ONDE A FERRAMENTA FOI ABERTA (v1.14.26): `true` = o toque na linha da lista (a
+// seta volta para ela); `false` = a folha abriu DIRETO na ferramenta pela engrenagem
+// do Cronograma/Favoritos, pelo tour ou pelos oráculos (o ✕ fecha a folha). Escrito
+// por `abrirFerramenta` e lido por `pintarCabecalhoDasFerramentas` e `__avBack`.
+let ferrVeioDaLista = false;
 
 // Os PAINÉIS — o que cada ferramenta monta no corpo da folha.
 const MISC_TOOLS = [
@@ -10562,8 +10572,10 @@ function acertarGradeDeFerramentas() {
 }
 
 // O CABEÇALHO SÓ EXISTE DENTRO DE UMA FERRAMENTA, e diz qual é: o nome dela no
-// centro e o ✕ na ponta. Na LISTA ele não é desenhado, e quem fecha é a
-// `#toolsFechar` (ver `medirPortaDasFerramentas`).
+// centro e, na ponta, a saída do CAMINHO que a abriu (v1.14.26) — a SETA que
+// volta à lista quando ela veio de lá, o ✕ que fecha a folha quando ela abriu
+// direto. Eles nunca aparecem juntos. Na LISTA o cabeçalho não é desenhado, e
+// quem fecha é a `#toolsFechar` (ver `medirPortaDasFerramentas`).
 //
 // NO ITINERÁRIO O TÍTULO É O NOME DO ITINERÁRIO ATIVO, e é a porta da gaveta
 // deles (o espaço vertical volta para a lista). É o idioma do `#cronoTitulo` inteiro — o nome e a seta, o
@@ -10577,6 +10589,12 @@ function pintarCabecalhoDasFerramentas() {
   const atual = ferramentaAtual();
   const f = FERRAMENTAS.find((x) => x.id === atual);
   toolsTitleEl.textContent = ferrNaGrade || !f ? 'Ferramentas' : f.nome;
+  // AS DUAS SAÍDAS SÃO EXCLUSIVAS: aberta pela lista, a seta volta para ela;
+  // aberta direto (a engrenagem, o tour, os oráculos), o ✕ fecha a folha. Na
+  // lista o cabeçalho inteiro é escondido pelo CSS, e o par fica sem uso.
+  const dentro = !ferrNaGrade && !!f;
+  if (toolsVoltarEl) toolsVoltarEl.hidden = !(dentro && ferrVeioDaLista);
+  if (toolsCloseEl) toolsCloseEl.hidden = !(dentro && !ferrVeioDaLista);
   const noItin = !ferrNaGrade && atual === 'itinerario';
   toolsTitleEl.hidden = noItin;
   if (!itinTituloEl) return;
@@ -10650,6 +10668,12 @@ function refreshDiversos() {
 function abrirFerramenta(id, opcoes) {
   const f = FERRAMENTAS.find((x) => x.id === id);
   if (!f || !toolsSheetEl) return;
+  // A PORTA DECIDE A SAÍDA (v1.14.26): com a folha JÁ aberta na lista, a
+  // ferramenta veio de lá (seta volta); com a folha fechada, ela abriu direto
+  // (a engrenagem, o tour, os oráculos) e a saída é o ✕. Trocar de ferramenta
+  // de dentro de outra não muda a pergunta — a folha veio do mesmo lugar.
+  if (!ferramentasAbertas()) ferrVeioDaLista = false;
+  else if (ferrNaGrade) ferrVeioDaLista = true;
   // A ENGRENAGEM PASSA O CUE; qualquer outra porta o ESQUECE (ver o bloco da
   // engrenagem). Fica antes dos desvios de desenho para o vínculo valer nas
   // duas portas, e o `else` é o que impede o vínculo de sobreviver à troca de
@@ -45582,6 +45606,8 @@ const POPUPS = [
 // ela compartilha com a tabela é o ✕ e o degrau do voltar, e os dois estão
 // escritos aqui e no `__avBack`.
 if (toolsCloseEl) toolsCloseEl.addEventListener('click', fecharFerramentas);
+// A SETA VOLTA À LISTA (v1.14.26) — o par do ✕ quando a ferramenta veio da lista.
+if (toolsVoltarEl) toolsVoltarEl.addEventListener('click', () => voltarAGradeDeFerramentas({ animar: true }));
 if (toolsFecharEl) toolsFecharEl.addEventListener('click', fecharFerramentas);
 // O TÍTULO DO ITINERÁRIO abre e fecha a gaveta deles (ele mora no cabeçalho da
 // folha, e o ouvinte é ligado uma vez, aqui).
@@ -45652,12 +45678,12 @@ window.__avBack = function () {
   // 2.5. A folha de Ferramentas. Depois dos bottom-sheets porque um deles pode
   //    abrir DE DENTRO dela (a folha da música, pelo sorteio), e antes da tela
   //    cheia porque ela é mais efêmera: é uma camada da lista, não a projeção.
-  //    E ELA TEM UM DEGRAU DENTRO: com uma ferramenta aberta, o voltar devolve a
-  //    LISTA antes de fechar a folha, como a Bíblia sobe por dentro dela logo
-  //    abaixo. É o ÚNICO caminho de volta à lista: na tela não há voltar — o
-  //    cabeçalho de uma ferramenta tem o título e o ✕.
+  //    E ELA TEM UM DEGRAU DENTRO, CONDICIONAL (v1.14.26): aberta PELA lista, o
+  //    voltar sobe para ela, como a seta do cabeçalho; aberta DIRETO (a
+  //    engrenagem, o tour), ele fecha a folha, como o ✕. A pergunta é a mesma
+  //    que desenha o controle: `ferrVeioDaLista`.
   if (ferramentasAbertas()) {
-    if (!ferrNaGrade) voltarAGradeDeFerramentas({ animar: true });
+    if (!ferrNaGrade && ferrVeioDaLista) voltarAGradeDeFerramentas({ animar: true });
     else fecharFerramentas();
     return true;
   }
