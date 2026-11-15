@@ -30,7 +30,9 @@ apagada da que a criou.
 
 ## Índice
 
+- **o guia impresso: as anotações num retângulo só e o subtítulo do índice centrado (sem versão nova; só `site/`)** — sai o L da pauta larga (nenhuma linha cobre uma coluna só, o título sempre à esquerda) e o subtítulo do grupo no índice vai para o centro.
 - **o guia impresso: as anotações em bloco largo e o índice numa caixa única (sem versão nova; só `site/`)** — o mínimo de anotações vai a 5 linhas, as duas colunas com vão viram um bloco só (em L quando a coluna mais alta tem sobra), e o índice vira um quadro com o título centrado e duas colunas alinhadas.
+- **v1.14.24** — os Pacotes 7, 21 e 28 num lote só: a Verificação oferece o "Atualizar agora", o item guardado ganha a engrenagem (e a volta para ele), as Mensagens ganham o lápis e o aviso da série arma a rodada; só web.
 - **v1.14.23** — a notificação vira controle de player: ⏮/⏭ dela passam MÚSICA com letra, versículo, mensagem ou itinerário no ar, e o eixo duplo fica só na coluna da tela cheia (`slideMode`/`slideLabel` vão sempre vazios); só web.
 - **v1.14.22** — o guia impresso: o "Imprimir" do caderno funciona dentro do app (`avguia://imprimir` → `PrintManager`) e os vazios das colunas ganham o bloco "Anotações" sem folha a mais; `java/` + site, Release `v1.14.22`.
 - **v1.14.21** — o tour: a moldura antes do que está dentro dela (a prévia antes dos botões sobre ela), a lista da Playlist automática, e a playlist à esquerda do repetir no deck; só web.
@@ -758,6 +760,28 @@ apagada da que a criou.
 
 ---
 
+## o guia impresso: as anotações num retângulo só e o subtítulo do índice centrado (sem versão nova; só `site/`)
+
+- **Pedido (15/11, em cima do lote anterior):** "Centralize também o subtítulo 'guia de sonoplastia…'
+  que tem nos índices, ele ficou alinhado a esquerda"; e "não haja linhas que cubram apenas uma das
+  colunas. Atualmente ficou alguns casos onde … no topo uma das colunas tem mais linhas e o título de
+  anotações. … nesses casos ficariam apenas as linhas que conseguem cruzar as duas colunas, e o
+  título anotações ficaria sempre a esquerda".
+- **O L sai** (`anotarPar`). A nota do lote anterior descreve a forma em L (título e linhas curtas na
+  coluna de vão maior, continuando larga abaixo); ela está REVOGADA aqui. Agora a pauta larga é um
+  retângulo só: começa logo abaixo do texto mais baixo do par, TODAS as linhas atravessam as duas
+  colunas e o vão, e o título "Anotações" fica no alto, à esquerda. Se o retângulo não chega a
+  `ANOT_MIN` (5) linhas — o caso em que a coluna mais alta come o vão —, valem as duas pautas de
+  coluna, como vieram. As classes `.anot-e`/`.anot-d` saíram do CSS com o L. MEDIDO: Por um dia 11
+  pautas (2 largas, 6 e 22 linhas; 9 de coluna); Tempo integral 39 (7 largas, 5–16; 32 de coluna).
+- **O subtítulo do índice** (`.lb-idx-cab .lb-ind-t`) passou a `text-align:center`, junto com o h2 e o
+  resumo que já eram centrados.
+- **O oráculo:** a larga agora reprova com QUALQUER linha curta (`curtas > 0`) ou com o título fora de
+  1 mm da esquerda do bloco (`titEsq`), e o índice mede também o centro do subtítulo (`centroSub`,
+  ≤ 2 mm). As páginas não se moveram: 22 e 88 nos dois formatos.
+
+---
+
 ## o guia impresso: as anotações em bloco largo e o índice numa caixa única (sem versão nova; só `site/`)
 
 - **Pedido (15/11, logo depois da v1.14.22):** "o mínimo de linhas das anotações seja 5 linhas";
@@ -801,6 +825,71 @@ apagada da que a criou.
   `antesDaPauta` = depois = PDF continua cobrando isso.
 
 ---
+
+## v1.14.24 — a Verificação oferece a atualização, o item guardado ganha a engrenagem e a série cumpre o aviso
+
+Os **Pacotes 7, 21 e 28** da fila do operador, autorizados juntos em
+2026-11-15. Um lote só, como o v1.14.20 fez com o tema do tour: nenhum dos três
+toca o shell, e a web sobe uma vez.
+
+### Pacote 7 — a Verificação procura atualização
+
+Pedido de 2026-11-07: *"O verificar deve também procurar por atualizações, se
+estiver disponível, oferecer a atualização."*
+
+- A Verificação do Sistema ganhou a linha **"Há uma versão nova pronta para
+  instalar"** (`atualizacao-oferta`, a 42ª checagem, em "O aplicativo"): ela LÊ
+  a fotografia que a ponte já mantém (`atualizacaoEstado`) e, havendo lote,
+  abre **o mesmo diálogo do OTA** (`perguntarAtualizacao`) — não baixa nada nem
+  aplica por conta própria, que é o contrato do `docs/DIAGNOSTICO.md` para uma
+  linha da tabela `TESTES`.
+- O impedimento é dito: cena ou download no ar, a oferta já aberta ou um
+  "Deixar para depois" nesta sessão dão `não se aplica` com o motivo. A oferta
+  automática volta sozinha, e o botão de atualização das Configurações aplica
+  na hora.
+- `docs/DIAGNOSTICO.md` passou a contar 42 checagens e registra a linha.
+
+### Pacote 21 — a engrenagem do item guardado
+
+Pedido de 2026-11-14: *"…crie um botão nas opções seja no cronograma ou
+favoritos (um botão de engrenagem que abre a aba da ferramenta com os dados da
+ferramenta para serem editados ou administrados)"*.
+
+- A engrenagem entra na FAIXA DE AÇÕES dos dois destinos (`montarAcoesDaLinha`,
+  pelo mesmo `botaoEngrenagemDaLinha`), só nos cues que têm ferramenta
+  editável: `message`, `draw`, `chrono` e `itinerario`. `title` e `aria-label`
+  dizem "Administrar este item".
+- **A IDA** (`abrirFerramentaComCue`): o painel nasce com o CONTEÚDO DO ITEM —
+  o Tempo no modo/duration/legenda dele, o Sorteio com `applyDrawPrefs` das
+  opções dele, o Itinerário com a programação dele (a adoção de
+  `itinAdotarCue`, extraída de `projetarItinerarioCue`) e a Mensagem no editor
+  do texto dela.
+- **A VOLTA** (`finalizarCueDoPainel`): o que se edita no painel grava no
+  PRÓPRIO item quando a folha fecha ou volta à grade (`AVDB.atualizarCue`, novo
+  no `db.js`: get + put na mesma transação, id/nome/listas preservados). Sem
+  ela a engrenagem editaria uma cópia descartável.
+- **A MENSAGEM GANHOU EDIÇÃO**: `editarMensagem` e o lápis na faixa da linha
+  (o `appPrompt` com o texto atual; `pushMessage` acompanha se ela está no ar).
+  Era a edição que o pedido pressupunha e não existia.
+- Oráculo novo: `tools/engrenagem-do-item.test.mjs` (na lista do CI e no
+  `docs/ORACULOS.md`).
+
+### Pacote 28 — o aviso da série que promete descer
+
+Achado M1-2 da revisão de 14/11: o card diz "o episódio desta semana desce
+quando ela sair", mas `serieAdiadaPelaMidia` só era armada DENTRO de uma
+rodada; com o card aberto durante a projeção sem rodada ter adiado nada (a da
+abertura falhou, ou o acervo voltou do segundo plano com mídia no ar), o PARAR
+não baixava nada.
+
+- A decisão do lote foi **cumprir a promessa**: o próprio aviso ARMA a rodada
+  (`serieAutoAviso` marca `serieAdiadaPelaMidia` quando o impedimento é a
+  projeção), e o `serieSemanaReavaliar` do `pararMidia`/`resetAfterEnd` a
+  executa. O texto do aviso não mudou.
+- O cenário novo **N3** do `serie-mantem-a-semana` prova as duas metades: o
+  aviso arma e o PARAR baixa o episódio.
+
+Só web (a base mudou); nada de `java/`, `res/`, manifesto ou `SHELL_VERSION`.
 
 ## v1.14.23 — a notificação é controle de PLAYER: ⏮/⏭ passam música, não slide (só web)
 

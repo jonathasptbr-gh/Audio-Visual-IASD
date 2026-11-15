@@ -675,7 +675,7 @@
   .pag .lb-idx-cab h2 { margin:0 0 .3rem; font-size:15.5pt; text-align:center; color:var(--dia); }
   .pag .lb-idx-cab.int h2 { color:var(--integral); }
   .pag .lb-idx-cab .resumo { margin:0; font-size:9.4pt; text-align:center; }
-  .pag .lb-idx-cab .lb-ind-t { margin:.7rem 0 .2rem; }
+  .pag .lb-idx-cab .lb-ind-t { margin:.7rem 0 .2rem; text-align:center; }
   .pag .lb-idx {
     position:absolute; left:calc(var(--m-esq) - 2.8mm); right:calc(var(--m-dir) - 2.8mm);
     border:1.2pt solid var(--dia); border-radius:2.6mm; pointer-events:none;
@@ -695,8 +695,6 @@
      formato (o motor só põe o alto); no L, o título e as linhas curtas ficam numa coluna só ----- */
   .pag .anot { display:flow-root; margin-top:5mm; }
   .pag .anot-larga { position:absolute; left:var(--m-esq); right:var(--m-dir); margin:0; pointer-events:none; }
-  .pag .anot-larga > .anot-e, .pag .anot-larga > .anot-d { width:calc(50% - 3.5mm); }
-  .pag .anot-larga > .anot-d { margin-left:calc(50% + 3.5mm); }
   .pag .anot-t { display:block; margin:0; font-size:8pt; font-weight:800; line-height:1.2; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); }
   .pag .anot-l { display:block; height:7.5mm; box-sizing:border-box; border-bottom:.6pt solid #8d97a1; }
 
@@ -7763,31 +7761,26 @@
     }
     /* o par lado a lado (esq/dir, também o de cima de uma faixa): se as DUAS colunas comportam a
        pauta (anotar), sai UMA larga (.anot-larga), solta na página: do texto mais baixo do par (+ a
-       margem da pauta) até o pé do par, com as linhas na largura das colunas e do vão. Se a coluna de
-       vão maior tem, acima disso, lugar para o título e ≥ 1 linha, a pauta começa nela (título e
-       linhas curtas) e segue larga no mesmo passo: um L, com um título só. As linhas descem até o
-       pé, como na de coluna. Só uma comporta: fica a de coluna. Medidas sem escala (lb-medindo). */
+       margem da pauta) até o pé do par, com TODAS as linhas atravessando as duas colunas e o vão, e
+       o título "Anotações" à esquerda, no alto dela. Onde o retângulo não chega a ANOT_MIN linhas
+       (a coluna mais alta come o vão), ficam as duas de coluna, como vieram. Medidas sem escala
+       (lb-medindo). */
     function anotarPar(pag, e, d) {
       var ke = anotar(e), kd = anotar(d);
       if (!ke || !kd) return;
       var ae = e.lastElementChild, t = ae.firstElementChild, P = pag.getBoundingClientRect();
-      var E = e.getBoundingClientRect(), g = fim(e) <= fim(d) ? e : d;
+      var E = e.getBoundingClientRect();
       ae.style.marginTop = '';
       var m = parseFloat(getComputedStyle(ae).marginTop) || 0, th = t.getBoundingClientRect().height;
       var passo = t.nextElementSibling.getBoundingClientRect().height, y0 = E.top - P.top, pe = E.bottom - P.top - 1;
-      var topo = y0 + Math.max(fim(e), fim(d)) + 1 + m, kw = Math.floor((pe - topo) / passo);
-      var ks = Math.floor((pe - kw * passo - (y0 + fim(g) + 1 + m + th)) / passo);
-      if (ks < 1) { ks = 0; kw = Math.floor((pe - topo - th) / passo); }
+      var topo = y0 + Math.max(fim(e), fim(d)) + 1 + m, k = Math.floor((pe - topo - th) / passo);
+      if (k < ANOT_MIN) return;                                 // o de coluna fica, como veio
       ae.remove(); d.lastElementChild.remove();
       var a = document.createElement('div');
       a.className = 'anot anot-larga';
-      a.style.top = (pe - (ks + kw) * passo - th) + 'px';
-      function curta(n) { if (ks) n.className += g === e ? ' anot-e' : ' anot-d'; return n; }
-      a.appendChild(curta(t));
-      for (var i = 0; i < ks + kw; i++) {
-        var l = document.createElement('div'); l.className = 'anot-l';
-        a.appendChild(i < ks ? curta(l) : l);
-      }
+      a.style.top = (pe - k * passo - th) + 'px';
+      a.appendChild(t);
+      for (var i = 0; i < k; i++) { var l = document.createElement('div'); l.className = 'anot-l'; a.appendChild(l); }
       pag.appendChild(a);
     }
 

@@ -73,7 +73,7 @@
 //     faixa). Onde as duas colunas de um par comportam, UMA pauta larga
 //     (.anot-larga, solta na página; reta ou em L) — nunca duas lado a lado; ≥ 1
 //     larga por impressão. O índice (2ª página) é UMA caixa de largura total
-//     (.lb-idx, só borda), o título "Índice" centrado nela (≤ 2 mm), as duas
+//     (.lb-idx, só borda), o título "Índice" e o subtítulo do grupo centrados nela (≤ 2 mm), as duas
 //     colunas de itens no mesmo topo (≤ 1 mm) e da mesma largura (≤ 0,5 mm),
 //     sem item fora da caixa nem da área útil, e abaixo dele UMA pauta larga.
 //     As medidas de vão de E (livre, "cortadas", "esquerda
@@ -138,6 +138,7 @@ const medirPaginas = (pg) => pg.evaluate(() => {
         if (!uls.length) return null;
         const q = p.querySelector(':scope > .lb-idx'), T = p.querySelector('.lb-idx-cab h2');
         const Q = q && q.getBoundingClientRect(), R = T && T.getBoundingClientRect();
+        const ST = p.querySelector('.lb-idx-cab .lb-ind-t'), SR = ST && ST.getBoundingClientRect();
         const par = [...c.querySelectorAll(':scope > .pag-col')].slice(0, 2).map((col) => {
           const u = col.querySelector('ul.lb-ind');
           if (!u) return null;
@@ -148,6 +149,7 @@ const medirPaginas = (pg) => pg.evaluate(() => {
         return {
           caixa: !!q, titulo: T ? T.textContent.trim() : '', colunas: par.length, itens: lis.length,
           centro: R && Q ? mm((R.left + R.right) / 2 - (Q.left + Q.right) / 2) : null,
+          centroSub: SR && Q ? mm((SR.left + SR.right) / 2 - (Q.left + Q.right) / 2) : null,
           topos: par.map(([t]) => mm(t)), larguras: par.map(([, w]) => mm(w)),
           foraCaixa: Q ? lis.filter((l) => { const r = l.getBoundingClientRect();
             return r.left < Q.left - 0.5 || r.right > Q.right + 0.5 || r.top < Q.top - 0.5 || r.bottom > Q.bottom + 0.5; }).length : -1,
@@ -189,6 +191,7 @@ const medirPaginas = (pg) => pg.evaluate(() => {
               if (r.left < E.right && r.right > D.left) folga = Math.min(folga, r.top - fio);
             });
             out.push({ par: j / 2, larga, n: ls.length, curtas: ls.filter((l) => l.getBoundingClientRect().right <= E.right + 0.5 || l.getBoundingClientRect().left >= D.left - 0.5).length,
+              titEsq: ts.length ? (ts[0].getBoundingClientRect().left - Q.left) / MM : null,
               tit: ts.map((k) => k.textContent.trim()).join('|'), folga: folga / MM,
               borda: ls.every((l) => { const s = getComputedStyle(l); return s.borderBottomStyle === 'solid' && parseFloat(s.borderBottomWidth) > 0 && s.backgroundImage === 'none'; }) });
           });
@@ -313,22 +316,24 @@ async function conferir(pg, guia, fmt, rotulo) {
   checar(L.antesDaPauta > 0 && L.antesDaPauta === L.paginas && pags.length === L.paginas,
     `L · ${rotulo}: ${L.antesDaPauta} páginas antes das anotações, as mesmas depois`, JSON.stringify({ antes: L.antesDaPauta, paginas: L.paginas, dom: pags.length }));
   const anots = pags.flatMap((p, i) => p.anot.map((a) => ({ pag: i + 1, ...a })));
-  const anotMal = anots.filter((a) => a.pag === 1 || a.solta || a.tit !== 'Anotações' || a.n < 5 || !a.borda || a.folga < -0.1);
+  // a larga é um retângulo só: nenhuma linha que cubra apenas uma coluna, e o título no alto à esquerda
+  const anotMal = anots.filter((a) => a.pag === 1 || a.solta || a.tit !== 'Anotações' || a.n < 5 || !a.borda || a.folga < -0.1
+    || (a.larga && (a.curtas > 0 || Math.abs(a.titEsq) > 1)));
   const porPar = anots.reduce((o, a) => { o[a.pag + '/' + a.par] = (o[a.pag + '/' + a.par] || 0) + 1; return o; }, {});
   const ladoALado = Object.keys(porPar).filter((k) => porPar[k] > 1);
   const largas = anots.filter((a) => a.larga), colunas = anots.filter((a) => !a.larga);
   const faixaN = (xs) => { const s = xs.map((a) => a.n).sort((x, y) => x - y); return s.length ? s[0] + '–' + s[s.length >> 1] + '–' + s[s.length - 1] : '—'; };
   checar(anots.length > 0 && anotMal.length === 0 && ladoALado.length === 0 && largas.length > 0,
-    `L · ${rotulo}: ${anots.length} pautas "Anotações" nos vãos — ${largas.length} largas (${largas.filter((a) => a.curtas).length} em L; linhas mín–med–máx ${faixaN(largas)}) e ${colunas.length} de coluna (${faixaN(colunas)}) —, nenhuma na capa, cada uma com ≥ 5 linhas de borda (sem fundo) e um título, inteira na área útil, sem cobrir texto nem passar do pé do par, nunca duas lado a lado`,
+    `L · ${rotulo}: ${anots.length} pautas "Anotações" nos vãos — ${largas.length} largas (todas atravessando as duas colunas, o título à esquerda; linhas mín–med–máx ${faixaN(largas)}) e ${colunas.length} de coluna (${faixaN(colunas)}) —, nenhuma na capa, cada uma com ≥ 5 linhas de borda (sem fundo) e um título, inteira na área útil, sem cobrir texto nem passar do pé do par, nunca duas lado a lado`,
     JSON.stringify({ anots: anots.length, anotMal: anotMal.slice(0, 3), ladoALado: ladoALado.slice(0, 3) }));
   // L. o índice (a 2ª página): uma caixa de largura total, título centrado nela e as duas colunas de
   // itens no mesmo topo e da mesma largura; abaixo, UMA pauta larga (a do par), não duas de coluna
   const ix = pags[1] && pags[1].idx, aIx = (pags[1] && pags[1].anot) || [];
   const desnivel = (xs) => (xs.length === 2 ? Math.abs(xs[0] - xs[1]) : null);
   const topoIx = ix && desnivel(ix.topos), largIx = ix && desnivel(ix.larguras);
-  checar(!!ix && ix.caixa && ix.titulo === 'Índice' && ix.colunas === 2 && Math.abs(ix.centro) <= 2
+  checar(!!ix && ix.caixa && ix.titulo === 'Índice' && ix.colunas === 2 && Math.abs(ix.centro) <= 2 && Math.abs(ix.centroSub) <= 2
     && topoIx !== null && topoIx <= 1 && largIx !== null && largIx <= 0.5 && ix.foraCaixa === 0 && ix.foraUtil === 0,
-    `L · ${rotulo}: o índice (pág. 2) é UMA caixa de largura total, com o título "Índice" centrado (≤ 2 mm), as duas colunas de itens no mesmo topo (≤ 1 mm) e da mesma largura (≤ 0,5 mm), e nenhum item fora da caixa nem da área útil`,
+    `L · ${rotulo}: o índice (pág. 2) é UMA caixa de largura total, com o título "Índice" e o subtítulo do grupo centrados nela (≤ 2 mm), as duas colunas de itens no mesmo topo (≤ 1 mm) e da mesma largura (≤ 0,5 mm), e nenhum item fora da caixa nem da área útil`,
     JSON.stringify(ix));
   checar(aIx.length === 1 && aIx[0].larga && !aIx[0].solta,
     `L · ${rotulo}: abaixo do índice a pauta de anotações é UMA e larga (a do par), não duas de coluna`,
