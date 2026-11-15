@@ -9706,6 +9706,26 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    dobrar a lista de destinos (ver renderSongMenu). */
 .song-menu-seg-row { padding-bottom: var(--sp-1); }
 .song-menu-seg { width: 100%; }
+/* ---------- O OFERECIMENTO DO LINK COPIADO (v1.14.28) ----------
+   A capa, o título, o canal e a duração ANTES da pergunta de destino. É o
+   primeiro bloco da folha, e por isso ele não tem fundo nem borda próprios: o
+   que o separa das escolhas é o respiro de baixo.
+
+   A MINIATURA é 16:9 fixa (`aspect-ratio`) e `object-fit: cover`: a capa do
+   YouTube já vem nessa proporção, mas a reserva do `i.ytimg.com` é 4:3 e um
+   `<img>` sem recorte esticaria a folha. O `min-width: 0` na coluna de texto é
+   o que faz um título longo virar reticências em vez de empurrar a capa. */
+.yt-oferta { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); }
+.yt-oferta-thumb {
+  width: 96px; aspect-ratio: 16 / 9; flex-shrink: 0;
+  object-fit: cover; border-radius: var(--radius-btn); background: var(--surface-2);
+}
+.yt-oferta-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.yt-oferta-titulo {
+  font-weight: 600; overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.yt-oferta-meta { color: var(--muted); font-size: .8rem; }
 
 /* ---------- MAIS DE UM DESTINO NA MESMA FOLHA (v5.141) ---------- */
 /* A caixa de marcação vive DENTRO do botão da linha e à direita dele: o corpo

@@ -87,7 +87,7 @@ diferentes, e um lote nunca mistura dois temas.
 | **Cronograma e destinos** | 16 | a abertura antes do culto, e o organizador entregando o culto pronto |
 | **Site** | 29 | a captura da lista de Ferramentas, com as sete |
 | **Ferramentas** | 30 | o Timer em zero que ainda projeta e guarda, e o editor de mídia vazio na instalação nova |
-| **Fila anterior a 14/11** | 5, 6 | o que já estava na fila, na ordem que ela já tinha |
+| **Fila anterior a 14/11** | 5 | a abertura do Itinerário, na ordem que a fila já tinha |
 | **Estudos** | 13 | não são fila de execução: a entrega é a decisão do operador |
 
 ---
@@ -126,8 +126,6 @@ ordem; a fila é dele.
 |---|---|---|---|---|---|---|
 | **5** | **Itinerário: a abertura antes do primeiro evento** | pedido | 4 | 2 | **8** | web |
 | 5.1 | contagem regressiva + música + avisos | | 4 | 2 | 8 | web |
-| **6** | **Link do YouTube: os detalhes no oferecimento** | pedido | 3 | 2 | **6** | Kotlin + web |
-| 6.1 | miniatura, título, duração e canal antes de usar | | 3 | 2 | 6 | Kotlin + web |
 | **13** | **Estudos — não são fila de execução** | estudo | 4 | 1 | **4** | decisão |
 | 13.1 | controle de slides + compartilhar itinerário/cronograma | | 4 | 1 | 4 | estudo |
 | 13.2 | transmissão ao vivo | | 3 | 1 | 3 | estudo |
@@ -162,30 +160,6 @@ do primeiro evento. Itinerário = eventos e títulos; Cronograma = mídias — n
 fundem (o operador recusou a fusão). A planejar: o que conta como "avisos"
 (Mensagens? apresentação?), a camada de texto que leva a contagem (o Itinerário
 já é provedor por descritor), e o que acontece se o operador tocar algo no meio.
-
----
-
-## Pacote 6 — Link do YouTube: os detalhes no oferecimento
-
-**Nota 6 (I3 × U2) · pedido · Kotlin + web (APK/Release)**
-
-**Onde:** `ShareIntake.kt` → a PERGUNTA antes de usar; `YoutubeGrab.detalhes` e o
-`ytDetalhes` da ponte.
-
-### 6.1 Miniatura, título, duração e canal antes de usar o link
-
-*"Ao acessar o app com um link do YouTube copiado, ele oferece para usar o link,
-mas nesse oferecimento, ele não dá detalhes sobre o vídeo do link, então ajuste
-para que nesse oferecimento ele dê os Detalhes como thumbnail, título, duração e
-canal."* (2026-11-07 19:00).
-
-No oferecimento do link copiado, mostrar os detalhes do vídeo: miniatura, título,
-duração e canal. **Medido em 2026-11-09:** o `detalhes` já devolve `titulo`,
-`canal`, `seconds` (a DURAÇÃO já vem) e `descricao`; o que falta é a MINIATURA — a
-lista de miniaturas que o extrator carrega não é lida hoje (zero ocorrências de
-`thumbnails` no Kotlin), e o web não conhece `i.ytimg.com` (zero ocorrências).
-Isto é Kotlin pequeno (acrescentar o campo ao `JSONObject`) mais o desenho da
-folha do oferecimento — no mesmo lote, com `shellTag`.
 
 ---
 
@@ -341,6 +315,14 @@ grupos vazios, ou ao lado deles).
 ---
 
 ## O que saiu desta lista (rastro, não log)
+
+**v1.14.28 (2026-11-15), shell + web:** o **Pacote 6** — o link do YouTube
+copiado é oferecido com capa, título, canal e duração. A capa faltava no fio:
+`YoutubeGrab.detalhes` já dava os outros três, e a lista de miniaturas do
+extrator não era lida (agora `capaDoVideo` devolve a maior em `thumb`). O bloco
+`ofertaDoLink` é o primeiro da folha e reusa os detalhes e o cache da gaveta.
+`SHELL_VERSION` 88, `shellTag v1.14.28` e Release (o `minShell` não sobe: sem o
+campo, a capa de reserva do `i.ytimg.com` cobre). Nota em `docs/HISTORICO.md`.
 
 **v1.14.27 (2026-11-15), só web:** o **Pacote 20** — o alerta de "não toca sem
 rede" do Cronograma passou para a ESQUERDA do nome. Ele vem ANTES do título no

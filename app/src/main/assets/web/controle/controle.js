@@ -419,7 +419,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.27';
+const WEB_VERSION = '1.14.28';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -26150,8 +26150,15 @@ function openYtMenu(r, alvoDado) {
   // `renderSongMenu`. Ele mora em `songMenuFor` porque os seletores de forma e
   // qualidade remontam a lista, e precisam refazê-la no mesmo lugar.
   const alvo = songMenuFor.alvo || songMenuListEl;
-  if (!songMenuFor.alvo) songMenuTitleEl.textContent = r.name || 'Vídeo do YouTube';
+  // COM O OFERECIMENTO NA TELA, o título do vídeo mora no CABEÇALHO (abaixo):
+  // repeti-lo aqui seria a mesma frase duas vezes, e o rótulo da folha fica com
+  // a pergunta, que é o que ela é.
+  if (!songMenuFor.alvo) {
+    songMenuTitleEl.textContent = r.oferecendo ? 'Vídeo do YouTube'
+      : (r.name || 'Vídeo do YouTube');
+  }
   limparFolha(alvo);
+  if (r.oferecendo && !songMenuFor.alvo) alvo.appendChild(ofertaDoLink(r));
   // ===== O EPISÓDIO DESTE SÁBADO: "Este sábado" × "Atalho universal" (v1.13.34) =====
   //
   // Pedido do operador: o "vídeo da semana" deixou de ser uma linha a mais no
@@ -26923,10 +26930,10 @@ function searchIconSvg() {
 // `sem-rede` da cifra: um Wi-Fi que oscilou não pode custar um buraco que só
 // some fechando o app. O vazio, esse, é resposta — e guardá-lo é o que impede a
 // gaveta de gastar uma extração por abertura num vídeo sem descrição.
-const ytDetalhesCache = new Map();   // id do vídeo → { titulo, canal, descricao } saneados
+const ytDetalhesCache = new Map();   // id do vídeo → { titulo, canal, duracao, thumb, descricao } saneados
 
 /**
- * Os detalhes de UM vídeo, do cache ou da ponte — `{ titulo, canal, descricao }`,
+ * Os detalhes de UM vídeo, do cache ou da ponte — `{ titulo, canal, duracao, thumb, descricao }`,
  * cada campo já saneado para string (`''` = não veio). `null` quando não houve
  * RESPOSTA: sem ponte (navegador), sem URL e sem rede.
  *
@@ -26950,6 +26957,8 @@ async function detalhesDoVideo(id, url) {
   const det = {
     titulo: String(d.titulo || ''),
     canal: String(d.canal || ''),
+    duracao: Number(d.seconds) > 0 ? Number(d.seconds) : 0,
+    thumb: String(d.thumb || ''),
     descricao: String(d.descricao || ''),
   };
   ytDetalhesCache.set(chave, det);
@@ -27765,6 +27774,57 @@ function destBotaoLeitura(acao, motivo) {
   return { chave: 'leitura', rotulo: 'Ver a letra no auxiliar de leitura', texto: 'Ver a letra',
     acao: acao || (() => {}), disabled: !acao, motivo: motivo || '' };
 }
+// ===== O OFERECIMENTO DO LINK COPIADO TRAZ OS DETALHES (v1.14.28) =====
+//
+// Pedido do operador: *"Ao acessar o app com um link do YouTube copiado, ele
+// oferece para usar o link, mas nesse oferecimento, ele não dá detalhes sobre o
+// vídeo do link, então ajuste para que nesse oferecimento ele dê os Detalhes
+// como thumbnail, título, duração e canal."*
+//
+// A CAPA entra na hora com a reserva do `i.ytimg.com` — que só depende do id e
+// por isso aparece mesmo antes da extração — e é TROCADA pela do extrator
+// quando ela chega. Título, canal e duração vêm dos mesmos `ytDetalhes` que a
+// gaveta já pedia: o cache é por vídeo, então isso não custa extração nova.
+function ofertaDoLink(r) {
+  const cx = document.createElement('div');
+  cx.className = 'yt-oferta';
+  const im = document.createElement('img');
+  im.className = 'yt-oferta-thumb';
+  im.alt = '';
+  im.decoding = 'async';
+  im.src = 'https://i.ytimg.com/vi/' + r.id + '/hqdefault.jpg';
+  // Imagem de terceiro que não vem (sem rede, vídeo removido): o `<img>` FICA —
+  // o lugar e o fundo continuam desenhados — e some o quebrado, a mesma regra
+  // do card da gaveta. Um pixel transparente, e nunca `remove()`: a capa do
+  // extrator pode chegar DEPOIS e entra neste mesmo elemento.
+  let capaDoExtrator = false;
+  im.addEventListener('error', () => {
+    if (!capaDoExtrator) im.src = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
+  });
+  cx.appendChild(im);
+  const txt = document.createElement('div');
+  txt.className = 'yt-oferta-txt';
+  const titulo = document.createElement('span');
+  titulo.className = 'yt-oferta-titulo';
+  titulo.textContent = r.name || 'Vídeo do YouTube';
+  const meta = document.createElement('span');
+  meta.className = 'yt-oferta-meta';
+  txt.appendChild(titulo);
+  txt.appendChild(meta);
+  cx.appendChild(txt);
+  // A FOLHA É REMONTADA a cada toque num seletor, e este preenchimento é
+  // assíncrono: `isConnected` é o que impede pintar no bloco que já saiu da
+  // tela.
+  detalhesDoVideo(r.id, r.url).then((det) => {
+    if (!det || !cx.isConnected) return;
+    if (det.thumb) { capaDoExtrator = true; im.src = det.thumb; }
+    if (det.titulo) titulo.textContent = det.titulo;
+    meta.textContent = [det.canal, det.duracao ? fmtTime(det.duracao) : '']
+      .filter(Boolean).join(' · ');
+  }).catch(() => {});
+  return cx;
+}
+
 function destBotaoDetalhes(det) {
   const aberto = !!(det && det.aberto());
   return { chave: 'detalhes', rotulo: 'Ver os detalhes do vídeo', texto: 'Detalhes',
@@ -39137,7 +39197,7 @@ async function handleSharedUrl(url, title) {
       // YouTube" — e diz pior. O nome definitivo do item vem da extração, de
       // qualquer jeito (ver `ytBaixarNativo`); isto aqui é só o cabeçalho.
       const rotulo = (title && !/^https?:\/\//i.test(title.trim())) ? title : 'Vídeo do YouTube';
-      openYtMenu({ id: ytId, url, name: rotulo });
+      openYtMenu({ id: ytId, url, name: rotulo, oferecendo: true });
       return SHARE_TRATADO;
     }
     // NO SIMPLIFICADO O LINK COMPARTILHADO É UM "TOCAR AGORA" — ele vai direto

@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.14.28",
+    "itens": [
+      "Ao compartilhar um link do YouTube, o app mostra capa, título, canal e duração antes de escolher o destino.",
+      "A capa do vídeo chega com o APK novo; sem ele, uma capa de reserva aparece no lugar."
+    ]
+  },
+  {
     "versao": "1.14.27",
     "itens": [
       "No Cronograma, o ícone de alerta de itens que não tocam sem rede passou para a ESQUERDA do nome.",

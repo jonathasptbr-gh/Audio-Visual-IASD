@@ -244,6 +244,7 @@ const ponteCom = (espelho, telas) => `(() => {
         titulo: 'Match point | Provai e Vede 2026 (01/Ago)',
         canal: 'Provai e Vede | Oficial e Adventist Mission',
         seconds: 319,
+        thumb: 'https://i.ytimg.com/vi/y1/mqdefault.jpg',
         descricao: 'Um testemunho sobre a fidelidade no dizimo.\\n\\n'
           + 'Nesta semana o <b>Provai e Vede</b> visita uma familia do interior '
           + 'que decidiu confiar mesmo depois de perder a colheita inteira, e '
@@ -1700,6 +1701,52 @@ try {
     'e quando o título da rede é IGUAL ao rótulo da linha logo acima, a linha NÃO é desenhada — '
     + 'a mesma régua do caminho do índice, contra a mesma frase duas vezes na tela',
     JSON.stringify(TI));
+
+  // ── O OFERECIMENTO DO LINK TRAZ OS DETALHES (v1.14.28) ──────────────────
+  //
+  // Pedido do operador: *"ao acessar o app com um link do YouTube copiado … ele
+  // não dá detalhes sobre o vídeo do link, então ajuste para que nesse
+  // oferecimento ele dê os Detalhes como thumbnail, título, duração e canal"*.
+  //
+  // O bloco é o PRIMEIRO da folha (os detalhes vêm antes da pergunta), e o
+  // título/canal/duração/capa vêm dos MESMOS `ytDetalhes` da gaveta — o que esta
+  // asserção prende é o fio: o link copiado abrindo a folha com `oferecendo`
+  // (é o que o `handleSharedUrl` passa), o stub respondendo e o bloco pintando.
+  const oferta = await pg.evaluate(async () => {
+    // OS DETALHES VÊM PELA PONTE — é o fio inteiro do lado web que este bloco
+    // mede: o `ytDetalhes` do stub, o saneador do `native.js` (que agora
+    // carrega o `thumb`) e o desenho. A espera é pelo FATO (o meta preenchido),
+    // nunca por um prazo fixo.
+    closeSongMenu();
+    openYtMenu({ id: 'oferta1', url: 'y/1', name: 'Link copiado', oferecendo: true });
+    const pop = document.getElementById('songMenuPopup');
+    const cx = pop.querySelector('.yt-oferta');
+    const meta = cx && cx.querySelector('.yt-oferta-meta');
+    for (let i = 0; i < 20 && meta && !meta.textContent; i++) {
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    const im = cx && cx.querySelector('.yt-oferta-thumb');
+    const out = {
+      temBloco: !!cx,
+      primeiro: !!(cx && cx.parentElement && cx.parentElement.firstElementChild === cx),
+      titulo: (cx && cx.querySelector('.yt-oferta-titulo').textContent) || '',
+      meta: (meta && meta.textContent) || '',
+      capa: (im && im.getAttribute('src')) || '',
+    };
+    closeSongMenu();
+    ytDetalhesCache.delete('oferta1');
+    return out;
+  });
+  checar(oferta.temBloco && oferta.primeiro,
+    'o OFERECIMENTO do link copiado abre com o bloco de detalhes ANTES das escolhas — '
+    + 'a capa e o texto vêm antes da pergunta de destino', JSON.stringify(oferta));
+  checar(oferta.titulo === 'Match point | Provai e Vede 2026 (01/Ago)'
+    && /Provai e Vede/.test(oferta.meta) && /5:19/.test(oferta.meta),
+    'e ele diz TÍTULO, CANAL e DURAÇÃO, cada um do seu campo — a duração sai em '
+    + 'minutos e segundos, não em segundos crus', JSON.stringify(oferta));
+  checar(/mqdefault/.test(oferta.capa),
+    'e a CAPA troca a reserva pela do extrator quando ela chega (o `ytDetalhes` '
+    + 'passou a devolver `thumb`)', JSON.stringify(oferta.capa));
 
   // ── O ESTADO NO APARELHO: A OUTRA METADE (v1.6.0) ─────────────────────
   // Sem ela, apagar a linha INTEIRA passaria na asserção do caso comum — e o

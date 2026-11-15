@@ -442,6 +442,10 @@
         // de 68 anos não existe), e é justamente por isso que o padrão importa
         // — quem copiar esta linha para um campo de bytes leva o defeito junto.
         seconds: Math.max(0, Number(r.seconds) || 0),
+        // A CAPA (shell 88): o oferecimento do link copiado a mostra antes de
+        // o operador escolher o destino. Vazia = "o extrator não trouxe capa",
+        // e o `controle.js` desenha a reserva do `i.ytimg.com`.
+        thumb: String(r.thumb || ''),
         descricao: String(r.descricao || ''),
       } : null)),
 

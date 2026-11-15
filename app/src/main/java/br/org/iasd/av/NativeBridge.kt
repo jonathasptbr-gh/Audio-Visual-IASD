@@ -394,7 +394,7 @@ class NativeBridge(
          * A regra inteira está no `docs/shell/PONTE.md` (seção do
          * `SHELL_VERSION`); a tabela dos degraus, no `docs/HISTORICO.md`.
          */
-        const val SHELL_VERSION = 87
+        const val SHELL_VERSION = 88
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -1551,7 +1551,7 @@ class NativeBridge(
      * **UM TOQUE, e é isso que o autoriza a morar na [extracao].** Ela é de UMA
      * thread, e trabalho de MASSA aqui empurra todo "Tocar agora" para além dos
      * 60 s do `call()` — foi por isso que a cifra ganhou fila própria. Quem
-     * chama este método é o botão "Ver os detalhes" de UMA linha, com cache em
+     * chama este método é o botão "Detalhes" de UMA linha, com cache em
      * memória do outro lado: nunca a montagem de uma lista, nunca uma varredura
      * de álbum. As outras três filas estão fora por eliminação: [io] é a de
      * MILISSEGUNDOS (rede ali é o defeito que faz o `listFolder` mentir lista

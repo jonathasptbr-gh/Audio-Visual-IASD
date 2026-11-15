@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.28** — o link do YouTube copiado é oferecido com capa, título, canal e duração antes de usar; a capa vem do extrator (shell 88, APK + web).
 - **v1.14.27** — o alerta de "não toca sem rede" do Cronograma passou para a ESQUERDA do nome, com o nome ainda no eixo da faixa (com e sem o ícone); só web.
 - **v1.14.26** — Ferramentas: a ferramenta aberta pela lista mostra a SETA de voltar (e o voltar do Android sobe para ela); aberta direto, pela engrenagem, mostra o ✕, que fecha a folha; só web.
 - **v1.14.25** — os Pacotes 22 e 23 num lote só: a leitura da Bíblia fica em três versículos (um atrás, o atual e um à frente) e o fecho do editor de mídia encosta na régua do rodapé das outras ferramentas; só web.
@@ -826,6 +827,42 @@ apagada da que a criou.
   339,07 / 339,07 px; larguras 83,5 / 83,5 mm.
 - **As páginas não se moveram:** 22 (Por um dia) e 88 (Tempo integral), nos dois formatos, e o
   `antesDaPauta` = depois = PDF continua cobrando isso.
+
+---
+
+## v1.14.28 — o link do YouTube oferecido com os detalhes
+
+Pedido do operador (Pacote 6, 2026-11-07 19:00): *"Ao acessar o app com um link
+do YouTube copiado, ele oferece para usar o link, mas nesse oferecimento, ele
+não dá detalhes sobre o vídeo do link, então ajuste para que nesse oferecimento
+ele dê os Detalhes como thumbnail, título, duração e canal."*
+
+- A MINIATURA era o único campo que faltava no fio: `YoutubeGrab.detalhes` já
+  devolvia título, canal e duração, e a lista de miniaturas que o extrator
+  carrega não era lida. `capaDoVideo` passa a devolver a MAIOR delas em `thumb`
+  (vazio = "o extrator não trouxe capa"; `null` continua sendo "não houve
+  resposta").
+- `controle.js` ganhou o bloco `ofertaDoLink`, o PRIMEIRO da folha do link
+  copiado (`oferecendo: true`, posto em `handleSharedUrl`): capa à esquerda
+  (16:9), título, canal e duração à direita. A capa nasce com a reserva do
+  `i.ytimg.com`, que só depende do id, e é trocada pela do extrator quando ela
+  chega; a imagem que não carrega vira um pixel transparente, nunca um
+  retângulo quebrado.
+- `detalhesDoVideo` passou a sanear `thumb` e `seconds` (`duracao`) junto com
+  título, canal e descrição — o cache continua sendo por vídeo, e o
+  oferecimento não gasta extração nova.
+- **O `minShell` NÃO sobe:** nenhum método novo, e a falta do campo degrada num
+  caminho declarado (a capa de reserva). **O `SHELL_VERSION` sobe para 88** — a
+  FORMA de um retorno conta como superfície —, com `shellTag v1.14.28` e
+  Release.
+- Os dois comentários que ainda chamavam o botão de "Ver os detalhes" (a linha
+  aberta no `RESIDUOS.md` desde a v1.14.19) foram corrigidos neste lote, que é o
+  primeiro a tocar o Kotlin depois deles.
+- O oráculo `boot-nativo`: o stub do `ytDetalhes` ganhou `thumb`, e o cenário
+  novo mede o bloco primeiro na folha, o título, o canal, a duração em mm:ss e a
+  capa trocando a reserva.
+
+**Lote de shell + web: exige instalar o APK.**
 
 ---
 

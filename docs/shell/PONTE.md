@@ -402,7 +402,7 @@ independentes desenhavam o diálogo pela metade.
 
 ### `ytDetalhes(url)` — e o `null` dele NÃO é achatado (shell 62)
 
-`{ titulo, canal, seconds, descricao }` ou **`null`**. Ele é a metade do card de
+`{ titulo, canal, seconds, thumb, descricao }` ou **`null`**. Ele é a metade do card de
 detalhe de um vídeo que **não cabe no índice**: título, canal e duração já vêm
 na listagem de playlist e o `serie.js` os guarda (valem OFFLINE); a DESCRIÇÃO só
 existe extraindo o vídeo, uma requisição por vídeo.
@@ -416,6 +416,12 @@ existe extraindo o vídeo, uma requisição por vídeo.
 remontagem do `native.js` **não** achata o `null` num objeto vazio como aquele
 faz: aqui as duas respostas pedem ações opostas, e um aparelho sem rede
 carimbaria "não tem descrição" no cache até o app fechar.
+
+**`thumb` é a CAPA (shell 88)**, a maior miniatura que o extrator carregou — ela
+já vinha na resposta do `StreamInfo` e era descartada. Quem a lê é o
+oferecimento do link copiado; VAZIA não é `null`: o web desenha a reserva do
+`i.ytimg.com`, que só depende do id, e um shell 87 (sem o campo) degrada nessa
+mesma reserva.
 
 **`descricao` é SEMPRE texto simples, e quem garante isso é o Kotlin.**
 `Description.getType()` pode ser HTML — é o que o YouTube devolve quando a
@@ -846,14 +852,14 @@ window.AVNative = {
                        //   os dois são as SÉRIES da Biblioteca. TRANSPORTE puro:
                        //   o `name` do item é o título CRU (sem `tituloLimpo`),
                        //   e quem lê os nomes é `controle/serie.js`
-  ytDetalhes(url),     // → { titulo, canal, seconds, descricao } ou `null`: os
+  ytDetalhes(url),     // → { titulo, canal, seconds, thumb, descricao } ou `null`: os
                        //   dados de UM vídeo, para o card de detalhe (shell 62).
                        //   Título, canal e duração a listagem de playlist já
                        //   entrega e o índice da série os GUARDA (valem
                        //   offline); a DESCRIÇÃO só existe extraindo o vídeo —
                        //   uma requisição por vídeo —, e por isso o método é
-                       //   SOB DEMANDA: quem o chama é o toque em "Ver os
-                       //   detalhes", com cache em MEMÓRIA do outro lado (o
+                       //   SOB DEMANDA: quem o chama é o toque em "Detalhes",
+                       //   com cache em MEMÓRIA do outro lado (o
                        //   precedente é o da CIFRA: nada vai ao disco).
                        //   `descricao` é SEMPRE texto simples, achatado no
                        //   Kotlin — o YouTube a entrega em HTML quando ela tem

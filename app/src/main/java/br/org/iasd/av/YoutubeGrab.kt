@@ -1817,7 +1817,7 @@ object YoutubeGrab {
      * os guarda no índice: no card eles valem OFFLINE, que é o que importa no
      * Wi-Fi da igreja no sábado de manhã. A DESCRIÇÃO não vem em listagem
      * nenhuma — ela exige a extração do vídeo, uma por vídeo —, e por isso este
-     * método é SOB DEMANDA: quem o chama é o toque em "Ver os detalhes", uma
+     * método é SOB DEMANDA: quem o chama é o toque em "Detalhes", uma
      * vez por vídeo, com cache em memória do lado web.
      *
      * Os outros três campos viajam junto porque já estão na mão do mesmo
@@ -1870,6 +1870,7 @@ object YoutubeGrab {
                 .put("titulo", info.name ?: "")
                 .put("canal", info.uploaderName ?: "")
                 .put("seconds", info.duration)
+                .put("thumb", capaDoVideo(info))
                 .put("descricao", textoDaDescricao(info.description))
         } catch (_: Exception) {
             // `null` como em [manifesto]: "não houve resposta". Do outro lado
@@ -1878,6 +1879,24 @@ object YoutubeGrab {
             // a segunda ele guarda.
             null
         }
+    }
+
+    /**
+     * A CAPA do vídeo (v1.14.28) — a maior miniatura que o extrator carregou.
+     *
+     * A lista já vinha preenchida por `StreamInfo.getInfo` e era descartada;
+     * quem lê o campo é o oferecimento do link copiado, que mostra a capa ao
+     * lado do título, do canal e da duração antes de o operador escolher o
+     * destino.
+     *
+     * VAZIO é resposta ("o extrator não trouxe capa"), e `null` nunca sai
+     * daqui: o [detalhes] devolve `null` para "não houve resposta", e o web
+     * desenha a reserva do `i.ytimg.com`, que só depende do id.
+     */
+    private fun capaDoVideo(info: StreamInfo): String {
+        val lista = try { info.thumbnails } catch (_: Exception) { null } ?: return ""
+        return lista.filter { !it.url.isNullOrBlank() }
+            .maxByOrNull { it.width }?.url ?: ""
     }
 
     /**
