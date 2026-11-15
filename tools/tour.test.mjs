@@ -32,7 +32,8 @@
 //       de mídia que já abre no formulário se explica pelo trecho e grava a marca.
 //   J · a ORDEM VISUAL (v1.14.3): em todo tour, nos dois modos, a 390×860 e a
 //       360×640, os passos com peça vão de cima para baixo e, na mesma faixa, da
-//       esquerda para a direita (os fixos — `abertura`/`fecho` — ficam de fora).
+//       esquerda para a direita (os fixos — `abertura`/`fecho` — ficam de fora), e a
+//       moldura — a peça que CONTÉM outra — vem antes do que está dentro dela (v1.14.21).
 //   K · o MOVIMENTO (v1.14.4): entre passos o recorte e o balão têm transição e,
 //       no meio dela, o recorte está ENTRE a peça A e a B (sem salto); no fim ele
 //       bate com a peça; três "Próximo" rápidos terminam três passos adiante; com
@@ -210,7 +211,10 @@ function foraDeOrdem(passos, linhaPx) {
   // A PÍLULA DO VOLUME FICA DE FORA (v1.14.20): é o tour que a mostra no passo dela, e a caixa que ela ocupa
   // MUDA entre escondida e mostrada — não há ordem visual da página a respeitar num passo que cria a própria peça.
   const ms = passos.filter((m) => m.peca && !m.fixo && !m.volume).map((m) => ({
-    cy: (m.peca.t + m.peca.b) / 2, h: m.peca.b - m.peca.t, l: m.peca.l, alvo: [].concat(m.alvo).join('+') }));
+    cy: (m.peca.t + m.peca.b) / 2, h: m.peca.b - m.peca.t, l: m.peca.l, p: m.peca, alvo: [].concat(m.alvo).join('+') }));
+  // A MOLDURA (v1.14.21): `a` contém `b` quando a caixa de `b` cabe inteira na de `a` (±1,5 px) e `a` é maior.
+  const contem = (a, b) => b.l >= a.l - 1.5 && b.t >= a.t - 1.5 && b.r <= a.r + 1.5 && b.b <= a.b + 1.5
+    && (a.r - a.l) * (a.b - a.t) > (b.r - b.l) * (b.b - b.t) + 1;
   let faixa = 0, ant = null;
   for (const m of [...ms].sort((a, b) => a.cy - b.cy)) {
     if (ant && m.cy - ant.cy > Math.max(linhaPx, Math.min(ant.h, m.h) / 2)) faixa++;
@@ -219,9 +223,14 @@ function foraDeOrdem(passos, linhaPx) {
   const ruins = [];
   for (let k = 1; k < ms.length; k++) {
     const a = ms[k - 1], b = ms[k];
+    if (contem(a.p, b.p)) continue;   // moldura → peça de dentro: a exceção da faixa
     if (b.faixa < a.faixa || (b.faixa === a.faixa && b.l < a.l - 1)) {
       ruins.push(a.alvo + '(' + Math.round(a.cy) + ',' + Math.round(a.l) + ') → ' + b.alvo + '(' + Math.round(b.cy) + ',' + Math.round(b.l) + ')');
     }
+  }
+  // E o lado de lá da regra: nenhuma moldura vem DEPOIS de uma peça que está dentro dela.
+  for (let i = 0; i < ms.length; i++) {
+    for (let j = i + 1; j < ms.length; j++) if (contem(ms[j].p, ms[i].p)) ruins.push(ms[i].alvo + ' antes da moldura ' + ms[j].alvo);
   }
   return ruins;
 }
@@ -311,6 +320,21 @@ const MIDIA_CRIA = async (b64) => {
   window.__fxMidia = rec.id;
   return rec.id;
 };
+// A PLAYLIST AUTOMÁTICA COM A LISTA (v1.14.21): oito faixas no Hinário 2022 (três "no aparelho") — com
+// menos de 100 faixas a lista sai sem o aquecimento —, e o que o app não desfaz sozinho volta no `FECHA`.
+const SORTEIO_ABRE = `(async () => {
+  window.__fxColl = collState['hymnal-2022']; const songs = [];
+  for (let i = 0; i < 8; i++) songs.push({ id_music: 'fx' + i, track: i + 1, name: 'Louvor ' + (i + 1),
+    duration: '3:00', has_instrumental_music: false, fileIdFull: i < 3 ? 'fx-f' + i : null, fileIdPlayback: null });
+  collState['hymnal-2022'] = { songs }; lyricIndex = null;
+  await abrirSorteio();
+})()`;
+const SORTEIO_FECHA = `(() => {
+  fecharSorteio();
+  const antes = window.__fxColl; delete window.__fxColl;
+  if (antes) collState['hymnal-2022'] = antes; else delete collState['hymnal-2022'];
+  lyricIndex = null;
+})()`;
 const EDICAO_FORM_ABRE = `(async () => { const ok = await edicaoCarregarOrigem(window.__fxMidia); abrirFerramenta('edicao'); return ok; })()`;
 
 try {
@@ -639,7 +663,19 @@ try {
       '.np-seek', '#slidePrevBtn+#preview+#slideNextBtn', '#prev+#playpause+#next+#stop', '#repeat', '#plBtn',
       '#lyricsViewBtn', '#viewToggle', '#muteToggle', '#pvFullBtn', '#pvCastBtn', '#settingsBtn'];
     checar(quer.every((a) => alvos.includes(a)) && !alvos.includes('#seek+.transport'),
-      'C · Cronograma, troca, Importar, Bíblia, Ferramentas, Biblioteca, o deck um a um (barra, prévia e setas, tocar, repetir, playlist, auxiliar, cobrir, mutar, tela cheia), conectar e Configurações', alvos.join(' '));
+      'C · Cronograma, troca, Importar, Bíblia, Ferramentas, Biblioteca, o deck um a um (barra, prévia e setas, tocar, playlist, repetir, auxiliar, cobrir, mutar, tela cheia), conectar e Configurações', alvos.join(' '));
+    // A PRÉVIA ANTES DOS BOTÕES QUE MORAM NELA (v1.14.21, pedido do operador): o passo da prévia com as setas
+    // CONTÉM o Cobrir, o Mutar e a Tela cheia (e o Conectar, onde ele aparece) — a moldura vem antes.
+    const tit = pc.map((m) => m.titulo);
+    const iPrev = tit.indexOf('Prévia e setas');
+    const naPrevia = pc.filter((m) => m.peca && ['#viewToggle', '#muteToggle', '#pvFullBtn', '#pvCastBtn'].includes([].concat(m.alvo).join('+')));
+    checar(iPrev >= 0 && naPrevia.length >= 3 && naPrevia.every((m) => tit.indexOf(m.titulo) > iPrev),
+      'C · a prévia com as setas se explica ANTES dos botões que moram sobre ela (Cobrir, Mutar, Tela cheia)', tit.join(' · '));
+    // A PLAYLIST À ESQUERDA DO REPETIR (v1.14.21, pedido do operador): na tela e, por isso, no tour.
+    const peca = (a) => (pc.find((m) => [].concat(m.alvo).join('+') === a) || {}).peca;
+    const pPl = peca('#plBtn'), pRep = peca('#repeat');
+    checar(!!pPl && !!pRep && pPl.r <= pRep.l + 1 && tit.indexOf('Playlist') < tit.indexOf('Repetição'),
+      'C · a Playlist fica à ESQUERDA do Repetir, e o tour a explica antes', JSON.stringify([pPl, pRep]));
     const ruins = pc.filter((m) => (m.peca ? !recorteBate(m) : !m.centro));
     checar(ruins.length === 0, 'C · cada passo recorta a peça (ou, sem ela à vista, centraliza)',
       JSON.stringify(ruins.map((m) => [m.alvo, m.peca, m.recorte, m.centro])));
@@ -730,7 +766,7 @@ try {
       ['cronogramas', 'abrirCronoGaveta()', 'fecharCronoGaveta()'],
       ['conectar', 'abrirCast()', 'fecharCast()'],
       ['playlist', 'openPlPopup()', 'closePlPopup()'],
-      ['sorteio', 'abrirSorteio()', 'fecharSorteio()'],
+      ['sorteio', SORTEIO_ABRE, SORTEIO_FECHA],
       ['cfg-hist', 'openFadePopup(); abrirSecao("hist")', 'closeFadePopup()'],
       ['cfg-pacote', 'openFadePopup(); abrirSecao("pacote")', 'closeFadePopup()'],
       ['ferr-clock', 'abrirFerramenta("clock")', 'fecharFerramentas()'],
@@ -757,6 +793,19 @@ try {
       await esperar(pg, () => !secaoDoTour(), null, 3000);
     }
     checar(ruinsI.length === 0, 'I · toda seção do avançado abre o próprio tour, e cada passo recorta uma peça real', ruinsI.join(' | '));
+    // A LISTA DA PLAYLIST AUTOMÁTICA (v1.14.21): com as músicas sorteadas à vista, a lista e a marca de cada
+    // linha têm passo — e o passo da lista (a moldura) vem antes do da linha, que mora dentro dela.
+    await pg.evaluate((v) => { localStorage.setItem('av.tour', JSON.stringify(v)); AVTour.armar(); }, Object.assign({}, tudo, { 's.sorteio': 0 }));
+    await pg.evaluate(SORTEIO_ABRE);
+    const rS = await esperarTour(pg, 's.sorteio', 5000);
+    const pS = rS === true ? await percorrer(pg) : [];
+    const tS = pS.map((m) => m.titulo);
+    await pg.evaluate(() => AVTour.aberto() && AVTour.fechar());
+    await pg.evaluate(SORTEIO_FECHA);
+    await esperar(pg, () => !secaoDoTour(), null, 3000);
+    checar(rS === true && ['Músicas sorteadas', 'Marcar músicas', 'Quantas', 'Sortear de novo'].every((t) => tS.includes(t))
+      && tS.indexOf('Músicas sorteadas') < tS.indexOf('Marcar músicas') && pS.every((m) => m.peca && recorteBate(m)),
+      'I · a Playlist automática explica a lista sorteada e a marca de cada música, recortando a peça', (porque(rS) || 'abriu') + ' · ' + tS.join(' · '));
 
     // I2 · o editor que já ABRE NO FORMULÁRIO (uma mídia escolhida na memória) tem seção PRÓPRIA (v1.14.20):
     // `ferr-edicao-form` — a mídia, o trecho, os fades, o confirmar e os destinos. Com uma seção só, a marca gravava
@@ -829,7 +878,7 @@ try {
     ['s.biblioteca', 'openHymnSearch()', 'closeHymnSearch()'],
     ['s.cronogramas', 'abrirCronoGaveta()', 'fecharCronoGaveta()'],
     ['s.playlist', 'openPlPopup()', 'closePlPopup()'],
-    ['s.sorteio', 'abrirSorteio()', 'fecharSorteio()'],
+    ['s.sorteio', SORTEIO_ABRE, SORTEIO_FECHA],
     ['s.ferramentas', 'abrirFerramentas()', 'fecharFerramentas()'],
     ['s.ferr-clock', 'abrirFerramenta("clock")', 'fecharFerramentas()'],
     ['s.ferr-stopwatch', 'abrirFerramenta("stopwatch")', 'fecharFerramentas()'],

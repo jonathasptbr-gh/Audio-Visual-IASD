@@ -12,7 +12,7 @@ depois do `__avBack`. Oráculo: `tools/tour.test.mjs`.
 | `conexao` | Modo Fácil com a cortina "sem tela" (`#simpleMode.sem-tela`) | só a cortina: `#simpleConn`, `#castMirrorBtn`, `#castNetBtn`, `#castLocalBtn` |
 | `simples` | Modo Fácil destravado, Biblioteca encaixada (`.corpo-biblioteca`) | `#simpleBarra`/`#libBar`, a lista da janela (`.semana-raiz`, `.hymnal-card > .coll-bar`, `.coll-group-bar`, `.coll-bar-dl`), `#sorteioSimplesBtn`, `#volPill`, `#simpleSettingsBtn`, `#simpleCastBtn`, `FIM` |
 | `tocando` | Modo Fácil destravado com a letra e as teclas à vista | `.simple-song`, `.simple-fabs`, `#simpleSlidesRow`, `.simple-nowplaying`, `#simpleStop`, `#simplePlay`, `#simpleTela` |
-| `avancado` | Modo Avançado | `#library`, `#cronoTitulo`, `#cronoImportar`, `#bibleBtn`, `#toolsBtn`, `#libBar`, o deck em nove passos (`.np-seek`, `#slidePrevBtn`+`#preview`+`#slideNextBtn`, `#prev`+`#playpause`+`#next`+`#stop`, `#repeat`, `#plBtn`, `#lyricsViewBtn`, `#viewToggle`, `#muteToggle`, `#pvFullBtn`), `#pvCastBtn`, `#settingsBtn`, `FIM` |
+| `avancado` | Modo Avançado | `#library`, `#cronoTitulo`, `#cronoImportar`, `#bibleBtn`, `#toolsBtn`, `#libBar`, o deck em nove passos (`.np-seek`, `#slidePrevBtn`+`#preview`+`#slideNextBtn`, `#prev`+`#playpause`+`#next`+`#stop`, `#plBtn`, `#repeat`, `#lyricsViewBtn`, `#viewToggle`, `#muteToggle`, `#pvFullBtn`), `#pvCastBtn`, `#settingsBtn`, `FIM` |
 
 Os tours principais apontam as PORTAS e o que já está à vista na tela (a tabela `TOURS` do `tour.js`: o deck do Avançado, a lista da Biblioteca encaixada do Fácil); o que há
 dentro de cada janela é o tour de SEÇÃO, abaixo. Um passo `opcional` sem
@@ -32,6 +32,7 @@ tela e naquele modo.
 | faixa | centros verticais em ordem; cada um entra na faixa do anterior se dista dele até max(`LINHA_PX` = 24 px, metade da altura do menor dos dois) — encadeado |
 | ordem | faixa de cima para baixo; dentro dela, `left` crescente (empate: a ordem declarada) |
 | `abertura: true` | FIXO no começo, na ordem declarada: a moldura que apresenta a tela ou a janela e CONTÉM as outras peças (`#simpleConn`, `#library`, `#bibleBody`, `.bible-vsec.cur`, `#histSecao`, `#testeCorpo`, `#msgWrap .msg-list`, `.edicao-card`, `#lyricsViewBody`, a folha da Playlist e a da Letra) |
+| moldura | um passo cuja peça CONTÉM a de outro (a caixa inteira, ±1,5 px) vem logo ANTES da primeira peça de dentro, onde quer que ela caia na faixa — a `abertura` local: a moldura fica no lugar dela na tela, não no começo do tour. É o que põe a prévia com as setas antes dos botões do alto dela, cujo centro fica acima do da prévia (v1.14.21) |
 | `fecho: true` / sem `alvo` | FIXO no fim (`FIM`: "Tour do app", balão central, em `simples` e `avancado`) |
 | peça fora de vista | (o balão central do `semAlvo`) vai para o fim, ANTES do fecho, na ordem declarada |
 | `volume: true` | a pílula está escondida (`visibility`) até o passo dela, e a CAIXA dela muda quando aparece (no Fácil é uma faixa alta na borda esquerda, por cima da Biblioteca): ela NÃO ordena — vai para o fim, antes do fecho — e fica FORA da regra da ordem (o bloco J não a conta: o passo cria a própria peça) (v1.14.20) |
@@ -111,6 +112,12 @@ acrescenta que, sem horários, os três ficam apagados. O Timer ganhou o passo d
 (`#chronoRoletas`); a lista de Ferramentas perdeu o "Fechar" (é a mesma porta que abriu) e ganhou
 o "Editar mídia"; as Mensagens explicam a lista e as opções de formatação — na primeira
 instalação a lista está vazia, e o passo das opções vira balão central (`semAlvo`).
+
+**A Playlist automática (v1.14.21):** a lista sorteada já vem na primeira abertura (sem tema, o
+acervo inteiro embaralhado), então os passos dela moram no mesmo `sorteio`: a moldura
+(`.sorteio-res-cab` + `.sorteio-res`, presente nos três estados — montando, vazia e cheia), a linha
+(`.sorteio-res-btn`, com `semAlvo` para a lista vazia), o `#sorteioQuantidade` e o embaralhar
+(`.sorteio-sortear`), que tem passo próprio fora do destaque da saída.
 
 Uma janela sem entrada na tabela (`songMenuPopup`, `itinPopup`, a gaveta de
 itinerários) não tem tour, mas conta como seção aberta: o tour principal espera.

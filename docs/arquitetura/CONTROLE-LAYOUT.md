@@ -30,7 +30,7 @@
 │  │─────────────────────────────────────│ Wall │         │
 │  │    Preview (proporção do telão)     │ Letra│         │
 │  │─────────────────────────────────────│ Mudo │         │
-│  │  🔁  ⏮  ▶/⏸  ⏹  ⏭  [Playlist]    │ Vol  │         │
+│  │  [Playlist]  🔁  ⏮  ▶/⏸  ⏭  ⏹    │ Vol  │         │
 │  └─────────────────────────────────────┴──────┘         │
 │  [margem segura para navegação por gestos]              │
 └─────────────────────────────────────────────────────────┘
@@ -212,9 +212,10 @@ linha de baixo ele é uma de sete células iguais, ao lado da **playlist** — q
 também só abre uma lista e sempre teve fundo. Um único chapado numa fileira de
 seis com fundo não se lê como distinção: lê-se como um botão que ficou de fora.
 
-**A ORDEM da linha** (v1.3.9 → v1.5.6, pedida nas duas vezes): repetir →
-playlist → anterior → play → **próximo → parar** → a sétima célula. Os dois que
-ABREM uma folha ficam nas pontas do grupo, e o miolo é o transporte contínuo.
+**A ORDEM da linha** (v1.3.9 → v1.5.6 → v1.14.21, pedida nas três vezes): **playlist →
+repetir** → anterior → play → **próximo → parar** → a sétima célula. Os dois que
+ABREM uma folha ficam nas pontas — a playlist na primeira célula, o auxiliar de leitura
+na última —, e o miolo é o transporte contínuo.
 
 **O PARAR SAIU DE DENTRO DO TRIO** (v1.5.6): *"coloque o stop após o 'próxima
 música'"*. Ele estava entre o ▶ e o ⏭, isto é, no meio da navegação — o dedo que
@@ -316,8 +317,8 @@ slide e transporte todos têm superfície.
 **A linha da preview é só a preview**, e a partir da v1.3.5 ela é FLANQUEADA de
 novo — mas por fora, em colunas da grade, e não dentro da linha. Desde a v1.3.7
 a preview PREENCHE a coluna do meio e a altura dela sai da proporção do telão
-(ver "Um vão só…", acima). O botão de **repetir** (`#repeat`) é o primeiro de
-`.transport`, com o de playlist por último.
+(ver "Um vão só…", acima). O botão de **playlist** (`#plBtn`) é o primeiro de
+`.transport`, com o de repetir logo depois (v1.14.21).
 
 ### Um par de botões, dois eixos — e onde ele ainda vale
 

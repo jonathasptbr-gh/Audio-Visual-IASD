@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.21** — o tour: a moldura antes do que está dentro dela (a prévia antes dos botões sobre ela), a lista da Playlist automática, e a playlist à esquerda do repetir no deck; só web.
 - **v1.14.20** — o tour do grupo nota 9: a lista da Biblioteca do Fácil, o deck do Avançado um a um, a cifra, as Ferramentas (sem o "Fechar", com a roleta e as três saídas), as Mensagens, o editor de mídia e a Bíblia em leitura — e as seções por VISTA, mais o `modos` que virou porteiro; só web.
 - **v1.14.19** — a folha do vídeo sem o aviso do teto de qualidade, e o botão dos detalhes encurtado para "Detalhes" (texto único, ligado por superfície própria); só web.
 - **v1.14.18** — a higienização C: as 14 lápides podadas, a gaveta que retoma o slot ao reabrir, o `naoResta` inalcançável, 17 ponteiros de documentação repontados e a rodada da série descrita como ela é; base web e `java/` (só comentário no Kotlin), com Release.
@@ -751,6 +752,53 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.14.21 — o tour: a moldura antes do que está dentro dela, a lista do sorteio, e a playlist à esquerda do repetir (só web)
+
+**v1.14.21 (só web; pedido direto do operador, 2026-11-15 08:08, fora da fila)** — três ajustes num
+lote: *"faça o tour do preview inteiro e setas laterais, antes de explicar os botões internos do
+preview"*, *"na playlist automática, estamos sem tour para explicar a lista de seleção das músicas
+sorteadas disponíveis"* e *"troque a posição dos botões de repetir e playlist entre eles, deixando a
+playlist a esquerda e repetir a direita"*.
+
+**A moldura antes do que está dentro dela.** A ordem do tour é a visual pelo CENTRO de cada peça
+(v1.14.3); os botões do alto da prévia (`#viewToggle`, `#pvCastBtn`) têm o centro acima do da prévia,
+então vinham antes dela, e o passo "Prévia e setas" caía no meio dos quatro botões que moram sobre
+ela. Regra nova no `ordenar()`: o passo cuja peça CONTÉM a de outro (a caixa inteira, ±1,5 px, e
+maior) sobe para logo antes da primeira peça de dentro — a `abertura` local, que deixa a moldura no
+lugar dela na tela. Vale para todo tour; onde já havia contenção (a barra e o sortear do Fácil, o
+cartão e a seta de download, a lista e a linha do sorteio) a moldura já vinha antes, ou passa a vir.
+O bloco J ganhou a regra pelo lado de fora: o par moldura → peça de dentro é a exceção da faixa, e
+nenhuma moldura pode vir depois de uma peça que ela contém.
+
+**A lista do sorteio.** A lista JÁ VEM na primeira abertura (sem tema, `sorteioLista()` embaralha o
+acervo inteiro e marca as primeiras), então os passos moram no mesmo `SECOES.sorteio`, sem seção por
+estado: a moldura (`.sorteio-res-cab` + `.sorteio-res`, presente nos três estados do `li.sorteio-res`
+— montando, vazia e cheia), a linha (`.sorteio-res-btn`, com `semAlvo` em vez de `opcional`: com mais
+de 100 faixas a lista "monta" por ~1 s e o automático abre entre 0,9 e 1,2 s — MEDIDO, em ~1/3 das
+primeiras aberturas com o hinário real a linha ainda não existe, e um `opcional` sumiria para sempre,
+porque a marca grava na abertura), o `#sorteioQuantidade` e o embaralhar (`.sorteio-sortear`), que
+ganhou passo próprio fora do destaque da saída. O texto da saída passou a dizer que ela age sobre as
+MARCADAS, e o comentário do `controle.js` que dizia "não há resultado à vista antes do toque" foi
+reescrito. O oráculo abre a janela com oito faixas em memória (`SORTEIO_ABRE`, sem aquecimento) nas
+varreduras I e J e cobra os quatro passos novos, com a lista antes da linha.
+
+**A playlist à esquerda do repetir.** No `index.html` os dois blocos trocaram de lugar, cada um com o
+seu comentário; nada depende da ordem (tudo é por id, `flex: 1` nos seis, nenhum seletor de
+posição). O comentário da ordem foi reescrito — e corrigido: dizia "parar, próximo" desde a v1.5.6,
+quando a ordem virou "próximo, parar". O `controles-layout` cobra a ordem nova; o tour se ajusta
+sozinho (a ordem é medida), e o bloco C cobra a playlist à esquerda e explicada antes. Os capítulos
+que descreviam a ordem (`CONTROLE-LAYOUT`, `CONTROLE-CONFIGURACOES`, `CONTROLE-TELAO`) e o desenho
+numerado do guia de sonoplastia (o SVG e a tabela "1 · Playlist", "2 · Repetição") foram
+atualizados, e dois comentários do CSS que apontavam regras que não existem mais (`.tab-pl`,
+`.pl-badge`) foram corrigidos.
+
+**O que ficou** (as linhas estão no `RESIDUOS.md`): as capturas do site mostram o repetir à esquerda;
+a barra do sorteio quebra em duas linhas a 360 px no Chromium, e então o recorte da saída engloba o
+embaralhar; o `ECO_SELETOR` inclui o `#plBtn`, que só abre a folha; o diagrama do `CONTROLE-LAYOUT` é
+de antes da v1.3.9.
 
 ---
 

@@ -1062,15 +1062,13 @@ body {
    botão de passar slide, mesma faixa do transporte, e a mesma CAIXA dos seis
    vizinhos (`.t-btn`). Um único botão chapado numa fileira de seis com fundo
    não se lê como distinção — lê-se como um que ficou de fora. */
-/* `position: relative` é o contexto da `.lv-badge`, que é absoluta — a mesma
-   razão do `.tab-pl` do botão da playlist, dois vizinhos à esquerda. */
+/* `position: relative` é o contexto da `.lv-badge`, que é absoluta. */
 .deck > #lyricsViewBtn { grid-column: 3; grid-row: 3; min-width: 0; position: relative; }
 /* A BADGE de "há o que ler" (v1.4.31). Ela é um PONTO e não um número: o que
    ela responde é sim/não ("este botão tem função agora?"), e escrever "3" ali
    prometeria uma contagem que a folha não usa — as fontes do auxiliar não são
    itens de fila, são abas.
-   Ela nasce da mesma caixa da `.pl-badge` (o mesmo canto, a mesma cor de
-   estado), com `--ok` no lugar do accent: aqui a mensagem é "está disponível",
+   A cor é a de estado `--ok`, e não o accent: aqui a mensagem é "está disponível",
    e neste app o verde é o que diz concluído/pronto. `:empty` NÃO a esconde —
    ela é vazia por construção; quem a esconde é o `hidden` que
    `renderLeitorBadge` escreve. */

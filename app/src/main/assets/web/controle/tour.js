@@ -164,10 +164,10 @@
         texto: 'A prévia mostra, pequeno, o que está na TV agora. As setas dos lados passam a estrofe, a página ou o versículo.' },
       { alvo: ['#prev', '#playpause', '#next', '#stop'], titulo: 'Anterior, Play/Pausa, Próxima e Parar',
         texto: 'Anterior e Próxima trocam de mídia na fila, Play/Pausa pausa e continua, e Parar tira da TV o que está no ar.' },
-      { alvo: '#repeat', titulo: 'Repetição',
-        texto: 'Cada toque troca o modo: sem repetição, repetir esta mídia, repetir a playlist inteira ou aleatório.' },
       { alvo: '#plBtn', titulo: 'Playlist',
         texto: 'Abre a fila de músicas que tocam uma depois da outra. O número no botão diz quantas há.' },
+      { alvo: '#repeat', titulo: 'Repetição',
+        texto: 'Cada toque troca o modo: sem repetição, repetir esta mídia, repetir a playlist inteira ou aleatório.' },
       { alvo: '#lyricsViewBtn', titulo: 'Auxiliar de leitura',
         texto: 'Abre a letra, a cifra ou a Bíblia do que está no ar, só para ler no celular. Fica apagado quando não há nada para ler.' },
       { alvo: '#viewToggle', titulo: 'Cobrir o telão',
@@ -365,10 +365,22 @@
         texto: 'Toque para escolher músicas cantadas ou só o fundo musical, sem voz.', opcional: true },
       { alvo: '#sorteioPopup .misc-chip', todos: true, titulo: 'Álbuns e Só no aparelho',
         texto: 'Toque nos álbuns de onde sortear. "Só no aparelho" usa apenas o que já está baixado.', opcional: true },
-      // O RE-SORTEAR FICA FORA DO DESTAQUE: ele é outra ação (refazer a lista),
-      // e o passo é o da saída — os botões de tocar e de guardar.
+      // A LISTA SORTEADA (v1.14.21, pedido do operador): ela JÁ VEM na primeira abertura — sem tema, o acervo
+      // inteiro embaralhado, com as primeiras marcadas. A moldura (a contagem e a lista) existe nos três estados
+      // (montando, vazia e cheia), por isso não é `opcional`; a linha pode faltar (lista vazia, ou montando com
+      // mais de 100 faixas), e aí o passo vira balão central (`semAlvo`).
+      { alvo: ['#sorteioList .sorteio-res-cab', '#sorteioList .sorteio-res'], titulo: 'Músicas sorteadas',
+        texto: 'A lista sorteada. A linha de cima diz quantas músicas estão disponíveis e quantas já estão baixadas no aparelho; role para ver todas.' },
+      { alvo: '#sorteioList .sorteio-res-btn', titulo: 'Marcar músicas',
+        texto: 'Toque numa música para marcar ou desmarcar: só as marcadas, com o número da vez, tocam ou são guardadas. Embaixo do nome aparece "no aparelho" ou "vai baixar".',
+        semAlvo: 'Quando houver músicas na lista, toque numa delas para marcar ou desmarcar: só as marcadas tocam ou são guardadas.' },
+      { alvo: '#sorteioQuantidade', titulo: 'Quantas',
+        texto: 'Deslize os números para escolher quantas músicas ficam marcadas. As primeiras da lista são marcadas sozinhas.', opcional: true },
+      // O RE-SORTEAR FICA FORA DO DESTAQUE da saída: ele é outra ação (refazer a lista) e tem passo próprio.
+      { alvo: '#sorteioPopup .sorteio-sortear', titulo: 'Sortear de novo',
+        texto: 'Toque no botão de embaralhar para sortear outra ordem, com a mesma palavra e os mesmos filtros.', opcional: true },
       { alvo: '#sorteioPopup .sorteio-acao:not(.sorteio-sortear)', todos: true, titulo: 'Tocar agora e guardar',
-        texto: 'Toque em Tocar agora para ouvir já, ou nos botões ao lado para guardar no Cronograma, na playlist ou nos Favoritos.', opcional: true },
+        texto: 'Toque em Tocar agora para ouvir já as músicas marcadas, ou nos botões ao lado para guardá-las no Cronograma, na playlist ou nos Favoritos.', opcional: true },
     ] },
     playlist: { modos: ['full'], passos: [
       { alvo: '#plPopup .popup-sheet', abertura: true, titulo: 'Playlist',
@@ -492,6 +504,11 @@
   function caixaParaOrdem(passo) {
     return retangulo(passo);
   }
+  // `a` CONTÉM `b`: a caixa de `b` cabe inteira na de `a` (±1,5 px) e `a` é maior.
+  function contem(a, b) {
+    return b.left >= a.left - 1.5 && b.top >= a.top - 1.5 && b.right <= a.right + 1.5 && b.bottom <= a.bottom + 1.5
+      && a.width * a.height > b.width * b.height + 1;
+  }
   function ordenar(passos) {
     const ini = [], fim = [], soltos = [], medidos = [];
     passos.forEach((p, k) => {
@@ -508,8 +525,15 @@
       if (ant && m.cy - ant.cy <= tol) faixas[faixas.length - 1].push(m); else faixas.push([m]);
       ant = m;
     }
-    const meio = faixas.flatMap((f) => f.sort((a, b) => a.r.left - b.r.left || a.k - b.k)).map((m) => m.p);
-    return ini.concat(meio, soltos, fim);
+    const meio = faixas.flatMap((f) => f.sort((a, b) => a.r.left - b.r.left || a.k - b.k));
+    // A MOLDURA ANTES DO QUE ESTÁ DENTRO DELA (v1.14.21): pelo centro, os botões do alto da prévia caíam
+    // ANTES da prévia (o centro deles fica acima do dela). O passo cuja peça CONTÉM a de outro sobe para
+    // logo antes da primeira peça de dentro — a `abertura` local: a moldura fica no lugar dela na tela.
+    for (let i = 1; i < meio.length; i++) {
+      const j = meio.findIndex((m, k) => k < i && contem(meio[i].r, m.r));
+      if (j >= 0) meio.splice(j, 0, meio.splice(i, 1)[0]);
+    }
+    return ini.concat(meio.map((m) => m.p), soltos, fim);
   }
 
   function montar() {

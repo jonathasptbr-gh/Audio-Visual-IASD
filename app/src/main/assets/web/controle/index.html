@@ -1762,21 +1762,16 @@
            ANTES do `title`: sem o aria-hidden o title nunca era consultado e o
            leitor de tela anunciava o caractere PUA. Esconder a decoração é o
            que faz o title voltar a valer como nome. -->
-      <!-- A ORDEM DA LINHA DE BAIXO (v1.3.9), a pedido do operador: repetir,
-           playlist, anterior, play, parar, próximo, e a sétima célula. Os dois
-           que ABREM uma folha ficam nas PONTAS — playlist logo depois do
-           repetir, a sétima no fim —, e o miolo é o transporte contínuo. A
-           sétima mora fora desta caixa: ela é item da coluna 3 da grade.
+      <!-- A ORDEM DA LINHA DE BAIXO (v1.3.9 → v1.5.6 → v1.14.21), a pedido do
+           operador: playlist, repetir, anterior, play, próximo, parar, e a
+           sétima célula. Os dois que ABREM uma folha ficam nas PONTAS — a
+           playlist na primeira célula, a sétima na última —, e o miolo é o
+           transporte contínuo. A sétima mora fora desta caixa: ela é item da
+           coluna 3 da grade.
            Era o HISTÓRICO da v1.3.8 à v1.4.29; hoje é o AUXILIAR DE LEITURA
            (ver `#lyricsViewBtn`), e a regra que a governa não mudou — o que
            ocupa a ponta é o que abre uma folha, não o que opera a cena. -->
       <div class="transport">
-        <!-- O DESENHO VIVE NUM `<use>`, e `renderRepeat` troca só o `href` dele:
-             um `innerHTML` a cada render recriaria o `<svg>` quatro vezes por
-             ciclo, e o `width`/`height` viria do atributo em vez da regra de
-             escala (a armadilha MUDA da v1.8.68). A caixa é a do transporte:
-             `.t-btn svg` já está na lista do `--icon-md`. -->
-        <button id="repeat" class="t-btn" title="Repetição"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoRepetir"/></svg></button>
         <!-- Único botão do transporte com `aria-label`: o selo #plCount é
              texto de verdade, então esconder só o glifo faria o nome acessível
              virar o NÚMERO ("3"), sem dizer de quê. O aria-label nomeia o
@@ -1786,6 +1781,12 @@
           <span class="msym" aria-hidden="true">&#xe03d;</span>
           <span id="plCount" class="pl-badge"></span>
         </button>
+        <!-- O DESENHO VIVE NUM `<use>`, e `renderRepeat` troca só o `href` dele:
+             um `innerHTML` a cada render recriaria o `<svg>` quatro vezes por
+             ciclo, e o `width`/`height` viria do atributo em vez da regra de
+             escala (a armadilha MUDA da v1.8.68). A caixa é a do transporte:
+             `.t-btn svg` já está na lista do `--icon-md`. -->
+        <button id="repeat" class="t-btn" title="Repetição"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoRepetir"/></svg></button>
         <!-- ⏮/⏭ falam de MÍDIA e mais nada desde a v1.3.5: quem passa slide são
              os dois botões que flanqueiam a preview. O par de dois eixos (toque
              curto = estrofe, longo = mídia) sobrevive só onde não há botão de
@@ -1969,7 +1970,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.20</span>
+          <span id="appVersion">v1.14.21</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>

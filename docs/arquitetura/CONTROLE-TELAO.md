@@ -650,8 +650,8 @@ que ela ganhou GEOMETRIA.
   - **A GRADE É A DO TRANSPORTE, SEM CONTA.** A prévia ocupa a coluna do meio do
     deck, `W − 2·col − 2·vão`; com `col = (W − 6·vão)/7` (a demonstração está no
     `.deck`) isso é exatamente `5·col + 4·vão`. `repeat(5, minmax(0, 1fr))` com
-    `--deck-gap` dá cinco células de `--deck-col`, borda com borda sobre a
-    playlist, ⏮, ▶, ⏭ e o parar; os dois botões de slide, que flanqueiam a
+    `--deck-gap` dá cinco células de `--deck-col`, borda com borda sobre o
+    repetir, ⏮, ▶, ⏭ e o parar; os dois botões de slide, que flanqueiam a
     prévia, ganham a altura da linha e fecham as sete. MEDIDO a 390px: os dez
     botões das duas linhas em 47,7 × 36,4.
   - **COLUNA FIXA POR BOTÃO:** mudo · cortina · seta · cast · tela cheia. A ordem

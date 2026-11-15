@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.14.21",
+    "itens": [
+      "No player do Avançado, o botão da playlist passou para a esquerda e o de repetir para a direita dele.",
+      "No tour do Avançado, a prévia é explicada antes dos botões que ficam sobre ela.",
+      "O tour da Playlist automática agora explica a lista sorteada: marcar músicas, quantas e sortear de novo."
+    ]
+  },
+  {
     "versao": "1.14.20",
     "itens": [
       "O tour do Modo Fácil agora explica a Biblioteca: a Liturgia, as coleções, o toque que toca e o download.",

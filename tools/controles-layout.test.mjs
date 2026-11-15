@@ -1299,8 +1299,11 @@ try {
   // estava ENTRE o ▶ e o ⏭, isto é, no meio do trio de navegação — o dedo que vai
   // do play para a próxima passa por cima do único botão da fileira que ENCERRA a
   // cena. Fora do trio, ⏮ ▶ ⏭ ficam contíguos e o parar é o fim da linha.
-  checar(linha.ids.join(',') === 'repeat,plBtn,prev,playpause,next,stop,lyricsViewBtn',
-    'a ordem é repetir → playlist → anterior → play → próximo → parar → auxiliar de leitura',
+  // E NA v1.14.21 a playlist e o repetir trocaram de lugar (pedido do operador: *"troque a posição dos
+  // botões de repetir e playlist… deixando a playlist à esquerda e repetir à direita"*): o que abre folha
+  // fica na PONTA.
+  checar(linha.ids.join(',') === 'plBtn,repeat,prev,playpause,next,stop,lyricsViewBtn',
+    'a ordem é playlist → repetir → anterior → play → próximo → parar → auxiliar de leitura',
     linha.ids);
   checar(linha.hist.fundo === linha.vizinho.fundo && linha.hist.raio === linha.vizinho.raio,
     'e a sétima veste a MESMA caixa dos vizinhos — um chapado sozinho numa fileira de seis com fundo lê como um que ficou de fora',

@@ -747,7 +747,7 @@ desenho padrão — em **Configurações** (a engrenagem do cabeçalho):
 `currentId` — o ▶ recarrega e reproduz do início.
 
 **Botão de playlist (`#plBtn`):** mora na própria linha de transporte
-(`.transport`), à direita do botão de repetição — não é mais uma aba
+(`.transport`), à esquerda do botão de repetição — não é mais uma aba
 separada (`.tabs`); abre o mesmo bottom-sheet com a fila de reprodução de
 sempre. Reaproveita o tamanho/estilo de `.t-btn` (a linha de transporte
 cresceu de 5 para 6 botões, cada um um pouco mais estreito).
