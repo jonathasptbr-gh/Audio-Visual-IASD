@@ -423,7 +423,7 @@ const criarEGuardar = async (pg2) => {
 // para crescer de novo com a lista. MEDIDO antes do conserto (430 px): 1ª abertura
 // 0→121 animado e SALTO a 299 no último quadro; 2ª 0→342, cai a 299, volta a 342.
 // Depois: 0→299 e 299→342 animados; a 2ª abre uma vez só, em 342.
-// `abrirMedindo` amostra a altura de `#cfgSecoes` a cada quadro, do toque até 1,6 s.
+// `abrirMedindo` amostra a altura de `#edicaoSecao` a cada quadro, do toque até 1,6 s.
 const abrirMedindo = async (pg2 = app) => {
   // `abrirFerramentas` reabre no ato, inclusive no meio da saída (o degrau que
   // cancela a animação de descida) — clicar na porta durante ela não faria nada.
