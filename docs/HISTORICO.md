@@ -791,10 +791,13 @@ desceria sobre a pauta). Medido: Por um dia 16 pautas (o índice recebeu 24 e 23
 integral 52; as páginas continuam 22 e 88 nos dois formatos. As duas colunas acima de faixa do
 integral têm vão de 10 e 0 mm — ficaram sem pauta por geometria.
 
-**O oráculo.** O `guia-impressao` ganhou o bloco L (páginas em número FIXO, ≥ 1 pauta por
-impressão, nenhuma na capa, ≥ 4 linhas de borda, inteira na coluna) e as medidas de espaço livre
+**O oráculo.** O `guia-impressao` ganhou o bloco L (as páginas contadas ANTES da passada,
+`livreto.antesDaPauta`, são as de depois, no DOM e no PDF; ≥ 1 pauta por impressão, nenhuma na capa, ≥ 4 linhas de borda, inteira na coluna) e as medidas de espaço livre
 (`livreDe`, órfão, pulos, "esquerda vazia", `meiaVazia`) passaram a ignorar `.anot` — sem isso a
-pauta mascararia, em silêncio, a regressão do paginador que essas regras existem para pegar.
+pauta mascararia, em silêncio, a regressão do paginador que essas regras existem para pegar. O
+primeiro `verificar` reprovou o L, que nasceu com as páginas em número FIXO (22/88, medidas aqui):
+no runner o mesmo guia dá 23/97 — a fonte (DejaVu Sans) muda a régua, com ou sem pauta. Conserto
+no MESMO número: a régua passou a ser a contagem de antes da passada, no próprio aparelho.
 
 **O que ficou** (as linhas estão no `RESIDUOS.md`): a impressão pelo app não foi vista em aparelho —
 o adapter do WebView respeitar o `@page guia-a4 {margin:0}` e o A4 só se mede lá; o Kotlin só

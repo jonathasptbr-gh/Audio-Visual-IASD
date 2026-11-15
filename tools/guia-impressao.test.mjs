@@ -65,8 +65,9 @@
 //     nas páginas da impressão dos dois guias, nem nos atributos lidos
 //     (aria-label, title, alt, placeholder…);
 //  L. anotações (pedido de 15/11): o vão no pé de uma coluna vira pauta
-//     "Anotações" (.anot) sem mudar o nº de páginas (régua: Por um dia 22,
-//     Tempo integral 88, nos dois formatos); nenhuma na capa, ao menos uma por
+//     "Anotações" (.anot) sem mudar o nº de páginas (o `livreto.antesDaPauta`,
+//     contado antes da passada, = o de depois = o do PDF; número fixo, não: a
+//     fonte muda a régua — 22/88 aqui, 23/97 no runner); nenhuma na capa, ao menos uma por
 //     impressão, cada uma com ≥ 4 linhas de BORDA (sem fundo) e inteira na sua
 //     coluna. As medidas de vão de E (livre, "cortadas", "esquerda vazia",
 //     meia coluna, órfão) ignoram .anot: senão a pauta mascara o paginador.
@@ -133,8 +134,6 @@ const medirPaginas = (pg) => pg.evaluate(() => {
 
 // Margens esperadas por página (1-based): simples 18/18; fichário 25/11 na ímpar e 11/25 na par.
 const margens = (fmt, n) => (fmt === 'simples' ? [18, 18] : n % 2 ? [25, 11] : [11, 25]);
-// L. a régua de páginas medida antes das anotações (15/11): a pauta não pode abrir página
-const PAGINAS = { dia: 22, integral: 88 };
 
 async function escolher(pg, attr, valor) {
   await pg.click(`.caderno-opc[${attr}="${valor}"]`);
@@ -243,8 +242,9 @@ async function conferir(pg, guia, fmt, rotulo) {
   const cortadas = pags.map((p, i) => (p.corte > 0.3 ? (i + 1) + ':' + p.corte.toFixed(1) : 0)).filter(Boolean);
   checar(vazias.length === 0 && cortadas.length === 0,
     `E · ${rotulo}: nenhuma página vazia e nada passa da área útil (texto cortado no rodapé)`, JSON.stringify({ vazias, cortadas }));
-  // L. a pauta só ocupa vão: o nº de páginas é a régua de antes dela, número fixo
-  checar(L.paginas === PAGINAS[guia], `L · ${rotulo}: ${PAGINAS[guia]} páginas, as mesmas de antes das anotações`, JSON.stringify({ paginas: L.paginas }));
+  // L. a pauta só ocupa vão: as páginas de antes dela são as de depois (no DOM e no PDF, pelo B)
+  checar(L.antesDaPauta > 0 && L.antesDaPauta === L.paginas && pags.length === L.paginas,
+    `L · ${rotulo}: ${L.antesDaPauta} páginas antes das anotações, as mesmas depois`, JSON.stringify({ antes: L.antesDaPauta, paginas: L.paginas, dom: pags.length }));
   const anots = pags.flatMap((p, i) => p.anot.map((a) => ({ pag: i + 1, ...a })));
   const anotMal = anots.filter((a) => a.pag === 1 || !a.col || a.tit !== 'Anotações' || a.n < 4 || !a.borda || a.topo < -0.1 || a.pe < -0.1);
   checar(anots.length > 0 && anotMal.length === 0,

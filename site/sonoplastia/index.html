@@ -7701,7 +7701,7 @@
        já tem, sem empurrar a faixa) ou a pauta passou do pé, sai uma linha; menos de ANOT_MIN, sai
        a pauta. Não cria página nem mexe no texto. A coluna que acaba num cartão partido fica sem:
        o "continua →" leva direto à seguinte. A pauta desce até o pé (linhas vizinhas alinhadas). ----- */
-    var ANOT_MIN = 4;
+    var ANOT_MIN = 4, antesDaPauta = 0;
     function anotar(c) {
       var ult = c.lastElementChild;
       if (!ult || ult.matches('.lb-corta') || ult.querySelector('.lb-corta')) return 0;
@@ -7731,7 +7731,7 @@
         ? F2 + ' folhas em frente e verso, virando na <b>borda longa</b>. '
         : P + ' folhas numa face ou ' + F2 + ' em frente e verso (borda longa). ') + IMPRESSORA;
       try {
-        window.livreto = { guia: GUIA, formato: FMT, paginas: P, folhasUmaFace: P, folhasFrenteVerso: F2, oidPag: finais };
+        window.livreto = { guia: GUIA, formato: FMT, paginas: P, folhasUmaFace: P, folhasFrenteVerso: F2, oidPag: finais, antesDaPauta: antesDaPauta };
       } catch (e) {}
     }
 
@@ -7781,7 +7781,9 @@
       PAGS.length = ordem.length;
       var cvp = $('.cv-pags', capaRec.con);
       if (cvp) cvp.textContent = PAGS.length + ' páginas em A4';
-      // as anotações nos vãos (fora a capa), com a página já no lugar e antes do fio
+      // as anotações nos vãos (fora a capa), com a página já no lugar e antes do fio; o nº de
+      // páginas de antes delas vai ao `window.livreto` (a pauta não abre página: oráculo L)
+      antesDaPauta = escala.querySelectorAll('.pag').length;
       ordem.slice(1).forEach(function (r) { $$('.pag-col', r.el).forEach(anotar); });
       /* o fio do meio em cada par de colunas com a da direita ocupada, do alto delas até onde acaba
          o texto — a pauta de anotações não conta (todas as medidas primeiro, depois as escritas: o
