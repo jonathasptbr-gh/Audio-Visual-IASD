@@ -70,8 +70,6 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **13** — Estudos (não são fila de execução) | 4 | estudo | nenhuma entrega |
 | **16** — O cronograma pronto: o organizador entrega o culto ao sonoplasta | 8 (I4×U2) | pedido | planejamento → Kotlin + web |
 | **20** — Cronograma: o alerta à esquerda | 4 (I2×U2) | pedido | só web |
-| **22** — Bíblia: três versículos no controle | 2 (I2×U1) | pedido | só web |
-| **23** — Editor de mídia: a margem inferior | 4 (I2×U2) | defeito | só web |
 | **29** — Guia do site: a captura das sete ferramentas | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
 | **30** — Ferramentas: duas arestas que o tour achou | 2 (I2×U1) | resíduo | só web |
 
@@ -87,8 +85,6 @@ diferentes, e um lote nunca mistura dois temas.
 | tema | pacotes | o que sai junto |
 |---|---|---|
 | **Cronograma e destinos** | 16, 20 | a abertura antes do culto e o alerta de "não baixado" à esquerda |
-| **Bíblia** | 22 | a leitura de três versículos no controle |
-| **Mídia** | 23 | a margem inferior do editor de mídia |
 | **Site** | 29 | a captura da lista de Ferramentas, com as sete |
 | **Ferramentas** | 30 | o Timer em zero que ainda projeta e guarda, e o editor de mídia vazio na instalação nova |
 | **Fila anterior a 14/11** | 5, 6 | o que já estava na fila, na ordem que ela já tinha |
@@ -339,62 +335,6 @@ confere os dois e muda a referência no mesmo commit.
 
 ---
 
-## Pacote 22 — Bíblia: três versículos no controle
-
-**Nota 2 (I2 × U1) · pedido · só web — anotado pelo operador para depois**
-
-**Onde:** `renderBibleReading` (as quatro chamadas de `mkSection`), o CSS da
-`.bible-read`/`.bible-vsec` e os oráculos `biblia-leitura-cabe` e
-`troca-de-versiculo`.
-
-Pedido (09:55, na mesma mensagem do tour): *"Anote para ser feito depois:
-atualmente colocamos 1 versículo do passado, 1 atual e 2 futuros na leitura dos
-controles da bíblia. Vamos tirar um dos versículos futuros, assim a tela ficara
-com 3 ao todo, tendo mais espaço para esses 3."*
-
-- Hoje o `renderBibleReading` chama `mkSection(-1)`, `mkSection(0)`,
-  `mkSection(1)` e `mkSection(2)` — 1 atrás e 2 à frente. Saem o `+2` e o
-  espaço dele; ficam 1 atrás, o atual e 1 à frente.
-- **O que muda de verdade:** o CSS distribui a altura da `.bible-read` entre as
-  seções; com três, cada uma ganha ~1/3 em vez de ~1/4. Medir a 390×844 e a
-  360×640 com a fonte do sistema em 1,25× (o `biblia-leitura-cabe` é o que
-  cobra que o texto caiba) e conferir que o rodapé (as quatro pílulas e as duas
-  ações) não muda de lugar.
-- **O que NÃO muda:** o `bibleStep` continua andando por `s.idx`; a seção `+1`
-  já mostra o versículo seguinte, e tirar o `+2` muda a PRÉVIA, não a
-  navegação.
-
----
-
-## Pacote 23 — Editor de mídia: a margem inferior
-
-**Nota 4 (I2 × U2) · defeito · só web**
-
-**Onde:** `controle.css` — `.tools-sheet` (o `padding` da folha), `.misc-panel`
-/ `.edicao-panel` (o painel do editor), `.tools-foot`; e o `index.html`
-(`#edicaoSecao` é IRMÃO do `#toolsBody`, dentro do `#toolsSheet`).
-
-Relato (09:55): *"verifique a margem inferior dessa aba de editor de mídia,
-pois ele está com uma margem maior que o normal, veja se ele foi corretamente
-adaptado para essa janela de ferramentas, pois ele veio das configurações e
-pode ser sido mal feito."*
-
-- A suspeita tem lastro: o editor veio de Configurações (v1.14.7) e é o ÚNICO
-  painel que não é montado no `#toolsBody`; ele ocupa o lugar dele como irmão,
-  com o `#toolsFoot` vazio (`:empty { display: none }`). O painel herda o
-  `padding-bottom: .4rem` do `.misc-panel`, e a folha soma o
-  `padding: .5rem .7rem .6rem` do `.tools-sheet` — réguas de respiro diferentes
-  das ferramentas de painel.
-- **Medir antes de mexer:** a distância da última peça do editor (o fecho,
-  `#edicaoFechoForm`/`#edicaoFechoEscolha`) até a borda de baixo da folha,
-  contra a MESMA distância numa ferramenta de painel (Timer, Mensagens). Se a
-  diferença for o `.4rem` do painel (ou um `padding` que veio do `#config`), é
-  uma linha de CSS; se for o `#toolsFoot` vazio ou a lista, é outra.
-- **O oráculo:** o `geometria` mede a folha aberta e o corte; o
-  `edicao-de-midia` mede o editor. O lote ajusta os dois se a régua mudar.
-
----
-
 ## Pacote 29 — Guia do site: a captura das sete ferramentas
 
 **Nota 2 (I2 × U1) · resíduo · só site**
@@ -435,6 +375,14 @@ grupos vazios, ou ao lado deles).
 ---
 
 ## O que saiu desta lista (rastro, não log)
+
+**v1.14.25 (2026-11-15), só web:** os **Pacotes 22 e 23** num lote só, autorizados
+juntos pelo operador. O **22** — a leitura da Bíblia no controle fica em TRÊS
+versículos (um atrás, o atual e um à frente): sai o `mkSection(2)` e a faixa de
+`@container` de 18em que só existia para ele. O **23** — o fecho do editor de
+mídia encosta na régua do rodapé das ferramentas de painel (28,8px → 9,6px a
+1×). Nota em `docs/HISTORICO.md`; oráculos `biblia-leitura-cabe` e
+`edicao-de-midia`.
 
 **v1.14.24 (2026-11-15), só web:** os **Pacotes 7, 21 e 28** num lote só, autorizados
 juntos pelo operador. O **7** — a Verificação procura atualização: a 42ª checagem lê o

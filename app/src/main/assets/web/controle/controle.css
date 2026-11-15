@@ -5450,7 +5450,7 @@ main {
    controle.js). */
 /* Todas as telas da Bíblia preenchem a altura disponível e cabem SEM SCROLL:
    livros (grade 6×11 em `1fr`), capítulo+versículo (duas metades que rolam por
-   dentro) e a leitura (as quatro seções repartem a altura entre si). */
+   dentro) e a leitura (as três seções repartem a altura entre si). */
 .bible-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--sp-5); }
 
 /* Nome do livro em destaque no topo da tela de capítulo+versículo: sem ele,
@@ -6442,9 +6442,9 @@ main {
 .hymnal-card:not(.expanded) > .coll-bar { border-radius: var(--radius-card); }
 
 /* ---------- Bíblia: tela de leitura (versículo anterior/atual/próximo) ---------- */
-/* A leitura cabe na tela SEM SCROLL: as quatro seções repartem entre si a
+/* A leitura cabe na tela SEM SCROLL: as TRÊS seções repartem entre si a
    altura que sobra depois do rodapé. Nada de altura fixa nem de rolagem — o
-   operador precisa ver as quatro de uma vez para acompanhar a leitura, e
+   operador precisa ver as três de uma vez para acompanhar a leitura, e
    rolar para achar o versículo central seria o oposto disso. */
 .bible-read {
   flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--sp-3);
@@ -6453,26 +6453,25 @@ main {
   container-type: size;
 }
 /* ---------- QUANTAS SEÇÕES CABEM É UMA CONTA, NÃO UM NÚMERO (v1.7.9) ----------
-   São quatro por decisão da v5.267 (um versículo atrás e DOIS à frente), e a
-   razão escrita era *"sobrava espaço na tela"* — o que é verdade na tela em que
-   aquilo foi decidido e falso nas outras. MEDIDO: a 360×640 as quatro seções
-   deixavam a CENTRAL com 0,79 linha de texto; a 360×640 com a fonte do sistema
-   em 1,3×, com ZERO.
+   São TRÊS desde a v1.14.25 — um atrás e um à frente; o segundo à frente saiu
+   a pedido do operador, e cada seção ganhou um terço da altura em vez de um
+   quarto. A razão escrita da v5.267 era *"sobrava espaço na tela"* — o que é
+   verdade na tela em que aquilo foi decidido e falso nas outras. MEDIDO com
+   as quatro de então: a 360×640 a CENTRAL ficava com 0,79 linha de texto; a
+   360×640 com a fonte do sistema em 1,3×, com ZERO.
 
    Uma seção só é útil se couber o respiro, a referência e ao menos UMA linha.
-   As três faixas abaixo foram CALIBRADAS medindo, e não deduzidas — cada uma é
-   a altura de folha em que a MENOR seção deixa de mostrar uma linha inteira:
-   com quatro na tela isso acontece entre 17,3em (0,60 linha) e 19em (1,10);
-   com três, entre 13,8em (0,23) e 15,9em (1,26); com duas, em 10,1em (zero).
-   Elas estão em `em` de propósito — a régua tem de acompanhar a escala de fonte
-   do sistema, que é justamente o que empurra a folha para o aperto.
+   As faixas abaixo foram CALIBRADAS medindo, e não deduzidas — cada uma é a
+   altura de folha em que a MENOR seção deixa de mostrar uma linha inteira:
+   com três na tela isso acontece entre 13,8em (0,23 linha) e 15,9em (1,26);
+   com duas, em 10,1em (zero). Elas estão em `em` de propósito — a régua tem
+   de acompanhar a escala de fonte do sistema, que é justamente o que empurra
+   a folha para o aperto.
 
-   O QUE SAI PRIMEIRO É O SEGUNDO VERSÍCULO À FRENTE — o mais distante do que
-   está no ar. Depois dele sai o ANTERIOR, e é a ordem do próprio argumento da
-   v5.267: *"ler adiante é o que o operador faz — ele precisa saber o que vem
-   para acompanhar a leitura, não o que já passou"*. O que nunca sai é o
-   central, que é o que vai ao telão. */
-@container (max-height: 18em) { .bible-vsec:nth-child(4) { display: none; } }
+   O QUE SAI PRIMEIRO É O ANTERIOR — o que já passou importa menos que o que
+   vem, e é a ordem do próprio argumento: *"ler adiante é o que o operador
+   faz — ele precisa saber o que vem para acompanhar a leitura, não o que já
+   passou"*. O que nunca sai é o central, que é o que vai ao telão. */
 @container (max-height: 14em) { .bible-vsec:nth-child(1) { display: none; } }
 /* E no extremo sobra só o que vai ao telão: MEDIDO a 360×640 com fonte 1,3×, a
    última seção de contexto ficava com 21,5px — uma fatia vazia, sem espaço nem
@@ -13098,6 +13097,13 @@ body.lib-assentando .popup-sheet--lib { visibility: hidden; }
   /* `min-height: 0` é o que deixa o painel CABER no vão do corpo: o `min-content`
    do `.misc-panel` empurrava o fecho para fora da folha (e a altura acompanhava o
    conteúdo, que é o que um painel de altura fixa não pode fazer). */
-  overflow: hidden; min-height: 0; padding-top: 0; gap: var(--sp-4);
+  overflow: hidden; min-height: 0; padding-top: 0; padding-bottom: 0; gap: var(--sp-4);
 }
+/* O FECHO ENCOSTA NA RÉGUA DO RODAPÉ DE FERRAMENTA (v1.14.25). Ele veio das
+   Configurações com o `margin-bottom` de lá (`.8rem`), e o painel somava o
+   `padding-bottom` do `.misc-panel` (`.4rem`): MEDIDO, o botão ficava a 28,8px
+   da borda da folha, contra os 9,6px do rodapé do Timer e das Mensagens (o
+   `padding-bottom` da `.tools-sheet`). Aqui o fecho É o rodapé da ferramenta —
+   quem dá o respiro de baixo é a folha, como em todas as outras. */
+.edicao-panel > .popup-fecho { margin-bottom: 0; }
 .edicao-panel[hidden] { display: none; }

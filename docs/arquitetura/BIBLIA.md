@@ -406,11 +406,13 @@ Tocar num **versículo** (`startBibleReading`) inicia uma **sessão de leitura**
 (`bibleSession = { versionId, bookIdx, bookId, bookName, chapter, verses, idx,
 projecting }`) e abre a tela `'reading'` — **mas NÃO projeta nada ainda**
 (`projecting:false`). A tela de leitura (`renderBibleReading`, `.bible-read`)
-mostra **até quatro seções empilhadas** — versículo **anterior · atual ·
-próximo · seguinte** (`.bible-vsec`): um atrás e **dois à frente**, porque ler
-adiante é o que o operador faz (ele precisa saber o que vem para acompanhar a
-leitura, não o que já passou). **Quantas cabem depende da altura da folha**
-desde a v1.7.10 — ver "O destaque tem de CABER", abaixo.
+mostra **até três seções empilhadas** — versículo **anterior · atual ·
+próximo** (`.bible-vsec`): um atrás e **um à frente**, porque ler adiante é o
+que o operador faz (ele precisa saber o que vem para acompanhar a leitura, não
+o que já passou). Até a v1.14.25 eram quatro (dois à frente), e o segundo à
+frente saiu a pedido do operador para cada seção ganhar um terço da altura em
+vez de um quarto. **Quantas cabem depende da altura da folha** desde a
+v1.7.10 — ver "O destaque tem de CABER", abaixo.
 
 **Cabe na tela sem scroll**: as seções repartem entre si a altura que
 sobra depois do rodapé (`flex: 1 1 0` + `min-height: 0` — é o `min-height` que
@@ -454,15 +456,15 @@ Três peças, e cada uma responde a uma parte:
   CSS não tem como calcular a partir de uma altura, e um clamp maior que isso é
   exatamente o defeito de origem. A máscara não precisa desse inteiro, e é o
   vocabulário que a Biblioteca já usa (o véu do scroll, v1.5.16).
-- **QUANTAS SEÇÕES CABEM É UMA CONTA.** São quatro por decisão da v5.267, com a
-  razão escrita *"sobrava espaço na tela"* — verdade na tela em que aquilo foi
-  decidido, e falsa nas outras. Três faixas de `@container` na `.bible-read`
-  tiram primeiro o **segundo versículo à frente** (o mais distante do que está
-  no ar), depois o **anterior**, e no extremo deixam só o central. A ordem é a
-  do próprio argumento da v5.267: *ler adiante é o que o operador faz*. As
-  faixas (18em · 14em · 11em) foram CALIBRADAS medindo — cada uma é a altura em
-  que a menor seção deixa de mostrar uma linha inteira — e estão em `em` porque
-  a régua tem de acompanhar a escala de fonte do sistema.
+- **QUANTAS SEÇÕES CABEM É UMA CONTA.** São TRÊS desde a v1.14.25 (um atrás e
+  um à frente; até então eram quatro, por decisão da v5.267, com a razão
+  escrita *"sobrava espaço na tela"* — verdade na tela em que aquilo foi
+  decidido, e falsa nas outras). Duas faixas de `@container` na `.bible-read`
+  tiram primeiro o **anterior**, e no extremo o **próximo**, deixando só o
+  central. A ordem é a do próprio argumento da v5.267: *ler adiante é o que o
+  operador faz*. As faixas (14em · 11em) foram CALIBRADAS medindo — cada uma é
+  a altura em que a menor seção deixa de mostrar uma linha inteira — e estão em
+  `em` porque a régua tem de acompanhar a escala de fonte do sistema.
 
 Oráculo: `tools/biblia-leitura-cabe.test.mjs`, em sete telas × escala de fonte.
 

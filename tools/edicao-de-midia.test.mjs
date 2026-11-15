@@ -476,14 +476,25 @@ const lugar = await app.evaluate(() => {
   const p = document.getElementById('edicaoSecao').getBoundingClientRect();
   const f = document.querySelector('#edicaoSecao .popup-fecho').getBoundingClientRect();
   const L = document.getElementById('edicaoLista');
+  const folha = document.getElementById('toolsSheet').getBoundingClientRect();
   return { corpoFora: document.getElementById('toolsBody').hidden,
     mesmaCaixa: Math.abs(p.width - document.getElementById('toolsSheet').getBoundingClientRect().width) < 30,
     rola: getComputedStyle(L).overflowY === 'auto',
-    fechoDentro: f.bottom <= p.bottom + 1 && f.bottom > p.top };
+    fechoDentro: f.bottom <= p.bottom + 1 && f.bottom > p.top,
+    // O RESPIRO DE BAIXO (v1.14.25): a distância do fecho à borda da folha tem
+    // de ser a da própria folha — é a mesma régua do `.tools-foot` de qualquer
+    // ferramenta de painel, que não tem margem própria. MEDIDO antes: 28,8px
+    // no editor contra 9,6px no rodapé do Timer (o `margin-bottom` de
+    // Configurações mais o `padding-bottom` do `.misc-panel`).
+    gapFecho: +(folha.bottom - f.bottom).toFixed(1),
+    padFolha: +parseFloat(getComputedStyle(document.getElementById('toolsSheet')).paddingBottom).toFixed(1) };
 });
 checar(lugar.corpoFora && lugar.mesmaCaixa && lugar.rola && lugar.fechoDentro,
   'C0 · o editor OCUPA o lugar do corpo da folha (`#toolsBody` sai de cena), e a lista é o scroller — o fecho fica dentro do painel',
   JSON.stringify(lugar));
+checar(Math.abs(lugar.gapFecho - lugar.padFolha) <= 1.5,
+  'C0 · a margem abaixo do fecho é a da FOLHA — o mesmo respiro do rodapé das ferramentas de painel',
+  JSON.stringify({ gap: lugar.gapFecho, pad: lugar.padFolha }));
 await fechar();
 
 // C1 · SEM rascunho a janela abre no SELETOR, com os grupos das listas.

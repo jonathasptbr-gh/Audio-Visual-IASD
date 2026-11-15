@@ -275,13 +275,14 @@ try {
     JSON.stringify(lidas.map((x) => x.t.nome + ':' + x.r.mascara)));
 
   // E A FOLHA ENCOLHE O CONTEXTO, NÃO O DESTAQUE: quantas seções cabem é uma
-  // conta de altura, e a que nunca sai é a central.
-  checar(lidas.every((x) => x.r.secoes >= 1 && x.r.secoes <= 4),
+  // conta de altura, e a que nunca sai é a central. São TRÊS desde a v1.14.25
+  // (um atrás e um à frente): a asserção era `<= 4` com o segundo à frente.
+  checar(lidas.every((x) => x.r.secoes >= 1 && x.r.secoes <= 3),
     'D · e o número de seções de contexto acompanha a altura da folha',
     JSON.stringify(lidas.map((x) => x.t.nome + ': ' + x.r.secoes)));
   const apertada = lidas.find((x) => x.t.nome === '360×640 · fonte 1,3×');
-  checar(apertada && apertada.r.secoes < 4,
-    'D · na folha mais apertada ela mostra MENOS seções — quatro ali deixavam a '
+  checar(apertada && apertada.r.secoes < 3,
+    'D · na folha mais apertada ela mostra MENOS seções — três ali deixavam a '
     + 'central com zero de altura',
     apertada && apertada.r.secoes);
 

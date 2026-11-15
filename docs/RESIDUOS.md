@@ -118,6 +118,7 @@ de "ninguém olhou".
 
 | 2026-11-14 | v1.14.17 — o tour (só web) | nenhum resíduo NOVO: o lote fechou os seis do tour; os que sobram da lista já estavam declarados (as lápides, o `naoResta`, o `hymnResultRow`, o `:22110` e as referências de `java/`) |
 | 2026-11-15 | v1.14.24 — os Pacotes 7, 21 e 28 num lote só (só web) | nenhum: a checagem nova só lê a fotografia do OTA e abre o diálogo que já existia; a engrenagem reusa `montarAcoesDaLinha` e a adoção de `itinAdotarCue`; o aviso só arma a rodada que o `pararMidia` já chamava. Nenhum arquivo do shell tocado; a única linha nova de vistoria é a do A5 (acima), que é de fonte da máquina |
+| 2026-11-15 | v1.14.25 — os Pacotes 22 e 23 num lote só (só web) | nenhum: o `+2` da leitura saiu com a faixa de `@container` de 18em que só existia para ele, e a margem do editor era herança de Configurações e saiu inteira. Nenhum arquivo do shell tocado |
 ## Refutado — medido e não é resíduo
 
 Registrado para ninguém gastar a sessão duas vezes na mesma suspeita.

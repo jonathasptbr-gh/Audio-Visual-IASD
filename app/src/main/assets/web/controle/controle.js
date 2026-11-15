@@ -416,7 +416,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.24';
+const WEB_VERSION = '1.14.25';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -6216,7 +6216,7 @@ async function ensureAdjLoaded(ref) {
   return p;
 }
 
-// Tela de LEITURA: um versículo atrás e dois à frente (nos limites, os vizinhos
+// Tela de LEITURA: um versículo atrás e um à frente (nos limites, os vizinhos
 // mostram o salto de capítulo/livro) e, no rodapé, a referência em quatro
 // pílulas mais os dois destinos. Toque no CENTRAL exibe/tira do ar; nos vizinhos,
 // move o central (só exibe sozinho depois de ativado — ver bibleSetIdx).
@@ -6262,13 +6262,13 @@ function renderBibleReading(wrap) {
     if (info.cross && !info.v && info.chapterRef) ensureAdjLoaded(info.chapterRef);
     return sec;
   };
-  // Um versículo atrás e DOIS à frente: sobrava espaço na tela, e ler adiante
-  // é o que o operador faz — ele precisa saber o que vem para acompanhar a
-  // leitura, não o que já passou.
+  // Um versículo atrás e UM à frente (v1.14.25): o segundo à frente saiu a
+  // pedido do operador — com TRÊS seções cada uma ganha um terço da altura em
+  // vez de um quarto, e o que se perde é um contexto que a navegação alcança
+  // com um toque.
   read.appendChild(mkSection(-1, 'adj'));
   read.appendChild(mkSection(0, 'cur'));
   read.appendChild(mkSection(1, 'adj'));
-  read.appendChild(mkSection(2, 'adj'));
 
   // Rodapé: um controle segmentado só, com as QUATRO coordenadas do que está
   // sendo lido — livro · capítulo · versículo · versão —, cada uma levando ao

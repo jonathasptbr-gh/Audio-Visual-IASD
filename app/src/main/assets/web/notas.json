@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.14.25",
+    "itens": [
+      "Na leitura da Bíblia, agora são 3 versículos (um antes, o atual e um depois), com mais espaço em cada um.",
+      "No editor de mídia, o espaço abaixo do botão ficou igual ao das outras ferramentas."
+    ]
+  },
+  {
     "versao": "1.14.24",
     "itens": [
       "Na Verificação, o app agora procura atualização e, havendo, abre o aviso de Atualizar agora.",

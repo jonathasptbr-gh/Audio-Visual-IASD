@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.25** — os Pacotes 22 e 23 num lote só: a leitura da Bíblia fica em três versículos (um atrás, o atual e um à frente) e o fecho do editor de mídia encosta na régua do rodapé das outras ferramentas; só web.
 - **o guia impresso: as anotações num retângulo só e o subtítulo do índice centrado (sem versão nova; só `site/`)** — sai o L da pauta larga (nenhuma linha cobre uma coluna só, o título sempre à esquerda) e o subtítulo do grupo no índice vai para o centro.
 - **o guia impresso: as anotações em bloco largo e o índice numa caixa única (sem versão nova; só `site/`)** — o mínimo de anotações vai a 5 linhas, as duas colunas com vão viram um bloco só (em L quando a coluna mais alta tem sobra), e o índice vira um quadro com o título centrado e duas colunas alinhadas.
 - **v1.14.24** — os Pacotes 7, 21 e 28 num lote só: a Verificação oferece o "Atualizar agora", o item guardado ganha a engrenagem (e a volta para ele), as Mensagens ganham o lápis e o aviso da série arma a rodada; só web.
@@ -823,6 +824,56 @@ apagada da que a criou.
   339,07 / 339,07 px; larguras 83,5 / 83,5 mm.
 - **As páginas não se moveram:** 22 (Por um dia) e 88 (Tempo integral), nos dois formatos, e o
   `antesDaPauta` = depois = PDF continua cobrando isso.
+
+---
+
+## v1.14.25 — a Bíblia em três versículos e a margem do editor
+
+Os **Pacotes 22 e 23** da fila do operador, autorizados juntos em 2026-11-15.
+Um lote só, como a v1.14.24 fez com os três dela: nenhum dos dois toca o shell,
+e a web sobe uma vez.
+
+### Pacote 22 — a leitura da Bíblia em TRÊS versículos
+
+Pedido de 2026-11-15: *"atualmente colocamos 1 versículo do passado, 1 atual e
+2 futuros na leitura dos controles da bíblia. Vamos tirar um dos versículos
+futuros, assim a tela ficara com 3 ao todo, tendo mais espaço para esses 3."*
+
+- O `renderBibleReading` passou de quatro chamadas de `mkSection` a três: saiu
+  o `mkSection(2, 'adj')` (o segundo à frente). O `bibleStep` continua andando
+  por `s.idx` — a seção `+1` já mostra o versículo seguinte, e o que mudou é a
+  PRÉVIA, não a navegação.
+- A `.bible-read` é um container de altura: com três seções cada uma recebe um
+  terço da folha em vez de um quarto, e o central segue com `flex: 1.5`.
+- As faixas de `@container` perderam a primeira: a de 18em escondia a
+  `nth-child(4)`, que não existe mais. Ficam a de 14em (tira o ANTERIOR) e a
+  de 11em (tira o PRÓXIMO, deixando só o central) — a ordem do argumento da
+  v5.267, que prefere ler adiante. MEDIDO, com o versículo longo da captura, a
+  390×844 com a fonte em 1,25×: as três seções com 2,76 · 4,06 · 2,76 linhas,
+  e o rodapé (quatro pílulas e duas ações) no lugar de sempre; a 360×640 com
+  1,3× sobra só o central, como antes.
+- O oráculo `biblia-leitura-cabe` acompanhou: `secoes <= 3`, e a mais apertada
+  continua provando que a folha encolhe o contexto. `troca-de-versiculo` não
+  precisou de régua nova — ele mede o telão, não a folha.
+
+### Pacote 23 — a margem abaixo do editor de mídia
+
+Relato de 2026-11-15: *"verifique a margem inferior dessa aba de editor de
+mídia, pois ele está com uma margem maior que o normal…"*.
+
+- MEDIDO no Chromium, o fecho do editor a **28,8px** da borda da `.tools-sheet`
+  a 1× (36px a 1,25×), contra os **9,6px** (12px) do rodapé do Timer e das
+  Mensagens. A diferença é o resíduo da mudança de casa (v1.14.7): o
+  `margin-bottom: .8rem` do `.popup-fecho` das Configurações mais o
+  `padding-bottom: .4rem` que o painel herdava do `.misc-panel`.
+- O conserto é de uma regra: `.edicao-panel` zera o `padding-bottom` e o
+  `.edicao-panel > .popup-fecho` zera o `margin-bottom`. Quem dá o respiro de
+  baixo é a folha (`.6rem`), como no `.tools-foot` de qualquer ferramenta de
+  painel — o editor É o rodapé da ferramenta dele.
+- O oráculo `edicao-de-midia` ganhou a asserção do respiro (a distância do
+  fecho à borda é a da folha), e o `geometria` já cobria a folha aberta.
+
+**Nenhum arquivo do shell foi tocado.**
 
 ---
 
