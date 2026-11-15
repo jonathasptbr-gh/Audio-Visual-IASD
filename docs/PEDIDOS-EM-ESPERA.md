@@ -40,6 +40,12 @@ esvaziou com o 27 e foi apagado. Os dois itens de decisão que estavam só no
 `RESIDUOS.md` viraram os **Pacotes 28 e 29** (*"tudo entra na fila para ser
 feito"*).
 
+**Edição de 2026-11-15.** Três mensagens do operador (08:20–08:26): o ⏮/⏭ da
+notificação, o "Imprimir" do guia que não abre no app e as anotações nos vazios
+do guia impresso. Entraram como os **Pacotes 31 a 33**, mapeados contra o HEAD
+`d5c15202` (as linhas citadas valem para ele). **Nenhum foi executado** — esta
+edição é só a lista.
+
 **Regra do arquivo:** ele ESVAZIA. Um pacote entregue sai daqui (a nota vai ao
 `docs/HISTORICO.md`, como sempre); um pedido revogado sai com uma linha dizendo
 quem revogou. Não é log, e não é `docs/ACHADOS-EM-ABERTO.md` (lá moram defeitos
@@ -74,6 +80,9 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **28** — Série: o aviso que promete descer | 6 (I3×U2) | defeito | só web |
 | **29** — Guia do site: a captura das sete ferramentas | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
 | **30** — Ferramentas: duas arestas que o tour achou | 2 (I2×U1) | resíduo | só web |
+| **31** — Notificação: ⏮/⏭ pulam a música, não o slide | 9 (I3×U3) | pedido | só web (OTA) |
+| **32** — Guia impresso: o "Imprimir" que não abre no app | 9 (I3×U3) | defeito | Kotlin (APK/Release) ou só site — a decidir |
+| **33** — Guia impresso: anotações nos vazios das folhas | 6 (I2×U3) | pedido | só site |
 
 ---
 
@@ -92,6 +101,8 @@ diferentes, e um lote nunca mistura dois temas.
 | **Séries** | 28 | o aviso do card que promete o que a rodada não cumpre |
 | **Site** | 29 | a captura da lista de Ferramentas, com as sete |
 | **Ferramentas** | 30 | o Timer em zero que ainda projeta e guarda, e o editor de mídia vazio na instalação nova |
+| **Notificação de controles** | 31 | o ⏮/⏭ da notificação (e da tela de bloqueio e do fone) andando na fila de mídia |
+| **Guia impresso** | 32, 33 | o botão final do caderno que imprime dentro do app, e as anotações no pé das colunas sem folha a mais |
 | **Fila anterior a 14/11** | 5, 6, 7, 8, 12 | o que já estava na fila, na ordem que ela já tinha |
 | **Estudos** | 13, 15 | não são fila de execução: a entrega é a decisão do operador |
 
@@ -125,7 +136,7 @@ ordem; a fila é dele.
 
 ---
 
-## O índice — 2026-11-14
+## O índice — 2026-11-15
 
 | # | pacote · pedido | tipo | I | U | nota | entrega |
 |---|---|---|---|---|---|---|
@@ -158,6 +169,9 @@ ordem; a fila é dele.
 | **30** | **Ferramentas: duas arestas que o tour achou** | resíduo | 2 | 1 | **2** | web |
 | 30.1 | o Timer em 0:00: o ▶ apagado, o projetar e os dois guardar acesos | | 2 | 1 | 2 | web |
 | 30.2 | o editor de mídia numa instalação nova: três grupos "0 mídias" e nenhum convite a importar | | 2 | 1 | 2 | web |
+| **31** | **Notificação: ⏮/⏭ pulam a música, não o slide** | pedido | 3 | 3 | **9** | web |
+| **32** | **Guia impresso: o "Imprimir" que não abre no app** | defeito | 3 | 3 | **9** | Kotlin ou site |
+| **33** | **Guia impresso: anotações nos vazios das folhas** | pedido | 2 | 3 | **6** | site |
 
 ---
 
@@ -618,6 +632,141 @@ operador de uma instalação nova vê três linhas "0 mídias" e nenhum convite 
 texto *"Nenhuma mídia… Use “Importar arquivo”"* só aparece depois de uma busca sem resultado.
 **A decisão:** o que a escolha mostra quando não há mídia nenhuma (o convite no lugar dos
 grupos vazios, ou ao lado deles).
+
+---
+
+## Pacote 31 — Notificação: ⏮/⏭ pulam a música, não o slide
+
+**Nota 9 (I3 × U3) · pedido · só web (OTA; `SHELL_VERSION` fica)**
+
+**Onde:** `controle.js` — `AVNative.onRemote` (:44084; o `case 'prev'/'next'`
+em :44102-44103), `eixoForaDoPainel` (:16234), `step` (:15727),
+`pushNowPlaying` (:4766, o `slideMode`), `acoesDaNotificacao` (:4675). O Kotlin
+só repassa: `SessionService.kt:129-130` e `:189` mandam `"prev"`/`"next"`; o
+rótulo "Anterior (unidade)" de `:907-909` sai do `slideMode`.
+
+Relato (08:20): *"No controle na barra de notificação, ao inves de anterior e
+next apenas trocarem os slides, faça eles funcionarem para pular música, é um
+controle de player e não de slides."*
+
+- **A causa é desenho, não defeito:** `(eixoForaDoPainel() ? slidePrevBtnEl :
+  prevEl).click()` — com letra, versículo, mensagem ou apresentação no ar, o
+  eixo é o slide (`stepSlide`). É o eixo duplo que a
+  `docs/shell/SESSAO-DE-MIDIA.md:42-54` declara (a notificação e a coluna da
+  tela cheia são as únicas superfícies com ele).
+- **O conserto provável:** `prev`/`next` → `prevEl`/`nextEl` sempre (o
+  `step(±1)` já anda em `plItems` a partir de `ancoraDaFila()`; sem fila o ⏮ é
+  `seek 0`; guarda `transportePode`, :15722); `slideMode:false` no
+  `pushNowPlaying` (o rótulo vira "Anterior/Próxima" sem tocar no Kotlin); rever
+  o `eixo = !!who || !!currentId` do `acoesDaNotificacao`, para não sobrar ⏮/⏭
+  mudo numa cena só de slides. O `play`/`pause` ≠ `playpause` (:44094-44096)
+  não se mexe.
+- **A confirmar com o operador no começo do lote** (o pedido responde à 1):
+  1. passar estrofe/página pela tela de bloqueio, pelo fone e pelo Bluetooth
+     acaba (são os mesmos callbacks da sessão);
+  2. o ±5 min do Itinerário pela notificação some (`itinerario.test.mjs:450`);
+  3. a coluna da tela cheia (`attachTransportStep`) fica com o eixo duplo ou
+     vira só mídia também;
+  4. ⏮/⏭ visíveis sem fila.
+- **Docs no mesmo lote:** `SESSAO-DE-MIDIA.md:42-54`,
+  `NUCLEO-TECNICO.md:259-285` e os comentários do eixo duplo no `controle.js`
+  (:16218-16232, :42331-42367).
+- **Os oráculos:** `eixo-de-acao` (bloco I, :760-803 — hoje afirma
+  `slideMode:true` com mensagem), `itinerario` (:440-450), `ponte` (:292-330,
+  os campos do `nowPlaying`), `verificacao-do-sistema` L5 (:807-824, o
+  `__avRemote`).
+
+---
+
+## Pacote 32 — Guia impresso: o "Imprimir" que não abre no app
+
+**Nota 9 (I3 × U3) · defeito · Kotlin (APK + Release) ou só site — a decidir**
+
+**Onde:** `site/sonoplastia/index.html` — `#caderno-print` (:6419) →
+`window.print()` (:6893); o aviso `.tut-so-app` (:6430) e o comentário CSS
+(:717). O app abre o guia por `AVNative.abrirGuia` (`controle.js:45595-45604` →
+`shared/native.js:775-779` → `NativeBridge.kt:1146`, cerca `GuiaSom.urlDoGuia`
+em `GuiaSom.kt:48`) → `MainActivity.kt:1717` → `GuiaSomDialog`
+(`GuiaSom.kt:93`), WebView de `WebViewFactory.kt:333` (`createGuia`), **sem
+`addJavascriptInterface`** (invariante 2), com `?app=1`.
+
+Relato (08:23): *"Dentro do app, já na parte de impressão do guia, o botão
+final de imprimir não abre nada para imprimir."*
+
+- **A causa (lida no código; não medida em aparelho):** no WebView do Android
+  `window.print()` não faz nada — imprimir pede `PrintManager` +
+  `WebView.createPrintDocumentAdapter`, e `java/` não tem nenhum dos dois
+  (grep zero). O `WebChromeClient` do guia (`GuiaSom.kt:184`) só trata o
+  progresso. O site já sabe ("Pelo app, se nada acontecer…, abra no
+  navegador"), mas o aviso mora escondido no tutorial "?".
+- **Ponte nova está FORA:** a invariante 2 proíbe ponte no WebView do guia.
+- **Os caminhos — a decisão do operador:**
+
+| caminho | entrega | risco |
+|---|---|---|
+| **Kotlin sem ponte:** o `GuiaSomDialog` chama `PrintManager.print(nome, w.createPrintDocumentAdapter(nome), A4 retrato)`, disparado por uma URL sentinela apanhada em `Cliente.shouldOverrideUrlLoading` (`GuiaSom.kt:247-254`) antes do `abrirFora`; o site só navega para ela com `?app=1` | APK + Release (`shellTag`); `SHELL_VERSION` só se a superfície do `AVNative` mudar — aqui não muda, conferir no `BUILD.md` | casco antigo descarta o que não é http(s) e fica como hoje; o adapter respeitar o `@page guia-a4 {margin:0}` não foi medido no WebView |
+| **Só site, PDFs prontos:** o botão navega para um `.pdf` → `setDownloadListener` → `abrirFora` (`GuiaSom.kt:189`) → navegador ou leitor de PDF, que imprime | 4 PDFs (2 guias × 2 formatos), gerados com `page.pdf` no CI | o PDF defasa do HTML; peso no site |
+| **Mínimo:** o aviso "abra no navegador" visível ao lado do botão com `?app=1` | só site | o botão continua sem imprimir |
+
+- **Docs:** `docs/shell/PONTE.md:275-296` (§`abrirGuia`), `NUCLEO-TECNICO.md`
+  "Invariantes do shell", `docs/ESTRUTURA.md:107`.
+- **Os oráculos:** `guia-no-app` (A–E, a ponte simulada e o `?app=1`),
+  `guia-impressao` (o bloco G afirma o texto do aviso), `GuiaSomTest` (JUnit,
+  só no CI).
+- **Ordem com o 33:** no caminho dos PDFs, o 33 sai antes (o PDF leva as
+  anotações).
+
+---
+
+## Pacote 33 — Guia impresso: anotações nos vazios das folhas
+
+**Nota 6 (I2 × U3) · pedido · só site (sem versão nova)**
+
+**Onde:** `site/sonoplastia/index.html`, o paginador JS — `resta(c)`
+(:7041-7051, os px livres da coluna), `paginarMiolo` (:7433),
+`colocarCapitulo` (:7510), `colocarFaixa` (:7252), `equilibrarIndice` (:7667),
+`fim(c)` (:7680), `montar` (:7696), o fio do meio (:7741-7756); a geometria
+`.pag` 210×297 mm (:513-518), `.pag-conteudo` em 2 colunas de 83,5 mm
+(:521-524), `.pag-col` com `overflow:hidden` (:533); `@page guia-a4` (:676) e
+`@media print` (:677-687).
+
+Relato (08:26): *"Ao longo dos guias, já para impressão, ainda temos diversas
+zonas vazias nas folhas, a compressão de conteúdo já está boa, ou seja não dá
+pra apertar mais, então vamos fazer o seguinte, preencha esses vazios com
+layouts de anotações, apenas o título "anotações" e as linhas para poder
+escrever. Tome extremo cuidado para não aumentar o número de páginas que temos
+hoje, e também para não acabar vazando as linhas de uma seção de anotações,
+para outras folhas. Também pense onde colocar essas anotações, pois mesmo pra
+ela, precisa de um número mínimo de linhas para ser usável, então veja se há
+espaço suficiente."*
+
+- **A régua de folhas de hoje (MEDIDA em 2026-11-15, `node
+  tools/guia-impressao.test.mjs`, 76 ok; blocos B e D: `page.pdf` com
+  `preferCSSPageSize` = `window.livreto.paginas`):** Por um dia = **22**
+  (simples e fichário); Tempo integral = **88** (os dois). São 4 impressões
+  (`data-guia` dia|integral × simples|fich, :6406-6414). **O lote termina com
+  os mesmos 22 e 88.**
+- **O esboço:** uma passada DEPOIS da paginação e ANTES do fio: em cada
+  `.pag-col`, se `resta(col)` ≥ título + N·passo, anexa `.anot` ("Anotações" +
+  k linhas, k = ⌊livre/passo⌋). A coluna tem altura fixa e `overflow:hidden`:
+  por construção a anotação não cria folha nem passa para a seguinte — o que
+  se prova no oráculo, não se supõe.
+- **De onde vêm os vazios (inferido; não medido):** o pé da coluna quando a
+  próxima peça inteira (caixa, cartão, figura, tabela) não cabe; o capítulo
+  que não cabe com ~3 linhas; as colunas equilibradas acima de uma faixa; a
+  última coluna; o índice.
+- **A decidir (operador):** o N mínimo de linhas e o passo entre elas; se capa,
+  índice e colunas acima de faixa também recebem.
+- **Armadilhas:** (1) o fio do meio usa `fim()` e desceria sobre as anotações —
+  excluir `.anot`; (2) **ponto cego do oráculo:** o `guia-impressao` mede
+  espaço livre (`livreDe`, a regra `meiaVazia` :364-371/:536, "esquerda vazia"
+  :305, "cortadas" :225-228) e as anotações MASCARARIAM regressão do
+  paginador — ele ignora `.anot` e ganha as asserções novas (22/88 iguais,
+  nenhuma `.anot` com menos de N linhas, nada cortado, linha com cor que saia
+  na impressora); (3) o capítulo "Anotar e avisar" (:1633) não tem relação.
+- **Histórico:** as contagens antigas (Por um dia 68, Tempo integral 144) estão
+  em `docs/HISTORICO.md:2603`; o livreto e a economia de folhas em :2533,
+  :2574 e :2632; o oráculo nasceu em :1988.
 
 ---
 
