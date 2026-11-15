@@ -2623,7 +2623,9 @@ main {
    O NOME CONTINUA NO EIXO DA FAIXA, e é o `padding-left` que segura: ele é a
    largura da seta mais o vão, do outro lado — o par fica simétrico em volta do
    nome, e o alvo de toque cresce para os dois lados em vez de um. Sem ele o
-   nome andaria meia seta para a esquerda, e o B do oráculo mede isso.
+   nome andaria meia seta para a esquerda, e o B do oráculo mede isso. Com o
+   alerta na tela (v1.14.27) entra o `padding-right` da regra abaixo: ele é a
+   mesma largura que o alerta ocupa à esquerda.
 
    `min-width: 0` nos DOIS (botão e `<span>`): um nome longo vira reticências
    em vez de empurrar as pontas da faixa para fora da tela. */
@@ -2634,6 +2636,14 @@ main {
   background: none; border: none; border-radius: var(--radius-btn);
   color: var(--muted); font: inherit; cursor: pointer;
   appearance: none; -webkit-appearance: none;
+}
+/* O ALERTA À ESQUERDA (v1.14.27) — e o par simétrico em volta do NOME: o título
+   ganha à direita a largura que o alerta ocupa à esquerda (`--hit`) mais o vão
+   entre os dois. Sem essa compensação o nome andaria meio alerta para a direita,
+   e o oráculo mede o eixo com ele VISÍVEL e ESCONDIDO — o `:has` garante que a
+   compensação some junto com o ícone, então o nome não anda em nenhum dos dois. */
+.crono-par:has(.crono-alerta:not([hidden])) .crono-titulo {
+  padding-right: calc(var(--hit) + var(--sp-1));
 }
 .crono-titulo[aria-expanded="true"] .crono-seta { transform: rotate(180deg); }
 .crono-seta { transition: transform var(--dur-media) ease; }

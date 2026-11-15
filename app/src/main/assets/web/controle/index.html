@@ -1019,21 +1019,26 @@
            gaveta abaixo da top bar"*. O botão é o PAR nome + seta; o `<span>`
            continua sendo o `#listTitle` que todo o resto lê. -->
       <div class="crono-par">
-        <button id="cronoTitulo" class="crono-titulo" aria-haspopup="true" aria-expanded="false" aria-controls="cronoGaveta" title="Trocar de cronograma">
-          <span class="list-title" id="listTitle">Cronograma</span>
-          <svg class="crono-seta" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-        </button>
-        <!-- O ALERTA DE "NÃO ESTÁ PRONTO" (v1.13.52), ao lado do nome. Pedido do
-             operador: *"um ícone de alerta ao lado do nome do cronograma, que ao
-             tocado avisa e dê a opção de baixar tudo para deixar pronto"*.
+        <!-- O ALERTA DE "NÃO ESTÁ PRONTO" (v1.13.52), à ESQUERDA do nome desde a
+             v1.14.27 — pedido do operador (09:13): *"o icone de alerta sobre
+             itens não baixados no cronograma, ele atualmente esta na direita,
+             deixe ele na esquerda"*.
 
              IRMÃO do título, e não filho: o título é a porta da gaveta dos
              cronogramas, e um botão dentro de outro botão é o defeito que a
              marcação não sabe desfazer. Nasce ESCONDIDO (`hidden`) e só aparece
              quando a conferência acha item que depende da rede — o normal é ele
-             não existir na tela (ver `pintarAlertaDoCronograma`). -->
+             não existir na tela (ver `pintarAlertaDoCronograma`).
+
+             A ORDEM NO DOM É O QUE O PÕE À ESQUERDA: ele vem ANTES do título, e
+             o `padding-right` do título devolve o NOME ao eixo da faixa (a regra
+             e a conta estão no `controle.css`). -->
         <button id="cronoAlerta" class="crono-alerta" type="button" aria-haspopup="dialog" hidden>
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 2.4 17.6a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13.2"/><line x1="12" y1="16.6" x2="12" y2="16.8"/></svg>
+        </button>
+        <button id="cronoTitulo" class="crono-titulo" aria-haspopup="true" aria-expanded="false" aria-controls="cronoGaveta" title="Trocar de cronograma">
+          <span class="list-title" id="listTitle">Cronograma</span>
+          <svg class="crono-seta" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
         </button>
       </div>
       <!-- A ENGRENAGEM, NO TOPO DOS DOIS MODOS (v1.2.0, pedido do operador:
@@ -1974,7 +1979,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.26</span>
+          <span id="appVersion">v1.14.27</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>

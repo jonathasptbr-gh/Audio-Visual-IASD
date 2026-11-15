@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.14.27",
+    "itens": [
+      "No Cronograma, o ícone de alerta de itens que não tocam sem rede passou para a ESQUERDA do nome.",
+      "O nome do cronograma continua no centro da faixa, com o alerta aparecendo ou não."
+    ]
+  },
+  {
     "versao": "1.14.26",
     "itens": [
       "Nas Ferramentas, a ferramenta aberta pela lista mostra a seta de voltar, e ela retorna à lista.",

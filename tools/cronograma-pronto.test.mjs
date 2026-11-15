@@ -121,15 +121,39 @@ try {
     return {
       escondido: b.hidden,
       frase: b.title,
-      // O ícone é IRMÃO do título e está à DIREITA dele — "ao lado do nome",
-      // como o operador pediu; e o nome continua o alvo da gaveta.
-      direita: rb.left >= rt.right - 0.5,
+      // O ícone é IRMÃO do título e está à ESQUERDA dele (v1.14.27) — "ao lado
+      // do nome", como o operador pediu; e o nome continua o alvo da gaveta.
+      esquerda: rb.right <= rt.left + 0.5,
       quadrado: Math.abs(rb.width - rb.height) <= 0.5 && rb.width >= 30,
     };
   });
-  checar(!!alerta && !alerta.escondido && alerta.direita && alerta.quadrado,
-    'A · ele é um alvo quadrado À DIREITA do nome (não por cima dele), e não é a porta da gaveta',
+  checar(!!alerta && !alerta.escondido && alerta.esquerda && alerta.quadrado,
+    'A · ele é um alvo quadrado À ESQUERDA do nome (não por cima dele), e não é a porta da gaveta',
     JSON.stringify(alerta));
+
+  // O ALERTA ENTRA NO FLUXO à esquerda do título, e é o `padding-right` dele que
+  // devolve o NOME ao eixo. Medido nos DOIS estados — escondido (o normal) e
+  // visível: o nome não pode andar em nenhum deles.
+  const eixo = await pg.evaluate(() => {
+    const h = document.querySelector('.list-header');
+    const nome = document.getElementById('listTitle');
+    const b = document.getElementById('cronoAlerta');
+    const desvio = () => {
+      const r = h.getBoundingClientRect();
+      const n = nome.getBoundingClientRect();
+      return +(((n.left + n.right) / 2) - ((r.left + r.right) / 2)).toFixed(1);
+    };
+    const antes = b.hidden;
+    b.hidden = true;
+    const escondido = desvio();
+    b.hidden = false;
+    const visivel = desvio();
+    b.hidden = antes;
+    return { escondido, visivel };
+  });
+  checar(Math.abs(eixo.escondido) < 1.5 && Math.abs(eixo.visivel) < 1.5,
+    'A · o NOME fica no eixo da faixa nos dois estados do ícone — com o alerta à '
+    + 'esquerda ele não anda', JSON.stringify(eixo));
   checar(/\b2\b/.test(alerta && alerta.frase || ''),
     'A · a conta é DOIS: o vídeo do link e o da semana. O áudio que já está no aparelho e a '
     + 'cena de texto não entram',

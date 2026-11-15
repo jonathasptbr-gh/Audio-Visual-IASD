@@ -120,6 +120,7 @@ de "ninguém olhou".
 | 2026-11-15 | v1.14.24 — os Pacotes 7, 21 e 28 num lote só (só web) | nenhum: a checagem nova só lê a fotografia do OTA e abre o diálogo que já existia; a engrenagem reusa `montarAcoesDaLinha` e a adoção de `itinAdotarCue`; o aviso só arma a rodada que o `pararMidia` já chamava. Nenhum arquivo do shell tocado; a única linha nova de vistoria é a do A5 (acima), que é de fonte da máquina |
 | 2026-11-15 | v1.14.25 — os Pacotes 22 e 23 num lote só (só web) | nenhum: o `+2` da leitura saiu com a faixa de `@container` de 18em que só existia para ele, e a margem do editor era herança de Configurações e saiu inteira. Nenhum arquivo do shell tocado |
 | 2026-11-15 | v1.14.26 — a seta de voltar nas Ferramentas (só web) | nenhum: a seta é o `#toolsVoltar` na trilha 1 que a grade já reservava, o ✕ e a animação são os de sempre, e o voltar do Android só ganhou a condição. Nenhum arquivo do shell tocado |
+| 2026-11-15 | v1.14.27 — o alerta do Cronograma à esquerda (Pacote 20, só web) | nenhum: o alerta mudou de lugar no DOM, e o `padding-right` que devolve o nome ao eixo é a MESMA largura que ele já ocupava (`--hit` + vão) — não há número novo de layout. Nenhum arquivo do shell tocado |
 ## Refutado — medido e não é resíduo
 
 Registrado para ninguém gastar a sessão duas vezes na mesma suspeita.

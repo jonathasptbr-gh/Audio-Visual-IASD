@@ -84,7 +84,7 @@ diferentes, e um lote nunca mistura dois temas.
 
 | tema | pacotes | o que sai junto |
 |---|---|---|
-| **Cronograma e destinos** | 16, 20 | a abertura antes do culto e o alerta de "não baixado" à esquerda |
+| **Cronograma e destinos** | 16 | a abertura antes do culto, e o organizador entregando o culto pronto |
 | **Site** | 29 | a captura da lista de Ferramentas, com as sete |
 | **Ferramentas** | 30 | o Timer em zero que ainda projeta e guarda, e o editor de mídia vazio na instalação nova |
 | **Fila anterior a 14/11** | 5, 6 | o que já estava na fila, na ordem que ela já tinha |
@@ -133,8 +133,6 @@ ordem; a fila é dele.
 | 13.2 | transmissão ao vivo | | 3 | 1 | 3 | estudo |
 | 13.3 | layout de paisagem (o app no Windows saiu) | | 3 | 1 | 3 | estudo |
 | **16** | **O cronograma pronto: o organizador entrega o culto** | pedido | 4 | 2 | **8** | planejamento |
-| **20** | **Cronograma: o alerta à esquerda** | pedido | 2 | 2 | **4** | web |
-| 20.1 | o par nome + alerta inverte a ordem | | 2 | 2 | 4 | web |
 | **22** | **Bíblia: três versículos no controle** | pedido | 2 | 1 | **2** | web |
 | 22.1 | sai o segundo futuro: 1 atrás, o atual e 1 à frente | | 2 | 1 | 2 | web |
 | **23** | **Editor de mídia: a margem inferior** | defeito | 2 | 2 | **4** | web |
@@ -303,38 +301,6 @@ decisão):
 
 ---
 
-## Pacote 20 — Cronograma: o alerta à esquerda
-
-**Nota 4 (I2 × U2) · pedido · só web**
-
-**Onde:** `index.html` (o `.crono-par` da barra), `controle.css` (`.crono-par`,
-`.crono-titulo` e o `padding-left` simétrico), os oráculos `cronograma-pronto`
-e `barra-do-topo-e-titulos`.
-
-Pedido (09:13): *"O icone de alerta sobre itens não baixados no cronograma, ele
-atualmente esta na direita, deixe ele na esquerda."*
-
-Hoje o par é `[#cronoTitulo][#cronoAlerta]` dentro do `.crono-par`, centrado na
-trilha do meio; o alerta nasce `hidden` e só aparece quando
-`faltaParaTocarSemRede` acha item. A troca:
-
-- o `#cronoAlerta` passa a vir ANTES do `#cronoTitulo` no DOM — não dá para ser
-  filho do título, porque o título é o botão da gaveta e um botão dentro de
-  outro é o defeito que a marcação não desfaz (o próprio comentário do
-  `index.html` diz isso);
-- o `padding-left` do título compensa a SETA, que fica do lado direito dentro
-  dele (o comentário do `controle.css` explica); com o alerta à esquerda, o par
-  precisa de compensação simétrica para o NOME continuar no eixo. Medir o eixo
-  com o alerta VISÍVEL e escondido: o nome não pode andar em nenhum dos dois;
-- o `justify-content` do `.crono-par` continua `center`; o grid do
-  `.list-header` (a coluna do importar e a do configurar) não muda.
-
-**Medir:** o `cronograma-pronto` confere que o alerta está ao lado do título; a
-barra do topo tem o próprio oráculo (`barra-do-topo-e-titulos`) — o lote
-confere os dois e muda a referência no mesmo commit.
-
----
-
 ## Pacote 29 — Guia do site: a captura das sete ferramentas
 
 **Nota 2 (I2 × U1) · resíduo · só site**
@@ -375,6 +341,13 @@ grupos vazios, ou ao lado deles).
 ---
 
 ## O que saiu desta lista (rastro, não log)
+
+**v1.14.27 (2026-11-15), só web:** o **Pacote 20** — o alerta de "não toca sem
+rede" do Cronograma passou para a ESQUERDA do nome. Ele vem ANTES do título no
+DOM (continua irmão, nunca filho), e o `padding-right` do título — `--hit` mais
+o vão, sob `:has` — devolve o NOME ao eixo da faixa nos dois estados do ícone.
+O `cronograma-pronto` passou a medir À ESQUERDA e ganhou o eixo do nome com o
+alerta visível e escondido. Nota em `docs/HISTORICO.md`.
 
 **v1.14.25 (2026-11-15), só web:** os **Pacotes 22 e 23** num lote só, autorizados
 juntos pelo operador. O **22** — a leitura da Bíblia no controle fica em TRÊS

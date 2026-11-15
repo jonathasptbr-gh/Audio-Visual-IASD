@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.27** — o alerta de "não toca sem rede" do Cronograma passou para a ESQUERDA do nome, com o nome ainda no eixo da faixa (com e sem o ícone); só web.
 - **v1.14.26** — Ferramentas: a ferramenta aberta pela lista mostra a SETA de voltar (e o voltar do Android sobe para ela); aberta direto, pela engrenagem, mostra o ✕, que fecha a folha; só web.
 - **v1.14.25** — os Pacotes 22 e 23 num lote só: a leitura da Bíblia fica em três versículos (um atrás, o atual e um à frente) e o fecho do editor de mídia encosta na régua do rodapé das outras ferramentas; só web.
 - **o guia impresso: as anotações num retângulo só e o subtítulo do índice centrado (sem versão nova; só `site/`)** — sai o L da pauta larga (nenhuma linha cobre uma coluna só, o título sempre à esquerda) e o subtítulo do grupo no índice vai para o centro.
@@ -825,6 +826,31 @@ apagada da que a criou.
   339,07 / 339,07 px; larguras 83,5 / 83,5 mm.
 - **As páginas não se moveram:** 22 (Por um dia) e 88 (Tempo integral), nos dois formatos, e o
   `antesDaPauta` = depois = PDF continua cobrando isso.
+
+---
+
+## v1.14.27 — o alerta do cronograma à esquerda
+
+Pedido do operador (Pacote 20, 2026-11-15 09:13): *"O icone de alerta sobre itens
+não baixados no cronograma, ele atualmente esta na direita, deixe ele na
+esquerda."*
+
+- O `#cronoAlerta` vem ANTES do `#cronoTitulo` no DOM — e continua IRMÃO dele,
+  nunca filho: o título é a porta da gaveta, e um botão dentro de outro é o
+  defeito que a marcação não desfaz.
+- O par nome + alerta continua SIMÉTRICO em volta do nome: com o ícone na tela,
+  o `.crono-titulo` ganha `padding-right: calc(var(--hit) + var(--sp-1))` — a
+  largura que o alerta ocupa à esquerda mais o vão entre os dois. O `:has`
+  garante que a compensação some junto com o ícone, então o nome não anda nos
+  DOIS estados (escondido, o normal, e visível).
+- O `justify-content` do `.crono-par` e a grade do `.list-header` ficaram como
+  estavam.
+- O oráculo `cronograma-pronto`: a asserção do alvo passou de "à direita" para
+  "à esquerda", e uma nova mede o eixo do NOME contra o da faixa nos dois
+  estados do ícone. O `cronogramas-multiplos` (o eixo do título) e o
+  `barra-do-topo-e-titulos` (a caixa da faixa) continuam valendo sem mudança.
+
+**Nenhum arquivo do shell foi tocado.**
 
 ---
 
