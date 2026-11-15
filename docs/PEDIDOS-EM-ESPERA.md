@@ -71,6 +71,7 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 
 | pacote | nota | tipo | área |
 |---|---|---|---|
+| **35** — A faixa do itinerário e a linha do momento, redesenhadas | 16 (I4×U4) | pedido | só web, com prévia visual antes |
 | **34** — O controle do pregador pelo navegador (só slides) | 12 (I4×U3) | pedido | Kotlin + web, com Release |
 | **5** — Itinerário: a tela de espera antes do primeiro momento | 8 (I4×U2) | pedido | só web, depois de planejar |
 | **13** — Estudos (não são fila de execução) | 4 | estudo | nenhuma entrega |
@@ -128,6 +129,7 @@ ordem; a fila é dele.
 
 | # | pacote · pedido | tipo | I | U | nota | entrega |
 |---|---|---|---|---|---|---|
+| **35** | **A faixa do itinerário e a linha do momento, redesenhadas** | pedido | 4 | 4 | **16** | web |
 | **5** | **Itinerário: a tela de espera antes do primeiro momento** | pedido | 4 | 2 | **8** | web |
 | 5.1 | contagem regressiva + música + avisos | | 4 | 2 | 8 | web |
 | **13** | **Estudos — não são fila de execução** | estudo | 4 | 1 | **4** | decisão |
@@ -136,6 +138,98 @@ ordem; a fila é dele.
 | 13.3 | layout de paisagem (o app no Windows saiu) | | 3 | 1 | 3 | estudo |
 | **16** | **O cronograma pronto: o organizador entrega o culto** | pedido | 4 | 2 | **8** | planejamento |
 | **29** | **Guia do site: a captura da lista de Ferramentas e do Cronograma** | resíduo | 2 | 1 | **2** | site |
+
+---
+
+## Pacote 35 — A faixa do itinerário e a linha do momento, redesenhadas
+
+**Nota 16 (I4 × U4) · pedido · só web, com a prévia visual ANTES de publicar**
+
+**Pedido direto do operador em 2026-11-15 (19:2x)**, logo depois da v1.14.34. A
+sessão que o recebeu estava em 183 de 150 chamadas e o passou adiante
+(`ECONOMIA.md`, "No teto, a sessão ACABA"): ele pediu para FAZER, então a
+próxima sessão confirma com ele que é este o pacote e segue. É aparência mais
+dois comportamentos: o laço é o da prévia visual (`BUILD.md`, "A PRÉVIA
+VISUAL"), e o operador aprova na foto antes do rito.
+
+**O pedido, verbatim:**
+
+1. *"O ícone para exibir a linha de botões do itinerário deve ficar ao lado do
+   botão de importar arquivo."*
+2. *"A barra extra onde ficam os botões de opções do itinerário, deve ser uma
+   barra de fundo transparente, com os botões 'soltos'."*
+3. *"Remova os botões de +1 e -1."*
+4. *"Faça um botão de ícone de visível e não visível, uma lista riscada. Que
+   oculta do cronograma todos os itens do itinerário. E troque o icone de telão
+   por um outro botão de ligado e desligado com um icone de olho que liga e
+   desliga."*
+5. *"No cronograma, o design do item do itinerário deve ser sem card, apenas o
+   texto, e os botões de opções deve estar sempre visiveis, também sem cards,
+   apenas os ícones."*
+6. *"Pode fazer essa aba do itinerário se fechar automaticamente após alguns
+   segundos."*
+
+**O mapa (medido em 15/11, na v1.14.34):**
+
+- **1 · a porta sai da faixa e vai para a barra do topo.** Hoje ela mora DENTRO
+  da faixa: a fita recolhida (`#itinBarAbrir`, com o ponto `.itin-ponto` do "no
+  ar") e o `⌃` (`#itinBarFechar`), desenhados por `renderItinBar`
+  (`controle.js:8869`) e `itinBarraOculta` (`:8695`). O lugar novo é ao lado do
+  `#cronoImportar` (`index.html:1000`), na `.list-header` (`controle.css:2527`)
+  — uma grade de três trilhas medida ao pixel, e o `smoke` cobra o `#listTitle`
+  no EIXO e parado (x e y) com o voltar reservado: o botão novo entra na trilha
+  do importar sem mexer na conta. Recolhida, a faixa não desenha nada (a fita
+  some), e o ponto do "no ar" passa para o botão da barra.
+- **2 · faixa transparente, botões soltos:** `.itin-bar` sem `background:
+  var(--bar)` e os `.itin-b` sem `--surface`; o par de LIGADO (`--btn-accent` +
+  `--accent`) continua dizendo o estado. O `sombra-de-rolagem` R hoje AFIRMA a
+  faixa da MESMA cor da caixa de controles — muda de sinal no mesmo lote. A
+  faixa é irmã do `.list-body` (não sobrepõe a lista), então a fronteira do
+  corte continua na borda de baixo dela.
+- **3 · o ±1 sai:** `passo(-1)`/`passo(1)` em `renderItinBar`. O ±5 e o ajuste
+  ficam, e o ⏮/⏭ continua sendo ±5 (bloco J). O `itinerario.test.mjs` trava a
+  ordem dos nove filhos (U, `:464`) e clica "Adiantar 1 min" (D, `~:717`).
+- **4 · dois interruptores, com `aria-pressed`:** (a) NOVO — tira da LISTA do
+  Cronograma todas as linhas `li.lib-item.momento` (o telão NÃO muda), ícone
+  de lista × lista riscada; o estado entra em `state.itinerario` (um campo
+  novo, ex. `momentosOcultos`), lido em `itinLerEstado` (`:8491`) e gravado
+  por `saveItin` (`:8512`, que mescla) — e o `MODELO-DE-DADOS.md` documenta a
+  chave; (b) o `#itinTelaoBtn` troca o ícone do telão + "Telão" por um olho ×
+  olho riscado (ligado = no telão), e o rótulo sai. Antes de usar
+  `visibility`/`visibility_off` da `msym` (Material Symbols), conferir se a
+  fonte é SUBCONJUNTO; senão, `<symbol>` no sprite do `index.html`.
+- **5 · a linha do momento sem cartão:** `linhaDeMomento` (`:8782`) e o
+  `.lib-item.momento` do `controle.css` (~:7250: o `--linha: var(--btn-accent)`,
+  a barra `::before`). As opções, hoje atrás do `⋮` (`montarAcoesDaLinha`
+  `:11722`; excluir com a pergunta NA LINHA, `botaoExcluirDaLinha` `:11428`;
+  editar `.itin-editar`), ficam SEMPRE à vista, só o ícone, sem caixa — e o T4
+  do `geometria` cobra `--hit` nelas. Tocar a linha continua editando e segurar
+  continua arrastando.
+- **6 · o fecho sozinho:** a faixa aberta se recolhe depois de N segundos sem
+  toque nela; não fecha com a `#itinPopup` aberta nem no meio de um toque.
+
+**A confirmar NA PRÉVIA, com a proposta de cada uma:**
+
+- quantos segundos — **8 s** desde o último toque na faixa;
+- se o fecho sozinho grava `barraOculta` — **não**: o app abre sempre com a
+  faixa recolhida e a escolha deixa de ser do aparelho (com o fecho sozinho
+  ela perde o sentido; o campo sai do estado ou fica inerte, e a migração diz
+  qual);
+- o `⌃` de dentro da faixa — **sai**: quem abre e fecha é o botão da barra;
+- o excluir sempre à vista — **continua perguntando NA LINHA**: um toque solto
+  não apaga um momento;
+- com os momentos ocultos, o arrasto das mídias — **nada muda**: a lista só
+  não desenha os momentos.
+
+**O que muda junto (grep de `itinBar` em 15/11):** oráculos `itinerario` (U, D,
+E, J e o cabeçalho), `tour` (o passo opcional `#itinBar` vira o do botão da
+barra?), `sombra-de-rolagem` R, `cronogramas-multiplos` A e `ferramentas-folha`
+3 (a premissa da faixa), `smoke` (o eixo do título com um morador a mais na
+barra; o `bandaH`), `engrenagem-do-item`, `teclado-das-folhas` e `geometria`
+(T4 nos ícones soltos); docs `CAMADA-DE-TEXTO` ("O itinerário é uma opção do
+Cronograma"), `CONTROLE-LAYOUT` (a segunda linha), `CONTROLE-LISTAS`,
+`MODELO-DE-DADOS` (`itinerario`) e `CONTROLE-TOUR`. **Ele vem antes do 5.1**: a
+tela de espera pede um interruptor na faixa, e o ±1 fora libera o lugar.
 
 ---
 
