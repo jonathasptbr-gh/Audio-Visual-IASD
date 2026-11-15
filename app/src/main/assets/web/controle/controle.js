@@ -416,7 +416,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.19';
+const WEB_VERSION = '1.14.20';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10262,7 +10262,7 @@ function renderMsg() {
 }
 
 // ===== A FOLHA DE FERRAMENTAS ABRE NUMA LISTA =====
-// A LISTA das seis, uma linha por ferramenta (`FERRAMENTAS`), dividindo a altura da
+// A LISTA das sete, uma linha por ferramenta (`FERRAMENTAS`), dividindo a altura da
 // folha — um nível de escolha só até a ferramenta. O toque abre a ferramenta; o voltar
 // do Android devolve a lista antes de a folha fechar. Na tela não há voltar: dentro de
 // uma ferramenta o cabeçalho tem o título e o ✕, e na lista quem fecha é a seta na
@@ -45516,6 +45516,8 @@ function bloqueioDoTour() {
 // A SEÇÃO por cima de tudo (a ordem do `__avBack`), pelo nome que o tour procura no
 // `AVTour.SECOES`. Um nome que não está lá (`'itin-gaveta'`) não tem tour próprio: ele só
 // SILENCIA o principal, porque `telaOcupadaParaTour` lê qualquer seção aberta como tela ocupada.
+// Três janelas se dividem por ESTADO, cada estado com a própria marca de visto: `letra`/`letra-cifra`,
+// `ferr-edicao`/`ferr-edicao-form` e `biblia`/`biblia-leitura`.
 const SECAO_DO_POPUP = { fadePopup: 'configuracoes', castPopup: 'conectar', sorteioPopup: 'sorteio',
   plPopup: 'playlist', lyricsPopup: 'letra', hymnSearchPopup: 'biblioteca' };
 function secaoDoTour() {
@@ -45526,10 +45528,20 @@ function secaoDoTour() {
     if (!backdrop.classList.contains('open')) continue;
     if (backdrop === hymnSearchPopupEl && appMode === 'simple' && simplesBibliotecaDocada()) continue;
     if (backdrop === fadePopupEl && secaoAberta) return 'cfg-' + secaoAberta;
+    // A CIFRA É OUTRA SEÇÃO (v1.14.20): a folha abre na Letra, e a barra COMPLETA da cifra — o ▶
+    // dela é a peça que prova isso; `!hidden` não basta, porque o "Procurando a cifra…" também a
+    // mostra — só existe com a aba "Cifra" montada.
+    if (backdrop === lyricsPopupEl && lyricsCifraCtlEl && lyricsCifraCtlEl.querySelector('.lv-cifra-rolar')) return 'letra-cifra';
     return SECAO_DO_POPUP[backdrop.id] || backdrop.id;
   }
-  if (ferramentasAbertas()) return ferrNaGrade ? 'ferramentas' : 'ferr-' + ferramentaAtual();
-  if (bibliaAberta()) return 'biblia';
+  if (ferramentasAbertas()) {
+    if (ferrNaGrade) return 'ferramentas';
+    const f = ferramentaAtual();
+    // O editor de mídia tem uma seção por vista: a escolha e o formulário.
+    return f === 'edicao' && edicaoVista === 'form' && edicaoOrigem ? 'ferr-edicao-form' : 'ferr-' + f;
+  }
+  // A Bíblia, idem: a grade (livros e capítulos) e a leitura (o versículo escolhido).
+  if (bibliaAberta()) return bibleScreen === 'reading' ? 'biblia-leitura' : 'biblia';
   return null;
 }
 // O tour PRINCIPAL só com a tela livre: sem bloqueio, sem seção aberta e sem um

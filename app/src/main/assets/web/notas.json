@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.14.20",
+    "itens": [
+      "O tour do Modo Fácil agora explica a Biblioteca: a Liturgia, as coleções, o toque que toca e o download.",
+      "O tour do Avançado explica cada botão do player: barra, prévia, setas, repetir, playlist, mutar e tela cheia.",
+      "Nas Ferramentas, o tour explica a roleta do Timer, as três saídas do cartão e o Editar mídia.",
+      "O tour também explica a lista de Mensagens, a tela do editor de mídia, a leitura da Bíblia e a cifra.",
+      "No Modo Fácil, o tour da Biblioteca do Avançado não abre mais por engano."
+    ]
+  },
+  {
     "versao": "1.14.19",
     "itens": [
       "Na folha do vídeo, saiu o aviso \"Teto de qualidade\" que ocupava uma linha inteira.",

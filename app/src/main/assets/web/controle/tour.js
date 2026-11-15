@@ -64,10 +64,12 @@
   // `abertura`/`fecho`: o passo fica FIXO no começo/fim — ver `ordenar()`.
   const FIM = { fecho: true, titulo: 'Tour do app',
     texto: 'Para rever estas explicações, desligue e ligue de novo o quadrado "Tour do app" nas Configurações. "Pular tour" desliga o tour de vez.' };
-  const PROJETAR = { alvo: '#miscProjectBtn', titulo: 'Projetar no telão',
-    texto: 'Toque para mostrar este cartão na TV agora. O botão vira "Tirar do telão": toque nele para tirar.', opcional: true };
-  const GUARDAR = { alvo: '#toolsFoot .cue-save-btn', todos: true, titulo: 'Cronograma e Favoritos',
-    texto: 'Toque num dos dois botões para guardar este cartão no Cronograma ou nos Favoritos e usá-lo na hora certa.', opcional: true };
+  // AS TRÊS SAÍDAS DO RODAPÉ DAS FERRAMENTAS num passo só (v1.14.20): o "Projetar no telão" e os
+  // dois quadrados de guardar (Cronograma e Favoritos) são a mesma fileira, e o recorte é a união
+  // deles (`todos`). Um texto para as cinco ferramentas que têm rodapé; cada tour acrescenta o que
+  // é dele (o Itinerário sem horários apaga os três).
+  const SAIDAS = { alvo: ['#miscProjectBtn', '#toolsFoot .cue-save-btn'], todos: true, titulo: 'Telão, Cronograma e Favoritos',
+    texto: 'Toque em "Projetar no telão" para mostrar este cartão na TV agora; o botão vira "Tirar do telão". Os dois quadrados ao lado guardam o cartão no Cronograma ou nos Favoritos, para usar na hora certa.', opcional: true };
   const SUBLINHA = { alvo: '#toolsBody input.misc-text', titulo: 'Legenda',
     texto: 'Digite um texto curto para aparecer embaixo do cartão na TV, como "Início do culto". Pode ficar vazio.', opcional: true };
   // AS TRÊS PORTAS DE CONEXÃO: as mesmas peças na cortina "sem tela" do Fácil
@@ -93,8 +95,22 @@
     ],
     simples: [
       { alvo: ['#simpleBarra', '#libBar'], titulo: 'Biblioteca',
-        texto: 'Digite o número ou o nome do hino e toque nele para pô-lo na TV. Quando tocar, a letra e os botões aparecem nesta tela.',
+        texto: 'A Biblioteca fica aberta nesta tela. Digite o número ou o nome do hino, ou escolha nas listas abaixo, e toque nele para pô-lo na TV. Quando tocar, a letra e os botões aparecem aqui.',
         semAlvo: 'Na Biblioteca, digite o número ou o nome do hino e toque nele para pô-lo na TV.' },
+      // A JANELA ABERTA (v1.14.20): a lista que ela mostra tem passo por seção — a Liturgia do
+      // sábado, o cartão de coleção, as barras do catálogo e a seta de download. Todos `opcional`:
+      // a Liturgia só existe no app, as barras vêm da rede e a seta some com a coleção completa. O
+      // tour não abre nada (os cartões nascem fechados): cada passo aponta o que já está à vista, e
+      // o toque que toca e o download de uma música avulsa vão no texto dos passos que têm peça em
+      // qualquer instalação (o cartão e a seta).
+      { alvo: '#hymnResults .semana-raiz', titulo: 'Liturgia',
+        texto: 'Os itens fixos do culto deste sábado: vídeos da semana e hinos, na ordem. Toque numa linha e ela toca na TV na hora.', opcional: true },
+      { alvo: '#hymnResults .hymnal-card > .coll-bar', titulo: 'Coleções',
+        texto: 'Cada cartão é uma coleção, como o Hinário Adventista 2022. Toque na seta para abrir as músicas; tocar numa delas a põe na TV na hora, sem abrir opções (no modo Avançado, o toque abre as opções).', opcional: true },
+      { alvo: '#hymnResults .coll-group-bar', todos: true, titulo: 'Seções',
+        texto: 'Cada barra reúne álbuns de um mesmo tipo. Toque nela para abri-la (só uma fica aberta por vez). A seta de download, quando aparece, baixa todos os álbuns da barra.', opcional: true },
+      { alvo: '#hymnResults .coll-bar-dl:not(.coll-bar-rm)', titulo: 'Baixar',
+        texto: 'A seta de download de um cartão baixa a coleção inteira, para ouvir sem internet; enquanto baixa, o mesmo botão cancela. Uma música avulsa baixa quando você toca nela (na primeira vez o app pergunta antes).', opcional: true },
       { alvo: '#sorteioSimplesBtn', titulo: 'Sortear um hino',
         texto: 'Toque para o app escolher um hino do Hinário 2022 e já tocá-lo. Apagado, ainda não há hino que possa tocar.', opcional: true },
       { alvo: '#volPill', volume: true, titulo: 'Volume',
@@ -137,10 +153,29 @@
       { alvo: '#libBar', titulo: 'Biblioteca',
         texto: 'Toque para abrir a Biblioteca e buscar hinos, álbuns e mídias. Tocando numa música, aparecem as opções dela.',
         semAlvo: 'A Biblioteca fica logo abaixo do Cronograma: toque nela para buscar hinos, álbuns e mídias.' },
-      { alvo: '#preview', titulo: 'Prévia',
-        texto: 'Mostra no celular, pequeno, o que está na TV agora. As setas dos lados passam a estrofe ou a página.' },
-      { alvo: ['#seek', '.transport'], titulo: 'Controles',
-        texto: 'Repetir, playlist, anterior, Play/Pausa, próxima e Parar. Arraste a barra de cima para avançar ou voltar no vídeo.' },
+      // OS CONTROLES, UM A UM (v1.14.20): eram um passo só ("Controles"). A barra de progresso, a
+      // prévia com as duas setas, o grupo de tocar e os exclusivos do Avançado, cada um com o balão
+      // dele. O grupo de tocar NÃO leva o repetir nem a playlist: eles abrem a mesma fileira, e a
+      // união de todos recortaria os dois por baixo. Nenhum é `opcional`: são HTML estático do deck e
+      // só ficam apagados sem mídia (`visivel()` não conta `disabled`).
+      { alvo: '.np-seek', titulo: 'Barra de progresso',
+        texto: 'Mostra em que ponto está a música ou o vídeo, com o tempo de cada lado. Arraste para avançar ou voltar; fica apagada enquanto nada toca.' },
+      { alvo: ['#slidePrevBtn', '#preview', '#slideNextBtn'], titulo: 'Prévia e setas',
+        texto: 'A prévia mostra, pequeno, o que está na TV agora. As setas dos lados passam a estrofe, a página ou o versículo.' },
+      { alvo: ['#prev', '#playpause', '#next', '#stop'], titulo: 'Anterior, Play/Pausa, Próxima e Parar',
+        texto: 'Anterior e Próxima trocam de mídia na fila, Play/Pausa pausa e continua, e Parar tira da TV o que está no ar.' },
+      { alvo: '#repeat', titulo: 'Repetição',
+        texto: 'Cada toque troca o modo: sem repetição, repetir esta mídia, repetir a playlist inteira ou aleatório.' },
+      { alvo: '#plBtn', titulo: 'Playlist',
+        texto: 'Abre a fila de músicas que tocam uma depois da outra. O número no botão diz quantas há.' },
+      { alvo: '#lyricsViewBtn', titulo: 'Auxiliar de leitura',
+        texto: 'Abre a letra, a cifra ou a Bíblia do que está no ar, só para ler no celular. Fica apagado quando não há nada para ler.' },
+      { alvo: '#viewToggle', titulo: 'Cobrir o telão',
+        texto: 'Esconde o que está na TV e mostra o papel de parede no lugar. Toque de novo para mostrar a mídia outra vez.' },
+      { alvo: '#muteToggle', titulo: 'Mutar',
+        texto: 'Silencia o som da TV; toque de novo para tirar o mudo. O número é o volume de agora.' },
+      { alvo: '#pvFullBtn', titulo: 'Tela cheia',
+        texto: 'Abre a prévia em tela cheia no celular, na horizontal.' },
       { alvo: '#pvCastBtn', titulo: 'Conectar uma TV',
         texto: 'Toque para escolher a TV ou o computador que vai mostrar o culto.',
         semAlvo: 'Quando nenhuma tela está conectada, aparece sobre a prévia um botão para conectar uma TV ou um computador.' },
@@ -175,18 +210,29 @@
     // de Ferramentas (`'ferr-' + ferramentaAtual()`). Só existe no AVANÇADO — a
     // lista das Ferramentas do Fácil não tem o quadrado dele —, então o `refazer()`
     // do Fácil não zera esta marca.
-    // AS DUAS VISTAS: a "escolha" (busca e importar) e o formulário (o trecho), uma
-    // ou a outra à vista. Todos os passos são `opcional`, e cada vista tem o dela:
-    // o editor que já abre no formulário (uma mídia escolhida na memória) se
-    // explica por ele, em vez de ficar sem passo visível — sem passo o tour não
-    // abre nem grava a marca, e o automático tentaria de novo a cada segundo.
+    // AS DUAS VISTAS TÊM SEÇÃO PRÓPRIA (v1.14.20): a "escolha" (a lista, a busca e o importar) é
+    // `ferr-edicao`; o formulário (a mídia, o trecho, o confirmar e os destinos) é
+    // `ferr-edicao-form`, e o `secaoDoTour()` escolhe pela vista. Com uma seção só, a marca gravava
+    // na primeira abertura — que nasce na escolha — e o formulário nunca se explicava.
     'ferr-edicao': { modos: ['full'], passos: [
-      { alvo: ['#edicaoLista .edicao-faixa', '#edicaoLista .edicao-pontas'], titulo: 'Trecho',
-        texto: 'Arraste as duas pontas da faixa para escolher onde a mídia começa e onde termina. Os botões −1 s e +1 s acertam o segundo.', opcional: true },
+      { alvo: '#edicaoLista', titulo: 'Escolher a mídia',
+        texto: 'A lista mostra os áudios e vídeos do aparelho em grupos: Cronograma, Playlist, Favoritos e, na Biblioteca, um grupo por coleção baixada. Toque num grupo para abri-lo e numa mídia para escolhê-la.', opcional: true },
       { alvo: '#edicaoBusca', titulo: 'Buscar pelo nome',
         texto: 'Digite o nome da mídia que quer cortar no começo ou no fim e toque nela na lista.', opcional: true },
       { alvo: '#edicaoImportar', titulo: 'Importar arquivo',
         texto: 'Toque para abrir um arquivo do celular só para cortar. Ele não entra no Cronograma nem nos Favoritos.', opcional: true },
+    ] },
+    'ferr-edicao-form': { modos: ['full'], passos: [
+      { alvo: '#edicaoLista .edicao-card', abertura: true, titulo: 'Mídia escolhida',
+        texto: 'É a mídia que você está cortando. Toque na linha para escolher outra; o X vermelho cancela esta edição e volta à lista.' },
+      { alvo: ['#edicaoLista .edicao-faixa', '#edicaoLista .edicao-pontas'], titulo: 'Trecho',
+        texto: 'Arraste as duas pontas da faixa para escolher onde a mídia começa e onde termina. Os botões −1 s e +1 s acertam o segundo.', opcional: true },
+      { alvo: '#edicaoLista .pacote-linha:not(.edicao-card)', todos: true, titulo: 'Fades',
+        texto: 'Marque Fade de entrada ou Fade de saída para o trecho começar ou terminar suavemente.', opcional: true },
+      { alvo: '#edicaoConfirmar', titulo: 'Confirmar',
+        texto: 'Toque para guardar o corte; o arquivo original não muda. Fica apagado até você mexer no trecho ou numa marca.', opcional: true },
+      { alvo: '#edicaoFechoForm .sorteio-dest', todos: true, titulo: 'Cronograma, playlist e Favoritos',
+        texto: 'Os três quadrados guardam o corte direto no Cronograma, na playlist ou nos Favoritos, sem perguntar. O editor não mostra nada na TV.', opcional: true },
     ] },
     'cfg-pacote': { modos: AMBOS, passos: [
       // O QUE VAI NO ARQUIVO, A SELEÇÃO E O PESO (v1.14.10). Pedido do operador:
@@ -219,7 +265,8 @@
         texto: 'Toque para o app sortear músicas por um tema e montar uma fila. A janela se explica ao abrir.', opcional: true },
       { alvo: '#hymnSearchPopup .coll-bar-fechar', titulo: 'Álbuns',
         texto: 'Toque na seta de um álbum para abrir ou fechar as músicas dele. Toque numa música para ver as opções.', opcional: true },
-      { alvo: '#hymnSearchPopup .coll-bar-dl', titulo: 'Baixar',
+      // `:not(.coll-bar-rm)`: a lixeira de "remover do aparelho" também leva a classe `coll-bar-dl`.
+      { alvo: '#hymnSearchPopup .coll-bar-dl:not(.coll-bar-rm)', titulo: 'Baixar',
         texto: 'Toque para baixar o álbum inteiro e usá-lo sem internet no culto. Durante o download, o mesmo botão cancela.', opcional: true },
       { alvo: '#hymnSearchToggle', titulo: 'Fechar', texto: 'Toque para fechar a Biblioteca e voltar ao Cronograma.', opcional: true },
     ] },
@@ -231,11 +278,23 @@
       { alvo: '#cronoNovo', titulo: 'Novo cronograma',
         texto: 'Toque para criar uma lista nova, para outro culto ou evento. A atual continua guardada.' },
     ] },
+    // A BÍBLIA TEM DUAS TELAS, E CADA UMA SE EXPLICA UMA VEZ (v1.14.20): a grade de livros e
+    // capítulos (`biblia`) e a leitura (`biblia-leitura`; o `secaoDoTour()` escolhe por
+    // `bibleScreen`). O "Fechar" não tem passo: é a mesma porta que abriu. A leitura só existe
+    // depois de escolher um versículo, e é nela que se projeta, se navega e se guarda.
     biblia: { modos: ['full'], passos: [
       { alvo: '#bibleBody', abertura: true, titulo: 'Bíblia',
-        texto: 'Toque no livro, depois no capítulo e no versículo para mostrá-lo na TV. As cores separam os grupos de livros.' },
-      { alvo: '#bibleClose', titulo: 'Fechar',
-        texto: 'Toque para fechar a Bíblia. O voltar do celular sobe um nível de cada vez.' },
+        texto: 'Toque no livro, depois no capítulo e no versículo para abrir a leitura. As cores separam os grupos de livros.' },
+    ] },
+    'biblia-leitura': { modos: ['full'], passos: [
+      { alvo: '.bible-vsec.cur', abertura: true, titulo: 'Versículo escolhido',
+        texto: 'Toque no versículo do meio para mostrá-lo na TV; toque de novo para tirá-lo.' },
+      { alvo: '.bible-vsec.adj', todos: true, titulo: 'Mudar de versículo',
+        texto: 'Toque num versículo vizinho para passar a ele; nas pontas do capítulo, a leitura segue para o capítulo ao lado. Se havia um versículo na TV, o novo aparece lá na hora.' },
+      { alvo: '.bible-ref-nav', titulo: 'Livro, capítulo, versículo e versão',
+        texto: 'Toque no livro, no capítulo ou no versículo para escolher outra passagem. O último botão, quando aparece, troca a versão da Bíblia.' },
+      { alvo: '.bible-read-acoes .cue-save-btn', todos: true, titulo: 'Cronograma e Favoritos',
+        texto: 'Toque num dos dois botões para guardar este versículo no Cronograma ou nos Favoritos. Fica guardada a indicação do versículo, não o texto.' },
     ] },
     ferramentas: { modos: ['full'], passos: [
       { alvo: ['#ferrTile_clock', '#ferrTile_stopwatch', '#ferrTile_timer'], titulo: 'Relógio, Cronômetro e Timer',
@@ -245,23 +304,25 @@
       { alvo: '#ferrTile_msg', titulo: 'Mensagens', texto: 'Toque para escrever avisos e mostrá-los na TV na hora certa.' },
       { alvo: '#ferrTile_draw', titulo: 'Sorteio',
         texto: 'Toque para sortear um número ou um nome de uma lista e mostrar o resultado na TV.' },
-      { alvo: '#toolsFechar', titulo: 'Fechar',
-        texto: 'Toque para voltar ao Cronograma. Cada ferramenta se explica na primeira vez que abrir.' },
+      { alvo: '#ferrTile_edicao', titulo: 'Editar mídia',
+        texto: 'Toque para cortar o começo e o fim de um áudio ou vídeo. O corte vai para o Cronograma, a playlist ou os Favoritos.', opcional: true },
     ] },
     'ferr-clock': { modos: ['full'], passos: [
       { alvo: '#toolsFoot .chrono-opt', todos: true, titulo: 'Seg e 12h',
         texto: 'Toque em Seg para mostrar os segundos e em 12h para o formato de 12 horas.', opcional: true },
-      SUBLINHA, PROJETAR, GUARDAR,
+      SUBLINHA, SAIDAS,
     ] },
     'ferr-stopwatch': { modos: ['full'], passos: [
       { alvo: ['#chronoRun', '#chronoZero'], titulo: 'Iniciar e Zerar',
         texto: 'Toque no botão de iniciar para contar e nele de novo para pausar. O outro botão zera a contagem.' },
-      SUBLINHA, PROJETAR, GUARDAR,
+      SUBLINHA, SAIDAS,
     ] },
     'ferr-timer': { modos: ['full'], passos: [
+      { alvo: '#chronoRoletas', titulo: 'Escolher o tempo',
+        texto: 'Role cada coluna com o dedo, para cima ou para baixo, até aparecer o tempo que quer: horas, minutos e segundos. Só muda com o Timer parado.', opcional: true },
       { alvo: ['#chronoRun', '#chronoZero'], titulo: 'Iniciar e Zerar',
-        texto: 'Escolha o tempo nas roletas e toque no botão de iniciar. O outro botão zera e recomeça.' },
-      SUBLINHA, PROJETAR, GUARDAR,
+        texto: 'Toque no botão de iniciar para começar a contar. O outro botão zera e recomeça.' },
+      SUBLINHA, SAIDAS,
     ] },
     'ferr-itinerario': { modos: ['full'], passos: [
       { alvo: '#itinTitulo', titulo: 'Nome do itinerário',
@@ -272,9 +333,17 @@
         texto: 'Toque para incluir uma parte do culto com a hora em que ela começa.', opcional: true },
       { alvo: '#itinHorasBtn', titulo: 'Horários na TV',
         texto: 'Toque no relógio para mostrar ou esconder as horas na TV. Sem elas, aparecem só os títulos.', opcional: true },
-      PROJETAR,
+      Object.assign({}, SAIDAS, { texto: SAIDAS.texto + ' Sem horários na lista, os três ficam apagados.' }),
     ] },
     'ferr-msg': { modos: ['full'], passos: [
+      // A LISTA existe até vazia (`li.empty`), e a primeira instalação não traz mensagem de exemplo:
+      // o passo da formatação aponta o ⋮ da primeira linha e, sem linha, vira balão central
+      // (`semAlvo`) — o único jeito de ensinar o que só existe depois de criar um aviso.
+      { alvo: '#msgWrap .msg-list', abertura: true, titulo: 'Lista de mensagens',
+        texto: 'Seus avisos ficam aqui, um por linha. Toque num aviso para mostrá-lo na TV e toque de novo para tirá-lo.' },
+      { alvo: '#msgWrap .msg-list .lib-item .row-mais', titulo: 'Opções do aviso',
+        texto: 'Toque no ⋮ do aviso e, no botão com o "A", escolha o tamanho, a fonte e o alinhamento do texto na TV; se ele estiver no ar, muda na hora. Ali também ficam guardar e excluir.',
+        semAlvo: 'Com um aviso na lista, toque no ⋮ da linha e, no botão com o "A", escolha o tamanho, a fonte e o alinhamento do texto na TV.' },
       { alvo: '#msgNovaBtn', titulo: '+ Nova mensagem',
         texto: 'Toque para escrever um aviso. Depois, toque no aviso pronto para mostrá-lo na TV.' },
     ] },
@@ -287,7 +356,7 @@
         texto: 'Toque em Números para trocar entre números e uma lista de nomes. Com Não repetir ligado, o que saiu não sai de novo.', opcional: true },
       { alvo: ['#drawGoBtn', '#drawResetBtn'], titulo: 'Sortear e Reiniciar',
         texto: 'Toque no botão de sortear para escolher. O botão ao lado reinicia e devolve todos ao sorteio.', opcional: true },
-      PROJETAR, GUARDAR,
+      SAIDAS,
     ] },
     sorteio: { modos: ['full'], passos: [
       { alvo: '#sorteioPopup input.lib-search', titulo: 'Palavra tema',
@@ -310,6 +379,20 @@
     letra: { modos: ['full'], passos: [
       { alvo: '#lyricsPopup .popup-sheet', abertura: true, titulo: 'Letra',
         texto: 'A letra inteira do que está tocando. Role com o dedo para ler e acompanhar o que está na TV.' },
+    ] },
+    // A CIFRA É UMA SEÇÃO À PARTE (v1.14.20): a folha abre na aba "Letra", e a barra da cifra só
+    // existe com a aba "Cifra" montada — o `secaoDoTour()` devolve `letra-cifra` quando o ▶ da
+    // barra está no DOM. Com uma seção só, a marca gravava na primeira abertura (na Letra) e a
+    // cifra nunca se explicava. Sem `opcional`: o gatilho já garante as peças.
+    'letra-cifra': { modos: ['full'], passos: [
+      { alvo: '#lyricsViewBody', abertura: true, titulo: 'Cifra',
+        texto: 'Os acordes sobre a letra, para quem toca. Só você vê esta folha: a TV não muda.' },
+      { alvo: ['#lyricsCifraCtl .lv-cifra-rolar', '#lyricsCifraCtl .lv-cifra-vel'], titulo: 'Rolar sozinho',
+        texto: 'Toque no ▶ para a folha descer sozinha enquanto você toca; toque de novo para parar. O número ao lado é a velocidade: toque nele para escolher outra.' },
+      { alvo: '#lyricsCifraCtl .lv-cifra-tom', todos: true, titulo: 'Tom',
+        texto: 'Toque em −½ para descer meio tom e em +½ para subir: os acordes mudam e o Tom aparece no alto da folha.' },
+      { alvo: '#cifraCheiaBtn', titulo: 'Tela cheia (deitado)',
+        texto: 'Toque para ler a cifra em tela cheia, com o celular deitado; toque de novo para sair.' },
     ] },
   };
   const CHAVE_SECAO = (s) => 's.' + s;
@@ -398,15 +481,16 @@
   // dista do anterior até max(LINHA_PX, metade da altura do menor dos dois).
   // Fixos: `abertura` (a moldura que apresenta a tela ou a janela) no começo, na
   // ordem declarada; `fecho` (sem alvo) no fim. Passo com a peça fora de vista
-  // (vira balão central) vai para o fim, antes do fecho, na ordem declarada. A
-  // pílula do volume, que o próprio passo mostra, ordena pela caixa que ocupa.
+  // (vira balão central) vai para o fim, antes do fecho, na ordem declarada.
+  // A PÍLULA DO VOLUME É UM DESSES (v1.14.20): ela nasce escondida e a caixa dela
+  // MUDA quando aparece (no Fácil é uma faixa alta na borda esquerda, por cima da
+  // Biblioteca). Ordenar pela caixa escondida e medir a mostrada é o que pôs o
+  // passo dela fora de lugar quando a Biblioteca ganhou os passos da lista — então
+  // ela não ordena: vai para o fim, antes do fecho, como a peça fora de vista. O
+  // `volume: true` fica pelo gancho que a mostra no passo dela.
   const LINHA_PX = 24;
   function caixaParaOrdem(passo) {
-    const r = retangulo(passo);
-    if (r || !passo.volume) return r;
-    const e = document.querySelector(passo.alvo);
-    const q = e && getComputedStyle(e).display !== 'none' ? e.getBoundingClientRect() : null;
-    return q && q.width >= 1 && q.height >= 1 ? q : null;
+    return retangulo(passo);
   }
   function ordenar(passos) {
     const ini = [], fim = [], soltos = [], medidos = [];
@@ -788,7 +872,11 @@
     const sec = g.secao();
     if (sec) {
       const k = CHAVE_SECAO(sec);
-      return SECOES[sec] && !v[k] && !g.bloqueio() ? k : null;
+      const def = SECOES[sec];
+      // `modos` É PORTEIRO (v1.14.20), e não só o reset do `refazer()`: no Fácil a Biblioteca aberta por
+      // cima da leitura devolve `secaoDoTour() === 'biblioteca'` (a janela do AVANÇADO), e o tour dela
+      // abria dentro do Fácil com o texto do Avançado — "voltar ao Cronograma", "ver as opções".
+      return def && !v[k] && !g.bloqueio() && def.modos.includes(g.modo()) ? k : null;
     }
     const qual = g.qual();
     return qual && !v[qual] && !g.ocupado() ? qual : null;

@@ -1,4 +1,4 @@
-# O tour guiado (v1.14.0; seções, "tocando" e halo na v1.14.1; ordem visual na v1.14.3; movimento na v1.14.4; liga/desliga na v1.14.5; só as seções complexas de Configurações na v1.14.10; o anel rente à borda na v1.14.11)
+# O tour guiado (v1.14.0; seções, "tocando" e halo na v1.14.1; ordem visual na v1.14.3; movimento na v1.14.4; liga/desliga na v1.14.5; só as seções complexas de Configurações na v1.14.10; o anel rente à borda na v1.14.11; a lista do Fácil, o deck um a um e as seções por estado na v1.14.20)
 
 **O que é.** Um véu escurecido com um RECORTE na peça explicada e um balão curto
 (título, uma ou duas frases, "N de M", Voltar · Próximo/Concluir · Pular tour). Mora em
@@ -10,11 +10,11 @@ depois do `__avBack`. Oráculo: `tools/tour.test.mjs`.
 | tour | quando vale (`qualTour()`) | o que mostra |
 |---|---|---|
 | `conexao` | Modo Fácil com a cortina "sem tela" (`#simpleMode.sem-tela`) | só a cortina: `#simpleConn`, `#castMirrorBtn`, `#castNetBtn`, `#castLocalBtn` |
-| `simples` | Modo Fácil destravado, Biblioteca encaixada (`.corpo-biblioteca`) | `#simpleBarra`/`#libBar`, `#sorteioSimplesBtn`, `#volPill`, `#simpleSettingsBtn`, `#simpleCastBtn`, `FIM` |
+| `simples` | Modo Fácil destravado, Biblioteca encaixada (`.corpo-biblioteca`) | `#simpleBarra`/`#libBar`, a lista da janela (`.semana-raiz`, `.hymnal-card > .coll-bar`, `.coll-group-bar`, `.coll-bar-dl`), `#sorteioSimplesBtn`, `#volPill`, `#simpleSettingsBtn`, `#simpleCastBtn`, `FIM` |
 | `tocando` | Modo Fácil destravado com a letra e as teclas à vista | `.simple-song`, `.simple-fabs`, `#simpleSlidesRow`, `.simple-nowplaying`, `#simpleStop`, `#simplePlay`, `#simpleTela` |
-| `avancado` | Modo Avançado | `#library`, `#cronoTitulo`, `#cronoImportar`, `#bibleBtn`, `#toolsBtn`, `#libBar`, `#preview`, `#seek`+`.transport`, `#pvCastBtn`, `#settingsBtn`, `FIM` |
+| `avancado` | Modo Avançado | `#library`, `#cronoTitulo`, `#cronoImportar`, `#bibleBtn`, `#toolsBtn`, `#libBar`, o deck em nove passos (`.np-seek`, `#slidePrevBtn`+`#preview`+`#slideNextBtn`, `#prev`+`#playpause`+`#next`+`#stop`, `#repeat`, `#plBtn`, `#lyricsViewBtn`, `#viewToggle`, `#muteToggle`, `#pvFullBtn`), `#pvCastBtn`, `#settingsBtn`, `FIM` |
 
-Os tours principais só apontam as PORTAS (a tabela `TOURS` do `tour.js`); o que há
+Os tours principais apontam as PORTAS e o que já está à vista na tela (a tabela `TOURS` do `tour.js`: o deck do Avançado, a lista da Biblioteca encaixada do Fácil); o que há
 dentro de cada janela é o tour de SEÇÃO, abaixo. Um passo `opcional` sem
 a peça sai da conta; um passo com `semAlvo` e sem a peça à vista vira BALÃO
 CENTRAL com o texto que explica (a letra e as teclas do Fácil sem mídia no ar, o
@@ -31,10 +31,10 @@ tela e naquele modo.
 |---|---|
 | faixa | centros verticais em ordem; cada um entra na faixa do anterior se dista dele até max(`LINHA_PX` = 24 px, metade da altura do menor dos dois) — encadeado |
 | ordem | faixa de cima para baixo; dentro dela, `left` crescente (empate: a ordem declarada) |
-| `abertura: true` | FIXO no começo, na ordem declarada: a moldura que apresenta a tela ou a janela e CONTÉM as outras peças (`#simpleConn`, `#library`, `#bibleBody`, `#histSecao`, `#testeCorpo`, a folha da Playlist e a da Letra) |
+| `abertura: true` | FIXO no começo, na ordem declarada: a moldura que apresenta a tela ou a janela e CONTÉM as outras peças (`#simpleConn`, `#library`, `#bibleBody`, `.bible-vsec.cur`, `#histSecao`, `#testeCorpo`, `#msgWrap .msg-list`, `.edicao-card`, `#lyricsViewBody`, a folha da Playlist e a da Letra) |
 | `fecho: true` / sem `alvo` | FIXO no fim (`FIM`: "Tour do app", balão central, em `simples` e `avancado`) |
 | peça fora de vista | (o balão central do `semAlvo`) vai para o fim, ANTES do fecho, na ordem declarada |
-| `volume: true` | a pílula está escondida (`visibility`) até o passo dela; ordena pela caixa que ocupa |
+| `volume: true` | a pílula está escondida (`visibility`) até o passo dela, e a CAIXA dela muda quando aparece (no Fácil é uma faixa alta na borda esquerda, por cima da Biblioteca): ela NÃO ordena — vai para o fim, antes do fecho — e fica FORA da regra da ordem (o bloco J não a conta: o passo cria a própria peça) (v1.14.20) |
 
 O texto de um passo não pode depender do passo anterior (a posição dele muda com a
 tela). Nenhum tour tem ordem estática. Oráculo: o bloco J do `tour.test.mjs` (todos
@@ -50,6 +50,17 @@ que a v1.14.15 consertou — `#histList .row-item .row-btn` destacava a lista to
 em vez da primeira linha, que é a que explica o gesto; e o inverso (passo que
 explica um conjunto com uma peça só) é o da v1.14.16, que pôs `todos` em cinco
 passos e deixou dois de fora, consertados na v1.14.17.
+
+**A lista do Fácil e o deck do Avançado (v1.14.20).** O `simples` explica a janela que já
+está aberta sobre a barra: a Liturgia (`.semana-raiz`), o cartão de coleção
+(`.hymnal-card > .coll-bar`), as barras de seção do catálogo (`.coll-group-bar`, `todos`) e a
+seta de download (`.coll-bar-dl:not(.coll-bar-rm)` — a lixeira leva a mesma classe). Todos
+`opcional` e sem abrir nada: os cartões nascem fechados, a Liturgia só existe no app e as barras
+vêm da rede; o toque que toca direto e o download de uma música avulsa (a pergunta é só da
+primeira vez) vão no texto dos passos que têm peça em qualquer instalação. No `avancado` o
+deck são nove passos em vez de um: o grupo de tocar NÃO leva `#repeat` nem `#plBtn`, que abrem a
+mesma fileira — a união de todos recortaria os dois por baixo. Nenhum é `opcional`: são HTML
+estático e só ficam apagados sem mídia (`visivel()` não conta `disabled`).
 
 **Os textos:** título = o rótulo que está na tela (ou descrição curta, sem rótulo);
 corpo de 1–2 frases com o que é, para que serve e o verbo de ação ("Toque…",
@@ -68,18 +79,38 @@ foco num campo NÃO bloqueia, a Biblioteca abre com o teclado).
 | chave | onde |
 |---|---|
 | `cfg-hist`, `cfg-pacote`, `conectar` | os dois modos |
-| `biblioteca` (a janela do avançado), `cronogramas`, `biblia`, `ferramentas`, `ferr-clock`, `ferr-stopwatch`, `ferr-timer`, `ferr-itinerario`, `ferr-msg`, `ferr-draw`, `ferr-edicao`, `sorteio`, `playlist`, `letra` | avançado |
+| `biblioteca` (a janela do avançado), `cronogramas`, `biblia`, `biblia-leitura`, `ferramentas`, `ferr-clock`, `ferr-stopwatch`, `ferr-timer`, `ferr-itinerario`, `ferr-msg`, `ferr-draw`, `ferr-edicao`, `ferr-edicao-form`, `sorteio`, `playlist`, `letra`, `letra-cifra` | avançado |
 
 A raiz de Configurações, a Tela e a Verificação não têm tour: são janelas de ajuste
-simples. O editor de mídia (`ferr-edicao`) só existe no avançado — a lista das
-Ferramentas do Fácil não tem o quadrado dele —, e tem um passo para cada vista: a
-"escolha" (busca, importar) e o formulário (o trecho). Todos são `opcional`, e o
-editor que abre direto no formulário se explica por ele. Uma seção sem NENHUM passo
-visível não abre nem grava a marca, e o automático volta a tentar a cada segundo:
-por isso toda vista de uma seção precisa de um passo. As três portas de conexão
+simples. O editor de mídia só existe no avançado — a lista das
+Ferramentas do Fácil não tem o quadrado dele — e tem uma seção por vista (abaixo). Uma seção
+sem NENHUM passo visível não abre nem grava a marca, e o automático volta a tentar a cada
+segundo: por isso toda seção precisa de um passo à vista no estado em que o gatilho a devolve. As três portas de conexão
 (`#castMirrorBtn`, `#castNetBtn`, `#castLocalBtn`) são as mesmas consts no tour
 `conexao` e na seção `conectar`; muda só o texto do "Tocar neste celular" (na
 cortina é a saída sem TV, na janela um interruptor) e o `opcional` da TV.
+
+**TRÊS JANELAS SE DIVIDEM POR ESTADO (v1.14.20)**, cada estado com a própria marca de visto: a
+Letra e a Cifra (`letra`/`letra-cifra`: o `secaoDoTour()` devolve a segunda quando o ▶ da barra
+da cifra, `.lv-cifra-rolar`, está no DOM — `!hidden` não prova a barra completa, o "Procurando a
+cifra…" também a mostra), a escolha e o formulário do editor de mídia (`ferr-edicao`/
+`ferr-edicao-form`: `edicaoVista === 'form'` com `edicaoOrigem`) e a grade e a leitura da Bíblia
+(`biblia`/`biblia-leitura`: `bibleScreen === 'reading'`). **E `modos` é porteiro** (v1.14.20): o
+`candidato()` só oferece a seção que existe no modo em vigor — no Fácil, a Biblioteca aberta por cima
+da leitura devolve `'biblioteca'` (a janela do avançado), e o tour dela abria dentro do Fácil com o
+texto do avançado. O porquê é o `abrir()`: ele grava a
+marca NA ABERTURA, então uma seção só, aberta na primeira vista, gastava a marca e a outra vista
+nunca se explicava — e `opcional` não evita isso. Trocar de vista fecha o tour (o NOME da seção
+mudou, `vigiar()`) e o automático oferece o da vista nova se ela ainda não foi vista. Quem
+acrescentar uma vista nova a uma janela com tour: seção própria, não passo `opcional`.
+
+**O rodapé das Ferramentas (v1.14.20):** as três saídas — o projetar e os dois quadrados de
+guardar — são UM passo (`SAIDAS`, `todos`) nas cinco ferramentas que têm rodapé (Relógio,
+Cronômetro, Timer, Sorteio e Itinerário); a união é a ponta direita do rodapé, e o Itinerário
+acrescenta que, sem horários, os três ficam apagados. O Timer ganhou o passo da roleta
+(`#chronoRoletas`); a lista de Ferramentas perdeu o "Fechar" (é a mesma porta que abriu) e ganhou
+o "Editar mídia"; as Mensagens explicam a lista e as opções de formatação — na primeira
+instalação a lista está vazia, e o passo das opções vira balão central (`semAlvo`).
 
 Uma janela sem entrada na tabela (`songMenuPopup`, `itinPopup`, a gaveta de
 itinerários) não tem tour, mas conta como seção aberta: o tour principal espera.

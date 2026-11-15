@@ -67,15 +67,13 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **13** — Estudos (não são fila de execução) | 4 | estudo | nenhuma entrega |
 | **15** — Guia IASD: a especialização (estudo) | — | estudo | nenhuma entrega |
 | **16** — O cronograma pronto: o organizador entrega o culto ao sonoplasta | 8 (I4×U2) | pedido | planejamento → Kotlin + web |
-| **17** — Tour do Fácil: a Biblioteca que se abre | 9 (I3×U3) | pedido | só web (tour) |
-| **18** — Tour do Avançado: os controles | 9 (I3×U3) | pedido | só web (tour) |
-| **19** — Tour do Avançado: ferramentas e seções | 9 (I3×U3) | pedido | só web (tour) |
 | **20** — Cronograma: o alerta à esquerda | 4 (I2×U2) | pedido | só web |
 | **21** — Destinos: a engrenagem do item guardado | 6 (I3×U2) | pedido | só web |
 | **22** — Bíblia: três versículos no controle | 2 (I2×U1) | pedido | só web |
 | **23** — Editor de mídia: a margem inferior | 4 (I2×U2) | defeito | só web |
 | **28** — Série: o aviso que promete descer | 6 (I3×U2) | defeito | só web |
 | **29** — Guia do site: a captura das sete ferramentas | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
+| **30** — Ferramentas: duas arestas que o tour achou | 2 (I2×U1) | resíduo | só web |
 
 ---
 
@@ -88,12 +86,12 @@ diferentes, e um lote nunca mistura dois temas.
 
 | tema | pacotes | o que sai junto |
 |---|---|---|
-| **Tour do app** | 17, 18, 19 | o roteiro do Fácil e do Avançado: os passos que faltam, o que sobra e cada controle explicado |
 | **Cronograma e destinos** | 16, 20, 21 | a abertura antes do culto, o alerta de "não baixado" à esquerda e a engrenagem do item guardado |
 | **Bíblia** | 22 | a leitura de três versículos no controle |
 | **Mídia** | 23 | a margem inferior do editor de mídia |
 | **Séries** | 28 | o aviso do card que promete o que a rodada não cumpre |
 | **Site** | 29 | a captura da lista de Ferramentas, com as sete |
+| **Ferramentas** | 30 | o Timer em zero que ainda projeta e guarda, e o editor de mídia vazio na instalação nova |
 | **Fila anterior a 14/11** | 5, 6, 7, 8, 12 | o que já estava na fila, na ordem que ela já tinha |
 | **Estudos** | 13, 15 | não são fila de execução: a entrega é a decisão do operador |
 
@@ -147,18 +145,6 @@ ordem; a fila é dele.
 | 13.3 | layout de paisagem (o app no Windows saiu) | | 3 | 1 | 3 | estudo |
 | **15** | **Guia IASD: a especialização (estudo)** | estudo | — | — | **—** | decisão |
 | **16** | **O cronograma pronto: o organizador entrega o culto** | pedido | 4 | 2 | **8** | planejamento |
-| **17** | **Tour do Fácil: a Biblioteca que se abre** | pedido | 3 | 3 | **9** | web |
-| 17.1 | a janela aberta: Liturgia, coleções, o toque que toca e o download | | 3 | 3 | 9 | web |
-| **18** | **Tour do Avançado: os controles** | pedido | 3 | 3 | **9** | web |
-| 18.1 | barra, base comum, prévia, os dois slides e os exclusivos, um a um | | 3 | 3 | 9 | web |
-| 18.2 | a cifra: play automático, tons e a tela cheia deitada | | 3 | 3 | 9 | web |
-| **19** | **Tour do Avançado: ferramentas e seções** | pedido | 3 | 3 | **9** | web |
-| 19.1 | a lista de Ferramentas sem a etapa do fechar | | 3 | 3 | 9 | web |
-| 19.2 | o Timer: a roleta e o gesto de rolar | | 3 | 3 | 9 | web |
-| 19.3 | o Itinerário: as três saídas numa explicação só | | 3 | 3 | 9 | web |
-| 19.4 | as Mensagens: a lista e o exemplo formatado | | 3 | 3 | 9 | web |
-| 19.5 | o Editor de mídia: a lista e a tela de edição | | 3 | 3 | 9 | web |
-| 19.6 | a Bíblia: sem o fechar, com a leitura prática | | 3 | 3 | 9 | web |
 | **20** | **Cronograma: o alerta à esquerda** | pedido | 2 | 2 | **4** | web |
 | 20.1 | o par nome + alerta inverte a ordem | | 2 | 2 | 4 | web |
 | **21** | **Destinos: a engrenagem do item guardado** | pedido | 3 | 2 | **6** | web |
@@ -169,6 +155,9 @@ ordem; a fila é dele.
 | 23.1 | a folha com o editor aberto, medida contra as ferramentas de painel | | 2 | 2 | 4 | web |
 | **28** | **Série: o aviso que promete descer** | defeito | 3 | 2 | **6** | web |
 | **29** | **Guia do site: a captura das sete ferramentas** | resíduo | 2 | 1 | **2** | site |
+| **30** | **Ferramentas: duas arestas que o tour achou** | resíduo | 2 | 1 | **2** | web |
+| 30.1 | o Timer em 0:00: o ▶ apagado, o projetar e os dois guardar acesos | | 2 | 1 | 2 | web |
+| 30.2 | o editor de mídia numa instalação nova: três grupos "0 mídias" e nenhum convite a importar | | 2 | 1 | 2 | web |
 
 ---
 
@@ -445,217 +434,6 @@ decisão):
 
 ---
 
-## Pacote 17 — Tour do Fácil: a Biblioteca que se abre
-
-**Nota 9 (I3 × U3) · pedido · só web (o tour)**
-
-**Onde:** `app/src/main/assets/web/controle/tour.js` (`TOURS.simples`, e o
-`SECOES.biblioteca`, que hoje é `modos: ['full']`), o `secaoDoTour()` do
-`controle.js`, e o oráculo `tools/tour.test.mjs`.
-
-### 17.1 A janela aberta, as seções, o toque que toca e o download
-
-Pedido do operador (2026-11-14 09:34): *"o tour do modo simples não explica
-sobre a biblioteca aberta, suas seções como liturgias e coleções, nem sobre o
-toque que dá play diretamente, nem sobre a questão de como funciona o download
-da biblioteca, seja por item individual ou seja por coletâneas."*
-
-- **A janela é a mesma; a porta é outra.** O Fácil abre o MESMO
-  `#hymnSearchPopup` sobre a `#simpleBarra` (o comentário do `index.html` diz
-  isso), mas o `secaoDoTour()` **pula** esse popup quando
-  `simplesBibliotecaDocada()` — com a barra docada, o tour de seção não abre.
-  Então a etapa só pode morar em (a) `TOURS.simples`, que roda com a barra à
-  vista e alcança o `#libBar`, ou (b) `SECOES.biblioteca`, que só abre com a
-  janela por cima da leitura. **A escolha é do lote**; o que não pode é a etapa
-  nascer morta nos dois estados. A marca do visto (`s.biblioteca`) e o reset
-  do botão "Tour do app" seguem a mesma decisão.
-- **As seções.** O bloco "Liturgia" (`blocoLiturgia`) e os cards de coleção são
-  a primeira coisa que a janela mostra; o tour de hoje só fala em "buscar". Um
-  passo para a divisória das seções e outro para um card de coleção (o que ele
-  é: um álbum inteiro, com as músicas dentro).
-- **O toque que toca.** No Fácil, tocar numa música a põe na TV; no Avançado,
-  o mesmo toque abre as opções dela — o texto atual do `TOURS.avancado` já diz
-  isso, e é a promessa do modo. O passo precisa dizer a diferença.
-- **O download, por item e por coletânea.** O item tem o caminho dele (as
-  opções da música) e a coleção tem o botão da barra dela (`coll-bar-dl`), que
-  baixa o álbum inteiro e cancela no mesmo botão durante o download. O tour do
-  Avançado tem UM passo de "Baixar" (álbum) e o Fácil não tem nenhum — faltam
-  os dois caminhos.
-
-**Fora do escopo:** abrir a Biblioteca ou projetar sozinho. A regra do tour é
-passiva ("o tour nunca abre nada").
-
----
-
-## Pacote 18 — Tour do Avançado: os controles
-
-**Nota 9 (I3 × U3) · pedido · só web (o tour)**
-
-**Onde:** `tour.js` (`TOURS.avancado`, o passo `['#seek', '.transport']` que
-hoje junta tudo) e o oráculo `tools/tour.test.mjs`.
-
-### 18.1 O que hoje é um passo só vira cinco
-
-Pedido do operador (2026-11-14 09:55): *"na parte dos controles, divida ele
-para uma etapa da barra de progresso, um dos botões da base, uma sobre o
-preview e os dois botões de pular slides e também uma individual sobre cada um
-dos botões exclusivos… não siga exatamente essa ordem, apenas aponte todos
-esses elementos."*
-
-A divisão, com os alvos medidos no `index.html`:
-
-| etapa | alvo | o que dizer |
-|---|---|---|
-| a barra | `#seek` | arraste para avançar/voltar no vídeo ou na música; os tempos ficam nas pontas |
-| a base comum | `.transport` (`#repeat`, `#prev`, `#playpause`, `#next`, `#stop`) | repete, volta mídia, toca/pausa, passa mídia e encerra — em grupo, como o operador autorizou |
-| a prévia | `#preview` | o que está na TV, em miniatura |
-| os dois slides | `#slidePrevBtn` / `#slideNextBtn` | o par que flanqueia a prévia e passa estrofe/página |
-| os exclusivos, um a um | `#plBtn` (playlist), `#lyricsViewBtn` (auxiliar de leitura), `#viewToggle` (cortina/wallpaper), `#muteToggle` (mudo) e `#pvFullBtn` (tela cheia) | cada um com o próprio balão; a ordem pode ser a da tela, não a do pedido |
-
-**Fora do grupo comum:** play/stop/next/repeat. **Dentro dele:** a playlist e o
-auxiliar de leitura são os dois que ABREM uma folha; a cortina, o mudo e a tela
-cheia operam a cena — a distinção que o `index.html` já documenta na ordem da
-fileira (o que abre folha fica nas pontas).
-
-### 18.2 A cifra, dentro do auxiliar de leitura
-
-Pedido (09:55): *"no auxiliar de leitura, temos as cifras, que não é explicado
-nada sobre o play automatico, ou os alteradores de tom ou tela cheia que fica
-na horizontal."*
-
-**Onde:** `SECOES.letra` (a folha do `#lyricsPopup`), a barra `#lyricsCifraCtl`,
-o `#cifraCheiaBtn` e os oráculos `cifra-rolagem`/`cifra-tela-cheia`.
-
-- **Play automático:** o botão da barra da cifra a rola sozinho; as velocidades
-  estão em `CIFRA_VELOCIDADES` e o estado é `cifraRolando` (`auto` é uma delas).
-- **Os tons:** os dois `lv-fonte-btn lv-cifra-tom` (−/+), meio tom por toque.
-- **A tela cheia deitada:** o `#cifraCheiaBtn` nasce no cabeçalho e mora na
-  barra da cifra; é o modo horizontal de leitura.
-- **A armadilha do passo:** a cifra só existe quando a mídia tem cifra. Os
-  passos são `opcional` (sem a peça, saem da conta) e o texto não pode prometer
-  o que a mídia não tem. O tour da seção abre na PRIMEIRA abertura da folha; se
-  a mídia em cena não tem cifra, as etapas somem e a marca do visto fica — a
-  mesma pergunta do tour da Bíblia (19.6), e a decisão é do lote.
-
----
-
-## Pacote 19 — Tour do Avançado: ferramentas e seções
-
-**Nota 9 (I3 × U3) · pedido · só web (o tour)**
-
-**Onde:** `tour.js` (`SECOES.ferramentas`, `ferr-timer`, `ferr-itinerario`,
-`ferr-msg`, `ferr-edicao`, `biblia`) e o oráculo `tools/tour.test.mjs`.
-
-### 19.1 A lista de Ferramentas sem a etapa do "Fechar"
-
-Pedido (09:15): *"na lista de ferramentas, o tour explica o botão de fechar,
-uma etapa completa dispensável, então pode remover essa etapa."*
-
-É o último passo do `SECOES.ferramentas` (`#toolsFechar`) — sai inteiro. A lista
-continua com as SETE linhas (Relógio, Cronômetro, Timer, Itinerário, Mensagens,
-Sorteio e Editar mídia), e a seta de sair não precisa de balão: ela é o mesmo
-retângulo da porta que abriu.
-
-### 19.2 O Timer: a roleta e o gesto de rolar
-
-Pedido (09:55): *"no timer, faltou a explicação sobre rolar para ajustar o
-tempo. Ele está pulando direto para a legenda."*
-
-- O passo de hoje é `['#chronoRun', '#chronoZero']` ("Iniciar e Zerar"), e a
-  legenda (`SUBLINHA`) vem logo depois; a roleta (`#chronoRoletas`, com as
-  colunas de hora/minuto/segundo) não tem passo.
-- O passo novo aponta a roleta e ensina o GESTO: rolar a coluna ajusta o
-  número; o Timer vai de 0 a 59 e volta ao zero (o comentário do
-  `acertarRoletas` no `controle.js`).
-- Entra antes da legenda; a ordem do `ordenar()` (o que é fixo no começo/fim)
-  não muda.
-
-### 19.3 O Itinerário: as três saídas numa explicação só
-
-Pedido (09:55): *"não apenas restrito ao itinerário, mas nele o tour não comenta
-sobre os botões de salvar no cronograma ou favoritos. Pode fazer uma explicação
-conjunta nesses casos com o projetar no telão, pois são basicamente todas
-opções de direcionamentos."*
-
-- O rodapé da folha (`#toolsFoot`) desenha o PROJETAR e, quando a ferramenta
-  sabe guardar, o par Cronograma/Favoritos (`cueSaveBtn`; o descritor é o
-  `cueSaveDaFerramenta`, e o Itinerário JÁ tem os dois — com `itin.itens`
-  vazio, os quadrados ficam apagados e o `title` diz por quê).
-- O `SECOES['ferr-itinerario']` tem `PROJETAR` e **não tem `GUARDAR`**. Entra um
-  passo conjunto (a constante `GUARDAR` já existe, com o texto "Cronograma e
-  Favoritos") explicando as três saídas de uma vez: projetar no telão agora,
-  guardar no Cronograma para o culto e guardar nos Favoritos para repetir.
-- O texto é o MESMO em todas as ferramentas que têm as três saídas (Relógio,
-  Cronômetro, Timer, Sorteio, Itinerário): um texto só, no `GUARDAR`; cada tour
-  acrescenta o que é específico. Não escrever cinco textos que vão divergir.
-
-### 19.4 As Mensagens: a lista e o exemplo formatado
-
-Pedido (09:55): *"na aba das mensagens, também não explica sobre a lista de
-mensagens e nem um exemplo de mensagem que mostre que pode ser editado a
-formatação e afins."*
-
-- Hoje o `SECOES['ferr-msg']` tem UM passo: `#msgNovaBtn` ("+ Nova mensagem").
-- Entram: (a) a LISTA (`renderMsg`, a `.msg-list`; tocar numa linha projeta, e
-  a linha no ar tem o `.no-ar`); (b) um passo nas OPÇÕES da mensagem (a gaveta
-  do `⋮`, onde o oráculo `mensagem-estilo` mede tamanho, fonte e alinhamento do
-  cartão) — o balão pode usar uma mensagem de exemplo, sem criar outra.
-- **Cuidado medido:** a mesma linha tem o projetar, o "Adicionar ao Cronograma"
-  e o favoritar; o passo da lista não pode prometer que o toque guarda.
-
-### 19.5 O Editor de mídia: a lista e a tela de edição
-
-Pedido (09:55): *"no editor de mídia, também não temos explicações sobre a
-lista de arquivos, biblioteca e coleções… E nem estou tendo um tour sobre a
-tela de edição propriamente dita."*
-
-- Hoje o `SECOES['ferr-edicao']` tem três passos opcionais: a faixa do trecho, a
-  busca e o importar.
-- **A linha na lista de Ferramentas.** O `SECOES.ferramentas` vai do Sorteio
-  direto para o "Fechar" que sai (19.1): o "Editar mídia" não tem passo na
-  lista, e o operador pediu explicação do editor. O lote decide onde a linha
-  entra — no tour da lista (19.1) ou junto do tour do editor (aqui).
-- **A lista** (`renderEdicaoEscolha`, `#edicaoLista`): o acervo por grupos (as
-  mesmas coleções/pacotes da Biblioteca), a busca e o toque que escolhe a mídia
-  — nenhum passo hoje.
-- **A tela de edição** (`renderEdicaoForm`): o card da mídia (o X cancela ou
-  descarta), o TRECHO (as duas pontas + −1 s/+1 s), o "Confirmar"
-  (`#edicaoConfirmar`) e os destinos do rodapé (Cronograma · playlist ·
-  favoritos, a tabela `DESTINOS`). O tour explica o trecho, mas não o
-  "Confirmar" nem o que os destinos fazem — e o editor é a ferramenta que MONTA
-  o item, não uma que projeta.
-- **O gatilho:** o editor tem duas vistas (`renderEdicaoEscolha`/
-  `renderEdicaoForm`), e o tour já usa `opcional` para cobrir as duas; a vista
-  que está à vista na abertura é a única que pode ser tour. Medir as duas no
-  lote.
-
-### 19.6 A Bíblia: sem o "Fechar" e com a leitura prática
-
-Pedido (09:55): *"na bíblia, não precisa explicar sobre o botão de fechar. E
-também faça um tour sobre a seção prática dos controles da bíblia, explicando
-como mudar um versículo selecionado, ou como salvar no cronograma ou
-projetar…"*
-
-- **Sai** o passo `#bibleClose` ("Fechar") do `SECOES.biblia`.
-- **Entra a leitura** (`renderBibleReading`; as seções `.bible-vsec`, o
-  `.bible-read-foot` e o `.bible-read-acoes`): o versículo central alterna
-  projetar/tirar do telão (`toggleBibleVerse`); os vizinhos navegam
-  (`bibleStep`, que cruza capítulo e livro nos limites); o rodapé tem as quatro
-  pílulas da referência (livro · capítulo · versículo · versão) e os dois
-  `cueSaveBtn` — Cronograma e Favoritos.
-- **A pendência do gatilho:** o `SECOES.biblia` abre na GRADE DE LIVROS, e a
-  leitura só existe depois de escolher um versículo; o `secaoDoTour()` devolve
-  'biblia' nos dois estados. Com os passos da leitura `opcional`, eles não
-  estariam à vista na primeira abertura. O lote decide entre (a) uma seção
-  própria para a tela `reading` (o que pede um gatilho por estado interno) ou
-  (b) a marca do visto esperar a primeira abertura EM leitura. Qualquer uma
-  muda o `SECOES` e o oráculo, e a decisão fica registrada no commit.
-- **O que NÃO é deste pacote:** a nota do operador de tirar um dos versículos
-  futuros (3 no total) é o **Pacote 22**. A etapa daqui mede a leitura como ela
-  estiver; se o 22 sair antes, a etapa já nasce com 3.
-
----
-
 ## Pacote 20 — Cronograma: o alerta à esquerda
 
 **Nota 4 (I2 × U2) · pedido · só web**
@@ -817,7 +595,41 @@ sai da prévia visual no Chromium.
 
 ---
 
+## Pacote 30 — Ferramentas: duas arestas que o tour achou
+
+**Nota 2 (I2 × U1) · resíduo · só web**
+
+**Onde:** `controle/controle.js` (o Timer: `miscProjectState`, `cueSaveDaFerramenta`, `chronoSetDuration`; o editor de mídia: `renderEdicaoEscolha`).
+
+Achados do lote v1.14.20 (2026-11-14), lendo as Ferramentas para o tour. Nenhum é defeito
+confirmado: os dois pedem uma **decisão de desenho do operador**.
+
+### 30.1 O Timer em 0:00
+
+Com o tempo em 0:00 o ▶ fica apagado (*"Escolha um tempo nas roletas"*), mas o "Projetar no
+telão" e os dois quadrados de guardar ficam acesos: dá para projetar um cartão zerado e guardar
+no Cronograma ou nos Favoritos um "Timer 0 min". **A decisão:** apagar os três com o tempo em
+zero (como o Itinerário sem horários, onde o `title` diz por quê) ou deixar como está.
+
+### 30.2 O editor de mídia, na instalação nova
+
+A lista de escolha sempre desenha os três grupos Cronograma, Playlist e Favoritos, então o
+operador de uma instalação nova vê três linhas "0 mídias" e nenhum convite a importar: o
+texto *"Nenhuma mídia… Use “Importar arquivo”"* só aparece depois de uma busca sem resultado.
+**A decisão:** o que a escolha mostra quando não há mídia nenhuma (o convite no lugar dos
+grupos vazios, ou ao lado deles).
+
+---
+
 ## O que saiu desta lista (rastro, não log)
+
+**v1.14.20 (2026-11-14), só web:** os **Pacotes 17, 18 e 19** — o tema "Tour do app" inteiro, num
+lote só: o Fácil explica a lista da Biblioteca aberta (Liturgia, coleções, o toque que toca e o
+download); o Avançado explica o deck um a um e a cifra; as Ferramentas perderam o "Fechar" e
+ganharam o Editar mídia, a roleta do Timer e as três saídas num passo; as Mensagens, o editor de
+mídia e a Bíblia em leitura passaram a se explicar por vista. Saiu junto o tour de seção do
+Avançado que abria dentro do Fácil. A nota está em `docs/HISTORICO.md`; o que o lote achou e não
+decidiu entrou como o **Pacote 30**.
 
 **2026-11-14, Pacotes 24 a 27 (sem versão nova; docs, `tools/` e arquivos da
 máquina):** a revisão das diretrizes — as instruções desta máquina consertadas

@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.20** — o tour do grupo nota 9: a lista da Biblioteca do Fácil, o deck do Avançado um a um, a cifra, as Ferramentas (sem o "Fechar", com a roleta e as três saídas), as Mensagens, o editor de mídia e a Bíblia em leitura — e as seções por VISTA, mais o `modos` que virou porteiro; só web.
 - **v1.14.19** — a folha do vídeo sem o aviso do teto de qualidade, e o botão dos detalhes encurtado para "Detalhes" (texto único, ligado por superfície própria); só web.
 - **v1.14.18** — a higienização C: as 14 lápides podadas, a gaveta que retoma o slot ao reabrir, o `naoResta` inalcançável, 17 ponteiros de documentação repontados e a rodada da série descrita como ela é; base web e `java/` (só comentário no Kotlin), com Release.
 - **v1.14.17** — o tour: o conjunto certo em três passos, o re-sortear fora do destaque, e o oráculo que distingue a peça certa da primeira casada; só web.
@@ -750,6 +751,104 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.14.20 — o tour do grupo nota 9: a lista do Fácil, o deck um a um e as seções por vista (só web)
+
+**v1.14.20 (só web; Pacotes 17, 18 e 19 de `docs/PEDIDOS-EM-ESPERA.md`)** — o operador pediu *"faça o
+grupo da nota 9"* (2026-11-14): as oito mensagens de 09:15–09:55 sobre o tour, num lote só. Os três
+pacotes tocam os MESMOS dois arquivos (`controle/tour.js` e `tools/tour.test.mjs`): dividir o lote
+custaria três ritos completos sobre os mesmos arquivos, e o tema é um só. **Nenhuma peça do app
+mudou**: o lote é dado de tour (alvos, textos, chaves de seção), o porteiro do `candidato()` e o
+oráculo. **O desenho foi medido antes por quatro agentes de leitura** (o `controle.js` tem 47 mil
+linhas) e as cinco fixtures do oráculo foram provadas em Chromium por um quinto, a 390×860 e a
+360×640.
+
+### Pacote 17 — a lista da Biblioteca aberta, no Fácil
+
+Quatro passos novos em `TOURS.simples`: a Liturgia (`#hymnResults .semana-raiz`), o cartão de
+coleção (`.hymnal-card > .coll-bar`), as barras do catálogo (`.coll-group-bar`, `todos`) e a seta de
+download (`.coll-bar-dl:not(.coll-bar-rm)`). **A seção `SECOES.biblioteca` (a saída que o pacote
+também oferecia) não serve para o Fácil**: com a Biblioteca encaixada o `secaoDoTour()` PULA a janela,
+e fazê-lo olhá-la obrigaria a mexer no `telaOcupadaParaTour`, que então calaria o tour principal —
+pior. Todos são `opcional` e sem `semAlvo`: a Liturgia só existe no app, as barras vêm da rede e a
+seta some com a coleção completa. **O toque que toca e o download de uma música avulsa vão no TEXTO**
+dos passos que têm peça em qualquer instalação: não há botão "baixar música" em modo nenhum — o item
+baixa no toque (`simplePlaySong` → `ensureDownloadConsent`, que PERGUNTA só na primeira vez). E o
+cartão diz a diferença do modo: no Fácil o toque toca; no Avançado, abre as opções.
+
+**Achado de borda, consertado no lote:** a lixeira de "remover do aparelho" (`.coll-bar-rm`) TAMBÉM
+leva a classe `.coll-bar-dl` — o passo `#hymnSearchPopup .coll-bar-dl` do Avançado (e o novo) podia
+recortar a lixeira. Entrou `:not(.coll-bar-rm)` nos dois.
+
+### Pacote 18 — o deck um a um, e a cifra
+
+O passo `['#seek', '.transport']` vira NOVE: a barra (`.np-seek`, com os tempos nas pontas), a prévia
+com as duas setas (`#slidePrevBtn` + `#preview` + `#slideNextBtn`), o grupo de tocar (`#prev`,
+`#playpause`, `#next`, `#stop`), o `#repeat`, a `#plBtn`, o `#lyricsViewBtn`, o `#viewToggle`, o
+`#muteToggle` e o `#pvFullBtn`. **O grupo de tocar NÃO leva o repetir nem a playlist**: eles abrem a
+MESMA fileira (`.transport`), e a união dos seis recortaria os dois por baixo. Nenhum é `opcional`:
+são HTML estático do deck, e `visivel()` não conta `disabled` — apagados, continuam peças.
+
+**A cifra ganhou seção própria (`letra-cifra`).** A folha abre na aba "Letra", e um passo `opcional`
+não resolvia: o `abrir()` grava a marca NA ABERTURA, então a primeira abertura gastava `s.letra` e a
+cifra nunca se explicava. O predicado é o ▶ da barra (`.lv-cifra-rolar`) NO DOM — `!hidden` não basta,
+porque o "Procurando a cifra…" também mostra a barra. Quatro passos: a folha, o rolar sozinho com a
+velocidade, os dois tons e a tela cheia deitada.
+
+### Pacote 19 — as Ferramentas, as Mensagens, o editor e a Bíblia
+
+- **A lista de Ferramentas** perdeu o `#toolsFechar` (é o mesmo retângulo da porta que abriu) e ganhou
+  o `#ferrTile_edicao`, que nenhum passo cobria.
+- **O Timer** ganhou a roleta (`#chronoRoletas`) ANTES da legenda — era a queixa ("pula direto para a
+  legenda") —, e o texto do "Iniciar e Zerar" deixou de mandar "escolher nas roletas".
+- **As três saídas num passo só**: `SAIDAS` substitui `PROJETAR` + `GUARDAR` nas CINCO ferramentas com
+  rodapé (Relógio, Cronômetro, Timer, Sorteio, Itinerário), `todos` no projetar e nos dois quadrados.
+  O Itinerário acrescenta que, sem horários, os três ficam apagados.
+- **As Mensagens**: a lista (`#msgWrap .msg-list`, `abertura`) e as opções da linha (`⋮`), com
+  `semAlvo` — a instalação nova não tem mensagem nenhuma, e sem balão central a formatação não se
+  ensinava. O "+ Nova mensagem" foi para o fim.
+- **O editor de mídia** tem seção por VISTA: `ferr-edicao` (a lista, a busca e o importar; o alvo é
+  `#edicaoLista`, que existe durante o spinner de 1 s da escolha) e `ferr-edicao-form` (a mídia, o
+  trecho, os fades, o Confirmar e os três destinos).
+- **A Bíblia**: saiu o `#bibleClose` e entrou `biblia-leitura` (o versículo escolhido, os vizinhos, a
+  navegação da referência e os dois quadrados de guardar). O texto da grade foi corrigido: tocar o
+  versículo ali só ABRE a leitura — quem projeta é o toque no versículo do meio.
+
+### Os dois defeitos que a medição achou
+
+1. **`modos` não era porteiro.** O `candidato()` só olhava a marca e o bloqueio; o `modos` era lido
+   apenas pelo `refazer()`. No Fácil com algo no ar, a Biblioteca aberta por cima da leitura devolve
+   `secaoDoTour() === 'biblioteca'` — seção do AVANÇADO — e o tour dela abria em ~1,06 s, com 4
+   passos, dentro do Fácil, com o texto do Avançado ("voltar ao Cronograma", "as opções"). MEDIDO a
+   390×860 e a 360×640, antes e depois; agora o `candidato()` exige `modos.includes(g.modo())`.
+2. **A pílula do volume ordenava pela caixa errada.** Ela nasce escondida e a caixa MUDA quando
+   aparece: no Fácil é uma faixa alta na borda esquerda (211→481 na tela de 640), por cima da
+   Biblioteca encaixada. Quando a lista ganhou passos, a ordem saiu invertida (a pílula antes do
+   cartão que estava 31 px acima) — o bloco J reprovou. Agora ela não ordena: vai para o fim, antes
+   do fecho, como a peça fora de vista (o `volume: true` fica pelo gancho que a mostra).
+
+### O oráculo (`tools/tour.test.mjs`)
+
+`percorrer` foi de 20 para 30 passos (o deck sozinho tem 18). Entraram: **B** (o cartão e a seta no
+navegador), **B2** (a lista COM a Liturgia e as seções, por fixture que põe os dois hinos fixos e um
+catálogo de um álbum em memória — o app desenha a lista de verdade), **C** (o deck, um a um), **G2**
+(sem "Fechar", com "Editar mídia"; a roleta antes da legenda e as três saídas num passo), **H2** (o
+porteiro `modos`), **I** (três seções novas na varredura: `biblia-leitura`, `ferr-edicao` e
+`letra-cifra`), **I2** (`ferr-edicao-form`) e **M** (uma marca por vista: a grade da Bíblia e a
+leitura, a Letra e a Cifra). Em **J**, quatro tours novos. As fixtures são strings de página com o
+seu `FECHA`, porque o app não desfaz sozinho a sessão da leitura, a aba da cifra nem as mensagens do
+IndexedDB. **70 verificações, ~4 min** — e o arquivo voltou a caber no teto de 300 s do portão: o
+bloco J, que mede a ORDEM, passou a rodar com `prefers-reduced-motion` (o caminho instantâneo da
+v1.14.4), porque quem mede o TRAJETO é o K; com ele o arquivo levava ~5,4 min e o portão o matava.
+
+### O que ficou
+
+O **Pacote 30** (as duas arestas que a leitura das Ferramentas achou: o Timer em 0:00 que ainda
+projeta e guarda, e a escolha do editor de mídia sem convite a importar) e três linhas no
+`RESIDUOS.md` — os balões novos medidos só no Chromium desta máquina, o texto do `#pvCastBtn` e a
+Liturgia com a série, que a fixture não desenha.
 
 ---
 

@@ -37,6 +37,12 @@
 //       no meio dela, o recorte está ENTRE a peça A e a B (sem salto); no fim ele
 //       bate com a peça; três "Próximo" rápidos terminam três passos adiante; com
 //       `prefers-reduced-motion` a duração é 0 e o passo novo já está no lugar.
+//   B2 · a lista da Biblioteca COM a Liturgia e as seções do catálogo (v1.14.20): a fixture põe o mínimo em
+//       memória e o app desenha a lista de verdade; cada seção tem passo, na ordem da tela.
+//   H2 · `modos` é porteiro: a Biblioteca aberta por cima da leitura, no Fácil, NÃO abre o tour de seção do Avançado.
+//   I/J · as seções por ESTADO (a Bíblia em leitura, o formulário do editor, a cifra à vista) e as Mensagens com
+//       uma mensagem criada, por fixtures; M · uma marca por vista: a grade da Bíblia e a leitura, a Letra e a
+//       Cifra se explicam cada uma, na troca de vista.
 //   e nenhum `pageerror` em parte nenhuma.
 //   node tools/tour.test.mjs
 // ============================================================================
@@ -62,8 +68,10 @@ const site = fs.readFileSync(path.join(AQUI, '..', 'site', 'sonoplastia', 'index
 checar(/id="dia"/.test(site) && /Guia de sonoplasta por um dia/.test(site) && fs.readFileSync(path.join(AQUI, '..', 'site', 'CNAME'), 'utf8').trim() === 'audiovisualiasd.com.br',
   'premissa: a página do guia tem o "Guia de sonoplasta por um dia" em `#dia`, no domínio do site');
 
-async function abrir(viewport, { avancado = false, tema = 'escuro', fonte = 1 } = {}) {
-  const ctx = await navegador.newContext({ viewport, hasTouch: true });
+async function abrir(viewport, { avancado = false, tema = 'escuro', fonte = 1, reduzido = false } = {}) {
+  // `reduzido`: o caminho instantâneo do tour (v1.14.4). Quem mede ORDEM (o bloco J) não precisa das
+  // transições — quem as mede é o K —, e esperar cada uma custava a maior parte do tempo do arquivo.
+  const ctx = await navegador.newContext({ viewport, hasTouch: true, reducedMotion: reduzido ? 'reduce' : 'no-preference' });
   await semRedeExterna(ctx);
   await comTema(ctx, tema);
   if (avancado) await comModoAvancado(ctx);
@@ -118,6 +126,7 @@ const medir = (pg) => pg.evaluate(() => {
     fixo: passo.abertura ? 'abertura' : passo.fecho ? 'fecho' : null,
     cont: raiz.querySelector('.tour-cont').textContent, texto: raiz.querySelector('#tourTexto').textContent,
     centro: raiz.classList.contains('tour--centro'),
+    volume: !!passo.volume,   // a pílula só existe no passo dela: fica fora da regra da ordem (v1.14.20)
     peca, selecionados, grupos, todos: !!passo.todos, folga: AVTour.FOLGA, anel: AVTour.ANEL,
     recorte: rr && { l: rr.left, t: rr.top, r: rr.right, b: rr.bottom },
     balao: { l: br.left, t: br.top, r: br.right, b: br.bottom },
@@ -198,7 +207,9 @@ const pular = async (pg) => { if (await pg.evaluate(() => AVTour.aberto())) awai
 // oráculo é a do código. Na sequência mostrada, a faixa não volta para cima e,
 // dentro dela, a borda esquerda não volta para a esquerda. Devolve os pares fora de ordem.
 function foraDeOrdem(passos, linhaPx) {
-  const ms = passos.filter((m) => m.peca && !m.fixo).map((m) => ({
+  // A PÍLULA DO VOLUME FICA DE FORA (v1.14.20): é o tour que a mostra no passo dela, e a caixa que ela ocupa
+  // MUDA entre escondida e mostrada — não há ordem visual da página a respeitar num passo que cria a própria peça.
+  const ms = passos.filter((m) => m.peca && !m.fixo && !m.volume).map((m) => ({
     cy: (m.peca.t + m.peca.b) / 2, h: m.peca.b - m.peca.t, l: m.peca.l, alvo: [].concat(m.alvo).join('+') }));
   let faixa = 0, ant = null;
   for (const m of [...ms].sort((a, b) => a.cy - b.cy)) {
@@ -222,8 +233,12 @@ const assentou = (pg) => esperar(pg, () => !window.AVTour || AVTour.quieto(), nu
 // Percorre o tour inteiro pelo "Próximo", medindo cada passo.
 async function percorrer(pg) {
   const passos = [];
-  for (let k = 0; k < 20; k++) {
-    await pg.waitForTimeout(320);   // o vigia (250 ms) reposiciona: a pílula de volume entra com transição
+  for (let k = 0; k < 30; k++) {
+    // A ESPERA É A DO PASSO, não uma constante (v1.14.20): o `assentou()` já espera o fato (sem troca
+    // nem transição correndo). O que ele NÃO vê é a pílula do volume, mostrada pelo gancho no passo
+    // dela: ali ficam os 320 ms do vigia (250 ms) mais a transição; nos outros, 60 ms — o recorte já parou.
+    const doVolume = await pg.evaluate(() => !!(window.AVTour && AVTour.passoAtual() && AVTour.passoAtual().volume));
+    await pg.waitForTimeout(doVolume ? 320 : 60);
     await assentou(pg);
     if (!(await estado(pg))) { passos.push({ alvo: '(o tour fechou no meio)', i: -1, total: 0 }); break; }
     const m = await medir(pg);
@@ -233,6 +248,70 @@ async function percorrer(pg) {
   }
   return passos;
 }
+
+// ---------------- as FIXTURES dos estados que só existem depois de uma ação (v1.14.20) ----------------
+// A Bíblia em LEITURA, a cifra à vista no auxiliar de leitura, uma mensagem criada, o formulário do editor de
+// mídia e a lista da Biblioteca com a Liturgia: sem eles a varredura (I) e a ordem (J) não alcançam as seções
+// por ESTADO. Cada receita é uma string para `page.evaluate` (provada a 390×860 e a 360×640) e cada `FECHA`
+// desfaz o que o app NÃO desfaz sozinho — a sessão da leitura, a aba da cifra, as mensagens do IDB — para a
+// seção seguinte, na mesma página, nascer limpa. `cifraCabe` só nega por falta de `__NATIVE__` (ligá-lo mudaria
+// a página inteira): a fixture a troca e a devolve. Sem `${…}` nem crase aqui dentro: são strings de página.
+const BIBLIA_LER = `
+  const bookIdx = Bible.BOOKS.findIndex((x) => /Naum/i.test(x.name));
+  const vs = [];
+  for (let i = 1; i <= 19; i++) vs.push({ n: i, text: 'Versículo ' + i + ' de teste com um texto razoavelmente longo.' });
+  bibleVersions = [{ id: 'ara', name: 'Almeida Revista e Atualizada (ARA)' }, { id: 'nvi', name: 'Nova Versão Internacional (NVI)' }];
+  bibleVersionId = 'ara';
+  bibleSel = { bookIdx, chapter: 3 };
+  bibleChapterData = { verses: vs };
+  startBibleReading(2);`;   // sem `toggleBibleVerse()`: nada vai ao telão
+const BIBLIA_ABRE = `(() => { abrirBiblia(); ${BIBLIA_LER} })()`;
+const BIBLIA_LEITURA = `(() => { ${BIBLIA_LER} })()`;
+const BIBLIA_FECHA = `(async () => {
+  fecharBiblia();
+  for (let i = 0; i < 40 && bibliaAberta(); i++) await new Promise((r) => setTimeout(r, 25));
+  clearBibleSession(); bibleScreen = 'books'; bibleSel = { bookIdx: -1, chapter: 0 };
+})()`;
+const CIFRA_LETRA = `
+  const NL = String.fromCharCode(10);
+  const item = { id: 'fx-cifra', name: 'Louvor de Teste', kind: 'audio', seconds: 200, lyrics: [{ text: 'linha de teste' }] };
+  const html = '<div>Tom: C</div><pre>' + Array.from({ length: 12 }, (_, i) => '<b>C</b>      <b>G</b>      <b>Am</b>' + NL + 'linha ' + i + ' da cifra de teste').join(NL) + '</pre>';
+  window.__fxCifraCabe = window.__fxCifraCabe || cifraCabe; window.cifraCabe = () => true;
+  window.__fxCifraItem = item;
+  cifraCache.set(cifraChave(item), { estado: 'ok', url: '', pagina: AVCifra.lerPagina(html), motivo: '', semitons: 0 });
+  openLyricsPopup(item);`;   // alvo da Biblioteca: não toca em `currentItem`, nada vai ao telão
+const CIFRA_ABA = `document.querySelector('#lyricsPopup .fit-opt[data-lvsrc="cifra"]').click();`;   // trocar de alvo ZERA `lvSource`: a aba vem DEPOIS
+const CIFRA_ABRE = `(() => { ${CIFRA_LETRA} ${CIFRA_ABA} })()`;
+const CIFRA_LETRA_ABRE = `(() => { ${CIFRA_LETRA} })()`;
+const CIFRA_FECHA = `(async () => {
+  closeLyricsPopup(); lvSource = null;
+  cifraCache.delete(cifraChave(window.__fxCifraItem));
+  window.cifraCabe = window.__fxCifraCabe;
+  for (let i = 0; i < 40 && lyricsPopupEl.classList.contains('open'); i++) await new Promise((r) => setTimeout(r, 25));
+})()`;
+const MSG_ABRE = `(async () => { messages.length = 0; messages.push({ id: 'fx-msg', text: 'Mensagem de teste para o tour' }); await saveMessages(); abrirFerramenta('msg'); })()`;
+const MSG_FECHA = `(async () => { fecharFerramentas(); messages.length = 0; await saveMessages(); })()`;
+const LISTA_ABRE = `(() => {
+  window.__fxLib = { c22: collState['hymnal-2022'], a7: collState['album-7'], cat: albumCatalog };
+  collState['hymnal-2022'] = { indexSyncedAt: Date.now(), songs: [{ track: 533, name: 'Hino de abertura (teste)' }, { track: 572, name: 'Hino do ofertório (teste)' }] };
+  albumCatalog = { categories: [{ id_category: 1, name: 'Louvores', order: 1, albums: [{ id_album: 7, subtitle: '', order: 1 }] }], albums: [{ id_album: 7, name: 'Álbum de Teste', color: null }] };
+  collState['album-7'] = { indexSyncedAt: 0, songs: [] };
+  renderCollectionsNow();
+})()`;
+const LISTA_FECHA = `(() => {
+  const f = window.__fxLib; collState['hymnal-2022'] = f.c22;
+  if (f.a7) collState['album-7'] = f.a7; else delete collState['album-7'];
+  albumCatalog = f.cat; renderCollectionsNow();
+})()`;
+// A mídia do editor: criada UMA vez por página (`window.__fxMidia`); o formulário abre com ela na memória.
+const WAV6 = wav(6).toString('base64');
+const MIDIA_CRIA = async (b64) => {
+  const u = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const rec = await AVDB.addMedia(new Blob([u], { type: 'audio/wav' }), { name: 'Trecho', kind: 'audio', list: 'imports', seconds: 6 });
+  window.__fxMidia = rec.id;
+  return rec.id;
+};
+const EDICAO_FORM_ABRE = `(async () => { const ok = await edicaoCarregarOrigem(window.__fxMidia); abrirFerramenta('edicao'); return ok; })()`;
 
 try {
   // ---------------- A · Fácil com a cortina: o tour da CONEXÃO ----------------
@@ -279,6 +358,12 @@ try {
     const ruinsB = pb.filter((m) => m.alvo && !recorteBate(m));
     checar(ruinsB.length === 0, 'B · os outros passos recortam a peça certa (o volume inclusive)',
       JSON.stringify(ruinsB.map((m) => [m.alvo, m.peca, m.recorte])));
+    // A LISTA DA JANELA ABERTA (v1.14.20): o que o navegador desenha sem simulação — o cartão de coleção e a seta de
+    // download — já tem passo, e o texto do cartão diz que o toque toca direto (e que no Avançado ele abre as opções).
+    const txB = (t) => (pb.find((m) => m.titulo === t) || {}).texto || '';
+    checar(['#hymnResults .hymnal-card > .coll-bar', '#hymnResults .coll-bar-dl:not(.coll-bar-rm)'].every((a) => alvos.includes(a))
+      && /na TV na hora/.test(txB('Coleções')) && /Avançado/.test(txB('Coleções')) && /avulsa/.test(txB('Baixar')) && /cancela/.test(txB('Baixar')),
+      'B · a lista da Biblioteca tem o passo do cartão de coleção (o toque toca direto) e o da seta de download (coleção e música avulsa)', alvos.join(' '));
     // O volume: aparece no passo dele e some ao sair.
     await pg.click('#tour .tour-voltar');
     await pg.waitForTimeout(320); await assentou(pg);
@@ -292,6 +377,27 @@ try {
     // O voltar do Android é o degrau 0.
     const volta = await pg.evaluate(() => ({ r: window.__avBack(), aberto: AVTour.aberto(), oculto: document.getElementById('tour').hidden }));
     checar(volta.r === true && !volta.aberto && volta.oculto, 'B · o voltar do Android fecha o tour (e só ele)', JSON.stringify(volta));
+
+    // ---------------- B2 · a lista da Biblioteca COM a Liturgia e as seções (v1.14.20) ----------------
+    // O navegador não desenha a Liturgia (só existe no app) nem as barras do catálogo (vêm da rede): a fixture põe o
+    // mínimo em memória — os dois hinos fixos e um catálogo de um álbum — e o app desenha a lista de verdade.
+    await pg.evaluate(LISTA_ABRE);
+    const listaPronta = await esperar(pg, () => !!document.querySelector('#hymnResults .semana-raiz .hymn-result')
+      && !!document.querySelector('#hymnResults .coll-group-bar'), null, 3000);
+    await pg.waitForTimeout(450);   // a lista assenta
+    const abriuB2 = listaPronta === true && await pg.evaluate(() => AVTour.abrir('simples'));
+    const pb2 = abriuB2 ? await percorrer(pg) : [];
+    const titulosB2 = pb2.map((m) => m.titulo);
+    const ordemB2 = pb2.length ? foraDeOrdem(pb2, await pg.evaluate(() => AVTour.LINHA_PX)) : ['sem passos'];
+    checar(abriuB2 && ['Liturgia', 'Coleções', 'Seções', 'Baixar'].every((t) => titulosB2.includes(t))
+      && titulosB2.indexOf('Liturgia') < titulosB2.indexOf('Coleções') && titulosB2.indexOf('Coleções') < titulosB2.indexOf('Seções')
+      && titulosB2.indexOf('Coleções') < titulosB2.indexOf('Baixar')
+      && pb2.filter((m) => m.alvo && !recorteBate(m)).length === 0 && ordemB2.length === 0,
+      'B2 · com a Liturgia e as seções à vista, a lista da Biblioteca tem um passo para cada uma, na ordem da tela, recortando a peça',
+      (porque(listaPronta) || 'lista pronta') + ' · ' + titulosB2.join(' · ') + ' ' + ordemB2.join(' | ')
+      + ' ' + JSON.stringify(pb2.filter((m) => m.alvo && !recorteBate(m)).map((m) => [m.alvo, m.peca, m.recorte])));
+    await pg.evaluate(() => AVTour.aberto() && AVTour.fechar());
+    await pg.evaluate(LISTA_FECHA);
 
     // ---------------- G · a RAIZ de Configurações NÃO tem tour (v1.14.10) ----------------
     // Pedido do operador: *"Desative o tour na primeira aba das configurações …
@@ -503,6 +609,20 @@ try {
     checar(['.simple-song', '#simpleStop', '#simplePlay'].every((a) => alvosH.includes(a)) && ruinsH.length === 0,
       'H · ele recorta a letra, Parar e Play/Pausa (e o que mais estiver à vista)', alvosH.join(' ') + ' ' + JSON.stringify(ruinsH.map((m) => [m.alvo, m.peca, m.recorte])));
     await pular(pg);
+
+    // ---------------- H2 · `modos` é porteiro: no Fácil, nenhum tour de seção do Avançado ----------------
+    // Com algo no ar a Biblioteca NÃO está encaixada (`simplesBibliotecaDocada()` falso): aberta pelo campo de busca,
+    // ela é uma janela por cima da leitura e `secaoDoTour()` devolve `biblioteca` — seção do AVANÇADO (`modos: ['full']`).
+    // O vigia só olhava a marca e o bloqueio: o tour dela abria dentro do Fácil, com o texto do Avançado ("voltar ao
+    // Cronograma", "as opções"). Medido em 14/11: abria em ~1 s com 4 passos.
+    await pg.evaluate(() => { const v = {}; for (const k of AVTour.chaves()) if (k !== 's.biblioteca') v[k] = 1; localStorage.setItem('av.tour', JSON.stringify(v)); AVTour.armar(); });
+    await pg.evaluate(() => openHymnSearch());
+    const secH2 = await esperar(pg, () => secaoDoTour() === 'biblioteca', null, 3000);
+    await pg.waitForTimeout(2500);   // AUSÊNCIA: o automático leva ~1 s (700 ms + o tique de 300 ms)
+    const estH2 = await estado(pg);
+    checar(secH2 === true && estH2 === null, 'H2 · no Fácil, a Biblioteca aberta por cima da leitura NÃO abre o tour de seção do Avançado (`modos` é porteiro)',
+      (porque(secH2) || 'seção biblioteca à vista') + ' · ' + JSON.stringify(estH2));
+    await pg.evaluate(() => closeHymnSearch());
     await ctx.close();
   }
 
@@ -513,8 +633,13 @@ try {
     checar(r === true, 'C · no avançado o tour completo abre SOZINHO na primeira vez', porque(r));
     const pc = await percorrer(pg);
     const alvos = pc.map((m) => [].concat(m.alvo).join('+'));
-    const quer = ['#library', '#cronoTitulo', '#cronoImportar', '#bibleBtn', '#toolsBtn', '#libBar', '#preview', '#seek+.transport', '#pvCastBtn', '#settingsBtn'];
-    checar(quer.every((a) => alvos.includes(a)), 'C · Cronograma, troca, Importar, Bíblia, Ferramentas, Biblioteca, prévia, transporte, conectar e Configurações', alvos.join(' '));
+    // O DECK, UM A UM (v1.14.20): a barra, a prévia com as setas, o grupo de tocar (sem o repetir e a
+    // playlist, que abrem a fileira) e cada exclusivo do Avançado têm o próprio balão.
+    const quer = ['#library', '#cronoTitulo', '#cronoImportar', '#bibleBtn', '#toolsBtn', '#libBar',
+      '.np-seek', '#slidePrevBtn+#preview+#slideNextBtn', '#prev+#playpause+#next+#stop', '#repeat', '#plBtn',
+      '#lyricsViewBtn', '#viewToggle', '#muteToggle', '#pvFullBtn', '#pvCastBtn', '#settingsBtn'];
+    checar(quer.every((a) => alvos.includes(a)) && !alvos.includes('#seek+.transport'),
+      'C · Cronograma, troca, Importar, Bíblia, Ferramentas, Biblioteca, o deck um a um (barra, prévia e setas, tocar, repetir, playlist, auxiliar, cobrir, mutar, tela cheia), conectar e Configurações', alvos.join(' '));
     const ruins = pc.filter((m) => (m.peca ? !recorteBate(m) : !m.centro));
     checar(ruins.length === 0, 'C · cada passo recorta a peça (ou, sem ela à vista, centraliza)',
       JSON.stringify(ruins.map((m) => [m.alvo, m.peca, m.recorte, m.centro])));
@@ -552,12 +677,22 @@ try {
     const ruinsF = pf.filter((m) => !recorteBate(m) || !haloBate(m));
     checar(pf.length >= 4 && ruinsF.length === 0, 'G2 · cada ferramenta é recortada na grade, com o halo',
       JSON.stringify(ruinsF.map((m) => [m.alvo, m.peca, m.recorte])));
+    // A LISTA SEM O "FECHAR" E COM O EDITAR MÍDIA (v1.14.20): a seta de sair é o mesmo retângulo da
+    // porta que abriu, e o tile do editor (só no avançado) ganhou o passo dele.
+    const titulosF = pf.map((m) => m.titulo);
+    checar(titulosF.includes('Editar mídia') && !titulosF.includes('Fechar') && pf.length >= 5,
+      'G2 · a lista de Ferramentas explica o Editar mídia e NÃO tem o passo "Fechar"', titulosF.join(' · '));
     await pular(pg);
     await pg.click('#ferrTile_timer');
     const rt = await esperarTour(pg, 's.ferr-timer');
     checar(rt === true, 'G2 · e abrir o Timer abre o tour DELE', porque(rt));
     const pt = rt === true ? await percorrer(pg) : [];
     checar(pt.length >= 2 && pt.every(recorteBate), 'G2 · o tour do Timer recorta as peças dele', JSON.stringify(pt.map((m) => [m.alvo, !!m.recorte])));
+    // A ROLETA ANTES DA LEGENDA, e as três saídas num passo só (v1.14.20).
+    const titulosT = pt.map((m) => m.titulo);
+    checar(titulosT.includes('Escolher o tempo') && titulosT.indexOf('Escolher o tempo') < titulosT.indexOf('Legenda')
+      && titulosT.includes('Telão, Cronograma e Favoritos') && !titulosT.includes('Projetar no telão'),
+      'G2 · o tour do Timer explica a roleta ANTES da legenda e junta projetar e guardar num passo só', titulosT.join(' · '));
     const backT = await pg.evaluate(() => ({ r: window.__avBack(), aberto: AVTour.aberto(), ferr: ferramentasAbertas() }));
     checar(backT.r === true && !backT.aberto && backT.ferr, 'G2 · o voltar fecha SÓ o tour (as Ferramentas continuam abertas)', JSON.stringify(backT));
     await pg.evaluate(() => fecharFerramentas());
@@ -590,6 +725,7 @@ try {
     // abriria, e cada passo tem de recortar a peça.
     const VARRER = [
       ['biblia', 'abrirBiblia()', 'fecharBiblia()'],
+      ['biblia-leitura', BIBLIA_ABRE, BIBLIA_FECHA],
       ['biblioteca', 'openHymnSearch()', 'closeHymnSearch()'],
       ['cronogramas', 'abrirCronoGaveta()', 'fecharCronoGaveta()'],
       ['conectar', 'abrirCast()', 'fecharCast()'],
@@ -600,9 +736,11 @@ try {
       ['ferr-clock', 'abrirFerramenta("clock")', 'fecharFerramentas()'],
       ['ferr-stopwatch', 'abrirFerramenta("stopwatch")', 'fecharFerramentas()'],
       ['ferr-itinerario', 'abrirFerramenta("itinerario")', 'fecharFerramentas()'],
-      ['ferr-msg', 'abrirFerramenta("msg")', 'fecharFerramentas()'],
+      ['ferr-msg', MSG_ABRE, MSG_FECHA],
+      ['ferr-edicao', 'abrirFerramenta("edicao")', 'fecharFerramentas()'],
       ['ferr-draw', 'abrirFerramenta("draw")', 'fecharFerramentas()'],
       ['letra', 'openLyricsPopup()', 'closeLyricsPopup()'],
+      ['letra-cifra', CIFRA_ABRE, CIFRA_FECHA],
     ];
     const tudo = await pg.evaluate(() => { const v = {}; for (const k of AVTour.chaves()) v[k] = 1; return v; });
     const ruinsI = [];
@@ -620,26 +758,54 @@ try {
     }
     checar(ruinsI.length === 0, 'I · toda seção do avançado abre o próprio tour, e cada passo recorta uma peça real', ruinsI.join(' | '));
 
-    // I2 · o editor que já ABRE NO FORMULÁRIO (uma mídia escolhida na memória): a
-    // busca e o importar da vista "escolha" estão ocultos, e o passo do trecho é o
-    // que o explica. Sem passo visível o tour não abriria nem gravaria a marca, e o
-    // automático tentaria de novo a cada segundo enquanto o editor estivesse aberto.
-    await pg.evaluate((v) => { localStorage.setItem('av.tour', JSON.stringify(v)); AVTour.armar(); }, Object.assign({}, tudo, { 's.ferr-edicao': 0 }));
-    const origem = await pg.evaluate(async (b64) => {
-      const u = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-      const rec = await AVDB.addMedia(new Blob([u], { type: 'audio/wav' }), { name: 'Trecho', kind: 'audio', list: 'imports', seconds: 6 });
-      return edicaoCarregarOrigem(rec.id);
-    }, wav(6).toString('base64'));
-    await pg.evaluate(() => abrirFerramenta('edicao'));
-    const rForm = await esperarTour(pg, 's.ferr-edicao', 5000);
+    // I2 · o editor que já ABRE NO FORMULÁRIO (uma mídia escolhida na memória) tem seção PRÓPRIA (v1.14.20):
+    // `ferr-edicao-form` — a mídia, o trecho, os fades, o confirmar e os destinos. Com uma seção só, a marca gravava
+    // na primeira abertura (que nasce na escolha) e o formulário nunca se explicava; e uma seção sem passo visível
+    // não abre nem grava a marca, com o automático tentando de novo a cada segundo.
+    await pg.evaluate((v) => { localStorage.setItem('av.tour', JSON.stringify(v)); AVTour.armar(); }, Object.assign({}, tudo, { 's.ferr-edicao-form': 0 }));
+    await pg.evaluate(MIDIA_CRIA, WAV6);
+    const origem = await pg.evaluate(EDICAO_FORM_ABRE);
+    const rForm = await esperarTour(pg, 's.ferr-edicao-form', 5000);
     const form = await pg.evaluate(() => ({ vista: edicaoVista, passo: AVTour.aberto() ? AVTour.passoAtual().titulo : null,
-      marca: JSON.parse(localStorage.getItem('av.tour'))['s.ferr-edicao'] || 0 }));
-    const ruinsForm = rForm === true ? (await percorrer(pg)).filter((m) => !recorteBate(m)).map((m) => [].concat(m.alvo).join('+')) : [];
+      marca: JSON.parse(localStorage.getItem('av.tour'))['s.ferr-edicao-form'] || 0 }));
+    const psForm = rForm === true ? await percorrer(pg) : [];
+    const ruinsForm = psForm.filter((m) => !recorteBate(m)).map((m) => [].concat(m.alvo).join('+'));
+    const titulosForm = psForm.map((m) => m.titulo);
     await pg.evaluate(() => AVTour.aberto() && AVTour.fechar());
-    checar(origem === true && rForm === true && form.vista === 'form' && form.passo === 'Trecho' && form.marca === 1 && ruinsForm.length === 0,
-      'I2 · o editor aberto no formulário se explica pelo trecho, recorta a faixa e grava a marca',
-      'origem ' + origem + ' · ' + (porque(rForm) || 'abriu') + ' · ' + JSON.stringify(form) + ' ' + ruinsForm.join(' | '));
+    checar(origem === true && rForm === true && form.vista === 'form' && form.passo === 'Mídia escolhida' && form.marca === 1
+      && ruinsForm.length === 0 && ['Trecho', 'Confirmar', 'Cronograma, playlist e Favoritos'].every((t) => titulosForm.includes(t)),
+      'I2 · o editor aberto no formulário abre a seção PRÓPRIA dele (mídia, trecho, confirmar e destinos), recorta cada peça e grava a marca dela',
+      'origem ' + origem + ' · ' + (porque(rForm) || 'abriu') + ' · ' + JSON.stringify(form) + ' · ' + titulosForm.join(' · ') + ' ' + ruinsForm.join(' | '));
     await pg.evaluate(() => fecharFerramentas());
+    await esperar(pg, () => !ferramentasAbertas());
+
+    // M · UMA MARCA POR VISTA (v1.14.20): a Bíblia abre na grade e o auxiliar de leitura, na Letra; escolher o versículo ou
+    // tocar a aba "Cifra" muda o NOME da seção, o tour da vista antiga fecha e o da nova — ainda não visto — abre sozinho.
+    // Com uma seção só, a marca gastava na primeira vista e a outra nunca se explicava.
+    await pg.evaluate((v) => { localStorage.setItem('av.tour', JSON.stringify(v)); AVTour.armar(); },
+      Object.assign({}, tudo, { 's.biblia': 0, 's.biblia-leitura': 0, 's.letra': 0, 's.letra-cifra': 0 }));
+    await pg.evaluate('abrirBiblia()');
+    const mGrade = await esperarTour(pg, 's.biblia', 5000);
+    await pg.evaluate(BIBLIA_LEITURA);
+    const mLeitura = await esperarTour(pg, 's.biblia-leitura', 5000);
+    const marcasB = await pg.evaluate(() => JSON.parse(localStorage.getItem('av.tour')));
+    await pg.evaluate(() => AVTour.aberto() && AVTour.fechar());
+    await pg.evaluate(BIBLIA_FECHA);
+    await esperar(pg, () => !secaoDoTour(), null, 3000);
+    checar(mGrade === true && mLeitura === true && marcasB['s.biblia'] === 1 && marcasB['s.biblia-leitura'] === 1,
+      'M · a grade da Bíblia se explica e, ao escolher o versículo, a LEITURA também: uma marca por vista',
+      (porque(mGrade) || 'grade') + ' · ' + (porque(mLeitura) || 'leitura') + ' · ' + JSON.stringify([marcasB['s.biblia'], marcasB['s.biblia-leitura']]));
+    await pg.evaluate(CIFRA_LETRA_ABRE);
+    const mLetra = await esperarTour(pg, 's.letra', 5000);
+    await pg.evaluate(CIFRA_ABA);
+    const mCifra = await esperarTour(pg, 's.letra-cifra', 5000);
+    const marcasC = await pg.evaluate(() => JSON.parse(localStorage.getItem('av.tour')));
+    await pg.evaluate(() => AVTour.aberto() && AVTour.fechar());
+    await pg.evaluate(CIFRA_FECHA);
+    await esperar(pg, () => !secaoDoTour(), null, 3000);
+    checar(mLetra === true && mCifra === true && marcasC['s.letra'] === 1 && marcasC['s.letra-cifra'] === 1,
+      'M · a Letra se explica e, ao tocar a aba "Cifra", a CIFRA também: uma marca por vista',
+      (porque(mLetra) || 'letra') + ' · ' + (porque(mCifra) || 'cifra') + ' · ' + JSON.stringify([marcasC['s.letra'], marcasC['s.letra-cifra']]));
     await ctx.close();
   }
 
@@ -659,6 +825,7 @@ try {
   const SO_AVANCADO = [
     ['avancado', '', ''],
     ['s.biblia', 'abrirBiblia()', 'fecharBiblia()'],
+    ['s.biblia-leitura', BIBLIA_ABRE, BIBLIA_FECHA],
     ['s.biblioteca', 'openHymnSearch()', 'closeHymnSearch()'],
     ['s.cronogramas', 'abrirCronoGaveta()', 'fecharCronoGaveta()'],
     ['s.playlist', 'openPlPopup()', 'closePlPopup()'],
@@ -668,20 +835,26 @@ try {
     ['s.ferr-stopwatch', 'abrirFerramenta("stopwatch")', 'fecharFerramentas()'],
     ['s.ferr-timer', 'abrirFerramenta("timer")', 'fecharFerramentas()'],
     ['s.ferr-itinerario', 'abrirFerramenta("itinerario")', 'fecharFerramentas()'],
-    ['s.ferr-msg', 'abrirFerramenta("msg")', 'fecharFerramentas()'],
+    ['s.ferr-msg', MSG_ABRE, MSG_FECHA],
     ['s.ferr-draw', 'abrirFerramenta("draw")', 'fecharFerramentas()'],
     // O editor de mídia é uma FERRAMENTA — a chave do tour é a do painel da folha
     // (`'ferr-' + ferramentaAtual()`) — e só existe no AVANÇADO: a lista das
     // Ferramentas do Fácil não tem o quadrado dele. Aberto sem mídia, é a vista
-    // "escolha"; a do formulário é o I2.
+    // "escolha"; a do formulário (seção própria, `ferr-edicao-form`) vem logo abaixo, com a mídia que o `MIDIA_CRIA`
+    // deixa na página — e DEPOIS da escolha, porque o editor reabre no formulário enquanto a mídia estiver na memória.
     ['s.ferr-edicao', 'abrirFerramenta("edicao")', 'fecharFerramentas()'],
+    ['s.ferr-edicao-form', EDICAO_FORM_ABRE, 'fecharFerramentas()'],
     ['s.letra', 'openLyricsPopup()', 'closeLyricsPopup()'],
+    ['s.letra-cifra', CIFRA_ABRE, CIFRA_FECHA],
   ];
   const ruinsJ = [], vistosJ = [];
   for (const viewport of [{ width: 390, height: 860 }, { width: 360, height: 640 }]) {
     for (const avancado of [false, true]) {
-      const { ctx, pg } = await abrir(viewport, { avancado });
+      // MOVIMENTO REDUZIDO: aqui se mede a ORDEM, e o trajeto entre passos é do bloco K. Sem transição,
+      // cada passo assenta no quadro seguinte (v1.14.4) — e o arquivo volta a caber no teto do portão.
+      const { ctx, pg } = await abrir(viewport, { avancado, reduzido: true });
       await pg.evaluate(() => { const v = {}; for (const k of AVTour.chaves()) v[k] = 1; localStorage.setItem('av.tour', JSON.stringify(v)); });
+      if (avancado) await pg.evaluate(MIDIA_CRIA, WAV6);
       const linhaPx = await pg.evaluate(() => AVTour.LINHA_PX);
       if (!(linhaPx > 0)) ruinsJ.push('a régua da faixa não veio da página (AVTour.LINHA_PX = ' + linhaPx + ')');
       for (const [qual, abre, fecha] of (avancado ? SO_AVANCADO : SO_FACIL).concat(AMBOS_J)) {
@@ -696,7 +869,7 @@ try {
           }, id);
         } else if (abre) await pg.evaluate(abre);
         const pronto = await esperar(pg, (q) => (q.startsWith('s.') ? secaoDoTour() === q.slice(2) : qualTour() === q), qual, 5000);
-        await pg.waitForTimeout(450);   // a janela assenta (transição) antes de o tour medir a ordem
+        await pg.waitForTimeout(300);   // a janela assenta (transição) antes de o tour medir a ordem
         const abriu = pronto === true && await pg.evaluate((q) => AVTour.abrir(q), qual);
         if (!abriu) { ruinsJ.push(onde + ': não abriu (' + await pg.evaluate(() => secaoDoTour() + '/' + qualTour()) + ')'); }
         else {
