@@ -92,14 +92,17 @@ try {
 
   // ── 1. O AVISO EXISTE ENQUANTO O ARQUIVO É LIDO ─────────────────────────
   //
-  // A folha de destinos é respondida como o operador a responde — pelo botão de
-  // confirmar —, e não desviada: é ela que fecha antes do trabalho começar, e é
+  // A folha de destinos é respondida como o operador a responde — por um dos
+  // botões de destino, que agora executa no toque (v1.15.0) —, e não desviada: é ela que fecha antes do trabalho começar, e é
   // justamente esse fechamento que deixava a tela sem sinal nenhum.
   await pg.evaluate((url) => {
     window.__imp = importShare({ files: [{ url, name: 'Video Pesado.mp4', type: 'video/mp4' }] });
   }, base + '/lento.bin');
-  await pg.waitForSelector('#songMenuPopup .song-menu-go', { timeout: 10000 });
-  await pg.evaluate(() => document.querySelector('#songMenuPopup .song-menu-go').click());
+  // A PERGUNTA DE DESTINO é a fileira compacta (v1.15.0): o toque no quadrado
+  // do Cronograma responde a folha na hora, sem Confirmar.
+  await pg.waitForSelector('#songMenuPopup .dest-botoes [data-dest="cronograma"]', { timeout: 10000 });
+  await pg.evaluate(() => document.querySelector(
+    '#songMenuPopup .dest-botoes [data-dest="cronograma"]').click());
 
   // Espera pelo FATO (a linha provisória), não por um prazo.
   const apareceu = await pg.waitForFunction(() => {
@@ -142,8 +145,11 @@ try {
   await pg.evaluate((url) => {
     window.__imp2 = importShare({ files: [{ url, name: 'Nao Existe.mp4', type: 'video/mp4' }] });
   }, base + '/nao-existe.bin');
-  await pg.waitForSelector('#songMenuPopup .song-menu-go', { timeout: 10000 });
-  await pg.evaluate(() => document.querySelector('#songMenuPopup .song-menu-go').click());
+  // A PERGUNTA DE DESTINO é a fileira compacta (v1.15.0): o toque no quadrado
+  // do Cronograma responde a folha na hora, sem Confirmar.
+  await pg.waitForSelector('#songMenuPopup .dest-botoes [data-dest="cronograma"]', { timeout: 10000 });
+  await pg.evaluate(() => document.querySelector(
+    '#songMenuPopup .dest-botoes [data-dest="cronograma"]').click());
   await pg.evaluate(() => window.__imp2);
   await pg.waitForTimeout(300);
   const orfa = await pg.evaluate(() => document.querySelectorAll('.lib-item.baixando').length);
@@ -160,8 +166,11 @@ try {
   await pg.evaluate((url) => {
     window.__imp3 = importShare({ url, title: 'Link Compartilhado' });
   }, base + '/shared/wallpaper-padrao.svg');
-  await pg.waitForSelector('#songMenuPopup .song-menu-go', { timeout: 10000 });
-  await pg.evaluate(() => document.querySelector('#songMenuPopup .song-menu-go').click());
+  // A PERGUNTA DE DESTINO é a fileira compacta (v1.15.0): o toque no quadrado
+  // do Cronograma responde a folha na hora, sem Confirmar.
+  await pg.waitForSelector('#songMenuPopup .dest-botoes [data-dest="cronograma"]', { timeout: 10000 });
+  await pg.evaluate(() => document.querySelector(
+    '#songMenuPopup .dest-botoes [data-dest="cronograma"]').click());
   await pg.evaluate(() => window.__imp3);
   const link = await pg.evaluate(async () => ({
     banco: (await AVDB.listItems('imports')).some((m) => m.name === 'Link Compartilhado'),

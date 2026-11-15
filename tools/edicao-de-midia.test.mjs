@@ -411,7 +411,10 @@ const estado = (pg2) => pg2.evaluate(() => {
 const criarEGuardar = async (pg2) => {
   await pg2.click('#edicaoConfirmar');
   const folha = await esperar(pg2, () => document.getElementById('songMenuPopup').classList.contains('open'), null, 10000);
-  await pg2.evaluate(() => document.querySelector('#songMenuPopup .song-menu-go').click());
+  // A PERGUNTA DE DESTINO é a fileira compacta (v1.15.0): o destino é um
+  // quadrado, e o toque nele importa/guarda na hora, sem Confirmar.
+  await pg2.evaluate(() => document.querySelector(
+    '#songMenuPopup .dest-botoes [data-dest="cronograma"]').click());
   return { folha, criado: await esperar(pg2, () => [...document.querySelectorAll('#edicaoLista .edicao-rotulo')].some((e) => e.textContent === 'Nome do item'), null, 15000) };
 };
 
