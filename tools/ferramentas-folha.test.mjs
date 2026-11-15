@@ -1361,11 +1361,13 @@ try {
         li: (lis[0] || {}).tagName,
         papeis: row ? [...row.children].map(papel) : [],
         // A ORDEM DOS DESTINOS é a da tabela `DESTINOS` (Cronograma, favoritos),
-        // com o estilo à frente e o excluir fechando a fileira.
+        // com o estilo e o lápis de editar à frente e o excluir fechando a
+        // fileira (o lápis entrou no Pacote 21, v1.14.24).
         botoes: caixa ? [...caixa.children].map((b) => (b.matches('.msg-estilo-btn') ? 'estilo'
-          : b.matches('.row-crono') ? 'cronograma'
-            : b.matches('.fav-btn') ? 'favorito'
-              : b.matches('.row-excluir') ? 'excluir' : b.className)) : [],
+          : b.matches('.msg-editar-btn') ? 'editar'
+            : b.matches('.row-crono') ? 'cronograma'
+              : b.matches('.fav-btn') ? 'favorito'
+                : b.matches('.row-excluir') ? 'excluir' : b.className)) : [],
         // A FAIXA NASCE ESCONDIDA — `visibility`, que já tira o toque, o foco e
         // o leitor de tela (a marca que a revela é `acoes-abertas`, no `li`).
         abertas: document.querySelectorAll('.msg-list .acoes-abertas').length,
@@ -1385,9 +1387,10 @@ try {
       + 'essa a ordem de leitura de quem usa leitor de tela',
       JSON.stringify(anatomia));
     checar(JSON.stringify(anatomia.botoes)
-      === JSON.stringify(['estilo', 'cronograma', 'favorito', 'excluir']),
-      'L1 · e os QUATRO botões estão atrás do `⋮`, na ordem da tabela `DESTINOS` '
-      + '(Cronograma, favoritos) com o excluir fechando a fileira',
+      === JSON.stringify(['estilo', 'editar', 'cronograma', 'favorito', 'excluir']),
+      'L1 · e os CINCO botões estão atrás do `⋮` — estilo e lápis de editar à frente, '
+      + 'depois a ordem da tabela `DESTINOS` (Cronograma, favoritos), com o excluir '
+      + 'fechando a fileira',
       JSON.stringify(anatomia.botoes));
     checar(anatomia.abertas === 0 && anatomia.visivel === 'hidden',
       'L1 · e a faixa NASCE escondida — é o `⋮` que a revela. Desenhada de saída, a '
