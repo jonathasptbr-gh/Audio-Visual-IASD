@@ -124,6 +124,7 @@ de "ninguém olhou".
 | 2026-11-15 | v1.14.27 — o alerta do Cronograma à esquerda (Pacote 20, só web) | nenhum: o alerta mudou de lugar no DOM, e o `padding-right` que devolve o nome ao eixo é a MESMA largura que ele já ocupava (`--hit` + vão) — não há número novo de layout. Nenhum arquivo do shell tocado |
 | 2026-11-15 | v1.14.28 — o link do YouTube oferecido com os detalhes (Pacote 6, shell + web) | nenhum: a capa é a maior miniatura que o extrator JÁ carregava (`thumb`, campo novo de um retorno existente), e o bloco do oferecimento reusa os detalhes e o cache da gaveta — nenhuma extração nova, nenhum desenho novo fora da folha |
 | 2026-11-15 | v1.14.29 — a seta das Ferramentas no canto do ✕ e a Biblioteca fechando (só web) | nenhum: a seta só mudou de trilha (a 3, a do ✕) e o glifo foi espelhado por CSS; o fecho da Biblioteca reusa o `closeHymnSearch` de sempre. Nenhum arquivo do shell tocado, e a Release v1.14.28 já estava publicada (sem `shellTag`) |
+| 2026-11-15 | v1.14.31 — o Timer em 0:00 apaga o projetar e o guardar (Pacote 30, só web) | nenhum: a régua é a que o ▶ já usava (`chronoRunApagado` agora é `chronoSemTempo` mais `!running`), o apagado dos dois de guardar é o `montar.apagado` que o `renderFoot` já lia, e o 30.2 saiu por decisão do operador (a escolha fica como está). Nenhum arquivo do shell tocado |
 
 ## Refutado — medido e não é resíduo
 

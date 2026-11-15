@@ -420,7 +420,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.30';
+const WEB_VERSION = '1.14.31';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -7432,7 +7432,11 @@ function miscProjectState() {
   }
   if (miscTool === 'chrono') {
     const live = chronoProjecting();
-    return { live, disabled: false, hint: '', act: () => (live ? hideChrono() : projectChrono()) };
+    // TIMER SEM TEMPO É APAGADO, NÃO INERTE (v1.14.31), como o itinerário vazio: o
+    // cartão zerado não tem o que mostrar. Quem JÁ está no ar sai pelo mesmo botão.
+    const vazio = !live && chronoSemTempo();
+    return { live, disabled: vazio, hint: vazio ? 'Escolha um tempo nas roletas antes de projetar' : '',
+      act: () => (live ? hideChrono() : projectChrono()) };
   }
   // ===== MENSAGENS NÃO TÊM PRIMÁRIO (v1.9.1) =====
   // Pedido do operador: *"na seção de mensagens, remova o botão de projetar no
@@ -7890,7 +7894,14 @@ function renderChronoReadout() {
 // a mesma coisa. Duas escritas divergiriam calado — um aceso e outro apagado
 // para a mesma ação, a dez centímetros de distância.
 function chronoRunApagado() {
-  return chrono.mode === 'timer' && !chrono.running && chrono.durationMs <= 0;
+  return chronoSemTempo() && !chrono.running;
+}
+
+// O TIMER SEM TEMPO ESCOLHIDO (v1.14.31): a régua do ▶ (`chronoRunApagado`), do
+// "Projetar no telão" (`miscProjectState`) e dos dois de guardar
+// (`cueSaveDaFerramenta`). Cronômetro e Relógio não têm piso: nunca é verdade.
+function chronoSemTempo() {
+  return chrono.mode === 'timer' && chrono.durationMs <= 0;
 }
 
 function atualizarChronoRun() {
@@ -7899,6 +7910,22 @@ function atualizarChronoRun() {
   const vazio = chronoRunApagado();
   run.disabled = vazio;
   run.title = vazio ? 'Escolha um tempo nas roletas' : (chrono.running ? 'Pausar' : 'Iniciar');
+  // O PROJETAR E OS DOIS DE GUARDAR ACOMPANHAM O MESMO 0:00 (v1.14.31), pelas
+  // funções que o `renderFoot` usa para desenhá-los: a roleta chega aqui SEM
+  // `renderFoot`, e sem estas linhas eles ficariam como nasceram.
+  const proj = document.getElementById('miscProjectBtn');
+  const st = proj && miscProjectState();
+  if (st) {
+    proj.disabled = st.disabled;
+    if (st.hint) proj.title = st.hint; else proj.removeAttribute('title');
+  }
+  const montar = cueSaveDaFerramenta();
+  if (montar && toolsFootEl) {
+    for (const b of toolsFootEl.querySelectorAll('.cue-save-btn')) {
+      b.disabled = !!montar.apagado;
+      b.title = montar.apagado || b.getAttribute('aria-label');
+    }
+  }
   // O par ao lado da preview lê a MESMA régua, e o `chronoSetDuration` chega
   // aqui SEM passar pelo `renderChrono` (a roleta está sob o dedo) — sem esta
   // linha, escolher um tempo acenderia o ▶ do rodapé e deixaria o do par apagado.
@@ -9565,7 +9592,7 @@ function cueSaveDaFerramenta() {
     return montar;
   }
   if (miscTool === 'chrono') {
-    return async (destino, btn) => {
+    const montar = async (destino, btn) => {
       const nome = chrono.label
         || (chrono.mode === 'timer' ? 'Timer ' + Math.round(chrono.durationMs / 60000) + ' min'
           : chrono.mode === 'clock' ? 'Relógio' : 'Cronômetro');
@@ -9574,6 +9601,10 @@ function cueSaveDaFerramenta() {
         secs: chrono.secs, h12: chrono.h12,
       }, nome, destino, btn);
     };
+    // O TIMER SEM TEMPO não tem o que guardar (v1.14.31): um "Timer 0 min" no
+    // Cronograma ou nos favoritos. Apagados com o porquê, como o itinerário vazio.
+    if (chronoSemTempo()) montar.apagado = 'Escolha um tempo nas roletas antes de guardar';
+    return montar;
   }
   if (miscTool === 'draw') {
     return async (destino, btn) => {

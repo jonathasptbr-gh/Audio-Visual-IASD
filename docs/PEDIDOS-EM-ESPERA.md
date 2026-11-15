@@ -66,12 +66,9 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | pacote | nota | tipo | área |
 |---|---|---|---|
 | **5** — Itinerário: a abertura antes do primeiro evento | 8 (I4×U2) | pedido | só web, depois de planejar |
-| **6** — Link do YouTube: os detalhes no oferecimento | 6 (I3×U2) | pedido | Kotlin + web (APK/Release) |
 | **13** — Estudos (não são fila de execução) | 4 | estudo | nenhuma entrega |
 | **16** — O cronograma pronto: o organizador entrega o culto ao sonoplasta | 8 (I4×U2) | pedido | planejamento → Kotlin + web |
-| **20** — Cronograma: o alerta à esquerda | 4 (I2×U2) | pedido | só web |
 | **29** — Guia do site: a captura das sete ferramentas | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
-| **30** — Ferramentas: duas arestas que o tour achou | 2 (I2×U1) | resíduo | só web |
 
 ---
 
@@ -86,7 +83,6 @@ diferentes, e um lote nunca mistura dois temas.
 |---|---|---|
 | **Cronograma e destinos** | 16 | a abertura antes do culto, e o organizador entregando o culto pronto |
 | **Site** | 29 | a captura da lista de Ferramentas, com as sete |
-| **Ferramentas** | 30 | o Timer em zero que ainda projeta e guarda, e o editor de mídia vazio na instalação nova |
 | **Fila anterior a 14/11** | 5 | a abertura do Itinerário, na ordem que a fila já tinha |
 | **Estudos** | 13 | não são fila de execução: a entrega é a decisão do operador |
 
@@ -131,14 +127,7 @@ ordem; a fila é dele.
 | 13.2 | transmissão ao vivo | | 3 | 1 | 3 | estudo |
 | 13.3 | layout de paisagem (o app no Windows saiu) | | 3 | 1 | 3 | estudo |
 | **16** | **O cronograma pronto: o organizador entrega o culto** | pedido | 4 | 2 | **8** | planejamento |
-| **22** | **Bíblia: três versículos no controle** | pedido | 2 | 1 | **2** | web |
-| 22.1 | sai o segundo futuro: 1 atrás, o atual e 1 à frente | | 2 | 1 | 2 | web |
-| **23** | **Editor de mídia: a margem inferior** | defeito | 2 | 2 | **4** | web |
-| 23.1 | a folha com o editor aberto, medida contra as ferramentas de painel | | 2 | 2 | 4 | web |
 | **29** | **Guia do site: a captura das sete ferramentas** | resíduo | 2 | 1 | **2** | site |
-| **30** | **Ferramentas: duas arestas que o tour achou** | resíduo | 2 | 1 | **2** | web |
-| 30.1 | o Timer em 0:00: o ▶ apagado, o projetar e os dois guardar acesos | | 2 | 1 | 2 | web |
-| 30.2 | o editor de mídia numa instalação nova: três grupos "0 mídias" e nenhum convite a importar | | 2 | 1 | 2 | web |
 
 ---
 
@@ -288,33 +277,12 @@ sai da prévia visual no Chromium.
 
 ---
 
-## Pacote 30 — Ferramentas: duas arestas que o tour achou
-
-**Nota 2 (I2 × U1) · resíduo · só web**
-
-**Onde:** `controle/controle.js` (o Timer: `miscProjectState`, `cueSaveDaFerramenta`, `chronoSetDuration`; o editor de mídia: `renderEdicaoEscolha`).
-
-Achados do lote v1.14.20 (2026-11-14), lendo as Ferramentas para o tour. Nenhum é defeito
-confirmado: os dois pedem uma **decisão de desenho do operador**.
-
-### 30.1 O Timer em 0:00
-
-Com o tempo em 0:00 o ▶ fica apagado (*"Escolha um tempo nas roletas"*), mas o "Projetar no
-telão" e os dois quadrados de guardar ficam acesos: dá para projetar um cartão zerado e guardar
-no Cronograma ou nos Favoritos um "Timer 0 min". **A decisão:** apagar os três com o tempo em
-zero (como o Itinerário sem horários, onde o `title` diz por quê) ou deixar como está.
-
-### 30.2 O editor de mídia, na instalação nova
-
-A lista de escolha sempre desenha os três grupos Cronograma, Playlist e Favoritos, então o
-operador de uma instalação nova vê três linhas "0 mídias" e nenhum convite a importar: o
-texto *"Nenhuma mídia… Use “Importar arquivo”"* só aparece depois de uma busca sem resultado.
-**A decisão:** o que a escolha mostra quando não há mídia nenhuma (o convite no lugar dos
-grupos vazios, ou ao lado deles).
-
----
-
 ## O que saiu desta lista (rastro, não log)
+
+**v1.14.31 (2026-11-15), só web:** o **Pacote 30** — o 30.1: o Timer em 0:00 apaga também o
+"Projetar no telão" e os dois de guardar (a mesma régua do ▶, `chronoSemTempo`); no ar, o
+"Tirar do telão" continua aceso. O 30.2 (o editor de mídia vazio na instalação nova) saiu SEM
+código, por decisão do operador: a escolha fica como está. Nota em `docs/HISTORICO.md`.
 
 **v1.14.28 (2026-11-15), shell + web:** o **Pacote 6** — o link do YouTube
 copiado é oferecido com capa, título, canal e duração. A capa faltava no fio:

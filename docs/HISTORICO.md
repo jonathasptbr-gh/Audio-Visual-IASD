@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.31** — Pacote 30: o Timer em 0:00 apaga o "Projetar no telão" e os dois de guardar, como já apagava o ▶ (o 30.2, o editor de mídia vazio, ficou como está por decisão do operador); só web.
 - **v1.14.30** — nas duas telas de destino, a fileira de largura inteira virou os botões compactos da Biblioteca: um toque importa ou manda o vídeo na hora, e fechar sem tocar não importa nada (a regra "cai no Cronograma" foi revogada); só web.
 - **v1.14.29** — Ferramentas: a seta de voltar foi para o canto direito, no lugar do ✕ e apontando para a direita; e a engrenagem de um Favorito fecha a Biblioteca antes de abrir a ferramenta; só web.
 - **v1.14.28** — o link do YouTube copiado é oferecido com capa, título, canal e duração antes de usar; a capa vem do extrator (shell 88, APK + web).
@@ -831,6 +832,48 @@ apagada da que a criou.
   `antesDaPauta` = depois = PDF continua cobrando isso.
 
 ---
+
+## v1.14.31 — o Timer em 0:00 apaga o projetar e o guardar
+
+O **Pacote 30** (resíduo do tour, lote v1.14.20), decidido pelo operador em
+2026-11-15 e entregue depois que a outra sessão fechou a v1.14.30 (o rito é de
+uma sessão só — `docs/MULTI-AGENTE.md`, seção 4).
+
+### 30.1 — o Timer em 0:00 (feito)
+
+- **Decisão:** apagar os três, como o Itinerário sem horários. Com o Timer
+  parado em 0:00, o "Projetar no telão" (`miscProjectState`) e os dois quadrados
+  de guardar (`cueSaveDaFerramenta`, pelo `montar.apagado` que o `renderFoot` já
+  lia) ficam apagados com o porquê no `title`.
+- **UMA RÉGUA:** `chronoSemTempo()` (`mode === 'timer' && durationMs <= 0`) é a
+  pergunta; `chronoRunApagado()` virou ela mais `!running`. Cronômetro e Relógio
+  nunca a satisfazem.
+- **A ROLETA NÃO PASSA PELO `renderFoot`** (`chronoSetDuration` evita o
+  `renderChrono`, pelo scroller sob o dedo), então `atualizarChronoRun` — o que já
+  acendia o ▶ e o par — passou a reler também o `#miscProjectBtn` e os
+  `.cue-save-btn` pelas MESMAS funções que os desenham, e a devolver o `title`
+  (o aviso não fica preso num botão aceso).
+- **NO AR É EXCEÇÃO:** com o cartão já projetado o botão é "Tirar do telão" e
+  fica aceso mesmo em 0:00 (`!live &&`): apagá-lo prenderia o cartão na frente da
+  congregação.
+- `projectChrono()` e `criarCue` continuam sem a guarda (são o caminho de uma
+  cena guardada antes): só a porta do botão mudou.
+
+### 30.2 — o editor de mídia numa instalação nova (NÃO feito, por decisão)
+
+O operador respondeu que a escolha continua como está: as três linhas "0 mídias"
+(Cronograma, Playlist, Favoritos) ficam, a Biblioteca aparece logo abaixo e o
+"Importar arquivo" está à vista. Nenhum código; o item sai da fila.
+
+### O que o oráculo passou a prender
+
+- `ferramentas-folha` (bloco K, ao lado do "▶ apagado em zero"): em 0:00 os três
+  apagados com o porquê; escolher um tempo na roleta os acende SEM `renderFoot` e
+  devolve os `title` (`Adicionar ao Cronograma`, `Favoritar`); voltar a 0:00 os
+  apaga de novo; no ar o "Tirar do telão" segue aceso; o Cronômetro não apaga
+  nenhum. Reversão medida em quatro pontos (o `disabled` do projetar, a
+  releitura na roleta, o `!live &&` e o `montar.apagado`), cada um reprovando a
+  asserção que o nomeia.
 
 ## v1.14.30 — a pergunta de destino em quadrados, e o oferecimento do link também
 

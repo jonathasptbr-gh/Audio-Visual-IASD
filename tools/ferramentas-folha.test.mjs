@@ -1005,6 +1005,58 @@ try {
       + 'em zero este virou o PRIMEIRO estado que o operador vê, e um primário azul '
       + 'que não responde é indistinguível de um quebrado', JSON.stringify(zerado));
 
+    // O 0:00 APAGA TAMBÉM O PROJETAR E OS DOIS DE GUARDAR (v1.14.31, Pacote 30.1),
+    // pela mesma régua do ▶ (`chronoSemTempo`). O caso que só esta célula pega é
+    // a ROLETA: `chronoSetDuration` chega ao rodapé SEM `renderFoot`, e os três
+    // nasceriam certos e ficariam como nasceram. Por isso a duração muda DUAS
+    // vezes sobre o rodapé já montado, e os nós são lidos de novo a cada medida.
+    const semTempo = await pg.evaluate(async () => {
+      const esp = (ms) => new Promise((f) => setTimeout(f, ms));
+      const ler = () => {
+        const p = document.getElementById('miscProjectBtn');
+        const g = [...document.querySelectorAll('#toolsFoot .cue-save-btn')];
+        return { proj: p ? p.disabled : 'ausente', projTitulo: p ? p.title : '',
+          texto: p ? p.textContent.trim() : '', guardar: g.map((b) => b.disabled),
+          titulos: g.map((b) => b.title) };
+      };
+      const zero = ler();
+      chronoSetDuration(60000); await esp(60);
+      const escolhido = ler();
+      chronoSetDuration(0); await esp(60);
+      const zerouDeNovo = ler();
+      // NO AR o botão é "Tirar do telão" e fica aceso mesmo em zero: apagá-lo
+      // prenderia um cartão zerado na frente da congregação.
+      projectChrono(); await esp(150);
+      const noAr = ler();
+      hideChrono(); clearChronoSession(); await esp(100);
+      // O Cronômetro não tem piso: o 0:00 do Timer guardado não o apaga.
+      abrirFerramenta('stopwatch'); await esp(150);
+      const crono = ler();
+      abrirFerramenta('timer'); chrono.durationMs = 0; renderChronoEControles(); await esp(200);
+      return { zero, escolhido, zerouDeNovo, noAr, crono };
+    });
+    const dois = (e) => e.guardar.length === 2;
+    checar(dois(semTempo.zero) && semTempo.zero.proj === true && semTempo.zero.guardar.every(Boolean)
+      && /tempo/i.test(semTempo.zero.projTitulo) && semTempo.zero.titulos.every((x) => /tempo/i.test(x)),
+      'K · com o Timer em 0:00 o "Projetar no telão" e os DOIS de guardar (Cronograma e favoritos) '
+      + 'ficam APAGADOS, cada um com o porquê no `title` — dava para projetar um cartão zerado e '
+      + 'guardar um "Timer 0 min"', JSON.stringify(semTempo.zero));
+    checar(dois(semTempo.escolhido) && semTempo.escolhido.proj === false
+      && semTempo.escolhido.guardar.every((d) => d === false) && semTempo.escolhido.projTitulo === ''
+      && semTempo.escolhido.titulos.join() === 'Adicionar ao Cronograma,Favoritar',
+      'K · escolher um tempo na ROLETA acende os três SEM redesenhar o rodapé, e devolve o '
+      + '`title` de cada um (o aviso não pode ficar preso num botão aceso)',
+      JSON.stringify(semTempo.escolhido));
+    checar(dois(semTempo.zerouDeNovo) && semTempo.zerouDeNovo.proj === true
+      && semTempo.zerouDeNovo.guardar.every(Boolean),
+      'K · e voltar ao 0:00 pela roleta os APAGA de novo', JSON.stringify(semTempo.zerouDeNovo));
+    checar(semTempo.noAr.proj === false && semTempo.noAr.texto === 'Tirar do telão',
+      'K · com o cartão NO AR o "Tirar do telão" continua aceso mesmo em 0:00', JSON.stringify(semTempo.noAr));
+    checar(dois(semTempo.crono) && semTempo.crono.proj === false
+      && semTempo.crono.guardar.every((d) => d === false),
+      'K · o Cronômetro não tem piso: o Timer em 0:00 não apaga o projetar nem o guardar dele',
+      JSON.stringify(semTempo.crono));
+
     await abrir('timer');
     const t = await forma();
     checar(t.campos.join() === 'hora,min,seg' && t.ciclos.join() === '24,60,60',

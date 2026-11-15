@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.14.31",
+    "itens": [
+      "No Timer em 0:00, o Projetar no telão e os dois botões de guardar ficam apagados, com a dica do porquê.",
+      "Escolhendo um tempo nas roletas eles acendem. Com o cartão já no ar, o Tirar do telão continua aceso."
+    ]
+  },
+  {
     "versao": "1.14.30",
     "itens": [
       "O oferecimento do link do YouTube e a pergunta do arquivo importado usam os botões quadrados da Biblioteca.",
