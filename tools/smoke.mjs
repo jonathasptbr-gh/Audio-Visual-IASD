@@ -4060,10 +4060,16 @@ try {
       const t = document.getElementById('listTitle').getBoundingClientRect();
       const h = document.querySelector('.list-header').getBoundingClientRect();
       const l = document.getElementById('library').getBoundingClientRect();
+      // A FAIXA DO ITINERÁRIO (v1.14.34): com a folha aberta ela sai de cena, e é
+      // a altura dela que explica a lista subir — sem esta medida a diferença
+      // viraria "pulo" e a asserção de baixo reprovaria o desenho de propósito.
+      const b = document.getElementById('itinBar');
+      const banda = b && b.getClientRects().length ? b.getBoundingClientRect() : null;
       return {
         x: Math.round(t.x), y: Math.round(t.y),
         meio: Math.round(t.x + t.width / 2), eixo: Math.round(h.x + h.width / 2),
         faixaH: Math.round(h.height), listaY: Math.round(l.y),
+        bandaH: banda ? Math.round(banda.height) : 0,
       };
     };
     fecharBiblia();
@@ -4107,12 +4113,15 @@ try {
     + 'voltar é reservada mesmo `hidden` (x: ' + emX(telas).join(' · ') + ')',
     JSON.stringify(eixo));
   checar(!eixo.erro && igual(emY(telas)) && igual(telas.map((t) => t.faixaH))
-    && igual(telas.map((t) => t.listaY)),
+    && eixo.livros.listaY === eixo.capitulos.listaY
+    && Math.abs((eixo.crono.listaY - eixo.livros.listaY) - eixo.crono.bandaH) <= 1,
     'e não DESCE tampouco: a linha da grade é declarada, então a altura da faixa '
-    + 'não é mais a do item mais alto — sem ela o título caía 9px e a lista '
-    + 'inteira 19px atrás dele (y: ' + emY(telas).join(' · ')
+    + 'não é mais a do item mais alto — o título fica no mesmo y nas três telas, e '
+    + 'a lista só sobe quando a FOLHA está aberta, pela altura da faixa do '
+    + 'itinerário que cede a ela (v1.14.34) (y: ' + emY(telas).join(' · ')
     + ' · faixa: ' + telas.map((t) => t.faixaH).join(' · ')
-    + ' · lista: ' + telas.map((t) => t.listaY).join(' · ') + ')', JSON.stringify(eixo));
+    + ' · lista: ' + telas.map((t) => t.listaY).join(' · ')
+    + ' · banda: ' + telas.map((t) => t.bandaH).join(' · ') + ')', JSON.stringify(eixo));
   checar(!eixo.erro && Math.abs(eixo.capitulos.meio - eixo.capitulos.eixo) <= 1,
     'e ele fica no EIXO da faixa, não deslocado para a direita dela — é o que o '
     + 'vão da trilha 3 existe para pagar', JSON.stringify(eixo));
