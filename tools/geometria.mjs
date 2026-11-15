@@ -44,19 +44,20 @@ export const PISOS = [
     // A LISTA DAS FERRAMENTAS NÃO ROLA (v1.13.5), por pedido EXPLÍCITO do operador:
     // *"verifique em telas menores, para garantir que essa janela de ferramentas não
     // necessite de scroll, mas sim tenha seus botões encolhidos verticalmente para
-    // caber de forma correta"*. Os vãos da lista cedem antes (sete, até zero; e desde a
+    // caber de forma correta"*. Os vãos da lista cedem antes (seis, até zero; e desde a
     // v1.13.6 a lista não tem cabeçalho — a seta de fechar mora na casa da porta);
     // MEDIDO, só a 360×640 com a fonte do sistema em 1,3× a linha passa abaixo do
-    // `--hit` — 33,9px, a sexta parte de 203,6px de corpo (33,4 na v1.13.5). O piso
-    // trocado é 32, um píxel e pouco de folga sobre o medido.
-    // SETE LINHAS desde a v1.14.7 (o editor de mídia entrou na lista a pedido do
-    // operador): MEDIDO, a 360×640 com a fonte em 1,3× a linha mede 28,6px — a
-    // sétima parte dos 199,6px de corpo. O piso TROCADO é 28, como na v1.13.5 o de
-    // seis linhas era 32 sobre 33,9: a regra do operador não muda (a lista não
-    // rola; as linhas é que cedem), e o número acompanha o mesmo pedido.
-    sel: '.ferr-grade > .ferr-tile', piso: 28,
-    porque: 'a lista das ferramentas não rola por pedido do operador (v1.13.5): sete '
-      + 'linhas de 34px pedem 238px e o corpo da folha mede 199,6px a 360×640 · 1,3×. '
+    // `--hit`: com a faixa do Itinerário fora do caminho (v1.14.34) ela mede 33,4px,
+    // a SEXTA parte dos 200,3px de corpo. O piso trocado é 32, um píxel e pouco de
+    // folga sobre o medido — a mesma régua com que a v1.13.5 mediu 33,9 para seis
+    // linhas.
+    // SEIS LINHAS desde a v1.14.32 (o Itinerário saiu da lista e virou opção do
+    // Cronograma; eram sete desde a v1.14.7, com o editor de mídia): o piso volta ao
+    // desenho de seis linhas, e a regra do operador não muda (a lista não rola; as
+    // linhas é que cedem).
+    sel: '.ferr-grade > .ferr-tile', piso: 32,
+    porque: 'a lista das ferramentas não rola por pedido do operador (v1.13.5): seis '
+      + 'linhas de 34px pedem 204px e o corpo da folha mede 200,3px a 360×640 · 1,3×. '
       + 'Ver `.ferr-grade > .ferr-tile` em controle.css.',
   },
 ];

@@ -179,11 +179,11 @@ try {
   await assentar(pg, '#toolsSheet');
   const dentro = await pg.evaluate(() => {
     const f = document.getElementById('toolsSheet');
-    // A BARRA DO TOPO TERMINA NA FAIXA DO ITINERÁRIO (v1.14.32): o `#itinBar` fica entre o `.list-header` e a
-    // lista — recolhido ele continua lá, como fita —, e é a borda de baixo dele que o topo do `#library` herda.
-    // Mede-se contra o ÚLTIMO dos dois que estiver à vista (a premissa de que a faixa existe é medida com a folha
-    // FECHADA, logo acima): contra o `.list-header` a régua "não cobre o cabeçalho" folgaria uma faixa inteira
-    // (37,8px) antes de reprovar.
+    // A BARRA DO TOPO TERMINA NA FAIXA DO ITINERÁRIO (v1.14.32), MAS A FAIXA CEDE A FOLHA (v1.14.34): com a
+    // folha aberta o `#itinBar` sai de cena (`main:has(…) > #itinBar`, no `controle.css`) para não comer a altura
+    // das linhas das Ferramentas nem cortar a Bíblia; fechada, ela é a última peça do cabeçalho e é a borda dela
+    // que o topo do `#library` herda (a premissa é medida com a folha FECHADA, logo acima). O fallback para o
+    // `.list-header` continua sendo o desenho de hoje — e é ele que a régua "não cobre o cabeçalho" mede.
     const faixaEl = document.getElementById('itinBar');
     const cabEl = faixaEl && faixaEl.getBoundingClientRect().height > 0 ? faixaEl : document.querySelector('.list-header');
     const cab = cabEl.getBoundingClientRect();
@@ -223,6 +223,7 @@ try {
         return { esq: +(r.left - p.left).toFixed(2), dir: +(r.right - p.right).toFixed(2) };
       })(),
       biblia: bibliaAberta(),
+      faixaOculta: !document.getElementById('itinBar').getClientRects().length,
       // A GRADE (v1.13.3): a folha abre nos seis tiles, nunca numa ferramenta.
       ferramentas: document.querySelectorAll('#ferrGrade .ferr-tile').length === 6,
     };
@@ -232,6 +233,9 @@ try {
   checar(!dentro.invadeCabecalho && !dentro.invadeControles,
     'ela NÃO cobre a barra do topo (a faixa do Itinerário inclusive) nem a caixa de controles — quem projeta um '
     + 'cronômetro precisa do transporte e da preview na frente', dentro);
+  checar(dentro.faixaOculta === true,
+    'e a FAIXA do Itinerário se esconde enquanto a folha está aberta (v1.14.34): é a altura dela que a lista '
+    + 'das Ferramentas e a Bíblia precisam para caber no piso', dentro);
   checar(dentro.cobreALista, 'e cobre a lista de cima a baixo, que é o território dela', dentro);
   checar(Math.abs(dentro.bordas.esq) <= 1 && Math.abs(dentro.bordas.dir) <= 1,
     'e NA LISTA ela tem a largura da PORTA de Ferramentas: as duas bordas ±1px (v1.13.5)',
@@ -2718,11 +2722,12 @@ try {
   // PORTA. Pedido do operador: *"verifique em telas menores, para garantir que essa
   // janela de ferramentas não necessite de scroll, mas sim tenha seus botões
   // encolhidos verticalmente para caber de forma correta"*. A folha estreita cede
-  // o recuo e o vão do cabeçalho; onde nem assim seis pisos cabem (só a 360×640
-  // com a fonte do sistema em 1,3×), a linha mede a SEXTA PARTE do corpo — a
-  // exceção NOMEADA do `geometria.mjs`.
+  // o recuo e o vão do cabeçalho; onde nem assim seis pisos cabem (só a 360×600
+  // com a fonte do sistema em 1,3× — com a faixa do Itinerário fora do caminho,
+  // desde a v1.14.34, a 360×640 eles cabem até a 1,3×), a linha mede a SEXTA
+  // PARTE do corpo — a exceção NOMEADA do `geometria.mjs`.
   // REVERSÕES: `min-height: var(--hit)` na linha (o piso de antes) — a célula de
-  // 1,3× volta a rolar; e o recuo do cabeçalho de volta a `.5rem .7rem .6rem` —
+  // 360×600 · 1,3× volta a rolar; e o recuo do cabeçalho de volta a `.5rem .7rem .6rem` —
   // a de 1,25× passa a ficar abaixo do piso.
   // A QUARTA COLUNA É A EXCEÇÃO: a célula em que seis pisos NÃO cabem (360×600 com a fonte em 1,3× — a
   // premissa abaixo confere que ela de fato não cabe, senão o ramo da exceção não seria exercido).
@@ -2742,8 +2747,8 @@ try {
   // estreita o corpo já era o teto da LARGURA, abaixo do `--fs-4xl`, e só a
   // comparação com o número daquela versão diz que ele encolheu ali também.
   for (const [w, h, raiz, excecao, letraAntes] of [[430, 900, '', false, 20], [412, 892, '', false, 20],
-    [360, 640, '', false, 15.9], [360, 640, '20px', true, 14.2],
-    [360, 640, '20.8px', true, 13.7], [360, 600, '20.8px', true, 13.7]]) {
+    [360, 640, '', false, 15.9], [360, 640, '20px', false, 14.2],
+    [360, 640, '20.8px', false, 13.7], [360, 600, '20.8px', true, 13.7]]) {
     await pg.setViewportSize({ width: w, height: h });
     await pg.evaluate((r) => { document.documentElement.style.fontSize = r; fecharFerramentas(); }, raiz);
     await esperar(pg, () => toolsSheetEl.hidden);

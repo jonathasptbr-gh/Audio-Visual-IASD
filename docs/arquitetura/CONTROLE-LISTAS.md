@@ -113,7 +113,7 @@ Cronograma"; aqui, o que a LISTA faz com eles.
 | os gestos | tocar EDITA (`attachRowGestures(row, item, { lista:'imports', aoTocar })` → folha `#itinPopup`) e nunca projeta; segurar ARRASTA, pela máquina do Cronograma; `⋮` → excluir (pergunta NA LINHA) · editar |
 | a ordem | a posição da linha é do operador e organiza as MÍDIAS (arrastar uma mídia para baixo de um momento); o TELÃO ordena pelo RELÓGIO (`ordenarItin`). Nada toca nem projeta sozinho pelo horário |
 | o momento novo | `itinAdicionar`: ANTES do primeiro momento posterior no relógio; sem posterior, no FIM da lista; sem nenhum momento, no TOPO |
-| a faixa | `#itinBar`, irmã da barra do topo (entre `.list-header` e `.list-body`), recolhível (a fita com `#itinBarAbrir`; `state.itinerario.barraOculta`); o Modo Fácil não a desenha |
+| a faixa | `#itinBar`, irmã da barra do topo (entre `.list-header` e `.list-body`), recolhível (a fita com `#itinBarAbrir`; `state.itinerario.barraOculta`); o Modo Fácil não a desenha, e com a folha de Ferramentas ou a Bíblia aberta ela sai de cena (v1.14.34) |
 | o que a lista dispara | `itinSincronizar()` no fim de TODO `renderLibrary`: reenvia o telão se a assinatura dos momentos (id, horário, título, em ordem de relógio) mudou e repinta a faixa — uma exclusão, uma edição ou uma troca de cronograma com ele no ar atualizam o telão sem código próprio, e um arrasto não reenvia nada |
 
 ### Gestos nos itens da biblioteca

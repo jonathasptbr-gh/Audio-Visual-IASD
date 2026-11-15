@@ -7288,9 +7288,26 @@ main {
   padding: .15rem .8rem .25rem;
 }
 .itin-bar:empty { display: none; }
+/* A FAIXA CEDE A FOLHA (v1.14.34). Ela mora entre a barra do topo e o
+   `.list-body`, e a folha de Ferramentas/Bíblia é `absolute` DENTRO do
+   `.list-body`: enquanto esta faixa ocupa altura, ela come a altura da folha, e
+   foi assim que a régua de toque e a das linhas brigaram (30,4px de botão contra
+   o `--hit` de 34; 44px de texto cortado na Bíblia a 1,3×). A folha cobre o
+   Cronograma inteiro — e o Cronograma, aqui, são a barra do topo, ESTA faixa e
+   a lista —, então a faixa sai de cena enquanto uma folha está aberta e volta
+   quando ela fecha. O `:has()` é o mesmo motor que o `.list-body:has(…)` já usa
+   desde a v1.8.60/v1.8.63; sem ele a folha voltaria a ser medida contra a
+   altura de uma faixa que ela não deveria dividir. */
+main:has(> .list-body > .tools-sheet:not([hidden])) > #itinBar { display: none; }
+/* O BOTÃO DA FAIXA MEDE O PISO DO APP. Eram 1,9rem (30,4px com a fonte de
+   fábrica, e 39,5px já em 1,3×, o que fazia a faixa quebrar em DUAS linhas a
+   1,3× e roubar 52px da lista de Ferramentas). Com a altura em `--hit` (34px,
+   fixo em px como o piso) o botão não fica menor que o dedo em tela nenhuma e a
+   faixa só quebra onde ela já previa quebrar — 320px e a partir de 1,5× de
+   fonte. */
 .itin-b {
   flex: none; display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1);
-  height: 1.9rem; min-width: 1.9rem; padding: 0 .3rem; box-sizing: border-box;
+  height: var(--hit); min-width: var(--hit); padding: 0 .3rem; box-sizing: border-box;
   border: 0; border-radius: var(--radius-card);
   background: var(--surface); color: var(--text);
   font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-forte); line-height: 1;
@@ -7302,14 +7319,18 @@ main {
    e o "12h" do Relógio: o telão no ar e os horários escolhidos. */
 .itin-b.active { background: var(--btn-accent); color: var(--accent); }
 .itin-telao { padding: 0 .55rem; }
-.itin-passo { min-width: 1.6rem; padding: 0 .1rem; font-weight: var(--fw-max); font-variant-numeric: tabular-nums; }
+.itin-passo { min-width: var(--hit); padding: 0 .1rem; font-weight: var(--fw-max); font-variant-numeric: tabular-nums; }
 /* O ATRASO é o miolo elástico, e é um botão (tocar o zera): chapado, sem corpo.
    Com atraso ele deixa de ser apagado — é o estado que muda o que o telão mostra, e
    lê-se de relance. */
 .itin-b.itin-ajuste-txt {
-  flex: 1 1 3rem; min-width: 0; padding: 0 .15rem; background: none; color: var(--muted);
+  /* O `flex-basis` é ZERO, e não os 3rem de antes: com base própria o atraso
+     entra na conta da linha já com 48px e empurra o "Recolher" para a segunda
+     linha a 360px — mesmo sobrando espaço. Com base zero ele recebe só a sobra
+     (e nunca menos que o `--hit`, que é o alvo). */
+  flex: 1 1 0; min-width: var(--hit); padding: 0 .15rem; background: none; color: var(--muted);
   font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;
-  line-height: 1.9rem;
+  line-height: var(--hit);
 }
 .itin-b.itin-ajuste-txt:disabled { opacity: 1; }
 .itin-txt-curto { display: none; }
@@ -7322,7 +7343,7 @@ main {
    itinerário está no ar (o ponto), porque é a única pista que sobra da faixa. */
 .itin-bar.recolhida { padding: 0 .8rem .1rem; justify-content: center; }
 .itin-b.itin-abrir {
-  flex: 1 1 auto; height: 1.5rem; min-width: 0; padding: 0 .6rem; background: none; color: var(--muted);
+  flex: 1 1 auto; height: var(--hit); min-width: 0; padding: 0 .6rem; background: none; color: var(--muted);
   font-size: var(--fs-xs);
 }
 .itin-b.itin-abrir svg { width: .9rem; height: .9rem; }
@@ -7333,14 +7354,16 @@ main {
    de ~334, e com o vão cheio de `--sp-2` ela passava por 4 px e quebrava a seta de recolher. */
 @media (max-width: 419.98px) { .itin-bar { column-gap: var(--sp-1); } }
 /* A FAIXA MEDE O PRÓPRIO COMPRIMENTO (consulta de contêiner, como a do `.misc-foot`): abaixo
-   de 400px o atraso passa à escrita curta ("+5 min"), e abaixo de 320px o rótulo do telão
-   cede — o ícone e a cor de ligado dizem o mesmo. (A consulta mede o CONTEÚDO da faixa:
-   o recuo de .8rem de cada lado já está descontado — 360px de tela são ~334px aqui.) */
+   de 400px o atraso passa à escrita curta ("+5 min"), e abaixo de 370px da FAIXA o rótulo
+   do telão cede — o ícone e a cor de ligado dizem o mesmo, e é ele que paga o piso de
+   34px dos nove botões numa tela de 360 (v1.14.34: o rótulo volta a partir de ~430px de
+   tela). (A consulta mede o CONTEÚDO da faixa: o recuo de .8rem de cada lado já está
+   descontado — 360px de tela são ~334px aqui.) */
 @container (max-width: 399.98px) {
   .itin-txt-longo { display: none; }
   .itin-txt-curto { display: inline; }
 }
-@container (max-width: 319.98px) { .itin-telao-txt { display: none; } .itin-telao { padding: 0 .4rem; } }
+@container (max-width: 369.98px) { .itin-telao-txt { display: none; } .itin-telao { padding: 0 .4rem; } }
 
 /* A FOLHA DE UM MOMENTO (`#itinPopup`): desce do teto e termina onde o teclado
    começa. As roletas ocupam o que sobra e se medem por isso

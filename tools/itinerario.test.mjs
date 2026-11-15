@@ -61,7 +61,8 @@
 //  T. A CENA ANTIGA `itinerario`: tocá-la ACRESCENTA os horários como momentos (sem
 //     apagar nada, sem duplicar o que já existe, e tocar de novo não duplica).
 //  U. A FAIXA RECOLHÍVEL: recolher, recarregar, persistir, abrir; mais baixa que a barra
-//     do topo; em 320, 360 e 430 nenhum botão passa da borda direita da faixa.
+//     do topo a 360 e a 430 (a 320 ela quebra em duas, porque nove alvos de 34px não cabem
+//     numa), e em 320, 360 e 430 nenhum botão passa da borda direita da faixa.
 //  V. SEM FERRAMENTA: `FERRAMENTAS` sem `itinerario`, nenhum id/global removido, e a
 //     folha de Ferramentas só tem os seis tiles.
 //  W. CRONOGRAMA MÚLTIPLO: cada cronograma tem os SEUS momentos, e com o itinerário no
@@ -529,7 +530,16 @@ try {
     checar(g.noRecuo.length === 0,
       'U · e em ' + w + 'px nenhum botão invade o recuo da direita (o `padding` da faixa)', g);
     checar(g.longo !== g.curto, 'U · em ' + w + 'px o atraso aparece em UMA escrita só (longa ou curta)', g);
-    checar(g.h < g.hTopo, 'U · em ' + w + 'px a faixa é mais baixa que a barra do topo', g);
+    if (w === 320) {
+      // Com o piso de 34px nos nove botões (v1.14.34) eles não cabem numa linha
+      // de 320px: a faixa quebra em duas, que é a quebra que o próprio comentário
+      // dela já previa ("a fonte do sistema em 1,25× ou mais, ou uma tela de 320 px").
+      checar(g.h > g.hTopo,
+        'U · em 320px a faixa QUEBRA em duas linhas (nove alvos de 34px não cabem numa) — '
+        + 'e a quebra não deixa botão fora da borda', g);
+    } else {
+      checar(g.h < g.hTopo, 'U · em ' + w + 'px a faixa é mais baixa que a barra do topo', g);
+    }
   }
   await pg.setViewportSize({ width: 360, height: 800 });
   await esperar(pg, () => innerWidth === 360);

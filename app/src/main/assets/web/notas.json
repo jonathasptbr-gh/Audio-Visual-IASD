@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.14.34",
+    "itens": [
+      "O Itinerário continua na faixa sob a barra do topo, agora com botões no tamanho mínimo de toque.",
+      "Nas telas estreitas o botão Telão fica só com o ícone; o nome volta nas telas largas.",
+      "A faixa se esconde enquanto a folha de Ferramentas ou da Bíblia está aberta, e volta ao fechar.",
+      "Assim as linhas das Ferramentas cabem sem rolar e o texto da Bíblia para de ser cortado."
+    ]
+  },
+  {
     "versao": "1.14.33",
     "itens": [
       "Novo: o link do pregador. Ligue as Telas da rede e mande o endereço /prega para ele.",

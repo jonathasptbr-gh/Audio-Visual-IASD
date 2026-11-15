@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.34** — a faixa do Itinerário no piso de toque (o rótulo "Telão" cede nas telas estreitas) e escondida sob as folhas de Ferramentas e da Bíblia; fecha o `verificar` vermelho desde a v1.14.32 (só web; `shellTag` v1.14.34).
 - **v1.14.33** — Pacote 34: o controle do pregador pelo navegador — uma página própria (`/prega`), vertical, com o slide anterior, o atual e o próximo, as setas e a cortina; só slides, sem código de entrada (shell 88, APK + web).
 - **v1.14.32** — o itinerário deixou de ser ferramenta e virou opção do Cronograma: os momentos são linhas da lista e a faixa de opções fica sob a barra do topo (Pacote 5, 1ª metade; só web)
 - **v1.14.31** — Pacote 30: o Timer em 0:00 apaga o "Projetar no telão" e os dois de guardar, como já apagava o ▶ (o 30.2, o editor de mídia vazio, ficou como está por decisão do operador); só web.
@@ -832,6 +833,71 @@ apagada da que a criou.
   339,07 / 339,07 px; larguras 83,5 / 83,5 mm.
 - **As páginas não se moveram:** 22 (Por um dia) e 88 (Tempo integral), nos dois formatos, e o
   `antesDaPauta` = depois = PDF continua cobrando isso.
+
+---
+
+## v1.14.34 — a faixa do itinerário no piso, e a folha inteira para ela
+
+O conserto do defeito que a v1.14.32 abriu e que manteve o `verificar` vermelho
+desde então — e com ele TODA publicação parada: o `web-ota` depende do
+`verificar`, e a Release da v1.14.33 não chegou a nascer.
+
+O defeito era uma briga de duas réguas, MEDIDA antes de decidir: os botões da
+faixa (`#itinBar`) mediam **30,4px** de altura (e **25,6px** de largura nos `±1`,
+33,3px a 1,3×) contra o `--hit` de **34**; subir a faixa ao piso, sozinha, tirava
+altura da lista de Ferramentas — a 360×640 com a fonte em 1,3× a linha caía para
+**26,5px** contra o piso de **28** —, e o `clamp` da Bíblia não absorvia o corte
+porque quem cortava não era ele: era o `overflow: hidden` da `#bibleSheet`, com
+**44px** de conteúdo fora a 360×640 · 1,3× (`scrollHeight` 194 contra 150 de
+caixa).
+
+A causa comum é de árvore, não de pixel: a faixa é irmã do `.list-body`, e as
+duas folhas (`#toolsSheet`, `#bibleSheet`) são `absolute` DENTRO dele. Toda
+altura que a faixa ocupa sai do corpo da folha — e é por isso que as duas réguas
+não podiam ceder ao mesmo tempo. O operador decidiu o desenho em 15/11, sobre
+duas perguntas medidas: (a) o rótulo **"Telão" cede nas telas estreitas** — o
+ícone e a cor de ligado dizem o mesmo —, e é ele que paga o piso dos nove botões
+numa linha; (b) a faixa **se esconde enquanto uma folha está aberta**, porque a
+folha cobre o Cronograma inteiro, faixa inclusive.
+
+O que mudou no `controle.css`, e a razão de cada um:
+
+- `.itin-b` com `height: var(--hit)` e `min-width: var(--hit)`, e `.itin-passo`
+  com o mesmo `min-width` (era 1,9rem/1,6rem): com 34px fixo em px os botões
+  cumprem o piso em qualquer escala de fonte, e a faixa só quebra onde o desenho
+  já previa — 320px e a partir de 1,5×. A 1,3× a faixa deixou de quebrar (era o
+  `1.9rem` valendo 39,5px a 1,3×) e devolveu **52px** à lista.
+- `.itin-ajuste-txt` com `flex: 1 1 0` (era `1 1 3rem`) e `line-height:
+  var(--hit)`: o atraso é o elástico, mas com base própria ele entrava na conta
+  da linha já com 48px e empurrava o "Recolher" para a segunda linha a 360px,
+  mesmo sobrando espaço.
+- a consulta de contêiner do `.itin-telao-txt` subiu de 319,98px para 369,98px:
+  é o rótulo que cede a 360px, e ele volta nas largas.
+- `.itin-b.itin-abrir` com `height: var(--hit)` (era 1,5rem): o estado RECOLHIDO
+  também é um alvo de toque.
+- `main:has(> .list-body > .tools-sheet:not([hidden])) > #itinBar {
+  display: none; }`: a faixa sai de cena com a folha aberta e volta ao fechar. O
+  `:has()` é o mesmo motor que o `.list-body:has(…)` já usa desde a v1.8.60.
+
+MEDIDO depois, na régua do `geometria.test.mjs`: a faixa aberta mede **40,4px**
+contra os 43,6px da barra do topo a 360 e a 430 (ela continua "uma linha mais
+estreita"), e 81,5px a 1,3× — a quebra em duas linhas que o próprio comentário
+da faixa já declarava a partir de 1,25×. Com a folha aberta o corpo das
+Ferramentas mede **234,8px** a 360 e **200,3px** a 1,3×, com as seis linhas em
+**34px** e **33,4px**; a Bíblia cabe inteira. O T3 e o T4 ficaram ZERO nas cinco
+telas do portão, e a exceção nomeada da lista das Ferramentas passou de 28 para
+**32** — seis linhas de 34 pedem 204px e o corpo mede 200,3px a 360×640 · 1,3×,
+a mesma régua com que a v1.13.5 mediu 33,9 para seis linhas.
+
+O `ferramentas-folha` ganhou a asserção que o desenho novo pedia: com a folha
+aberta, a `#itinBar` não tem caixa (`getClientRects().length === 0`). Sem ela, a
+faixa poderia voltar a dividir a altura da folha em silêncio.
+
+**Só web.** O `shellTag` `v1.14.34` está declarado porque a Sanidade mede o shell
+desde a última TAG — a `v1.14.28` — e a v1.14.33 (o shell 88) não teve Release:
+o `verificar` vermelho barrou o `web-ota` e o disparo da Release não aconteceu.
+A Release da v1.14.34 é a que publica o shell que já estava no HEAD, e é ela que
+solta o HOLD do canal.
 
 ---
 
