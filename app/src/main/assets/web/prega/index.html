@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Controle dos slides</title>
+<!--
+  A PÁGINA DO PREGADOR (Pacote 34) — servida pelo celular do operador, na
+  mesma rede, no mesmo servidor das telas da rede.
+
+  ELA NÃO É UM TELÃO E NÃO É O `/display/`: nada aqui desenha mídia, nada aqui
+  lê o IndexedDB, e o servidor NÃO injeta a marca `av-tela` nesta página (ver
+  `servirDoBundle`, no `EspelhoServidor.kt`) — a marca faria o `tela.js` tomar
+  esta página por uma tela da rede.
+
+  A CSP das páginas servidas é `default-src 'self'` SEM `'unsafe-inline'`:
+  folha e script são ARQUIVOS, e não existe estilo embutido em lugar nenhum
+  desta pasta (§8 do `TELAO-POR-COMANDOS.md`).
+-->
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="prega.css">
+</head>
+<body>
+<main id="app">
+  <header id="topo">
+    <h1>Controle dos slides</h1>
+    <p id="estado" role="status" aria-live="polite">Conectando…</p>
+  </header>
+
+  <!-- O INATIVO NÃO MOSTRA PRÉVIA NENHUMA — é o pedido do operador, ao pé da
+       letra: fora da apresentação a página fica inerte. -->
+  <section id="vazio" hidden>
+    <p>Nenhuma apresentação no ar.</p>
+    <p class="dica">Esta página só passa slides. Quando o operador projetar uma
+      apresentação, os três cartões aparecem aqui.</p>
+  </section>
+
+  <section id="cartoes" hidden>
+    <button class="cartao anterior" id="cartaoAnt" type="button">
+      <span class="rotulo">Anterior</span>
+      <span class="moldura"><img id="imgAnt" alt="Slide anterior"></span>
+    </button>
+
+    <div class="cartao atual" id="cartaoAtual">
+      <span class="rotulo">No telão</span>
+      <span class="moldura"><img id="imgAtual" alt="Slide no telão"></span>
+      <span class="contador"><span id="numPagina">1</span> de <span id="numTotal">1</span></span>
+    </div>
+
+    <button class="cartao proximo" id="cartaoProx" type="button">
+      <span class="rotulo">Próximo</span>
+      <span class="moldura"><img id="imgProx" alt="Próximo slide"></span>
+    </button>
+  </section>
+
+  <section id="acoes" hidden>
+    <button class="tecla" id="btnAnt" type="button" aria-label="Slide anterior">◀</button>
+    <button class="tecla" id="btnProx" type="button" aria-label="Próximo slide">▶</button>
+    <button class="cortina" id="btnCortina" type="button">Cortina</button>
+  </section>
+</main>
+<script src="prega.js"></script>
+</body>
+</html>

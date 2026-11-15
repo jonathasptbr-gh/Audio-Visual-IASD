@@ -1,0 +1,224 @@
+/* ============================================================================
+   A PÁGINA DO PREGADOR — desenho vertical (Pacote 34)
+   ============================================================================
+
+   ## Por que esta folha é um ARQUIVO
+
+   Mesma razão da `espelho/tela.css`: a página servida pelo celular leva a CSP
+   `default-src 'self'` (ver `EspelhoHttp.CABECALHOS_PAGINA`), sem `style-src`.
+   `<style>` em runtime e atributo `style="…"` NÃO são aplicados — e o desfecho
+   é mudo: o nó existe, o CSSOM até aplica o que é escrito por JS, e o que se
+   espera dele nunca aparece. Todo o CSS desta pasta mora AQUI.
+
+   ## O desenho
+
+   Uma coluna, três cartões, dois botões grandes. O pregador segura o celular
+   com uma mão, no escuro, olhando para a congregação: o que ele precisa é de
+   um alvo grande e de saber, sem ler, em que página está. Por isso:
+
+   - o cartão do MEIO é o maior — é o que está no telão;
+   - o de cima e o de baixo são clicáveis e apagados, para não competir com ele;
+   - os dois botões dividem a largura e têm o piso de toque de 64 px;
+   - a cortina fica embaixo, sozinha, porque ela é o que ele usa para SUMIR com
+     a imagem (oração, leitura), e não uma quarta seta.
+
+   As cores vêm do `shared/tokens.css` do app, com o valor de reserva repetido
+   aqui: a página é servida ao navegador de OUTRO aparelho, e um token que falte
+   não pode deixar texto preto sobre fundo preto.
+   ========================================================================== */
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--wallpaper, #04070d);
+  color: var(--stage-text, #fff);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  /* A ÁREA SEGURA DO APARELHO: num iPhone a barra de gestos come o rodapé, e o
+     botão da cortina é justamente o que fica lá embaixo. */
+  padding: calc(10px + env(safe-area-inset-top)) 12px
+           calc(10px + env(safe-area-inset-bottom));
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 560px;
+  margin: 0 auto;
+  min-height: calc(100dvh - 24px);
+}
+
+/* ---------- o topo ---------- */
+#topo h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--stage-text-dim, rgba(255, 255, 255, .72));
+}
+
+#estado {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--stage-accent, #8fb1f3);
+}
+
+#estado.ruim { color: var(--stage-alert, #f97a7e); }
+
+/* ---------- o inativo ---------- */
+#vazio {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  padding: 24px 8px;
+}
+
+#vazio p {
+  margin: 0;
+  font-size: 17px;
+  color: var(--stage-text-soft, rgba(255, 255, 255, .9));
+}
+
+#vazio .dica {
+  font-size: 13px;
+  line-height: 1.45;
+  max-width: 34ch;
+  color: var(--stage-text-dim, rgba(255, 255, 255, .72));
+}
+
+/* ---------- os três cartões ---------- */
+#cartoes {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+}
+
+.cartao {
+  display: block;
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--panel, #212f3d);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cartao .rotulo {
+  display: block;
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--stage-text-dim, rgba(255, 255, 255, .72));
+  margin-bottom: 5px;
+}
+
+.cartao .moldura {
+  display: block;
+  width: 100%;
+  /* A PROPORÇÃO É TRAVADA, e não herdada da imagem: sem isto, a primeira foto
+     que chega (ou a falta dela) muda a altura da coluna, e os dois botões saem
+     de baixo do dedo no meio do sermão. */
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  background: #000;
+  overflow: hidden;
+}
+
+.cartao img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* O DE CIMA E O DE BAIXO: menores, apagados e CLICÁVEIS — passar e voltar são
+   os dois gestos que a página inteira existe para fazer. */
+.anterior .moldura, .proximo .moldura { aspect-ratio: 16 / 9; height: 19vh; }
+.anterior, .proximo { opacity: .72; }
+.anterior:active, .proximo:active { opacity: 1; }
+
+/* O DO MEIO: o que a igreja está vendo. Ele se separa dos outros por
+   PREENCHIMENTO mais claro e por um halo — nunca por contorno: no app tudo se
+   separa por preenchimento, e o oráculo da paleta cobra isso. */
+.atual {
+  background: var(--panel-2, #304254);
+  box-shadow: 0 0 18px var(--stage-accent-glow, rgba(143, 177, 243, .32));
+}
+
+.atual .moldura { height: 36vh; }
+
+.contador {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--stage-text-dim, rgba(255, 255, 255, .72));
+}
+
+/* ---------- os botões ---------- */
+#acoes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.tecla, .cortina {
+  border: 0;
+  border-radius: 14px;
+  background: var(--panel-2, #304254);
+  color: var(--stage-text, #fff);
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tecla {
+  min-height: 64px;
+  font-size: 26px;
+  line-height: 1;
+}
+
+.tecla:active, .cortina:active { filter: brightness(1.25); }
+
+.tecla:disabled {
+  opacity: .32;
+  filter: grayscale(1);
+}
+
+.cortina {
+  grid-column: 1 / -1;
+  min-height: 52px;
+  font-size: 15px;
+  letter-spacing: .04em;
+}
+
+/* A CORTINA LIGADA: o botão diz o ESTADO, e não a ação — o pregador precisa
+   saber, de relance, que a imagem está coberta. Preenchimento, como todo
+   estado deste app. */
+.cortina.ativa {
+  background: var(--stage-alert, #f97a7e);
+  color: var(--stage-on-accent, #0e1215);
+}
+
+@media (max-height: 640px) {
+  .atual .moldura { height: 30vh; }
+  .anterior .moldura, .proximo .moldura { height: 15vh; }
+  .tecla { min-height: 56px; }
+}

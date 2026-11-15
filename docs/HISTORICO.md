@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.33** — Pacote 34: o controle do pregador pelo navegador — uma página própria (`/prega`), vertical, com o slide anterior, o atual e o próximo, as setas e a cortina; só slides, sem código de entrada (shell 88, APK + web).
 - **v1.14.32** — o itinerário deixou de ser ferramenta e virou opção do Cronograma: os momentos são linhas da lista e a faixa de opções fica sob a barra do topo (Pacote 5, 1ª metade; só web)
 - **v1.14.31** — Pacote 30: o Timer em 0:00 apaga o "Projetar no telão" e os dois de guardar, como já apagava o ▶ (o 30.2, o editor de mídia vazio, ficou como está por decisão do operador); só web.
 - **v1.14.30** — nas duas telas de destino, a fileira de largura inteira virou os botões compactos da Biblioteca: um toque importa ou manda o vídeo na hora, e fechar sem tocar não importa nada (a regra "cai no Cronograma" foi revogada); só web.
@@ -833,6 +834,73 @@ apagada da que a criou.
   `antesDaPauta` = depois = PDF continua cobrando isso.
 
 ---
+
+## v1.14.33 — o controle do pregador pelo navegador
+
+O **Pacote 34**, que promove o estudo 13.1(b). A decisão do operador é de
+2026-11-15 (17:10) — *"vamos fazer o método completo"* —, e o desenho dele é o
+contrato: página PRÓPRIA (link diferente do telão), vertical, três prévias com
+imagem (anterior, atual e próximo), o botão de cortina, e **só slides** — fora
+de uma apresentação a página fica inativa, sem prévia nenhuma. A via Bluetooth
+do mesmo estudo foi recusada por ele na mesma resposta.
+
+As decisões que o lote teve de fechar no caminho:
+
+- **O link é da rede local, e só.** Não há servidor no projeto: o link vale na
+  Wi-Fi da igreja ou no ponto de acesso do celular, nunca por 4G. O endereço é
+  `http://<ip>:8787/prega` (o `/prega` e o `/prega/` dão `302` para
+  `index.html`).
+- **Sem código de entrada** — contra a recomendação do estudo, por decisão
+  dele. A sessão do pregador é a mesma porta das telas (`POST /par`, sem
+  segredo) e **consome uma das três vagas** (`MAX_SESSOES`), o que ele aceitou
+  explicitamente.
+- **A porta de subida é NOVA, e não uma reutilização da do telão.** Ela é a
+  primeira porta de CONTROLE do app (as outras duas, `st` e `alive`, são
+  inertes), então ganhou lista de permissão própria — `ACOES_DA_PREGA`, três
+  ações — em vez de entrar no `TIPOS_QUE_SOBEM`. O Kotlin segue sem interpretar
+  nada (invariante 5): a ordem sobe verbatim ao barramento e quem executa é o
+  `controle.js`.
+- **A página não é telão.** O `comMarcaDeTela` deixou de valer em `web/prega/`:
+  a marca `av-tela` faria o `tela.js` tomar o controle do pregador por uma tela
+  da rede e desenhar a entrada dele ali.
+- **As imagens são as do telão.** `telaDeckUrls` já cunha um token `/m/` por
+  página; o `prega-estado` leva três deles, e a página não abriu uma segunda
+  forma de servir a apresentação.
+- **A cortina é o `#viewToggle`**, pelo mesmo comando `view`/`wallpaper` — e o
+  botão da página desenha o ESTADO, não a ação.
+
+### O desenho da página
+
+`web/prega/` — `index.html`, `prega.css`, `prega.js`. Uma coluna: o cartão do
+meio é o que está no telão (maior, com o contador de página), os de cima e de
+baixo são as prévias anterior e próxima (menores, apagadas e CLICÁVEIS — passar
+e voltar são os dois gestos que a página existe para fazer), e embaixo as duas
+setas grandes mais o botão da cortina. As cores vêm do `shared/tokens.css` do
+app, com reserva repetida em cada `var()`: a página é servida ao navegador de
+OUTRO aparelho, e um token que falte não pode deixar texto preto sobre preto.
+
+### O que o oráculo pegou antes do commit
+
+A primeira versão da folha desenhava os cartões com `border` e o cartão do meio
+com `border-color` de acento — e o `tools/tokens.test.mjs` reprovou: *"no app
+tudo se separa por PREENCHIMENTO"*. Os quatro contornos viraram preenchimento
+(panel/panel-2) e um halo `box-shadow`. A lição não é sobre borda: é a de
+sempre, e ela custou uma revisão a menos porque o oráculo é do repo.
+
+### O que ficou para depois
+
+Medir no APARELHO, que é o único jeito de saber: o navegador do pregador com a
+tela apagada (o `alive` sai pelo fio, mas quem dorme de verdade é o aparelho), um
+iPhone (o `wakeLock` não existe lá), e duas sessões de pregador ao mesmo tempo
+contra o teto de três vagas. Nada disso muda código por enquanto.
+
+**Shell + web (APK + web, `shellTag` v1.14.33):** `EspelhoServidor.kt` (o
+prefixo `/prega/`, o `302` do link curto, a guarda da marca, o ramo `prega` no
+`POST /r` e o `ACOES_DA_PREGA`), `controle.js` (o ramo `prega` no despacho, o
+emissor `prega-estado` e as duas chamadas dele), a pasta `web/prega/` nova, o
+oráculo `tools/prega-fronteira.test.mjs` no workflow, e o `docs/TELAO-POR-
+COMANDOS.md` §5.4 e §5.7. O `SHELL_VERSION` NÃO subiu: a superfície da ponte
+`window.AVNative` não mudou — o que mudou foi o servidor da rede.
 
 ## v1.14.32 — o itinerário é uma opção do Cronograma
 

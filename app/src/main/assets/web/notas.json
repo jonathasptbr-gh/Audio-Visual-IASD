@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.14.33",
+    "itens": [
+      "Novo: o link do pregador. Ligue as Telas da rede e mande o endereço /prega para ele.",
+      "Ele abre no navegador do celular dele e vê o slide anterior, o atual e o próximo.",
+      "As setas passam os slides; o botão Cortina cobre o telão e toca de novo para voltar.",
+      "Fora de uma apresentação a página fica vazia, sem prévia. Sem código de entrada.",
+      "Precisa instalar o APK novo: o app antigo não conhece este link."
+    ]
+  },
+  {
     "versao": "1.14.32",
     "itens": [
       "O Itinerário saiu das Ferramentas: os momentos do culto agora ficam na lista do Cronograma, cada um com a sua hora.",

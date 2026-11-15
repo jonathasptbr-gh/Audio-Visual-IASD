@@ -526,7 +526,9 @@ class EspelhoServidor(
     // ---------- roteamento ----------
 
     /**
-     * As cinco rotas da §5.1, e nada mais.
+     * As rotas da §5 da spec, e nada mais. (Eram cinco até a v1.14.32; o
+     * `/prega` e o `/prega/`, do Pacote 34, são a SEXTA — e a primeira que
+     * serve uma página que não é telão.)
      *
      * **404 IDÊNTICO** para token inválido, rota inexistente, `Host` fora da
      * allowlist e `Origin` estranha: não vazar existência. O único desvio é o
@@ -554,6 +556,20 @@ class EspelhoServidor(
                     "text/html; charset=utf-8",
                     "<a href=\"/display/index.html?tela=1\">Telão</a>".toByteArray(Charsets.UTF_8),
                     listOf("Location: /display/index.html?tela=1"),
+                ),
+            )
+            // O LINK QUE O OPERADOR MANDA AO PREGADOR (Pacote 34). Só um
+            // atalho: `/prega` e `/prega/` não são arquivos, e uma pessoa
+            // digitando o endereço a mão chega na página. O 302 não revela
+            // nada que a rota `/prega/index.html` já não revelasse — a página
+            // existe, e é pública nas DUAS.
+            r.metodo == "GET" && (rota == "/prega" || rota == "/prega/") -> responder(
+                saida,
+                EspelhoHttp.resposta(
+                    302,
+                    "text/html; charset=utf-8",
+                    "<a href=\"/prega/index.html\">Controle dos slides</a>".toByteArray(Charsets.UTF_8),
+                    listOf("Location: /prega/index.html"),
                 ),
             )
             r.metodo == "POST" && rota == "/par" -> parear(r, saida, cru)
@@ -853,7 +869,14 @@ class EspelhoServidor(
         val nome = caminho.substringAfterLast('/')
         val tipo = bundle.mimeOf(nome) + (bundle.encodingOf(nome)?.let { "; charset=$it" } ?: "")
         val pagina = nome.endsWith(".html")
-        val corpo = if (pagina) comMarcaDeTela(bruto) else bruto
+        // A PÁGINA DO PREGADOR NÃO É UM TELÃO (Pacote 34). A marca `av-tela` é
+        // lida pelo `tela.js`, que a toma como o papel de tela da rede: com ela
+        // injetada aqui, a página do pregador passaria a desenhar a entrada,
+        // pedir token e drenar como tela — três comportamentos que ela não tem.
+        // A decisão é pelo CAMINHO, e não pelo cliente: quem serve sabe o que
+        // serve, que é a mesma régua da v1.92.
+        val marca = pagina && !caminho.startsWith("web/prega/")
+        val corpo = if (marca) comMarcaDeTela(bruto) else bruto
         if (pagina) registrar("página entregue: $caminho")
         // Toda PÁGINA leva a CSP — e é a CSP que FORÇA a exclusão do embed do
         // YouTube nas telas da rede (`default-src 'self'` barra a IFrame API;
@@ -996,6 +1019,35 @@ class EspelhoServidor(
             val json = st.toString()
             NativeBridge.snoopStatusDeFora(app, json)
             MessageBus.post(null, json)
+            return responder(saida, EspelhoHttp.resposta(200, "application/json", OK_CURTO))
+        }
+        // ===== O CONTROLE DO PREGADOR (Pacote 34) =====
+        //
+        // A TERCEIRA PORTA DE SUBIDA, e ela é de CONTROLE, não de relato: uma
+        // página na rede pedindo para passar o slide. As outras duas (`st` e
+        // `alive`) são inertes por construção; esta MOVE a projeção, e por
+        // isso não reusa a rota `st` nem a lista `TIPOS_QUE_SOBEM` — porta de
+        // controle merece a própria lista, curta e fechada, para o efeito dela
+        // estar escrito no lugar onde o efeito mora.
+        //
+        // O KOTLIN NÃO INTERPRETA (invariante 5): a ordem sobe VERBATIM ao
+        // barramento, como o `st`, e quem a executa é o `controle.js` — que é
+        // quem sabe se há apresentação no ar, em que página ela está e o que é
+        // a cortina. Aqui não se decide nada além de "esta ação existe".
+        //
+        // A AUSÊNCIA DE CREDENCIAL É DECISÃO DO OPERADOR (2026-11-15, Pacote
+        // 34): quem está na mesma rede entra, sem código — o pareamento desta
+        // porta é o mesmo `POST /par` do telão. O que a lista de ações faz é
+        // limitar o ESTRAGO de quem já entrou: por aqui não sobem `load`,
+        // `clear` nem `mic`, e a única coisa que a sessão consegue fazer com a
+        // projeção é passar slide e ligar/desligar a cortina.
+        if (corpo.optString("do") == "prega") {
+            val acao = corpo.optString("acao")
+            if (acao !in ACOES_DA_PREGA) {
+                registrar("ordem de pregador recusada: '${EspelhoPares.sanear(acao, 20)}'")
+                return responder(saida, naoAchei())
+            }
+            MessageBus.post(null, JSONObject().put("type", "prega").put("acao", acao).toString())
             return responder(saida, EspelhoHttp.resposta(200, "application/json", OK_CURTO))
         }
         when (corpo.optString("do")) {
@@ -2011,6 +2063,22 @@ class EspelhoServidor(
         private val TIPOS_QUE_SOBEM = setOf("display-ready", "tela-status")
 
         /**
+         * O QUE A PÁGINA DO PREGADOR PODE MANDAR (Pacote 34) — a lista de
+         * PERMISSÃO da porta de CONTROLE, irmã da de cima e separada dela de
+         * propósito: a de cima é "uma tela relatando o que viu", esta é "alguém
+         * pedindo para mudar a projeção".
+         *
+         * Três ações, e o resto morre no [retorno]. Não há ação de mídia, de
+         * texto nem de palco: a página do pregador passa slide e chama a
+         * cortina, e nada mais — o pedido do operador é literal nisso.
+         *
+         * Quem EXECUTA é o `controle.js` (invariante 5): `prox`/`ant` caem no
+         * mesmo `stepSlide(±1)` do ⏮/⏭ do aparelho, e `cortina` no mesmo
+         * `#viewToggle` do operador.
+         */
+        private val ACOES_DA_PREGA = setOf("prox", "ant", "cortina")
+
+        /**
          * Os PREFIXOS do bundle servidos à LAN (telão por comandos, E2) — a
          * tela da rede roda o próprio `/web/display/`, servido daqui com a
          * MESMA resolução OTA→APK dos WebViews ([WebPathHandler], arquivo a
@@ -2038,6 +2106,12 @@ class EspelhoServidor(
             "/display/" to "web/display/",
             "/shared/" to "web/shared/",
             "/espelho/" to "web/espelho/",
+            // O CONTROLE DO PREGADOR (Pacote 34) — página própria, desenho
+            // próprio. Ele NÃO entra pelo `/display/`: aquela página é o telão,
+            // com o `tela.js` de casca, e a do pregador é o contrário disso —
+            // três prévias, dois botões e a cortina. Ver
+            // `docs/TELAO-POR-COMANDOS.md` §5.7.
+            "/prega/" to "web/prega/",
         )
 
         /** Sentinela de fim da fila SSE — o mesmo papel do [FIM] dos pixels. */

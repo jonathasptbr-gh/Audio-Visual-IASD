@@ -415,7 +415,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.32';
+const WEB_VERSION = '1.14.33';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -15687,6 +15687,11 @@ function renderSlideNav() {
   // âncoras em vez de recalculá-lo.
   renderTransportAxis(who);
   renderSimpleSlides(who);
+  // A PÁGINA DO PREGADOR SEGUE AQUI (Pacote 34): este é o pulso que roda
+  // quando o que está no ar muda de página ou de cena, que é exatamente a
+  // pergunta que ela faz. O emissor tem assinatura própria e volta cedo quando
+  // nada mudou.
+  pregaEstado();
 }
 
 /**
@@ -19242,10 +19247,15 @@ async function setView(v) {
     // Cortina com fade (coverIn/coverOut respeitam a config de transições).
     if (v === 'wallpaper') preview.coverIn(false); else preview.coverOut();
     renderControls();
+    // A CORTINA TAMBÉM É ESTADO PARA O PREGADOR (Pacote 34): ele liga e desliga
+    // a mesma cortina, e a página dele desenha o botão no estado em que ela
+    // está — inclusive quando quem a ligou foi o OPERADOR, no aparelho.
+    pregaEstado();
     return;
   }
   cmd({ type: 'view', view });
   renderControls();
+  pregaEstado();
 }
 async function toggleMute() {
   // Sem áudio no Display (bloqueio do navegador, não é mudo do operador):
@@ -38179,6 +38189,54 @@ function paginaDoSlide() {
   return deckVideoVolta ? deckVideoVolta.pagina : deckPagina;
 }
 
+// ===== O ESTADO QUE A PÁGINA DO PREGADOR VÊ (Pacote 34) =====
+//
+// Um comando de DESCIDA (barramento → SSE), e não uma rota: a página do
+// pregador já abre o mesmo `/e` das telas, então tudo o que ela precisa é
+// chegar pelo mesmo fio. Nada de rota nova de leitura, nada de consulta — o
+// caminho crítico do culto não ganha uma ida-e-volta a mais.
+//
+// O QUE VAI: a página, o total, a cortina e TRÊS URLs `/m/` — anterior, atual e
+// próxima. As URLs são as MESMAS que o telão consome (`telaDeckUrls`, id
+// `dk:<item>:<i>`): a página do pregador não abre uma segunda forma de servir a
+// apresentação, e o token já cunhado para a página 7 é o mesmo para os dois.
+//
+// O QUE NÃO VAI: nome, texto, mídia, caminho no OPFS. A página do pregador não
+// recebe nada que a tela não recebesse — e é por isso que ela pode ser servida
+// à rede sem pensar duas vezes.
+//
+// SÓ EMITE QUANDO MUDA: a assinatura abaixo é o que impede o `renderSlideNav`
+// (que roda a cada passo do transporte) de virar um metralhadora de SSE. Sem
+// ela, cada tique do relógio da música mandaria um comando para toda tela.
+let pregaUltimo = '';
+function pregaEstado() {
+  const d = deckDoSlide();
+  const ativo = !!d && slideTarget() === 'deck';
+  const total = ativo && Array.isArray(d.pages) ? d.pages.length : 0;
+  const pagina = ativo ? paginaDoSlide() : -1;
+  const cortina = view === 'wallpaper';
+  const sig = ativo
+    ? (d.id + ':' + pagina + ':' + total + ':' + (cortina ? '1' : '0'))
+    : ('inativo:' + (cortina ? '1' : '0'));
+  if (sig === pregaUltimo) return;
+  pregaUltimo = sig;
+  // O `telaDeckUrls` devolve `null` quando o token forte não existe ou quando a
+  // transmissão não está de pé. A página continua recebendo o estado (é ele que
+  // diz "há apresentação, página 3 de 12"); o que falta são as IMAGENS, e um
+  // `<img>` vazio é melhor que uma prévia que nunca chega.
+  const urls = ativo ? telaDeckUrls(d) : null;
+  AVDB.sendCommand({
+    type: 'prega-estado',
+    ativo,
+    pagina,
+    total,
+    ant: (urls && pagina > 0) ? urls[pagina - 1] : null,
+    atual: urls ? (urls[pagina] || null) : null,
+    prox: (urls && pagina < total - 1) ? urls[pagina + 1] : null,
+    cortina,
+  });
+}
+
 /**
  * Chegou numa página com vídeo: projeta o vídeo.
  *
@@ -45500,6 +45558,28 @@ function resendSceneToDisplay(para) {
 // diferentes nos dois lados.
 AVDB.onCommand((msg) => {
   if (!msg) return;
+  // ===== A ORDEM DO PREGADOR (Pacote 34) =====
+  //
+  // Chega pelo barramento, injetada pelo servidor da rede
+  // (`{"type":"prega","acao":…}`, §5.7 do `TELAO-POR-COMANDOS.md`), e cai nos
+  // MESMOS caminhos que o aparelho do operador já usa: `stepSlide(±1)` é o
+  // ⏮/⏭, e `#viewToggle` é a cortina. Um segundo caminho para a mesma ação é
+  // o que este app não faz — e aqui seria pior que em qualquer outro lugar,
+  // porque o telão já está na frente da igreja.
+  //
+  // SEM APRESENTAÇÃO NO AR, NADA ACONTECE. O `stepSlide` responde pela régua do
+  // `slideTarget()`, que é generosa: com uma letra em cena ela passa estrofe,
+  // com o cronômetro ela zera, com o sorteio ela sorteia. O pedido do operador
+  // é literal — a página do pregador é de SLIDES, e só —, então a guarda mora
+  // AQUI, no caminho, e não na página: quem manda na rede é um cliente, e a
+  // regra que vale não pode depender de um cliente estar certo.
+  if (msg.type === 'prega') {
+    if (slideTarget() !== 'deck') return;
+    if (msg.acao === 'prox') stepSlide(1);
+    else if (msg.acao === 'ant') stepSlide(-1);
+    else if (msg.acao === 'cortina') viewToggleEl.click();
+    return;
+  }
   // Reenvia SÓ para quem se anunciou (ver `resendSceneToDisplay`). Um telão
   // que não manda `__de` recebe o reenvio em broadcast.
   if (msg.type === 'display-ready') {

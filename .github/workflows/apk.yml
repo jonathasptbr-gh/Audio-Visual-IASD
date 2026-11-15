@@ -315,6 +315,7 @@ jobs:
           node tools/ota-ativacao.test.mjs
 
           node tools/tipos-que-sobem.test.mjs
+          node tools/prega-fronteira.test.mjs
 
           node tools/sem-captura.test.mjs
           node tools/serie.test.mjs
