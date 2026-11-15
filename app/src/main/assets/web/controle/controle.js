@@ -416,7 +416,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.23';
+const WEB_VERSION = '1.14.24';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -7385,6 +7385,29 @@ async function deleteMessage(id) {
   refreshDiversos();
 }
 
+// EDITAR O TEXTO (Pacote 21). Até aqui a mensagem só nascia, era estilizada,
+// projetada e apagada — e o item do Cronograma/Favoritos guarda o `id` dela,
+// então "editar o texto" era a única edição que faltava para o item guardado
+// ser administrável. `pushMessage` acompanha quando ela está no telão; a
+// reserva de texto dos cues NÃO é reescrita (o cue projeta pelo `msgId` vivo, e
+// a reserva só vale se a mensagem for excluída — atualizá-la exigiria varrer
+// as três listas por um caso de borda).
+async function editarMensagem(id) {
+  const m = messages.find((x) => x.id === id);
+  if (!m) return null;
+  const text = await appPrompt({
+    title: 'Editar a mensagem', message: 'Texto da mensagem:',
+    value: m.text, okText: 'Salvar',
+  });
+  const t = text == null ? '' : String(text).trim();
+  if (!t || t === m.text) return m;
+  m.text = t;
+  await saveMessages();
+  pushMessage(m);
+  refreshDiversos();
+  return m;
+}
+
 // ===== O ESTADO DO "PROJETAR NO TELÃO" =====
 // Ele saiu do fim de cada painel e foi para o rodapé fixo: tê-lo sempre no
 // mesmo lugar vale mais do que a proximidade com os controles que o
@@ -8776,12 +8799,17 @@ function itinCueNome() {
 // Tocar a mesma cena de novo cai no 1 ou no 2, então nunca duplica. E uma cena
 // guardada antes de o ativo ser editado cai no 4: a edição não é apagada pela
 // cena, e a cena não é desfigurada pela edição.
-function projetarItinerarioCue(d, cueId, nomeDaCena) {
+// A ADOÇÃO, PURA: o painel passa a editar a programação da cena. Devolve
+// `false` quando a cena não tem horário válido — aí nada é tocado. Ela mora
+// separada porque tem DOIS chamadores desde o Pacote 21: o toque na cena
+// (`projetarItinerarioCue`, que depois projeta) e a engrenagem do item
+// (`abrirFerramentaComCue`, que só abre o painel).
+function itinAdotarCue(d, nomeDaCena) {
   const dados = (d && Array.isArray(d.itens)) ? d.itens : [];
   const vindos = dados
     .filter((x) => x && Number.isFinite(x.min) && x.min >= 0 && x.min < 1440 && String(x.titulo || '').trim())
     .map((x) => ({ min: Math.round(x.min), titulo: String(x.titulo).trim().slice(0, ITIN_TITULO_MAX) }));
-  if (!vindos.length) { falharNoItem(cueId, 'o itinerário guardado está vazio'); return; }
+  if (!vindos.length) return false;
   const chave = itinChaveDoConteudo(vindos);
   const comIds = (base) => {
     const livres = base.slice();
@@ -8810,6 +8838,11 @@ function projetarItinerarioCue(d, cueId, nomeDaCena) {
     }
   }
   if (typeof d.horas === 'boolean') itin.horas = d.horas;
+  return true;
+}
+
+function projetarItinerarioCue(d, cueId, nomeDaCena) {
+  if (!itinAdotarCue(d, nomeDaCena)) { falharNoItem(cueId, 'o itinerário guardado está vazio'); return; }
   saveItin();
   projectItin();
   if (itinGavetaAberta()) renderItinGaveta();
@@ -10243,7 +10276,19 @@ function renderMsg() {
       });
       // A ORDEM DOS DESTINOS é a da tabela `DESTINOS` (Cronograma, favoritos), e
       // o excluir fecha a fileira — é o que as outras listas fazem.
-      const [caixa, mais] = montarAcoesDaLinha(li, [est, add, fav, del], 'msg:' + m.id);
+      // EDITAR O TEXTO (Pacote 21): o lápis fica ao lado do estilo — as duas
+      // coisas que se ADMINISTRAM numa mensagem, e não a projeção.
+      const ed = document.createElement('button');
+      ed.type = 'button';
+      ed.className = 'row-btn msg-editar-btn';
+      ed.title = 'Editar o texto';
+      ed.setAttribute('aria-label', 'Editar o texto');
+      ed.innerHTML = pencilIconSvg();
+      ed.addEventListener('click', (e) => {
+        e.stopPropagation();
+        editarMensagem(m.id);
+      });
+      const [caixa, mais] = montarAcoesDaLinha(li, [est, ed, add, fav, del], 'msg:' + m.id);
       // ===== COM A GAVETA ABERTA, O `⋮` É O BOTÃO DE ESTILO =====
       //
       // Abrir a gaveta FECHA a faixa de ações (elas se cobririam), e
@@ -10605,6 +10650,11 @@ function refreshDiversos() {
 function abrirFerramenta(id, opcoes) {
   const f = FERRAMENTAS.find((x) => x.id === id);
   if (!f || !toolsSheetEl) return;
+  // A ENGRENAGEM PASSA O CUE; qualquer outra porta o ESQUECE (ver o bloco da
+  // engrenagem). Fica antes dos desvios de desenho para o vínculo valer nas
+  // duas portas, e o `else` é o que impede o vínculo de sobreviver à troca de
+  // ferramenta.
+  cueEmEdicao = (opcoes && opcoes.cue) || null;
   const desenhar = () => {
     miscTool = f.tool;
     if (f.tool === 'chrono') {
@@ -10638,6 +10688,7 @@ function abrirFerramenta(id, opcoes) {
 // DE VOLTA À LISTA — o degrau 2.5 do voltar do Android (o único caminho; ver `__avBack`).
 function voltarAGradeDeFerramentas(opcoes) {
   if (!ferramentasAbertas() || ferrNaGrade) return;
+  finalizarCueDoPainel();
   fecharItinGaveta();
   // O EDITOR GRAVA O RASCUNHO ao sair, como fazia ao recolher a seção.
   if (miscTool === 'edicao') edicaoSalvarJa();
@@ -10806,6 +10857,7 @@ function abrirFerramentas() {
 
 function fecharFerramentas() {
   if (!ferramentasAbertas()) return;
+  finalizarCueDoPainel();
   if (ferrTrocaAnim) ferrTrocaAnim.fim();
   // Os laços dos painéis morrem com a folha — o cronômetro NÃO: ele segue
   // correndo no estado, e a projeção tem laço próprio. Sem isto sobraria um
@@ -11081,6 +11133,9 @@ function renderLibraryCorpo() {
         // o nome vem do arquivo, e um nome só no registro seria desfeito na
         // varredura seguinte.
         botaoRenomearDaLinha(item, () => load()),
+        // A ENGRENAGEM (Pacote 21): só nos cues que têm ferramenta editável —
+        // `botaoEngrenagemDaLinha` devolve null nos outros.
+        botaoEngrenagemDaLinha(item),
         addBtn,
         star,
         // O "baixar o vídeo" de uma linha de LINK não está na ordem pedida — ele
@@ -12041,6 +12096,87 @@ const ACOES_QUE_NAO_FECHAM = ['row-ordem', 'fav-btn', 'row-excluir', 'row-playli
  * Uma linha sem ação nenhuma (não há, hoje) não ganha `⋮`: um botão que abre
  * uma caixa vazia é pior que botão nenhum.
  */
+// ===== A ENGRENAGEM DO ITEM GUARDADO (Pacote 21) =====
+//
+// O cue é um PRESET: a Mensagem, o Sorteio, o Tempo e o Itinerário viram item
+// do Cronograma/Favoritos, mas o item guardado não abria a ferramenta que o
+// gerou. A engrenagem abre — e a PORTA DE DADOS é o par `abrirFerramentaComCue`
+// (leva o conteúdo do item para o painel) e `finalizarCueDoPainel` (devolve o
+// painel editado para o item quando ele fecha). Sem a volta, o operador
+// editaria uma cópia descartável e o item seguiria apontando para o que já foi.
+const CUE_FERRAMENTA = { message: 'msg', draw: 'draw', chrono: 'clock', itinerario: 'itinerario' };
+// O cue aberto pela engrenagem, ou null. Ele morre quando a folha fecha, quando
+// o painel volta à grade e quando outra ferramenta é aberta (ver
+// `abrirFerramenta`): um vínculo que sobrevivesse à troca gravaria o painel de
+// uma ferramenta no item de outra.
+let cueEmEdicao = null;
+
+function botaoEngrenagemDaLinha(item) {
+  if (!isCue(item) || !CUE_FERRAMENTA[item.cue]) return null;
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'row-btn row-engrenagem';
+  b.title = 'Administrar este item';
+  b.setAttribute('aria-label', 'Administrar este item');
+  b.innerHTML = icoSprite('icoGear');
+  b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    abrirFerramentaComCue(item);
+  });
+  return b;
+}
+
+// A IDA: o painel nasce com o conteúdo do ITEM, e não com o último estado da
+// ferramenta. `anotar` é o que torna a volta possível.
+function abrirFerramentaComCue(rec) {
+  if (!isCue(rec) || !CUE_FERRAMENTA[rec.cue]) return;
+  const d = rec.data || {};
+  if (rec.cue === 'chrono') {
+    if (typeof d.durationMs === 'number') chrono.durationMs = Math.max(0, d.durationMs);
+    if (typeof d.label === 'string') chrono.label = d.label;
+    if (typeof d.secs === 'boolean') chrono.secs = d.secs;
+    if (typeof d.h12 === 'boolean') chrono.h12 = d.h12;
+    // `mode` vai pelo ID DA LINHA (`clock`/`stopwatch`/`timer`), que é quem o
+    // `abrirFerramenta` já usa para trocar o modo (e zerar a contagem).
+  } else if (rec.cue === 'draw') {
+    applyDrawPrefs(d);
+  } else if (rec.cue === 'itinerario') {
+    // A MESMA adoção da cena tocada (`projetarItinerarioCue`), sem projetar: o
+    // que o painel mostra é o itinerário do item, com os ids reaproveitados.
+    itinAdotarCue(d, rec.name);
+    saveItin();
+  }
+  const id = rec.cue === 'chrono'
+    ? (d.mode === 'stopwatch' ? 'stopwatch' : d.mode === 'timer' ? 'timer' : 'clock')
+    : CUE_FERRAMENTA[rec.cue];
+  abrirFerramenta(id, { cue: rec, animar: true });
+  // A MENSAGEM ABRE JÁ NO TEXTO DELA: a linha da lista só leva ao editor.
+  if (rec.cue === 'message') editarMensagem(d.msgId);
+}
+
+// A VOLTA: o que o painel virou volta para o item, e não para um cue novo. Só
+// grava quando o painel aberto É o da ferramenta do item — trocar de
+// ferramenta desfaz o vínculo antes (ver `abrirFerramenta`).
+function finalizarCueDoPainel() {
+  const rec = cueEmEdicao;
+  cueEmEdicao = null;
+  if (!rec) return;
+  let data = null;
+  if (rec.cue === 'chrono' && miscTool === 'chrono' && tempoVista === 'chrono') {
+    data = { mode: chrono.mode, durationMs: chrono.durationMs, label: chrono.label, secs: chrono.secs, h12: chrono.h12 };
+  } else if (rec.cue === 'draw' && miscTool === 'draw') {
+    data = { kind: draw.kind, min: draw.min, max: draw.max, pool: draw.kind === 'text' ? draw.pool.slice() : [], label: draw.label };
+  } else if (rec.cue === 'itinerario' && miscTool === 'chrono' && tempoVista === 'itinerario') {
+    data = itinCueData();
+  }
+  if (!data) return;
+  AVDB.atualizarCue(rec.id, data).then((novo) => {
+    if (novo) rec.data = novo.data;
+  }).catch((e) => {
+    diagC('a engrenagem não conseguiu gravar o item (' + ((e && e.message) || e) + ')');
+  });
+}
+
 function montarAcoesDaLinha(li, botoes, chave) {
   const uteis = botoes.filter(Boolean);
   if (!uteis.length) return [];
@@ -12115,6 +12251,13 @@ function downloadAllIconSvg() {
     + '<path d="M12 3v10"/><polyline points="8 9 12 13 16 9"/>'
     + '<path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>'
     + '</svg>';
+}
+// SVG inline de LÁPIS: editar o texto de uma mensagem. Fora do subset da fonte,
+// como os outros desenhos desta família (um codepoint que não está no subset
+// desenha um retângulo vazio, sem erro nenhum — v5.184).
+function pencilIconSvg() {
+  return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + '<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13 7l4 4"/></svg>';
 }
 // SVG inline de "cancelar" — o mesmo botão do grupo enquanto o lote roda.
 function closeIconSvg() {
@@ -14387,6 +14530,9 @@ function linhaDeItem(item, opts) {
   row.append(miniatura, textWrap, ...(lista ? montarAcoesDaLinha(li, [
     botaoExcluirDaLinha(item, lista, depoisDeMexer),
     botaoRenomearDaLinha(item, depoisDeMexer),
+    // A MESMA ENGRENAGEM do Cronograma (Pacote 21) — a faixa dos Favoritos é a
+    // mesma função desde a v1.13.68, e uma segunda anatomia divergiria dela.
+    botaoEngrenagemDaLinha(item),
   ], lista + ':' + item.id) : []));
   li.appendChild(row);
   // O ARRASTO só existe onde há ordem a mudar: uma linha sozinha não tem para onde ir.
@@ -22533,6 +22679,19 @@ function serieAutoAviso(coll) {
   const epi = serieEpisodioDaSemana(coll);
   serieArquivoDoEpisodio(epi).then((rec) => {
     const porque = serieAutoImpedimento(coll, epi, rec);
+    // A PROMESSA DO AVISO (Pacote 28). Quando ele diz "desce quando ela sair", a
+    // rodada tem de estar ARMADA — quem a pede quando a projeção sai é o
+    // `serieSemanaReavaliar` (`pararMidia`/`resetAfterEnd`), e ele só age com
+    // `serieAdiadaPelaMidia`. Até aqui a flag só nascia DENTRO de uma rodada
+    // que tivesse tentado baixar; com o card aberto durante a projeção sem
+    // rodada nenhuma ter rodado (rotina da abertura que falhou, acervo que
+    // voltou do segundo plano já com mídia no ar), o aviso prometia o que
+    // ninguém ia cumprir. Armar aqui é o que cumpre a promessa; a condição de
+    // `serieAutoImpedimento` já garante que o motivo é a projeção.
+    if (porque && !rec && !serieAutoRodando && window.__NATIVE__
+      && !rotinaDeAcervoPodeCorrer()) {
+      serieAdiadaPelaMidia = true;
+    }
     // Só quando DIZ algo novo (v1.13.69): repetir o mesmo texto rearmava o tique por nada.
     if (porque && ui(coll.id).status !== porque) setCollStatus(coll.id, porque, 6000);
   }).catch(() => {});
@@ -31484,6 +31643,35 @@ const TESTES = [
       const e = await AVNative.atualizacaoEstado();
       if (!e) return tFalhou('a procura por atualização não respondeu');
       return tOk(null);
+    },
+  },
+  {
+    // A CHECAGEM QUE OFERECE A ATUALIZAÇÃO (Pacote 7). Ela NÃO baixa nada: lê a
+    // fotografia que a ponte já mantém (`atualizacaoEstado`) e, havendo lote,
+    // abre o MESMO diálogo do OTA (`perguntarAtualizacao`) — quem aplica é o
+    // fluxo que já existe, nunca um caminho novo. O momento ruim e o "Deixar
+    // para depois" valem aqui também, e o desfecho deles é `não se aplica` com
+    // o motivo: a oferta automática volta sozinha, e o botão de Configurações
+    // continua sendo a porta de volta na hora.
+    id: 'atualizacao-oferta', area: 'O aplicativo', titulo: 'Há uma versão nova pronta para instalar',
+    prazo: 6000,
+    fn: async () => {
+      if (!window.__NATIVE__) return tNa('aberto num navegador, não no app');
+      await lerAtualizacao();
+      const lote = loteDaAtualizacao();
+      if (!lote) return tNa('o app já está na versão mais nova');
+      if (otaPerguntando || apkBaixando) return tNa('a atualização já está sendo oferecida');
+      if (otaAdiadas.has(lote.chave)) {
+        return tNa('a versão v' + (lote.web || lote.shell) + ' espera — você deixou para depois; '
+          + 'o botão de atualização das Configurações aplica na hora');
+      }
+      if (horaRuimParaPerguntar()) {
+        return tNa('a atualização está pronta — a oferta espera a cena ou o download sair');
+      }
+      // SEM `await`: o diálogo é MODAL e a rodada não pode parar esperando a
+      // resposta dele (as outras checagens seguem e o anel continua andando).
+      perguntarAtualizacao(lote).catch(() => {});
+      return tOk('versão v' + (lote.web || lote.shell) + ' oferecida');
     },
   },
   {
@@ -42105,6 +42293,7 @@ const TESTE_PROBLEMA = {
   ponte: 'A parte Android do app não respondeu',
   'piso-shell': 'O app instalado está desatualizado para esta versão',
   versoes: 'As versões do app não batem entre si',
+  'atualizacao-oferta': 'A atualização pronta não foi oferecida',
   atualizacao: 'O canal de atualização não respondeu',
   'partes-do-bundle': 'Faltam partes do app',
   modulos: 'Uma parte do app não iniciou',

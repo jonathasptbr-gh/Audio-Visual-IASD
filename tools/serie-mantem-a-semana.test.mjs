@@ -747,6 +747,51 @@ try {
     'N2 · e o PARAR a faz voltar: a mesma rodada roda com a mídia fora do ar e '
     + 'baixa o episódio que tinha ficado para trás', n);
 
+  // ── N3. O AVISO DO CARD ARMA A RODADA (Pacote 28) ────────────────────────
+  //
+  // O aviso "o episódio desta semana desce quando ela sair" só se cumpria se uma
+  // rodada ANTERIOR tivesse adiado (`serieAdiadaPelaMidia`). Quando a rodada da
+  // abertura falha (Wi-Fi sem internet) e o app volta do segundo plano já com
+  // mídia no ar, o card abre, mostra o aviso — e nada desce ao parar, porque
+  // ninguém tinha armado a rodada. Agora o PRÓPRIO AVISO arma: ele é a promessa,
+  // então ele é quem a tem de honrar.
+  await plantar();
+  await armarDownload(true);
+  const n3 = await pg.evaluate(async (id) => {
+    await AVDB.listSet('serie', []);
+    await AVDB.listSet('avulsos', []);
+    // O ARQUIVO DO N2 AINDA EXISTE como registro (limpar a lista não apaga o
+    // blob): sem o gc, o aviso veria "já baixado" e não diria nada.
+    await AVDB.gcOrfaos();
+    ui(id).status = '';
+    await new Promise((r) => setTimeout(r, 50));
+    midiaNoAr = true;
+    serieAdiadaPelaMidia = false;       // nenhuma rodada anterior adiou nada
+    const coll = allCollections().find((c) => c.id === id);
+    serieAutoAviso(coll);               // o card aberto durante a projeção
+    let status = '';
+    for (let i = 0; i < 200; i++) {
+      status = ui(id).status || '';
+      if (/desce quando ela sair/.test(status)) break;
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    const armado = serieAdiadaPelaMidia;
+    await pararMidia('clear');
+    let retidos = [];
+    for (let i = 0; i < 400; i++) {
+      retidos = await AVDB.listIds('serie');
+      if (retidos.length) break;
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    return { status, armado, baixados: (window.__baixados || []).slice(), retidos };
+  }, SERIE);
+  checar(/desce quando ela sair/.test(n3.status) && n3.armado === true,
+    'N3 · O AVISO ARMA A RODADA: com o card aberto e a projeção no ar, o texto diz que o '
+    + 'episódio desce quando ela sair E a rodada fica armada — sem isso a promessa do '
+    + 'aviso não tinha quem a cumprisse', n3);
+  checar(n3.baixados.length === 1 && n3.retidos.length === 1,
+    'N3 · e o PARAR cumpre a promessa: a rodada roda com a mídia fora do ar e baixa o episódio', n3);
+
 } finally {
   await navegador.close();
   await new Promise((r) => servidor.close(r));

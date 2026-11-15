@@ -67,14 +67,11 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 |---|---|---|---|
 | **5** — Itinerário: a abertura antes do primeiro evento | 8 (I4×U2) | pedido | só web, depois de planejar |
 | **6** — Link do YouTube: os detalhes no oferecimento | 6 (I3×U2) | pedido | Kotlin + web (APK/Release) |
-| **7** — Verificação: procurar atualização | 6 (I3×U2) | pedido | só web |
 | **13** — Estudos (não são fila de execução) | 4 | estudo | nenhuma entrega |
 | **16** — O cronograma pronto: o organizador entrega o culto ao sonoplasta | 8 (I4×U2) | pedido | planejamento → Kotlin + web |
 | **20** — Cronograma: o alerta à esquerda | 4 (I2×U2) | pedido | só web |
-| **21** — Destinos: a engrenagem do item guardado | 6 (I3×U2) | pedido | só web |
 | **22** — Bíblia: três versículos no controle | 2 (I2×U1) | pedido | só web |
 | **23** — Editor de mídia: a margem inferior | 4 (I2×U2) | defeito | só web |
-| **28** — Série: o aviso que promete descer | 6 (I3×U2) | defeito | só web |
 | **29** — Guia do site: a captura das sete ferramentas | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
 | **30** — Ferramentas: duas arestas que o tour achou | 2 (I2×U1) | resíduo | só web |
 
@@ -89,13 +86,12 @@ diferentes, e um lote nunca mistura dois temas.
 
 | tema | pacotes | o que sai junto |
 |---|---|---|
-| **Cronograma e destinos** | 16, 20, 21 | a abertura antes do culto, o alerta de "não baixado" à esquerda e a engrenagem do item guardado |
+| **Cronograma e destinos** | 16, 20 | a abertura antes do culto e o alerta de "não baixado" à esquerda |
 | **Bíblia** | 22 | a leitura de três versículos no controle |
 | **Mídia** | 23 | a margem inferior do editor de mídia |
-| **Séries** | 28 | o aviso do card que promete o que a rodada não cumpre |
 | **Site** | 29 | a captura da lista de Ferramentas, com as sete |
 | **Ferramentas** | 30 | o Timer em zero que ainda projeta e guarda, e o editor de mídia vazio na instalação nova |
-| **Fila anterior a 14/11** | 5, 6, 7 | o que já estava na fila, na ordem que ela já tinha |
+| **Fila anterior a 14/11** | 5, 6 | o que já estava na fila, na ordem que ela já tinha |
 | **Estudos** | 13 | não são fila de execução: a entrega é a decisão do operador |
 
 ---
@@ -136,8 +132,6 @@ ordem; a fila é dele.
 | 5.1 | contagem regressiva + música + avisos | | 4 | 2 | 8 | web |
 | **6** | **Link do YouTube: os detalhes no oferecimento** | pedido | 3 | 2 | **6** | Kotlin + web |
 | 6.1 | miniatura, título, duração e canal antes de usar | | 3 | 2 | 6 | Kotlin + web |
-| **7** | **Verificação: procurar atualização** | pedido | 3 | 2 | **6** | web |
-| 7.1 | a checagem que oferece o "Atualizar agora" | | 3 | 2 | 6 | web |
 | **13** | **Estudos — não são fila de execução** | estudo | 4 | 1 | **4** | decisão |
 | 13.1 | controle de slides + compartilhar itinerário/cronograma | | 4 | 1 | 4 | estudo |
 | 13.2 | transmissão ao vivo | | 3 | 1 | 3 | estudo |
@@ -145,13 +139,10 @@ ordem; a fila é dele.
 | **16** | **O cronograma pronto: o organizador entrega o culto** | pedido | 4 | 2 | **8** | planejamento |
 | **20** | **Cronograma: o alerta à esquerda** | pedido | 2 | 2 | **4** | web |
 | 20.1 | o par nome + alerta inverte a ordem | | 2 | 2 | 4 | web |
-| **21** | **Destinos: a engrenagem do item guardado** | pedido | 3 | 2 | **6** | web |
-| 21.1 | a engrenagem nas ações da linha, no Cronograma e nos Favoritos | | 3 | 2 | 6 | web |
 | **22** | **Bíblia: três versículos no controle** | pedido | 2 | 1 | **2** | web |
 | 22.1 | sai o segundo futuro: 1 atrás, o atual e 1 à frente | | 2 | 1 | 2 | web |
 | **23** | **Editor de mídia: a margem inferior** | defeito | 2 | 2 | **4** | web |
 | 23.1 | a folha com o editor aberto, medida contra as ferramentas de painel | | 2 | 2 | 4 | web |
-| **28** | **Série: o aviso que promete descer** | defeito | 3 | 2 | **6** | web |
 | **29** | **Guia do site: a captura das sete ferramentas** | resíduo | 2 | 1 | **2** | site |
 | **30** | **Ferramentas: duas arestas que o tour achou** | resíduo | 2 | 1 | **2** | web |
 | 30.1 | o Timer em 0:00: o ▶ apagado, o projetar e os dois guardar acesos | | 2 | 1 | 2 | web |
@@ -201,29 +192,6 @@ lista de miniaturas que o extrator carrega não é lida hoje (zero ocorrências 
 `thumbnails` no Kotlin), e o web não conhece `i.ytimg.com` (zero ocorrências).
 Isto é Kotlin pequeno (acrescentar o campo ao `JSONObject`) mais o desenho da
 folha do oferecimento — no mesmo lote, com `shellTag`.
-
----
-
-## Pacote 7 — Verificação: procurar atualização
-
-**Nota 6 (I3 × U2) · pedido · só web**
-
-**Onde:** a Verificação do Sistema; a ponte `atualizacaoEstado` e `otaCheck`; o
-diálogo do OTA.
-
-### 7.1 A checagem que oferece o "Atualizar agora"
-
-*"O verificar deve também procurar por atualizações, se estiver disponível,
-oferecer a atualização."* (2026-11-07 08:55).
-
-A Verificação do Sistema ganha uma checagem que LÊ o estado do OTA e, havendo
-base nova, oferece o "Atualizar agora" — o MESMO diálogo do OTA (o shell só
-AVISA, quem aplica é o web; regra de `docs/shell/OTA.md`). **Medido em
-2026-11-09:** o `otaPending` que esta lista citava não existe desde a v1.13.47
-(órfão removido na X1); o que há é `atualizacaoEstado()` (os quatro campos que a
-tela já lê), `otaCheck(forcar)` e `otaApply`. Respeitar `docs/DIAGNOSTICO.md`:
-uma checagem não baixa megabytes — ela só aponta para o fluxo que já existe; o
-desfecho é `não se aplica` quando não há nada pendente.
 
 ---
 
@@ -371,47 +339,6 @@ confere os dois e muda a referência no mesmo commit.
 
 ---
 
-## Pacote 21 — Destinos: a engrenagem do item guardado
-
-**Nota 6 (I3 × U2) · pedido · só web**
-
-**Onde:** `controle.js` — `criarCue`, `montarAcoesDaLinha`, `abrirFerramenta`,
-`cueSaveDaFerramenta` e o desenho das ações da linha (Cronograma e Favoritos).
-
-Pedido (09:55): *"Para esses itens que são configuraveis e podem ir para o
-cronograma, e que ao executar não abrem suas respectivas abas, ou afins, crie
-um botão nas opções seja no cronograma ou favoritos (um botão de engrenagem que
-abre a aba da ferramenta com os dados da ferramenta para serem editados ou
-administrados)."*
-
-O problema que ele resolve: a Mensagem, o Sorteio, o Tempo (Relógio /
-Cronômetro / Timer) e o Itinerário viram itens do Cronograma/Favoritos
-(`criarCue`), mas o item guardado **não abre a ferramenta que o gerou** — para
-editar o texto de uma mensagem ou trocar as opções de um sorteio, o operador
-tem de abrir Ferramentas do zero, e o item guardado fica apontando para o que
-já foi.
-
-- **Onde mora o botão:** nas AÇÕES DA LINHA (`montarAcoesDaLinha`), nos dois
-  destinos (Cronograma e Favoritos), só para os cues que têm ferramenta
-  editável (`message`, `draw`, `chrono`, `itinerario`).
-- **O que ele faz:** abre `abrirFerramenta(id)` com os dados do cue. Hoje o
-  `abrirFerramenta` só leva `opcoes` de animação, então o lote precisa de uma
-  PORTA DE DADOS (um `abrirFerramenta(id, { cue: rec })` ou uma função própria)
-  que monte o painel com o conteúdo do item, não com o último estado da
-  ferramenta. O `edicao` não entra: ele já é a ferramenta que edita um item.
-- **O desenho:** o mesmo quadrado de ícone das ações irmãs, com o glifo da
-  engrenagem e `title` "Administrar este item"; não é botão de texto (a faixa é
-  estreita).
-- **A dupla face:** o cue é uma REFERÊNCIA (o `renderMsg` guarda o `id` da
-  mensagem), então editar pela engrenagem deve atualizar o que o roteiro
-  projeta — conferir no lote se `message`/`draw` leem o dado vivo e se
-  `chrono`/`itinerario` precisam regravar o cue.
-- **Oráculos:** `cronograma-acoes-cheias` (a faixa de ações),
-  `favoritos-menu-na-linha`, `ferramentas-folha`; e os passos de tour que a
-  entrada nova pedir (o `SECOES` das quatro).
-
----
-
 ## Pacote 22 — Bíblia: três versículos no controle
 
 **Nota 2 (I2 × U1) · pedido · só web — anotado pelo operador para depois**
@@ -468,25 +395,6 @@ pode ser sido mal feito."*
 
 ---
 
-## Pacote 28 — Série: o aviso que promete descer
-
-**Nota 6 (I3 × U2) · defeito · só web**
-
-**Onde:** `controle.js` (o aviso do card, perto da linha 22564 no HEAD
-`21b28607`), `manterSeriesDaSemana`, `serieAutoImpedimento`.
-
-Achado M1-2 da revisão de 14/11, que estava só no `RESIDUOS.md`. O aviso do
-card promete que a série "desce quando ela sair", mas a rodada só é armada por
-`manterSeriesDaSemana`: com um card aberto na projeção, a saída da mídia NÃO
-baixa a série.
-
-- **A decidir no lote:** cumprir a promessa (armar a rodada na saída da mídia)
-  ou mudar o texto do aviso. Mexe no contrato do `serieAutoImpedimento` — por
-  isso era decisão do operador, e não resíduo fino.
-- **O oráculo:** o `serie` ganha o cenário "card aberto, a mídia sai".
-
----
-
 ## Pacote 29 — Guia do site: a captura das sete ferramentas
 
 **Nota 2 (I2 × U1) · resíduo · só site**
@@ -527,6 +435,15 @@ grupos vazios, ou ao lado deles).
 ---
 
 ## O que saiu desta lista (rastro, não log)
+
+**v1.14.24 (2026-11-15), só web:** os **Pacotes 7, 21 e 28** num lote só, autorizados
+juntos pelo operador. O **7** — a Verificação procura atualização: a 42ª checagem lê o
+estado do OTA e, havendo lote, abre o mesmo diálogo do "Atualizar agora" (sem baixar nada;
+o momento ruim e o "Deixar para depois" seguem valendo). O **21** — a engrenagem do item
+guardado, no Cronograma e nos Favoritos: abre a ferramenta com os dados do item e o que se
+edita volta para ele; a Mensagem ganhou o lápis de editar o texto. O **28** — o aviso da
+série arma a rodada, e o episódio desce quando a projeção sai. Nota em `docs/HISTORICO.md`;
+oráculo novo `engrenagem-do-item` e o cenário N3 no `serie-mantem-a-semana`.
 
 **v1.14.23 (2026-11-15), só web:** o **Pacote 31** — a notificação virou controle de player: ⏮/⏭ dela
 (e da tela de bloqueio, do fone e do Bluetooth) passam MÚSICA com letra, versículo, mensagem ou

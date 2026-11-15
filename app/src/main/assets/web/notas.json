@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.14.24",
+    "itens": [
+      "Na Verificação, o app agora procura atualização e, havendo, abre o aviso de Atualizar agora.",
+      "Cronograma e Favoritos: a engrenagem de um item abre a ferramenta com os dados dele, para editar.",
+      "O que se edita ali volta para o próprio item, e as Mensagens ganham o lápis para editar o texto.",
+      "O aviso da série passa a cumprir a promessa: o episódio desce quando a projeção sai."
+    ]
+  },
+  {
     "versao": "1.14.23",
     "itens": [
       "Na notificação, anterior e próxima agora trocam a MÚSICA mesmo com letra, versículo ou mensagem no telão.",

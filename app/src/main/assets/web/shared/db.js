@@ -501,6 +501,22 @@
     return addMediaToList(record, (meta && meta.list) || 'imports');
   }
 
+  // TROCA OS DADOS de uma cena de roteiro (Pacote 21: a engrenagem do item
+  // guardado). `id`, `name` e as listas ficam: o que muda é SÓ o conteúdo da
+  // ferramenta que a cena carrega — o mesmo preset que `criarCue` gravou.
+  // get + put na MESMA transação (a regra do `renameMedia`): uma lista que
+  // aponte para este id não pode ver metade da troca.
+  async function atualizarCue(id, data) {
+    if (!id || !data) return null;
+    const [s, tx] = await storeTx(STORE_MEDIA, 'readwrite');
+    const record = await asPromise(s.get(id));
+    if (!record || record.kind !== 'cue') { await txDone(tx); return null; }
+    record.data = Object.assign({}, record.data, data);
+    await asPromise(s.put(record));
+    await txDone(tx);
+    return record;
+  }
+
   // O vídeo do YouTube que já está no aparelho, ou null. É o que impede o app
   // de baixar o MESMO vídeo de novo a cada destino escolhido (tocar, playlist,
   // Cronograma) — um download de dezenas de MB repetido por engano, em rede de
@@ -1939,7 +1955,7 @@
   global.AVDB = {
     setState, getState, updateState, updateStateLote, stateKeys, stateVarrer,
     stateApagarPrefixo,
-    addMedia, addUrlMedia, addDeck, addCue,
+    addMedia, addUrlMedia, addDeck, addCue, atualizarCue,
     getMedia, getMediaCru, addEdicao, atualizarEdicao, addBase, basesDoEditor, baseDe, adotarBases, ehCaminhoDeBase, mediaByYoutube, renameMedia, definirMiniatura,
     LISTS, listIds, listSet, listItems, listHas, listAdd, listRemove, gc, gcOrfaos, folderDrop,
     cronoLer, cronoTrocar, cronoCriar, cronoRenomear, cronoExcluir, cronoIdsGuardados,

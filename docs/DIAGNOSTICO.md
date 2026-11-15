@@ -10,7 +10,7 @@ capítulo do Controle (`arquitetura/CONTROLE-COLECOES.md`, "A Verificação do S
 > **Movido do `CLAUDE.md` na revisão A2 (2026-10-30), sem mudança de texto** (só os links relativos e o nível dos títulos). No núcleo ficou um resumo com o link para cá. "Acima", "abaixo", "esta seção" e as invariantes numeradas falam do `CLAUDE.md`, de onde este texto veio.
 
 - **A VERIFICAÇÃO DO SISTEMA TEM QUATRO DESFECHOS, E O QUARTO É O QUE A MANTÉM
-  VIVA** (v1.10.0). O tile *"Verificar"* de Configurações roda 41 checagens em
+  VIVA** (v1.10.0). O tile *"Verificar"* de Configurações roda 42 checagens em
   NOVE áreas e lista `funcionou` · `não funcionou` · `não respondeu` ·
   `não se aplica`. **E O APARELHO É A ÚLTIMA PALAVRA** (v1.10.5): a primeira
   rodada num Android de verdade derrubou TRÊS linhas que nenhum oráculo
@@ -73,6 +73,13 @@ capítulo do Controle (`arquitetura/CONTROLE-COLECOES.md`, "A Verificação do S
   cancelada não é guardado. **E a limpeza do download de teste confere também o
   cache do SHELL** (v1.12.52): um arquivo DESTE vídeo na `sobraNoCache` da medida
   dele é falha.
+- **A OFERTA DE ATUALIZAÇÃO TAMBÉM MORA NA VERIFICAÇÃO (v1.14.24).** A linha
+  *"Há uma versão nova pronta para instalar"* lê o estado que a ponte já mantém
+  (`atualizacaoEstado`) e, havendo lote, abre **o MESMO diálogo do OTA**
+  (`perguntarAtualizacao`) — a checagem não baixa nada nem aplica por conta
+  própria. O momento ruim (cena ou download no ar) e o *"Deixar para depois"*
+  valem: os dois desfechos são `não se aplica` com o motivo, a oferta
+  automática volta sozinha e o botão de Configurações aplica na hora.
 - **UMA ROTINA DE MASSA CONTA O QUE CHEGOU AO DISCO, NUNCA O QUE ELA TENTOU**
   (v1.9.13). O laço de `syncCollection` move a barra por `done`, que conta
   TENTATIVAS — e enquanto `downloadCollectionSong` devolvia `undefined` em toda

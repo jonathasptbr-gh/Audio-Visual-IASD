@@ -48,7 +48,6 @@ medição em aparelho não é fino.**
 | 2026-11-15 · v1.14.23 | `SessionService.kt:907-909`, `NativeBridge.kt:1053-1054` | o rótulo por unidade do ⏮/⏭ (`slideMode`/`slideLabel`) ficou inalcançável — o web manda sempre `false`/vazio desde que a notificação virou controle de player (~10 linhas com KDoc) | CI | não há compilador aqui; a remoção só se prova no Gradle, e o lote foi só de web |
 | 2026-11-14 · v1.14.16 | `site/sonoplastia/index.html` | a captura da lista de Ferramentas mostra seis e o app tem sete ("Editar mídia") | operador | refazer a captura pede o app em tela — **na fila: Pacote 29** (14/11) |
 | 2026-11-14 · revisão de 14/11 | `YoutubeGrab.kt` | os campos `initIni/initFim/idxIni/idxFim/codec` da `Faixa`, sem leitor desde que o `dash` saiu (~24 linhas, KDoc junto) | CI | não há compilador aqui; a remoção só se prova no Gradle |
-| 2026-11-14 · v1.14.16 | `controle.js:22564` | o aviso do card promete que a série "desce quando ela sair", mas a rodada só é armada por `manterSeriesDaSemana` — com um card aberto na projeção a saída da mídia não baixa | operador | mexe no contrato do `serieAutoImpedimento` — **na fila: Pacote 28** (14/11) |
 | 2026-11-14 · Pacote 24 | `~/.dsh-github/uso.mjs` | a remedição do custo com o preço do modelo ATUAL não saiu (não há preço publicado confiável na máquina); as tabelas do medidor são de 10/11 e ele aceita `--preco novo cache saida` | medição | preço do modelo atual não medido |
 | 2026-11-14 · revisão de 14/11 | `ESTABILIDADE-AV` C2, D2 | pedem medição em aparelho | medição | não há aparelho nesta máquina |
 | 2026-11-14 · Pacote 25 | `apk.yml` | a regra "base web mudou ⇒ versão sobe" é contra a última TAG: um segundo lote de web sem subir, depois de um que subiu, passa | CI | o certo é comparar com o canal, e o `sha256` do zip muda a cada empacotamento — pede o hash da árvore |
@@ -66,6 +65,7 @@ medição em aparelho não é fino.**
 | 2026-11-15 · v1.14.21 | `controle.js`, o `ECO_SELETOR` | inclui `'.transport .t-btn'` inteiro, logo o `#plBtn`, que só abre a folha da playlist — contra a regra do próprio comentário ("fica de fora o que NÃO vai ao telão"); conferir e tirar com `:not(#plBtn)`; 1 linha | higienização | fora da cerca do lote (posição e tour) |
 | 2026-11-15 · v1.14.21 | `docs/arquitetura/CONTROLE-LAYOUT.md:33`, `:122` | o diagrama do deck é de antes da v1.3.9 ("Vol" na coluna da direita, o `#historyBtn`); só a ordem da fileira foi corrigida; ~15 linhas | higienização | refazer o desenho pede medir o deck inteiro |
 | 2026-11-15 · v1.14.22 | `GuiaSom.kt` (`imprimir`), o caderno impresso pelo app | a impressão pelo `PrintManager` não foi vista em aparelho: o adapter do WebView respeitar o `@page guia-a4 {margin:0}` e o A4 retrato, e a volta da tela de impressão ao guia aberto | medição | não há aparelho nesta máquina, e o Kotlin só compila no CI |
+| 2026-11-15 · v1.14.24 | `tools/verificacao-completa.test.mjs`, bloco A5 | a compactação do fecho da Verificação a 320×1,5× não dispara no Chromium DESTA máquina: o `letter-spacing` que simula a fonte do runner não faz o rótulo transbordar. **MEDIDO no HEAD limpo (`56fdf9f3`)**, então não é do lote | CI | mesma família da linha do Pacote 26 (B9): o runner da v1.14.23 passou; aqui reprova por métrica de fonte |
 | 2026-11-15 · guia impresso (sem versão; só `site/`) | `site/sonoplastia/index.html`, as pautas largas e a caixa do índice | medidas só no Chromium desta máquina: falta ver no aparelho se a borda de 1,2 pt da caixa e a linha de 0,6 pt da pauta saem na impressora e se a pauta larga não encosta no fio nas pares do fichário | medição | não há aparelho nesta máquina; a régua de páginas (22/88) foi medida aqui e o runner dá outra fonte |
 
 ## Fechado/decidido
@@ -77,6 +77,7 @@ resíduo. (B8)
 | quando · lote | onde | o que era | a decisão |
 |---|---|---|---|
 | 2026-11-14 · revisão de 14/11 | `controle.css` | a pílula de volume da tela cheia deitada (C8): a 740×360 o número sai da tela | **deixar como está** (operador, 14/11) |
+| 2026-11-15 · v1.14.24 | `controle.js`, o aviso da série (M1-2) | o aviso prometia "desce quando ela sair" sem a rodada armada — a saída da mídia não baixava nada | **fechado** — o aviso arma a rodada (`serieAdiadaPelaMidia`) e o cenário N3 do `serie-mantem-a-semana` prova · v1.14.24 |
 | 2026-11-14 · revisão de 14/11 | `capturas/entrada/` | 3,7 MB de JPEG de origem, já convertidos para `site/telas/` | **deixar como está** (operador, 14/11) |
 | 2026-11-14 · decisão do operador | `site/sonoplastia/index.html` | 671 linhas de CSS e 1.320 de JS inline, nada cacheável (~33 kB comprimidos de ~206 kB; o corpo é 838 kB dos 966 kB) | **deixar como está** (operador, 14/11): extrair mexe num arquivo de 7.803 linhas com 4 blocos `@media print` e um `@page`, para ganhar o que o corpo domina — fecha aqui |
 | 2026-11-14 · decisão do operador | `tools/` (A1) | o `pre-push` versionado: obrigaria o portão (~46 s) em todo push, inclusive de documentação, e pede `core.hooksPath` em cada clone | **deixar como está** (operador, 14/11): os hooks rodam neste proot (medido, git 2.43), mas o rito já roda o portão antes do commit; se o push sem portão voltar, um hook só com a Sanidade se paga |
@@ -116,6 +117,7 @@ de "ninguém olhou".
 | 2026-11-14 | o Pacote 26 (o processo de revisão) | nenhum resíduo de código: só docs e `tools/`. A migração B4 levou os abertos das auditorias para a tabela acima e carimbou o estado final em cada uma; os itens NÃO VERIFICADOS da auditoria de 09-11 ficam como registro daquela data, sem virarem fila |
 
 | 2026-11-14 | v1.14.17 — o tour (só web) | nenhum resíduo NOVO: o lote fechou os seis do tour; os que sobram da lista já estavam declarados (as lápides, o `naoResta`, o `hymnResultRow`, o `:22110` e as referências de `java/`) |
+| 2026-11-15 | v1.14.24 — os Pacotes 7, 21 e 28 num lote só (só web) | nenhum: a checagem nova só lê a fotografia do OTA e abre o diálogo que já existia; a engrenagem reusa `montarAcoesDaLinha` e a adoção de `itinAdotarCue`; o aviso só arma a rodada que o `pararMidia` já chamava. Nenhum arquivo do shell tocado; a única linha nova de vistoria é a do A5 (acima), que é de fonte da máquina |
 ## Refutado — medido e não é resíduo
 
 Registrado para ninguém gastar a sessão duas vezes na mesma suspeita.
