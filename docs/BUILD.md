@@ -78,6 +78,11 @@ três de uma vez, com o `shellTag` acompanhando quando declarado; sem argumento
 aceito (`--conferir` só lê e compara), ele sai com 2. O `versionCode`/`versionName`
 do APK vêm do CI ("Assinatura").
 
+**E ele mexe em TRÊS arquivos** (`version.json`, `controle.js`, `index.html`):
+os três entram no `git add` do lote. O portão lê a ÁRVORE e não o que vai no
+commit, então esquecer um passa localmente e só o `verificar` do CI reprova —
+aconteceu na v1.14.27.
+
 **O estado corrente — a versão, a última Release, o `SHELL_VERSION`, o
 `minShell` e o `shellTag` — se mede** (`tools/estado.sh`); o degrau e o piso da
 ponte estão no
