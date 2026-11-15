@@ -361,7 +361,7 @@ trabalho. Prosa custa contexto que não sobra para o código.
 | o rito, o CI, a versão, a assinatura, o backup, o site | `docs/BUILD.md` |
 | o custo da sessão, a delegação | `docs/ECONOMIA.md` |
 | a Verificação do Sistema e o Registro | `docs/DIAGNOSTICO.md` |
-| a varredura geral de 2026-11-13: o que fechou e o que deixou aberto | `docs/revisao/REVISAO-2026-11-13.md` (o dossiê, com a prova de cada achado) e o Pacote 12.2 da fila |
+| a varredura geral de 2026-11-13: o que fechou e o que deixou aberto | `docs/revisao/REVISAO-2026-11-13.md` (o dossiê, com a prova de cada achado) |
 | o que o operador pediu e ainda não foi feito? | `docs/PEDIDOS-EM-ESPERA.md` — pacotes; perguntar qual seguir antes de começar |
 | o que ficou para trás de um lote anterior? | `docs/RESIDUOS.md` (com dono, tamanho e por que não foi agora) |
 | uma revisão geral vai começar: o que ela cobre? | `docs/REVISAO-GERAL.md` (os dez marcos) e `node tools/revisao-cobertura.mjs --base <sha>` |

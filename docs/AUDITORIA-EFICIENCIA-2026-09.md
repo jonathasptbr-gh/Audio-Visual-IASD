@@ -2,7 +2,7 @@
 
 > **APÊNDICE.** Retrato de 2026-09-04; consultar por `grep`, nunca por leitura
 > integral. O que sobreviveu dele está no `CLAUDE.md`/`NUCLEO-TECNICO` e no
-> `HISTORICO.md` (a lista dos mortos segue no Pacote 12 da fila).
+> `HISTORICO.md`.
 >
 > **ESTADO FINAL (2026-11-14, Pacote 26/B4).** Os abertos da conferência A4
 > foram reconferidos hoje: o #5 **RESOLVIDO** (o `dados.yml` é `'17 * * * *'` e
