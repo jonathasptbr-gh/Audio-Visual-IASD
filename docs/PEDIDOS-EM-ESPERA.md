@@ -68,6 +68,12 @@ saiu do índice, dos temas e da tabela, com o rastro das duas versões.
 **Edição de 2026-11-16 (noite, segunda).** O operador reportou que o link do passador chega como TEXTO no
 WhatsApp, e a medição virou o **Pacote 41** — estudo, porque a entrega é a escolha dele entre três saídas.
 
+**Edição de 2026-11-16 (noite, terceira).** Quatro mensagens do operador enquanto os Pacotes 41
+estavam em entrega (20:05–20:26) mais a retificação dele sobre o pop-up de volume. Entraram como
+os **Pacotes 42 a 45** — três de tela e um de abertura — e nenhum está autorizado: **pergunte
+qual seguir**. A nota de cada um é **provisória** até o pacote ser lido: foi dada pelo que o
+operador descreveu e pelo que a medição da abertura já mostra, não pelo código de cada área.
+
 **Regra do arquivo:** ele ESVAZIA. Um pacote entregue sai daqui (a nota vai ao
 `docs/HISTORICO.md`, como sempre); um pedido revogado sai com uma linha dizendo
 quem revogou. Não é log, e não é `docs/ACHADOS-EM-ABERTO.md` (lá moram defeitos
@@ -91,6 +97,10 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **13** — Estudos (não são fila de execução) | 4 | estudo | nenhuma entrega |
 | **16** — O cronograma pronto: o organizador entrega o culto ao sonoplasta | 8 (I4×U2) | pedido | planejamento → Kotlin + web |
 | **29** — Guia do site: a captura da lista de Ferramentas e do Cronograma | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
+| **42** — Itinerário: os momentos como lista, não como card | 6 (I3×U2) | pedido | só web |
+| **43** — Passador de slides: o estado vazio e os três mocks | 6 (I3×U2) | pedido | só web |
+| **44** — Conectar: os botões com texto e o card integrado | 4 (I2×U2) | pedido | só web |
+| **45** — Pop-up de volume na abertura, e a porta do tour | 9 (I3×U3) | pedido | web + shell (APK no CI) |
 
 ---
 
@@ -103,8 +113,10 @@ diferentes, e um lote nunca mistura dois temas.
 
 | tema | pacotes | o que sai junto |
 |---|---|---|
-| **Cronograma e destinos** | 16 | a abertura antes do culto, o organizador entregando o culto pronto |
+| **Cronograma e destinos** | 16, 42 | a abertura antes do culto, o organizador entregando o culto pronto; e os momentos do itinerário como lista |
 | **Site** | 29 | as capturas do guia |
+| **Passador de slides** | 43, 44 | a página vazia, e o convite que manda o link |
+| **Abertura** | 45 | o volume, a porta do tour e a ordem entre eles |
 | **Fila anterior a 14/11** | 5 | a tela de espera do Itinerário, na ordem que a fila já tinha |
 | **Estudos** | 13 | não são fila de execução: a entrega é a decisão do operador |
 
@@ -150,6 +162,10 @@ ordem; a fila é dele.
 | 13.3 | layout de paisagem (o app no Windows saiu) | | 3 | 1 | 3 | estudo |
 | **16** | **O cronograma pronto: o organizador entrega o culto** | pedido | 4 | 2 | **8** | planejamento |
 | **29** | **Guia do site: a captura da lista de Ferramentas e do Cronograma** | resíduo | 2 | 1 | **2** | site |
+| **42** | **Itinerário: os momentos como lista, não como card** | pedido | 3 | 2 | **6** | web |
+| **43** | **Passador de slides: o estado vazio e os três mocks** | pedido | 3 | 2 | **6** | web |
+| **44** | **Conectar: os botões com texto e o card integrado** | pedido | 2 | 2 | **4** | web |
+| **45** | **Pop-up de volume na abertura, e a porta do tour** | pedido | 3 | 3 | **9** | web + shell |
 
 ---
 
@@ -317,6 +333,122 @@ o app tem SEIS linhas desde a v1.14.32 (o Itinerário saiu para o Cronograma e o
 não mostra a faixa de opções do itinerário (`#itinBar`) nem as linhas de momento.
 Refazer as capturas pede **o app em tela** — não há aparelho nesta máquina: ou o
 operador manda a captura, ou ela sai da prévia visual no Chromium.
+
+---
+
+## Pacote 42 — Itinerário: os momentos como lista, não como card
+
+**Nota 6 (I3×U2) · pedido · só web**
+
+**Onde:** a faixa do itinerário (`#itinBar`), a linha do momento e o corpo que a embrulha. A linha
+já foi tocada em três lotes seguidos: a v1.14.35 (Pacote 35, a faixa em três seções), a v1.14.49
+(Pacote 40, a porta como checklist fechada) e a v1.14.57, que a devolveu ao **corpo compacto**. O
+pacote começa do estado da 1.14.57 — não do desenho anterior.
+
+**O pedido (2026-11-16, 20:05):** *"vamos ter de compactar mais ainda a altura dos momentos do
+itinerário, eles devem ficar bem proximos um dos outros, considere remover o 'card' em que eles
+estão, pois tecnicamente esse card é transparente, seu corpo não existe para os momentos do
+itenerario, a idéia dos momentos é ser mais apenas uma lista de tópicos, por isso ele não precisa
+ser tão volumoso em altura."*
+
+**O que muda:** o corpo do card do momento sai (ele é transparente: não pinta nada, só ocupa
+altura); os momentos encostam um no outro com o respiro de linha de tópico; o `padding` do grupo
+encolhe junto. Área de toque não encolhe abaixo de `--hit`.
+
+**O que NÃO se decide sozinho:** a **moldura do grupo** de momentos (a do Pacote 35, discreta e
+recolhível) fica ou sai junto. O pedido fala do card do MOMENTO; o grupo é outra caixa. Perguntar
+antes de mexer.
+
+**Oráculo:** o `itinerario` (bloco U) — a altura da linha e o eixo do nome precisam ser medidos
+de novo, não herdados.
+
+---
+
+## Pacote 43 — Passador de slides: o estado vazio e os três mocks
+
+**Nota 6 (I3×U2) · pedido · só web (assets)**
+
+**Onde:** `app/src/main/assets/web/passador-de-slides/` — a página que o irmão abre no navegador.
+O texto "nenhuma apresentação no ar" e os três mocks das telas.
+
+**O pedido (2026-11-16, 20:05):** *"revise também o design do passador de slides, ele atualmente
+esta com um texto enorme de 'nenhuma apresentação no ar', que ocupa toda a área que seria
+destinada aos slides e aos controles. Também verifique a visualização dos três mocks das telas de
+slides enquanto não há slides conectados, atualmente ele fica preto e com um símbolo de broken
+archive. Torne ele mais confiável, com mensagem ou simbolos nesses tres campos para avisar para
+aguardando a apresentação ser iniciada."*
+
+**O que muda:** 1) o aviso vira mensagem discreta — não ocupa a área dos slides nem a dos
+controles; 2) os três mocks deixam de ser caixa preta com ícone de imagem quebrada e passam a um
+estado desenhado de "aguardando a apresentação começar"; 3) o conjunto não pode parecer defeito.
+
+**Oráculo:** `tools/passador-cabe.test.mjs` (já roda no CI) — a página tem de continuar cabendo, e
+o estado vazio novo entra nele.
+
+---
+
+## Pacote 44 — Conectar: os botões com texto e o card integrado
+
+**Nota 4 (I2×U2) · pedido · só web**
+
+**Onde:** a folha de **conectar a um navegador** no controle, os dois botões do passador de slides
+e o bloco que mostra a mensagem do link.
+
+**O pedido (2026-11-16, 20:05):** *"pode ficar a vontade para retornar com os dois textos nos
+botões de copiar e enviar pelo whatsapp para o passador de slides. Na última sessão foi feito só
+os ícones, mas nenhum deles deixa claro oque ele está compartilhando. Então pode voltar com os
+textos nos botões. E integre melhor o card desse botões com a parte da mensagem do link pelo
+whatsapp. Eles estão ficando visualmente tratados como não do mesmo grupo ou ação."*
+
+**O que muda:** os textos voltam nos dois botões ("Copiar link" / "Enviar no WhatsApp"), e o card
+dos botões + a mensagem do link passam a ler como **um grupo só**, com hierarquia — hoje parecem
+duas ações independentes.
+
+**Trava:** é a MESMA folha que o Pacote 41 acabou de mexer na v1.14.59. Ler o estado atual antes;
+não vale voltar ao desenho anterior ao 41.
+
+---
+
+## Pacote 45 — Pop-up de volume na abertura, e a porta do tour
+
+**Nota 9 (I3×U3) · pedido · web + shell (o APK sai no CI)**
+
+**Onde:** `acertarPisoDoVolumeDoSistema` (`controle.js:43595`), `mostrarAvisoDoVolume` (`:43633`),
+`VOL_AVISO_MS` (`:43625`), `systemVolumeDefinir(0.6)` (`:43600`), o `#volAvisoPop`
+(`controle/index.html:3297`, z 340), a lista `POPUPS` (`controle.js:46522-46559`), o
+`bloqueioDoTour` (`:46678-46681`) e o `telaOcupadaParaTour` (`:46716`), e o `controle/tour.js`
+(a marca `av.tour`, `:416-422`).
+
+**Estado medido em 2026-11-16:** hoje o cartão **sobe** o volume de mídia para 60% e **fecha
+sozinho em 12 s**; ele não conhece o tour, e o tour passa por cima (z 600 × 340) na primeira
+abertura com volume baixo. Não há oráculo de ordem.
+
+**Os itens, um a um:**
+
+- **45.1** não desaparece sozinho — sai o timer de 12 s.
+- **45.2** não sobe o volume sozinho — sai o `systemVolumeDefinir(0.6)` do disparo; entram os
+  botões "subir até 60%", controle de volume **do aparelho** e "não perturbe".
+- **45.3** o popup nasce na **base** da tela, não no topo.
+- **45.4** fonte maior, no padrão do app (hoje é pequena e fora de escala).
+- **45.5** o resto da tela escurece (véu) para focar o popup.
+- **45.6** ícones e botões no desenho **interno do app**, não no vocabulário de popup de sistema.
+- **45.7** vira popup de verdade: entra na fila `POPUPS` e no `bloqueioDoTour`/`telaOcupadaParaTour`
+  — o guia **espera** o popup fechar.
+- **45.8** oráculo novo da **ordem** (hoje não existe): abertura com volume baixo → popup de volume
+  abre e o guia espera; fechado o popup → abre a janela do tour; respondida ela → o tour.
+- **45.9** no início do tour, uma **primeira janela** perguntando se ele quer fazer o tour
+  ("Fazer o tour" / "Agora não"). "Agora não" marca a mesma `av.tour` e não pergunta de novo; a
+  janela aparece **uma vez por estado**, como o tour.
+
+**Decisões já dadas pelo operador:** fecha com **um** controle só (OK, sem ✕ de canto); a função
+dele é descartar a mensagem ATUAL e ela **volta na próxima abertura** enquanto o volume do
+aparelho estiver baixo — não existe "não mostrar mais"; com o popup aberto, os botões de volume
+mexem no **volume do aparelho**; a condição de disparo é a de hoje.
+
+**O que NÃO se decide sozinho:** (a) o botão de volume abre o **painel do sistema** ou sobe o
+stream direto; (b) a permissão de DND no manifesto — o app já sobe volume pelo shell, mas DND não
+posso presumir; (c) se o popup, sem fechar sozinho, bloqueia a abertura até o OK (com o véu, ele
+bloqueia de fato).
 
 ---
 
