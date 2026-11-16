@@ -10876,6 +10876,15 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    escolhido diria "indisponível", que é a outra palavra desta paleta. */
 .qs-modo .fit-opt.active { background: none; color: var(--accent); }
 .qs-modo .fit-opt svg { display: block; width: var(--icon-md); height: var(--icon-md); }
+/* O BLOQUEIO DA ABERTURA (v1.14.48) DIZ-SE NO PRÓPRIO TRILHO: o anel na metade
+   do avançado é o que mostra, sem tela nova, que o app nasce nele — e o
+   `data-bloqueio` é o estado que os oráculos leem (irmão do `data-modo`, que é o
+   modo em vigor agora). ANEL É `box-shadow` INTERNO, e não `border`: a caixa do
+   botão é medida pelo `smoke` nos dois lados do polegar, e uma borda mudaria a
+   largura do conteúdo; o `--press` do toque também não é tocado. */
+.qs-modo[data-bloqueio="full"] .fit-opt[data-mode="full"] {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
 /* Menos movimento: o polegar troca de lado NO LUGAR. O que ele comunica é
    ONDE está a escolha, e isso o `data-modo` já entrega sem animar. */
 @media (prefers-reduced-motion: reduce) {

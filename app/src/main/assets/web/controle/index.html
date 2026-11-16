@@ -107,6 +107,20 @@
         var esc = localStorage.getItem('av.tema');
         if (esc === 'claro') raiz.dataset.tema = 'claro';
       } catch (e) { /* armazenamento bloqueado: o escuro é o padrão */ }
+      // O MODO DA ABERTURA, na mesma gaveta e pela mesma razão (v1.14.48). O
+      // BLOQUEIO do "Modo avançado" — 5 s segurando a metade dele em
+      // Configurações — mora em `localStorage`, porque o que ele atravessa é a
+      // ABERTURA do app (e o compartilhamento que o acorda para importar, ver
+      // `escolherDestinos`). A SESSÃO MANDA ENQUANTO EXISTIR (a recarga do
+      // documento no mesmo WebView, a atualização aceita); `sessionStorage`
+      // vazio é o app FECHADO, e aí quem responde é o bloqueio. O resultado vai
+      // para o `<html>` — aqui ainda não há `<body>` para receber a classe —, e
+      // é a PRIMEIRA linha de script do corpo que a aplica.
+      try {
+        var daSessao = sessionStorage.getItem('av.appMode');
+        var fixo = localStorage.getItem('av.appModeFixo') === 'full';
+        if (daSessao === 'full' || (daSessao !== 'simple' && fixo)) raiz.dataset.modoInicial = 'full';
+      } catch (e) { /* armazenamento bloqueado: a abertura é a do Modo simples */ }
       var PISO_MS = 1800;
       var TETO_MS = 12000;
       var nasceu = Date.now();
@@ -161,15 +175,22 @@
 </head>
 <!-- A classe vem no HTML para a tela certa aparecer sem esperar JS/IndexedDB —
      toda abertura nasce no simplificado. Só uma recarga do documento DENTRO da
-     sessão devolve o avançado, e a troca acontece no topo do controle.js, numa
-     leitura SÍNCRONA (sessionStorage): uma leitura do IDB chegaria tarde e a
-     tela trocaria embaixo do dedo. Ver "Modos de uso".
-
-     "SÍNCRONA" NÃO É "ANTES DO PRIMEIRO QUADRO": o `controle.js` é o ÚLTIMO dos
-     quinze scripts do fim deste corpo, e entre o primeiro quadro e ele o app
-     fica na tela do simplificado. Quem cobre esse vão é a cortina de abertura
-     logo abaixo. -->
+     sessão devolve o avançado, e agora também o BLOQUEIO da abertura
+     (`av.appModeFixo`, v1.14.48): quem decide os dois é o script do `<head>`,
+     que grava o resultado em `data-modo-inicial` no `<html>` — e a PRIMEIRA
+     linha de script deste corpo o aplica, porque o `controle.js` é o ÚLTIMO dos
+     quinze scripts do fim dele. -->
 <body class="mode-simple">
+  <script>
+    // A CLASSE DO CORPO REVOGADA ANTES DA CORTINA EXISTIR. O `<body>` nasce
+    // `mode-simple` para a tela certa aparecer sem esperar JS; quando a abertura
+    // é a do avançado (a sessão ou o bloqueio, já lidos no `<head>`), esperar o
+    // `controle.js` seria pintar o Modo simples até o fim da carga. O
+    // `data-modo-inicial` é a única fonte, e ele é escrito uma vez.
+    if (document.documentElement.dataset.modoInicial === 'full') {
+      document.body.classList.remove('mode-simple');
+    }
+  </script>
   <!-- ===== A CORTINA (v1.7.0) — ver o script do `<head>` para o porquê =====
        PRIMEIRO FILHO do corpo de propósito: é o que garante que ela exista no
        primeiro quadro que o navegador pintar, sem depender de nada mais abaixo.
@@ -2015,7 +2036,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.47</span>
+          <span id="appVersion">v1.14.48</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>

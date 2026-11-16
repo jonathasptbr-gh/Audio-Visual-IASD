@@ -29,13 +29,20 @@
 //     onze que partem do avançado o DECLARAM (`comModoAvancado`), e por isso
 //     passariam também num app que voltasse a lembrar o modo entre aberturas.
 //
+//  5. **O BLOQUEIO DA ABERTURA** (v1.14.48, bloco E): segurar 5 s a metade
+//     "Modo avançado" grava uma chave PERSISTENTE, e o app passa a NASCE no
+//     avançado — inclusive com `sessionStorage` vazio, que é o app fechado
+//     recebendo um compartilhamento. A leitura é do script do `<head>` (o
+//     `controle.js` abortado prova isso), o gesto liga E desliga, e o toque
+//     curto continua trocando de modo sem derrubar o bloqueio.
+//
 //   node tools/abertura-e-transferencia.test.mjs
 // ============================================================================
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, esperar, esperarCortina, checar, falhas } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, esperar, esperarCortina, checar, falhas, porque } from './arnes.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const RAIZ = path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web');
@@ -477,6 +484,166 @@ try {
     checar(d4.modo === 'simple' && d4.corpo === true,
       'D4 · o app aberto de novo (sessão nova) nasce no Modo Fácil, mesmo com o '
       + 'avançado escolhido na sessão anterior', JSON.stringify(d4));
+    await ctx.close();
+  }
+
+  // =========================================================================
+  // E · O BLOQUEIO DA ABERTURA (v1.14.48) — o gesto de 5 s no "Modo avançado"
+  // =========================================================================
+  //
+  // Pedido do operador: *"Se eu segurar por 5 segundos sobre o modo avançado, ele
+  // bloqueia a abertura do app sempre no modo avançado. (Ainda é possível tocar
+  // para ir para o modo simples; o bloqueio é apenas para abertura do app, por
+  // exemplo garantindo que compartilhar algo com o app fechado vai abrir no modo
+  // avançado de importação de compartilhamento.)"*
+  //
+  // São TRÊS coisas e cada uma tem a sua prova: a LEITURA antes do primeiro
+  // quadro (com o `controle.js` fora do ar), o GESTO que liga e desliga, e a
+  // ABERTURA — com `sessionStorage` VAZIO, que é o app fechado.
+  //
+  // A SEMENTE É O QUE O GESTO GRAVA (`av.appModeFixo = 'full'` no
+  // `addInitScript`), não uma chamada a `gravarModoFixo` depois da carga: o que
+  // se mede é a abertura, e semear o estado POR OUTRO CAMINHO mediria o caminho.
+
+  // ── E1. A LEITURA NÃO ESPERA O ÚLTIMO SCRIPT DO BUNDLE ──────────────────
+  //
+  // O `controle.js` abortado é o caso do primeiro quadro: se o bloqueio só
+  // existisse lá, o corpo nasceria `mode-simple` e o Modo Fácil apareceria antes
+  // da troca. O par com a chave AUSENTE é o que impede um script que diga
+  // "avançado" sempre.
+  {
+    const { ctx, pg } = await abrirApp({});
+    await ctx.route('**/controle/controle.js', (r) => r.abort());
+    await pg.addInitScript(`try { localStorage.setItem('av.appModeFixo', 'full'); } catch (e) {}`);
+    await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+    const e1 = await pg.evaluate(() => ({
+      html: document.documentElement.dataset.modoInicial || '',
+      corpo: document.body.classList.contains('mode-simple'),
+    }));
+    checar(e1.html === 'full' && e1.corpo === false,
+      'E1 · com o `controle.js` FORA DO AR, o bloqueio ligado já deixou o `<html>` e o corpo no avançado — '
+      + 'a leitura é do script inline do `<head>`, e não espera o último script do bundle', JSON.stringify(e1));
+    await ctx.close();
+  }
+  {
+    const { ctx, pg } = await abrirApp({});
+    await ctx.route('**/controle/controle.js', (r) => r.abort());
+    await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+    const e1b = await pg.evaluate(() => ({
+      html: document.documentElement.dataset.modoInicial || '',
+      corpo: document.body.classList.contains('mode-simple'),
+    }));
+    checar(e1b.html === '' && e1b.corpo === true,
+      'E1 · e sem a chave o MESMO caminho deixa o corpo no Modo simples — a asserção de cima não passa '
+      + 'num app que nascesse avançado sempre', JSON.stringify(e1b));
+    await ctx.close();
+  }
+
+  {
+    const { ctx, pg } = await abrirApp({});
+    // A PREMISSA DA ABERTURA: o `sessionStorage` está VAZIO antes de o app rodar.
+    await pg.addInitScript(() => { window.__sessaoNaAbertura = sessionStorage.getItem('av.appMode'); });
+    await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+    await esperarCortina(pg);
+    const estado = (pagina) => pagina.evaluate(() => ({
+      modo: appMode,
+      corpo: document.body.classList.contains('mode-simple'),
+      trilho: document.getElementById('appModeSeg').dataset.modo,
+      bloqueio: document.getElementById('appModeSeg').dataset.bloqueio,
+      chave: (() => { try { return localStorage.getItem('av.appModeFixo'); } catch (e) { return 'erro'; } })(),
+      dica: document.querySelector('#appModeSeg .fit-opt[data-mode="full"]').title,
+      sessaoNaAbertura: window.__sessaoNaAbertura,
+      // A porta do AVANÇADO é o que o compartilhamento usa: `escolherDestinos`
+      // e `escolherImportacao` devolvem `null` no simplificado.
+      simples: simplificado(),
+    }));
+    // O GESTO, como o dedo o faz: o `pointerdown`, 5 s de relógio de PAREDE, o
+    // `pointerup` e o `click` que o navegador manda no soltar. O prazo aqui não
+    // é veredito — é o que o pedido define, e o oráculo não tem como encurtá-lo
+    // sem deixar de medir o gesto que o operador usa.
+    const segurar = async (pagina) => {
+      await pagina.evaluate(() => {
+        document.querySelector('#appModeSeg .fit-opt[data-mode="full"]')
+          .dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+      });
+      await pagina.waitForTimeout(5300);
+      await pagina.evaluate(() => {
+        const b = document.querySelector('#appModeSeg .fit-opt[data-mode="full"]');
+        b.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+        b.click();   // o `click` do soltar, que o gesto tem de ENGOLIR
+      });
+    };
+    // O TOQUE CURTO, com o `pointerdown` que todo toque de verdade tem: é ele
+    // que rearma a janela do `click` suprimido.
+    const tocar = (pagina, modo) => pagina.evaluate((m) => {
+      const b = document.querySelector('#appModeSeg .fit-opt[data-mode="' + m + '"]');
+      b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+      b.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+      b.click();
+    }, modo);
+
+    const e2 = await estado(pg);
+    checar(e2.sessaoNaAbertura === null && e2.modo === 'simple' && e2.corpo === true
+      && e2.bloqueio === 'nao' && e2.chave === null,
+      'E2 · a premissa da abertura: `sessionStorage` VAZIO (o app fechado) e, sem o bloqueio, o app nasce no '
+      + 'Modo simples com o trilho dizendo `nao`', JSON.stringify(e2));
+
+    await segurar(pg);
+    const e3 = await estado(pg);
+    checar(e3.chave === 'full' && e3.bloqueio === 'full' && e3.modo === 'simple' && e3.corpo === true
+      && e3.trilho === 'simple' && /voltar a abrir no Modo simples/.test(e3.dica),
+      'E3 · 5 s sobre a metade "Modo avançado" LIGA o bloqueio, e o `click` do soltar NÃO troca o modo '
+      + '(nem o corpo, nem o trilho); o `title` do botão passa a dizer como desligar — o destrave é descobrível',
+      JSON.stringify(e3));
+
+    await tocar(pg, 'full');
+    const e4ok = await esperar(pg, () => appMode === 'full' && !document.body.classList.contains('mode-simple'));
+    const e4 = await estado(pg);
+    checar(e4ok === true && e4.bloqueio === 'full' && e4.chave === 'full',
+      'E4 · e o toque CURTO continua trocando de modo — o bloqueio não tranca o app num modo, ele decide a '
+      + 'ABERTURA', porque(e4ok) || JSON.stringify(e4));
+
+    // ── E5. O APP ABERTO DE NOVO, que é o caso do compartilhamento ────────
+    //
+    // Aba nova no mesmo contexto = `sessionStorage` vazio e o `localStorage`
+    // de pé: é exatamente o aparelho com o app fechado recebendo um
+    // compartilhamento, e é o que o pedido quer garantir.
+    const pg2 = await ctx.newPage();
+    vigiar(pg2);
+    await pg2.addInitScript(PONTE);
+    await pg2.addInitScript(() => { window.__sessaoNaAbertura = sessionStorage.getItem('av.appMode'); });
+    await pg2.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+    await esperarCortina(pg2);
+    const e5 = await estado(pg2);
+    checar(e5.sessaoNaAbertura === null && e5.modo === 'full' && e5.corpo === false
+      && e5.bloqueio === 'full' && e5.trilho === 'full' && e5.simples === false,
+      'E5 · o app ABERTO DE NOVO (`sessionStorage` vazio) nasce no AVANÇADO com o bloqueio ligado — é o '
+      + 'compartilhamento que acorda o app para importar', JSON.stringify(e5));
+
+    // E AINDA SE PODE TOCAR PARA O SIMPLES — sem derrubar o bloqueio.
+    await tocar(pg2, 'simple');
+    const e6ok = await esperar(pg2, () => appMode === 'simple' && document.body.classList.contains('mode-simple'));
+    const e6 = await estado(pg2);
+    checar(e6ok === true && e6.bloqueio === 'full' && e6.chave === 'full',
+      'E6 · tocar no "Modo simples" troca o modo e NÃO desliga o bloqueio — o pedido separa as duas coisas',
+      porque(e6ok) || JSON.stringify(e6));
+
+    await segurar(pg2);
+    const e7 = await estado(pg2);
+    checar(e7.chave === null && e7.bloqueio === 'nao' && e7.modo === 'simple'
+      && /abrir sempre no Modo avançado/.test(e7.dica),
+      'E7 · o MESMO gesto DESLIGA o bloqueio: a chave sai, o trilho diz `nao` e o `title` volta a dizer o que '
+      + 'acender — sem tela nova, o destrave é o gesto que o ligou', JSON.stringify(e7));
+
+    const pg3 = await ctx.newPage();
+    vigiar(pg3);
+    await pg3.addInitScript(PONTE);
+    await pg3.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+    await esperarCortina(pg3);
+    const e8 = await estado(pg3);
+    checar(e8.modo === 'simple' && e8.corpo === true && e8.bloqueio === 'nao' && e8.chave === null,
+      'E8 · destravado, o app aberto de novo volta a nascer no Modo simples — o desligar vale para a ABERTURA '
+      + 'seguinte', JSON.stringify(e8));
     await ctx.close();
   }
 

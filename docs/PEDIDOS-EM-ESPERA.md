@@ -83,7 +83,6 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **13** — Estudos (não são fila de execução) | 4 | estudo | nenhuma entrega |
 | **16** — O cronograma pronto: o organizador entrega o culto ao sonoplasta | 8 (I4×U2) | pedido | planejamento → Kotlin + web |
 | **29** — Guia do site: a captura da lista de Ferramentas e do Cronograma | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
-| **39** — O bloqueio do modo na abertura (5 s no "Modo avançado") | 6 (I2×U3) | pedido | só web |
 | **40** — O botão do itinerário: o ícone de lista e a seta ao abrir | 3 (I1×U3) | pedido | só web |
 
 ---
@@ -98,7 +97,6 @@ diferentes, e um lote nunca mistura dois temas.
 | tema | pacotes | o que sai junto |
 |---|---|---|
 | **Controle do pregador** | 34 | a página própria de controle dos slides, o desenho vertical, as três prévias e a cortina |
-| **Modos de uso** | 39 | o bloqueio do modo de abertura e o gesto de 5 s |
 | **Cronograma e destinos** | 16, 40 | a abertura antes do culto, o organizador entregando o culto pronto, e o desenho da porta do itinerário |
 | **Site** | 29 | a captura da lista de Ferramentas (seis) e a do Cronograma com a faixa do itinerário |
 | **Fila anterior a 14/11** | 5 | a tela de espera do Itinerário, na ordem que a fila já tinha |
@@ -147,7 +145,6 @@ ordem; a fila é dele.
 | 13.3 | layout de paisagem (o app no Windows saiu) | | 3 | 1 | 3 | estudo |
 | **16** | **O cronograma pronto: o organizador entrega o culto** | pedido | 4 | 2 | **8** | planejamento |
 | **29** | **Guia do site: a captura da lista de Ferramentas e do Cronograma** | resíduo | 2 | 1 | **2** | site |
-| **39** | **O bloqueio do modo na abertura (5 s no "Modo avançado")** | pedido | 2 | 3 | **6** | web |
 | **40** | **O botão do itinerário: o ícone de lista e a seta ao abrir** | pedido | 1 | 3 | **3** | web |
 
 ---
@@ -388,55 +385,6 @@ DESENHO itera por OTA, que é o que este pacote economiza.
 
 ---
 
-## Pacote 39 — O bloqueio do modo na abertura (5 s no "Modo avançado")
-
-**Nota 6 (I2 × U3) · pedido · só web**
-
-Pedido do operador (2026-11-16, 10h37): *"precisamos fazer um sistema de bloqueio
-de modo. Se eu segurar por 5 segundos sobre o modo avançado, ele bloqueia a
-abertura do app sempre no modo avançado. (Ainda é possível tocar para ir para o
-modo simples; o bloqueio é apenas para abertura do app, por exemplo garantindo
-que compartilhar algo com o app fechado vai abrir no modo avançado de importação
-de compartilhamento.)"*
-
-**O que existe hoje:** `appModeDaSessao()` (`controle.js`) lê
-`sessionStorage['av.appMode']` e devolve `'full'` só se a sessão já estava no
-avançado. Abrir o app **nasce sempre no Modo Fácil**, e o comentário da chave diz
-por quê (a escolha morre com o WebView). A folha da importação/compartilhamento
-exige o avançado por construção: `escolherDestinos`/`escolherImportacao` devolvem
-`null` quando `simplificado()` — é esse caminho que o pedido quer garantir.
-
-**O que o pacote faz:** um **gesto de 5 s** sobre a metade "Modo avançado" do
-`#appModeSeg` (o `.fit-seg` de Configurações) LIGA um bloqueio PERSISTENTE
-(`localStorage`, não `sessionStorage`) que faz a abertura nascer no avançado; o
-mesmo gesto DESLIGA. Tocar continua trocando de modo normalmente — o bloqueio é
-só da abertura, e é isso que o pedido separa em duas frases.
-
-**Decisões que o pacote tem de tomar na hora:**
-
-- **O destrave tem de ser descobrível.** O pedido não diz como desfazer; o gesto
-  de 5 s de novo é o candidato óbvio, mas precisa de resposta (o app não pode
-  "não dizer nada" e deixar o operador sem saber se travou ou não) — o pulso do
-  `responder` e/ou o `title` do botão, no idioma dos avisos que já existem.
-- **O toque que segue o gesto longo** trocaria o modo ao soltar: o clique tem de
-  ser suprimido quando os 5 s venceram (a mesma armadilha do toque longo das
-  linhas).
-- **Ler a chave ANTES DO PRIMEIRO QUADRO.** O `<body>` nasce `mode-simple` para a
-  tela certa aparecer sem esperar JS; quem lê `localStorage` hoje é o script
-  inline do `<head>` (o do TEMA). O bloqueio tem de entrar ali, e não só no topo
-  do `controle.js`, senão o app pisca o Modo Fácil antes de trocar.
-- **O aviso de que o bloqueio está ligado**: um selo no próprio segmento (o
-  `data-modo` já é o estado; um `data-bloqueio` novo seria o irmão dele) — a
-  decidir no lote, sem inventar tela.
-
-**Oracles que tocam nisso:** `abertura-e-transferencia` (o `appModeSeg` e a
-transferência), `configuracoes-sem-subtitulo`, `smoke`. Um oráculo novo tem de
-provar a recarga/abertura: com a chave ligada, `appModeDaSessao()` devolve
-`'full'` num `sessionStorage` VAZIO — é o caso do app fechado.
-
-**Entrega:** só web (nenhuma superfície da ponte muda).
-
----
 
 ## Pacote 40 — O botão do itinerário: o ícone de lista e a seta ao abrir
 
@@ -479,6 +427,8 @@ hoje do ✕/do card tem de ser revisto com o desenho novo.
 ---
 
 ## O que saiu desta lista (rastro, não log)
+
+**v1.14.48 (2026-11-16), só web:** o **Pacote 39** — o bloqueio do modo na abertura: 5 s sobre a metade "Modo avançado" do `#appModeSeg` gravam `av.appModeFixo` em `localStorage` e o app passa a NASCER no avançado (`data-modo-inicial` lido no `<head>`, `appModeDaSessao` respeitando-o), com o mesmo gesto desligando, o `click` do soltar suprimido e o anel + `title` como resposta; o toque curto continua trocando de modo. Bloco E do `abertura-e-transferencia`. Nota em `docs/HISTORICO.md`.
 
 **v1.14.35 (2026-11-15), só web:** o **Pacote 35** — a faixa do itinerário em três
 seções com a porta na barra do topo, a linha do momento sem cartão, os dois

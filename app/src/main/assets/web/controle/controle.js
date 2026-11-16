@@ -75,7 +75,7 @@ const simpleSlidePrevEl = document.getElementById('simpleSlidePrev');
 const simpleSlideNextEl = document.getElementById('simpleSlideNext');
 const simpleSlideNumEl = document.getElementById('simpleSlideNum');
 
-// ===== O MODO VALE PELA SESSÃO — toda abertura nasce no Modo Fácil =====
+// ===== O MODO VALE PELA SESSÃO — e o BLOQUEIO atravessa a sessão =====
 // Em `sessionStorage`, e NÃO no IndexedDB como o resto do estado: esta chave é
 // lida ANTES DO PRIMEIRO QUADRO (o `<body>` nasce `mode-simple` para a tela
 // certa aparecer sem esperar JS, e uma leitura do IDB é assíncrona — quem
@@ -89,13 +89,22 @@ const simpleSlideNumEl = document.getElementById('simpleSlideNum');
 // o sessionStorage nasce vazio e o app volta ao Modo Fácil, com o culto de pé.
 // É o lado seguro do erro (o Modo Fácil sempre funciona), e está dito para
 // ninguém prometer mais que isto. A chave de mesmo nome que as versões
-// anteriores gravaram em `localStorage` NUNCA é lida. UMA fonte.
+// anteriores gravaram em `localStorage` NUNCA é lida.
+//
+// A EXCEÇÃO É O BLOQUEIO DA ABERTURA (v1.14.48, `APP_MODE_FIXO_KEY`): o gesto de
+// 5 s sobre a metade "Modo avançado" grava em `localStorage` — persistente, é o
+// que ele tem de atravessar — e é ele que responde quando a sessão não existe.
+// Tocar continua trocando de modo; o bloqueio só decide COM QUE MODO o app
+// NASCE. A leitura é uma só e mora no `<head>` (`data-modo-inicial`), pelo
+// motivo do tema: antes do primeiro quadro não há `controle.js`.
 const APP_MODE_KEY = 'av.appMode';
+const APP_MODE_FIXO_KEY = 'av.appModeFixo';
 function appModeDaSessao() {
-  // `sessionStorage` lança com o armazenamento bloqueado. O padrão do app é o
-  // simplificado, então o `catch` já é a resposta certa.
-  try { return sessionStorage.getItem(APP_MODE_KEY) === 'full' ? 'full' : 'simple'; }
-  catch (_) { return 'simple'; }
+  // QUEM LEU AS DUAS GAVETAS FOI O SCRIPT INLINE DO `<head>` — mesma disciplina
+  // do `storedTema()`: o atributo é o carrier, e a ausência dele já é o padrão
+  // certo (o Modo simples). Uma segunda leitura aqui seria a mesma regra escrita
+  // duas vezes, com duas chances de divergir.
+  return document.documentElement.dataset.modoInicial === 'full' ? 'full' : 'simple';
 }
 let appMode = appModeDaSessao();
 // Só a PINTURA aqui: é a única parte que não pode esperar. O resto de
@@ -103,6 +112,55 @@ let appMode = appModeDaSessao();
 // tem largura para ser medida.
 document.body.classList.toggle('mode-simple', appMode === 'simple');
 simpleModeEl.classList.toggle('open', appMode === 'simple');
+
+// ===== O BLOQUEIO DA ABERTURA (v1.14.48) =====
+// Pedido do operador: *"Se eu segurar por 5 segundos sobre o modo avançado, ele
+// bloqueia a abertura do app sempre no modo avançado. (Ainda é possível tocar
+// para ir para o modo simples; o bloqueio é apenas para abertura do app, por
+// exemplo garantindo que compartilhar algo com o app fechado vai abrir no modo
+// avançado de importação de compartilhamento.)"*
+//
+// A CHAVE É PERSISTENTE e o valor é `'full'`: a ausência é o bloqueio desligado,
+// e não há um terceiro estado. Quem a lê antes do primeiro quadro é o script do
+// `<head>` (o `appModeDaSessao` lê o que ele decidiu), e é por isso que a grafia
+// dela aparece lá também.
+const MODO_FIXO_SEGURAR_MS = 5000;
+// A JANELA DO CLIQUE QUE SEGUE O GESTO: ele chega logo depois do `pointerup`, e
+// 1,2 s cobre a folga de um aparelho lento sem engolir um toque sintético
+// (leitor de tela, teclado), que não tem `pointerdown` antes.
+const MODO_FIXO_CLIQUE_MS = 1200;
+function modoFixoAtivo() {
+  // `localStorage` lança com o armazenamento bloqueado, e aí o gesto não tem
+  // onde gravar — a resposta segura é "desligado".
+  try { return localStorage.getItem(APP_MODE_FIXO_KEY) === 'full'; }
+  catch (_) { return false; }
+}
+function gravarModoFixo(ligado) {
+  try {
+    if (ligado) localStorage.setItem(APP_MODE_FIXO_KEY, 'full');
+    else localStorage.removeItem(APP_MODE_FIXO_KEY);
+  } catch (_) { /* armazenamento bloqueado: não há onde gravar */ }
+  renderModoFixo();
+}
+// O SELO MORA NO PRÓPRIO TRILHO: o anel na metade do avançado (o CSS) e o
+// `title`/`aria-label` do botão dizem que ele está ligado E como desligar — o
+// destrave tem de ser descobrível, e o gesto é o que o acende e o apaga.
+// `data-bloqueio` é o irmão do `data-modo`: o atributo é o estado, a tinta é
+// aparência, e é por ele que os oráculos perguntam.
+function renderModoFixo() {
+  if (!appModeSegEl) return;
+  const ligado = modoFixoAtivo();
+  appModeSegEl.dataset.bloqueio = ligado ? 'full' : 'nao';
+  const btn = appModeSegEl.querySelector('.fit-opt[data-mode="full"]');
+  if (!btn) return;
+  const dica = ligado
+    ? 'Segure 5 s aqui para o app voltar a abrir no Modo simples'
+    : 'Segure 5 s aqui para o app abrir sempre no Modo avançado';
+  if (btn.title !== dica) {
+    btn.title = dica;
+    btn.setAttribute('aria-label', 'Modo avançado. ' + dica);
+  }
+}
 
 // ===== O TEMA (claro × escuro) — mesma gaveta, mesma razão =====
 // Vale o parágrafo do `APP_MODE_KEY`, e aqui o preço de errar é maior: o modo
@@ -424,7 +482,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.47';
+const WEB_VERSION = '1.14.48';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -43603,6 +43661,10 @@ function renderAppModeSeg() {
   appModeSegEl.querySelectorAll('.fit-opt').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.mode === appMode);
   });
+  // O BLOQUEIO DA ABERTURA é outro estado do MESMO trilho, e por isso se pinta
+  // aqui: ele não muda com o modo, mas quem repinta o trilho passa por este
+  // ponto, e a abertura (`setAppMode(appMode)` do `init`) é um deles.
+  renderModoFixo();
 }
 
 // ---- Tema (a leitura e a pintura estão no topo do arquivo) ----
@@ -44605,6 +44667,40 @@ appModeSegEl.addEventListener('click', (e) => {
   if (!btn) return;
   trocarModoPelaFolha(btn.dataset.mode);
 });
+// ===== O GESTO DE 5 s QUE BLOQUEIA A ABERTURA (v1.14.48) =====
+// Segurar a metade "Modo avançado" LIGA o bloqueio, e o mesmo gesto DESLIGA —
+// o destrave é o gesto que o operador já conhece, e o `title` do botão diz o que
+// ele faz no estado em que está. O toque curto continua trocando de modo.
+//
+// O `fired` DO TOQUE LONGO DAS LINHAS, aplicado aqui: quando os 5 s vencem, o
+// `click` que vem no soltar TROCARIA o modo, e o gesto viraria duas ações. O
+// handler é de CAPTURA no próprio botão, então ele corre antes do handler do
+// trilho (`bubble`) e o `stopPropagation` o alcança.
+const modoFixoBtn = appModeSegEl.querySelector('.fit-opt[data-mode="full"]');
+if (modoFixoBtn) {
+  let modoFixoTimer = 0, modoFixoVenceuEm = 0;
+  const cancelarModoFixo = () => {
+    if (modoFixoTimer) { clearTimeout(modoFixoTimer); modoFixoTimer = 0; }
+  };
+  modoFixoBtn.addEventListener('pointerdown', () => {
+    cancelarModoFixo();
+    modoFixoVenceuEm = 0;
+    modoFixoTimer = setTimeout(() => {
+      modoFixoTimer = 0;
+      modoFixoVenceuEm = Date.now();
+      gravarModoFixo(!modoFixoAtivo());
+    }, MODO_FIXO_SEGURAR_MS);
+  });
+  // `pointerleave` junto porque um dedo que escorrega para fora da metade antes
+  // dos 5 s é um gesto DESISTIDO, não um gesto que venceu.
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => modoFixoBtn.addEventListener(ev, cancelarModoFixo));
+  modoFixoBtn.addEventListener('click', (e) => {
+    if (!modoFixoVenceuEm || Date.now() - modoFixoVenceuEm > MODO_FIXO_CLIQUE_MS) return;
+    modoFixoVenceuEm = 0;
+    e.preventDefault();
+    e.stopPropagation();
+  }, true);
+}
 // O TEMA ALTERNA: o par escuro/claro é um tile, e um tile de dois estados não
 // escolhe — ele vai para o outro. Todo toque muda a cor.
 temaTileEl.addEventListener('click', () => { setTema(tema === 'claro' ? 'escuro' : 'claro'); });

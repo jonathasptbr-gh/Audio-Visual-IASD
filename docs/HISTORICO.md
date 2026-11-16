@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.48** — Pacote 39: segurar 5 s o "Modo avançado" faz o app NASCER no avançado (inclusive com o app fechado, no compartilhamento), o mesmo gesto desliga, e o toque continua trocando de modo; só web.
 - **v1.14.47** — o mesmo aviso da abertura da v1.14.46, com as notas no limite de 120 caracteres (renumerado porque o portão reprovou o texto; só web).
 - **v1.14.46** — o piso de 60% conta o que fez num aviso na abertura, com o mudo do app e o Não perturbe do sistema (só alarmes, e o louvor continua com som) — Kotlin + web, com Release.
 - **v1.14.45** — os Favoritos: o botão Detalhes por tipo na gaveta de play, a faixa do ⋮ vestindo o tom do card aberto e a divisória que marcava a borda dele (só web).
@@ -914,6 +915,22 @@ acervo; `tour` B2 aceita o passo do fim como opcional; `smoke`, `boot-nativo`,
 `modo-simples-biblioteca-tamanho` e `semana-item` voltaram ao que eram antes da v1.14.40.
 
 ---
+
+## v1.14.48 — o bloqueio do Modo avançado na abertura: 5 s no botão, e o app nasce nele
+
+**Pedido do operador**, só web: `SHELL_VERSION` 89 (o shell não foi tocado), `minShell` 83, **sem `shellTag`** — a superfície da ponte não muda e a Release da v1.14.46 está paga. Degrau CORREÇÃO.
+
+*"Se eu segurar por 5 segundos sobre o modo avançado, ele bloqueia a abertura do app sempre no modo avançado. (Ainda é possível tocar para ir para o modo simples; o bloqueio é apenas para abertura do app, por exemplo garantindo que compartilhar algo com o app fechado vai abrir no modo avançado de importação de compartilhamento.)"*
+
+**A CHAVE É PERSISTENTE E É UMA SÓ:** `localStorage['av.appModeFixo'] = 'full'`, e a ausência é o bloqueio desligado. Ela é a exceção da v1.11.7 — o modo vale pela `sessionStorage`, e a chave LEGADA de mesmo nome em `localStorage` continua sem leitor. Quem lê as DUAS gavetas é o script inline do `<head>` (o do tema), e ele grava o resultado em `data-modo-inicial` no `<html>`: a primeira linha de script do `<body>` aplica o atributo e revoga a classe `mode-simple` **antes da cortina existir** — o `controle.js` é o último dos quinze scripts do fim do corpo, e esperá-lo era pintar o Modo simples até o fim da carga. O `appModeDaSessao()` deixou de ler `sessionStorage` e lê o atributo, a mesma disciplina do `storedTema()`.
+
+**A PRECEDÊNCIA É A DO PEDIDO:** a sessão manda enquanto existir (a recarga do documento no mesmo WebView, a atualização aceita); `sessionStorage` vazio é o app FECHADO, e aí quem responde é o bloqueio. É o caso do compartilhamento que acorda o app: `escolherDestinos`/`escolherImportacao` devolvem `null` quando `simplificado()`, e com o bloqueio ligado a abertura é a do avançado.
+
+**O GESTO** é o toque longo do app aplicado ao trilho do modo: `pointerdown` na metade "Modo avançado", 5 s (`MODO_FIXO_SEGURAR_MS`) e `gravarModoFixo(!modoFixoAtivo())` — o MESMO gesto liga e desliga, e `pointerleave`/`pointercancel` cancelam, porque um dedo que escorrega é um gesto desistido. O `click` que o navegador manda no soltar é ENGOLIDO (captura no próprio botão, antes do handler do trilho, com janela de 1,2 s), senão o gesto viraria duas ações e o modo trocaria ao soltar. O toque curto continua trocando de modo: o bloqueio só decide a ABERTURA.
+
+**A RESPOSTA NÃO INVENTA TELA:** o anel `inset` de 2 px em `--accent` na metade do avançado (`data-bloqueio="full"` no trilho, irmão do `data-modo`; `box-shadow` e não `border`, porque a caixa do botão é medida pelo `smoke` nos dois lados do polegar), e o `title`/`aria-label` do botão dizem o gesto no estado em que ele está — o destrave é descobrível por construção. O pulso do `pulsar()` ficou de fora: ele troca o conteúdo do botão por um ✓ e esconderia o rótulo e o desenho que dizem o modo.
+
+**O ORÁCULO** é o bloco E do `abertura-e-transferencia.test.mjs`, oito asserções. A que carrega o lote é a E1: com o `controle.js` ABORTADO PELA ROTA (o cenário do primeiro quadro) o bloqueio ligado já deixou o `<html>` e o corpo no avançado, e sem a chave o mesmo caminho deixa o corpo no simples. A E2 é a premissa (`sessionStorage` vazio medido no `addInitScript`); a E3 e a E7 são o gesto de 5 s de RELÓGIO DE PAREDE ligando e desligando, com o `click` do soltar suprimido medido pelo corpo e pelo trilho; a E4 e a E6 são o toque curto trocando de modo SEM derrubar o bloqueio; a E5 e a E8 são a ABERTURA — aba nova, `sessionStorage` vazio: com a chave nasce no avançado (e `simplificado()` falso), sem ela volta ao simples.
 
 ## v1.14.47 — o aviso da abertura, com as notas no limite (renumeração da v1.14.46)
 

@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.14.48",
+    "itens": [
+      "Segurar por 5 segundos o botão Modo avançado, nas Configurações, faz o app abrir sempre no avançado.",
+      "O bloqueio vale com o app fechado: compartilhar algo abre direto na importação do modo avançado.",
+      "Tocar no modo continua trocando na hora; o bloqueio só decide com que modo o app começa.",
+      "O mesmo gesto de 5 segundos desliga, e um anel no botão mostra que o bloqueio está ligado."
+    ]
+  },
+  {
     "versao": "1.14.47",
     "itens": [
       "Ao abrir, se o som do celular estava abaixo de 60%, um aviso conta que o app subiu o volume do aparelho.",
