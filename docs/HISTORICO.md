@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.50** — nos Favoritos o botão largo é UM só e ALTERNA: "Ver a letra" quando o registro tem letra, "Detalhes" quando não tem; o card continua montado, sem botão (só web).
 - **v1.14.49** — Pacote 40: a porta do itinerário vira checklist fechada e seta para cima aberta, sem card; a faixa encolhe até o fim antes de sumir, todos os ícones dela no tamanho padrão e o telão vira um monitor (só web).
 - **v1.14.48** — Pacote 39: segurar 5 s o "Modo avançado" faz o app NASCER no avançado (inclusive com o app fechado, no compartilhamento), o mesmo gesto desliga, e o toque continua trocando de modo; só web.
 - **v1.14.47** — o mesmo aviso da abertura da v1.14.46, com as notas no limite de 120 caracteres (renumerado porque o portão reprovou o texto; só web).
@@ -916,6 +917,18 @@ acervo; `tour` B2 aceita o passo do fim como opcional; `smoke`, `boot-nativo`,
 `modo-simples-biblioteca-tamanho` e `semana-item` voltaram ao que eram antes da v1.14.40.
 
 ---
+
+## v1.14.50 — o botão largo do favorito ALTERNA: "Ver a letra" ou "Detalhes", nunca os dois
+
+**Pedido do operador** (2026-11-16, 12h), só web: `SHELL_VERSION` 89 (o shell não foi tocado), `minShell` 83, **sem `shellTag`**. Degrau CORREÇÃO.
+
+*"Para músicas da biblioteca, nos favoritos, não deixe os detalhes, deixe apenas o ver letra. Basicamente esse botão maior se altera entre 'Ver letra' e 'Detalhes'. Como músicas da biblioteca tem letra, então o botão será ver letra. Quando não há letra, e for uma mídia genérica, então 'Detalhes'."*
+
+**É UM OU EXCLUSIVO no `renderItemMenu`:** o largo da fileira é `destBotaoLeitura` quando o REGISTRO tem letra (`item.lyrics` com texto — o mesmo critério da v1.13.36) e `destBotaoDetalhesDoItem` quando não tem. Revoga os DOIS largos da v1.14.45: eles dividiam a fileira, obrigavam a quebra de linha (o segundo descia sozinho para uma linha de borda a borda) e punham numa música o "Detalhes" que o operador não quer ali. O CARD `.item-detalhe` continua montado na gaveta de todo item — o que deixa de existir é o BOTÃO dele quando há letra, e o `montarDetalhesDoItem` segue igual.
+
+**A CONSEQUÊNCIA NA FILEIRA:** com um largo só, ela deixa de quebrar por causa deles; se o rótulo (o "Ver a letra" é o mais longo) não couber ao lado dos quatro quadrados com a fonte do aparelho, ele ainda desce para uma linha só dele — o texto nunca corta. O CSS não mudou.
+
+**OS ORÁCULOS.** O `favoritos-detalhes` ganhou o bloco **F**: a letra entra no registro DEPOIS do B e do C (que abrem o card do MESMO item sem ela) e o largo passa a ser o "Ver a letra", com o `[data-dest="detalhes"]` fora da fileira e o card ainda montado — é a prova do alternar, e o A deixou de exigir dois largos. O `destinos-diretos` (o favorito do bloco D) e o `favoritos-menu-na-linha` (o C, agora com as duas metades: a gaveta do sem letra é aberta para medir o "Detalhes") foram ajustados pela mesma régua. O `boot-nativo` foi rodado: as fileiras que ele mede são as da gaveta da MÚSICA e do oferecimento de link (`renderSongMenu`/`openYtMenu`), que não passam por este alternar. O capítulo `docs/arquitetura/CONTROLE-BIBLIOTECA.md` e as três linhas do `docs/ORACULOS.md` foram atualizados.
 
 ## v1.14.49 — a porta do itinerário: checklist, seta sem card, a faixa que encolhe até o fim e o monitor do telão
 

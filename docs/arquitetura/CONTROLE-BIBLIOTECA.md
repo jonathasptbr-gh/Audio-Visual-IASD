@@ -88,7 +88,12 @@ do Cronograma (`alternarAcoesDaLinha`), com o MESMO nó a cada remontagem; o
 "Ver a letra" de um favorito só existe se o registro TEM letra. **DESDE A
 v1.14.45 O FAVORITO TEM DOIS LARGOS** — o "Ver a letra" e o **"Detalhes"** —, e
 com os dois a fileira QUEBRA: o segundo desce para uma linha só dele, de borda a
-borda (o texto nunca corta). O card que ele abre é o MESMO `.item-detalhe` da
+borda (o texto nunca corta). **E DESDE O PACOTE 41 (v1.14.49) O LARGO DO FAVORITO
+É UM SÓ, E ELE ALTERNA** — revoga os dois da v1.14.45: com letra é o **"Ver a
+letra"**; sem letra, o **"Detalhes"** (o card `.item-detalhe` continua montado na
+gaveta — o que não existe mais é o botão dele quando há letra). Com um só, a
+fileira deixa de quebrar POR CAUSA deles; o rótulo ainda desce para uma linha só
+dele quando não cabe ao lado dos quatro quadrados, e o texto nunca corta. O card que ele abre é o MESMO `.item-detalhe` da
 gaveta de um vídeo, preenchido por `montarDetalhesDoItem`: tipo + formato, canal,
 origem, tamanho, páginas, letra, as mídias de um pacote, a dimensão de uma imagem
 (a única decodificada, sob demanda) e a data — CADA LINHA SÓ EXISTE SE O DADO

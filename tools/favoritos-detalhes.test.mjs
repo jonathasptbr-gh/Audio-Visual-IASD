@@ -22,9 +22,10 @@
 //     alcançava a placa dos Favoritos, e os dois traços (o do aberto e o da
 //     vizinha de baixo) ficavam a 4px do card. Agora somem, como no hinário.
 //
-//  A. TODO favorito tem o "Detalhes" largo na gaveta, e ele PREENCHE a fileira
-//     (o item sem letra: 3 quadrados + 1 largo; o com letra: 2 largos, e o "Ver
-//     a letra" continua).
+//  A. TODO favorito tem UM botão largo só, e ele PREENCHE a fileira (o item sem
+//     letra: 3 quadrados + "Detalhes"). O Pacote 41 tornou os dois largos um OU
+//     exclusivo: com letra o largo é "Ver a letra" (o card continua montado, sem
+//     botão), sem letra é "Detalhes" — a prova das duas metades é o bloco F.
 //  B. O card abre e fecha pelo botão (`vendo-detalhe`, `.on`, `aria-pressed`),
 //     com o `.item-detalhe` à vista e as linhas do REGISTRO.
 //  C. POR TIPO: o áudio diz o formato ("Áudio MP3"), o PDF diz "PDF" (o
@@ -78,8 +79,6 @@ try {
     await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'video/mp4' }),
       { name: 'Vídeo do YouTube', kind: 'video', height: 1080, seconds: 312, canal: 'Canal do culto', youtubeId: 'abc123', list: 'favs' });
     await recarregarFavoritos();
-    const com = favItems.find((m) => m.name === 'Áudio com letra');
-    if (com) com.lyrics = [{ time: 0, text: 'Primeira estrofe' }];
     if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch(false);
     favAberto = true;
     renderSearchResults('');
@@ -140,9 +139,10 @@ try {
     await fechar(i);
   }
   checar(a.every((r) => r.existe && r.texto === 'Detalhes' && r.largo && r.maiorQueOQuadrado),
-    'A · todo favorito tem o "Detalhes" LARGO na gaveta, e ele cresce no resto da fileira', a);
-  checar(a.find((r) => r.nome === 'Áudio com letra').largos.join('|') === 'Ver a letra|Detalhes',
-    'A · com letra, a fileira tem os DOIS largos — o "Ver a letra" não sai de cena', a);
+    'A · todo favorito SEM letra tem o "Detalhes" LARGO na gaveta, e ele cresce no resto da fileira', a);
+  checar(a.every((r) => r.largos.join('|') === 'Detalhes'),
+    'A · e UM largo só por fileira: os dois ao mesmo tempo (v1.14.45) saíram — o de uma música é o "Ver a letra"',
+    a.map((r) => [r.nome, r.largos]));
 
   // ── B. O CARD ABRE E FECHA PELO BOTÃO ────────────────────────────────────
   await abrirGaveta(0);
@@ -263,6 +263,37 @@ try {
   }, linhas);
   checar(e.aberto && e.propria === 'none' && e.vizinhaDeBaixo === 'none' && e.terceiraFechada !== 'none',
     'E · a divisória do favorito aberto e a da vizinha de baixo somem; a de uma linha fechada distante fica', e);
+
+  // ── F. O BOTÃO LARGO ALTERNA: LETRA OU DETALHES, NUNCA OS DOIS (Pacote 41) ──
+  // Pedido do operador, 2026-11-16 12h: *"para músicas da biblioteca, nos
+  // favoritos, não deixe os detalhes, deixe apenas o ver letra. Basicamente esse
+  // botão maior se altera entre 'Ver letra' e 'Detalhes'. Como músicas da
+  // biblioteca tem letra, então o botão será ver letra. Quando não há letra, e
+  // for uma mídia genérica, então 'Detalhes'."* A letra entra AQUI, depois de o
+  // B e o C abrirem o card do MESMO item sem ela — é o que prova o alternar.
+  await pg.evaluate(() => {
+    const com = favItems.find((m) => m.name === 'Áudio com letra');
+    if (com) com.lyrics = [{ time: 0, text: 'Primeira estrofe' }];
+    songMenuFor = null;
+    renderSearchResults('');
+  });
+  await esperar(pg, (s) => document.querySelectorAll(s).length === 4, linhas, 15000);
+  await espera(600);
+  await abrirGaveta(0);
+  const f = await pg.evaluate((linhas) => {
+    const li = document.querySelectorAll(linhas)[0];
+    return {
+      largos: [...li.querySelectorAll('.dest-botoes > .dest-largo')].map((b) => [b.dataset.dest, b.textContent.trim()]),
+      detalhes: !!li.querySelector('.dest-botoes > [data-dest="detalhes"]'),
+      leitura: !!li.querySelector('.dest-botoes > [data-dest="leitura"]'),
+      cardMontado: !!li.querySelector(':scope > .hymn-gaveta > .item-detalhe'),
+    };
+  }, linhas);
+  checar(f.leitura && f.detalhes === false && f.largos.length === 1
+    && f.largos[0][0] === 'leitura' && f.largos[0][1] === 'Ver a letra',
+    'F · com letra, o ÚNICO botão largo é o "Ver a letra" — o "Detalhes" sai da fileira', f);
+  checar(f.cardMontado,
+    'F · e o card de detalhes continua montado na gaveta: o que saiu foi o BOTÃO, não o card', f.cardMontado);
 
   checar(erros.length === 0, 'nenhum erro de página', erros);
 } finally {

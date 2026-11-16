@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.14.50",
+    "itens": [
+      "Nos Favoritos, o botão largo agora é um só: Ver a letra quando o item tem letra.",
+      "Sem letra, o mesmo botão mostra Detalhes — nunca os dois ao mesmo tempo.",
+      "O card de detalhes continua lá; quando há letra, ele só fica sem botão."
+    ]
+  },
+  {
     "versao": "1.14.49",
     "itens": [
       "O botão do itinerário virou uma lista com marcas de conferido, e ao abrir as opções ele vira uma seta.",

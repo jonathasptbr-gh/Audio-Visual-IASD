@@ -482,7 +482,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.49';
+const WEB_VERSION = '1.14.50';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -14742,13 +14742,22 @@ function renderItemMenu(item, alvo, destinos, detalhe) {
     alvo.innerHTML = '';
     destRemontar = desenhar;
     destExecutor = null;
+    // UM LARGO SÓ, E ELE ALTERNA (Pacote 41, 16/11): pedido do operador —
+    // *"para músicas da biblioteca, nos favoritos, não deixe os detalhes, deixe
+    // apenas o ver letra. Basicamente esse botão maior se altera entre 'Ver letra'
+    // e 'Detalhes'. Como músicas da biblioteca tem letra, então o botão será ver
+    // letra. Quando não há letra, e for uma mídia genérica, então 'Detalhes'"*.
+    // O critério é o mesmo que já decidia o "Ver a letra" (v1.13.36): LETRA no
+    // registro. Com ela, é o que o operador quer ali — o card de detalhes
+    // continua montado e sem botão; sem ela, o card é a única coisa a revelar.
+    // Os dois largos ao mesmo tempo (v1.14.45) saíram: a fileira tinha de quebrar
+    // em duas linhas para caber, e o "Detalhes" de uma música carregava o botão
+    // que o operador não pediu nela.
     const fileira = destBotoesRow([
       ...destBotoesPadrao(quais, fazer),
-      temLetraNoItem ? destBotaoLeitura(() => openLyricsPopup(item)) : null,
-      // O SEGUNDO LARGO, e ele REVELA como o primeiro (v1.14.45): não manda a
-      // mídia a lugar nenhum. Com os dois, a fileira quebra e o "Detalhes" desce
-      // para uma linha só dele (a regra do `.dest-largo`) — o texto nunca corta.
-      destBotaoDetalhesDoItem(item, li, detalhe),
+      temLetraNoItem
+        ? destBotaoLeitura(() => openLyricsPopup(item))
+        : destBotaoDetalhesDoItem(item, li, detalhe),
     ]);
     // (O `⋮` das OPÇÕES DO ITEM — excluir · renomear — morou nesta fileira da
     // v1.13.36 à v1.13.67, e por isso só existia com a gaveta aberta. Desde a
@@ -14767,11 +14776,12 @@ function renderItemMenu(item, alvo, destinos, detalhe) {
 // para cada tipo de item, tente buscar o máximo de informações para pôr nessa
 // seção"*.
 //
-// É o SEGUNDO botão largo da fileira, com a MESMA natureza do "Ver a letra" ao
-// lado: ele não manda nada a lugar nenhum, ele revela. O estado mora na classe
-// do `li` (`vendo-detalhe`), que sobrevive à remontagem da fileira — a MESMA
-// classe da gaveta de um vídeo, que nasceu `vendo-letra` e passou a valer para o
-// card inteiro (ver o comentário da regra, no CSS).
+// É o botão largo da fileira para quem NÃO tem letra (o outro é o `destBotaoLeitura`,
+// e o Pacote 41 fez deles um OU exclusivo — nunca os dois): ele não manda nada a
+// lugar nenhum, ele revela. O estado mora na classe do `li` (`vendo-detalhe`), que
+// sobrevive à remontagem da fileira — a MESMA classe da gaveta de um vídeo, que
+// nasceu `vendo-letra` e passou a valer para o card inteiro (ver o comentário da
+// regra, no CSS).
 function destBotaoDetalhesDoItem(item, li, detalhe) {
   const temCard = !!(li && detalhe);
   return {

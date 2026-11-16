@@ -277,19 +277,35 @@ try {
   await esperar(pg, (s) => !!document.querySelector(s + '.expanded .hymn-gaveta .dest-botoes'), linhas);
   const c1 = await pg.evaluate(({ linhas }) => {
     const lis = [...document.querySelectorAll(linhas)];
-    // `[data-dest="leitura"]` e não `.dest-largo`: desde a v1.14.45 a fileira tem
-    // DOIS largos (o "Ver a letra" e o "Detalhes"), e o "Detalhes" existe em todo
-    // favorito — quem é condicional continua sendo a letra.
+    // `[data-dest="leitura"]` e não `.dest-largo`: desde o Pacote 41 o largo é UM
+    // SÓ e ele ALTERNA com a letra — com letra é o "Ver a letra", sem letra é o
+    // "Detalhes". As duas metades são medidas: a leitura é condicional E o
+    // detalhes é o outro lado dela.
     const tem = (li) => !!li.querySelector('.hymn-gaveta [data-dest="leitura"]');
-    return { comLetra: tem(lis[0]), semLetra: tem(lis[1]) };
+    const det = (li) => !!li.querySelector('.hymn-gaveta [data-dest="detalhes"]');
+    return { comLetra: tem(lis[0]), detalheNoComLetra: det(lis[0]) };
   }, { linhas });
-  checar(c1.comLetra && !c1.semLetra,
-    'C · "Ver a letra" só existe no registro com letra (o "Detalhes" existe em todo)', c1);
+  checar(c1.comLetra && !c1.detalheNoComLetra,
+    'C · com letra, o botão largo é o "Ver a letra" — e o "Detalhes" sai da fileira', c1);
   await pg.locator(linhas + ' >> nth=0 >> [data-dest="leitura"]').tap();
   const abriuLetra = await esperar(pg, () => document.getElementById('lyricsPopup').classList.contains('open'));
   checar(abriuLetra === true, 'C · e "Ver a letra" abre a leitura do item', porque(abriuLetra));
   await pg.evaluate(() => { document.getElementById('lyricsPopup').classList.remove('open'); });
-  await tocar(linhas + ' >> .row-text', 0);   // fecha a gaveta
+  // O OUTRO LADO (Pacote 41): a gaveta de quem NÃO tem letra é montada agora — os
+  // botões só existem com ela aberta, e é nela que o largo tem de ser o "Detalhes".
+  await tocar(linhas + ' >> .row-text', 1);
+  await esperar(pg, (s) => !!document.querySelector(s + '.expanded .hymn-gaveta .dest-botoes'), linhas);
+  const c1b = await pg.evaluate(({ linhas }) => {
+    const li = document.querySelectorAll(linhas)[1];
+    return {
+      largos: [...li.querySelectorAll('.hymn-gaveta .dest-largo')].map((b) => [b.dataset.dest, b.textContent.trim()]),
+      leitura: !!li.querySelector('.hymn-gaveta [data-dest="leitura"]'),
+      detalhes: !!li.querySelector('.hymn-gaveta [data-dest="detalhes"]'),
+    };
+  }, { linhas });
+  checar(c1b.detalhes && !c1b.leitura && c1b.largos.length === 1 && c1b.largos[0][1] === 'Detalhes',
+    'C · sem letra, o botão largo é o "Detalhes" — um só, nunca os dois', c1b);
+  await tocar(linhas + ' >> .row-text', 1);   // fecha a gaveta do sem letra
 
   // C2. Excluir: a pergunta nasce na faixa; Cancelar não exclui.
   await tocar(linhas + ' >> .row-mais', 3);

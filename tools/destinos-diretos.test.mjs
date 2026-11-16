@@ -280,12 +280,13 @@ try {
       && d.antes.semOpcoesNaGaveta && d.antes.cabem,
       'D · ' + nome + ' · o favorito tem o `⋮` quadrado na ponta direita da LINHA, com a gaveta fechada, '
       + 'e nenhum `⋮`/faixa duplicado na gaveta', d.antes);
-    // O FAVORITO FECHA COM O "DETALHES" (v1.14.45): ele é o segundo largo da
-    // fileira, e o "Ver a letra" — quando existe — vem antes dele.
+    // O FAVORITO FECHA COM UM LARGO SÓ, E ELE ALTERNA (Pacote 41): com letra é o
+    // "Ver a letra"; sem letra, o "Detalhes". O `medirD` monta o favorito da
+    // música com a letra do hinário, e o vídeo sem nenhuma.
     checar(d.antes.ordem.join(' | ') === (video ? 'tocar | cronograma | playlist | detalhes'
-      : 'tocar | cronograma | playlist | leitura | detalhes'),
-      'D · ' + nome + ' · ' + (video ? 'num VÍDEO sem letra não há "Ver a letra" apagado, e a fileira fecha no "Detalhes"'
-        : 'com letra, o "Ver a letra" vem antes do "Detalhes" — que é o último'),
+      : 'tocar | cronograma | playlist | leitura'),
+      'D · ' + nome + ' · ' + (video ? 'num VÍDEO sem letra o largo é o "Detalhes", e nada de "Ver a letra"'
+        : 'com letra o largo é o "Ver a letra" — um só, nunca os dois'),
       d.antes.ordem);
     checar(d.depois.maisLigado && d.depois.faixaVisivel && d.depois.destinosFicam && d.depois.gavetaAindaAberta
       && d.depois.botoes.join(',') === 'row-excluir,row-renomear',
