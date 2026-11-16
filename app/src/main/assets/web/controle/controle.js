@@ -482,7 +482,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.50';
+const WEB_VERSION = '1.14.51';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4619,7 +4619,10 @@ function renderNowPlaying() {
   }
   // ITINERÁRIO EM EXIBIÇÃO: o nome da ferramenta, como o cronômetro abaixo — o
   // item de agora muda com o relógio, e o título não é redesenhado por tique.
-  if (itinProjecting()) {
+  // COM MÍDIA NO AR o nome é o DELA (v1.14.51): a barra de progresso já é dela,
+  // e o título que não casa com a barra mente. O `midiaNoAr` (não `currentId`)
+  // é o que faz o Parar e o fim natural devolverem o "Itinerário".
+  if (itinProjecting() && !midiaNoAr) {
     npNameInnerEl.textContent = 'Itinerário';
     applyTitleMarquee();
     playPauseEl.querySelector('.msym').textContent = playing ? ICON.pause : ICON.play;
@@ -19824,6 +19827,10 @@ function resetAfterEnd() {
   // `persistCurrent`). Sem ele o item que acabou de tocar ficaria protegido do
   // coletor até o operador escolher outro.
   persistCurrent();
+  // COM O ITINERÁRIO NO AR, O NOME VOLTA A SER O DELE (v1.14.51): o ramo dele
+  // em `renderNowPlaying` não toca na barra, então chamá-lo aqui não desfaz a
+  // régua do `seekEl` abaixo (ver o "SÓ ELE" no fim desta função).
+  if (itinProjecting()) renderNowPlaying();
   setPlaying(false);
   seekEl.value = 0;
   curTimeEl.textContent = '0:00';

@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.51** — com o itinerário no telão, a MÍDIA tocada vence o nome do player (avançado, Modo Fácil, notificação), como já vencia a barra; o Parar e o fim natural devolvem "Itinerário" (só web).
 - **v1.14.50** — nos Favoritos o botão largo é UM só e ALTERNA: "Ver a letra" quando o registro tem letra, "Detalhes" quando não tem; o card continua montado, sem botão (só web).
 - **v1.14.49** — Pacote 40: a porta do itinerário vira checklist fechada e seta para cima aberta, sem card; a faixa encolhe até o fim antes de sumir, todos os ícones dela no tamanho padrão e o telão vira um monitor (só web).
 - **v1.14.48** — Pacote 39: segurar 5 s o "Modo avançado" faz o app NASCER no avançado (inclusive com o app fechado, no compartilhamento), o mesmo gesto desliga, e o toque continua trocando de modo; só web.
@@ -915,6 +916,18 @@ a folha com a oferta e os quatro botões; Tocar agora pondo na cena pela pratele
 `lista-da-biblioteca` D5b e `titulo-da-colecao-nao-anda` deixaram de contar o botão como bloco de
 acervo; `tour` B2 aceita o passo do fim como opcional; `smoke`, `boot-nativo`,
 `modo-simples-biblioteca-tamanho` e `semana-item` voltaram ao que eram antes da v1.14.40.
+
+---
+
+## v1.14.51 — o nome do player é o da mídia, com o itinerário no telão
+
+**Pedido do operador** (2026-11-16, 13h30), só web: `SHELL_VERSION` 89 (o shell não foi tocado), `minShell` 83, **sem `shellTag`**. Degrau CORREÇÃO.
+
+*"No player, enquanto houver um itinerário no telão, e eu tocar uma mídia, o nome do player deve ser da mídia, pois o progresso também já é da mídia."*
+
+**O RAMO DO ITINERÁRIO EM `renderNowPlaying` PERGUNTA `midiaNoAr`:** `itinProjecting() && !midiaNoAr`. Com mídia no ar ele cai no ramo da mídia, o mesmo que já governava a barra — o `#npName`, o `#simpleNpName` (que copia o primeiro no `renderSimple`) e o título da notificação (o `pushNowPlaying` lê o mesmo elemento) andam juntos. É `midiaNoAr` e não `currentId` porque este sobrevive ao Parar de propósito: o nome voltaria nunca. O Parar já passava pelo `renderNowPlaying` (`stopClear`, o ramo `media-clear`); o FIM NATURAL não (`resetAfterEnd` evita a função por causa da régua do `seekEl`), e ganhou a chamada só com o itinerário no ar — o ramo dele não toca na barra. Os outros provedores de texto (cronômetro, sorteio, letra, Bíblia, mensagem) seguem com o nome deles por cima da mídia: o pedido foi do itinerário.
+
+**O ORÁCULO NOVO** `nome-do-player-itinerario.test.mjs`: só o itinerário → "Itinerário" nas três casas (a notificação lida por uma ponte falsa em volta do `pushNowPlaying`); a mídia tocada → o nome dela e a barra habilitada; o Parar → "Itinerário" com o cartão ainda no ar; uma faixa de 2 s acabando sozinha → "Itinerário". Reversões medidas: sem o `&& !midiaNoAr` caem o 2 e o 4; sem a chamada no `resetAfterEnd` cai o 4.
 
 ---
 

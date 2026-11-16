@@ -816,6 +816,7 @@ jobs:
           rodar tools/sorteio-lista-de-resultados.test.mjs
           rodar tools/mensagem-estilo.test.mjs
           rodar tools/itinerario.test.mjs
+          rodar tools/nome-do-player-itinerario.test.mjs
           rodar tools/troca-de-versiculo.test.mjs
           rodar tools/teclado-das-folhas.test.mjs
 

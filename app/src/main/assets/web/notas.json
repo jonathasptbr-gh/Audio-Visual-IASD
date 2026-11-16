@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.14.51",
+    "itens": [
+      "Com o itinerário no telão, tocar uma mídia põe o nome dela no player, junto com a barra de progresso.",
+      "Vale também no Modo Fácil e na notificação do celular.",
+      "Ao parar a mídia, ou quando ela acaba, o nome volta a ser Itinerário."
+    ]
+  },
+  {
     "versao": "1.14.50",
     "itens": [
       "Nos Favoritos, o botão largo agora é um só: Ver a letra quando o item tem letra.",
