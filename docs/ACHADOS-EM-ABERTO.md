@@ -30,11 +30,12 @@ sempre. Medido no oráculo: música com letra fecha na reconsulta; vídeo sem le
 **Alcance:** tudo o que não é vídeo sem letra — música com letra, apresentação,
 imagem.
 
-**Correção decidida (operador, 2026-11-15): um lote só disto, depois de o lote do
-Itinerário (v1.14.32) sair.** Guardar QUEM abriu a tela cheia (a regra do vídeo
-ou a tecla) e desfazer sozinho só a da regra; a da tecla fecha no Parar, no fim e
-quando uma tela entra — o portão passa a fechar só quando há tela (`temTela`). O
-caso entra no `tools/tela-inteira.test.mjs`, que hoje cobre só o vídeo.
+**Correção decidida (operador, 2026-11-15) e já na fila: o Pacote 38 do
+`docs/PEDIDOS-EM-ESPERA.md`, um lote só disto.** Guardar QUEM abriu a tela cheia
+(a regra do vídeo ou a tecla) e desfazer sozinho só a da regra; a da tecla fecha
+no Parar, no fim e quando uma tela entra — o portão passa a fechar só quando há
+tela (`temTela`). O caso entra no `tools/tela-inteira.test.mjs`, que hoje cobre só
+o vídeo.
 
 **Esvaziado em 2026-11-14 (Pacote 26, B9).** Os cinco itens que moraram aqui
 fecharam, e a nota de cada um está em [`HISTORICO.md`](HISTORICO.md):

@@ -52,6 +52,12 @@ pelo navegador, com desenho próprio, três prévias e a cortina. É o único pa
 novo desde então, e o (a) do mesmo estudo (o passador Bluetooth) foi recusado
 por ele na mesma resposta.
 
+**Edição de 2026-11-16.** O operador pediu para incluir na fila a resolução do
+defeito confirmado no `docs/ACHADOS-EM-ABERTO.md` §1 — a tela cheia da música no
+Modo Fácil, que desfaz sozinha. Ele é o **Pacote 38**, e a decisão de quando já
+está tomada (um lote só disto, com a árvore livre); o que falta é o lote. O
+número pula o 37 porque ele foi usado e entregue em 15/11.
+
 **Regra do arquivo:** ele ESVAZIA. Um pacote entregue sai daqui (a nota vai ao
 `docs/HISTORICO.md`, como sempre); um pedido revogado sai com uma linha dizendo
 quem revogou. Não é log, e não é `docs/ACHADOS-EM-ABERTO.md` (lá moram defeitos
@@ -72,6 +78,7 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | pacote | nota | tipo | área |
 |---|---|---|---|
 | **35** — A faixa do itinerário e a linha do momento, redesenhadas | 16 (I4×U4) | pedido | só web, com prévia visual antes |
+| **38** — A tela cheia da música no Modo Fácil desfaz sozinha | 12 (I4×U3) | defeito | só web |
 | **34** — O controle do pregador pelo navegador (só slides) | 12 (I4×U3) | pedido | Kotlin + web, com Release |
 | **5** — Itinerário: a tela de espera antes do primeiro momento | 8 (I4×U2) | pedido | só web, depois de planejar |
 | **13** — Estudos (não são fila de execução) | 4 | estudo | nenhuma entrega |
@@ -89,6 +96,7 @@ diferentes, e um lote nunca mistura dois temas.
 
 | tema | pacotes | o que sai junto |
 |---|---|---|
+| **Modo Fácil** | 38 | a tela cheia da música (e de tudo o que não é vídeo sem letra) parando de desfazer sozinha |
 | **Controle do pregador** | 34 | a página própria de controle dos slides, o desenho vertical, as três prévias e a cortina |
 | **Cronograma e destinos** | 16 | a abertura antes do culto, e o organizador entregando o culto pronto |
 | **Site** | 29 | a captura da lista de Ferramentas (seis) e a do Cronograma com a faixa do itinerário |
@@ -125,11 +133,12 @@ ordem; a fila é dele.
 
 ---
 
-## O índice — 2026-11-15
+## O índice — 2026-11-16
 
 | # | pacote · pedido | tipo | I | U | nota | entrega |
 |---|---|---|---|---|---|---|
 | **36** | **O itinerário: sem tinta de grupo, a seta na linha, a faixa descolada da top bar e a sobreposição no Cronograma** | correção | 4 | 4 | **17** | web |
+| **38** | **A tela cheia da música no Modo Fácil desfaz sozinha** | defeito | 4 | 3 | **12** | web |
 | **5** | **Itinerário: a tela de espera antes do primeiro momento** | pedido | 4 | 2 | **8** | web |
 | 5.1 | contagem regressiva + música + avisos | | 4 | 2 | 8 | web |
 | **13** | **Estudos — não são fila de execução** | estudo | 4 | 1 | **4** | decisão |
@@ -374,6 +383,40 @@ duas sessões de pregador ao mesmo tempo contra o teto de três vagas.
 e `shellTag`), com oráculo de servidor (rota, prefixo e a lista de permissão) e
 oráculo da página (as três prévias, o inativo e a cortina). Depois da Release o
 DESENHO itera por OTA, que é o que este pacote economiza.
+
+---
+
+## Pacote 38 — A tela cheia da música no Modo Fácil desfaz sozinha
+
+**Nota 12 (I4 × U3) · defeito · só web**
+
+**Relato do operador (2026-11-15, no aparelho, sem tela conectada, "tocar neste
+celular"):** com uma música comum da Biblioteca no ar, o toque na tecla da tela
+cheia (`#simpleTela`, abaixo da letra) vira a tela e a desvira logo em seguida —
+a arte do telão nem chega a aparecer.
+
+**O defeito, confirmado no arnês pelo caminho nativo (`AVNative.telaInteira`) e
+registrado no `docs/ACHADOS-EM-ABERTO.md` §1:** a tela cheia não guarda QUEM a
+abriu. `fsDoVideo` é armado também pela tecla (`abrirTelaCheiaDoModoFacil`), e a
+saída automática de `acertarTelaCheiaDoVideo` usa `telaCheiaDoVideoCabe()`, que só
+aceita vídeo SEM leitura. O primeiro `renderSimpleGate()` derruba a tela aberta
+pela tecla em toda mídia com leitura (música, apresentação, imagem), e a rotação
+entrega esse primeiro redesenho: o `onDisplayChanged` do display interno roda
+`syncPresentation` → `notifyDisplayChange` → `renderDisplayStatus` →
+`renderSimpleCast` → `renderSimpleGate`. A música SEGUINTE também a derruba, pelo
+`acertarTelaCheiaDoVideo(true)` do `send`.
+
+**A correção (o operador decidiu em 2026-11-15: um lote só disto, com a árvore
+livre):** guardar o MOTIVO da abertura — a regra do vídeo ou a tecla. Só a da
+regra sai sozinha na troca de mídia; a da tecla fecha no Parar, no fim e quando
+uma tela entra; o portão passa a fechar só quando há tela (`temTela`), não a cada
+redesenho. `aoSairDaPreviaCheia` zera os dois motivos. O caso entra no
+`tools/tela-inteira.test.mjs`, que hoje cobre só vídeo: música com letra pela
+tecla → `__avDisplaysChanged` NÃO fecha; a música seguinte NÃO fecha; e uma tela
+que entra fecha — mantendo o C2 (vídeo → áudio fecha a automática) e o D1.
+
+**Fechamento:** nota no `docs/HISTORICO.md`; o §1 do `ACHADOS-EM-ABERTO.md` sai;
+linha no `docs/RESIDUOS.md` (é um lote de defeito — o que sobrar, se sobrar).
 
 ---
 
