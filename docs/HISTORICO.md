@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.56** — o link do passador de slides na folha de conectar (um botão copia e outro manda no WhatsApp, com o número guardado e o 55 automático) e a rota renomeada de `/prega` para `/passador-de-slides` (shell 89, APK + web).
 - **v1.14.55** — os momentos do itinerário com a cor apagada (na faixa dos ladrilhos da Bíblia), a aba de opções de volta ao FLUXO (ela desloca o cronograma, e a sub-aba do momento segue sobreposta) e todos os momentos com a altura de um item normal (só web).
 - **v1.14.54** — a cor de identidade de cada momento do itinerário (na hora e numa linha na borda das miniaturas do grupo) e a aba de opções na largura da gaveta dos cronogramas, sobreposta à lista e concorrente com ela (só web).
 - **v1.14.53** — a aba de editar mídia na régua das outras ferramentas (margens e rolagem), a porta do itinerário à vista sobre as folhas (e o toque que as fecha), e o toque fora que fecha só a lista, sem acionar o que está atrás (só web).
@@ -788,6 +789,53 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.14.56 — o link do passador de slides, e o nome que ele deveria ter tido
+
+**Pacote 34, segunda parte** (dois pedidos do operador, 2026-11-16), e a
+correção de um buraco que a v1.14.33 deixou: a página do passador existia, mas
+**nenhuma tela do app mostrava o endereço dela** — a folha de conectar mostrava
+só o endereço base, então quem ia passar os slides teria de adivinhar o caminho
+no fim do endereço.
+
+**O NOME DA ROTA É A DO OPERADOR.** *"veja se consegue trocar o `/prega` por um
+nome mais intuitivo, como `/passador-de-slides`"* — o `/prega` só dizia alguma
+coisa a quem lia o código; quem recebe o link no WhatsApp é o irmão que passa os
+slides, e é isso que ele precisa ler no endereço. A rota, a pasta
+(`web/passador-de-slides/`), os arquivos (`passador.js`/`passador.css`) e os
+nomes internos acompanham: `ACOES_DO_PASSADOR`, o corpo `{do:'passador'}` e os
+comandos `passador`/`passador-estado` do barramento. O `/prega` da v1.14.33
+morre aqui — ele chegou a ir num APK (a Release da v1.14.34 carrega o shell 88),
+mas nenhuma tela o exibia, então o endereço nunca circulou.
+
+**O LINK, E OS DOIS BOTÕES.** A folha de conectar ganhou um segundo
+`.cast-addr` — o endereço do telão é o de cima, este é o do passador — com o
+link escrito, **Copiar link** e **Enviar no WhatsApp**. O segundo abre o
+diálogo do app para o número (o último fica em `av.passadorZap`), normaliza e
+entrega ao `wa.me` num `openExternal` já com a mensagem pronta; a mensagem diz a
+REDE, que é a única coisa que o link não diz ("na mesma Wi-Fi do celular da
+igreja") e o erro que ela evita é "site não encontrado" no domingo.
+
+**AS DUAS CONTAS MORAM NO `controle.js`, e são o que o oráculo mede:**
+`linkDoPassador(endereco)` (o endereço do estado + a rota) e
+`numeroDoWhatsapp(bruto)` (DDD+número ganha o 55; internacional passa inteiro;
+o resto é recusado, em vez de abrir uma conversa que não existe).
+
+**O que NÃO muda:** nada de prévia fora da apresentação, sem PIN, o `/display/`
+e o par ⏮/⏭ do Controle intactos, e a página continua consumindo uma das três
+vagas.
+
+**Oráculos.** `tools/passador-fronteira.test.mjs` (o antigo `prega-fronteira`,
+renomeado) com um bloco novo — 2b — que compara o sufixo que o `controle.js`
+monta com a rota que o `EspelhoServidor.kt` serve, mede o 55 e a existência dos
+três ids na folha; e o `boot-nativo` (Chromium), com o campo escrito a partir do
+`endereco` do estado, os dois botões à vista e as duas contas.
+
+**APK + web:** o Kotlin mudou (a rota, o prefixo do bundle e a marca), então o
+lote pede Release — `shellTag` v1.14.56. A ponte não mudou: `SHELL_VERSION`
+fica em 89 e `minShell` em 83.
 
 ---
 

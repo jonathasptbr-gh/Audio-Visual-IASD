@@ -405,15 +405,15 @@ tela (§9; o `aviso` é saneado aqui, porque termina no Registro). Qualquer
 `POST /r` é sinal de vida. O dreno do `tela.js` garante do lado de lá que só
 `display-ready` e `tela-status` sobem; o servidor garante do lado de cá.
 
-**O TERCEIRO RAMO — `{"do":"prega","acao":…}` (Pacote 34).** A porta de
+**O TERCEIRO RAMO — `{"do":"passador","acao":…}` (Pacote 34).** A porta de
 CONTROLE, e a única que move a projeção: `ant`, `prox`, `cortina`, fechadas em
-`ACOES_DA_PREGA`, e o resto morre no mesmo 404 uniforme. Ela não reusa o `st`
+`ACOES_DO_PASSADOR`, e o resto morre no mesmo 404 uniforme. Ela não reusa o `st`
 de propósito — aquele ramo é "uma tela relatando o que viu", este é "alguém
 pedindo para mudar a projeção", e duas coisas com o mesmo poder não devem
 compartilhar lista de permissão. O Kotlin NÃO interpreta: a ordem sobe verbatim
-ao barramento (`{"type":"prega","acao":…}`) e quem a executa é o `controle.js`,
+ao barramento (`{"type":"passador","acao":…}`) e quem a executa é o `controle.js`,
 que responde pela régua do `slideTarget()` — fora da apresentação, nada
-acontece. Quem serve a página é o prefixo `/prega/`, e ela NÃO leva a marca
+acontece. Quem serve a página é o prefixo `/passador-de-slides/`, e ela NÃO leva a marca
 `av-tela` (não é telão). Ver §5.7.
 
 ### 5.5 O registro saneado (`__rec`)
@@ -459,25 +459,25 @@ para o deck sobreposto (`text` de modo `image`). Oráculo: a metade CONSUMIDORA 
 `tela-rede.test.mjs`; a produtora (o ramo `pages` do `telaEnriquecer`) segue
 **sem oráculo**, e isso está dito porque as duas quebram diferente.
 
-### 5.7 O controle do pregador (`/prega/`)
+### 5.7 O passador de slides (`/passador-de-slides/`)
 
 **A página que o operador manda ao pregador** (Pacote 34). Ela é servida pelo
-mesmo servidor, na mesma rede, e o link é `http://<ip>:8787/prega` (o `/prega`
-e o `/prega/` respondem `302` para `/prega/index.html`).
+mesmo servidor, na mesma rede, e o link é `http://<ip>:8787/passador-de-slides` (o `/passador-de-slides`
+e o `/passador-de-slides/` respondem `302` para `/passador-de-slides/index.html`).
 
 O que ela é, e o que ela se recusa a ser:
 
 | | |
 |---|---|
 | **entra** | `POST /par`, sem segredo — a porta é o endereço, como para a tela |
-| **recebe** | `prega-estado`, um comando de DESCIDA: `{ativo, pagina, total, ant, atual, prox, cortina}` |
-| **manda** | `{do:'prega', acao:'ant'\|'prox'\|'cortina'}`, e nada mais |
+| **recebe** | `passador-estado`, um comando de DESCIDA: `{ativo, pagina, total, ant, atual, prox, cortina}` |
+| **manda** | `{do:'passador', acao:'ant'\|'prox'\|'cortina'}`, e nada mais |
 | **desenha** | três cartões (anterior, atual, próximo) com a imagem `/m/` de cada página, dois botões e a cortina |
 | **não desenha** | NADA fora de uma apresentação: sem prévia, sem botão, sem estado de página |
-| **não é** | um telão — o servidor não injeta a marca `av-tela` em `web/prega/`, e o `tela.js` não roda ali |
+| **não é** | um telão — o servidor não injeta a marca `av-tela` em `web/passador-de-slides/`, e o `tela.js` não roda ali |
 
 **As imagens são as MESMAS do telão.** `telaDeckUrls` cunha um token `/m/` por
-página (id `dk:<item>:<i>`) e o `prega-estado` leva três deles; a página não
+página (id `dk:<item>:<i>`) e o `passador-estado` leva três deles; a página não
 abre segunda forma de servir a apresentação, e o token da página 7 é o mesmo
 para os dois lados. Quando o token forte não existe, `ant/atual/prox` vêm
 `null`: a página continua sabendo em que página está (o cartão fica preto) — um
@@ -485,7 +485,7 @@ para os dois lados. Quando o token forte não existe, `ant/atual/prox` vêm
 
 **A cortina é o `#viewToggle` do operador**, pelo mesmo comando `{"type":"view",
 "view":"wallpaper"}`. Ligá-la pelo celular do pregador e desligá-la no aparelho
-é o mesmo estado, e é por isso que o `prega-estado` a carrega: o botão da página
+é o mesmo estado, e é por isso que o `passador-estado` a carrega: o botão da página
 desenha o ESTADO (`.cortina.ativa`), não a ação.
 
 **A sessão do pregador consome uma das três vagas** (`MAX_SESSOES`) — decisão
@@ -494,12 +494,17 @@ do operador em 2026-11-15, junto com a de não haver código de entrada. O
 `TETO_SEM_RELATO_MS` de 150 s derrubaria um celular com a tela apagada, que é
 justamente o que o pregador faz durante a leitura.
 
+**De onde o link sai** (v1.14.56): a folha de conectar ao navegador mostra este endereço num segundo
+bloco, com **Copiar link** e **Enviar no WhatsApp** — o segundo abre o diálogo do número (o último fica em
+`av.passadorZap`, e o `55` entra sozinho quando o operador digita DDD+número) e entrega ao `wa.me` a
+mensagem pronta, com o aviso da REDE. A conta do link é `linkDoPassador(endereco)`, no `controle.js`.
+
 **O que a página NÃO faz:** não controla mídia, letra, mensagem, cronômetro nem
 o palco; não mostra prévia fora da apresentação; não serve de telão de reserva;
 e não conhece o IndexedDB do aparelho — ela é uma página de rede, como a tela.
 
-**Oráculo:** `tools/prega-fronteira.test.mjs` (Node puro, no passo que barra o
-build). Ele mede o par das ações — página × `ACOES_DA_PREGA` —, a rota, a
+**Oráculo:** `tools/passador-fronteira.test.mjs` (Node puro, no passo que barra o
+build). Ele mede o par das ações — página × `ACOES_DO_PASSADOR` —, a rota (e o sufixo que o `controle.js` monta, no bloco 2b), a
 ausência da marca `av-tela` e a ausência de estilo/script embutido, que é a CSP
 das páginas servidas (§8). A divergência que ele trava é MUDA nos dois sentidos.
 

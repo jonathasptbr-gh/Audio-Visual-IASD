@@ -252,17 +252,18 @@ app/src/main/assets/web/
 │   └── tela.css                # o CSS da ENTRADA — folha, e não `<style>` em
 │                               # runtime: a CSP das telas da rede bloqueia
 │                               # estilo embutido (v5.205)
-├── prega/                      # O CONTROLE DO PREGADOR (v1.14.33, Pacote 34) —
-│   │                           # servido em `/prega/`, no navegador de OUTRO
-│   │                           # aparelho. NÃO é telão: o servidor não injeta a
-│   │                           # marca `av-tela` aqui (`TELAO-POR-COMANDOS` §5.7)
+├── passador-de-slides/         # O PASSADOR DE SLIDES (v1.14.33, Pacote 34) —
+│   │                           # servido em `/passador-de-slides/` (v1.14.56; era `/prega`), no navegador de
+│   │                           # OUTRO aparelho. NÃO é telão: o servidor não
+│   │                           # injeta a marca `av-tela` aqui
+│   │                           # (`TELAO-POR-COMANDOS` §5.7)
 │   ├── index.html              # três cartões (anterior/atual/próximo), as duas
 │   │                           # setas e a cortina; sem nada fora de uma
 │   │                           # apresentação
-│   ├── prega.css               # o desenho vertical — folha, pelo mesmo motivo da
+│   ├── passador.css            # o desenho vertical — folha, pelo mesmo motivo da
 │   │                           # `espelho/tela.css`; cores do `shared/tokens.css`
-│   └── prega.js                # o cliente: `POST /par`, SSE `/e`, o comando
-│                               # `prega-estado`, e as três ações do `POST /r`
+│   └── passador.js             # o cliente: `POST /par`, SSE `/e`, o comando
+│                               # `passador-estado`, e as três ações do `POST /r`
 └── display/
     ├── index.html              # UI do Display (SEM iframe: o embed do YouTube
     │                           # saiu na v5.212)

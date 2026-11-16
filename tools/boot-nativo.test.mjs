@@ -4238,6 +4238,34 @@ try {
     'terminado, ele volta a nomear a ação (nada de recado grudado)', emCurso.voltou);
   checar(redeOn.semTrilho, 'e não sobrou interruptor nenhum na folha de conexão');
 
+  // ---- O LINK DO PASSADOR: o campo, a conta e os dois botões (v1.14.56) ---
+  //
+  // O segundo endereço da folha tem de ser o do SERVIDOR, e não uma string
+  // solta: a conta (`linkDoPassador`) e o caminho que o `EspelhoServidor.kt`
+  // serve são medidos juntos pelo `passador-fronteira` (Node puro). Aqui se
+  // mede o que só o desenho mostra: o campo escrito com o endereço que veio do
+  // estado, os dois botões à vista, e o número saindo na forma que o `wa.me`
+  // exige — com o DDD brasileiro ganhando o 55 e o lixo recusado, em vez de
+  // abrir uma conversa que não existe.
+  const passador = await pg2.evaluate(() => ({
+    link: (document.getElementById('passadorUrl') || {}).textContent,
+    botoes: ['passadorCopyBtn', 'passadorZapBtn'].map((id) => {
+      const b = document.getElementById(id);
+      return !!b && b.getClientRects().length > 0;
+    }),
+    ddd: numeroDoWhatsapp('51 99999-9999'),
+    internacional: numeroDoWhatsapp('+55 (51) 99999-9999'),
+    lixo: numeroDoWhatsapp('123'),
+    semBarra: linkDoPassador('http://10.0.0.2:8787/'),
+  }));
+  checar(passador.link === 'http://192.168.0.14:8787/passador-de-slides',
+    'o link do passador é o endereço da transmissão + a rota', passador.link);
+  checar(passador.botoes.every(Boolean), 'os dois botões do link estão à vista na folha');
+  checar(passador.ddd === '5551999999999' && passador.internacional === '5551999999999',
+    'o número com DDD ganha o 55, e o que já vem internacional fica igual', passador.ddd);
+  checar(passador.lixo === '' && passador.semBarra === 'http://10.0.0.2:8787/passador-de-slides',
+    'número curto é recusado, e a barra final do endereço não vira `//`');
+
   // ---- LIGAR E DESLIGAR NÃO É UM SALTO (v5.226) --------------------------
   //
   // O relato: "há adição ou subtração de conteúdo nesse popup, isso move os

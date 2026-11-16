@@ -13246,6 +13246,29 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
 /* O CÓDIGO é o accent, e o endereço não: eles não competem, porque o âmbar aqui
    diz "este é o número do momento" — ele muda a cada vez que a transmissão é
    ativada, e o endereço não. Mesma anatomia do PIN que ele substitui. */
+/* O SEGUNDO ENDEREÇO É MENOR (v1.14.56). O de cima é o que se digita na TV e
+   merece o maior tipo da folha; este leva o caminho `/passador-de-slides`
+   atrás dele, e no mesmo corpo de fonte a linha encostaria nas bordas num IP
+   longo — a régua do `overflow-wrap: anywhere` continua valendo, mas com
+   `--fs-lg` ele cabe. */
+.cast-url--fina { font-size: var(--fs-lg); font-weight: var(--fw-medio); }
+/* OS DOIS BOTÕES DO LINK. São ações secundárias da folha (o link já está
+   escrito acima), então pílulas de `--surface-2` em vez do preenchimento dos
+   `cast-acao`: elas não competem com "Desligar transmissão", que é a decisão
+   que esta folha existe para tomar. */
+.cast-prega-acoes {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-3);
+  margin-top: var(--sp-2);
+}
+.cast-prega-btn {
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  min-height: 2.25rem; padding: 0 var(--sp-6);
+  border: 0; border-radius: var(--radius-pill);
+  background: var(--surface-2); color: var(--text);
+  font: inherit; font-size: var(--fs-md); font-weight: var(--fw-medio);
+  cursor: pointer;
+}
+.cast-prega-btn:active { background: var(--surface); }
 /* Quem está vendo. Uma linha por tela, com a ação à direita — o padrão de
    lista do resto do app, não um cartão novo. */
 .cast-telas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }

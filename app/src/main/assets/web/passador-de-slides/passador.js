@@ -5,12 +5,12 @@
    ## O que esta página é
 
    Uma página SERVIDA PELO CELULAR DO OPERADOR, aberta no navegador do celular
-   do pregador, na mesma rede. Ela:
+   de slides, na mesma rede. Ela:
 
    1. entra pela mesma porta das telas da rede (`POST /par`, sem segredo);
    2. abre o mesmo `/e` (SSE por `fetch`, com `Authorization` — o token nunca
       viaja numa URL);
-   3. desenha o que chega no comando de DESCIDA `prega-estado` (ver
+   3. desenha o que chega no comando de DESCIDA `passador-estado` (ver
       `controle.js`): a página, o total, a cortina e as três imagens;
    4. manda as três ações possíveis (`prox`, `ant`, `cortina`) pelo `POST /r`,
       que o servidor filtra por lista de permissão e o Controle executa.
@@ -33,7 +33,7 @@
 
 'use strict';
 
-// O NOME DA CLASSE `#estado` de erro — ver `prega.css` (`.ruim`).
+// O NOME DA CLASSE `#estado` de erro — ver `passador.css` (`.ruim`).
 const MSG_CONECTANDO = 'Conectando…';
 const MSG_OK = 'Conectado';
 const MSG_CAIU = 'Sem conexão — tentando de novo';
@@ -122,7 +122,7 @@ function mostrarAtivo(est) {
   ui.btnProx.disabled = pagina >= total - 1;
   ui.cartaoProx.disabled = pagina >= total - 1;
 
-  // O BOTÃO DIZ O ESTADO DA CORTINA, não a ação (ver `prega.css`).
+  // O BOTÃO DIZ O ESTADO DA CORTINA, não a ação (ver `passador.css`).
   ui.btnCortina.classList.toggle('ativa', !!est.cortina);
   ui.btnCortina.textContent = est.cortina ? 'Cortina ligada' : 'Cortina';
 }
@@ -196,7 +196,7 @@ function enviarAlive() {
     telaAcesaMin: 0,
     // Vai para o Registro do operador, que SANEIA: o texto sai sem acento de
     // propósito (a lição da v5.155 é de quem escreve).
-    aviso: '[controle do pregador] ' + (conectado ? 'conectado' : 'reconectando'),
+    aviso: '[passador de slides] ' + (conectado ? 'conectado' : 'reconectando'),
   });
 }
 
@@ -263,7 +263,7 @@ function tratarEvento(bruto) {
   if (!msg) return;
 
   // `oi` é a abertura do fio (a mesma das telas) — não diz nada sobre slide.
-  if (msg.type !== 'prega-estado') return;
+  if (msg.type !== 'passador-estado') return;
 
   if (!msg.ativo) { mostrarInativo(); return; }
   mostrarAtivo(msg);
@@ -313,7 +313,7 @@ function acao(a) {
   // Sem sessão, o toque não some calado: ele tenta reentrar (o laço está de
   // pé). A frase do topo é o retorno.
   if (!token) { frase(MSG_CAIU, true); return; }
-  postar({ do: 'prega', acao: a });
+  postar({ do: 'passador', acao: a });
 }
 
 ui.btnAnt.addEventListener('click', () => acao('ant'));

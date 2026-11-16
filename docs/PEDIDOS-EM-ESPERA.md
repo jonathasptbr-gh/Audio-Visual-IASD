@@ -59,6 +59,12 @@ entraram como os **Pacotes 39 e 40**. A tabela dos pacotes ainda listava o 35 e 
 36, que já tinham saído (v1.14.35 e v1.14.36), e o índice ainda listava o 36 — as
 duas linhas velhas saíram nesta edição.
 
+**Edição de 2026-11-16 (à noite).** O operador escolheu o **Pacote 34** na fila e o
+lote já estava entregue desde a v1.14.33 — a fila é que o listava aberto. Na mesma
+sessão ele pediu o **link do passador** na folha de conectar (copiar e mandar no
+WhatsApp) e a **rota com nome intuitivo**, e os dois saíram na **v1.14.56**. O 34
+saiu do índice, dos temas e da tabela, com o rastro das duas versões.
+
 **Regra do arquivo:** ele ESVAZIA. Um pacote entregue sai daqui (a nota vai ao
 `docs/HISTORICO.md`, como sempre); um pedido revogado sai com uma linha dizendo
 quem revogou. Não é log, e não é `docs/ACHADOS-EM-ABERTO.md` (lá moram defeitos
@@ -78,7 +84,6 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 
 | pacote | nota | tipo | área |
 |---|---|---|---|
-| **34** — O controle do pregador pelo navegador (só slides) | 12 (I4×U3) | pedido | Kotlin + web, com Release |
 | **5** — Itinerário: a tela de espera antes do primeiro momento | 8 (I4×U2) | pedido | só web, depois de planejar |
 | **13** — Estudos (não são fila de execução) | 4 | estudo | nenhuma entrega |
 | **16** — O cronograma pronto: o organizador entrega o culto ao sonoplasta | 8 (I4×U2) | pedido | planejamento → Kotlin + web |
@@ -95,7 +100,6 @@ diferentes, e um lote nunca mistura dois temas.
 
 | tema | pacotes | o que sai junto |
 |---|---|---|
-| **Controle do pregador** | 34 | a página própria de controle dos slides, o desenho vertical, as três prévias e a cortina |
 | **Cronograma e destinos** | 16 | a abertura antes do culto, o organizador entregando o culto pronto |
 | **Site** | 29 | a captura da lista de Ferramentas (seis) e a do Cronograma com a faixa do itinerário |
 | **Fila anterior a 14/11** | 5 | a tela de espera do Itinerário, na ordem que a fila já tinha |
@@ -135,7 +139,6 @@ ordem; a fila é dele.
 
 | # | pacote · pedido | tipo | I | U | nota | entrega |
 |---|---|---|---|---|---|---|
-| **34** | **O controle do pregador pelo navegador (só slides)** | pedido | 4 | 3 | **12** | Kotlin + web |
 | **5** | **Itinerário: a tela de espera antes do primeiro momento** | pedido | 4 | 2 | **8** | web |
 | 5.1 | contagem regressiva + música + avisos | | 4 | 2 | 8 | web |
 | **13** | **Estudos — não são fila de execução** | estudo | 4 | 1 | **4** | decisão |
@@ -314,78 +317,11 @@ operador manda a captura, ou ela sai da prévia visual no Chromium.
 
 ---
 
-## Pacote 34 — O controle do pregador pelo navegador (só slides)
-
-**Nota 12 (I4 × U3) · pedido · Kotlin + web, com Release**
-
-Promove o estudo 13.1(b). **A decisão do operador (2026-11-15 17:10)** é o
-contrato deste pacote, e ela é fechada nos seis pontos:
-
-1. **Método completo**, não o mínimo: três prévias de verdade (o slide anterior,
-   o atual e o próximo), com imagem, não só texto.
-2. **Link próprio e desenho próprio** — não é o `/display/` com outra cara: é
-   outra página, servida no mesmo servidor da rede.
-3. **Vertical**, uma coluna, três cartões empilhados.
-4. **A cortina**: um botão que tapa o slide e deixa só o wallpaper no telão;
-   tocar de novo devolve o slide, na mesma página.
-5. **Só slides.** Fora da apresentação a página fica INATIVA — não passa, não
-   mostra prévia, não mostra nada. Não controla ▶/⏸, louvor, cronômetro nem o
-   resto.
-6. **Sem código de entrada** (decisão dele, contra a recomendação do estudo):
-   basta estar na mesma rede. A sessão do pregador **consome uma das três
-   vagas** ([`EspelhoPares.MAX_SESSOES`](../app/src/main/java/br/org/iasd/av/EspelhoPares.kt)),
-   e ele aceitou isso.
-
-**O que já existe e faz o pacote ser pequeno no Kotlin e médio na web:**
-
-| peça | estado | o que o pacote usa dela |
-|---|---|---|
-| servidor, `/par`, SSE `/e`, `/m/<token>` | pronto | pareamento, descida de comandos e as IMAGENS das prévias |
-| as páginas do deck | prontas | `telaDeckUrls` já cunha **um token `/m/` por página** (id `dk:<item>:<i>`), então a prévia é o mesmo caminho que o telão usa |
-| `deckStep(±1)` / `deckIr(n)` | pronto | um par de botões que já passa página — inclusive o deck COMO CAMADA sobre o louvor (v1.4.28) e o vídeo de um slide |
-| a cortina | pronta | `AVDB.sendCommand({type:'wallpaper'})` é o mesmo comando do `#viewToggle` |
-| `slideTarget()` | pronto | a régua de "há slide no ar" — é ela que decide ativo × inativo, e já cobre o caso do vídeo de slide (`deckDoSlide`/`paginaDoSlide`) |
-
-**As quatro peças novas, e só elas:**
-
-1. **A rota `/prega/`** — prefixo novo em `PREFIXOS_BUNDLE` (servindo
-   `web/prega/`), **sem** a marca `<meta name="av-tela">` que o
-   `comMarcaDeTela` injeta: a página do pregador NÃO é um telão, e marcá-la
-   faria o `tela.js` tomá-la por uma. É superfície nova ⇒ Release.
-2. **O tipo de subida `prega`** na lista de PERMISSÃO (`TIPOS_QUE_SOBEM`), com
-   o handler no Controle. **O Kotlin não interpreta** (invariante 5): o JSON
-   sobe verbatim ao barramento, como `tela-status`, e quem decide é o
-   `controle.js`. Sem a entrada na lista a porta nasce MUDA dos dois lados.
-3. **O emissor de estado no `controle.js`** — um `prega-estado` de DESCIDA
-   (barramento, sem Kotlin) com `{pagina, total, prev, atual, prox, cortina}`
-   e uma URL `/m/` por cartão, reemitido quando a página muda, quando a
-   apresentação entra/sai e quando a cortina liga/desliga.
-4. **A página `web/prega/`** (HTML + folha + JS, na voz do projeto): o desenho
-   vertical, os três cartões, o par de botões e o estado inativo.
-
-**Invariantes que valem aqui, e nenhuma é nova:** CSP `self` sem estilo
-embutido (folha servida, nunca `createElement('style')`); 404 uniforme para
-rota/token/Host fora; `web/controle/` **jamais** servida à rede; token de sessão
-nunca numa URL; fila SSE com teto; e "há tela" continua não sendo "há telão".
-
-**O que este pacote NÃO faz** (para ninguém "completar"): não controla mais
-nada além de slides; não mostra prévia fora da apresentação; não passa por fora
-da rede local; não tem PIN; e não muda o `/display/` nem o par ⏮/⏭ do Controle.
-
-**O que medir no aparelho depois** (é o único jeito de saber): o navegador do
-pregador dormindo com a tela apagada; um iPhone, que não deixa o `wakeLock`; e
-duas sessões de pregador ao mesmo tempo contra o teto de três vagas.
-
-**Entrega:** um lote, **APK + web** (superfície nova ⇒ degrau do `SHELL_VERSION`
-e `shellTag`), com oráculo de servidor (rota, prefixo e a lista de permissão) e
-oráculo da página (as três prévias, o inativo e a cortina). Depois da Release o
-DESENHO itera por OTA, que é o que este pacote economiza.
-
----
-
-
-
 ## O que saiu desta lista (rastro, não log)
+
+**v1.14.56 (2026-11-16), APK + web:** os dois pedidos do operador em cima do Pacote 34 — o **link do passador de slides** na folha de conectar, com **Copiar link** e **Enviar no WhatsApp** (número guardado, `55` automático), e a rota renomeada de `/prega` para **`/passador-de-slides`**. Nota em `docs/HISTORICO.md`.
+
+**v1.14.33 (2026-11-15), APK + web:** o **Pacote 34** — a página do passador de slides (`/prega`, hoje `/passador-de-slides`), vertical, três prévias com imagem, as setas e a cortina; só slides. **A linha dele ficou nesta fila por engano** (o índice e os temas ainda o listavam) e só saiu na edição de 2026-11-16, junto com a v1.14.56. Nota em `docs/HISTORICO.md`.
 
 **v1.14.49 (2026-11-16), só web:** o **Pacote 40** — a porta do itinerário vira checklist fechada e seta para cima aberta (`icoExpandir`), sem card (sai a regra do `--btn-accent`), mais os três ajustes de 12h na mesma faixa: o fecho encolhe até o fim (o `transitionend` da altura manda, e o `padding` anima junto — a caixa parava em 11,2 px), todos os ícones da faixa em `--icon-md` (os "±5" eram texto de 11,84 px) e o telão num monitor (`icoTela`/`icoTelaOff`), com o par do olho fora do sprite. Oráculo `itinerario` (bloco U) e a linha dele. Nota em `docs/HISTORICO.md`.
 

@@ -527,8 +527,8 @@ class EspelhoServidor(
 
     /**
      * As rotas da §5 da spec, e nada mais. (Eram cinco até a v1.14.32; o
-     * `/prega` e o `/prega/`, do Pacote 34, são a SEXTA — e a primeira que
-     * serve uma página que não é telão.)
+     * `/passador-de-slides` e o `/passador-de-slides/`, do Pacote 34, são a
+     * SEXTA — e a primeira que serve uma página que não é telão.)
      *
      * **404 IDÊNTICO** para token inválido, rota inexistente, `Host` fora da
      * allowlist e `Origin` estranha: não vazar existência. O único desvio é o
@@ -559,17 +559,23 @@ class EspelhoServidor(
                 ),
             )
             // O LINK QUE O OPERADOR MANDA AO PREGADOR (Pacote 34). Só um
-            // atalho: `/prega` e `/prega/` não são arquivos, e uma pessoa
-            // digitando o endereço a mão chega na página. O 302 não revela
-            // nada que a rota `/prega/index.html` já não revelasse — a página
+            // atalho: `/passador-de-slides` e `/passador-de-slides/` não são
+            // arquivos, e uma pessoa digitando o endereço a mão chega na
+            // página. O 302 não revela nada que a rota
+            // `/passador-de-slides/index.html` já não revelasse — a página
             // existe, e é pública nas DUAS.
-            r.metodo == "GET" && (rota == "/prega" || rota == "/prega/") -> responder(
+            //
+            // O NOME DA ROTA É O QUE O OPERADOR LÊ E MANDA POR MENSAGEM (v1.14.56):
+            // era `/prega`, que só faz sentido para quem conhece o código. Quem
+            // recebe o link no WhatsApp é o irmão que passa os slides, e o nome
+            // do caminho tem de dizer a ele o que aquela página faz.
+            r.metodo == "GET" && (rota == "/passador-de-slides" || rota == "/passador-de-slides/") -> responder(
                 saida,
                 EspelhoHttp.resposta(
                     302,
                     "text/html; charset=utf-8",
-                    "<a href=\"/prega/index.html\">Controle dos slides</a>".toByteArray(Charsets.UTF_8),
-                    listOf("Location: /prega/index.html"),
+                    "<a href=\"/passador-de-slides/index.html\">Passador de slides</a>".toByteArray(Charsets.UTF_8),
+                    listOf("Location: /passador-de-slides/index.html"),
                 ),
             )
             r.metodo == "POST" && rota == "/par" -> parear(r, saida, cru)
@@ -869,13 +875,13 @@ class EspelhoServidor(
         val nome = caminho.substringAfterLast('/')
         val tipo = bundle.mimeOf(nome) + (bundle.encodingOf(nome)?.let { "; charset=$it" } ?: "")
         val pagina = nome.endsWith(".html")
-        // A PÁGINA DO PREGADOR NÃO É UM TELÃO (Pacote 34). A marca `av-tela` é
+        // A PÁGINA DO PASSADOR NÃO É UM TELÃO (Pacote 34). A marca `av-tela` é
         // lida pelo `tela.js`, que a toma como o papel de tela da rede: com ela
-        // injetada aqui, a página do pregador passaria a desenhar a entrada,
+        // injetada aqui, a página do passador passaria a desenhar a entrada,
         // pedir token e drenar como tela — três comportamentos que ela não tem.
         // A decisão é pelo CAMINHO, e não pelo cliente: quem serve sabe o que
         // serve, que é a mesma régua da v1.92.
-        val marca = pagina && !caminho.startsWith("web/prega/")
+        val marca = pagina && !caminho.startsWith("web/passador-de-slides/")
         val corpo = if (marca) comMarcaDeTela(bruto) else bruto
         if (pagina) registrar("página entregue: $caminho")
         // Toda PÁGINA leva a CSP — e é a CSP que FORÇA a exclusão do embed do
@@ -1041,13 +1047,13 @@ class EspelhoServidor(
         // limitar o ESTRAGO de quem já entrou: por aqui não sobem `load`,
         // `clear` nem `mic`, e a única coisa que a sessão consegue fazer com a
         // projeção é passar slide e ligar/desligar a cortina.
-        if (corpo.optString("do") == "prega") {
+        if (corpo.optString("do") == "passador") {
             val acao = corpo.optString("acao")
-            if (acao !in ACOES_DA_PREGA) {
-                registrar("ordem de pregador recusada: '${EspelhoPares.sanear(acao, 20)}'")
+            if (acao !in ACOES_DO_PASSADOR) {
+                registrar("ordem do passador recusada: '${EspelhoPares.sanear(acao, 20)}'")
                 return responder(saida, naoAchei())
             }
-            MessageBus.post(null, JSONObject().put("type", "prega").put("acao", acao).toString())
+            MessageBus.post(null, JSONObject().put("type", "passador").put("acao", acao).toString())
             return responder(saida, EspelhoHttp.resposta(200, "application/json", OK_CURTO))
         }
         when (corpo.optString("do")) {
@@ -2063,20 +2069,20 @@ class EspelhoServidor(
         private val TIPOS_QUE_SOBEM = setOf("display-ready", "tela-status")
 
         /**
-         * O QUE A PÁGINA DO PREGADOR PODE MANDAR (Pacote 34) — a lista de
+         * O QUE A PÁGINA DO PASSADOR PODE MANDAR (Pacote 34) — a lista de
          * PERMISSÃO da porta de CONTROLE, irmã da de cima e separada dela de
          * propósito: a de cima é "uma tela relatando o que viu", esta é "alguém
          * pedindo para mudar a projeção".
          *
          * Três ações, e o resto morre no [retorno]. Não há ação de mídia, de
-         * texto nem de palco: a página do pregador passa slide e chama a
+         * texto nem de palco: a página do passador passa slide e chama a
          * cortina, e nada mais — o pedido do operador é literal nisso.
          *
          * Quem EXECUTA é o `controle.js` (invariante 5): `prox`/`ant` caem no
          * mesmo `stepSlide(±1)` do ⏮/⏭ do aparelho, e `cortina` no mesmo
          * `#viewToggle` do operador.
          */
-        private val ACOES_DA_PREGA = setOf("prox", "ant", "cortina")
+        private val ACOES_DO_PASSADOR = setOf("prox", "ant", "cortina")
 
         /**
          * Os PREFIXOS do bundle servidos à LAN (telão por comandos, E2) — a
@@ -2106,12 +2112,14 @@ class EspelhoServidor(
             "/display/" to "web/display/",
             "/shared/" to "web/shared/",
             "/espelho/" to "web/espelho/",
-            // O CONTROLE DO PREGADOR (Pacote 34) — página própria, desenho
-            // próprio. Ele NÃO entra pelo `/display/`: aquela página é o telão,
-            // com o `tela.js` de casca, e a do pregador é o contrário disso —
-            // três prévias, dois botões e a cortina. Ver
+            // O PASSADOR DE SLIDES (Pacote 34) — página própria, desenho
+            // próprio, e o endereço que o operador manda por WhatsApp é
+            // `/passador-de-slides` (o nome tem de dizer a quem recebe o que
+            // aquela página faz). Ele NÃO entra pelo `/display/`: aquela página
+            // é o telão, com o `tela.js` de casca, e a do passador é o
+            // contrário disso — três prévias, dois botões e a cortina. Ver
             // `docs/TELAO-POR-COMANDOS.md` §5.7.
-            "/prega/" to "web/prega/",
+            "/passador-de-slides/" to "web/passador-de-slides/",
         )
 
         /** Sentinela de fim da fila SSE — o mesmo papel do [FIM] dos pixels. */

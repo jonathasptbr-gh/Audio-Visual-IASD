@@ -482,7 +482,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.55';
+const WEB_VERSION = '1.14.56';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -715,6 +715,9 @@ const castSomAjudaEl = document.getElementById('castSomAjuda');
 const castLiveEl = document.getElementById('castLive');
 const castUrlEl = document.getElementById('castUrl');
 const castUrlCopyEl = document.getElementById('castUrlCopy');
+const passadorUrlEl = document.getElementById('passadorUrl');
+const passadorCopyBtnEl = document.getElementById('passadorCopyBtn');
+const passadorZapBtnEl = document.getElementById('passadorZapBtn');
 const castTelasEl = document.getElementById('castTelas');
 const songMenuPopupEl = document.getElementById('songMenuPopup');
 const songMenuTitleEl = document.getElementById('songMenuTitle');
@@ -16609,7 +16612,7 @@ function renderSlideNav() {
   // quando o que está no ar muda de página ou de cena, que é exatamente a
   // pergunta que ela faz. O emissor tem assinatura própria e volta cedo quando
   // nada mudou.
-  pregaEstado();
+  passadorEstado();
 }
 
 /**
@@ -20172,12 +20175,12 @@ async function setView(v) {
     // A CORTINA TAMBÉM É ESTADO PARA O PREGADOR (Pacote 34): ele liga e desliga
     // a mesma cortina, e a página dele desenha o botão no estado em que ela
     // está — inclusive quando quem a ligou foi o OPERADOR, no aparelho.
-    pregaEstado();
+    passadorEstado();
     return;
   }
   cmd({ type: 'view', view });
   renderControls();
-  pregaEstado();
+  passadorEstado();
 }
 async function toggleMute() {
   // Sem áudio no Display (bloqueio do navegador, não é mudo do operador):
@@ -34635,6 +34638,95 @@ if (castUrlCopyEl) {
   });
 }
 
+// ===== O LINK DO PASSADOR DE SLIDES (v1.14.56) =====
+//
+// O segundo endereço da folha de conexão, e o único que se MANDA para outra
+// pessoa: o de cima é o telão (`http://<ip>:<porta>`), este é a página que
+// passa os slides (`…/passador-de-slides`). Até aqui ele não aparecia em
+// nenhuma tela — quem ia passar os slides teria de adivinhar o caminho no fim
+// do endereço.
+//
+// A CONTA MORA AQUI, fora do `renderCast`, porque ela é o que o oráculo mede:
+// o campo do endereço base, a rota que o `EspelhoServidor.kt` serve e o
+// caminho que a página usa são três lugares, e a conta que os junta tem de ser
+// uma só. O `endereco` já vem sem barra final, mas tirá-la é barato e o
+// formato muda quando a rede cai e volta.
+function linkDoPassador(endereco) {
+  const base = String(endereco || '').trim().replace(/\/+$/, '');
+  return base ? base + '/passador-de-slides' : '';
+}
+
+// O NÚMERO DO WHATSAPP: o `wa.me` exige DDI+DDD sem sinal nenhum, e o que o
+// operador digita é o número que ele lê na agenda — com espaço, parêntese e
+// hífen. O único DDI que este app atende é o do Brasil (é o `AV_CONTATO_TEL`),
+// então DDD+número (10 ou 11 dígitos) ganha o 55; o que já vier internacional
+// passa inteiro. Qualquer outra coisa devolve vazio, e quem chamou avisa em
+// vez de abrir uma conversa que não existe.
+function numeroDoWhatsapp(bruto) {
+  const d = String(bruto || '').replace(/\D/g, '');
+  if (d.length === 10 || d.length === 11) return '55' + d;
+  if (d.length >= 12 && d.length <= 15) return d;
+  return '';
+}
+
+// O ÚLTIMO NÚMERO FICA GUARDADO (decisão do operador, 2026-11-16): o mesmo
+// irmão passa os slides domingo após domingo, e digitar onze dígitos toda vez é
+// atrito no momento em que a igreja está esperando. Chave própria, e lida com
+// `try`: `localStorage` negado não pode derrubar a folha de conexão.
+const PASSADOR_ZAP_CHAVE = 'av.passadorZap';
+
+if (passadorCopyBtnEl) {
+  passadorCopyBtnEl.addEventListener('click', () => {
+    const link = (passadorUrlEl && passadorUrlEl.textContent || '').trim();
+    if (link) copiarTexto(link, passadorCopyBtnEl);
+  });
+}
+
+if (passadorZapBtnEl) {
+  passadorZapBtnEl.addEventListener('click', async () => {
+    const link = (passadorUrlEl && passadorUrlEl.textContent || '').trim();
+    if (!link) return;
+    let ultimo = '';
+    try { ultimo = localStorage.getItem(PASSADOR_ZAP_CHAVE) || ''; } catch (_) {}
+    // A MENSAGEM VAI PRONTA, e ela diz o que o link não diz: a REDE. O
+    // endereço é o da Wi-Fi da igreja (ou do ponto de acesso do celular do
+    // operador) — fora dela o navegador responde "site não encontrado", que é
+    // exatamente o erro que esta linha existe para evitar. Quem envia e revisa
+    // o texto é o operador; o app só chega na conversa.
+    const texto = 'Passador de slides do telão: ' + link
+      + '\n\nAbra no navegador do celular, na mesma Wi-Fi do celular da igreja.';
+    const digitado = await appPrompt({
+      title: 'Enviar no WhatsApp',
+      message: 'O número de quem vai passar os slides, com DDD. O 55 entra sozinho.',
+      value: ultimo,
+      placeholder: '51 99999-9999',
+      okText: 'Abrir',
+    });
+    if (digitado === null) return;
+    const numero = numeroDoWhatsapp(digitado);
+    if (!numero) {
+      await openAppDialog({
+        title: 'Número incompleto',
+        message: 'Digite o DDD e o número, com 10 ou 11 dígitos.',
+        okText: 'Entendi',
+        cancelText: null,
+        input: false,
+      });
+      return;
+    }
+    try { localStorage.setItem(PASSADOR_ZAP_CHAVE, String(digitado).trim()); } catch (_) {}
+    const url = 'https://wa.me/' + numero + '?text=' + encodeURIComponent(texto);
+    // A MESMA PORTA DO "FALAR COM QUEM MANTÉM O APP": no app, o `openExternal`
+    // (o WebView bloqueia navegar para fora do origin); no navegador, uma guia
+    // nova.
+    if (window.__NATIVE__) {
+      try { AVNative.openExternal(url); } catch (_) { responder(passadorZapBtnEl, 'erro'); }
+    } else {
+      window.open(url, '_blank', 'noopener');
+    }
+  });
+}
+
 
 // O NOME DO ARQUIVO DO REGISTRO. A porta é UMA só — o `#testeSalvar` da folha
 // da Verificação, que o COMPARTILHA como arquivo: copiar e colar corta o texto
@@ -39279,8 +39371,8 @@ function paginaDoSlide() {
 // SÓ EMITE QUANDO MUDA: a assinatura abaixo é o que impede o `renderSlideNav`
 // (que roda a cada passo do transporte) de virar um metralhadora de SSE. Sem
 // ela, cada tique do relógio da música mandaria um comando para toda tela.
-let pregaUltimo = '';
-function pregaEstado() {
+let passadorUltimo = '';
+function passadorEstado() {
   const d = deckDoSlide();
   const ativo = !!d && slideTarget() === 'deck';
   const total = ativo && Array.isArray(d.pages) ? d.pages.length : 0;
@@ -39289,15 +39381,15 @@ function pregaEstado() {
   const sig = ativo
     ? (d.id + ':' + pagina + ':' + total + ':' + (cortina ? '1' : '0'))
     : ('inativo:' + (cortina ? '1' : '0'));
-  if (sig === pregaUltimo) return;
-  pregaUltimo = sig;
+  if (sig === passadorUltimo) return;
+  passadorUltimo = sig;
   // O `telaDeckUrls` devolve `null` quando o token forte não existe ou quando a
   // transmissão não está de pé. A página continua recebendo o estado (é ele que
   // diz "há apresentação, página 3 de 12"); o que falta são as IMAGENS, e um
   // `<img>` vazio é melhor que uma prévia que nunca chega.
   const urls = ativo ? telaDeckUrls(d) : null;
   AVDB.sendCommand({
-    type: 'prega-estado',
+    type: 'passador-estado',
     ativo,
     pagina,
     total,
@@ -46186,6 +46278,9 @@ function renderCast() {
   // UM ENDEREÇO SÓ: o IP. Um nome mDNS não resolve no Chrome do Android nem na
   // maioria das Smart TVs, que são exatamente as telas deste recurso.
   texto2(castUrlEl, e.endereco || '');
+  // E O LINK DO PASSADOR, que é o SEGUNDO endereço desta folha e o único que se
+  // manda para outra pessoa (ver `linkDoPassador`).
+  texto2(passadorUrlEl, linkDoPassador(e.endereco));
   renderCastTelas(telas);
 }
 
@@ -46752,7 +46847,7 @@ AVDB.onCommand((msg) => {
   // ===== A ORDEM DO PREGADOR (Pacote 34) =====
   //
   // Chega pelo barramento, injetada pelo servidor da rede
-  // (`{"type":"prega","acao":…}`, §5.7 do `TELAO-POR-COMANDOS.md`), e cai nos
+  // (`{"type":"passador","acao":…}`, §5.7 do `TELAO-POR-COMANDOS.md`), e cai nos
   // MESMOS caminhos que o aparelho do operador já usa: `stepSlide(±1)` é o
   // ⏮/⏭, e `#viewToggle` é a cortina. Um segundo caminho para a mesma ação é
   // o que este app não faz — e aqui seria pior que em qualquer outro lugar,
@@ -46764,7 +46859,7 @@ AVDB.onCommand((msg) => {
   // é literal — a página do pregador é de SLIDES, e só —, então a guarda mora
   // AQUI, no caminho, e não na página: quem manda na rede é um cliente, e a
   // regra que vale não pode depender de um cliente estar certo.
-  if (msg.type === 'prega') {
+  if (msg.type === 'passador') {
     if (slideTarget() !== 'deck') return;
     if (msg.acao === 'prox') stepSlide(1);
     else if (msg.acao === 'ant') stepSlide(-1);

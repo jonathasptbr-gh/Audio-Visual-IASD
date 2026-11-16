@@ -2059,7 +2059,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.55</span>
+          <span id="appVersion">v1.14.56</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
@@ -2875,6 +2875,36 @@
                 <span class="cast-url" id="castUrl"></span>
                 <button id="castUrlCopy" class="log-copy" title="Copiar o endereço" aria-label="Copiar o endereço">
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>
+                </button>
+              </div>
+            </div>
+            <!-- O LINK DO PASSADOR DE SLIDES (v1.14.56), e ele é o SEGUNDO
+                 endereço desta folha — o de cima é o telão, este é o controle
+                 do pregador. Antes dele a folha mostrava só o endereço base, e
+                 a página `/passador-de-slides` não aparecia em lugar nenhum:
+                 quem ia passar os slides teria de adivinhar o caminho no fim
+                 do endereço.
+
+                 OS DOIS BOTÕES SÃO O CAMINHO ATÉ ELE. "Copiar link" porque o
+                 link vai ser digitado no navegador de OUTRO aparelho, e
+                 "Enviar no WhatsApp" porque na igreja o link chega por
+                 mensagem: o app abre a conversa já com o texto escrito, e
+                 quem envia é o operador (o número dele fica guardado para o
+                 próximo culto). Ver `linkDoPassador`/`numeroDoWhatsapp`, que
+                 são as duas contas deste bloco, em `controle.js`. -->
+            <div class="cast-addr">
+              <span class="cast-rot">Link do passador de slides</span>
+              <div class="cast-url-linha">
+                <span class="cast-url cast-url--fina" id="passadorUrl"></span>
+              </div>
+              <div class="cast-prega-acoes">
+                <button type="button" id="passadorCopyBtn" class="cast-prega-btn">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>
+                  <span>Copiar link</span>
+                </button>
+                <button type="button" id="passadorZapBtn" class="cast-prega-btn">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoContato"/></svg>
+                  <span>Enviar no WhatsApp</span>
                 </button>
               </div>
             </div>

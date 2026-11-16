@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.14.56",
+    "itens": [
+      "A aba de conectar ao navegador mostra o link do passador de slides, pronto para copiar.",
+      "O botão Copiar link leva esse endereço para a área de transferência.",
+      "O botão Enviar no WhatsApp abre a conversa do número digitado, com o link já escrito.",
+      "O número fica guardado: no próximo culto o campo já vem preenchido.",
+      "Digite só o DDD e o número — o 55 do Brasil entra sozinho.",
+      "O endereço da página ficou mais fácil de ditar: termina em /passador-de-slides."
+    ]
+  },
+  {
     "versao": "1.14.55",
     "itens": [
       "As marcações de cor dos momentos do itinerário ficaram mais suaves, no tom das dos livros da Bíblia.",
