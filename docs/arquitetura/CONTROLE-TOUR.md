@@ -118,7 +118,7 @@ acervo inteiro embaralhado), então os passos dela moram no mesmo `sorteio`: a m
 (`.sorteio-res-btn`, com `semAlvo` para a lista vazia), o `#sorteioQuantidade` e o embaralhar
 (`.sorteio-sortear`), que tem passo próprio fora do destaque da saída.
 
-Uma janela sem entrada na tabela (`songMenuPopup`, `itinPopup`) não tem tour, mas conta como seção aberta: o tour principal espera.
+Uma janela sem entrada na tabela (`songMenuPopup`, a sub-aba do momento `itinEditor`) não tem tour, mas conta como seção aberta: o tour principal espera.
 **Os ouvintes que fecham por toque FORA** (gaveta de cronogramas,
 ações da linha) ignoram toque dentro do `#tour` — senão o "Próximo" fechava a gaveta
 que ele explica.

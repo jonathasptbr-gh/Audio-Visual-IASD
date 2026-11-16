@@ -482,7 +482,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.51';
+const WEB_VERSION = '1.14.52';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -7738,7 +7738,7 @@ let itinSession = null;     // { projecting } | null
 // linhas de momento da LISTA (o telão não muda). A LISTA de momentos NÃO mora aqui:
 // ela é o Cronograma (`itinItens`).
 let itin = { horas: true, desloc: 0, deslocDia: '', momentosOcultos: false };
-let itinEditor = null;      // { id|null } — o momento aberto na folha de edição
+let itinEditor = null;      // { id|null } — o momento aberto na sub-aba (`#itinEditor`); null = fechada
 const ITIN_DESLOC_MAX = 720;   // min — doze horas para cada lado
 const ITIN_PASSO_PAR = 5;      // min — o passo do ⏮/⏭ com o itinerário no ar
 const ITIN_TITULO_MAX = 60;
@@ -8734,6 +8734,11 @@ function itinMudou() {
   itinMarcar();
 }
 
+// O NÚMERO DO AJUSTE com o sinal (`+20`, `−5`): a faixa o escreve no tamanho do ±5.
+function numDoAjuste() {
+  const d = itin.desloc;
+  return (d > 0 ? '+' : '−') + Math.abs(d);
+}
 function textoDoAjuste() {
   const d = itin.desloc;
   if (!d) return 'no horário';
@@ -8896,6 +8901,8 @@ function itinFaixaRepousar() {
 function itinFaixaAlternar(aberta) {
   const quer = !!aberta;
   if (quer === itinFaixaAberta) return;
+  // A SUB-ABA DO MOMENTO SAI COM A FAIXA: o `+` que a fecha mora nela.
+  if (!quer && itinEditor) fecharItinEditor();
   if (itinFaixaAnimando) itinFaixaRepousar();
   itinFaixaAberta = quer;
   if (itinBarBtnEl) itinBarBtnEl.setAttribute('aria-expanded', quer ? 'true' : 'false');
@@ -9161,11 +9168,11 @@ function itinMarcar() {
 setInterval(itinMarcar, createStage.ITIN_TICK_MS);
 
 // ===== A SEGUNDA LINHA DO CRONOGRAMA: as OPÇÕES DO ITINERÁRIO (`#itinBar`) =====
-// Uma faixa estreita logo abaixo da barra do topo, TRANSPARENTE, com os botões
-// soltos (pedido de 15/11), em três seções separadas só por espaço. ESTADO: o TELÃO
-// (o olho: liga e desliga a lista de momentos no cartão) · os MOMENTOS na lista (a
-// pauta: mostra ou oculta as linhas) · os HORÁRIOS no telão (ou só os títulos).
-// ATRASO: −5 · o atraso (tocar o zera) · +5. CRIAÇÃO: ADICIONAR um momento. Recolhida, ela não
+// Uma faixa estreita logo abaixo da barra do topo, a fileira do deck, em três seções
+// (`role="group"`). CRIAÇÃO: o `+`, que abre e fecha a sub-aba do momento. ESTADO: o
+// TELÃO (o monitor: liga e desliga a lista de momentos no cartão) · os MOMENTOS na
+// lista (a pauta: mostra ou oculta as linhas) · os HORÁRIOS no telão (ou só os
+// títulos). ATRASO: −5 · o atraso (tocar o zera) · +5. Recolhida, ela não
 // desenha nada: quem abre e fecha é o `#itinBarBtn` da barra, que leva o ponto do
 // "no ar" (ver `itinFaixaAlternar`).
 let itinBarAssin = '';
@@ -9220,7 +9227,8 @@ function renderItinBar() {
     const ponto = itinBarBtnEl.querySelector('.itin-ponto');
     if (ponto) ponto.hidden = !live;
   }
-  const assin = [itinFaixaAberta ? 1 : 0, live ? 1 : 0, n ? 1 : 0, itin.desloc, itin.horas ? 1 : 0, itin.momentosOcultos ? 1 : 0].join('|');
+  const assin = [itinFaixaAberta ? 1 : 0, live ? 1 : 0, n ? 1 : 0, itin.desloc, itin.horas ? 1 : 0, itin.momentosOcultos ? 1 : 0,
+    itinEditor ? 1 : 0].join('|');
   if (assin === itinBarAssin) return;
   itinBarAssin = assin;
   itinBarEl.textContent = '';
@@ -9259,15 +9267,30 @@ function renderItinBar() {
   };
   const txt = itinBarBotao('itinAjusteTxt', 'itin-ajuste-txt' + (itin.desloc ? ' deslocado' : ''),
     itin.desloc ? 'Voltar ao horário previsto' : 'Já está no horário previsto',
-    // DUAS ESCRITAS do mesmo estado: a longa cabe nas telas largas, a curta (`+5 min`) nas
-    // estreitas — quem escolhe é a consulta de contêiner do CSS, não o JS.
-    '<span class="itin-txt-longo">' + (itin.desloc > 0 ? 'Atrasado ' + itin.desloc + ' min'
-      : itin.desloc < 0 ? 'Adiantado ' + (-itin.desloc) + ' min' : 'No horário') + '</span>'
-    + '<span class="itin-txt-curto">' + (itin.desloc ? textoDoAjuste() : '0 min') + '</span>',
+    // DUAS ESCRITAS do mesmo estado: a longa ("Atrasado 20 min") cabe nas telas largas, a
+    // curta (só `+20`) nas estreitas — quem escolhe é a consulta de contêiner do CSS, não o
+    // JS. O NÚMERO é a `.itin-num`, no tamanho do ±5 vizinho (v1.14.52, pedido do operador:
+    // *"o número do atraso continua muito menor que os ícones"*); as palavras ficam no
+    // tamanho de rótulo, e a curta não as escreve — o ±5 também não escreve a unidade.
+    '<span class="itin-txt-longo">' + (itin.desloc
+      ? (itin.desloc > 0 ? 'Atrasado ' : 'Adiantado ') + '<span class="itin-num">' + Math.abs(itin.desloc) + '</span> min'
+      : 'No horário') + '</span>'
+    + '<span class="itin-txt-curto"><span class="itin-num">' + (itin.desloc ? numDoAjuste() : '0') + '</span></span>',
     itinAjusteZerar);
   txt.disabled = !itin.desloc;
-  const novo = itinBarBotao('itinNovoBtn', 'itin-novo', 'Adicionar um momento ao cronograma', ITIN_MAIS, () => abrirItinEditor(null));
-  // TRÊS SEÇÕES, separadas só por espaço (pedido de 15/11): ESTADO · ATRASO · CRIAÇÃO.
+  // O `+` ABRE E FECHA A SUB-ABA (v1.14.52, pedido do operador: *"seu botão de fechar vai
+  // ser o que antes foi o seu botão de abrir"*). Aberta ela vira a SETA PARA CIMA sem card —
+  // a gramática da porta da faixa (Pacote 40): a sub-aba desce abaixo dela, e quem a
+  // recolhe aponta para cima.
+  const editando = !!itinEditor;
+  const novo = itinBarBotao('itinNovoBtn', 'itin-novo' + (editando ? ' aberto' : ''),
+    editando ? 'Fechar o momento' : 'Adicionar um momento ao cronograma',
+    editando ? icoSprite('icoExpandir') : ITIN_MAIS,
+    () => (itinEditor ? fecharItinEditor() : abrirItinEditor(null)));
+  novo.setAttribute('aria-expanded', editando ? 'true' : 'false');
+  novo.setAttribute('aria-controls', 'itinEditor');
+  // TRÊS SEÇÕES: CRIAÇÃO · ESTADO · ATRASO (v1.14.52, pedido do operador: *"Coloque o botão
+  // de criar momento no extremo esquerdo da linha, antes do botão de exibir no telão"*).
   const secao = (nome, rotulo, filhos) => {
     const d = document.createElement('div');
     d.className = 'itin-secao itin-secao--' + nome;
@@ -9275,30 +9298,35 @@ function renderItinBar() {
     d.append(...filhos);
     return d;
   };
-  itinBarEl.append(secao('estado', 'Estado do itinerário', [tel, mom, hor]),
-    secao('atraso', 'Atraso', [passo(-5), txt, passo(5)]),
-    secao('criacao', 'Criar', [novo]));
+  itinBarEl.append(secao('criacao', 'Criar', [novo]),
+    secao('estado', 'Estado do itinerário', [tel, mom, hor]),
+    secao('atraso', 'Atraso', [passo(-5), txt, passo(5)]));
 }
 
-// ===== A FOLHA DE UM MOMENTO: adicionar e editar =====
+// ===== A SUB-ABA DE UM MOMENTO: adicionar e editar (v1.14.52) =====
 //
-// A HORA NÃO É UM `<input type="time">`: a escolha dele não é do app — o WebView
-// a entrega a um diálogo do sistema, que depende da versão do WebView e do
-// fabricante, e no aparelho o toque não deixava escolher a hora. Sem depender
-// do sistema, a hora e o minuto se escolhem nas
-// MESMAS roletas do Timer (`chronoRoletaEl`), o idioma de "escolher um tempo"
-// que o app já tem — com tudo o que elas já respondem: a lista infinita, a
-// banda do meio desde a primeira pintura, a célula medida pelo que sobra, sem a
-// marca `rola` e com a máscara nas pontas. A folha desce do TETO (a de um campo
-// de texto, como a da playlist automática): o teclado do título sobe por baixo
-// e não cobre nada.
+// Pedido do operador: *"Faça a tela de novo momento ser uma sub-aba que desliza
+// abaixo da aba de configurações do itinerário, ao invés de uma janela na tela
+// inteira … vai sobrepor a linha de itens no cronograma, para não precisar
+// deslocar a lista. E seu botão de fechar vai ser o que antes foi o seu botão de
+// abrir"*. O `#itinEditor` mora no TOPO do `.list-body` — que começa na borda de
+// baixo da `#itinBar` —, `position: absolute`: cobre as primeiras linhas sem
+// empurrar nenhuma. Abre e fecha DESLIZANDO pela altura medida (a família do
+// `itinFaixaAlternar`, com o `padding` na conta para o fecho chegar a zero). Quem
+// abre E fecha é o `+` da faixa (`#itinNovoBtn`, que vira a seta com ela aberta);
+// tocar num momento abre a mesma sub-aba, em edição, e ABRE A FAIXA junto (o
+// fechar mora nela). O voltar do aparelho a fecha (`__avBack`, degrau 1.8).
 //
-// A FOLHA TEM UMA FORMA SÓ: adicionar e editar são as mesmas peças, e só o
-// título e o rótulo do confirmar mudam — nenhuma linha aparece e some.
-const itinPopupEl = document.getElementById('itinPopup');
-const itinPopupCloseEl = document.getElementById('itinPopupClose');
-const itinPopupTituloEl = document.getElementById('itinPopupTitulo');
-const itinPopupCorpoEl = document.getElementById('itinPopupCorpo');
+// A HORA NÃO É UM `<input type="time">`: a escolha dele é um diálogo do SISTEMA,
+// que o WebView pode não abrir. A hora e o minuto se escolhem nas MESMAS roletas
+// do Timer (`chronoRoletaEl`). O campo do título SOBREPÕE (o padrão do app, ver
+// `keyboardShift`): a sub-aba fica no alto da tela e o teclado sobe por baixo.
+//
+// UMA FORMA SÓ: adicionar e editar são as mesmas peças; só o título e o rótulo
+// do confirmar mudam.
+const itinEditorEl = document.getElementById('itinEditor');
+const itinEditorTituloEl = document.getElementById('itinEditorTitulo');
+const itinEditorCorpoEl = document.getElementById('itinEditorCorpo');
 let itinRoletasObs = null;
 
 function itinRoletaColuna(campo, ciclo, rotulo) {
@@ -9313,7 +9341,7 @@ function itinRoletaColuna(campo, ciclo, rotulo) {
 }
 
 // A MESMA MEDIDA do `acertarRoletas` (a célula é a altura que sobra dividida
-// por três, com a largura como segundo teto), escrita para a caixa da folha.
+// por três, com a largura como segundo teto), escrita para a caixa da sub-aba.
 // Mudou a régua, as posições voltam à banda do meio no valor que tinham.
 function acertarRoletasDoItin() {
   const caixa = document.getElementById('itinRoletas');
@@ -9344,14 +9372,60 @@ function itinEditorValor() {
   return roletaValorDe(h) * 60 + roletaValorDe(m);
 }
 
+// O DESLIZAR DA SUB-ABA — o desenho do `itinFaixaAlternar`, menor: a sub-aba é
+// sobreposta, então não há margem nem lista andando; anda a altura e o `padding`
+// (sem ele a caixa pararia na soma dos dois, a lição da v1.14.49). O fim é o
+// `transitionend` da altura; o temporizador é só a rede. `itinEditorAnimando` é o
+// estado que os oráculos esperam.
+let itinEditorAnimando = false;
+let itinEditorFim = null;
+let itinEditorRede = null;
+function itinEditorRepousar() {
+  if (itinEditorRede) { clearTimeout(itinEditorRede); itinEditorRede = null; }
+  if (itinEditorFim) { itinEditorEl.removeEventListener('transitionend', itinEditorFim); itinEditorFim = null; }
+  itinEditorAnimando = false;
+  const el = itinEditorEl;
+  el.classList.remove('itin-editor--animando');
+  el.style.height = ''; el.style.paddingTop = ''; el.style.paddingBottom = ''; el.style.transition = '';
+  el.hidden = !itinEditor;
+  if (!itinEditor) itinEditorCorpoEl.textContent = '';
+}
+function itinEditorDeslizar(abrir) {
+  const el = itinEditorEl;
+  if (itinEditorAnimando) itinEditorRepousar();
+  if (semMovimento()) { itinEditorRepousar(); return; }
+  el.hidden = false;
+  const alto = el.offsetHeight;
+  if (!alto) { itinEditorRepousar(); return; }
+  const cs = getComputedStyle(el);
+  const pt = cs.paddingTop, pb = cs.paddingBottom;
+  const fechado = () => { el.style.height = '0px'; el.style.paddingTop = '0px'; el.style.paddingBottom = '0px'; };
+  const aberto = () => { el.style.height = alto + 'px'; el.style.paddingTop = pt; el.style.paddingBottom = pb; };
+  itinEditorAnimando = true;
+  el.classList.add('itin-editor--animando');
+  // O PONTO DE PARTIDA SEM TRANSIÇÃO, e só então o de chegada (a regra da faixa).
+  el.style.transition = 'none';
+  if (abrir) fechado(); else aberto();
+  void el.offsetHeight;
+  el.style.transition = '';
+  if (abrir) aberto(); else fechado();
+  itinEditorFim = (e) => { if (e.target === el && e.propertyName === 'height') itinEditorRepousar(); };
+  el.addEventListener('transitionend', itinEditorFim);
+  itinEditorRede = setTimeout(itinEditorRepousar, msDoToken('--dur-media', 200) + 400);
+}
+
 function abrirItinEditor(id) {
   const x = id ? itinItens().find((i) => i.id === id) : null;
   if (id && !x) return;
   fecharAcoesDaLinha();
+  const jaAberta = !!itinEditor;
   itinEditor = { id: x ? x.id : null };
+  // O FECHAR MORA NA FAIXA: aberta pela linha de um momento com ela recolhida, ela
+  // abre junto — sem ela a sub-aba não teria o `+` que a fecha.
+  if (!itinFaixaAberta) itinFaixaAlternar(true);
   const min = x ? x.min : itinHoraSugerida();
-  itinPopupTituloEl.textContent = x ? 'Editar momento' : 'Novo momento';
-  limparFolha(itinPopupCorpoEl);
+  itinEditorTituloEl.textContent = x ? 'Editar momento' : 'Novo momento';
+  itinEditorCorpoEl.textContent = '';
 
   const cx = document.createElement('div');
   cx.className = 'chrono-roletas itin-roletas';
@@ -9363,7 +9437,7 @@ function abrirItinEditor(id) {
   const dp = document.createElement('span');
   dp.className = 'roleta-dp'; dp.setAttribute('aria-hidden', 'true'); dp.textContent = ':';
   cx.append(rh, dp, rm);
-  itinPopupCorpoEl.appendChild(cx);
+  itinEditorCorpoEl.appendChild(cx);
 
   const titulo = document.createElement('input');
   titulo.type = 'text'; titulo.className = 'misc-text itin-campo-titulo';
@@ -9373,13 +9447,11 @@ function abrirItinEditor(id) {
   titulo.value = x ? x.titulo : '';
   titulo.setAttribute('aria-label', 'Título');
   titulo.enterKeyHint = 'done';
-  // (O teclado SOBREPÕE — o padrão do app desde a v1.13.7, ver `keyboardShift`;
-  //  a folha se põe acima dele sozinha, por `--kb-folha`.)
-  itinPopupCorpoEl.appendChild(titulo);
+  itinEditorCorpoEl.appendChild(titulo);
 
-  // O CONFIRMAR É O DA FAIXA DE FECHO das folhas (`song-menu-go`), sempre à
-  // vista — APAGADO sem título, com o porquê (a regra da v1.8.50).
-  const linha = document.createElement('li');
+  // O CONFIRMAR é o botão primário das folhas (`song-menu-go`), sempre à vista —
+  // APAGADO sem título, com o porquê (a regra da v1.8.50).
+  const linha = document.createElement('div');
   linha.className = 'song-menu-go-row';
   const ok = document.createElement('button');
   ok.type = 'button'; ok.id = 'itinEditorOk';
@@ -9406,11 +9478,13 @@ function abrirItinEditor(id) {
   });
   acertar();
   linha.appendChild(ok);
-  porFecho(itinPopupCorpoEl, linha);
+  itinEditorCorpoEl.appendChild(linha);
 
-  itinPopupEl.classList.add('open');
-  // A ORDEM DO TIMER: medir a caixa (que só tem tamanho aberta), depois
+  // A ORDEM DO TIMER: medir a caixa (que só tem tamanho à vista), depois
   // posicionar — invertida, a primeira posição usa a régua do CSS.
+  if (itinEditorAnimando) itinEditorRepousar();
+  itinEditorEl.hidden = false;
+  itinEditorCaber();
   acertarRoletasDoItin();
   roletaLevar(rh, Math.floor(min / 60), () => false);
   roletaLevar(rm, min % 60, () => false);
@@ -9419,15 +9493,37 @@ function abrirItinEditor(id) {
     itinRoletasObs = new ResizeObserver(() => acertarRoletasDoItin());
     itinRoletasObs.observe(cx);
   }
+  // TROCAR DE MOMENTO com a sub-aba já aberta só troca o conteúdo: ela não fecha e
+  // reabre debaixo do dedo.
+  if (!jaAberta) itinEditorDeslizar(true);
+  // A FAIXA ABRINDO JUNTO já desenhou o `+` com a sub-aba aberta (o estado veio
+  // antes dela), e um desenho agora cancelaria o deslizar dela.
+  if (!itinFaixaAnimando) renderItinBar();
 }
 
+function itinEditorAberto() { return !!itinEditor; }
+
+// A SUB-ABA TERMINA ACIMA DO TECLADO. O campo do título SOBREPÕE (o app não encolhe), e
+// um teclado alto chegaria ao confirmar: o teto dela é o fundo da viewport VISUAL, e as
+// roletas são a peça que cede (`flex-shrink`, com piso no CSS) — a régua que o `--kb-folha`
+// dava à folha do teto, aqui medida a partir do topo dela.
+function itinEditorCaber() {
+  if (!itinEditor || !itinEditorEl) return;
+  const vv = window.visualViewport;
+  const fundo = vv ? vv.height + vv.offsetTop : innerHeight;
+  const cabe = Math.floor(fundo - itinEditorEl.getBoundingClientRect().top - 8);
+  itinEditorEl.style.maxHeight = cabe > 0 ? cabe + 'px' : '';
+}
+if (window.visualViewport) window.visualViewport.addEventListener('resize', itinEditorCaber);
+
 function fecharItinEditor() {
-  if (!itinPopupEl.classList.contains('open')) return;
-  itinPopupEl.classList.remove('open');
+  if (!itinEditor) return;
   itinEditor = null;
   if (itinRoletasObs) { itinRoletasObs.disconnect(); itinRoletasObs = null; }
   const c = document.getElementById('itinCampoTitulo');
   if (c && document.activeElement === c) c.blur();
+  itinEditorDeslizar(false);
+  renderItinBar();
 }
 
 // UM BOTÃO DE ÍCONE para "guardar isto aqui": os dois destinos de uma cena de
@@ -43390,7 +43486,7 @@ window.addEventListener('resize', () => {
   // BUSCA AS TECLAS SAEM"). Ali a barra SOBE com o teclado de propósito: ela é
   // o campo.
   // O que cada forma de campo faz no lugar do encolhimento:
-  //  · FOLHA DO TETO (`#fadePopup`, `#sorteioPopup`, `#itinPopup`): desconta
+  //  · FOLHA DO TETO (`#fadePopup`, `#sorteioPopup`): desconta
   //    `--kb-folha`, e a lista dela rola dentro do que sobra;
   //  · DIÁLOGO CENTRADO (`appPrompt`): o `.dialog-backdrop` desconta
   //    `--kb-folha` e o cartão centra no que sobra acima do teclado;
@@ -43477,7 +43573,7 @@ window.addEventListener('resize', () => {
     const kb = campoDesloca() ? teclado : 0;
     document.documentElement.style.setProperty('--kb', kb + 'px');
     // ===== `--kb-folha`: O TECLADO INTEIRO, MESMO QUANDO O CAMPO SOBREPÕE =====
-    // Uma FOLHA QUE DESCE DO TETO com um campo (`#itinPopup`) e o DIÁLOGO
+    // Uma FOLHA QUE DESCE DO TETO com um campo (`#sorteioPopup`) e o DIÁLOGO
     // centrado precisam das duas coisas ao mesmo tempo: que o app por baixo NÃO
     // encolha (o campo sobrepõe, e `--kb` fica 0) e que eles próprios terminem
     // onde o teclado começa (a faixa de fecho e o cartão não podem ficar atrás
@@ -46147,10 +46243,6 @@ const POPUPS = [
   // duas coisas dizem a mesma ordem, e mudar uma sem a outra é o acaso que já
   // cobriu um popup por inteiro aqui.
   [sorteioPopupEl, sorteioCloseEl, fecharSorteio],
-  // A FOLHA DE UM HORÁRIO DO ITINERÁRIO abre de dentro da folha de
-  // Ferramentas, que fica FORA desta tabela e abaixo de toda folha — então o
-  // voltar a fecha antes de chegar às Ferramentas, que é a ordem certa.
-  [itinPopupEl, itinPopupCloseEl, fecharItinEditor],
 ];
 // A FOLHA DE FERRAMENTAS fica FORA da tabela, e não por esquecimento: ela não é
 // um `.popup-backdrop` (não há camada sobre a tela toda, não há fundo escurecido
@@ -46202,6 +46294,10 @@ window.__avBack = function () {
   //    em qualquer lugar —, e nada abre por cima dela além do diálogo (renomear
   //    e excluir de uma linha), que é o degrau 1.
   if (cronoGavetaAberta()) { fecharCronoGaveta(); return true; }
+  // 1.8. A SUB-ABA DO MOMENTO DO ITINERÁRIO (v1.14.52): uma camada do Cronograma
+  //    aberta pelo `+` da faixa, e o voltar a recolhe antes de qualquer outra coisa
+  //    nela — como o próprio `+`. A faixa fica aberta.
+  if (itinEditorAberto()) { fecharItinEditor(); return true; }
   // 2. Bottom-sheets. Fecha o ÚLTIMO da tabela que estiver aberto — normalmente
   //    há um só, mas se houver dois o de cima é o que o operador vê.
   for (let i = POPUPS.length - 1; i >= 0; i--) {
@@ -46280,6 +46376,7 @@ const SECAO_DO_POPUP = { fadePopup: 'configuracoes', castPopup: 'conectar', sort
   plPopup: 'playlist', lyricsPopup: 'letra', hymnSearchPopup: 'biblioteca' };
 function secaoDoTour() {
   if (cronoGavetaAberta()) return 'cronogramas';
+  if (itinEditorAberto()) return 'itinEditor';
   for (let i = POPUPS.length - 1; i >= 0; i--) {
     const [backdrop] = POPUPS[i];
     if (!backdrop.classList.contains('open')) continue;

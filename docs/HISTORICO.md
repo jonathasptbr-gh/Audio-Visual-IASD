@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.52** — a faixa do itinerário: o cinza dos botões no tema claro, o número do atraso no tamanho do ±5, o `+` no começo, e o momento numa SUB-ABA que desliza sob a faixa, por cima da lista, fechada pelo próprio `+` (só web).
 - **v1.14.51** — com o itinerário no telão, a MÍDIA tocada vence o nome do player (avançado, Modo Fácil, notificação), como já vencia a barra; o Parar e o fim natural devolvem "Itinerário" (só web).
 - **v1.14.50** — nos Favoritos o botão largo é UM só e ALTERNA: "Ver a letra" quando o registro tem letra, "Detalhes" quando não tem; o card continua montado, sem botão (só web).
 - **v1.14.49** — Pacote 40: a porta do itinerário vira checklist fechada e seta para cima aberta, sem card; a faixa encolhe até o fim antes de sumir, todos os ícones dela no tamanho padrão e o telão vira um monitor (só web).
@@ -916,6 +917,21 @@ a folha com a oferta e os quatro botões; Tocar agora pondo na cena pela pratele
 `lista-da-biblioteca` D5b e `titulo-da-colecao-nao-anda` deixaram de contar o botão como bloco de
 acervo; `tour` B2 aceita o passo do fim como opcional; `smoke`, `boot-nativo`,
 `modo-simples-biblioteca-tamanho` e `semana-item` voltaram ao que eram antes da v1.14.40.
+
+---
+
+## v1.14.52 — a faixa do itinerário: o cinza do claro, o número do atraso, o `+` no começo e a sub-aba do momento
+
+**Pedidos do operador** (2026-11-16, 13h30), só web: `SHELL_VERSION` 89 (o shell não foi tocado), `minShell` 83, **sem `shellTag`**. Degrau CORREÇÃO. Cinco pedidos, todos na `#itinBar`:
+
+1. *"No tema claro, os botões de opções do itinerário estão ficando brancos ou transparentes, não ganhando o cinza que deveriam."* — **a aritmética da `.bottombar`**: no claro `--bar` é branco e o `--surface` da base é branco com alfa (1,00:1). A faixa (e a sub-aba) entram na regra que AFUNDA a superfície (`:root[data-tema="claro"] .itin-bar, .itin-editor { --surface: var(--surface-sunk) }`): medido, os cinzas da faixa pintam `rgba(0, 0, 0, .14)`, o MESMO do `.t-btn` do transporte; o escuro não muda (`rgba(255, 255, 255, .12)` nos dois). Nenhuma cor nova: os tokens já existiam.
+2. *"O número do atraso continua muito menor que os ícones dos botões ao seu redor."* — o número virou a `.itin-num`, na régua do `.itin-passo` (`--icon-md`, peso máximo, tabular): a caixa de texto foi de 13px (o `--fs-xs`) a 28px, a mesma do ±5 vizinho, medida pela `Range` a 320/360/430. A escrita CURTA passou a ser só o número com o sinal ("+20", como o ±5 não escreve a unidade); a LONGA continua com as palavras ("Atrasado 20 min", número grande) e o limite da consulta de contêiner subiu de 456 para 600px (a mais longa, "Adiantado 720 min", mede 110,8px). A 320px "−720" ocupa 52,4 dos 54,9px da célula.
+3. *"Coloque o botão de criar momento no extremo esquerdo da linha, antes do botão de exibir no telão."* — as seções são CRIAÇÃO · ESTADO · ATRASO.
+4. e 5. *"Faça a tela de novo momento ser uma sub-aba que desliza abaixo da aba de configurações do itinerário … vai sobrepor a linha de itens no cronograma, para não precisar deslocar a lista. E seu botão de fechar vai ser o que antes foi o seu botão de abrir."* — a folha `#itinPopup` (tela inteira, do teto) SAIU com o HTML, o CSS, a linha do `POPUPS` e os comentários; no lugar, o `#itinEditor` no TOPO do `.list-body` (a borda de baixo da faixa), `absolute`, `z-index: 7`, `--bar` opaco com sombra: cobre as linhas sem mover nenhuma. Desliza pela altura medida (`itinEditorDeslizar`, a família do `itinFaixaAlternar`, com o `padding` na conta — a lição da v1.14.49). O `+` abre e fecha; aberta, ele vira a SETA `icoExpandir` SEM card, em `--accent` (a gramática que o operador escolheu para a porta da faixa no Pacote 40), com `aria-expanded`/`aria-controls`. O voltar do aparelho a fecha antes de tudo nela (`__avBack`, degrau 1.8: a faixa fica); recolher a faixa a leva junto; o tour a conta como seção aberta.
+
+**DECISÕES QUE O PEDIDO NÃO DIZIA:** (a) tocar num momento (sem mídia: o com mídia recolhe o grupo) com a faixa RECOLHIDA abre a faixa JUNTO com a sub-aba de edição — o fechar mora nela, e sem ela a sub-aba não teria saída no toque; trocar de momento com a sub-aba aberta só troca o conteúdo; (b) o TECLADO: o campo continua sobrepondo, e a sub-aba ganhou um teto (`itinEditorCaber`, no `resize` da viewport visual) — o fundo da viewport visual; as roletas cedem até 4,5rem. Sem ele, o teclado simulado de 450px (bloco N) cobria 12px do confirmar.
+
+**OS ORÁCULOS.** O `itinerario` ganhou o bloco **L′** (o deslizar com a lista parada quadro a quadro; o lugar, a opacidade e o "por cima" por `elementFromPoint`; a seta sem card; o voltar e o fecho até perto de zero; a faixa que leva a sub-aba; o cinza do claro igual ao do `.t-btn` nos dois temas), uma asserção nova no laço de larguras do **U** (o número com a fonte e a caixa do ±5) e um caso novo no **G′** (a faixa recolhida que abre junto); o L, o N, o B′, o U (a ordem e as seções), o Y e o D foram reescritos para a sub-aba e a escrita curta. O `teclado-das-folhas` varre o campo na sub-aba (D). Rodados como vizinhos, pelo `grep` de todo seletor e função tocados: `barra-do-topo-e-titulos`, `tour`, `smoke`, `cronogramas-multiplos`, `engrenagem-do-item`, `ferramentas-folha`, `sombra-de-rolagem`, `tokens`, `toque-instantaneo`, `glifos`.
 
 ---
 

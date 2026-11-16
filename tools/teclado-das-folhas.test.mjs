@@ -2,7 +2,7 @@
 // O TECLADO SOBREPÕE EM TODO CAMPO DE TEXTO DO APP (v1.13.7; folha a folha desde
 // a v1.13.3).
 //
-// A v1.13.2 achou a causa no `#itinPopup`: um campo de texto que NÃO declarava
+// A v1.13.2 achou a causa na folha do momento do itinerário: um campo de texto que NÃO declarava
 // `data-teclado="sobrepoe"` fazia o `keyboardShift` escrever o teclado em `--kb`,
 // que encolhe o `<body>` — e a caixa de controles, com a barra de busca da
 // Biblioteca repousando nela, SUBIA com o teclado e DESCIA quando o campo perdia o
@@ -301,15 +301,16 @@ try {
     await pg.waitForTimeout(400);
   }
 
-  // ── D. O MOMENTO DO ITINERÁRIO: o título de um horário (`#itinPopup`) ─────
-  // A folha abre DIRETO (v1.14.32): o Itinerário é opção do Cronograma (`#itinBar`, o `+`), não uma ferramenta, então não há
-  // folha de Ferramentas por baixo — o campo é varrido com o Cronograma como único app por trás dele.
+  // ── D. O MOMENTO DO ITINERÁRIO: o título de um horário (`#itinEditor`) ────
+  // Desde a v1.14.52 é uma SUB-ABA sob a faixa do itinerário (`#itinBar`, o `+`), sobreposta à
+  // lista e não uma folha — o campo é varrido com o Cronograma como único app por trás dele, e
+  // a casca é a própria sub-aba (ela termina acima do teclado: `itinEditorCaber`).
   await pg.evaluate(() => { abrirItinEditor(null); });
-  await esperar(pg, () => document.getElementById('itinPopup').classList.contains('open') && !!document.getElementById('itinCampoTitulo'));
-  await esperar(pg, () => document.querySelector('#itinPopup .popup-sheet').getBoundingClientRect().top >= -0.5);
-  algum('D', await varrer('D', '#itinPopup .popup-sheet'));
+  await esperar(pg, () => !document.getElementById('itinEditor').hidden && !!document.getElementById('itinCampoTitulo')
+    && !itinEditorAnimando && !itinFaixaAnimando);
+  algum('D', await varrer('D', '#itinEditor'));
   await pg.evaluate(() => window.__avBack());
-  await esperar(pg, () => !document.getElementById('itinPopup').classList.contains('open'));
+  await esperar(pg, () => document.getElementById('itinEditor').hidden);
   await pg.waitForTimeout(400);
 
   // ── E. O DIÁLOGO CENTRADO (`appPrompt`): renomear o CRONOGRAMA, pelo lápis da

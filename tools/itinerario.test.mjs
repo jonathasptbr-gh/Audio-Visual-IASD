@@ -15,15 +15,15 @@
 //    data:{ min } }` em `imports` (a lista do cronograma ATIVO), como qualquer item:
 //    linha `li.lib-item.momento` SEM capa, com `.momento-hora`, `.row-name` e
 //    `.row-sub` ('Agora' / 'A seguir' / 'previsto HH:MM' / duração / 'Último momento').
-//    Tocar edita (folha `#itinPopup`); segurar ARRASTA; sem `⋮`: excluir (a pergunta
+//    Tocar edita (sub-aba `#itinEditor`); segurar ARRASTA; sem `⋮`: excluir (a pergunta
 //    NA LINHA) e editar sempre à vista, só o ícone — não há par ↑↓.
 //  · A ORDEM: a posição da linha é do OPERADOR (organiza as mídias); o TELÃO é
 //    ordenado pelo RELÓGIO (`ordenarItin`). Momento novo entra antes do primeiro
 //    momento posterior no relógio, senão no fim da lista; lista sem momento: no TOPO.
-//  · A FAIXA `#itinBar` (irmã da barra do topo, dentro do `<main>`): Telão (o olho) ·
-//    Momentos na lista · Horários × só títulos · −5 [ajuste] +5 · Novo. NASCE RECOLHIDA
-//    (vazia, `hidden`), abre e fecha pela porta `#itinBarBtn` da barra (que leva o ponto
-//    do "no ar") e se recolhe sozinha 5 s depois do último toque; abrir não se grava.
+//  · A FAIXA `#itinBar` (irmã da barra do topo, dentro do `<main>`): Novo (o `+`, que abre
+//    e fecha a sub-aba do momento) · Telão (o monitor) · Momentos na lista · Horários × só
+//    títulos · −5 [ajuste] +5. NASCE RECOLHIDA (vazia, `hidden`), abre e fecha pela porta
+//    `#itinBarBtn` da barra (que leva o ponto do "no ar"); aberta, fica; abrir não se grava.
 //  · O ESTADO `state.itinerario` = `{ v:3, horas, desloc, deslocDia, momentosOcultos }` e
 //    só isso (a lista saiu dela); o ajuste é do dia e é GLOBAL.
 //  · O ITINERÁRIO NÃO TOCA MÍDIA: o relógio cruzando um horário muda a marca de
@@ -44,10 +44,13 @@
 //  H. `prefers-reduced-motion`: nada se move.
 //  I. Lista sem momentos: o "Telão" é APAGADO e diz por quê; esvaziar no ar tira do telão.
 //  J. Com o itinerário no ar o ⏮/⏭ é o AJUSTE de 5 em 5 min, com apagado nos extremos.
-//  L. A FOLHA de um momento: roletas de hora e minuto, nenhum `<input type="time">`.
+//  L. A SUB-ABA de um momento: roletas de hora e minuto, nenhum `<input type="time">`.
+//  L′. (v1.14.52) a sub-aba DESLIZA sem mover a lista, por cima dela, logo abaixo da faixa;
+//     o `+` é o fechar (a seta sem card); o voltar e a faixa recolhida a fecham; o cinza
+//     dos botões da faixa no tema claro é o do `.t-btn`.
 //  M. O DESENHO NO TELÃO: wallpaper à vista, bloco escuro centrado, a marca "Agora"
 //     à esquerda do horário — medido por pixel sobre um wallpaper branco.
-//  N. O TECLADO da folha não mexe na barra de busca da Biblioteca.
+//  N. O TECLADO da sub-aba não mexe na barra de busca da Biblioteca.
 //
 //  NOVOS (v1.14.32):
 //  B′. MOMENTOS NA LISTA, PELA UI REAL: três (e mais um) criados FORA da ordem do
@@ -248,11 +251,12 @@ try {
       'I · lista SEM momentos: o "Telão" da faixa é APAGADO e diz por quê (o `title` manda adicionar um momento)', e);
   }
 
-  // O HORÁRIO SE ESCOLHE NAS ROLETAS da folha (v1.13.1): a posição é escrita
+  // O HORÁRIO SE ESCOLHE NAS ROLETAS da sub-aba (v1.13.1): a posição é escrita
   // como o dedo a deixaria — a célula do valor na banda do meio —, e quem lê é o
   // confirmar, pelo `roletaValorDe` de sempre.
-  const abrirFolha = () => esperar(pg, () => document.getElementById('itinPopup').classList.contains('open')
-    && !!document.getElementById('itinRoleta_hora'));
+  // A SUB-ABA DESLIZA (v1.14.52): "aberta" é sem `hidden`, com as roletas, e PARADA.
+  const abrirFolha = () => esperar(pg, () => !document.getElementById('itinEditor').hidden
+    && !!document.getElementById('itinRoleta_hora') && !itinEditorAnimando);
   const escolherHora = (hm) => pg.evaluate((v) => {
     const [h, m] = v.split(':').map(Number);
     const rh = document.getElementById('itinRoleta_hora');
@@ -261,9 +265,9 @@ try {
     rh.scrollTop = (Number(rh.dataset.base) + pistaDoValor(h, 24, 0)) * it;
     rm.scrollTop = (Number(rm.dataset.base) + pistaDoValor(m, 60, 0)) * it;
   }, hm);
-  // O confirmar é ASSÍNCRONO (grava, relê a lista e SÓ ENTÃO fecha): folha fechada
-  // quer dizer lista já redesenhada.
-  const fechada = () => esperar(pg, () => !document.getElementById('itinPopup').classList.contains('open'));
+  // O confirmar é ASSÍNCRONO (grava, relê a lista e SÓ ENTÃO fecha): sub-aba fechada
+  // (o fim do deslizar: `hidden`) quer dizer lista já redesenhada.
+  const fechada = () => esperar(pg, () => document.getElementById('itinEditor').hidden && !itinEditorAnimando);
   const adicionar = async (hora, titulo) => {
     await abrirFaixa();
     await pg.click('#itinNovoBtn');
@@ -298,7 +302,7 @@ try {
         rola: cx.querySelectorAll('.rola').length,
         item: roletaItem(cx), alto: Math.round(r.height),
         okOff: ok.disabled, okTitulo: ok.title,
-        titulo: document.getElementById('itinPopupTitulo').textContent,
+        titulo: document.getElementById('itinEditorTitulo').textContent,
         rotulo: ok.querySelector('.song-menu-label').textContent,
         // A SUGESTÃO para uma lista vazia: o próximo múltiplo de cinco depois
         // de agora (09:58 → 10:00).
@@ -314,17 +318,132 @@ try {
     // A RODA RESPONDE AO GESTO: uma volta da roda do mouse para baixo sobre a
     // hora desce a lista uma célula — e o valor CRESCE PARA BAIXO (v1.14.41, o
     // mesmo sentido das roletas do Timer desde 16/11), então ele sobe de 10 para 11.
-    // A FOLHA DESCE ANIMADA: o gesto espera ela assentar no teto.
-    await esperar(pg, () => document.querySelector('#itinPopup .popup-sheet').getBoundingClientRect().top >= -0.5);
     const caixa = await pg.locator('#itinRoleta_hora').boundingBox();
     await pg.mouse.move(caixa.x + caixa.width / 2, caixa.y + caixa.height / 2);
     await pg.mouse.wheel(0, f.item);
     const rw = await esperar(pg, () => roletaValorDe(document.getElementById('itinRoleta_hora')) === 11, null, 5000);
     checar(rw === true, 'L · a roleta da hora responde ao gesto (10 → 11 com uma célula de rolagem PARA BAIXO)', porque(rw));
   }
-  await pg.click('#itinPopupClose');
+  // O FECHAR É O PRÓPRIO `+` (o pedido: *"seu botão de fechar vai ser o que antes foi o seu botão de abrir"*).
+  await pg.click('#itinNovoBtn');
   await fechada();
-  checar((await lista()).length === 0, 'L · fechar a folha sem confirmar NÃO cria momento nenhum', await lista());
+  checar((await lista()).length === 0, 'L · fechar a sub-aba sem confirmar NÃO cria momento nenhum', await lista());
+
+  // ── L′. A SUB-ABA DO MOMENTO (v1.14.52) ──────────────────────────────────
+  // Pedido do operador: *"Faça a tela de novo momento ser uma sub-aba que desliza abaixo
+  // da aba de configurações do itinerário … vai sobrepor a linha de itens no cronograma,
+  // para não precisar deslocar a lista. E seu botão de fechar vai ser o que antes foi o
+  // seu botão de abrir"*. A régua: ela DESLIZA (alturas intermediárias), nasce na borda
+  // de baixo da faixa, cobre as linhas sem MOVER nenhuma (o topo do `#library` e o da
+  // primeira linha parados em todos os quadros), o `+` vira a SETA sem card com
+  // `aria-expanded`, o voltar a fecha antes de tudo (a faixa fica), o fecho chega a ZERO
+  // antes do `hidden` e fechar a faixa a leva junto.
+  await pg.evaluate(async () => { await AVDB.addCue('message', { text: 'x' }, { name: 'Linha de baixo', list: 'imports' }); await load(); });
+  await esperar(pg, () => !!document.querySelector('#library > li.lib-item'));
+  await abrirFaixa();
+  {
+    const antes = await pg.evaluate(() => {
+      const b = document.getElementById('itinNovoBtn');
+      return { exp: b.getAttribute('aria-expanded'), ctl: b.getAttribute('aria-controls'), usos: b.querySelectorAll('use').length,
+        pintado: !/,\s*0\)$/.test(getComputedStyle(b).backgroundColor) };
+    });
+    const q = await pg.evaluate(() => new Promise((ok) => {
+      const ed = document.getElementById('itinEditor'), lib = document.getElementById('library');
+      const li = lib.querySelector('li.lib-item');
+      const v = [], t0 = performance.now();
+      document.getElementById('itinNovoBtn').click();
+      const passo = () => {
+        v.push([ed.hidden ? -1 : Math.round(ed.getBoundingClientRect().height * 10) / 10,
+          Math.round(lib.getBoundingClientRect().top * 10) / 10, Math.round(li.getBoundingClientRect().top * 10) / 10]);
+        if (performance.now() - t0 < 360) requestAnimationFrame(passo); else ok(v);
+      };
+      requestAnimationFrame(passo);
+    }));
+    await abrirFolha();
+    const alto = q[q.length - 1][0];
+    const meio = q.filter((x) => x[0] > 1 && x[0] < alto - 1).length;
+    const libTopos = new Set(q.map((x) => x[1])), liTopos = new Set(q.map((x) => x[2]));
+    checar(alto > 100 && meio >= 2 && libTopos.size === 1 && liTopos.size === 1,
+      'L′ · a sub-aba ABRE DESLIZANDO (a altura passa pelo meio) e a lista NÃO anda: o topo do `#library` e o da '
+      + 'primeira linha ficam no mesmo pixel em todos os quadros', { alto, meio, libTopos: [...libTopos], liTopos: [...liTopos] });
+    const g = await pg.evaluate(() => {
+      const ed = document.getElementById('itinEditor'), r = ed.getBoundingClientRect();
+      const bar = document.getElementById('itinBar').getBoundingClientRect();
+      const li = document.querySelector('#library > li.lib-item').getBoundingClientRect();
+      const b = document.getElementById('itinNovoBtn');
+      // O PONTO DA PRIMEIRA LINHA que a sub-aba cobre: quem responde é ela, não a linha.
+      const y = Math.max(li.top + 4, r.top + 4);
+      const quem = document.elementFromPoint(innerWidth / 2, Math.min(y, r.bottom - 4));
+      return {
+        topo: +(r.top - bar.bottom).toFixed(1), cobre: li.top < r.bottom, porCima: !!quem && ed.contains(quem),
+        fundo: getComputedStyle(ed).backgroundColor, larg: Math.round(r.width), vw: innerWidth,
+        exp: b.getAttribute('aria-expanded'), usos: [...b.querySelectorAll('use')].map((u) => u.getAttribute('href')),
+        pintado: !/,\s*0\)$/.test(getComputedStyle(b).backgroundColor), titulo: b.title,
+      };
+    });
+    checar(Math.abs(g.topo) <= 1 && g.cobre && g.porCima && !/,\s*0\)$/.test(g.fundo) && g.larg === g.vw,
+      'L′ · a sub-aba nasce na borda de BAIXO da faixa, de borda a borda, OPACA, e fica POR CIMA da primeira linha da lista', g);
+    checar(antes.exp === 'false' && antes.ctl === 'itinEditor' && antes.usos === 0 && antes.pintado
+      && g.exp === 'true' && g.usos.join() === '#icoExpandir' && !g.pintado && /fechar/i.test(g.titulo),
+      'L′ · o `+` é o fechar: aberta a sub-aba ele vira a SETA (`#icoExpandir`, a da porta da faixa), SEM card, '
+      + '`aria-expanded="true"` e o título "Fechar"', { antes, g });
+    // O VOLTAR DO APARELHO a fecha — e a faixa fica. O fecho é medido pela ORDEM: o último
+    // quadro com ela à vista já está perto de 0 (a lição da v1.14.49: o `padding` na conta).
+    const v = await pg.evaluate(() => new Promise((ok) => {
+      const ed = document.getElementById('itinEditor');
+      const qs = [], t0 = performance.now();
+      const consumiu = window.__avBack();
+      const passo = () => {
+        qs.push(ed.hidden ? -1 : Math.round(ed.getBoundingClientRect().height * 10) / 10);
+        if (performance.now() - t0 < 500 && !ed.hidden) requestAnimationFrame(passo);
+        else ok({ consumiu, qs, faixa: itinFaixaAberta && !document.getElementById('itinBar').hidden });
+      };
+      requestAnimationFrame(passo);
+    }));
+    const vis = v.qs.filter((h) => h >= 0);
+    checar(v.consumiu === true && v.faixa && v.qs[v.qs.length - 1] === -1 && vis.length >= 3 && vis[vis.length - 1] < 6
+      && vis.every((h, i) => i === 0 || h <= vis[i - 1]),
+      'L′ · o VOLTAR do aparelho fecha a sub-aba (e só ela: a faixa fica aberta), ENCOLHENDO sem parar até perto de zero '
+      + 'antes de sumir — com o `padding` (32 px) fora da conta ela pararia acima disso', v);
+    // FECHAR A FAIXA LEVA A SUB-ABA JUNTO: o `+` que a fecha mora nela.
+    await pg.click('#itinNovoBtn');
+    await abrirFolha();
+    await pg.click('#itinBarBtn');
+    const junto = await esperar(pg, () => document.getElementById('itinEditor').hidden && document.getElementById('itinBar').hidden
+      && !itinEditorAberto());
+    checar(junto === true, 'L′ · recolher a faixa pela porta recolhe a sub-aba junto', porque(junto));
+  }
+  // O CINZA DOS BOTÕES NO TEMA CLARO (v1.14.52): *"os botões de opções do itinerário estão
+  // ficando brancos ou transparentes, não ganhando o cinza que deveriam"*. No claro `--bar`
+  // é branco e o `--surface` da base é branco com alfa (1,00:1); a faixa AFUNDA como a
+  // `.bottombar`. A régua é o `.t-btn` do transporte, no MESMO tema — e o escuro não muda.
+  await abrirFaixa();
+  {
+    const tons = await pg.evaluate(() => {
+      const ler = () => ({
+        tbtn: getComputedStyle(document.querySelector('.transport .t-btn')).backgroundColor,
+        faixa: getComputedStyle(document.getElementById('itinBar')).backgroundColor,
+        cinzas: [...document.querySelectorAll('#itinBar .itin-b')]
+          .filter((b) => !b.classList.contains('itin-novo') && !(['itinTelaoBtn', 'itinMomentosBtn', 'itinHorasBtn'].includes(b.id) && !b.classList.contains('active')))
+          .map((b) => getComputedStyle(b).backgroundColor),
+      });
+      const escuro = ler();
+      setTema('claro');
+      const claro = ler();
+      setTema('escuro');
+      return { escuro, claro };
+    });
+    const iguais = (t) => t.cinzas.length >= 3 && t.cinzas.every((c) => c === t.tbtn);
+    checar(iguais(tons.claro) && iguais(tons.escuro) && tons.claro.tbtn !== tons.escuro.tbtn
+      && !/^rgba\(255, 255, 255/.test(tons.claro.cinzas[0]),
+      'L′ · no tema CLARO os botões cinzas da faixa pintam o MESMO cinza do `.t-btn` do transporte (e não o branco com '
+      + 'alfa sobre a faixa branca); no escuro, idem', tons);
+  }
+  await pg.evaluate(async () => {
+    for (const x of await AVDB.listItems('imports')) if (x.name === 'Linha de baixo') await AVDB.listRemove('imports', x.id);
+    await load();
+  });
+  await fecharFaixa();
 
   // ── N. O TECLADO DA FOLHA NÃO MEXE NA BARRA DA BIBLIOTECA (v1.13.2) ──────
   // Relato do operador: ao confirmar um horário, a caixa de busca da Biblioteca
@@ -337,7 +456,6 @@ try {
     await abrirFaixa();
     await pg.click('#itinNovoBtn');
     await abrirFolha();
-    await esperar(pg, () => document.querySelector('#itinPopup .popup-sheet').getBoundingClientRect().top >= -0.5);
     await escolherHora('10:00');
     await pg.click('#itinCampoTitulo');
     await pg.evaluate(() => window.__teclado(450));
@@ -348,7 +466,7 @@ try {
     const comTeclado = await pg.evaluate(() => ({
       barra: Math.round(document.getElementById('libBar').getBoundingClientRect().top * 10) / 10,
       kb: getComputedStyle(document.documentElement).getPropertyValue('--kb').trim(),
-      fundoDaFolha: Math.round(document.querySelector('#itinPopup .popup-sheet').getBoundingClientRect().bottom),
+      fundoDaFolha: Math.round(document.getElementById('itinEditor').getBoundingClientRect().bottom),
       okFundo: Math.round(document.getElementById('itinEditorOk').getBoundingClientRect().bottom),
       limite: innerHeight - 450,
     }));
@@ -356,7 +474,7 @@ try {
       'N · com o teclado no ar a barra de busca da Biblioteca NÃO sobe — o app por baixo não encolhe',
       { antes, comTeclado, r: porque(rk) });
     checar(comTeclado.fundoDaFolha <= comTeclado.limite + 1 && comTeclado.okFundo <= comTeclado.limite + 1,
-      'N · e a folha (com o confirmar) continua terminando onde o teclado começa', comTeclado);
+      'N · e a sub-aba (com o confirmar), no alto da tela, termina ACIMA de onde o teclado começa', comTeclado);
     // O CONFIRMAR, amostrado quadro a quadro: o foco sai do campo e o teclado
     // desce logo depois — nada pode mexer na barra no caminho.
     await pg.evaluate(() => {
@@ -439,20 +557,20 @@ try {
       'B′ · cada momento é um registro `{ kind:"cue", cue:"momento", name, data:{ min } }` em `imports`, na ordem da lista', regs);
   }
 
-  // EDITAR: tocar na linha abre a MESMA folha, com o horário e o título dela.
+  // EDITAR: tocar na linha abre a MESMA sub-aba, com o horário e o título dela.
   const idSermao = await idDe('Sermão');
   await pg.click('#library > li.momento[data-id="' + idSermao + '"] .row-name');
   await abrirFolha();
   {
     const e = await pg.evaluate(() => ({
-      titulo: document.getElementById('itinPopupTitulo').textContent,
+      titulo: document.getElementById('itinEditorTitulo').textContent,
       rotulo: document.querySelector('#itinEditorOk .song-menu-label').textContent,
       campo: document.getElementById('itinCampoTitulo').value,
       valor: roletaValorDe(document.getElementById('itinRoleta_hora')) * 60
         + roletaValorDe(document.getElementById('itinRoleta_min')),
     }));
     checar(e.titulo === 'Editar momento' && e.rotulo === 'Salvar' && e.campo === 'Sermão' && e.valor === 630,
-      'B′ · tocar na linha abre a folha de EDIÇÃO ("Editar momento" / "Salvar") com o horário e o título dela', e);
+      'B′ · tocar na linha abre a sub-aba de EDIÇÃO ("Editar momento" / "Salvar") com o horário e o título dela', e);
   }
   await escolherHora('10:40');
   await pg.fill('#itinCampoTitulo', 'Pregação');
@@ -556,8 +674,8 @@ try {
   {
     const f = await faixa();
     checar(f.aberta && f.porta.expandido === 'true'
-      && f.filhos.join(' ') === 'itinTelaoBtn itinMomentosBtn itinHorasBtn passo−5 itinAjusteTxt passo+5 itinNovoBtn',
-      'U · a porta ABRE a faixa com os sete, na ordem: Telão · Momentos · Horários · −5 · ajuste · +5 · Novo '
+      && f.filhos.join(' ') === 'itinNovoBtn itinTelaoBtn itinMomentosBtn itinHorasBtn passo−5 itinAjusteTxt passo+5',
+      'U · a porta ABRE a faixa com os sete, na ordem (v1.14.52: o criar no extremo esquerdo): Novo · Telão · Momentos · Horários · −5 · ajuste · +5 '
       + '(sem o ±1 e sem botão de recolher; os "−" são U+2212)', f);
     const p1 = await portaDesenho();
     checar(p1.qual === 'seta' && p1.usos.join() === '#icoExpandir' && p1.tracos === 0
@@ -586,9 +704,9 @@ try {
     checar(icones.md > 0 && icones.celulas.length === 7 && semRegua.length === 0,
       'U · todos os ícones da faixa medem `--icon-md` (' + icones.md + 'px), o padrão dos botões de controle — inclusive '
       + 'os dois do ±5, que são TEXTO e mediam o tamanho de rótulo', { semRegua, icones });
-    checar(f.secoes.join(' / ') === 'itin-secao itin-secao--estado|group|Estado do itinerário|3 / itin-secao itin-secao--atraso|group|Atraso|3 / '
-      + 'itin-secao itin-secao--criacao|group|Criar|1',
-      'U · e os sete moram em TRÊS seções (`role="group"`, cada uma com o nome dela): Estado [3] · Atraso [3] · Criar [1]', f.secoes);
+    checar(f.secoes.join(' / ') === 'itin-secao itin-secao--criacao|group|Criar|1 / itin-secao itin-secao--estado|group|Estado do itinerário|3 / '
+      + 'itin-secao itin-secao--atraso|group|Atraso|3',
+      'U · e os sete moram em TRÊS seções (`role="group"`, cada uma com o nome dela): Criar [1] · Estado [3] · Atraso [3]', f.secoes);
     checar(f.telao[0] === 'false' && f.telao[1] === false && f.telao[2] === '' && f.momentos === 'true' && f.horas === 'true'
       && f.ajuste[0] === true && f.ajuste[1] === false,
       'U · estado inicial: o olho do telão (SÓ o ícone) desligado e aceso, os momentos à vista, horários ligados, atraso apagado', f);
@@ -820,7 +938,7 @@ try {
       'B′ · depois de RECARREGAR, os momentos voltam do banco, na mesma ordem', await lista());
   }
   // NENHUM BOTÃO PASSA DA BORDA: em 320, 360 e 430 de largura, com o atraso mais
-  // largo escrito ("Atrasado 45 min"). A escrita (longa ou curta) é escolhida pela
+  // largo escrito (+45). A escrita (longa ou curta) é escolhida pela
   // consulta de contêiner do CSS: uma das duas, nunca as duas nem nenhuma.
   await abrirFaixa();
   await pg.evaluate(() => itinAjustar(45));
@@ -845,6 +963,14 @@ try {
         noRecuo: bts.filter((x) => x.dir > rb.right - padD + 0.5).map((x) => x.id + '→' + x.dir),
         semLargura: bts.filter((x) => x.larg < 1).map((x) => x.id),
         longo: exibe('.itin-txt-longo'), curto: exibe('.itin-txt-curto'),
+        // O NÚMERO DO ATRASO NA RÉGUA DO ±5 (v1.14.52): mesma fonte e mesma caixa de texto.
+        num: (() => {
+          const caixa = (el) => { const g = document.createRange(); g.selectNodeContents(el); const r = g.getBoundingClientRect(); return [+r.top.toFixed(1), +r.height.toFixed(1)]; };
+          const n = [...b.querySelectorAll('#itinAjusteTxt .itin-num')].find((e) => e.getClientRects().length);
+          const p = b.querySelector('.itin-passo');
+          return n && { fonte: getComputedStyle(n).fontSize, fonteP: getComputedStyle(p).fontSize, caixa: caixa(n), caixaP: caixa(p),
+            texto: n.textContent, corta: n.getBoundingClientRect().right > b.querySelector('#itinAjusteTxt').getBoundingClientRect().right + 0.5 };
+        })(),
         h: Math.round(rb.height * 10) / 10, hTopo: Math.round(b.previousElementSibling.getBoundingClientRect().height * 10) / 10,
         // A FILEIRA (Pacote 37): as TRÊS seções continuam no DOM (`role="group"`,
         // `display: contents` — elas não têm caixa), então o que se mede são os SETE
@@ -873,6 +999,9 @@ try {
     checar(g.noRecuo.length === 0,
       'U · e em ' + w + 'px nenhum botão invade o recuo da direita (o `padding` da faixa)', g);
     checar(g.longo !== g.curto, 'U · em ' + w + 'px o atraso aparece em UMA escrita só (longa ou curta)', g);
+    checar(!!g.num && g.num.fonte === g.num.fonteP && Math.abs(g.num.caixa[1] - g.num.caixaP[1]) <= 0.5
+      && Math.abs(g.num.caixa[0] - g.num.caixaP[0]) <= 1 && g.num.texto === '+45' && !g.num.corta,
+      'U · em ' + w + 'px o NÚMERO do atraso ("+45") tem a fonte e a caixa do ±5 vizinho, na mesma linha, sem corte', g.num);
     // A UMA LINHA VALE DE 360 PARA CIMA. A 320 ela é o que a fonte do SISTEMA decide, e o
     // CI prova isso: com a fonte do runner as três seções não cabem e a faixa quebra — a
     // quebra é a resposta prevista do `flex-wrap` (quem desce é a SEÇÃO inteira). O que se
@@ -884,13 +1013,13 @@ try {
     // as seis células de ícone do mesmo tamanho, nenhuma abaixo do piso de toque e a
     // do atraso mais larga — é ela que carrega texto, não um ícone. A faixa continua
     // mais baixa que a barra do topo, que é o teto de altura da segunda linha.
-    const seis = g.fileira.larguras.filter((_, i) => i !== 4);
+    const seis = g.fileira.larguras.filter((_, i) => i !== 5);
     checar(g.fileira.n === 7 && g.fileira.tops.length === 1
       && g.fileira.vaos.length === 6 && g.fileira.vaos.every((x) => Math.abs(x - g.fileira.vao) <= 0.5)
       && Math.abs(g.fileira.vao - g.fileira.gapDeck) <= 0.5
       && Math.max(...seis) - Math.min(...seis) <= 0.5
       && Math.min(...g.fileira.larguras) >= g.fileira.piso - 0.5
-      && g.fileira.larguras[4] > Math.max(...seis)
+      && g.fileira.larguras[5] > Math.max(...seis)
       && new Set(g.fileira.alturas).size === 1,
       'U · em ' + w + 'px os SETE ficam numa linha só, com o MESMO vão entre vizinhos (o do deck, ' + g.fileira.vao
       + 'px), as seis células de ícone do mesmo tamanho e a do ATRASO mais larga; todas com a MESMA altura, nenhuma '
@@ -905,7 +1034,7 @@ try {
   // ── Y. A FAIXA NÃO SE FECHA SOZINHA (v1.14.37) ──────────────────────────
   // Pedido do operador: *"a aba de configurações de itinerário não se fecha automaticamente"*.
   // O fecho de 5 s da v1.14.35 saiu: aberta, ela FICA aberta até o toque na porta da barra —
-  // nem o tempo, nem a `#itinPopup` a fecham. A classe `itin-faixa-aberta` do `<body>` é o que
+  // nem o tempo, nem a sub-aba do momento a fecham. A classe `itin-faixa-aberta` do `<body>` é o que
   // o CSS lê para desenhar (ou não) o lápis e a lixeira do momento.
   await fecharFaixa();
   await ctx.clock.pauseAt(new Date((await pg.evaluate(() => Date.now())) + 1000));
@@ -920,15 +1049,15 @@ try {
     await ctx.clock.runFor(20000); y.aos20 = await faixaAberta();
     await pg.evaluate(() => document.getElementById('itinNovoBtn').click());
     await ctx.clock.runFor(6000);
-    y.folha = await pg.evaluate(() => document.getElementById('itinPopup').classList.contains('open'));
-    await pg.evaluate(() => document.getElementById('itinPopupClose').click());
+    y.folha = await pg.evaluate(() => itinEditorAberto() && !document.getElementById('itinEditor').hidden);
+    await pg.evaluate(() => document.getElementById('itinNovoBtn').click());
     await ctx.clock.runFor(1000);
     y.depoisDaFolha = await faixaAberta();
     await abrirPelaPorta();
     y.fechouPelaPorta = await faixaAberta();
     y.classeFinal = await pg.evaluate(() => document.body.classList.contains('itin-faixa-aberta'));
     checar(y.abriu && y.classe && y.aos20 && y.folha && y.depoisDaFolha && !y.fechouPelaPorta && !y.classeFinal,
-      'Y · a faixa NÃO se fecha sozinha: 20 s depois ela continua aberta (e a folha do momento não a fecha); '
+      'Y · a faixa NÃO se fecha sozinha: 20 s depois ela continua aberta (e a sub-aba do momento não a fecha); '
       + 'só a porta da barra a recolhe, e a classe do `<body>` acompanha', y);
   }
   await ctx.clock.resume();
@@ -1220,8 +1349,8 @@ try {
     checar(b && b.v === 3 && b.desloc === 5 && /^\d{4}-\d{2}-\d{2}$/.test(b.deslocDia || '')
       && Object.keys(b).sort().join() === 'desloc,deslocDia,horas,momentosOcultos,v',
       'D · o ajuste é guardado PELO DIA, e a chave tem só `{ v:3, horas, desloc, deslocDia, momentosOcultos }`', b);
-    checar(a.longo === 'Atrasado 5 min' && a.curto === '+5 min' && !a.off && a.deslocado,
-      'D · o atraso diz "Atrasado 5 min" (curto: "+5 min"), fica aceso e destacado (`deslocado`)', a);
+    checar(a.longo === 'Atrasado 5 min' && a.curto === '+5' && !a.off && a.deslocado,
+      'D · o atraso diz "Atrasado 5 min" (curto: "+5", só o número, como o ±5), fica aceso e destacado (`deslocado`)', a);
   }
   // SEM O ±1 (Pacote 35): o ajuste anda de 5 em 5 também pela faixa, e dois −5 passam do zero.
   await abrirFaixa();
@@ -1238,8 +1367,8 @@ try {
         && v.linhas.length === 3 && v.linhas[1] === '*09:55 Louvor',
       'D · −5 recua todos juntos (os INTERVALOS ficam: 60 e 40 min), e o de agora acompanha (Louvor 09:55)', { hl, pv: v.linhas });
     const a = await ajusteTxt();
-    checar(a.longo === 'Adiantado 5 min' && a.curto === '−5 min',
-      'D · passando de zero o atraso vira "Adiantado 5 min" (curto: "−5 min", com o U+2212)', a);
+    checar(a.longo === 'Adiantado 5 min' && a.curto === '−5',
+      'D · passando de zero o atraso vira "Adiantado 5 min" (curto: "−5", com o U+2212)', a);
     const passos = await pg.evaluate(() => [...document.querySelectorAll('#itinBar .itin-passo')].map((b) => b.getAttribute('aria-label')));
     checar(passos.join() === 'Adiantar 5 min,Atrasar 5 min', 'D · a faixa só tem os passos de 5 min (o ±1 saiu)', passos);
   }
@@ -1250,7 +1379,7 @@ try {
     const v = await pv();
     const a = await ajusteTxt();
     const b = await banco();
-    checar(v.linhas.length === 3 && v.linhas[1] === '*10:00 Louvor' && a.off && !a.deslocado && a.longo === 'No horário' && a.curto === '0 min',
+    checar(v.linhas.length === 3 && v.linhas[1] === '*10:00 Louvor' && a.off && !a.deslocado && a.longo === 'No horário' && a.curto === '0',
       'D · tocar no atraso ZERA o ajuste (volta ao previsto), e no previsto ele fica APAGADO ("No horário")', { v: v.linhas, a });
     checar(b.desloc === 0 && b.deslocDia === '', 'D · e o zero é guardado (`desloc: 0`, `deslocDia` vazio)', b);
   }
@@ -1918,7 +2047,7 @@ try {
 
   // ── G′. O GRUPO RECOLHIDO: tocar o momento com mídia esconde as mídias dele ──
   // Do lote de hoje: tocar a `.row` do momento recolhe o grupo (só em memória), tocar de
-  // novo expande; um momento SEM mídia não recolhe (o toque abre a `#itinPopup`); o grupo
+  // novo expande; um momento SEM mídia não recolhe (o toque abre a sub-aba `#itinEditor`); o grupo
   // recolhido leva as mídias escondidas no arrasto (ordem gravada + horários pela grade);
   // e com os momentos ocultos nada fica recolhido. Recomeça a lista do zero para medir o
   // ponto de partida conhecido (o mesmo do começo do G′).
@@ -1998,16 +2127,30 @@ try {
     checar(dois === true && voltaram === true,
       'G′ · o subtítulo do recolhido conta o que está escondido ("2 itens"), e reabrir devolve as duas mídias na ordem',
       { dois, voltaram });
-    // (3) MOMENTO SEM MÍDIA NÃO RECOLHE: o toque abre a folha de edição ("Bênção" é o último).
+    // (3) MOMENTO SEM MÍDIA NÃO RECOLHE: o toque abre a sub-aba de edição ("Bênção" é o último).
+    // E COM A FAIXA RECOLHIDA (v1.14.52) a faixa abre JUNTO: o fechar da sub-aba é o `+` dela.
+    const faixaAntes = await portaAberta();
+    await fecharFaixa();
     await tocar('Bênção');
-    const folha = await esperar(pg, () => document.getElementById('itinPopup').classList.contains('open'));
+    const folha = await esperar(pg, () => !document.getElementById('itinEditor').hidden && !itinEditorAnimando && !itinFaixaAnimando);
     const eB = await estadoDo('Bênção');
     const nenhumRecolhido = await pg.evaluate(() => document.querySelectorAll('#library > li.recolhido').length);
-    await pg.click('#itinPopupClose');
-    await esperar(pg, () => !document.getElementById('itinPopup').classList.contains('open'));
+    const junto = await pg.evaluate(() => ({
+      faixa: !document.getElementById('itinBar').hidden && itinFaixaAberta,
+      titulo: document.getElementById('itinEditorTitulo').textContent,
+      campo: document.getElementById('itinCampoTitulo').value,
+      mais: document.getElementById('itinNovoBtn').getAttribute('aria-expanded'),
+    }));
+    await pg.click('#itinNovoBtn');
+    await esperar(pg, () => document.getElementById('itinEditor').hidden && !itinEditorAnimando);
+    const depois = await portaAberta();
+    if (!faixaAntes) await fecharFaixa();
     checar(folha === true && !eB.recolhido && eB.exp === null && nenhumRecolhido === 0,
-      'G′ · um momento SEM mídia não recolhe: o toque abre a `#itinPopup`, e a linha não ganha `recolhido` nem `aria-expanded`',
+      'G′ · um momento SEM mídia não recolhe: o toque abre a sub-aba `#itinEditor`, e a linha não ganha `recolhido` nem `aria-expanded`',
       { folha, eB, nenhumRecolhido });
+    checar(junto.faixa && junto.titulo === 'Editar momento' && junto.campo === 'Bênção' && junto.mais === 'true' && depois === true,
+      'G′ · com a faixa RECOLHIDA, tocar no momento abre a faixa JUNTO com a sub-aba de edição (o `+` dela vira o fechar, '
+      + '`aria-expanded="true"`); fechar a sub-aba deixa a faixa aberta', { junto, depois });
     // (4) ARRASTAR O GRUPO RECOLHIDO leva as mídias escondidas: ordem gravada e grade.
     await tocar('Pregação');
     await esperar(pg, () => {

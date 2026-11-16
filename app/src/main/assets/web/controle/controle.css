@@ -659,7 +659,9 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    par afundado ela volta a 1,61:1. O preço está medido e declarado: o `--muted`
    do texto dela cai de 6,55 para 4,15:1.) */
 :root[data-tema="claro"] .bottombar,
-:root[data-tema="claro"] .list-header {
+:root[data-tema="claro"] .list-header,
+:root[data-tema="claro"] .itin-bar,
+:root[data-tema="claro"] .itin-editor {
   --surface: var(--surface-sunk);
   --surface-2: var(--surface-2-sunk);
 }
@@ -7451,7 +7453,7 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
    quando ela fecha. O `:has()` é o mesmo motor que o `.list-body:has(…)` já usa
    desde a v1.8.60/v1.8.63; sem ele a folha voltaria a ser medida contra a
    altura de uma faixa que ela não deveria dividir. */
-main:has(> .list-body > .tools-sheet:not([hidden])) :is(#itinBar, #itinBarBtn) { display: none; }
+main:has(> .list-body > .tools-sheet:not([hidden])) :is(#itinBar, #itinBarBtn, #itinEditor) { display: none; }
 /* O BOTÃO DA FAIXA MEDE O PISO DO APP: altura em `--hit` (34px, fixo em px
    como o piso), solto (sem caixa), e nunca menor que o dedo em tela nenhuma. */
 /* A CÉLULA É A DO DECK (Pacote 37): o `.t-btn` do transporte é um bloco que DIVIDE
@@ -7520,9 +7522,18 @@ main:has(> .list-body > .tools-sheet:not([hidden])) :is(#itinBar, #itinBarBtn) {
 .itin-b.itin-ajuste-txt:disabled { background: var(--surface); color: var(--muted); opacity: 1; }
 .itin-txt-curto { display: none; }
 .itin-b.itin-ajuste-txt.deslocado { color: var(--accent); font-weight: var(--fw-max); }
+/* O NÚMERO MEDE O ±5 (v1.14.52): o relato era *"o número do atraso continua muito menor
+   que os ícones dos botões ao seu redor"* — no `--fs-xs` da célula ele tinha 13px de
+   caixa contra os 22 do ícone. A `.itin-num` veste a régua do `.itin-passo` (`--icon-md`,
+   peso máximo, algarismos tabulares), e a unidade fica no tamanho de rótulo. */
+.itin-num { font-size: var(--icon-md); font-weight: var(--fw-max); font-variant-numeric: tabular-nums; line-height: 1; vertical-align: middle; }
 /* O `+` é SÓLIDO e destacado (pedido de 15/11) — o par do botão primário do app
    (`.dialog-btn.primary`): `--accent-fill` + `--on-accent`. */
 .itin-b.itin-novo { background: var(--accent-fill); color: var(--on-accent); }
+/* ABERTA A SUB-ABA, o `+` vira a SETA sem card (v1.14.52): a gramática da porta da
+   faixa (`.crono-itin`, Pacote 40) — chapada, em `--accent`, e o estado dito pelo
+   `aria-expanded` e pela sub-aba à vista. */
+.itin-b.itin-novo.aberto { background: none; color: var(--accent); }
 /* AS TRÊS SEÇÕES (ESTADO · ATRASO · CRIAÇÃO), separadas SÓ pelo espaço: a faixa
    reparte a sobra entre elas (`space-between`), e dentro da seção o vão é o pequeno.
    O ATRASO é COMPACTO — o ±5 encosta no texto (pedido de 15/11) —, então ele não é
@@ -7535,7 +7546,7 @@ main:has(> .list-body > .tools-sheet:not([hidden])) :is(#itinBar, #itinBarBtn) {
    três grupos em vez de uma linha. */
 .itin-secao, .itin-secao--atraso { display: contents; }
 /* A FAIXA MEDE O PRÓPRIO COMPRIMENTO (consulta de contêiner, como a do `.misc-foot`): o
-   atraso tem DUAS escritas, e a curta ("−20 min") é a que cabe na célula do deck. (A consulta
+   atraso tem DUAS escritas, e a curta ("−20", só o número) é a que cabe na célula do deck. (A consulta
    mede o CONTEÚDO da faixa: o recuo de .8rem de cada lado já está descontado — 360px de tela
    são ~334px aqui.)
    O LIMITE SUBIU DE 400 PARA 456 NO PACOTE 37 e não é gosto: desde que a fileira divide a
@@ -7543,8 +7554,11 @@ main:has(> .list-body > .tools-sheet:not([hidden])) :is(#itinBar, #itinBarBtn) {
    720 min", o máximo de `ITIN_DESLOC_MAX`) precisa de ~76px de conteúdo — que só existem com
    a faixa acima de ~456px. Abaixo disso ela era CORTADA com reticências (medido: "Atrasado
    720…"), e um rótulo cortado mente sobre o número. Em tela de tablet e no navegador de
-   mesa a escrita longa volta, e ali ela cabe. */
-@container (max-width: 455.98px) {
+   mesa a escrita longa volta, e ali ela cabe.
+   E SUBIU DE NOVO PARA 600 NA v1.14.52: o número passou ao tamanho do ±5 (`.itin-num`), e a
+   escrita mais longa ("Adiantado 720 min") mede 110,8px — a célula só os tem com a faixa a
+   ~554px; 600 deixa folga para a fonte do aparelho. Em celular a escrita é sempre a curta. */
+@container (max-width: 599.98px) {
   .itin-txt-longo { display: none; }
   .itin-txt-curto { display: inline; }
 }
@@ -7562,21 +7576,39 @@ main:has(> .list-body > .tools-sheet:not([hidden])) :is(#itinBar, #itinBarBtn) {
 .crono-itin > .itin-ponto { position: absolute; top: .3rem; right: .3rem; }
 .itin-ponto { width: .45rem; height: .45rem; border-radius: 50%; background: var(--live-strong); flex: none; }
 
-/* A FOLHA DE UM MOMENTO (`#itinPopup`): desce do teto e termina onde o teclado
-   começa. As roletas ocupam o que sobra e se medem por isso
-   (`acertarRoletasDoItin`).
-   O DESCONTO É `--kb-folha`, E NÃO `--kb` (v1.13.2): o campo do título SOBREPÕE
-   (o padrão do app desde a v1.13.7), então o app por baixo não encolhe — com `--kb` a caixa de
-   controles e a barra de busca da Biblioteca subiam com o teclado e desciam no
-   confirmar. `--kb-folha` é o teclado inteiro, escrito no mesmo quadro. */
-#itinPopup { inset: var(--vv-top, 0px) 0 var(--kb-folha, 0px) 0; }
-.itin-editor-corpo {
-  flex: 1 1 auto; min-height: 0;
-  display: flex; flex-direction: column; gap: var(--sp-5);
-  padding: var(--sp-5) .7rem 0;
+/* A SUB-ABA DE UM MOMENTO (`#itinEditor`, v1.14.52): no TOPO do `.list-body`, que
+   começa na borda de baixo da `#itinBar`, e SOBREPOSTA — `absolute`, acima das
+   linhas e das portas (6) e abaixo das folhas do Cronograma (8): a lista não anda
+   (pedido do operador: *"para não precisar deslocar a lista"*). Sangra até as
+   bordas como a faixa (o recuo do `<main>` devolvido) e veste o MESMO `--bar`,
+   com a sombra das superfícies que flutuam para se ler por cima da lista. O
+   deslizar é do JS (`itinEditorDeslizar`): a altura E o `padding`. */
+.itin-editor {
+  position: absolute; top: 0; left: -.8rem; right: -.8rem; z-index: 7;
+  box-sizing: border-box;
+  display: flex; flex-direction: column; gap: var(--sp-3);
+  padding: var(--sp-3) .8rem var(--sp-5);
+  background: var(--bar);
+  box-shadow: 0 6px 14px var(--shadow-card);
 }
-.itin-roletas { flex: 1 1 11rem; min-height: 5.5rem; }
+.itin-editor[hidden] { display: none; }
+.itin-editor--animando {
+  overflow: hidden;
+  transition: height var(--dur-media) ease,
+              padding-top var(--dur-media) ease,
+              padding-bottom var(--dur-media) ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .itin-editor--animando { transition: none; }
+}
+.itin-editor-titulo { font-size: var(--fs-sm); font-weight: var(--fw-forte); color: var(--muted); }
+.itin-editor-corpo { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: var(--sp-4); }
+/* As roletas têm ALTURA PRÓPRIA (a sub-aba não tem "o que sobra" para dividir): três
+   células de ~2,6rem, medidas por `acertarRoletasDoItin`. São elas que CEDEM quando o
+   teclado sobe (`itinEditorCaber` põe o teto da sub-aba), até o piso de 4,5rem. */
+.itin-roletas { flex: 0 1 7.8rem; min-height: 4.5rem; }
 .itin-editor-corpo > .itin-campo-titulo { flex: none; }
+.itin-editor-corpo > .song-menu-go-row { padding-top: 0; }
 
 /* ---------- Sorteio (aba Ferramentas) ---------- */
 /* O resultado. Sem `tabular-nums` (ao contrário do cronômetro): aqui o valor
@@ -8148,7 +8180,7 @@ main:has(> .list-body > .tools-sheet:not([hidden])) :is(#itinBar, #itinBarBtn) {
    `--topo`: com `80vh` a folha mediria a tela inteira e ignoraria o desconto,
    devolvendo o defeito por outro caminho. */
 #sorteioPopup { inset: var(--vv-top, 0px) 0 var(--kb-folha, 0px) 0; }
-/* O DESCONTO É `--kb-folha`, E NÃO `--kb` (v1.13.3) — a regra do `#itinPopup`: o campo
+/* O DESCONTO É `--kb-folha`, E NÃO `--kb` (v1.13.3) — a regra do `#sorteioPopup`: o campo
    da palavra tema SOBREPÕE (o padrão do app desde a v1.13.7), então o app por baixo não encolhe; com
    `--kb` a caixa de controles e a barra de busca da Biblioteca subiam com o teclado e
    desciam quando o campo perdia o foco. `--kb-folha` é o teclado inteiro.

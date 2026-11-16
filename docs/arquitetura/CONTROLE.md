@@ -199,7 +199,8 @@ padrão continuava deslocando para o resto. O que cada forma de campo faz:
 
 | forma | quem põe o campo acima do teclado |
 |---|---|
-| folha do teto (`#fadePopup`, `#sorteioPopup`, `#itinPopup`) | a folha desconta `--kb-folha`; a lista dela rola dentro do que sobra |
+| folha do teto (`#fadePopup`, `#sorteioPopup`) | a folha desconta `--kb-folha`; a lista dela rola dentro do que sobra |
+| a sub-aba do momento (`#itinEditor`, v1.14.52) | no alto da tela, sobreposta à lista: `itinEditorCaber` põe o teto dela no fundo da viewport visual, e as roletas cedem |
 | diálogo centrado (`appPrompt`: renomear cronograma, nova mensagem, guardar pacote, renomear a seleção) | `.dialog-backdrop` desconta `--kb-folha`, e o cartão centra no que sobra acima do teclado |
 | campo no corpo de uma lista (o renomear da faixa no Cronograma e nos Favoritos, as legendas do Tempo, os campos do Sorteio) | `revelarCampo`: rola o scroller do campo até 12px acima do teclado e, sem curso (a última linha), dá a ele um `padding-bottom` provisório, desfeito quando o teclado desce — em até três passadas, porque num scroller de conteúdo FLEXÍVEL (a lista de nomes do Sorteio) a folga encolhe o campo em vez de dar rolagem. Um campo mais alto que o espaço livre vai até o topo do scroller e não além |
 | **a EXCEÇÃO: a busca da Biblioteca** (`#hymnSearchInput`, `data-teclado="desloca"`) | o app encolhe: a lista termina onde o teclado começa (`body.lib-aberta.teclado`) e, no Modo Fácil, as teclas saem ("DURANTE UMA BUSCA AS TECLAS SAEM"). A barra sobe porque ela É o campo |

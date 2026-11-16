@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.14.52",
+    "itens": [
+      "No tema claro, os botões da faixa do itinerário voltaram ao cinza dos botões do player.",
+      "O número do atraso ficou do tamanho dos botões de mais e menos 5 ao lado dele.",
+      "O botão de criar momento passou para o começo da faixa, antes do botão do telão.",
+      "O novo momento abre numa aba que desliza logo abaixo da faixa, por cima da lista, sem empurrá-la.",
+      "Para fechar essa aba, toque de novo no mesmo botão, que vira uma seta; o voltar do celular também fecha.",
+      "Tocar num momento para editá-lo abre a mesma aba, e abre a faixa junto se ela estiver fechada."
+    ]
+  },
+  {
     "versao": "1.14.51",
     "itens": [
       "Com o itinerário no telão, tocar uma mídia põe o nome dela no player, junto com a barra de progresso.",
