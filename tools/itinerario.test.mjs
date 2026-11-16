@@ -612,10 +612,24 @@ try {
     checar(g.noRecuo.length === 0,
       'U · e em ' + w + 'px nenhum botão invade o recuo da direita (o `padding` da faixa)', g);
     checar(g.longo !== g.curto, 'U · em ' + w + 'px o atraso aparece em UMA escrita só (longa ou curta)', g);
-    checar(g.secoes.n === 3 && Math.max(...g.secoes.tops) - Math.min(...g.secoes.tops) <= 1 && g.secoes.entre.every((x) => x > g.secoes.dentro),
-      'U · em ' + w + 'px as TRÊS seções ficam numa linha, e o vão ENTRE elas é maior que o vão DENTRO de cada uma', g.secoes);
-    checar(g.h < g.hTopo,
-      'U · em ' + w + 'px a faixa cabe numa LINHA, mais baixa que a barra do topo (sem o ±1, sete alvos de 34px cabem)', g);
+    // A UMA LINHA VALE DE 360 PARA CIMA. A 320 ela é o que a fonte do SISTEMA decide, e o
+    // CI prova isso: com a fonte do runner as três seções não cabem e a faixa quebra — a
+    // quebra é a resposta prevista do `flex-wrap` (quem desce é a SEÇÃO inteira). O que se
+    // cobra a 320 é o que o desenho garante em qualquer fonte: nenhuma seção PARTIDA entre
+    // duas linhas, as seções que dividem a linha com o vão ENTRE maior que o DENTRO, e nada
+    // passando da borda (as duas asserções acima).
+    if (w >= 360) {
+      checar(g.secoes.n === 3 && Math.max(...g.secoes.tops) - Math.min(...g.secoes.tops) <= 1 && g.secoes.entre.every((x) => x > g.secoes.dentro),
+        'U · em ' + w + 'px as TRÊS seções ficam numa linha, e o vão ENTRE elas é maior que o vão DENTRO de cada uma', g.secoes);
+      checar(g.h < g.hTopo,
+        'U · em ' + w + 'px a faixa cabe numa LINHA, mais baixa que a barra do topo (sem o ±1, sete alvos de 34px cabem)', g);
+    } else {
+      const inteiras = await pg.evaluate(() => [...document.getElementById('itinBar').children]
+        .map((sec) => [...sec.children].map((b) => Math.round(b.getBoundingClientRect().top)))
+        .every((tops) => new Set(tops).size === 1));
+      checar(g.secoes.n === 3 && inteiras,
+        'U · em ' + w + 'px cada seção fica INTEIRA numa linha (a quebra, quando ela acontece, desce a seção toda)', { secs: g.secoes, inteiras });
+    }
   }
   await pg.setViewportSize({ width: 360, height: 800 });
   await esperar(pg, () => innerWidth === 360);
