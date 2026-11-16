@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.47** — o mesmo aviso da abertura da v1.14.46, com as notas no limite de 120 caracteres (renumerado porque o portão reprovou o texto; só web).
 - **v1.14.46** — o piso de 60% conta o que fez num aviso na abertura, com o mudo do app e o Não perturbe do sistema (só alarmes, e o louvor continua com som) — Kotlin + web, com Release.
 - **v1.14.45** — os Favoritos: o botão Detalhes por tipo na gaveta de play, a faixa do ⋮ vestindo o tom do card aberto e a divisória que marcava a borda dele (só web).
 - **v1.14.44** — em tela cheia e deitado, o nível do volume cabe na pílula: o trilho cede altura em vez de furar a cápsula (só web).
@@ -913,6 +914,16 @@ acervo; `tour` B2 aceita o passo do fim como opcional; `smoke`, `boot-nativo`,
 `modo-simples-biblioteca-tamanho` e `semana-item` voltaram ao que eram antes da v1.14.40.
 
 ---
+
+## v1.14.47 — o aviso da abertura, com as notas no limite (renumeração da v1.14.46)
+
+**Correção do próprio lote, só web**: `SHELL_VERSION` 89 (o do 46), `minShell` 83, **sem `shellTag`** — a Release v1.14.46 já saiu, e a obrigação dela está paga. Degrau CORREÇÃO.
+
+O `verificar` do lote anterior reprovou na leitura do `notas.json`: o primeiro item tinha 137 caracteres contra o teto de 120, e a nota que a tela do operador mostra é uma LINHA DO TEMPO, não um texto. O APK v1.14.46 já estava publicado quando isso apareceu (a `apk` passou; o que ficou VERMELHO foi o `verificar`), e o `web-ota` ficou HOLD — o canal não recebeu a metade web.
+
+**A RENUMERAÇÃO é a saída certa, e não um capricho:** o portão do `verificar` compara a árvore com a ÚLTIMA tag alcançável e exige versão MAIOR que a da tag quando a base web mudou. Publicar 1.14.46 de novo reprovaria por construção. O 1.14.47 é, portanto, o lote que leva o aviso à base web, com os quatro itens encurtados; a nota da v1.14.46 continua abaixo, na íntegra, porque o que saiu no APK não se reescreve.
+
+**O que muda no app:** nada além do texto das notas e do número. O aviso, o mudo e o Não perturbe são os da v1.14.46.
 
 ## v1.14.46 — o piso de 60% conta o que fez, e oferece o mudo e o Não perturbe
 

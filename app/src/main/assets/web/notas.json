@@ -1,11 +1,11 @@
 [
   {
-    "versao": "1.14.46",
+    "versao": "1.14.47",
     "itens": [
-      "Ao abrir o app, se o som do celular estava abaixo de 60%, um aviso no topo conta que o app subiu o volume do aparelho, e mostra o número.",
-      "O aviso tem o botão Mutar (o mudo do louvor) e o botão Não perturbe, que cala chamadas e notificações e mantém o som do louvor.",
-      "O Não perturbe pede uma autorização única no Android (Acesso a Não perturbe); sem ela, o botão abre a tela para autorizar.",
-      "O aviso só aparece quando o volume foi mesmo ajustado, e some sozinho em alguns segundos."
+      "Ao abrir, se o som do celular estava abaixo de 60%, um aviso conta que o app subiu o volume do aparelho.",
+      "O aviso traz Mutar (o mudo do louvor) e Não perturbe: cala chamadas e notificações, e o louvor continua com som.",
+      "O Não perturbe pede uma autorização única no Android; sem ela, o botão abre a tela para autorizar.",
+      "O aviso só aparece quando o volume foi mesmo ajustado, e some sozinho."
     ]
   },
   {
