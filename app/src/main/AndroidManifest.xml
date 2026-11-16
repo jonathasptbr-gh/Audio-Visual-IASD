@@ -34,6 +34,16 @@
          concedida era visível, a que faltava não aparece em lugar nenhum. -->
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
+    <!-- NÃO PERTURBE (v1.14.46). O aviso que conta o piso de 60% na abertura
+         oferece pôr o aparelho em "só alarmes": nenhum toque de chamada nem de
+         notificação, e o som do louvor continua saindo. `protectionLevel` é
+         `normal`, mas o Android NÃO a concede na instalação: ela mora em
+         "Acesso a Não perturbe", na tela de acesso especial do sistema, e é o
+         OPERADOR quem liga. Sem ela o shell responde `sem-acesso` e o app abre
+         a tela — é a única coisa que o app pode fazer, e está declarado no
+         `NativeBridge.definirNaoPerturbe`. -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+
     <!-- Serviço em primeiro plano durante downloads: sem ele o Android
          congela o processo ao minimizar o app e a sincronização de hinos,
          álbuns, Bíblia ou pastas para no meio (ver SyncService). -->

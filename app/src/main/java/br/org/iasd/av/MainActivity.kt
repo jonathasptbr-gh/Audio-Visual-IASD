@@ -1,5 +1,6 @@
 package br.org.iasd.av
 
+import android.app.NotificationManager
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
@@ -2559,6 +2560,66 @@ class MainActivity : ComponentActivity(), BridgeHost {
             val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
             val alvo = Math.round(max * fracao.coerceIn(0.0, 1.0)).toInt()
             am.setStreamVolume(AudioManager.STREAM_MUSIC, alvo.coerceIn(0, max), 0)
+        }
+    }
+
+    /**
+     * O estado do Não perturbe (shell 89): `{acesso, ligado, filtro}`.
+     *
+     * `acesso` é a autorização de *Acesso a Não perturbe* (`isNotificationPolicyAccessGranted`),
+     * e sem ela `setInterruptionFilter` é um no-op silencioso — por isso o aviso
+     * da abertura pergunta antes de oferecer o botão. `ligado` vale para
+     * QUALQUER filtro que não seja `ALL` (a mesma régua do `naoPerturbeAgora`
+     * do diagnóstico): "prioridade", "só alarmes" e "silêncio total" são todos
+     * "o Não perturbe está ligado".
+     */
+    override fun naoPerturbe(done: (JSONObject) -> Unit) {
+        runOnUiThread {
+            val nm = getSystemService(NotificationManager::class.java)
+            done(
+                JSONObject()
+                    .put("acesso", nm?.isNotificationPolicyAccessGranted == true)
+                    .put(
+                        "ligado",
+                        nm != null && nm.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL,
+                    )
+                    .put("filtro", nm?.currentInterruptionFilter ?: -1),
+            )
+        }
+    }
+
+    /**
+     * Liga/desliga o Não perturbe (shell 89). O filtro é `ALARMS`, nunca
+     * `NONE`: o silêncio total amarra as saídas de mídia e de alarme ao toque
+     * mudo — o `AudioService` do AOSP trata os dois como "total silence" —, e
+     * calaria o louvor. `ALARMS` cala chamada e notificação, deixa o alarme
+     * tocar e deixa a mídia sair.
+     */
+    override fun definirNaoPerturbe(on: Boolean, done: (JSONObject) -> Unit) {
+        runOnUiThread {
+            val nm = getSystemService(NotificationManager::class.java)
+            if (nm == null || !nm.isNotificationPolicyAccessGranted) {
+                done(JSONObject().put("ok", false).put("motivo", "sem-acesso")); return@runOnUiThread
+            }
+            try {
+                nm.setInterruptionFilter(
+                    if (on) NotificationManager.INTERRUPTION_FILTER_ALARMS else NotificationManager.INTERRUPTION_FILTER_ALL,
+                )
+                done(JSONObject().put("ok", true))
+            } catch (_: SecurityException) {
+                done(JSONObject().put("ok", false).put("motivo", "negado"))
+            }
+        }
+    }
+
+    /** A tela de *acesso a Não perturbe* (shell 89); sem ela, a de Configurações. */
+    override fun abrirAcessoNaoPerturbe() {
+        runOnUiThread {
+            try {
+                startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
+            } catch (_: Exception) {
+                try { startActivity(Intent(Settings.ACTION_SETTINGS)) } catch (_: Exception) { /* nada a abrir */ }
+            }
         }
     }
 

@@ -267,7 +267,7 @@ isso mudança de ponte é um lote **APK + web publicado JUNTO**, com `shellTag` 
 `version.json`.
 
 **A exceção declarada: método OPCIONAL** (o volume do shell 86, o `abrirGuia` do
-87). O `native.js` pergunta `typeof B.<nome> === 'function'` e, sem ele, devolve o
+87 e o Não perturbe do 89). O `native.js` pergunta `typeof B.<nome> === 'function'` e, sem ele, devolve o
 desfecho de "não há" (`null`/`false`) NA HORA — sem esperar 60 s — e quem chama
 tem um caminho para isso (o guia cai no `openExternal`). É capacidade, não versão:
 o piso (`minShell`) não sobe por um método opcional.
@@ -891,6 +891,16 @@ window.AVNative = {
   systemVolumeStep(step), // o mesmo passo COM a leitura (shell 78): Promise<{antes, depois, max}|null>, em
                        //   degraus de STREAM_MUSIC. É o que deixa o web decidir quanto o app cede
                        //   (`volumePassa`, controle.js) pelo volume REAL — sem contar degraus às cegas
+  systemVolumeAtual(), // (shell 86) a LEITURA do volume de mídia do sistema: {atual, max}, sem mexer
+                       //   nele. O `systemVolumeStep` com passo zero BAIXA um degrau e abre o painel
+  systemVolumeDefinir(fracao), // (shell 86) o PISO de 60% na abertura: `setStreamVolume` com flags 0
+                       //   (sem painel e sem som de ajuste) — é o app se apresentando, não um toque
+  naoPerturbe(),       // (shell 89) {acesso, ligado, filtro}: a autorização de "Acesso a Não perturbe"
+                       //   e o filtro de interrupção em vigor. O aviso da abertura PERGUNTA antes de
+                       //   oferecer o botão: sem `acesso`, setInterruptionFilter é um no-op silencioso
+  naoPerturbeDefinir(bool), // (shell 89) Promise<{ok, motivo}>: liga `ALARMS` e volta `ALL`. `ALARMS` e não
+                       //   `NONE`: o silêncio total amarra mídia e alarme ao toque mudo (calaria o louvor)
+  abrirAcessoNaoPerturbe(), // (shell 89) a tela de acesso especial do sistema, onde o operador autoriza
   temaClaro(bool),     // o TEMA escolhido: ícones das barras + windowBackground
   keepAlive(bool),     // download em curso — ver "Trabalho em segundo plano"
   bgConcluido({titulo, texto}), // O CARTÃO QUE FICA quando um trabalho longo

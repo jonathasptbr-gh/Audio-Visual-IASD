@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.46** — o piso de 60% conta o que fez num aviso na abertura, com o mudo do app e o Não perturbe do sistema (só alarmes, e o louvor continua com som) — Kotlin + web, com Release.
 - **v1.14.45** — os Favoritos: o botão Detalhes por tipo na gaveta de play, a faixa do ⋮ vestindo o tom do card aberto e a divisória que marcava a borda dele (só web).
 - **v1.14.44** — em tela cheia e deitado, o nível do volume cabe na pílula: o trilho cede altura em vez de furar a cápsula (só web).
 - **v1.14.43** — a tela cheia da música no Modo Fácil não desfaz mais sozinha: só a da regra do vídeo sai na troca de mídia, a da tecla continua até o Parar, o fim ou uma tela conectada (Pacote 38, defeito de 15/11; só web).
@@ -912,6 +913,28 @@ acervo; `tour` B2 aceita o passo do fim como opcional; `smoke`, `boot-nativo`,
 `modo-simples-biblioteca-tamanho` e `semana-item` voltaram ao que eram antes da v1.14.40.
 
 ---
+
+## v1.14.46 — o piso de 60% conta o que fez, e oferece o mudo e o Não perturbe
+
+**Pedido do operador**, **Kotlin + web**: `SHELL_VERSION` 89, `minShell` 83, `shellTag: "v1.14.46"`. Degrau RECURSO.
+
+*"Gostaria de um popup rápido notificando que o aplicativo aumentou o volume do aparelho até 60% quando aberto e de um botão nesse popup para mutar ou colocar o aparelho no modo não perturbe (sem toque, mas com som). Assim teremos mais controle sobre a precisão do que está sendo feito."*
+
+**O AVISO.** O piso da v1.13.65 subia o volume de mídia do sistema em SILÊNCIO. Agora `acertarPisoDoVolumeDoSistema` — o ÚNICO ponto que sobe o volume — acende um cartão no TOPO da tela (o lugar do aviso de salvamento: na base cobriria o transporte, e na lista ficaria atrás das folhas) com o número da RELEITURA de `systemVolumeAtual`, não a fração pedida — o arredondamento de degrau do aparelho pode não reproduzir os 60% exatos, e o aviso não pode prometer um volume que o telefone não tem. Ele nasce `hidden` e só aparece quando o piso AGIU: um aviso a cada abertura mentiria sobre um volume que já estava lá. Some sozinho em 12 s, ou no ✕.
+
+**O MUDO** é o do app, pelo mesmo `#muteToggle.click()` de sempre — uma segunda verdade sobre o mudo não nasce aqui —, e o rótulo acompanha o estado ("Com som" volta).
+
+**O NÃO PERTURBE** é do sistema. Três métodos novos na ponte (shell 89) e a permissão `ACCESS_NOTIFICATION_POLICY` no manifesto: `naoPerturbe` → `{acesso, ligado, filtro}`; `naoPerturbeDefinir(on)` → `{ok, motivo}` (`sem-acesso` | `negado`); e `abrirAcessoNaoPerturbe()` → a tela de acesso especial do sistema.
+
+**O filtro é `ALARMS`, e não `NONE`**, e isso é uma afirmação medida no AOSP: o silêncio total amarra as saídas de MÍDIA e de alarme ao toque mudo (`AudioService`), e calaria o louvor — justamente o som que o pedido queria preservar. `ALARMS` cala chamada e notificação, deixa o alarme tocar e deixa a mídia sair: é o "sem toque, mas com som".
+
+**A AUTORIZAÇÃO É MANUAL, e o app não finge o contrário.** `ACCESS_NOTIFICATION_POLICY` é `normal`, mas o Android não a concede na instalação — ela vive em "Acesso a Não perturbe", na tela de acesso especial. Sem ela `setInterruptionFilter` é um no-op SILENCIOSO, então o aviso PERGUNTA o estado antes de oferecer o botão: `acesso` falso abre a tela e o cartão diz o que fazer. O `ligado` vale para qualquer filtro que não seja `ALL` (a régua do `naoPerturbeAgora` do diagnóstico), e o rótulo vem dele: com o Não perturbe já ligado, o toque DESLIGA.
+
+**A DEGRADAÇÃO É DECLARADA.** Num casco 88 o `native.js` pergunta `typeof` e resolve `null` na hora: o cartão fica com UMA saída (o mudo) e o botão do sistema não aparece — um botão que não faz nada é pior que um botão ausente. Sem `__NATIVE__` (o navegador) o piso nem existe, e nada é desenhado.
+
+**O ORÁCULO NOVO, `tools/aviso-do-volume.test.mjs`**, trava o que falha calado: o cartão aparece quando o piso agiu e diz o número; NÃO aparece quando o sistema já estava em 60% (e o volume não é tocado); o "Mutar" põe `.muted` no `#muteToggle`; o "Não perturbe" chama `naoPerturbeDefinir(true)` com autorização e, sem ela, abre a tela SEM chamar o definir (o desfecho que mais parece sucesso); e no casco 88 nada é desenhado. O `ponte-guarda-host` sobe a conta para 76 métodos, e o `tela-inteira` ganha `naoPerturbe` no `comCallId` do fixture — sem isso ele ficaria MUDO e travaria 60 s.
+
+**Não testado em aparelho.** A tela de acesso, o filtro `ALARMS` e o `setInterruptionFilter` dependem do Android de verdade; aqui se prova a conversa, não o efeito.
 
 ## v1.14.45 — os Favoritos: o card de detalhes, a faixa e a divisória
 

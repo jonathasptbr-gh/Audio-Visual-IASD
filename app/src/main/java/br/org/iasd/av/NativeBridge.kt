@@ -193,6 +193,27 @@ interface BridgeHost {
     fun definirSystemVolume(fracao: Double)
 
     /**
+     * O estado do **Não perturbe** do sistema: `{acesso, ligado, filtro}`.
+     * `acesso` é a autorização de *Acesso a Não perturbe* — a única coisa que
+     * deixa mexer no filtro —, e é ela que o aviso da abertura pergunta antes
+     * de oferecer o botão (shell 89).
+     */
+    fun naoPerturbe(done: (JSONObject) -> Unit)
+
+    /**
+     * Liga ou desliga o **Não perturbe**, devolvendo `{ok, motivo}`.
+     *
+     * O filtro é `ALARMS`, e não `NONE`: o silêncio total amarra as saídas de
+     * mídia e de alarme ao toque mudo (o `AudioService` do AOSP), e calaria o
+     * louvor. `ALARMS` cala chamada e notificação, deixa o alarme tocar e
+     * deixa a mídia sair — que é o "sem toque, mas com som" do pedido.
+     */
+    fun definirNaoPerturbe(on: Boolean, done: (JSONObject) -> Unit)
+
+    /** Abre a tela de **acesso a Não perturbe** do sistema (a autorização manual). */
+    fun abrirAcessoNaoPerturbe()
+
+    /**
      * O tema escolhido no Controle. Ver [NativeBridge.temaClaro] — o CSS não
      * alcança nem os ícones das barras de sistema nem o `windowBackground`.
      */
@@ -394,7 +415,7 @@ class NativeBridge(
          * A regra inteira está no `docs/shell/PONTE.md` (seção do
          * `SHELL_VERSION`); a tabela dos degraus, no `docs/HISTORICO.md`.
          */
-        const val SHELL_VERSION = 88
+        const val SHELL_VERSION = 89
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -1969,6 +1990,39 @@ class NativeBridge(
     @JavascriptInterface
     fun systemVolumeDefinir(fracao: Double) {
         host?.definirSystemVolume(fracao)
+    }
+
+    /**
+     * O estado do Não perturbe (shell 89): `{acesso, ligado, filtro}`, ou
+     * `null` sem host.
+     *
+     * A LEITURA é o que separa "o app não mudou nada" de "o app mudou e o
+     * Android ignorou": sem `acesso`, `setInterruptionFilter` é um no-op
+     * silencioso. Por isso o aviso da abertura pergunta ANTES de oferecer o
+     * botão, em vez de descobrir no toque.
+     */
+    @JavascriptInterface
+    fun naoPerturbe(callId: String) {
+        val h = host
+        if (h == null) { resolve(callId, "null"); return }
+        h.naoPerturbe { json -> resolve(callId, json.toString()) }
+    }
+
+    /**
+     * Liga/desliga o Não perturbe (shell 89): resolve `{ok, motivo}`, nunca
+     * lança — `sem-acesso` e `negado` são desfechos, não exceções.
+     */
+    @JavascriptInterface
+    fun naoPerturbeDefinir(on: Boolean, callId: String) {
+        val h = host
+        if (h == null) { resolve(callId, "null"); return }
+        h.definirNaoPerturbe(on) { json -> resolve(callId, json.toString()) }
+    }
+
+    /** A tela de acesso a Não perturbe (shell 89) — a autorização manual. Sem host, nada. */
+    @JavascriptInterface
+    fun abrirAcessoNaoPerturbe() {
+        host?.abrirAcessoNaoPerturbe()
     }
 
     // ---------- tema (claro × escuro) ----------

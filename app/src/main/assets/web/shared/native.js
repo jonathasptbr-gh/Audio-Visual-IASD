@@ -907,6 +907,23 @@
       try { if (typeof B.systemVolumeDefinir === 'function') B.systemVolumeDefinir(Number(fracao) || 0); } catch (_) { /* ponte indisponível */ }
     },
 
+    // O NÃO PERTURBE (shell 89). O aviso da abertura pergunta o estado antes de oferecer o
+    // botão — sem a autorização de "Acesso a Não perturbe" o `setInterruptionFilter` é um
+    // no-op SILENCIOSO, e o botão mentiria. O `typeof` é a degradação declarada dos métodos
+    // opcionais: num casco 88 tudo resolve `null` na hora, e o aviso nasce sem o botão.
+    naoPerturbe: () => (typeof B.naoPerturbe === 'function'
+      ? call((id) => B.naoPerturbe(id), CALL_TIMEOUT_MS)
+        .then((r) => (r && typeof r === 'object' ? r : null))
+      : Promise.resolve(null)),
+    naoPerturbeDefinir: (on) => (typeof B.naoPerturbeDefinir === 'function'
+      ? call((id) => B.naoPerturbeDefinir(!!on, id), CALL_TIMEOUT_MS)
+        .then((r) => (r && typeof r === 'object' ? r : null))
+      : Promise.resolve(null)),
+    // A tela de acesso especial do sistema. Sem ela não há como autorizar, e o aviso diz isso.
+    abrirAcessoNaoPerturbe() {
+      try { if (typeof B.abrirAcessoNaoPerturbe === 'function') B.abrirAcessoNaoPerturbe(); } catch (_) { /* ponte indisponível */ }
+    },
+
     // A PROJEÇÃO É ESTE APARELHO (shell 56): não há tela conectada e há cena no
     // ar, então quem projeta é o `<video>` da PREVIEW — neste WebView. O
     // Chromium pausa o `<video>` de uma página oculta, e com o app minimizado o
