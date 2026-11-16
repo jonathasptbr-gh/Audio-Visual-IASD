@@ -12,7 +12,7 @@ depois do `__avBack`. Oráculo: `tools/tour.test.mjs`.
 | `conexao` | Modo Fácil com a cortina "sem tela" (`#simpleMode.sem-tela`) | só a cortina: `#simpleConn`, `#castMirrorBtn`, `#castNetBtn`, `#castLocalBtn` |
 | `simples` | Modo Fácil destravado, Biblioteca encaixada (`.corpo-biblioteca`) | `#simpleBarra`/`#libBar`, a lista da janela (`.semana-raiz`, `.hymnal-card > .coll-bar`, `.coll-group-bar`, `.coll-bar-dl`), `#sorteioSimplesBtn`, `#volPill`, `#simpleSettingsBtn`, `#simpleCastBtn`, `FIM` |
 | `tocando` | Modo Fácil destravado com a letra e as teclas à vista | `.simple-song`, `.simple-fabs`, `#simpleSlidesRow`, `.simple-nowplaying`, `#simpleStop`, `#simplePlay`, `#simpleTela` |
-| `avancado` | Modo Avançado | `#library`, `#cronoTitulo`, `#cronoImportar`, `#itinBar` (`opcional`), `#bibleBtn`, `#toolsBtn`, `#libBar`, o deck em nove passos (`.np-seek`, `#slidePrevBtn`+`#preview`+`#slideNextBtn`, `#prev`+`#playpause`+`#next`+`#stop`, `#plBtn`, `#repeat`, `#lyricsViewBtn`, `#viewToggle`, `#muteToggle`, `#pvFullBtn`), `#pvCastBtn`, `#settingsBtn`, `FIM` |
+| `avancado` | Modo Avançado | `#library`, `#cronoTitulo`, `#cronoImportar`, `#itinBarBtn` (`opcional`; a porta da faixa do itinerário, "Toque aqui para abrir as opções…"), `#bibleBtn`, `#toolsBtn`, `#libBar`, o deck em nove passos (`.np-seek`, `#slidePrevBtn`+`#preview`+`#slideNextBtn`, `#prev`+`#playpause`+`#next`+`#stop`, `#plBtn`, `#repeat`, `#lyricsViewBtn`, `#viewToggle`, `#muteToggle`, `#pvFullBtn`), `#pvCastBtn`, `#settingsBtn`, `FIM` |
 
 Os tours principais apontam as PORTAS e o que já está à vista na tela (a tabela `TOURS` do `tour.js`: o deck do Avançado, a lista da Biblioteca encaixada do Fácil); o que há
 dentro de cada janela é o tour de SEÇÃO, abaixo. Um passo `opcional` sem

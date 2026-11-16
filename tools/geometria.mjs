@@ -152,6 +152,22 @@ export const SUPERFICIES = [
     abrir: () => { setAppMode('full'); window.__abrirOpcoes(); },
     alvo: '#library .lib-item.acoes-abertas .row-acoes',
   },
+  {
+    // A FAIXA DO ITINERÁRIO (`#itinBar`, Pacote 35) nasce RECOLHIDA e só abre pela porta
+    // `#itinBarBtn`: sem esta superfície os `.itin-b` não seriam medidos por ninguém. O
+    // alvo pede também as ações SOLTAS do momento da SEMENTE (`.row-acoes--solta`, alvo
+    // `--hit`) e o GRUPO dele COM mídia (`.grupo-ini` … `.grupo-fim`, a moldura em
+    // `::after`). Ela se recolhe após 5 s sem toque; a sonda mede ao assentar.
+    nome: 'faixa do itinerário',
+    abrir: () => {
+      setAppMode('full');
+      const p = document.getElementById('itinBarBtn');
+      if (p.getAttribute('aria-expanded') !== 'true') p.click();
+    },
+    alvo: 'main:has(#itinBar:not([hidden]) .itin-novo)'
+      + ':has(#library .lib-item.momento.grupo-ini .row-acoes--solta .itin-editar)'
+      + ':has(#library .lib-item.momento.grupo-ini ~ .lib-item.grupo-meio:not(.momento))',
+  },
 ];
 
 /**
@@ -333,6 +349,10 @@ export const SEMENTE = async () => {
   await mk('Favorito com nome bem comprido para medir a linha', 'favs', 'audio/mpeg');
   await mk('Outro favorito', 'favs', 'audio/mpeg');
   window.__itemId = a.id;
+  // UM MOMENTO DO ITINERÁRIO (a linha-título do Cronograma, sem cartão e com as ações
+  // soltas sempre à vista): o primeiro nasce no TOPO, e as três mídias acima ficam no
+  // GRUPO dele (`.grupo-meio`/`.grupo-fim`).
+  window.__momento = await itinAdicionar(600, 'Abertura, boas-vindas e louvor congregacional');
 
   // A BÍBLIA: o capítulo do relato do operador, com o versículo que não cabia.
   const bookIdx = Bible.BOOKS.findIndex((x) => /Naum/i.test(x.name));
@@ -373,9 +393,10 @@ export const SEMENTE = async () => {
     const li = hymnResultsEl.querySelector('.fav-itens > .lib-item');
     if (li) li.querySelector('.row').click();
   };
-  // A faixa de opções de uma linha do CRONOGRAMA sai do `⋮`, não do corpo.
+  // A faixa de opções de uma linha do CRONOGRAMA sai do `⋮`, não do corpo (o momento
+  // não tem `⋮`: as ações dele são soltas).
   window.__abrirOpcoes = () => {
-    document.querySelector('#library .lib-item .row-mais')?.click();
+    document.querySelector('#library .lib-item:not(.momento) .row-mais')?.click();
   };
   await load();
   renderLibrary();

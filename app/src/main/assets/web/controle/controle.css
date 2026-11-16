@@ -748,7 +748,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   /* O IMPORTAR (v1.13.5) e o TÍTULO do Cronograma, e o "Novo cronograma" da
      gaveta (v1.12.54/v1.12.55). Os dois quadrados de cada linha da gaveta já
      entram por `.row-btn`; a LINHA responde por luz (ver `.crono-item:active`). */
-  .crono-importar, .crono-titulo, .crono-alerta, .crono-novo,
+  .crono-importar, .crono-itin, .crono-titulo, .crono-alerta, .crono-novo,
   /* O ⛶ da cifra (v1.6.0): ele nasce no MESMO lote em que entra aqui, que é a
      regra desta lista — um controle novo fora dela fica mudo ao toque sem nada
      na tela dizer por quê. Nenhum ancestral dele responde ao toque. */
@@ -858,7 +858,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    denso — igualar o TAMANHO não iguala o PESO. (MEDIDO com a lixeira, tinta
    contra a engrenagem: 20px -> 0,60 · 22px -> 0,74 · 24px -> 0,89.) Fora de toda
    lista, o svg viveria do atributo do HTML — a armadilha muda da v1.8.68. */
-.crono-importar svg { display: block; width: var(--icon-lg); height: var(--icon-lg); }
+.crono-importar svg, .crono-itin svg { display: block; width: var(--icon-lg); height: var(--icon-lg); }
 /* A SETA DO TÍTULO é `--icon-sm`, o degrau dos botões de cabeçalho: ela é a
    marca de "isto abre", não um botão por si. */
 .crono-seta { display: block; flex: none; width: var(--icon-sm); height: var(--icon-sm); }
@@ -2610,7 +2610,10 @@ main {
    O DESENHO É SVG inline porque o triângulo de alerta não está no subset da
    fonte (`msym`), e codepoint ausente desenha um retângulo vazio. */
 .crono-alerta { background: none; color: var(--warn); }
-.list-header > .crono-importar { grid-column: 1; justify-self: start; }
+/* `grid-row: 1` EXPLÍCITO porque o `#itinBarBtn` divide a célula com ele: um item só
+   com a coluna definida não sobrepõe outro — o posicionamento automático o descia
+   para uma segunda linha, levando o título e a engrenagem junto. */
+.list-header > .crono-importar { grid-row: 1; grid-column: 1; justify-self: start; }
 /* O PAR nome + alerta ocupa a trilha do meio; o título sozinho continua
    centrado nela quando o alerta está escondido (o caso normal). */
 .list-header > .crono-par { grid-column: 2; justify-self: center; min-width: 0; }
@@ -2794,7 +2797,7 @@ main {
    (fundo, cor e, no `.cue-save-btn`, a borda). O voltar tinha só ~20×20 px —
    o menor alvo do app inteiro, e é a única saída da gaveta de pasta e da
    navegação da Bíblia. */
-.back-btn, .row-btn, .row-slot, .crono-importar, .crono-alerta,
+.back-btn, .row-btn, .row-slot, .crono-importar, .crono-itin, .crono-alerta,
 .cue-save-btn, .popup-close, .popup-acao, .log-copy, .lv-cheia-btn {
   flex-shrink: 0; width: var(--hit); height: var(--hit); padding: 0;
   border: none; border-radius: var(--radius-btn);
@@ -7238,22 +7241,49 @@ main {
 /* ---------- O ITINERÁRIO É UMA OPÇÃO DO CRONOGRAMA (v1.14.32) ----------
    Pedido do operador: os títulos do itinerário moram na lista do Cronograma, com
    outra formatação, e as opções dele numa segunda linha MAIS ESTREITA logo abaixo
-   da barra do topo — que pode ser recolhida. Duas peças: a LINHA DO MOMENTO e a
+   da barra do topo — que nasce recolhida, abre pelo `#itinBarBtn` da barra e se
+   recolhe sozinha (`ITIN_FAIXA_FECHO_MS`). Duas peças: a LINHA DO MOMENTO e a
    FAIXA DE OPÇÕES (`#itinBar`). */
 
 /* A LINHA DO MOMENTO: um TÍTULO que organiza as mídias que vêm depois dele, e por
-   isso NÃO é um item do culto. Sem capa (o horário toma o lugar dela), mais baixa
-   que as de mídia, com uma barra de `--accent` na ponta e o fundo do "ligado"
-   (`--btn-accent`) — o tom que o app já usa para dizer "isto está ativo", e que
-   nenhuma linha de mídia veste. A linha é a `.lib-item > .row` de sempre: o
-   arrasto, a faixa do `⋮` e o excluir na linha são os das outras, e `--linha` é o
-   preenchimento OPACO que a faixa de ações precisa por baixo. */
-.lib-item.momento { --linha: var(--btn-accent); }
-.lib-item.momento::before {
-  content: ''; position: absolute; z-index: 2; left: 0; top: 0; bottom: 0; width: 4px;
-  background: var(--accent); pointer-events: none;
+   isso NÃO é um item do culto. SEM CARTÃO (pedido de 15/11: *"sem card, apenas o
+   texto"*): sem capa (o horário toma o lugar dela), sem fundo, borda nem barra —
+   `--linha` transparente. A linha é a `.lib-item > .row` de sempre (o arrasto e o
+   excluir que pergunta na linha são os das outras); levantada no arrasto ela
+   veste o fundo das linhas, senão o nome se leria por cima do vizinho. */
+.lib-item.momento { --linha: transparent; }
+#library > .lib-item.momento.arrastando { --linha: var(--camada); }
+.lib-item.momento > .row { padding-left: .5rem; }
+/* AS OPÇÕES SEMPRE À VISTA, só o ícone (sem o `⋮` e sem caixa): a `.row-acoes` sai
+   do absoluto e entra no fluxo da linha, cada botão com o alvo `--hit`. A pergunta
+   do excluir nasce dentro dela e, enquanto pergunta, toma o lugar do título. */
+.lib-item.momento .row-acoes--solta {
+  position: static; flex: none; width: auto; min-width: 0; max-width: none;
+  gap: 0; background: none; opacity: 1; visibility: visible;
 }
-.lib-item.momento > .row { padding-left: .7rem; }
+.lib-item.momento .row-acoes--solta > * { transform: none; }
+.lib-item.momento .row-acoes--solta.confirmando { flex: 1; min-width: 0; }
+.lib-item.momento > .row:has(> .row-acoes.confirmando) > .row-text { display: none; }
+.lib-item.momento .row-acoes--solta > .row-btn {
+  width: var(--hit); height: var(--hit); background: none; color: var(--muted);
+}
+/* A SETA DO GRUPO (`ITIN_SETA_GRUPO`), ao lado do subtítulo: pequena, no tom do
+   subtítulo, e girada para baixo quando o grupo está recolhido. Sem tamanho ela cai
+   no padrão do `<svg>` (300×150) e estoura a linha. */
+.momento-seta { width: .85rem; height: .85rem; flex: none; vertical-align: -.1em; color: var(--muted); }
+.lib-item.momento.recolhido .momento-seta { transform: rotate(180deg); }
+/* O GRUPO DO MOMENTO (pedido de 15/11): o momento e as mídias até o próximo. Ele é
+   marcado por PREENCHIMENTO, e não por moldura — o app inteiro separa por tinta, e o
+   oráculo dos tokens reprova qualquer traço pintado (`tools/tokens.test.mjs`). As
+   linhas do grupo vestem `--grupo-fill` no lugar da linha neutra, o momento-cabeça
+   inclusive: o bloco inteiro lê como um conjunto, e a tinta é discreta de propósito
+   (o operador achou o `--accent` cheio forte demais). As classes são de
+   `marcarGruposDoItinerario`; sem mídia não há grupo. */
+#library > .lib-item:is(.grupo-ini, .grupo-meio, .grupo-fim) { --linha: var(--grupo-fill); }
+/* ENTRE DOIS GRUPOS o momento abre um RESPIRO de `--sp-4` por dentro (`padding-top`,
+   a linha dele é transparente): os dois blocos não encostam, e o `gap` da lista — que
+   a conta do arrasto lê — não muda. */
+#library > li + .grupo-ini { padding-top: var(--sp-4); }
 /* O HORÁRIO EM ALGARISMOS TABULARES: "23:59" e "10:00" ocupam a mesma largura, e
    os títulos da lista se alinham uns com os outros. */
 .momento-hora {
@@ -7262,28 +7292,26 @@ main {
   font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
 }
 .lib-item.momento .row-name { font-weight: var(--fw-forte); }
-/* O MOMENTO DE AGORA (a leitura do relógio, a mesma do telão): o preenchimento da
-   linha atual das listas e o subtítulo em `--accent`. É uma classe PRÓPRIA
+/* O MOMENTO DE AGORA (a leitura do relógio, a mesma do telão): o subtítulo em
+   `--accent` — sem fundo, que a linha não tem cartão. É uma classe PRÓPRIA
    (`.agora`), e não o `.active`: o `.active` desta lista é o item que o ▶ repete
    (`marcarNoAr` o escreve a cada passada), e um momento nunca é isso. */
-.lib-item.momento.agora { --linha: var(--sel-fill); }
 .lib-item.momento.agora .row-sub, .lib-item.momento.seguir .row-sub { color: var(--accent); }
 
-/* A FAIXA DE OPÇÕES, IRMÃ DA BARRA DO TOPO (ver o `#itinBar` no HTML): da cor
-   dela (`--bar`), sangrando até as bordas pelo recuo do `<main>` devolvido como
-   margem negativa — a mesma conta do `.list-header` —, e com a margem de baixo
-   negativa para anular o `gap` do `<main>` (a barra de cima já anula o dela). Fica
-   encostada nas duas. O Modo Fácil não a desenha: esconde o `<main>` inteiro. */
+/* A FAIXA DE OPÇÕES, IRMÃ DA BARRA DO TOPO (ver o `#itinBar` no HTML):
+   TRANSPARENTE, com os botões soltos (pedido de 15/11), sangrando até as bordas
+   pelo recuo do `<main>` devolvido como margem negativa — a mesma conta do
+   `.list-header` —, e com a margem de baixo negativa para anular o `gap` do
+   `<main>` (a barra de cima já anula o dela). Recolhida ela é `hidden` e não
+   ocupa nada. O Modo Fácil não a desenha: esconde o `<main>` inteiro. */
 .itin-bar {
   container-type: inline-size;
   /* QUEBRA EM DUAS LINHAS quando não cabe (a fonte do sistema em 1,25× ou mais, ou uma tela
-     de 320 px): a alternativa era esconder `+` e a seta de recolher atrás da borda, sem
-     rolagem nenhuma para chegar a eles. O atraso é o elástico (`flex-basis` abaixo) e é
-     ele que desce primeiro, levando os dois da ponta junto — a segunda linha fica
-     [atraso ......... + ⌃]. */
+     estreita): a alternativa era esconder o `+` atrás da borda, sem rolagem nenhuma para
+     chegar a ele. Quem desce são as SEÇÕES inteiras (`.itin-secao`). O vão ENTRE elas
+     é `--sp-6`, claramente maior que o de dentro: é só o espaço que as separa. */
   flex-shrink: 0; display: flex; flex-wrap: wrap; row-gap: var(--sp-2);
-  align-items: center; gap: var(--sp-2);
-  background: var(--bar);
+  align-items: center; justify-content: space-between; column-gap: var(--sp-6);
   margin: 0 -.8rem calc(-1 * var(--sp-5));
   padding: .15rem .8rem .25rem;
 }
@@ -7298,72 +7326,67 @@ main {
    quando ela fecha. O `:has()` é o mesmo motor que o `.list-body:has(…)` já usa
    desde a v1.8.60/v1.8.63; sem ele a folha voltaria a ser medida contra a
    altura de uma faixa que ela não deveria dividir. */
-main:has(> .list-body > .tools-sheet:not([hidden])) > #itinBar { display: none; }
-/* O BOTÃO DA FAIXA MEDE O PISO DO APP. Eram 1,9rem (30,4px com a fonte de
-   fábrica, e 39,5px já em 1,3×, o que fazia a faixa quebrar em DUAS linhas a
-   1,3× e roubar 52px da lista de Ferramentas). Com a altura em `--hit` (34px,
-   fixo em px como o piso) o botão não fica menor que o dedo em tela nenhuma e a
-   faixa só quebra onde ela já previa quebrar — 320px e a partir de 1,5× de
-   fonte. */
+main:has(> .list-body > .tools-sheet:not([hidden])) :is(#itinBar, #itinBarBtn) { display: none; }
+/* O BOTÃO DA FAIXA MEDE O PISO DO APP: altura em `--hit` (34px, fixo em px
+   como o piso), solto (sem caixa), e nunca menor que o dedo em tela nenhuma. */
 .itin-b {
   flex: none; display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1);
   height: var(--hit); min-width: var(--hit); padding: 0 .3rem; box-sizing: border-box;
   border: 0; border-radius: var(--radius-card);
-  background: var(--surface); color: var(--text);
+  background: none; color: var(--text);
   font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-forte); line-height: 1;
   cursor: pointer;
 }
-.itin-b svg { width: 1.05rem; height: 1.05rem; flex: none; }
+.itin-b svg { width: 1.15rem; height: 1.15rem; flex: none; }
 .itin-b:disabled { opacity: var(--op-inativo); cursor: default; }
 /* LIGADO é o par do interruptor do app (`--btn-accent` + `--accent`), como o "Seg"
-   e o "12h" do Relógio: o telão no ar e os horários escolhidos. */
+   e o "12h" do Relógio: o telão no ar, os momentos à vista e os horários escolhidos. */
 .itin-b.active { background: var(--btn-accent); color: var(--accent); }
-.itin-telao { padding: 0 .55rem; }
-.itin-passo { min-width: var(--hit); padding: 0 .1rem; font-weight: var(--fw-max); font-variant-numeric: tabular-nums; }
-/* O ATRASO é o miolo elástico, e é um botão (tocar o zera): chapado, sem corpo.
-   Com atraso ele deixa de ser apagado — é o estado que muda o que o telão mostra, e
-   lê-se de relance. */
+/* O ±5 tem CARTÃO, o do botão comum do app (`--surface`, o da `.row-btn`). */
+.itin-passo { background: var(--surface); min-width: var(--hit); padding: 0 .1rem; font-weight: var(--fw-max); font-variant-numeric: tabular-nums; }
+/* O ATRASO é o miolo da seção do meio, e é um botão (tocar o zera): chapado, sem
+   corpo. Com atraso ele deixa de ser apagado — é o estado que muda o que o telão
+   mostra, e lê-se de relance. Largura MÍNIMA fixa: o ±5 fica sempre encostado nele,
+   sem andar quando o texto muda de "0 min" para "−5 min". */
 .itin-b.itin-ajuste-txt {
-  /* O `flex-basis` é ZERO, e não os 3rem de antes: com base própria o atraso
-     entra na conta da linha já com 48px e empurra o "Recolher" para a segunda
-     linha a 360px — mesmo sobrando espaço. Com base zero ele recebe só a sobra
-     (e nunca menos que o `--hit`, que é o alvo). */
-  flex: 1 1 0; min-width: var(--hit); padding: 0 .15rem; background: none; color: var(--muted);
+  flex: none; min-width: 2.9rem; text-align: center; padding: 0 .15rem; background: none; color: var(--muted);
   font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;
   line-height: var(--hit);
 }
 .itin-b.itin-ajuste-txt:disabled { opacity: 1; }
 .itin-txt-curto { display: none; }
 .itin-b.itin-ajuste-txt.deslocado { color: var(--accent); font-weight: var(--fw-max); }
-.itin-novo, .itin-fechar { background: none; color: var(--accent); }
-/* QUEBRADA, o par da ponta fica à DIREITA da segunda linha (`margin-left: auto`); na mesma
-   linha do atraso a margem vale zero, porque o atraso já absorve a sobra. */
-.itin-novo { margin-left: auto; }
-/* RECOLHIDA: uma fita fina com a seta para abrir. Ela continua dizendo se o
-   itinerário está no ar (o ponto), porque é a única pista que sobra da faixa. */
-.itin-bar.recolhida { padding: 0 .8rem .1rem; justify-content: center; }
-.itin-b.itin-abrir {
-  flex: 1 1 auto; height: var(--hit); min-width: 0; padding: 0 .6rem; background: none; color: var(--muted);
-  font-size: var(--fs-xs);
-}
-.itin-b.itin-abrir svg { width: .9rem; height: .9rem; }
-.itin-ponto { width: .45rem; height: .45rem; border-radius: 50%; background: var(--live-strong); flex: none; }
-/* O VÃO ENCOLHE nas telas estreitas — pela consulta de MÍDIA, porque uma consulta de contêiner
-   só estiliza DESCENDENTES, nunca o próprio contêiner. A faixa tem a largura da tela, então as
-   duas réguas coincidem: a 360 px a soma dos nove (com o atraso no tamanho mínimo) é ~325 px
-   de ~334, e com o vão cheio de `--sp-2` ela passava por 4 px e quebrava a seta de recolher. */
-@media (max-width: 419.98px) { .itin-bar { column-gap: var(--sp-1); } }
+/* O `+` é SÓLIDO e destacado (pedido de 15/11) — o par do botão primário do app
+   (`.dialog-btn.primary`): `--accent-fill` + `--on-accent`. */
+.itin-b.itin-novo { background: var(--accent-fill); color: var(--on-accent); }
+/* AS TRÊS SEÇÕES (ESTADO · ATRASO · CRIAÇÃO), separadas SÓ pelo espaço: a faixa
+   reparte a sobra entre elas (`space-between`), e dentro da seção o vão é o pequeno.
+   O ATRASO é COMPACTO — o ±5 encosta no texto (pedido de 15/11) —, então ele não é
+   elástico: quem absorve a sobra é o vão entre as seções. */
+.itin-secao { flex: none; display: flex; align-items: center; gap: var(--sp-2); }
+.itin-secao--atraso { flex: none; gap: var(--sp-1); }
+/* O VÃO DE DENTRO DAS SEÇÕES ENCOLHE nas telas estreitas (consulta de MÍDIA: a faixa tem a
+   largura da tela, então as duas réguas coincidem). */
+@media (max-width: 419.98px) { .itin-secao { gap: var(--sp-1); } }
 /* A FAIXA MEDE O PRÓPRIO COMPRIMENTO (consulta de contêiner, como a do `.misc-foot`): abaixo
-   de 400px o atraso passa à escrita curta ("+5 min"), e abaixo de 370px da FAIXA o rótulo
-   do telão cede — o ícone e a cor de ligado dizem o mesmo, e é ele que paga o piso de
-   34px dos nove botões numa tela de 360 (v1.14.34: o rótulo volta a partir de ~430px de
-   tela). (A consulta mede o CONTEÚDO da faixa: o recuo de .8rem de cada lado já está
-   descontado — 360px de tela são ~334px aqui.) */
+   de 400px o atraso passa à escrita curta ("+5 min"). (A consulta mede o CONTEÚDO da faixa:
+   o recuo de .8rem de cada lado já está descontado — 360px de tela são ~334px aqui.) */
 @container (max-width: 399.98px) {
   .itin-txt-longo { display: none; }
   .itin-txt-curto { display: inline; }
 }
-@container (max-width: 369.98px) { .itin-telao-txt { display: none; } .itin-telao { padding: 0 .4rem; } }
+/* A PORTA DA FAIXA, NA BARRA DO TOPO (`#itinBarBtn`): mora na trilha 1 com o importar,
+   na MESMA célula, deslocada pela margem — as trilhas não mudam e o título não sai do
+   eixo. Chapada como o importar; aberta, veste o par de LIGADO. O ponto do "no ar"
+   é dela agora: um selo no canto, porque a faixa recolhida não desenha nada. */
+.list-header > .crono-itin {
+  grid-row: 1; grid-column: 1; justify-self: start;
+  margin-left: calc(var(--hit) + var(--sp-2));
+}
+.crono-itin { position: relative; background: none; color: var(--accent); }
+.crono-itin[aria-expanded="true"] { background: var(--btn-accent); }
+.crono-itin > .itin-ponto { position: absolute; top: .3rem; right: .3rem; }
+.itin-ponto { width: .45rem; height: .45rem; border-radius: 50%; background: var(--live-strong); flex: none; }
 
 /* A FOLHA DE UM MOMENTO (`#itinPopup`): desce do teto e termina onde o teclado
    começa. As roletas ocupam o que sobra e se medem por isso

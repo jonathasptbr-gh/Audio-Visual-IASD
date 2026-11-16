@@ -760,8 +760,8 @@ cue — o registro (`sanearMedia`), com o horário (`data.min`) e o título (`na
 `imports` —, junto com o cronograma que os contém: um cronograma GUARDADO leva os dele.
 
 - **A CHAVE `state.itinerario` NÃO atravessa.** Ela guarda o que é DESTE aparelho e deste dia
-  (`{ v, horas, desloc, deslocDia, barraOculta }`: a escolha de horários no telão, o atraso do
-  culto, a faixa recolhida). O import a PULA — `pacoteAplicarFluxo`, `cab.t === 'state' &&
+  (`{ v, horas, desloc, deslocDia, momentosOcultos }`: a escolha de horários no telão, o atraso do
+  culto, os momentos ocultos na lista). O import a PULA — `pacoteAplicarFluxo`, `cab.t === 'state' &&
   cab.chave === 'itinerario'`, antes da mescla genérica e sem contar em `recusadas` — e não há
   mescla própria. A exportação também NÃO a grava: `'itinerario'` está no `FORA` do `pacote.js`
   (o `pacote.test.mjs` confere a entrada contra a base). O import continua a pular a chave de um

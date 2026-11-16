@@ -411,12 +411,12 @@ try {
     // `name`) — e viajam como qualquer cena. Ele entra DEPOIS do `cronoCriar`, e por isso
     // cai em `imports`: o cronograma ATIVO da origem ("Cronograma 2"), que o destino SOMA
     // ao dele — é o que o bloco 2-D confere. A chave `state.itinerario` guarda só o que é
-    // DO APARELHO e do dia (horários no telão, o atraso, a barra recolhida); ela está
+    // DO APARELHO e do dia (horários no telão, o atraso, os momentos ocultos na lista); ela está
     // semeada com valores que o destino NÃO tem (ele recebe os dele antes de importar),
     // para o 2-D pegar um import que a regravasse.
     await AVDB.addCue('momento', { min: 600 }, { name: 'Louvor', list: 'imports' });
     await AVDB.setState('itinerario', {
-      v: 3, horas: false, desloc: 15, deslocDia: hojeLocal(), barraOculta: true,
+      v: 3, horas: false, desloc: 15, deslocDia: hojeLocal(), momentosOcultos: true,
     });
     // A PASTA DO APARELHO, com um arquivo dentro. Ela é o corte declarado do
     // recurso — as concessões do SAF não existem no outro celular —, e sem ela
@@ -467,7 +467,7 @@ try {
   });
   checar(saida.length > 4000, '1 · e os bytes de verdade saíram pelo canal', saida.length);
   // A CHAVE `state.itinerario` DA ORIGEM NÃO VAI NO ARQUIVO (v1.14.32). Ela é opção DESTE
-  // aparelho (o ajuste do dia, a escolha de horários, a barra recolhida), e o `FORA` do
+  // aparelho (o ajuste do dia, a escolha de horários, os momentos ocultos), e o `FORA` do
   // `pacote.js` a pula na EXPORTAÇÃO — a mesma lista dos ajustes individuais (`lyricsFont`,
   // `lyricsBg`). O que viaja do itinerário são os MOMENTOS, como cenas do Cronograma. O
   // import ainda a RECUSA de um pacote antigo (`pacoteAplicarFluxo`), mas um pacote novo já
@@ -486,13 +486,13 @@ try {
   const antes = await b.pg.evaluate(async () => (await AVDB.mediaResumo()).length);
   checar(antes === 0, '2 · o aparelho de destino começa VAZIO — contextos separados são celulares separados', antes);
 
-  // O DESTINO JÁ TEM O AJUSTE DO DIA E A BARRA DELE (v1.14.32), diferentes da origem em
-  // TODOS os campos (horários no telão, atraso, barra recolhida): é com eles que o 2-D
+  // O DESTINO JÁ TEM O AJUSTE DO DIA E AS ESCOLHAS DELE (v1.14.32), diferentes da origem em
+  // TODOS os campos (horários no telão, atraso, momentos ocultos): é com eles que o 2-D
   // prova que a chave do pacote não os troca. O dia vem da página — o `deslocDia` só
   // vale hoje, e o fuso que conta é o dela.
   const hoje = await b.pg.evaluate(() => hojeLocal());
   await b.pg.evaluate(async (dia) => {
-    await AVDB.setState('itinerario', { v: 3, horas: true, desloc: -5, deslocDia: dia, barraOculta: false });
+    await AVDB.setState('itinerario', { v: 3, horas: true, desloc: -5, deslocDia: dia, momentosOcultos: false });
   }, hoje);
 
   // A IMPORTAÇÃO NÃO RECARREGA MAIS O APP (v1.8.28). Ela terminava num
@@ -574,8 +574,8 @@ try {
   //     que não viaja como cena do Cronograma não viaja.
   //  2. **A chave `state.itinerario` NÃO atravessa**: o `FORA` do export já a tirou do
   //     arquivo (o bloco 1 acima), e o destino continua com os valores DELE. O atraso do
-  //     dia e a barra recolhida são DO APARELHO: um pacote que os trocasse atrasaria o
-  //     culto de quem importa, ou fecharia a barra que ele deixou aberta — sem erro em
+  //     dia e os momentos ocultos são DO APARELHO: um pacote que os trocasse atrasaria o
+  //     culto de quem importa, ou sumiria com os momentos da lista dele — sem erro em
   //     lugar nenhum. **O QUE ESTE BLOCO PRENDE E O QUE NÃO**: aqui o destino JÁ tem a
   //     chave, então o bloco pega quem fizer o `FORA` deixá-la passar E trocar a mescla por
   //     "o pacote vence" — a dupla que devolveria os valores da origem. A GUARDA do import
@@ -588,7 +588,7 @@ try {
         regs: regs.map((r) => ({ kind: r.kind, cue: r.cue, nome: r.name, min: r.data && r.data.min, blob: !!r.blob })),
         itens: itinItens().map((x) => x.min + ':' + x.titulo).join(' · '),
         st: await AVDB.getState('itinerario'),
-        mem: { horas: itin.horas, desloc: itin.desloc, barraOculta: itin.barraOculta },
+        mem: { horas: itin.horas, desloc: itin.desloc, momentosOcultos: itin.momentosOcultos },
       };
     });
     checar(it.regs.length === 1 && it.regs[0].kind === 'cue' && it.regs[0].nome === 'Louvor'
@@ -599,10 +599,10 @@ try {
       '2-D · e `itinItens()` o enxerga depois da rehidratação — a barra e o telão leem a lista, não o banco',
       it.itens);
     checar(!!it.st && it.st.horas === true && it.st.desloc === -5 && it.st.deslocDia === hoje
-      && it.st.barraOculta === false,
+      && it.st.momentosOcultos === false,
       '2-D · a chave `state.itinerario` do pacote NÃO sobrescreveu a do destino: o atraso do dia, a escolha '
-      + 'de horários e a barra recolhida são DO APARELHO', JSON.stringify(it.st));
-    checar(it.mem.horas === true && it.mem.desloc === -5 && it.mem.barraOculta === false,
+      + 'de horários e os momentos ocultos são DO APARELHO', JSON.stringify(it.st));
+    checar(it.mem.horas === true && it.mem.desloc === -5 && it.mem.momentosOcultos === false,
       '2-D · e a memória (o que a barra lê) rehidratou com os valores do DESTINO, não com os do arquivo',
       JSON.stringify(it.mem));
   }
@@ -797,7 +797,7 @@ try {
     && momB2.itens === '660:Louvor da manhã',
     '3 · e o momento também não — o mesmo id é o mesmo momento: uma cena só, UMA vez na lista, com o '
     + 'horário e o título que o operador deu aqui (`add`, nunca `put`)', JSON.stringify(momB2));
-  checar(!!momB2.st && momB2.st.desloc === -5 && momB2.st.horas === true && momB2.st.barraOculta === false,
+  checar(!!momB2.st && momB2.st.desloc === -5 && momB2.st.horas === true && momB2.st.momentosOcultos === false,
     '3 · e a segunda importação também deixa a chave `state.itinerario` do aparelho como estava',
     JSON.stringify(momB2.st));
 
@@ -1450,19 +1450,19 @@ try {
     //
     // O aparelho VIRGEM confere o mesmo que o 2-D, do outro lado: sem a chave aqui, e com o
     // `FORA` já a tendo tirado do arquivo, o destino nasce SEM ela — o atraso de +15 min, a
-    // escolha de horários e a barra recolhida da origem não chegam a um celular que nunca os
+    // escolha de horários e os momentos ocultos da origem não chegam a um celular que nunca os
     // pediu. (Se um dia o `FORA` a deixar passar, é a GUARDA do import — `pacoteAplicarFluxo`
     // — que segura um pacote ANTIGO; um pacote NOVO já sai sem ela, e esta asserção acusa quem
     // fizer a regra 1 da mescla instalar a chave da origem inteira.)
     const itinO = await o.pg.evaluate(async () => ({
       st: await AVDB.getState('itinerario'),
-      mem: { horas: itin.horas, desloc: itin.desloc, barraOculta: itin.barraOculta },
+      mem: { horas: itin.horas, desloc: itin.desloc, momentosOcultos: itin.momentosOcultos },
     }));
     const sO = itinO.st;
-    checar((!sO || (sO.barraOculta !== true && !sO.desloc && sO.horas !== false))
-      && itinO.mem.horas === true && itinO.mem.desloc === 0 && itinO.mem.barraOculta === false,
+    checar((!sO || (sO.momentosOcultos !== true && !sO.desloc && sO.horas !== false))
+      && itinO.mem.horas === true && itinO.mem.desloc === 0 && itinO.mem.momentosOcultos === false,
       '16 · e num aparelho VIRGEM a chave `state.itinerario` da origem NÃO entra — o atraso do dia, a '
-      + 'escolha de horários e a barra recolhida são do aparelho, e a regra 1 da mescla a instalaria inteira',
+      + 'escolha de horários e os momentos ocultos são do aparelho, e a regra 1 da mescla a instalaria inteira',
       JSON.stringify(itinO));
     await o.ctx.close();
   }

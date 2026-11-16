@@ -1,5 +1,20 @@
 [
   {
+    "versao": "1.14.35",
+    "itens": [
+      "O Itinerário mudou de lugar: o botão que abre as opções fica ao lado do Importar, na barra do topo.",
+      "A faixa abre com fundo transparente, separada só por espaço em três grupos: estado, atraso e criar.",
+      "Ela se fecha sozinha 5 segundos depois do último toque nela.",
+      "Saíram os botões de +1 e de -1 minuto; ficaram os de 5 em 5.",
+      "Novo botão que esconde os momentos do cronograma, e o telão agora é um olho que liga e desliga.",
+      "Cada momento reúne as mídias abaixo dele numa tinta azul discreta.",
+      "Tocar num momento com mídias recolhe o grupo, mostrando quantos itens ficaram escondidos; tocar de novo abre.",
+      "Um momento sem mídias não ganha moldura.",
+      "Arrastar um momento leva o grupo inteiro e troca os horários de lugar: o título é que anda.",
+      "O momento ficou sem cartão: horário, título, o lápis de editar e a lixeira à vista, nesta ordem."
+    ]
+  },
+  {
     "versao": "1.14.34",
     "itens": [
       "O Itinerário continua na faixa sob a barra do topo, agora com botões no tamanho mínimo de toque.",

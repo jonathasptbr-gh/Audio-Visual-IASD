@@ -405,6 +405,7 @@ const cronoImportarEl = document.getElementById('cronoImportar');
 // `renderItinBar`. Declarada AQUI pela mesma razão do resto desta lista: o
 // `load()` a repinta milhares de linhas antes de onde o cromo é ligado.
 const itinBarEl = document.getElementById('itinBar');
+const itinBarBtnEl = document.getElementById('itinBarBtn');
 // OS CRONOGRAMAS (v1.12.54): `{ ativo, itens: [{ id, nome, qtd, usado }] }`, lido
 // por `AVDB.cronoLer` em todo `load()`. O conteúdo do ativo é `libItems`, como
 // sempre — este objeto só diz o NOME dele e quais outros existem.
@@ -415,7 +416,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.34';
+const WEB_VERSION = '1.14.35';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -7658,9 +7659,10 @@ let chronoSession = null;   // { projecting } | null
 let itinSession = null;     // { projecting } | null
 // AS OPÇÕES DESTE APARELHO, no que ele escreve em `state.itinerario`: `desloc` é o
 // AJUSTE DO DIA (`deslocDia` é o dia dele) e vale para qualquer cronograma;
-// `horas` é a escolha de horários × só títulos no telão; `barraOculta` recolhe
-// `#itinBar`. A LISTA de momentos NÃO mora aqui: ela é o Cronograma (`itinItens`).
-let itin = { horas: true, desloc: 0, deslocDia: '', barraOculta: false };
+// `horas` é a escolha de horários × só títulos no telão; `momentosOcultos` tira as
+// linhas de momento da LISTA (o telão não muda). A LISTA de momentos NÃO mora aqui:
+// ela é o Cronograma (`itinItens`).
+let itin = { horas: true, desloc: 0, deslocDia: '', momentosOcultos: false };
 let itinEditor = null;      // { id|null } — o momento aberto na folha de edição
 const ITIN_DESLOC_MAX = 720;   // min — doze horas para cada lado
 const ITIN_PASSO_PAR = 5;      // min — o passo do ⏮/⏭ com o itinerário no ar
@@ -8428,7 +8430,8 @@ function renderChrono() {
 // arrastar a ordem das mídias para que fiquem organizadas com os títulos dos
 // momentos. As mídias não vão tocar automaticamente com o tempo do
 // itinerário"*. Ele deixou de ser uma ferramenta: as opções moram na segunda
-// linha do Cronograma (`#itinBar`), que pode ser recolhida.
+// linha do Cronograma (`#itinBar`), que nasce recolhida, abre pelo `#itinBarBtn`
+// da barra do topo e se recolhe sozinha (`ITIN_FAIXA_FECHO_MS`).
 //
 // **O MOMENTO É UMA CENA DE ROTEIRO** (`kind: 'cue'`, `cue: 'momento'`): o horário
 // em `data.min` (minuto do dia PREVISTO), o título em `name`. Ele mora em
@@ -8485,14 +8488,15 @@ function itinItensValidos(lista) {
 /**
  * A LEITURA NORMALIZADA de `state.itinerario`, PURA. Desde a v1.14.32 a chave só
  * guarda o que é DESTE aparelho e deste dia: a escolha de horários no telão, o
- * ajuste e se a barra está recolhida. A lista de horários saiu dela (virou
- * momentos do Cronograma) e `itinMigrarLegado` a esvazia.
+ * ajuste e se os momentos estão ocultos na lista. A lista de horários saiu dela
+ * (virou momentos do Cronograma) e `itinMigrarLegado` a esvazia. O `barraOculta`
+ * (até a v1.14.34) é IGNORADO — a faixa abre sempre recolhida — e `saveItin` o apaga.
  */
 function itinLerEstado(p) {
   const v = (p && typeof p === 'object') ? p : {};
   const desloc = (v.deslocDia === hojeLocal() && Number.isFinite(v.desloc))
     ? Math.max(-ITIN_DESLOC_MAX, Math.min(ITIN_DESLOC_MAX, Math.round(v.desloc))) : 0;
-  return { horas: v.horas !== false, desloc, deslocDia: desloc ? v.deslocDia : '', barraOculta: v.barraOculta === true };
+  return { horas: v.horas !== false, desloc, deslocDia: desloc ? v.deslocDia : '', momentosOcultos: v.momentosOcultos === true };
 }
 
 // UMA ESCRITA EM VOO GANHA DE UMA LEITURA ANTIGA: um `load()` lê o banco por uma dezena de
@@ -8503,21 +8507,22 @@ let itinSeq = 0;
 let itinGravando = 0;
 function applyItin(p) {
   const e = itinLerEstado(p);
-  itin.horas = e.horas; itin.desloc = e.desloc; itin.deslocDia = e.deslocDia; itin.barraOculta = e.barraOculta;
+  itin.horas = e.horas; itin.desloc = e.desloc; itin.deslocDia = e.deslocDia; itin.momentosOcultos = e.momentosOcultos;
 }
 
 // `updateState`, e não `setState`: a escrita é LER + MESCLAR + GRAVAR numa
 // transação só — um campo que uma versão futura acrescente não é apagado por
-// uma gravação desta. Os campos da v1.13 (a lista e a gaveta) saem na primeira.
+// uma gravação desta. Os campos da v1.13 (a lista e a gaveta) e o `barraOculta`
+// (até a v1.14.34) saem na primeira.
 function saveItin() {
   const v = {
     v: 3, horas: itin.horas, desloc: itin.desloc || 0,
-    deslocDia: itin.desloc ? (itin.deslocDia || hojeLocal()) : '', barraOculta: itin.barraOculta,
+    deslocDia: itin.desloc ? (itin.deslocDia || hojeLocal()) : '', momentosOcultos: itin.momentosOcultos,
   };
   itinSeq++; itinGravando++;
   return AVDB.updateState('itinerario', (atual) => {
     const base = (atual && typeof atual === 'object') ? Object.assign({}, atual) : {};
-    delete base.itens; delete base.itinerarios; delete base.ativo;
+    delete base.itens; delete base.itinerarios; delete base.ativo; delete base.barraOculta;
     return Object.assign(base, v);
   }).catch(() => {}).finally(() => { itinGravando--; });
 }
@@ -8560,8 +8565,8 @@ async function itinMigrarLegadoCorpo() {
       const e = itinLerEstado(est);
       await AVDB.updateState('itinerario', (atual) => {
         const base = (atual && typeof atual === 'object') ? Object.assign({}, atual) : {};
-        delete base.itens; delete base.itinerarios; delete base.ativo;
-        return Object.assign(base, { v: 3, horas: e.horas, desloc: e.desloc, deslocDia: e.deslocDia, barraOculta: false });
+        delete base.itens; delete base.itinerarios; delete base.ativo; delete base.barraOculta;
+        return Object.assign(base, { v: 3, horas: e.horas, desloc: e.desloc, deslocDia: e.deslocDia, momentosOcultos: e.momentosOcultos });
       });
     } catch (err) {
       console.warn('[itinerario] migrar falhou:', err);
@@ -8692,11 +8697,56 @@ function itinSetHoras(v) {
   itinMudou();
 }
 
-function itinBarraOculta(v) {
-  itin.barraOculta = !!v;
+// OS MOMENTOS NA LISTA (o interruptor da faixa): ocultos, a lista do Cronograma não
+// desenha nenhuma linha de momento — o telão e a ordem gravada não mudam.
+function itinMomentosOcultar(v) {
+  itin.momentosOcultos = !!v;
+  if (itin.momentosOcultos) itinRecolhidos.clear();
   saveItin();
-  renderItinBar();
+  renderLibrary();
 }
+
+// O GRUPO RECOLHIDO (pedido de 15/11): tocar um momento com grupo esconde as mídias
+// dele. Só em memória (id do momento → quantas linhas escondeu): não grava, o app abre
+// com tudo aberto, e o grupo se reabre sozinho se o que mora nele mudar de tamanho
+// (uma mídia que chegou não some de vista). Com os momentos ocultos, nada fica recolhido.
+const itinRecolhidos = new Map();
+function itinAlternarGrupo(id, sob) {
+  if (itinRecolhidos.has(id)) itinRecolhidos.delete(id); else itinRecolhidos.set(id, sob);
+  renderLibrary();
+}
+
+// A FAIXA ABRE E FECHA pelo `#itinBarBtn` da barra do topo, e nada disso é gravado:
+// o app abre sempre com ela recolhida. Aberta, ela se recolhe sozinha depois de
+// `ITIN_FAIXA_FECHO_MS` sem toque nela — mas não com a `#itinPopup` aberta nem com
+// um dedo apoiado na faixa (o prazo recomeça; `fecharItinEditor` também o recomeça).
+const ITIN_FAIXA_FECHO_MS = 5000;
+let itinFaixaAberta = false;
+let itinFaixaApertada = false;
+let itinFechoTimer = 0;
+function itinFaixaAlternar(aberta) {
+  itinFaixaAberta = !!aberta;
+  renderItinBar();
+  itinFechoArmar();
+}
+function itinFechoArmar() {
+  clearTimeout(itinFechoTimer);
+  itinFechoTimer = itinFaixaAberta ? setTimeout(itinFechoVenceu, ITIN_FAIXA_FECHO_MS) : 0;
+}
+function itinFechoVenceu() {
+  itinFechoTimer = 0;
+  if (!itinFaixaAberta) return;
+  if (itinFaixaApertada || itinPopupEl.classList.contains('open')) { itinFechoArmar(); return; }
+  itinFaixaAlternar(false);
+}
+if (itinBarEl) {
+  ['pointerdown', 'click', 'input', 'keydown'].forEach((t) => itinBarEl.addEventListener(t, itinFechoArmar, true));
+  itinBarEl.addEventListener('pointerdown', () => { itinFaixaApertada = true; }, true);
+  const soltou = () => { if (itinFaixaApertada) { itinFaixaApertada = false; itinFechoArmar(); } };
+  window.addEventListener('pointerup', soltou, true);
+  window.addEventListener('pointercancel', soltou, true);
+}
+if (itinBarBtnEl) itinBarBtnEl.addEventListener('click', () => itinFaixaAlternar(!itinFaixaAberta));
 
 // ===== OS MOMENTOS: criar, editar =====
 // A POSIÇÃO DE UM MOMENTO NOVO: antes do primeiro momento que vem DEPOIS dele no
@@ -8737,6 +8787,24 @@ async function itinSalvar(id, min, titulo) {
   return true;
 }
 
+// A POSIÇÃO REESCREVE O HORÁRIO DOS MOMENTOS, PELA GRADE (a regra do ↑↓ até a
+// v1.14.31, devolvida ao arrasto): a grade são os `min` dos momentos em ordem
+// crescente, e o k-ésimo momento DA LISTA recebe o k-ésimo — com o vizinho é a troca
+// antiga, num salto de n casas os títulos rodam sobre a grade. O `desloc` não muda.
+// Grava só o que mudou, uma `atualizarCue` por momento (o db.js não tem lote), e
+// redesenha uma vez no fim.
+async function itinReassentarHorarios() {
+  const ordem = (libItems || []).filter((r) => ehMomento(r) && itinMinValido(Number(r.data && r.data.min)));
+  const grade = ordem.map((r) => Math.round(Number(r.data.min))).sort((a, b) => a - b);
+  let mudou = 0;
+  for (let k = 0; k < ordem.length; k++) {
+    if (Math.round(Number(ordem[k].data.min)) === grade[k]) continue;
+    if (await AVDB.atualizarCue(ordem[k].id, { min: grade[k] })) mudou++;
+  }
+  if (mudou) await load();
+  return mudou;
+}
+
 // O HORÁRIO SUGERIDO para o próximo momento: 15 minutos depois do último, ou o
 // próximo múltiplo de cinco a partir de agora quando ainda não há nenhum.
 function itinHoraSugerida() {
@@ -8773,19 +8841,24 @@ async function projetarItinerarioCue(d, cueId) {
 }
 
 // ===== A LINHA DE UM MOMENTO, NA LISTA DO CRONOGRAMA =====
-// Uma linha DIFERENTE das de mídia, de propósito: sem capa, mais baixa, o
-// horário em destaque e uma barra do lado — ela é um TÍTULO que organiza as
+// Uma linha DIFERENTE das de mídia, de propósito: sem capa, mais baixa e SEM
+// CARTÃO (só o texto, o horário em destaque) — ela é um TÍTULO que organiza as
 // mídias que vêm depois, e não um item do culto. Mesma `lib-item > .row` das
-// outras (o arrasto, a faixa do `⋮` e o excluir na linha são os de sempre).
+// outras (o arrasto e o excluir que pergunta na linha são os de sempre), mas sem
+// o `⋮`: excluir e editar ficam SEMPRE à vista, só o ícone (pedido de 15/11).
 // Tocar EDITA; segurar ARRASTA. O item de AGORA é marcado pela mesma leitura do
 // telão (`itinMarcar`, um laço de um segundo que só troca marcas e textos).
-function linhaDeMomento(item) {
+function linhaDeMomento(item, sob = 0) {
   const li = document.createElement('li');
-  li.className = 'lib-item momento';
+  // COM GRUPO (`sob` linhas debaixo dele), tocar RECOLHE/EXPANDE o grupo; sem grupo, EDITA.
+  const recolhido = sob > 0 && itinRecolhidos.has(item.id);
+  li.className = 'lib-item momento' + (recolhido ? ' recolhido' : '');
   li.dataset.id = item.id;
+  if (sob) li.setAttribute('aria-expanded', recolhido ? 'false' : 'true');
+  if (recolhido) li.dataset.ocultas = String(sob);
   const row = document.createElement('div');
   row.className = 'row';
-  row.title = 'Editar este momento';
+  row.title = sob ? (recolhido ? 'Mostrar as mídias deste momento' : 'Recolher as mídias deste momento') : 'Editar este momento';
   const hora = document.createElement('span');
   hora.className = 'momento-hora';
   const min = Number(item.data && item.data.min);
@@ -8793,22 +8866,29 @@ function linhaDeMomento(item) {
   const texto = document.createElement('div'); texto.className = 'row-text';
   const nome = document.createElement('span'); nome.className = 'row-name'; nome.textContent = item.name;
   const sub = document.createElement('span'); sub.className = 'row-sub';
+  // O SUBTÍTULO é de `itinMarcar` (`.momento-sub-txt`); a seta do grupo mora ao lado dele.
+  const subTxt = document.createElement('span'); subTxt.className = 'momento-sub-txt';
+  sub.appendChild(subTxt);
+  if (sob) sub.insertAdjacentHTML('beforeend', ITIN_SETA_GRUPO);
   texto.append(nome, sub);
-  // EDITAR abre a folha, e por isso FECHA a faixa (não está em
-  // `ACOES_QUE_NAO_FECHAM`): a conversa continua noutro lugar.
   const ed = document.createElement('button');
   ed.type = 'button'; ed.className = 'row-btn itin-editar';
   ed.title = 'Editar horário e título';
   ed.setAttribute('aria-label', 'Editar horário e título');
   ed.innerHTML = pencilIconSvg();
   ed.addEventListener('click', (e) => { e.stopPropagation(); abrirItinEditor(item.id); });
-  // A ORDEM É A DAS LISTAS: o excluir primeiro, o mais longe do `⋮`.
-  const [caixa, mais] = montarAcoesDaLinha(li, [botaoExcluirDaLinha(item, 'imports', () => load()), ed], 'imports:' + item.id);
-  row.append(hora, texto, caixa, mais);
+  // A FAIXA SOLTA (`.row-acoes--solta`): a mesma caixa onde a pergunta do excluir
+  // nasce, só que sempre à vista e no fluxo da linha. O excluir fica à direita do editar.
+  const caixa = document.createElement('div');
+  caixa.className = 'row-acoes row-acoes--solta';
+  caixa.append(ed, botaoExcluirDaLinha(item, 'imports', () => load()));
+  row.append(hora, texto, caixa);
   li.appendChild(row);
-  attachRowGestures(row, item, { lista: 'imports', aoTocar: (it) => abrirItinEditor(it.id) });
+  attachRowGestures(row, item, { lista: 'imports', aoTocar: (it) => (sob ? itinAlternarGrupo(it.id, sob) : abrirItinEditor(it.id)) });
   return li;
 }
+// A SETA DO GRUPO: para cima = aberto; o CSS a gira para baixo no recolhido.
+const ITIN_SETA_GRUPO = '<svg class="momento-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>';
 
 // A MARCA DE AGORA na lista, pela MESMA leitura do telão (relógio deste
 // aparelho, que é a origem). Só troca classes e textos — nada se reconstrói. O
@@ -8828,7 +8908,7 @@ function itinMarcar() {
     const x = itens[i], proximo = itens[i + 1] || null;
     li.classList.toggle('agora', id === agora);
     li.classList.toggle('seguir', id === seguir);
-    const sub = li.querySelector('.row-sub');
+    const sub = li.querySelector('.momento-sub-txt');
     if (!sub) return;
     const partes = [];
     if (id === agora) partes.push('Agora');
@@ -8836,6 +8916,8 @@ function itinMarcar() {
     if (itin.desloc) partes.push('previsto ' + createStage.itinHora(x.min));
     const dur = proximo ? itinDuracao(proximo.min - x.min) : '';
     if (dur) partes.push(dur);
+    const ocultas = Number(li.dataset.ocultas) || 0;
+    if (ocultas) partes.push(ocultas + (ocultas === 1 ? ' item' : ' itens'));
     const txt = partes.join(' · ') || 'Último momento';
     if (sub.textContent !== txt) sub.textContent = txt;
     const hora = li.querySelector('.momento-hora');
@@ -8846,12 +8928,13 @@ function itinMarcar() {
 setInterval(itinMarcar, createStage.ITIN_TICK_MS);
 
 // ===== A SEGUNDA LINHA DO CRONOGRAMA: as OPÇÕES DO ITINERÁRIO (`#itinBar`) =====
-// Uma faixa estreita logo abaixo da barra do topo, da cor dela. Da esquerda para a
-// direita: o TELÃO (liga e desliga a lista de momentos no cartão) · os HORÁRIOS no
-// telão (ou só os títulos) · o AJUSTE (−5 −1 · o atraso · +1 +5; tocar no atraso o
-// zera) · ADICIONAR um momento · RECOLHER. Recolhida, vira uma fita fina com a
-// seta para abrir (e o ponto aceso se o itinerário está no ar). A escolha de
-// recolher é DESTE aparelho (`state.itinerario.barraOculta`).
+// Uma faixa estreita logo abaixo da barra do topo, TRANSPARENTE, com os botões
+// soltos (pedido de 15/11), em três seções separadas só por espaço. ESTADO: o TELÃO
+// (o olho: liga e desliga a lista de momentos no cartão) · os MOMENTOS na lista (a
+// pauta: mostra ou oculta as linhas) · os HORÁRIOS no telão (ou só os títulos).
+// ATRASO: −5 · o atraso (tocar o zera) · +5. CRIAÇÃO: ADICIONAR um momento. Recolhida, ela não
+// desenha nada: quem abre e fecha é o `#itinBarBtn` da barra, que leva o ponto do
+// "no ar" (ver `itinFaixaAlternar`).
 let itinBarAssin = '';
 function itinBarBotao(id, classe, rotulo, conteudo, fn) {
   const b = document.createElement('button');
@@ -8862,34 +8945,41 @@ function itinBarBotao(id, classe, rotulo, conteudo, fn) {
   b.addEventListener('click', fn);
   return b;
 }
-const ITIN_SETA_BAIXO = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
-const ITIN_SETA_CIMA = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>';
 const ITIN_MAIS = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>';
 
 function renderItinBar() {
   if (!itinBarEl) return;
   const n = itinItens().length, live = itinProjecting();
-  const assin = [itin.barraOculta ? 1 : 0, live ? 1 : 0, n ? 1 : 0, itin.desloc, itin.horas ? 1 : 0].join('|');
-  if (assin === itinBarAssin && itinBarEl.firstChild) return;
+  // A PORTA (na barra do topo): aparece onde a faixa existiria e leva o ponto do "no ar".
+  if (itinBarBtnEl) {
+    itinBarBtnEl.hidden = false;
+    itinBarBtnEl.setAttribute('aria-expanded', itinFaixaAberta ? 'true' : 'false');
+    const ponto = itinBarBtnEl.querySelector('.itin-ponto');
+    if (ponto) ponto.hidden = !live;
+  }
+  const assin = [itinFaixaAberta ? 1 : 0, live ? 1 : 0, n ? 1 : 0, itin.desloc, itin.horas ? 1 : 0, itin.momentosOcultos ? 1 : 0].join('|');
+  if (assin === itinBarAssin) return;
   itinBarAssin = assin;
   itinBarEl.textContent = '';
-  itinBarEl.classList.toggle('recolhida', itin.barraOculta);
+  itinBarEl.hidden = !itinFaixaAberta;
   itinBarEl.classList.toggle('no-ar', live);
-  if (itin.barraOculta) {
-    const abrir = itinBarBotao('itinBarAbrir', 'itin-abrir', 'Mostrar as opções do itinerário',
-      ITIN_SETA_BAIXO + '<span class="itin-abrir-txt">Itinerário</span>' + (live ? '<span class="itin-ponto" aria-hidden="true"></span>' : ''),
-      () => itinBarraOculta(false));
-    abrir.setAttribute('aria-expanded', 'false');
-    itinBarEl.appendChild(abrir);
-    return;
-  }
-  // O TELÃO: apagado sem momentos, com o porquê (a regra da v1.8.50).
+  if (!itinFaixaAberta) return;
+  // O TELÃO (o olho; ligado = no telão): apagado sem momentos, com o porquê (a regra da v1.8.50).
   const tel = itinBarBotao('itinTelaoBtn', 'itin-telao' + (live ? ' active' : ''),
     live ? 'Tirar o itinerário do telão' : (n ? 'Mostrar o itinerário no telão' : 'Adicione um momento antes de projetar'),
-    cueIconSvg('itinerario') + '<span class="itin-telao-txt">Telão</span>',
+    live ? icoSprite('icoOlho') : icoSprite('icoOlhoOff'),
     () => (itinProjecting() ? hideItin() : projectItin()));
+  tel.setAttribute('aria-label', 'Itinerário no telão');
   tel.setAttribute('aria-pressed', live ? 'true' : 'false');
   tel.disabled = !live && !n;
+  // OS MOMENTOS NA LISTA (ligado = visíveis): a pauta, riscada quando ocultos.
+  const mom = itinBarBotao('itinMomentosBtn', 'itin-momentos' + (itin.momentosOcultos ? '' : ' active'),
+    itin.momentosOcultos ? 'Momentos ocultos na lista — toque para mostrá-los'
+      : 'Momentos na lista — toque para ocultá-los',
+    itin.momentosOcultos ? icoSprite('icoMomentosOff') : icoSprite('icoMomentos'),
+    () => itinMomentosOcultar(!itin.momentosOcultos));
+  mom.setAttribute('aria-label', 'Momentos no cronograma');
+  mom.setAttribute('aria-pressed', itin.momentosOcultos ? 'false' : 'true');
   const hor = itinBarBotao('itinHorasBtn', 'itin-horas' + (itin.horas ? ' active' : ''),
     itin.horas ? 'Mostrando os horários no telão — toque para mostrar só os títulos'
       : 'Mostrando só os títulos no telão — toque para mostrar os horários',
@@ -8911,9 +9001,17 @@ function renderItinBar() {
     itinAjusteZerar);
   txt.disabled = !itin.desloc;
   const novo = itinBarBotao('itinNovoBtn', 'itin-novo', 'Adicionar um momento ao cronograma', ITIN_MAIS, () => abrirItinEditor(null));
-  const fechar = itinBarBotao('itinBarFechar', 'itin-fechar', 'Recolher as opções do itinerário', ITIN_SETA_CIMA, () => itinBarraOculta(true));
-  fechar.setAttribute('aria-expanded', 'true');
-  [tel, hor, passo(-5), passo(-1), txt, passo(1), passo(5), novo, fechar].forEach((e) => itinBarEl.appendChild(e));
+  // TRÊS SEÇÕES, separadas só por espaço (pedido de 15/11): ESTADO · ATRASO · CRIAÇÃO.
+  const secao = (nome, rotulo, filhos) => {
+    const d = document.createElement('div');
+    d.className = 'itin-secao itin-secao--' + nome;
+    d.setAttribute('role', 'group'); d.setAttribute('aria-label', rotulo);
+    d.append(...filhos);
+    return d;
+  };
+  itinBarEl.append(secao('estado', 'Estado do itinerário', [tel, mom, hor]),
+    secao('atraso', 'Atraso', [passo(-5), txt, passo(5)]),
+    secao('criacao', 'Criar', [novo]));
 }
 
 // ===== A FOLHA DE UM MOMENTO: adicionar e editar =====
@@ -9064,6 +9162,7 @@ function fecharItinEditor() {
   if (itinRoletasObs) { itinRoletasObs.disconnect(); itinRoletasObs = null; }
   const c = document.getElementById('itinCampoTitulo');
   if (c && document.activeElement === c) c.blur();
+  itinFechoArmar();   // a faixa aberta recomeça a contar o prazo a partir daqui
 }
 
 // UM BOTÃO DE ÍCONE para "guardar isto aqui": os dois destinos de uma cena de
@@ -10551,10 +10650,27 @@ function renderLibraryCorpo() {
     host.innerHTML = '<li class="empty">Cronograma vazio.</li>';
     return;
   }
+  // SÓ MOMENTOS, E OCULTOS: o mesmo vazio, com a frase verdadeira — a lista não está vazia.
+  if (itin.momentosOcultos && !provisorias.length && items.every(ehMomento)) {
+    host.innerHTML = '<li class="empty">Os momentos estão ocultos.</li>';
+    return;
+  }
+
+  // OS GRUPOS, pela lista: quantas linhas cada momento tem debaixo dele, e de quem cada
+  // linha é. Um grupo recolhido cujo tamanho mudou se reabre (`itinRecolhidos`).
+  const sobMomento = new Map(), donoDe = new Map();
+  let dono = null;
+  for (const it of items) {
+    if (ehMomento(it)) { dono = it.id; sobMomento.set(dono, 0); } else if (dono) { sobMomento.set(dono, sobMomento.get(dono) + 1); donoDe.set(it.id, dono); }
+  }
+  for (const [id, n] of itinRecolhidos) if (sobMomento.get(id) !== n) itinRecolhidos.delete(id);
 
   items.forEach((item, i) => {
-    // O MOMENTO DO ITINERÁRIO é um TÍTULO da lista, e tem linha própria.
-    if (ehMomento(item)) { host.appendChild(linhaDeMomento(item)); return; }
+    // O MOMENTO DO ITINERÁRIO é um TÍTULO da lista, e tem linha própria — que não
+    // se desenha com os momentos ocultos (o interruptor da faixa).
+    if (ehMomento(item)) { if (!itin.momentosOcultos) host.appendChild(linhaDeMomento(item, sobMomento.get(item.id))); return; }
+    // A MÍDIA DE UM GRUPO RECOLHIDO não se desenha (só com os momentos à vista).
+    if (!itin.momentosOcultos && itinRecolhidos.has(donoDe.get(item.id))) return;
     const li = document.createElement('li');
     const isActive = linhaAtiva(item.id);
     // NO AR é outra coisa que "atual" — ver `linhaNoAr`.
@@ -10697,6 +10813,25 @@ function renderLibraryCorpo() {
   // As linhas PROVISÓRIAS vão no fim, que é para onde o item vai quando
   // existir: `addMedia` sempre pendura no fim do Cronograma.
   provisorias.forEach(([chave, reg]) => host.appendChild(libBusyRow(chave, reg)));
+  marcarGruposDoItinerario(host);
+}
+
+// O GRUPO DO MOMENTO (pedido de 15/11): o momento e as linhas até o próximo momento
+// (ou até o fim); as de antes do primeiro ficam sem grupo, e um momento sem mídia não
+// é grupo. Só classes — a moldura é do CSS (`.grupo-ini` o momento, `.grupo-meio` as
+// mídias, `.grupo-fim` a última; o recolhido é `ini` e `fim` ao mesmo tempo).
+function marcarGruposDoItinerario(host) {
+  const lis = [...host.children].filter((li) => li.tagName === 'LI' && li.classList.contains('lib-item'));
+  for (let i = 0; i < lis.length; i++) {
+    if (!lis[i].classList.contains('momento')) continue;
+    let j = i + 1;
+    while (j < lis.length && !lis[j].classList.contains('momento')) j++;
+    // SEM MÍDIA NÃO HÁ GRUPO (nem moldura) — a não ser recolhido: aí a moldura fecha só nele.
+    if (j === i + 1 && !lis[i].classList.contains('recolhido')) continue;
+    lis[i].classList.add('grupo-ini');
+    for (let k = i + 1; k < j; k++) lis[k].classList.add('grupo-meio');
+    lis[j - 1].classList.add('grupo-fim');
+  }
 }
 
 // O RODAPÉ FIXO da caixa da lista (`#listFoot`), fora da rolagem: as PORTAS
@@ -11547,7 +11682,7 @@ async function moverNaListaPara(listName, id, destino) {
   // debaixo do dedo. Quem solta no mesmo lugar não pediu nada.
   const antes = await AVDB.listIds(listName);
   const deAgora = antes.indexOf(id);
-  if (deAgora === -1 || destino === deAgora) return;
+  if (deAgora === -1 || destino === deAgora) return false;
   let andou = false;
   await AVDB.listSet(listName, (ids) => {
     const de = ids.indexOf(id);
@@ -11557,8 +11692,9 @@ async function moverNaListaPara(listName, id, destino) {
     andou = true;
     return ids;
   });
-  if (!andou) return;
+  if (!andou) return false;
   await load();
+  return true;
 }
 
 // MOVE PARA ANTES DE UM ITEM (v1.13.68) — o desfecho do arrasto nas listas cuja
@@ -11577,7 +11713,7 @@ async function moverNaListaAntesDe(listName, id, antesDeId) {
     return sem.every((x, i) => x === ids[i]) ? null : sem;
   };
   // Soltar onde estava: a leitura decide ANTES de qualquer escrita.
-  if (!nova(await AVDB.listIds(listName))) return;
+  if (!nova(await AVDB.listIds(listName))) return false;
   let andou = false;
   await AVDB.listSet(listName, (ids) => {
     const sem = nova(ids);
@@ -11585,8 +11721,39 @@ async function moverNaListaAntesDe(listName, id, antesDeId) {
     andou = true;
     return sem;
   });
-  if (!andou) return;
+  if (!andou) return false;
   await load();
+  return true;
+}
+
+// MOVE O GRUPO DE UM MOMENTO para antes de outro momento (`antesDeId`; `null` = no fim).
+// O grupo é lido NOS IDS GRAVADOS, e não na tela: o momento e tudo até o próximo
+// momento. Mesma regra de `moverNaListaAntesDe`: a leitura decide antes, e a troca é
+// atômica dentro do `listSet`.
+async function moverGrupoAntesDe(id, antesDeId) {
+  const momentos = new Set((libItems || []).filter(ehMomento).map((r) => r.id));
+  const nova = (ids) => {
+    const de = ids.indexOf(id);
+    if (de === -1) return null;
+    let ate = de + 1;
+    while (ate < ids.length && !momentos.has(ids[ate])) ate++;
+    const resto = ids.slice(0, de).concat(ids.slice(ate));
+    let para = antesDeId ? resto.indexOf(antesDeId) : -1;
+    if (para === -1) para = resto.length;
+    const sai = resto.slice(0, para).concat(ids.slice(de, ate), resto.slice(para));
+    return sai.every((x, i) => x === ids[i]) ? null : sai;
+  };
+  if (!nova(await AVDB.listIds('imports'))) return false;
+  let andou = false;
+  await AVDB.listSet('imports', (ids) => {
+    const sai = nova(ids);
+    if (!sai) return ids;
+    andou = true;
+    return sai;
+  });
+  if (!andou) return false;
+  await load();
+  return true;
 }
 
 // OS BOTÕES DA FAIXA QUE NÃO A FECHAM. A régua é a mesma desde a v5.289 — *a
@@ -19454,9 +19621,11 @@ function medirArrasto(ul, li) {
   if (arrastoGeom && arrastoGeom.ul === ul) {
     for (const it of arrastoGeom.itens) antes.set(it.el, it.shift);
   }
+  // O BLOCO é o arrastado: a linha, ou o momento com o grupo dele (`comecarArrasto`).
+  const bloco = (arrasto && arrasto.li === li && arrasto.grupo) || [li];
   const itens = [];
   for (const el of ul.children) {
-    if (el === li || el.tagName !== 'LI') continue;
+    if (bloco.includes(el) || el.tagName !== 'LI') continue;
     const r = el.getBoundingClientRect();
     const shift = antes.get(el) || 0;
     // `topo`/`base` na posição de REPOUSO: é o que `soltarNoVao` lê para deslizar
@@ -19465,6 +19634,7 @@ function medirArrasto(ul, li) {
       el, altura: r.height, shift,
       topo: r.top - shift, base: r.bottom - shift,
       meio: (r.top - shift) + r.height / 2,
+      momento: el.classList.contains('momento'),
     });
   }
   const rli = li.getBoundingClientRect();
@@ -19479,8 +19649,8 @@ function medirArrasto(ul, li) {
     + (irmaos.length > 1 ? mg(irmaos[0], 'marginBottom') + mg(irmaos[1], 'marginTop') : 0);
   arrastoGeom = {
     ul, itens, gap, rolagem: ul.scrollTop,
-    // A ALTURA DO ARRASTADO manda no tamanho do vão. `translateY` não a muda.
-    altura: rli.height,
+    // A ALTURA DO ARRASTADO (do bloco inteiro) manda no tamanho do vão. `translateY` não a muda.
+    altura: bloco[bloco.length - 1].getBoundingClientRect().bottom - rli.top,
     // A posição dele NO FLUXO, que é o que a conta do vão usa.
     de: [...ul.children].indexOf(li),
   };
@@ -19490,6 +19660,18 @@ function medirArrasto(ul, li) {
 // mesmo número que o VÃO desenha e o que `moverNaListaPara` recebe.
 function indiceDoArrasto(y) {
   const itens = (arrastoGeom && arrastoGeom.itens) || [];
+  // O GRUPO SÓ CAI NUMA FRONTEIRA DE GRUPO: antes de outro momento ou no fim — nunca no
+  // meio do grupo de outro (o partiria) nem antes das mídias soltas do topo. A conta é
+  // contra o MEIO de cada grupo inteiro, não de cada linha.
+  if (arrasto && arrasto.grupo) {
+    for (let i = 0; i < itens.length; i++) {
+      if (!itens[i].momento) continue;
+      let j = i + 1;
+      while (j < itens.length && !itens[j].momento) j++;
+      if (y < (itens[i].topo + itens[j - 1].base) / 2) return i;
+    }
+    return itens.length;
+  }
   for (let i = 0; i < itens.length; i++) if (y < itens[i].meio) return i;
   return itens.length;
 }
@@ -19526,7 +19708,7 @@ function ajustarVaos(k) {
 
 function aplicarArrasto() {
   if (!arrasto) return;
-  arrasto.li.style.transform = 'translateY(' + arrasto.dy + 'px)';
+  for (const el of arrasto.grupo || [arrasto.li]) el.style.transform = 'translateY(' + arrasto.dy + 'px)';
   ajustarVaos(indiceDoArrasto(arrasto.y));
 }
 
@@ -19600,7 +19782,14 @@ function comecarArrasto(li, item, pid, y, lista) {
   // rolagem e rolar nas bordas é com ELE, e a `<ul>` continua sendo só a lista.
   const rolador = rolavelDe(ul);
   arrasto = { li, id: item.id, lista: lista || 'imports', pid, y0: y, rolador, rolagem0: rolador.scrollTop, dy: 0, y };
-  li.classList.add('arrastando');
+  // O MOMENTO LEVA O GRUPO (pedido de 15/11): ele e as mídias até o próximo momento,
+  // como um bloco. Uma mídia continua andando sozinha (e pode mudar de grupo).
+  if (arrasto.lista === 'imports' && li.classList.contains('momento')) {
+    const grupo = [li];
+    for (let el = li.nextElementSibling; el && !el.classList.contains('momento'); el = el.nextElementSibling) grupo.push(el);
+    arrasto.grupo = grupo;
+  }
+  for (const el of arrasto.grupo || [li]) el.classList.add('arrastando');
   ul.classList.add('arrastando-lista');
   medirArrasto(ul, li);
   ajustarVaos(indiceDoArrasto(y));
@@ -19640,11 +19829,14 @@ function soltarNoVao(destino) {
   let alvo = topoDeFluxo;
   if (destino < de && itens[destino]) alvo = itens[destino].topo;
   else if (destino > de && itens[destino - 1]) alvo = itens[destino - 1].base + gap - passo;
-  li.classList.remove('arrastando');
-  // ELE DESLIZA ATÉ LÁ, e é o único que ganha transição agora: os outros já
-  // estão parados no lugar definitivo.
-  if (!prefersReducedMotion) li.style.transition = 'transform .16s ease';
-  li.style.transform = 'translateY(' + Math.round((alvo - topoDeFluxo) * 100) / 100 + 'px)';
+  // ELE DESLIZA ATÉ LÁ (o grupo inteiro, se é um momento), e é o único que ganha
+  // transição agora: os outros já estão parados no lugar definitivo.
+  const desloc = Math.round((alvo - topoDeFluxo) * 100) / 100;
+  for (const el of arrasto.grupo || [li]) {
+    el.classList.remove('arrastando');
+    if (!prefersReducedMotion) el.style.transition = 'transform .16s ease';
+    el.style.transform = 'translateY(' + desloc + 'px)';
+  }
   // A partir daqui o gesto não existe mais: o que falta é a GRAVAÇÃO.
   pararRolagemDeBorda();
   arrasto = null;
@@ -19721,7 +19913,8 @@ window.addEventListener('blur', () => { ponteirosAbaixo.clear(); });
 
 function terminarArrasto() {
   if (!arrasto) return;
-  const { id, lista } = arrasto;
+  const { id, lista, grupo } = arrasto;
+  const momento = lista === 'imports' && arrasto.li.classList.contains('momento');
   arrasto.li.classList.remove('segurando');   // (v1.13.69) o dedo largou, haja vão ou não
   const ul = arrastoGeom && arrastoGeom.ul;
   const destino = indiceDoArrasto(arrasto.y);
@@ -19736,10 +19929,17 @@ function terminarArrasto() {
   // A gravação vem DEPOIS de o desenho já estar na ordem final; o `load()` que
   // ela dispara encontra a tela como ela está. Sem mudança de ordem não há
   // `load()` — e aí o `assentarArrasto` fecha o gesto no lugar.
-  const grava = lista === 'imports'
-    ? moverNaListaPara(lista, id, destino)
-    : moverNaListaAntesDe(lista, id, vizinho);
-  grava.then(assentar, assentar);
+  // Com os MOMENTOS OCULTOS ou um GRUPO RECOLHIDO a tela não mostra todos os ids do
+  // Cronograma, e o índice da tela deixa de ser o da lista gravada: vale o vizinho (o
+  // próximo item DESENHADO), como nos Favoritos. O grupo lê sempre a lista gravada.
+  const grava = grupo ? moverGrupoAntesDe(id, vizinho)
+    : lista === 'imports' && !itin.momentosOcultos && !itinRecolhidos.size
+      ? moverNaListaPara(lista, id, destino)
+      : moverNaListaAntesDe(lista, id, vizinho);
+  // UM MOMENTO QUE ANDOU leva os horários pela grade (`itinReassentarHorarios`); uma
+  // mídia sozinha não mexe em horário nenhum.
+  const reassenta = (andou) => (andou && momento ? itinReassentarHorarios() : 0);
+  grava.then(reassenta).then(assentar, assentar);
 }
 
 /**

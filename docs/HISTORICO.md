@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.35** — a faixa do itinerário em três seções, o grupo do momento e os horários que voltam a andar (só web).
 - **v1.14.34** — a faixa do Itinerário no piso de toque (o rótulo "Telão" cede nas telas estreitas) e escondida sob as folhas de Ferramentas e da Bíblia; fecha o `verificar` vermelho desde a v1.14.32 (só web; `shellTag` v1.14.34).
 - **v1.14.33** — Pacote 34: o controle do pregador pelo navegador — uma página própria (`/prega`), vertical, com o slide anterior, o atual e o próximo, as setas e a cortina; só slides, sem código de entrada (shell 88, APK + web).
 - **v1.14.32** — o itinerário deixou de ser ferramenta e virou opção do Cronograma: os momentos são linhas da lista e a faixa de opções fica sob a barra do topo (Pacote 5, 1ª metade; só web)
@@ -835,6 +836,72 @@ apagada da que a criou.
   `antesDaPauta` = depois = PDF continua cobrando isso.
 
 ---
+
+## v1.14.35 — a faixa do itinerário em três seções, o grupo do momento e os horários que voltam a andar
+
+**Pacote 35 (fila), com a prévia visual aprovada pelo operador em 15/11. Só web.**
+
+- **A PORTA SAI DA FAIXA.** `#itinBarBtn.crono-itin` mora na `.list-header`, logo
+  depois do `#cronoImportar`, na MESMA célula da grade (deslocada por
+  `margin-left`), e `.crono-importar` ganhou `grid-row: 1` explícito — sem isso o
+  posicionamento automático descia o importar, o título e a engrenagem para uma
+  segunda linha. O eixo do `#listTitle` não muda com o botão à vista. O ponto do
+  "no ar" (`.itin-ponto`) virou selo DELE. Saíram a fita `#itinBarAbrir`, o `⌃`
+  `#itinBarFechar` e todo o CSS deles: **recolhida, a faixa não desenha nada**.
+- **A FAIXA EM TRÊS SEÇÕES**, separadas SÓ por espaço (`justify-content:
+  space-between`, `column-gap: var(--sp-6)`): `.itin-secao--estado` (telão,
+  momentos, horários), `.itin-secao--atraso` (−5, o atraso, +5 — compacto,
+  `flex: none` e o texto com `min-width` fixa, para o ±5 não andar quando o texto
+  troca) e `.itin-secao--criacao` (o `+`). Fundo transparente e botões soltos; o
+  ±5 veste `--surface` e o `+` é SÓLIDO (`--accent-fill`/`--on-accent`, o par do
+  botão primário). O ±1 saiu; ⏮/⏭ continuam ±5.
+- **DOIS INTERRUPTORES com `aria-pressed`:** `#itinMomentosBtn` (pauta × pauta
+  riscada) tira da LISTA todos os `li.lib-item.momento` — o telão não muda, e com
+  eles ocultos o arrasto vai pelo vizinho (`moverNaListaAntesDe`), porque o índice
+  da tela deixa de bater com o da lista gravada; o estado é
+  `state.itinerario.momentosOcultos`. `#itinTelaoBtn` virou olho × olho riscado,
+  sem rótulo.
+- **A LINHA DO MOMENTO SEM CARTÃO:** só o texto, o horário, e as ações SEMPRE à
+  vista em `.row-acoes--solta` ([`.itin-editar`, `.row-excluir`], alvo `--hit`, sem
+  caixa) — o `⋮` deixou de existir nela. O excluir continua perguntando NA LINHA.
+- **O GRUPO DO MOMENTO** (`marcarGruposDoItinerario`): o momento e as mídias até o
+  próximo, marcados por PREENCHIMENTO — as linhas do grupo vestem
+  `--linha: var(--grupo-fill)`, o `--accent` a 22% num token novo (o operador achou
+  o `--accent` cheio forte demais). A moldura de 1px que o lote tentou primeiro foi
+  REPROVADA pelo `tools/tokens.test.mjs`: este app não desenha contorno nenhum, e a
+  marca virou tinta. Entre grupos vizinhos há um respiro de `--sp-4` (padding, não
+  margin: o `gap` da lista que o `medirArrasto` lê não muda). **Momento sem mídia
+  não é grupo** (sem classe, sem moldura). Arrastar um momento leva o grupo
+  inteiro, e o encaixe só cai na fronteira de outro grupo (nunca no meio dele);
+  `moverGrupoAntesDe` grava num `listSet` só.
+- **O GRUPO RECOLHE POR TOQUE** (`itinRecolhidos`, um `Map` id → linhas
+  escondidas, SÓ em memória: não grava, o app abre com tudo aberto, e um grupo cujo
+  tamanho mudou se reabre sozinho): recolhido, as mídias não são desenhadas, a
+  moldura fecha só no momento, o subtítulo diz "N itens" e a seta `.momento-seta`
+  aponta para baixo; `aria-expanded` e `dataset.ocultas` contam o estado. Momento
+  sem mídia, ao tocar, EDITA. Com os momentos ocultos nada fica recolhido.
+- **OS HORÁRIOS VOLTAM A ANDAR (`itinReassentarHorarios`)** — correção de uma
+  regressão da v1.14.32: até a v1.14.31 o `itinMover` do antigo ↑↓ trocava o
+  momento com o vizinho deixando os HORÁRIOS no lugar, e o commit `4b51bd33` tirou
+  a troca junto com a ferramenta, gravando a regra contrária ("a posição não
+  reescreve horário"). Restaurada a pedido do operador: depois de um arrasto que
+  moveu um momento (sozinho ou em grupo) e mudou a ordem, a grade = os `min` dos
+  momentos em ordem crescente e o k-ésimo momento da lista recebe o k-ésimo `min`.
+  Mídia sozinha não mexe em horário; o `desloc` não muda.
+- **O FECHO SOZINHO:** `ITIN_FAIXA_FECHO_MS` = 5000 desde o último toque na faixa
+  (rearma em `pointerdown`/`click`/`input`/`keydown`), e não fecha com um ponteiro
+  pressionado nem com a `#itinPopup` aberta. `barraOculta` deixou de existir: abrir
+  e fechar não grava nada, e a próxima gravação apaga o campo antigo
+  (`itinLerEstado` o ignora).
+- **Oráculos ajustados:** `itinerario` (a porta, as três seções, os dois
+  interruptores, o D′ com arrasto real e a grade, o G′ novo do grupo e do
+  recolhido, o Y do fecho em 5 s), `tour` (o passo aponta para `#itinBarBtn`),
+  `sombra-de-rolagem` R, `cronogramas-multiplos` L, `ferramentas-folha` 3,
+  `smoke`, `geometria` (superfície nova da faixa e o T4 nas ações soltas),
+  `barra-do-topo-e-titulos` e `pacote-ida-e-volta` (o marcador do aparelho passou
+  de `barraOculta` para `momentosOcultos`). Docs: `CAMADA-DE-TEXTO`,
+  `CONTROLE-LAYOUT`, `CONTROLE-LISTAS`, `MODELO-DE-DADOS`, `CONTROLE-TOUR`,
+  `PACOTE` e `ORACULOS`.
 
 ## v1.14.34 — a faixa do itinerário no piso, e a folha inteira para ela
 

@@ -15,15 +15,16 @@
 //    data:{ min } }` em `imports` (a lista do cronograma ATIVO), como qualquer item:
 //    linha `li.lib-item.momento` SEM capa, com `.momento-hora`, `.row-name` e
 //    `.row-sub` ('Agora' / 'A seguir' / 'previsto HH:MM' / duração / 'Último momento').
-//    Tocar edita (folha `#itinPopup`); segurar ARRASTA; o `⋮` tem excluir (a pergunta
-//    NA LINHA) e editar — não há par ↑↓.
+//    Tocar edita (folha `#itinPopup`); segurar ARRASTA; sem `⋮`: excluir (a pergunta
+//    NA LINHA) e editar sempre à vista, só o ícone — não há par ↑↓.
 //  · A ORDEM: a posição da linha é do OPERADOR (organiza as mídias); o TELÃO é
 //    ordenado pelo RELÓGIO (`ordenarItin`). Momento novo entra antes do primeiro
 //    momento posterior no relógio, senão no fim da lista; lista sem momento: no TOPO.
-//  · A FAIXA `#itinBar` (irmã da barra do topo, dentro do `<main>`): Telão · Horários
-//    × só títulos · −5 −1 [ajuste] +1 +5 · Novo · Recolher; recolhida, um botão só
-//    (`#itinBarAbrir`). A escolha de recolher persiste em `state.itinerario.barraOculta`.
-//  · O ESTADO `state.itinerario` = `{ v:3, horas, desloc, deslocDia, barraOculta }` e
+//  · A FAIXA `#itinBar` (irmã da barra do topo, dentro do `<main>`): Telão (o olho) ·
+//    Momentos na lista · Horários × só títulos · −5 [ajuste] +5 · Novo. NASCE RECOLHIDA
+//    (vazia, `hidden`), abre e fecha pela porta `#itinBarBtn` da barra (que leva o ponto
+//    do "no ar") e se recolhe sozinha 5 s depois do último toque; abrir não se grava.
+//  · O ESTADO `state.itinerario` = `{ v:3, horas, desloc, deslocDia, momentosOcultos }` e
 //    só isso (a lista saiu dela); o ajuste é do dia e é GLOBAL.
 //  · O ITINERÁRIO NÃO TOCA MÍDIA: o relógio cruzando um horário muda a marca de
 //    "agora" na lista e no telão, e mais nada.
@@ -35,7 +36,7 @@
 //     depois do último, o último; fora de ordem, ordenado; o FUSO é o do celular.
 //  C. A TROCA QUANDO O RELÓGIO CRUZA o horário — na preview e na lista, sem comando
 //     nenhum trafegando —, e ANIMADA.
-//  D. O AJUSTE, pela faixa: ±1/±5 deslocam os horários JUNTOS (os intervalos ficam),
+//  D. O AJUSTE, pela faixa: os ±5 deslocam os horários JUNTOS (os intervalos ficam),
 //     o de agora acompanha, tocar no atraso o ZERA; gravado PELO DIA.
 //  E. Horários × só os títulos (`#itinHorasBtn`).
 //  F. O TELÃO: a mesma lista pelo DESCRITOR, e o REENVIO na reconexão.
@@ -51,22 +52,33 @@
 //  NOVOS (v1.14.32):
 //  B′. MOMENTOS NA LISTA, PELA UI REAL: três (e mais um) criados FORA da ordem do
 //     relógio pela folha; a lista sai pelo relógio; sem `.thumb`; hora e título à vista;
-//     o registro é cue `momento` em `imports`; editar por TOQUE na linha; excluir pela
-//     faixa do `⋮` com a pergunta na linha; persistência por RECARGA.
-//  D′. ARRASTO REAL DE UMA MÍDIA para entre dois momentos: a ordem do banco muda, a do
-//     telão (descritor) NÃO, e nada toca sozinho quando o relógio cruza um horário.
+//     o registro é cue `momento` em `imports`; editar por TOQUE na linha; excluir pelo
+//     ícone sempre à vista, com a pergunta na linha; persistência por RECARGA.
+//  D′. ARRASTO REAL: uma MÍDIA muda de lugar (e de grupo) sem mexer em horário, e o telão
+//     não muda; um MOMENTO leva o grupo e REESCREVE os horários pela grade (o k-ésimo da
+//     lista recebe o k-ésimo `min`); nada toca sozinho quando o relógio cruza um horário.
 //  S. A MIGRAÇÃO do itinerário da v1.13: os itens do ATIVO viram momentos no TOPO, em
 //     ordem de relógio, com `data.legado`; a chave vira `{ v:3 }` sem `itens`,
-//     `itinerarios`, `ativo`; os GUARDADOS são descartados; repetir não duplica.
+//     `itinerarios`, `ativo`; os GUARDADOS são descartados; repetir não duplica; o
+//     `barraOculta` antigo é ignorado e some na primeira gravação.
 //  T. A CENA ANTIGA `itinerario`: tocá-la ACRESCENTA os horários como momentos (sem
 //     apagar nada, sem duplicar o que já existe, e tocar de novo não duplica).
-//  U. A FAIXA RECOLHÍVEL: recolher, recarregar, persistir, abrir; mais baixa que a barra
-//     do topo a 360 e a 430 (a 320 ela quebra em duas, porque nove alvos de 34px não cabem
-//     numa), e em 320, 360 e 430 nenhum botão passa da borda direita da faixa.
+//  U. A FAIXA E A PORTA: o app abre com ela recolhida (vazia); a porta `#itinBarBtn` (na
+//     barra, logo depois do Importar) a abre com os sete botões e a fecha, sem gravar nada;
+//     aberta antes de recarregar, volta recolhida; em 320, 360 e 430 cabe numa linha.
 //  V. SEM FERRAMENTA: `FERRAMENTAS` sem `itinerario`, nenhum id/global removido, e a
 //     folha de Ferramentas só tem os seis tiles.
 //  W. CRONOGRAMA MÚLTIPLO: cada cronograma tem os SEUS momentos, e com o itinerário no
 //     ar o telão acompanha a troca.
+//  X. MOMENTOS OCULTOS (`#itinMomentosBtn`): a lista não desenha `li.momento`, o telão não
+//     muda, a escolha é gravada e volta da RECARGA; o arrasto de mídia segue o vizinho.
+//  Y. O FECHO SOZINHO, no relógio falso: 5 s sem toque recolhem a faixa; um toque, um dedo
+//     apoiado e a `#itinPopup` aberta adiam.
+//  G′. O GRUPO DO MOMENTO: as classes `grupo-ini/meio/fim` (nenhuma antes do 1º momento, num
+//     momento sem mídia nem com os momentos ocultos), a tinta de `--grupo-fill` (o grupo se marca por PREENCHIMENTO), o
+//     bloco que só cai numa fronteira de grupo (nunca antes das mídias soltas do topo), a mídia que
+//     muda de grupo sem horário, e o GRUPO RECOLHIDO: o toque esconde/expande as mídias, e o
+//     arrasto leva as escondidas.
 //
 //  SAÍRAM com a ferramenta (o app os removeu): o painel de Ferramentas e a vista do Tempo
 //  (B antigo), guardar a programação a partir da ferramenta (K), o par ↑↓ (O), os
@@ -122,6 +134,27 @@ try {
   await aguardarApp();
   await esperarCortina(pg);
   const recarregar = async () => { await pg.reload(); await aguardarApp(); await esperarCortina(pg); };
+  // A FAIXA NASCE RECOLHIDA e se recolhe sozinha 5 s depois do último toque nela (Pacote 35):
+  // todo uso dela passa por aqui — fechada, a porta `#itinBarBtn` a abre; aberta, um toque nela
+  // recomeça a conta, para o passo seguinte não achá-la fechada no meio.
+  const portaAberta = () => pg.evaluate(() => document.getElementById('itinBarBtn').getAttribute('aria-expanded') === 'true');
+  const abrirFaixa = async () => {
+    if (await portaAberta()) await pg.dispatchEvent('#itinBar', 'click');
+    else await pg.click('#itinBarBtn');
+    await esperar(pg, () => !!document.getElementById('itinTelaoBtn'));
+  };
+  const fecharFaixa = async () => {
+    if (await portaAberta()) await pg.click('#itinBarBtn');
+    await esperar(pg, () => document.getElementById('itinBar').hidden);
+  };
+  {
+    const b0 = await pg.evaluate(() => {
+      const b = document.getElementById('itinBar'), p = document.getElementById('itinBarBtn');
+      return { hidden: b.hidden, filhos: b.children.length, porta: !p.hidden && p.getClientRects().length > 0, exp: p.getAttribute('aria-expanded') };
+    });
+    checar(b0.hidden && b0.filhos === 0 && b0.porta && b0.exp === 'false',
+      'U · o app ABRE com a faixa recolhida (vazia, `hidden`) e a porta `#itinBarBtn` à vista, `aria-expanded="false"`', b0);
+  }
 
   // ── A. A LEITURA PURA ─────────────────────────────────────────────────────
   const leitura = await pg.evaluate(() => {
@@ -197,6 +230,7 @@ try {
   await esperar(pg, () => toolsSheetEl.hidden);
 
   // ── I. LISTA SEM MOMENTOS: o "Telão" da faixa é APAGADO e diz por quê ─────
+  await abrirFaixa();
   {
     const e = await pg.evaluate(() => {
       const tel = document.getElementById('itinTelaoBtn');
@@ -226,6 +260,7 @@ try {
   // quer dizer lista já redesenhada.
   const fechada = () => esperar(pg, () => !document.getElementById('itinPopup').classList.contains('open'));
   const adicionar = async (hora, titulo) => {
+    await abrirFaixa();
     await pg.click('#itinNovoBtn');
     await abrirFolha();
     await escolherHora(hora);
@@ -243,6 +278,7 @@ try {
   }, titulo);
 
   // ── L. A FOLHA DE UM MOMENTO: roletas, nenhum campo do sistema ───────────
+  await abrirFaixa();
   await pg.click('#itinNovoBtn');
   await abrirFolha();
   {
@@ -293,6 +329,7 @@ try {
   {
     const topoDaBarra = () => pg.evaluate(() => Math.round(document.getElementById('libBar').getBoundingClientRect().top * 10) / 10);
     const antes = await topoDaBarra();
+    await abrirFaixa();
     await pg.click('#itinNovoBtn');
     await abrirFolha();
     await esperar(pg, () => document.querySelector('#itinPopup .popup-sheet').getBoundingClientRect().top >= -0.5);
@@ -364,8 +401,13 @@ try {
         hora: hora && hora.textContent, horaVisivel: !!hora && vis(hora) && dentro(hora),
         nome: nome && nome.textContent, nomeVisivel: !!nome && vis(nome) && dentro(nome),
         sub: sub ? sub.textContent : null,
-        mais: !!li.querySelector('.row > .row-mais'),
-        acoes: [...li.querySelectorAll('.row-acoes > button')].map((b) => b.className),
+        mais: !!li.querySelector('.row-mais'),
+        acoes: [...li.querySelectorAll('.row > .row-acoes--solta > button')].map((b) => {
+          const r = b.getBoundingClientRect();
+          return { cls: b.className, vis: vis(b) && dentro(b), lado: Math.min(r.width, r.height), fundo: getComputedStyle(b).backgroundColor, esq: r.left, dir: r.right };
+        }),
+        hit: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hit')),
+        fundoDaLinha: [li, li.querySelector('.row')].map((e) => getComputedStyle(e).backgroundColor),
         ordem: li.querySelectorAll('.row-ordem').length,
         novoFora: !document.getElementById('itinNovoBtn').closest('#library'),
         aoLado: li.parentElement.id === 'library',
@@ -375,9 +417,12 @@ try {
       'B′ · a linha do momento é um item da MESMA lista (`#library > li.lib-item.momento`) e SEM capa (`.thumb`)', anat);
     checar(anat.hora === '09:00' && anat.horaVisivel && anat.nome === 'Recepção' && anat.nomeVisivel && !!anat.sub,
       'B′ · a hora (`.momento-hora`) e o título (`.row-name`) estão à vista, dentro da linha, com um subtítulo', anat);
-    checar(anat.mais && anat.acoes.length === 2 && /row-excluir/.test(anat.acoes[0]) && /itin-editar/.test(anat.acoes[1])
-      && anat.ordem === 0 && anat.novoFora,
-      'B′ · o `⋮` da linha tem excluir · editar (e NENHUM par ↑↓); "Novo momento" mora na faixa, fora da lista', anat);
+    const transp = (c) => c === 'rgba(0, 0, 0, 0)' || c === 'transparent';
+    checar(!anat.mais && anat.acoes.length === 2 && /itin-editar/.test(anat.acoes[0].cls) && /row-excluir/.test(anat.acoes[1].cls) && anat.acoes[1].esq >= anat.acoes[0].dir - 0.5
+      && anat.acoes.every((a) => a.vis && a.lado >= anat.hit - 0.5 && transp(a.fundo)) && anat.ordem === 0 && anat.novoFora,
+      'B′ · a linha NÃO tem `⋮`: editar · excluir (o excluir à DIREITA) ficam SEMPRE à vista, só o ícone, sem caixa e com o alvo `--hit` '
+      + '(e nenhum par ↑↓); "Novo momento" mora na faixa, fora da lista', anat);
+    checar(anat.fundoDaLinha.every(transp), 'B′ · e a linha do momento é SEM CARTÃO: nem o `li` nem a `.row` pintam fundo', anat.fundoDaLinha);
   }
   {
     const regs = await pg.evaluate(async () => (await AVDB.listItems('imports'))
@@ -415,11 +460,8 @@ try {
       && r && r.name === 'Pregação' && r.min === 640 && r.cue === 'momento',
       'B′ · editar por toque troca HORÁRIO e TÍTULO do MESMO registro (mesmo id, nome e `data.min` novos)', { l, r });
   }
-  // EXCLUIR pela faixa do `⋮`: a pergunta é NA LINHA, sem diálogo.
-  await pg.evaluate(() => [...document.querySelectorAll('#library > li.momento')]
-    .find((li) => /Bênção/.test(li.textContent)).querySelector('.row-mais').click());
-  await pg.evaluate(() => [...document.querySelectorAll('#library > li.momento')]
-    .find((li) => /Bênção/.test(li.textContent)).querySelector('.row-excluir').click());
+  // EXCLUIR pelo ícone à vista (um toque de verdade, sem `⋮`): a pergunta é NA LINHA, sem diálogo.
+  await pg.click('#library > li.momento[data-id="' + (await idDe('Bênção')) + '"] .row-excluir');
   {
     const r = await esperar(pg, () => !!document.querySelector('#library .linha-sim'));
     checar(r === true && (await pg.evaluate(() => document.getElementById('appDialog').classList.contains('open'))) === false,
@@ -435,76 +477,111 @@ try {
       'B′ · e o banco acompanha a edição e a exclusão (3 registros `momento`)', regs);
   }
 
-  // ── U. A FAIXA DE OPÇÕES: anatomia, recolher, persistir, abrir ───────────
+  // ── U. A FAIXA E A PORTA: anatomia, abrir, fechar, nada gravado ─────────
   const faixa = () => pg.evaluate(() => {
     const b = document.getElementById('itinBar');
     const topo = b.previousElementSibling;
+    const porta = document.getElementById('itinBarBtn');
+    const p = porta.querySelector('.itin-ponto');
     const nome = (e) => e.id || (e.classList.contains('itin-passo') ? 'passo' + e.textContent.trim() : e.className);
-    const abrir = document.getElementById('itinBarAbrir');
-    const fechar = document.getElementById('itinBarFechar');
+    const pressed = (id) => { const t = document.getElementById(id); return t && t.getAttribute('aria-pressed'); };
+    const alt = (e) => Math.round(e.getBoundingClientRect().height * 10) / 10;
     return {
-      recolhida: b.classList.contains('recolhida'),
-      filhos: [...b.children].map(nome),
-      h: Math.round(b.getBoundingClientRect().height * 10) / 10,
-      hTopo: topo ? Math.round(topo.getBoundingClientRect().height * 10) / 10 : -1,
+      aberta: !b.hidden && b.getClientRects().length > 0,
+      filhos: [...b.querySelectorAll(':scope > .itin-secao > *')].map(nome),
+      secoes: [...b.children].map((x) => [x.className, x.getAttribute('role'), x.getAttribute('aria-label'), x.children.length].join('|')),
+      h: alt(b), hTopo: topo ? alt(topo) : -1,
       irmaDoTopo: !!topo && topo.classList.contains('list-header'),
       corpo: !!b.nextElementSibling && b.nextElementSibling.contains(document.getElementById('library')),
       pai: b.parentElement && b.parentElement.tagName,
-      ponto: !!b.querySelector('.itin-ponto'),
-      expandidoAbrir: abrir && abrir.getAttribute('aria-expanded'),
-      expandidoFechar: fechar && fechar.getAttribute('aria-expanded'),
-      telao: (() => { const t = document.getElementById('itinTelaoBtn'); return t && [t.getAttribute('aria-pressed'), t.disabled]; })(),
-      horas: (() => { const t = document.getElementById('itinHorasBtn'); return t && t.getAttribute('aria-pressed'); })(),
+      porta: {
+        visivel: !porta.hidden && porta.getClientRects().length > 0, naBarra: porta.parentElement === topo,
+        aposImportar: !!porta.previousElementSibling && porta.previousElementSibling.id === 'cronoImportar',
+        expandido: porta.getAttribute('aria-expanded'), controla: porta.getAttribute('aria-controls'),
+      },
+      ponto: !!p && !p.hidden && getComputedStyle(p).display !== 'none',
+      noAr: b.classList.contains('no-ar'),
+      telao: (() => { const t = document.getElementById('itinTelaoBtn'); return t && [t.getAttribute('aria-pressed'), t.disabled, t.textContent.trim()]; })(),
+      momentos: pressed('itinMomentosBtn'), horas: pressed('itinHorasBtn'),
       ajuste: (() => { const t = document.getElementById('itinAjusteTxt'); return t && [t.disabled, t.classList.contains('deslocado')]; })(),
     };
   });
+  await fecharFaixa();   // o B′ a abriu pelo "+" (e ela pode já ter se recolhido sozinha)
+  const st0 = JSON.stringify(await banco());
   {
     const f = await faixa();
-    checar(f.pai === 'MAIN' && f.irmaDoTopo && f.corpo && !f.recolhida,
-      'U · a faixa é IRMÃ da barra do topo (`.list-header`), dentro do `<main>`, antes do corpo da lista — e começa aberta', f);
-    checar(f.filhos.join(' ') === 'itinTelaoBtn itinHorasBtn passo−5 passo−1 itinAjusteTxt passo+1 passo+5 itinNovoBtn itinBarFechar',
-      'U · os botões, na ordem: Telão · Horários · −5 −1 · ajuste · +1 +5 · Novo · Recolher (os "−" são U+2212)', f.filhos);
-    checar(f.telao[0] === 'false' && f.telao[1] === false && f.horas === 'true' && f.ajuste[0] === true && f.ajuste[1] === false
-      && f.expandidoFechar === 'true',
-      'U · estado inicial: telão apagado→aceso (com momentos), horários ligados, atraso apagado e sem `deslocado`', f);
+    checar(f.pai === 'MAIN' && f.irmaDoTopo && f.corpo,
+      'U · a faixa é IRMÃ da barra do topo (`.list-header`), dentro do `<main>`, antes do corpo da lista', f);
+    checar(!f.aberta && f.filhos.length === 0 && f.porta.visivel && f.porta.naBarra && f.porta.aposImportar
+      && f.porta.expandido === 'false' && f.porta.controla === 'itinBar' && !f.ponto,
+      'U · RECOLHIDA a faixa não desenha nada (vazia, `hidden`); a porta `#itinBarBtn` mora NA barra, logo depois do '
+      + 'Importar (`aria-expanded="false"`, `aria-controls="itinBar"`), sem o ponto (nada no ar)', f);
   }
-  await pg.click('#itinBarFechar');
+  await pg.click('#itinBarBtn');
+  await esperar(pg, () => !!document.getElementById('itinTelaoBtn'));
   {
-    const r = await esperarDb(pg, async () => ((await AVDB.getState('itinerario')) || {}).barraOculta === true);
     const f = await faixa();
-    const b = await banco();
-    checar(f.recolhida && f.filhos.join() === 'itinBarAbrir' && f.expandidoAbrir === 'false' && !f.ponto,
-      'U · RECOLHER deixa UM botão só (`#itinBarAbrir`, `aria-expanded="false"`), sem o ponto (o itinerário não está no ar)', f);
-    checar(r === true && b.barraOculta === true && b.v === 3,
-      'U · e a escolha de recolher é gravada em `state.itinerario.barraOculta`', b || porque(r));
-    checar(f.h < f.hTopo && f.h > 0,
-      'U · recolhida, a faixa é MAIS BAIXA que a barra do topo (`.list-header`)', { faixa: f.h, topo: f.hTopo });
+    checar(f.aberta && f.porta.expandido === 'true'
+      && f.filhos.join(' ') === 'itinTelaoBtn itinMomentosBtn itinHorasBtn passo−5 itinAjusteTxt passo+5 itinNovoBtn',
+      'U · a porta ABRE a faixa com os sete, na ordem: Telão · Momentos · Horários · −5 · ajuste · +5 · Novo '
+      + '(sem o ±1 e sem botão de recolher; os "−" são U+2212)', f);
+    checar(f.secoes.join(' / ') === 'itin-secao itin-secao--estado|group|Estado do itinerário|3 / itin-secao itin-secao--atraso|group|Atraso|3 / '
+      + 'itin-secao itin-secao--criacao|group|Criar|1',
+      'U · e os sete moram em TRÊS seções (`role="group"`, cada uma com o nome dela): Estado [3] · Atraso [3] · Criar [1]', f.secoes);
+    checar(f.telao[0] === 'false' && f.telao[1] === false && f.telao[2] === '' && f.momentos === 'true' && f.horas === 'true'
+      && f.ajuste[0] === true && f.ajuste[1] === false,
+      'U · estado inicial: o olho do telão (SÓ o ícone) desligado e aceso, os momentos à vista, horários ligados, atraso apagado', f);
+    const cores = await pg.evaluate(() => {
+      const lum = (c) => { const v = c.match(/[\d.]+/g).slice(0, 3).map((x) => { const s = Number(x) / 255;
+        return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+      const razao = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+      const novo = document.getElementById('itinNovoBtn'), cs = getComputedStyle(novo);
+      return {
+        cartao: (() => { const p = document.createElement('i'); p.style.background = 'var(--surface)'; document.body.appendChild(p);
+          const c = getComputedStyle(p).backgroundColor; p.remove(); return c; })(),
+        passos: [...document.querySelectorAll('#itinBar .itin-passo')].map((b) => getComputedStyle(b).backgroundColor),
+        soltos: [...document.querySelectorAll('#itinBar .itin-b:not(.itin-novo):not(.active):not(.itin-passo)')]
+          .map((b) => (b.id || b.textContent.trim()) + ':' + getComputedStyle(b).backgroundColor),
+        novo: [cs.backgroundColor, cs.color], contraste: +razao(cs.backgroundColor, cs.color).toFixed(2),
+      };
+    });
+    checar(cores.soltos.length === 2 && cores.soltos.every((x) => /rgba\(0, 0, 0, 0\)$/.test(x))
+      && cores.passos.length === 2 && cores.passos.every((c) => c === cores.cartao && !/rgba\(0, 0, 0, 0\)/.test(c))
+      && !/rgba\(0, 0, 0, 0\)/.test(cores.novo[0]) && cores.contraste >= 4.5,
+      'U · os botões de ESTADO e o ajuste são SOLTOS (sem fundo; o ligado é o par do interruptor); os ±5 têm o CARTÃO '
+      + '`--surface`; o "+" (`.itin-novo`) é SÓLIDO — fundo de acento e texto acima de 4,5:1', cores);
+    checar(f.h < f.hTopo && f.h > 0, 'U · aberta, a faixa é MAIS BAIXA que a barra do topo', { faixa: f.h, topo: f.hTopo });
   }
-  // A RECARGA: a escolha de recolher volta do banco, junto com a lista de momentos.
+  await pg.click('#itinBarBtn');
+  {
+    const f = await faixa();
+    const st = await banco();
+    checar(!f.aberta && f.filhos.length === 0 && f.porta.expandido === 'false',
+      'U · a porta de novo a RECOLHE: vazia e `hidden`, `aria-expanded="false"`', f);
+    checar(JSON.stringify(st) === st0 && !('barraOculta' in (st || {})),
+      'U · abrir e fechar NÃO grava nada: `state.itinerario` igual ao de antes, e sem `barraOculta`', { antes: st0, depois: st });
+  }
+  // A RECARGA: abrir não é escolha guardada — aberta antes de recarregar, ela volta RECOLHIDA.
+  await abrirFaixa();
   await recarregar();
   {
+    const vis = await esperar(pg, () => !document.getElementById('itinBarBtn').hidden);
     const f = await faixa();
-    checar(f.recolhida && f.filhos.join() === 'itinBarAbrir',
-      'U · depois de RECARREGAR a faixa continua RECOLHIDA (a escolha é do aparelho, guardada)', f);
+    checar(vis === true && !f.aberta && f.filhos.length === 0 && f.porta.visivel && f.porta.expandido === 'false',
+      'U · aberta antes de RECARREGAR, a faixa volta RECOLHIDA (o app abre sempre assim), com a porta à vista', { f, vis: porque(vis) });
     checar((await lista()).join(' · ') === '09:00 Recepção · 10:00 Louvor · 10:40 Pregação',
       'B′ · depois de RECARREGAR, os momentos voltam do banco, na mesma ordem', await lista());
-  }
-  await pg.click('#itinBarAbrir');
-  {
-    const r = await esperarDb(pg, async () => ((await AVDB.getState('itinerario')) || {}).barraOculta === false);
-    const f = await faixa();
-    checar(r === true && !f.recolhida && f.filhos.length === 9 && f.expandidoFechar === 'true',
-      'U · o botão de abrir devolve a faixa inteira (9 botões) e grava `barraOculta: false`', { f, r: porque(r) });
-    checar(f.h < f.hTopo && f.h > 0, 'U · aberta, a faixa continua MAIS BAIXA que a barra do topo', { faixa: f.h, topo: f.hTopo });
   }
   // NENHUM BOTÃO PASSA DA BORDA: em 320, 360 e 430 de largura, com o atraso mais
   // largo escrito ("Atrasado 45 min"). A escrita (longa ou curta) é escolhida pela
   // consulta de contêiner do CSS: uma das duas, nunca as duas nem nenhuma.
+  await abrirFaixa();
   await pg.evaluate(() => itinAjustar(45));
   await esperar(pg, () => document.getElementById('itinAjusteTxt').classList.contains('deslocado'));
   for (const w of [320, 360, 430]) {
     await pg.setViewportSize({ width: w, height: 800 });
     await esperar(pg, (x) => innerWidth === x, w);
+    await abrirFaixa();
     await pg.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
     const g = await pg.evaluate(() => {
       const b = document.getElementById('itinBar');
@@ -521,29 +598,75 @@ try {
         noRecuo: bts.filter((x) => x.dir > rb.right - padD + 0.5).map((x) => x.id + '→' + x.dir),
         semLargura: bts.filter((x) => x.larg < 1).map((x) => x.id),
         longo: exibe('.itin-txt-longo'), curto: exibe('.itin-txt-curto'),
-        telaoTxt: exibe('.itin-telao-txt'),
         h: Math.round(rb.height * 10) / 10, hTopo: Math.round(b.previousElementSibling.getBoundingClientRect().height * 10) / 10,
+        secoes: (() => {
+          const sc = [...b.children].map((x) => x.getBoundingClientRect());
+          const dentro = [...b.children].flatMap((x) => [...x.children].slice(1).map((e) => e.getBoundingClientRect().left - e.previousElementSibling.getBoundingClientRect().right));
+          return { n: sc.length, tops: sc.map((r) => Math.round(r.top)), entre: sc.slice(1).map((r, i) => +(r.left - sc[i].right).toFixed(1)),
+            dentro: +Math.max(...dentro).toFixed(1) };
+        })(),
       };
     });
-    checar(g.n === 9 && g.passaram.length === 0 && g.semLargura.length === 0 && g.rolagem <= 1,
-      'U · em ' + w + 'px de largura NENHUM botão da faixa passa da borda da faixa (e a faixa não rola)', g);
+    checar(g.n === 7 && g.passaram.length === 0 && g.semLargura.length === 0 && g.rolagem <= 1,
+      'U · em ' + w + 'px de largura NENHUM dos sete botões da faixa passa da borda da faixa (e a faixa não rola)', g);
     checar(g.noRecuo.length === 0,
       'U · e em ' + w + 'px nenhum botão invade o recuo da direita (o `padding` da faixa)', g);
     checar(g.longo !== g.curto, 'U · em ' + w + 'px o atraso aparece em UMA escrita só (longa ou curta)', g);
-    if (w === 320) {
-      // Com o piso de 34px nos nove botões (v1.14.34) eles não cabem numa linha
-      // de 320px: a faixa quebra em duas, que é a quebra que o próprio comentário
-      // dela já previa ("a fonte do sistema em 1,25× ou mais, ou uma tela de 320 px").
-      checar(g.h > g.hTopo,
-        'U · em 320px a faixa QUEBRA em duas linhas (nove alvos de 34px não cabem numa) — '
-        + 'e a quebra não deixa botão fora da borda', g);
-    } else {
-      checar(g.h < g.hTopo, 'U · em ' + w + 'px a faixa é mais baixa que a barra do topo', g);
-    }
+    checar(g.secoes.n === 3 && Math.max(...g.secoes.tops) - Math.min(...g.secoes.tops) <= 1 && g.secoes.entre.every((x) => x > g.secoes.dentro),
+      'U · em ' + w + 'px as TRÊS seções ficam numa linha, e o vão ENTRE elas é maior que o vão DENTRO de cada uma', g.secoes);
+    checar(g.h < g.hTopo,
+      'U · em ' + w + 'px a faixa cabe numa LINHA, mais baixa que a barra do topo (sem o ±1, sete alvos de 34px cabem)', g);
   }
   await pg.setViewportSize({ width: 360, height: 800 });
   await esperar(pg, () => innerWidth === 360);
   await pg.evaluate(() => itinAjusteZerar());
+
+  // ── Y. O FECHO SOZINHO (5 s), NO RELÓGIO FALSO ──────────────────────────
+  // Aberta, a faixa se recolhe 5 s depois do último toque NELA; um toque recomeça a conta, e
+  // nem um dedo apoiado nem a `#itinPopup` aberta a fecham (soltos, a conta recomeça). Com o
+  // relógio PARADO só o `runFor` anda, e cada leitura é direta, sem esperar.
+  await fecharFaixa();
+  await ctx.clock.pauseAt(new Date((await pg.evaluate(() => Date.now())) + 1000));
+  const faixaAberta = () => pg.evaluate(() => !document.getElementById('itinBar').hidden
+    && document.getElementById('itinBarBtn').getAttribute('aria-expanded') === 'true');
+  const apoiar = () => pg.evaluate(() => document.getElementById('itinBar').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
+  const soltar = () => pg.evaluate(() => window.dispatchEvent(new PointerEvent('pointerup')));
+  const abrirPelaPorta = () => pg.evaluate(() => document.getElementById('itinBarBtn').click());
+  {
+    const y = {};
+    await abrirPelaPorta();
+    await ctx.clock.runFor(4000); y.aos4 = await faixaAberta();
+    await apoiar(); await soltar();                                  // um toque aos 4 s
+    await ctx.clock.runFor(4000); y.toque4 = await faixaAberta();    // 4 s depois do toque (8 s da abertura)
+    await ctx.clock.runFor(1500); y.toque55 = await faixaAberta();
+    checar(y.aos4 && y.toque4 && !y.toque55,
+      'Y · aberta, a faixa se recolhe SOZINHA 5 s depois do último toque nela — e um toque recomeça a conta', y);
+  }
+  {
+    const y = {};
+    await abrirPelaPorta();
+    await apoiar();                                                  // o dedo fica apoiado
+    await ctx.clock.runFor(6000); y.apoiado6 = await faixaAberta();
+    await soltar();
+    await ctx.clock.runFor(4500); y.solto45 = await faixaAberta();
+    await ctx.clock.runFor(1000); y.solto55 = await faixaAberta();
+    checar(y.apoiado6 && y.solto45 && !y.solto55,
+      'Y · com um dedo APOIADO na faixa ela não fecha (6 s); solto, a conta recomeça e ela fecha 5 s depois', y);
+  }
+  {
+    const y = {};
+    await abrirPelaPorta();
+    await pg.evaluate(() => document.getElementById('itinNovoBtn').click());
+    await ctx.clock.runFor(6000);
+    y.folha6 = await pg.evaluate(() => document.getElementById('itinPopup').classList.contains('open'));
+    y.aberta6 = await faixaAberta();
+    await pg.evaluate(() => document.getElementById('itinPopupClose').click());
+    await ctx.clock.runFor(4500); y.fechou45 = await faixaAberta();
+    await ctx.clock.runFor(1000); y.fechou55 = await faixaAberta();
+    checar(y.folha6 && y.aberta6 && y.fechou45 && !y.fechou55,
+      'Y · com a `#itinPopup` aberta a faixa não fecha (6 s); fechada a folha, a conta recomeça e ela fecha 5 s depois', y);
+  }
+  await ctx.clock.resume();
 
   // ── D′. ARRASTAR UMA MÍDIA PARA ENTRE DOIS MOMENTOS ─────────────────────
   // A lista é do operador: ele a organiza segurando e arrastando (a mesma máquina
@@ -563,6 +686,26 @@ try {
     descritor: itinDescriptor().itens.map((x) => x.titulo).join(),
     leitura: itinItens().map((x) => x.titulo).join(),
   }));
+  // O BANCO COM OS HORÁRIOS (`nome@min` nos momentos) e o ARRASTO REAL de uma linha: segura no meio
+  // dela, conta o que levantou (o momento leva o grupo) e solta na altura `alvoY` das linhas em repouso.
+  const bancoMin = () => pg.evaluate(async () => (await AVDB.listItems('imports'))
+    .map((r) => r.name + (ehMomento(r) ? '@' + r.data.min : '')).join());
+  const linhasDaTela = () => pg.evaluate(() => Object.fromEntries([...document.querySelectorAll('#library > li.lib-item')]
+    .map((li) => { const b = li.getBoundingClientRect();
+      return [li.querySelector('.row-name').textContent, { top: b.top, bottom: b.bottom, x: Math.round(b.left + b.width / 2), y: Math.round(b.top + b.height / 2) }]; })));
+  const arrastar = async (nome, alvoY) => {
+    const g = await linhasDaTela();
+    await pg.mouse.move(g[nome].x, g[nome].y);
+    await pg.mouse.down();
+    const levantou = await esperar(pg, () => !!document.querySelector('#library > .lib-item.arrastando'), null, 4000);
+    const levantadas = await pg.evaluate(() => [...document.querySelectorAll('#library > .lib-item.arrastando')]
+      .map((li) => li.querySelector('.row-name').textContent).join());
+    await pg.mouse.move(g[nome].x, Math.round(alvoY(g)), { steps: 12 });
+    await pg.mouse.up();
+    await esperar(pg, () => !document.getElementById('library').classList.contains('arrastando-lista')
+      && !document.querySelector('#library .arrastando'), null, 5000);
+    return { levantou: levantou === true, levantadas };
+  };
   checar((await nomesDoBanco()).join() === 'Recepção,Louvor,Pregação,Aviso 1,Aviso 2' && (await nomesNaTela()).join() === (await nomesDoBanco()).join(),
     'D′ · ponto de partida: três momentos e duas mídias (`message`), a tela igual ao banco', await nomesDoBanco());
   {
@@ -596,18 +739,36 @@ try {
     const o = await ordemDoTelao();
     checar(o.descritor === 'Recepção,Louvor,Pregação' && o.leitura === o.descritor,
       'D′ · a ordem do TELÃO (o descritor) NÃO mudou: segue o relógio, e a mídia no meio da lista não entra nele', o);
+    checar((await bancoMin()) === 'Recepção@540,Aviso 2,Louvor@600,Pregação@640,Aviso 1',
+      'D′ · e a MÍDIA mudou de grupo (do de "Pregação" para o de "Recepção") sem mexer em horário nenhum', await bancoMin());
   }
-  // E A POSIÇÃO DE UM MOMENTO NÃO ORDENA O TELÃO: o último do relógio vai ao topo da lista.
+  // UM MOMENTO ARRASTADO LEVA O GRUPO E REESCREVE OS HORÁRIOS PELA GRADE (pedido do operador): a
+  // grade são os `min` dos momentos em ordem crescente, e o k-ésimo momento DA LISTA recebe o
+  // k-ésimo. "Pregação" (com o "Aviso 1" do grupo dela) por cima de "Louvor" troca de horário com
+  // ele; o telão segue o relógio. E de volta, "Louvor" (sozinho) por cima de "Pregação".
   {
-    const idPre = await idDe('Pregação');
-    await pg.evaluate((id) => moverNaListaPara('imports', id, 0), idPre);
-    await esperar(pg, () => document.querySelector('#library > li.lib-item .row-name').textContent === 'Pregação');
+    const a = await arrastar('Pregação', (g) => g['Louvor'].top + 3);
+    const r = await esperarDb(pg, async (e) => (await AVDB.listItems('imports'))
+      .map((x) => x.name + (ehMomento(x) ? '@' + x.data.min : '')).join() === e, 'Recepção@540,Aviso 2,Pregação@600,Aviso 1,Louvor@640', 8000);
+    const t = await esperar(pg, () => [...document.querySelectorAll('#library > li.momento')]
+      .map((li) => li.querySelector('.momento-hora').textContent + ' ' + li.querySelector('.row-name').textContent).join(' · ')
+      === '09:00 Recepção · 10:00 Pregação · 10:40 Louvor');
     const o = await ordemDoTelao();
-    checar(o.descritor === 'Recepção,Louvor,Pregação' && (await lista())[0] === '10:40 Pregação',
-      'D′ · um MOMENTO arrastado ao topo da lista muda a lista, e o telão continua pelo relógio (Recepção, Louvor, Pregação)',
-      { o, lista: await lista() });
-    await pg.evaluate((id) => moverNaListaPara('imports', id, 3), idPre);
-    await esperar(pg, () => document.querySelector('#library > li.lib-item .row-name').textContent === 'Recepção');
+    checar(a.levantou && a.levantadas === 'Pregação,Aviso 1',
+      'D′ · segurar um MOMENTO levanta o GRUPO dele: o momento e a mídia até o próximo ("Pregação" + "Aviso 1")', a);
+    checar(r === true && t === true && o.descritor === 'Recepção,Pregação,Louvor',
+      'D′ · e a POSIÇÃO REESCREVE O HORÁRIO pela grade: no banco Pregação fica com 600 e Louvor com 640, a tela diz '
+      + '10:00 Pregação · 10:40 Louvor, e o telão (pelo relógio) passa a Recepção, Pregação, Louvor',
+      { banco: await bancoMin(), lista: await lista(), o });
+  }
+  {
+    const a = await arrastar('Louvor', (g) => g['Pregação'].top + 3);
+    const r = await esperarDb(pg, async (e) => (await AVDB.listItems('imports'))
+      .map((x) => x.name + (ehMomento(x) ? '@' + x.data.min : '')).join() === e, 'Recepção@540,Aviso 2,Louvor@600,Pregação@640,Aviso 1', 8000);
+    await esperar(pg, () => document.querySelectorAll('#library > li.momento')[1].querySelector('.momento-hora').textContent === '10:00');
+    checar(a.levantadas === 'Louvor' && r === true && (await lista()).join(' · ') === '09:00 Recepção · 10:00 Louvor · 10:40 Pregação',
+      'D′ · um momento SOZINHO levanta só ele, e de volta por cima de "Pregação" a grade devolve 10:00 e 10:40',
+      { a, banco: await bancoMin(), lista: await lista() });
   }
   // NADA TOCA SOZINHO quando o relógio cruza um horário.
   await pg.evaluate(() => {
@@ -633,11 +794,78 @@ try {
   }
   await ctx.clock.resume();
 
+  // ── X. MOMENTOS OCULTOS NA LISTA (`#itinMomentosBtn`) ────────────────────
+  // O interruptor tira da LISTA toda linha de momento; o telão (o descritor) não muda, a
+  // escolha é gravada (`momentosOcultos`) e volta da recarga. Com eles ocultos, o arrasto de
+  // uma mídia grava pelo VIZINHO visível: o índice da tela deixou de ser o da lista gravada.
+  await abrirFaixa();
+  await pg.click('#itinMomentosBtn');
+  {
+    const r = await esperarDb(pg, async () => ((await AVDB.getState('itinerario')) || {}).momentosOcultos === true);
+    const x = await pg.evaluate(() => {
+      const t = document.getElementById('itinMomentosBtn');
+      return {
+        linhas: document.querySelectorAll('#library > li.momento').length,
+        midias: [...document.querySelectorAll('#library > li.lib-item')].map((li) => li.querySelector('.row-name').textContent).join(),
+        bt: t && [t.getAttribute('aria-pressed'), t.classList.contains('active')].join(),
+        descritor: itinDescriptor().itens.map((i) => i.titulo).join(),
+      };
+    });
+    checar(r === true && x.linhas === 0 && x.midias === 'Aviso 2,Aviso 1' && x.bt === 'false,false',
+      'X · "Momentos" DESLIGADO: a lista não desenha nenhum `li.momento` (as mídias ficam), o botão diz '
+      + '`aria-pressed="false"` e a escolha é gravada (`momentosOcultos: true`)', { x, r: porque(r) });
+    checar(x.descritor === 'Recepção,Louvor,Pregação',
+      'X · e o TELÃO não muda: o descritor continua com os três momentos, pelo relógio', x.descritor);
+  }
+  await recarregar();
+  {
+    await esperar(pg, () => document.querySelectorAll('#library > li.lib-item').length > 0);
+    const x = await pg.evaluate(() => ({ linhas: document.querySelectorAll('#library > li.momento').length,
+      midias: document.querySelectorAll('#library > li.lib-item').length, mem: itin.momentosOcultos }));
+    checar(x.linhas === 0 && x.midias === 2 && x.mem === true,
+      'X · depois de RECARREGAR os momentos continuam ocultos (a escolha volta do banco)', x);
+  }
+  {
+    const geo = await pg.evaluate(() => {
+      const lis = [...document.querySelectorAll('#library > li.lib-item')];
+      const r0 = lis[0].getBoundingClientRect(), r1 = lis[1].getBoundingClientRect();
+      return { x: Math.round(r1.left + r1.width / 2), y: Math.round(r1.top + r1.height / 2), alvo: Math.round(r0.top + r0.height / 4) };
+    });
+    await pg.mouse.move(geo.x, geo.y);
+    await pg.mouse.down();
+    const levantou = await esperar(pg, () => !!document.querySelector('#library > .lib-item.arrastando'), null, 4000);
+    await pg.mouse.move(geo.x, geo.alvo, { steps: 12 });
+    await pg.mouse.up();
+    const esperado = ['Recepção', 'Aviso 1', 'Aviso 2', 'Louvor', 'Pregação'];
+    const r = await esperarDb(pg, async (e) => (await AVDB.listItems('imports')).map((x) => x.name).join() === e.join(), esperado, 8000);
+    checar(levantou === true && r === true,
+      'X · com os momentos ocultos, arrastar "Aviso 1" para cima de "Aviso 2" grava pelo VIZINHO: logo antes de '
+      + '"Aviso 2" (e não no índice 0 da lista gravada, acima de "Recepção")', { levantou: porque(levantou), banco: await nomesDoBanco() });
+  }
+  await abrirFaixa();
+  await pg.click('#itinMomentosBtn');
+  {
+    const r = await esperarDb(pg, async () => ((await AVDB.getState('itinerario')) || {}).momentosOcultos === false);
+    const n = await esperar(pg, () => document.querySelectorAll('#library > li.momento').length === 3);
+    checar(r === true && n === true, 'X · ligado de novo, os três momentos voltam à lista e a escolha é gravada', { r: porque(r), n: porque(n) });
+  }
+  // De volta à ordem do D′ (o W confere as mídias de "A" nela), e o vigia do barramento que a recarga levou.
+  await pg.evaluate((id) => moverNaListaPara('imports', id, 4), midias.a);
+  await esperarDb(pg, async () => (await AVDB.listItems('imports')).map((x) => x.name).join() === 'Recepção,Aviso 2,Louvor,Pregação,Aviso 1');
+  await esperar(pg, () => [...document.querySelectorAll('#library > li.lib-item .row-name')].map((e) => e.textContent).join()
+    === 'Recepção,Aviso 2,Louvor,Pregação,Aviso 1');
+  await pg.evaluate(() => {
+    window.__cmds = [];
+    const orig = AVDB.sendCommand;
+    AVDB.sendCommand = function (c) { window.__cmds.push(c); return orig.apply(this, arguments); };
+  });
+
   // ── C. PROJETAR, E A TROCA QUANDO O RELÓGIO CRUZA ────────────────────────
   // Volta ao começo da manhã (o D′ cruzou as 10:00): a troca sob teste é a do bloco.
   await ctx.clock.setSystemTime(T('09:58'));
   await pg.evaluate(() => { window.__cmds.length = 0; });
   await esperar(pg, () => { const a = document.querySelector('#library > li.momento.agora .row-name'); return !!a && a.textContent === 'Recepção'; });
+  await abrirFaixa();
   await pg.click('#itinTelaoBtn');
   await esperar(pg, () => !!document.querySelector('#pvTextItin .itin-linha'));
   const pv = () => pg.evaluate(() => ({
@@ -658,7 +886,7 @@ try {
     'C · o Telão da faixa manda UM descritor (a lista pelo RELÓGIO, o ajuste, o fuso) — não o estado calculado', cmdItin);
   {
     const tel = await pg.evaluate(() => { const t = document.getElementById('itinTelaoBtn'); return [t.getAttribute('aria-pressed'), t.classList.contains('active'), itinProjecting()]; });
-    checar(tel.join() === 'true,true,true', 'C · e o botão "Telão" fica LIGADO (`aria-pressed="true"`, classe `active`)', tel);
+    checar(tel.join() === 'true,true,true', 'C · e o olho do telão fica LIGADO (`aria-pressed="true"`, classe `active`)', tel);
     const v = await pv();
     checar(v.linhas[0] === '*09:00 Recepção' && v.linhas.length === 3,
       'C · às 09:58 a preview mostra "Recepção" em destaque e os seguintes abaixo', v);
@@ -667,6 +895,7 @@ try {
       'C · o subtítulo da linha diz "Agora" + a duração até o seguinte, e o último diz "Último momento"', v.subs);
   }
   // LIGAR E DESLIGAR: o botão tira o itinerário do telão sem apagar nada, e a marca da lista continua.
+  await abrirFaixa();
   await pg.click('#itinTelaoBtn');
   {
     const r = await esperar(pg, () => !itinProjecting());
@@ -679,6 +908,7 @@ try {
       'C · tocar de novo em "Telão" DESLIGA (a lista e a marca de agora ficam)', { r: porque(r), e });
   }
   await pg.evaluate(() => { window.__cmds.length = 0; });
+  await abrirFaixa();
   await pg.click('#itinTelaoBtn');
   await esperar(pg, () => itinProjecting() && !!document.querySelector('#pvTextItin .itin-linha'));
   await pg.evaluate(() => { window.__cmds.length = 0; });
@@ -699,11 +929,12 @@ try {
   // ── D. O AJUSTE, PELA FAIXA ──────────────────────────────────────────────
   const horasPv = async () => (await pv()).linhas.map((t) => t.replace('*', '').slice(0, 5));
   const mins = (hs) => hs.map((h) => Number(h.slice(0, 2)) * 60 + Number(h.slice(3)));
-  const ajusteTxt = () => pg.evaluate(() => {
+  const ajusteTxt = async () => (await abrirFaixa(), pg.evaluate(() => {
     const b = document.getElementById('itinAjusteTxt');
     return { longo: b.querySelector('.itin-txt-longo').textContent, curto: b.querySelector('.itin-txt-curto').textContent,
       off: b.disabled, deslocado: b.classList.contains('deslocado') };
-  });
+  }));
+  await abrirFaixa();
   await pg.click('#itinBar .itin-passo[aria-label="Atrasar 5 min"]');
   await esperar(pg, () => itin.desloc === 5);
   {
@@ -719,24 +950,31 @@ try {
       'D · e a LISTA mostra a hora efetiva (09:05 · 10:05 · 10:45), marca "Recepção" e o subtítulo diz "previsto 09:00"',
       { horasLista, lista: v.lista, subs: v.subs });
     checar(b && b.v === 3 && b.desloc === 5 && /^\d{4}-\d{2}-\d{2}$/.test(b.deslocDia || '')
-      && Object.keys(b).sort().join() === 'barraOculta,desloc,deslocDia,horas,v',
-      'D · o ajuste é guardado PELO DIA, e a chave tem só `{ v:3, horas, desloc, deslocDia, barraOculta }`', b);
+      && Object.keys(b).sort().join() === 'desloc,deslocDia,horas,momentosOcultos,v',
+      'D · o ajuste é guardado PELO DIA, e a chave tem só `{ v:3, horas, desloc, deslocDia, momentosOcultos }`', b);
     checar(a.longo === 'Atrasado 5 min' && a.curto === '+5 min' && !a.off && a.deslocado,
       'D · o atraso diz "Atrasado 5 min" (curto: "+5 min"), fica aceso e destacado (`deslocado`)', a);
   }
-  await pg.click('#itinBar .itin-passo[aria-label="Adiantar 1 min"]');
-  await esperar(pg, () => itin.desloc === 4);
-  {
-    const h = await horasPv();
-    const m = mins(h);
-    checar(h[0] === '09:04' && m[1] - m[0] === 60 && m[2] - m[1] === 40,
-      'D · −1 recua todos juntos, e os INTERVALOS ficam (60 e 40 min)', h);
-    checar((await ajusteTxt()).longo === 'Atrasado 4 min', 'D · e o atraso acompanha ("Atrasado 4 min")', await ajusteTxt());
-  }
+  // SEM O ±1 (Pacote 35): o ajuste anda de 5 em 5 também pela faixa, e dois −5 passam do zero.
+  await abrirFaixa();
   await pg.click('#itinBar .itin-passo[aria-label="Adiantar 5 min"]');
-  await esperar(pg, () => itin.desloc === -1);
-  checar((await ajusteTxt()).longo === 'Adiantado 1 min' && (await ajusteTxt()).curto === '−1 min',
-    'D · passando de zero o atraso vira "Adiantado 1 min" (curto: "−1 min", com o U+2212)', await ajusteTxt());
+  await esperar(pg, () => itin.desloc === 0);
+  await abrirFaixa();
+  await pg.click('#itinBar .itin-passo[aria-label="Adiantar 5 min"]');
+  await esperar(pg, () => itin.desloc === -5);
+  {
+    const v = await pv();
+    const hl = await pg.evaluate(() => [...document.querySelectorAll('#library > li.momento .momento-hora')].map((e) => e.textContent));
+    const m = mins(hl);
+    checar(hl.join() === '08:55,09:55,10:35' && m[1] - m[0] === 60 && m[2] - m[1] === 40 && v.linhas[0] === '*09:55 Louvor',
+      'D · −5 recua todos juntos (os INTERVALOS ficam: 60 e 40 min), e o de agora acompanha (Louvor 09:55)', { hl, pv: v.linhas });
+    const a = await ajusteTxt();
+    checar(a.longo === 'Adiantado 5 min' && a.curto === '−5 min',
+      'D · passando de zero o atraso vira "Adiantado 5 min" (curto: "−5 min", com o U+2212)', a);
+    const passos = await pg.evaluate(() => [...document.querySelectorAll('#itinBar .itin-passo')].map((b) => b.getAttribute('aria-label')));
+    checar(passos.join() === 'Adiantar 5 min,Atrasar 5 min', 'D · a faixa só tem os passos de 5 min (o ±1 saiu)', passos);
+  }
+  await abrirFaixa();
   await pg.click('#itinAjusteTxt');
   await esperar(pg, () => itin.desloc === 0);
   {
@@ -785,6 +1023,7 @@ try {
     checar(r === true, 'J · o ⏮ da coluna da tela cheia adianta 5 min pelo mesmo caminho', porque(r));
   }
   // NOS EXTREMOS o passo apaga — a mesma régua dos −5/+5 da faixa.
+  await abrirFaixa();
   {
     const lim = await pg.evaluate(() => {
       itin.desloc = ITIN_DESLOC_MAX - 5; itinAjustar(5);
@@ -796,11 +1035,12 @@ try {
     });
     checar(lim.noTeto[0] === false && lim.noTeto[1] === true && lim.zerado.join() === 'false,false' && lim.desloc === 0,
       'J · em +12 h o ⏭ APAGA (e o ⏮ não); zerado, os dois voltam', lim);
-    checar(lim.faixaNoTeto.join(' ') === '−5 −1 +1:off +5:off',
-      'J · e na faixa, em +12 h, só os passos para a frente apagam (+1 e +5)', lim.faixaNoTeto);
+    checar(lim.faixaNoTeto.join(' ') === '−5 +5:off',
+      'J · e na faixa, em +12 h, só o passo para a frente apaga (+5)', lim.faixaNoTeto);
   }
 
   // ── E. HORÁRIOS × SÓ OS TÍTULOS, PELA FAIXA ──────────────────────────────
+  await abrirFaixa();
   await pg.click('#itinHorasBtn');
   await esperar(pg, () => document.getElementById('pvTextItin').classList.contains('sem-horas'));
   {
@@ -811,22 +1051,23 @@ try {
       'E · "só os títulos": a hora some da lista projetada, o botão desliga (`aria-pressed="false"`) e a escolha é guardada', { v, horas: b.horas, bt });
     checar(v.linhas[0].startsWith('*'), 'E · e o item de agora CONTINUA marcado', v.linhas);
   }
+  await abrirFaixa();
   await pg.click('#itinHorasBtn');
   await esperar(pg, () => !document.getElementById('pvTextItin').classList.contains('sem-horas'));
+  await abrirFaixa();
   checar((await faixa()).horas === 'true', 'E · e o botão volta a "horários" (`aria-pressed="true"`)', await faixa());
 
-  // ── U (no ar). RECOLHIDA, A FAIXA CONTINUA DIZENDO QUE ESTÁ NO AR ─────────
-  await pg.click('#itinBarFechar');
+  // ── U (no ar). RECOLHIDA, A PORTA DIZ QUE ESTÁ NO AR ─────────────────────
+  await fecharFaixa();
   {
     const f = await faixa();
-    const cls = await pg.evaluate(() => document.getElementById('itinBar').classList.contains('no-ar'));
-    checar(f.recolhida && f.ponto && cls,
-      'U · recolhida com o itinerário NO AR, a faixa mostra o ponto aceso (`.itin-ponto`) — a única pista que sobra', { f, cls });
+    checar(!f.aberta && f.filhos.length === 0 && f.ponto && f.noAr,
+      'U · recolhida com o itinerário NO AR, a PORTA da barra mostra o ponto aceso (`#itinBarBtn .itin-ponto`) — a única pista que sobra', f);
   }
-  await pg.click('#itinBarAbrir');
+  await abrirFaixa();
   {
     const f = await faixa();
-    checar(!f.recolhida && f.telao.join() === 'true,false', 'U · abrir de novo devolve o "Telão" ligado', f);
+    checar(f.aberta && f.telao.join() === 'true,false,' && f.ponto, 'U · abrir de novo devolve o olho do telão LIGADO (e o ponto segue na porta)', f);
   }
 
   // ── F. O TELÃO — e o REENVIO quando ele se reapresenta ───────────────────
@@ -1023,6 +1264,7 @@ try {
     const r1 = await abrirGavetaCrono();
     await pg.click('#cronoNovo');
     const r2 = await assentou('');
+    await abrirFaixa();
     const e = await pg.evaluate(() => {
       const t = document.getElementById('itinTelaoBtn');
       return { momentos: document.querySelectorAll('#library > li.momento').length, noAr: itinProjecting(),
@@ -1047,6 +1289,7 @@ try {
   await adicionar('19:30', 'Coral');
   checar((await nomesNaTela()).join() === 'Ensaio,Aviso B,Coral',
     'W · e um momento sem nenhum posterior no relógio entra no FIM da lista (depois da mídia)', await nomesNaTela());
+  await abrirFaixa();
   {
     const e = await pg.evaluate(() => {
       const t = document.getElementById('itinTelaoBtn');
@@ -1058,6 +1301,7 @@ try {
     checar(!e.off && e.agora === 0 && /^Ensaio · A seguir/.test(e.seguir || ''),
       'W · com momentos de novo o "Telão" acende, e antes do primeiro horário a linha diz "A seguir" (nenhum de agora)', e);
   }
+  await abrirFaixa();
   await pg.click('#itinTelaoBtn');
   await esperar(pg, () => itinProjecting());
   {
@@ -1113,6 +1357,7 @@ try {
   // ── I. ESVAZIAR NO AR TIRA DO TELÃO ──────────────────────────────────────
   await pg.evaluate(async () => { for (const x of itinItens()) await AVDB.listRemove('imports', x.id); await load(); });
   await esperar(pg, () => !itinProjecting());
+  await abrirFaixa();
   {
     const r = await pg.evaluate(() => {
       const t = document.getElementById('itinTelaoBtn');
@@ -1132,7 +1377,7 @@ try {
   // de entrar ACIMA dela, em ordem de relógio, e só o itinerário ATIVO vem.
   const hoje = await pg.evaluate(() => hojeLocal());
   const velho = (hojeDia) => ({
-    v: 2, horas: false, desloc: 7, deslocDia: hojeDia, ativo: 'a',
+    v: 2, horas: false, desloc: 7, deslocDia: hojeDia, ativo: 'a', barraOculta: true,
     itens: [{ id: 's3', min: 660, titulo: 'Sermão' }, { id: 's1', min: 540, titulo: 'Recepção' }, { id: 's2', min: 600, titulo: 'Louvor' }],
     itinerarios: [
       { id: 'a', nome: 'Culto', itens: [], horas: false },
@@ -1165,9 +1410,10 @@ try {
     checar(!m.ordem.includes('Coral guardado') && !m.noTela.includes('Coral'),
       'S · os itinerários GUARDADOS (os não ativos) são DESCARTADOS: nenhum "Coral guardado" no cronograma', m.ordem);
     const e = m.estado || {};
-    checar(e.v === 3 && e.horas === false && e.desloc === 7 && e.deslocDia === hoje && e.barraOculta === false
-      && Object.keys(e).sort().join() === 'barraOculta,desloc,deslocDia,horas,v',
-      'S · a chave vira `{ v:3, horas, desloc, deslocDia, barraOculta }` — sem `itens`, `itinerarios`, `ativo` — mantendo `horas` e o ajuste do dia', e);
+    checar(e.v === 3 && e.horas === false && e.desloc === 7 && e.deslocDia === hoje && e.momentosOcultos === false
+      && Object.keys(e).sort().join() === 'desloc,deslocDia,horas,momentosOcultos,v',
+      'S · a chave vira `{ v:3, horas, desloc, deslocDia, momentosOcultos }` — sem `itens`, `itinerarios`, `ativo` nem o `barraOculta` '
+      + 'que a chave velha trazia — mantendo `horas` e o ajuste do dia', e);
     checar(m.mem.horas === false && m.mem.desloc === 7 && m.mem.feito === true && m.horasNaLista === '09:07,10:07,11:07',
       'S · e o app já lê a chave nova: horários desligados no telão, ajuste de +7 min aplicado às horas da lista', m.mem);
   }
@@ -1178,8 +1424,31 @@ try {
   await pg.evaluate(async (est) => { await AVDB.setState('itinerario', est); itinLegadoFeito = false; await load(); }, velho(hoje));
   {
     const m = await migrado();
-    checar(m.ordem === 'M:Recepção,M:Louvor,M:Sermão,x:Aviso B' && m.estado.v === 3 && !('itens' in m.estado),
+    checar(m.ordem === 'M:Recepção,M:Louvor,M:Sermão,x:Aviso B' && m.estado.v === 3 && !('itens' in m.estado) && !('barraOculta' in m.estado),
       'S · rodar a migração de novo sobre a chave antiga (um corte no meio) não duplica: o `legado` reconhece os já criados', m);
+  }
+
+  // O CAMPO ANTIGO `barraOculta` (até a v1.14.34): a leitura o IGNORA — um `false` gravado não
+  // abre a faixa — e a próxima gravação o APAGA (o `saveItin` mescla: o apagar é explícito).
+  await pg.evaluate(async () => {
+    const st = await AVDB.getState('itinerario');
+    await AVDB.setState('itinerario', Object.assign({}, st, { barraOculta: false }));
+  });
+  await recarregar();
+  {
+    const vis = await esperar(pg, () => !document.getElementById('itinBarBtn').hidden);
+    const e = await pg.evaluate(async () => ({ st: await AVDB.getState('itinerario'), oculta: document.getElementById('itinBar').hidden,
+      exp: document.getElementById('itinBarBtn').getAttribute('aria-expanded') }));
+    checar(vis === true && e.st.barraOculta === false && e.oculta && e.exp === 'false',
+      'S · um `barraOculta: false` legado NÃO abre a faixa: depois da recarga ela nasce recolhida', e);
+  }
+  await abrirFaixa();
+  await pg.click('#itinHorasBtn');
+  {
+    const r = await esperarDb(pg, async () => { const s = await AVDB.getState('itinerario'); return !!s && s.horas === true; });
+    const st = await banco();
+    checar(r === true && !('barraOculta' in st) && Object.keys(st).sort().join() === 'desloc,deslocDia,horas,momentosOcultos,v',
+      'S · e a primeira gravação (aqui, os horários) APAGA o `barraOculta`', st || porque(r));
   }
 
   // ── T. A CENA ANTIGA `itinerario`: tocá-la ACRESCENTA os horários ────────
@@ -1216,6 +1485,271 @@ try {
     checar(d2.ordem === depoisT.ordem && d2.momentos === depoisT.momentos,
       'T · tocar a cena DE NOVO não duplica nada', { depoisT: depoisT.ordem, d2: d2.ordem });
     checar(nota === true, 'T · e a linha da cena diz por quê: "estes momentos já estão no cronograma"', porque(nota));
+  }
+
+  // ── G′. O GRUPO DO MOMENTO: a tinta e o arrasto do bloco ─────────────────
+  // Um cronograma de culto (o medido pelo implementador, mais um momento sozinho no fim): a mídia
+  // solta do topo não tem grupo; cada momento abre o dele até o próximo. Segurar um momento leva
+  // o bloco, que só cai numa FRONTEIRA de grupo; uma mídia sozinha muda de grupo sem mexer em horário.
+  await pg.setViewportSize({ width: 360, height: 1400 });   // as nove linhas à vista, sem rolar a lista
+  await esperar(pg, () => innerHeight === 1400);
+  // A FAIXA FECHADA ANTES DE MEDIR: aberta, ela empurra a lista ~40px para baixo e o prazo
+  // de fecho sozinho pode vencê-la no MEIO de um arrasto, mudando a geometria debaixo do dedo.
+  await fecharFaixa();
+  await pg.evaluate(async () => {
+    itinAjusteZerar();
+    for (const x of await AVDB.listItems('imports')) await AVDB.listRemove('imports', x.id);
+    const msg = (n) => AVDB.addCue('message', { text: n }, { name: n, list: 'imports' });
+    const mom = (n, min) => AVDB.addCue('momento', { min }, { name: n, list: 'imports' });
+    await msg('Aviso solto'); await mom('Recepção', 540); await msg('Boas-vindas'); await mom('Louvor', 600);
+    await msg('Hino 1'); await msg('Hino 2'); await mom('Pregação', 630); await msg('Apelo'); await mom('Bênção', 700);
+    await load();
+  });
+  const grupos = () => pg.evaluate(() => [...document.querySelectorAll('#library > li.lib-item')]
+    .map((li) => li.querySelector('.row-name').textContent + ':'
+      + ['grupo-ini', 'grupo-meio', 'grupo-fim'].filter((c) => li.classList.contains(c)).map((c) => c.slice(6)).join('+')).join(' '));
+  await esperar(pg, () => document.querySelectorAll('#library > li.lib-item').length === 9);
+  {
+    const b = await bancoMin();
+    const gr = await grupos();
+    checar(b === 'Aviso solto,Recepção@540,Boas-vindas,Louvor@600,Hino 1,Hino 2,Pregação@630,Apelo,Bênção@700',
+      'G′ · ponto de partida: uma mídia solta, três momentos com as mídias deles e um momento sozinho no fim', b);
+    checar(gr === 'Aviso solto: Recepção:ini Boas-vindas:meio+fim Louvor:ini Hino 1:meio Hino 2:meio+fim Pregação:ini Apelo:meio+fim Bênção:',
+      'G′ · as classes do grupo: a mídia antes do 1º momento sem nenhuma; o momento `grupo-ini`, as mídias `grupo-meio` (a '
+      + 'última também `grupo-fim`); o momento sozinho no fim NÃO leva classe nenhuma (nem tinta)', gr);
+    const m = await pg.evaluate(() => {
+      // O GRUPO É MARCADO POR PREENCHIMENTO (`--grupo-fill`), e não por moldura: o app
+      // não desenha contorno nenhum (`tools/tokens.test.mjs`). Compare o computado do
+      // token com o fundo da `.row` de cada linha — e exija que ninguém desenhe `::after`.
+      const sonda = document.createElement('i'); sonda.style.color = 'var(--grupo-fill)'; document.body.appendChild(sonda);
+      const tinta = getComputedStyle(sonda).color; sonda.remove();
+      const li = (n) => [...document.querySelectorAll('#library > li.lib-item')].find((x) => x.querySelector('.row-name').textContent === n);
+      const um = (n) => { const el = li(n); return { fundo: getComputedStyle(el.querySelector('.row')).backgroundColor,
+        desenho: getComputedStyle(el, '::after').content }; };
+      return { tinta, ini: um('Louvor'), meio: um('Hino 1'), fim: um('Hino 2'), so: um('Bênção'), solto: um('Aviso solto') };
+    });
+    const comTinta = (x) => x.fundo === m.tinta && x.desenho === 'none';
+    const semTinta = (x) => x.fundo !== m.tinta && x.desenho === 'none';
+    checar(comTinta(m.ini) && comTinta(m.meio) && comTinta(m.fim) && semTinta(m.so) && semTinta(m.solto),
+      'G′ · o GRUPO é marcado por PREENCHIMENTO: o momento e as mídias dele vestem `--grupo-fill` no lugar da linha '
+      + 'neutra, o momento sozinho no fim e a mídia solta ficam sem tinta, e nenhuma linha desenha contorno (`::after`)', m);
+    const vao = await pg.evaluate(() => {
+      const lis = [...document.querySelectorAll('#library > li.lib-item')], pares = [];
+      for (let i = 1; i < lis.length; i++) {
+        const a = lis[i - 1], b = lis[i];
+        if (!a.classList.contains('grupo-fim') || !b.classList.contains('grupo-ini')) continue;
+        // a base do CARTÃO do grupo de cima e o topo do CARTÃO do de baixo (o `li` do
+        // momento carrega o respiro em `padding-top`, e medir o `li` o comeria)
+        const baixo = a.querySelector('.row').getBoundingClientRect().bottom;
+        const cima = b.querySelector('.row').getBoundingClientRect().top;
+        pares.push(a.querySelector('.row-name').textContent + '→' + b.querySelector('.row-name').textContent + '=' + +(cima - baixo).toFixed(1));
+      }
+      return pares;
+    });
+    // DOIS vãos: o grupo de "Bênção" não existe (momento sem mídia não é grupo), então as
+    // fronteiras são Boas-vindas→Louvor e Hino 2→Pregação.
+    checar(vao.length === 2 && vao.every((p) => Number(p.split('=').pop()) >= 8),
+      'G′ · ENTRE dois grupos os blocos respiram: da base de um grupo ao topo do seguinte há 8px ou mais livres', vao);
+  }
+  // O BLOCO: "Pregação" (com "Apelo") por cima de "Louvor" — a medida do implementador.
+  {
+    const a = await arrastar('Pregação', (g) => g['Louvor'].top + 3);
+    const r = await esperarDb(pg, async (e) => (await AVDB.listItems('imports'))
+      .map((x) => x.name + (ehMomento(x) ? '@' + x.data.min : '')).join() === e,
+    'Aviso solto,Recepção@540,Boas-vindas,Pregação@600,Apelo,Louvor@630,Hino 1,Hino 2,Bênção@700', 8000);
+    // O DESCRITOR SÓ DEPOIS DO `load()` DA GRADE: o `esperarDb` acima vê a GRAVAÇÃO, e o
+    // app ainda está gravando os `min` e recarregando a lista (`grava.then(reassenta)` em
+    // `terminarArrasto`); lido antes disso, o descritor é o da ordem nova com os horários
+    // velhos. Aqui o oráculo espera o estado FRESCO, como os outros casos do arquivo.
+    const fresco = await esperar(pg, () => itinDescriptor().itens.map((x) => x.titulo).join() === 'Recepção,Pregação,Louvor,Bênção');
+    const o = await ordemDoTelao();
+    checar(a.levantou && a.levantadas === 'Pregação,Apelo',
+      'G′ · segurar "Pregação" levanta as DUAS linhas do grupo (todas com `.arrastando`)', a);
+    checar(r === true && fresco === true && o.descritor === 'Recepção,Pregação,Louvor,Bênção',
+      'G′ · e o bloco cai INTEIRO antes de "Louvor", a grade troca os horários (Pregação 600, Louvor 630) e o telão segue o relógio',
+      { banco: await bancoMin(), fresco, o });
+    const gr = await esperar(pg, (e) => [...document.querySelectorAll('#library > li.lib-item')].map((li) => li.querySelector('.row-name').textContent
+      + ':' + ['grupo-ini', 'grupo-meio', 'grupo-fim'].filter((c) => li.classList.contains(c)).map((c) => c.slice(6)).join('+')).join(' ') === e,
+    'Aviso solto: Recepção:ini Boas-vindas:meio+fim Pregação:ini Apelo:meio+fim Louvor:ini Hino 1:meio Hino 2:meio+fim Bênção:');
+    checar(gr === true, 'G′ · e as classes acompanham o bloco no lugar novo', await grupos());
+  }
+  // NÃO CAI NO MEIO DE OUTRO GRUPO: "Bênção" solta entre "Louvor" e "Hino 1" (onde uma mídia cairia)
+  // vai para ANTES de "Louvor" — e a grade a leva às 10:30.
+  {
+    const a = await arrastar('Bênção', (g) => (g['Louvor'].bottom + g['Hino 1'].top) / 2);
+    const r = await esperarDb(pg, async (e) => (await AVDB.listItems('imports'))
+      .map((x) => x.name + (ehMomento(x) ? '@' + x.data.min : '')).join() === e,
+    'Aviso solto,Recepção@540,Boas-vindas,Pregação@600,Apelo,Bênção@630,Louvor@700,Hino 1,Hino 2', 8000);
+    // O MESMO CUIDADO DO BLOCO ANTERIOR: o `esperarDb` vê a gravação, e o `load()` dos `min`
+    // ainda pode estar trocando os nós da lista — o arrasto seguinte morreria com a linha
+    // redesenhada debaixo do dedo. Espera a TELA assentar (as horas efetivas novas).
+    const t = await esperar(pg, () => [...document.querySelectorAll('#library > li.momento')]
+      .map((li) => li.querySelector('.momento-hora').textContent + ' ' + li.querySelector('.row-name').textContent).join(' · ')
+      === '09:00 Recepção · 10:00 Pregação · 10:30 Bênção · 11:40 Louvor');
+    checar(a.levantadas === 'Bênção' && r === true && t === true,
+      'G′ · um momento solto no MEIO do grupo de outro não o parte: cai na fronteira (antes de "Louvor"), e a grade dá 630 a Bênção e 700 a Louvor',
+      { a, banco: await bancoMin(), t });
+  }
+  // NEM ANTES DAS MÍDIAS SOLTAS DO TOPO: o grupo de "Recepção" levado acima de "Aviso solto" fica onde está.
+  {
+    const antes = await bancoMin();
+    const a = await arrastar('Recepção', (g) => g['Aviso solto'].top + 2);
+    await pg.waitForTimeout(400);
+    const depois = await bancoMin();
+    checar(a.levantou && a.levantadas === 'Recepção,Boas-vindas' && depois === antes && depois.startsWith('Aviso solto,'),
+      'G′ · e o grupo não cai ANTES da mídia solta do topo: levado acima dela, "Recepção" + "Boas-vindas" ficam depois dela', { a, antes, depois });
+  }
+  // A MÍDIA SOZINHA MUDA DE GRUPO, e nenhum horário muda: "Hino 2" para entre "Recepção" e "Boas-vindas".
+  {
+    const a = await arrastar('Hino 2', (g) => (g['Recepção'].bottom + g['Boas-vindas'].top) / 2);
+    const r = await esperarDb(pg, async (e) => (await AVDB.listItems('imports'))
+      .map((x) => x.name + (ehMomento(x) ? '@' + x.data.min : '')).join() === e,
+    'Aviso solto,Recepção@540,Hino 2,Boas-vindas,Pregação@600,Apelo,Bênção@630,Louvor@700,Hino 1', 8000);
+    const gr = await esperar(pg, () => document.querySelector('#library > li.lib-item:nth-child(3)').classList.contains('grupo-meio'));
+    checar(a.levantadas === 'Hino 2' && r === true && gr === true,
+      'G′ · uma MÍDIA arrastada sozinha muda de grupo (de "Louvor" para "Recepção", agora `grupo-meio`) sem mexer em horário nenhum',
+      { a, banco: await bancoMin(), grupos: await grupos() });
+  }
+  // COM OS MOMENTOS OCULTOS não há grupo nenhum.
+  {
+    const antes = await pg.evaluate(() => document.querySelectorAll('#library > :is(.grupo-ini, .grupo-meio, .grupo-fim)').length);
+    await abrirFaixa();
+    await pg.click('#itinMomentosBtn');
+    await esperar(pg, () => !document.querySelector('#library > li.momento'));
+    const ocultos = await pg.evaluate(() => document.querySelectorAll('#library > :is(.grupo-ini, .grupo-meio, .grupo-fim)').length);
+    checar(antes > 0 && ocultos === 0, 'G′ · com os momentos OCULTOS nenhuma linha leva classe de grupo (nem tinta)', { antes, ocultos });
+    await abrirFaixa();
+    await pg.click('#itinMomentosBtn');
+    await esperar(pg, () => !!document.querySelector('#library > li.momento'));
+  }
+
+  // ── G′. O GRUPO RECOLHIDO: tocar o momento com mídia esconde as mídias dele ──
+  // Do lote de hoje: tocar a `.row` do momento recolhe o grupo (só em memória), tocar de
+  // novo expande; um momento SEM mídia não recolhe (o toque abre a `#itinPopup`); o grupo
+  // recolhido leva as mídias escondidas no arrasto (ordem gravada + horários pela grade);
+  // e com os momentos ocultos nada fica recolhido. Recomeça a lista do zero para medir o
+  // ponto de partida conhecido (o mesmo do começo do G′).
+  {
+    await pg.evaluate(async () => {
+      itinAjusteZerar();
+      for (const x of await AVDB.listItems('imports')) await AVDB.listRemove('imports', x.id);
+      const msg = (n) => AVDB.addCue('message', { text: n }, { name: n, list: 'imports' });
+      const mom = (n, min) => AVDB.addCue('momento', { min }, { name: n, list: 'imports' });
+      await msg('Aviso solto'); await mom('Recepção', 540); await msg('Boas-vindas'); await mom('Louvor', 600);
+      await msg('Hino 1'); await msg('Hino 2'); await mom('Pregação', 630); await msg('Apelo'); await mom('Bênção', 700);
+      await load();
+    });
+    await esperar(pg, () => document.querySelectorAll('#library > li.lib-item').length === 9);
+    // A FAIXA HERDADA DA SEÇÃO ANTERIOR pode fechar sozinha no meio do arrasto e puxar a
+    // lista 40px: fechada agora, a geometria do gesto não muda debaixo do dedo.
+    await fecharFaixa();
+    const nomesNaTela2 = () => pg.evaluate(() => [...document.querySelectorAll('#library > li.lib-item .row-name')].map((x) => x.textContent).join());
+    const base2 = await nomesNaTela2();
+    const idDe = (n) => pg.evaluate((nome) => [...document.querySelectorAll('#library > li.lib-item')]
+      .find((li) => li.querySelector('.row-name').textContent === nome).dataset.id, n);
+    const tocar = async (n) => { await pg.click('#library > li.lib-item[data-id="' + (await idDe(n)) + '"] .row-name'); };
+    const estadoDo = (n) => pg.evaluate((nome) => {
+      const li = [...document.querySelectorAll('#library > li.lib-item')].find((x) => x.querySelector('.row-name').textContent === nome);
+      const cs = getComputedStyle(li, '::after');
+      return { recolhido: li.classList.contains('recolhido'), exp: li.getAttribute('aria-expanded'),
+        ocultas: li.dataset.ocultas == null ? null : li.dataset.ocultas, seta: !!li.querySelector('.momento-seta'),
+        sub: li.querySelector('.momento-sub-txt').textContent,
+        classes: ['grupo-ini', 'grupo-meio', 'grupo-fim'].filter((c) => li.classList.contains(c)).join('+'),
+        fundo: getComputedStyle(li.querySelector('.row')).backgroundColor, desenho: cs.content };
+    }, n);
+    // A TINTA DO GRUPO: o valor cru de `--grupo-fill` e o rgba computado da sonda.
+    const token = await pg.evaluate(() => {
+      const sonda = document.createElement('i'); sonda.style.color = 'var(--grupo-fill)'; document.body.appendChild(sonda);
+      const cru = getComputedStyle(document.documentElement).getPropertyValue('--grupo-fill').trim();
+      const cor = getComputedStyle(sonda).color; sonda.remove();
+      return { cru, cor };
+    });
+    const nomeDa = (n) => nomesNaTela2().then((s) => s.split(','));
+    // (1) TOCAR RECOLHE: "Pregação" tem uma mídia ("Apelo").
+    await tocar('Pregação');
+    const fechou = await esperar(pg, () => {
+      const li = [...document.querySelectorAll('#library > li.lib-item')].find((x) => x.querySelector('.row-name').textContent === 'Pregação');
+      return !!li && li.classList.contains('recolhido') && /1 item/.test(li.querySelector('.momento-sub-txt').textContent);
+    });
+    const e1 = await estadoDo('Pregação');
+    const desenho1 = await nomeDa();
+    checar(fechou === true && e1.recolhido && e1.exp === 'false' && e1.ocultas === '1' && e1.seta
+      && !desenho1.includes('Apelo') && e1.sub.includes('1 item') && e1.classes === 'grupo-ini+grupo-fim'
+      && e1.fundo === token.cor && e1.desenho === 'none',
+      'G′ · tocar a `.row` do momento com grupo RECOLHE as mídias dele: `li.recolhido`, `aria-expanded="false"`, '
+      + '`dataset.ocultas` = 1, a seta `.momento-seta`, o subtítulo "1 item" — e o grupo recolhido continua '
+      + '`grupo-ini` + `grupo-fim`, com a tinta de `--grupo-fill` e nenhum contorno', { e1, desenho1, token });
+    // (2) DE NOVO EXPANDE: as mídias voltam na ordem de antes.
+    await tocar('Pregação');
+    const abriu = await esperar(pg, () => {
+      const li = [...document.querySelectorAll('#library > li.lib-item')].find((x) => x.querySelector('.row-name').textContent === 'Pregação');
+      return !!li && !li.classList.contains('recolhido')
+        && [...document.querySelectorAll('#library > li.lib-item .row-name')].some((x) => x.textContent === 'Apelo');
+    });
+    const desenho2 = await nomeDa();
+    checar(abriu === true && desenho2.join() === base2,
+      'G′ · tocar de novo EXPANDE o grupo: as mídias voltam desenhadas e na ordem de antes', { abriu, desenho2 });
+    // (2b) O PLURAL do subtítulo: "Louvor" esconde DUAS mídias ("Hino 1" e "Hino 2").
+    await tocar('Louvor');
+    const dois = await esperar(pg, () => {
+      const li = [...document.querySelectorAll('#library > li.lib-item')].find((x) => x.querySelector('.row-name').textContent === 'Louvor');
+      return !!li && li.classList.contains('recolhido') && li.dataset.ocultas === '2'
+        && /2 itens/.test(li.querySelector('.momento-sub-txt').textContent);
+    });
+    await tocar('Louvor');
+    const voltaram = await esperar(pg, (b) => [...document.querySelectorAll('#library > li.lib-item .row-name')]
+      .map((x) => x.textContent).join() === b, base2);
+    checar(dois === true && voltaram === true,
+      'G′ · o subtítulo do recolhido conta o que está escondido ("2 itens"), e reabrir devolve as duas mídias na ordem',
+      { dois, voltaram });
+    // (3) MOMENTO SEM MÍDIA NÃO RECOLHE: o toque abre a folha de edição ("Bênção" é o último).
+    await tocar('Bênção');
+    const folha = await esperar(pg, () => document.getElementById('itinPopup').classList.contains('open'));
+    const eB = await estadoDo('Bênção');
+    const nenhumRecolhido = await pg.evaluate(() => document.querySelectorAll('#library > li.recolhido').length);
+    await pg.click('#itinPopupClose');
+    await esperar(pg, () => !document.getElementById('itinPopup').classList.contains('open'));
+    checar(folha === true && !eB.recolhido && eB.exp === null && nenhumRecolhido === 0,
+      'G′ · um momento SEM mídia não recolhe: o toque abre a `#itinPopup`, e a linha não ganha `recolhido` nem `aria-expanded`',
+      { folha, eB, nenhumRecolhido });
+    // (4) ARRASTAR O GRUPO RECOLHIDO leva as mídias escondidas: ordem gravada e grade.
+    await tocar('Pregação');
+    await esperar(pg, () => {
+      const li = [...document.querySelectorAll('#library > li.lib-item')].find((x) => x.querySelector('.row-name').textContent === 'Pregação');
+      return !!li && li.classList.contains('recolhido');
+    });
+    const a = await arrastar('Pregação', (g) => g['Louvor'].top + 3);
+    const r = await esperarDb(pg, async (e) => (await AVDB.listItems('imports'))
+      .map((x) => x.name + (ehMomento(x) ? '@' + x.data.min : '')).join() === e,
+    'Aviso solto,Recepção@540,Boas-vindas,Pregação@600,Apelo,Louvor@630,Hino 1,Hino 2,Bênção@700', 8000);
+    const fresco = await esperar(pg, () => itinDescriptor().itens.map((x) => x.titulo).join() === 'Recepção,Pregação,Louvor,Bênção');
+    const e2 = await estadoDo('Pregação');
+    const desenho3 = await nomeDa();
+    checar(a.levantou && a.levantadas === 'Pregação' && r === true && fresco === true
+      && !desenho3.includes('Apelo') && e2.recolhido && e2.ocultas === '1',
+      'G′ · arrastar o grupo RECOLHIDO leva as mídias escondidas: a ordem gravada leva "Apelo" junto, a grade troca '
+      + 'os horários (Pregação 600, Louvor 630), o telão segue o relógio e o grupo continua recolhido',
+      { a, banco: await bancoMin(), fresco, desenho3 });
+    // (5) COM OS MOMENTOS OCULTOS nada fica recolhido; de volta, a lista volta inteira.
+    await abrirFaixa();
+    await pg.click('#itinMomentosBtn');
+    await esperar(pg, () => !document.querySelector('#library > li.momento'));
+    const ocultos = await pg.evaluate(() => ({
+      recolhidos: document.querySelectorAll('#library > li.recolhido').length,
+      grupos: document.querySelectorAll('#library > :is(.grupo-ini, .grupo-meio, .grupo-fim)').length,
+      apelo: [...document.querySelectorAll('#library > li.lib-item .row-name')].some((x) => x.textContent === 'Apelo'),
+    }));
+    await abrirFaixa();
+    await pg.click('#itinMomentosBtn');
+    await esperar(pg, () => document.querySelectorAll('#library > li.lib-item').length === 9);
+    const devolta = await pg.evaluate(() => ({
+      recolhidos: document.querySelectorAll('#library > li.recolhido').length,
+      ocultas: document.querySelectorAll('#library > [data-ocultas]').length,
+    }));
+    checar(ocultos.recolhidos === 0 && ocultos.grupos === 0 && ocultos.apelo === true
+      && devolta.recolhidos === 0 && devolta.ocultas === 0,
+      'G′ · com os momentos OCULTOS nada fica recolhido; de volta, a lista volta inteira (sem `recolhido` nem `data-ocultas`)',
+      { ocultos, devolta });
   }
 
   checar(erros.length === 0, 'nenhum erro de console', erros);

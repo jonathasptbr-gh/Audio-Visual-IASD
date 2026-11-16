@@ -423,6 +423,27 @@
       <path d="M10.2 9.2 14.6 12l-4.4 2.8z"/>
       <path d="M3 3.5 21 20.5"/>
     </symbol>
+    <!-- OS DOIS INTERRUPTORES DA FAIXA DO ITINERÁRIO, no mesmo par (o risco do
+         "desligado"): os MOMENTOS na lista (a pauta do itinerário) e o
+         itinerário no TELÃO (o olho). Sprite e não `.msym`: a fonte é subset. -->
+    <symbol id="icoMomentos" viewBox="0 0 24 24">
+      <path d="M5 6h.01M5 12h.01M5 18h.01" stroke-width="3"/>
+      <path d="M9.5 6H20M9.5 12H20M9.5 18H16"/>
+    </symbol>
+    <symbol id="icoMomentosOff" viewBox="0 0 24 24">
+      <path d="M5 6h.01M5 12h.01M5 18h.01" stroke-width="3"/>
+      <path d="M9.5 6H20M9.5 12H20M9.5 18H16"/>
+      <path d="M3 3.5 21 20.5"/>
+    </symbol>
+    <symbol id="icoOlho" viewBox="0 0 24 24">
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/>
+      <circle cx="12" cy="12" r="3"/>
+    </symbol>
+    <symbol id="icoOlhoOff" viewBox="0 0 24 24">
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/>
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M3 3.5 21 20.5"/>
+    </symbol>
     <!-- A TELA (v1.11.7): o monitor com o pé. Ele diz "a tela onde o culto
          aparece" — o mesmo retângulo de proporção larga do `#icoAjustar` e do
          `#icoPreencher`, que são o telão em todos eles, mais o pé que o separa
@@ -1002,6 +1023,16 @@
              porque o `viewBox` sozinho não dá tamanho a um `<svg>` sem CSS. -->
         <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M14 3v5h5"/><line x1="12" y1="12" x2="12" y2="17.6"/><line x1="9.2" y1="14.8" x2="14.8" y2="14.8"/></svg>
       </button>
+      <!-- A PORTA DO ITINERÁRIO, AO LADO DO IMPORTAR (pedido de 15/11): *"o ícone
+           para exibir a linha de botões do itinerário deve ficar ao lado do botão
+           de importar arquivo"*. Mora na MESMA trilha 1 (sobreposta na célula,
+           deslocada pela margem): as trilhas não mudam e o título não sai do
+           eixo. Abre e fecha o `#itinBar`, leva o ponto do "no ar" e nasce
+           `hidden` — `renderItinBar` o mostra onde a faixa existiria. -->
+      <button id="itinBarBtn" class="crono-itin" type="button" title="Itinerário" aria-label="Itinerário" aria-expanded="false" aria-controls="itinBar" hidden>
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+        <span class="itin-ponto" aria-hidden="true" hidden></span>
+      </button>
       <!-- A ORDEM DA FAIXA É saída · lugar · destino (v5.107): "Modo Fácil" à
            esquerda, o nome da tela no meio, "Favoritos" à direita. A seta do
            botão de modo aponta para a esquerda, e um botão que aponta para fora
@@ -1076,9 +1107,11 @@
          linhas desta lista e o telão, o ajuste do horário e o adicionar moram aqui.
          Irmã da barra do topo, não filha: a barra é uma grade de três trilhas
          medida ao pixel (`--hit`), e uma linha a mais dentro dela mexeria na conta
-         dos três moradores. Quem a desenha (e a recolhe) é `renderItinBar`; vazia
-         até o primeiro `load()`, e escondida com o `<main>` no Modo Fácil. -->
-    <div id="itinBar" class="itin-bar" role="toolbar" aria-label="Itinerário do cronograma"></div>
+         dos três moradores. Quem a desenha é `renderItinBar`; RECOLHIDA ela não
+         desenha nada (`hidden`) — quem abre e fecha é o `#itinBarBtn` da barra,
+         e ela se recolhe sozinha (`ITIN_FAIXA_FECHO_MS`). Escondida com o
+         `<main>` no Modo Fácil. -->
+    <div id="itinBar" class="itin-bar" role="toolbar" aria-label="Itinerário do cronograma" hidden></div>
 
     <!-- O CORPO DA LISTA (v1.3.10). Ele existe para dar OFFSET PARENT à folha
          de Ferramentas: ela desliza de baixo para cima DENTRO do Cronograma —
@@ -1978,7 +2011,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.34</span>
+          <span id="appVersion">v1.14.35</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>

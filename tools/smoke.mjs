@@ -4063,9 +4063,12 @@ try {
       // A FAIXA DO ITINERÁRIO (v1.14.34): com a folha aberta ela sai de cena, e é
       // a altura dela que explica a lista subir — sem esta medida a diferença
       // viraria "pulo" e a asserção de baixo reprovaria o desenho de propósito.
+      // A PORTA dela (`#itinBarBtn`, Pacote 35) mora na barra, ao lado do título.
       const b = document.getElementById('itinBar');
       const banda = b && b.getClientRects().length ? b.getBoundingClientRect() : null;
+      const p = document.getElementById('itinBarBtn');
       return {
+        porta: !!p && p.getClientRects().length > 0,
         x: Math.round(t.x), y: Math.round(t.y),
         meio: Math.round(t.x + t.width / 2), eixo: Math.round(h.x + h.width / 2),
         faixaH: Math.round(h.height), listaY: Math.round(l.y),
@@ -4076,6 +4079,12 @@ try {
     if (!await ate(() => document.getElementById('listTitle').textContent === 'Cronograma')) {
       return { erro: 'o Cronograma não foi desenhado' };
     }
+    // A FAIXA NASCE RECOLHIDA (Pacote 35): sem abri-la pela porta, a `bandaH` seria
+    // zero e a conta da lista passaria vácua. Abre-se logo antes de medir (ela se
+    // recolhe sozinha após 5 s sem toque).
+    const porta = document.getElementById('itinBarBtn');
+    if (porta && porta.getAttribute('aria-expanded') !== 'true') porta.click();
+    await ate(() => document.getElementById('itinBar').getClientRects().length > 0, 2000);
     const crono = onde();
     // A BÍBLIA VIROU FOLHA (v1.5.0), e com ela o VOLTAR mudou de casa: o do
     // cabeçalho só servia a ela e hoje nasce sempre oculto; quem sobe
@@ -4095,6 +4104,7 @@ try {
     const tituloDaFolha = document.getElementById('bibleTitle').textContent;
     fecharBiblia();
     await ate(() => document.getElementById('listTitle').textContent === 'Cronograma');
+    if (porta && porta.getAttribute('aria-expanded') === 'true') porta.click();   // devolve a recolhida
     return { crono, livros, capitulos, voltarDaFolha, voltarDoApp, tituloDaFolha };
   });
   const emX = (a) => a.map((t) => t.x);
@@ -4114,17 +4124,26 @@ try {
     JSON.stringify(eixo));
   checar(!eixo.erro && igual(emY(telas)) && igual(telas.map((t) => t.faixaH))
     && eixo.livros.listaY === eixo.capitulos.listaY
+    && eixo.crono.bandaH > 0
     && Math.abs((eixo.crono.listaY - eixo.livros.listaY) - eixo.crono.bandaH) <= 1,
     'e não DESCE tampouco: a linha da grade é declarada, então a altura da faixa '
     + 'não é mais a do item mais alto — o título fica no mesmo y nas três telas, e '
     + 'a lista só sobe quando a FOLHA está aberta, pela altura da faixa do '
-    + 'itinerário que cede a ela (v1.14.34) (y: ' + emY(telas).join(' · ')
+    + 'itinerário (aberta pela porta antes de medir) que cede a ela (v1.14.34) (y: ' + emY(telas).join(' · ')
     + ' · faixa: ' + telas.map((t) => t.faixaH).join(' · ')
     + ' · lista: ' + telas.map((t) => t.listaY).join(' · ')
     + ' · banda: ' + telas.map((t) => t.bandaH).join(' · ') + ')', JSON.stringify(eixo));
   checar(!eixo.erro && Math.abs(eixo.capitulos.meio - eixo.capitulos.eixo) <= 1,
     'e ele fica no EIXO da faixa, não deslocado para a direita dela — é o que o '
     + 'vão da trilha 3 existe para pagar', JSON.stringify(eixo));
+  // A PORTA DO ITINERÁRIO À VISTA NÃO TIRA O TÍTULO DO EIXO (Pacote 35): ela divide a
+  // célula do importar, deslocada por margem. O `x`/`y` parados acima já comparam o
+  // Cronograma (porta à vista) com a folha (porta escondida); aqui, o meio.
+  checar(!eixo.erro && eixo.crono.porta === true && eixo.livros.porta === false
+    && Math.abs(eixo.crono.meio - eixo.crono.eixo) <= 1,
+    'e com a PORTA do itinerário (`#itinBarBtn`) à vista o título continua no EIXO da '
+    + 'barra (meio ' + (eixo.crono && eixo.crono.meio) + ' · eixo ' + (eixo.crono && eixo.crono.eixo) + ')',
+    JSON.stringify(eixo.crono || eixo));
 } catch (e) {
   checar(false, 'a medição do eixo do título terminou sem exceção (' + (e && e.message) + ')');
 }

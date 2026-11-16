@@ -14,8 +14,8 @@
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    CRONOGRAMA                    [Cfg]  │ ← .list-header (topo; sem appbar)
-│ [Telão][⏱] −5 −1  no horário  +1 +5  [+] [⌃]            │ ← #itinBar (a segunda linha; recolhível)
+│ [Imp][Itin]        CRONOGRAMA                    [Cfg]  │ ← .list-header (topo; sem appbar)
+│ [olho][pauta][⏱]  [−5] no horário [+5]  [+]             │ ← #itinBar (a segunda linha: estado · atraso · criação; aberta pelo [Itin], nasce recolhida = vazia)
 │  ┌───────────────────────────────────────────────────┐  │
 │  │  item 1                                           │  │  ← .lib-list
 │  │  item 2                                           │  │     (área scrollável)
@@ -42,23 +42,31 @@ ganhou `padding-top` com `env(safe-area-inset-top)`.
 **A SEGUNDA LINHA (`#itinBar`, v1.14.32):** as opções do itinerário do Cronograma,
 IRMÃ da barra do topo e não filha dela — a barra é uma grade de três trilhas medida
 ao pixel (`--hit`), e uma linha a mais dentro dela mexeria na conta dos três
-moradores. Da cor `--bar`, sangrando até as bordas pela mesma margem negativa
-(`-.8rem`) e com a de baixo (`-var(--sp-5)`) anulando o `gap` do `<main>`, como a de
-cima faz. ≈ 40,4 px (a barra do topo tem 43,6), uma fita de ≈ 35,6 px recolhida.
-**O topo de `#library` é a borda de baixo dela**, e é por ela que se mede a lista.
+moradores. **Nasce SEMPRE recolhida, e recolhida é vazia e `hidden`: não desenha
+nem ocupa nada.** Quem a abre e fecha é a PORTA `#itinBarBtn` (`.crono-itin`, o
+`[Itin]` do desenho), na própria barra: logo depois do `#cronoImportar`, na MESMA
+célula (1,1) da grade, deslocada por `margin-left: calc(var(--hit) + var(--sp-2))`
+— as trilhas não mudam e o `#listTitle` fica no eixo; por isso o
+`.crono-importar` leva `grid-row: 1` explícito (sem ele o posicionamento
+automático o desceria para uma segunda linha). Aberta, a faixa se recolhe sozinha
+depois de `ITIN_FAIXA_FECHO_MS` (5 s) sem toque nela, e nada disso é gravado.
+TRANSPARENTE (sem fundo), em TRÊS SEÇÕES `div.itin-secao` (`role="group"`), separadas
+SÓ por espaço: ESTADO (telão · momentos · horários; soltos, com o par de ligado) ·
+ATRASO (os ±5 em cartão `--surface`, o atraso sem caixa) · CRIAÇÃO (o `+`, sólido em
+`--accent-fill` + `--on-accent`, o par do botão primário). **A faixa reparte a sobra com `justify-content: space-between`** (ESTADO à esquerda · ATRASO no centro · CRIAÇÃO à direita) e as três seções são `flex: none`: o vão `column-gap: var(--sp-6)` entre elas é o que absorve a sobra. O ATRASO é COMPACTO — `.itin-secao--atraso { flex: none; gap: var(--sp-1) }`, com o `#itinAjusteTxt` de `flex: none; min-width: 2.9rem; text-align: center` —, medido 2 px por dentro do atraso e 17/37/67 px entre as seções a 320/360/430. Dentro das demais, `gap: var(--sp-2)` (`--sp-1` abaixo de 420 px); a faixa sangra até as bordas
+pela mesma margem negativa (`-.8rem`) e com a de baixo (`-var(--sp-5)`) anulando o
+`gap` do `<main>`, como a de cima faz. **Aberta, o topo de `#library` é a borda de
+baixo dela**, e é por ela que se mede a lista.
 **E ela CEDE A FOLHA (v1.14.34):** com a `#toolsSheet` ou a `#bibleSheet` aberta,
-`main:has(> .list-body > .tools-sheet:not([hidden])) > #itinBar` a tira — a folha
-cobre o Cronograma inteiro, e é a altura da faixa que faltava para as linhas das
-Ferramentas e para a Bíblia cumprirem os pisos. Consulta de contêiner
-(`container-type: inline-size` na própria faixa; ela só estiliza DESCENDENTES,
-então o vão do contêiner vai por `@media`): abaixo de 400 px o atraso passa a
-"+5 min" e abaixo de 370 px o rótulo do telão cede (a consulta mede o CONTEÚDO:
-360 px de tela são ~334 px; a soma dos nove, no piso de 34 px, encosta neles).
-**Quebra em duas linhas** (`flex-wrap`) quando não cabe — a 360 px com a fonte do
-sistema em 1,3× ou mais, e a 320 px —, com o atraso de `flex-basis: 0` como
-elástico e o par `+ ⌃` à direita da segunda (`.itin-novo { margin-left: auto }`):
-esconder os dois atrás da borda era o pior desfecho, sem rolagem para chegar a
-eles. Detalhe das peças em
+`main:has(> .list-body > .tools-sheet:not([hidden])) :is(#itinBar, #itinBarBtn)`
+tira a faixa e a porta — a folha cobre o Cronograma inteiro, e é a altura da faixa
+que faltava para as linhas das Ferramentas e para a Bíblia cumprirem os pisos.
+Consulta de contêiner (`container-type: inline-size` na própria faixa; ela só
+estiliza DESCENDENTES, então o vão do contêiner vai por `@media`): abaixo de 400 px
+o atraso passa a "+5 min" (a consulta mede o CONTEÚDO: 360 px de tela são ~334 px).
+**Quebra** (`flex-wrap`) quando não cabe — tela estreita ou fonte do sistema grande —,
+e quem desce é a SEÇÃO inteira; esconder o `+` atrás da borda era o pior desfecho,
+sem rolagem para chegar a ele. Detalhe das peças em
 [CAMADA-DE-TEXTO.md](CAMADA-DE-TEXTO.md), "O itinerário é uma opção do Cronograma".
 
 **Cabeçalho da lista (`.list-header`):** o `#listTitle` centrado, o

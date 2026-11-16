@@ -141,11 +141,9 @@ try {
     await z(350);   // a medida é do quadro ASSENTADO: durante a entrada ela ainda desliza
     const g = await pg.evaluate(() => {
       const gv = document.getElementById('cronoGaveta');
-      // O CABEÇALHO TEM DUAS PEÇAS (v1.14.32): a barra do topo e, logo abaixo, a faixa de
-      // opções do itinerário (`#itinBar`). A gaveta nasce na LISTA — logo abaixo da ÚLTIMA
-      // peça à vista —, então é a borda de baixo dela (e só sem ela a da barra) que o
-      // "logo abaixo" mede. Contra a barra o vão seria a faixa mais o vão de sempre
-      // (43,4px = 37,8 + 5,6), e a asserção acusaria uma folga que a gaveta não tem.
+      // O CABEÇALHO TEM DUAS PEÇAS: a barra do topo e, abaixo dela, a faixa do itinerário
+      // (`#itinBar`), que nasce RECOLHIDA (`hidden`, sem retângulo — Pacote 35). A gaveta
+      // nasce logo abaixo da ÚLTIMA peça à vista: a faixa, se aberta; senão a barra.
       const fx = document.getElementById('itinBar');
       const h = (fx && fx.getClientRects().length ? fx : document.querySelector('.list-header')).getBoundingClientRect();
       const r = gv.getBoundingClientRect();
@@ -459,13 +457,17 @@ try {
     await fecharGaveta();
     const r = await pg.evaluate(() => {
       const t = document.getElementById('cronoTitulo').getBoundingClientRect();
-      const m = document.getElementById('cronoImportar').getBoundingClientRect();
+      // O VIZINHO DA ESQUERDA é a porta do itinerário (`#itinBarBtn`, Pacote 35) quando à
+      // vista — ela mora depois do Importar, na mesma célula —; senão o próprio Importar.
+      const p = document.getElementById('itinBarBtn');
+      const porta = !!p && p.getClientRects().length > 0;
+      const m = (porta ? p : document.getElementById('cronoImportar')).getBoundingClientRect();
       const g = document.getElementById('settingsBtn').getBoundingClientRect();
-      return { esq: t.left - m.right, dir: g.left - t.right, larg: document.documentElement.scrollWidth - innerWidth,
+      return { porta, esq: t.left - m.right, dir: g.left - t.right, larg: document.documentElement.scrollWidth - innerWidth,
         gear: g.right <= innerWidth };
     });
     checar(r.esq >= 0 && r.dir >= 0 && r.larg <= 0 && r.gear,
-      'L · um nome longo cabe entre o Importar e a engrenagem, sem empurrar ninguém para fora',
+      'L · um nome longo cabe entre o Importar (e a porta do itinerário, à vista) e a engrenagem, sem empurrar ninguém para fora',
       JSON.stringify(r));
   }
 

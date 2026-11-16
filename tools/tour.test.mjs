@@ -659,20 +659,22 @@ try {
     const alvos = pc.map((m) => [].concat(m.alvo).join('+'));
     // O DECK, UM A UM (v1.14.20): a barra, a prévia com as setas, o grupo de tocar (sem o repetir e a
     // playlist, que abrem a fileira) e cada exclusivo do Avançado têm o próprio balão.
-    const quer = ['#library', '#cronoTitulo', '#cronoImportar', '#itinBar', '#bibleBtn', '#toolsBtn', '#libBar',
+    const quer = ['#library', '#cronoTitulo', '#cronoImportar', '#itinBarBtn', '#bibleBtn', '#toolsBtn', '#libBar',
       '.np-seek', '#slidePrevBtn+#preview+#slideNextBtn', '#prev+#playpause+#next+#stop', '#repeat', '#plBtn',
       '#lyricsViewBtn', '#viewToggle', '#muteToggle', '#pvFullBtn', '#pvCastBtn', '#settingsBtn'];
     checar(quer.every((a) => alvos.includes(a)) && !alvos.includes('#seek+.transport'),
-      'C · Cronograma, troca, Importar, a faixa do Itinerário, Bíblia, Ferramentas, Biblioteca, o deck um a um (barra, prévia e setas, tocar, playlist, repetir, auxiliar, cobrir, mutar, tela cheia), conectar e Configurações', alvos.join(' '));
-    // A FAIXA DO ITINERÁRIO (v1.14.32): `#itinBar` mora logo abaixo da barra do topo, e o passo dela — `opcional`: só existe
-    // com a faixa à vista — é DECLARADO depois do Importar, mas o tour MOSTRA na ordem da tela: ele vem depois de TODAS as
-    // peças da barra do topo (Importar, o nome do cronograma e Configurações, na mesma linha) e antes da Bíblia (a primeira do
-    // rodapé). É o único lugar do tour onde o Itinerário se explica: ele deixou de ser ferramenta e não tem passo nas Ferramentas.
-    const iFaixa = alvos.indexOf('#itinBar');
-    const iBarra = ['#cronoImportar', '#cronoTitulo', '#settingsBtn'].map((a) => alvos.indexOf(a));
-    checar(iFaixa > 0 && iBarra.every((i) => i >= 0 && i < iFaixa) && iFaixa < alvos.indexOf('#bibleBtn')
-      && pc[iFaixa].titulo === 'Itinerário' && !!pc[iFaixa].peca && recorteBate(pc[iFaixa]),
-      'C · a faixa do Itinerário tem o passo dela (título "Itinerário"), DEPOIS das peças da barra do topo e antes da Bíblia, recortando a faixa', alvos.join(' '));
+      'C · Cronograma, troca, Importar, a porta do Itinerário, Bíblia, Ferramentas, Biblioteca, o deck um a um (barra, prévia e setas, tocar, playlist, repetir, auxiliar, cobrir, mutar, tela cheia), conectar e Configurações', alvos.join(' '));
+    // A PORTA DO ITINERÁRIO (Pacote 35): a faixa nasce recolhida e não desenha nada, então o passo é o do
+    // `#itinBarBtn`, que mora NA barra do topo, colado à direita do Importar. O tour mostra na ordem da tela
+    // (linha a linha, `left` crescente): o Importar, LOGO DEPOIS a porta, e só então o nome do cronograma —
+    // tudo antes da Bíblia. É o único lugar do tour onde o Itinerário se explica (não é ferramenta).
+    const iPorta = alvos.indexOf('#itinBarBtn');
+    const iImp = alvos.indexOf('#cronoImportar'), iTit = alvos.indexOf('#cronoTitulo');
+    checar(iPorta > 0 && iPorta === iImp + 1 && iTit > iPorta && iPorta < alvos.indexOf('#bibleBtn')
+      && pc[iPorta].titulo === 'Itinerário' && !!pc[iPorta].peca && recorteBate(pc[iPorta])
+      && !alvos.includes('#itinBar'),
+      'C · a porta do Itinerário (`#itinBarBtn`) tem o passo dela, LOGO DEPOIS do Importar e antes do nome do '
+      + 'cronograma e da Bíblia, recortando o botão — e a faixa recolhida não tem passo', alvos.join(' '));
     // A PRÉVIA ANTES DOS BOTÕES QUE MORAM NELA (v1.14.21, pedido do operador): o passo da prévia com as setas
     // CONTÉM o Cobrir, o Mutar e a Tela cheia (e o Conectar, onde ele aparece) — a moldura vem antes.
     const tit = pc.map((m) => m.titulo);
@@ -728,8 +730,8 @@ try {
     checar(titulosF.includes('Editar mídia') && !titulosF.includes('Fechar') && pf.length >= 4,
       'G2 · a lista de Ferramentas explica o Editar mídia e NÃO tem o passo "Fechar"', titulosF.join(' · '));
     // UM PASSO POR LINHA, com o tempo (três tiles) num recorte só: o tempo, Mensagens, Sorteio e o Editar mídia — QUATRO. O
-    // Itinerário não é ferramenta (v1.14.32: é a faixa `#itinBar` do Cronograma, explicada no tour do avançado), então nenhum
-    // passo da lista o cita; a lista fechada reprova tanto o passo que sobra quanto o que falta.
+    // Itinerário não é ferramenta (é opção do Cronograma, explicada no tour do avançado pelo `#itinBarBtn`), então
+    // nenhum passo da lista o cita; a lista fechada reprova tanto o passo que sobra quanto o que falta.
     checar(titulosF.join(' | ') === 'Relógio, Cronômetro e Timer | Mensagens | Sorteio | Editar mídia',
       'G2 · a lista de Ferramentas tem QUATRO passos — o tempo, Mensagens, Sorteio e o Editar mídia — e nenhum é o do Itinerário', titulosF.join(' · '));
     await pular(pg);

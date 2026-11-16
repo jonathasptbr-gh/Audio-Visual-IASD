@@ -555,6 +555,10 @@
   --accent: #95b5f4;
   --accent-fill: #2f557f;                /* denim OFICIAL */
   --accent-soft: rgba(149, 181, 244, .16);
+  /* A TINTA DO GRUPO do Itinerário: o momento e as mídias dele vestem esta tinta no
+     lugar da linha neutra, e o bloco inteiro lê como um conjunto (pedido de 15/11).
+     É PREENCHIMENTO, não moldura — o app não desenha contorno nenhum. */
+  --grupo-fill: rgba(149, 181, 244, .22);
   /* NEAR-MISS DECLARADO (medido na v1.3.0): `--accent` COMO TEXTO sobre esta
      tinta, quando ela cai sobre `--panel`, compõe (61,73,89) e dá **4,46:1** —
      quatro centésimos abaixo do piso de 4,5. Sobre `--bg` (mais escuro) o par
@@ -886,6 +890,7 @@
   --accent: #2f557f;
   --accent-fill: #2f557f;
   --accent-soft: rgba(47, 85, 127, .12);
+  --grupo-fill: rgba(47, 85, 127, .18);
   --on-accent: #ffffff;
 
   --brand: #2f557f;

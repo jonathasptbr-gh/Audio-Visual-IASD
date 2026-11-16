@@ -73,7 +73,12 @@ try {
       setAppMode('full');
       const h = document.querySelector('.list-header');
       const r = h.getBoundingClientRect();
+      // A PORTA DO ITINERÁRIO (`#itinBarBtn`, Pacote 35) é o quarto morador quando à
+      // vista: ela divide a célula do importar e entra na mesma simetria.
+      const p = document.getElementById('itinBarBtn');
+      const porta = !!p && p.getClientRects().length > 0;
       const moradores = ['#cronoImportar', '#cronoTitulo', '.list-header .settings-btn']
+        .concat(porta ? ['#itinBarBtn'] : [])
         .map((s) => document.querySelector(s)).filter(Boolean)
         .map((e) => e.getBoundingClientRect());
       const raiz = getComputedStyle(document.documentElement);
@@ -94,13 +99,14 @@ try {
         // botões que o operador nomeia, e é a caixa deles que encosta.
         acima: +(Math.min(...moradores.map((b) => b.top)) - r.top).toFixed(2),
         abaixo: +(r.bottom - Math.max(...moradores.map((b) => b.bottom))).toFixed(2),
-        moradores: moradores.length,
+        moradores: moradores.length, porta,
       };
     });
-    checar(barra.moradores === 3, onde + ' · (premissa) a barra do topo tem os três moradores', barra);
+    checar(barra.porta && barra.moradores === 4,
+      onde + ' · (premissa) a barra do topo tem os quatro moradores — a porta do itinerário inclusive', barra);
     checar(Math.abs(barra.acima - barra.abaixo) < 1,
       onde + ' · 1 · a barra do topo do Cronograma respira IGUAL em cima e '
-      + 'embaixo — o `padding-bottom` era ZERO, e os três terminavam exatamente '
+      + 'embaixo — o `padding-bottom` era ZERO, e os moradores terminavam exatamente '
       + 'na fronteira de baixo', JSON.stringify(barra));
     checar(barra.acima > 2,
       onde + ' · 1 · e o respiro não foi zerado dos dois lados: simetria com vão '

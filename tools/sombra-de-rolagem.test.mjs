@@ -1224,65 +1224,66 @@ try {
       await load(); await z(400);
       document.getElementById('library').scrollTop = 300; await z(300);
     });
-    const r = await pg.evaluate(() => {
-      const cab = document.querySelector('.list-header');
-      const c = cab.getBoundingClientRect();
-      const lib = document.getElementById('library');
-      const l = lib.getBoundingClientRect();
-      // O CABEÇALHO TEM DUAS PEÇAS (v1.14.32): a barra do topo e, logo abaixo dela, a
-      // FAIXA de opções do itinerário (`#itinBar`, da mesma cor, de borda a borda). A
-      // lista nasce na borda de baixo da ÚLTIMA peça à vista — a faixa, e só sem ela a
-      // barra —, e é ali que o corte tem de encostar: medir contra a barra acusaria os
-      // 37,8px da faixa como um vão que não existe.
+    // O CABEÇALHO TEM DUAS PEÇAS (Pacote 35): a barra do topo e, abaixo dela, a FAIXA
+    // de opções do itinerário (`#itinBar`), que nasce RECOLHIDA (`hidden`, sem
+    // retângulo) e abre pelo `#itinBarBtn` da barra. A lista nasce na borda de baixo
+    // da ÚLTIMA peça à vista, e é ali que o corte tem de encostar — mede-se nos dois
+    // estados. A faixa se recolhe sozinha após 5 s sem toque: abre-se logo antes de medir.
+    const medir = () => pg.evaluate(() => {
+      const c = document.querySelector('.list-header').getBoundingClientRect();
+      const l = document.getElementById('library').getBoundingClientRect();
       const fx = document.getElementById('itinBar');
       const f = fx && fx.getClientRects().length ? fx.getBoundingClientRect() : null;
-      const fim = f ? f.bottom : c.bottom;
-      // AS AMOSTRAS SÃO NA MOLDURA, e não no meio: no meio da barra mora o
-      // título ("CRONOGRAMA") e no meio da caixa de controles mora o transporte
-      // — ali o pixel mede a FONTE, com franja de antialias, e não a superfície.
-      // Os dois recuos laterais são de 12,8px, então x=4 está dentro do recuo
-      // dos dois e fora de qualquer conteúdo.
+      const porta = document.getElementById('itinBarBtn');
+      // AS AMOSTRAS SÃO NA MOLDURA, e não no meio: no meio da barra mora o título e
+      // no meio da caixa de controles o transporte (o pixel mediria a FONTE). x=4
+      // está dentro dos recuos de 12,8px da barra, da faixa e da lista.
       return { x: 4, yCab: Math.round(c.bottom - 4),
         yFaixa: f ? Math.round(f.bottom - 4) : null,
+        yLista: Math.round(l.top + l.height / 2),
         yBarra: Math.round(document.querySelector('.bottombar').getBoundingClientRect().top + 6),
         esq: +c.left.toFixed(2), larg: +c.width.toFixed(2), tela: innerWidth,
         faixa: f ? { esq: +f.left.toFixed(2), larg: +f.width.toFixed(2), alt: +f.height.toFixed(2) } : null,
-        // A BORDA DE BAIXO DA ÚLTIMA PEÇA É A BORDA DO SCROLLPORT: é isso que faz o
-        // corte "fazer sentido" — a linha some encostada nela, e não no meio de
-        // uma faixa de fundo.
-        vao: +(l.top - fim).toFixed(2),
+        porta: !!porta && porta.getClientRects().length > 0,
+        aberta: porta ? porta.getAttribute('aria-expanded') : null,
+        // A BORDA DE BAIXO DA ÚLTIMA PEÇA É A BORDA DO SCROLLPORT: a linha some
+        // encostada nela, e não no meio de uma faixa de fundo.
+        vao: +(l.top - (f ? f.bottom : c.bottom)).toFixed(2),
         simple: document.body.classList.contains('mode-simple') };
     });
+    const mesma = (a, b) => !!a && !!b
+      && Math.abs(a[0] - b[0]) <= 1 && Math.abs(a[1] - b[1]) <= 1 && Math.abs(a[2] - b[2]) <= 1;
+    const r = await medir();
     const img = lerPng(await pg.screenshot());
     const cor = pixel(img, r.x, r.yCab);
     const corControles = pixel(img, r.x, r.yBarra);
-    const igual = cor && corControles
-      && Math.abs(cor[0] - corControles[0]) <= 1
-      && Math.abs(cor[1] - corControles[1]) <= 1
-      && Math.abs(cor[2] - corControles[2]) <= 1;
-    checar(igual,
+    checar(mesma(cor, corControles),
       'R · ' + tema + ': o cabeçalho pinta a MESMA cor RENDERIZADA da caixa de '
       + 'controles — medido em pixel, não pelo nome do token (o `.deck` não pinta '
       + 'nada; quem carrega a cor é a barra em volta)',
       JSON.stringify({ cabecalho: cor, controles: corControles }));
-    // A FAIXA DO ITINERÁRIO é a peça que o corte agora encosta, então é ela que tem de
-    // ser da mesma cor e ir de borda a borda: com um recuo ou uma cor própria a lista
-    // sumiria numa faixa que não é a barra. É também a PREMISSA da medida de baixo —
-    // sem a faixa à vista o `vão` voltaria a ser contra a barra do topo, calado.
-    const corFaixa = r.faixa ? pixel(img, r.x, r.yFaixa) : null;
-    const faixaIgual = !!corFaixa && !!corControles
-      && Math.abs(corFaixa[0] - corControles[0]) <= 1
-      && Math.abs(corFaixa[1] - corControles[1]) <= 1
-      && Math.abs(corFaixa[2] - corControles[2]) <= 1;
-    checar(!!r.faixa && r.faixa.esq === 0 && r.faixa.larg === r.tela && faixaIgual,
-      'R · ' + tema + ': e a FAIXA do itinerário (`#itinBar`) — a peça que o corte agora '
-      + 'encosta — está à vista, vai de borda a borda e pinta a MESMA cor da caixa de '
-      + 'controles', JSON.stringify({ faixa: r.faixa, cor: corFaixa, controles: corControles }));
-    checar(r.esq === 0 && r.larg === r.tela && Math.abs(r.vao) <= 1,
-      'R · ' + tema + ': e ela é uma BARRA — de borda a borda da tela, com a '
-      + 'lista começando encostada na ÚLTIMA peça dela (a faixa do itinerário; vão '
-      + r.vao + 'px). Uma barra que começa 12,8px depois da borda não descreve a '
-      + 'fronteira de uma lista que vai de 0 a `w`', JSON.stringify(r));
+    // RECOLHIDA: a porta à vista (é a premissa — sem ela não há faixa a recolher), a
+    // faixa sem retângulo e a lista encostada na BARRA do topo.
+    checar(r.porta && r.aberta === 'false' && !r.faixa
+      && r.esq === 0 && r.larg === r.tela && Math.abs(r.vao) <= 1,
+      'R · ' + tema + ': RECOLHIDA, a faixa do itinerário não ocupa nada e a barra do '
+      + 'topo vai de borda a borda com a lista encostada nela (vão ' + r.vao + 'px)',
+      JSON.stringify(r));
+    // ABERTA: TRANSPARENTE (Pacote 35) — o pixel dela é o fundo da LISTA, não a cor
+    // dos controles; borda a borda; e a lista encosta na borda de baixo DELA.
+    await pg.click('#itinBarBtn');
+    await pg.waitForTimeout(300);
+    const ra = await medir();
+    const imgA = lerPng(await pg.screenshot());
+    const corFaixa = ra.faixa ? pixel(imgA, ra.x, ra.yFaixa) : null;
+    const corLista = pixel(imgA, ra.x, ra.yLista);
+    const corControlesA = pixel(imgA, ra.x, ra.yBarra);
+    checar(ra.aberta === 'true' && !!ra.faixa && ra.faixa.esq === 0 && ra.faixa.larg === ra.tela
+      && mesma(corFaixa, corLista) && !mesma(corFaixa, corControlesA) && Math.abs(ra.vao) <= 1,
+      'R · ' + tema + ': ABERTA (clique no `#itinBarBtn`), a faixa vai de borda a borda, '
+      + 'pinta o fundo da LISTA (e não a cor dos controles) e a lista encosta na borda '
+      + 'de baixo dela (vão ' + ra.vao + 'px)',
+      JSON.stringify({ ...ra, cor: corFaixa, lista: corLista, controles: corControlesA }));
     await ctx.close();
   }
 

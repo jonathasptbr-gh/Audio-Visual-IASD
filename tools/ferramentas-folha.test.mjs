@@ -160,27 +160,39 @@ try {
   }, sel);
 
   // ── 3. A FOLHA SOBE DENTRO DO CRONOGRAMA, NÃO SOBRE A TELA ──────────────
-  // A PREMISSA DA RÉGUA DE CIMA (v1.14.32), medida com a folha FECHADA: a faixa do Itinerário existe, está colada
-  // embaixo do `.list-header` (±1,5px) e o `#library` começa na borda de baixo dela. É por ela que a folha, a
-  // seguir, é medida contra a faixa e não contra o cabeçalho — sem esta metade a régua voltaria a ser a do
-  // `.list-header` em silêncio.
-  const faixaIt = await pg.evaluate(() => {
+  // A PREMISSA DA RÉGUA DE CIMA, medida com a folha FECHADA, nos DOIS estados da faixa do Itinerário
+  // (`#itinBar`, Pacote 35): ela nasce RECOLHIDA — sem retângulo, com o `#library` colado no `.list-header` — e
+  // abre pela porta `#itinBarBtn`, colada embaixo do cabeçalho (±1,5px) com o `#library` na borda de baixo dela.
+  // A folha é aberta com a faixa ABERTA: sem isso o `faixaOculta` lá embaixo passaria vácuo.
+  const medirFaixa = () => pg.evaluate(() => {
     const b = document.getElementById('itinBar');
-    const c = document.querySelector('.list-header');
-    if (!b) return { ok: false, erro: 'sem #itinBar' };
-    const rb = b.getBoundingClientRect(), rc = c.getBoundingClientRect(), rl = document.getElementById('library').getBoundingClientRect();
-    return { ok: rb.height > 0 && Math.abs(rb.top - rc.bottom) <= 1.5 && Math.abs(rl.top - rb.bottom) <= 1.5,
-      faixa: [+rb.top.toFixed(2), +rb.bottom.toFixed(2)], cabecalhoBase: +rc.bottom.toFixed(2), listaTopo: +rl.top.toFixed(2) };
+    const p = document.getElementById('itinBarBtn');
+    if (!b || !p) return { ok: false, erro: 'sem #itinBar ou #itinBarBtn' };
+    const rc = document.querySelector('.list-header').getBoundingClientRect();
+    const rl = document.getElementById('library').getBoundingClientRect();
+    const tem = b.getClientRects().length > 0, rb = b.getBoundingClientRect();
+    return { tem, porta: p.getClientRects().length > 0, aberta: p.getAttribute('aria-expanded'),
+      colada: tem ? Math.abs(rb.top - rc.bottom) <= 1.5 && Math.abs(rl.top - rb.bottom) <= 1.5 && rb.height > 0
+        : Math.abs(rl.top - rc.bottom) <= 1.5,
+      faixa: tem ? [+rb.top.toFixed(2), +rb.bottom.toFixed(2)] : null,
+      cabecalhoBase: +rc.bottom.toFixed(2), listaTopo: +rl.top.toFixed(2) };
   });
-  checar(faixaIt.ok,
-    'a faixa do Itinerário (`#itinBar`) está de pé entre o cabeçalho e a lista: é a borda de baixo dela que o '
-    + 'topo da lista herda, e a régua da folha, a seguir, mede contra ela (v1.14.32)', faixaIt);
+  const faixaRec = await medirFaixa();
+  checar(faixaRec.porta && faixaRec.aberta === 'false' && !faixaRec.tem && faixaRec.colada,
+    'a faixa do Itinerário nasce RECOLHIDA: a porta (`#itinBarBtn`) à vista, a faixa sem retângulo e o `#library` '
+    + 'colado no `.list-header` (Pacote 35)', faixaRec);
+  await pg.click('#itinBarBtn');
+  await pg.waitForTimeout(200);
+  const faixaIt = await medirFaixa();
+  checar(faixaIt.aberta === 'true' && faixaIt.tem && faixaIt.colada,
+    'aberta pela porta, a faixa do Itinerário (`#itinBar`) fica de pé entre o cabeçalho e a lista: é a borda de '
+    + 'baixo dela que o topo da lista herda, e a régua da folha, a seguir, mede contra ela', faixaIt);
   await pg.click('#toolsBtn');
   await assentar(pg, '#toolsSheet');
   const dentro = await pg.evaluate(() => {
     const f = document.getElementById('toolsSheet');
     // A BARRA DO TOPO TERMINA NA FAIXA DO ITINERÁRIO (v1.14.32), MAS A FAIXA CEDE A FOLHA (v1.14.34): com a
-    // folha aberta o `#itinBar` sai de cena (`main:has(…) > #itinBar`, no `controle.css`) para não comer a altura
+    // folha aberta o `#itinBar` sai de cena com a porta (`main:has(…) :is(#itinBar, #itinBarBtn)`, no `controle.css`) para não comer a altura
     // das linhas das Ferramentas nem cortar a Bíblia; fechada, ela é a última peça do cabeçalho e é a borda dela
     // que o topo do `#library` herda (a premissa é medida com a folha FECHADA, logo acima). O fallback para o
     // `.list-header` continua sendo o desenho de hoje — e é ele que a régua "não cobre o cabeçalho" mede.
@@ -223,7 +235,8 @@ try {
         return { esq: +(r.left - p.left).toFixed(2), dir: +(r.right - p.right).toFixed(2) };
       })(),
       biblia: bibliaAberta(),
-      faixaOculta: !document.getElementById('itinBar').getClientRects().length,
+      faixaOculta: !document.getElementById('itinBar').getClientRects().length
+        && !document.getElementById('itinBarBtn').getClientRects().length,
       // A GRADE (v1.13.3): a folha abre nos seis tiles, nunca numa ferramenta.
       ferramentas: document.querySelectorAll('#ferrGrade .ferr-tile').length === 6,
     };
@@ -234,7 +247,8 @@ try {
     'ela NÃO cobre a barra do topo (a faixa do Itinerário inclusive) nem a caixa de controles — quem projeta um '
     + 'cronômetro precisa do transporte e da preview na frente', dentro);
   checar(dentro.faixaOculta === true,
-    'e a FAIXA do Itinerário se esconde enquanto a folha está aberta (v1.14.34): é a altura dela que a lista '
+    'e a FAIXA do Itinerário (aberta antes) se esconde enquanto a folha está aberta, com a porta dela (v1.14.34; '
+    + 'Pacote 35): é a altura dela que a lista '
     + 'das Ferramentas e a Bíblia precisam para caber no piso', dentro);
   checar(dentro.cobreALista, 'e cobre a lista de cima a baixo, que é o território dela', dentro);
   checar(Math.abs(dentro.bordas.esq) <= 1 && Math.abs(dentro.bordas.dir) <= 1,
