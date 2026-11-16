@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.14.57",
+    "itens": [
+      "Os momentos do itinerário ficaram mais baixos que os itens normais do cronograma.",
+      "As fontes e os botões continuam do mesmo tamanho: diminuiu só o espaço vertical do corpo.",
+      "Todos os momentos seguem com a mesma altura entre si, com ou sem mídias."
+    ]
+  },
+  {
     "versao": "1.14.56",
     "itens": [
       "A aba de conectar ao navegador mostra o link do passador de slides, pronto para copiar.",

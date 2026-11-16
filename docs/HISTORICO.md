@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.57** — o momento do itinerário de volta ao corpo compacto (mais baixo que o item de mídia, com fonte e botões do mesmo tamanho) e todos os momentos iguais com a faixa aberta ou recolhida (só web).
 - **v1.14.56** — o link do passador de slides na folha de conectar (um botão copia e outro manda no WhatsApp, com o número guardado e o 55 automático) e a rota renomeada de `/prega` para `/passador-de-slides` (shell 89, APK + web).
 - **v1.14.55** — os momentos do itinerário com a cor apagada (na faixa dos ladrilhos da Bíblia), a aba de opções de volta ao FLUXO (ela desloca o cronograma, e a sub-aba do momento segue sobreposta) e todos os momentos com a altura de um item normal (só web).
 - **v1.14.54** — a cor de identidade de cada momento do itinerário (na hora e numa linha na borda das miniaturas do grupo) e a aba de opções na largura da gaveta dos cronogramas, sobreposta à lista e concorrente com ela (só web).
@@ -791,6 +792,18 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.57 — o momento do itinerário de volta ao corpo compacto, e todos iguais com a faixa recolhida
+
+**Pedido do operador** (2026-11-16, 18h12–18h20), só web: `SHELL_VERSION` 89 (o shell não foi tocado), `minShell` 83, **sem `shellTag`** (a Release v1.14.56, do lote do passador de slides, já está publicada). Degrau CORREÇÃO. É o ajuste de acompanhamento da v1.14.55, e ele REVOGA uma decisão daquele lote.
+
+A v1.14.55 igualou a altura da linha do momento à de uma mídia (`min-height` = `--thumb` + 2×`--sp-3`) para atender *"todos os momentos devem ter uma altura de 'card'/corpo iguais"*. O operador viu o resultado e corrigiu a leitura: *"preferiria que os momentos sejam mais compactos em altura que os itens comuns do cronograma"* — e, no mesmo dia, *"os momentos ficam mais baixos, mas não diminua suas fontes, ou tamanho de botões, apenas ocupe menos espaço vertical de corpo"*. O `min-height` da `.row` SAIU: a linha do momento volta a ser o que o próprio conteúdo pede — os BOTÕES (`--hit`, 34) mais os dois `--sp-3` do `padding` do `.row`, **45,2px**, contra os **51,2px** de uma mídia (que carrega a miniatura de 40). A fonte e o `--hit` ficaram INTOCADOS, e isso é o pedido ao pé da letra. E a relação é ESTRUTURAL, não um número de hoje: enquanto o texto couber nos botões, o momento é 6px mais baixo; quando o texto passar dos 40px da miniatura (a fonte do sistema grande), as duas linhas crescem pelo MESMO bloco de duas linhas e ficam iguais — o momento nunca é mais alto.
+
+E TODOS OS MOMENTOS CONTINUAM IGUAIS, inclusive o de um grupo: o respiro entre grupos é `margin-top` desde a v1.14.55 (fora da caixa), então a caixa do momento de um grupo já media o mesmo que as outras. O que faltava era o caso da FAIXA RECOLHIDA: sem grupo, o momento perde a seta e os dois botões (`display: none`), a `.row-acoes--solta` zerava e a linha encolhia **0,4px** — pequeno, mas é o estado em que a lista é mais vista. A caixa de ações ganhou `min-height: var(--hit)`: ela mede um botão mesmo vazia, e a linha fica nos 45,2px com ou sem comandos à vista.
+
+**ORÁCULOS.** O **G′** do `itinerario` passou a exigir a régua quádrupla, medida com a FAIXA FECHADA (onde os botões somem): todas as caixas de momento iguais, o momento MENOS que a mídia (≥4px a 1×), o respiro do grupo ≥ `--sp-4` e FORA da caixa. A aba e a lista seguem como a v1.14.55 as deixou, e os vizinhos daquele lote foram rodados de novo: `itinerario`, `ferramentas-folha`, `sombra-de-rolagem`, `smoke`, `cronogramas-multiplos`, `engrenagem-do-item`, `teclado-das-folhas`, `tour`, `barra-do-topo-e-titulos`, `cronograma-pronto`, `favoritos-menu-na-linha` e `geometria`.
+
+**O QUE NÃO DEU PARA MEDIR:** o aparelho — o corpo de 45,2px com a fonte real do operador e o toque nos três alvos de 34px de uma linha mais baixa. A linha do `RESIDUOS` diz isso.
 
 ## v1.14.56 — o link do passador de slides, e o nome que ele deveria ter tido
 

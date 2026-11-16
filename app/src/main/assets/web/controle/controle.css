@@ -7326,27 +7326,30 @@ main {
    veste o fundo das linhas, senão o nome se leria por cima do vizinho. */
 .lib-item.momento { --linha: transparent; }
 #library > .lib-item.momento.arrastando { --linha: var(--camada); }
-/* **O CORPO DO MOMENTO TEM A ALTURA DE UM ITEM NORMAL (v1.14.55).** A linha de
-   uma mídia mede a miniatura (`--thumb`) mais o `padding` vertical do `.row`
-   (`--sp-3` em cima e embaixo, o que a regra do `.row` lê do token desde este
-   lote); sem capa, o momento caía na altura do TEXTO e o momento de um grupo,
-   que carregava o respiro na própria caixa, media mais que os outros. O operador
-   viu as duas coisas como uma: *"momento do itinerário que contém midias e forma
-   um grupo, tem sua altura de item mais alta que os normais… todos os momentos
-   devem ter uma altura de 'card'/corpo iguais"*. O piso é lido dos MESMOS tokens
-   da miniatura, não de um número — um ajuste no `.row` ou na miniatura carrega
-   os dois lados. Com a fonte do sistema maior o texto passa do piso e quem manda
-   é o texto, como em toda linha; o oráculo do G′ mede a igualdade. */
-.lib-item.momento > .row {
-  padding-left: .5rem;
-  min-height: calc(var(--thumb) + 2 * var(--sp-3));
-}
+/* **O CORPO DO MOMENTO É MAIS COMPACTO QUE O DE UMA MÍDIA (v1.14.57).** A linha
+   de uma mídia mede a miniatura (`--thumb`, 40) mais o `padding` vertical do
+   `.row` (`--sp-3` em cima e embaixo); a do momento não tem capa, e são os
+   BOTÕES (o alvo `--hit`, 34) que a sustentam: 45,2px contra os 51,2 de uma
+   mídia. O operador: *"preferiria que os momentos sejam mais compactos em altura
+   que os itens comuns do cronograma … mas não diminua suas fontes, ou tamanho de
+   botões, apenas ocupe menos espaço vertical de corpo"*. A v1.14.55 tinha
+   igualado a altura à da mídia (por causa do momento de um grupo, que era o mais
+   alto); aqui ela volta a ser a do próprio conteúdo, com a fonte e o `--hit`
+   INTOCADOS — e o momento de um grupo mede o mesmo que os outros porque o
+   respiro dele é margem, não padding (ver abaixo). */
+.lib-item.momento > .row { padding-left: .5rem; }
 /* AS OPÇÕES SEMPRE À VISTA, só o ícone (sem o `⋮` e sem caixa): a `.row-acoes` sai
    do absoluto e entra no fluxo da linha, cada botão com o alvo `--hit`. A pergunta
    do excluir nasce dentro dela e, enquanto pergunta, toma o lugar do título. */
 .lib-item.momento .row-acoes--solta {
   position: static; flex: none; width: auto; min-width: 0; max-width: none;
   gap: 0; background: none; opacity: 1; visibility: visible;
+  /* **E A CAIXA MEDE O PISO MESMO VAZIA (v1.14.57).** Com a faixa fechada, o
+     momento SEM grupo perde a seta e os dois botões (`display: none`) e a caixa
+     zerada encolhia a linha em 0,4px — o bastante para os momentos não terem a
+     MESMA altura no estado em que a lista é mais vista. O `min-height` é a
+     altura de UM botão: o momento fica em 45,2px com ou sem comandos à vista. */
+  min-height: var(--hit);
 }
 .lib-item.momento .row-acoes--solta > * { transform: none; }
 .lib-item.momento .row-acoes--solta.confirmando { flex: 1; min-width: 0; }
@@ -7389,7 +7392,9 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
    uma altura de card/corpo iguais"*). A margem é o espaço ENTRE os itens, não uma
    parte do item: o corpo fica do mesmo tamanho e o respiro continua idêntico.
    `medirArrasto` lê o MENOR vão entre linhas vizinhas, e não o primeiro par,
-   justamente para uma margem de grupo não inflar o passo do arrasto. */
+   justamente para uma margem de grupo não inflar o passo do arrasto — e é ela
+   também que deixa a caixa do momento de um grupo do tamanho das outras, com a
+   altura compacta da v1.14.57. */
 #library > li + .grupo-ini { margin-top: var(--sp-4); }
 /* O HORÁRIO EM ALGARISMOS TABULARES: "23:59" e "10:00" ocupam a mesma largura, e
    os títulos da lista se alinham uns com os outros. */

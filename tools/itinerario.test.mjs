@@ -80,9 +80,9 @@
 //     porta da barra a recolhe (o fecho de 5 s da v1.14.35 saiu a pedido do operador).
 //  G′. O GRUPO DO MOMENTO: as classes `grupo-ini/meio/fim` (nenhuma antes do 1º momento, num
 //     momento sem mídia nem com os momentos ocultos), NENHUMA TINTA (o grupo não se pinta desde a
-//     v1.14.36: o que o separa é o respiro), TODOS OS MOMENTOS COM A ALTURA DE UM ITEM NORMAL
-//     (v1.14.55: a linha do momento mede o mesmo que a de uma mídia, e o respiro é margem, fora
-//     da caixa), a SETA do grupo como BOTÃO à esquerda do lápis, o
+//     v1.14.36: o que o separa é o respiro), TODOS OS MOMENTOS COM A MESMA ALTURA E MAIS
+//     COMPACTOS QUE A MÍDIA (v1.14.57: a linha do momento mede menos que a de uma mídia, e o
+//     respiro é margem, fora da caixa), a SETA do grupo como BOTÃO à esquerda do lápis, o
 //     bloco que só cai numa fronteira de grupo (nunca antes das mídias soltas do topo), a mídia que
 //     muda de grupo sem horário, e o GRUPO RECOLHIDO: a seta e o toque escondem/expandem as mídias,
 //     e o arrasto leva as escondidas.
@@ -2061,14 +2061,17 @@ try {
       && momentoLimpo(m.so) && midiaLimpa(m.solto),
       'G′ · o GRUPO NÃO TEM TINTA NENHUMA: o momento é transparente, as mídias vestem a linha neutra, e nem o token '
       + '`--grupo-fill` existe mais (nenhuma linha desenha contorno) — o que separa dois grupos é só o respiro', m);
-    // TODOS OS MOMENTOS COM A ALTURA DE UM ITEM NORMAL (v1.14.55). O relato:
-    // *"momento do itinerário que contém midias e forma um grupo, tem sua altura de
-    // item mais alta que os normais… todos os momentos devem ter uma altura de
-    // 'card'/corpo iguais"*. A régua é TRIPLA: a `.row` do momento mede o MESMO que
-    // a de uma mídia (miniatura + padding), TODAS as caixas de momento medem igual —
-    // o respiro do grupo é margem, fora da caixa, e não padding dentro dela — e o
-    // respiro continua lá (≥ `--sp-4`). Fechada a faixa, os botões do momento somem:
-    // quem sustenta a altura é o `min-height`, e é isso que a célula prova.
+    // TODOS OS MOMENTOS COM A MESMA ALTURA, E MAIS COMPACTOS QUE A MÍDIA (v1.14.57).
+    // Dois pedidos, e o segundo corrige a leitura do primeiro: *"momento do itinerário
+    // que contém midias e forma um grupo, tem sua altura de item mais alta que os
+    // normais… todos os momentos devem ter uma altura de 'card'/corpo iguais"*, e
+    // *"os momentos ficam mais baixos, mas não diminua suas fontes, ou tamanho de
+    // botões, apenas ocupe menos espaço vertical de corpo"*. A régua é QUÁDRUPLA: a
+    // `.row` do momento mede o MESMO que as outras caixas de momento, MEDE MENOS que
+    // a de uma mídia (que carrega a miniatura), o respiro do grupo é margem — fora da
+    // caixa — e continua lá (≥ `--sp-4`). Fechada a faixa os botões do momento somem,
+    // e é aí que a igualdade se prova de verdade: quem a sustenta é o `min-height` da
+    // CAIXA DE AÇÕES, não os botões desenhados.
     {
       const alturas = await pg.evaluate(() => {
         const lis = [...document.querySelectorAll('#library > li.lib-item')];
@@ -2089,11 +2092,12 @@ try {
       });
       const iguais = (v) => v.length > 0 && v.every((x) => Math.abs(x - v[0]) <= 0.5);
       checar(iguais(alturas.midia) && iguais(alturas.momento) && iguais(alturas.caixaMomentos)
-        && Math.abs(alturas.momento[0] - alturas.midia[0]) <= 0.5
+        && alturas.momento[0] <= alturas.midia[0] - 4
         && alturas.respiros.length >= 2 && alturas.respiros.every((r) => r >= 8),
-        'G′ · TODOS OS MOMENTOS TÊM A ALTURA DE UM ITEM NORMAL: a linha do momento mede ' + alturas.momento[0]
-        + 'px, o mesmo que a de uma mídia (' + alturas.midia[0] + 'px), todas as caixas de momento medem igual e o '
-        + 'respiro entre grupos é MARGEM, fora da caixa (' + alturas.respiros.join(' · ') + 'px livres)', alturas);
+        'G′ · TODOS OS MOMENTOS TÊM A MESMA ALTURA, E MAIS COMPACTOS QUE A MÍDIA: a linha do momento mede '
+        + alturas.momento[0] + 'px contra ' + alturas.midia[0] + 'px de uma mídia (ela carrega a miniatura), todas as '
+        + 'caixas de momento medem igual e o respiro entre grupos é MARGEM, fora da caixa ('
+        + alturas.respiros.join(' · ') + 'px livres)', alturas);
     }
     // O DEMARCADOR DO GRUPO (v1.14.54): cada momento tem uma COR de IDENTIDADE, a hora
     // a carrega e a MESMA cor vira a linha de 3px na borda esquerda da miniatura das
