@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Passador de slides</title>
+<!-- FORA DOS BUSCADORES. Como no `site/registro/`, é higiene, não segurança. -->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="color-scheme" content="light">
+<link rel="icon" href="../icone.svg" type="image/svg+xml">
+<style>
+  /* ESTA PÁGINA É CURTA E NÃO TEM BUILD: o CSS mora aqui, e só aqui. As cores
+     são as do site, com o valor repetido — ela é servida no origin público, e
+     não pode depender de um token do app que não viaja com o GitHub Pages. */
+  :root {
+    --bg:#dfe3e7; --panel:#fff; --text:#4a4a4a; --titulo:#22303d;
+    --muted:#55606d; --accent:#2f557f;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size:16px; line-height:1.55; -webkit-font-smoothing:antialiased;
+  }
+  .env { max-width:34rem; margin:0 auto; padding:1.4rem 1.15rem 3rem; }
+  h1 { font-size:1.6rem; margin:0 0 .2rem; letter-spacing:-.02em; color:var(--titulo); }
+  .sub { color:var(--muted); font-size:.9rem; margin:0 0 1rem; }
+  .caixa { background:var(--panel); border-radius:14px; padding:1rem 1.1rem; margin-top:.8rem; }
+  p { margin:.5rem 0; }
+  .mudo { color:var(--muted); font-size:.9rem; }
+  .erro { color:#8a2b2b; font-weight:600; }
+  code { background:rgba(0,0,0,.06); border-radius:4px; padding:.1rem .3rem; overflow-wrap:anywhere; }
+  .botao {
+    display:inline-block; margin-top:.7rem; background:var(--accent); color:#fff;
+    text-decoration:none; font-weight:600; border-radius:10px; padding:.6rem 1rem;
+  }
+</style>
+</head>
+<body>
+<main class="env">
+  <h1>Passador de slides</h1>
+  <p class="sub">A porta pública para o passador da sua igreja.</p>
+
+  <!-- O ENDEREÇO FICA À VISTA MESMO QUANDO O REDIRECIONAMENTO FUNCIONA: se o
+       navegador bloquear a saída para a rede local (ou o toque cair num
+       aparelho sem a mesma Wi-Fi), ele é o que se digita à mão. -->
+  <div class="caixa" id="abrindo" hidden>
+    <p>Abrindo o passador na sua igreja…</p>
+    <p class="mudo">Não abriu? Copie este endereço no navegador: <code id="endereco"></code></p>
+    <p><a class="botao" id="abrir" href="#">Abrir o passador</a></p>
+  </div>
+
+  <!-- NUNCA TELA BRANCA: sem `h`, com ele torto ou fora da rede privada, a
+       página diz o que houve. -->
+  <div class="caixa" id="incompleto" hidden>
+    <p class="erro">Este link veio incompleto.</p>
+    <p class="mudo">Peça para enviarem o link do passador de slides de novo. Ele
+    precisa chegar inteiro, com o endereço da igreja no fim.</p>
+    <p><a href="../">Ir para o site do app</a></p>
+  </div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  // ===================================================================
+  // A VALIDAÇÃO É ESTRITA, E ELA É A FRONTEIRA DE SEGURANÇA DA PÁGINA
+  //
+  // O `h` chega pela URL e vira uma NAVEGAÇÃO DE TOPO (`location.replace`).
+  // Aceitar qualquer coisa seria um redirecionamento aberto no domínio do
+  // site — e um `javascript:` viraria XSS no origin que também serve a página
+  // de download. Por isso: só `IPv4:porta`, só faixa privada, só a forma
+  // exata; qualquer outro caractere, esquema, hostname, `@` ou caminho extra é
+  // recusado ANTES de tocar no `location`.
+  // ===================================================================
+  function alvoDoPassador(bruto) {
+    if (typeof bruto !== 'string') return '';
+    if (!/^[0-9.:]+$/.test(bruto)) return '';
+    var m = bruto.match(
+      /^((?:0|[1-9]\d{0,2}))\.((?:0|[1-9]\d{0,2}))\.((?:0|[1-9]\d{0,2}))\.((?:0|[1-9]\d{0,2})):([1-9][0-9]{0,4})$/);
+    if (!m) return '';
+    var octetos = [+m[1], +m[2], +m[3], +m[4]];
+    for (var i = 0; i < 4; i++) if (octetos[i] > 255) return '';
+    var privado = octetos[0] === 10
+      || (octetos[0] === 172 && octetos[1] >= 16 && octetos[1] <= 31)
+      || (octetos[0] === 192 && octetos[1] === 168);
+    if (!privado) return '';
+    var porta = +m[5];
+    if (!Number.isInteger(porta) || porta < 1 || porta > 65535) return '';
+    return octetos.join('.') + ':' + porta;
+  }
+
+  var caixaAbrindo = document.getElementById('abrindo');
+  var caixaIncompleto = document.getElementById('incompleto');
+  var enderecoEl = document.getElementById('endereco');
+  var abrirEl = document.getElementById('abrir');
+
+  var h = '';
+  try { h = new URLSearchParams(location.search).get('h') || ''; } catch (_) {}
+  var alvo = alvoDoPassador(h);
+
+  if (!alvo) {
+    caixaIncompleto.hidden = false;
+    return;
+  }
+
+  caixaAbrindo.hidden = false;
+  enderecoEl.textContent = alvo;
+  abrirEl.href = 'http://' + alvo;
+
+  // A SAÍDA É NAVEGAÇÃO DE TOPO POR JS, e não `<meta refresh>`: o robô que
+  // monta a prévia do WhatsApp não executa JavaScript, então ele não segue
+  // para um IP privado. E não há sonda por `fetch`: de uma página `https` para
+  // um `http` ela seria mixed content. O prazo é só o de pintar o fallback
+  // primeiro — se o `replace` falhar, o que fica na tela é o endereço e o
+  // botão.
+  setTimeout(function () {
+    try { location.replace('http://' + alvo); } catch (_) {}
+  }, 150);
+})();
+</script>
+</body>
+</html>

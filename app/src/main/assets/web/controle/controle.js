@@ -482,7 +482,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.58';
+const WEB_VERSION = '1.14.59';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -34645,12 +34645,44 @@ if (castUrlCopyEl) {
 // O passador é uma OPÇÃO do endereço do telão, e não um segundo endereço na
 // folha: o link dele não se escreve na tela, e as duas ações são dois ícones
 // ao lado do copiar do endereço. A conta do link mora aqui, e não dentro do
-// `renderCast`, porque é o que o oráculo mede — o campo do endereço base, a
-// rota que o `EspelhoServidor.kt` serve e o caminho que a página usa são três
+// `renderCast`, porque é o que o oráculo mede — o endereço da rede, a página
+// pública do site e a rota que o `EspelhoServidor.kt` ainda serve são três
 // lugares, e a conta que os junta tem de ser uma só.
+//
+// O QUE CIRCULA É O LINK DO SITE, e não o endereço do aparelho: o WhatsApp não
+// reconhece IPv4 privado com porta como endereço, e a mensagem chega como
+// TEXTO (medido pelo operador em 16/11). A página `audiovisualiasd.com.br/
+// passador` recebe o endereço da igreja em `h` e redireciona; o
+// `/passador-de-slides` continua sendo o caminho servido pelo celular, mas
+// ninguém precisa digitá-lo.
+const SITE_DO_PASSADOR = 'https://audiovisualiasd.com.br/passador';
+
+// O `h` SÓ EXISTE PARA `http://IPv4:porta` PRIVADO — a MESMA faixa que a
+// página do site aceita. O caso TLS (https com hostname) não tem esse
+// endereço, e o redirecionamento aponta para `http`: ele fica no link antigo.
+function hostDoPassador(endereco) {
+  const m = String(endereco || '').trim().replace(/\/+$/, '')
+    .match(/^http:\/\/((?:0|[1-9]\d{0,2})(?:\.(?:0|[1-9]\d{0,2})){3}):([1-9][0-9]{0,4})$/);
+  if (!m) return '';
+  const partes = m[1].split('.').map(Number);
+  if (partes.some((n) => n > 255)) return '';
+  const privado = partes[0] === 10
+    || (partes[0] === 172 && partes[1] >= 16 && partes[1] <= 31)
+    || (partes[0] === 192 && partes[1] === 168);
+  if (!privado) return '';
+  const porta = +m[2];
+  if (porta < 1 || porta > 65535) return '';
+  // O `:` é permitido na query, e a validação acima já garantiu que não há
+  // outro caractere: o `h` sai sem encode por ser o mínimo legível.
+  return m[1] + ':' + porta;
+}
+
 function linkDoPassador(endereco) {
   const base = String(endereco || '').trim().replace(/\/+$/, '');
-  return base ? base + '/passador-de-slides' : '';
+  if (!base) return '';
+  const host = hostDoPassador(base);
+  if (host) return SITE_DO_PASSADOR + '?h=' + host;
+  return base + '/passador-de-slides';
 }
 
 // O link do momento: o endereço que a última leitura do shell trouxe. Lido de
@@ -34673,11 +34705,16 @@ function numeroDoWhatsapp(bruto) {
   return '';
 }
 
-// A MENSAGEM É SÓ O LINK (decisão do operador, 2026-11-16): com texto em volta,
-// o WhatsApp deixa de reconhecer o miolo como endereço e o link chega para ser
-// copiado à mão. Sozinho, ele vira um toque.
-function zapDoPassador(numero, link) {
-  return 'https://wa.me/' + numero + '?text=' + encodeURIComponent(link);
+// A MENSAGEM: o link do site sozinho na PRIMEIRA linha — com prosa em volta o
+// WhatsApp deixa de reconhecer o endereço — e o endereço cru na segunda, que é
+// o que se digita se a página não abrir. O `\n` separa os dois para o
+// reconhecedor não engolir a linha de socorro como parte do endereço.
+function mensagemDoPassador(link, enderecoCru) {
+  return enderecoCru ? link + '\nSe o link não abrir, use: ' + enderecoCru : link;
+}
+
+function zapDoPassador(numero, mensagem) {
+  return 'https://wa.me/' + numero + '?text=' + encodeURIComponent(mensagem);
 }
 
 // O ÚLTIMO NÚMERO FICA GUARDADO: o mesmo irmão passa os slides domingo após
@@ -34721,7 +34758,8 @@ if (passadorZapBtnEl) {
 // curto dá o pulso vermelho do `responder` e NADA sai (abrir uma conversa que
 // não existe é pior que não abrir).
 function abrirZapDoPassador() {
-  const link = linkDoPassadorAtual();
+  const base = (mirrorEstado || {}).endereco;
+  const link = linkDoPassador(base);
   if (!link) return;
   const digitado = passadorZapNumEl ? passadorZapNumEl.value : '';
   const numero = numeroDoWhatsapp(digitado);
@@ -34731,7 +34769,7 @@ function abrirZapDoPassador() {
     return;
   }
   try { localStorage.setItem(PASSADOR_ZAP_CHAVE, String(digitado).trim()); } catch (_) {}
-  const url = zapDoPassador(numero, link);
+  const url = zapDoPassador(numero, mensagemDoPassador(link, hostDoPassador(base)));
   // A MESMA PORTA DO "FALAR COM QUEM MANTÉM O APP": no app, o `openExternal`
   // (o WebView bloqueia navegar para fora do origin); no navegador, uma guia
   // nova.

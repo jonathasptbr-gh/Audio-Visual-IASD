@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.14.59",
+    "itens": [
+      "O link do passador agora é um endereço público do site, para o WhatsApp reconhecer.",
+      "Ao tocar, ele abre a página que redireciona para o passador na rede da igreja.",
+      "Se o link não abrir, a mensagem traz também o endereço cru para digitar no navegador.",
+      "A página nova só aceita endereço de rede local e não abre nenhum outro destino."
+    ]
+  },
+  {
     "versao": "1.14.58",
     "itens": [
       "A folha de conectar trata o passador de slides como atalho: dois ícones, sem texto nenhum.",

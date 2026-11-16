@@ -91,7 +91,6 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **13** — Estudos (não são fila de execução) | 4 | estudo | nenhuma entrega |
 | **16** — O cronograma pronto: o organizador entrega o culto ao sonoplasta | 8 (I4×U2) | pedido | planejamento → Kotlin + web |
 | **29** — Guia do site: a captura da lista de Ferramentas e do Cronograma | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
-| **41** — O link do passador não é clicável no WhatsApp | 6 (I3×U2) | estudo | decisão → site |
 
 ---
 
@@ -105,7 +104,7 @@ diferentes, e um lote nunca mistura dois temas.
 | tema | pacotes | o que sai junto |
 |---|---|---|
 | **Cronograma e destinos** | 16 | a abertura antes do culto, o organizador entregando o culto pronto |
-| **Site** | 29, 41 | as capturas do guia, e a porta pública que tornaria o link do passador clicável |
+| **Site** | 29 | as capturas do guia |
 | **Fila anterior a 14/11** | 5 | a tela de espera do Itinerário, na ordem que a fila já tinha |
 | **Estudos** | 13 | não são fila de execução: a entrega é a decisão do operador |
 
@@ -151,7 +150,6 @@ ordem; a fila é dele.
 | 13.3 | layout de paisagem (o app no Windows saiu) | | 3 | 1 | 3 | estudo |
 | **16** | **O cronograma pronto: o organizador entrega o culto** | pedido | 4 | 2 | **8** | planejamento |
 | **29** | **Guia do site: a captura da lista de Ferramentas e do Cronograma** | resíduo | 2 | 1 | **2** | site |
-| **41** | **O link do passador não é clicável no WhatsApp** | estudo | 3 | 2 | **6** | decisão |
 
 ---
 
@@ -322,29 +320,9 @@ operador manda a captura, ou ela sai da prévia visual no Chromium.
 
 ---
 
-## Pacote 41 — O link do passador não é clicável no WhatsApp
-
-**Nota 6 (I3×U2) · estudo · a entrega é uma DECISÃO, não código**
-
-Medido pelo operador no aparelho (2026-11-16): mandado sozinho, o endereço
-`http://192.168.x.y:8787/passador-de-slides` **chega como texto**, não como link
-— o WhatsApp não reconhece endereço privado com porta. O número do WhatsApp, ao
-lado, é reconhecido. Não é defeito do app: a mensagem já leva só o link (correção
-da v1.14.58), e o reconhecedor é do aplicativo de mensagem.
-
-As três saídas, e o preço de cada uma:
-
-| saída | como fica | o preço |
-|---|---|---|
-| **texto + colar** | o irmão copia a mensagem e cola no navegador | zero de código; três toques a mais na primeira vez (dá para salvar como favorito depois) |
-| **porta pública no site** (`audiovisualiasd.com.br/passador?…`) | o link é público e clicável, e a página redireciona para o IP da rede | pede internet no momento do toque, e uma página nova no `site/` |
-| **apelido DNS do IP** (estilo `nip.io`) | o link vira domínio e o reconhecedor aceita | depende de DNS público no aparelho de quem recebe; some numa rede sem internet |
-
-**O que NÃO se decide sozinho:** qual das três (ou nenhuma) — é escolha do
-operador, e as duas últimas põem uma peça pública no caminho de um recurso que
-hoje é só de rede local.
-
 ## O que saiu desta lista (rastro, não log)
+
+**v1.14.59 (2026-11-16), só web e site:** o **Pacote 41** — o link do passador vira a **página pública** `audiovisualiasd.com.br/passador?h=ip:porta`: o WhatsApp reconhece o endereço do site, e a página só redireciona para IPv4 das faixas privadas (10/8, 172.16–172.31, 192.168/16) com porta 1–65535, com o endereço cru na segunda linha da mensagem e o link antigo no caso TLS. Oráculo `passador-publico` (novo) e o `passador-fronteira` reescrito. Nota em `docs/HISTORICO.md`.
 
 **v1.14.56 (2026-11-16), APK + web:** os dois pedidos do operador em cima do Pacote 34 — o **link do passador de slides** na folha de conectar, com **Copiar link** e **Enviar no WhatsApp** (número guardado, `55` automático), e a rota renomeada de `/prega` para **`/passador-de-slides`**. Nota em `docs/HISTORICO.md`.
 

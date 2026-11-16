@@ -4246,6 +4246,10 @@ try {
   // (ícones à vista, nada de link escrito, a zona abrindo e fechando) e as
   // três contas que o `passador-fronteira` não alcança porque dependem do
   // estado que o shell entrega.
+  //
+  // DESDE A v1.14.59 o link é o da PÁGINA PÚBLICA do site (o WhatsApp não
+  // reconhece IPv4 privado com porta), e a mensagem leva o link na primeira
+  // linha e o endereço cru na segunda.
   const passador = await pg2.evaluate(() => {
     const zona = document.getElementById('castZap');
     const botao = document.getElementById('passadorZapBtn');
@@ -4254,7 +4258,8 @@ try {
     const abriu = { visivel: !zona.hidden, expandido: botao.getAttribute('aria-expanded') };
     botao.click();
     const fechou = { fechada: zona.hidden, expandido: botao.getAttribute('aria-expanded') };
-    const link = 'http://192.168.0.14:8787/passador-de-slides';
+    const base = 'http://192.168.0.14:8787';
+    const link = linkDoPassador(base);
     return {
       icones: ['passadorCopyBtn', 'passadorZapBtn'].map((id) => {
         const b = document.getElementById(id);
@@ -4267,8 +4272,9 @@ try {
       internacional: numeroDoWhatsapp('+55 (51) 99999-9999'),
       lixo: numeroDoWhatsapp('123'),
       semBarra: linkDoPassador('http://10.0.0.2:8787/'),
-      zap: zapDoPassador('5551999999999', link),
-      zapDeveria: 'https://wa.me/5551999999999?text=' + encodeURIComponent(link),
+      zap: zapDoPassador('5551999999999', mensagemDoPassador(link, hostDoPassador(base))),
+      zapDeveria: 'https://wa.me/5551999999999?text=' + encodeURIComponent(
+        link + '\nSe o link não abrir, use: 192.168.0.14:8787'),
       linkVivo: linkDoPassadorAtual(),
     };
   });
@@ -4286,11 +4292,12 @@ try {
     'a zona tem um título só: "Enviar no WhatsApp"', passador.tituloZona);
   checar(passador.ddd === '5551999999999' && passador.internacional === '5551999999999',
     'o número com DDD ganha o 55, e o que já vem internacional fica igual', passador.ddd);
-  checar(passador.lixo === '' && passador.semBarra === 'http://10.0.0.2:8787/passador-de-slides',
-    'número curto é recusado, e a barra final do endereço não vira `//`');
+  checar(passador.lixo === '' &&
+    passador.semBarra === 'https://audiovisualiasd.com.br/passador?h=10.0.0.2:8787',
+    'número curto é recusado, e a barra final do endereço não vira `//`', passador.semBarra);
   checar(passador.zap === passador.zapDeveria,
-    'e a mensagem leva SÓ o link — é o que faz o WhatsApp reconhecê-lo', passador.zap);
-  checar(passador.linkVivo === 'http://192.168.0.14:8787/passador-de-slides',
+    'a mensagem leva o link do site e o endereço cru na segunda linha', passador.zap);
+  checar(passador.linkVivo === 'https://audiovisualiasd.com.br/passador?h=192.168.0.14:8787',
     'o link copiado sai do endereço do estado, que é o da última leitura', passador.linkVivo);
 
   // ---- LIGAR E DESLIGAR NÃO É UM SALTO (v5.226) --------------------------

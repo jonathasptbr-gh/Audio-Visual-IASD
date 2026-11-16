@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.59** — Pacote 41: o link do passador vira uma página pública do site (`audiovisualiasd.com.br/passador?h=ip:porta`) que só redireciona para IPv4 de rede privada, com o endereço cru na segunda linha do WhatsApp e o link antigo no caso TLS (só web e site).
 - **v1.14.58** — o passador de slides vira atalho de dois ícones na folha de conectar (copiar e enviar no WhatsApp numa zona que o mesmo botão abre e fecha, mensagem só com o link), e a página dele passa a caber na tela sem rolar (só web).
 - **v1.14.57** — o momento do itinerário de volta ao corpo compacto (mais baixo que o item de mídia, com fonte e botões do mesmo tamanho) e todos os momentos iguais com a faixa aberta ou recolhida (só web).
 - **v1.14.56** — o link do passador de slides na folha de conectar (um botão copia e outro manda no WhatsApp, com o número guardado e o 55 automático) e a rota renomeada de `/prega` para `/passador-de-slides` (shell 89, APK + web).
@@ -791,6 +792,59 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.14.59 — o link do passador vira uma porta pública, e só para a rede da igreja
+
+**Pacote 41** (decisão do operador, 2026-11-16), só web e `site/`: `SHELL_VERSION`
+89 (o shell não foi tocado), `minShell` 83, **sem `shellTag`** — a Release da
+v1.14.56 já publicou todo o Kotlin. Degrau CORREÇÃO.
+
+**O DEFEITO MEDIDO NO APARELHO.** Mandado sozinho, o endereço
+`http://192.168.x.y:8787/passador-de-slides` chega ao WhatsApp como TEXTO: o
+reconhecedor dele não transforma IPv4 privado com porta em link. Não era defeito
+do app — a mensagem já levava só o link desde a v1.14.58 —, e o operador escolheu,
+entre as três saídas do estudo, a **porta pública no site**.
+
+**A PÁGINA** é `site/passador/index.html`, sem build e autocontida (CSS inline,
+sem dependência externa, `noindex`). Ela lê UM parâmetro, `h`, no formato
+`<ipv4>:<porta>`, e a validação é ESTRITA: só IPv4 das faixas `10/8`,
+`172.16–172.31` e `192.168/16`, e porta 1–65535. Qualquer outra coisa —
+hostname, esquema, `javascript:`, `//`, `@`, caminho extra, caractere fora de
+`[0-9.:]` — é recusada antes de tocar no `location`, e a página mostra "Este link
+veio incompleto". É o que fecha redirecionamento aberto e XSS no origin que
+também serve o download.
+
+**A SAÍDA É `location.replace`**, e não `<meta refresh>`: o robô de prévia do
+WhatsApp não executa JavaScript, então a prévia não segue para o IP privado. E
+não há sonda por `fetch` — de `https` para `http` ela seria mixed content. O
+fallback fica SEMPRE à vista, com o endereço validado escrito em texto e o
+"Abrir o passador" no mesmo destino, para quando a navegação for bloqueada.
+
+**O LINK DO APP** passou a ser `https://audiovisualiasd.com.br/passador?h=...`
+(`linkDoPassador`, com `hostDoPassador` fazendo a mesma cerca no lado do app); o
+caso TLS — https com hostname — não tem esse endereço e continua no
+`base + /passador-de-slides`, que o `EspelhoServidor.kt` segue servindo como o
+destino do redirecionamento. A mensagem do WhatsApp leva o link do site na
+PRIMEIRA linha e o endereço cru na segunda ("Se o link não abrir, use:
+192.168.x.y:8787"); o "Copiar link" copia só o link do site, e as duas ações
+continuam usando a mesma função.
+
+**ORÁCULOS.** `tools/passador-publico.test.mjs` (**novo**, Chromium): serve o
+`site/` como o Pages serve, mede o redirecionamento de verdade, as QUINZE
+recusas de formato e faixa (mais o `h` ausente, vazio e só espaço), o fallback
+com a navegação abortada e os quatro extremos privados que precisam ser ACEITOS. O
+`passador-fronteira` foi reescrito: o que se mede agora é o VALOR do link que o
+app copia, com as funções recortadas e EXECUTADAS, mais a mensagem de duas linhas
+e o `/passador-de-slides` do Kotlin como destino. **Reversões medidas:** aceitar
+IPv4 público reprova três recusas; aceitar qualquer porta reprova 0 e 65536;
+voltar o link para o endereço do aparelho reprova os três exemplos.
+
+**O QUE NÃO DEU PARA MEDIR:** o reconhecedor do WhatsApp de verdade (o link
+público tocável e a prévia não seguindo para o IP) e o aparelho do operador
+abrindo `https` e caindo no `http://192.168.x.y:8787` na mesma Wi-Fi — aqui só há
+Chromium. A linha do `RESIDUOS` diz isso.
 
 ---
 

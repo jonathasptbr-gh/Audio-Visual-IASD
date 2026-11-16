@@ -75,37 +75,97 @@ if (/rota\s*==\s*\"\/passador-de-slides\"/.test(kt)) ok('`/passador-de-slides` e
 else nao('`/passador-de-slides` e `/passador-de-slides/` levam à página', 'o link curto é o que se manda no WhatsApp');
 
 // ---------------------------------------------------------------------------
-// 2b. O LINK QUE O OPERADOR MANDA — o sufixo do Controle e a rota do servidor
+// 2b. O LINK QUE O OPERADOR MANDA — o link do SITE, e a rota do servidor
 // ---------------------------------------------------------------------------
-// O link do passador é MONTADO no `controle.js` (o ícone de copiar e o de
-// WhatsApp) a partir do endereço da transmissão, e o caminho é uma
-// constante nos dois lados: a rota que o `EspelhoServidor.kt` serve e o sufixo
-// que o Controle escreve. Divergir é o defeito MUDO deste lote: o operador
-// manda no WhatsApp um endereço que o APK dele não serve, e quem recebe vê
-// "site não encontrado" no domingo — sem erro nenhum aparecer aqui.
-const ctrlLink = semComentario(ler(CONTROLE));
-const mLink = ctrlLink.match(/function linkDoPassador[\s\S]{0,400}?base \+ '([^']+)'/);
-if (!mLink) {
-  nao('achei o sufixo do link no `controle.js`', 'sem ele os dois botões copiam o endereço do telão, não o do passador');
+// Desde a v1.14.59 o que circula NÃO é o endereço do aparelho: o WhatsApp não
+// reconhece IPv4 privado com porta (chega como texto), e o link passou a ser o
+// da PÁGINA PÚBLICA — `https://audiovisualiasd.com.br/passador?h=ip:porta` —
+// que redireciona para a rota que o `EspelhoServidor.kt` continua servindo.
+// As duas metades continuam medidas: o valor que o app copia (executado, não
+// lido por regex) e o `/passador-de-slides` que o servidor serve.
+const ctrlCru = ler(CONTROLE);
+const ctrlLink = semComentario(ctrlCru);
+
+// As funções são RECORTADAS e EXECUTADAS: uma regex sobre o texto aprovaria
+// uma conta que devolve outra coisa. O recorte é por chaves equilibradas e o
+// `new Function` roda as MESMAS linhas do bundle — sem navegador e no passo
+// que BARRA o build.
+function recortaFuncao(fonte, nome) {
+  const ini = fonte.indexOf('function ' + nome + '(');
+  if (ini < 0) return '';
+  let fundo = 0;
+  for (let j = fonte.indexOf('{', ini); j < fonte.length; j++) {
+    if (fonte[j] === '{') fundo++;
+    else if (fonte[j] === '}') { fundo--; if (!fundo) return fonte.slice(ini, j + 1); }
+  }
+  return '';
+}
+
+const mSite = ctrlCru.match(/const SITE_DO_PASSADOR = '([^']+)';/);
+let lk = null;
+try {
+  const corpo = ['hostDoPassador', 'linkDoPassador', 'mensagemDoPassador', 'zapDoPassador']
+    .map((n) => recortaFuncao(ctrlCru, n));
+  if (mSite && corpo.every(Boolean)) {
+    lk = new Function('"use strict";' + mSite[0] + '\n' + corpo.join('\n')
+      + '\nreturn { hostDoPassador, linkDoPassador, mensagemDoPassador, zapDoPassador };')();
+  }
+} catch (_) { lk = null; }
+
+if (!mSite || !lk) {
+  nao('as funções do link rodam isoladas', 'sem elas este bloco não mede o valor que o botão copia');
 } else {
-  const sufixo = mLink[1];
-  if (!/^\/[a-z-]+$/.test(sufixo)) {
-    nao('o Controle monta o link com um CAMINHO', `achei ${JSON.stringify(sufixo)} — tem de ser um caminho como /passador-de-slides`);
-  } else ok(`o Controle monta o link com \`${sufixo}\``);
-  if (kt.includes('"' + sufixo + '"') || kt.includes(sufixo + '/')) {
-    ok('o servidor serve a MESMA rota que o Controle escreve');
-  } else {
-    nao('o servidor serve a MESMA rota que o Controle escreve',
-      `o link sai com ${sufixo} e o EspelhoServidor.kt não conhece esse caminho`);
+  if (mSite[1] !== 'https://audiovisualiasd.com.br/passador') {
+    nao('o link aponta para a página pública do site', `achei ${JSON.stringify(mSite[1])}`);
+  } else ok(`o link aponta para \`${mSite[1]}\``);
+
+  // O MESMO IP DE EXEMPLO DO ORÁCULO DA PÁGINA: o que o app copia tem de ser
+  // exatamente o que a página aceita e redireciona.
+  const exemplos = [
+    ['http://192.168.0.12:8787', 'https://audiovisualiasd.com.br/passador?h=192.168.0.12:8787'],
+    ['http://10.1.2.3:80', 'https://audiovisualiasd.com.br/passador?h=10.1.2.3:80'],
+    ['http://172.16.0.5:65535', 'https://audiovisualiasd.com.br/passador?h=172.16.0.5:65535'],
+  ];
+  for (const [base, esperado] of exemplos) {
+    const obtido = lk.linkDoPassador(base);
+    if (obtido === esperado) ok(`\`${base}\` vira \`${obtido}\``);
+    else nao(`\`${base}\` vira o link do site`, `obtido ${JSON.stringify(obtido)}`);
   }
-  // O NÚMERO DO WHATSAPP ganha o 55 do Brasil (decisão do operador,
-  // 2026-11-16): sem ele o `wa.me` abre uma conversa que não existe.
-  if (/\b55\b/.test(ctrlLink) && /numeroDoWhatsapp/.test(ctrlLink)) {
-    ok('o número do WhatsApp ganha o DDI (55) quando vem com DDD');
-  } else {
-    nao('o número do WhatsApp ganha o DDI (55) quando vem com DDD',
-      'com DDD e sem 55, o `wa.me` não acha a conversa');
+
+  // O QUE NÃO CABE NA PÁGINA NÃO VIRA LINK DO SITE: IP público, TLS com
+  // hostname e endereço sem porta continuam no caminho antigo — e a página
+  // recusaria os três. Vazio continua vazio.
+  for (const base of ['http://8.8.8.8:80', 'https://igreja.local:8787', 'http://192.168.0.12']) {
+    const obtido = lk.linkDoPassador(base);
+    if (!obtido.includes('audiovisualiasd.com.br')) ok(`\`${base}\` fica no link antigo`);
+    else nao(`\`${base}\` fica no link antigo`, `o site recusaria esse endereço, e o link saiu ${JSON.stringify(obtido)}`);
   }
+  if (lk.linkDoPassador('') === '') ok('sem endereço, sem link');
+  else nao('sem endereço, sem link', 'o botão copiaria um endereço vazio');
+
+  // A ROTA ANTIGA CONTINUA SENDO O QUE O SERVIDOR SERVE — o site redireciona
+  // para ela, então as duas pontas têm de continuar batendo.
+  const mSufixo = lk.linkDoPassador.toString().match(/base \+ '([^']+)'/);
+  if (!mSufixo) {
+    nao('o caminho servido pelo aparelho continua no `linkDoPassador`', 'sem ele o redirecionamento do site não tem para onde ir');
+  } else {
+    const sufixo = mSufixo[1];
+    if (kt.includes('"' + sufixo + '"') || kt.includes(sufixo + '/')) {
+      ok(`o servidor serve o caminho do redirecionamento (\`${sufixo}\`)`);
+    } else {
+      nao('o servidor serve o caminho do redirecionamento',
+        `o site manda para ${sufixo} e o EspelhoServidor.kt não conhece esse caminho`);
+    }
+  }
+}
+
+// O NÚMERO DO WHATSAPP ganha o 55 do Brasil (decisão do operador,
+// 2026-11-16): sem ele o `wa.me` abre uma conversa que não existe.
+if (/\b55\b/.test(ctrlLink) && /numeroDoWhatsapp/.test(ctrlLink)) {
+  ok('o número do WhatsApp ganha o DDI (55) quando vem com DDD');
+} else {
+  nao('o número do WhatsApp ganha o DDI (55) quando vem com DDD',
+    'com DDD e sem 55, o `wa.me` não acha a conversa');
 }
 
 // OS ATALHOS existem na folha de conexão — e o LINK NÃO (v1.14.57: o operador
@@ -121,16 +181,37 @@ if (/id="passadorUrl"/.test(htmlCast)) {
     'o pedido é atalho de ícone: link e descrição escritos de volta é o desenho que saiu');
 } else ok('o link do passador NÃO se escreve na tela (atalhos de ícone)');
 
-// A MENSAGEM É SÓ O LINK (decisão do operador, 2026-11-16): com prosa em volta,
-// o WhatsApp não reconhece o endereço, e o link chega para ser copiado à mão.
+// A MENSAGEM: o link do site na PRIMEIRA linha (sozinho, porque com prosa em
+// volta o WhatsApp deixa de reconhecer o endereço) e o endereço CRU na
+// segunda, que é o que se digita se a página não abrir. O `zapDoPassador`
+// codifica a mensagem INTEIRA — as duas linhas viajam no mesmo `?text=`.
 // AQUI se lê o TEXTO CRU: o `semComentario` corta tudo depois de `//`, e a
 // linha da URL tem `https://` — o `encodeURIComponent` sumiria da leitura.
-const mZap = ler(CONTROLE).match(/function zapDoPassador\(numero, link\)[\s\S]{0,200}?encodeURIComponent\(([^)]+)\)/);
-if (!mZap) {
-  nao('achei o `zapDoPassador` no `controle.js`', 'sem ele a zona do WhatsApp não monta a URL');
-} else if (mZap[1].trim() !== 'link') {
-  nao('a mensagem do WhatsApp é SÓ o link', `o texto viaja como \`${mZap[1].trim()}\` — prosa em volta desliga o reconhecimento`);
-} else ok('a mensagem do WhatsApp é SÓ o link');
+if (!lk) {
+  nao('a mensagem do WhatsApp tem o link e o endereço cru', 'as funções do link não rodaram');
+} else {
+  const link = lk.linkDoPassador('http://192.168.0.12:8787');
+  const msg = lk.mensagemDoPassador(link, lk.hostDoPassador('http://192.168.0.12:8787'));
+  const linhas = msg.split('\n');
+  const corpo = msg.replace(/\n/g, '\\n');
+  if (linhas[0] === link && linhas[1] === 'Se o link não abrir, use: 192.168.0.12:8787') {
+    ok(`a mensagem é o link na 1ª linha e o endereço cru na 2ª (\`${corpo}\`)`);
+  } else {
+    nao('a mensagem é o link na 1ª linha e o endereço cru na 2ª', `saiu ${JSON.stringify(msg)}`);
+  }
+  // O TLS não tem endereço cru (o link antigo JÁ é o endereço do aparelho):
+  // a mensagem fica só o link, sem uma segunda linha repetindo o mesmo.
+  const semCru = lk.mensagemDoPassador('https://igreja.local:8787/passador-de-slides', '');
+  if (semCru === 'https://igreja.local:8787/passador-de-slides') ok('sem endereço cru, a mensagem fica só o link');
+  else nao('sem endereço cru, a mensagem fica só o link', `saiu ${JSON.stringify(semCru)}`);
+
+  const zap = lk.zapDoPassador('5511999999999', msg);
+  if (zap === 'https://wa.me/5511999999999?text=' + encodeURIComponent(msg)) {
+    ok('o `wa.me` leva a mensagem inteira codificada');
+  } else {
+    nao('o `wa.me` leva a mensagem inteira codificada', `saiu ${JSON.stringify(zap)}`);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // 3. A PÁGINA NÃO É UM TELÃO — a marca `av-tela` fica de fora
