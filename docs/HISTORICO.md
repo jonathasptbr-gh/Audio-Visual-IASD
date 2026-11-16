@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.44** — em tela cheia e deitado, o nível do volume cabe na pílula: o trilho cede altura em vez de furar a cápsula (só web).
 - **v1.14.43** — a tela cheia da música no Modo Fácil não desfaz mais sozinha: só a da regra do vídeo sai na troca de mídia, a da tecla continua até o Parar, o fim ou uma tela conectada (Pacote 38, defeito de 15/11; só web).
 - **v1.14.42** — o importar da Biblioteca vira um botão no FIM da lista e a folha dele ganha a oferta (miniatura, nome, tipo, duração, tamanho) e as opções completas: Tocar agora · Cronograma · Playlist · Favoritos (só web).
 - **v1.14.41** — as roletas de hora crescem para baixo em todo o app (o para-cima da v1.8.95 foi revogado) — só web.
@@ -908,6 +909,35 @@ a folha com a oferta e os quatro botões; Tocar agora pondo na cena pela pratele
 `lista-da-biblioteca` D5b e `titulo-da-colecao-nao-anda` deixaram de contar o botão como bloco de
 acervo; `tour` B2 aceita o passo do fim como opcional; `smoke`, `boot-nativo`,
 `modo-simples-biblioteca-tamanho` e `semana-item` voltaram ao que eram antes da v1.14.40.
+
+---
+
+## v1.14.44 — o nível do volume dentro da pílula, deitado
+
+**Relato do operador (2026-11-16, no aparelho):** *"Na tela cheia do modo simples e no modo
+avançado, estando a tela em posição de paisagem... Ao aparecer a barra de volume, sua barra central
+de nível fica deslocada para baixo, furando a própria caixa da pílula. (A pílula parece estar ok,
+apenas a barra de nível dentro dela que está com problemas)"*. **Só web.**
+
+**A causa, MEDIDA a 780×390 (Modo Fácil, tela cheia):** a pílula é `position: fixed` e, em tela
+cheia, só o `bottom` é dela (`.na-previa`); o `top: var(--pill-top, 33vh)` da regra base CONTINUA
+valendo, e um elemento fixo com `top` e `bottom` tem a ALTURA esticada entre os dois — 173 px de
+caixa a 390 px de altura. O conteúdo (ícone + trilho de 12rem + número) pede ~274 px: o trilho,
+`flex: none`, transbordava 61 px por baixo, e o nível (pintado no `::-webkit-slider-runnable-track`,
+100% da altura do input) ia junto. Em PÉ não aparecia: a caixa esticada (435 px a 780) é maior que
+o conteúdo — e é por isso que o `I4`, que mede a CAIXA, passava.
+
+**A correção:** o trilho é o único item ELÁSTICO da cápsula em tela cheia
+(`.vol-pill.na-previa .vol-pill-trilho { flex: 1 1 auto; min-height: 3rem; max-height: 10rem }`, e
+12rem no Modo Fácil): deitada ele encolhe até caber (95 px a 780×390); em pé o teto o devolve ao
+tamanho de sempre (192 px) e o vazio embaixo da cápsula é o mesmo de antes — o retrato não muda. O
+`min-height` mantém o cap (34/44 px) com folga para o dedo.
+
+**Oráculo.** `video-tela-cheia` ganhou o **I4b**, nas QUATRO combinações que o bloco I já monta
+(Modo Fácil × avançado, 740×360 e 900×420): o trilho e o número têm de estar DENTRO da caixa da
+pílula, e o trilho com 44 px ou mais. **Reversão MEDIDA**: sem a regra, a 780×390 o trilho termina
+em 363 contra a caixa em 302 (e o número em 386). `controles-layout`, `tela-inteira` e `smoke`
+seguem verdes sem mudar asserção. **Não testado em aparelho.**
 
 ---
 

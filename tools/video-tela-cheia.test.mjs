@@ -476,6 +476,12 @@ try {
       volCasa: pil && pil.parentNode === document.getElementById('preview') ? 'previa' : 'outra',
       volNaPrevia: !!pil && pil.classList.contains('na-previa'),
       volUmaSo: document.querySelectorAll('.vol-pill').length === 1,
+      // O NÍVEL e o NÚMERO dentro da cápsula (v1.14.44): numa tela DEITADA a caixa da pílula é
+      // mais baixa que o conteúdo, e o trilho sem elasticidade transbordava por baixo.
+      volTrilho: (() => { const t = document.querySelector('.vol-pill-trilho');
+        if (!t) return null; const x = t.getBoundingClientRect();
+        return { t: x.top, b: x.bottom, h: x.height }; })(),
+      volValor: r('volValue'),
       exitNoTopo: !!alvo && document.getElementById('fsExit').contains(alvo) };
   });
   const sobre = (a, b) => a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
@@ -515,6 +521,11 @@ try {
         && g.vol.t >= g.nome.b && g.vol.b <= g.hit.t
         && g.nomeTxt === 'Provai e Vede' && g.nome.h > 0,
         `I4 · ${rot} · o NOME no topo e a PÍLULA de volume DENTRO da prévia, EM PÉ na borda esquerda, entre o título e a linha do tempo`,
+        j);
+      checar(!!g.vol && !!g.volTrilho && !!g.volValor
+        && g.volTrilho.t >= g.vol.t - 1 && g.volTrilho.b <= g.vol.b + 1 && g.volTrilho.h >= 44
+        && g.volValor.t >= g.vol.t - 1 && g.volValor.b <= g.vol.b + 1,
+        `I4b · ${rot} · o NÍVEL e o NÚMERO ficam DENTRO da caixa da pílula: deitada, o trilho cede altura em vez de furar a cápsula`,
         j);
       const centro = modo === 'simple' ? [g.play] : [g.prev, g.play, g.next];
       checar(!!g.vol && centro.every((c) => !sobre(c, g.vol) && !sobre(c, g.base) && !sobre(c, g.nome) && c.t >= g.nome.b && c.b <= g.hit.t),

@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.14.44",
+    "itens": [
+      "Em tela cheia, com o celular deitado, a barra de nível do volume não fura mais a pílula.",
+      "Ela encolhe só o necessário para caber na cápsula; em pé tudo continua como estava.",
+      "Vale no Modo Fácil e no avançado."
+    ]
+  },
+  {
     "versao": "1.14.43",
     "itens": [
       "A música no Modo Fácil não volta mais sozinha do modo tela cheia para o retrato.",

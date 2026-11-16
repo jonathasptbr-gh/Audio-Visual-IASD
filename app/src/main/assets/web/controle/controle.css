@@ -1234,6 +1234,15 @@ body {
    a cápsula de 26px da v1.13.57. */
 body.mode-simple .vol-pill { --fader-cap: calc(var(--hit) * 1.3); }
 body.mode-simple .vol-pill-trilho { height: 12rem; }
+/* EM TELA CHEIA O TRILHO CEDE ALTURA (v1.14.44). A cápsula é posicionada pelo `top` da última
+   medida e pelo `bottom` acima do transporte, e numa tela DEITADA a caixa fica mais baixa que o
+   conteúdo: o trilho, `flex: none`, transbordava por baixo e o nível furava a pílula (relato de
+   16/11: *"sua barra central de nível fica deslocada para baixo, furando a própria caixa"*). Ele
+   passa a ser o único item ELÁSTICO, com teto: em pé a caixa é alta e o trilho fica no tamanho de
+   sempre (o vazio que sobra embaixo é o mesmo de antes); deitada, ele encolhe até caber, e o
+   `min-height` mantém o cap (34/44 px) com folga para o dedo. */
+.vol-pill.na-previa .vol-pill-trilho { flex: 1 1 auto; height: auto; min-height: 3rem; max-height: 10rem; }
+body.mode-simple .vol-pill.na-previa .vol-pill-trilho { max-height: 12rem; }
 .vol-pill .fader { width: 100%; height: 100%; }
 /* O NÚMERO (0–100) fica FORA do trilho, abaixo dele na coluna da pílula: a cápsula é estreita
    demais para um número dentro do cap. Não recebe toque — quem arrasta é o input. */
