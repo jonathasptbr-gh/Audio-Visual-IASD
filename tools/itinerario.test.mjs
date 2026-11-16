@@ -516,6 +516,26 @@ try {
       ajuste: (() => { const t = document.getElementById('itinAjusteTxt'); return t && [t.disabled, t.classList.contains('deslocado')]; })(),
     };
   });
+  // O DESENHO DA PORTA, medido na GEOMETRIA e não no nome do arquivo (v1.14.49,
+  // Pacote 40): o operador trocou o relógio pela checklist e o ✕ pela seta, e o
+  // card do estado aberto saiu. Um `<circle>` é relógio; um `<use href="#icoExpandir">`
+  // é a seta; as marcas de conferido são QUATRO traços. O fundo é comparado pelo
+  // ALFA, porque `background: none` computa `rgba(0, 0, 0, 0)` e é a ausência de
+  // tinta que o pedido descreve ("apenas o ícone").
+  const portaDesenho = () => pg.evaluate(() => {
+    const b = document.getElementById('itinBarBtn');
+    const ico = b.querySelector('.crono-itin-ico');
+    const svg = ico.querySelector('svg');
+    const fundo = getComputedStyle(b).backgroundColor;
+    return {
+      expandido: b.getAttribute('aria-expanded'),
+      qual: ico.dataset.ico,
+      circulos: svg.querySelectorAll('circle').length,
+      usos: [...svg.querySelectorAll('use')].map((u) => u.getAttribute('href')),
+      tracos: svg.querySelectorAll('path').length,
+      fundo, pintado: !/,\s*0\)$/.test(fundo),
+    };
+  });
   await fecharFaixa();   // o B′ a abriu pelo "+" (e ela pode já ter se recolhido sozinha)
   const st0 = JSON.stringify(await banco());
   {
@@ -526,6 +546,11 @@ try {
       && f.porta.expandido === 'false' && f.porta.controla === 'itinBar' && !f.ponto,
       'U · RECOLHIDA a faixa não desenha nada (vazia, `hidden`); a porta `#itinBarBtn` mora NA barra, logo ANTES do '
       + 'título (`aria-expanded="false"`, `aria-controls="itinBar"`), sem o ponto (nada no ar)', f);
+    const p0 = await portaDesenho();
+    checar(p0.qual === 'lista' && p0.circulos === 0 && p0.usos.length === 0 && p0.tracos === 4
+      && p0.expandido === 'false' && p0.pintado === false,
+      'U · FECHADA a porta desenha a CHECKLIST — quatro traços, nenhum círculo de relógio — sobre o fundo '
+      + 'chapado: o desenho é o do recurso, e não o da hora', p0);
   }
   await abrirFaixa();
   {
@@ -534,6 +559,33 @@ try {
       && f.filhos.join(' ') === 'itinTelaoBtn itinMomentosBtn itinHorasBtn passo−5 itinAjusteTxt passo+5 itinNovoBtn',
       'U · a porta ABRE a faixa com os sete, na ordem: Telão · Momentos · Horários · −5 · ajuste · +5 · Novo '
       + '(sem o ±1 e sem botão de recolher; os "−" são U+2212)', f);
+    const p1 = await portaDesenho();
+    checar(p1.qual === 'seta' && p1.usos.join() === '#icoExpandir' && p1.tracos === 0
+      && p1.expandido === 'true' && p1.pintado === false,
+      'U · ABERTA ela vira a SETA para cima (`#icoExpandir`, o chevron de recolher das seções) e NÃO veste '
+      + 'card: o estado mora no `aria-expanded`, no desenho e na faixa à vista', p1);
+
+    // ===== TODOS OS ÍCONES DA FAIXA NO MESMO TAMANHO (v1.14.49) =====
+    // Relato do operador: *"o tamanho dos icones dos botões de configurações do itinerário
+    // estão fora de padrão … Em especial acredito que os botões de atraso estão com icones
+    // menores"*. A régua é a dos botões de controle: `--icon-md` (o `.t-btn .msym` do
+    // transporte). Os cinco desenhados são SVG; os dois do ±5 são TEXTO e mediam 11,84 px
+    // no tamanho de rótulo — é o defeito. O `#itinAjusteTxt` NÃO entra: ele é rótulo
+    // ("No horário"), não ícone.
+    const icones = await pg.evaluate(() => {
+      const md = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--icon-md')) || 22;
+      return { md, celulas: [...document.querySelectorAll('#itinBar .itin-b')].map((b) => {
+        const svg = b.querySelector('svg');
+        return { nome: b.id || (b.classList.contains('itin-passo') ? 'passo' : 'ajuste'),
+          svg: svg ? Math.round(parseFloat(getComputedStyle(svg).width) * 10) / 10 : null,
+          fonte: Math.round(parseFloat(getComputedStyle(b).fontSize) * 10) / 10 };
+      }) };
+    });
+    const semRegua = icones.celulas.filter((c) => c.nome !== 'itinAjusteTxt'
+      && !(c.svg !== null ? Math.abs(c.svg - icones.md) <= 0.5 : Math.abs(c.fonte - icones.md) <= 0.5));
+    checar(icones.md > 0 && icones.celulas.length === 7 && semRegua.length === 0,
+      'U · todos os ícones da faixa medem `--icon-md` (' + icones.md + 'px), o padrão dos botões de controle — inclusive '
+      + 'os dois do ±5, que são TEXTO e mediam o tamanho de rótulo', { semRegua, icones });
     checar(f.secoes.join(' / ') === 'itin-secao itin-secao--estado|group|Estado do itinerário|3 / itin-secao itin-secao--atraso|group|Atraso|3 / '
       + 'itin-secao itin-secao--criacao|group|Criar|1',
       'U · e os sete moram em TRÊS seções (`role="group"`, cada uma com o nome dela): Estado [3] · Atraso [3] · Criar [1]', f.secoes);
@@ -645,6 +697,44 @@ try {
     }
     await pg.emulateMedia({ reducedMotion: 'no-preference' });
   }
+  // ===== O FECHO ENCOLHE ATÉ O FIM ANTES DE SUMIR (v1.14.49) =====
+  // Relato do operador: *"aba está abrindo e fechando de forma trancada, como se ela
+  // encolhesse menos que o necessário antes de desaparecer derrepente. Parece que ela para
+  // de encolher antes, desaparecendo ainda há vista."* O repouso era um prazo fixo
+  // (`--dur-media` + 40 ms) e cortava a transição — MEDIDO: o `transitionend` da altura
+  // chegava aos 225 ms numa execução e depois dos 240 numa mais lenta, e ali a faixa era
+  // escondida com ~11 px de altura. A prova é a ORDEM: o fim da transição tem de ser
+  // visto ANTES do `hidden`; com o prazo cortando, a transição é CANCELADA e o
+  // `transitionend` nunca chega.
+  const fecho = await pg.evaluate(() => new Promise((ok) => {
+    const b = document.getElementById('itinBar');
+    const marcos = { fim: null, oculto: null, alturas: [], t0: 0 };
+    marcos.t0 = performance.now();
+    b.addEventListener('transitionend', (e) => {
+      if (e.target === b && e.propertyName === 'height' && marcos.fim === null) marcos.fim = Math.round(performance.now() - marcos.t0);
+    });
+    const mo = new MutationObserver(() => {
+      if (!b.hidden) return;
+      marcos.oculto = Math.round(performance.now() - marcos.t0);
+      mo.disconnect();
+      ok(marcos);
+    });
+    mo.observe(b, { attributes: true, attributeFilter: ['hidden'] });
+    document.getElementById('itinBarBtn').click();
+    const passo = () => {
+      if (b.hidden) return;
+      marcos.alturas.push(Math.round(b.getBoundingClientRect().height * 10) / 10);
+      requestAnimationFrame(passo);
+    };
+    requestAnimationFrame(passo);
+    setTimeout(() => { mo.disconnect(); ok(marcos); }, 1500);
+  }));
+  const ultimaAltura = fecho.alturas.length ? fecho.alturas[fecho.alturas.length - 1] : null;
+  checar(fecho.fim !== null && fecho.oculto !== null && fecho.oculto >= fecho.fim && fecho.alturas.length > 2
+    && ultimaAltura !== null && ultimaAltura <= 2,
+    'U · o FECHO chega ao fim da transição ANTES de a faixa sumir: o `hidden` vem depois do `transitionend` da '
+    + 'altura, e o último quadro à vista está em ~0 (o prazo de 240 ms cortava com ~11 px)',
+    { fim: fecho.fim, oculto: fecho.oculto, quadros: fecho.alturas.length, ultimaAltura, ultimas: fecho.alturas.slice(-3) });
   await fecharFaixa();
   {
     const f = await faixa();
@@ -696,9 +786,27 @@ try {
     await pg.evaluate(() => itinSetHoras(true));
     await esperar(pg, () => !!document.querySelector('#itinHorasBtn use[href="#icoHoras"]'));
     checar(ligadas[2] === '#icoHoras' && semHoras.href === '#icoHorasOff' && semHoras.risco
-      && semHoras.bg === voltou.alerta && ligadas[0] === '#icoOlhoOff' && ligadas[1] === '#icoMomentos',
+      && semHoras.bg === voltou.alerta && ligadas[0] === '#icoTelaOff' && ligadas[1] === '#icoMomentos',
       'U · as HORAS no telão seguem o padrão dos outros dois: desligadas, o relógio RISCADO (`icoHorasOff`, o mesmo '
-      + 'risco do olho e da pauta) sobre o vermelho; ligadas, o relógio limpo no cinza', { ligadas, semHoras });
+      + 'risco do monitor e da pauta) sobre o vermelho; ligadas, o relógio limpo no cinza', { ligadas, semHoras });
+    // O TELÃO É UM MONITOR, RISCADO QUANDO FORA DO AR (v1.14.49, Pacote 40): pedido do operador,
+    // *"um icone de monitor, que se altera entre riscado e não riscado. Ele fica mais claro sua
+    // função assim"*. O olho saiu do sprite junto (um `<symbol>` sem consumidor viaja no bundle),
+    // e o que se afirma é a GEOMETRIA: a caixa do monitor e o risco, um par a mais do app.
+    const monitor = await pg.evaluate(() => {
+      const b = document.getElementById('itinTelaoBtn');
+      const u = b.querySelector('use');
+      const href = u ? u.getAttribute('href') : null;
+      const sim = href ? document.querySelector(href) : null;
+      return { href, caixa: !!sim && sim.querySelectorAll('rect').length === 1,
+        risco: !!sim && !!sim.querySelector('path[d="M3 3.5 21 20.5"]'),
+        olho: !!document.querySelector('#icoOlho, #icoOlhoOff'),
+        pressed: b.getAttribute('aria-pressed'), desabilitado: b.disabled };
+    });
+    checar(monitor.href === '#icoTelaOff' && monitor.caixa && monitor.risco && monitor.olho === false
+      && monitor.pressed === 'false' && monitor.desabilitado === false,
+      'U · o TELÃO desenha um MONITOR (a caixa do `icoTela`) com o risco do "desligado", e o par do olho saiu do '
+      + 'sprite; o `aria-pressed` e o estado sem momentos continuam os de antes', monitor);
   }
   // A RECARGA: abrir não é escolha guardada — aberta antes de recarregar, ela volta RECOLHIDA.
   await abrirFaixa();

@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.49** — Pacote 40: a porta do itinerário vira checklist fechada e seta para cima aberta, sem card; a faixa encolhe até o fim antes de sumir, todos os ícones dela no tamanho padrão e o telão vira um monitor (só web).
 - **v1.14.48** — Pacote 39: segurar 5 s o "Modo avançado" faz o app NASCER no avançado (inclusive com o app fechado, no compartilhamento), o mesmo gesto desliga, e o toque continua trocando de modo; só web.
 - **v1.14.47** — o mesmo aviso da abertura da v1.14.46, com as notas no limite de 120 caracteres (renumerado porque o portão reprovou o texto; só web).
 - **v1.14.46** — o piso de 60% conta o que fez num aviso na abertura, com o mudo do app e o Não perturbe do sistema (só alarmes, e o louvor continua com som) — Kotlin + web, com Release.
@@ -915,6 +916,24 @@ acervo; `tour` B2 aceita o passo do fim como opcional; `smoke`, `boot-nativo`,
 `modo-simples-biblioteca-tamanho` e `semana-item` voltaram ao que eram antes da v1.14.40.
 
 ---
+
+## v1.14.49 — a porta do itinerário: checklist, seta sem card, a faixa que encolhe até o fim e o monitor do telão
+
+**Pedido do operador**, só web: `SHELL_VERSION` 89 (o shell não foi tocado), `minShell` 83, **sem `shellTag`** — a superfície da ponte não muda e a Release da v1.14.46 está paga. Degrau CORREÇÃO. São o **Pacote 40** e os **três ajustes** que ele mandou em 16/11 às 12h sobre a mesma faixa.
+
+*"ajuste o botão de itinerário, para que ele se torne uma seta quando aberto as opções, ao invés do x de fechar. E claro, para a seta não precisamos de card para esse botão, apenas o ícone"* · *"pode aproveitar para ajustar o ícone do itinerário, para um ícone de list check ao invés do relógio"*.
+
+**O DESENHO DA PORTA, nos dois estados.** FECHADA ela é a CHECKLIST — as marcas de conferido são o desenho do RECURSO, e o relógio dizia "isto é uma hora, não a lista do culto". O SVG é inline porque a fonte é um subset e não há glifo para ele; a constante é `ITIN_ICO_LISTA`, e o HTML nasce com o mesmo desenho (antes do JS). ABERTA ela vira a SETA para CIMA (`icoSprite('icoExpandir')`, o mesmo chevron que recolhe uma seção em Configurações): a faixa abre ABAIXO, então quem a recolhe aponta para cima. O ✕ saiu, e com ele o comentário do HTML que dizia que ele "diz o que o toque faz".
+
+**E ABERTA ELA NÃO VESTE CARD** (o pedido: *"para a seta não precisamos de card … apenas o ícone"*): a regra `.crono-itin[aria-expanded="true"] { background: var(--btn-accent) }` saiu. O estado continua dito pelo `aria-expanded`, pelo desenho e pela faixa à vista — a mesma gramática do "aberto não é cor" das seções de Configurações.
+
+**O FECHO ENCOLHIA ATÉ A METADE E SUMIA.** Relato do operador: *"aba está abrindo e fechando de forma trancada, como se ela encolhesse menos que o necessário antes de desaparecer derrepente"*. Duas causas somadas, as duas MEDIDAS. (1) O repouso era um prazo fixo, `--dur-media` + 40 ms, e CORTAVA a transição quando o `transitionend` da altura chegava depois dele (medido: 225 ms numa execução, mais de 240 noutra); o relógio de 240 escondia a faixa com ~11 px à vista. Agora quem responde o fim é o `transitionend` da ALTURA (ouvintes `itinFaixaFim`, limpos no repouso), e o temporizador virou REDE com folga de 300 ms — um evento engolido só assenta o estado mais tarde, nunca cedo demais. (2) Mesmo com a transição inteira, a caixa NÃO chegava a zero: com `box-sizing: border-box`, `height: 0` não encolhe abaixo do padding, e a faixa tem `--deck-gap` em cima e embaixo — 11,2 px de pílula de `--bar` que o `hidden` apagava de uma vez. O `padding-top`/`padding-bottom` passaram a ANIMAR junto da altura e das margens (cinco propriedades, não três), e o repouso os limpa.
+
+**OS ÍCONES DA FAIXA NO MESMO TAMANHO.** Relato: *"o tamanho dos icones dos botões de configurações do itinerário estão fora de padrão … Em especial acredito que os botões de atraso estão com icones menores"*. MEDIDO a 430 px: os cinco desenhados já estavam nos 22 px de `--icon-md` (o `.t-btn .msym` do transporte), e os dois do ±5 são TEXTO e mediam **11,84 px** — o defeito era só deles. `.itin-passo` ganhou `font-size: var(--icon-md)`; o `+` do ITIN_MAIS teve os atributos do HTML alinhados a 22 (são o valor de partida, quem manda é o CSS). O `#itinAjusteTxt` NÃO entra: ele é rótulo ("No horário"), não ícone.
+
+**O TELÃO VIROU UM MONITOR.** *"Altere o botão de olho nas opções do itinerário, por um icone de monitor, que se altera entre riscado e não riscado."* Ligado é o `icoTela` (a mesma caixa de "esta é a tela"), fora do ar é o `icoTelaOff`, um símbolo novo com o risco `M3 3.5 21 20.5` que o app inteiro usa para "desligado". O par do OLHO (`icoOlho`/`icoOlhoOff`) saiu do sprite no mesmo lote: um `<symbol>` sem consumidor viaja no bundle e não desenha nada. O `aria-pressed`, o ponto do "no ar" e o `disabled` sem momentos não mudaram.
+
+**O ORÁCULO** é o `itinerario.test.mjs`, e o bloco U ganhou quatro asserções novas: a porta fechada desenha a checklist (quatro traços, nenhum `<circle>` de relógio — a geometria, não o nome do arquivo); aberta desenha a seta do sprite e NÃO pinta fundo; os sete ícones da faixa medem `--icon-md` (os dois de texto pela `font-size`); e o fecho é medido pela ORDEM — o `transitionend` da altura tem de ser visto ANTES do `hidden`, e o último quadro à vista fica em ~0 (com o prazo de 240 ms o evento nem chegava, porque o repouso CANCELAVA a transição). O `barra-do-topo-e-titulos` e o `tour` foram rodados: medem posição e recorte da porta, não o desenho, e passam sem mudança.
 
 ## v1.14.48 — o bloqueio do Modo avançado na abertura: 5 s no botão, e o app nasce nele
 

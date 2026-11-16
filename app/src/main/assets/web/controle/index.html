@@ -446,7 +446,8 @@
     </symbol>
     <!-- OS DOIS INTERRUPTORES DA FAIXA DO ITINERÁRIO, no mesmo par (o risco do
          "desligado"): os MOMENTOS na lista (a pauta do itinerário) e o
-         itinerário no TELÃO (o olho). Sprite e não `.msym`: a fonte é subset. -->
+         itinerário no TELÃO (o monitor, `icoTela`/`icoTelaOff`). Sprite e não
+         `.msym`: a fonte é subset. -->
     <symbol id="icoMomentos" viewBox="0 0 24 24">
       <path d="M5 6h.01M5 12h.01M5 18h.01" stroke-width="3"/>
       <path d="M9.5 6H20M9.5 12H20M9.5 18H16"/>
@@ -457,22 +458,13 @@
       <path d="M3 3.5 21 20.5"/>
     </symbol>
     <!-- OS HORÁRIOS NO TELÃO (Pacote 37, 16/11): o mesmo relógio do Tempo (`CUE_SVG.chrono`) e,
-         desligado, o MESMO risco `M3 3.5 21 20.5` do olho e da pauta — os três interruptores
-         da faixa dizem "desligado" do mesmo jeito. -->
+         desligado, o MESMO risco `M3 3.5 21 20.5` da pauta e do monitor do telão — os três
+         interruptores da faixa dizem "desligado" do mesmo jeito. -->
     <symbol id="icoHoras" viewBox="0 0 24 24">
       <circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><path d="M9 2h6"/>
     </symbol>
     <symbol id="icoHorasOff" viewBox="0 0 24 24">
       <circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><path d="M9 2h6"/>
-      <path d="M3 3.5 21 20.5"/>
-    </symbol>
-    <symbol id="icoOlho" viewBox="0 0 24 24">
-      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/>
-      <circle cx="12" cy="12" r="3"/>
-    </symbol>
-    <symbol id="icoOlhoOff" viewBox="0 0 24 24">
-      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/>
-      <circle cx="12" cy="12" r="3"/>
       <path d="M3 3.5 21 20.5"/>
     </symbol>
     <!-- A TELA (v1.11.7): o monitor com o pé. Ele diz "a tela onde o culto
@@ -482,6 +474,15 @@
     <symbol id="icoTela" viewBox="0 0 24 24">
       <rect x="2.5" y="4" width="19" height="12.5" rx="2"/>
       <path d="M8 20.5h8M12 16.5v4"/>
+    </symbol>
+    <!-- O MESMO MONITOR, COM O RISCO (v1.14.49, Pacote 40): é o "no telão" da faixa
+         do itinerário. O olho saiu a pedido do operador (*"um icone de monitor, que se
+         altera entre riscado e não riscado"*), e o risco é o `M3 3.5 21 20.5` que o app
+         inteiro usa para "desligado" — o mesmo da pauta e das horas. -->
+    <symbol id="icoTelaOff" viewBox="0 0 24 24">
+      <rect x="2.5" y="4" width="19" height="12.5" rx="2"/>
+      <path d="M8 20.5h8M12 16.5v4"/>
+      <path d="M3 3.5 21 20.5"/>
     </symbol>
     <!-- VÍDEO (v1.13.34): a fita de filme — o TIPO de uma faixa de vídeo (episódio
          de série, link) no quadrado da esquerda, onde o ▶ lia como botão. -->
@@ -1048,14 +1049,16 @@
       <!-- (O IMPORTAR saiu desta barra na v1.14.40: é o PRIMEIRO bloco da
            Biblioteca, nos dois modos — `blocoImportar`.) -->
       <!-- A PORTA DO ITINERÁRIO, SOZINHA NA TRILHA 1: as trilhas não mudam e o
-           título não sai do eixo. O DESENHO
-           é o relógio, e com a faixa ABERTA ele vira um ✕ (`icoCancelar`, escrito
-           por `renderItinBar` no `.crono-itin-ico`): o botão deixa de ser só um
-           interruptor aceso e passa a dizer o que o toque faz. Leva o ponto do
-           "no ar" e nasce `hidden` — `renderItinBar` o mostra onde a faixa
-           existiria. -->
+           título não sai do eixo. O DESENHO é a CHECKLIST (Pacote 40): o desenho
+           do RECURSO — as marcas de conferido —, e não o relógio de antes, que
+           dizia "isto é uma hora". Com a faixa ABERTA ele vira a SETA para CIMA
+           (`icoExpandir`, escrito por `renderItinBar` no `.crono-itin-ico`): a
+           faixa abre embaixo, então a seta diz o que o toque faz; e o botão NÃO
+           veste card — o estado fica no `aria-expanded`, no desenho e na faixa à
+           vista. Leva o ponto do "no ar" e nasce `hidden` — `renderItinBar` o
+           mostra onde a faixa existiria. -->
       <button id="itinBarBtn" class="crono-itin" type="button" title="Itinerário" aria-label="Itinerário" aria-expanded="false" aria-controls="itinBar" hidden>
-        <span class="crono-itin-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span>
+        <span class="crono-itin-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7.4 5.7 9.1 9.4 5.4"/><path d="M12.6 7.4H20"/><path d="M4 16.4 5.7 18.1 9.4 14.4"/><path d="M12.6 16.4H20"/></svg></span>
         <span class="itin-ponto" aria-hidden="true" hidden></span>
       </button>
       <!-- A ORDEM DA FAIXA É saída · lugar · destino (v5.107): "Modo Fácil" à
@@ -2036,7 +2039,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.48</span>
+          <span id="appVersion">v1.14.49</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>

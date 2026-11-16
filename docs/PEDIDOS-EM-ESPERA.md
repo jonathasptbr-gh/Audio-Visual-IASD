@@ -83,7 +83,6 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **13** — Estudos (não são fila de execução) | 4 | estudo | nenhuma entrega |
 | **16** — O cronograma pronto: o organizador entrega o culto ao sonoplasta | 8 (I4×U2) | pedido | planejamento → Kotlin + web |
 | **29** — Guia do site: a captura da lista de Ferramentas e do Cronograma | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
-| **40** — O botão do itinerário: o ícone de lista e a seta ao abrir | 3 (I1×U3) | pedido | só web |
 
 ---
 
@@ -97,7 +96,7 @@ diferentes, e um lote nunca mistura dois temas.
 | tema | pacotes | o que sai junto |
 |---|---|---|
 | **Controle do pregador** | 34 | a página própria de controle dos slides, o desenho vertical, as três prévias e a cortina |
-| **Cronograma e destinos** | 16, 40 | a abertura antes do culto, o organizador entregando o culto pronto, e o desenho da porta do itinerário |
+| **Cronograma e destinos** | 16 | a abertura antes do culto, o organizador entregando o culto pronto |
 | **Site** | 29 | a captura da lista de Ferramentas (seis) e a do Cronograma com a faixa do itinerário |
 | **Fila anterior a 14/11** | 5 | a tela de espera do Itinerário, na ordem que a fila já tinha |
 | **Estudos** | 13 | não são fila de execução: a entrega é a decisão do operador |
@@ -145,7 +144,6 @@ ordem; a fila é dele.
 | 13.3 | layout de paisagem (o app no Windows saiu) | | 3 | 1 | 3 | estudo |
 | **16** | **O cronograma pronto: o organizador entrega o culto** | pedido | 4 | 2 | **8** | planejamento |
 | **29** | **Guia do site: a captura da lista de Ferramentas e do Cronograma** | resíduo | 2 | 1 | **2** | site |
-| **40** | **O botão do itinerário: o ícone de lista e a seta ao abrir** | pedido | 1 | 3 | **3** | web |
 
 ---
 
@@ -386,47 +384,10 @@ DESENHO itera por OTA, que é o que este pacote economiza.
 ---
 
 
-## Pacote 40 — O botão do itinerário: o ícone de lista e a seta ao abrir
-
-**Nota 3 (I1 × U3) · pedido · só web**
-
-Pedido do operador (2026-11-16, 10h38 e 10h43): *"ajuste o botão de itinerário,
-para que ele se torne uma seta quando aberto as opções, ao invés do x de fechar. E
-claro, para a seta não precisamos de card para esse botão, apenas o ícone"* — e
-*"pode aproveitar para ajustar o ícone do itinerário, para um ícone de list check
-ao invés do relógio"*.
-
-**O que existe hoje:** `#itinBarBtn` (`controle/index.html`, na barra do topo) nasce
-com o RELÓGIO desenhado no próprio HTML; `renderItinBar` o troca pelo `icoCancelar`
-(✕) quando a faixa abre, e o CSS
-`.crono-itin[aria-expanded="true"] { background: var(--btn-accent) }` pinta o card
-do estado aberto. O comentário do HTML diz que o ✕ "diz o que o toque faz" — a
-escolha do operador o revoga.
-
-**O que o pacote faz:**
-
-- o ícone FECHADO passa de relógio para **lista com marcas de conferido** (o
-  "checklist"): é o desenho do recurso, e não o do relógio;
-- ABERTO, o botão vira uma **seta** (chevron) em vez do ✕ — a faixa abre EMBASSO,
-  então a seta aponta para CIMA, o mesmo vocabulário do grupo que recolhe;
-- aberto, o botão **perde o card**: só o ícone, sem `--btn-accent` de fundo (o
-  "ligado" continua dito pelo `aria-expanded`, pelo giro da seta e pela faixa à
-  vista).
-
-**Onde mexer:** o SVG inline do `index.html`, a constante `ITIN_ICO_RELOGIO` e o
-bloco do `renderItinBar` que escolhe o desenho (`icoSprite('icoCancelar')`), e a
-regra `.crono-itin[aria-expanded="true"]` do CSS. Um desenho de checklist novo
-entra como SVG inline (a fonte é um subset; não há glifo para ele).
-
-**Oracles que tocam nisso:** `itinerario` (a faixa inteira), `barra-do-topo-e-titulos`
-(a trilha do título e o botão), `tour` (o passo do itinerário). O que eles medem
-hoje do ✕/do card tem de ser revisto com o desenho novo.
-
-**Entrega:** só web.
-
----
 
 ## O que saiu desta lista (rastro, não log)
+
+**v1.14.49 (2026-11-16), só web:** o **Pacote 40** — a porta do itinerário vira checklist fechada e seta para cima aberta (`icoExpandir`), sem card (sai a regra do `--btn-accent`), mais os três ajustes de 12h na mesma faixa: o fecho encolhe até o fim (o `transitionend` da altura manda, e o `padding` anima junto — a caixa parava em 11,2 px), todos os ícones da faixa em `--icon-md` (os "±5" eram texto de 11,84 px) e o telão num monitor (`icoTela`/`icoTelaOff`), com o par do olho fora do sprite. Oráculo `itinerario` (bloco U) e a linha dele. Nota em `docs/HISTORICO.md`.
 
 **v1.14.48 (2026-11-16), só web:** o **Pacote 39** — o bloqueio do modo na abertura: 5 s sobre a metade "Modo avançado" do `#appModeSeg` gravam `av.appModeFixo` em `localStorage` e o app passa a NASCER no avançado (`data-modo-inicial` lido no `<head>`, `appModeDaSessao` respeitando-o), com o mesmo gesto desligando, o `click` do soltar suprimido e o anel + `title` como resposta; o toque curto continua trocando de modo. Bloco E do `abertura-e-transferencia`. Nota em `docs/HISTORICO.md`.
 

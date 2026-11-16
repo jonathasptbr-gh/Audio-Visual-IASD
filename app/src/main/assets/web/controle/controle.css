@@ -850,10 +850,11 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 .misc-project svg { display: block; width: var(--icon-lg); height: var(--icon-lg); }
 /* A PORTA DO ITINERÁRIO É `--icon-lg` NUMA CAIXA DE `--hit` — a combinação que o
    importar da barra do topo tinha (v1.13.5 a v1.14.39) — e é a ÚNICA peça do app
-   com ela: por isso a linha própria. O DEGRAU A MAIS É DENSIDADE: o relógio é
-   contorno esparso e a engrenagem na outra ponta é glifo denso — igualar o TAMANHO
-   não iguala o PESO. Fora de toda lista, o svg viveria do atributo do HTML — a
-   armadilha muda da v1.8.68. */
+   com ela: por isso a linha própria. O DEGRAU É `--icon-lg` desde a v1.14.38 (o
+   relógio esparso contra a engrenagem densa na outra ponta) e ele FICA na v1.14.49:
+   a checklist tem mais traço que o relógio, e mexer no desenho E no tamanho no
+   mesmo lote seria duas mudanças para o olho de uma vez. Fora de toda lista, o svg
+   viveria do atributo do HTML — a armadilha muda da v1.8.68. */
 .crono-itin svg { display: block; width: var(--icon-lg); height: var(--icon-lg); }
 /* A SETA DO TÍTULO é `--icon-sm`, o degrau dos botões de cabeçalho: ela é a
    marca de "isto abre", não um botão por si. */
@@ -7427,9 +7428,14 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
    fileira saindo pelos dois lados do recorte. */
 .itin-bar--animando {
   overflow: hidden; align-content: flex-start;
+  /* O PADDING ENTRA NA CONTA (v1.14.49): com `box-sizing: border-box` a caixa não
+     encolhe abaixo dele, e a faixa para em 11,2 px em vez de zero — o "desaparece
+     ainda à vista" do operador. São CINCO propriedades e não três. */
   transition: height var(--dur-media) ease,
               margin-top var(--dur-media) ease,
-              margin-bottom var(--dur-media) ease;
+              margin-bottom var(--dur-media) ease,
+              padding-top var(--dur-media) ease,
+              padding-bottom var(--dur-media) ease;
 }
 @media (prefers-reduced-motion: reduce) {
   .itin-bar--animando { transition: none; }
@@ -7489,7 +7495,12 @@ main:has(> .list-body > .tools-sheet:not([hidden])) :is(#itinBar, #itinBarBtn) {
 /* SEM padding horizontal: com `box-sizing: border-box` e `flex-basis: 0`, o padding
    lateral vira BASE do item e engorda a célula em 3,2px sobre as vizinhas — medido,
    era o que fazia o ±5 maior que o olho na mesma fileira. */
-.itin-passo { min-width: var(--hit); font-weight: var(--fw-max); font-variant-numeric: tabular-nums; }
+/* O ±5 MEDE O ÍCONE (v1.14.49): ele é o único par da fileira desenhado com TEXTO, e
+   no tamanho de rótulo (`--fs-sm`, 11,84 px medidos) ele lia como dois botões menores
+   que os vizinhos de 22 px — o relato do operador. `--icon-md` é o tamanho padrão dos
+   botões de controle (o `.t-btn .msym` do transporte), e é o que a célula passa a ter:
+   mesmo PESO visual, e a largura de "+5" (24 px) continua dentro do piso de `--hit`. */
+.itin-passo { min-width: var(--hit); font-size: var(--icon-md); font-weight: var(--fw-max); font-variant-numeric: tabular-nums; }
 /* O ATRASO é o miolo da seção do meio, e é um botão (tocar o zera): chapado, sem
    corpo. Com atraso ele deixa de ser apagado — é o estado que muda o que o telão
    mostra, e lê-se de relance. Largura MÍNIMA fixa: o ±5 fica sempre encostado nele,
@@ -7538,14 +7549,16 @@ main:has(> .list-body > .tools-sheet:not([hidden])) :is(#itinBar, #itinBarBtn) {
   .itin-txt-curto { display: inline; }
 }
 /* A PORTA DA FAIXA, NA BARRA DO TOPO (`#itinBarBtn`): mora sozinha na trilha 1 — as
-   trilhas não mudam e o título não sai do eixo. Chapada, como a engrenagem; aberta, veste o par de LIGADO. O ponto do "no ar"
+   trilhas não mudam e o título não sai do eixo. Chapada, como a engrenagem, nos DOIS
+   estados: aberta, ela NÃO veste card (Pacote 40 — foi o pedido: *"para a seta não
+   precisamos de card para esse botão, apenas o ícone"*), e quem diz o estado é o
+   `aria-expanded`, o desenho (checklist × seta) e a faixa à vista. O ponto do "no ar"
    é dela agora: um selo no canto, porque a faixa recolhida não desenha nada. */
 .list-header > .crono-itin {
   grid-row: 1; grid-column: 1; justify-self: start;
 }
 .crono-itin-ico { display: inline-flex; align-items: center; justify-content: center; }
 .crono-itin { position: relative; background: none; color: var(--accent); }
-.crono-itin[aria-expanded="true"] { background: var(--btn-accent); }
 .crono-itin > .itin-ponto { position: absolute; top: .3rem; right: .3rem; }
 .itin-ponto { width: .45rem; height: .45rem; border-radius: 50%; background: var(--live-strong); flex: none; }
 

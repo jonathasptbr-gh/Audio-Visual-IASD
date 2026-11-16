@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.14.49",
+    "itens": [
+      "O botão do itinerário virou uma lista com marcas de conferido, e ao abrir as opções ele vira uma seta.",
+      "Sem card no botão aberto: só o ícone; a faixa à vista continua dizendo o estado.",
+      "A aba do itinerário agora encolhe até o fim antes de sumir (ela desaparecia ainda pela metade).",
+      "Os ícones dessa aba ficaram todos no mesmo tamanho, inclusive os de mais e menos 5 minutos.",
+      "O botão do telão virou um monitor, riscado quando o itinerário está fora do telão."
+    ]
+  },
+  {
     "versao": "1.14.48",
     "itens": [
       "Segurar por 5 segundos o botão Modo avançado, nas Configurações, faz o app abrir sempre no avançado.",

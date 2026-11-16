@@ -482,7 +482,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.48';
+const WEB_VERSION = '1.14.49';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -8858,6 +8858,13 @@ let itinFaixaAberta = false;
 // senão a caixa esvaziaria e o `:empty` a apagaria no primeiro quadro.
 let itinFaixaAnimando = false;
 let itinFaixaTimer = null;
+// O OUVINTE DO FIM DA TRANSIÇÃO EM CURSO (v1.14.49). O repouso era um prazo fixo
+// (`--dur-media` + 40 ms) e ele CORTAVA o fecho: medido, o `transitionend` da altura
+// chegava aos 225 ms numa execução e passava dos 240 numa mais lenta — e ali a faixa
+// era escondida com ~11 px ainda à vista, que é o relato do operador (*"para de
+// encolher antes, desaparecendo ainda há vista"*). Quem responde o fim é o navegador;
+// o temporizador fica como REDE para o `transitionend` que não vier.
+let itinFaixaFim = null;
 function msDoToken(nome, padrao) {
   const v = getComputedStyle(document.documentElement).getPropertyValue(nome).trim();
   const n = parseFloat(v);
@@ -8869,10 +8876,16 @@ function msDoToken(nome, padrao) {
 // fecharia a faixa que o estado lógico diz estar aberta.
 function itinFaixaRepousar() {
   if (itinFaixaTimer) { clearTimeout(itinFaixaTimer); itinFaixaTimer = null; }
+  if (itinFaixaFim) {
+    if (itinBarEl) itinBarEl.removeEventListener('transitionend', itinFaixaFim);
+    itinFaixaFim = null;
+  }
   itinFaixaAnimando = false;
   if (!itinBarEl) return;
   itinBarEl.classList.remove('itin-bar--animando');
-  itinBarEl.style.height = ''; itinBarEl.style.marginTop = ''; itinBarEl.style.marginBottom = ''; itinBarEl.style.transition = '';
+  itinBarEl.style.height = ''; itinBarEl.style.marginTop = ''; itinBarEl.style.marginBottom = '';
+  itinBarEl.style.paddingTop = ''; itinBarEl.style.paddingBottom = '';
+  itinBarEl.style.transition = '';
   document.body.classList.toggle('itin-faixa-aberta', itinFaixaAberta);
   if (itinBarBtnEl) itinBarBtnEl.setAttribute('aria-expanded', itinFaixaAberta ? 'true' : 'false');
   renderItinBar();
@@ -8901,25 +8914,46 @@ function itinFaixaAlternar(aberta) {
   }
   itinFaixaAnimando = true;
   bar.classList.add('itin-bar--animando');
-  // O ESTADO DE PARTIDA É PINTADO SEM TRANSIÇÃO: com a classe já no lugar, os três
-  // zeros virariam uma transição de IDA que o quadro seguinte inverteria — e o que
-  // se veria é a faixa parada no lugar.
+  // O ESTADO DE PARTIDA É PINTADO SEM TRANSIÇÃO: com a classe já no lugar, os zeros
+  // virariam uma transição de IDA que o quadro seguinte inverteria — e o que se veria
+  // é a faixa parada no lugar.
+  //
+  // O `padding` ANDA JUNTO (v1.14.49), e é o conserto do relato do operador: com
+  // `box-sizing: border-box`, `height: 0` NÃO encolhe a caixa abaixo do padding — e a
+  // faixa tem `--deck-gap` em cima e embaixo. MEDIDO: a altura parava em 11,2 px (os
+  // 5,6 px × 2) e aí o `hidden` a escondia inteira, isto é *"para de encolher antes,
+  // desaparecendo ainda há vista"*. Animado com a altura, o fecho chega a zero.
   bar.style.transition = 'none';
+  const csBar = getComputedStyle(bar);
   if (quer) {
     bar.style.height = '0px'; bar.style.marginTop = '0px'; bar.style.marginBottom = '0px';
+    bar.style.paddingTop = '0px'; bar.style.paddingBottom = '0px';
   } else {
     bar.style.height = de + 'px';
-    bar.style.marginTop = getComputedStyle(bar).marginTop;
-    bar.style.marginBottom = getComputedStyle(bar).marginBottom;
+    bar.style.marginTop = csBar.marginTop;
+    bar.style.marginBottom = csBar.marginBottom;
+    bar.style.paddingTop = csBar.paddingTop;
+    bar.style.paddingBottom = csBar.paddingBottom;
   }
   void bar.offsetHeight;
   bar.style.transition = '';
   if (quer) {
     bar.style.height = de + 'px'; bar.style.marginTop = ''; bar.style.marginBottom = '';
+    bar.style.paddingTop = ''; bar.style.paddingBottom = '';
   } else {
     bar.style.height = '0px'; bar.style.marginTop = '0px'; bar.style.marginBottom = '0px';
+    bar.style.paddingTop = '0px'; bar.style.paddingBottom = '0px';
   }
-  itinFaixaTimer = setTimeout(itinFaixaRepousar, msDoToken('--dur-media', 200) + 40);
+  // O REPOUSO ESPERA O FIM REAL: o `transitionend` da ALTURA (as duas margens
+  // terminam junto), filtrado pelo alvo para não pegar a transição de um filho. A
+  // REDE fica com folga de sobra — um `transitionend` engolido (aba em segundo
+  // plano) só FARIA o estado assentar mais tarde, nunca cedo demais.
+  const prazo = msDoToken('--dur-media', 200);
+  itinFaixaFim = (e) => {
+    if (e.target === bar && e.propertyName === 'height') itinFaixaRepousar();
+  };
+  bar.addEventListener('transitionend', itinFaixaFim);
+  itinFaixaTimer = setTimeout(itinFaixaRepousar, prazo + 300);
 }
 if (itinBarBtnEl) itinBarBtnEl.addEventListener('click', () => itinFaixaAlternar(!itinFaixaAberta));
 
@@ -9141,12 +9175,18 @@ function itinBarBotao(id, classe, rotulo, conteudo, fn) {
   b.addEventListener('click', fn);
   return b;
 }
-const ITIN_MAIS = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>';
-// O DESENHO DA PORTA, nos dois estados (Pacote 37): o relógio é o "abrir as opções";
-// aberta, ela vira o ✕ de fechar — o MESMO `icoCancelar` do sprite que os outros
-// fechares do bundle usam. Fica aqui, e não no HTML, porque quem troca é o
-// `renderItinBar` (o estado da faixa é dele).
-const ITIN_ICO_RELOGIO = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
+// O `+` no MESMO tamanho dos outros ícones da faixa (v1.14.49): os atributos são só o
+// valor de partida antes do CSS, e é o `.itin-b svg` (`--icon-md`) que manda — 18 px aqui
+// fazia o desenho nascer menor que os vizinhos por um quadro.
+const ITIN_MAIS = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>';
+// O DESENHO DA PORTA, nos dois estados (Pacote 40, sobre o desenho do 37): FECHADA
+// ela é a CHECKLIST — as marcas de conferido são o desenho do RECURSO, e o relógio
+// de antes dizia "isto é uma hora". ABERTA ela vira a SETA PARA CIMA (`icoExpandir`,
+// o mesmo chevron que recolhe uma seção em Configurações): a faixa abre ABAIXO,
+// então quem a recolhe aponta para cima. Fica aqui, e não no HTML, porque quem troca
+// é o `renderItinBar` (o estado da faixa é dele); o SVG da checklist é inline porque
+// a fonte é um subset e não há glifo para ele.
+const ITIN_ICO_LISTA = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7.4 5.7 9.1 9.4 5.4"/><path d="M12.6 7.4H20"/><path d="M4 16.4 5.7 18.1 9.4 14.4"/><path d="M12.6 16.4H20"/></svg>';
 
 function renderItinBar() {
   if (!itinBarEl) return;
@@ -9162,14 +9202,15 @@ function renderItinBar() {
   if (itinBarBtnEl) {
     itinBarBtnEl.hidden = false;
     itinBarBtnEl.setAttribute('aria-expanded', itinFaixaAberta ? 'true' : 'false');
-    // O DESENHO DIZ O QUE O TOQUE FAZ: relógio fechada, ✕ aberta (Pacote 37). O
-    // `dataset` evita reescrever o `<svg>` a cada desenho — e o ✕ é o `icoCancelar`
-    // do sprite, o mesmo dos outros fechares, não um desenho novo.
+    // O DESENHO DIZ O QUE O TOQUE FAZ: checklist fechada, seta para cima aberta
+    // (Pacote 40). O `dataset` evita reescrever o `<svg>` a cada desenho — e a seta
+    // é o `icoExpandir` do sprite, o mesmo chevron de recolher das seções, não um
+    // desenho novo.
     const ico = itinBarBtnEl.querySelector('.crono-itin-ico');
-    const qual = itinFaixaAberta ? 'fechar' : 'relogio';
+    const qual = itinFaixaAberta ? 'seta' : 'lista';
     if (ico && ico.dataset.ico !== qual) {
       ico.dataset.ico = qual;
-      ico.innerHTML = itinFaixaAberta ? icoSprite('icoCancelar') : ITIN_ICO_RELOGIO;
+      ico.innerHTML = itinFaixaAberta ? icoSprite('icoExpandir') : ITIN_ICO_LISTA;
     }
     const rotulo = itinFaixaAberta ? 'Fechar as opções do itinerário' : 'Abrir as opções do itinerário';
     if (itinBarBtnEl.title !== rotulo) { itinBarBtnEl.title = rotulo; itinBarBtnEl.setAttribute('aria-label', rotulo); }
@@ -9183,10 +9224,13 @@ function renderItinBar() {
   itinBarEl.hidden = !itinFaixaAberta;
   itinBarEl.classList.toggle('no-ar', live);
   if (!itinFaixaAberta) return;
-  // O TELÃO (o olho; ligado = no telão): apagado sem momentos, com o porquê (a regra da v1.8.50).
+  // O TELÃO (o MONITOR; ligado = no telão): apagado sem momentos, com o porquê (a
+  // regra da v1.8.50). O olho saiu no Pacote 40 a pedido do operador — *"um icone de
+  // monitor, que se altera entre riscado e não riscado. Ele fica mais claro sua
+  // função assim"* —, e o monitor é o `icoTela` que já diz "esta é a tela" no app.
   const tel = itinBarBotao('itinTelaoBtn', 'itin-telao' + (live ? ' active' : ''),
     live ? 'Tirar o itinerário do telão' : (n ? 'Mostrar o itinerário no telão' : 'Adicione um momento antes de projetar'),
-    live ? icoSprite('icoOlho') : icoSprite('icoOlhoOff'),
+    live ? icoSprite('icoTela') : icoSprite('icoTelaOff'),
     () => (itinProjecting() ? hideItin() : projectItin()));
   tel.setAttribute('aria-label', 'Itinerário no telão');
   tel.setAttribute('aria-pressed', live ? 'true' : 'false');
