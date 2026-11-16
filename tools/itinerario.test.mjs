@@ -75,10 +75,11 @@
 //  Y. O FECHO SOZINHO, no relógio falso: 5 s sem toque recolhem a faixa; um toque, um dedo
 //     apoiado e a `#itinPopup` aberta adiam.
 //  G′. O GRUPO DO MOMENTO: as classes `grupo-ini/meio/fim` (nenhuma antes do 1º momento, num
-//     momento sem mídia nem com os momentos ocultos), a tinta de `--grupo-fill` (o grupo se marca por PREENCHIMENTO), o
+//     momento sem mídia nem com os momentos ocultos), NENHUMA TINTA (o grupo não se pinta desde a
+//     v1.14.36: o que o separa é o respiro), a SETA do grupo como BOTÃO à esquerda do lápis, o
 //     bloco que só cai numa fronteira de grupo (nunca antes das mídias soltas do topo), a mídia que
-//     muda de grupo sem horário, e o GRUPO RECOLHIDO: o toque esconde/expande as mídias, e o
-//     arrasto leva as escondidas.
+//     muda de grupo sem horário, e o GRUPO RECOLHIDO: a seta e o toque escondem/expandem as mídias,
+//     e o arrasto leva as escondidas.
 //
 //  SAÍRAM com a ferramenta (o app os removeu): o painel de Ferramentas e a vista do Tempo
 //  (B antigo), guardar a programação a partir da ferramenta (K), o par ↑↓ (O), os
@@ -552,6 +553,41 @@ try {
       + '`--surface`; o "+" (`.itin-novo`) é SÓLIDO — fundo de acento e texto acima de 4,5:1', cores);
     checar(f.h < f.hTopo && f.h > 0, 'U · aberta, a faixa é MAIS BAIXA que a barra do topo', { faixa: f.h, topo: f.hTopo });
   }
+  // A ANIMAÇÃO DE ABERTURA (pedido de 15/11): a faixa desce um degrau e acende. A régua é a
+  // ANIMAÇÃO VIVA e os quadros intermediários — e quem pediu menos movimento no sistema não a vê.
+  await pg.click('#itinBarBtn');
+  await esperar(pg, () => !itinFaixaAberta);
+  await pg.click('#itinBarBtn');
+  {
+    const a = await pg.evaluate(() => {
+      const b = document.getElementById('itinBar');
+      const an = b.getAnimations().filter((x) => x.animationName === 'itin-abre');
+      return { n: an.length, ms: an[0] ? an[0].effect.getTiming().duration : 0, estado: an[0] ? an[0].playState : null };
+    });
+    checar(a.n === 1 && a.ms >= 120 && a.ms <= 400 && a.estado === 'running',
+      'U · a faixa ABRE ANIMANDO: a abertura (`itin-abre`) está viva, com a duração de `--dur-media`', a);
+    const quadros = await pg.evaluate(() => new Promise((ok) => {
+      const b = document.getElementById('itinBar'), vistos = [], t0 = performance.now();
+      const passo = () => {
+        vistos.push(+(+getComputedStyle(b).opacity).toFixed(3));
+        if (performance.now() - t0 < 320) requestAnimationFrame(passo); else ok(vistos);
+      };
+      requestAnimationFrame(passo);
+    }));
+    const meio = quadros.filter((o) => o > 0.02 && o < 0.98);
+    checar(meio.length >= 2, 'U · e ela atravessa quadros INTERMEDIÁRIOS (a faixa acende, não aparece de uma vez)',
+      { quadros, meio });
+    await pg.emulateMedia({ reducedMotion: 'reduce' });
+    await pg.click('#itinBarBtn');
+    await esperar(pg, () => !itinFaixaAberta);
+    await pg.click('#itinBarBtn');
+    {
+      const r = await pg.evaluate(() => document.getElementById('itinBar').getAnimations()
+        .filter((x) => x.animationName === 'itin-abre').length);
+      checar(r === 0, 'U · e com `prefers-reduced-motion` a faixa NÃO anima: aparece direto', r);
+    }
+    await pg.emulateMedia({ reducedMotion: 'no-preference' });
+  }
   await pg.click('#itinBarBtn');
   {
     const f = await faixa();
@@ -930,11 +966,13 @@ try {
   await ctx.clock.runFor(5000);   // cruza 10:00:00 com o laço de um segundo
   {
     const v = await pv();
-    checar(v.linhas[0] === '*10:00 Louvor' && v.linhas.length === 2,
-      'C · ao cruzar 10:00 o destaque passa para "Louvor", e "Recepção" sai da lista do telão', v);
+    checar(v.linhas.join() === '09:00 Recepção,*10:00 Louvor,10:40 Pregação',
+      'C · ao cruzar 10:00 o destaque passa para "Louvor" e a LISTA FICA INTEIRA no telão (três momentos cabem na '
+      + 'janela — v1.14.36: só uma lista maior que seis linhas rola a partir do momento de agora)', v);
     checar(v.lista.join() === 'Louvor' && v.subs.join(' | ') === '1 h | Agora · 40 min | Último momento',
       'C · a lista do cronograma acompanha o relógio (a marca e o subtítulo passam para "Louvor")', { lista: v.lista, subs: v.subs });
-    checar(v.anima > 0, 'C · e a troca é ANIMADA (as linhas têm animação viva)', v);
+    checar(!/^0s/.test(await pg.evaluate(() => getComputedStyle(document.querySelector('#pvTextItin .itin-linha')).transitionDuration)),
+      'C · e a troca do destaque é animada pela TRANSIÇÃO da linha (a lista fica inteira: nenhuma linha entra ou sai)', v);
     const novos = await pg.evaluate(() => window.__cmds.length);
     checar(novos === 0, 'C · sem comando nenhum no barramento: cada tela segue o próprio relógio', novos);
   }
@@ -980,7 +1018,8 @@ try {
     const v = await pv();
     const hl = await pg.evaluate(() => [...document.querySelectorAll('#library > li.momento .momento-hora')].map((e) => e.textContent));
     const m = mins(hl);
-    checar(hl.join() === '08:55,09:55,10:35' && m[1] - m[0] === 60 && m[2] - m[1] === 40 && v.linhas[0] === '*09:55 Louvor',
+    checar(hl.join() === '08:55,09:55,10:35' && m[1] - m[0] === 60 && m[2] - m[1] === 40
+        && v.linhas.length === 3 && v.linhas[1] === '*09:55 Louvor',
       'D · −5 recua todos juntos (os INTERVALOS ficam: 60 e 40 min), e o de agora acompanha (Louvor 09:55)', { hl, pv: v.linhas });
     const a = await ajusteTxt();
     checar(a.longo === 'Adiantado 5 min' && a.curto === '−5 min',
@@ -995,7 +1034,7 @@ try {
     const v = await pv();
     const a = await ajusteTxt();
     const b = await banco();
-    checar(v.linhas[0] === '*10:00 Louvor' && a.off && !a.deslocado && a.longo === 'No horário' && a.curto === '0 min',
+    checar(v.linhas.length === 3 && v.linhas[1] === '*10:00 Louvor' && a.off && !a.deslocado && a.longo === 'No horário' && a.curto === '0 min',
       'D · tocar no atraso ZERA o ajuste (volta ao previsto), e no previsto ele fica APAGADO ("No horário")', { v: v.linhas, a });
     checar(b.desloc === 0 && b.deslocDia === '', 'D · e o zero é guardado (`desloc: 0`, `deslocDia` vazio)', b);
   }
@@ -1063,7 +1102,8 @@ try {
     const bt = await pg.evaluate(() => { const t = document.getElementById('itinHorasBtn'); return [t.getAttribute('aria-pressed'), t.classList.contains('active')]; });
     checar(v.semHoras && v.horaVisivel === 'none' && b.horas === false && bt.join() === 'false,false',
       'E · "só os títulos": a hora some da lista projetada, o botão desliga (`aria-pressed="false"`) e a escolha é guardada', { v, horas: b.horas, bt });
-    checar(v.linhas[0].startsWith('*'), 'E · e o item de agora CONTINUA marcado', v.linhas);
+    checar(v.linhas.length === 3 && v.linhas.some((x) => x.startsWith('*')),
+      'E · e o item de agora CONTINUA marcado (a lista fica inteira)', v.linhas);
   }
   await abrirFaixa();
   await pg.click('#itinHorasBtn');
@@ -1104,8 +1144,8 @@ try {
   }));
   {
     const t = await telao();
-    checar(rTv === true && t.modo && t.cartao && t.linhas[0] === '*10:00 Louvor [Agora]'
-      && t.linhas[1] === '10:40 Pregação',
+    checar(rTv === true && t.modo && t.cartao && t.linhas.length === 3 && t.linhas[1] === '*10:00 Louvor [Agora]'
+      && t.linhas[2] === '10:40 Pregação',
       'F · um telão que (re)carrega recebe a lista pelo REENVIO de cena, no item certo', porque(rTv) || t);
   }
 
@@ -1206,9 +1246,11 @@ try {
   {
     const t = await telao();
     const marca = await pg.evaluate(() => [...document.querySelectorAll('#library > li.momento.agora .row-name')].map((e) => e.textContent).join());
-    checar(t.linhas.length === 1 && t.linhas[0] === '*10:40 Pregação [Agora]',
-      'G · depois do último horário o último fica no ar, sozinho', t.linhas);
-    checar(t.anima > 0, 'F · e no telão a troca também é animada', t);
+    checar(t.linhas.length === 3 && t.linhas[2] === '*10:40 Pregação [Agora]',
+      'G · depois do último horário o último fica no ar, e a LISTA continua à vista (era uma linha só até a v1.14.36)',
+      t.linhas);
+    checar(!/^0s/.test(await tv.evaluate(() => getComputedStyle(document.querySelector('#textItin .itin-linha')).transitionDuration)),
+      'F · e no telão o destaque troca por TRANSIÇÃO (a lista fica inteira: nenhuma linha entra ou sai)', t);
     checar(marca === 'Pregação', 'G · e a lista do cronograma marca o mesmo último momento', marca);
   }
   await ctx.clock.resume();
@@ -1247,7 +1289,7 @@ try {
     const t = await telao();
     const trans = await tv.evaluate(() => getComputedStyle(document.querySelector('#textItin .itin-linha')).transitionDuration);
     const animou = await tv.evaluate(() => window.__animou);
-    checar(t.linhas.join() === '*10:20 Fim [Agora]' && animou === 0 && /^0s/.test(trans),
+    checar(t.linhas.join() === '10:00 Louvor,*10:20 Fim [Agora]' && animou === 0 && /^0s/.test(trans),
       'H · com `prefers-reduced-motion` a troca acontece SEM movimento (nem deslize, nem transição)',
       { linhas: t.linhas, animou, trans });
   }
@@ -1353,8 +1395,8 @@ try {
     }));
     checar(r1 === true && r2 === true && e.nome === nomeA && e.nomes === 'Recepção,Aviso 2,Louvor,Pregação,Aviso 1' && e.marca === 'Pregação',
       'W · voltar ao cronograma "A" devolve os momentos DELE (e as mídias dele), e só deles', { e, r1: porque(r1), r2: porque(r2) });
-    checar(e.noAr && r3 === true && (await tvTitulos()) === 'Pregação' && !/Ensaio|Coral/.test(await tvTitulos()),
-      'W · com o itinerário NO AR, o telão acompanhou a troca: agora mostra a lista de "A" (o último, "Pregação")',
+    checar(e.noAr && r3 === true && (await tvTitulos()) === 'Recepção,Louvor,Pregação' && !/Ensaio|Coral/.test(await tvTitulos()),
+      'W · com o itinerário NO AR, o telão acompanhou a troca: agora mostra a lista de "A" INTEIRA (Recepção, Louvor, Pregação)',
       { e, tv: await tvTitulos(), r3: porque(r3) });
   }
   {
@@ -1532,21 +1574,25 @@ try {
       'G′ · as classes do grupo: a mídia antes do 1º momento sem nenhuma; o momento `grupo-ini`, as mídias `grupo-meio` (a '
       + 'última também `grupo-fim`); o momento sozinho no fim NÃO leva classe nenhuma (nem tinta)', gr);
     const m = await pg.evaluate(() => {
-      // O GRUPO É MARCADO POR PREENCHIMENTO (`--grupo-fill`), e não por moldura: o app
-      // não desenha contorno nenhum (`tools/tokens.test.mjs`). Compare o computado do
-      // token com o fundo da `.row` de cada linha — e exija que ninguém desenhe `::after`.
-      const sonda = document.createElement('i'); sonda.style.color = 'var(--grupo-fill)'; document.body.appendChild(sonda);
-      const tinta = getComputedStyle(sonda).color; sonda.remove();
+      // O GRUPO NÃO SE PINTA (v1.14.36, pedido do operador: *"se não dá pra ter moldura, então não
+      // precisa ter nada"*): as classes FICARAM (o arrasto em bloco depende delas), e o que separa
+      // dois grupos é só o respiro. O momento tem a linha TRANSPARENTE e as mídias têm o fundo da
+      // linha neutra — nenhuma das cinco linhas veste uma cor de grupo, e ninguém desenha `::after`.
+      const neutra = (() => { const p = document.createElement('i'); p.style.background = 'var(--camada)';
+        document.body.appendChild(p); const c = getComputedStyle(p).backgroundColor; p.remove(); return c; })();
+      const token = getComputedStyle(document.documentElement).getPropertyValue('--grupo-fill').trim();
       const li = (n) => [...document.querySelectorAll('#library > li.lib-item')].find((x) => x.querySelector('.row-name').textContent === n);
       const um = (n) => { const el = li(n); return { fundo: getComputedStyle(el.querySelector('.row')).backgroundColor,
-        desenho: getComputedStyle(el, '::after').content }; };
-      return { tinta, ini: um('Louvor'), meio: um('Hino 1'), fim: um('Hino 2'), so: um('Bênção'), solto: um('Aviso solto') };
+        doLi: getComputedStyle(el).backgroundColor, desenho: getComputedStyle(el, '::after').content }; };
+      return { neutra, token, ini: um('Louvor'), meio: um('Hino 1'), fim: um('Hino 2'), so: um('Bênção'), solto: um('Aviso solto') };
     });
-    const comTinta = (x) => x.fundo === m.tinta && x.desenho === 'none';
-    const semTinta = (x) => x.fundo !== m.tinta && x.desenho === 'none';
-    checar(comTinta(m.ini) && comTinta(m.meio) && comTinta(m.fim) && semTinta(m.so) && semTinta(m.solto),
-      'G′ · o GRUPO é marcado por PREENCHIMENTO: o momento e as mídias dele vestem `--grupo-fill` no lugar da linha '
-      + 'neutra, o momento sozinho no fim e a mídia solta ficam sem tinta, e nenhuma linha desenha contorno (`::after`)', m);
+    const transp = (c) => c === 'rgba(0, 0, 0, 0)' || c === 'transparent';
+    const momentoLimpo = (x) => transp(x.fundo) && transp(x.doLi) && x.desenho === 'none';
+    const midiaLimpa = (x) => x.fundo === m.neutra && x.desenho === 'none';
+    checar(m.token === '' && momentoLimpo(m.ini) && midiaLimpa(m.meio) && midiaLimpa(m.fim)
+      && momentoLimpo(m.so) && midiaLimpa(m.solto),
+      'G′ · o GRUPO NÃO TEM TINTA NENHUMA: o momento é transparente, as mídias vestem a linha neutra, e nem o token '
+      + '`--grupo-fill` existe mais (nenhuma linha desenha contorno) — o que separa dois grupos é só o respiro', m);
     const vao = await pg.evaluate(() => {
       const lis = [...document.querySelectorAll('#library > li.lib-item')], pares = [];
       for (let i = 1; i < lis.length; i++) {
@@ -1665,19 +1711,19 @@ try {
     const estadoDo = (n) => pg.evaluate((nome) => {
       const li = [...document.querySelectorAll('#library > li.lib-item')].find((x) => x.querySelector('.row-name').textContent === nome);
       const cs = getComputedStyle(li, '::after');
+      // A SETA É UM BOTÃO na `.row-acoes--solta`, à ESQUERDA do lápis (v1.14.36): a ordem da
+      // fileira é [seta · editar · excluir], e ela leva o estado do grupo no `aria-expanded`.
+      const botoes = [...li.querySelectorAll('.row > .row-acoes--solta > button')];
+      const seta = botoes.find((b) => b.classList.contains('itin-seta'));
       return { recolhido: li.classList.contains('recolhido'), exp: li.getAttribute('aria-expanded'),
-        ocultas: li.dataset.ocultas == null ? null : li.dataset.ocultas, seta: !!li.querySelector('.momento-seta'),
+        ocultas: li.dataset.ocultas == null ? null : li.dataset.ocultas,
+        seta: !!seta, setaExp: seta ? seta.getAttribute('aria-expanded') : null,
+        fileira: botoes.map((b) => (b.classList.contains('itin-seta') ? 'seta'
+          : b.classList.contains('itin-editar') ? 'editar' : 'excluir')).join(),
         sub: li.querySelector('.momento-sub-txt').textContent,
         classes: ['grupo-ini', 'grupo-meio', 'grupo-fim'].filter((c) => li.classList.contains(c)).join('+'),
         fundo: getComputedStyle(li.querySelector('.row')).backgroundColor, desenho: cs.content };
     }, n);
-    // A TINTA DO GRUPO: o valor cru de `--grupo-fill` e o rgba computado da sonda.
-    const token = await pg.evaluate(() => {
-      const sonda = document.createElement('i'); sonda.style.color = 'var(--grupo-fill)'; document.body.appendChild(sonda);
-      const cru = getComputedStyle(document.documentElement).getPropertyValue('--grupo-fill').trim();
-      const cor = getComputedStyle(sonda).color; sonda.remove();
-      return { cru, cor };
-    });
     const nomeDa = (n) => nomesNaTela2().then((s) => s.split(','));
     // (1) TOCAR RECOLHE: "Pregação" tem uma mídia ("Apelo").
     await tocar('Pregação');
@@ -1687,12 +1733,14 @@ try {
     });
     const e1 = await estadoDo('Pregação');
     const desenho1 = await nomeDa();
-    checar(fechou === true && e1.recolhido && e1.exp === 'false' && e1.ocultas === '1' && e1.seta
+    checar(fechou === true && e1.recolhido && e1.exp === 'false' && e1.ocultas === '1'
+      && e1.seta && e1.setaExp === 'false' && e1.fileira === 'seta,editar,excluir'
       && !desenho1.includes('Apelo') && e1.sub.includes('1 item') && e1.classes === 'grupo-ini+grupo-fim'
-      && e1.fundo === token.cor && e1.desenho === 'none',
+      && e1.fundo === 'rgba(0, 0, 0, 0)' && e1.desenho === 'none',
       'G′ · tocar a `.row` do momento com grupo RECOLHE as mídias dele: `li.recolhido`, `aria-expanded="false"`, '
-      + '`dataset.ocultas` = 1, a seta `.momento-seta`, o subtítulo "1 item" — e o grupo recolhido continua '
-      + '`grupo-ini` + `grupo-fim`, com a tinta de `--grupo-fill` e nenhum contorno', { e1, desenho1, token });
+      + '`dataset.ocultas` = 1, o subtítulo "1 item" — e o grupo recolhido continua `grupo-ini` + `grupo-fim`, '
+      + 'SEM tinta e sem contorno, com a SETA como botão à esquerda do lápis (a fileira é seta · editar · excluir, '
+      + 'e o `aria-expanded` dela é o do grupo)', { e1, desenho1 });
     // (2) DE NOVO EXPANDE: as mídias voltam na ordem de antes.
     await tocar('Pregação');
     const abriu = await esperar(pg, () => {

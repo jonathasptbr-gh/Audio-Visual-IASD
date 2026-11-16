@@ -7267,19 +7267,19 @@ main {
 .lib-item.momento .row-acoes--solta > .row-btn {
   width: var(--hit); height: var(--hit); background: none; color: var(--muted);
 }
-/* A SETA DO GRUPO (`ITIN_SETA_GRUPO`), ao lado do subtítulo: pequena, no tom do
-   subtítulo, e girada para baixo quando o grupo está recolhido. Sem tamanho ela cai
-   no padrão do `<svg>` (300×150) e estoura a linha. */
-.momento-seta { width: .85rem; height: .85rem; flex: none; vertical-align: -.1em; color: var(--muted); }
-.lib-item.momento.recolhido .momento-seta { transform: rotate(180deg); }
-/* O GRUPO DO MOMENTO (pedido de 15/11): o momento e as mídias até o próximo. Ele é
-   marcado por PREENCHIMENTO, e não por moldura — o app inteiro separa por tinta, e o
-   oráculo dos tokens reprova qualquer traço pintado (`tools/tokens.test.mjs`). As
-   linhas do grupo vestem `--grupo-fill` no lugar da linha neutra, o momento-cabeça
-   inclusive: o bloco inteiro lê como um conjunto, e a tinta é discreta de propósito
-   (o operador achou o `--accent` cheio forte demais). As classes são de
-   `marcarGruposDoItinerario`; sem mídia não há grupo. */
-#library > .lib-item:is(.grupo-ini, .grupo-meio, .grupo-fim) { --linha: var(--grupo-fill); }
+/* A SETA DO GRUPO (`ITIN_SETA_GRUPO`) É UM BOTÃO, à ESQUERDA do lápis (pedido de
+   15/11): a posição é visual, o toque é o mesmo do corpo do card (recolhe e expande
+   o grupo). Ela veste a `.row-btn` da `.row-acoes--solta` — alvo `--hit`, sem fundo,
+   `--muted` —, e o ícone é que é pequeno; sem tamanho ele cai no padrão do `<svg>`
+   (300×150) e estoura a linha. Girada para baixo no recolhido. */
+.itin-seta > svg { width: .95rem; height: .95rem; }
+.lib-item.momento.recolhido .itin-seta > svg { transform: rotate(180deg); }
+/* O GRUPO DO MOMENTO (pedido de 15/11): o momento e as mídias até o próximo. As
+   classes são de `marcarGruposDoItinerario`, e elas ficam porque o ARRASTO do grupo
+   depende delas (`arrasto.grupo`). **SEM TINTA NENHUMA** (pedido de 15/11: *"Remova o
+   tint dos itens do itinerário, se não dá pra ter moldura, então não precisa ter
+   nada"*): a linha do momento continua transparente como a das mídias, e o que separa
+   dois grupos é só o ESPAÇO do respiro abaixo. Sem mídia não há grupo. */
 /* ENTRE DOIS GRUPOS o momento abre um RESPIRO de `--sp-4` por dentro (`padding-top`,
    a linha dele é transparente): os dois blocos não encostam, e o `gap` da lista — que
    a conta do arrasto lê — não muda. */
@@ -7312,8 +7312,26 @@ main {
      é `--sp-6`, claramente maior que o de dentro: é só o espaço que as separa. */
   flex-shrink: 0; display: flex; flex-wrap: wrap; row-gap: var(--sp-2);
   align-items: center; justify-content: space-between; column-gap: var(--sp-6);
-  margin: 0 -.8rem calc(-1 * var(--sp-5));
+  /* A FOLGA COM A BARRA DO TOPO (pedido de 15/11: *"A aba das opções do itinerário
+     está muito colada com a top bar"*): é MARGEM, e não recuo de dentro, porque a
+     faixa tem um teto de altura — ela é a segunda linha, mais baixa que a barra do
+     topo, e um `padding-top` a faria mais ALTA que ele (46 contra 43,6, medido pelo
+     `itinerario.test.mjs`). A margem de cima empurra a faixa inteira para baixo sem
+     mexer na altura dela; a de baixo continua negativa, anulando o `gap` do `<main>`. */
+  margin: var(--sp-4) -.8rem calc(-1 * var(--sp-5));
   padding: .15rem .8rem .25rem;
+  /* A ANIMAÇÃO DE ABERTURA (pedido de 15/11): a faixa desce um degrau e acende. Ela
+     roda porque o elemento volta a ser DESENHADO ao sair do `hidden` — o navegador
+     não interpola um estado anterior que ele não pintou, e por isso é `animation`
+     (entrada) e não `transition`. Quem não quer movimento não a vê. */
+  animation: itin-abre var(--dur-media) ease;
+}
+@keyframes itin-abre {
+  from { opacity: 0; transform: translateY(calc(-1 * var(--sp-3))); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .itin-bar { animation: none; }
 }
 .itin-bar:empty { display: none; }
 /* A FAIXA CEDE A FOLHA (v1.14.34). Ela mora entre a barra do topo e o

@@ -416,7 +416,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.35';
+const WEB_VERSION = '1.14.36';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -8866,10 +8866,10 @@ function linhaDeMomento(item, sob = 0) {
   const texto = document.createElement('div'); texto.className = 'row-text';
   const nome = document.createElement('span'); nome.className = 'row-name'; nome.textContent = item.name;
   const sub = document.createElement('span'); sub.className = 'row-sub';
-  // O SUBTÍTULO é de `itinMarcar` (`.momento-sub-txt`); a seta do grupo mora ao lado dele.
+  // O SUBTÍTULO é de `itinMarcar` (`.momento-sub-txt`). A seta do grupo NÃO mora
+  // aqui: ela é um botão da fileira, à esquerda do lápis (pedido de 15/11).
   const subTxt = document.createElement('span'); subTxt.className = 'momento-sub-txt';
   sub.appendChild(subTxt);
-  if (sob) sub.insertAdjacentHTML('beforeend', ITIN_SETA_GRUPO);
   texto.append(nome, sub);
   const ed = document.createElement('button');
   ed.type = 'button'; ed.className = 'row-btn itin-editar';
@@ -8878,17 +8878,33 @@ function linhaDeMomento(item, sob = 0) {
   ed.innerHTML = pencilIconSvg();
   ed.addEventListener('click', (e) => { e.stopPropagation(); abrirItinEditor(item.id); });
   // A FAIXA SOLTA (`.row-acoes--solta`): a mesma caixa onde a pergunta do excluir
-  // nasce, só que sempre à vista e no fluxo da linha. O excluir fica à direita do editar.
+  // nasce, só que sempre à vista e no fluxo da linha. A ORDEM é [seta · editar ·
+  // excluir] — a seta do grupo à esquerda do lápis e o excluir à direita, o mais
+  // longe do alvo que se repete.
   const caixa = document.createElement('div');
   caixa.className = 'row-acoes row-acoes--solta';
+  // A SETA DO GRUPO (pedido de 15/11): um BOTÃO, e só onde há grupo (`sob` > 0). A
+  // POSIÇÃO é visual: o toque faz o MESMO do corpo do card (`aoTocar` — recolhe e
+  // expande), e o corpo continua recolhendo. `aria-expanded` leva o estado do grupo.
+  if (sob) {
+    const seta = document.createElement('button');
+    seta.type = 'button'; seta.className = 'row-btn itin-seta';
+    seta.title = recolhido ? 'Mostrar as mídias deste momento' : 'Recolher as mídias deste momento';
+    seta.setAttribute('aria-label', seta.title);
+    seta.setAttribute('aria-expanded', recolhido ? 'false' : 'true');
+    seta.innerHTML = ITIN_SETA_GRUPO;
+    seta.addEventListener('click', (e) => { e.stopPropagation(); itinAlternarGrupo(item.id, sob); });
+    caixa.append(seta);
+  }
   caixa.append(ed, botaoExcluirDaLinha(item, 'imports', () => load()));
   row.append(hora, texto, caixa);
   li.appendChild(row);
   attachRowGestures(row, item, { lista: 'imports', aoTocar: (it) => (sob ? itinAlternarGrupo(it.id, sob) : abrirItinEditor(it.id)) });
   return li;
 }
-// A SETA DO GRUPO: para cima = aberto; o CSS a gira para baixo no recolhido.
-const ITIN_SETA_GRUPO = '<svg class="momento-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>';
+// A SETA DO GRUPO: para cima = aberto; o CSS a gira para baixo no recolhido. O
+// tamanho dela é do CSS (`.itin-seta > svg`): aqui só o desenho.
+const ITIN_SETA_GRUPO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>';
 
 // A MARCA DE AGORA na lista, pela MESMA leitura do telão (relógio deste
 // aparelho, que é a origem). Só troca classes e textos — nada se reconstrói. O

@@ -1,5 +1,18 @@
 [
   {
+    "versao": "1.14.36",
+    "itens": [
+      "Saíram as faixas coloridas do itinerário: as linhas voltaram a ser só texto.",
+      "O que separa um momento do outro agora é só o espaço entre eles.",
+      "A seta que abre e fecha o grupo virou um botão, à esquerda do lápis de editar.",
+      "Tocar nela faz o mesmo que tocar no momento; o corpo do card continua recolhendo.",
+      "A faixa de opções do itinerário descolou da barra do topo.",
+      "Ela abre com uma animação curta: desce um fio e acende.",
+      "O telão agora mostra o cronograma inteiro, com o momento de agora em destaque.",
+      "Antes, depois do último horário, ele mostrava só a última linha."
+    ]
+  },
+  {
     "versao": "1.14.35",
     "itens": [
       "O Itinerário mudou de lugar: o botão que abre as opções fica ao lado do Importar, na barra do topo.",

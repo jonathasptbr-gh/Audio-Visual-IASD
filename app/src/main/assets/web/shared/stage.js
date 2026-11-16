@@ -1684,7 +1684,7 @@
   // 00:00 ou depois de 23:59 é mostrado com a hora dada a volta, mas comparado
   // como se fosse do mesmo dia.
   const ITIN_TICK_MS = 1000;   // o minuto vira sem atraso perceptível
-  const ITIN_JANELA = 6;       // o item de agora + os cinco seguintes
+  const ITIN_JANELA = 6;       // o que a altura reservada comporta
   const ITIN_ANIM_MS = 700;
   const ITIN_CURVA = 'cubic-bezier(.2, .7, .2, 1)';
   const DIA_MS = 86400000;
@@ -1721,10 +1721,17 @@
     return { itens, ativo, horas: o.horas !== false, desloc };
   }
 
-  // O QUE A TELA MOSTRA: a partir do item de agora, ITIN_JANELA linhas. Antes
-  // do primeiro horário a janela começa nele, marcado "A seguir".
+  // O QUE A TELA MOSTRA: a LISTA INTEIRA quando ela cabe na janela (até ITIN_JANELA
+  // linhas) — o cronograma à vista, com o momento de agora em destaque. Só uma lista
+  // MAIOR que a janela rola a partir do item de agora, para o que vem a seguir não sair
+  // da tela. Antes do primeiro horário ela começa nele, marcado "A seguir".
+  //
+  // A LISTA CURTA ERA O DEFEITO (pedido de 15/11: *"no itinerário em exibição, aparece
+  // apenas o último item do itinerário e não a lista"*): com a janela ancorada no item
+  // de agora, depois do último horário sobrava UMA linha — e o encerramento é um
+  // momento como os outros, então o telão passava o resto do culto mostrando só ele.
   function itinerarioJanela(l) {
-    const ini = Math.max(l.ativo, 0);
+    const ini = l.itens.length <= ITIN_JANELA ? 0 : Math.max(l.ativo, 0);
     return l.itens.slice(ini, ini + ITIN_JANELA).map((x, j) => Object.assign({}, x, {
       estado: ini + j === l.ativo ? 'agora' : (l.ativo < 0 && j === 0 ? 'seguir' : ''),
     }));

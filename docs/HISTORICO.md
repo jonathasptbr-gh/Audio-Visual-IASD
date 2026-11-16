@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.36** — o itinerário sem a tinta do grupo, a seta como botão à esquerda do lápis, a faixa descolada da barra do topo com animação e o telão mostrando a lista inteira (Pacote 36, só web).
 - **v1.14.35** — a faixa do itinerário em três seções, o grupo do momento e os horários que voltam a andar (só web).
 - **v1.14.34** — a faixa do Itinerário no piso de toque (o rótulo "Telão" cede nas telas estreitas) e escondida sob as folhas de Ferramentas e da Bíblia; fecha o `verificar` vermelho desde a v1.14.32 (só web; `shellTag` v1.14.34).
 - **v1.14.33** — Pacote 34: o controle do pregador pelo navegador — uma página própria (`/prega`), vertical, com o slide anterior, o atual e o próximo, as setas e a cortina; só slides, sem código de entrada (shell 88, APK + web).
@@ -836,6 +837,37 @@ apagada da que a criou.
   `antesDaPauta` = depois = PDF continua cobrando isso.
 
 ---
+
+## v1.14.36 — o itinerário sem tinta, a seta à esquerda do lápis, a faixa descolada da top bar e o telão com a lista inteira
+
+**Pacote 36 (fila), com a prévia visual aprovada pelo operador em 15/11. Só web.**
+
+- **SAIU A TINTA DO GRUPO.** Foram embora a regra `#library > .lib-item:is(.grupo-ini,
+  .grupo-meio, .grupo-fim) { --linha: var(--grupo-fill) }` e o token `--grupo-fill`
+  dos dois temas (o `tokens.test.mjs` reprova token sem leitor). As classes de
+  `marcarGruposDoItinerario` FICARAM — o arrasto em bloco depende delas —, e o que
+  separa dois grupos é só o respiro de `--sp-4` que já existia. **A sobreposição**
+  que o operador mandou de foto não se reproduziu em medida: a 360 e a 430 px, aberto
+  e com o grupo recolhido, nenhuma linha encosta na vizinha (5,6 px de folga em todos
+  os pares, medido); o que lia como dois cartões por cima era a tinta de um grupo
+  encostando na do outro.
+- **A SETA DO GRUPO VIROU BOTÃO**, à ESQUERDA do `.itin-editar`, na
+  `.row-acoes--solta` — a ordem é [`.itin-seta`, `.itin-editar`, `.row-excluir`]. Ela
+  responde ao toque como o corpo do card (`itinAlternarGrupo`), leva `--hit`,
+  `aria-label` e `aria-expanded`, e só existe onde há grupo (`sob` > 0). O corpo do
+  card continua recolhendo; a seta saiu do subtítulo (`.momento-seta` não existe mais).
+- **A FAIXA DESCOLOU DA BARRA** por MARGEM de `--sp-4`, e não por recuo de dentro: a
+  faixa tem um teto de altura (é mais baixa que a barra do topo — de `padding-top` ela
+  ia a 46 contra 43,6 da barra, medido pelo `itinerario.test.mjs`). E ganhou a
+  **ANIMAÇÃO DE ABERTURA** (`@keyframes itin-abre`, `--dur-media`: desce um degrau de
+  `--sp-3` e acende), que roda porque o elemento volta a ser DESENHADO ao sair do
+  `hidden`; `prefers-reduced-motion` não anima.
+- **O TELÃO MOSTRA A LISTA.** `itinerarioJanela` passou a mostrar a lista INTEIRA
+  quando ela cabe na janela (até `ITIN_JANELA` = 6 linhas) e só rola a partir do
+  momento de agora quando é maior. O defeito: com a janela ancorada no item de agora,
+  **depois do último horário sobrava UMA linha** — o telão passava o resto do culto
+  mostrando só o encerramento (medido: quatro momentos, às 12:00 uma linha, às 10:30
+  duas). O oráculo do itinerário passou a cobrar a janela cheia.
 
 ## v1.14.35 — a faixa do itinerário em três seções, o grupo do momento e os horários que voltam a andar
 
