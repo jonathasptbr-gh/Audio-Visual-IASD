@@ -377,12 +377,15 @@ try {
       return {
         topo: +(r.top - bar.bottom).toFixed(1), cobre: li.top < r.bottom, porCima: !!quem && ed.contains(quem),
         fundo: getComputedStyle(ed).backgroundColor, larg: Math.round(r.width), vw: innerWidth,
+        l: +r.left.toFixed(1), dir: +r.right.toFixed(1), barW: Math.round(bar.width),
         exp: b.getAttribute('aria-expanded'), usos: [...b.querySelectorAll('use')].map((u) => u.getAttribute('href')),
         pintado: !/,\s*0\)$/.test(getComputedStyle(b).backgroundColor), titulo: b.title,
       };
     });
-    checar(Math.abs(g.topo) <= 1 && g.cobre && g.porCima && !/,\s*0\)$/.test(g.fundo) && g.larg === g.vw,
-      'L′ · a sub-aba nasce na borda de BAIXO da faixa, de borda a borda, OPACA, e fica POR CIMA da primeira linha da lista', g);
+    checar(Math.abs(g.topo) <= 1 && g.cobre && g.porCima && !/,\s*0\)$/.test(g.fundo)
+      && Math.abs(g.larg - g.barW) <= 1 && Math.abs((g.l + g.dir) / 2 - g.vw / 2) <= 1,
+      'L′ · a sub-aba nasce na borda de BAIXO da faixa, na LARGURA dela e centrada (v1.14.54: ela desce de uma aba de '
+      + '24rem, e um painel mais largo leria como outra peça), OPACA, e fica POR CIMA da primeira linha da lista', g);
     checar(antes.exp === 'false' && antes.ctl === 'itinEditor' && antes.usos === 0 && antes.pintado
       && g.exp === 'true' && g.usos.join() === '#icoExpandir' && !g.pintado && /fechar/i.test(g.titulo),
       'L′ · o `+` é o fechar: aberta a sub-aba ele vira a SETA (`#icoExpandir`, a da porta da faixa), SEM card, '
@@ -606,7 +609,9 @@ try {
   // ── U. A FAIXA E A PORTA: anatomia, abrir, fechar, nada gravado ─────────
   const faixa = () => pg.evaluate(() => {
     const b = document.getElementById('itinBar');
-    const topo = b.previousElementSibling;
+    // A BARRA DO TOPO é procurada pelo NOME e não por vizinhança: desde a v1.14.54
+    // a faixa vive DENTRO do `.list-body`, e o irmão anterior dela não é a barra.
+    const topo = document.querySelector('.list-header');
     const porta = document.getElementById('itinBarBtn');
     const p = porta.querySelector('.itin-ponto');
     const nome = (e) => e.id || (e.classList.contains('itin-passo') ? 'passo' + e.textContent.trim() : e.className);
@@ -617,9 +622,11 @@ try {
       filhos: [...b.querySelectorAll(':scope > .itin-secao > *')].map(nome),
       secoes: [...b.children].map((x) => [x.className, x.getAttribute('role'), x.getAttribute('aria-label'), x.children.length].join('|')),
       h: alt(b), hTopo: topo ? alt(topo) : -1,
-      irmaDoTopo: !!topo && topo.classList.contains('list-header'),
-      corpo: !!b.nextElementSibling && b.nextElementSibling.contains(document.getElementById('library')),
-      pai: b.parentElement && b.parentElement.tagName,
+      // SOBREPOSTA (v1.14.54): ela é FILHA do `.list-body` — como a gaveta dos
+      // cronogramas —, e não mais irmã da barra do topo dentro do `<main>`.
+      pai: b.parentElement && b.parentElement.className,
+      dentroDoCorpo: !!b.parentElement && b.parentElement.classList.contains('list-body')
+        && b.parentElement.contains(document.getElementById('library')),
       porta: {
         visivel: !porta.hidden && porta.getClientRects().length > 0, naBarra: porta.parentElement === topo,
         // A PORTA É A ÚNICA DA TRILHA 1 desde a v1.14.40 (o Importar foi para a
@@ -658,8 +665,9 @@ try {
   const st0 = JSON.stringify(await banco());
   {
     const f = await faixa();
-    checar(f.pai === 'MAIN' && f.irmaDoTopo && f.corpo,
-      'U · a faixa é IRMÃ da barra do topo (`.list-header`), dentro do `<main>`, antes do corpo da lista', f);
+    checar(f.pai === 'list-body' && f.dentroDoCorpo,
+      'U · a faixa mora DENTRO do `.list-body`, SOBREPOSTA à lista — a receita da gaveta dos cronogramas '
+      + '(v1.14.54) —, e não mais no fluxo do `<main>`', f);
     checar(!f.aberta && f.filhos.length === 0 && f.porta.visivel && f.porta.naBarra && f.porta.antesDoTitulo
       && f.porta.expandido === 'false' && f.porta.controla === 'itinBar' && !f.ponto,
       'U · RECOLHIDA a faixa não desenha nada (vazia, `hidden`); a porta `#itinBarBtn` mora NA barra, logo ANTES do '
@@ -971,7 +979,9 @@ try {
           return n && { fonte: getComputedStyle(n).fontSize, fonteP: getComputedStyle(p).fontSize, caixa: caixa(n), caixaP: caixa(p),
             texto: n.textContent, corta: n.getBoundingClientRect().right > b.querySelector('#itinAjusteTxt').getBoundingClientRect().right + 0.5 };
         })(),
-        h: Math.round(rb.height * 10) / 10, hTopo: Math.round(b.previousElementSibling.getBoundingClientRect().height * 10) / 10,
+        // A BARRA DO TOPO pelo NOME: desde a v1.14.54 a faixa é filha do `.list-body` e
+        // não tem a `.list-header` como irmã anterior.
+        h: Math.round(rb.height * 10) / 10, hTopo: Math.round(document.querySelector('.list-header').getBoundingClientRect().height * 10) / 10,
         // A FILEIRA (Pacote 37): as TRÊS seções continuam no DOM (`role="group"`,
         // `display: contents` — elas não têm caixa), então o que se mede são os SETE
         // botões: uma linha, o MESMO vão entre vizinhos quaisquer (o do `.transport`
@@ -1030,6 +1040,75 @@ try {
   await pg.setViewportSize({ width: 360, height: 800 });
   await esperar(pg, () => innerWidth === 360);
   await pg.evaluate(() => itinAjusteZerar());
+
+  // ── Z. A FAIXA É SOBREPOSTA E TEM A LARGURA DA GAVETA (v1.14.54) ────────
+  //
+  // Pedido do operador: *"Ajuste o design da aba de opções do itinerário, para
+  // que ela tenha a mesma largura da aba da lista de nomes e edições dos
+  // cronogramas. … E aplique também o mesmo conceito de sobreposição do
+  // cronograma … ela agora vai ser sobreposta ao cronograma e não deslocando ele
+  // para baixo apenas para ela ser aberta."*
+  //
+  // A régua da largura é a GAVETA MEDIDA, não um número escrito; a da posição é
+  // o `--sp-3` do CSS; e "sobreposta" é o topo da lista parado na abertura. A
+  // âncora da sub-aba (`--itin-barra-base`) tem de acompanhar: é a borda de baixo
+  // da faixa, e sem ela a sub-aba nasceria em cima da aba.
+  {
+    await fecharFaixa();
+    const antes = await pg.evaluate(() => {
+      const gav = (() => {
+        abrirCronoGaveta();
+        const r = document.getElementById('cronoGaveta').getBoundingClientRect();
+        fecharCronoGaveta();
+        return r.width;
+      })();
+      return { lista: document.getElementById('library').getBoundingClientRect().top, gav };
+    });
+    await abrirFaixa();
+    const z = await pg.evaluate(() => {
+      const bar = document.getElementById('itinBar').getBoundingClientRect();
+      const lib = document.getElementById('library').getBoundingClientRect();
+      const corpo = document.querySelector('.list-body').getBoundingClientRect();
+      const raiz = getComputedStyle(document.documentElement);
+      return {
+        bar: { t: bar.top, b: bar.bottom, l: bar.left, r: bar.right, w: bar.width, h: bar.height },
+        lista: lib.top, corpoTopo: corpo.top, tela: innerWidth,
+        sp3: parseFloat(raiz.getPropertyValue('--sp-3')) * parseFloat(raiz.fontSize),
+        base: parseFloat(document.querySelector('.list-body').style.getPropertyValue('--itin-barra-base')),
+      };
+    });
+    const centro = (z.bar.l + z.bar.r) / 2;
+    checar(Math.abs(z.lista - antes.lista) <= 0.5
+      && Math.abs(z.bar.w - antes.gav) <= 1
+      && Math.abs(centro - z.tela / 2) <= 1
+      && Math.abs((z.bar.t - z.corpoTopo) - z.sp3) <= 0.5
+      && z.bar.b > z.lista
+      && Math.abs(z.base - (z.sp3 + z.bar.h)) <= 0.5,
+      'Z · a faixa é SOBREPOSTA à lista: abrir NÃO move o topo do `#library` (ficou em ' + z.lista.toFixed(1)
+      + 'px), ela tem a MESMA largura da gaveta dos cronogramas (' + z.bar.w.toFixed(1) + 'px), centrada, nasce `--sp-3` '
+      + 'abaixo da barra e cobre a lista; a âncora da sub-aba é a borda de baixo dela', { antes, z });
+  }
+  // E AS DUAS ABAS SÃO CONCORRENTES: abrir uma fecha a outra. O caminho da gaveta
+  // é o `abrirCronoGaveta`; o da faixa é a porta (que também é a saída das folhas,
+  // v1.14.53) — e o toque REAL na porta com a gaveta aberta cai no VÉU dela, que a
+  // fecha primeiro: por isso a prova do segundo sentido chama a porta pelo DOM.
+  {
+    await abrirFaixa();
+    const conc = await pg.evaluate(async () => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
+      abrirCronoGaveta(); await z(320);
+      return { gaveta: cronoGavetaAberta(), faixa: itinFaixaAberta, bar: document.getElementById('itinBar').getClientRects().length };
+    });
+    const conc2 = await pg.evaluate(async () => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
+      document.getElementById('itinBarBtn').click(); await z(420);
+      return { gaveta: cronoGavetaAberta(), faixa: itinFaixaAberta, bar: document.getElementById('itinBar').getClientRects().length };
+    });
+    checar(conc.gaveta && !conc.faixa && conc.bar === 0 && !conc2.gaveta && conc2.faixa && conc2.bar > 0,
+      'Z · as DUAS ABAS SÃO CONCORRENTES: abrir a gaveta dos cronogramas recolhe a faixa, e abrir a faixa fecha a '
+      + 'gaveta — nunca as duas abertas', { conc, conc2 });
+    await fecharFaixa();
+  }
 
   // ── Y. A FAIXA NÃO SE FECHA SOZINHA (v1.14.37) ──────────────────────────
   // Pedido do operador: *"a aba de configurações de itinerário não se fecha automaticamente"*.
@@ -1955,6 +2034,54 @@ try {
       && momentoLimpo(m.so) && midiaLimpa(m.solto),
       'G′ · o GRUPO NÃO TEM TINTA NENHUMA: o momento é transparente, as mídias vestem a linha neutra, e nem o token '
       + '`--grupo-fill` existe mais (nenhuma linha desenha contorno) — o que separa dois grupos é só o respiro', m);
+    // O DEMARCADOR DO GRUPO (v1.14.54): cada momento tem uma COR de IDENTIDADE, a hora
+    // a carrega e a MESMA cor vira a linha de 3px na borda esquerda da miniatura das
+    // mídias do grupo. O que se prova: cores DIFERENTES entre os momentos, a linha nas
+    // mídias do grupo CERTO (e nenhuma na mídia de fora), a cor igual nos dois pontos,
+    // e o contraste nos DOIS temas — a hora é texto (AA) e a linha é objeto (3:1).
+    const cores = await pg.evaluate(async () => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
+      const lin = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+      const lum = (rgb) => { const m = rgb.match(/\d+/g).map(Number); return 0.2126 * lin(m[0]) + 0.7152 * lin(m[1]) + 0.0722 * lin(m[2]); };
+      const ctr = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+      const li = (n) => [...document.querySelectorAll('#library > li.lib-item')].find((x) => x.querySelector('.row-name').textContent === n);
+      const cor = (n) => getComputedStyle(li(n).querySelector('.momento-hora')).color;
+      const linha = (n) => { const c = getComputedStyle(li(n).querySelector('.thumb'), '::after'); return { desenho: c.content, cor: c.backgroundColor, larg: c.width }; };
+      const ler = () => ({
+        bg: getComputedStyle(document.body).backgroundColor,
+        thumb: getComputedStyle(li('Boas-vindas').querySelector('.thumb')).backgroundColor,
+        hora: { recepcao: cor('Recepção'), louvor: cor('Louvor'), pregacao: cor('Pregação'), bencao: cor('Bênção') },
+        linha: { boas: linha('Boas-vindas'), hino1: linha('Hino 1'), hino2: linha('Hino 2'), apelo: linha('Apelo'), fora: linha('Aviso solto') },
+      });
+      const escuro = ler();
+      setTema('claro'); await z(150);
+      const claro = ler();
+      setTema('escuro');
+      const horas = Object.values(escuro.hora);
+      const linhas = [escuro.linha.boas, escuro.linha.hino1, escuro.linha.hino2, escuro.linha.apelo];
+      const linhasClaro = [claro.linha.boas, claro.linha.hino1, claro.linha.hino2, claro.linha.apelo];
+      return {
+        minHoraEscuro: Math.min(...horas.map((c) => ctr(c, escuro.bg))),
+        minHoraClaro: Math.min(...Object.values(claro.hora).map((c) => ctr(c, claro.bg))),
+        minLinhaEscuro: Math.min(...linhas.map((x) => ctr(x.cor, escuro.thumb))),
+        minLinhaClaro: Math.min(...linhasClaro.map((x) => ctr(x.cor, claro.thumb))),
+        coresDistintas: new Set(horas).size === horas.length,
+        horaNasLinhas: escuro.linha.boas.cor === escuro.hora.recepcao && escuro.linha.hino1.cor === escuro.hora.louvor
+          && escuro.linha.hino2.cor === escuro.hora.louvor && escuro.linha.apelo.cor === escuro.hora.pregacao,
+        larg: linhas.map((x) => x.larg),
+        fora: escuro.linha.fora,
+        mudaNoTema: claro.hora.recepcao !== escuro.hora.recepcao,
+        amostra: { escuro: escuro.hora, claro: claro.hora },
+      };
+    });
+    checar(cores.coresDistintas && cores.horaNasLinhas && cores.larg.every((w) => w === '3px')
+      && cores.fora.desenho === 'none'
+      && cores.minHoraEscuro >= 4.5 && cores.minHoraClaro >= 4.5
+      && cores.minLinhaEscuro >= 3 && cores.minLinhaClaro >= 3 && cores.mudaNoTema,
+      'G′ · o DEMARCADOR do grupo (v1.14.54): cada momento tem uma cor de identidade (a hora a carrega), a MESMA cor '
+      + 'pinta a linha de 3px na borda esquerda das miniaturas do grupo certo — e a mídia de fora não pinta nada. '
+      + 'Contraste medido nos dois temas: hora ≥ ' + cores.minHoraEscuro.toFixed(2) + ':1 / ' + cores.minHoraClaro.toFixed(2)
+      + ':1 e linha ≥ ' + cores.minLinhaEscuro.toFixed(2) + ':1 / ' + cores.minLinhaClaro.toFixed(2) + ':1', cores);
     const vao = await pg.evaluate(() => {
       const lis = [...document.querySelectorAll('#library > li.lib-item')], pares = [];
       for (let i = 1; i < lis.length; i++) {
@@ -2235,9 +2362,9 @@ try {
     checar(limite.dis === true && limite.op < 0.5 && !/93, 40, 46/.test(limite.fundo),
       'Z · o +5 no extremo do atraso fica DESATIVADO pelo véu do deck (cartão `--surface`, opacidade apagada) — '
       + 'o vermelho do volume NÃO é dele', limite);
-    checar(alto > 30 && meioAlt >= 2 && meioTopo >= 2 && new Set(topos).size >= 4,
-      'Z · a faixa ABRE DESLIZANDO e a lista desce com ela: a altura da faixa e o topo do `#library` passam por '
-      + 'valores intermediários — o pulo de ~48 px virou movimento', { alto, meioAlt, meioTopo, topos: [...new Set(topos)] });
+    checar(alto > 30 && meioAlt >= 2 && new Set(topos).size === 1,
+      'Z · a faixa ABRE DESLIZANDO: a altura dela passa por valores intermediários, e o topo do `#library` fica '
+      + 'PARADO — desde a v1.14.54 ela é sobreposta, então o movimento é só da aba', { alto, meioAlt, meioTopo, topos: [...new Set(topos)] });
     // (2) OS MOMENTOS NA LISTA: as linhas do momento encolhem antes de sumir.
     const ocultaQ = await pg.evaluate(() => new Promise((ok) => {
       const v = [], t0 = performance.now();

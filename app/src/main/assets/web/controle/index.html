@@ -1056,7 +1056,9 @@
            faixa abre embaixo, então a seta diz o que o toque faz; e o botão NÃO
            veste card — o estado fica no `aria-expanded`, no desenho e na faixa à
            vista. Leva o ponto do "no ar" e nasce `hidden` — `renderItinBar` o
-           mostra onde a faixa existiria. -->
+           mostra onde a faixa existiria. **E com uma folha aberta ele FICA**
+           (v1.14.53): é a saída dela para o Cronograma com as opções abertas
+           (`itinPortaTocar`), e não some mais com a faixa e a sub-aba. -->
       <button id="itinBarBtn" class="crono-itin" type="button" title="Itinerário" aria-label="Itinerário" aria-expanded="false" aria-controls="itinBar" hidden>
         <span class="crono-itin-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7.4 5.7 9.1 9.4 5.4"/><path d="M12.6 7.4H20"/><path d="M4 16.4 5.7 18.1 9.4 14.4"/><path d="M12.6 16.4H20"/></svg></span>
         <span class="itin-ponto" aria-hidden="true" hidden></span>
@@ -1128,18 +1130,6 @@
            lugares para ela divergir, e o cabeçalho tem largura de celular.) -->
     </div>
 
-    <!-- A SEGUNDA LINHA DO CRONOGRAMA (v1.14.32): as OPÇÕES DO ITINERÁRIO. Pedido
-         do operador: *"as opções do itinerário pode ser uma segunda linha mais
-         estreita logo abaixo da linha de topo do cronograma. Pode ser uma linha
-         ocultável"*. O itinerário deixou de ser uma ferramenta: os momentos são
-         linhas desta lista e o telão, o ajuste do horário e o adicionar moram aqui.
-         Irmã da barra do topo, não filha: a barra é uma grade de três trilhas
-         medida ao pixel (`--hit`), e uma linha a mais dentro dela mexeria na conta
-         dos três moradores. Quem a desenha é `renderItinBar`; RECOLHIDA ela não
-         desenha nada (`hidden`) — quem abre e fecha é o `#itinBarBtn` da barra,
-         e aberta ela fica aberta. Escondida com o `<main>` no Modo Fácil. -->
-    <div id="itinBar" class="itin-bar" role="toolbar" aria-label="Itinerário do cronograma" hidden></div>
-
     <!-- O CORPO DA LISTA (v1.3.10). Ele existe para dar OFFSET PARENT à folha
          de Ferramentas: ela desliza de baixo para cima DENTRO do Cronograma —
          sobre a lista e o rodapé dela, e não sobre a tela toda —, então precisa
@@ -1149,6 +1139,27 @@
          O `gap` repete o do `<main>`: os dois filhos daqui saíram de lá e a
          distância entre a lista e o rodapé é a mesma de sempre. -->
     <div class="list-body">
+    <!-- A SEGUNDA LINHA DO CRONOGRAMA (v1.14.32): as OPÇÕES DO ITINERÁRIO. Pedido
+         do operador: *"as opções do itinerário pode ser uma segunda linha mais
+         estreita logo abaixo da linha de topo do cronograma. Pode ser uma linha
+         ocultável"*. O itinerário deixou de ser uma ferramenta: os momentos são
+         linhas desta lista e o telão, o ajuste do horário e o adicionar moram aqui.
+
+         DESDE A v1.14.54 ELA É SOBREPOSTA, e mora no TOPO do `.list-body` junto
+         com a gaveta dos cronogramas e a sub-aba do momento — as três ancoradas
+         na borda de baixo da barra do topo, e nenhuma delas empurra a lista (o
+         pedido: *"aplique também o mesmo conceito de sobreposição do cronograma
+         … ela agora vai ser sobreposta ao cronograma e não deslocando ele para
+         baixo"*). Antes era irmã da `.list-header` dentro do `<main>`, no fluxo,
+         e abrir movia o topo da lista.
+
+         Ela NÃO é filha da barra do topo: a barra é uma grade de três trilhas
+         medida ao pixel (`--hit`), e uma linha a mais dentro dela mexeria na
+         conta dos três moradores. Quem a desenha é `renderItinBar`; RECOLHIDA
+         ela não desenha nada (`hidden`) — quem abre e fecha é o `#itinBarBtn` da
+         barra, e aberta ela fica aberta. Escondida com o `<main>` no Modo Fácil
+         e com uma folha aberta (o `:has(…)` do CSS). -->
+    <div id="itinBar" class="itin-bar" role="toolbar" aria-label="Itinerário do cronograma" hidden></div>
     <!-- A GAVETA DOS CRONOGRAMAS (v1.12.54; as linhas refeitas na v1.12.55).
          Mora no TOPO do `.list-body`, que começa exatamente na borda de baixo
          da barra: é assim que ela abre "abaixo da top bar" sem medir nada. O
@@ -2047,7 +2058,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.53</span>
+          <span id="appVersion">v1.14.54</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>

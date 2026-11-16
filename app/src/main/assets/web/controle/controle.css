@@ -7354,10 +7354,20 @@ main {
 body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-editar, .row-excluir) { display: none; }
 /* O GRUPO DO MOMENTO (pedido de 15/11): o momento e as mídias até o próximo. As
    classes são de `marcarGruposDoItinerario`, e elas ficam porque o ARRASTO do grupo
-   depende delas (`arrasto.grupo`). **SEM TINTA NENHUMA** (pedido de 15/11: *"Remova o
+   depende delas (`arrasto.grupo`). **SEM TINTA NO CARTÃO** (pedido de 15/11: *"Remova o
    tint dos itens do itinerário, se não dá pra ter moldura, então não precisa ter
    nada"*): a linha do momento continua transparente como a das mídias, e o que separa
-   dois grupos é só o ESPAÇO do respiro abaixo. Sem mídia não há grupo. */
+   dois grupos é o ESPAÇO do respiro abaixo.
+   **E DESDE A v1.14.54 O GRUPO TEM UM DEMARCADOR:** a cor do momento (abaixo) vira
+   uma LINHA vertical de 3px na borda esquerda da `.thumb` de cada mídia do grupo —
+   o operador: *"Uma cor diferente para cada horário … e aplique essa cor em uma
+   linha vertical, que fica na borda esquerda da thumbnail de todas as mídias que
+   estão no grupo daquele momento"*. É IDENTIDADE, não estado: as oito matizes estão
+   em `tokens.css` (`--momento-1…8`) e nenhuma delas é o vermelho do desligado. A
+   linha é um `::after` ABSOLUTO na miniatura (o `::before`/`::after` de um flex
+   viraria item e mexeria no centrado da capa), e o `--momento-cor` desce do `li`
+   por herança. Sem cor (a mídia antes do 1º momento) o `var()` cai no fallback e
+   nenhuma linha é pintada. Sem mídia não há grupo. */
 /* ENTRE DOIS GRUPOS o momento abre um RESPIRO de `--sp-4` por dentro (`padding-top`,
    a linha dele é transparente): os dois blocos não encostam, e o `gap` da lista — que
    a conta do arrasto lê — não muda. */
@@ -7366,8 +7376,22 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
    os títulos da lista se alinham uns com os outros. */
 .momento-hora {
   flex: none; min-width: 2.9rem; text-align: left;
-  font-size: var(--fs-lg); font-weight: var(--fw-max); line-height: 1; color: var(--accent);
+  font-size: var(--fs-lg); font-weight: var(--fw-max); line-height: 1;
+  /* A COR É A DO GRUPO (v1.14.54), e o `--accent` fica de fallback: é a mesma cor
+     que demarca as miniaturas do grupo, e é por isso que a hora do momento a
+     carrega. */
+  color: var(--momento-cor, var(--accent));
   font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+}
+/* A LINHA DO GRUPO na borda esquerda da miniatura (v1.14.54): 3px, a largura da
+   faixa do mosaico da Bíblia, e `pointer-events: none` porque ela é marca, não
+   alvo. O `left: 0` e a altura inteira põem a linha DENTRO da capa, recortada
+   pelo `overflow: hidden` e pelos cantos da `.thumb` — a borda que o operador
+   pediu. O seletor cobra as classes do grupo (as mesmas do arrasto em bloco):
+   mídia sem momento não pinta nada. */
+#library > .lib-item:is(.grupo-meio, .grupo-fim) > .row > .thumb::after {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: var(--momento-cor, transparent); pointer-events: none;
 }
 .lib-item.momento .row-name { font-weight: var(--fw-forte); }
 /* O MOMENTO DE AGORA (a leitura do relógio, a mesma do telão): o subtítulo em
@@ -7376,40 +7400,54 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
    (`marcarNoAr` o escreve a cada passada), e um momento nunca é isso. */
 .lib-item.momento.agora .row-sub, .lib-item.momento.seguir .row-sub { color: var(--accent); }
 
-/* A FAIXA DE OPÇÕES, IRMÃ DA BARRA DO TOPO (ver o `#itinBar` no HTML):
-   TRANSPARENTE, com os botões soltos (pedido de 15/11), sangrando até as bordas
-   pelo recuo do `<main>` devolvido como margem negativa — a mesma conta do
-   `.list-header` —, e com a margem de baixo negativa para anular o `gap` do
-   `<main>` (a barra de cima já anula o dela). Recolhida ela é `hidden` e não
-   ocupa nada. O Modo Fácil não a desenha: esconde o `<main>` inteiro. */
+/* ===== A FAIXA DE OPÇÕES É UMA ABA SOBREPOSTA (v1.14.54) =====
+   Pedido do operador: *"Ajuste o design da aba de opções do itinerário, para que
+   ela tenha a mesma largura da aba da lista de nomes e edições dos cronogramas.
+   … E aplique também o mesmo conceito de sobreposição do cronograma que temos
+   nessa aba de opções do cronograma para a do itinerário, ela agora vai ser
+   sobreposta ao cronograma e não deslocando ele para baixo apenas para ela ser
+   aberta."*
+
+   A RECEITA É A DA `.crono-gaveta`, verbatim: `absolute` no TOPO do
+   `.list-body` (que começa na borda de baixo da barra do topo), `left: 0; right:
+   0; margin: 0 auto; width: min(100%, 24rem)` — a LARGURA DA GAVETA, medida de
+   lá e não escolhida —, fundo OPACO (`--bar`, o par do deck desde a v1.14.38),
+   `--radius-card` e a sombra das superfícies que flutuam. No FLUXO ela ocupava
+   ~48px e abrir movia o topo do `#library`: agora cobre as primeiras linhas e a
+   lista NÃO anda (o `#library` encosta na barra do topo nos dois estados).
+
+   O `top` é `--sp-3`, o MESMO da gaveta: a folga com a barra do topo continua
+   sendo `--bg` (não `padding`), porque uma aba encostada na barra leria como a
+   terceira linha dela. O `padding` da fileira é `--deck-gap` nos QUATRO lados —
+   a folga dos botões até a borda que o operador pediu em 16/11, agora com o
+   mesmo valor no eixo horizontal (o `.8rem` era o recuo da faixa sangrada).
+
+   O `z-index: 7` é o da sub-aba: acima da tira de sombra da lista (5) e das
+   portas (6), abaixo das folhas (8), que a escondem de qualquer jeito. */
 .itin-bar {
   container-type: inline-size;
+  position: absolute; top: var(--sp-3); left: 0; right: 0; z-index: 7;
+  margin: 0 auto; width: min(100%, 24rem);
   /* QUEBRA EM DUAS LINHAS quando não cabe (a fonte do sistema em 1,25× ou mais, ou uma tela
      estreita): a alternativa era esconder o `+` atrás da borda, sem rolagem nenhuma para
      chegar a ele. Quem desce são as SEÇÕES inteiras (`.itin-secao`). O vão ENTRE elas
      é `--sp-6`, claramente maior que o de dentro: é só o espaço que as separa. */
-  flex-shrink: 0; display: flex; flex-wrap: wrap; row-gap: var(--sp-2);
+  display: flex; flex-wrap: wrap; row-gap: var(--sp-2);
   /* `stretch` e não `center`: a célula que carrega texto é mais baixa que as de
      ícone, e na fileira do deck TODAS medem o mesmo — quem dá a altura é a mais
      alta, e as outras esticam até ela. */
   align-items: stretch; column-gap: var(--deck-gap);
-  /* A FOLGA COM A BARRA DO TOPO (pedido de 15/11: *"A aba das opções do itinerário
-     está muito colada com a top bar"*): é MARGEM, fora da caixa pintada — a folga é
-     o `--bg` entre a barra do topo e a faixa, e um `padding-top` a pintaria da cor da
-     faixa. A margem de cima empurra a faixa inteira para baixo; a de baixo continua
-     negativa, anulando o `gap` do `<main>`. */
-  margin: var(--sp-4) -.8rem calc(-1 * var(--sp-5));
   /* A FOLGA DE CIMA E DE BAIXO É O VÃO DO DECK (16/11: *"coloque uma pequena margem
      entre os botões e a borda da caixa"*): `--deck-gap`, o mesmo que separa dois
      botões vizinhos — a caixa abraça a fileira com a mesma distância nos quatro lados
-     de cada botão. A faixa deixou de ser mais baixa que a barra do topo (47,6 contra
-     43,6): o teto da v1.14.36 cedeu ao pedido. */
-  padding: var(--deck-gap) .8rem;
-  /* O FUNDO É O DA BARRA DO PLAYER (Pacote 37): a faixa era TRANSPARENTE e os
-     botões flutuavam soltos sobre o `--bg`. O par do deck é `--bar` na caixa e
+     de cada botão. */
+  padding: var(--deck-gap);
+  /* O FUNDO É O DA BARRA DO PLAYER (Pacote 37): o par do deck é `--bar` na caixa e
      `--surface` nos botões, e é ele que se lê como "aba" — uma peça com corpo,
-     encostada na lista, e não três ícones perdidos no vazio. */
-  background: var(--bar);
+     encostada na lista, e não três ícones perdidos no vazio. É OPACO porque agora
+     ela cobre a lista. */
+  background: var(--bar); border-radius: var(--radius-card);
+  box-shadow: 0 4px 14px var(--shadow-card);
   /* A ANIMAÇÃO DE ABERTURA (pedido de 15/11): a faixa desce um degrau e acende. Ela
      roda porque o elemento volta a ser DESENHADO ao sair do `hidden` — o navegador
      não interpola um estado anterior que ele não pintou, e por isso é `animation`
@@ -7443,16 +7481,15 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
   .itin-bar--animando { transition: none; }
 }
 .itin-bar:empty { display: none; }
-/* A FAIXA CEDE A FOLHA (v1.14.34). Ela mora entre a barra do topo e o
-   `.list-body`, e a folha de Ferramentas/Bíblia é `absolute` DENTRO do
-   `.list-body`: enquanto esta faixa ocupa altura, ela come a altura da folha, e
-   foi assim que a régua de toque e a das linhas brigaram (30,4px de botão contra
-   o `--hit` de 34; 44px de texto cortado na Bíblia a 1,3×). A folha cobre o
-   Cronograma inteiro — e o Cronograma, aqui, são a barra do topo, ESTA faixa e
-   a lista —, então a faixa sai de cena enquanto uma folha está aberta e volta
-   quando ela fecha. O `:has()` é o mesmo motor que o `.list-body:has(…)` já usa
-   desde a v1.8.60/v1.8.63; sem ele a folha voltaria a ser medida contra a
-   altura de uma faixa que ela não deveria dividir.
+/* A FAIXA CEDE A FOLHA (v1.14.34; a geometria mudou na v1.14.54). Ela e a
+   sub-aba moram no TOPO do `.list-body`, junto com a gaveta dos cronogramas, e a
+   folha de Ferramentas/Bíblia é `absolute` DENTRO do mesmo `.list-body`: as duas
+   ficariam POR BAIXO da folha (a sub-aba tem `z-index: 7` e a folha é 8). Ainda
+   assim elas saem de cena, e o motivo continua sendo a MEDIDA: a sub-aba é
+   posicionada por JS a partir da borda de baixo da faixa, e uma âncora que
+   existe por baixo de uma tela de trabalho é estado a mais para o `__avBack` e
+   para o desenho. O `:has()` é o mesmo motor que o `.list-body:has(…)` já usa
+   desde a v1.8.60/v1.8.63.
 
    **E A PORTA (`#itinBarBtn`) NÃO CEDE JUNTO** (v1.14.53). Pedido do operador:
    *"Quando abre ferramentas, ou a Bíblia, o botão de abrir opções de itinerário
@@ -7463,7 +7500,7 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
    esconde é a regra, não a geometria. O comportamento do toque com folha aberta
    está no `controle.js` (o mesmo ouvinte de sempre, com a folha como primeiro
    degrau a fechar). */
-main:has(> .list-body > .tools-sheet:not([hidden])) :is(#itinBar, #itinEditor) { display: none; }
+.list-body:has(> .tools-sheet:not([hidden])) > :is(#itinBar, #itinEditor) { display: none; }
 /* O BOTÃO DA FAIXA MEDE O PISO DO APP: altura em `--hit` (34px, fixo em px
    como o piso), solto (sem caixa), e nunca menor que o dedo em tela nenhuma. */
 /* A CÉLULA É A DO DECK (Pacote 37): o `.t-btn` do transporte é um bloco que DIVIDE
@@ -7594,11 +7631,22 @@ main:has(> .list-body > .tools-sheet:not([hidden])) :is(#itinBar, #itinEditor) {
    com a sombra das superfícies que flutuam para se ler por cima da lista. O
    deslizar é do JS (`itinEditorDeslizar`): a altura E o `padding`. */
 .itin-editor {
-  position: absolute; top: 0; left: -.8rem; right: -.8rem; z-index: 7;
+  /* A ÂNCORA É A BORDA DE BAIXO DA FAIXA (v1.14.54): a faixa virou `absolute` e
+     deixou de definir o topo do `.list-body`; as duas são irmãs no topo dele, e a
+     sub-aba começa onde a faixa termina. Quem escreve a medida é
+     `medirFaixaDoItin` (o `top` da faixa + a altura dela), e o `top: 0` é só o
+     valor de partida — a sub-aba nunca abre com a faixa fechada
+     (`abrirItinEditor` a abre antes). A LARGURA é a da faixa: ela desce dela, e
+     um painel mais largo que a aba que o abriu leria como outra peça. */
+  position: absolute; top: var(--itin-barra-base, 0px); left: 0; right: 0; z-index: 7;
+  margin: 0 auto; width: min(100%, 24rem);
   box-sizing: border-box;
   display: flex; flex-direction: column; gap: var(--sp-3);
   padding: var(--sp-3) .8rem var(--sp-5);
   background: var(--bar);
+  /* O canto de cima some porque a faixa está colada nele; os dois de baixo são os
+     da folha que desce. */
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
   box-shadow: 0 6px 14px var(--shadow-card);
 }
 .itin-editor[hidden] { display: none; }

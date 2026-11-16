@@ -482,7 +482,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.53';
+const WEB_VERSION = '1.14.54';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -8878,6 +8878,32 @@ function msDoToken(nome, padrao) {
   const n = parseFloat(v);
   return Number.isFinite(n) ? n * (/ms$/.test(v) ? 1 : 1000) : padrao;
 }
+/**
+ * A ÂNCORA DA SUB-ABA É A BORDA DE BAIXO DA FAIXA (v1.14.54).
+ *
+ * Até a v1.14.53 a faixa ocupava altura no `<main>`, e o `.list-body` começava
+ * na borda de baixo DELA: a sub-aba era `top: 0` e herdava a âncora de graça.
+ * Agora a faixa é SOBREPOSTA (`absolute` no topo do `.list-body`, como a gaveta
+ * dos cronogramas), e as duas são irmãs — o `top` da sub-aba precisa da altura
+ * da faixa. O valor é escrito no PAI (`.list-body`), que é o bloco contêiner das
+ * duas, em px medidos: o `top` da faixa (`--sp-3`) mais a altura dela. Só o que
+ * mudou é reescrito, como no `acertarVeus`/`medirPortaDasFerramentas`.
+ *
+ * Quem chama: o repouso da faixa, a abertura (ANTES de a altura animar), o
+ * desenho dela e a mudança de tamanho da janela (a faixa quebra em duas linhas
+ * com a fonte do sistema grande). FALHA ABERTA: sem a medida o `top` é 0 e a
+ * sub-aba nasceria sobre a faixa; por isso ela só é desenhada com a faixa
+ * aberta, e a abertura sempre passa por aqui.
+ */
+function medirFaixaDoItin() {
+  const bar = itinBarEl;
+  const corpo = bar && bar.parentElement;
+  if (!bar || !corpo || bar.hidden || !bar.getClientRects().length) return;
+  const base = corpo.getBoundingClientRect().top;
+  const v = (Math.round((bar.getBoundingClientRect().bottom - base) * 100) / 100) + 'px';
+  if (corpo.style.getPropertyValue('--itin-barra-base') !== v) corpo.style.setProperty('--itin-barra-base', v);
+}
+window.addEventListener('resize', () => { if (itinFaixaAberta) medirFaixaDoItin(); });
 // O REPOUSO: o desenho final, sem animação. É o fim de todo movimento e também o que
 // um toque NO MEIO do movimento resolve antes de começar o outro — sem isso, o
 // segundo toque leria uma altura intermediária e o temporizador do primeiro
@@ -8897,6 +8923,7 @@ function itinFaixaRepousar() {
   document.body.classList.toggle('itin-faixa-aberta', itinFaixaAberta);
   if (itinBarBtnEl) itinBarBtnEl.setAttribute('aria-expanded', itinFaixaAberta ? 'true' : 'false');
   renderItinBar();
+  if (itinFaixaAberta) medirFaixaDoItin();
 }
 function itinFaixaAlternar(aberta) {
   const quer = !!aberta;
@@ -8918,6 +8945,9 @@ function itinFaixaAlternar(aberta) {
     renderItinBar();
     de = bar.offsetHeight;
     if (!de) return;
+    // A ÂNCORA DA SUB-ABA SAI DAQUI, com a faixa ainda em repouso: depois do
+    // `height: 0` a medida seria a do meio do movimento.
+    medirFaixaDoItin();
   } else {
     de = bar.offsetHeight;
     if (!de) { itinFaixaRepousar(); return; }
@@ -9335,6 +9365,9 @@ function renderItinBar() {
   itinBarEl.append(secao('criacao', 'Criar', [novo]),
     secao('estado', 'Estado do itinerário', [tel, mom, hor]),
     secao('atraso', 'Atraso', [passo(-5), txt, passo(5)]));
+  // O DESENHO PODE MUDAR A ALTURA (quebra de linha com a fonte do sistema), e a
+  // sub-aba mora na borda de baixo: a medida é refeita junto com o desenho.
+  medirFaixaDoItin();
 }
 
 // ===== A SUB-ABA DE UM MOMENTO: adicionar e editar (v1.14.52) =====
@@ -9517,6 +9550,10 @@ function abrirItinEditor(id) {
   // A ORDEM DO TIMER: medir a caixa (que só tem tamanho à vista), depois
   // posicionar — invertida, a primeira posição usa a régua do CSS.
   if (itinEditorAnimando) itinEditorRepousar();
+  // A MEDIDA SÓ COM A FAIXA PARADA: aberta por este toque, ela está no meio da
+  // animação de altura, e medir ali gravaria a altura INTERMEDIÁRIA como âncora —
+  // a da abertura já foi escrita pelo `itinFaixaAlternar` antes de animar.
+  if (!itinFaixaAnimando) medirFaixaDoItin();
   itinEditorEl.hidden = false;
   itinEditorCaber();
   acertarRoletasDoItin();
@@ -11299,18 +11336,35 @@ function renderLibraryCorpo() {
 
 // O GRUPO DO MOMENTO (pedido de 15/11): o momento e as linhas até o próximo momento
 // (ou até o fim); as de antes do primeiro ficam sem grupo, e um momento sem mídia não
-// é grupo. Só classes — a moldura é do CSS (`.grupo-ini` o momento, `.grupo-meio` as
-// mídias, `.grupo-fim` a última; o recolhido é `ini` e `fim` ao mesmo tempo).
+// é grupo. Classes e a var da COR — a moldura e a linha são do CSS (`.grupo-ini` o
+// momento, `.grupo-meio` as mídias, `.grupo-fim` a última; o recolhido é `ini` e `fim`
+// ao mesmo tempo; `--momento-cor` desce do `li` por herança).
+// AS OITO CORES DO GRUPO (v1.14.54, declaradas em `tokens.css`): a MESMA cor pinta
+// a HORA do momento e a linha de 3px na borda esquerda da miniatura de cada mídia
+// do grupo. A ordem alterna quente/frio (azul · laranja · verde · rosa · ciano ·
+// amarelo · roxo · lima) para dois grupos vizinhos nunca se lerem como o mesmo; a
+// posição é a da LISTA, a mesma que desenha e que o arrasto usa — um redesenho não
+// muda cor nenhuma. Oito porque um culto cabe em seis e sobra folga; a nona volta à
+// primeira, e o grupo é contíguo, então a repetição não confunde dois vizinhos.
+const MOMENTO_CORES = ['--momento-1', '--momento-2', '--momento-3', '--momento-4',
+  '--momento-5', '--momento-6', '--momento-7', '--momento-8'];
 function marcarGruposDoItinerario(host) {
   const lis = [...host.children].filter((li) => li.tagName === 'LI' && li.classList.contains('lib-item'));
+  // A POSSE DA COR é limpa antes: o host é reconstruído a cada render, mas a
+  // função também roda em cima de DOM vivo noutra chamada, e uma cor esquecida
+  // num `li` reciclado seria um grupo pintado com a cor de outro.
+  for (const li of lis) li.style.removeProperty('--momento-cor');
+  let n = 0;
   for (let i = 0; i < lis.length; i++) {
     if (!lis[i].classList.contains('momento')) continue;
+    const cor = 'var(' + MOMENTO_CORES[n++ % MOMENTO_CORES.length] + ')';
+    lis[i].style.setProperty('--momento-cor', cor);
     let j = i + 1;
     while (j < lis.length && !lis[j].classList.contains('momento')) j++;
-    // SEM MÍDIA NÃO HÁ GRUPO (nem moldura) — a não ser recolhido: aí a moldura fecha só nele.
+    // SEM MÍDIA NÃO HÁ GRUPO (nem linha) — a não ser recolhido: aí o grupo fecha só nele.
     if (j === i + 1 && !lis[i].classList.contains('recolhido')) continue;
     lis[i].classList.add('grupo-ini');
-    for (let k = i + 1; k < j; k++) lis[k].classList.add('grupo-meio');
+    for (let k = i + 1; k < j; k++) { lis[k].classList.add('grupo-meio'); lis[k].style.setProperty('--momento-cor', cor); }
     lis[j - 1].classList.add('grupo-fim');
   }
 }
@@ -21401,6 +21455,11 @@ let cronoGavetaSeq = 0;
  */
 function abrirCronoGaveta() {
   if (!cronoGavetaEl) return;
+  // AS DUAS ABAS DO MESMO LUGAR NÃO CONVIVEM (v1.14.54, pedido do operador: *"faça
+  // as duas abas serem concorrentes, quando uma está aberta, a outra fecha"*): a
+  // gaveta dos cronogramas e a faixa do itinerário. O caminho de volta (abrir a
+  // faixa fecha a gaveta) está no `itinPortaTocar`.
+  if (itinFaixaAberta) itinFaixaAlternar(false);
   fecharAcoesDaLinha();
   renderCronoGaveta();
   const seq = ++cronoGavetaSeq;

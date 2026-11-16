@@ -702,6 +702,33 @@
   --b-gerais:#283e1f;
   --b-apocalipse:#3f391f;
 
+  /* ---------- AS CORES DO GRUPO DO ITINERÁRIO (v1.14.54) ----------
+     Oito matizes de IDENTIDADE, uma por momento do culto: a MESMA cor pinta a
+     HORA do momento e a linha de 3px na borda esquerda da miniatura de cada
+     mídia do grupo — é o demarcador que o operador pediu. Oito porque um culto
+     cabe em seis e sobra folga; a ORDEM alterna quente e frio, para dois
+     momentos vizinhos nunca se lerem como o mesmo.
+
+     NÃO SÃO ESTADO. O vermelho do "desligado" (`--btn-danger`/`--danger-strong`)
+     fica fora de propósito: a v1.14.39 o gastou nos três interruptores da faixa
+     do itinerário, e um grupo vermelho competiria com eles na mesma tela — a
+     mesma decisão que deixou o `scarlett` fora do mosaico da Bíblia.
+
+     MEDIDO no Chromium com o par de cada token contra o `--bg` do tema: no
+     escuro o pior é **6,00:1** e no claro **5,00:1** — a hora é texto e passa
+     AA com folga, e a linha, que é objeto gráfico (piso 3:1), herda o mesmo
+     número. A saturação é alta de propósito: a linha pode cair sobre a foto de
+     uma capa, e o que a mantém visível ali é ela ser a cor mais viva do quadro,
+     não a promessa de contraste (que só vale sobre a miniatura vazia). */
+  --momento-1:#4195e8;
+  --momento-2:#e47221;
+  --momento-3:#15a846;
+  --momento-4:#ea56cc;
+  --momento-5:#14a397;
+  --momento-6:#949813;
+  --momento-7:#a67bef;
+  --momento-8:#45a614;
+
   /* (A PALETA DAS COLEÇÕES — `--col-1`…`--col-8` e as famílias `-corpo`/`-card`
      — SAIU na v1.5.9, com a v1.5.7 e a v1.5.8 inteiras. Ela dava a cada coleção
      uma matiz própria, e o operador reprovou o resultado: *"está errado,
@@ -938,6 +965,18 @@
   --b-paulinas:#adeac3;
   --b-gerais:#bdeaa9;
   --b-apocalipse:#eadda9;
+
+  /* AS MESMAS OITO MATIZES DO GRUPO DO ITINERÁRIO, ESCURECIDAS para o papel
+     (v1.14.54): aqui a hora é texto escuro sobre `--bg` claro e a linha é traço
+     sobre a miniatura clara. Pior par medido: **5,00:1**. */
+  --momento-1:#1b60a4;
+  --momento-2:#924b18;
+  --momento-3:#116b2f;
+  --momento-4:#a91b8d;
+  --momento-5:#116962;
+  --momento-6:#5f6210;
+  --momento-7:#7233de;
+  --momento-8:#2f6b11;
 
 
 

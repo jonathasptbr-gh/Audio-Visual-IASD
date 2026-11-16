@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.14.54",
+    "itens": [
+      "Cada momento do itinerário ganhou uma cor, aplicada à hora e a uma faixa na borda das miniaturas do grupo.",
+      "As cores são diferentes entre os momentos e continuam as mesmas a cada desenho da lista.",
+      "A aba de opções do itinerário agora tem a mesma largura, o mesmo recorte e o mesmo raio da aba dos cronogramas.",
+      "Ela passou a ficar sobreposta ao cronograma: abrir não empurra mais a lista para baixo.",
+      "A aba dos cronogramas e a do itinerário são concorrentes: abrir uma fecha a outra.",
+      "A sub-aba de novo momento desce colada na faixa, com a mesma largura dela."
+    ]
+  },
+  {
     "versao": "1.14.53",
     "itens": [
       "Na aba de editar mídia, o botão Importar arquivo ficou alinhado com as outras abas de ferramentas.",

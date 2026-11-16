@@ -1235,20 +1235,22 @@ try {
       const fx = document.getElementById('itinBar');
       const f = fx && fx.getClientRects().length ? fx.getBoundingClientRect() : null;
       const porta = document.getElementById('itinBarBtn');
-      // AS AMOSTRAS SÃO NA MOLDURA, e não no meio: no meio da barra mora o título e
-      // no meio da caixa de controles o transporte (o pixel mediria a FONTE). x=4
-      // está dentro dos recuos de 12,8px da barra, da faixa e da lista.
+      // A FAIXA É UM CARTÃO CENTRADO (v1.14.54), e em x=4 não há faixa: as amostras
+      // do cabeçalho/lista ficam na moldura (x=4) e a da FAIXA vai para DENTRO dela,
+      // a 12px da borda esquerda e 4px acima da base (a faixa de `padding`, longe do
+      // arco do canto e da sombra).
       return { x: 4, yCab: Math.round(c.bottom - 4),
         yFaixa: f ? Math.round(f.bottom - 4) : null,
+        xFaixa: f ? Math.round(f.left + 12) : null,
         yLista: Math.round(l.top + l.height / 2),
         yBarra: Math.round(document.querySelector('.bottombar').getBoundingClientRect().top + 6),
         esq: +c.left.toFixed(2), larg: +c.width.toFixed(2), tela: innerWidth,
-        faixa: f ? { esq: +f.left.toFixed(2), larg: +f.width.toFixed(2), alt: +f.height.toFixed(2) } : null,
+        faixa: f ? { esq: +f.left.toFixed(2), dir: +f.right.toFixed(2), larg: +f.width.toFixed(2), alt: +f.height.toFixed(2) } : null,
         porta: !!porta && porta.getClientRects().length > 0,
         aberta: porta ? porta.getAttribute('aria-expanded') : null,
-        // A BORDA DE BAIXO DA ÚLTIMA PEÇA É A BORDA DO SCROLLPORT: a linha some
-        // encostada nela, e não no meio de uma faixa de fundo.
-        vao: +(l.top - (f ? f.bottom : c.bottom)).toFixed(2),
+        // A LISTA ENCOSTA NA BARRA DO TOPO NOS DOIS ESTADOS: a faixa não a empurra.
+        vao: +(l.top - c.bottom).toFixed(2),
+        cobre: f ? f.bottom > l.top : false,
         simple: document.body.classList.contains('mode-simple') };
     });
     const mesma = (a, b) => !!a && !!b
@@ -1269,25 +1271,27 @@ try {
       'R · ' + tema + ': RECOLHIDA, a faixa do itinerário não ocupa nada e a barra do '
       + 'topo vai de borda a borda com a lista encostada nela (vão ' + r.vao + 'px)',
       JSON.stringify(r));
-    // ABERTA: A COR DA ABA (Pacote 37). A v1.14.32-35 pedia a faixa TRANSPARENTE, com
-    // o pixel dela sendo o fundo da LISTA; o operador pediu o contrário em 15/11 — *"o
-    // mesmo padrão dos botões da linha de controles do player: fundo da aba com uma
-    // cor"* —, e a cor é a da `.bottombar`, a MESMA da barra do topo (a faixa é a
-    // segunda linha do cabeçalho). O que se mede é a inversão: pinta a cor dos
-    // controles e NÃO a da lista, de borda a borda, com a lista encostada nela.
+    // ABERTA: A COR DA ABA (Pacote 37) NUM CARTÃO SOBREPOSTO (v1.14.54). A v1.14.32-35
+    // pedia a faixa TRANSPARENTE, com o pixel dela sendo o fundo da LISTA; o operador
+    // pediu o contrário em 15/11 — *"o mesmo padrão dos botões da linha de controles do
+    // player: fundo da aba com uma cor"* —, e a cor é a da `.bottombar`, a MESMA da barra
+    // do topo. Agora ela é a ABA DA GAVETA: centrada, com a largura de 24rem (menos que a
+    // tela), COBRINDO a lista, e o topo do `#library` não anda.
     await pg.click('#itinBarBtn');
     await pg.waitForTimeout(300);   // o fecho/abertura animados levam ~240ms (Pacote 37)
     const ra = await medir();
     const imgA = lerPng(await pg.screenshot());
-    const corFaixa = ra.faixa ? pixel(imgA, ra.x, ra.yFaixa) : null;
-    const corLista = pixel(imgA, ra.x, ra.yLista);
+    const corFaixa = ra.faixa && ra.xFaixa != null ? pixel(imgA, ra.xFaixa, ra.yFaixa) : null;
+    const corLista = pixel(imgA, ra.xFaixa != null ? ra.xFaixa : ra.x, ra.yLista);
     const corControlesA = pixel(imgA, ra.x, ra.yBarra);
-    checar(ra.aberta === 'true' && !!ra.faixa && ra.faixa.esq === 0 && ra.faixa.larg === ra.tela
-      && mesma(corFaixa, corControlesA) && !mesma(corFaixa, corLista) && Math.abs(ra.vao) <= 1,
-      'R · ' + tema + ': ABERTA (clique no `#itinBarBtn`), a faixa vai de borda a borda, '
-      + 'pinta a COR DA ABA — a mesma da caixa de controles, e não mais o fundo da lista — '
-      + 'e a lista encosta na borda de baixo dela (vão ' + ra.vao + 'px)',
-      JSON.stringify({ ...ra, cor: corFaixa, lista: corLista, controles: corControlesA }));
+    const centroA = ra.faixa ? (ra.faixa.esq + ra.faixa.dir) / 2 : -1;
+    checar(ra.aberta === 'true' && !!ra.faixa && Math.abs(ra.vao) <= 1
+      && ra.faixa.larg < ra.tela && Math.abs(centroA - ra.tela / 2) <= 1 && ra.cobre
+      && mesma(corFaixa, corControlesA) && !mesma(corFaixa, corLista),
+      'R · ' + tema + ': ABERTA (clique no `#itinBarBtn`), a faixa é um CARTÃO SOBREPOSTO — centrada, com a largura '
+      + 'da aba dos cronogramas e não mais de borda a borda —, pinta a COR DA ABA (a mesma da caixa de controles, e '
+      + 'não o fundo da lista), cobre a lista, e o topo do `#library` continua encostado na barra do topo (vão '
+      + ra.vao + 'px)', JSON.stringify({ ...ra, cor: corFaixa, lista: corLista, controles: corControlesA }));
     await ctx.close();
   }
 

@@ -161,9 +161,10 @@ try {
 
   // ── 3. A FOLHA SOBE DENTRO DO CRONOGRAMA, NÃO SOBRE A TELA ──────────────
   // A PREMISSA DA RÉGUA DE CIMA, medida com a folha FECHADA, nos DOIS estados da faixa do Itinerário
-  // (`#itinBar`, Pacote 35): ela nasce RECOLHIDA — sem retângulo, com o `#library` colado no `.list-header` — e
-  // abre pela porta `#itinBarBtn`, colada embaixo do cabeçalho (±1,5px) com o `#library` na borda de baixo dela.
-  // A folha é aberta com a faixa ABERTA: sem isso o `faixaOculta` lá embaixo passaria vácuo.
+  // (`#itinBar`, Pacote 35; SOBREPOSTA desde a v1.14.54): ela nasce RECOLHIDA — sem retângulo, com o `#library`
+  // colado no `.list-header` — e abre pela porta `#itinBarBtn`, `--sp-3` abaixo do cabeçalho, por cima da lista,
+  // sem mover o topo do `#library`. A folha é aberta com a faixa ABERTA: sem isso o `faixaOculta` lá embaixo
+  // passaria vácuo.
   const medirFaixa = () => pg.evaluate(() => {
     const b = document.getElementById('itinBar');
     const p = document.getElementById('itinBarBtn');
@@ -171,12 +172,15 @@ try {
     const rc = document.querySelector('.list-header').getBoundingClientRect();
     const rl = document.getElementById('library').getBoundingClientRect();
     const tem = b.getClientRects().length > 0, rb = b.getBoundingClientRect();
+    const raiz = getComputedStyle(document.documentElement);
+    const sp3 = parseFloat(raiz.getPropertyValue('--sp-3')) * parseFloat(raiz.fontSize);
     return { tem, porta: p.getClientRects().length > 0, aberta: p.getAttribute('aria-expanded'),
-      // ABERTA, a faixa é DESCOLADA da barra pelo `--sp-4` da margem de cima (v1.14.36) e o `#library` herda
-      // a BORDA DE BAIXO dela; RECOLHIDA, o `#library` encosta na barra (não há faixa no meio).
-      colada: tem ? Math.abs(rb.top - rc.bottom) >= 6 && Math.abs(rb.top - rc.bottom) <= 10
-        && Math.abs(rl.top - rb.bottom) <= 1.5 && rb.height > 0
-        : Math.abs(rl.top - rc.bottom) <= 1.5,
+      // A FAIXA É SOBREPOSTA (v1.14.54): o `#library` encosta na BARRA DO TOPO nos
+      // DOIS estados — abrir a faixa não move a lista. ABERTA, ela nasce `--sp-3`
+      // abaixo da barra, por cima da lista (o `bottom` dela passa do topo do
+      // `#library`).
+      colada: Math.abs(rl.top - rc.bottom) <= 1.5,
+      sobreposta: tem ? Math.abs(rb.top - (rc.bottom + sp3)) <= 1.5 && rb.bottom > rl.top && rb.height > 0 : false,
       faixa: tem ? [+rb.top.toFixed(2), +rb.bottom.toFixed(2)] : null,
       cabecalhoBase: +rc.bottom.toFixed(2), listaTopo: +rl.top.toFixed(2) };
   });
@@ -190,9 +194,9 @@ try {
   // repouso. O prazo fixo saiu; quem responde é o estado do movimento.
   await esperar(pg, () => !itinFaixaAnimando);
   const faixaIt = await medirFaixa();
-  checar(faixaIt.aberta === 'true' && faixaIt.tem && faixaIt.colada,
-    'aberta pela porta, a faixa do Itinerário (`#itinBar`) fica de pé entre o cabeçalho e a lista: é a borda de '
-    + 'baixo dela que o topo da lista herda, e a régua da folha, a seguir, mede contra ela', faixaIt);
+  checar(faixaIt.aberta === 'true' && faixaIt.tem && faixaIt.colada && faixaIt.sobreposta,
+    'aberta pela porta, a faixa do Itinerário (`#itinBar`) é SOBREPOSTA: nasce `--sp-3` abaixo da barra, cobre a '
+    + 'lista e o topo do `#library` NÃO anda (v1.14.54)', faixaIt);
   await pg.click('#toolsBtn');
   await assentar(pg, '#toolsSheet');
   const dentro = await pg.evaluate(() => {

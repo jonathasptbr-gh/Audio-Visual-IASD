@@ -4133,12 +4133,15 @@ try {
     && eixo.livros.listaY === eixo.capitulos.listaY
     && eixo.crono.bandaH > 0
     && (() => { const d = eixo.crono.listaY - eixo.livros.listaY;
-      // a faixa cede a ALTURA dela e ainda o `--sp-4` da margem de cima (v1.14.36: descolada da barra)
-      return d >= eixo.crono.bandaH && d <= eixo.crono.bandaH + 10; })(),
+      // A FAIXA É SOBREPOSTA (v1.14.54): abrir a faixa não move a lista, e a folha
+      // aberta (que a esconde) também não — o topo do `#library` é o mesmo nas três
+      // telas. O `bandaH > 0` acima continua provando que ela estava DESENHADA na
+      // medição do Cronograma.
+      return Math.abs(d) <= 1; })(),
     'e não DESCE tampouco: a linha da grade é declarada, então a altura da faixa '
-    + 'não é mais a do item mais alto — o título fica no mesmo y nas três telas, e '
-    + 'a lista só sobe quando a FOLHA está aberta, pela altura da faixa do '
-    + 'itinerário (aberta pela porta antes de medir) que cede a ela (v1.14.34) (y: ' + emY(telas).join(' · ')
+    + 'não é mais a do item mais alto — o título e a LISTA ficam no mesmo y nas três '
+    + 'telas, e a faixa do itinerário (aberta pela porta antes de medir) não move a '
+    + 'lista, porque é SOBREPOSTA (v1.14.54) (y: ' + emY(telas).join(' · ')
     + ' · faixa: ' + telas.map((t) => t.faixaH).join(' · ')
     + ' · lista: ' + telas.map((t) => t.listaY).join(' · ')
     + ' · banda: ' + telas.map((t) => t.bandaH).join(' · ') + ')', JSON.stringify(eixo));
