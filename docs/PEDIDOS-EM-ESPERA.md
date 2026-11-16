@@ -129,6 +129,7 @@ ordem; a fila é dele.
 
 | # | pacote · pedido | tipo | I | U | nota | entrega |
 |---|---|---|---|---|---|---|
+| **36** | **O itinerário: sem tinta de grupo, a seta na linha, a faixa descolada da top bar e a sobreposição no Cronograma** | correção | 4 | 4 | **17** | web |
 | **5** | **Itinerário: a tela de espera antes do primeiro momento** | pedido | 4 | 2 | **8** | web |
 | 5.1 | contagem regressiva + música + avisos | | 4 | 2 | 8 | web |
 | **13** | **Estudos — não são fila de execução** | estudo | 4 | 1 | **4** | decisão |
@@ -137,6 +138,72 @@ ordem; a fila é dele.
 | 13.3 | layout de paisagem (o app no Windows saiu) | | 3 | 1 | 3 | estudo |
 | **16** | **O cronograma pronto: o organizador entrega o culto** | pedido | 4 | 2 | **8** | planejamento |
 | **29** | **Guia do site: a captura da lista de Ferramentas e do Cronograma** | resíduo | 2 | 1 | **2** | site |
+
+---
+
+## Pacote 36 — O itinerário: sem tinta de grupo, a seta na linha, a faixa descolada da top bar e a sobreposição no Cronograma
+
+**Nota 17 (I4 × U4) · correção + aparência · só web, com a prévia visual ANTES de publicar**
+
+**Pedido direto do operador em 2026-11-15 (22h), na v1.14.35.** A sessão que o
+recebeu estava em 162 de 150 chamadas e o passou adiante (`ECONOMIA.md`, "No
+teto, a sessão ACABA"): a próxima confirma com ele que é este o pacote e segue.
+
+**O pedido, verbatim:**
+
+1. *"Remova o tint dos itens do itinerário, se não dá pra ter moldura, então não
+   precisa ter nada."*
+2. *"Ajuste a seta que mostra a abertura e fechamento dos grupos dos itinerários,
+   para que ela seja um botão a esquerda do botão de editar item do itinerário. É
+   claro que ele responde ao toque normal no corpo do card, é apenas a posição
+   visual dele."*
+3. *"Verifique a sobreposição dos itens no cronograma, esse itinerários estão
+   ficando sobrepostos."*
+4. *"Ajuste também uma pequena margem entre os botões da barra de opções dos
+   itinerários e a top bar do cronograma. A aba das opções do itinerário está
+   muito colada com a top bar."* E: *"adicione uma animação de abertura para essa
+   aba."*
+5. *"Pode ser um bug, mas no itinerário em exibição, aparece apenas o último item
+   do itinerário e não a lista."*
+
+**As suspeitas, medidas por quem fez a v1.14.35 (comece por elas):**
+
+- **3 · a sobreposição é a MAIS CARA** — na foto que o operador mandou, o cartão
+  de uma MÍDIA (a linha com capa) sobe por cima do cartão do momento "Culto".
+  O lote mexeu em duas coisas vizinhas: `#library > li + .grupo-ini {
+  padding-top: var(--sp-4) }` (o respiro, ainda no CSS, sem nada para separar) e
+  o RECOLHIDO (`itinRecolhidos`, `li.recolhido`, `dataset.ocultas`). Suspeita
+  forte: `li.recolhido`/`marcarGruposDoItinerario` e o `overflow: visible` que
+  sobrou das `li` agrupadas — procure também quem ainda lê `.grupo-ini` no CSS
+  (`rg -n 'grupo-' app/src/main/assets/web/controle/controle.css`) e o
+  `z-index`/`position` que a moldura antiga deixou no `::after`/na `li`.
+- **5 · o telão só mostra o último momento** — o descritor sai de
+  `itinDescriptor()`/`createStage.itinerarioLeitura` sobre `itinItens()`
+  (`ordenarItin` pelos `min`). O lote ACRESCENTOU `itinReassentarHorarios()`
+  (a grade reescreve os `min`) e o RECOLHIDO. Suspeita: os `min` sendo
+  reescritos com a lista já redesenhada por cima de um `itin` velho, ou o
+  `momentosOcultos`/recolhido entrando na conta do descritor. Meça com
+  `node tools/itinerario.test.mjs` e um roteiro próprio que PROJETE e leia o
+  descritor com 3+ momentos.
+- **1 · sem tinta: só as classes** — `marcarGruposDoItinerario` fica (o arrasto do
+  grupo depende dele), e sai a regra `--linha: var(--grupo-fill)` e o token
+  `--grupo-fill` (o `tools/tokens.test.mjs` reprova token sem leitor). O respiro
+  `li + .grupo-ini` continua? Decida na prévia com o operador: sem marca, o que
+  separa dois grupos é só o espaço.
+- **2 · a seta sai do subtítulo e vira BOTÃO** à esquerda do `.itin-editar`, na
+  `.row-acoes--solta` (ordem: [seta, `.itin-editar`, `.row-excluir`]); ela
+  responde ao toque como o corpo do card (recolhe/expande o grupo), tem `--hit` e
+  `aria-expanded`; o corpo do card continua recolhendo (o operador quer os dois).
+- **4 · margem e animação:** hoje a `#itinBar` encosta na barra do topo (`.15rem`
+  de padding em cima). Pedir `--sp-*` de folga e uma ANIMAÇÃO de abertura — a
+  referência da casa é `previa-animacao` (`docs/ORACULOS.md`): a régua é quadro a
+  quadro, e `prefers-reduced-motion` não anima; o oráculo novo entra em
+  `tools/itinerario.test.mjs` ou num arquivo próprio.
+
+**O que muda junto:** o `itinerario.test.mjs` (o G′ inteiro: a tinta, a seta, o
+respiro, a animação), `tokens.test.mjs` (o token sai), `geom`/`smoke` se a folga
+mexer no eixo da lista, e os docs `CAMADA-DE-TEXTO` ("o grupo" e "a faixa"),
+`CONTROLE-LISTAS` ("o grupo", "o grupo recolhido", "a faixa") e `ORACULOS`.
 
 ---
 
