@@ -482,7 +482,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.54';
+const WEB_VERSION = '1.14.55';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -8854,14 +8854,14 @@ async function itinAlternarGrupo(id, sob) {
 // (fechada, sobra só a seta do grupo, e o CSS a lê na classe `itin-faixa-aberta` do
 // `<body>` — sem redesenhar a lista, que perderia a rolagem).
 let itinFaixaAberta = false;
-// A FAIXA ABRE E FECHA DESLIZANDO (Pacote 37): ela é irmã do `.list-header` e ocupa
-// ~48 px no fluxo do `<main>`, então abrir e fechar movia o topo do `#library` de
-// uma vez — o "pulo" que o operador viu. Quem anima é a ALTURA MEDIDA (a família do
-// `aoSair`): de 0 até `offsetHeight` na abertura, o contrário no fecho, e a LISTA
-// anda junto porque quem a empurra é o layout. As duas MARGENS entram na conta: a
-// de cima é `--sp-4` (a folga que a faixa tem com a barra do topo) e a de baixo é
-// negativa (anula o `gap` do `<main>`) — deixadas de fora, a lista começaria 8 px
-// alta demais e daria um degrau no fim do movimento.
+// A FAIXA ABRE E FECHA DESLIZANDO (Pacote 37): ela é a primeira filha do
+// `.list-body` e ocupa ~48 px no FLUXO dele (v1.14.55), então abrir e fechar move o
+// topo do `#library` de uma vez — o "pulo" que o operador viu. Quem anima é a ALTURA
+// MEDIDA (a família do `aoSair`): de 0 até `offsetHeight` na abertura, o contrário no
+// fecho, e a LISTA anda junto porque quem a empurra é o layout. As duas MARGENS
+// entram na conta: a de cima é `--sp-3` (a folga que a faixa tem com a barra do topo)
+// e a de baixo é 0 — deixadas de fora, a lista começaria 5,6 px alta demais e daria
+// um degrau no fim do movimento.
 // ABRINDO, o conteúdo entra antes (o `renderItinBar`); FECHANDO, ele fica até o fim,
 // senão a caixa esvaziaria e o `:empty` a apagaria no primeiro quadro.
 let itinFaixaAnimando = false;
@@ -8879,15 +8879,14 @@ function msDoToken(nome, padrao) {
   return Number.isFinite(n) ? n * (/ms$/.test(v) ? 1 : 1000) : padrao;
 }
 /**
- * A ÂNCORA DA SUB-ABA É A BORDA DE BAIXO DA FAIXA (v1.14.54).
+ * A ÂNCORA DA SUB-ABA É A BORDA DE BAIXO DA FAIXA.
  *
- * Até a v1.14.53 a faixa ocupava altura no `<main>`, e o `.list-body` começava
- * na borda de baixo DELA: a sub-aba era `top: 0` e herdava a âncora de graça.
- * Agora a faixa é SOBREPOSTA (`absolute` no topo do `.list-body`, como a gaveta
- * dos cronogramas), e as duas são irmãs — o `top` da sub-aba precisa da altura
- * da faixa. O valor é escrito no PAI (`.list-body`), que é o bloco contêiner das
- * duas, em px medidos: o `top` da faixa (`--sp-3`) mais a altura dela. Só o que
- * mudou é reescrito, como no `acertarVeus`/`medirPortaDasFerramentas`.
+ * A faixa mora no TOPO do `.list-body`, no fluxo (v1.14.55), e a sub-aba desce
+ * logo abaixo dela; as duas são irmãs. O `top` da sub-aba precisa da altura da
+ * faixa mais a margem de `--sp-3` que a separa da barra do topo. O valor é escrito
+ * no PAI (`.list-body`), que é o bloco contêiner das duas, em px medidos: a base
+ * da faixa (o `top` dela, que já inclui a margem) mais a altura. Só o que mudou é
+ * reescrito, como no `acertarVeus`/`medirPortaDasFerramentas`.
  *
  * Quem chama: o repouso da faixa, a abertura (ANTES de a altura animar), o
  * desenho dela e a mudança de tamanho da janela (a faixa quebra em duas linhas
@@ -11346,6 +11345,8 @@ function renderLibraryCorpo() {
 // posição é a da LISTA, a mesma que desenha e que o arrasto usa — um redesenho não
 // muda cor nenhuma. Oito porque um culto cabe em seis e sobra folga; a nona volta à
 // primeira, e o grupo é contíguo, então a repetição não confunde dois vizinhos.
+// Os TONS são apagados (v1.14.55), na faixa dos ladrilhos da Bíblia: eles marcam,
+// não competem com o estado vermelho da faixa nem com a mídia na lista.
 const MOMENTO_CORES = ['--momento-1', '--momento-2', '--momento-3', '--momento-4',
   '--momento-5', '--momento-6', '--momento-7', '--momento-8'];
 function marcarGruposDoItinerario(host) {
@@ -20398,11 +20399,20 @@ function medirArrasto(ul, li) {
   // O VÃO EFETIVO entre duas linhas é o `gap` da lista MAIS as margens verticais
   // delas (v1.13.68): a placa dos Favoritos desenha o traço divisório com
   // `margin-top` negativo de meio vão em cada linha, e contar só o `gap` abriria o
-  // buraco do arrasto meio vão maior que o passo real. No Cronograma as margens são 0.
+  // buraco do arrasto meio vão maior que o passo real.
+  //
+  // E É O MENOR PAR, não o primeiro (v1.14.55): o respiro entre grupos do Cronograma
+  // é `margin-top` de UM momento — espaço DAQUELE grupo, não do vão da lista —, e ler
+  // o par que caísse na fronteira inflaria o passo do arrasto inteiro. O passo
+  // continua sendo a altura do arrastado mais o vão que o flex cobra por uma linha a
+  // mais; a margem de um grupo não é cobrada por linha nenhuma.
   const irmaos = [...ul.children].filter((el) => el.tagName === 'LI');
   const mg = (el, lado) => parseFloat(getComputedStyle(el)[lado]) || 0;
-  const gap = (parseFloat(cs.rowGap || cs.gap) || 0)
-    + (irmaos.length > 1 ? mg(irmaos[0], 'marginBottom') + mg(irmaos[1], 'marginTop') : 0);
+  let margens = Infinity;
+  for (let i = 1; i < irmaos.length; i++) {
+    margens = Math.min(margens, mg(irmaos[i - 1], 'marginBottom') + mg(irmaos[i], 'marginTop'));
+  }
+  const gap = (parseFloat(cs.rowGap || cs.gap) || 0) + (Number.isFinite(margens) ? margens : 0);
   arrastoGeom = {
     ul, itens, gap, rolagem: ul.scrollTop,
     // A ALTURA DO ARRASTADO (do bloco inteiro) manda no tamanho do vão. `translateY` não a muda.

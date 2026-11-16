@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.14.55",
+    "itens": [
+      "As marcações de cor dos momentos do itinerário ficaram mais suaves, no tom das dos livros da Bíblia.",
+      "A aba de opções do itinerário voltou a empurrar o cronograma para baixo: ela não cobre mais linha nenhuma.",
+      "O desenho da aba, a largura dela e a concorrência com a aba dos cronogramas continuam iguais.",
+      "A aba de novo momento continua passando por cima das linhas do cronograma.",
+      "Todos os momentos do itinerário ficaram com a mesma altura de item, inclusive os que têm mídias."
+    ]
+  },
+  {
     "versao": "1.14.54",
     "itens": [
       "Cada momento do itinerário ganhou uma cor, aplicada à hora e a uma faixa na borda das miniaturas do grupo.",

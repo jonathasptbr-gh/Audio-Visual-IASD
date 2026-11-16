@@ -20,7 +20,8 @@
 //  · A ORDEM: a posição da linha é do OPERADOR (organiza as mídias); o TELÃO é
 //    ordenado pelo RELÓGIO (`ordenarItin`). Momento novo entra antes do primeiro
 //    momento posterior no relógio, senão no fim da lista; lista sem momento: no TOPO.
-//  · A FAIXA `#itinBar` (irmã da barra do topo, dentro do `<main>`): Novo (o `+`, que abre
+//  · A FAIXA `#itinBar` (a primeira filha do `.list-body`, no FLUXO: abrir EMPURRA a
+//    lista — v1.14.55; a sub-aba, essa sim, é sobreposta): Novo (o `+`, que abre
 //    e fecha a sub-aba do momento) · Telão (o monitor) · Momentos na lista · Horários × só
 //    títulos · −5 [ajuste] +5. NASCE RECOLHIDA (vazia, `hidden`), abre e fecha pela porta
 //    `#itinBarBtn` da barra (que leva o ponto do "no ar"); aberta, fica; abrir não se grava.
@@ -79,7 +80,9 @@
 //     porta da barra a recolhe (o fecho de 5 s da v1.14.35 saiu a pedido do operador).
 //  G′. O GRUPO DO MOMENTO: as classes `grupo-ini/meio/fim` (nenhuma antes do 1º momento, num
 //     momento sem mídia nem com os momentos ocultos), NENHUMA TINTA (o grupo não se pinta desde a
-//     v1.14.36: o que o separa é o respiro), a SETA do grupo como BOTÃO à esquerda do lápis, o
+//     v1.14.36: o que o separa é o respiro), TODOS OS MOMENTOS COM A ALTURA DE UM ITEM NORMAL
+//     (v1.14.55: a linha do momento mede o mesmo que a de uma mídia, e o respiro é margem, fora
+//     da caixa), a SETA do grupo como BOTÃO à esquerda do lápis, o
 //     bloco que só cai numa fronteira de grupo (nunca antes das mídias soltas do topo), a mídia que
 //     muda de grupo sem horário, e o GRUPO RECOLHIDO: a seta e o toque escondem/expandem as mídias,
 //     e o arrasto leva as escondidas.
@@ -634,8 +637,9 @@ try {
       filhos: [...b.querySelectorAll(':scope > .itin-secao > *')].map(nome),
       secoes: [...b.children].map((x) => [x.className, x.getAttribute('role'), x.getAttribute('aria-label'), x.children.length].join('|')),
       h: alt(b), hTopo: topo ? alt(topo) : -1,
-      // SOBREPOSTA (v1.14.54): ela é FILHA do `.list-body` — como a gaveta dos
-      // cronogramas —, e não mais irmã da barra do topo dentro do `<main>`.
+      // NO TOPO DO `.list-body` E NO FLUXO (v1.14.55): ela é a primeira filha do
+      // corpo, como antes da v1.14.54 era irmã da barra do topo dentro do `<main>`.
+      // A GAVETA dos cronogramas é que é `absolute`.
       pai: b.parentElement && b.parentElement.className,
       dentroDoCorpo: !!b.parentElement && b.parentElement.classList.contains('list-body')
         && b.parentElement.contains(document.getElementById('library')),
@@ -678,8 +682,8 @@ try {
   {
     const f = await faixa();
     checar(f.pai === 'list-body' && f.dentroDoCorpo,
-      'U · a faixa mora DENTRO do `.list-body`, SOBREPOSTA à lista — a receita da gaveta dos cronogramas '
-      + '(v1.14.54) —, e não mais no fluxo do `<main>`', f);
+      'U · a faixa mora DENTRO do `.list-body`, no TOPO dele e NO FLUXO (v1.14.55) — ela empurra a lista para '
+      + 'baixo —, e não mais no fluxo do `<main>`', f);
     checar(!f.aberta && f.filhos.length === 0 && f.porta.visivel && f.porta.naBarra && f.porta.antesDoTitulo
       && f.porta.expandido === 'false' && f.porta.controla === 'itinBar' && !f.ponto,
       'U · RECOLHIDA a faixa não desenha nada (vazia, `hidden`); a porta `#itinBarBtn` mora NA barra, logo ANTES do '
@@ -1062,18 +1066,19 @@ try {
   await esperar(pg, () => innerWidth === 360);
   await pg.evaluate(() => itinAjusteZerar());
 
-  // ── Z. A FAIXA É SOBREPOSTA E TEM A LARGURA DA GAVETA (v1.14.54) ────────
+  // ── Z. A FAIXA DESLOCA A LISTA, E TEM A LARGURA DA GAVETA (v1.14.55) ────
   //
-  // Pedido do operador: *"Ajuste o design da aba de opções do itinerário, para
-  // que ela tenha a mesma largura da aba da lista de nomes e edições dos
-  // cronogramas. … E aplique também o mesmo conceito de sobreposição do
-  // cronograma … ela agora vai ser sobreposta ao cronograma e não deslocando ele
-  // para baixo apenas para ela ser aberta."*
+  // Pedido do operador: *"o design da barra de configurações do itinerário ficou
+  // bom, mas infelizmente vamos ter de voltar ao menos com o deslocamento do
+  // cronograma para a abertura de espaço para essa barra de opções. Mantenha todo
+  // o design e a concorrência com a aba do cronograma, apenas para ela, ela
+  // desloca a lista do cronograma para não ficar em cima de nada."*
   //
   // A régua da largura é a GAVETA MEDIDA, não um número escrito; a da posição é
-  // o `--sp-3` do CSS; e "sobreposta" é o topo da lista parado na abertura. A
-  // âncora da sub-aba (`--itin-barra-base`) tem de acompanhar: é a borda de baixo
-  // da faixa, e sem ela a sub-aba nasceria em cima da aba.
+  // o `--sp-3` do CSS; e "desloca" é o topo do `#library` ANDANDO na abertura —
+  // a altura da faixa mais a margem de `--sp-3`, com a lista começando na BORDA
+  // DE BAIXO dela. A âncora da sub-aba (`--itin-barra-base`) continua sendo a
+  // borda de baixo da faixa, e sem ela a sub-aba nasceria em cima da aba.
   {
     await fecharFaixa();
     const antes = await pg.evaluate(() => {
@@ -1099,15 +1104,16 @@ try {
       };
     });
     const centro = (z.bar.l + z.bar.r) / 2;
-    checar(Math.abs(z.lista - antes.lista) <= 0.5
+    const desceu = z.lista - antes.lista;
+    checar(Math.abs(desceu - (z.bar.h + z.sp3)) <= 0.5
       && Math.abs(z.bar.w - antes.gav) <= 1
       && Math.abs(centro - z.tela / 2) <= 1
       && Math.abs((z.bar.t - z.corpoTopo) - z.sp3) <= 0.5
-      && z.bar.b > z.lista
+      && Math.abs(z.lista - z.bar.b) <= 0.5
       && Math.abs(z.base - (z.sp3 + z.bar.h)) <= 0.5,
-      'Z · a faixa é SOBREPOSTA à lista: abrir NÃO move o topo do `#library` (ficou em ' + z.lista.toFixed(1)
-      + 'px), ela tem a MESMA largura da gaveta dos cronogramas (' + z.bar.w.toFixed(1) + 'px), centrada, nasce `--sp-3` '
-      + 'abaixo da barra e cobre a lista; a âncora da sub-aba é a borda de baixo dela', { antes, z });
+      'Z · a faixa DESLOCA a lista: abrir moveu o topo do `#library` ' + desceu.toFixed(1) + 'px (a altura da faixa + o '
+      + '`--sp-3`), e a lista agora começa na BORDA DE BAIXO dela (nada coberto). A largura é a da gaveta dos cronogramas ('
+      + z.bar.w.toFixed(1) + 'px), centrada, e a âncora da sub-aba é a borda de baixo da faixa', { antes, z });
   }
   // E AS DUAS ABAS SÃO CONCORRENTES: abrir uma fecha a outra. O caminho da gaveta
   // é o `abrirCronoGaveta`; o da faixa é a porta (que também é a saída das folhas,
@@ -2055,6 +2061,40 @@ try {
       && momentoLimpo(m.so) && midiaLimpa(m.solto),
       'G′ · o GRUPO NÃO TEM TINTA NENHUMA: o momento é transparente, as mídias vestem a linha neutra, e nem o token '
       + '`--grupo-fill` existe mais (nenhuma linha desenha contorno) — o que separa dois grupos é só o respiro', m);
+    // TODOS OS MOMENTOS COM A ALTURA DE UM ITEM NORMAL (v1.14.55). O relato:
+    // *"momento do itinerário que contém midias e forma um grupo, tem sua altura de
+    // item mais alta que os normais… todos os momentos devem ter uma altura de
+    // 'card'/corpo iguais"*. A régua é TRIPLA: a `.row` do momento mede o MESMO que
+    // a de uma mídia (miniatura + padding), TODAS as caixas de momento medem igual —
+    // o respiro do grupo é margem, fora da caixa, e não padding dentro dela — e o
+    // respiro continua lá (≥ `--sp-4`). Fechada a faixa, os botões do momento somem:
+    // quem sustenta a altura é o `min-height`, e é isso que a célula prova.
+    {
+      const alturas = await pg.evaluate(() => {
+        const lis = [...document.querySelectorAll('#library > li.lib-item')];
+        const alt = (el) => +el.getBoundingClientRect().height.toFixed(1);
+        const media = lis.filter((li) => !li.classList.contains('momento'));
+        const mom = lis.filter((li) => li.classList.contains('momento'));
+        const respiros = [];
+        for (let i = 1; i < lis.length; i++) {
+          if (!lis[i].classList.contains('grupo-ini')) continue;
+          respiros.push(+(lis[i].querySelector('.row').getBoundingClientRect().top
+            - lis[i - 1].querySelector('.row').getBoundingClientRect().bottom).toFixed(1));
+        }
+        return {
+          midia: media.map((li) => alt(li.querySelector('.row'))),
+          momento: mom.map((li) => alt(li.querySelector('.row'))),
+          caixaMomentos: mom.map(alt), respiros,
+        };
+      });
+      const iguais = (v) => v.length > 0 && v.every((x) => Math.abs(x - v[0]) <= 0.5);
+      checar(iguais(alturas.midia) && iguais(alturas.momento) && iguais(alturas.caixaMomentos)
+        && Math.abs(alturas.momento[0] - alturas.midia[0]) <= 0.5
+        && alturas.respiros.length >= 2 && alturas.respiros.every((r) => r >= 8),
+        'G′ · TODOS OS MOMENTOS TÊM A ALTURA DE UM ITEM NORMAL: a linha do momento mede ' + alturas.momento[0]
+        + 'px, o mesmo que a de uma mídia (' + alturas.midia[0] + 'px), todas as caixas de momento medem igual e o '
+        + 'respiro entre grupos é MARGEM, fora da caixa (' + alturas.respiros.join(' · ') + 'px livres)', alturas);
+    }
     // O DEMARCADOR DO GRUPO (v1.14.54): cada momento tem uma COR de IDENTIDADE, a hora
     // a carrega e a MESMA cor vira a linha de 3px na borda esquerda da miniatura das
     // mídias do grupo. O que se prova: cores DIFERENTES entre os momentos, a linha nas
@@ -2383,9 +2423,9 @@ try {
     checar(limite.dis === true && limite.op < 0.5 && !/93, 40, 46/.test(limite.fundo),
       'Z · o +5 no extremo do atraso fica DESATIVADO pelo véu do deck (cartão `--surface`, opacidade apagada) — '
       + 'o vermelho do volume NÃO é dele', limite);
-    checar(alto > 30 && meioAlt >= 2 && new Set(topos).size === 1,
-      'Z · a faixa ABRE DESLIZANDO: a altura dela passa por valores intermediários, e o topo do `#library` fica '
-      + 'PARADO — desde a v1.14.54 ela é sobreposta, então o movimento é só da aba', { alto, meioAlt, meioTopo, topos: [...new Set(topos)] });
+    checar(alto > 30 && meioAlt >= 2 && meioTopo >= 2,
+      'Z · a faixa ABRE DESLIZANDO: a altura dela E o topo do `#library` passam por valores intermediários — desde a '
+      + 'v1.14.55 ela está no FLUXO, então quem empurra a lista é a mesma animação de altura e margem', { alto, meioAlt, meioTopo, topos: [...new Set(topos)] });
     // (2) OS MOMENTOS NA LISTA: as linhas do momento encolhem antes de sumir.
     const ocultaQ = await pg.evaluate(() => new Promise((ok) => {
       const v = [], t0 = performance.now();

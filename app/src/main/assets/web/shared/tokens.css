@@ -702,14 +702,23 @@
   --b-gerais:#283e1f;
   --b-apocalipse:#3f391f;
 
-  /* ---------- AS CORES DO GRUPO DO ITINERÁRIO (v1.14.54) ----------
+  /* ---------- AS CORES DO GRUPO DO ITINERÁRIO (v1.14.54; apagadas na v1.14.55) ----
      Oito matizes de IDENTIDADE, uma por momento do culto: a MESMA cor pinta a
      HORA do momento e a linha de 3px na borda esquerda da miniatura de cada
      mídia do grupo — é o demarcador que o operador pediu. Oito porque um culto
      cabe em seis e sobra folga; a ORDEM alterna quente e frio, para dois
      momentos vizinhos nunca se lerem como o mesmo.
 
-     NÃO SÃO ESTADO. O vermelho do "desligado" (`--btn-danger`/`--danger-strong`)
+     A SATURAÇÃO É A DOS LADRILHOS DA BÍBLIA (v1.14.55). Pedido do operador:
+     *"ajuste os tons usados nas marcações de cores dos momentos do itinerário,
+     para que sejam tons menos saturados, assim como já é nas cores de marcação
+     dos livros da bíblia"*. Eram 78% de saturação com a luminosidade escolhida
+     para cravar 6:1; hoje são **36%**, a mesma faixa dos `--b-*` (33–35%), e a
+     luminosidade continua resolvida para o MESMO par. O que faz a cor ainda
+     demarcar é a MATIZ, e não a violência dela — é o argumento que a v1.3.15 já
+     tinha usado para tirar a segunda banda dos ladrilhos.
+
+     NÃO SÃO ESTADO. O vermelho do desligado (`--btn-danger`/`--danger-strong`)
      fica fora de propósito: a v1.14.39 o gastou nos três interruptores da faixa
      do itinerário, e um grupo vermelho competiria com eles na mesma tela — a
      mesma decisão que deixou o `scarlett` fora do mosaico da Bíblia.
@@ -717,17 +726,18 @@
      MEDIDO no Chromium com o par de cada token contra o `--bg` do tema: no
      escuro o pior é **6,00:1** e no claro **5,00:1** — a hora é texto e passa
      AA com folga, e a linha, que é objeto gráfico (piso 3:1), herda o mesmo
-     número. A saturação é alta de propósito: a linha pode cair sobre a foto de
-     uma capa, e o que a mantém visível ali é ela ser a cor mais viva do quadro,
-     não a promessa de contraste (que só vale sobre a miniatura vazia). */
-  --momento-1:#4195e8;
-  --momento-2:#e47221;
-  --momento-3:#15a846;
-  --momento-4:#ea56cc;
-  --momento-5:#14a397;
-  --momento-6:#949813;
-  --momento-7:#a67bef;
-  --momento-8:#45a614;
+     número. Sobre a FOTO de uma capa o contraste não é prometível nem com a cor
+     saturada: ali a linha se sustenta por ser a cor de identidade do grupo, e a
+     saturação mais baixa é uma escolha do operador, dita aqui para o próximo
+     não a "consertar" de volta. */
+  --momento-1:#6f95bb;
+  --momento-2:#b78866;
+  --momento-3:#4da369;
+  --momento-4:#c17ab3;
+  --momento-5:#4b9f98;
+  --momento-6:#939646;
+  --momento-7:#9e87c6;
+  --momento-8:#67a04b;
 
   /* (A PALETA DAS COLEÇÕES — `--col-1`…`--col-8` e as famílias `-corpo`/`-card`
      — SAIU na v1.5.9, com a v1.5.7 e a v1.5.8 inteiras. Ela dava a cada coleção
@@ -966,17 +976,20 @@
   --b-gerais:#bdeaa9;
   --b-apocalipse:#eadda9;
 
-  /* AS MESMAS OITO MATIZES DO GRUPO DO ITINERÁRIO, ESCURECIDAS para o papel
-     (v1.14.54): aqui a hora é texto escuro sobre `--bg` claro e a linha é traço
-     sobre a miniatura clara. Pior par medido: **5,00:1**. */
-  --momento-1:#1b60a4;
-  --momento-2:#924b18;
-  --momento-3:#116b2f;
-  --momento-4:#a91b8d;
-  --momento-5:#116962;
-  --momento-6:#5f6210;
-  --momento-7:#7233de;
-  --momento-8:#2f6b11;
+  /* OS MESMOS OITO MATIZES DO GRUPO DO ITINERÁRIO, ESCURECIDOS para o papel e
+     APAGADOS na v1.14.55: aqui a hora é texto escuro sobre `--bg` claro e a linha
+     é traço sobre a miniatura clara. A saturação caiu de 72% para **50%** — abaixo
+     dos ~60% dos ladrilhos porque eles são PASTEL (luminosidade 79–91%) e a hora
+     daqui é TEXTO escuro, que precisa do contraste que o pastel não dá; é o mais
+     perto do ladrilho que os 5:1 permitem. O par medido continua **5,00:1**. */
+  --momento-1:#316192;
+  --momento-2:#85522c;
+  --momento-3:#246b3c;
+  --momento-4:#9c3487;
+  --momento-5:#236863;
+  --momento-6:#5f6221;
+  --momento-7:#7142c0;
+  --momento-8:#3b6923;
 
 
 

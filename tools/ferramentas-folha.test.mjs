@@ -161,9 +161,9 @@ try {
 
   // ── 3. A FOLHA SOBE DENTRO DO CRONOGRAMA, NÃO SOBRE A TELA ──────────────
   // A PREMISSA DA RÉGUA DE CIMA, medida com a folha FECHADA, nos DOIS estados da faixa do Itinerário
-  // (`#itinBar`, Pacote 35; SOBREPOSTA desde a v1.14.54): ela nasce RECOLHIDA — sem retângulo, com o `#library`
-  // colado no `.list-header` — e abre pela porta `#itinBarBtn`, `--sp-3` abaixo do cabeçalho, por cima da lista,
-  // sem mover o topo do `#library`. A folha é aberta com a faixa ABERTA: sem isso o `faixaOculta` lá embaixo
+  // (`#itinBar`, Pacote 35; NO FLUXO desde a v1.14.55): ela nasce RECOLHIDA — sem retângulo, com o `#library`
+  // colado no `.list-header` — e abre pela porta `#itinBarBtn`, `--sp-3` abaixo do cabeçalho, EMPURRANDO o topo do
+  // `#library` para a borda de baixo dela. A folha é aberta com a faixa ABERTA: sem isso o `faixaOculta` lá embaixo
   // passaria vácuo.
   const medirFaixa = () => pg.evaluate(() => {
     const b = document.getElementById('itinBar');
@@ -175,12 +175,11 @@ try {
     const raiz = getComputedStyle(document.documentElement);
     const sp3 = parseFloat(raiz.getPropertyValue('--sp-3')) * parseFloat(raiz.fontSize);
     return { tem, porta: p.getClientRects().length > 0, aberta: p.getAttribute('aria-expanded'),
-      // A FAIXA É SOBREPOSTA (v1.14.54): o `#library` encosta na BARRA DO TOPO nos
-      // DOIS estados — abrir a faixa não move a lista. ABERTA, ela nasce `--sp-3`
-      // abaixo da barra, por cima da lista (o `bottom` dela passa do topo do
-      // `#library`).
-      colada: Math.abs(rl.top - rc.bottom) <= 1.5,
-      sobreposta: tem ? Math.abs(rb.top - (rc.bottom + sp3)) <= 1.5 && rb.bottom > rl.top && rb.height > 0 : false,
+      // RECOLHIDA, o `#library` encosta na barra do topo; ABERTA, ele começa na
+      // BORDA DE BAIXO da faixa (v1.14.55: a faixa está no fluxo, ela desloca a
+      // lista), e a faixa nasce `--sp-3` abaixo do cabeçalho.
+      colada: tem ? Math.abs(rl.top - rb.bottom) <= 1.5 : Math.abs(rl.top - rc.bottom) <= 1.5,
+      deslocou: tem ? Math.abs(rb.top - (rc.bottom + sp3)) <= 1.5 && rb.height > 0 : false,
       faixa: tem ? [+rb.top.toFixed(2), +rb.bottom.toFixed(2)] : null,
       cabecalhoBase: +rc.bottom.toFixed(2), listaTopo: +rl.top.toFixed(2) };
   });
@@ -194,9 +193,9 @@ try {
   // repouso. O prazo fixo saiu; quem responde é o estado do movimento.
   await esperar(pg, () => !itinFaixaAnimando);
   const faixaIt = await medirFaixa();
-  checar(faixaIt.aberta === 'true' && faixaIt.tem && faixaIt.colada && faixaIt.sobreposta,
-    'aberta pela porta, a faixa do Itinerário (`#itinBar`) é SOBREPOSTA: nasce `--sp-3` abaixo da barra, cobre a '
-    + 'lista e o topo do `#library` NÃO anda (v1.14.54)', faixaIt);
+  checar(faixaIt.aberta === 'true' && faixaIt.tem && faixaIt.colada && faixaIt.deslocou,
+    'aberta pela porta, a faixa do Itinerário (`#itinBar`) fica `--sp-3` abaixo do cabeçalho e DESLOCA a lista: o topo '
+    + 'do `#library` passa a ser a borda de baixo dela (v1.14.55)', faixaIt);
   await pg.click('#toolsBtn');
   await assentar(pg, '#toolsSheet');
   const dentro = await pg.evaluate(() => {

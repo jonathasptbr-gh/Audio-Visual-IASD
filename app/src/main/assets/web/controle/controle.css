@@ -3716,7 +3716,7 @@ main {
   #library > .lib-item.linha-entra { animation: none; }
 }
 
-.row { position: relative; z-index: 1; display: flex; align-items: center; gap: var(--sp-4); padding: .35rem .5rem; background: var(--linha); touch-action: pan-y; }
+.row { position: relative; z-index: 1; display: flex; align-items: center; gap: var(--sp-4); padding: var(--sp-3) .5rem; background: var(--linha); touch-action: pan-y; }
 
 /* ---------- NO AR: a linha que está no telão AGORA ---------- */
 /* `.active` e `.no-ar` são coisas diferentes, e confundi-las é o defeito que
@@ -7326,7 +7326,21 @@ main {
    veste o fundo das linhas, senão o nome se leria por cima do vizinho. */
 .lib-item.momento { --linha: transparent; }
 #library > .lib-item.momento.arrastando { --linha: var(--camada); }
-.lib-item.momento > .row { padding-left: .5rem; }
+/* **O CORPO DO MOMENTO TEM A ALTURA DE UM ITEM NORMAL (v1.14.55).** A linha de
+   uma mídia mede a miniatura (`--thumb`) mais o `padding` vertical do `.row`
+   (`--sp-3` em cima e embaixo, o que a regra do `.row` lê do token desde este
+   lote); sem capa, o momento caía na altura do TEXTO e o momento de um grupo,
+   que carregava o respiro na própria caixa, media mais que os outros. O operador
+   viu as duas coisas como uma: *"momento do itinerário que contém midias e forma
+   um grupo, tem sua altura de item mais alta que os normais… todos os momentos
+   devem ter uma altura de 'card'/corpo iguais"*. O piso é lido dos MESMOS tokens
+   da miniatura, não de um número — um ajuste no `.row` ou na miniatura carrega
+   os dois lados. Com a fonte do sistema maior o texto passa do piso e quem manda
+   é o texto, como em toda linha; o oráculo do G′ mede a igualdade. */
+.lib-item.momento > .row {
+  padding-left: .5rem;
+  min-height: calc(var(--thumb) + 2 * var(--sp-3));
+}
 /* AS OPÇÕES SEMPRE À VISTA, só o ícone (sem o `⋮` e sem caixa): a `.row-acoes` sai
    do absoluto e entra no fluxo da linha, cada botão com o alvo `--hit`. A pergunta
    do excluir nasce dentro dela e, enquanto pergunta, toma o lugar do título. */
@@ -7368,10 +7382,15 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
    viraria item e mexeria no centrado da capa), e o `--momento-cor` desce do `li`
    por herança. Sem cor (a mídia antes do 1º momento) o `var()` cai no fallback e
    nenhuma linha é pintada. Sem mídia não há grupo. */
-/* ENTRE DOIS GRUPOS o momento abre um RESPIRO de `--sp-4` por dentro (`padding-top`,
-   a linha dele é transparente): os dois blocos não encostam, e o `gap` da lista — que
-   a conta do arrasto lê — não muda. */
-#library > li + .grupo-ini { padding-top: var(--sp-4); }
+/* ENTRE DOIS GRUPOS o momento abre um RESPIRO de `--sp-4` (v1.14.36): é só ELE que
+   separa dois blocos, porque o grupo não pinta o cartão. Ele é `margin-top` desde
+   a v1.14.55 — como `padding-top`, ele engordava a CAIXA do momento, e o momento
+   de um grupo media mais que os outros (o pedido: *"todos os momentos devem ter
+   uma altura de card/corpo iguais"*). A margem é o espaço ENTRE os itens, não uma
+   parte do item: o corpo fica do mesmo tamanho e o respiro continua idêntico.
+   `medirArrasto` lê o MENOR vão entre linhas vizinhas, e não o primeiro par,
+   justamente para uma margem de grupo não inflar o passo do arrasto. */
+#library > li + .grupo-ini { margin-top: var(--sp-4); }
 /* O HORÁRIO EM ALGARISMOS TABULARES: "23:59" e "10:00" ocupam a mesma largura, e
    os títulos da lista se alinham uns com os outros. */
 .momento-hora {
@@ -7400,34 +7419,36 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
    (`marcarNoAr` o escreve a cada passada), e um momento nunca é isso. */
 .lib-item.momento.agora .row-sub, .lib-item.momento.seguir .row-sub { color: var(--accent); }
 
-/* ===== A FAIXA DE OPÇÕES É UMA ABA SOBREPOSTA (v1.14.54) =====
-   Pedido do operador: *"Ajuste o design da aba de opções do itinerário, para que
-   ela tenha a mesma largura da aba da lista de nomes e edições dos cronogramas.
-   … E aplique também o mesmo conceito de sobreposição do cronograma que temos
-   nessa aba de opções do cronograma para a do itinerário, ela agora vai ser
-   sobreposta ao cronograma e não deslocando ele para baixo apenas para ela ser
-   aberta."*
+/* ===== A FAIXA DE OPÇÕES É UMA ABA NO TOPO DO CORPO, E A LISTA DESCE (v1.14.55) =====
+   O DESENHO é o da v1.14.54, e fica: `width: min(100%, 24rem)` — a LARGURA DA
+   GAVETA dos cronogramas, medida de lá e não escolhida —, centrada, fundo OPACO
+   (`--bar`, o par do deck desde a v1.14.38), `--radius-card` e a sombra das
+   superfícies que flutuam; a concorrência com a gaveta (abrir uma fecha a outra)
+   e a folga de `--sp-3` com a barra do topo também.
 
-   A RECEITA É A DA `.crono-gaveta`, verbatim: `absolute` no TOPO do
-   `.list-body` (que começa na borda de baixo da barra do topo), `left: 0; right:
-   0; margin: 0 auto; width: min(100%, 24rem)` — a LARGURA DA GAVETA, medida de
-   lá e não escolhida —, fundo OPACO (`--bar`, o par do deck desde a v1.14.38),
-   `--radius-card` e a sombra das superfícies que flutuam. No FLUXO ela ocupava
-   ~48px e abrir movia o topo do `#library`: agora cobre as primeiras linhas e a
-   lista NÃO anda (o `#library` encosta na barra do topo nos dois estados).
+   **A FAIXA VOLTOU AO FLUXO**, e é o pedido: *"vamos ter de voltar ao menos com
+   o deslocamento do cronograma para a abertura de espaço para essa barra de
+   opções … ela desloca a lista do cronograma para não ficar em cima de nada"*.
+   Sobreposta (v1.14.54), ela cobria as primeiras linhas, e o que se perdia ao
+   abrir era justamente a lista. Hoje ela é a PRIMEIRA filha do `.list-body`, no
+   fluxo: abrir EMPURRA o `#library` para baixo — o topo da lista passa a ser a
+   borda de baixo da aba —, e a animação de altura (Pacote 37) move os dois
+   juntos. A gaveta e a sub-aba do momento continuam `absolute`, cada uma no
+   lugar dela; a sub-aba segue SOBREPOSTA à lista (pedido do operador, v1.14.52:
+   *"para não precisar deslocar a lista"*).
 
-   O `top` é `--sp-3`, o MESMO da gaveta: a folga com a barra do topo continua
-   sendo `--bg` (não `padding`), porque uma aba encostada na barra leria como a
-   terceira linha dela. O `padding` da fileira é `--deck-gap` nos QUATRO lados —
-   a folga dos botões até a borda que o operador pediu em 16/11, agora com o
-   mesmo valor no eixo horizontal (o `.8rem` era o recuo da faixa sangrada).
+   A FOLGA COM A BARRA DO TOPO é a `margin-top` de `--sp-3` (era o `top` da
+   versão sobreposta): ela continua sendo `--bg` e não `padding`, porque uma aba
+   encostada na barra leria como a terceira linha dela. O `padding` da fileira é
+   `--deck-gap` nos QUATRO lados — a folga dos botões até a borda que o operador
+   pediu em 16/11.
 
    O `z-index: 7` é o da sub-aba: acima da tira de sombra da lista (5) e das
    portas (6), abaixo das folhas (8), que a escondem de qualquer jeito. */
 .itin-bar {
   container-type: inline-size;
-  position: absolute; top: var(--sp-3); left: 0; right: 0; z-index: 7;
-  margin: 0 auto; width: min(100%, 24rem);
+  position: relative; flex: none; z-index: 7;
+  margin: var(--sp-3) auto 0; width: min(100%, 24rem);
   /* QUEBRA EM DUAS LINHAS quando não cabe (a fonte do sistema em 1,25× ou mais, ou uma tela
      estreita): a alternativa era esconder o `+` atrás da borda, sem rolagem nenhuma para
      chegar a ele. Quem desce são as SEÇÕES inteiras (`.itin-secao`). O vão ENTRE elas
@@ -7444,8 +7465,7 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
   padding: var(--deck-gap);
   /* O FUNDO É O DA BARRA DO PLAYER (Pacote 37): o par do deck é `--bar` na caixa e
      `--surface` nos botões, e é ele que se lê como "aba" — uma peça com corpo,
-     encostada na lista, e não três ícones perdidos no vazio. É OPACO porque agora
-     ela cobre a lista. */
+     encostada na lista, e não três ícones perdidos no vazio. */
   background: var(--bar); border-radius: var(--radius-card);
   box-shadow: 0 4px 14px var(--shadow-card);
   /* A ANIMAÇÃO DE ABERTURA (pedido de 15/11): a faixa desce um degrau e acende. Ela
@@ -7461,16 +7481,17 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
 @media (prefers-reduced-motion: reduce) {
   .itin-bar { animation: none; }
 }
-/* A ALTURA ANIMADA (Pacote 37) — o JS escreve `height` e as duas margens, e o que
-   aqui está é só o que a transição precisa: as três propriedades, o recorte do
-   que ainda não coube, e `align-content: flex-start` para o conteúdo aparecer de
-   CIMA para baixo. Centrado, o que se veria é a faixa crescendo do meio, com a
-   fileira saindo pelos dois lados do recorte. */
+/* A ALTURA ANIMADA (Pacote 37) — o JS escreve `height`, as duas margens e os dois
+   paddings; aqui está só o que a transição precisa: as cinco propriedades, o
+   recorte do que ainda não coube, e `align-content: flex-start` para o conteúdo
+   aparecer de CIMA para baixo. Centrado, o que se veria é a faixa crescendo do
+   meio, com a fileira saindo pelos dois lados do recorte. No FLUXO (v1.14.55) é
+   esse mesmo movimento que leva o `#library` para baixo. */
 .itin-bar--animando {
   overflow: hidden; align-content: flex-start;
   /* O PADDING ENTRA NA CONTA (v1.14.49): com `box-sizing: border-box` a caixa não
      encolhe abaixo dele, e a faixa para em 11,2 px em vez de zero — o "desaparece
-     ainda à vista" do operador. São CINCO propriedades e não três. */
+     ainda à vista" do operador. */
   transition: height var(--dur-media) ease,
               margin-top var(--dur-media) ease,
               margin-bottom var(--dur-media) ease,
@@ -7481,15 +7502,14 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
   .itin-bar--animando { transition: none; }
 }
 .itin-bar:empty { display: none; }
-/* A FAIXA CEDE A FOLHA (v1.14.34; a geometria mudou na v1.14.54). Ela e a
-   sub-aba moram no TOPO do `.list-body`, junto com a gaveta dos cronogramas, e a
-   folha de Ferramentas/Bíblia é `absolute` DENTRO do mesmo `.list-body`: as duas
-   ficariam POR BAIXO da folha (a sub-aba tem `z-index: 7` e a folha é 8). Ainda
-   assim elas saem de cena, e o motivo continua sendo a MEDIDA: a sub-aba é
-   posicionada por JS a partir da borda de baixo da faixa, e uma âncora que
-   existe por baixo de uma tela de trabalho é estado a mais para o `__avBack` e
-   para o desenho. O `:has()` é o mesmo motor que o `.list-body:has(…)` já usa
-   desde a v1.8.60/v1.8.63.
+/* A FAIXA CEDE A FOLHA (v1.14.34). Ela e a sub-aba moram no TOPO do `.list-body`
+   (a faixa no fluxo, a sub-aba `absolute`), e a folha de Ferramentas/Bíblia é
+   `absolute` DENTRO do mesmo `.list-body`: as duas ficariam POR BAIXO da folha (a
+   sub-aba tem `z-index: 7` e a folha é 8). Ainda assim elas saem de cena, e o
+   motivo continua sendo a MEDIDA: a sub-aba é posicionada por JS a partir da
+   borda de baixo da faixa, e uma âncora que existe por baixo de uma tela de
+   trabalho é estado a mais para o `__avBack` e para o desenho. O `:has()` é o
+   mesmo motor que o `.list-body:has(…)` já usa desde a v1.8.60/v1.8.63.
 
    **E A PORTA (`#itinBarBtn`) NÃO CEDE JUNTO** (v1.14.53). Pedido do operador:
    *"Quando abre ferramentas, ou a Bíblia, o botão de abrir opções de itinerário
@@ -7634,21 +7654,20 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
 .crono-itin > .itin-ponto { position: absolute; top: .3rem; right: .3rem; }
 .itin-ponto { width: .45rem; height: .45rem; border-radius: 50%; background: var(--live-strong); flex: none; }
 
-/* A SUB-ABA DE UM MOMENTO (`#itinEditor`, v1.14.52): no TOPO do `.list-body`, que
-   começa na borda de baixo da `#itinBar`, e SOBREPOSTA — `absolute`, acima das
-   linhas e das portas (6) e abaixo das folhas do Cronograma (8): a lista não anda
-   (pedido do operador: *"para não precisar deslocar a lista"*). Sangra até as
-   bordas como a faixa (o recuo do `<main>` devolvido) e veste o MESMO `--bar`,
-   com a sombra das superfícies que flutuam para se ler por cima da lista. O
-   deslizar é do JS (`itinEditorDeslizar`): a altura E o `padding`. */
+/* A SUB-ABA DE UM MOMENTO (`#itinEditor`, v1.14.52): no TOPO do `.list-body`,
+   logo abaixo da `#itinBar`, e SOBREPOSTA — `absolute`, acima das linhas e das
+   portas (6) e abaixo das folhas do Cronograma (8): a lista não anda (pedido do
+   operador: *"para não precisar deslocar a lista"*). Veste o MESMO `--bar`, com a
+   sombra das superfícies que flutuam para se ler por cima da lista. O deslizar é
+   do JS (`itinEditorDeslizar`): a altura E o `padding`. */
 .itin-editor {
-  /* A ÂNCORA É A BORDA DE BAIXO DA FAIXA (v1.14.54): a faixa virou `absolute` e
-     deixou de definir o topo do `.list-body`; as duas são irmãs no topo dele, e a
-     sub-aba começa onde a faixa termina. Quem escreve a medida é
-     `medirFaixaDoItin` (o `top` da faixa + a altura dela), e o `top: 0` é só o
-     valor de partida — a sub-aba nunca abre com a faixa fechada
-     (`abrirItinEditor` a abre antes). A LARGURA é a da faixa: ela desce dela, e
-     um painel mais largo que a aba que o abriu leria como outra peça. */
+  /* A ÂNCORA É A BORDA DE BAIXO DA FAIXA: ela é a primeira filha do `.list-body`,
+     no fluxo (v1.14.55), e a sub-aba desce logo abaixo dela. Quem escreve a medida
+     é `medirFaixaDoItin` (o `top` da faixa — a margem de `--sp-3` somada — mais a
+     altura dela), e o `top: 0` é só o valor de partida — a sub-aba nunca abre com
+     a faixa fechada (`abrirItinEditor` a abre antes). A LARGURA é a da faixa: ela
+     desce dela, e um painel mais largo que a aba que o abriu leria como outra
+     peça. */
   position: absolute; top: var(--itin-barra-base, 0px); left: 0; right: 0; z-index: 7;
   margin: 0 auto; width: min(100%, 24rem);
   box-sizing: border-box;

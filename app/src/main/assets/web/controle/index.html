@@ -1145,13 +1145,13 @@
          ocultável"*. O itinerário deixou de ser uma ferramenta: os momentos são
          linhas desta lista e o telão, o ajuste do horário e o adicionar moram aqui.
 
-         DESDE A v1.14.54 ELA É SOBREPOSTA, e mora no TOPO do `.list-body` junto
-         com a gaveta dos cronogramas e a sub-aba do momento — as três ancoradas
-         na borda de baixo da barra do topo, e nenhuma delas empurra a lista (o
-         pedido: *"aplique também o mesmo conceito de sobreposição do cronograma
-         … ela agora vai ser sobreposta ao cronograma e não deslocando ele para
-         baixo"*). Antes era irmã da `.list-header` dentro do `<main>`, no fluxo,
-         e abrir movia o topo da lista.
+         ELA É A PRIMEIRA FILHA DO `.list-body` E FICA NO FLUXO (v1.14.55): abrir
+         EMPURRA a lista para baixo e o `#library` passa a começar na borda de
+         baixo dela (pedido: *"ela desloca a lista do cronograma para não ficar em
+         cima de nada"*). Entre a v1.14.54 e a v1.14.55 ela era sobreposta, como a
+         gaveta dos cronogramas — e cobria justamente as primeiras linhas. A
+         GAVETA e a SUB-ABA do momento continuam sobrepostas: a sub-aba cobre a
+         lista de propósito.
 
          Ela NÃO é filha da barra do topo: a barra é uma grade de três trilhas
          medida ao pixel (`--hit`), e uma linha a mais dentro dela mexeria na
@@ -1168,10 +1168,11 @@
          (renomear · nome · excluir) e o "Novo cronograma" são desenhados por
          `renderCronoGaveta`. -->
     <!-- A SUB-ABA DE UM MOMENTO DO ITINERÁRIO (v1.14.52): adicionar e editar, com as
-         roletas de hora e minuto do Tempo e o título. Mora no TOPO do `.list-body`
-         (a borda de baixo da `#itinBar`) e SOBREPÕE a lista, sem empurrá-la; desliza
-         ao abrir e fechar, e quem a abre e fecha é o `+` da faixa (`#itinNovoBtn`).
-         O corpo é montado por `abrirItinEditor`. -->
+         roletas de hora e minuto do Tempo e o título. Mora no TOPO do `.list-body`,
+         logo abaixo da `#itinBar` (a âncora é medida, ver `medirFaixaDoItin`), e
+         SOBREPÕE a lista, sem empurrá-la; desliza ao abrir e fechar, e quem a abre e
+         fecha é o `+` da faixa (`#itinNovoBtn`). O corpo é montado por
+         `abrirItinEditor`. -->
     <section id="itinEditor" class="itin-editor" aria-labelledby="itinEditorTitulo" hidden>
       <span class="itin-editor-titulo" id="itinEditorTitulo">Novo momento</span>
       <div id="itinEditorCorpo" class="itin-editor-corpo"></div>
@@ -2058,7 +2059,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.54</span>
+          <span id="appVersion">v1.14.55</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
