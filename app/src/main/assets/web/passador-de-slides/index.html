@@ -6,13 +6,17 @@
 <title>Passador de slides</title>
 <!--
   A PÁGINA DO PASSADOR DE SLIDES (Pacote 34) — servida pelo celular do
-  operador, na
-  mesma rede, no mesmo servidor das telas da rede.
+  operador, na mesma rede, no mesmo servidor das telas da rede.
 
   ELA NÃO É UM TELÃO E NÃO É O `/display/`: nada aqui desenha mídia, nada aqui
   lê o IndexedDB, e o servidor NÃO injeta a marca `av-tela` nesta página (ver
   `servirDoBundle`, no `EspelhoServidor.kt`) — a marca faria o `tela.js` tomar
   esta página por uma tela da rede.
+
+  SEM TEXTO QUE NÃO SEJA CONTROLE (v1.14.58). O pedido do operador é que
+  slides e controles caibam na altura que o navegador mostra, sem rolar: o
+  rótulo de cada cartão ("anterior", "no telão", "próximo") saiu e ficou só o
+  contador do cartão do meio — a posição já diz o que cada um é.
 
   A CSP das páginas servidas é `default-src 'self'` SEM `'unsafe-inline'`:
   folha e script são ARQUIVOS, e não existe estilo embutido em lugar nenhum
@@ -24,7 +28,7 @@
 <body>
 <main id="app">
   <header id="topo">
-    <h1>Passador de slides</h1>
+    <h1>Passador</h1>
     <p id="estado" role="status" aria-live="polite">Conectando…</p>
   </header>
 
@@ -32,24 +36,20 @@
        letra: fora da apresentação a página fica inerte. -->
   <section id="vazio" hidden>
     <p>Nenhuma apresentação no ar.</p>
-    <p class="dica">Esta página só passa slides. Quando o operador projetar uma
-      apresentação, os três cartões aparecem aqui.</p>
+    <p class="dica">Os três cartões aparecem quando o operador projetar.</p>
   </section>
 
   <section id="cartoes" hidden>
-    <button class="cartao anterior" id="cartaoAnt" type="button">
-      <span class="rotulo">Anterior</span>
+    <button class="cartao anterior" id="cartaoAnt" type="button" aria-label="Slide anterior">
       <span class="moldura"><img id="imgAnt" alt="Slide anterior"></span>
     </button>
 
     <div class="cartao atual" id="cartaoAtual">
-      <span class="rotulo">No telão</span>
       <span class="moldura"><img id="imgAtual" alt="Slide no telão"></span>
-      <span class="contador"><span id="numPagina">1</span> de <span id="numTotal">1</span></span>
+      <span class="contador"><span id="numPagina">1</span>/<span id="numTotal">1</span></span>
     </div>
 
-    <button class="cartao proximo" id="cartaoProx" type="button">
-      <span class="rotulo">Próximo</span>
+    <button class="cartao proximo" id="cartaoProx" type="button" aria-label="Próximo slide">
       <span class="moldura"><img id="imgProx" alt="Próximo slide"></span>
     </button>
   </section>

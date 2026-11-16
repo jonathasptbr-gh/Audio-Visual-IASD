@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.14.58",
+    "itens": [
+      "A folha de conectar trata o passador de slides como atalho: dois ícones, sem texto nenhum.",
+      "Um ícone copia o link do passador; o outro abre e fecha a zona de enviar no WhatsApp.",
+      "Na zona, digite o DDD e o número: o 55 entra sozinho e o número fica guardado.",
+      "A mensagem chega no WhatsApp só com o link, para ele ser reconhecido como endereço.",
+      "A página do passador cabe inteira na tela: slides e botões, sem rolar.",
+      "O cartão do meio (o que está no telão) ficou o maior, e os rótulos dos três saíram."
+    ]
+  },
+  {
     "versao": "1.14.57",
     "itens": [
       "Os momentos do itinerário ficaram mais baixos que os itens normais do cronograma.",

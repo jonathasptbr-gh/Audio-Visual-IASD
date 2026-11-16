@@ -65,6 +65,9 @@ sessão ele pediu o **link do passador** na folha de conectar (copiar e mandar n
 WhatsApp) e a **rota com nome intuitivo**, e os dois saíram na **v1.14.56**. O 34
 saiu do índice, dos temas e da tabela, com o rastro das duas versões.
 
+**Edição de 2026-11-16 (noite, segunda).** O operador reportou que o link do passador chega como TEXTO no
+WhatsApp, e a medição virou o **Pacote 41** — estudo, porque a entrega é a escolha dele entre três saídas.
+
 **Regra do arquivo:** ele ESVAZIA. Um pacote entregue sai daqui (a nota vai ao
 `docs/HISTORICO.md`, como sempre); um pedido revogado sai com uma linha dizendo
 quem revogou. Não é log, e não é `docs/ACHADOS-EM-ABERTO.md` (lá moram defeitos
@@ -88,6 +91,7 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **13** — Estudos (não são fila de execução) | 4 | estudo | nenhuma entrega |
 | **16** — O cronograma pronto: o organizador entrega o culto ao sonoplasta | 8 (I4×U2) | pedido | planejamento → Kotlin + web |
 | **29** — Guia do site: a captura da lista de Ferramentas e do Cronograma | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
+| **41** — O link do passador não é clicável no WhatsApp | 6 (I3×U2) | estudo | decisão → site |
 
 ---
 
@@ -101,7 +105,7 @@ diferentes, e um lote nunca mistura dois temas.
 | tema | pacotes | o que sai junto |
 |---|---|---|
 | **Cronograma e destinos** | 16 | a abertura antes do culto, o organizador entregando o culto pronto |
-| **Site** | 29 | a captura da lista de Ferramentas (seis) e a do Cronograma com a faixa do itinerário |
+| **Site** | 29, 41 | as capturas do guia, e a porta pública que tornaria o link do passador clicável |
 | **Fila anterior a 14/11** | 5 | a tela de espera do Itinerário, na ordem que a fila já tinha |
 | **Estudos** | 13 | não são fila de execução: a entrega é a decisão do operador |
 
@@ -147,6 +151,7 @@ ordem; a fila é dele.
 | 13.3 | layout de paisagem (o app no Windows saiu) | | 3 | 1 | 3 | estudo |
 | **16** | **O cronograma pronto: o organizador entrega o culto** | pedido | 4 | 2 | **8** | planejamento |
 | **29** | **Guia do site: a captura da lista de Ferramentas e do Cronograma** | resíduo | 2 | 1 | **2** | site |
+| **41** | **O link do passador não é clicável no WhatsApp** | estudo | 3 | 2 | **6** | decisão |
 
 ---
 
@@ -316,6 +321,28 @@ Refazer as capturas pede **o app em tela** — não há aparelho nesta máquina:
 operador manda a captura, ou ela sai da prévia visual no Chromium.
 
 ---
+
+## Pacote 41 — O link do passador não é clicável no WhatsApp
+
+**Nota 6 (I3×U2) · estudo · a entrega é uma DECISÃO, não código**
+
+Medido pelo operador no aparelho (2026-11-16): mandado sozinho, o endereço
+`http://192.168.x.y:8787/passador-de-slides` **chega como texto**, não como link
+— o WhatsApp não reconhece endereço privado com porta. O número do WhatsApp, ao
+lado, é reconhecido. Não é defeito do app: a mensagem já leva só o link (correção
+da v1.14.58), e o reconhecedor é do aplicativo de mensagem.
+
+As três saídas, e o preço de cada uma:
+
+| saída | como fica | o preço |
+|---|---|---|
+| **texto + colar** | o irmão copia a mensagem e cola no navegador | zero de código; três toques a mais na primeira vez (dá para salvar como favorito depois) |
+| **porta pública no site** (`audiovisualiasd.com.br/passador?…`) | o link é público e clicável, e a página redireciona para o IP da rede | pede internet no momento do toque, e uma página nova no `site/` |
+| **apelido DNS do IP** (estilo `nip.io`) | o link vira domínio e o reconhecedor aceita | depende de DNS público no aparelho de quem recebe; some numa rede sem internet |
+
+**O que NÃO se decide sozinho:** qual das três (ou nenhuma) — é escolha do
+operador, e as duas últimas põem uma peça pública no caminho de um recurso que
+hoje é só de rede local.
 
 ## O que saiu desta lista (rastro, não log)
 

@@ -494,10 +494,12 @@ do operador em 2026-11-15, junto com a de não haver código de entrada. O
 `TETO_SEM_RELATO_MS` de 150 s derrubaria um celular com a tela apagada, que é
 justamente o que o pregador faz durante a leitura.
 
-**De onde o link sai** (v1.14.56): a folha de conectar ao navegador mostra este endereço num segundo
-bloco, com **Copiar link** e **Enviar no WhatsApp** — o segundo abre o diálogo do número (o último fica em
-`av.passadorZap`, e o `55` entra sozinho quando o operador digita DDD+número) e entrega ao `wa.me` a
-mensagem pronta, com o aviso da REDE. A conta do link é `linkDoPassador(endereco)`, no `controle.js`.
+**De onde o link sai** (v1.14.57): a folha de conectar ao navegador trata este endereço como uma OPÇÃO do
+endereço do telão — dois ícones ao lado do copiar, e nada escrito. Um copia o link; o outro abre e FECHA
+(é o mesmo botão) uma zona logo abaixo, com o título "Enviar no WhatsApp", o campo do número e o Abrir. O
+último número fica em `av.passadorZap`, o `55` entra sozinho (DDD+número), e **a mensagem leva SÓ o link** —
+texto em volta impede o WhatsApp de reconhecê-lo. As contas são `linkDoPassador`, `numeroDoWhatsapp` e
+`zapDoPassador`, no `controle.js`.
 
 **O que a página NÃO faz:** não controla mídia, letra, mensagem, cronômetro nem
 o palco; não mostra prévia fora da apresentação; não serve de telão de reserva;

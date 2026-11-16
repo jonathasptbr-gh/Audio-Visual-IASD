@@ -13251,29 +13251,49 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
 /* O CÓDIGO é o accent, e o endereço não: eles não competem, porque o âmbar aqui
    diz "este é o número do momento" — ele muda a cada vez que a transmissão é
    ativada, e o endereço não. Mesma anatomia do PIN que ele substitui. */
-/* O SEGUNDO ENDEREÇO É MENOR (v1.14.56). O de cima é o que se digita na TV e
-   merece o maior tipo da folha; este leva o caminho `/passador-de-slides`
-   atrás dele, e no mesmo corpo de fonte a linha encostaria nas bordas num IP
-   longo — a régua do `overflow-wrap: anywhere` continua valendo, mas com
-   `--fs-lg` ele cabe. */
-.cast-url--fina { font-size: var(--fs-lg); font-weight: var(--fw-medio); }
-/* OS DOIS BOTÕES DO LINK. São ações secundárias da folha (o link já está
-   escrito acima), então pílulas de `--surface-2` em vez do preenchimento dos
-   `cast-acao`: elas não competem com "Desligar transmissão", que é a decisão
-   que esta folha existe para tomar. */
-.cast-prega-acoes {
-  display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-3);
+/* OS ATALHOS DO PASSADOR DE SLIDES (v1.14.57). O operador cortou o segundo
+   endereço — link escrito, rótulo e dois botões de texto — e o passador virou
+   uma LINHA DE OPÇÕES ao lado do endereço do telão: dois ícones do mesmo
+   tamanho, na mesma gramática do copiar de cima (`.log-copy` mede `--hit`).
+   Eles não competem com "Desligar transmissão", que é a decisão que esta folha
+   existe para tomar. */
+.cast-extras {
+  display: flex; justify-content: center; gap: var(--sp-3);
   margin-top: var(--sp-2);
 }
-.cast-prega-btn {
-  display: inline-flex; align-items: center; gap: var(--sp-2);
-  min-height: 2.25rem; padding: 0 var(--sp-6);
-  border: 0; border-radius: var(--radius-pill);
+/* A ZONA DO WHATSAPP. Ela abre ABAIXO dos dois ícones, como uma linha da folha
+   e não como popup: um popup por cima da folha que já é popup cobraria duas
+   saídas para o mesmo erro. Quem a abre e a fecha é o MESMO botão (o de
+   contato), e é por isso que ele carrega `aria-expanded`. */
+.cast-zap {
+  display: flex; flex-direction: column; align-items: center; gap: var(--sp-2);
+  margin-top: var(--sp-3); padding: var(--sp-4);
+  background: var(--surface); border-radius: var(--radius-card);
+}
+.cast-zap[hidden] { display: none; }
+/* O CAMPO E O "Abrir" DIVIDEM UMA LINHA. `min-width: 0` no campo porque ele é
+   um `<input>` dentro de um flex: sem isso ele não encolhe abaixo do
+   `placeholder` e o botão sai da caixa a 320px. */
+.cast-zap-linha {
+  display: flex; align-items: center; gap: var(--sp-3);
+  width: 100%; max-width: 22rem;
+}
+.cast-zap-num {
+  flex: 1 1 auto; min-width: 0; min-height: 2.25rem;
+  padding: 0 var(--sp-4); border: 0; border-radius: var(--radius-btn);
   background: var(--surface-2); color: var(--text);
+  font: inherit; font-size: var(--fs-md);
+}
+.cast-zap-num::placeholder { color: var(--muted); }
+/* "Abrir" é o PRIMÁRIO da zona: é a única ação dela. */
+.cast-zap-abrir {
+  flex: 0 0 auto; min-height: 2.25rem; padding: 0 var(--sp-6);
+  border: 0; border-radius: var(--radius-pill);
+  background: var(--btn-accent); color: var(--text);
   font: inherit; font-size: var(--fs-md); font-weight: var(--fw-medio);
   cursor: pointer;
 }
-.cast-prega-btn:active { background: var(--surface); }
+.cast-zap-abrir:active { filter: brightness(1.1); }
 /* Quem está vendo. Uma linha por tela, com a ação à direita — o padrão de
    lista do resto do app, não um cartão novo. */
 .cast-telas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }

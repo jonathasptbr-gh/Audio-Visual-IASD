@@ -4238,33 +4238,60 @@ try {
     'terminado, ele volta a nomear a ação (nada de recado grudado)', emCurso.voltou);
   checar(redeOn.semTrilho, 'e não sobrou interruptor nenhum na folha de conexão');
 
-  // ---- O LINK DO PASSADOR: o campo, a conta e os dois botões (v1.14.56) ---
+  // ---- OS ATALHOS DO PASSADOR: dois ícones, a zona e o texto (v1.14.57) --
   //
-  // O segundo endereço da folha tem de ser o do SERVIDOR, e não uma string
-  // solta: a conta (`linkDoPassador`) e o caminho que o `EspelhoServidor.kt`
-  // serve são medidos juntos pelo `passador-fronteira` (Node puro). Aqui se
-  // mede o que só o desenho mostra: o campo escrito com o endereço que veio do
-  // estado, os dois botões à vista, e o número saindo na forma que o `wa.me`
-  // exige — com o DDD brasileiro ganhando o 55 e o lixo recusado, em vez de
-  // abrir uma conversa que não existe.
-  const passador = await pg2.evaluate(() => ({
-    link: (document.getElementById('passadorUrl') || {}).textContent,
-    botoes: ['passadorCopyBtn', 'passadorZapBtn'].map((id) => {
-      const b = document.getElementById(id);
-      return !!b && b.getClientRects().length > 0;
-    }),
-    ddd: numeroDoWhatsapp('51 99999-9999'),
-    internacional: numeroDoWhatsapp('+55 (51) 99999-9999'),
-    lixo: numeroDoWhatsapp('123'),
-    semBarra: linkDoPassador('http://10.0.0.2:8787/'),
-  }));
-  checar(passador.link === 'http://192.168.0.14:8787/passador-de-slides',
-    'o link do passador é o endereço da transmissão + a rota', passador.link);
-  checar(passador.botoes.every(Boolean), 'os dois botões do link estão à vista na folha');
+  // O operador cortou o segundo endereço escrito: o passador é uma opção ao
+  // lado do endereço do telão, com dois ícones, e a zona do WhatsApp abre
+  // ABAIXO dos ícones pelo MESMO botão que a fecha. Aqui se mede o desenho
+  // (ícones à vista, nada de link escrito, a zona abrindo e fechando) e as
+  // três contas que o `passador-fronteira` não alcança porque dependem do
+  // estado que o shell entrega.
+  const passador = await pg2.evaluate(() => {
+    const zona = document.getElementById('castZap');
+    const botao = document.getElementById('passadorZapBtn');
+    const antes = { fechada: zona.hidden, expandido: botao.getAttribute('aria-expanded') };
+    botao.click();
+    const abriu = { visivel: !zona.hidden, expandido: botao.getAttribute('aria-expanded') };
+    botao.click();
+    const fechou = { fechada: zona.hidden, expandido: botao.getAttribute('aria-expanded') };
+    const link = 'http://192.168.0.14:8787/passador-de-slides';
+    return {
+      icones: ['passadorCopyBtn', 'passadorZapBtn'].map((id) => {
+        const b = document.getElementById(id);
+        return !!b && b.getClientRects().length > 0 && b.classList.contains('log-copy');
+      }),
+      semLink: !document.getElementById('passadorUrl'),
+      tituloZona: (zona.querySelector('.cast-rot') || {}).textContent,
+      antes, abriu, fechou,
+      ddd: numeroDoWhatsapp('51 99999-9999'),
+      internacional: numeroDoWhatsapp('+55 (51) 99999-9999'),
+      lixo: numeroDoWhatsapp('123'),
+      semBarra: linkDoPassador('http://10.0.0.2:8787/'),
+      zap: zapDoPassador('5551999999999', link),
+      zapDeveria: 'https://wa.me/5551999999999?text=' + encodeURIComponent(link),
+      linkVivo: linkDoPassadorAtual(),
+    };
+  });
+  checar(passador.icones.every(Boolean),
+    'os dois atalhos do passador são ícones do tamanho do copiar do endereço');
+  checar(passador.semLink,
+    'e o link do passador NÃO se escreve na folha — é atalho, não endereço');
+  checar(passador.antes.fechada && passador.antes.expandido === 'false',
+    'a zona do WhatsApp nasce FECHADA e o botão diz isso (`aria-expanded`)');
+  checar(passador.abriu.visivel && passador.abriu.expandido === 'true',
+    'e o MESMO botão a abre, sem popup por cima da folha');
+  checar(passador.fechou.fechada && passador.fechou.expandido === 'false',
+    'e o mesmo botão a fecha, que é o pedido');
+  checar(passador.tituloZona === 'Enviar no WhatsApp',
+    'a zona tem um título só: "Enviar no WhatsApp"', passador.tituloZona);
   checar(passador.ddd === '5551999999999' && passador.internacional === '5551999999999',
     'o número com DDD ganha o 55, e o que já vem internacional fica igual', passador.ddd);
   checar(passador.lixo === '' && passador.semBarra === 'http://10.0.0.2:8787/passador-de-slides',
     'número curto é recusado, e a barra final do endereço não vira `//`');
+  checar(passador.zap === passador.zapDeveria,
+    'e a mensagem leva SÓ o link — é o que faz o WhatsApp reconhecê-lo', passador.zap);
+  checar(passador.linkVivo === 'http://192.168.0.14:8787/passador-de-slides',
+    'o link copiado sai do endereço do estado, que é o da última leitura', passador.linkVivo);
 
   // ---- LIGAR E DESLIGAR NÃO É UM SALTO (v5.226) --------------------------
   //

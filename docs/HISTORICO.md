@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.58** — o passador de slides vira atalho de dois ícones na folha de conectar (copiar e enviar no WhatsApp numa zona que o mesmo botão abre e fecha, mensagem só com o link), e a página dele passa a caber na tela sem rolar (só web).
 - **v1.14.57** — o momento do itinerário de volta ao corpo compacto (mais baixo que o item de mídia, com fonte e botões do mesmo tamanho) e todos os momentos iguais com a faixa aberta ou recolhida (só web).
 - **v1.14.56** — o link do passador de slides na folha de conectar (um botão copia e outro manda no WhatsApp, com o número guardado e o 55 automático) e a rota renomeada de `/prega` para `/passador-de-slides` (shell 89, APK + web).
 - **v1.14.55** — os momentos do itinerário com a cor apagada (na faixa dos ladrilhos da Bíblia), a aba de opções de volta ao FLUXO (ela desloca o cronograma, e a sub-aba do momento segue sobreposta) e todos os momentos com a altura de um item normal (só web).
@@ -790,6 +791,44 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.14.58 — os atalhos do passador, e a página que cabe na tela
+
+**Dois pedidos do operador** (2026-11-16, 18h22–18h33), só web: `SHELL_VERSION` 89
+(o shell não foi tocado), `minShell` 83, **sem `shellTag`** — a Release da v1.14.56
+já publicou todo o Kotlin. Degrau CORREÇÃO.
+
+**(1) O PASSADOR VIROU ATALHO, não um segundo endereço.** *"Abrevie o texto do
+botão de copiar link… o botão de copiar link da tela conectada já é só ícone"*,
+*"não use um popup novo… o mesmo botão que abriu essa zona seja o de fechar"*,
+*"considere o passador de slides como uma linha de botões de opções extras ao
+link de conexão da tela"*. Saíram o link escrito, o rótulo e os dois botões de
+texto; ficaram DOIS ÍCONES `.log-copy` (o mesmo do copiar do endereço) e, embaixo
+deles, a zona `#castZap` — título, campo e "Abrir" — que o ícone do WhatsApp
+abre e fecha (`aria-expanded`). O número mora em `av.passadorZap`, e o `55`
+entra sozinho em DDD+número.
+
+A MENSAGEM É SÓ O LINK, e essa é a parte que resolve um defeito medido: com
+prosa em volta, o WhatsApp deixa de reconhecer o endereço (o `zapDoPassador`
+monta `?text=` com o link cru, e o oráculo reprova prosa ali).
+
+**(2) A PÁGINA DO PASSADOR CABE NA TELA.** *"a altura máxima de slides +
+controles deve ser a altura disponível na tela… tudo visível sem ter de rolar"*.
+O desenho da v1.14.33 somava três alturas em `vh` (36 + 19 + 19 mais rótulos e
+botões) — mais que a janela num celular com a barra do navegador. Agora o `#app`
+mede `100dvh` (que já desconta as barras), a página tem `overflow: hidden` e os
+três cartões DIVIDEM o que sobra por `flex` (o do meio em 1,7 contra 0,8 dos
+vizinhos): nenhuma altura fixa, nada para rolar. Os rótulos "anterior/no
+telão/próximo" saíram (ficou o contador do meio) e o topo virou uma linha.
+
+**Oráculos.** `tools/passador-cabe.test.mjs` (**novo**, Chromium): mede cinco
+telas de 320×568 a 412×915, com o estado inativo e com os três cartões no ar —
+a árvore tem de caber no `innerHeight`, o cartão do meio tem de ser o maior e o
+rodapé não pode passar de 30% da tela. O `passador-fronteira` ganhou o bloco que
+exige os atalhos, proíbe o link escrito e cobra a mensagem sem prosa; o
+`boot-nativo` mede a zona abrindo e fechando pelo MESMO botão.
 
 ---
 

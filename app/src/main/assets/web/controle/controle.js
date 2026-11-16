@@ -482,7 +482,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.57';
+const WEB_VERSION = '1.14.58';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -715,9 +715,11 @@ const castSomAjudaEl = document.getElementById('castSomAjuda');
 const castLiveEl = document.getElementById('castLive');
 const castUrlEl = document.getElementById('castUrl');
 const castUrlCopyEl = document.getElementById('castUrlCopy');
-const passadorUrlEl = document.getElementById('passadorUrl');
 const passadorCopyBtnEl = document.getElementById('passadorCopyBtn');
 const passadorZapBtnEl = document.getElementById('passadorZapBtn');
+const castZapEl = document.getElementById('castZap');
+const passadorZapNumEl = document.getElementById('passadorZapNum');
+const passadorZapAbrirEl = document.getElementById('passadorZapAbrir');
 const castTelasEl = document.getElementById('castTelas');
 const songMenuPopupEl = document.getElementById('songMenuPopup');
 const songMenuTitleEl = document.getElementById('songMenuTitle');
@@ -34638,22 +34640,24 @@ if (castUrlCopyEl) {
   });
 }
 
-// ===== O LINK DO PASSADOR DE SLIDES (v1.14.56) =====
+// ===== O PASSADOR DE SLIDES: OS DOIS ATALHOS (v1.14.57) =====
 //
-// O segundo endereço da folha de conexão, e o único que se MANDA para outra
-// pessoa: o de cima é o telão (`http://<ip>:<porta>`), este é a página que
-// passa os slides (`…/passador-de-slides`). Até aqui ele não aparecia em
-// nenhuma tela — quem ia passar os slides teria de adivinhar o caminho no fim
-// do endereço.
-//
-// A CONTA MORA AQUI, fora do `renderCast`, porque ela é o que o oráculo mede:
-// o campo do endereço base, a rota que o `EspelhoServidor.kt` serve e o
-// caminho que a página usa são três lugares, e a conta que os junta tem de ser
-// uma só. O `endereco` já vem sem barra final, mas tirá-la é barato e o
-// formato muda quando a rede cai e volta.
+// O passador é uma OPÇÃO do endereço do telão, e não um segundo endereço na
+// folha: o link dele não se escreve na tela, e as duas ações são dois ícones
+// ao lado do copiar do endereço. A conta do link mora aqui, e não dentro do
+// `renderCast`, porque é o que o oráculo mede — o campo do endereço base, a
+// rota que o `EspelhoServidor.kt` serve e o caminho que a página usa são três
+// lugares, e a conta que os junta tem de ser uma só.
 function linkDoPassador(endereco) {
   const base = String(endereco || '').trim().replace(/\/+$/, '');
   return base ? base + '/passador-de-slides' : '';
+}
+
+// O link do momento: o endereço que a última leitura do shell trouxe. Lido de
+// `mirrorEstado` (e não de um nó da tela) porque desde a v1.14.57 o link não
+// aparece escrito em lugar nenhum.
+function linkDoPassadorAtual() {
+  return linkDoPassador((mirrorEstado || {}).endereco);
 }
 
 // O NÚMERO DO WHATSAPP: o `wa.me` exige DDI+DDD sem sinal nenhum, e o que o
@@ -34669,64 +34673,86 @@ function numeroDoWhatsapp(bruto) {
   return '';
 }
 
-// O ÚLTIMO NÚMERO FICA GUARDADO (decisão do operador, 2026-11-16): o mesmo
-// irmão passa os slides domingo após domingo, e digitar onze dígitos toda vez é
-// atrito no momento em que a igreja está esperando. Chave própria, e lida com
-// `try`: `localStorage` negado não pode derrubar a folha de conexão.
+// A MENSAGEM É SÓ O LINK (decisão do operador, 2026-11-16): com texto em volta,
+// o WhatsApp deixa de reconhecer o miolo como endereço e o link chega para ser
+// copiado à mão. Sozinho, ele vira um toque.
+function zapDoPassador(numero, link) {
+  return 'https://wa.me/' + numero + '?text=' + encodeURIComponent(link);
+}
+
+// O ÚLTIMO NÚMERO FICA GUARDADO: o mesmo irmão passa os slides domingo após
+// domingo, e digitar onze dígitos toda vez é atrito na hora em que a igreja
+// está esperando. Chave própria, e lida com `try`: `localStorage` negado não
+// pode derrubar a folha de conexão.
 const PASSADOR_ZAP_CHAVE = 'av.passadorZap';
+
+function numeroGuardadoDoZap() {
+  try { return localStorage.getItem(PASSADOR_ZAP_CHAVE) || ''; } catch (_) { return ''; }
+}
+
+// A ZONA DO WHATSAPP ABRE ABAIXO DOS ÍCONES, e o MESMO botão a fecha (o
+// pedido é literal): não há popup por cima de popup, e um segundo botão de
+// fechar a dois centímetros do primeiro seria a terceira saída para o mesmo
+// erro. O foco vai para o campo com o último número já escrito.
+function alternarZonaDoZap(abrir) {
+  if (!castZapEl || !passadorZapBtnEl) return;
+  const mostrar = abrir === undefined ? castZapEl.hidden : !!abrir;
+  castZapEl.hidden = !mostrar;
+  passadorZapBtnEl.setAttribute('aria-expanded', mostrar ? 'true' : 'false');
+  passadorZapBtnEl.classList.toggle('ligado', mostrar);
+  if (!mostrar) return;
+  if (passadorZapNumEl && !passadorZapNumEl.value) passadorZapNumEl.value = numeroGuardadoDoZap();
+  setTimeout(() => { if (passadorZapNumEl) passadorZapNumEl.focus(); }, 60);
+}
 
 if (passadorCopyBtnEl) {
   passadorCopyBtnEl.addEventListener('click', () => {
-    const link = (passadorUrlEl && passadorUrlEl.textContent || '').trim();
+    const link = linkDoPassadorAtual();
     if (link) copiarTexto(link, passadorCopyBtnEl);
   });
 }
 
 if (passadorZapBtnEl) {
-  passadorZapBtnEl.addEventListener('click', async () => {
-    const link = (passadorUrlEl && passadorUrlEl.textContent || '').trim();
-    if (!link) return;
-    let ultimo = '';
-    try { ultimo = localStorage.getItem(PASSADOR_ZAP_CHAVE) || ''; } catch (_) {}
-    // A MENSAGEM VAI PRONTA, e ela diz o que o link não diz: a REDE. O
-    // endereço é o da Wi-Fi da igreja (ou do ponto de acesso do celular do
-    // operador) — fora dela o navegador responde "site não encontrado", que é
-    // exatamente o erro que esta linha existe para evitar. Quem envia e revisa
-    // o texto é o operador; o app só chega na conversa.
-    const texto = 'Passador de slides do telão: ' + link
-      + '\n\nAbra no navegador do celular, na mesma Wi-Fi do celular da igreja.';
-    const digitado = await appPrompt({
-      title: 'Enviar no WhatsApp',
-      message: 'O número de quem vai passar os slides, com DDD. O 55 entra sozinho.',
-      value: ultimo,
-      placeholder: '51 99999-9999',
-      okText: 'Abrir',
-    });
-    if (digitado === null) return;
-    const numero = numeroDoWhatsapp(digitado);
-    if (!numero) {
-      await openAppDialog({
-        title: 'Número incompleto',
-        message: 'Digite o DDD e o número, com 10 ou 11 dígitos.',
-        okText: 'Entendi',
-        cancelText: null,
-        input: false,
-      });
-      return;
-    }
-    try { localStorage.setItem(PASSADOR_ZAP_CHAVE, String(digitado).trim()); } catch (_) {}
-    const url = 'https://wa.me/' + numero + '?text=' + encodeURIComponent(texto);
-    // A MESMA PORTA DO "FALAR COM QUEM MANTÉM O APP": no app, o `openExternal`
-    // (o WebView bloqueia navegar para fora do origin); no navegador, uma guia
-    // nova.
-    if (window.__NATIVE__) {
-      try { AVNative.openExternal(url); } catch (_) { responder(passadorZapBtnEl, 'erro'); }
-    } else {
-      window.open(url, '_blank', 'noopener');
-    }
-  });
+  passadorZapBtnEl.addEventListener('click', () => alternarZonaDoZap());
 }
 
+// O "Abrir" da zona — e o mesmo caminho pelo Enter do campo, que é como se
+// digita um número no celular. O que trava é o `numeroDoWhatsapp`: um número
+// curto dá o pulso vermelho do `responder` e NADA sai (abrir uma conversa que
+// não existe é pior que não abrir).
+function abrirZapDoPassador() {
+  const link = linkDoPassadorAtual();
+  if (!link) return;
+  const digitado = passadorZapNumEl ? passadorZapNumEl.value : '';
+  const numero = numeroDoWhatsapp(digitado);
+  if (!numero) {
+    responder(passadorZapAbrirEl || passadorZapNumEl, 'erro');
+    if (passadorZapNumEl) passadorZapNumEl.focus();
+    return;
+  }
+  try { localStorage.setItem(PASSADOR_ZAP_CHAVE, String(digitado).trim()); } catch (_) {}
+  const url = zapDoPassador(numero, link);
+  // A MESMA PORTA DO "FALAR COM QUEM MANTÉM O APP": no app, o `openExternal`
+  // (o WebView bloqueia navegar para fora do origin); no navegador, uma guia
+  // nova.
+  if (window.__NATIVE__) {
+    try { AVNative.openExternal(url); } catch (_) { responder(passadorZapAbrirEl, 'erro'); return; }
+  } else {
+    window.open(url, '_blank', 'noopener');
+  }
+  // A zona se recolhe depois do toque: quem está no WhatsApp não tem o que
+  // fazer com um campo de número aberto na folha de conexão.
+  alternarZonaDoZap(false);
+}
+
+if (passadorZapAbrirEl) passadorZapAbrirEl.addEventListener('click', abrirZapDoPassador);
+if (passadorZapNumEl) {
+  passadorZapNumEl.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Enter') return;
+    ev.preventDefault();
+    abrirZapDoPassador();
+  });
+}
 
 // O NOME DO ARQUIVO DO REGISTRO. A porta é UMA só — o `#testeSalvar` da folha
 // da Verificação, que o COMPARTILHA como arquivo: copiar e colar corta o texto
@@ -46278,9 +46304,6 @@ function renderCast() {
   // UM ENDEREÇO SÓ: o IP. Um nome mDNS não resolve no Chrome do Android nem na
   // maioria das Smart TVs, que são exatamente as telas deste recurso.
   texto2(castUrlEl, e.endereco || '');
-  // E O LINK DO PASSADOR, que é o SEGUNDO endereço desta folha e o único que se
-  // manda para outra pessoa (ver `linkDoPassador`).
-  texto2(passadorUrlEl, linkDoPassador(e.endereco));
   renderCastTelas(telas);
 }
 

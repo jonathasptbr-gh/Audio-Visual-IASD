@@ -77,8 +77,8 @@ else nao('`/passador-de-slides` e `/passador-de-slides/` levam à página', 'o l
 // ---------------------------------------------------------------------------
 // 2b. O LINK QUE O OPERADOR MANDA — o sufixo do Controle e a rota do servidor
 // ---------------------------------------------------------------------------
-// O link do passador é MONTADO no `controle.js` (o "Copiar link" e o "Enviar
-// no WhatsApp") a partir do endereço da transmissão, e o caminho é uma
+// O link do passador é MONTADO no `controle.js` (o ícone de copiar e o de
+// WhatsApp) a partir do endereço da transmissão, e o caminho é uma
 // constante nos dois lados: a rota que o `EspelhoServidor.kt` serve e o sufixo
 // que o Controle escreve. Divergir é o defeito MUDO deste lote: o operador
 // manda no WhatsApp um endereço que o APK dele não serve, e quem recebe vê
@@ -108,13 +108,29 @@ if (!mLink) {
   }
 }
 
-// OS DOIS BOTÕES existem na folha de conexão, e são eles que o operador vê.
+// OS ATALHOS existem na folha de conexão — e o LINK NÃO (v1.14.57: o operador
+// cortou o segundo endereço escrito e a descrição; ficaram dois ícones).
 const htmlCast = ler(join(WEB, 'controle/index.html'));
-for (const id of ['passadorUrl', 'passadorCopyBtn', 'passadorZapBtn']) {
+for (const id of ['passadorCopyBtn', 'passadorZapBtn', 'castZap', 'passadorZapNum', 'passadorZapAbrir']) {
   if (new RegExp('id="' + id + '"').test(htmlCast)) ok(`a folha de conexão tem o \`#${id}\``);
   else nao(`a folha de conexão tem o \`#${id}\``,
-    'sem ele o link do passador não tem onde aparecer nem como ser mandado');
+    'sem ele o passador não tem atalho nem zona de envio no WhatsApp');
 }
+if (/id="passadorUrl"/.test(htmlCast)) {
+  nao('o link do passador NÃO se escreve na tela',
+    'o pedido é atalho de ícone: link e descrição escritos de volta é o desenho que saiu');
+} else ok('o link do passador NÃO se escreve na tela (atalhos de ícone)');
+
+// A MENSAGEM É SÓ O LINK (decisão do operador, 2026-11-16): com prosa em volta,
+// o WhatsApp não reconhece o endereço, e o link chega para ser copiado à mão.
+// AQUI se lê o TEXTO CRU: o `semComentario` corta tudo depois de `//`, e a
+// linha da URL tem `https://` — o `encodeURIComponent` sumiria da leitura.
+const mZap = ler(CONTROLE).match(/function zapDoPassador\(numero, link\)[\s\S]{0,200}?encodeURIComponent\(([^)]+)\)/);
+if (!mZap) {
+  nao('achei o `zapDoPassador` no `controle.js`', 'sem ele a zona do WhatsApp não monta a URL');
+} else if (mZap[1].trim() !== 'link') {
+  nao('a mensagem do WhatsApp é SÓ o link', `o texto viaja como \`${mZap[1].trim()}\` — prosa em volta desliga o reconhecimento`);
+} else ok('a mensagem do WhatsApp é SÓ o link');
 
 // ---------------------------------------------------------------------------
 // 3. A PÁGINA NÃO É UM TELÃO — a marca `av-tela` fica de fora

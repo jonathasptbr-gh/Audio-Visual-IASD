@@ -1,0 +1,84 @@
+#!/usr/bin/env node
+// A PÁGINA DO PASSADOR CABE NA TELA — slides e controles, sem rolar.
+//
+// O pedido do operador (2026-11-16) é literal: *"a altura máxima de slides +
+// controles deve ser a altura disponível na tela… tudo visível sem ter de rolar
+// a tela para nada"*. Ele abre a página no NAVEGADOR do celular, e a barra do
+// navegador come altura — a conta é sempre com `innerHeight`, nunca com uma
+// medida em `vh` escrita à mão.
+//
+// O MODO DE FALHAR É MUDO: nada quebra quando a coluna cresce 40 px; o
+// resultado é o pregador rolando a tela no meio do sermão, e o defeito só
+// aparece no aparelho dele. É por isso que ele vira oráculo, e é por isso que
+// ele mede a ÁRVORE (as três seções abertas, o pé dos botões dentro da janela),
+// e não um retângulo qualquer.
+//
+// A página é servida de `file://`: o CSS é relativo e o que se mede é layout.
+// O `passador.js` roda e falha ao parear (não há servidor aqui) — isso é
+// esperado e não entra no veredito.
+import { chromium } from 'playwright';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import { checar, falhas } from './checar.mjs';
+
+const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
+const PAGINA = 'file://' + join(RAIZ, 'app/src/main/assets/web/passador-de-slides/index.html');
+
+// As telas que um celular de operador tem HOJE, com a barra do navegador já
+// descontada pelo `dvh`: a mais baixa é a que aperta (320×568 = iPhone SE).
+const TELAS = [[320, 568], [360, 540], [360, 640], [390, 844], [412, 915]];
+
+const navegador = await chromium.launch();
+for (const [w, h] of TELAS) {
+  const pg = await navegador.newPage({ viewport: { width: w, height: h } });
+  // O `passador.js` tenta `fetch`/SSE e enche o console de erro de rede: o
+  // ruído é do teste, não da página.
+  pg.on('pageerror', () => {});
+  await pg.goto(PAGINA, { waitUntil: 'domcontentloaded' });
+  const m = await pg.evaluate(() => {
+    // O estado "NO AR", que é o que tem os três cartões e os botões. O caminho
+    // normal de quem chega sem apresentação é o inativo — que também tem de
+    // caber, e por isso ele é medido antes de ser escondido.
+    const janela = window.innerHeight;
+    const inativo = document.getElementById('vazio').getBoundingClientRect();
+    const cabeInativo = document.body.scrollHeight <= janela + 1;
+    document.getElementById('vazio').hidden = true;
+    document.getElementById('cartoes').hidden = false;
+    document.getElementById('acoes').hidden = false;
+    const r = (id) => document.getElementById(id).getBoundingClientRect();
+    return {
+      janela,
+      doc: document.documentElement.scrollHeight,
+      corpo: document.body.scrollHeight,
+      inativoCabe: cabeInativo && inativo.bottom <= janela + 1,
+      acoesFim: Math.round(r('acoes').bottom),
+      acoesAltura: Math.round(r('acoes').height),
+      meio: Math.round(r('cartaoAtual').height),
+      ant: Math.round(r('cartaoAnt').height),
+      prox: Math.round(r('cartaoProx').height),
+      cartoes: Math.round(r('cartoes').height),
+    };
+  });
+  const tela = `${w}×${h}`;
+  checar(m.inativoCabe, `${tela}: o estado inativo (sem apresentação) cabe sem rolar`,
+    `corpo ${m.corpo} > janela ${m.janela}`);
+  checar(m.doc <= m.janela + 1 && m.corpo <= m.janela + 1 && m.acoesFim <= m.janela + 1,
+    `${tela}: slides + controles cabem na janela, sem barra de rolagem`,
+    `doc ${m.doc} · corpo ${m.corpo} · fim dos botões ${m.acoesFim} · janela ${m.janela}`);
+  checar(m.meio > m.ant && m.meio > m.prox,
+    `${tela}: o cartão do meio é o MAIOR (o que está no telão)`,
+    `meio ${m.meio} · anterior ${m.ant} · próximo ${m.prox}`);
+  // O rodapé não pode virar o dono da tela: os três cartões precisam dela.
+  checar(m.acoesAltura <= m.janela * 0.3,
+    `${tela}: os botões são um rodapé, não a maior parte da tela`,
+    `rodapé ${m.acoesAltura} de ${m.janela}`);
+  await pg.close();
+}
+await navegador.close();
+
+console.log('');
+if (falhas.length) {
+  console.log(`${falhas.length} FALHA(S) — a página do passador não cabe na tela.`);
+  process.exit(1);
+}
+console.log('A página do passador cabe na tela em todas as medidas, sem rolar.');
