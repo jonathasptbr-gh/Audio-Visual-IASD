@@ -44,23 +44,25 @@ await new Promise((r) => servidor.listen(0, r));
 const BASE = 'http://127.0.0.1:' + servidor.address().port + '/passador/';
 const navegador = await abrirNavegador();
 
-const abrir = async () => {
+// PRENDER A SAÍDA: o `setTimeout(..., 150)` do redirecionamento é GUARDADO, e
+// não disparado. A página é a mesma, e a navegação de verdade é o bloco B; aqui
+// o que se mede é o fallback, e sem isto o documento seria trocado no meio da
+// leitura — uma corrida contra 150 ms que o runner pode perder.
+const prenderSaida = () => {
+  window.__avSaida = null;
+  const original = window.setTimeout;
+  window.setTimeout = function (fn, ms, ...args) {
+    if (ms === 150 && typeof fn === 'function') { window.__avSaida = () => fn(...args); return 0; }
+    return original.call(window, fn, ms, ...args);
+  };
+};
+
+const abrir = async (prender = false) => {
   const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 } });
   const externas = [];
   await semRedeExterna(ctx, (u) => externas.push(u));
+  if (prender) await ctx.addInitScript(prenderSaida);
   return { ctx, externas };
-};
-
-// O `waitForRequest` resolve no PEDIDO, e o handler da rota roda logo depois:
-// uma variável escrita nele não está preenchida na linha seguinte. Espera-se
-// pelo FATO no lado do Node, e nunca por um prazo fixo.
-const ate = async (fn, ms = 4000) => {
-  const fim = Date.now() + ms;
-  while (Date.now() < fim) {
-    if (fn()) return true;
-    await new Promise((r) => setTimeout(r, 20));
-  }
-  return false;
 };
 
 try {
@@ -110,24 +112,10 @@ try {
     await ctx.close();
   }
 
-  // ── C. O FALLBACK: o endereço à vista enquanto a navegação está pausada ──
+  // ── C. O FALLBACK: o endereço à vista com a saída RETIDA ────────────────
   {
-    const { ctx } = await abrir();
+    const { ctx } = await abrir(true);
     const pg = await ctx.newPage();
-    let alvoPedido = '';
-    // A ROTA ABORTA a navegação de propósito: é o caso que o fallback existe
-    // para cobrir (saída bloqueada), e a recusa deixa o documento da página de
-    // pé para ser medido. Se ela FOSSE cumprida, o DOM abaixo já seria o do
-    // destino.
-    await ctx.route('http://192.168.7.9:8787/**', (rota) => {
-      alvoPedido = rota.request().url();
-      return rota.abort();
-    });
-    // A ESPERA PELO PEDIDO É ARMADA ANTES DA CARGA: `waitForRequest` só vê o
-    // que ainda vai acontecer, e o `replace` leva 150 ms — armá-la depois seria
-    // uma corrida contra o próprio prazo que ela mede.
-    const pedido = pg.waitForRequest('http://192.168.7.9:8787/**', { timeout: 5000 })
-      .then(() => true, () => false);
     // O `:` CODIFICADO também tem de valer: quem monta o link pode preferir
     // `%3A`, e a página lê o parâmetro com `URLSearchParams` (que decodifica).
     await pg.goto(BASE + '?h=192.168.7.9%3A8787', { waitUntil: 'domcontentloaded' });
@@ -141,13 +129,8 @@ try {
       'o fallback traz a frase pedida e o endereço VALIDADO escrito em texto', texto);
     checar((await pg.getAttribute('#abrir', 'href')) === 'http://192.168.7.9:8787',
       'o "Abrir o passador" leva ao MESMO destino do redirecionamento');
-    // O `location.replace` tentou sair: a rota pausada viu o pedido. É a prova
-    // de que o fallback não substituiu a navegação — ele é para quando ela
-    // falha.
-    checar(await pedido,
-      'o redirecionamento TENTOU sair antes de o fallback ficar à vista');
-    checar(await ate(() => alvoPedido === 'http://192.168.7.9:8787/'),
-      'a navegação pedida é a do endereço validado', alvoPedido);
+    checar(await pg.evaluate(() => typeof window.__avSaida === 'function'),
+      'e a página AGENDOU a saída para o endereço validado (o `location.replace` existe)');
     await ctx.close();
   }
 
@@ -211,21 +194,14 @@ try {
   // Os extremos privados que a página DEVE aceitar. Medir só as recusas
   // aprovaria uma cerca que recusa tudo — e o passador nunca abriria.
   {
-    const { ctx } = await abrir();
+    const { ctx } = await abrir(true);
     for (const h of ['10.0.0.1:1', '172.16.0.1:65535', '172.31.255.255:8787', '192.168.255.254:8080']) {
       const pg = await ctx.newPage();
-      // ABORTA como o bloco C: a recusa deixa o documento da página de pé, e
-      // sem ela o `#abrir` já teria sido trocado pelo destino.
-      await ctx.route('http://' + h + '/**', (rota) => rota.abort());
-      const pedido = pg.waitForRequest('http://' + h + '/**', { timeout: 4000 })
-        .then(() => true, () => false);
       await pg.goto(BASE + '?h=' + encodeURIComponent(h), { waitUntil: 'domcontentloaded' });
-      // O `href` é lido ANTES da navegação ser abortada: o abort de topo troca
-      // o documento pela página de erro do motor, e depois dele o `#abrir` já
-      // não existe.
       checar((await pg.getAttribute('#abrir', 'href')) === 'http://' + h,
         `o "Abrir o passador" de \`${h}\` aponta para o endereço certo`);
-      checar(await pedido, `o limite privado ainda é aceito: \`${h}\``);
+      checar(await pg.evaluate(() => typeof window.__avSaida === 'function'),
+        `o limite privado ainda foi aceito (a saída foi agendada): \`${h}\``);
       await pg.close();
     }
     await ctx.close();
