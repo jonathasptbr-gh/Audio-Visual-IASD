@@ -314,9 +314,12 @@ try {
     li.remove();
     return r;
   });
-  checar(ordem.botoes.join(' | ') === 'tocar | cronograma | playlist | leitura | detalhes' && !ordem.confirmar,
+  // UM LARGO SÓ (v1.14.50): com letra ele é o "Ver a letra"; sem letra, o
+  // "Detalhes" — nunca os dois na mesma fileira.
+  checar(ordem.botoes.join(' | ') === 'tocar | cronograma | playlist | leitura' && !ordem.confirmar,
     'a gaveta de um favorito tem os destinos em BOTÕES DIRETOS — "Tocar agora" na ponta, a ordem da '
-    + 'tabela e o "Ver a letra" por último — e nenhum Confirmar (o `⋮` é da linha desde a v1.13.68)', ordem);
+    + 'tabela e o "Ver a letra" por último (sem o "Detalhes": o item tem letra) — e nenhum Confirmar '
+    + '(o `⋮` é da linha desde a v1.13.68)', ordem);
   checar(ordem.semOpcoesNaFileira === true && ordem.fileiras.length === 1,
     'e a fileira é só dos destinos: o `⋮` e a faixa de ações (excluir, renomear) moram na LINHA (v1.13.68)', ordem);
 
