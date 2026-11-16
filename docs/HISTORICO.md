@@ -905,7 +905,7 @@ galeria' ou algo do tipo que seja mais didático ou lúdico."* Só web.
 **Oráculos.** Novo `importar-na-biblioteca.test.mjs` (A avançado, B Modo Fácil destravado).
 `limpar-cronograma` perdeu o importar da barra (A encolheu; C e H apagados); `cronogramas-multiplos`
 E/L, `barra-do-topo-e-titulos` (três moradores), `itinerario` U (`antesDoTitulo`), `tour` C/B2,
-`lista-da-biblioteca` (dez blocos; `importar` no `ler`), `semana-item` I2 (o primeiro bloco DE
+`lista-da-biblioteca` (dez blocos; `importar` no `ler`), `boot-nativo` (a ordem da raiz começa no Importar — o CI o pegou no primeiro push, e o conserto foi no mesmo número), `semana-item` I2 (o primeiro bloco DE
 ACERVO), `modo-simples-biblioteca-tamanho` G (a linha medida vai ao meio da tela: com o bloco a mais
 ela caía na borda e a faixa de baixo saía da captura) e `smoke` (o caso "todo ponto da linha" tira o
 bloco da lista de medida, que vive no fluxo do `<body>`: os 55 px a punham sob a barra da Biblioteca).
