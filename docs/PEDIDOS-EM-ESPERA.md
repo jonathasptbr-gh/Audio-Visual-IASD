@@ -71,6 +71,7 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 
 | pacote | nota | tipo | área |
 |---|---|---|---|
+| **37** — O Itinerário: o subtítulo que se explica, as animações da lista e o padrão do deck | 16 (I4×U4) | pedido | só web, com prévia visual antes |
 | **35** — A faixa do itinerário e a linha do momento, redesenhadas | 16 (I4×U4) | pedido | só web, com prévia visual antes |
 | **34** — O controle do pregador pelo navegador (só slides) | 12 (I4×U3) | pedido | Kotlin + web, com Release |
 | **5** — Itinerário: a tela de espera antes do primeiro momento | 8 (I4×U2) | pedido | só web, depois de planejar |
@@ -138,6 +139,65 @@ ordem; a fila é dele.
 | 13.3 | layout de paisagem (o app no Windows saiu) | | 3 | 1 | 3 | estudo |
 | **16** | **O cronograma pronto: o organizador entrega o culto** | pedido | 4 | 2 | **8** | planejamento |
 | **29** | **Guia do site: a captura da lista de Ferramentas e do Cronograma** | resíduo | 2 | 1 | **2** | site |
+
+---
+
+## Pacote 37 — O Itinerário: o subtítulo que se explica, as animações da lista e o padrão do deck
+
+**Nota 16 (I4 × U4) · pedido · só web, com a prévia visual ANTES de publicar**
+
+**Pedido direto do operador em 2026-11-15 (23h), na v1.14.37** — cinco itens, ditos de
+uma vez. A sessão que os recebeu chegou ao teto de chamadas (`ECONOMIA.md`) com o
+Pacote 36 já publicado e os registrou aqui para não se perderem.
+
+**O pedido, verbatim:**
+
+1. *"adicione o termo a quê se refere no subtítulo do momento, ao que parece ele já tem
+   o tempo, mas não fica claro a que se refere."*
+2. *"adicone uma animação para o processo de exibição e ocultação dos itinerários no
+   cronograma. Atualmente tudo aparece e some de repente na lista."*
+3. *"também adicione uma animação para o colapso e abertura dos grupos de momentos."*
+4. *"O mesmo para as configurações do itinerário, que desloca a lista do cronograma de
+   forma de repente, faça ela se mover mais suavemente para dar o espaço para a aba."*
+5. *"ajuste o padrão de design da aba das configurações do itinerário, para que seja
+   exatamente o mesmo padrão de design dos botões lá da linha de controles do player. No
+   caso, fundo da aba com uma cor, botões cinzas, desativados em vermelho... O mesmo
+   padrão. Deixe apenas o botão de criar momento em azul como está hoje."*
+
+**Onde cada um mora (medido no HEAD `6023a5de`):**
+
+- **1 · o subtítulo** — `itinMarcar` (`controle.js`), o array `partes`: hoje ele junta
+  "Agora"/"A seguir", "previsto HH:MM" e a DURAÇÃO crua ("1 h", "40 min", de
+  `itinDuracao`) mais "N item/itens". O que falta é o REFERENTE: a duração é o
+  intervalo ATÉ O PRÓXIMO momento (""Último momento" quando não há). Decidir a escrita
+  na prévia ("1 h até Louvor"? "faltam 1 h"?) e lembrar dos três oráculos que leem esse
+  texto (`itinerario.test.mjs`, blocos C/D/E/G′).
+- **2 e 3 · exibir/ocultar os momentos e o recolhido do grupo** — os dois passam por
+  `renderLibrary()` e o `renderLibraryCorpo` faz `host.innerHTML = ''`: TUDO nasce e
+  morre de uma vez. O app já tem o vocabulário da saída (`.saindo`, com `height`/opacity
+  em `:is(.lib-item,.row-item).saindo`) e da entrada (`edicao-entra`); o desenho novo é
+  animar as linhas do momento (2) e as mídias do grupo (3) sem perder a rolagem nem a
+  pergunta do excluir aberta numa linha. Os dois têm oráculo com número fixo
+  (`itinerario.test.mjs`, blocos X e G′) — e o `geom`/`smoke` medem a lista.
+- **4 · a lista que pula quando a faixa abre** — `#itinBar` é irmã do `.list-header` e
+  ocupa ~48 px (34 do botão + o `--sp-4` da margem + recuos); abrir/fechar desloca o
+  topo do `#library` de uma vez. Há duas famílias na casa: a altura animada
+  (`previa-animacao`, quadro a quadro) e o FLIP (`desenharItinerario`). A régua nova
+  deve morar no `itinerario.test.mjs` e nos dois que já medem o topo da lista
+  (`smoke.mjs` e `ferramentas-folha.test.mjs` — os dois que a folga da v1.14.36
+  deslocou).
+- **5 · o padrão do deck** — a referência é a linha de controles do player (a
+  `.bottombar`/o deck de `controle.css`: fundo da barra com uma cor, botões em cinza e
+  o desativado em vermelho). Hoje `#itinBar` é TRANSPARENTE, os botões de estado são
+  soltos (`--text`) e o desativado só perde opacidade (`--op-inativo`); o `+`
+  (`.itin-novo`) fica SÓLIDO em `--accent-fill`, e é o único que NÃO muda. Tokens: cor
+  nova entra em `shared/tokens.css` (`tools/tokens.test.mjs` reprova token sem leitor).
+  Cuidado com o piso de contraste (4,5:1) e com o `prefers-reduced-motion`.
+
+**O que muda junto:** `itinerario.test.mjs` (o G′ inteiro, o X, o U e a régua nova da
+animação), `smoke.mjs` e `ferramentas-folha.test.mjs` (o topo da lista), talvez
+`tokens.test.mjs` (token novo), e os capítulos `CAMADA-DE-TEXTO` ("o grupo", "a faixa",
+"a linha"), `CONTROLE-LISTAS` (as mesmas três) e `ORACULOS`.
 
 ---
 
