@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.43** — a tela cheia da música no Modo Fácil não desfaz mais sozinha: só a da regra do vídeo sai na troca de mídia, a da tecla continua até o Parar, o fim ou uma tela conectada (Pacote 38, defeito de 15/11; só web).
 - **v1.14.42** — o importar da Biblioteca vira um botão no FIM da lista e a folha dele ganha a oferta (miniatura, nome, tipo, duração, tamanho) e as opções completas: Tocar agora · Cronograma · Playlist · Favoritos (só web).
 - **v1.14.41** — as roletas de hora crescem para baixo em todo o app (o para-cima da v1.8.95 foi revogado) — só web.
 - **v1.14.40** — o importar sai da barra do topo e vira o primeiro bloco da Biblioteca ("Buscar na galeria" no Modo Fácil); e o Modo Fácil volta a importar arquivo, quebrado desde a v1.14.30 (só web).
@@ -907,6 +908,45 @@ a folha com a oferta e os quatro botões; Tocar agora pondo na cena pela pratele
 `lista-da-biblioteca` D5b e `titulo-da-colecao-nao-anda` deixaram de contar o botão como bloco de
 acervo; `tour` B2 aceita o passo do fim como opcional; `smoke`, `boot-nativo`,
 `modo-simples-biblioteca-tamanho` e `semana-item` voltaram ao que eram antes da v1.14.40.
+
+---
+
+## v1.14.43 — a tela cheia da música no Modo Fácil não desfaz sozinha
+
+**Relato do operador (2026-11-15, no aparelho, sem tela conectada, "tocar neste celular"):** *"ao
+tocar uma música comum da biblioteca, eu não consigo colocar o vídeo em tela cheia pelo botão logo
+abaixo da letra. Ele vira a tela, mas depois desvira, nem sequer aparecendo a versão com o design
+que vai para o telão"*. **Só web** (Pacote 38).
+
+**A causa.** `fsDoVideo` era armado pela TELA CHEIA INTEIRA — a tecla (`#simpleTela`, v1.13.57) e o
+automático do vídeo —, e a saída automática de `acertarTelaCheiaDoVideo` usava
+`telaCheiaDoVideoCabe()`, que só aceita vídeo SEM leitura: um booleano não dizia QUEM abriu. O
+`renderSimpleGate` chamava `acertarTelaCheiaDoVideo(false)` a cada redesenho — e o portão é
+redesenhado a cada notícia de tela (o `__avDisplaysChanged` do shell, o espelho e o `onResume`). A
+rotação entrega a PRIMEIRA notícia: `onDisplayChanged` do display interno → `syncPresentation` →
+`notifyDisplayChange` (sem tela externa ele notifica sempre). Em menos de um segundo a tela aberta
+pela tecla caía — e a música SEGUINTE a derrubava de novo, pelo `acertarTelaCheiaDoVideo(true)` do
+`send`.
+
+**A correção, em dois eixos:**
+- **O MOTIVO separado:** `fsDaTecla` nasce ao lado de `fsDoVideo`; a tecla arma a primeira, a regra
+  do vídeo arma a segunda (`abrirTelaCheiaDoModoFacil(tecla)`). A saída automática NA TROCA DE MÍDIA
+  (`acertarTelaCheiaDoVideo`) só alcança a da regra.
+- **A SAÍDA DE CENA:** `fecharTelaCheiaDoModoFacil()` fecha as DUAS (a do ⛶ do avançado nunca, que
+  não arma bandeira nenhuma) e é quem o Parar, o fim e uma tela que ENTRA chamam. O portão passou a
+  fechar só quando há tela (`if (temTela) fecharTelaCheiaDoModoFacil()`): um redesenho não mexe no
+  que está em cena.
+
+**O que o operador vê:** a música em tela cheia fica, atravessa a rotação, a música seguinte e o
+resto da fila, e sai no Parar, no fim ou quando uma tela é conectada — que é quando o visor volta a
+ser a TV.
+
+**Oráculo.** `tela-inteira` ganhou o bloco **E** (v1.14.43): premissa a música NÃO entrando sozinha;
+a tecla abrindo; `__avDisplaysChanged` (o caminho da rotação) NÃO fechando; a música seguinte NÃO
+fechando; o Parar fechando com `false` ao shell; e uma tela que entra fechando. **Reversão MEDIDA**
+contra o código da v1.14.42: E2 e E3 reprovam (a tela caía na reconsulta e o E3 nem a encontra
+aberta). `video-tela-cheia` e `modo-simples-teclas` passam sem mudança (o vídeo e o Parar continuam
+fechando). **Não testado em aparelho** — a rotação foi emulada pela notícia de tela que ela entrega.
 
 ---
 

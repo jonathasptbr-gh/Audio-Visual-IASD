@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.14.43",
+    "itens": [
+      "A música no Modo Fácil não volta mais sozinha do modo tela cheia para o retrato.",
+      "Ela continua em tela cheia ao passar para a música seguinte, e fecha no Parar, no fim e quando uma tela é conectada.",
+      "Vale para o que não é vídeo sem letra: música com letra, apresentação e imagem."
+    ]
+  },
+  {
     "versao": "1.14.42",
     "itens": [
       "O botão de importar arquivo, na Biblioteca, agora fica no fim da lista e tem cara de botão.",

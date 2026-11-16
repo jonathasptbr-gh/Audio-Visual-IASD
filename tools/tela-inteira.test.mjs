@@ -179,6 +179,56 @@ try {
   const c5b = await ler(pg);
   checar(c5 === true && c5b.shell.at(-1) === false, 'C5 · o FIM do vídeo sai da tela inteira', JSON.stringify(c5b.shell));
 
+  // E · A MÚSICA COM LETRA NA TELA CHEIA (v1.14.43) — o defeito relatado pelo operador em 15/11: a
+  // tecla vale para QUALQUER mídia, e a tela que ela abre NÃO é a da regra do vídeo. A
+  // reconsulta da lista de telas (o que a rotação entrega) e a música seguinte a fechavam; só a
+  // saída de CENA (o Parar, o fim e uma tela que entra) pode fechá-la.
+  // O arquivo é plantado no catálogo de FILES (`fileAdd`), onde `getMedia` o acha: é o item de
+  // `kind: 'audio'` COM LETRA, que é a música comum da Biblioteca e o caso do relato.
+  const plantarMusica = (id, nome) => pg.evaluate(async ([id, nome]) => {
+    await AVDB.fileAdd({ id, folder: 'x', name: nome, srcName: nome, type: 'audio/mpeg', kind: 'audio',
+      size: 8, lyrics: [{ time: 0, text: 'primeira estrofe' }, { time: 5, text: 'segunda' }],
+      blob: new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }) });
+    return id;
+  }, [id, nome]);
+  await plantarMusica('ora-musica-1', 'Santo, Santo, Santo');
+  await plantarMusica('ora-musica-2', 'Firme nas Promessas');
+  await pg.evaluate(() => send('ora-musica-1'));
+  await esperar(pg, () => !document.getElementById('simpleTela').disabled, null, 5000);
+  const e0 = await pg.evaluate(() => document.getElementById('preview').classList.contains('pv-inteira'));
+  checar(e0 === false,
+    'E0 · premissa: a música com letra NÃO entra sozinha (a regra automática é do vídeo sem leitura)', String(e0));
+  await pg.evaluate(() => { document.getElementById('simpleTela').click(); });
+  const e1 = await esperar(pg, dentro, null, 3000);
+  checar(e1 === true, 'E1 · a tecla abre a tela cheia da música', porque(e1));
+  // A RECONSULTA DA LISTA DE TELAS — o caminho da rotação (`onDisplayChanged` → `syncPresentation`
+  // → `notifyDisplayChange` → `__avDisplaysChanged` → `renderDisplayStatus` → `renderSimpleCast`).
+  await pg.evaluate(() => window.__avDisplaysChanged());
+  await pg.waitForTimeout(300);
+  const e2 = await ler(pg);
+  checar(e2.classe === true && e2.aberto === true && e2.shell.at(-1) === true,
+    'E2 · a reconsulta da lista de telas (a rotação) NÃO fecha a tela cheia da tecla — era o defeito de 15/11',
+    JSON.stringify(e2));
+  // A MÚSICA SEGUINTE: `send` chama `acertarTelaCheiaDoVideo(true)`, e a tela da tecla continua.
+  await pg.evaluate(() => send('ora-musica-2'));
+  const e3 = await esperar(pg, dentro, null, 3000);
+  checar(e3 === true, 'E3 · a música seguinte NÃO fecha a tela cheia da tecla', porque(e3));
+  // O PARAR fecha — não há mais o que mostrar.
+  await pg.evaluate(() => { document.getElementById('simpleStop').click(); });
+  const e4 = await esperar(pg, fora, null, 3000);
+  const e4b = await ler(pg);
+  checar(e4 === true && e4b.shell.at(-1) === false,
+    'E4 · o Parar fecha a tela cheia da tecla e devolve o retrato ao shell', JSON.stringify(e4b.shell));
+  // E UMA TELA QUE ENTRA TAMBÉM: a tecla reabre e o portão fecha (o visor passa a ser a tela).
+  await pg.evaluate(() => send('ora-musica-1'));
+  await esperar(pg, () => !document.getElementById('simpleTela').disabled, null, 5000);
+  await pg.evaluate(() => { document.getElementById('simpleTela').click(); });
+  await esperar(pg, dentro, null, 3000);
+  await pg.evaluate(() => { lastDisplays = [{ id: 2, name: 'TV', telao: true }]; renderSimpleGate(); });
+  const e5 = await esperar(pg, fora, null, 3000);
+  checar(e5 === true, 'E5 · uma tela que ENTRA fecha a tela cheia da tecla (o visor passou a ser a tela)', porque(e5));
+  await pg.evaluate(() => { lastDisplays = []; });
+
   // D · com tela conectada não entra, e uma tela que entra a fecha
   await pg.evaluate((i) => send(i), id);
   await esperar(pg, dentro, null, 3000);

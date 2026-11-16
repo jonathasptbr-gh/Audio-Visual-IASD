@@ -415,7 +415,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.42';
+const WEB_VERSION = '1.14.43';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -2056,6 +2056,12 @@ let midiaNoAr = false;
 // quando a mídia acaba ou é trocada. Aqui no topo pelo motivo do bloco abaixo: `renderSimple`
 // roda na carga.
 let fsDoVideo = false;
+// E O MOTIVO É SEPARADO (v1.14.43): a tela da REGRA DO VÍDEO (`fsDoVideo`) sai sozinha na troca
+// de mídia; a da TECLA (`fsDaTecla`) vale para qualquer mídia e é do operador — quem a fecha é a
+// saída de CENA (`fecharTelaCheiaDoModoFacil`), nunca um redesenho. Com um booleano só, o portão
+// do Modo Fácil — redesenhado a cada notícia de tela, e a rotação entrega a primeira — derrubava
+// a da tecla em toda música com letra (o defeito de 15/11).
+let fsDaTecla = false;
 // A TELA INTEIRA DA PRÉVIA SEM A API DE TELA CHEIA (v1.12.34, shell 80): a `.preview` no top layer
 // por `popover`, e o shell gira para paisagem e esconde as barras (`AVNative.telaInteira`). Só no
 // app nativo, só pelo vídeo do Modo Fácil — ver `entrarTelaInteira`. `previaCheia()` é a pergunta
@@ -19539,9 +19545,9 @@ function resetAfterEnd() {
   // ele desfaria a linha acima, que devolve a barra de propósito para o ▶ poder
   // repetir a faixa. O cartão do player já é republicado pelo `setPlaying`.
   marcarNoAr();
-  // O FIM DO VÍDEO FECHA A TELA CHEIA DO MODO FÁCIL (o avanço da fila não passa por aqui: ele
-  // chama `send` direto, e o vídeo seguinte herda a tela cheia).
-  acertarTelaCheiaDoVideo(false);
+  // O FIM DA MÍDIA FECHA A TELA CHEIA DO MODO FÁCIL, a da tecla inclusive (o avanço da fila não
+  // passa por aqui: ele chama `send` direto, e é lá que a regra do vídeo decide).
+  fecharTelaCheiaDoModoFacil();
   // A PROJEÇÃO SAIU: a série que cedeu a vez agora pode baixar (v1.14.14).
   serieSemanaReavaliar();
 }
@@ -19676,7 +19682,9 @@ async function pararMidia(tipo) {
   // durante todo o esmaecimento do `clearFaded` (ver `midiaNoAr`).
   midiaNoAr = false;
   midiaNoArId = '';
-  acertarTelaCheiaDoVideo(false);
+  // O PARAR É SAÍDA DE CENA: fecha a tela cheia do Modo Fácil, a da tecla inclusive — o telão vai
+  // ao wallpaper e não há o que mostrar (ver `fecharTelaCheiaDoModoFacil`).
+  fecharTelaCheiaDoModoFacil();
   await persistCurrent();   // solta o detentor da cena — ver `persistCurrent`
   setPlaying(false);
   // Item de LINK: o `clear` derruba a cena, e o próximo ▶ precisa passar pelo
@@ -43615,8 +43623,10 @@ function renderSimpleGate() {
     acertarSaidaDeAudio();
   }
   const semTela = appMode === 'simple' && !temTela && !tocarNoCelular;
-  // Uma tela que entra fecha a tela cheia do vídeo — ver `videoDoModoFacil`.
-  acertarTelaCheiaDoVideo(false);
+  // UMA TELA QUE ENTRA fecha a tela cheia do Modo Fácil — a da tecla inclusive (o visor passou a
+  // ser a tela). FORA disso o portão é redesenhado a cada notícia de tela, e não pode mexer no que
+  // está em cena: era ele que derrubava a música em tela cheia (v1.14.43).
+  if (temTela) fecharTelaCheiaDoModoFacil();
   // ===== O BOTÃO DE TOCAR AQUI SE DESENHA DAQUI, e não do `renderCast` =====
   //
   // MEDIDO nas duas pontas. `renderCast` abre com `if (!castConnVisivel())
@@ -44346,7 +44356,7 @@ simplePlayEl.addEventListener('click', () => playPauseEl.click());
 simpleStopEl.addEventListener('click', () => stopEl.click());
 simpleTelaEl.addEventListener('click', () => {
   if (!telaCheiaDoModoFacilCabe() || previaCheia()) return;
-  abrirTelaCheiaDoModoFacil();
+  abrirTelaCheiaDoModoFacil(true);
 });
 // AS PÁGINAS SEGUEM A MESMA REGRA: elas acionam as âncoras do modo
 // completo, e não `stepSlide` direto. Um `.click()` num botão `disabled` é
@@ -44729,8 +44739,8 @@ function sairTelaInteira() {
 // `haDestinoDeProjecao()` (a tela LISTADA ou uma sessão da rede), e não `algumaTelaConectada()`
 // (a `Presentation` no ar): com esta, cada oscilação do dongle abriria a tela cheia no celular e
 // a fecharia na volta. Sem destino, a tela cheia é a projeção e o som segue `acertarSaidaDeAudio`.
-// UMA TELA QUE ENTRA com ela aberta a FECHA (`renderSimpleGate` → `acertarTelaCheiaDoVideo(false)`),
-// só a que esta regra abriu (`fsDoVideo`): o visor passou a ser a tela, e o celular volta ao Modo
+// UMA TELA QUE ENTRA com ela aberta a FECHA (`renderSimpleGate` → `fecharTelaCheiaDoModoFacil`),
+// a da TECLA inclusive (`fsDaTecla`): o visor passou a ser a tela, e o celular volta ao Modo
 // Fácil com o card e as teclas à mão.
 //
 // QUAL MÍDIA: `kind === 'video'` (o episódio da série e o download do YouTube entram assim; o
@@ -44765,34 +44775,45 @@ function renderTeclaTela() {
   simpleTelaEl.setAttribute('aria-label', motivo);
 }
 // O CAMINHO DA ENTRADA: no app, a tela inteira (sem toque); no navegador, a API de tela cheia.
-function abrirTelaCheiaDoModoFacil() {
-  fsDoVideo = true;
+// [tecla] diz QUEM pediu: a porta manual (qualquer mídia) ou a regra do vídeo — ver `fsDaTecla`.
+function abrirTelaCheiaDoModoFacil(tecla) {
+  if (tecla) fsDaTecla = true; else fsDoVideo = true;
   if (window.__NATIVE__) { entrarTelaInteira(); return; }
   entrarTelaCheiaDaPrevia().then((ok) => {
-    if (!ok && document.fullscreenElement !== previewEl) fsDoVideo = false;
+    if (!ok && document.fullscreenElement !== previewEl) { fsDoVideo = false; fsDaTecla = false; }
     if (!ok) diagC('tela cheia: o pedido foi recusado (sem toque recente) — fica a tecla');
   });
+}
+// A SAÍDA DE CENA — o Parar, o fim e uma tela que ENTRA fecham as DUAS telas cheias do Modo Fácil
+// (a da regra do vídeo e a da tecla), porque não há mais o que mostrar ou o visor passou a ser a
+// tela. NUNCA a do ⛶ do avançado, que é do operador: ela não levanta nenhuma das duas bandeiras.
+function fecharTelaCheiaDoModoFacil() {
+  renderTeclaTela();
+  if (!previaCheia()) return;
+  const eraNossa = fsDoVideo || fsDaTecla;
+  fsDoVideo = false;
+  fsDaTecla = false;
+  if (!eraNossa) return;
+  if (pvInteira) sairTelaInteira();
+  else { try { document.exitFullscreen(); } catch (_) {} }
 }
 /** [entrar] só no `send` — a cena NOVA. Os outros chamadores (fim, parar) só podem SAIR: uma
  *  tela cheia que o operador fechou não volta sozinha por um redesenho. */
 function acertarTelaCheiaDoVideo(entrar) {
   renderTeclaTela();
-  const nela = previaCheia();
   if (telaCheiaDoVideoCabe()) {
-    if (entrar && !document.fullscreenElement && !pvInteira) abrirTelaCheiaDoModoFacil();
+    if (entrar && !document.fullscreenElement && !pvInteira) abrirTelaCheiaDoModoFacil(false);
     return;
   }
-  // A SAÍDA AUTOMÁTICA é só da tela cheia que ESTA regra (ou a tecla do Modo Fácil) abriu: a do
-  // avançado, pedida pelo ⛶ da prévia, continua do operador.
-  if (nela && fsDoVideo) {
-    fsDoVideo = false;
-    if (pvInteira) sairTelaInteira();
-    else { try { document.exitFullscreen(); } catch (_) {} }
-  }
+  // A SAÍDA AUTOMÁTICA NA TROCA DE MÍDIA é só da tela cheia que ESTA regra abriu: a da tecla (e a
+  // do ⛶ do avançado) são do operador e continuam em cena. A da tecla sai pela saída de CENA, não
+  // por um `send`.
+  if (fsDoVideo) fecharTelaCheiaDoModoFacil();
 }
 function aoSairDaPreviaCheia() {
   if (previaCheia()) return;
   fsDoVideo = false;
+  fsDaTecla = false;
   esconderPilula();
   // A VOLTA AO RETRATO remede o corpo do Modo Fácil: a caixa da Biblioteca se mede na zona de
   // leitura, e a rotação de volta chega depois deste evento (o `resize` dela também remede).
