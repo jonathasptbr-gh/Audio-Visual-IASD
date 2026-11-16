@@ -416,7 +416,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.38';
+const WEB_VERSION = '1.14.39';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -8980,14 +8980,12 @@ function linhaDeMomento(item, sob = 0) {
   ed.innerHTML = pencilIconSvg();
   ed.addEventListener('click', (e) => { e.stopPropagation(); abrirItinEditor(item.id); });
   // A FAIXA SOLTA (`.row-acoes--solta`): a mesma caixa onde a pergunta do excluir
-  // nasce, só que sempre à vista e no fluxo da linha. A ORDEM é [editar · excluir ·
-  // SETA] (Pacote 37 — pedido do operador: *"deixe a seta … na extrema direita …
-  // pois como ela é o elemento que existe, deve ficar na posição mais estável"*).
-  // Com a faixa fechada o lápis e a lixeira somem e a seta NÃO anda: ela já mora no
-  // fim da fileira. O excluir fica no meio, e continua sendo o mais longe do alvo.
+  // nasce, só que sempre à vista e no fluxo da linha. A ORDEM é [seta · editar ·
+  // excluir] — a seta do grupo à esquerda do lápis (o operador a levou para a ponta
+  // direita na v1.14.38 e a devolveu em 16/11) e o excluir à direita, o mais longe
+  // do alvo que se repete.
   const caixa = document.createElement('div');
   caixa.className = 'row-acoes row-acoes--solta';
-  caixa.append(ed, botaoExcluirDaLinha(item, 'imports', () => load()));
   // A SETA DO GRUPO (pedido de 15/11): um BOTÃO, e só onde há grupo (`sob` > 0). O
   // toque faz o MESMO do corpo do card (`aoTocar` — recolhe e expande).
   // `aria-expanded` leva o estado do grupo.
@@ -9001,6 +8999,7 @@ function linhaDeMomento(item, sob = 0) {
     seta.addEventListener('click', (e) => { e.stopPropagation(); itinAlternarGrupo(item.id, sob); });
     caixa.append(seta);
   }
+  caixa.append(ed, botaoExcluirDaLinha(item, 'imports', () => load()));
   row.append(hora, texto, caixa);
   li.appendChild(row);
   attachRowGestures(row, item, { lista: 'imports', aoTocar: (it) => (sob ? itinAlternarGrupo(it.id, sob) : abrirItinEditor(it.id)) });
@@ -9130,7 +9129,7 @@ function renderItinBar() {
   const hor = itinBarBotao('itinHorasBtn', 'itin-horas' + (itin.horas ? ' active' : ''),
     itin.horas ? 'Mostrando os horários no telão — toque para mostrar só os títulos'
       : 'Mostrando só os títulos no telão — toque para mostrar os horários',
-    cueIconSvg('chrono'), () => itinSetHoras(!itin.horas));
+    itin.horas ? icoSprite('icoHoras') : icoSprite('icoHorasOff'), () => itinSetHoras(!itin.horas));
   hor.setAttribute('aria-pressed', itin.horas ? 'true' : 'false');
   const passo = (d) => {
     const b = itinBarBotao('', 'itin-passo', (d > 0 ? 'Atrasar ' : 'Adiantar ') + Math.abs(d) + ' min',

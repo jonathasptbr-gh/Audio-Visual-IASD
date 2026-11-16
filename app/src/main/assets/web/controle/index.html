@@ -435,6 +435,16 @@
       <path d="M9.5 6H20M9.5 12H20M9.5 18H16"/>
       <path d="M3 3.5 21 20.5"/>
     </symbol>
+    <!-- OS HORÁRIOS NO TELÃO (Pacote 37, 16/11): o mesmo relógio do Tempo (`CUE_SVG.chrono`) e,
+         desligado, o MESMO risco `M3 3.5 21 20.5` do olho e da pauta — os três interruptores
+         da faixa dizem "desligado" do mesmo jeito. -->
+    <symbol id="icoHoras" viewBox="0 0 24 24">
+      <circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><path d="M9 2h6"/>
+    </symbol>
+    <symbol id="icoHorasOff" viewBox="0 0 24 24">
+      <circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><path d="M9 2h6"/>
+      <path d="M3 3.5 21 20.5"/>
+    </symbol>
     <symbol id="icoOlho" viewBox="0 0 24 24">
       <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/>
       <circle cx="12" cy="12" r="3"/>
@@ -2014,7 +2024,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.38</span>
+          <span id="appVersion">v1.14.39</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>

@@ -560,7 +560,7 @@ try {
       const c = (b) => getComputedStyle(b);
       const novo = document.getElementById('itinNovoBtn'), cs = c(novo);
       return {
-        barra: sonda('--bar'), cartao: sonda('--surface'), ligado: sonda('--btn-accent'),
+        barra: sonda('--bar'), cartao: sonda('--surface'), ligado: sonda('--surface'),
         acento: sonda('--accent-fill'), alerta: sonda('--btn-danger'), alertaCor: sonda('--danger-strong'),
         fundo: c(document.getElementById('itinBar')).backgroundColor,
         botoes: [...document.querySelectorAll('#itinBar .itin-b')].map((b) => ({
@@ -581,8 +581,8 @@ try {
       && resto.length === 3 && resto.every((b) => b.bg === cores.cartao && !/rgba\(0, 0, 0, 0\)$/.test(b.bg))
       && cores.novo[0] === cores.acento && !/rgba\(0, 0, 0, 0\)$/.test(cores.novo[0]) && cores.contraste >= 4.5
       && cores.botoes.filter((b) => b.bg === cores.acento).map((b) => b.nome).join() === 'itinNovoBtn',
-      'U · o padrão do DECK: a faixa pinta `--bar`; os TRÊS de estado pintam `--btn-accent` LIGADOS e '
-      + '`--btn-danger` DESLIGADOS; o ±5 e o ajuste pintam o CARTÃO `--surface`; e SÓ o "+" é `--accent-fill` '
+      'U · o padrão do DECK: a faixa pinta `--bar`; os TRÊS de estado pintam o CINZA `--surface` do `.t-btn` LIGADOS '
+      + '(16/11: nada de azul antes do vermelho) e `--btn-danger` DESLIGADOS; o ±5 e o ajuste pintam o CARTÃO `--surface`; e SÓ o "+" é `--accent-fill` '
       + '(texto acima de 4,5:1)', cores);
     // E O DESATIVADO NÃO É VERMELHO: o atraso em "No horário" é uma LEITURA (cartão e
     // tinta `--muted`, 5,5:1), e o ±5 no extremo fica APAGADO pelo véu do deck.
@@ -596,7 +596,19 @@ try {
       'U · o ajuste em "No horário" é leitura e não ação: cartão `--surface`, tinta `--muted` e opacidade 1 — '
       + 'nada de vermelho', apagado);
 
-    checar(f.h < f.hTopo && f.h > 0, 'U · aberta, a faixa é MAIS BAIXA que a barra do topo', { faixa: f.h, topo: f.hTopo });
+    // A FOLGA DE CIMA E DE BAIXO (16/11: *"coloque uma pequena margem entre os botões e a
+    // borda da caixa"*): o botão fica a `--deck-gap` das duas bordas da faixa — o mesmo
+    // vão que separa dois vizinhos. O teto "mais baixa que a barra do topo" da v1.14.36
+    // cedeu a este pedido.
+    const folga = await pg.evaluate(() => {
+      const b = document.getElementById('itinBar').getBoundingClientRect();
+      const t = document.getElementById('itinTelaoBtn').getBoundingClientRect();
+      const px = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      return { cima: +(t.top - b.top).toFixed(1), baixo: +(b.bottom - t.bottom).toFixed(1),
+        gap: +(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--deck-gap')) * px).toFixed(1) };
+    });
+    checar(f.h > 0 && folga.gap > 0 && Math.abs(folga.cima - folga.gap) <= 0.6 && Math.abs(folga.baixo - folga.gap) <= 0.6,
+      'U · aberta, os botões ficam a `--deck-gap` das bordas de CIMA e de BAIXO da faixa (nada colado na caixa)', folga);
   }
   // A ANIMAÇÃO DE ABERTURA (pedido de 15/11): a faixa desce um degrau e acende. A régua é a
   // ANIMAÇÃO VIVA e os quadros intermediários — e quem pediu menos movimento no sistema não a vê.
@@ -651,7 +663,7 @@ try {
       const sonda = (t) => { const p = document.createElement('i'); p.style.background = 'var(' + t + ')';
         document.body.appendChild(p); const c = getComputedStyle(p).backgroundColor; p.remove(); return c; };
       const b = (n) => document.getElementById(n);
-      return { alerta: sonda('--btn-danger'), ligado: sonda('--btn-accent'),
+      return { alerta: sonda('--btn-danger'), ligado: sonda('--surface'),
         telao: getComputedStyle(b('itinTelaoBtn')).backgroundColor,
         momentos: getComputedStyle(b('itinMomentosBtn')).backgroundColor,
         horas: getComputedStyle(b('itinHorasBtn')).backgroundColor };
@@ -666,9 +678,27 @@ try {
     checar(antes.momentos === antes.ligado && ocultos.momentos === ocultos.alerta
       && ocultos.telao === ocultos.alerta && ocultos.horas === ocultos.ligado
       && voltou.momentos === voltou.ligado,
-      'U · o vermelho SEGUE o interruptor, nos dois sentidos: com os momentos à vista ele é azul (ligado); '
-      + 'ocultos, vira o vermelho do volume — o do telão continua (fora do ar) e o dos horários fica azul',
+      'U · o vermelho SEGUE o interruptor, nos dois sentidos: com os momentos à vista ele é o cinza do deck (ligado); '
+      + 'ocultos, vira o vermelho do volume — o do telão continua (fora do ar) e o dos horários fica cinza',
       { antes, ocultos, voltou });
+    // OS TRÊS DIZEM "DESLIGADO" DO MESMO JEITO (16/11): o desenho riscado (`…Off`, o risco
+    // `M3 3.5 21 20.5`) junto do vermelho — inclusive as HORAS, que eram o relógio sem risco.
+    const desenho = () => pg.evaluate(() => ['itinTelaoBtn', 'itinMomentosBtn', 'itinHorasBtn']
+      .map((id) => { const u = document.querySelector('#' + id + ' use'); return u ? u.getAttribute('href') : null; }));
+    const ligadas = await desenho();
+    await pg.evaluate(() => itinSetHoras(false));
+    await esperar(pg, () => !!document.querySelector('#itinHorasBtn use[href="#icoHorasOff"]'));
+    const semHoras = await pg.evaluate(() => {
+      const b = document.getElementById('itinHorasBtn');
+      return { href: b.querySelector('use').getAttribute('href'), bg: getComputedStyle(b).backgroundColor,
+        risco: !!document.querySelector('#icoHorasOff path[d="M3 3.5 21 20.5"]') };
+    });
+    await pg.evaluate(() => itinSetHoras(true));
+    await esperar(pg, () => !!document.querySelector('#itinHorasBtn use[href="#icoHoras"]'));
+    checar(ligadas[2] === '#icoHoras' && semHoras.href === '#icoHorasOff' && semHoras.risco
+      && semHoras.bg === voltou.alerta && ligadas[0] === '#icoOlhoOff' && ligadas[1] === '#icoMomentos',
+      'U · as HORAS no telão seguem o padrão dos outros dois: desligadas, o relógio RISCADO (`icoHorasOff`, o mesmo '
+      + 'risco do olho e da pauta) sobre o vermelho; ligadas, o relógio limpo no cinza', { ligadas, semHoras });
   }
   // A RECARGA: abrir não é escolha guardada — aberta antes de recarregar, ela volta RECOLHIDA.
   await abrirFaixa();
@@ -757,8 +787,8 @@ try {
       'U · em ' + w + 'px os SETE ficam numa linha só, com o MESMO vão entre vizinhos (o do deck, ' + g.fileira.vao
       + 'px), as seis células de ícone do mesmo tamanho e a do ATRASO mais larga; todas com a MESMA altura, nenhuma '
       + 'abaixo do piso de toque', { fileira: g.fileira, seis });
-    checar(g.h < g.hTopo,
-      'U · em ' + w + 'px a faixa cabe numa LINHA e fica mais baixa que a barra do topo (o teto da segunda linha)', { h: g.h, hTopo: g.hTopo });
+    checar(g.h > 0 && g.h < 2 * g.hTopo,
+      'U · em ' + w + 'px a faixa cabe numa LINHA (bem menos que duas alturas da barra do topo)', { h: g.h, hTopo: g.hTopo });
   }
   await pg.setViewportSize({ width: 360, height: 800 });
   await esperar(pg, () => innerWidth === 360);
@@ -1655,9 +1685,9 @@ try {
     await abrirFaixa();
     const aberta = await ler();
     await fecharFaixa();
-    checar(fechada.join() === 'seta' && aberta.join() === 'editar,excluir,seta',
+    checar(fechada.join() === 'seta' && aberta.join() === 'seta,editar,excluir',
       'G′ · com a FAIXA FECHADA a linha do momento mostra SÓ a seta do grupo; aberta, a fileira inteira '
-      + '(editar · excluir · seta) — e a seta é a ÚLTIMA nos dois estados, que é o que a mantém parada',
+      + '(seta · editar · excluir — a seta à ESQUERDA do lápis, devolvida em 16/11)',
       { fechada, aberta });
   }
   {
@@ -1806,8 +1836,8 @@ try {
     const estadoDo = (n) => pg.evaluate((nome) => {
       const li = [...document.querySelectorAll('#library > li.lib-item')].find((x) => x.querySelector('.row-name').textContent === nome);
       const cs = getComputedStyle(li, '::after');
-      // A SETA É UM BOTÃO na `.row-acoes--solta`, na EXTREMA DIREITA (Pacote 37: é ela que
-      // existe sempre, então fica na posição mais estável): a ordem é [editar · excluir · seta],
+      // A SETA É UM BOTÃO na `.row-acoes--solta`, à ESQUERDA do lápis (devolvida lá em 16/11,
+      // depois de uma volta pela ponta direita na v1.14.38): a ordem é [seta · editar · excluir],
       // e ela leva o estado do grupo no `aria-expanded`.
       const botoes = [...li.querySelectorAll('.row > .row-acoes--solta > button')];
       const seta = botoes.find((b) => b.classList.contains('itin-seta'));
@@ -1830,12 +1860,12 @@ try {
     const e1 = await estadoDo('Pregação');
     const desenho1 = await nomeDa();
     checar(fechou === true && e1.recolhido && e1.exp === 'false' && e1.ocultas === '1'
-      && e1.seta && e1.setaExp === 'false' && e1.fileira === 'editar,excluir,seta'
+      && e1.seta && e1.setaExp === 'false' && e1.fileira === 'seta,editar,excluir'
       && !desenho1.includes('Apelo') && e1.sub.includes('1 item') && e1.classes === 'grupo-ini+grupo-fim'
       && e1.fundo === 'rgba(0, 0, 0, 0)' && e1.desenho === 'none',
       'G′ · tocar a `.row` do momento com grupo RECOLHE as mídias dele: `li.recolhido`, `aria-expanded="false"`, '
       + '`dataset.ocultas` = 1, o subtítulo "1 item" — e o grupo recolhido continua `grupo-ini` + `grupo-fim`, '
-      + 'SEM tinta e sem contorno, com a SETA como botão na EXTREMA DIREITA (a fileira é editar · excluir · seta, '
+      + 'SEM tinta e sem contorno, com a SETA como botão à esquerda do lápis (a fileira é seta · editar · excluir, '
       + 'e o `aria-expanded` dela é o do grupo)', { e1, desenho1 });
     // (2) DE NOVO EXPANDE: as mídias voltam na ordem de antes.
     await tocar('Pregação');

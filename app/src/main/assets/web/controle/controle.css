@@ -7337,13 +7337,17 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
      alta, e as outras esticam até ela. */
   align-items: stretch; column-gap: var(--deck-gap);
   /* A FOLGA COM A BARRA DO TOPO (pedido de 15/11: *"A aba das opções do itinerário
-     está muito colada com a top bar"*): é MARGEM, e não recuo de dentro, porque a
-     faixa tem um teto de altura — ela é a segunda linha, mais baixa que a barra do
-     topo, e um `padding-top` a faria mais ALTA que ele (46 contra 43,6, medido pelo
-     `itinerario.test.mjs`). A margem de cima empurra a faixa inteira para baixo sem
-     mexer na altura dela; a de baixo continua negativa, anulando o `gap` do `<main>`. */
+     está muito colada com a top bar"*): é MARGEM, fora da caixa pintada — a folga é
+     o `--bg` entre a barra do topo e a faixa, e um `padding-top` a pintaria da cor da
+     faixa. A margem de cima empurra a faixa inteira para baixo; a de baixo continua
+     negativa, anulando o `gap` do `<main>`. */
   margin: var(--sp-4) -.8rem calc(-1 * var(--sp-5));
-  padding: .1rem .8rem;
+  /* A FOLGA DE CIMA E DE BAIXO É O VÃO DO DECK (16/11: *"coloque uma pequena margem
+     entre os botões e a borda da caixa"*): `--deck-gap`, o mesmo que separa dois
+     botões vizinhos — a caixa abraça a fileira com a mesma distância nos quatro lados
+     de cada botão. A faixa deixou de ser mais baixa que a barra do topo (47,6 contra
+     43,6): o teto da v1.14.36 cedeu ao pedido. */
+  padding: var(--deck-gap) .8rem;
   /* O FUNDO É O DA BARRA DO PLAYER (Pacote 37): a faixa era TRANSPARENTE e os
      botões flutuavam soltos sobre o `--bg`. O par do deck é `--bar` na caixa e
      `--surface` nos botões, e é ele que se lê como "aba" — uma peça com corpo,
@@ -7413,18 +7417,18 @@ main:has(> .list-body > .tools-sheet:not([hidden])) :is(#itinBar, #itinBarBtn) {
    `--danger-strong`, o `.pv-fab--mute.muted` / `.vol-pill.mudo` — a superfície da
    própria família, nunca a tinta sozinha: tokens.css). E no mesmo lugar da FRASE do
    pedido: *"desativados em vermelho"* — o vermelho é o estado DESLIGADO do
-   interruptor. LIGADO continua sendo o par do `.active` (`--btn-accent`, o do
-   `#repeat.active`): o telão no ar, os momentos à vista, os horários no telão.
-   Desligado: o itinerário fora do telão, os momentos ocultos na lista, as horas
+   interruptor; LIGADO é o cinza comum (ver a regra seguinte). Desligado: o itinerário fora do telão, os momentos ocultos na lista, as horas
    escondidas no telão — as três coisas que mudam o que a igreja vê.
    `opacity: 1` porque o olho sem momento nenhum é `disabled` E desligado: o véu por
    cima do vermelho o apagaria (1,8:1), e o que se quer ali é justamente vê-lo. */
 .itin-b:is(#itinTelaoBtn, #itinMomentosBtn, #itinHorasBtn):not(.active) {
   background: var(--btn-danger); color: var(--danger-strong); opacity: 1;
 }
-/* LIGADO é o par do interruptor do app (`--btn-accent` + `--accent`), como o "Seg"
-   e o "12h" do Relógio: o telão no ar, os momentos à vista e os horários escolhidos. */
-.itin-b.active { background: var(--btn-accent); color: var(--accent); }
+/* LIGADO É O CINZA DO DECK (16/11: *"os botões de estado não devem ser azuis antes de
+   ficarem vermelhos. Devem ser cinzas normalmente como os botões dos controles"*): o
+   `.active` não pinta nada — o interruptor ligado é o `.t-btn` de sempre, e quem
+   marca o estado é o DESLIGADO (o vermelho, acima) mais o risco do ícone. A classe
+   fica: é ela que o vermelho lê, e o `aria-pressed` diz o estado a quem não vê. */
 /* O ±5 é o quadrado da fileira: algarismos tabulares para o `−5` e o `+5` não
    andarem quando o número muda, e o rótulo no peso máximo. O CARTÃO dele é o da
    base (`.itin-b`, `--surface`) desde o Pacote 37. */

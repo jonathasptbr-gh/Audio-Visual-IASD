@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.14.39",
+    "itens": [
+      "Na aba do itinerário, os três botões de estado ficam cinzas quando ligados, como os dos controles.",
+      "Desligados, eles ficam vermelhos.",
+      "O botão das horas no telão agora aparece riscado quando está desligado, como o olho e a lista.",
+      "Os botões da aba ganharam uma folga em cima e embaixo: não ficam mais colados na borda.",
+      "A seta que abre e fecha o grupo voltou para a esquerda do lápis e da lixeira."
+    ]
+  },
+  {
     "versao": "1.14.38",
     "itens": [
       "No itinerário, o subtítulo do momento agora diz a que se refere o tempo: \"1 h até Louvor\".",

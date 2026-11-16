@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.39** — os ajustes do operador à v1.14.38: os três de estado cinzas ligados e vermelhos desligados, as horas riscadas, a folga da faixa e a seta de volta à esquerda (só web).
 - **v1.14.38** — Pacote 37: o subtítulo do momento com o referente, as animações da lista e da faixa, a aba no padrão do deck e a seta do grupo na extrema direita (só web).
 - **v1.14.37** — a faixa do itinerário não se fecha mais sozinha, e o lápis e a lixeira do momento só aparecem com ela aberta; a seta do grupo no tamanho dos vizinhos (Pacote 36, os ajustes do operador; só web).
 - **v1.14.36** — o itinerário sem a tinta do grupo, a seta como botão à esquerda do lápis, a faixa descolada da barra do topo com animação e o telão mostrando a lista inteira (Pacote 36, só web).
@@ -837,6 +838,37 @@ apagada da que a criou.
   339,07 / 339,07 px; larguras 83,5 / 83,5 mm.
 - **As páginas não se moveram:** 22 (Por um dia) e 88 (Tempo integral), nos dois formatos, e o
   `antesDaPauta` = depois = PDF continua cobrando isso.
+
+---
+
+## v1.14.39 — os de estado cinzas, as horas riscadas, a folga da faixa e a seta de volta
+
+**Os quatro ajustes que o operador pediu em 16/11 sobre a v1.14.38. Só web.**
+
+1. **Ligado é o cinza do deck.** *"Os botões de estado não devem ser azuis antes de ficarem
+   vermelhos. Devem ser cinzas normalmente como os botões dos controles"*: a regra
+   `.itin-b.active { --btn-accent }` saiu. O interruptor ligado é o `.t-btn` de sempre
+   (`--surface` + `--text`); quem marca o estado é o DESLIGADO (o vermelho
+   `--btn-danger` + `--danger-strong`, lido por `:not(.active)`) mais o risco do ícone. A
+   classe `.active` e o `aria-pressed` ficam.
+2. **As horas riscadas.** *"O botão de mostrar hora na exibição do telão, deve ter o mesmo
+   padrão de riscar quando desativado e vermelho"*: o `#itinHorasBtn` desenhava o
+   `cueIconSvg('chrono')` nos dois estados. Ganhou o par `icoHoras`/`icoHorasOff` no sprite
+   do `index.html` — o MESMO relógio do Tempo e o MESMO risco `M3 3.5 21 20.5` do olho e da
+   pauta.
+3. **A folga de cima e de baixo.** *"Coloque uma pequena margem entre os botões e a borda da
+   caixa"*: o `padding` vertical da `.itin-bar` passou de `.1rem` a `--deck-gap` (5,6 px) — o
+   mesmo vão entre dois botões vizinhos. A faixa foi a 47,6 px e **deixou de ser mais baixa
+   que a barra do topo** (43,6): o teto da v1.14.36 cedeu ao pedido, e o oráculo passou a
+   medir a folga nas duas bordas em vez do teto.
+4. **A seta volta à esquerda.** *"Volta a seta de abrir momento para sua posição a esquerda de
+   editar e excluir"*: o `linhaDeMomento` monta de novo [seta · editar · excluir], revertendo o
+   item 7 da v1.14.38.
+
+**Os oráculos:** `itinerario.test.mjs` — o ligado medido contra `--surface` (nas duas sondas),
+o par riscado das horas (desligado = `#icoHorasOff` com o risco, sobre o vermelho), a folga de
+`--deck-gap` em cima e embaixo no lugar do teto, e a fileira do momento de volta a
+`seta,editar,excluir`.
 
 ---
 
