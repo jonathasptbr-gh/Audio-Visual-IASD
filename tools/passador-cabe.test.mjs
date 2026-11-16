@@ -39,29 +39,66 @@ for (const [w, h] of TELAS) {
     // O estado "NO AR", que é o que tem os três cartões e os botões. O caminho
     // normal de quem chega sem apresentação é o inativo — que também tem de
     // caber, e por isso ele é medido antes de ser escondido.
+    //
+    // DESDE A v1.14.60 o inativo NÃO esconde mais os quadros nem os controles:
+    // ele desenha a espera nos três e deixa os botões no lugar. As medidas
+    // abaixo são as do estado que o irmão vê antes de o operador projetar.
     const janela = window.innerHeight;
-    const inativo = document.getElementById('vazio').getBoundingClientRect();
-    const cabeInativo = document.body.scrollHeight <= janela + 1;
-    document.getElementById('vazio').hidden = true;
-    document.getElementById('cartoes').hidden = false;
-    document.getElementById('acoes').hidden = false;
     const r = (id) => document.getElementById(id).getBoundingClientRect();
-    return {
+    const inativo = r('vazio');
+    const cabeInativo = document.body.scrollHeight <= janela + 1;
+    const visivel = (el) => !!el && getComputedStyle(el).display !== 'none';
+    const esperas = [...document.querySelectorAll('.moldura .espera')]
+      .filter((e) => visivel(e) && e.getBoundingClientRect().height > 0).length;
+    // NENHUM `<img>` SEM CARGA À VISTA: é o ícone de imagem quebrada que o
+    // operador viu nos três quadros.
+    const quebradas = [...document.querySelectorAll('.cartao img')]
+      .filter((i) => visivel(i) && !(i.complete && i.naturalWidth > 0)).length;
+    const semSrcVisivel = [...document.querySelectorAll('.cartao img')]
+      .filter((i) => visivel(i) && !i.getAttribute('src')).length;
+    const leitura = {
       janela,
       doc: document.documentElement.scrollHeight,
       corpo: document.body.scrollHeight,
       inativoCabe: cabeInativo && inativo.bottom <= janela + 1,
+      vazioAltura: Math.round(inativo.height),
+      vazioFracao: +(inativo.height / janela).toFixed(3),
+      cartoesAbertos: !document.getElementById('cartoes').hidden,
+      acoesAbertas: !document.getElementById('acoes').hidden,
       acoesFim: Math.round(r('acoes').bottom),
       acoesAltura: Math.round(r('acoes').height),
+      esperas,
+      quebradas,
+      semSrcVisivel,
+    };
+    document.getElementById('vazio').hidden = true;
+    document.getElementById('cartoes').hidden = false;
+    document.getElementById('acoes').hidden = false;
+    return Object.assign(leitura, {
       meio: Math.round(r('cartaoAtual').height),
       ant: Math.round(r('cartaoAnt').height),
       prox: Math.round(r('cartaoProx').height),
       cartoes: Math.round(r('cartoes').height),
-    };
+    });
   });
   const tela = `${w}×${h}`;
   checar(m.inativoCabe, `${tela}: o estado inativo (sem apresentação) cabe sem rolar`,
     `corpo ${m.corpo} > janela ${m.janela}`);
+  // O AVISO É UMA FAIXA, NÃO UM BLOCO (v1.14.60): o texto enorme tomava a área
+  // dos slides e a dos controles. O teto de 12% da tela é o que separa a faixa
+  // discreta de um parágrafo centralizado.
+  checar(m.vazioFracao <= 0.12,
+    `${tela}: o aviso do vazio é uma faixa discreta (≤ 12% da tela)`,
+    `${m.vazioAltura} px de ${m.janela} = ${(m.vazioFracao * 100).toFixed(1)}%`);
+  checar(m.cartoesAbertos && m.acoesAbertas,
+    `${tela}: no vazio, os três quadros E os controles continuam montados`,
+    { cartoes: m.cartoesAbertos, acoes: m.acoesAbertas });
+  checar(m.esperas === 3, `${tela}: os três quadros DESENHAM a espera`,
+    `${m.esperas} de 3`);
+  // O defeito que o operador viu: quadro preto com o ícone de imagem quebrada.
+  checar(m.quebradas === 0 && m.semSrcVisivel === 0,
+    `${tela}: nenhuma prévia quebrada e nenhum \`img\` sem \`src\` à vista`,
+    { quebradas: m.quebradas, semSrcVisivel: m.semSrcVisivel });
   checar(m.doc <= m.janela + 1 && m.corpo <= m.janela + 1 && m.acoesFim <= m.janela + 1,
     `${tela}: slides + controles cabem na janela, sem barra de rolagem`,
     `doc ${m.doc} · corpo ${m.corpo} · fim dos botões ${m.acoesFim} · janela ${m.janela}`);

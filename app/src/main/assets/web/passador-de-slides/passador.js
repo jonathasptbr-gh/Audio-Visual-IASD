@@ -18,9 +18,20 @@
    ## O que ela NÃO faz, e é decisão do operador
 
    Nada além de slides. Sem apresentação no ar, ela não mostra prévia nenhuma:
-   com uma letra, uma mensagem ou o cronômetro em cena, os cartões e os botões
-   não existem na tela — e as ações, se chegassem, seriam recusadas do outro
-   lado (`slideTarget() !== 'deck'` no `controle.js`).
+   com uma letra, uma mensagem ou o cronômetro em cena, as imagens não existem
+   na tela — os três quadros ficam no DESENHO DE ESPERA (o monitor do app com
+   "Aguardando", v1.14.60) — e as ações, se chegassem, seriam recusadas do
+   outro lado (`slideTarget() !== 'deck'` no `controle.js`).
+
+   ## O `<img>` SEM `src` É O DEFEITO (v1.14.60)
+
+   O estado de espera antigo escondia as seções com `hidden`, e o `display` da
+   folha vencia o `[hidden]` do navegador: os três quadros apareciam pretos com
+   o ícone de imagem quebrada, porque o `passador-estado` entrega `null` nos
+   lados sem prévia (a primeira página não tem anterior). Agora o `img` só é
+   mostrado com `src` E carga confirmada; qualquer outra combinação desenha a
+   espera no quadro. É por isso que o `error` de cada imagem entra no mesmo
+   caminho de `null`: um token de mídia vencido não pode virar ícone quebrado.
 
    ## O sinal de vida não é opcional
 
@@ -53,6 +64,7 @@ const PRAZO_POST_MS = 15000;
 
 const $ = (id) => document.getElementById(id);
 const ui = {
+  app: $('app'),
   estado: $('estado'),
   vazio: $('vazio'),
   cartoes: $('cartoes'),
@@ -77,6 +89,12 @@ let ultimoByteMs = 0;
 let ultimoAliveMs = 0;
 let abortar = null;
 let conectado = false;
+/** Há apresentação no ar? É o que separa o desenho de espera das prévias. */
+let temApresentacao = false;
+
+/** O rótulo do desenho, por motivo — o mesmo quadro serve a dois casos. */
+const ESPERA = 'Aguardando';
+const SEM_PREVIA = 'Sem prévia';
 
 // ---------------------------------------------------------------------------
 // O desenho
@@ -88,17 +106,34 @@ function frase(texto, ruim) {
 }
 
 /**
- * O INATIVO É UM ESTADO, e não um erro: a página continua conectada e some com
- * tudo o que não serve — é o pedido do operador ("nem sequer exibindo o
- * preview"). Quem reconecta é o laço, e ele não depende disto.
+ * O INATIVO É UM ESTADO, e não um erro: a página continua conectada e os três
+ * quadros DESENHAM a espera — nunca o ícone de imagem quebrada. O aviso do topo
+ * é uma faixa discreta; os quadros e os controles continuam no lugar, que é a
+ * tela que o irmão vê antes de o operador projetar. Quem reconecta é o laço,
+ * e ele não depende disto.
  */
 function mostrarInativo() {
+  temApresentacao = false;
+  ui.app.classList.add('esperando');
   ui.vazio.hidden = false;
-  ui.cartoes.hidden = true;
-  ui.acoes.hidden = true;
+  ui.cartoes.hidden = false;
+  ui.acoes.hidden = false;
+
+  // NENHUMA PRÉVIA SOBREVIVE AO INATIVO (decisão do operador): o desenho de
+  // espera é o que fica nos três quadros, e os controles voltam acesos para o
+  // estado em que o irmão ainda não tem o que passar.
+  for (const img of [ui.imgAnt, ui.imgAtual, ui.imgProx]) trocarImagem(img, '', ESPERA);
+  ui.btnAnt.disabled = false;
+  ui.cartaoAnt.disabled = false;
+  ui.btnProx.disabled = false;
+  ui.cartaoProx.disabled = false;
+  ui.btnCortina.classList.remove('ativa');
+  ui.btnCortina.textContent = 'Cortina';
 }
 
 function mostrarAtivo(est) {
+  temApresentacao = true;
+  ui.app.classList.remove('esperando');
   ui.vazio.hidden = true;
   ui.cartoes.hidden = false;
   ui.acoes.hidden = false;
@@ -110,10 +145,12 @@ function mostrarAtivo(est) {
 
   // AS IMAGENS SÓ TROCAM DE `src` QUANDO MUDA, e o motivo é o mesmo do cartão
   // fixo no CSS: reescrever o mesmo `src` re-baixa o arquivo em alguns
-  // navegadores e o cartão pisca a cada tique do estado.
-  trocarImagem(ui.imgAnt, est.ant);
-  trocarImagem(ui.imgAtual, est.atual);
-  trocarImagem(ui.imgProx, est.prox);
+  // navegadores e o cartão pisca a cada tique do estado. A URL ausente NÃO
+  // vira `<img>` vazio: ela desenha "Sem prévia" (é o caso da primeira página,
+  // que não tem anterior).
+  trocarImagem(ui.imgAnt, est.ant, SEM_PREVIA);
+  trocarImagem(ui.imgAtual, est.atual, SEM_PREVIA);
+  trocarImagem(ui.imgProx, est.prox, SEM_PREVIA);
 
   // O FIM DA APRESENTAÇÃO APAGA A SETA — e apagada ela também não toca (o
   // `disabled` do `<button>` engole o toque, sem `pointer-events` nosso).
@@ -127,11 +164,41 @@ function mostrarAtivo(est) {
   ui.btnCortina.textContent = est.cortina ? 'Cortina ligada' : 'Cortina';
 }
 
-function trocarImagem(img, url) {
+/**
+ * TROCA (OU TIRA) A PRÉVIA DE UM QUADRO — e o vazio é um DESENHO, não um
+ * `<img>` sem `src`. O Chromium desenha o ícone de imagem quebrada com o `alt`
+ * ao lado quando o endereço falta ou não carrega; a moldura com `sem-previa`
+ * esconde a imagem e mostra o monitor com o rótulo. O `src` igual não é
+ * reescrito (ver `mostrarAtivo`), mas um `src` que FALHOU é reescrito: o
+ * `error` tira o endereço, e o próximo estado pode ter a mídia de novo.
+ */
+function trocarImagem(img, url, rotulo) {
   const novo = url || '';
+  const moldura = img.parentElement;
+  if (!novo) {
+    if (img.getAttribute('src')) img.removeAttribute('src');
+    moldura.classList.add('sem-previa');
+    const txt = moldura.querySelector('.espera-txt');
+    if (txt) txt.textContent = rotulo || ESPERA;
+    return;
+  }
   if (img.getAttribute('src') === novo) return;
-  if (novo) img.setAttribute('src', novo);
-  else img.removeAttribute('src');
+  moldura.classList.remove('sem-previa');
+  img.setAttribute('src', novo);
+}
+
+// A PRÉVIA QUE NÃO CARREGA É O MESMO CASO DO ENDEREÇO AUSENTE: token de mídia
+// vencido, arquivo fora do ar, apresentação fechada no meio da carga. O
+// `<img>` sai de cena e o quadro desenha — nenhum estado desta página mostra o
+// ícone de imagem quebrada do navegador.
+for (const img of [ui.imgAnt, ui.imgAtual, ui.imgProx]) {
+  img.addEventListener('error', () => {
+    if (img.getAttribute('src')) img.removeAttribute('src');
+    const moldura = img.parentElement;
+    moldura.classList.add('sem-previa');
+    const txt = moldura.querySelector('.espera-txt');
+    if (txt) txt.textContent = SEM_PREVIA;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -310,8 +377,13 @@ function esperar(ms) {
 // ---------------------------------------------------------------------------
 
 function acao(a) {
-  // Sem sessão, o toque não some calado: ele tenta reentrar (o laço está de
-  // pé). A frase do topo é o retorno.
+  // SEM APRESENTAÇÃO, O TOQUE RESPONDE E NÃO POSTA: o controle do outro lado
+  // desiste fora do deck (`slideTarget() !== 'deck'`), então o POST morreria em
+  // silêncio e o botão pareceria quebrado. A frase do topo diz por que nada
+  // mudou no telão.
+  if (!temApresentacao) { frase('A apresentação ainda não começou', false); return; }
+  // Sem sessão, o toque não some calado: a frase do topo é o retorno, e o laço
+  // continua de pé.
   if (!token) { frase(MSG_CAIU, true); return; }
   postar({ do: 'passador', acao: a });
 }

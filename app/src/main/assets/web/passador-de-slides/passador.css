@@ -27,9 +27,23 @@
    As cores vêm do `shared/tokens.css` do app, com o valor de reserva repetido
    aqui: a página é servida ao navegador de OUTRO aparelho, e um token que falte
    não pode deixar texto preto sobre fundo preto.
+
+   ## Sem apresentação, o quadro DESENHA a espera (v1.14.60)
+
+   Um `<img>` sem `src` (ou com um `src` que não carrega) é o ícone de imagem
+   quebrada do navegador — dentro do quadro preto ele lê como defeito. Por isso
+   o `img` só aparece com endereço E carga confirmada; o resto do tempo quem
+   ocupa a moldura é o monitor de traço do app com "Aguardando", e o aviso do
+   topo é uma faixa de uma linha, não um bloco.
    ========================================================================== */
 
 * { box-sizing: border-box; }
+
+/* O `display` das seções venceria o `[hidden]` do navegador — a mesma linha da
+   `controle.css` (v1.14.60). Sem ela, `hidden` é decorativo: as TRÊS seções
+   aparecem juntas, e é assim que o aviso do vazio ocupa a área dos slides e a
+   dos controles e os três quadros mostram o `<img>` sem `src` por cima. */
+[hidden] { display: none !important; }
 
 html, body {
   margin: 0;
@@ -91,29 +105,23 @@ body {
 
 #estado.ruim { color: var(--stage-alert, #f97a7e); }
 
-/* ---------- o inativo: duas linhas, não um parágrafo ---------- */
+/* ---------- o inativo: UMA faixa, e ela não é dona de área nenhuma ----------
+   A altura é a do texto mais a folga (26 px), e não a sobra da coluna: o que a
+   faixa devolve é dos três quadros, que continuam medindo a tela inteira. */
 #vazio {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 6px;
-  text-align: center;
-  padding: 12px 6px;
-}
-
-#vazio p {
+  flex: 0 0 auto;
+  align-self: center;
+  max-width: 100%;
   margin: 0;
-  font-size: 15px;
-  color: var(--stage-text-soft, rgba(255, 255, 255, .9));
-}
-
-#vazio .dica {
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--panel, #212f3d);
   font-size: 12px;
-  line-height: 1.4;
-  max-width: 30ch;
+  line-height: 1.3;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--stage-text-dim, rgba(255, 255, 255, .72));
 }
 
@@ -143,10 +151,15 @@ body {
 
 /* A MOLDURA NÃO TEM ALTURA PRÓPRIA: ela recebe o que o `flex` do cartão
    resolveu, e a imagem se ajusta dentro — é isso que faz a coluna caber em
-   qualquer tela em vez de somar três medidas fixas. */
+   qualquer tela em vez de somar três medidas fixas. Ela também CENTRA o desenho
+   de espera (v1.14.60): com `flex` nos dois sentidos, o símbolo e o texto ficam
+   no meio do quadro em qualquer altura. */
 .cartao .moldura {
   flex: 1 1 auto;
   min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 8px;
   background: #000;
   overflow: hidden;
@@ -158,6 +171,52 @@ body {
   height: 100%;
   object-fit: contain;
 }
+
+/* O `<img>` SEM `src` É O DEFEITO QUE NÃO SE VÊ NO CÓDIGO (v1.14.60): o
+   Chromium desenha o ícone de imagem quebrada com o `alt` ao lado, dentro do
+   quadro preto. A regra é a guarda final — a classe `sem-previa` já esconde o
+   `img` e liga o desenho, mas nenhuma imagem sem endereço aparece, nem quando
+   um `src` antigo é removido por JS. */
+.cartao img:not([src]) { display: none; }
+
+/* ---------- o desenho da espera: símbolo + uma palavra ----------
+   O MONITOR DO `#icoTela` do app (o traço 2 do sprite do Controle e a ponta
+   redonda) e "Aguardando" embaixo. O conjunto é o que o quadro mostra
+   sem apresentação — ou quando a prévia daquela página não existe. */
+.espera {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 4px;
+  color: var(--stage-text-dim, rgba(255, 255, 255, .72));
+  font-size: 10px;
+  letter-spacing: .06em;
+  text-align: center;
+}
+
+.espera svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* O QUADRO QUE ESTÁ NO TELÃO leva o desenho um degrau maior — é o que o
+   pregador olha, e é o mesmo degrau do cartão no `flex`. */
+.atual .espera svg { width: 30px; height: 30px; }
+.atual .espera { font-size: 11px; }
+
+.moldura:not(.sem-previa) .espera { display: none; }
+.moldura.sem-previa img { display: none; }
+
+/* SEM APRESENTAÇÃO, O CONTADOR NÃO EXISTE: "1/1" com o telão parado é número
+   inventado, e o estado de espera é o desenho, não a contagem. */
+#app.esperando .contador { display: none; }
 
 /* O DE CIMA E O DE BAIXO: menores, apagados e CLICÁVEIS — passar e voltar são
    os dois gestos que a página inteira existe para fazer. */

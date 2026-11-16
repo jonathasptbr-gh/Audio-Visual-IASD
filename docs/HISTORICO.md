@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.60** — Pacote 43 (o passador de slides sem apresentação: aviso numa faixa, três quadros desenhando a espera e controles no lugar) e o conserto do link público da v1.14.59, que perdia a rota `/passador-de-slides` e caía na página do telão (só web e site).
 - **v1.14.59** — Pacote 41: o link do passador vira uma página pública do site (`audiovisualiasd.com.br/passador?h=ip:porta`) que só redireciona para IPv4 de rede privada, com o endereço cru na segunda linha do WhatsApp e o link antigo no caso TLS (só web e site).
 - **v1.14.58** — o passador de slides vira atalho de dois ícones na folha de conectar (copiar e enviar no WhatsApp numa zona que o mesmo botão abre e fecha, mensagem só com o link), e a página dele passa a caber na tela sem rolar (só web).
 - **v1.14.57** — o momento do itinerário de volta ao corpo compacto (mais baixo que o item de mídia, com fonte e botões do mesmo tamanho) e todos os momentos iguais com a faixa aberta ou recolhida (só web).
@@ -792,6 +793,59 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.14.60 — o passador desenha a espera, e o link público volta a achar a rota
+
+**Pacote 43** (pedido do operador, 2026-11-16 20:05), só web; e o **conserto
+urgente** do link público, que é DEFEITO DA v1.14.59 achado no aparelho do
+operador em 2026-11-16 20:38 — um lote só, um push só, **sem `shellTag`** (nada
+de `java/`, `res/` ou manifesto) e `SHELL_VERSION` 89 parado. Degrau CORREÇÃO.
+
+**O DEFEITO DO LINK (v1.14.59).** O operador mandou o link, tocou nele, a página
+pública redirecionou — e caiu na **página do telão**. A causa: o `h` leva só
+`ip:porta`, e o `location.replace`/o botão montavam `http://ip:porta` **sem o
+caminho**. A raiz do servidor do celular responde `302` para
+`/display/index.html?tela=1`, que é o telão; o `/passador-de-slides` se perdia no
+meio. As quatro casas do conserto: a rota virou UMA constante em
+`site/passador/index.html` (`ROTA_DO_PASSADOR`) e entra no endereço escrito, no
+`href` do "Abrir o passador" e no `location.replace`; o oráculo público passou a
+interceptar a **rota exata** e a afirmar o `pathname` final (antes aceitava
+`/**` e conferia só host e porta, e por isso ficou verde no defeito); um bloco
+novo segue o encadeamento contra o bundle de verdade (a rota → `302` → a página
+do passador, e a raiz → o telão); e a reversão foi medida: com `'http://' +
+alvo` o oráculo reprova a navegação e a URL final.
+
+**O PEDIDO DO PACOTE 43** era o estado vazio da página do passador: o texto
+"nenhuma apresentação no ar" ocupava a área dos slides **e** a dos controles, e
+os três quadros ficavam pretos com o ícone de imagem quebrada do navegador. A
+causa era uma só, e MUDA: o `[hidden]` das seções perdia para o `display:
+flex/grid` da folha, então as três seções apareciam juntas; e o `<img>` sem
+`src` (o `passador-estado` entrega `null` nos lados sem prévia) desenhava o
+ícone quebrado com o `alt` ao lado. O conserto: `[hidden] { display: none
+!important }` no topo da folha (a mesma linha da `controle.css`); o aviso virou
+uma **faixa** de uma linha (26 px, 3,1% da tela a 390×844 — era 372 px, 44,1%);
+os três quadros ficam SEMPRE montados e, sem prévia, desenham o **monitor de
+traço do app** com "Aguardando" (o `sem-previa` já vem no HTML, então nem a
+primeira pintura mostra imagem quebrada); o `error` de cada `<img>` cai no mesmo
+desenho ("Sem prévia"), e o contador some no estado de espera. Os controles
+continuam **legíveis e alcançáveis** no vazio (o toque responde "A apresentação
+ainda não começou" e não posta — o controle recusaria fora do deck em
+silêncio). Com apresentação, as três prévias voltam como antes.
+
+**ORÁCULOS.** `passador-espera` (novo, Chromium, no CI e no `ORACULOS.md`)
+sobe as rotas do celular e mede os cinco estados: espera desenhada sem `<img>`
+à vista, prévias de volta com a apresentação, "Sem prévia" na primeira página,
+`error` de prévia e o toque que responde sem postar. O `passador-cabe` ganhou as
+medidas do estado vazio (faixa ≤ 12% da tela, quadros e controles montados, três
+desenhos, nenhuma prévia quebrada). O `passador-publico` ganhou o caminho no
+veredito e o bloco do encadeamento. O `passador-fronteira` continua verde sem
+mudança — ele já cobre a rota e o prefixo do bundle, no passo que barra o build.
+
+**O QUE FICA DE FORA:** a página pública (`site/passador/`, só o conserto do
+caminho), a folha de conectar do controle (Pacote 44) e o pop-up de volume
+(Pacote 45) — cada um é lote próprio.
 
 ---
 

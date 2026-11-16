@@ -1,5 +1,17 @@
 [
   {
+    "versao": "1.14.60",
+    "itens": [
+      "Conserto urgente: o link do WhatsApp do passador abria a página do telão; agora abre a do passador.",
+      "Era defeito da versão anterior: o endereço ia sem a rota e caía na raiz do servidor do celular.",
+      "O link copiado e o endereço escrito também levam a rota completa: /passador-de-slides.",
+      "Sem apresentação, os três quadros desenham um monitor com \"Aguardando\" em vez de imagem quebrada.",
+      "O aviso \"nenhuma apresentação no ar\" virou uma faixa discreta no alto, e não ocupa mais a tela.",
+      "Os controles continuam à vista e respondem no estado vazio: tocar avisa que a apresentação não começou.",
+      "Com a apresentação no ar, as três prévias voltam a aparecer como antes."
+    ]
+  },
+  {
     "versao": "1.14.59",
     "itens": [
       "O link do passador agora é um endereço público do site, para o WhatsApp reconhecer.",

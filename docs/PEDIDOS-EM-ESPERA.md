@@ -98,7 +98,6 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **16** — O cronograma pronto: o organizador entrega o culto ao sonoplasta | 8 (I4×U2) | pedido | planejamento → Kotlin + web |
 | **29** — Guia do site: a captura da lista de Ferramentas e do Cronograma | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
 | **42** — Itinerário: os momentos como lista, não como card | 6 (I3×U2) | pedido | só web |
-| **43** — Passador de slides: o estado vazio e os três mocks | 6 (I3×U2) | pedido | só web |
 | **44** — Conectar: os botões com texto e o card integrado | 4 (I2×U2) | pedido | só web |
 | **45** — Pop-up de volume na abertura, e a porta do tour | 9 (I3×U3) | pedido | web + shell (APK no CI) |
 
@@ -115,7 +114,7 @@ diferentes, e um lote nunca mistura dois temas.
 |---|---|---|
 | **Cronograma e destinos** | 16, 42 | a abertura antes do culto, o organizador entregando o culto pronto; e os momentos do itinerário como lista |
 | **Site** | 29 | as capturas do guia |
-| **Passador de slides** | 43, 44 | a página vazia, e o convite que manda o link |
+| **Passador de slides** | 44 | o convite que manda o link |
 | **Abertura** | 45 | o volume, a porta do tour e a ordem entre eles |
 | **Fila anterior a 14/11** | 5 | a tela de espera do Itinerário, na ordem que a fila já tinha |
 | **Estudos** | 13 | não são fila de execução: a entrega é a decisão do operador |
@@ -163,7 +162,6 @@ ordem; a fila é dele.
 | **16** | **O cronograma pronto: o organizador entrega o culto** | pedido | 4 | 2 | **8** | planejamento |
 | **29** | **Guia do site: a captura da lista de Ferramentas e do Cronograma** | resíduo | 2 | 1 | **2** | site |
 | **42** | **Itinerário: os momentos como lista, não como card** | pedido | 3 | 2 | **6** | web |
-| **43** | **Passador de slides: o estado vazio e os três mocks** | pedido | 3 | 2 | **6** | web |
 | **44** | **Conectar: os botões com texto e o card integrado** | pedido | 2 | 2 | **4** | web |
 | **45** | **Pop-up de volume na abertura, e a porta do tour** | pedido | 3 | 3 | **9** | web + shell |
 
@@ -364,29 +362,6 @@ de novo, não herdados.
 
 ---
 
-## Pacote 43 — Passador de slides: o estado vazio e os três mocks
-
-**Nota 6 (I3×U2) · pedido · só web (assets)**
-
-**Onde:** `app/src/main/assets/web/passador-de-slides/` — a página que o irmão abre no navegador.
-O texto "nenhuma apresentação no ar" e os três mocks das telas.
-
-**O pedido (2026-11-16, 20:05):** *"revise também o design do passador de slides, ele atualmente
-esta com um texto enorme de 'nenhuma apresentação no ar', que ocupa toda a área que seria
-destinada aos slides e aos controles. Também verifique a visualização dos três mocks das telas de
-slides enquanto não há slides conectados, atualmente ele fica preto e com um símbolo de broken
-archive. Torne ele mais confiável, com mensagem ou simbolos nesses tres campos para avisar para
-aguardando a apresentação ser iniciada."*
-
-**O que muda:** 1) o aviso vira mensagem discreta — não ocupa a área dos slides nem a dos
-controles; 2) os três mocks deixam de ser caixa preta com ícone de imagem quebrada e passam a um
-estado desenhado de "aguardando a apresentação começar"; 3) o conjunto não pode parecer defeito.
-
-**Oráculo:** `tools/passador-cabe.test.mjs` (já roda no CI) — a página tem de continuar cabendo, e
-o estado vazio novo entra nele.
-
----
-
 ## Pacote 44 — Conectar: os botões com texto e o card integrado
 
 **Nota 4 (I2×U2) · pedido · só web**
@@ -453,6 +428,8 @@ bloqueia de fato).
 ---
 
 ## O que saiu desta lista (rastro, não log)
+
+**v1.14.60 (2026-11-16), só web e site:** o **Pacote 43** — a página do passador sem apresentação: o aviso vira uma faixa (26 px, 3,1% da tela), os três quadros desenham a espera ("Aguardando", o monitor do app) em vez do ícone de imagem quebrada, e os controles continuam no lugar e alcançáveis. A causa era o `[hidden]` da folha perder para o `display: flex/grid` (as três seções apareciam juntas) e o `<img>` sem `src` desenhar o ícone quebrado. Oráculo `passador-espera` (novo), mais as medidas do estado vazio no `passador-cabe`. **No mesmo lote, o conserto urgente do link da v1.14.59**: o destino perdia a rota `/passador-de-slides` e caía na página do telão (defeito achado no aparelho em 2026-11-16 20:38); o `passador-publico` passou a afirmar o `pathname`. Nota em `docs/HISTORICO.md`.
 
 **v1.14.59 (2026-11-16), só web e site:** o **Pacote 41** — o link do passador vira a **página pública** `audiovisualiasd.com.br/passador?h=ip:porta`: o WhatsApp reconhece o endereço do site, e a página só redireciona para IPv4 das faixas privadas (10/8, 172.16–172.31, 192.168/16) com porta 1–65535, com o endereço cru na segunda linha da mensagem e o link antigo no caso TLS. Oráculo `passador-publico` (novo) e o `passador-fronteira` reescrito. Nota em `docs/HISTORICO.md`.
 

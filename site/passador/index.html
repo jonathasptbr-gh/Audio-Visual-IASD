@@ -91,6 +91,16 @@
     return octetos.join('.') + ':' + porta;
   }
 
+  // A ROTA DO PASSADOR — e ela NÃO pode ser omitida (v1.14.60).
+  //
+  // O `h` traz só `ip:porta`. Sem o caminho, `http://ip:porta` bate na RAIZ do
+  // servidor do celular, que responde `302` para `/display/index.html?tela=1` —
+  // o TELÃO. Era o defeito da v1.14.59, achado no aparelho do operador em
+  // 2026-11-16 20:38: o link do WhatsApp abria, a página redirecionava, e o
+  // irmão caía na página do telão em vez do passador. A rota é UMA constante
+  // aqui: ela vale para o endereço escrito, para o botão e para a saída.
+  var ROTA_DO_PASSADOR = '/passador-de-slides';
+
   var caixaAbrindo = document.getElementById('abrindo');
   var caixaIncompleto = document.getElementById('incompleto');
   var enderecoEl = document.getElementById('endereco');
@@ -105,9 +115,13 @@
     return;
   }
 
+  var destino = 'http://' + alvo + ROTA_DO_PASSADOR;
+
   caixaAbrindo.hidden = false;
-  enderecoEl.textContent = alvo;
-  abrirEl.href = 'http://' + alvo;
+  // O ENDEREÇO À VISTA TAMBÉM LEVA A ROTA: digitar só `ip:porta` no navegador
+  // cai no telão, que é o defeito que este lote conserta.
+  enderecoEl.textContent = alvo + ROTA_DO_PASSADOR;
+  abrirEl.href = destino;
 
   // A SAÍDA É NAVEGAÇÃO DE TOPO POR JS, e não `<meta refresh>`: o robô que
   // monta a prévia do WhatsApp não executa JavaScript, então ele não segue
@@ -116,7 +130,7 @@
   // primeiro — se o `replace` falhar, o que fica na tela é o endereço e o
   // botão.
   setTimeout(function () {
-    try { location.replace('http://' + alvo); } catch (_) {}
+    try { location.replace(destino); } catch (_) {}
   }, 150);
 })();
 </script>

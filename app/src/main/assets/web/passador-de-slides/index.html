@@ -13,14 +13,18 @@
   `servirDoBundle`, no `EspelhoServidor.kt`) — a marca faria o `tela.js` tomar
   esta página por uma tela da rede.
 
-  SEM TEXTO QUE NÃO SEJA CONTROLE (v1.14.58). O pedido do operador é que
-  slides e controles caibam na altura que o navegador mostra, sem rolar: o
-  rótulo de cada cartão ("anterior", "no telão", "próximo") saiu e ficou só o
-  contador do cartão do meio — a posição já diz o que cada um é.
+  SEM TEXTO QUE NÃO SEJA CONTROLE OU ESTADO (v1.14.58; o estado vazio na
+  v1.14.60). O pedido do operador é que slides e controles caibam na altura que
+  o navegador mostra, sem rolar, e que, sem apresentação, os três quadros
+  DESENHEM a espera em vez de mostrarem imagem quebrada. Por isso o aviso é uma
+  faixa de uma linha e os três quadros têm `sem-previa` no próprio HTML: quem
+  chega antes do `passador.js` já vê o desenho de espera, nunca um `<img>` sem
+  `src` (é o `[hidden]` do topo da folha que faz valer o `hidden` das seções).
 
   A CSP das páginas servidas é `default-src 'self'` SEM `'unsafe-inline'`:
   folha e script são ARQUIVOS, e não existe estilo embutido em lugar nenhum
-  desta pasta (§8 do `TELAO-POR-COMANDOS.md`).
+  desta pasta (§8 do `TELAO-POR-COMANDOS.md`). O SVG da espera é MARCAÇÃO, não
+  estilo: não há atributo de estilo nem folha embutida.
 -->
 <link rel="stylesheet" href="../shared/tokens.css">
 <link rel="stylesheet" href="passador.css">
@@ -32,25 +36,45 @@
     <p id="estado" role="status" aria-live="polite">Conectando…</p>
   </header>
 
-  <!-- O INATIVO NÃO MOSTRA PRÉVIA NENHUMA — é o pedido do operador, ao pé da
-       letra: fora da apresentação a página fica inerte. -->
-  <section id="vazio" hidden>
-    <p>Nenhuma apresentação no ar.</p>
-    <p class="dica">Os três cartões aparecem quando o operador projetar.</p>
-  </section>
+  <!-- O AVISO DO VAZIO É UMA FAIXA, NÃO UM BLOCO (v1.14.60): uma linha de 12 px
+       entre o topo e os quadros. Ele não toma a área dos slides nem a dos
+       controles — quem diz "aguardando" com desenho são os três quadros. -->
+  <p id="vazio" hidden>Nenhuma apresentação no ar — aguardando o início</p>
 
+  <!-- OS TRÊS QUADROS FICAM SEMPRE MONTADOS: com apresentação eles mostram a
+       prévia (`src` = a mesma URL `/m/` do telão); sem ela, o desenho de espera
+       abaixo. O `sem-previa` do HTML é o estado inicial — ninguém vê o ícone de
+       imagem quebrada nem por um quadro. -->
   <section id="cartoes" hidden>
     <button class="cartao anterior" id="cartaoAnt" type="button" aria-label="Slide anterior">
-      <span class="moldura"><img id="imgAnt" alt="Slide anterior"></span>
+      <span class="moldura sem-previa">
+        <img id="imgAnt" alt="Slide anterior">
+        <span class="espera" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="12.5" rx="2"/><path d="M8 20.5h8M12 16.5v4"/></svg>
+          <span class="espera-txt">Aguardando</span>
+        </span>
+      </span>
     </button>
 
     <div class="cartao atual" id="cartaoAtual">
-      <span class="moldura"><img id="imgAtual" alt="Slide no telão"></span>
+      <span class="moldura sem-previa">
+        <img id="imgAtual" alt="Slide no telão">
+        <span class="espera" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="12.5" rx="2"/><path d="M8 20.5h8M12 16.5v4"/></svg>
+          <span class="espera-txt">Aguardando</span>
+        </span>
+      </span>
       <span class="contador"><span id="numPagina">1</span>/<span id="numTotal">1</span></span>
     </div>
 
     <button class="cartao proximo" id="cartaoProx" type="button" aria-label="Próximo slide">
-      <span class="moldura"><img id="imgProx" alt="Próximo slide"></span>
+      <span class="moldura sem-previa">
+        <img id="imgProx" alt="Próximo slide">
+        <span class="espera" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="12.5" rx="2"/><path d="M8 20.5h8M12 16.5v4"/></svg>
+          <span class="espera-txt">Aguardando</span>
+        </span>
+      </span>
     </button>
   </section>
 

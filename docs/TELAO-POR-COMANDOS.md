@@ -472,16 +472,19 @@ O que ela é, e o que ela se recusa a ser:
 | **entra** | `POST /par`, sem segredo — a porta é o endereço, como para a tela |
 | **recebe** | `passador-estado`, um comando de DESCIDA: `{ativo, pagina, total, ant, atual, prox, cortina}` |
 | **manda** | `{do:'passador', acao:'ant'\|'prox'\|'cortina'}`, e nada mais |
-| **desenha** | três cartões (anterior, atual, próximo) com a imagem `/m/` de cada página, dois botões e a cortina |
-| **não desenha** | NADA fora de uma apresentação: sem prévia, sem botão, sem estado de página |
+| **desenha** | três cartões (anterior, atual, próximo) com a imagem `/m/` de cada página quando ela existe; sem apresentação, o **desenho de espera** nos três (o monitor de traço do app e "Aguardando", v1.14.60); os dois botões e a cortina ficam montados nos dois estados |
+| **não desenha** | nenhuma PRÉVIA fora de uma apresentação — e nunca um `<img>` sem `src`: um quadro sem imagem desenha, não mostra o ícone de imagem quebrada do navegador (v1.14.60) |
 | **não é** | um telão — o servidor não injeta a marca `av-tela` em `web/passador-de-slides/`, e o `tela.js` não roda ali |
 
 **As imagens são as MESMAS do telão.** `telaDeckUrls` cunha um token `/m/` por
 página (id `dk:<item>:<i>`) e o `passador-estado` leva três deles; a página não
 abre segunda forma de servir a apresentação, e o token da página 7 é o mesmo
 para os dois lados. Quando o token forte não existe, `ant/atual/prox` vêm
-`null`: a página continua sabendo em que página está (o cartão fica preto) — um
-`<img>` vazio é melhor que uma prévia que nunca chega.
+`null`: a página continua sabendo em que página está, e o QUADRO DESENHA
+"Sem prévia" em vez de receber um `<img>` vazio — o `<img>` sem `src` é o ícone
+de imagem quebrada do navegador, e foi o defeito que o operador viu nos três
+quadros (v1.14.60). O mesmo vale quando o `src` existe e **não carrega**: o
+`error` da imagem leva ao mesmo desenho.
 
 **A cortina é o `#viewToggle` do operador**, pelo mesmo comando `{"type":"view",
 "view":"wallpaper"}`. Ligá-la pelo celular do pregador e desligá-la no aparelho
@@ -505,10 +508,13 @@ texto em volta impede o WhatsApp de reconhecê-lo. As contas são `linkDoPassado
 o palco; não mostra prévia fora da apresentação; não serve de telão de reserva;
 e não conhece o IndexedDB do aparelho — ela é uma página de rede, como a tela.
 
-**Oráculo:** `tools/passador-fronteira.test.mjs` (Node puro, no passo que barra o
-build). Ele mede o par das ações — página × `ACOES_DO_PASSADOR` —, a rota (e o sufixo que o `controle.js` monta, no bloco 2b), a
+**Oráculos:** `tools/passador-fronteira.test.mjs` (Node puro, no passo que barra o
+build) mede o par das ações — página × `ACOES_DO_PASSADOR` —, a rota (e o sufixo que o `controle.js` monta, no bloco 2b), a
 ausência da marca `av-tela` e a ausência de estilo/script embutido, que é a CSP
-das páginas servidas (§8). A divergência que ele trava é MUDA nos dois sentidos.
+das páginas servidas (§8); a divergência que ele trava é MUDA nos dois sentidos.
+`tools/passador-cabe.test.mjs` mede a página caber sem rolar, e
+`tools/passador-espera.test.mjs` mede o estado de espera desenhado (nenhum
+`<img>` sem carga à vista) contra um servidor de teste com as rotas do celular.
 
 ## §6 AS ETAPAS (concluídas)
 

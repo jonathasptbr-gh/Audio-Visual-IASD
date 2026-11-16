@@ -33,7 +33,7 @@
 // ============================================================================
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { servirEstatico, abrirNavegador, checar, falhas, esperar, porque, RAIZ_SITE } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, checar, falhas, esperar, porque, RAIZ_SITE, RAIZ_WEB } from './arnes.mjs';
 import { semRedeExterna } from './sem-rede.mjs';
 
 const ARQUIVO = join(RAIZ_SITE, 'passador/index.html');
@@ -85,6 +85,13 @@ try {
     'sem sonda automática: de `https` para `http` o `fetch` seria mixed content');
 
   // ── B. O REDIRECIONAMENTO: um IP privado válido sai de verdade ───────────
+  //
+  // O DESTINO TEM CAMINHO, e ele é a asserção (v1.14.60). A primeira versão
+  // interceptava `http://192.168.0.12:8787/**` — QUALQUER caminho — e conferia
+  // só `hostname`/`port`: o `/passador-de-slides` sumia, a navegação caía na
+  // raiz do servidor, e a raiz responde `302` para o TELÃO. O oráculo passava
+  // verde no defeito que o operador viu no aparelho. Agora a rota é EXATA e o
+  // `pathname` entra no veredito: o teste reprova se o caminho sumir de novo.
   {
     const { ctx, externas } = await abrir();
     const pg = await ctx.newPage();
@@ -93,7 +100,7 @@ try {
     // o Playwright resolve da mais recente para a mais antiga, e é assim que a
     // navegação para o IP privado vira um fato medível em vez de uma recusa de
     // rede.
-    await ctx.route('http://192.168.0.12:8787/**', (rota) => {
+    await ctx.route(/^http:\/\/192\.168\.0\.12:8787\/passador-de-slides$/, (rota) => {
       pedidos.push(rota.request().url());
       return rota.fulfill({
         status: 200, contentType: 'text/html; charset=utf-8',
@@ -101,15 +108,72 @@ try {
       });
     });
     await pg.goto(BASE + '?h=192.168.0.12:8787', { waitUntil: 'load' });
-    const foi = await esperar(pg, () => location.hostname === '192.168.0.12' && location.port === '8787');
-    checar(foi === true, '`?h=192.168.0.12:8787` navega para o endereço da igreja',
+    const foi = await esperar(pg, () => location.hostname === '192.168.0.12'
+      && location.port === '8787' && location.pathname === '/passador-de-slides');
+    checar(foi === true,
+      '`?h=192.168.0.12:8787` navega para o endereço da igreja NA ROTA DO PASSADOR',
       porque(foi) || pedidos.join(' · '));
+    checar(pg.url() === 'http://192.168.0.12:8787/passador-de-slides',
+      'a URL final é exatamente a rota do passador (sem caminho perdido na raiz)',
+      pg.url());
     checar((await pg.textContent('#alvo')) === 'passador',
       'o destino recebido é o passador (a navegação chegou, não é só a URL mudando)');
     checar(externas.length === 0 && pedidos.length === 1,
       'e nenhuma outra saída para a rede foi tentada',
       { externas, pedidos });
     await ctx.close();
+  }
+
+  // ── B2. O ENCADEAMENTO: a rota, o 302 do celular e o bundle que carrega ─
+  //
+  // O conserto da v1.14.60 só vale se o destino TERMINAR na página do
+  // passador. Do outro lado há um `302`: `/passador-de-slides` leva a
+  // `/passador-de-slides/index.html`, e a RAIZ (`/`) leva ao TELÃO — é
+  // exatamente por isso que o caminho perdido caía na tela errada. As duas
+  // rotas são LIDAS do `EspelhoServidor.kt` antes de o servidor de teste
+  // reproduzi-las, e o bundle servido é o de verdade: se a página não carregar,
+  // o título e o `#cartoes` reprovam.
+  {
+    const KT = join(RAIZ_SITE, '..', 'app/src/main/java/br/org/iasd/av/EspelhoServidor.kt');
+    const kt = readFileSync(KT, 'utf8');
+    checar(kt.includes('Location: /passador-de-slides/index.html'),
+      'o servidor do celular manda `/passador-de-slides` para `/passador-de-slides/index.html`');
+    checar(kt.includes('Location: /display/index.html?tela=1'),
+      'e a RAIZ do servidor manda para o TELÃO — a armadilha que o caminho perdido encontrava');
+
+    const fone = servirEstatico(RAIZ_WEB, (req, res) => {
+      const u = new URL(req.url, 'http://x').pathname;
+      if (u === '/') {
+        res.writeHead(302, { Location: '/display/index.html?tela=1' }); res.end(); return true;
+      }
+      if (u === '/passador-de-slides' || u === '/passador-de-slides/') {
+        res.writeHead(302, { Location: '/passador-de-slides/index.html' }); res.end(); return true;
+      }
+      return false;
+    });
+    await new Promise((r) => fone.listen(0, r));
+    const baseFone = 'http://127.0.0.1:' + fone.address().port;
+    try {
+      const { ctx } = await abrir();
+      const pg = await ctx.newPage();
+      const resp = await pg.goto(baseFone + '/passador-de-slides', { waitUntil: 'domcontentloaded' });
+      checar(new URL(pg.url()).pathname === '/passador-de-slides/index.html',
+        'seguir `/passador-de-slides` termina em `/passador-de-slides/index.html`',
+        { url: pg.url(), status: resp && resp.status() });
+      checar((await pg.title()) === 'Passador de slides',
+        'a página que carrega é a do passador (e não o `/display/`)', await pg.title());
+      checar(await pg.locator('#cartoes').count() > 0 && await pg.locator('#acoes').count() > 0,
+        'o bundle do passador está montado: os três quadros e os controles existem');
+
+      // A RAIZ continua sendo o telão — o fato que dá sentido à rota.
+      const pg2 = await ctx.newPage();
+      await pg2.goto(baseFone + '/', { waitUntil: 'domcontentloaded' });
+      checar(new URL(pg2.url()).pathname === '/display/index.html',
+        'a raiz do celular leva ao TELÃO (é o que se perdia sem a rota)', pg2.url());
+      await ctx.close();
+    } finally {
+      await new Promise((r) => fone.close(r));
+    }
   }
 
   // ── C. O FALLBACK: o endereço à vista com a saída RETIDA ────────────────
@@ -125,9 +189,9 @@ try {
     });
     checar(visivel === true, 'a caixa do fallback aparece', porque(visivel));
     const texto = (await pg.textContent('#abrindo') || '').replace(/\s+/g, ' ').trim();
-    checar(texto.includes('Não abriu? Copie este endereço no navegador: 192.168.7.9:8787'),
-      'o fallback traz a frase pedida e o endereço VALIDADO escrito em texto', texto);
-    checar((await pg.getAttribute('#abrir', 'href')) === 'http://192.168.7.9:8787',
+    checar(texto.includes('Não abriu? Copie este endereço no navegador: 192.168.7.9:8787/passador-de-slides'),
+      'o fallback traz a frase pedida e o endereço VALIDADO com a ROTA escrito em texto', texto);
+    checar((await pg.getAttribute('#abrir', 'href')) === 'http://192.168.7.9:8787/passador-de-slides',
       'o "Abrir o passador" leva ao MESMO destino do redirecionamento');
     checar(await pg.evaluate(() => typeof window.__avSaida === 'function'),
       'e a página AGENDOU a saída para o endereço validado (o `location.replace` existe)');
@@ -198,8 +262,8 @@ try {
     for (const h of ['10.0.0.1:1', '172.16.0.1:65535', '172.31.255.255:8787', '192.168.255.254:8080']) {
       const pg = await ctx.newPage();
       await pg.goto(BASE + '?h=' + encodeURIComponent(h), { waitUntil: 'domcontentloaded' });
-      checar((await pg.getAttribute('#abrir', 'href')) === 'http://' + h,
-        `o "Abrir o passador" de \`${h}\` aponta para o endereço certo`);
+      checar((await pg.getAttribute('#abrir', 'href')) === 'http://' + h + '/passador-de-slides',
+        `o "Abrir o passador" de \`${h}\` aponta para o endereço certo, COM a rota`);
       checar(await pg.evaluate(() => typeof window.__avSaida === 'function'),
         `o limite privado ainda foi aceito (a saída foi agendada): \`${h}\``);
       await pg.close();

@@ -258,8 +258,9 @@ app/src/main/assets/web/
 │   │                           # injeta a marca `av-tela` aqui
 │   │                           # (`TELAO-POR-COMANDOS` §5.7)
 │   ├── index.html              # três cartões (anterior/atual/próximo), as duas
-│   │                           # setas e a cortina; sem nada fora de uma
-│   │                           # apresentação
+│   │                           # setas e a cortina; sem apresentação, o aviso
+│   │                           # é uma faixa e os quadros DESENHAM a espera
+│   │                           # (v1.14.60)
 │   ├── passador.css            # o desenho vertical — folha, pelo mesmo motivo da
 │   │                           # `espelho/tela.css`; cores do `shared/tokens.css`
 │   └── passador.js             # o cliente: `POST /par`, SSE `/e`, o comando
