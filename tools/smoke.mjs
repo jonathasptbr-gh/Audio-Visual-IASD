@@ -709,8 +709,12 @@ try {
     // passa por cima da interface — é um aviso de 1,5 s que a tecla física acende, mora no
     // `body` fora de qualquer barra e nasce `visibility: hidden`. A camada 350 é necessária
     // para ela aparecer sobre a tela do Modo Fácil e sobre a janela da Biblioteca.
+    // O AVISO DA ABERTURA (v1.14.46) entra pela mesma razão, e com uma diferença: ele nasce
+    // `hidden` (display: none) e só acende quando o piso de 60% AGE — o computado de um nó
+    // `display: none` continua dizendo `position: fixed`, e a varredura abaixo não pergunta
+    // visibilidade. Ele é um cartão de 12 s com dois botões, não uma camada que fica.
     const OK = ['popup-backdrop', 'popup-sheet', 'simple', 'simple-veil', 'bottombar',
-      'appDialog', 'dialog-card', 'tab-ghost', 'crono-veu', 'vol-pill'];
+      'appDialog', 'dialog-card', 'tab-ghost', 'crono-veu', 'vol-pill', 'vol-aviso'];
     const achados = [];
     document.querySelectorAll('body *').forEach((el) => {
       const cs = getComputedStyle(el);

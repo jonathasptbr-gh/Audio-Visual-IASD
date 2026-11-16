@@ -314,7 +314,7 @@ try {
     li.remove();
     return r;
   });
-  checar(ordem.botoes.join(' | ') === 'tocar | cronograma | playlist | leitura' && !ordem.confirmar,
+  checar(ordem.botoes.join(' | ') === 'tocar | cronograma | playlist | leitura | detalhes' && !ordem.confirmar,
     'a gaveta de um favorito tem os destinos em BOTÕES DIRETOS — "Tocar agora" na ponta, a ordem da '
     + 'tabela e o "Ver a letra" por último — e nenhum Confirmar (o `⋮` é da linha desde a v1.13.68)', ordem);
   checar(ordem.semOpcoesNaFileira === true && ordem.fileiras.length === 1,
