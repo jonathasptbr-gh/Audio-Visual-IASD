@@ -416,7 +416,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.36';
+const WEB_VERSION = '1.14.37';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -8431,7 +8431,7 @@ function renderChrono() {
 // momentos. As mídias não vão tocar automaticamente com o tempo do
 // itinerário"*. Ele deixou de ser uma ferramenta: as opções moram na segunda
 // linha do Cronograma (`#itinBar`), que nasce recolhida, abre pelo `#itinBarBtn`
-// da barra do topo e se recolhe sozinha (`ITIN_FAIXA_FECHO_MS`).
+// da barra do topo e fica aberta até o toque de volta nela.
 //
 // **O MOMENTO É UMA CENA DE ROTEIRO** (`kind: 'cue'`, `cue: 'momento'`): o horário
 // em `data.min` (minuto do dia PREVISTO), o título em `name`. Ele mora em
@@ -8717,34 +8717,17 @@ function itinAlternarGrupo(id, sob) {
 }
 
 // A FAIXA ABRE E FECHA pelo `#itinBarBtn` da barra do topo, e nada disso é gravado:
-// o app abre sempre com ela recolhida. Aberta, ela se recolhe sozinha depois de
-// `ITIN_FAIXA_FECHO_MS` sem toque nela — mas não com a `#itinPopup` aberta nem com
-// um dedo apoiado na faixa (o prazo recomeça; `fecharItinEditor` também o recomeça).
-const ITIN_FAIXA_FECHO_MS = 5000;
+// o app abre sempre com ela recolhida. **Aberta, ela FICA ABERTA** até o botão da
+// barra ser tocado de novo (pedido de 15/11: *"a aba de configurações de itinerário
+// não se fecha automaticamente"*) — o fecho sozinho de 5 s da v1.14.35 saiu junto com
+// o desenho que dependia dele: o LÁPIS e a LIXEIRA do momento moram no estado dela
+// (fechada, sobra só a seta do grupo, e o CSS a lê na classe `itin-faixa-aberta` do
+// `<body>` — sem redesenhar a lista, que perderia a rolagem).
 let itinFaixaAberta = false;
-let itinFaixaApertada = false;
-let itinFechoTimer = 0;
 function itinFaixaAlternar(aberta) {
   itinFaixaAberta = !!aberta;
+  document.body.classList.toggle('itin-faixa-aberta', itinFaixaAberta);
   renderItinBar();
-  itinFechoArmar();
-}
-function itinFechoArmar() {
-  clearTimeout(itinFechoTimer);
-  itinFechoTimer = itinFaixaAberta ? setTimeout(itinFechoVenceu, ITIN_FAIXA_FECHO_MS) : 0;
-}
-function itinFechoVenceu() {
-  itinFechoTimer = 0;
-  if (!itinFaixaAberta) return;
-  if (itinFaixaApertada || itinPopupEl.classList.contains('open')) { itinFechoArmar(); return; }
-  itinFaixaAlternar(false);
-}
-if (itinBarEl) {
-  ['pointerdown', 'click', 'input', 'keydown'].forEach((t) => itinBarEl.addEventListener(t, itinFechoArmar, true));
-  itinBarEl.addEventListener('pointerdown', () => { itinFaixaApertada = true; }, true);
-  const soltou = () => { if (itinFaixaApertada) { itinFaixaApertada = false; itinFechoArmar(); } };
-  window.addEventListener('pointerup', soltou, true);
-  window.addEventListener('pointercancel', soltou, true);
 }
 if (itinBarBtnEl) itinBarBtnEl.addEventListener('click', () => itinFaixaAlternar(!itinFaixaAberta));
 
@@ -8904,7 +8887,7 @@ function linhaDeMomento(item, sob = 0) {
 }
 // A SETA DO GRUPO: para cima = aberto; o CSS a gira para baixo no recolhido. O
 // tamanho dela é do CSS (`.itin-seta > svg`): aqui só o desenho.
-const ITIN_SETA_GRUPO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>';
+const ITIN_SETA_GRUPO = '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>';
 
 // A MARCA DE AGORA na lista, pela MESMA leitura do telão (relógio deste
 // aparelho, que é a origem). Só troca classes e textos — nada se reconstrói. O
@@ -9178,7 +9161,6 @@ function fecharItinEditor() {
   if (itinRoletasObs) { itinRoletasObs.disconnect(); itinRoletasObs = null; }
   const c = document.getElementById('itinCampoTitulo');
   if (c && document.activeElement === c) c.blur();
-  itinFechoArmar();   // a faixa aberta recomeça a contar o prazo a partir daqui
 }
 
 // UM BOTÃO DE ÍCONE para "guardar isto aqui": os dois destinos de uma cena de

@@ -72,8 +72,8 @@
 //     ar o telão acompanha a troca.
 //  X. MOMENTOS OCULTOS (`#itinMomentosBtn`): a lista não desenha `li.momento`, o telão não
 //     muda, a escolha é gravada e volta da RECARGA; o arrasto de mídia segue o vizinho.
-//  Y. O FECHO SOZINHO, no relógio falso: 5 s sem toque recolhem a faixa; um toque, um dedo
-//     apoiado e a `#itinPopup` aberta adiam.
+//  Y. A FAIXA NÃO SE FECHA SOZINHA (v1.14.37): aberta, ela fica aberta no relógio falso, e só a
+//     porta da barra a recolhe (o fecho de 5 s da v1.14.35 saiu a pedido do operador).
 //  G′. O GRUPO DO MOMENTO: as classes `grupo-ini/meio/fim` (nenhuma antes do 1º momento, num
 //     momento sem mídia nem com os momentos ocultos), NENHUMA TINTA (o grupo não se pinta desde a
 //     v1.14.36: o que o separa é o respiro), a SETA do grupo como BOTÃO à esquerda do lápis, o
@@ -385,6 +385,9 @@ try {
   checar((await lista()).join(' · ') === '09:00 Recepção · 10:00 Louvor · 10:30 Sermão · 11:00 Bênção',
     'B′ · criados FORA da ordem do relógio (10:00, 09:00, 10:30, 11:00), cada um entra antes do primeiro posterior '
     + 'no relógio — a lista do cronograma sai pelo relógio', await lista());
+  // A FAIXA ABERTA ANTES DE MEDIR A FILEIRA (v1.14.37): fechada, os comandos do momento não
+  // são desenhados — a prova disso é do G′, onde há grupo e seta.
+  await abrirFaixa();
   {
     const anat = await pg.evaluate(() => {
       const li = document.querySelector('#library > li.momento');
@@ -671,50 +674,34 @@ try {
   await esperar(pg, () => innerWidth === 360);
   await pg.evaluate(() => itinAjusteZerar());
 
-  // ── Y. O FECHO SOZINHO (5 s), NO RELÓGIO FALSO ──────────────────────────
-  // Aberta, a faixa se recolhe 5 s depois do último toque NELA; um toque recomeça a conta, e
-  // nem um dedo apoiado nem a `#itinPopup` aberta a fecham (soltos, a conta recomeça). Com o
-  // relógio PARADO só o `runFor` anda, e cada leitura é direta, sem esperar.
+  // ── Y. A FAIXA NÃO SE FECHA SOZINHA (v1.14.37) ──────────────────────────
+  // Pedido do operador: *"a aba de configurações de itinerário não se fecha automaticamente"*.
+  // O fecho de 5 s da v1.14.35 saiu: aberta, ela FICA aberta até o toque na porta da barra —
+  // nem o tempo, nem a `#itinPopup` a fecham. A classe `itin-faixa-aberta` do `<body>` é o que
+  // o CSS lê para desenhar (ou não) o lápis e a lixeira do momento.
   await fecharFaixa();
   await ctx.clock.pauseAt(new Date((await pg.evaluate(() => Date.now())) + 1000));
   const faixaAberta = () => pg.evaluate(() => !document.getElementById('itinBar').hidden
     && document.getElementById('itinBarBtn').getAttribute('aria-expanded') === 'true');
-  const apoiar = () => pg.evaluate(() => document.getElementById('itinBar').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
-  const soltar = () => pg.evaluate(() => window.dispatchEvent(new PointerEvent('pointerup')));
   const abrirPelaPorta = () => pg.evaluate(() => document.getElementById('itinBarBtn').click());
   {
     const y = {};
     await abrirPelaPorta();
-    await ctx.clock.runFor(4000); y.aos4 = await faixaAberta();
-    await apoiar(); await soltar();                                  // um toque aos 4 s
-    await ctx.clock.runFor(4000); y.toque4 = await faixaAberta();    // 4 s depois do toque (8 s da abertura)
-    await ctx.clock.runFor(1500); y.toque55 = await faixaAberta();
-    checar(y.aos4 && y.toque4 && !y.toque55,
-      'Y · aberta, a faixa se recolhe SOZINHA 5 s depois do último toque nela — e um toque recomeça a conta', y);
-  }
-  {
-    const y = {};
-    await abrirPelaPorta();
-    await apoiar();                                                  // o dedo fica apoiado
-    await ctx.clock.runFor(6000); y.apoiado6 = await faixaAberta();
-    await soltar();
-    await ctx.clock.runFor(4500); y.solto45 = await faixaAberta();
-    await ctx.clock.runFor(1000); y.solto55 = await faixaAberta();
-    checar(y.apoiado6 && y.solto45 && !y.solto55,
-      'Y · com um dedo APOIADO na faixa ela não fecha (6 s); solto, a conta recomeça e ela fecha 5 s depois', y);
-  }
-  {
-    const y = {};
-    await abrirPelaPorta();
+    y.abriu = await faixaAberta();
+    y.classe = await pg.evaluate(() => document.body.classList.contains('itin-faixa-aberta'));
+    await ctx.clock.runFor(20000); y.aos20 = await faixaAberta();
     await pg.evaluate(() => document.getElementById('itinNovoBtn').click());
     await ctx.clock.runFor(6000);
-    y.folha6 = await pg.evaluate(() => document.getElementById('itinPopup').classList.contains('open'));
-    y.aberta6 = await faixaAberta();
+    y.folha = await pg.evaluate(() => document.getElementById('itinPopup').classList.contains('open'));
     await pg.evaluate(() => document.getElementById('itinPopupClose').click());
-    await ctx.clock.runFor(4500); y.fechou45 = await faixaAberta();
-    await ctx.clock.runFor(1000); y.fechou55 = await faixaAberta();
-    checar(y.folha6 && y.aberta6 && y.fechou45 && !y.fechou55,
-      'Y · com a `#itinPopup` aberta a faixa não fecha (6 s); fechada a folha, a conta recomeça e ela fecha 5 s depois', y);
+    await ctx.clock.runFor(1000);
+    y.depoisDaFolha = await faixaAberta();
+    await abrirPelaPorta();
+    y.fechouPelaPorta = await faixaAberta();
+    y.classeFinal = await pg.evaluate(() => document.body.classList.contains('itin-faixa-aberta'));
+    checar(y.abriu && y.classe && y.aos20 && y.folha && y.depoisDaFolha && !y.fechouPelaPorta && !y.classeFinal,
+      'Y · a faixa NÃO se fecha sozinha: 20 s depois ela continua aberta (e a folha do momento não a fecha); '
+      + 'só a porta da barra a recolhe, e a classe do `<body>` acompanha', y);
   }
   await ctx.clock.resume();
 
@@ -1565,6 +1552,22 @@ try {
     .map((li) => li.querySelector('.row-name').textContent + ':'
       + ['grupo-ini', 'grupo-meio', 'grupo-fim'].filter((c) => li.classList.contains(c)).map((c) => c.slice(6)).join('+')).join(' '));
   await esperar(pg, () => document.querySelectorAll('#library > li.lib-item').length === 9);
+  // AS AÇÕES DO MOMENTO SÓ COM A FAIXA ABERTA (v1.14.37): fechada, sobra a SETA do grupo.
+  {
+    const ler = () => pg.evaluate(() => {
+      const li = document.querySelector('#library > li.momento.grupo-ini');
+      const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).display !== 'none'; };
+      return [...li.querySelectorAll('.row-acoes--solta > button')].filter(vis).map((x) => (x.classList.contains('itin-seta') ? 'seta'
+        : x.classList.contains('itin-editar') ? 'editar' : 'excluir'));
+    });
+    const fechada = await ler();
+    await abrirFaixa();
+    const aberta = await ler();
+    await fecharFaixa();
+    checar(fechada.join() === 'seta' && aberta.join() === 'seta,editar,excluir',
+      'G′ · com a FAIXA FECHADA a linha do momento mostra SÓ a seta do grupo; aberta, a fileira inteira '
+      + '(seta · editar · excluir)', { fechada, aberta });
+  }
   {
     const b = await bancoMin();
     const gr = await grupos();

@@ -172,7 +172,10 @@ try {
     const rl = document.getElementById('library').getBoundingClientRect();
     const tem = b.getClientRects().length > 0, rb = b.getBoundingClientRect();
     return { tem, porta: p.getClientRects().length > 0, aberta: p.getAttribute('aria-expanded'),
-      colada: tem ? Math.abs(rb.top - rc.bottom) <= 1.5 && Math.abs(rl.top - rb.bottom) <= 1.5 && rb.height > 0
+      // ABERTA, a faixa é DESCOLADA da barra pelo `--sp-4` da margem de cima (v1.14.36) e o `#library` herda
+      // a BORDA DE BAIXO dela; RECOLHIDA, o `#library` encosta na barra (não há faixa no meio).
+      colada: tem ? Math.abs(rb.top - rc.bottom) >= 6 && Math.abs(rb.top - rc.bottom) <= 10
+        && Math.abs(rl.top - rb.bottom) <= 1.5 && rb.height > 0
         : Math.abs(rl.top - rc.bottom) <= 1.5,
       faixa: tem ? [+rb.top.toFixed(2), +rb.bottom.toFixed(2)] : null,
       cabecalhoBase: +rc.bottom.toFixed(2), listaTopo: +rl.top.toFixed(2) };

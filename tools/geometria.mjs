@@ -157,7 +157,7 @@ export const SUPERFICIES = [
     // `#itinBarBtn`: sem esta superfície os `.itin-b` não seriam medidos por ninguém. O
     // alvo pede também as ações SOLTAS do momento da SEMENTE (`.row-acoes--solta`, alvo
     // `--hit`) e o GRUPO dele COM mídia (`.grupo-ini` … `.grupo-fim`, a moldura em
-    // `::after`). Ela se recolhe após 5 s sem toque; a sonda mede ao assentar.
+    // `::after`). Ela NÃO se recolhe sozinha (v1.14.37); a sonda mede ao assentar.
     nome: 'faixa do itinerário',
     abrir: () => {
       setAppMode('full');

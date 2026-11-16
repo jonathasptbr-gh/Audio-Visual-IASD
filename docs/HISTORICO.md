@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.37** — a faixa do itinerário não se fecha mais sozinha, e o lápis e a lixeira do momento só aparecem com ela aberta; a seta do grupo no tamanho dos vizinhos (Pacote 36, os ajustes do operador; só web).
 - **v1.14.36** — o itinerário sem a tinta do grupo, a seta como botão à esquerda do lápis, a faixa descolada da barra do topo com animação e o telão mostrando a lista inteira (Pacote 36, só web).
 - **v1.14.35** — a faixa do itinerário em três seções, o grupo do momento e os horários que voltam a andar (só web).
 - **v1.14.34** — a faixa do Itinerário no piso de toque (o rótulo "Telão" cede nas telas estreitas) e escondida sob as folhas de Ferramentas e da Bíblia; fecha o `verificar` vermelho desde a v1.14.32 (só web; `shellTag` v1.14.34).
@@ -837,6 +838,23 @@ apagada da que a criou.
   `antesDaPauta` = depois = PDF continua cobrando isso.
 
 ---
+
+## v1.14.37 — a faixa do itinerário fica aberta, e o lápis e a lixeira do momento só aparecem com ela
+
+**Pacote 36, os três ajustes que o operador pediu em 15/11 depois de ver a prévia aprovada. Só web.**
+
+- **A FAIXA NÃO SE FECHA SOZINHA.** Saiu o fecho de 5 s da v1.14.35 com tudo o que o
+  sustentava (`ITIN_FAIXA_FECHO_MS`, `itinFechoArmar`/`itinFechoVenceu`, `itinFaixaApertada`
+  e os quatro ouvintes em captura): aberta, ela fica aberta até o toque na porta da barra
+  do topo. É o que o desenho abaixo pede — com a aba aberta, a linha do momento vira o
+  "modo de edição" da lista.
+- **O LÁPIS E A LIXEIRA SÓ COM A ABA ABERTA.** Fechada, a linha do momento mostra apenas
+  a SETA do grupo (que abre e fecha o grupo sem abrir a faixa); aberta, a fileira inteira.
+  O estado virou a classe `itin-faixa-aberta` no `<body>`, escrita por `itinFaixaAlternar`,
+  e o CSS a lê: nada redesenha a lista, então a rolagem e a pergunta do excluir não se
+  perdem no toque da porta.
+- **A SETA COM OS MESMOS 19 px** do lápis e da lixeira: o `<svg>` dela não tinha
+  `width`/`height` e caía num `.95rem` do CSS, que lia menor que os dois vizinhos.
 
 ## v1.14.36 — o itinerário sem tinta, a seta à esquerda do lápis, a faixa descolada da top bar e o telão com a lista inteira
 

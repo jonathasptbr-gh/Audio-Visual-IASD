@@ -7242,7 +7242,7 @@ main {
    Pedido do operador: os títulos do itinerário moram na lista do Cronograma, com
    outra formatação, e as opções dele numa segunda linha MAIS ESTREITA logo abaixo
    da barra do topo — que nasce recolhida, abre pelo `#itinBarBtn` da barra e se
-   recolhe sozinha (`ITIN_FAIXA_FECHO_MS`). Duas peças: a LINHA DO MOMENTO e a
+   FICA aberta até o toque de volta nela (v1.14.37). Duas peças: a LINHA DO MOMENTO e a
    FAIXA DE OPÇÕES (`#itinBar`). */
 
 /* A LINHA DO MOMENTO: um TÍTULO que organiza as mídias que vêm depois dele, e por
@@ -7270,10 +7270,15 @@ main {
 /* A SETA DO GRUPO (`ITIN_SETA_GRUPO`) É UM BOTÃO, à ESQUERDA do lápis (pedido de
    15/11): a posição é visual, o toque é o mesmo do corpo do card (recolhe e expande
    o grupo). Ela veste a `.row-btn` da `.row-acoes--solta` — alvo `--hit`, sem fundo,
-   `--muted` —, e o ícone é que é pequeno; sem tamanho ele cai no padrão do `<svg>`
-   (300×150) e estoura a linha. Girada para baixo no recolhido. */
-.itin-seta > svg { width: .95rem; height: .95rem; }
+   `--muted` — e o ícone tem os MESMOS 19 px do lápis e da lixeira (sem os atributos
+   de tamanho ele cai no padrão do `<svg>`, 300×150, e estoura a linha). Girada para
+   baixo no recolhido. */
 .lib-item.momento.recolhido .itin-seta > svg { transform: rotate(180deg); }
+/* O LÁPIS E A LIXEIRA SÓ COM A FAIXA ABERTA (pedido de 15/11): a linha do momento é
+   um título, e os comandos dela aparecem junto com a aba de configurações — que fica
+   aberta até o toque no botão da barra. Fechada, sobra só a SETA, que abre e fecha o
+   grupo sem abrir a faixa. A classe é do `itinFaixaAlternar`. */
+body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-editar, .row-excluir) { display: none; }
 /* O GRUPO DO MOMENTO (pedido de 15/11): o momento e as mídias até o próximo. As
    classes são de `marcarGruposDoItinerario`, e elas ficam porque o ARRASTO do grupo
    depende delas (`arrasto.grupo`). **SEM TINTA NENHUMA** (pedido de 15/11: *"Remova o

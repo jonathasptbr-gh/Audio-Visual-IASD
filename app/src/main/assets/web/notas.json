@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.14.37",
+    "itens": [
+      "A aba de configurações do itinerário não se fecha mais sozinha.",
+      "Ela fica aberta até você tocar de novo no botão dela na barra do topo.",
+      "O lápis e a lixeira do momento só aparecem com essa aba aberta.",
+      "Com a aba fechada, sobra à direita só a seta que abre e fecha o grupo.",
+      "A seta ficou do mesmo tamanho do lápis e da lixeira."
+    ]
+  },
+  {
     "versao": "1.14.36",
     "itens": [
       "Saíram as faixas coloridas do itinerário: as linhas voltaram a ser só texto.",

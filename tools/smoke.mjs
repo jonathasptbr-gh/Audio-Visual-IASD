@@ -4125,7 +4125,9 @@ try {
   checar(!eixo.erro && igual(emY(telas)) && igual(telas.map((t) => t.faixaH))
     && eixo.livros.listaY === eixo.capitulos.listaY
     && eixo.crono.bandaH > 0
-    && Math.abs((eixo.crono.listaY - eixo.livros.listaY) - eixo.crono.bandaH) <= 1,
+    && (() => { const d = eixo.crono.listaY - eixo.livros.listaY;
+      // a faixa cede a ALTURA dela e ainda o `--sp-4` da margem de cima (v1.14.36: descolada da barra)
+      return d >= eixo.crono.bandaH && d <= eixo.crono.bandaH + 10; })(),
     'e não DESCE tampouco: a linha da grade é declarada, então a altura da faixa '
     + 'não é mais a do item mais alto — o título fica no mesmo y nas três telas, e '
     + 'a lista só sobe quando a FOLHA está aberta, pela altura da faixa do '
