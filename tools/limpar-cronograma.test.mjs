@@ -134,8 +134,17 @@ try {
         rotulo: b ? b.getAttribute('aria-label') : null,
         // SEM CORPO: `background: none` computa para `rgba(0, 0, 0, 0)`.
         fundo: cs && cs.backgroundColor,
-        // NA TRILHA 1: encostado à esquerda, antes do título.
+        // NA TRILHA 1, antes do título. Desde o Pacote 37 a PRIMEIRA da trilha é a
+        // porta do itinerário (o operador trocou os dois de lugar) e o Importar entra
+        // logo à direita dela: o que se mede é a borda esquerda do Importar, e ela é
+        // `--hit` + `--sp-2` depois da porta quando ela está à vista.
         esq: b ? +(b.getBoundingClientRect().left - h.left).toFixed(1) : null,
+        portaEsq: (() => {
+          const p = document.getElementById('itinBarBtn');
+          if (!p || !p.getClientRects().length) return null;
+          const r = p.getBoundingClientRect();
+          return { esq: +(r.left - h.left).toFixed(1), fim: +(r.right - h.left).toFixed(1) };
+        })(),
         antes: b ? b.getBoundingClientRect().right <= t.left : false,
         // A CAIXA é a mesma da engrenagem em frente — o `--hit` da barra.
         cx: b ? +b.getBoundingClientRect().width.toFixed(1) : null,
@@ -158,8 +167,12 @@ try {
     checar(!r.limpar && !r.simboloVelho && !r.portaVelha,
       'A · o LIMPAR saiu da barra (com o desenho da lixeira-com-lista), e a porta '
       + '"Importar" saiu do rodapé (v1.13.5)', JSON.stringify(r));
-    checar(r.existe && r.esq < 24 && r.antes,
-      'A · e o IMPORTAR mora na trilha 1 da barra, encostado à ESQUERDA, antes do título',
+    const trilha1 = r.portaEsq === null
+      ? (r.esq !== null && r.esq < 24)
+      : (r.portaEsq.esq < 24 && Math.abs(r.esq - r.portaEsq.fim) <= 12);
+    checar(r.existe && trilha1 && r.antes,
+      'A · e o IMPORTAR mora na trilha 1 da barra, à esquerda (à direita da porta do itinerário, quando ela está '
+      + 'à vista — Pacote 37) e antes do título',
       JSON.stringify(r));
     checar(r.filhos.length === 1 && r.filhos[0] === 'svg' && r.texto === '' && /importar/i.test(r.rotulo || ''),
       'A · e é SÓ o ícone — nenhum rótulo à vista, e o nome acessível diz o que ele faz',
