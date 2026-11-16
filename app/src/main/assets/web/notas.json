@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.14.45",
+    "itens": [
+      "Nos Favoritos, as opções de play ganharam o botão Detalhes: tipo, formato, tamanho, canal e data.",
+      "A imagem mostra também a dimensão, e o PDF diz que é PDF (antes a linha só dizia Arquivo).",
+      "Abrir as opções de edição com as de play abertas não pinta mais uma barra de outra cor.",
+      "A divisória não marca mais a borda do card escuro; nas outras linhas ela continua."
+    ]
+  },
+  {
     "versao": "1.14.44",
     "itens": [
       "Em tela cheia, com o celular deitado, a barra de nível do volume não fura mais a pílula.",

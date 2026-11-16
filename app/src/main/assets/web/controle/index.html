@@ -2015,7 +2015,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.44</span>
+          <span id="appVersion">v1.14.45</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
@@ -3217,6 +3217,37 @@
       <input type="range" id="volSlider" class="fader" min="0" max="100" value="100" aria-label="Volume da mídia">
     </span>
     <span id="volValue" class="fader-value" aria-hidden="true">100</span>
+  </div>
+
+  <!-- ===== O AVISO DA ABERTURA (v1.14.46) =====
+       O piso de 60% do volume do sistema (v1.13.65) subia o som do telefone sem
+       dizer nada. Este cartão conta o que o app fez e oferece as duas saídas que
+       o operador pediu: o MUDO do app e o NÃO PERTURBE do sistema.
+
+       Ele nasce no TOPO pelo motivo do aviso de salvamento: ali não cobre o
+       transporte, na base, e um cartão ancorado na lista da Biblioteca ficaria
+       atrás das folhas. Nasce `hidden`; quem o acende é o `mostrarAvisoDoVolume`,
+       só quando o piso REALMENTE agiu — um aviso a cada abertura mentiria sobre
+       um volume que já estava lá.
+
+       O botão do Não perturbe também nasce `hidden`: ele só aparece depois que a
+       ponte responde o estado (shell 89). Num casco antigo ele não existe, e um
+       botão que não faz nada é pior que um botão ausente. -->
+  <div class="vol-aviso" id="volAvisoPop" role="status" aria-live="polite" hidden>
+    <div class="vol-aviso-topo">
+      <span class="vol-aviso-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#icoSom"/></svg>
+      </span>
+      <strong id="volAvisoPopTitulo">Som do celular em 60%</strong>
+      <button type="button" class="vol-aviso-fechar" id="volAvisoPopFechar" aria-label="Fechar o aviso">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <p class="vol-aviso-texto" id="volAvisoPopTexto">O app subiu o volume do aparelho.</p>
+    <div class="vol-aviso-acoes">
+      <button type="button" class="vol-aviso-acao" id="volAvisoPopMutar">Mutar</button>
+      <button type="button" class="vol-aviso-acao" id="volAvisoPopDnd" hidden>Não perturbe</button>
+    </div>
   </div>
 
   <script src="../shared/native.js"></script>

@@ -705,6 +705,7 @@ jobs:
           rodar tools/semana-item.test.mjs
           rodar tools/destinos-diretos.test.mjs
           rodar tools/favoritos-menu-na-linha.test.mjs
+          rodar tools/favoritos-detalhes.test.mjs
           rodar tools/engrenagem-do-item.test.mjs
           rodar tools/biblioteca-posicao.test.mjs
           rodar tools/som-nao-vaza-ao-perder-a-tela.test.mjs
@@ -731,6 +732,7 @@ jobs:
           rodar tools/leitor-do-transporte.test.mjs
           rodar tools/controles-layout.test.mjs
           rodar tools/volume-troca.test.mjs
+          rodar tools/aviso-do-volume.test.mjs
           rodar tools/nao-perturbe.test.mjs
           rodar tools/sombra-das-portas.test.mjs
           rodar tools/portas-presenca.test.mjs

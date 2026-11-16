@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.45** — os Favoritos: o botão Detalhes por tipo na gaveta de play, a faixa do ⋮ vestindo o tom do card aberto e a divisória que marcava a borda dele (só web).
 - **v1.14.44** — em tela cheia e deitado, o nível do volume cabe na pílula: o trilho cede altura em vez de furar a cápsula (só web).
 - **v1.14.43** — a tela cheia da música no Modo Fácil não desfaz mais sozinha: só a da regra do vídeo sai na troca de mídia, a da tecla continua até o Parar, o fim ou uma tela conectada (Pacote 38, defeito de 15/11; só web).
 - **v1.14.42** — o importar da Biblioteca vira um botão no FIM da lista e a folha dele ganha a oferta (miniatura, nome, tipo, duração, tamanho) e as opções completas: Tocar agora · Cronograma · Playlist · Favoritos (só web).
@@ -909,6 +910,58 @@ a folha com a oferta e os quatro botões; Tocar agora pondo na cena pela pratele
 `lista-da-biblioteca` D5b e `titulo-da-colecao-nao-anda` deixaram de contar o botão como bloco de
 acervo; `tour` B2 aceita o passo do fim como opcional; `smoke`, `boot-nativo`,
 `modo-simples-biblioteca-tamanho` e `semana-item` voltaram ao que eram antes da v1.14.40.
+
+---
+
+## v1.14.45 — os Favoritos: o card de detalhes, a faixa e a divisória
+
+**Três relatos do operador (2026-11-16, 10h30–10h33), todos na tela dos Favoritos. Só web.**
+
+1. *"Ao abrir as opções de play e depois abrir as opções de modificações do item, uma barra de cor
+diferente cobre o fundo da seção de opções de edição."*
+2. *"Nas opções de play de entrada de importação ou compartilhamento… todas essas ficam com a linha
+de opções de play com poucos itens na esquerda, pois não tem o botão de 'detalhes'. Adicione esse
+botão, e para cada tipo de item, tente buscar o máximo de informações para pôr nessa seção."*
+3. *"Ao abrir a opção de play, a linha divisória entre os itens, que fica acima do item aberto, fica
+marcando a borda desse card escuro de opções de play. Na lista do hinário, por exemplo, a linha não
+fica sobrepondo."*
+
+**O (1) era o tom da faixa.** A `.row-acoes` do favorito pinta
+`linear-gradient(--linha, --linha), --panel` desde a v1.13.68, e o `--panel` é o tom da PLACA. Com a
+gaveta aberta a `.row` passa a pintar `--gaveta-bg` (a regra do `.lib-item.expanded > .row`), e a
+faixa continuava no `--panel` — o retângulo virava uma barra clara no meio do card escuro. A
+correção é a MESMA conta da regra do `.row`, com os mesmos `:not()` (no ar e acesa continuam no
+preenchimento de estado, que já é opaco): `background: var(--gaveta-bg)`.
+
+**O (2) é o segundo botão largo da fileira.** O "Detalhes" é o irmão do "Ver a letra" — os dois
+REVELAM, não mandam a mídia a lugar nenhum —, e por isso usa o mesmo `.dest-largo`; com os dois, a
+fileira quebra e ele desce para uma linha só dele (o texto nunca corta). O card é o `.item-detalhe`
+da gaveta de um vídeo, sem desenho novo, e `montarDetalhesDoItem` escreve o que o REGISTRO sabe, cada
+linha só se o dado existir: tipo + formato (o subtítulo para no tipo — é daí que vem "Áudio MP3" e
+"PDF", que a linha só sabia chamar de "Arquivo"), canal (fora do subtítulo), origem ("Arquivo neste
+aparelho" / "Baixado do YouTube"), tamanho (a soma das páginas numa apresentação), páginas, letra,
+mídias de um pacote, a dimensão de uma imagem (a única que se decodifica, sob demanda) e a data do
+registro. Nada de rede; nada de "undefined".
+
+**E o nome do estado mudou:** `vendo-letra` (a metade de baixo de um vídeo era a letra) passou a
+`vendo-detalhe`, porque a mesma classe passou a abrir o card de um áudio, de uma imagem, de um PDF. O
+`boot-nativo` foi atualizado junto.
+
+**O (3) é a mesma regra da v1.13.9 que não alcançava a placa.** "A ESCOLHA NÃO TEM DIVISÓRIA" apaga o
+traço do item aberto e o da vizinha de baixo nas faixas do acervo e da busca, e a placa dos Favoritos
+ficou de fora na época: os dois traços continuavam a 4px do card escuro e eram lidos como a BORDA
+dele. Os dois seletores entraram na mesma regra.
+
+**Oráculo.** `favoritos-detalhes` (novo, no CI, 360×740): **A** o "Detalhes" largo em todo favorito,
+e os dois largos quando há letra; **B** abre/fecha pelo botão (`vendo-detalhe`, `.on`,
+`aria-pressed`) e o card traz formato, tamanho, origem e data; **C** por tipo — áudio "Áudio MP3",
+PDF "PDF", imagem com a dimensão decodificada (PNG 1×1 de verdade) e vídeo do YouTube com canal e
+origem, sem "undefined"; **D** a faixa do `⋮` pinta o MESMO tom da `.row` e do card (a régua é o
+vizinho RENDERIZADO); **E** a divisória do aberto e a da vizinha de baixo somem, e a de uma linha
+fechada distante fica. `boot-nativo` só trocou o nome da classe. **Reversões MEDIDAS:** sem a regra
+da faixa, D reprova (faixa `rgb(46,54,63)` contra o card `rgb(11,18,25)`); sem os seletores da
+divisória, E reprova (`display: block` nos dois traços). **Não testado em aparelho** — o resíduo está
+declarado.
 
 ---
 

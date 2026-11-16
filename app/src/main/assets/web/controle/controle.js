@@ -37,6 +37,15 @@ const volValueEl = document.getElementById('volValue');
 const volPillEl = document.getElementById('volPill');
 const volPillMuteEl = document.getElementById('volPillMute');
 const volPillAvisoEl = document.getElementById('volPillAviso');
+// O AVISO DA ABERTURA (v1.14.46): o cartão que conta o piso de 60% e oferece o
+// mudo e o Não perturbe. Nasce `hidden` no HTML; quem o acende é
+// `mostrarAvisoDoVolume`, e só quando o piso REALMENTE agiu.
+const volAvisoPopEl = document.getElementById('volAvisoPop');
+const volAvisoPopTituloEl = document.getElementById('volAvisoPopTitulo');
+const volAvisoPopTextoEl = document.getElementById('volAvisoPopTexto');
+const volAvisoPopMutarEl = document.getElementById('volAvisoPopMutar');
+const volAvisoPopDndEl = document.getElementById('volAvisoPopDnd');
+const volAvisoPopFecharEl = document.getElementById('volAvisoPopFechar');
 const pvMuteNumEl = document.getElementById('pvMuteNum');
 const pvCastBtnEl = document.getElementById('pvCastBtn');
 const fsCtlEl = document.getElementById('pvFsCtl');
@@ -415,7 +424,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.44';
+const WEB_VERSION = '1.14.45';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -14511,7 +14520,15 @@ function linhaDeItem(item, opts) {
   // (A faixa excluir · renomear nasce na LINHA, logo acima — v1.13.68. Faltam a
   // ESTRELA, que nesta lista terminaria no mesmo `listRemove('favs')` do excluir,
   // e o botão da PLAYLIST, que aqui é um BOTÃO da fileira de destinos da gaveta.)
-  gaveta.append(opcoes);
+  // ===== A METADE DE BAIXO: OS DETALHES (v1.14.45) =====
+  //
+  // O `.item-detalhe` da gaveta de um vídeo, aqui para QUALQUER item — importado,
+  // compartilhado, baixado ou uma cena do roteiro. Nasce VAZIO e só é preenchido
+  // quando o botão "Detalhes" o abre (`montarDetalhesDoItem`): montá-lo para todas
+  // as linhas custaria uma leitura de registro por linha que ninguém pediu.
+  const detalhe = document.createElement('div');
+  detalhe.className = 'item-detalhe';
+  gaveta.append(opcoes, detalhe);
 
   function abrir() {
     // A gaveta que se fecha aqui pode estar PERGUNTANDO (v5.301) — e um "sim"
@@ -14528,7 +14545,7 @@ function linhaDeItem(item, opts) {
     // que vai ficar em cena. (Desde a v1.13.68 a gaveta é só os destinos: a faixa
     // de ações e o `⋮` moram na linha, e o `alvo.innerHTML = ''` do
     // `renderItemMenu` não os alcança.)
-    renderItemMenu(item, opcoes, cfg.destinos);
+    renderItemMenu(item, opcoes, cfg.destinos, detalhe);
     li.classList.add('expanded');
     expandAccordion(gaveta);
     // DEPOIS DA ANIMAÇÃO, pelo motivo do `alinharGrupoNoTopo`: durante os
@@ -14598,7 +14615,7 @@ function linhaDeItem(item, opts) {
 // O resto é a MESMA fileira de botões diretos do acervo (`destBotoesRow`), pelo
 // motivo de sempre: uma segunda anatomia divergiria da primeira no próximo ajuste.
 
-function renderItemMenu(item, alvo, destinos) {
+function renderItemMenu(item, alvo, destinos, detalhe) {
   destLimpar();
   songMenuFor = { item, alvo };
   // QUAIS destinos, e por que isto é parâmetro (v5.290): numa linha de FAVORITO
@@ -14618,6 +14635,7 @@ function renderItemMenu(item, alvo, destinos) {
   // uma promessa sobre algo que não existe (a captura do operador: um vídeo dos
   // Favoritos com o botão largo morto). Não oferecer vale mais que explicar.
   const temLetraNoItem = Array.isArray(item.lyrics) && item.lyrics.some((l) => l && l.text);
+  const li = alvo.closest('.lib-item');
   const desenhar = () => {
     alvo.innerHTML = '';
     destRemontar = desenhar;
@@ -14625,6 +14643,10 @@ function renderItemMenu(item, alvo, destinos) {
     const fileira = destBotoesRow([
       ...destBotoesPadrao(quais, fazer),
       temLetraNoItem ? destBotaoLeitura(() => openLyricsPopup(item)) : null,
+      // O SEGUNDO LARGO, e ele REVELA como o primeiro (v1.14.45): não manda a
+      // mídia a lugar nenhum. Com os dois, a fileira quebra e o "Detalhes" desce
+      // para uma linha só dele (a regra do `.dest-largo`) — o texto nunca corta.
+      destBotaoDetalhesDoItem(item, li, detalhe),
     ]);
     // (O `⋮` das OPÇÕES DO ITEM — excluir · renomear — morou nesta fileira da
     // v1.13.36 à v1.13.67, e por isso só existia com a gaveta aberta. Desde a
@@ -14633,6 +14655,165 @@ function renderItemMenu(item, alvo, destinos) {
     alvo.appendChild(fileira);
   };
   desenhar();
+}
+
+// ===== O BOTÃO DE DETALHES DE UM ITEM QUE JÁ EXISTE (v1.14.45) =====
+//
+// Pedido do operador: *"nas opções de play de entrada de importação ou
+// compartilhamento … todas essas ficam com a linha de opções de play com poucos
+// itens na esquerda, pois não tem o botão de 'detalhes'. Adicione esse botão, e
+// para cada tipo de item, tente buscar o máximo de informações para pôr nessa
+// seção"*.
+//
+// É o SEGUNDO botão largo da fileira, com a MESMA natureza do "Ver a letra" ao
+// lado: ele não manda nada a lugar nenhum, ele revela. O estado mora na classe
+// do `li` (`vendo-detalhe`), que sobrevive à remontagem da fileira — a MESMA
+// classe da gaveta de um vídeo, que nasceu `vendo-letra` e passou a valer para o
+// card inteiro (ver o comentário da regra, no CSS).
+function destBotaoDetalhesDoItem(item, li, detalhe) {
+  const temCard = !!(li && detalhe);
+  return {
+    chave: 'detalhes',
+    rotulo: 'Ver os detalhes do item',
+    texto: 'Detalhes',
+    on: temCard && li.classList.contains('vendo-detalhe'),
+    disabled: !temCard,
+    motivo: 'esta linha não tem card de detalhes',
+    acao: (btn) => {
+      if (!temCard) return;
+      const on = li.classList.toggle('vendo-detalhe');
+      btn.classList.toggle('on', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      // SÓ NA ABERTURA: o card é montado uma vez e a classe o mostra e esconde.
+      if (on) montarDetalhesDoItem(item, detalhe);
+    },
+  };
+}
+
+// ===== O QUE O CARD DIZ (v1.14.45) =====
+//
+// CADA LINHA SÓ EXISTE SE O DADO EXISTIR — a regra do `montarDetalhe`, e por um
+// motivo que vale dobrado aqui: metade destes itens veio de fora do app (um
+// arquivo compartilhado, uma pasta do aparelho), e um card que escreve
+// "undefined" é o app contando o próprio estado a quem perguntou pelo item.
+//
+// NADA DE REDE: o que o registro sabe já está no registro. A única medida que
+// custa trabalho é a DIMENSÃO de uma imagem (decodificar os bytes), e ela é paga
+// AQUI, quando o card é pedido — nunca por linha, a cada render.
+//
+// A ORDEM É A DAS PERGUNTAS: *o que é isto?* (o tipo) · *de onde veio?* (o
+// caso do pedido: importado ou compartilhado) · *quanto ocupa?* · *o que ele tem
+// dentro?* (páginas, letra, mídias do pacote) · *quando entrou?*.
+// O FORMATO que o registro declara (o subtítulo da linha não o diz — ele para no
+// TIPO). O mapa é pequeno de propósito: o que não está nele é um MIME que o app
+// não abre, e aí a linha do tipo já basta.
+const DETALHE_FORMATO = {
+  mp4: 'MP4', webm: 'WEBM', quicktime: 'MOV', 'x-matroska': 'MKV',
+  mpeg: 'MP3', mp3: 'MP3', wav: 'WAV', 'x-wav': 'WAV', ogg: 'OGG', 'x-m4a': 'M4A',
+  jpeg: 'JPEG', jpg: 'JPEG', png: 'PNG', webp: 'WEBP', gif: 'GIF',
+};
+function formatoDoItem(item) {
+  const sub = String(item.type || '').split('/')[1] || '';
+  return DETALHE_FORMATO[sub.toLowerCase()] || '';
+}
+function tipoDoItem(item) {
+  if (isCue(item)) return (CUES[item.cue] && CUES[item.cue].nome) || 'Cena de roteiro';
+  if (item.kind === 'deck') return 'Apresentação';
+  if (ehPptx(item)) return 'Apresentação PPTX';
+  if (ehPdf(item)) return 'PDF';
+  // O LINK SEM BYTES não acrescenta nada ao subtítulo ("YouTube" / "Link
+  // externo"): o card dele começa no canal, no tamanho (quando há) e na data.
+  if (item.kind === 'youtube') return item.blob ? 'Vídeo do YouTube' : '';
+  const base = item.kind === 'video' ? 'Vídeo'
+    : item.kind === 'audio' ? 'Áudio'
+      : item.kind === 'image' ? 'Imagem'
+        : item.url ? '' : 'Arquivo';
+  const fmt = formatoDoItem(item);
+  if (!base) return '';   // link sem formato conhecido: já dito no subtítulo
+  return fmt ? base + ' ' + fmt : base;
+}
+// DE ONDE ELE VEIO, e só quando o registro afirma: `youtubeId` é o que separa o
+// "baixado do YouTube" de um arquivo qualquer, e a ausência de blob já é dita
+// pelo subtítulo da linha ("Link externo"). Um item de pasta do aparelho tem
+// `url` de arquivo servido, então `url` sozinho NÃO é "link de fora".
+function origemDoItem(item) {
+  if (isCue(item) || !item) return '';
+  if (item.youtubeId) return item.blob ? 'Baixado do YouTube' : '';
+  return item.blob ? 'Arquivo neste aparelho' : '';
+}
+function bytesDoItem(item) {
+  if (item.kind === 'deck' && Array.isArray(item.pages)) {
+    return item.pages.reduce((n, p) => n + ((p && p.size) || 0), 0);
+  }
+  // Um arquivo de PASTA DO APARELHO não tem blob: o tamanho dele é o que a
+  // varredura gravou (`size`), e é o mesmo dado, no mesmo lugar de sempre.
+  return (item.blob && item.blob.size) || item.size || 0;
+}
+function montarDetalhesDoItem(item, alvo) {
+  if (!item || !alvo || alvo.dataset.montado === '1') return;
+  alvo.dataset.montado = '1';
+  alvo.innerHTML = '';
+  const txt = document.createElement('div');
+  txt.className = 'item-detalhe-txt';
+  const reservar = (classe) => {
+    const el = document.createElement('span');
+    el.className = 'item-detalhe-linha' + (classe ? ' ' + classe : '');
+    el.hidden = true;
+    txt.appendChild(el);
+    return el;
+  };
+  const linha = (texto, classe) => {
+    const t = String(texto == null ? '' : texto).trim();
+    if (!t) return null;
+    const el = reservar(classe);
+    el.textContent = t;
+    el.hidden = false;
+    return el;
+  };
+  // A IDENTIDADE DO CARD é o TIPO, na `.item-detalhe-titulo` que a gaveta de um
+  // vídeo já usa para a linha de entrada. O NOME não se repete: ele está na linha
+  // logo acima, e a regra do `montarDetalhe` já diz que a mesma frase duas vezes
+  // não acrescenta nada.
+  //
+  // E O TIPO TAMBÉM NÃO SE REPETE: o subtítulo da linha já diz "Áudio", "Vídeo",
+  // "Apresentação"... O que o card acrescenta é o FORMATO ("Áudio MP3", "Vídeo
+  // MP4") ou o tipo que o subtítulo não sabia ("PDF", "Apresentação PPTX" — para
+  // ele a linha diz só "Arquivo"). Quando não sobra diferença, a linha não existe.
+  const tipo = tipoDoItem(item);
+  const jaDito = subtituloItem(item).split(' · ')[0];
+  if (tipo && tipo !== jaDito) linha(tipo, 'item-detalhe-titulo');
+  // O CANAL não está no subtítulo, e é a metade da identidade de um vídeo do
+  // YouTube — por isso ele vem logo depois do tipo, antes do "de onde veio", e
+  // SEM prefixo: é assim que o card da gaveta de um vídeo já o escreve, e
+  // "Canal Canal do culto" é o que um prefixo fixo produz.
+  if (item.canal) linha(item.canal);
+  linha(origemDoItem(item));
+  const bytes = bytesDoItem(item);
+  if (bytes) linha(fmtBytes(bytes));
+  if (item.kind === 'deck' && Array.isArray(item.pages) && item.pages.length) {
+    linha(item.pages.length + (item.pages.length === 1 ? ' página' : ' páginas'));
+  }
+  const letras = Array.isArray(item.lyrics) ? item.lyrics.filter((l) => l && l.text).length : 0;
+  if (letras) linha('Letra com ' + letras + (letras === 1 ? ' linha' : ' linhas'));
+  if (isCue(item) && item.cue === 'group') {
+    const n = item.data && Array.isArray(item.data.ids) ? item.data.ids.length : 0;
+    if (n) linha(n + (n === 1 ? ' mídia no pacote' : ' mídias no pacote'));
+  }
+  // A DIMENSÃO DA IMAGEM: o registro não a guarda (só o vídeo tem `height`,
+  // porque quem o gravou sabia), então ela sai de uma decodificação sob demanda.
+  // A linha nasce reservada e só aparece se o decode vingar — um arquivo
+  // corrompido não vira erro na tela.
+  if (item.kind === 'image' && item.blob && typeof createImageBitmap === 'function') {
+    const dim = reservar();
+    createImageBitmap(item.blob).then((bmp) => {
+      if (!alvo.isConnected) return;
+      dim.textContent = bmp.width + ' × ' + bmp.height + ' px';
+      dim.hidden = false;
+      if (typeof bmp.close === 'function') bmp.close();
+    }).catch(() => { dim.remove(); });
+  }
+  if (item.createdAt) linha('Criado em ' + new Date(item.createdAt).toLocaleDateString('pt-BR'));
+  alvo.appendChild(txt);
 }
 
 // Projetar um item que já existe — o que o toque na linha fazia até a v5.287.
@@ -27122,9 +27303,9 @@ function hymnResultRow(coll, s, lyricHit, semColecao, opts) {
       // pendurá-la na abertura gastaria uma por gaveta aberta, inclusive nas que o
       // operador abre só para mandar o episódio ao Cronograma.
       r.__detalhes = {
-        aberto: () => li.classList.contains('vendo-letra'),
+        aberto: () => li.classList.contains('vendo-detalhe'),
         alternar: () => {
-          const on = li.classList.toggle('vendo-letra');
+          const on = li.classList.toggle('vendo-detalhe');
           if (on) pedirDetalhes();
           return on;
         },
@@ -27332,7 +27513,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao, opts) {
     // progresso (a cada 400 ms) alcançava a lista no meio da montagem, o `li`
     // deste toque virava órfão e o `expanded` das últimas linhas caía num nó
     // fora do documento — o toque não abria nada e nada explicava por quê.
-    // Sem CSS próprio de propósito: é estado, como `expanded` e `vendo-letra`.
+    // Sem CSS próprio de propósito: é estado, como `expanded` e `vendo-detalhe`.
     li.classList.add('abrindo');
     try {
       // A gaveta é montada ANTES de abrir: a animação mede a altura do que vai
@@ -42890,8 +43071,89 @@ function acertarPisoDoVolumeDoSistema() {
     if (r.atual / r.max >= VOL_SISTEMA_PISO) return r;
     AVNative.systemVolumeDefinir(VOL_SISTEMA_PISO);
     diagC('volume do sistema abaixo do piso: definido em ' + Math.round(VOL_SISTEMA_PISO * 100) + '%');
-    return lerVolumeDoSistema();
+    // O AVISO (v1.14.46): o piso AGIU, e o operador passa a ver o que aconteceu.
+    // O número sai da RELEITURA, não da fração pedida — o arredondamento de
+    // degrau do aparelho pode não reproduzir os 60% exatos, e o aviso não pode
+    // prometer um volume que o telefone não tem.
+    return lerVolumeDoSistema().then((depois) => {
+      mostrarAvisoDoVolume(depois || r);
+      return depois;
+    });
   }).catch(() => null);
+}
+
+// ===== O AVISO DA ABERTURA (v1.14.46) =====
+// O PISO conta o que fez, e oferece as duas saídas que o operador pediu para
+// "ter mais controle sobre a precisão do que está sendo feito": o MUDO do app
+// (o mesmo `#muteToggle`, o mesmo comando) e o NÃO PERTURBE do sistema.
+//
+// ELE NASCE SÓ QUANDO O PISO AGIU. Um aviso a cada abertura mentiria sobre um
+// volume que já estava lá, e o número viraria ruído em dois dias.
+//
+// A DEGRADAÇÃO É DECLARADA, não improvisada: num casco 88 o `naoPerturbe` do
+// `native.js` resolve `null`, o botão do sistema não aparece e o cartão fica com
+// UMA saída — a que aquele aparelho sabe fazer. O `hidden` do botão no HTML é a
+// primeira metade disso; a segunda é a resposta da ponte.
+const VOL_AVISO_MS = 12000;
+let volAvisoTimer = null;
+
+function esconderAvisoDoVolume() {
+  clearTimeout(volAvisoTimer); volAvisoTimer = null;
+  if (volAvisoPopEl) volAvisoPopEl.hidden = true;
+}
+
+function mostrarAvisoDoVolume(r) {
+  if (!window.__NATIVE__ || !volAvisoPopEl) return;
+  const pct = r && r.max ? Math.round((r.atual / r.max) * 100) : Math.round(VOL_SISTEMA_PISO * 100);
+  volAvisoPopTituloEl.textContent = 'Som do celular em ' + pct + '%';
+  volAvisoPopTextoEl.textContent = 'O app subiu o volume do aparelho para ' + pct + '%.';
+  volAvisoPopMutarEl.textContent = muted ? 'Com som' : 'Mutar';
+  volAvisoPopEl.hidden = false;
+  // O RÓTULO VEM DO ESTADO REAL, não de um palpite: com o Não perturbe já ligado
+  // (por qualquer caminho), o toque DESLIGA — e um botão que só sabe ligar
+  // mentiria no segundo toque.
+  AVNative.naoPerturbe().then((st) => {
+    if (!st) return;
+    volAvisoPopDndEl.hidden = false;
+    volAvisoPopDndEl.textContent = st.ligado ? 'Desligar' : 'Não perturbe';
+  }).catch(() => { /* ponte indisponível: o botão fica fora */ });
+  clearTimeout(volAvisoTimer);
+  volAvisoTimer = setTimeout(esconderAvisoDoVolume, VOL_AVISO_MS);
+}
+
+if (volAvisoPopFecharEl) volAvisoPopFecharEl.addEventListener('click', esconderAvisoDoVolume);
+// O MUDO é o do app, pelo botão de sempre — uma segunda verdade sobre o mudo não
+// nasce aqui. O rótulo acompanha o estado para o segundo toque não mentir.
+if (volAvisoPopMutarEl) {
+  volAvisoPopMutarEl.addEventListener('click', () => {
+    muteToggleEl.click();
+    volAvisoPopMutarEl.textContent = muted ? 'Com som' : 'Mutar';
+    volAvisoPopTextoEl.textContent = muted ? 'Som do app no mudo.' : 'Som do app liberado.';
+  });
+}
+if (volAvisoPopDndEl) {
+  volAvisoPopDndEl.addEventListener('click', () => {
+    AVNative.naoPerturbe().then((st) => {
+      if (!st) { volAvisoPopDndEl.hidden = true; return null; }
+      // SEM AUTORIZAÇÃO o filtro é um no-op SILENCIOSO: em vez de um botão que
+      // finge, abrir a tela onde o operador autoriza e DIZER o que fazer.
+      if (!st.acesso) {
+        AVNative.abrirAcessoNaoPerturbe();
+        volAvisoPopTextoEl.textContent = 'Autorize o Não perturbe no Android e toque de novo.';
+        return null;
+      }
+      return AVNative.naoPerturbeDefinir(!st.ligado).then((r) => {
+        if (!r || !r.ok) {
+          volAvisoPopTextoEl.textContent = 'O Android não deixou mudar o Não perturbe.';
+          return;
+        }
+        volAvisoPopDndEl.textContent = st.ligado ? 'Não perturbe' : 'Desligar';
+        volAvisoPopTextoEl.textContent = st.ligado
+          ? 'Não perturbe desligado.'
+          : 'Não perturbe ligado: chamadas e notificações em silêncio, o louvor continua com som.';
+      });
+    }).catch(() => { /* a ponte caiu no meio: o botão fica fora */ });
+  });
 }
 
 function mostrarPilula() {

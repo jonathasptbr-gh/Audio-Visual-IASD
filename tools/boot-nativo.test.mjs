@@ -1268,7 +1268,7 @@ try {
         const ver = li.querySelector('.dest-botoes > [data-dest="detalhes"]');
         if (!ver) return null;
         const antes = Math.round(ver.getBoundingClientRect().width);
-        ver.click();   // no vídeo o ouvinte é síncrono: alterna `vendo-letra`
+        ver.click();   // no vídeo o ouvinte é síncrono: alterna `vendo-detalhe`
         const depois = Math.round(
           li.querySelector('.dest-botoes > [data-dest="detalhes"]').getBoundingClientRect().width);
         return { antes, depois, rotulo: ver.getAttribute('aria-label'),
@@ -1388,7 +1388,7 @@ try {
       const cx = (el) => el.getBoundingClientRect();
       const arred = (n) => Math.round(n * 100) / 100;
       return {
-        vendoDetalhe: li.classList.contains('vendo-letra'),
+        vendoDetalhe: li.classList.contains('vendo-detalhe'),
         // o vão ACIMA do card — o irmão contra o qual o de baixo é medido
         acimaDoCard: arred(cx(det).top - cx(ul.lastElementChild).bottom),
         // o vão ABAIXO do card, DENTRO do poço
@@ -2583,9 +2583,10 @@ try {
   // O "Tocar agora" nascia marcado (v1.1.8) para o caso de DOIS destinos num
   // toque; com os botões diretos não há marca: cada quadrado executa o dele, e a
   // gaveta fica aberta para o segundo.
-  checar(favs.gaveta.opcoes.join(' | ') === 'tocar | cronograma | playlist' && favs.gaveta.semMarcar,
+  checar(favs.gaveta.opcoes.join(' | ') === 'tocar | cronograma | playlist | detalhes' && favs.gaveta.semMarcar,
     'e a gaveta do FAVORITO tem os destinos em BOTÕES DIRETOS (v1.13.34) — telão, Cronograma e '
-    + 'playlist —, sem marcar nem confirmar (o "Ver a letra" só com letra, v1.13.36: este não tem)',
+    + 'playlist, e o "Detalhes" largo que revela o card (v1.14.45) —, sem marcar nem confirmar '
+    + '(o "Ver a letra" só com letra, v1.13.36: este não tem)',
     JSON.stringify(favs.gaveta.opcoes));
   checar(favs.gaveta.foiPraCrono && favs.gaveta.tocarNaMesmaGaveta,
     'e o botão FAZ o que diz: um toque no do Cronograma põe o item nele — e a gaveta '
@@ -2675,10 +2676,10 @@ try {
     && pasta.nomes[0] === 'A audio.mp3',
     'e o corpo só é montado ao ABRIR (fechada não desenha arquivo nenhum), em '
     + 'ordem de NOME', JSON.stringify([pasta.fechada, pasta.nomes]));
-  checar(!pasta.erro && pasta.opcoes.length === 4
-    && pasta.opcoes[3] === 'Favoritar' && pasta.semExcluir,
+  checar(!pasta.erro && pasta.opcoes.length === 5
+    && pasta.opcoes[3] === 'Favoritar' && pasta.opcoes[4] === 'Ver os detalhes do item' && pasta.semExcluir,
     'e cada arquivo abre as MESMAS opções da Biblioteca — com "Favoritar", que é '
-    + 'o caminho de promovê-lo, e sem excluir nem reordenar',
+    + 'o caminho de promovê-lo, o "Detalhes" (v1.14.45) e sem excluir nem reordenar',
     JSON.stringify(pasta.opcoes));
   checar(!pasta.erro && pasta.fechouDeNovo,
     'e o mesmo toque fecha — é o acordeão do álbum, com a mesma gramática');

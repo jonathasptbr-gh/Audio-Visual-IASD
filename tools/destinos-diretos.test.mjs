@@ -280,9 +280,12 @@ try {
       && d.antes.semOpcoesNaGaveta && d.antes.cabem,
       'D · ' + nome + ' · o favorito tem o `⋮` quadrado na ponta direita da LINHA, com a gaveta fechada, '
       + 'e nenhum `⋮`/faixa duplicado na gaveta', d.antes);
-    checar(d.antes.ordem.join(' | ') === (video ? 'tocar | cronograma | playlist'
-      : 'tocar | cronograma | playlist | leitura'),
-      'D · ' + nome + ' · ' + (video ? 'num VÍDEO sem letra não há "Ver a letra" apagado' : 'com letra, o "Ver a letra" fecha a fileira'),
+    // O FAVORITO FECHA COM O "DETALHES" (v1.14.45): ele é o segundo largo da
+    // fileira, e o "Ver a letra" — quando existe — vem antes dele.
+    checar(d.antes.ordem.join(' | ') === (video ? 'tocar | cronograma | playlist | detalhes'
+      : 'tocar | cronograma | playlist | leitura | detalhes'),
+      'D · ' + nome + ' · ' + (video ? 'num VÍDEO sem letra não há "Ver a letra" apagado, e a fileira fecha no "Detalhes"'
+        : 'com letra, o "Ver a letra" vem antes do "Detalhes" — que é o último'),
       d.antes.ordem);
     checar(d.depois.maisLigado && d.depois.faixaVisivel && d.depois.destinosFicam && d.depois.gavetaAindaAberta
       && d.depois.botoes.join(',') === 'row-excluir,row-renomear',

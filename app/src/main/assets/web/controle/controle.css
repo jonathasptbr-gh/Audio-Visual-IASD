@@ -1134,6 +1134,46 @@ body {
 }
 .vol-pill-aviso[hidden] { display: none; }
 .vol-pill-aviso svg { width: 18px; height: 18px; color: var(--warn-text); }
+
+/* ===== O AVISO DA ABERTURA (v1.14.46) =====
+   O piso de 60% agiu e o operador precisa SABER — e poder desfazer. Cartão no
+   TOPO da tela, pelo motivo do aviso de salvamento (v5.104): na base ele
+   cobriria o transporte, e ancorado na lista ficaria atrás das folhas.
+   A CAMADA é 340 — acima das folhas e do diálogo padrão (300), abaixo da pílula
+   de volume (350), que é o controle que ele acompanha, e muito abaixo da
+   cortina (500). `pointer-events: auto` (o contrário do toast): ele TEM botões,
+   e um aviso que não recebe o dedo teria os botões de enfeite. */
+.vol-aviso {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  top: calc(.5rem + env(safe-area-inset-top, 0px));
+  z-index: 340;
+  width: min(92vw, 24rem);
+  display: flex; flex-direction: column; gap: var(--sp-3);
+  padding: .6rem .7rem;
+  background: var(--bar); color: var(--text);
+  border-radius: var(--radius-card);
+  box-shadow: 0 8px 22px var(--shadow-card);
+  font-size: var(--fs-sm);
+}
+.vol-aviso[hidden] { display: none; }
+.vol-aviso-topo { display: flex; align-items: center; gap: var(--sp-4); }
+.vol-aviso-ico { display: flex; flex: none; color: var(--accent); }
+.vol-aviso-topo strong { flex: 1; min-width: 0; font-size: var(--fs-sm); font-weight: var(--fw-max); }
+.vol-aviso-fechar {
+  flex: none; display: flex; align-items: center; justify-content: center;
+  width: var(--hit); height: var(--hit); padding: 0;
+  border: 0; cursor: pointer; background: none; color: var(--muted);
+}
+.vol-aviso-texto { margin: 0; color: var(--muted); font-size: var(--fs-xs); line-height: 1.35; }
+.vol-aviso-acoes { display: flex; gap: var(--sp-4); }
+.vol-aviso-acao {
+  flex: 1; height: var(--hit); padding: 0 .6rem;
+  border: 0; cursor: pointer;
+  background: var(--btn-accent); color: var(--text);
+  border-radius: var(--radius-pill);
+  font: inherit; font-size: var(--fs-xs); font-weight: var(--fw-max);
+}
+.vol-aviso-acao[hidden] { display: none; }
 /* ===== NO MUDO, O NÚMERO MANDA E O ALTO-FALANTE É O SECUNDÁRIO (v1.14.9) =====
    Pedido do operador: *"inverta a prioridade dos dois símbolos, pois hoje o botão de som é maior
    que o número do volume atual … o número principal e o ícone de som secundário, abaixo na
@@ -4731,6 +4771,21 @@ main {
    com o próprio tom e os outros ficam sólidos. */
 #hymnResults > .coll-group--fav.aberto .fav-itens > .lib-item .row-acoes {
   background: linear-gradient(var(--linha), var(--linha)), var(--panel);
+}
+/* ---------- E A GAVETA ABERTA TROCA O TOM DA FAIXA (v1.14.45) ----------
+   Relato do operador: *"ao abrir as opções de play e depois abrir as opções de
+   modificações do item, uma barra de cor diferente cobre o fundo da seção de
+   opções de edição"*.
+
+   A `.row` de uma linha ABERTA pinta `--gaveta-bg` (ver `.lib-item.expanded >
+   .row`), e a faixa por cima dela continuava pintando o `--panel` da PLACA: com
+   a gaveta aberta, o `--panel` deixa de ser o fundo da linha, e o retângulo da
+   faixa virava uma barra de outra cor no meio do card escuro. A conta aqui é a
+   MESMA da regra do `.row`, com os mesmos `:not()` — no ar e acesa continuam
+   com o preenchimento de estado, que já é opaco. */
+#hymnResults > .coll-group--fav.aberto .fav-itens
+  > .lib-item.expanded:not(.no-ar):not(.active) .row-acoes {
+  background: var(--gaveta-bg);
 }
 /* ---------- AS SEÇÕES RESPIRAM (v5.273) ----------
    Pedido do operador: *"aumentar ligeiramente o espaço entre as outras
@@ -8524,7 +8579,15 @@ body.simples-barra { --lib-lista-base: var(--sp-5); }
 .acervo .coll-songs > .hymn-result:is(.selecionando, .expanded)::before,
 .acervo .coll-songs > .hymn-result:is(.selecionando, .expanded) + .hymn-result::before,
 #hymnResults > .hymn-result:is(.selecionando, .expanded)::before,
-#hymnResults > .hymn-result:is(.selecionando, .expanded) + .hymn-result::before { display: none; }
+#hymnResults > .hymn-result:is(.selecionando, .expanded) + .hymn-result::before,
+/* E O MESMO VALE PARA O FAVORITO ABERTO (v1.14.45) — o relato: *"ao abrir a
+   opção de play, a linha divisória entre os itens, que fica acima do item
+   aberto, fica marcando a borda desse card escuro de opções de play. Na lista do
+   hinário, por exemplo, a linha não fica sobrepondo"*. Esta placa ficou de fora
+   da regra da v1.13.9, e os dois traços — o do item aberto e o da vizinha de
+   baixo — continuavam a 4px do card escuro, lidos como a BORDA dele. */
+#hymnResults > .coll-group--fav.aberto .fav-itens > .lib-item.expanded::before,
+#hymnResults > .coll-group--fav.aberto .fav-itens > .lib-item.expanded + .lib-item::before { display: none; }
 /* ===== A BIBLIOTECA DO MODO FÁCIL É MAIOR (v1.13.9) =====
    Pedido do operador: *"agora com mais espaço vertical na biblioteca, o sistema tem de aumentar
    os itens para aproveitar completamente esse vão … fique a vontade para aumentar o tamanho dos
@@ -9761,14 +9824,16 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
      contrato. */
   margin: 0;
 }
-/* A METADE DE BAIXO da gaveta só aparece com `vendo-letra` — ver o botão irmão
-   do confirmar em `montarOpcoes`. Ela é a mais alta das duas, e aberta por
-   padrão empurrava as opções para longe do dedo em toda abertura, quando o que
-   se abre a gaveta para fazer é decidir.
+/* A METADE DE BAIXO da gaveta só aparece com `vendo-detalhe` — ver o botão
+   irmão do confirmar em `montarOpcoes`. Ela é a mais alta das duas, e aberta
+   por padrão empurrava as opções para longe do dedo em toda abertura, quando o
+   que se abre a gaveta para fazer é decidir.
 
-   Ela só existe num VÍDEO: quem quer ler abre o LEITOR, com cifra, tom, corpo e
-   rolagem. */
-.lib-item:not(.vendo-letra) > .hymn-gaveta > .item-detalhe { display: none; }
+   A classe nasceu `vendo-letra` (a metade de baixo de um VÍDEO era a letra) e
+   passou a valer para o card de detalhes de QUALQUER item na v1.14.45, quando o
+   botão "Detalhes" chegou aos Favoritos: uma linha de favorito pode ser áudio,
+   imagem, PDF ou cena. O nome diz o que ela abre. */
+.lib-item:not(.vendo-detalhe) > .hymn-gaveta > .item-detalhe { display: none; }
 
 /* ---------- A gaveta de um VÍDEO (v5.236) ---------- */
 /* A mesma caixa da letra, com o mesmo recuo e a mesma moldura: as duas

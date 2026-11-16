@@ -85,7 +85,16 @@ a gaveta, então o valor no fecho é o vigente). A faixa de ações de um favori
 (excluir · renomear · ↑↓) mora atrás de um `⋮` na ponta direita da fileira
 (`.dest-opcoes`, v1.13.36), que a troca pelos destinos com o mecanismo da linha
 do Cronograma (`alternarAcoesDaLinha`), com o MESMO nó a cada remontagem; o
-"Ver a letra" de um favorito só existe se o registro TEM letra. **Uma gaveta
+"Ver a letra" de um favorito só existe se o registro TEM letra. **DESDE A
+v1.14.45 O FAVORITO TEM DOIS LARGOS** — o "Ver a letra" e o **"Detalhes"** —, e
+com os dois a fileira QUEBRA: o segundo desce para uma linha só dele, de borda a
+borda (o texto nunca corta). O card que ele abre é o MESMO `.item-detalhe` da
+gaveta de um vídeo, preenchido por `montarDetalhesDoItem`: tipo + formato, canal,
+origem, tamanho, páginas, letra, as mídias de um pacote, a dimensão de uma imagem
+(a única decodificada, sob demanda) e a data — CADA LINHA SÓ EXISTE SE O DADO
+EXISTIR, e o tipo só entra quando diz algo que o subtítulo não diz ("Áudio MP3",
+"PDF"). A classe do estado é `vendo-detalhe` (era `vendo-letra`, do tempo em que a
+metade de baixo só existia num vídeo). **Uma gaveta
 aberta por vez na Biblioteca inteira** (`fecharOutrasGavetas`, escopo
 `#hymnResults`): o destaque da série e os Favoritos são listas próprias. **O que se perdeu:** mandar a vários destinos num
 toque — e o download único do YouTube continua, porque o `ytArquivo` divide o
@@ -1398,6 +1407,13 @@ larga que ela existe para fechar.
   `.hymn-play-thumb` de 38 —, então `--faixa-coluna-texto` é SOBRESCRITO na
   `.fav-itens` em vez de duplicado. O traço continua começando onde o NOME
   começa, que é a forma do pedido original (*"não borda inteira"*);
+- **o ITEM ABERTO não tem traço, e a vizinha de baixo também não** (v1.14.45): a
+  regra "A ESCOLHA NÃO TEM DIVISÓRIA" (v1.13.9) cobria o acervo e a busca, não
+  esta placa — e os dois traços ficavam a 4px do card escuro, lidos como a BORDA
+  dele. Os dois seletores entraram naquela regra. **E a faixa do `⋮` veste o tom
+  do card aberto**: ela pintava `--panel` (o tom da PLACA), que deixa de ser o
+  fundo da linha quando a gaveta abre — agora `--gaveta-bg`, com os mesmos
+  `:not()` da regra do `.row`;
 - **a metade do vão** que a caixa reabsorve: o `gap` desta placa é `--sp-3` e o
   do álbum é `--sp-2`. Copiar o número descentraria o traço — exatamente o
   defeito que a v1.5.17 acabara de corrigir do outro lado. MEDIDO: desvio 0,00px

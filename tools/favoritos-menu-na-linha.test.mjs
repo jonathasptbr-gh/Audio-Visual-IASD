@@ -277,12 +277,15 @@ try {
   await esperar(pg, (s) => !!document.querySelector(s + '.expanded .hymn-gaveta .dest-botoes'), linhas);
   const c1 = await pg.evaluate(({ linhas }) => {
     const lis = [...document.querySelectorAll(linhas)];
-    const tem = (li) => !!li.querySelector('.hymn-gaveta .dest-largo');
+    // `[data-dest="leitura"]` e não `.dest-largo`: desde a v1.14.45 a fileira tem
+    // DOIS largos (o "Ver a letra" e o "Detalhes"), e o "Detalhes" existe em todo
+    // favorito — quem é condicional continua sendo a letra.
+    const tem = (li) => !!li.querySelector('.hymn-gaveta [data-dest="leitura"]');
     return { comLetra: tem(lis[0]), semLetra: tem(lis[1]) };
   }, { linhas });
   checar(c1.comLetra && !c1.semLetra,
-    'C · "Ver a letra" só existe no registro com letra', c1);
-  await pg.locator(linhas + ' >> nth=0 >> .dest-largo').tap();
+    'C · "Ver a letra" só existe no registro com letra (o "Detalhes" existe em todo)', c1);
+  await pg.locator(linhas + ' >> nth=0 >> [data-dest="leitura"]').tap();
   const abriuLetra = await esperar(pg, () => document.getElementById('lyricsPopup').classList.contains('open'));
   checar(abriuLetra === true, 'C · e "Ver a letra" abre a leitura do item', porque(abriuLetra));
   await pg.evaluate(() => { document.getElementById('lyricsPopup').classList.remove('open'); });
