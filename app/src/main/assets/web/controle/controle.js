@@ -482,7 +482,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.52';
+const WEB_VERSION = '1.14.53';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -8965,7 +8965,41 @@ function itinFaixaAlternar(aberta) {
   bar.addEventListener('transitionend', itinFaixaFim);
   itinFaixaTimer = setTimeout(itinFaixaRepousar, prazo + 300);
 }
-if (itinBarBtnEl) itinBarBtnEl.addEventListener('click', () => itinFaixaAlternar(!itinFaixaAberta));
+/**
+ * A PORTA DO ITINERÁRIO, COM UMA FOLHA ABERTA, É A SAÍDA DELA (v1.14.53).
+ *
+ * Pedido do operador: *"Quando abre ferramentas, ou a Bíblia, o botão de abrir
+ * opções de itinerário desaparece. Pode deixar ele visível, e se tocar nele, ele
+ * fecha a ferramenta atual e volta para a tela do cronograma, com as opções do
+ * itinerário abertas."*
+ *
+ * O BOTÃO VOLTA A SER DESENHADO com a folha aberta (o CSS tira só a faixa e a
+ * sub-aba do `:has(…)`), e o toque passa a ter DOIS degraus, na ordem do
+ * `__avBack`: a FOLHA sai primeiro (pela porta dela — `fecharFerramentas`, ou o
+ * `fecharBiblia`, que é o caminho de volta da Bíblia e não um `hidden` cru) e o
+ * Cronograma volta a ser a tela de fundo; então a faixa abre. A gaveta dos
+ * cronogramas é a outra aba do mesmo lugar e fecha junto (a concorrência das
+ * duas, v1.14.54).
+ *
+ * E NÃO SOBRA ESTADO ESTRANHO NO VOLTAR DO APARELHO: quem fecha a folha é a
+ * mesma função do ✕/da seta, e o `__avBack` lê o estado VIVO (`ferramentasAbertas`,
+ * `bibliaAberta`) — com a folha já fora, o toque seguinte minimiza, como depois
+ * de qualquer fechamento.
+ *
+ * A FAIXA ABRE SEM ANIMAÇÃO AQUI, e é de propósito: enquanto a folha existe, o
+ * `:has(…)` a mantém em `display: none`, e o `offsetHeight` dela é ZERO. O
+ * estado lógico (`itinFaixaAberta`, a classe do `<body>`) já é o de aberta, e a
+ * faixa aparece no quadro em que a folha sai — a animação em curso é a da folha.
+ */
+function itinPortaTocar() {
+  const comFolha = ferramentasAbertas() || bibliaAberta();
+  if (ferramentasAbertas()) fecharFerramentas();
+  else if (bibliaAberta()) fecharBiblia();
+  if (cronoGavetaAberta()) fecharCronoGaveta();
+  if (comFolha) { itinFaixaAlternar(true); return; }
+  itinFaixaAlternar(!itinFaixaAberta);
+}
+if (itinBarBtnEl) itinBarBtnEl.addEventListener('click', itinPortaTocar);
 
 // ===== OS MOMENTOS: criar, editar =====
 // A POSIÇÃO DE UM MOMENTO NOVO: antes do primeiro momento que vem DEPOIS dele no
@@ -10956,6 +10990,60 @@ function fecharBiblia() {
     bibleBodyEl.innerHTML = '';
   }, msDaToolsAnim());
 }
+
+/**
+ * ===== O TOQUE FORA FECHA A LISTA DE FERRAMENTAS — E SÓ ELA (v1.14.53) =====
+ *
+ * Pedido do operador: *"Nas ferramentas, se eu estiver vendo a lista delas, mas
+ * tocar fora, como no cronograma ou em outro lugar, feche a lista de ferramentas.
+ * (Isso não vale para uma ferramenta aberta ou para a Bíblia, apenas para a lista
+ * de ferramentas.)"*
+ *
+ * A CONDIÇÃO É O `ferrNaGrade`, o mesmo estado que escolhe a folha ESTREITA e a
+ * seta no lugar do cabeçalho: na lista, a folha é uma gaveta sem conteúdo em
+ * edição; numa ferramenta, ela é a tela de trabalho, e um toque acidental numa
+ * borda não pode derrubar um cronômetro que está correndo. A Bíblia é outra
+ * folha e tem o próprio caminho — nem passa por aqui.
+ *
+ * NA CAPTURA E POR `pointerdown`, como o menu da linha (v1.13.52) e a gaveta dos
+ * cronogramas: um gesto que não termina em `click` — rolar a lista por baixo é o
+ * caso comum — fecha do mesmo jeito, e o fechamento acontece ANTES de o alvo
+ * reagir.
+ *
+ * **E O TOQUE QUE FECHA NÃO VAZA.** O que está atrás da folha estreita é o
+ * CRONOGRAMA, e o toque curto de uma linha dele PROJETA a mídia (o `pointerup`
+ * do `attachRowGestures`, não um `click`). Fechar e deixar passar faria o gesto
+ * de dispensar a lista acender uma mídia no telão — o mesmo defeito que o VÉU da
+ * gaveta dos cronogramas existe para evitar. Os dois eventos do mesmo toque
+ * morrem na captura, por uma vez só (a rede de 800ms solta o ouvinte se o gesto
+ * não terminar em toque). O `pointerdown` em si SEGUE: é ele que rola.
+ *
+ * A EXCEÇÃO É A PORTA DO ITINERÁRIO: com a folha aberta ela é a saída dela
+ * (v1.14.53, ver `itinPortaTocar`), e engolir o clique dela deixaria o botão
+ * morto justamente no gesto que o operador pediu. */
+document.addEventListener('pointerdown', (e) => {
+  if (!ferramentasAbertas() || !ferrNaGrade) return;
+  const t = e.target;
+  if (toolsSheetEl.contains(t)) return;
+  if (itinBarBtnEl && itinBarBtnEl.contains(t)) return;
+  // O TOUR E O DIÁLOGO EXPLICAM, NÃO FECHAM — a mesma exceção do menu da linha
+  // (v1.13.52) e da gaveta dos cronogramas: o balão do tour avança por cima da
+  // folha, e o toque nele é do tour, não do app. O diálogo (renomear, excluir)
+  // abre POR CIMA da lista e precisa do toque nos botões dele.
+  if (t.closest && t.closest('#tour, #appDialog')) return;
+  fecharFerramentas();
+  const engolir = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
+  const limpar = () => {
+    document.removeEventListener('pointerup', engolir, true);
+    document.removeEventListener('click', engolir, true);
+    document.removeEventListener('click', limpar, true);
+    clearTimeout(rede);
+  };
+  const rede = setTimeout(limpar, 800);
+  document.addEventListener('pointerup', engolir, true);
+  document.addEventListener('click', engolir, true);
+  document.addEventListener('click', limpar, true);
+}, true);
 
 // A mensagem está NO AR? Pela PROJEÇÃO, nunca pela existência da sessão — a
 // mesma pergunta dos outros provedores de Camada de Texto (`provedorDeTextoNoAr`).

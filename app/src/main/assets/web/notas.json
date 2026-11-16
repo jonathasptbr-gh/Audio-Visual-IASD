@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.14.53",
+    "itens": [
+      "Na aba de editar mídia, o botão Importar arquivo ficou alinhado com as outras abas de ferramentas.",
+      "A lista de mídias e a rolagem dela passaram a ter a mesma margem lateral das demais ferramentas.",
+      "Com ferramentas ou a Bíblia abertas, o botão do itinerário continua visível na barra de cima.",
+      "Tocar esse botão fecha a ferramenta ou a Bíblia e volta ao cronograma com as opções do itinerário abertas.",
+      "Com a lista de ferramentas à vista, tocar fora dela a fecha; o toque não aciona o que está atrás.",
+      "Isso vale só para a lista: com uma ferramenta ou a Bíblia aberta, tocar fora não fecha nada."
+    ]
+  },
+  {
     "versao": "1.14.52",
     "itens": [
       "No tema claro, os botões da faixa do itinerário voltaram ao cinza dos botões do player.",

@@ -7452,8 +7452,18 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
    a lista —, então a faixa sai de cena enquanto uma folha está aberta e volta
    quando ela fecha. O `:has()` é o mesmo motor que o `.list-body:has(…)` já usa
    desde a v1.8.60/v1.8.63; sem ele a folha voltaria a ser medida contra a
-   altura de uma faixa que ela não deveria dividir. */
-main:has(> .list-body > .tools-sheet:not([hidden])) :is(#itinBar, #itinBarBtn, #itinEditor) { display: none; }
+   altura de uma faixa que ela não deveria dividir.
+
+   **E A PORTA (`#itinBarBtn`) NÃO CEDE JUNTO** (v1.14.53). Pedido do operador:
+   *"Quando abre ferramentas, ou a Bíblia, o botão de abrir opções de itinerário
+   desaparece. Pode deixar ele visível, e se tocar nele, ele fecha a ferramenta
+   atual e volta para a tela do cronograma, com as opções do itinerário
+   abertas."* Ela mora na `.list-header`, que a folha NÃO cobre (ela é `absolute`
+   dentro do `.list-body`), então sair da lista é só tirar o id daqui; quem a
+   esconde é a regra, não a geometria. O comportamento do toque com folha aberta
+   está no `controle.js` (o mesmo ouvinte de sempre, com a folha como primeiro
+   degrau a fechar). */
+main:has(> .list-body > .tools-sheet:not([hidden])) :is(#itinBar, #itinEditor) { display: none; }
 /* O BOTÃO DA FAIXA MEDE O PISO DO APP: altura em `--hit` (34px, fixo em px
    como o piso), solto (sem caixa), e nunca menor que o dedo em tela nenhuma. */
 /* A CÉLULA É A DO DECK (Pacote 37): o `.t-btn` do transporte é um bloco que DIVIDE
@@ -13473,4 +13483,28 @@ body.lib-assentando .popup-sheet--lib { visibility: hidden; }
    `padding-bottom` da `.tools-sheet`). Aqui o fecho É o rodapé da ferramenta —
    quem dá o respiro de baixo é a folha, como em todas as outras. */
 .edicao-panel > .popup-fecho { margin-bottom: 0; }
+/* ===== A RÉGUA DO PAINEL DE FERRAMENTA, NOS DOIS LADOS (v1.14.53) =====
+   Relato do operador: *"O botão de importar arquivo … está com as suas margens
+   esquerda e direita muito grandes, fora dos padrões de margens das abas de
+   ferramentas. Inclusive, verifique todo esse design e alinhamento desses itens
+   da aba de editar mídia. Pois acho que o scroll também está fora de padrão."*
+
+   O editor apareceu dentro da folha na v1.14.7 e trouxe, verbatim, as duas
+   margens que ele tinha quando era uma SEÇÃO de Configurações: a `.popup-fecho`
+   (`.7rem` de cada lado) e o `.song-menu-list` (`.6rem` de padding lateral). Elas
+   somavam por cima do recuo da folha (`.7rem`) e deixavam o "Importar arquivo"
+   a 22,38px da borda, com as LINHAS do seletor a 20,8px — enquanto toda
+   ferramenta de painel usa UMA régua só: o conteúdo começa na borda do
+   `#toolsBody`, a 11,19px da folha (MEDIDO a 430: Tempo, Mensagens e Sorteio
+   dão 11,19).
+
+   As duas margens ZERAM aqui porque a folha já paga o recuo: o que sobra é a
+   régua dos vizinhos. E o scroller passa a medir a largura inteira do painel —
+   a tira de sombra do `.rola` (que o `acertarVeus` calcula pelo padding do
+   scroller) encosta nas duas bordas como nas outras listas, em vez de flutuar
+   9,6px para dentro. É o mesmo defeito, nos dois eixos: eram três réguas numa
+   aba só. */
+.edicao-panel > .popup-list { padding-left: 0; padding-right: 0; }
+.edicao-panel > .popup-fecho { margin-left: 0; margin-right: 0; }
+.edicao-panel > .popup-list > .edicao-secao { padding-left: 0; padding-right: 0; }
 .edicao-panel[hidden] { display: none; }

@@ -241,8 +241,12 @@ try {
         return { esq: +(r.left - p.left).toFixed(2), dir: +(r.right - p.right).toFixed(2) };
       })(),
       biblia: bibliaAberta(),
-      faixaOculta: !document.getElementById('itinBar').getClientRects().length
-        && !document.getElementById('itinBarBtn').getClientRects().length,
+      // A FAIXA sai de cena com a folha; a PORTA dela NÃO (v1.14.53) — ver o bloco 5-C.
+      faixaOculta: !document.getElementById('itinBar').getClientRects().length,
+      portaDaFaixa: (() => {
+        const p = document.getElementById('itinBarBtn');
+        return !!p && p.getClientRects().length > 0 && p.getAttribute('aria-expanded') === 'true';
+      })(),
       // A GRADE (v1.13.3): a folha abre nos seis tiles, nunca numa ferramenta.
       ferramentas: document.querySelectorAll('#ferrGrade .ferr-tile').length === 6,
     };
@@ -253,9 +257,11 @@ try {
     'ela NÃO cobre a barra do topo (a faixa do Itinerário inclusive) nem a caixa de controles — quem projeta um '
     + 'cronômetro precisa do transporte e da preview na frente', dentro);
   checar(dentro.faixaOculta === true,
-    'e a FAIXA do Itinerário (aberta antes) se esconde enquanto a folha está aberta, com a porta dela (v1.14.34; '
-    + 'Pacote 35): é a altura dela que a lista '
-    + 'das Ferramentas e a Bíblia precisam para caber no piso', dentro);
+    'e a FAIXA do Itinerário (aberta antes) se esconde enquanto a folha está aberta (v1.14.34; Pacote 35): é a '
+    + 'altura dela que a lista das Ferramentas e a Bíblia precisam para caber no piso', dentro);
+  checar(dentro.portaDaFaixa === true,
+    'mas a PORTA dela (`#itinBarBtn`) fica À VISTA com a folha aberta (v1.14.53): é a saída para o Cronograma com as '
+    + 'opções abertas — o bloco 5-C prova o toque', dentro);
   checar(dentro.cobreALista, 'e cobre a lista de cima a baixo, que é o território dela', dentro);
   checar(Math.abs(dentro.bordas.esq) <= 1 && Math.abs(dentro.bordas.dir) <= 1,
     'e NA LISTA ela tem a largura da PORTA de Ferramentas: as duas bordas ±1px (v1.13.5)',
@@ -413,6 +419,110 @@ try {
     'a folha DESCE por onde subiu — a saída tem par, e não é o mesmo desenho', par);
   checar(par.dEntra === par.dSai,
     'e com a mesma duração: dois tempos divergiriam no primeiro ajuste', par);
+
+  // ── 5-C. A PORTA DO ITINERÁRIO É A SAÍDA DA FOLHA (v1.14.53) ────────────
+  //
+  // Pedido do operador: *"Quando abre ferramentas, ou a Bíblia, o botão de abrir
+  // opções de itinerário desaparece. Pode deixar ele visível, e se tocar nele, ele
+  // fecha a ferramenta atual e volta para a tela do cronograma, com as opções do
+  // itinerário abertas."*
+  //
+  // A folha fecha pelo CAMINHO DELA — `fecharFerramentas`/`fecharBiblia`, os mesmos
+  // do ✕ —, e o que se mede é o estado final: a folha fora, o Cronograma de fundo e
+  // a faixa aberta. O `__avBack` depois do gesto é a metade que impede um degrau
+  // fantasma: com a folha já fora, ele não tem o que fechar (devolve `false`, e o
+  // toque seguinte minimiza).
+  const portaComFolha = await pg.evaluate(async () => {
+    const ate = async (cond) => { const fim = Date.now() + 4000; while (Date.now() < fim) { if (cond()) return true; await new Promise((f) => setTimeout(f, 30)); } return false; };
+    const foto = () => ({
+      folha: ferramentasAbertas(), biblia: bibliaAberta(),
+      porta: document.getElementById('itinBarBtn').getClientRects().length > 0,
+      faixaNaTela: document.getElementById('itinBar').getClientRects().length > 0,
+      faixaAberta: itinFaixaAberta,
+      titulo: document.getElementById('listTitle').textContent,
+    });
+    abrirFerramentas();
+    const comGrade = foto();
+    document.getElementById('itinBarBtn').click();
+    const saiuGrade = await ate(() => !ferramentasAbertas());
+    const depoisDaGrade = Object.assign(foto(), { saiuGrade, voltar: window.__avBack() });
+    abrirBiblia();
+    const comBiblia = foto();
+    document.getElementById('itinBarBtn').click();
+    const saiuBiblia = await ate(() => !bibliaAberta());
+    const depoisDaBiblia = Object.assign(foto(), { saiuBiblia, voltar: window.__avBack() });
+    return { comGrade, depoisDaGrade, comBiblia, depoisDaBiblia };
+  });
+  checar(portaComFolha.comGrade.folha && portaComFolha.comGrade.porta && !portaComFolha.comGrade.faixaNaTela,
+    '5-C · com a lista de Ferramentas aberta a PORTA do itinerário continua à vista (a faixa, não) — era ela que sumia',
+    JSON.stringify(portaComFolha.comGrade));
+  checar(portaComFolha.depoisDaGrade.saiuGrade && !portaComFolha.depoisDaGrade.folha
+    && portaComFolha.depoisDaGrade.faixaAberta && portaComFolha.depoisDaGrade.faixaNaTela
+    && portaComFolha.depoisDaGrade.titulo === 'Cronograma' && portaComFolha.depoisDaGrade.voltar === false,
+    '5-C · tocar a porta com Ferramentas aberta FECHA a ferramenta e devolve o Cronograma com as opções do itinerário '
+    + 'abertas — e o voltar do aparelho não fica devendo degrau nenhum', JSON.stringify(portaComFolha.depoisDaGrade));
+  checar(portaComFolha.comBiblia.biblia && portaComFolha.comBiblia.porta
+    && portaComFolha.depoisDaBiblia.saiuBiblia && !portaComFolha.depoisDaBiblia.biblia
+    && portaComFolha.depoisDaBiblia.faixaAberta && portaComFolha.depoisDaBiblia.faixaNaTela
+    && portaComFolha.depoisDaBiblia.voltar === false,
+    '5-C · e com a BÍBLIA aberta também: ela fecha pelo caminho dela, o Cronograma volta a ser o fundo e a faixa fica '
+    + 'aberta', JSON.stringify(portaComFolha.depoisDaBiblia));
+
+  // ── 5-D. O TOQUE FORA FECHA A LISTA — E SÓ A LISTA (v1.14.53) ───────────
+  //
+  // Pedido do operador: *"Nas ferramentas, se eu estiver vendo a lista delas, mas
+  // tocar fora, como no cronograma ou em outro lugar, feche a lista de ferramentas.
+  // (Isso não vale para uma ferramenta aberta ou para a Bíblia, apenas para a lista
+  // de ferramentas.)"*
+  //
+  // O TOQUE NÃO VAZA: o toque curto de uma linha do Cronograma PROJETA a mídia, e
+  // ele mora no `pointerup` (ver `attachRowGestures`), não no `click` — fechar e
+  // deixar passar acenderia a mídia que o operador só queria dispensar. `currentId`
+  // é a testemunha: ele muda quando a linha vai ao telão.
+  {
+    const alvo = await pg.evaluate(async () => {
+      const b = new Blob([new Uint8Array(1200)], { type: 'audio/wav' });
+      const rec = await AVDB.addMedia(b, { name: 'Toque fora', kind: 'audio', list: 'imports', seconds: 2 });
+      await load();
+      await new Promise((r) => setTimeout(r, 300));
+      const antes = typeof currentId === 'undefined' ? null : currentId;
+      abrirFerramentas();
+      await new Promise((r) => setTimeout(r, 350));
+      const row = document.querySelector('#library li.lib-item .row');
+      const r = row.getBoundingClientRect();
+      return { id: rec.id, antes, aberta: ferramentasAbertas(), grade: ferrNaGrade, x: r.left + 24, y: r.top + r.height / 2 };
+    });
+    await pg.mouse.click(alvo.x, alvo.y);
+    // A folha leva os `--tools-anim` da descida para deixar a árvore: o que se espera
+    // é o FIM do movimento, não um prazo de relógio (o estado `saindo` já prova o ato).
+    const saiuFora = await esperar(pg, () => !ferramentasAbertas(), null, 4000);
+    const foraGrade = await pg.evaluate(() => ({
+      aberta: ferramentasAbertas(), grade: ferrNaGrade,
+      noAr: typeof currentId === 'undefined' ? null : currentId,
+    }));
+    checar(saiuFora === true && alvo.aberta && alvo.grade && !foraGrade.aberta && foraGrade.noAr === alvo.antes,
+      '5-D · na LISTA de Ferramentas, o toque FORA a fecha — e o toque que fecha NÃO vaza: a linha do Cronograma '
+      + 'por baixo não vai ao telão', JSON.stringify({ alvo, foraGrade }));
+    // COM UMA FERRAMENTA ABERTA, o toque fora NÃO fecha: ela é a tela de trabalho.
+    await pg.evaluate(() => { abrirFerramentas(); abrirFerramenta('msg'); });
+    await pg.waitForTimeout(400);
+    await pg.mouse.click(5, 420);
+    const foraFerramenta = await pg.evaluate(() => ({ aberta: ferramentasAbertas(), grade: ferrNaGrade }));
+    checar(foraFerramenta.aberta && foraFerramenta.grade === false,
+      '5-D · com uma FERRAMENTA aberta o toque fora NÃO fecha a folha (a regra é só da lista)', JSON.stringify(foraFerramenta));
+    // E A BÍBLIA É OUTRA FOLHA: idem.
+    await pg.evaluate(() => abrirBiblia());
+    await pg.waitForTimeout(450);
+    await pg.mouse.click(5, 420);
+    const foraBiblia = await pg.evaluate(() => ({ biblia: bibliaAberta() }));
+    checar(foraBiblia.biblia === true,
+      '5-D · e com a BÍBLIA aberta o toque fora também NÃO a fecha — a regra nova não alcança a folha dela',
+      JSON.stringify(foraBiblia));
+    // A MÍDIA DA SONDA SAI: ela não é do app, é desta asserção.
+    await pg.evaluate(async (id) => { await AVDB.listRemove('imports', id); await load(); }, alvo.id);
+    await pg.evaluate(() => fecharBiblia());
+    await pg.waitForTimeout(350);
+  }
 
   // ── 6. A PORTA EXISTE SEMPRE (v1.5.0) ───────────────────────────────────
   //

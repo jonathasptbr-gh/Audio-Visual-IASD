@@ -4145,12 +4145,13 @@ try {
   checar(!eixo.erro && Math.abs(eixo.capitulos.meio - eixo.capitulos.eixo) <= 1,
     'e ele fica no EIXO da faixa, não deslocado para a direita dela — é o que o '
     + 'vão da trilha 3 existe para pagar', JSON.stringify(eixo));
-  // A PORTA DO ITINERÁRIO À VISTA NÃO TIRA O TÍTULO DO EIXO (Pacote 35): ela divide a
-  // célula do importar, deslocada por margem. O `x`/`y` parados acima já comparam o
-  // Cronograma (porta à vista) com a folha (porta escondida); aqui, o meio.
-  checar(!eixo.erro && eixo.crono.porta === true && eixo.livros.porta === false
+  // A PORTA DO ITINERÁRIO À VISTA NÃO TIRA O TÍTULO DO EIXO (Pacote 35) — e desde a
+  // v1.14.53 ela fica à vista nas TRÊS telas desta medição, a folha aberta inclusive
+  // (é a saída da folha para o Cronograma com as opções abertas; o
+  // `ferramentas-folha`, bloco 5-C, prova o toque). O eixo do título não muda com ela.
+  checar(!eixo.erro && eixo.crono.porta === true && eixo.livros.porta === true
     && Math.abs(eixo.crono.meio - eixo.crono.eixo) <= 1,
-    'e com a PORTA do itinerário (`#itinBarBtn`) à vista o título continua no EIXO da '
+    'e com a PORTA do itinerário (`#itinBarBtn`) à vista — inclusive com a folha aberta — o título continua no EIXO da '
     + 'barra (meio ' + (eixo.crono && eixo.crono.meio) + ' · eixo ' + (eixo.crono && eixo.crono.eixo) + ')',
     JSON.stringify(eixo.crono || eixo));
 } catch (e) {

@@ -545,6 +545,38 @@ const impBotao = await app.evaluate(() => {
 checar(impBotao.h <= 46 && impBotao.mesmaLinha === true,
   'C · "Importar arquivo" é um botão baixo (≤ 46px) com o ícone ao LADO do texto, como os botões do formulário', JSON.stringify(impBotao));
 
+// C1d · A RÉGUA DO PAINEL DE FERRAMENTA (v1.14.53). Relato do operador: *"O botão de
+// importar arquivo … está com as suas margens esquerda e direita muito grandes, fora
+// dos padrões de margens das abas de ferramentas. Inclusive, verifique todo esse design
+// e alinhamento desses itens da aba de editar mídia. Pois acho que o scroll também está
+// fora de padrão."*
+// A régua é a da FOLHA, nunca um número: toda ferramenta de painel começa no content
+// box dela (a 11,19px da borda a 430), e o editor trouxe as duas margens de quando era
+// seção de Configurações — o `.7rem` da `.popup-fecho` sobre o `.7rem` da folha davam
+// 22,38px, e o `.song-menu-list` punha as linhas a 20,8px. Aqui o botão, o scroller e o
+// primeiro grupo do seletor medem a MESMA borda que o painel, e o scroller não tem
+// padding lateral (a tira do `.rola` encosta nas duas bordas, como nas outras listas).
+const regua = await app.evaluate(() => {
+  const folha = document.getElementById('toolsSheet');
+  const cs = getComputedStyle(folha);
+  const f = folha.getBoundingClientRect();
+  const borda = { esq: +(f.left + parseFloat(cs.paddingLeft)).toFixed(2), dir: +(f.right - parseFloat(cs.paddingRight)).toFixed(2) };
+  const r = (el) => { const x = el.getBoundingClientRect(); return { esq: +x.left.toFixed(2), dir: +x.right.toFixed(2) }; };
+  const L = document.getElementById('edicaoLista');
+  const grupo = L.querySelector('.pacote-grupo');
+  const sec = document.getElementById('edicaoSecao');
+  return {
+    borda, painel: r(sec), lista: r(L), grupo: grupo && r(grupo), importar: r(document.getElementById('edicaoImportar')),
+    padLista: getComputedStyle(L).paddingLeft,
+    tira: getComputedStyle(L, '::before').marginLeft,
+  };
+});
+const naBorda = (x) => x && Math.abs(x.esq - regua.borda.esq) <= 0.6 && Math.abs(x.dir - regua.borda.dir) <= 0.6;
+checar(naBorda(regua.lista) && naBorda(regua.importar) && naBorda(regua.grupo) && naBorda(regua.painel)
+    && regua.padLista === '0px' && (regua.tira === '0px' || regua.tira === '-0px'),
+  'C · o "Importar arquivo", o scroller e o primeiro grupo do seletor começam na MESMA borda do painel — a régua das '
+  + 'outras ferramentas (o botão estava a 22,4px e as linhas a 20,8px, contra 11,2px da folha), e a lista scrola na largura inteira', JSON.stringify(regua));
+
 // C2 · escolher a mídia abre o formulário, com UMA faixa de duas pontas.
 const montou = await escolher('lst:imports', 'Hino Cinco');
 const faixa = await app.evaluate(() => ({
