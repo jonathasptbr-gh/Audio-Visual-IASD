@@ -347,15 +347,27 @@ try {
       return { exp: b.getAttribute('aria-expanded'), ctl: b.getAttribute('aria-controls'), usos: b.querySelectorAll('use').length,
         pintado: !/,\s*0\)$/.test(getComputedStyle(b).backgroundColor) };
     });
+    // A AMOSTRAGEM NÃO DEPENDE DO AGENDADOR: `--dur-media` é esticado para 320ms NESTE
+    // trecho (e devolvido no fim) e a janela vai a 650ms — com os 200ms de fábrica e a
+    // máquina apertada, um quadro só caía no meio e o `meio >= 2` reprovava por prazo, não
+    // por desenho (medido: 1 em 3 rodadas). O que o bloco prova continua o mesmo: a altura
+    // passa por valores ENTRE o zero e o alto, e a lista não anda em quadro nenhum.
     const q = await pg.evaluate(() => new Promise((ok) => {
       const ed = document.getElementById('itinEditor'), lib = document.getElementById('library');
       const li = lib.querySelector('li.lib-item');
+      const raiz = document.documentElement;
+      const antesDur = raiz.style.getPropertyValue('--dur-media');
+      raiz.style.setProperty('--dur-media', '320ms');
       const v = [], t0 = performance.now();
       document.getElementById('itinNovoBtn').click();
+      const fim = () => {
+        if (antesDur) raiz.style.setProperty('--dur-media', antesDur); else raiz.style.removeProperty('--dur-media');
+        ok(v);
+      };
       const passo = () => {
         v.push([ed.hidden ? -1 : Math.round(ed.getBoundingClientRect().height * 10) / 10,
           Math.round(lib.getBoundingClientRect().top * 10) / 10, Math.round(li.getBoundingClientRect().top * 10) / 10]);
-        if (performance.now() - t0 < 360) requestAnimationFrame(passo); else ok(v);
+        if (performance.now() - t0 < 650) requestAnimationFrame(passo); else fim();
       };
       requestAnimationFrame(passo);
     }));
@@ -1009,9 +1021,18 @@ try {
     checar(g.noRecuo.length === 0,
       'U · e em ' + w + 'px nenhum botão invade o recuo da direita (o `padding` da faixa)', g);
     checar(g.longo !== g.curto, 'U · em ' + w + 'px o atraso aparece em UMA escrita só (longa ou curta)', g);
-    checar(!!g.num && g.num.fonte === g.num.fonteP && Math.abs(g.num.caixa[1] - g.num.caixaP[1]) <= 0.5
-      && Math.abs(g.num.caixa[0] - g.num.caixaP[0]) <= 1 && g.num.texto === '+45' && !g.num.corta,
-      'U · em ' + w + 'px o NÚMERO do atraso ("+45") tem a fonte e a caixa do ±5 vizinho, na mesma linha, sem corte', g.num);
+    // A 320px a aba tem a largura da GAVETA (24rem) e a célula do atraso ficou ~6px mais
+    // estreita que a da faixa sangrada: a fonte larga do runner CORTARIA o "+45" a 22px, e
+    // a regra de contêiner da aba o deixa um degrau menor ali (o ±5 segue a 22). Acima de
+    // 300px de aba — de 360 de tela para cima — vale a igualdade estrita.
+    const cedido = w <= 320 ? 4 : 0;
+    checar(!!g.num && Math.abs(parseFloat(g.num.fonte) - (parseFloat(g.num.fonteP) - cedido)) <= 0.5
+      && Math.abs(g.num.caixa[1] - g.num.caixaP[1]) <= (cedido ? 7 : 0.5)
+      && Math.abs(g.num.caixa[0] - g.num.caixaP[0]) <= (cedido ? 4 : 1)
+      && g.num.texto === '+45' && !g.num.corta,
+      'U · em ' + w + 'px o NÚMERO do atraso ("+45") fica na mesma linha e SEM CORTE, com a fonte e a caixa do ±5'
+      + (cedido ? ' (a 320px ele cede um degrau: a aba na largura da gaveta é ~6px mais estreita na célula)' : ''),
+      g.num);
     // A UMA LINHA VALE DE 360 PARA CIMA. A 320 ela é o que a fonte do SISTEMA decide, e o
     // CI prova isso: com a fonte do runner as três seções não cabem e a faixa quebra — a
     // quebra é a resposta prevista do `flex-wrap` (quem desce é a SEÇÃO inteira). O que se

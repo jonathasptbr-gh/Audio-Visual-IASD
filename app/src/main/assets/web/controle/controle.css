@@ -7609,6 +7609,17 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
   .itin-txt-longo { display: none; }
   .itin-txt-curto { display: inline; }
 }
+/* EM TELA MUITO ESTREITA O NÚMERO CEDE UM DEGRAU (v1.14.54). A aba passou a ter a
+   largura da gaveta (24rem), e a 320px a célula do atraso ficou ~6px mais estreita
+   que na faixa sangrada de antes: com a fonte larga do runner do CI, o "+45" a 22px
+   era CORTADO pela borda da própria célula (o U do `itinerario` reprovou o
+   `verificar` deste lote). Abaixo de 300px de aba — o que só acontece a 320 de tela, porque
+   a 360 o conteúdo já mede 323 — o NÚMERO cai 4px; o ±5 continua a 22px, e um
+   degrau num número de dois algarismos não muda a leitura (o que o operador recusou
+   na v1.14.52 era 13px contra 22, quase a metade). Acima disso nada muda. */
+@container (max-width: 299.98px) {
+  .itin-ajuste-txt .itin-num { font-size: calc(var(--icon-md) - 4px); }
+}
 /* A PORTA DA FAIXA, NA BARRA DO TOPO (`#itinBarBtn`): mora sozinha na trilha 1 — as
    trilhas não mudam e o título não sai do eixo. Chapada, como a engrenagem, nos DOIS
    estados: aberta, ela NÃO veste card (Pacote 40 — foi o pedido: *"para a seta não
