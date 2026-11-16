@@ -1018,20 +1018,23 @@
            eixo. Quem abre o seletor é `importarArquivos` — o do SISTEMA no app
            (`AVNative.pickDoc`, o único que serve ao PDF), o `#file` no
            navegador. O desenho é o da porta de antes (a folha com o +). -->
+      <!-- A PORTA DO ITINERÁRIO, À ESQUERDA DO IMPORTAR (Pacote 37: o operador
+           trocou os dois de lugar — *"deixando o itinerário a esquerda"*). É a
+           PRIMEIRA da trilha 1, e o Importar entra deslocado para a direita dela
+           pela margem; as trilhas não mudam e o título não sai do eixo. O DESENHO
+           é o relógio, e com a faixa ABERTA ele vira um ✕ (`icoCancelar`, escrito
+           por `renderItinBar` no `.crono-itin-ico`): o botão deixa de ser só um
+           interruptor aceso e passa a dizer o que o toque faz. Leva o ponto do
+           "no ar" e nasce `hidden` — `renderItinBar` o mostra onde a faixa
+           existiria. -->
+      <button id="itinBarBtn" class="crono-itin" type="button" title="Itinerário" aria-label="Itinerário" aria-expanded="false" aria-controls="itinBar" hidden>
+        <span class="crono-itin-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span>
+        <span class="itin-ponto" aria-hidden="true" hidden></span>
+      </button>
       <button id="cronoImportar" class="crono-importar" type="button" title="Importar arquivos (mídia, PDF ou PowerPoint)" aria-label="Importar arquivos">
         <!-- O `width`/`height` do atributo é MORTO — quem manda é o CSS —, e fica
              porque o `viewBox` sozinho não dá tamanho a um `<svg>` sem CSS. -->
         <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M14 3v5h5"/><line x1="12" y1="12" x2="12" y2="17.6"/><line x1="9.2" y1="14.8" x2="14.8" y2="14.8"/></svg>
-      </button>
-      <!-- A PORTA DO ITINERÁRIO, AO LADO DO IMPORTAR (pedido de 15/11): *"o ícone
-           para exibir a linha de botões do itinerário deve ficar ao lado do botão
-           de importar arquivo"*. Mora na MESMA trilha 1 (sobreposta na célula,
-           deslocada pela margem): as trilhas não mudam e o título não sai do
-           eixo. Abre e fecha o `#itinBar`, leva o ponto do "no ar" e nasce
-           `hidden` — `renderItinBar` o mostra onde a faixa existiria. -->
-      <button id="itinBarBtn" class="crono-itin" type="button" title="Itinerário" aria-label="Itinerário" aria-expanded="false" aria-controls="itinBar" hidden>
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
-        <span class="itin-ponto" aria-hidden="true" hidden></span>
       </button>
       <!-- A ORDEM DA FAIXA É saída · lugar · destino (v5.107): "Modo Fácil" à
            esquerda, o nome da tela no meio, "Favoritos" à direita. A seta do
@@ -2011,7 +2014,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.37</span>
+          <span id="appVersion">v1.14.38</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>

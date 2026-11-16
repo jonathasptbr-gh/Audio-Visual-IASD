@@ -74,7 +74,9 @@ try {
       const h = document.querySelector('.list-header');
       const r = h.getBoundingClientRect();
       // A PORTA DO ITINERÁRIO (`#itinBarBtn`, Pacote 35) é o quarto morador quando à
-      // vista: ela divide a célula do importar e entra na mesma simetria.
+      // vista e, desde o Pacote 37, é a PRIMEIRA da trilha 1 — o Importar entra
+      // deslocado à direita dela. Os dois dividem a mesma célula e a simetria é a mesma:
+      // o que se mede é o morador MAIS ALTO e o MAIS BAIXO, não a ordem.
       const p = document.getElementById('itinBarBtn');
       const porta = !!p && p.getClientRects().length > 0;
       const moradores = ['#cronoImportar', '#cronoTitulo', '.list-header .settings-btn']

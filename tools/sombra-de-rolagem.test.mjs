@@ -1269,20 +1269,24 @@ try {
       'R · ' + tema + ': RECOLHIDA, a faixa do itinerário não ocupa nada e a barra do '
       + 'topo vai de borda a borda com a lista encostada nela (vão ' + r.vao + 'px)',
       JSON.stringify(r));
-    // ABERTA: TRANSPARENTE (Pacote 35) — o pixel dela é o fundo da LISTA, não a cor
-    // dos controles; borda a borda; e a lista encosta na borda de baixo DELA.
+    // ABERTA: A COR DA ABA (Pacote 37). A v1.14.32-35 pedia a faixa TRANSPARENTE, com
+    // o pixel dela sendo o fundo da LISTA; o operador pediu o contrário em 15/11 — *"o
+    // mesmo padrão dos botões da linha de controles do player: fundo da aba com uma
+    // cor"* —, e a cor é a da `.bottombar`, a MESMA da barra do topo (a faixa é a
+    // segunda linha do cabeçalho). O que se mede é a inversão: pinta a cor dos
+    // controles e NÃO a da lista, de borda a borda, com a lista encostada nela.
     await pg.click('#itinBarBtn');
-    await pg.waitForTimeout(300);
+    await pg.waitForTimeout(300);   // o fecho/abertura animados levam ~240ms (Pacote 37)
     const ra = await medir();
     const imgA = lerPng(await pg.screenshot());
     const corFaixa = ra.faixa ? pixel(imgA, ra.x, ra.yFaixa) : null;
     const corLista = pixel(imgA, ra.x, ra.yLista);
     const corControlesA = pixel(imgA, ra.x, ra.yBarra);
     checar(ra.aberta === 'true' && !!ra.faixa && ra.faixa.esq === 0 && ra.faixa.larg === ra.tela
-      && mesma(corFaixa, corLista) && !mesma(corFaixa, corControlesA) && Math.abs(ra.vao) <= 1,
+      && mesma(corFaixa, corControlesA) && !mesma(corFaixa, corLista) && Math.abs(ra.vao) <= 1,
       'R · ' + tema + ': ABERTA (clique no `#itinBarBtn`), a faixa vai de borda a borda, '
-      + 'pinta o fundo da LISTA (e não a cor dos controles) e a lista encosta na borda '
-      + 'de baixo dela (vão ' + ra.vao + 'px)',
+      + 'pinta a COR DA ABA — a mesma da caixa de controles, e não mais o fundo da lista — '
+      + 'e a lista encosta na borda de baixo dela (vão ' + ra.vao + 'px)',
       JSON.stringify({ ...ra, cor: corFaixa, lista: corLista, controles: corControlesA }));
     await ctx.close();
   }

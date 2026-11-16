@@ -1,5 +1,20 @@
 [
   {
+    "versao": "1.14.38",
+    "itens": [
+      "No itinerário, o subtítulo do momento agora diz a que se refere o tempo: \"1 h até Louvor\".",
+      "Quando não há próximo momento, ele diz \"Último momento\".",
+      "Os momentos entram e saem da lista deslizando, em vez de aparecerem de repente.",
+      "Abrir e fechar o grupo de um momento também anima: as mídias encolhem e as de baixo sobem.",
+      "A aba do itinerário cresce e a lista desce com ela — acabou o pulo de 48 px.",
+      "A aba ficou com o padrão dos controles do player: fundo com cor, botões iguais e do mesmo tamanho.",
+      "Os três botões de estado ficam vermelhos quando estão desligados (telão, momentos e horários).",
+      "O itinerário e o importar trocaram de lugar: o itinerário ficou à esquerda da barra.",
+      "Com a aba aberta, o botão do itinerário vira um X para fechar.",
+      "A seta que abre e fecha o grupo foi para a extrema direita da linha: editar, excluir e seta."
+    ]
+  },
+  {
     "versao": "1.14.37",
     "itens": [
       "A aba de configurações do itinerário não se fecha mais sozinha.",

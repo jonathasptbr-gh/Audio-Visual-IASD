@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.38** — Pacote 37: o subtítulo do momento com o referente, as animações da lista e da faixa, a aba no padrão do deck e a seta do grupo na extrema direita (só web).
 - **v1.14.37** — a faixa do itinerário não se fecha mais sozinha, e o lápis e a lixeira do momento só aparecem com ela aberta; a seta do grupo no tamanho dos vizinhos (Pacote 36, os ajustes do operador; só web).
 - **v1.14.36** — o itinerário sem a tinta do grupo, a seta como botão à esquerda do lápis, a faixa descolada da barra do topo com animação e o telão mostrando a lista inteira (Pacote 36, só web).
 - **v1.14.35** — a faixa do itinerário em três seções, o grupo do momento e os horários que voltam a andar (só web).
@@ -836,6 +837,112 @@ apagada da que a criou.
   339,07 / 339,07 px; larguras 83,5 / 83,5 mm.
 - **As páginas não se moveram:** 22 (Por um dia) e 88 (Tempo integral), nos dois formatos, e o
   `antesDaPauta` = depois = PDF continua cobrando isso.
+
+---
+
+## v1.14.38 — o subtítulo que se explica, as animações da lista e o padrão do deck
+
+**Pacote 37, o pedido de 15/11 às 23h que a sessão anterior registrou na fila sem
+começar. Só web.**
+
+**(1) O subtítulo diz a que se refere o tempo.** `itinMarcar` juntava "Agora"/"A
+seguir", o previsto e a duração CRUA — "1 h", "40 min" —, e o operador lia um número
+solto: *"adicione o termo a quê se refere no subtítulo do momento"*. O intervalo é
+sempre o vão ATÉ O PRÓXIMO momento, e agora o nome dele vai escrito: **"1 h até
+Louvor"**, "30 min até Pregação", e "Último momento" no fim. O `.row-sub` já corta
+com reticências, então um título longo não empurra nada.
+
+**(2 e 3) As linhas de momento e o grupo entram e saem animadas.** O
+`renderLibraryCorpo` reconstrói a lista inteira (`innerHTML = ''`), e por isso toda
+troca era um corte seco. As DUAS que mudam muitas linhas de uma vez — os MOMENTOS na
+lista (`itinMomentosOcultar`) e o RECOLHIDO de um grupo (`itinAlternarGrupo`) —
+passaram a ser `async`: esperam a saída das linhas que vão embora pelo `aoSair` de
+sempre (a altura medida fecha, o `--sp-3` do vão sai pela margem negativa do
+`.saindo`) e SÓ ENTÃO gravam o estado e redesenham. Na entrada, o `renderLibrary`
+compara os ids de antes com os de depois e põe `.linha-entra` só nas linhas NOVAS
+(`marcarLinhasQueEntram`) — a lista se refaz a cada tique, e animar todas faria a
+tela piscar. `itinTrocando` é o trinco contra dois toques seguidos, e
+`prefers-reduced-motion` desliga as duas.
+- **A ARMADILHA MEDIDA:** o `animationend` SOBE. A primeira versão ouvia o evento
+  no `li` sem olhar o `target`, e a animação de um FILHO (o anel de download de uma
+  miniatura) tirava a classe antes de a entrada começar — o que se via era a linha
+  aparecendo seca. A guarda é `e.target === li`.
+
+**(4) A faixa cresce e a lista desce com ela.** `#itinBar` ocupa ~48 px no fluxo do
+`<main>` (a altura dela mais o `--sp-4` da margem), e togglar `hidden` movia o topo
+do `#library` de uma vez — *"desloca a lista do cronograma de forma de repente"*.
+`itinFaixaAlternar` virou animação de ALTURA MEDIDA (a família do `aoSair`): classe
+`.itin-bar--animando` (transição de `height` e das DUAS margens por `--dur-media`,
+`overflow: hidden`, `align-content: flex-start` para o conteúdo aparecer de cima
+para baixo), de 0 ao `offsetHeight` na abertura e o contrário no fecho. As duas
+margens entram na conta porque a de cima é a folga com a barra do topo e a de baixo
+é negativa (anula o `gap` do `<main>`): deixadas de fora, a lista começaria 8 px
+alta demais e daria um degrau no fim.
+- **O fecho mantém o conteúdo até o fim** (recolher antes esvaziaria a caixa e o
+  `:empty` a apagaria no primeiro quadro), e `itinFaixaRepousar` é quem aplica o
+  desenho final — é também para onde um toque NO MEIO do movimento resolve o
+  anterior antes de começar o outro.
+- **E UM DESENHO POR FORA CANCELA O MOVIMENTO:** a primeira versão saía cedo do
+  `renderItinBar` enquanto `itinFaixaAnimando` fosse verdadeiro, e isso deixou a
+  faixa CONGELADA no meio em duas passadas do oráculo — o temporizador de 240 ms não
+  corre com o relógio parado (`ctx.clock`), e o estado do app ficava para trás da
+  decoração. Hoje o `renderItinBar` chama `itinFaixaRepousar()` e segue.
+- **A classe `itin-faixa-aberta` do `<body>` anda com o estado LÓGICO**, não com o
+  fim do movimento: presa ao temporizador, ela deixava o corpo dizendo "aberta" numa
+  faixa já fechada (e dois botões à vista numa caixa que sumiu).
+
+**(5) A faixa no padrão do deck do player.** Pedido: *"fundo da aba com uma cor,
+botões cinzas … Deixe apenas o botão de criar momento em azul"*. A régua é o PAR
+RENDERIZADO do `.bottombar`: a caixa pinta `--bar` (a mesma da barra do topo e da
+caixa de controles), TODO botão pinta o CARTÃO `--surface` do `.t-btn`, o LIGADO
+pinta `--btn-accent` (o do `#repeat.active`) e SÓ o `+` é `--accent-fill`.
+- **A FILEIRA É UMA SÓ, COMO O `.transport`:** `.itin-b` é `flex: 1 1 0` com
+  `padding: .45rem 0`, raio de botão, ícone em `--icon-md` e a altura do conteúdo —
+  **36,4 px, o número do `.t-btn`**. As três seções continuam no DOM (`role="group"`)
+  com `display: contents`: elas não têm caixa, e é isso que faz os sete serem itens
+  do MESMO flex (antes cada seção era um bloco `flex: none` e o `space-between`
+  repartia a sobra em três vãos desiguais). O `min-width: --hit` é o piso que segura
+  a fileira a 320 px (34,3 por célula). A célula do ATRASO é `flex: 1.6` porque
+  carrega TEXTO.
+- **O `flex-basis: 0` de border-box ENGORDA a célula com padding lateral:** o ±5
+  media 3,2 px mais que as vizinhas até o `padding: .1rem` horizontal sair — é a
+  largura do padding virando base do item.
+- **O DESATIVADO NÃO É VERMELHO; O VERMELHO É DOS TRÊS DE ESTADO** (segunda rodada,
+  16/11: *"os botões que devem ficar vermelhos não são os de atraso, mas sim os 3 de
+  estado, que tecnicamente ligam e desligam elementos"*): `#itinTelaoBtn`,
+  `#itinMomentosBtn` e `#itinHorasBtn` vestem `--btn-danger` + `--danger-strong` (o
+  par do volume mudo e do wallpaper alternado) quando estão DESLIGADOS, e o par do
+  `.active` quando ligados — o vermelho SEGUE o interruptor nos dois sentidos. O
+  atraso não: o `#itinAjusteTxt` sem ajuste é LEITURA (cartão + `--muted`, 5,5:1) e
+  os `.itin-passo` no extremo ficam DESATIVADOS pelo véu `--op-inativo` do deck.
+- **A ESCRITA LONGA DO ATRASO subiu de 400 para 456 px de consulta de contêiner:** na
+  célula nova ("Atrasado 720 min", o máximo de `ITIN_DESLOC_MAX`) ela era CORTADA —
+  medido: "Atrasado 720…". Em tela larga ela volta.
+
+**(6) O itinerário à esquerda do importar, e virando ✕.** *"Inverta a posição do
+botão de importar mídia e do botão de itinerário. Deixando o itinerário a
+esquerda"*: o `<button>` mudou de lugar no HTML (a ordem de tabulação acompanha), o
+`#cronoImportar` entra deslocado pela margem que era da porta, e o passo do tour
+trocou de posição junto. *"E torne ele em um botão de x quando o itinerário estiver
+aberto"*: o `.crono-itin-ico` é trocado por `icoCancelar` no `renderItinBar` (o mesmo
+fechar dos outros, do sprite), com `title`/`aria-label` dizendo o que o toque faz.
+
+**(7) A seta do grupo na extrema direita.** *"deixe a seta … na extrema direita.
+Ficando a ordem: editar, excluir, seta. Pois como ela é o elemento que existe, deve
+ficar na posição mais estável"*: o `linhaDeMomento` monta a fileira [editar ·
+excluir · seta]. Com a faixa fechada o lápis e a lixeira somem e a seta NÃO anda —
+ela já mora no fim.
+
+**Os oráculos.** `itinerario.test.mjs`: o texto do subtítulo (C), a régua das cores
+da faixa reescrita para o deck, o vermelho que segue o interruptor (nos dois
+sentidos), o ±5 no extremo medido como DESATIVADO e não vermelho, a fileira medida
+por geometria (sete numa linha, o MESMO vão do deck, as seis células de ícone do
+mesmo tamanho, a do atraso mais larga), e o bloco **Z** novo — a régua das TRÊS
+animações, sempre no QUADRO INTERMEDIÁRIO. `ferramentas-folha`, `smoke` e
+`itinerario` passaram a esperar `!itinFaixaAnimando` em vez de um prazo;
+`sombra-de-rolagem` teve a metade da faixa INVERTIDA (ela pinta a cor dos controles,
+não o fundo da lista); `cronogramas-multiplos` e `barra-do-topo` acompanharam a troca
+de lugar; `tour` também.
 
 ---
 

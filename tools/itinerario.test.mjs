@@ -139,10 +139,14 @@ try {
   // todo uso dela passa por aqui — fechada, a porta `#itinBarBtn` a abre; aberta, um toque nela
   // recomeça a conta, para o passo seguinte não achá-la fechada no meio.
   const portaAberta = () => pg.evaluate(() => document.getElementById('itinBarBtn').getAttribute('aria-expanded') === 'true');
+  // DESDE O PACOTE 37 a faixa ABRE DESLIZANDO (a altura medida vai de 0 ao repouso em
+  // `--dur-media`), então "os sete botões existem" deixou de ser o mesmo instante que
+  // "a faixa está no lugar": quem mede altura, margem ou o topo da lista espera o
+  // movimento acabar. `itinFaixaAnimando` é o estado que o `itinFaixaAlternar` mantém.
   const abrirFaixa = async () => {
     if (await portaAberta()) await pg.dispatchEvent('#itinBar', 'click');
     else await pg.click('#itinBarBtn');
-    await esperar(pg, () => !!document.getElementById('itinTelaoBtn'));
+    await esperar(pg, () => !!document.getElementById('itinTelaoBtn') && !itinFaixaAnimando);
   };
   const fecharFaixa = async () => {
     if (await portaAberta()) await pg.click('#itinBarBtn');
@@ -500,7 +504,9 @@ try {
       pai: b.parentElement && b.parentElement.tagName,
       porta: {
         visivel: !porta.hidden && porta.getClientRects().length > 0, naBarra: porta.parentElement === topo,
-        aposImportar: !!porta.previousElementSibling && porta.previousElementSibling.id === 'cronoImportar',
+        // A PORTA É A PRIMEIRA DA TRILHA 1 desde o Pacote 37 (o operador trocou os dois
+        // de lugar): quem vem DEPOIS dela é o Importar, e é assim que a barra se lê.
+        aposImportar: !!porta.nextElementSibling && porta.nextElementSibling.id === 'cronoImportar',
         expandido: porta.getAttribute('aria-expanded'), controla: porta.getAttribute('aria-controls'),
       },
       ponto: !!p && !p.hidden && getComputedStyle(p).display !== 'none',
@@ -518,11 +524,10 @@ try {
       'U · a faixa é IRMÃ da barra do topo (`.list-header`), dentro do `<main>`, antes do corpo da lista', f);
     checar(!f.aberta && f.filhos.length === 0 && f.porta.visivel && f.porta.naBarra && f.porta.aposImportar
       && f.porta.expandido === 'false' && f.porta.controla === 'itinBar' && !f.ponto,
-      'U · RECOLHIDA a faixa não desenha nada (vazia, `hidden`); a porta `#itinBarBtn` mora NA barra, logo depois do '
+      'U · RECOLHIDA a faixa não desenha nada (vazia, `hidden`); a porta `#itinBarBtn` mora NA barra, logo ANTES do '
       + 'Importar (`aria-expanded="false"`, `aria-controls="itinBar"`), sem o ponto (nada no ar)', f);
   }
-  await pg.click('#itinBarBtn');
-  await esperar(pg, () => !!document.getElementById('itinTelaoBtn'));
+  await abrirFaixa();
   {
     const f = await faixa();
     checar(f.aberta && f.porta.expandido === 'true'
@@ -535,31 +540,68 @@ try {
     checar(f.telao[0] === 'false' && f.telao[1] === false && f.telao[2] === '' && f.momentos === 'true' && f.horas === 'true'
       && f.ajuste[0] === true && f.ajuste[1] === false,
       'U · estado inicial: o olho do telão (SÓ o ícone) desligado e aceso, os momentos à vista, horários ligados, atraso apagado', f);
-    const cores = await pg.evaluate(() => {
+    // ===== O PADRÃO DO DECK (Pacote 37) =====
+    // Pedido do operador: a faixa tem de ser *"exatamente o mesmo padrão de design dos
+    // botões lá da linha de controles do player: fundo da aba com uma cor, botões
+    // cinzas, desativados em vermelho... Deixe apenas o botão de criar momento em azul"* —
+    // e, na segunda rodada (16/11), *"os botões que devem ficar vermelhos não são os de
+    // atraso, mas sim os 3 de estado, que tecnicamente ligam e desligam elementos"*.
+    // A régua é o PAR RENDERIZADO do `.bottombar`: a caixa pinta `--bar`, os botões
+    // pintam `--surface` (o cartão do `.t-btn`), o LIGADO pinta `--btn-accent` (o par do
+    // `#repeat.active`), o DESLIGADO dos três interruptores pinta `--btn-danger` +
+    // `--danger-strong` (o par do volume mudo e do wallpaper alternado) e SÓ o `+` pinta
+    // `--accent-fill`.
+    const coresEm = () => pg.evaluate(() => {
       const lum = (c) => { const v = c.match(/[\d.]+/g).slice(0, 3).map((x) => { const s = Number(x) / 255;
         return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
       const razao = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
-      const novo = document.getElementById('itinNovoBtn'), cs = getComputedStyle(novo);
+      const sonda = (token) => { const p = document.createElement('i'); p.style.background = 'var(' + token + ')';
+        document.body.appendChild(p); const c = getComputedStyle(p).backgroundColor; p.remove(); return c; };
+      const c = (b) => getComputedStyle(b);
+      const novo = document.getElementById('itinNovoBtn'), cs = c(novo);
       return {
-        cartao: (() => { const p = document.createElement('i'); p.style.background = 'var(--surface)'; document.body.appendChild(p);
-          const c = getComputedStyle(p).backgroundColor; p.remove(); return c; })(),
-        passos: [...document.querySelectorAll('#itinBar .itin-passo')].map((b) => getComputedStyle(b).backgroundColor),
-        soltos: [...document.querySelectorAll('#itinBar .itin-b:not(.itin-novo):not(.active):not(.itin-passo)')]
-          .map((b) => (b.id || b.textContent.trim()) + ':' + getComputedStyle(b).backgroundColor),
+        barra: sonda('--bar'), cartao: sonda('--surface'), ligado: sonda('--btn-accent'),
+        acento: sonda('--accent-fill'), alerta: sonda('--btn-danger'), alertaCor: sonda('--danger-strong'),
+        fundo: c(document.getElementById('itinBar')).backgroundColor,
+        botoes: [...document.querySelectorAll('#itinBar .itin-b')].map((b) => ({
+          nome: b.id || (b.classList.contains('itin-passo') ? 'passo' : 'ajuste'),
+          active: b.classList.contains('active'), novo: b.classList.contains('itin-novo'),
+          bg: c(b).backgroundColor, fg: c(b).color, op: +c(b).opacity })),
         novo: [cs.backgroundColor, cs.color], contraste: +razao(cs.backgroundColor, cs.color).toFixed(2),
       };
     });
-    checar(cores.soltos.length === 2 && cores.soltos.every((x) => /rgba\(0, 0, 0, 0\)$/.test(x))
-      && cores.passos.length === 2 && cores.passos.every((c) => c === cores.cartao && !/rgba\(0, 0, 0, 0\)/.test(c))
-      && !/rgba\(0, 0, 0, 0\)/.test(cores.novo[0]) && cores.contraste >= 4.5,
-      'U · os botões de ESTADO e o ajuste são SOLTOS (sem fundo; o ligado é o par do interruptor); os ±5 têm o CARTÃO '
-      + '`--surface`; o "+" (`.itin-novo`) é SÓLIDO — fundo de acento e texto acima de 4,5:1', cores);
+    const ESTADO = ['itinTelaoBtn', 'itinMomentosBtn', 'itinHorasBtn'];
+    const cores = await coresEm();
+    const estado = cores.botoes.filter((b) => ESTADO.includes(b.nome));
+    const resto = cores.botoes.filter((b) => !ESTADO.includes(b.nome) && !b.novo);
+    checar(cores.fundo === cores.barra && cores.botoes.length === 7 && estado.length === 3
+      && estado.filter((b) => b.active).length === 2
+      && estado.filter((b) => b.active).every((b) => b.bg === cores.ligado)
+      && estado.filter((b) => !b.active).every((b) => b.bg === cores.alerta)
+      && resto.length === 3 && resto.every((b) => b.bg === cores.cartao && !/rgba\(0, 0, 0, 0\)$/.test(b.bg))
+      && cores.novo[0] === cores.acento && !/rgba\(0, 0, 0, 0\)$/.test(cores.novo[0]) && cores.contraste >= 4.5
+      && cores.botoes.filter((b) => b.bg === cores.acento).map((b) => b.nome).join() === 'itinNovoBtn',
+      'U · o padrão do DECK: a faixa pinta `--bar`; os TRÊS de estado pintam `--btn-accent` LIGADOS e '
+      + '`--btn-danger` DESLIGADOS; o ±5 e o ajuste pintam o CARTÃO `--surface`; e SÓ o "+" é `--accent-fill` '
+      + '(texto acima de 4,5:1)', cores);
+    // E O DESATIVADO NÃO É VERMELHO: o atraso em "No horário" é uma LEITURA (cartão e
+    // tinta `--muted`, 5,5:1), e o ±5 no extremo fica APAGADO pelo véu do deck.
+    const apagado = await pg.evaluate(() => {
+      const t = document.getElementById('itinAjusteTxt');
+      const st = getComputedStyle(t);
+      return { off: t.disabled, op: +st.opacity, cor: st.color, fundo: st.backgroundColor };
+    });
+    checar(apagado.off === true && apagado.op === 1 && !/249, 122, 126/.test(apagado.cor)
+      && !/93, 40, 46/.test(apagado.fundo),
+      'U · o ajuste em "No horário" é leitura e não ação: cartão `--surface`, tinta `--muted` e opacidade 1 — '
+      + 'nada de vermelho', apagado);
+
     checar(f.h < f.hTopo && f.h > 0, 'U · aberta, a faixa é MAIS BAIXA que a barra do topo', { faixa: f.h, topo: f.hTopo });
   }
   // A ANIMAÇÃO DE ABERTURA (pedido de 15/11): a faixa desce um degrau e acende. A régua é a
   // ANIMAÇÃO VIVA e os quadros intermediários — e quem pediu menos movimento no sistema não a vê.
   await pg.click('#itinBarBtn');
-  await esperar(pg, () => !itinFaixaAberta);
+  await esperar(pg, () => !itinFaixaAberta && !itinFaixaAnimando);
   await pg.click('#itinBarBtn');
   {
     const a = await pg.evaluate(() => {
@@ -582,7 +624,7 @@ try {
       { quadros, meio });
     await pg.emulateMedia({ reducedMotion: 'reduce' });
     await pg.click('#itinBarBtn');
-    await esperar(pg, () => !itinFaixaAberta);
+    await esperar(pg, () => !itinFaixaAberta && !itinFaixaAnimando);
     await pg.click('#itinBarBtn');
     {
       const r = await pg.evaluate(() => document.getElementById('itinBar').getAnimations()
@@ -591,7 +633,7 @@ try {
     }
     await pg.emulateMedia({ reducedMotion: 'no-preference' });
   }
-  await pg.click('#itinBarBtn');
+  await fecharFaixa();
   {
     const f = await faixa();
     const st = await banco();
@@ -599,6 +641,34 @@ try {
       'U · a porta de novo a RECOLHE: vazia e `hidden`, `aria-expanded="false"`', f);
     checar(JSON.stringify(st) === st0 && !('barraOculta' in (st || {})),
       'U · abrir e fechar NÃO grava nada: `state.itinerario` igual ao de antes, e sem `barraOculta`', { antes: st0, depois: st });
+  }
+  // O VERMELHO SEGUE O INTERRUPTOR (Pacote 37, 2ª rodada). Fica AQUI, e não junto da
+  // leitura das cores, porque o toque nos MOMENTOS grava (`saveItin`) — e a régua de
+  // "abrir e fechar não grava nada", logo acima, compara o estado guardado.
+  await abrirFaixa();
+  {
+    const ler = () => pg.evaluate(() => {
+      const sonda = (t) => { const p = document.createElement('i'); p.style.background = 'var(' + t + ')';
+        document.body.appendChild(p); const c = getComputedStyle(p).backgroundColor; p.remove(); return c; };
+      const b = (n) => document.getElementById(n);
+      return { alerta: sonda('--btn-danger'), ligado: sonda('--btn-accent'),
+        telao: getComputedStyle(b('itinTelaoBtn')).backgroundColor,
+        momentos: getComputedStyle(b('itinMomentosBtn')).backgroundColor,
+        horas: getComputedStyle(b('itinHorasBtn')).backgroundColor };
+    });
+    const antes = await ler();
+    await pg.click('#itinMomentosBtn');
+    await esperar(pg, () => !itinTrocando);
+    const ocultos = await ler();
+    await pg.click('#itinMomentosBtn');
+    await esperar(pg, () => !itinTrocando);
+    const voltou = await ler();
+    checar(antes.momentos === antes.ligado && ocultos.momentos === ocultos.alerta
+      && ocultos.telao === ocultos.alerta && ocultos.horas === ocultos.ligado
+      && voltou.momentos === voltou.ligado,
+      'U · o vermelho SEGUE o interruptor, nos dois sentidos: com os momentos à vista ele é azul (ligado); '
+      + 'ocultos, vira o vermelho do volume — o do telão continua (fora do ar) e o dos horários fica azul',
+      { antes, ocultos, voltou });
   }
   // A RECARGA: abrir não é escolha guardada — aberta antes de recarregar, ela volta RECOLHIDA.
   await abrirFaixa();
@@ -638,11 +708,25 @@ try {
         semLargura: bts.filter((x) => x.larg < 1).map((x) => x.id),
         longo: exibe('.itin-txt-longo'), curto: exibe('.itin-txt-curto'),
         h: Math.round(rb.height * 10) / 10, hTopo: Math.round(b.previousElementSibling.getBoundingClientRect().height * 10) / 10,
-        secoes: (() => {
-          const sc = [...b.children].map((x) => x.getBoundingClientRect());
-          const dentro = [...b.children].flatMap((x) => [...x.children].slice(1).map((e) => e.getBoundingClientRect().left - e.previousElementSibling.getBoundingClientRect().right));
-          return { n: sc.length, tops: sc.map((r) => Math.round(r.top)), entre: sc.slice(1).map((r, i) => +(r.left - sc[i].right).toFixed(1)),
-            dentro: +Math.max(...dentro).toFixed(1) };
+        // A FILEIRA (Pacote 37): as TRÊS seções continuam no DOM (`role="group"`,
+        // `display: contents` — elas não têm caixa), então o que se mede são os SETE
+        // botões: uma linha, o MESMO vão entre vizinhos quaisquer (o do `.transport`
+        // do deck), as células de ícone do mesmo tamanho e a do atraso mais larga.
+        fileira: (() => {
+          const els = [...b.querySelectorAll('.itin-b')];
+          const r = els.map((e) => e.getBoundingClientRect());
+          const px = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+          return {
+            n: els.length,
+            tops: [...new Set(r.map((x) => Math.round(x.top)))],
+            vaos: r.slice(1).map((x, i) => +(x.left - r[i].right).toFixed(1)),
+            vao: +(parseFloat(getComputedStyle(b).columnGap) || 0).toFixed(1),
+            larguras: r.map((x) => Math.round(x.width * 10) / 10),
+            alturas: r.map((x) => Math.round(x.height * 10) / 10),
+            piso: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hit')) || 0,
+            gapDeck: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--deck-gap')) * px || 0,
+            secoesNoDom: b.children.length,
+          };
         })(),
       };
     });
@@ -657,18 +741,24 @@ try {
     // cobra a 320 é o que o desenho garante em qualquer fonte: nenhuma seção PARTIDA entre
     // duas linhas, as seções que dividem a linha com o vão ENTRE maior que o DENTRO, e nada
     // passando da borda (as duas asserções acima).
-    if (w >= 360) {
-      checar(g.secoes.n === 3 && Math.max(...g.secoes.tops) - Math.min(...g.secoes.tops) <= 1 && g.secoes.entre.every((x) => x > g.secoes.dentro),
-        'U · em ' + w + 'px as TRÊS seções ficam numa linha, e o vão ENTRE elas é maior que o vão DENTRO de cada uma', g.secoes);
-      checar(g.h < g.hTopo,
-        'U · em ' + w + 'px a faixa cabe numa LINHA, mais baixa que a barra do topo (sem o ±1, sete alvos de 34px cabem)', g);
-    } else {
-      const inteiras = await pg.evaluate(() => [...document.getElementById('itinBar').children]
-        .map((sec) => [...sec.children].map((b) => Math.round(b.getBoundingClientRect().top)))
-        .every((tops) => new Set(tops).size === 1));
-      checar(g.secoes.n === 3 && inteiras,
-        'U · em ' + w + 'px cada seção fica INTEIRA numa linha (a quebra, quando ela acontece, desce a seção toda)', { secs: g.secoes, inteiras });
-    }
+    // A FILEIRA É UMA SÓ, COMO A DO DECK (Pacote 37). O que se cobra em TODA largura:
+    // os sete numa linha, o mesmo vão entre vizinhos (o `--deck-gap` do transporte),
+    // as seis células de ícone do mesmo tamanho, nenhuma abaixo do piso de toque e a
+    // do atraso mais larga — é ela que carrega texto, não um ícone. A faixa continua
+    // mais baixa que a barra do topo, que é o teto de altura da segunda linha.
+    const seis = g.fileira.larguras.filter((_, i) => i !== 4);
+    checar(g.fileira.n === 7 && g.fileira.tops.length === 1
+      && g.fileira.vaos.length === 6 && g.fileira.vaos.every((x) => Math.abs(x - g.fileira.vao) <= 0.5)
+      && Math.abs(g.fileira.vao - g.fileira.gapDeck) <= 0.5
+      && Math.max(...seis) - Math.min(...seis) <= 0.5
+      && Math.min(...g.fileira.larguras) >= g.fileira.piso - 0.5
+      && g.fileira.larguras[4] > Math.max(...seis)
+      && new Set(g.fileira.alturas).size === 1,
+      'U · em ' + w + 'px os SETE ficam numa linha só, com o MESMO vão entre vizinhos (o do deck, ' + g.fileira.vao
+      + 'px), as seis células de ícone do mesmo tamanho e a do ATRASO mais larga; todas com a MESMA altura, nenhuma '
+      + 'abaixo do piso de toque', { fileira: g.fileira, seis });
+    checar(g.h < g.hTopo,
+      'U · em ' + w + 'px a faixa cabe numa LINHA e fica mais baixa que a barra do topo (o teto da segunda linha)', { h: g.h, hTopo: g.hTopo });
   }
   await pg.setViewportSize({ width: 360, height: 800 });
   await esperar(pg, () => innerWidth === 360);
@@ -928,8 +1018,9 @@ try {
     checar(v.linhas[0] === '*09:00 Recepção' && v.linhas.length === 3,
       'C · às 09:58 a preview mostra "Recepção" em destaque e os seguintes abaixo', v);
     checar(v.lista.join() === 'Recepção', 'C · e a LISTA do cronograma marca o mesmo momento (`.agora`)', v.lista);
-    checar(v.subs.join(' | ') === 'Agora · 1 h | 40 min | Último momento',
-      'C · o subtítulo da linha diz "Agora" + a duração até o seguinte, e o último diz "Último momento"', v.subs);
+    checar(v.subs.join(' | ') === 'Agora · 1 h até Louvor | 40 min até Pregação | Último momento',
+      'C · o subtítulo da linha diz "Agora" + a duração ATÉ O PRÓXIMO momento, COM O NOME DELE (Pacote 37: o '
+      + 'número sozinho não dizia a que se referia), e o último diz "Último momento"', v.subs);
   }
   // LIGAR E DESLIGAR: o botão tira o itinerário do telão sem apagar nada, e a marca da lista continua.
   await abrirFaixa();
@@ -956,7 +1047,7 @@ try {
     checar(v.linhas.join() === '09:00 Recepção,*10:00 Louvor,10:40 Pregação',
       'C · ao cruzar 10:00 o destaque passa para "Louvor" e a LISTA FICA INTEIRA no telão (três momentos cabem na '
       + 'janela — v1.14.36: só uma lista maior que seis linhas rola a partir do momento de agora)', v);
-    checar(v.lista.join() === 'Louvor' && v.subs.join(' | ') === '1 h | Agora · 40 min | Último momento',
+    checar(v.lista.join() === 'Louvor' && v.subs.join(' | ') === '1 h até Louvor | Agora · 40 min até Pregação | Último momento',
       'C · a lista do cronograma acompanha o relógio (a marca e o subtítulo passam para "Louvor")', { lista: v.lista, subs: v.subs });
     checar(!/^0s/.test(await pg.evaluate(() => getComputedStyle(document.querySelector('#pvTextItin .itin-linha')).transitionDuration)),
       'C · e a troca do destaque é animada pela TRANSIÇÃO da linha (a lista fica inteira: nenhuma linha entra ou sai)', v);
@@ -1564,9 +1655,10 @@ try {
     await abrirFaixa();
     const aberta = await ler();
     await fecharFaixa();
-    checar(fechada.join() === 'seta' && aberta.join() === 'seta,editar,excluir',
+    checar(fechada.join() === 'seta' && aberta.join() === 'editar,excluir,seta',
       'G′ · com a FAIXA FECHADA a linha do momento mostra SÓ a seta do grupo; aberta, a fileira inteira '
-      + '(seta · editar · excluir)', { fechada, aberta });
+      + '(editar · excluir · seta) — e a seta é a ÚLTIMA nos dois estados, que é o que a mantém parada',
+      { fechada, aberta });
   }
   {
     const b = await bancoMin();
@@ -1714,8 +1806,9 @@ try {
     const estadoDo = (n) => pg.evaluate((nome) => {
       const li = [...document.querySelectorAll('#library > li.lib-item')].find((x) => x.querySelector('.row-name').textContent === nome);
       const cs = getComputedStyle(li, '::after');
-      // A SETA É UM BOTÃO na `.row-acoes--solta`, à ESQUERDA do lápis (v1.14.36): a ordem da
-      // fileira é [seta · editar · excluir], e ela leva o estado do grupo no `aria-expanded`.
+      // A SETA É UM BOTÃO na `.row-acoes--solta`, na EXTREMA DIREITA (Pacote 37: é ela que
+      // existe sempre, então fica na posição mais estável): a ordem é [editar · excluir · seta],
+      // e ela leva o estado do grupo no `aria-expanded`.
       const botoes = [...li.querySelectorAll('.row > .row-acoes--solta > button')];
       const seta = botoes.find((b) => b.classList.contains('itin-seta'));
       return { recolhido: li.classList.contains('recolhido'), exp: li.getAttribute('aria-expanded'),
@@ -1737,12 +1830,12 @@ try {
     const e1 = await estadoDo('Pregação');
     const desenho1 = await nomeDa();
     checar(fechou === true && e1.recolhido && e1.exp === 'false' && e1.ocultas === '1'
-      && e1.seta && e1.setaExp === 'false' && e1.fileira === 'seta,editar,excluir'
+      && e1.seta && e1.setaExp === 'false' && e1.fileira === 'editar,excluir,seta'
       && !desenho1.includes('Apelo') && e1.sub.includes('1 item') && e1.classes === 'grupo-ini+grupo-fim'
       && e1.fundo === 'rgba(0, 0, 0, 0)' && e1.desenho === 'none',
       'G′ · tocar a `.row` do momento com grupo RECOLHE as mídias dele: `li.recolhido`, `aria-expanded="false"`, '
       + '`dataset.ocultas` = 1, o subtítulo "1 item" — e o grupo recolhido continua `grupo-ini` + `grupo-fim`, '
-      + 'SEM tinta e sem contorno, com a SETA como botão à esquerda do lápis (a fileira é seta · editar · excluir, '
+      + 'SEM tinta e sem contorno, com a SETA como botão na EXTREMA DIREITA (a fileira é editar · excluir · seta, '
       + 'e o `aria-expanded` dela é o do grupo)', { e1, desenho1 });
     // (2) DE NOVO EXPANDE: as mídias voltam na ordem de antes.
     await tocar('Pregação');
@@ -1815,6 +1908,115 @@ try {
       && devolta.recolhidos === 0 && devolta.ocultas === 0,
       'G′ · com os momentos OCULTOS nada fica recolhido; de volta, a lista volta inteira (sem `recolhido` nem `data-ocultas`)',
       { ocultos, devolta });
+  }
+
+  // ── Z. AS ANIMAÇÕES DO PACOTE 37 ─────────────────────────────────────────
+  // A régua é o QUADRO INTERMEDIÁRIO, nunca o estado final: "animado" aqui quer dizer
+  // que a altura da faixa, o topo da lista e a altura das linhas que saem passam por
+  // valores ENTRE o antes e o depois. Quem pediu menos movimento no sistema não vê
+  // nenhuma das três, e a troca é seca — mas correta.
+  {
+    await pg.evaluate(async () => {
+      itinAjusteZerar();
+      for (const x of await AVDB.listItems('imports')) await AVDB.listRemove('imports', x.id);
+      const msg = (n) => AVDB.addCue('message', { text: n }, { name: n, list: 'imports' });
+      const mom = (n, min) => AVDB.addCue('momento', { min }, { name: n, list: 'imports' });
+      await msg('Aviso solto'); await mom('Recepção', 540); await msg('Boas-vindas'); await mom('Louvor', 600);
+      await msg('Hino 1'); await mom('Pregação', 630); await load();
+    });
+    await esperar(pg, () => document.querySelectorAll('#library > li.lib-item').length === 6);
+    await fecharFaixa();
+    // (1) A FAIXA: a altura e o topo da lista atravessam o meio.
+    const faixaQ = await pg.evaluate(() => new Promise((ok) => {
+      const b = document.getElementById('itinBar'), l = document.getElementById('library');
+      const v = [], t0 = performance.now();
+      itinFaixaAlternar(true);
+      const passo = () => {
+        v.push([Math.round(b.getBoundingClientRect().height * 10) / 10, Math.round(l.getBoundingClientRect().top * 10) / 10]);
+        if (performance.now() - t0 < 340) requestAnimationFrame(passo); else ok(v);
+      };
+      requestAnimationFrame(passo);
+    }));
+    const alturas = faixaQ.map((q) => q[0]), topos = faixaQ.map((q) => q[1]);
+    const alto = alturas[alturas.length - 1];
+    const meioAlt = alturas.filter((h) => h > 1 && h < alto - 1).length;
+    const meioTopo = topos.filter((t) => t > topos[0] + 1 && t < topos[topos.length - 1] - 1).length;
+    // O +5 NO EXTREMO NÃO É VERMELHO: o vermelho é dos três de ESTADO (pedido de
+    // 16/11). No extremo do atraso o passo fica DESATIVADO pelo véu do deck — cartão
+    // `--surface` e opacidade apagada —, não pelo par do volume.
+    await pg.evaluate(() => itinAjustar(720));
+    const limite = await pg.evaluate(() => {
+      const b = [...document.querySelectorAll('#itinBar .itin-passo')].find((x) => x.textContent.trim() === '+5');
+      const st = getComputedStyle(b);
+      return { dis: b.disabled, op: +st.opacity, fundo: st.backgroundColor };
+    });
+    await pg.evaluate(() => itinAjusteZerar());
+    checar(limite.dis === true && limite.op < 0.5 && !/93, 40, 46/.test(limite.fundo),
+      'Z · o +5 no extremo do atraso fica DESATIVADO pelo véu do deck (cartão `--surface`, opacidade apagada) — '
+      + 'o vermelho do volume NÃO é dele', limite);
+    checar(alto > 30 && meioAlt >= 2 && meioTopo >= 2 && new Set(topos).size >= 4,
+      'Z · a faixa ABRE DESLIZANDO e a lista desce com ela: a altura da faixa e o topo do `#library` passam por '
+      + 'valores intermediários — o pulo de ~48 px virou movimento', { alto, meioAlt, meioTopo, topos: [...new Set(topos)] });
+    // (2) OS MOMENTOS NA LISTA: as linhas do momento encolhem antes de sumir.
+    const ocultaQ = await pg.evaluate(() => new Promise((ok) => {
+      const v = [], t0 = performance.now();
+      itinMomentosOcultar(true);
+      const passo = () => {
+        v.push({ n: document.querySelectorAll('#library > li.lib-item').length,
+          saindo: document.querySelectorAll('#library > .saindo').length,
+          alt: [...document.querySelectorAll('#library > li.momento')].map((l) => Math.round(l.getBoundingClientRect().height)) });
+        if (performance.now() - t0 < 460) requestAnimationFrame(passo); else ok(v);
+      };
+      requestAnimationFrame(passo);
+    }));
+    const h0 = (ocultaQ[0].alt || [0])[0];
+    const comSaindo = ocultaQ.filter((q) => q.saindo > 0);
+    const encolhendo = comSaindo.some((q) => q.alt.some((h) => h > 0 && h < h0 - 1));
+    checar(comSaindo.length >= 2 && encolhendo && ocultaQ[0].n === 6 && ocultaQ[ocultaQ.length - 1].n === 3,
+      'Z · OCULTAR os momentos não é um corte: as linhas do momento vestem a saída (`.saindo`) e ENCOLHEM de uma '
+      + 'altura medida até zero antes de o desenho seguinte tirá-las da lista', { quadros: comSaindo.length, encolhendo, h0 });
+    // (3) E ELAS VOLTAM ENTRANDO: a classe `linha-entra` é o lado CSS da entrada.
+    const entrada = await pg.evaluate(() => {
+      itinMomentosOcultar(false);
+      const els = [...document.querySelectorAll('#library > .linha-entra')];
+      return { n: els.length, anim: els.map((l) => l.getAnimations().map((a) => a.animationName + ':' + Math.round(a.effect.getTiming().duration)).join()) };
+    });
+    checar(entrada.n === 3 && entrada.anim.every((a) => /^linha-entra:200$/.test(a)),
+      'Z · MOSTRAR de volta traz as TRÊS linhas de momento com a entrada viva (`linha-entra`, a duração de '
+      + '`--dur-media`)', entrada);
+    // (4) O GRUPO: recolher um momento encolhe as mídias dele, e o colegas de baixo sobem.
+    const grupoQ = await pg.evaluate(() => new Promise((ok) => {
+      const v = [], t0 = performance.now();
+      const li = [...document.querySelectorAll('#library > li.lib-item.momento')]
+        .find((l) => l.querySelector('.row-name').textContent === 'Louvor');
+      itinAlternarGrupo(li.dataset.id, 1);
+      const passo = () => {
+        v.push({ saindo: document.querySelectorAll('#library > .saindo').length,
+          alt: [...document.querySelectorAll('#library > .saindo')].map((l) => Math.round(l.getBoundingClientRect().height)) });
+        if (performance.now() - t0 < 420) requestAnimationFrame(passo); else ok(v);
+      };
+      requestAnimationFrame(passo);
+    }));
+    const gSaindo = grupoQ.filter((q) => q.saindo > 0);
+    const gMeio = gSaindo.some((q) => q.alt.some((h) => h > 0 && h < 50));
+    const recolhido = await pg.evaluate(() => [...document.querySelectorAll('#library > li.recolhido')]
+      .map((l) => l.querySelector('.row-name').textContent).join());
+    checar(gSaindo.length >= 2 && gMeio && recolhido === 'Louvor',
+      'Z · RECOLHER O GRUPO também anima: a mídia do momento veste a saída e encolhe até zero, e o momento só então '
+      + 'ganha `.recolhido`', { quadros: gSaindo.length, gMeio, recolhido });
+    // (5) `prefers-reduced-motion`: nenhuma das três acontece.
+    await pg.emulateMedia({ reducedMotion: 'reduce' });
+    const seco = await pg.evaluate(() => new Promise((ok) => {
+      itinMomentosOcultar(true);
+      setTimeout(() => ok({ saindo: document.querySelectorAll('#library > .saindo').length,
+        n: document.querySelectorAll('#library > li.lib-item').length }), 80);
+    }));
+    await pg.evaluate(() => itinMomentosOcultar(false));
+    await esperar(pg, () => document.querySelectorAll('#library > li.lib-item').length === 6);
+    await pg.emulateMedia({ reducedMotion: 'no-preference' });
+    checar(seco.saindo === 0 && seco.n === 3,
+      'Z · e com `prefers-reduced-motion` a troca é SECA: nenhuma linha veste `saindo` e a lista já está no estado '
+      + 'final', seco);
   }
 
   checar(erros.length === 0, 'nenhum erro de console', erros);

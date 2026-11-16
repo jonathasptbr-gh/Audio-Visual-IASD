@@ -659,22 +659,22 @@ try {
     const alvos = pc.map((m) => [].concat(m.alvo).join('+'));
     // O DECK, UM A UM (v1.14.20): a barra, a prévia com as setas, o grupo de tocar (sem o repetir e a
     // playlist, que abrem a fileira) e cada exclusivo do Avançado têm o próprio balão.
-    const quer = ['#library', '#cronoTitulo', '#cronoImportar', '#itinBarBtn', '#bibleBtn', '#toolsBtn', '#libBar',
+    const quer = ['#library', '#cronoTitulo', '#itinBarBtn', '#cronoImportar', '#bibleBtn', '#toolsBtn', '#libBar',
       '.np-seek', '#slidePrevBtn+#preview+#slideNextBtn', '#prev+#playpause+#next+#stop', '#repeat', '#plBtn',
       '#lyricsViewBtn', '#viewToggle', '#muteToggle', '#pvFullBtn', '#pvCastBtn', '#settingsBtn'];
     checar(quer.every((a) => alvos.includes(a)) && !alvos.includes('#seek+.transport'),
       'C · Cronograma, troca, Importar, a porta do Itinerário, Bíblia, Ferramentas, Biblioteca, o deck um a um (barra, prévia e setas, tocar, playlist, repetir, auxiliar, cobrir, mutar, tela cheia), conectar e Configurações', alvos.join(' '));
     // A PORTA DO ITINERÁRIO (Pacote 35): a faixa nasce recolhida e não desenha nada, então o passo é o do
-    // `#itinBarBtn`, que mora NA barra do topo, colado à direita do Importar. O tour mostra na ordem da tela
-    // (linha a linha, `left` crescente): o Importar, LOGO DEPOIS a porta, e só então o nome do cronograma —
+    // `#itinBarBtn`, que mora NA barra do topo, à ESQUERDA do Importar (Pacote 37). O tour mostra na ordem da tela
+    // (linha a linha, `left` crescente): a porta, LOGO DEPOIS o Importar, e só então o nome do cronograma —
     // tudo antes da Bíblia. É o único lugar do tour onde o Itinerário se explica (não é ferramenta).
     const iPorta = alvos.indexOf('#itinBarBtn');
     const iImp = alvos.indexOf('#cronoImportar'), iTit = alvos.indexOf('#cronoTitulo');
-    checar(iPorta > 0 && iPorta === iImp + 1 && iTit > iPorta && iPorta < alvos.indexOf('#bibleBtn')
+    checar(iPorta > 0 && iImp === iPorta + 1 && iTit > iImp && iImp < alvos.indexOf('#bibleBtn')
       && pc[iPorta].titulo === 'Itinerário' && !!pc[iPorta].peca && recorteBate(pc[iPorta])
       && !alvos.includes('#itinBar'),
-      'C · a porta do Itinerário (`#itinBarBtn`) tem o passo dela, LOGO DEPOIS do Importar e antes do nome do '
-      + 'cronograma e da Bíblia, recortando o botão — e a faixa recolhida não tem passo', alvos.join(' '));
+      'C · a porta do Itinerário (`#itinBarBtn`) tem o passo dela, ANTES do Importar (Pacote 37: o operador trocou '
+      + 'os dois de lugar) e depois do nome do cronograma, recortando o botão — e a faixa recolhida não tem passo', alvos.join(' '));
     // A PRÉVIA ANTES DOS BOTÕES QUE MORAM NELA (v1.14.21, pedido do operador): o passo da prévia com as setas
     // CONTÉM o Cobrir, o Mutar e a Tela cheia (e o Conectar, onde ele aparece) — a moldura vem antes.
     const tit = pc.map((m) => m.titulo);

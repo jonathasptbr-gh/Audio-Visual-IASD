@@ -3672,6 +3672,22 @@ main {
               margin-bottom .2s cubic-bezier(.22, .61, .36, 1);
 }
 :is(.lib-item, .row-item).saindo:not(:last-child) { margin-bottom: calc(-1 * var(--sp-3)); }
+/* ---------- E A ENTRADA DA LINHA (Pacote 37) ----------
+   O par de cima fecha a linha que sai; esta abre a que chega. Ela é uma
+   `animation` e não uma `transition` porque o nó NÃO EXISTIA no quadro anterior —
+   o navegador não interpola um estado que ele nunca pintou. A classe é posta e
+   tirada pelo `marcarLinhasQueEntram` (controle.js), e só nas linhas que o
+   desenho anterior não tinha: a lista inteira se redesenha a cada mudança, e
+   animar todas faria a tela piscar a cada tique do relógio. O deslocamento é
+   curto (um degrau da escala): o que se lê é a linha POUSANDO, não voando. */
+@keyframes linha-entra {
+  from { opacity: 0; transform: translateY(calc(-1 * var(--sp-3))); }
+  to { opacity: 1; transform: none; }
+}
+#library > .lib-item.linha-entra { animation: linha-entra var(--dur-media) ease both; }
+@media (prefers-reduced-motion: reduce) {
+  #library > .lib-item.linha-entra { animation: none; }
+}
 
 .row { position: relative; z-index: 1; display: flex; align-items: center; gap: var(--sp-4); padding: .35rem .5rem; background: var(--linha); touch-action: pan-y; }
 
@@ -7316,7 +7332,10 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
      chegar a ele. Quem desce são as SEÇÕES inteiras (`.itin-secao`). O vão ENTRE elas
      é `--sp-6`, claramente maior que o de dentro: é só o espaço que as separa. */
   flex-shrink: 0; display: flex; flex-wrap: wrap; row-gap: var(--sp-2);
-  align-items: center; justify-content: space-between; column-gap: var(--sp-6);
+  /* `stretch` e não `center`: a célula que carrega texto é mais baixa que as de
+     ícone, e na fileira do deck TODAS medem o mesmo — quem dá a altura é a mais
+     alta, e as outras esticam até ela. */
+  align-items: stretch; column-gap: var(--deck-gap);
   /* A FOLGA COM A BARRA DO TOPO (pedido de 15/11: *"A aba das opções do itinerário
      está muito colada com a top bar"*): é MARGEM, e não recuo de dentro, porque a
      faixa tem um teto de altura — ela é a segunda linha, mais baixa que a barra do
@@ -7324,7 +7343,12 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
      `itinerario.test.mjs`). A margem de cima empurra a faixa inteira para baixo sem
      mexer na altura dela; a de baixo continua negativa, anulando o `gap` do `<main>`. */
   margin: var(--sp-4) -.8rem calc(-1 * var(--sp-5));
-  padding: .15rem .8rem .25rem;
+  padding: .1rem .8rem;
+  /* O FUNDO É O DA BARRA DO PLAYER (Pacote 37): a faixa era TRANSPARENTE e os
+     botões flutuavam soltos sobre o `--bg`. O par do deck é `--bar` na caixa e
+     `--surface` nos botões, e é ele que se lê como "aba" — uma peça com corpo,
+     encostada na lista, e não três ícones perdidos no vazio. */
+  background: var(--bar);
   /* A ANIMAÇÃO DE ABERTURA (pedido de 15/11): a faixa desce um degrau e acende. Ela
      roda porque o elemento volta a ser DESENHADO ao sair do `hidden` — o navegador
      não interpola um estado anterior que ele não pintou, e por isso é `animation`
@@ -7337,6 +7361,20 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
 }
 @media (prefers-reduced-motion: reduce) {
   .itin-bar { animation: none; }
+}
+/* A ALTURA ANIMADA (Pacote 37) — o JS escreve `height` e as duas margens, e o que
+   aqui está é só o que a transição precisa: as três propriedades, o recorte do
+   que ainda não coube, e `align-content: flex-start` para o conteúdo aparecer de
+   CIMA para baixo. Centrado, o que se veria é a faixa crescendo do meio, com a
+   fileira saindo pelos dois lados do recorte. */
+.itin-bar--animando {
+  overflow: hidden; align-content: flex-start;
+  transition: height var(--dur-media) ease,
+              margin-top var(--dur-media) ease,
+              margin-bottom var(--dur-media) ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .itin-bar--animando { transition: none; }
 }
 .itin-bar:empty { display: none; }
 /* A FAIXA CEDE A FOLHA (v1.14.34). Ela mora entre a barra do topo e o
@@ -7352,31 +7390,65 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
 main:has(> .list-body > .tools-sheet:not([hidden])) :is(#itinBar, #itinBarBtn) { display: none; }
 /* O BOTÃO DA FAIXA MEDE O PISO DO APP: altura em `--hit` (34px, fixo em px
    como o piso), solto (sem caixa), e nunca menor que o dedo em tela nenhuma. */
+/* A CÉLULA É A DO DECK (Pacote 37): o `.t-btn` do transporte é um bloco que DIVIDE
+   a linha com os vizinhos (`flex: 1`), com `padding: .45rem 0`, raio de botão e o
+   ícone em `--icon-md` — a altura (36,4) sai do conteúdo, como lá. O `min-width:
+   --hit` fica como piso de toque, e é ele que segura a fileira a 320px. */
 .itin-b {
-  flex: none; display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1);
-  height: var(--hit); min-width: var(--hit); padding: 0 .3rem; box-sizing: border-box;
-  border: 0; border-radius: var(--radius-card);
-  background: none; color: var(--text);
+  flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1);
+  height: auto; min-width: var(--hit); padding: .45rem 0; box-sizing: border-box;
+  border: 0; border-radius: var(--radius-btn);
+  background: var(--surface); color: var(--text);
   font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-forte); line-height: 1;
   cursor: pointer;
 }
-.itin-b svg { width: 1.15rem; height: 1.15rem; flex: none; }
+.itin-b svg { width: var(--icon-md); height: var(--icon-md); flex: none; }
+/* DESATIVADO É O VÉU DO DECK (`--op-inativo`), como nas outras famílias — e NÃO o
+   vermelho: quem veste o vermelho são os três de ESTADO (abaixo). O pedido de 16/11
+   é explícito: *"os botões que devem ficar vermelhos não são os de atraso, mas sim os
+   3 de estado, que tecnicamente ligam e desligam elementos"*. */
 .itin-b:disabled { opacity: var(--op-inativo); cursor: default; }
+/* ===== O VERMELHO É DOS TRÊS DE ESTADO (Pacote 37) =====
+   O mesmo par do volume mudo e do wallpaper alternado (`--btn-danger` +
+   `--danger-strong`, o `.pv-fab--mute.muted` / `.vol-pill.mudo` — a superfície da
+   própria família, nunca a tinta sozinha: tokens.css). E no mesmo lugar da FRASE do
+   pedido: *"desativados em vermelho"* — o vermelho é o estado DESLIGADO do
+   interruptor. LIGADO continua sendo o par do `.active` (`--btn-accent`, o do
+   `#repeat.active`): o telão no ar, os momentos à vista, os horários no telão.
+   Desligado: o itinerário fora do telão, os momentos ocultos na lista, as horas
+   escondidas no telão — as três coisas que mudam o que a igreja vê.
+   `opacity: 1` porque o olho sem momento nenhum é `disabled` E desligado: o véu por
+   cima do vermelho o apagaria (1,8:1), e o que se quer ali é justamente vê-lo. */
+.itin-b:is(#itinTelaoBtn, #itinMomentosBtn, #itinHorasBtn):not(.active) {
+  background: var(--btn-danger); color: var(--danger-strong); opacity: 1;
+}
 /* LIGADO é o par do interruptor do app (`--btn-accent` + `--accent`), como o "Seg"
    e o "12h" do Relógio: o telão no ar, os momentos à vista e os horários escolhidos. */
 .itin-b.active { background: var(--btn-accent); color: var(--accent); }
-/* O ±5 tem CARTÃO, o do botão comum do app (`--surface`, o da `.row-btn`). */
-.itin-passo { background: var(--surface); min-width: var(--hit); padding: 0 .1rem; font-weight: var(--fw-max); font-variant-numeric: tabular-nums; }
+/* O ±5 é o quadrado da fileira: algarismos tabulares para o `−5` e o `+5` não
+   andarem quando o número muda, e o rótulo no peso máximo. O CARTÃO dele é o da
+   base (`.itin-b`, `--surface`) desde o Pacote 37. */
+/* SEM padding horizontal: com `box-sizing: border-box` e `flex-basis: 0`, o padding
+   lateral vira BASE do item e engorda a célula em 3,2px sobre as vizinhas — medido,
+   era o que fazia o ±5 maior que o olho na mesma fileira. */
+.itin-passo { min-width: var(--hit); font-weight: var(--fw-max); font-variant-numeric: tabular-nums; }
 /* O ATRASO é o miolo da seção do meio, e é um botão (tocar o zera): chapado, sem
    corpo. Com atraso ele deixa de ser apagado — é o estado que muda o que o telão
    mostra, e lê-se de relance. Largura MÍNIMA fixa: o ±5 fica sempre encostado nele,
    sem andar quando o texto muda de "0 min" para "−5 min". */
 .itin-b.itin-ajuste-txt {
-  flex: none; min-width: 2.9rem; text-align: center; padding: 0 .15rem; background: none; color: var(--muted);
+  /* A LEITURA É A CÉLULA MAIS LARGA (1,6×): é ela que carrega TEXTO ("−20 min") e
+     não um ícone, e a 320px as seis células de ícone ainda medem 34,3px — o piso
+     de toque —, enquanto o rótulo ganha os ~55px de que precisa. */
+  flex: 1.6 1 0; min-width: 0; text-align: center;
+  background: var(--surface); color: var(--muted);
   font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;
-  line-height: var(--hit);
+  line-height: 1.2;
 }
-.itin-b.itin-ajuste-txt:disabled { opacity: 1; }
+/* E ela NÃO veste o vermelho do indisponível: "No horário" é o estado lido, não uma
+   ação que não dá para fazer — pintá-lo de vermelho deixaria a faixa em alarme
+   permanente. Ele fica com o cartão e a tinta `--muted`, legível (5,5:1). */
+.itin-b.itin-ajuste-txt:disabled { background: var(--surface); color: var(--muted); opacity: 1; }
 .itin-txt-curto { display: none; }
 .itin-b.itin-ajuste-txt.deslocado { color: var(--accent); font-weight: var(--fw-max); }
 /* O `+` é SÓLIDO e destacado (pedido de 15/11) — o par do botão primário do app
@@ -7386,15 +7458,24 @@ main:has(> .list-body > .tools-sheet:not([hidden])) :is(#itinBar, #itinBarBtn) {
    reparte a sobra entre elas (`space-between`), e dentro da seção o vão é o pequeno.
    O ATRASO é COMPACTO — o ±5 encosta no texto (pedido de 15/11) —, então ele não é
    elástico: quem absorve a sobra é o vão entre as seções. */
-.itin-secao { flex: none; display: flex; align-items: center; gap: var(--sp-2); }
-.itin-secao--atraso { flex: none; gap: var(--sp-1); }
-/* O VÃO DE DENTRO DAS SEÇÕES ENCOLHE nas telas estreitas (consulta de MÍDIA: a faixa tem a
-   largura da tela, então as duas réguas coincidem). */
-@media (max-width: 419.98px) { .itin-secao { gap: var(--sp-1); } }
-/* A FAIXA MEDE O PRÓPRIO COMPRIMENTO (consulta de contêiner, como a do `.misc-foot`): abaixo
-   de 400px o atraso passa à escrita curta ("+5 min"). (A consulta mede o CONTEÚDO da faixa:
-   o recuo de .8rem de cada lado já está descontado — 360px de tela são ~334px aqui.) */
-@container (max-width: 399.98px) {
+/* AS TRÊS SEÇÕES CONTINUAM NO DOM (é delas que vêm os `role="group"` com o nome de
+   cada uma), mas SEM CAIXA: `display: contents` faz os sete botões serem itens do
+   MESMO flex, e é isso que dá a fileira do deck — todos dividindo a largura, com
+   UM vão só entre vizinhos quaisquer. Antes, cada seção era um bloco `flex: none`
+   e o `space-between` repartia a sobra entre três vãos desiguais; a fileira tinha
+   três grupos em vez de uma linha. */
+.itin-secao, .itin-secao--atraso { display: contents; }
+/* A FAIXA MEDE O PRÓPRIO COMPRIMENTO (consulta de contêiner, como a do `.misc-foot`): o
+   atraso tem DUAS escritas, e a curta ("−20 min") é a que cabe na célula do deck. (A consulta
+   mede o CONTEÚDO da faixa: o recuo de .8rem de cada lado já está descontado — 360px de tela
+   são ~334px aqui.)
+   O LIMITE SUBIU DE 400 PARA 456 NO PACOTE 37 e não é gosto: desde que a fileira divide a
+   largura em sete células iguais, a do atraso mede ~1,6 célula, e a escrita longa ("Atrasado
+   720 min", o máximo de `ITIN_DESLOC_MAX`) precisa de ~76px de conteúdo — que só existem com
+   a faixa acima de ~456px. Abaixo disso ela era CORTADA com reticências (medido: "Atrasado
+   720…"), e um rótulo cortado mente sobre o número. Em tela de tablet e no navegador de
+   mesa a escrita longa volta, e ali ela cabe. */
+@container (max-width: 455.98px) {
   .itin-txt-longo { display: none; }
   .itin-txt-curto { display: inline; }
 }
@@ -7404,8 +7485,11 @@ main:has(> .list-body > .tools-sheet:not([hidden])) :is(#itinBar, #itinBarBtn) {
    é dela agora: um selo no canto, porque a faixa recolhida não desenha nada. */
 .list-header > .crono-itin {
   grid-row: 1; grid-column: 1; justify-self: start;
-  margin-left: calc(var(--hit) + var(--sp-2));
 }
+/* O IMPORTAR ANDA PARA A DIREITA DA PORTA (Pacote 37): os dois dividem a trilha 1,
+   e quem cede o primeiro lugar agora é o itinerário. */
+.list-header > .crono-importar { margin-left: calc(var(--hit) + var(--sp-2)); }
+.crono-itin-ico { display: inline-flex; align-items: center; justify-content: center; }
 .crono-itin { position: relative; background: none; color: var(--accent); }
 .crono-itin[aria-expanded="true"] { background: var(--btn-accent); }
 .crono-itin > .itin-ponto { position: absolute; top: .3rem; right: .3rem; }

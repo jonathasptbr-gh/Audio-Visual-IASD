@@ -185,7 +185,10 @@ try {
     'a faixa do Itinerário nasce RECOLHIDA: a porta (`#itinBarBtn`) à vista, a faixa sem retângulo e o `#library` '
     + 'colado no `.list-header` (Pacote 35)', faixaRec);
   await pg.click('#itinBarBtn');
-  await pg.waitForTimeout(200);
+  // A faixa ABRE DESLIZANDO desde o Pacote 37: a altura E a margem de cima animam, e
+  // medir a margem de 6..10 px no meio do movimento daria um número que não é o de
+  // repouso. O prazo fixo saiu; quem responde é o estado do movimento.
+  await esperar(pg, () => !itinFaixaAnimando);
   const faixaIt = await medirFaixa();
   checar(faixaIt.aberta === 'true' && faixaIt.tem && faixaIt.colada,
     'aberta pela porta, a faixa do Itinerário (`#itinBar`) fica de pé entre o cabeçalho e a lista: é a borda de '

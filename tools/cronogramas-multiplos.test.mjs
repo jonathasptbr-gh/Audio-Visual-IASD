@@ -261,16 +261,26 @@ try {
       const h = document.querySelector('.list-header').getBoundingClientRect();
       const r = b.getBoundingClientRect();
       const t = document.getElementById('cronoTitulo').getBoundingClientRect();
+      // A PRIMEIRA DA TRILHA 1 PASSOU A SER A PORTA DO ITINERÁRIO (Pacote 37: o
+      // operador trocou os dois de lugar), então quem encosta na borda esquerda é
+      // ela, e o Importar entra logo à direita. A regra que este bloco guarda é a
+      // MESMA — o Importar é da trilha 1, não da coluna do título.
+      const p = document.getElementById('itinBarBtn');
+      const pr = p && p.getClientRects().length ? p.getBoundingClientRect() : null;
       return {
         limpar: !!document.getElementById('cronoLimpar') || !!document.querySelector('.crono-limpar'),
         fn: typeof window.renderCronoLimpar,
         esq: r.left - h.left, antes: r.right <= t.left,
+        portaEsq: pr ? pr.left - h.left : null,
+        depoisDaPorta: pr ? Math.abs(r.left - pr.right) <= 12 : false,
       };
     });
     checar(!dis.limpar && dis.fn === 'undefined',
       'E · o botão de LIMPAR saiu da barra, com o código que o pintava (v1.13.5)', JSON.stringify(dis));
-    checar(dis.esq < 24 && dis.antes,
-      'E · e o IMPORTAR mora NA BARRA, encostado à ESQUERDA, antes do título — a casa do limpar',
+    const vizinho = dis.portaEsq === null ? dis.esq < 24 : (dis.portaEsq < 24 && dis.depoisDaPorta);
+    checar(vizinho && dis.antes,
+      'E · e o IMPORTAR mora NA BARRA, à DIREITA da porta do itinerário (Pacote 37: ela virou a primeira da '
+      + 'trilha) e antes do título — a casa do limpar',
       JSON.stringify(dis));
   }
 
@@ -457,11 +467,12 @@ try {
     await fecharGaveta();
     const r = await pg.evaluate(() => {
       const t = document.getElementById('cronoTitulo').getBoundingClientRect();
-      // O VIZINHO DA ESQUERDA é a porta do itinerário (`#itinBarBtn`, Pacote 35) quando à
-      // vista — ela mora depois do Importar, na mesma célula —; senão o próprio Importar.
+      // O VIZINHO DA ESQUERDA é o Importar. Desde o Pacote 37 a PORTA do itinerário é a
+      // PRIMEIRA da trilha 1 e o Importar entra deslocado à direita dela — o que separa os
+      // dois do título é o Importar, e é a borda dele que a régua mede.
       const p = document.getElementById('itinBarBtn');
       const porta = !!p && p.getClientRects().length > 0;
-      const m = (porta ? p : document.getElementById('cronoImportar')).getBoundingClientRect();
+      const m = document.getElementById('cronoImportar').getBoundingClientRect();
       const g = document.getElementById('settingsBtn').getBoundingClientRect();
       return { porta, esq: t.left - m.right, dir: g.left - t.right, larg: document.documentElement.scrollWidth - innerWidth,
         gear: g.right <= innerWidth };

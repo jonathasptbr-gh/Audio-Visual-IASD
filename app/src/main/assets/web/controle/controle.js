@@ -416,7 +416,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.37';
+const WEB_VERSION = '1.14.38';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -8697,13 +8697,42 @@ function itinSetHoras(v) {
   itinMudou();
 }
 
+// ===== A TROCA DE LINHAS DA LISTA, ANIMADA (Pacote 37) =====
+// O `renderLibraryCorpo` reconstrói a lista inteira (`innerHTML = ''`), então toda
+// troca de conjunto era um corte seco — e as duas que o operador nomeou (os
+// MOMENTOS na lista e o RECOLHIDO de um grupo) são justamente as que mudam muitas
+// linhas de uma vez. O desenho continua sendo do `renderLibraryCorpo`: o que estas
+// três peças fazem é dar TEMPO à saída (o `aoSair` de sempre — a altura medida
+// fecha, o vão some, a lista se fecha por cima) e marcar as linhas que CHEGAM para
+// o `linha-entra` do CSS. `itinTrocando` é o trinco: um segundo toque durante os
+// 200 ms leria o estado VELHO e desfaria o primeiro.
+let itinTrocando = false;
+let listaEntrando = false;
+
+// As linhas que a troca vai TIRAR, pelo `alvo` de quem chama. `false` = não havia
+// o que animar (lista vazia, `prefers-reduced-motion`), e aí o desenho é seco.
+async function linhasSaem(alvo) {
+  if (!libraryEl || semMovimento()) return false;
+  const alvos = [...libraryEl.children].filter((li) => li.dataset && li.dataset.id && alvo(li));
+  if (!alvos.length) return false;
+  await Promise.all(alvos.map(aoSair));
+  return true;
+}
+
 // OS MOMENTOS NA LISTA (o interruptor da faixa): ocultos, a lista do Cronograma não
 // desenha nenhuma linha de momento — o telão e a ordem gravada não mudam.
-function itinMomentosOcultar(v) {
-  itin.momentosOcultos = !!v;
-  if (itin.momentosOcultos) itinRecolhidos.clear();
-  saveItin();
-  renderLibrary();
+async function itinMomentosOcultar(v) {
+  const quer = !!v;
+  if (quer === !!itin.momentosOcultos || itinTrocando) return;
+  itinTrocando = true;
+  try {
+    if (quer) await linhasSaem((li) => li.classList.contains('momento'));
+    itin.momentosOcultos = quer;
+    if (quer) itinRecolhidos.clear();
+    saveItin();
+    listaEntrando = !quer;
+    renderLibrary();
+  } finally { itinTrocando = false; }
 }
 
 // O GRUPO RECOLHIDO (pedido de 15/11): tocar um momento com grupo esconde as mídias
@@ -8711,9 +8740,29 @@ function itinMomentosOcultar(v) {
 // com tudo aberto, e o grupo se reabre sozinho se o que mora nele mudar de tamanho
 // (uma mídia que chegou não some de vista). Com os momentos ocultos, nada fica recolhido.
 const itinRecolhidos = new Map();
-function itinAlternarGrupo(id, sob) {
-  if (itinRecolhidos.has(id)) itinRecolhidos.delete(id); else itinRecolhidos.set(id, sob);
-  renderLibrary();
+// As MÍDIAS de um grupo são as linhas DEPOIS do momento até o próximo: é a mesma
+// leitura do `sobMomento` do `renderLibraryCorpo`, feita no DOM em vez da lista.
+async function animarSaidaDoGrupo(id) {
+  if (!libraryEl || semMovimento()) return;
+  const lis = [...libraryEl.children];
+  const i = lis.findIndex((li) => li.dataset && li.dataset.id === id);
+  if (i < 0) return;
+  const alvos = [];
+  for (let k = i + 1; k < lis.length && !lis[k].classList.contains('momento'); k++) {
+    if (lis[k].dataset && lis[k].dataset.id) alvos.push(lis[k]);
+  }
+  if (alvos.length) await Promise.all(alvos.map(aoSair));
+}
+async function itinAlternarGrupo(id, sob) {
+  if (!sob || itinTrocando) return;
+  const recolher = !itinRecolhidos.has(id);
+  itinTrocando = true;
+  try {
+    if (recolher) await animarSaidaDoGrupo(id);
+    if (recolher) itinRecolhidos.set(id, sob); else itinRecolhidos.delete(id);
+    listaEntrando = !recolher;
+    renderLibrary();
+  } finally { itinTrocando = false; }
 }
 
 // A FAIXA ABRE E FECHA pelo `#itinBarBtn` da barra do topo, e nada disso é gravado:
@@ -8724,10 +8773,80 @@ function itinAlternarGrupo(id, sob) {
 // (fechada, sobra só a seta do grupo, e o CSS a lê na classe `itin-faixa-aberta` do
 // `<body>` — sem redesenhar a lista, que perderia a rolagem).
 let itinFaixaAberta = false;
-function itinFaixaAlternar(aberta) {
-  itinFaixaAberta = !!aberta;
+// A FAIXA ABRE E FECHA DESLIZANDO (Pacote 37): ela é irmã do `.list-header` e ocupa
+// ~48 px no fluxo do `<main>`, então abrir e fechar movia o topo do `#library` de
+// uma vez — o "pulo" que o operador viu. Quem anima é a ALTURA MEDIDA (a família do
+// `aoSair`): de 0 até `offsetHeight` na abertura, o contrário no fecho, e a LISTA
+// anda junto porque quem a empurra é o layout. As duas MARGENS entram na conta: a
+// de cima é `--sp-4` (a folga que a faixa tem com a barra do topo) e a de baixo é
+// negativa (anula o `gap` do `<main>`) — deixadas de fora, a lista começaria 8 px
+// alta demais e daria um degrau no fim do movimento.
+// ABRINDO, o conteúdo entra antes (o `renderItinBar`); FECHANDO, ele fica até o fim,
+// senão a caixa esvaziaria e o `:empty` a apagaria no primeiro quadro.
+let itinFaixaAnimando = false;
+let itinFaixaTimer = null;
+function msDoToken(nome, padrao) {
+  const v = getComputedStyle(document.documentElement).getPropertyValue(nome).trim();
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n * (/ms$/.test(v) ? 1 : 1000) : padrao;
+}
+// O REPOUSO: o desenho final, sem animação. É o fim de todo movimento e também o que
+// um toque NO MEIO do movimento resolve antes de começar o outro — sem isso, o
+// segundo toque leria uma altura intermediária e o temporizador do primeiro
+// fecharia a faixa que o estado lógico diz estar aberta.
+function itinFaixaRepousar() {
+  if (itinFaixaTimer) { clearTimeout(itinFaixaTimer); itinFaixaTimer = null; }
+  itinFaixaAnimando = false;
+  if (!itinBarEl) return;
+  itinBarEl.classList.remove('itin-bar--animando');
+  itinBarEl.style.height = ''; itinBarEl.style.marginTop = ''; itinBarEl.style.marginBottom = ''; itinBarEl.style.transition = '';
   document.body.classList.toggle('itin-faixa-aberta', itinFaixaAberta);
+  if (itinBarBtnEl) itinBarBtnEl.setAttribute('aria-expanded', itinFaixaAberta ? 'true' : 'false');
   renderItinBar();
+}
+function itinFaixaAlternar(aberta) {
+  const quer = !!aberta;
+  if (quer === itinFaixaAberta) return;
+  if (itinFaixaAnimando) itinFaixaRepousar();
+  itinFaixaAberta = quer;
+  if (itinBarBtnEl) itinBarBtnEl.setAttribute('aria-expanded', quer ? 'true' : 'false');
+  // A CLASSE DO `<body>` ANDA COM O ESTADO LÓGICO, não com o fim do movimento: é ela
+  // que diz ao CSS se o lápis e a lixeira do momento existem, e um estado em que a
+  // faixa já está fechada mas o corpo ainda diz "aberta" é o que trava um oráculo —
+  // e, no dedo, deixaria dois botões à vista numa faixa que sumiu.
+  document.body.classList.toggle('itin-faixa-aberta', quer);
+  if (!itinBarEl || semMovimento()) { itinFaixaRepousar(); return; }
+  const bar = itinBarEl;
+  let de;
+  if (quer) {
+    renderItinBar();
+    de = bar.offsetHeight;
+    if (!de) return;
+  } else {
+    de = bar.offsetHeight;
+    if (!de) { itinFaixaRepousar(); return; }
+  }
+  itinFaixaAnimando = true;
+  bar.classList.add('itin-bar--animando');
+  // O ESTADO DE PARTIDA É PINTADO SEM TRANSIÇÃO: com a classe já no lugar, os três
+  // zeros virariam uma transição de IDA que o quadro seguinte inverteria — e o que
+  // se veria é a faixa parada no lugar.
+  bar.style.transition = 'none';
+  if (quer) {
+    bar.style.height = '0px'; bar.style.marginTop = '0px'; bar.style.marginBottom = '0px';
+  } else {
+    bar.style.height = de + 'px';
+    bar.style.marginTop = getComputedStyle(bar).marginTop;
+    bar.style.marginBottom = getComputedStyle(bar).marginBottom;
+  }
+  void bar.offsetHeight;
+  bar.style.transition = '';
+  if (quer) {
+    bar.style.height = de + 'px'; bar.style.marginTop = ''; bar.style.marginBottom = '';
+  } else {
+    bar.style.height = '0px'; bar.style.marginTop = '0px'; bar.style.marginBottom = '0px';
+  }
+  itinFaixaTimer = setTimeout(itinFaixaRepousar, msDoToken('--dur-media', 200) + 40);
 }
 if (itinBarBtnEl) itinBarBtnEl.addEventListener('click', () => itinFaixaAlternar(!itinFaixaAberta));
 
@@ -8861,14 +8980,17 @@ function linhaDeMomento(item, sob = 0) {
   ed.innerHTML = pencilIconSvg();
   ed.addEventListener('click', (e) => { e.stopPropagation(); abrirItinEditor(item.id); });
   // A FAIXA SOLTA (`.row-acoes--solta`): a mesma caixa onde a pergunta do excluir
-  // nasce, só que sempre à vista e no fluxo da linha. A ORDEM é [seta · editar ·
-  // excluir] — a seta do grupo à esquerda do lápis e o excluir à direita, o mais
-  // longe do alvo que se repete.
+  // nasce, só que sempre à vista e no fluxo da linha. A ORDEM é [editar · excluir ·
+  // SETA] (Pacote 37 — pedido do operador: *"deixe a seta … na extrema direita …
+  // pois como ela é o elemento que existe, deve ficar na posição mais estável"*).
+  // Com a faixa fechada o lápis e a lixeira somem e a seta NÃO anda: ela já mora no
+  // fim da fileira. O excluir fica no meio, e continua sendo o mais longe do alvo.
   const caixa = document.createElement('div');
   caixa.className = 'row-acoes row-acoes--solta';
-  // A SETA DO GRUPO (pedido de 15/11): um BOTÃO, e só onde há grupo (`sob` > 0). A
-  // POSIÇÃO é visual: o toque faz o MESMO do corpo do card (`aoTocar` — recolhe e
-  // expande), e o corpo continua recolhendo. `aria-expanded` leva o estado do grupo.
+  caixa.append(ed, botaoExcluirDaLinha(item, 'imports', () => load()));
+  // A SETA DO GRUPO (pedido de 15/11): um BOTÃO, e só onde há grupo (`sob` > 0). O
+  // toque faz o MESMO do corpo do card (`aoTocar` — recolhe e expande).
+  // `aria-expanded` leva o estado do grupo.
   if (sob) {
     const seta = document.createElement('button');
     seta.type = 'button'; seta.className = 'row-btn itin-seta';
@@ -8879,7 +9001,6 @@ function linhaDeMomento(item, sob = 0) {
     seta.addEventListener('click', (e) => { e.stopPropagation(); itinAlternarGrupo(item.id, sob); });
     caixa.append(seta);
   }
-  caixa.append(ed, botaoExcluirDaLinha(item, 'imports', () => load()));
   row.append(hora, texto, caixa);
   li.appendChild(row);
   attachRowGestures(row, item, { lista: 'imports', aoTocar: (it) => (sob ? itinAlternarGrupo(it.id, sob) : abrirItinEditor(it.id)) });
@@ -8913,8 +9034,12 @@ function itinMarcar() {
     if (id === agora) partes.push('Agora');
     else if (id === seguir) partes.push('A seguir');
     if (itin.desloc) partes.push('previsto ' + createStage.itinHora(x.min));
+    // O INTERVALO DIZ A QUE SE REFERE (Pacote 37): a duração sozinha ("1 h") não
+    // respondia a única pergunta que o subtítulo existe para responder, e o
+    // operador lia um número solto. Ela é SEMPRE o vão ATÉ O PRÓXIMO momento, e
+    // agora o nome dele vai escrito: "1 h até Louvor". Sem próximo, não há vão.
     const dur = proximo ? itinDuracao(proximo.min - x.min) : '';
-    if (dur) partes.push(dur);
+    if (dur) partes.push(dur + ' até ' + (proximo.titulo || 'o próximo'));
     const ocultas = Number(li.dataset.ocultas) || 0;
     if (ocultas) partes.push(ocultas + (ocultas === 1 ? ' item' : ' itens'));
     const txt = partes.join(' · ') || 'Último momento';
@@ -8945,14 +9070,37 @@ function itinBarBotao(id, classe, rotulo, conteudo, fn) {
   return b;
 }
 const ITIN_MAIS = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>';
+// O DESENHO DA PORTA, nos dois estados (Pacote 37): o relógio é o "abrir as opções";
+// aberta, ela vira o ✕ de fechar — o MESMO `icoCancelar` do sprite que os outros
+// fechares do bundle usam. Fica aqui, e não no HTML, porque quem troca é o
+// `renderItinBar` (o estado da faixa é dele).
+const ITIN_ICO_RELOGIO = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
 
 function renderItinBar() {
   if (!itinBarEl) return;
+  // UM DESENHO POR FORA CANCELA O MOVIMENTO (Pacote 37): a animação de altura é
+  // decoração, e decoração não segura estado. Se um `renderItinBar` chega no meio
+  // dela (um cronograma trocado, o telão ligado), a faixa assume JÁ o desenho de
+  // repouso e este desenho segue — o contrário (sair cedo, como na primeira versão)
+  // deixava a faixa congelada no meio por quem não devia: o temporizador de 240 ms
+  // não corre com o relógio parado, e o estado do app ficava para trás dele.
+  if (itinFaixaAnimando) itinFaixaRepousar();
   const n = itinItens().length, live = itinProjecting();
   // A PORTA (na barra do topo): aparece onde a faixa existiria e leva o ponto do "no ar".
   if (itinBarBtnEl) {
     itinBarBtnEl.hidden = false;
     itinBarBtnEl.setAttribute('aria-expanded', itinFaixaAberta ? 'true' : 'false');
+    // O DESENHO DIZ O QUE O TOQUE FAZ: relógio fechada, ✕ aberta (Pacote 37). O
+    // `dataset` evita reescrever o `<svg>` a cada desenho — e o ✕ é o `icoCancelar`
+    // do sprite, o mesmo dos outros fechares, não um desenho novo.
+    const ico = itinBarBtnEl.querySelector('.crono-itin-ico');
+    const qual = itinFaixaAberta ? 'fechar' : 'relogio';
+    if (ico && ico.dataset.ico !== qual) {
+      ico.dataset.ico = qual;
+      ico.innerHTML = itinFaixaAberta ? icoSprite('icoCancelar') : ITIN_ICO_RELOGIO;
+    }
+    const rotulo = itinFaixaAberta ? 'Fechar as opções do itinerário' : 'Abrir as opções do itinerário';
+    if (itinBarBtnEl.title !== rotulo) { itinBarBtnEl.title = rotulo; itinBarBtnEl.setAttribute('aria-label', rotulo); }
     const ponto = itinBarBtnEl.querySelector('.itin-ponto');
     if (ponto) ponto.hidden = !live;
   }
@@ -10605,7 +10753,22 @@ function msgProjecting() { return !!(msgSession && msgSession.projecting); }
 // Os `return` de dentro continuam funcionando: eles saem da arrow, e o
 // `finally` do balde roda do mesmo jeito.
 function renderLibrary() {
-  comBaldeDeMiniaturas(libraryEl, () => renderLibraryCorpo());
+  // AS LINHAS QUE NASCEM ENTRAM ANIMADAS — e só elas (Pacote 37). O `innerHTML = ''`
+  // do corpo refaz a lista inteira a cada desenho, e uma entrada animada em TODAS as
+  // linhas piscaria a lista a cada tique. Quem pede a animação é `listaEntrando`
+  // (`itinMomentosOcultar`/`itinAlternarGrupo`), e o retrato dos ids é tirado AQUI,
+  // antes de o corpo apagar: é o único ponto em que as linhas velhas ainda existem.
+  const animarEntrada = listaEntrando;
+  listaEntrando = false;
+  let antes = null;
+  if (animarEntrada && libraryEl) {
+    antes = new Set();
+    for (const li of libraryEl.children) if (li.dataset && li.dataset.id) antes.add(li.dataset.id);
+  }
+  comBaldeDeMiniaturas(libraryEl, () => {
+    renderLibraryCorpo();
+    if (antes) marcarLinhasQueEntram(antes);
+  });
   // A GAVETA ABERTA ACOMPANHA A LISTA: a conta do ativo e o EXCLUIR do único
   // (apagado com a lista vazia) leem `libItems`, e todo caminho que a muda passa
   // por aqui — inclusive o `toggleCronograma`, que não chama `load()`.
@@ -10616,6 +10779,23 @@ function renderLibrary() {
   // OS MOMENTOS DO ITINERÁRIO moram nesta lista: o que está no telão e a barra de
   // opções acompanham toda releitura dela (v1.14.32).
   itinSincronizar();
+}
+
+// A ENTRADA de uma linha na lista: a classe é do CSS (`.linha-entra`) e sai sozinha
+// no `animationend` — deixada no nó, ela repetiria a animação no próximo desenho.
+// O `animationend` SOBE: sem o `target`, a primeira animação de um FILHO da linha
+// (o anel de download de uma miniatura, um pulso) tirava a classe antes de a
+// entrada começar, e o que se via era a linha aparecendo seca.
+function marcarLinhasQueEntram(antes) {
+  if (!libraryEl) return;
+  for (const li of libraryEl.children) {
+    const id = li.dataset && li.dataset.id;
+    if (!id || antes.has(id)) continue;
+    li.classList.add('linha-entra');
+    li.addEventListener('animationend', (e) => {
+      if (e.target === li) li.classList.remove('linha-entra');
+    }, { once: true });
+  }
 }
 
 function renderLibraryCorpo() {

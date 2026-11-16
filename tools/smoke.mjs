@@ -4084,7 +4084,10 @@ try {
     // recolhe sozinha após 5 s sem toque).
     const porta = document.getElementById('itinBarBtn');
     if (porta && porta.getAttribute('aria-expanded') !== 'true') porta.click();
-    await ate(() => document.getElementById('itinBar').getClientRects().length > 0, 2000);
+    // A FAIXA ABRE DESLIZANDO (Pacote 37): a altura dela vai de 0 ao repouso em
+    // `--dur-media`, então "tem retângulo" resolve no PRIMEIRO quadro — com a banda
+    // em 0 px e a lista ainda no lugar de antes. Quem espera é o fim do movimento.
+    await ate(() => document.getElementById('itinBar').getClientRects().length > 0 && !itinFaixaAnimando, 3000);
     const crono = onde();
     // A BÍBLIA VIROU FOLHA (v1.5.0), e com ela o VOLTAR mudou de casa: o do
     // cabeçalho só servia a ela e hoje nasce sempre oculto; quem sobe
