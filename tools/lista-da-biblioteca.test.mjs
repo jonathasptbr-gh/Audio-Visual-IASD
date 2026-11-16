@@ -1016,6 +1016,9 @@ try {
       const el = document.getElementById('hymnResults');
       const cs = getComputedStyle(el);
       const blocos = [...el.children].filter((n) => n.nodeType === 1);
+      // O BOTÃO DO IMPORTAR (v1.14.42) fecha a lista e é `bloco-fixo`: entra na caixa (o `ultimo`),
+      // mas não na repartição da tampa — a régua dele é a do conteúdo, não a dos blocos.
+      const acervo = blocos.filter((b) => !b.classList.contains('lib-importar'));
       const ultimo = blocos[blocos.length - 1].getBoundingClientRect();
       const cx = el.getBoundingClientRect();
       const barra = blocos[1].querySelector('.coll-group-bar, .coll-bar');
@@ -1023,7 +1026,8 @@ try {
       const cb = blocos[1].getBoundingClientRect();
       return {
         blocos: blocos.length,
-        alturas: blocos.map((b) => +b.getBoundingClientRect().height.toFixed(2)),
+        alturas: acervo.map((b) => +b.getBoundingClientRect().height.toFixed(2)),
+        importar: blocos.length - acervo.length,
         sobra: +(cx.bottom - parseFloat(cs.paddingBottom || 0) - ultimo.bottom).toFixed(2),
         rola: el.scrollHeight - el.clientHeight > 1,
         alturaBarra: bb ? +bb.height.toFixed(2) : null,
@@ -1038,7 +1042,7 @@ try {
         'D5 · ' + tela.nome + ': os blocos colapsados PREENCHEM a caixa — a base '
         + 'do último fica a ≤1,5px da base útil. REVERSÃO: sem `flex-grow` são '
         + '85,6px de faixa vazia, que foi o relato', m);
-      checar(m.alturas.every((h) => h > 46),
+      checar(m.importar === 1 && m.alturas.every((h) => h > 46),
         'D5b · e todos cresceram: nenhum ficou na altura NUA da barra', m);
       checar(m.desvioRotulo !== null && Math.abs(m.desvioRotulo) <= 1,
         'D5c · o rótulo fica no MEIO do bloco esticado (±1px) — sem '
@@ -1432,7 +1436,7 @@ try {
       if (s.getAnimations().some((a) => a.playState === 'running')) return false;
       if (s.getBoundingClientRect().bottom > window.innerHeight + 1) return false;
       // O FATO que interessa: a lista está COMPLETA e o `medirTampa` já escreveu.
-      // nove blocos de acervo + o IMPORTAR, o primeiro desde a v1.14.40 (`blocoImportar`)
+      // nove blocos de acervo + o botão IMPORTAR, o último (`blocoImportar`, v1.14.42)
       return [...el.children].filter((n) => n.nodeType === 1).length === 10
         && !!getComputedStyle(el).getPropertyValue('--tampa-h').trim();
     }, 'a Biblioteca assenta com os nove blocos e a tampa MEDIDA')) {

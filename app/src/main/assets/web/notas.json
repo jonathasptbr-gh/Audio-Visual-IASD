@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.14.42",
+    "itens": [
+      "O botão de importar arquivo, na Biblioteca, agora fica no fim da lista e tem cara de botão.",
+      "Escolhido o arquivo, aparece a mesma janela do compartilhamento: com a miniatura, o nome, o tipo, a duração e o tamanho.",
+      "Ela oferece Tocar agora, Cronograma, playlist e Favoritos.",
+      "Tocar agora põe o arquivo na TV na hora, sem entrar em lista nenhuma."
+    ]
+  },
+  {
     "versao": "1.14.41",
     "itens": [
       "Os seletores de hora agora crescem para baixo: abaixo do 00 vem o 01 e acima vem o 59.",

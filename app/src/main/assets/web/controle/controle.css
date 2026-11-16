@@ -748,7 +748,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   /* A PORTA DO ITINERÁRIO e o TÍTULO do Cronograma, e o "Novo cronograma" da
      gaveta (v1.12.54/v1.12.55). Os dois quadrados de cada linha da gaveta já
      entram por `.row-btn`; a LINHA responde por luz (ver `.crono-item:active`). */
-  .crono-itin, .crono-titulo, .crono-alerta, .crono-novo,
+  .crono-itin, .crono-titulo, .crono-alerta, .crono-novo, .lib-importar-btn,
   /* O ⛶ da cifra (v1.6.0): ele nasce no MESMO lote em que entra aqui, que é a
      regra desta lista — um controle novo fora dela fica mudo ao toque sem nada
      na tela dizer por quê. Nenhum ancestral dele responde ao toque. */
@@ -4587,8 +4587,6 @@ main {
    enchendo a tela exatamente como antes (MEDIDO por reversão em
    `lista-da-biblioteca.test.mjs`, casos D5/D5b/F2). */
 .coll-group--drop:first-child { padding-top: 0; margin-top: var(--sp-5); }
-/* O IMPORTAR é o primeiro bloco desde a v1.14.40 (`blocoImportar`): o mesmo respiro. */
-.lib-importar:first-child { margin-top: var(--sp-5); }
 /* ---------- QUEM OCUPA O VÃO É A SEÇÃO DOS FAVORITOS (v5.273/v5.276) --------
    Pedido do operador: *"a visão comum inicial vai ser as listas de coleções
    empilhadas na base, e quando elas acabam, toda a parte da tela que sobrou
@@ -5317,20 +5315,20 @@ main {
 }
 .semana-raiz-lista { margin: 0; }
 
-/* ---------- O IMPORTAR, PRIMEIRO BLOCO DA BIBLIOTECA (v1.14.40) ----------
-   Ver `blocoImportar`. A anatomia é a do CARD FECHADO — o quadrado de `--hit` da
-   `.coll-bar-icon`, o nome e o subtítulo da `.coll-bar-info` — e a altura é a
-   da tampa, pela lista dos blocos fechados acima. O alvo é o `li` inteiro, e ele
-   responde por LUZ como o card (um contêiner não escala: `--press` é de controle
-   folha). No Modo Fácil o recuo e o vão são os da `.coll-bar` dele. */
-.lib-importar {
-  flex-shrink: 0; border-radius: var(--radius-card); cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+/* ---------- O IMPORTAR, UM BOTÃO NO FIM DA BIBLIOTECA (v1.14.40 → v1.14.42) ----------
+   Ver `blocoImportar`. É BOTÃO e não coleção (pedido do operador: *"uma cor e design de botão"*):
+   o par de AÇÃO `--btn-accent`/`--accent` (o do "Novo cronograma" da gaveta e do `.active`),
+   largura inteira, alvo `--hit-foot`, ícone e rótulo centrados. O `li` é `bloco-fixo`: altura do
+   conteúdo, fora da repartição da tampa. O recuo no `--press` vem da lista dos controles folha. */
+#hymnResults.acervo > .lib-importar { flex-shrink: 0; }
+.lib-importar-btn {
+  display: flex; align-items: center; justify-content: center; gap: var(--sp-3);
+  width: 100%; min-height: var(--hit-foot); margin: 0; padding: 0 var(--sp-5);
+  background: var(--btn-accent); color: var(--accent); border: none; border-radius: var(--radius-btn);
+  font: inherit; font-size: var(--fs-md); font-weight: var(--fw-forte); white-space: nowrap;
+  cursor: pointer; appearance: none; -webkit-appearance: none;
 }
-.lib-importar-bar { display: flex; align-items: center; gap: var(--sp-5); padding: .35rem .7rem; }
-.lib-importar-bar .coll-bar-icon svg { display: block; width: var(--icon-md); height: var(--icon-md); }
-.lib-importar:active { filter: var(--press-luz); }
-body.mode-simple #hymnResults .lib-importar-bar { gap: var(--sp-4); padding-inline: .55rem; }
+.lib-importar-btn > svg { flex: none; width: var(--icon-md); height: var(--icon-md); }
 
 /* A sentinela do fim da página (ver `fillSongList`). O objetivo é que ela NÃO
    seja vista: o observador dispara 300px antes, então na rolagem normal a
@@ -5783,8 +5781,7 @@ body.mode-simple #hymnResults .lib-importar-bar { gap: var(--sp-4); padding-inli
 /* NÍVEL 1 — o que está na RAIZ da lista é um agrupamento, e agrupamento é poço. */
 .acervo > .coll-group--drop,
 .acervo > .hymnal-card,
-.acervo > .folder-opfs,
-.acervo > .lib-importar { background: var(--poco); }
+.acervo > .folder-opfs { background: var(--poco); }
 /* ---------- E ELE CRESCE PARA PREENCHER A TELA (v1.5.17) ----------
    Relato do operador: *"o aproveitamento da altura não está correto, está
    sobrando. É claro que pode haver telas menores, por isso o tamanho deve ser
@@ -5870,8 +5867,7 @@ body.mode-simple #hymnResults .lib-importar-bar { gap: var(--sp-4); padding-inli
    assimétrica e está na folha: o `box-shadow` existe na `.coll-bar` de um card
    aberto e NÃO existe na `.coll-group-bar`. */
 #hymnResults.acervo > .coll-group--drop:not(.aberto),
-#hymnResults.acervo > .hymnal-card:not(.expanded),
-#hymnResults.acervo > .lib-importar {
+#hymnResults.acervo > .hymnal-card:not(.expanded) {
   flex-grow: 0;
   height: var(--tampa-h, auto);
   max-height: var(--bar-raiz-max);
@@ -9916,6 +9912,15 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
 }
 .yt-oferta-meta { color: var(--muted); font-size: .8rem; }
+/* A OFERTA DE UM ARQUIVO (`ofertaDoArquivo`, v1.14.42) veste as mesmas peças: a capa é a própria
+   foto, um quadro do vídeo (`<video>` com a mesma caixa) ou, sem imagem, o ÍCONE do tipo no par de
+   ação. Várias ofertas empilham com o vão da folha; o "e mais N" fica na coluna do texto. */
+.yt-oferta-thumb--ico {
+  display: flex; align-items: center; justify-content: center;
+  background: var(--btn-accent); color: var(--accent);
+}
+.yt-oferta-thumb--ico > svg { width: var(--icon-lg); height: var(--icon-lg); }
+.import-oferta-mais { padding: 0 var(--sp-2) var(--sp-1) calc(96px + var(--sp-2) * 2); }
 
 /* ---------- MAIS DE UM DESTINO NA MESMA FOLHA (v5.141) ---------- */
 /* A caixa de marcação vive DENTRO do botão da linha e à direita dele: o corpo

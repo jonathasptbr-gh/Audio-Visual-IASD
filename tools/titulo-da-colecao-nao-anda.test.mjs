@@ -93,7 +93,9 @@ const pg = await ctx.newPage();
 // A DISTÂNCIA DO TÍTULO AO TOPO DO PRÓPRIO CARD — é o que o olho segue, e é o
 // que o relato descreve. Medir a posição na TELA misturaria o deslize das
 // vizinhas; o que o operador vê é o título andando DENTRO da caixa dele.
-const medir = () => pg.evaluate(() => [...document.querySelectorAll('#hymnResults > li')]
+// O BOTÃO DO IMPORTAR (`li.lib-importar`, no fim da lista desde a v1.14.42) não é coleção: não tem
+// título a medir, e o índice dele não entra na conta.
+const medir = () => pg.evaluate(() => [...document.querySelectorAll('#hymnResults > li:not(.lib-importar)')]
   .map((li, i) => {
     // O NOME de um álbum, ou a barra da seção dos Favoritos — os dois são o
     // "título da coleção" do relato, e o índice é do DOM para as duas leituras

@@ -413,12 +413,13 @@ try {
     const pb2 = abriuB2 ? await percorrer(pg) : [];
     const titulosB2 = pb2.map((m) => m.titulo);
     const ordemB2 = pb2.length ? foraDeOrdem(pb2, await pg.evaluate(() => AVTour.LINHA_PX)) : ['sem passos'];
-    checar(abriuB2 && ['Buscar na galeria', 'Liturgia', 'Coleções', 'Seções', 'Baixar'].every((t) => titulosB2.includes(t))
-      && titulosB2.indexOf('Buscar na galeria') < titulosB2.indexOf('Liturgia')
+    checar(abriuB2 && ['Liturgia', 'Coleções', 'Seções', 'Baixar'].every((t) => titulosB2.includes(t))
+      // O botão do fim da lista ('Buscar na galeria', v1.14.42) é `opcional`: com ele à vista, depois do Baixar.
+      && (!titulosB2.includes('Buscar na galeria') || titulosB2.indexOf('Buscar na galeria') > titulosB2.indexOf('Baixar'))
       && titulosB2.indexOf('Liturgia') < titulosB2.indexOf('Coleções') && titulosB2.indexOf('Coleções') < titulosB2.indexOf('Seções')
       && titulosB2.indexOf('Coleções') < titulosB2.indexOf('Baixar')
       && pb2.filter((m) => m.alvo && !recorteBate(m)).length === 0 && ordemB2.length === 0,
-      'B2 · com a Liturgia e as seções à vista, a lista da Biblioteca tem um passo para cada uma (e o "Buscar na galeria" primeiro, v1.14.40), na ordem da tela, recortando a peça',
+      'B2 · com a Liturgia e as seções à vista, a lista da Biblioteca tem um passo para cada uma (e o "Buscar na galeria", à vista, depois delas — v1.14.42), na ordem da tela, recortando a peça',
       (porque(listaPronta) || 'lista pronta') + ' · ' + titulosB2.join(' · ') + ' ' + ordemB2.join(' | ')
       + ' ' + JSON.stringify(pb2.filter((m) => m.alvo && !recorteBate(m)).map((m) => [m.alvo, m.peca, m.recorte])));
     await pg.evaluate(() => AVTour.aberto() && AVTour.fechar());

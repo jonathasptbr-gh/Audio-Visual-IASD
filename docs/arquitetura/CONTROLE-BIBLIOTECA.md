@@ -21,8 +21,8 @@ propósito, porque é lá que mora o roteamento por tipo.
 
 | Origem | Caminho | Destino |
 |---|---|---|
-| "Importar arquivos" (seletor do sistema, shell ≥ 21) | `importarPeloSistema` → `importShare` → `escolherDestinos` | **os marcados** (simplificado: `avulsos`) |
-| `<input type="file">` (navegador) | handler do `fileEl` | idem |
+| "Importar arquivos" (seletor do sistema, shell ≥ 21) | `importarPeloSistema` → `importShare` → `escolherImportacao` | **os marcados** (`tocar`/simplificado: `avulsos`) |
+| `<input type="file">` (navegador, os dois modos) | handler do `fileEl` → `importShare({ files })` | idem |
 | Compartilhamento de outro app | `checkPendingShare` → `importShare` | idem |
 | Música do acervo | folha de destinos → `addSongToDestinos` | **os marcados** |
 | Resultado do YouTube | folha de destinos → `ytAcao` | `avulsos` \| **os marcados** |
@@ -119,10 +119,11 @@ Casos particulares:
 - **Um download só** (`ytAcao`): o arquivo nasce na PRIMEIRA lista escolhida e é
   espalhado por `listAdd` (idempotente). "Já estava lá" é sobre o CONJUNTO — um
   vídeo no Cronograma e fora dos Favoritos não é duplicata.
-- **A importação PERGUNTA** (`escolherDestinos`, a mesma folha como pergunta),
-  com o Cronograma já marcado. É a única porta que precisa de confirmação porque
-  não há ação nenhuma até o operador dizer para onde. **Desistir não perde o
-  item**: fechar resolve `null` e o lote entra no Cronograma. Um link do YouTube
+- **A importação PERGUNTA** (`escolherImportacao`, a folha do importar com a OFERTA de
+  cada arquivo — capa, nome, tipo · duração · tamanho — e a fileira Tocar agora ·
+  Cronograma · Playlist · Favoritos). É a única porta que precisa de confirmação porque
+  não há ação nenhuma até o operador dizer para onde. **Fechar sem tocar não importa
+  nada**: o ✕, o fundo e o voltar resolvem `null`. Um link do YouTube
   compartilhado abre a folha própria dele (destinos + forma + qualidade), e
   perguntar duas vezes seria pior que não perguntar. No simplificado a pergunta
   nem é feita: ali não existe Cronograma nem playlist.
@@ -661,23 +662,45 @@ lista.
 nó é o MESMO entre uma abertura e a seguinte, então ele guardava a rolagem da vez
 anterior e a Biblioteca reabria no meio de um hinário.
 
-#### O primeiro bloco da raiz: o IMPORTAR (v1.14.40)
+#### O botão do IMPORTAR, no fim da lista (v1.14.40 → v1.14.42)
 
-`blocoImportar()` monta o PRIMEIRO filho do `#hymnResults.acervo`, nos DOIS modos,
-no topo do `renderCollectionsListMiolo` — a ordem da raiz é **importar · Favoritos ·
-Liturgia (`.semana-raiz`) · coleções**. Até a v1.14.39 o importar era um ícone da
-barra do topo do Cronograma.
+`blocoImportar()` monta o ÚLTIMO filho do `#hymnResults.acervo`, nos DOIS modos, no
+fim do `renderCollectionsListMiolo` (depois do "Nenhuma coleção disponível") — a
+ordem da raiz é **Favoritos · Liturgia (`.semana-raiz`) · coleções · IMPORTAR**.
+Nasceu na v1.14.40 como o PRIMEIRO bloco, com anatomia de card; em 16/11 o operador
+pediu *"uma cor e design de botão e não de uma coleção"* e *"que ele fique no fim da
+lista"*. Até a v1.14.39 era um ícone da trilha 1 da barra do topo do Cronograma.
 
 | o quê | como |
 |---|---|
-| a forma | `li.lib-importar` (`role="button"`, `tabindex=0`, Enter/Espaço) > `div.lib-importar-bar` > `span.coll-bar-icon` (svg do sprite, `--icon-md`) + `span.coll-bar-info` (`.coll-bar-name` + `.coll-bar-sub`). O toque é do `li` INTEIRO; responde por LUZ (`filter: var(--press-luz)` no `:active`) |
-| o texto | Avançado: "Importar arquivo" · "Vídeo, música, foto, PDF ou PowerPoint" · `#icoArquivoMais`. Modo Fácil: "Buscar na galeria" · "Fotos, vídeos e músicas do celular" · `#icoGaleria` |
-| a caixa | bloco de raiz como os FECHADOS: `height: var(--tampa-h)` (na regra dos `.coll-group--drop:not(.aberto)`/`.hymnal-card:not(.expanded)`), fundo `--poco`; `calcularTampa`/`medirTampa` medem a `.lib-importar-bar`, e `blocoDeRaizFechado` o inclui (anima junto quando os Favoritos abrem/fecham) |
-| o `any` | NÃO conta: sem acervo, "Nenhuma coleção disponível" continua |
-| o toque | `importarArquivos()`: app → `AVNative.pickDoc` (seletor do sistema, `IMPORT_MIMES`); navegador → `#file`. A Biblioteca NÃO fecha ao abrir o seletor: quem sai das camadas é a CHEGADA do arquivo (`importShare` no app; o `change` do `#file` no navegador) |
-| o destino | Avançado: `imports` (o Cronograma; `escolherDestinos` pergunta só com `!simplificado()`). Modo Fácil: a prateleira avulsa (`avulsos`) e a cena (`currentId`) |
+| a forma | `li.lib-importar.bloco-fixo` > `button.lib-importar-btn` (ícone do sprite + rótulo). Largura inteira, `min-height: --hit-foot`, o par de AÇÃO `--btn-accent`/`--accent`, `--fw-forte`; `.lib-importar-btn` está na lista do `--press` dos controles folha (afunda ao toque como o `.crono-novo`) |
+| o texto | Avançado: "Importar arquivo" · `#icoArquivoMais`. Modo Fácil: "Buscar na galeria" · `#icoGaleria` — o rótulo é o único texto |
+| a caixa | `bloco-fixo`: altura do CONTEÚDO, **fora da repartição da tampa** (`calcularTampa`/`medirTampa` não o medem, `blocoDeRaizFechado` não o inclui). Sem fundo de poço: é botão, não coleção |
+| o `any` | NÃO conta: sem acervo, "Nenhuma coleção disponível" continua, acima dele |
+| o toque | `importarArquivos()`: app → `AVNative.pickDoc` (seletor do sistema, `IMPORT_MIMES`); navegador → `#file`. A Biblioteca NÃO fecha ao abrir o seletor: quem sai das camadas é a CHEGADA do arquivo (`importShare`) |
+| o destino | Avançado: a folha do importar pergunta — **Tocar agora** (a prateleira avulsa `avulsos` e a cena, ver `shareAvulso`), Cronograma (`imports`), Playlist, Favoritos. Modo Fácil: sem folha, `avulsos` e a cena |
 
 Oráculo: `importar-na-biblioteca.test.mjs`.
+
+#### A folha do importar é a do link (v1.14.42)
+
+O operador: *"ele está bem diferente do design do seletor do que se recebe por
+compartilhamento … detalhes como thumbnail, título, duração ou tipo de arquivo. E as
+opções de play … completas"*. `importShare` chama `escolherImportacao(titulo, files,
+link)`, e não mais `escolherDestinos`; a folha é a MESMA anatomia do link
+compartilhado (`openYtMenu` com `oferecendo`), com as mesmas classes `.yt-oferta*`.
+
+| a peça | símbolo | o que mostra |
+|---|---|---|
+| a oferta | `ofertaDoArquivo(item, urls)` + `renderImportPrompt` | até `IMPORT_OFERTA_MAX` (4) ofertas: a CAPA (a própria foto no `<img>`; um quadro do vídeo no `<video preload=metadata>`; ou o ícone do tipo em `.yt-oferta-thumb--ico` — `icoSom` música, `icoTexto` PDF, `icoTela` PowerPoint, `icoExterno` link), o NOME sem extensão e a meta "tipo · duração · tamanho" (duração do `loadedmetadata`, tamanho de `fmtBytes(size)`). Acima do teto, "e mais N arquivos" (`.import-oferta-mais`) |
+| a fileira | `destBotoesPadrao` | **Tocar agora** · Cronograma · Playlist · Favoritos — um toque, uma ação; o ✕, o fundo e o voltar resolvem `null` e nada é importado |
+| os `blob:` | `escolherImportacao` | as URLs criadas para os `File` do navegador são revogadas quando a folha resolve |
+| o "Tocar agora" | `shareAvulso()` | `simplificado() \|\| shareDestinos === ['tocar']`: o lote vai à prateleira avulsa (`fixarAvulso`) e o primeiro item à cena (`focarImportado(id, tocar)`), sem entrar em lista nenhuma. Substitui `simplificado()` em `destinoDoShare`, `espalharShare`, `guardarShare` e no `importShare` |
+
+Vale para as DUAS portas: o seletor da Biblioteca e o compartilhamento de arquivo
+caem no mesmo `importShare`. No navegador o `change` do `#file` passou a entregar
+TUDO a `importShare({ files })`, nos dois modos (o laço próprio que ia direto ao
+`addMedia` do Cronograma saiu) — por isso o avançado do navegador também vê a folha.
 
 #### O rodízio das coleções, e os Favoritos ocupando o vão
 
@@ -1403,7 +1426,7 @@ múltipla (`#selbar`) foi a segunda até a v1.13.52, e saiu com o modo que ela
 servia.
 
 O lugar das portas foi decidido pelo que ele custa em outro: o "Importar
-arquivos" (v5.107 a v1.13.4 — hoje o primeiro bloco da Biblioteca) como último `<li>` do
+arquivos" (v5.107 a v1.13.4 — hoje o botão no fim da Biblioteca) como último `<li>` do
 `<ul>` exigia rolar trinta itens para alcançar a ação mais frequente da tela.
 
 Dois detalhes que o mecanismo exige:
@@ -1416,10 +1439,12 @@ Dois detalhes que o mecanismo exige:
   e deixada para o fim ela desenhava a faixa das portas embaixo da grade de
   livros da Bíblia.
 O `<input type="file" multiple>` (`#file`, com o listener já registrado) mora solto
-e FIXO no `<main>` desde a v1.13.5: quem o abre é o `li.lib-importar` da Biblioteca
+e FIXO no `<main>` desde a v1.13.5: quem o abre é o `button.lib-importar-btn` da Biblioteca
 (`importarArquivos`), por `fileEl.click()` dentro do toque (no navegador; no app o
-seletor é o do sistema). O `change` dele fecha as camadas (`await sairDasCamadas()`) e,
-no Modo Fácil, passa os arquivos a `importShare({ files })` em vez do `addMedia`.
+seletor é o do sistema). O `change` dele passa TODOS os arquivos a
+`importShare({ files })`, nos dois modos (v1.14.42) — o laço próprio que ia direto ao
+`addMedia` do Cronograma saiu, e quem fecha as camadas é o `sairDasCamadas` do
+`importShare`.
 
 **Navegação persistente:** trocar de aba não reseta a busca. A posição de scroll
 é guardada por aba (`scrollPos`, chave `scrollKey()`) e restaurada **só na

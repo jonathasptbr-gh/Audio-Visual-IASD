@@ -10,7 +10,7 @@ depois do `__avBack`. Oráculo: `tools/tour.test.mjs`.
 | tour | quando vale (`qualTour()`) | o que mostra |
 |---|---|---|
 | `conexao` | Modo Fácil com a cortina "sem tela" (`#simpleMode.sem-tela`) | só a cortina: `#simpleConn`, `#castMirrorBtn`, `#castNetBtn`, `#castLocalBtn` |
-| `simples` | Modo Fácil destravado, Biblioteca encaixada (`.corpo-biblioteca`) | `#simpleBarra`/`#libBar`, a lista da janela (`.lib-importar` "Buscar na galeria" `opcional`, `.semana-raiz`, `.hymnal-card > .coll-bar`, `.coll-group-bar`, `.coll-bar-dl`), `#sorteioSimplesBtn`, `#volPill`, `#simpleSettingsBtn`, `#simpleCastBtn`, `FIM` |
+| `simples` | Modo Fácil destravado, Biblioteca encaixada (`.corpo-biblioteca`) | `#simpleBarra`/`#libBar`, a lista da janela (`#hymnResults .lib-importar-btn` "Buscar na galeria" `opcional` (o botão do fim, v1.14.42), `.semana-raiz`, `.hymnal-card > .coll-bar`, `.coll-group-bar`, `.coll-bar-dl`), `#sorteioSimplesBtn`, `#volPill`, `#simpleSettingsBtn`, `#simpleCastBtn`, `FIM` |
 | `tocando` | Modo Fácil destravado com a letra e as teclas à vista | `.simple-song`, `.simple-fabs`, `#simpleSlidesRow`, `.simple-nowplaying`, `#simpleStop`, `#simplePlay`, `#simpleTela` |
 | `avancado` | Modo Avançado | `#library`, `#cronoTitulo`, `#itinBarBtn` (`opcional`; a porta da faixa do itinerário, "Toque aqui para abrir as opções…"), `#bibleBtn`, `#toolsBtn`, `#libBar` (o texto cita o primeiro item dela, "Importar arquivo" — sem passo próprio desde a v1.14.40, quando o importar saiu da barra do topo), o deck em nove passos (`.np-seek`, `#slidePrevBtn`+`#preview`+`#slideNextBtn`, `#prev`+`#playpause`+`#next`+`#stop`, `#plBtn`, `#repeat`, `#lyricsViewBtn`, `#viewToggle`, `#muteToggle`, `#pvFullBtn`), `#pvCastBtn`, `#settingsBtn`, `FIM` |
 

@@ -390,9 +390,6 @@ try {
     await pg.waitForTimeout(300);
     const g = await pg.evaluate(() => {
       const li = document.querySelector('#hymnResults .coll-songs > .hymn-result.selecionando, #hymnResults .coll-songs > .hymn-result.expanded');
-      // NO MEIO DA TELA: com o IMPORTAR acima de tudo (v1.14.40) a linha podia cair na borda de
-      // baixo, e a faixa de 2 px abaixo dela saía do quadro da captura.
-      li.scrollIntoView({ block: 'center' });
       const row = li.querySelector('.row').getBoundingClientRect();
       const nome = li.querySelector('.hymn-name').getBoundingClientRect();
       const b = li.getBoundingClientRect();

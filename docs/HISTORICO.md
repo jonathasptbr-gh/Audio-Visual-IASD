@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.42** — o importar da Biblioteca vira um botão no FIM da lista e a folha dele ganha a oferta (miniatura, nome, tipo, duração, tamanho) e as opções completas: Tocar agora · Cronograma · Playlist · Favoritos (só web).
 - **v1.14.41** — as roletas de hora crescem para baixo em todo o app (o para-cima da v1.8.95 foi revogado) — só web.
 - **v1.14.40** — o importar sai da barra do topo e vira o primeiro bloco da Biblioteca ("Buscar na galeria" no Modo Fácil); e o Modo Fácil volta a importar arquivo, quebrado desde a v1.14.30 (só web).
 - **v1.14.39** — os ajustes do operador à v1.14.38: os três de estado cinzas ligados e vermelhos desligados, as horas riscadas, a folga da faixa e a seta de volta à esquerda (só web).
@@ -864,6 +865,48 @@ está o 01 e acima dele o 59.
   "acima do 00 está o 01 e abaixo o 59" (v1.8.95) e agora mede o inverso; a volta 59 → 0 do
   mesmo bloco passou a ser um passo PARA BAIXO (`scrollTop += item`), e o gesto do editor de
   momento (`itinerario`, bloco L) passou a esperar 10 → **11** numa célula de roda para baixo.
+
+---
+
+## v1.14.42 — o importar vira botão, e a folha dele vira a do link
+
+**Dois pedidos do operador (16/11), sobre a v1.14.40:** *"apenas ajuste para que ele fique no fim da
+lista e não no topo"* + *"ajuste o design do Botão de importar arquivo, para que tenha uma cor e
+design de botão e não de uma coleção"*; e *"ele está bem diferente do design do seletor do que se
+recebe por compartilhamento. Também verifique para que essa importação de arquivos também tenha
+detalhes como thumbnail, título, duração ou tipo de arquivo. E as opções de play e etc...
+Completas."* Só web.
+
+1. **O BOTÃO.** `blocoImportar` deixou de ser o primeiro filho do acervo e passou a ser o ÚLTIMO
+   (anexado no fim de `renderCollectionsListMiolo`, depois do "Nenhuma coleção disponível"). A
+   anatomia de card fechado saiu: `li.lib-importar.bloco-fixo` > `button.lib-importar-btn` (ícone
+   do sprite + rótulo), largura inteira, `min-height: --hit-foot`, par de AÇÃO
+   `--btn-accent`/`--accent`, `--fw-forte`. Saíram `.lib-importar-bar`, o `--poco`, o
+   `height: --tampa-h`, o `:first-child` com `margin-top` e a entrada em `blocoDeRaizFechado`;
+   `.lib-importar-btn` entrou na lista do `--press`. Texto: "Importar arquivo" / "Buscar na galeria".
+2. **A FOLHA.** `importShare` chama `escolherImportacao(titulo, files, link)` em vez de
+   `escolherDestinos`. A folha é a do link compartilhado (`openYtMenu` com `oferecendo`), com as
+   mesmas classes: `renderImportPrompt` põe até `IMPORT_OFERTA_MAX` (4) `ofertaDoArquivo` — a
+   capa (a foto no `<img>`, um quadro do vídeo no `<video preload=metadata>`, ou o ícone do tipo em
+   `.yt-oferta-thumb--ico`), o nome sem extensão e "tipo · duração · tamanho" (duração do
+   `loadedmetadata`, tamanho de `fmtBytes`) —, "e mais N arquivos" acima do teto, e a fileira
+   `destBotoesPadrao`: **Tocar agora · Cronograma · Playlist · Favoritos**. Os `blob:` criados para
+   os `File` são revogados quando a folha resolve.
+3. **"TOCAR AGORA" PARA ARQUIVO.** `shareAvulso()` = `simplificado() || shareDestinos ===
+   ['tocar']`, e ele substitui `simplificado()` em `destinoDoShare`, `espalharShare`,
+   `guardarShare` e no `importShare` (`naPreview`, `previewBusy` × `libBusy`, `fixarAvulso`,
+   `listasEscolhidas`) e no `deckImportar` do link comum. `focarImportado(id, tocar)` manda à cena
+   também no avançado quando `tocar` — sem `zerarRepeticao`, que é do Modo Fácil.
+4. **O `#file` DO NAVEGADOR.** O `change` passou a entregar TUDO a `importShare({ files })`, nos dois
+   modos: o laço próprio que ia direto ao `addMedia` do Cronograma saiu, e o avançado do navegador
+   também vê a folha.
+5. **Tour:** o passo simples é `#hymnResults .lib-importar-btn` (`opcional`, depois do "Baixar").
+
+**Oráculos.** `importar-na-biblioteca` reescrito (o botão no fim, com cor de ação medida por SONDA;
+a folha com a oferta e os quatro botões; Tocar agora pondo na cena pela prateleira avulsa).
+`lista-da-biblioteca` D5b e `titulo-da-colecao-nao-anda` deixaram de contar o botão como bloco de
+acervo; `tour` B2 aceita o passo do fim como opcional; `smoke`, `boot-nativo`,
+`modo-simples-biblioteca-tamanho` e `semana-item` voltaram ao que eram antes da v1.14.40.
 
 ---
 

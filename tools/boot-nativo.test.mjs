@@ -1009,15 +1009,13 @@ try {
   // antes do Provai e Vede (v1.13.37, pedido do operador). Medida, e não
   // deduzida — ela só existe na ordem de uma linha do `renderCollectionsListMiolo`
   // e some se alguém a reordenar sem querer.
-  // E ACIMA DE TUDO O IMPORTAR (v1.14.40, `blocoImportar`): o primeiro bloco da Biblioteca.
-  checar(/Importar arquivo/.test(naTela.linhas[0] || '')
-    && /Favoritos/.test(naTela.linhas[1] || '')
-    && /Informativo Mundial/.test(naTela.linhas[2] || '')
-    && /Provai e Vede 2026/.test(naTela.linhas[3] || '')
-    && /Hinário Adventista 2022/.test(naTela.linhas[4] || '')
-    && /Hinário Adventista 1996/.test(naTela.linhas[5] || ''),
-    'nesta ordem: o Importar (v1.14.40), Favoritos, as duas séries (Informativo, Provai e Vede) e os dois hinários, antes de qualquer álbum',
-    JSON.stringify(naTela.linhas.slice(0, 7)));
+  checar(/Favoritos/.test(naTela.linhas[0] || '')
+    && /Informativo Mundial/.test(naTela.linhas[1] || '')
+    && /Provai e Vede 2026/.test(naTela.linhas[2] || '')
+    && /Hinário Adventista 2022/.test(naTela.linhas[3] || '')
+    && /Hinário Adventista 1996/.test(naTela.linhas[4] || ''),
+    'nesta ordem: Favoritos, as duas séries (Informativo, Provai e Vede) e os dois hinários, antes de qualquer álbum',
+    JSON.stringify(naTela.linhas.slice(0, 6)));
 
   // ── O ÍNDICE NÃO PODE FICAR PRESO NUMA REGRA VELHA (v5.233) ────────────
   // Relato do operador, depois da v5.230: *"tentei limpar o cache e recarregar,

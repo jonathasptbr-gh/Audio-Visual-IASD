@@ -2916,10 +2916,6 @@ try {
     window.__semearSecao();   // o `setAppMode` acima passou pelo reset (v1.1.4)
     grupoAberto = 'Álbuns de exemplo';
     renderCollectionsList(lista, () => {}, { semTotal: true });
-    // O IMPORTAR (o primeiro bloco desde a v1.14.40) sai desta lista de medida: ela vive no FLUXO do
-    // `<body>`, e os 55 px dele empurravam a linha para baixo da barra da Biblioteca, que a cobria —
-    // um acidente de onde a lista de teste cai, não um alvo concorrente DENTRO da linha.
-    lista.querySelector(':scope > .lib-importar')?.remove();
     const linha = lista.querySelector('.coll-songs > .hymn-result');
     const lb = linha.getBoundingClientRect();
     // O que o toque encontra: a própria linha, ou um alvo CONCORRENTE dentro

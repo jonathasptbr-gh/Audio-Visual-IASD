@@ -1631,8 +1631,9 @@ cabeçalho do Modo Fácil, e desde a v1.2.0 no cabeçalho dos DOIS modos), o
 v1.2.0 — `history` também está fora do subset), os **três pontos** do menu
 de uma linha (`dotsIconSvg`, v5.258 — `more_vert` não está no subset), o
 ícone **"arquivos+"** (documento com `+`, `#icoArquivoMais`) do importar — hoje o
-ícone do PRIMEIRO bloco da Biblioteca, `li.lib-importar` (v1.14.40; até a v1.14.39 um
-ícone da barra do Cronograma; no Modo Fácil o bloco usa `#icoGaleria`) —, que diferencia importar ARQUIVOS de abrir os
+ícone do BOTÃO no fim da Biblioteca, `button.lib-importar-btn` (v1.14.42; na v1.14.40
+foi o primeiro bloco, e até a v1.14.39 um ícone da barra do Cronograma; no Modo Fácil
+o botão usa `#icoGaleria`) —, que diferencia importar ARQUIVOS de abrir os
 FAVORITOS (estrela, no botão ao lado — e a mesma estrela na "Nova pasta"),
 os dois botões flutuantes da preview (**cast** e
 **expandir** — `#pvCastBtn`/`#pvFullBtn`),

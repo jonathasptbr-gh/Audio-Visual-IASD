@@ -415,7 +415,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.41';
+const WEB_VERSION = '1.14.42';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -11135,43 +11135,33 @@ function importarArquivos() {
   fileEl.click();
 }
 
-// A PORTA DE IMPORTAR É O PRIMEIRO BLOCO DA BIBLIOTECA (v1.14.40), pedido do operador:
-// *"mover a opção de importar arquivo da barra de topo do app para dentro da biblioteca. Será o
-// primeiro item da biblioteca … Isso vai valer também para o modo simples, mas lá … 'buscar na
-// galeria' ou algo do tipo que seja mais didático"*. Nos DOIS modos, acima dos Favoritos e da
-// Liturgia; o que muda é a fala e o desenho (a folha com o + / a foto).
+// A PORTA DE IMPORTAR MORA NA BIBLIOTECA (v1.14.40), pedido do operador: *"mover a opção de
+// importar arquivo da barra de topo do app para dentro da biblioteca … Isso vai valer também para o
+// modo simples, mas lá … 'buscar na galeria' ou algo do tipo que seja mais didático"*. Nos DOIS modos.
 //
-// É UM BLOCO DE RAIZ COMO OS FECHADOS: entra na repartição da tampa (`calcularTampa` mede a
-// `.lib-importar-bar`), cresce com eles e anima com eles (`blocoDeRaizFechado`). O toque é do
-// `li` inteiro, como no card — o bloco responde por luz, e não há botão dentro dele.
+// É UM BOTÃO NO FIM DA LISTA, e não um bloco de coleção (v1.14.42, pedido do operador: *"uma cor
+// e design de botão e não de uma coleção"* e *"que ele fique no fim da lista e não no topo"*): o
+// `li` é `bloco-fixo` (a altura é a do botão, fora da repartição da tampa) e o alvo é o
+// `<button>` de dentro — o par `--btn-accent`/`--accent` e o `--press` dos controles. Avançado:
+// "Importar arquivo" (`#icoArquivoMais`); Modo Fácil: "Buscar na galeria" (`#icoGaleria`).
 // `importarArquivos` não fecha a Biblioteca: quem sai das camadas é a chegada do arquivo
-// (`importShare` / o `change` do `#file`), e desistir do seletor deixa a tela onde estava.
+// (`importShare`), e desistir do seletor deixa a tela onde estava.
 function blocoImportar() {
   const simples = appMode === 'simple';
   const nome = simples ? 'Buscar na galeria' : 'Importar arquivo';
-  const sub = simples ? 'Fotos, vídeos e músicas do celular' : 'Vídeo, música, foto, PDF ou PowerPoint';
   const li = document.createElement('li');
-  li.className = 'lib-importar';
-  li.setAttribute('role', 'button');
-  li.tabIndex = 0;
-  li.title = nome + ' — ' + sub.charAt(0).toLowerCase() + sub.slice(1);
-  li.setAttribute('aria-label', nome);
-  const bar = document.createElement('div');
-  bar.className = 'lib-importar-bar';
-  const ico = document.createElement('span');
-  ico.className = 'coll-bar-icon';
-  ico.innerHTML = simples ? icoSprite('icoGaleria') : icoSprite('icoArquivoMais');
-  const info = document.createElement('span');
-  info.className = 'coll-bar-info';
-  const n = document.createElement('span'); n.className = 'coll-bar-name'; n.textContent = nome;
-  const t = document.createElement('span'); t.className = 'coll-bar-sub'; t.textContent = sub;
-  info.append(n, t);
-  bar.append(ico, info);
-  li.appendChild(bar);
-  li.addEventListener('click', () => importarArquivos());
-  li.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); importarArquivos(); }
-  });
+  li.className = 'lib-importar bloco-fixo';
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'lib-importar-btn';
+  b.title = simples ? 'Buscar na galeria — fotos, vídeos e músicas do celular'
+    : 'Importar arquivo — vídeo, música, foto, PDF ou PowerPoint';
+  b.innerHTML = simples ? icoSprite('icoGaleria') : icoSprite('icoArquivoMais');
+  const t = document.createElement('span');
+  t.textContent = nome;
+  b.appendChild(t);
+  b.addEventListener('click', () => importarArquivos());
+  li.appendChild(b);
   return li;
 }
 
@@ -12656,10 +12646,6 @@ function renderCollectionsListMiolo(alvo, redesenhar) {
   // Só a SEÇÃO sai. Os favoritos continuam existindo, continuam sincronizando e
   // voltam inteiros ao trocar de modo — o que muda é a Biblioteca aberta DAQUI
   // mostrar as coleções e mais nada.
-  // O IMPORTAR ABRE A LISTA, nos dois modos (v1.14.40) — ver `blocoImportar`. Não conta como
-  // coleção (`any`): sem acervo, o "Nenhuma coleção" continua dito.
-  alvo.appendChild(blocoImportar());
-
   const favCorpo = appMode === 'simple' ? null : grupo(GRUPO_FAVORITOS, null, {
     // UMA AÇÃO, E ELA FAZ A COISA (v5.254): trazer uma pasta do aparelho.
     //
@@ -12775,6 +12761,9 @@ function renderCollectionsListMiolo(alvo, redesenhar) {
     empty.textContent = 'Nenhuma coleção disponível.';
     alvo.appendChild(empty);
   }
+  // O IMPORTAR FECHA A LISTA, nos dois modos — ver `blocoImportar`. Não conta como coleção
+  // (`any`): sem acervo, o "Nenhuma coleção" continua dito, acima dele.
+  alvo.appendChild(blocoImportar());
 
   if (alvo === hymnResultsEl) acertarAvisoDaFonte(true);
 }
@@ -15009,7 +14998,7 @@ function calcularTampa(lista, favFechada) {
     }
     n++;
     // Fechada, a caixa é a BARRA. Medir o `<li>` leria um bloco ABERTO com o corpo dele dentro.
-    const barra = b.querySelector('.coll-group-bar, .coll-bar, .row, .lib-importar-bar');
+    const barra = b.querySelector('.coll-group-bar, .coll-bar, .row');
     base += (barra ? barra.getBoundingClientRect().height
       : b.getBoundingClientRect().height);
   }
@@ -15078,7 +15067,7 @@ function medirTampa(lista) {
   const contaFechada = favAbertos ? calcularTampa(lista, true) : null;
   const hFav = contaFechada ? contaFechada.h : h;
   const topoDe = (b) => {
-    const barra = b.querySelector('.coll-group-bar, .coll-bar, .row, .lib-importar-bar');
+    const barra = b.querySelector('.coll-group-bar, .coll-bar, .row');
     const alt = barra ? barra.getBoundingClientRect().height
       : b.getBoundingClientRect().height;
     const alvo = b.classList.contains('coll-group--fav') ? hFav : h;
@@ -15122,8 +15111,7 @@ function acertarTampa(lista) {
 // segue a tampa como sempre seguiu.
 function blocoDeRaizFechado(b) {
   return (b.classList.contains('coll-group--drop') && !b.classList.contains('aberto'))
-    || (b.classList.contains('hymnal-card') && !b.classList.contains('expanded'))
-    || b.classList.contains('lib-importar');
+    || (b.classList.contains('hymnal-card') && !b.classList.contains('expanded'));
 }
 function animarAlturaDeBloco(el, de, para) {
   if (!el || Math.abs(de - para) < 0.5) return;
@@ -27849,6 +27837,106 @@ function escolherDestinos(titulo) {
   });
 }
 
+// ===== A FOLHA DO IMPORTAR É A DO LINK DO YOUTUBE (v1.14.42) =====
+//
+// Pedido do operador: *"ele está bem diferente do design do seletor do que se recebe por
+// compartilhamento … detalhes como thumbnail, título, duração ou tipo de arquivo. E as opções de
+// play … completas"*. A régua é a folha do link (`openYtMenu` com `oferecendo`): no alto, a
+// OFERTA de cada arquivo (`ofertaDoArquivo`, as mesmas classes `.yt-oferta*`), e embaixo a
+// fileira de sempre — `destBotoesPadrao`: Tocar agora · Cronograma · Playlist · Favoritos. Um
+// toque, uma ação; o ✕ (ou o fundo, ou o voltar) resolve `null` e nada é importado.
+//
+// Serve ao seletor da Biblioteca e ao compartilhamento de arquivo, que chegam juntos ao
+// `importShare`. "Tocar agora" é `shareAvulso`: a prateleira avulsa e a cena.
+const IMPORT_OFERTA_MAX = 4;
+function escolherImportacao(titulo, files, link) {
+  if (simplificado()) return Promise.resolve(null);
+  const urls = [];
+  return new Promise((resolve) => {
+    destPromptResolve = (v) => { urls.forEach((u) => URL.revokeObjectURL(u)); resolve(v); };
+    destLimpar();
+    songMenuFor = { destPrompt: true };
+    songMenuTitleEl.textContent = titulo;
+    renderImportPrompt(files || [], link, urls);
+    songMenuPopupEl.classList.add('open');
+  });
+}
+function renderImportPrompt(files, link, urls) {
+  limparFolha(songMenuListEl);
+  destRemontar = () => renderImportPrompt(files, link, urls);
+  destExecutor = null;
+  files.slice(0, IMPORT_OFERTA_MAX).forEach((f) => songMenuListEl.appendChild(ofertaDoArquivo(f, urls)));
+  if (files.length > IMPORT_OFERTA_MAX) {
+    const mais = document.createElement('div');
+    mais.className = 'yt-oferta-meta import-oferta-mais';
+    const n = files.length - IMPORT_OFERTA_MAX;
+    mais.textContent = 'e mais ' + n + (n === 1 ? ' arquivo' : ' arquivos');
+    songMenuListEl.appendChild(mais);
+  }
+  if (link && link.url) songMenuListEl.appendChild(ofertaDoArquivo({ name: link.title || link.url, url: link.url, link: true }, urls));
+  songMenuListEl.appendChild(destBotoesRow(
+    destBotoesPadrao(DESTINOS.map((d) => d.chave), (chave) => fecharDestPrompt([chave]))));
+}
+// A OFERTA DE UM ARQUIVO: a capa (a própria imagem, um quadro do vídeo, ou o ícone do tipo), o nome
+// e "tipo · duração · tamanho". A duração e o quadro vêm dos metadados do próprio arquivo, lidos pela
+// URL que ele já tem (`/saf/` no app, um `blob:` do `File` no navegador) — nada é copiado antes
+// da escolha.
+function ofertaDoArquivo(item, urls) {
+  const nome = (item && item.name) || 'Arquivo';
+  const type = guessMediaType(nome) || (item && item.type) || '';
+  const pdf = ehPdf(item), pptx = ehPptx(item);
+  const kind = (pdf || pptx || item.link) ? 'doc' : AVDB.kindFromType(type);
+  let src = item && item.url;
+  if (!src && typeof Blob !== 'undefined' && item instanceof Blob) {
+    src = URL.createObjectURL(item);
+    urls.push(src);
+  }
+  const cx = document.createElement('div');
+  cx.className = 'yt-oferta import-oferta';
+  let capa;
+  if (kind === 'image' && src) {
+    capa = document.createElement('img');
+    capa.alt = ''; capa.decoding = 'async'; capa.src = src;
+  } else if (kind === 'video' && src) {
+    capa = document.createElement('video');
+    capa.muted = true; capa.playsInline = true; capa.preload = 'metadata';
+    capa.setAttribute('aria-hidden', 'true');
+    capa.src = src + (src.startsWith('blob:') ? '' : '#t=0.5');
+  } else {
+    capa = document.createElement('span');
+    capa.className = 'yt-oferta-thumb--ico';
+    capa.innerHTML = icoSprite(kind === 'audio' ? 'icoSom' : pdf ? 'icoTexto'
+      : pptx ? 'icoTela' : item.link ? 'icoExterno' : 'icoArquivoMais');
+  }
+  capa.classList.add('yt-oferta-thumb');
+  cx.appendChild(capa);
+  const txt = document.createElement('div');
+  txt.className = 'yt-oferta-txt';
+  const titulo = document.createElement('span');
+  titulo.className = 'yt-oferta-titulo';
+  titulo.textContent = item.link ? nome : nomeSemExtensao(nome);
+  const meta = document.createElement('span');
+  meta.className = 'yt-oferta-meta';
+  const tipo = item.link ? 'Link' : pdf ? 'PDF' : pptx ? 'PowerPoint'
+    : ({ image: 'Foto', video: 'Vídeo', audio: 'Música' })[kind] || 'Arquivo';
+  const bytes = Number(item && item.size) || 0;
+  let duracao = '';
+  const escrever = () => {
+    meta.textContent = [tipo, duracao, bytes > 0 ? fmtBytes(bytes) : ''].filter(Boolean).join(' · ');
+  };
+  escrever();
+  txt.append(titulo, meta);
+  cx.appendChild(txt);
+  if ((kind === 'video' || kind === 'audio') && src) {
+    const m = kind === 'video' ? capa : new Audio();
+    if (kind === 'audio') { m.preload = 'metadata'; m.src = src; }
+    m.addEventListener('loadedmetadata', () => {
+      if (isFinite(m.duration) && m.duration > 0) { duracao = fmtTime(m.duration); escrever(); }
+    }, { once: true });
+  }
+  return cx;
+}
+
 // UM TOQUE, UMA AÇÃO (v1.15.0) — ver `destBotoesRow`. Sem "Tocar agora": a
 // pergunta é só ONDE guardar. O rótulo é o do lugar (`rotulo`), não o do verbo:
 // o quadrado é mudo, e o nome dele cabe no `title`/`aria-label`.
@@ -39224,7 +39312,7 @@ async function handleSharedUrl(url, title) {
     const exportacao = AVNative.deckExportUrl(url);
     if (exportacao) {
       const rec = await deckImportar(exportacao, title || 'Apresentação', {
-        naPreview: simplificado(), lista: destinoDoShare(),
+        naPreview: shareAvulso(), lista: destinoDoShare(),
       });
       if (rec) return guardarShare(rec);
     }
@@ -39263,13 +39351,19 @@ function simplificado() { return appMode === 'simple'; }
 // `AVDB.addMedia`, todos já recebendo `lista` como um nome só. As listas
 // DEPOIS da primeira são sempre o mesmo passo (`espalharShare`).
 let shareDestinos = ['cronograma'];
+// "TOCAR AGORA" NA FOLHA DO IMPORTAR (v1.14.42): no avançado, o lote segue o caminho do Modo
+// Fácil — a prateleira avulsa, e o primeiro item à cena (`focarImportado`). `shareDestinos`
+// é zerado a cada `importShare`, então a escolha não atravessa de um lote para o outro.
+function shareAvulso() {
+  return simplificado() || (shareDestinos.length === 1 && shareDestinos[0] === 'tocar');
+}
 function destinoDoShare() {
-  return simplificado() ? 'avulsos' : listaDoDestino(shareDestinos[0]);
+  return shareAvulso() ? 'avulsos' : listaDoDestino(shareDestinos[0]);
 }
 // As listas ALÉM da primeira. Quem cria o registro já o grava na primeira, na
 // mesma transação; as outras são um `listAdd` idempotente por item.
 async function espalharShare(id) {
-  if (simplificado() || !id) return;
+  if (shareAvulso() || !id) return;
   const listas = listasDosDestinos(shareDestinos).slice(1);
   for (const l of listas) await AVDB.listAdd(l, id);
 }
@@ -39277,7 +39371,7 @@ async function guardarShare(rec) {
   if (!rec) return rec;
   // No simplificado quem prende o registro na prateleira é o `importShare`, de
   // uma vez só para todo o lote (ver `fixarAvulso`). Aqui só resta o avançado.
-  if (!simplificado()) {
+  if (!shareAvulso()) {
     // O registro pode ser um REAPROVEITADO que estava só na prateleira avulsa.
     await AVDB.listAdd(destinoDoShare(), rec.id);
     await espalharShare(rec.id);
@@ -39322,7 +39416,7 @@ async function importShare(pending) {
   // seletor ali não importavam nada.
   if (!simplificado() && (files.length || (pending.url && !temLinkYt))) {
     const titulo = files.length > 1 ? 'Importar ' + files.length + ' itens' : 'Importar';
-    const escolha = await escolherDestinos(titulo);
+    const escolha = await escolherImportacao(titulo, files, pending.url && !temLinkYt ? pending : null);
     if (!escolha || !escolha.length) return false;
     shareDestinos = escolha;
   }
@@ -39354,7 +39448,7 @@ async function importShare(pending) {
         // PDF: quem desenha é o shell, e ele precisa do ARQUIVO (a URL `/saf/`),
         // não de uma cópia já lida — por isso o desvio acontece ANTES da leitura.
         rec = await deckImportar(item.url, nome, {
-          naPreview: simplificado(), lista: destinoDoShare(),
+          naPreview: shareAvulso(), lista: destinoDoShare(),
         });
       } else if (ehPptx(item)) {
         // PPTX: quem desenha é o próprio WebView (ver `controle/deck.js`), então
@@ -39371,7 +39465,7 @@ async function importShare(pending) {
           }
         }
         if (arquivo) rec = await pptxImportar(arquivo, nome, {
-          naPreview: simplificado(), lista: destinoDoShare(),
+          naPreview: shareAvulso(), lista: destinoDoShare(),
         });
       }
       if (rec) {
@@ -39417,7 +39511,7 @@ async function importShare(pending) {
     const corte = new AbortController();
     const alca = alcaDeCancelamento(() => bgImport);
     const cancelar = () => { alca.cancelar(); try { corte.abort(); } catch (_) {} };
-    const bgImport = simplificado()
+    const bgImport = shareAvulso()
       ? previewBusy('Importando', rotulo, cancelar)
       : libBusy('Importando', rotulo, null, cancelar);
     try {
@@ -39489,16 +39583,16 @@ async function importShare(pending) {
   }
   // Um share traz arquivos OU um link, mas a fixação é uma só de propósito: se
   // um dia vierem os dois, duas chamadas fariam a segunda expulsar a primeira.
-  if (simplificado()) await fixarAvulso(lote);
+  if (shareAvulso()) await fixarAvulso(lote);
   // As listas que não são a que está em cena precisam ser relidas: a estrela de
   // cada linha vem de `favSet`, e a fila da playlist de `plItems`.
-  const listasEscolhidas = simplificado() ? [] : listasDosDestinos(shareDestinos);
+  const listasEscolhidas = shareAvulso() ? [] : listasDosDestinos(shareDestinos);
   if (listasEscolhidas.includes('favs')) await recarregarFavoritos();
   // O Cronograma e a fila, por um `load()` DEPOIS das escritas: o link comum
   // (`addUrlMedia`) não abre linha provisória, cujo `soltar()` é o que relê a
   // lista nos outros ramos; e um `load()` que leu antes do share é descartado.
   if (listasEscolhidas.length) await load();
-  if (added && !tratado) await focarImportado(primeiro);
+  if (added && !tratado) await focarImportado(primeiro, shareAvulso());
   // DIZER PARA ONDE FOI, e só quando não for óbvio. `focarImportado` leva o
   // operador ao Cronograma — a resposta visual de sempre —, mas um item que foi
   // para os Favoritos ou para a playlist não aparece ali, e sem isso o import
@@ -39560,7 +39654,7 @@ async function sairDasCamadas() {
 }
 
 // E a metade que PROJETA, chamada quando o item finalmente existe.
-async function focarImportado(id) {
+async function focarImportado(id, tocar) {
   await sairDasCamadas();
   // No simplificado o item vai direto ao telão: esse modo existe para quem não
   // vai operar nada, e a lista sequer aparece nele.
@@ -39569,7 +39663,11 @@ async function focarImportado(id) {
   // `zerarRepeticao`. Este é o único caminho que projeta SEM redefinir a fila,
   // e é o mais exposto: no Modo Fácil não há transporte na tela, então um modo
   // herdado do avançado não teria como ser desfeito por quem está operando.
+  //
+  // NO AVANÇADO, SÓ COM "TOCAR AGORA" (`tocar`, v1.14.42): a cena muda porque o operador pediu, e
+  // a repetição fica como está — ali o transporte está na tela.
   if (appMode === 'simple' && id) { await zerarRepeticao(); await send(id); }
+  else if (tocar && id) await send(id);
 }
 
 function registrarShareNativo() {
@@ -42532,45 +42630,11 @@ function closePlPopup() {
 // ===== eventos =====
 fileEl.addEventListener('change', async () => {
   const files = Array.from(fileEl.files || []);
-  // NO MODO FÁCIL o arquivo vai ao TELÃO, pelo MESMO caminho do share e do seletor do
-  // sistema (`importShare` aceita `File`): a tela não tem Cronograma para recebê-lo.
-  if (simplificado()) {
-    fileEl.value = '';
-    if (files.length) await importShare({ files });
-    return;
-  }
-  let naoAbriu = null;
-  for (const file of files) {
-    // APRESENTAÇÃO escolhida por aqui (só o navegador: no app o botão abre o
-    // seletor do sistema, ver `importarArquivos`): vira páginas como qualquer
-    // outra. Sem este desvio um `.pptx` entraria como mídia 'other' — importada
-    // e impossível de projetar. O PDF não tem caminho AQUI: quem o desenha é o
-    // shell, que precisa do arquivo e não de um `File` já lido.
-    if (ehApresentacao(file)) {
-      let rec = null;
-      if (ehPptx(file)) rec = await pptxImportar(file, nomeSemExtensao(file.name), {});
-      else deckUltimoErro = 'o navegador não desenha PDF; use o app';
-      if (!rec) naoAbriu = nomeSemExtensao(file.name);
-      continue;
-    }
-    // O tipo vem da EXTENSÃO, com o do arquivo como reserva: um seletor de
-    // documentos do Android pode entregar `application/octet-stream`, e aí a
-    // mídia entraria como 'other' — importada mas impossível de reproduzir.
-    // Mesma regra do share e da sincronização de pastas.
-    const type = guessMediaType(file.name) || file.type;
-    const kind = AVDB.kindFromType(type);
-    const { thumb, height, seconds } = await prepararMidia(file, kind);
-    await AVDB.addMedia(file, {
-      name: file.name.replace(/\.[^.]+$/, ''), type, kind, thumb, height, seconds,
-    });
-  }
+  // OS DOIS MODOS PELO MESMO CAMINHO DO SHARE E DO SELETOR DO SISTEMA (`importShare` aceita
+  // `File`): no Modo Fácil o arquivo vai ao telão; no avançado, a folha do importar pergunta
+  // (v1.14.42) — tocar agora, Cronograma, playlist ou Favoritos.
   fileEl.value = '';
-  // Importar sempre cai no Cronograma (lista `imports`, via addMedia), e o que
-  // estiver por cima dele — a Biblioteca, de onde o seletor se abre desde a
-  // v1.14.40, e a folha da Bíblia — sai da frente para o operador ver o que entrou.
-  await sairDasCamadas();
-  load();
-  if (naoAbriu) await avisarNaoAbriu(naoAbriu);
+  if (files.length) await importShare({ files });
 });
 
 playPauseEl.addEventListener('click', () => {

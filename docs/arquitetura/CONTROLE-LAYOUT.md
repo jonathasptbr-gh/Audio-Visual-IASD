@@ -47,7 +47,7 @@ nem ocupa nada.** Quem a abre e fecha é a PORTA `#itinBarBtn` (`.crono-itin`, o
 `[Itin]` do desenho), na própria barra: SOZINHA na trilha 1, a célula (1,1) da
 grade (`.list-header > .crono-itin { grid-row: 1; grid-column: 1; justify-self:
 start }`) — as trilhas não mudam e o `#listTitle` fica no eixo (até a v1.14.39 ela
-dividia a célula com o importar, que hoje é o primeiro bloco da Biblioteca). Aberta, ela só se fecha pela
+dividia a célula com o importar, que hoje é o botão no fim da Biblioteca). Aberta, ela só se fecha pela
 porta (o fecho sozinho de 5 s saiu na v1.14.37), e nada disso é gravado.
 TRANSPARENTE (sem fundo), em TRÊS SEÇÕES `div.itin-secao` (`role="group"`), separadas
 SÓ por espaço: ESTADO (telão · momentos · horários; soltos, com o par de ligado) ·

@@ -222,8 +222,9 @@ só descobriria na frente da congregação, na página que não existe.
 
 **As portas de entrada são as mesmas de qualquer arquivo:**
 
-- **"Importar arquivo"**, o PRIMEIRO bloco da Biblioteca (`li.lib-importar`, `blocoImportar` →
-  `importarArquivos`; até a v1.14.39 era um ícone da barra do Cronograma). No app (shell ≥ 21) esse bloco
+- **"Importar arquivo"**, o BOTÃO no fim da Biblioteca (`li.lib-importar` > `button.lib-importar-btn`,
+  `blocoImportar` → `importarArquivos`; no Modo Fácil, "Buscar na galeria"; até a v1.14.39 era um ícone
+  da barra do Cronograma). No app (shell ≥ 21) esse bloco
   abre o seletor do SISTEMA (`AVNative.pickDoc`, com a lista de mimes), e não o
   `<input type="file">`: aquele devolve um `File` — bytes já lidos —, e quem
   desenha o PDF é o shell, que precisa do ARQUIVO; devolver os bytes pela ponte
