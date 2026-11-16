@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.41** — as roletas de hora crescem para baixo em todo o app (o para-cima da v1.8.95 foi revogado) — só web.
 - **v1.14.40** — o importar sai da barra do topo e vira o primeiro bloco da Biblioteca ("Buscar na galeria" no Modo Fácil); e o Modo Fácil volta a importar arquivo, quebrado desde a v1.14.30 (só web).
 - **v1.14.39** — os ajustes do operador à v1.14.38: os três de estado cinzas ligados e vermelhos desligados, as horas riscadas, a folga da faixa e a seta de volta à esquerda (só web).
 - **v1.14.38** — Pacote 37: o subtítulo do momento com o referente, as animações da lista e da faixa, a aba no padrão do deck e a seta do grupo na extrema direita (só web).
@@ -839,6 +840,30 @@ apagada da que a criou.
   339,07 / 339,07 px; larguras 83,5 / 83,5 mm.
 - **As páginas não se moveram:** 22 (Por um dia) e 88 (Tempo integral), nos dois formatos, e o
   `antesDaPauta` = depois = PDF continua cobrando isso.
+
+---
+
+## v1.14.41 — as roletas de hora crescem para baixo
+
+**Pedido do operador em 16/11: *"Ajuste os seletores de hora em todas as partes do app, para que
+eles cresçam para baixo. Atualmente eles aumentam para cima, o que é estranho"*. Só web.**
+
+**É uma REVOGAÇÃO da v1.8.95**, que fez o contrário a pedido do mesmo operador: *"faça com que os
+números cresçam para cima, pois atualmente eles crescem para baixo"*. O que muda é o SENTIDO do
+valor em relação ao índice: agora o índice (`scrollTop`) e o valor crescem JUNTOS — abaixo do 00
+está o 01 e acima dele o 59.
+
+- **A inversão sai de `valorNaPista`/`pistaDoValor`** (`controle.js`), que eram espelhadas
+  (`((ciclo - dentro) % ciclo) + inicio`) e passam a ser diretas (`dentro + inicio`). O TEXTO das
+  células já vinha de `valorNaPista`, então as três partes que têm de concordar continuam
+  concordando sozinhas — e é por isso que a troca é de duas linhas, não de um raciocínio novo.
+- **Vale para TODAS as roletas de hora**: as três do Tempo (Relógio, Cronômetro, Timer, com o
+  `chronoRoletaEl`) e as duas do editor de um momento do itinerário (`itinRoleta_hora`/`_min`),
+  porque as duas famílias leem o mesmo par de funções.
+- **A régua é o quadro do REPOUSO**, e ela já existia: o bloco K do `ferramentas-folha` media
+  "acima do 00 está o 01 e abaixo o 59" (v1.8.95) e agora mede o inverso; a volta 59 → 0 do
+  mesmo bloco passou a ser um passo PARA BAIXO (`scrollTop += item`), e o gesto do editor de
+  momento (`itinerario`, bloco L) passou a esperar 10 → **11** numa célula de roda para baixo.
 
 ---
 

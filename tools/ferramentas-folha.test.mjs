@@ -1128,7 +1128,7 @@ try {
       const item = parseFloat(getComputedStyle(
         document.getElementById('chronoRoletas')).getPropertyValue('--roleta-item'));
       const antes = roletaValorDe(rs);
-      rs.scrollTop -= item;                       // 59 → 0, PARA CIMA
+      rs.scrollTop += item;                       // 59 → 0, PARA BAIXO (o valor cresce com o índice)
       await new Promise((f) => setTimeout(f, 400));
       const depois = roletaValorDe(rs);
       // E A PISTA VOLTOU PARA A BANDA DO MEIO — é isso que impede a ponta de ser
@@ -1139,8 +1139,8 @@ try {
     checar(volta.antes === 59 && volta.depois === 0 && volta.dur === 0,
       'K · a roleta é INFINITA: do 59 ela passa ao 0 em UM passo, e a duração '
       + 'acompanha — sem isso a lista bate na ponta e o operador não fecha a volta. '
-      + 'E o passo é para CIMA: o índice é o `scrollTop` e cresce para baixo, o '
-      + 'VALOR cresce para cima (v1.8.95)', JSON.stringify(volta));
+      + 'E o passo é para BAIXO: o índice é o `scrollTop`, ele cresce para baixo e o '
+      + 'VALOR cresce com ele (16/11; o para-cima da v1.8.95 foi revogado)', JSON.stringify(volta));
     checar(volta.banda === 0,
       'K · e a pista se RECENTRA parada: a banda do meio é a posição de repouso, e é '
       + 'ela que garante folga para as voltas seguintes. Recentrar durante a rolagem '
@@ -1148,7 +1148,7 @@ try {
 
     // O SENTIDO, E A PISTA ABERTA DOS DOIS LADOS. As duas metades são o mesmo
     // pedido lido de dois jeitos, e cada uma reprova sozinha: sem a inversão o
-    // vizinho de cima é 59; sem a banda do meio o repouso é `scrollTop` 0, e ali
+    // vizinho de cima é 01; sem a banda do meio o repouso é `scrollTop` 0, e ali
     // não existe vizinho de cima nenhum — foi o relato do operador.
     // A CÉLULA É A PINTURA NOVA COM O VALOR JÁ EM ZERO, e não um
     // `chronoSetDuration(0)` sobre a roleta que já estava na tela: aquele
@@ -1174,8 +1174,9 @@ try {
       el.scrollTop = repouso * item;
       return { aqui, acima, abaixo, emCasa, repouso, base: Number(el.dataset.base) };
     });
-    checar(sentido.aqui === 0 && sentido.acima === 1 && sentido.abaixo === 59,
-      'K · OS NÚMEROS CRESCEM PARA CIMA: acima do 00 está o 01 e abaixo dele o 59. '
+    checar(sentido.aqui === 0 && sentido.acima === 59 && sentido.abaixo === 1,
+      'K · OS NÚMEROS CRESCEM PARA BAIXO (16/11: *"para que eles cresçam para baixo"*, revogando o '
+      + 'para-cima da v1.8.95): acima do 00 está o 59 e abaixo dele o 01. '
       + 'Invertido, o mostrador responde o número certo e desenha a lista ao '
       + 'contrário — nada erra, e o dedo vai sempre para o lado errado',
       JSON.stringify(sentido));

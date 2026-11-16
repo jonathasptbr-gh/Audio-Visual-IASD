@@ -415,7 +415,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.40';
+const WEB_VERSION = '1.14.41';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -8011,18 +8011,19 @@ function repeticoesDe(ciclo) {
   return n % 2 ? n : n + 1;        // ÍMPAR: é o que faz existir banda do MEIO
 }
 
-// ÍNDICE ↔ VALOR, E ELES ANDAM EM SENTIDOS OPOSTOS. O índice é o `scrollTop`,
-// que cresce para BAIXO; o valor cresce para CIMA (pedido do operador). A
-// inversão mora nestes dois pares e no TEXTO das
-// células, e os três têm de concordar — divergindo, o mostrador acende uma
-// célula e devolve o número de outra, sem erro em lugar nenhum.
+// ÍNDICE ↔ VALOR, E ELES ANDAM NO MESMO SENTIDO: o índice é o `scrollTop`, que
+// cresce para BAIXO, e o valor cresce com ele — abaixo do 00 está o 01 e acima
+// dele o 59 (16/11: *"para que eles cresçam para baixo. Atualmente eles aumentam
+// para cima, o que é estranho"*, revogando o para-cima da v1.8.95). A inversão
+// mora nestes dois pares e no TEXTO das células, e os três têm de concordar —
+// divergindo, o mostrador acende uma célula e devolve o número de outra, sem
+// erro em lugar nenhum.
 function valorNaPista(indice, ciclo, inicio) {
   const dentro = ((indice % ciclo) + ciclo) % ciclo;
-  return ((ciclo - dentro) % ciclo) + inicio;
+  return dentro + inicio;
 }
 function pistaDoValor(valor, ciclo, inicio) {
-  const dentro = (((valor - inicio) % ciclo) + ciclo) % ciclo;
-  return (ciclo - dentro) % ciclo;
+  return (((valor - inicio) % ciclo) + ciclo) % ciclo;
 }
 
 // O ITEM em px, escrito pelo `acertarRoletas` e lido pelo CSS. Ele é a medida

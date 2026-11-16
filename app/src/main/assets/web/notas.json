@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.14.41",
+    "itens": [
+      "Os seletores de hora agora crescem para baixo: abaixo do 00 vem o 01 e acima vem o 59.",
+      "Vale para o Relógio, o Cronômetro, o Timer e o horário de um momento do itinerário.",
+      "Antes era ao contrário, e o dedo ia sempre para o lado errado."
+    ]
+  },
+  {
     "versao": "1.14.40",
     "itens": [
       "O botão de importar arquivo saiu da barra do topo: agora é o primeiro item da Biblioteca.",

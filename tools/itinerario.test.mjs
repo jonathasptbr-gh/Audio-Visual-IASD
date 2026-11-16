@@ -312,15 +312,15 @@ try {
     checar(f.valor === 600, 'L · a folha nova abre no horário sugerido (10:00 às 09:58)', f);
     checar(f.okOff && /título/i.test(f.okTitulo), 'L · sem título o confirmar é APAGADO e diz por quê', f);
     // A RODA RESPONDE AO GESTO: uma volta da roda do mouse para baixo sobre a
-    // hora desce a lista uma célula — e o valor CRESCE PARA CIMA (o idioma das
-    // roletas do Timer), então ele cai de 10 para 9.
+    // hora desce a lista uma célula — e o valor CRESCE PARA BAIXO (v1.14.41, o
+    // mesmo sentido das roletas do Timer desde 16/11), então ele sobe de 10 para 11.
     // A FOLHA DESCE ANIMADA: o gesto espera ela assentar no teto.
     await esperar(pg, () => document.querySelector('#itinPopup .popup-sheet').getBoundingClientRect().top >= -0.5);
     const caixa = await pg.locator('#itinRoleta_hora').boundingBox();
     await pg.mouse.move(caixa.x + caixa.width / 2, caixa.y + caixa.height / 2);
     await pg.mouse.wheel(0, f.item);
-    const rw = await esperar(pg, () => roletaValorDe(document.getElementById('itinRoleta_hora')) === 9, null, 5000);
-    checar(rw === true, 'L · a roleta da hora responde ao gesto (10 → 9 com uma célula de rolagem)', porque(rw));
+    const rw = await esperar(pg, () => roletaValorDe(document.getElementById('itinRoleta_hora')) === 11, null, 5000);
+    checar(rw === true, 'L · a roleta da hora responde ao gesto (10 → 11 com uma célula de rolagem PARA BAIXO)', porque(rw));
   }
   await pg.click('#itinPopupClose');
   await fechada();

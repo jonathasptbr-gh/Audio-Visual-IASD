@@ -2179,11 +2179,13 @@ caixas** — daí o resto desta seção.
   pista, e ali não existe célula acima — a roleta abria de um lado só, para
   sempre, no único valor que não pede movimento. Quem a coloca na banda do meio
   é o posicionamento, na primeira vez e sempre que a RÉGUA muda (`scrollTop` em
-  px da célula velha não é índice na nova). **E O ÍNDICE CRESCE PARA BAIXO
-  ENQUANTO O VALOR CRESCE PARA CIMA** — pedido do operador —, o que põe a
-  inversão em TRÊS lugares que têm de concordar: as duas conversões e o TEXTO
-  das células. Divergindo, o mostrador acende uma célula e devolve o número de
-  outra. **A PISTA À VISTA É DE QUEM ESCOLHE:** onde não há escolha as vizinhas
+  px da célula velha não é índice na nova). **O ÍNDICE E O VALOR CRESCEM PARA
+  BAIXO** — v1.14.41, pedido do operador (*"para que eles cresçam para baixo.
+  Atualmente eles aumentam para cima, o que é estranho"*), que REVOGA o
+  para-cima da v1.8.95: abaixo do 00 está o 01 e acima dele o 59. O sentido
+  mora nas TRÊS partes que têm de concordar — as duas conversões
+  (`valorNaPista`/`pistaDoValor`) e o TEXTO das células. Divergindo, o mostrador
+  acende uma célula e devolve o número de outra. **A PISTA À VISTA É DE QUEM ESCOLHE:** onde não há escolha as vizinhas
   somem por OPACIDADE e jamais por altura — a janela continua de três células e
   o número fica no mesmo pixel em toda aba, e a régua que prova isso é a JANELA,
   porque encolher a caixa para uma célula **não move o centro um pixel** (o flex
