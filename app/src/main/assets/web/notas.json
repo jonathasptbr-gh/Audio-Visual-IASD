@@ -12,7 +12,7 @@
     "versao": "1.14.45",
     "itens": [
       "Nos Favoritos, as opções de play ganharam o botão Detalhes: tipo, formato, tamanho, canal e data.",
-      "A imagem mostra também a dimensão, e o PDF diz que é PDF (antes a linha só dizia Arquivo).",
+      "A imagem mostra também a dimensão, e o PDF aparece por extenso (antes a linha só dizia Arquivo).",
       "Abrir as opções de edição com as de play abertas não pinta mais uma barra de outra cor.",
       "A divisória não marca mais a borda do card escuro; nas outras linhas ela continua."
     ]

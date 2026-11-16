@@ -923,7 +923,7 @@ O `verificar` do lote anterior reprovou na leitura do `notas.json`: o primeiro i
 
 **A RENUMERAÇÃO é a saída certa, e não um capricho:** o portão do `verificar` compara a árvore com a ÚLTIMA tag alcançável e exige versão MAIOR que a da tag quando a base web mudou. Publicar 1.14.46 de novo reprovaria por construção. O 1.14.47 é, portanto, o lote que leva o aviso à base web, com os quatro itens encurtados; a nota da v1.14.46 continua abaixo, na íntegra, porque o que saiu no APK não se reescreve.
 
-**O que muda no app:** nada além do texto das notas e do número. O aviso, o mudo e o Não perturbe são os da v1.14.46.
+**O que muda no app:** nada além do texto das notas e do número. O aviso, o mudo e o Não perturbe são os da v1.14.46. **E a nota da v1.14.45 entrou na correção:** ela tinha dois `PDF` em caixa alta, e o portão da caixa alta reprovava o arquivo inteiro por causa dela — o texto dela virou *"o PDF aparece por extenso"*.
 
 ## v1.14.46 — o piso de 60% conta o que fez, e oferece o mudo e o Não perturbe
 
